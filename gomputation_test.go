@@ -1561,6 +1561,87 @@ main := True
 	_ = err
 }
 
+// --- Stdlib integration tests ---
+
+func TestStdlibEqOrd(t *testing.T) {
+	eng := gmp.NewEngine()
+	rt, err := eng.NewRuntime(`
+main := eq True True
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	con, ok := result.Value.(*gmp.ConVal)
+	if !ok || con.Con != "True" {
+		t.Errorf("expected True, got %s", result.Value)
+	}
+}
+
+func TestStdlibFunctor(t *testing.T) {
+	eng := gmp.NewEngine()
+	rt, err := eng.NewRuntime(`
+not :: Bool -> Bool
+not := \b -> case b of { True -> False; False -> True }
+
+main := fmap not (Just True)
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	con, ok := result.Value.(*gmp.ConVal)
+	if !ok || con.Con != "Just" {
+		t.Fatalf("expected Just, got %s", result.Value)
+	}
+	inner, ok := con.Args[0].(*gmp.ConVal)
+	if !ok || inner.Con != "False" {
+		t.Errorf("expected Just False, got Just %s", con.Args[0])
+	}
+}
+
+func TestStdlibFoldable(t *testing.T) {
+	eng := gmp.NewEngine()
+	rt, err := eng.NewRuntime(`
+main := foldr (\x _ -> x) False (Just True)
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	con, ok := result.Value.(*gmp.ConVal)
+	if !ok || con.Con != "True" {
+		t.Errorf("expected True, got %s", result.Value)
+	}
+}
+
+func TestStdlibEqPair(t *testing.T) {
+	eng := gmp.NewEngine()
+	rt, err := eng.NewRuntime(`
+main := eq (Pair True False) (Pair True False)
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	con, ok := result.Value.(*gmp.ConVal)
+	if !ok || con.Con != "True" {
+		t.Errorf("expected True, got %s", result.Value)
+	}
+}
+
 func TestPreludeAsModule(t *testing.T) {
 	// Prelude is now loaded as an implicit module — Bool, Unit, etc. should be available.
 	eng := gmp.NewEngine()
