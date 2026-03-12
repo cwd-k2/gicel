@@ -48,6 +48,8 @@ const (
 	ErrBadInstance     Code = 223 // invalid instance declaration
 	ErrMissingMethod   Code = 224 // missing method in instance
 	ErrImport          Code = 230 // module import error
+	ErrSkolemEscape    Code = 240 // existential type variable escapes scope
+	ErrSkolemRigid     Code = 241 // cannot unify rigid (skolem) type variable
 )
 
 // Phase indicates which compiler stage produced the error.

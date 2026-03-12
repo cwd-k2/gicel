@@ -116,6 +116,9 @@ func Subst(t Type, varName string, replacement Type) Type {
 		}
 		return &TyRow{Fields: fields, Tail: newTail, S: ty.S}
 
+	case *TySkolem:
+		return ty
+
 	case *TyMeta:
 		return ty
 

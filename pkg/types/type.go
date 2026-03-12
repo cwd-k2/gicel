@@ -89,6 +89,15 @@ type TyMeta struct {
 	S    span.Span
 }
 
+// TySkolem is a rigid (skolem) type variable for existentials and higher-rank.
+// Unlike TyMeta, skolem variables cannot be solved by unification.
+type TySkolem struct {
+	ID   int
+	Name string // original variable name (for error messages)
+	Kind Kind
+	S    span.Span
+}
+
 // TyError is a poison type for error recovery.
 type TyError struct {
 	S span.Span
@@ -105,6 +114,7 @@ func (*TyComp) typeNode()   {}
 func (*TyThunk) typeNode()  {}
 func (*TyRow) typeNode()    {}
 func (*TyQual) typeNode()   {}
+func (*TySkolem) typeNode() {}
 func (*TyMeta) typeNode()   {}
 func (*TyError) typeNode()  {}
 
@@ -119,6 +129,7 @@ func (t *TyComp) Span() span.Span   { return t.S }
 func (t *TyThunk) Span() span.Span  { return t.S }
 func (t *TyRow) Span() span.Span    { return t.S }
 func (t *TyQual) Span() span.Span   { return t.S }
+func (t *TySkolem) Span() span.Span { return t.S }
 func (t *TyMeta) Span() span.Span   { return t.S }
 func (t *TyError) Span() span.Span  { return t.S }
 
@@ -137,6 +148,7 @@ func (t *TyQual) Children() []Type {
 	ch = append(ch, t.Body)
 	return ch
 }
+func (t *TySkolem) Children() []Type { return nil }
 func (t *TyMeta) Children() []Type   { return nil }
 func (t *TyError) Children() []Type  { return nil }
 

@@ -275,6 +275,11 @@ func (ch *Checker) freshMeta(k types.Kind) *types.TyMeta {
 	return &types.TyMeta{ID: id, Kind: k}
 }
 
+func (ch *Checker) freshSkolem(name string, k types.Kind) *types.TySkolem {
+	id := ch.fresh()
+	return &types.TySkolem{ID: id, Name: name, Kind: k}
+}
+
 func (ch *Checker) addError(s span.Span, msg string) {
 	ch.addCodedError(errs.ErrTypeMismatch, s, msg)
 }

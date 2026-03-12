@@ -44,6 +44,11 @@ func (u *Unifier) Solve(id int) types.Type {
 	return u.soln[id]
 }
 
+// Solutions returns the current solution map for introspection (e.g., skolem escape check).
+func (u *Unifier) Solutions() map[int]types.Type {
+	return u.soln
+}
+
 // RegisterLabelContext records the surrounding labels for a row metavariable.
 func (u *Unifier) RegisterLabelContext(id int, labels map[string]struct{}) {
 	u.labels[id] = labels
@@ -138,6 +143,8 @@ func (u *Unifier) Zonk(t types.Type) types.Type {
 			return ty
 		}
 		return &types.TyRow{Fields: fields, Tail: tail, S: ty.S}
+	case *types.TySkolem:
+		return ty
 	default:
 		return t
 	}
@@ -162,6 +169,17 @@ func (u *Unifier) Unify(a, b types.Type) error {
 	}
 	if bm, ok := b.(*types.TyMeta); ok {
 		return u.solveMeta(bm, a)
+	}
+
+	// Skolem: rigid type variables cannot be unified with anything except themselves.
+	if as, ok := a.(*types.TySkolem); ok {
+		if bs, ok := b.(*types.TySkolem); ok && as.ID == bs.ID {
+			return nil
+		}
+		return fmt.Errorf("cannot unify rigid type variable #%s with %s", as.Name, types.Pretty(b))
+	}
+	if bs, ok := b.(*types.TySkolem); ok {
+		return fmt.Errorf("cannot unify %s with rigid type variable #%s", types.Pretty(a), bs.Name)
 	}
 
 	switch at := a.(type) {
@@ -261,6 +279,9 @@ func (u *Unifier) occursIn(id int, t types.Type) bool {
 	switch ty := t.(type) {
 	case *types.TyMeta:
 		return ty.ID == id
+	case *types.TySkolem:
+		_ = ty
+		return false // skolem IDs are in a different namespace
 	default:
 		for _, ch := range t.Children() {
 			if u.occursIn(id, ch) {

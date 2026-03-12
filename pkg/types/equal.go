@@ -120,6 +120,10 @@ func equalAlpha(a, b Type, bindings []alphaBinding) bool {
 		}
 		return true
 
+	case *TySkolem:
+		bt, ok := b.(*TySkolem)
+		return ok && at.ID == bt.ID
+
 	case *TyMeta:
 		bt, ok := b.(*TyMeta)
 		return ok && at.ID == bt.ID

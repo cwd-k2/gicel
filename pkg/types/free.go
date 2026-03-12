@@ -48,7 +48,7 @@ func freeVarsRec(t Type, bound map[string]bool, fv map[string]struct{}) {
 		if ty.Tail != nil {
 			freeVarsRec(ty.Tail, bound, fv)
 		}
-	case *TyMeta, *TyError:
+	case *TySkolem, *TyMeta, *TyError:
 		// no free vars
 	}
 }
