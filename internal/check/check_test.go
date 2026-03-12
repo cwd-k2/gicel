@@ -1,6 +1,7 @@
 package check
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/cwd-k2/gomputation/internal/core"
@@ -188,4 +189,87 @@ func TestUnifyRow(t *testing.T) {
 	if err := u.Unify(r1, r2); err != nil {
 		t.Errorf("identical rows should unify: %v", err)
 	}
+}
+
+// checkSourceExpectError parses and type-checks source, expecting at least one error.
+// Returns the formatted error string.
+func checkSourceExpectError(t *testing.T, source string, config *CheckConfig) string {
+	t.Helper()
+	src := span.NewSource("test", source)
+	l := syntax.NewLexer(src)
+	tokens, lexErrs := l.Tokenize()
+	if lexErrs.HasErrors() {
+		t.Fatal("lex errors:", lexErrs.Format())
+	}
+	es := &errs.Errors{Source: src}
+	p := syntax.NewParser(tokens, es)
+	ast := p.ParseProgram()
+	if es.HasErrors() {
+		t.Fatal("parse errors:", es.Format())
+	}
+	_, checkErrs := Check(ast, src, config)
+	if !checkErrs.HasErrors() {
+		t.Fatal("expected check errors, got none")
+	}
+	return checkErrs.Format()
+}
+
+func TestAliasCycleDirect(t *testing.T) {
+	source := `type A = A`
+	errMsg := checkSourceExpectError(t, source, nil)
+	if !strings.Contains(errMsg, "cyclic type alias") {
+		t.Errorf("expected cyclic type alias error, got: %s", errMsg)
+	}
+	if !strings.Contains(errMsg, "A -> A") {
+		t.Errorf("expected cycle path A -> A, got: %s", errMsg)
+	}
+}
+
+func TestAliasCycleMutual(t *testing.T) {
+	source := `type A = B
+type B = A`
+	errMsg := checkSourceExpectError(t, source, nil)
+	if !strings.Contains(errMsg, "cyclic type alias") {
+		t.Errorf("expected cyclic type alias error, got: %s", errMsg)
+	}
+}
+
+func TestAliasNoCycle(t *testing.T) {
+	// Eff references Computation, which is a built-in — not an alias.
+	source := `type Eff r a = Computation r r a
+data Unit = Unit
+main := pure Unit`
+	checkSource(t, source, nil)
+}
+
+// --- Exhaustiveness tests ---
+
+func TestExhaustiveComplete(t *testing.T) {
+	source := `data Bool = True | False
+main := \b -> case b of { True -> True; False -> False }`
+	checkSource(t, source, nil)
+}
+
+func TestExhaustiveIncomplete(t *testing.T) {
+	source := `data Bool = True | False
+main := \b -> case b of { True -> True }`
+	errMsg := checkSourceExpectError(t, source, nil)
+	if !strings.Contains(errMsg, "non-exhaustive") {
+		t.Errorf("expected non-exhaustive error, got: %s", errMsg)
+	}
+	if !strings.Contains(errMsg, "False") {
+		t.Errorf("expected missing constructor 'False' in error, got: %s", errMsg)
+	}
+}
+
+func TestExhaustiveWildcard(t *testing.T) {
+	source := `data Bool = True | False
+main := \b -> case b of { _ -> True }`
+	checkSource(t, source, nil)
+}
+
+func TestExhaustiveVarPattern(t *testing.T) {
+	source := `data Bool = True | False
+main := \b -> case b of { x -> x }`
+	checkSource(t, source, nil)
 }

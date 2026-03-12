@@ -167,6 +167,7 @@ func (ch *Checker) checkCaseAlts(scrutTy, resultTy types.Type, scrutCore core.Co
 		}
 		alts = append(alts, core.Alt{Pattern: pat, Body: bodyCore, S: alt.S})
 	}
+	ch.checkExhaustive(scrutTy, alts, e.S)
 	return &core.Case{Scrutinee: scrutCore, Alts: alts, S: e.S}
 }
 
@@ -219,21 +220,33 @@ func (ch *Checker) checkPattern(pat syntax.Pattern, scrutTy types.Type) (core.Pa
 
 func (ch *Checker) inferBlock(e *syntax.ExprBlock) (types.Type, core.Core) {
 	// Desugar: { x := e1; body } → App(Lam(x, body), e1)
-	var result core.Core
-	var resultTy types.Type
-
-	// Process bindings from last to first.
-	bodyTy, bodyCore := ch.infer(e.Body)
-	result = bodyCore
-	resultTy = bodyTy
-
-	for i := len(e.Binds) - 1; i >= 0; i-- {
-		bind := e.Binds[i]
+	// Forward pass: infer each binding, add to context.
+	type bindInfo struct {
+		name string
+		ty   types.Type
+		core core.Core
+		s    span.Span
+	}
+	binds := make([]bindInfo, len(e.Binds))
+	for i, bind := range e.Binds {
 		bindTy, bindCore := ch.infer(bind.Expr)
+		binds[i] = bindInfo{name: bind.Var, ty: bindTy, core: bindCore, s: bind.S}
 		ch.ctx.Push(&CtxVar{Name: bind.Var, Type: bindTy})
-		lam := &core.Lam{Param: bind.Var, Body: result, S: bind.S}
-		result = &core.App{Fun: lam, Arg: bindCore, S: bind.S}
+	}
+
+	// Infer body with all bindings in scope.
+	resultTy, result := ch.infer(e.Body)
+
+	// Pop all bindings.
+	for range e.Binds {
 		ch.ctx.Pop()
+	}
+
+	// Backward pass: build Core IR desugaring.
+	for i := len(binds) - 1; i >= 0; i-- {
+		b := binds[i]
+		lam := &core.Lam{Param: b.name, Body: result, S: b.s}
+		result = &core.App{Fun: lam, Arg: b.core, S: b.s}
 	}
 
 	return resultTy, result

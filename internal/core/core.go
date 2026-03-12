@@ -97,9 +97,10 @@ type Force struct {
 
 // PrimOp — host-provided primitive operation.
 type PrimOp struct {
-	Name string
-	Args []Core
-	S    span.Span
+	Name  string
+	Arity int
+	Args  []Core
+	S     span.Span
 }
 
 // --- coreNode markers ---

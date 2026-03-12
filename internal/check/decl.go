@@ -33,6 +33,9 @@ func (ch *Checker) checkDecls(decls []syntax.Decl) *core.Program {
 		}
 	}
 
+	// Detect cyclic aliases before expansion can diverge.
+	ch.validateAliasGraph()
+
 	// Process value definitions.
 	for _, d := range decls {
 		if def, ok := d.(*syntax.DeclValueDef); ok {
@@ -88,6 +91,21 @@ func (ch *Checker) processDataDecl(d *syntax.DeclData, prog *core.Program) {
 	prog.DataDecls = append(prog.DataDecls, coreDecl)
 }
 
+// typeArity counts the number of arrow arguments in a type,
+// stripping outer foralls. E.g. forall a. A -> B -> C has arity 2.
+func typeArity(ty types.Type) int {
+	for {
+		switch t := ty.(type) {
+		case *types.TyForall:
+			ty = t.Body
+		case *types.TyArrow:
+			return 1 + typeArity(t.To)
+		default:
+			return 0
+		}
+	}
+}
+
 func (ch *Checker) processTypeAlias(d *syntax.DeclTypeAlias) {
 	var params []string
 	for _, p := range d.Params {
@@ -117,7 +135,7 @@ func (ch *Checker) processValueDef(d *syntax.DeclValueDef, annotations map[strin
 		prog.Bindings = append(prog.Bindings, core.Binding{
 			Name: d.Name,
 			Type: aTy,
-			Expr: &core.PrimOp{Name: d.Name, S: d.S},
+			Expr: &core.PrimOp{Name: d.Name, Arity: typeArity(aTy), S: d.S},
 			S:    d.S,
 		})
 		return

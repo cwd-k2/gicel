@@ -2,7 +2,10 @@ package gomputation_test
 
 import (
 	"context"
+	"strings"
+	"sync"
 	"testing"
+	"time"
 
 	gmp "github.com/cwd-k2/gomputation"
 	"github.com/cwd-k2/gomputation/internal/eval"
@@ -252,5 +255,677 @@ func TestGoroutineSafety(t *testing.T) {
 		if err := <-errs; err != nil {
 			t.Errorf("concurrent execution failed: %v", err)
 		}
+	}
+}
+
+// ---------------------------------------------------------------------------
+// A. Pure computation
+// ---------------------------------------------------------------------------
+
+func TestMultiParamLambda(t *testing.T) {
+	eng := gmp.NewEngine()
+	rt, err := eng.NewRuntime(`
+konst := \x y -> x
+main := konst True False
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	con, ok := result.Value.(*gmp.ConVal)
+	if !ok || con.Con != "True" {
+		t.Errorf("expected True, got %s", result.Value)
+	}
+}
+
+func TestNestedCase(t *testing.T) {
+	eng := gmp.NewEngine()
+	rt, err := eng.NewRuntime(`
+bothTrue := \x y -> case x of { True -> case y of { True -> True; False -> False }; False -> False }
+main := bothTrue True True
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	con, ok := result.Value.(*gmp.ConVal)
+	if !ok || con.Con != "True" {
+		t.Errorf("expected True, got %s", result.Value)
+	}
+}
+
+func TestBlockExpression(t *testing.T) {
+	eng := gmp.NewEngine()
+	// Block binding: { x := True; x } desugars to (\x -> x) True.
+	// The body references the block binding variable.
+	rt, err := eng.NewRuntime(`main := { x := True; x }`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	con, ok := result.Value.(*gmp.ConVal)
+	if !ok || con.Con != "True" {
+		t.Errorf("expected True, got %s", result.Value)
+	}
+}
+
+func TestBlockMultipleBindings(t *testing.T) {
+	eng := gmp.NewEngine()
+	rt, err := eng.NewRuntime(`main := { x := True; y := False; x }`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	con, ok := result.Value.(*gmp.ConVal)
+	if !ok || con.Con != "True" {
+		t.Errorf("expected True, got %s", result.Value)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// B. Computation
+// ---------------------------------------------------------------------------
+
+func TestBindChain(t *testing.T) {
+	eng := gmp.NewEngine()
+	rt, err := eng.NewRuntime(`main := do { x <- pure True; pure x }`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	con, ok := result.Value.(*gmp.ConVal)
+	if !ok || con.Con != "True" {
+		t.Errorf("expected True, got %s", result.Value)
+	}
+}
+
+func TestThunkForce(t *testing.T) {
+	eng := gmp.NewEngine()
+	rt, err := eng.NewRuntime(`main := force (thunk (pure Unit))`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	con, ok := result.Value.(*gmp.ConVal)
+	if !ok || con.Con != "Unit" {
+		t.Errorf("expected Unit, got %s", result.Value)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// C. Type errors (compile-time rejection)
+// ---------------------------------------------------------------------------
+
+func TestTypeErrorUnboundVar(t *testing.T) {
+	eng := gmp.NewEngine()
+	_, err := eng.NewRuntime(`main := totally_undefined`)
+	if err == nil {
+		t.Fatal("expected compile error for unbound variable")
+	}
+	if _, ok := err.(*gmp.CompileError); !ok {
+		t.Errorf("expected CompileError, got %T", err)
+	}
+}
+
+func TestTypeErrorNonExhaustive(t *testing.T) {
+	eng := gmp.NewEngine()
+	_, err := eng.NewRuntime(`
+f := \x -> case x of { True -> Unit }
+main := f True
+`)
+	if err == nil {
+		t.Fatal("expected compile error for non-exhaustive pattern")
+	}
+	ce, ok := err.(*gmp.CompileError)
+	if !ok {
+		t.Fatalf("expected CompileError, got %T", err)
+	}
+	if !strings.Contains(ce.Error(), "non-exhaustive") {
+		t.Errorf("expected non-exhaustive in error message, got: %s", ce.Error())
+	}
+}
+
+func TestTypeErrorMismatch(t *testing.T) {
+	eng := gmp.NewEngine()
+	// Apply True (a Bool, not a function) to an argument.
+	_, err := eng.NewRuntime(`main := True Unit`)
+	if err == nil {
+		t.Fatal("expected compile error for type mismatch")
+	}
+	if _, ok := err.(*gmp.CompileError); !ok {
+		t.Errorf("expected CompileError, got %T", err)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// D. Context cancellation
+// ---------------------------------------------------------------------------
+
+func TestContextCancellation(t *testing.T) {
+	eng := gmp.NewEngine()
+	rt, err := eng.NewRuntime(`main := pure Unit`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel() // cancel immediately
+	_, err = rt.RunContext(ctx, nil, nil, "main")
+	if err == nil {
+		t.Error("expected error from cancelled context")
+	}
+}
+
+func TestContextTimeout(t *testing.T) {
+	eng := gmp.NewEngine()
+	eng.SetStepLimit(1) // extremely low step limit
+	eng.EnableRecursion()
+	eng.NoPrelude()
+	rt, err := eng.NewRuntime(`
+data Unit = Unit
+data Bool = True | False
+not := \b -> case b of { True -> False; False -> True }
+main := not (not (not True))
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+	defer cancel()
+	_, err = rt.RunContext(ctx, nil, nil, "main")
+	if err == nil {
+		t.Error("expected error from step limit or timeout")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// E. Runtime reuse
+// ---------------------------------------------------------------------------
+
+func TestRuntimeReuse(t *testing.T) {
+	eng := gmp.NewEngine()
+	eng.RegisterType("Int", types.KType{})
+	eng.DeclareBinding("x", types.Con("Int"))
+	rt, err := eng.NewRuntime(`main := x`)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// First run with value 1.
+	r1, err := rt.RunContext(context.Background(), nil, map[string]gmp.Value{"x": &gmp.HostVal{Inner: 1}}, "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	h1, ok := r1.Value.(*gmp.HostVal)
+	if !ok || h1.Inner != 1 {
+		t.Errorf("first run: expected HostVal(1), got %s", r1.Value)
+	}
+
+	// Second run with value 2.
+	r2, err := rt.RunContext(context.Background(), nil, map[string]gmp.Value{"x": &gmp.HostVal{Inner: 2}}, "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	h2, ok := r2.Value.(*gmp.HostVal)
+	if !ok || h2.Inner != 2 {
+		t.Errorf("second run: expected HostVal(2), got %s", r2.Value)
+	}
+}
+
+func TestRuntimeConcurrent(t *testing.T) {
+	eng := gmp.NewEngine()
+	rt, err := eng.NewRuntime(`
+not := \b -> case b of { True -> False; False -> True }
+main := not False
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var wg sync.WaitGroup
+	errs := make([]error, 10)
+	for i := range 10 {
+		wg.Add(1)
+		go func(idx int) {
+			defer wg.Done()
+			result, err := rt.RunContext(context.Background(), nil, nil, "main")
+			if err != nil {
+				errs[idx] = err
+				return
+			}
+			con, ok := result.Value.(*gmp.ConVal)
+			if !ok || con.Con != "True" {
+				errs[idx] = context.DeadlineExceeded // sentinel
+			}
+		}(i)
+	}
+	wg.Wait()
+	for i, err := range errs {
+		if err != nil {
+			t.Errorf("goroutine %d failed: %v", i, err)
+		}
+	}
+}
+
+// ---------------------------------------------------------------------------
+// F. Host API
+// ---------------------------------------------------------------------------
+
+func TestDiagnostics(t *testing.T) {
+	eng := gmp.NewEngine()
+	_, err := eng.NewRuntime(`main := undefined_xyz`)
+	if err == nil {
+		t.Fatal("expected compile error")
+	}
+	ce, ok := err.(*gmp.CompileError)
+	if !ok {
+		t.Fatalf("expected CompileError, got %T", err)
+	}
+	diags := ce.Diagnostics()
+	if len(diags) == 0 {
+		t.Fatal("expected at least one diagnostic")
+	}
+	d := diags[0]
+	if d.Phase == "" {
+		t.Errorf("expected non-empty phase")
+	}
+	if d.Message == "" {
+		t.Errorf("expected non-empty message")
+	}
+	if d.Line == 0 {
+		t.Errorf("expected non-zero line number")
+	}
+}
+
+func TestCheckOnly(t *testing.T) {
+	eng := gmp.NewEngine()
+	prog, err := eng.Check(`main := True`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if prog == nil {
+		t.Error("expected non-nil program from Check")
+	}
+}
+
+func TestParseOnly(t *testing.T) {
+	eng := gmp.NewEngine()
+	ast, err := eng.Parse(`main := True`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ast == nil {
+		t.Error("expected non-nil AST from Parse")
+	}
+}
+
+func TestPrettyProgram(t *testing.T) {
+	eng := gmp.NewEngine()
+	rt, err := eng.NewRuntime(`main := True`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pretty := rt.PrettyProgram()
+	if pretty == "" {
+		t.Error("expected non-empty PrettyProgram output")
+	}
+}
+
+func TestRunContextFull(t *testing.T) {
+	eng := gmp.NewEngine()
+	rt, err := eng.NewRuntime(`main := pure Unit`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := rt.RunContextFull(context.Background(), nil, nil, "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	con, ok := result.Value.(*gmp.ConVal)
+	if !ok || con.Con != "Unit" {
+		t.Errorf("expected Unit, got %s", result.Value)
+	}
+	// CapEnv should be present (even if empty).
+	_ = result.CapEnv
+	_ = result.Stats
+}
+
+func TestValueConversion(t *testing.T) {
+	// HostVal wraps arbitrary Go values.
+	hv := &eval.HostVal{Inner: "hello"}
+	if hv.Inner != "hello" {
+		t.Errorf("expected HostVal.Inner = hello, got %v", hv.Inner)
+	}
+	if hv.String() != "HostVal(hello)" {
+		t.Errorf("unexpected HostVal.String(): %s", hv.String())
+	}
+
+	// ConVal represents constructors.
+	cv := &eval.ConVal{Con: "True"}
+	if cv.String() != "True" {
+		t.Errorf("expected True, got %s", cv.String())
+	}
+
+	// ConVal with arguments.
+	cv2 := &eval.ConVal{Con: "Just", Args: []eval.Value{&eval.ConVal{Con: "Unit"}}}
+	s := cv2.String()
+	if !strings.Contains(s, "Just") || !strings.Contains(s, "Unit") {
+		t.Errorf("expected (Just Unit), got %s", s)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// G. Type helpers
+// ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// H. Boundary conditions and spec compliance
+// ---------------------------------------------------------------------------
+
+// :: type annotation in source — the spec-canonical way to type assumptions.
+func TestInSourceTypeAnnotation(t *testing.T) {
+	eng := gmp.NewEngine()
+	eng.RegisterType("Int", gmp.KindType())
+	eng.RegisterPrim("getVal", func(ctx context.Context, capEnv gmp.CapEnv, args []gmp.Value) (gmp.Value, gmp.CapEnv, error) {
+		return gmp.ToValue(99), capEnv, nil
+	})
+	rt, err := eng.NewRuntime(`
+getVal :: Unit -> Computation {} {} Int
+getVal := assumption
+main := do { x <- getVal Unit; pure x }
+`)
+	if err != nil {
+		t.Fatal("compile error:", err)
+	}
+	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	if err != nil {
+		t.Fatal("runtime error:", err)
+	}
+	v := gmp.MustHost[int](result.Value)
+	if v != 99 {
+		t.Errorf("expected 99, got %d", v)
+	}
+}
+
+// Assumption without any type annotation must produce a compile error.
+func TestAssumptionNoType(t *testing.T) {
+	eng := gmp.NewEngine()
+	_, err := eng.NewRuntime(`
+noType := assumption
+main := noType Unit
+`)
+	if err == nil {
+		t.Fatal("expected compile error for assumption without type")
+	}
+	ce, ok := err.(*gmp.CompileError)
+	if !ok {
+		t.Fatalf("expected CompileError, got %T", err)
+	}
+	if !strings.Contains(ce.Error(), "assumption") {
+		t.Errorf("expected mention of assumption in error, got: %s", ce.Error())
+	}
+}
+
+// _ <- in do blocks must work (was a parser bug: TokUnderscore != TokLower).
+func TestDoWildcardBind(t *testing.T) {
+	eng := gmp.NewEngine()
+	rt, err := eng.NewRuntime(`
+main := do {
+  _ <- pure True;
+  pure False
+}
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	con, ok := result.Value.(*gmp.ConVal)
+	if !ok || con.Con != "False" {
+		t.Errorf("expected False, got %s", result.Value)
+	}
+}
+
+// CapEnv threading: mutations propagate through do-block bind chain.
+func TestCapEnvThreading(t *testing.T) {
+	eng := gmp.NewEngine()
+	eng.RegisterType("Int", gmp.KindType())
+	eng.RegisterPrim("inc", func(ctx context.Context, capEnv gmp.CapEnv, args []gmp.Value) (gmp.Value, gmp.CapEnv, error) {
+		v, _ := capEnv.Get("n")
+		n, _ := v.(int)
+		return gmp.ToValue(nil), capEnv.Set("n", n+1), nil
+	})
+	eng.RegisterPrim("getN", func(ctx context.Context, capEnv gmp.CapEnv, args []gmp.Value) (gmp.Value, gmp.CapEnv, error) {
+		v, _ := capEnv.Get("n")
+		n, _ := v.(int)
+		return gmp.ToValue(n), capEnv, nil
+	})
+	rt, err := eng.NewRuntime(`
+inc :: Unit -> Computation {} {} Unit
+inc := assumption
+getN :: Unit -> Computation {} {} Int
+getN := assumption
+main := do { _ <- inc Unit; _ <- inc Unit; _ <- inc Unit; getN Unit }
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := rt.RunContextFull(context.Background(), map[string]any{"n": 0}, nil, "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	n := gmp.MustHost[int](result.Value)
+	if n != 3 {
+		t.Errorf("expected 3, got %d", n)
+	}
+	finalN, _ := result.CapEnv.Get("n")
+	if finalN != 3 {
+		t.Errorf("expected final capenv n=3, got %v", finalN)
+	}
+}
+
+// Missing runtime binding must produce a runtime error (not panic).
+func TestMissingRuntimeBinding(t *testing.T) {
+	eng := gmp.NewEngine()
+	eng.RegisterType("Int", gmp.KindType())
+	eng.DeclareBinding("x", types.Con("Int"))
+	rt, err := eng.NewRuntime(`main := x`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Run without providing binding "x".
+	_, err = rt.RunContext(context.Background(), nil, nil, "main")
+	if err == nil {
+		t.Fatal("expected error for missing runtime binding")
+	}
+	if !strings.Contains(err.Error(), "missing binding") {
+		t.Errorf("expected 'missing binding' in error, got: %s", err.Error())
+	}
+}
+
+// PrimVal partial application: binary assumption applied to one arg, then another.
+func TestPrimPartialApplication(t *testing.T) {
+	eng := gmp.NewEngine()
+	eng.RegisterType("Int", gmp.KindType())
+	eng.RegisterPrim("add", func(ctx context.Context, capEnv gmp.CapEnv, args []gmp.Value) (gmp.Value, gmp.CapEnv, error) {
+		a := gmp.MustHost[int](args[0])
+		b := gmp.MustHost[int](args[1])
+		return gmp.ToValue(a + b), capEnv, nil
+	})
+	eng.DeclareBinding("a", types.Con("Int"))
+	eng.DeclareBinding("b", types.Con("Int"))
+	rt, err := eng.NewRuntime(`
+add :: Int -> Int -> Int
+add := assumption
+main := add a b
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	bindings := map[string]gmp.Value{
+		"a": gmp.ToValue(10),
+		"b": gmp.ToValue(32),
+	}
+	result, err := rt.RunContext(context.Background(), nil, bindings, "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	v := gmp.MustHost[int](result.Value)
+	if v != 42 {
+		t.Errorf("expected 42, got %d", v)
+	}
+}
+
+// Cyclic type alias must produce a compile error.
+func TestCyclicTypeAlias(t *testing.T) {
+	eng := gmp.NewEngine()
+	_, err := eng.NewRuntime(`
+type A = B
+type B = A
+main := True
+`)
+	if err == nil {
+		t.Fatal("expected compile error for cyclic type alias")
+	}
+	if !strings.Contains(err.Error(), "cyclic") {
+		t.Errorf("expected 'cyclic' in error, got: %s", err.Error())
+	}
+}
+
+// Non-exhaustive case on Maybe must name the missing constructor.
+func TestNonExhaustiveMaybe(t *testing.T) {
+	eng := gmp.NewEngine()
+	_, err := eng.NewRuntime(`
+f := \x -> case x of { Just y -> y }
+main := f (Just True)
+`)
+	if err == nil {
+		t.Fatal("expected compile error for non-exhaustive case on Maybe")
+	}
+	ce := err.(*gmp.CompileError)
+	if !strings.Contains(ce.Error(), "Nothing") {
+		t.Errorf("expected missing constructor 'Nothing', got: %s", ce.Error())
+	}
+}
+
+// ToValue and FromBool round-trip.
+func TestToValueFromBool(t *testing.T) {
+	v := gmp.ToValue(true)
+	b, ok := gmp.FromBool(v)
+	if !ok || b != true {
+		t.Errorf("ToValue(true) -> FromBool failed")
+	}
+	v2 := gmp.ToValue(false)
+	b2, ok := gmp.FromBool(v2)
+	if !ok || b2 != false {
+		t.Errorf("ToValue(false) -> FromBool failed")
+	}
+}
+
+// ToValue(nil) produces Unit.
+func TestToValueNil(t *testing.T) {
+	v := gmp.ToValue(nil)
+	name, _, ok := gmp.FromCon(v)
+	if !ok || name != "Unit" {
+		t.Errorf("ToValue(nil) should produce Unit, got %s", v)
+	}
+}
+
+// FromHost on non-HostVal returns ok=false.
+func TestFromHostNonHost(t *testing.T) {
+	v := gmp.ToValue(true) // ConVal, not HostVal
+	_, ok := gmp.FromHost(v)
+	if ok {
+		t.Error("FromHost on ConVal should return ok=false")
+	}
+}
+
+// MustHost panics on wrong type.
+func TestMustHostPanic(t *testing.T) {
+	defer func() {
+		if r := recover(); r == nil {
+			t.Error("expected panic from MustHost on ConVal")
+		}
+	}()
+	gmp.MustHost[int](gmp.ToValue(true))
+}
+
+// ---------------------------------------------------------------------------
+// I. Type helpers
+// ---------------------------------------------------------------------------
+
+func TestTypeHelpers(t *testing.T) {
+	// Con constructs a type constructor.
+	intTy := types.Con("Int")
+	if intTy.Name != "Int" {
+		t.Errorf("expected Con name Int, got %s", intTy.Name)
+	}
+
+	// MkArrow constructs a function type.
+	arrTy := types.MkArrow(types.Con("Bool"), types.Con("Bool"))
+	if arrTy.From.(*types.TyCon).Name != "Bool" {
+		t.Errorf("expected arrow from Bool, got %v", arrTy.From)
+	}
+
+	// EmptyRow constructs an empty row.
+	row := types.EmptyRow()
+	if len(row.Fields) != 0 {
+		t.Errorf("expected empty row, got %d fields", len(row.Fields))
+	}
+
+	// ClosedRow constructs a row with fields.
+	row2 := types.ClosedRow(types.RowField{Label: "x", Type: types.Con("Int")})
+	if len(row2.Fields) != 1 || row2.Fields[0].Label != "x" {
+		t.Errorf("expected row with field x, got %v", row2)
+	}
+
+	// MkForall constructs a quantified type.
+	forallTy := types.MkForall("a", types.KType{}, types.MkArrow(types.Var("a"), types.Var("a")))
+	if forallTy.Var != "a" {
+		t.Errorf("expected forall var a, got %s", forallTy.Var)
+	}
+
+	// MkComp constructs a computation type.
+	compTy := types.MkComp(types.EmptyRow(), types.EmptyRow(), types.Con("Unit"))
+	if compTy.Result.(*types.TyCon).Name != "Unit" {
+		t.Errorf("expected Computation result Unit, got %v", compTy.Result)
+	}
+
+	// Var constructs a type variable.
+	tv := types.Var("a")
+	if tv.Name != "a" {
+		t.Errorf("expected type var a, got %s", tv.Name)
+	}
+
+	// Kind helpers.
+	k := types.KType{}
+	if !k.Equal(types.KType{}) {
+		t.Errorf("KType should equal KType")
+	}
+	kr := types.KRow{}
+	if kr.Equal(types.KType{}) {
+		t.Errorf("KRow should not equal KType")
+	}
+	ka := &types.KArrow{From: types.KType{}, To: types.KType{}}
+	if !ka.Equal(&types.KArrow{From: types.KType{}, To: types.KType{}}) {
+		t.Errorf("KArrow(Type,Type) should equal itself")
 	}
 }

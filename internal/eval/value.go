@@ -37,10 +37,19 @@ type ThunkVal struct {
 	Comp core.Core
 }
 
+// PrimVal is a partially applied primitive operation.
+// When len(Args) == Arity, the Go implementation is called.
+type PrimVal struct {
+	Name  string
+	Arity int
+	Args  []Value
+}
+
 func (*HostVal) valueNode()  {}
 func (*Closure) valueNode()  {}
 func (*ConVal) valueNode()   {}
 func (*ThunkVal) valueNode() {}
+func (*PrimVal) valueNode()  {}
 
 func (v *HostVal) String() string {
 	return fmt.Sprintf("HostVal(%v)", v.Inner)
@@ -63,4 +72,15 @@ func (v *ConVal) String() string {
 
 func (v *ThunkVal) String() string {
 	return "ThunkVal(...)"
+}
+
+func (v *PrimVal) String() string {
+	if len(v.Args) == 0 {
+		return fmt.Sprintf("PrimVal(%s)", v.Name)
+	}
+	args := make([]string, len(v.Args))
+	for i, a := range v.Args {
+		args[i] = a.String()
+	}
+	return fmt.Sprintf("PrimVal(%s %s)", v.Name, strings.Join(args, " "))
 }

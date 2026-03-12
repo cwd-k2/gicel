@@ -378,6 +378,21 @@ func (p *Parser) parseDo() Expr {
 
 func (p *Parser) parseStmt() Stmt {
 	start := p.peek().S.Start
+	// Try: _ <- expr (wildcard bind)
+	if p.peek().Kind == TokUnderscore {
+		saved := p.pos
+		p.advance()
+		if p.peek().Kind == TokLArrow {
+			p.advance()
+			comp := p.parseExpr()
+			return &StmtBind{
+				Var: "_", Comp: comp,
+				S: span.Span{Start: start, End: p.prevEnd()},
+			}
+		}
+		// Backtrack — it's an expression.
+		p.pos = saved
+	}
 	// Try: name <- expr  or  name := expr
 	if p.peek().Kind == TokLower {
 		name := p.peek().Text

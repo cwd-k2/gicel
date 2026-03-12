@@ -177,6 +177,10 @@ func (ev *Evaluator) Eval(env *Env, capEnv CapEnv, expr core.Core) (EvalResult, 
 		return result, err
 
 	case *core.PrimOp:
+		if len(e.Args) == 0 && e.Arity > 0 {
+			// Unapplied primitive: produce a PrimVal that accumulates args.
+			return EvalResult{&PrimVal{Name: e.Name, Arity: e.Arity}, capEnv}, nil
+		}
 		args := make([]Value, len(e.Args))
 		ce := capEnv
 		for i, arg := range e.Args {
@@ -223,6 +227,26 @@ func (ev *Evaluator) apply(capEnv CapEnv, fn Value, arg Value, site *core.App) (
 		copy(args, f.Args)
 		args[len(f.Args)] = arg
 		return EvalResult{&ConVal{Con: f.Con, Args: args}, capEnv}, nil
+	case *PrimVal:
+		// Primitive application: accumulate arg, call when saturated.
+		args := make([]Value, len(f.Args)+1)
+		copy(args, f.Args)
+		args[len(f.Args)] = arg
+		if len(args) < f.Arity {
+			return EvalResult{&PrimVal{Name: f.Name, Arity: f.Arity, Args: args}, capEnv}, nil
+		}
+		impl, ok := ev.prims.Lookup(f.Name)
+		if !ok {
+			return EvalResult{}, &RuntimeError{
+				Message: fmt.Sprintf("missing primitive: %s", f.Name),
+				Span:    site.S,
+			}
+		}
+		val, newCap, err := impl(ev.ctx, capEnv, args)
+		if err != nil {
+			return EvalResult{}, err
+		}
+		return EvalResult{val, newCap}, nil
 	default:
 		return EvalResult{}, &RuntimeError{
 			Message: fmt.Sprintf("application of non-function: %s", fn),

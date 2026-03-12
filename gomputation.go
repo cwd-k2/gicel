@@ -118,6 +118,15 @@ func (e *Engine) SetCheckTraceHook(hook check.CheckTraceHook) {
 	e.checkTraceHook = hook
 }
 
+// Diagnostic is a single structured error from compilation.
+type Diagnostic struct {
+	Code    int
+	Phase   string // "lex", "parse", or "check"
+	Line    int
+	Col     int
+	Message string
+}
+
 // CompileError wraps compilation errors (lex, parse, or type check).
 type CompileError struct {
 	Errors *errs.Errors
@@ -127,9 +136,80 @@ func (e *CompileError) Error() string {
 	return e.Errors.Format()
 }
 
+// Diagnostics returns structured diagnostics for programmatic access.
+func (e *CompileError) Diagnostics() []Diagnostic {
+	diags := make([]Diagnostic, len(e.Errors.Errs))
+	for i, err := range e.Errors.Errs {
+		line, col := e.Errors.Source.Location(err.Span.Start)
+		diags[i] = Diagnostic{
+			Code:    int(err.Code),
+			Phase:   err.Phase.String(),
+			Line:    line,
+			Col:     col,
+			Message: err.Message,
+		}
+	}
+	return diags
+}
+
 // NoPrelude disables automatic prelude inclusion.
 func (e *Engine) NoPrelude() {
 	e.noPrelude = true
+}
+
+// Parse lexes and parses source code, returning the AST.
+// Useful for tooling and editor integration.
+func (e *Engine) Parse(source string) (*syntax.AstProgram, error) {
+	fullSource := source
+	if !e.noPrelude {
+		fullSource = prelude.Source + "\n" + source
+	}
+	src := span.NewSource("<input>", fullSource)
+	l := syntax.NewLexer(src)
+	tokens, lexErrs := l.Tokenize()
+	if lexErrs.HasErrors() {
+		return nil, &CompileError{Errors: lexErrs}
+	}
+	parseErrs := &errs.Errors{Source: src}
+	p := syntax.NewParser(tokens, parseErrs)
+	ast := p.ParseProgram()
+	if parseErrs.HasErrors() {
+		return nil, &CompileError{Errors: parseErrs}
+	}
+	return ast, nil
+}
+
+// Check compiles and type-checks source code without creating a Runtime.
+// Returns the compiled Core IR program for inspection.
+func (e *Engine) Check(source string) (*core.Program, error) {
+	fullSource := source
+	if !e.noPrelude {
+		fullSource = prelude.Source + "\n" + source
+	}
+	src := span.NewSource("<input>", fullSource)
+	l := syntax.NewLexer(src)
+	tokens, lexErrs := l.Tokenize()
+	if lexErrs.HasErrors() {
+		return nil, &CompileError{Errors: lexErrs}
+	}
+	parseErrs := &errs.Errors{Source: src}
+	p := syntax.NewParser(tokens, parseErrs)
+	ast := p.ParseProgram()
+	if parseErrs.HasErrors() {
+		return nil, &CompileError{Errors: parseErrs}
+	}
+	config := &check.CheckConfig{
+		RegisteredTypes: copyKindMap(e.registeredTys),
+		Assumptions:     copyTypeMap(e.assumptions),
+		Bindings:        copyTypeMap(e.bindings),
+		GatedBuiltins:   copyBoolMap(e.gatedBuiltins),
+		Trace:           e.checkTraceHook,
+	}
+	prog, checkErrs := check.Check(ast, src, config)
+	if checkErrs.HasErrors() {
+		return nil, &CompileError{Errors: checkErrs}
+	}
+	return prog, nil
 }
 
 // NewRuntime compiles source code into an immutable, goroutine-safe Runtime.
@@ -194,16 +274,26 @@ func (r *Runtime) Program() *core.Program {
 	return r.prog
 }
 
+// PrettyProgram returns a human-readable representation of the Core IR.
+func (r *Runtime) PrettyProgram() string {
+	return core.PrettyProgram(r.prog)
+}
+
 // RunResult holds the result of a single execution.
 type RunResult struct {
 	Value Value
 	Stats EvalStats
 }
 
-// RunContext executes the program with the given capabilities and bindings.
-// entry specifies the top-level binding to evaluate (typically "main").
-func (r *Runtime) RunContext(ctx context.Context, caps map[string]any, bindings map[string]Value, entry string) (*RunResult, error) {
-	// Build initial environment from bindings.
+// RunResultFull holds the full result of an execution including the final capability environment.
+type RunResultFull struct {
+	Value  Value
+	CapEnv CapEnv
+	Stats  EvalStats
+}
+
+// buildEnv constructs the base runtime environment with builtins, bindings, and constructors.
+func (r *Runtime) buildEnv(bindings map[string]Value) (*eval.Env, error) {
 	env := eval.EmptyEnv()
 	for name := range r.bindings {
 		v, ok := bindings[name]
@@ -213,23 +303,18 @@ func (r *Runtime) RunContext(ctx context.Context, caps map[string]any, bindings 
 		env = env.Extend(name, v)
 	}
 
-	// Register built-in values.
-	// pure: identity at runtime (direct-style strict evaluation).
+	// Built-in values.
 	env = env.Extend("pure", &eval.Closure{
 		Env: eval.EmptyEnv(), Param: "_v",
 		Body: &core.Var{Name: "_v"},
 	})
-	// bind: in direct style, bind(comp, f) = f(comp).
-	bindEnv := eval.EmptyEnv()
 	env = env.Extend("bind", &eval.Closure{
-		Env: bindEnv, Param: "_comp",
+		Env: eval.EmptyEnv(), Param: "_comp",
 		Body: &core.Lam{
 			Param: "_f",
 			Body:  &core.App{Fun: &core.Var{Name: "_f"}, Arg: &core.Var{Name: "_comp"}},
 		},
 	})
-	// thunk/force are handled by the evaluator's Core.Thunk/Core.Force nodes,
-	// but for standalone use we provide runtime values.
 	env = env.Extend("thunk", &eval.Closure{
 		Env: eval.EmptyEnv(), Param: "_comp",
 		Body: &core.Thunk{Comp: &core.Var{Name: "_comp"}},
@@ -239,47 +324,65 @@ func (r *Runtime) RunContext(ctx context.Context, caps map[string]any, bindings 
 		Body: &core.Force{Expr: &core.Var{Name: "_thk"}},
 	})
 
-	// Register constructors from data declarations.
-	// Zero-arity constructors are ConVal values; multi-arity constructors
-	// start as empty ConVal and accumulate args via apply.
+	// Constructors.
 	for _, d := range r.prog.DataDecls {
 		for _, con := range d.Cons {
 			env = env.Extend(con.Name, &eval.ConVal{Con: con.Name})
 		}
 	}
+	return env, nil
+}
 
-	// Find entry binding.
+// run is the shared implementation for RunContext and RunContextFull.
+func (r *Runtime) run(ctx context.Context, caps map[string]any, bindings map[string]Value, entry string) (eval.EvalResult, EvalStats, error) {
+	env, err := r.buildEnv(bindings)
+	if err != nil {
+		return eval.EvalResult{}, EvalStats{}, err
+	}
+
 	var entryExpr core.Core
 	for _, b := range r.prog.Bindings {
 		if b.Name == entry {
 			entryExpr = b.Expr
 		} else {
-			// Evaluate non-entry bindings and add to env.
 			ev := eval.NewEvaluator(ctx, r.prims, eval.NewLimit(r.stepLimit, r.depthLimit), r.traceHook)
 			result, err := ev.Eval(env, eval.NewCapEnv(nil), b.Expr)
 			if err != nil {
-				return nil, fmt.Errorf("evaluating %s: %w", b.Name, err)
+				return eval.EvalResult{}, EvalStats{}, fmt.Errorf("evaluating %s: %w", b.Name, err)
 			}
 			env = env.Extend(b.Name, result.Value)
 		}
 	}
-
 	if entryExpr == nil {
-		return nil, fmt.Errorf("entry point %q not found", entry)
+		return eval.EvalResult{}, EvalStats{}, fmt.Errorf("entry point %q not found", entry)
 	}
 
-	// Evaluate entry.
 	capEnv := eval.NewCapEnv(caps)
 	ev := eval.NewEvaluator(ctx, r.prims, eval.NewLimit(r.stepLimit, r.depthLimit), r.traceHook)
 	result, err := ev.Eval(env, capEnv, entryExpr)
 	if err != nil {
+		return eval.EvalResult{}, EvalStats{}, err
+	}
+	return result, ev.Stats(), nil
+}
+
+// RunContext executes the program with the given capabilities and bindings.
+// entry specifies the top-level binding to evaluate (typically "main").
+func (r *Runtime) RunContext(ctx context.Context, caps map[string]any, bindings map[string]Value, entry string) (*RunResult, error) {
+	result, stats, err := r.run(ctx, caps, bindings, entry)
+	if err != nil {
 		return nil, err
 	}
+	return &RunResult{Value: result.Value, Stats: stats}, nil
+}
 
-	return &RunResult{
-		Value: result.Value,
-		Stats: ev.Stats(),
-	}, nil
+// RunContextFull is like RunContext but also returns the final capability environment.
+func (r *Runtime) RunContextFull(ctx context.Context, caps map[string]any, bindings map[string]Value, entry string) (*RunResultFull, error) {
+	result, stats, err := r.run(ctx, caps, bindings, entry)
+	if err != nil {
+		return nil, err
+	}
+	return &RunResultFull{Value: result.Value, CapEnv: result.CapEnv, Stats: stats}, nil
 }
 
 func copyTypeMap(m map[string]types.Type) map[string]types.Type {
