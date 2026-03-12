@@ -295,6 +295,205 @@ func TestParseForallKindedBinder(t *testing.T) {
 	}
 }
 
+// --- Type class lexer tests ---
+
+func TestLexClassInstanceKeywords(t *testing.T) {
+	tokens := lex("class instance")
+	if tokens[0].Kind != TokClass || tokens[0].Text != "class" {
+		t.Errorf("expected TokClass, got %v %q", tokens[0].Kind, tokens[0].Text)
+	}
+	if tokens[1].Kind != TokInstance || tokens[1].Text != "instance" {
+		t.Errorf("expected TokInstance, got %v %q", tokens[1].Kind, tokens[1].Text)
+	}
+}
+
+func TestLexConstraintArrow(t *testing.T) {
+	tokens := lex("Eq a => a -> Bool")
+	// Eq(Upper), a(Lower), =>(FatArrow), a(Lower), ->(Arrow), Bool(Upper), EOF
+	expected := []TokenKind{TokUpper, TokLower, TokFatArrow, TokLower, TokArrow, TokUpper, TokEOF}
+	if len(tokens) != len(expected) {
+		t.Fatalf("expected %d tokens, got %d", len(expected), len(tokens))
+	}
+	for i, want := range expected {
+		if tokens[i].Kind != want {
+			t.Errorf("token[%d]: got %v (%q), want %v", i, tokens[i].Kind, tokens[i].Text, want)
+		}
+	}
+	if tokens[2].Text != "=>" {
+		t.Errorf("expected text '=>', got %q", tokens[2].Text)
+	}
+}
+
+// --- Type class parser tests ---
+
+func TestParseConstraintType(t *testing.T) {
+	// f :: Eq a => a -> Bool
+	prog, es := parse("f :: Eq a => a -> Bool")
+	if es.HasErrors() {
+		t.Fatal(es.Format())
+	}
+	d, ok := prog.Decls[0].(*DeclTypeAnn)
+	if !ok {
+		t.Fatal("expected DeclTypeAnn")
+	}
+	qual, ok := d.Type.(*TyExprQual)
+	if !ok {
+		t.Fatalf("expected TyExprQual, got %T", d.Type)
+	}
+	// Constraint: Eq a (TyExprApp(TyExprCon("Eq"), TyExprVar("a")))
+	app, ok := qual.Constraint.(*TyExprApp)
+	if !ok {
+		t.Fatalf("expected TyExprApp for constraint, got %T", qual.Constraint)
+	}
+	if con, ok := app.Fun.(*TyExprCon); !ok || con.Name != "Eq" {
+		t.Error("expected Eq constraint")
+	}
+	// Body: a -> Bool
+	_, ok = qual.Body.(*TyExprArrow)
+	if !ok {
+		t.Fatalf("expected TyExprArrow for body, got %T", qual.Body)
+	}
+}
+
+func TestParseForallConstraintType(t *testing.T) {
+	prog, es := parse("f :: forall a. Eq a => a -> Bool")
+	if es.HasErrors() {
+		t.Fatal(es.Format())
+	}
+	d := prog.Decls[0].(*DeclTypeAnn)
+	fa, ok := d.Type.(*TyExprForall)
+	if !ok {
+		t.Fatalf("expected TyExprForall, got %T", d.Type)
+	}
+	qual, ok := fa.Body.(*TyExprQual)
+	if !ok {
+		t.Fatalf("expected TyExprQual inside forall, got %T", fa.Body)
+	}
+	_ = qual
+}
+
+func TestParseCurriedConstraints(t *testing.T) {
+	prog, es := parse("f :: Eq a => Ord b => a -> b -> Bool")
+	if es.HasErrors() {
+		t.Fatal(es.Format())
+	}
+	d := prog.Decls[0].(*DeclTypeAnn)
+	// Eq a => (Ord b => a -> b -> Bool)
+	q1, ok := d.Type.(*TyExprQual)
+	if !ok {
+		t.Fatalf("expected outer TyExprQual, got %T", d.Type)
+	}
+	q2, ok := q1.Body.(*TyExprQual)
+	if !ok {
+		t.Fatalf("expected inner TyExprQual, got %T", q1.Body)
+	}
+	_, ok = q2.Body.(*TyExprArrow)
+	if !ok {
+		t.Fatalf("expected TyExprArrow in innermost body, got %T", q2.Body)
+	}
+}
+
+func TestParseClassDecl(t *testing.T) {
+	prog, es := parse("class Eq a { eq :: a -> a -> Bool }")
+	if es.HasErrors() {
+		t.Fatal(es.Format())
+	}
+	if len(prog.Decls) != 1 {
+		t.Fatalf("expected 1 decl, got %d", len(prog.Decls))
+	}
+	cls, ok := prog.Decls[0].(*DeclClass)
+	if !ok {
+		t.Fatalf("expected DeclClass, got %T", prog.Decls[0])
+	}
+	if cls.Name != "Eq" {
+		t.Errorf("expected class name Eq, got %s", cls.Name)
+	}
+	if len(cls.TyParams) != 1 || cls.TyParams[0].Name != "a" {
+		t.Errorf("expected 1 type param 'a'")
+	}
+	if len(cls.Methods) != 1 || cls.Methods[0].Name != "eq" {
+		t.Errorf("expected 1 method 'eq'")
+	}
+}
+
+func TestParseClassWithSuperclass(t *testing.T) {
+	prog, es := parse("class Eq a => Ord a { compare :: a -> a -> Bool }")
+	if es.HasErrors() {
+		t.Fatal(es.Format())
+	}
+	cls := prog.Decls[0].(*DeclClass)
+	if cls.Name != "Ord" {
+		t.Errorf("expected Ord, got %s", cls.Name)
+	}
+	if len(cls.Supers) != 1 {
+		t.Fatalf("expected 1 superclass, got %d", len(cls.Supers))
+	}
+}
+
+func TestParseClassMultiParam(t *testing.T) {
+	prog, es := parse("class Coercible a b { coerce :: a -> b }")
+	if es.HasErrors() {
+		t.Fatal(es.Format())
+	}
+	cls := prog.Decls[0].(*DeclClass)
+	if cls.Name != "Coercible" {
+		t.Errorf("expected Coercible, got %s", cls.Name)
+	}
+	if len(cls.TyParams) != 2 {
+		t.Errorf("expected 2 type params, got %d", len(cls.TyParams))
+	}
+}
+
+func TestParseInstanceDecl(t *testing.T) {
+	prog, es := parse("instance Eq Bool { eq := \\x y -> True }")
+	if es.HasErrors() {
+		t.Fatal(es.Format())
+	}
+	inst, ok := prog.Decls[0].(*DeclInstance)
+	if !ok {
+		t.Fatalf("expected DeclInstance, got %T", prog.Decls[0])
+	}
+	if inst.ClassName != "Eq" {
+		t.Errorf("expected class Eq, got %s", inst.ClassName)
+	}
+	if len(inst.TypeArgs) != 1 {
+		t.Fatalf("expected 1 type arg, got %d", len(inst.TypeArgs))
+	}
+	if len(inst.Methods) != 1 || inst.Methods[0].Name != "eq" {
+		t.Errorf("expected 1 method 'eq'")
+	}
+}
+
+func TestParseInstanceWithContext(t *testing.T) {
+	prog, es := parse("instance Eq a => Eq (Maybe a) { eq := \\x y -> True }")
+	if es.HasErrors() {
+		t.Fatal(es.Format())
+	}
+	inst := prog.Decls[0].(*DeclInstance)
+	if inst.ClassName != "Eq" {
+		t.Errorf("expected class Eq, got %s", inst.ClassName)
+	}
+	if len(inst.Context) != 1 {
+		t.Fatalf("expected 1 context constraint, got %d", len(inst.Context))
+	}
+}
+
+func TestParseKindConstraint(t *testing.T) {
+	prog, es := parse("f :: forall (c : Constraint). c")
+	if es.HasErrors() {
+		t.Fatal(es.Format())
+	}
+	d := prog.Decls[0].(*DeclTypeAnn)
+	fa := d.Type.(*TyExprForall)
+	if fa.Binders[0].Kind == nil {
+		t.Fatal("expected kind annotation")
+	}
+	_, ok := fa.Binders[0].Kind.(*KindExprConstraint)
+	if !ok {
+		t.Errorf("expected KindExprConstraint, got %T", fa.Binders[0].Kind)
+	}
+}
+
 func TestParseForallMixedBinders(t *testing.T) {
 	// Mixed bare and kinded binders
 	prog, es := parse("f :: forall a (r : Row) (k : Type -> Type). r")

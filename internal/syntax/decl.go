@@ -62,6 +62,38 @@ const (
 	AssocNone
 )
 
+// DeclClass is a type class declaration (class Super => ClassName params { methods }).
+type DeclClass struct {
+	Supers   []TypeExpr // superclass constraints
+	Name     string
+	TyParams []TyBinder
+	Methods  []ClassMethod
+	S        span.Span
+}
+
+// ClassMethod is a method signature in a class declaration.
+type ClassMethod struct {
+	Name string
+	Type TypeExpr
+	S    span.Span
+}
+
+// DeclInstance is a type class instance (instance Context => ClassName types { methods }).
+type DeclInstance struct {
+	Context   []TypeExpr // instance constraints
+	ClassName string
+	TypeArgs  []TypeExpr
+	Methods   []InstMethod
+	S         span.Span
+}
+
+// InstMethod is a method definition in an instance declaration.
+type InstMethod struct {
+	Name string
+	Expr Expr
+	S    span.Span
+}
+
 // AstProgram is the top-level AST.
 type AstProgram struct {
 	Decls []Decl
@@ -72,9 +104,13 @@ func (*DeclValueDef) declNode()  {}
 func (*DeclData) declNode()      {}
 func (*DeclTypeAlias) declNode() {}
 func (*DeclFixity) declNode()    {}
+func (*DeclClass) declNode()     {}
+func (*DeclInstance) declNode()  {}
 
 func (d *DeclTypeAnn) Span() span.Span   { return d.S }
 func (d *DeclValueDef) Span() span.Span  { return d.S }
 func (d *DeclData) Span() span.Span      { return d.S }
 func (d *DeclTypeAlias) Span() span.Span { return d.S }
 func (d *DeclFixity) Span() span.Span    { return d.S }
+func (d *DeclClass) Span() span.Span     { return d.S }
+func (d *DeclInstance) Span() span.Span  { return d.S }

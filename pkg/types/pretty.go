@@ -23,6 +23,12 @@ func Pretty(t Type) string {
 	case *TyForall:
 		vars, body := collectForalls(ty)
 		return fmt.Sprintf("forall %s. %s", strings.Join(vars, " "), Pretty(body))
+	case *TyQual:
+		parts := []string{ty.ClassName}
+		for _, a := range ty.Args {
+			parts = append(parts, prettyAtom(a))
+		}
+		return fmt.Sprintf("%s => %s", strings.Join(parts, " "), Pretty(ty.Body))
 	case *TyComp:
 		return fmt.Sprintf("Computation %s %s %s",
 			prettyAtom(ty.Pre), prettyAtom(ty.Post), prettyAtom(ty.Result))

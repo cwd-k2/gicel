@@ -22,6 +22,7 @@ const (
 	// Punctuation
 	TokArrow      // ->
 	TokLArrow     // <-
+	TokFatArrow   // =>
 	TokColonColon // ::
 	TokColonEq    // :=
 	TokColon      // :
@@ -30,7 +31,7 @@ const (
 	TokUnderscore // _
 	TokEq         // =
 
-	// Keywords (9)
+	// Keywords (11)
 	TokCase
 	TokOf
 	TokDo
@@ -40,6 +41,8 @@ const (
 	TokInfixl
 	TokInfixr
 	TokInfixn
+	TokClass
+	TokInstance
 
 	// Identifiers
 	TokLower // lowercase-start
@@ -61,15 +64,17 @@ type Token struct {
 }
 
 var keywords = map[string]TokenKind{
-	"case":   TokCase,
-	"of":     TokOf,
-	"do":     TokDo,
-	"data":   TokData,
-	"type":   TokType,
-	"forall": TokForall,
-	"infixl": TokInfixl,
-	"infixr": TokInfixr,
-	"infixn": TokInfixn,
+	"case":     TokCase,
+	"of":       TokOf,
+	"do":       TokDo,
+	"data":     TokData,
+	"type":     TokType,
+	"forall":   TokForall,
+	"infixl":   TokInfixl,
+	"infixr":   TokInfixr,
+	"infixn":   TokInfixn,
+	"class":    TokClass,
+	"instance": TokInstance,
 }
 
 // String returns a human-readable token kind name.
@@ -97,6 +102,8 @@ func (k TokenKind) String() string {
 		return "->"
 	case TokLArrow:
 		return "<-"
+	case TokFatArrow:
+		return "=>"
 	case TokColonColon:
 		return "::"
 	case TokColonEq:

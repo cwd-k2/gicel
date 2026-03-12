@@ -17,15 +17,19 @@ type KType struct{}
 // KRow is the kind of row types.
 type KRow struct{}
 
+// KConstraint is the kind of type class constraints.
+type KConstraint struct{}
+
 // KArrow is the kind of type constructors (K1 -> K2).
 type KArrow struct {
 	From Kind
 	To   Kind
 }
 
-func (KType) kindNode()  {}
-func (KRow) kindNode()   {}
-func (*KArrow) kindNode() {}
+func (KType) kindNode()       {}
+func (KRow) kindNode()        {}
+func (KConstraint) kindNode() {}
+func (*KArrow) kindNode()     {}
 
 func (KType) Equal(other Kind) bool {
 	_, ok := other.(KType)
@@ -37,6 +41,11 @@ func (KRow) Equal(other Kind) bool {
 	return ok
 }
 
+func (KConstraint) Equal(other Kind) bool {
+	_, ok := other.(KConstraint)
+	return ok
+}
+
 func (k *KArrow) Equal(other Kind) bool {
 	o, ok := other.(*KArrow)
 	if !ok {
@@ -45,8 +54,9 @@ func (k *KArrow) Equal(other Kind) bool {
 	return k.From.Equal(o.From) && k.To.Equal(o.To)
 }
 
-func (KType) String() string  { return "Type" }
-func (KRow) String() string   { return "Row" }
+func (KType) String() string       { return "Type" }
+func (KRow) String() string        { return "Row" }
+func (KConstraint) String() string { return "Constraint" }
 func (k *KArrow) String() string {
 	from := k.From.String()
 	if _, ok := k.From.(*KArrow); ok {

@@ -73,6 +73,15 @@ type RowField struct {
 	S     span.Span
 }
 
+// TyQual is a qualified type: ClassName Args => Body.
+// Represents a type class constraint in the type system.
+type TyQual struct {
+	ClassName string
+	Args      []Type
+	Body      Type
+	S         span.Span
+}
+
 // TyMeta is a unification metavariable (created by the checker).
 type TyMeta struct {
 	ID   int
@@ -95,6 +104,7 @@ func (*TyForall) typeNode() {}
 func (*TyComp) typeNode()   {}
 func (*TyThunk) typeNode()  {}
 func (*TyRow) typeNode()    {}
+func (*TyQual) typeNode()   {}
 func (*TyMeta) typeNode()   {}
 func (*TyError) typeNode()  {}
 
@@ -108,6 +118,7 @@ func (t *TyForall) Span() span.Span { return t.S }
 func (t *TyComp) Span() span.Span   { return t.S }
 func (t *TyThunk) Span() span.Span  { return t.S }
 func (t *TyRow) Span() span.Span    { return t.S }
+func (t *TyQual) Span() span.Span   { return t.S }
 func (t *TyMeta) Span() span.Span   { return t.S }
 func (t *TyError) Span() span.Span  { return t.S }
 
@@ -120,6 +131,12 @@ func (t *TyArrow) Children() []Type  { return []Type{t.From, t.To} }
 func (t *TyForall) Children() []Type { return []Type{t.Body} }
 func (t *TyComp) Children() []Type   { return []Type{t.Pre, t.Post, t.Result} }
 func (t *TyThunk) Children() []Type  { return []Type{t.Pre, t.Post, t.Result} }
+func (t *TyQual) Children() []Type {
+	ch := make([]Type, 0, len(t.Args)+1)
+	ch = append(ch, t.Args...)
+	ch = append(ch, t.Body)
+	return ch
+}
 func (t *TyMeta) Children() []Type   { return nil }
 func (t *TyError) Children() []Type  { return nil }
 

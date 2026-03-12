@@ -81,6 +81,10 @@ func (p *Parser) parseDecl() Decl {
 		return p.parseDataDecl()
 	case p.peek().Kind == TokType:
 		return p.parseTypeAlias()
+	case p.peek().Kind == TokClass:
+		return p.parseClassDecl()
+	case p.peek().Kind == TokInstance:
+		return p.parseInstanceDecl()
 	case p.isFixityKeyword():
 		d := p.parseFixityDecl()
 		return d
@@ -182,6 +186,140 @@ func (p *Parser) parseFixityDecl() *DeclFixity {
 		Assoc: assoc, Prec: prec, Op: op,
 		S: span.Span{Start: start, End: p.prevEnd()},
 	}
+}
+
+// parseClassDecl parses: class [Constraint =>] ClassName params { method :: Type; ... }
+func (p *Parser) parseClassDecl() *DeclClass {
+	start := p.peek().S.Start
+	p.expect(TokClass)
+
+	// Parse the head: either "ClassName params" or "Constraint => ClassName params".
+	// Strategy: parse type applications, check for => to detect superclass.
+	var supers []TypeExpr
+	firstName := p.expectUpper()
+	var firstArgs []TypeExpr
+	for p.peek().Kind == TokLower {
+		tok := p.peek()
+		p.advance()
+		firstArgs = append(firstArgs, &TyExprVar{Name: tok.Text, S: tok.S})
+	}
+
+	if p.peek().Kind == TokFatArrow {
+		// What we parsed is a superclass constraint.
+		var superExpr TypeExpr = &TyExprCon{Name: firstName, S: span.Span{Start: start, End: p.prevEnd()}}
+		for _, arg := range firstArgs {
+			superExpr = &TyExprApp{Fun: superExpr, Arg: arg, S: span.Span{Start: start, End: arg.Span().End}}
+		}
+		supers = append(supers, superExpr)
+		p.advance() // consume =>
+
+		// Now parse the actual class name and params.
+		className := p.expectUpper()
+		var params []TyBinder
+		for p.peek().Kind == TokLower {
+			pName := p.peek().Text
+			pS := p.peek().S
+			p.advance()
+			params = append(params, TyBinder{Name: pName, S: pS})
+		}
+		// Parse methods block.
+		methods := p.parseClassMethods()
+		return &DeclClass{
+			Supers: supers, Name: className, TyParams: params, Methods: methods,
+			S: span.Span{Start: start, End: p.prevEnd()},
+		}
+	}
+
+	// No =>, so firstName is the class name, firstArgs are params.
+	var params []TyBinder
+	for _, arg := range firstArgs {
+		v := arg.(*TyExprVar)
+		params = append(params, TyBinder{Name: v.Name, S: v.S})
+	}
+	methods := p.parseClassMethods()
+	return &DeclClass{
+		Name: firstName, TyParams: params, Methods: methods,
+		S: span.Span{Start: start, End: p.prevEnd()},
+	}
+}
+
+func (p *Parser) parseClassMethods() []ClassMethod {
+	p.expect(TokLBrace)
+	var methods []ClassMethod
+	for p.peek().Kind != TokRBrace && p.peek().Kind != TokEOF {
+		mStart := p.peek().S.Start
+		name := p.expectLower()
+		p.expect(TokColonColon)
+		ty := p.parseType()
+		methods = append(methods, ClassMethod{Name: name, Type: ty, S: span.Span{Start: mStart, End: p.prevEnd()}})
+		if p.peek().Kind == TokSemicolon {
+			p.advance()
+		}
+	}
+	p.expect(TokRBrace)
+	return methods
+}
+
+// parseInstanceDecl parses: instance [Constraint =>] ClassName types { method := expr; ... }
+func (p *Parser) parseInstanceDecl() *DeclInstance {
+	start := p.peek().S.Start
+	p.expect(TokInstance)
+
+	// Parse: either "ClassName types" or "Constraint => ClassName types".
+	// Strategy: parse type applications. If => follows, first part is context.
+	var context []TypeExpr
+
+	firstName := p.expectUpper()
+	var firstArgs []TypeExpr
+	for p.isTypeAtomStart() && p.peek().Kind != TokLBrace && !p.atDeclBoundary() {
+		firstArgs = append(firstArgs, p.parseTypeAtom())
+	}
+
+	if p.peek().Kind == TokFatArrow {
+		// What we parsed is a context constraint.
+		var ctxExpr TypeExpr = &TyExprCon{Name: firstName, S: span.Span{Start: start, End: p.prevEnd()}}
+		for _, arg := range firstArgs {
+			ctxExpr = &TyExprApp{Fun: ctxExpr, Arg: arg, S: span.Span{Start: start, End: arg.Span().End}}
+		}
+		context = append(context, ctxExpr)
+		p.advance() // consume =>
+
+		// Parse the actual class name and type args.
+		className := p.expectUpper()
+		var typeArgs []TypeExpr
+		for p.isTypeAtomStart() && p.peek().Kind != TokLBrace && !p.atDeclBoundary() {
+			typeArgs = append(typeArgs, p.parseTypeAtom())
+		}
+		methods := p.parseInstMethods()
+		return &DeclInstance{
+			Context: context, ClassName: className, TypeArgs: typeArgs, Methods: methods,
+			S: span.Span{Start: start, End: p.prevEnd()},
+		}
+	}
+
+	// No =>, firstName is the class name.
+	methods := p.parseInstMethods()
+	return &DeclInstance{
+		ClassName: firstName, TypeArgs: firstArgs, Methods: methods,
+		S: span.Span{Start: start, End: p.prevEnd()},
+	}
+}
+
+func (p *Parser) parseInstMethods() []InstMethod {
+	p.expect(TokLBrace)
+	var methods []InstMethod
+	for p.peek().Kind != TokRBrace && p.peek().Kind != TokEOF {
+		mStart := p.peek().S.Start
+		name := p.expectLower()
+		p.expect(TokColonEq)
+		expr := p.parseExpr()
+		methods = append(methods, InstMethod{Name: name, Expr: expr, S: span.Span{Start: mStart, End: p.prevEnd()}})
+		if p.peek().Kind == TokSemicolon {
+			p.advance()
+		}
+	}
+	p.expect(TokRBrace)
+	return methods
 }
 
 func (p *Parser) parseNamedDecl() Decl {
@@ -540,6 +678,14 @@ func (p *Parser) parseTypeArrow() TypeExpr {
 		return p.parseForallType()
 	}
 	left := p.parseTypeApp()
+	if p.peek().Kind == TokFatArrow {
+		p.advance()
+		body := p.parseTypeArrow() // right-associative
+		return &TyExprQual{
+			Constraint: left, Body: body,
+			S: span.Span{Start: left.Span().Start, End: body.Span().End},
+		}
+	}
 	if p.peek().Kind == TokArrow {
 		p.advance()
 		right := p.parseTypeArrow() // right-associative
@@ -609,6 +755,10 @@ func (p *Parser) parseKindAtom() KindExpr {
 		tok := p.peek()
 		p.advance()
 		return &KindExprRow{S: tok.S}
+	case p.peek().Kind == TokUpper && p.peek().Text == "Constraint":
+		tok := p.peek()
+		p.advance()
+		return &KindExprConstraint{S: tok.S}
 	case p.peek().Kind == TokLParen:
 		p.advance()
 		k := p.parseKindExpr()
@@ -774,7 +924,7 @@ func (p *Parser) atDeclBoundary() bool {
 		return false
 	}
 	switch tok.Kind {
-	case TokLower, TokUpper, TokData, TokType, TokInfixl, TokInfixr, TokInfixn:
+	case TokLower, TokUpper, TokData, TokType, TokInfixl, TokInfixr, TokInfixn, TokClass, TokInstance:
 		return true
 	}
 	return false

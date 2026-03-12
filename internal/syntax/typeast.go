@@ -47,6 +47,13 @@ type TyExprParen struct {
 	S     span.Span
 }
 
+// TyExprQual is a qualified type: Constraint => Body.
+type TyExprQual struct {
+	Constraint TypeExpr
+	Body       TypeExpr
+	S          span.Span
+}
+
 type TyBinder struct {
 	Name string
 	Kind KindExpr // nil means kind not annotated (inferred)
@@ -68,6 +75,7 @@ type KindExpr interface {
 
 type KindExprType struct{ S span.Span }
 type KindExprRow struct{ S span.Span }
+type KindExprConstraint struct{ S span.Span }
 type KindExprArrow struct {
 	From KindExpr
 	To   KindExpr
@@ -81,6 +89,7 @@ func (*TyExprArrow) typeExprNode()  {}
 func (*TyExprForall) typeExprNode() {}
 func (*TyExprRow) typeExprNode()    {}
 func (*TyExprParen) typeExprNode()  {}
+func (*TyExprQual) typeExprNode()   {}
 
 func (t *TyExprVar) Span() span.Span    { return t.S }
 func (t *TyExprCon) Span() span.Span    { return t.S }
@@ -89,11 +98,14 @@ func (t *TyExprArrow) Span() span.Span  { return t.S }
 func (t *TyExprForall) Span() span.Span { return t.S }
 func (t *TyExprRow) Span() span.Span    { return t.S }
 func (t *TyExprParen) Span() span.Span  { return t.S }
+func (t *TyExprQual) Span() span.Span   { return t.S }
 
-func (*KindExprType) kindExprNode()  {}
-func (*KindExprRow) kindExprNode()   {}
-func (*KindExprArrow) kindExprNode() {}
+func (*KindExprType) kindExprNode()       {}
+func (*KindExprRow) kindExprNode()        {}
+func (*KindExprConstraint) kindExprNode() {}
+func (*KindExprArrow) kindExprNode()      {}
 
-func (k *KindExprType) Span() span.Span  { return k.S }
-func (k *KindExprRow) Span() span.Span   { return k.S }
-func (k *KindExprArrow) Span() span.Span { return k.S }
+func (k *KindExprType) Span() span.Span       { return k.S }
+func (k *KindExprRow) Span() span.Span        { return k.S }
+func (k *KindExprConstraint) Span() span.Span { return k.S }
+func (k *KindExprArrow) Span() span.Span      { return k.S }

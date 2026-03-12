@@ -36,6 +36,11 @@ func freeVarsRec(t Type, bound map[string]bool, fv map[string]struct{}) {
 		freeVarsRec(ty.Pre, bound, fv)
 		freeVarsRec(ty.Post, bound, fv)
 		freeVarsRec(ty.Result, bound, fv)
+	case *TyQual:
+		for _, a := range ty.Args {
+			freeVarsRec(a, bound, fv)
+		}
+		freeVarsRec(ty.Body, bound, fv)
 	case *TyRow:
 		for _, f := range ty.Fields {
 			freeVarsRec(f.Type, bound, fv)

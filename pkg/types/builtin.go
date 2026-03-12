@@ -54,3 +54,8 @@ func Con(name string) *TyCon {
 func Var(name string) *TyVar {
 	return &TyVar{Name: name}
 }
+
+// MkQual creates a qualified (constrained) type.
+func MkQual(className string, args []Type, body Type) *TyQual {
+	return &TyQual{ClassName: className, Args: args, Body: body}
+}

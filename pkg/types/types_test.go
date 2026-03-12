@@ -215,6 +215,75 @@ func TestFreeVarsForall(t *testing.T) {
 	}
 }
 
+// --- KConstraint ---
+
+func TestKConstraintEquality(t *testing.T) {
+	kc := KConstraint{}
+	if !kc.Equal(KConstraint{}) {
+		t.Error("KConstraint != KConstraint")
+	}
+	if kc.Equal(KType{}) {
+		t.Error("KConstraint == KType")
+	}
+	if kc.String() != "Constraint" {
+		t.Errorf("expected 'Constraint', got %q", kc.String())
+	}
+}
+
+// --- TyQual ---
+
+func TestTyQualSubst(t *testing.T) {
+	// (Eq a => a -> Bool)[a := Int] = Eq Int => Int -> Bool
+	ty := MkQual("Eq", []Type{Var("a")}, MkArrow(Var("a"), Con("Bool")))
+	result := Subst(ty, "a", Con("Int"))
+	q, ok := result.(*TyQual)
+	if !ok {
+		t.Fatalf("expected TyQual, got %T", result)
+	}
+	if !Equal(q.Args[0], Con("Int")) {
+		t.Errorf("expected Eq Int, got Eq %s", Pretty(q.Args[0]))
+	}
+	arr, ok := q.Body.(*TyArrow)
+	if !ok {
+		t.Fatalf("expected TyArrow, got %T", q.Body)
+	}
+	if !Equal(arr.From, Con("Int")) {
+		t.Errorf("expected Int -> Bool, got %s -> %s", Pretty(arr.From), Pretty(arr.To))
+	}
+}
+
+func TestTyQualPretty(t *testing.T) {
+	ty := MkQual("Eq", []Type{Var("a")}, MkArrow(Var("a"), Con("Bool")))
+	got := Pretty(ty)
+	want := "Eq a => a -> Bool"
+	if got != want {
+		t.Errorf("Pretty(TyQual) = %q, want %q", got, want)
+	}
+}
+
+func TestTyQualEqual(t *testing.T) {
+	q1 := MkQual("Eq", []Type{Var("a")}, MkArrow(Var("a"), Con("Bool")))
+	q2 := MkQual("Eq", []Type{Var("a")}, MkArrow(Var("a"), Con("Bool")))
+	q3 := MkQual("Ord", []Type{Var("a")}, MkArrow(Var("a"), Con("Bool")))
+	if !Equal(q1, q2) {
+		t.Error("identical TyQual should be equal")
+	}
+	if Equal(q1, q3) {
+		t.Error("different class names should not be equal")
+	}
+}
+
+func TestTyQualFreeVars(t *testing.T) {
+	ty := MkQual("Eq", []Type{Var("a")}, MkArrow(Var("a"), Var("b")))
+	fv := FreeVars(ty)
+	if _, ok := fv["a"]; !ok {
+		t.Error("'a' should be free in TyQual")
+	}
+	if _, ok := fv["b"]; !ok {
+		t.Error("'b' should be free in TyQual body")
+	}
+}
+
 // --- Pretty Printing ---
 
 func TestPretty(t *testing.T) {

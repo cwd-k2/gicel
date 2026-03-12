@@ -67,6 +67,12 @@ func (u *Unifier) Zonk(t types.Type) types.Type {
 		return &types.TyComp{Pre: u.Zonk(ty.Pre), Post: u.Zonk(ty.Post), Result: u.Zonk(ty.Result), S: ty.S}
 	case *types.TyThunk:
 		return &types.TyThunk{Pre: u.Zonk(ty.Pre), Post: u.Zonk(ty.Post), Result: u.Zonk(ty.Result), S: ty.S}
+	case *types.TyQual:
+		args := make([]types.Type, len(ty.Args))
+		for i, a := range ty.Args {
+			args[i] = u.Zonk(a)
+		}
+		return &types.TyQual{ClassName: ty.ClassName, Args: args, Body: u.Zonk(ty.Body), S: ty.S}
 	case *types.TyRow:
 		fields := make([]types.RowField, len(ty.Fields))
 		for i, f := range ty.Fields {
@@ -150,6 +156,18 @@ func (u *Unifier) Unify(a, b types.Type) error {
 				return err
 			}
 			return u.Unify(at.Result, bt.Result)
+		}
+	case *types.TyQual:
+		if bt, ok := b.(*types.TyQual); ok {
+			if at.ClassName != bt.ClassName || len(at.Args) != len(bt.Args) {
+				break
+			}
+			for i := range at.Args {
+				if err := u.Unify(at.Args[i], bt.Args[i]); err != nil {
+					return err
+				}
+			}
+			return u.Unify(at.Body, bt.Body)
 		}
 	case *types.TyRow:
 		if bt, ok := b.(*types.TyRow); ok {

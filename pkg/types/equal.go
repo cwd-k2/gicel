@@ -76,6 +76,24 @@ func equalAlpha(a, b Type, bindings []alphaBinding) bool {
 			equalAlpha(at.Post, bt.Post, bindings) &&
 			equalAlpha(at.Result, bt.Result, bindings)
 
+	case *TyQual:
+		bt, ok := b.(*TyQual)
+		if !ok {
+			return false
+		}
+		if at.ClassName != bt.ClassName {
+			return false
+		}
+		if len(at.Args) != len(bt.Args) {
+			return false
+		}
+		for i := range at.Args {
+			if !equalAlpha(at.Args[i], bt.Args[i], bindings) {
+				return false
+			}
+		}
+		return equalAlpha(at.Body, bt.Body, bindings)
+
 	case *TyRow:
 		bt, ok := b.(*TyRow)
 		if !ok {

@@ -75,6 +75,25 @@ func Subst(t Type, varName string, replacement Type) Type {
 		}
 		return &TyThunk{Pre: newPre, Post: newPost, Result: newResult, S: ty.S}
 
+	case *TyQual:
+		changed := false
+		args := make([]Type, len(ty.Args))
+		for i, a := range ty.Args {
+			newA := Subst(a, varName, replacement)
+			if newA != a {
+				changed = true
+			}
+			args[i] = newA
+		}
+		newBody := Subst(ty.Body, varName, replacement)
+		if newBody != ty.Body {
+			changed = true
+		}
+		if !changed {
+			return ty
+		}
+		return &TyQual{ClassName: ty.ClassName, Args: args, Body: newBody, S: ty.S}
+
 	case *TyRow:
 		changed := false
 		fields := make([]RowField, len(ty.Fields))
