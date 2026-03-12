@@ -3,12 +3,11 @@ package stdlib
 import (
 	"context"
 
-	gmp "github.com/cwd-k2/gomputation"
 	"github.com/cwd-k2/gomputation/internal/eval"
 )
 
 // Fail provides the fail effect capability.
-var Fail Pack = func(e *gmp.Engine) error {
+var Fail Pack = func(e Host) error {
 	e.RegisterPrim("failWith", failImpl)
 	return e.RegisterModule("Std.Fail", failSource)
 }
@@ -35,6 +34,6 @@ fromResult := \r -> case r of {
 }
 `
 
-func failImpl(_ context.Context, ce gmp.CapEnv, args []gmp.Value) (gmp.Value, gmp.CapEnv, error) {
+func failImpl(_ context.Context, ce eval.CapEnv, args []eval.Value) (eval.Value, eval.CapEnv, error) {
 	return nil, ce, &eval.RuntimeError{Message: "fail"}
 }

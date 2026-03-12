@@ -5,7 +5,7 @@ import (
 
 	"github.com/cwd-k2/gomputation/internal/errs"
 	"github.com/cwd-k2/gomputation/internal/span"
-	"github.com/cwd-k2/gomputation/pkg/types"
+	"github.com/cwd-k2/gomputation/internal/types"
 )
 
 // containsSkolem checks whether the given type contains any TySkolem

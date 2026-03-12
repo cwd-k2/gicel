@@ -18,8 +18,9 @@ import (
 	"github.com/cwd-k2/gomputation/internal/errs"
 	"github.com/cwd-k2/gomputation/internal/eval"
 	"github.com/cwd-k2/gomputation/internal/span"
+	"github.com/cwd-k2/gomputation/internal/stdlib"
 	"github.com/cwd-k2/gomputation/internal/syntax"
-	"github.com/cwd-k2/gomputation/pkg/types"
+	"github.com/cwd-k2/gomputation/internal/types"
 )
 
 // Value is a runtime value produced by evaluation.
@@ -40,115 +41,19 @@ type PrimImpl = eval.PrimImpl
 // EvalStats holds post-evaluation statistics.
 type EvalStats = eval.EvalStats
 
-// preludeSource is the default prelude: standard data types, type classes, and instances.
-// Auto-loaded unless NoPrelude is set. Uses the same RegisterModule mechanism as stdlib packs.
-const preludeSource = `
-data Bool = True | False
-data Unit = Unit
-data Result e a = Ok a | Err e
-data Pair a b = Pair a b
-data Maybe a = Just a | Nothing
-data List a = Cons a (List a) | Nil
-data Ordering = LT | EQ | GT
-type Effect r a = Computation r r a
+// Stdlib re-exports — users import only the root package.
 
-class Eq a { eq :: a -> a -> Bool }
-class Eq a => Ord a { compare :: a -> a -> Ordering }
-class Functor f { fmap :: forall a b. (a -> b) -> f a -> f b }
-class Foldable t { foldr :: forall a b. (a -> b -> b) -> b -> t a -> b }
+// Num provides integer arithmetic: Num class, Eq/Ord Int instances, and operators.
+var Num Pack = func(e *Engine) error { return stdlib.Num(e) }
 
-class Semigroup a { append :: a -> a -> a }
-class Semigroup a => Monoid a { empty :: a }
-class Functor f => Applicative f {
-  wrap :: forall a. a -> f a;
-  ap   :: forall a b. f (a -> b) -> f a -> f b
-}
-class Functor t => Foldable t => Traversable t {
-  traverse :: forall f a b. Applicative f => (a -> f b) -> t a -> f (t b)
-}
+// Str provides string and rune operations.
+var Str Pack = func(e *Engine) error { return stdlib.Str(e) }
 
-instance Eq Bool { eq := \x y -> case x of {
-  True -> case y of { True -> True; False -> False };
-  False -> case y of { True -> False; False -> True }
-} }
+// Fail provides the fail effect capability.
+var Fail Pack = func(e *Engine) error { return stdlib.Fail(e) }
 
-instance Eq Unit { eq := \_ _ -> True }
-
-instance Eq Ordering { eq := \x y -> case x of {
-  LT -> case y of { LT -> True; EQ -> False; GT -> False };
-  EQ -> case y of { LT -> False; EQ -> True; GT -> False };
-  GT -> case y of { LT -> False; EQ -> False; GT -> True }
-} }
-
-instance Eq a => Eq (Maybe a) { eq := \x y -> case x of {
-  Nothing -> case y of { Nothing -> True; Just _ -> False };
-  Just a -> case y of { Nothing -> False; Just b -> eq a b }
-} }
-
-instance Eq a => Eq b => Eq (Pair a b) { eq := \x y -> case x of {
-  Pair a1 b1 -> case y of {
-    Pair a2 b2 -> case eq a1 a2 of { True -> eq b1 b2; False -> False }
-  }
-} }
-
-instance Functor Maybe { fmap := \f ma -> case ma of {
-  Nothing -> Nothing;
-  Just a -> Just (f a)
-} }
-
-instance Foldable Maybe { foldr := \f z ma -> case ma of {
-  Nothing -> z;
-  Just a -> f a z
-} }
-
-instance Semigroup Unit { append := \_ _ -> Unit }
-instance Semigroup Ordering { append := \x y -> case x of { EQ -> y; _ -> x } }
-instance Monoid Unit { empty := Unit }
-instance Monoid Ordering { empty := EQ }
-
-instance Ord Bool { compare := \x y -> case x of {
-  False -> case y of { False -> EQ; True -> LT };
-  True  -> case y of { False -> GT; True -> EQ }
-} }
-instance Ord Unit { compare := \_ _ -> EQ }
-instance Ord Ordering { compare := \x y -> case x of {
-  LT -> case y of { LT -> EQ; EQ -> LT; GT -> LT };
-  EQ -> case y of { LT -> GT; EQ -> EQ; GT -> LT };
-  GT -> case y of { LT -> GT; EQ -> GT; GT -> EQ }
-} }
-instance Ord a => Ord (Maybe a) { compare := \x y -> case x of {
-  Nothing -> case y of { Nothing -> EQ; Just _ -> LT };
-  Just a  -> case y of { Nothing -> GT; Just b -> compare a b }
-} }
-instance Ord a => Ord b => Ord (Pair a b) { compare := \x y -> case x of {
-  Pair a1 b1 -> case y of {
-    Pair a2 b2 -> append (compare a1 a2) (compare b1 b2)
-  }
-} }
-
-instance Applicative Maybe {
-  wrap := \x -> Just x;
-  ap := \mf mx -> case mf of {
-    Nothing -> Nothing;
-    Just f  -> case mx of { Nothing -> Nothing; Just x -> Just (f x) }
-  }
-}
-
-instance Functor (Pair a) { fmap := \f p -> case p of { Pair a b -> Pair a (f b) } }
-
-instance Foldable (Pair a) { foldr := \f z p -> case p of { Pair _ b -> f b z } }
-
-instance Traversable Maybe {
-  traverse := \f x -> case x of {
-    Nothing -> wrap Nothing;
-    Just a  -> fmap (\b -> Just b) (f a)
-  }
-}
-
-instance Traversable (Pair a) {
-  traverse := \f p -> case p of { Pair a b -> fmap (\c -> Pair a c) (f b) }
-}
-`
+// State provides get/put state capabilities.
+var State Pack = func(e *Engine) error { return stdlib.State(e) }
 
 // Engine configures and compiles Gomputation programs.
 // It is mutable and must not be shared across goroutines.
@@ -412,7 +317,7 @@ func (e *Engine) ensurePrelude() {
 		return
 	}
 	// Register prelude as an implicit module (errors are programming errors, so panic).
-	if err := e.RegisterModule("Prelude", preludeSource); err != nil {
+	if err := e.RegisterModule("Prelude", stdlib.PreludeSource); err != nil {
 		panic(fmt.Sprintf("failed to compile prelude: %v", err))
 	}
 }

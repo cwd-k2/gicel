@@ -7,7 +7,7 @@ import (
 	"github.com/cwd-k2/gomputation/internal/core"
 	"github.com/cwd-k2/gomputation/internal/errs"
 	"github.com/cwd-k2/gomputation/internal/span"
-	"github.com/cwd-k2/gomputation/pkg/types"
+	"github.com/cwd-k2/gomputation/internal/types"
 )
 
 // checkExhaustive verifies that a set of case alternatives covers every

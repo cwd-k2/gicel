@@ -1,9 +1,9 @@
 package gomputation
 
-import "github.com/cwd-k2/gomputation/pkg/types"
+import "github.com/cwd-k2/gomputation/internal/types"
 
 // Type construction helpers for use with DeclareBinding and DeclareAssumption.
-// These wrap pkg/types constructors for convenience.
+// These wrap internal/types constructors for convenience.
 
 // ConType creates a simple type constructor (e.g. "Int", "String", "Bool").
 func ConType(name string) types.Type {

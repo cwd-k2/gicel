@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"strings"
 
-	gmp "github.com/cwd-k2/gomputation"
+	"github.com/cwd-k2/gomputation/internal/eval"
 )
 
 // Str provides string and rune operations: Eq/Ord/Semigroup/Monoid instances, length.
-var Str Pack = func(e *gmp.Engine) error {
+var Str Pack = func(e Host) error {
 	e.RegisterPrim("_eqStr", eqStrImpl)
 	e.RegisterPrim("_cmpStr", cmpStrImpl)
 	e.RegisterPrim("_appendStr", appendStrImpl)
@@ -55,8 +55,8 @@ length :: String -> Int
 length := _lengthStr
 `
 
-func mustString(v gmp.Value) string {
-	hv, ok := v.(*gmp.HostVal)
+func mustString(v eval.Value) string {
+	hv, ok := v.(*eval.HostVal)
 	if !ok {
 		panic(fmt.Sprintf("stdlib/str: expected HostVal, got %T", v))
 	}
@@ -67,8 +67,8 @@ func mustString(v gmp.Value) string {
 	return s
 }
 
-func mustRune(v gmp.Value) rune {
-	hv, ok := v.(*gmp.HostVal)
+func mustRune(v eval.Value) rune {
+	hv, ok := v.(*eval.HostVal)
 	if !ok {
 		panic(fmt.Sprintf("stdlib/str: expected HostVal, got %T", v))
 	}
@@ -79,52 +79,52 @@ func mustRune(v gmp.Value) rune {
 	return r
 }
 
-func eqStrImpl(_ context.Context, ce gmp.CapEnv, args []gmp.Value) (gmp.Value, gmp.CapEnv, error) {
+func eqStrImpl(_ context.Context, ce eval.CapEnv, args []eval.Value) (eval.Value, eval.CapEnv, error) {
 	if mustString(args[0]) == mustString(args[1]) {
-		return &gmp.ConVal{Con: "True"}, ce, nil
+		return &eval.ConVal{Con: "True"}, ce, nil
 	}
-	return &gmp.ConVal{Con: "False"}, ce, nil
+	return &eval.ConVal{Con: "False"}, ce, nil
 }
 
-func cmpStrImpl(_ context.Context, ce gmp.CapEnv, args []gmp.Value) (gmp.Value, gmp.CapEnv, error) {
+func cmpStrImpl(_ context.Context, ce eval.CapEnv, args []eval.Value) (eval.Value, eval.CapEnv, error) {
 	a, b := mustString(args[0]), mustString(args[1])
 	switch strings.Compare(a, b) {
 	case -1:
-		return &gmp.ConVal{Con: "LT"}, ce, nil
+		return &eval.ConVal{Con: "LT"}, ce, nil
 	case 1:
-		return &gmp.ConVal{Con: "GT"}, ce, nil
+		return &eval.ConVal{Con: "GT"}, ce, nil
 	default:
-		return &gmp.ConVal{Con: "EQ"}, ce, nil
+		return &eval.ConVal{Con: "EQ"}, ce, nil
 	}
 }
 
-func appendStrImpl(_ context.Context, ce gmp.CapEnv, args []gmp.Value) (gmp.Value, gmp.CapEnv, error) {
-	return &gmp.HostVal{Inner: mustString(args[0]) + mustString(args[1])}, ce, nil
+func appendStrImpl(_ context.Context, ce eval.CapEnv, args []eval.Value) (eval.Value, eval.CapEnv, error) {
+	return &eval.HostVal{Inner: mustString(args[0]) + mustString(args[1])}, ce, nil
 }
 
-func emptyStrImpl(_ context.Context, ce gmp.CapEnv, args []gmp.Value) (gmp.Value, gmp.CapEnv, error) {
-	return &gmp.HostVal{Inner: ""}, ce, nil
+func emptyStrImpl(_ context.Context, ce eval.CapEnv, args []eval.Value) (eval.Value, eval.CapEnv, error) {
+	return &eval.HostVal{Inner: ""}, ce, nil
 }
 
-func lengthStrImpl(_ context.Context, ce gmp.CapEnv, args []gmp.Value) (gmp.Value, gmp.CapEnv, error) {
-	return &gmp.HostVal{Inner: int64(len([]rune(mustString(args[0]))))}, ce, nil
+func lengthStrImpl(_ context.Context, ce eval.CapEnv, args []eval.Value) (eval.Value, eval.CapEnv, error) {
+	return &eval.HostVal{Inner: int64(len([]rune(mustString(args[0]))))}, ce, nil
 }
 
-func eqRuneImpl(_ context.Context, ce gmp.CapEnv, args []gmp.Value) (gmp.Value, gmp.CapEnv, error) {
+func eqRuneImpl(_ context.Context, ce eval.CapEnv, args []eval.Value) (eval.Value, eval.CapEnv, error) {
 	if mustRune(args[0]) == mustRune(args[1]) {
-		return &gmp.ConVal{Con: "True"}, ce, nil
+		return &eval.ConVal{Con: "True"}, ce, nil
 	}
-	return &gmp.ConVal{Con: "False"}, ce, nil
+	return &eval.ConVal{Con: "False"}, ce, nil
 }
 
-func cmpRuneImpl(_ context.Context, ce gmp.CapEnv, args []gmp.Value) (gmp.Value, gmp.CapEnv, error) {
+func cmpRuneImpl(_ context.Context, ce eval.CapEnv, args []eval.Value) (eval.Value, eval.CapEnv, error) {
 	a, b := mustRune(args[0]), mustRune(args[1])
 	switch {
 	case a < b:
-		return &gmp.ConVal{Con: "LT"}, ce, nil
+		return &eval.ConVal{Con: "LT"}, ce, nil
 	case a > b:
-		return &gmp.ConVal{Con: "GT"}, ce, nil
+		return &eval.ConVal{Con: "GT"}, ce, nil
 	default:
-		return &gmp.ConVal{Con: "EQ"}, ce, nil
+		return &eval.ConVal{Con: "EQ"}, ce, nil
 	}
 }

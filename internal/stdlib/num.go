@@ -4,11 +4,11 @@ import (
 	"context"
 	"fmt"
 
-	gmp "github.com/cwd-k2/gomputation"
+	"github.com/cwd-k2/gomputation/internal/eval"
 )
 
 // Num provides integer arithmetic: Num class, Eq/Ord Int instances, and operators.
-var Num Pack = func(e *gmp.Engine) error {
+var Num Pack = func(e Host) error {
 	e.RegisterPrim("_addInt", addIntImpl)
 	e.RegisterPrim("_subInt", subIntImpl)
 	e.RegisterPrim("_mulInt", mulIntImpl)
@@ -88,8 +88,8 @@ infixl 7 /
 (/) := div
 `
 
-func mustInt64(v gmp.Value) int64 {
-	hv, ok := v.(*gmp.HostVal)
+func mustInt64(v eval.Value) int64 {
+	hv, ok := v.(*eval.HostVal)
 	if !ok {
 		panic(fmt.Sprintf("stdlib/num: expected HostVal, got %T", v))
 	}
@@ -100,23 +100,23 @@ func mustInt64(v gmp.Value) int64 {
 	return n
 }
 
-func intResult(n int64, ce gmp.CapEnv) (gmp.Value, gmp.CapEnv, error) {
-	return &gmp.HostVal{Inner: n}, ce, nil
+func intResult(n int64, ce eval.CapEnv) (eval.Value, eval.CapEnv, error) {
+	return &eval.HostVal{Inner: n}, ce, nil
 }
 
-func addIntImpl(_ context.Context, ce gmp.CapEnv, args []gmp.Value) (gmp.Value, gmp.CapEnv, error) {
+func addIntImpl(_ context.Context, ce eval.CapEnv, args []eval.Value) (eval.Value, eval.CapEnv, error) {
 	return intResult(mustInt64(args[0])+mustInt64(args[1]), ce)
 }
 
-func subIntImpl(_ context.Context, ce gmp.CapEnv, args []gmp.Value) (gmp.Value, gmp.CapEnv, error) {
+func subIntImpl(_ context.Context, ce eval.CapEnv, args []eval.Value) (eval.Value, eval.CapEnv, error) {
 	return intResult(mustInt64(args[0])-mustInt64(args[1]), ce)
 }
 
-func mulIntImpl(_ context.Context, ce gmp.CapEnv, args []gmp.Value) (gmp.Value, gmp.CapEnv, error) {
+func mulIntImpl(_ context.Context, ce eval.CapEnv, args []eval.Value) (eval.Value, eval.CapEnv, error) {
 	return intResult(mustInt64(args[0])*mustInt64(args[1]), ce)
 }
 
-func divIntImpl(_ context.Context, ce gmp.CapEnv, args []gmp.Value) (gmp.Value, gmp.CapEnv, error) {
+func divIntImpl(_ context.Context, ce eval.CapEnv, args []eval.Value) (eval.Value, eval.CapEnv, error) {
 	b := mustInt64(args[1])
 	if b == 0 {
 		return nil, ce, fmt.Errorf("division by zero")
@@ -124,7 +124,7 @@ func divIntImpl(_ context.Context, ce gmp.CapEnv, args []gmp.Value) (gmp.Value, 
 	return intResult(mustInt64(args[0])/b, ce)
 }
 
-func modIntImpl(_ context.Context, ce gmp.CapEnv, args []gmp.Value) (gmp.Value, gmp.CapEnv, error) {
+func modIntImpl(_ context.Context, ce eval.CapEnv, args []eval.Value) (eval.Value, eval.CapEnv, error) {
 	b := mustInt64(args[1])
 	if b == 0 {
 		return nil, ce, fmt.Errorf("modulo by zero")
@@ -132,25 +132,25 @@ func modIntImpl(_ context.Context, ce gmp.CapEnv, args []gmp.Value) (gmp.Value, 
 	return intResult(mustInt64(args[0])%b, ce)
 }
 
-func negIntImpl(_ context.Context, ce gmp.CapEnv, args []gmp.Value) (gmp.Value, gmp.CapEnv, error) {
+func negIntImpl(_ context.Context, ce eval.CapEnv, args []eval.Value) (eval.Value, eval.CapEnv, error) {
 	return intResult(-mustInt64(args[0]), ce)
 }
 
-func eqIntImpl(_ context.Context, ce gmp.CapEnv, args []gmp.Value) (gmp.Value, gmp.CapEnv, error) {
+func eqIntImpl(_ context.Context, ce eval.CapEnv, args []eval.Value) (eval.Value, eval.CapEnv, error) {
 	if mustInt64(args[0]) == mustInt64(args[1]) {
-		return &gmp.ConVal{Con: "True"}, ce, nil
+		return &eval.ConVal{Con: "True"}, ce, nil
 	}
-	return &gmp.ConVal{Con: "False"}, ce, nil
+	return &eval.ConVal{Con: "False"}, ce, nil
 }
 
-func cmpIntImpl(_ context.Context, ce gmp.CapEnv, args []gmp.Value) (gmp.Value, gmp.CapEnv, error) {
+func cmpIntImpl(_ context.Context, ce eval.CapEnv, args []eval.Value) (eval.Value, eval.CapEnv, error) {
 	a, b := mustInt64(args[0]), mustInt64(args[1])
 	switch {
 	case a < b:
-		return &gmp.ConVal{Con: "LT"}, ce, nil
+		return &eval.ConVal{Con: "LT"}, ce, nil
 	case a > b:
-		return &gmp.ConVal{Con: "GT"}, ce, nil
+		return &eval.ConVal{Con: "GT"}, ce, nil
 	default:
-		return &gmp.ConVal{Con: "EQ"}, ce, nil
+		return &eval.ConVal{Con: "EQ"}, ce, nil
 	}
 }

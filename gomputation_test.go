@@ -8,9 +8,7 @@ import (
 	"time"
 
 	gmp "github.com/cwd-k2/gomputation"
-	"github.com/cwd-k2/gomputation/internal/eval"
-	"github.com/cwd-k2/gomputation/pkg/types"
-	"github.com/cwd-k2/gomputation/pkg/stdlib"
+	"github.com/cwd-k2/gomputation/internal/types"
 )
 
 func TestIdentity(t *testing.T) {
@@ -50,8 +48,8 @@ func TestPure(t *testing.T) {
 
 func TestHostBinding(t *testing.T) {
 	eng := gmp.NewEngine()
-	eng.RegisterType("Int", types.KType{})
-	eng.DeclareBinding("x", types.Con("Int"))
+	eng.RegisterType("Int", gmp.KindType())
+	eng.DeclareBinding("x", gmp.ConType("Int"))
 	rt, err := eng.NewRuntime(`main := x`)
 	if err != nil {
 		t.Fatal(err)
@@ -71,9 +69,9 @@ func TestHostBinding(t *testing.T) {
 
 func TestAssumption(t *testing.T) {
 	eng := gmp.NewEngine()
-	eng.DeclareAssumption("getUnit", types.MkArrow(types.Con("Unit"), types.Con("Unit")))
+	eng.DeclareAssumption("getUnit", gmp.ArrowType(gmp.ConType("Unit"), gmp.ConType("Unit")))
 	eng.RegisterPrim("getUnit", func(ctx context.Context, capEnv gmp.CapEnv, args []gmp.Value) (gmp.Value, gmp.CapEnv, error) {
-		return &eval.ConVal{Con: "Unit"}, capEnv, nil
+		return &gmp.ConVal{Con: "Unit"}, capEnv, nil
 	})
 	rt, err := eng.NewRuntime(`
 getUnit := assumption
@@ -147,7 +145,7 @@ func TestEngineUse(t *testing.T) {
 
 func TestNumAdd(t *testing.T) {
 	eng := gmp.NewEngine()
-	if err := eng.Use(stdlib.Num); err != nil {
+	if err := eng.Use(gmp.Num); err != nil {
 		t.Fatal(err)
 	}
 	rt, err := eng.NewRuntime(`
@@ -169,7 +167,7 @@ main := add 1 2
 
 func TestNumOperators(t *testing.T) {
 	eng := gmp.NewEngine()
-	if err := eng.Use(stdlib.Num); err != nil {
+	if err := eng.Use(gmp.Num); err != nil {
 		t.Fatal(err)
 	}
 	rt, err := eng.NewRuntime(`
@@ -191,7 +189,7 @@ main := 1 + 2 * 3
 
 func TestNumNegate(t *testing.T) {
 	eng := gmp.NewEngine()
-	if err := eng.Use(stdlib.Num); err != nil {
+	if err := eng.Use(gmp.Num); err != nil {
 		t.Fatal(err)
 	}
 	rt, err := eng.NewRuntime(`
@@ -213,7 +211,7 @@ main := negate 42
 
 func TestNumEqInt(t *testing.T) {
 	eng := gmp.NewEngine()
-	if err := eng.Use(stdlib.Num); err != nil {
+	if err := eng.Use(gmp.Num); err != nil {
 		t.Fatal(err)
 	}
 	rt, err := eng.NewRuntime(`
@@ -235,7 +233,7 @@ main := eq 1 1
 
 func TestNumOrdInt(t *testing.T) {
 	eng := gmp.NewEngine()
-	if err := eng.Use(stdlib.Num); err != nil {
+	if err := eng.Use(gmp.Num); err != nil {
 		t.Fatal(err)
 	}
 	rt, err := eng.NewRuntime(`
@@ -257,7 +255,7 @@ main := compare 1 2
 
 func TestNumDivMod(t *testing.T) {
 	eng := gmp.NewEngine()
-	if err := eng.Use(stdlib.Num); err != nil {
+	if err := eng.Use(gmp.Num); err != nil {
 		t.Fatal(err)
 	}
 	rt, err := eng.NewRuntime(`
@@ -279,7 +277,7 @@ main := div 7 3
 
 func TestStrConcat(t *testing.T) {
 	eng := gmp.NewEngine()
-	if err := eng.Use(stdlib.Str); err != nil {
+	if err := eng.Use(gmp.Str); err != nil {
 		t.Fatal(err)
 	}
 	rt, err := eng.NewRuntime(`
@@ -301,7 +299,7 @@ main := append "hello" " world"
 
 func TestStrEq(t *testing.T) {
 	eng := gmp.NewEngine()
-	if err := eng.Use(stdlib.Str); err != nil {
+	if err := eng.Use(gmp.Str); err != nil {
 		t.Fatal(err)
 	}
 	rt, err := eng.NewRuntime(`
@@ -323,7 +321,7 @@ main := eq "abc" "abc"
 
 func TestStrOrd(t *testing.T) {
 	eng := gmp.NewEngine()
-	if err := eng.Use(stdlib.Str); err != nil {
+	if err := eng.Use(gmp.Str); err != nil {
 		t.Fatal(err)
 	}
 	rt, err := eng.NewRuntime(`
@@ -345,7 +343,7 @@ main := compare "a" "b"
 
 func TestStrLength(t *testing.T) {
 	eng := gmp.NewEngine()
-	if err := eng.Use(stdlib.Str); err != nil {
+	if err := eng.Use(gmp.Str); err != nil {
 		t.Fatal(err)
 	}
 	rt, err := eng.NewRuntime(`
@@ -367,7 +365,7 @@ main := length "hello"
 
 func TestRuneEq(t *testing.T) {
 	eng := gmp.NewEngine()
-	if err := eng.Use(stdlib.Str); err != nil {
+	if err := eng.Use(gmp.Str); err != nil {
 		t.Fatal(err)
 	}
 	rt, err := eng.NewRuntime(`
@@ -389,7 +387,7 @@ main := eq 'a' 'a'
 
 func TestFailAbort(t *testing.T) {
 	eng := gmp.NewEngine()
-	if err := eng.Use(stdlib.Fail); err != nil {
+	if err := eng.Use(gmp.Fail); err != nil {
 		t.Fatal(err)
 	}
 	rt, err := eng.NewRuntime(`
@@ -408,7 +406,7 @@ main := do { fail; pure True }
 
 func TestFromMaybe(t *testing.T) {
 	eng := gmp.NewEngine()
-	if err := eng.Use(stdlib.Fail); err != nil {
+	if err := eng.Use(gmp.Fail); err != nil {
 		t.Fatal(err)
 	}
 	rt, err := eng.NewRuntime(`
@@ -431,10 +429,10 @@ main := fromMaybe (Just True)
 
 func TestStateGetPut(t *testing.T) {
 	eng := gmp.NewEngine()
-	if err := eng.Use(stdlib.Num); err != nil {
+	if err := eng.Use(gmp.Num); err != nil {
 		t.Fatal(err)
 	}
-	if err := eng.Use(stdlib.State); err != nil {
+	if err := eng.Use(gmp.State); err != nil {
 		t.Fatal(err)
 	}
 	rt, err := eng.NewRuntime(`
@@ -458,10 +456,10 @@ main := do { put 42; get }
 
 func TestStateThread(t *testing.T) {
 	eng := gmp.NewEngine()
-	if err := eng.Use(stdlib.Num); err != nil {
+	if err := eng.Use(gmp.Num); err != nil {
 		t.Fatal(err)
 	}
-	if err := eng.Use(stdlib.State); err != nil {
+	if err := eng.Use(gmp.State); err != nil {
 		t.Fatal(err)
 	}
 	rt, err := eng.NewRuntime(`
@@ -485,7 +483,7 @@ main := do { n <- get; put (n + 1); get }
 
 func TestFromResult(t *testing.T) {
 	eng := gmp.NewEngine()
-	if err := eng.Use(stdlib.Fail); err != nil {
+	if err := eng.Use(gmp.Fail); err != nil {
 		t.Fatal(err)
 	}
 	rt, err := eng.NewRuntime(`
@@ -508,13 +506,13 @@ main := fromResult (Ok True)
 
 func TestFailWithState(t *testing.T) {
 	eng := gmp.NewEngine()
-	if err := eng.Use(stdlib.Num); err != nil {
+	if err := eng.Use(gmp.Num); err != nil {
 		t.Fatal(err)
 	}
-	if err := eng.Use(stdlib.Fail); err != nil {
+	if err := eng.Use(gmp.Fail); err != nil {
 		t.Fatal(err)
 	}
-	if err := eng.Use(stdlib.State); err != nil {
+	if err := eng.Use(gmp.State); err != nil {
 		t.Fatal(err)
 	}
 	rt, err := eng.NewRuntime(`
@@ -906,8 +904,8 @@ main := not (not (not True))
 
 func TestRuntimeReuse(t *testing.T) {
 	eng := gmp.NewEngine()
-	eng.RegisterType("Int", types.KType{})
-	eng.DeclareBinding("x", types.Con("Int"))
+	eng.RegisterType("Int", gmp.KindType())
+	eng.DeclareBinding("x", gmp.ConType("Int"))
 	rt, err := eng.NewRuntime(`main := x`)
 	if err != nil {
 		t.Fatal(err)
@@ -1053,7 +1051,7 @@ func TestRunContextFull(t *testing.T) {
 
 func TestValueConversion(t *testing.T) {
 	// HostVal wraps arbitrary Go values.
-	hv := &eval.HostVal{Inner: "hello"}
+	hv := &gmp.HostVal{Inner: "hello"}
 	if hv.Inner != "hello" {
 		t.Errorf("expected HostVal.Inner = hello, got %v", hv.Inner)
 	}
@@ -1062,13 +1060,13 @@ func TestValueConversion(t *testing.T) {
 	}
 
 	// ConVal represents constructors.
-	cv := &eval.ConVal{Con: "True"}
+	cv := &gmp.ConVal{Con: "True"}
 	if cv.String() != "True" {
 		t.Errorf("expected True, got %s", cv.String())
 	}
 
 	// ConVal with arguments.
-	cv2 := &eval.ConVal{Con: "Just", Args: []eval.Value{&eval.ConVal{Con: "Unit"}}}
+	cv2 := &gmp.ConVal{Con: "Just", Args: []gmp.Value{&gmp.ConVal{Con: "Unit"}}}
 	s := cv2.String()
 	if !strings.Contains(s, "Just") || !strings.Contains(s, "Unit") {
 		t.Errorf("expected (Just Unit), got %s", s)
@@ -1191,7 +1189,7 @@ main := do { _ <- inc Unit; _ <- inc Unit; _ <- inc Unit; getN Unit }
 func TestMissingRuntimeBinding(t *testing.T) {
 	eng := gmp.NewEngine()
 	eng.RegisterType("Int", gmp.KindType())
-	eng.DeclareBinding("x", types.Con("Int"))
+	eng.DeclareBinding("x", gmp.ConType("Int"))
 	rt, err := eng.NewRuntime(`main := x`)
 	if err != nil {
 		t.Fatal(err)
@@ -1215,8 +1213,8 @@ func TestPrimPartialApplication(t *testing.T) {
 		b := gmp.MustHost[int](args[1])
 		return gmp.ToValue(a + b), capEnv, nil
 	})
-	eng.DeclareBinding("a", types.Con("Int"))
-	eng.DeclareBinding("b", types.Con("Int"))
+	eng.DeclareBinding("a", gmp.ConType("Int"))
+	eng.DeclareBinding("b", gmp.ConType("Int"))
 	rt, err := eng.NewRuntime(`
 add :: Int -> Int -> Int
 add := assumption
@@ -1755,7 +1753,7 @@ main := close (open (MkDB :: DB Closed))
 
 func TestDataKindsInRow(t *testing.T) {
 	eng := gmp.NewEngine()
-	eng.RegisterType("Int", types.KType{})
+	eng.RegisterType("Int", gmp.KindType())
 	eng.RegisterPrim("readDB", func(ctx context.Context, ce gmp.CapEnv, args []gmp.Value) (gmp.Value, gmp.CapEnv, error) {
 		return gmp.ToValue(42), ce, nil
 	})
@@ -2174,13 +2172,13 @@ main := Yes
 
 func TestTypeHelpers(t *testing.T) {
 	// Con constructs a type constructor.
-	intTy := types.Con("Int")
+	intTy := gmp.ConType("Int").(*types.TyCon)
 	if intTy.Name != "Int" {
 		t.Errorf("expected Con name Int, got %s", intTy.Name)
 	}
 
 	// MkArrow constructs a function type.
-	arrTy := types.MkArrow(types.Con("Bool"), types.Con("Bool"))
+	arrTy := gmp.ArrowType(gmp.ConType("Bool"), gmp.ConType("Bool")).(*types.TyArrow)
 	if arrTy.From.(*types.TyCon).Name != "Bool" {
 		t.Errorf("expected arrow from Bool, got %v", arrTy.From)
 	}
@@ -2192,19 +2190,19 @@ func TestTypeHelpers(t *testing.T) {
 	}
 
 	// ClosedRow constructs a row with fields.
-	row2 := types.ClosedRow(types.RowField{Label: "x", Type: types.Con("Int")})
+	row2 := types.ClosedRow(types.RowField{Label: "x", Type: gmp.ConType("Int")})
 	if len(row2.Fields) != 1 || row2.Fields[0].Label != "x" {
 		t.Errorf("expected row with field x, got %v", row2)
 	}
 
 	// MkForall constructs a quantified type.
-	forallTy := types.MkForall("a", types.KType{}, types.MkArrow(types.Var("a"), types.Var("a")))
+	forallTy := types.MkForall("a", gmp.KindType(), gmp.ArrowType(types.Var("a"), types.Var("a")))
 	if forallTy.Var != "a" {
 		t.Errorf("expected forall var a, got %s", forallTy.Var)
 	}
 
 	// MkComp constructs a computation type.
-	compTy := types.MkComp(types.EmptyRow(), types.EmptyRow(), types.Con("Unit"))
+	compTy := types.MkComp(types.EmptyRow(), types.EmptyRow(), gmp.ConType("Unit"))
 	if compTy.Result.(*types.TyCon).Name != "Unit" {
 		t.Errorf("expected Computation result Unit, got %v", compTy.Result)
 	}
@@ -2216,16 +2214,16 @@ func TestTypeHelpers(t *testing.T) {
 	}
 
 	// Kind helpers.
-	k := types.KType{}
-	if !k.Equal(types.KType{}) {
+	k := gmp.KindType()
+	if !k.Equal(gmp.KindType()) {
 		t.Errorf("KType should equal KType")
 	}
 	kr := types.KRow{}
-	if kr.Equal(types.KType{}) {
+	if kr.Equal(gmp.KindType()) {
 		t.Errorf("KRow should not equal KType")
 	}
-	ka := &types.KArrow{From: types.KType{}, To: types.KType{}}
-	if !ka.Equal(&types.KArrow{From: types.KType{}, To: types.KType{}}) {
+	ka := &types.KArrow{From: gmp.KindType(), To: gmp.KindType()}
+	if !ka.Equal(&types.KArrow{From: gmp.KindType(), To: gmp.KindType()}) {
 		t.Errorf("KArrow(Type,Type) should equal itself")
 	}
 }
@@ -2237,9 +2235,9 @@ func TestTypeHelpers(t *testing.T) {
 // --- Phase 1: Skolem Infrastructure ---
 
 func TestTySkolemEquality(t *testing.T) {
-	s1 := &types.TySkolem{ID: 1, Name: "a", Kind: types.KType{}}
-	s2 := &types.TySkolem{ID: 1, Name: "a", Kind: types.KType{}}
-	s3 := &types.TySkolem{ID: 2, Name: "b", Kind: types.KType{}}
+	s1 := &types.TySkolem{ID: 1, Name: "a", Kind: gmp.KindType()}
+	s2 := &types.TySkolem{ID: 1, Name: "a", Kind: gmp.KindType()}
+	s3 := &types.TySkolem{ID: 2, Name: "b", Kind: gmp.KindType()}
 	if !types.Equal(s1, s2) {
 		t.Error("same-ID skolems should be equal")
 	}
@@ -2275,7 +2273,7 @@ useIt := \s -> case s of { MkSame x y -> True }
 
 func TestZonkSkolem(t *testing.T) {
 	// TySkolem should survive Zonk unchanged (identity)
-	s := &types.TySkolem{ID: 99, Name: "z", Kind: types.KType{}}
+	s := &types.TySkolem{ID: 99, Name: "z", Kind: gmp.KindType()}
 	pretty := types.Pretty(s)
 	if pretty != "#z" {
 		t.Errorf("expected #z, got %s", pretty)
@@ -2838,7 +2836,7 @@ func assertConName(t *testing.T, v gmp.Value, name string) {
 
 func TestLiteralWithNumPack(t *testing.T) {
 	eng := gmp.NewEngine()
-	if err := eng.Use(stdlib.Num); err != nil {
+	if err := eng.Use(gmp.Num); err != nil {
 		t.Fatal(err)
 	}
 	rt, err := eng.NewRuntime(`
@@ -2859,13 +2857,13 @@ main := 1 + 2 * 3
 
 func TestEffectComposition(t *testing.T) {
 	eng := gmp.NewEngine()
-	if err := eng.Use(stdlib.Num); err != nil {
+	if err := eng.Use(gmp.Num); err != nil {
 		t.Fatal(err)
 	}
-	if err := eng.Use(stdlib.Fail); err != nil {
+	if err := eng.Use(gmp.Fail); err != nil {
 		t.Fatal(err)
 	}
-	if err := eng.Use(stdlib.State); err != nil {
+	if err := eng.Use(gmp.State); err != nil {
 		t.Fatal(err)
 	}
 	rt, err := eng.NewRuntime(`
@@ -2898,10 +2896,10 @@ main := do {
 
 func TestPackModuleImport(t *testing.T) {
 	eng := gmp.NewEngine()
-	if err := eng.Use(stdlib.Num); err != nil {
+	if err := eng.Use(gmp.Num); err != nil {
 		t.Fatal(err)
 	}
-	if err := eng.Use(stdlib.Str); err != nil {
+	if err := eng.Use(gmp.Str); err != nil {
 		t.Fatal(err)
 	}
 	rt, err := eng.NewRuntime(`

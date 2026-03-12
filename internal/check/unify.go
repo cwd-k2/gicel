@@ -3,7 +3,7 @@ package check
 import (
 	"fmt"
 
-	"github.com/cwd-k2/gomputation/pkg/types"
+	"github.com/cwd-k2/gomputation/internal/types"
 )
 
 // Unifier manages type unification.

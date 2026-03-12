@@ -8,7 +8,7 @@ import (
 	"github.com/cwd-k2/gomputation/internal/errs"
 	"github.com/cwd-k2/gomputation/internal/span"
 	"github.com/cwd-k2/gomputation/internal/syntax"
-	"github.com/cwd-k2/gomputation/pkg/types"
+	"github.com/cwd-k2/gomputation/internal/types"
 )
 
 func checkSource(t *testing.T, source string, config *CheckConfig) *core.Program {

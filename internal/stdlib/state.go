@@ -3,12 +3,11 @@ package stdlib
 import (
 	"context"
 
-	gmp "github.com/cwd-k2/gomputation"
 	"github.com/cwd-k2/gomputation/internal/eval"
 )
 
 // State provides get/put state capabilities.
-var State Pack = func(e *gmp.Engine) error {
+var State Pack = func(e Host) error {
 	e.RegisterPrim("get", getImpl)
 	e.RegisterPrim("put", putImpl)
 	return e.RegisterModule("Std.State", stateSource)
@@ -27,15 +26,15 @@ modify :: forall s r. (s -> s) -> Computation { state : s | r } { state : s | r 
 modify := \f -> do { s <- get; put (f s) }
 `
 
-func getImpl(_ context.Context, ce gmp.CapEnv, args []gmp.Value) (gmp.Value, gmp.CapEnv, error) {
+func getImpl(_ context.Context, ce eval.CapEnv, args []eval.Value) (eval.Value, eval.CapEnv, error) {
 	v, ok := ce.Get("state")
 	if !ok {
 		return nil, ce, &eval.RuntimeError{Message: "get: no state capability"}
 	}
-	return v.(gmp.Value), ce, nil
+	return v.(eval.Value), ce, nil
 }
 
-func putImpl(_ context.Context, ce gmp.CapEnv, args []gmp.Value) (gmp.Value, gmp.CapEnv, error) {
+func putImpl(_ context.Context, ce eval.CapEnv, args []eval.Value) (eval.Value, eval.CapEnv, error) {
 	newCe := ce.Set("state", args[0])
-	return &gmp.ConVal{Con: "Unit"}, newCe, nil
+	return &eval.ConVal{Con: "Unit"}, newCe, nil
 }

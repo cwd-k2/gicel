@@ -1,6 +1,6 @@
 package core
 
-import "github.com/cwd-k2/gomputation/pkg/types"
+import "github.com/cwd-k2/gomputation/internal/types"
 
 // FreeVars returns term-level free variables in a Core expression.
 func FreeVars(c Core) map[string]struct{} {

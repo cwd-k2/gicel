@@ -10,8 +10,6 @@ import (
 	"time"
 
 	gmp "github.com/cwd-k2/gomputation"
-	"github.com/cwd-k2/gomputation/pkg/types"
-	"github.com/cwd-k2/gomputation/pkg/stdlib"
 )
 
 // ---------------------------------------------------------------------------
@@ -42,7 +40,7 @@ type stressProgram struct {
 }
 
 func intPrimSetup(eng *gmp.Engine) {
-	eng.RegisterType("Int", types.KType{})
+	eng.RegisterType("Int", gmp.KindType())
 	eng.RegisterPrim("intZero", func(ctx context.Context, ce gmp.CapEnv, args []gmp.Value) (gmp.Value, gmp.CapEnv, error) {
 		return gmp.ToValue(0), ce, nil
 	})
@@ -66,7 +64,7 @@ func intPrimSetup(eng *gmp.Engine) {
 }
 
 func capEnvSetup(eng *gmp.Engine) {
-	eng.RegisterType("Int", types.KType{})
+	eng.RegisterType("Int", gmp.KindType())
 	eng.RegisterPrim("intAdd", func(ctx context.Context, ce gmp.CapEnv, args []gmp.Value) (gmp.Value, gmp.CapEnv, error) {
 		a := gmp.MustHost[int](args[0])
 		b := gmp.MustHost[int](args[1])
@@ -145,7 +143,7 @@ var stressPrograms = []stressProgram{
 		file: "06_thunk_force.gmp",
 		setup: func(e *gmp.Engine) {
 			eng := e
-			eng.RegisterType("Int", types.KType{})
+			eng.RegisterType("Int", gmp.KindType())
 			counter := 0
 			eng.RegisterPrim("mkVal", func(ctx context.Context, ce gmp.CapEnv, args []gmp.Value) (gmp.Value, gmp.CapEnv, error) {
 				counter++
@@ -233,7 +231,7 @@ var stressPrograms = []stressProgram{
 		file: "10_full_grammar.gmp",
 		setup: func(e *gmp.Engine) {
 			capEnvSetup(e)
-			e.DeclareBinding("seed", types.Con("Int"))
+			e.DeclareBinding("seed", gmp.ConType("Int"))
 			e.RegisterPrim("readS", func(ctx context.Context, ce gmp.CapEnv, args []gmp.Value) (gmp.Value, gmp.CapEnv, error) {
 				v, _ := ce.Get("s")
 				n, _ := v.(int)
@@ -363,7 +361,7 @@ libNot := \b -> case b of { LibTrue -> LibFalse; LibFalse -> LibTrue }
 		name: "literals_arithmetic",
 		file: "18_literals_arithmetic.gmp",
 		setup: func(e *gmp.Engine) {
-			if err := e.Use(stdlib.Num); err != nil {
+			if err := e.Use(gmp.Num); err != nil {
 				panic(err)
 			}
 		},
@@ -384,10 +382,10 @@ libNot := \b -> case b of { LibTrue -> LibFalse; LibFalse -> LibTrue }
 		name: "string_operations",
 		file: "19_string_operations.gmp",
 		setup: func(e *gmp.Engine) {
-			if err := e.Use(stdlib.Num); err != nil {
+			if err := e.Use(gmp.Num); err != nil {
 				panic(err)
 			}
-			if err := e.Use(stdlib.Str); err != nil {
+			if err := e.Use(gmp.Str); err != nil {
 				panic(err)
 			}
 		},
@@ -407,13 +405,13 @@ libNot := \b -> case b of { LibTrue -> LibFalse; LibFalse -> LibTrue }
 		name: "effect_capabilities",
 		file: "20_effect_capabilities.gmp",
 		setup: func(e *gmp.Engine) {
-			if err := e.Use(stdlib.Num); err != nil {
+			if err := e.Use(gmp.Num); err != nil {
 				panic(err)
 			}
-			if err := e.Use(stdlib.Fail); err != nil {
+			if err := e.Use(gmp.Fail); err != nil {
 				panic(err)
 			}
-			if err := e.Use(stdlib.State); err != nil {
+			if err := e.Use(gmp.State); err != nil {
 				panic(err)
 			}
 		},

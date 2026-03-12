@@ -6,7 +6,7 @@ import (
 	"github.com/cwd-k2/gomputation/internal/core"
 	"github.com/cwd-k2/gomputation/internal/errs"
 	"github.com/cwd-k2/gomputation/internal/syntax"
-	"github.com/cwd-k2/gomputation/pkg/types"
+	"github.com/cwd-k2/gomputation/internal/types"
 )
 
 func (ch *Checker) checkDecls(decls []syntax.Decl) *core.Program {
