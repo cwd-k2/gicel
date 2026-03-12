@@ -1355,6 +1355,91 @@ main := (MkProxy :: Proxy True)
 	}
 }
 
+// --- GADT integration tests ---
+
+func TestGADTEvalExpr(t *testing.T) {
+	eng := gmp.NewEngine()
+	eng.EnableRecursion()
+	rt, err := eng.NewRuntime(`
+data Expr a = { LitBool :: Bool -> Expr Bool; Not :: Expr Bool -> Expr Bool }
+
+eval :: Expr Bool -> Bool
+eval := fix (\self -> \e -> case e of {
+  LitBool b -> b;
+  Not inner -> case self inner of { True -> False; False -> True }
+})
+
+main := eval (Not (LitBool True))
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	con, ok := result.Value.(*gmp.ConVal)
+	if !ok || con.Con != "False" {
+		t.Errorf("expected False, got %s", result.Value)
+	}
+}
+
+func TestGADTWithDataKinds(t *testing.T) {
+	eng := gmp.NewEngine()
+	rt, err := eng.NewRuntime(`
+data DBState = Opened | Closed
+data DB s = MkDB
+
+data Action s = { Open :: Action Opened; Close :: Action Closed }
+
+describe :: Action Opened -> DB Opened
+describe := \a -> case a of { Open -> MkDB }
+
+main := describe Open
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	con, ok := result.Value.(*gmp.ConVal)
+	if !ok || con.Con != "MkDB" {
+		t.Errorf("expected MkDB, got %s", result.Value)
+	}
+}
+
+func TestGADTNestedPattern(t *testing.T) {
+	eng := gmp.NewEngine()
+	rt, err := eng.NewRuntime(`
+data Expr a = { LitBool :: Bool -> Expr Bool; Not :: Expr Bool -> Expr Bool }
+
+-- Nested pattern: match on Not (LitBool _)
+isDoubleNeg :: Expr Bool -> Bool
+isDoubleNeg := \e -> case e of {
+  Not inner -> case inner of {
+    Not _ -> True;
+    LitBool _ -> False
+  };
+  LitBool _ -> False
+}
+
+main := isDoubleNeg (Not (Not (LitBool True)))
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	con, ok := result.Value.(*gmp.ConVal)
+	if !ok || con.Con != "True" {
+		t.Errorf("expected True, got %s", result.Value)
+	}
+}
+
 func TestTypeHelpers(t *testing.T) {
 	// Con constructs a type constructor.
 	intTy := types.Con("Int")
