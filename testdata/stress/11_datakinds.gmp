@@ -1,0 +1,22 @@
+-- DataKinds: state machine with phantom type indices
+data DBState = Opened | Closed
+data DB s = MkDB
+
+data Action s = MkAction
+
+-- Type-safe open/close using promoted constructors as kinds.
+open :: DB Closed -> DB Opened
+open := \_ -> MkDB
+
+close :: DB Opened -> DB Closed
+close := \_ -> MkDB
+
+-- Chain multiple state transitions.
+roundTrip :: DB Closed -> DB Closed
+roundTrip := \db -> close (open db)
+
+-- Multi-step pipeline.
+pipeline :: DB Closed -> DB Closed
+pipeline := \db -> roundTrip (roundTrip (roundTrip db))
+
+main := pipeline MkDB

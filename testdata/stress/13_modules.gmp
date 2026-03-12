@@ -1,0 +1,4 @@
+-- Module import test: uses types from imported Lib module.
+import Lib
+
+main := libNot (libNot libTrue)

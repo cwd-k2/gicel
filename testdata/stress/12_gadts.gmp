@@ -1,0 +1,24 @@
+-- GADTs: type-safe expression DSL
+data Expr a = {
+  LitBool :: Bool -> Expr Bool;
+  Not     :: Expr Bool -> Expr Bool;
+  And     :: Expr Bool -> Expr Bool -> Expr Bool
+}
+
+-- Evaluate with type refinement in each branch.
+eval :: Expr Bool -> Bool
+eval := fix (\self -> \e -> case e of {
+  LitBool b -> b;
+  Not inner -> case self inner of { True -> False; False -> True };
+  And l r -> case self l of {
+    False -> False;
+    True -> self r
+  }
+})
+
+-- Build a complex expression tree.
+expr1 := And (LitBool True) (Not (LitBool False))
+expr2 := Not (And (LitBool False) (LitBool True))
+expr3 := And expr1 expr2
+
+main := Pair (eval expr1) (eval expr3)

@@ -252,6 +252,64 @@ var stressPrograms = []stressProgram{
 			}
 		},
 	},
+	{
+		name: "datakinds",
+		file: "11_datakinds.gmp",
+		setup: func(e *gmp.Engine) {},
+		check: func(t *testing.T, v gmp.Value) {
+			assertCon(t, v, "MkDB") // pipeline returns MkDB
+		},
+	},
+	{
+		name: "gadts",
+		file: "12_gadts.gmp",
+		setup: func(e *gmp.Engine) {
+			e.EnableRecursion()
+			e.SetStepLimit(100_000_000)
+		},
+		check: func(t *testing.T, v gmp.Value) {
+			con, ok := v.(*gmp.ConVal)
+			if !ok || con.Con != "Pair" {
+				t.Errorf("expected Pair, got %s", v)
+				return
+			}
+			// expr1 = And True (Not False) = And True True = True
+			assertCon(t, con.Args[0], "True")
+		},
+	},
+	{
+		name: "modules",
+		file: "13_modules.gmp",
+		setup: func(e *gmp.Engine) {
+			e.NoPrelude()
+			err := e.RegisterModule("Lib", `
+data LibBool = LibTrue | LibFalse
+libTrue := LibTrue
+libNot :: LibBool -> LibBool
+libNot := \b -> case b of { LibTrue -> LibFalse; LibFalse -> LibTrue }
+`)
+			if err != nil {
+				panic(err)
+			}
+		},
+		check: func(t *testing.T, v gmp.Value) {
+			assertCon(t, v, "LibTrue") // double negation
+		},
+	},
+	{
+		name: "stdlib",
+		file: "14_stdlib.gmp",
+		setup: func(e *gmp.Engine) {},
+		check: func(t *testing.T, v gmp.Value) {
+			// main = Pair True (Pair True (Pair False (Pair True (Pair (Just False) True))))
+			con, ok := v.(*gmp.ConVal)
+			if !ok || con.Con != "Pair" {
+				t.Errorf("expected Pair, got %s", v)
+				return
+			}
+			assertCon(t, con.Args[0], "True") // eq True True
+		},
+	},
 }
 
 func copyCaps(m map[string]any) map[string]any {
