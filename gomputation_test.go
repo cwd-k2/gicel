@@ -1277,6 +1277,84 @@ main := coerce True
 // I. Type helpers
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// DK. DataKinds — end-to-end integration
+// ---------------------------------------------------------------------------
+
+func TestDataKindsDBState(t *testing.T) {
+	eng := gmp.NewEngine()
+	rt, err := eng.NewRuntime(`
+data DBState = Opened | Closed
+data DB s = MkDB
+
+open :: DB Closed -> DB Opened
+open := \_ -> MkDB
+
+close :: DB Opened -> DB Closed
+close := \_ -> MkDB
+
+main := close (open (MkDB :: DB Closed))
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	con, ok := result.Value.(*gmp.ConVal)
+	if !ok || con.Con != "MkDB" {
+		t.Errorf("expected MkDB, got %s", result.Value)
+	}
+}
+
+func TestDataKindsInRow(t *testing.T) {
+	eng := gmp.NewEngine()
+	eng.RegisterType("Int", types.KType{})
+	eng.RegisterPrim("readDB", func(ctx context.Context, ce gmp.CapEnv, args []gmp.Value) (gmp.Value, gmp.CapEnv, error) {
+		return gmp.ToValue(42), ce, nil
+	})
+	rt, err := eng.NewRuntime(`
+data DBState = Opened | Closed
+
+readDB :: Unit -> Computation { db : Int } { db : Int } Int
+readDB := assumption
+
+main :: Computation { db : Int } { db : Int } Int
+main := do { readDB Unit }
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := rt.RunContext(context.Background(), map[string]any{"db": 0}, nil, "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	v := gmp.MustHost[int](result.Value)
+	if v != 42 {
+		t.Errorf("expected 42, got %d", v)
+	}
+}
+
+func TestDataKindsBoolPromotion(t *testing.T) {
+	eng := gmp.NewEngine()
+	rt, err := eng.NewRuntime(`
+data Proxy s = MkProxy
+main := (MkProxy :: Proxy True)
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	con, ok := result.Value.(*gmp.ConVal)
+	if !ok || con.Con != "MkProxy" {
+		t.Errorf("expected MkProxy, got %s", result.Value)
+	}
+}
+
 func TestTypeHelpers(t *testing.T) {
 	// Con constructs a type constructor.
 	intTy := types.Con("Int")

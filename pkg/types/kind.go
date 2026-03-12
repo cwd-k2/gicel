@@ -20,6 +20,10 @@ type KRow struct{}
 // KConstraint is the kind of type class constraints.
 type KConstraint struct{}
 
+// KData is the kind of promoted data types (DataKinds).
+// E.g., `data DBState = Opened | Closed` promotes to kind `DBState`.
+type KData struct{ Name string }
+
 // KArrow is the kind of type constructors (K1 -> K2).
 type KArrow struct {
 	From Kind
@@ -29,6 +33,7 @@ type KArrow struct {
 func (KType) kindNode()       {}
 func (KRow) kindNode()        {}
 func (KConstraint) kindNode() {}
+func (KData) kindNode()       {}
 func (*KArrow) kindNode()     {}
 
 func (KType) Equal(other Kind) bool {
@@ -46,6 +51,11 @@ func (KConstraint) Equal(other Kind) bool {
 	return ok
 }
 
+func (k KData) Equal(other Kind) bool {
+	o, ok := other.(KData)
+	return ok && k.Name == o.Name
+}
+
 func (k *KArrow) Equal(other Kind) bool {
 	o, ok := other.(*KArrow)
 	if !ok {
@@ -57,6 +67,7 @@ func (k *KArrow) Equal(other Kind) bool {
 func (KType) String() string       { return "Type" }
 func (KRow) String() string        { return "Row" }
 func (KConstraint) String() string { return "Constraint" }
+func (k KData) String() string     { return k.Name }
 func (k *KArrow) String() string {
 	from := k.From.String()
 	if _, ok := k.From.(*KArrow); ok {

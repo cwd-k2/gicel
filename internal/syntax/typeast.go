@@ -82,6 +82,12 @@ type KindExprArrow struct {
 	S    span.Span
 }
 
+// KindExprName is a user-defined kind name (DataKinds promotion).
+type KindExprName struct {
+	Name string
+	S    span.Span
+}
+
 func (*TyExprVar) typeExprNode()    {}
 func (*TyExprCon) typeExprNode()    {}
 func (*TyExprApp) typeExprNode()    {}
@@ -104,8 +110,10 @@ func (*KindExprType) kindExprNode()       {}
 func (*KindExprRow) kindExprNode()        {}
 func (*KindExprConstraint) kindExprNode() {}
 func (*KindExprArrow) kindExprNode()      {}
+func (*KindExprName) kindExprNode()       {}
 
 func (k *KindExprType) Span() span.Span       { return k.S }
 func (k *KindExprRow) Span() span.Span        { return k.S }
 func (k *KindExprConstraint) Span() span.Span { return k.S }
 func (k *KindExprArrow) Span() span.Span      { return k.S }
+func (k *KindExprName) Span() span.Span       { return k.S }

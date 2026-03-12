@@ -56,6 +56,8 @@ type Checker struct {
 	classes          map[string]*ClassInfo
 	instances        []*InstanceInfo
 	instancesByClass map[string][]*InstanceInfo
+	promotedKinds    map[string]types.Kind // DataKinds: data name → KData
+	promotedCons     map[string]types.Kind // DataKinds: nullary con → KData
 	deferred         []deferredConstraint
 	depth            int
 }
@@ -100,6 +102,8 @@ func Check(prog *syntax.AstProgram, source *span.Source, config *CheckConfig) (*
 		aliases:          make(map[string]*aliasInfo),
 		classes:          make(map[string]*ClassInfo),
 		instancesByClass: make(map[string][]*InstanceInfo),
+		promotedKinds:    make(map[string]types.Kind),
+		promotedCons:     make(map[string]types.Kind),
 	}
 	ch.unifier = NewUnifierShared(&ch.freshID)
 	ch.initContext()

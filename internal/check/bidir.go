@@ -453,6 +453,8 @@ func (ch *Checker) resolveTypeExpr(texpr syntax.TypeExpr) types.Type {
 		if info, ok := ch.aliases[t.Name]; ok && len(info.params) == 0 {
 			return info.body
 		}
+		// DataKinds: if the name is a promoted constructor, treat it as a TyCon
+		// (it will be kind-checked later; for now it's just a name in type position).
 		return &types.TyCon{Name: t.Name, S: t.S}
 	case *syntax.TyExprApp:
 		fun := ch.resolveTypeExpr(t.Fun)
@@ -668,6 +670,11 @@ func (ch *Checker) resolveKindExpr(k syntax.KindExpr) types.Kind {
 		return types.KConstraint{}
 	case *syntax.KindExprArrow:
 		return &types.KArrow{From: ch.resolveKindExpr(ke.From), To: ch.resolveKindExpr(ke.To)}
+	case *syntax.KindExprName:
+		if pk, ok := ch.promotedKinds[ke.Name]; ok {
+			return pk
+		}
+		return types.KType{}
 	default:
 		return types.KType{}
 	}

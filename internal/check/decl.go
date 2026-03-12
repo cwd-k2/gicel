@@ -113,6 +113,15 @@ func (ch *Checker) processDataDecl(d *syntax.DeclData, prog *core.Program) {
 	}
 
 	prog.DataDecls = append(prog.DataDecls, coreDecl)
+
+	// DataKinds: promote nullary constructors to type level.
+	dataKind := types.KData{Name: d.Name}
+	ch.promotedKinds[d.Name] = dataKind
+	for _, con := range d.Cons {
+		if len(con.Fields) == 0 {
+			ch.promotedCons[con.Name] = dataKind
+		}
+	}
 }
 
 // typeArity counts the number of arrow arguments in a type,

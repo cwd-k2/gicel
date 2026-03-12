@@ -782,7 +782,7 @@ func (p *Parser) parseKindExpr() KindExpr {
 	return left
 }
 
-// parseKindAtom parses an atomic kind: Type, Row, or (K).
+// parseKindAtom parses an atomic kind: Type, Row, Constraint, user-defined kind, or (K).
 func (p *Parser) parseKindAtom() KindExpr {
 	switch {
 	case p.peek().Kind == TokUpper && p.peek().Text == "Type":
@@ -797,6 +797,11 @@ func (p *Parser) parseKindAtom() KindExpr {
 		tok := p.peek()
 		p.advance()
 		return &KindExprConstraint{S: tok.S}
+	case p.peek().Kind == TokUpper:
+		// DataKinds: user-defined kind name (e.g., DBState, Bool)
+		tok := p.peek()
+		p.advance()
+		return &KindExprName{Name: tok.Text, S: tok.S}
 	case p.peek().Kind == TokLParen:
 		p.advance()
 		k := p.parseKindExpr()
