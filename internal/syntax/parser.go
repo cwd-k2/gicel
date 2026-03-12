@@ -265,20 +265,36 @@ func (p *Parser) parseClassDecl() *DeclClass {
 		supers = append(supers, superExpr)
 		p.advance() // consume =>
 
-		// Now parse the actual class name and params.
-		className := p.expectUpper()
-		var params []TyBinder
-		for p.peek().Kind == TokLower {
-			pName := p.peek().Text
-			pS := p.peek().S
-			p.advance()
-			params = append(params, TyBinder{Name: pName, S: pS})
-		}
-		// Parse methods block.
-		methods := p.parseClassMethods()
-		return &DeclClass{
-			Supers: supers, Name: className, TyParams: params, Methods: methods,
-			S: span.Span{Start: start, End: p.prevEnd()},
+		// Support multiple superclass constraints: Super1 a => Super2 a => ... => ClassName params
+		for {
+			nextName := p.expectUpper()
+			var nextArgs []TypeExpr
+			for p.peek().Kind == TokLower {
+				tok := p.peek()
+				p.advance()
+				nextArgs = append(nextArgs, &TyExprVar{Name: tok.Text, S: tok.S})
+			}
+			if p.peek().Kind == TokFatArrow {
+				// Another superclass constraint.
+				var nextExpr TypeExpr = &TyExprCon{Name: nextName, S: span.Span{Start: start, End: p.prevEnd()}}
+				for _, arg := range nextArgs {
+					nextExpr = &TyExprApp{Fun: nextExpr, Arg: arg, S: span.Span{Start: start, End: arg.Span().End}}
+				}
+				supers = append(supers, nextExpr)
+				p.advance() // consume =>
+				continue
+			}
+			// This is the actual class name.
+			var params []TyBinder
+			for _, arg := range nextArgs {
+				v := arg.(*TyExprVar)
+				params = append(params, TyBinder{Name: v.Name, S: v.S})
+			}
+			methods := p.parseClassMethods()
+			return &DeclClass{
+				Supers: supers, Name: nextName, TyParams: params, Methods: methods,
+				S: span.Span{Start: start, End: p.prevEnd()},
+			}
 		}
 	}
 
