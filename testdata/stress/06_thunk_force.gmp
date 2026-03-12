@@ -1,0 +1,35 @@
+mkVal :: Unit -> Computation {} {} Int
+mkVal := assumption
+addInts :: Int -> Int -> Int
+addInts := assumption
+
+chainThunk :: Thunk {} {} Int -> Computation {} {} (Thunk {} {} Int)
+chainThunk := \t -> do {
+  inner := thunk (do {
+    x <- force t;
+    y <- mkVal Unit;
+    pure (addInts x y)
+  });
+  pure inner
+}
+
+selectForce :: Bool -> Thunk {} {} Int -> Thunk {} {} Int -> Computation {} {} Int
+selectForce := \which -> \t1 -> \t2 -> case which of {
+  True  -> force t1;
+  False -> force t2
+}
+
+main := do {
+  base <- mkVal Unit;
+  t0 := thunk (pure base);
+  t1 <- chainThunk t0;
+  t2 <- chainThunk t1;
+  t3 <- chainThunk t2;
+  t4 <- chainThunk t3;
+  t5 <- chainThunk t4;
+  t6 <- chainThunk t5;
+  t7 <- chainThunk t6;
+  t8 <- chainThunk t7;
+  t9 <- chainThunk t8;
+  force t9
+}

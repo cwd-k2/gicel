@@ -1,0 +1,37 @@
+getN :: forall (r : Row). Unit -> Computation { n : Int | r } { n : Int | r } Int
+getN := assumption
+incN :: forall (r : Row). Unit -> Computation { n : Int | r } { n : Int | r } Unit
+incN := assumption
+addN :: forall (r : Row). Int -> Computation { n : Int | r } { n : Int | r } Unit
+addN := assumption
+
+step :: Unit -> Computation { n : Int } { n : Int } Unit
+step := \_ -> do {
+  v <- getN Unit;
+  _ <- addN v;
+  incN Unit
+}
+
+main := do {
+  _ <- step Unit;
+  _ <- step Unit;
+  _ <- step Unit;
+  _ <- step Unit;
+  _ <- step Unit;
+  _ <- step Unit;
+  _ <- step Unit;
+  _ <- step Unit;
+  _ <- step Unit;
+  _ <- step Unit;
+  _ <- step Unit;
+  _ <- step Unit;
+  _ <- step Unit;
+  _ <- step Unit;
+  _ <- step Unit;
+  _ <- step Unit;
+  _ <- step Unit;
+  _ <- step Unit;
+  _ <- step Unit;
+  _ <- step Unit;
+  getN Unit
+}

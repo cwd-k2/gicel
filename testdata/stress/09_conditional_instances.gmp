@@ -1,0 +1,72 @@
+class Eq a { eq :: a -> a -> Bool }
+
+instance Eq Bool {
+  eq := \x -> \y -> case x of {
+    True  -> y;
+    False -> case y of { True -> False; False -> True }
+  }
+}
+
+instance Eq Unit { eq := \_ -> \_ -> True }
+
+instance Eq a => Eq (Maybe a) {
+  eq := \x -> \y -> case x of {
+    Nothing -> case y of { Nothing -> True; Just _ -> False };
+    Just a  -> case y of { Nothing -> False; Just b -> eq a b }
+  }
+}
+
+instance (Eq a) => (Eq b) => Eq (Pair a b) {
+  eq := \x -> \y -> case x of {
+    Pair a1 b1 -> case y of {
+      Pair a2 b2 -> case eq a1 a2 of {
+        True  -> eq b1 b2;
+        False -> False
+      }
+    }
+  }
+}
+
+instance (Eq a) => (Eq b) => Eq (Result a b) {
+  eq := \x -> \y -> case x of {
+    Ok a  -> case y of { Ok b -> eq a b;  Err _ -> False };
+    Err a -> case y of { Ok _ -> False; Err b -> eq a b }
+  }
+}
+
+neq :: forall a. Eq a => a -> a -> Bool
+neq := \x -> \y -> case eq x y of { True -> False; False -> True }
+
+eqMaybeBool :: Maybe Bool -> Maybe Bool -> Bool
+eqMaybeBool := \x -> \y -> eq x y
+
+eqPairBool :: Pair Bool Bool -> Pair Bool Bool -> Bool
+eqPairBool := \x -> \y -> eq x y
+
+eqResultBool :: Result Bool Bool -> Result Bool Bool -> Bool
+eqResultBool := \x -> \y -> eq x y
+
+eqDeep :: Maybe (Pair Bool (Result Unit Bool)) -> Maybe (Pair Bool (Result Unit Bool)) -> Bool
+eqDeep := \x -> \y -> eq x y
+
+val1 := Just (Pair True (Ok False))
+val2 := Just (Pair True (Ok False))
+val3 := Just (Pair True (Ok True))
+val4 := Nothing
+
+eqTest1 := eqDeep val1 val2
+eqTest2 := eqDeep val1 val3
+eqTest3 := eqDeep val1 val4
+eqTest4 := eqDeep val4 val4
+
+eqMaybe1 := eqMaybeBool (Just True) (Just True)
+eqMaybe2 := eqMaybeBool (Just True) (Just False)
+eqMaybe3 := eqMaybeBool Nothing Nothing
+
+eqPair1 := eqPairBool (Pair True False) (Pair True False)
+eqPair2 := eqPairBool (Pair True False) (Pair False True)
+
+eqResult1 := eqResultBool (Ok True) (Ok True)
+eqResult2 := eqResultBool (Ok True) (Err False)
+
+main := Pair eqTest1 (Pair eqTest2 (Pair eqTest3 eqTest4))

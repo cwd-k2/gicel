@@ -1,0 +1,82 @@
+data Color = Red | Green | Blue | Yellow | Cyan | Magenta | White | Black
+data Shape = Circle | Square | Triangle | Pentagon | Hexagon | Octagon
+data Day = Mon | Tue | Wed | Thu | Fri | Sat | Sun
+data Suit = Spade | Heart | Diamond | Club
+data Prio = Low | Medium | High | Critical | Blocker
+data Dir = North | South | East | West | Up | Down
+
+colorToDay :: Color -> Day
+colorToDay := \c -> case c of {
+  Red     -> Mon; Green   -> Tue; Blue    -> Wed;
+  Yellow  -> Thu; Cyan    -> Fri; Magenta -> Sat;
+  White   -> Sun; Black   -> Mon
+}
+
+dayToShape :: Day -> Shape
+dayToShape := \d -> case d of {
+  Mon -> Circle;   Tue -> Square;    Wed -> Triangle;
+  Thu -> Pentagon;  Fri -> Hexagon;   Sat -> Octagon;
+  Sun -> Circle
+}
+
+shapeToColor :: Shape -> Color
+shapeToColor := \s -> case s of {
+  Circle   -> Red;    Square   -> Green;  Triangle -> Blue;
+  Pentagon -> Yellow; Hexagon  -> Cyan;   Octagon  -> Magenta
+}
+
+suitToPrio :: Suit -> Prio
+suitToPrio := \s -> case s of {
+  Spade -> Critical; Heart -> High; Diamond -> Medium; Club -> Low
+}
+
+prioToDir :: Prio -> Dir
+prioToDir := \p -> case p of {
+  Low -> South; Medium -> East; High -> North; Critical -> Up; Blocker -> Down
+}
+
+dirToBool :: Dir -> Bool
+dirToBool := \d -> case d of {
+  North -> True;  South -> False; East -> True;
+  West  -> False; Up    -> True;  Down -> False
+}
+
+not := \b -> case b of { True -> False; False -> True }
+
+colorToBool :: Color -> Bool
+colorToBool := \c -> case c of {
+  Red -> True; Green -> False; Blue -> True; Yellow -> False;
+  Cyan -> True; Magenta -> False; White -> True; Black -> False
+}
+
+pairMatch :: Color -> Shape -> Bool
+pairMatch := \c -> \s -> case c of {
+  Red   -> case s of { Circle -> True; _ -> False };
+  Green -> case s of { Square -> True; _ -> False };
+  Blue  -> case s of { Triangle -> True; _ -> False };
+  _     -> False
+}
+
+tripleChain :: Color -> Bool
+tripleChain := \c -> dirToBool (prioToDir (suitToPrio (case c of {
+  Red -> Spade; Green -> Heart; Blue -> Diamond;
+  Yellow -> Club; Cyan -> Spade; Magenta -> Heart;
+  White -> Diamond; Black -> Club
+})))
+
+chainAll :: Color -> Shape
+chainAll := \c -> dayToShape (colorToDay c)
+
+matchColor :: Color -> Color -> Bool
+matchColor := \a -> \b -> case a of {
+  Red     -> case b of { Red -> True; _ -> False };
+  Green   -> case b of { Green -> True; _ -> False };
+  Blue    -> case b of { Blue -> True; _ -> False };
+  Yellow  -> case b of { Yellow -> True; _ -> False };
+  Cyan    -> case b of { Cyan -> True; _ -> False };
+  Magenta -> case b of { Magenta -> True; _ -> False };
+  White   -> case b of { White -> True; _ -> False };
+  Black   -> case b of { Black -> True; _ -> False }
+}
+
+main := pairMatch (shapeToColor (chainAll Cyan)) (chainAll Cyan)

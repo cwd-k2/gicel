@@ -1,0 +1,76 @@
+intZero :: Unit -> Int
+intZero := assumption
+intSucc :: Int -> Int
+intSucc := assumption
+intAdd :: Int -> Int -> Int
+intAdd := assumption
+intEq :: Int -> Int -> Bool
+intEq := assumption
+
+length :: forall a. List a -> Int
+length := fix (\self -> \xs -> case xs of {
+  Nil       -> intZero Unit;
+  Cons _ rest -> intSucc (self rest)
+})
+
+map :: forall a b. (a -> b) -> List a -> List b
+map := \f -> fix (\self -> \xs -> case xs of {
+  Nil        -> Nil;
+  Cons x rest -> Cons (f x) (self rest)
+})
+
+append :: forall a. List a -> List a -> List a
+append := \xs -> \ys -> fix (\self -> \zs -> case zs of {
+  Nil        -> ys;
+  Cons z rest -> Cons z (self rest)
+}) xs
+
+filter :: forall a. (a -> Bool) -> List a -> List a
+filter := \p -> fix (\self -> \xs -> case xs of {
+  Nil        -> Nil;
+  Cons x rest -> case p x of {
+    True  -> Cons x (self rest);
+    False -> self rest
+  }
+})
+
+reverse :: forall a. List a -> List a
+reverse := \xs -> fix (\go -> \acc -> \ys -> case ys of {
+  Nil        -> acc;
+  Cons y rest -> go (Cons y acc) rest
+}) Nil xs
+
+take :: forall a. Int -> List a -> List a
+take := \n -> fix (\self -> \xs -> case intEq n (intZero Unit) of {
+  True  -> Nil;
+  False -> case xs of {
+    Nil        -> Nil;
+    Cons x rest -> Cons x (self rest)
+  }
+})
+
+data Tree a = Leaf a | Branch (Tree a) (Tree a)
+
+treeSize :: forall a. Tree a -> Int
+treeSize := fix (\self -> \t -> case t of {
+  Leaf _     -> intSucc (intZero Unit);
+  Branch l r -> intAdd (self l) (self r)
+})
+
+treeMap :: forall a b. (a -> b) -> Tree a -> Tree b
+treeMap := \f -> fix (\self -> \t -> case t of {
+  Leaf x     -> Leaf (f x);
+  Branch l r -> Branch (self l) (self r)
+})
+
+not := \b -> case b of { True -> False; False -> True }
+
+list1 := Cons True (Cons False (Cons True (Cons False (Cons True Nil))))
+mapped := map not list1
+filtered := filter (\x -> x) mapped
+combined := append filtered (reverse list1)
+
+tree1 := Branch (Branch (Leaf True) (Leaf False)) (Leaf True)
+mappedTree := treeMap not tree1
+
+main := Pair (length combined) (treeSize mappedTree)

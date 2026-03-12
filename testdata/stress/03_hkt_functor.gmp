@@ -1,0 +1,48 @@
+data Tree a = Leaf a | Branch (Tree a) (Tree a)
+
+class Functor f { fmap :: forall a b. (a -> b) -> f a -> f b }
+
+instance Functor Maybe {
+  fmap := \g -> \mx -> case mx of {
+    Nothing -> Nothing;
+    Just x  -> Just (g x)
+  }
+}
+
+instance Functor Tree {
+  fmap := \g -> \t -> case t of {
+    Leaf x       -> Leaf (g x);
+    Branch l r   -> Branch (fmap g l) (fmap g r)
+  }
+}
+
+class Functor f => Applicative f {
+  wrap :: forall a. a -> f a
+}
+
+instance Applicative Maybe {
+  wrap := \x -> Just x
+}
+
+not := \b -> case b of { True -> False; False -> True }
+
+liftF :: forall f a b. Functor f => (a -> b) -> f a -> f b
+liftF := \g -> \fa -> fmap g fa
+
+doubleMap :: forall f a b c. Functor f => (a -> b) -> (b -> c) -> f a -> f c
+doubleMap := \g -> \h -> \fa -> fmap h (fmap g fa)
+
+applyNot :: forall f. Functor f => f Bool -> f Bool
+applyNot := \fb -> fmap not fb
+
+treeOfBools := Branch (Leaf True) (Branch (Leaf False) (Leaf True))
+
+mappedTree := fmap not treeOfBools
+
+main := case mappedTree of {
+  Branch l _ -> case l of {
+    Leaf v -> v;
+    _      -> True
+  };
+  Leaf v -> v
+}

@@ -1,0 +1,61 @@
+data Ordering = LT | EQ | GT
+
+class Show a { tag :: a -> Bool }
+class Show a => Eq a { eq :: a -> a -> Bool }
+class Eq a => Ord a { compare :: a -> a -> Ordering }
+
+instance Show Bool { tag := \_ -> True }
+instance Show Unit { tag := \_ -> True }
+instance Show Ordering {
+  tag := \x -> case x of { LT -> True; EQ -> True; GT -> True }
+}
+
+instance Eq Bool {
+  eq := \x -> \y -> case x of {
+    True  -> y;
+    False -> case y of { True -> False; False -> True }
+  }
+}
+instance Eq Unit { eq := \_ -> \_ -> True }
+instance Eq Ordering {
+  eq := \x -> \y -> case x of {
+    LT -> case y of { LT -> True; _ -> False };
+    EQ -> case y of { EQ -> True; _ -> False };
+    GT -> case y of { GT -> True; _ -> False }
+  }
+}
+
+instance Ord Bool {
+  compare := \x -> \y -> case x of {
+    False -> case y of { False -> EQ; True -> LT };
+    True  -> case y of { False -> GT; True -> EQ }
+  }
+}
+instance Ord Unit { compare := \_ -> \_ -> EQ }
+instance Ord Ordering {
+  compare := \x -> \y -> case x of {
+    LT -> case y of { LT -> EQ; _ -> LT };
+    EQ -> case y of { LT -> GT; EQ -> EQ; GT -> LT };
+    GT -> case y of { GT -> EQ; _ -> GT }
+  }
+}
+
+useShow :: forall a. Eq a => a -> Bool
+useShow := \x -> tag x
+
+useEq :: forall a. Ord a => a -> a -> Bool
+useEq := \x -> \y -> eq x y
+
+compareAndEq :: forall a. Ord a => a -> a -> Pair Ordering Bool
+compareAndEq := \x -> \y -> Pair (compare x y) (eq x y)
+
+showViaOrd :: forall a. Ord a => a -> Bool
+showViaOrd := \x -> tag x
+
+isEqOrdering :: forall a. Ord a => a -> a -> Bool
+isEqOrdering := \x -> \y -> case compare x y of {
+  EQ -> True;
+  _  -> False
+}
+
+main := isEqOrdering True True
