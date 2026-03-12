@@ -123,6 +123,20 @@ func (t *TyThunk) Children() []Type  { return []Type{t.Pre, t.Post, t.Result} }
 func (t *TyMeta) Children() []Type   { return nil }
 func (t *TyError) Children() []Type  { return nil }
 
+// UnwindApp decomposes a chain of TyApp into the head type and arguments.
+// E.g., TyApp(TyApp(TyCon("F"), A), B) → (TyCon("F"), [A, B]).
+func UnwindApp(ty Type) (Type, []Type) {
+	var args []Type
+	for {
+		app, ok := ty.(*TyApp)
+		if !ok {
+			return ty, args
+		}
+		args = append([]Type{app.Arg}, args...)
+		ty = app.Fun
+	}
+}
+
 func (t *TyRow) Children() []Type {
 	ch := make([]Type, 0, len(t.Fields)+1)
 	for _, f := range t.Fields {

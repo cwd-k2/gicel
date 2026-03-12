@@ -249,24 +249,26 @@ func (e *Engine) NewRuntime(source string) (*Runtime, error) {
 	}
 
 	return &Runtime{
-		prog:       prog,
-		prims:      e.prims,
-		stepLimit:  e.stepLimit,
-		depthLimit: e.depthLimit,
-		traceHook:  e.traceHook,
-		bindings:   copyTypeMap(e.bindings),
+		prog:          prog,
+		prims:         e.prims,
+		stepLimit:     e.stepLimit,
+		depthLimit:    e.depthLimit,
+		traceHook:     e.traceHook,
+		bindings:      copyTypeMap(e.bindings),
+		gatedBuiltins: copyBoolMap(e.gatedBuiltins),
 	}, nil
 }
 
 // Runtime is an immutable, compiled Gomputation program.
 // It is goroutine-safe and can be executed concurrently.
 type Runtime struct {
-	prog       *core.Program
-	prims      *eval.PrimRegistry
-	stepLimit  int
-	depthLimit int
-	traceHook  eval.TraceHook
-	bindings   map[string]types.Type
+	prog          *core.Program
+	prims         *eval.PrimRegistry
+	stepLimit     int
+	depthLimit    int
+	traceHook     eval.TraceHook
+	bindings      map[string]types.Type
+	gatedBuiltins map[string]bool
 }
 
 // Program returns the compiled Core IR for debugging/inspection.
@@ -315,14 +317,46 @@ func (r *Runtime) buildEnv(bindings map[string]Value) (*eval.Env, error) {
 			Body:  &core.App{Fun: &core.Var{Name: "_f"}, Arg: &core.Var{Name: "_comp"}},
 		},
 	})
-	env = env.Extend("thunk", &eval.Closure{
-		Env: eval.EmptyEnv(), Param: "_comp",
-		Body: &core.Thunk{Comp: &core.Var{Name: "_comp"}},
-	})
 	env = env.Extend("force", &eval.Closure{
 		Env: eval.EmptyEnv(), Param: "_thk",
 		Body: &core.Force{Expr: &core.Var{Name: "_thk"}},
 	})
+
+	// Gated built-ins: rec and fix (enabled via EnableRecursion).
+	if r.gatedBuiltins["fix"] {
+		// fix f = letrec x = \arg -> (f x) arg in x
+		// Standard strict-language fixpoint using knot-tying.
+		env = env.Extend("fix", &eval.Closure{
+			Env: eval.EmptyEnv(), Param: "_f",
+			Body: &core.LetRec{
+				Bindings: []core.Binding{{
+					Name: "_x",
+					Expr: &core.Lam{Param: "_arg", Body: &core.App{
+						Fun: &core.App{Fun: &core.Var{Name: "_f"}, Arg: &core.Var{Name: "_x"}},
+						Arg: &core.Var{Name: "_arg"},
+					}},
+				}},
+				Body: &core.Var{Name: "_x"},
+			},
+		})
+	}
+	if r.gatedBuiltins["rec"] {
+		// rec f = letrec x = \arg -> (f x) arg in x
+		// Same implementation as fix; the type system enforces pre = post.
+		env = env.Extend("rec", &eval.Closure{
+			Env: eval.EmptyEnv(), Param: "_f",
+			Body: &core.LetRec{
+				Bindings: []core.Binding{{
+					Name: "_x",
+					Expr: &core.Lam{Param: "_arg", Body: &core.App{
+						Fun: &core.App{Fun: &core.Var{Name: "_f"}, Arg: &core.Var{Name: "_x"}},
+						Arg: &core.Var{Name: "_arg"},
+					}},
+				}},
+				Body: &core.Var{Name: "_x"},
+			},
+		})
+	}
 
 	// Constructors.
 	for _, d := range r.prog.DataDecls {

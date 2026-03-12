@@ -8,15 +8,35 @@ import (
 
 // Unifier manages type unification.
 type Unifier struct {
-	soln   map[int]types.Type
-	labels map[int]map[string]struct{}
+	soln    map[int]types.Type
+	labels  map[int]map[string]struct{}
+	freshID *int
 }
 
+// NewUnifier creates a Unifier with its own internal fresh ID counter.
 func NewUnifier() *Unifier {
+	id := 0
 	return &Unifier{
-		soln:   make(map[int]types.Type),
-		labels: make(map[int]map[string]struct{}),
+		soln:    make(map[int]types.Type),
+		labels:  make(map[int]map[string]struct{}),
+		freshID: &id,
 	}
+}
+
+// NewUnifierShared creates a Unifier that shares a fresh ID counter
+// with the calling Checker, ensuring no ID collisions.
+func NewUnifierShared(freshID *int) *Unifier {
+	return &Unifier{
+		soln:    make(map[int]types.Type),
+		labels:  make(map[int]map[string]struct{}),
+		freshID: freshID,
+	}
+}
+
+// freshMeta allocates a fresh metavariable of the given kind.
+func (u *Unifier) freshMeta(k types.Kind) *types.TyMeta {
+	*u.freshID++
+	return &types.TyMeta{ID: *u.freshID, Kind: k}
 }
 
 // Solve returns the current solution for a metavariable.
@@ -148,6 +168,17 @@ func (u *Unifier) solveMeta(m *types.TyMeta, t types.Type) error {
 	if u.occursIn(m.ID, t) {
 		return fmt.Errorf("infinite type: ?%d occurs in %s", m.ID, types.Pretty(t))
 	}
+	// Label uniqueness: if this meta has a label context, verify the
+	// solution doesn't introduce duplicate labels (spec §8, §6.3).
+	if ctx, ok := u.labels[m.ID]; ok {
+		if row, ok := t.(*types.TyRow); ok {
+			for _, f := range row.Fields {
+				if _, dup := ctx[f.Label]; dup {
+					return fmt.Errorf("duplicate label %q in row", f.Label)
+				}
+			}
+		}
+	}
 	u.soln[m.ID] = t
 	return nil
 }
@@ -171,6 +202,10 @@ func (u *Unifier) occursIn(id int, t types.Type) bool {
 func (u *Unifier) unifyRows(r1, r2 *types.TyRow) error {
 	r1 = types.Normalize(r1)
 	r2 = types.Normalize(r2)
+
+	// Register label contexts for open-row tails (spec §8: label uniqueness preservation).
+	u.registerRowLabels(r1)
+	u.registerRowLabels(r2)
 
 	shared, onlyLeft, onlyRight := classifyFields(r1.Fields, r2.Fields)
 
@@ -199,13 +234,15 @@ func (u *Unifier) unifyRows(r1, r2 *types.TyRow) error {
 		}
 		return u.solveRowTail(r2.Tail, collectFields(r1, onlyLeft), nil)
 	default:
-		// Open-Open: introduce fresh row variable.
-		fresh := &types.TyMeta{ID: -1} // placeholder
-		_ = fresh
-		if err := u.solveRowTail(r1.Tail, collectFields(r2, onlyRight), r2.Tail); err != nil {
+		// Open-Open: introduce fresh row metavariable.
+		// Given { shared, onlyLeft | r1.Tail } ~ { shared, onlyRight | r2.Tail }:
+		//   r1.Tail = { onlyRight | r_fresh }
+		//   r2.Tail = { onlyLeft  | r_fresh }
+		rFresh := u.freshMeta(types.KRow{})
+		if err := u.solveRowTail(r1.Tail, collectFields(r2, onlyRight), rFresh); err != nil {
 			return err
 		}
-		return u.solveRowTail(r2.Tail, collectFields(r1, onlyLeft), r1.Tail)
+		return u.solveRowTail(r2.Tail, collectFields(r1, onlyLeft), rFresh)
 	}
 	return nil
 }
@@ -216,6 +253,28 @@ func (u *Unifier) solveRowTail(tail types.Type, fields []types.RowField, newTail
 		solution = types.EmptyRow()
 	}
 	return u.Unify(tail, solution)
+}
+
+// registerRowLabels records a row's field labels as the label context
+// for its tail metavariable (if any).
+func (u *Unifier) registerRowLabels(r *types.TyRow) {
+	if r.Tail == nil {
+		return
+	}
+	tail := u.Zonk(r.Tail)
+	if m, ok := tail.(*types.TyMeta); ok {
+		labels := make(map[string]struct{}, len(r.Fields))
+		for _, f := range r.Fields {
+			labels[f.Label] = struct{}{}
+		}
+		// Merge with any existing context.
+		if existing, ok := u.labels[m.ID]; ok {
+			for l := range existing {
+				labels[l] = struct{}{}
+			}
+		}
+		u.labels[m.ID] = labels
+	}
 }
 
 func classifyFields(a, b []types.RowField) (shared, onlyA, onlyB []string) {

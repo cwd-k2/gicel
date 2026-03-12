@@ -266,3 +266,75 @@ func TestParseFixity(t *testing.T) {
 		t.Error("expected fixity decl for + with prec 6")
 	}
 }
+
+func TestParseForallKindedBinder(t *testing.T) {
+	prog, es := parse("f :: forall (r : Row). Computation r r a")
+	if es.HasErrors() {
+		t.Fatal(es.Format())
+	}
+	d, ok := prog.Decls[0].(*DeclTypeAnn)
+	if !ok {
+		t.Fatal("expected DeclTypeAnn")
+	}
+	fa, ok := d.Type.(*TyExprForall)
+	if !ok {
+		t.Fatal("expected TyExprForall")
+	}
+	if len(fa.Binders) != 1 {
+		t.Fatalf("expected 1 binder, got %d", len(fa.Binders))
+	}
+	b := fa.Binders[0]
+	if b.Name != "r" {
+		t.Errorf("expected binder name 'r', got %q", b.Name)
+	}
+	if b.Kind == nil {
+		t.Fatal("expected kind annotation on binder")
+	}
+	if _, ok := b.Kind.(*KindExprRow); !ok {
+		t.Errorf("expected KindExprRow, got %T", b.Kind)
+	}
+}
+
+func TestParseForallMixedBinders(t *testing.T) {
+	// Mixed bare and kinded binders
+	prog, es := parse("f :: forall a (r : Row) (k : Type -> Type). r")
+	if es.HasErrors() {
+		t.Fatal(es.Format())
+	}
+	d, ok := prog.Decls[0].(*DeclTypeAnn)
+	if !ok {
+		t.Fatal("expected DeclTypeAnn")
+	}
+	fa, ok := d.Type.(*TyExprForall)
+	if !ok {
+		t.Fatal("expected TyExprForall")
+	}
+	if len(fa.Binders) != 3 {
+		t.Fatalf("expected 3 binders, got %d", len(fa.Binders))
+	}
+	// First binder: bare 'a'
+	if fa.Binders[0].Name != "a" || fa.Binders[0].Kind != nil {
+		t.Errorf("expected bare binder 'a', got name=%q kind=%v", fa.Binders[0].Name, fa.Binders[0].Kind)
+	}
+	// Second binder: (r : Row)
+	if fa.Binders[1].Name != "r" {
+		t.Errorf("expected binder name 'r', got %q", fa.Binders[1].Name)
+	}
+	if _, ok := fa.Binders[1].Kind.(*KindExprRow); !ok {
+		t.Errorf("expected KindExprRow, got %T", fa.Binders[1].Kind)
+	}
+	// Third binder: (k : Type -> Type)
+	if fa.Binders[2].Name != "k" {
+		t.Errorf("expected binder name 'k', got %q", fa.Binders[2].Name)
+	}
+	arrow, ok := fa.Binders[2].Kind.(*KindExprArrow)
+	if !ok {
+		t.Fatalf("expected KindExprArrow, got %T", fa.Binders[2].Kind)
+	}
+	if _, ok := arrow.From.(*KindExprType); !ok {
+		t.Errorf("expected KindExprType as arrow.From, got %T", arrow.From)
+	}
+	if _, ok := arrow.To.(*KindExprType); !ok {
+		t.Errorf("expected KindExprType as arrow.To, got %T", arrow.To)
+	}
+}

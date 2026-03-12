@@ -80,7 +80,6 @@ func Check(prog *syntax.AstProgram, source *span.Source, config *CheckConfig) (*
 	}
 	ch := &Checker{
 		ctx:      NewContext(),
-		unifier:  NewUnifier(),
 		errors:   &errs.Errors{Source: source},
 		source:   source,
 		config:   config,
@@ -88,6 +87,7 @@ func Check(prog *syntax.AstProgram, source *span.Source, config *CheckConfig) (*
 		conInfo:  make(map[string]*DataTypeInfo),
 		aliases:  make(map[string]*aliasInfo),
 	}
+	ch.unifier = NewUnifierShared(&ch.freshID)
 	ch.initContext()
 	coreProgram := ch.checkDecls(prog.Decls)
 	return coreProgram, ch.errors
@@ -129,8 +129,12 @@ func (ch *Checker) freshMeta(k types.Kind) *types.TyMeta {
 }
 
 func (ch *Checker) addError(s span.Span, msg string) {
+	ch.addCodedError(errs.ErrTypeMismatch, s, msg)
+}
+
+func (ch *Checker) addCodedError(code errs.Code, s span.Span, msg string) {
 	ch.errors.Add(&errs.Error{
-		Code:    200,
+		Code:    code,
 		Phase:   errs.PhaseCheck,
 		Span:    s,
 		Message: msg,

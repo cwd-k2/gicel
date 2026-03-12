@@ -191,6 +191,155 @@ func TestUnifyRow(t *testing.T) {
 	}
 }
 
+func TestUnifyRowOpenOpen(t *testing.T) {
+	u := NewUnifier()
+
+	// r1 = { a: Int, b: Bool | ?1 }
+	// r2 = { a: Int, c: Str  | ?2 }
+	// After unification:
+	//   shared: a (Int ~ Int ok)
+	//   onlyLeft:  b: Bool  (in r1 not r2)
+	//   onlyRight: c: Str   (in r2 not r1)
+	//   ?1 = { c: Str | ?fresh }
+	//   ?2 = { b: Bool | ?fresh }
+	m1 := &types.TyMeta{ID: 100, Kind: types.KRow{}}
+	m2 := &types.TyMeta{ID: 101, Kind: types.KRow{}}
+
+	r1 := types.OpenRow([]types.RowField{
+		{Label: "a", Type: types.Con("Int")},
+		{Label: "b", Type: types.Con("Bool")},
+	}, m1)
+
+	r2 := types.OpenRow([]types.RowField{
+		{Label: "a", Type: types.Con("Int")},
+		{Label: "c", Type: types.Con("Str")},
+	}, m2)
+
+	if err := u.Unify(r1, r2); err != nil {
+		t.Fatalf("open-open row unification should succeed: %v", err)
+	}
+
+	// ?1 should be solved to { c: Str | ?fresh }
+	soln1 := u.Zonk(m1)
+	row1, ok := soln1.(*types.TyRow)
+	if !ok {
+		t.Fatalf("?1 should be solved to a row, got %T: %s", soln1, types.Pretty(soln1))
+	}
+	if len(row1.Fields) != 1 || row1.Fields[0].Label != "c" {
+		t.Errorf("?1 should have field 'c', got %s", types.Pretty(row1))
+	}
+	if !types.Equal(row1.Fields[0].Type, types.Con("Str")) {
+		t.Errorf("?1.c should be Str, got %s", types.Pretty(row1.Fields[0].Type))
+	}
+	if row1.Tail == nil {
+		t.Error("?1 should have an open tail (the fresh meta)")
+	}
+
+	// ?2 should be solved to { b: Bool | ?fresh }
+	soln2 := u.Zonk(m2)
+	row2, ok := soln2.(*types.TyRow)
+	if !ok {
+		t.Fatalf("?2 should be solved to a row, got %T: %s", soln2, types.Pretty(soln2))
+	}
+	if len(row2.Fields) != 1 || row2.Fields[0].Label != "b" {
+		t.Errorf("?2 should have field 'b', got %s", types.Pretty(row2))
+	}
+	if !types.Equal(row2.Fields[0].Type, types.Con("Bool")) {
+		t.Errorf("?2.b should be Bool, got %s", types.Pretty(row2.Fields[0].Type))
+	}
+	if row2.Tail == nil {
+		t.Error("?2 should have an open tail (the fresh meta)")
+	}
+
+	// Both tails should be the same fresh metavariable.
+	if row1.Tail != nil && row2.Tail != nil {
+		tail1, ok1 := row1.Tail.(*types.TyMeta)
+		tail2, ok2 := row2.Tail.(*types.TyMeta)
+		if ok1 && ok2 {
+			if tail1.ID != tail2.ID {
+				t.Errorf("both row tails should share the same fresh meta, got ?%d and ?%d", tail1.ID, tail2.ID)
+			}
+		}
+	}
+}
+
+func TestUnifyRowOpenOpenShared(t *testing.T) {
+	// Open-Open where both rows have the same labels → tails unify to same fresh.
+	u := NewUnifier()
+
+	m1 := &types.TyMeta{ID: 200, Kind: types.KRow{}}
+	m2 := &types.TyMeta{ID: 201, Kind: types.KRow{}}
+
+	r1 := types.OpenRow([]types.RowField{
+		{Label: "x", Type: types.Con("Int")},
+	}, m1)
+
+	r2 := types.OpenRow([]types.RowField{
+		{Label: "x", Type: types.Con("Int")},
+	}, m2)
+
+	if err := u.Unify(r1, r2); err != nil {
+		t.Fatalf("open-open row unification (same labels) should succeed: %v", err)
+	}
+
+	// Both tails should point to the same fresh meta (with no extra fields).
+	soln1 := u.Zonk(m1)
+	soln2 := u.Zonk(m2)
+
+	// When both rows have identical fields, the solutions should both be a row
+	// with no extra fields and a shared fresh tail.
+	row1, ok1 := soln1.(*types.TyRow)
+	row2, ok2 := soln2.(*types.TyRow)
+	if ok1 && ok2 {
+		if len(row1.Fields) != 0 {
+			t.Errorf("?200 should have no extra fields, got %s", types.Pretty(row1))
+		}
+		if len(row2.Fields) != 0 {
+			t.Errorf("?201 should have no extra fields, got %s", types.Pretty(row2))
+		}
+	}
+}
+
+func TestUnifyRowOpenOpenDisjoint(t *testing.T) {
+	// Open-Open where rows have entirely different labels.
+	u := NewUnifier()
+
+	m1 := &types.TyMeta{ID: 300, Kind: types.KRow{}}
+	m2 := &types.TyMeta{ID: 301, Kind: types.KRow{}}
+
+	r1 := types.OpenRow([]types.RowField{
+		{Label: "a", Type: types.Con("Int")},
+	}, m1)
+
+	r2 := types.OpenRow([]types.RowField{
+		{Label: "b", Type: types.Con("Bool")},
+	}, m2)
+
+	if err := u.Unify(r1, r2); err != nil {
+		t.Fatalf("open-open row unification (disjoint labels) should succeed: %v", err)
+	}
+
+	// ?1 = { b: Bool | ?fresh }
+	soln1 := u.Zonk(m1)
+	row1, ok := soln1.(*types.TyRow)
+	if !ok {
+		t.Fatalf("?300 should be solved to a row, got %s", types.Pretty(soln1))
+	}
+	if len(row1.Fields) != 1 || row1.Fields[0].Label != "b" {
+		t.Errorf("?300 should have field 'b', got %s", types.Pretty(row1))
+	}
+
+	// ?2 = { a: Int | ?fresh }
+	soln2 := u.Zonk(m2)
+	row2, ok := soln2.(*types.TyRow)
+	if !ok {
+		t.Fatalf("?301 should be solved to a row, got %s", types.Pretty(soln2))
+	}
+	if len(row2.Fields) != 1 || row2.Fields[0].Label != "a" {
+		t.Errorf("?301 should have field 'a', got %s", types.Pretty(row2))
+	}
+}
+
 // checkSourceExpectError parses and type-checks source, expecting at least one error.
 // Returns the formatted error string.
 func checkSourceExpectError(t *testing.T, source string, config *CheckConfig) string {

@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/cwd-k2/gomputation/internal/core"
+	"github.com/cwd-k2/gomputation/internal/errs"
 	"github.com/cwd-k2/gomputation/internal/syntax"
 	"github.com/cwd-k2/gomputation/pkg/types"
 )
@@ -11,22 +12,14 @@ import (
 func (ch *Checker) checkDecls(decls []syntax.Decl) *core.Program {
 	prog := &core.Program{}
 
-	// Collect type annotations.
-	annotations := make(map[string]types.Type)
-	for _, d := range decls {
-		if ann, ok := d.(*syntax.DeclTypeAnn); ok {
-			annotations[ann.Name] = ch.resolveTypeExpr(ann.Type)
-		}
-	}
-
-	// Process data declarations.
+	// Process data declarations (register constructors first).
 	for _, d := range decls {
 		if data, ok := d.(*syntax.DeclData); ok {
 			ch.processDataDecl(data, prog)
 		}
 	}
 
-	// Process type aliases.
+	// Process type aliases (before annotations, so aliases are available for expansion).
 	for _, d := range decls {
 		if alias, ok := d.(*syntax.DeclTypeAlias); ok {
 			ch.processTypeAlias(alias)
@@ -35,6 +28,14 @@ func (ch *Checker) checkDecls(decls []syntax.Decl) *core.Program {
 
 	// Detect cyclic aliases before expansion can diverge.
 	ch.validateAliasGraph()
+
+	// Collect type annotations (after aliases are registered, so alias expansion works).
+	annotations := make(map[string]types.Type)
+	for _, d := range decls {
+		if ann, ok := d.(*syntax.DeclTypeAnn); ok {
+			annotations[ann.Name] = ch.resolveTypeExpr(ann.Type)
+		}
+	}
 
 	// Process value definitions.
 	for _, d := range decls {
@@ -128,7 +129,7 @@ func (ch *Checker) processValueDef(d *syntax.DeclValueDef, annotations map[strin
 			}
 		}
 		if !hasAnn {
-			ch.addError(d.S, fmt.Sprintf("assumption %s requires a type annotation", d.Name))
+			ch.addCodedError(errs.ErrAssumption, d.S, fmt.Sprintf("assumption %s requires a type annotation", d.Name))
 			return
 		}
 		ch.ctx.Push(&CtxVar{Name: d.Name, Type: aTy})

@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/cwd-k2/gomputation/internal/core"
+	"github.com/cwd-k2/gomputation/internal/errs"
 	"github.com/cwd-k2/gomputation/internal/span"
 	"github.com/cwd-k2/gomputation/internal/syntax"
 	"github.com/cwd-k2/gomputation/pkg/types"
@@ -16,9 +17,23 @@ func (ch *Checker) infer(expr syntax.Expr) (types.Type, core.Core) {
 
 	switch e := expr.(type) {
 	case *syntax.ExprVar:
+		switch e.Name {
+		case "thunk":
+			ch.addCodedError(errs.ErrSpecialForm, e.S, "thunk is a special form; use 'thunk <expr>'")
+			return &types.TyError{S: e.S}, &core.Var{Name: e.Name, S: e.S}
+		case "pure":
+			ch.addCodedError(errs.ErrSpecialForm, e.S, "pure is a special form; use 'pure <expr>'")
+			return &types.TyError{S: e.S}, &core.Var{Name: e.Name, S: e.S}
+		case "bind":
+			ch.addCodedError(errs.ErrSpecialForm, e.S, "bind is a special form; use do blocks for computation sequencing")
+			return &types.TyError{S: e.S}, &core.Var{Name: e.Name, S: e.S}
+		case "force":
+			ch.addCodedError(errs.ErrSpecialForm, e.S, "force is a special form; use 'force <expr>'")
+			return &types.TyError{S: e.S}, &core.Var{Name: e.Name, S: e.S}
+		}
 		ty, ok := ch.ctx.LookupVar(e.Name)
 		if !ok {
-			ch.addError(e.S, fmt.Sprintf("unbound variable: %s", e.Name))
+			ch.addCodedError(errs.ErrUnboundVar, e.S, fmt.Sprintf("unbound variable: %s", e.Name))
 			return &types.TyError{S: e.S}, &core.Var{Name: e.Name, S: e.S}
 		}
 		ch.trace(TraceInfer, e.S, "infer: %s ⇒ %s", e.Name, types.Pretty(ty))
@@ -28,13 +43,36 @@ func (ch *Checker) infer(expr syntax.Expr) (types.Type, core.Core) {
 	case *syntax.ExprCon:
 		ty, ok := ch.conTypes[e.Name]
 		if !ok {
-			ch.addError(e.S, fmt.Sprintf("unknown constructor: %s", e.Name))
+			ch.addCodedError(errs.ErrUnboundCon, e.S, fmt.Sprintf("unknown constructor: %s", e.Name))
 			return &types.TyError{S: e.S}, &core.Con{Name: e.Name, S: e.S}
 		}
 		ty, coreExpr := ch.instantiate(ty, &core.Con{Name: e.Name, S: e.S})
 		return ty, coreExpr
 
 	case *syntax.ExprApp:
+		// Special forms: pure, bind, thunk, force elaborate directly to Core nodes.
+		if v, ok := e.Fun.(*syntax.ExprVar); ok {
+			switch v.Name {
+			case "pure":
+				return ch.inferPure(e)
+			case "thunk":
+				return ch.inferThunk(e)
+			case "force":
+				return ch.inferForce(e)
+			}
+		}
+		// bind takes two args: bind comp (\x -> e) → Core.Bind.
+		// Detect App(App(Var("bind"), comp), cont).
+		if inner, ok := e.Fun.(*syntax.ExprApp); ok {
+			if v, ok := inner.Fun.(*syntax.ExprVar); ok && v.Name == "bind" {
+				return ch.inferBind(inner.Arg, e.Arg, e.S)
+			}
+		}
+		// Partial application of bind (bind <comp> without continuation).
+		if v, ok := e.Fun.(*syntax.ExprVar); ok && v.Name == "bind" {
+			ch.addCodedError(errs.ErrSpecialForm, e.S, "bind requires two arguments: bind <comp> (\\x -> <body>)")
+			return &types.TyError{S: e.S}, &core.Var{Name: "bind", S: e.S}
+		}
 		funTy, funCore := ch.infer(e.Fun)
 		argTy, retTy := ch.matchArrow(funTy, e.S)
 		argCore := ch.check(e.Arg, argTy)
@@ -45,7 +83,7 @@ func (ch *Checker) infer(expr syntax.Expr) (types.Type, core.Core) {
 		ty := ch.resolveTypeExpr(e.TyArg)
 		f, ok := innerTy.(*types.TyForall)
 		if !ok {
-			ch.addError(e.S, "type application to non-polymorphic type")
+			ch.addCodedError(errs.ErrBadTypeApp, e.S, "type application to non-polymorphic type")
 			return &types.TyError{S: e.S}, innerCore
 		}
 		resultTy := types.Subst(f.Body, f.Var, ty)
@@ -60,7 +98,7 @@ func (ch *Checker) infer(expr syntax.Expr) (types.Type, core.Core) {
 		// Desugar: a op b → App(App(Var(op), a), b)
 		opTy, ok := ch.ctx.LookupVar(e.Op)
 		if !ok {
-			ch.addError(e.S, fmt.Sprintf("unbound operator: %s", e.Op))
+			ch.addCodedError(errs.ErrUnboundVar, e.S, fmt.Sprintf("unbound operator: %s", e.Op))
 			return &types.TyError{S: e.S}, &core.Var{Name: e.Op, S: e.S}
 		}
 		opTy, opCore := ch.instantiate(opTy, &core.Var{Name: e.Op, S: e.S})
@@ -105,6 +143,16 @@ func (ch *Checker) check(expr syntax.Expr, expected types.Type) core.Core {
 	defer func() { ch.depth-- }()
 
 	expected = ch.unifier.Zonk(expected)
+
+	// If the expected type is a forall, introduce a TyLam and check the body
+	// against the quantified type. This implements the spec rule:
+	//   ⟦ e : forall a:K. T ⟧ = TyLam(a, K, ⟦e : T⟧)
+	if f, ok := expected.(*types.TyForall); ok {
+		ch.ctx.Push(&CtxTyVar{Name: f.Var, Kind: f.Kind})
+		bodyCore := ch.check(expr, f.Body)
+		ch.ctx.Pop()
+		return &core.TyLam{TyParam: f.Var, Kind: f.Kind, Body: bodyCore, S: expr.Span()}
+	}
 
 	switch e := expr.(type) {
 	case *syntax.ExprLam:
@@ -254,7 +302,7 @@ func (ch *Checker) inferBlock(e *syntax.ExprBlock) (types.Type, core.Core) {
 
 func (ch *Checker) inferDo(e *syntax.ExprDo) (types.Type, core.Core) {
 	if len(e.Stmts) == 0 {
-		ch.addError(e.S, "empty do block")
+		ch.addCodedError(errs.ErrEmptyDo, e.S, "empty do block")
 		return &types.TyError{S: e.S}, &core.Var{Name: "<error>", S: e.S}
 	}
 	return ch.elaborateStmts(e.Stmts, e.S)
@@ -267,10 +315,10 @@ func (ch *Checker) elaborateStmts(stmts []syntax.Stmt, s span.Span) (types.Type,
 		case *syntax.StmtExpr:
 			return ch.infer(st.Expr)
 		case *syntax.StmtBind:
-			ch.addError(st.S, "do block must end with an expression")
+			ch.addCodedError(errs.ErrBadDoEnding, st.S, "do block must end with an expression")
 			return &types.TyError{S: st.S}, &core.Var{Name: "<error>", S: st.S}
 		case *syntax.StmtPureBind:
-			ch.addError(st.S, "do block must end with an expression")
+			ch.addCodedError(errs.ErrBadDoEnding, st.S, "do block must end with an expression")
 			return &types.TyError{S: st.S}, &core.Var{Name: "<error>", S: st.S}
 		}
 	}
@@ -320,7 +368,7 @@ func (ch *Checker) extractCompResult(ty types.Type, s span.Span) types.Type {
 	result := ch.freshMeta(types.KType{})
 	expected := types.MkComp(pre, post, result)
 	if err := ch.unifier.Unify(ty, expected); err != nil {
-		ch.addError(s, fmt.Sprintf("expected computation type, got %s", types.Pretty(ty)))
+		ch.addCodedError(errs.ErrBadComputation, s, fmt.Sprintf("expected computation type, got %s", types.Pretty(ty)))
 		return &types.TyError{S: s}
 	}
 	return result
@@ -335,7 +383,7 @@ func (ch *Checker) matchArrow(ty types.Type, s span.Span) (types.Type, types.Typ
 	argTy := ch.freshMeta(types.KType{})
 	retTy := ch.freshMeta(types.KType{})
 	if err := ch.unifier.Unify(ty, types.MkArrow(argTy, retTy)); err != nil {
-		ch.addError(s, fmt.Sprintf("expected function type, got %s", types.Pretty(ty)))
+		ch.addCodedError(errs.ErrBadApplication, s, fmt.Sprintf("expected function type, got %s", types.Pretty(ty)))
 	}
 	return argTy, retTy
 }
@@ -417,7 +465,7 @@ func (ch *Checker) resolveTypeExpr(texpr syntax.TypeExpr) types.Type {
 }
 
 // tryExpandApp recognizes fully-saturated Computation and Thunk applications
-// and produces the dedicated TyComp/TyThunk nodes.
+// and produces the dedicated TyComp/TyThunk nodes, and expands type aliases.
 func (ch *Checker) tryExpandApp(fun types.Type, arg types.Type, s span.Span) types.Type {
 	// Computation pre post result: TyApp(TyApp(TyApp(TyCon("Computation"), pre), post), result)
 	if app2, ok := fun.(*types.TyApp); ok {
@@ -432,26 +480,153 @@ func (ch *Checker) tryExpandApp(fun types.Type, arg types.Type, s span.Span) typ
 			}
 		}
 	}
-	// Check for alias expansion.
-	if con, ok := fun.(*types.TyCon); ok {
-		if info, ok := ch.aliases[con.Name]; ok && len(info.params) == 1 {
-			return types.Subst(info.body, info.params[0], arg)
+	// General alias expansion: collect the TyApp spine and check if the
+	// head is an alias with matching parameter count.
+	result := &types.TyApp{Fun: fun, Arg: arg, S: s}
+	head, args := types.UnwindApp(result)
+	if con, ok := head.(*types.TyCon); ok {
+		if info, ok := ch.aliases[con.Name]; ok && len(info.params) == len(args) {
+			body := info.body
+			for i, p := range info.params {
+				body = types.Subst(body, p, args[i])
+			}
+			return body
 		}
 	}
 	return nil
 }
 
-func (ch *Checker) resolveKindExpr(k *syntax.KindExpr) types.Kind {
+// inferPure handles the special form 'pure <expr>'.
+// pure e : Computation r r a, elaborated to Core.Pure.
+func (ch *Checker) inferPure(e *syntax.ExprApp) (types.Type, core.Core) {
+	argTy, argCore := ch.infer(e.Arg)
+	r := ch.freshMeta(types.KRow{})
+	resultTy := types.MkComp(r, r, argTy)
+	ch.trace(TraceInfer, e.S, "pure: %s ⇒ %s", types.Pretty(argTy), types.Pretty(resultTy))
+	return resultTy, &core.Pure{Expr: argCore, S: e.S}
+}
+
+// inferBind handles the special form 'bind <comp> <cont>'.
+// bind c (\x -> e) : Computation r1 r3 b, elaborated to Core.Bind.
+func (ch *Checker) inferBind(compExpr, contExpr syntax.Expr, s span.Span) (types.Type, core.Core) {
+	compTy, compCore := ch.infer(compExpr)
+
+	r1 := ch.freshMeta(types.KRow{})
+	r2 := ch.freshMeta(types.KRow{})
+	a := ch.freshMeta(types.KType{})
+	if err := ch.unifier.Unify(compTy, types.MkComp(r1, r2, a)); err != nil {
+		ch.addCodedError(errs.ErrBadComputation, compExpr.Span(), fmt.Sprintf("bind: first argument must be a computation, got %s", types.Pretty(compTy)))
+		return &types.TyError{S: s}, &core.Var{Name: "<error>", S: s}
+	}
+
+	r3 := ch.freshMeta(types.KRow{})
+	b := ch.freshMeta(types.KType{})
+
+	var bindVar string
+	var bodyCore core.Core
+
+	if lam, ok := contExpr.(*syntax.ExprLam); ok && len(lam.Params) >= 1 {
+		bindVar = ch.patternName(lam.Params[0])
+		ch.ctx.Push(&CtxVar{Name: bindVar, Type: ch.unifier.Zonk(a)})
+		bodyTy := types.MkComp(ch.unifier.Zonk(r2), r3, b)
+		if len(lam.Params) == 1 {
+			bodyCore = ch.check(lam.Body, bodyTy)
+		} else {
+			rest := &syntax.ExprLam{Params: lam.Params[1:], Body: lam.Body, S: lam.S}
+			bodyCore = ch.check(rest, bodyTy)
+		}
+		ch.ctx.Pop()
+	} else {
+		bindVar = fmt.Sprintf("_bind_%d", ch.fresh())
+		contExpected := types.MkArrow(ch.unifier.Zonk(a), types.MkComp(ch.unifier.Zonk(r2), r3, b))
+		contCore := ch.check(contExpr, contExpected)
+		bodyCore = &core.App{
+			Fun: contCore,
+			Arg: &core.Var{Name: bindVar, S: s},
+			S:   s,
+		}
+	}
+
+	resultTy := types.MkComp(ch.unifier.Zonk(r1), ch.unifier.Zonk(r3), ch.unifier.Zonk(b))
+	ch.trace(TraceInfer, s, "bind: ⇒ %s", types.Pretty(resultTy))
+	return resultTy, &core.Bind{Comp: compCore, Var: bindVar, Body: bodyCore, S: s}
+}
+
+// inferThunk handles the special form 'thunk <expr>'.
+// The argument must have computation type Computation pre post a,
+// and the result is Thunk pre post a, elaborated to Core.Thunk.
+func (ch *Checker) inferThunk(e *syntax.ExprApp) (types.Type, core.Core) {
+	argTy, argCore := ch.infer(e.Arg)
+	argTy = ch.unifier.Zonk(argTy)
+
+	// The argument must be a computation type.
+	if comp, ok := argTy.(*types.TyComp); ok {
+		resultTy := types.MkThunk(comp.Pre, comp.Post, comp.Result)
+		ch.trace(TraceInfer, e.S, "thunk: %s ⇒ %s", types.Pretty(argTy), types.Pretty(resultTy))
+		return resultTy, &core.Thunk{Comp: argCore, S: e.S}
+	}
+
+	// Try unifying with a fresh Computation type.
+	pre := ch.freshMeta(types.KRow{})
+	post := ch.freshMeta(types.KRow{})
+	result := ch.freshMeta(types.KType{})
+	expected := types.MkComp(pre, post, result)
+	if err := ch.unifier.Unify(argTy, expected); err != nil {
+		ch.addCodedError(errs.ErrBadThunk, e.S, fmt.Sprintf("thunk requires a computation argument, got %s", types.Pretty(argTy)))
+		return &types.TyError{S: e.S}, &core.Thunk{Comp: argCore, S: e.S}
+	}
+	resultTy := types.MkThunk(
+		ch.unifier.Zonk(pre),
+		ch.unifier.Zonk(post),
+		ch.unifier.Zonk(result),
+	)
+	ch.trace(TraceInfer, e.S, "thunk: %s ⇒ %s", types.Pretty(argTy), types.Pretty(resultTy))
+	return resultTy, &core.Thunk{Comp: argCore, S: e.S}
+}
+
+// inferForce handles direct application 'force <expr>'.
+// The argument must have type Thunk pre post a,
+// and the result is Computation pre post a, elaborated to Core.Force.
+func (ch *Checker) inferForce(e *syntax.ExprApp) (types.Type, core.Core) {
+	argTy, argCore := ch.infer(e.Arg)
+	argTy = ch.unifier.Zonk(argTy)
+
+	// The argument must be a thunk type.
+	if thunk, ok := argTy.(*types.TyThunk); ok {
+		resultTy := types.MkComp(thunk.Pre, thunk.Post, thunk.Result)
+		ch.trace(TraceInfer, e.S, "force: %s ⇒ %s", types.Pretty(argTy), types.Pretty(resultTy))
+		return resultTy, &core.Force{Expr: argCore, S: e.S}
+	}
+
+	// Try unifying with a fresh Thunk type.
+	pre := ch.freshMeta(types.KRow{})
+	post := ch.freshMeta(types.KRow{})
+	result := ch.freshMeta(types.KType{})
+	expected := types.MkThunk(pre, post, result)
+	if err := ch.unifier.Unify(argTy, expected); err != nil {
+		ch.addCodedError(errs.ErrBadThunk, e.S, fmt.Sprintf("force requires a thunk argument, got %s", types.Pretty(argTy)))
+		return &types.TyError{S: e.S}, &core.Force{Expr: argCore, S: e.S}
+	}
+	resultTy := types.MkComp(
+		ch.unifier.Zonk(pre),
+		ch.unifier.Zonk(post),
+		ch.unifier.Zonk(result),
+	)
+	ch.trace(TraceInfer, e.S, "force: %s ⇒ %s", types.Pretty(argTy), types.Pretty(resultTy))
+	return resultTy, &core.Force{Expr: argCore, S: e.S}
+}
+
+func (ch *Checker) resolveKindExpr(k syntax.KindExpr) types.Kind {
 	if k == nil {
 		return types.KType{}
 	}
-	switch ke := (*k).(type) {
+	switch ke := k.(type) {
 	case *syntax.KindExprType:
 		return types.KType{}
 	case *syntax.KindExprRow:
 		return types.KRow{}
 	case *syntax.KindExprArrow:
-		return &types.KArrow{From: ch.resolveKindExpr(&ke.From), To: ch.resolveKindExpr(&ke.To)}
+		return &types.KArrow{From: ch.resolveKindExpr(ke.From), To: ch.resolveKindExpr(ke.To)}
 	default:
 		return types.KType{}
 	}

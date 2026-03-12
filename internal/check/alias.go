@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/cwd-k2/gomputation/internal/errs"
 	"github.com/cwd-k2/gomputation/internal/span"
 	"github.com/cwd-k2/gomputation/pkg/types"
 )
@@ -42,7 +43,7 @@ func (ch *Checker) validateAliasGraph() {
 				}
 			}
 			cycle := append(path[cycleStart:], name)
-			ch.addError(span.Span{}, fmt.Sprintf(
+			ch.addCodedError(errs.ErrCyclicAlias, span.Span{}, fmt.Sprintf(
 				"cyclic type alias: %s", strings.Join(cycle, " -> ")))
 			return true
 		}

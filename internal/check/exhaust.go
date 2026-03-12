@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/cwd-k2/gomputation/internal/core"
+	"github.com/cwd-k2/gomputation/internal/errs"
 	"github.com/cwd-k2/gomputation/internal/span"
 	"github.com/cwd-k2/gomputation/pkg/types"
 )
@@ -63,7 +64,7 @@ func (ch *Checker) checkExhaustive(scrutTy types.Type, alts []core.Alt, s span.S
 		}
 	}
 
-	ch.addError(s, fmt.Sprintf(
+	ch.addCodedError(errs.ErrNonExhaustive, s, fmt.Sprintf(
 		"non-exhaustive patterns: missing %s",
 		strings.Join(missing, ", "),
 	))

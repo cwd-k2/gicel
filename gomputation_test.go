@@ -868,6 +868,133 @@ func TestMustHostPanic(t *testing.T) {
 	gmp.MustHost[int](gmp.ToValue(true))
 }
 
+// Explicit bind syntax: bind comp (\x -> body) elaborates to Core.Bind.
+func TestExplicitBind(t *testing.T) {
+	eng := gmp.NewEngine()
+	rt, err := eng.NewRuntime(`
+main := bind (pure True) (\x -> pure x)
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	con, ok := result.Value.(*gmp.ConVal)
+	if !ok || con.Con != "True" {
+		t.Errorf("expected True, got %s", result.Value)
+	}
+}
+
+// pure/bind/thunk/force used standalone (not applied) must error.
+func TestSpecialFormStandalone(t *testing.T) {
+	forms := []string{"pure", "bind", "thunk", "force"}
+	for _, name := range forms {
+		eng := gmp.NewEngine()
+		_, err := eng.NewRuntime("main := " + name)
+		if err == nil {
+			t.Errorf("expected compile error for standalone %s", name)
+		}
+	}
+}
+
+// Thunk/force round-trip in do block.
+func TestThunkForceInDo(t *testing.T) {
+	eng := gmp.NewEngine()
+	rt, err := eng.NewRuntime(`
+main := do {
+  t := thunk (pure True);
+  force t
+}
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	con, ok := result.Value.(*gmp.ConVal)
+	if !ok || con.Con != "True" {
+		t.Errorf("expected True, got %s", result.Value)
+	}
+}
+
+// Forall with kinded binder: forall (r : Row). T
+func TestKindedForallBinder(t *testing.T) {
+	eng := gmp.NewEngine()
+	eng.RegisterType("Int", gmp.KindType())
+	eng.RegisterPrim("getVal", func(ctx context.Context, capEnv gmp.CapEnv, args []gmp.Value) (gmp.Value, gmp.CapEnv, error) {
+		return gmp.ToValue(7), capEnv, nil
+	})
+	rt, err := eng.NewRuntime(`
+getVal :: forall (r : Row). Unit -> Computation r r Int
+getVal := assumption
+main := do { getVal Unit }
+`)
+	if err != nil {
+		t.Fatal("compile error:", err)
+	}
+	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	if err != nil {
+		t.Fatal("runtime error:", err)
+	}
+	v := gmp.MustHost[int](result.Value)
+	if v != 7 {
+		t.Errorf("expected 7, got %d", v)
+	}
+}
+
+// Result type has 2 parameters: Result e a = Ok a | Err e
+func TestResult2Params(t *testing.T) {
+	eng := gmp.NewEngine()
+	eng.RegisterType("String", gmp.KindType())
+	rt, err := eng.NewRuntime(`
+main := Ok True
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	con, ok := result.Value.(*gmp.ConVal)
+	if !ok || con.Con != "Ok" {
+		t.Errorf("expected Ok, got %s", result.Value)
+	}
+	if len(con.Args) != 1 {
+		t.Fatalf("expected 1 arg, got %d", len(con.Args))
+	}
+	inner, ok := con.Args[0].(*gmp.ConVal)
+	if !ok || inner.Con != "True" {
+		t.Errorf("expected True inside Ok, got %s", con.Args[0])
+	}
+}
+
+// Type alias: type Effect r a = Computation r r a
+func TestTypeAlias(t *testing.T) {
+	eng := gmp.NewEngine()
+	rt, err := eng.NewRuntime(`
+type Effect r a = Computation r r a
+
+main :: Effect {} Bool
+main := pure True
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	con, ok := result.Value.(*gmp.ConVal)
+	if !ok || con.Con != "True" {
+		t.Errorf("expected True, got %s", result.Value)
+	}
+}
+
 // ---------------------------------------------------------------------------
 // I. Type helpers
 // ---------------------------------------------------------------------------

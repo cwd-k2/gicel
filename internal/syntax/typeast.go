@@ -49,7 +49,7 @@ type TyExprParen struct {
 
 type TyBinder struct {
 	Name string
-	Kind *KindExpr
+	Kind KindExpr // nil means kind not annotated (inferred)
 	S    span.Span
 }
 

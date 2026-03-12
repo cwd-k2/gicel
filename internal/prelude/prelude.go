@@ -6,7 +6,7 @@ package prelude
 const Source = `
 data Bool = True | False
 data Unit = Unit
-data Result a = Ok a | Err a
+data Result e a = Ok a | Err e
 data Pair a b = Pair a b
 data Maybe a = Just a | Nothing
 data List a = Cons a (List a) | Nil

@@ -555,16 +555,70 @@ func (p *Parser) parseForallType() TypeExpr {
 	start := p.peek().S.Start
 	p.expect(TokForall)
 	var binders []TyBinder
-	for p.peek().Kind == TokLower {
-		b := TyBinder{Name: p.peek().Text, S: p.peek().S}
-		p.advance()
-		binders = append(binders, b)
+	for p.peek().Kind == TokLower || p.peek().Kind == TokLParen {
+		if p.peek().Kind == TokLParen {
+			// Kinded binder: (v : Kind)
+			lp := p.peek().S.Start
+			p.advance()
+			name := p.expectLower()
+			p.expect(TokColon)
+			kind := p.parseKindExpr()
+			p.expect(TokRParen)
+			binders = append(binders, TyBinder{
+				Name: name,
+				Kind: kind,
+				S:    span.Span{Start: lp, End: p.prevEnd()},
+			})
+		} else {
+			// Bare type variable (kind inferred)
+			b := TyBinder{Name: p.peek().Text, S: p.peek().S}
+			p.advance()
+			binders = append(binders, b)
+		}
 	}
 	p.expect(TokDot)
 	body := p.parseType()
 	return &TyExprForall{
 		Binders: binders, Body: body,
 		S: span.Span{Start: start, End: p.prevEnd()},
+	}
+}
+
+// parseKindExpr parses a kind expression: Type, Row, or K1 -> K2.
+func (p *Parser) parseKindExpr() KindExpr {
+	left := p.parseKindAtom()
+	if p.peek().Kind == TokArrow {
+		p.advance()
+		right := p.parseKindExpr() // right-associative
+		return &KindExprArrow{
+			From: left, To: right,
+			S: span.Span{Start: left.Span().Start, End: right.Span().End},
+		}
+	}
+	return left
+}
+
+// parseKindAtom parses an atomic kind: Type, Row, or (K).
+func (p *Parser) parseKindAtom() KindExpr {
+	switch {
+	case p.peek().Kind == TokUpper && p.peek().Text == "Type":
+		tok := p.peek()
+		p.advance()
+		return &KindExprType{S: tok.S}
+	case p.peek().Kind == TokUpper && p.peek().Text == "Row":
+		tok := p.peek()
+		p.advance()
+		return &KindExprRow{S: tok.S}
+	case p.peek().Kind == TokLParen:
+		p.advance()
+		k := p.parseKindExpr()
+		p.expect(TokRParen)
+		return k
+	default:
+		p.addError("expected kind (Type, Row, or K -> K)")
+		tok := p.peek()
+		p.advance()
+		return &KindExprType{S: tok.S}
 	}
 }
 
