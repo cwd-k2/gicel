@@ -68,10 +68,11 @@ type DataTypeInfo struct {
 	Constructors []ConInfo
 }
 
-// ConInfo is a constructor's name and arity.
+// ConInfo is a constructor's name, arity, and optional GADT return type.
 type ConInfo struct {
-	Name  string
-	Arity int
+	Name       string
+	Arity      int
+	ReturnType types.Type // GADT: non-nil if constructor has refined return type
 }
 
 type aliasInfo struct {

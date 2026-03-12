@@ -85,7 +85,8 @@ type TyParam struct {
 
 // ConDecl is a single constructor declaration.
 type ConDecl struct {
-	Name   string
-	Fields []types.Type
-	S      span.Span
+	Name       string
+	Fields     []types.Type
+	ReturnType types.Type // GADT: refined return type (nil for ADT)
+	S          span.Span
 }

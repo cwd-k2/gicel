@@ -109,6 +109,19 @@ func (p *Parser) parseDataDecl() *DeclData {
 		params = append(params, TyBinder{Name: pName, S: pS})
 	}
 	p.expect(TokEq)
+
+	// GADT mode: `= { ConName :: Type; ... }`
+	if p.peek().Kind == TokLBrace {
+		gadtCons := p.parseGADTCons()
+		return &DeclData{
+			Name:     name,
+			Params:   params,
+			GADTCons: gadtCons,
+			S:        span.Span{Start: start, End: p.prevEnd()},
+		}
+	}
+
+	// ADT mode: `= Con1 fields | Con2 fields`
 	var cons []DeclCon
 	cons = append(cons, p.parseConDecl())
 	for p.peek().Kind == TokPipe {
@@ -121,6 +134,29 @@ func (p *Parser) parseDataDecl() *DeclData {
 		Cons:   cons,
 		S:      span.Span{Start: start, End: p.prevEnd()},
 	}
+}
+
+// parseGADTCons parses GADT constructor declarations inside braces.
+// Format: { ConName :: Type ; ConName :: Type ; ... }
+func (p *Parser) parseGADTCons() []GADTConDecl {
+	p.expect(TokLBrace)
+	var cons []GADTConDecl
+	for p.peek().Kind != TokRBrace && p.peek().Kind != TokEOF {
+		cStart := p.peek().S.Start
+		cName := p.expectUpper()
+		p.expect(TokColonColon)
+		cType := p.parseType()
+		cons = append(cons, GADTConDecl{
+			Name: cName,
+			Type: cType,
+			S:    span.Span{Start: cStart, End: p.prevEnd()},
+		})
+		if p.peek().Kind == TokSemicolon {
+			p.advance()
+		}
+	}
+	p.expect(TokRBrace)
+	return cons
 }
 
 func (p *Parser) parseConDecl() DeclCon {

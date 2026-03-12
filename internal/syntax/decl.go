@@ -23,11 +23,20 @@ type DeclValueDef struct {
 }
 
 // DeclData is a data type declaration (data T a b = C1 ... | C2 ...).
+// If GADTCons is non-empty, this is a GADT declaration (data T a = { C :: Type }).
 type DeclData struct {
-	Name   string
-	Params []TyBinder
-	Cons   []DeclCon
-	S      span.Span
+	Name     string
+	Params   []TyBinder
+	Cons     []DeclCon      // ADT constructors
+	GADTCons []GADTConDecl  // GADT constructors (mutually exclusive with Cons)
+	S        span.Span
+}
+
+// GADTConDecl is a GADT constructor with a full type signature.
+type GADTConDecl struct {
+	Name string
+	Type TypeExpr // full type: arg1 -> arg2 -> ... -> T args
+	S    span.Span
 }
 
 // DeclCon is a single data constructor.

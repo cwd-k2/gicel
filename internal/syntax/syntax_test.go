@@ -537,3 +537,102 @@ func TestParseForallMixedBinders(t *testing.T) {
 		t.Errorf("expected KindExprType as arrow.To, got %T", arrow.To)
 	}
 }
+
+// --- GADT parser tests ---
+
+func TestParseGADTDecl(t *testing.T) {
+	prog, es := parse("data Expr a = { IntLit :: Int -> Expr Int; BoolLit :: Bool -> Expr Bool }")
+	if es.HasErrors() {
+		t.Fatal(es.Format())
+	}
+	d, ok := prog.Decls[0].(*DeclData)
+	if !ok {
+		t.Fatal("expected DeclData")
+	}
+	if d.Name != "Expr" {
+		t.Errorf("expected Expr, got %s", d.Name)
+	}
+	if len(d.Params) != 1 || d.Params[0].Name != "a" {
+		t.Errorf("expected 1 param 'a'")
+	}
+	if len(d.Cons) != 0 {
+		t.Errorf("expected 0 ADT cons, got %d", len(d.Cons))
+	}
+	if len(d.GADTCons) != 2 {
+		t.Fatalf("expected 2 GADT cons, got %d", len(d.GADTCons))
+	}
+	if d.GADTCons[0].Name != "IntLit" {
+		t.Errorf("expected IntLit, got %s", d.GADTCons[0].Name)
+	}
+	if d.GADTCons[1].Name != "BoolLit" {
+		t.Errorf("expected BoolLit, got %s", d.GADTCons[1].Name)
+	}
+}
+
+func TestParseGADTMixedArity(t *testing.T) {
+	prog, es := parse("data T a = { Nil :: T Unit; Cons :: a -> T a -> T a }")
+	if es.HasErrors() {
+		t.Fatal(es.Format())
+	}
+	d := prog.Decls[0].(*DeclData)
+	if len(d.GADTCons) != 2 {
+		t.Fatalf("expected 2 GADT cons, got %d", len(d.GADTCons))
+	}
+	// Nil :: T Unit  (no arrows)
+	if _, ok := d.GADTCons[0].Type.(*TyExprArrow); ok {
+		t.Error("Nil should not have arrow type")
+	}
+	// Cons :: a -> T a -> T a  (has arrows)
+	if _, ok := d.GADTCons[1].Type.(*TyExprArrow); !ok {
+		t.Error("Cons should have arrow type")
+	}
+}
+
+func TestParseGADTvsADT(t *testing.T) {
+	// ADT form
+	adtProg, adtEs := parse("data Bool = True | False")
+	if adtEs.HasErrors() {
+		t.Fatal(adtEs.Format())
+	}
+	adtD := adtProg.Decls[0].(*DeclData)
+	if len(adtD.Cons) != 2 {
+		t.Errorf("ADT: expected 2 cons, got %d", len(adtD.Cons))
+	}
+	if len(adtD.GADTCons) != 0 {
+		t.Errorf("ADT: expected 0 GADT cons, got %d", len(adtD.GADTCons))
+	}
+
+	// GADT form
+	gadtProg, gadtEs := parse("data Expr a = { Lit :: Int -> Expr Int }")
+	if gadtEs.HasErrors() {
+		t.Fatal(gadtEs.Format())
+	}
+	gadtD := gadtProg.Decls[0].(*DeclData)
+	if len(gadtD.Cons) != 0 {
+		t.Errorf("GADT: expected 0 ADT cons, got %d", len(gadtD.Cons))
+	}
+	if len(gadtD.GADTCons) != 1 {
+		t.Errorf("GADT: expected 1 GADT con, got %d", len(gadtD.GADTCons))
+	}
+}
+
+func TestGADTConReturnType(t *testing.T) {
+	prog, es := parse("data Expr a = { IntLit :: Int -> Expr Int; Add :: Expr Int -> Expr Int -> Expr Int; IsZero :: Expr Int -> Expr Bool }")
+	if es.HasErrors() {
+		t.Fatal(es.Format())
+	}
+	d := prog.Decls[0].(*DeclData)
+	if len(d.GADTCons) != 3 {
+		t.Fatalf("expected 3 GADT cons, got %d", len(d.GADTCons))
+	}
+	// Each constructor has a type that ends with Expr <something>
+	names := []string{"IntLit", "Add", "IsZero"}
+	for i, c := range d.GADTCons {
+		if c.Name != names[i] {
+			t.Errorf("con[%d]: expected %s, got %s", i, names[i], c.Name)
+		}
+		if c.Type == nil {
+			t.Errorf("con[%d]: type is nil", i)
+		}
+	}
+}
