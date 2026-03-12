@@ -148,9 +148,14 @@ func (ch *Checker) check(expr syntax.Expr, expected types.Type) core.Core {
 	// against the quantified type. This implements the spec rule:
 	//   ⟦ e : forall a:K. T ⟧ = TyLam(a, K, ⟦e : T⟧)
 	if f, ok := expected.(*types.TyForall); ok {
+		preID := ch.freshID // track scope boundary
+		skolem := ch.freshSkolem(f.Var, f.Kind)
 		ch.ctx.Push(&CtxTyVar{Name: f.Var, Kind: f.Kind})
-		bodyCore := ch.check(expr, f.Body)
+		bodyCore := ch.check(expr, types.Subst(f.Body, f.Var, skolem))
 		ch.ctx.Pop()
+		// Escape check: skolem must not appear in solutions for
+		// metas created before the skolem (outside the scope).
+		ch.checkSkolemEscapeInSolutions(skolem, preID, expr.Span())
 		return &core.TyLam{TyParam: f.Var, Kind: f.Kind, Body: bodyCore, S: expr.Span()}
 	}
 
@@ -179,12 +184,46 @@ func (ch *Checker) check(expr syntax.Expr, expected types.Type) core.Core {
 	default:
 		// Subsumption: infer type, then check inferred ≤ expected.
 		inferredTy, coreExpr := ch.infer(expr)
-		if err := ch.unifier.Unify(inferredTy, expected); err != nil {
-			ch.addError(expr.Span(), fmt.Sprintf("type mismatch: expected %s, got %s",
-				types.Pretty(expected), types.Pretty(inferredTy)))
-		}
+		coreExpr = ch.subsCheck(inferredTy, expected, coreExpr, expr.Span())
 		return coreExpr
 	}
+}
+
+// subsCheck performs the subsumption check: inferred ≤ expected.
+// Handles forall on the inferred side by instantiation,
+// and qualified types by deferring constraints.
+// Falls back to Unify when no polymorphism is involved.
+func (ch *Checker) subsCheck(inferred, expected types.Type, expr core.Core, s span.Span) core.Core {
+	inferred = ch.unifier.Zonk(inferred)
+	expected = ch.unifier.Zonk(expected)
+
+	// Inferred ∀a. A ≤ B  →  instantiate a, check A[a:=?m] ≤ B
+	if f, ok := inferred.(*types.TyForall); ok {
+		meta := ch.freshMeta(f.Kind)
+		body := types.Subst(f.Body, f.Var, meta)
+		expr = &core.TyApp{Expr: expr, TyArg: meta, S: s}
+		return ch.subsCheck(body, expected, expr, s)
+	}
+
+	// Inferred C a => A ≤ B  →  resolve constraint, check A ≤ B
+	if q, ok := inferred.(*types.TyQual); ok {
+		placeholder := fmt.Sprintf("$dict_%d", ch.fresh())
+		ch.deferred = append(ch.deferred, deferredConstraint{
+			placeholder: placeholder,
+			className:   q.ClassName,
+			args:        q.Args,
+			s:           s,
+		})
+		expr = &core.App{Fun: expr, Arg: &core.Var{Name: placeholder, S: s}, S: s}
+		return ch.subsCheck(q.Body, expected, expr, s)
+	}
+
+	// Default: unify
+	if err := ch.unifier.Unify(inferred, expected); err != nil {
+		ch.addError(s, fmt.Sprintf("type mismatch: expected %s, got %s",
+			types.Pretty(expected), types.Pretty(inferred)))
+	}
+	return expr
 }
 
 func (ch *Checker) checkLam(e *syntax.ExprLam, expected types.Type) core.Core {
@@ -220,13 +259,29 @@ func (ch *Checker) checkCase(e *syntax.ExprCase, expected types.Type) core.Core 
 func (ch *Checker) checkCaseAlts(scrutTy, resultTy types.Type, scrutCore core.Core, e *syntax.ExprCase) core.Core {
 	var alts []core.Alt
 	for _, alt := range e.Alts {
-		pat, bindings := ch.checkPattern(alt.Pattern, scrutTy)
+		pat, bindings, skolemIDs := ch.checkPattern(alt.Pattern, scrutTy)
 		for name, ty := range bindings {
 			ch.ctx.Push(&CtxVar{Name: name, Type: ty})
 		}
+		// If this branch introduces existential dict bindings, save and
+		// restore deferred constraints so we only resolve the ones from this body.
+		savedDeferred := ch.deferred
+		if len(skolemIDs) > 0 {
+			ch.deferred = nil
+		}
 		bodyCore := ch.check(alt.Body, resultTy)
+		if len(skolemIDs) > 0 {
+			// Resolve only the constraints generated within this branch body.
+			bodyCore = ch.resolveDeferredConstraints(bodyCore)
+			// Restore outer deferred constraints.
+			ch.deferred = append(savedDeferred, ch.deferred...)
+		}
 		for range bindings {
 			ch.ctx.Pop()
+		}
+		// Existential escape check: skolems must not appear in the result type.
+		if len(skolemIDs) > 0 {
+			ch.checkSkolemEscape(ch.unifier.Zonk(resultTy), skolemIDs, alt.Body.Span())
 		}
 		alts = append(alts, core.Alt{Pattern: pat, Body: bodyCore, S: alt.S})
 	}
@@ -234,38 +289,82 @@ func (ch *Checker) checkCaseAlts(scrutTy, resultTy types.Type, scrutCore core.Co
 	return &core.Case{Scrutinee: scrutCore, Alts: alts, S: e.S}
 }
 
-func (ch *Checker) checkPattern(pat syntax.Pattern, scrutTy types.Type) (core.Pattern, map[string]types.Type) {
+func (ch *Checker) checkPattern(pat syntax.Pattern, scrutTy types.Type) (core.Pattern, map[string]types.Type, map[int]string) {
 	switch p := pat.(type) {
 	case *syntax.PatVar:
-		return &core.PVar{Name: p.Name, S: p.S}, map[string]types.Type{p.Name: scrutTy}
+		return &core.PVar{Name: p.Name, S: p.S}, map[string]types.Type{p.Name: scrutTy}, nil
 	case *syntax.PatWild:
-		return &core.PWild{S: p.S}, nil
+		return &core.PWild{S: p.S}, nil, nil
 	case *syntax.PatCon:
 		conTy, ok := ch.conTypes[p.Con]
 		if !ok {
 			ch.addError(p.S, fmt.Sprintf("unknown constructor in pattern: %s", p.Con))
-			return &core.PWild{S: p.S}, nil
+			return &core.PWild{S: p.S}, nil, nil
 		}
 		// Instantiate constructor type and match argument types.
 		conTy = ch.unifier.Zonk(conTy)
 		var args []core.Pattern
 		bindings := make(map[string]types.Type)
 		currentTy := conTy
-		// Peel off foralls.
+
+		// 1. Collect forall vars.
+		type forallVar struct {
+			name string
+			kind types.Kind
+		}
+		var forallVars []forallVar
+		tmpTy := currentTy
 		for {
-			if f, ok := currentTy.(*types.TyForall); ok {
-				meta := ch.freshMeta(f.Kind)
-				currentTy = types.Subst(f.Body, f.Var, meta)
+			if f, ok := tmpTy.(*types.TyForall); ok {
+				forallVars = append(forallVars, forallVar{name: f.Var, kind: f.Kind})
+				tmpTy = f.Body
 			} else {
 				break
 			}
 		}
+
+		// 2. Get the return type's free vars (strip arrows from after foralls).
+		_, retTy := decomposeConSig(conTy)
+		retFreeVars := types.FreeVars(retTy)
+
+		// 3. Classify each forall var: universal (in return type) → meta, existential → skolem.
+		skolemIDs := map[int]string{}
+		for _, fv := range forallVars {
+			if f, ok := currentTy.(*types.TyForall); ok {
+				if _, isUniversal := retFreeVars[fv.name]; isUniversal {
+					meta := ch.freshMeta(fv.kind)
+					currentTy = types.Subst(f.Body, f.Var, meta)
+				} else {
+					skolem := ch.freshSkolem(fv.name, fv.kind)
+					skolemIDs[skolem.ID] = fv.name
+					currentTy = types.Subst(f.Body, f.Var, skolem)
+				}
+			}
+		}
+
+		// 4. Peel TyQual constraints — generate dict bindings and pattern args for existential constraints.
+		for {
+			if q, ok := currentTy.(*types.TyQual); ok {
+				dictParam := fmt.Sprintf("$d_%s_%d", q.ClassName, ch.fresh())
+				dictTy := ch.buildDictType(q.ClassName, q.Args)
+				bindings[dictParam] = dictTy
+				// Add pattern variable for the dict arg (constructor stores it at runtime).
+				args = append(args, &core.PVar{Name: dictParam, S: p.S})
+				currentTy = q.Body
+			} else {
+				break
+			}
+		}
+
 		for _, argPat := range p.Args {
 			argTy, restTy := ch.matchArrow(currentTy, p.S)
-			corePat, argBindings := ch.checkPattern(argPat, argTy)
+			corePat, argBindings, childSkolems := ch.checkPattern(argPat, argTy)
 			args = append(args, corePat)
 			for k, v := range argBindings {
 				bindings[k] = v
+			}
+			for k, v := range childSkolems {
+				skolemIDs[k] = v
 			}
 			currentTy = restTy
 		}
@@ -277,7 +376,7 @@ func (ch *Checker) checkPattern(pat syntax.Pattern, scrutTy types.Type) (core.Pa
 			for _, c := range info.Constructors {
 				if c.Name == p.Con && c.ReturnType != nil {
 					if !ch.canUnifyWith(c.ReturnType, scrutTy) {
-						return &core.PCon{Con: p.Con, Args: args, S: p.S}, bindings
+						return &core.PCon{Con: p.Con, Args: args, S: p.S}, bindings, skolemIDs
 					}
 				}
 			}
@@ -285,11 +384,11 @@ func (ch *Checker) checkPattern(pat syntax.Pattern, scrutTy types.Type) (core.Pa
 		if err := ch.unifier.Unify(currentTy, scrutTy); err != nil {
 			ch.addError(p.S, fmt.Sprintf("constructor type mismatch: %s", err))
 		}
-		return &core.PCon{Con: p.Con, Args: args, S: p.S}, bindings
+		return &core.PCon{Con: p.Con, Args: args, S: p.S}, bindings, skolemIDs
 	case *syntax.PatParen:
 		return ch.checkPattern(p.Inner, scrutTy)
 	default:
-		return &core.PWild{S: pat.Span()}, nil
+		return &core.PWild{S: pat.Span()}, nil, nil
 	}
 }
 

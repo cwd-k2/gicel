@@ -116,8 +116,21 @@ func (ch *Checker) processDataDecl(d *syntax.DeclData, prog *core.Program) {
 	for _, gcon := range d.GADTCons {
 		conTy := ch.resolveTypeExpr(gcon.Type)
 
+		// Wrap data type params that appear free in the constructor type
+		// but aren't already quantified. This makes `data F f = { MkF :: forall a. f a -> F f }`
+		// work correctly by wrapping f in an outer forall.
+		existingForalls := collectForallNames(conTy)
+		for i := len(d.Params) - 1; i >= 0; i-- {
+			p := d.Params[i].Name
+			if _, already := existingForalls[p]; !already {
+				if types.OccursIn(p, conTy) {
+					conTy = types.MkForall(p, types.KType{}, conTy)
+				}
+			}
+		}
+
 		// Decompose the resolved type into (field types, return type),
-		// skipping any outer foralls for the purpose of decomposition.
+		// skipping any outer foralls and qualifications.
 		fieldTypes, retTy := decomposeConSig(conTy)
 
 		ch.conTypes[gcon.Name] = conTy
@@ -154,7 +167,21 @@ func (ch *Checker) processDataDecl(d *syntax.DeclData, prog *core.Program) {
 	}
 }
 
-// decomposeConSig strips outer foralls, then peels arrow arguments.
+// collectForallNames returns the set of names bound by outer foralls.
+func collectForallNames(ty types.Type) map[string]struct{} {
+	names := make(map[string]struct{})
+	for {
+		if f, ok := ty.(*types.TyForall); ok {
+			names[f.Var] = struct{}{}
+			ty = f.Body
+		} else {
+			break
+		}
+	}
+	return names
+}
+
+// decomposeConSig strips outer foralls and qualifications, then peels arrow arguments.
 // Returns the list of field types and the final return type.
 func decomposeConSig(ty types.Type) (fields []types.Type, ret types.Type) {
 	for {
@@ -165,12 +192,17 @@ func decomposeConSig(ty types.Type) (fields []types.Type, ret types.Type) {
 		}
 	}
 	for {
-		if a, ok := ty.(*types.TyArrow); ok {
-			fields = append(fields, a.From)
-			ty = a.To
-		} else {
-			break
+		switch t := ty.(type) {
+		case *types.TyArrow:
+			fields = append(fields, t.From)
+			ty = t.To
+			continue
+		case *types.TyQual:
+			// Constraints become implicit dict fields at runtime.
+			ty = t.Body
+			continue
 		}
+		break
 	}
 	return fields, ty
 }
