@@ -67,6 +67,13 @@ func (ev *Evaluator) Eval(env *Env, capEnv CapEnv, expr core.Core) (EvalResult, 
 		if !ok {
 			return EvalResult{}, &RuntimeError{Message: fmt.Sprintf("unbound variable: %s", e.Name), Span: e.S}
 		}
+		// Dereference forward-reference cells (used for mutually-recursive top-level bindings).
+		if ind, ok := v.(*IndirectVal); ok {
+			if ind.Ref == nil {
+				return EvalResult{}, &RuntimeError{Message: fmt.Sprintf("uninitialized forward reference: %s", e.Name), Span: e.S}
+			}
+			return EvalResult{*ind.Ref, capEnv}, nil
+		}
 		return EvalResult{v, capEnv}, nil
 
 	case *core.Lam:

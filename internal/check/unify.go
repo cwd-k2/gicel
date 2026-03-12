@@ -266,6 +266,10 @@ func (u *Unifier) unifyRows(r1, r2 *types.TyRow) error {
 }
 
 func (u *Unifier) solveRowTail(tail types.Type, fields []types.RowField, newTail types.Type) error {
+	// { | t } is equivalent to t — unify tail directly when no extra fields.
+	if len(fields) == 0 && newTail != nil {
+		return u.Unify(tail, newTail)
+	}
 	solution := &types.TyRow{Fields: fields, Tail: newTail}
 	if len(fields) == 0 && newTail == nil {
 		solution = types.EmptyRow()

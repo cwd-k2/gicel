@@ -45,11 +45,18 @@ type PrimVal struct {
 	Args  []Value
 }
 
-func (*HostVal) valueNode()  {}
-func (*Closure) valueNode()  {}
-func (*ConVal) valueNode()   {}
-func (*ThunkVal) valueNode() {}
-func (*PrimVal) valueNode()  {}
+// IndirectVal is a forward-reference cell for mutually-recursive top-level bindings.
+// It holds a pointer to the actual value, which is populated after the binding is evaluated.
+type IndirectVal struct {
+	Ref *Value
+}
+
+func (*HostVal) valueNode()     {}
+func (*Closure) valueNode()     {}
+func (*ConVal) valueNode()      {}
+func (*ThunkVal) valueNode()    {}
+func (*PrimVal) valueNode()     {}
+func (*IndirectVal) valueNode() {}
 
 func (v *HostVal) String() string {
 	return fmt.Sprintf("HostVal(%v)", v.Inner)
@@ -83,4 +90,11 @@ func (v *PrimVal) String() string {
 		args[i] = a.String()
 	}
 	return fmt.Sprintf("PrimVal(%s %s)", v.Name, strings.Join(args, " "))
+}
+
+func (v *IndirectVal) String() string {
+	if v.Ref == nil {
+		return "IndirectVal(<uninitialized>)"
+	}
+	return (*v.Ref).String()
 }

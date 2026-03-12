@@ -264,6 +264,21 @@ func (ch *Checker) processInstanceBody(inst *InstanceInfo, prog *core.Program) {
 		}
 	}
 
+	// Push instance context dict params into scope BEFORE checking methods.
+	// This allows method bodies to resolve constraints from the instance context
+	// (e.g., `eq a b` inside `instance Eq a => Eq (Maybe a)` needs $d_Eq in scope).
+	type ctxParam struct {
+		name string
+		ty   types.Type
+	}
+	var ctxParams []ctxParam
+	for _, ctx := range inst.Context {
+		paramName := fmt.Sprintf("$d_%s_%d", ctx.ClassName, ch.fresh())
+		paramTy := ch.buildDictType(ctx.ClassName, ctx.Args)
+		ctxParams = append(ctxParams, ctxParam{name: paramName, ty: paramTy})
+		ch.ctx.Push(&CtxVar{Name: paramName, Type: paramTy})
+	}
+
 	// Build the dictionary constructor arguments.
 	var dictArgs []core.Core
 	var dictArgTypes []types.Type
@@ -287,8 +302,16 @@ func (ch *Checker) processInstanceBody(inst *InstanceInfo, prog *core.Program) {
 		}
 		expectedTy := types.SubstMany(m.Type, subst)
 		methCore := ch.check(methExpr, expectedTy)
+		// Resolve deferred constraints from the method body now,
+		// while context dict params are still in scope.
+		methCore = ch.resolveDeferredConstraints(methCore)
 		dictArgs = append(dictArgs, methCore)
 		dictArgTypes = append(dictArgTypes, expectedTy)
+	}
+
+	// Pop context dict params.
+	for range inst.Context {
+		ch.ctx.Pop()
 	}
 
 	// Build the dictionary value: DictCon @types... arg1 arg2 ...
@@ -307,19 +330,12 @@ func (ch *Checker) processInstanceBody(inst *InstanceInfo, prog *core.Program) {
 
 	// If instance has context, wrap in lambda(s) for each context constraint.
 	if len(inst.Context) > 0 {
-		for i := len(inst.Context) - 1; i >= 0; i-- {
-			ctx := inst.Context[i]
-			paramName := fmt.Sprintf("$d_%s_%d", ctx.ClassName, ch.fresh())
-			paramTy := ch.buildDictType(ctx.ClassName, ctx.Args)
-			dictExpr = &core.Lam{Param: paramName, ParamType: paramTy, Body: dictExpr, S: inst.S}
-			dictTy = types.MkArrow(paramTy, dictTy)
-
-			// Push dict param into context for resolveInstance within the body.
-			ch.ctx.Push(&CtxVar{Name: paramName, Type: paramTy})
-		}
-		// Pop context dict params.
-		for range inst.Context {
-			ch.ctx.Pop()
+		for i := len(ctxParams) - 1; i >= 0; i-- {
+			dictExpr = &core.Lam{
+				Param: ctxParams[i].name, ParamType: ctxParams[i].ty,
+				Body: dictExpr, S: inst.S,
+			}
+			dictTy = types.MkArrow(ctxParams[i].ty, dictTy)
 		}
 	}
 
@@ -427,8 +443,8 @@ func (ch *Checker) matchesDictVar(v *CtxVar, className string, args []types.Type
 }
 
 // extractSuperDict checks if a context variable is a dict for a class that
-// has the target class as a superclass. If so, it builds a Case expression
-// to extract the superclass dict field.
+// has the target class as a (possibly transitive) superclass.
+// If so, it builds chained Case expressions to extract the target dict.
 func (ch *Checker) extractSuperDict(v *CtxVar, targetClass string, targetArgs []types.Type, s span.Span) core.Core {
 	ty := ch.unifier.Zonk(v.Type)
 	head, tyArgs := types.UnwindApp(ty)
@@ -436,58 +452,96 @@ func (ch *Checker) extractSuperDict(v *CtxVar, targetClass string, targetArgs []
 	if !ok || !strings.HasSuffix(con.Name, "$Dict") {
 		return nil
 	}
-	parentClass := strings.TrimSuffix(con.Name, "$Dict")
+	return ch.extractSuperDictChain(
+		&core.Var{Name: v.Name, S: s},
+		con.Name, tyArgs,
+		targetClass, targetArgs,
+		s, nil,
+	)
+}
+
+// extractSuperDictChain recursively searches the superclass hierarchy for
+// the target class, building chained Case extractions along the path.
+func (ch *Checker) extractSuperDictChain(
+	dictExpr core.Core, dictTyName string, dictTyArgs []types.Type,
+	targetClass string, targetArgs []types.Type,
+	s span.Span, visited map[string]bool,
+) core.Core {
+	if visited == nil {
+		visited = make(map[string]bool)
+	}
+	parentClass := strings.TrimSuffix(dictTyName, "$Dict")
+	if visited[parentClass] {
+		return nil
+	}
+	visited[parentClass] = true
+
 	classInfo, ok := ch.classes[parentClass]
 	if !ok {
 		return nil
 	}
 
+	// Build substitution: class type params → actual dict type args.
+	subst := make(map[string]types.Type)
+	for j, p := range classInfo.TyParams {
+		if j < len(dictTyArgs) {
+			subst[p] = dictTyArgs[j]
+		}
+	}
+
 	for superIdx, sup := range classInfo.Supers {
-		if sup.ClassName != targetClass {
-			continue
+		superArgs := make([]types.Type, len(sup.Args))
+		for j, a := range sup.Args {
+			superArgs[j] = types.SubstMany(a, subst)
 		}
-		// Build substitution: class type params → actual dict type args.
-		subst := make(map[string]types.Type)
-		for j, p := range classInfo.TyParams {
-			if j < len(tyArgs) {
-				subst[p] = tyArgs[j]
-			}
-		}
-		// Verify the superclass args match the target args.
-		match := true
-		for j, sArg := range sup.Args {
-			if j >= len(targetArgs) {
-				match = false
-				break
-			}
-			substArg := types.SubstMany(sArg, subst)
-			if err := ch.unifier.Unify(substArg, targetArgs[j]); err != nil {
-				match = false
-				break
-			}
-		}
-		if !match {
-			continue
-		}
-		// Build: case v of { Parent$Dict f0 f1 ... -> f_superIdx }
+
+		// Build Case extraction for this super field.
 		allFields := len(classInfo.Supers) + len(classInfo.Methods)
 		var patArgs []core.Pattern
-		var resultExpr core.Core
+		var fieldExpr core.Core
+		freshBase := ch.fresh()
 		for j := 0; j < allFields; j++ {
-			argName := fmt.Sprintf("$sf_%d_%d", superIdx, j)
+			argName := fmt.Sprintf("$sf_%d_%d_%d", superIdx, j, freshBase)
 			patArgs = append(patArgs, &core.PVar{Name: argName, S: s})
 			if j == superIdx {
-				resultExpr = &core.Var{Name: argName, S: s}
+				fieldExpr = &core.Var{Name: argName, S: s}
 			}
 		}
-		return &core.Case{
-			Scrutinee: &core.Var{Name: v.Name, S: s},
+		extractExpr := &core.Case{
+			Scrutinee: dictExpr,
 			Alts: []core.Alt{{
 				Pattern: &core.PCon{Con: classInfo.DictConName, Args: patArgs, S: s},
-				Body:    resultExpr,
+				Body:    fieldExpr,
 				S:       s,
 			}},
 			S: s,
+		}
+
+		// Direct match: this superclass IS the target.
+		if sup.ClassName == targetClass {
+			match := len(superArgs) == len(targetArgs)
+			if match {
+				for j := range targetArgs {
+					if err := ch.unifier.Unify(superArgs[j], targetArgs[j]); err != nil {
+						match = false
+						break
+					}
+				}
+			}
+			if match {
+				return extractExpr
+			}
+		}
+
+		// Transitive: search within this superclass's dict.
+		superDictTyName := sup.ClassName + "$Dict"
+		result := ch.extractSuperDictChain(
+			extractExpr, superDictTyName, superArgs,
+			targetClass, targetArgs,
+			s, visited,
+		)
+		if result != nil {
+			return result
 		}
 	}
 	return nil

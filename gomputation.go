@@ -374,19 +374,35 @@ func (r *Runtime) run(ctx context.Context, caps map[string]any, bindings map[str
 		return eval.EvalResult{}, EvalStats{}, err
 	}
 
+	// Pre-populate env with forward-reference cells for all non-entry bindings.
+	// This enables mutually-recursive and self-referential top-level bindings
+	// (e.g., type class instance dicts with recursive methods).
 	var entryExpr core.Core
+	cells := make(map[string]*eval.IndirectVal)
 	for _, b := range r.prog.Bindings {
 		if b.Name == entry {
 			entryExpr = b.Expr
-		} else {
-			ev := eval.NewEvaluator(ctx, r.prims, eval.NewLimit(r.stepLimit, r.depthLimit), r.traceHook)
-			result, err := ev.Eval(env, eval.NewCapEnv(nil), b.Expr)
-			if err != nil {
-				return eval.EvalResult{}, EvalStats{}, fmt.Errorf("evaluating %s: %w", b.Name, err)
-			}
-			env = env.Extend(b.Name, result.Value)
+			continue
 		}
+		cell := &eval.IndirectVal{}
+		cells[b.Name] = cell
+		env = env.Extend(b.Name, cell)
 	}
+
+	// Evaluate each binding, populating its forward-reference cell.
+	for _, b := range r.prog.Bindings {
+		if b.Name == entry {
+			continue
+		}
+		ev := eval.NewEvaluator(ctx, r.prims, eval.NewLimit(r.stepLimit, r.depthLimit), r.traceHook)
+		result, err := ev.Eval(env, eval.NewCapEnv(nil), b.Expr)
+		if err != nil {
+			return eval.EvalResult{}, EvalStats{}, fmt.Errorf("evaluating %s: %w", b.Name, err)
+		}
+		v := result.Value
+		cells[b.Name].Ref = &v
+	}
+
 	if entryExpr == nil {
 		return eval.EvalResult{}, EvalStats{}, fmt.Errorf("entry point %q not found", entry)
 	}

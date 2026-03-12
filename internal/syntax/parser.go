@@ -260,47 +260,79 @@ func (p *Parser) parseClassMethods() []ClassMethod {
 	return methods
 }
 
-// parseInstanceDecl parses: instance [Constraint =>] ClassName types { method := expr; ... }
+// parseInstanceDecl parses: instance [Constraint =>]* ClassName types { method := expr; ... }
+// Supports curried constraints: instance Eq a => Eq b => Eq (Pair a b) { ... }
+// Supports parenthesized constraints: instance (Eq a) => Eq (Maybe a) { ... }
 func (p *Parser) parseInstanceDecl() *DeclInstance {
 	start := p.peek().S.Start
 	p.expect(TokInstance)
 
-	// Parse: either "ClassName types" or "Constraint => ClassName types".
-	// Strategy: parse type applications. If => follows, first part is context.
 	var context []TypeExpr
 
-	firstName := p.expectUpper()
-	var firstArgs []TypeExpr
-	for p.isTypeAtomStart() && p.peek().Kind != TokLBrace && !p.atDeclBoundary() {
-		firstArgs = append(firstArgs, p.parseTypeAtom())
-	}
-
-	if p.peek().Kind == TokFatArrow {
-		// What we parsed is a context constraint.
-		var ctxExpr TypeExpr = &TyExprCon{Name: firstName, S: span.Span{Start: start, End: p.prevEnd()}}
-		for _, arg := range firstArgs {
-			ctxExpr = &TyExprApp{Fun: ctxExpr, Arg: arg, S: span.Span{Start: start, End: arg.Span().End}}
+	// Loop: accumulate constraints until we find the actual class head.
+	for {
+		// Parenthesized constraint: (Eq a) => ...
+		if p.peek().Kind == TokLParen {
+			saved := p.pos
+			savedDepth := p.depth
+			ty := p.parseTypeAtom() // parses (Eq a)
+			if p.peek().Kind == TokFatArrow {
+				if paren, ok := ty.(*TyExprParen); ok {
+					context = append(context, paren.Inner)
+				} else {
+					context = append(context, ty)
+				}
+				p.advance() // consume =>
+				continue
+			}
+			// Not a constraint — backtrack and parse as class TypeArgs
+			p.pos = saved
+			p.depth = savedDepth
+			break
 		}
-		context = append(context, ctxExpr)
-		p.advance() // consume =>
 
-		// Parse the actual class name and type args.
-		className := p.expectUpper()
-		var typeArgs []TypeExpr
+		if p.peek().Kind != TokUpper {
+			break
+		}
+
+		// Parse Upper + args, then check for =>
+		nameStart := p.peek().S.Start
+		firstName := p.peek().Text
+		p.advance()
+
+		var firstArgs []TypeExpr
 		for p.isTypeAtomStart() && p.peek().Kind != TokLBrace && !p.atDeclBoundary() {
-			typeArgs = append(typeArgs, p.parseTypeAtom())
+			firstArgs = append(firstArgs, p.parseTypeAtom())
 		}
+
+		if p.peek().Kind == TokFatArrow {
+			// This is a context constraint.
+			var ctxExpr TypeExpr = &TyExprCon{Name: firstName, S: span.Span{Start: nameStart, End: p.prevEnd()}}
+			for _, arg := range firstArgs {
+				ctxExpr = &TyExprApp{Fun: ctxExpr, Arg: arg, S: span.Span{Start: nameStart, End: arg.Span().End}}
+			}
+			context = append(context, ctxExpr)
+			p.advance() // consume =>
+			continue
+		}
+
+		// No =>, firstName IS the class name.
 		methods := p.parseInstMethods()
 		return &DeclInstance{
-			Context: context, ClassName: className, TypeArgs: typeArgs, Methods: methods,
+			Context: context, ClassName: firstName, TypeArgs: firstArgs, Methods: methods,
 			S: span.Span{Start: start, End: p.prevEnd()},
 		}
 	}
 
-	// No =>, firstName is the class name.
+	// Fallback: parse remaining class name + args
+	className := p.expectUpper()
+	var typeArgs []TypeExpr
+	for p.isTypeAtomStart() && p.peek().Kind != TokLBrace && !p.atDeclBoundary() {
+		typeArgs = append(typeArgs, p.parseTypeAtom())
+	}
 	methods := p.parseInstMethods()
 	return &DeclInstance{
-		ClassName: firstName, TypeArgs: firstArgs, Methods: methods,
+		Context: context, ClassName: className, TypeArgs: typeArgs, Methods: methods,
 		S: span.Span{Start: start, End: p.prevEnd()},
 	}
 }
@@ -310,6 +342,12 @@ func (p *Parser) parseInstMethods() []InstMethod {
 	var methods []InstMethod
 	for p.peek().Kind != TokRBrace && p.peek().Kind != TokEOF {
 		mStart := p.peek().S.Start
+		if p.peek().Kind != TokLower {
+			// Skip unexpected token to avoid infinite loop.
+			p.addError("expected method name in instance declaration")
+			p.advance()
+			continue
+		}
 		name := p.expectLower()
 		p.expect(TokColonEq)
 		expr := p.parseExpr()
