@@ -154,6 +154,17 @@ func (ch *Checker) check(expr syntax.Expr, expected types.Type) core.Core {
 		return &core.TyLam{TyParam: f.Var, Kind: f.Kind, Body: bodyCore, S: expr.Span()}
 	}
 
+	// If the expected type is a TyQual, introduce an implicit dict parameter.
+	//   ⟦ e : C a => T ⟧ = Lam($d : C$Dict a, ⟦e : T⟧)
+	if q, ok := expected.(*types.TyQual); ok {
+		dictParam := fmt.Sprintf("$d_%s_%d", q.ClassName, ch.fresh())
+		dictTy := ch.buildDictType(q.ClassName, q.Args)
+		ch.ctx.Push(&CtxVar{Name: dictParam, Type: dictTy})
+		bodyCore := ch.check(expr, q.Body)
+		ch.ctx.Pop()
+		return &core.Lam{Param: dictParam, ParamType: dictTy, Body: bodyCore, S: expr.Span()}
+	}
+
 	switch e := expr.(type) {
 	case *syntax.ExprLam:
 		return ch.checkLam(e, expected)
@@ -391,15 +402,26 @@ func (ch *Checker) matchArrow(ty types.Type, s span.Span) (types.Type, types.Typ
 func (ch *Checker) instantiate(ty types.Type, expr core.Core) (types.Type, core.Core) {
 	for {
 		ty = ch.unifier.Zonk(ty)
-		f, ok := ty.(*types.TyForall)
-		if !ok {
-			return ty, expr
+		if f, ok := ty.(*types.TyForall); ok {
+			meta := ch.freshMeta(f.Kind)
+			ch.trace(TraceInstantiate, span.Span{}, "instantiate: %s → %s[%s := ?%d]",
+				types.Pretty(ty), f.Var, types.Pretty(meta), meta.ID)
+			ty = types.Subst(f.Body, f.Var, meta)
+			expr = &core.TyApp{Expr: expr, TyArg: meta, S: expr.Span()}
+			continue
 		}
-		meta := ch.freshMeta(f.Kind)
-		ch.trace(TraceInstantiate, span.Span{}, "instantiate: %s → %s[%s := ?%d]",
-			types.Pretty(ty), f.Var, types.Pretty(meta), meta.ID)
-		ty = types.Subst(f.Body, f.Var, meta)
-		expr = &core.TyApp{Expr: expr, TyArg: meta, S: expr.Span()}
+		if q, ok := ty.(*types.TyQual); ok {
+			// Resolve the constraint to a dictionary expression.
+			zonkedArgs := make([]types.Type, len(q.Args))
+			for i, a := range q.Args {
+				zonkedArgs[i] = ch.unifier.Zonk(a)
+			}
+			dictExpr := ch.resolveInstance(q.ClassName, zonkedArgs, expr.Span())
+			expr = &core.App{Fun: expr, Arg: dictExpr, S: expr.Span()}
+			ty = q.Body
+			continue
+		}
+		return ty, expr
 	}
 }
 
@@ -457,6 +479,16 @@ func (ch *Checker) resolveTypeExpr(texpr syntax.TypeExpr) types.Type {
 			tail = &types.TyVar{Name: t.Tail.Name, S: t.Tail.S}
 		}
 		return &types.TyRow{Fields: fields, Tail: tail, S: t.S}
+	case *syntax.TyExprQual:
+		constraint := ch.resolveTypeExpr(t.Constraint)
+		body := ch.resolveTypeExpr(t.Body)
+		// Decompose constraint: Eq a → className="Eq", args=[a]
+		head, args := types.UnwindApp(constraint)
+		if con, ok := head.(*types.TyCon); ok {
+			return &types.TyQual{ClassName: con.Name, Args: args, Body: body, S: t.S}
+		}
+		ch.addError(t.S, fmt.Sprintf("invalid constraint: %s", types.Pretty(constraint)))
+		return body
 	case *syntax.TyExprParen:
 		return ch.resolveTypeExpr(t.Inner)
 	default:
@@ -625,6 +657,8 @@ func (ch *Checker) resolveKindExpr(k syntax.KindExpr) types.Kind {
 		return types.KType{}
 	case *syntax.KindExprRow:
 		return types.KRow{}
+	case *syntax.KindExprConstraint:
+		return types.KConstraint{}
 	case *syntax.KindExprArrow:
 		return &types.KArrow{From: ch.resolveKindExpr(ke.From), To: ch.resolveKindExpr(ke.To)}
 	default:

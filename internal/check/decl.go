@@ -12,24 +12,42 @@ import (
 func (ch *Checker) checkDecls(decls []syntax.Decl) *core.Program {
 	prog := &core.Program{}
 
-	// Process data declarations (register constructors first).
+	// 1. Process data declarations (register constructors first).
 	for _, d := range decls {
 		if data, ok := d.(*syntax.DeclData); ok {
 			ch.processDataDecl(data, prog)
 		}
 	}
 
-	// Process type aliases (before annotations, so aliases are available for expansion).
+	// 2. Process type aliases.
 	for _, d := range decls {
 		if alias, ok := d.(*syntax.DeclTypeAlias); ok {
 			ch.processTypeAlias(alias)
 		}
 	}
 
-	// Detect cyclic aliases before expansion can diverge.
+	// 3. Detect cyclic aliases.
 	ch.validateAliasGraph()
 
-	// Collect type annotations (after aliases are registered, so alias expansion works).
+	// 4. Process class declarations (generates dict types + selectors).
+	for _, d := range decls {
+		if cls, ok := d.(*syntax.DeclClass); ok {
+			ch.processClassDecl(cls, prog)
+		}
+	}
+
+	// 5. Process instance headers (validates, registers).
+	var instanceDecls []*InstanceInfo
+	for _, d := range decls {
+		if inst, ok := d.(*syntax.DeclInstance); ok {
+			info := ch.processInstanceHeader(inst)
+			if info != nil {
+				instanceDecls = append(instanceDecls, info)
+			}
+		}
+	}
+
+	// 6. Collect type annotations.
 	annotations := make(map[string]types.Type)
 	for _, d := range decls {
 		if ann, ok := d.(*syntax.DeclTypeAnn); ok {
@@ -37,7 +55,12 @@ func (ch *Checker) checkDecls(decls []syntax.Decl) *core.Program {
 		}
 	}
 
-	// Process value definitions.
+	// 7. Process instance bodies (type-checks methods, generates dict bindings).
+	for _, inst := range instanceDecls {
+		ch.processInstanceBody(inst, prog)
+	}
+
+	// 8. Process value definitions.
 	for _, d := range decls {
 		if def, ok := d.(*syntax.DeclValueDef); ok {
 			ch.processValueDef(def, annotations, prog)

@@ -42,6 +42,11 @@ const (
 	ErrBadTypeApp      Code = 213 // type application error
 	ErrEmptyDo         Code = 214 // empty do block
 	ErrBadDoEnding     Code = 215 // do block doesn't end with expression
+	ErrNoInstance      Code = 220 // no matching type class instance
+	ErrOverlap         Code = 221 // overlapping instances
+	ErrBadClass        Code = 222 // invalid class declaration
+	ErrBadInstance     Code = 223 // invalid instance declaration
+	ErrMissingMethod   Code = 224 // missing method in instance
 )
 
 // Phase indicates which compiler stage produced the error.

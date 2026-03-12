@@ -53,6 +53,8 @@ type Checker struct {
 	conTypes  map[string]types.Type
 	conInfo   map[string]*DataTypeInfo
 	aliases   map[string]*aliasInfo
+	classes   map[string]*ClassInfo
+	instances []*InstanceInfo
 	depth     int
 }
 
@@ -86,6 +88,7 @@ func Check(prog *syntax.AstProgram, source *span.Source, config *CheckConfig) (*
 		conTypes: make(map[string]types.Type),
 		conInfo:  make(map[string]*DataTypeInfo),
 		aliases:  make(map[string]*aliasInfo),
+		classes:  make(map[string]*ClassInfo),
 	}
 	ch.unifier = NewUnifierShared(&ch.freshID)
 	ch.initContext()
