@@ -1642,6 +1642,53 @@ main := eq (Pair True False) (Pair True False)
 	}
 }
 
+// --- Coercible integration tests ---
+
+func TestCoercibleMultiParam(t *testing.T) {
+	eng := gmp.NewEngine()
+	rt, err := eng.NewRuntime(`
+class Coercible a b { coerce :: a -> b }
+
+instance Coercible Bool Unit { coerce := \_ -> Unit }
+
+main := coerce True
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	con, ok := result.Value.(*gmp.ConVal)
+	if !ok || con.Con != "Unit" {
+		t.Errorf("expected Unit, got %s", result.Value)
+	}
+}
+
+func TestCoercibleUsage(t *testing.T) {
+	eng := gmp.NewEngine()
+	rt, err := eng.NewRuntime(`
+class Coercible a b { coerce :: a -> b }
+
+instance Coercible Bool Bool { coerce := \x -> x }
+
+main :: Bool
+main := coerce True
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	con, ok := result.Value.(*gmp.ConVal)
+	if !ok || con.Con != "True" {
+		t.Errorf("expected True, got %s", result.Value)
+	}
+}
+
 func TestPreludeAsModule(t *testing.T) {
 	// Prelude is now loaded as an implicit module — Bool, Unit, etc. should be available.
 	eng := gmp.NewEngine()
