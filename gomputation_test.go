@@ -10,7 +10,7 @@ import (
 	gmp "github.com/cwd-k2/gomputation"
 	"github.com/cwd-k2/gomputation/internal/eval"
 	"github.com/cwd-k2/gomputation/pkg/types"
-	"github.com/cwd-k2/gomputation/stdlib"
+	"github.com/cwd-k2/gomputation/pkg/stdlib"
 )
 
 func TestIdentity(t *testing.T) {
