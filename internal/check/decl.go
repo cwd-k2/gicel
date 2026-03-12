@@ -112,6 +112,30 @@ func (ch *Checker) processDataDecl(d *syntax.DeclData, prog *core.Program) {
 		coreDecl.Cons = append(coreDecl.Cons, core.ConDecl{Name: con.Name, Fields: fieldTypes, S: con.S})
 	}
 
+	// GADT constructors.
+	for _, gcon := range d.GADTCons {
+		conTy := ch.resolveTypeExpr(gcon.Type)
+
+		// Decompose the resolved type into (field types, return type),
+		// skipping any outer foralls for the purpose of decomposition.
+		fieldTypes, retTy := decomposeConSig(conTy)
+
+		ch.conTypes[gcon.Name] = conTy
+		ch.ctx.Push(&CtxVar{Name: gcon.Name, Type: conTy})
+		dataInfo.Constructors = append(dataInfo.Constructors, ConInfo{
+			Name:       gcon.Name,
+			Arity:      len(fieldTypes),
+			ReturnType: retTy,
+		})
+		ch.conInfo[gcon.Name] = dataInfo
+		coreDecl.Cons = append(coreDecl.Cons, core.ConDecl{
+			Name:       gcon.Name,
+			Fields:     fieldTypes,
+			ReturnType: retTy,
+			S:          gcon.S,
+		})
+	}
+
 	prog.DataDecls = append(prog.DataDecls, coreDecl)
 
 	// DataKinds: promote nullary constructors to type level.
@@ -122,6 +146,33 @@ func (ch *Checker) processDataDecl(d *syntax.DeclData, prog *core.Program) {
 			ch.promotedCons[con.Name] = dataKind
 		}
 	}
+	for _, gcon := range d.GADTCons {
+		fieldTypes, _ := decomposeConSig(ch.resolveTypeExpr(gcon.Type))
+		if len(fieldTypes) == 0 {
+			ch.promotedCons[gcon.Name] = dataKind
+		}
+	}
+}
+
+// decomposeConSig strips outer foralls, then peels arrow arguments.
+// Returns the list of field types and the final return type.
+func decomposeConSig(ty types.Type) (fields []types.Type, ret types.Type) {
+	for {
+		if f, ok := ty.(*types.TyForall); ok {
+			ty = f.Body
+		} else {
+			break
+		}
+	}
+	for {
+		if a, ok := ty.(*types.TyArrow); ok {
+			fields = append(fields, a.From)
+			ty = a.To
+		} else {
+			break
+		}
+	}
+	return fields, ty
 }
 
 // typeArity counts the number of arrow arguments in a type,

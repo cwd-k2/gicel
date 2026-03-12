@@ -737,6 +737,71 @@ main := close MkDB`
 	checkSource(t, source, nil)
 }
 
+// --- GADT tests ---
+
+func TestGADTConTypeRegistration(t *testing.T) {
+	// IntLit :: Int -> Expr Int → constructor type is registered correctly.
+	source := `data Bool = True | False
+data Expr a = { IntLit :: Bool -> Expr Bool; BoolLit :: Bool -> Expr Bool }
+main := IntLit True`
+	prog := checkSource(t, source, nil)
+	found := false
+	for _, b := range prog.Bindings {
+		if b.Name == "main" {
+			found = true
+		}
+	}
+	if !found {
+		t.Error("expected binding 'main'")
+	}
+	// Verify GADT constructors are in DataDecls.
+	for _, d := range prog.DataDecls {
+		if d.Name == "Expr" {
+			if len(d.Cons) != 2 {
+				t.Fatalf("expected 2 cons, got %d", len(d.Cons))
+			}
+			for _, c := range d.Cons {
+				if c.ReturnType == nil {
+					t.Errorf("GADT con %s should have ReturnType", c.Name)
+				}
+			}
+		}
+	}
+}
+
+func TestGADTPatternRefinement(t *testing.T) {
+	// case (e : Expr Bool) of { BoolLit b -> b } should derive b : Bool
+	source := `data Bool = True | False
+data Expr a = { BoolLit :: Bool -> Expr Bool; IntLit :: Bool -> Expr Bool }
+f :: Expr Bool -> Bool
+f := \e -> case e of { BoolLit b -> b; IntLit b -> b }`
+	checkSource(t, source, nil)
+}
+
+func TestGADTMultiBranch(t *testing.T) {
+	// Multiple GADT constructors sharing the same return type specialization.
+	source := `data Bool = True | False
+data Expr a = { Lit :: Bool -> Expr Bool; Not :: Expr Bool -> Expr Bool }
+eval :: Expr Bool -> Bool
+eval := \e -> case e of { Lit b -> b; Not inner -> True }`
+	checkSource(t, source, nil)
+}
+
+func TestGADTRefinementMismatch(t *testing.T) {
+	// Matching a constructor whose return type is incompatible with the scrutinee
+	// should produce a type error (unreachable branch — handled as error for now,
+	// Group I will refine this to relevance-based filtering).
+	source := `data Bool = True | False
+data Unit = Unit
+data Tag a = { TagBool :: Bool -> Tag Bool; TagUnit :: Unit -> Tag Unit }
+f :: Tag Bool -> Bool
+f := \t -> case t of { TagBool b -> b; TagUnit _ -> True }`
+	errMsg := checkSourceExpectError(t, source, nil)
+	if !strings.Contains(errMsg, "mismatch") {
+		t.Errorf("expected type mismatch, got: %s", errMsg)
+	}
+}
+
 func BenchmarkZonkDeepChain(b *testing.B) {
 	u := NewUnifier()
 	// Build a deep TyApp chain with no metavariables.
