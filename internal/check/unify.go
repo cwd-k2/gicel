@@ -50,37 +50,92 @@ func (u *Unifier) RegisterLabelContext(id int, labels map[string]struct{}) {
 }
 
 // Zonk replaces all solved metavariables in a type.
+// Optimizations:
+//   - Path compression: meta chains (m1 → m2 → Int) are compressed so
+//     soln[m1] points directly to the final answer.
+//   - Structural identity: if all children are unchanged (pointer-equal),
+//     the original node is returned (avoids allocation).
 func (u *Unifier) Zonk(t types.Type) types.Type {
 	switch ty := t.(type) {
 	case *types.TyMeta:
-		if soln, ok := u.soln[ty.ID]; ok {
-			return u.Zonk(soln)
+		soln, ok := u.soln[ty.ID]
+		if !ok {
+			return ty
 		}
-		return ty
+		result := u.Zonk(soln)
+		if result != soln {
+			u.soln[ty.ID] = result // path compression
+		}
+		return result
 	case *types.TyApp:
-		return &types.TyApp{Fun: u.Zonk(ty.Fun), Arg: u.Zonk(ty.Arg), S: ty.S}
+		zFun := u.Zonk(ty.Fun)
+		zArg := u.Zonk(ty.Arg)
+		if zFun == ty.Fun && zArg == ty.Arg {
+			return ty
+		}
+		return &types.TyApp{Fun: zFun, Arg: zArg, S: ty.S}
 	case *types.TyArrow:
-		return &types.TyArrow{From: u.Zonk(ty.From), To: u.Zonk(ty.To), S: ty.S}
+		zFrom := u.Zonk(ty.From)
+		zTo := u.Zonk(ty.To)
+		if zFrom == ty.From && zTo == ty.To {
+			return ty
+		}
+		return &types.TyArrow{From: zFrom, To: zTo, S: ty.S}
 	case *types.TyForall:
-		return &types.TyForall{Var: ty.Var, Kind: ty.Kind, Body: u.Zonk(ty.Body), S: ty.S}
+		zBody := u.Zonk(ty.Body)
+		if zBody == ty.Body {
+			return ty
+		}
+		return &types.TyForall{Var: ty.Var, Kind: ty.Kind, Body: zBody, S: ty.S}
 	case *types.TyComp:
-		return &types.TyComp{Pre: u.Zonk(ty.Pre), Post: u.Zonk(ty.Post), Result: u.Zonk(ty.Result), S: ty.S}
+		zPre := u.Zonk(ty.Pre)
+		zPost := u.Zonk(ty.Post)
+		zResult := u.Zonk(ty.Result)
+		if zPre == ty.Pre && zPost == ty.Post && zResult == ty.Result {
+			return ty
+		}
+		return &types.TyComp{Pre: zPre, Post: zPost, Result: zResult, S: ty.S}
 	case *types.TyThunk:
-		return &types.TyThunk{Pre: u.Zonk(ty.Pre), Post: u.Zonk(ty.Post), Result: u.Zonk(ty.Result), S: ty.S}
+		zPre := u.Zonk(ty.Pre)
+		zPost := u.Zonk(ty.Post)
+		zResult := u.Zonk(ty.Result)
+		if zPre == ty.Pre && zPost == ty.Post && zResult == ty.Result {
+			return ty
+		}
+		return &types.TyThunk{Pre: zPre, Post: zPost, Result: zResult, S: ty.S}
 	case *types.TyQual:
+		changed := false
 		args := make([]types.Type, len(ty.Args))
 		for i, a := range ty.Args {
 			args[i] = u.Zonk(a)
+			if args[i] != a {
+				changed = true
+			}
 		}
-		return &types.TyQual{ClassName: ty.ClassName, Args: args, Body: u.Zonk(ty.Body), S: ty.S}
+		zBody := u.Zonk(ty.Body)
+		if !changed && zBody == ty.Body {
+			return ty
+		}
+		return &types.TyQual{ClassName: ty.ClassName, Args: args, Body: zBody, S: ty.S}
 	case *types.TyRow:
+		changed := false
 		fields := make([]types.RowField, len(ty.Fields))
 		for i, f := range ty.Fields {
-			fields[i] = types.RowField{Label: f.Label, Type: u.Zonk(f.Type), S: f.S}
+			zTy := u.Zonk(f.Type)
+			fields[i] = types.RowField{Label: f.Label, Type: zTy, S: f.S}
+			if zTy != f.Type {
+				changed = true
+			}
 		}
 		var tail types.Type
 		if ty.Tail != nil {
 			tail = u.Zonk(ty.Tail)
+			if tail != ty.Tail {
+				changed = true
+			}
+		}
+		if !changed {
+			return ty
 		}
 		return &types.TyRow{Fields: fields, Tail: tail, S: ty.S}
 	default:

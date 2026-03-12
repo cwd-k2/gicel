@@ -598,3 +598,47 @@ func TestExhaustiveVarPattern(t *testing.T) {
 main := \b -> case b of { x -> x }`
 	checkSource(t, source, nil)
 }
+
+// --- Zonk optimization tests ---
+
+func TestZonkPathCompression(t *testing.T) {
+	u := NewUnifier()
+	// Chain: m1 → m2 → Int
+	m1 := &types.TyMeta{ID: 1, Kind: types.KType{}}
+	m2 := &types.TyMeta{ID: 2, Kind: types.KType{}}
+	u.soln[1] = m2
+	u.soln[2] = types.Con("Int")
+
+	result := u.Zonk(m1)
+	if con, ok := result.(*types.TyCon); !ok || con.Name != "Int" {
+		t.Fatalf("expected Int, got %v", result)
+	}
+	// After path compression, soln[1] should point directly to Int.
+	direct := u.soln[1]
+	if con, ok := direct.(*types.TyCon); !ok || con.Name != "Int" {
+		t.Errorf("path compression failed: soln[1] = %v, expected Int", direct)
+	}
+}
+
+func TestZonkNoAllocUnchanged(t *testing.T) {
+	u := NewUnifier()
+	// A type with no metavariables should return the exact same pointer.
+	ty := types.MkArrow(types.Con("Int"), types.Con("Bool"))
+	result := u.Zonk(ty)
+	if result != ty {
+		t.Errorf("Zonk of meta-free type should return same pointer")
+	}
+}
+
+func BenchmarkZonkDeepChain(b *testing.B) {
+	u := NewUnifier()
+	// Build a deep TyApp chain with no metavariables.
+	var ty types.Type = types.Con("Base")
+	for i := 0; i < 50; i++ {
+		ty = &types.TyApp{Fun: types.Con("F"), Arg: ty}
+	}
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		u.Zonk(ty)
+	}
+}
