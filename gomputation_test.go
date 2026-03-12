@@ -995,6 +995,134 @@ main := pure True
 	}
 }
 
+// Prelude's Effect alias should work without user-defined alias.
+func TestPreludeEffectAlias(t *testing.T) {
+	eng := gmp.NewEngine()
+	rt, err := eng.NewRuntime(`
+main :: Effect {} Bool
+main := pure True
+`)
+	if err != nil {
+		t.Fatal("compile error:", err)
+	}
+	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	if err != nil {
+		t.Fatal("runtime error:", err)
+	}
+	con, ok := result.Value.(*gmp.ConVal)
+	if !ok || con.Con != "True" {
+		t.Errorf("expected True, got %s", result.Value)
+	}
+}
+
+// Env flat map: deeply nested binds don't retain parent chains.
+func TestDeepBindEnvDoesNotLeak(t *testing.T) {
+	eng := gmp.NewEngine()
+	eng.EnableRecursion()
+	eng.RegisterType("Int", gmp.KindType())
+	eng.RegisterPrim("mkInt", func(ctx context.Context, capEnv gmp.CapEnv, args []gmp.Value) (gmp.Value, gmp.CapEnv, error) {
+		return gmp.ToValue(0), capEnv, nil
+	})
+	// A chain of 100 nested binds. With linked-list Env, each
+	// closure would retain the entire chain. With flat Env, each
+	// only holds its own bindings map.
+	rt, err := eng.NewRuntime(`
+mkInt :: Unit -> Computation {} {} Int
+mkInt := assumption
+main := do {
+  x0 <- mkInt Unit;
+  x1 <- mkInt Unit;
+  x2 <- mkInt Unit;
+  x3 <- mkInt Unit;
+  x4 <- mkInt Unit;
+  x5 <- mkInt Unit;
+  x6 <- mkInt Unit;
+  x7 <- mkInt Unit;
+  x8 <- mkInt Unit;
+  x9 <- mkInt Unit;
+  pure x9
+}
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	v := gmp.MustHost[int](result.Value)
+	if v != 0 {
+		t.Errorf("expected 0, got %d", v)
+	}
+}
+
+// Empty program (no main) should produce a runtime error, not panic.
+func TestNoMainEntry(t *testing.T) {
+	eng := gmp.NewEngine()
+	rt, err := eng.NewRuntime(`helper := True`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = rt.RunContext(context.Background(), nil, nil, "main")
+	if err == nil {
+		t.Fatal("expected error for missing entry point 'main'")
+	}
+}
+
+// Large case expression: exhaustiveness on 6-constructor ADT.
+func TestExhaustiveLargeADT(t *testing.T) {
+	eng := gmp.NewEngine()
+	rt, err := eng.NewRuntime(`
+data Color = Red | Green | Blue | Yellow | Cyan | Magenta
+
+f := \c -> case c of {
+  Red -> True;
+  Green -> False;
+  Blue -> True;
+  Yellow -> False;
+  Cyan -> True;
+  Magenta -> False
+}
+
+main := f Red
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	con, ok := result.Value.(*gmp.ConVal)
+	if !ok || con.Con != "True" {
+		t.Errorf("expected True, got %s", result.Value)
+	}
+}
+
+// Non-exhaustive on large ADT names missing constructors.
+func TestNonExhaustiveLargeADT(t *testing.T) {
+	eng := gmp.NewEngine()
+	_, err := eng.NewRuntime(`
+data Color = Red | Green | Blue | Yellow | Cyan | Magenta
+
+f := \c -> case c of {
+  Red -> True;
+  Blue -> True
+}
+
+main := f Red
+`)
+	if err == nil {
+		t.Fatal("expected compile error for non-exhaustive case")
+	}
+	errStr := err.Error()
+	for _, missing := range []string{"Green", "Yellow", "Cyan", "Magenta"} {
+		if !strings.Contains(errStr, missing) {
+			t.Errorf("expected missing constructor %s in error, got: %s", missing, errStr)
+		}
+	}
+}
+
 // ---------------------------------------------------------------------------
 // I. Type helpers
 // ---------------------------------------------------------------------------

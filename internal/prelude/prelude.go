@@ -10,4 +10,5 @@ data Result e a = Ok a | Err e
 data Pair a b = Pair a b
 data Maybe a = Just a | Nothing
 data List a = Cons a (List a) | Nil
+type Effect r a = Computation r r a
 `
