@@ -2,6 +2,7 @@ package eval
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	"github.com/cwd-k2/gomputation/internal/core"
@@ -198,6 +199,61 @@ func TestTraceHook(t *testing.T) {
 	}
 	if len(events) != 2 || events[0] != "Pure" || events[1] != "Con" {
 		t.Errorf("expected [Pure, Con], got %v", events)
+	}
+}
+
+func TestEnvParentChainLookup(t *testing.T) {
+	// Build a 100-deep chain and verify deepest binding is found.
+	env := EmptyEnv()
+	for i := 0; i < 100; i++ {
+		env = env.Extend(fmt.Sprintf("v%d", i), &HostVal{Inner: i})
+	}
+	// Lookup the deepest binding.
+	v, ok := env.Lookup("v0")
+	if !ok {
+		t.Fatal("v0 not found in 100-deep chain")
+	}
+	if v.(*HostVal).Inner != 0 {
+		t.Errorf("expected 0, got %v", v.(*HostVal).Inner)
+	}
+	// Lookup the most recent binding.
+	v99, ok := env.Lookup("v99")
+	if !ok {
+		t.Fatal("v99 not found")
+	}
+	if v99.(*HostVal).Inner != 99 {
+		t.Errorf("expected 99, got %v", v99.(*HostVal).Inner)
+	}
+	// Verify Len().
+	if env.Len() != 100 {
+		t.Errorf("expected Len()=100, got %d", env.Len())
+	}
+}
+
+func TestEnvExtendAlloc(t *testing.T) {
+	// Extend should NOT copy the map (O(1) allocation).
+	base := EmptyEnv()
+	for i := 0; i < 50; i++ {
+		base = base.Extend(fmt.Sprintf("v%d", i), &HostVal{Inner: i})
+	}
+	allocs := testing.AllocsPerRun(100, func() {
+		base.Extend("extra", &HostVal{Inner: 999})
+	})
+	// With parent-chain, Extend allocates 1 Env struct only.
+	// Old impl would allocate map + copy (much more).
+	if allocs > 3 {
+		t.Errorf("Extend allocated %v per run; expected <= 3 (parent-chain O(1))", allocs)
+	}
+}
+
+func BenchmarkEnvExtend100(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		env := EmptyEnv()
+		for j := 0; j < 100; j++ {
+			env = env.Extend(fmt.Sprintf("v%d", j), &HostVal{Inner: j})
+		}
+		// Force a lookup to prevent dead-code elimination.
+		env.Lookup("v50")
 	}
 }
 
