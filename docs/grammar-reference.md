@@ -2,7 +2,7 @@
 
 ## Lexical Structure
 
-### Keywords (11)
+### Keywords (12)
 
 | Keyword    | Purpose                          |
 |------------|----------------------------------|
@@ -17,6 +17,7 @@
 | `infixn`   | Non-associative operator fixity  |
 | `class`    | Type class declaration           |
 | `instance` | Type class instance declaration  |
+| `import`   | Module import                    |
 
 ### Built-in Identifiers
 
@@ -68,7 +69,7 @@ Unsigned decimal integers: `[0-9]+`. Negative values via prefix operator.
 
 ## Declarations
 
-### Data Type
+### Data Type (ADT)
 
 ```
 data Name param* = Con field* (| Con field*)*
@@ -81,6 +82,29 @@ data Maybe a = Just a | Nothing
 data Result e a = Ok a | Err e
 data List a = Cons a (List a) | Nil
 ```
+
+### Data Type (GADT)
+
+```
+data Name param* = {
+  Con :: TypeExpr;
+  Con :: TypeExpr
+}
+```
+
+Distinguished from ADT by `= {`. Each constructor has a full type signature including return type.
+
+Examples:
+```
+data Expr a = {
+  LitBool :: Bool -> Expr Bool;
+  LitInt  :: Int -> Expr Int;
+  Not     :: Expr Bool -> Expr Bool;
+  Add     :: Expr Int -> Expr Int -> Expr Int
+}
+```
+
+GADT constructors enable type refinement in `case` branches: matching `LitBool` on `Expr a` refines `a ~ Bool`. Exhaustiveness checking filters constructors whose return type cannot unify with the scrutinee type.
 
 ### Type Alias
 
@@ -127,6 +151,22 @@ Precedence: 0–9 (default: left-associative, 9). Example:
 ```
 infixl 6 plus
 infixr 5 cons
+```
+
+### Import Declaration
+
+```
+import ModuleName
+```
+
+Import declarations must appear before all other declarations. All exported types, constructors, type classes, instances, and values from the named module become available.
+
+Example:
+```
+import Lib
+import Utils
+
+main := libFunction (utilHelper True)
 ```
 
 ### Type Class
@@ -313,7 +353,24 @@ Row                 -- kind of row types
 Constraint          -- kind of class constraints
 Type -> Type        -- higher-kinded (e.g. Maybe : Type -> Type)
 (Row -> Type)       -- parenthesized kind
+Bool                -- DataKinds: promoted data type as kind
+DBState             -- DataKinds: user-defined promoted kind
 ```
+
+### DataKinds Promotion
+
+When a data type is declared, it is automatically promoted to a kind of the same name. Nullary constructors (those with no fields) are promoted to types of that kind. Constructors with fields are not promoted.
+
+```
+data DBState = Opened | Closed
+-- DBState is now a kind
+-- Opened : DBState, Closed : DBState (type-level)
+
+data DB (s : DBState) = MkDB
+-- DB Opened : Type, DB Closed : Type
+```
+
+Resolution order in type positions: registered type constructor → type alias → promoted constructor.
 
 ---
 
@@ -354,7 +411,7 @@ Con x y         -- constructor with arguments
 
 Declarations are separated by newlines at nesting depth 0. A new declaration begins when a newline-preceded token at depth 0 is one of:
 
-`lowercase` | `uppercase` | `data` | `type` | `infixl` | `infixr` | `infixn` | `class` | `instance`
+`lowercase` | `uppercase` | `data` | `type` | `infixl` | `infixr` | `infixn` | `class` | `instance` | `import`
 
 No explicit semicolons needed between top-level declarations.
 
@@ -371,12 +428,33 @@ No explicit semicolons needed between top-level declarations.
 
 ## Prelude (auto-included unless `NoPrelude`)
 
+### Data Types
+
 ```
 data Bool = True | False
 data Unit = Unit
+data Ordering = LT | EQ | GT
 data Result e a = Ok a | Err e
 data Pair a b = Pair a b
 data Maybe a = Just a | Nothing
 data List a = Cons a (List a) | Nil
 type Effect r a = Computation r r a
+```
+
+### Type Classes
+
+```
+class Eq a { eq :: a -> a -> Bool }
+class Eq a => Ord a { compare :: a -> a -> Ordering }
+class Functor f { fmap :: forall a b. (a -> b) -> f a -> f b }
+class Foldable t { foldr :: forall a b. (a -> b -> b) -> b -> t a -> b }
+```
+
+### Instances
+
+```
+instance Eq Bool          instance Eq Unit
+instance Eq Ordering      instance Eq a => Eq (Maybe a)
+instance Eq a => Eq b => Eq (Pair a b)
+instance Functor Maybe    instance Foldable Maybe
 ```
