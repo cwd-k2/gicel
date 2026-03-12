@@ -174,6 +174,9 @@ func (ch *Checker) processValueDef(d *syntax.DeclValueDef, annotations map[strin
 		ty, coreExpr = ch.infer(d.Expr)
 	}
 
+	// Resolve deferred constraints now that metas are solved.
+	coreExpr = ch.resolveDeferredConstraints(coreExpr)
+
 	// Zonk the type.
 	ty = ch.unifier.Zonk(ty)
 

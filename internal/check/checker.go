@@ -55,6 +55,7 @@ type Checker struct {
 	aliases   map[string]*aliasInfo
 	classes   map[string]*ClassInfo
 	instances []*InstanceInfo
+	deferred  []deferredConstraint
 	depth     int
 }
 
@@ -73,6 +74,14 @@ type ConInfo struct {
 type aliasInfo struct {
 	params []string
 	body   types.Type
+}
+
+// deferredConstraint records a constraint to be resolved after type inference.
+type deferredConstraint struct {
+	placeholder string
+	className   string
+	args        []types.Type
+	s           span.Span
 }
 
 // Check type-checks a surface AST program and produces Core IR.

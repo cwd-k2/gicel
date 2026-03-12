@@ -391,6 +391,61 @@ main := pure Unit`
 	checkSource(t, source, nil)
 }
 
+// --- Instance resolution tests ---
+
+func TestResolveMissingInstanceError(t *testing.T) {
+	source := `data Bool = True | False
+class Eq a { eq :: a -> a -> Bool }
+f :: forall a. Eq a => a -> a -> Bool
+f := \x -> \y -> eq x y
+main := f True False`
+	// Should fail: no instance Eq Bool defined.
+	errMsg := checkSourceExpectError(t, source, nil)
+	if !strings.Contains(errMsg, "no instance") {
+		t.Errorf("expected 'no instance' error, got: %s", errMsg)
+	}
+}
+
+func TestResolveSimpleInstance(t *testing.T) {
+	source := `data Bool = True | False
+class Eq a { eq :: a -> a -> Bool }
+instance Eq Bool { eq := \x -> \y -> True }
+f :: forall a. Eq a => a -> a -> Bool
+f := \x -> \y -> eq x y
+main := f True False`
+	prog := checkSource(t, source, nil)
+	found := false
+	for _, b := range prog.Bindings {
+		if b.Name == "main" {
+			found = true
+		}
+	}
+	if !found {
+		t.Error("expected binding 'main'")
+	}
+}
+
+func TestResolveContextualInstance(t *testing.T) {
+	source := `data Bool = True | False
+data Maybe a = Just a | Nothing
+class Eq a { eq :: a -> a -> Bool }
+instance Eq Bool { eq := \x -> \y -> True }
+instance Eq a => Eq (Maybe a) { eq := \x -> \y -> True }
+f :: forall a. Eq a => a -> a -> Bool
+f := \x -> \y -> eq x y
+main := f (Just True) (Just False)`
+	prog := checkSource(t, source, nil)
+	found := false
+	for _, b := range prog.Bindings {
+		if b.Name == "main" {
+			found = true
+		}
+	}
+	if !found {
+		t.Error("expected binding 'main'")
+	}
+}
+
 // --- Exhaustiveness tests ---
 
 // --- Type class elaboration tests ---

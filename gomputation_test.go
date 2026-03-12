@@ -1124,6 +1124,156 @@ main := f Red
 }
 
 // ---------------------------------------------------------------------------
+// TC. Type classes — end-to-end
+// ---------------------------------------------------------------------------
+
+func TestTypeClassEqBool(t *testing.T) {
+	eng := gmp.NewEngine()
+	eng.NoPrelude()
+	rt, err := eng.NewRuntime(`
+data Bool = True | False
+class Eq a { eq :: a -> a -> Bool }
+instance Eq Bool {
+  eq := \x -> \y -> case x of {
+    True  -> case y of { True -> True;  False -> False };
+    False -> case y of { True -> False; False -> True }
+  }
+}
+main := eq True False
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	con, ok := result.Value.(*gmp.ConVal)
+	if !ok || con.Con != "False" {
+		t.Errorf("expected False, got %s", result.Value)
+	}
+}
+
+func TestTypeClassPolymorphic(t *testing.T) {
+	eng := gmp.NewEngine()
+	eng.NoPrelude()
+	rt, err := eng.NewRuntime(`
+data Bool = True | False
+class Eq a { eq :: a -> a -> Bool }
+instance Eq Bool {
+  eq := \x -> \y -> case x of {
+    True  -> case y of { True -> True;  False -> False };
+    False -> case y of { True -> False; False -> True }
+  }
+}
+f :: forall a. Eq a => a -> a -> Bool
+f := \x -> \y -> eq x y
+main := f True True
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	con, ok := result.Value.(*gmp.ConVal)
+	if !ok || con.Con != "True" {
+		t.Errorf("expected True, got %s", result.Value)
+	}
+}
+
+func TestTypeClassSuperclass(t *testing.T) {
+	eng := gmp.NewEngine()
+	eng.NoPrelude()
+	rt, err := eng.NewRuntime(`
+data Bool = True | False
+class Eq a { eq :: a -> a -> Bool }
+class Eq a => Ord a { lt :: a -> a -> Bool }
+instance Eq Bool {
+  eq := \x -> \y -> True
+}
+instance Ord Bool {
+  lt := \x -> \y -> False
+}
+useOrd :: forall a. Ord a => a -> a -> Bool
+useOrd := \x -> \y -> eq x y
+main := useOrd True False
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	con, ok := result.Value.(*gmp.ConVal)
+	if !ok || con.Con != "True" {
+		t.Errorf("expected True, got %s", result.Value)
+	}
+}
+
+func TestTypeClassFunctor(t *testing.T) {
+	eng := gmp.NewEngine()
+	eng.NoPrelude()
+	rt, err := eng.NewRuntime(`
+data Bool = True | False
+data Maybe a = Just a | Nothing
+class Functor f { fmap :: forall a b. (a -> b) -> f a -> f b }
+instance Functor Maybe {
+  fmap := \g -> \mx -> case mx of {
+    Just x  -> Just (g x);
+    Nothing -> Nothing
+  }
+}
+not := \b -> case b of { True -> False; False -> True }
+main := fmap not (Just True)
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	con, ok := result.Value.(*gmp.ConVal)
+	if !ok || con.Con != "Just" {
+		t.Errorf("expected Just, got %s", result.Value)
+	}
+	if len(con.Args) != 1 {
+		t.Fatalf("expected 1 arg, got %d", len(con.Args))
+	}
+	inner, ok := con.Args[0].(*gmp.ConVal)
+	if !ok || inner.Con != "False" {
+		t.Errorf("expected False inside Just, got %s", con.Args[0])
+	}
+}
+
+func TestTypeClassMultiParam(t *testing.T) {
+	eng := gmp.NewEngine()
+	eng.NoPrelude()
+	rt, err := eng.NewRuntime(`
+data Bool = True | False
+class Coercible a b { coerce :: a -> b }
+instance Coercible Bool Bool {
+  coerce := \x -> x
+}
+main := coerce True
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	con, ok := result.Value.(*gmp.ConVal)
+	if !ok || con.Con != "True" {
+		t.Errorf("expected True, got %s", result.Value)
+	}
+}
+
+// ---------------------------------------------------------------------------
 // I. Type helpers
 // ---------------------------------------------------------------------------
 

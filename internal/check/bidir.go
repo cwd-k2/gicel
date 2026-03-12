@@ -161,6 +161,10 @@ func (ch *Checker) check(expr syntax.Expr, expected types.Type) core.Core {
 		dictTy := ch.buildDictType(q.ClassName, q.Args)
 		ch.ctx.Push(&CtxVar{Name: dictParam, Type: dictTy})
 		bodyCore := ch.check(expr, q.Body)
+		// Resolve deferred constraints while the dict param is still in scope.
+		// Inner uses of class methods (e.g. `eq x y` inside `f :: Eq a => ...`)
+		// create deferred constraints that must see this dict variable.
+		bodyCore = ch.resolveDeferredConstraints(bodyCore)
 		ch.ctx.Pop()
 		return &core.Lam{Param: dictParam, ParamType: dictTy, Body: bodyCore, S: expr.Span()}
 	}
@@ -411,13 +415,16 @@ func (ch *Checker) instantiate(ty types.Type, expr core.Core) (types.Type, core.
 			continue
 		}
 		if q, ok := ty.(*types.TyQual); ok {
-			// Resolve the constraint to a dictionary expression.
-			zonkedArgs := make([]types.Type, len(q.Args))
-			for i, a := range q.Args {
-				zonkedArgs[i] = ch.unifier.Zonk(a)
-			}
-			dictExpr := ch.resolveInstance(q.ClassName, zonkedArgs, expr.Span())
-			expr = &core.App{Fun: expr, Arg: dictExpr, S: expr.Span()}
+			// Insert a placeholder for the dict arg. It will be resolved
+			// after type inference when metas are solved.
+			placeholder := fmt.Sprintf("$dict_%d", ch.fresh())
+			ch.deferred = append(ch.deferred, deferredConstraint{
+				placeholder: placeholder,
+				className:   q.ClassName,
+				args:        q.Args,
+				s:           expr.Span(),
+			})
+			expr = &core.App{Fun: expr, Arg: &core.Var{Name: placeholder, S: expr.Span()}, S: expr.Span()}
 			ty = q.Body
 			continue
 		}

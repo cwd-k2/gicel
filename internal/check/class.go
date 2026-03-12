@@ -356,6 +356,17 @@ func (ch *Checker) resolveInstance(className string, args []types.Type, s span.S
 		}
 	}
 
+	// 1.5. Search context for superclass dictionaries.
+	// E.g., if context has $d_Ord : Ord$Dict a and we need Eq a,
+	// extract the Eq$Dict field from the Ord$Dict via Case.
+	for i := len(ch.ctx.entries) - 1; i >= 0; i-- {
+		if v, ok := ch.ctx.entries[i].(*CtxVar); ok {
+			if expr := ch.extractSuperDict(v, className, args, s); expr != nil {
+				return expr
+			}
+		}
+	}
+
 	// 2. Search global instances.
 	for _, inst := range ch.instances {
 		if inst.ClassName != className {
@@ -364,10 +375,13 @@ func (ch *Checker) resolveInstance(className string, args []types.Type, s span.S
 		if len(inst.TypeArgs) != len(args) {
 			continue
 		}
-		// Try to match instance type args against requested args.
+		// Instantiate instance type variables with fresh metas so that
+		// rigid TyVars like `a` in `instance Eq (Maybe a)` can match concrete types.
+		freshSubst := ch.freshInstanceSubst(inst)
 		matched := true
 		for i := range args {
-			if err := ch.unifier.Unify(inst.TypeArgs[i], args[i]); err != nil {
+			instArg := types.SubstMany(inst.TypeArgs[i], freshSubst)
+			if err := ch.unifier.Unify(instArg, args[i]); err != nil {
 				matched = false
 				break
 			}
@@ -380,7 +394,7 @@ func (ch *Checker) resolveInstance(className string, args []types.Type, s span.S
 		for _, ctx := range inst.Context {
 			ctxArgs := make([]types.Type, len(ctx.Args))
 			for j, a := range ctx.Args {
-				ctxArgs[j] = ch.unifier.Zonk(a)
+				ctxArgs[j] = ch.unifier.Zonk(types.SubstMany(a, freshSubst))
 			}
 			ctxDict := ch.resolveInstance(ctx.ClassName, ctxArgs, s)
 			dictExpr = &core.App{Fun: dictExpr, Arg: ctxDict, S: s}
@@ -412,12 +426,185 @@ func (ch *Checker) matchesDictVar(v *CtxVar, className string, args []types.Type
 	return false
 }
 
+// extractSuperDict checks if a context variable is a dict for a class that
+// has the target class as a superclass. If so, it builds a Case expression
+// to extract the superclass dict field.
+func (ch *Checker) extractSuperDict(v *CtxVar, targetClass string, targetArgs []types.Type, s span.Span) core.Core {
+	ty := ch.unifier.Zonk(v.Type)
+	head, tyArgs := types.UnwindApp(ty)
+	con, ok := head.(*types.TyCon)
+	if !ok || !strings.HasSuffix(con.Name, "$Dict") {
+		return nil
+	}
+	parentClass := strings.TrimSuffix(con.Name, "$Dict")
+	classInfo, ok := ch.classes[parentClass]
+	if !ok {
+		return nil
+	}
+
+	for superIdx, sup := range classInfo.Supers {
+		if sup.ClassName != targetClass {
+			continue
+		}
+		// Build substitution: class type params → actual dict type args.
+		subst := make(map[string]types.Type)
+		for j, p := range classInfo.TyParams {
+			if j < len(tyArgs) {
+				subst[p] = tyArgs[j]
+			}
+		}
+		// Verify the superclass args match the target args.
+		match := true
+		for j, sArg := range sup.Args {
+			if j >= len(targetArgs) {
+				match = false
+				break
+			}
+			substArg := types.SubstMany(sArg, subst)
+			if err := ch.unifier.Unify(substArg, targetArgs[j]); err != nil {
+				match = false
+				break
+			}
+		}
+		if !match {
+			continue
+		}
+		// Build: case v of { Parent$Dict f0 f1 ... -> f_superIdx }
+		allFields := len(classInfo.Supers) + len(classInfo.Methods)
+		var patArgs []core.Pattern
+		var resultExpr core.Core
+		for j := 0; j < allFields; j++ {
+			argName := fmt.Sprintf("$sf_%d_%d", superIdx, j)
+			patArgs = append(patArgs, &core.PVar{Name: argName, S: s})
+			if j == superIdx {
+				resultExpr = &core.Var{Name: argName, S: s}
+			}
+		}
+		return &core.Case{
+			Scrutinee: &core.Var{Name: v.Name, S: s},
+			Alts: []core.Alt{{
+				Pattern: &core.PCon{Con: classInfo.DictConName, Args: patArgs, S: s},
+				Body:    resultExpr,
+				S:       s,
+			}},
+			S: s,
+		}
+	}
+	return nil
+}
+
+// freshInstanceSubst creates a substitution mapping each free type variable
+// in an instance's type arguments and context to a fresh meta variable.
+func (ch *Checker) freshInstanceSubst(inst *InstanceInfo) map[string]types.Type {
+	seen := make(map[string]bool)
+	subst := make(map[string]types.Type)
+	collect := func(ty types.Type) {
+		for v := range types.FreeVars(ty) {
+			if !seen[v] {
+				seen[v] = true
+				subst[v] = ch.freshMeta(types.KType{})
+			}
+		}
+	}
+	for _, ta := range inst.TypeArgs {
+		collect(ta)
+	}
+	for _, ctx := range inst.Context {
+		for _, a := range ctx.Args {
+			collect(a)
+		}
+	}
+	return subst
+}
+
 func (ch *Checker) prettyTypeArgs(args []types.Type) string {
 	parts := make([]string, len(args))
 	for i, a := range args {
 		parts[i] = types.Pretty(ch.unifier.Zonk(a))
 	}
 	return strings.Join(parts, " ")
+}
+
+// resolveDeferredConstraints walks a Core expression and replaces
+// placeholder dict variables with resolved instance dictionaries.
+func (ch *Checker) resolveDeferredConstraints(expr core.Core) core.Core {
+	if len(ch.deferred) == 0 {
+		return expr
+	}
+
+	// Build resolution map: placeholder name → resolved Core expression.
+	resolutions := make(map[string]core.Core)
+	for _, dc := range ch.deferred {
+		zonkedArgs := make([]types.Type, len(dc.args))
+		for i, a := range dc.args {
+			zonkedArgs[i] = ch.unifier.Zonk(a)
+		}
+		resolved := ch.resolveInstance(dc.className, zonkedArgs, dc.s)
+		resolutions[dc.placeholder] = resolved
+	}
+	ch.deferred = ch.deferred[:0]
+
+	return ch.substitutePlaceholders(expr, resolutions)
+}
+
+// substitutePlaceholders recursively walks Core and replaces Var nodes matching placeholders.
+func (ch *Checker) substitutePlaceholders(expr core.Core, resolutions map[string]core.Core) core.Core {
+	switch e := expr.(type) {
+	case *core.Var:
+		if resolved, ok := resolutions[e.Name]; ok {
+			return resolved
+		}
+		return e
+	case *core.Lam:
+		return &core.Lam{Param: e.Param, ParamType: e.ParamType, Body: ch.substitutePlaceholders(e.Body, resolutions), S: e.S}
+	case *core.App:
+		return &core.App{Fun: ch.substitutePlaceholders(e.Fun, resolutions), Arg: ch.substitutePlaceholders(e.Arg, resolutions), S: e.S}
+	case *core.TyApp:
+		return &core.TyApp{Expr: ch.substitutePlaceholders(e.Expr, resolutions), TyArg: e.TyArg, S: e.S}
+	case *core.TyLam:
+		return &core.TyLam{TyParam: e.TyParam, Kind: e.Kind, Body: ch.substitutePlaceholders(e.Body, resolutions), S: e.S}
+	case *core.Con:
+		if len(e.Args) == 0 {
+			return e
+		}
+		args := make([]core.Core, len(e.Args))
+		for i, a := range e.Args {
+			args[i] = ch.substitutePlaceholders(a, resolutions)
+		}
+		return &core.Con{Name: e.Name, Args: args, S: e.S}
+	case *core.Case:
+		scrut := ch.substitutePlaceholders(e.Scrutinee, resolutions)
+		alts := make([]core.Alt, len(e.Alts))
+		for i, alt := range e.Alts {
+			alts[i] = core.Alt{Pattern: alt.Pattern, Body: ch.substitutePlaceholders(alt.Body, resolutions), S: alt.S}
+		}
+		return &core.Case{Scrutinee: scrut, Alts: alts, S: e.S}
+	case *core.LetRec:
+		binds := make([]core.Binding, len(e.Bindings))
+		for i, b := range e.Bindings {
+			binds[i] = core.Binding{Name: b.Name, Type: b.Type, Expr: ch.substitutePlaceholders(b.Expr, resolutions), S: b.S}
+		}
+		return &core.LetRec{Bindings: binds, Body: ch.substitutePlaceholders(e.Body, resolutions), S: e.S}
+	case *core.Pure:
+		return &core.Pure{Expr: ch.substitutePlaceholders(e.Expr, resolutions), S: e.S}
+	case *core.Bind:
+		return &core.Bind{Comp: ch.substitutePlaceholders(e.Comp, resolutions), Var: e.Var, Body: ch.substitutePlaceholders(e.Body, resolutions), S: e.S}
+	case *core.Thunk:
+		return &core.Thunk{Comp: ch.substitutePlaceholders(e.Comp, resolutions), S: e.S}
+	case *core.Force:
+		return &core.Force{Expr: ch.substitutePlaceholders(e.Expr, resolutions), S: e.S}
+	case *core.PrimOp:
+		if len(e.Args) == 0 {
+			return e
+		}
+		args := make([]core.Core, len(e.Args))
+		for i, a := range e.Args {
+			args[i] = ch.substitutePlaceholders(a, resolutions)
+		}
+		return &core.PrimOp{Name: e.Name, Arity: e.Arity, Args: args, S: e.S}
+	default:
+		return expr
+	}
 }
 
 // instanceDictName generates a dictionary binding name for an instance.
