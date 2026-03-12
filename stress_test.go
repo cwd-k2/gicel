@@ -254,6 +254,17 @@ var stressPrograms = []stressProgram{
 	},
 }
 
+func copyCaps(m map[string]any) map[string]any {
+	if m == nil {
+		return nil
+	}
+	c := make(map[string]any, len(m))
+	for k, v := range m {
+		c[k] = v
+	}
+	return c
+}
+
 func assertCon(t *testing.T, v gmp.Value, name string) {
 	t.Helper()
 	con, ok := v.(*gmp.ConVal)
@@ -289,8 +300,9 @@ func TestStressPrograms(t *testing.T) {
 			ctx := context.Background()
 			start = time.Now()
 			var result *gmp.RunResult
-			if sp.caps != nil {
-				full, err := rt.RunContextFull(ctx, sp.caps, sp.binds, "main")
+			caps := copyCaps(sp.caps)
+			if caps != nil {
+				full, err := rt.RunContextFull(ctx, caps, sp.binds, "main")
 				if err != nil {
 					t.Fatalf("eval failed: %v", err)
 				}
@@ -345,8 +357,9 @@ func BenchmarkStressEval(b *testing.B) {
 			b.ResetTimer()
 			for i := 0; i < b.N; i++ {
 				ctx := context.Background()
-				if sp.caps != nil {
-					_, err = rt.RunContextFull(ctx, sp.caps, sp.binds, "main")
+				caps := copyCaps(sp.caps)
+				if caps != nil {
+					_, err = rt.RunContextFull(ctx, caps, sp.binds, "main")
 				} else {
 					_, err = rt.RunContext(ctx, nil, sp.binds, "main")
 				}
@@ -432,8 +445,9 @@ func TestStressMemory(t *testing.T) {
 			continue // skip compile failures in memory test
 		}
 		ctx := context.Background()
-		if sp.caps != nil {
-			rt.RunContextFull(ctx, sp.caps, sp.binds, "main")
+		caps := copyCaps(sp.caps)
+		if caps != nil {
+			rt.RunContextFull(ctx, caps, sp.binds, "main")
 		} else {
 			rt.RunContext(ctx, nil, sp.binds, "main")
 		}
