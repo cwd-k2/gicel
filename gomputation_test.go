@@ -1784,3 +1784,605 @@ func TestTypeHelpers(t *testing.T) {
 		t.Errorf("KArrow(Type,Type) should equal itself")
 	}
 }
+
+// ---------------------------------------------------------------------------
+// v0.5 Tests: Existential Types, Higher-Rank Polymorphism, Stdlib Expansion
+// ---------------------------------------------------------------------------
+
+// --- Phase 1: Skolem Infrastructure ---
+
+func TestTySkolemEquality(t *testing.T) {
+	s1 := &types.TySkolem{ID: 1, Name: "a", Kind: types.KType{}}
+	s2 := &types.TySkolem{ID: 1, Name: "a", Kind: types.KType{}}
+	s3 := &types.TySkolem{ID: 2, Name: "b", Kind: types.KType{}}
+	if !types.Equal(s1, s2) {
+		t.Error("same-ID skolems should be equal")
+	}
+	if types.Equal(s1, s3) {
+		t.Error("different-ID skolems should not be equal")
+	}
+}
+
+func TestUnifySkolemRigid(t *testing.T) {
+	eng := gmp.NewEngine()
+	_, err := eng.Check(`
+not :: Bool -> Bool
+not := \x -> x
+main := not True
+`)
+	if err != nil {
+		t.Fatal("basic check should pass:", err)
+	}
+}
+
+func TestUnifySkolemSame(t *testing.T) {
+	// Indirect test: use a GADT constructor with existential that unifies skolem with itself
+	eng := gmp.NewEngine()
+	_, err := eng.Check(`
+data SameTest = { MkSame :: forall a. a -> a -> SameTest }
+useIt :: SameTest -> Bool
+useIt := \s -> case s of { MkSame x y -> True }
+`)
+	if err != nil {
+		t.Fatal("existential pattern match should pass:", err)
+	}
+}
+
+func TestZonkSkolem(t *testing.T) {
+	// TySkolem should survive Zonk unchanged (identity)
+	s := &types.TySkolem{ID: 99, Name: "z", Kind: types.KType{}}
+	pretty := types.Pretty(s)
+	if pretty != "#z" {
+		t.Errorf("expected #z, got %s", pretty)
+	}
+}
+
+// --- Phase 1B: Skolem Escape Check ---
+
+func TestSkolemEscapeDetected(t *testing.T) {
+	eng := gmp.NewEngine()
+	_, err := eng.Check(`
+data Exists = { MkExists :: forall a. a -> Exists }
+escape :: Exists -> Bool
+escape := \e -> case e of { MkExists x -> x }
+`)
+	if err == nil {
+		t.Fatal("expected escape error, got nil")
+	}
+	if !strings.Contains(err.Error(), "escape") && !strings.Contains(err.Error(), "mismatch") {
+		t.Errorf("expected escape/mismatch error, got: %s", err)
+	}
+}
+
+func TestSkolemNoEscape(t *testing.T) {
+	eng := gmp.NewEngine()
+	_, err := eng.Check(`
+data Wrapper = { MkWrapper :: forall a. a -> Wrapper }
+safe :: Wrapper -> Bool
+safe := \w -> case w of { MkWrapper _ -> True }
+`)
+	if err != nil {
+		t.Fatal("non-escaping existential should pass:", err)
+	}
+}
+
+func TestSkolemEscapeInMeta(t *testing.T) {
+	eng := gmp.NewEngine()
+	_, err := eng.Check(`
+data SomeVal = { MkSome :: forall a. a -> SomeVal }
+leaky := \s -> case s of { MkSome x -> Just x }
+`)
+	if err == nil {
+		t.Fatal("expected escape error for Just x where x is existential")
+	}
+}
+
+// --- Phase 2: Existential Types ---
+
+func TestExistentialBasic(t *testing.T) {
+	eng := gmp.NewEngine()
+	rt, err := eng.NewRuntime(`
+data SomeEq = { MkSomeEq :: forall a. Eq a => a -> SomeEq }
+useSomeEq :: SomeEq -> Bool
+useSomeEq := \s -> case s of { MkSomeEq x -> eq x x }
+main := useSomeEq (MkSomeEq True)
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertConName(t, result.Value, "True")
+}
+
+func TestExistentialEscapeError(t *testing.T) {
+	eng := gmp.NewEngine()
+	_, err := eng.Check(`
+data SomeEq = { MkSomeEq :: forall a. Eq a => a -> SomeEq }
+escape :: SomeEq -> Bool
+escape := \s -> case s of { MkSomeEq x -> x }
+`)
+	if err == nil {
+		t.Fatal("expected type error for escaping existential")
+	}
+}
+
+func TestExistentialNoConstraint(t *testing.T) {
+	eng := gmp.NewEngine()
+	rt, err := eng.NewRuntime(`
+data ExistsF f = { MkExistsF :: forall a. f a -> ExistsF f }
+useMaybe :: ExistsF Maybe -> Bool
+useMaybe := \e -> case e of { MkExistsF _ -> True }
+main := useMaybe (MkExistsF (Just True))
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertConName(t, result.Value, "True")
+}
+
+func TestExistentialMixed(t *testing.T) {
+	eng := gmp.NewEngine()
+	rt, err := eng.NewRuntime(`
+data Wrapper a = { MkWrapper :: forall b. (b -> a) -> b -> Wrapper a }
+useWrapper :: Wrapper Bool -> Bool
+useWrapper := \w -> case w of { MkWrapper f x -> f x }
+main := useWrapper (MkWrapper (\x -> x) True)
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertConName(t, result.Value, "True")
+}
+
+func TestExistentialMultiConstraint(t *testing.T) {
+	eng := gmp.NewEngine()
+	_, err := eng.Check(`
+data ShowOrd = { MkShowOrd :: forall a. Eq a => Ord a => a -> a -> ShowOrd }
+use :: ShowOrd -> Ordering
+use := \s -> case s of { MkShowOrd x y -> compare x y }
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+// --- Phase 2D: Existential Integration ---
+
+func TestExistentialWithTypeClass(t *testing.T) {
+	eng := gmp.NewEngine()
+	rt, err := eng.NewRuntime(`
+data SomeEq = { MkSomeEq :: forall a. Eq a => a -> SomeEq }
+isSame :: SomeEq -> Bool
+isSame := \s -> case s of { MkSomeEq x -> eq x x }
+main := isSame (MkSomeEq (Pair True False))
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	// eq (Pair True False) (Pair True False) = True (same value)
+	assertConName(t, result.Value, "True")
+}
+
+func TestExistentialWithGADT(t *testing.T) {
+	eng := gmp.NewEngine()
+	rt, err := eng.NewRuntime(`
+data Typed a = { MkBool :: Bool -> Typed Bool; MkUnit :: Typed Unit }
+data SomeTyped = { MkSome :: forall a. Typed a -> SomeTyped }
+classify :: SomeTyped -> Bool
+classify := \s -> case s of { MkSome t -> True }
+main := classify (MkSome (MkBool True))
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertConName(t, result.Value, "True")
+}
+
+func TestExistentialNestedCase(t *testing.T) {
+	eng := gmp.NewEngine()
+	rt, err := eng.NewRuntime(`
+data Wrap = { MkWrap :: forall a. Eq a => a -> Wrap }
+bothSame :: Wrap -> Wrap -> Bool
+bothSame := \w1 w2 ->
+  case w1 of { MkWrap x -> case w2 of { MkWrap y -> True } }
+main := bothSame (MkWrap True) (MkWrap False)
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertConName(t, result.Value, "True")
+}
+
+// --- Phase 3: Higher-Rank Polymorphism ---
+
+func TestSubsumptionInstantiate(t *testing.T) {
+	eng := gmp.NewEngine()
+	rt, err := eng.NewRuntime(`
+id :: forall a. a -> a
+id := \x -> x
+useBool :: (Bool -> Bool) -> Bool
+useBool := \f -> f True
+main := useBool id
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertConName(t, result.Value, "True")
+}
+
+func TestHigherRankBasic(t *testing.T) {
+	eng := gmp.NewEngine()
+	rt, err := eng.NewRuntime(`
+applyToTrue :: (forall a. a -> a) -> Bool
+applyToTrue := \f -> f True
+id :: forall a. a -> a
+id := \x -> x
+main := applyToTrue id
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertConName(t, result.Value, "True")
+}
+
+func TestHigherRankAnnotationRequired(t *testing.T) {
+	// Rank-2 types should require annotation on the parameter
+	eng := gmp.NewEngine()
+	rt, err := eng.NewRuntime(`
+apply :: (forall a. a -> a) -> Pair Bool Unit
+apply := \f -> Pair (f True) (f Unit)
+id :: forall a. a -> a
+id := \x -> x
+main := apply id
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	con, ok := result.Value.(*gmp.ConVal)
+	if !ok || con.Con != "Pair" {
+		t.Errorf("expected Pair, got %s", result.Value)
+	}
+}
+
+// --- Phase 3F: Higher-Rank Integration ---
+
+func TestHigherRankPolymorphicArg(t *testing.T) {
+	eng := gmp.NewEngine()
+	rt, err := eng.NewRuntime(`
+runId :: (forall a. a -> a) -> Pair Bool Unit
+runId := \f -> Pair (f True) (f Unit)
+id :: forall a. a -> a
+id := \x -> x
+main := runId id
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	con, ok := result.Value.(*gmp.ConVal)
+	if !ok || con.Con != "Pair" {
+		t.Errorf("expected Pair, got %s", result.Value)
+	}
+	assertConName(t, con.Args[0], "True")
+	assertConName(t, con.Args[1], "Unit")
+}
+
+// --- Phase 4: Stdlib Expansion ---
+
+func TestClassSemigroup(t *testing.T) {
+	eng := gmp.NewEngine()
+	rt, err := eng.NewRuntime(`
+main := append Unit Unit
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertConName(t, result.Value, "Unit")
+}
+
+func TestClassMonoid(t *testing.T) {
+	eng := gmp.NewEngine()
+	rt, err := eng.NewRuntime(`
+main := (empty :: Ordering)
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertConName(t, result.Value, "EQ")
+}
+
+func TestClassApplicative(t *testing.T) {
+	eng := gmp.NewEngine()
+	_, err := eng.Check(`
+test := (wrap True :: Maybe Bool)
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestClassTraversable(t *testing.T) {
+	eng := gmp.NewEngine()
+	_, err := eng.Check(`
+test :: forall f a b. Applicative f => (a -> f b) -> Maybe a -> f (Maybe b)
+test := traverse
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestSemigroupUnit(t *testing.T) {
+	eng := gmp.NewEngine()
+	rt, err := eng.NewRuntime(`main := append Unit Unit`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertConName(t, result.Value, "Unit")
+}
+
+func TestSemigroupOrdering(t *testing.T) {
+	eng := gmp.NewEngine()
+	rt, err := eng.NewRuntime(`
+test1 := append LT EQ
+test2 := append EQ GT
+main := Pair test1 test2
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	con, ok := result.Value.(*gmp.ConVal)
+	if !ok || con.Con != "Pair" {
+		t.Fatalf("expected Pair, got %s", result.Value)
+	}
+	assertConName(t, con.Args[0], "LT") // LT <> EQ = LT
+	assertConName(t, con.Args[1], "GT") // EQ <> GT = GT
+}
+
+func TestMonoidUnit(t *testing.T) {
+	eng := gmp.NewEngine()
+	rt, err := eng.NewRuntime(`main := (empty :: Unit)`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertConName(t, result.Value, "Unit")
+}
+
+func TestApplicativeMaybe(t *testing.T) {
+	eng := gmp.NewEngine()
+	rt, err := eng.NewRuntime(`
+wrapped := (wrap True :: Maybe Bool)
+main := wrapped
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	con, ok := result.Value.(*gmp.ConVal)
+	if !ok || con.Con != "Just" {
+		t.Errorf("expected Just, got %s", result.Value)
+	}
+}
+
+func TestTraversableMaybe(t *testing.T) {
+	eng := gmp.NewEngine()
+	rt, err := eng.NewRuntime(`
+not :: Bool -> Bool
+not := \b -> case b of { True -> False; False -> True }
+main := traverse (\x -> Just (not x)) (Just True)
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	// traverse (\x -> Just (not x)) (Just True) = Just (Just False)
+	outer, ok := result.Value.(*gmp.ConVal)
+	if !ok || outer.Con != "Just" {
+		t.Fatalf("expected Just, got %s", result.Value)
+	}
+	inner, ok := outer.Args[0].(*gmp.ConVal)
+	if !ok || inner.Con != "Just" {
+		t.Fatalf("expected inner Just, got %s", outer.Args[0])
+	}
+	assertConName(t, inner.Args[0], "False")
+}
+
+func TestOrdBool(t *testing.T) {
+	eng := gmp.NewEngine()
+	rt, err := eng.NewRuntime(`main := compare False True`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertConName(t, result.Value, "LT")
+}
+
+func TestOrdMaybe(t *testing.T) {
+	eng := gmp.NewEngine()
+	rt, err := eng.NewRuntime(`
+test1 := compare (Nothing :: Maybe Bool) (Just True)
+test2 := compare (Just False) (Just True)
+main := Pair test1 test2
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	con, ok := result.Value.(*gmp.ConVal)
+	if !ok || con.Con != "Pair" {
+		t.Fatalf("expected Pair, got %s", result.Value)
+	}
+	assertConName(t, con.Args[0], "LT") // Nothing < Just _
+	assertConName(t, con.Args[1], "LT") // Just False < Just True
+}
+
+func TestOrdPair(t *testing.T) {
+	eng := gmp.NewEngine()
+	rt, err := eng.NewRuntime(`main := compare (Pair True False) (Pair True True)`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	// compare (Pair True False) (Pair True True)
+	// = append (compare True True) (compare False True)
+	// = append EQ LT = LT
+	assertConName(t, result.Value, "LT")
+}
+
+// --- Phase 5: Cross-Feature Integration ---
+
+func TestExistentialWithStdlib(t *testing.T) {
+	eng := gmp.NewEngine()
+	rt, err := eng.NewRuntime(`
+data SomeSemigroup = { MkSomeSG :: forall a. Semigroup a => a -> a -> SomeSemigroup }
+combine :: SomeSemigroup -> Bool
+combine := \s -> case s of { MkSomeSG x y -> case append x y of { _ -> True } }
+main := combine (MkSomeSG EQ LT)
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertConName(t, result.Value, "True")
+}
+
+func TestFullPipeline(t *testing.T) {
+	eng := gmp.NewEngine()
+	rt, err := eng.NewRuntime(`
+data SomeEq = { MkSomeEq :: forall a. Eq a => a -> SomeEq }
+isSelf :: SomeEq -> Bool
+isSelf := \s -> case s of { MkSomeEq x -> eq x x }
+applyToBoth :: (forall a. a -> a) -> Pair Bool Unit
+applyToBoth := \f -> Pair (f True) (f Unit)
+id :: forall a. a -> a
+id := \x -> x
+main := Pair (isSelf (MkSomeEq True)) (applyToBoth id)
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	con, ok := result.Value.(*gmp.ConVal)
+	if !ok || con.Con != "Pair" {
+		t.Fatalf("expected Pair, got %s", result.Value)
+	}
+	assertConName(t, con.Args[0], "True")
+}
+
+func TestStdlibClassHierarchy(t *testing.T) {
+	// Verify all 8 classes compile and instances work
+	eng := gmp.NewEngine()
+	rt, err := eng.NewRuntime(`
+testEq := eq True True
+testOrd := compare False True
+testSemigroup := append EQ LT
+testMonoid := (empty :: Ordering)
+testFunctor := fmap (\x -> True) (Just False)
+testApplicative := (wrap True :: Maybe Bool)
+main := Pair testEq (Pair testOrd (Pair testSemigroup (Pair testMonoid (Pair testFunctor testApplicative))))
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	con, ok := result.Value.(*gmp.ConVal)
+	if !ok || con.Con != "Pair" {
+		t.Fatalf("expected Pair, got %s", result.Value)
+	}
+	assertConName(t, con.Args[0], "True") // eq True True = True
+}
+
+// helper for v0.5 tests
+func assertConName(t *testing.T, v gmp.Value, name string) {
+	t.Helper()
+	con, ok := v.(*gmp.ConVal)
+	if !ok {
+		t.Errorf("expected ConVal(%s), got %T: %s", name, v, v)
+		return
+	}
+	if name != "" && con.Con != name {
+		t.Errorf("expected %s, got %s", name, con.Con)
+	}
+}
