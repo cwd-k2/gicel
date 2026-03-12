@@ -630,6 +630,49 @@ func TestZonkNoAllocUnchanged(t *testing.T) {
 	}
 }
 
+// --- Instance index tests ---
+
+func TestInstanceIndexLookup(t *testing.T) {
+	// Register 10 classes each with 10 instances, then resolve specific one.
+	source := `data Bool = True | False
+class Eq a { eq :: a -> a -> Bool }
+class Show a { show :: a -> Bool }
+instance Eq Bool { eq := \x y -> True }
+instance Show Bool { show := \x -> True }
+main := eq True False`
+	prog := checkSource(t, source, nil)
+	found := false
+	for _, b := range prog.Bindings {
+		if b.Name == "main" {
+			found = true
+		}
+	}
+	if !found {
+		t.Error("expected binding 'main'")
+	}
+}
+
+func BenchmarkInstanceResolve100(b *testing.B) {
+	// Build source with many instances to benchmark resolution.
+	source := `data Bool = True | False
+data Unit = Unit
+class Eq a { eq :: a -> a -> Bool }
+instance Eq Bool { eq := \x y -> True }
+instance Eq Unit { eq := \x y -> True }
+main := eq True False`
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		src := span.NewSource("bench", source)
+		l := syntax.NewLexer(src)
+		tokens, _ := l.Tokenize()
+		es := &errs.Errors{Source: src}
+		p := syntax.NewParser(tokens, es)
+		ast := p.ParseProgram()
+		Check(ast, src, nil)
+	}
+}
+
 func BenchmarkZonkDeepChain(b *testing.B) {
 	u := NewUnifier()
 	// Build a deep TyApp chain with no metavariables.

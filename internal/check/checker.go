@@ -53,10 +53,11 @@ type Checker struct {
 	conTypes  map[string]types.Type
 	conInfo   map[string]*DataTypeInfo
 	aliases   map[string]*aliasInfo
-	classes   map[string]*ClassInfo
-	instances []*InstanceInfo
-	deferred  []deferredConstraint
-	depth     int
+	classes          map[string]*ClassInfo
+	instances        []*InstanceInfo
+	instancesByClass map[string][]*InstanceInfo
+	deferred         []deferredConstraint
+	depth            int
 }
 
 // DataTypeInfo carries constructor information for exhaustiveness.
@@ -94,10 +95,11 @@ func Check(prog *syntax.AstProgram, source *span.Source, config *CheckConfig) (*
 		errors:   &errs.Errors{Source: source},
 		source:   source,
 		config:   config,
-		conTypes: make(map[string]types.Type),
-		conInfo:  make(map[string]*DataTypeInfo),
-		aliases:  make(map[string]*aliasInfo),
-		classes:  make(map[string]*ClassInfo),
+		conTypes:         make(map[string]types.Type),
+		conInfo:          make(map[string]*DataTypeInfo),
+		aliases:          make(map[string]*aliasInfo),
+		classes:          make(map[string]*ClassInfo),
+		instancesByClass: make(map[string][]*InstanceInfo),
 	}
 	ch.unifier = NewUnifierShared(&ch.freshID)
 	ch.initContext()

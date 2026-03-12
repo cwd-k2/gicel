@@ -249,6 +249,7 @@ func (ch *Checker) processInstanceHeader(d *syntax.DeclInstance) *InstanceInfo {
 		S:            d.S,
 	}
 	ch.instances = append(ch.instances, inst)
+	ch.instancesByClass[inst.ClassName] = append(ch.instancesByClass[inst.ClassName], inst)
 	return inst
 }
 
@@ -383,11 +384,8 @@ func (ch *Checker) resolveInstance(className string, args []types.Type, s span.S
 		}
 	}
 
-	// 2. Search global instances.
-	for _, inst := range ch.instances {
-		if inst.ClassName != className {
-			continue
-		}
+	// 2. Search global instances (indexed by class name).
+	for _, inst := range ch.instancesByClass[className] {
 		if len(inst.TypeArgs) != len(args) {
 			continue
 		}
