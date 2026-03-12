@@ -103,9 +103,16 @@ type InstMethod struct {
 	S    span.Span
 }
 
+// DeclImport is a module import declaration (import ModuleName).
+type DeclImport struct {
+	ModuleName string
+	S          span.Span
+}
+
 // AstProgram is the top-level AST.
 type AstProgram struct {
-	Decls []Decl
+	Imports []DeclImport
+	Decls   []Decl
 }
 
 func (*DeclTypeAnn) declNode()   {}
@@ -115,6 +122,7 @@ func (*DeclTypeAlias) declNode() {}
 func (*DeclFixity) declNode()    {}
 func (*DeclClass) declNode()     {}
 func (*DeclInstance) declNode()  {}
+func (*DeclImport) declNode()    {}
 
 func (d *DeclTypeAnn) Span() span.Span   { return d.S }
 func (d *DeclValueDef) Span() span.Span  { return d.S }
@@ -123,3 +131,4 @@ func (d *DeclTypeAlias) Span() span.Span { return d.S }
 func (d *DeclFixity) Span() span.Span    { return d.S }
 func (d *DeclClass) Span() span.Span     { return d.S }
 func (d *DeclInstance) Span() span.Span  { return d.S }
+func (d *DeclImport) Span() span.Span   { return d.S }

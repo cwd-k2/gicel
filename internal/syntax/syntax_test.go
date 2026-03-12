@@ -538,6 +538,63 @@ func TestParseForallMixedBinders(t *testing.T) {
 	}
 }
 
+// --- Import parser tests ---
+
+func TestLexImportKeyword(t *testing.T) {
+	tokens := lex("import MyModule")
+	if tokens[0].Kind != TokImport || tokens[0].Text != "import" {
+		t.Errorf("expected TokImport, got %v %q", tokens[0].Kind, tokens[0].Text)
+	}
+}
+
+func TestParseImportDecl(t *testing.T) {
+	prog, es := parse("import MyModule\nmain := True")
+	if es.HasErrors() {
+		t.Fatal(es.Format())
+	}
+	if len(prog.Imports) != 1 {
+		t.Fatalf("expected 1 import, got %d", len(prog.Imports))
+	}
+	if prog.Imports[0].ModuleName != "MyModule" {
+		t.Errorf("expected MyModule, got %s", prog.Imports[0].ModuleName)
+	}
+}
+
+func TestParseMultipleImports(t *testing.T) {
+	prog, es := parse("import Foo\nimport Bar\nimain := True")
+	if es.HasErrors() {
+		t.Fatal(es.Format())
+	}
+	if len(prog.Imports) != 2 {
+		t.Fatalf("expected 2 imports, got %d", len(prog.Imports))
+	}
+	if prog.Imports[0].ModuleName != "Foo" || prog.Imports[1].ModuleName != "Bar" {
+		t.Errorf("expected Foo and Bar, got %s and %s",
+			prog.Imports[0].ModuleName, prog.Imports[1].ModuleName)
+	}
+}
+
+func TestParseImportBeforeDecl(t *testing.T) {
+	prog, es := parse("import Lib\ndata Bool = True | False\nmain := True")
+	if es.HasErrors() {
+		t.Fatal(es.Format())
+	}
+	if len(prog.Imports) != 1 {
+		t.Fatalf("expected 1 import, got %d", len(prog.Imports))
+	}
+	if len(prog.Decls) != 2 { // data + value def
+		t.Fatalf("expected 2 decls, got %d", len(prog.Decls))
+	}
+}
+
+func TestAtDeclBoundaryImport(t *testing.T) {
+	// import should be recognized at a declaration boundary.
+	tokens := lex("import")
+	if tokens[0].Kind != TokImport {
+		t.Errorf("expected TokImport, got %v", tokens[0].Kind)
+	}
+}
+
 // --- GADT parser tests ---
 
 func TestParseGADTDecl(t *testing.T) {

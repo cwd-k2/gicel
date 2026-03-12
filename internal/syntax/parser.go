@@ -38,6 +38,12 @@ func (p *Parser) ParseProgram() *AstProgram {
 	p.collectFixity()
 	p.pos = 0
 
+	// Parse imports first.
+	var imports []DeclImport
+	for p.peek().Kind == TokImport {
+		imports = append(imports, p.parseImportDecl())
+	}
+
 	var decls []Decl
 	for p.peek().Kind != TokEOF {
 		d := p.parseDecl()
@@ -45,7 +51,7 @@ func (p *Parser) ParseProgram() *AstProgram {
 			decls = append(decls, d)
 		}
 	}
-	return &AstProgram{Decls: decls}
+	return &AstProgram{Imports: imports, Decls: decls}
 }
 
 // ParseExpr parses a single expression.
@@ -94,6 +100,16 @@ func (p *Parser) parseDecl() Decl {
 		p.addError("expected declaration")
 		p.advance()
 		return nil
+	}
+}
+
+func (p *Parser) parseImportDecl() DeclImport {
+	start := p.peek().S.Start
+	p.expect(TokImport)
+	modName := p.expectUpper()
+	return DeclImport{
+		ModuleName: modName,
+		S:          span.Span{Start: start, End: p.prevEnd()},
 	}
 }
 
@@ -1003,7 +1019,7 @@ func (p *Parser) atDeclBoundary() bool {
 		return false
 	}
 	switch tok.Kind {
-	case TokLower, TokUpper, TokData, TokType, TokInfixl, TokInfixr, TokInfixn, TokClass, TokInstance:
+	case TokLower, TokUpper, TokData, TokType, TokInfixl, TokInfixr, TokInfixn, TokClass, TokInstance, TokImport:
 		return true
 	}
 	return false

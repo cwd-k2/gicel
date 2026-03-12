@@ -43,6 +43,7 @@ const (
 	TokInfixn
 	TokClass
 	TokInstance
+	TokImport
 
 	// Identifiers
 	TokLower // lowercase-start
@@ -75,6 +76,7 @@ var keywords = map[string]TokenKind{
 	"infixn":   TokInfixn,
 	"class":    TokClass,
 	"instance": TokInstance,
+	"import":   TokImport,
 }
 
 // String returns a human-readable token kind name.
