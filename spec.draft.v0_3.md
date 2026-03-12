@@ -1,0 +1,1597 @@
+# Gomputation — Embedded Typed Effect Language
+
+**Specification Draft v0.3**
+
+---
+
+# 1. Position
+
+Gomputation is a typed embedded language designed to run inside a Go application as a library. Its primary purpose is to let **AI agents safely construct and execute pure computations** within a host-controlled sandbox.
+
+The host Go application defines the available capabilities — database access, network calls, file operations, or any domain-specific effect. The agent writes Gomputation source code that composes these capabilities under static type checking. The language guarantees that:
+
+* the agent **cannot access resources** not explicitly provided by the host
+* the agent **cannot diverge** without the host's explicit opt-in (`EnableRecursion`)
+* the agent's code is **deterministic** and **reproducible**
+* all **type errors are caught before execution** — no ill-typed program reaches the evaluator
+* execution is **bounded** by step limits, depth limits, and context cancellation
+
+These guarantees are not conventions — they are enforced by the type system (capability-indexed computation types with row polymorphism), the evaluation model (strict CBV with defense-in-depth limits), and the architecture (three-tier Engine → Runtime → Evaluator separation).
+
+Beyond the agent sandbox use case, the language serves as a general-purpose core for:
+
+* safe embedded scripting
+* domain logic and rule evaluation
+* configuration evaluation
+* protocol and typestate controlled execution
+
+The host defines available capabilities. The language cannot perform effects that are not explicitly provided by the host.
+
+This is the third draft. It builds on v0.2 by:
+
+* replacing the abstract minimal vocabulary with a **constitutive vocabulary** grounded in the language's specific design choices
+* providing a systematic **extension framework** for future growth
+* specifying formal **syntax**, **typing rules**, **evaluation semantics**, and **row unification**
+* restoring the CBPV adjunction with **Thunk / force**, completing the value/computation mediating pair alongside pure
+* removing **literals** and **conditionals** — all data enters through the host boundary; `Bool` is an ordinary ADT
+* replacing **let expressions** with **block expressions** — `{ x := e; body }` desugars to lambda application
+
+---
+
+# 2. Design Commitments
+
+## 2.1 Semantic Commitments
+
+The language is:
+
+* purely functional at the value level
+* effectful at the computation level
+* statically typed
+* capability-based
+* indexed by capability state
+* deterministic
+
+## 2.2 Methodological Commitments
+
+The specification is organized by **constitutive vocabulary** — concepts whose removal would produce a fundamentally different language.
+
+Additionally:
+
+* judgments are explicit
+* the relationship between values and computations is clear
+* capabilities are explicit in types
+* formation is defined before typing
+* typing rules follow introduction/elimination structure
+* `Term` and `Type` are treated as distinct layers
+
+The Term/Type separation is a pragmatic design choice for:
+
+* simpler static semantics
+* more controlled type equality
+* clearer staging of future extensions
+
+Future drafts may weaken this separation in controlled ways.
+
+## 2.3 Non-Goals of This Draft
+
+This draft does **not** attempt to specify:
+
+* higher-kinded polymorphism
+* type families
+* general refinement types
+* dependent types
+* algebraic effect handlers
+* linear usage tracking
+* module systems
+* type classes
+
+These are possible future directions, but not part of the active core.
+
+---
+
+# 3. Constitutive Vocabulary
+
+## 3.0 Principle
+
+The vocabulary names concepts that make this language *this* language.
+
+Criterion: removing any item produces a fundamentally different language. Items that are universal to all typed languages (contexts, introduction/elimination structure) are treated as **specification methodology**, not vocabulary.
+
+The vocabulary is organized into four strata reflecting conceptual dependency.
+
+## 3.1 Stratum 0 — Principles
+
+These define what computation *means*. Changing Stratum 0 changes the language's identity.
+
+### 3.1.1 Value / Computation
+
+The language has two modes of expression.
+
+**Values** are pure, inert data: integers, strings, functions, data constructors. They are classified by types and evaluated without side effects.
+
+**Computations** are typed transitions over capability environments. They may read, modify, or consume capabilities provided by the host. They are classified by the `Computation` type, which tracks the required and resulting capability state.
+
+This split follows Call-By-Push-Value (Levy 1999). The two directions of the adjunction are:
+
+* **F** (`pure`): lifts a value into a computation — introduction of computations from values
+* **U** (`thunk`): suspends a computation into a value — introduction of suspended computations
+* **force**: resumes a suspended computation — elimination of thunks
+
+`bind` provides computation sequencing.
+
+### 3.1.2 pure / bind
+
+The two primitive operations that define the algebra of computation.
+
+```text
+pure : a -> Computation r r a
+bind : Computation r1 r2 a -> (a -> Computation r2 r3 b) -> Computation r1 r3 b
+```
+
+`pure` lifts a value into a computation that preserves capability state (identity transition).
+
+`bind` sequences two computations, composing their state transitions. The post-state of the first must match the pre-state of the second.
+
+Together, these operations form an **Atkey parameterized monad** (Atkey, JFP 2009) and must satisfy three laws:
+
+```text
+bind (pure a) f       =  f a                                  -- left identity
+bind m pure           =  m                                     -- right identity
+bind (bind m f) g     =  bind m (\a -> bind (f a) g)           -- associativity
+```
+
+These laws are verified by construction in the evaluator, not by the type checker.
+
+**Status.** `pure` and `bind` are **not reserved keywords**. They are standard definitions with known types — the interface of the Computation structure. In the current draft without a type class mechanism, they are built-in definitions. When a type class mechanism is added, they would become methods of a parameterized monad interface. Surface `do` notation desugars to applications of these identifiers.
+
+**Core IR interaction.** `pure` and `bind` currently elaborate to dedicated Core nodes (`Pure`, `Bind`) with fixed evaluation semantics. When a type class mechanism is introduced, these Core nodes would serve as the default implementation for the `Computation` instance. Class-based dispatch would wrap or replace them as needed. This transition does not require removing the Core nodes — they remain valid as the canonical representation of Atkey parameterized monad operations.
+
+### 3.1.3 thunk / force
+
+The two operations that mediate between computations and values in the opposite direction to `pure`.
+
+```text
+thunk : Computation pre post a -> Thunk pre post a
+force : Thunk pre post a -> Computation pre post a
+```
+
+`thunk` suspends a computation without executing it, producing a first-class value. This is the CBPV `U` (thunk) operator.
+
+`force` resumes a suspended computation, executing it in the current capability environment. This is the CBPV elimination of `U`.
+
+Together with `pure` (= F), `thunk`/`force` (= U) complete the CBPV adjunction F ⊣ U:
+
+```text
+pure  : Value → Computation        -- F: value to computation
+thunk : Computation → Value         -- U: computation to value
+force : U(Computation) → Computation  -- elimination of U
+```
+
+**Laws.**
+
+```text
+force (thunk c) = c                 -- thunk/force cancellation
+```
+
+**Semantics.** `thunk` does not evaluate its argument — it captures the computation as a value. `force` triggers evaluation. Thunks are **not memoized**: forcing the same thunk multiple times executes the computation each time. For effectful thunks, repeated forcing is governed by the capability state at each `force` site; the type system ensures the required pre-state is available.
+
+**Status.** `thunk` and `force` are **not reserved keywords**, but their roles differ from `pure`/`bind`:
+
+* `thunk` is a **term former** (like `\` or `case`), not a function. It does not evaluate its argument — it captures the computation expression and the current environment. Consequently, `thunk` cannot be partially applied or passed as a first-class value. It elaborates to `Core.Thunk`.
+* `force` is an **ordinary function**. It evaluates its argument to a `ThunkVal`, then executes the captured computation. It can be partially applied and passed as a first-class value. It elaborates to `Core.Force`.
+
+**Type class interaction.** When a type class mechanism is added, `pure`/`bind` become class methods (the computation algebra is generalizable). `thunk`/`force` do **not** become class methods — they are part of the evaluation model (the CBPV adjunction), not the computation algebra. They remain built-in term formers regardless of the type class design.
+
+#### Relationship to monad variants
+
+The pure/bind interface corresponds to the Atkey parameterized monad, one of several generalizations of the standard monad:
+
+| Variant | Index structure | Composition | What it tracks |
+|---------|----------------|-------------|----------------|
+| Standard monad | None | `M a → (a → M b) → M b` | Effects |
+| Atkey parameterized | Pre/post pair (i,j) | `M i j a → (a → M j k b) → M i k b` | State transitions |
+| Graded (Katsumata) | Monoid element g | `M g a → (a → M h b) → M (g⊕h) b` | Effect accumulation |
+| Category-graded | Category morphism | Subsumes both above | Both simultaneously |
+
+Gomputation uses the Atkey specialization because capability environments are *state transitions* (pre → post), not *accumulated effect descriptions*. The rows compose by index matching (handoff), not by a monoidal operation.
+
+If future versions require both state transition tracking and effect accumulation (e.g., resource budgets), the category-graded monad framework (Orchard, Wadler, and Eades, MSFP 2020) provides the theoretical basis for combining both dimensions.
+
+When a type class mechanism is added, the class design should consider the supermonad approach (Bracker and Nilsson, IFL 2016), which allows the bind signature `Bind m n p` with independent type constructors, subsuming both standard and parameterized monads under a single interface.
+
+## 3.2 Stratum 1 — Classification
+
+These define how expressions are statically classified. They depend on Stratum 0 but do not define computation behavior.
+
+### 3.2.1 Type
+
+Classifies values. Types are formed from type variables, function types, universal quantification, named type constructors, and the `Computation` type constructor.
+
+### 3.2.2 Row
+
+Describes capability environments. A row is a finite mapping from labels to types, with optional open tail. Labels are unique and order is not semantically relevant.
+
+Row is the specific **index domain** that instantiates the abstract pre/post indices of Stratum 0. Where `pure/bind` define computation over abstract indices `i, j, k`, Row provides the concrete domain: `i, j, k : Row`.
+
+### 3.2.3 Kind
+
+Classifies types and rows. The initial kind vocabulary is:
+
+```text
+Type    -- kind of value types
+Row     -- kind of capability environment descriptors
+```
+
+Future extensions (DataKinds) may add user-declared kinds.
+
+### 3.2.4 Computation Type
+
+```text
+Computation : Row -> Row -> Type -> Type
+```
+
+The sole computation classifier. It instantiates the abstract `pure/bind` structure over Row indices:
+
+* First argument: pre-state (required capability environment)
+* Second argument: post-state (resulting capability environment)
+* Third argument: result type
+
+`Computation` depends on both `pure/bind` (which define its operational meaning) and `Row` (which supply its indices).
+
+### 3.2.5 Thunk Type
+
+```text
+Thunk : Row -> Row -> Type -> Type
+```
+
+The type of suspended computations. `Thunk pre post a` is a **value** that, when forced, behaves as `Computation pre post a`.
+
+* First argument: pre-state (required at force site)
+* Second argument: post-state (produced after forcing)
+* Third argument: result type
+
+`Thunk` is the CBPV `U` applied to `Computation`. It is the dual of `Computation` at the value level: where `Computation` is executed, `Thunk` is inert data until explicitly forced.
+
+## 3.3 Stratum 2 — Formation
+
+These define how expressions are structured. They provide the building blocks of programs.
+
+### 3.3.1 Algebraic Data
+
+Named variants with:
+
+* **construction** (introduction): data constructors build values
+* **case analysis** (elimination): pattern matching consumes values
+
+Algebraic data types are the source of structured values and the foundation for:
+
+* protocol state types (e.g., `data DBState = Opened | Closed`)
+* future DataKinds (promoting constructors to type-level indices)
+* future GADTs (refining indices at construction)
+
+### 3.3.2 Quantification
+
+Universal quantification over type variables and row variables:
+
+```text
+forall a. T        -- type polymorphism
+forall r. T        -- row polymorphism
+```
+
+Row polymorphism is the extensibility mechanism for capability environments. Without it, every host assumption would require a closed, exact environment.
+
+### 3.3.3 Host Assumption
+
+The sole source of effects. Host-provided operations are declared with `assumption`:
+
+```text
+dbOpen :: forall r. Computation { db : DB[Closed] | r }
+                                { db : DB[Opened] | r }
+                                Unit
+dbOpen := assumption
+```
+
+`assumption` marks a binding whose implementation is provided by the Go host. It uses the standard declaration syntax (type annotation + definition) rather than a special keyword.
+
+No ambient authority exists. Every effect requires an explicit capability in the pre-state.
+
+## 3.4 Stratum 3 — Judgment
+
+### 3.4.1 Equality
+
+Type and row equivalence. The equality theory determines when two types or rows are considered the same.
+
+Current equality:
+
+* alpha-equivalence of bound variables
+* row permutation (label order is irrelevant)
+* row normalization
+
+Future extension points:
+
+* local equality refinement (GADTs: pattern matching introduces type equalities)
+* type-level reduction (type families: type expressions compute)
+* definitional equality (dependent types: normalization by evaluation)
+
+Equality is the primary extension point for strengthening the type system without adding new syntactic forms.
+
+## 3.5 Specification Methodology
+
+The following are **not vocabulary items** but organizational principles for the specification. They are universal to typed languages and carry no information specific to this design.
+
+| Principle | Meaning |
+|-----------|---------|
+| **Formation-before-typing** | Define well-formedness of types and rows before typing rules |
+| **Introduction / Elimination** | Each type former has introduction forms (construction) and elimination forms (consumption) |
+| **Context** | All judgments are relative to a context Γ carrying variable and type variable bindings |
+| **Bidirectional checking** | Type inference uses two modes: check (Γ ⊢ e ⇐ A) and infer (Γ ⊢ e ⇒ A) |
+| **Deterministic evaluation** | Strict call-by-value, environment-based, fully specified evaluation order |
+
+## 3.6 Reserved Vocabulary
+
+The following items are not active in this draft but are named to ensure future extensions have explicit slots.
+
+| Reserved | Stratum | Purpose | Activation condition |
+|----------|---------|---------|---------------------|
+| **Constraint** | 3 (Judgment) | Type classes, qualified polymorphism, solver-mediated obligations | When generic programming demands bounded quantification |
+| **Usage** | 0-1 (Principles + Classification) | Linear, affine, or graded usage discipline | When capability duplication threatens soundness |
+
+---
+
+# 4. Extension Framework
+
+## 4.1 Classification
+
+Extensions are classified by their impact on the vocabulary:
+
+1. **Refinement** — enriches an existing vocabulary item. The specification's basic shape is preserved.
+2. **Addition** — introduces a new vocabulary item. New judgment forms or classification layers appear.
+3. **Restructure** (phase transition) — changes the relationship between existing items. The specification must be reorganized.
+
+## 4.2 Natural Refinements
+
+These extensions strengthen existing vocabulary items without adding new ones.
+
+| Extension | Refines | Change |
+|-----------|---------|--------|
+| DataKinds | Kind (#3.2.3) | `Kind` gains user-declared members from promoted data constructors |
+| Rank-n polymorphism | Quantification (#3.3.2) | Higher-rank `∀` permitted; bidirectional checking handles annotation requirements |
+| Richer row operations | Row (#3.2.2) + Equality (#3.4.1) | Finer-grained row manipulation, more precise normalization |
+| GADT | Algebraic Data (#3.3.1) + Equality (#3.4.1) | Constructor-refined indices; case analysis introduces local type equalities |
+
+The natural progression is a cycle:
+
+```text
+Kind enrichment → Row entry precision → Equality strengthening → (repeat)
+```
+
+## 4.3 Additions
+
+These extensions introduce new vocabulary items.
+
+| Extension | New item | Stratum | Triggered by |
+|-----------|----------|---------|-------------|
+| Constraint system | **Constraint** | 3 (Judgment) | Need for type classes, bounded quantification, interface abstraction |
+| Usage discipline | **Usage** | 0 (Principles) | Capability duplication threatens soundness |
+
+Additions expand the vocabulary but do not restructure existing items.
+
+## 4.4 Phase Transitions
+
+These extensions restructure the vocabulary. They represent a qualitative change in the language, not a quantitative enrichment.
+
+| Extension | Impact |
+|-----------|--------|
+| Algebraic effects + handlers | **Stratum 0 restructured**: pure/bind → operation/handle. The computation primitives change. |
+| Type families | **Stratum 3 restructured**: equality → reduction + equality. The equality judgment gains computational content. |
+| Dependent types | **Multiple strata restructured**: Type/Kind merge (Stratum 1); equality → definitional equality (Stratum 3); quantification → dependent quantification (Stratum 2). |
+
+Phase transitions cannot be reached by incremental refinement. They require explicit design decisions about which vocabulary commitments are relaxed.
+
+## 4.5 Main Extension Direction
+
+The main extension direction is not a single lane but the progressive deepening of the interaction between `pure/bind` (Stratum 0), `Row` (Stratum 1), and `Equality` (Stratum 3).
+
+```text
+v0 (this draft)
+│  Kind = { Type, Row }
+│  Equality = alpha + row normalization
+│  Row entries carry Type-kinded values
+│
+├─→ DataKinds  [Kind refined]
+│     Kind gains user-declared members
+│     Row entries can carry promoted finite-state indices
+│
+├─→ GADT  [Algebraic Data + Equality refined]
+│     Case elimination introduces local type equalities
+│     Enables precise branching over capability states
+│
+├─→ Constraint  [new vocabulary item]
+│     Qualified polymorphism
+│     Bounded quantification over Row operations
+│
+╳── Phase transition boundary ──╳
+│
+├─→ Effect handlers  [Stratum 0 restructured]
+├─→ Type families     [Stratum 3 restructured]
+└─→ Dependent types   [full restructure]
+```
+
+The boundary between refinement and phase transition is the key architectural invariant: Stratum 0 (pure/bind as the computation algebra) remains stable across all refinements. Only phase transitions disturb it.
+
+---
+
+# 5. Syntax
+
+## 5.1 Lexical Conventions
+
+### 5.1.1 Keywords
+
+```text
+case  of  do  data  type  forall  infixl  infixr  infixn
+```
+
+9 keywords. Note that `pure`, `bind`, `thunk`, `force`, and `assumption` are **not** keywords — they are ordinary identifiers with built-in meaning.
+
+* `pure`, `bind` — computation algebra (§3.1.2)
+* `thunk` — computation suspension, special form (§3.1.3)
+* `force` — thunk resumption, ordinary function (§3.1.3)
+* `assumption` — host-provided definition placeholder (see below)
+
+The language has **no literals**. All values (integers, strings, etc.) are injected from the host. `Bool` is defined as an ordinary ADT (`data Bool = True | False`); there is no `if-then-else` — use `case` on `Bool` instead.
+
+### 5.1.3 Host Assumptions
+
+A definition whose right-hand side is `assumption` declares that the binding is provided by the host:
+
+```text
+dbOpen :: forall r. Computation { db : DB[Closed] | r } { db : DB[Opened] | r } Unit
+dbOpen := assumption
+```
+
+This replaces the `primitive` keyword. `assumption` is a built-in identifier, not a keyword. The checker requires that any `assumption` binding has an explicit type annotation. At runtime, the evaluator resolves `assumption` bindings from the Go host's registration; a missing registration is a runtime error.
+
+### 5.1.2 Identifiers
+
+```text
+Var    ::= lower alpha-start identifier     -- x, foo, dbOpen
+Con    ::= upper alpha-start identifier     -- True, DB, Opened
+TyVar  ::= lower alpha-start identifier     -- a, r, pre, post
+TyCon  ::= upper alpha-start identifier     -- Bool, Computation, Thunk
+Label  ::= lower alpha-start identifier     -- db, log, auth
+Op     ::= operator characters              -- +, -, *, /, ==, >>=, .
+```
+
+## 5.2 Kind Syntax
+
+```text
+Kind ::= 'Type'
+       | 'Row'
+       | Kind '->' Kind
+```
+
+## 5.3 Type Syntax
+
+```text
+Type      ::= TypeInfix
+            | 'forall' TyBinder+ '.' Type
+
+TypeInfix ::= TypeApp '->' Type               -- function type (right-associative)
+            | TypeApp
+
+TypeApp   ::= TypeApp TypeAtom                 -- type application (left-associative)
+            | TypeAtom
+
+TypeAtom  ::= TyVar                            -- type variable
+            | TyCon                             -- type constructor
+            | '(' Type ')'                      -- parenthesized
+            | RowExpr                           -- row type
+
+TyBinder  ::= TyVar                            -- type variable (kind inferred)
+            | '(' TyVar ':' Kind ')'            -- kinded type variable
+```
+
+## 5.4 Row Syntax
+
+```text
+RowExpr  ::= '{' '}'                                            -- empty row
+           | '{' RowField (',' RowField)* ('|' TyVar)? '}'      -- row
+
+RowField ::= Label ':' Type
+```
+
+Examples:
+
+```text
+{}
+{ db : DB[Closed] }
+{ db : DB[Opened], log : Logger[Ready] }
+{ db : DB[Closed] | r }
+```
+
+## 5.5 Expression Syntax
+
+Expressions are parsed by a 5-level precedence scheme:
+
+```text
+Expr       ::= InfixExpr ('::' Type)?          -- optional type annotation
+
+InfixExpr  ::= PrefixExpr (Op PrefixExpr)*     -- binary operators (Pratt parsing)
+
+PrefixExpr ::= AppExpr
+
+AppExpr    ::= AppExpr AtomExpr                 -- function application (left-assoc)
+             | AppExpr '@' TypeAtom             -- type application
+             | AtomExpr
+
+AtomExpr   ::= Var                              -- variable
+             | Con                               -- constructor
+             | '(' Expr ')'                      -- parenthesized
+             | '\' Pattern+ '->' Expr            -- lambda abstraction
+             | '{' Bind* Expr '}'                -- block expression
+             | 'case' Expr 'of' '{' Alt+ '}'     -- case analysis
+             | 'do' '{' Stmt+ '}'                -- do block
+```
+
+Auxiliary syntax:
+
+```text
+Bind    ::= Var ':=' Expr ';'                   -- pure binding
+
+Alt     ::= Pattern '->' Expr ';'
+
+Stmt    ::= Var '<-' Expr ';'                   -- computation binding
+          | Var ':=' Expr ';'                    -- pure binding
+          | Expr ';'                             -- effect statement
+          | Expr                                 -- tail expression
+```
+
+Block expressions provide local pure bindings. `{ x := e; body }` is equivalent to `(\x -> body) e`. A block with no bindings `{ e }` is equivalent to `e`. Blocks can be nested:
+
+```text
+{
+  helper := \x -> f x x;
+  result := helper (g y);
+  transform result
+}
+```
+
+### 5.5.1 Operator Precedence
+
+Operators are resolved by declared fixity (§5.8). The function arrow `->` in types has the lowest precedence and associates to the right.
+
+Application has higher precedence than any infix operator.
+
+Type application `@` binds tighter than function application.
+
+## 5.6 Pattern Syntax
+
+```text
+Pattern ::= Var                                 -- variable binding
+          | '_'                                  -- wildcard
+          | Con Pattern*                         -- constructor pattern
+          | '(' Pattern ')'                      -- parenthesized
+```
+
+Pattern matching operates exclusively on algebraic data constructors. There are no literal patterns — value equality is provided by host assumptions (e.g., `intEq :: Int -> Int -> Bool; intEq := assumption`).
+
+## 5.7 Declaration Syntax
+
+```text
+Program ::= Decl*
+
+Decl    ::= TypeAnnotation
+          | ValueDefinition
+          | DataDeclaration
+          | TypeAliasDeclaration
+          | FixityDeclaration
+
+TypeAnnotation       ::= Var '::' Type
+ValueDefinition      ::= Var ':=' Expr
+DataDeclaration      ::= 'data' TyCon TyVar* '=' DataCon ('|' DataCon)*
+TypeAliasDeclaration ::= 'type' TyCon TyVar* '=' Type
+FixityDeclaration    ::= ('infixl' | 'infixr' | 'infixn') IntLit Op
+
+DataCon ::= Con TypeAtom*
+```
+
+## 5.8 Fixity Declarations
+
+```text
+infixl N op     -- left-associative at precedence N
+infixr N op     -- right-associative at precedence N
+infixn N op     -- non-associative at precedence N
+```
+
+Precedence levels range from 0 (lowest) to 9 (highest).
+
+Default: `infixl 9`.
+
+---
+
+# 6. Formation Rules
+
+Formation rules define well-formed types and rows. They are checked before typing rules are applied.
+
+## 6.1 Kind Formation
+
+```text
+───────────────
+  Type : □
+
+───────────────
+  Row : □
+
+  K₁ : □    K₂ : □
+─────────────────────
+  K₁ → K₂ : □
+```
+
+## 6.2 Type Formation
+
+### Type Variable
+
+```text
+  (a : K) ∈ Γ
+────────────────
+  Γ ⊢ a : K
+```
+
+### Function Type
+
+```text
+  Γ ⊢ A : Type    Γ ⊢ B : Type
+─────────────────────────────────
+  Γ ⊢ A → B : Type
+```
+
+### Universal Quantification
+
+```text
+  Γ, a : Type ⊢ T : Type
+───────────────────────────
+  Γ ⊢ forall a. T : Type
+```
+
+```text
+  Γ, r : Row ⊢ T : Type
+──────────────────────────
+  Γ ⊢ forall r. T : Type
+```
+
+### Type Constructor
+
+```text
+  (F : K) ∈ Γ    (K is not a kind variable)
+──────────────────────────────────────────────
+  Γ ⊢ F : K
+```
+
+Type constructors include built-in constructors (`Computation`, `Thunk`, `Int`, `String`, `Bool`, etc.) and user-declared constructors (`data` declarations). Their kinds are registered in the context:
+
+```text
+Computation : Row → Row → Type → Type
+Thunk       : Row → Row → Type → Type
+Int         : Type
+String      : Type
+Bool        : Type
+```
+
+### Type Application (general)
+
+```text
+  Γ ⊢ F : K₁ → K₂    Γ ⊢ T : K₁
+────────────────────────────────────
+  Γ ⊢ F T : K₂
+```
+
+This rule applies uniformly to type variables, type constructors, and partially applied type expressions. The previous draft's separate rules for "Named Type Constructor" and "Nullary Type Constructor" are subsumed by this rule combined with the Type Constructor rule above.
+
+**Examples of derived judgments:**
+
+```text
+Γ ⊢ Computation : Row → Row → Type → Type
+Γ ⊢ R₁ : Row
+────────────────────────────────────────────
+Γ ⊢ Computation R₁ : Row → Type → Type         -- partial application
+
+Γ ⊢ Computation R₁ : Row → Type → Type
+Γ ⊢ R₂ : Row
+────────────────────────────────────────────
+Γ ⊢ Computation R₁ R₂ : Type → Type            -- partial application
+
+Γ ⊢ Computation R₁ R₂ : Type → Type
+Γ ⊢ A : Type
+────────────────────────────────────────────
+Γ ⊢ Computation R₁ R₂ A : Type                 -- fully applied
+```
+
+The same pattern applies to `Thunk R₁ R₂ A`, user-declared type constructors, and — when HKT is introduced — type variables of higher kind:
+
+```text
+Γ, f : Type → Type ⊢ f : Type → Type
+Γ, f : Type → Type ⊢ Int : Type
+──────────────────────────────────────
+Γ, f : Type → Type ⊢ f Int : Type              -- HKT application (future)
+```
+
+## 6.3 Row Formation
+
+### Empty Row
+
+```text
+─────────────────
+  Γ ⊢ {} : Row
+```
+
+### Row Variable
+
+```text
+  (r : Row) ∈ Γ
+─────────────────
+  Γ ⊢ r : Row
+```
+
+### Row Extension
+
+```text
+  Γ ⊢ A : Type    Γ ⊢ R : Row    l ∉ labels(R)
+──────────────────────────────────────────────────
+  Γ ⊢ { l : A | R } : Row
+```
+
+The side condition `l ∉ labels(R)` enforces label uniqueness.
+
+### Closed Multi-Field Rows
+
+A closed row `{ l₁ : T₁, l₂ : T₂, ..., lₙ : Tₙ }` is syntactic sugar for iterated row extension over `{}`:
+
+```text
+{ l₁ : T₁ | { l₂ : T₂ | ... { lₙ : Tₙ | {} } ... } }
+```
+
+---
+
+# 7. Typing Rules
+
+## 7.1 Judgment Forms
+
+This draft uses bidirectional typing with two judgment forms:
+
+```text
+Γ ⊢ e ⇒ A      inference: given Γ and e, produce A
+Γ ⊢ e ⇐ A      checking:  given Γ, e, and A, verify
+```
+
+## 7.2 Value Typing — Inference
+
+### Variable
+
+```text
+  (x : A) ∈ Γ
+────────────────
+  Γ ⊢ x ⇒ A
+```
+
+### Constructor
+
+```text
+  (C : A) declared
+────────────────────
+  Γ ⊢ C ⇒ A
+```
+
+### Application
+
+```text
+  Γ ⊢ f ⇒ A → B    Γ ⊢ e ⇐ A
+────────────────────────────────
+  Γ ⊢ f e ⇒ B
+```
+
+### Type Application
+
+```text
+  Γ ⊢ e ⇒ forall a. T    Γ ⊢ S : K
+──────────────────────────────────────
+  Γ ⊢ e @S ⇒ T[a := S]
+```
+
+### Type Annotation
+
+```text
+  Γ ⊢ A wf    Γ ⊢ e ⇐ A
+────────────────────────────
+  Γ ⊢ (e :: A) ⇒ A
+```
+
+### Block Expression
+
+Block expressions `{ x := e₁; e₂ }` desugar to `(\x -> e₂) e₁` and are typed through the existing lambda and application rules. There is no let-polymorphism — block-bound variables are monomorphic. Polymorphic definitions must be top-level.
+
+## 7.3 Value Typing — Checking
+
+### Lambda
+
+```text
+  Γ, x : A ⊢ e ⇐ B
+─────────────────────────
+  Γ ⊢ \x → e ⇐ A → B
+```
+
+### Case Analysis
+
+```text
+  Γ ⊢ s ⇒ D T₁ ... Tₙ
+  for each i: Γ, bindings(pᵢ, D, T₁...Tₙ) ⊢ eᵢ ⇐ A
+  exhaustive(p₁, ..., pₖ, D)
+──────────────────────────────────────────────────────
+  Γ ⊢ case s of { p₁ → e₁; ...; pₖ → eₖ } ⇐ A
+```
+
+Exhaustiveness is mandatory. The checker must verify that the patterns cover all constructors of `D`.
+
+### Subsumption
+
+```text
+  Γ ⊢ e ⇒ A    A ≤ B
+──────────────────────
+  Γ ⊢ e ⇐ B
+```
+
+where `A ≤ B` includes:
+
+* `∀a. A ≤ A[a := T]` — instantiation of quantified variables
+* `A ≤ A` — reflexivity
+* Row equality (§8) — rows that are equal up to permutation
+
+## 7.4 Computation Typing
+
+Computations are typed by applying the ordinary value typing rules to `pure` and `bind`, which have known built-in types:
+
+```text
+pure : forall (a : Type) (r : Row).
+         a -> Computation r r a
+
+bind : forall (a : Type) (b : Type) (r1 : Row) (r2 : Row) (r3 : Row).
+         Computation r1 r2 a -> (a -> Computation r2 r3 b) -> Computation r1 r3 b
+```
+
+When the checker encounters `pure e`, it treats this as an application of the built-in `pure` to `e` and instantiates the type variables by unification. Similarly for `bind`.
+
+The key constraint: at each `bind` site, the post-state of the first computation (`r2`) must unify with the pre-state of the second computation. Row unification (§8) handles this.
+
+## 7.5 Thunk / Force Typing
+
+Thunk and force have the following built-in types:
+
+```text
+thunk : forall (a : Type) (r1 : Row) (r2 : Row).
+          Computation r1 r2 a -> Thunk r1 r2 a
+
+force : forall (a : Type) (r1 : Row) (r2 : Row).
+          Thunk r1 r2 a -> Computation r1 r2 a
+```
+
+`thunk` is a special form: the checker recognizes `thunk c` and assigns `c` the type `Computation r1 r2 a` without evaluating it. The result has type `Thunk r1 r2 a`, which is a value type.
+
+`force` is an ordinary application: the checker infers the type of the argument as `Thunk r1 r2 a` and produces `Computation r1 r2 a`.
+
+### Thunk in Computation Chains
+
+A thunk can be created and stored inside a `do` block, then forced later:
+
+```text
+do {
+  t := thunk dbClose;       -- t : Thunk {db:DB[Opened]|r} {db:DB[Closed]|r} Unit
+  dbOpen;
+  rows <- dbQuery sql;
+  force t;                   -- force at this point: pre-state matches
+  pure rows
+}
+```
+
+The pre-state required by `force t` must be available at the `force` site. The type checker verifies this through the normal `bind` sequencing constraint.
+
+### Example Typing Derivation
+
+Given:
+
+```text
+dbOpen :: forall r. Computation { db : DB[Closed] | r } { db : DB[Opened] | r } Unit
+dbClose :: forall r. Computation { db : DB[Opened] | r } { db : DB[Closed] | r } Unit
+```
+
+The expression:
+
+```text
+bind dbOpen (\_ -> dbClose)
+```
+
+is typed as follows:
+
+1. `dbOpen` infers `Computation { db : DB[Closed] | r₁ } { db : DB[Opened] | r₁ } Unit` (fresh `r₁`)
+2. `bind` is instantiated with `r1 = { db : DB[Closed] | r₁ }`, `r2 = { db : DB[Opened] | r₁ }`, `a = Unit`
+3. `\_ -> dbClose` must check against `Unit -> Computation { db : DB[Opened] | r₁ } r3 b`
+4. `dbClose` infers `Computation { db : DB[Opened] | r₂ } { db : DB[Closed] | r₂ } Unit` (fresh `r₂`)
+5. Unify `{ db : DB[Opened] | r₁ }` with `{ db : DB[Opened] | r₂ }` → `r₁ = r₂`
+6. Result: `Computation { db : DB[Closed] | r₁ } { db : DB[Closed] | r₁ } Unit`
+
+## 7.6 Pattern Typing
+
+When a pattern `p` matches a value of type `D T₁ ... Tₙ`, it produces bindings:
+
+```text
+bindings(x, D, Ts)           = { x : D Ts }
+bindings(_, D, Ts)           = {}
+bindings(C p₁...pₖ, D, Ts)  = bindings(p₁, A₁) ∪ ... ∪ bindings(pₖ, Aₖ)
+    where C : A₁ → ... → Aₖ → D Ts
+```
+
+### Exhaustiveness
+
+Exhaustiveness checking uses Maranget's algorithm (2008):
+
+1. Build a pattern matrix from all case branches
+2. Recursively decompose by constructor and arity
+3. Report missing patterns if the matrix does not cover all inhabitants
+
+Exhaustiveness is mandatory. The checker must reject case expressions with incomplete coverage.
+
+### Redundancy
+
+The checker should warn on redundant patterns — branches that can never be reached because they are subsumed by earlier branches.
+
+## 7.7 Polymorphism Strategy
+
+### Annotation Requirements
+
+* Top-level definitions should have explicit type annotations
+* Row-polymorphic declarations must be annotated explicitly
+* Lambda arguments in checking mode may omit annotations (type flows from context)
+* Block-bound variables are monomorphic (no let-polymorphism)
+
+### Implicit Instantiation
+
+Rank-1 polymorphic types are implicitly instantiated at use sites. The checker generates fresh unification variables for quantified variables and solves them by unification.
+
+### Type Application
+
+Explicit type application is available via `@`:
+
+```text
+id @Int 42
+```
+
+This is required when implicit instantiation would be ambiguous.
+
+## 7.8 Declaration Typing
+
+### Type Annotation + Definition
+
+```text
+  Γ ⊢ A wf    Γ ⊢ e ⇐ A
+──────────────────────────────
+  Γ ⊢ (f :: A; f := e) ok
+```
+
+Binds `f : A` in subsequent declarations.
+
+### Data Declaration
+
+```text
+  for each constructor Cᵢ : Aᵢ₁ → ... → Aᵢₖ → D a₁ ... aₙ:
+    Γ, a₁ : K₁, ..., aₙ : Kₙ ⊢ Aᵢⱼ : Type
+───────────────────────────────────────────────
+  Γ ⊢ (data D a₁...aₙ = C₁ ... | ... | Cₘ ...) ok
+```
+
+### Assumption Declaration
+
+```text
+  Γ ⊢ A wf
+──────────────────────────────────────
+  Γ ⊢ (f :: A; f := assumption) ok
+```
+
+Binds `f : A` with implementation provided by the host. The checker verifies well-formedness of `A` but does not require a body. At runtime, `f` is resolved from the Go host's registration.
+
+---
+
+# 8. Row Equality and Unification
+
+## 8.1 Row Normal Form
+
+A row in normal form is:
+
+```text
+{ l₁ : T₁, l₂ : T₂, ..., lₙ : Tₙ | ρ? }
+```
+
+where `l₁ < l₂ < ... < lₙ` (lexicographic ordering) and `ρ` is either absent (closed row) or a single row variable (open row).
+
+Normalization flattens nested extensions and sorts labels:
+
+```text
+normalize({ l₁ : T₁ | { l₂ : T₂ | R } }) = normalize({ l₁ : T₁, l₂ : T₂ | R })
+```
+
+## 8.2 Row Equality
+
+Two rows are equal if their normal forms are identical:
+
+```text
+  normalize(R₁) = normalize(R₂)
+──────────────────────────────────
+  Γ ⊢ R₁ ≡ R₂
+```
+
+This means label order is irrelevant:
+
+```text
+{ db : DB[Opened], log : Logger[Ready] }
+≡
+{ log : Logger[Ready], db : DB[Opened] }
+```
+
+## 8.3 Unification Algorithm
+
+Row unification solves equations of the form `R₁ ~ R₂` by normalizing both sides and proceeding by case analysis.
+
+### Case 1: Closed–Closed
+
+```text
+{ l₁:T₁, ..., lₙ:Tₙ } ~ { m₁:U₁, ..., mₖ:Uₖ }
+```
+
+Require `{l₁,...,lₙ} = {m₁,...,mₖ}`. For each shared label `l`, unify `T_l ~ U_l`.
+
+Fail if the label sets differ.
+
+### Case 2: Open–Closed
+
+```text
+{ l₁:T₁, ..., lₘ:Tₘ | ρ } ~ { m₁:U₁, ..., mₖ:Uₖ }
+```
+
+Require `{l₁,...,lₘ} ⊆ {m₁,...,mₖ}`. For each `l ∈ {l₁,...,lₘ}`, unify `T_l ~ U_l`.
+
+Solve: `ρ := { m:U_m | m ∈ {m₁,...,mₖ} \ {l₁,...,lₘ} }`.
+
+Fail if any `lᵢ ∉ {m₁,...,mₖ}`.
+
+### Case 3: Closed–Open
+
+Symmetric to Case 2.
+
+### Case 4: Open–Open
+
+```text
+{ l₁:T₁, ..., lₘ:Tₘ | ρ₁ } ~ { m₁:U₁, ..., mₖ:Uₖ | ρ₂ }
+```
+
+For each label in the intersection, unify the types. Introduce a fresh row variable `ρ`:
+
+```text
+ρ₁ := { m:U_m | m ∈ only-right | ρ }
+ρ₂ := { l:T_l | l ∈ only-left  | ρ }
+```
+
+where `only-right = {m₁,...,mₖ} \ {l₁,...,lₘ}` and `only-left = {l₁,...,lₘ} \ {m₁,...,mₖ}`.
+
+### Case 5: Variable–Variable
+
+If `ρ₁ = ρ₂`, succeed immediately. Otherwise, introduce a fresh `ρ` and set `ρ₁ := ρ`, `ρ₂ := ρ`.
+
+### Occurs Check
+
+Before assigning `ρ := R`, verify that `ρ ∉ fv(R)`. Fail if the row variable occurs in its own solution (infinite row).
+
+### Label Uniqueness Preservation
+
+When assigning `ρ := R`, the assignment must preserve the label uniqueness condition from row formation (§6.3). If `ρ` occurs in a context `{ l₁:T₁, ..., lₙ:Tₙ | ρ }`, then `labels(R) ∩ {l₁,...,lₙ} = ∅` must hold. Fail if the assignment would introduce duplicate labels.
+
+This check is performed at each assignment site during unification. The unifier tracks, for each row variable, the set of labels that are known to surround it (its **label context**).
+
+This is a runtime enforcement of the formation side condition, not a constraint in the type language. A future draft may promote this to an explicit **lacks constraint** (`ρ\l`) in the type language if the need arises (e.g., for type class instances parameterized over row structure).
+
+### Properties
+
+* **Soundness**: if unification succeeds, the substitution makes the two rows equal and preserves label uniqueness.
+* **Completeness**: if a unifying substitution exists that preserves label uniqueness, the algorithm finds it (or a more general one).
+* **Termination**: guaranteed by the decreasing size of unsolved variables.
+
+---
+
+# 9. Evaluation Semantics
+
+The language uses strict call-by-value evaluation with two environments.
+
+## 9.1 Runtime Values
+
+```text
+v ::= HostVal(x)                          -- opaque host-injected value (Int, String, etc.)
+    | Closure(ρ, x, e)                    -- function closure
+    | ConVal(C, v₁, ..., vₙ)             -- constructor application
+    | ThunkVal(ρ, e)                      -- suspended computation (thunk)
+```
+
+There is no `CompVal` — computations are not values. They exist as Core IR expressions evaluated directly by `execComp` (§9.4), or suspended in `ThunkVal`.
+
+`HostVal` wraps an arbitrary Go value. The language treats it as opaque; operations on host values are performed through host assumptions.
+
+## 9.2 Environments
+
+```text
+ρ : Var → Value              -- variable environment (lexically scoped)
+σ : Label → CapabilityState   -- capability environment (threaded through computations)
+```
+
+## 9.3 Value Evaluation
+
+Judgment: `ρ ⊢ e ⇓ v` — expression `e` evaluates to value `v` under environment `ρ`.
+
+### Variable
+
+```text
+  ρ(x) = v
+──────────────
+  ρ ⊢ x ⇓ v
+```
+
+### Lambda
+
+```text
+────────────────────────────────────
+  ρ ⊢ \x → e ⇓ Closure(ρ, x, e)
+```
+
+### Application
+
+```text
+  ρ ⊢ f ⇓ Closure(ρ', x, body)
+  ρ ⊢ arg ⇓ v
+  ρ'[x ↦ v] ⊢ body ⇓ result
+────────────────────────────────
+  ρ ⊢ f arg ⇓ result
+```
+
+Arguments are evaluated **before** the function body (strict, left-to-right).
+
+### Constructor
+
+```text
+  ρ ⊢ e₁ ⇓ v₁    ...    ρ ⊢ eₙ ⇓ vₙ
+──────────────────────────────────────────
+  ρ ⊢ C e₁ ... eₙ ⇓ ConVal(C, v₁,...,vₙ)
+```
+
+### Case Analysis
+
+```text
+  ρ ⊢ s ⇓ v
+  match(v, pᵢ) = θ             -- first matching branch
+  ρ ∪ θ ⊢ eᵢ ⇓ result
+──────────────────────────────────
+  ρ ⊢ case s of { ...pᵢ→eᵢ... } ⇓ result
+```
+
+Branches are tried top-to-bottom. The first match wins.
+
+Block expressions desugar to lambda application before evaluation, so no separate evaluation rule is needed.
+
+## 9.4 Computation Evaluation
+
+Judgment: `ρ, σ ⊢ comp ⇓ σ', v` — computation `comp` transforms capability environment `σ` to `σ'` and produces value `v`.
+
+### Pure
+
+```text
+  ρ ⊢ e ⇓ v
+──────────────────
+  ρ, σ ⊢ pure e ⇓ σ, v
+```
+
+`pure` does not modify the capability environment.
+
+### Bind
+
+```text
+  ρ, σ  ⊢ c₁ ⇓ σ', v₁
+  ρ[x ↦ v₁], σ' ⊢ c₂ ⇓ σ'', v₂
+──────────────────────────────────
+  ρ, σ ⊢ bind c₁ (\x → c₂) ⇓ σ'', v₂
+```
+
+`bind` threads the capability environment: `c₁` takes `σ` to `σ'`, then `c₂` takes `σ'` to `σ''`.
+
+### Primitive Operation
+
+```text
+  ρ ⊢ args ⇓ vs
+  hostImpl(name, σ, vs) = (σ', v)
+──────────────────────────────────
+  ρ, σ ⊢ name args ⇓ σ', v
+```
+
+The host-provided implementation `hostImpl` receives the current capability environment and arguments, and returns the updated environment and a result.
+
+### Thunk
+
+```text
+────────────────────────────────────────
+  ρ ⊢ thunk c ⇓ ThunkVal(ρ, c)
+```
+
+`thunk` captures the current environment and the computation expression without evaluating it.
+
+### Force
+
+```text
+  ρ ⊢ e ⇓ ThunkVal(ρ', c)
+  ρ', σ ⊢ c ⇓ σ', v
+──────────────────────────────
+  ρ, σ ⊢ force e ⇓ σ', v
+```
+
+`force` evaluates its argument to a `ThunkVal`, then executes the captured computation under the captured environment and the current capability environment.
+
+### Top-Level Execution
+
+```text
+  ρ₀ = initial definitions
+  σ₀ = initial capability environment (from host)
+  ρ₀, σ₀ ⊢ main ⇓ σ_final, v
+──────────────────────────────
+  run(program) = v
+```
+
+The host provides the initial capability environment `σ₀` and receives the final value `v`.
+
+## 9.5 Pattern Matching
+
+The `match` function attempts to match a value against a pattern:
+
+```text
+match(v, x)              = { x ↦ v }
+match(v, _)              = {}
+match(ConVal(C, vs), C p₁...pₖ) =
+    match(v₁, p₁) ∪ ... ∪ match(vₖ, pₖ)
+match(ConVal(C, _), D _) = fail    (when C ≠ D)
+```
+
+---
+
+# 10. Host Boundary
+
+## 10.1 Host Assumptions
+
+Host-provided operations are declared as assumptions with their types:
+
+```text
+dbOpen :: forall r. Computation { db : DB[Closed] | r }
+                               { db : DB[Opened] | r }
+                               Unit
+dbOpen := assumption
+
+dbClose :: forall r. Computation { db : DB[Opened] | r }
+                                 { db : DB[Closed] | r }
+                                 Unit
+dbClose := assumption
+
+dbQuery :: forall r. Query -> Computation { db : DB[Opened] | r }
+                                          { db : DB[Opened] | r }
+                                          (Result String Rows)
+dbQuery := assumption
+```
+
+Open-row variants are the standard practice, allowing assumptions to be composed with arbitrary surrounding capability contexts.
+
+## 10.2 Capability Discipline
+
+This draft assumes:
+
+* capabilities are supplied by the host
+* capabilities are not forgeable by user code
+* there is no ambient authority
+* the host controls which assumptions are fulfilled
+
+This is the core capability-security commitment of the language.
+
+## 10.3 Runtime Interface
+
+The intended Go-side interface follows this shape:
+
+```text
+-- Conceptual interface (not concrete Go syntax)
+
+register(name, type, implementation)
+    -- Register an assumption implementation
+
+run(program, initialEnv, bindings) -> (finalValue, error)
+    -- Execute a program with an initial capability environment and value bindings
+```
+
+The host:
+
+1. Registers opaque types and assumption implementations (with types built via Go objects, not strings)
+2. Parses the program text
+3. Type-checks it against registered assumptions and bindings
+4. Evaluates the entry expression
+5. Receives the resulting value
+
+Since the language has no literals, all concrete data (integers, strings, etc.) enters through `bindings`. The program is a pure transformation over host-provided values and capabilities.
+
+Type checking happens before evaluation. No ill-typed program reaches the evaluator.
+
+---
+
+# 11. Surface Notation
+
+## 11.1 do Blocks
+
+`do` blocks provide syntactic sugar for computation sequencing:
+
+```text
+do {
+  x <- c₁;
+  y := e;
+  c₂;
+  c₃
+}
+```
+
+## 11.2 Block Expression Desugaring
+
+```text
+⟦ { x := e; rest } ⟧    =  (\x → ⟦ { rest } ⟧) e
+⟦ { e } ⟧                =  e
+```
+
+Block expressions desugar to nested lambda applications. There is no let-polymorphism — block-bound variables are monomorphic.
+
+## 11.3 do Block Desugaring
+
+```text
+⟦ do { e } ⟧                    =  e
+⟦ do { x <- c; stmts } ⟧       =  bind c (\x → ⟦ do { stmts } ⟧)
+⟦ do { c; stmts } ⟧             =  bind c (\_ → ⟦ do { stmts } ⟧)
+⟦ do { x := e; stmts } ⟧       =  (\x → ⟦ do { stmts } ⟧) e
+```
+
+The desugaring translates `do` notation into applications of `pure` and `bind`, which are then type-checked and elaborated as ordinary expressions.
+
+Note: `pure` and `bind` in the desugaring refer to the standard definitions, not to reserved keywords. This means:
+
+* `do` is a keyword; `pure` and `bind` are not
+* The desugaring is performed during type checking — the checker expands `do` blocks inline, preserving source spans for accurate error reporting
+* A future type class mechanism could allow `do` to desugar to user-defined `pure`/`bind` methods
+
+## 11.4 Recommended Type Aliases
+
+```text
+type Effect r a = Computation r r a
+```
+
+Abbreviation for state-preserving computations, where the pre-state and post-state are identical.
+
+## 11.5 Example
+
+```text
+-- sql is injected from Go as an initial binding
+main :: String -> Computation { db : DB[Closed] } { db : DB[Closed] } (Result DBError Rows)
+main := \sql -> do {
+  dbOpen;
+  rows <- dbQuery sql;
+  dbClose;
+  pure rows
+}
+```
+
+desugars to:
+
+```text
+main := \sql →
+  bind dbOpen (\_ →
+    bind (dbQuery sql) (\rows →
+      bind dbClose (\_ →
+        pure rows)))
+```
+
+---
+
+# 12. Determinism
+
+Determinism means:
+
+* evaluation order is fully specified (strict, left-to-right, call-by-value)
+* no implicit access to time, randomness, threads, or ambient IO
+* observable external behavior occurs only through explicit host-provided capabilities
+* pattern matching proceeds top-to-bottom with first-match semantics
+
+The host may connect capabilities to real systems, but that authority must remain explicit in both runtime and static structure.
+
+---
+
+# 13. Core Intermediate Representation
+
+Surface syntax elaborates into a minimal core language. The core IR is the internal representation used by the type checker and evaluator.
+
+## 13.1 Core Term Formers
+
+```text
+Core ::= Var(x)                            -- variable reference
+       | Lam(x, core)                       -- lambda abstraction
+       | App(core, core)                    -- function application
+       | TyLam(a, kind, core)              -- type abstraction (intro for ∀)
+       | TyApp(core, type)                  -- type application (elim for ∀)
+       | Con(C, core₁, ..., coreₙ)          -- constructor application
+       | Case(core, alt₁, ..., altₙ)        -- case analysis
+       | LetRec(bindings, core)             -- recursive let (for future use)
+       | Pure(core)                          -- computation introduction
+       | Bind(core, x, core)                -- computation sequencing
+       | Thunk(core)                         -- suspend computation
+       | Force(core)                         -- resume suspended computation
+       | PrimOp(name, core₁, ..., coreₙ)    -- primitive operation
+```
+
+13 formers. `TyLam` / `TyApp` form the introduction/elimination pair for polymorphism, mirroring `Lam` / `App` at the term level. `TyLam` is erased at runtime — the evaluator skips to its body. There is no `Lit` — host values enter through variable bindings in the initial environment. There is no `Let` — block expressions desugar to `App(Lam(x, body), expr)`. `LetRec` is retained for future recursive definitions but is not currently used.
+
+`Pure` and `Bind` are core-level computation formers; `Thunk` and `Force` mediate between computations and values. The surface identifiers `pure`, `bind`, `thunk`, and `force` elaborate to these formers.
+
+## 13.2 Core Types
+
+```text
+CoreType ::= TyVar(a)                      -- type variable
+           | TyArrow(type, type)            -- function type
+           | TyForall(a, kind, type)         -- universal quantification
+           | TyApp(type, type)              -- type application
+           | TyCon(name)                     -- named type constructor
+           | TyComp(row, row, type)          -- Computation R₁ R₂ A
+           | TyThunk(row, row, type)         -- Thunk R₁ R₂ A
+           | TyRow(fields, tail?)            -- row type
+```
+
+## 13.3 Elaboration
+
+Surface syntax elaborates to core during type checking. Key elaboration rules:
+
+```text
+⟦ pure e ⟧           =  Pure(⟦e⟧)
+⟦ bind c (\x → e) ⟧  =  Bind(⟦c⟧, x, ⟦e⟧)
+⟦ thunk c ⟧          =  Thunk(⟦c⟧)
+⟦ force e ⟧          =  Force(⟦e⟧)
+⟦ { x := e; b } ⟧   =  App(Lam(x, ⟦b⟧), ⟦e⟧)       -- block desugaring
+⟦ do { ... } ⟧       =  (desugar during checking, then elaborate)
+⟦ f e ⟧              =  App(⟦f⟧, ⟦e⟧)
+⟦ f @T ⟧             =  TyApp(⟦f⟧, ⟦T⟧)
+⟦ \x → e ⟧           =  Lam(x, ⟦e⟧)
+⟦ C e₁...eₙ ⟧        =  Con(C, ⟦e₁⟧, ..., ⟦eₙ⟧)
+```
+
+Implicit type arguments are inserted during elaboration: if a term has type `∀a. T` and is used where `T[a := S]` is expected, the elaborator inserts `TyApp(term, S)`. Correspondingly, polymorphic definitions `f :: forall a. T; f := e` elaborate to `TyLam(a, K, ⟦e⟧)`, introducing the type-level binding that `TyApp` eliminates.
+
+---
+
+# 14. Boundary of This Draft
+
+## 14.1 What This Draft Defines
+
+* A constitutive vocabulary with 11 active items (including Thunk) and 2 reserved slots, with 9 keywords
+* A systematic extension framework distinguishing refinements, additions, and phase transitions
+* Complete surface syntax with EBNF grammar
+* Formation rules for types and rows
+* Bidirectional typing rules for values and computations
+* Row equality and unification algorithm
+* Big-step evaluation semantics
+* Host boundary discipline
+* Surface notation (do blocks) with desugaring rules
+* Core intermediate representation with 13 term formers (including TyLam)
+* Thunk/force for explicit laziness (CBPV adjunction F ⊣ U)
+* No literals — all data enters through the host boundary
+* Block expressions for local pure bindings (no let-polymorphism)
+* Recommended type aliases (`Effect`)
+
+## 14.2 What This Draft Does Not Yet Define
+
+The following are planned for future drafts:
+
+* Concrete Go API for the host boundary (types, functions, error handling)
+* Module or namespace system
+* Recursive definitions (strategy: `rec` as a capability or built-in fold combinators)
+* Error recovery and diagnostic formatting
+* Performance model and resource limits
+* Standard library / prelude
+
+## 14.3 Deliberately Deferred Extensions
+
+The following are not ruled out but are not natural next steps from this draft:
+
+* full dependent typing
+* general type-level computation
+* algebraic effects with handlers
+* fully general structured indices beyond rows
+* general module calculi
+* subtyping-centered designs
+
+If the language later moves in one of these directions, future drafts should say explicitly which vocabulary commitments are being relaxed or replaced.
+
+## 14.4 Branching Constraint
+
+This draft requires all branches of a case expression to produce the same post-state when used in a computation context. That is:
+
+```text
+case cond of {
+  True  -> comp1 : Computation r1 r2 a;
+  False -> comp2 : Computation r1 r2 a     -- r2 must match
+}
+```
+
+Branches with divergent post-states are not expressible in this draft. This is a known limitation of the Atkey parameterized monad model. See §3.1.2 (monad variants) for discussion of potential future approaches.
+
+---
+
+# 15. Example Program
+
+```text
+-- Standard ADTs (defined in prelude or user code)
+data Bool = True | False
+data Unit = Unit
+data Result e a = Ok a | Err e
+
+-- Protocol state type
+data DBState = Opened | Closed
+
+-- Host-registered opaque types (not defined in the language)
+--   Int    : Type
+--   String : Type
+--   Query  : Type
+--   Rows   : Type
+
+-- Host-provided assumptions
+dbOpen :: forall r. Computation { db : DB[Closed] | r }
+                               { db : DB[Opened] | r }
+                               Unit
+dbOpen := assumption
+
+dbClose :: forall r. Computation { db : DB[Opened] | r }
+                                 { db : DB[Closed] | r }
+                                 Unit
+dbClose := assumption
+
+dbQuery :: forall r. Query -> Computation { db : DB[Opened] | r }
+                                          { db : DB[Opened] | r }
+                                          (Result String Rows)
+dbQuery := assumption
+
+-- Recommended alias
+type Effect r a = Computation r r a
+
+-- Pure helper (uses block expression for local binding)
+formatQuery :: String -> Int -> Query
+formatQuery := \table -> \limit -> {
+  q := buildQuery table limit;
+  q
+}
+
+-- Main computation: sql and limit are injected from Go
+main :: Query -> Computation { db : DB[Closed] } { db : DB[Closed] } (Result String Rows)
+main := \query -> do {
+  dbOpen;
+  result <- dbQuery query;
+  dbClose;
+  pure result
+}
+```
+
+Go-side usage:
+
+```text
+engine.Run(source, capEnv, Bindings{
+    "query": queryVal,
+})
+```
+
+---
+
+# End of Specification Draft v0.3

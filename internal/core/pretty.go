@@ -1,0 +1,119 @@
+package core
+
+import (
+	"fmt"
+	"strings"
+
+	"github.com/cwd-k2/gomputation/pkg/types"
+)
+
+// Pretty renders a Core term as readable pseudo-syntax.
+func Pretty(c Core) string {
+	return prettyCore(c, 0)
+}
+
+func prettyCore(c Core, indent int) string {
+	pad := strings.Repeat("  ", indent)
+	switch n := c.(type) {
+	case *Var:
+		return n.Name
+	case *Lam:
+		return fmt.Sprintf("\\%s -> %s", n.Param, prettyCore(n.Body, indent))
+	case *App:
+		return fmt.Sprintf("(%s %s)", prettyCore(n.Fun, indent), prettyCore(n.Arg, indent))
+	case *TyApp:
+		return fmt.Sprintf("(%s @%s)", prettyCore(n.Expr, indent), types.Pretty(n.TyArg))
+	case *TyLam:
+		return fmt.Sprintf("/\\%s -> %s", n.TyParam, prettyCore(n.Body, indent))
+	case *Con:
+		if len(n.Args) == 0 {
+			return n.Name
+		}
+		args := make([]string, len(n.Args))
+		for i, a := range n.Args {
+			args[i] = prettyCore(a, indent)
+		}
+		return fmt.Sprintf("(%s %s)", n.Name, strings.Join(args, " "))
+	case *Case:
+		var b strings.Builder
+		fmt.Fprintf(&b, "case %s of", prettyCore(n.Scrutinee, indent))
+		for _, alt := range n.Alts {
+			fmt.Fprintf(&b, "\n%s  %s -> %s", pad, prettyPattern(alt.Pattern), prettyCore(alt.Body, indent+1))
+		}
+		return b.String()
+	case *LetRec:
+		var b strings.Builder
+		b.WriteString("letrec")
+		for _, bind := range n.Bindings {
+			fmt.Fprintf(&b, "\n%s  %s = %s", pad, bind.Name, prettyCore(bind.Expr, indent+1))
+		}
+		fmt.Fprintf(&b, "\n%sin %s", pad, prettyCore(n.Body, indent))
+		return b.String()
+	case *Pure:
+		return fmt.Sprintf("(pure %s)", prettyCore(n.Expr, indent))
+	case *Bind:
+		return fmt.Sprintf("(bind %s %s %s)", prettyCore(n.Comp, indent), n.Var, prettyCore(n.Body, indent))
+	case *Thunk:
+		return fmt.Sprintf("(thunk %s)", prettyCore(n.Comp, indent))
+	case *Force:
+		return fmt.Sprintf("(force %s)", prettyCore(n.Expr, indent))
+	case *PrimOp:
+		if len(n.Args) == 0 {
+			return fmt.Sprintf("(prim %s)", n.Name)
+		}
+		args := make([]string, len(n.Args))
+		for i, a := range n.Args {
+			args[i] = prettyCore(a, indent)
+		}
+		return fmt.Sprintf("(prim %s %s)", n.Name, strings.Join(args, " "))
+	default:
+		return "<?>"
+	}
+}
+
+func prettyPattern(p Pattern) string {
+	switch pat := p.(type) {
+	case *PVar:
+		return pat.Name
+	case *PWild:
+		return "_"
+	case *PCon:
+		if len(pat.Args) == 0 {
+			return pat.Con
+		}
+		args := make([]string, len(pat.Args))
+		for i, a := range pat.Args {
+			args[i] = prettyPattern(a)
+		}
+		return fmt.Sprintf("(%s %s)", pat.Con, strings.Join(args, " "))
+	default:
+		return "?"
+	}
+}
+
+// PrettyProgram renders a full program.
+func PrettyProgram(p *Program) string {
+	var b strings.Builder
+	for _, d := range p.DataDecls {
+		fmt.Fprintf(&b, "data %s", d.Name)
+		for _, tp := range d.TyParams {
+			fmt.Fprintf(&b, " %s", tp.Name)
+		}
+		for i, c := range d.Cons {
+			if i == 0 {
+				b.WriteString(" = ")
+			} else {
+				b.WriteString(" | ")
+			}
+			b.WriteString(c.Name)
+			for _, f := range c.Fields {
+				fmt.Fprintf(&b, " %s", types.Pretty(f))
+			}
+		}
+		b.WriteByte('\n')
+	}
+	for _, bind := range p.Bindings {
+		fmt.Fprintf(&b, "%s = %s\n", bind.Name, Pretty(bind.Expr))
+	}
+	return b.String()
+}
