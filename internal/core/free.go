@@ -61,6 +61,8 @@ func freeVarsRec(c Core, bound map[string]bool, fv map[string]struct{}) {
 		for _, arg := range n.Args {
 			freeVarsRec(arg, bound, fv)
 		}
+	case *Lit:
+		// leaf — no free variables
 	}
 }
 

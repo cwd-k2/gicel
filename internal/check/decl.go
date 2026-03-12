@@ -55,14 +55,26 @@ func (ch *Checker) checkDecls(decls []syntax.Decl) *core.Program {
 		}
 	}
 
-	// 7. Process instance bodies (type-checks methods, generates dict bindings).
+	// 7. Process assumption declarations first (needed by instance bodies).
+	for _, d := range decls {
+		if def, ok := d.(*syntax.DeclValueDef); ok {
+			if v, ok := def.Expr.(*syntax.ExprVar); ok && v.Name == "assumption" {
+				ch.processValueDef(def, annotations, prog)
+			}
+		}
+	}
+
+	// 8. Process instance bodies (type-checks methods, generates dict bindings).
 	for _, inst := range instanceDecls {
 		ch.processInstanceBody(inst, prog)
 	}
 
-	// 8. Process value definitions.
+	// 9. Process remaining value definitions (non-assumption).
 	for _, d := range decls {
 		if def, ok := d.(*syntax.DeclValueDef); ok {
+			if v, ok := def.Expr.(*syntax.ExprVar); ok && v.Name == "assumption" {
+				continue // already processed
+			}
 			ch.processValueDef(def, annotations, prog)
 		}
 	}
@@ -207,6 +219,25 @@ func decomposeConSig(ty types.Type) (fields []types.Type, ret types.Type) {
 	return fields, ty
 }
 
+// isComputationType checks whether a type's return position (after stripping
+// foralls, arrows, and qualified constraints) is a Computation type.
+func isComputationType(ty types.Type) bool {
+	for {
+		switch t := ty.(type) {
+		case *types.TyForall:
+			ty = t.Body
+		case *types.TyArrow:
+			ty = t.To
+		case *types.TyQual:
+			ty = t.Body
+		case *types.TyComp:
+			return true
+		default:
+			return false
+		}
+	}
+}
+
 // typeArity counts the number of arrow arguments in a type,
 // stripping outer foralls. E.g. forall a. A -> B -> C has arity 2.
 func typeArity(ty types.Type) int {
@@ -251,7 +282,7 @@ func (ch *Checker) processValueDef(d *syntax.DeclValueDef, annotations map[strin
 		prog.Bindings = append(prog.Bindings, core.Binding{
 			Name: d.Name,
 			Type: aTy,
-			Expr: &core.PrimOp{Name: d.Name, Arity: typeArity(aTy), S: d.S},
+			Expr: &core.PrimOp{Name: d.Name, Arity: typeArity(aTy), Effectful: isComputationType(aTy), S: d.S},
 			S:    d.S,
 		})
 		return

@@ -6,7 +6,7 @@ import (
 )
 
 // Core is a term in the core intermediate representation.
-// 13 formers: Var, Lam, App, TyApp, TyLam, Con, Case, LetRec, Pure, Bind, Thunk, Force, PrimOp.
+// 14 formers: Var, Lam, App, TyApp, TyLam, Con, Case, LetRec, Pure, Bind, Thunk, Force, PrimOp, Lit.
 type Core interface {
 	coreNode()
 	Span() span.Span
@@ -96,10 +96,19 @@ type Force struct {
 }
 
 // PrimOp — host-provided primitive operation.
+// Effectful marks primitives whose return type is Computation (they access CapEnv).
+// Effectful PrimOps are deferred at evaluation time and forced only in Bind or at top-level.
 type PrimOp struct {
-	Name  string
-	Arity int
-	Args  []Core
+	Name      string
+	Arity     int
+	Effectful bool
+	Args      []Core
+	S         span.Span
+}
+
+// Lit — literal value (Int, String, Rune).
+type Lit struct {
+	Value any // int64, string, or rune
 	S     span.Span
 }
 
@@ -117,6 +126,7 @@ func (*Bind) coreNode()   {}
 func (*Thunk) coreNode()  {}
 func (*Force) coreNode()  {}
 func (*PrimOp) coreNode() {}
+func (*Lit) coreNode()    {}
 
 // --- Span accessors ---
 func (c *Var) Span() span.Span    { return c.S }
@@ -132,3 +142,4 @@ func (c *Bind) Span() span.Span   { return c.S }
 func (c *Thunk) Span() span.Span  { return c.S }
 func (c *Force) Span() span.Span  { return c.S }
 func (c *PrimOp) Span() span.Span { return c.S }
+func (c *Lit) Span() span.Span    { return c.S }

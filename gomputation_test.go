@@ -10,6 +10,7 @@ import (
 	gmp "github.com/cwd-k2/gomputation"
 	"github.com/cwd-k2/gomputation/internal/eval"
 	"github.com/cwd-k2/gomputation/pkg/types"
+	"github.com/cwd-k2/gomputation/stdlib"
 )
 
 func TestIdentity(t *testing.T) {
@@ -88,6 +89,450 @@ main := getUnit Unit
 	con, ok := result.Value.(*gmp.ConVal)
 	if !ok || con.Con != "Unit" {
 		t.Errorf("expected Unit, got %s", result.Value)
+	}
+}
+
+func TestEvalIntLit(t *testing.T) {
+	eng := gmp.NewEngine()
+	rt, err := eng.NewRuntime(`main := 42`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	hv, ok := result.Value.(*gmp.HostVal)
+	if !ok {
+		t.Fatalf("expected HostVal, got %T", result.Value)
+	}
+	if hv.Inner != int64(42) {
+		t.Errorf("expected 42, got %v", hv.Inner)
+	}
+}
+
+func TestEvalStrLit(t *testing.T) {
+	eng := gmp.NewEngine()
+	rt, err := eng.NewRuntime(`main := "hello"`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	hv, ok := result.Value.(*gmp.HostVal)
+	if !ok {
+		t.Fatalf("expected HostVal, got %T", result.Value)
+	}
+	if hv.Inner != "hello" {
+		t.Errorf("expected 'hello', got %v", hv.Inner)
+	}
+}
+
+func TestEngineUse(t *testing.T) {
+	eng := gmp.NewEngine()
+	called := false
+	pack := gmp.Pack(func(e *gmp.Engine) error {
+		called = true
+		return nil
+	})
+	if err := eng.Use(pack); err != nil {
+		t.Fatal(err)
+	}
+	if !called {
+		t.Error("pack was not called")
+	}
+}
+
+func TestNumAdd(t *testing.T) {
+	eng := gmp.NewEngine()
+	if err := eng.Use(stdlib.Num); err != nil {
+		t.Fatal(err)
+	}
+	rt, err := eng.NewRuntime(`
+import Std.Num
+main := add 1 2
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	hv := gmp.MustHost[int64](result.Value)
+	if hv != 3 {
+		t.Errorf("expected 3, got %d", hv)
+	}
+}
+
+func TestNumOperators(t *testing.T) {
+	eng := gmp.NewEngine()
+	if err := eng.Use(stdlib.Num); err != nil {
+		t.Fatal(err)
+	}
+	rt, err := eng.NewRuntime(`
+import Std.Num
+main := 1 + 2 * 3
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	hv := gmp.MustHost[int64](result.Value)
+	if hv != 7 {
+		t.Errorf("expected 7, got %d", hv)
+	}
+}
+
+func TestNumNegate(t *testing.T) {
+	eng := gmp.NewEngine()
+	if err := eng.Use(stdlib.Num); err != nil {
+		t.Fatal(err)
+	}
+	rt, err := eng.NewRuntime(`
+import Std.Num
+main := negate 42
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	hv := gmp.MustHost[int64](result.Value)
+	if hv != -42 {
+		t.Errorf("expected -42, got %d", hv)
+	}
+}
+
+func TestNumEqInt(t *testing.T) {
+	eng := gmp.NewEngine()
+	if err := eng.Use(stdlib.Num); err != nil {
+		t.Fatal(err)
+	}
+	rt, err := eng.NewRuntime(`
+import Std.Num
+main := eq 1 1
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, ok := gmp.FromBool(result.Value)
+	if !ok || !b {
+		t.Errorf("expected True, got %s", result.Value)
+	}
+}
+
+func TestNumOrdInt(t *testing.T) {
+	eng := gmp.NewEngine()
+	if err := eng.Use(stdlib.Num); err != nil {
+		t.Fatal(err)
+	}
+	rt, err := eng.NewRuntime(`
+import Std.Num
+main := compare 1 2
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	con, ok := result.Value.(*gmp.ConVal)
+	if !ok || con.Con != "LT" {
+		t.Errorf("expected LT, got %s", result.Value)
+	}
+}
+
+func TestNumDivMod(t *testing.T) {
+	eng := gmp.NewEngine()
+	if err := eng.Use(stdlib.Num); err != nil {
+		t.Fatal(err)
+	}
+	rt, err := eng.NewRuntime(`
+import Std.Num
+main := div 7 3
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	hv := gmp.MustHost[int64](result.Value)
+	if hv != 2 {
+		t.Errorf("expected 2, got %d", hv)
+	}
+}
+
+func TestStrConcat(t *testing.T) {
+	eng := gmp.NewEngine()
+	if err := eng.Use(stdlib.Str); err != nil {
+		t.Fatal(err)
+	}
+	rt, err := eng.NewRuntime(`
+import Std.Str
+main := append "hello" " world"
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	hv := gmp.MustHost[string](result.Value)
+	if hv != "hello world" {
+		t.Errorf("expected 'hello world', got %s", hv)
+	}
+}
+
+func TestStrEq(t *testing.T) {
+	eng := gmp.NewEngine()
+	if err := eng.Use(stdlib.Str); err != nil {
+		t.Fatal(err)
+	}
+	rt, err := eng.NewRuntime(`
+import Std.Str
+main := eq "abc" "abc"
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, ok := gmp.FromBool(result.Value)
+	if !ok || !b {
+		t.Errorf("expected True, got %s", result.Value)
+	}
+}
+
+func TestStrOrd(t *testing.T) {
+	eng := gmp.NewEngine()
+	if err := eng.Use(stdlib.Str); err != nil {
+		t.Fatal(err)
+	}
+	rt, err := eng.NewRuntime(`
+import Std.Str
+main := compare "a" "b"
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	con, ok := result.Value.(*gmp.ConVal)
+	if !ok || con.Con != "LT" {
+		t.Errorf("expected LT, got %s", result.Value)
+	}
+}
+
+func TestStrLength(t *testing.T) {
+	eng := gmp.NewEngine()
+	if err := eng.Use(stdlib.Str); err != nil {
+		t.Fatal(err)
+	}
+	rt, err := eng.NewRuntime(`
+import Std.Str
+main := length "hello"
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	hv := gmp.MustHost[int64](result.Value)
+	if hv != 5 {
+		t.Errorf("expected 5, got %d", hv)
+	}
+}
+
+func TestRuneEq(t *testing.T) {
+	eng := gmp.NewEngine()
+	if err := eng.Use(stdlib.Str); err != nil {
+		t.Fatal(err)
+	}
+	rt, err := eng.NewRuntime(`
+import Std.Str
+main := eq 'a' 'a'
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, ok := gmp.FromBool(result.Value)
+	if !ok || !b {
+		t.Errorf("expected True, got %s", result.Value)
+	}
+}
+
+func TestFailAbort(t *testing.T) {
+	eng := gmp.NewEngine()
+	if err := eng.Use(stdlib.Fail); err != nil {
+		t.Fatal(err)
+	}
+	rt, err := eng.NewRuntime(`
+import Std.Fail
+main := do { fail; pure True }
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	caps := map[string]any{"fail": &gmp.ConVal{Con: "Unit"}}
+	_, err = rt.RunContext(context.Background(), caps, nil, "main")
+	if err == nil {
+		t.Fatal("expected error from fail")
+	}
+}
+
+func TestFromMaybe(t *testing.T) {
+	eng := gmp.NewEngine()
+	if err := eng.Use(stdlib.Fail); err != nil {
+		t.Fatal(err)
+	}
+	rt, err := eng.NewRuntime(`
+import Std.Fail
+main := fromMaybe (Just True)
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	caps := map[string]any{"fail": &gmp.ConVal{Con: "Unit"}}
+	result, err := rt.RunContext(context.Background(), caps, nil, "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, ok := gmp.FromBool(result.Value)
+	if !ok || !b {
+		t.Errorf("expected True, got %s", result.Value)
+	}
+}
+
+func TestStateGetPut(t *testing.T) {
+	eng := gmp.NewEngine()
+	if err := eng.Use(stdlib.Num); err != nil {
+		t.Fatal(err)
+	}
+	if err := eng.Use(stdlib.State); err != nil {
+		t.Fatal(err)
+	}
+	rt, err := eng.NewRuntime(`
+import Std.Num
+import Std.State
+main := do { put 42; get }
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	caps := map[string]any{"state": &gmp.HostVal{Inner: int64(0)}}
+	result, err := rt.RunContext(context.Background(), caps, nil, "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	hv := gmp.MustHost[int64](result.Value)
+	if hv != 42 {
+		t.Errorf("expected 42, got %d", hv)
+	}
+}
+
+func TestStateThread(t *testing.T) {
+	eng := gmp.NewEngine()
+	if err := eng.Use(stdlib.Num); err != nil {
+		t.Fatal(err)
+	}
+	if err := eng.Use(stdlib.State); err != nil {
+		t.Fatal(err)
+	}
+	rt, err := eng.NewRuntime(`
+import Std.Num
+import Std.State
+main := do { n <- get; put (n + 1); get }
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	caps := map[string]any{"state": &gmp.HostVal{Inner: int64(0)}}
+	result, err := rt.RunContext(context.Background(), caps, nil, "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	hv := gmp.MustHost[int64](result.Value)
+	if hv != 1 {
+		t.Errorf("expected 1, got %d", hv)
+	}
+}
+
+func TestFromResult(t *testing.T) {
+	eng := gmp.NewEngine()
+	if err := eng.Use(stdlib.Fail); err != nil {
+		t.Fatal(err)
+	}
+	rt, err := eng.NewRuntime(`
+import Std.Fail
+main := fromResult (Ok True)
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	caps := map[string]any{"fail": &gmp.ConVal{Con: "Unit"}}
+	result, err := rt.RunContext(context.Background(), caps, nil, "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, ok := gmp.FromBool(result.Value)
+	if !ok || !b {
+		t.Errorf("expected True, got %s", result.Value)
+	}
+}
+
+func TestFailWithState(t *testing.T) {
+	eng := gmp.NewEngine()
+	if err := eng.Use(stdlib.Num); err != nil {
+		t.Fatal(err)
+	}
+	if err := eng.Use(stdlib.Fail); err != nil {
+		t.Fatal(err)
+	}
+	if err := eng.Use(stdlib.State); err != nil {
+		t.Fatal(err)
+	}
+	rt, err := eng.NewRuntime(`
+import Std.Num
+import Std.Fail
+import Std.State
+main := do { put 42; fail }
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	caps := map[string]any{
+		"state": &gmp.HostVal{Inner: int64(0)},
+		"fail":  &gmp.ConVal{Con: "Unit"},
+	}
+	_, err = rt.RunContext(context.Background(), caps, nil, "main")
+	if err == nil {
+		t.Fatal("expected error from fail")
 	}
 }
 
@@ -2384,5 +2829,136 @@ func assertConName(t *testing.T, v gmp.Value, name string) {
 	}
 	if name != "" && con.Con != name {
 		t.Errorf("expected %s, got %s", name, con.Con)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// v0.6 Integration tests
+// ---------------------------------------------------------------------------
+
+func TestLiteralWithNumPack(t *testing.T) {
+	eng := gmp.NewEngine()
+	if err := eng.Use(stdlib.Num); err != nil {
+		t.Fatal(err)
+	}
+	rt, err := eng.NewRuntime(`
+import Std.Num
+main := 1 + 2 * 3
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if hv := gmp.MustHost[int64](result.Value); hv != 7 {
+		t.Errorf("expected 7, got %d", hv)
+	}
+}
+
+func TestEffectComposition(t *testing.T) {
+	eng := gmp.NewEngine()
+	if err := eng.Use(stdlib.Num); err != nil {
+		t.Fatal(err)
+	}
+	if err := eng.Use(stdlib.Fail); err != nil {
+		t.Fatal(err)
+	}
+	if err := eng.Use(stdlib.State); err != nil {
+		t.Fatal(err)
+	}
+	rt, err := eng.NewRuntime(`
+import Std.Num
+import Std.Fail
+import Std.State
+main := do {
+  put 10;
+  n <- get;
+  m <- fromMaybe (Just (n + 5));
+  put m;
+  get
+}
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	caps := map[string]any{
+		"state": &gmp.HostVal{Inner: int64(0)},
+		"fail":  &gmp.ConVal{Con: "Unit"},
+	}
+	result, err := rt.RunContext(context.Background(), caps, nil, "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if hv := gmp.MustHost[int64](result.Value); hv != 15 {
+		t.Errorf("expected 15, got %d", hv)
+	}
+}
+
+func TestPackModuleImport(t *testing.T) {
+	eng := gmp.NewEngine()
+	if err := eng.Use(stdlib.Num); err != nil {
+		t.Fatal(err)
+	}
+	if err := eng.Use(stdlib.Str); err != nil {
+		t.Fatal(err)
+	}
+	rt, err := eng.NewRuntime(`
+import Std.Num
+import Std.Str
+main := Pair (1 + 2) (length "hello")
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	con, ok := result.Value.(*gmp.ConVal)
+	if !ok || con.Con != "Pair" {
+		t.Fatalf("expected Pair, got %s", result.Value)
+	}
+	if hv := gmp.MustHost[int64](con.Args[0]); hv != 3 {
+		t.Errorf("expected 3, got %d", hv)
+	}
+	if hv := gmp.MustHost[int64](con.Args[1]); hv != 5 {
+		t.Errorf("expected 5, got %d", hv)
+	}
+}
+
+func TestCustomPack(t *testing.T) {
+	// A user-defined Pack that provides a custom constant.
+	customPack := gmp.Pack(func(e *gmp.Engine) error {
+		e.RegisterPrim("myConst", func(_ context.Context, ce gmp.CapEnv, args []gmp.Value) (gmp.Value, gmp.CapEnv, error) {
+			return &gmp.HostVal{Inner: int64(999)}, ce, nil
+		})
+		return e.RegisterModule("Custom", `
+import Prelude
+
+myConst :: Int
+myConst := assumption
+
+main := myConst
+`)
+	})
+	eng := gmp.NewEngine()
+	if err := eng.Use(customPack); err != nil {
+		t.Fatal(err)
+	}
+	rt, err := eng.NewRuntime(`
+import Custom
+main := myConst
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if hv := gmp.MustHost[int64](result.Value); hv != 999 {
+		t.Errorf("expected 999, got %d", hv)
 	}
 }

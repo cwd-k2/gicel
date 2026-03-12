@@ -127,6 +127,16 @@ func (l *Lexer) scanToken() Token {
 		return l.tok(TokUnderscore, start)
 	}
 
+	// String literal
+	if ch == '"' {
+		return l.scanString()
+	}
+
+	// Rune literal
+	if ch == '\'' {
+		return l.scanRune(start)
+	}
+
 	// Integer literal
 	if ch >= '0' && ch <= '9' {
 		for l.pos < len(l.source.Text) && l.source.Text[l.pos] >= '0' && l.source.Text[l.pos] <= '9' {
@@ -258,6 +268,151 @@ func (l *Lexer) tok(kind TokenKind, start int) Token {
 	return Token{
 		Kind: kind,
 		Text: l.source.Text[start:l.pos],
+		S:    span.Span{Start: span.Pos(start), End: span.Pos(l.pos)},
+	}
+}
+
+func (l *Lexer) scanString() Token {
+	start := l.pos
+	l.pos++ // skip opening '"'
+	var buf []byte
+	for l.pos < len(l.source.Text) {
+		ch := l.source.Text[l.pos]
+		if ch == '"' {
+			l.pos++
+			return Token{
+				Kind: TokStrLit,
+				Text: string(buf),
+				S:    span.Span{Start: span.Pos(start), End: span.Pos(l.pos)},
+			}
+		}
+		if ch == '\\' {
+			l.pos++
+			if l.pos >= len(l.source.Text) {
+				break
+			}
+			esc := l.source.Text[l.pos]
+			l.pos++
+			switch esc {
+			case 'n':
+				buf = append(buf, '\n')
+			case 't':
+				buf = append(buf, '\t')
+			case 'r':
+				buf = append(buf, '\r')
+			case '\\':
+				buf = append(buf, '\\')
+			case '"':
+				buf = append(buf, '"')
+			case '\'':
+				buf = append(buf, '\'')
+			case '0':
+				buf = append(buf, 0)
+			default:
+				l.errors.Add(&errs.Error{
+					Code:    3,
+					Phase:   errs.PhaseLex,
+					Span:    span.Span{Start: span.Pos(l.pos - 2), End: span.Pos(l.pos)},
+					Message: "unknown escape sequence",
+				})
+				buf = append(buf, esc)
+			}
+			continue
+		}
+		if ch == '\n' {
+			break // unterminated (newline before closing quote)
+		}
+		buf = append(buf, ch)
+		l.pos++
+	}
+	l.errors.Add(&errs.Error{
+		Code:    4,
+		Phase:   errs.PhaseLex,
+		Span:    span.Span{Start: span.Pos(start), End: span.Pos(l.pos)},
+		Message: "unterminated string literal",
+	})
+	return Token{
+		Kind: TokStrLit,
+		Text: string(buf),
+		S:    span.Span{Start: span.Pos(start), End: span.Pos(l.pos)},
+	}
+}
+
+func (l *Lexer) scanRune(start int) Token {
+	l.pos++ // skip opening '\''
+	if l.pos >= len(l.source.Text) || l.source.Text[l.pos] == '\'' {
+		l.errors.Add(&errs.Error{
+			Code:    5,
+			Phase:   errs.PhaseLex,
+			Span:    span.Span{Start: span.Pos(start), End: span.Pos(l.pos)},
+			Message: "empty rune literal",
+		})
+		if l.pos < len(l.source.Text) && l.source.Text[l.pos] == '\'' {
+			l.pos++
+		}
+		return Token{
+			Kind: TokRuneLit,
+			Text: "\x00",
+			S:    span.Span{Start: span.Pos(start), End: span.Pos(l.pos)},
+		}
+	}
+
+	var r rune
+	if l.source.Text[l.pos] == '\\' {
+		l.pos++
+		if l.pos >= len(l.source.Text) {
+			l.errors.Add(&errs.Error{
+				Code:    4,
+				Phase:   errs.PhaseLex,
+				Span:    span.Span{Start: span.Pos(start), End: span.Pos(l.pos)},
+				Message: "unterminated rune literal",
+			})
+			return Token{Kind: TokRuneLit, Text: "\x00", S: span.Span{Start: span.Pos(start), End: span.Pos(l.pos)}}
+		}
+		esc := l.source.Text[l.pos]
+		l.pos++
+		switch esc {
+		case 'n':
+			r = '\n'
+		case 't':
+			r = '\t'
+		case 'r':
+			r = '\r'
+		case '\\':
+			r = '\\'
+		case '\'':
+			r = '\''
+		case '"':
+			r = '"'
+		case '0':
+			r = 0
+		default:
+			l.errors.Add(&errs.Error{
+				Code:    3,
+				Phase:   errs.PhaseLex,
+				Span:    span.Span{Start: span.Pos(l.pos - 2), End: span.Pos(l.pos)},
+				Message: "unknown escape sequence",
+			})
+			r = rune(esc)
+		}
+	} else {
+		r, _ = utf8.DecodeRuneInString(l.source.Text[l.pos:])
+		l.pos += utf8.RuneLen(r)
+	}
+
+	if l.pos >= len(l.source.Text) || l.source.Text[l.pos] != '\'' {
+		l.errors.Add(&errs.Error{
+			Code:    4,
+			Phase:   errs.PhaseLex,
+			Span:    span.Span{Start: span.Pos(start), End: span.Pos(l.pos)},
+			Message: "unterminated rune literal",
+		})
+	} else {
+		l.pos++ // skip closing '\''
+	}
+	return Token{
+		Kind: TokRuneLit,
+		Text: string(r),
 		S:    span.Span{Start: span.Pos(start), End: span.Pos(l.pos)},
 	}
 }

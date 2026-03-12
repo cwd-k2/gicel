@@ -61,11 +61,12 @@ type compiledModule struct {
 	prog    *core.Program
 	exports *check.ModuleExports
 	deps    []string
+	fixity  map[string]syntax.Fixity
 }
 
 // NewEngine creates a new Engine with default limits.
 func NewEngine() *Engine {
-	return &Engine{
+	e := &Engine{
 		bindings:      make(map[string]types.Type),
 		assumptions:   make(map[string]types.Type),
 		registeredTys: make(map[string]types.Kind),
@@ -75,6 +76,19 @@ func NewEngine() *Engine {
 		depthLimit:    1_000,
 		modules:       make(map[string]*compiledModule),
 	}
+	// Built-in literal types.
+	e.registeredTys["Int"] = types.KType{}
+	e.registeredTys["String"] = types.KType{}
+	e.registeredTys["Rune"] = types.KType{}
+	return e
+}
+
+// Pack configures an Engine with a coherent set of types, primitives, and modules.
+type Pack func(e *Engine) error
+
+// Use applies a Pack to the Engine.
+func (e *Engine) Use(p Pack) error {
+	return p(e)
 }
 
 // DeclareBinding registers a host-provided value binding at compile time.
@@ -168,6 +182,11 @@ func (e *Engine) RegisterModule(name, source string) error {
 		return fmt.Errorf("module %s already registered", name)
 	}
 
+	// Ensure prelude is available for non-prelude modules.
+	if name != "Prelude" && !e.noPrelude {
+		e.ensurePrelude()
+	}
+
 	src := span.NewSource(name, source)
 	l := syntax.NewLexer(src)
 	tokens, lexErrs := l.Tokenize()
@@ -179,6 +198,20 @@ func (e *Engine) RegisterModule(name, source string) error {
 	ast := p.ParseProgram()
 	if parseErrs.HasErrors() {
 		return &CompileError{Errors: parseErrs}
+	}
+
+	// Inject implicit prelude import for non-prelude modules.
+	if name != "Prelude" && !e.noPrelude {
+		hasPrelude := false
+		for _, imp := range ast.Imports {
+			if imp.ModuleName == "Prelude" {
+				hasPrelude = true
+				break
+			}
+		}
+		if !hasPrelude {
+			ast.Imports = append([]syntax.DeclImport{{ModuleName: "Prelude"}}, ast.Imports...)
+		}
 	}
 
 	// Collect dependencies.
@@ -198,10 +231,19 @@ func (e *Engine) RegisterModule(name, source string) error {
 		return &CompileError{Errors: checkErrs}
 	}
 
+	// Collect fixity declarations from the module AST.
+	modFixity := make(map[string]syntax.Fixity)
+	for _, d := range ast.Decls {
+		if fix, ok := d.(*syntax.DeclFixity); ok {
+			modFixity[fix.Op] = syntax.Fixity{Assoc: fix.Assoc, Prec: fix.Prec}
+		}
+	}
+
 	e.modules[name] = &compiledModule{
 		prog:    prog,
 		exports: exports,
 		deps:    deps,
+		fixity:  modFixity,
 	}
 	return nil
 }
@@ -277,6 +319,10 @@ func (e *Engine) parseSource(source string) (*syntax.AstProgram, *span.Source, e
 	}
 	parseErrs := &errs.Errors{Source: src}
 	p := syntax.NewParser(tokens, parseErrs)
+	// Seed parser with fixity declarations from registered modules.
+	for _, mod := range e.modules {
+		p.AddFixity(mod.fixity)
+	}
 	ast := p.ParseProgram()
 	if parseErrs.HasErrors() {
 		return nil, nil, &CompileError{Errors: parseErrs}
@@ -529,6 +575,11 @@ func (r *Runtime) run(ctx context.Context, caps map[string]any, bindings map[str
 	capEnv := eval.NewCapEnv(caps)
 	ev := eval.NewEvaluator(ctx, r.prims, eval.NewLimit(r.stepLimit, r.depthLimit), r.traceHook)
 	result, err := ev.Eval(env, capEnv, entryExpr)
+	if err != nil {
+		return eval.EvalResult{}, EvalStats{}, err
+	}
+	// Force effectful PrimVals at top-level (e.g. main := get).
+	result, err = ev.ForceEffectful(result)
 	if err != nil {
 		return eval.EvalResult{}, EvalStats{}, err
 	}

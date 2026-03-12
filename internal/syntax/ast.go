@@ -73,29 +73,50 @@ type ExprParen struct {
 	S     span.Span
 }
 
-func (*ExprVar) exprNode()    {}
-func (*ExprCon) exprNode()    {}
-func (*ExprApp) exprNode()    {}
-func (*ExprTyApp) exprNode()  {}
-func (*ExprLam) exprNode()    {}
-func (*ExprCase) exprNode()   {}
-func (*ExprDo) exprNode()     {}
-func (*ExprBlock) exprNode()  {}
-func (*ExprInfix) exprNode()  {}
-func (*ExprAnn) exprNode()    {}
-func (*ExprParen) exprNode()  {}
+type ExprIntLit struct {
+	Value string // raw text "42"
+	S     span.Span
+}
 
-func (e *ExprVar) Span() span.Span    { return e.S }
-func (e *ExprCon) Span() span.Span    { return e.S }
-func (e *ExprApp) Span() span.Span    { return e.S }
-func (e *ExprTyApp) Span() span.Span  { return e.S }
-func (e *ExprLam) Span() span.Span    { return e.S }
-func (e *ExprCase) Span() span.Span   { return e.S }
-func (e *ExprDo) Span() span.Span     { return e.S }
-func (e *ExprBlock) Span() span.Span  { return e.S }
-func (e *ExprInfix) Span() span.Span  { return e.S }
-func (e *ExprAnn) Span() span.Span    { return e.S }
-func (e *ExprParen) Span() span.Span  { return e.S }
+type ExprStrLit struct {
+	Value string // decoded string (escapes resolved by lexer)
+	S     span.Span
+}
+
+type ExprRuneLit struct {
+	Value rune
+	S     span.Span
+}
+
+func (*ExprVar) exprNode()     {}
+func (*ExprCon) exprNode()     {}
+func (*ExprApp) exprNode()     {}
+func (*ExprTyApp) exprNode()   {}
+func (*ExprLam) exprNode()     {}
+func (*ExprCase) exprNode()    {}
+func (*ExprDo) exprNode()      {}
+func (*ExprBlock) exprNode()   {}
+func (*ExprInfix) exprNode()   {}
+func (*ExprAnn) exprNode()     {}
+func (*ExprParen) exprNode()   {}
+func (*ExprIntLit) exprNode()  {}
+func (*ExprStrLit) exprNode()  {}
+func (*ExprRuneLit) exprNode() {}
+
+func (e *ExprVar) Span() span.Span     { return e.S }
+func (e *ExprCon) Span() span.Span     { return e.S }
+func (e *ExprApp) Span() span.Span     { return e.S }
+func (e *ExprTyApp) Span() span.Span   { return e.S }
+func (e *ExprLam) Span() span.Span     { return e.S }
+func (e *ExprCase) Span() span.Span    { return e.S }
+func (e *ExprDo) Span() span.Span      { return e.S }
+func (e *ExprBlock) Span() span.Span   { return e.S }
+func (e *ExprInfix) Span() span.Span   { return e.S }
+func (e *ExprAnn) Span() span.Span     { return e.S }
+func (e *ExprParen) Span() span.Span   { return e.S }
+func (e *ExprIntLit) Span() span.Span  { return e.S }
+func (e *ExprStrLit) Span() span.Span  { return e.S }
+func (e *ExprRuneLit) Span() span.Span { return e.S }
 
 // ---- Statements (in do blocks) ----
 

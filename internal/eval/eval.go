@@ -157,8 +157,18 @@ func (ev *Evaluator) Eval(env *Env, capEnv CapEnv, expr core.Core) (EvalResult, 
 		if err != nil {
 			return EvalResult{}, err
 		}
+		// Force effectful PrimVals (e.g. get, failWith Unit) at bind-time.
+		compR, err = ev.ForceEffectful(compR)
+		if err != nil {
+			return EvalResult{}, err
+		}
 		bodyEnv := env.Extend(e.Var, compR.Value)
-		return ev.Eval(bodyEnv, compR.CapEnv, e.Body)
+		bodyR, err := ev.Eval(bodyEnv, compR.CapEnv, e.Body)
+		if err != nil {
+			return EvalResult{}, err
+		}
+		// Force effectful PrimVals in the body result too (e.g. do { put 42; get }).
+		return ev.ForceEffectful(bodyR)
 
 	case *core.Thunk:
 		// Mark capEnv as shared since ThunkVal captures it.
@@ -183,10 +193,14 @@ func (ev *Evaluator) Eval(env *Env, capEnv CapEnv, expr core.Core) (EvalResult, 
 		ev.limit.Leave()
 		return result, err
 
+	case *core.Lit:
+		return EvalResult{&HostVal{Inner: e.Value}, capEnv}, nil
+
 	case *core.PrimOp:
-		if len(e.Args) == 0 && e.Arity > 0 {
-			// Unapplied primitive: produce a PrimVal that accumulates args.
-			return EvalResult{&PrimVal{Name: e.Name, Arity: e.Arity}, capEnv}, nil
+		if len(e.Args) == 0 && (e.Arity > 0 || e.Effectful) {
+			// Unapplied or effectful primitive: produce a PrimVal that accumulates args.
+			// Effectful 0-arity PrimOps (e.g. get) are deferred until forced in Bind.
+			return EvalResult{&PrimVal{Name: e.Name, Arity: e.Arity, Effectful: e.Effectful}, capEnv}, nil
 		}
 		args := make([]Value, len(e.Args))
 		ce := capEnv
@@ -218,6 +232,24 @@ func (ev *Evaluator) Eval(env *Env, capEnv CapEnv, expr core.Core) (EvalResult, 
 	}
 }
 
+// ForceEffectful invokes a saturated effectful PrimVal, passing the current CapEnv.
+// Non-effectful values and unsaturated PrimVals are returned unchanged.
+func (ev *Evaluator) ForceEffectful(r EvalResult) (EvalResult, error) {
+	pv, ok := r.Value.(*PrimVal)
+	if !ok || !pv.Effectful || len(pv.Args) < pv.Arity {
+		return r, nil
+	}
+	impl, ok := ev.prims.Lookup(pv.Name)
+	if !ok {
+		return EvalResult{}, &RuntimeError{Message: fmt.Sprintf("missing primitive: %s", pv.Name)}
+	}
+	val, newCap, err := impl(ev.ctx, r.CapEnv, pv.Args)
+	if err != nil {
+		return EvalResult{}, err
+	}
+	return EvalResult{val, newCap}, nil
+}
+
 func (ev *Evaluator) apply(capEnv CapEnv, fn Value, arg Value, site *core.App) (EvalResult, error) {
 	switch f := fn.(type) {
 	case *Closure:
@@ -240,7 +272,11 @@ func (ev *Evaluator) apply(capEnv CapEnv, fn Value, arg Value, site *core.App) (
 		copy(args, f.Args)
 		args[len(f.Args)] = arg
 		if len(args) < f.Arity {
-			return EvalResult{&PrimVal{Name: f.Name, Arity: f.Arity, Args: args}, capEnv}, nil
+			return EvalResult{&PrimVal{Name: f.Name, Arity: f.Arity, Effectful: f.Effectful, Args: args}, capEnv}, nil
+		}
+		if f.Effectful {
+			// Effectful primitives are deferred until forced in Bind or top-level.
+			return EvalResult{&PrimVal{Name: f.Name, Arity: f.Arity, Effectful: true, Args: args}, capEnv}, nil
 		}
 		impl, ok := ev.prims.Lookup(f.Name)
 		if !ok {

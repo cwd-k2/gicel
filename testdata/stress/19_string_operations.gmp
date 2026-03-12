@@ -1,0 +1,39 @@
+-- Stress test 19: String and Rune operations
+-- Tests String/Rune literals, Eq, Ord, Semigroup, Monoid, length.
+
+import Std.Str
+import Std.Num
+
+-- String literals and operations
+strConcat := append "hello" " world"
+strEmpty  := (empty :: String)
+strLen    := length "hello"
+
+-- String equality
+strEqT := eq "abc" "abc"
+strEqF := eq "abc" "def"
+
+-- String ordering
+strLT := compare "a" "b"
+strGT := compare "z" "a"
+strCmpEQ := compare "same" "same"
+
+-- Rune equality and ordering
+runeEqT := eq 'a' 'a'
+runeEqF := eq 'a' 'z'
+runeLT  := compare 'a' 'z'
+runeGT  := compare 'z' 'a'
+
+-- Monoid identity
+strIdentL := append empty "test"
+strIdentR := append "test" empty
+
+-- Length of concatenated string
+concatLen := length (append "abc" "de")
+
+main := Pair strConcat
+             (Pair strLen
+                   (Pair strEqT
+                         (Pair strLT
+                               (Pair runeEqT
+                                     (Pair strIdentL concatLen)))))

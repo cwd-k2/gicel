@@ -280,6 +280,10 @@ func (ch *Checker) freshSkolem(name string, k types.Kind) *types.TySkolem {
 	return &types.TySkolem{ID: id, Name: name, Kind: k}
 }
 
+func (ch *Checker) mkType(name string) types.Type {
+	return &types.TyCon{Name: name}
+}
+
 func (ch *Checker) addError(s span.Span, msg string) {
 	ch.addCodedError(errs.ErrTypeMismatch, s, msg)
 }

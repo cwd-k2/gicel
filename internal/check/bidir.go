@@ -2,6 +2,7 @@ package check
 
 import (
 	"fmt"
+	"strconv"
 
 	"github.com/cwd-k2/gomputation/internal/core"
 	"github.com/cwd-k2/gomputation/internal/errs"
@@ -130,6 +131,16 @@ func (ch *Checker) infer(expr syntax.Expr) (types.Type, core.Core) {
 
 	case *syntax.ExprCase:
 		return ch.inferCase(e)
+
+	case *syntax.ExprIntLit:
+		val, _ := strconv.ParseInt(e.Value, 10, 64)
+		return ch.mkType("Int"), &core.Lit{Value: val, S: e.S}
+
+	case *syntax.ExprStrLit:
+		return ch.mkType("String"), &core.Lit{Value: e.Value, S: e.S}
+
+	case *syntax.ExprRuneLit:
+		return ch.mkType("Rune"), &core.Lit{Value: e.Value, S: e.S}
 
 	default:
 		ch.addError(expr.Span(), "cannot infer type of expression")

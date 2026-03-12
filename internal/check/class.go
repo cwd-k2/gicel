@@ -653,7 +653,7 @@ func (ch *Checker) substitutePlaceholders(expr core.Core, resolutions map[string
 		for i, a := range e.Args {
 			args[i] = ch.substitutePlaceholders(a, resolutions)
 		}
-		return &core.PrimOp{Name: e.Name, Arity: e.Arity, Args: args, S: e.S}
+		return &core.PrimOp{Name: e.Name, Arity: e.Arity, Effectful: e.Effectful, Args: args, S: e.S}
 	default:
 		return expr
 	}

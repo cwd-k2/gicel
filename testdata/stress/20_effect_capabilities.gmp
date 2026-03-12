@@ -1,0 +1,41 @@
+-- Stress test 20: Effect capabilities
+-- Tests fail + state effects, do blocks with literals, effect composition.
+-- All effectful computations must be inside `main` (entry point),
+-- since only the entry gets user-provided capabilities.
+
+import Std.Num
+import Std.Fail
+import Std.State
+
+main := do {
+  -- putAndGet: put then get
+  put 100;
+  v1 <- get;
+
+  -- stateThread: get, increment, get
+  put 0;
+  n <- get;
+  put (n + 1);
+  v2 <- get;
+
+  -- fromMaybe success path
+  v3 <- fromMaybe (Just 42);
+
+  -- fromResult success path
+  v4 <- fromResult (Ok True);
+
+  -- modify
+  put 10;
+  modify (\x -> x * 2);
+  v5 <- get;
+
+  -- chain state operations
+  put 1;
+  a <- get;
+  put (a + 10);
+  b <- get;
+  put (b + 100);
+  v6 <- get;
+
+  pure (Pair v1 (Pair v2 (Pair v3 (Pair v4 (Pair v5 v6)))))
+}

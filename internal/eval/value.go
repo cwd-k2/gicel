@@ -37,12 +37,14 @@ type ThunkVal struct {
 	Comp core.Core
 }
 
-// PrimVal is a partially applied primitive operation.
-// When len(Args) == Arity, the Go implementation is called.
+// PrimVal is a partially or fully applied primitive operation.
+// Non-effectful PrimVals are called when len(Args) == Arity.
+// Effectful PrimVals (those returning Computation) are deferred until forced in Bind or top-level.
 type PrimVal struct {
-	Name  string
-	Arity int
-	Args  []Value
+	Name      string
+	Arity     int
+	Effectful bool
+	Args      []Value
 }
 
 // IndirectVal is a forward-reference cell for mutually-recursive top-level bindings.

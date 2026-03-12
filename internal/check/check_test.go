@@ -92,6 +92,67 @@ dbOpen := assumption`
 	}
 }
 
+func TestInferIntLit(t *testing.T) {
+	config := &CheckConfig{
+		RegisteredTypes: map[string]types.Kind{"Int": types.KType{}},
+	}
+	prog := checkSource(t, `main := 42`, config)
+	if len(prog.Bindings) != 1 {
+		t.Fatal("expected 1 binding")
+	}
+	lit, ok := prog.Bindings[0].Expr.(*core.Lit)
+	if !ok {
+		t.Fatalf("expected Lit, got %T", prog.Bindings[0].Expr)
+	}
+	if lit.Value != int64(42) {
+		t.Errorf("expected 42, got %v", lit.Value)
+	}
+}
+
+func TestInferStrLit(t *testing.T) {
+	config := &CheckConfig{
+		RegisteredTypes: map[string]types.Kind{"String": types.KType{}},
+	}
+	prog := checkSource(t, `main := "hello"`, config)
+	lit, ok := prog.Bindings[0].Expr.(*core.Lit)
+	if !ok {
+		t.Fatalf("expected Lit, got %T", prog.Bindings[0].Expr)
+	}
+	if lit.Value != "hello" {
+		t.Errorf("expected hello, got %v", lit.Value)
+	}
+}
+
+func TestInferRuneLit(t *testing.T) {
+	config := &CheckConfig{
+		RegisteredTypes: map[string]types.Kind{"Rune": types.KType{}},
+	}
+	prog := checkSource(t, "main := 'a'", config)
+	lit, ok := prog.Bindings[0].Expr.(*core.Lit)
+	if !ok {
+		t.Fatalf("expected Lit, got %T", prog.Bindings[0].Expr)
+	}
+	if lit.Value != rune('a') {
+		t.Errorf("expected 'a', got %v", lit.Value)
+	}
+}
+
+func TestCheckLitMismatch(t *testing.T) {
+	config := &CheckConfig{
+		RegisteredTypes: map[string]types.Kind{"Int": types.KType{}, "String": types.KType{}},
+	}
+	src := span.NewSource("test", `main := (42 :: String)`)
+	l := syntax.NewLexer(src)
+	tokens, _ := l.Tokenize()
+	es := &errs.Errors{Source: src}
+	p := syntax.NewParser(tokens, es)
+	ast := p.ParseProgram()
+	_, checkErrs := Check(ast, src, config)
+	if !checkErrs.HasErrors() {
+		t.Fatal("expected type error for Int literal annotated as String")
+	}
+}
+
 func TestCheckDoBlock(t *testing.T) {
 	source := `data Unit = Unit
 main := do { pure Unit }`

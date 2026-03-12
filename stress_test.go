@@ -11,6 +11,7 @@ import (
 
 	gmp "github.com/cwd-k2/gomputation"
 	"github.com/cwd-k2/gomputation/pkg/types"
+	"github.com/cwd-k2/gomputation/stdlib"
 )
 
 // ---------------------------------------------------------------------------
@@ -356,6 +357,81 @@ libNot := \b -> case b of { LibTrue -> LibFalse; LibFalse -> LibTrue }
 				return
 			}
 			assertCon(t, con.Args[0], "Unit") // append Unit Unit = Unit
+		},
+	},
+	{
+		name: "literals_arithmetic",
+		file: "18_literals_arithmetic.gmp",
+		setup: func(e *gmp.Engine) {
+			if err := e.Use(stdlib.Num); err != nil {
+				panic(err)
+			}
+		},
+		check: func(t *testing.T, v gmp.Value) {
+			// main = Pair 42 (Pair 3 (Pair 7 (Pair 10 (Pair True (Pair LT 21)))))
+			con, ok := v.(*gmp.ConVal)
+			if !ok || con.Con != "Pair" {
+				t.Errorf("expected Pair, got %s", v)
+				return
+			}
+			// litInt = 42
+			if hv := gmp.MustHost[int64](con.Args[0]); hv != 42 {
+				t.Errorf("litInt: expected 42, got %d", hv)
+			}
+		},
+	},
+	{
+		name: "string_operations",
+		file: "19_string_operations.gmp",
+		setup: func(e *gmp.Engine) {
+			if err := e.Use(stdlib.Num); err != nil {
+				panic(err)
+			}
+			if err := e.Use(stdlib.Str); err != nil {
+				panic(err)
+			}
+		},
+		check: func(t *testing.T, v gmp.Value) {
+			// main = Pair "hello world" (Pair 5 (Pair True ...))
+			con, ok := v.(*gmp.ConVal)
+			if !ok || con.Con != "Pair" {
+				t.Errorf("expected Pair, got %s", v)
+				return
+			}
+			if hv := gmp.MustHost[string](con.Args[0]); hv != "hello world" {
+				t.Errorf("strConcat: expected 'hello world', got '%s'", hv)
+			}
+		},
+	},
+	{
+		name: "effect_capabilities",
+		file: "20_effect_capabilities.gmp",
+		setup: func(e *gmp.Engine) {
+			if err := e.Use(stdlib.Num); err != nil {
+				panic(err)
+			}
+			if err := e.Use(stdlib.Fail); err != nil {
+				panic(err)
+			}
+			if err := e.Use(stdlib.State); err != nil {
+				panic(err)
+			}
+		},
+		caps: map[string]any{
+			"state": &gmp.HostVal{Inner: int64(0)},
+			"fail":  &gmp.ConVal{Con: "Unit"},
+		},
+		check: func(t *testing.T, v gmp.Value) {
+			// main = Pair v1 (Pair v2 (Pair v3 (Pair v4 (Pair v5 v6))))
+			// v1=100, v2=1, v3=42, v4=True, v5=20, v6=111
+			con, ok := v.(*gmp.ConVal)
+			if !ok || con.Con != "Pair" {
+				t.Errorf("expected Pair, got %s", v)
+				return
+			}
+			if hv := gmp.MustHost[int64](con.Args[0]); hv != 100 {
+				t.Errorf("v1 (putAndGet): expected 100, got %d", hv)
+			}
 		},
 	},
 }

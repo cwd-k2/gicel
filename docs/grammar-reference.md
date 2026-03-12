@@ -63,7 +63,15 @@
 
 ### Integer Literals
 
-Unsigned decimal integers: `[0-9]+`. Negative values via prefix operator.
+Unsigned decimal integers: `[0-9]+`. Negative values via `negate`.
+
+### String Literals
+
+Double-quoted: `"hello world"`. Escape sequences: `\n`, `\t`, `\r`, `\\`, `\"`, `\'`, `\0`.
+
+### Rune Literals
+
+Single-quoted single character: `'a'`, `'\n'`. Same escape sequences as strings.
 
 ---
 
@@ -139,6 +147,22 @@ Example:
 not := \b -> case b of { True -> False; False -> True }
 ```
 
+### Operator Definition
+
+```
+(op) :: TypeExpr
+(op) := Expr
+```
+
+Operators are defined by wrapping the operator symbol in parentheses. This allows defining type annotations and value definitions for infix operators.
+
+Example:
+```
+infixl 6 +
+(+) :: forall a. Num a => a -> a -> a
+(+) := add
+```
+
 ### Operator Fixity
 
 ```
@@ -159,15 +183,13 @@ infixr 5 cons
 import ModuleName
 ```
 
+Dotted module names are supported for stdlib packs:
+```
+import Std.Num
+import Std.Str
+```
+
 Import declarations must appear before all other declarations. All exported types, constructors, type classes, instances, and values from the named module become available.
-
-Example:
-```
-import Lib
-import Utils
-
-main := libFunction (utilHelper True)
-```
 
 ### Type Class
 
@@ -411,7 +433,7 @@ Con x y         -- constructor with arguments
 
 Declarations are separated by newlines at nesting depth 0. A new declaration begins when a newline-preceded token at depth 0 is one of:
 
-`lowercase` | `uppercase` | `data` | `type` | `infixl` | `infixr` | `infixn` | `class` | `instance` | `import`
+`lowercase` | `uppercase` | `data` | `type` | `infixl` | `infixr` | `infixn` | `class` | `instance` | `import` | `(op)` (operator definition)
 
 No explicit semicolons needed between top-level declarations.
 
@@ -423,6 +445,69 @@ No explicit semicolons needed between top-level declarations.
 |-----------------------------|-------------------|----------------------------|
 | `Computation pre post a`    | `Row → Row → Type → Type` | Effectful computation |
 | `Thunk pre post a`          | `Row → Row → Type → Type` | Suspended computation |
+| `Int`                       | `Type`            | 64-bit integer             |
+| `String`                    | `Type`            | Unicode string             |
+| `Rune`                      | `Type`            | Unicode code point         |
+
+---
+
+## Stdlib Packs
+
+Stdlib packs are loaded via `Engine.Use(pack)` on the host side and `import Std.X` in source.
+
+### Std.Num
+
+Provides `Num` class, `Eq`/`Ord` Int instances, and arithmetic operators.
+
+```
+class Eq a => Num a {
+  add    :: a -> a -> a;
+  sub    :: a -> a -> a;
+  mul    :: a -> a -> a;
+  negate :: a -> a
+}
+
+instance Eq Int    instance Ord Int    instance Num Int
+
+div :: Int -> Int -> Int
+mod :: Int -> Int -> Int
+
+infixl 6 +   infixl 6 -
+infixl 7 *   infixl 7 /
+```
+
+### Std.Str
+
+Provides `Eq`/`Ord`/`Semigroup`/`Monoid` String instances, `Eq`/`Ord` Rune instances.
+
+```
+instance Eq String    instance Ord String
+instance Semigroup String    instance Monoid String
+instance Eq Rune    instance Ord Rune
+
+length :: String -> Int
+```
+
+### Std.Fail
+
+Provides fail effect capability.
+
+```
+failWith :: forall e r a. e -> Computation { fail : e | r } { fail : e | r } a
+fail     :: forall r a. Computation { fail : Unit | r } { fail : Unit | r } a
+fromMaybe  :: forall a r. Maybe a -> Computation { fail : Unit | r } ... a
+fromResult :: forall e a r. Result e a -> Computation { fail : e | r } ... a
+```
+
+### Std.State
+
+Provides get/put state capabilities.
+
+```
+get    :: forall s r. Computation { state : s | r } { state : s | r } s
+put    :: forall s r. s -> Computation { state : s | r } { state : s | r } Unit
+modify :: forall s r. (s -> s) -> Computation { state : s | r } { state : s | r } Unit
+```
 
 ---
 

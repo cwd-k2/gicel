@@ -98,7 +98,187 @@ func TestLexIntLit(t *testing.T) {
 	}
 }
 
+func TestLexStringLiteral(t *testing.T) {
+	tokens := lex(`"hello"`)
+	if tokens[0].Kind != TokStrLit || tokens[0].Text != "hello" {
+		t.Errorf("expected string 'hello', got %v %q", tokens[0].Kind, tokens[0].Text)
+	}
+}
+
+func TestLexStringEscape(t *testing.T) {
+	tokens := lex(`"a\nb\\c"`)
+	want := "a\nb\\c"
+	if tokens[0].Kind != TokStrLit || tokens[0].Text != want {
+		t.Errorf("expected string %q, got %v %q", want, tokens[0].Kind, tokens[0].Text)
+	}
+}
+
+func TestLexRuneLiteral(t *testing.T) {
+	tokens := lex(`'a'`)
+	if tokens[0].Kind != TokRuneLit || tokens[0].Text != "a" {
+		t.Errorf("expected rune 'a', got %v %q", tokens[0].Kind, tokens[0].Text)
+	}
+}
+
+func TestLexRuneEscape(t *testing.T) {
+	tokens := lex(`'\n'`)
+	if tokens[0].Kind != TokRuneLit || tokens[0].Text != "\n" {
+		t.Errorf("expected rune '\\n', got %v %q", tokens[0].Kind, tokens[0].Text)
+	}
+}
+
+func TestLexIntLitInExpr(t *testing.T) {
+	tokens := lex("f 42 x")
+	if tokens[0].Kind != TokLower || tokens[0].Text != "f" {
+		t.Errorf("expected lower 'f', got %v", tokens[0])
+	}
+	if tokens[1].Kind != TokIntLit || tokens[1].Text != "42" {
+		t.Errorf("expected int 42, got %v %q", tokens[1].Kind, tokens[1].Text)
+	}
+	if tokens[2].Kind != TokLower || tokens[2].Text != "x" {
+		t.Errorf("expected lower 'x', got %v", tokens[2])
+	}
+}
+
 // --- Parser tests ---
+
+func TestParseIntLiteral(t *testing.T) {
+	prog, es := parse("main := 42")
+	if es.HasErrors() {
+		t.Fatal(es.Format())
+	}
+	d := prog.Decls[0].(*DeclValueDef)
+	lit, ok := d.Expr.(*ExprIntLit)
+	if !ok {
+		t.Fatalf("expected ExprIntLit, got %T", d.Expr)
+	}
+	if lit.Value != "42" {
+		t.Errorf("expected 42, got %s", lit.Value)
+	}
+}
+
+func TestParseStringLiteral(t *testing.T) {
+	prog, es := parse(`main := "hello"`)
+	if es.HasErrors() {
+		t.Fatal(es.Format())
+	}
+	d := prog.Decls[0].(*DeclValueDef)
+	lit, ok := d.Expr.(*ExprStrLit)
+	if !ok {
+		t.Fatalf("expected ExprStrLit, got %T", d.Expr)
+	}
+	if lit.Value != "hello" {
+		t.Errorf("expected hello, got %s", lit.Value)
+	}
+}
+
+func TestParseRuneLiteral(t *testing.T) {
+	prog, es := parse("main := 'a'")
+	if es.HasErrors() {
+		t.Fatal(es.Format())
+	}
+	d := prog.Decls[0].(*DeclValueDef)
+	lit, ok := d.Expr.(*ExprRuneLit)
+	if !ok {
+		t.Fatalf("expected ExprRuneLit, got %T", d.Expr)
+	}
+	if lit.Value != 'a' {
+		t.Errorf("expected 'a', got %c", lit.Value)
+	}
+}
+
+func TestParseLiteralInExpr(t *testing.T) {
+	prog, es := parse(`main := f 42 "hello"`)
+	if es.HasErrors() {
+		t.Fatal(es.Format())
+	}
+	d := prog.Decls[0].(*DeclValueDef)
+	// f 42 "hello" → App(App(f, 42), "hello")
+	app, ok := d.Expr.(*ExprApp)
+	if !ok {
+		t.Fatalf("expected ExprApp, got %T", d.Expr)
+	}
+	_, ok = app.Arg.(*ExprStrLit)
+	if !ok {
+		t.Fatalf("expected ExprStrLit as outer arg, got %T", app.Arg)
+	}
+	inner, ok := app.Fun.(*ExprApp)
+	if !ok {
+		t.Fatalf("expected inner ExprApp, got %T", app.Fun)
+	}
+	_, ok = inner.Arg.(*ExprIntLit)
+	if !ok {
+		t.Fatalf("expected ExprIntLit as inner arg, got %T", inner.Arg)
+	}
+}
+
+func TestParseOperatorTypeAnn(t *testing.T) {
+	prog, es := parse("(+) :: Int -> Int -> Int")
+	if es.HasErrors() {
+		t.Fatal(es.Format())
+	}
+	if len(prog.Decls) != 1 {
+		t.Fatalf("expected 1 decl, got %d", len(prog.Decls))
+	}
+	d, ok := prog.Decls[0].(*DeclTypeAnn)
+	if !ok {
+		t.Fatalf("expected DeclTypeAnn, got %T", prog.Decls[0])
+	}
+	if d.Name != "+" {
+		t.Errorf("expected name '+', got %s", d.Name)
+	}
+}
+
+func TestParseOperatorValueDef(t *testing.T) {
+	prog, es := parse("(+) := add")
+	if es.HasErrors() {
+		t.Fatal(es.Format())
+	}
+	if len(prog.Decls) != 1 {
+		t.Fatalf("expected 1 decl, got %d", len(prog.Decls))
+	}
+	d, ok := prog.Decls[0].(*DeclValueDef)
+	if !ok {
+		t.Fatalf("expected DeclValueDef, got %T", prog.Decls[0])
+	}
+	if d.Name != "+" {
+		t.Errorf("expected name '+', got %s", d.Name)
+	}
+}
+
+func TestParseOperatorInModule(t *testing.T) {
+	src := `data Int = MkInt
+add :: Int -> Int -> Int
+add := \x y -> x
+infixl 6 +
+(+) :: Int -> Int -> Int
+(+) := add`
+	prog, es := parse(src)
+	if es.HasErrors() {
+		t.Fatal(es.Format())
+	}
+	// data + add :: + add := + infixl + (+) :: + (+) :=
+	foundOpAnn := false
+	foundOpDef := false
+	for _, d := range prog.Decls {
+		switch d := d.(type) {
+		case *DeclTypeAnn:
+			if d.Name == "+" {
+				foundOpAnn = true
+			}
+		case *DeclValueDef:
+			if d.Name == "+" {
+				foundOpDef = true
+			}
+		}
+	}
+	if !foundOpAnn {
+		t.Error("expected operator type annotation for +")
+	}
+	if !foundOpDef {
+		t.Error("expected operator value definition for +")
+	}
+}
 
 func TestParseDataDecl(t *testing.T) {
 	prog, es := parse("data Bool = True | False")

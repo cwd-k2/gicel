@@ -52,8 +52,10 @@ const (
 	// Operators
 	TokOp // operator sequence
 
-	// Numeric (fixity declarations only)
+	// Literals
 	TokIntLit
+	TokStrLit  // "string"
+	TokRuneLit // 'c'
 )
 
 // Token is a single lexical unit.
@@ -128,6 +130,10 @@ func (k TokenKind) String() string {
 		return "op"
 	case TokIntLit:
 		return "int"
+	case TokStrLit:
+		return "string"
+	case TokRuneLit:
+		return "rune"
 	default:
 		return "keyword"
 	}

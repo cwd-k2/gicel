@@ -32,6 +32,15 @@ func NewParser(tokens []Token, errors *errs.Errors) *Parser {
 	}
 }
 
+// AddFixity seeds the parser with additional fixity declarations (e.g. from imported modules).
+func (p *Parser) AddFixity(fixity map[string]Fixity) {
+	for op, f := range fixity {
+		if _, exists := p.fixity[op]; !exists {
+			p.fixity[op] = f
+		}
+	}
+}
+
 // ParseProgram parses a complete program.
 func (p *Parser) ParseProgram() *AstProgram {
 	// First pass: collect fixity declarations.
@@ -94,6 +103,8 @@ func (p *Parser) parseDecl() Decl {
 	case p.isFixityKeyword():
 		d := p.parseFixityDecl()
 		return d
+	case p.peek().Kind == TokLParen && p.isOperatorDeclStart():
+		return p.parseOperatorDecl()
 	case p.peek().Kind == TokLower:
 		return p.parseNamedDecl()
 	default:
@@ -107,6 +118,12 @@ func (p *Parser) parseImportDecl() DeclImport {
 	start := p.peek().S.Start
 	p.expect(TokImport)
 	modName := p.expectUpper()
+	// Support dotted module names: Std.Num, Std.Str, etc.
+	for p.peek().Kind == TokDot {
+		p.advance()
+		part := p.expectUpper()
+		modName = modName + "." + part
+	}
 	return DeclImport{
 		ModuleName: modName,
 		S:          span.Span{Start: start, End: p.prevEnd()},
@@ -428,6 +445,32 @@ func (p *Parser) parseInstMethods() []InstMethod {
 	return methods
 }
 
+func (p *Parser) isOperatorDeclStart() bool {
+	// Check for (operator) pattern: ( op )
+	return p.pos+2 < len(p.tokens) &&
+		p.tokens[p.pos+1].Kind == TokOp &&
+		p.tokens[p.pos+2].Kind == TokRParen
+}
+
+func (p *Parser) parseOperatorDecl() Decl {
+	start := p.expect(TokLParen)
+	op := p.expect(TokOp)
+	p.expect(TokRParen)
+	switch p.peek().Kind {
+	case TokColonColon:
+		p.advance()
+		ty := p.parseType()
+		return &DeclTypeAnn{Name: op.Text, Type: ty, S: span.Span{Start: start.S.Start, End: p.prevEnd()}}
+	case TokColonEq:
+		p.advance()
+		expr := p.parseExpr()
+		return &DeclValueDef{Name: op.Text, Expr: expr, S: span.Span{Start: start.S.Start, End: p.prevEnd()}}
+	default:
+		p.addError("expected :: or := after operator name")
+		return nil
+	}
+}
+
 func (p *Parser) parseNamedDecl() Decl {
 	start := p.peek().S.Start
 	name := p.peek().Text
@@ -541,6 +584,23 @@ func (p *Parser) parseAtom() Expr {
 		return p.parseDo()
 	case TokLBrace:
 		return p.parseBlock()
+	case TokIntLit:
+		tok := p.peek()
+		p.advance()
+		return &ExprIntLit{Value: tok.Text, S: tok.S}
+	case TokStrLit:
+		tok := p.peek()
+		p.advance()
+		return &ExprStrLit{Value: tok.Text, S: tok.S}
+	case TokRuneLit:
+		tok := p.peek()
+		p.advance()
+		runes := []rune(tok.Text)
+		var r rune
+		if len(runes) > 0 {
+			r = runes[0]
+		}
+		return &ExprRuneLit{Value: r, S: tok.S}
 	default:
 		return nil
 	}
@@ -1037,6 +1097,9 @@ func (p *Parser) atDeclBoundary() bool {
 	switch tok.Kind {
 	case TokLower, TokUpper, TokData, TokType, TokInfixl, TokInfixr, TokInfixn, TokClass, TokInstance, TokImport:
 		return true
+	case TokLParen:
+		// (op) declaration pattern
+		return p.isOperatorDeclStart()
 	}
 	return false
 }
@@ -1046,7 +1109,7 @@ func (p *Parser) isAtomStart() bool {
 		return false
 	}
 	k := p.peek().Kind
-	return k == TokLower || k == TokUpper || k == TokLParen || k == TokBackslash || k == TokLBrace || k == TokCase || k == TokDo
+	return k == TokLower || k == TokUpper || k == TokLParen || k == TokBackslash || k == TokLBrace || k == TokCase || k == TokDo || k == TokIntLit || k == TokStrLit || k == TokRuneLit
 }
 
 func (p *Parser) isTypeAtomStart() bool {

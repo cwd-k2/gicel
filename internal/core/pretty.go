@@ -66,6 +66,8 @@ func prettyCore(c Core, indent int) string {
 			args[i] = prettyCore(a, indent)
 		}
 		return fmt.Sprintf("(prim %s %s)", n.Name, strings.Join(args, " "))
+	case *Lit:
+		return fmt.Sprintf("(lit %v)", n.Value)
 	default:
 		return "<?>"
 	}

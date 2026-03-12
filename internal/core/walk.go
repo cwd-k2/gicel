@@ -45,6 +45,8 @@ func Walk(c Core, visit func(Core) bool) {
 		for _, arg := range n.Args {
 			Walk(arg, visit)
 		}
+	case *Lit:
+		// leaf
 	}
 }
 
@@ -92,7 +94,9 @@ func Transform(c Core, f func(Core) Core) Core {
 		for i, a := range n.Args {
 			args[i] = Transform(a, f)
 		}
-		return f(&PrimOp{Name: n.Name, Args: args, S: n.S})
+		return f(&PrimOp{Name: n.Name, Arity: n.Arity, Effectful: n.Effectful, Args: args, S: n.S})
+	case *Lit:
+		return f(n)
 	default:
 		return f(c)
 	}
