@@ -270,6 +270,18 @@ func (ch *Checker) checkPattern(pat syntax.Pattern, scrutTy types.Type) (core.Pa
 			currentTy = restTy
 		}
 		// Unify result type with scrutinee type.
+		// GADT: if this constructor has a refined return type that is
+		// incompatible with the scrutinee, the branch is inaccessible.
+		// Suppress the error — exhaustiveness handles relevance.
+		if info := ch.conInfo[p.Con]; info != nil {
+			for _, c := range info.Constructors {
+				if c.Name == p.Con && c.ReturnType != nil {
+					if !ch.canUnifyWith(c.ReturnType, scrutTy) {
+						return &core.PCon{Con: p.Con, Args: args, S: p.S}, bindings
+					}
+				}
+			}
+		}
 		if err := ch.unifier.Unify(currentTy, scrutTy); err != nil {
 			ch.addError(p.S, fmt.Sprintf("constructor type mismatch: %s", err))
 		}

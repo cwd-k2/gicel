@@ -35,8 +35,14 @@ func (ch *Checker) checkExhaustive(scrutTy types.Type, alts []core.Alt, s span.S
 	}
 
 	// Build the set of constructors required for exhaustiveness.
+	// GADT: skip constructors whose ReturnType cannot unify with the scrutinee type.
 	required := make(map[string]bool, len(info.Constructors))
 	for _, c := range info.Constructors {
+		if c.ReturnType != nil {
+			if !ch.canUnifyWith(c.ReturnType, scrutTy) {
+				continue // irrelevant constructor
+			}
+		}
 		required[c.Name] = true
 	}
 
@@ -82,6 +88,53 @@ func headTyCon(ty types.Type) string {
 		return headTyCon(t.Fun)
 	default:
 		return ""
+	}
+}
+
+// canUnifyWith tests whether retTy can unify with scrutTy in a temporary
+// unifier. Used for GADT exhaustiveness: if a constructor's return type
+// cannot unify with the scrutinee, the constructor is irrelevant.
+func (ch *Checker) canUnifyWith(retTy, scrutTy types.Type) bool {
+	tmp := NewUnifierShared(&ch.freshID)
+	// Instantiate any free type variables in retTy with fresh metas.
+	retTy = ch.instantiateFresh(tmp, retTy)
+	return tmp.Unify(retTy, scrutTy) == nil
+}
+
+// instantiateFresh replaces TyVar nodes with fresh metas, simulating
+// the forall-instantiation that checkPattern performs.
+func (ch *Checker) instantiateFresh(u *Unifier, ty types.Type) types.Type {
+	vars := make(map[string]*types.TyMeta)
+	return ch.substVarsWithMetas(u, ty, vars)
+}
+
+func (ch *Checker) substVarsWithMetas(u *Unifier, ty types.Type, vars map[string]*types.TyMeta) types.Type {
+	switch t := ty.(type) {
+	case *types.TyVar:
+		if m, ok := vars[t.Name]; ok {
+			return m
+		}
+		m := &types.TyMeta{ID: ch.fresh(), Kind: types.KType{}}
+		vars[t.Name] = m
+		return m
+	case *types.TyApp:
+		f := ch.substVarsWithMetas(u, t.Fun, vars)
+		a := ch.substVarsWithMetas(u, t.Arg, vars)
+		if f == t.Fun && a == t.Arg {
+			return ty
+		}
+		return &types.TyApp{Fun: f, Arg: a, S: t.S}
+	case *types.TyCon:
+		return ty
+	case *types.TyArrow:
+		from := ch.substVarsWithMetas(u, t.From, vars)
+		to := ch.substVarsWithMetas(u, t.To, vars)
+		if from == t.From && to == t.To {
+			return ty
+		}
+		return &types.TyArrow{From: from, To: to, S: t.S}
+	default:
+		return ty
 	}
 }
 

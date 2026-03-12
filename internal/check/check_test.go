@@ -787,19 +787,43 @@ eval := \e -> case e of { Lit b -> b; Not inner -> True }`
 	checkSource(t, source, nil)
 }
 
-func TestGADTRefinementMismatch(t *testing.T) {
-	// Matching a constructor whose return type is incompatible with the scrutinee
-	// should produce a type error (unreachable branch — handled as error for now,
-	// Group I will refine this to relevance-based filtering).
+func TestGADTExhaustiveRelevant(t *testing.T) {
+	// Tag Bool case: TagUnit is irrelevant (return type Tag Unit ≠ Tag Bool).
+	// Only TagBool is required.
 	source := `data Bool = True | False
 data Unit = Unit
 data Tag a = { TagBool :: Bool -> Tag Bool; TagUnit :: Unit -> Tag Unit }
 f :: Tag Bool -> Bool
-f := \t -> case t of { TagBool b -> b; TagUnit _ -> True }`
+f := \t -> case t of { TagBool b -> b }`
+	checkSource(t, source, nil)
+}
+
+func TestGADTNonExhaustiveError(t *testing.T) {
+	// Tag Bool case: TagBool is required but missing → error.
+	source := `data Bool = True | False
+data Unit = Unit
+data Tag a = { TagBool :: Bool -> Tag Bool; TagUnit :: Unit -> Tag Unit }
+f :: Tag Bool -> Bool
+f := \t -> case t of { TagUnit _ -> True }`
 	errMsg := checkSourceExpectError(t, source, nil)
-	if !strings.Contains(errMsg, "mismatch") {
-		t.Errorf("expected type mismatch, got: %s", errMsg)
+	if !strings.Contains(errMsg, "non-exhaustive") {
+		t.Errorf("expected non-exhaustive error, got: %s", errMsg)
 	}
+	if !strings.Contains(errMsg, "TagBool") {
+		t.Errorf("expected missing TagBool, got: %s", errMsg)
+	}
+}
+
+func TestGADTAllBranchesIrrelevant(t *testing.T) {
+	// If all constructors are irrelevant for the scrutinee type,
+	// an empty case is OK (dead code).
+	source := `data Bool = True | False
+data Unit = Unit
+data Void = MkVoid
+data Tag a = { TagBool :: Bool -> Tag Bool; TagUnit :: Unit -> Tag Unit }
+f :: Tag Void -> Void
+f := \t -> case t of { _ -> MkVoid }`
+	checkSource(t, source, nil)
 }
 
 func BenchmarkZonkDeepChain(b *testing.B) {
