@@ -1,0 +1,501 @@
+# Specification Draft v0.5 — Abstraction and Standard Library
+
+This draft extends v0.4 with three features and a standard library expansion. All extensions elaborate to the existing 13-former Core IR; no new Core nodes are introduced.
+
+**New keywords**: none (total: 12)
+
+**Design invariant**: Stratum 0 (pure/bind as computation algebra) is undisturbed. `pure` remains a language built-in; it is NOT subsumed by the `Applicative` type class.
+
+---
+
+## 1. Existential Types in GADT Constructors
+
+### 1.1 Vocabulary Position
+
+**Refinement** of Algebraic Data (v0.3 §3.3.1): GADT constructors may introduce type variables not appearing in the return type. These are existentially quantified — hidden from the outside, available inside a pattern match.
+
+### 1.2 Surface Syntax
+
+Existential variables are introduced by `forall` in GADT constructor type signatures:
+
+```
+data SomeEq = {
+  MkSomeEq :: forall a. Eq a => a -> SomeEq
+}
+```
+
+Here `a` is existential: it appears in the constructor's fields but not in the return type `SomeEq`. The constraint `Eq a` is **packed** into the constructor alongside the value.
+
+More examples:
+
+```
+-- Existential without constraint
+data Exists f = {
+  MkExists :: forall a. f a -> Exists f
+}
+
+-- Existential with multiple constraints
+data ShowOrd = {
+  MkShowOrd :: forall a. Show a => Ord a => a -> a -> ShowOrd
+}
+
+-- Mixed: some variables are universal (in return type), some existential
+data Wrapper a = {
+  MkWrapper :: forall b. (b -> a) -> b -> Wrapper a
+}
+```
+
+### 1.3 Pattern Matching
+
+When pattern matching on an existential constructor, the hidden type variable is introduced as a **fresh skolem** (rigid type variable). Packed constraints become available as implicit dictionary arguments.
+
+```
+showIt :: SomeEq -> Bool
+showIt := \s -> case s of {
+  MkSomeEq x -> eq x x        -- x : a (skolem), Eq a available
+}
+```
+
+The existential variable `a` must not escape the branch scope:
+
+```
+-- Type error: existential escapes
+bad := \s -> case s of {
+  MkSomeEq x -> x             -- x : a, but 'a' cannot appear in the result type
+}
+```
+
+### 1.4 Elaboration
+
+Existential constructors elaborate to the same Core IR as other GADT constructors. The key addition is in the checker:
+
+1. **Constructor registration**: When processing a GADT constructor with `forall` variables not in the return type, mark those variables as existential.
+2. **Pattern checking**: At a `case` branch matching an existential constructor:
+   - Introduce fresh skolem variables for each existential.
+   - Unify the constructor's return type with the scrutinee type (as with normal GADTs).
+   - Introduce dictionary bindings for packed constraints.
+   - Check that no skolem escapes the branch (occurs check against the branch result type).
+3. **Dictionary unpacking**: Packed constraints are available in the branch body. They elaborate to dictionary variables bound by the pattern, exactly as with normal constrained function arguments.
+
+### 1.5 Restrictions
+
+- Existentials are only available in GADT syntax (`= { ... }`), not in ADT syntax.
+- Existential variables must be explicitly quantified with `forall`.
+- No first-class existential types outside of constructors (no `exists` keyword).
+
+---
+
+## 2. Higher-Rank Polymorphism
+
+### 2.1 Vocabulary Position
+
+**Refinement** of Quantification (v0.3 §3.3.2): `forall` may appear under arrows in type expressions, enabling rank-N polymorphism.
+
+### 2.2 What Changes
+
+Currently, `forall` binds only at the outermost level of a type:
+
+```
+-- Rank 1 (current)
+id :: forall a. a -> a
+```
+
+With higher-rank polymorphism, `forall` may appear in argument positions:
+
+```
+-- Rank 2
+applyToInt :: (forall a. a -> a) -> Int -> Int
+applyToInt := \f -> \x -> f x
+
+-- Rank 2 with constraint
+withEq :: (forall a. Eq a => a -> Bool) -> Bool
+withEq := \f -> f True
+
+-- Rank 2 with row polymorphism
+runScoped :: (forall r. Computation { db : DB Opened | r } { db : DB Opened | r } a) -> a
+```
+
+### 2.3 Annotation Policy
+
+Higher-rank types require explicit annotations. The rule:
+
+1. **Top-level definitions**: annotation optional for rank-1, **required** for rank-N.
+2. **Lambda parameters with polymorphic types**: the enclosing definition must have a type annotation that exposes the rank-N structure.
+3. **No implicit rank-raising**: the checker never infers a higher-rank type. It only checks against one.
+
+This follows the DK (Dunfield-Krishnaswami) bidirectional approach already used by the checker.
+
+### 2.4 Checking Rules
+
+The key changes to the bidirectional checker:
+
+**Check mode for lambda against higher-rank argument type:**
+
+```
+Γ ⊢ (λx. e) ⇐ (∀a. A) → B
+──────────────────────────────────
+Γ, x : ∀a. A ⊢ e ⇐ B
+```
+
+The parameter `x` receives the **polymorphic** type `∀a. A` without instantiation. When `x` is used inside the body, it is instantiated at each use site.
+
+**Subsumption rule:**
+
+```
+Γ ⊢ e ⇒ ∀a. A
+──────────────────
+Γ ⊢ e ⇐ A[a := τ]    (instantiation)
+```
+
+And in the other direction:
+
+```
+Γ ⊢ e ⇐ ∀a. A
+──────────────────
+Γ, a fresh skolem ⊢ e ⇐ A    (skolemization)
+```
+
+### 2.5 Interaction with Type Classes
+
+Constrained higher-rank types work naturally:
+
+```
+-- The constraint is inside the forall
+useEq :: (forall a. Eq a => a -> a -> Bool) -> Bool -> Bool -> Bool
+useEq := \f -> f
+```
+
+The dictionary for `Eq a` is passed at each use site of `f`, not at the definition of `useEq`.
+
+### 2.6 Interaction with Computation Types
+
+Higher-rank polymorphism is particularly useful for **scoped computations**:
+
+```
+-- Run a stateful computation with guaranteed cleanup
+withResource :: forall a.
+  (forall r. Computation { res : R Open | r } { res : R Open | r } a) ->
+  Computation {} {} a
+```
+
+The inner computation is polymorphic in `r` (the rest of the capability row), ensuring it cannot observe or tamper with capabilities outside its scope.
+
+### 2.7 Elaboration
+
+Higher-rank types elaborate to existing Core IR. `TyLam` and `TyApp` handle type abstraction and instantiation at the Core level. The checker inserts `TyLam` at rank-raising binders and `TyApp` at use sites.
+
+### 2.8 What Does NOT Change
+
+- Rank-1 inference remains unchanged. Programs without higher-rank annotations behave identically.
+- No impredicativity: type variables cannot be instantiated with polymorphic types (only with monotypes).
+- No type inference for higher-rank types: the checker only checks, never infers rank-N.
+
+---
+
+## 3. Standard Library Expansion
+
+### 3.1 New Type Classes
+
+#### 3.1.1 Semigroup
+
+```
+class Semigroup a {
+  append :: a -> a -> a
+}
+```
+
+Laws (not checked, documented):
+- Associativity: `append (append x y) z = append x (append (y z))`
+
+#### 3.1.2 Monoid
+
+```
+class Semigroup a => Monoid a {
+  empty :: a
+}
+```
+
+Laws:
+- Left identity: `append empty x = x`
+- Right identity: `append x empty = x`
+
+#### 3.1.3 Applicative
+
+```
+class Functor f => Applicative f {
+  wrap :: forall a. a -> f a
+  ap   :: forall a b. f (a -> b) -> f a -> f b
+}
+```
+
+`wrap` lifts a pure value into the functor. This is the monoidal functor unit, called `pure` in Haskell. Gomputation uses `wrap` to avoid collision with the language built-in `pure : a -> Computation r r a`.
+
+**Relationship to `pure`**: For `Computation r r`, the language's `pure` and `Applicative`'s `wrap` coincide semantically. However, `pure` remains a language built-in that the checker handles specially. `wrap` is a type class method resolved by instance search.
+
+Laws:
+- Identity: `ap (wrap id) v = v`
+- Composition: `ap (ap (ap (wrap compose) u) v) w = ap u (ap v w)`
+- Homomorphism: `ap (wrap f) (wrap x) = wrap (f x)`
+- Interchange: `ap u (wrap y) = ap (wrap (\f -> f y)) u`
+
+#### 3.1.4 Traversable
+
+```
+class Functor t => Foldable t => Traversable t {
+  traverse :: forall f a b. Applicative f => (a -> f b) -> t a -> f (t b)
+}
+```
+
+Derived operation (definable in terms of traverse):
+
+```
+sequenceA :: forall f a. Applicative f => Traversable t => t (f a) -> f (t a)
+sequenceA := traverse (\x -> x)
+```
+
+Laws:
+- Naturality: `t . traverse f = traverse (t . f)` for any applicative transformation `t`
+- Identity: `traverse wrap = wrap`
+- Composition: `traverse (compose . fmap g . f) = compose . fmap (traverse g) . traverse f`
+
+### 3.2 New Instances
+
+#### Semigroup instances
+
+```
+instance Semigroup Unit {
+  append := \_ _ -> Unit
+}
+
+instance Semigroup Ordering {
+  -- Left-biased: LT < EQ < GT, first non-EQ wins
+  append := \x y -> case x of { EQ -> y; _ -> x }
+}
+
+instance Semigroup (List a) {
+  append := fix (\self -> \xs ys -> case xs of {
+    Nil -> ys;
+    Cons x rest -> Cons x (self rest ys)
+  })
+}
+
+instance Semigroup a => Semigroup (Maybe a) {
+  append := \x y -> case x of {
+    Nothing -> y;
+    Just a  -> case y of {
+      Nothing -> Just a;
+      Just b  -> Just (append a b)
+    }
+  }
+}
+```
+
+#### Monoid instances
+
+```
+instance Monoid Unit {
+  empty := Unit
+}
+
+instance Monoid Ordering {
+  empty := EQ
+}
+
+instance Monoid (List a) {
+  empty := Nil
+}
+
+instance Semigroup a => Monoid (Maybe a) {
+  empty := Nothing
+}
+```
+
+#### Applicative instances
+
+```
+instance Applicative Maybe {
+  wrap := \x -> Just x;
+  ap := \mf mx -> case mf of {
+    Nothing -> Nothing;
+    Just f  -> case mx of {
+      Nothing -> Nothing;
+      Just x  -> Just (f x)
+    }
+  }
+}
+
+instance Applicative List {
+  wrap := \x -> Cons x Nil;
+  ap := fix (\self -> \fs xs -> case fs of {
+    Nil -> Nil;
+    Cons f rest -> append (fmap f xs) (self rest xs)
+  })
+}
+```
+
+#### Traversable instances
+
+```
+instance Traversable Maybe {
+  traverse := \f x -> case x of {
+    Nothing -> wrap Nothing;
+    Just a  -> fmap Just (f a)
+  }
+}
+
+instance Traversable (Pair a) {
+  traverse := \f p -> case p of {
+    Pair a b -> fmap (Pair a) (f b)
+  }
+}
+
+instance Traversable List {
+  traverse := fix (\self -> \f xs -> case xs of {
+    Nil -> wrap Nil;
+    Cons x rest -> ap (fmap Cons (f x)) (self f rest)
+  })
+}
+```
+
+#### Ord instances (completing v0.4 stubs)
+
+```
+instance Ord Bool {
+  compare := \x y -> case x of {
+    False -> case y of { False -> EQ; True -> LT };
+    True  -> case y of { False -> GT; True -> EQ }
+  }
+}
+
+instance Ord Unit {
+  compare := \_ _ -> EQ
+}
+
+instance Ord Ordering {
+  compare := \x y -> case x of {
+    LT -> case y of { LT -> EQ; _ -> LT };
+    EQ -> case y of { LT -> GT; EQ -> EQ; GT -> LT };
+    GT -> case y of { GT -> EQ; _ -> GT }
+  }
+}
+
+instance Ord a => Ord (Maybe a) {
+  compare := \x y -> case x of {
+    Nothing -> case y of { Nothing -> EQ; Just _ -> LT };
+    Just a  -> case y of { Nothing -> GT; Just b -> compare a b }
+  }
+}
+
+instance Ord a => Ord b => Ord (Pair a b) {
+  compare := \x y -> case x of {
+    Pair a1 b1 -> case y of {
+      Pair a2 b2 -> append (compare a1 a2) (compare b1 b2)
+    }
+  }
+}
+```
+
+### 3.3 Recursion Note
+
+Instances for `List` (`Semigroup`, `Applicative`, `Traversable`) require `EnableRecursion()` or must be provided as host-side assumptions. Non-recursive types (`Maybe`, `Pair`, `Unit`, `Bool`, `Ordering`) do not require recursion.
+
+### 3.4 Class Hierarchy Summary
+
+After v0.5, the complete class hierarchy is:
+
+```
+Eq ──→ Ord
+
+Semigroup ──→ Monoid
+
+Functor ──→ Applicative
+Functor ─┐
+          ├──→ Traversable
+Foldable ┘
+```
+
+Total: 8 type classes.
+
+---
+
+## 4. Grammar Changes
+
+### 4.1 Type Expression Grammar
+
+No changes to the grammar itself. `forall` under arrows was already parseable; the change is in the checker (checking mode for higher-rank arguments).
+
+### 4.2 GADT Constructor Grammar
+
+No changes. `forall` in GADT constructor signatures was already parseable. The change is in the checker (existential variable handling).
+
+---
+
+## 5. Core IR Impact
+
+**No new Core nodes.** All three features elaborate to existing constructs:
+
+| Feature | Elaboration Target |
+|---------|--------------------|
+| Existential types | `Case` with fresh skolems + dictionary bindings |
+| Higher-rank types | `TyLam`/`TyApp` at rank-raising points |
+| Stdlib classes | `DataDecl` + `Binding` (dictionary passing) |
+
+---
+
+## 6. Implementation Phases
+
+### Phase 1: Existential Types
+
+- Identify existential variables in GADT constructor signatures
+- Introduce skolems at pattern match
+- Escape check: existential must not appear in branch result type
+- Constraint unpacking: packed dictionaries available in branch
+
+### Phase 2: Higher-Rank Polymorphism
+
+- Check mode for lambda against `(forall a. A) -> B`
+- Subsumption: skolemization for checking, instantiation for inference
+- Escape check: skolems from higher-rank positions must not leak
+- Ensure rank-1 inference remains unchanged
+
+### Phase 3: Standard Library
+
+- Add `Semigroup`, `Monoid`, `Applicative`, `Traversable` class declarations
+- Add instances for prelude types
+- Complete `Ord` instances
+- Update stress tests
+
+### Phase 4: Integration
+
+- End-to-end tests exercising existentials + higher-rank + new classes together
+- Update grammar reference
+- Benchmark regression check
+
+---
+
+## 7. Interaction Matrix
+
+| Feature | Existentials | Higher-rank | Stdlib |
+|---------|-------------|-------------|--------|
+| Existentials | — | Existentials may carry higher-rank types in constraints | Existential packaging with class constraints |
+| Higher-rank | — | — | `Traversable.traverse` uses rank-2 pattern (Applicative constraint) |
+| Stdlib | — | — | — |
+| GADTs (v0.4) | Existentials extend GADTs naturally | No direct interaction | — |
+| Type classes (v0.4) | Constraints packed in existentials | Higher-rank + constraints compose | New classes use existing machinery |
+| Modules (v0.4) | Exported constructors carry existentials | No direct interaction | Stdlib defined in prelude module |
+
+---
+
+## 8. Open Questions
+
+1. **Skolem error messages**: When an existential escapes, the error should clearly indicate which constructor introduced the skolem and why it cannot escape. Error quality is critical for usability.
+
+2. **Subsumption depth**: How deep should the checker look for subsumption? DK's algorithm handles arbitrary depth, but Gomputation may want to limit to practical ranks (2-3) for error quality.
+
+3. **`Applicative` for `Computation`**: Should `Computation r r` be an `Applicative` instance? `wrap` would be `pure`, `ap` would be `\mf mx -> bind mf (\f -> bind mx (\x -> pure (f x)))`. This is semantically correct but conflates the language built-in `pure` with the class method `wrap`.
+
+4. **Operator syntax for `append`**: Should `append` have an infix operator? Haskell uses `<>`. Gomputation could declare `infixr 6 append` or introduce a symbolic operator.
+
+---
+
+# End of Specification Draft v0.5
