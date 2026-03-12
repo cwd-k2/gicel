@@ -310,6 +310,54 @@ libNot := \b -> case b of { LibTrue -> LibFalse; LibFalse -> LibTrue }
 			assertCon(t, con.Args[0], "True") // eq True True
 		},
 	},
+	{
+		name: "existentials",
+		file: "15_existentials.gmp",
+		setup: func(e *gmp.Engine) {},
+		check: func(t *testing.T, v gmp.Value) {
+			// selfEq packBool = True (eq True True)
+			con, ok := v.(*gmp.ConVal)
+			if !ok || con.Con != "Pair" {
+				t.Errorf("expected Pair, got %s", v)
+				return
+			}
+			assertCon(t, con.Args[0], "True")
+		},
+	},
+	{
+		name: "higher_rank",
+		file: "16_higher_rank.gmp",
+		setup: func(e *gmp.Engine) {},
+		check: func(t *testing.T, v gmp.Value) {
+			// main = Pair (Pair True Unit) (Pair True ...)
+			con, ok := v.(*gmp.ConVal)
+			if !ok || con.Con != "Pair" {
+				t.Errorf("expected Pair, got %s", v)
+				return
+			}
+			// first element is applyToBoth id = Pair True Unit
+			inner, ok := con.Args[0].(*gmp.ConVal)
+			if !ok || inner.Con != "Pair" {
+				t.Errorf("expected inner Pair, got %s", con.Args[0])
+				return
+			}
+			assertCon(t, inner.Args[0], "True")
+			assertCon(t, inner.Args[1], "Unit")
+		},
+	},
+	{
+		name: "stdlib_v05",
+		file: "17_stdlib_v05.gmp",
+		setup: func(e *gmp.Engine) {},
+		check: func(t *testing.T, v gmp.Value) {
+			con, ok := v.(*gmp.ConVal)
+			if !ok || con.Con != "Pair" {
+				t.Errorf("expected Pair, got %s", v)
+				return
+			}
+			assertCon(t, con.Args[0], "Unit") // append Unit Unit = Unit
+		},
+	},
 }
 
 func copyCaps(m map[string]any) map[string]any {

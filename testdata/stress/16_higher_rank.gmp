@@ -1,0 +1,38 @@
+-- Stress test 16: Higher-rank polymorphism
+-- Tests rank-2 polymorphic arguments and subsumption.
+
+-- Rank-2: argument must be truly polymorphic
+applyToBoth :: (forall a. a -> a) -> Pair Bool Unit
+applyToBoth := \f -> Pair (f True) (f Unit)
+
+-- Rank-2 with constraint propagation
+applyPolyId :: (forall a. a -> a) -> Bool
+applyPolyId := \f -> f True
+
+-- Multiple rank-2 uses
+dualApply :: (forall a. a -> a) -> (forall a. a -> a) -> Pair Bool Unit
+dualApply := \f g -> Pair (f True) (g Unit)
+
+-- Rank-2 in case branch
+caseWithPoly :: Bool -> (forall a. a -> a) -> Bool
+caseWithPoly := \b f -> case b of { True -> f True; False -> f False }
+
+-- Helper: polymorphic identity
+id :: forall a. a -> a
+id := \x -> x
+
+-- Compose with rank-2
+composeId :: (forall a. a -> a) -> (forall a. a -> a) -> Pair Bool Unit
+composeId := \f g -> Pair (f (g True)) (g (f Unit))
+
+-- Subsumption: poly used at mono position
+useMono :: (Bool -> Bool) -> Bool
+useMono := \f -> f True
+
+testSubsumption := useMono id
+
+main := Pair (applyToBoth id)
+             (Pair testSubsumption
+                   (Pair (applyPolyId id)
+                         (Pair (caseWithPoly True id)
+                               (composeId id id))))

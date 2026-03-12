@@ -446,8 +446,17 @@ type Effect r a = Computation r r a
 ```
 class Eq a { eq :: a -> a -> Bool }
 class Eq a => Ord a { compare :: a -> a -> Ordering }
+class Semigroup a { append :: a -> a -> a }
+class Semigroup a => Monoid a { empty :: a }
 class Functor f { fmap :: forall a b. (a -> b) -> f a -> f b }
 class Foldable t { foldr :: forall a b. (a -> b -> b) -> b -> t a -> b }
+class Functor f => Applicative f {
+  wrap :: forall a. a -> f a;
+  ap   :: forall a b. f (a -> b) -> f a -> f b
+}
+class Functor t => Foldable t => Traversable t {
+  traverse :: forall f a b. Applicative f => (a -> f b) -> t a -> f (t b)
+}
 ```
 
 ### Instances
@@ -456,5 +465,13 @@ class Foldable t { foldr :: forall a b. (a -> b -> b) -> b -> t a -> b }
 instance Eq Bool          instance Eq Unit
 instance Eq Ordering      instance Eq a => Eq (Maybe a)
 instance Eq a => Eq b => Eq (Pair a b)
-instance Functor Maybe    instance Foldable Maybe
+instance Ord Bool         instance Ord Unit
+instance Ord Ordering     instance Ord a => Ord (Maybe a)
+instance Ord a => Ord b => Ord (Pair a b)
+instance Semigroup Unit   instance Semigroup Ordering
+instance Monoid Unit      instance Monoid Ordering
+instance Functor Maybe    instance Functor (Pair a)
+instance Foldable Maybe   instance Foldable (Pair a)
+instance Applicative Maybe
+instance Traversable Maybe  instance Traversable (Pair a)
 ```

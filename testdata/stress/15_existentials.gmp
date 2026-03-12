@@ -1,0 +1,42 @@
+-- Stress test 15: Existential types
+-- Tests existential packing/unpacking, constraint use, and scope safety.
+
+data SomeEq = { MkSomeEq :: forall a. Eq a => a -> SomeEq }
+data SomeOrd = { MkSomeOrd :: forall a. Eq a => Ord a => a -> a -> SomeOrd }
+data Wrapper a = { MkWrapper :: forall b. (b -> a) -> b -> Wrapper a }
+data ExistsPair = { MkEP :: forall a b. Eq a => Eq b => a -> b -> ExistsPair }
+
+-- Existential with Eq constraint: compare packed value with itself
+selfEq :: SomeEq -> Bool
+selfEq := \s -> case s of { MkSomeEq x -> eq x x }
+
+-- Existential with Ord constraint: compare two packed values
+ordResult :: SomeOrd -> Ordering
+ordResult := \s -> case s of { MkSomeOrd x y -> compare x y }
+
+-- Mixed universal/existential: apply hidden function
+applyWrapper :: Wrapper Bool -> Bool
+applyWrapper := \w -> case w of { MkWrapper f x -> f x }
+
+-- Existential pair with constraints
+epBothEq :: ExistsPair -> Bool
+epBothEq := \ep -> case ep of { MkEP a b -> case eq a a of { True -> eq b b; False -> False } }
+
+-- Chain existentials
+chainTest :: SomeEq -> SomeEq -> Bool
+chainTest := \s1 s2 ->
+  case s1 of { MkSomeEq x ->
+    case s2 of { MkSomeEq y -> True } }
+
+-- Pack different types
+packBool := MkSomeEq True
+packUnit := MkSomeEq Unit
+packPair := MkSomeEq (Pair True False)
+packOrd  := MkSomeOrd False True
+
+main := Pair (selfEq packBool)
+             (Pair (selfEq packUnit)
+                   (Pair (selfEq packPair)
+                         (Pair (ordResult packOrd)
+                               (Pair (applyWrapper (MkWrapper (\x -> x) True))
+                                     (chainTest packBool packUnit)))))

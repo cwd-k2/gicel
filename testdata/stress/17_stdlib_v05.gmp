@@ -1,0 +1,51 @@
+-- Stress test 17: v0.5 Stdlib expansion
+-- Tests Semigroup, Monoid, Applicative, Traversable, and Ord completion.
+
+-- Semigroup tests
+sgUnit := append Unit Unit
+sgOrdLT := append LT EQ
+sgOrdEQ := append EQ GT
+sgOrdGT := append GT LT
+
+-- Monoid tests
+mnUnit := (empty :: Unit)
+mnOrd  := (empty :: Ordering)
+
+-- Ord tests (Bool, Unit, Ordering, Maybe, Pair)
+ordBool1 := compare False True
+ordBool2 := compare True False
+ordBool3 := compare True True
+ordUnit  := compare Unit Unit
+ordOrdLT := compare LT EQ
+ordOrdGT := compare GT LT
+ordMaybe1 := compare (Nothing :: Maybe Bool) (Just True)
+ordMaybe2 := compare (Just False) (Just True)
+ordMaybe3 := compare (Just True) (Nothing :: Maybe Bool)
+ordPair1  := compare (Pair False True) (Pair False False)
+ordPair2  := compare (Pair True False) (Pair True True)
+
+-- Applicative tests
+appWrap := (wrap True :: Maybe Bool)
+appAp   := ap (Just (\x -> case x of { True -> False; False -> True })) (Just True)
+
+-- Traversable tests
+travMaybeJust := traverse (\x -> Just x) (Just True)
+travMaybeNothing := traverse (\x -> Just x) (Nothing :: Maybe Bool)
+
+-- Functor Pair
+fmapPair := fmap (\x -> case x of { True -> False; False -> True }) (Pair Unit True)
+
+-- Foldable Pair
+foldPair := foldr (\x acc -> x) False (Pair Unit True)
+
+-- Traversable Pair
+travPair := traverse (\x -> Just x) (Pair Unit True)
+
+main := Pair sgUnit
+             (Pair sgOrdLT
+                   (Pair ordBool1
+                         (Pair ordPair2
+                               (Pair appWrap
+                                     (Pair travMaybeJust
+                                           (Pair fmapPair
+                                                 (Pair foldPair mnOrd)))))))
