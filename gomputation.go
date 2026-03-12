@@ -252,46 +252,64 @@ func (e *Engine) NoPrelude() {
 	e.noPrelude = true
 }
 
-// Parse lexes and parses source code, returning the AST.
-// Useful for tooling and editor integration.
-func (e *Engine) Parse(source string) (*syntax.AstProgram, error) {
-	fullSource := source
-	if !e.noPrelude {
-		fullSource = prelude.Source + "\n" + source
+// ensurePrelude registers the prelude module if it hasn't been registered yet.
+func (e *Engine) ensurePrelude() {
+	if e.noPrelude {
+		return
 	}
-	src := span.NewSource("<input>", fullSource)
+	if _, exists := e.modules["Prelude"]; exists {
+		return
+	}
+	// Register prelude as an implicit module (errors are programming errors, so panic).
+	if err := e.RegisterModule("Prelude", prelude.Source); err != nil {
+		panic(fmt.Sprintf("failed to compile prelude: %v", err))
+	}
+}
+
+// parseSource lexes and parses source, adding implicit prelude import if needed.
+func (e *Engine) parseSource(source string) (*syntax.AstProgram, *span.Source, error) {
+	e.ensurePrelude()
+	src := span.NewSource("<input>", source)
 	l := syntax.NewLexer(src)
 	tokens, lexErrs := l.Tokenize()
 	if lexErrs.HasErrors() {
-		return nil, &CompileError{Errors: lexErrs}
+		return nil, nil, &CompileError{Errors: lexErrs}
 	}
 	parseErrs := &errs.Errors{Source: src}
 	p := syntax.NewParser(tokens, parseErrs)
 	ast := p.ParseProgram()
 	if parseErrs.HasErrors() {
-		return nil, &CompileError{Errors: parseErrs}
+		return nil, nil, &CompileError{Errors: parseErrs}
 	}
-	return ast, nil
+	// Inject implicit prelude import.
+	if !e.noPrelude {
+		hasPrelude := false
+		for _, imp := range ast.Imports {
+			if imp.ModuleName == "Prelude" {
+				hasPrelude = true
+				break
+			}
+		}
+		if !hasPrelude {
+			ast.Imports = append([]syntax.DeclImport{{ModuleName: "Prelude"}}, ast.Imports...)
+		}
+	}
+	return ast, src, nil
+}
+
+// Parse lexes and parses source code, returning the AST.
+// Useful for tooling and editor integration.
+func (e *Engine) Parse(source string) (*syntax.AstProgram, error) {
+	ast, _, err := e.parseSource(source)
+	return ast, err
 }
 
 // Check compiles and type-checks source code without creating a Runtime.
 // Returns the compiled Core IR program for inspection.
 func (e *Engine) Check(source string) (*core.Program, error) {
-	fullSource := source
-	if !e.noPrelude {
-		fullSource = prelude.Source + "\n" + source
-	}
-	src := span.NewSource("<input>", fullSource)
-	l := syntax.NewLexer(src)
-	tokens, lexErrs := l.Tokenize()
-	if lexErrs.HasErrors() {
-		return nil, &CompileError{Errors: lexErrs}
-	}
-	parseErrs := &errs.Errors{Source: src}
-	p := syntax.NewParser(tokens, parseErrs)
-	ast := p.ParseProgram()
-	if parseErrs.HasErrors() {
-		return nil, &CompileError{Errors: parseErrs}
+	ast, src, err := e.parseSource(source)
+	if err != nil {
+		return nil, err
 	}
 	prog, checkErrs := check.Check(ast, src, e.makeCheckConfig())
 	if checkErrs.HasErrors() {
@@ -302,25 +320,9 @@ func (e *Engine) Check(source string) (*core.Program, error) {
 
 // NewRuntime compiles source code into an immutable, goroutine-safe Runtime.
 func (e *Engine) NewRuntime(source string) (*Runtime, error) {
-	fullSource := source
-	if !e.noPrelude {
-		fullSource = prelude.Source + "\n" + source
-	}
-	src := span.NewSource("<input>", fullSource)
-
-	// Lex.
-	l := syntax.NewLexer(src)
-	tokens, lexErrs := l.Tokenize()
-	if lexErrs.HasErrors() {
-		return nil, &CompileError{Errors: lexErrs}
-	}
-
-	// Parse.
-	parseErrs := &errs.Errors{Source: src}
-	p := syntax.NewParser(tokens, parseErrs)
-	ast := p.ParseProgram()
-	if parseErrs.HasErrors() {
-		return nil, &CompileError{Errors: parseErrs}
+	ast, src, err := e.parseSource(source)
+	if err != nil {
+		return nil, err
 	}
 
 	// Type check.

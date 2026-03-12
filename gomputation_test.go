@@ -1561,6 +1561,44 @@ main := True
 	_ = err
 }
 
+func TestPreludeAsModule(t *testing.T) {
+	// Prelude is now loaded as an implicit module — Bool, Unit, etc. should be available.
+	eng := gmp.NewEngine()
+	rt, err := eng.NewRuntime(`main := True`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	con, ok := result.Value.(*gmp.ConVal)
+	if !ok || con.Con != "True" {
+		t.Errorf("expected True, got %s", result.Value)
+	}
+}
+
+func TestNoPreludeWithModules(t *testing.T) {
+	eng := gmp.NewEngine()
+	eng.NoPrelude()
+	// Without prelude, Bool is not defined — need to define it ourselves.
+	rt, err := eng.NewRuntime(`
+data MyBool = Yes | No
+main := Yes
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	con, ok := result.Value.(*gmp.ConVal)
+	if !ok || con.Con != "Yes" {
+		t.Errorf("expected Yes, got %s", result.Value)
+	}
+}
+
 func TestTypeHelpers(t *testing.T) {
 	// Con constructs a type constructor.
 	intTy := types.Con("Int")
