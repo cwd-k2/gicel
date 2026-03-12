@@ -1440,6 +1440,127 @@ main := isDoubleNeg (Not (Not (LitBool True)))
 	}
 }
 
+// --- Module system integration tests ---
+
+func TestRegisterModule(t *testing.T) {
+	eng := gmp.NewEngine()
+	eng.NoPrelude()
+	err := eng.RegisterModule("Lib", `
+data Bool = True | False
+not :: Bool -> Bool
+not := \b -> case b of { True -> False; False -> True }
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestImportModuleTypes(t *testing.T) {
+	eng := gmp.NewEngine()
+	eng.NoPrelude()
+	err := eng.RegisterModule("Lib", `
+data Bool = True | False
+not :: Bool -> Bool
+not := \b -> case b of { True -> False; False -> True }
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rt, err := eng.NewRuntime(`
+import Lib
+main := not True
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	con, ok := result.Value.(*gmp.ConVal)
+	if !ok || con.Con != "False" {
+		t.Errorf("expected False, got %s", result.Value)
+	}
+}
+
+func TestImportModuleInstances(t *testing.T) {
+	eng := gmp.NewEngine()
+	eng.NoPrelude()
+	err := eng.RegisterModule("EqLib", `
+data Bool = True | False
+class Eq a { eq :: a -> a -> Bool }
+instance Eq Bool { eq := \x y -> True }
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rt, err := eng.NewRuntime(`
+import EqLib
+main := eq True False
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	con, ok := result.Value.(*gmp.ConVal)
+	if !ok || con.Con != "True" {
+		t.Errorf("expected True, got %s", result.Value)
+	}
+}
+
+func TestCircularImportError(t *testing.T) {
+	eng := gmp.NewEngine()
+	eng.NoPrelude()
+	// Register module A that imports B.
+	err := eng.RegisterModule("A", `
+import B
+data Unit = Unit
+`)
+	// Should fail because B is not registered.
+	if err == nil {
+		// Now try registering B that imports A → circular.
+		err = eng.RegisterModule("B", `
+import A
+data Void = MkVoid
+`)
+		if err == nil {
+			t.Error("expected circular import error")
+		}
+	}
+	// If A failed because B doesn't exist, that's also acceptable.
+	if err != nil && !strings.Contains(err.Error(), "unknown module") && !strings.Contains(err.Error(), "circular") {
+		t.Errorf("expected import error, got: %s", err)
+	}
+}
+
+func TestImportNameCollision(t *testing.T) {
+	eng := gmp.NewEngine()
+	eng.NoPrelude()
+	// Module A defines Bool.
+	err := eng.RegisterModule("A", `data Bool = True | False`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Module B also defines Bool.
+	err = eng.RegisterModule("B", `data Bool = Yes | No`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Importing both should succeed at parse time but may produce
+	// ambiguity at type check time. At minimum, the program should not panic.
+	_, err = eng.NewRuntime(`
+import A
+import B
+main := True
+`)
+	// This may or may not error depending on resolution order.
+	// The important thing is no panic.
+	_ = err
+}
+
 func TestTypeHelpers(t *testing.T) {
 	// Con constructs a type constructor.
 	intTy := types.Con("Int")

@@ -47,6 +47,7 @@ const (
 	ErrBadClass        Code = 222 // invalid class declaration
 	ErrBadInstance     Code = 223 // invalid instance declaration
 	ErrMissingMethod   Code = 224 // missing method in instance
+	ErrImport          Code = 230 // module import error
 )
 
 // Phase indicates which compiler stage produced the error.

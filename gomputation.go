@@ -54,6 +54,13 @@ type Engine struct {
 	noPrelude      bool
 	traceHook      eval.TraceHook
 	checkTraceHook check.CheckTraceHook
+	modules        map[string]*compiledModule
+}
+
+type compiledModule struct {
+	prog    *core.Program
+	exports *check.ModuleExports
+	deps    []string
 }
 
 // NewEngine creates a new Engine with default limits.
@@ -66,6 +73,7 @@ func NewEngine() *Engine {
 		gatedBuiltins: make(map[string]bool),
 		stepLimit:     1_000_000,
 		depthLimit:    1_000,
+		modules:       make(map[string]*compiledModule),
 	}
 }
 
@@ -152,6 +160,93 @@ func (e *CompileError) Diagnostics() []Diagnostic {
 	return diags
 }
 
+// RegisterModule compiles a module and makes it available for import.
+// Circular dependencies are detected and rejected.
+func (e *Engine) RegisterModule(name, source string) error {
+	// Circular dependency check.
+	if _, exists := e.modules[name]; exists {
+		return fmt.Errorf("module %s already registered", name)
+	}
+
+	src := span.NewSource(name, source)
+	l := syntax.NewLexer(src)
+	tokens, lexErrs := l.Tokenize()
+	if lexErrs.HasErrors() {
+		return &CompileError{Errors: lexErrs}
+	}
+	parseErrs := &errs.Errors{Source: src}
+	p := syntax.NewParser(tokens, parseErrs)
+	ast := p.ParseProgram()
+	if parseErrs.HasErrors() {
+		return &CompileError{Errors: parseErrs}
+	}
+
+	// Collect dependencies.
+	var deps []string
+	for _, imp := range ast.Imports {
+		deps = append(deps, imp.ModuleName)
+	}
+
+	// Circular dependency detection.
+	if err := e.checkCircularDeps(name, deps); err != nil {
+		return err
+	}
+
+	config := e.makeCheckConfig()
+	prog, exports, checkErrs := check.CheckModule(ast, src, config)
+	if checkErrs.HasErrors() {
+		return &CompileError{Errors: checkErrs}
+	}
+
+	e.modules[name] = &compiledModule{
+		prog:    prog,
+		exports: exports,
+		deps:    deps,
+	}
+	return nil
+}
+
+func (e *Engine) checkCircularDeps(name string, deps []string) error {
+	visited := map[string]bool{name: true}
+	var walk func(modName string) error
+	walk = func(modName string) error {
+		if visited[modName] {
+			return fmt.Errorf("circular module dependency involving %s", modName)
+		}
+		visited[modName] = true
+		if mod, ok := e.modules[modName]; ok {
+			for _, dep := range mod.deps {
+				if err := walk(dep); err != nil {
+					return err
+				}
+			}
+		}
+		visited[modName] = false
+		return nil
+	}
+	for _, dep := range deps {
+		if err := walk(dep); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (e *Engine) makeCheckConfig() *check.CheckConfig {
+	imported := make(map[string]*check.ModuleExports, len(e.modules))
+	for name, mod := range e.modules {
+		imported[name] = mod.exports
+	}
+	return &check.CheckConfig{
+		RegisteredTypes: copyKindMap(e.registeredTys),
+		Assumptions:     copyTypeMap(e.assumptions),
+		Bindings:        copyTypeMap(e.bindings),
+		GatedBuiltins:   copyBoolMap(e.gatedBuiltins),
+		Trace:           e.checkTraceHook,
+		ImportedModules: imported,
+	}
+}
+
 // NoPrelude disables automatic prelude inclusion.
 func (e *Engine) NoPrelude() {
 	e.noPrelude = true
@@ -198,14 +293,7 @@ func (e *Engine) Check(source string) (*core.Program, error) {
 	if parseErrs.HasErrors() {
 		return nil, &CompileError{Errors: parseErrs}
 	}
-	config := &check.CheckConfig{
-		RegisteredTypes: copyKindMap(e.registeredTys),
-		Assumptions:     copyTypeMap(e.assumptions),
-		Bindings:        copyTypeMap(e.bindings),
-		GatedBuiltins:   copyBoolMap(e.gatedBuiltins),
-		Trace:           e.checkTraceHook,
-	}
-	prog, checkErrs := check.Check(ast, src, config)
+	prog, checkErrs := check.Check(ast, src, e.makeCheckConfig())
 	if checkErrs.HasErrors() {
 		return nil, &CompileError{Errors: checkErrs}
 	}
@@ -236,16 +324,15 @@ func (e *Engine) NewRuntime(source string) (*Runtime, error) {
 	}
 
 	// Type check.
-	config := &check.CheckConfig{
-		RegisteredTypes: copyKindMap(e.registeredTys),
-		Assumptions:     copyTypeMap(e.assumptions),
-		Bindings:        copyTypeMap(e.bindings),
-		GatedBuiltins:   copyBoolMap(e.gatedBuiltins),
-		Trace:           e.checkTraceHook,
-	}
-	prog, checkErrs := check.Check(ast, src, config)
+	prog, checkErrs := check.Check(ast, src, e.makeCheckConfig())
 	if checkErrs.HasErrors() {
 		return nil, &CompileError{Errors: checkErrs}
+	}
+
+	// Collect module programs for runtime constructor/binding registration.
+	var modProgs []*core.Program
+	for _, mod := range e.modules {
+		modProgs = append(modProgs, mod.prog)
 	}
 
 	return &Runtime{
@@ -256,6 +343,7 @@ func (e *Engine) NewRuntime(source string) (*Runtime, error) {
 		traceHook:     e.traceHook,
 		bindings:      copyTypeMap(e.bindings),
 		gatedBuiltins: copyBoolMap(e.gatedBuiltins),
+		moduleProgs:   modProgs,
 	}, nil
 }
 
@@ -269,6 +357,7 @@ type Runtime struct {
 	traceHook     eval.TraceHook
 	bindings      map[string]types.Type
 	gatedBuiltins map[string]bool
+	moduleProgs   []*core.Program
 }
 
 // Program returns the compiled Core IR for debugging/inspection.
@@ -358,7 +447,16 @@ func (r *Runtime) buildEnv(bindings map[string]Value) (*eval.Env, error) {
 		})
 	}
 
-	// Constructors.
+	// Constructors from imported modules.
+	for _, modProg := range r.moduleProgs {
+		for _, d := range modProg.DataDecls {
+			for _, con := range d.Cons {
+				env = env.Extend(con.Name, &eval.ConVal{Con: con.Name})
+			}
+		}
+	}
+
+	// Constructors from main program.
 	for _, d := range r.prog.DataDecls {
 		for _, con := range d.Cons {
 			env = env.Extend(con.Name, &eval.ConVal{Con: con.Name})
@@ -372,6 +470,25 @@ func (r *Runtime) run(ctx context.Context, caps map[string]any, bindings map[str
 	env, err := r.buildEnv(bindings)
 	if err != nil {
 		return eval.EvalResult{}, EvalStats{}, err
+	}
+
+	// Evaluate module bindings first (in registration order).
+	for _, modProg := range r.moduleProgs {
+		modCells := make(map[string]*eval.IndirectVal)
+		for _, b := range modProg.Bindings {
+			cell := &eval.IndirectVal{}
+			modCells[b.Name] = cell
+			env = env.Extend(b.Name, cell)
+		}
+		for _, b := range modProg.Bindings {
+			ev := eval.NewEvaluator(ctx, r.prims, eval.NewLimit(r.stepLimit, r.depthLimit), r.traceHook)
+			result, err := ev.Eval(env, eval.NewCapEnv(nil), b.Expr)
+			if err != nil {
+				return eval.EvalResult{}, EvalStats{}, fmt.Errorf("evaluating module binding %s: %w", b.Name, err)
+			}
+			v := result.Value
+			modCells[b.Name].Ref = &v
+		}
 	}
 
 	// Pre-populate env with forward-reference cells for all non-entry bindings.
