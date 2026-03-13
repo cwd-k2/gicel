@@ -30,11 +30,29 @@ type KArrow struct {
 	To   Kind
 }
 
+// KMeta is a kind metavariable for kind inference/unification.
+type KMeta struct {
+	ID int
+}
+
+// KVar is a kind variable introduced by explicit kind annotation in forall binders.
+// e.g., forall (k : Kind). forall (f : k -> Type). ...
+type KVar struct {
+	Name string
+}
+
+// KSort is the sort of kinds — the kind of kinds.
+// Used in forall binders: forall (k : Kind). ...
+type KSort struct{}
+
 func (KType) kindNode()       {}
 func (KRow) kindNode()        {}
 func (KConstraint) kindNode() {}
 func (KData) kindNode()       {}
 func (*KArrow) kindNode()     {}
+func (*KMeta) kindNode()      {}
+func (KVar) kindNode()        {}
+func (KSort) kindNode()       {}
 
 func (KType) Equal(other Kind) bool {
 	_, ok := other.(KType)
@@ -64,6 +82,21 @@ func (k *KArrow) Equal(other Kind) bool {
 	return k.From.Equal(o.From) && k.To.Equal(o.To)
 }
 
+func (k *KMeta) Equal(other Kind) bool {
+	o, ok := other.(*KMeta)
+	return ok && k.ID == o.ID
+}
+
+func (k KVar) Equal(other Kind) bool {
+	o, ok := other.(KVar)
+	return ok && k.Name == o.Name
+}
+
+func (KSort) Equal(other Kind) bool {
+	_, ok := other.(KSort)
+	return ok
+}
+
 func (KType) String() string       { return "Type" }
 func (KRow) String() string        { return "Row" }
 func (KConstraint) String() string { return "Constraint" }
@@ -74,6 +107,30 @@ func (k *KArrow) String() string {
 		from = "(" + from + ")"
 	}
 	return fmt.Sprintf("%s -> %s", from, k.To.String())
+}
+
+func (k *KMeta) String() string { return fmt.Sprintf("?k%d", k.ID) }
+func (k KVar) String() string   { return k.Name }
+func (KSort) String() string    { return "Kind" }
+
+// KindSubst substitutes [varName := replacement] in a kind.
+func KindSubst(k Kind, varName string, replacement Kind) Kind {
+	switch kk := k.(type) {
+	case KVar:
+		if kk.Name == varName {
+			return replacement
+		}
+		return kk
+	case *KArrow:
+		newFrom := KindSubst(kk.From, varName, replacement)
+		newTo := KindSubst(kk.To, varName, replacement)
+		if newFrom == kk.From && newTo == kk.To {
+			return kk
+		}
+		return &KArrow{From: newFrom, To: newTo}
+	default:
+		return k
+	}
 }
 
 // Arity returns the number of arguments a kind accepts.
