@@ -101,16 +101,18 @@ func equalAlpha(a, b Type, bindings []alphaBinding) bool {
 			if !ok {
 				return false
 			}
-			an := Normalize(&TyRow{Fields: aEntries.Fields, Tail: at.Tail})
-			bn := Normalize(&TyRow{Fields: bEntries.Fields, Tail: bt.Tail})
-			if len(an.Fields) != len(bn.Fields) {
+			an := EvNormalize(&TyEvidenceRow{Entries: aEntries, Tail: at.Tail})
+			bn := EvNormalize(&TyEvidenceRow{Entries: bEntries, Tail: bt.Tail})
+			aFields := an.CapFields()
+			bFields := bn.CapFields()
+			if len(aFields) != len(bFields) {
 				return false
 			}
-			for i := range an.Fields {
-				if an.Fields[i].Label != bn.Fields[i].Label {
+			for i := range aFields {
+				if aFields[i].Label != bFields[i].Label {
 					return false
 				}
-				if !equalAlpha(an.Fields[i].Type, bn.Fields[i].Type, bindings) {
+				if !equalAlpha(aFields[i].Type, bFields[i].Type, bindings) {
 					return false
 				}
 			}
@@ -126,13 +128,15 @@ func equalAlpha(a, b Type, bindings []alphaBinding) bool {
 			if !ok {
 				return false
 			}
-			an := NormalizeConstraints(&TyConstraintRow{Entries: aEntries.Entries, Tail: at.Tail})
-			bn := NormalizeConstraints(&TyConstraintRow{Entries: bEntries.Entries, Tail: bt.Tail})
-			if len(an.Entries) != len(bn.Entries) {
+			an := EvNormalizeConstraintEntries(&TyEvidenceRow{Entries: aEntries, Tail: at.Tail})
+			bn := EvNormalizeConstraintEntries(&TyEvidenceRow{Entries: bEntries, Tail: bt.Tail})
+			aCons := an.ConEntries()
+			bCons := bn.ConEntries()
+			if len(aCons) != len(bCons) {
 				return false
 			}
-			for i := range an.Entries {
-				if !equalConstraintEntry(an.Entries[i], bn.Entries[i], bindings) {
+			for i := range aCons {
+				if !equalConstraintEntry(aCons[i], bCons[i], bindings) {
 					return false
 				}
 			}
