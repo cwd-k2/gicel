@@ -95,6 +95,27 @@ func (ch *Checker) processInstanceHeader(d *syntax.DeclInstance) *InstanceInfo {
 		DictBindName: dictName,
 		S:            d.S,
 	}
+
+	// Overlap check: verify no existing local instance for this class matches the same types.
+	// Imported instances are excluded: user source is allowed to shadow module instances.
+	for _, existing := range ch.instancesByClass[d.ClassName] {
+		if existing == inst {
+			continue // same pointer (re-exported via module)
+		}
+		if ch.importedInstances[existing] {
+			continue // imported from a module; shadowing is allowed
+		}
+		if len(existing.TypeArgs) != len(typeArgs) {
+			continue
+		}
+		if ch.instancesOverlap(existing, inst) {
+			ch.addCodedError(errs.ErrOverlap, d.S,
+				fmt.Sprintf("overlapping instances for class %s: %s and %s",
+					d.ClassName, existing.DictBindName, dictName))
+			break
+		}
+	}
+
 	ch.instances = append(ch.instances, inst)
 	ch.instancesByClass[inst.ClassName] = append(ch.instancesByClass[inst.ClassName], inst)
 	return inst
@@ -226,6 +247,39 @@ func typeNameForDict(ty types.Type) string {
 		return ""
 	}
 	return strings.Join(parts, "$")
+}
+
+// instancesOverlap checks if two instances can match the same type arguments
+// using trial unification with fresh metavariables. The unifier state is saved
+// and restored so no side effects persist.
+func (ch *Checker) instancesOverlap(a, b *InstanceInfo) bool {
+	// Save unifier state.
+	savedSoln := make(map[int]types.Type)
+	for k, v := range ch.unifier.Solutions() {
+		savedSoln[k] = v
+	}
+	defer func() {
+		// Roll back unification changes.
+		for k := range ch.unifier.Solutions() {
+			if _, existed := savedSoln[k]; !existed {
+				delete(ch.unifier.Solutions(), k)
+			}
+		}
+		for k, v := range savedSoln {
+			ch.unifier.Solutions()[k] = v
+		}
+	}()
+
+	substA := ch.freshInstanceSubst(a)
+	substB := ch.freshInstanceSubst(b)
+	for i := range a.TypeArgs {
+		argA := types.SubstMany(a.TypeArgs[i], substA)
+		argB := types.SubstMany(b.TypeArgs[i], substB)
+		if err := ch.unifier.Unify(argA, argB); err != nil {
+			return false
+		}
+	}
+	return true
 }
 
 // aliasParamKind returns the kind of the i-th parameter of a type alias.

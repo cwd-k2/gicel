@@ -887,6 +887,60 @@ f := \t -> case t of { _ -> MkVoid }`
 	checkSource(t, source, nil)
 }
 
+// checkSourceExpectCode parses and type-checks source, expecting at least one error
+// with the given error code. Returns the formatted error string.
+func checkSourceExpectCode(t *testing.T, source string, config *CheckConfig, code errs.Code) string {
+	t.Helper()
+	src := span.NewSource("test", source)
+	l := syntax.NewLexer(src)
+	tokens, lexErrs := l.Tokenize()
+	if lexErrs.HasErrors() {
+		t.Fatal("lex errors:", lexErrs.Format())
+	}
+	es := &errs.Errors{Source: src}
+	p := syntax.NewParser(tokens, es)
+	ast := p.ParseProgram()
+	if es.HasErrors() {
+		t.Fatal("parse errors:", es.Format())
+	}
+	_, checkErrs := Check(ast, src, config)
+	if !checkErrs.HasErrors() {
+		t.Fatal("expected check errors, got none")
+	}
+	found := false
+	for _, e := range checkErrs.Errs {
+		if e.Code == code {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Errorf("expected error code E%04d, got: %s", code, checkErrs.Format())
+	}
+	return checkErrs.Format()
+}
+
+func TestOverlappingInstances(t *testing.T) {
+	// Two instances of Eq for the same type should trigger ErrOverlap.
+	source := `data Bool = True | False
+class Eq a { eq :: a -> a -> Bool }
+instance Eq Bool { eq := \x y -> case x of { True -> y; False -> case y of { True -> False; False -> True } } }
+instance Eq Bool { eq := \x y -> True }
+main := eq True False`
+	checkSourceExpectCode(t, source, nil, errs.ErrOverlap)
+}
+
+func TestNonOverlappingInstances(t *testing.T) {
+	// Instances for different types should not overlap.
+	source := `data Bool = True | False
+data Unit = Unit
+class Eq a { eq :: a -> a -> Bool }
+instance Eq Bool { eq := \x y -> case x of { True -> y; False -> case y of { True -> False; False -> True } } }
+instance Eq Unit { eq := \_ _ -> True }
+main := eq True False`
+	checkSource(t, source, nil)
+}
+
 func BenchmarkZonkDeepChain(b *testing.B) {
 	u := NewUnifier()
 	// Build a deep TyApp chain with no metavariables.

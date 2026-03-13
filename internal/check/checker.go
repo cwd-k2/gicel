@@ -70,8 +70,9 @@ type Checker struct {
 	conInfo          map[string]*DataTypeInfo
 	aliases          map[string]*aliasInfo
 	classes          map[string]*ClassInfo
-	instances        []*InstanceInfo
-	instancesByClass map[string][]*InstanceInfo
+	instances          []*InstanceInfo
+	instancesByClass   map[string][]*InstanceInfo
+	importedInstances  map[*InstanceInfo]bool
 	promotedKinds    map[string]types.Kind // DataKinds: data name → KData
 	promotedCons     map[string]types.Kind // DataKinds: nullary con → KData
 	deferred         []deferredConstraint
@@ -114,17 +115,18 @@ func Check(prog *syntax.AstProgram, source *span.Source, config *CheckConfig) (*
 		config = &CheckConfig{}
 	}
 	ch := &Checker{
-		ctx:              NewContext(),
-		errors:           &errs.Errors{Source: source},
-		source:           source,
-		config:           config,
-		conTypes:         make(map[string]types.Type),
-		conInfo:          make(map[string]*DataTypeInfo),
-		aliases:          make(map[string]*aliasInfo),
-		classes:          make(map[string]*ClassInfo),
-		instancesByClass: make(map[string][]*InstanceInfo),
-		promotedKinds:    make(map[string]types.Kind),
-		promotedCons:     make(map[string]types.Kind),
+		ctx:               NewContext(),
+		errors:            &errs.Errors{Source: source},
+		source:            source,
+		config:            config,
+		conTypes:          make(map[string]types.Type),
+		conInfo:           make(map[string]*DataTypeInfo),
+		aliases:           make(map[string]*aliasInfo),
+		classes:           make(map[string]*ClassInfo),
+		instancesByClass:  make(map[string][]*InstanceInfo),
+		importedInstances: make(map[*InstanceInfo]bool),
+		promotedKinds:     make(map[string]types.Kind),
+		promotedCons:      make(map[string]types.Kind),
 	}
 	ch.unifier = NewUnifierShared(&ch.freshID)
 	ch.initContext()
@@ -139,17 +141,18 @@ func CheckModule(prog *syntax.AstProgram, source *span.Source, config *CheckConf
 		config = &CheckConfig{}
 	}
 	ch := &Checker{
-		ctx:              NewContext(),
-		errors:           &errs.Errors{Source: source},
-		source:           source,
-		config:           config,
-		conTypes:         make(map[string]types.Type),
-		conInfo:          make(map[string]*DataTypeInfo),
-		aliases:          make(map[string]*aliasInfo),
-		classes:          make(map[string]*ClassInfo),
-		instancesByClass: make(map[string][]*InstanceInfo),
-		promotedKinds:    make(map[string]types.Kind),
-		promotedCons:     make(map[string]types.Kind),
+		ctx:               NewContext(),
+		errors:            &errs.Errors{Source: source},
+		source:            source,
+		config:            config,
+		conTypes:          make(map[string]types.Type),
+		conInfo:           make(map[string]*DataTypeInfo),
+		aliases:           make(map[string]*aliasInfo),
+		classes:           make(map[string]*ClassInfo),
+		instancesByClass:  make(map[string][]*InstanceInfo),
+		importedInstances: make(map[*InstanceInfo]bool),
+		promotedKinds:     make(map[string]types.Kind),
+		promotedCons:      make(map[string]types.Kind),
 	}
 	ch.unifier = NewUnifierShared(&ch.freshID)
 	ch.initContext()
@@ -194,6 +197,7 @@ func (ch *Checker) importModules(imports []syntax.DeclImport) {
 		for _, inst := range mod.Instances {
 			ch.instances = append(ch.instances, inst)
 			ch.instancesByClass[inst.ClassName] = append(ch.instancesByClass[inst.ClassName], inst)
+			ch.importedInstances[inst] = true
 		}
 		for name, ty := range mod.Values {
 			ch.ctx.Push(&CtxVar{Name: name, Type: ty})
