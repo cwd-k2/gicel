@@ -8,7 +8,6 @@ import (
 	"time"
 
 	gmp "github.com/cwd-k2/gomputation"
-	"github.com/cwd-k2/gomputation/internal/types"
 )
 
 func TestIdentity(t *testing.T) {
@@ -2171,46 +2170,46 @@ main := Yes
 }
 
 func TestTypeHelpers(t *testing.T) {
-	// Con constructs a type constructor.
-	intTy := gmp.ConType("Int").(*types.TyCon)
-	if intTy.Name != "Int" {
-		t.Errorf("expected Con name Int, got %s", intTy.Name)
+	// ConType constructs a type constructor.
+	intTy := gmp.ConType("Int")
+	if gmp.TypePretty(intTy) != "Int" {
+		t.Errorf("expected Int, got %s", gmp.TypePretty(intTy))
 	}
 
-	// MkArrow constructs a function type.
-	arrTy := gmp.ArrowType(gmp.ConType("Bool"), gmp.ConType("Bool")).(*types.TyArrow)
-	if arrTy.From.(*types.TyCon).Name != "Bool" {
-		t.Errorf("expected arrow from Bool, got %v", arrTy.From)
+	// ArrowType constructs a function type.
+	arrTy := gmp.ArrowType(gmp.ConType("Bool"), gmp.ConType("Bool"))
+	if got := gmp.TypePretty(arrTy); got != "Bool -> Bool" {
+		t.Errorf("expected Bool -> Bool, got %s", got)
 	}
 
-	// EmptyRow constructs an empty row.
-	row := types.EmptyRow()
-	if len(row.Fields) != 0 {
-		t.Errorf("expected empty row, got %d fields", len(row.Fields))
+	// EmptyRowType constructs an empty row.
+	row := gmp.EmptyRowType()
+	if gmp.TypePretty(row) != "{}" {
+		t.Errorf("expected {}, got %s", gmp.TypePretty(row))
 	}
 
-	// ClosedRow constructs a row with fields.
-	row2 := types.ClosedRow(types.RowField{Label: "x", Type: gmp.ConType("Int")})
-	if len(row2.Fields) != 1 || row2.Fields[0].Label != "x" {
-		t.Errorf("expected row with field x, got %v", row2)
+	// ClosedRowType constructs a row with fields.
+	row2 := gmp.ClosedRowType(gmp.RowField{Label: "x", Type: gmp.ConType("Int")})
+	if got := gmp.TypePretty(row2); !strings.Contains(got, "x") {
+		t.Errorf("expected row with field x, got %s", got)
 	}
 
-	// MkForall constructs a quantified type.
-	forallTy := types.MkForall("a", gmp.KindType(), gmp.ArrowType(types.Var("a"), types.Var("a")))
-	if forallTy.Var != "a" {
-		t.Errorf("expected forall var a, got %s", forallTy.Var)
+	// ForallType constructs a quantified type.
+	forallTy := gmp.ForallType("a", gmp.ArrowType(gmp.VarType("a"), gmp.VarType("a")))
+	if got := gmp.TypePretty(forallTy); !strings.Contains(got, "forall") {
+		t.Errorf("expected forall in pretty, got %s", got)
 	}
 
-	// MkComp constructs a computation type.
-	compTy := types.MkComp(types.EmptyRow(), types.EmptyRow(), gmp.ConType("Unit"))
-	if compTy.Result.(*types.TyCon).Name != "Unit" {
-		t.Errorf("expected Computation result Unit, got %v", compTy.Result)
+	// CompType constructs a computation type.
+	compTy := gmp.CompType(gmp.EmptyRowType(), gmp.EmptyRowType(), gmp.ConType("Unit"))
+	if got := gmp.TypePretty(compTy); !strings.Contains(got, "Unit") {
+		t.Errorf("expected Unit in computation type, got %s", got)
 	}
 
-	// Var constructs a type variable.
-	tv := types.Var("a")
-	if tv.Name != "a" {
-		t.Errorf("expected type var a, got %s", tv.Name)
+	// VarType constructs a type variable.
+	tv := gmp.VarType("a")
+	if gmp.TypePretty(tv) != "a" {
+		t.Errorf("expected a, got %s", gmp.TypePretty(tv))
 	}
 
 	// Kind helpers.
@@ -2218,13 +2217,21 @@ func TestTypeHelpers(t *testing.T) {
 	if !k.Equal(gmp.KindType()) {
 		t.Errorf("KType should equal KType")
 	}
-	kr := types.KRow{}
+	kr := gmp.KindRow()
 	if kr.Equal(gmp.KindType()) {
 		t.Errorf("KRow should not equal KType")
 	}
-	ka := &types.KArrow{From: gmp.KindType(), To: gmp.KindType()}
-	if !ka.Equal(&types.KArrow{From: gmp.KindType(), To: gmp.KindType()}) {
+	ka := gmp.KindArrow(gmp.KindType(), gmp.KindType())
+	if !ka.Equal(gmp.KindArrow(gmp.KindType(), gmp.KindType())) {
 		t.Errorf("KArrow(Type,Type) should equal itself")
+	}
+
+	// TypeEqual
+	if !gmp.TypeEqual(gmp.ConType("Int"), gmp.ConType("Int")) {
+		t.Errorf("Int should equal Int")
+	}
+	if gmp.TypeEqual(gmp.ConType("Int"), gmp.ConType("Bool")) {
+		t.Errorf("Int should not equal Bool")
 	}
 }
 
@@ -2233,18 +2240,6 @@ func TestTypeHelpers(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 // --- Phase 1: Skolem Infrastructure ---
-
-func TestTySkolemEquality(t *testing.T) {
-	s1 := &types.TySkolem{ID: 1, Name: "a", Kind: gmp.KindType()}
-	s2 := &types.TySkolem{ID: 1, Name: "a", Kind: gmp.KindType()}
-	s3 := &types.TySkolem{ID: 2, Name: "b", Kind: gmp.KindType()}
-	if !types.Equal(s1, s2) {
-		t.Error("same-ID skolems should be equal")
-	}
-	if types.Equal(s1, s3) {
-		t.Error("different-ID skolems should not be equal")
-	}
-}
 
 func TestUnifySkolemRigid(t *testing.T) {
 	eng := gmp.NewEngine()
@@ -2271,14 +2266,6 @@ useIt := \s -> case s of { MkSame x y -> True }
 	}
 }
 
-func TestZonkSkolem(t *testing.T) {
-	// TySkolem should survive Zonk unchanged (identity)
-	s := &types.TySkolem{ID: 99, Name: "z", Kind: gmp.KindType()}
-	pretty := types.Pretty(s)
-	if pretty != "#z" {
-		t.Errorf("expected #z, got %s", pretty)
-	}
-}
 
 // --- Phase 1B: Skolem Escape Check ---
 
@@ -2958,5 +2945,84 @@ main := myConst
 	}
 	if hv := gmp.MustHost[int64](result.Value); hv != 999 {
 		t.Errorf("expected 999, got %d", hv)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// v0.6.1 Tests: API Surface Repair
+// ---------------------------------------------------------------------------
+
+func TestSetTraceHookPublicAPI(t *testing.T) {
+	eng := gmp.NewEngine()
+	var events []gmp.TraceEvent
+	eng.SetTraceHook(func(e gmp.TraceEvent) error {
+		events = append(events, e)
+		return nil
+	})
+	rt, err := eng.NewRuntime(`main := True`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = rt.RunContext(context.Background(), nil, nil, "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(events) == 0 {
+		t.Error("expected at least one trace event")
+	}
+}
+
+func TestSetCheckTraceHookPublicAPI(t *testing.T) {
+	eng := gmp.NewEngine()
+	var events []gmp.CheckTraceEvent
+	eng.SetCheckTraceHook(func(e gmp.CheckTraceEvent) {
+		events = append(events, e)
+	})
+	_, err := eng.Check(`main := True`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(events) == 0 {
+		t.Error("expected at least one check trace event")
+	}
+}
+
+func TestParseReturnsOpaque(t *testing.T) {
+	eng := gmp.NewEngine()
+	parsed, err := eng.Parse(`main := True`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if parsed == nil {
+		t.Error("expected non-nil ParsedProgram")
+	}
+}
+
+func TestCheckReturnsOpaque(t *testing.T) {
+	eng := gmp.NewEngine()
+	core, err := eng.Check(`main := True`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if core == nil {
+		t.Fatal("expected non-nil CoreProgram")
+	}
+	if core.Pretty() == "" {
+		t.Error("expected non-empty Pretty output")
+	}
+}
+
+func TestProgramOpaque(t *testing.T) {
+	eng := gmp.NewEngine()
+	rt, err := eng.NewRuntime(`main := True`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	prog := rt.Program()
+	if prog == nil {
+		t.Fatal("expected non-nil CoreProgram from Runtime.Program()")
+	}
+	if prog.Pretty() == "" {
+		t.Error("expected non-empty Pretty output from Runtime.Program()")
 	}
 }

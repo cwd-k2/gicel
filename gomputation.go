@@ -42,6 +42,21 @@ type PrimImpl = eval.PrimImpl
 // EvalStats holds post-evaluation statistics.
 type EvalStats = eval.EvalStats
 
+// TraceEvent describes one evaluation step.
+type TraceEvent = eval.TraceEvent
+
+// TraceHook is called before each evaluation step.
+type TraceHook = eval.TraceHook
+
+// CheckTraceKind classifies type checking trace events.
+type CheckTraceKind = check.CheckTraceKind
+
+// CheckTraceEvent describes one type checking decision.
+type CheckTraceEvent = check.CheckTraceEvent
+
+// CheckTraceHook receives trace events during type checking.
+type CheckTraceHook = check.CheckTraceHook
+
 // Stdlib re-exports — users import only the root package.
 
 // Num provides integer arithmetic: Num class, Eq/Ord Int instances, and operators.
@@ -358,16 +373,28 @@ func (e *Engine) parseSource(source string) (*syntax.AstProgram, *span.Source, e
 	return ast, src, nil
 }
 
-// Parse lexes and parses source code, returning the AST.
+// ParsedProgram is an opaque parsed program for inspection.
+type ParsedProgram struct{ prog *syntax.AstProgram }
+
+// CoreProgram is an opaque compiled Core IR for inspection.
+type CoreProgram struct{ prog *core.Program }
+
+// Pretty returns a human-readable representation of the Core IR.
+func (c *CoreProgram) Pretty() string { return core.PrettyProgram(c.prog) }
+
+// Parse lexes and parses source code, returning an opaque parsed program.
 // Useful for tooling and editor integration.
-func (e *Engine) Parse(source string) (*syntax.AstProgram, error) {
+func (e *Engine) Parse(source string) (*ParsedProgram, error) {
 	ast, _, err := e.parseSource(source)
-	return ast, err
+	if err != nil {
+		return nil, err
+	}
+	return &ParsedProgram{prog: ast}, nil
 }
 
 // Check compiles and type-checks source code without creating a Runtime.
 // Returns the compiled Core IR program for inspection.
-func (e *Engine) Check(source string) (*core.Program, error) {
+func (e *Engine) Check(source string) (*CoreProgram, error) {
 	ast, src, err := e.parseSource(source)
 	if err != nil {
 		return nil, err
@@ -376,7 +403,7 @@ func (e *Engine) Check(source string) (*core.Program, error) {
 	if checkErrs.HasErrors() {
 		return nil, &CompileError{Errors: checkErrs}
 	}
-	return prog, nil
+	return &CoreProgram{prog: prog}, nil
 }
 
 // NewRuntime compiles source code into an immutable, goroutine-safe Runtime.
@@ -424,8 +451,8 @@ type Runtime struct {
 }
 
 // Program returns the compiled Core IR for debugging/inspection.
-func (r *Runtime) Program() *core.Program {
-	return r.prog
+func (r *Runtime) Program() *CoreProgram {
+	return &CoreProgram{prog: r.prog}
 }
 
 // PrettyProgram returns a human-readable representation of the Core IR.

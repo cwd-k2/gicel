@@ -284,6 +284,28 @@ func TestTyQualFreeVars(t *testing.T) {
 	}
 }
 
+// --- Skolem ---
+
+func TestTySkolemEquality(t *testing.T) {
+	s1 := &TySkolem{ID: 1, Name: "a", Kind: KType{}}
+	s2 := &TySkolem{ID: 1, Name: "a", Kind: KType{}}
+	s3 := &TySkolem{ID: 2, Name: "b", Kind: KType{}}
+	if !Equal(s1, s2) {
+		t.Error("same-ID skolems should be equal")
+	}
+	if Equal(s1, s3) {
+		t.Error("different-ID skolems should not be equal")
+	}
+}
+
+func TestZonkSkolem(t *testing.T) {
+	s := &TySkolem{ID: 99, Name: "z", Kind: KType{}}
+	pretty := Pretty(s)
+	if pretty != "#z" {
+		t.Errorf("expected #z, got %s", pretty)
+	}
+}
+
 // --- Pretty Printing ---
 
 func TestPretty(t *testing.T) {

@@ -2,6 +2,15 @@ package gomputation
 
 import "github.com/cwd-k2/gomputation/internal/types"
 
+// Type is the unified type representation used across the public API.
+type Type = types.Type
+
+// Kind classifies types and rows.
+type Kind = types.Kind
+
+// RowField is a single label:type pair in a row.
+type RowField = types.RowField
+
 // Type construction helpers for use with DeclareBinding and DeclareAssumption.
 // These wrap internal/types constructors for convenience.
 
@@ -85,4 +94,29 @@ func KindRow() types.Kind {
 // EmptyRowType creates an empty closed row type.
 func EmptyRowType() types.Type {
 	return types.EmptyRow()
+}
+
+// KindArrow creates a kind arrow: from -> to.
+func KindArrow(from, to types.Kind) types.Kind {
+	return &types.KArrow{From: from, To: to}
+}
+
+// ForallKind creates a universally quantified type with explicit kind.
+func ForallKind(name string, k types.Kind, body types.Type) types.Type {
+	return types.MkForall(name, k, body)
+}
+
+// ClosedRowType creates a closed row type from fields.
+func ClosedRowType(fields ...types.RowField) types.Type {
+	return types.ClosedRow(fields...)
+}
+
+// TypeEqual compares two types for structural equality.
+func TypeEqual(a, b types.Type) bool {
+	return types.Equal(a, b)
+}
+
+// TypePretty returns a human-readable representation of a type.
+func TypePretty(t types.Type) string {
+	return types.Pretty(t)
 }
