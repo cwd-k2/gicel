@@ -1396,3 +1396,112 @@ func TestParseDeepNestedDo(t *testing.T) {
 		t.Fatal("expected depth limit error for deeply nested do blocks")
 	}
 }
+
+func TestParseGADTStallGuard(t *testing.T) {
+	// Malformed GADT body with unrecognizable tokens — must not hang.
+	_, es := parse("data Foo where { = }")
+	if !es.HasErrors() {
+		t.Fatal("expected parse errors for invalid GADT body")
+	}
+}
+
+func TestParseClassStallGuard(t *testing.T) {
+	// Malformed class body — must not hang.
+	_, es := parse("class Foo a { = }")
+	if !es.HasErrors() {
+		t.Fatal("expected parse errors for invalid class body")
+	}
+}
+
+func TestParseDeepNestedTypes(t *testing.T) {
+	// Deeply nested type expressions via parentheses: ((((... Int ))))
+	// parseType calls enterRecurse — should hit depth limit.
+	const depth = 2000
+	src := "f :: "
+	for range depth {
+		src += "("
+	}
+	src += "Int"
+	for range depth {
+		src += ")"
+	}
+	src += "\nf := 42\nmain := f"
+	_, es := parse(src)
+	if !es.HasErrors() {
+		t.Fatal("expected depth limit error for deeply nested type expression")
+	}
+}
+
+func TestParseDeepNestedPatterns(t *testing.T) {
+	// Deeply nested patterns via constructor nesting:
+	// case x { (((... y ...))) -> y }
+	// parsePattern calls enterRecurse — should hit depth limit.
+	const depth = 2000
+	src := "main := case x { "
+	for range depth {
+		src += "("
+	}
+	src += "y"
+	for range depth {
+		src += ")"
+	}
+	src += " -> y }"
+	_, es := parse(src)
+	if !es.HasErrors() {
+		t.Fatal("expected depth limit error for deeply nested patterns")
+	}
+}
+
+func TestParseStepLimitExceeded(t *testing.T) {
+	// Test that the step counter is respected by creating a parser
+	// with artificially low maxSteps.
+	src := span.NewSource("test", "main := 1 + 2 + 3")
+	l := NewLexer(src)
+	tokens, _ := l.Tokenize()
+	es := &errs.Errors{Source: src}
+	p := NewParser(tokens, es)
+	// Override maxSteps to something very small.
+	p.maxSteps = 2 // will trigger almost immediately
+	_ = p.ParseProgram()
+	if !es.HasErrors() {
+		t.Fatal("expected step limit error")
+	}
+}
+
+func TestParseMaxStepsFloor(t *testing.T) {
+	// Very short input: len(tokens)*4 would be < 100.
+	// The floor of 100 ensures we don't reject valid short programs.
+	src := span.NewSource("test", "main := 1")
+	l := NewLexer(src)
+	tokens, _ := l.Tokenize()
+	es := &errs.Errors{Source: src}
+	p := NewParser(tokens, es)
+	// Verify the floor is applied: maxSteps should be >= 100.
+	if p.maxSteps < 100 {
+		t.Errorf("maxSteps should be at least 100 for short input, got %d", p.maxSteps)
+	}
+	_ = p.ParseProgram()
+	if es.HasErrors() {
+		t.Fatalf("valid short program should parse without errors: %s", es.Format())
+	}
+}
+
+func TestParseStepsResetBetweenPasses(t *testing.T) {
+	// After collectFixity (first pass), steps are reset to 0.
+	// Without the reset, collectFixity's steps would carry over,
+	// potentially exceeding maxSteps during the second pass.
+	src := span.NewSource("test", "infixl 6 +\nmain := 1 + 2")
+	l := NewLexer(src)
+	tokens, _ := l.Tokenize()
+	es := &errs.Errors{Source: src}
+	p := NewParser(tokens, es)
+	// Set maxSteps to just enough for one pass but not two.
+	// collectFixity scans all tokens (~advance per token).
+	// If steps aren't reset, the second pass would exceed the limit.
+	p.maxSteps = len(tokens) + 5
+	_ = p.ParseProgram()
+	if es.HasErrors() {
+		t.Fatalf("valid program should parse when steps are properly reset: %s", es.Format())
+	}
+}
+

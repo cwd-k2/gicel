@@ -284,6 +284,55 @@ func TestPretty(t *testing.T) {
 	}
 }
 
+func TestEqualAlphaNestedForallShadowing(t *testing.T) {
+	// forall a. forall a. a  ==  forall b. forall c. c
+	// Inner 'a' shadows outer 'a'; inner 'c' shadows nothing.
+	// Both reduce to "innermost bound variable" — should be equal.
+	t1 := MkForall("a", KType{}, MkForall("a", KType{}, Var("a")))
+	t2 := MkForall("b", KType{}, MkForall("c", KType{}, Var("c")))
+	if !Equal(t1, t2) {
+		t.Error("nested forall with shadowing should be alpha-equivalent")
+	}
+	// forall a. forall a. a  !=  forall b. forall c. b
+	// Left: inner bound. Right: outer bound. Not equivalent.
+	t3 := MkForall("b", KType{}, MkForall("c", KType{}, Var("b")))
+	if Equal(t1, t3) {
+		t.Error("inner-bound vs outer-bound should not be alpha-equivalent")
+	}
+}
+
+func TestEqualAlphaBindingLookupDirection(t *testing.T) {
+	// Verifies that binding lookup traverses from most recent (innermost) first.
+	// forall a. forall b. a -> b  ==  forall x. forall y. x -> y
+	t1 := MkForall("a", KType{}, MkForall("b", KType{}, MkArrow(Var("a"), Var("b"))))
+	t2 := MkForall("x", KType{}, MkForall("y", KType{}, MkArrow(Var("x"), Var("y"))))
+	if !Equal(t1, t2) {
+		t.Error("nested forall with distinct names should be alpha-equivalent")
+	}
+	// forall a. forall b. a -> b  !=  forall x. forall y. y -> x  (swapped)
+	t3 := MkForall("x", KType{}, MkForall("y", KType{}, MkArrow(Var("y"), Var("x"))))
+	if Equal(t1, t3) {
+		t.Error("swapped variable usage should not be alpha-equivalent")
+	}
+}
+
+func TestEvidenceRowConstraintEntriesEqualOrderIndependent(t *testing.T) {
+	// TyEvidenceRow with ConstraintEntries — order should not matter for Equal.
+	eqA := ConstraintEntry{ClassName: "Eq", Args: []Type{Var("a")}}
+	ordB := ConstraintEntry{ClassName: "Ord", Args: []Type{Var("b")}}
+	r1 := &TyEvidenceRow{Entries: &ConstraintEntries{Entries: []ConstraintEntry{eqA, ordB}}}
+	r2 := &TyEvidenceRow{Entries: &ConstraintEntries{Entries: []ConstraintEntry{ordB, eqA}}}
+	if !Equal(r1, r2) {
+		t.Error("TyEvidenceRow with ConstraintEntries Equal should be order-independent")
+	}
+	// Different entries should not be equal.
+	showC := ConstraintEntry{ClassName: "Show", Args: []Type{Var("c")}}
+	r3 := &TyEvidenceRow{Entries: &ConstraintEntries{Entries: []ConstraintEntry{eqA, showC}}}
+	if Equal(r1, r3) {
+		t.Error("different TyEvidenceRow ConstraintEntries should not be equal")
+	}
+}
+
 func TestConstraintRowEqualOrderIndependent(t *testing.T) {
 	eqA := ConstraintEntry{ClassName: "Eq", Args: []Type{Var("a")}}
 	ordB := ConstraintEntry{ClassName: "Ord", Args: []Type{Var("b")}}

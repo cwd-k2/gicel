@@ -318,6 +318,40 @@ func TestMatchPatterns(t *testing.T) {
 	}
 }
 
+func TestMatchRecordPattern(t *testing.T) {
+	// Match { x = 1, y = 2 } against { x = a, y = b }
+	rv := &RecordVal{Fields: map[string]Value{
+		"x": &HostVal{Inner: 10},
+		"y": &HostVal{Inner: 20},
+	}}
+	pat := &core.PRecord{Fields: []core.PRecordField{
+		{Label: "x", Pattern: &core.PVar{Name: "a"}},
+		{Label: "y", Pattern: &core.PVar{Name: "b"}},
+	}}
+	bindings := Match(rv, pat)
+	if bindings == nil {
+		t.Fatal("expected match to succeed")
+	}
+	if bindings["a"].(*HostVal).Inner != 10 {
+		t.Errorf("expected a=10, got %v", bindings["a"])
+	}
+	if bindings["b"].(*HostVal).Inner != 20 {
+		t.Errorf("expected b=20, got %v", bindings["b"])
+	}
+	// Missing field should fail.
+	patExtra := &core.PRecord{Fields: []core.PRecordField{
+		{Label: "x", Pattern: &core.PVar{Name: "a"}},
+		{Label: "z", Pattern: &core.PVar{Name: "c"}},
+	}}
+	if Match(rv, patExtra) != nil {
+		t.Error("should not match when pattern has label not in value")
+	}
+	// Non-record value should fail.
+	if Match(&HostVal{Inner: 42}, pat) != nil {
+		t.Error("should not match non-record value against record pattern")
+	}
+}
+
 func TestEvalStats(t *testing.T) {
 	ev := newTestEval()
 	term := &core.Pure{Expr: &core.Con{Name: "Unit"}}
