@@ -225,6 +225,68 @@ func (ev *Evaluator) Eval(env *Env, capEnv CapEnv, expr core.Core) (EvalResult, 
 		}
 		return EvalResult{val, newCap}, nil
 
+	case *core.RecordLit:
+		fields := make(map[string]Value, len(e.Fields))
+		ce := capEnv
+		for _, f := range e.Fields {
+			r, err := ev.Eval(env, ce, f.Value)
+			if err != nil {
+				return EvalResult{}, err
+			}
+			fields[f.Label] = r.Value
+			ce = r.CapEnv
+		}
+		return EvalResult{&RecordVal{Fields: fields}, ce}, nil
+
+	case *core.RecordProj:
+		recR, err := ev.Eval(env, capEnv, e.Record)
+		if err != nil {
+			return EvalResult{}, err
+		}
+		rec, ok := recR.Value.(*RecordVal)
+		if !ok {
+			return EvalResult{}, &RuntimeError{
+				Message: fmt.Sprintf("projection on non-record: %s", recR.Value),
+				Span:    e.S,
+			}
+		}
+		v, ok := rec.Fields[e.Label]
+		if !ok {
+			return EvalResult{}, &RuntimeError{
+				Message: fmt.Sprintf("record has no field: %s", e.Label),
+				Span:    e.S,
+			}
+		}
+		return EvalResult{v, recR.CapEnv}, nil
+
+	case *core.RecordUpdate:
+		recR, err := ev.Eval(env, capEnv, e.Record)
+		if err != nil {
+			return EvalResult{}, err
+		}
+		rec, ok := recR.Value.(*RecordVal)
+		if !ok {
+			return EvalResult{}, &RuntimeError{
+				Message: fmt.Sprintf("update on non-record: %s", recR.Value),
+				Span:    e.S,
+			}
+		}
+		// Copy all fields, then overwrite with updates.
+		newFields := make(map[string]Value, len(rec.Fields))
+		for k, v := range rec.Fields {
+			newFields[k] = v
+		}
+		ce := recR.CapEnv
+		for _, upd := range e.Updates {
+			r, err := ev.Eval(env, ce, upd.Value)
+			if err != nil {
+				return EvalResult{}, err
+			}
+			newFields[upd.Label] = r.Value
+			ce = r.CapEnv
+		}
+		return EvalResult{&RecordVal{Fields: newFields}, ce}, nil
+
 	default:
 		return EvalResult{}, &RuntimeError{
 			Message: fmt.Sprintf("unknown Core node: %T", expr),

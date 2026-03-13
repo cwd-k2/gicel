@@ -47,6 +47,11 @@ type PrimVal struct {
 	Args      []Value
 }
 
+// RecordVal is a record value { l1 = v1, ..., ln = vn }.
+type RecordVal struct {
+	Fields map[string]Value
+}
+
 // IndirectVal is a forward-reference cell for mutually-recursive top-level bindings.
 // It holds a pointer to the actual value, which is populated after the binding is evaluated.
 type IndirectVal struct {
@@ -58,6 +63,7 @@ func (*Closure) valueNode()     {}
 func (*ConVal) valueNode()      {}
 func (*ThunkVal) valueNode()    {}
 func (*PrimVal) valueNode()     {}
+func (*RecordVal) valueNode()   {}
 func (*IndirectVal) valueNode() {}
 
 func (v *HostVal) String() string {
@@ -92,6 +98,17 @@ func (v *PrimVal) String() string {
 		args[i] = a.String()
 	}
 	return fmt.Sprintf("PrimVal(%s %s)", v.Name, strings.Join(args, " "))
+}
+
+func (v *RecordVal) String() string {
+	if len(v.Fields) == 0 {
+		return "()"
+	}
+	parts := make([]string, 0, len(v.Fields))
+	for k, val := range v.Fields {
+		parts = append(parts, fmt.Sprintf("%s = %s", k, val))
+	}
+	return fmt.Sprintf("{ %s }", strings.Join(parts, ", "))
 }
 
 func (v *IndirectVal) String() string {

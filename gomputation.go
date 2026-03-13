@@ -24,6 +24,9 @@ type HostVal = eval.HostVal
 // ConVal is a fully-applied constructor value.
 type ConVal = eval.ConVal
 
+// RecordVal is a record value { l1 = v1, ..., ln = vn }.
+type RecordVal = eval.RecordVal
+
 // CapEnv is a capability environment with copy-on-write semantics.
 type CapEnv = eval.CapEnv
 

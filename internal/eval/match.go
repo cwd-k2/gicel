@@ -26,6 +26,26 @@ func Match(val Value, pat core.Pattern) map[string]Value {
 			}
 		}
 		return bindings
+	case *core.PRecord:
+		rv, ok := val.(*RecordVal)
+		if !ok {
+			return nil
+		}
+		bindings := map[string]Value{}
+		for _, f := range p.Fields {
+			fv, ok := rv.Fields[f.Label]
+			if !ok {
+				return nil
+			}
+			sub := Match(fv, f.Pattern)
+			if sub == nil {
+				return nil
+			}
+			for k, v := range sub {
+				bindings[k] = v
+			}
+		}
+		return bindings
 	}
 	return nil
 }
