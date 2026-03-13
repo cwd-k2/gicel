@@ -72,6 +72,42 @@ func (ch *Checker) processInstanceHeader(d *syntax.DeclInstance) *InstanceInfo {
 		}
 	}
 
+	// Arity check: number of type arguments must match class parameter count.
+	if len(typeArgs) != len(classInfo.TyParams) {
+		ch.addCodedError(errs.ErrBadInstance, d.S,
+			fmt.Sprintf("instance %s: expected %d type argument(s), got %d",
+				d.ClassName, len(classInfo.TyParams), len(typeArgs)))
+		return nil
+	}
+
+	// Context well-formedness: each constraint in the instance context must reference a known class.
+	for _, ctx := range context {
+		if _, ok := ch.classes[ctx.ClassName]; !ok {
+			ch.addCodedError(errs.ErrBadInstance, d.S,
+				fmt.Sprintf("instance %s: context references unknown class %s",
+					d.ClassName, ctx.ClassName))
+		}
+	}
+
+	// Self-cycle detection: instance context must not require itself.
+	// e.g., `instance Eq a => Eq a` would cause infinite recursion.
+	for _, ctx := range context {
+		if ctx.ClassName == d.ClassName && len(ctx.Args) == len(typeArgs) {
+			selfCycle := true
+			for i := range ctx.Args {
+				if types.Pretty(ctx.Args[i]) != types.Pretty(typeArgs[i]) {
+					selfCycle = false
+					break
+				}
+			}
+			if selfCycle {
+				ch.addCodedError(errs.ErrBadInstance, d.S,
+					fmt.Sprintf("instance %s: self-referential context (instance requires itself)",
+						d.ClassName))
+			}
+		}
+	}
+
 	// Build dict binding name: ClassName$TypeName (simplified naming)
 	dictName := ch.instanceDictName(d.ClassName, typeArgs)
 
@@ -84,6 +120,19 @@ func (ch *Checker) processInstanceHeader(d *syntax.DeclInstance) *InstanceInfo {
 		if _, ok := methodExprs[m.Name]; !ok {
 			ch.addCodedError(errs.ErrMissingMethod, d.S,
 				fmt.Sprintf("instance %s: missing method %s", d.ClassName, m.Name))
+		}
+	}
+
+	// Extra method check: methods defined in instance but not declared in class.
+	classMethodSet := make(map[string]bool, len(classInfo.Methods))
+	for _, m := range classInfo.Methods {
+		classMethodSet[m.Name] = true
+	}
+	for _, m := range d.Methods {
+		if !classMethodSet[m.Name] {
+			ch.addCodedError(errs.ErrBadInstance, d.S,
+				fmt.Sprintf("instance %s: extra method %s not declared in class",
+					d.ClassName, m.Name))
 		}
 	}
 

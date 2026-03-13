@@ -941,6 +941,54 @@ main := eq True False`
 	checkSource(t, source, nil)
 }
 
+func TestInstanceArityMismatch(t *testing.T) {
+	// Class Eq has 1 type param, instance provides 2 → ErrBadInstance.
+	source := `data Bool = True | False
+class Eq a { eq :: a -> a -> Bool }
+instance Eq Bool Bool { eq := \x y -> True }`
+	checkSourceExpectCode(t, source, nil, errs.ErrBadInstance)
+}
+
+func TestInstanceUnknownContextClass(t *testing.T) {
+	// Instance context references a class that doesn't exist → ErrBadInstance.
+	source := `data Bool = True | False
+data Maybe a = Nothing | Just a
+class Eq a { eq :: a -> a -> Bool }
+instance Phantom a => Eq (Maybe a) { eq := \_ _ -> True }`
+	checkSourceExpectCode(t, source, nil, errs.ErrBadInstance)
+}
+
+func TestInstanceSelfCycle(t *testing.T) {
+	// Instance context requires itself → ErrBadInstance.
+	source := `data Bool = True | False
+class Eq a { eq :: a -> a -> Bool }
+instance Eq a => Eq a { eq := \x y -> True }`
+	checkSourceExpectCode(t, source, nil, errs.ErrBadInstance)
+}
+
+func TestInstanceExtraMethod(t *testing.T) {
+	// Instance defines a method not declared in the class → ErrBadInstance.
+	source := `data Bool = True | False
+class Eq a { eq :: a -> a -> Bool }
+instance Eq Bool { eq := \x y -> True; notAMethod := \x -> x }`
+	checkSourceExpectCode(t, source, nil, errs.ErrBadInstance)
+}
+
+func TestInstanceValidContextClass(t *testing.T) {
+	// Valid instance with known context class should succeed.
+	source := `data Bool = True | False
+data Maybe a = Nothing | Just a
+class Eq a { eq :: a -> a -> Bool }
+instance Eq Bool { eq := \x y -> case x of { True -> y; False -> case y of { True -> False; False -> True } } }
+instance Eq a => Eq (Maybe a) {
+  eq := \x y -> case x of {
+    Nothing -> case y of { Nothing -> True; Just _ -> False };
+    Just a  -> case y of { Nothing -> False; Just b -> eq a b }
+  }
+}`
+	checkSource(t, source, nil)
+}
+
 func BenchmarkZonkDeepChain(b *testing.B) {
 	u := NewUnifier()
 	// Build a deep TyApp chain with no metavariables.
