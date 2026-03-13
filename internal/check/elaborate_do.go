@@ -254,68 +254,44 @@ func extractPureArg(expr syntax.Expr) syntax.Expr {
 	return nil
 }
 
-// mkIxPure generates Core for monadic pure using the IxMonad dictionary.
-func (ch *Checker) mkIxPure(monadHead types.Type, val core.Core, s span.Span) core.Core {
+// extractIxMethod resolves the IxMonad (Lift monadHead) dictionary and
+// extracts the method at the given index via pattern matching.
+func (ch *Checker) extractIxMethod(monadHead types.Type, methodIdx int, s span.Span) core.Core {
 	liftedMonad := &types.TyApp{Fun: &types.TyCon{Name: "Lift"}, Arg: monadHead}
 	dict := ch.resolveInstance("IxMonad", []types.Type{liftedMonad}, s)
 
 	classInfo := ch.classes["IxMonad"]
-	pureIdx := len(classInfo.Supers) // ixpure is the first method (index 0)
 	allFields := len(classInfo.Supers) + len(classInfo.Methods)
 	var patArgs []core.Pattern
-	var pureExpr core.Core
+	var methodExpr core.Core
 	freshBase := ch.fresh()
 	for j := 0; j < allFields; j++ {
 		argName := fmt.Sprintf("$ixm_%d_%d", j, freshBase)
 		patArgs = append(patArgs, &core.PVar{Name: argName, S: s})
-		if j == pureIdx {
-			pureExpr = &core.Var{Name: argName, S: s}
+		if j == len(classInfo.Supers)+methodIdx {
+			methodExpr = &core.Var{Name: argName, S: s}
 		}
 	}
-	selector := &core.Case{
+	return &core.Case{
 		Scrutinee: dict,
 		Alts: []core.Alt{{
 			Pattern: &core.PCon{Con: classInfo.DictConName, Args: patArgs, S: s},
-			Body:    pureExpr,
+			Body:    methodExpr,
 			S:       s,
 		}},
 		S: s,
 	}
+}
 
+// mkIxPure generates Core for monadic pure using the IxMonad dictionary.
+func (ch *Checker) mkIxPure(monadHead types.Type, val core.Core, s span.Span) core.Core {
+	selector := ch.extractIxMethod(monadHead, 0, s) // ixpure is method 0
 	return &core.App{Fun: selector, Arg: val, S: s}
 }
 
 // mkIxBind generates Core for a monadic bind using the IxMonad dictionary.
 func (ch *Checker) mkIxBind(monadHead types.Type, comp core.Core, varName string, body core.Core, s span.Span) core.Core {
-	// Resolve IxMonad (Lift monadHead) instance.
-	liftedMonad := &types.TyApp{Fun: &types.TyCon{Name: "Lift"}, Arg: monadHead}
-	dict := ch.resolveInstance("IxMonad", []types.Type{liftedMonad}, s)
-
-	// Extract ixbind from dictionary using pattern match.
-	classInfo := ch.classes["IxMonad"]
-	bindIdx := len(classInfo.Supers) + 1 // ixbind is the second method (index 1)
-	allFields := len(classInfo.Supers) + len(classInfo.Methods)
-	var patArgs []core.Pattern
-	var bindExpr core.Core
-	freshBase := ch.fresh()
-	for j := 0; j < allFields; j++ {
-		argName := fmt.Sprintf("$ixm_%d_%d", j, freshBase)
-		patArgs = append(patArgs, &core.PVar{Name: argName, S: s})
-		if j == bindIdx {
-			bindExpr = &core.Var{Name: argName, S: s}
-		}
-	}
-	selector := &core.Case{
-		Scrutinee: dict,
-		Alts: []core.Alt{{
-			Pattern: &core.PCon{Con: classInfo.DictConName, Args: patArgs, S: s},
-			Body:    bindExpr,
-			S:       s,
-		}},
-		S: s,
-	}
-
-	// ixbind comp (\x -> body)
+	selector := ch.extractIxMethod(monadHead, 1, s) // ixbind is method 1
 	return &core.App{
 		Fun: &core.App{Fun: selector, Arg: comp, S: s},
 		Arg: &core.Lam{Param: varName, Body: body, S: s},
