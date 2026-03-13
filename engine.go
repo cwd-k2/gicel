@@ -326,7 +326,7 @@ func (e *Engine) NewRuntime(source string) (*Runtime, error) {
 		modProgs = append(modProgs, mod.prog)
 	}
 
-	return &Runtime{
+	rt := &Runtime{
 		prog:          prog,
 		prims:         e.prims,
 		stepLimit:     e.stepLimit,
@@ -335,5 +335,7 @@ func (e *Engine) NewRuntime(source string) (*Runtime, error) {
 		bindings:      maps.Clone(e.bindings),
 		gatedBuiltins: maps.Clone(e.gatedBuiltins),
 		moduleProgs:   modProgs,
-	}, nil
+	}
+	rt.initBuiltinEnv()
+	return rt, nil
 }

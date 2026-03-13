@@ -31,7 +31,11 @@ func getImpl(_ context.Context, ce eval.CapEnv, args []eval.Value) (eval.Value, 
 	if !ok {
 		return nil, ce, &eval.RuntimeError{Message: "get: no state capability"}
 	}
-	return v.(eval.Value), ce, nil
+	val, ok2 := v.(eval.Value)
+	if !ok2 {
+		return nil, ce, &eval.RuntimeError{Message: "get: state capability is not a Value"}
+	}
+	return val, ce, nil
 }
 
 func putImpl(_ context.Context, ce eval.CapEnv, args []eval.Value) (eval.Value, eval.CapEnv, error) {

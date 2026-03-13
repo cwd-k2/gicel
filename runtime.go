@@ -20,6 +20,7 @@ type Runtime struct {
 	bindings      map[string]types.Type
 	gatedBuiltins map[string]bool
 	moduleProgs   []*core.Program
+	builtinEnv    *eval.Env // pre-built pure/bind/force/fix/rec closures
 }
 
 // Program returns the compiled Core IR for debugging/inspection.
@@ -45,16 +46,10 @@ type RunResultFull struct {
 	Stats  EvalStats
 }
 
-// buildEnv constructs the base runtime environment with builtins, bindings, and constructors.
-func (r *Runtime) buildEnv(bindings map[string]Value) (*eval.Env, error) {
+// initBuiltinEnv constructs the immutable base environment with builtins and constructors.
+// Called once at NewRuntime time; the result is shared across all executions.
+func (r *Runtime) initBuiltinEnv() {
 	env := eval.EmptyEnv()
-	for name := range r.bindings {
-		v, ok := bindings[name]
-		if !ok {
-			return nil, fmt.Errorf("missing binding: %s", name)
-		}
-		env = env.Extend(name, v)
-	}
 
 	// Built-in values.
 	env = env.Extend("pure", &eval.Closure{
@@ -101,6 +96,20 @@ func (r *Runtime) buildEnv(bindings map[string]Value) (*eval.Env, error) {
 		for _, con := range d.Cons {
 			env = env.Extend(con.Name, &eval.ConVal{Con: con.Name})
 		}
+	}
+
+	r.builtinEnv = env
+}
+
+// buildEnv extends the pre-built builtin environment with user-provided bindings.
+func (r *Runtime) buildEnv(bindings map[string]Value) (*eval.Env, error) {
+	env := r.builtinEnv
+	for name := range r.bindings {
+		v, ok := bindings[name]
+		if !ok {
+			return nil, fmt.Errorf("missing binding: %s", name)
+		}
+		env = env.Extend(name, v)
 	}
 	return env, nil
 }
