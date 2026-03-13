@@ -77,6 +77,45 @@ func TestLexOperators(t *testing.T) {
 	}
 }
 
+func TestLexBangHash(t *testing.T) {
+	tokens := lex("r!#x")
+	// r, !#, x, EOF
+	if len(tokens) != 4 {
+		t.Fatalf("expected 4 tokens, got %d", len(tokens))
+	}
+	if tokens[0].Kind != TokLower || tokens[0].Text != "r" {
+		t.Errorf("expected 'r', got %v %q", tokens[0].Kind, tokens[0].Text)
+	}
+	if tokens[1].Kind != TokBangHash || tokens[1].Text != "!#" {
+		t.Errorf("expected TokBangHash '!#', got %v %q", tokens[1].Kind, tokens[1].Text)
+	}
+	if tokens[2].Kind != TokLower || tokens[2].Text != "x" {
+		t.Errorf("expected 'x', got %v %q", tokens[2].Kind, tokens[2].Text)
+	}
+}
+
+func TestLexBangAloneStillOp(t *testing.T) {
+	tokens := lex("! x")
+	if tokens[0].Kind != TokOp || tokens[0].Text != "!" {
+		t.Errorf("expected TokOp '!', got %v %q", tokens[0].Kind, tokens[0].Text)
+	}
+}
+
+func TestLexDoubleBangStillOp(t *testing.T) {
+	tokens := lex("!!")
+	if tokens[0].Kind != TokOp || tokens[0].Text != "!!" {
+		t.Errorf("expected TokOp '!!', got %v %q", tokens[0].Kind, tokens[0].Text)
+	}
+}
+
+func TestLexBangHashInLongerOp(t *testing.T) {
+	// !#= should be a single TokOp (not TokBangHash + TokEq)
+	tokens := lex("!#=")
+	if tokens[0].Kind != TokOp || tokens[0].Text != "!#=" {
+		t.Errorf("expected TokOp '!#=', got %v %q", tokens[0].Kind, tokens[0].Text)
+	}
+}
+
 func TestLexLineComment(t *testing.T) {
 	tokens := lex("x -- this is a comment\ny")
 	if len(tokens) != 3 { // x, y, EOF

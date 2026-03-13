@@ -51,7 +51,8 @@ const (
 	TokUpper // uppercase-start
 
 	// Operators
-	TokOp // operator sequence
+	TokOp       // operator sequence
+	TokBangHash // !# (record projection)
 
 	// Literals
 	TokIntLit
@@ -132,6 +133,8 @@ func (k TokenKind) String() string {
 		return "upper"
 	case TokOp:
 		return "op"
+	case TokBangHash:
+		return "!#"
 	case TokIntLit:
 		return "int"
 	case TokStrLit:

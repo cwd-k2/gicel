@@ -183,6 +183,12 @@ func (l *Lexer) scanToken() Token {
 			return Token{Kind: TokUpper, Text: text, S: span.Span{Start: span.Pos(start), End: span.Pos(l.pos)}}
 		}
 
+		// Record projection: !# (exactly these two chars, not part of longer operator)
+		if ch == '!' && l.peekAt(1) == '#' && !isOperatorChar(l.peekAt(2)) {
+			l.pos += 2
+			return l.tok(TokBangHash, start)
+		}
+
 		// Operator
 		if isOperatorChar(ch) {
 			for l.pos < len(l.source.Text) && isOperatorChar(rune(l.source.Text[l.pos])) {
