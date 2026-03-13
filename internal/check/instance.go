@@ -44,19 +44,26 @@ func (ch *Checker) processInstanceHeader(d *syntax.DeclInstance) *InstanceInfo {
 	// Auto-lift: if a type argument's kind doesn't match the class parameter kind
 	// but wrapping with Lift makes it match, do so automatically.
 	// e.g. instance IxMonad Maybe → instance IxMonad (Lift Maybe)
+	// For poly-kinded classes, use kind unification instead of structural equality.
 	for i := 0; i < len(typeArgs) && i < len(classInfo.TyParamKinds); i++ {
 		argKind := ch.kindOfType(typeArgs[i])
 		paramKind := classInfo.TyParamKinds[i]
-		if argKind != nil && !argKind.Equal(paramKind) {
-			// Check if Lift wrapping fixes the kind mismatch.
-			liftKind := ch.kindOfType(&types.TyCon{Name: "Lift"})
-			if liftKind != nil {
-				if ka, ok := liftKind.(*types.KArrow); ok && ka.From.Equal(argKind) {
-					lifted := &types.TyApp{Fun: &types.TyCon{Name: "Lift"}, Arg: typeArgs[i]}
-					liftedKind := ka.To
-					if liftedKind.Equal(paramKind) {
-						typeArgs[i] = lifted
-					}
+		if argKind == nil {
+			continue
+		}
+		// Try kind unification first (handles kind variables in paramKind).
+		kindMatch := ch.unifier.UnifyKinds(argKind, paramKind) == nil
+		if kindMatch {
+			continue
+		}
+		// Kind mismatch — check if Lift wrapping fixes it.
+		liftKind := ch.kindOfType(&types.TyCon{Name: "Lift"})
+		if liftKind != nil {
+			if ka, ok := liftKind.(*types.KArrow); ok && ka.From.Equal(argKind) {
+				lifted := &types.TyApp{Fun: &types.TyCon{Name: "Lift"}, Arg: typeArgs[i]}
+				liftedKind := ka.To
+				if ch.unifier.UnifyKinds(liftedKind, paramKind) == nil {
+					typeArgs[i] = lifted
 				}
 			}
 		}

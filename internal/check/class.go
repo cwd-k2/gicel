@@ -2,17 +2,37 @@ package check
 
 import (
 	"fmt"
+	"unicode"
 
 	"github.com/cwd-k2/gomputation/internal/core"
 	"github.com/cwd-k2/gomputation/internal/syntax"
 	"github.com/cwd-k2/gomputation/internal/types"
 )
 
+// collectKindVars scans a kind expression for unbound lowercase names
+// (implicit kind variables), registers them in kindVars, and appends to params.
+func collectKindVars(k syntax.KindExpr, kindVars map[string]bool, params *[]string) {
+	if k == nil {
+		return
+	}
+	switch ke := k.(type) {
+	case *syntax.KindExprArrow:
+		collectKindVars(ke.From, kindVars, params)
+		collectKindVars(ke.To, kindVars, params)
+	case *syntax.KindExprName:
+		if len(ke.Name) > 0 && unicode.IsLower(rune(ke.Name[0])) && !kindVars[ke.Name] {
+			kindVars[ke.Name] = true
+			*params = append(*params, ke.Name)
+		}
+	}
+}
+
 // ClassInfo stores elaborated class information.
 type ClassInfo struct {
 	Name         string
 	TyParams     []string
 	TyParamKinds []types.Kind
+	KindParams   []string     // implicit kind variables (e.g., "k" in f : k -> Type)
 	Supers       []SuperInfo  // superclass constraints
 	Methods      []MethodInfo // method signatures
 	DictTyName   string       // e.g. "Eq$Dict"
@@ -38,7 +58,14 @@ func (ch *Checker) processClassDecl(d *syntax.DeclClass, prog *core.Program) {
 	dictTyName := d.Name + "$Dict"
 	dictConName := d.Name + "$Dict"
 
-	// Collect type parameters with their kinds.
+	// Collect implicit kind variables from type parameter kind annotations.
+	// e.g., class Functor (f : k -> Type) → kindParams = ["k"]
+	var kindParams []string
+	for _, p := range d.TyParams {
+		collectKindVars(p.Kind, ch.kindVars, &kindParams)
+	}
+
+	// Collect type parameters with their kinds (kind vars now in scope).
 	var tyParams []string
 	var tyParamKinds []types.Kind
 	for _, p := range d.TyParams {
@@ -68,11 +95,17 @@ func (ch *Checker) processClassDecl(d *syntax.DeclClass, prog *core.Program) {
 		methodFieldTypes = append(methodFieldTypes, methTy)
 	}
 
+	// Clean up kind variable scope.
+	for _, kv := range kindParams {
+		delete(ch.kindVars, kv)
+	}
+
 	// Store class info.
 	info := &ClassInfo{
 		Name:         d.Name,
 		TyParams:     tyParams,
 		TyParamKinds: tyParamKinds,
+		KindParams:   kindParams,
 		Supers:       supers,
 		Methods:      methods,
 		DictTyName:   dictTyName,
@@ -104,6 +137,10 @@ func (ch *Checker) processClassDecl(d *syntax.DeclClass, prog *core.Program) {
 	for i := len(tyParams) - 1; i >= 0; i-- {
 		conType = types.MkForall(tyParams[i], tyParamKinds[i], conType)
 	}
+	// Wrap kind parameters as outermost foralls (kind-level quantification).
+	for i := len(kindParams) - 1; i >= 0; i-- {
+		conType = types.MkForall(kindParams[i], types.KSort{}, conType)
+	}
 
 	// Register constructor.
 	ch.conTypes[dictConName] = conType
@@ -133,6 +170,10 @@ func (ch *Checker) processClassDecl(d *syntax.DeclClass, prog *core.Program) {
 		var selectorTy types.Type = types.MkEvidence([]types.ConstraintEntry{entry}, m.Type)
 		for j := len(tyParams) - 1; j >= 0; j-- {
 			selectorTy = types.MkForall(tyParams[j], tyParamKinds[j], selectorTy)
+		}
+		// Wrap kind parameters as outermost foralls.
+		for j := len(kindParams) - 1; j >= 0; j-- {
+			selectorTy = types.MkForall(kindParams[j], types.KSort{}, selectorTy)
 		}
 
 		ch.ctx.Push(&CtxVar{Name: m.Name, Type: selectorTy})
@@ -164,6 +205,10 @@ func (ch *Checker) processClassDecl(d *syntax.DeclClass, prog *core.Program) {
 
 		for j := len(tyParams) - 1; j >= 0; j-- {
 			selectorBody = &core.TyLam{TyParam: tyParams[j], Kind: tyParamKinds[j], Body: selectorBody, S: d.S}
+		}
+		// Wrap kind parameters as outermost TyLams.
+		for j := len(kindParams) - 1; j >= 0; j-- {
+			selectorBody = &core.TyLam{TyParam: kindParams[j], Kind: types.KSort{}, Body: selectorBody, S: d.S}
 		}
 
 		prog.Bindings = append(prog.Bindings, core.Binding{
