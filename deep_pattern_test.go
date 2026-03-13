@@ -731,18 +731,20 @@ main := myFst (True, False)
 	}
 	assertConName(t, result.Value, "True")
 
-	// Show the direct lambda pattern version fails:
+	// Direct lambda pattern version:
 	eng2 := gmp.NewEngine()
-	_, err = eng2.NewRuntime(`
+	rt2, err := eng2.NewRuntime(`
 myFst := \(a, b) -> a
 main := myFst (True, False)
 `)
 	if err != nil {
-		t.Log("DESIGN_GAP confirmed: tuple patterns in lambda position not elaborated")
-		t.Log("Error:", err)
-	} else {
-		t.Log("DESIGN_GAP resolved: tuple patterns now work in lambda position")
+		t.Fatal("tuple pattern in lambda should work:", err)
 	}
+	result2, err := rt2.RunContext(context.Background(), nil, nil, "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertConName(t, result2.Value, "True")
 }
 
 // ---------------------------------------------------------------------------
@@ -886,18 +888,20 @@ main := getX { x = True }
 	}
 	assertConName(t, result.Value, "True")
 
-	// Show the direct lambda pattern version fails:
+	// Direct lambda pattern version:
 	eng2 := gmp.NewEngine()
-	_, err = eng2.NewRuntime(`
+	rt2, err := eng2.NewRuntime(`
 getX := \{ x = v } -> v
 main := getX { x = True }
 `)
 	if err != nil {
-		t.Log("DESIGN_GAP confirmed: record patterns in lambda position not elaborated")
-		t.Log("Error:", err)
-	} else {
-		t.Log("DESIGN_GAP resolved: record patterns now work in lambda position")
+		t.Fatal("record pattern in lambda should work:", err)
 	}
+	result2, err := rt2.RunContext(context.Background(), nil, nil, "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertConName(t, result2.Value, "True")
 }
 
 func TestFP_WildcardInCasePattern(t *testing.T) {
@@ -939,18 +943,20 @@ main := f (True, (False, True))
 	}
 	assertConName(t, result.Value, "False")
 
-	// Show the direct nested tuple pattern version fails:
+	// Direct nested tuple pattern version:
 	eng2 := gmp.NewEngine()
-	_, err = eng2.NewRuntime(`
+	rt2, err := eng2.NewRuntime(`
 f := \(a, (b, c)) -> b
 main := f (True, (False, True))
 `)
 	if err != nil {
-		t.Log("DESIGN_GAP confirmed: nested tuple patterns in lambda position not elaborated")
-		t.Log("Error:", err)
-	} else {
-		t.Log("DESIGN_GAP resolved: nested tuple patterns now work in lambda position")
+		t.Fatal("nested tuple pattern in lambda should work:", err)
 	}
+	result2, err := rt2.RunContext(context.Background(), nil, nil, "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertConName(t, result2.Value, "False")
 }
 
 // ---------------------------------------------------------------------------

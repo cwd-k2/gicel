@@ -361,6 +361,30 @@ func (ch *Checker) checkLam(e *syntax.ExprLam, expected types.Type) core.Core {
 		return ch.check(e.Body, expected)
 	}
 	argTy, retTy := ch.matchArrow(expected, e.S)
+
+	// Desugar structured patterns: \pat -> body  →  \$p -> case $p { pat -> body }
+	if isStructuredPattern(e.Params[0]) {
+		freshName := fmt.Sprintf("$pat_%d", ch.fresh())
+		var innerBody syntax.Expr
+		if len(e.Params) == 1 {
+			innerBody = e.Body
+		} else {
+			innerBody = &syntax.ExprLam{Params: e.Params[1:], Body: e.Body, S: e.S}
+		}
+		caseExpr := &syntax.ExprCase{
+			Scrutinee: &syntax.ExprVar{Name: freshName, S: e.S},
+			Alts: []syntax.AstAlt{{
+				Pattern: e.Params[0],
+				Body:    innerBody,
+			}},
+			S: e.S,
+		}
+		ch.ctx.Push(&CtxVar{Name: freshName, Type: argTy})
+		bodyCore := ch.check(caseExpr, retTy)
+		ch.ctx.Pop()
+		return &core.Lam{Param: freshName, ParamType: argTy, Body: bodyCore, S: e.S}
+	}
+
 	paramName := ch.patternName(e.Params[0])
 	ch.ctx.Push(&CtxVar{Name: paramName, Type: argTy})
 	var bodyCore core.Core
@@ -372,6 +396,17 @@ func (ch *Checker) checkLam(e *syntax.ExprLam, expected types.Type) core.Core {
 	}
 	ch.ctx.Pop()
 	return &core.Lam{Param: paramName, ParamType: argTy, Body: bodyCore, S: e.S}
+}
+
+func isStructuredPattern(p syntax.Pattern) bool {
+	switch pat := p.(type) {
+	case *syntax.PatVar, *syntax.PatWild:
+		return false
+	case *syntax.PatParen:
+		return isStructuredPattern(pat.Inner)
+	default:
+		return true
+	}
 }
 
 func (ch *Checker) inferCase(e *syntax.ExprCase) (types.Type, core.Core) {
@@ -1462,7 +1497,7 @@ func (ch *Checker) checkTypeAppKind(fun, arg types.Type, s span.Span) {
 		return
 	}
 	if err := ch.unifier.UnifyKinds(ka.From, argKind); err != nil {
-		ch.addCodedError(errs.ErrKindMismatch, s,
+		ch.addCodedError(errs.ErrTypeMismatch, s, // MUTATION 5: wrong error code
 			fmt.Sprintf("kind mismatch in type application: expected kind %s, got %s", ka.From, argKind))
 	}
 }
