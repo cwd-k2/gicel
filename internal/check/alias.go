@@ -112,6 +112,23 @@ func collectAliasRefsRec(ty types.Type, aliases map[string]*aliasInfo, seen map[
 		if t.Tail != nil {
 			collectAliasRefsRec(t.Tail, aliases, seen, refs)
 		}
+	case *types.TyConstraintRow:
+		for _, e := range t.Entries {
+			for _, a := range e.Args {
+				collectAliasRefsRec(a, aliases, seen, refs)
+			}
+		}
+		if t.Tail != nil {
+			collectAliasRefsRec(t.Tail, aliases, seen, refs)
+		}
+	case *types.TyEvidence:
+		collectAliasRefsRec(t.Constraints, aliases, seen, refs)
+		collectAliasRefsRec(t.Body, aliases, seen, refs)
+	case *types.TyQual:
+		for _, a := range t.Args {
+			collectAliasRefsRec(a, aliases, seen, refs)
+		}
+		collectAliasRefsRec(t.Body, aliases, seen, refs)
 	case *types.TyVar, *types.TyMeta, *types.TyError:
 		// No alias references possible.
 	}
