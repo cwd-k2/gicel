@@ -3,6 +3,9 @@ package gomputation
 import (
 	"fmt"
 	"maps"
+	"os"
+	"path/filepath"
+	"strings"
 
 	"github.com/cwd-k2/gomputation/internal/check"
 	"github.com/cwd-k2/gomputation/internal/core"
@@ -112,6 +115,17 @@ func (e *Engine) SetTraceHook(hook eval.TraceHook) {
 // SetCheckTraceHook sets the type checking trace hook.
 func (e *Engine) SetCheckTraceHook(hook check.CheckTraceHook) {
 	e.checkTraceHook = hook
+}
+
+// RegisterModuleFile reads a .gmp file and registers it as a module.
+// The module name is derived from the filename (without extension).
+func (e *Engine) RegisterModuleFile(path string) error {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return fmt.Errorf("read module file: %w", err)
+	}
+	name := strings.TrimSuffix(filepath.Base(path), filepath.Ext(path))
+	return e.RegisterModule(name, string(data))
 }
 
 // RegisterModule compiles a module and makes it available for import.

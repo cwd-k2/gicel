@@ -2,6 +2,7 @@ package gomputation_test
 
 import (
 	"context"
+	"os"
 	"strings"
 	"sync"
 	"testing"
@@ -1950,6 +1951,44 @@ main := eq True False
 	con, ok := result.Value.(*gmp.ConVal)
 	if !ok || con.Con != "True" {
 		t.Errorf("expected True, got %s", result.Value)
+	}
+}
+
+func TestRegisterModuleFile(t *testing.T) {
+	dir := t.TempDir()
+	path := dir + "/Lib.gmp"
+	if err := os.WriteFile(path, []byte(`
+data Color = Red | Blue
+`), 0644); err != nil {
+		t.Fatal(err)
+	}
+	eng := gmp.NewEngine()
+	eng.NoPrelude()
+	if err := eng.RegisterModuleFile(path); err != nil {
+		t.Fatal(err)
+	}
+	rt, err := eng.NewRuntime(`
+import Lib
+main := Red
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	con, ok := result.Value.(*gmp.ConVal)
+	if !ok || con.Con != "Red" {
+		t.Errorf("expected Red, got %s", result.Value)
+	}
+}
+
+func TestRegisterModuleFileMissing(t *testing.T) {
+	eng := gmp.NewEngine()
+	err := eng.RegisterModuleFile("/nonexistent/path/Foo.gmp")
+	if err == nil {
+		t.Error("expected error for missing file")
 	}
 }
 
