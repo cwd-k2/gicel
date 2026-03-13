@@ -677,6 +677,59 @@ func TestParseConstraintProductTriple(t *testing.T) {
 	}
 }
 
+func TestParseConstraintProductNested(t *testing.T) {
+	// (Eq a, Ord a) => Show a => a -> Bool — product + curried mix.
+	prog, es := parse("f :: (Eq a, Ord a) => Show a => a -> Bool")
+	if es.HasErrors() {
+		t.Fatal(es.Format())
+	}
+	d := prog.Decls[0].(*DeclTypeAnn)
+	q1, ok := d.Type.(*TyExprQual)
+	if !ok {
+		t.Fatalf("expected outer TyExprQual, got %T", d.Type)
+	}
+	// Outer constraint should be tuple (Eq a, Ord a).
+	_, ok = q1.Constraint.(*TyExprTuple)
+	if !ok {
+		t.Fatalf("expected TyExprTuple, got %T", q1.Constraint)
+	}
+	// Body should be another TyExprQual (Show a => ...).
+	q2, ok := q1.Body.(*TyExprQual)
+	if !ok {
+		t.Fatalf("expected inner TyExprQual, got %T", q1.Body)
+	}
+	// Inner body should be arrow.
+	_, ok = q2.Body.(*TyExprArrow)
+	if !ok {
+		t.Fatalf("expected TyExprArrow, got %T", q2.Body)
+	}
+}
+
+func TestParseTupleInTypePosition(t *testing.T) {
+	// (Int, Bool) in type position (not before =>) should parse as tuple.
+	prog, es := parse("f :: (Int, Bool) -> Bool")
+	if es.HasErrors() {
+		t.Fatal(es.Format())
+	}
+	d := prog.Decls[0].(*DeclTypeAnn)
+	arr, ok := d.Type.(*TyExprArrow)
+	if !ok {
+		t.Fatalf("expected TyExprArrow, got %T", d.Type)
+	}
+	_, ok = arr.From.(*TyExprTuple)
+	if !ok {
+		t.Fatalf("expected TyExprTuple in arrow from, got %T", arr.From)
+	}
+}
+
+func TestParseTrailingCommaInTuple(t *testing.T) {
+	// (Eq a,) => — trailing comma parses the empty trailing element.
+	// Parser should handle this gracefully (not crash).
+	_, es := parse("f :: (Eq a,) => Bool")
+	// Whether this errors or not, it should not panic.
+	_ = es
+}
+
 func TestParseClassDecl(t *testing.T) {
 	prog, es := parse("class Eq a { eq :: a -> a -> Bool }")
 	if es.HasErrors() {
