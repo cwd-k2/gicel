@@ -3412,6 +3412,32 @@ main := (empty :: List Bool)
 	}
 }
 
+// ---------------------------------------------------------------------------
+// List Stdlib Pack (Group 1B)
+// ---------------------------------------------------------------------------
+
+func TestListStdlibLength(t *testing.T) {
+	eng := gmp.NewEngine()
+	if err := eng.Use(gmp.List); err != nil {
+		t.Fatal(err)
+	}
+	rt, err := eng.NewRuntime(`
+import Std.List
+main := length (Cons True (Cons False Nil))
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	hv, ok := result.Value.(*gmp.HostVal)
+	if !ok || hv.Inner != int64(2) {
+		t.Fatalf("expected 2, got %v", result.Value)
+	}
+}
+
 // assertList checks that a Value is a List with the given int64 elements.
 func assertList(t *testing.T, v gmp.Value, expected []int64) {
 	t.Helper()

@@ -267,3 +267,100 @@ func TestMustStringPanic(t *testing.T) {
 	}()
 	mustString(intVal(42))
 }
+
+// --- List ---
+
+func conList(vals ...eval.Value) eval.Value {
+	var result eval.Value = &eval.ConVal{Con: "Nil"}
+	for i := len(vals) - 1; i >= 0; i-- {
+		result = &eval.ConVal{Con: "Cons", Args: []eval.Value{vals[i], result}}
+	}
+	return result
+}
+
+func TestFromSliceImpl(t *testing.T) {
+	input := &eval.HostVal{Inner: []any{intVal(1), intVal(2), intVal(3)}}
+	v, _, err := fromSliceImpl(ctx, ce, args(input))
+	if err != nil {
+		t.Fatal(err)
+	}
+	items, ok := listToSlice(v)
+	if !ok {
+		t.Fatal("expected list")
+	}
+	if len(items) != 3 {
+		t.Fatalf("expected 3 items, got %d", len(items))
+	}
+}
+
+func TestFromSliceImplPassthrough(t *testing.T) {
+	list := conList(intVal(1), intVal(2))
+	v, _, err := fromSliceImpl(ctx, ce, args(list))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if v != list {
+		t.Fatal("expected passthrough for ConVal list")
+	}
+}
+
+func TestToSliceImpl(t *testing.T) {
+	list := conList(intVal(1), intVal(2), intVal(3))
+	v, _, err := toSliceImpl(ctx, ce, args(list))
+	if err != nil {
+		t.Fatal(err)
+	}
+	hv, ok := v.(*eval.HostVal)
+	if !ok {
+		t.Fatalf("expected HostVal, got %T", v)
+	}
+	items := hv.Inner.([]any)
+	if len(items) != 3 {
+		t.Fatalf("expected 3 items, got %d", len(items))
+	}
+}
+
+func TestLengthImplEmpty(t *testing.T) {
+	v, _, err := lengthImpl(ctx, ce, args(&eval.ConVal{Con: "Nil"}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertInt(t, v, 0)
+}
+
+func TestLengthImpl(t *testing.T) {
+	list := conList(intVal(1), intVal(2), intVal(3))
+	v, _, err := lengthImpl(ctx, ce, args(list))
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertInt(t, v, 3)
+}
+
+func TestConcatImpl(t *testing.T) {
+	xs := conList(intVal(1), intVal(2))
+	ys := conList(intVal(3))
+	v, _, err := concatImpl(ctx, ce, args(xs, ys))
+	if err != nil {
+		t.Fatal(err)
+	}
+	items, ok := listToSlice(v)
+	if !ok {
+		t.Fatal("expected list")
+	}
+	if len(items) != 3 {
+		t.Fatalf("expected 3 items, got %d", len(items))
+	}
+}
+
+func TestRoundTrip(t *testing.T) {
+	original := []any{intVal(1), intVal(2), intVal(3)}
+	list := sliceToList(original)
+	items, ok := listToSlice(list)
+	if !ok {
+		t.Fatal("expected list")
+	}
+	if len(items) != len(original) {
+		t.Fatalf("round-trip: expected %d items, got %d", len(original), len(items))
+	}
+}

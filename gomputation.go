@@ -61,3 +61,6 @@ var Fail Pack = func(e *Engine) error { return stdlib.Fail(e) }
 
 // State provides get/put state capabilities.
 var State Pack = func(e *Engine) error { return stdlib.State(e) }
+
+// List provides list operations: fromSlice, toSlice, length, concat.
+var List Pack = func(e *Engine) error { return stdlib.List(e) }
