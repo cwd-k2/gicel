@@ -3413,6 +3413,64 @@ main := (empty :: List Bool)
 }
 
 // ---------------------------------------------------------------------------
+// List Literal Syntax (Group 1C)
+// ---------------------------------------------------------------------------
+
+func TestListLiteralBasic(t *testing.T) {
+	eng := gmp.NewEngine()
+	if err := eng.Use(gmp.Num); err != nil {
+		t.Fatal(err)
+	}
+	rt, err := eng.NewRuntime(`
+import Std.Num
+main := [1, 2, 3]
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertList(t, result.Value, []int64{1, 2, 3})
+}
+
+func TestListLiteralEmpty(t *testing.T) {
+	eng := gmp.NewEngine()
+	rt, err := eng.NewRuntime(`main := ([] :: List Bool)`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	con, ok := result.Value.(*gmp.ConVal)
+	if !ok || con.Con != "Nil" {
+		t.Fatalf("expected Nil, got %v", result.Value)
+	}
+}
+
+func TestListLiteralFmap(t *testing.T) {
+	eng := gmp.NewEngine()
+	if err := eng.Use(gmp.Num); err != nil {
+		t.Fatal(err)
+	}
+	rt, err := eng.NewRuntime(`
+import Std.Num
+main := fmap (\x -> add x 10) [1, 2, 3]
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertList(t, result.Value, []int64{11, 12, 13})
+}
+
+// ---------------------------------------------------------------------------
 // List Stdlib Pack (Group 1B)
 // ---------------------------------------------------------------------------
 

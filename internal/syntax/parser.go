@@ -601,6 +601,8 @@ func (p *Parser) parseAtom() Expr {
 			r = runes[0]
 		}
 		return &ExprRuneLit{Value: r, S: tok.S}
+	case TokLBracket:
+		return p.parseListLit()
 	default:
 		return nil
 	}
@@ -1037,9 +1039,9 @@ func (p *Parser) advance() Token {
 		p.pos++
 	}
 	switch tok.Kind {
-	case TokLParen, TokLBrace:
+	case TokLParen, TokLBrace, TokLBracket:
 		p.depth++
-	case TokRParen, TokRBrace:
+	case TokRParen, TokRBrace, TokRBracket:
 		if p.depth > 0 {
 			p.depth--
 		}
@@ -1104,12 +1106,30 @@ func (p *Parser) atDeclBoundary() bool {
 	return false
 }
 
+func (p *Parser) parseListLit() Expr {
+	start := p.peek().S.Start
+	p.expect(TokLBracket)
+	var elems []Expr
+	if p.peek().Kind != TokRBracket {
+		elems = append(elems, p.parseExpr())
+		for p.peek().Kind == TokComma {
+			p.advance()
+			elems = append(elems, p.parseExpr())
+		}
+	}
+	p.expect(TokRBracket)
+	return &ExprList{
+		Elems: elems,
+		S:     span.Span{Start: start, End: p.prevEnd()},
+	}
+}
+
 func (p *Parser) isAtomStart() bool {
 	if p.atDeclBoundary() {
 		return false
 	}
 	k := p.peek().Kind
-	return k == TokLower || k == TokUpper || k == TokLParen || k == TokBackslash || k == TokLBrace || k == TokCase || k == TokDo || k == TokIntLit || k == TokStrLit || k == TokRuneLit
+	return k == TokLower || k == TokUpper || k == TokLParen || k == TokBackslash || k == TokLBrace || k == TokCase || k == TokDo || k == TokIntLit || k == TokStrLit || k == TokRuneLit || k == TokLBracket
 }
 
 func (p *Parser) isTypeAtomStart() bool {

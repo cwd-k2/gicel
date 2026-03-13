@@ -88,6 +88,11 @@ type ExprRuneLit struct {
 	S     span.Span
 }
 
+type ExprList struct {
+	Elems []Expr
+	S     span.Span
+}
+
 func (*ExprVar) exprNode()     {}
 func (*ExprCon) exprNode()     {}
 func (*ExprApp) exprNode()     {}
@@ -102,6 +107,7 @@ func (*ExprParen) exprNode()   {}
 func (*ExprIntLit) exprNode()  {}
 func (*ExprStrLit) exprNode()  {}
 func (*ExprRuneLit) exprNode() {}
+func (*ExprList) exprNode()    {}
 
 func (e *ExprVar) Span() span.Span     { return e.S }
 func (e *ExprCon) Span() span.Span     { return e.S }
@@ -117,6 +123,7 @@ func (e *ExprParen) Span() span.Span   { return e.S }
 func (e *ExprIntLit) Span() span.Span  { return e.S }
 func (e *ExprStrLit) Span() span.Span  { return e.S }
 func (e *ExprRuneLit) Span() span.Span { return e.S }
+func (e *ExprList) Span() span.Span    { return e.S }
 
 // ---- Statements (in do blocks) ----
 

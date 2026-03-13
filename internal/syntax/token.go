@@ -14,6 +14,8 @@ const (
 	TokRParen    // )
 	TokLBrace    // {
 	TokRBrace    // }
+	TokLBracket  // [
+	TokRBracket  // ]
 	TokComma     // ,
 	TokSemicolon // ;
 	TokPipe      // |
@@ -94,6 +96,10 @@ func (k TokenKind) String() string {
 		return "{"
 	case TokRBrace:
 		return "}"
+	case TokLBracket:
+		return "["
+	case TokRBracket:
+		return "]"
 	case TokComma:
 		return ","
 	case TokSemicolon:

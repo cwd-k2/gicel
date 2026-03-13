@@ -142,6 +142,9 @@ func (ch *Checker) infer(expr syntax.Expr) (types.Type, core.Core) {
 	case *syntax.ExprRuneLit:
 		return ch.mkType("Rune"), &core.Lit{Value: e.Value, S: e.S}
 
+	case *syntax.ExprList:
+		return ch.inferList(e)
+
 	default:
 		ch.addCodedError(errs.ErrTypeMismatch, expr.Span(), "cannot infer type of expression")
 		return ch.errorPair(expr.Span())
@@ -777,6 +780,29 @@ func (ch *Checker) inferForce(e *syntax.ExprApp) (types.Type, core.Core) {
 	)
 	ch.trace(TraceInfer, e.S, "force: %s ⇒ %s", types.Pretty(argTy), types.Pretty(resultTy))
 	return resultTy, &core.Force{Expr: argCore, S: e.S}
+}
+
+// inferList handles list literal [e1, e2, ...] by desugaring to Cons/Nil chain.
+func (ch *Checker) inferList(e *syntax.ExprList) (types.Type, core.Core) {
+	elemTy := ch.freshMeta(types.KType{})
+	listTy := &types.TyApp{Fun: &types.TyCon{Name: "List"}, Arg: elemTy}
+
+	// Build from the end: Nil, then Cons e_n (Cons e_{n-1} ...)
+	var result core.Core = &core.Con{Name: "Nil", S: e.S}
+	for i := len(e.Elems) - 1; i >= 0; i-- {
+		elemCore := ch.check(e.Elems[i], elemTy)
+		result = &core.App{
+			Fun: &core.App{
+				Fun: &core.Con{Name: "Cons", S: e.S},
+				Arg: elemCore,
+				S:   e.S,
+			},
+			Arg: result,
+			S:   e.S,
+		}
+	}
+
+	return ch.unifier.Zonk(listTy), result
 }
 
 func (ch *Checker) resolveKindExpr(k syntax.KindExpr) types.Kind {

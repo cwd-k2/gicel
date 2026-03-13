@@ -69,6 +69,12 @@ func (l *Lexer) scanToken() Token {
 	case '}':
 		l.advance()
 		return l.tok(TokRBrace, start)
+	case '[':
+		l.advance()
+		return l.tok(TokLBracket, start)
+	case ']':
+		l.advance()
+		return l.tok(TokRBracket, start)
 	case ',':
 		l.advance()
 		return l.tok(TokComma, start)
