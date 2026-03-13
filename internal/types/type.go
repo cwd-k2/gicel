@@ -85,11 +85,14 @@ type TyConstraintRow struct {
 // For simple constraints (Eq a), ClassName and Args describe the constraint.
 // For quantified constraints (forall a. Eq a => Eq (f a)), Quantified is non-nil
 // and ClassName/Args reflect the head constraint.
+// For constraint variables (c : Constraint), ConstraintVar is non-nil and
+// ClassName/Args are derived from it after substitution/zonking.
 type ConstraintEntry struct {
-	ClassName  string
-	Args       []Type
-	Quantified *QuantifiedConstraint // non-nil for forall-quantified constraints
-	S          span.Span
+	ClassName     string
+	Args          []Type
+	Quantified    *QuantifiedConstraint // non-nil for forall-quantified constraints
+	ConstraintVar Type                  // non-nil for constraint variable references
+	S             span.Span
 }
 
 // QuantifiedConstraint represents a universally quantified constraint:

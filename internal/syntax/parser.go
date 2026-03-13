@@ -135,11 +135,26 @@ func (p *Parser) parseDataDecl() *DeclData {
 	p.expect(TokData)
 	name := p.expectUpper()
 	var params []TyBinder
-	for p.peek().Kind == TokLower {
-		pName := p.peek().Text
-		pS := p.peek().S
-		p.advance()
-		params = append(params, TyBinder{Name: pName, S: pS})
+	for p.peek().Kind == TokLower || p.peek().Kind == TokLParen {
+		if p.peek().Kind == TokLParen {
+			// Kinded param: (name : Kind)
+			lp := p.peek().S.Start
+			p.advance()
+			pName := p.expectLower()
+			p.expect(TokColon)
+			kind := p.parseKindExpr()
+			p.expect(TokRParen)
+			params = append(params, TyBinder{
+				Name: pName,
+				Kind: kind,
+				S:    span.Span{Start: lp, End: p.prevEnd()},
+			})
+		} else {
+			pName := p.peek().Text
+			pS := p.peek().S
+			p.advance()
+			params = append(params, TyBinder{Name: pName, S: pS})
+		}
 	}
 	p.expect(TokEq)
 

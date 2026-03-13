@@ -162,6 +162,15 @@ func equalConstraintEntry(a, b ConstraintEntry, bindings []alphaBinding) bool {
 			return false
 		}
 	}
+	// ConstraintVar: both must match.
+	if (a.ConstraintVar == nil) != (b.ConstraintVar == nil) {
+		return false
+	}
+	if a.ConstraintVar != nil {
+		if !equalAlpha(a.ConstraintVar, b.ConstraintVar, bindings) {
+			return false
+		}
+	}
 	// Both must be quantified or both simple.
 	if (a.Quantified == nil) != (b.Quantified == nil) {
 		return false

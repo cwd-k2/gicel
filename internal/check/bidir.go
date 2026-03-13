@@ -183,18 +183,35 @@ func (ch *Checker) check(expr syntax.Expr, expected types.Type) core.Core {
 		}
 		dicts := make([]dictInfo, len(ev.Constraints.Entries))
 		for i, entry := range ev.Constraints.Entries {
-			dictParam := fmt.Sprintf("$d_%s_%d", entry.ClassName, ch.fresh())
 			var dictTy types.Type
+			var className string
+			var args []types.Type
 			if entry.Quantified != nil {
 				dictTy = ch.buildQuantifiedDictType(entry.Quantified)
+				className = entry.ClassName
+				args = entry.Args
+			} else if entry.ConstraintVar != nil && entry.ClassName == "" {
+				// Constraint variable: decompose to get className + args.
+				cv := ch.unifier.Zonk(entry.ConstraintVar)
+				if cn, cArgs, ok := DecomposeConstraintType(cv); ok {
+					className = cn
+					args = cArgs
+					dictTy = ch.buildDictType(cn, cArgs)
+				} else {
+					className = "?"
+					dictTy = cv // fallback
+				}
 			} else {
+				className = entry.ClassName
+				args = entry.Args
 				dictTy = ch.buildDictType(entry.ClassName, entry.Args)
 			}
+			dictParam := fmt.Sprintf("$d_%s_%d", className, ch.fresh())
 			dicts[i] = dictInfo{param: dictParam, ty: dictTy}
 			ch.ctx.Push(&CtxVar{Name: dictParam, Type: dictTy})
 			ch.ctx.Push(&CtxEvidence{
-				ClassName:  entry.ClassName,
-				Args:       entry.Args,
+				ClassName:  className,
+				Args:       args,
 				DictName:   dictParam,
 				DictType:   dictTy,
 				Quantified: entry.Quantified,
@@ -252,12 +269,13 @@ func (ch *Checker) subsCheck(inferred, expected types.Type, expr core.Core, s sp
 		for _, entry := range ev.Constraints.Entries {
 			placeholder := fmt.Sprintf("$dict_%d", ch.fresh())
 			ch.deferred = append(ch.deferred, deferredConstraint{
-				placeholder:  placeholder,
-				className:    entry.ClassName,
-				args:         entry.Args,
-				s:            s,
-				group:        groupID,
-				quantified:   entry.Quantified,
+				placeholder:   placeholder,
+				className:     entry.ClassName,
+				args:          entry.Args,
+				s:             s,
+				group:         groupID,
+				quantified:    entry.Quantified,
+				constraintVar: entry.ConstraintVar,
 			})
 			expr = &core.App{Fun: expr, Arg: &core.Var{Name: placeholder, S: s}, S: s}
 		}
@@ -305,18 +323,20 @@ func (ch *Checker) checkCase(e *syntax.ExprCase, expected types.Type) core.Core 
 func (ch *Checker) checkCaseAlts(scrutTy, resultTy types.Type, scrutCore core.Core, e *syntax.ExprCase) core.Core {
 	var alts []core.Alt
 	for _, alt := range e.Alts {
-		pat, bindings, skolemIDs := ch.checkPattern(alt.Pattern, scrutTy)
+		pat, bindings, skolemIDs, hasEvidence := ch.checkPattern(alt.Pattern, scrutTy)
 		for name, ty := range bindings {
 			ch.ctx.Push(&CtxVar{Name: name, Type: ty})
 		}
-		// If this branch introduces existential dict bindings, save and
-		// restore deferred constraints so we only resolve the ones from this body.
+		// Isolate deferred constraints when the branch introduces evidence bindings
+		// (existential skolems or Dict-style reified evidence). Evidence is only
+		// in scope within the alt body, so constraints must be resolved here.
+		needsLocalResolve := len(skolemIDs) > 0 || hasEvidence
 		savedDeferred := ch.deferred
-		if len(skolemIDs) > 0 {
+		if needsLocalResolve {
 			ch.deferred = nil
 		}
 		bodyCore := ch.check(alt.Body, resultTy)
-		if len(skolemIDs) > 0 {
+		if needsLocalResolve {
 			// Resolve only the constraints generated within this branch body.
 			bodyCore = ch.resolveDeferredConstraints(bodyCore)
 			// Restore outer deferred constraints.
@@ -335,17 +355,17 @@ func (ch *Checker) checkCaseAlts(scrutTy, resultTy types.Type, scrutCore core.Co
 	return &core.Case{Scrutinee: scrutCore, Alts: alts, S: e.S}
 }
 
-func (ch *Checker) checkPattern(pat syntax.Pattern, scrutTy types.Type) (core.Pattern, map[string]types.Type, map[int]string) {
+func (ch *Checker) checkPattern(pat syntax.Pattern, scrutTy types.Type) (core.Pattern, map[string]types.Type, map[int]string, bool) {
 	switch p := pat.(type) {
 	case *syntax.PatVar:
-		return &core.PVar{Name: p.Name, S: p.S}, map[string]types.Type{p.Name: scrutTy}, nil
+		return &core.PVar{Name: p.Name, S: p.S}, map[string]types.Type{p.Name: scrutTy}, nil, false
 	case *syntax.PatWild:
-		return &core.PWild{S: p.S}, nil, nil
+		return &core.PWild{S: p.S}, nil, nil, false
 	case *syntax.PatCon:
 		conTy, ok := ch.conTypes[p.Con]
 		if !ok {
 			ch.addCodedError(errs.ErrUnboundCon, p.S, fmt.Sprintf("unknown constructor in pattern: %s", p.Con))
-			return &core.PWild{S: p.S}, nil, nil
+			return &core.PWild{S: p.S}, nil, nil, false
 		}
 		// Instantiate constructor type and match argument types.
 		conTy = ch.unifier.Zonk(conTy)
@@ -389,13 +409,29 @@ func (ch *Checker) checkPattern(pat syntax.Pattern, scrutTy types.Type) (core.Pa
 		}
 
 		// 4. Peel constraints — generate dict bindings and pattern args for existential constraints.
+		// For ConstraintVar entries, the concrete className/args are unknown until
+		// return type unification (step 6). Record them and resolve after unification.
+		type pendingCV struct {
+			constraintVar types.Type
+			dictParam     string
+		}
+		var pendingCVs []pendingCV
 		for {
 			if ev, ok := currentTy.(*types.TyEvidence); ok {
 				for _, entry := range ev.Constraints.Entries {
-					dictParam := fmt.Sprintf("$d_%s_%d", entry.ClassName, ch.fresh())
-					dictTy := ch.buildDictType(entry.ClassName, entry.Args)
-					bindings[dictParam] = dictTy
-					args = append(args, &core.PVar{Name: dictParam, S: p.S})
+					if entry.ConstraintVar != nil && entry.ClassName == "" {
+						dictParam := fmt.Sprintf("$d_cv_%d", ch.fresh())
+						pendingCVs = append(pendingCVs, pendingCV{
+							constraintVar: entry.ConstraintVar,
+							dictParam:     dictParam,
+						})
+						args = append(args, &core.PVar{Name: dictParam, S: p.S})
+					} else {
+						dictParam := fmt.Sprintf("$d_%s_%d", entry.ClassName, ch.fresh())
+						dictTy := ch.buildDictType(entry.ClassName, entry.Args)
+						bindings[dictParam] = dictTy
+						args = append(args, &core.PVar{Name: dictParam, S: p.S})
+					}
 				}
 				currentTy = ev.Body
 			} else {
@@ -403,9 +439,10 @@ func (ch *Checker) checkPattern(pat syntax.Pattern, scrutTy types.Type) (core.Pa
 			}
 		}
 
+		// 5. Peel arrow arguments matching user-supplied pattern args.
 		for _, argPat := range p.Args {
 			argTy, restTy := ch.matchArrow(currentTy, p.S)
-			corePat, argBindings, childSkolems := ch.checkPattern(argPat, argTy)
+			corePat, argBindings, childSkolems, _ := ch.checkPattern(argPat, argTy)
 			args = append(args, corePat)
 			for k, v := range argBindings {
 				bindings[k] = v
@@ -415,7 +452,7 @@ func (ch *Checker) checkPattern(pat syntax.Pattern, scrutTy types.Type) (core.Pa
 			}
 			currentTy = restTy
 		}
-		// Unify result type with scrutinee type.
+		// 6. Unify result type with scrutinee type.
 		// GADT: if this constructor has a refined return type that is
 		// incompatible with the scrutinee, the branch is inaccessible.
 		// Suppress the error — exhaustiveness handles relevance.
@@ -423,7 +460,7 @@ func (ch *Checker) checkPattern(pat syntax.Pattern, scrutTy types.Type) (core.Pa
 			for _, c := range info.Constructors {
 				if c.Name == p.Con && c.ReturnType != nil {
 					if !ch.canUnifyWith(c.ReturnType, scrutTy) {
-						return &core.PCon{Con: p.Con, Args: args, S: p.S}, bindings, skolemIDs
+						return &core.PCon{Con: p.Con, Args: args, S: p.S}, bindings, skolemIDs, len(pendingCVs) > 0
 					}
 				}
 			}
@@ -431,11 +468,19 @@ func (ch *Checker) checkPattern(pat syntax.Pattern, scrutTy types.Type) (core.Pa
 		if err := ch.unifier.Unify(currentTy, scrutTy); err != nil {
 			ch.addCodedError(errs.ErrTypeMismatch, p.S, fmt.Sprintf("constructor type mismatch: %s", err))
 		}
-		return &core.PCon{Con: p.Con, Args: args, S: p.S}, bindings, skolemIDs
+		// 7. Resolve pending constraint variable entries now that metas are solved.
+		for _, pcv := range pendingCVs {
+			cv := ch.unifier.Zonk(pcv.constraintVar)
+			if cn, cArgs, ok := DecomposeConstraintType(cv); ok {
+				dictTy := ch.buildDictType(cn, cArgs)
+				bindings[pcv.dictParam] = dictTy
+			}
+		}
+		return &core.PCon{Con: p.Con, Args: args, S: p.S}, bindings, skolemIDs, len(pendingCVs) > 0
 	case *syntax.PatParen:
 		return ch.checkPattern(p.Inner, scrutTy)
 	default:
-		return &core.PWild{S: pat.Span()}, nil, nil
+		return &core.PWild{S: pat.Span()}, nil, nil, false
 	}
 }
 
@@ -799,12 +844,13 @@ func (ch *Checker) instantiate(ty types.Type, expr core.Core) (types.Type, core.
 			for _, entry := range ev.Constraints.Entries {
 				placeholder := fmt.Sprintf("$dict_%d", ch.fresh())
 				ch.deferred = append(ch.deferred, deferredConstraint{
-					placeholder:  placeholder,
-					className:    entry.ClassName,
-					args:         entry.Args,
-					s:            expr.Span(),
-					group:        groupID,
-					quantified:   entry.Quantified,
+					placeholder:   placeholder,
+					className:     entry.ClassName,
+					args:          entry.Args,
+					s:             expr.Span(),
+					group:         groupID,
+					quantified:    entry.Quantified,
+					constraintVar: entry.ConstraintVar,
 				})
 				expr = &core.App{Fun: expr, Arg: &core.Var{Name: placeholder, S: expr.Span()}, S: expr.Span()}
 			}

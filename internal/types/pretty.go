@@ -111,6 +111,9 @@ func prettyConstraintEntry(e ConstraintEntry) string {
 	if e.Quantified != nil {
 		return prettyQuantifiedConstraint(e.Quantified)
 	}
+	if e.ConstraintVar != nil && e.ClassName == "" {
+		return Pretty(e.ConstraintVar)
+	}
 	items := []string{e.ClassName}
 	for _, a := range e.Args {
 		items = append(items, prettyAtom(a))

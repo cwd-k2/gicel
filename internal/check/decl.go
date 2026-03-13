@@ -86,10 +86,16 @@ func (ch *Checker) checkDecls(decls []syntax.Decl) *core.Program {
 }
 
 func (ch *Checker) processDataDecl(d *syntax.DeclData, prog *core.Program) {
+	// Resolve parameter kinds.
+	paramKinds := make([]types.Kind, len(d.Params))
+	for i, p := range d.Params {
+		paramKinds[i] = ch.resolveKindExpr(p.Kind)
+	}
+
 	// Register type constructor kind.
 	var kind types.Kind = types.KType{}
 	for i := len(d.Params) - 1; i >= 0; i-- {
-		kind = &types.KArrow{From: types.KType{}, To: kind}
+		kind = &types.KArrow{From: paramKinds[i], To: kind}
 	}
 	ch.config.RegisteredTypes[d.Name] = kind
 
@@ -103,26 +109,43 @@ func (ch *Checker) processDataDecl(d *syntax.DeclData, prog *core.Program) {
 
 	// Register each constructor.
 	coreDecl := core.DataDecl{Name: d.Name, S: d.S}
-	for _, p := range d.Params {
-		coreDecl.TyParams = append(coreDecl.TyParams, core.TyParam{Name: p.Name, Kind: types.KType{}})
+	for i, p := range d.Params {
+		coreDecl.TyParams = append(coreDecl.TyParams, core.TyParam{Name: p.Name, Kind: paramKinds[i]})
 	}
 
 	for _, con := range d.Cons {
 		var conType types.Type = resultType
 		var fieldTypes []types.Type
+		var constraintEntries []types.ConstraintEntry
 		for i := len(con.Fields) - 1; i >= 0; i-- {
 			fieldTy := ch.resolveTypeExpr(con.Fields[i])
+			// Check if this field is a Constraint-kinded type variable.
+			// If so, treat it as an evidence constraint rather than a regular field.
+			if ch.isConstraintKindedField(fieldTy, d.Params, paramKinds) {
+				entry := ch.constraintFromField(fieldTy)
+				if entry != nil {
+					constraintEntries = append([]types.ConstraintEntry{*entry}, constraintEntries...)
+					continue
+				}
+			}
 			fieldTypes = append([]types.Type{fieldTy}, fieldTypes...)
 			conType = types.MkArrow(fieldTy, conType)
 		}
+		// Wrap with evidence constraints if any fields were Constraint-kinded.
+		if len(constraintEntries) > 0 {
+			conType = &types.TyEvidence{
+				Constraints: &types.TyConstraintRow{Entries: constraintEntries},
+				Body:        conType,
+			}
+		}
 		// Wrap in forall for type params.
 		for i := len(d.Params) - 1; i >= 0; i-- {
-			conType = types.MkForall(d.Params[i].Name, types.KType{}, conType)
+			conType = types.MkForall(d.Params[i].Name, paramKinds[i], conType)
 		}
 
 		ch.conTypes[con.Name] = conType
 		ch.ctx.Push(&CtxVar{Name: con.Name, Type: conType})
-		dataInfo.Constructors = append(dataInfo.Constructors, ConInfo{Name: con.Name, Arity: len(con.Fields)})
+		dataInfo.Constructors = append(dataInfo.Constructors, ConInfo{Name: con.Name, Arity: len(fieldTypes)})
 		ch.conInfo[con.Name] = dataInfo
 		coreDecl.Cons = append(coreDecl.Cons, core.ConDecl{Name: con.Name, Fields: fieldTypes, S: con.S})
 	}
@@ -179,6 +202,29 @@ func (ch *Checker) processDataDecl(d *syntax.DeclData, prog *core.Program) {
 		if len(fieldTypes) == 0 {
 			ch.promotedCons[gcon.Name] = dataKind
 		}
+	}
+}
+
+// isConstraintKindedField checks if a field type references a Constraint-kinded type variable.
+func (ch *Checker) isConstraintKindedField(fieldTy types.Type, params []syntax.TyBinder, paramKinds []types.Kind) bool {
+	if tv, ok := fieldTy.(*types.TyVar); ok {
+		for i, p := range params {
+			if p.Name == tv.Name {
+				if _, isConstraint := paramKinds[i].(types.KConstraint); isConstraint {
+					return true
+				}
+			}
+		}
+	}
+	return false
+}
+
+// constraintFromField converts a Constraint-kinded field type variable into a
+// ConstraintEntry. The type variable `c` is stored as ConstraintVar; when
+// substituted (e.g., c = Eq Bool), it decomposes into className + args.
+func (ch *Checker) constraintFromField(fieldTy types.Type) *types.ConstraintEntry {
+	return &types.ConstraintEntry{
+		ConstraintVar: fieldTy,
 	}
 }
 

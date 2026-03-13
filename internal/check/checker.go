@@ -99,12 +99,13 @@ type aliasInfo struct {
 
 // deferredConstraint records a constraint to be resolved after type inference.
 type deferredConstraint struct {
-	placeholder string
-	className   string
-	args        []types.Type
-	s           span.Span
-	group       int // constraints from same qualified type chain; 0 = ungrouped
-	quantified  *types.QuantifiedConstraint // non-nil for quantified constraints
+	placeholder   string
+	className     string
+	args          []types.Type
+	s             span.Span
+	group         int                          // constraints from same qualified type chain; 0 = ungrouped
+	quantified    *types.QuantifiedConstraint  // non-nil for quantified constraints
+	constraintVar types.Type                   // non-nil for constraint variable entries (Dict reification)
 }
 
 // Check type-checks a surface AST program and produces Core IR.

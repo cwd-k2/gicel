@@ -83,12 +83,16 @@ Single-quoted single character: `'a'`, `'\n'`. Same escape sequences as strings.
 data Name param* = Con field* (| Con field*)*
 ```
 
+Parameters can be bare type variables or kinded: `(name : Kind)`.
+
 Examples:
 ```
 data Bool = True | False
 data Maybe a = Just a | Nothing
 data Result e a = Ok a | Err e
 data List a = Cons a (List a) | Nil
+data Dict (c : Constraint) = MkDict c    -- Constraint-kinded param
+data Evidence (c : Constraint) a = MkEvidence c a
 ```
 
 ### Data Type (GADT)
@@ -364,9 +368,37 @@ At use sites, the quantified constraint is resolved by finding a matching global
 
 Within a function body, quantified evidence can be applied to produce dictionaries for specific types. If `f` has constraint `(forall a. Eq a => Eq (g a))`, then `eq (x :: g Bool) y` resolves `Eq (g Bool)` by applying the quantified evidence to `Bool` and the `Eq Bool` dictionary.
 
-**Future extensions** (not yet implemented):
-- Constraint variables: `forall (c : Constraint). c => ...` — requires open constraint row tail solving
-- Dict reification: `data Dict (c : Constraint) = Dict c` — requires constraint-kinded data params
+### Dict Reification
+
+Constraint-kinded type parameters in data declarations enable reification of class evidence as first-class values:
+
+```
+data Dict (c : Constraint) = MkDict c
+```
+
+The parameter `c` has kind `Constraint`. The constructor field `c` elaborates to an implicit evidence argument — the dictionary for the constraint. At construction, evidence is resolved automatically from the context:
+
+```
+mkDict :: Dict (Eq Bool)
+mkDict := MkDict           -- resolves Eq Bool evidence implicitly
+```
+
+Pattern matching on `Dict` brings the evidence back into scope:
+
+```
+withDict :: forall a. Dict (Eq a) -> a -> a -> Bool
+withDict := \d x y -> case d of { MkDict -> eq x y }
+```
+
+The user writes `MkDict` with zero explicit pattern arguments; the evidence field is implicit. Inside the branch body, the constraint `Eq a` is available for resolution.
+
+Constraint-kinded parameters can coexist with regular parameters:
+
+```
+data Evidence (c : Constraint) a = MkEvidence c a
+```
+
+Here `c` is the implicit evidence field and `a` is a regular field.
 
 ### Universal Quantification
 
@@ -414,6 +446,7 @@ DBState               -- DataKinds: user-defined promoted kind
 forall (c : Constraint). Bool                    -- constraint-kinded param
 forall a (c : Constraint). a -> Bool             -- mixed kinds
 class Constrained (c : Constraint) { ... }       -- in class declarations
+data Dict (c : Constraint) = MkDict c            -- in data declarations (Dict reification)
 ```
 
 ### DataKinds Promotion

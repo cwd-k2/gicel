@@ -71,6 +71,9 @@ func freeVarsConstraintEntry(e ConstraintEntry, bound map[string]bool, fv map[st
 	for _, a := range e.Args {
 		freeVarsRec(a, bound, fv)
 	}
+	if e.ConstraintVar != nil {
+		freeVarsRec(e.ConstraintVar, bound, fv)
+	}
 	if e.Quantified != nil {
 		// Extend bound set with quantified variables.
 		newBound := make(map[string]bool, len(bound)+len(e.Quantified.Vars))

@@ -1,7 +1,10 @@
 package check
 
 import (
+	"fmt"
+
 	"github.com/cwd-k2/gomputation/internal/core"
+	"github.com/cwd-k2/gomputation/internal/errs"
 	"github.com/cwd-k2/gomputation/internal/types"
 )
 
@@ -19,6 +22,28 @@ func (ch *Checker) resolveDeferredConstraints(expr core.Core) core.Core {
 			// Resolve quantified constraint by finding matching evidence.
 			resolved := ch.resolveQuantifiedConstraint(dc.quantified, dc.s)
 			resolutions[dc.placeholder] = resolved
+		} else if dc.constraintVar != nil {
+			// Constraint variable: zonk and decompose into className + args.
+			cv := ch.unifier.Zonk(dc.constraintVar)
+			cn, cArgs, ok := DecomposeConstraintType(cv)
+			if ok {
+				resolved := ch.resolveInstance(cn, cArgs, dc.s)
+				resolutions[dc.placeholder] = resolved
+			} else {
+				// Still unresolved — try using className/args if available.
+				if dc.className != "" {
+					zonkedArgs := make([]types.Type, len(dc.args))
+					for i, a := range dc.args {
+						zonkedArgs[i] = ch.unifier.Zonk(a)
+					}
+					resolved := ch.resolveInstance(dc.className, zonkedArgs, dc.s)
+					resolutions[dc.placeholder] = resolved
+				} else {
+					ch.addCodedError(errs.ErrNoInstance, dc.s,
+						fmt.Sprintf("cannot resolve constraint variable %s", types.Pretty(cv)))
+					resolutions[dc.placeholder] = &core.Var{Name: "<no-instance>", S: dc.s}
+				}
+			}
 		} else {
 			zonkedArgs := make([]types.Type, len(dc.args))
 			for i, a := range dc.args {

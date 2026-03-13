@@ -631,6 +631,20 @@ func (u *Unifier) zonkConstraintEntry(e types.ConstraintEntry, changed *bool) ty
 		}
 	}
 	result := types.ConstraintEntry{ClassName: e.ClassName, Args: args, S: e.S}
+	if e.ConstraintVar != nil {
+		newCV := u.Zonk(e.ConstraintVar)
+		if newCV != e.ConstraintVar {
+			*changed = true
+		}
+		result.ConstraintVar = newCV
+		// If zonked ConstraintVar is now concrete, decompose into ClassName + Args.
+		if result.ClassName == "" {
+			if cn, cArgs, ok := DecomposeConstraintType(newCV); ok {
+				result.ClassName = cn
+				result.Args = cArgs
+			}
+		}
+	}
 	if e.Quantified != nil {
 		qc := u.zonkQuantifiedConstraint(e.Quantified, changed)
 		result.Quantified = qc
@@ -645,6 +659,16 @@ func (u *Unifier) zonkQuantifiedConstraint(qc *types.QuantifiedConstraint, chang
 	}
 	head := u.zonkConstraintEntry(qc.Head, changed)
 	return &types.QuantifiedConstraint{Vars: qc.Vars, Context: ctx, Head: head}
+}
+
+// DecomposeConstraintType decomposes a concrete constraint type (e.g., TyApp(TyCon("Eq"), TyCon("Bool")))
+// into its class name and type arguments. Returns ("Eq", [Bool], true) for the example above.
+func DecomposeConstraintType(ty types.Type) (className string, args []types.Type, ok bool) {
+	head, tArgs := types.UnwindApp(ty)
+	if con, isCon := head.(*types.TyCon); isCon {
+		return con.Name, tArgs, true
+	}
+	return "", nil, false
 }
 
 func collectFields(r *types.TyRow, labels []string) []types.RowField {

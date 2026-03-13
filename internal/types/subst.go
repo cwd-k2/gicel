@@ -159,6 +159,13 @@ func substConstraintEntry(e ConstraintEntry, varName string, replacement Type, c
 		args[j] = newA
 	}
 	result := ConstraintEntry{ClassName: e.ClassName, Args: args, S: e.S}
+	if e.ConstraintVar != nil {
+		newCV := Subst(e.ConstraintVar, varName, replacement)
+		if newCV != e.ConstraintVar {
+			*changed = true
+		}
+		result.ConstraintVar = newCV
+	}
 	if e.Quantified != nil {
 		// Check if varName is shadowed by any quantified variable.
 		for _, v := range e.Quantified.Vars {
