@@ -3025,3 +3025,259 @@ func TestProgramOpaque(t *testing.T) {
 		t.Error("expected non-empty Pretty output from Runtime.Program()")
 	}
 }
+
+// --- Phase 7B: Public API Edge Cases ---
+
+func TestSetDepthLimit(t *testing.T) {
+	eng := gmp.NewEngine()
+	eng.EnableRecursion()
+	eng.SetDepthLimit(10)
+	rt, err := eng.NewRuntime(`
+loop := fix (\self -> \x -> self x)
+main := loop Unit
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = rt.RunContext(context.Background(), nil, nil, "main")
+	if err == nil {
+		t.Fatal("expected depth limit error")
+	}
+	if !strings.Contains(err.Error(), "depth limit") {
+		t.Fatalf("expected depth limit error, got: %v", err)
+	}
+}
+
+func TestEngineMultipleRuntimes(t *testing.T) {
+	eng := gmp.NewEngine()
+	rt1, err := eng.NewRuntime(`main := True`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rt2, err := eng.NewRuntime(`main := False`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	r1, err := rt1.RunContext(context.Background(), nil, nil, "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	r2, err := rt2.RunContext(context.Background(), nil, nil, "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c, ok := r1.Value.(*gmp.ConVal); !ok || c.Con != "True" {
+		t.Errorf("rt1: expected True, got %v", r1.Value)
+	}
+	if c, ok := r2.Value.(*gmp.ConVal); !ok || c.Con != "False" {
+		t.Errorf("rt2: expected False, got %v", r2.Value)
+	}
+}
+
+func TestEngineMutationAfterRuntime(t *testing.T) {
+	eng := gmp.NewEngine()
+	eng.RegisterType("Int", gmp.KindType())
+	eng.DeclareBinding("x", gmp.ConType("Int"))
+	rt, err := eng.NewRuntime(`main := x`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Mutate engine after runtime creation.
+	eng.SetStepLimit(1)
+	// Runtime should still work with original limits.
+	bindings := map[string]gmp.Value{"x": &gmp.HostVal{Inner: int64(99)}}
+	result, err := rt.RunContext(context.Background(), nil, bindings, "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	hv, ok := result.Value.(*gmp.HostVal)
+	if !ok || hv.Inner != int64(99) {
+		t.Errorf("expected 99, got %v", result.Value)
+	}
+}
+
+func TestModuleAccumulation(t *testing.T) {
+	eng := gmp.NewEngine()
+	eng.NoPrelude()
+	err := eng.RegisterModule("A", `
+data Bool = True | False
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = eng.RegisterModule("B", `
+import A
+data Pair a b = MkPair a b
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rt, err := eng.NewRuntime(`
+import A
+import B
+main := MkPair True False
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := result.Value.(*gmp.ConVal); !ok {
+		t.Fatalf("expected ConVal, got %T", result.Value)
+	}
+}
+
+func TestInvalidModuleSource(t *testing.T) {
+	eng := gmp.NewEngine()
+	err := eng.RegisterModule("Bad", `this is not valid syntax @@@@`)
+	if err == nil {
+		t.Fatal("expected error for invalid module source")
+	}
+}
+
+// --- Phase 7C: Effectful PrimOp Deferral ---
+
+func TestEffectfulDeferUntilBind(t *testing.T) {
+	eng := gmp.NewEngine()
+	if err := eng.Use(gmp.State); err != nil {
+		t.Fatal(err)
+	}
+	rt, err := eng.NewRuntime(`
+import Std.State
+main :: Computation { state : Int | r } { state : Int | r } Int
+main := do { s <- get; pure s }
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	caps := map[string]any{"state": &gmp.HostVal{Inner: int64(42)}}
+	result, err := rt.RunContext(context.Background(), caps, nil, "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	hv, ok := result.Value.(*gmp.HostVal)
+	if !ok || hv.Inner != int64(42) {
+		t.Errorf("expected 42, got %v", result.Value)
+	}
+}
+
+func TestEffectfulTopLevelForce(t *testing.T) {
+	eng := gmp.NewEngine()
+	if err := eng.Use(gmp.State); err != nil {
+		t.Fatal(err)
+	}
+	rt, err := eng.NewRuntime(`
+import Std.State
+main :: Computation { state : Int | r } { state : Int | r } Int
+main := get
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	caps := map[string]any{"state": &gmp.HostVal{Inner: int64(7)}}
+	result, err := rt.RunContext(context.Background(), caps, nil, "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	hv, ok := result.Value.(*gmp.HostVal)
+	if !ok || hv.Inner != int64(7) {
+		t.Errorf("expected 7, got %v", result.Value)
+	}
+}
+
+func TestNonEffectfulImmediate(t *testing.T) {
+	eng := gmp.NewEngine()
+	if err := eng.Use(gmp.Num); err != nil {
+		t.Fatal(err)
+	}
+	rt, err := eng.NewRuntime(`
+import Std.Num
+main := 1 + 2
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	hv, ok := result.Value.(*gmp.HostVal)
+	if !ok || hv.Inner != int64(3) {
+		t.Errorf("expected 3, got %v", result.Value)
+	}
+}
+
+// --- Phase 7D: Error Path Tests ---
+
+func TestDepthLimitError(t *testing.T) {
+	eng := gmp.NewEngine()
+	eng.EnableRecursion()
+	eng.SetDepthLimit(5)
+	rt, err := eng.NewRuntime(`
+deep := fix (\self -> \x -> self x)
+main := deep Unit
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = rt.RunContext(context.Background(), nil, nil, "main")
+	if err == nil {
+		t.Fatal("expected error for deep recursion")
+	}
+}
+
+func TestPrimImplError(t *testing.T) {
+	eng := gmp.NewEngine()
+	if err := eng.Use(gmp.Num); err != nil {
+		t.Fatal(err)
+	}
+	rt, err := eng.NewRuntime(`
+import Std.Num
+main := div 1 0
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = rt.RunContext(context.Background(), nil, nil, "main")
+	if err == nil {
+		t.Fatal("expected error for division by zero")
+	}
+	if !strings.Contains(err.Error(), "division by zero") {
+		t.Fatalf("expected division by zero error, got: %v", err)
+	}
+}
+
+func TestMissingBinding(t *testing.T) {
+	eng := gmp.NewEngine()
+	eng.RegisterType("Int", gmp.KindType())
+	eng.DeclareBinding("x", gmp.ConType("Int"))
+	rt, err := eng.NewRuntime(`main := x`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Run without providing the binding.
+	_, err = rt.RunContext(context.Background(), nil, nil, "main")
+	if err == nil {
+		t.Fatal("expected error for missing binding")
+	}
+	if !strings.Contains(err.Error(), "missing binding") {
+		t.Fatalf("expected missing binding error, got: %v", err)
+	}
+}
+
+func TestMissingEntryPoint(t *testing.T) {
+	eng := gmp.NewEngine()
+	rt, err := eng.NewRuntime(`foo := True`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = rt.RunContext(context.Background(), nil, nil, "main")
+	if err == nil {
+		t.Fatal("expected error for missing entry point")
+	}
+	if !strings.Contains(err.Error(), "entry point") {
+		t.Fatalf("expected entry point error, got: %v", err)
+	}
+}
