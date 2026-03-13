@@ -383,6 +383,24 @@ func TestUnifyRowOpenOpenDisjoint(t *testing.T) {
 	}
 }
 
+func TestPatternConArityTooMany(t *testing.T) {
+	// Just takes one arg, pattern supplies two → should error.
+	source := `data Maybe a = Nothing | Just a
+f :: Maybe Int -> Int
+f := \x -> case x { Nothing -> 0; Just a b -> a }
+main := f (Just 42)`
+	checkSourceExpectError(t, source, nil)
+}
+
+func TestPatternConArityTooFew(t *testing.T) {
+	// Pair takes two args, pattern supplies one → should error.
+	source := `data Pair a b = MkPair a b
+f :: Pair Int Int -> Int
+f := \x -> case x { MkPair a -> a }
+main := f (MkPair 1 2)`
+	checkSourceExpectError(t, source, nil)
+}
+
 func TestUnifyRowOpenClosedExtraLabels(t *testing.T) {
 	// Open row { x: Int, y: Bool | ?tail } vs closed { x: Int }
 	// The open side has extra label y — tail can absorb nothing since closed.
