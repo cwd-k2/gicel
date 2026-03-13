@@ -195,6 +195,7 @@ func (p *Parser) parseGADTCons() []GADTConDecl {
 	p.expect(TokLBrace)
 	var cons []GADTConDecl
 	for p.peek().Kind != TokRBrace && p.peek().Kind != TokEOF {
+		before := p.pos
 		cStart := p.peek().S.Start
 		cName := p.expectUpper()
 		p.expect(TokColonColon)
@@ -205,6 +206,9 @@ func (p *Parser) parseGADTCons() []GADTConDecl {
 			S:    span.Span{Start: cStart, End: p.prevEnd()},
 		})
 		if p.peek().Kind == TokSemicolon {
+			p.advance()
+		} else if p.pos == before {
+			p.addError("unexpected token in GADT declaration")
 			p.advance()
 		}
 	}
@@ -395,12 +399,16 @@ func (p *Parser) parseClassMethods() []ClassMethod {
 	p.expect(TokLBrace)
 	var methods []ClassMethod
 	for p.peek().Kind != TokRBrace && p.peek().Kind != TokEOF {
+		before := p.pos
 		mStart := p.peek().S.Start
 		name := p.expectLower()
 		p.expect(TokColonColon)
 		ty := p.parseType()
 		methods = append(methods, ClassMethod{Name: name, Type: ty, S: span.Span{Start: mStart, End: p.prevEnd()}})
 		if p.peek().Kind == TokSemicolon {
+			p.advance()
+		} else if p.pos == before {
+			p.addError("unexpected token in class declaration")
 			p.advance()
 		}
 	}
@@ -756,9 +764,13 @@ func (p *Parser) parseCase() Expr {
 	p.expect(TokLBrace)
 	var alts []AstAlt
 	for p.peek().Kind != TokRBrace && p.peek().Kind != TokEOF {
+		before := p.pos
 		alt := p.parseAlt()
 		alts = append(alts, alt)
 		if p.peek().Kind == TokSemicolon {
+			p.advance()
+		} else if p.pos == before {
+			p.addError("unexpected token in case expression")
 			p.advance()
 		}
 	}
@@ -786,9 +798,13 @@ func (p *Parser) parseDo() Expr {
 	p.expect(TokLBrace)
 	var stmts []Stmt
 	for p.peek().Kind != TokRBrace && p.peek().Kind != TokEOF {
+		before := p.pos
 		stmt := p.parseStmt()
 		stmts = append(stmts, stmt)
 		if p.peek().Kind == TokSemicolon {
+			p.advance()
+		} else if p.pos == before {
+			p.addError("unexpected token in do-block")
 			p.advance()
 		}
 	}

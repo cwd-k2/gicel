@@ -1314,3 +1314,32 @@ func TestParseBlockStillWorks(t *testing.T) {
 		t.Fatalf("expected ExprBlock, got %T", bind.Expr)
 	}
 }
+
+// --- Parser stall guard tests ---
+// These verify that the parser terminates on malformed input
+// rather than entering an infinite loop.
+
+func TestParseDoStallGuard(t *testing.T) {
+	// "let" is not a keyword; "= 42" cannot be parsed as an expression.
+	// The parser must not hang on unrecognizable tokens inside do blocks.
+	_, es := parse("main := do { let x = 42; pure x }")
+	if !es.HasErrors() {
+		t.Fatal("expected parse errors for invalid do-block syntax")
+	}
+}
+
+func TestParseDoStallGuard_EqToken(t *testing.T) {
+	// Bare '=' inside a do block — parser must terminate.
+	_, es := parse("main := do { = }")
+	if !es.HasErrors() {
+		t.Fatal("expected parse errors for bare '=' in do-block")
+	}
+}
+
+func TestParseCaseStallGuard(t *testing.T) {
+	// Unrecognizable token sequence in case alts.
+	_, es := parse("main := case x { = }")
+	if !es.HasErrors() {
+		t.Fatal("expected parse errors for invalid case alt")
+	}
+}
