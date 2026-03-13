@@ -228,6 +228,30 @@ func TestUnifyConstraintRowSameClassDifferentArgs(t *testing.T) {
 	}
 }
 
+func TestUnifyConstraintRowOpenClosedExtraOnOpenSide(t *testing.T) {
+	// Open { Eq a, Ord a | c } vs closed { Eq Int }
+	// The open side has extra Ord — closed has no tail to absorb it → error.
+	u := NewUnifier()
+	m := &types.TyMeta{ID: 900, Kind: types.KConstraint{}}
+	mA := &types.TyMeta{ID: 901, Kind: types.KType{}}
+
+	cr1 := &types.TyConstraintRow{
+		Entries: []types.ConstraintEntry{
+			{ClassName: "Eq", Args: []types.Type{mA}},
+			{ClassName: "Ord", Args: []types.Type{mA}},
+		},
+		Tail: m,
+	}
+	cr2 := &types.TyConstraintRow{
+		Entries: []types.ConstraintEntry{
+			{ClassName: "Eq", Args: []types.Type{types.Con("Int")}},
+		},
+	}
+	if err := u.Unify(cr1, cr2); err == nil {
+		t.Fatal("open row with extra constraints should not unify with closed row missing them")
+	}
+}
+
 func TestUnifyEvidence(t *testing.T) {
 	u := NewUnifier()
 	m := &types.TyMeta{ID: 1, Kind: types.KType{}}

@@ -237,6 +237,21 @@ func TestUnifyEvidenceRowConMultiEntry(t *testing.T) {
 // Unify — TyEvidenceRow fiber mismatch
 // =============================================================================
 
+func TestUnifyEvidenceRowCapOpenClosedExtraOnOpenSide(t *testing.T) {
+	// Open { x: Int, y: Bool | tail } vs closed { x: Int }
+	// Open side has extra y — error.
+	u := NewUnifier()
+	m := &types.TyMeta{ID: 800, Kind: types.KRow{}}
+	r1 := types.EvOpenRow([]types.RowField{
+		{Label: "x", Type: types.Con("Int")},
+		{Label: "y", Type: types.Con("Bool")},
+	}, m)
+	r2 := types.EvClosedRow(types.RowField{Label: "x", Type: types.Con("Int")})
+	if err := u.Unify(r1, r2); err == nil {
+		t.Fatal("open row with extra labels should not unify with closed row")
+	}
+}
+
 func TestUnifyEvidenceRowFiberMismatch(t *testing.T) {
 	u := NewUnifier()
 	cap := types.EvEmptyRow()
