@@ -519,87 +519,6 @@ func (u *Unifier) occursIn(id int, t types.Type) bool {
 }
 
 // Row unification
-func (u *Unifier) unifyRows(r1, r2 *types.TyRow) error {
-	r1 = types.Normalize(r1)
-	r2 = types.Normalize(r2)
-
-	// Register label contexts for open-row tails (spec §8: label uniqueness preservation).
-	u.registerRowLabels(r1)
-	u.registerRowLabels(r2)
-
-	shared, onlyLeft, onlyRight := classifyFields(r1.Fields, r2.Fields)
-
-	// Unify shared labels.
-	for _, label := range shared {
-		t1 := fieldType(r1, label)
-		t2 := fieldType(r2, label)
-		if err := u.Unify(t1, t2); err != nil {
-			return err
-		}
-	}
-
-	switch {
-	case r1.Tail == nil && r2.Tail == nil:
-		if len(onlyLeft) > 0 || len(onlyRight) > 0 {
-			return &UnifyError{Kind: UnifyRowMismatch, Detail: fmt.Sprintf("row mismatch: extra labels %v / %v", onlyLeft, onlyRight)}
-		}
-	case r1.Tail != nil && r2.Tail == nil:
-		if len(onlyLeft) > 0 {
-			return &UnifyError{Kind: UnifyRowMismatch, Detail: fmt.Sprintf("extra labels in row: %v", onlyLeft)}
-		}
-		return u.solveRowTail(r1.Tail, collectFields(r2, onlyRight), nil)
-	case r1.Tail == nil && r2.Tail != nil:
-		if len(onlyRight) > 0 {
-			return &UnifyError{Kind: UnifyRowMismatch, Detail: fmt.Sprintf("extra labels in row: %v", onlyRight)}
-		}
-		return u.solveRowTail(r2.Tail, collectFields(r1, onlyLeft), nil)
-	default:
-		// Open-Open: introduce fresh row metavariable.
-		// Given { shared, onlyLeft | r1.Tail } ~ { shared, onlyRight | r2.Tail }:
-		//   r1.Tail = { onlyRight | r_fresh }
-		//   r2.Tail = { onlyLeft  | r_fresh }
-		rFresh := u.freshMeta(types.KRow{})
-		if err := u.solveRowTail(r1.Tail, collectFields(r2, onlyRight), rFresh); err != nil {
-			return err
-		}
-		return u.solveRowTail(r2.Tail, collectFields(r1, onlyLeft), rFresh)
-	}
-	return nil
-}
-
-func (u *Unifier) solveRowTail(tail types.Type, fields []types.RowField, newTail types.Type) error {
-	// { | t } is equivalent to t — unify tail directly when no extra fields.
-	if len(fields) == 0 && newTail != nil {
-		return u.Unify(tail, newTail)
-	}
-	solution := &types.TyRow{Fields: fields, Tail: newTail}
-	if len(fields) == 0 && newTail == nil {
-		solution = types.EmptyRow()
-	}
-	return u.Unify(tail, solution)
-}
-
-// registerRowLabels records a row's field labels as the label context
-// for its tail metavariable (if any).
-func (u *Unifier) registerRowLabels(r *types.TyRow) {
-	if r.Tail == nil {
-		return
-	}
-	tail := u.Zonk(r.Tail)
-	if m, ok := tail.(*types.TyMeta); ok {
-		labels := make(map[string]struct{}, len(r.Fields))
-		for _, f := range r.Fields {
-			labels[f.Label] = struct{}{}
-		}
-		// Merge with any existing context.
-		if existing, ok := u.labels[m.ID]; ok {
-			for l := range existing {
-				labels[l] = struct{}{}
-			}
-		}
-		u.labels[m.ID] = labels
-	}
-}
 
 func classifyFields(a, b []types.RowField) (shared, onlyA, onlyB []string) {
 	aMap := make(map[string]bool)
@@ -625,8 +544,8 @@ func classifyFields(a, b []types.RowField) (shared, onlyA, onlyB []string) {
 	return
 }
 
-func fieldType(r *types.TyRow, label string) types.Type {
-	for _, f := range r.Fields {
+func fieldType(fields []types.RowField, label string) types.Type {
+	for _, f := range fields {
 		if f.Label == label {
 			return f.Type
 		}
@@ -634,63 +553,6 @@ func fieldType(r *types.TyRow, label string) types.Type {
 	return nil
 }
 
-// Constraint row unification — parallel to unifyRows.
-func (u *Unifier) unifyConstraintRows(r1, r2 *types.TyConstraintRow) error {
-	r1 = types.NormalizeConstraints(r1)
-	r2 = types.NormalizeConstraints(r2)
-
-	shared, onlyLeft, onlyRight := classifyConstraints(r1.Entries, r2.Entries, u)
-
-	// Unify shared entries' Args.
-	for _, m := range shared {
-		if len(m.A.Args) != len(m.B.Args) {
-			return &UnifyError{Kind: UnifyRowMismatch, Detail: fmt.Sprintf("constraint arg count mismatch: %s has %d args vs %d",
-				m.A.ClassName, len(m.A.Args), len(m.B.Args))}
-		}
-		for i := range m.A.Args {
-			if err := u.Unify(m.A.Args[i], m.B.Args[i]); err != nil {
-				return err
-			}
-		}
-	}
-
-	switch {
-	case r1.Tail == nil && r2.Tail == nil:
-		if len(onlyLeft) > 0 || len(onlyRight) > 0 {
-			return &UnifyError{Kind: UnifyRowMismatch, Detail: fmt.Sprintf("constraint row mismatch: extra constraints left=%d right=%d",
-				len(onlyLeft), len(onlyRight))}
-		}
-	case r1.Tail != nil && r2.Tail == nil:
-		if len(onlyLeft) > 0 {
-			return &UnifyError{Kind: UnifyRowMismatch, Detail: fmt.Sprintf("extra constraints in left row: %d", len(onlyLeft))}
-		}
-		return u.solveConstraintTail(r1.Tail, onlyRight, nil)
-	case r1.Tail == nil && r2.Tail != nil:
-		if len(onlyRight) > 0 {
-			return &UnifyError{Kind: UnifyRowMismatch, Detail: fmt.Sprintf("extra constraints in right row: %d", len(onlyRight))}
-		}
-		return u.solveConstraintTail(r2.Tail, onlyLeft, nil)
-	default:
-		// Open-Open: fresh constraint metavariable.
-		cFresh := u.freshMeta(types.KConstraint{})
-		if err := u.solveConstraintTail(r1.Tail, onlyRight, cFresh); err != nil {
-			return err
-		}
-		return u.solveConstraintTail(r2.Tail, onlyLeft, cFresh)
-	}
-	return nil
-}
-
-func (u *Unifier) solveConstraintTail(tail types.Type, entries []types.ConstraintEntry, newTail types.Type) error {
-	if len(entries) == 0 && newTail != nil {
-		return u.Unify(tail, newTail)
-	}
-	solution := &types.TyConstraintRow{Entries: entries, Tail: newTail}
-	if len(entries) == 0 && newTail == nil {
-		solution = types.EmptyConstraintRow()
-	}
-	return u.Unify(tail, solution)
-}
 
 type constraintMatch struct {
 	A, B types.ConstraintEntry
@@ -849,8 +711,8 @@ func (u *Unifier) unifyEvCapRows(
 	shared, onlyLeft, onlyRight := classifyFields(an.Fields, bn.Fields)
 
 	for _, label := range shared {
-		t1 := fieldType(&types.TyRow{Fields: an.Fields}, label)
-		t2 := fieldType(&types.TyRow{Fields: bn.Fields}, label)
+		t1 := fieldType(an.Fields, label)
+		t2 := fieldType(bn.Fields, label)
 		if err := u.Unify(t1, t2); err != nil {
 			return err
 		}
@@ -993,19 +855,6 @@ func (u *Unifier) solveEvConTail(tail types.Type, entries []types.ConstraintEntr
 	return u.Unify(tail, solution)
 }
 
-func collectFields(r *types.TyRow, labels []string) []types.RowField {
-	set := make(map[string]bool, len(labels))
-	for _, l := range labels {
-		set[l] = true
-	}
-	var fields []types.RowField
-	for _, f := range r.Fields {
-		if set[f.Label] {
-			fields = append(fields, f)
-		}
-	}
-	return fields
-}
 
 // =============================================================================
 // Kind unification
