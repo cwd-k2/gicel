@@ -82,6 +82,29 @@ type TyQual struct {
 	S         span.Span
 }
 
+// TyConstraintRow is a constraint row type { C1 a, C2 b | tail? }.
+// Kind: KConstraint. Parallel to TyRow for capability rows.
+type TyConstraintRow struct {
+	Entries []ConstraintEntry
+	Tail    Type // nil = closed, TyVar or TyMeta = open
+	S       span.Span
+}
+
+// ConstraintEntry is a single class constraint in a constraint row.
+type ConstraintEntry struct {
+	ClassName string
+	Args      []Type
+	S         span.Span
+}
+
+// TyEvidence is a qualified type: { C1, C2 | c } => Body.
+// Successor to TyQual; represents multiple constraints via a constraint row.
+type TyEvidence struct {
+	Constraints *TyConstraintRow
+	Body        Type
+	S           span.Span
+}
+
 // TyMeta is a unification metavariable (created by the checker).
 type TyMeta struct {
 	ID   int
@@ -113,10 +136,12 @@ func (*TyForall) typeNode() {}
 func (*TyComp) typeNode()   {}
 func (*TyThunk) typeNode()  {}
 func (*TyRow) typeNode()    {}
-func (*TyQual) typeNode()   {}
-func (*TySkolem) typeNode() {}
-func (*TyMeta) typeNode()   {}
-func (*TyError) typeNode()  {}
+func (*TyQual) typeNode()          {}
+func (*TyConstraintRow) typeNode() {}
+func (*TyEvidence) typeNode()      {}
+func (*TySkolem) typeNode()        {}
+func (*TyMeta) typeNode()          {}
+func (*TyError) typeNode()         {}
 
 // --- Span accessors ---
 
@@ -128,10 +153,12 @@ func (t *TyForall) Span() span.Span { return t.S }
 func (t *TyComp) Span() span.Span   { return t.S }
 func (t *TyThunk) Span() span.Span  { return t.S }
 func (t *TyRow) Span() span.Span    { return t.S }
-func (t *TyQual) Span() span.Span   { return t.S }
-func (t *TySkolem) Span() span.Span { return t.S }
-func (t *TyMeta) Span() span.Span   { return t.S }
-func (t *TyError) Span() span.Span  { return t.S }
+func (t *TyQual) Span() span.Span          { return t.S }
+func (t *TyConstraintRow) Span() span.Span { return t.S }
+func (t *TyEvidence) Span() span.Span      { return t.S }
+func (t *TySkolem) Span() span.Span        { return t.S }
+func (t *TyMeta) Span() span.Span          { return t.S }
+func (t *TyError) Span() span.Span         { return t.S }
 
 // --- Children ---
 
@@ -148,9 +175,20 @@ func (t *TyQual) Children() []Type {
 	ch = append(ch, t.Body)
 	return ch
 }
-func (t *TySkolem) Children() []Type { return nil }
-func (t *TyMeta) Children() []Type   { return nil }
-func (t *TyError) Children() []Type  { return nil }
+func (t *TyConstraintRow) Children() []Type {
+	var ch []Type
+	for _, e := range t.Entries {
+		ch = append(ch, e.Args...)
+	}
+	if t.Tail != nil {
+		ch = append(ch, t.Tail)
+	}
+	return ch
+}
+func (t *TyEvidence) Children() []Type { return []Type{t.Constraints, t.Body} }
+func (t *TySkolem) Children() []Type   { return nil }
+func (t *TyMeta) Children() []Type     { return nil }
+func (t *TyError) Children() []Type    { return nil }
 
 // UnwindApp decomposes a chain of TyApp into the head type and arguments.
 // E.g., TyApp(TyApp(TyCon("F"), A), B) → (TyCon("F"), [A, B]).

@@ -59,3 +59,23 @@ func Var(name string) *TyVar {
 func MkQual(className string, args []Type, body Type) *TyQual {
 	return &TyQual{ClassName: className, Args: args, Body: body}
 }
+
+// EmptyConstraintRow creates an empty closed constraint row.
+func EmptyConstraintRow() *TyConstraintRow {
+	return &TyConstraintRow{}
+}
+
+// SingleConstraint creates a constraint row with one entry.
+func SingleConstraint(className string, args []Type) *TyConstraintRow {
+	return &TyConstraintRow{
+		Entries: []ConstraintEntry{{ClassName: className, Args: args}},
+	}
+}
+
+// MkEvidence creates a TyEvidence from constraint entries and a body type.
+func MkEvidence(entries []ConstraintEntry, body Type) *TyEvidence {
+	return &TyEvidence{
+		Constraints: &TyConstraintRow{Entries: entries},
+		Body:        body,
+	}
+}

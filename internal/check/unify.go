@@ -147,6 +147,38 @@ func (u *Unifier) Zonk(t types.Type) types.Type {
 			return ty
 		}
 		return &types.TyRow{Fields: fields, Tail: tail, S: ty.S}
+	case *types.TyConstraintRow:
+		changed := false
+		entries := make([]types.ConstraintEntry, len(ty.Entries))
+		for i, e := range ty.Entries {
+			args := make([]types.Type, len(e.Args))
+			for j, a := range e.Args {
+				args[j] = u.Zonk(a)
+				if args[j] != a {
+					changed = true
+				}
+			}
+			entries[i] = types.ConstraintEntry{ClassName: e.ClassName, Args: args, S: e.S}
+		}
+		var tail types.Type
+		if ty.Tail != nil {
+			tail = u.Zonk(ty.Tail)
+			if tail != ty.Tail {
+				changed = true
+			}
+		}
+		if !changed {
+			return ty
+		}
+		return &types.TyConstraintRow{Entries: entries, Tail: tail, S: ty.S}
+	case *types.TyEvidence:
+		zConstraints := u.Zonk(ty.Constraints)
+		zBody := u.Zonk(ty.Body)
+		if zConstraints == ty.Constraints && zBody == ty.Body {
+			return ty
+		}
+		cr, _ := zConstraints.(*types.TyConstraintRow)
+		return &types.TyEvidence{Constraints: cr, Body: zBody, S: ty.S}
 	case *types.TySkolem:
 		return ty
 	default:
@@ -305,6 +337,17 @@ func (u *Unifier) Unify(a, b types.Type) error {
 	case *types.TyRow:
 		if bt, ok := b.(*types.TyRow); ok {
 			return u.unifyRows(at, bt)
+		}
+	case *types.TyConstraintRow:
+		if bt, ok := b.(*types.TyConstraintRow); ok {
+			return u.unifyConstraintRows(at, bt)
+		}
+	case *types.TyEvidence:
+		if bt, ok := b.(*types.TyEvidence); ok {
+			if err := u.Unify(at.Constraints, bt.Constraints); err != nil {
+				return err
+			}
+			return u.Unify(at.Body, bt.Body)
 		}
 	}
 
@@ -492,6 +535,123 @@ func fieldType(r *types.TyRow, label string) types.Type {
 		}
 	}
 	return nil
+}
+
+// Constraint row unification — parallel to unifyRows.
+func (u *Unifier) unifyConstraintRows(r1, r2 *types.TyConstraintRow) error {
+	r1 = types.NormalizeConstraints(r1)
+	r2 = types.NormalizeConstraints(r2)
+
+	shared, onlyLeft, onlyRight := classifyConstraints(r1.Entries, r2.Entries, u)
+
+	// Unify shared entries' Args.
+	for _, m := range shared {
+		if len(m.A.Args) != len(m.B.Args) {
+			return fmt.Errorf("constraint arg count mismatch: %s has %d args vs %d",
+				m.A.ClassName, len(m.A.Args), len(m.B.Args))
+		}
+		for i := range m.A.Args {
+			if err := u.Unify(m.A.Args[i], m.B.Args[i]); err != nil {
+				return err
+			}
+		}
+	}
+
+	switch {
+	case r1.Tail == nil && r2.Tail == nil:
+		if len(onlyLeft) > 0 || len(onlyRight) > 0 {
+			return fmt.Errorf("constraint row mismatch: extra constraints left=%d right=%d",
+				len(onlyLeft), len(onlyRight))
+		}
+	case r1.Tail != nil && r2.Tail == nil:
+		if len(onlyLeft) > 0 {
+			return fmt.Errorf("extra constraints in left row: %d", len(onlyLeft))
+		}
+		return u.solveConstraintTail(r1.Tail, onlyRight, nil)
+	case r1.Tail == nil && r2.Tail != nil:
+		if len(onlyRight) > 0 {
+			return fmt.Errorf("extra constraints in right row: %d", len(onlyRight))
+		}
+		return u.solveConstraintTail(r2.Tail, onlyLeft, nil)
+	default:
+		// Open-Open: fresh constraint metavariable.
+		cFresh := u.freshMeta(types.KConstraint{})
+		if err := u.solveConstraintTail(r1.Tail, onlyRight, cFresh); err != nil {
+			return err
+		}
+		return u.solveConstraintTail(r2.Tail, onlyLeft, cFresh)
+	}
+	return nil
+}
+
+func (u *Unifier) solveConstraintTail(tail types.Type, entries []types.ConstraintEntry, newTail types.Type) error {
+	if len(entries) == 0 && newTail != nil {
+		return u.Unify(tail, newTail)
+	}
+	solution := &types.TyConstraintRow{Entries: entries, Tail: newTail}
+	if len(entries) == 0 && newTail == nil {
+		solution = types.EmptyConstraintRow()
+	}
+	return u.Unify(tail, solution)
+}
+
+type constraintMatch struct {
+	A, B types.ConstraintEntry
+}
+
+// classifyConstraints partitions constraint entries into shared (matched by className),
+// onlyA, and onlyB. For entries with the same className, we attempt greedy matching.
+func classifyConstraints(a, b []types.ConstraintEntry, u *Unifier) (
+	shared []constraintMatch,
+	onlyA, onlyB []types.ConstraintEntry,
+) {
+	// Build index by className for b entries.
+	bByClass := make(map[string][]int)
+	for i, e := range b {
+		bByClass[e.ClassName] = append(bByClass[e.ClassName], i)
+	}
+	bUsed := make([]bool, len(b))
+
+	for _, ea := range a {
+		matched := false
+		candidates := bByClass[ea.ClassName]
+		for _, bi := range candidates {
+			if bUsed[bi] {
+				continue
+			}
+			eb := b[bi]
+			// Match by className equality. Args will be unified later.
+			// For same className with multiple entries (e.g., Eq a, Eq b),
+			// use canonical key matching as a heuristic.
+			if types.ConstraintKey(ea) == types.ConstraintKey(eb) {
+				shared = append(shared, constraintMatch{A: ea, B: eb})
+				bUsed[bi] = true
+				matched = true
+				break
+			}
+		}
+		if !matched {
+			// Try positional match for same className (handles meta variables).
+			for _, bi := range candidates {
+				if bUsed[bi] {
+					continue
+				}
+				shared = append(shared, constraintMatch{A: ea, B: b[bi]})
+				bUsed[bi] = true
+				matched = true
+				break
+			}
+		}
+		if !matched {
+			onlyA = append(onlyA, ea)
+		}
+	}
+	for i, e := range b {
+		if !bUsed[i] {
+			onlyB = append(onlyB, e)
+		}
+	}
+	return
 }
 
 func collectFields(r *types.TyRow, labels []string) []types.RowField {

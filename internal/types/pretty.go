@@ -37,6 +37,10 @@ func Pretty(t Type) string {
 			prettyAtom(ty.Pre), prettyAtom(ty.Post), prettyAtom(ty.Result))
 	case *TyRow:
 		return prettyRow(ty)
+	case *TyConstraintRow:
+		return prettyConstraintRow(ty)
+	case *TyEvidence:
+		return Pretty(ty.Constraints) + " => " + Pretty(ty.Body)
 	case *TySkolem:
 		return fmt.Sprintf("#%s", ty.Name)
 	case *TyMeta:
@@ -78,6 +82,29 @@ func prettyRow(r *TyRow) string {
 	parts := make([]string, len(r.Fields))
 	for i, f := range r.Fields {
 		parts[i] = fmt.Sprintf("%s : %s", f.Label, Pretty(f.Type))
+	}
+	inner := strings.Join(parts, ", ")
+	if r.Tail != nil {
+		if len(parts) > 0 {
+			inner += " | " + Pretty(r.Tail)
+		} else {
+			inner = "| " + Pretty(r.Tail)
+		}
+	}
+	return "{ " + inner + " }"
+}
+
+func prettyConstraintRow(r *TyConstraintRow) string {
+	if len(r.Entries) == 0 && r.Tail == nil {
+		return "{}"
+	}
+	parts := make([]string, len(r.Entries))
+	for i, e := range r.Entries {
+		items := []string{e.ClassName}
+		for _, a := range e.Args {
+			items = append(items, prettyAtom(a))
+		}
+		parts[i] = strings.Join(items, " ")
 	}
 	inner := strings.Join(parts, ", ")
 	if r.Tail != nil {

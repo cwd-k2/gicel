@@ -120,6 +120,45 @@ func equalAlpha(a, b Type, bindings []alphaBinding) bool {
 		}
 		return true
 
+	case *TyConstraintRow:
+		bt, ok := b.(*TyConstraintRow)
+		if !ok {
+			return false
+		}
+		if len(at.Entries) != len(bt.Entries) {
+			return false
+		}
+		for i := range at.Entries {
+			if at.Entries[i].ClassName != bt.Entries[i].ClassName {
+				return false
+			}
+			if len(at.Entries[i].Args) != len(bt.Entries[i].Args) {
+				return false
+			}
+			for j := range at.Entries[i].Args {
+				if !equalAlpha(at.Entries[i].Args[j], bt.Entries[i].Args[j], bindings) {
+					return false
+				}
+			}
+		}
+		if (at.Tail == nil) != (bt.Tail == nil) {
+			return false
+		}
+		if at.Tail != nil {
+			return equalAlpha(at.Tail, bt.Tail, bindings)
+		}
+		return true
+
+	case *TyEvidence:
+		bt, ok := b.(*TyEvidence)
+		if !ok {
+			return false
+		}
+		if !equalAlpha(at.Constraints, bt.Constraints, bindings) {
+			return false
+		}
+		return equalAlpha(at.Body, bt.Body, bindings)
+
 	case *TySkolem:
 		bt, ok := b.(*TySkolem)
 		return ok && at.ID == bt.ID
