@@ -46,6 +46,7 @@ func (ch *Checker) resolveInstance(className string, args []types.Type, s span.S
 			continue
 		}
 		freshSubst := ch.freshInstanceSubst(inst)
+		saved := ch.saveUnifierState()
 		matched := true
 		for i := range args {
 			instArg := types.SubstMany(inst.TypeArgs[i], freshSubst)
@@ -55,6 +56,7 @@ func (ch *Checker) resolveInstance(className string, args []types.Type, s span.S
 			}
 		}
 		if !matched {
+			ch.restoreUnifierState(saved)
 			continue
 		}
 		var dictExpr core.Core = &core.Var{Name: inst.DictBindName, S: s}
@@ -83,8 +85,10 @@ func (ch *Checker) matchesDictVar(v *CtxVar, className string, args []types.Type
 		if len(tyArgs) != len(args) {
 			return false
 		}
+		saved := ch.saveUnifierState()
 		for i := range args {
 			if err := ch.unifier.Unify(tyArgs[i], args[i]); err != nil {
+				ch.restoreUnifierState(saved)
 				return false
 			}
 		}
@@ -171,11 +175,15 @@ func (ch *Checker) extractSuperDictChain(
 		if sup.ClassName == targetClass {
 			match := len(superArgs) == len(targetArgs)
 			if match {
+				saved := ch.saveUnifierState()
 				for j := range targetArgs {
 					if err := ch.unifier.Unify(superArgs[j], targetArgs[j]); err != nil {
 						match = false
 						break
 					}
+				}
+				if !match {
+					ch.restoreUnifierState(saved)
 				}
 			}
 			if match {
@@ -279,6 +287,7 @@ func (ch *Checker) resolveQuantifiedConstraint(qc *types.QuantifiedConstraint, s
 		// Also create fresh metas for the instance's own free vars.
 		instSubst := ch.freshInstanceSubst(inst)
 
+		saved := ch.saveUnifierState()
 		matched := true
 		for i := range qc.Head.Args {
 			headArg := types.SubstMany(qc.Head.Args[i], freshSubst)
@@ -289,6 +298,7 @@ func (ch *Checker) resolveQuantifiedConstraint(qc *types.QuantifiedConstraint, s
 			}
 		}
 		if !matched {
+			ch.restoreUnifierState(saved)
 			continue
 		}
 

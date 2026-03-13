@@ -88,16 +88,16 @@ infixl 7 /
 (/) := div
 `
 
-func mustInt64(v eval.Value) int64 {
+func asInt64(v eval.Value) (int64, error) {
 	hv, ok := v.(*eval.HostVal)
 	if !ok {
-		panic(fmt.Sprintf("stdlib/num: expected HostVal, got %T", v))
+		return 0, fmt.Errorf("stdlib/num: expected HostVal, got %T", v)
 	}
 	n, ok := hv.Inner.(int64)
 	if !ok {
-		panic(fmt.Sprintf("stdlib/num: expected int64, got %T", hv.Inner))
+		return 0, fmt.Errorf("stdlib/num: expected int64, got %T", hv.Inner)
 	}
-	return n
+	return n, nil
 }
 
 func intResult(n int64, ce eval.CapEnv) (eval.Value, eval.CapEnv, error) {
@@ -105,46 +105,103 @@ func intResult(n int64, ce eval.CapEnv) (eval.Value, eval.CapEnv, error) {
 }
 
 func addIntImpl(_ context.Context, ce eval.CapEnv, args []eval.Value) (eval.Value, eval.CapEnv, error) {
-	return intResult(mustInt64(args[0])+mustInt64(args[1]), ce)
+	a, err := asInt64(args[0])
+	if err != nil {
+		return nil, ce, err
+	}
+	b, err := asInt64(args[1])
+	if err != nil {
+		return nil, ce, err
+	}
+	return intResult(a+b, ce)
 }
 
 func subIntImpl(_ context.Context, ce eval.CapEnv, args []eval.Value) (eval.Value, eval.CapEnv, error) {
-	return intResult(mustInt64(args[0])-mustInt64(args[1]), ce)
+	a, err := asInt64(args[0])
+	if err != nil {
+		return nil, ce, err
+	}
+	b, err := asInt64(args[1])
+	if err != nil {
+		return nil, ce, err
+	}
+	return intResult(a-b, ce)
 }
 
 func mulIntImpl(_ context.Context, ce eval.CapEnv, args []eval.Value) (eval.Value, eval.CapEnv, error) {
-	return intResult(mustInt64(args[0])*mustInt64(args[1]), ce)
+	a, err := asInt64(args[0])
+	if err != nil {
+		return nil, ce, err
+	}
+	b, err := asInt64(args[1])
+	if err != nil {
+		return nil, ce, err
+	}
+	return intResult(a*b, ce)
 }
 
 func divIntImpl(_ context.Context, ce eval.CapEnv, args []eval.Value) (eval.Value, eval.CapEnv, error) {
-	b := mustInt64(args[1])
+	a, err := asInt64(args[0])
+	if err != nil {
+		return nil, ce, err
+	}
+	b, err := asInt64(args[1])
+	if err != nil {
+		return nil, ce, err
+	}
 	if b == 0 {
 		return nil, ce, fmt.Errorf("division by zero")
 	}
-	return intResult(mustInt64(args[0])/b, ce)
+	return intResult(a/b, ce)
 }
 
 func modIntImpl(_ context.Context, ce eval.CapEnv, args []eval.Value) (eval.Value, eval.CapEnv, error) {
-	b := mustInt64(args[1])
+	a, err := asInt64(args[0])
+	if err != nil {
+		return nil, ce, err
+	}
+	b, err := asInt64(args[1])
+	if err != nil {
+		return nil, ce, err
+	}
 	if b == 0 {
 		return nil, ce, fmt.Errorf("modulo by zero")
 	}
-	return intResult(mustInt64(args[0])%b, ce)
+	return intResult(a%b, ce)
 }
 
 func negIntImpl(_ context.Context, ce eval.CapEnv, args []eval.Value) (eval.Value, eval.CapEnv, error) {
-	return intResult(-mustInt64(args[0]), ce)
+	a, err := asInt64(args[0])
+	if err != nil {
+		return nil, ce, err
+	}
+	return intResult(-a, ce)
 }
 
 func eqIntImpl(_ context.Context, ce eval.CapEnv, args []eval.Value) (eval.Value, eval.CapEnv, error) {
-	if mustInt64(args[0]) == mustInt64(args[1]) {
+	a, err := asInt64(args[0])
+	if err != nil {
+		return nil, ce, err
+	}
+	b, err := asInt64(args[1])
+	if err != nil {
+		return nil, ce, err
+	}
+	if a == b {
 		return &eval.ConVal{Con: "True"}, ce, nil
 	}
 	return &eval.ConVal{Con: "False"}, ce, nil
 }
 
 func cmpIntImpl(_ context.Context, ce eval.CapEnv, args []eval.Value) (eval.Value, eval.CapEnv, error) {
-	a, b := mustInt64(args[0]), mustInt64(args[1])
+	a, err := asInt64(args[0])
+	if err != nil {
+		return nil, ce, err
+	}
+	b, err := asInt64(args[1])
+	if err != nil {
+		return nil, ce, err
+	}
 	switch {
 	case a < b:
 		return &eval.ConVal{Con: "LT"}, ce, nil

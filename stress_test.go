@@ -78,8 +78,11 @@ var stressPrograms = []stressProgram{
 		file:  "01_adt_exhaustiveness.gmp",
 		setup: func(e *gmp.Engine) {},
 		check: func(t *testing.T, v gmp.Value) {
-			// pairMatch returns True iff color matches shape; depends on chain
-			assertCon(t, v, "") // just check it evaluates
+			// pairMatch (shapeToColor (chainAll Cyan)) (chainAll Cyan)
+			// chainAll Cyan = dayToShape (colorToDay Cyan) = dayToShape Fri = Hexagon
+			// shapeToColor Hexagon = Cyan
+			// pairMatch Cyan Hexagon = False (Cyan → _ branch)
+			assertCon(t, v, "False")
 		},
 	},
 	{
@@ -134,8 +137,12 @@ var stressPrograms = []stressProgram{
 		file:  "05_multi_param_classes.gmp",
 		setup: func(e *gmp.Engine) {},
 		check: func(t *testing.T, v gmp.Value) {
-			// convertAndCoerce True => convert True : Maybe Bool => Just True => coerce: depends
-			assertCon(t, v, "") // just check it evaluates
+			// convertAndCoerce True = coerce (convert True)
+			// convert True (Convert Bool (Maybe Bool)) = Just True
+			// coerce (Just True) (Coercible (Maybe Bool) Bool) = True
+			// coerced2 = (coerce :: Unit -> Bool) (coerce True) = True
+			// main = case True of { True -> coerced2; ... } = True
+			assertCon(t, v, "True")
 		},
 	},
 	{

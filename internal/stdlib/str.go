@@ -55,39 +55,54 @@ length :: String -> Int
 length := _lengthStr
 `
 
-func mustString(v eval.Value) string {
+func asString(v eval.Value) (string, error) {
 	hv, ok := v.(*eval.HostVal)
 	if !ok {
-		panic(fmt.Sprintf("stdlib/str: expected HostVal, got %T", v))
+		return "", fmt.Errorf("stdlib/str: expected HostVal, got %T", v)
 	}
 	s, ok := hv.Inner.(string)
 	if !ok {
-		panic(fmt.Sprintf("stdlib/str: expected string, got %T", hv.Inner))
+		return "", fmt.Errorf("stdlib/str: expected string, got %T", hv.Inner)
 	}
-	return s
+	return s, nil
 }
 
-func mustRune(v eval.Value) rune {
+func asRune(v eval.Value) (rune, error) {
 	hv, ok := v.(*eval.HostVal)
 	if !ok {
-		panic(fmt.Sprintf("stdlib/str: expected HostVal, got %T", v))
+		return 0, fmt.Errorf("stdlib/str: expected HostVal, got %T", v)
 	}
 	r, ok := hv.Inner.(rune)
 	if !ok {
-		panic(fmt.Sprintf("stdlib/str: expected rune, got %T", hv.Inner))
+		return 0, fmt.Errorf("stdlib/str: expected rune, got %T", hv.Inner)
 	}
-	return r
+	return r, nil
 }
 
 func eqStrImpl(_ context.Context, ce eval.CapEnv, args []eval.Value) (eval.Value, eval.CapEnv, error) {
-	if mustString(args[0]) == mustString(args[1]) {
+	a, err := asString(args[0])
+	if err != nil {
+		return nil, ce, err
+	}
+	b, err := asString(args[1])
+	if err != nil {
+		return nil, ce, err
+	}
+	if a == b {
 		return &eval.ConVal{Con: "True"}, ce, nil
 	}
 	return &eval.ConVal{Con: "False"}, ce, nil
 }
 
 func cmpStrImpl(_ context.Context, ce eval.CapEnv, args []eval.Value) (eval.Value, eval.CapEnv, error) {
-	a, b := mustString(args[0]), mustString(args[1])
+	a, err := asString(args[0])
+	if err != nil {
+		return nil, ce, err
+	}
+	b, err := asString(args[1])
+	if err != nil {
+		return nil, ce, err
+	}
 	switch strings.Compare(a, b) {
 	case -1:
 		return &eval.ConVal{Con: "LT"}, ce, nil
@@ -99,26 +114,53 @@ func cmpStrImpl(_ context.Context, ce eval.CapEnv, args []eval.Value) (eval.Valu
 }
 
 func appendStrImpl(_ context.Context, ce eval.CapEnv, args []eval.Value) (eval.Value, eval.CapEnv, error) {
-	return &eval.HostVal{Inner: mustString(args[0]) + mustString(args[1])}, ce, nil
+	a, err := asString(args[0])
+	if err != nil {
+		return nil, ce, err
+	}
+	b, err := asString(args[1])
+	if err != nil {
+		return nil, ce, err
+	}
+	return &eval.HostVal{Inner: a + b}, ce, nil
 }
 
-func emptyStrImpl(_ context.Context, ce eval.CapEnv, args []eval.Value) (eval.Value, eval.CapEnv, error) {
+func emptyStrImpl(_ context.Context, ce eval.CapEnv, _ []eval.Value) (eval.Value, eval.CapEnv, error) {
 	return &eval.HostVal{Inner: ""}, ce, nil
 }
 
 func lengthStrImpl(_ context.Context, ce eval.CapEnv, args []eval.Value) (eval.Value, eval.CapEnv, error) {
-	return &eval.HostVal{Inner: int64(len([]rune(mustString(args[0]))))}, ce, nil
+	s, err := asString(args[0])
+	if err != nil {
+		return nil, ce, err
+	}
+	return &eval.HostVal{Inner: int64(len([]rune(s)))}, ce, nil
 }
 
 func eqRuneImpl(_ context.Context, ce eval.CapEnv, args []eval.Value) (eval.Value, eval.CapEnv, error) {
-	if mustRune(args[0]) == mustRune(args[1]) {
+	a, err := asRune(args[0])
+	if err != nil {
+		return nil, ce, err
+	}
+	b, err := asRune(args[1])
+	if err != nil {
+		return nil, ce, err
+	}
+	if a == b {
 		return &eval.ConVal{Con: "True"}, ce, nil
 	}
 	return &eval.ConVal{Con: "False"}, ce, nil
 }
 
 func cmpRuneImpl(_ context.Context, ce eval.CapEnv, args []eval.Value) (eval.Value, eval.CapEnv, error) {
-	a, b := mustRune(args[0]), mustRune(args[1])
+	a, err := asRune(args[0])
+	if err != nil {
+		return nil, ce, err
+	}
+	b, err := asRune(args[1])
+	if err != nil {
+		return nil, ce, err
+	}
 	switch {
 	case a < b:
 		return &eval.ConVal{Con: "LT"}, ce, nil

@@ -4,6 +4,10 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+
+	"github.com/cwd-k2/gomputation/internal/errs"
+	"github.com/cwd-k2/gomputation/internal/span"
+	"github.com/cwd-k2/gomputation/internal/syntax"
 )
 
 // =============================================================================
@@ -179,12 +183,23 @@ main := f True`
 }
 
 func TestEdgeEmptyParensNotTuple(t *testing.T) {
-	// () should not be a valid constraint.
+	// () in constraint position should be rejected at parse time.
 	source := `data Bool = True | False
-f :: Bool -> Bool
+f :: () => Bool -> Bool
 f := \x -> x
 main := f True`
-	checkSource(t, source, nil)
+	src := span.NewSource("test", source)
+	l := syntax.NewLexer(src)
+	tokens, lexErrs := l.Tokenize()
+	if lexErrs.HasErrors() {
+		t.Fatal("lex errors:", lexErrs.Format())
+	}
+	es := &errs.Errors{Source: src}
+	p := syntax.NewParser(tokens, es)
+	_ = p.ParseProgram()
+	if !es.HasErrors() {
+		t.Fatal("expected parse error for () in constraint position, got none")
+	}
 }
 
 func TestEdgeConstraintProductWithForall(t *testing.T) {
@@ -209,10 +224,7 @@ instance Eq Bool { eq := \x y -> True }
 f :: forall a. (Eq a, Ord a) => a -> Bool
 f := \x -> eq x x
 main := f True`
-	errMsg := checkSourceExpectError(t, source, nil)
-	if !strings.Contains(errMsg, "no instance") {
-		t.Errorf("expected 'no instance' error, got: %s", errMsg)
-	}
+	checkSourceExpectCode(t, source, nil, errs.ErrNoInstance)
 }
 
 func TestEdgeConstraintProductInstanceContext(t *testing.T) {

@@ -48,158 +48,159 @@ func (l *Lexer) next() Token {
 }
 
 func (l *Lexer) scanToken() Token {
-	if l.pos >= len(l.source.Text) {
-		return Token{Kind: TokEOF, S: span.Span{Start: span.Pos(l.pos), End: span.Pos(l.pos)}}
-	}
-
-	start := l.pos
-	ch := l.peek()
-
-	// Single-char delimiters
-	switch ch {
-	case '(':
-		l.advance()
-		return l.tok(TokLParen, start)
-	case ')':
-		l.advance()
-		return l.tok(TokRParen, start)
-	case '{':
-		l.advance()
-		return l.tok(TokLBrace, start)
-	case '}':
-		l.advance()
-		return l.tok(TokRBrace, start)
-	case '[':
-		l.advance()
-		return l.tok(TokLBracket, start)
-	case ']':
-		l.advance()
-		return l.tok(TokRBracket, start)
-	case ',':
-		l.advance()
-		return l.tok(TokComma, start)
-	case ';':
-		l.advance()
-		return l.tok(TokSemicolon, start)
-	}
-
-	// Multi-char punctuation & operators
-	if ch == '-' && l.peekAt(1) == '>' {
-		l.pos += 2
-		return l.tok(TokArrow, start)
-	}
-	if ch == '<' && l.peekAt(1) == '-' {
-		l.pos += 2
-		return l.tok(TokLArrow, start)
-	}
-	if ch == ':' && l.peekAt(1) == ':' {
-		l.pos += 2
-		return l.tok(TokColonColon, start)
-	}
-	if ch == ':' && l.peekAt(1) == '=' {
-		l.pos += 2
-		return l.tok(TokColonEq, start)
-	}
-	if ch == ':' {
-		l.advance()
-		return l.tok(TokColon, start)
-	}
-	if ch == '.' {
-		l.advance()
-		return l.tok(TokDot, start)
-	}
-	if ch == '\\' {
-		l.advance()
-		return l.tok(TokBackslash, start)
-	}
-	if ch == '@' {
-		l.advance()
-		return l.tok(TokAt, start)
-	}
-	if ch == '=' && l.peekAt(1) == '>' {
-		l.pos += 2
-		return l.tok(TokFatArrow, start)
-	}
-	if ch == '=' && !isOperatorChar(l.peekAt(1)) {
-		l.advance()
-		return l.tok(TokEq, start)
-	}
-	if ch == '|' && !isOperatorChar(l.peekAt(1)) {
-		l.advance()
-		return l.tok(TokPipe, start)
-	}
-	if ch == '_' && !isIdentCont(l.peekAt(1)) {
-		l.advance()
-		return l.tok(TokUnderscore, start)
-	}
-
-	// String literal
-	if ch == '"' {
-		return l.scanString()
-	}
-
-	// Rune literal
-	if ch == '\'' {
-		return l.scanRune(start)
-	}
-
-	// Integer literal
-	if ch >= '0' && ch <= '9' {
-		for l.pos < len(l.source.Text) && l.source.Text[l.pos] >= '0' && l.source.Text[l.pos] <= '9' {
-			l.pos++
+	for {
+		if l.pos >= len(l.source.Text) {
+			return Token{Kind: TokEOF, S: span.Span{Start: span.Pos(l.pos), End: span.Pos(l.pos)}}
 		}
-		return l.tok(TokIntLit, start)
-	}
 
-	// Lower identifier or keyword
-	if isLowerStart(ch) {
-		l.pos += utf8.RuneLen(ch)
-		for l.pos < len(l.source.Text) {
-			r, size := utf8.DecodeRuneInString(l.source.Text[l.pos:])
-			if !isIdentCont(r) {
-				break
+		start := l.pos
+		ch := l.peek()
+
+		// Single-char delimiters
+		switch ch {
+		case '(':
+			l.advance()
+			return l.tok(TokLParen, start)
+		case ')':
+			l.advance()
+			return l.tok(TokRParen, start)
+		case '{':
+			l.advance()
+			return l.tok(TokLBrace, start)
+		case '}':
+			l.advance()
+			return l.tok(TokRBrace, start)
+		case '[':
+			l.advance()
+			return l.tok(TokLBracket, start)
+		case ']':
+			l.advance()
+			return l.tok(TokRBracket, start)
+		case ',':
+			l.advance()
+			return l.tok(TokComma, start)
+		case ';':
+			l.advance()
+			return l.tok(TokSemicolon, start)
+		}
+
+		// Multi-char punctuation & operators
+		if ch == '-' && l.peekAt(1) == '>' {
+			l.pos += 2
+			return l.tok(TokArrow, start)
+		}
+		if ch == '<' && l.peekAt(1) == '-' {
+			l.pos += 2
+			return l.tok(TokLArrow, start)
+		}
+		if ch == ':' && l.peekAt(1) == ':' {
+			l.pos += 2
+			return l.tok(TokColonColon, start)
+		}
+		if ch == ':' && l.peekAt(1) == '=' {
+			l.pos += 2
+			return l.tok(TokColonEq, start)
+		}
+		if ch == ':' {
+			l.advance()
+			return l.tok(TokColon, start)
+		}
+		if ch == '.' {
+			l.advance()
+			return l.tok(TokDot, start)
+		}
+		if ch == '\\' {
+			l.advance()
+			return l.tok(TokBackslash, start)
+		}
+		if ch == '@' {
+			l.advance()
+			return l.tok(TokAt, start)
+		}
+		if ch == '=' && l.peekAt(1) == '>' {
+			l.pos += 2
+			return l.tok(TokFatArrow, start)
+		}
+		if ch == '=' && !isOperatorChar(l.peekAt(1)) {
+			l.advance()
+			return l.tok(TokEq, start)
+		}
+		if ch == '|' && !isOperatorChar(l.peekAt(1)) {
+			l.advance()
+			return l.tok(TokPipe, start)
+		}
+		if ch == '_' && !isIdentCont(l.peekAt(1)) {
+			l.advance()
+			return l.tok(TokUnderscore, start)
+		}
+
+		// String literal
+		if ch == '"' {
+			return l.scanString()
+		}
+
+		// Rune literal
+		if ch == '\'' {
+			return l.scanRune(start)
+		}
+
+		// Integer literal
+		if ch >= '0' && ch <= '9' {
+			for l.pos < len(l.source.Text) && l.source.Text[l.pos] >= '0' && l.source.Text[l.pos] <= '9' {
+				l.pos++
 			}
-			l.pos += size
+			return l.tok(TokIntLit, start)
 		}
-		text := l.source.Text[start:l.pos]
-		if kind, ok := keywords[text]; ok {
-			return Token{Kind: kind, Text: text, S: span.Span{Start: span.Pos(start), End: span.Pos(l.pos)}}
-		}
-		return Token{Kind: TokLower, Text: text, S: span.Span{Start: span.Pos(start), End: span.Pos(l.pos)}}
-	}
 
-	// Upper identifier
-	if isUpperStart(ch) {
-		l.pos += utf8.RuneLen(ch)
-		for l.pos < len(l.source.Text) {
-			r, size := utf8.DecodeRuneInString(l.source.Text[l.pos:])
-			if !isIdentCont(r) {
-				break
+		// Lower identifier or keyword
+		if isLowerStart(ch) {
+			l.pos += utf8.RuneLen(ch)
+			for l.pos < len(l.source.Text) {
+				r, size := utf8.DecodeRuneInString(l.source.Text[l.pos:])
+				if !isIdentCont(r) {
+					break
+				}
+				l.pos += size
 			}
-			l.pos += size
+			text := l.source.Text[start:l.pos]
+			if kind, ok := keywords[text]; ok {
+				return Token{Kind: kind, Text: text, S: span.Span{Start: span.Pos(start), End: span.Pos(l.pos)}}
+			}
+			return Token{Kind: TokLower, Text: text, S: span.Span{Start: span.Pos(start), End: span.Pos(l.pos)}}
 		}
-		text := l.source.Text[start:l.pos]
-		return Token{Kind: TokUpper, Text: text, S: span.Span{Start: span.Pos(start), End: span.Pos(l.pos)}}
-	}
 
-	// Operator
-	if isOperatorChar(ch) {
-		for l.pos < len(l.source.Text) && isOperatorChar(rune(l.source.Text[l.pos])) {
-			l.pos++
+		// Upper identifier
+		if isUpperStart(ch) {
+			l.pos += utf8.RuneLen(ch)
+			for l.pos < len(l.source.Text) {
+				r, size := utf8.DecodeRuneInString(l.source.Text[l.pos:])
+				if !isIdentCont(r) {
+					break
+				}
+				l.pos += size
+			}
+			text := l.source.Text[start:l.pos]
+			return Token{Kind: TokUpper, Text: text, S: span.Span{Start: span.Pos(start), End: span.Pos(l.pos)}}
 		}
-		return l.tok(TokOp, start)
-	}
 
-	// Unknown character
-	l.pos += utf8.RuneLen(ch)
-	l.errors.Add(&errs.Error{
-		Code:    errs.ErrUnexpectedChar,
-		Phase:   errs.PhaseLex,
-		Span:    span.Span{Start: span.Pos(start), End: span.Pos(l.pos)},
-		Message: "unexpected character",
-	})
-	l.skipWhitespaceAndComments()
-	return l.scanToken()
+		// Operator
+		if isOperatorChar(ch) {
+			for l.pos < len(l.source.Text) && isOperatorChar(rune(l.source.Text[l.pos])) {
+				l.pos++
+			}
+			return l.tok(TokOp, start)
+		}
+
+		// Unknown character — skip and retry (loop instead of recursion to prevent stack overflow).
+		l.pos += utf8.RuneLen(ch)
+		l.errors.Add(&errs.Error{
+			Code:    errs.ErrUnexpectedChar,
+			Phase:   errs.PhaseLex,
+			Span:    span.Span{Start: span.Pos(start), End: span.Pos(l.pos)},
+			Message: "unexpected character",
+		})
+		l.skipWhitespaceAndComments()
+	}
 }
 
 func (l *Lexer) skipWhitespaceAndComments() {

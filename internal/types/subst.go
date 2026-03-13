@@ -121,7 +121,11 @@ func Subst(t Type, varName string, replacement Type) Type {
 		if newConstraints == ty.Constraints && newBody == ty.Body {
 			return ty
 		}
-		cr, _ := newConstraints.(*TyConstraintRow)
+		cr, ok := newConstraints.(*TyConstraintRow)
+		if !ok {
+			// Subst produced a non-constraint-row; preserve original to avoid nil.
+			return &TyEvidence{Constraints: ty.Constraints, Body: newBody, S: ty.S}
+		}
 		return &TyEvidence{Constraints: cr, Body: newBody, S: ty.S}
 
 	case *TySkolem:

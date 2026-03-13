@@ -296,24 +296,48 @@ func (ch *Checker) errorPair(s span.Span) (types.Type, core.Core) {
 	return &types.TyError{S: s}, &core.Var{Name: "<error>", S: s}
 }
 
-// saveUnifierState snapshots the unifier's solution map for later rollback.
-func (ch *Checker) saveUnifierState() map[int]types.Type {
-	saved := make(map[int]types.Type, len(ch.unifier.Solutions()))
+// unifierSnapshot captures both solutions and label contexts for rollback.
+type unifierSnapshot struct {
+	soln   map[int]types.Type
+	labels map[int]map[string]struct{}
+}
+
+// saveUnifierState snapshots the unifier's solution and label maps for later rollback.
+func (ch *Checker) saveUnifierState() unifierSnapshot {
+	soln := make(map[int]types.Type, len(ch.unifier.Solutions()))
 	for k, v := range ch.unifier.Solutions() {
-		saved[k] = v
+		soln[k] = v
 	}
-	return saved
+	labels := make(map[int]map[string]struct{}, len(ch.unifier.Labels()))
+	for k, v := range ch.unifier.Labels() {
+		inner := make(map[string]struct{}, len(v))
+		for label := range v {
+			inner[label] = struct{}{}
+		}
+		labels[k] = inner
+	}
+	return unifierSnapshot{soln: soln, labels: labels}
 }
 
 // restoreUnifierState rolls back the unifier to a previously saved snapshot.
-func (ch *Checker) restoreUnifierState(saved map[int]types.Type) {
+func (ch *Checker) restoreUnifierState(snap unifierSnapshot) {
+	// Restore solutions.
 	for k := range ch.unifier.Solutions() {
-		if _, existed := saved[k]; !existed {
+		if _, existed := snap.soln[k]; !existed {
 			delete(ch.unifier.Solutions(), k)
 		}
 	}
-	for k, v := range saved {
+	for k, v := range snap.soln {
 		ch.unifier.Solutions()[k] = v
+	}
+	// Restore labels.
+	for k := range ch.unifier.Labels() {
+		if _, existed := snap.labels[k]; !existed {
+			delete(ch.unifier.Labels(), k)
+		}
+	}
+	for k, v := range snap.labels {
+		ch.unifier.Labels()[k] = v
 	}
 }
 

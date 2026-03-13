@@ -194,7 +194,7 @@ f := \x y -> eq x y`
 }
 
 func TestTyEvidenceInBindingType(t *testing.T) {
-	// After checking, the binding type for f should have the constraint.
+	// After checking, the binding type for f should have TyForall → TyEvidence structure.
 	source := `data Bool = True | False
 class Eq a { eq :: a -> a -> Bool }
 f :: forall a. Eq a => a -> Bool
@@ -206,10 +206,26 @@ f := \x -> True`
 			if ty == nil {
 				t.Fatal("f should have a type")
 			}
-			pretty := types.Pretty(ty)
-			if pretty == "" {
-				t.Error("f type should not be empty")
+			// Expect TyForall wrapping a TyEvidence with Eq constraint.
+			fa, ok := ty.(*types.TyForall)
+			if !ok {
+				t.Fatalf("expected TyForall, got %T: %s", ty, types.Pretty(ty))
 			}
+			ev, ok := fa.Body.(*types.TyEvidence)
+			if !ok {
+				t.Fatalf("expected TyEvidence under TyForall, got %T: %s", fa.Body, types.Pretty(fa.Body))
+			}
+			if ev.Constraints == nil {
+				t.Fatal("expected non-nil Constraints")
+			}
+			if len(ev.Constraints.Entries) == 0 {
+				t.Fatal("expected at least one constraint entry")
+			}
+			if ev.Constraints.Entries[0].ClassName != "Eq" {
+				t.Errorf("expected Eq constraint, got %s", ev.Constraints.Entries[0].ClassName)
+			}
+			return
 		}
 	}
+	t.Error("expected binding 'f'")
 }

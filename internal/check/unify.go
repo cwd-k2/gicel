@@ -72,6 +72,11 @@ func (u *Unifier) Solutions() map[int]types.Type {
 	return u.soln
 }
 
+// Labels returns the label context map for save/restore during trial unification.
+func (u *Unifier) Labels() map[int]map[string]struct{} {
+	return u.labels
+}
+
 // RegisterLabelContext records the surrounding labels for a row metavariable.
 func (u *Unifier) RegisterLabelContext(id int, labels map[string]struct{}) {
 	u.labels[id] = labels
@@ -175,7 +180,12 @@ func (u *Unifier) Zonk(t types.Type) types.Type {
 		if zConstraints == ty.Constraints && zBody == ty.Body {
 			return ty
 		}
-		cr, _ := zConstraints.(*types.TyConstraintRow)
+		cr, ok := zConstraints.(*types.TyConstraintRow)
+		if !ok {
+			// Zonk produced a non-constraint-row (e.g., solved meta);
+			// preserve original constraints to avoid nil dereference.
+			return &types.TyEvidence{Constraints: ty.Constraints, Body: zBody, S: ty.S}
+		}
 		return &types.TyEvidence{Constraints: cr, Body: zBody, S: ty.S}
 	case *types.TySkolem:
 		return ty
@@ -585,9 +595,24 @@ type constraintMatch struct {
 	A, B types.ConstraintEntry
 }
 
+// constraintArgsEqual checks if two constraint entries have the same className
+// and structurally equal args. Uses types.Equal for semantic comparison
+// rather than Pretty-based string matching.
+func constraintArgsEqual(a, b types.ConstraintEntry) bool {
+	if a.ClassName != b.ClassName || len(a.Args) != len(b.Args) {
+		return false
+	}
+	for i := range a.Args {
+		if !types.Equal(a.Args[i], b.Args[i]) {
+			return false
+		}
+	}
+	return true
+}
+
 // classifyConstraints partitions constraint entries into shared (matched by className),
 // onlyA, and onlyB. For entries with the same className, we attempt greedy matching.
-func classifyConstraints(a, b []types.ConstraintEntry, u *Unifier) (
+func classifyConstraints(a, b []types.ConstraintEntry, _ *Unifier) (
 	shared []constraintMatch,
 	onlyA, onlyB []types.ConstraintEntry,
 ) {
@@ -601,15 +626,13 @@ func classifyConstraints(a, b []types.ConstraintEntry, u *Unifier) (
 	for _, ea := range a {
 		matched := false
 		candidates := bByClass[ea.ClassName]
+		// First pass: match by structural equality on args (precise).
 		for _, bi := range candidates {
 			if bUsed[bi] {
 				continue
 			}
 			eb := b[bi]
-			// Match by className equality. Args will be unified later.
-			// For same className with multiple entries (e.g., Eq a, Eq b),
-			// use canonical key matching as a heuristic.
-			if types.ConstraintKey(ea) == types.ConstraintKey(eb) {
+			if constraintArgsEqual(ea, eb) {
 				shared = append(shared, constraintMatch{A: ea, B: eb})
 				bUsed[bi] = true
 				matched = true
@@ -617,7 +640,7 @@ func classifyConstraints(a, b []types.ConstraintEntry, u *Unifier) (
 			}
 		}
 		if !matched {
-			// Try positional match for same className (handles meta variables).
+			// Fallback: positional match for same className (handles meta variables).
 			for _, bi := range candidates {
 				if bUsed[bi] {
 					continue

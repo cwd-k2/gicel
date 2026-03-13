@@ -141,16 +141,7 @@ func TestCheckLitMismatch(t *testing.T) {
 	config := &CheckConfig{
 		RegisteredTypes: map[string]types.Kind{"Int": types.KType{}, "String": types.KType{}},
 	}
-	src := span.NewSource("test", `main := (42 :: String)`)
-	l := syntax.NewLexer(src)
-	tokens, _ := l.Tokenize()
-	es := &errs.Errors{Source: src}
-	p := syntax.NewParser(tokens, es)
-	ast := p.ParseProgram()
-	_, checkErrs := Check(ast, src, config)
-	if !checkErrs.HasErrors() {
-		t.Fatal("expected type error for Int literal annotated as String")
-	}
+	checkSourceExpectCode(t, `main := (42 :: String)`, config, errs.ErrTypeMismatch)
 }
 
 func TestCheckDoBlock(t *testing.T) {
@@ -185,16 +176,7 @@ func TestCheckHostBinding(t *testing.T) {
 }
 
 func TestCheckUnboundVar(t *testing.T) {
-	src := span.NewSource("test", "main := undefined_var")
-	l := syntax.NewLexer(src)
-	tokens, _ := l.Tokenize()
-	es := &errs.Errors{Source: src}
-	p := syntax.NewParser(tokens, es)
-	ast := p.ParseProgram()
-	_, checkErrs := Check(ast, src, nil)
-	if !checkErrs.HasErrors() {
-		t.Error("expected type error for unbound variable")
-	}
+	checkSourceExpectCode(t, "main := undefined_var", nil, errs.ErrUnboundVar)
 }
 
 func TestUnifySimple(t *testing.T) {
@@ -425,23 +407,14 @@ func checkSourceExpectError(t *testing.T, source string, config *CheckConfig) st
 }
 
 func TestAliasCycleDirect(t *testing.T) {
-	source := `type A = A`
-	errMsg := checkSourceExpectError(t, source, nil)
-	if !strings.Contains(errMsg, "cyclic type alias") {
-		t.Errorf("expected cyclic type alias error, got: %s", errMsg)
-	}
+	errMsg := checkSourceExpectCode(t, `type A = A`, nil, errs.ErrCyclicAlias)
 	if !strings.Contains(errMsg, "A -> A") {
 		t.Errorf("expected cycle path A -> A, got: %s", errMsg)
 	}
 }
 
 func TestAliasCycleMutual(t *testing.T) {
-	source := `type A = B
-type B = A`
-	errMsg := checkSourceExpectError(t, source, nil)
-	if !strings.Contains(errMsg, "cyclic type alias") {
-		t.Errorf("expected cyclic type alias error, got: %s", errMsg)
-	}
+	checkSourceExpectCode(t, "type A = B\ntype B = A", nil, errs.ErrCyclicAlias)
 }
 
 func TestAliasNoCycle(t *testing.T) {
@@ -460,11 +433,7 @@ class Eq a { eq :: a -> a -> Bool }
 f :: forall a. Eq a => a -> a -> Bool
 f := \x -> \y -> eq x y
 main := f True False`
-	// Should fail: no instance Eq Bool defined.
-	errMsg := checkSourceExpectError(t, source, nil)
-	if !strings.Contains(errMsg, "no instance") {
-		t.Errorf("expected 'no instance' error, got: %s", errMsg)
-	}
+	checkSourceExpectCode(t, source, nil, errs.ErrNoInstance)
 }
 
 func TestResolveSimpleInstance(t *testing.T) {
@@ -475,15 +444,15 @@ f :: forall a. Eq a => a -> a -> Bool
 f := \x -> \y -> eq x y
 main := f True False`
 	prog := checkSource(t, source, nil)
-	found := false
 	for _, b := range prog.Bindings {
 		if b.Name == "main" {
-			found = true
+			if !types.Equal(b.Type, types.Con("Bool")) {
+				t.Errorf("expected main :: Bool, got %s", types.Pretty(b.Type))
+			}
+			return
 		}
 	}
-	if !found {
-		t.Error("expected binding 'main'")
-	}
+	t.Error("expected binding 'main'")
 }
 
 func TestResolveContextualInstance(t *testing.T) {
@@ -496,15 +465,15 @@ f :: forall a. Eq a => a -> a -> Bool
 f := \x -> \y -> eq x y
 main := f (Just True) (Just False)`
 	prog := checkSource(t, source, nil)
-	found := false
 	for _, b := range prog.Bindings {
 		if b.Name == "main" {
-			found = true
+			if !types.Equal(b.Type, types.Con("Bool")) {
+				t.Errorf("expected main :: Bool, got %s", types.Pretty(b.Type))
+			}
+			return
 		}
 	}
-	if !found {
-		t.Error("expected binding 'main'")
-	}
+	t.Error("expected binding 'main'")
 }
 
 // --- Exhaustiveness tests ---
@@ -639,10 +608,7 @@ main := \b -> case b of { True -> True; False -> False }`
 func TestExhaustiveIncomplete(t *testing.T) {
 	source := `data Bool = True | False
 main := \b -> case b of { True -> True }`
-	errMsg := checkSourceExpectError(t, source, nil)
-	if !strings.Contains(errMsg, "non-exhaustive") {
-		t.Errorf("expected non-exhaustive error, got: %s", errMsg)
-	}
+	errMsg := checkSourceExpectCode(t, source, nil, errs.ErrNonExhaustive)
 	if !strings.Contains(errMsg, "False") {
 		t.Errorf("expected missing constructor 'False' in error, got: %s", errMsg)
 	}
@@ -702,15 +668,15 @@ instance Eq Bool { eq := \x y -> True }
 instance Show Bool { show := \x -> True }
 main := eq True False`
 	prog := checkSource(t, source, nil)
-	found := false
 	for _, b := range prog.Bindings {
 		if b.Name == "main" {
-			found = true
+			if !types.Equal(b.Type, types.Con("Bool")) {
+				t.Errorf("expected main :: Bool, got %s", types.Pretty(b.Type))
+			}
+			return
 		}
 	}
-	if !found {
-		t.Error("expected binding 'main'")
-	}
+	t.Error("expected binding 'main'")
 }
 
 func BenchmarkInstanceResolve100(b *testing.B) {
@@ -866,10 +832,7 @@ data Unit = Unit
 data Tag a = { TagBool :: Bool -> Tag Bool; TagUnit :: Unit -> Tag Unit }
 f :: Tag Bool -> Bool
 f := \t -> case t of { TagUnit _ -> True }`
-	errMsg := checkSourceExpectError(t, source, nil)
-	if !strings.Contains(errMsg, "non-exhaustive") {
-		t.Errorf("expected non-exhaustive error, got: %s", errMsg)
-	}
+	errMsg := checkSourceExpectCode(t, source, nil, errs.ErrNonExhaustive)
 	if !strings.Contains(errMsg, "TagBool") {
 		t.Errorf("expected missing TagBool, got: %s", errMsg)
 	}

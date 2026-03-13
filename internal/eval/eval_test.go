@@ -2,6 +2,7 @@ package eval
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"testing"
 
@@ -175,7 +176,7 @@ func TestContextCancellation(t *testing.T) {
 	cancel() // cancel immediately
 	ev := NewEvaluator(ctx, NewPrimRegistry(), DefaultLimit(), nil)
 	_, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), &core.Con{Name: "Unit"})
-	if err != context.Canceled {
+	if !errors.Is(err, context.Canceled) {
 		t.Errorf("expected context.Canceled, got %v", err)
 	}
 }

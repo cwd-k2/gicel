@@ -78,7 +78,11 @@ func toSliceImpl(_ context.Context, ce eval.CapEnv, args []eval.Value) (eval.Val
 	if !ok {
 		return nil, ce, fmt.Errorf("toSlice: expected List (Cons/Nil), got %T", v)
 	}
-	return &eval.HostVal{Inner: items}, ce, nil
+	anys := make([]any, len(items))
+	for i, item := range items {
+		anys[i] = item
+	}
+	return &eval.HostVal{Inner: anys}, ce, nil
 }
 
 // lengthImpl counts the elements of a ConVal chain.
@@ -111,7 +115,7 @@ func concatImpl(_ context.Context, ce eval.CapEnv, args []eval.Value) (eval.Valu
 	// Build result from the end: start with ys, prepend xs elements.
 	result := ys
 	for i := len(xs) - 1; i >= 0; i-- {
-		result = &eval.ConVal{Con: "Cons", Args: []eval.Value{xs[i].(eval.Value), result}}
+		result = &eval.ConVal{Con: "Cons", Args: []eval.Value{xs[i], result}}
 	}
 	return result, ce, nil
 }
@@ -129,9 +133,9 @@ func sliceToList(items []any) eval.Value {
 	return result
 }
 
-// listToSlice converts a ConVal chain to a Go []any.
-func listToSlice(v eval.Value) ([]any, bool) {
-	var result []any
+// listToSlice converts a ConVal chain to a Go []eval.Value.
+func listToSlice(v eval.Value) ([]eval.Value, bool) {
+	var result []eval.Value
 	for {
 		con, ok := v.(*eval.ConVal)
 		if !ok {

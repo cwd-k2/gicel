@@ -507,6 +507,7 @@ func (ch *Checker) checkPattern(pat syntax.Pattern, scrutTy types.Type) (core.Pa
 		}
 		if err := ch.unifier.Unify(currentTy, scrutTy); err != nil {
 			ch.addUnifyError(err, p.S, "constructor type mismatch")
+			return &core.PCon{Con: p.Con, Args: args, S: p.S}, bindings, skolemIDs, len(pendingCVs) > 0
 		}
 		// 7. Resolve pending constraint variable entries now that metas are solved.
 		for _, pcv := range pendingCVs {

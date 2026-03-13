@@ -86,6 +86,7 @@ func (ch *Checker) processInstanceHeader(d *syntax.DeclInstance) *InstanceInfo {
 			ch.addCodedError(errs.ErrBadInstance, d.S,
 				fmt.Sprintf("instance %s: context references unknown class %s",
 					d.ClassName, ctx.ClassName))
+			return nil
 		}
 	}
 
@@ -117,11 +118,16 @@ func (ch *Checker) processInstanceHeader(d *syntax.DeclInstance) *InstanceInfo {
 	for _, m := range d.Methods {
 		methodExprs[m.Name] = m.Expr
 	}
+	hasMissingMethod := false
 	for _, m := range classInfo.Methods {
 		if _, ok := methodExprs[m.Name]; !ok {
 			ch.addCodedError(errs.ErrMissingMethod, d.S,
 				fmt.Sprintf("instance %s: missing method %s", d.ClassName, m.Name))
+			hasMissingMethod = true
 		}
+	}
+	if hasMissingMethod {
+		return nil
 	}
 
 	// Extra method check: methods defined in instance but not declared in class.

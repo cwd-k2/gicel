@@ -1118,6 +1118,9 @@ func (p *Parser) expect(kind TokenKind) Token {
 	tok := p.peek()
 	if tok.Kind != kind {
 		p.addError("expected " + kind.String())
+		if tok.Kind != TokEOF {
+			p.advance() // skip unexpected token to prevent parser stalling
+		}
 		return tok
 	}
 	return p.advance()

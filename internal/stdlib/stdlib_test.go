@@ -248,24 +248,20 @@ func TestGetImplNonValue(t *testing.T) {
 	}
 }
 
-// --- mustInt64 / mustString panic ---
+// --- asInt64 / asString error ---
 
-func TestMustInt64Panic(t *testing.T) {
-	defer func() {
-		if r := recover(); r == nil {
-			t.Fatal("expected panic from mustInt64 with string")
-		}
-	}()
-	mustInt64(strVal("oops"))
+func TestAsInt64Error(t *testing.T) {
+	_, err := asInt64(strVal("oops"))
+	if err == nil {
+		t.Fatal("expected error from asInt64 with string")
+	}
 }
 
-func TestMustStringPanic(t *testing.T) {
-	defer func() {
-		if r := recover(); r == nil {
-			t.Fatal("expected panic from mustString with int")
-		}
-	}()
-	mustString(intVal(42))
+func TestAsStringError(t *testing.T) {
+	_, err := asString(intVal(42))
+	if err == nil {
+		t.Fatal("expected error from asString with int")
+	}
 }
 
 // --- List ---
