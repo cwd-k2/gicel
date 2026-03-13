@@ -1143,6 +1143,32 @@ func TestParseRecordPattern(t *testing.T) {
 	}
 }
 
+func TestParseProjectionPrecedence(t *testing.T) {
+	// f r!#x should parse as App(f, Project(r, x)), not Project(App(f, r), x)
+	prog, es := parse("v := f r!#x")
+	if es.HasErrors() {
+		t.Fatal(es.Format())
+	}
+	bind := prog.Decls[0].(*DeclValueDef)
+	app, ok := bind.Expr.(*ExprApp)
+	if !ok {
+		t.Fatalf("expected ExprApp, got %T", bind.Expr)
+	}
+	// f is the function
+	fn, ok := app.Fun.(*ExprVar)
+	if !ok || fn.Name != "f" {
+		t.Errorf("expected function 'f', got %T", app.Fun)
+	}
+	// r!#x is the argument
+	proj, ok := app.Arg.(*ExprProject)
+	if !ok {
+		t.Fatalf("expected ExprProject as argument, got %T", app.Arg)
+	}
+	if proj.Label != "x" {
+		t.Errorf("expected label 'x', got %q", proj.Label)
+	}
+}
+
 // --- Tuples + Unit ---
 
 func TestParseTupleLiteral(t *testing.T) {
