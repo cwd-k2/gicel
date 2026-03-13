@@ -305,6 +305,7 @@ func (ch *Checker) resolveQuantifiedConstraint(qc *types.QuantifiedConstraint, s
 		// Verify context compatibility: instance context should subsume quantified context.
 		// For simple cases, just check that the instance context matches.
 		if len(inst.Context) != len(qc.Context) {
+			ch.restoreUnifierState(saved)
 			continue
 		}
 		ctxMatch := true
@@ -315,6 +316,7 @@ func (ch *Checker) resolveQuantifiedConstraint(qc *types.QuantifiedConstraint, s
 			}
 		}
 		if !ctxMatch {
+			ch.restoreUnifierState(saved)
 			continue
 		}
 

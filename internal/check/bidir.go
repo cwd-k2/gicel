@@ -173,7 +173,10 @@ func (ch *Checker) infer(expr syntax.Expr) (types.Type, core.Core) {
 		return ch.inferCase(e)
 
 	case *syntax.ExprIntLit:
-		val, _ := strconv.ParseInt(e.Value, 10, 64)
+		val, err := strconv.ParseInt(e.Value, 10, 64)
+		if err != nil {
+			ch.addCodedError(errs.ErrTypeMismatch, e.S, fmt.Sprintf("invalid integer literal: %s", e.Value))
+		}
 		return ch.mkType("Int"), &core.Lit{Value: val, S: e.S}
 
 	case *syntax.ExprStrLit:

@@ -381,8 +381,13 @@ func unzipImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Appl
 		if !ok {
 			return nil, ce, fmt.Errorf("unzip: expected tuple at index %d", i)
 		}
-		as[i] = rec.Fields["_1"]
-		bs[i] = rec.Fields["_2"]
+		a, ok1 := rec.Fields["_1"]
+		b, ok2 := rec.Fields["_2"]
+		if !ok1 || !ok2 {
+			return nil, ce, fmt.Errorf("unzip: expected tuple with _1 and _2 at index %d", i)
+		}
+		as[i] = a
+		bs[i] = b
 	}
 	return &eval.RecordVal{Fields: map[string]eval.Value{"_1": buildList(as), "_2": buildList(bs)}}, ce, nil
 }

@@ -306,10 +306,11 @@ func (ch *Checker) errorPair(s span.Span) (types.Type, core.Core) {
 	return &types.TyError{S: s}, &core.Var{Name: "<error>", S: s}
 }
 
-// unifierSnapshot captures both solutions and label contexts for rollback.
+// unifierSnapshot captures solutions, label contexts, and kind solutions for rollback.
 type unifierSnapshot struct {
-	soln   map[int]types.Type
-	labels map[int]map[string]struct{}
+	soln     map[int]types.Type
+	labels   map[int]map[string]struct{}
+	kindSoln map[int]types.Kind
 }
 
 // saveUnifierState snapshots the unifier's solution and label maps for later rollback.
@@ -326,7 +327,11 @@ func (ch *Checker) saveUnifierState() unifierSnapshot {
 		}
 		labels[k] = inner
 	}
-	return unifierSnapshot{soln: soln, labels: labels}
+	kindSoln := make(map[int]types.Kind, len(ch.unifier.KindSolutions()))
+	for k, v := range ch.unifier.KindSolutions() {
+		kindSoln[k] = v
+	}
+	return unifierSnapshot{soln: soln, labels: labels, kindSoln: kindSoln}
 }
 
 // restoreUnifierState rolls back the unifier to a previously saved snapshot.
@@ -348,6 +353,15 @@ func (ch *Checker) restoreUnifierState(snap unifierSnapshot) {
 	}
 	for k, v := range snap.labels {
 		ch.unifier.Labels()[k] = v
+	}
+	// Restore kind solutions.
+	for k := range ch.unifier.KindSolutions() {
+		if _, existed := snap.kindSoln[k]; !existed {
+			delete(ch.unifier.KindSolutions(), k)
+		}
+	}
+	for k, v := range snap.kindSoln {
+		ch.unifier.KindSolutions()[k] = v
 	}
 }
 

@@ -142,12 +142,17 @@ func (ch *Checker) processInstanceHeader(d *syntax.DeclInstance) *InstanceInfo {
 	for _, m := range classInfo.Methods {
 		classMethodSet[m.Name] = true
 	}
+	hasExtraMethod := false
 	for _, m := range d.Methods {
 		if !classMethodSet[m.Name] {
 			ch.addCodedError(errs.ErrBadInstance, d.S,
 				fmt.Sprintf("instance %s: extra method %s not declared in class",
 					d.ClassName, m.Name))
+			hasExtraMethod = true
 		}
+	}
+	if hasExtraMethod {
+		return nil
 	}
 
 	inst := &InstanceInfo{

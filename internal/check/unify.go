@@ -80,6 +80,11 @@ func (u *Unifier) Labels() map[int]map[string]struct{} {
 	return u.labels
 }
 
+// KindSolutions returns the kind solution map for save/restore during trial unification.
+func (u *Unifier) KindSolutions() map[int]types.Kind {
+	return u.kindSoln
+}
+
 // RegisterLabelContext records the surrounding labels for a row metavariable.
 func (u *Unifier) RegisterLabelContext(id int, labels map[string]struct{}) {
 	u.labels[id] = labels
