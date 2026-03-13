@@ -107,19 +107,21 @@ func equalAlpha(a, b Type, bindings []alphaBinding) bool {
 		if !ok {
 			return false
 		}
-		if len(at.Entries) != len(bt.Entries) {
+		an := NormalizeConstraints(at)
+		bn := NormalizeConstraints(bt)
+		if len(an.Entries) != len(bn.Entries) {
 			return false
 		}
-		for i := range at.Entries {
-			if !equalConstraintEntry(at.Entries[i], bt.Entries[i], bindings) {
+		for i := range an.Entries {
+			if !equalConstraintEntry(an.Entries[i], bn.Entries[i], bindings) {
 				return false
 			}
 		}
-		if (at.Tail == nil) != (bt.Tail == nil) {
+		if (an.Tail == nil) != (bn.Tail == nil) {
 			return false
 		}
-		if at.Tail != nil {
-			return equalAlpha(at.Tail, bt.Tail, bindings)
+		if an.Tail != nil {
+			return equalAlpha(an.Tail, bn.Tail, bindings)
 		}
 		return true
 
@@ -159,19 +161,21 @@ func equalAlpha(a, b Type, bindings []alphaBinding) bool {
 			if !ok {
 				return false
 			}
-			if len(aEntries.Entries) != len(bEntries.Entries) {
+			an := NormalizeConstraints(&TyConstraintRow{Entries: aEntries.Entries, Tail: at.Tail})
+			bn := NormalizeConstraints(&TyConstraintRow{Entries: bEntries.Entries, Tail: bt.Tail})
+			if len(an.Entries) != len(bn.Entries) {
 				return false
 			}
-			for i := range aEntries.Entries {
-				if !equalConstraintEntry(aEntries.Entries[i], bEntries.Entries[i], bindings) {
+			for i := range an.Entries {
+				if !equalConstraintEntry(an.Entries[i], bn.Entries[i], bindings) {
 					return false
 				}
 			}
-			if (at.Tail == nil) != (bt.Tail == nil) {
+			if (an.Tail == nil) != (bn.Tail == nil) {
 				return false
 			}
-			if at.Tail != nil {
-				return equalAlpha(at.Tail, bt.Tail, bindings)
+			if an.Tail != nil {
+				return equalAlpha(an.Tail, bn.Tail, bindings)
 			}
 			return true
 		default:

@@ -276,3 +276,20 @@ func TestPretty(t *testing.T) {
 		}
 	}
 }
+
+func TestConstraintRowEqualOrderIndependent(t *testing.T) {
+	eqA := ConstraintEntry{ClassName: "Eq", Args: []Type{Var("a")}}
+	ordB := ConstraintEntry{ClassName: "Ord", Args: []Type{Var("b")}}
+	// Same entries, different order.
+	r1 := &TyConstraintRow{Entries: []ConstraintEntry{eqA, ordB}}
+	r2 := &TyConstraintRow{Entries: []ConstraintEntry{ordB, eqA}}
+	if !Equal(r1, r2) {
+		t.Error("TyConstraintRow Equal should be order-independent")
+	}
+	// Different entries should not be equal.
+	showC := ConstraintEntry{ClassName: "Show", Args: []Type{Var("c")}}
+	r3 := &TyConstraintRow{Entries: []ConstraintEntry{eqA, showC}}
+	if Equal(r1, r3) {
+		t.Error("different TyConstraintRows should not be equal")
+	}
+}
