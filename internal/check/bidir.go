@@ -179,12 +179,19 @@ func (ch *Checker) check(expr syntax.Expr, expected types.Type) core.Core {
 		dictParam := fmt.Sprintf("$d_%s_%d", q.ClassName, ch.fresh())
 		dictTy := ch.buildDictType(q.ClassName, q.Args)
 		ch.ctx.Push(&CtxVar{Name: dictParam, Type: dictTy})
+		ch.ctx.Push(&CtxEvidence{
+			ClassName: q.ClassName,
+			Args:      q.Args,
+			DictName:  dictParam,
+			DictType:  dictTy,
+		})
 		bodyCore := ch.check(expr, q.Body)
 		// Resolve deferred constraints while the dict param is still in scope.
 		// Inner uses of class methods (e.g. `eq x y` inside `f :: Eq a => ...`)
 		// create deferred constraints that must see this dict variable.
 		bodyCore = ch.resolveDeferredConstraints(bodyCore)
-		ch.ctx.Pop()
+		ch.ctx.Pop() // CtxEvidence
+		ch.ctx.Pop() // CtxVar
 		return &core.Lam{Param: dictParam, ParamType: dictTy, Body: bodyCore, S: expr.Span()}
 	}
 

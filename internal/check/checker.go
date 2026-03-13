@@ -103,6 +103,7 @@ type deferredConstraint struct {
 	className   string
 	args        []types.Type
 	s           span.Span
+	group       int // constraints from same qualified type chain; 0 = ungrouped
 }
 
 // Check type-checks a surface AST program and produces Core IR.

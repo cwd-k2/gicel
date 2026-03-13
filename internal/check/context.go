@@ -17,8 +17,17 @@ type CtxTyVar struct {
 	Kind types.Kind
 }
 
-func (*CtxVar) ctxEntry()   {}
-func (*CtxTyVar) ctxEntry() {}
+// CtxEvidence records available type class evidence in the context.
+type CtxEvidence struct {
+	ClassName string
+	Args      []types.Type
+	DictName  string     // context variable name for the dictionary
+	DictType  types.Type // dictionary type
+}
+
+func (*CtxVar) ctxEntry()      {}
+func (*CtxTyVar) ctxEntry()    {}
+func (*CtxEvidence) ctxEntry() {}
 
 // Context is an ordered typing context (DK-style).
 type Context struct {
@@ -58,4 +67,15 @@ func (c *Context) LookupTyVar(name string) (types.Kind, bool) {
 		}
 	}
 	return nil, false
+}
+
+// LookupEvidence returns all CtxEvidence entries for a given class name.
+func (c *Context) LookupEvidence(className string) []*CtxEvidence {
+	var result []*CtxEvidence
+	for i := len(c.entries) - 1; i >= 0; i-- {
+		if e, ok := c.entries[i].(*CtxEvidence); ok && e.ClassName == className {
+			result = append(result, e)
+		}
+	}
+	return result
 }
