@@ -162,36 +162,6 @@ func (u *Unifier) normalize(t types.Type) types.Type {
 	return normalizeCompApp(t)
 }
 
-// compToApp converts TyComp to a TyApp chain: Computation pre post result.
-func compToApp(c *types.TyComp) *types.TyApp {
-	return &types.TyApp{
-		Fun: &types.TyApp{
-			Fun: &types.TyApp{
-				Fun: &types.TyCon{Name: "Computation"},
-				Arg: c.Pre,
-			},
-			Arg: c.Post,
-		},
-		Arg: c.Result,
-		S:   c.S,
-	}
-}
-
-// thunkToApp converts TyThunk to a TyApp chain: Thunk pre post result.
-func thunkToApp(t *types.TyThunk) *types.TyApp {
-	return &types.TyApp{
-		Fun: &types.TyApp{
-			Fun: &types.TyApp{
-				Fun: &types.TyCon{Name: "Thunk"},
-				Arg: t.Pre,
-			},
-			Arg: t.Post,
-		},
-		Arg: t.Result,
-		S:   t.S,
-	}
-}
-
 // normalizeCompApp converts fully-applied TyApp chains to their special type
 // representations. e.g. TyApp(TyApp(TyApp(TyCon("Computation"), pre), post), result)
 // becomes TyComp{pre, post, result}. This arises when a class type parameter
