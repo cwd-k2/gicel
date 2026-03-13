@@ -701,18 +701,20 @@ func (u *Unifier) unifyEvCapRows(
 	bFields []types.RowField, bTail types.Type,
 ) error {
 	// Normalize field order.
-	an := types.Normalize(&types.TyRow{Fields: aFields, Tail: aTail})
-	bn := types.Normalize(&types.TyRow{Fields: bFields, Tail: bTail})
+	an := types.EvNormalize(&types.TyEvidenceRow{Entries: &types.CapabilityEntries{Fields: aFields}, Tail: aTail})
+	bn := types.EvNormalize(&types.TyEvidenceRow{Entries: &types.CapabilityEntries{Fields: bFields}, Tail: bTail})
+	aFieldsN := an.CapFields()
+	bFieldsN := bn.CapFields()
 
 	// Register label contexts for open-row tails.
-	u.registerEvCapLabels(an.Fields, an.Tail)
-	u.registerEvCapLabels(bn.Fields, bn.Tail)
+	u.registerEvCapLabels(aFieldsN, an.Tail)
+	u.registerEvCapLabels(bFieldsN, bn.Tail)
 
-	shared, onlyLeft, onlyRight := classifyFields(an.Fields, bn.Fields)
+	shared, onlyLeft, onlyRight := classifyFields(aFieldsN, bFieldsN)
 
 	for _, label := range shared {
-		t1 := fieldType(an.Fields, label)
-		t2 := fieldType(bn.Fields, label)
+		t1 := fieldType(aFieldsN, label)
+		t2 := fieldType(bFieldsN, label)
 		if err := u.Unify(t1, t2); err != nil {
 			return err
 		}
@@ -727,18 +729,18 @@ func (u *Unifier) unifyEvCapRows(
 		if len(onlyLeft) > 0 {
 			return &UnifyError{Kind: UnifyRowMismatch, Detail: fmt.Sprintf("extra labels in row: %v", onlyLeft)}
 		}
-		return u.solveEvCapTail(an.Tail, collectEvCapFields(bn.Fields, onlyRight), nil)
+		return u.solveEvCapTail(an.Tail, collectEvCapFields(bFieldsN, onlyRight), nil)
 	case an.Tail == nil && bn.Tail != nil:
 		if len(onlyRight) > 0 {
 			return &UnifyError{Kind: UnifyRowMismatch, Detail: fmt.Sprintf("extra labels in row: %v", onlyRight)}
 		}
-		return u.solveEvCapTail(bn.Tail, collectEvCapFields(an.Fields, onlyLeft), nil)
+		return u.solveEvCapTail(bn.Tail, collectEvCapFields(aFieldsN, onlyLeft), nil)
 	default:
 		rFresh := u.freshMeta(types.KRow{})
-		if err := u.solveEvCapTail(an.Tail, collectEvCapFields(bn.Fields, onlyRight), rFresh); err != nil {
+		if err := u.solveEvCapTail(an.Tail, collectEvCapFields(bFieldsN, onlyRight), rFresh); err != nil {
 			return err
 		}
-		return u.solveEvCapTail(bn.Tail, collectEvCapFields(an.Fields, onlyLeft), rFresh)
+		return u.solveEvCapTail(bn.Tail, collectEvCapFields(aFieldsN, onlyLeft), rFresh)
 	}
 	return nil
 }
@@ -796,10 +798,10 @@ func (u *Unifier) unifyEvConRows(
 	aEntries []types.ConstraintEntry, aTail types.Type,
 	bEntries []types.ConstraintEntry, bTail types.Type,
 ) error {
-	aN := types.NormalizeConstraints(&types.TyConstraintRow{Entries: aEntries, Tail: aTail})
-	bN := types.NormalizeConstraints(&types.TyConstraintRow{Entries: bEntries, Tail: bTail})
+	aN := types.EvNormalizeConstraintEntries(&types.TyEvidenceRow{Entries: &types.ConstraintEntries{Entries: aEntries}, Tail: aTail})
+	bN := types.EvNormalizeConstraintEntries(&types.TyEvidenceRow{Entries: &types.ConstraintEntries{Entries: bEntries}, Tail: bTail})
 
-	shared, onlyLeft, onlyRight := classifyConstraints(aN.Entries, bN.Entries, u)
+	shared, onlyLeft, onlyRight := classifyConstraints(aN.ConEntries(), bN.ConEntries(), u)
 
 	for _, m := range shared {
 		if len(m.A.Args) != len(m.B.Args) {
