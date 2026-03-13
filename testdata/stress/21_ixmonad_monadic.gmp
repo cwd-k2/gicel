@@ -1,0 +1,278 @@
+-- Stress test 21: IxMonad and monadic patterns
+-- Exercises Maybe monad, List monad, Computation monad, class hierarchy,
+-- cross-feature interactions, type class dispatch, and edge cases.
+
+-- ======================================================================
+-- Maybe Monad patterns
+-- ======================================================================
+
+-- 1. Simple Maybe bind chain
+maybeChain :: Maybe Bool
+maybeChain := do { x <- Just True; y <- Just False; Just x }
+
+-- 2. Nothing short-circuit at different positions
+nothingFirst :: Maybe Bool
+nothingFirst := do { x <- Nothing; Just x }
+
+nothingMiddle :: Maybe Bool
+nothingMiddle := do { x <- Just True; _ <- Nothing; Just x }
+
+nothingLast :: Maybe Bool
+nothingLast := do { x <- Just True; Nothing }
+
+-- 3. Nested Maybe do
+nestedMaybeDo :: Maybe (Maybe Bool)
+nestedMaybeDo := do { x <- Just True; Just (Just x) }
+
+-- 4. Maybe do with pure
+maybePure :: Maybe Bool
+maybePure := do { x <- Just True; pure x }
+
+-- 5. Maybe do with case
+maybeDoCase :: Maybe Ordering
+maybeDoCase := do {
+  x <- Just True;
+  case x of {
+    True -> Just LT;
+    False -> Just GT
+  }
+}
+
+-- 6. Maybe do with nested case
+maybeDoNestedCase :: Maybe Bool
+maybeDoNestedCase := do {
+  x <- Just (Just True);
+  case x of {
+    Just v -> Just v;
+    Nothing -> Nothing
+  }
+}
+
+-- ======================================================================
+-- List Monad patterns
+-- ======================================================================
+
+-- 7. List bind (flatMap)
+listFlatMap :: List Bool
+listFlatMap := do {
+  x <- Cons True (Cons False Nil);
+  Cons x (Cons x Nil)
+}
+
+-- 8. List filter-like pattern (via guard-style)
+listFilter :: List Bool
+listFilter := do {
+  x <- Cons True (Cons False (Cons True Nil));
+  case x of {
+    True -> Cons x Nil;
+    False -> Nil
+  }
+}
+
+-- 9. List cartesian product with Pair
+listCartesian :: List (Pair Bool Bool)
+listCartesian := do {
+  x <- Cons True (Cons False Nil);
+  y <- Cons True (Cons False Nil);
+  Cons (Pair x y) Nil
+}
+
+-- 10. Empty list propagation
+listEmpty :: List Bool
+listEmpty := do {
+  x <- Nil;
+  Cons x Nil
+}
+
+-- 11. Singleton list identity
+listSingleton :: List Bool
+listSingleton := do {
+  x <- Cons True Nil;
+  pure x
+}
+
+-- ======================================================================
+-- Type class instances on List
+-- ======================================================================
+
+-- 12. List Eq
+listEqTest :: Bool
+listEqTest := eq (Cons True (Cons False Nil)) (Cons True (Cons False Nil))
+
+listEqTestFalse :: Bool
+listEqTestFalse := eq (Cons True Nil) (Cons False Nil)
+
+listEqNilNil :: Bool
+listEqNilNil := eq (Nil :: List Bool) (Nil :: List Bool)
+
+listEqNilCons :: Bool
+listEqNilCons := eq (Nil :: List Bool) (Cons True Nil)
+
+-- 13. List Semigroup (append)
+listAppendTest :: List Bool
+listAppendTest := append (Cons True Nil) (Cons False Nil)
+
+-- 14. List Monoid (empty)
+listMonoidTest :: List Bool
+listMonoidTest := append (empty :: List Bool) (Cons True Nil)
+
+-- 15. List Functor
+listFmapTest :: List Bool
+listFmapTest := fmap (\x -> case x of { True -> False; False -> True }) (Cons True (Cons False Nil))
+
+-- 16. List Foldable
+listFoldrTest :: Bool
+listFoldrTest := foldr (\x _ -> x) False (Cons True (Cons False Nil))
+
+-- ======================================================================
+-- Cross-monad patterns
+-- ======================================================================
+
+-- 17. Maybe value used in Computation do
+maybeInComp :: Computation {} {} Bool
+maybeInComp := do {
+  v <- pure (Just True);
+  pure (case v of { Just x -> x; Nothing -> False })
+}
+
+-- 18. List value used in Computation do
+listInComp :: Computation {} {} Bool
+listInComp := do {
+  v <- pure (Cons True (Cons False Nil));
+  pure (foldr (\x _ -> x) False v)
+}
+
+-- ======================================================================
+-- Type class hierarchy with IxMonad
+-- ======================================================================
+
+-- 19. Eq on Maybe, using class dispatch
+eqMaybeChain :: Bool
+eqMaybeChain := eq (Just (Just True)) (Just (Just True))
+
+-- 20. Ord on Maybe
+ordMaybeTest :: Ordering
+ordMaybeTest := compare (Just False) (Just True)
+
+-- 21. Pair of Maybes with Eq
+eqPairMaybe :: Bool
+eqPairMaybe := eq (Pair (Just True) (Just False)) (Pair (Just True) (Just False))
+
+-- 22. Functor over Pair
+fmapPairMaybe :: Pair Unit (Maybe Bool)
+fmapPairMaybe := fmap (\mb -> case mb of { Just x -> Just (case x of { True -> False; False -> True }); Nothing -> Nothing }) (Pair Unit (Just True))
+
+-- ======================================================================
+-- Foldable / Traversable patterns
+-- ======================================================================
+
+-- 23. foldr on List of Bools (count True)
+foldListBool :: Bool
+foldListBool := foldr (\x acc -> case x of { True -> acc; False -> acc }) True (Cons True (Cons False Nil))
+
+-- 24. foldr with Pair accumulator
+foldPairAcc :: Pair Bool Bool
+foldPairAcc := foldr (\x acc -> case acc of { Pair a b -> case x of { True -> Pair True b; False -> Pair a True } }) (Pair False False) (Cons True (Cons False Nil))
+
+-- 25. Traverse Maybe over Maybe
+traverseMaybeTest :: Maybe (Maybe Bool)
+traverseMaybeTest := traverse (\x -> Just (case x of { True -> False; False -> True })) (Just True)
+
+-- ======================================================================
+-- Applicative patterns
+-- ======================================================================
+
+-- 26. wrap + ap
+apTest :: Maybe Bool
+apTest := ap (Just (\x -> case x of { True -> False; False -> True })) (Just True)
+
+-- 27. ap with Nothing function
+apNothingFn :: Maybe Bool
+apNothingFn := ap (Nothing :: Maybe (Bool -> Bool)) (Just True)
+
+-- 28. ap with Nothing value
+apNothingVal :: Maybe Bool
+apNothingVal := ap (Just (\x -> x)) (Nothing :: Maybe Bool)
+
+-- ======================================================================
+-- Deep nesting and complex composition
+-- ======================================================================
+
+-- 29. Deeply nested Maybe
+deepMaybe :: Maybe (Maybe (Maybe (Maybe Bool)))
+deepMaybe := Just (Just (Just (Just True)))
+
+deepMaybeEq :: Bool
+deepMaybeEq := eq deepMaybe deepMaybe
+
+-- 30. Deeply nested Pair
+deepPair :: Pair (Pair Bool Bool) (Pair Bool Bool)
+deepPair := Pair (Pair True False) (Pair False True)
+
+deepPairEq :: Bool
+deepPairEq := eq deepPair deepPair
+
+-- 31. Result type interactions
+resultOkTest :: Result Unit Bool
+resultOkTest := Ok True
+
+resultErrTest :: Result Unit Bool
+resultErrTest := Err Unit
+
+-- 32. Combine Semigroup with Maybe functor
+semigroupInFmap :: Maybe Ordering
+semigroupInFmap := fmap (\x -> append x EQ) (Just LT)
+
+-- ======================================================================
+-- IxMonad class method direct use
+-- ======================================================================
+
+-- 33. ixpure via Computation annotation
+ixpureComp :: Computation {} {} Bool
+ixpureComp := ixpure True
+
+-- 34. ixbind via Computation annotation
+ixbindComp :: Computation {} {} Bool
+ixbindComp := ixbind (ixpure True) (\x -> ixpure x)
+
+-- ======================================================================
+-- Combine everything in main
+-- ======================================================================
+
+main := Pair maybeChain
+  (Pair nothingFirst
+  (Pair nothingMiddle
+  (Pair nothingLast
+  (Pair nestedMaybeDo
+  (Pair maybePure
+  (Pair maybeDoCase
+  (Pair maybeDoNestedCase
+  (Pair listFlatMap
+  (Pair listFilter
+  (Pair listCartesian
+  (Pair listEmpty
+  (Pair listSingleton
+  (Pair listEqTest
+  (Pair listEqTestFalse
+  (Pair listEqNilNil
+  (Pair listEqNilCons
+  (Pair listAppendTest
+  (Pair listMonoidTest
+  (Pair listFmapTest
+  (Pair listFoldrTest
+  (Pair eqMaybeChain
+  (Pair ordMaybeTest
+  (Pair eqPairMaybe
+  (Pair foldListBool
+  (Pair foldPairAcc
+  (Pair traverseMaybeTest
+  (Pair apTest
+  (Pair apNothingFn
+  (Pair apNothingVal
+  (Pair deepMaybeEq
+  (Pair deepPairEq
+  (Pair resultOkTest
+  (Pair semigroupInFmap
+  (Pair ixpureComp
+  ixbindComp
+  ))))))))))))))))))))))))))))))))))
