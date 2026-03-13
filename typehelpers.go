@@ -1,6 +1,10 @@
 package gomputation
 
-import "github.com/cwd-k2/gomputation/internal/types"
+import (
+	"fmt"
+
+	"github.com/cwd-k2/gomputation/internal/types"
+)
 
 // Type is the unified type representation used across the public API.
 type Type = types.Type
@@ -109,6 +113,23 @@ func ForallKind(name string, k types.Kind, body types.Type) types.Type {
 // ClosedRowType creates a closed row type from fields.
 func ClosedRowType(fields ...types.RowField) types.Type {
 	return types.EvClosedRow(fields...)
+}
+
+// RecordType creates a closed record type: Record { l1 : T1, ..., ln : Tn }.
+func RecordType(fields ...types.RowField) types.Type {
+	return &types.TyApp{
+		Fun: &types.TyCon{Name: "Record"},
+		Arg: types.EvClosedRow(fields...),
+	}
+}
+
+// TupleType creates a tuple type: (a, b) = Record { _1 : a, _2 : b }.
+func TupleType(elems ...types.Type) types.Type {
+	fields := make([]types.RowField, len(elems))
+	for i, t := range elems {
+		fields[i] = types.RowField{Label: fmt.Sprintf("_%d", i+1), Type: t}
+	}
+	return RecordType(fields...)
 }
 
 // TypeEqual compares two types for structural equality.

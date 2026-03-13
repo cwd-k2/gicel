@@ -99,6 +99,16 @@ func FromList(v Value) ([]any, bool) {
 	}
 }
 
+// FromRecord extracts the field map from a RecordVal.
+// Returns nil and ok=false if the value is not a RecordVal.
+func FromRecord(v Value) (map[string]Value, bool) {
+	rv, ok := v.(*eval.RecordVal)
+	if !ok {
+		return nil, false
+	}
+	return rv.Fields, true
+}
+
 // MustHost extracts the inner Go value from a HostVal, panicking if it is not one.
 func MustHost[T any](v Value) T {
 	hv, ok := v.(*eval.HostVal)

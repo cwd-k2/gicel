@@ -2,6 +2,7 @@ package gomputation_test
 
 import (
 	"context"
+	"errors"
 	"os"
 	"strings"
 	"sync"
@@ -1309,6 +1310,89 @@ func TestMustHostPanic(t *testing.T) {
 		}
 	}()
 	gmp.MustHost[int](gmp.ToValue(true))
+}
+
+func TestRuntimeErrorType(t *testing.T) {
+	eng := gmp.NewEngine()
+	eng.Use(gmp.Fail)
+	rt, err := eng.NewRuntime(`
+import Std.Fail
+main := do { _ <- fail; pure True }
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = rt.RunContext(context.Background(), nil, nil, "main")
+	if err == nil {
+		t.Fatal("expected runtime error from fail")
+	}
+	var rtErr *gmp.RuntimeError
+	if !errors.As(err, &rtErr) {
+		t.Errorf("expected RuntimeError, got %T: %v", err, err)
+	}
+}
+
+func TestFromRecord(t *testing.T) {
+	eng := gmp.NewEngine()
+	eng.Use(gmp.Num)
+	rt, err := eng.NewRuntime(`
+import Std.Num
+main := { x = 1, y = 2 }
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	fields, ok := gmp.FromRecord(result.Value)
+	if !ok {
+		t.Fatal("expected record value")
+	}
+	if len(fields) != 2 {
+		t.Errorf("expected 2 fields, got %d", len(fields))
+	}
+	if _, ok := fields["x"]; !ok {
+		t.Error("missing field x")
+	}
+}
+
+func TestFromRecordNonRecord(t *testing.T) {
+	_, ok := gmp.FromRecord(gmp.ToValue(42))
+	if ok {
+		t.Error("FromRecord on HostVal should return ok=false")
+	}
+}
+
+func TestRecordTypeHelper(t *testing.T) {
+	rty := gmp.RecordType(
+		gmp.RowField{Label: "x", Type: gmp.ConType("Int")},
+		gmp.RowField{Label: "y", Type: gmp.ConType("Int")},
+	)
+	got := gmp.TypePretty(rty)
+	if !strings.Contains(got, "Record") {
+		t.Errorf("expected Record type, got %s", got)
+	}
+}
+
+func TestTupleTypeHelper(t *testing.T) {
+	tt := gmp.TupleType(gmp.ConType("Int"), gmp.ConType("Bool"))
+	got := gmp.TypePretty(tt)
+	if !strings.Contains(got, "Record") || !strings.Contains(got, "_1") {
+		t.Errorf("expected Record{_1, _2} type, got %s", got)
+	}
+}
+
+func TestNewCapEnvExported(t *testing.T) {
+	ce := gmp.NewCapEnv(map[string]any{"key": "val"})
+	v, ok := ce.Get("key")
+	if !ok {
+		t.Fatal("expected key in CapEnv")
+	}
+	if v != "val" {
+		t.Errorf("expected val, got %v", v)
+	}
 }
 
 // Explicit bind syntax: bind comp (\x -> body) elaborates to Core.Bind.

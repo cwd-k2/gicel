@@ -54,6 +54,15 @@ type CheckTraceEvent = check.CheckTraceEvent
 // CheckTraceHook receives trace events during type checking.
 type CheckTraceHook = check.CheckTraceHook
 
+// RuntimeError represents an error during evaluation.
+// Use errors.As to match this type from RunContext errors.
+type RuntimeError = eval.RuntimeError
+
+// NewCapEnv creates a new capability environment from a map.
+func NewCapEnv(caps map[string]any) CapEnv {
+	return eval.NewCapEnv(caps)
+}
+
 // Stdlib re-exports — users import only the root package.
 
 // Num provides integer arithmetic: Num class, Eq/Ord Int instances, and operators.
