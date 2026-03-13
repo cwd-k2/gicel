@@ -1,0 +1,109 @@
+package check
+
+import (
+	"testing"
+
+	"github.com/cwd-k2/gomputation/internal/errs"
+	"github.com/cwd-k2/gomputation/internal/span"
+	"github.com/cwd-k2/gomputation/internal/syntax"
+)
+
+// =============================================================================
+// Kind-polymorphic function resolution
+// =============================================================================
+
+func TestResolveKindSort(t *testing.T) {
+	// forall (k : Kind). forall (a : k). a -> a
+	// Should parse and resolve without errors.
+	source := `id_k :: forall (k : Kind). forall (a : k). a -> a
+id_k := \x -> x`
+	checkSource(t, source, nil)
+}
+
+func TestResolveKindVarInArrow(t *testing.T) {
+	// forall (k : Kind). forall (f : k -> Type). f Int -> f Int
+	source := `apply_f :: forall (k : Kind). forall (f : k -> Type). f Int -> f Int
+apply_f := \x -> x`
+	checkSource(t, source, nil)
+}
+
+func TestKindVarSingleForall(t *testing.T) {
+	// Kind variable in a single forall with multiple binders
+	source := `id_k :: forall (k : Kind) (a : k). a -> a
+id_k := \x -> x`
+	checkSource(t, source, nil)
+}
+
+// =============================================================================
+// Kind variable scoping
+// =============================================================================
+
+func TestKindVarNotInScopeOutside(t *testing.T) {
+	// 'k' used in kind position but not bound as a kind variable.
+	// KindExprName "k" should fall through to KType{} (not an error,
+	// just treated as unknown → defaults to Type).
+	source := `f :: forall (a : k). a -> a
+f := \x -> x`
+	checkSource(t, source, nil)
+}
+
+// =============================================================================
+// Kind-polymorphic instantiation (subsCheck)
+// =============================================================================
+
+func TestKindPolyInstantiation(t *testing.T) {
+	// Define a kind-polymorphic identity and use it at a concrete kind.
+	source := `
+data Bool = True | False
+
+id_k :: forall (k : Kind). forall (a : k). a -> a
+id_k := \x -> x
+
+use := id_k True
+`
+	checkSource(t, source, nil)
+}
+
+func TestKindPolyInstantiationArrow(t *testing.T) {
+	// Kind-polymorphic function applied to a function-kinded type.
+	source := `
+data Bool = True | False
+data Maybe a = Nothing | Just a
+
+id_k :: forall (k : Kind). forall (a : k). a -> a
+id_k := \x -> x
+
+use_maybe := id_k (Just True)
+`
+	checkSource(t, source, nil)
+}
+
+// =============================================================================
+// Parser round-trip validation
+// =============================================================================
+
+func parseKindPoly(t *testing.T, source string) {
+	t.Helper()
+	src := span.NewSource("test", source)
+	l := syntax.NewLexer(src)
+	tokens, lexErrs := l.Tokenize()
+	if lexErrs.HasErrors() {
+		t.Fatal("lex errors:", lexErrs.Format())
+	}
+	es := &errs.Errors{Source: src}
+	p := syntax.NewParser(tokens, es)
+	_ = p.ParseProgram()
+	if es.HasErrors() {
+		t.Fatal("parse errors:", es.Format())
+	}
+}
+
+func TestParseKindPolyFunction(t *testing.T) {
+	parseKindPoly(t, `f :: forall (k : Kind). forall (f : k -> Type). f Int -> f Int
+f := \x -> x`)
+}
+
+func TestParseKindPolyNestedArrow(t *testing.T) {
+	parseKindPoly(t, `f :: forall (k : Kind) (j : Kind). forall (f : k -> j -> Type). Int
+f := \x -> x`)
+}

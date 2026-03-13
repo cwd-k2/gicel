@@ -930,3 +930,50 @@ func TestGADTConReturnType(t *testing.T) {
 		}
 	}
 }
+
+// --- HKT: Kind sort in forall binders ---
+
+func TestParseKindSort(t *testing.T) {
+	// forall (k : Kind). k -> Type
+	prog, es := parse("f :: forall (k : Kind). k -> Type")
+	if es.HasErrors() {
+		t.Fatal(es.Format())
+	}
+	d := prog.Decls[0].(*DeclTypeAnn)
+	fa := d.Type.(*TyExprForall)
+	if fa.Binders[0].Kind == nil {
+		t.Fatal("expected kind annotation")
+	}
+	_, ok := fa.Binders[0].Kind.(*KindExprSort)
+	if !ok {
+		t.Errorf("expected KindExprSort, got %T", fa.Binders[0].Kind)
+	}
+}
+
+func TestParseKindSortInArrow(t *testing.T) {
+	// forall (k : Kind). forall (f : k -> Type). f a -> f a
+	prog, es := parse("f :: forall (k : Kind). forall (f : k -> Type). Int")
+	if es.HasErrors() {
+		t.Fatal(es.Format())
+	}
+	d := prog.Decls[0].(*DeclTypeAnn)
+	fa1 := d.Type.(*TyExprForall)
+	if _, ok := fa1.Binders[0].Kind.(*KindExprSort); !ok {
+		t.Errorf("expected KindExprSort for k, got %T", fa1.Binders[0].Kind)
+	}
+	fa2, ok := fa1.Body.(*TyExprForall)
+	if !ok {
+		t.Fatal("expected nested TyExprForall")
+	}
+	arrow, ok := fa2.Binders[0].Kind.(*KindExprArrow)
+	if !ok {
+		t.Fatalf("expected KindExprArrow for f, got %T", fa2.Binders[0].Kind)
+	}
+	// Left of arrow should be KindExprName "k" (a kind variable reference)
+	kn, ok := arrow.From.(*KindExprName)
+	if !ok {
+		t.Errorf("expected KindExprName for arrow.From, got %T", arrow.From)
+	} else if kn.Name != "k" {
+		t.Errorf("expected kind name 'k', got %q", kn.Name)
+	}
+}

@@ -89,6 +89,10 @@ type KindExprName struct {
 	S    span.Span
 }
 
+// KindExprSort is the sort of kinds: Kind.
+// Used in forall binders: forall (k : Kind). ...
+type KindExprSort struct{ S span.Span }
+
 func (*TyExprVar) typeExprNode()    {}
 func (*TyExprCon) typeExprNode()    {}
 func (*TyExprApp) typeExprNode()    {}
@@ -112,9 +116,11 @@ func (*KindExprRow) kindExprNode()        {}
 func (*KindExprConstraint) kindExprNode() {}
 func (*KindExprArrow) kindExprNode()      {}
 func (*KindExprName) kindExprNode()       {}
+func (*KindExprSort) kindExprNode()       {}
 
 func (k *KindExprType) Span() span.Span       { return k.S }
 func (k *KindExprRow) Span() span.Span        { return k.S }
 func (k *KindExprConstraint) Span() span.Span { return k.S }
 func (k *KindExprArrow) Span() span.Span      { return k.S }
 func (k *KindExprName) Span() span.Span       { return k.S }
+func (k *KindExprSort) Span() span.Span       { return k.S }

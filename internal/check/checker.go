@@ -75,6 +75,7 @@ type Checker struct {
 	importedInstances  map[*InstanceInfo]bool
 	promotedKinds    map[string]types.Kind // DataKinds: data name → KData
 	promotedCons     map[string]types.Kind // DataKinds: nullary con → KData
+	kindVars         map[string]bool       // HKT: kind variables in scope (from forall (k : Kind))
 	deferred         []deferredConstraint
 	depth            int
 }
@@ -127,6 +128,7 @@ func Check(prog *syntax.AstProgram, source *span.Source, config *CheckConfig) (*
 		importedInstances: make(map[*InstanceInfo]bool),
 		promotedKinds:     make(map[string]types.Kind),
 		promotedCons:      make(map[string]types.Kind),
+		kindVars:          make(map[string]bool),
 	}
 	ch.unifier = NewUnifierShared(&ch.freshID)
 	ch.initContext()
@@ -153,6 +155,7 @@ func CheckModule(prog *syntax.AstProgram, source *span.Source, config *CheckConf
 		importedInstances: make(map[*InstanceInfo]bool),
 		promotedKinds:     make(map[string]types.Kind),
 		promotedCons:      make(map[string]types.Kind),
+		kindVars:          make(map[string]bool),
 	}
 	ch.unifier = NewUnifierShared(&ch.freshID)
 	ch.initContext()
@@ -286,6 +289,11 @@ func (ch *Checker) freshMeta(k types.Kind) *types.TyMeta {
 func (ch *Checker) freshSkolem(name string, k types.Kind) *types.TySkolem {
 	id := ch.fresh()
 	return &types.TySkolem{ID: id, Name: name, Kind: k}
+}
+
+func (ch *Checker) freshKindMeta() *types.KMeta {
+	id := ch.fresh()
+	return &types.KMeta{ID: id}
 }
 
 func (ch *Checker) mkType(name string) types.Type {

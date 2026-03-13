@@ -1002,8 +1002,17 @@ func (p *Parser) parseKindAtom() KindExpr {
 		tok := p.peek()
 		p.advance()
 		return &KindExprConstraint{S: tok.S}
+	case p.peek().Kind == TokUpper && p.peek().Text == "Kind":
+		tok := p.peek()
+		p.advance()
+		return &KindExprSort{S: tok.S}
 	case p.peek().Kind == TokUpper:
 		// DataKinds: user-defined kind name (e.g., DBState, Bool)
+		tok := p.peek()
+		p.advance()
+		return &KindExprName{Name: tok.Text, S: tok.S}
+	case p.peek().Kind == TokLower:
+		// Kind variable reference (e.g., k in "forall (k : Kind). k -> Type")
 		tok := p.peek()
 		p.advance()
 		return &KindExprName{Name: tok.Text, S: tok.S}

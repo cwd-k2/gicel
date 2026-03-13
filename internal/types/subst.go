@@ -186,6 +186,67 @@ func Subst(t Type, varName string, replacement Type) Type {
 	}
 }
 
+// SubstKindInType substitutes a kind variable throughout all kind annotations
+// embedded in a type. Used when instantiating kind-polymorphic foralls
+// (e.g., forall (k : Kind). ... where k appears in kind positions).
+func SubstKindInType(t Type, varName string, replacement Kind) Type {
+	switch ty := t.(type) {
+	case *TyForall:
+		newKind := KindSubst(ty.Kind, varName, replacement)
+		newBody := SubstKindInType(ty.Body, varName, replacement)
+		if newKind == ty.Kind && newBody == ty.Body {
+			return ty
+		}
+		return &TyForall{Var: ty.Var, Kind: newKind, Body: newBody, S: ty.S}
+	case *TyApp:
+		newFun := SubstKindInType(ty.Fun, varName, replacement)
+		newArg := SubstKindInType(ty.Arg, varName, replacement)
+		if newFun == ty.Fun && newArg == ty.Arg {
+			return ty
+		}
+		return &TyApp{Fun: newFun, Arg: newArg, S: ty.S}
+	case *TyArrow:
+		newFrom := SubstKindInType(ty.From, varName, replacement)
+		newTo := SubstKindInType(ty.To, varName, replacement)
+		if newFrom == ty.From && newTo == ty.To {
+			return ty
+		}
+		return &TyArrow{From: newFrom, To: newTo, S: ty.S}
+	case *TyComp:
+		newPre := SubstKindInType(ty.Pre, varName, replacement)
+		newPost := SubstKindInType(ty.Post, varName, replacement)
+		newResult := SubstKindInType(ty.Result, varName, replacement)
+		if newPre == ty.Pre && newPost == ty.Post && newResult == ty.Result {
+			return ty
+		}
+		return &TyComp{Pre: newPre, Post: newPost, Result: newResult, S: ty.S}
+	case *TyThunk:
+		newPre := SubstKindInType(ty.Pre, varName, replacement)
+		newPost := SubstKindInType(ty.Post, varName, replacement)
+		newResult := SubstKindInType(ty.Result, varName, replacement)
+		if newPre == ty.Pre && newPost == ty.Post && newResult == ty.Result {
+			return ty
+		}
+		return &TyThunk{Pre: newPre, Post: newPost, Result: newResult, S: ty.S}
+	case *TyMeta:
+		newKind := KindSubst(ty.Kind, varName, replacement)
+		if newKind == ty.Kind {
+			return ty
+		}
+		return &TyMeta{ID: ty.ID, Kind: newKind}
+	case *TySkolem:
+		newKind := KindSubst(ty.Kind, varName, replacement)
+		if newKind == ty.Kind {
+			return ty
+		}
+		return &TySkolem{ID: ty.ID, Name: ty.Name, Kind: newKind}
+	default:
+		// TyVar, TyCon, TyRow, TyConstraintRow, TyEvidenceRow, TyEvidence,
+		// TyError, TyLit — no embedded kind annotations to substitute.
+		return ty
+	}
+}
+
 // SubstMany applies multiple substitutions simultaneously.
 func SubstMany(t Type, subs map[string]Type) Type {
 	result := t

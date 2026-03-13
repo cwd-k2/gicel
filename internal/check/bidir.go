@@ -202,6 +202,14 @@ func (ch *Checker) check(expr syntax.Expr, expected types.Type) core.Core {
 	// against the quantified type. This implements the spec rule:
 	//   ⟦ e : forall a:K. T ⟧ = TyLam(a, K, ⟦e : T⟧)
 	if f, ok := expected.(*types.TyForall); ok {
+		if _, isSort := f.Kind.(types.KSort); isSort {
+			// Kind-level quantifier: introduce a fresh kind skolem (KVar)
+			// and substitute in all kind positions.
+			freshName := fmt.Sprintf("%s$%d", f.Var, ch.fresh())
+			body := types.SubstKindInType(f.Body, f.Var, types.KVar{Name: freshName})
+			bodyCore := ch.check(expr, body)
+			return &core.TyLam{TyParam: f.Var, Kind: f.Kind, Body: bodyCore, S: expr.Span()}
+		}
 		preID := ch.freshID // track scope boundary
 		skolem := ch.freshSkolem(f.Var, f.Kind)
 		ch.ctx.Push(&CtxTyVar{Name: f.Var, Kind: f.Kind})
@@ -297,6 +305,12 @@ func (ch *Checker) subsCheck(inferred, expected types.Type, expr core.Core, s sp
 
 	// Inferred ∀a. A ≤ B  →  instantiate a, check A[a:=?m] ≤ B
 	if f, ok := inferred.(*types.TyForall); ok {
+		if _, isSort := f.Kind.(types.KSort); isSort {
+			// Kind-level quantifier: instantiate with a fresh kind metavariable
+			km := ch.freshKindMeta()
+			body := types.SubstKindInType(f.Body, f.Var, km)
+			return ch.subsCheck(body, expected, expr, s)
+		}
 		meta := ch.freshMeta(f.Kind)
 		body := types.Subst(f.Body, f.Var, meta)
 		expr = &core.TyApp{Expr: expr, TyArg: meta, S: s}
@@ -942,10 +956,22 @@ func (ch *Checker) resolveTypeExpr(texpr syntax.TypeExpr) types.Type {
 			S:    t.S,
 		}
 	case *syntax.TyExprForall:
+		// Register kind variables (binders with Kind sort) before resolving the body,
+		// so that kind variable references in inner kind annotations resolve correctly.
+		var kindVarNames []string
+		for _, b := range t.Binders {
+			if _, ok := b.Kind.(*syntax.KindExprSort); ok {
+				ch.kindVars[b.Name] = true
+				kindVarNames = append(kindVarNames, b.Name)
+			}
+		}
 		ty := ch.resolveTypeExpr(t.Body)
 		for i := len(t.Binders) - 1; i >= 0; i-- {
 			kind := ch.resolveKindExpr(t.Binders[i].Kind)
 			ty = &types.TyForall{Var: t.Binders[i].Name, Kind: kind, Body: ty, S: t.S}
+		}
+		for _, name := range kindVarNames {
+			delete(ch.kindVars, name)
 		}
 		return ty
 	case *syntax.TyExprRow:
@@ -1250,10 +1276,15 @@ func (ch *Checker) resolveKindExpr(k syntax.KindExpr) types.Kind {
 	case *syntax.KindExprArrow:
 		return &types.KArrow{From: ch.resolveKindExpr(ke.From), To: ch.resolveKindExpr(ke.To)}
 	case *syntax.KindExprName:
+		if ch.kindVars[ke.Name] {
+			return types.KVar{Name: ke.Name}
+		}
 		if pk, ok := ch.promotedKinds[ke.Name]; ok {
 			return pk
 		}
 		return types.KType{}
+	case *syntax.KindExprSort:
+		return types.KSort{}
 	default:
 		return types.KType{}
 	}
