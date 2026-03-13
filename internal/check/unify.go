@@ -174,6 +174,49 @@ func (u *Unifier) Zonk(t types.Type) types.Type {
 			return ty
 		}
 		return &types.TyConstraintRow{Entries: entries, Tail: tail, S: ty.S}
+	case *types.TyEvidenceRow:
+		switch entries := ty.Entries.(type) {
+		case *types.CapabilityEntries:
+			changed := false
+			fields := make([]types.RowField, len(entries.Fields))
+			for i, f := range entries.Fields {
+				zTy := u.Zonk(f.Type)
+				fields[i] = types.RowField{Label: f.Label, Type: zTy, S: f.S}
+				if zTy != f.Type {
+					changed = true
+				}
+			}
+			var tail types.Type
+			if ty.Tail != nil {
+				tail = u.Zonk(ty.Tail)
+				if tail != ty.Tail {
+					changed = true
+				}
+			}
+			if !changed {
+				return ty
+			}
+			return &types.TyEvidenceRow{Entries: &types.CapabilityEntries{Fields: fields}, Tail: tail, S: ty.S}
+		case *types.ConstraintEntries:
+			changed := false
+			ces := make([]types.ConstraintEntry, len(entries.Entries))
+			for i, e := range entries.Entries {
+				ces[i] = u.zonkConstraintEntry(e, &changed)
+			}
+			var tail types.Type
+			if ty.Tail != nil {
+				tail = u.Zonk(ty.Tail)
+				if tail != ty.Tail {
+					changed = true
+				}
+			}
+			if !changed {
+				return ty
+			}
+			return &types.TyEvidenceRow{Entries: &types.ConstraintEntries{Entries: ces}, Tail: tail, S: ty.S}
+		default:
+			return ty
+		}
 	case *types.TyEvidence:
 		zConstraints := u.Zonk(ty.Constraints)
 		zBody := u.Zonk(ty.Body)
@@ -337,6 +380,10 @@ func (u *Unifier) Unify(a, b types.Type) error {
 	case *types.TyConstraintRow:
 		if bt, ok := b.(*types.TyConstraintRow); ok {
 			return u.unifyConstraintRows(at, bt)
+		}
+	case *types.TyEvidenceRow:
+		if bt, ok := b.(*types.TyEvidenceRow); ok {
+			return u.unifyEvidenceRows(at, bt)
 		}
 	case *types.TyEvidence:
 		if bt, ok := b.(*types.TyEvidence); ok {
@@ -711,6 +758,185 @@ func DecomposeConstraintType(ty types.Type) (className string, args []types.Type
 		return con.Name, tArgs, true
 	}
 	return "", nil, false
+}
+
+// Evidence row unification — dispatches to capability or constraint logic.
+func (u *Unifier) unifyEvidenceRows(r1, r2 *types.TyEvidenceRow) error {
+	switch a := r1.Entries.(type) {
+	case *types.CapabilityEntries:
+		b, ok := r2.Entries.(*types.CapabilityEntries)
+		if !ok {
+			return &UnifyError{Kind: UnifyMismatch, Detail: "cannot unify capability row with constraint row"}
+		}
+		return u.unifyEvCapRows(a.Fields, r1.Tail, b.Fields, r2.Tail)
+	case *types.ConstraintEntries:
+		b, ok := r2.Entries.(*types.ConstraintEntries)
+		if !ok {
+			return &UnifyError{Kind: UnifyMismatch, Detail: "cannot unify constraint row with capability row"}
+		}
+		return u.unifyEvConRows(a.Entries, r1.Tail, b.Entries, r2.Tail)
+	default:
+		return &UnifyError{Kind: UnifyMismatch, Detail: "unknown evidence fiber"}
+	}
+}
+
+func (u *Unifier) unifyEvCapRows(
+	aFields []types.RowField, aTail types.Type,
+	bFields []types.RowField, bTail types.Type,
+) error {
+	// Normalize field order.
+	an := types.Normalize(&types.TyRow{Fields: aFields, Tail: aTail})
+	bn := types.Normalize(&types.TyRow{Fields: bFields, Tail: bTail})
+
+	// Register label contexts for open-row tails.
+	u.registerEvCapLabels(an.Fields, an.Tail)
+	u.registerEvCapLabels(bn.Fields, bn.Tail)
+
+	shared, onlyLeft, onlyRight := classifyFields(an.Fields, bn.Fields)
+
+	for _, label := range shared {
+		t1 := fieldType(&types.TyRow{Fields: an.Fields}, label)
+		t2 := fieldType(&types.TyRow{Fields: bn.Fields}, label)
+		if err := u.Unify(t1, t2); err != nil {
+			return err
+		}
+	}
+
+	switch {
+	case an.Tail == nil && bn.Tail == nil:
+		if len(onlyLeft) > 0 || len(onlyRight) > 0 {
+			return &UnifyError{Kind: UnifyRowMismatch, Detail: fmt.Sprintf("row mismatch: extra labels %v / %v", onlyLeft, onlyRight)}
+		}
+	case an.Tail != nil && bn.Tail == nil:
+		if len(onlyLeft) > 0 {
+			return &UnifyError{Kind: UnifyRowMismatch, Detail: fmt.Sprintf("extra labels in row: %v", onlyLeft)}
+		}
+		return u.solveEvCapTail(an.Tail, collectEvCapFields(bn.Fields, onlyRight), nil)
+	case an.Tail == nil && bn.Tail != nil:
+		if len(onlyRight) > 0 {
+			return &UnifyError{Kind: UnifyRowMismatch, Detail: fmt.Sprintf("extra labels in row: %v", onlyRight)}
+		}
+		return u.solveEvCapTail(bn.Tail, collectEvCapFields(an.Fields, onlyLeft), nil)
+	default:
+		rFresh := u.freshMeta(types.KRow{})
+		if err := u.solveEvCapTail(an.Tail, collectEvCapFields(bn.Fields, onlyRight), rFresh); err != nil {
+			return err
+		}
+		return u.solveEvCapTail(bn.Tail, collectEvCapFields(an.Fields, onlyLeft), rFresh)
+	}
+	return nil
+}
+
+func (u *Unifier) registerEvCapLabels(fields []types.RowField, tail types.Type) {
+	if tail == nil {
+		return
+	}
+	zt := u.Zonk(tail)
+	if m, ok := zt.(*types.TyMeta); ok {
+		labels := make(map[string]struct{}, len(fields))
+		for _, f := range fields {
+			labels[f.Label] = struct{}{}
+		}
+		if existing, ok := u.labels[m.ID]; ok {
+			for l := range existing {
+				labels[l] = struct{}{}
+			}
+		}
+		u.labels[m.ID] = labels
+	}
+}
+
+func (u *Unifier) solveEvCapTail(tail types.Type, fields []types.RowField, newTail types.Type) error {
+	if len(fields) == 0 && newTail != nil {
+		return u.Unify(tail, newTail)
+	}
+	var solution types.Type
+	if len(fields) == 0 && newTail == nil {
+		solution = types.EvEmptyRow()
+	} else {
+		solution = &types.TyEvidenceRow{
+			Entries: &types.CapabilityEntries{Fields: fields},
+			Tail:    newTail,
+		}
+	}
+	return u.Unify(tail, solution)
+}
+
+func collectEvCapFields(fields []types.RowField, labels []string) []types.RowField {
+	set := make(map[string]bool, len(labels))
+	for _, l := range labels {
+		set[l] = true
+	}
+	var result []types.RowField
+	for _, f := range fields {
+		if set[f.Label] {
+			result = append(result, f)
+		}
+	}
+	return result
+}
+
+func (u *Unifier) unifyEvConRows(
+	aEntries []types.ConstraintEntry, aTail types.Type,
+	bEntries []types.ConstraintEntry, bTail types.Type,
+) error {
+	aN := types.NormalizeConstraints(&types.TyConstraintRow{Entries: aEntries, Tail: aTail})
+	bN := types.NormalizeConstraints(&types.TyConstraintRow{Entries: bEntries, Tail: bTail})
+
+	shared, onlyLeft, onlyRight := classifyConstraints(aN.Entries, bN.Entries, u)
+
+	for _, m := range shared {
+		if len(m.A.Args) != len(m.B.Args) {
+			return &UnifyError{Kind: UnifyRowMismatch, Detail: fmt.Sprintf("constraint arg count mismatch: %s has %d args vs %d",
+				m.A.ClassName, len(m.A.Args), len(m.B.Args))}
+		}
+		for i := range m.A.Args {
+			if err := u.Unify(m.A.Args[i], m.B.Args[i]); err != nil {
+				return err
+			}
+		}
+	}
+
+	switch {
+	case aN.Tail == nil && bN.Tail == nil:
+		if len(onlyLeft) > 0 || len(onlyRight) > 0 {
+			return &UnifyError{Kind: UnifyRowMismatch, Detail: fmt.Sprintf("constraint row mismatch: extra constraints left=%d right=%d",
+				len(onlyLeft), len(onlyRight))}
+		}
+	case aN.Tail != nil && bN.Tail == nil:
+		if len(onlyLeft) > 0 {
+			return &UnifyError{Kind: UnifyRowMismatch, Detail: fmt.Sprintf("extra constraints in left row: %d", len(onlyLeft))}
+		}
+		return u.solveEvConTail(aN.Tail, onlyRight, nil)
+	case aN.Tail == nil && bN.Tail != nil:
+		if len(onlyRight) > 0 {
+			return &UnifyError{Kind: UnifyRowMismatch, Detail: fmt.Sprintf("extra constraints in right row: %d", len(onlyRight))}
+		}
+		return u.solveEvConTail(bN.Tail, onlyLeft, nil)
+	default:
+		cFresh := u.freshMeta(types.KConstraint{})
+		if err := u.solveEvConTail(aN.Tail, onlyRight, cFresh); err != nil {
+			return err
+		}
+		return u.solveEvConTail(bN.Tail, onlyLeft, cFresh)
+	}
+	return nil
+}
+
+func (u *Unifier) solveEvConTail(tail types.Type, entries []types.ConstraintEntry, newTail types.Type) error {
+	if len(entries) == 0 && newTail != nil {
+		return u.Unify(tail, newTail)
+	}
+	var solution types.Type
+	if len(entries) == 0 && newTail == nil {
+		solution = types.EvEmptyConstraintRow()
+	} else {
+		solution = &types.TyEvidenceRow{
+			Entries: &types.ConstraintEntries{Entries: entries},
+			Tail:    newTail,
+		}
+	}
+	return u.Unify(tail, solution)
 }
 
 func collectFields(r *types.TyRow, labels []string) []types.RowField {
