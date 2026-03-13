@@ -548,11 +548,11 @@ main := myLength (Cons True (Cons False (Cons True Nil)))
 		t.Errorf("expected 3, got %d", hv)
 	}
 
-	// Now show the annotation version fails:
+	// Annotation version with implicit forall:
 	eng2 := gmp.NewEngine()
 	eng2.EnableRecursion()
 	eng2.Use(gmp.Num)
-	_, err = eng2.NewRuntime(`
+	rt2, err := eng2.NewRuntime(`
 import Std.Num
 
 myLength :: List a -> Int
@@ -561,10 +561,15 @@ myLength := fix (\self -> \xs -> case xs { Nil -> 0; Cons _ rest -> 1 + self res
 main := myLength (Cons True (Cons False (Cons True Nil)))
 `)
 	if err != nil {
-		t.Log("FALSE_POSITIVE confirmed: polymorphic annotation + concrete arg fails unification")
-		t.Log("Error:", err)
-	} else {
-		t.Log("FALSE_POSITIVE resolved: polymorphic annotation now accepted")
+		t.Fatal("polymorphic annotation should work with implicit forall:", err)
+	}
+	result2, err := rt2.RunContext(context.Background(), nil, nil, "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	hv2 := gmp.MustHost[int64](result2.Value)
+	if hv2 != 3 {
+		t.Errorf("expected 3, got %d", hv2)
 	}
 }
 

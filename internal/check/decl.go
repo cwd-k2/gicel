@@ -2,6 +2,7 @@ package check
 
 import (
 	"fmt"
+	"sort"
 
 	"github.com/cwd-k2/gomputation/internal/core"
 	"github.com/cwd-k2/gomputation/internal/errs"
@@ -51,10 +52,12 @@ func (ch *Checker) checkDecls(decls []syntax.Decl) *core.Program {
 	}
 
 	// 6. Collect type annotations.
+	// Free type variables are implicitly universally quantified (implicit forall).
 	annotations := make(map[string]types.Type)
 	for _, d := range decls {
 		if ann, ok := d.(*syntax.DeclTypeAnn); ok {
-			annotations[ann.Name] = ch.resolveTypeExpr(ann.Type)
+			ty := ch.resolveTypeExpr(ann.Type)
+			annotations[ann.Name] = quantifyFreeVars(ty)
 		}
 	}
 
@@ -361,4 +364,23 @@ func (ch *Checker) processValueDef(d *syntax.DeclValueDef, annotations map[strin
 		Expr: coreExpr,
 		S:    d.S,
 	})
+}
+
+// quantifyFreeVars wraps free type variables in implicit forall quantifiers.
+// This implements Haskell-style implicit universal quantification for type annotations:
+// `f :: List a -> Int` is treated as `f :: forall a. List a -> Int`.
+func quantifyFreeVars(ty types.Type) types.Type {
+	fv := types.FreeVars(ty)
+	if len(fv) == 0 {
+		return ty
+	}
+	vars := make([]string, 0, len(fv))
+	for v := range fv {
+		vars = append(vars, v)
+	}
+	sort.Strings(vars)
+	for i := len(vars) - 1; i >= 0; i-- {
+		ty = types.MkForall(vars[i], types.KType{}, ty)
+	}
+	return ty
 }
