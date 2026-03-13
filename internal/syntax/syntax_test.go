@@ -1343,3 +1343,56 @@ func TestParseCaseStallGuard(t *testing.T) {
 		t.Fatal("expected parse errors for invalid case alt")
 	}
 }
+
+// --- Parser resource limit tests ---
+// These verify that the parser terminates on pathological input
+// that would otherwise cause stack overflow or memory exhaustion.
+
+func TestParseDeepNestingTerminates(t *testing.T) {
+	// Deep nested parentheses: (((((...))))) — must not stack overflow.
+	// With recursion depth limit, this should report an error and terminate.
+	const depth = 2000
+	src := ""
+	for range depth {
+		src += "("
+	}
+	src += "x"
+	for range depth {
+		src += ")"
+	}
+	_, es := parse("main := " + src)
+	if !es.HasErrors() {
+		t.Fatal("expected depth limit error for deeply nested expression")
+	}
+}
+
+func TestParseDeepNestedLambdas(t *testing.T) {
+	// Nested lambdas: \x -> \x -> \x -> ... -> x
+	const depth = 2000
+	src := "main := "
+	for range depth {
+		src += "\\x -> "
+	}
+	src += "x"
+	_, es := parse(src)
+	if !es.HasErrors() {
+		t.Fatal("expected depth limit error for deeply nested lambdas")
+	}
+}
+
+func TestParseDeepNestedDo(t *testing.T) {
+	// Nested do blocks: do { do { do { ... } } }
+	const depth = 2000
+	src := "main := "
+	for range depth {
+		src += "do { "
+	}
+	src += "pure x"
+	for range depth {
+		src += " }"
+	}
+	_, es := parse(src)
+	if !es.HasErrors() {
+		t.Fatal("expected depth limit error for deeply nested do blocks")
+	}
+}

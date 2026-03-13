@@ -22,15 +22,28 @@ type Parser struct {
 	errors      *errs.Errors
 	depth       int  // paren/brace nesting depth
 	noBraceAtom bool // when true, { is not an atom start (inside case scrutinee)
+
+	// Safety harness: prevent resource exhaustion on malformed input.
+	recurseDepth    int // current recursion depth
+	maxRecurseDepth int // limit (default 256)
+	steps           int // advance() call count
+	maxSteps        int // limit (default len(tokens) * 4)
+	halted          bool
 }
 
 // NewParser creates a parser from a token stream.
 func NewParser(tokens []Token, errors *errs.Errors) *Parser {
+	maxSteps := len(tokens) * 4
+	if maxSteps < 100 {
+		maxSteps = 100
+	}
 	return &Parser{
-		tokens: tokens,
-		pos:    0,
-		fixity: make(map[string]Fixity),
-		errors: errors,
+		tokens:          tokens,
+		pos:             0,
+		fixity:          make(map[string]Fixity),
+		errors:          errors,
+		maxRecurseDepth: 256,
+		maxSteps:        maxSteps,
 	}
 }
 
@@ -48,6 +61,8 @@ func (p *Parser) ParseProgram() *AstProgram {
 	// First pass: collect fixity declarations.
 	p.collectFixity()
 	p.pos = 0
+	p.steps = 0
+	p.halted = false
 
 	// Parse imports first.
 	var imports []DeclImport
@@ -581,6 +596,10 @@ func (p *Parser) parseNamedDecl() Decl {
 // --- Expressions ---
 
 func (p *Parser) parseExpr() Expr {
+	if !p.enterRecurse() {
+		return &ExprVar{Name: "<error>", S: span.Span{Start: span.Pos(p.pos), End: span.Pos(p.pos)}}
+	}
+	defer p.leaveRecurse()
 	return p.parseAnnotation()
 }
 
@@ -991,6 +1010,10 @@ func (p *Parser) parseRecordUpdateFields(start span.Pos, record Expr) Expr {
 // --- Patterns ---
 
 func (p *Parser) parsePattern() Pattern {
+	if !p.enterRecurse() {
+		return &PatWild{S: span.Span{Start: span.Pos(p.pos), End: span.Pos(p.pos)}}
+	}
+	defer p.leaveRecurse()
 	switch p.peek().Kind {
 	case TokUpper:
 		return p.parseConPattern()
@@ -1111,6 +1134,10 @@ func (p *Parser) isPatternAtomStart() bool {
 // --- Type expressions ---
 
 func (p *Parser) parseType() TypeExpr {
+	if !p.enterRecurse() {
+		return &TyExprCon{Name: "<error>", S: span.Span{Start: span.Pos(p.pos), End: span.Pos(p.pos)}}
+	}
+	defer p.leaveRecurse()
 	return p.parseTypeArrow()
 }
 
@@ -1348,13 +1375,21 @@ func (p *Parser) skipSemicolons() {
 }
 
 func (p *Parser) peek() Token {
-	if p.pos >= len(p.tokens) {
+	if p.halted || p.pos >= len(p.tokens) {
 		return Token{Kind: TokEOF}
 	}
 	return p.tokens[p.pos]
 }
 
 func (p *Parser) advance() Token {
+	if p.halted {
+		return Token{Kind: TokEOF}
+	}
+	p.steps++
+	if p.steps > p.maxSteps {
+		p.halt("parser step limit exceeded")
+		return Token{Kind: TokEOF}
+	}
 	tok := p.peek()
 	if p.pos < len(p.tokens) {
 		p.pos++
@@ -1368,6 +1403,30 @@ func (p *Parser) advance() Token {
 		}
 	}
 	return tok
+}
+
+// enterRecurse increments recursion depth and returns false if limit exceeded.
+func (p *Parser) enterRecurse() bool {
+	if p.halted {
+		return false
+	}
+	p.recurseDepth++
+	if p.recurseDepth > p.maxRecurseDepth {
+		p.halt("parser recursion depth limit exceeded")
+		return false
+	}
+	return true
+}
+
+func (p *Parser) leaveRecurse() {
+	p.recurseDepth--
+}
+
+func (p *Parser) halt(msg string) {
+	if !p.halted {
+		p.halted = true
+		p.addError(msg)
+	}
 }
 
 func (p *Parser) expect(kind TokenKind) Token {
