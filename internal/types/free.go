@@ -45,9 +45,7 @@ func freeVarsRec(t Type, bound map[string]bool, fv map[string]struct{}) {
 		}
 	case *TyConstraintRow:
 		for _, e := range ty.Entries {
-			for _, a := range e.Args {
-				freeVarsRec(a, bound, fv)
-			}
+			freeVarsConstraintEntry(e, bound, fv)
 		}
 		if ty.Tail != nil {
 			freeVarsRec(ty.Tail, bound, fv)
@@ -65,4 +63,26 @@ func OccursIn(name string, t Type) bool {
 	fv := FreeVars(t)
 	_, ok := fv[name]
 	return ok
+}
+
+// freeVarsConstraintEntry collects free vars from a constraint entry,
+// respecting bound variables in quantified constraints.
+func freeVarsConstraintEntry(e ConstraintEntry, bound map[string]bool, fv map[string]struct{}) {
+	for _, a := range e.Args {
+		freeVarsRec(a, bound, fv)
+	}
+	if e.Quantified != nil {
+		// Extend bound set with quantified variables.
+		newBound := make(map[string]bool, len(bound)+len(e.Quantified.Vars))
+		for k, v := range bound {
+			newBound[k] = v
+		}
+		for _, v := range e.Quantified.Vars {
+			newBound[v.Name] = true
+		}
+		for _, c := range e.Quantified.Context {
+			freeVarsConstraintEntry(c, newBound, fv)
+		}
+		freeVarsConstraintEntry(e.Quantified.Head, newBound, fv)
+	}
 }

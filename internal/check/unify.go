@@ -137,14 +137,7 @@ func (u *Unifier) Zonk(t types.Type) types.Type {
 		changed := false
 		entries := make([]types.ConstraintEntry, len(ty.Entries))
 		for i, e := range ty.Entries {
-			args := make([]types.Type, len(e.Args))
-			for j, a := range e.Args {
-				args[j] = u.Zonk(a)
-				if args[j] != a {
-					changed = true
-				}
-			}
-			entries[i] = types.ConstraintEntry{ClassName: e.ClassName, Args: args, S: e.S}
+			entries[i] = u.zonkConstraintEntry(e, &changed)
 		}
 		var tail types.Type
 		if ty.Tail != nil {
@@ -626,6 +619,32 @@ func classifyConstraints(a, b []types.ConstraintEntry, u *Unifier) (
 		}
 	}
 	return
+}
+
+// zonkConstraintEntry zonks a single constraint entry, including any quantified sub-structure.
+func (u *Unifier) zonkConstraintEntry(e types.ConstraintEntry, changed *bool) types.ConstraintEntry {
+	args := make([]types.Type, len(e.Args))
+	for j, a := range e.Args {
+		args[j] = u.Zonk(a)
+		if args[j] != a {
+			*changed = true
+		}
+	}
+	result := types.ConstraintEntry{ClassName: e.ClassName, Args: args, S: e.S}
+	if e.Quantified != nil {
+		qc := u.zonkQuantifiedConstraint(e.Quantified, changed)
+		result.Quantified = qc
+	}
+	return result
+}
+
+func (u *Unifier) zonkQuantifiedConstraint(qc *types.QuantifiedConstraint, changed *bool) *types.QuantifiedConstraint {
+	ctx := make([]types.ConstraintEntry, len(qc.Context))
+	for i, c := range qc.Context {
+		ctx[i] = u.zonkConstraintEntry(c, changed)
+	}
+	head := u.zonkConstraintEntry(qc.Head, changed)
+	return &types.QuantifiedConstraint{Vars: qc.Vars, Context: ctx, Head: head}
 }
 
 func collectFields(r *types.TyRow, labels []string) []types.RowField {

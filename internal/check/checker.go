@@ -104,6 +104,7 @@ type deferredConstraint struct {
 	args        []types.Type
 	s           span.Span
 	group       int // constraints from same qualified type chain; 0 = ungrouped
+	quantified  *types.QuantifiedConstraint // non-nil for quantified constraints
 }
 
 // Check type-checks a surface AST program and produces Core IR.

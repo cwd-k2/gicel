@@ -101,15 +101,7 @@ func Subst(t Type, varName string, replacement Type) Type {
 		changed := false
 		entries := make([]ConstraintEntry, len(ty.Entries))
 		for i, e := range ty.Entries {
-			args := make([]Type, len(e.Args))
-			for j, a := range e.Args {
-				newA := Subst(a, varName, replacement)
-				if newA != a {
-					changed = true
-				}
-				args[j] = newA
-			}
-			entries[i] = ConstraintEntry{ClassName: e.ClassName, Args: args, S: e.S}
+			entries[i] = substConstraintEntry(e, varName, replacement, &changed)
 		}
 		var newTail Type
 		if ty.Tail != nil {
@@ -153,4 +145,74 @@ func SubstMany(t Type, subs map[string]Type) Type {
 		result = Subst(result, name, repl)
 	}
 	return result
+}
+
+// substConstraintEntry substitutes within a single ConstraintEntry,
+// handling the Quantified field with proper variable shadowing.
+func substConstraintEntry(e ConstraintEntry, varName string, replacement Type, changed *bool) ConstraintEntry {
+	args := make([]Type, len(e.Args))
+	for j, a := range e.Args {
+		newA := Subst(a, varName, replacement)
+		if newA != a {
+			*changed = true
+		}
+		args[j] = newA
+	}
+	result := ConstraintEntry{ClassName: e.ClassName, Args: args, S: e.S}
+	if e.Quantified != nil {
+		// Check if varName is shadowed by any quantified variable.
+		for _, v := range e.Quantified.Vars {
+			if v.Name == varName {
+				result.Quantified = e.Quantified // shadowed, no substitution inside
+				return result
+			}
+		}
+		newQC := substQuantifiedConstraint(e.Quantified, varName, replacement, changed)
+		result.Quantified = newQC
+	}
+	return result
+}
+
+func substQuantifiedConstraint(qc *QuantifiedConstraint, varName string, replacement Type, changed *bool) *QuantifiedConstraint {
+	// Capture avoidance: check if any bound var appears free in replacement.
+	vars := make([]ForallBinder, len(qc.Vars))
+	copy(vars, qc.Vars)
+	for i, v := range vars {
+		if OccursIn(v.Name, replacement) {
+			fresh := freshName(v.Name)
+			// Rename this bound var in context and head.
+			vars[i] = ForallBinder{Name: fresh, Kind: v.Kind}
+			*changed = true
+		}
+	}
+	ctx := make([]ConstraintEntry, len(qc.Context))
+	for i, c := range qc.Context {
+		ctx[i] = substConstraintEntry(c, varName, replacement, changed)
+	}
+	head := substConstraintEntry(qc.Head, varName, replacement, changed)
+	// Also apply renames from capture avoidance.
+	for i, orig := range qc.Vars {
+		if vars[i].Name != orig.Name {
+			for j := range ctx {
+				ctx[j] = renameInConstraintEntry(ctx[j], orig.Name, vars[i].Name)
+			}
+			head = renameInConstraintEntry(head, orig.Name, vars[i].Name)
+		}
+	}
+	return &QuantifiedConstraint{Vars: vars, Context: ctx, Head: head}
+}
+
+func renameInConstraintEntry(e ConstraintEntry, oldName, newName string) ConstraintEntry {
+	changed := false
+	args := make([]Type, len(e.Args))
+	for j, a := range e.Args {
+		args[j] = Subst(a, oldName, &TyVar{Name: newName})
+		if args[j] != a {
+			changed = true
+		}
+	}
+	if !changed {
+		return e
+	}
+	return ConstraintEntry{ClassName: e.ClassName, Args: args, Quantified: e.Quantified, S: e.S}
 }

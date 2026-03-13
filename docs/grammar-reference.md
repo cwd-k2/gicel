@@ -345,8 +345,26 @@ Eq a => Ord b => a -> b -> Bool    -- curried constraints
 
 Constraint products `(C1, C2, ...)` and curried constraints `C1 => C2 => ...` are equivalent; both elaborate to a single `TyEvidence` with multiple constraint entries. `(C)` with a single constraint is treated as a parenthesized constraint, not a product.
 
+### Quantified Constraints
+
+```
+(forall a. Eq a => Eq (f a)) => f Bool -> f Bool -> Bool
+(forall a. Eq a => Show a => Eq (f a)) => ...    -- multiple premises
+(Show Bool, forall a. Eq a => Eq (f a)) => ...   -- mixed with product
+```
+
+A quantified constraint `forall vars. context => head` asserts that, for any instantiation of `vars`, if the `context` constraints hold, then the `head` constraint holds. Evidence for a quantified constraint is a *function* from context dictionaries to the head dictionary:
+
+```
+-- Evidence type for (forall a. Eq a => Eq (f a)):
+-- forall a. Eq$Dict a -> Eq$Dict (f a)
+```
+
+At use sites, the quantified constraint is resolved by finding a matching global instance. For example, `instance Eq a => Eq (F a)` satisfies `forall a. Eq a => Eq (F a)`.
+
+Within a function body, quantified evidence can be applied to produce dictionaries for specific types. If `f` has constraint `(forall a. Eq a => Eq (g a))`, then `eq (x :: g Bool) y` resolves `Eq (g Bool)` by applying the quantified evidence to `Bool` and the `Eq Bool` dictionary.
+
 **Future extensions** (not yet implemented):
-- Quantified constraints: `(forall a. Eq a => Eq (f a)) => ...` — requires compound constraint entries
 - Constraint variables: `forall (c : Constraint). c => ...` — requires open constraint row tail solving
 - Dict reification: `data Dict (c : Constraint) = Dict c` — requires constraint-kinded data params
 

@@ -111,16 +111,8 @@ func equalAlpha(a, b Type, bindings []alphaBinding) bool {
 			return false
 		}
 		for i := range at.Entries {
-			if at.Entries[i].ClassName != bt.Entries[i].ClassName {
+			if !equalConstraintEntry(at.Entries[i], bt.Entries[i], bindings) {
 				return false
-			}
-			if len(at.Entries[i].Args) != len(bt.Entries[i].Args) {
-				return false
-			}
-			for j := range at.Entries[i].Args {
-				if !equalAlpha(at.Entries[i].Args[j], bt.Entries[i].Args[j], bindings) {
-					return false
-				}
 			}
 		}
 		if (at.Tail == nil) != (bt.Tail == nil) {
@@ -156,4 +148,50 @@ func equalAlpha(a, b Type, bindings []alphaBinding) bool {
 	default:
 		return false
 	}
+}
+
+func equalConstraintEntry(a, b ConstraintEntry, bindings []alphaBinding) bool {
+	if a.ClassName != b.ClassName {
+		return false
+	}
+	if len(a.Args) != len(b.Args) {
+		return false
+	}
+	for j := range a.Args {
+		if !equalAlpha(a.Args[j], b.Args[j], bindings) {
+			return false
+		}
+	}
+	// Both must be quantified or both simple.
+	if (a.Quantified == nil) != (b.Quantified == nil) {
+		return false
+	}
+	if a.Quantified != nil {
+		return equalQuantifiedConstraint(a.Quantified, b.Quantified, bindings)
+	}
+	return true
+}
+
+func equalQuantifiedConstraint(a, b *QuantifiedConstraint, bindings []alphaBinding) bool {
+	if len(a.Vars) != len(b.Vars) {
+		return false
+	}
+	// Extend bindings with alpha-equivalence for bound variables.
+	newBindings := make([]alphaBinding, len(bindings), len(bindings)+len(a.Vars))
+	copy(newBindings, bindings)
+	for i, av := range a.Vars {
+		if !av.Kind.Equal(b.Vars[i].Kind) {
+			return false
+		}
+		newBindings = append(newBindings, alphaBinding{av.Name, b.Vars[i].Name})
+	}
+	if len(a.Context) != len(b.Context) {
+		return false
+	}
+	for i := range a.Context {
+		if !equalConstraintEntry(a.Context[i], b.Context[i], newBindings) {
+			return false
+		}
+	}
+	return equalConstraintEntry(a.Head, b.Head, newBindings)
 }

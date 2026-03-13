@@ -15,12 +15,18 @@ func (ch *Checker) resolveDeferredConstraints(expr core.Core) core.Core {
 	// Build resolution map: placeholder name → resolved Core expression.
 	resolutions := make(map[string]core.Core)
 	for _, dc := range ch.deferred {
-		zonkedArgs := make([]types.Type, len(dc.args))
-		for i, a := range dc.args {
-			zonkedArgs[i] = ch.unifier.Zonk(a)
+		if dc.quantified != nil {
+			// Resolve quantified constraint by finding matching evidence.
+			resolved := ch.resolveQuantifiedConstraint(dc.quantified, dc.s)
+			resolutions[dc.placeholder] = resolved
+		} else {
+			zonkedArgs := make([]types.Type, len(dc.args))
+			for i, a := range dc.args {
+				zonkedArgs[i] = ch.unifier.Zonk(a)
+			}
+			resolved := ch.resolveInstance(dc.className, zonkedArgs, dc.s)
+			resolutions[dc.placeholder] = resolved
 		}
-		resolved := ch.resolveInstance(dc.className, zonkedArgs, dc.s)
-		resolutions[dc.placeholder] = resolved
 	}
 	ch.deferred = ch.deferred[:0]
 

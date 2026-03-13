@@ -94,11 +94,7 @@ func prettyConstraintRow(r *TyConstraintRow) string {
 	}
 	parts := make([]string, len(r.Entries))
 	for i, e := range r.Entries {
-		items := []string{e.ClassName}
-		for _, a := range e.Args {
-			items = append(items, prettyAtom(a))
-		}
-		parts[i] = strings.Join(items, " ")
+		parts[i] = prettyConstraintEntry(e)
 	}
 	inner := strings.Join(parts, ", ")
 	if r.Tail != nil {
@@ -109,6 +105,34 @@ func prettyConstraintRow(r *TyConstraintRow) string {
 		}
 	}
 	return "{ " + inner + " }"
+}
+
+func prettyConstraintEntry(e ConstraintEntry) string {
+	if e.Quantified != nil {
+		return prettyQuantifiedConstraint(e.Quantified)
+	}
+	items := []string{e.ClassName}
+	for _, a := range e.Args {
+		items = append(items, prettyAtom(a))
+	}
+	return strings.Join(items, " ")
+}
+
+func prettyQuantifiedConstraint(qc *QuantifiedConstraint) string {
+	var vars []string
+	for _, v := range qc.Vars {
+		if _, ok := v.Kind.(KType); ok {
+			vars = append(vars, v.Name)
+		} else {
+			vars = append(vars, fmt.Sprintf("(%s : %s)", v.Name, v.Kind))
+		}
+	}
+	result := "forall " + strings.Join(vars, " ") + ". "
+	for _, c := range qc.Context {
+		result += prettyConstraintEntry(c) + " => "
+	}
+	result += prettyConstraintEntry(qc.Head)
+	return result
 }
 
 // PrettyKind renders a kind.

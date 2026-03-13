@@ -19,10 +19,11 @@ type CtxTyVar struct {
 
 // CtxEvidence records available type class evidence in the context.
 type CtxEvidence struct {
-	ClassName string
-	Args      []types.Type
-	DictName  string     // context variable name for the dictionary
-	DictType  types.Type // dictionary type
+	ClassName  string
+	Args       []types.Type
+	DictName   string     // context variable name for the dictionary
+	DictType   types.Type // dictionary type
+	Quantified *types.QuantifiedConstraint // non-nil for quantified constraints
 }
 
 func (*CtxVar) ctxEntry()      {}

@@ -31,6 +31,15 @@ func (ch *Checker) resolveInstance(className string, args []types.Type, s span.S
 		}
 	}
 
+	// 1.6. Search context for quantified evidence that can produce the needed dictionary.
+	for i := len(ch.ctx.entries) - 1; i >= 0; i-- {
+		if e, ok := ch.ctx.entries[i].(*CtxEvidence); ok && e.Quantified != nil {
+			if expr := ch.applyQuantifiedEvidence(e, className, args, s); expr != nil {
+				return expr
+			}
+		}
+	}
+
 	// 2. Search global instances (indexed by class name).
 	for _, inst := range ch.instancesByClass[className] {
 		if len(inst.TypeArgs) != len(args) {
@@ -186,6 +195,147 @@ func (ch *Checker) extractSuperDictChain(
 		}
 	}
 	return nil
+}
+
+// applyQuantifiedEvidence tries to use a quantified evidence entry to produce
+// a dictionary for the given className and args.
+// For example, if evidence is `forall a. Eq a => Eq (g a)` and we need `Eq (g Bool)`,
+// it instantiates `a = Bool`, resolves `Eq Bool`, and builds the application.
+func (ch *Checker) applyQuantifiedEvidence(e *CtxEvidence, className string, args []types.Type, s span.Span) core.Core {
+	qc := e.Quantified
+	// Head must match the target class.
+	if qc.Head.ClassName != className {
+		return nil
+	}
+	if len(qc.Head.Args) != len(args) {
+		return nil
+	}
+
+	// Create fresh metas for the quantified variables.
+	freshSubst := make(map[string]types.Type, len(qc.Vars))
+	for _, v := range qc.Vars {
+		freshSubst[v.Name] = ch.freshMeta(v.Kind)
+	}
+
+	// Try to unify head args with wanted args.
+	// Save unifier state so we can roll back on failure.
+	savedSoln := make(map[int]types.Type)
+	for k, v := range ch.unifier.Solutions() {
+		savedSoln[k] = v
+	}
+
+	allMatched := true
+	for i := range args {
+		headArg := types.SubstMany(qc.Head.Args[i], freshSubst)
+		if err := ch.unifier.Unify(headArg, args[i]); err != nil {
+			allMatched = false
+			break
+		}
+	}
+
+	if !allMatched {
+		// Roll back unification changes.
+		for k := range ch.unifier.Solutions() {
+			if _, existed := savedSoln[k]; !existed {
+				delete(ch.unifier.Solutions(), k)
+			}
+		}
+		for k, v := range savedSoln {
+			ch.unifier.Solutions()[k] = v
+		}
+		return nil
+	}
+
+	// Build the evidence expression by applying the quantified evidence function.
+	var dictExpr core.Core = &core.Var{Name: e.DictName, S: s}
+
+	// Apply type arguments.
+	for _, v := range qc.Vars {
+		tyArg := ch.unifier.Zonk(freshSubst[v.Name])
+		dictExpr = &core.TyApp{Expr: dictExpr, TyArg: tyArg, S: s}
+	}
+
+	// Resolve and apply context (premise) dictionaries.
+	for _, ctx := range qc.Context {
+		ctxArgs := make([]types.Type, len(ctx.Args))
+		for j, a := range ctx.Args {
+			ctxArgs[j] = ch.unifier.Zonk(types.SubstMany(a, freshSubst))
+		}
+		ctxDict := ch.resolveInstance(ctx.ClassName, ctxArgs, s)
+		dictExpr = &core.App{Fun: dictExpr, Arg: ctxDict, S: s}
+	}
+
+	return dictExpr
+}
+
+// resolveQuantifiedConstraint finds evidence for a quantified constraint.
+// For `forall a. Eq a => Eq (F a)`, it searches for an instance whose structure
+// matches (e.g., `instance Eq a => Eq (F a)`) and returns its dict binding.
+func (ch *Checker) resolveQuantifiedConstraint(qc *types.QuantifiedConstraint, s span.Span) core.Core {
+	// Strategy: the quantified constraint `forall a. C1 a => C2 (F a)` is satisfied
+	// by a global instance `C2 (F a)` with context `C1 a`, which already has the
+	// right type: `forall a. C1$Dict a -> C2$Dict (F a)`.
+	//
+	// Search global instances for a match on the head.
+	for _, inst := range ch.instancesByClass[qc.Head.ClassName] {
+		if len(inst.TypeArgs) != len(qc.Head.Args) {
+			continue
+		}
+		// Check if this instance structurally matches the quantified constraint head.
+		// Create a fresh substitution for the quantified vars.
+		freshSubst := make(map[string]types.Type, len(qc.Vars))
+		for _, v := range qc.Vars {
+			freshSubst[v.Name] = ch.freshMeta(v.Kind)
+		}
+
+		// Also create fresh metas for the instance's own free vars.
+		instSubst := ch.freshInstanceSubst(inst)
+
+		matched := true
+		for i := range qc.Head.Args {
+			headArg := types.SubstMany(qc.Head.Args[i], freshSubst)
+			instArg := types.SubstMany(inst.TypeArgs[i], instSubst)
+			if err := ch.unifier.Unify(headArg, instArg); err != nil {
+				matched = false
+				break
+			}
+		}
+		if !matched {
+			continue
+		}
+
+		// Verify context compatibility: instance context should subsume quantified context.
+		// For simple cases, just check that the instance context matches.
+		if len(inst.Context) != len(qc.Context) {
+			continue
+		}
+		ctxMatch := true
+		for i, ic := range inst.Context {
+			if ic.ClassName != qc.Context[i].ClassName {
+				ctxMatch = false
+				break
+			}
+		}
+		if !ctxMatch {
+			continue
+		}
+
+		// The instance dict binding has the right type.
+		return &core.Var{Name: inst.DictBindName, S: s}
+	}
+
+	// Also search context for quantified evidence variables.
+	for i := len(ch.ctx.entries) - 1; i >= 0; i-- {
+		if e, ok := ch.ctx.entries[i].(*CtxEvidence); ok && e.Quantified != nil {
+			if e.Quantified.Head.ClassName == qc.Head.ClassName {
+				return &core.Var{Name: e.DictName, S: s}
+			}
+		}
+	}
+
+	ch.addCodedError(errs.ErrNoInstance, s,
+		fmt.Sprintf("no instance for %s %s", qc.Head.ClassName, ch.prettyTypeArgs(qc.Head.Args)))
+	return &core.Var{Name: "<no-instance>", S: s}
 }
 
 // freshInstanceSubst creates a substitution mapping each free type variable

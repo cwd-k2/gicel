@@ -82,10 +82,29 @@ type TyConstraintRow struct {
 }
 
 // ConstraintEntry is a single class constraint in a constraint row.
+// For simple constraints (Eq a), ClassName and Args describe the constraint.
+// For quantified constraints (forall a. Eq a => Eq (f a)), Quantified is non-nil
+// and ClassName/Args reflect the head constraint.
 type ConstraintEntry struct {
-	ClassName string
-	Args      []Type
-	S         span.Span
+	ClassName  string
+	Args       []Type
+	Quantified *QuantifiedConstraint // non-nil for forall-quantified constraints
+	S          span.Span
+}
+
+// QuantifiedConstraint represents a universally quantified constraint:
+//   forall vars. context => head
+// Evidence for this constraint is a function from context dicts to a head dict.
+type QuantifiedConstraint struct {
+	Vars    []ForallBinder
+	Context []ConstraintEntry // premise constraints
+	Head    ConstraintEntry   // conclusion constraint
+}
+
+// ForallBinder is a universally quantified type variable with its kind.
+type ForallBinder struct {
+	Name string
+	Kind Kind
 }
 
 // TyEvidence is a qualified type: { C1, C2 | c } => Body.
@@ -161,10 +180,22 @@ func (t *TyThunk) Children() []Type  { return []Type{t.Pre, t.Post, t.Result} }
 func (t *TyConstraintRow) Children() []Type {
 	var ch []Type
 	for _, e := range t.Entries {
-		ch = append(ch, e.Args...)
+		ch = append(ch, constraintEntryChildren(e)...)
 	}
 	if t.Tail != nil {
 		ch = append(ch, t.Tail)
+	}
+	return ch
+}
+
+func constraintEntryChildren(e ConstraintEntry) []Type {
+	ch := make([]Type, 0, len(e.Args))
+	ch = append(ch, e.Args...)
+	if e.Quantified != nil {
+		for _, c := range e.Quantified.Context {
+			ch = append(ch, constraintEntryChildren(c)...)
+		}
+		ch = append(ch, constraintEntryChildren(e.Quantified.Head)...)
 	}
 	return ch
 }

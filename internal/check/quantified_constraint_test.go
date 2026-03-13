@@ -1,0 +1,184 @@
+package check
+
+import (
+	"strings"
+	"testing"
+)
+
+// =============================================================================
+// Phase 5D: Quantified Constraints
+//
+// A quantified constraint `forall a. C1 a => C2 (f a)` introduces evidence
+// that is a *function*: given evidence for C1 a, it produces evidence for C2 (f a).
+// =============================================================================
+
+func TestQuantifiedConstraintBasic(t *testing.T) {
+	// Simplest case: a function with a quantified constraint parameter.
+	// (forall a. Eq a => Eq (F a)) provides evidence to resolve Eq (F Bool).
+	source := `data Bool = True | False
+data F a = MkF a
+class Eq a { eq :: a -> a -> Bool }
+instance Eq Bool { eq := \x y -> True }
+f :: forall (g : Type -> Type). (forall a. Eq a => Eq (g a)) => g Bool -> g Bool -> Bool
+f := \x y -> eq x y
+instance Eq a => Eq (F a) { eq := \x y -> True }
+main := f (MkF True) (MkF False)`
+	checkSource(t, source, nil)
+}
+
+func TestQuantifiedConstraintMultiplePremises(t *testing.T) {
+	// Quantified constraint with multiple premises.
+	source := `data Bool = True | False
+data F a = MkF a
+class Eq a { eq :: a -> a -> Bool }
+class Show a { show :: a -> Bool }
+instance Eq Bool { eq := \x y -> True }
+instance Show Bool { show := \x -> True }
+f :: forall (g : Type -> Type). (forall a. Eq a => Show a => Eq (g a)) => g Bool -> g Bool -> Bool
+f := \x y -> eq x y
+instance Eq a => Show a => Eq (F a) { eq := \x y -> True }
+main := f (MkF True) (MkF False)`
+	checkSource(t, source, nil)
+}
+
+func TestQuantifiedConstraintWithOtherConstraints(t *testing.T) {
+	// Quantified constraint alongside regular constraints.
+	source := `data Bool = True | False
+data F a = MkF a
+class Eq a { eq :: a -> a -> Bool }
+class Show a { show :: a -> Bool }
+instance Eq Bool { eq := \x y -> True }
+instance Show Bool { show := \x -> True }
+instance Eq a => Eq (F a) { eq := \x y -> True }
+f :: forall (g : Type -> Type). Show Bool => (forall a. Eq a => Eq (g a)) => g Bool -> g Bool -> Bool
+f := \x y -> eq x y
+main := f (MkF True) (MkF False)`
+	checkSource(t, source, nil)
+}
+
+func TestQuantifiedConstraintInProduct(t *testing.T) {
+	// Quantified constraint inside a constraint product.
+	source := `data Bool = True | False
+data F a = MkF a
+class Eq a { eq :: a -> a -> Bool }
+class Show a { show :: a -> Bool }
+instance Eq Bool { eq := \x y -> True }
+instance Show Bool { show := \x -> True }
+instance Eq a => Eq (F a) { eq := \x y -> True }
+f :: forall (g : Type -> Type). (Show Bool, forall a. Eq a => Eq (g a)) => g Bool -> g Bool -> Bool
+f := \x y -> eq x y
+main := f (MkF True) (MkF False)`
+	checkSource(t, source, nil)
+}
+
+func TestQuantifiedConstraintNested(t *testing.T) {
+	// Two quantified constraints in scope.
+	source := `data Bool = True | False
+data F a = MkF a
+data G a = MkG a
+class Eq a { eq :: a -> a -> Bool }
+instance Eq Bool { eq := \x y -> True }
+instance Eq a => Eq (F a) { eq := \x y -> True }
+instance Eq a => Eq (G a) { eq := \x y -> True }
+f :: forall (g : Type -> Type) (h : Type -> Type). (forall a. Eq a => Eq (g a)) => (forall a. Eq a => Eq (h a)) => g Bool -> h Bool -> Bool
+f := \x y -> eq x x
+main := f (MkF True) (MkG False)`
+	checkSource(t, source, nil)
+}
+
+func TestQuantifiedConstraintErrorMissingPremise(t *testing.T) {
+	// Quantified constraint premise can't be satisfied — should error.
+	source := `data Bool = True | False
+data MyType = MyType
+data F a = MkF a
+class Eq a { eq :: a -> a -> Bool }
+instance Eq Bool { eq := \x y -> True }
+f :: forall (g : Type -> Type). (forall a. Eq a => Eq (g a)) => g MyType -> g MyType -> Bool
+f := \x y -> eq x y
+instance Eq a => Eq (F a) { eq := \x y -> True }
+main := f (MkF MyType) (MkF MyType)`
+	errMsg := checkSourceExpectError(t, source, nil)
+	if !strings.Contains(errMsg, "no instance") {
+		t.Errorf("expected 'no instance' error, got: %s", errMsg)
+	}
+}
+
+// =============================================================================
+// Stress Tests — Quantified Constraints
+// =============================================================================
+
+func TestStressQuantifiedConstraintDeepChain(t *testing.T) {
+	// Quantified constraint where premise itself requires another instance.
+	source := `data Bool = True | False
+data F a = MkF a
+data G a = MkG a
+class Eq a { eq :: a -> a -> Bool }
+instance Eq Bool { eq := \x y -> True }
+instance Eq a => Eq (G a) { eq := \x y -> True }
+f :: forall (h : Type -> Type). (forall a. Eq a => Eq (h a)) => h (G Bool) -> h (G Bool) -> Bool
+f := \x y -> eq x y
+instance Eq a => Eq (F a) { eq := \x y -> True }
+main := f (MkF (MkG True)) (MkF (MkG False))`
+	checkSource(t, source, nil)
+}
+
+func TestQuantifiedConstraintUsedInBody(t *testing.T) {
+	// The quantified evidence is used within the function body to resolve
+	// the constraint at a specific type.
+	source := `data Bool = True | False
+data Unit = Unit
+data F a = MkF a
+class Eq a { eq :: a -> a -> Bool }
+instance Eq Bool { eq := \x y -> True }
+instance Eq Unit { eq := \x y -> True }
+instance Eq a => Eq (F a) { eq := \x y -> True }
+f :: forall (g : Type -> Type). (forall a. Eq a => Eq (g a)) => g Bool -> g Unit -> Bool
+f := \x y -> eq x x
+main := f (MkF True) (MkF Unit)`
+	checkSource(t, source, nil)
+}
+
+func TestQuantifiedConstraintParseDisplay(t *testing.T) {
+	// Verify the constraint parses, resolves, and the checker doesn't crash.
+	source := `data Bool = True | False
+data F a = MkF a
+class Eq a { eq :: a -> a -> Bool }
+instance Eq Bool { eq := \x y -> True }
+instance Eq a => Eq (F a) { eq := \x y -> True }
+id :: forall a. a -> a
+id := \x -> x
+f :: forall (g : Type -> Type). (forall a. Eq a => Eq (g a)) => g Bool -> Bool
+f := \x -> eq x x
+main := f (MkF True)`
+	checkSource(t, source, nil)
+}
+
+func TestQuantifiedConstraintMixedWithCurried(t *testing.T) {
+	// Quantified constraint mixed with curried regular constraints.
+	source := `data Bool = True | False
+data F a = MkF a
+class Eq a { eq :: a -> a -> Bool }
+class Show a { show :: a -> Bool }
+instance Eq Bool { eq := \x y -> True }
+instance Show Bool { show := \x -> True }
+instance Eq a => Eq (F a) { eq := \x y -> True }
+f :: forall (g : Type -> Type). Show Bool => (forall a. Eq a => Eq (g a)) => g Bool -> Bool
+f := \x -> eq x x
+main := f (MkF True)`
+	checkSource(t, source, nil)
+}
+
+func TestQuantifiedConstraintProductMixed(t *testing.T) {
+	// Constraint product mixing quantified and simple constraints.
+	source := `data Bool = True | False
+data F a = MkF a
+class Eq a { eq :: a -> a -> Bool }
+class Show a { show :: a -> Bool }
+instance Eq Bool { eq := \x y -> True }
+instance Show Bool { show := \x -> True }
+instance Eq a => Eq (F a) { eq := \x y -> True }
+f :: forall (g : Type -> Type). (Show Bool, forall a. Eq a => Eq (g a)) => g Bool -> Bool
+f := \x -> eq x x
+main := f (MkF True)`
+	checkSource(t, source, nil)
+}

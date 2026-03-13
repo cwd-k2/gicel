@@ -184,14 +184,20 @@ func (ch *Checker) check(expr syntax.Expr, expected types.Type) core.Core {
 		dicts := make([]dictInfo, len(ev.Constraints.Entries))
 		for i, entry := range ev.Constraints.Entries {
 			dictParam := fmt.Sprintf("$d_%s_%d", entry.ClassName, ch.fresh())
-			dictTy := ch.buildDictType(entry.ClassName, entry.Args)
+			var dictTy types.Type
+			if entry.Quantified != nil {
+				dictTy = ch.buildQuantifiedDictType(entry.Quantified)
+			} else {
+				dictTy = ch.buildDictType(entry.ClassName, entry.Args)
+			}
 			dicts[i] = dictInfo{param: dictParam, ty: dictTy}
 			ch.ctx.Push(&CtxVar{Name: dictParam, Type: dictTy})
 			ch.ctx.Push(&CtxEvidence{
-				ClassName: entry.ClassName,
-				Args:      entry.Args,
-				DictName:  dictParam,
-				DictType:  dictTy,
+				ClassName:  entry.ClassName,
+				Args:       entry.Args,
+				DictName:   dictParam,
+				DictType:   dictTy,
+				Quantified: entry.Quantified,
 			})
 		}
 		bodyCore := ch.check(expr, ev.Body)
@@ -246,11 +252,12 @@ func (ch *Checker) subsCheck(inferred, expected types.Type, expr core.Core, s sp
 		for _, entry := range ev.Constraints.Entries {
 			placeholder := fmt.Sprintf("$dict_%d", ch.fresh())
 			ch.deferred = append(ch.deferred, deferredConstraint{
-				placeholder: placeholder,
-				className:   entry.ClassName,
-				args:        entry.Args,
-				s:           s,
-				group:       groupID,
+				placeholder:  placeholder,
+				className:    entry.ClassName,
+				args:         entry.Args,
+				s:            s,
+				group:        groupID,
+				quantified:   entry.Quantified,
 			})
 			expr = &core.App{Fun: expr, Arg: &core.Var{Name: placeholder, S: s}, S: s}
 		}
@@ -792,11 +799,12 @@ func (ch *Checker) instantiate(ty types.Type, expr core.Core) (types.Type, core.
 			for _, entry := range ev.Constraints.Entries {
 				placeholder := fmt.Sprintf("$dict_%d", ch.fresh())
 				ch.deferred = append(ch.deferred, deferredConstraint{
-					placeholder: placeholder,
-					className:   entry.ClassName,
-					args:        entry.Args,
-					s:           expr.Span(),
-					group:       groupID,
+					placeholder:  placeholder,
+					className:    entry.ClassName,
+					args:         entry.Args,
+					s:            expr.Span(),
+					group:        groupID,
+					quantified:   entry.Quantified,
 				})
 				expr = &core.App{Fun: expr, Arg: &core.Var{Name: placeholder, S: expr.Span()}, S: expr.Span()}
 			}
@@ -887,6 +895,30 @@ func (ch *Checker) resolveTypeExpr(texpr syntax.TypeExpr) types.Type {
 		}
 		// Single constraint: C a => T
 		constraint := ch.resolveTypeExpr(t.Constraint)
+		// Quantified constraint: (forall a. C1 a => C2 (f a)) => T
+		if qc := ch.decomposeQuantifiedConstraint(constraint); qc != nil {
+			entry := types.ConstraintEntry{
+				ClassName:  qc.Head.ClassName,
+				Args:       qc.Head.Args,
+				Quantified: qc,
+				S:          t.S,
+			}
+			if ev, ok := body.(*types.TyEvidence); ok {
+				entries := make([]types.ConstraintEntry, 0, 1+len(ev.Constraints.Entries))
+				entries = append(entries, entry)
+				entries = append(entries, ev.Constraints.Entries...)
+				return &types.TyEvidence{
+					Constraints: &types.TyConstraintRow{Entries: entries},
+					Body:        ev.Body,
+					S:           t.S,
+				}
+			}
+			return &types.TyEvidence{
+				Constraints: &types.TyConstraintRow{Entries: []types.ConstraintEntry{entry}},
+				Body:        body,
+				S:           t.S,
+			}
+		}
 		head, args := types.UnwindApp(constraint)
 		if con, ok := head.(*types.TyCon); ok {
 			entry := types.ConstraintEntry{ClassName: con.Name, Args: args, S: t.S}
@@ -922,11 +954,63 @@ func (ch *Checker) resolveTypeExpr(texpr syntax.TypeExpr) types.Type {
 	}
 }
 
+// decomposeQuantifiedConstraint checks if a resolved type is a quantified constraint
+// (forall vars. context => head) and decomposes it into a QuantifiedConstraint.
+// Returns nil if the type is not a quantified constraint.
+func (ch *Checker) decomposeQuantifiedConstraint(ty types.Type) *types.QuantifiedConstraint {
+	// Peel forall binders.
+	var vars []types.ForallBinder
+	current := ty
+	for {
+		if f, ok := current.(*types.TyForall); ok {
+			vars = append(vars, types.ForallBinder{Name: f.Var, Kind: f.Kind})
+			current = f.Body
+		} else {
+			break
+		}
+	}
+	if len(vars) == 0 {
+		return nil // not a quantified constraint
+	}
+	// Extract evidence: must be TyEvidence with at least one constraint entry for the head.
+	ev, ok := current.(*types.TyEvidence)
+	if !ok {
+		return nil // forall a. T without => is not a quantified constraint
+	}
+	if len(ev.Constraints.Entries) == 0 {
+		return nil
+	}
+	// The body of the evidence is the head constraint (after the last =>).
+	headTy := ev.Body
+	headHead, headArgs := types.UnwindApp(headTy)
+	headCon, ok := headHead.(*types.TyCon)
+	if !ok {
+		return nil // head is not a class constraint
+	}
+	head := types.ConstraintEntry{ClassName: headCon.Name, Args: headArgs}
+	// All entries in the evidence are context (premise) constraints.
+	return &types.QuantifiedConstraint{
+		Vars:    vars,
+		Context: ev.Constraints.Entries,
+		Head:    head,
+	}
+}
+
 // resolveConstraintTuple converts a TyExprTuple into constraint entries.
 func (ch *Checker) resolveConstraintTuple(tuple *syntax.TyExprTuple) []types.ConstraintEntry {
 	entries := make([]types.ConstraintEntry, 0, len(tuple.Elements))
 	for _, elem := range tuple.Elements {
 		constraint := ch.resolveTypeExpr(elem)
+		// Check for quantified constraint element.
+		if qc := ch.decomposeQuantifiedConstraint(constraint); qc != nil {
+			entries = append(entries, types.ConstraintEntry{
+				ClassName:  qc.Head.ClassName,
+				Args:       qc.Head.Args,
+				Quantified: qc,
+				S:          elem.Span(),
+			})
+			continue
+		}
 		head, args := types.UnwindApp(constraint)
 		if con, ok := head.(*types.TyCon); ok {
 			entries = append(entries, types.ConstraintEntry{
