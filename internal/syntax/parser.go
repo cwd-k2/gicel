@@ -1011,6 +1011,16 @@ func (p *Parser) parseTypeAtom() TypeExpr {
 		start := p.peek().S.Start
 		p.advance()
 		ty := p.parseType()
+		if p.peek().Kind == TokComma {
+			// Tuple: (T1, T2, ...)
+			elements := []TypeExpr{ty}
+			for p.peek().Kind == TokComma {
+				p.advance()
+				elements = append(elements, p.parseType())
+			}
+			p.expect(TokRParen)
+			return &TyExprTuple{Elements: elements, S: span.Span{Start: start, End: p.prevEnd()}}
+		}
 		p.expect(TokRParen)
 		return &TyExprParen{Inner: ty, S: span.Span{Start: start, End: p.prevEnd()}}
 	case TokLBrace:

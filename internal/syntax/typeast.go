@@ -55,6 +55,13 @@ type TyExprQual struct {
 	S          span.Span
 }
 
+// TyExprTuple is a tuple of type expressions: (T1, T2, ...).
+// Used for constraint products: (Eq a, Ord a) => T.
+type TyExprTuple struct {
+	Elements []TypeExpr
+	S        span.Span
+}
+
 type TyBinder struct {
 	Name string
 	Kind KindExpr // nil means kind not annotated (inferred)
@@ -97,6 +104,7 @@ func (*TyExprForall) typeExprNode() {}
 func (*TyExprRow) typeExprNode()    {}
 func (*TyExprParen) typeExprNode()  {}
 func (*TyExprQual) typeExprNode()   {}
+func (*TyExprTuple) typeExprNode()  {}
 
 func (t *TyExprVar) Span() span.Span    { return t.S }
 func (t *TyExprCon) Span() span.Span    { return t.S }
@@ -106,6 +114,7 @@ func (t *TyExprForall) Span() span.Span { return t.S }
 func (t *TyExprRow) Span() span.Span    { return t.S }
 func (t *TyExprParen) Span() span.Span  { return t.S }
 func (t *TyExprQual) Span() span.Span   { return t.S }
+func (t *TyExprTuple) Span() span.Span  { return t.S }
 
 func (*KindExprType) kindExprNode()       {}
 func (*KindExprRow) kindExprNode()        {}

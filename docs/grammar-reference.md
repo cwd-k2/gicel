@@ -338,7 +338,12 @@ a -> b -> c     -- = a -> (b -> c)
 ```
 Eq a => a -> a -> Bool
 Eq a => Ord b => a -> b -> Bool    -- curried constraints
+(Eq a, Ord a) => a -> Bool         -- constraint product
+(Eq a, Ord a, Show a) => a -> Bool -- multiple constraints
+(Eq a, Ord a) => Show a => a -> Bool  -- product + curried (mixed)
 ```
+
+Constraint products `(C1, C2, ...)` and curried constraints `C1 => C2 => ...` are equivalent; both elaborate to a single `TyEvidence` with multiple constraint entries. `(C)` with a single constraint is treated as a parenthesized constraint, not a product.
 
 ### Universal Quantification
 
@@ -358,11 +363,12 @@ forall (f : Type -> Type). f a -> f b
 { get : Unit -> Int | r }      -- capability row
 ```
 
-### Parenthesized Type
+### Parenthesized Type / Constraint Tuple
 
 ```
-(a -> b)        -- grouping
-(Maybe a)       -- grouping
+(a -> b)          -- grouping
+(Maybe a)         -- grouping
+(Eq a, Ord a)     -- constraint tuple (only valid before =>)
 ```
 
 ---
