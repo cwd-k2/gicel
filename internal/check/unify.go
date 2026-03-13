@@ -441,6 +441,15 @@ func (u *Unifier) solveMeta(m *types.TyMeta, t types.Type) error {
 				}
 			}
 		}
+		if ev, ok := t.(*types.TyEvidenceRow); ok {
+			if cap, ok := ev.Entries.(*types.CapabilityEntries); ok {
+				for _, f := range cap.Fields {
+					if _, dup := ctx[f.Label]; dup {
+						return &UnifyError{Kind: UnifyDupLabel, Detail: fmt.Sprintf("duplicate label %q in row", f.Label)}
+					}
+				}
+			}
+		}
 	}
 	u.soln[m.ID] = t
 	return nil

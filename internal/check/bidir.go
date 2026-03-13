@@ -957,7 +957,11 @@ func (ch *Checker) resolveTypeExpr(texpr syntax.TypeExpr) types.Type {
 		if t.Tail != nil {
 			tail = &types.TyVar{Name: t.Tail.Name, S: t.Tail.S}
 		}
-		return &types.TyRow{Fields: fields, Tail: tail, S: t.S}
+		return &types.TyEvidenceRow{
+			Entries: &types.CapabilityEntries{Fields: fields},
+			Tail:    tail,
+			S:       t.S,
+		}
 	case *syntax.TyExprQual:
 		body := ch.resolveTypeExpr(t.Body)
 		// Single constraint: C a => T
