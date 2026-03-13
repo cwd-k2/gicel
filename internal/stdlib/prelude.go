@@ -1,14 +1,35 @@
 package stdlib
 
+// CoreSource contains Computation-essential definitions: IxMonad class,
+// Computation instance, kind-lifting alias, effect alias, and the then combinator.
+// Always loaded as the first section of the Prelude module.
+const CoreSource = `
+class IxMonad (m : Row -> Row -> Type -> Type) {
+  ixpure :: forall a (r : Row). a -> m r r a;
+  ixbind :: forall a b (r1 : Row) (r2 : Row) (r3 : Row).
+              m r1 r2 a -> (a -> m r2 r3 b) -> m r1 r3 b
+}
+
+type Lift (m : Type -> Type) (r1 : Row) (r2 : Row) a = m a
+type Effect r a = Computation r r a
+
+instance IxMonad Computation {
+  ixpure := _builtinPure;
+  ixbind := _builtinBind
+}
+
+then :: forall a b (r1 : Row) (r2 : Row) (r3 : Row). Computation r1 r2 a -> Computation r2 r3 b -> Computation r1 r3 b
+then := \m1 -> \m2 -> bind m1 (\_ -> m2)
+`
+
 // PreludeSource is the default prelude: standard data types, type classes, and instances.
-// Auto-loaded unless NoPrelude is set. Uses the same RegisterModule mechanism as stdlib packs.
+// Auto-loaded after CoreSource unless NoPrelude is set.
 const PreludeSource = `
 data Bool = True | False
 data Result e a = Ok a | Err e
 data Maybe a = Just a | Nothing
 data List a = Cons a (List a) | Nil
 data Ordering = LT | EQ | GT
-type Effect r a = Computation r r a
 
 class Eq a { eq :: a -> a -> Bool }
 class Eq a => Ord a { compare :: a -> a -> Ordering }
@@ -23,19 +44,6 @@ class Functor f => Applicative f {
 }
 class Functor t => Foldable t => Traversable t {
   traverse :: forall f a b. Applicative f => (a -> f b) -> t a -> f (t b)
-}
-
-class IxMonad (m : Row -> Row -> Type -> Type) {
-  ixpure :: forall a (r : Row). a -> m r r a;
-  ixbind :: forall a b (r1 : Row) (r2 : Row) (r3 : Row).
-              m r1 r2 a -> (a -> m r2 r3 b) -> m r1 r3 b
-}
-
-type Lift (m : Type -> Type) (r1 : Row) (r2 : Row) a = m a
-
-instance IxMonad Computation {
-  ixpure := _builtinPure;
-  ixbind := _builtinBind
 }
 
 instance Eq Bool { eq := \x -> \y -> case x {
@@ -141,9 +149,6 @@ instance Semigroup (List a) { append := \xs -> \ys -> case xs {
 } }
 
 instance Monoid (List a) { empty := Nil }
-
-then :: forall a b (r1 : Row) (r2 : Row) (r3 : Row). Computation r1 r2 a -> Computation r2 r3 b -> Computation r1 r3 b
-then := \m1 -> \m2 -> bind m1 (\_ -> m2)
 
 id :: forall a. a -> a
 id := \x -> x

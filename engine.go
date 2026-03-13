@@ -233,7 +233,7 @@ func (e *Engine) ensurePrelude() {
 		return
 	}
 	// Register prelude as an implicit module (errors are programming errors, so panic).
-	if err := e.RegisterModule("Prelude", stdlib.PreludeSource); err != nil {
+	if err := e.RegisterModule("Prelude", stdlib.CoreSource+"\n"+stdlib.PreludeSource); err != nil {
 		panic(fmt.Sprintf("failed to compile prelude: %v", err))
 	}
 }
