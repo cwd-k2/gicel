@@ -3281,3 +3281,159 @@ func TestMissingEntryPoint(t *testing.T) {
 		t.Fatalf("expected entry point error, got: %v", err)
 	}
 }
+
+// ---------------------------------------------------------------------------
+// List Instances (Group 1A)
+// ---------------------------------------------------------------------------
+
+func TestListFmap(t *testing.T) {
+	eng := gmp.NewEngine()
+	if err := eng.Use(gmp.Num); err != nil {
+		t.Fatal(err)
+	}
+	rt, err := eng.NewRuntime(`
+import Std.Num
+main := fmap (\x -> add x 1) (Cons 1 (Cons 2 (Cons 3 Nil)))
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Expected: Cons 2 (Cons 3 (Cons 4 Nil))
+	assertList(t, result.Value, []int64{2, 3, 4})
+}
+
+func TestListFoldr(t *testing.T) {
+	eng := gmp.NewEngine()
+	if err := eng.Use(gmp.Num); err != nil {
+		t.Fatal(err)
+	}
+	rt, err := eng.NewRuntime(`
+import Std.Num
+main := foldr add 0 (Cons 1 (Cons 2 (Cons 3 Nil)))
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	hv, ok := result.Value.(*gmp.HostVal)
+	if !ok {
+		t.Fatalf("expected HostVal, got %T", result.Value)
+	}
+	if hv.Inner != int64(6) {
+		t.Fatalf("expected 6, got %v", hv.Inner)
+	}
+}
+
+func TestListAppend(t *testing.T) {
+	eng := gmp.NewEngine()
+	if err := eng.Use(gmp.Num); err != nil {
+		t.Fatal(err)
+	}
+	rt, err := eng.NewRuntime(`
+import Std.Num
+main := append (Cons 1 (Cons 2 Nil)) (Cons 3 Nil)
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertList(t, result.Value, []int64{1, 2, 3})
+}
+
+func TestListEq(t *testing.T) {
+	eng := gmp.NewEngine()
+	if err := eng.Use(gmp.Num); err != nil {
+		t.Fatal(err)
+	}
+	rt, err := eng.NewRuntime(`
+import Std.Num
+main := eq (Cons 1 (Cons 2 Nil)) (Cons 1 (Cons 2 Nil))
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	con, ok := result.Value.(*gmp.ConVal)
+	if !ok || con.Con != "True" {
+		t.Fatalf("expected True, got %v", result.Value)
+	}
+}
+
+func TestListEqDifferent(t *testing.T) {
+	eng := gmp.NewEngine()
+	if err := eng.Use(gmp.Num); err != nil {
+		t.Fatal(err)
+	}
+	rt, err := eng.NewRuntime(`
+import Std.Num
+main := eq (Cons 1 Nil) (Cons 2 Nil)
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	con, ok := result.Value.(*gmp.ConVal)
+	if !ok || con.Con != "False" {
+		t.Fatalf("expected False, got %v", result.Value)
+	}
+}
+
+func TestListMonoidEmpty(t *testing.T) {
+	eng := gmp.NewEngine()
+	rt, err := eng.NewRuntime(`
+main := (empty :: List Bool)
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	con, ok := result.Value.(*gmp.ConVal)
+	if !ok || con.Con != "Nil" {
+		t.Fatalf("expected Nil, got %v", result.Value)
+	}
+}
+
+// assertList checks that a Value is a List with the given int64 elements.
+func assertList(t *testing.T, v gmp.Value, expected []int64) {
+	t.Helper()
+	for i, want := range expected {
+		con, ok := v.(*gmp.ConVal)
+		if !ok || con.Con != "Cons" {
+			t.Fatalf("element %d: expected Cons, got %v", i, v)
+		}
+		if len(con.Args) != 2 {
+			t.Fatalf("element %d: Cons has %d args, expected 2", i, len(con.Args))
+		}
+		hv, ok := con.Args[0].(*gmp.HostVal)
+		if !ok {
+			t.Fatalf("element %d: expected HostVal, got %T", i, con.Args[0])
+		}
+		if hv.Inner != want {
+			t.Fatalf("element %d: expected %d, got %v", i, want, hv.Inner)
+		}
+		v = con.Args[1]
+	}
+	con, ok := v.(*gmp.ConVal)
+	if !ok || con.Con != "Nil" {
+		t.Fatalf("expected Nil at end, got %v", v)
+	}
+}

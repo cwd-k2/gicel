@@ -108,4 +108,29 @@ instance Traversable Maybe {
 instance Traversable (Pair a) {
   traverse := \f p -> case p of { Pair a b -> fmap (\c -> Pair a c) (f b) }
 }
+
+instance Eq a => Eq (List a) { eq := \xs ys -> case xs of {
+  Nil -> case ys of { Nil -> True; Cons _ _ -> False };
+  Cons x rest -> case ys of {
+    Nil -> False;
+    Cons y rest2 -> case eq x y of { True -> eq rest rest2; False -> False }
+  }
+} }
+
+instance Functor List { fmap := \f xs -> case xs of {
+  Nil -> Nil;
+  Cons x rest -> Cons (f x) (fmap f rest)
+} }
+
+instance Foldable List { foldr := \f z xs -> case xs of {
+  Nil -> z;
+  Cons x rest -> f x (foldr f z rest)
+} }
+
+instance Semigroup (List a) { append := \xs ys -> case xs of {
+  Nil -> ys;
+  Cons x rest -> Cons x (append rest ys)
+} }
+
+instance Monoid (List a) { empty := Nil }
 `
