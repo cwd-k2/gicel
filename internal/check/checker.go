@@ -288,6 +288,10 @@ func (ch *Checker) addError(s span.Span, msg string) {
 	ch.addCodedError(errs.ErrTypeMismatch, s, msg)
 }
 
+func (ch *Checker) errorPair(s span.Span) (types.Type, core.Core) {
+	return &types.TyError{S: s}, &core.Var{Name: "<error>", S: s}
+}
+
 func (ch *Checker) addCodedError(code errs.Code, s span.Span, msg string) {
 	ch.errors.Add(&errs.Error{
 		Code:    code,

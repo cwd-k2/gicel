@@ -141,16 +141,7 @@ func (e *Engine) RegisterModule(name, source string) error {
 
 	// Inject implicit prelude import for non-prelude modules.
 	if name != "Prelude" && !e.noPrelude {
-		hasPrelude := false
-		for _, imp := range ast.Imports {
-			if imp.ModuleName == "Prelude" {
-				hasPrelude = true
-				break
-			}
-		}
-		if !hasPrelude {
-			ast.Imports = append([]syntax.DeclImport{{ModuleName: "Prelude"}}, ast.Imports...)
-		}
+		injectPreludeImport(ast)
 	}
 
 	// Collect dependencies.
@@ -268,18 +259,19 @@ func (e *Engine) parseSource(source string) (*syntax.AstProgram, *span.Source, e
 	}
 	// Inject implicit prelude import.
 	if !e.noPrelude {
-		hasPrelude := false
-		for _, imp := range ast.Imports {
-			if imp.ModuleName == "Prelude" {
-				hasPrelude = true
-				break
-			}
-		}
-		if !hasPrelude {
-			ast.Imports = append([]syntax.DeclImport{{ModuleName: "Prelude"}}, ast.Imports...)
-		}
+		injectPreludeImport(ast)
 	}
 	return ast, src, nil
+}
+
+// injectPreludeImport adds an implicit "import Prelude" if not already present.
+func injectPreludeImport(ast *syntax.AstProgram) {
+	for _, imp := range ast.Imports {
+		if imp.ModuleName == "Prelude" {
+			return
+		}
+	}
+	ast.Imports = append([]syntax.DeclImport{{ModuleName: "Prelude"}}, ast.Imports...)
 }
 
 // ParsedProgram is an opaque parsed program for inspection.

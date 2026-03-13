@@ -144,7 +144,7 @@ func (ch *Checker) infer(expr syntax.Expr) (types.Type, core.Core) {
 
 	default:
 		ch.addError(expr.Span(), "cannot infer type of expression")
-		return &types.TyError{S: expr.Span()}, &core.Var{Name: "<error>", S: expr.Span()}
+		return ch.errorPair(expr.Span())
 	}
 }
 
@@ -309,7 +309,7 @@ func (ch *Checker) checkPattern(pat syntax.Pattern, scrutTy types.Type) (core.Pa
 	case *syntax.PatCon:
 		conTy, ok := ch.conTypes[p.Con]
 		if !ok {
-			ch.addError(p.S, fmt.Sprintf("unknown constructor in pattern: %s", p.Con))
+			ch.addCodedError(errs.ErrUnboundCon, p.S, fmt.Sprintf("unknown constructor in pattern: %s", p.Con))
 			return &core.PWild{S: p.S}, nil, nil
 		}
 		// Instantiate constructor type and match argument types.
@@ -440,7 +440,7 @@ func (ch *Checker) inferBlock(e *syntax.ExprBlock) (types.Type, core.Core) {
 func (ch *Checker) inferDo(e *syntax.ExprDo) (types.Type, core.Core) {
 	if len(e.Stmts) == 0 {
 		ch.addCodedError(errs.ErrEmptyDo, e.S, "empty do block")
-		return &types.TyError{S: e.S}, &core.Var{Name: "<error>", S: e.S}
+		return ch.errorPair(e.S)
 	}
 	return ch.elaborateStmts(e.Stmts, e.S)
 }
@@ -453,10 +453,10 @@ func (ch *Checker) elaborateStmts(stmts []syntax.Stmt, s span.Span) (types.Type,
 			return ch.infer(st.Expr)
 		case *syntax.StmtBind:
 			ch.addCodedError(errs.ErrBadDoEnding, st.S, "do block must end with an expression")
-			return &types.TyError{S: st.S}, &core.Var{Name: "<error>", S: st.S}
+			return ch.errorPair(st.S)
 		case *syntax.StmtPureBind:
 			ch.addCodedError(errs.ErrBadDoEnding, st.S, "do block must end with an expression")
-			return &types.TyError{S: st.S}, &core.Var{Name: "<error>", S: st.S}
+			return ch.errorPair(st.S)
 		}
 	}
 
@@ -489,8 +489,8 @@ func (ch *Checker) elaborateStmts(stmts []syntax.Stmt, s span.Span) (types.Type,
 		return restTy, &core.Bind{Comp: compCore, Var: "_", Body: restCore, S: st.S}
 
 	default:
-		ch.addError(s, "unexpected statement in do block")
-		return &types.TyError{S: s}, &core.Var{Name: "<error>", S: s}
+		ch.addCodedError(errs.ErrBadComputation, s, "unexpected statement in do block")
+		return ch.errorPair(s)
 	}
 }
 
@@ -618,7 +618,7 @@ func (ch *Checker) resolveTypeExpr(texpr syntax.TypeExpr) types.Type {
 		if con, ok := head.(*types.TyCon); ok {
 			return &types.TyQual{ClassName: con.Name, Args: args, Body: body, S: t.S}
 		}
-		ch.addError(t.S, fmt.Sprintf("invalid constraint: %s", types.Pretty(constraint)))
+		ch.addCodedError(errs.ErrNoInstance, t.S, fmt.Sprintf("invalid constraint: %s", types.Pretty(constraint)))
 		return body
 	case *syntax.TyExprParen:
 		return ch.resolveTypeExpr(t.Inner)
@@ -679,7 +679,7 @@ func (ch *Checker) inferBind(compExpr, contExpr syntax.Expr, s span.Span) (types
 	a := ch.freshMeta(types.KType{})
 	if err := ch.unifier.Unify(compTy, types.MkComp(r1, r2, a)); err != nil {
 		ch.addCodedError(errs.ErrBadComputation, compExpr.Span(), fmt.Sprintf("bind: first argument must be a computation, got %s", types.Pretty(compTy)))
-		return &types.TyError{S: s}, &core.Var{Name: "<error>", S: s}
+		return ch.errorPair(s)
 	}
 
 	r3 := ch.freshMeta(types.KRow{})
