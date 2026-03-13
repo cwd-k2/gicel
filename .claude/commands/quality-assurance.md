@@ -1,95 +1,129 @@
 # Quality Assurance Review
 
-Perform a systematic quality review of recent changes to the Gomputation type checker and evidence system. Focus on correctness-by-construction, not just "does it pass tests."
+Perform a systematic quality review of recent changes. Focus on correctness — not "does it pass tests," but "is it right."
 
 ## Arguments
 
 $ARGUMENTS — Scope of review. If empty, review all unstaged/staged changes (`git diff HEAD`). If a commit range (e.g., `HEAD~3..HEAD`), review those commits. If a file path, review that file.
 
-## Philosophy
+## Core Principle
 
-- **Theory purity**: Implementation must faithfully represent the theory. String comparison where structural equality is required, unguarded mutation where rollback is required — these are correctness bugs even if tests pass.
-- **Fail correctly**: Detected errors must prevent downstream effects. An overlap-detected instance that still gets registered is a hole. A self-cycle that still elaborates is a hole.
-- **No silent corruption**: Trial operations (unification, matching) must not leave persistent side effects on failure. Every `ch.unifier.Unify` call in a trial context must have corresponding save/restore.
-- **Test what matters**: Tests must verify behavior, not pass trivially. A test that checks for an error code but doesn't verify the error prevents the bad state is incomplete.
+> 「動いているように見える状態」を「正しい状態」と混同する誘惑に抗え。
+
+Tests passing, no errors, plausible output — these indicate "it runs," not "it's correct." Evidence of correctness comes from correspondence with specification, invariant preservation, and faithful error propagation.
+
+## Three Meta-Patterns to Detect
+
+Every issue found should map to one of these meta-patterns:
+
+### A. Detection–Halt Gap (検出と停止の分離)
+
+Error is detected but processing continues. The error is reported (logged, collected) but does not prevent downstream effects.
+
+**Signals:**
+- `addError(...)` / `log.Warn(...)` followed by continued execution, not `return`
+- Error is appended to a list but the invalid entity is still registered/stored
+- `if err != nil { ... }` block that doesn't return, break, or skip
+
+**Question for each error site:** Does this error **prevent** the bad state, or merely **report** it?
+
+### B. Representation–Semantics Conflation (表現と意味の混同)
+
+String/display representation is used for semantic operations (equality, comparison, dispatch).
+
+**Signals:**
+- `.String()` / `.Pretty()` / `.Error()` in `==` or `!=` comparisons
+- Error message string matching to determine error kind
+- Serialized form used as map key where structural identity is needed
+
+**Question:** Is this comparing meaning or appearance?
+
+### C. Optimistic Continuation (楽観的継続)
+
+Problem detected but "probably fine" — processing continues with degraded/default state.
+
+**Signals:**
+- Default values returned on error (zero value, empty struct, sentinel -1)
+- `recover()` without re-raise or error conversion
+- Speculative/trial operations that leave side effects on failure (no rollback)
+- `_ = err` or error return value ignored
+
+**Question:** If this error path is exercised, does the caller know? Can the caller distinguish error from success?
 
 ## Review Checklist
 
-### 1. Unifier Safety
+### 1. Error Path Integrity
 
-Search for all `ch.unifier.Unify` call sites. For each, classify:
+For every error-producing site in changed code:
 
-- **Committed**: The unification result is always wanted (e.g., `subsCheck`, `checkPattern`). No rollback needed.
-- **Trial**: The unification is speculative (matching, overlap check, evidence resolution). **Must** have `saveUnifierState`/`restoreUnifierState` around it.
-- **Semantic**: The unification checks a shape (computation, arrow, thunk). Error handling should use `addSemanticUnifyError` to preserve root cause for non-trivial failures.
+- Does detection **stop** the invalid operation? (Pattern A)
+- Or does it report and continue? If continue: explicit justification needed
+- Is the error **propagated** to the caller? Or swallowed?
+- Does the `(result, error)` contract hold? (When `err != nil`, is `result` safe to use?)
 
-Report any `Unify` call in trial context without save/restore.
+### 2. Speculative Operation Safety
 
-### 2. Error Path Integrity
+For any trial/speculative operation (try-and-rollback, tentative matching, feature detection):
 
-For every validation check that produces an error:
+- Is mutable state saved before the trial?
+- Is it restored on failure?
+- Are side effects (counter increments, cache writes, registrations) also rolled back?
+- Does success correctly commit the changes?
 
-- Does the error **prevent** the invalid entity from being registered/elaborated?
-- Or does it merely report and continue? If continue: is there a justification (error recovery for better diagnostics)?
-- Specifically check: `processInstanceHeader` returns `nil` on overlap/self-cycle/arity-mismatch? `processClassDecl` rejects invalid classes?
+### 3. Semantic vs Representational Operations
 
-### 3. Structural Correctness of Comparisons
+Search for `.String()`, `.Pretty()`, `.Error()`, `.Format()` used in:
+- `==` / `!=` comparisons
+- Map keys
+- Switch/case dispatch
 
-Search for `types.Pretty` used in equality comparisons (not just display). Flag any use that should be `types.Equal` or trial unification.
+Flag any use where structural/semantic comparison should be used instead.
 
-Pattern to search:
-```
-types.Pretty(x) != types.Pretty(y)
-types.Pretty(x) == types.Pretty(y)
-```
+### 4. Silent Failure Detection
 
-### 4. Error Code Coverage
+Search for patterns that hide errors:
 
-For each error code in `internal/errs/error.go`:
+- `_ = someFunc()` or `result, _ := someFunc()` — error discarded
+- `default:` / `else` branches returning zero values without error
+- `recover()` without logging or error propagation
+- Functions that return `(value, error)` where some paths return `(zeroValue, nil)` on failure
 
-- Does at least one test trigger it?
-- List uncovered codes.
+### 5. Test Fidelity
 
-Use: `grep -o 'Err[A-Z][a-zA-Z]*' internal/errs/error.go | sort -u` to enumerate codes, then cross-reference with test files.
+For each test in changed code:
 
-### 5. Test Quality
+- **Behavior vs structure:** Does it test what the code *does*, or how it's *written*?
+- **Effect verification:** Does it verify the *consequence* of the error (entity not registered, state unchanged), not just the error code/message?
+- **Non-trivial inputs:** Would a subtle bug (off-by-one, wrong variable, missing case) still pass?
+- **Change detector check:** If the implementation changes but the behavior is preserved, does this test still pass?
 
-For each test that calls `checkSourceExpectCode`:
+### 6. Specification Consistency
 
-- Does the test verify the **effect** of the error (e.g., that the invalid instance was NOT registered)?
-- Or does it only verify the error code?
-- Are there parametric/compound variants beyond the trivial case?
+For any code change that affects user-visible behavior:
 
-For each test that calls `checkSource` (expect success):
+- Are specs/docs updated to match?
+- Are there phantom entries in specs that aren't implemented?
+- Are there implemented features not reflected in specs?
 
-- Is the source non-trivial enough to exercise the feature?
-- Would a subtle bug (e.g., wrong substitution, missing context) still pass this test?
+## Domain Extensions
 
-### 6. Spec Consistency
+When reviewing type checker code (`internal/check/`), additionally apply:
 
-Verify that `spec/v0.5-abstraction.md` and `docs/grammar-reference.md` match the prelude (`internal/stdlib/prelude.go`):
-
-- All instances in prelude are documented in spec
-- All classes in prelude are documented in spec
-- Instance lists are in sync (no phantom entries in spec that aren't implemented)
+- **Unifier safety:** Classify each `Unify` call as committed (result always wanted), trial (needs save/restore), or semantic (needs `addSemanticUnifyError`). Report trial calls without rollback.
+- **Instance coherence:** Overlap/self-cycle detection must return nil (prevent registration), not merely report.
+- **Evidence integrity:** Dictionary elaboration must use structural type comparison (`types.Equal`), never `types.Pretty`.
+- **Error code coverage:** Cross-reference `internal/errs/error.go` codes against test files. List untested codes.
 
 ## Output
 
 Report findings in severity order:
 
-1. **CRITICAL**: Correctness violations (unguarded trial unification, error without prevention, structural comparison bugs)
-2. **MODERATE**: Design consistency issues (inconsistent error handling patterns, missing test variants)
-3. **MINOR**: Style and maintenance (dead code, unused variants, documentation drift)
+1. **CRITICAL**: Correctness violations — detection-halt gaps, unguarded speculation, representation-semantics conflation that affects logic
+2. **MODERATE**: Design consistency — inconsistent error handling patterns, missing test variants, partial integration of new patterns
+3. **MINOR**: Maintenance — dead code, documentation drift, style inconsistency
 
-For each finding, include:
+For each finding:
+- Meta-pattern (A/B/C)
 - File and line
-- What's wrong
-- Suggested fix (or "already correct, just noting")
-
-## Notes
-
-This command is specific to the Gomputation type checker. The patterns it checks are informed by common bugs in type system implementations:
-- Skolem escape through unguarded unification
-- Instance incoherence through overlap detection that doesn't prevent registration
-- Evidence corruption through partial unification without rollback
-- Type equality conflation with string comparison
+- What's wrong (concrete, not vague)
+- Suggested fix
