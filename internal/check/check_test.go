@@ -383,6 +383,71 @@ func TestUnifyRowOpenOpenDisjoint(t *testing.T) {
 	}
 }
 
+func TestUnifyRowOpenClosedExtraLabels(t *testing.T) {
+	// Open row { x: Int, y: Bool | ?tail } vs closed { x: Int }
+	// The open side has extra label y — tail can absorb nothing since closed.
+	// But the open row's tail should solve to {} (empty), and y is extra → error.
+	u := NewUnifier()
+	m := &types.TyMeta{ID: 400, Kind: types.KRow{}}
+
+	r1 := types.OpenRow([]types.RowField{
+		{Label: "x", Type: types.Con("Int")},
+		{Label: "y", Type: types.Con("Bool")},
+	}, m)
+
+	r2 := types.ClosedRow(types.RowField{Label: "x", Type: types.Con("Int")})
+
+	if err := u.Unify(r1, r2); err == nil {
+		t.Fatal("open row with extra labels should not unify with closed row missing those labels")
+	}
+}
+
+func TestUnifyRowClosedOpenAbsorbExtra(t *testing.T) {
+	// Closed row { x: Int } vs open row { x: Int, y: Bool | ?tail }
+	// Reversed direction: same constraint.
+	u := NewUnifier()
+	m := &types.TyMeta{ID: 500, Kind: types.KRow{}}
+
+	r1 := types.ClosedRow(types.RowField{Label: "x", Type: types.Con("Int")})
+
+	r2 := types.OpenRow([]types.RowField{
+		{Label: "x", Type: types.Con("Int")},
+		{Label: "y", Type: types.Con("Bool")},
+	}, m)
+
+	if err := u.Unify(r1, r2); err == nil {
+		t.Fatal("closed row should not unify with open row that has extra labels")
+	}
+}
+
+func TestUnifyRowOpenClosedSubset(t *testing.T) {
+	// Open row { x: Int | ?tail } vs closed { x: Int, y: Bool }
+	// Closed has extra y — tail absorbs { y: Bool }.
+	u := NewUnifier()
+	m := &types.TyMeta{ID: 600, Kind: types.KRow{}}
+
+	r1 := types.OpenRow([]types.RowField{
+		{Label: "x", Type: types.Con("Int")},
+	}, m)
+
+	r2 := types.ClosedRow(
+		types.RowField{Label: "x", Type: types.Con("Int")},
+		types.RowField{Label: "y", Type: types.Con("Bool")},
+	)
+
+	if err := u.Unify(r1, r2); err != nil {
+		t.Fatalf("open row should absorb extra closed labels into tail: %v", err)
+	}
+	soln := u.Zonk(m)
+	row, ok := soln.(*types.TyRow)
+	if !ok {
+		t.Fatalf("tail should be solved to a row, got %s", types.Pretty(soln))
+	}
+	if len(row.Fields) != 1 || row.Fields[0].Label != "y" {
+		t.Errorf("tail should have field 'y', got %s", types.Pretty(row))
+	}
+}
+
 // checkSourceExpectError parses and type-checks source, expecting at least one error.
 // Returns the formatted error string.
 func checkSourceExpectError(t *testing.T, source string, config *CheckConfig) string {

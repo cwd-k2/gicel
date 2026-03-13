@@ -139,6 +139,13 @@ func TestEqualAlpha(t *testing.T) {
 	if Equal(t1, t3) {
 		t.Error("different types should not be equal")
 	}
+	// forall a. a -> b  !=  forall b. b -> b
+	// Left b is free; right b is bound. Must not be considered equal.
+	t4 := MkForall("a", KType{}, MkArrow(Var("a"), Var("b")))
+	t5 := MkForall("b", KType{}, MkArrow(Var("b"), Var("b")))
+	if Equal(t4, t5) {
+		t.Error("free vs bound variable collision should not be equal")
+	}
 }
 
 func TestEqualRow(t *testing.T) {
