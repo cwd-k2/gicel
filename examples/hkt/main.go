@@ -1,0 +1,57 @@
+// Example: hkt — Higher-Kinded Types in Gomputation.
+//
+// Demonstrates kind-polymorphic type classes, kind variables in forall
+// binders, and poly-kinded instance resolution.
+package main
+
+import (
+	"context"
+	"fmt"
+	"log"
+
+	gmp "github.com/cwd-k2/gomputation"
+)
+
+// The source defines a kind-polymorphic Functor class and uses it with Maybe.
+// Key features demonstrated:
+// - Kind sort (Kind) in forall binders: forall (k : Kind). ...
+// - Kind variable references in kind annotations: forall (f : k -> Type). ...
+// - Implicit kind quantification in class declarations: class Functor (f : k -> Type)
+// - Kind unification during instance resolution
+const source = `
+data Maybe a = Nothing | Just a
+
+class Functor (f : k -> Type) {
+  fmap :: forall a b. (a -> b) -> f a -> f b
+}
+
+instance Functor Maybe {
+  fmap := \g -> \mx -> case mx { Nothing -> Nothing; Just x -> Just (g x) }
+}
+
+-- Kind-polymorphic identity function
+id_k :: forall (k : Kind). forall (a : k). a -> a
+id_k := \x -> x
+
+-- Use fmap: (Bool -> Bool) -> Maybe Bool -> Maybe Bool
+main := fmap (\b -> case b { True -> False; False -> True }) (Just True)
+`
+
+func main() {
+	eng := gmp.NewEngine()
+
+	rt, err := eng.NewRuntime(source)
+	if err != nil {
+		log.Fatal("compile error: ", err)
+	}
+
+	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	if err != nil {
+		log.Fatal("runtime error: ", err)
+	}
+
+	fmt.Println("fmap not (Just True) =", result.Value)
+	// Output: fmap not (Just True) = Just False
+
+	fmt.Printf("(steps: %d, max depth: %d)\n", result.Stats.Steps, result.Stats.MaxDepth)
+}
