@@ -1,6 +1,11 @@
 package types
 
-import "github.com/cwd-k2/gomputation/internal/span"
+import (
+	"fmt"
+	"sort"
+
+	"github.com/cwd-k2/gomputation/internal/span"
+)
 
 // EvidenceEntries is the interface for fiber-specific entry collections
 // in an evidence row. Two fibers exist: CapabilityEntries (for capability
@@ -148,15 +153,25 @@ func EvMkEvidence(entries []ConstraintEntry, body Type) *TyEvidence {
 
 // EvNormalize sorts capability fields in an evidence row.
 func EvNormalize(r *TyEvidenceRow) *TyEvidenceRow {
-	if cap, ok := r.Entries.(*CapabilityEntries); ok {
-		normalized := Normalize(&TyRow{Fields: cap.Fields, Tail: r.Tail})
-		return &TyEvidenceRow{
-			Entries: &CapabilityEntries{Fields: normalized.Fields},
-			Tail:    normalized.Tail,
-			S:       r.S,
+	cap, ok := r.Entries.(*CapabilityEntries)
+	if !ok || len(cap.Fields) <= 1 {
+		return r
+	}
+	sorted := make([]RowField, len(cap.Fields))
+	copy(sorted, cap.Fields)
+	sort.Slice(sorted, func(i, j int) bool {
+		return sorted[i].Label < sorted[j].Label
+	})
+	for i := 1; i < len(sorted); i++ {
+		if sorted[i].Label == sorted[i-1].Label {
+			panic(fmt.Sprintf("duplicate label in evidence row: %s", sorted[i].Label))
 		}
 	}
-	return r
+	return &TyEvidenceRow{
+		Entries: &CapabilityEntries{Fields: sorted},
+		Tail:    r.Tail,
+		S:       r.S,
+	}
 }
 
 // IsCapabilityRow returns true if this evidence row uses the capability fiber.
@@ -205,52 +220,78 @@ func EvHasLabel(r *TyEvidenceRow, label string) bool {
 
 // EvExtendCapField adds a field to a capability evidence row, maintaining sorted order.
 func EvExtendCapField(r *TyEvidenceRow, f RowField) (*TyEvidenceRow, error) {
-	inner := &TyRow{Fields: r.CapFields(), Tail: r.Tail, S: r.S}
-	extended, err := ExtendRow(inner, f)
-	if err != nil {
-		return nil, err
+	fields := r.CapFields()
+	for _, existing := range fields {
+		if existing.Label == f.Label {
+			return nil, fmt.Errorf("duplicate label: %s", f.Label)
+		}
+	}
+	result := make([]RowField, 0, len(fields)+1)
+	inserted := false
+	for _, existing := range fields {
+		if !inserted && f.Label < existing.Label {
+			result = append(result, f)
+			inserted = true
+		}
+		result = append(result, existing)
+	}
+	if !inserted {
+		result = append(result, f)
 	}
 	return &TyEvidenceRow{
-		Entries: &CapabilityEntries{Fields: extended.Fields},
-		Tail:    extended.Tail,
+		Entries: &CapabilityEntries{Fields: result},
+		Tail:    r.Tail,
 		S:       r.S,
 	}, nil
 }
 
 // EvRemoveCapField removes a field by label from a capability evidence row.
 func EvRemoveCapField(r *TyEvidenceRow, label string) (RowField, *TyEvidenceRow, bool) {
-	inner := &TyRow{Fields: r.CapFields(), Tail: r.Tail, S: r.S}
-	field, remaining, ok := RemoveLabel(inner, label)
-	if !ok {
-		return RowField{}, r, false
+	fields := r.CapFields()
+	for i, f := range fields {
+		if f.Label == label {
+			remaining := make([]RowField, 0, len(fields)-1)
+			remaining = append(remaining, fields[:i]...)
+			remaining = append(remaining, fields[i+1:]...)
+			return f, &TyEvidenceRow{
+				Entries: &CapabilityEntries{Fields: remaining},
+				Tail:    r.Tail,
+				S:       r.S,
+			}, true
+		}
 	}
-	return field, &TyEvidenceRow{
-		Entries: &CapabilityEntries{Fields: remaining.Fields},
-		Tail:    remaining.Tail,
-		S:       r.S,
-	}, true
+	return RowField{}, r, false
 }
 
 // --- Constraint row operations ---
 
 // EvNormalizeConstraintEntries sorts constraint entries by canonical key.
 func EvNormalizeConstraintEntries(r *TyEvidenceRow) *TyEvidenceRow {
-	inner := &TyConstraintRow{Entries: r.ConEntries(), Tail: r.Tail, S: r.S}
-	normalized := NormalizeConstraints(inner)
+	entries := r.ConEntries()
+	if len(entries) <= 1 {
+		return r
+	}
+	sorted := make([]ConstraintEntry, len(entries))
+	copy(sorted, entries)
+	sort.Slice(sorted, func(i, j int) bool {
+		return ConstraintKey(sorted[i]) < ConstraintKey(sorted[j])
+	})
 	return &TyEvidenceRow{
-		Entries: &ConstraintEntries{Entries: normalized.Entries},
-		Tail:    normalized.Tail,
+		Entries: &ConstraintEntries{Entries: sorted},
+		Tail:    r.Tail,
 		S:       r.S,
 	}
 }
 
 // EvExtendConstraintEntry adds a constraint entry to a constraint evidence row.
 func EvExtendConstraintEntry(r *TyEvidenceRow, e ConstraintEntry) *TyEvidenceRow {
-	inner := &TyConstraintRow{Entries: r.ConEntries(), Tail: r.Tail, S: r.S}
-	extended := ExtendConstraint(inner, e)
+	old := r.ConEntries()
+	entries := make([]ConstraintEntry, len(old)+1)
+	copy(entries, old)
+	entries[len(old)] = e
 	return &TyEvidenceRow{
-		Entries: &ConstraintEntries{Entries: extended.Entries},
-		Tail:    extended.Tail,
+		Entries: &ConstraintEntries{Entries: entries},
+		Tail:    r.Tail,
 		S:       r.S,
 	}
 }
