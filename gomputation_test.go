@@ -3888,3 +3888,206 @@ main := do { x <- Just 5; Just x }
 		t.Fatalf("expected Just 5, got Just %v", con.Args[0])
 	}
 }
+
+// ---------------------------------------------------------------------------
+// Integration Tests (Group 4A/4B)
+// ---------------------------------------------------------------------------
+
+func TestThenCombinator(t *testing.T) {
+	eng := gmp.NewEngine()
+	eng.DeclareBinding("x", gmp.ConType("Int"))
+	eng.DeclareBinding("y", gmp.ConType("Int"))
+	rt, err := eng.NewRuntime(`
+main := then (pure x) (pure y)
+`)
+	if err != nil {
+		t.Fatalf("then combinator should compile: %v", err)
+	}
+	result, err := rt.RunContext(context.Background(), nil, map[string]gmp.Value{
+		"x": gmp.ToValue(1),
+		"y": gmp.ToValue(2),
+	}, "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	hv, ok := result.Value.(*gmp.HostVal)
+	if !ok || hv.Inner != 2 {
+		t.Fatalf("expected 2 (from second computation), got %v", result.Value)
+	}
+}
+
+func TestGenericMonadicFunction(t *testing.T) {
+	// A generic IxMonad function used with Computation via type annotation.
+	eng := gmp.NewEngine()
+	eng.DeclareBinding("x", gmp.ConType("Int"))
+	rt, err := eng.NewRuntime(`
+myReturn :: forall (m : Row -> Row -> Type -> Type). IxMonad m => forall a (r : Row). a -> m r r a
+myReturn := ixpure
+main :: Computation {} {} Int
+main := myReturn x
+`)
+	if err != nil {
+		t.Fatalf("generic monadic function should compile: %v", err)
+	}
+	result, err := rt.RunContext(context.Background(), nil, map[string]gmp.Value{
+		"x": gmp.ToValue(99),
+	}, "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	hv, ok := result.Value.(*gmp.HostVal)
+	if !ok || hv.Inner != 99 {
+		t.Fatalf("expected 99, got %v", result.Value)
+	}
+}
+
+func TestMaybeDoChain(t *testing.T) {
+	// Chain multiple binds in a Maybe do block.
+	eng := gmp.NewEngine()
+	eng.RegisterPrim("add", func(ctx context.Context, capEnv gmp.CapEnv, args []gmp.Value) (gmp.Value, gmp.CapEnv, error) {
+		return gmp.ToValue(gmp.MustHost[int64](args[0]) + gmp.MustHost[int64](args[1])), capEnv, nil
+	})
+	rt, err := eng.NewRuntime(`
+add :: Int -> Int -> Int
+add := assumption
+main :: Maybe Int
+main := do {
+  x <- Just 1;
+  y <- Just 2;
+  z <- Just 3;
+  pure (add (add x y) z)
+}
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	con, ok := result.Value.(*gmp.ConVal)
+	if !ok || con.Con != "Just" {
+		t.Fatalf("expected Just 6, got %v", result.Value)
+	}
+	hv, ok := con.Args[0].(*gmp.HostVal)
+	if !ok || hv.Inner != int64(6) {
+		t.Fatalf("expected Just 6, got Just %v", con.Args[0])
+	}
+}
+
+func TestMaybeDoEarlyExit(t *testing.T) {
+	// Nothing anywhere in the chain short-circuits.
+	eng := gmp.NewEngine()
+	eng.RegisterPrim("add", func(ctx context.Context, capEnv gmp.CapEnv, args []gmp.Value) (gmp.Value, gmp.CapEnv, error) {
+		return gmp.ToValue(gmp.MustHost[int64](args[0]) + gmp.MustHost[int64](args[1])), capEnv, nil
+	})
+	rt, err := eng.NewRuntime(`
+add :: Int -> Int -> Int
+add := assumption
+main :: Maybe Int
+main := do {
+  x <- Just 1;
+  y <- Nothing;
+  pure (add x y)
+}
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	con, ok := result.Value.(*gmp.ConVal)
+	if !ok || con.Con != "Nothing" {
+		t.Fatalf("expected Nothing, got %v", result.Value)
+	}
+}
+
+func TestListDoFlatMap(t *testing.T) {
+	// flatMap: each element maps to multiple elements.
+	eng := gmp.NewEngine()
+	eng.EnableRecursion()
+	rt, err := eng.NewRuntime(`
+main :: List Int
+main := do {
+  x <- Cons 1 (Cons 2 (Cons 3 Nil));
+  Cons x (Cons x Nil)
+}
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, ok := gmp.FromList(result.Value)
+	if !ok {
+		t.Fatalf("expected list, got %v", result.Value)
+	}
+	expected := []int64{1, 1, 2, 2, 3, 3}
+	if len(got) != len(expected) {
+		t.Fatalf("expected %d elements, got %d: %v", len(expected), len(got), result.Value)
+	}
+	for i, v := range got {
+		hv, ok := v.(*gmp.HostVal)
+		if !ok || hv.Inner != expected[i] {
+			t.Fatalf("element %d: expected %d, got %v", i, expected[i], v)
+		}
+	}
+}
+
+func TestComputationDoRegression(t *testing.T) {
+	// Ensure Computation do blocks still use Core.Bind (not class dispatch).
+	eng := gmp.NewEngine()
+	eng.DeclareBinding("x", gmp.ConType("Int"))
+	eng.DeclareBinding("y", gmp.ConType("Int"))
+	rt, err := eng.NewRuntime(`
+main := do { a <- pure x; b <- pure y; pure a }
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := rt.RunContext(context.Background(), nil, map[string]gmp.Value{
+		"x": gmp.ToValue(10),
+		"y": gmp.ToValue(20),
+	}, "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	hv, ok := result.Value.(*gmp.HostVal)
+	if !ok || hv.Inner != 10 {
+		t.Fatalf("expected 10, got %v", result.Value)
+	}
+}
+
+func TestListPipelineEndToEnd(t *testing.T) {
+	// fromSlice → fmap → foldr → toSlice full pipeline.
+	eng := gmp.NewEngine()
+	eng.RegisterPrim("add", func(ctx context.Context, capEnv gmp.CapEnv, args []gmp.Value) (gmp.Value, gmp.CapEnv, error) {
+		return gmp.ToValue(gmp.MustHost[int64](args[0]) + gmp.MustHost[int64](args[1])), capEnv, nil
+	})
+	eng.EnableRecursion()
+	eng.DeclareBinding("xs", gmp.AppType(gmp.ConType("List"), gmp.ConType("Int")))
+	rt, err := eng.NewRuntime(`
+add :: Int -> Int -> Int
+add := assumption
+main := foldr add 0 (fmap (\x -> add x 10) xs)
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// xs = [1, 2, 3]
+	result, err := rt.RunContext(context.Background(), nil, map[string]gmp.Value{
+		"xs": gmp.ToList([]any{int64(1), int64(2), int64(3)}),
+	}, "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	// fmap (+10) [1,2,3] = [11,12,13], foldr add 0 = 36
+	hv, ok := result.Value.(*gmp.HostVal)
+	if !ok || hv.Inner != int64(36) {
+		t.Fatalf("expected 36, got %v", result.Value)
+	}
+}

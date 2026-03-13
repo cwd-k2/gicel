@@ -147,6 +147,9 @@ instance Semigroup (List a) { append := \xs ys -> case xs of {
 
 instance Monoid (List a) { empty := Nil }
 
+then :: forall a b (r1 : Row) (r2 : Row) (r3 : Row). Computation r1 r2 a -> Computation r2 r3 b -> Computation r1 r3 b
+then := \m1 m2 -> bind m1 (\_ -> m2)
+
 instance IxMonad Maybe {
   ixpure := \a -> Just a;
   ixbind := \ma f -> case ma of {
