@@ -30,9 +30,9 @@ func Pretty(t Type) string {
 		return fmt.Sprintf("Thunk %s %s %s",
 			prettyAtom(ty.Pre), prettyAtom(ty.Post), prettyAtom(ty.Result))
 	case *TyRow:
-		return prettyRow(ty)
+		return prettyCapFields(ty.Fields, ty.Tail)
 	case *TyConstraintRow:
-		return prettyConstraintRow(ty)
+		return prettyConstraintEntries(ty.Entries, ty.Tail)
 	case *TyEvidenceRow:
 		return prettyEvidenceRow(ty)
 	case *TyEvidence:
@@ -71,50 +71,58 @@ func collectForalls(t *TyForall) ([]string, Type) {
 	return vars, body
 }
 
-func prettyRow(r *TyRow) string {
-	if len(r.Fields) == 0 && r.Tail == nil {
+func prettyCapFields(fields []RowField, tail Type) string {
+	if len(fields) == 0 && tail == nil {
 		return "{}"
 	}
-	parts := make([]string, len(r.Fields))
-	for i, f := range r.Fields {
+	parts := make([]string, len(fields))
+	for i, f := range fields {
 		parts[i] = fmt.Sprintf("%s : %s", f.Label, Pretty(f.Type))
 	}
 	inner := strings.Join(parts, ", ")
-	if r.Tail != nil {
+	if tail != nil {
 		if len(parts) > 0 {
-			inner += " | " + Pretty(r.Tail)
+			inner += " | " + Pretty(tail)
 		} else {
-			inner = "| " + Pretty(r.Tail)
+			inner = "| " + Pretty(tail)
 		}
 	}
 	return "{ " + inner + " }"
 }
 
-func prettyConstraintRow(r *TyConstraintRow) string {
-	if len(r.Entries) == 0 && r.Tail == nil {
+func prettyConstraintEntries(entries []ConstraintEntry, tail Type) string {
+	if len(entries) == 0 && tail == nil {
 		return "{}"
 	}
-	parts := make([]string, len(r.Entries))
-	for i, e := range r.Entries {
+	parts := make([]string, len(entries))
+	for i, e := range entries {
 		parts[i] = prettyConstraintEntry(e)
 	}
 	inner := strings.Join(parts, ", ")
-	if r.Tail != nil {
+	if tail != nil {
 		if len(parts) > 0 {
-			inner += " | " + Pretty(r.Tail)
+			inner += " | " + Pretty(tail)
 		} else {
-			inner = "| " + Pretty(r.Tail)
+			inner = "| " + Pretty(tail)
 		}
 	}
 	return "{ " + inner + " }"
+}
+
+func prettyRow(r *TyRow) string {
+	return prettyCapFields(r.Fields, r.Tail)
+}
+
+func prettyConstraintRow(r *TyConstraintRow) string {
+	return prettyConstraintEntries(r.Entries, r.Tail)
 }
 
 func prettyEvidenceRow(r *TyEvidenceRow) string {
 	switch entries := r.Entries.(type) {
 	case *CapabilityEntries:
-		return prettyRow(&TyRow{Fields: entries.Fields, Tail: r.Tail})
+		return prettyCapFields(entries.Fields, r.Tail)
 	case *ConstraintEntries:
-		return prettyConstraintRow(&TyConstraintRow{Entries: entries.Entries, Tail: r.Tail})
+		return prettyConstraintEntries(entries.Entries, r.Tail)
 	default:
 		return "{?}"
 	}

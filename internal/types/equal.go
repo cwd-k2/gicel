@@ -81,49 +81,14 @@ func equalAlpha(a, b Type, bindings []alphaBinding) bool {
 		if !ok {
 			return false
 		}
-		an := Normalize(at)
-		bn := Normalize(bt)
-		if len(an.Fields) != len(bn.Fields) {
-			return false
-		}
-		for i := range an.Fields {
-			if an.Fields[i].Label != bn.Fields[i].Label {
-				return false
-			}
-			if !equalAlpha(an.Fields[i].Type, bn.Fields[i].Type, bindings) {
-				return false
-			}
-		}
-		if (an.Tail == nil) != (bn.Tail == nil) {
-			return false
-		}
-		if an.Tail != nil {
-			return equalAlpha(an.Tail, bn.Tail, bindings)
-		}
-		return true
+		return equalAlpha(at.ToEvidence(), bt.ToEvidence(), bindings)
 
 	case *TyConstraintRow:
 		bt, ok := b.(*TyConstraintRow)
 		if !ok {
 			return false
 		}
-		an := NormalizeConstraints(at)
-		bn := NormalizeConstraints(bt)
-		if len(an.Entries) != len(bn.Entries) {
-			return false
-		}
-		for i := range an.Entries {
-			if !equalConstraintEntry(an.Entries[i], bn.Entries[i], bindings) {
-				return false
-			}
-		}
-		if (an.Tail == nil) != (bn.Tail == nil) {
-			return false
-		}
-		if an.Tail != nil {
-			return equalAlpha(an.Tail, bn.Tail, bindings)
-		}
-		return true
+		return equalAlpha(at.ToEvidence(), bt.ToEvidence(), bindings)
 
 	case *TyEvidenceRow:
 		bt, ok := b.(*TyEvidenceRow)

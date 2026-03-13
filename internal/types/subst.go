@@ -76,26 +76,7 @@ func Subst(t Type, varName string, replacement Type) Type {
 		return &TyThunk{Pre: newPre, Post: newPost, Result: newResult, S: ty.S}
 
 	case *TyRow:
-		changed := false
-		fields := make([]RowField, len(ty.Fields))
-		for i, f := range ty.Fields {
-			newT := Subst(f.Type, varName, replacement)
-			if newT != f.Type {
-				changed = true
-			}
-			fields[i] = RowField{Label: f.Label, Type: newT, S: f.S}
-		}
-		var newTail Type
-		if ty.Tail != nil {
-			newTail = Subst(ty.Tail, varName, replacement)
-			if newTail != ty.Tail {
-				changed = true
-			}
-		}
-		if !changed {
-			return ty
-		}
-		return &TyRow{Fields: fields, Tail: newTail, S: ty.S}
+		return Subst(ty.ToEvidence(), varName, replacement)
 
 	case *TyConstraintRow:
 		changed := false

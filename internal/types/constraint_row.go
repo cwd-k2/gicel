@@ -39,25 +39,9 @@ func structuralKey(t Type) string {
 	case *TySkolem:
 		return fmt.Sprintf("Skolem(%d)", v.ID)
 	case *TyRow:
-		var parts []string
-		for _, f := range v.Fields {
-			parts = append(parts, f.Label+":"+structuralKey(f.Type))
-		}
-		tail := "_"
-		if v.Tail != nil {
-			tail = structuralKey(v.Tail)
-		}
-		return "Row({" + strings.Join(parts, ",") + "}|" + tail + ")"
+		return structuralKey(v.ToEvidence())
 	case *TyConstraintRow:
-		var parts []string
-		for _, e := range v.Entries {
-			parts = append(parts, ConstraintKey(e))
-		}
-		tail := "_"
-		if v.Tail != nil {
-			tail = structuralKey(v.Tail)
-		}
-		return "CRow({" + strings.Join(parts, ",") + "}|" + tail + ")"
+		return structuralKey(v.ToEvidence())
 	case *TyEvidence:
 		return "Ev(" + structuralKey(v.Constraints) + "," + structuralKey(v.Body) + ")"
 	case *TyEvidenceRow:
@@ -65,7 +49,22 @@ func structuralKey(t Type) string {
 		if v.Tail != nil {
 			tail = structuralKey(v.Tail)
 		}
-		return fmt.Sprintf("EvRow(%d|%s)", v.Entries.EntryCount(), tail)
+		switch entries := v.Entries.(type) {
+		case *CapabilityEntries:
+			var parts []string
+			for _, f := range entries.Fields {
+				parts = append(parts, f.Label+":"+structuralKey(f.Type))
+			}
+			return "Row({" + strings.Join(parts, ",") + "}|" + tail + ")"
+		case *ConstraintEntries:
+			var parts []string
+			for _, e := range entries.Entries {
+				parts = append(parts, ConstraintKey(e))
+			}
+			return "CRow({" + strings.Join(parts, ",") + "}|" + tail + ")"
+		default:
+			return fmt.Sprintf("EvRow(%d|%s)", v.Entries.EntryCount(), tail)
+		}
 	case *TyError:
 		return "Error"
 	default:

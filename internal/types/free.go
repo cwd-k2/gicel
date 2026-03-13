@@ -37,19 +37,9 @@ func freeVarsRec(t Type, bound map[string]bool, fv map[string]struct{}) {
 		freeVarsRec(ty.Post, bound, fv)
 		freeVarsRec(ty.Result, bound, fv)
 	case *TyRow:
-		for _, f := range ty.Fields {
-			freeVarsRec(f.Type, bound, fv)
-		}
-		if ty.Tail != nil {
-			freeVarsRec(ty.Tail, bound, fv)
-		}
+		freeVarsRec(ty.ToEvidence(), bound, fv)
 	case *TyConstraintRow:
-		for _, e := range ty.Entries {
-			freeVarsConstraintEntry(e, bound, fv)
-		}
-		if ty.Tail != nil {
-			freeVarsRec(ty.Tail, bound, fv)
-		}
+		freeVarsRec(ty.ToEvidence(), bound, fv)
 	case *TyEvidenceRow:
 		switch entries := ty.Entries.(type) {
 		case *CapabilityEntries:

@@ -201,26 +201,7 @@ func (u *Unifier) Zonk(t types.Type) types.Type {
 		}
 		return &types.TyThunk{Pre: zPre, Post: zPost, Result: zResult, S: ty.S}
 	case *types.TyRow:
-		changed := false
-		fields := make([]types.RowField, len(ty.Fields))
-		for i, f := range ty.Fields {
-			zTy := u.Zonk(f.Type)
-			fields[i] = types.RowField{Label: f.Label, Type: zTy, S: f.S}
-			if zTy != f.Type {
-				changed = true
-			}
-		}
-		var tail types.Type
-		if ty.Tail != nil {
-			tail = u.Zonk(ty.Tail)
-			if tail != ty.Tail {
-				changed = true
-			}
-		}
-		if !changed {
-			return ty
-		}
-		return &types.TyRow{Fields: fields, Tail: tail, S: ty.S}
+		return u.Zonk(ty.ToEvidence())
 	case *types.TyConstraintRow:
 		changed := false
 		entries := make([]types.ConstraintEntry, len(ty.Entries))
