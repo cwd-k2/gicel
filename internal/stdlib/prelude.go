@@ -27,6 +27,14 @@ class Functor t => Foldable t => Traversable t {
   traverse :: forall f a b. Applicative f => (a -> f b) -> t a -> f (t b)
 }
 
+class IxMonad (m : Row -> Row -> Type -> Type) {
+  ixpure :: forall a (r : Row). a -> m r r a;
+  ixbind :: forall a b (r1 : Row) (r2 : Row) (r3 : Row).
+              m r1 r2 a -> (a -> m r2 r3 b) -> m r1 r3 b
+}
+
+type Lift (m : Type -> Type) (r1 : Row) (r2 : Row) a = m a
+
 instance Eq Bool { eq := \x y -> case x of {
   True -> case y of { True -> True; False -> False };
   False -> case y of { True -> False; False -> True }

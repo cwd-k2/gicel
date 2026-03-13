@@ -3413,6 +3413,35 @@ main := (empty :: List Bool)
 }
 
 // ---------------------------------------------------------------------------
+// IxMonad Class + Lift Alias (Group 2B)
+// ---------------------------------------------------------------------------
+
+func TestIxMonadClassExists(t *testing.T) {
+	// Verify IxMonad class is defined in prelude and usable in type annotations.
+	eng := gmp.NewEngine()
+	_, err := eng.NewRuntime(`
+myFn :: forall (m : Row -> Row -> Type -> Type). IxMonad m => forall a (r : Row). a -> m r r a
+myFn := ixpure
+main := True
+`)
+	if err != nil {
+		t.Fatalf("IxMonad class should be usable: %v", err)
+	}
+}
+
+func TestLiftAliasExpansion(t *testing.T) {
+	eng := gmp.NewEngine()
+	_, err := eng.NewRuntime(`
+test :: Lift Maybe {} {} Bool
+test := Just True
+main := True
+`)
+	if err != nil {
+		t.Fatalf("Lift alias should expand to Maybe Bool: %v", err)
+	}
+}
+
+// ---------------------------------------------------------------------------
 // Kinded Class Type Params (Group 2A)
 // ---------------------------------------------------------------------------
 
