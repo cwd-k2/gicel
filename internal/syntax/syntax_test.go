@@ -1143,6 +1143,139 @@ func TestParseRecordPattern(t *testing.T) {
 	}
 }
 
+// --- Tuples + Unit ---
+
+func TestParseTupleLiteral(t *testing.T) {
+	prog, es := parse("t := (1, 2)")
+	if es.HasErrors() {
+		t.Fatal(es.Format())
+	}
+	bind := prog.Decls[0].(*DeclValueDef)
+	rec, ok := bind.Expr.(*ExprRecord)
+	if !ok {
+		t.Fatalf("expected ExprRecord (desugared tuple), got %T", bind.Expr)
+	}
+	if len(rec.Fields) != 2 {
+		t.Fatalf("expected 2 fields, got %d", len(rec.Fields))
+	}
+	if rec.Fields[0].Label != "_1" || rec.Fields[1].Label != "_2" {
+		t.Errorf("expected _1, _2, got %q, %q", rec.Fields[0].Label, rec.Fields[1].Label)
+	}
+}
+
+func TestParseUnitLiteral(t *testing.T) {
+	prog, es := parse("u := ()")
+	if es.HasErrors() {
+		t.Fatal(es.Format())
+	}
+	bind := prog.Decls[0].(*DeclValueDef)
+	rec, ok := bind.Expr.(*ExprRecord)
+	if !ok {
+		t.Fatalf("expected ExprRecord (unit), got %T", bind.Expr)
+	}
+	if len(rec.Fields) != 0 {
+		t.Errorf("expected 0 fields, got %d", len(rec.Fields))
+	}
+}
+
+func TestParseGroupingNotTuple(t *testing.T) {
+	prog, es := parse("g := (1)")
+	if es.HasErrors() {
+		t.Fatal(es.Format())
+	}
+	bind := prog.Decls[0].(*DeclValueDef)
+	_, ok := bind.Expr.(*ExprParen)
+	if !ok {
+		t.Fatalf("expected ExprParen (grouping), got %T", bind.Expr)
+	}
+}
+
+func TestParseTuplePattern(t *testing.T) {
+	prog, es := parse("f := \\(a, b) -> a")
+	if es.HasErrors() {
+		t.Fatal(es.Format())
+	}
+	bind := prog.Decls[0].(*DeclValueDef)
+	lam := bind.Expr.(*ExprLam)
+	rpat, ok := lam.Params[0].(*PatRecord)
+	if !ok {
+		t.Fatalf("expected PatRecord (desugared tuple pattern), got %T", lam.Params[0])
+	}
+	if len(rpat.Fields) != 2 {
+		t.Fatalf("expected 2 fields, got %d", len(rpat.Fields))
+	}
+	if rpat.Fields[0].Label != "_1" || rpat.Fields[1].Label != "_2" {
+		t.Errorf("expected _1, _2, got %q, %q", rpat.Fields[0].Label, rpat.Fields[1].Label)
+	}
+}
+
+func TestParseUnitPattern(t *testing.T) {
+	prog, es := parse("f := \\() -> 1")
+	if es.HasErrors() {
+		t.Fatal(es.Format())
+	}
+	bind := prog.Decls[0].(*DeclValueDef)
+	lam := bind.Expr.(*ExprLam)
+	rpat, ok := lam.Params[0].(*PatRecord)
+	if !ok {
+		t.Fatalf("expected PatRecord (unit pattern), got %T", lam.Params[0])
+	}
+	if len(rpat.Fields) != 0 {
+		t.Errorf("expected 0 fields, got %d", len(rpat.Fields))
+	}
+}
+
+func TestParseTupleType(t *testing.T) {
+	prog, es := parse("f :: (Int, Bool) -> Int")
+	if es.HasErrors() {
+		t.Fatal(es.Format())
+	}
+	d := prog.Decls[0].(*DeclTypeAnn)
+	arrow, ok := d.Type.(*TyExprArrow)
+	if !ok {
+		t.Fatalf("expected TyExprArrow, got %T", d.Type)
+	}
+	app, ok := arrow.From.(*TyExprApp)
+	if !ok {
+		t.Fatalf("expected TyExprApp (Record applied to row), got %T", arrow.From)
+	}
+	con, ok := app.Fun.(*TyExprCon)
+	if !ok || con.Name != "Record" {
+		t.Fatalf("expected TyExprCon 'Record', got %T %v", app.Fun, app.Fun)
+	}
+	row, ok := app.Arg.(*TyExprRow)
+	if !ok {
+		t.Fatalf("expected TyExprRow, got %T", app.Arg)
+	}
+	if len(row.Fields) != 2 {
+		t.Fatalf("expected 2 fields, got %d", len(row.Fields))
+	}
+	if row.Fields[0].Label != "_1" || row.Fields[1].Label != "_2" {
+		t.Errorf("expected _1, _2, got %q, %q", row.Fields[0].Label, row.Fields[1].Label)
+	}
+}
+
+func TestParseUnitType(t *testing.T) {
+	prog, es := parse("f :: () -> Int")
+	if es.HasErrors() {
+		t.Fatal(es.Format())
+	}
+	d := prog.Decls[0].(*DeclTypeAnn)
+	arrow := d.Type.(*TyExprArrow)
+	app, ok := arrow.From.(*TyExprApp)
+	if !ok {
+		t.Fatalf("expected TyExprApp (Record {}), got %T", arrow.From)
+	}
+	con := app.Fun.(*TyExprCon)
+	if con.Name != "Record" {
+		t.Errorf("expected 'Record', got %q", con.Name)
+	}
+	row := app.Arg.(*TyExprRow)
+	if len(row.Fields) != 0 {
+		t.Errorf("expected 0 fields for unit type, got %d", len(row.Fields))
+	}
+}
+
 func TestParseBlockStillWorks(t *testing.T) {
 	// Ensure { name := expr; body } still parses as a block
 	prog, es := parse("r := { x := 1; x }")

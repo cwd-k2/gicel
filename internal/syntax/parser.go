@@ -1,6 +1,7 @@
 package syntax
 
 import (
+	"fmt"
 	"strconv"
 
 	"github.com/cwd-k2/gomputation/internal/errs"
@@ -696,7 +697,40 @@ func (p *Parser) parseAtom() Expr {
 func (p *Parser) parseParen() Expr {
 	start := p.peek().S.Start
 	p.expect(TokLParen)
+
+	// () → unit (empty record)
+	if p.peek().Kind == TokRParen {
+		p.advance()
+		return &ExprRecord{S: span.Span{Start: start, End: p.prevEnd()}}
+	}
+
 	e := p.parseExpr()
+
+	// (e) → grouping
+	if p.peek().Kind == TokRParen {
+		p.advance()
+		return &ExprParen{Inner: e, S: span.Span{Start: start, End: p.prevEnd()}}
+	}
+
+	// (e1, e2, ...) → tuple (desugars to record with _1, _2, ...)
+	if p.peek().Kind == TokComma {
+		elems := []Expr{e}
+		for p.peek().Kind == TokComma {
+			p.advance()
+			elems = append(elems, p.parseExpr())
+		}
+		p.expect(TokRParen)
+		fields := make([]RecordField, len(elems))
+		for i, el := range elems {
+			fields[i] = RecordField{
+				Label: fmt.Sprintf("_%d", i+1),
+				Value: el,
+				S:     el.Span(),
+			}
+		}
+		return &ExprRecord{Fields: fields, S: span.Span{Start: start, End: p.prevEnd()}}
+	}
+
 	p.expect(TokRParen)
 	return &ExprParen{Inner: e, S: span.Span{Start: start, End: p.prevEnd()}}
 }
@@ -955,7 +989,30 @@ func (p *Parser) parsePattern() Pattern {
 	case TokLParen:
 		start := p.peek().S.Start
 		p.advance()
+		// () → unit pattern (empty record pattern)
+		if p.peek().Kind == TokRParen {
+			p.advance()
+			return &PatRecord{S: span.Span{Start: start, End: p.prevEnd()}}
+		}
 		inner := p.parsePattern()
+		if p.peek().Kind == TokComma {
+			// (p1, p2, ...) → tuple pattern (desugars to record pattern)
+			pats := []Pattern{inner}
+			for p.peek().Kind == TokComma {
+				p.advance()
+				pats = append(pats, p.parsePattern())
+			}
+			p.expect(TokRParen)
+			fields := make([]PatRecordField, len(pats))
+			for i, pat := range pats {
+				fields[i] = PatRecordField{
+					Label:   fmt.Sprintf("_%d", i+1),
+					Pattern: pat,
+					S:       pat.Span(),
+				}
+			}
+			return &PatRecord{Fields: fields, S: span.Span{Start: start, End: p.prevEnd()}}
+		}
 		p.expect(TokRParen)
 		return &PatParen{Inner: inner, S: span.Span{Start: start, End: p.prevEnd()}}
 	case TokLBrace:
@@ -1179,7 +1236,40 @@ func (p *Parser) parseTypeAtom() TypeExpr {
 	case TokLParen:
 		start := p.peek().S.Start
 		p.advance()
+		// () → unit type: Record {}
+		if p.peek().Kind == TokRParen {
+			p.advance()
+			s := span.Span{Start: start, End: p.prevEnd()}
+			return &TyExprApp{
+				Fun: &TyExprCon{Name: "Record", S: s},
+				Arg: &TyExprRow{S: s},
+				S:   s,
+			}
+		}
 		ty := p.parseType()
+		if p.peek().Kind == TokComma {
+			// (T1, T2, ...) → tuple type: Record { _1 : T1, _2 : T2, ... }
+			types := []TypeExpr{ty}
+			for p.peek().Kind == TokComma {
+				p.advance()
+				types = append(types, p.parseType())
+			}
+			p.expect(TokRParen)
+			s := span.Span{Start: start, End: p.prevEnd()}
+			fields := make([]TyRowField, len(types))
+			for i, t := range types {
+				fields[i] = TyRowField{
+					Label: fmt.Sprintf("_%d", i+1),
+					Type:  t,
+					S:     t.Span(),
+				}
+			}
+			return &TyExprApp{
+				Fun: &TyExprCon{Name: "Record", S: s},
+				Arg: &TyExprRow{Fields: fields, S: s},
+				S:   s,
+			}
+		}
 		p.expect(TokRParen)
 		return &TyExprParen{Inner: ty, S: span.Span{Start: start, End: p.prevEnd()}}
 	case TokLBrace:

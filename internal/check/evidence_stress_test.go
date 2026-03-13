@@ -159,7 +159,9 @@ main := f True`
 }
 
 func TestEdgeEmptyParensNotTuple(t *testing.T) {
-	// () in constraint position should be rejected at parse time.
+	// () in type position is now valid (unit type = Record {}).
+	// () => Bool -> Bool parses but should fail at check time
+	// because Record {} is not a constraint.
 	source := `data Bool = True | False
 f :: () => Bool -> Bool
 f := \x -> x
@@ -172,9 +174,15 @@ main := f True`
 	}
 	es := &errs.Errors{Source: src}
 	p := syntax.NewParser(tokens, es)
-	_ = p.ParseProgram()
-	if !es.HasErrors() {
-		t.Fatal("expected parse error for () in constraint position, got none")
+	ast := p.ParseProgram()
+	if es.HasErrors() {
+		// Parse error is also acceptable — depends on parser's type resolution.
+		return
+	}
+	// If it parses, it should fail at check time.
+	_, checkErrs := Check(ast, src, nil)
+	if !checkErrs.HasErrors() {
+		t.Fatal("expected check error for () in constraint position, got none")
 	}
 }
 
