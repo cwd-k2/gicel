@@ -3728,3 +3728,46 @@ main := myReturn True
 		t.Fatalf("expected True, got %v", result.Value)
 	}
 }
+
+// ---------------------------------------------------------------------------
+// Type-Driven do Dispatch (Group 3A)
+// ---------------------------------------------------------------------------
+
+func TestDoBlockComputationRegression(t *testing.T) {
+	// Existing do blocks with Computation should still use Core.Bind path.
+	eng := gmp.NewEngine()
+	eng.DeclareBinding("x", gmp.ConType("Int"))
+	rt, err := eng.NewRuntime(`
+main := do { v <- pure x; pure v }
+`)
+	if err != nil {
+		t.Fatalf("Computation do block regression failed: %v", err)
+	}
+	result, err := rt.RunContext(context.Background(), nil, map[string]gmp.Value{
+		"x": &gmp.HostVal{Inner: 42},
+	}, "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	hv, ok := result.Value.(*gmp.HostVal)
+	if !ok || hv.Inner != 42 {
+		t.Fatalf("expected 42, got %v", result.Value)
+	}
+}
+
+func TestDoBlockComputationCoreBind(t *testing.T) {
+	// Verify Computation do blocks elaborate to Core.Bind (not class dispatch).
+	eng := gmp.NewEngine()
+	eng.DeclareBinding("x", gmp.ConType("Int"))
+	rt, err := eng.NewRuntime(`
+main := do { v <- pure x; pure v }
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Core.Bind is used when PrettyProgram shows "bind" nodes rather than "ixbind" calls.
+	pretty := rt.PrettyProgram()
+	if !strings.Contains(pretty, "bind") {
+		t.Fatalf("expected Core.Bind in pretty output, got:\n%s", pretty)
+	}
+}

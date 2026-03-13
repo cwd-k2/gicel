@@ -195,6 +195,9 @@ func (ch *Checker) check(expr syntax.Expr, expected types.Type) core.Core {
 	case *syntax.ExprCase:
 		return ch.checkCase(e, expected)
 
+	case *syntax.ExprDo:
+		return ch.checkDo(e, expected)
+
 	default:
 		// Subsumption: infer type, then check inferred ≤ expected.
 		inferredTy, coreExpr := ch.infer(expr)
@@ -495,6 +498,100 @@ func (ch *Checker) elaborateStmts(stmts []syntax.Stmt, s span.Span) (types.Type,
 		ch.addCodedError(errs.ErrBadComputation, s, "unexpected statement in do block")
 		return ch.errorPair(s)
 	}
+}
+
+// checkDo type-checks a do block against an expected type.
+// Uses direct Core.Bind for Computation types (fast path) and
+// class dispatch via ixbind for other IxMonad instances.
+func (ch *Checker) checkDo(e *syntax.ExprDo, expected types.Type) core.Core {
+	if len(e.Stmts) == 0 {
+		ch.addCodedError(errs.ErrEmptyDo, e.S, "empty do block")
+		return &core.Var{Name: "<error>", S: e.S}
+	}
+
+	expected = ch.unifier.Zonk(expected)
+
+	// Fast path: Computation types, metas (unknown), and errors use Core.Bind.
+	switch expected.(type) {
+	case *types.TyComp, *types.TyMeta, *types.TyError:
+		inferredTy, coreExpr := ch.elaborateStmts(e.Stmts, e.S)
+		return ch.subsCheck(inferredTy, expected, coreExpr, e.S)
+	}
+
+	// Class dispatch: desugar to ixbind/ixpure calls and check.
+	desugared := ch.desugarDoToIxMonad(e.Stmts, e.S)
+	return ch.check(desugared, expected)
+}
+
+// desugarDoToIxMonad converts do block statements to nested ixbind applications.
+//
+//	do { x <- c; rest }  →  ixbind c (\x -> «rest»)
+//	do { c; rest }       →  ixbind c (\_ -> «rest»)
+//	do { x := e; rest }  →  (\x -> «rest») e
+//	do { e }             →  e
+func (ch *Checker) desugarDoToIxMonad(stmts []syntax.Stmt, s span.Span) syntax.Expr {
+	if len(stmts) == 1 {
+		switch st := stmts[0].(type) {
+		case *syntax.StmtExpr:
+			return st.Expr
+		case *syntax.StmtBind:
+			ch.addCodedError(errs.ErrBadDoEnding, st.S, "do block must end with an expression")
+			return &syntax.ExprVar{Name: "<error>", S: st.S}
+		case *syntax.StmtPureBind:
+			ch.addCodedError(errs.ErrBadDoEnding, st.S, "do block must end with an expression")
+			return &syntax.ExprVar{Name: "<error>", S: st.S}
+		}
+	}
+
+	rest := ch.desugarDoToIxMonad(stmts[1:], s)
+
+	switch st := stmts[0].(type) {
+	case *syntax.StmtBind:
+		// x <- c; rest  →  ixbind c (\x -> rest)
+		return &syntax.ExprApp{
+			Fun: &syntax.ExprApp{
+				Fun: &syntax.ExprVar{Name: "ixbind", S: st.S},
+				Arg: st.Comp,
+				S:   st.S,
+			},
+			Arg: &syntax.ExprLam{
+				Params: []syntax.Pattern{&syntax.PatVar{Name: st.Var, S: st.S}},
+				Body:   rest,
+				S:      st.S,
+			},
+			S: st.S,
+		}
+
+	case *syntax.StmtExpr:
+		// c; rest  →  ixbind c (\_ -> rest)
+		return &syntax.ExprApp{
+			Fun: &syntax.ExprApp{
+				Fun: &syntax.ExprVar{Name: "ixbind", S: st.S},
+				Arg: st.Expr,
+				S:   st.S,
+			},
+			Arg: &syntax.ExprLam{
+				Params: []syntax.Pattern{&syntax.PatVar{Name: "_", S: st.S}},
+				Body:   rest,
+				S:      st.S,
+			},
+			S: st.S,
+		}
+
+	case *syntax.StmtPureBind:
+		// x := e; rest  →  (\x -> rest) e
+		return &syntax.ExprApp{
+			Fun: &syntax.ExprLam{
+				Params: []syntax.Pattern{&syntax.PatVar{Name: st.Var, S: st.S}},
+				Body:   rest,
+				S:      st.S,
+			},
+			Arg: st.Expr,
+			S:   st.S,
+		}
+	}
+
+	return &syntax.ExprVar{Name: "<error>", S: s}
 }
 
 func (ch *Checker) extractCompResult(ty types.Type, s span.Span) types.Type {
