@@ -307,63 +307,14 @@ func (ch *Checker) errorPair(s span.Span) (types.Type, core.Core) {
 	return &types.TyError{S: s}, &core.Var{Name: "<error>", S: s}
 }
 
-// unifierSnapshot captures solutions, label contexts, and kind solutions for rollback.
-type unifierSnapshot struct {
-	soln     map[int]types.Type
-	labels   map[int]map[string]struct{}
-	kindSoln map[int]types.Kind
-}
-
-// saveUnifierState snapshots the unifier's solution and label maps for later rollback.
-func (ch *Checker) saveUnifierState() unifierSnapshot {
-	soln := make(map[int]types.Type, len(ch.unifier.Solutions()))
-	for k, v := range ch.unifier.Solutions() {
-		soln[k] = v
-	}
-	labels := make(map[int]map[string]struct{}, len(ch.unifier.Labels()))
-	for k, v := range ch.unifier.Labels() {
-		inner := make(map[string]struct{}, len(v))
-		for label := range v {
-			inner[label] = struct{}{}
-		}
-		labels[k] = inner
-	}
-	kindSoln := make(map[int]types.Kind, len(ch.unifier.KindSolutions()))
-	for k, v := range ch.unifier.KindSolutions() {
-		kindSoln[k] = v
-	}
-	return unifierSnapshot{soln: soln, labels: labels, kindSoln: kindSoln}
+// saveUnifierState snapshots the unifier state for later rollback.
+func (ch *Checker) saveUnifierState() UnifierSnapshot {
+	return ch.unifier.Snapshot()
 }
 
 // restoreUnifierState rolls back the unifier to a previously saved snapshot.
-func (ch *Checker) restoreUnifierState(snap unifierSnapshot) {
-	// Restore solutions.
-	for k := range ch.unifier.Solutions() {
-		if _, existed := snap.soln[k]; !existed {
-			delete(ch.unifier.Solutions(), k)
-		}
-	}
-	for k, v := range snap.soln {
-		ch.unifier.Solutions()[k] = v
-	}
-	// Restore labels.
-	for k := range ch.unifier.Labels() {
-		if _, existed := snap.labels[k]; !existed {
-			delete(ch.unifier.Labels(), k)
-		}
-	}
-	for k, v := range snap.labels {
-		ch.unifier.Labels()[k] = v
-	}
-	// Restore kind solutions.
-	for k := range ch.unifier.KindSolutions() {
-		if _, existed := snap.kindSoln[k]; !existed {
-			delete(ch.unifier.KindSolutions(), k)
-		}
-	}
-	for k, v := range snap.kindSoln {
-		ch.unifier.KindSolutions()[k] = v
-	}
+func (ch *Checker) restoreUnifierState(snap UnifierSnapshot) {
+	ch.unifier.Restore(snap)
 }
 
 func (ch *Checker) addCodedError(code errs.Code, s span.Span, msg string) {

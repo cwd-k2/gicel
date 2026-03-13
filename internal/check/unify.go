@@ -85,6 +85,62 @@ func (u *Unifier) KindSolutions() map[int]types.Kind {
 	return u.kindSoln
 }
 
+// UnifierSnapshot captures solutions, label contexts, and kind solutions for rollback.
+type UnifierSnapshot struct {
+	soln     map[int]types.Type
+	labels   map[int]map[string]struct{}
+	kindSoln map[int]types.Kind
+}
+
+// Snapshot captures the current unifier state for later rollback.
+func (u *Unifier) Snapshot() UnifierSnapshot {
+	soln := make(map[int]types.Type, len(u.soln))
+	for k, v := range u.soln {
+		soln[k] = v
+	}
+	labels := make(map[int]map[string]struct{}, len(u.labels))
+	for k, v := range u.labels {
+		inner := make(map[string]struct{}, len(v))
+		for label := range v {
+			inner[label] = struct{}{}
+		}
+		labels[k] = inner
+	}
+	kindSoln := make(map[int]types.Kind, len(u.kindSoln))
+	for k, v := range u.kindSoln {
+		kindSoln[k] = v
+	}
+	return UnifierSnapshot{soln: soln, labels: labels, kindSoln: kindSoln}
+}
+
+// Restore rolls back the unifier to a previously saved snapshot.
+func (u *Unifier) Restore(snap UnifierSnapshot) {
+	for k := range u.soln {
+		if _, existed := snap.soln[k]; !existed {
+			delete(u.soln, k)
+		}
+	}
+	for k, v := range snap.soln {
+		u.soln[k] = v
+	}
+	for k := range u.labels {
+		if _, existed := snap.labels[k]; !existed {
+			delete(u.labels, k)
+		}
+	}
+	for k, v := range snap.labels {
+		u.labels[k] = v
+	}
+	for k := range u.kindSoln {
+		if _, existed := snap.kindSoln[k]; !existed {
+			delete(u.kindSoln, k)
+		}
+	}
+	for k, v := range snap.kindSoln {
+		u.kindSoln[k] = v
+	}
+}
+
 // RegisterLabelContext records the surrounding labels for a row metavariable.
 func (u *Unifier) RegisterLabelContext(id int, labels map[string]struct{}) {
 	u.labels[id] = labels
