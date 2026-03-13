@@ -6,11 +6,15 @@ import (
 	"github.com/cwd-k2/gomputation/internal/types"
 )
 
+// AliasExpander is a callback for expanding type aliases during unification.
+type AliasExpander func(types.Type) types.Type
+
 // Unifier manages type unification.
 type Unifier struct {
-	soln    map[int]types.Type
-	labels  map[int]map[string]struct{}
-	freshID *int
+	soln          map[int]types.Type
+	labels        map[int]map[string]struct{}
+	freshID       *int
+	aliasExpander AliasExpander // optional; set by Checker after alias processing
 }
 
 // NewUnifier creates a Unifier with its own internal fresh ID counter.
@@ -150,6 +154,14 @@ func (u *Unifier) Zonk(t types.Type) types.Type {
 	}
 }
 
+// normalize applies alias expansion and special type normalization.
+func (u *Unifier) normalize(t types.Type) types.Type {
+	if u.aliasExpander != nil {
+		t = u.aliasExpander(t)
+	}
+	return normalizeCompApp(t)
+}
+
 // normalizeCompApp converts fully-applied TyApp chains to their special type
 // representations. e.g. TyApp(TyApp(TyApp(TyCon("Computation"), pre), post), result)
 // becomes TyComp{pre, post, result}. This arises when a class type parameter
@@ -185,9 +197,9 @@ func (u *Unifier) Unify(a, b types.Type) error {
 	a = u.Zonk(a)
 	b = u.Zonk(b)
 
-	// Normalize special type applications (e.g. Computation applied via TyApp chain).
-	a = normalizeCompApp(a)
-	b = normalizeCompApp(b)
+	// Normalize special type applications and expand aliases.
+	a = u.normalize(a)
+	b = u.normalize(b)
 
 	// Error types unify with anything.
 	if _, ok := a.(*types.TyError); ok {

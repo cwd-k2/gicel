@@ -116,3 +116,48 @@ func collectAliasRefsRec(ty types.Type, aliases map[string]*aliasInfo, seen map[
 		// No alias references possible.
 	}
 }
+
+// installAliasExpander sets up the unifier's alias expansion callback.
+// Called after alias validation, before instance processing.
+func (ch *Checker) installAliasExpander() {
+	if len(ch.aliases) == 0 {
+		return
+	}
+	ch.unifier.aliasExpander = func(ty types.Type) types.Type {
+		return ch.expandTypeAliases(ty)
+	}
+}
+
+// expandTypeAliases expands fully-applied type aliases in a type.
+func (ch *Checker) expandTypeAliases(ty types.Type) types.Type {
+	app, ok := ty.(*types.TyApp)
+	if !ok {
+		return ty
+	}
+	// Collect the spine: TyApp(TyApp(...(head, arg1), arg2), ...)
+	head, args := types.UnwindApp(ty)
+	con, ok := head.(*types.TyCon)
+	if !ok {
+		return ty
+	}
+	info, ok := ch.aliases[con.Name]
+	if !ok || len(info.params) != len(args) {
+		// Not a fully-applied alias. Check if partial application could be expanded
+		// by recursing into sub-expressions.
+		newFun := ch.expandTypeAliases(app.Fun)
+		newArg := ch.expandTypeAliases(app.Arg)
+		if newFun == app.Fun && newArg == app.Arg {
+			return ty
+		}
+		result := &types.TyApp{Fun: newFun, Arg: newArg, S: app.S}
+		// Re-check after recursive expansion.
+		return ch.expandTypeAliases(result)
+	}
+	// Expand: substitute params with args in the alias body.
+	body := info.body
+	for i, p := range info.params {
+		body = types.Subst(body, p, args[i])
+	}
+	// Recursively expand nested aliases.
+	return ch.expandTypeAliases(body)
+}

@@ -518,9 +518,135 @@ func (ch *Checker) checkDo(e *syntax.ExprDo, expected types.Type) core.Core {
 		return ch.subsCheck(inferredTy, expected, coreExpr, e.S)
 	}
 
-	// Class dispatch: desugar to ixbind/ixpure calls and check.
-	desugared := ch.desugarDoToIxMonad(e.Stmts, e.S)
-	return ch.check(desugared, expected)
+	// Class dispatch: extract monad head and elaborate with dictionary.
+	monadHead := ch.extractMonadHead(expected)
+	if monadHead != nil {
+		return ch.elaborateDoMonadic(e.Stmts, monadHead, expected, e.S)
+	}
+
+	// Fallback: try Computation inference.
+	inferredTy, coreExpr := ch.elaborateStmts(e.Stmts, e.S)
+	return ch.subsCheck(inferredTy, expected, coreExpr, e.S)
+}
+
+// extractMonadHead extracts the type constructor head from a monadic type.
+// e.g. Maybe Int → Maybe, List Bool → List
+func (ch *Checker) extractMonadHead(ty types.Type) types.Type {
+	head, args := types.UnwindApp(ty)
+	if _, ok := head.(*types.TyCon); ok && len(args) > 0 {
+		// Reconstruct head with all but last arg (the result type).
+		var result types.Type = head
+		for _, a := range args[:len(args)-1] {
+			result = &types.TyApp{Fun: result, Arg: a}
+		}
+		return result
+	}
+	return nil
+}
+
+// elaborateDoMonadic elaborates a do block using IxMonad class dispatch.
+// The monad head is used to resolve the IxMonad (Lift m) instance.
+func (ch *Checker) elaborateDoMonadic(stmts []syntax.Stmt, monadHead types.Type, expected types.Type, s span.Span) core.Core {
+	if len(stmts) == 1 {
+		switch st := stmts[0].(type) {
+		case *syntax.StmtExpr:
+			return ch.check(st.Expr, expected)
+		case *syntax.StmtBind:
+			ch.addCodedError(errs.ErrBadDoEnding, st.S, "do block must end with an expression")
+			return &core.Var{Name: "<error>", S: st.S}
+		case *syntax.StmtPureBind:
+			ch.addCodedError(errs.ErrBadDoEnding, st.S, "do block must end with an expression")
+			return &core.Var{Name: "<error>", S: st.S}
+		}
+	}
+
+	switch st := stmts[0].(type) {
+	case *syntax.StmtBind:
+		// x <- comp; rest  →  ixbind comp (\x -> rest)
+		compTy, compCore := ch.infer(st.Comp)
+		resultTy := ch.extractMonadResult(compTy, monadHead, st.S)
+		ch.ctx.Push(&CtxVar{Name: st.Var, Type: resultTy})
+		restCore := ch.elaborateDoMonadic(stmts[1:], monadHead, expected, s)
+		ch.ctx.Pop()
+		return ch.mkIxBind(monadHead, compCore, st.Var, restCore, st.S)
+
+	case *syntax.StmtExpr:
+		// comp; rest  →  ixbind comp (\_ -> rest)
+		_, compCore := ch.infer(st.Expr)
+		restCore := ch.elaborateDoMonadic(stmts[1:], monadHead, expected, s)
+		return ch.mkIxBind(monadHead, compCore, "_", restCore, st.S)
+
+	case *syntax.StmtPureBind:
+		// x := e; rest  →  (\x -> rest) e
+		bindTy, bindCore := ch.infer(st.Expr)
+		ch.ctx.Push(&CtxVar{Name: st.Var, Type: bindTy})
+		restCore := ch.elaborateDoMonadic(stmts[1:], monadHead, expected, s)
+		ch.ctx.Pop()
+		return &core.App{
+			Fun: &core.Lam{Param: st.Var, Body: restCore, S: st.S},
+			Arg: bindCore,
+			S:   st.S,
+		}
+	}
+
+	return &core.Var{Name: "<error>", S: s}
+}
+
+// extractMonadResult extracts the result type from a monadic type given the monad head.
+// e.g. Maybe Int with head Maybe → Int
+func (ch *Checker) extractMonadResult(ty types.Type, monadHead types.Type, s span.Span) types.Type {
+	ty = ch.unifier.Zonk(ty)
+	_, args := types.UnwindApp(ty)
+	if len(args) > 0 {
+		return args[len(args)-1]
+	}
+	// Generate fresh meta as fallback.
+	result := ch.freshMeta(types.KType{})
+	headApp := &types.TyApp{Fun: monadHead, Arg: result}
+	if err := ch.unifier.Unify(ty, headApp); err != nil {
+		ch.addCodedError(errs.ErrBadComputation, s, fmt.Sprintf("expected %s type, got %s",
+			types.Pretty(monadHead), types.Pretty(ty)))
+		return &types.TyError{S: s}
+	}
+	return result
+}
+
+// mkIxBind generates Core for a monadic bind using the IxMonad dictionary.
+func (ch *Checker) mkIxBind(monadHead types.Type, comp core.Core, varName string, body core.Core, s span.Span) core.Core {
+	// Resolve IxMonad (Lift monadHead) instance.
+	liftedMonad := &types.TyApp{Fun: &types.TyCon{Name: "Lift"}, Arg: monadHead}
+	dict := ch.resolveInstance("IxMonad", []types.Type{liftedMonad}, s)
+
+	// Extract ixbind from dictionary using pattern match.
+	classInfo := ch.classes["IxMonad"]
+	bindIdx := len(classInfo.Supers) + 1 // ixbind is the second method (index 1)
+	allFields := len(classInfo.Supers) + len(classInfo.Methods)
+	var patArgs []core.Pattern
+	var bindExpr core.Core
+	freshBase := ch.fresh()
+	for j := 0; j < allFields; j++ {
+		argName := fmt.Sprintf("$ixm_%d_%d", j, freshBase)
+		patArgs = append(patArgs, &core.PVar{Name: argName, S: s})
+		if j == bindIdx {
+			bindExpr = &core.Var{Name: argName, S: s}
+		}
+	}
+	selector := &core.Case{
+		Scrutinee: dict,
+		Alts: []core.Alt{{
+			Pattern: &core.PCon{Con: classInfo.DictConName, Args: patArgs, S: s},
+			Body:    bindExpr,
+			S:       s,
+		}},
+		S: s,
+	}
+
+	// ixbind comp (\x -> body)
+	return &core.App{
+		Fun: &core.App{Fun: selector, Arg: comp, S: s},
+		Arg: &core.Lam{Param: varName, Body: body, S: s},
+		S:   s,
+	}
 }
 
 // desugarDoToIxMonad converts do block statements to nested ixbind applications.

@@ -41,6 +41,27 @@ func (ch *Checker) processInstanceHeader(d *syntax.DeclInstance) *InstanceInfo {
 		typeArgs = append(typeArgs, ch.resolveTypeExpr(ta))
 	}
 
+	// Auto-lift: if a type argument's kind doesn't match the class parameter kind
+	// but wrapping with Lift makes it match, do so automatically.
+	// e.g. instance IxMonad Maybe → instance IxMonad (Lift Maybe)
+	for i := 0; i < len(typeArgs) && i < len(classInfo.TyParamKinds); i++ {
+		argKind := ch.kindOfType(typeArgs[i])
+		paramKind := classInfo.TyParamKinds[i]
+		if argKind != nil && !argKind.Equal(paramKind) {
+			// Check if Lift wrapping fixes the kind mismatch.
+			liftKind := ch.kindOfType(&types.TyCon{Name: "Lift"})
+			if liftKind != nil {
+				if ka, ok := liftKind.(*types.KArrow); ok && ka.From.Equal(argKind) {
+					lifted := &types.TyApp{Fun: &types.TyCon{Name: "Lift"}, Arg: typeArgs[i]}
+					liftedKind := ka.To
+					if liftedKind.Equal(paramKind) {
+						typeArgs[i] = lifted
+					}
+				}
+			}
+		}
+	}
+
 	// Resolve context constraints.
 	var context []ConstraintInfo
 	for _, ctx := range d.Context {
@@ -188,4 +209,37 @@ func (ch *Checker) instanceDictName(className string, typeArgs []types.Type) str
 		}
 	}
 	return className + "$" + strings.Join(parts, "$")
+}
+
+// kindOfType returns the kind of a resolved type, or nil if unknown.
+func (ch *Checker) kindOfType(ty types.Type) types.Kind {
+	switch t := ty.(type) {
+	case *types.TyCon:
+		if k, ok := ch.config.RegisteredTypes[t.Name]; ok {
+			return k
+		}
+		// Well-known built-in type constructors.
+		switch t.Name {
+		case "Computation", "Thunk":
+			return &types.KArrow{From: types.KRow{}, To: &types.KArrow{From: types.KRow{}, To: &types.KArrow{From: types.KType{}, To: types.KType{}}}}
+		}
+		return types.KType{}
+	case *types.TyApp:
+		funKind := ch.kindOfType(t.Fun)
+		if ka, ok := funKind.(*types.KArrow); ok {
+			return ka.To
+		}
+		return nil
+	case *types.TyMeta:
+		return t.Kind
+	case *types.TySkolem:
+		return t.Kind
+	case *types.TyVar:
+		if k, ok := ch.ctx.LookupTyVar(t.Name); ok {
+			return k
+		}
+		return types.KType{}
+	default:
+		return types.KType{}
+	}
 }
