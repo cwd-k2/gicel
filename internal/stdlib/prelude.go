@@ -155,6 +155,91 @@ instance Monoid (List a) { empty := Nil }
 then :: forall a b (r1 : Row) (r2 : Row) (r3 : Row). Computation r1 r2 a -> Computation r2 r3 b -> Computation r1 r3 b
 then := \m1 -> \m2 -> bind m1 (\_ -> m2)
 
+id :: forall a. a -> a
+id := \x -> x
+
+const :: forall a b. a -> b -> a
+const := \x -> \_ -> x
+
+flip :: forall a b c. (a -> b -> c) -> b -> a -> c
+flip := \f -> \b -> \a -> f a b
+
+infixr 9 .
+(.) :: forall b c a. (b -> c) -> (a -> b) -> a -> c
+(.) := \f -> \g -> \x -> f (g x)
+
+not :: Bool -> Bool
+not := \b -> case b { True -> False; False -> True }
+
+infixr 3 &&
+(&&) :: Bool -> Bool -> Bool
+(&&) := \x -> \y -> case x { False -> False; True -> y }
+
+infixr 2 ||
+(||) :: Bool -> Bool -> Bool
+(||) := \x -> \y -> case x { True -> True; False -> y }
+
+maybe :: forall a b. b -> (a -> b) -> Maybe a -> b
+maybe := \def -> \f -> \m -> case m { Nothing -> def; Just a -> f a }
+
+result :: forall e a b. (e -> b) -> (a -> b) -> Result e a -> b
+result := \onErr -> \onOk -> \r -> case r { Err e -> onErr e; Ok a -> onOk a }
+
+fst :: forall a b. Pair a b -> a
+fst := \p -> case p { Pair a _ -> a }
+
+snd :: forall a b. Pair a b -> b
+snd := \p -> case p { Pair _ b -> b }
+
+head :: forall a. List a -> Maybe a
+head := \xs -> case xs { Nil -> Nothing; Cons x _ -> Just x }
+
+tail :: forall a. List a -> Maybe (List a)
+tail := \xs -> case xs { Nil -> Nothing; Cons _ rest -> Just rest }
+
+null :: forall a. List a -> Bool
+null := \xs -> case xs { Nil -> True; Cons _ _ -> False }
+
+map :: forall a b. (a -> b) -> List a -> List b
+map := fmap
+
+filter :: forall a. (a -> Bool) -> List a -> List a
+filter := \p -> foldr (\x -> \acc -> case p x { True -> Cons x acc; False -> acc }) Nil
+
+singleton :: forall a. a -> List a
+singleton := \x -> Cons x Nil
+
+infixn 4 ==
+infixn 4 /=
+infixn 4 <
+infixn 4 >
+infixn 4 <=
+infixn 4 >=
+
+(==) :: forall a. Eq a => a -> a -> Bool
+(==) := eq
+
+(/=) :: forall a. Eq a => a -> a -> Bool
+(/=) := \x -> \y -> not (eq x y)
+
+(<) :: forall a. Ord a => a -> a -> Bool
+(<) := \x -> \y -> case compare x y { LT -> True; _ -> False }
+
+(>) :: forall a. Ord a => a -> a -> Bool
+(>) := \x -> \y -> case compare x y { GT -> True; _ -> False }
+
+(<=) :: forall a. Ord a => a -> a -> Bool
+(<=) := \x -> \y -> case compare x y { GT -> False; _ -> True }
+
+(>=) :: forall a. Ord a => a -> a -> Bool
+(>=) := \x -> \y -> case compare x y { LT -> False; _ -> True }
+
+min :: forall a. Ord a => a -> a -> a
+min := \x -> \y -> case compare x y { GT -> y; _ -> x }
+
+max :: forall a. Ord a => a -> a -> a
+max := \x -> \y -> case compare x y { LT -> y; _ -> x }
+
 instance IxMonad Maybe {
   ixpure := \a -> Just a;
   ixbind := \ma -> \f -> case ma {

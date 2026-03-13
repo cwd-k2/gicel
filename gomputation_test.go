@@ -69,7 +69,7 @@ func TestHostBinding(t *testing.T) {
 func TestAssumption(t *testing.T) {
 	eng := gmp.NewEngine()
 	eng.DeclareAssumption("getUnit", gmp.ArrowType(gmp.ConType("Unit"), gmp.ConType("Unit")))
-	eng.RegisterPrim("getUnit", func(ctx context.Context, capEnv gmp.CapEnv, args []gmp.Value) (gmp.Value, gmp.CapEnv, error) {
+	eng.RegisterPrim("getUnit", func(ctx context.Context, capEnv gmp.CapEnv, args []gmp.Value, _ gmp.Applier) (gmp.Value, gmp.CapEnv, error) {
 		return &gmp.ConVal{Con: "Unit"}, capEnv, nil
 	})
 	rt, err := eng.NewRuntime(`
@@ -1084,7 +1084,7 @@ func TestValueConversion(t *testing.T) {
 func TestInSourceTypeAnnotation(t *testing.T) {
 	eng := gmp.NewEngine()
 	eng.RegisterType("Int", gmp.KindType())
-	eng.RegisterPrim("getVal", func(ctx context.Context, capEnv gmp.CapEnv, args []gmp.Value) (gmp.Value, gmp.CapEnv, error) {
+	eng.RegisterPrim("getVal", func(ctx context.Context, capEnv gmp.CapEnv, args []gmp.Value, _ gmp.Applier) (gmp.Value, gmp.CapEnv, error) {
 		return gmp.ToValue(99), capEnv, nil
 	})
 	rt, err := eng.NewRuntime(`
@@ -1150,12 +1150,12 @@ main := do {
 func TestCapEnvThreading(t *testing.T) {
 	eng := gmp.NewEngine()
 	eng.RegisterType("Int", gmp.KindType())
-	eng.RegisterPrim("inc", func(ctx context.Context, capEnv gmp.CapEnv, args []gmp.Value) (gmp.Value, gmp.CapEnv, error) {
+	eng.RegisterPrim("inc", func(ctx context.Context, capEnv gmp.CapEnv, args []gmp.Value, _ gmp.Applier) (gmp.Value, gmp.CapEnv, error) {
 		v, _ := capEnv.Get("n")
 		n, _ := v.(int)
 		return gmp.ToValue(nil), capEnv.Set("n", n+1), nil
 	})
-	eng.RegisterPrim("getN", func(ctx context.Context, capEnv gmp.CapEnv, args []gmp.Value) (gmp.Value, gmp.CapEnv, error) {
+	eng.RegisterPrim("getN", func(ctx context.Context, capEnv gmp.CapEnv, args []gmp.Value, _ gmp.Applier) (gmp.Value, gmp.CapEnv, error) {
 		v, _ := capEnv.Get("n")
 		n, _ := v.(int)
 		return gmp.ToValue(n), capEnv, nil
@@ -1207,7 +1207,7 @@ func TestMissingRuntimeBinding(t *testing.T) {
 func TestPrimPartialApplication(t *testing.T) {
 	eng := gmp.NewEngine()
 	eng.RegisterType("Int", gmp.KindType())
-	eng.RegisterPrim("add", func(ctx context.Context, capEnv gmp.CapEnv, args []gmp.Value) (gmp.Value, gmp.CapEnv, error) {
+	eng.RegisterPrim("add", func(ctx context.Context, capEnv gmp.CapEnv, args []gmp.Value, _ gmp.Applier) (gmp.Value, gmp.CapEnv, error) {
 		a := gmp.MustHost[int](args[0])
 		b := gmp.MustHost[int](args[1])
 		return gmp.ToValue(a + b), capEnv, nil
@@ -1367,7 +1367,7 @@ main := do {
 func TestKindedForallBinder(t *testing.T) {
 	eng := gmp.NewEngine()
 	eng.RegisterType("Int", gmp.KindType())
-	eng.RegisterPrim("getVal", func(ctx context.Context, capEnv gmp.CapEnv, args []gmp.Value) (gmp.Value, gmp.CapEnv, error) {
+	eng.RegisterPrim("getVal", func(ctx context.Context, capEnv gmp.CapEnv, args []gmp.Value, _ gmp.Applier) (gmp.Value, gmp.CapEnv, error) {
 		return gmp.ToValue(7), capEnv, nil
 	})
 	rt, err := eng.NewRuntime(`
@@ -1462,7 +1462,7 @@ func TestDeepBindEnvDoesNotLeak(t *testing.T) {
 	eng := gmp.NewEngine()
 	eng.EnableRecursion()
 	eng.RegisterType("Int", gmp.KindType())
-	eng.RegisterPrim("mkInt", func(ctx context.Context, capEnv gmp.CapEnv, args []gmp.Value) (gmp.Value, gmp.CapEnv, error) {
+	eng.RegisterPrim("mkInt", func(ctx context.Context, capEnv gmp.CapEnv, args []gmp.Value, _ gmp.Applier) (gmp.Value, gmp.CapEnv, error) {
 		return gmp.ToValue(0), capEnv, nil
 	})
 	// A chain of 100 nested binds. With linked-list Env, each
@@ -1753,7 +1753,7 @@ main := close (open (MkDB :: DB Closed))
 func TestDataKindsInRow(t *testing.T) {
 	eng := gmp.NewEngine()
 	eng.RegisterType("Int", gmp.KindType())
-	eng.RegisterPrim("readDB", func(ctx context.Context, ce gmp.CapEnv, args []gmp.Value) (gmp.Value, gmp.CapEnv, error) {
+	eng.RegisterPrim("readDB", func(ctx context.Context, ce gmp.CapEnv, args []gmp.Value, _ gmp.Applier) (gmp.Value, gmp.CapEnv, error) {
 		return gmp.ToValue(42), ce, nil
 	})
 	rt, err := eng.NewRuntime(`
@@ -2915,7 +2915,7 @@ main := Pair (1 + 2) (length "hello")
 func TestCustomPack(t *testing.T) {
 	// A user-defined Pack that provides a custom constant.
 	customPack := gmp.Pack(func(e *gmp.Engine) error {
-		e.RegisterPrim("myConst", func(_ context.Context, ce gmp.CapEnv, args []gmp.Value) (gmp.Value, gmp.CapEnv, error) {
+		e.RegisterPrim("myConst", func(_ context.Context, ce gmp.CapEnv, args []gmp.Value, _ gmp.Applier) (gmp.Value, gmp.CapEnv, error) {
 			return &gmp.HostVal{Inner: int64(999)}, ce, nil
 		})
 		return e.RegisterModule("Custom", `
@@ -3782,7 +3782,7 @@ main := do { v <- pure x; pure v }
 func TestMaybeDoBlockPure(t *testing.T) {
 	// do { x <- Just 5; pure (add x 1) } :: Maybe Int → Just 6
 	eng := gmp.NewEngine()
-	eng.RegisterPrim("add", func(ctx context.Context, capEnv gmp.CapEnv, args []gmp.Value) (gmp.Value, gmp.CapEnv, error) {
+	eng.RegisterPrim("add", func(ctx context.Context, capEnv gmp.CapEnv, args []gmp.Value, _ gmp.Applier) (gmp.Value, gmp.CapEnv, error) {
 		return gmp.ToValue(gmp.MustHost[int64](args[0]) + gmp.MustHost[int64](args[1])), capEnv, nil
 	})
 	rt, err := eng.NewRuntime(`
@@ -3831,7 +3831,7 @@ main := do { x <- Just 5; Nothing; pure x }
 func TestListDoBlockCartesian(t *testing.T) {
 	// do { x <- [1,2]; y <- [10,20]; pure (add x y) } :: List Int → [11, 21, 12, 22]
 	eng := gmp.NewEngine()
-	eng.RegisterPrim("add", func(ctx context.Context, capEnv gmp.CapEnv, args []gmp.Value) (gmp.Value, gmp.CapEnv, error) {
+	eng.RegisterPrim("add", func(ctx context.Context, capEnv gmp.CapEnv, args []gmp.Value, _ gmp.Applier) (gmp.Value, gmp.CapEnv, error) {
 		return gmp.ToValue(gmp.MustHost[int64](args[0]) + gmp.MustHost[int64](args[1])), capEnv, nil
 	})
 	eng.EnableRecursion()
@@ -3944,7 +3944,7 @@ main := myReturn x
 func TestMaybeDoChain(t *testing.T) {
 	// Chain multiple binds in a Maybe do block.
 	eng := gmp.NewEngine()
-	eng.RegisterPrim("add", func(ctx context.Context, capEnv gmp.CapEnv, args []gmp.Value) (gmp.Value, gmp.CapEnv, error) {
+	eng.RegisterPrim("add", func(ctx context.Context, capEnv gmp.CapEnv, args []gmp.Value, _ gmp.Applier) (gmp.Value, gmp.CapEnv, error) {
 		return gmp.ToValue(gmp.MustHost[int64](args[0]) + gmp.MustHost[int64](args[1])), capEnv, nil
 	})
 	rt, err := eng.NewRuntime(`
@@ -3978,7 +3978,7 @@ main := do {
 func TestMaybeDoEarlyExit(t *testing.T) {
 	// Nothing anywhere in the chain short-circuits.
 	eng := gmp.NewEngine()
-	eng.RegisterPrim("add", func(ctx context.Context, capEnv gmp.CapEnv, args []gmp.Value) (gmp.Value, gmp.CapEnv, error) {
+	eng.RegisterPrim("add", func(ctx context.Context, capEnv gmp.CapEnv, args []gmp.Value, _ gmp.Applier) (gmp.Value, gmp.CapEnv, error) {
 		return gmp.ToValue(gmp.MustHost[int64](args[0]) + gmp.MustHost[int64](args[1])), capEnv, nil
 	})
 	rt, err := eng.NewRuntime(`
@@ -4065,7 +4065,7 @@ main := do { a <- pure x; b <- pure y; pure a }
 func TestListPipelineEndToEnd(t *testing.T) {
 	// fromSlice → fmap → foldr → toSlice full pipeline.
 	eng := gmp.NewEngine()
-	eng.RegisterPrim("add", func(ctx context.Context, capEnv gmp.CapEnv, args []gmp.Value) (gmp.Value, gmp.CapEnv, error) {
+	eng.RegisterPrim("add", func(ctx context.Context, capEnv gmp.CapEnv, args []gmp.Value, _ gmp.Applier) (gmp.Value, gmp.CapEnv, error) {
 		return gmp.ToValue(gmp.MustHost[int64](args[0]) + gmp.MustHost[int64](args[1])), capEnv, nil
 	})
 	eng.EnableRecursion()

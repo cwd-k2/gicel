@@ -273,6 +273,9 @@ func (p *Parser) parseFixityDecl() *DeclFixity {
 	if p.peek().Kind == TokOp {
 		op = p.peek().Text
 		p.advance()
+	} else if p.peek().Kind == TokDot {
+		op = "."
+		p.advance()
 	} else {
 		p.addError("expected operator in fixity declaration")
 		return nil
@@ -502,15 +505,23 @@ func (p *Parser) parseInstMethods() []InstMethod {
 }
 
 func (p *Parser) isOperatorDeclStart() bool {
-	// Check for (operator) pattern: ( op )
+	// Check for (operator) pattern: ( op ) — TokDot also valid as operator.
 	return p.pos+2 < len(p.tokens) &&
-		p.tokens[p.pos+1].Kind == TokOp &&
+		(p.tokens[p.pos+1].Kind == TokOp || p.tokens[p.pos+1].Kind == TokDot) &&
 		p.tokens[p.pos+2].Kind == TokRParen
 }
 
 func (p *Parser) parseOperatorDecl() Decl {
 	start := p.expect(TokLParen)
-	op := p.expect(TokOp)
+	// Accept both TokOp and TokDot as operator names.
+	var op Token
+	if p.peek().Kind == TokDot {
+		op = p.peek()
+		op.Text = "."
+		p.advance()
+	} else {
+		op = p.expect(TokOp)
+	}
 	p.expect(TokRParen)
 	switch p.peek().Kind {
 	case TokColonColon:
@@ -576,7 +587,7 @@ func (p *Parser) parseAnnotation() Expr {
 
 func (p *Parser) parseInfix(minPrec int) Expr {
 	left := p.parseApp()
-	for p.peek().Kind == TokOp {
+	for p.isInfixOp() {
 		op := p.peek().Text
 		fix := p.lookupFixity(op)
 		if fix.Prec < minPrec {
@@ -594,6 +605,13 @@ func (p *Parser) parseInfix(minPrec int) Expr {
 		}
 	}
 	return left
+}
+
+// isInfixOp returns true if the current token can act as an infix operator.
+// TokDot (.) is treated as an operator in expression context.
+func (p *Parser) isInfixOp() bool {
+	k := p.peek().Kind
+	return k == TokOp || k == TokDot
 }
 
 func (p *Parser) parseApp() Expr {

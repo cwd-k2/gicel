@@ -116,7 +116,7 @@ func TestEvalTyAppErased(t *testing.T) {
 
 func TestEvalPrimOp(t *testing.T) {
 	prims := NewPrimRegistry()
-	prims.Register("id", func(ctx context.Context, cap CapEnv, args []Value) (Value, CapEnv, error) {
+	prims.Register("id", func(ctx context.Context, cap CapEnv, args []Value, _ Applier) (Value, CapEnv, error) {
 		return args[0], cap, nil
 	})
 	ev := NewEvaluator(context.Background(), prims, DefaultLimit(), nil)
@@ -136,7 +136,7 @@ func TestEvalPrimOp(t *testing.T) {
 
 func TestEvalCapEnvThreading(t *testing.T) {
 	prims := NewPrimRegistry()
-	prims.Register("setFoo", func(ctx context.Context, cap CapEnv, args []Value) (Value, CapEnv, error) {
+	prims.Register("setFoo", func(ctx context.Context, cap CapEnv, args []Value, _ Applier) (Value, CapEnv, error) {
 		return &ConVal{Con: "Unit"}, cap.Set("foo", "bar"), nil
 	})
 	ev := NewEvaluator(context.Background(), prims, DefaultLimit(), nil)

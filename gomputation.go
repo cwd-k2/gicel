@@ -30,6 +30,9 @@ type CapEnv = eval.CapEnv
 // PrimImpl is the signature for host-provided primitive operations.
 type PrimImpl = eval.PrimImpl
 
+// Applier is a callback that applies a function value to an argument.
+type Applier = eval.Applier
+
 // EvalStats holds post-evaluation statistics.
 type EvalStats = eval.EvalStats
 
@@ -62,5 +65,8 @@ var Fail Pack = func(e *Engine) error { return stdlib.Fail(e) }
 // State provides get/put state capabilities.
 var State Pack = func(e *Engine) error { return stdlib.State(e) }
 
-// List provides list operations: fromSlice, toSlice, length, concat.
+// List provides list operations: fromSlice, toSlice, length, concat, foldl, etc.
 var List Pack = func(e *Engine) error { return stdlib.List(e) }
+
+// IO provides print/debug capabilities using CapEnv buffer.
+var IO Pack = func(e *Engine) error { return stdlib.IO(e) }

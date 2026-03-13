@@ -44,14 +44,14 @@ func main() {
 	// Only RegisterPrim is needed — types are declared in the source via ::.
 
 	// getCounter reads "counter" from CapEnv.
-	eng.RegisterPrim("getCounter", func(ctx context.Context, capEnv gmp.CapEnv, args []gmp.Value) (gmp.Value, gmp.CapEnv, error) {
+	eng.RegisterPrim("getCounter", func(ctx context.Context, capEnv gmp.CapEnv, args []gmp.Value, _ gmp.Applier) (gmp.Value, gmp.CapEnv, error) {
 		v, _ := capEnv.Get("counter")
 		n, _ := v.(int)
 		return gmp.ToValue(n), capEnv, nil
 	})
 
 	// incCounter increments "counter" in CapEnv.
-	eng.RegisterPrim("incCounter", func(ctx context.Context, capEnv gmp.CapEnv, args []gmp.Value) (gmp.Value, gmp.CapEnv, error) {
+	eng.RegisterPrim("incCounter", func(ctx context.Context, capEnv gmp.CapEnv, args []gmp.Value, _ gmp.Applier) (gmp.Value, gmp.CapEnv, error) {
 		v, _ := capEnv.Get("counter")
 		n, _ := v.(int)
 		return gmp.ToValue(nil), capEnv.Set("counter", n+1), nil

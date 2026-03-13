@@ -54,7 +54,7 @@ func assertStr(t *testing.T, v eval.Value, want string) {
 // --- Num ---
 
 func TestAddIntImpl(t *testing.T) {
-	v, _, err := addIntImpl(ctx, ce, args(intVal(1), intVal(2)))
+	v, _, err := addIntImpl(ctx, ce, args(intVal(1), intVal(2)), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -62,7 +62,7 @@ func TestAddIntImpl(t *testing.T) {
 }
 
 func TestSubIntImpl(t *testing.T) {
-	v, _, err := subIntImpl(ctx, ce, args(intVal(5), intVal(3)))
+	v, _, err := subIntImpl(ctx, ce, args(intVal(5), intVal(3)), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -70,7 +70,7 @@ func TestSubIntImpl(t *testing.T) {
 }
 
 func TestMulIntImpl(t *testing.T) {
-	v, _, err := mulIntImpl(ctx, ce, args(intVal(3), intVal(4)))
+	v, _, err := mulIntImpl(ctx, ce, args(intVal(3), intVal(4)), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -78,21 +78,21 @@ func TestMulIntImpl(t *testing.T) {
 }
 
 func TestDivIntImplZero(t *testing.T) {
-	_, _, err := divIntImpl(ctx, ce, args(intVal(1), intVal(0)))
+	_, _, err := divIntImpl(ctx, ce, args(intVal(1), intVal(0)), nil)
 	if err == nil {
 		t.Fatal("expected error for division by zero")
 	}
 }
 
 func TestModIntImplZero(t *testing.T) {
-	_, _, err := modIntImpl(ctx, ce, args(intVal(1), intVal(0)))
+	_, _, err := modIntImpl(ctx, ce, args(intVal(1), intVal(0)), nil)
 	if err == nil {
 		t.Fatal("expected error for modulo by zero")
 	}
 }
 
 func TestNegIntImpl(t *testing.T) {
-	v, _, err := negIntImpl(ctx, ce, args(intVal(42)))
+	v, _, err := negIntImpl(ctx, ce, args(intVal(42)), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -100,7 +100,7 @@ func TestNegIntImpl(t *testing.T) {
 }
 
 func TestEqIntImplTrue(t *testing.T) {
-	v, _, err := eqIntImpl(ctx, ce, args(intVal(1), intVal(1)))
+	v, _, err := eqIntImpl(ctx, ce, args(intVal(1), intVal(1)), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -108,7 +108,7 @@ func TestEqIntImplTrue(t *testing.T) {
 }
 
 func TestEqIntImplFalse(t *testing.T) {
-	v, _, err := eqIntImpl(ctx, ce, args(intVal(1), intVal(2)))
+	v, _, err := eqIntImpl(ctx, ce, args(intVal(1), intVal(2)), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -116,7 +116,7 @@ func TestEqIntImplFalse(t *testing.T) {
 }
 
 func TestCmpIntImplLT(t *testing.T) {
-	v, _, err := cmpIntImpl(ctx, ce, args(intVal(1), intVal(2)))
+	v, _, err := cmpIntImpl(ctx, ce, args(intVal(1), intVal(2)), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -124,7 +124,7 @@ func TestCmpIntImplLT(t *testing.T) {
 }
 
 func TestCmpIntImplGT(t *testing.T) {
-	v, _, err := cmpIntImpl(ctx, ce, args(intVal(2), intVal(1)))
+	v, _, err := cmpIntImpl(ctx, ce, args(intVal(2), intVal(1)), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -132,7 +132,7 @@ func TestCmpIntImplGT(t *testing.T) {
 }
 
 func TestCmpIntImplEQ(t *testing.T) {
-	v, _, err := cmpIntImpl(ctx, ce, args(intVal(1), intVal(1)))
+	v, _, err := cmpIntImpl(ctx, ce, args(intVal(1), intVal(1)), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -142,7 +142,7 @@ func TestCmpIntImplEQ(t *testing.T) {
 // --- Str ---
 
 func TestEqStrImpl(t *testing.T) {
-	v, _, err := eqStrImpl(ctx, ce, args(strVal("a"), strVal("a")))
+	v, _, err := eqStrImpl(ctx, ce, args(strVal("a"), strVal("a")), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -150,7 +150,7 @@ func TestEqStrImpl(t *testing.T) {
 }
 
 func TestCmpStrImpl(t *testing.T) {
-	v, _, err := cmpStrImpl(ctx, ce, args(strVal("a"), strVal("b")))
+	v, _, err := cmpStrImpl(ctx, ce, args(strVal("a"), strVal("b")), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -158,7 +158,7 @@ func TestCmpStrImpl(t *testing.T) {
 }
 
 func TestAppendStrImpl(t *testing.T) {
-	v, _, err := appendStrImpl(ctx, ce, args(strVal("a"), strVal("b")))
+	v, _, err := appendStrImpl(ctx, ce, args(strVal("a"), strVal("b")), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -166,7 +166,7 @@ func TestAppendStrImpl(t *testing.T) {
 }
 
 func TestEmptyStrImpl(t *testing.T) {
-	v, _, err := emptyStrImpl(ctx, ce, args())
+	v, _, err := emptyStrImpl(ctx, ce, args(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -174,7 +174,7 @@ func TestEmptyStrImpl(t *testing.T) {
 }
 
 func TestLengthStrImpl(t *testing.T) {
-	v, _, err := lengthStrImpl(ctx, ce, args(strVal("hello")))
+	v, _, err := lengthStrImpl(ctx, ce, args(strVal("hello")), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -182,7 +182,7 @@ func TestLengthStrImpl(t *testing.T) {
 }
 
 func TestLengthStrImplUnicode(t *testing.T) {
-	v, _, err := lengthStrImpl(ctx, ce, args(strVal("日本語")))
+	v, _, err := lengthStrImpl(ctx, ce, args(strVal("日本語")), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -190,7 +190,7 @@ func TestLengthStrImplUnicode(t *testing.T) {
 }
 
 func TestEqRuneImpl(t *testing.T) {
-	v, _, err := eqRuneImpl(ctx, ce, args(runeVal('a'), runeVal('a')))
+	v, _, err := eqRuneImpl(ctx, ce, args(runeVal('a'), runeVal('a')), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -198,7 +198,7 @@ func TestEqRuneImpl(t *testing.T) {
 }
 
 func TestCmpRuneImpl(t *testing.T) {
-	v, _, err := cmpRuneImpl(ctx, ce, args(runeVal('a'), runeVal('b')))
+	v, _, err := cmpRuneImpl(ctx, ce, args(runeVal('a'), runeVal('b')), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -208,7 +208,7 @@ func TestCmpRuneImpl(t *testing.T) {
 // --- Fail ---
 
 func TestFailImpl(t *testing.T) {
-	_, _, err := failImpl(ctx, ce, args(&eval.ConVal{Con: "Unit"}))
+	_, _, err := failImpl(ctx, ce, args(&eval.ConVal{Con: "Unit"}), nil)
 	if err == nil {
 		t.Fatal("expected error from fail")
 	}
@@ -220,7 +220,7 @@ func TestFailImpl(t *testing.T) {
 // --- State ---
 
 func TestGetImplMissing(t *testing.T) {
-	_, _, err := getImpl(ctx, ce, args())
+	_, _, err := getImpl(ctx, ce, args(), nil)
 	if err == nil {
 		t.Fatal("expected error when state capability is missing")
 	}
@@ -228,7 +228,7 @@ func TestGetImplMissing(t *testing.T) {
 
 func TestPutImpl(t *testing.T) {
 	stCe := eval.NewCapEnv(map[string]any{"state": intVal(1)})
-	v, newCe, err := putImpl(ctx, stCe, args(intVal(42)))
+	v, newCe, err := putImpl(ctx, stCe, args(intVal(42)), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -242,7 +242,7 @@ func TestPutImpl(t *testing.T) {
 
 func TestGetImplNonValue(t *testing.T) {
 	stCe := eval.NewCapEnv(map[string]any{"state": "not-a-value"})
-	_, _, err := getImpl(ctx, stCe, args())
+	_, _, err := getImpl(ctx, stCe, args(), nil)
 	if err == nil {
 		t.Fatal("expected error when state is not a Value")
 	}
@@ -276,7 +276,7 @@ func conList(vals ...eval.Value) eval.Value {
 
 func TestFromSliceImpl(t *testing.T) {
 	input := &eval.HostVal{Inner: []any{intVal(1), intVal(2), intVal(3)}}
-	v, _, err := fromSliceImpl(ctx, ce, args(input))
+	v, _, err := fromSliceImpl(ctx, ce, args(input), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -291,7 +291,7 @@ func TestFromSliceImpl(t *testing.T) {
 
 func TestFromSliceImplPassthrough(t *testing.T) {
 	list := conList(intVal(1), intVal(2))
-	v, _, err := fromSliceImpl(ctx, ce, args(list))
+	v, _, err := fromSliceImpl(ctx, ce, args(list), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -302,7 +302,7 @@ func TestFromSliceImplPassthrough(t *testing.T) {
 
 func TestToSliceImpl(t *testing.T) {
 	list := conList(intVal(1), intVal(2), intVal(3))
-	v, _, err := toSliceImpl(ctx, ce, args(list))
+	v, _, err := toSliceImpl(ctx, ce, args(list), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -317,7 +317,7 @@ func TestToSliceImpl(t *testing.T) {
 }
 
 func TestLengthImplEmpty(t *testing.T) {
-	v, _, err := lengthImpl(ctx, ce, args(&eval.ConVal{Con: "Nil"}))
+	v, _, err := lengthImpl(ctx, ce, args(&eval.ConVal{Con: "Nil"}), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -326,7 +326,7 @@ func TestLengthImplEmpty(t *testing.T) {
 
 func TestLengthImpl(t *testing.T) {
 	list := conList(intVal(1), intVal(2), intVal(3))
-	v, _, err := lengthImpl(ctx, ce, args(list))
+	v, _, err := lengthImpl(ctx, ce, args(list), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -336,7 +336,7 @@ func TestLengthImpl(t *testing.T) {
 func TestConcatImpl(t *testing.T) {
 	xs := conList(intVal(1), intVal(2))
 	ys := conList(intVal(3))
-	v, _, err := concatImpl(ctx, ce, args(xs, ys))
+	v, _, err := concatImpl(ctx, ce, args(xs, ys), nil)
 	if err != nil {
 		t.Fatal(err)
 	}

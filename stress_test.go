@@ -41,19 +41,19 @@ type stressProgram struct {
 
 func intPrimSetup(eng *gmp.Engine) {
 	eng.RegisterType("Int", gmp.KindType())
-	eng.RegisterPrim("intZero", func(ctx context.Context, ce gmp.CapEnv, args []gmp.Value) (gmp.Value, gmp.CapEnv, error) {
+	eng.RegisterPrim("intZero", func(ctx context.Context, ce gmp.CapEnv, args []gmp.Value, _ gmp.Applier) (gmp.Value, gmp.CapEnv, error) {
 		return gmp.ToValue(0), ce, nil
 	})
-	eng.RegisterPrim("intSucc", func(ctx context.Context, ce gmp.CapEnv, args []gmp.Value) (gmp.Value, gmp.CapEnv, error) {
+	eng.RegisterPrim("intSucc", func(ctx context.Context, ce gmp.CapEnv, args []gmp.Value, _ gmp.Applier) (gmp.Value, gmp.CapEnv, error) {
 		n := gmp.MustHost[int](args[0])
 		return gmp.ToValue(n + 1), ce, nil
 	})
-	eng.RegisterPrim("intAdd", func(ctx context.Context, ce gmp.CapEnv, args []gmp.Value) (gmp.Value, gmp.CapEnv, error) {
+	eng.RegisterPrim("intAdd", func(ctx context.Context, ce gmp.CapEnv, args []gmp.Value, _ gmp.Applier) (gmp.Value, gmp.CapEnv, error) {
 		a := gmp.MustHost[int](args[0])
 		b := gmp.MustHost[int](args[1])
 		return gmp.ToValue(a + b), ce, nil
 	})
-	eng.RegisterPrim("intEq", func(ctx context.Context, ce gmp.CapEnv, args []gmp.Value) (gmp.Value, gmp.CapEnv, error) {
+	eng.RegisterPrim("intEq", func(ctx context.Context, ce gmp.CapEnv, args []gmp.Value, _ gmp.Applier) (gmp.Value, gmp.CapEnv, error) {
 		a := gmp.MustHost[int](args[0])
 		b := gmp.MustHost[int](args[1])
 		if a == b {
@@ -65,7 +65,7 @@ func intPrimSetup(eng *gmp.Engine) {
 
 func capEnvSetup(eng *gmp.Engine) {
 	eng.RegisterType("Int", gmp.KindType())
-	eng.RegisterPrim("intAdd", func(ctx context.Context, ce gmp.CapEnv, args []gmp.Value) (gmp.Value, gmp.CapEnv, error) {
+	eng.RegisterPrim("intAdd", func(ctx context.Context, ce gmp.CapEnv, args []gmp.Value, _ gmp.Applier) (gmp.Value, gmp.CapEnv, error) {
 		a := gmp.MustHost[int](args[0])
 		b := gmp.MustHost[int](args[1])
 		return gmp.ToValue(a + b), ce, nil
@@ -106,17 +106,17 @@ var stressPrograms = []stressProgram{
 		file: "04_deep_do_chain.gmp",
 		setup: func(e *gmp.Engine) {
 			capEnvSetup(e)
-			e.RegisterPrim("getN", func(ctx context.Context, ce gmp.CapEnv, args []gmp.Value) (gmp.Value, gmp.CapEnv, error) {
+			e.RegisterPrim("getN", func(ctx context.Context, ce gmp.CapEnv, args []gmp.Value, _ gmp.Applier) (gmp.Value, gmp.CapEnv, error) {
 				v, _ := ce.Get("n")
 				n, _ := v.(int)
 				return gmp.ToValue(n), ce, nil
 			})
-			e.RegisterPrim("incN", func(ctx context.Context, ce gmp.CapEnv, args []gmp.Value) (gmp.Value, gmp.CapEnv, error) {
+			e.RegisterPrim("incN", func(ctx context.Context, ce gmp.CapEnv, args []gmp.Value, _ gmp.Applier) (gmp.Value, gmp.CapEnv, error) {
 				v, _ := ce.Get("n")
 				n, _ := v.(int)
 				return &gmp.ConVal{Con: "Unit"}, ce.Set("n", n+1), nil
 			})
-			e.RegisterPrim("addN", func(ctx context.Context, ce gmp.CapEnv, args []gmp.Value) (gmp.Value, gmp.CapEnv, error) {
+			e.RegisterPrim("addN", func(ctx context.Context, ce gmp.CapEnv, args []gmp.Value, _ gmp.Applier) (gmp.Value, gmp.CapEnv, error) {
 				v, _ := ce.Get("n")
 				n, _ := v.(int)
 				delta := gmp.MustHost[int](args[0])
@@ -152,11 +152,11 @@ var stressPrograms = []stressProgram{
 			eng := e
 			eng.RegisterType("Int", gmp.KindType())
 			counter := 0
-			eng.RegisterPrim("mkVal", func(ctx context.Context, ce gmp.CapEnv, args []gmp.Value) (gmp.Value, gmp.CapEnv, error) {
+			eng.RegisterPrim("mkVal", func(ctx context.Context, ce gmp.CapEnv, args []gmp.Value, _ gmp.Applier) (gmp.Value, gmp.CapEnv, error) {
 				counter++
 				return gmp.ToValue(counter), ce, nil
 			})
-			eng.RegisterPrim("addInts", func(ctx context.Context, ce gmp.CapEnv, args []gmp.Value) (gmp.Value, gmp.CapEnv, error) {
+			eng.RegisterPrim("addInts", func(ctx context.Context, ce gmp.CapEnv, args []gmp.Value, _ gmp.Applier) (gmp.Value, gmp.CapEnv, error) {
 				a := gmp.MustHost[int](args[0])
 				b := gmp.MustHost[int](args[1])
 				return gmp.ToValue(a + b), ce, nil
@@ -190,27 +190,27 @@ var stressPrograms = []stressProgram{
 		file: "08_row_polymorphism.gmp",
 		setup: func(e *gmp.Engine) {
 			capEnvSetup(e)
-			e.RegisterPrim("readDB", func(ctx context.Context, ce gmp.CapEnv, args []gmp.Value) (gmp.Value, gmp.CapEnv, error) {
+			e.RegisterPrim("readDB", func(ctx context.Context, ce gmp.CapEnv, args []gmp.Value, _ gmp.Applier) (gmp.Value, gmp.CapEnv, error) {
 				v, _ := ce.Get("db")
 				n, _ := v.(int)
 				return gmp.ToValue(n), ce, nil
 			})
-			e.RegisterPrim("writeDB", func(ctx context.Context, ce gmp.CapEnv, args []gmp.Value) (gmp.Value, gmp.CapEnv, error) {
+			e.RegisterPrim("writeDB", func(ctx context.Context, ce gmp.CapEnv, args []gmp.Value, _ gmp.Applier) (gmp.Value, gmp.CapEnv, error) {
 				n := gmp.MustHost[int](args[0])
 				return &gmp.ConVal{Con: "Unit"}, ce.Set("db", n), nil
 			})
-			e.RegisterPrim("getLog", func(ctx context.Context, ce gmp.CapEnv, args []gmp.Value) (gmp.Value, gmp.CapEnv, error) {
+			e.RegisterPrim("getLog", func(ctx context.Context, ce gmp.CapEnv, args []gmp.Value, _ gmp.Applier) (gmp.Value, gmp.CapEnv, error) {
 				v, _ := ce.Get("log")
 				n, _ := v.(int)
 				return gmp.ToValue(n), ce, nil
 			})
-			e.RegisterPrim("appendLog", func(ctx context.Context, ce gmp.CapEnv, args []gmp.Value) (gmp.Value, gmp.CapEnv, error) {
+			e.RegisterPrim("appendLog", func(ctx context.Context, ce gmp.CapEnv, args []gmp.Value, _ gmp.Applier) (gmp.Value, gmp.CapEnv, error) {
 				v, _ := ce.Get("log")
 				n, _ := v.(int)
 				delta := gmp.MustHost[int](args[0])
 				return &gmp.ConVal{Con: "Unit"}, ce.Set("log", n+delta), nil
 			})
-			e.RegisterPrim("readConfig", func(ctx context.Context, ce gmp.CapEnv, args []gmp.Value) (gmp.Value, gmp.CapEnv, error) {
+			e.RegisterPrim("readConfig", func(ctx context.Context, ce gmp.CapEnv, args []gmp.Value, _ gmp.Applier) (gmp.Value, gmp.CapEnv, error) {
 				v, _ := ce.Get("cfg")
 				n, _ := v.(int)
 				return gmp.ToValue(n), ce, nil
@@ -239,12 +239,12 @@ var stressPrograms = []stressProgram{
 		setup: func(e *gmp.Engine) {
 			capEnvSetup(e)
 			e.DeclareBinding("seed", gmp.ConType("Int"))
-			e.RegisterPrim("readS", func(ctx context.Context, ce gmp.CapEnv, args []gmp.Value) (gmp.Value, gmp.CapEnv, error) {
+			e.RegisterPrim("readS", func(ctx context.Context, ce gmp.CapEnv, args []gmp.Value, _ gmp.Applier) (gmp.Value, gmp.CapEnv, error) {
 				v, _ := ce.Get("s")
 				n, _ := v.(int)
 				return gmp.ToValue(n), ce, nil
 			})
-			e.RegisterPrim("writeS", func(ctx context.Context, ce gmp.CapEnv, args []gmp.Value) (gmp.Value, gmp.CapEnv, error) {
+			e.RegisterPrim("writeS", func(ctx context.Context, ce gmp.CapEnv, args []gmp.Value, _ gmp.Applier) (gmp.Value, gmp.CapEnv, error) {
 				n := gmp.MustHost[int](args[0])
 				return &gmp.ConVal{Con: "Unit"}, ce.Set("s", n), nil
 			})
@@ -799,7 +799,7 @@ func TestStressMemory(t *testing.T) {
 func TestStressListFoldrLarge(t *testing.T) {
 	// Deep fold: foldr over a large list.
 	eng := gmp.NewEngine()
-	eng.RegisterPrim("add", func(ctx context.Context, ce gmp.CapEnv, args []gmp.Value) (gmp.Value, gmp.CapEnv, error) {
+	eng.RegisterPrim("add", func(ctx context.Context, ce gmp.CapEnv, args []gmp.Value, _ gmp.Applier) (gmp.Value, gmp.CapEnv, error) {
 		return gmp.ToValue(gmp.MustHost[int64](args[0]) + gmp.MustHost[int64](args[1])), ce, nil
 	})
 	eng.EnableRecursion()
@@ -841,7 +841,7 @@ main := foldr add 0 xs
 
 func TestStressListFmapLarge(t *testing.T) {
 	eng := gmp.NewEngine()
-	eng.RegisterPrim("add", func(ctx context.Context, ce gmp.CapEnv, args []gmp.Value) (gmp.Value, gmp.CapEnv, error) {
+	eng.RegisterPrim("add", func(ctx context.Context, ce gmp.CapEnv, args []gmp.Value, _ gmp.Applier) (gmp.Value, gmp.CapEnv, error) {
 		return gmp.ToValue(gmp.MustHost[int64](args[0]) + gmp.MustHost[int64](args[1])), ce, nil
 	})
 	eng.EnableRecursion()
@@ -1446,7 +1446,7 @@ func TestStressListDoLargeCartesian(t *testing.T) {
 	eng.EnableRecursion()
 	eng.SetStepLimit(100_000_000)
 	eng.SetDepthLimit(100_000)
-	eng.RegisterPrim("add", func(ctx context.Context, ce gmp.CapEnv, args []gmp.Value) (gmp.Value, gmp.CapEnv, error) {
+	eng.RegisterPrim("add", func(ctx context.Context, ce gmp.CapEnv, args []gmp.Value, _ gmp.Applier) (gmp.Value, gmp.CapEnv, error) {
 		return gmp.ToValue(gmp.MustHost[int64](args[0]) + gmp.MustHost[int64](args[1])), ce, nil
 	})
 	eng.DeclareBinding("xs", gmp.AppType(gmp.ConType("List"), gmp.ConType("Int")))
@@ -1642,7 +1642,7 @@ main := do {
 func TestStressMultiMonadProgram(t *testing.T) {
 	eng := gmp.NewEngine()
 	eng.EnableRecursion()
-	eng.RegisterPrim("add", func(ctx context.Context, ce gmp.CapEnv, args []gmp.Value) (gmp.Value, gmp.CapEnv, error) {
+	eng.RegisterPrim("add", func(ctx context.Context, ce gmp.CapEnv, args []gmp.Value, _ gmp.Applier) (gmp.Value, gmp.CapEnv, error) {
 		return gmp.ToValue(gmp.MustHost[int64](args[0]) + gmp.MustHost[int64](args[1])), ce, nil
 	})
 

@@ -219,7 +219,7 @@ func (ev *Evaluator) Eval(env *Env, capEnv CapEnv, expr core.Core) (EvalResult, 
 				Span:    e.S,
 			}
 		}
-		val, newCap, err := impl(ev.ctx, ce, args)
+		val, newCap, err := impl(ev.ctx, ce, args, ev.applier())
 		if err != nil {
 			return EvalResult{}, err
 		}
@@ -243,11 +243,22 @@ func (ev *Evaluator) ForceEffectful(r EvalResult) (EvalResult, error) {
 	if !ok {
 		return EvalResult{}, &RuntimeError{Message: fmt.Sprintf("missing primitive: %s", pv.Name)}
 	}
-	val, newCap, err := impl(ev.ctx, r.CapEnv, pv.Args)
+	val, newCap, err := impl(ev.ctx, r.CapEnv, pv.Args, ev.applier())
 	if err != nil {
 		return EvalResult{}, err
 	}
 	return EvalResult{val, newCap}, nil
+}
+
+// applier creates an Applier callback that delegates to the evaluator's apply method.
+func (ev *Evaluator) applier() Applier {
+	return func(fn Value, arg Value, capEnv CapEnv) (Value, CapEnv, error) {
+		r, err := ev.apply(capEnv, fn, arg, &core.App{})
+		if err != nil {
+			return nil, capEnv, err
+		}
+		return r.Value, r.CapEnv, nil
+	}
 }
 
 func (ev *Evaluator) apply(capEnv CapEnv, fn Value, arg Value, site *core.App) (EvalResult, error) {
@@ -285,7 +296,7 @@ func (ev *Evaluator) apply(capEnv CapEnv, fn Value, arg Value, site *core.App) (
 				Span:    site.S,
 			}
 		}
-		val, newCap, err := impl(ev.ctx, capEnv, args)
+		val, newCap, err := impl(ev.ctx, capEnv, args, ev.applier())
 		if err != nil {
 			return EvalResult{}, err
 		}

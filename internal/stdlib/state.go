@@ -26,7 +26,7 @@ modify :: forall s r. (s -> s) -> Computation { state : s | r } { state : s | r 
 modify := \f -> do { s <- get; put (f s) }
 `
 
-func getImpl(_ context.Context, ce eval.CapEnv, args []eval.Value) (eval.Value, eval.CapEnv, error) {
+func getImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
 	v, ok := ce.Get("state")
 	if !ok {
 		return nil, ce, &eval.RuntimeError{Message: "get: no state capability"}
@@ -38,7 +38,7 @@ func getImpl(_ context.Context, ce eval.CapEnv, args []eval.Value) (eval.Value, 
 	return val, ce, nil
 }
 
-func putImpl(_ context.Context, ce eval.CapEnv, args []eval.Value) (eval.Value, eval.CapEnv, error) {
+func putImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
 	newCe := ce.Set("state", args[0])
 	return &eval.ConVal{Con: "Unit"}, newCe, nil
 }

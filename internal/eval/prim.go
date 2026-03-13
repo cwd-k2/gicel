@@ -2,8 +2,15 @@ package eval
 
 import "context"
 
+// Applier is a callback that applies a function value to an argument.
+// It allows primitives to invoke closures and other callable values,
+// threading through the capability environment.
+type Applier func(fn Value, arg Value, capEnv CapEnv) (Value, CapEnv, error)
+
 // PrimImpl is the signature for host-provided primitive operations.
-type PrimImpl func(ctx context.Context, capEnv CapEnv, args []Value) (Value, CapEnv, error)
+// The apply parameter enables higher-order primitives (e.g. foldl) to
+// call back into the evaluator to apply function arguments.
+type PrimImpl func(ctx context.Context, capEnv CapEnv, args []Value, apply Applier) (Value, CapEnv, error)
 
 // PrimRegistry maps assumption names to their implementations.
 type PrimRegistry struct {

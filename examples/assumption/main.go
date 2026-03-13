@@ -29,7 +29,7 @@ func main() {
 	// Register the Go implementation.
 	// PrimImpl receives context, the current capability environment, and arguments.
 	// The type is declared in the source via ::, so DeclareAssumption is not needed.
-	eng.RegisterPrim("greet", func(ctx context.Context, capEnv gmp.CapEnv, args []gmp.Value) (gmp.Value, gmp.CapEnv, error) {
+	eng.RegisterPrim("greet", func(ctx context.Context, capEnv gmp.CapEnv, args []gmp.Value, _ gmp.Applier) (gmp.Value, gmp.CapEnv, error) {
 		fmt.Println("Hello from Go!")
 		return gmp.ToValue(nil), capEnv, nil // nil converts to Unit via ToValue
 	})

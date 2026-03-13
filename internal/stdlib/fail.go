@@ -34,6 +34,6 @@ fromResult := \r -> case r {
 }
 `
 
-func failImpl(_ context.Context, ce eval.CapEnv, args []eval.Value) (eval.Value, eval.CapEnv, error) {
+func failImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
 	return nil, ce, &eval.RuntimeError{Message: "fail"}
 }
