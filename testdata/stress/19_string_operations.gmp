@@ -31,9 +31,9 @@ strIdentR := append "test" empty
 -- Length of concatenated string
 concatLen := length (append "abc" "de")
 
-main := Pair strConcat
-             (Pair strLen
-                   (Pair strEqT
-                         (Pair strLT
-                               (Pair runeEqT
-                                     (Pair strIdentL concatLen)))))
+main := (strConcat,
+             (strLen,
+                   (strEqT,
+                         (strLT,
+                               (runeEqT,
+                                     (strIdentL, concatLen))))))

@@ -18,10 +18,10 @@ import Prelude
 failWith :: forall e r a. e -> Computation { fail : e | r } { fail : e | r } a
 failWith := assumption
 
-fail :: forall r a. Computation { fail : Unit | r } { fail : Unit | r } a
-fail := failWith Unit
+fail :: forall r a. Computation { fail : () | r } { fail : () | r } a
+fail := failWith ()
 
-fromMaybe :: forall a r. Maybe a -> Computation { fail : Unit | r } { fail : Unit | r } a
+fromMaybe :: forall a r. Maybe a -> Computation { fail : () | r } { fail : () | r } a
 fromMaybe := \m -> case m {
   Nothing -> fail;
   Just x  -> pure x

@@ -1,12 +1,12 @@
-readDB :: forall (r : Row). Unit -> Computation { db : Int | r } { db : Int | r } Int
+readDB :: forall (r : Row). () -> Computation { db : Int | r } { db : Int | r } Int
 readDB := assumption
-writeDB :: forall (r : Row). Int -> Computation { db : Int | r } { db : Int | r } Unit
+writeDB :: forall (r : Row). Int -> Computation { db : Int | r } { db : Int | r } ()
 writeDB := assumption
-getLog :: forall (r : Row). Unit -> Computation { log : Int | r } { log : Int | r } Int
+getLog :: forall (r : Row). () -> Computation { log : Int | r } { log : Int | r } Int
 getLog := assumption
-appendLog :: forall (r : Row). Int -> Computation { log : Int | r } { log : Int | r } Unit
+appendLog :: forall (r : Row). Int -> Computation { log : Int | r } { log : Int | r } ()
 appendLog := assumption
-readConfig :: forall (r : Row). Unit -> Computation { cfg : Int | r } { cfg : Int | r } Int
+readConfig :: forall (r : Row). () -> Computation { cfg : Int | r } { cfg : Int | r } Int
 readConfig := assumption
 
 intAdd :: Int -> Int -> Int
@@ -14,15 +14,15 @@ intAdd := assumption
 
 dbOp :: forall (r : Row). Int -> Computation { db : Int | r } { db : Int | r } Int
 dbOp := \delta -> do {
-  v <- readDB Unit;
+  v <- readDB ();
   _ <- writeDB (intAdd v delta);
-  readDB Unit
+  readDB ()
 }
 
-logOp :: forall (r : Row). Int -> Computation { log : Int | r } { log : Int | r } Unit
+logOp :: forall (r : Row). Int -> Computation { log : Int | r } { log : Int | r } ()
 logOp := \val -> do {
   _ <- appendLog val;
-  pure Unit
+  pure ()
 }
 
 dbWithLog :: forall (r : Row). Int -> Computation { db : Int, log : Int | r } { db : Int, log : Int | r } Int
@@ -34,23 +34,23 @@ dbWithLog := \delta -> do {
 
 fullPipeline :: Int -> Computation { db : Int, log : Int, cfg : Int } { db : Int, log : Int, cfg : Int } Int
 fullPipeline := \_ -> do {
-  cfg <- readConfig Unit;
+  cfg <- readConfig ();
   r1 <- dbWithLog cfg;
   r2 <- dbWithLog r1;
   _ <- logOp r2;
-  readDB Unit
+  readDB ()
 }
 
-compose :: forall (r : Row). (Unit -> Computation r r Int) -> (Int -> Computation r r Int) -> Unit -> Computation r r Int
-compose := \f -> \g -> \_ -> do { x <- f Unit; g x }
+compose :: forall (r : Row). (() -> Computation r r Int) -> (Int -> Computation r r Int) -> () -> Computation r r Int
+compose := \f -> \g -> \_ -> do { x <- f (); g x }
 
 main := do {
-  cfg <- readConfig Unit;
+  cfg <- readConfig ();
   r1 <- dbWithLog cfg;
   r2 <- dbWithLog r1;
   r3 <- dbOp r2;
   _ <- logOp r3;
   r4 <- dbWithLog r3;
   _ <- logOp r4;
-  readDB Unit
+  readDB ()
 }

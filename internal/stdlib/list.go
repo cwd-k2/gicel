@@ -70,10 +70,10 @@ _listReplicate := assumption
 _listReverse :: forall a. List a -> List a
 _listReverse := assumption
 
-_listZip :: forall a b. List a -> List b -> List (Pair a b)
+_listZip :: forall a b. List a -> List b -> List (a, b)
 _listZip := assumption
 
-_listUnzip :: forall a b. List (Pair a b) -> Pair (List a) (List b)
+_listUnzip :: forall a b. List (a, b) -> (List a, List b)
 _listUnzip := assumption
 
 foldl :: forall a b. (b -> a -> b) -> b -> List a -> b
@@ -94,10 +94,10 @@ replicate := _listReplicate
 reverse :: forall a. List a -> List a
 reverse := _listReverse
 
-zip :: forall a b. List a -> List b -> List (Pair a b)
+zip :: forall a b. List a -> List b -> List (a, b)
 zip := _listZip
 
-unzip :: forall a b. List (Pair a b) -> Pair (List a) (List b)
+unzip :: forall a b. List (a, b) -> (List a, List b)
 unzip := _listUnzip
 `
 
@@ -362,7 +362,7 @@ func zipImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applie
 		if xCon.Con != "Cons" || len(xCon.Args) != 2 || yCon.Con != "Cons" || len(yCon.Args) != 2 {
 			return nil, ce, fmt.Errorf("zip: malformed list")
 		}
-		pairs = append(pairs, &eval.ConVal{Con: "Pair", Args: []eval.Value{xCon.Args[0], yCon.Args[0]}})
+		pairs = append(pairs, &eval.RecordVal{Fields: map[string]eval.Value{"_1": xCon.Args[0], "_2": yCon.Args[0]}})
 		xs = xCon.Args[1]
 		ys = yCon.Args[1]
 	}
@@ -377,14 +377,14 @@ func unzipImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Appl
 	as := make([]eval.Value, len(items))
 	bs := make([]eval.Value, len(items))
 	for i, item := range items {
-		pair, ok := item.(*eval.ConVal)
-		if !ok || pair.Con != "Pair" || len(pair.Args) != 2 {
-			return nil, ce, fmt.Errorf("unzip: expected Pair at index %d", i)
+		rec, ok := item.(*eval.RecordVal)
+		if !ok {
+			return nil, ce, fmt.Errorf("unzip: expected tuple at index %d", i)
 		}
-		as[i] = pair.Args[0]
-		bs[i] = pair.Args[1]
+		as[i] = rec.Fields["_1"]
+		bs[i] = rec.Fields["_2"]
 	}
-	return &eval.ConVal{Con: "Pair", Args: []eval.Value{buildList(as), buildList(bs)}}, ce, nil
+	return &eval.RecordVal{Fields: map[string]eval.Value{"_1": buildList(as), "_2": buildList(bs)}}, ce, nil
 }
 
 // buildList creates a ConVal Cons/Nil chain from a slice.

@@ -31,9 +31,9 @@ cmpGT := compare 9 3
 -- Nested arithmetic
 nested := (1 + 2) * (3 + 4)
 
-main := Pair litInt
-             (Pair arithAdd
-                   (Pair fixity1
-                         (Pair chain
-                               (Pair eqTrue
-                                     (Pair cmpLT nested)))))
+main := (litInt,
+             (arithAdd,
+                   (fixity1,
+                         (chain,
+                               (eqTrue,
+                                     (cmpLT, nested))))))

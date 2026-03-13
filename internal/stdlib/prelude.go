@@ -4,9 +4,7 @@ package stdlib
 // Auto-loaded unless NoPrelude is set. Uses the same RegisterModule mechanism as stdlib packs.
 const PreludeSource = `
 data Bool = True | False
-data Unit = Unit
 data Result e a = Ok a | Err e
-data Pair a b = Pair a b
 data Maybe a = Just a | Nothing
 data List a = Cons a (List a) | Nil
 data Ordering = LT | EQ | GT
@@ -45,7 +43,7 @@ instance Eq Bool { eq := \x -> \y -> case x {
   False -> case y { True -> False; False -> True }
 } }
 
-instance Eq Unit { eq := \_ -> \_ -> True }
+instance Eq () { eq := \_ -> \_ -> True }
 
 instance Eq Ordering { eq := \x -> \y -> case x {
   LT -> case y { LT -> True; EQ -> False; GT -> False };
@@ -58,9 +56,9 @@ instance Eq a => Eq (Maybe a) { eq := \x -> \y -> case x {
   Just a -> case y { Nothing -> False; Just b -> eq a b }
 } }
 
-instance Eq a => Eq b => Eq (Pair a b) { eq := \x -> \y -> case x {
-  Pair a1 b1 -> case y {
-    Pair a2 b2 -> case eq a1 a2 { True -> eq b1 b2; False -> False }
+instance Eq a => Eq b => Eq (a, b) { eq := \x -> \y -> case x {
+  (a1, b1) -> case y {
+    (a2, b2) -> case eq a1 a2 { True -> eq b1 b2; False -> False }
   }
 } }
 
@@ -74,13 +72,13 @@ instance Foldable Maybe { foldr := \f -> \z -> \ma -> case ma {
   Just a -> f a z
 } }
 
-instance Semigroup Unit { append := \_ -> \_ -> Unit }
+instance Semigroup () { append := \_ -> \_ -> () }
 instance Semigroup Ordering { append := \x -> \y -> case x { EQ -> y; _ -> x } }
 instance Semigroup a => Semigroup (Maybe a) { append := \x -> \y -> case x {
   Nothing -> y;
   Just a -> case y { Nothing -> Just a; Just b -> Just (append a b) }
 } }
-instance Monoid Unit { empty := Unit }
+instance Monoid () { empty := () }
 instance Monoid Ordering { empty := EQ }
 instance Semigroup a => Monoid (Maybe a) { empty := Nothing }
 
@@ -88,7 +86,7 @@ instance Ord Bool { compare := \x -> \y -> case x {
   False -> case y { False -> EQ; True -> LT };
   True  -> case y { False -> GT; True -> EQ }
 } }
-instance Ord Unit { compare := \_ -> \_ -> EQ }
+instance Ord () { compare := \_ -> \_ -> EQ }
 instance Ord Ordering { compare := \x -> \y -> case x {
   LT -> case y { LT -> EQ; EQ -> LT; GT -> LT };
   EQ -> case y { LT -> GT; EQ -> EQ; GT -> LT };
@@ -98,9 +96,9 @@ instance Ord a => Ord (Maybe a) { compare := \x -> \y -> case x {
   Nothing -> case y { Nothing -> EQ; Just _ -> LT };
   Just a  -> case y { Nothing -> GT; Just b -> compare a b }
 } }
-instance Ord a => Ord b => Ord (Pair a b) { compare := \x -> \y -> case x {
-  Pair a1 b1 -> case y {
-    Pair a2 b2 -> append (compare a1 a2) (compare b1 b2)
+instance Ord a => Ord b => Ord (a, b) { compare := \x -> \y -> case x {
+  (a1, b1) -> case y {
+    (a2, b2) -> append (compare a1 a2) (compare b1 b2)
   }
 } }
 
@@ -112,19 +110,11 @@ instance Applicative Maybe {
   }
 }
 
-instance Functor (Pair a) { fmap := \f -> \p -> case p { Pair a b -> Pair a (f b) } }
-
-instance Foldable (Pair a) { foldr := \f -> \z -> \p -> case p { Pair _ b -> f b z } }
-
 instance Traversable Maybe {
   traverse := \f -> \x -> case x {
     Nothing -> wrap Nothing;
     Just a  -> fmap (\b -> Just b) (f a)
   }
-}
-
-instance Traversable (Pair a) {
-  traverse := \f -> \p -> case p { Pair a b -> fmap (\c -> Pair a c) (f b) }
 }
 
 instance Eq a => Eq (List a) { eq := \xs -> \ys -> case xs {
@@ -185,11 +175,11 @@ maybe := \def -> \f -> \m -> case m { Nothing -> def; Just a -> f a }
 result :: forall e a b. (e -> b) -> (a -> b) -> Result e a -> b
 result := \onErr -> \onOk -> \r -> case r { Err e -> onErr e; Ok a -> onOk a }
 
-fst :: forall a b. Pair a b -> a
-fst := \p -> case p { Pair a _ -> a }
+fst :: forall a b. (a, b) -> a
+fst := \p -> p!#_1
 
-snd :: forall a b. Pair a b -> b
-snd := \p -> case p { Pair _ b -> b }
+snd :: forall a b. (a, b) -> b
+snd := \p -> p!#_2
 
 head :: forall a. List a -> Maybe a
 head := \xs -> case xs { Nil -> Nothing; Cons x _ -> Just x }

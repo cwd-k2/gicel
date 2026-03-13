@@ -298,6 +298,9 @@ func typeNameForDict(ty types.Type) string {
 		parts = append(parts, h.Name)
 	case *types.TyVar, *types.TySkolem, *types.TyMeta:
 		// Type variables are omitted from dict names.
+	case *types.TyEvidenceRow:
+		// Encode row structure into the name to distinguish e.g. {} from {_1, _2}.
+		parts = append(parts, evidenceRowName(h))
 	default:
 		parts = append(parts, "?")
 	}
@@ -310,6 +313,33 @@ func typeNameForDict(ty types.Type) string {
 		return ""
 	}
 	return strings.Join(parts, "$")
+}
+
+// evidenceRowName produces a stable name component for an evidence row.
+// Empty row → "R0", row with labels → "R2$_1$_2", etc.
+func evidenceRowName(row *types.TyEvidenceRow) string {
+	switch entries := row.Entries.(type) {
+	case *types.CapabilityEntries:
+		if len(entries.Fields) == 0 {
+			return "R0"
+		}
+		parts := []string{fmt.Sprintf("R%d", len(entries.Fields))}
+		for _, f := range entries.Fields {
+			parts = append(parts, f.Label)
+		}
+		return strings.Join(parts, "$")
+	case *types.ConstraintEntries:
+		if len(entries.Entries) == 0 {
+			return "C0"
+		}
+		parts := []string{fmt.Sprintf("C%d", len(entries.Entries))}
+		for _, e := range entries.Entries {
+			parts = append(parts, e.ClassName)
+		}
+		return strings.Join(parts, "$")
+	default:
+		return "?"
+	}
 }
 
 // instancesOverlap checks if two instances can match the same type arguments

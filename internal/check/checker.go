@@ -274,6 +274,8 @@ func (ch *Checker) initContext() {
 	if ch.config.RegisteredTypes == nil {
 		ch.config.RegisteredTypes = make(map[string]types.Kind)
 	}
+	// Built-in type constructors.
+	ch.config.RegisteredTypes["Record"] = &types.KArrow{From: types.KRow{}, To: types.KType{}}
 }
 
 func (ch *Checker) fresh() int {

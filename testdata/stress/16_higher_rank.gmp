@@ -2,16 +2,16 @@
 -- Tests rank-2 polymorphic arguments and subsumption.
 
 -- Rank-2: argument must be truly polymorphic
-applyToBoth :: (forall a. a -> a) -> Pair Bool Unit
-applyToBoth := \f -> Pair (f True) (f Unit)
+applyToBoth :: (forall a. a -> a) -> (Bool, ())
+applyToBoth := \f -> (f True, f ())
 
 -- Rank-2 with constraint propagation
 applyPolyId :: (forall a. a -> a) -> Bool
 applyPolyId := \f -> f True
 
 -- Multiple rank-2 uses
-dualApply :: (forall a. a -> a) -> (forall a. a -> a) -> Pair Bool Unit
-dualApply := \f -> \g -> Pair (f True) (g Unit)
+dualApply :: (forall a. a -> a) -> (forall a. a -> a) -> (Bool, ())
+dualApply := \f -> \g -> (f True, g ())
 
 -- Rank-2 in case branch
 caseWithPoly :: Bool -> (forall a. a -> a) -> Bool
@@ -22,8 +22,8 @@ id :: forall a. a -> a
 id := \x -> x
 
 -- Compose with rank-2
-composeId :: (forall a. a -> a) -> (forall a. a -> a) -> Pair Bool Unit
-composeId := \f -> \g -> Pair (f (g True)) (g (f Unit))
+composeId :: (forall a. a -> a) -> (forall a. a -> a) -> (Bool, ())
+composeId := \f -> \g -> (f (g True), g (f ()))
 
 -- Subsumption: poly used at mono position
 useMono :: (Bool -> Bool) -> Bool
@@ -31,8 +31,8 @@ useMono := \f -> f True
 
 testSubsumption := useMono id
 
-main := Pair (applyToBoth id)
-             (Pair testSubsumption
-                   (Pair (applyPolyId id)
-                         (Pair (caseWithPoly True id)
-                               (composeId id id))))
+main := (applyToBoth id,
+             (testSubsumption,
+                   (applyPolyId id,
+                         (caseWithPoly True id,
+                               composeId id id))))

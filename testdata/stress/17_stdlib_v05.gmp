@@ -2,27 +2,24 @@
 -- Tests Semigroup, Monoid, Applicative, Traversable, and Ord completion.
 
 -- Semigroup tests
-sgUnit := append Unit Unit
 sgOrdLT := append LT EQ
 sgOrdEQ := append EQ GT
 sgOrdGT := append GT LT
+sgListAppend := append (Cons True Nil) (Cons False Nil)
 
 -- Monoid tests
-mnUnit := (empty :: Unit)
 mnOrd  := (empty :: Ordering)
+mnList := (empty :: List Bool)
 
--- Ord tests (Bool, Unit, Ordering, Maybe, Pair)
+-- Ord tests (Bool, Ordering, Maybe)
 ordBool1 := compare False True
 ordBool2 := compare True False
 ordBool3 := compare True True
-ordUnit  := compare Unit Unit
 ordOrdLT := compare LT EQ
 ordOrdGT := compare GT LT
 ordMaybe1 := compare (Nothing :: Maybe Bool) (Just True)
 ordMaybe2 := compare (Just False) (Just True)
 ordMaybe3 := compare (Just True) (Nothing :: Maybe Bool)
-ordPair1  := compare (Pair False True) (Pair False False)
-ordPair2  := compare (Pair True False) (Pair True True)
 
 -- Applicative tests
 appWrap := (wrap True :: Maybe Bool)
@@ -32,20 +29,16 @@ appAp   := ap (Just (\x -> case x { True -> False; False -> True })) (Just True)
 travMaybeJust := traverse (\x -> Just x) (Just True)
 travMaybeNothing := traverse (\x -> Just x) (Nothing :: Maybe Bool)
 
--- Functor Pair
-fmapPair := fmap (\x -> case x { True -> False; False -> True }) (Pair Unit True)
+-- Functor List
+fmapList := fmap (\x -> case x { True -> False; False -> True }) (Cons True Nil)
 
--- Foldable Pair
-foldPair := foldr (\x -> \acc -> x) False (Pair Unit True)
+-- Foldable List
+foldList := foldr (\x -> \acc -> x) False (Cons True Nil)
 
--- Traversable Pair
-travPair := traverse (\x -> Just x) (Pair Unit True)
-
-main := Pair sgUnit
-             (Pair sgOrdLT
-                   (Pair ordBool1
-                         (Pair ordPair2
-                               (Pair appWrap
-                                     (Pair travMaybeJust
-                                           (Pair fmapPair
-                                                 (Pair foldPair mnOrd)))))))
+main := (sgOrdLT,
+             (ordBool1,
+                   (ordMaybe2,
+                         (appWrap,
+                               (travMaybeJust,
+                                     (fmapList,
+                                           (foldList, mnOrd)))))))

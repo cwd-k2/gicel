@@ -69,12 +69,12 @@ listFilter := do {
   }
 }
 
--- 9. List cartesian product with Pair
-listCartesian :: List (Pair Bool Bool)
+-- 9. List cartesian product with tuple
+listCartesian :: List (Bool, Bool)
 listCartesian := do {
   x <- Cons True (Cons False Nil);
   y <- Cons True (Cons False Nil);
-  Cons (Pair x y) Nil
+  Cons (x, y) Nil
 }
 
 -- 10. Empty list propagation
@@ -154,13 +154,9 @@ eqMaybeChain := eq (Just (Just True)) (Just (Just True))
 ordMaybeTest :: Ordering
 ordMaybeTest := compare (Just False) (Just True)
 
--- 21. Pair of Maybes with Eq
+-- 21. Tuple of Maybes with Eq
 eqPairMaybe :: Bool
-eqPairMaybe := eq (Pair (Just True) (Just False)) (Pair (Just True) (Just False))
-
--- 22. Functor over Pair
-fmapPairMaybe :: Pair Unit (Maybe Bool)
-fmapPairMaybe := fmap (\mb -> case mb { Just x -> Just (case x { True -> False; False -> True }); Nothing -> Nothing }) (Pair Unit (Just True))
+eqPairMaybe := eq (Just True, Just False) (Just True, Just False)
 
 -- ======================================================================
 -- Foldable / Traversable patterns
@@ -170,9 +166,9 @@ fmapPairMaybe := fmap (\mb -> case mb { Just x -> Just (case x { True -> False; 
 foldListBool :: Bool
 foldListBool := foldr (\x -> \acc -> case x { True -> acc; False -> acc }) True (Cons True (Cons False Nil))
 
--- 24. foldr with Pair accumulator
-foldPairAcc :: Pair Bool Bool
-foldPairAcc := foldr (\x -> \acc -> case acc { Pair a b -> case x { True -> Pair True b; False -> Pair a True } }) (Pair False False) (Cons True (Cons False Nil))
+-- 24. foldr with tuple accumulator
+foldPairAcc :: (Bool, Bool)
+foldPairAcc := foldr (\x -> \acc -> case acc { (a, b) -> case x { True -> (True, b); False -> (a, True) } }) (False, False) (Cons True (Cons False Nil))
 
 -- 25. Traverse Maybe over Maybe
 traverseMaybeTest :: Maybe (Maybe Bool)
@@ -205,19 +201,19 @@ deepMaybe := Just (Just (Just (Just True)))
 deepMaybeEq :: Bool
 deepMaybeEq := eq deepMaybe deepMaybe
 
--- 30. Deeply nested Pair
-deepPair :: Pair (Pair Bool Bool) (Pair Bool Bool)
-deepPair := Pair (Pair True False) (Pair False True)
+-- 30. Deeply nested tuple
+deepPair :: ((Bool, Bool), (Bool, Bool))
+deepPair := ((True, False), (False, True))
 
 deepPairEq :: Bool
 deepPairEq := eq deepPair deepPair
 
 -- 31. Result type interactions
-resultOkTest :: Result Unit Bool
+resultOkTest :: Result () Bool
 resultOkTest := Ok True
 
-resultErrTest :: Result Unit Bool
-resultErrTest := Err Unit
+resultErrTest :: Result () Bool
+resultErrTest := Err ()
 
 -- 32. Combine Semigroup with Maybe functor
 semigroupInFmap :: Maybe Ordering
@@ -239,40 +235,40 @@ ixbindComp := ixbind (ixpure True) (\x -> ixpure x)
 -- Combine everything in main
 -- ======================================================================
 
-main := Pair maybeChain
-  (Pair nothingFirst
-  (Pair nothingMiddle
-  (Pair nothingLast
-  (Pair nestedMaybeDo
-  (Pair maybePure
-  (Pair maybeDoCase
-  (Pair maybeDoNestedCase
-  (Pair listFlatMap
-  (Pair listFilter
-  (Pair listCartesian
-  (Pair listEmpty
-  (Pair listSingleton
-  (Pair listEqTest
-  (Pair listEqTestFalse
-  (Pair listEqNilNil
-  (Pair listEqNilCons
-  (Pair listAppendTest
-  (Pair listMonoidTest
-  (Pair listFmapTest
-  (Pair listFoldrTest
-  (Pair eqMaybeChain
-  (Pair ordMaybeTest
-  (Pair eqPairMaybe
-  (Pair foldListBool
-  (Pair foldPairAcc
-  (Pair traverseMaybeTest
-  (Pair apTest
-  (Pair apNothingFn
-  (Pair apNothingVal
-  (Pair deepMaybeEq
-  (Pair deepPairEq
-  (Pair resultOkTest
-  (Pair semigroupInFmap
-  (Pair ixpureComp
+main := (maybeChain,
+  (nothingFirst,
+  (nothingMiddle,
+  (nothingLast,
+  (nestedMaybeDo,
+  (maybePure,
+  (maybeDoCase,
+  (maybeDoNestedCase,
+  (listFlatMap,
+  (listFilter,
+  (listCartesian,
+  (listEmpty,
+  (listSingleton,
+  (listEqTest,
+  (listEqTestFalse,
+  (listEqNilNil,
+  (listEqNilCons,
+  (listAppendTest,
+  (listMonoidTest,
+  (listFmapTest,
+  (listFoldrTest,
+  (eqMaybeChain,
+  (ordMaybeTest,
+  (eqPairMaybe,
+  (foldListBool,
+  (foldPairAcc,
+  (traverseMaybeTest,
+  (apTest,
+  (apNothingFn,
+  (apNothingVal,
+  (deepMaybeEq,
+  (deepPairEq,
+  (resultOkTest,
+  (semigroupInFmap,
+  (ixpureComp,
   ixbindComp
-  ))))))))))))))))))))))))))))))))))
+  )))))))))))))))))))))))))))))))))))

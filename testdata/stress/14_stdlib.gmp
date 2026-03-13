@@ -7,7 +7,7 @@ not := \b -> case b { True -> False; False -> True }
 eqTest1 := eq True True
 eqTest2 := eq (Just True) (Just True)
 eqTest3 := eq (Just True) Nothing
-eqTest4 := eq (Pair True Unit) (Pair True Unit)
+eqTest4 := eq (Cons True (Cons False Nil)) (Cons True (Cons False Nil))
 
 -- Functor: map over Maybe.
 mapTest := fmap not (Just True)
@@ -15,4 +15,4 @@ mapTest := fmap not (Just True)
 -- Foldable: fold Maybe.
 foldTest := foldr (\x -> \_ -> x) False (Just True)
 
-main := Pair eqTest1 (Pair eqTest2 (Pair eqTest3 (Pair eqTest4 (Pair mapTest foldTest))))
+main := (eqTest1, (eqTest2, (eqTest3, (eqTest4, (mapTest, foldTest)))))

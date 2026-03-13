@@ -114,13 +114,13 @@ var stressPrograms = []stressProgram{
 			e.RegisterPrim("incN", func(ctx context.Context, ce gmp.CapEnv, args []gmp.Value, _ gmp.Applier) (gmp.Value, gmp.CapEnv, error) {
 				v, _ := ce.Get("n")
 				n, _ := v.(int)
-				return &gmp.ConVal{Con: "Unit"}, ce.Set("n", n+1), nil
+				return &gmp.RecordVal{Fields: map[string]gmp.Value{}}, ce.Set("n", n+1), nil
 			})
 			e.RegisterPrim("addN", func(ctx context.Context, ce gmp.CapEnv, args []gmp.Value, _ gmp.Applier) (gmp.Value, gmp.CapEnv, error) {
 				v, _ := ce.Get("n")
 				n, _ := v.(int)
 				delta := gmp.MustHost[int](args[0])
-				return &gmp.ConVal{Con: "Unit"}, ce.Set("n", n+delta), nil
+				return &gmp.RecordVal{Fields: map[string]gmp.Value{}}, ce.Set("n", n+delta), nil
 			})
 		},
 		caps: map[string]any{"n": 0},
@@ -140,7 +140,7 @@ var stressPrograms = []stressProgram{
 			// convertAndCoerce True = coerce (convert True)
 			// convert True (Convert Bool (Maybe Bool)) = Just True
 			// coerce (Just True) (Coercible (Maybe Bool) Bool) = True
-			// coerced2 = (coerce :: Unit -> Bool) (coerce True) = True
+			// coerced2 = (coerce :: () -> Bool) (coerce True) = True
 			// main = case True { True -> coerced2; ... } = True
 			assertCon(t, v, "True")
 		},
@@ -179,9 +179,9 @@ var stressPrograms = []stressProgram{
 			intPrimSetup(e)
 		},
 		check: func(t *testing.T, v gmp.Value) {
-			con, ok := v.(*gmp.ConVal)
-			if !ok || con.Con != "Pair" {
-				t.Errorf("expected Pair, got %s", v)
+			rv, ok := v.(*gmp.RecordVal)
+			if !ok || len(rv.Fields) != 2 {
+				t.Errorf("expected tuple, got %s", v)
 			}
 		},
 	},
@@ -197,7 +197,7 @@ var stressPrograms = []stressProgram{
 			})
 			e.RegisterPrim("writeDB", func(ctx context.Context, ce gmp.CapEnv, args []gmp.Value, _ gmp.Applier) (gmp.Value, gmp.CapEnv, error) {
 				n := gmp.MustHost[int](args[0])
-				return &gmp.ConVal{Con: "Unit"}, ce.Set("db", n), nil
+				return &gmp.RecordVal{Fields: map[string]gmp.Value{}}, ce.Set("db", n), nil
 			})
 			e.RegisterPrim("getLog", func(ctx context.Context, ce gmp.CapEnv, args []gmp.Value, _ gmp.Applier) (gmp.Value, gmp.CapEnv, error) {
 				v, _ := ce.Get("log")
@@ -208,7 +208,7 @@ var stressPrograms = []stressProgram{
 				v, _ := ce.Get("log")
 				n, _ := v.(int)
 				delta := gmp.MustHost[int](args[0])
-				return &gmp.ConVal{Con: "Unit"}, ce.Set("log", n+delta), nil
+				return &gmp.RecordVal{Fields: map[string]gmp.Value{}}, ce.Set("log", n+delta), nil
 			})
 			e.RegisterPrim("readConfig", func(ctx context.Context, ce gmp.CapEnv, args []gmp.Value, _ gmp.Applier) (gmp.Value, gmp.CapEnv, error) {
 				v, _ := ce.Get("cfg")
@@ -223,14 +223,14 @@ var stressPrograms = []stressProgram{
 		file:  "09_conditional_instances.gmp",
 		setup: func(e *gmp.Engine) {},
 		check: func(t *testing.T, v gmp.Value) {
-			// main = Pair eqTest1 (Pair eqTest2 (Pair eqTest3 eqTest4))
+			// main = (eqTest1, (eqTest2, (eqTest3, eqTest4)))
 			// eqTest1 = True (val1==val2), eqTest2 = False (val1!=val3)
-			con, ok := v.(*gmp.ConVal)
-			if !ok || con.Con != "Pair" {
-				t.Errorf("expected Pair, got %s", v)
+			rv, ok := v.(*gmp.RecordVal)
+			if !ok || len(rv.Fields) < 2 {
+				t.Errorf("expected tuple, got %s", v)
 				return
 			}
-			assertCon(t, con.Args[0], "True") // val1 == val2
+			assertCon(t, rv.Fields["_1"], "True") // val1 == val2
 		},
 	},
 	{
@@ -246,15 +246,15 @@ var stressPrograms = []stressProgram{
 			})
 			e.RegisterPrim("writeS", func(ctx context.Context, ce gmp.CapEnv, args []gmp.Value, _ gmp.Applier) (gmp.Value, gmp.CapEnv, error) {
 				n := gmp.MustHost[int](args[0])
-				return &gmp.ConVal{Con: "Unit"}, ce.Set("s", n), nil
+				return &gmp.RecordVal{Fields: map[string]gmp.Value{}}, ce.Set("s", n), nil
 			})
 		},
 		caps:  map[string]any{"s": 0},
 		binds: map[string]gmp.Value{"seed": gmp.ToValue(10)},
 		check: func(t *testing.T, v gmp.Value) {
-			con, ok := v.(*gmp.ConVal)
-			if !ok || con.Con != "Pair" {
-				t.Errorf("expected Pair, got %s", v)
+			rv, ok := v.(*gmp.RecordVal)
+			if !ok || len(rv.Fields) != 2 {
+				t.Errorf("expected tuple, got %s", v)
 			}
 		},
 	},
@@ -274,13 +274,13 @@ var stressPrograms = []stressProgram{
 			e.SetStepLimit(100_000_000)
 		},
 		check: func(t *testing.T, v gmp.Value) {
-			con, ok := v.(*gmp.ConVal)
-			if !ok || con.Con != "Pair" {
-				t.Errorf("expected Pair, got %s", v)
+			rv, ok := v.(*gmp.RecordVal)
+			if !ok || len(rv.Fields) < 2 {
+				t.Errorf("expected tuple, got %s", v)
 				return
 			}
 			// expr1 = And True (Not False) = And True True = True
-			assertCon(t, con.Args[0], "True")
+			assertCon(t, rv.Fields["_1"], "True")
 		},
 	},
 	{
@@ -307,13 +307,13 @@ libNot := \b -> case b { LibTrue -> LibFalse; LibFalse -> LibTrue }
 		file:  "14_stdlib.gmp",
 		setup: func(e *gmp.Engine) {},
 		check: func(t *testing.T, v gmp.Value) {
-			// main = Pair True (Pair True (Pair False (Pair True (Pair (Just False) True))))
-			con, ok := v.(*gmp.ConVal)
-			if !ok || con.Con != "Pair" {
-				t.Errorf("expected Pair, got %s", v)
+			// main = (True, (True, (False, (True, ((Just False), True)))))
+			rv, ok := v.(*gmp.RecordVal)
+			if !ok || len(rv.Fields) < 2 {
+				t.Errorf("expected tuple, got %s", v)
 				return
 			}
-			assertCon(t, con.Args[0], "True") // eq True True
+			assertCon(t, rv.Fields["_1"], "True") // eq True True
 		},
 	},
 	{
@@ -322,12 +322,12 @@ libNot := \b -> case b { LibTrue -> LibFalse; LibFalse -> LibTrue }
 		setup: func(e *gmp.Engine) {},
 		check: func(t *testing.T, v gmp.Value) {
 			// selfEq packBool = True (eq True True)
-			con, ok := v.(*gmp.ConVal)
-			if !ok || con.Con != "Pair" {
-				t.Errorf("expected Pair, got %s", v)
+			rv, ok := v.(*gmp.RecordVal)
+			if !ok || len(rv.Fields) < 2 {
+				t.Errorf("expected tuple, got %s", v)
 				return
 			}
-			assertCon(t, con.Args[0], "True")
+			assertCon(t, rv.Fields["_1"], "True")
 		},
 	},
 	{
@@ -335,20 +335,23 @@ libNot := \b -> case b { LibTrue -> LibFalse; LibFalse -> LibTrue }
 		file:  "16_higher_rank.gmp",
 		setup: func(e *gmp.Engine) {},
 		check: func(t *testing.T, v gmp.Value) {
-			// main = Pair (Pair True Unit) (Pair True ...)
-			con, ok := v.(*gmp.ConVal)
-			if !ok || con.Con != "Pair" {
-				t.Errorf("expected Pair, got %s", v)
+			// main = ((True, ()), (True, ...))
+			rv, ok := v.(*gmp.RecordVal)
+			if !ok || len(rv.Fields) < 2 {
+				t.Errorf("expected tuple, got %s", v)
 				return
 			}
-			// first element is applyToBoth id = Pair True Unit
-			inner, ok := con.Args[0].(*gmp.ConVal)
-			if !ok || inner.Con != "Pair" {
-				t.Errorf("expected inner Pair, got %s", con.Args[0])
+			// first element is applyToBoth id = (True, ())
+			inner, ok := rv.Fields["_1"].(*gmp.RecordVal)
+			if !ok || len(inner.Fields) != 2 {
+				t.Errorf("expected inner tuple, got %s", rv.Fields["_1"])
 				return
 			}
-			assertCon(t, inner.Args[0], "True")
-			assertCon(t, inner.Args[1], "Unit")
+			assertCon(t, inner.Fields["_1"], "True")
+			unitV, ok := inner.Fields["_2"].(*gmp.RecordVal)
+			if !ok || len(unitV.Fields) != 0 {
+				t.Errorf("expected () in inner _2, got %s", inner.Fields["_2"])
+			}
 		},
 	},
 	{
@@ -356,12 +359,13 @@ libNot := \b -> case b { LibTrue -> LibFalse; LibFalse -> LibTrue }
 		file:  "17_stdlib_v05.gmp",
 		setup: func(e *gmp.Engine) {},
 		check: func(t *testing.T, v gmp.Value) {
-			con, ok := v.(*gmp.ConVal)
-			if !ok || con.Con != "Pair" {
-				t.Errorf("expected Pair, got %s", v)
+			rv, ok := v.(*gmp.RecordVal)
+			if !ok || len(rv.Fields) < 2 {
+				t.Errorf("expected tuple, got %s", v)
 				return
 			}
-			assertCon(t, con.Args[0], "Unit") // append Unit Unit = Unit
+			// First element: sgOrdLT = append LT EQ = LT
+			assertCon(t, rv.Fields["_1"], "LT")
 		},
 	},
 	{
@@ -373,14 +377,14 @@ libNot := \b -> case b { LibTrue -> LibFalse; LibFalse -> LibTrue }
 			}
 		},
 		check: func(t *testing.T, v gmp.Value) {
-			// main = Pair 42 (Pair 3 (Pair 7 (Pair 10 (Pair True (Pair LT 21)))))
-			con, ok := v.(*gmp.ConVal)
-			if !ok || con.Con != "Pair" {
-				t.Errorf("expected Pair, got %s", v)
+			// main = (42, (3, (7, (10, (True, (LT, 21))))))
+			rv, ok := v.(*gmp.RecordVal)
+			if !ok || len(rv.Fields) < 2 {
+				t.Errorf("expected tuple, got %s", v)
 				return
 			}
 			// litInt = 42
-			if hv := gmp.MustHost[int64](con.Args[0]); hv != 42 {
+			if hv := gmp.MustHost[int64](rv.Fields["_1"]); hv != 42 {
 				t.Errorf("litInt: expected 42, got %d", hv)
 			}
 		},
@@ -397,13 +401,13 @@ libNot := \b -> case b { LibTrue -> LibFalse; LibFalse -> LibTrue }
 			}
 		},
 		check: func(t *testing.T, v gmp.Value) {
-			// main = Pair "hello world" (Pair 5 (Pair True ...))
-			con, ok := v.(*gmp.ConVal)
-			if !ok || con.Con != "Pair" {
-				t.Errorf("expected Pair, got %s", v)
+			// main = ("hello world", (5, (True, ...)))
+			rv, ok := v.(*gmp.RecordVal)
+			if !ok || len(rv.Fields) < 2 {
+				t.Errorf("expected tuple, got %s", v)
 				return
 			}
-			if hv := gmp.MustHost[string](con.Args[0]); hv != "hello world" {
+			if hv := gmp.MustHost[string](rv.Fields["_1"]); hv != "hello world" {
 				t.Errorf("strConcat: expected 'hello world', got '%s'", hv)
 			}
 		},
@@ -424,17 +428,17 @@ libNot := \b -> case b { LibTrue -> LibFalse; LibFalse -> LibTrue }
 		},
 		caps: map[string]any{
 			"state": &gmp.HostVal{Inner: int64(0)},
-			"fail":  &gmp.ConVal{Con: "Unit"},
+			"fail":  &gmp.RecordVal{Fields: map[string]gmp.Value{}},
 		},
 		check: func(t *testing.T, v gmp.Value) {
-			// main = Pair v1 (Pair v2 (Pair v3 (Pair v4 (Pair v5 v6))))
+			// main = (v1, (v2, (v3, (v4, (v5, v6)))))
 			// v1=100, v2=1, v3=42, v4=True, v5=20, v6=111
-			con, ok := v.(*gmp.ConVal)
-			if !ok || con.Con != "Pair" {
-				t.Errorf("expected Pair, got %s", v)
+			rv, ok := v.(*gmp.RecordVal)
+			if !ok || len(rv.Fields) < 2 {
+				t.Errorf("expected tuple, got %s", v)
 				return
 			}
-			if hv := gmp.MustHost[int64](con.Args[0]); hv != 100 {
+			if hv := gmp.MustHost[int64](rv.Fields["_1"]); hv != 100 {
 				t.Errorf("v1 (putAndGet): expected 100, got %d", hv)
 			}
 		},
@@ -446,7 +450,7 @@ libNot := \b -> case b { LibTrue -> LibFalse; LibFalse -> LibTrue }
 			e.EnableRecursion()
 		},
 		check: func(t *testing.T, v gmp.Value) {
-			// Deeply nested Pair. Walk the spine and check key values.
+			// Deeply nested tuple. Walk the spine and check key values.
 			p := v
 			// Element 0: maybeChain = Just True
 			p = assertPairHead(t, p, "maybeChain", func(t *testing.T, v gmp.Value) {
@@ -718,7 +722,7 @@ func TestStressGeneratedLargeProgram(t *testing.T) {
 	source += `
 class Eq a { eq :: a -> a -> Bool }
 instance Eq Bool { eq := \x -> \y -> case x { True -> y; False -> case y { True -> False; False -> True } } }
-instance Eq Unit { eq := \_ -> \_ -> True }
+instance Eq () { eq := \_ -> \_ -> True }
 `
 
 	// Generate 50 functions that pattern match
@@ -1006,16 +1010,16 @@ func TestStressDeepDoChainMaybe(t *testing.T) {
 // Stress test helpers for 21_ixmonad_monadic
 // ---------------------------------------------------------------------------
 
-// assertPairHead extracts the first element of a Pair, checks it, and returns the second.
+// assertPairHead extracts the first element of a tuple, checks it, and returns the second.
 func assertPairHead(t *testing.T, v gmp.Value, label string, check func(*testing.T, gmp.Value)) gmp.Value {
 	t.Helper()
-	con, ok := v.(*gmp.ConVal)
-	if !ok || con.Con != "Pair" || len(con.Args) < 2 {
-		t.Errorf("%s: expected Pair, got %v", label, v)
+	rv, ok := v.(*gmp.RecordVal)
+	if !ok || len(rv.Fields) < 2 {
+		t.Errorf("%s: expected tuple, got %v", label, v)
 		return v
 	}
-	check(t, con.Args[0])
-	return con.Args[1]
+	check(t, rv.Fields["_1"])
+	return rv.Fields["_2"]
 }
 
 // assertConArg checks that v is a ConVal with name `con` and first arg is a ConVal with name `arg`.
@@ -1085,14 +1089,14 @@ func TestStressListCartesianProduct(t *testing.T) {
 	eng.SetStepLimit(100_000_000)
 	eng.SetDepthLimit(100_000)
 
-	// do { x <- [T,F,T]; y <- [T,F]; Cons (Pair x y) Nil } :: List (Pair Bool Bool)
+	// do { x <- [T,F,T]; y <- [T,F]; Cons (x, y) Nil } :: List (Bool, Bool)
 	// = 3×2 = 6 elements
 	rt, err := eng.NewRuntime(`
-main :: List (Pair Bool Bool)
+main :: List (Bool, Bool)
 main := do {
   x <- Cons True (Cons False (Cons True Nil));
   y <- Cons True (Cons False Nil);
-  Cons (Pair x y) Nil
+  Cons (x, y) Nil
 }
 `)
 	if err != nil {
@@ -1289,13 +1293,13 @@ func TestStressAllClassesCombined(t *testing.T) {
 -- Eq
 r1 := eq True True
 r2 := eq (Just LT) (Just LT)
-r3 := eq (Pair True Unit) (Pair True Unit)
+r3 := eq (True, ()) (True, ())
 r4 := eq (Cons True (Cons False Nil)) (Cons True (Cons False Nil))
 
 -- Ord
 r5 := compare False True
 r6 := compare (Just False) (Just True)
-r7 := compare (Pair True False) (Pair True True)
+r7 := compare (True, False) (True, True)
 
 -- Semigroup
 r8 := append LT GT
@@ -1310,16 +1314,16 @@ r12 := fmap (\x -> case x { True -> False; False -> True }) (Just True)
 r13 := fmap (\x -> Just x) (Cons True (Cons False Nil))
 
 -- Foldable
-r14 := foldr (\x -> \acc -> acc) Unit (Just True)
+r14 := foldr (\x -> \acc -> acc) False (Just True)
 r15 := foldr (\x -> \acc -> Cons x acc) Nil (Cons True (Cons False Nil))
 
 -- Applicative
 r16 := (wrap True :: Maybe Bool)
 r17 := ap (Just (\x -> case x { True -> False; False -> True })) (Just True)
 
-main := Pair r1 (Pair r2 (Pair r3 (Pair r4 (Pair r5 (Pair r6 (Pair r7 (Pair r8
-  (Pair r9 (Pair r10 (Pair r11 (Pair r12 (Pair r13 (Pair r14 (Pair r15
-  (Pair r16 r17)))))))))))))))
+main := (r1, (r2, (r3, (r4, (r5, (r6, (r7, (r8,
+  (r9, (r10, (r11, (r12, (r13, (r14, (r15,
+  (r16, r17))))))))))))))))
 `)
 	if err != nil {
 		t.Fatal(err)
@@ -1333,16 +1337,16 @@ main := Pair r1 (Pair r2 (Pair r3 (Pair r4 (Pair r5 (Pair r6 (Pair r7 (Pair r8
 	p = assertPairHead(t, p, "eq Bool", func(t *testing.T, v gmp.Value) { assertCon(t, v, "True") })
 	// r2 = True (eq (Just LT) (Just LT))
 	p = assertPairHead(t, p, "eq Maybe Ordering", func(t *testing.T, v gmp.Value) { assertCon(t, v, "True") })
-	// r3 = True (eq Pair)
-	p = assertPairHead(t, p, "eq Pair", func(t *testing.T, v gmp.Value) { assertCon(t, v, "True") })
-	// r4 = True (eq List)
-	p = assertPairHead(t, p, "eq List", func(t *testing.T, v gmp.Value) { assertCon(t, v, "True") })
+	// r3 = True (eq (True, ()) (True, ()))
+	p = assertPairHead(t, p, "eq tuple", func(t *testing.T, v gmp.Value) { assertCon(t, v, "True") })
+	// r4 = True (eq List 2-element)
+	p = assertPairHead(t, p, "eq List 2", func(t *testing.T, v gmp.Value) { assertCon(t, v, "True") })
 	// r5 = LT (compare False True)
 	p = assertPairHead(t, p, "compare Bool", func(t *testing.T, v gmp.Value) { assertCon(t, v, "LT") })
 	// r6 = LT (compare Just False, Just True)
 	p = assertPairHead(t, p, "compare Maybe", func(t *testing.T, v gmp.Value) { assertCon(t, v, "LT") })
-	// r7 = LT (compare Pair True False, Pair True True → append EQ LT = LT)
-	p = assertPairHead(t, p, "compare Pair", func(t *testing.T, v gmp.Value) { assertCon(t, v, "LT") })
+	// r7 = LT (compare (True, False) (True, True) → append EQ LT = LT)
+	p = assertPairHead(t, p, "compare tuple", func(t *testing.T, v gmp.Value) { assertCon(t, v, "LT") })
 	// r8 = LT (append LT GT = LT, non-EQ preserves)
 	p = assertPairHead(t, p, "semigroup Ordering", func(t *testing.T, v gmp.Value) { assertCon(t, v, "LT") })
 	_ = p
@@ -1364,7 +1368,7 @@ inner := do { x <- Just True; pure (not x) }
 
 outer := fmap not inner
 
-main := Pair inner outer
+main := (inner, outer)
 `)
 	if err != nil {
 		t.Fatal(err)
@@ -1373,14 +1377,14 @@ main := Pair inner outer
 	if err != nil {
 		t.Fatal(err)
 	}
-	con, ok := result.Value.(*gmp.ConVal)
-	if !ok || con.Con != "Pair" {
-		t.Fatalf("expected Pair, got %v", result.Value)
+	rv, ok := result.Value.(*gmp.RecordVal)
+	if !ok || len(rv.Fields) != 2 {
+		t.Fatalf("expected tuple, got %v", result.Value)
 	}
 	// inner = Just False (not True = False)
-	assertConArg(t, con.Args[0], "Just", "False")
+	assertConArg(t, rv.Fields["_1"], "Just", "False")
 	// outer = fmap not (Just False) = Just True
-	assertConArg(t, con.Args[1], "Just", "True")
+	assertConArg(t, rv.Fields["_2"], "Just", "True")
 }
 
 // ---------------------------------------------------------------------------
@@ -1519,10 +1523,10 @@ not := \b -> case b { True -> False; False -> True }
 test1 := traverse (\x -> Just (not x)) (Just True)
 test2 := traverse (\x -> Just (not x)) (Nothing :: Maybe Bool)
 
--- traverse over Pair (Traversable (Pair a) is in prelude)
-test3 := traverse (\x -> Just (not x)) (Pair Unit True)
+-- traverse that short-circuits to Nothing
+test3 := traverse (\_ -> Nothing :: Maybe Bool) (Just True)
 
-main := Pair test1 (Pair test2 test3)
+main := (test1, (test2, test3))
 `)
 	if err != nil {
 		t.Fatal(err)
@@ -1555,18 +1559,11 @@ main := Pair test1 (Pair test2 test3)
 		}
 		assertCon(t, outer.Args[0], "Nothing")
 	})
-	// test3 = Just (Pair Unit False)
-	// traverse f (Pair a b) = fmap (\c -> Pair a c) (f b) = fmap (\c -> Pair Unit c) (Just False)
-	//   = Just (Pair Unit False)
-	outer, ok := p.(*gmp.ConVal)
-	if !ok || outer.Con != "Just" {
-		t.Fatalf("expected Just, got %v", p)
+	// test3 = Nothing (traverse over Just True with a function that returns Nothing)
+	con, ok := p.(*gmp.ConVal)
+	if !ok || con.Con != "Nothing" {
+		t.Fatalf("expected Nothing, got %v", p)
 	}
-	inner, ok := outer.Args[0].(*gmp.ConVal)
-	if !ok || inner.Con != "Pair" {
-		t.Fatalf("expected Pair, got %v", outer.Args[0])
-	}
-	assertCon(t, inner.Args[1], "False")
 }
 
 // ---------------------------------------------------------------------------
@@ -1577,8 +1574,8 @@ func TestStressHigherRankWithMonad(t *testing.T) {
 	eng := gmp.NewEngine()
 	rt, err := eng.NewRuntime(`
 -- Higher-rank function applied across types, combined with monadic operations
-applyToBoth :: (forall a. a -> a) -> Pair Bool Unit
-applyToBoth := \f -> Pair (f True) (f Unit)
+applyToBoth :: (forall a. a -> a) -> (Bool, ())
+applyToBoth := \f -> (f True, f ())
 
 id :: forall a. a -> a
 id := \x -> x
@@ -1596,12 +1593,15 @@ main := do {
 	if err != nil {
 		t.Fatal(err)
 	}
-	con, ok := result.Value.(*gmp.ConVal)
-	if !ok || con.Con != "Pair" {
-		t.Fatalf("expected Pair, got %v", result.Value)
+	rv, ok := result.Value.(*gmp.RecordVal)
+	if !ok {
+		t.Fatalf("expected RecordVal (tuple), got %v", result.Value)
 	}
-	assertCon(t, con.Args[0], "True")
-	assertCon(t, con.Args[1], "Unit")
+	assertCon(t, rv.Fields["_1"], "True")
+	unitVal, ok := rv.Fields["_2"].(*gmp.RecordVal)
+	if !ok || len(unitVal.Fields) != 0 {
+		t.Fatalf("expected (), got %v", rv.Fields["_2"])
+	}
 }
 
 // ---------------------------------------------------------------------------
@@ -1662,7 +1662,7 @@ listResult := do { x <- Cons 1 (Cons 2 Nil); y <- Cons 10 Nil; pure (add x y) }
 compResult := do {
   m <- pure maybeResult;
   l <- pure listResult;
-  pure (Pair m l)
+  pure (m, l)
 }
 
 main := compResult
@@ -1674,23 +1674,23 @@ main := compResult
 	if err != nil {
 		t.Fatal(err)
 	}
-	con, ok := result.Value.(*gmp.ConVal)
-	if !ok || con.Con != "Pair" {
-		t.Fatalf("expected Pair, got %v", result.Value)
+	rv, ok := result.Value.(*gmp.RecordVal)
+	if !ok {
+		t.Fatalf("expected RecordVal (tuple), got %v", result.Value)
 	}
 	// maybeResult = Just 30
-	maybeVal, ok := con.Args[0].(*gmp.ConVal)
+	maybeVal, ok := rv.Fields["_1"].(*gmp.ConVal)
 	if !ok || maybeVal.Con != "Just" {
-		t.Fatalf("expected Just 30, got %v", con.Args[0])
+		t.Fatalf("expected Just 30, got %v", rv.Fields["_1"])
 	}
 	hv, ok := maybeVal.Args[0].(*gmp.HostVal)
 	if !ok || hv.Inner != int64(30) {
 		t.Fatalf("expected Just 30, got Just %v", maybeVal.Args[0])
 	}
 	// listResult = [11, 12]
-	items, ok := gmp.FromList(con.Args[1])
+	items, ok := gmp.FromList(rv.Fields["_2"])
 	if !ok || len(items) != 2 {
-		t.Fatalf("expected 2 elements, got %v", con.Args[1])
+		t.Fatalf("expected 2 elements, got %v", rv.Fields["_2"])
 	}
 }
 
@@ -1724,7 +1724,7 @@ compEval := do {
   pure x
 }
 
-main := Pair maybeEval compEval
+main := (maybeEval, compEval)
 `)
 	if err != nil {
 		t.Fatal(err)
@@ -1733,14 +1733,14 @@ main := Pair maybeEval compEval
 	if err != nil {
 		t.Fatal(err)
 	}
-	con, ok := result.Value.(*gmp.ConVal)
-	if !ok || con.Con != "Pair" {
-		t.Fatalf("expected Pair, got %v", result.Value)
+	rv, ok := result.Value.(*gmp.RecordVal)
+	if !ok {
+		t.Fatalf("expected RecordVal (tuple), got %v", result.Value)
 	}
 	// maybeEval = Just False (Not True = False)
-	assertConArg(t, con.Args[0], "Just", "False")
+	assertConArg(t, rv.Fields["_1"], "Just", "False")
 	// compEval = False (Not (Not False) = False)
-	assertCon(t, con.Args[1], "False")
+	assertCon(t, rv.Fields["_2"], "False")
 }
 
 // ---------------------------------------------------------------------------

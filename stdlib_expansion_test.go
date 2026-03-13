@@ -161,16 +161,16 @@ func TestStrReadIntFail(t *testing.T) {
 func TestListZip(t *testing.T) {
 	v := runWithPacks(t, `
 import Std.List
-main := zip (Cons True (Cons False Nil)) (Cons Unit Nil)
+main := zip (Cons True (Cons False Nil)) (Cons () Nil)
 `, gmp.List)
-	// zip [True,False] [Unit] = [Pair True Unit]
+	// zip [True,False] [()] = [(True, ())]
 	con, ok := v.(*gmp.ConVal)
 	if !ok || con.Con != "Cons" {
 		t.Fatalf("expected Cons, got %v", v)
 	}
-	pair, ok := con.Args[0].(*gmp.ConVal)
-	if !ok || pair.Con != "Pair" {
-		t.Fatalf("expected Pair, got %v", con.Args[0])
+	pair, ok := con.Args[0].(*gmp.RecordVal)
+	if !ok || len(pair.Fields) != 2 {
+		t.Fatalf("expected tuple, got %v", con.Args[0])
 	}
 	assertConVal(t, con.Args[1], "Nil")
 }
@@ -178,12 +178,12 @@ main := zip (Cons True (Cons False Nil)) (Cons Unit Nil)
 func TestListUnzip(t *testing.T) {
 	v := runWithPacks(t, `
 import Std.List
-main := unzip (Cons (Pair True Unit) Nil)
+main := unzip (Cons (True, ()) Nil)
 `, gmp.List)
-	// unzip [Pair True Unit] = Pair [True] [Unit]
-	con, ok := v.(*gmp.ConVal)
-	if !ok || con.Con != "Pair" {
-		t.Fatalf("expected Pair, got %v", v)
+	// unzip [(True, ())] = ([True], [()])
+	rv, ok := v.(*gmp.RecordVal)
+	if !ok || len(rv.Fields) != 2 {
+		t.Fatalf("expected tuple, got %v", v)
 	}
 }
 
@@ -288,7 +288,10 @@ main := do { print "hello" }
 	if err != nil {
 		t.Fatal(err)
 	}
-	assertConVal(t, result.Value, "Unit")
+	rv, ok := result.Value.(*gmp.RecordVal)
+	if !ok || len(rv.Fields) != 0 {
+		t.Fatalf("expected (), got %T: %v", result.Value, result.Value)
+	}
 	// Check that io buffer captured the output.
 	buf, ok := result.CapEnv.Get("io")
 	if !ok {
@@ -323,7 +326,10 @@ main := do { debug 42 }
 	if err != nil {
 		t.Fatal(err)
 	}
-	assertConVal(t, result.Value, "Unit")
+	rv2, ok2 := result.Value.(*gmp.RecordVal)
+	if !ok2 || len(rv2.Fields) != 0 {
+		t.Fatalf("expected (), got %T: %v", result.Value, result.Value)
+	}
 	buf, ok := result.CapEnv.Get("io")
 	if !ok {
 		t.Fatal("expected io capability")

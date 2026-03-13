@@ -11,7 +11,7 @@ import (
 // For other types, use &HostVal{Inner: v} directly.
 func ToValue(v any) Value {
 	if v == nil {
-		return &eval.ConVal{Con: "Unit"}
+		return &eval.RecordVal{Fields: map[string]eval.Value{}}
 	}
 	switch x := v.(type) {
 	case Value:

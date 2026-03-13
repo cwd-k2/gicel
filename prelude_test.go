@@ -175,19 +175,19 @@ func TestPreludeResultOk(t *testing.T) {
 }
 
 func TestPreludeResultErr(t *testing.T) {
-	v := runPure(t, `main := result (\_ -> False) (\x -> x) (Err Unit)`)
+	v := runPure(t, `main := result (\_ -> False) (\x -> x) (Err ())`)
 	assertConVal(t, v, "False")
 }
 
 // --- fst / snd ---
 
 func TestPreludeFst(t *testing.T) {
-	v := runPure(t, `main := fst (Pair True False)`)
+	v := runPure(t, `main := fst (True, False)`)
 	assertConVal(t, v, "True")
 }
 
 func TestPreludeSnd(t *testing.T) {
-	v := runPure(t, `main := snd (Pair True False)`)
+	v := runPure(t, `main := snd (True, False)`)
 	assertConVal(t, v, "False")
 }
 

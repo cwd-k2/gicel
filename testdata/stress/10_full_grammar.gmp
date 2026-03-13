@@ -15,7 +15,7 @@ instance Eq Bool {
     False -> case y { True -> False; False -> True }
   }
 }
-instance Eq Unit { eq := \_ -> \_ -> True }
+instance Eq () { eq := \_ -> \_ -> True }
 instance Eq Ordering {
   eq := \x -> \y -> case x {
     LT -> case y { LT -> True; _ -> False };
@@ -36,10 +36,10 @@ instance Eq a => Eq (Maybe a) {
     Just a  -> case y { Nothing -> False; Just b -> eq a b }
   }
 }
-instance (Eq a) => (Eq b) => Eq (Pair a b) {
+instance (Eq a) => (Eq b) => Eq (a, b) {
   eq := \x -> \y -> case x {
-    Pair a1 b1 -> case y {
-      Pair a2 b2 -> case eq a1 a2 { True -> eq b1 b2; False -> False }
+    (a1, b1) -> case y {
+      (a2, b2) -> case eq a1 a2 { True -> eq b1 b2; False -> False }
     }
   }
 }
@@ -64,7 +64,7 @@ instance Functor Tree {
   }
 }
 
-instance Coercible Bool Unit { coerce := \_ -> Unit }
+instance Coercible Bool () { coerce := \_ -> () }
 instance Coercible Color Bool {
   coerce := \c -> case c { Red -> True; Green -> False; Blue -> True }
 }
@@ -83,21 +83,21 @@ eqViaOrd := \x -> \y -> case cmp x y { EQ -> True; _ -> False }
 convertAndCheck :: forall a b. Coercible a b => Eq b => a -> b -> Bool
 convertAndCheck := \x -> \expected -> eq (coerce x) expected
 
-readS :: forall (r : Row). Unit -> Computation { s : Int | r } { s : Int | r } Int
+readS :: forall (r : Row). () -> Computation { s : Int | r } { s : Int | r } Int
 readS := assumption
-writeS :: forall (r : Row). Int -> Computation { s : Int | r } { s : Int | r } Unit
+writeS :: forall (r : Row). Int -> Computation { s : Int | r } { s : Int | r } ()
 writeS := assumption
 intAdd :: Int -> Int -> Int
 intAdd := assumption
 
 stateful :: Int -> Eff { s : Int } Int
 stateful := \delta -> do {
-  v <- readS Unit;
+  v <- readS ();
   _ <- writeS (intAdd v delta);
-  readS Unit
+  readS ()
 }
 
-pipeline :: Eff { s : Int } (Pair Int Bool)
+pipeline :: Eff { s : Int } (Int, Bool)
 pipeline := do {
   r1 <- stateful seed;
   r2 <- stateful r1;
@@ -108,7 +108,7 @@ pipeline := do {
     case mapped { Just v -> v; Nothing -> True }
   };
   colorCheck := convertAndCheck Red True;
-  pairEq := genericEq (Pair True False) (Pair True False);
+  pairEq := genericEq (True, False) (True, False);
   ordCheck := eqViaOrd True True;
   result := case eqResult {
     True  -> case colorCheck {
@@ -120,7 +120,7 @@ pipeline := do {
     };
     False -> False
   };
-  pure (Pair r3 result)
+  pure (r3, result)
 }
 
 main := pipeline

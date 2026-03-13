@@ -30,13 +30,13 @@ chainTest := \s1 -> \s2 ->
 
 -- Pack different types
 packBool := MkSomeEq True
-packUnit := MkSomeEq Unit
-packPair := MkSomeEq (Pair True False)
+packMaybe := MkSomeEq (Just True)
+packList := MkSomeEq (Cons True Nil)
 packOrd  := MkSomeOrd False True
 
-main := Pair (selfEq packBool)
-             (Pair (selfEq packUnit)
-                   (Pair (selfEq packPair)
-                         (Pair (ordResult packOrd)
-                               (Pair (applyWrapper (MkWrapper (\x -> x) True))
-                                     (chainTest packBool packUnit)))))
+main := (selfEq packBool,
+             (selfEq packMaybe,
+                   (selfEq packList,
+                         (ordResult packOrd,
+                               (applyWrapper (MkWrapper (\x -> x) True),
+                                     chainTest packBool packMaybe)))))

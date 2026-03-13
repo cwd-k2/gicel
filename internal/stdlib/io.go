@@ -18,16 +18,16 @@ var IO Pack = func(e Registrar) error {
 const ioSource = `
 import Prelude
 
-_ioPrint :: String -> Computation { io : Unit | r } { io : Unit | r } Unit
+_ioPrint :: String -> Computation { io : () | r } { io : () | r } ()
 _ioPrint := assumption
 
-_ioDebug :: forall a. a -> Computation { io : Unit | r } { io : Unit | r } Unit
+_ioDebug :: forall a. a -> Computation { io : () | r } { io : () | r } ()
 _ioDebug := assumption
 
-print :: String -> Computation { io : Unit | r } { io : Unit | r } Unit
+print :: String -> Computation { io : () | r } { io : () | r } ()
 print := _ioPrint
 
-debug :: forall a. a -> Computation { io : Unit | r } { io : Unit | r } Unit
+debug :: forall a. a -> Computation { io : () | r } { io : () | r } ()
 debug := _ioDebug
 `
 
@@ -41,13 +41,13 @@ func printImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Appl
 		return nil, ce, fmt.Errorf("print: expected string, got %T", hv.Inner)
 	}
 	newCe := appendIO(ce, s)
-	return &eval.ConVal{Con: "Unit"}, newCe, nil
+	return &eval.RecordVal{Fields: map[string]eval.Value{}}, newCe, nil
 }
 
 func debugImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
 	s := fmt.Sprintf("%v", args[0])
 	newCe := appendIO(ce, s)
-	return &eval.ConVal{Con: "Unit"}, newCe, nil
+	return &eval.RecordVal{Fields: map[string]eval.Value{}}, newCe, nil
 }
 
 // appendIO appends a message to the "io" capability buffer.

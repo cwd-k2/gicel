@@ -232,7 +232,10 @@ func TestPutImpl(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	assertCon(t, v, "Unit")
+	rv, ok := v.(*eval.RecordVal)
+	if !ok || len(rv.Fields) != 0 {
+		t.Fatalf("expected empty RecordVal (unit), got %v", v)
+	}
 	s, ok := newCe.Get("state")
 	if !ok {
 		t.Fatal("state missing after put")

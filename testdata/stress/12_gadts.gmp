@@ -21,4 +21,4 @@ expr1 := And (LitBool True) (Not (LitBool False))
 expr2 := Not (And (LitBool False) (LitBool True))
 expr3 := And expr1 expr2
 
-main := Pair (eval expr1) (eval expr3)
+main := (eval expr1, eval expr3)

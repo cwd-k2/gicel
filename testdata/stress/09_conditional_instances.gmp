@@ -7,7 +7,7 @@ instance Eq Bool {
   }
 }
 
-instance Eq Unit { eq := \_ -> \_ -> True }
+instance Eq () { eq := \_ -> \_ -> True }
 
 instance Eq a => Eq (Maybe a) {
   eq := \x -> \y -> case x {
@@ -16,10 +16,10 @@ instance Eq a => Eq (Maybe a) {
   }
 }
 
-instance (Eq a) => (Eq b) => Eq (Pair a b) {
+instance (Eq a) => (Eq b) => Eq (a, b) {
   eq := \x -> \y -> case x {
-    Pair a1 b1 -> case y {
-      Pair a2 b2 -> case eq a1 a2 {
+    (a1, b1) -> case y {
+      (a2, b2) -> case eq a1 a2 {
         True  -> eq b1 b2;
         False -> False
       }
@@ -40,18 +40,18 @@ neq := \x -> \y -> case eq x y { True -> False; False -> True }
 eqMaybeBool :: Maybe Bool -> Maybe Bool -> Bool
 eqMaybeBool := \x -> \y -> eq x y
 
-eqPairBool :: Pair Bool Bool -> Pair Bool Bool -> Bool
+eqPairBool :: (Bool, Bool) -> (Bool, Bool) -> Bool
 eqPairBool := \x -> \y -> eq x y
 
 eqResultBool :: Result Bool Bool -> Result Bool Bool -> Bool
 eqResultBool := \x -> \y -> eq x y
 
-eqDeep :: Maybe (Pair Bool (Result Unit Bool)) -> Maybe (Pair Bool (Result Unit Bool)) -> Bool
+eqDeep :: Maybe (Bool, (Result () Bool)) -> Maybe (Bool, (Result () Bool)) -> Bool
 eqDeep := \x -> \y -> eq x y
 
-val1 := Just (Pair True (Ok False))
-val2 := Just (Pair True (Ok False))
-val3 := Just (Pair True (Ok True))
+val1 := Just (True, (Ok False))
+val2 := Just (True, (Ok False))
+val3 := Just (True, (Ok True))
 val4 := Nothing
 
 eqTest1 := eqDeep val1 val2
@@ -63,10 +63,10 @@ eqMaybe1 := eqMaybeBool (Just True) (Just True)
 eqMaybe2 := eqMaybeBool (Just True) (Just False)
 eqMaybe3 := eqMaybeBool Nothing Nothing
 
-eqPair1 := eqPairBool (Pair True False) (Pair True False)
-eqPair2 := eqPairBool (Pair True False) (Pair False True)
+eqPair1 := eqPairBool (True, False) (True, False)
+eqPair2 := eqPairBool (True, False) (False, True)
 
 eqResult1 := eqResultBool (Ok True) (Ok True)
 eqResult2 := eqResultBool (Ok True) (Err False)
 
-main := Pair eqTest1 (Pair eqTest2 (Pair eqTest3 eqTest4))
+main := (eqTest1, (eqTest2, (eqTest3, eqTest4)))

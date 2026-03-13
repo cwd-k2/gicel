@@ -37,5 +37,5 @@ main := do {
   put (b + 100);
   v6 <- get;
 
-  pure (Pair v1 (Pair v2 (Pair v3 (Pair v4 (Pair v5 v6)))))
+  pure (v1, (v2, (v3, (v4, (v5, v6)))))
 }

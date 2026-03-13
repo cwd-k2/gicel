@@ -1,4 +1,4 @@
-mkVal :: Unit -> Computation {} {} Int
+mkVal :: () -> Computation {} {} Int
 mkVal := assumption
 addInts :: Int -> Int -> Int
 addInts := assumption
@@ -7,7 +7,7 @@ chainThunk :: Thunk {} {} Int -> Computation {} {} (Thunk {} {} Int)
 chainThunk := \t -> do {
   inner := thunk (do {
     x <- force t;
-    y <- mkVal Unit;
+    y <- mkVal ();
     pure (addInts x y)
   });
   pure inner
@@ -20,7 +20,7 @@ selectForce := \which -> \t1 -> \t2 -> case which {
 }
 
 main := do {
-  base <- mkVal Unit;
+  base <- mkVal ();
   t0 := thunk (pure base);
   t1 <- chainThunk t0;
   t2 <- chainThunk t1;

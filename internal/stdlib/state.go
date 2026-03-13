@@ -19,10 +19,10 @@ import Prelude
 get :: forall s r. Computation { state : s | r } { state : s | r } s
 get := assumption
 
-put :: forall s r. s -> Computation { state : s | r } { state : s | r } Unit
+put :: forall s r. s -> Computation { state : s | r } { state : s | r } ()
 put := assumption
 
-modify :: forall s r. (s -> s) -> Computation { state : s | r } { state : s | r } Unit
+modify :: forall s r. (s -> s) -> Computation { state : s | r } { state : s | r } ()
 modify := \f -> do { s <- get; put (f s) }
 `
 
@@ -40,5 +40,5 @@ func getImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applie
 
 func putImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
 	newCe := ce.Set("state", args[0])
-	return &eval.ConVal{Con: "Unit"}, newCe, nil
+	return &eval.RecordVal{Fields: map[string]eval.Value{}}, newCe, nil
 }

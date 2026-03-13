@@ -5,7 +5,7 @@ class Show a => Eq a { eq :: a -> a -> Bool }
 class Eq a => Ord a { compare :: a -> a -> Ordering }
 
 instance Show Bool { tag := \_ -> True }
-instance Show Unit { tag := \_ -> True }
+instance Show () { tag := \_ -> True }
 instance Show Ordering {
   tag := \x -> case x { LT -> True; EQ -> True; GT -> True }
 }
@@ -16,7 +16,7 @@ instance Eq Bool {
     False -> case y { True -> False; False -> True }
   }
 }
-instance Eq Unit { eq := \_ -> \_ -> True }
+instance Eq () { eq := \_ -> \_ -> True }
 instance Eq Ordering {
   eq := \x -> \y -> case x {
     LT -> case y { LT -> True; _ -> False };
@@ -31,7 +31,7 @@ instance Ord Bool {
     True  -> case y { False -> GT; True -> EQ }
   }
 }
-instance Ord Unit { compare := \_ -> \_ -> EQ }
+instance Ord () { compare := \_ -> \_ -> EQ }
 instance Ord Ordering {
   compare := \x -> \y -> case x {
     LT -> case y { LT -> EQ; _ -> LT };
@@ -46,8 +46,8 @@ useShow := \x -> tag x
 useEq :: forall a. Ord a => a -> a -> Bool
 useEq := \x -> \y -> eq x y
 
-compareAndEq :: forall a. Ord a => a -> a -> Pair Ordering Bool
-compareAndEq := \x -> \y -> Pair (compare x y) (eq x y)
+compareAndEq :: forall a. Ord a => a -> a -> (Ordering, Bool)
+compareAndEq := \x -> \y -> (compare x y, eq x y)
 
 showViaOrd :: forall a. Ord a => a -> Bool
 showViaOrd := \x -> tag x
