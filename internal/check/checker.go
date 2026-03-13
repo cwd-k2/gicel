@@ -92,8 +92,9 @@ type ConInfo struct {
 }
 
 type aliasInfo struct {
-	params []string
-	body   types.Type
+	params     []string
+	paramKinds []types.Kind
+	body       types.Type
 }
 
 // deferredConstraint records a constraint to be resolved after type inference.

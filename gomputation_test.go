@@ -3670,6 +3670,7 @@ func TestIxMonadComputationIxpure(t *testing.T) {
 	eng := gmp.NewEngine()
 	eng.DeclareBinding("n", gmp.ConType("Int"))
 	rt, err := eng.NewRuntime(`
+main :: Computation {} {} Int
 main := ixpure n
 `)
 	if err != nil {
@@ -3691,6 +3692,7 @@ func TestIxMonadComputationIxbind(t *testing.T) {
 	eng := gmp.NewEngine()
 	eng.DeclareBinding("n", gmp.ConType("Int"))
 	rt, err := eng.NewRuntime(`
+main :: Computation {} {} Int
 main := ixbind (ixpure n) (\x -> ixpure x)
 `)
 	if err != nil {
@@ -3714,6 +3716,7 @@ func TestIxMonadGenericFunction(t *testing.T) {
 	rt, err := eng.NewRuntime(`
 myReturn :: forall (m : Row -> Row -> Type -> Type). IxMonad m => forall a (r : Row). a -> m r r a
 myReturn := ixpure
+main :: Computation {} {} Bool
 main := myReturn True
 `)
 	if err != nil {
@@ -3769,5 +3772,119 @@ main := do { v <- pure x; pure v }
 	pretty := rt.PrettyProgram()
 	if !strings.Contains(pretty, "bind") {
 		t.Fatalf("expected Core.Bind in pretty output, got:\n%s", pretty)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Monad Instances for Maybe and List (Group 3C)
+// ---------------------------------------------------------------------------
+
+func TestMaybeDoBlockPure(t *testing.T) {
+	// do { x <- Just 5; pure (add x 1) } :: Maybe Int → Just 6
+	eng := gmp.NewEngine()
+	eng.RegisterPrim("add", func(ctx context.Context, capEnv gmp.CapEnv, args []gmp.Value) (gmp.Value, gmp.CapEnv, error) {
+		return gmp.ToValue(gmp.MustHost[int64](args[0]) + gmp.MustHost[int64](args[1])), capEnv, nil
+	})
+	rt, err := eng.NewRuntime(`
+add :: Int -> Int -> Int
+add := assumption
+main :: Maybe Int
+main := do { x <- Just 5; pure (add x 1) }
+`)
+	if err != nil {
+		t.Fatalf("Maybe do block should compile: %v", err)
+	}
+	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	con, ok := result.Value.(*gmp.ConVal)
+	if !ok || con.Con != "Just" || len(con.Args) != 1 {
+		t.Fatalf("expected Just 6, got %v", result.Value)
+	}
+	hv, ok := con.Args[0].(*gmp.HostVal)
+	if !ok || hv.Inner != int64(6) {
+		t.Fatalf("expected Just 6, got Just %v", con.Args[0])
+	}
+}
+
+func TestMaybeDoBlockNothing(t *testing.T) {
+	// do { x <- Just 5; Nothing; pure x } :: Maybe Int → Nothing
+	eng := gmp.NewEngine()
+	rt, err := eng.NewRuntime(`
+main :: Maybe Int
+main := do { x <- Just 5; Nothing; pure x }
+`)
+	if err != nil {
+		t.Fatalf("Maybe do block Nothing should compile: %v", err)
+	}
+	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	con, ok := result.Value.(*gmp.ConVal)
+	if !ok || con.Con != "Nothing" {
+		t.Fatalf("expected Nothing, got %v", result.Value)
+	}
+}
+
+func TestListDoBlockCartesian(t *testing.T) {
+	// do { x <- [1,2]; y <- [10,20]; pure (add x y) } :: List Int → [11, 21, 12, 22]
+	eng := gmp.NewEngine()
+	eng.RegisterPrim("add", func(ctx context.Context, capEnv gmp.CapEnv, args []gmp.Value) (gmp.Value, gmp.CapEnv, error) {
+		return gmp.ToValue(gmp.MustHost[int64](args[0]) + gmp.MustHost[int64](args[1])), capEnv, nil
+	})
+	eng.EnableRecursion()
+	rt, err := eng.NewRuntime(`
+add :: Int -> Int -> Int
+add := assumption
+main :: List Int
+main := do {
+  x <- Cons 1 (Cons 2 Nil);
+  y <- Cons 10 (Cons 20 Nil);
+  pure (add x y)
+}
+`)
+	if err != nil {
+		t.Fatalf("List do block cartesian should compile: %v", err)
+	}
+	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, ok := gmp.FromList(result.Value)
+	if !ok || len(got) != 4 {
+		t.Fatalf("expected 4 elements, got %v", result.Value)
+	}
+	expected := []int64{11, 21, 12, 22}
+	for i, v := range got {
+		hv, ok := v.(*gmp.HostVal)
+		if !ok || hv.Inner != expected[i] {
+			t.Fatalf("element %d: expected %d, got %v", i, expected[i], v)
+		}
+	}
+}
+
+func TestMaybeDoBlockDirectReturn(t *testing.T) {
+	// Last expression not using pure — direct constructor.
+	eng := gmp.NewEngine()
+	rt, err := eng.NewRuntime(`
+main :: Maybe Int
+main := do { x <- Just 5; Just x }
+`)
+	if err != nil {
+		t.Fatalf("Maybe do block direct return should compile: %v", err)
+	}
+	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	con, ok := result.Value.(*gmp.ConVal)
+	if !ok || con.Con != "Just" || len(con.Args) != 1 {
+		t.Fatalf("expected Just 5, got %v", result.Value)
+	}
+	hv, ok := con.Args[0].(*gmp.HostVal)
+	if !ok || hv.Inner != int64(5) {
+		t.Fatalf("expected Just 5, got Just %v", con.Args[0])
 	}
 }

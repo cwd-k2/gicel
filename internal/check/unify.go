@@ -162,6 +162,36 @@ func (u *Unifier) normalize(t types.Type) types.Type {
 	return normalizeCompApp(t)
 }
 
+// compToApp converts TyComp to a TyApp chain: Computation pre post result.
+func compToApp(c *types.TyComp) *types.TyApp {
+	return &types.TyApp{
+		Fun: &types.TyApp{
+			Fun: &types.TyApp{
+				Fun: &types.TyCon{Name: "Computation"},
+				Arg: c.Pre,
+			},
+			Arg: c.Post,
+		},
+		Arg: c.Result,
+		S:   c.S,
+	}
+}
+
+// thunkToApp converts TyThunk to a TyApp chain: Thunk pre post result.
+func thunkToApp(t *types.TyThunk) *types.TyApp {
+	return &types.TyApp{
+		Fun: &types.TyApp{
+			Fun: &types.TyApp{
+				Fun: &types.TyCon{Name: "Thunk"},
+				Arg: t.Pre,
+			},
+			Arg: t.Post,
+		},
+		Arg: t.Result,
+		S:   t.S,
+	}
+}
+
 // normalizeCompApp converts fully-applied TyApp chains to their special type
 // representations. e.g. TyApp(TyApp(TyApp(TyCon("Computation"), pre), post), result)
 // becomes TyComp{pre, post, result}. This arises when a class type parameter
@@ -251,6 +281,14 @@ func (u *Unifier) Unify(a, b types.Type) error {
 			}
 			return u.Unify(at.Arg, bt.Arg)
 		}
+		// Cross-case: decompose TyApp spine directly against TyComp/TyThunk
+		// to avoid the normalize cycle (normalizeCompApp ↔ compToApp).
+		if comp, ok := b.(*types.TyComp); ok {
+			return u.unifyAppWithTriple(a, "Computation", [3]types.Type{comp.Pre, comp.Post, comp.Result})
+		}
+		if thk, ok := b.(*types.TyThunk); ok {
+			return u.unifyAppWithTriple(a, "Thunk", [3]types.Type{thk.Pre, thk.Post, thk.Result})
+		}
 	case *types.TyForall:
 		if bt, ok := b.(*types.TyForall); ok {
 			// Unify bodies with bound variables treated as equal.
@@ -266,6 +304,9 @@ func (u *Unifier) Unify(a, b types.Type) error {
 			}
 			return u.Unify(at.Result, bt.Result)
 		}
+		if _, ok := b.(*types.TyApp); ok {
+			return u.unifyAppWithTriple(b, "Computation", [3]types.Type{at.Pre, at.Post, at.Result})
+		}
 	case *types.TyThunk:
 		if bt, ok := b.(*types.TyThunk); ok {
 			if err := u.Unify(at.Pre, bt.Pre); err != nil {
@@ -275,6 +316,9 @@ func (u *Unifier) Unify(a, b types.Type) error {
 				return err
 			}
 			return u.Unify(at.Result, bt.Result)
+		}
+		if _, ok := b.(*types.TyApp); ok {
+			return u.unifyAppWithTriple(b, "Thunk", [3]types.Type{at.Pre, at.Post, at.Result})
 		}
 	case *types.TyQual:
 		if bt, ok := b.(*types.TyQual); ok {
@@ -295,6 +339,32 @@ func (u *Unifier) Unify(a, b types.Type) error {
 	}
 
 	return fmt.Errorf("type mismatch: %s vs %s", types.Pretty(a), types.Pretty(b))
+}
+
+// unifyAppWithTriple decomposes a TyApp chain and unifies its spine against
+// a named type constructor with 3 fields (Computation or Thunk).
+// This avoids the normalize cycle: normalizeCompApp converts TyApp→TyComp,
+// while compToApp converts TyComp→TyApp, causing infinite recursion.
+// Instead, we decompose the TyApp into (head, args) and unify each component directly.
+func (u *Unifier) unifyAppWithTriple(app types.Type, conName string, fields [3]types.Type) error {
+	head, args := types.UnwindApp(app)
+	if len(args) < 3 {
+		return fmt.Errorf("type mismatch: %s vs %s ...", types.Pretty(app), conName)
+	}
+	// Reconstruct head with excess leading args (handles len(args) > 3).
+	conHead := head
+	for _, arg := range args[:len(args)-3] {
+		conHead = &types.TyApp{Fun: conHead, Arg: arg}
+	}
+	if err := u.Unify(conHead, &types.TyCon{Name: conName}); err != nil {
+		return err
+	}
+	for i := 0; i < 3; i++ {
+		if err := u.Unify(args[len(args)-3+i], fields[i]); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (u *Unifier) solveMeta(m *types.TyMeta, t types.Type) error {

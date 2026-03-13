@@ -258,11 +258,13 @@ func typeArity(ty types.Type) int {
 
 func (ch *Checker) processTypeAlias(d *syntax.DeclTypeAlias) {
 	var params []string
+	var paramKinds []types.Kind
 	for _, p := range d.Params {
 		params = append(params, p.Name)
+		paramKinds = append(paramKinds, ch.resolveKindExpr(p.Kind))
 	}
 	body := ch.resolveTypeExpr(d.Body)
-	ch.aliases[d.Name] = &aliasInfo{params: params, body: body}
+	ch.aliases[d.Name] = &aliasInfo{params: params, paramKinds: paramKinds, body: body}
 }
 
 func (ch *Checker) processValueDef(d *syntax.DeclValueDef, annotations map[string]types.Type, prog *core.Program) {

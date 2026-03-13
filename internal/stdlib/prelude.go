@@ -146,4 +146,17 @@ instance Semigroup (List a) { append := \xs ys -> case xs of {
 } }
 
 instance Monoid (List a) { empty := Nil }
+
+instance IxMonad Maybe {
+  ixpure := \a -> Just a;
+  ixbind := \ma f -> case ma of {
+    Nothing -> Nothing;
+    Just a  -> f a
+  }
+}
+
+instance IxMonad List {
+  ixpure := \a -> Cons a Nil;
+  ixbind := \xs f -> foldr (\x acc -> append (f x) acc) Nil xs
+}
 `

@@ -198,17 +198,43 @@ func (ch *Checker) instanceDictName(className string, typeArgs []types.Type) str
 	}
 	var parts []string
 	for _, ta := range typeArgs {
-		head, _ := types.UnwindApp(ta)
-		switch h := head.(type) {
-		case *types.TyCon:
-			parts = append(parts, h.Name)
-		case *types.TyVar:
-			parts = append(parts, h.Name)
-		default:
-			parts = append(parts, "?")
-		}
+		parts = append(parts, typeNameForDict(ta))
 	}
 	return className + "$" + strings.Join(parts, "$")
+}
+
+// typeNameForDict recursively constructs a name component from a type,
+// including concrete type constructor arguments (e.g., Lift Maybe → "Lift$Maybe")
+// but omitting type variables (parametric instances share one dictionary function).
+func typeNameForDict(ty types.Type) string {
+	head, args := types.UnwindApp(ty)
+	var parts []string
+	switch h := head.(type) {
+	case *types.TyCon:
+		parts = append(parts, h.Name)
+	case *types.TyVar, *types.TySkolem, *types.TyMeta:
+		// Type variables are omitted from dict names.
+	default:
+		parts = append(parts, "?")
+	}
+	for _, a := range args {
+		if sub := typeNameForDict(a); sub != "" {
+			parts = append(parts, sub)
+		}
+	}
+	if len(parts) == 0 {
+		return ""
+	}
+	return strings.Join(parts, "$")
+}
+
+// aliasParamKind returns the kind of the i-th parameter of a type alias.
+func (ch *Checker) aliasParamKind(aliasName string, i int) types.Kind {
+	info, ok := ch.aliases[aliasName]
+	if !ok || i >= len(info.paramKinds) {
+		return types.KType{}
+	}
+	return info.paramKinds[i]
 }
 
 // kindOfType returns the kind of a resolved type, or nil if unknown.
@@ -217,6 +243,15 @@ func (ch *Checker) kindOfType(ty types.Type) types.Kind {
 	case *types.TyCon:
 		if k, ok := ch.config.RegisteredTypes[t.Name]; ok {
 			return k
+		}
+		// Type aliases: compute kind from parameter kinds.
+		if info, ok := ch.aliases[t.Name]; ok {
+			var kind types.Kind = types.KType{}
+			for i := len(info.params) - 1; i >= 0; i-- {
+				paramKind := ch.aliasParamKind(t.Name, i)
+				kind = &types.KArrow{From: paramKind, To: kind}
+			}
+			return kind
 		}
 		// Well-known built-in type constructors.
 		switch t.Name {

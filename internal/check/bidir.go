@@ -550,6 +550,15 @@ func (ch *Checker) elaborateDoMonadic(stmts []syntax.Stmt, monadHead types.Type,
 	if len(stmts) == 1 {
 		switch st := stmts[0].(type) {
 		case *syntax.StmtExpr:
+			// Intercept `pure val` / `ixpure val` at the end of a monadic do block.
+			if pureVal := extractPureArg(st.Expr); pureVal != nil {
+				_, args := types.UnwindApp(expected)
+				if len(args) > 0 {
+					resultTy := args[len(args)-1]
+					valCore := ch.check(pureVal, resultTy)
+					return ch.mkIxPure(monadHead, valCore, s)
+				}
+			}
 			return ch.check(st.Expr, expected)
 		case *syntax.StmtBind:
 			ch.addCodedError(errs.ErrBadDoEnding, st.S, "do block must end with an expression")
@@ -563,8 +572,18 @@ func (ch *Checker) elaborateDoMonadic(stmts []syntax.Stmt, monadHead types.Type,
 	switch st := stmts[0].(type) {
 	case *syntax.StmtBind:
 		// x <- comp; rest  →  ixbind comp (\x -> rest)
-		compTy, compCore := ch.infer(st.Comp)
-		resultTy := ch.extractMonadResult(compTy, monadHead, st.S)
+		// Intercept `x <- pure val` / `x <- ixpure val`.
+		var compCore core.Core
+		var resultTy types.Type
+		if pureVal := extractPureArg(st.Comp); pureVal != nil {
+			rty, vc := ch.infer(pureVal)
+			compCore = ch.mkIxPure(monadHead, vc, st.S)
+			resultTy = rty
+		} else {
+			compTy, cc := ch.infer(st.Comp)
+			compCore = cc
+			resultTy = ch.extractMonadResult(compTy, monadHead, st.S)
+		}
 		ch.ctx.Push(&CtxVar{Name: st.Var, Type: resultTy})
 		restCore := ch.elaborateDoMonadic(stmts[1:], monadHead, expected, s)
 		ch.ctx.Pop()
@@ -572,7 +591,14 @@ func (ch *Checker) elaborateDoMonadic(stmts []syntax.Stmt, monadHead types.Type,
 
 	case *syntax.StmtExpr:
 		// comp; rest  →  ixbind comp (\_ -> rest)
-		_, compCore := ch.infer(st.Expr)
+		var compCore core.Core
+		if pureVal := extractPureArg(st.Expr); pureVal != nil {
+			_, vc := ch.infer(pureVal)
+			compCore = ch.mkIxPure(monadHead, vc, st.S)
+		} else {
+			_, cc := ch.infer(st.Expr)
+			compCore = cc
+		}
 		restCore := ch.elaborateDoMonadic(stmts[1:], monadHead, expected, s)
 		return ch.mkIxBind(monadHead, compCore, "_", restCore, st.S)
 
@@ -609,6 +635,53 @@ func (ch *Checker) extractMonadResult(ty types.Type, monadHead types.Type, s spa
 		return &types.TyError{S: s}
 	}
 	return result
+}
+
+// extractPureArg checks if an expression is `pure val` or `ixpure val` and returns val.
+func extractPureArg(expr syntax.Expr) syntax.Expr {
+	app, ok := expr.(*syntax.ExprApp)
+	if !ok {
+		return nil
+	}
+	v, ok := app.Fun.(*syntax.ExprVar)
+	if !ok {
+		return nil
+	}
+	if v.Name == "pure" || v.Name == "ixpure" {
+		return app.Arg
+	}
+	return nil
+}
+
+// mkIxPure generates Core for monadic pure using the IxMonad dictionary.
+func (ch *Checker) mkIxPure(monadHead types.Type, val core.Core, s span.Span) core.Core {
+	liftedMonad := &types.TyApp{Fun: &types.TyCon{Name: "Lift"}, Arg: monadHead}
+	dict := ch.resolveInstance("IxMonad", []types.Type{liftedMonad}, s)
+
+	classInfo := ch.classes["IxMonad"]
+	pureIdx := len(classInfo.Supers) // ixpure is the first method (index 0)
+	allFields := len(classInfo.Supers) + len(classInfo.Methods)
+	var patArgs []core.Pattern
+	var pureExpr core.Core
+	freshBase := ch.fresh()
+	for j := 0; j < allFields; j++ {
+		argName := fmt.Sprintf("$ixm_%d_%d", j, freshBase)
+		patArgs = append(patArgs, &core.PVar{Name: argName, S: s})
+		if j == pureIdx {
+			pureExpr = &core.Var{Name: argName, S: s}
+		}
+	}
+	selector := &core.Case{
+		Scrutinee: dict,
+		Alts: []core.Alt{{
+			Pattern: &core.PCon{Con: classInfo.DictConName, Args: patArgs, S: s},
+			Body:    pureExpr,
+			S:       s,
+		}},
+		S: s,
+	}
+
+	return &core.App{Fun: selector, Arg: val, S: s}
 }
 
 // mkIxBind generates Core for a monadic bind using the IxMonad dictionary.
