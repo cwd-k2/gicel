@@ -962,6 +962,7 @@ func (ch *Checker) resolveTypeExpr(texpr syntax.TypeExpr) types.Type {
 		if result != nil {
 			return result
 		}
+		ch.checkTypeAppKind(fun, arg, t.S)
 		return &types.TyApp{Fun: fun, Arg: arg, S: t.S}
 	case *syntax.TyExprArrow:
 		return &types.TyArrow{
@@ -1425,5 +1426,68 @@ func (ch *Checker) resolveKindExpr(k syntax.KindExpr) types.Kind {
 		return types.KSort{}
 	default:
 		return types.KType{}
+	}
+}
+
+// checkTypeAppKind validates that a type application F A is kind-correct.
+// Only checks when:
+//   - F has an explicitly annotated parameter kind (not the default KType)
+//   - A is a concrete type constructor (TyCon or TyApp) with a deterministic kind
+//
+// This avoids false positives from type variables whose kind isn't yet in context.
+func (ch *Checker) checkTypeAppKind(fun, arg types.Type, s span.Span) {
+	// Only check when arg has a deterministic kind (concrete TyCon, not TyVar).
+	if !ch.hasDeterministicKind(arg) {
+		return
+	}
+	funKind := ch.kindOfType(fun)
+	if funKind == nil {
+		return
+	}
+	funKind = ch.unifier.ZonkKind(funKind)
+	ka, ok := funKind.(*types.KArrow)
+	if !ok {
+		return
+	}
+	// Skip if the parameter kind is the default KType (unannotated parameter).
+	if _, isType := ka.From.(types.KType); isType {
+		return
+	}
+	argKind := ch.kindOfType(arg)
+	if argKind == nil {
+		return
+	}
+	argKind = ch.unifier.ZonkKind(argKind)
+	if _, isMeta := argKind.(*types.KMeta); isMeta {
+		return
+	}
+	if err := ch.unifier.UnifyKinds(ka.From, argKind); err != nil {
+		ch.addCodedError(errs.ErrKindMismatch, s,
+			fmt.Sprintf("kind mismatch in type application: expected kind %s, got %s", ka.From, argKind))
+	}
+}
+
+// hasDeterministicKind returns true if the type's kind is deterministic
+// (i.e., derived from a registered type constructor, not a defaulted TyVar).
+func (ch *Checker) hasDeterministicKind(ty types.Type) bool {
+	switch t := ty.(type) {
+	case *types.TyCon:
+		_, inReg := ch.config.RegisteredTypes[t.Name]
+		_, inProm := ch.promotedCons[t.Name]
+		_, isAlias := ch.aliases[t.Name]
+		return inReg || inProm || isAlias
+	case *types.TyApp:
+		// Recurse on the head to check if it's deterministic.
+		head, _ := types.UnwindApp(ty)
+		if head != ty {
+			return ch.hasDeterministicKind(head)
+		}
+		return false
+	case *types.TyMeta:
+		return true
+	case *types.TySkolem:
+		return true
+	default:
+		return false
 	}
 }

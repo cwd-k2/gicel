@@ -402,6 +402,9 @@ func (ch *Checker) kindOfType(ty types.Type) types.Kind {
 		case "Computation", "Thunk":
 			return &types.KArrow{From: types.KRow{}, To: &types.KArrow{From: types.KRow{}, To: &types.KArrow{From: types.KType{}, To: types.KType{}}}}
 		}
+		if k, ok := ch.promotedCons[t.Name]; ok {
+			return k
+		}
 		return types.KType{}
 	case *types.TyApp:
 		funKind := ch.kindOfType(t.Fun)

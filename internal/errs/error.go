@@ -51,6 +51,7 @@ const (
 	ErrImport         Code = 230 // module import error
 	ErrSkolemEscape   Code = 240 // existential type variable escapes scope
 	ErrSkolemRigid    Code = 241 // cannot unify rigid (skolem) type variable
+	ErrKindMismatch   Code = 250 // kind mismatch in type application
 )
 
 // Phase indicates which compiler stage produced the error.
