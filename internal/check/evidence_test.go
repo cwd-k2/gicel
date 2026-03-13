@@ -90,6 +90,89 @@ func TestDeferredConstraintGroupField(t *testing.T) {
 }
 
 // =============================================================================
+// collectContextEvidence / classifyEvidence
+// =============================================================================
+
+func TestCollectContextEvidence(t *testing.T) {
+	ch := &Checker{
+		ctx: NewContext(),
+	}
+	ch.unifier = NewUnifierShared(&ch.freshID)
+
+	ch.ctx.Push(&CtxEvidence{
+		ClassName: "Eq",
+		Args:      []types.Type{types.Con("Int")},
+		DictName:  "$d_Eq_1",
+		DictType:  types.Con("Eq$Dict"),
+	})
+	ch.ctx.Push(&CtxVar{Name: "x", Type: types.Con("Int")})
+	ch.ctx.Push(&CtxEvidence{
+		ClassName: "Ord",
+		Args:      []types.Type{types.Con("Int")},
+		DictName:  "$d_Ord_2",
+		DictType:  types.Con("Ord$Dict"),
+	})
+
+	avail := ch.collectContextEvidence()
+	if len(avail) != 2 {
+		t.Fatalf("expected 2 available evidence, got %d", len(avail))
+	}
+	// Should be in reverse order (most recent first).
+	if avail[0].className != "Ord" {
+		t.Errorf("expected Ord first, got %s", avail[0].className)
+	}
+	if avail[1].className != "Eq" {
+		t.Errorf("expected Eq second, got %s", avail[1].className)
+	}
+}
+
+func TestClassifyEvidenceAllMatched(t *testing.T) {
+	ch := &Checker{
+		ctx: NewContext(),
+	}
+	ch.unifier = NewUnifierShared(&ch.freshID)
+
+	available := []availableEvidence{
+		{className: "Eq", args: []types.Type{types.Con("Int")}},
+	}
+	wanted := []deferredConstraint{
+		{placeholder: "$dict_1", className: "Eq", args: []types.Type{types.Con("Int")}},
+	}
+	matched, unmatched := ch.classifyEvidence(wanted, available)
+	if len(matched) != 1 {
+		t.Fatalf("expected 1 matched, got %d", len(matched))
+	}
+	if len(unmatched) != 0 {
+		t.Fatalf("expected 0 unmatched, got %d", len(unmatched))
+	}
+}
+
+func TestClassifyEvidencePartial(t *testing.T) {
+	ch := &Checker{
+		ctx: NewContext(),
+	}
+	ch.unifier = NewUnifierShared(&ch.freshID)
+
+	available := []availableEvidence{
+		{className: "Eq", args: []types.Type{types.Con("Int")}},
+	}
+	wanted := []deferredConstraint{
+		{placeholder: "$dict_1", className: "Eq", args: []types.Type{types.Con("Int")}},
+		{placeholder: "$dict_2", className: "Ord", args: []types.Type{types.Con("Int")}},
+	}
+	matched, unmatched := ch.classifyEvidence(wanted, available)
+	if len(matched) != 1 {
+		t.Fatalf("expected 1 matched, got %d", len(matched))
+	}
+	if len(unmatched) != 1 {
+		t.Fatalf("expected 1 unmatched, got %d", len(unmatched))
+	}
+	if unmatched[0].className != "Ord" {
+		t.Errorf("expected unmatched Ord, got %s", unmatched[0].className)
+	}
+}
+
+// =============================================================================
 // Integration: TyQual check mode still works with CtxEvidence
 // =============================================================================
 
