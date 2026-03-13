@@ -1016,3 +1016,142 @@ func TestParseKindSortInArrow(t *testing.T) {
 		t.Errorf("expected kind name 'k', got %q", kn.Name)
 	}
 }
+
+// --- Records ---
+
+func TestParseRecordLiteral(t *testing.T) {
+	prog, es := parse("r := { x = 1, y = 2 }")
+	if es.HasErrors() {
+		t.Fatal(es.Format())
+	}
+	bind := prog.Decls[0].(*DeclValueDef)
+	rec, ok := bind.Expr.(*ExprRecord)
+	if !ok {
+		t.Fatalf("expected ExprRecord, got %T", bind.Expr)
+	}
+	if len(rec.Fields) != 2 {
+		t.Fatalf("expected 2 fields, got %d", len(rec.Fields))
+	}
+	if rec.Fields[0].Label != "x" {
+		t.Errorf("field[0]: expected 'x', got %q", rec.Fields[0].Label)
+	}
+	if rec.Fields[1].Label != "y" {
+		t.Errorf("field[1]: expected 'y', got %q", rec.Fields[1].Label)
+	}
+}
+
+func TestParseEmptyRecord(t *testing.T) {
+	prog, es := parse("r := {}")
+	if es.HasErrors() {
+		t.Fatal(es.Format())
+	}
+	bind := prog.Decls[0].(*DeclValueDef)
+	rec, ok := bind.Expr.(*ExprRecord)
+	if !ok {
+		t.Fatalf("expected ExprRecord, got %T", bind.Expr)
+	}
+	if len(rec.Fields) != 0 {
+		t.Errorf("expected 0 fields, got %d", len(rec.Fields))
+	}
+}
+
+func TestParseRecordUpdate(t *testing.T) {
+	prog, es := parse("r2 := { r | x = 1 }")
+	if es.HasErrors() {
+		t.Fatal(es.Format())
+	}
+	bind := prog.Decls[0].(*DeclValueDef)
+	upd, ok := bind.Expr.(*ExprRecordUpdate)
+	if !ok {
+		t.Fatalf("expected ExprRecordUpdate, got %T", bind.Expr)
+	}
+	v, ok := upd.Record.(*ExprVar)
+	if !ok {
+		t.Fatalf("expected ExprVar as record base, got %T", upd.Record)
+	}
+	if v.Name != "r" {
+		t.Errorf("expected record base 'r', got %q", v.Name)
+	}
+	if len(upd.Updates) != 1 || upd.Updates[0].Label != "x" {
+		t.Errorf("expected 1 update with label 'x', got %v", upd.Updates)
+	}
+}
+
+func TestParseRecordProjection(t *testing.T) {
+	prog, es := parse("v := r!#x")
+	if es.HasErrors() {
+		t.Fatal(es.Format())
+	}
+	bind := prog.Decls[0].(*DeclValueDef)
+	proj, ok := bind.Expr.(*ExprProject)
+	if !ok {
+		t.Fatalf("expected ExprProject, got %T", bind.Expr)
+	}
+	if proj.Label != "x" {
+		t.Errorf("expected label 'x', got %q", proj.Label)
+	}
+	v, ok := proj.Record.(*ExprVar)
+	if !ok {
+		t.Fatalf("expected ExprVar as projection base, got %T", proj.Record)
+	}
+	if v.Name != "r" {
+		t.Errorf("expected base 'r', got %q", v.Name)
+	}
+}
+
+func TestParseChainedProjection(t *testing.T) {
+	prog, es := parse("v := r!#x!#y")
+	if es.HasErrors() {
+		t.Fatal(es.Format())
+	}
+	bind := prog.Decls[0].(*DeclValueDef)
+	proj, ok := bind.Expr.(*ExprProject)
+	if !ok {
+		t.Fatalf("expected ExprProject, got %T", bind.Expr)
+	}
+	if proj.Label != "y" {
+		t.Errorf("expected outer label 'y', got %q", proj.Label)
+	}
+	inner, ok := proj.Record.(*ExprProject)
+	if !ok {
+		t.Fatalf("expected nested ExprProject, got %T", proj.Record)
+	}
+	if inner.Label != "x" {
+		t.Errorf("expected inner label 'x', got %q", inner.Label)
+	}
+}
+
+func TestParseRecordPattern(t *testing.T) {
+	prog, es := parse("f := \\{ x = a, y = b } -> a")
+	if es.HasErrors() {
+		t.Fatal(es.Format())
+	}
+	bind := prog.Decls[0].(*DeclValueDef)
+	lam, ok := bind.Expr.(*ExprLam)
+	if !ok {
+		t.Fatalf("expected ExprLam, got %T", bind.Expr)
+	}
+	rpat, ok := lam.Params[0].(*PatRecord)
+	if !ok {
+		t.Fatalf("expected PatRecord, got %T", lam.Params[0])
+	}
+	if len(rpat.Fields) != 2 {
+		t.Fatalf("expected 2 fields, got %d", len(rpat.Fields))
+	}
+	if rpat.Fields[0].Label != "x" {
+		t.Errorf("field[0]: expected 'x', got %q", rpat.Fields[0].Label)
+	}
+}
+
+func TestParseBlockStillWorks(t *testing.T) {
+	// Ensure { name := expr; body } still parses as a block
+	prog, es := parse("r := { x := 1; x }")
+	if es.HasErrors() {
+		t.Fatal(es.Format())
+	}
+	bind := prog.Decls[0].(*DeclValueDef)
+	_, ok := bind.Expr.(*ExprBlock)
+	if !ok {
+		t.Fatalf("expected ExprBlock, got %T", bind.Expr)
+	}
+}

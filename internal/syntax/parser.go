@@ -642,33 +642,34 @@ func (p *Parser) parseApp() Expr {
 }
 
 func (p *Parser) parseAtom() Expr {
+	var e Expr
 	switch p.peek().Kind {
 	case TokLower:
 		tok := p.peek()
 		p.advance()
-		return &ExprVar{Name: tok.Text, S: tok.S}
+		e = &ExprVar{Name: tok.Text, S: tok.S}
 	case TokUpper:
 		tok := p.peek()
 		p.advance()
-		return &ExprCon{Name: tok.Text, S: tok.S}
+		e = &ExprCon{Name: tok.Text, S: tok.S}
 	case TokLParen:
-		return p.parseParen()
+		e = p.parseParen()
 	case TokBackslash:
-		return p.parseLambda()
+		e = p.parseLambda()
 	case TokCase:
-		return p.parseCase()
+		e = p.parseCase()
 	case TokDo:
-		return p.parseDo()
+		e = p.parseDo()
 	case TokLBrace:
-		return p.parseBlock()
+		e = p.parseBlock()
 	case TokIntLit:
 		tok := p.peek()
 		p.advance()
-		return &ExprIntLit{Value: tok.Text, S: tok.S}
+		e = &ExprIntLit{Value: tok.Text, S: tok.S}
 	case TokStrLit:
 		tok := p.peek()
 		p.advance()
-		return &ExprStrLit{Value: tok.Text, S: tok.S}
+		e = &ExprStrLit{Value: tok.Text, S: tok.S}
 	case TokRuneLit:
 		tok := p.peek()
 		p.advance()
@@ -677,12 +678,19 @@ func (p *Parser) parseAtom() Expr {
 		if len(runes) > 0 {
 			r = runes[0]
 		}
-		return &ExprRuneLit{Value: r, S: tok.S}
+		e = &ExprRuneLit{Value: r, S: tok.S}
 	case TokLBracket:
-		return p.parseListLit()
+		e = p.parseListLit()
 	default:
 		return nil
 	}
+	// Chain record projections: r!#x!#y → Project(Project(r, "x"), "y")
+	for p.peek().Kind == TokBangHash {
+		p.advance()
+		label := p.expectLower()
+		e = &ExprProject{Record: e, Label: label, S: span.Span{Start: e.Span().Start, End: p.prevEnd()}}
+	}
+	return e
 }
 
 func (p *Parser) parseParen() Expr {
@@ -809,7 +817,46 @@ func (p *Parser) parseBlock() Expr {
 	start := p.peek().S.Start
 	p.expect(TokLBrace)
 
-	// Try parsing as block expression with bindings.
+	// {} → empty record
+	if p.peek().Kind == TokRBrace {
+		p.advance()
+		return &ExprRecord{S: span.Span{Start: start, End: p.prevEnd()}}
+	}
+
+	// Disambiguate: record literal vs record update vs block.
+	// Peek at first name followed by = (record) vs := (block).
+	if p.peek().Kind == TokLower {
+		saved := p.pos
+		p.advance() // skip name
+		switch p.peek().Kind {
+		case TokEq:
+			// name = ... → record literal
+			p.pos = saved
+			return p.parseRecordLiteral(start)
+		case TokPipe:
+			// name | ... → record update (name is the record expression)
+			p.pos = saved
+			return p.parseRecordUpdate(start)
+		default:
+			// Could be: name := ... (block), or name as expression (record update with complex expr)
+			p.pos = saved
+		}
+	}
+
+	// Check for record update: expr | field = val, ...
+	// We need to detect this by trying to parse an expression, then checking for |.
+	// For simplicity, handle the case where the record is a single variable or expression.
+	// Attempt: if after parsing the first expression we see |, it's a record update.
+	savedForUpdate := p.pos
+	firstExpr := p.parseExpr()
+	if p.peek().Kind == TokPipe {
+		p.advance() // skip |
+		return p.parseRecordUpdateFields(start, firstExpr)
+	}
+	// Not a record update — restore and parse as block.
+	p.pos = savedForUpdate
+
+	// Block expression with bindings.
 	var binds []AstBind
 	for p.peek().Kind == TokLower {
 		saved := p.pos
@@ -840,6 +887,57 @@ func (p *Parser) parseBlock() Expr {
 	}
 }
 
+func (p *Parser) parseRecordLiteral(start span.Pos) Expr {
+	var fields []RecordField
+	for p.peek().Kind != TokRBrace && p.peek().Kind != TokEOF {
+		fStart := p.peek().S.Start
+		label := p.expectLower()
+		p.expect(TokEq)
+		value := p.parseExpr()
+		fields = append(fields, RecordField{
+			Label: label, Value: value,
+			S: span.Span{Start: fStart, End: p.prevEnd()},
+		})
+		if p.peek().Kind == TokComma {
+			p.advance()
+		} else {
+			break
+		}
+	}
+	p.expect(TokRBrace)
+	return &ExprRecord{Fields: fields, S: span.Span{Start: start, End: p.prevEnd()}}
+}
+
+func (p *Parser) parseRecordUpdate(start span.Pos) Expr {
+	record := p.parseExpr()
+	p.expect(TokPipe)
+	return p.parseRecordUpdateFields(start, record)
+}
+
+func (p *Parser) parseRecordUpdateFields(start span.Pos, record Expr) Expr {
+	var updates []RecordField
+	for p.peek().Kind != TokRBrace && p.peek().Kind != TokEOF {
+		fStart := p.peek().S.Start
+		label := p.expectLower()
+		p.expect(TokEq)
+		value := p.parseExpr()
+		updates = append(updates, RecordField{
+			Label: label, Value: value,
+			S: span.Span{Start: fStart, End: p.prevEnd()},
+		})
+		if p.peek().Kind == TokComma {
+			p.advance()
+		} else {
+			break
+		}
+	}
+	p.expect(TokRBrace)
+	return &ExprRecordUpdate{
+		Record: record, Updates: updates,
+		S: span.Span{Start: start, End: p.prevEnd()},
+	}
+}
+
 // --- Patterns ---
 
 func (p *Parser) parsePattern() Pattern {
@@ -860,6 +958,8 @@ func (p *Parser) parsePattern() Pattern {
 		inner := p.parsePattern()
 		p.expect(TokRParen)
 		return &PatParen{Inner: inner, S: span.Span{Start: start, End: p.prevEnd()}}
+	case TokLBrace:
+		return p.parseRecordPattern()
 	default:
 		p.addError("expected pattern")
 		tok := p.peek()
@@ -879,6 +979,31 @@ func (p *Parser) parseConPattern() Pattern {
 		return &PatCon{Con: name, S: span.Span{Start: start, End: p.prevEnd()}}
 	}
 	return &PatCon{Con: name, Args: args, S: span.Span{Start: start, End: p.prevEnd()}}
+}
+
+func (p *Parser) parseRecordPattern() Pattern {
+	start := p.peek().S.Start
+	p.expect(TokLBrace)
+	var fields []PatRecordField
+	if p.peek().Kind != TokRBrace {
+		for {
+			fStart := p.peek().S.Start
+			label := p.expectLower()
+			p.expect(TokEq)
+			pat := p.parsePattern()
+			fields = append(fields, PatRecordField{
+				Label: label, Pattern: pat,
+				S: span.Span{Start: fStart, End: p.prevEnd()},
+			})
+			if p.peek().Kind == TokComma {
+				p.advance()
+			} else {
+				break
+			}
+		}
+	}
+	p.expect(TokRBrace)
+	return &PatRecord{Fields: fields, S: span.Span{Start: start, End: p.prevEnd()}}
 }
 
 func (p *Parser) parsePatternAtom() Pattern {

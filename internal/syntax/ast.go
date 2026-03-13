@@ -93,6 +93,33 @@ type ExprList struct {
 	S     span.Span
 }
 
+// ExprRecord is a record literal: { x = 1, y = True }
+type ExprRecord struct {
+	Fields []RecordField
+	S      span.Span
+}
+
+// RecordField is a field in a record literal or update.
+type RecordField struct {
+	Label string
+	Value Expr
+	S     span.Span
+}
+
+// ExprRecordUpdate is a record update: { r | x = 1 }
+type ExprRecordUpdate struct {
+	Record  Expr
+	Updates []RecordField
+	S       span.Span
+}
+
+// ExprProject is a record projection: r!#x
+type ExprProject struct {
+	Record Expr
+	Label  string
+	S      span.Span
+}
+
 func (*ExprVar) exprNode()     {}
 func (*ExprCon) exprNode()     {}
 func (*ExprApp) exprNode()     {}
@@ -106,8 +133,11 @@ func (*ExprAnn) exprNode()     {}
 func (*ExprParen) exprNode()   {}
 func (*ExprIntLit) exprNode()  {}
 func (*ExprStrLit) exprNode()  {}
-func (*ExprRuneLit) exprNode() {}
-func (*ExprList) exprNode()    {}
+func (*ExprRuneLit) exprNode()      {}
+func (*ExprList) exprNode()         {}
+func (*ExprRecord) exprNode()       {}
+func (*ExprRecordUpdate) exprNode() {}
+func (*ExprProject) exprNode()      {}
 
 func (e *ExprVar) Span() span.Span     { return e.S }
 func (e *ExprCon) Span() span.Span     { return e.S }
@@ -122,8 +152,11 @@ func (e *ExprAnn) Span() span.Span     { return e.S }
 func (e *ExprParen) Span() span.Span   { return e.S }
 func (e *ExprIntLit) Span() span.Span  { return e.S }
 func (e *ExprStrLit) Span() span.Span  { return e.S }
-func (e *ExprRuneLit) Span() span.Span { return e.S }
-func (e *ExprList) Span() span.Span    { return e.S }
+func (e *ExprRuneLit) Span() span.Span      { return e.S }
+func (e *ExprList) Span() span.Span         { return e.S }
+func (e *ExprRecord) Span() span.Span       { return e.S }
+func (e *ExprRecordUpdate) Span() span.Span { return e.S }
+func (e *ExprProject) Span() span.Span      { return e.S }
 
 // ---- Statements (in do blocks) ----
 
@@ -200,12 +233,26 @@ type PatParen struct {
 	S     span.Span
 }
 
-func (*PatVar) patternNode()   {}
-func (*PatWild) patternNode()  {}
-func (*PatCon) patternNode()   {}
-func (*PatParen) patternNode() {}
+// PatRecord is a record pattern: { x = a, y = b }
+type PatRecord struct {
+	Fields []PatRecordField
+	S      span.Span
+}
 
-func (p *PatVar) Span() span.Span   { return p.S }
-func (p *PatWild) Span() span.Span  { return p.S }
-func (p *PatCon) Span() span.Span   { return p.S }
+type PatRecordField struct {
+	Label   string
+	Pattern Pattern
+	S       span.Span
+}
+
+func (*PatVar) patternNode()    {}
+func (*PatWild) patternNode()   {}
+func (*PatCon) patternNode()    {}
+func (*PatParen) patternNode()  {}
+func (*PatRecord) patternNode() {}
+
+func (p *PatVar) Span() span.Span    { return p.S }
+func (p *PatWild) Span() span.Span   { return p.S }
+func (p *PatCon) Span() span.Span    { return p.S }
+func (p *PatRecord) Span() span.Span { return p.S }
 func (p *PatParen) Span() span.Span { return p.S }
