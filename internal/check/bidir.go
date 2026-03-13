@@ -11,6 +11,30 @@ import (
 	"github.com/cwd-k2/gomputation/internal/types"
 )
 
+// addUnifyError maps a unification error to the appropriate structured error code.
+// If the error is not a *UnifyError, it falls back to ErrTypeMismatch.
+func (ch *Checker) addUnifyError(err error, s span.Span, ctx string) {
+	ue, ok := err.(*UnifyError)
+	if !ok {
+		ch.addCodedError(errs.ErrTypeMismatch, s, ctx+": "+err.Error())
+		return
+	}
+	var code errs.Code
+	switch ue.Kind {
+	case UnifyOccursCheck:
+		code = errs.ErrOccursCheck
+	case UnifyDupLabel:
+		code = errs.ErrDuplicateLabel
+	case UnifyRowMismatch:
+		code = errs.ErrRowMismatch
+	case UnifySkolemRigid:
+		code = errs.ErrSkolemRigid
+	default:
+		code = errs.ErrTypeMismatch
+	}
+	ch.addCodedError(code, s, ctx+": "+ue.Detail)
+}
+
 // infer produces a type for an expression and a Core IR node.
 func (ch *Checker) infer(expr syntax.Expr) (types.Type, core.Core) {
 	ch.depth++
@@ -284,7 +308,7 @@ func (ch *Checker) subsCheck(inferred, expected types.Type, expr core.Core, s sp
 
 	// Default: unify
 	if err := ch.unifier.Unify(inferred, expected); err != nil {
-		ch.addCodedError(errs.ErrTypeMismatch, s, fmt.Sprintf("type mismatch: expected %s, got %s",
+		ch.addUnifyError(err, s, fmt.Sprintf("type mismatch: expected %s, got %s",
 			types.Pretty(expected), types.Pretty(inferred)))
 	}
 	return expr
@@ -466,7 +490,7 @@ func (ch *Checker) checkPattern(pat syntax.Pattern, scrutTy types.Type) (core.Pa
 			}
 		}
 		if err := ch.unifier.Unify(currentTy, scrutTy); err != nil {
-			ch.addCodedError(errs.ErrTypeMismatch, p.S, fmt.Sprintf("constructor type mismatch: %s", err))
+			ch.addUnifyError(err, p.S, "constructor type mismatch")
 		}
 		// 7. Resolve pending constraint variable entries now that metas are solved.
 		for _, pcv := range pendingCVs {

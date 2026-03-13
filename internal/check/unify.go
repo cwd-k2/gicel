@@ -6,6 +6,25 @@ import (
 	"github.com/cwd-k2/gomputation/internal/types"
 )
 
+// UnifyErrorKind classifies unification failures for structured error reporting.
+type UnifyErrorKind int
+
+const (
+	UnifyMismatch    UnifyErrorKind = iota // general type mismatch
+	UnifyOccursCheck                       // infinite type (occurs check)
+	UnifyDupLabel                          // duplicate label in row
+	UnifyRowMismatch                       // row structure mismatch (extra labels, closed row)
+	UnifySkolemRigid                       // rigid/skolem variable cannot be unified
+)
+
+// UnifyError is a structured error returned by the unifier.
+type UnifyError struct {
+	Kind   UnifyErrorKind
+	Detail string
+}
+
+func (e *UnifyError) Error() string { return e.Detail }
+
 // AliasExpander is a callback for expanding type aliases during unification.
 type AliasExpander func(types.Type) types.Type
 
@@ -233,10 +252,10 @@ func (u *Unifier) Unify(a, b types.Type) error {
 		if bs, ok := b.(*types.TySkolem); ok && as.ID == bs.ID {
 			return nil
 		}
-		return fmt.Errorf("cannot unify rigid type variable #%s with %s", as.Name, types.Pretty(b))
+		return &UnifyError{Kind: UnifySkolemRigid, Detail: fmt.Sprintf("cannot unify rigid type variable #%s with %s", as.Name, types.Pretty(b))}
 	}
 	if bs, ok := b.(*types.TySkolem); ok {
-		return fmt.Errorf("cannot unify %s with rigid type variable #%s", types.Pretty(a), bs.Name)
+		return &UnifyError{Kind: UnifySkolemRigid, Detail: fmt.Sprintf("cannot unify %s with rigid type variable #%s", types.Pretty(a), bs.Name)}
 	}
 
 	switch at := a.(type) {
@@ -318,7 +337,7 @@ func (u *Unifier) Unify(a, b types.Type) error {
 		}
 	}
 
-	return fmt.Errorf("type mismatch: %s vs %s", types.Pretty(a), types.Pretty(b))
+	return &UnifyError{Kind: UnifyMismatch, Detail: fmt.Sprintf("type mismatch: %s vs %s", types.Pretty(a), types.Pretty(b))}
 }
 
 // unifyAppWithTriple decomposes a TyApp chain and unifies its spine against
@@ -329,7 +348,7 @@ func (u *Unifier) Unify(a, b types.Type) error {
 func (u *Unifier) unifyAppWithTriple(app types.Type, conName string, fields [3]types.Type) error {
 	head, args := types.UnwindApp(app)
 	if len(args) < 3 {
-		return fmt.Errorf("type mismatch: %s vs %s ...", types.Pretty(app), conName)
+		return &UnifyError{Kind: UnifyMismatch, Detail: fmt.Sprintf("type mismatch: %s vs %s ...", types.Pretty(app), conName)}
 	}
 	// Reconstruct head with excess leading args (handles len(args) > 3).
 	conHead := head
@@ -353,7 +372,7 @@ func (u *Unifier) solveMeta(m *types.TyMeta, t types.Type) error {
 	}
 	// Occurs check.
 	if u.occursIn(m.ID, t) {
-		return fmt.Errorf("infinite type: ?%d occurs in %s", m.ID, types.Pretty(t))
+		return &UnifyError{Kind: UnifyOccursCheck, Detail: fmt.Sprintf("infinite type: ?%d occurs in %s", m.ID, types.Pretty(t))}
 	}
 	// Label uniqueness: if this meta has a label context, verify the
 	// solution doesn't introduce duplicate labels (spec §8, §6.3).
@@ -361,7 +380,7 @@ func (u *Unifier) solveMeta(m *types.TyMeta, t types.Type) error {
 		if row, ok := t.(*types.TyRow); ok {
 			for _, f := range row.Fields {
 				if _, dup := ctx[f.Label]; dup {
-					return fmt.Errorf("duplicate label %q in row", f.Label)
+					return &UnifyError{Kind: UnifyDupLabel, Detail: fmt.Sprintf("duplicate label %q in row", f.Label)}
 				}
 			}
 		}
@@ -411,16 +430,16 @@ func (u *Unifier) unifyRows(r1, r2 *types.TyRow) error {
 	switch {
 	case r1.Tail == nil && r2.Tail == nil:
 		if len(onlyLeft) > 0 || len(onlyRight) > 0 {
-			return fmt.Errorf("row mismatch: extra labels %v / %v", onlyLeft, onlyRight)
+			return &UnifyError{Kind: UnifyRowMismatch, Detail: fmt.Sprintf("row mismatch: extra labels %v / %v", onlyLeft, onlyRight)}
 		}
 	case r1.Tail != nil && r2.Tail == nil:
 		if len(onlyLeft) > 0 {
-			return fmt.Errorf("extra labels in row: %v", onlyLeft)
+			return &UnifyError{Kind: UnifyRowMismatch, Detail: fmt.Sprintf("extra labels in row: %v", onlyLeft)}
 		}
 		return u.solveRowTail(r1.Tail, collectFields(r2, onlyRight), nil)
 	case r1.Tail == nil && r2.Tail != nil:
 		if len(onlyRight) > 0 {
-			return fmt.Errorf("extra labels in row: %v", onlyRight)
+			return &UnifyError{Kind: UnifyRowMismatch, Detail: fmt.Sprintf("extra labels in row: %v", onlyRight)}
 		}
 		return u.solveRowTail(r2.Tail, collectFields(r1, onlyLeft), nil)
 	default:
@@ -514,8 +533,8 @@ func (u *Unifier) unifyConstraintRows(r1, r2 *types.TyConstraintRow) error {
 	// Unify shared entries' Args.
 	for _, m := range shared {
 		if len(m.A.Args) != len(m.B.Args) {
-			return fmt.Errorf("constraint arg count mismatch: %s has %d args vs %d",
-				m.A.ClassName, len(m.A.Args), len(m.B.Args))
+			return &UnifyError{Kind: UnifyRowMismatch, Detail: fmt.Sprintf("constraint arg count mismatch: %s has %d args vs %d",
+				m.A.ClassName, len(m.A.Args), len(m.B.Args))}
 		}
 		for i := range m.A.Args {
 			if err := u.Unify(m.A.Args[i], m.B.Args[i]); err != nil {
@@ -527,17 +546,17 @@ func (u *Unifier) unifyConstraintRows(r1, r2 *types.TyConstraintRow) error {
 	switch {
 	case r1.Tail == nil && r2.Tail == nil:
 		if len(onlyLeft) > 0 || len(onlyRight) > 0 {
-			return fmt.Errorf("constraint row mismatch: extra constraints left=%d right=%d",
-				len(onlyLeft), len(onlyRight))
+			return &UnifyError{Kind: UnifyRowMismatch, Detail: fmt.Sprintf("constraint row mismatch: extra constraints left=%d right=%d",
+				len(onlyLeft), len(onlyRight))}
 		}
 	case r1.Tail != nil && r2.Tail == nil:
 		if len(onlyLeft) > 0 {
-			return fmt.Errorf("extra constraints in left row: %d", len(onlyLeft))
+			return &UnifyError{Kind: UnifyRowMismatch, Detail: fmt.Sprintf("extra constraints in left row: %d", len(onlyLeft))}
 		}
 		return u.solveConstraintTail(r1.Tail, onlyRight, nil)
 	case r1.Tail == nil && r2.Tail != nil:
 		if len(onlyRight) > 0 {
-			return fmt.Errorf("extra constraints in right row: %d", len(onlyRight))
+			return &UnifyError{Kind: UnifyRowMismatch, Detail: fmt.Sprintf("extra constraints in right row: %d", len(onlyRight))}
 		}
 		return u.solveConstraintTail(r2.Tail, onlyLeft, nil)
 	default:
