@@ -180,3 +180,77 @@ func (r *TyEvidenceRow) CapFields() []RowField {
 func (r *TyEvidenceRow) ConEntries() []ConstraintEntry {
 	return r.Entries.(*ConstraintEntries).Entries
 }
+
+// --- Capability row operations ---
+
+// EvLabels returns the set of label names in a capability evidence row.
+func EvLabels(r *TyEvidenceRow) map[string]struct{} {
+	fields := r.CapFields()
+	m := make(map[string]struct{}, len(fields))
+	for _, f := range fields {
+		m[f.Label] = struct{}{}
+	}
+	return m
+}
+
+// EvHasLabel checks if a label exists in a capability evidence row.
+func EvHasLabel(r *TyEvidenceRow, label string) bool {
+	for _, f := range r.CapFields() {
+		if f.Label == label {
+			return true
+		}
+	}
+	return false
+}
+
+// EvExtendCapField adds a field to a capability evidence row, maintaining sorted order.
+func EvExtendCapField(r *TyEvidenceRow, f RowField) (*TyEvidenceRow, error) {
+	inner := &TyRow{Fields: r.CapFields(), Tail: r.Tail, S: r.S}
+	extended, err := ExtendRow(inner, f)
+	if err != nil {
+		return nil, err
+	}
+	return &TyEvidenceRow{
+		Entries: &CapabilityEntries{Fields: extended.Fields},
+		Tail:    extended.Tail,
+		S:       r.S,
+	}, nil
+}
+
+// EvRemoveCapField removes a field by label from a capability evidence row.
+func EvRemoveCapField(r *TyEvidenceRow, label string) (RowField, *TyEvidenceRow, bool) {
+	inner := &TyRow{Fields: r.CapFields(), Tail: r.Tail, S: r.S}
+	field, remaining, ok := RemoveLabel(inner, label)
+	if !ok {
+		return RowField{}, r, false
+	}
+	return field, &TyEvidenceRow{
+		Entries: &CapabilityEntries{Fields: remaining.Fields},
+		Tail:    remaining.Tail,
+		S:       r.S,
+	}, true
+}
+
+// --- Constraint row operations ---
+
+// EvNormalizeConstraintEntries sorts constraint entries by canonical key.
+func EvNormalizeConstraintEntries(r *TyEvidenceRow) *TyEvidenceRow {
+	inner := &TyConstraintRow{Entries: r.ConEntries(), Tail: r.Tail, S: r.S}
+	normalized := NormalizeConstraints(inner)
+	return &TyEvidenceRow{
+		Entries: &ConstraintEntries{Entries: normalized.Entries},
+		Tail:    normalized.Tail,
+		S:       r.S,
+	}
+}
+
+// EvExtendConstraintEntry adds a constraint entry to a constraint evidence row.
+func EvExtendConstraintEntry(r *TyEvidenceRow, e ConstraintEntry) *TyEvidenceRow {
+	inner := &TyConstraintRow{Entries: r.ConEntries(), Tail: r.Tail, S: r.S}
+	extended := ExtendConstraint(inner, e)
+	return &TyEvidenceRow{
+		Entries: &ConstraintEntries{Entries: extended.Entries},
+		Tail:    extended.Tail,
+		S:       r.S,
+	}
+}

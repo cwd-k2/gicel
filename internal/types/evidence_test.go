@@ -156,3 +156,117 @@ func TestEvTypeInterface(t *testing.T) {
 	_ = ty.Span()
 	_ = ty.Children()
 }
+
+// --- Group 1B: Evidence row operations ---
+
+func TestEvLabels(t *testing.T) {
+	r := EvClosedRow(
+		RowField{Label: "x", Type: Con("Int")},
+		RowField{Label: "y", Type: Con("Bool")},
+	)
+	labels := EvLabels(r)
+	if len(labels) != 2 {
+		t.Fatalf("expected 2 labels, got %d", len(labels))
+	}
+	if _, ok := labels["x"]; !ok {
+		t.Error("missing label x")
+	}
+	if _, ok := labels["y"]; !ok {
+		t.Error("missing label y")
+	}
+}
+
+func TestEvHasLabel(t *testing.T) {
+	r := EvClosedRow(RowField{Label: "x", Type: Con("Int")})
+	if !EvHasLabel(r, "x") {
+		t.Error("expected HasLabel(x) = true")
+	}
+	if EvHasLabel(r, "y") {
+		t.Error("expected HasLabel(y) = false")
+	}
+}
+
+func TestEvExtendCapField(t *testing.T) {
+	r := EvClosedRow(RowField{Label: "x", Type: Con("Int")})
+	r2, err := EvExtendCapField(r, RowField{Label: "y", Type: Con("Bool")})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if r2.Entries.EntryCount() != 2 {
+		t.Fatalf("expected 2 fields, got %d", r2.Entries.EntryCount())
+	}
+	// Sorted order: x, y
+	fields := r2.CapFields()
+	if fields[0].Label != "x" || fields[1].Label != "y" {
+		t.Errorf("expected [x, y], got [%s, %s]", fields[0].Label, fields[1].Label)
+	}
+}
+
+func TestEvExtendCapFieldDuplicate(t *testing.T) {
+	r := EvClosedRow(RowField{Label: "x", Type: Con("Int")})
+	_, err := EvExtendCapField(r, RowField{Label: "x", Type: Con("Bool")})
+	if err == nil {
+		t.Fatal("expected error on duplicate label")
+	}
+}
+
+func TestEvRemoveCapField(t *testing.T) {
+	r := EvClosedRow(
+		RowField{Label: "x", Type: Con("Int")},
+		RowField{Label: "y", Type: Con("Bool")},
+	)
+	field, remaining, ok := EvRemoveCapField(r, "x")
+	if !ok {
+		t.Fatal("expected to find label x")
+	}
+	if field.Label != "x" {
+		t.Errorf("expected field x, got %s", field.Label)
+	}
+	if remaining.Entries.EntryCount() != 1 {
+		t.Fatalf("expected 1 remaining field, got %d", remaining.Entries.EntryCount())
+	}
+}
+
+func TestEvRemoveCapFieldNotFound(t *testing.T) {
+	r := EvClosedRow(RowField{Label: "x", Type: Con("Int")})
+	_, _, ok := EvRemoveCapField(r, "z")
+	if ok {
+		t.Fatal("expected not found")
+	}
+}
+
+func TestEvNormalizeConstraints(t *testing.T) {
+	r := &TyEvidenceRow{
+		Entries: &ConstraintEntries{
+			Entries: []ConstraintEntry{
+				{ClassName: "Ord", Args: []Type{Con("Int")}},
+				{ClassName: "Eq", Args: []Type{Con("Int")}},
+			},
+		},
+	}
+	normalized := EvNormalizeConstraintEntries(r)
+	entries := normalized.ConEntries()
+	if entries[0].ClassName != "Eq" || entries[1].ClassName != "Ord" {
+		t.Errorf("expected [Eq, Ord], got [%s, %s]", entries[0].ClassName, entries[1].ClassName)
+	}
+}
+
+func TestEvExtendConstraint(t *testing.T) {
+	r := EvSingleConstraint("Eq", []Type{Con("Int")})
+	r2 := EvExtendConstraintEntry(r, ConstraintEntry{ClassName: "Ord", Args: []Type{Con("Int")}})
+	if r2.Entries.EntryCount() != 2 {
+		t.Fatalf("expected 2 entries, got %d", r2.Entries.EntryCount())
+	}
+}
+
+func TestEvPreservesTail(t *testing.T) {
+	tail := Var("r")
+	r := EvOpenRow([]RowField{{Label: "x", Type: Con("Int")}}, tail)
+	r2, err := EvExtendCapField(r, RowField{Label: "y", Type: Con("Bool")})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if r2.Tail == nil {
+		t.Fatal("expected tail to be preserved")
+	}
+}
