@@ -109,14 +109,6 @@ func prettyConstraintEntries(entries []ConstraintEntry, tail Type) string {
 	return "{ " + inner + " }"
 }
 
-func prettyRow(r *TyRow) string {
-	return prettyCapFields(r.Fields, r.Tail)
-}
-
-func prettyConstraintRow(r *TyConstraintRow) string {
-	return prettyConstraintEntries(r.Entries, r.Tail)
-}
-
 func prettyEvidenceRow(r *TyEvidenceRow) string {
 	switch entries := r.Entries.(type) {
 	case *CapabilityEntries:
