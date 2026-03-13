@@ -345,6 +345,11 @@ Eq a => Ord b => a -> b -> Bool    -- curried constraints
 
 Constraint products `(C1, C2, ...)` and curried constraints `C1 => C2 => ...` are equivalent; both elaborate to a single `TyEvidence` with multiple constraint entries. `(C)` with a single constraint is treated as a parenthesized constraint, not a product.
 
+**Future extensions** (not yet implemented):
+- Quantified constraints: `(forall a. Eq a => Eq (f a)) => ...` — requires compound constraint entries
+- Constraint variables: `forall (c : Constraint). c => ...` — requires open constraint row tail solving
+- Dict reification: `data Dict (c : Constraint) = Dict c` — requires constraint-kinded data params
+
 ### Universal Quantification
 
 ```
