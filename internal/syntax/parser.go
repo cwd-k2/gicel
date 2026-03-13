@@ -50,8 +50,10 @@ func (p *Parser) ParseProgram() *AstProgram {
 
 	// Parse imports first.
 	var imports []DeclImport
+	p.skipSemicolons()
 	for p.peek().Kind == TokImport {
 		imports = append(imports, p.parseImportDecl())
+		p.skipSemicolons()
 	}
 
 	var decls []Decl
@@ -60,6 +62,7 @@ func (p *Parser) ParseProgram() *AstProgram {
 		if d != nil {
 			decls = append(decls, d)
 		}
+		p.skipSemicolons()
 	}
 	return &AstProgram{Imports: imports, Decls: decls}
 }
@@ -1097,6 +1100,12 @@ func (p *Parser) parseRowType() TypeExpr {
 }
 
 // --- Helpers ---
+
+func (p *Parser) skipSemicolons() {
+	for p.peek().Kind == TokSemicolon {
+		p.advance()
+	}
+}
 
 func (p *Parser) peek() Token {
 	if p.pos >= len(p.tokens) {

@@ -853,6 +853,63 @@ func TestParseGADTvsADT(t *testing.T) {
 	}
 }
 
+func TestSemicolonTopLevelSeparator(t *testing.T) {
+	// Semicolons separate top-level declarations (same as newlines).
+	prog, es := parse("f :: Int; f := 42; g := True")
+	if es.HasErrors() {
+		t.Fatal(es.Format())
+	}
+	if len(prog.Decls) != 3 {
+		t.Fatalf("expected 3 decls, got %d", len(prog.Decls))
+	}
+}
+
+func TestSemicolonBetweenImports(t *testing.T) {
+	prog, es := parse("import Foo; import Bar\nf := 1")
+	if es.HasErrors() {
+		t.Fatal(es.Format())
+	}
+	if len(prog.Imports) != 2 {
+		t.Errorf("expected 2 imports, got %d", len(prog.Imports))
+	}
+	if len(prog.Decls) != 1 {
+		t.Errorf("expected 1 decl, got %d", len(prog.Decls))
+	}
+}
+
+func TestSemicolonMixedWithNewlines(t *testing.T) {
+	// Both separators used together.
+	prog, es := parse("f := 1;\ng := 2\nh := 3")
+	if es.HasErrors() {
+		t.Fatal(es.Format())
+	}
+	if len(prog.Decls) != 3 {
+		t.Fatalf("expected 3 decls, got %d", len(prog.Decls))
+	}
+}
+
+func TestSemicolonTrailing(t *testing.T) {
+	// Trailing semicolons are harmless.
+	prog, es := parse("f := 1; g := 2;")
+	if es.HasErrors() {
+		t.Fatal(es.Format())
+	}
+	if len(prog.Decls) != 2 {
+		t.Fatalf("expected 2 decls, got %d", len(prog.Decls))
+	}
+}
+
+func TestSemicolonMultiple(t *testing.T) {
+	// Multiple consecutive semicolons are harmless.
+	prog, es := parse("f := 1;;; g := 2")
+	if es.HasErrors() {
+		t.Fatal(es.Format())
+	}
+	if len(prog.Decls) != 2 {
+		t.Fatalf("expected 2 decls, got %d", len(prog.Decls))
+	}
+}
+
 func TestGADTConReturnType(t *testing.T) {
 	prog, es := parse("data Expr a = { IntLit :: Int -> Expr Int; Add :: Expr Int -> Expr Int -> Expr Int; IsZero :: Expr Int -> Expr Bool }")
 	if es.HasErrors() {

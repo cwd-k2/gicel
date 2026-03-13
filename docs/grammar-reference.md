@@ -46,6 +46,7 @@
 | `=`    | Data constructor separator    |
 | `@`    | Explicit type application     |
 | `\|`   | Constructor / row tail separator |
+| `;`    | Declaration / statement separator |
 
 ### Identifiers
 
@@ -496,11 +497,13 @@ Con x y         -- constructor with arguments
 
 ## Declaration Boundaries
 
-Declarations are separated by newlines at nesting depth 0. A new declaration begins when a newline-preceded token at depth 0 is one of:
+Declarations are separated by newlines or semicolons. Both separators are interchangeable at all levels; trailing and repeated semicolons are permitted.
+
+At nesting depth 0, a new declaration begins when the next token (preceded by a newline or semicolon) is one of:
 
 `lowercase` | `uppercase` | `data` | `type` | `infixl` | `infixr` | `infixn` | `class` | `instance` | `import` | `(op)` (operator definition)
 
-No explicit semicolons needed between top-level declarations.
+Inside braces (`do`, `case`, block expressions, GADT declarations), semicolons are optional separators between statements, branches, or constructors.
 
 ---
 

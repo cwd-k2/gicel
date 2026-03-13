@@ -138,6 +138,7 @@ result, err := rt.RunContext(ctx, nil, nil, "main")
 | `=`    | Data constructor separator           |
 | `@`    | Explicit type application            |
 | `\|`   | Constructor alternative / row tail   |
+| `;`    | Declaration / statement separator    |
 
 ### Comments
 
@@ -154,7 +155,9 @@ result, err := rt.RunContext(ctx, nil, nil, "main")
 
 ### Declaration Boundaries
 
-Top-level declarations are separated by newlines at nesting depth 0. No semicolons between declarations. A new declaration starts when a newline-preceded token at depth 0 is one of: lowercase identifier, uppercase identifier, `data`, `type`, `infixl`, `infixr`, `infixn`, `class`, `instance`, `import`, or `(op)`.
+Top-level declarations are separated by newlines or semicolons. Both are interchangeable; trailing and repeated semicolons are permitted. A new declaration starts when the next token (preceded by a newline or semicolon at depth 0) is one of: lowercase identifier, uppercase identifier, `data`, `type`, `infixl`, `infixr`, `infixn`, `class`, `instance`, `import`, or `(op)`.
+
+Inside braces (`do`, `case`, block expressions, GADT declarations), semicolons are optional separators between statements, branches, or constructors.
 
 Import declarations must appear before all other declarations.
 
@@ -1211,9 +1214,9 @@ If your program uses `get`/`put` (Std.State), the Go host must supply the initia
 
 A `Computation` with empty row indices `{}` requires no capabilities. It is essentially pure but still lives in the Computation type. You can always `pure x` to create one.
 
-### Semicolons separate, not terminate
+### Semicolons and newlines are interchangeable
 
-Inside `case` branches and `do` blocks, `;` separates items. A trailing `;` before `}` is not needed and may cause parse errors.
+`;` and newlines are both valid declaration/statement separators at all levels. Trailing and repeated semicolons are harmless. Inside braces, semicolons are optional (the parser separates statements implicitly).
 
 ---
 
