@@ -33,6 +33,8 @@ func Pretty(t Type) string {
 		return prettyRow(ty)
 	case *TyConstraintRow:
 		return prettyConstraintRow(ty)
+	case *TyEvidenceRow:
+		return prettyEvidenceRow(ty)
 	case *TyEvidence:
 		return Pretty(ty.Constraints) + " => " + Pretty(ty.Body)
 	case *TySkolem:
@@ -48,7 +50,7 @@ func Pretty(t Type) string {
 
 func prettyAtom(t Type) string {
 	switch t.(type) {
-	case *TyVar, *TyCon, *TyRow, *TySkolem, *TyMeta, *TyError:
+	case *TyVar, *TyCon, *TyRow, *TyEvidenceRow, *TySkolem, *TyMeta, *TyError:
 		return Pretty(t)
 	default:
 		return "(" + Pretty(t) + ")"
@@ -105,6 +107,17 @@ func prettyConstraintRow(r *TyConstraintRow) string {
 		}
 	}
 	return "{ " + inner + " }"
+}
+
+func prettyEvidenceRow(r *TyEvidenceRow) string {
+	switch entries := r.Entries.(type) {
+	case *CapabilityEntries:
+		return prettyRow(&TyRow{Fields: entries.Fields, Tail: r.Tail})
+	case *ConstraintEntries:
+		return prettyConstraintRow(&TyConstraintRow{Entries: entries.Entries, Tail: r.Tail})
+	default:
+		return "{?}"
+	}
 }
 
 func prettyConstraintEntry(e ConstraintEntry) string {

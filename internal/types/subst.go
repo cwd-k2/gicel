@@ -131,6 +131,50 @@ func Subst(t Type, varName string, replacement Type) Type {
 	case *TySkolem:
 		return ty
 
+	case *TyEvidenceRow:
+		switch entries := ty.Entries.(type) {
+		case *CapabilityEntries:
+			changed := false
+			fields := make([]RowField, len(entries.Fields))
+			for i, f := range entries.Fields {
+				newT := Subst(f.Type, varName, replacement)
+				if newT != f.Type {
+					changed = true
+				}
+				fields[i] = RowField{Label: f.Label, Type: newT, S: f.S}
+			}
+			var newTail Type
+			if ty.Tail != nil {
+				newTail = Subst(ty.Tail, varName, replacement)
+				if newTail != ty.Tail {
+					changed = true
+				}
+			}
+			if !changed {
+				return ty
+			}
+			return &TyEvidenceRow{Entries: &CapabilityEntries{Fields: fields}, Tail: newTail, S: ty.S}
+		case *ConstraintEntries:
+			changed := false
+			ces := make([]ConstraintEntry, len(entries.Entries))
+			for i, e := range entries.Entries {
+				ces[i] = substConstraintEntry(e, varName, replacement, &changed)
+			}
+			var newTail Type
+			if ty.Tail != nil {
+				newTail = Subst(ty.Tail, varName, replacement)
+				if newTail != ty.Tail {
+					changed = true
+				}
+			}
+			if !changed {
+				return ty
+			}
+			return &TyEvidenceRow{Entries: &ConstraintEntries{Entries: ces}, Tail: newTail, S: ty.S}
+		default:
+			return ty
+		}
+
 	case *TyMeta:
 		return ty
 

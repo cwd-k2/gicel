@@ -123,6 +123,61 @@ func equalAlpha(a, b Type, bindings []alphaBinding) bool {
 		}
 		return true
 
+	case *TyEvidenceRow:
+		bt, ok := b.(*TyEvidenceRow)
+		if !ok {
+			return false
+		}
+		switch aEntries := at.Entries.(type) {
+		case *CapabilityEntries:
+			bEntries, ok := bt.Entries.(*CapabilityEntries)
+			if !ok {
+				return false
+			}
+			an := Normalize(&TyRow{Fields: aEntries.Fields, Tail: at.Tail})
+			bn := Normalize(&TyRow{Fields: bEntries.Fields, Tail: bt.Tail})
+			if len(an.Fields) != len(bn.Fields) {
+				return false
+			}
+			for i := range an.Fields {
+				if an.Fields[i].Label != bn.Fields[i].Label {
+					return false
+				}
+				if !equalAlpha(an.Fields[i].Type, bn.Fields[i].Type, bindings) {
+					return false
+				}
+			}
+			if (an.Tail == nil) != (bn.Tail == nil) {
+				return false
+			}
+			if an.Tail != nil {
+				return equalAlpha(an.Tail, bn.Tail, bindings)
+			}
+			return true
+		case *ConstraintEntries:
+			bEntries, ok := bt.Entries.(*ConstraintEntries)
+			if !ok {
+				return false
+			}
+			if len(aEntries.Entries) != len(bEntries.Entries) {
+				return false
+			}
+			for i := range aEntries.Entries {
+				if !equalConstraintEntry(aEntries.Entries[i], bEntries.Entries[i], bindings) {
+					return false
+				}
+			}
+			if (at.Tail == nil) != (bt.Tail == nil) {
+				return false
+			}
+			if at.Tail != nil {
+				return equalAlpha(at.Tail, bt.Tail, bindings)
+			}
+			return true
+		default:
+			return false
+		}
+
 	case *TyEvidence:
 		bt, ok := b.(*TyEvidence)
 		if !ok {

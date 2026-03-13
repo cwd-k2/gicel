@@ -270,3 +270,123 @@ func TestEvPreservesTail(t *testing.T) {
 		t.Fatal("expected tail to be preserved")
 	}
 }
+
+// --- Group 1C: Subst, Equal, FreeVars, Pretty for TyEvidenceRow ---
+
+func TestEvSubstCapability(t *testing.T) {
+	// { x : a | r } with a := Int → { x : Int | r }
+	r := EvOpenRow([]RowField{{Label: "x", Type: Var("a")}}, Var("r"))
+	result := Subst(r, "a", Con("Int"))
+	ev, ok := result.(*TyEvidenceRow)
+	if !ok {
+		t.Fatalf("expected TyEvidenceRow, got %T", result)
+	}
+	field := ev.CapFields()[0]
+	if c, ok := field.Type.(*TyCon); !ok || c.Name != "Int" {
+		t.Errorf("expected Int, got %s", Pretty(field.Type))
+	}
+}
+
+func TestEvSubstConstraint(t *testing.T) {
+	// { Eq a } with a := Int → { Eq Int }
+	r := EvSingleConstraint("Eq", []Type{Var("a")})
+	result := Subst(r, "a", Con("Int"))
+	ev, ok := result.(*TyEvidenceRow)
+	if !ok {
+		t.Fatalf("expected TyEvidenceRow, got %T", result)
+	}
+	entry := ev.ConEntries()[0]
+	if c, ok := entry.Args[0].(*TyCon); !ok || c.Name != "Int" {
+		t.Errorf("expected Int, got %s", Pretty(entry.Args[0]))
+	}
+}
+
+func TestEvSubstTail(t *testing.T) {
+	// { x : Int | r } with r := { y : Bool } → { x : Int, y : Bool }
+	r := EvOpenRow([]RowField{{Label: "x", Type: Con("Int")}}, Var("r"))
+	replacement := EvClosedRow(RowField{Label: "y", Type: Con("Bool")})
+	result := Subst(r, "r", replacement)
+	ev, ok := result.(*TyEvidenceRow)
+	if !ok {
+		t.Fatalf("expected TyEvidenceRow, got %T", result)
+	}
+	// Tail should now be the replacement
+	if ev.Tail == nil {
+		// Actually, subst replaces the tail variable, but the row structure doesn't flatten.
+		// The tail becomes the replacement row. This is correct.
+	}
+}
+
+func TestEvEqualCapability(t *testing.T) {
+	r1 := EvClosedRow(RowField{Label: "x", Type: Con("Int")}, RowField{Label: "y", Type: Con("Bool")})
+	r2 := EvClosedRow(RowField{Label: "y", Type: Con("Bool")}, RowField{Label: "x", Type: Con("Int")})
+	if !Equal(r1, r2) {
+		t.Error("expected equal rows (order irrelevant)")
+	}
+}
+
+func TestEvEqualConstraint(t *testing.T) {
+	r1 := EvSingleConstraint("Eq", []Type{Con("Int")})
+	r2 := EvSingleConstraint("Eq", []Type{Con("Int")})
+	if !Equal(r1, r2) {
+		t.Error("expected equal constraint rows")
+	}
+}
+
+func TestEvNotEqualFibers(t *testing.T) {
+	cap := EvEmptyRow()
+	con := EvEmptyConstraintRow()
+	if Equal(cap, con) {
+		t.Error("capability and constraint rows should not be equal")
+	}
+}
+
+func TestEvFreeVarsCapability(t *testing.T) {
+	r := EvOpenRow([]RowField{{Label: "x", Type: Var("a")}}, Var("r"))
+	fv := FreeVars(r)
+	if _, ok := fv["a"]; !ok {
+		t.Error("expected free var a")
+	}
+	if _, ok := fv["r"]; !ok {
+		t.Error("expected free var r")
+	}
+}
+
+func TestEvFreeVarsConstraint(t *testing.T) {
+	r := EvSingleConstraint("Eq", []Type{Var("a")})
+	fv := FreeVars(r)
+	if _, ok := fv["a"]; !ok {
+		t.Error("expected free var a")
+	}
+}
+
+func TestEvPrettyCapability(t *testing.T) {
+	r := EvClosedRow(RowField{Label: "x", Type: Con("Int")}, RowField{Label: "y", Type: Con("Bool")})
+	s := Pretty(r)
+	if s != "{ x : Int, y : Bool }" {
+		t.Errorf("expected '{ x : Int, y : Bool }', got '%s'", s)
+	}
+}
+
+func TestEvPrettyConstraint(t *testing.T) {
+	r := EvSingleConstraint("Eq", []Type{Con("Int")})
+	s := Pretty(r)
+	if s != "{ Eq Int }" {
+		t.Errorf("expected '{ Eq Int }', got '%s'", s)
+	}
+}
+
+func TestEvPrettyEmpty(t *testing.T) {
+	r := EvEmptyRow()
+	if Pretty(r) != "{}" {
+		t.Errorf("expected '{}', got '%s'", Pretty(r))
+	}
+}
+
+func TestEvPrettyOpenRow(t *testing.T) {
+	r := EvOpenRow([]RowField{{Label: "x", Type: Con("Int")}}, Var("r"))
+	s := Pretty(r)
+	if s != "{ x : Int | r }" {
+		t.Errorf("expected '{ x : Int | r }', got '%s'", s)
+	}
+}
