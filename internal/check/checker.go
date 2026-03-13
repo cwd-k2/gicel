@@ -113,29 +113,8 @@ type deferredConstraint struct {
 
 // Check type-checks a surface AST program and produces Core IR.
 func Check(prog *syntax.AstProgram, source *span.Source, config *CheckConfig) (*core.Program, *errs.Errors) {
-	if config == nil {
-		config = &CheckConfig{}
-	}
-	ch := &Checker{
-		ctx:               NewContext(),
-		errors:            &errs.Errors{Source: source},
-		source:            source,
-		config:            config,
-		conTypes:          make(map[string]types.Type),
-		conInfo:           make(map[string]*DataTypeInfo),
-		aliases:           make(map[string]*aliasInfo),
-		classes:           make(map[string]*ClassInfo),
-		instancesByClass:  make(map[string][]*InstanceInfo),
-		importedInstances: make(map[*InstanceInfo]bool),
-		promotedKinds:     make(map[string]types.Kind),
-		promotedCons:      make(map[string]types.Kind),
-		kindVars:          make(map[string]bool),
-	}
-	ch.unifier = NewUnifierShared(&ch.freshID)
-	ch.initContext()
-	ch.importModules(prog.Imports)
-	coreProgram := ch.checkDecls(prog.Decls)
-	return coreProgram, ch.errors
+	coreProg, _, errors := CheckModule(prog, source, config)
+	return coreProg, errors
 }
 
 // CheckModule type-checks a program and returns both Core IR and module exports.
