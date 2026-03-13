@@ -2171,6 +2171,60 @@ main := Yes
 	}
 }
 
+func TestSetPreludeCustom(t *testing.T) {
+	// Custom prelude replaces default: only defines MyBool, no standard Bool.
+	eng := gmp.NewEngine()
+	eng.SetPrelude(`
+data MyBool = Yes | No
+`)
+	rt, err := eng.NewRuntime(`main := Yes`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	con, ok := result.Value.(*gmp.ConVal)
+	if !ok || con.Con != "Yes" {
+		t.Errorf("expected Yes, got %s", result.Value)
+	}
+}
+
+func TestSetPreludeCoreStillAvailable(t *testing.T) {
+	// Core definitions (IxMonad, Effect, then) available even with custom Prelude.
+	eng := gmp.NewEngine()
+	eng.SetPrelude(`
+data Bool = True | False
+`)
+	// Effect and then come from CoreSource, Bool from custom prelude.
+	rt, err := eng.NewRuntime(`
+main :: Effect {} Bool
+main := pure True
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	con, ok := result.Value.(*gmp.ConVal)
+	if !ok || con.Con != "True" {
+		t.Errorf("expected True, got %s", result.Value)
+	}
+}
+
+func TestSetPreludeNoDefaultBool(t *testing.T) {
+	// Custom prelude that doesn't define Bool — standard Bool should not be available.
+	eng := gmp.NewEngine()
+	eng.SetPrelude(`data Color = Red | Blue`)
+	_, err := eng.NewRuntime(`main := True`)
+	if err == nil {
+		t.Error("expected compile error: True not defined with custom prelude")
+	}
+}
+
 func TestTypeHelpers(t *testing.T) {
 	// ConType constructs a type constructor.
 	intTy := gmp.ConType("Int")

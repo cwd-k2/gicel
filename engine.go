@@ -25,6 +25,7 @@ type Engine struct {
 	stepLimit      int
 	depthLimit     int
 	noPrelude      bool
+	customPrelude  *string
 	traceHook      eval.TraceHook
 	checkTraceHook check.CheckTraceHook
 	modules        map[string]*compiledModule
@@ -224,6 +225,12 @@ func (e *Engine) NoPrelude() {
 	e.noPrelude = true
 }
 
+// SetPrelude replaces the default Prelude with custom source.
+// CoreSource (IxMonad, Effect, Lift, then) is still prepended automatically.
+func (e *Engine) SetPrelude(source string) {
+	e.customPrelude = &source
+}
+
 // ensurePrelude registers the prelude module if it hasn't been registered yet.
 func (e *Engine) ensurePrelude() {
 	if e.noPrelude {
@@ -232,8 +239,13 @@ func (e *Engine) ensurePrelude() {
 	if _, exists := e.modules["Prelude"]; exists {
 		return
 	}
+	// Build prelude source: CoreSource + (custom or default) PreludeSource.
+	preludeSrc := stdlib.PreludeSource
+	if e.customPrelude != nil {
+		preludeSrc = *e.customPrelude
+	}
 	// Register prelude as an implicit module (errors are programming errors, so panic).
-	if err := e.RegisterModule("Prelude", stdlib.CoreSource+"\n"+stdlib.PreludeSource); err != nil {
+	if err := e.RegisterModule("Prelude", stdlib.CoreSource+"\n"+preludeSrc); err != nil {
 		panic(fmt.Sprintf("failed to compile prelude: %v", err))
 	}
 }
