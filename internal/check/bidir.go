@@ -237,56 +237,7 @@ func (ch *Checker) check(expr syntax.Expr, expected types.Type) core.Core {
 	// for each constraint entry.
 	//   ⟦ e : { C1 a, C2 b } => T ⟧ = Lam($d1, Lam($d2, ⟦e : T⟧))
 	if ev, ok := expected.(*types.TyEvidence); ok {
-		type dictInfo struct {
-			param string
-			ty    types.Type
-		}
-		dicts := make([]dictInfo, len(ev.Constraints.Entries))
-		for i, entry := range ev.Constraints.Entries {
-			var dictTy types.Type
-			var className string
-			var args []types.Type
-			if entry.Quantified != nil {
-				dictTy = ch.buildQuantifiedDictType(entry.Quantified)
-				className = entry.ClassName
-				args = entry.Args
-			} else if entry.ConstraintVar != nil && entry.ClassName == "" {
-				// Constraint variable: decompose to get className + args.
-				cv := ch.unifier.Zonk(entry.ConstraintVar)
-				if cn, cArgs, ok := DecomposeConstraintType(cv); ok {
-					className = cn
-					args = cArgs
-					dictTy = ch.buildDictType(cn, cArgs)
-				} else {
-					className = "?"
-					dictTy = cv // fallback
-				}
-			} else {
-				className = entry.ClassName
-				args = entry.Args
-				dictTy = ch.buildDictType(entry.ClassName, entry.Args)
-			}
-			dictParam := fmt.Sprintf("$d_%s_%d", className, ch.fresh())
-			dicts[i] = dictInfo{param: dictParam, ty: dictTy}
-			ch.ctx.Push(&CtxVar{Name: dictParam, Type: dictTy})
-			ch.ctx.Push(&CtxEvidence{
-				ClassName:  className,
-				Args:       args,
-				DictName:   dictParam,
-				DictType:   dictTy,
-				Quantified: entry.Quantified,
-			})
-		}
-		bodyCore := ch.check(expr, ev.Body)
-		bodyCore = ch.resolveDeferredConstraints(bodyCore)
-		for i := 0; i < len(dicts)*2; i++ {
-			ch.ctx.Pop()
-		}
-		// Wrap in Lam from last to first (innermost dict last).
-		for i := len(dicts) - 1; i >= 0; i-- {
-			bodyCore = &core.Lam{Param: dicts[i].param, ParamType: dicts[i].ty, Body: bodyCore, S: expr.Span()}
-		}
-		return bodyCore
+		return ch.checkWithEvidence(expr, ev)
 	}
 
 	switch e := expr.(type) {
@@ -305,6 +256,59 @@ func (ch *Checker) check(expr syntax.Expr, expected types.Type) core.Core {
 		coreExpr = ch.subsCheck(inferredTy, expected, coreExpr, expr.Span())
 		return coreExpr
 	}
+}
+
+// checkWithEvidence introduces implicit dict parameters for each constraint entry
+// and checks the body against the evidence-stripped type.
+func (ch *Checker) checkWithEvidence(expr syntax.Expr, ev *types.TyEvidence) core.Core {
+	type dictInfo struct {
+		param string
+		ty    types.Type
+	}
+	dicts := make([]dictInfo, len(ev.Constraints.Entries))
+	for i, entry := range ev.Constraints.Entries {
+		var dictTy types.Type
+		var className string
+		var args []types.Type
+		if entry.Quantified != nil {
+			dictTy = ch.buildQuantifiedDictType(entry.Quantified)
+			className = entry.ClassName
+			args = entry.Args
+		} else if entry.ConstraintVar != nil && entry.ClassName == "" {
+			cv := ch.unifier.Zonk(entry.ConstraintVar)
+			if cn, cArgs, ok := DecomposeConstraintType(cv); ok {
+				className = cn
+				args = cArgs
+				dictTy = ch.buildDictType(cn, cArgs)
+			} else {
+				className = "?"
+				dictTy = cv
+			}
+		} else {
+			className = entry.ClassName
+			args = entry.Args
+			dictTy = ch.buildDictType(entry.ClassName, entry.Args)
+		}
+		dictParam := fmt.Sprintf("$d_%s_%d", className, ch.fresh())
+		dicts[i] = dictInfo{param: dictParam, ty: dictTy}
+		ch.ctx.Push(&CtxVar{Name: dictParam, Type: dictTy})
+		ch.ctx.Push(&CtxEvidence{
+			ClassName:  className,
+			Args:       args,
+			DictName:   dictParam,
+			DictType:   dictTy,
+			Quantified: entry.Quantified,
+		})
+	}
+	bodyCore := ch.check(expr, ev.Body)
+	bodyCore = ch.resolveDeferredConstraints(bodyCore)
+	for i := 0; i < len(dicts)*2; i++ {
+		ch.ctx.Pop()
+	}
+	for i := len(dicts) - 1; i >= 0; i-- {
+		bodyCore = &core.Lam{Param: dicts[i].param, ParamType: dicts[i].ty, Body: bodyCore, S: expr.Span()}
+	}
+	return bodyCore
 }
 
 // subsCheck performs the subsumption check: inferred ≤ expected.
