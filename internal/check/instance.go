@@ -52,18 +52,24 @@ func (ch *Checker) processInstanceHeader(d *syntax.DeclInstance) *InstanceInfo {
 			continue
 		}
 		// Try kind unification first (handles kind variables in paramKind).
+		// Save/restore kind solutions around the trial to avoid leaking partial results.
+		kindSnap := ch.saveUnifierState()
 		kindMatch := ch.unifier.UnifyKinds(argKind, paramKind) == nil
 		if kindMatch {
 			continue
 		}
+		ch.restoreUnifierState(kindSnap)
 		// Kind mismatch — check if Lift wrapping fixes it.
 		liftKind := ch.kindOfType(&types.TyCon{Name: "Lift"})
 		if liftKind != nil {
 			if ka, ok := liftKind.(*types.KArrow); ok && ka.From.Equal(argKind) {
 				lifted := &types.TyApp{Fun: &types.TyCon{Name: "Lift"}, Arg: typeArgs[i]}
 				liftedKind := ka.To
+				liftSnap := ch.saveUnifierState()
 				if ch.unifier.UnifyKinds(liftedKind, paramKind) == nil {
 					typeArgs[i] = lifted
+				} else {
+					ch.restoreUnifierState(liftSnap)
 				}
 			}
 		}

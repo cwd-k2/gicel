@@ -511,8 +511,16 @@ class Eq a { eq :: a -> a -> Bool }`
 	for _, b := range prog.Bindings {
 		if b.Name == "eq" {
 			found = true
-			// eq :: forall a. Eq$Dict a -> a -> a -> Bool
-			// Elaborated as a Lam that pattern-matches the dict.
+			// Verify the type is a forall with a dict arrow.
+			if b.Type == nil {
+				t.Error("eq selector should have a type")
+			}
+			// Verify it's a TyLam wrapping a Lam (selector body).
+			if tl, ok := b.Expr.(*core.TyLam); !ok {
+				t.Errorf("eq selector should be a TyLam, got %T", b.Expr)
+			} else if _, ok := tl.Body.(*core.Lam); !ok {
+				t.Errorf("eq selector TyLam body should be a Lam, got %T", tl.Body)
+			}
 		}
 	}
 	if !found {
@@ -530,6 +538,9 @@ f := \x -> \y -> eq x y`
 	for _, b := range prog.Bindings {
 		if b.Name == "f" {
 			found = true
+			if b.Type == nil {
+				t.Error("binding 'f' should have a type")
+			}
 		}
 	}
 	if !found {
@@ -776,6 +787,11 @@ main := IntLit True`
 	for _, b := range prog.Bindings {
 		if b.Name == "main" {
 			found = true
+			// Verify the inferred type is Expr Bool.
+			pretty := types.Pretty(b.Type)
+			if !strings.Contains(pretty, "Expr") || !strings.Contains(pretty, "Bool") {
+				t.Errorf("expected main :: Expr Bool, got %s", pretty)
+			}
 		}
 	}
 	if !found {
@@ -803,6 +819,14 @@ data Expr a = { BoolLit :: Bool -> Expr Bool; IntLit :: Bool -> Expr Bool }
 f :: Expr Bool -> Bool
 f := \e -> case e { BoolLit b -> b; IntLit b -> b }`
 	checkSource(t, source, nil)
+
+	// Negative test: refinement must not allow returning wrong type.
+	// After matching BoolLit b, b : Bool; returning it as Int should fail.
+	badSource := `data Bool = True | False
+data Expr a = { BoolLit :: Bool -> Expr Bool; IntLit :: Bool -> Expr Bool }
+f :: Expr Bool -> Expr Bool
+f := \e -> case e { BoolLit b -> b; IntLit b -> b }`
+	checkSourceExpectCode(t, badSource, nil, errs.ErrTypeMismatch)
 }
 
 func TestGADTMultiBranch(t *testing.T) {
