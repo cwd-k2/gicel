@@ -37,13 +37,27 @@ type PCon struct {
 	S    span.Span
 }
 
-func (*PVar) patternNode()  {}
-func (*PWild) patternNode() {}
-func (*PCon) patternNode()  {}
+// PRecord — record pattern { l1 = p1, ..., ln = pn }.
+type PRecord struct {
+	Fields []PRecordField
+	S      span.Span
+}
 
-func (p *PVar) Span() span.Span  { return p.S }
-func (p *PWild) Span() span.Span { return p.S }
-func (p *PCon) Span() span.Span  { return p.S }
+// PRecordField is a label-pattern pair in a record pattern.
+type PRecordField struct {
+	Label   string
+	Pattern Pattern
+}
+
+func (*PVar) patternNode()    {}
+func (*PWild) patternNode()   {}
+func (*PCon) patternNode()    {}
+func (*PRecord) patternNode() {}
+
+func (p *PVar) Span() span.Span    { return p.S }
+func (p *PWild) Span() span.Span   { return p.S }
+func (p *PCon) Span() span.Span    { return p.S }
+func (p *PRecord) Span() span.Span { return p.S }
 
 func (p *PVar) Bindings() []string  { return []string{p.Name} }
 func (p *PWild) Bindings() []string { return nil }
@@ -51,6 +65,13 @@ func (p *PCon) Bindings() []string {
 	var bs []string
 	for _, arg := range p.Args {
 		bs = append(bs, arg.Bindings()...)
+	}
+	return bs
+}
+func (p *PRecord) Bindings() []string {
+	var bs []string
+	for _, f := range p.Fields {
+		bs = append(bs, f.Pattern.Bindings()...)
 	}
 	return bs
 }

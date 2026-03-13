@@ -68,6 +68,23 @@ func prettyCore(c Core, indent int) string {
 		return fmt.Sprintf("(prim %s %s)", n.Name, strings.Join(args, " "))
 	case *Lit:
 		return fmt.Sprintf("(lit %v)", n.Value)
+	case *RecordLit:
+		if len(n.Fields) == 0 {
+			return "{}"
+		}
+		fields := make([]string, len(n.Fields))
+		for i, f := range n.Fields {
+			fields[i] = fmt.Sprintf("%s = %s", f.Label, prettyCore(f.Value, indent))
+		}
+		return fmt.Sprintf("{ %s }", strings.Join(fields, ", "))
+	case *RecordProj:
+		return fmt.Sprintf("(%s!#%s)", prettyCore(n.Record, indent), n.Label)
+	case *RecordUpdate:
+		updates := make([]string, len(n.Updates))
+		for i, f := range n.Updates {
+			updates[i] = fmt.Sprintf("%s = %s", f.Label, prettyCore(f.Value, indent))
+		}
+		return fmt.Sprintf("{ %s | %s }", prettyCore(n.Record, indent), strings.Join(updates, ", "))
 	default:
 		return "<?>"
 	}
@@ -88,6 +105,15 @@ func prettyPattern(p Pattern) string {
 			args[i] = prettyPattern(a)
 		}
 		return fmt.Sprintf("(%s %s)", pat.Con, strings.Join(args, " "))
+	case *PRecord:
+		if len(pat.Fields) == 0 {
+			return "{}"
+		}
+		fields := make([]string, len(pat.Fields))
+		for i, f := range pat.Fields {
+			fields[i] = fmt.Sprintf("%s = %s", f.Label, prettyPattern(f.Pattern))
+		}
+		return fmt.Sprintf("{ %s }", strings.Join(fields, ", "))
 	default:
 		return "?"
 	}

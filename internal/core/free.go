@@ -63,6 +63,17 @@ func freeVarsRec(c Core, bound map[string]bool, fv map[string]struct{}) {
 		}
 	case *Lit:
 		// leaf — no free variables
+	case *RecordLit:
+		for _, f := range n.Fields {
+			freeVarsRec(f.Value, bound, fv)
+		}
+	case *RecordProj:
+		freeVarsRec(n.Record, bound, fv)
+	case *RecordUpdate:
+		freeVarsRec(n.Record, bound, fv)
+		for _, f := range n.Updates {
+			freeVarsRec(f.Value, bound, fv)
+		}
 	}
 }
 

@@ -47,6 +47,17 @@ func Walk(c Core, visit func(Core) bool) {
 		}
 	case *Lit:
 		// leaf
+	case *RecordLit:
+		for _, f := range n.Fields {
+			Walk(f.Value, visit)
+		}
+	case *RecordProj:
+		Walk(n.Record, visit)
+	case *RecordUpdate:
+		Walk(n.Record, visit)
+		for _, f := range n.Updates {
+			Walk(f.Value, visit)
+		}
 	}
 }
 
@@ -97,6 +108,20 @@ func Transform(c Core, f func(Core) Core) Core {
 		return f(&PrimOp{Name: n.Name, Arity: n.Arity, Effectful: n.Effectful, Args: args, S: n.S})
 	case *Lit:
 		return f(n)
+	case *RecordLit:
+		fields := make([]RecordField, len(n.Fields))
+		for i, fld := range n.Fields {
+			fields[i] = RecordField{Label: fld.Label, Value: Transform(fld.Value, f)}
+		}
+		return f(&RecordLit{Fields: fields, S: n.S})
+	case *RecordProj:
+		return f(&RecordProj{Record: Transform(n.Record, f), Label: n.Label, S: n.S})
+	case *RecordUpdate:
+		updates := make([]RecordField, len(n.Updates))
+		for i, fld := range n.Updates {
+			updates[i] = RecordField{Label: fld.Label, Value: Transform(fld.Value, f)}
+		}
+		return f(&RecordUpdate{Record: Transform(n.Record, f), Updates: updates, S: n.S})
 	default:
 		return f(c)
 	}

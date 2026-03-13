@@ -6,7 +6,7 @@ import (
 )
 
 // Core is a term in the core intermediate representation.
-// 14 formers: Var, Lam, App, TyApp, TyLam, Con, Case, LetRec, Pure, Bind, Thunk, Force, PrimOp, Lit.
+// 17 formers: Var, Lam, App, TyApp, TyLam, Con, Case, LetRec, Pure, Bind, Thunk, Force, PrimOp, Lit, RecordLit, RecordProj, RecordUpdate.
 type Core interface {
 	coreNode()
 	Span() span.Span
@@ -112,6 +112,32 @@ type Lit struct {
 	S     span.Span
 }
 
+// RecordLit — record construction { l1 = e1, ..., ln = en }.
+type RecordLit struct {
+	Fields []RecordField
+	S      span.Span
+}
+
+// RecordField is a label-value pair in a record literal or update.
+type RecordField struct {
+	Label string
+	Value Core
+}
+
+// RecordProj — field projection r!#l.
+type RecordProj struct {
+	Record Core
+	Label  string
+	S      span.Span
+}
+
+// RecordUpdate — record update { r | l1 = e1, ..., ln = en }.
+type RecordUpdate struct {
+	Record  Core
+	Updates []RecordField
+	S       span.Span
+}
+
 // --- coreNode markers ---
 func (*Var) coreNode()    {}
 func (*Lam) coreNode()    {}
@@ -125,8 +151,11 @@ func (*Pure) coreNode()   {}
 func (*Bind) coreNode()   {}
 func (*Thunk) coreNode()  {}
 func (*Force) coreNode()  {}
-func (*PrimOp) coreNode() {}
-func (*Lit) coreNode()    {}
+func (*PrimOp) coreNode()       {}
+func (*Lit) coreNode()          {}
+func (*RecordLit) coreNode()    {}
+func (*RecordProj) coreNode()   {}
+func (*RecordUpdate) coreNode() {}
 
 // --- Span accessors ---
 func (c *Var) Span() span.Span    { return c.S }
@@ -141,5 +170,8 @@ func (c *Pure) Span() span.Span   { return c.S }
 func (c *Bind) Span() span.Span   { return c.S }
 func (c *Thunk) Span() span.Span  { return c.S }
 func (c *Force) Span() span.Span  { return c.S }
-func (c *PrimOp) Span() span.Span { return c.S }
-func (c *Lit) Span() span.Span    { return c.S }
+func (c *PrimOp) Span() span.Span       { return c.S }
+func (c *Lit) Span() span.Span          { return c.S }
+func (c *RecordLit) Span() span.Span    { return c.S }
+func (c *RecordProj) Span() span.Span   { return c.S }
+func (c *RecordUpdate) Span() span.Span { return c.S }
