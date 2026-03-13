@@ -12,7 +12,8 @@ import (
 // validateAliasGraph checks for cyclic type aliases using DFS three-color marking.
 // White (unvisited), gray (in current path), black (fully processed).
 // If a gray node is encountered during traversal, a cycle exists.
-func (ch *Checker) validateAliasGraph() {
+// Returns true if any cycle was found.
+func (ch *Checker) validateAliasGraph() bool {
 	type color int
 	const (
 		white color = iota
@@ -64,11 +65,15 @@ func (ch *Checker) validateAliasGraph() {
 		return false
 	}
 
+	hasCycle := false
 	for name := range ch.aliases {
 		if colors[name] == white {
-			visit(name)
+			if visit(name) {
+				hasCycle = true
+			}
 		}
 	}
+	return hasCycle
 }
 
 // collectAliasRefs returns the names of all TyCon nodes in ty that are also alias names.
@@ -147,8 +152,19 @@ func (ch *Checker) installAliasExpander() {
 	}
 }
 
+const maxAliasExpansionDepth = 256
+
 // expandTypeAliases expands fully-applied type aliases in a type.
 func (ch *Checker) expandTypeAliases(ty types.Type) types.Type {
+	return ch.expandTypeAliasesN(ty, 0)
+}
+
+func (ch *Checker) expandTypeAliasesN(ty types.Type, depth int) types.Type {
+	if depth > maxAliasExpansionDepth {
+		ch.addCodedError(errs.ErrAliasExpansion, span.Span{},
+			"type alias expansion depth limit exceeded (possible cyclic or deeply nested alias)")
+		return ty
+	}
 	app, ok := ty.(*types.TyApp)
 	if !ok {
 		return ty
@@ -163,14 +179,14 @@ func (ch *Checker) expandTypeAliases(ty types.Type) types.Type {
 	if !ok || len(info.params) != len(args) {
 		// Not a fully-applied alias. Check if partial application could be expanded
 		// by recursing into sub-expressions.
-		newFun := ch.expandTypeAliases(app.Fun)
-		newArg := ch.expandTypeAliases(app.Arg)
+		newFun := ch.expandTypeAliasesN(app.Fun, depth+1)
+		newArg := ch.expandTypeAliasesN(app.Arg, depth+1)
 		if newFun == app.Fun && newArg == app.Arg {
 			return ty
 		}
 		result := &types.TyApp{Fun: newFun, Arg: newArg, S: app.S}
 		// Re-check after recursive expansion.
-		return ch.expandTypeAliases(result)
+		return ch.expandTypeAliasesN(result, depth+1)
 	}
 	// Expand: substitute params with args in the alias body.
 	body := info.body
@@ -178,5 +194,5 @@ func (ch *Checker) expandTypeAliases(ty types.Type) types.Type {
 		body = types.Subst(body, p, args[i])
 	}
 	// Recursively expand nested aliases.
-	return ch.expandTypeAliases(body)
+	return ch.expandTypeAliasesN(body, depth+1)
 }

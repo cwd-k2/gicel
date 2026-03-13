@@ -78,6 +78,7 @@ type Checker struct {
 	kindVars         map[string]bool       // HKT: kind variables in scope (from forall (k : Kind))
 	deferred         []deferredConstraint
 	depth            int
+	resolveDepth     int // instance resolution recursion depth
 }
 
 // DataTypeInfo carries constructor information for exhaustiveness.

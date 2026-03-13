@@ -51,7 +51,9 @@ const (
 	ErrImport         Code = 230 // module import error
 	ErrSkolemEscape   Code = 240 // existential type variable escapes scope
 	ErrSkolemRigid    Code = 241 // cannot unify rigid (skolem) type variable
-	ErrKindMismatch   Code = 250 // kind mismatch in type application
+	ErrKindMismatch      Code = 250 // kind mismatch in type application
+	ErrResolutionDepth   Code = 260 // instance resolution depth limit exceeded
+	ErrAliasExpansion    Code = 270 // alias expansion depth limit exceeded
 )
 
 // Phase indicates which compiler stage produced the error.
@@ -99,14 +101,22 @@ type Hint struct {
 	Message string
 }
 
+// MaxErrors is the maximum number of errors collected before truncation.
+const MaxErrors = 100
+
 // Errors collects multiple diagnostics for a single source.
 type Errors struct {
-	Source *span.Source
-	Errs   []*Error
+	Source    *span.Source
+	Errs     []*Error
+	Overflow int // count of errors dropped after MaxErrors
 }
 
 // Add appends an error to the collection.
 func (es *Errors) Add(e *Error) {
+	if len(es.Errs) >= MaxErrors {
+		es.Overflow++
+		return
+	}
 	es.Errs = append(es.Errs, e)
 }
 
@@ -127,6 +137,9 @@ func (es *Errors) Format() string {
 			b.WriteByte('\n')
 		}
 		es.formatOne(&b, e)
+	}
+	if es.Overflow > 0 {
+		fmt.Fprintf(&b, "\n... and %d more errors (truncated)\n", es.Overflow)
 	}
 	return b.String()
 }

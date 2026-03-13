@@ -28,10 +28,13 @@ func (ch *Checker) checkDecls(decls []syntax.Decl) *core.Program {
 	}
 
 	// 3. Detect cyclic aliases.
-	ch.validateAliasGraph()
+	hasCyclicAlias := ch.validateAliasGraph()
 
 	// 3.5. Install alias expander in unifier for transparent alias handling.
-	ch.installAliasExpander()
+	// Skip installation if cyclic aliases were found to prevent infinite expansion.
+	if !hasCyclicAlias {
+		ch.installAliasExpander()
+	}
 
 	// 4. Process class declarations (generates dict types + selectors).
 	for _, d := range decls {

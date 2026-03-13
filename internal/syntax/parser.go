@@ -1242,9 +1242,14 @@ func (p *Parser) parseKindAtom() KindExpr {
 		p.advance()
 		return &KindExprName{Name: tok.Text, S: tok.S}
 	case p.peek().Kind == TokLParen:
+		if !p.enterRecurse() {
+			tok := p.peek()
+			return &KindExprType{S: tok.S}
+		}
 		p.advance()
 		k := p.parseKindExpr()
 		p.expect(TokRParen)
+		p.leaveRecurse()
 		return k
 	default:
 		p.addError("expected kind (Type, Row, or K -> K)")

@@ -10,9 +10,20 @@ import (
 	"github.com/cwd-k2/gomputation/internal/types"
 )
 
+const maxResolveDepth = 64
+
 // resolveInstance finds a dictionary expression for a given class constraint.
 // Returns a Core expression that evaluates to the dictionary value.
 func (ch *Checker) resolveInstance(className string, args []types.Type, s span.Span) core.Core {
+	ch.resolveDepth++
+	defer func() { ch.resolveDepth-- }()
+	if ch.resolveDepth > maxResolveDepth {
+		ch.addCodedError(errs.ErrResolutionDepth, s,
+			fmt.Sprintf("instance resolution depth limit exceeded for %s %s (possible infinite loop in instance contexts)",
+				className, ch.prettyTypeArgs(args)))
+		return &core.Var{Name: "<resolution-depth>", S: s}
+	}
+
 	// 1. Search context for dictionary variables (from Eq a => parameters).
 	for i := len(ch.ctx.entries) - 1; i >= 0; i-- {
 		if v, ok := ch.ctx.entries[i].(*CtxVar); ok {
