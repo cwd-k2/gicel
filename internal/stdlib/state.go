@@ -7,7 +7,7 @@ import (
 )
 
 // State provides get/put state capabilities.
-var State Pack = func(e Host) error {
+var State Pack = func(e Registrar) error {
 	e.RegisterPrim("get", getImpl)
 	e.RegisterPrim("put", putImpl)
 	return e.RegisterModule("Std.State", stateSource)

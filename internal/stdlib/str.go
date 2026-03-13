@@ -9,7 +9,7 @@ import (
 )
 
 // Str provides string and rune operations: Eq/Ord/Semigroup/Monoid instances, length.
-var Str Pack = func(e Host) error {
+var Str Pack = func(e Registrar) error {
 	e.RegisterPrim("_eqStr", eqStrImpl)
 	e.RegisterPrim("_cmpStr", cmpStrImpl)
 	e.RegisterPrim("_appendStr", appendStrImpl)

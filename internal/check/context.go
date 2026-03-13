@@ -59,4 +59,3 @@ func (c *Context) LookupTyVar(name string) (types.Kind, bool) {
 	}
 	return nil, false
 }
-

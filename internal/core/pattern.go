@@ -45,7 +45,7 @@ func (p *PVar) Span() span.Span  { return p.S }
 func (p *PWild) Span() span.Span { return p.S }
 func (p *PCon) Span() span.Span  { return p.S }
 
-func (p *PVar) Bindings() []string { return []string{p.Name} }
+func (p *PVar) Bindings() []string  { return []string{p.Name} }
 func (p *PWild) Bindings() []string { return nil }
 func (p *PCon) Bindings() []string {
 	var bs []string

@@ -22,24 +22,24 @@ type CheckConfig struct {
 
 // ModuleExports carries the type-level information exported by a compiled module.
 type ModuleExports struct {
-	Types         map[string]types.Kind     // registered type constructors
-	ConTypes      map[string]types.Type     // constructor → full type
-	ConInfo       map[string]*DataTypeInfo  // constructor → data type info
-	Aliases       map[string]*aliasInfo     // type aliases
-	Classes       map[string]*ClassInfo     // class declarations
-	Instances     []*InstanceInfo           // instance declarations
-	Values        map[string]types.Type     // top-level value types
-	PromotedKinds map[string]types.Kind     // DataKinds promotions
-	PromotedCons  map[string]types.Kind     // promoted constructors
-	DataDecls     []core.DataDecl           // for evaluator constructor registration
-	Bindings      []core.Binding            // for evaluator top-level bindings
+	Types         map[string]types.Kind    // registered type constructors
+	ConTypes      map[string]types.Type    // constructor → full type
+	ConInfo       map[string]*DataTypeInfo // constructor → data type info
+	Aliases       map[string]*aliasInfo    // type aliases
+	Classes       map[string]*ClassInfo    // class declarations
+	Instances     []*InstanceInfo          // instance declarations
+	Values        map[string]types.Type    // top-level value types
+	PromotedKinds map[string]types.Kind    // DataKinds promotions
+	PromotedCons  map[string]types.Kind    // promoted constructors
+	DataDecls     []core.DataDecl          // for evaluator constructor registration
+	Bindings      []core.Binding           // for evaluator top-level bindings
 }
 
 // CheckTraceKind classifies trace events.
 type CheckTraceKind int
 
 const (
-	TraceUnify       CheckTraceKind = iota
+	TraceUnify CheckTraceKind = iota
 	TraceSolveMeta
 	TraceInfer
 	TraceCheck
@@ -60,15 +60,15 @@ type CheckTraceHook func(CheckTraceEvent)
 
 // Checker holds mutable state during type checking.
 type Checker struct {
-	ctx       *Context
-	unifier   *Unifier
-	errors    *errs.Errors
-	source    *span.Source
-	freshID   int
-	config    *CheckConfig
-	conTypes  map[string]types.Type
-	conInfo   map[string]*DataTypeInfo
-	aliases   map[string]*aliasInfo
+	ctx              *Context
+	unifier          *Unifier
+	errors           *errs.Errors
+	source           *span.Source
+	freshID          int
+	config           *CheckConfig
+	conTypes         map[string]types.Type
+	conInfo          map[string]*DataTypeInfo
+	aliases          map[string]*aliasInfo
 	classes          map[string]*ClassInfo
 	instances        []*InstanceInfo
 	instancesByClass map[string][]*InstanceInfo
@@ -110,10 +110,10 @@ func Check(prog *syntax.AstProgram, source *span.Source, config *CheckConfig) (*
 		config = &CheckConfig{}
 	}
 	ch := &Checker{
-		ctx:      NewContext(),
-		errors:   &errs.Errors{Source: source},
-		source:   source,
-		config:   config,
+		ctx:              NewContext(),
+		errors:           &errs.Errors{Source: source},
+		source:           source,
+		config:           config,
 		conTypes:         make(map[string]types.Type),
 		conInfo:          make(map[string]*DataTypeInfo),
 		aliases:          make(map[string]*aliasInfo),
@@ -282,10 +282,6 @@ func (ch *Checker) freshSkolem(name string, k types.Kind) *types.TySkolem {
 
 func (ch *Checker) mkType(name string) types.Type {
 	return &types.TyCon{Name: name}
-}
-
-func (ch *Checker) addError(s span.Span, msg string) {
-	ch.addCodedError(errs.ErrTypeMismatch, s, msg)
 }
 
 func (ch *Checker) errorPair(s span.Span) (types.Type, core.Core) {

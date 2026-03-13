@@ -14,8 +14,8 @@ import (
 // InstanceInfo stores elaborated instance information.
 type InstanceInfo struct {
 	ClassName    string
-	TypeArgs     []types.Type      // concrete type arguments
-	Context      []ConstraintInfo  // instance context constraints
+	TypeArgs     []types.Type     // concrete type arguments
+	Context      []ConstraintInfo // instance context constraints
 	Methods      map[string]syntax.Expr
 	DictBindName string // e.g. "Eq$Bool" or "Eq$Maybe"
 	S            span.Span

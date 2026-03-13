@@ -8,7 +8,7 @@ import (
 )
 
 // Num provides integer arithmetic: Num class, Eq/Ord Int instances, and operators.
-var Num Pack = func(e Host) error {
+var Num Pack = func(e Registrar) error {
 	e.RegisterPrim("_addInt", addIntImpl)
 	e.RegisterPrim("_subInt", subIntImpl)
 	e.RegisterPrim("_mulInt", mulIntImpl)

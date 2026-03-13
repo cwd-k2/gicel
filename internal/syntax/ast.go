@@ -27,9 +27,9 @@ type ExprApp struct {
 }
 
 type ExprTyApp struct {
-	Expr    Expr
-	TyArg   TypeExpr
-	S       span.Span
+	Expr  Expr
+	TyArg TypeExpr
+	S     span.Span
 }
 
 type ExprLam struct {

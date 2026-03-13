@@ -36,9 +36,9 @@ func TestLocation(t *testing.T) {
 	src := NewSource("test", "abc\nde\nfghij\n")
 
 	tests := []struct {
-		pos        Pos
-		wantLine   int
-		wantCol    int
+		pos      Pos
+		wantLine int
+		wantCol  int
 	}{
 		{0, 1, 1},  // 'a'
 		{2, 1, 3},  // 'c'

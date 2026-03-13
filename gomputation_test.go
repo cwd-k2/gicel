@@ -2266,7 +2266,6 @@ useIt := \s -> case s of { MkSame x y -> True }
 	}
 }
 
-
 // --- Phase 1B: Skolem Escape Check ---
 
 func TestSkolemEscapeDetected(t *testing.T) {

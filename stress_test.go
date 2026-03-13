@@ -74,26 +74,26 @@ func capEnvSetup(eng *gmp.Engine) {
 
 var stressPrograms = []stressProgram{
 	{
-		name: "adt_exhaustiveness",
-		file: "01_adt_exhaustiveness.gmp",
-		setup:  func(e *gmp.Engine) {},
+		name:  "adt_exhaustiveness",
+		file:  "01_adt_exhaustiveness.gmp",
+		setup: func(e *gmp.Engine) {},
 		check: func(t *testing.T, v gmp.Value) {
 			// pairMatch returns True iff color matches shape; depends on chain
 			assertCon(t, v, "") // just check it evaluates
 		},
 	},
 	{
-		name: "typeclass_hierarchy",
-		file: "02_typeclass_hierarchy.gmp",
-		setup:  func(e *gmp.Engine) {},
+		name:  "typeclass_hierarchy",
+		file:  "02_typeclass_hierarchy.gmp",
+		setup: func(e *gmp.Engine) {},
 		check: func(t *testing.T, v gmp.Value) {
 			assertCon(t, v, "True") // isEqOrdering True True => EQ => True
 		},
 	},
 	{
-		name: "hkt_functor",
-		file: "03_hkt_functor.gmp",
-		setup:  func(e *gmp.Engine) {},
+		name:  "hkt_functor",
+		file:  "03_hkt_functor.gmp",
+		setup: func(e *gmp.Engine) {},
 		check: func(t *testing.T, v gmp.Value) {
 			assertCon(t, v, "False") // fmap not (Branch (Leaf True) ...) => Leaf False at left
 		},
@@ -130,9 +130,9 @@ var stressPrograms = []stressProgram{
 		},
 	},
 	{
-		name: "multi_param_classes",
-		file: "05_multi_param_classes.gmp",
-		setup:  func(e *gmp.Engine) {},
+		name:  "multi_param_classes",
+		file:  "05_multi_param_classes.gmp",
+		setup: func(e *gmp.Engine) {},
 		check: func(t *testing.T, v gmp.Value) {
 			// convertAndCoerce True => convert True : Maybe Bool => Just True => coerce: depends
 			assertCon(t, v, "") // just check it evaluates
@@ -212,9 +212,9 @@ var stressPrograms = []stressProgram{
 		caps: map[string]any{"db": 0, "log": 0, "cfg": 1},
 	},
 	{
-		name: "conditional_instances",
-		file: "09_conditional_instances.gmp",
-		setup:  func(e *gmp.Engine) {},
+		name:  "conditional_instances",
+		file:  "09_conditional_instances.gmp",
+		setup: func(e *gmp.Engine) {},
 		check: func(t *testing.T, v gmp.Value) {
 			// main = Pair eqTest1 (Pair eqTest2 (Pair eqTest3 eqTest4))
 			// eqTest1 = True (val1==val2), eqTest2 = False (val1!=val3)
@@ -252,8 +252,8 @@ var stressPrograms = []stressProgram{
 		},
 	},
 	{
-		name: "datakinds",
-		file: "11_datakinds.gmp",
+		name:  "datakinds",
+		file:  "11_datakinds.gmp",
 		setup: func(e *gmp.Engine) {},
 		check: func(t *testing.T, v gmp.Value) {
 			assertCon(t, v, "MkDB") // pipeline returns MkDB
@@ -296,8 +296,8 @@ libNot := \b -> case b of { LibTrue -> LibFalse; LibFalse -> LibTrue }
 		},
 	},
 	{
-		name: "stdlib",
-		file: "14_stdlib.gmp",
+		name:  "stdlib",
+		file:  "14_stdlib.gmp",
 		setup: func(e *gmp.Engine) {},
 		check: func(t *testing.T, v gmp.Value) {
 			// main = Pair True (Pair True (Pair False (Pair True (Pair (Just False) True))))
@@ -310,8 +310,8 @@ libNot := \b -> case b of { LibTrue -> LibFalse; LibFalse -> LibTrue }
 		},
 	},
 	{
-		name: "existentials",
-		file: "15_existentials.gmp",
+		name:  "existentials",
+		file:  "15_existentials.gmp",
 		setup: func(e *gmp.Engine) {},
 		check: func(t *testing.T, v gmp.Value) {
 			// selfEq packBool = True (eq True True)
@@ -324,8 +324,8 @@ libNot := \b -> case b of { LibTrue -> LibFalse; LibFalse -> LibTrue }
 		},
 	},
 	{
-		name: "higher_rank",
-		file: "16_higher_rank.gmp",
+		name:  "higher_rank",
+		file:  "16_higher_rank.gmp",
 		setup: func(e *gmp.Engine) {},
 		check: func(t *testing.T, v gmp.Value) {
 			// main = Pair (Pair True Unit) (Pair True ...)
@@ -345,8 +345,8 @@ libNot := \b -> case b of { LibTrue -> LibFalse; LibFalse -> LibTrue }
 		},
 	},
 	{
-		name: "stdlib_v05",
-		file: "17_stdlib_v05.gmp",
+		name:  "stdlib_v05",
+		file:  "17_stdlib_v05.gmp",
 		setup: func(e *gmp.Engine) {},
 		check: func(t *testing.T, v gmp.Value) {
 			con, ok := v.(*gmp.ConVal)

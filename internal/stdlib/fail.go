@@ -7,7 +7,7 @@ import (
 )
 
 // Fail provides the fail effect capability.
-var Fail Pack = func(e Host) error {
+var Fail Pack = func(e Registrar) error {
 	e.RegisterPrim("failWith", failImpl)
 	return e.RegisterModule("Std.Fail", failSource)
 }

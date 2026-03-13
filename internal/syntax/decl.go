@@ -27,8 +27,8 @@ type DeclValueDef struct {
 type DeclData struct {
 	Name     string
 	Params   []TyBinder
-	Cons     []DeclCon      // ADT constructors
-	GADTCons []GADTConDecl  // GADT constructors (mutually exclusive with Cons)
+	Cons     []DeclCon     // ADT constructors
+	GADTCons []GADTConDecl // GADT constructors (mutually exclusive with Cons)
 	S        span.Span
 }
 
@@ -66,7 +66,7 @@ type DeclFixity struct {
 type Assoc int
 
 const (
-	AssocLeft  Assoc = iota
+	AssocLeft Assoc = iota
 	AssocRight
 	AssocNone
 )
@@ -131,4 +131,4 @@ func (d *DeclTypeAlias) Span() span.Span { return d.S }
 func (d *DeclFixity) Span() span.Span    { return d.S }
 func (d *DeclClass) Span() span.Span     { return d.S }
 func (d *DeclInstance) Span() span.Span  { return d.S }
-func (d *DeclImport) Span() span.Span   { return d.S }
+func (d *DeclImport) Span() span.Span    { return d.S }

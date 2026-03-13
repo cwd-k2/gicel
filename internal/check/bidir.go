@@ -143,7 +143,7 @@ func (ch *Checker) infer(expr syntax.Expr) (types.Type, core.Core) {
 		return ch.mkType("Rune"), &core.Lit{Value: e.Value, S: e.S}
 
 	default:
-		ch.addError(expr.Span(), "cannot infer type of expression")
+		ch.addCodedError(errs.ErrTypeMismatch, expr.Span(), "cannot infer type of expression")
 		return ch.errorPair(expr.Span())
 	}
 }
@@ -231,7 +231,7 @@ func (ch *Checker) subsCheck(inferred, expected types.Type, expr core.Core, s sp
 
 	// Default: unify
 	if err := ch.unifier.Unify(inferred, expected); err != nil {
-		ch.addError(s, fmt.Sprintf("type mismatch: expected %s, got %s",
+		ch.addCodedError(errs.ErrTypeMismatch, s, fmt.Sprintf("type mismatch: expected %s, got %s",
 			types.Pretty(expected), types.Pretty(inferred)))
 	}
 	return expr
@@ -393,7 +393,7 @@ func (ch *Checker) checkPattern(pat syntax.Pattern, scrutTy types.Type) (core.Pa
 			}
 		}
 		if err := ch.unifier.Unify(currentTy, scrutTy); err != nil {
-			ch.addError(p.S, fmt.Sprintf("constructor type mismatch: %s", err))
+			ch.addCodedError(errs.ErrTypeMismatch, p.S, fmt.Sprintf("constructor type mismatch: %s", err))
 		}
 		return &core.PCon{Con: p.Con, Args: args, S: p.S}, bindings, skolemIDs
 	case *syntax.PatParen:
