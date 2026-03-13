@@ -32,7 +32,7 @@ maybePure := do { x <- Just True; pure x }
 maybeDoCase :: Maybe Ordering
 maybeDoCase := do {
   x <- Just True;
-  case x of {
+  case x {
     True -> Just LT;
     False -> Just GT
   }
@@ -42,7 +42,7 @@ maybeDoCase := do {
 maybeDoNestedCase :: Maybe Bool
 maybeDoNestedCase := do {
   x <- Just (Just True);
-  case x of {
+  case x {
     Just v -> Just v;
     Nothing -> Nothing
   }
@@ -63,7 +63,7 @@ listFlatMap := do {
 listFilter :: List Bool
 listFilter := do {
   x <- Cons True (Cons False (Cons True Nil));
-  case x of {
+  case x {
     True -> Cons x Nil;
     False -> Nil
   }
@@ -118,11 +118,11 @@ listMonoidTest := append (empty :: List Bool) (Cons True Nil)
 
 -- 15. List Functor
 listFmapTest :: List Bool
-listFmapTest := fmap (\x -> case x of { True -> False; False -> True }) (Cons True (Cons False Nil))
+listFmapTest := fmap (\x -> case x { True -> False; False -> True }) (Cons True (Cons False Nil))
 
 -- 16. List Foldable
 listFoldrTest :: Bool
-listFoldrTest := foldr (\x _ -> x) False (Cons True (Cons False Nil))
+listFoldrTest := foldr (\x -> \_ -> x) False (Cons True (Cons False Nil))
 
 -- ======================================================================
 -- Cross-monad patterns
@@ -132,14 +132,14 @@ listFoldrTest := foldr (\x _ -> x) False (Cons True (Cons False Nil))
 maybeInComp :: Computation {} {} Bool
 maybeInComp := do {
   v <- pure (Just True);
-  pure (case v of { Just x -> x; Nothing -> False })
+  pure (case v { Just x -> x; Nothing -> False })
 }
 
 -- 18. List value used in Computation do
 listInComp :: Computation {} {} Bool
 listInComp := do {
   v <- pure (Cons True (Cons False Nil));
-  pure (foldr (\x _ -> x) False v)
+  pure (foldr (\x -> \_ -> x) False v)
 }
 
 -- ======================================================================
@@ -160,7 +160,7 @@ eqPairMaybe := eq (Pair (Just True) (Just False)) (Pair (Just True) (Just False)
 
 -- 22. Functor over Pair
 fmapPairMaybe :: Pair Unit (Maybe Bool)
-fmapPairMaybe := fmap (\mb -> case mb of { Just x -> Just (case x of { True -> False; False -> True }); Nothing -> Nothing }) (Pair Unit (Just True))
+fmapPairMaybe := fmap (\mb -> case mb { Just x -> Just (case x { True -> False; False -> True }); Nothing -> Nothing }) (Pair Unit (Just True))
 
 -- ======================================================================
 -- Foldable / Traversable patterns
@@ -168,15 +168,15 @@ fmapPairMaybe := fmap (\mb -> case mb of { Just x -> Just (case x of { True -> F
 
 -- 23. foldr on List of Bools (count True)
 foldListBool :: Bool
-foldListBool := foldr (\x acc -> case x of { True -> acc; False -> acc }) True (Cons True (Cons False Nil))
+foldListBool := foldr (\x -> \acc -> case x { True -> acc; False -> acc }) True (Cons True (Cons False Nil))
 
 -- 24. foldr with Pair accumulator
 foldPairAcc :: Pair Bool Bool
-foldPairAcc := foldr (\x acc -> case acc of { Pair a b -> case x of { True -> Pair True b; False -> Pair a True } }) (Pair False False) (Cons True (Cons False Nil))
+foldPairAcc := foldr (\x -> \acc -> case acc { Pair a b -> case x { True -> Pair True b; False -> Pair a True } }) (Pair False False) (Cons True (Cons False Nil))
 
 -- 25. Traverse Maybe over Maybe
 traverseMaybeTest :: Maybe (Maybe Bool)
-traverseMaybeTest := traverse (\x -> Just (case x of { True -> False; False -> True })) (Just True)
+traverseMaybeTest := traverse (\x -> Just (case x { True -> False; False -> True })) (Just True)
 
 -- ======================================================================
 -- Applicative patterns
@@ -184,7 +184,7 @@ traverseMaybeTest := traverse (\x -> Just (case x of { True -> False; False -> T
 
 -- 26. wrap + ap
 apTest :: Maybe Bool
-apTest := ap (Just (\x -> case x of { True -> False; False -> True })) (Just True)
+apTest := ap (Just (\x -> case x { True -> False; False -> True })) (Just True)
 
 -- 27. ap with Nothing function
 apNothingFn :: Maybe Bool

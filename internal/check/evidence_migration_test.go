@@ -17,7 +17,7 @@ func TestCheckTyEvidenceSingleConstraint(t *testing.T) {
 	// { Eq a } => a -> a -> Bool should introduce a dict Lam.
 	source := `data Bool = True | False
 class Eq a { eq :: a -> a -> Bool }
-instance Eq Bool { eq := \x y -> True }
+instance Eq Bool { eq := \x -> \y -> True }
 f :: forall a. Eq a => a -> a -> Bool
 f := \x -> \y -> eq x y
 main := f True False`
@@ -38,8 +38,8 @@ func TestCheckTyEvidenceMultiConstraint(t *testing.T) {
 	source := `data Bool = True | False
 class Eq a { eq :: a -> a -> Bool }
 class Eq a => Ord a { compare :: a -> a -> Bool }
-instance Eq Bool { eq := \x y -> True }
-instance Ord Bool { compare := \x y -> True }
+instance Eq Bool { eq := \x -> \y -> True }
+instance Ord Bool { compare := \x -> \y -> True }
 g :: forall a. Eq a => Ord a => a -> a -> Bool
 g := \x -> \y -> eq x y
 main := g True False`
@@ -64,7 +64,7 @@ func TestSubsCheckTyEvidence(t *testing.T) {
 	// it should defer the constraints and peel them off.
 	source := `data Bool = True | False
 class Eq a { eq :: a -> a -> Bool }
-instance Eq Bool { eq := \x y -> True }
+instance Eq Bool { eq := \x -> \y -> True }
 main := eq True False`
 	prog := checkSource(t, source, nil)
 	found := false
@@ -99,7 +99,7 @@ func TestClassSelectorTypeMigration(t *testing.T) {
 	// Class selector type should use TyEvidence (not TyQual).
 	source := `data Bool = True | False
 class Eq a { eq :: a -> a -> Bool }
-instance Eq Bool { eq := \x y -> True }
+instance Eq Bool { eq := \x -> \y -> True }
 main := eq True False`
 	prog := checkSource(t, source, nil)
 	found := false
@@ -138,8 +138,8 @@ func TestInstanceContextMigration(t *testing.T) {
 	source := `data Bool = True | False
 data Maybe a = Just a | Nothing
 class Eq a { eq :: a -> a -> Bool }
-instance Eq Bool { eq := \x y -> True }
-instance Eq a => Eq (Maybe a) { eq := \x y -> True }
+instance Eq Bool { eq := \x -> \y -> True }
+instance Eq a => Eq (Maybe a) { eq := \x -> \y -> True }
 main := eq (Just True) (Just False)`
 	prog := checkSource(t, source, nil)
 	found := false
@@ -162,8 +162,8 @@ func TestSuperclassResolutionMigration(t *testing.T) {
 	source := `data Bool = True | False
 class Eq a { eq :: a -> a -> Bool }
 class Eq a => Ord a { compare :: a -> a -> Bool }
-instance Eq Bool { eq := \x y -> True }
-instance Ord Bool { compare := \x y -> True }
+instance Eq Bool { eq := \x -> \y -> True }
+instance Ord Bool { compare := \x -> \y -> True }
 f :: forall a. Ord a => a -> a -> Bool
 f := \x -> \y -> eq x y
 main := f True False`
@@ -187,9 +187,9 @@ func TestTyEvidenceZonkInChecker(t *testing.T) {
 	// Verify that TyEvidence types are correctly zonked during type checking.
 	source := `data Bool = True | False
 class Eq a { eq :: a -> a -> Bool }
-instance Eq Bool { eq := \x y -> True }
+instance Eq Bool { eq := \x -> \y -> True }
 f :: forall a. Eq a => a -> a -> Bool
-f := \x y -> eq x y`
+f := \x -> \y -> eq x y`
 	checkSource(t, source, nil)
 }
 

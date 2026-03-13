@@ -9,13 +9,13 @@ import "testing"
 func TestConstraintAliasSimple(t *testing.T) {
 	// type Eqable a = Eq a => a -> a -> Bool
 	// f :: forall a. Eqable a
-	// f := \x y -> eq x y
+	// f := \x -> \y -> eq x y
 	source := `data Bool = True | False
 class Eq a { eq :: a -> a -> Bool }
-instance Eq Bool { eq := \x y -> True }
+instance Eq Bool { eq := \x -> \y -> True }
 type Eqable a = Eq a => a -> a -> Bool
 f :: forall a. Eqable a
-f := \x y -> eq x y
+f := \x -> \y -> eq x y
 main := f True False`
 	checkSource(t, source, nil)
 }
@@ -25,8 +25,8 @@ func TestConstraintAliasMulti(t *testing.T) {
 	source := `data Bool = True | False
 class Eq a { eq :: a -> a -> Bool }
 class Eq a => Ord a { compare :: a -> a -> Bool }
-instance Eq Bool { eq := \x y -> True }
-instance Ord Bool { compare := \x y -> True }
+instance Eq Bool { eq := \x -> \y -> True }
+instance Ord Bool { compare := \x -> \y -> True }
 type EqOrd a = Eq a => Ord a => a -> Bool
 f :: forall a. EqOrd a
 f := \x -> eq x x

@@ -10,55 +10,55 @@ class Functor f { fmap :: forall a b. (a -> b) -> f a -> f b }
 class Coercible a b { coerce :: a -> b }
 
 instance Eq Bool {
-  eq := \x -> \y -> case x of {
+  eq := \x -> \y -> case x {
     True  -> y;
-    False -> case y of { True -> False; False -> True }
+    False -> case y { True -> False; False -> True }
   }
 }
 instance Eq Unit { eq := \_ -> \_ -> True }
 instance Eq Ordering {
-  eq := \x -> \y -> case x of {
-    LT -> case y of { LT -> True; _ -> False };
-    EQ -> case y of { EQ -> True; _ -> False };
-    GT -> case y of { GT -> True; _ -> False }
+  eq := \x -> \y -> case x {
+    LT -> case y { LT -> True; _ -> False };
+    EQ -> case y { EQ -> True; _ -> False };
+    GT -> case y { GT -> True; _ -> False }
   }
 }
 instance Eq Color {
-  eq := \x -> \y -> case x of {
-    Red   -> case y of { Red -> True; _ -> False };
-    Green -> case y of { Green -> True; _ -> False };
-    Blue  -> case y of { Blue -> True; _ -> False }
+  eq := \x -> \y -> case x {
+    Red   -> case y { Red -> True; _ -> False };
+    Green -> case y { Green -> True; _ -> False };
+    Blue  -> case y { Blue -> True; _ -> False }
   }
 }
 instance Eq a => Eq (Maybe a) {
-  eq := \x -> \y -> case x of {
-    Nothing -> case y of { Nothing -> True; Just _ -> False };
-    Just a  -> case y of { Nothing -> False; Just b -> eq a b }
+  eq := \x -> \y -> case x {
+    Nothing -> case y { Nothing -> True; Just _ -> False };
+    Just a  -> case y { Nothing -> False; Just b -> eq a b }
   }
 }
 instance (Eq a) => (Eq b) => Eq (Pair a b) {
-  eq := \x -> \y -> case x of {
-    Pair a1 b1 -> case y of {
-      Pair a2 b2 -> case eq a1 a2 of { True -> eq b1 b2; False -> False }
+  eq := \x -> \y -> case x {
+    Pair a1 b1 -> case y {
+      Pair a2 b2 -> case eq a1 a2 { True -> eq b1 b2; False -> False }
     }
   }
 }
 
 instance Ord Bool {
-  cmp := \x -> \y -> case x of {
-    False -> case y of { False -> EQ; True -> LT };
-    True  -> case y of { False -> GT; True -> EQ }
+  cmp := \x -> \y -> case x {
+    False -> case y { False -> EQ; True -> LT };
+    True  -> case y { False -> GT; True -> EQ }
   }
 }
 
 instance Functor Maybe {
-  fmap := \g -> \mx -> case mx of {
+  fmap := \g -> \mx -> case mx {
     Nothing -> Nothing;
     Just x  -> Just (g x)
   }
 }
 instance Functor Tree {
-  fmap := \g -> \t -> case t of {
+  fmap := \g -> \t -> case t {
     Leaf x     -> Leaf (g x);
     Branch l r -> Branch (fmap g l) (fmap g r)
   }
@@ -66,10 +66,10 @@ instance Functor Tree {
 
 instance Coercible Bool Unit { coerce := \_ -> Unit }
 instance Coercible Color Bool {
-  coerce := \c -> case c of { Red -> True; Green -> False; Blue -> True }
+  coerce := \c -> case c { Red -> True; Green -> False; Blue -> True }
 }
 
-not := \b -> case b of { True -> False; False -> True }
+not := \b -> case b { True -> False; False -> True }
 
 genericEq :: forall a. Eq a => a -> a -> Bool
 genericEq := \x -> \y -> eq x y
@@ -78,7 +78,7 @@ liftMap :: forall f a b. Functor f => (a -> b) -> f a -> f b
 liftMap := \g -> \fa -> fmap g fa
 
 eqViaOrd :: forall a. Ord a => a -> a -> Bool
-eqViaOrd := \x -> \y -> case cmp x y of { EQ -> True; _ -> False }
+eqViaOrd := \x -> \y -> case cmp x y { EQ -> True; _ -> False }
 
 convertAndCheck :: forall a b. Coercible a b => Eq b => a -> b -> Bool
 convertAndCheck := \x -> \expected -> eq (coerce x) expected
@@ -105,15 +105,15 @@ pipeline := do {
   r3 <- force t;
   eqResult := {
     mapped := fmap not (Just True);
-    case mapped of { Just v -> v; Nothing -> True }
+    case mapped { Just v -> v; Nothing -> True }
   };
   colorCheck := convertAndCheck Red True;
   pairEq := genericEq (Pair True False) (Pair True False);
   ordCheck := eqViaOrd True True;
-  result := case eqResult of {
-    True  -> case colorCheck of {
-      True  -> case pairEq of {
-        True  -> case ordCheck of { True -> True; False -> False };
+  result := case eqResult {
+    True  -> case colorCheck {
+      True  -> case pairEq {
+        True  -> case ordCheck { True -> True; False -> False };
         False -> False
       };
       False -> False

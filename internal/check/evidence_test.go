@@ -180,7 +180,7 @@ func TestCheckTyEvidenceWithEvidence(t *testing.T) {
 	// Regression test: TyEvidence check mode works with CtxEvidence.
 	source := `data Bool = True | False
 class Eq a { eq :: a -> a -> Bool }
-instance Eq Bool { eq := \x y -> True }
+instance Eq Bool { eq := \x -> \y -> True }
 f :: forall a. Eq a => a -> a -> Bool
 f := \x -> \y -> eq x y
 main := f True False`
@@ -201,8 +201,8 @@ func TestCheckMultiConstraintResolution(t *testing.T) {
 	source := `data Bool = True | False
 class Eq a { eq :: a -> a -> Bool }
 class Eq a => Ord a { compare :: a -> a -> Bool }
-instance Eq Bool { eq := \x y -> True }
-instance Ord Bool { compare := \x y -> True }
+instance Eq Bool { eq := \x -> \y -> True }
+instance Ord Bool { compare := \x -> \y -> True }
 f :: forall a. Eq a => Ord a => a -> Bool
 f := \x -> eq x x
 main := f True`

@@ -82,7 +82,7 @@ func TestEvalThunkForce(t *testing.T) {
 
 func TestEvalCase(t *testing.T) {
 	ev := newTestEval()
-	// case True of { True -> HostVal(1); False -> HostVal(2) }
+	// case True { True -> HostVal(1); False -> HostVal(2) }
 	term := &core.Case{
 		Scrutinee: &core.Con{Name: "True"},
 		Alts: []core.Alt{

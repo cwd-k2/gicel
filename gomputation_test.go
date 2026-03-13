@@ -536,7 +536,7 @@ main := do { put 42; fail }
 func TestCaseExpression(t *testing.T) {
 	eng := gmp.NewEngine()
 	rt, err := eng.NewRuntime(`
-not := \b -> case b of { True -> False; False -> True }
+not := \b -> case b { True -> False; False -> True }
 main := not True
 `)
 	if err != nil {
@@ -707,7 +707,7 @@ func TestGoroutineSafety(t *testing.T) {
 func TestMultiParamLambda(t *testing.T) {
 	eng := gmp.NewEngine()
 	rt, err := eng.NewRuntime(`
-konst := \x y -> x
+konst := \x -> \y -> x
 main := konst True False
 `)
 	if err != nil {
@@ -726,7 +726,7 @@ main := konst True False
 func TestNestedCase(t *testing.T) {
 	eng := gmp.NewEngine()
 	rt, err := eng.NewRuntime(`
-bothTrue := \x y -> case x of { True -> case y of { True -> True; False -> False }; False -> False }
+bothTrue := \x -> \y -> case x { True -> case y { True -> True; False -> False }; False -> False }
 main := bothTrue True True
 `)
 	if err != nil {
@@ -830,7 +830,7 @@ func TestTypeErrorUnboundVar(t *testing.T) {
 func TestTypeErrorNonExhaustive(t *testing.T) {
 	eng := gmp.NewEngine()
 	_, err := eng.NewRuntime(`
-f := \x -> case x of { True -> Unit }
+f := \x -> case x { True -> Unit }
 main := f True
 `)
 	if err == nil {
@@ -883,7 +883,7 @@ func TestContextTimeout(t *testing.T) {
 	rt, err := eng.NewRuntime(`
 data Unit = Unit
 data Bool = True | False
-not := \b -> case b of { True -> False; False -> True }
+not := \b -> case b { True -> False; False -> True }
 main := not (not (not True))
 `)
 	if err != nil {
@@ -934,7 +934,7 @@ func TestRuntimeReuse(t *testing.T) {
 func TestRuntimeConcurrent(t *testing.T) {
 	eng := gmp.NewEngine()
 	rt, err := eng.NewRuntime(`
-not := \b -> case b of { True -> False; False -> True }
+not := \b -> case b { True -> False; False -> True }
 main := not False
 `)
 	if err != nil {
@@ -1256,7 +1256,7 @@ main := True
 func TestNonExhaustiveMaybe(t *testing.T) {
 	eng := gmp.NewEngine()
 	_, err := eng.NewRuntime(`
-f := \x -> case x of { Just y -> y }
+f := \x -> case x { Just y -> y }
 main := f (Just True)
 `)
 	if err == nil {
@@ -1517,7 +1517,7 @@ func TestExhaustiveLargeADT(t *testing.T) {
 	rt, err := eng.NewRuntime(`
 data Color = Red | Green | Blue | Yellow | Cyan | Magenta
 
-f := \c -> case c of {
+f := \c -> case c {
   Red -> True;
   Green -> False;
   Blue -> True;
@@ -1547,7 +1547,7 @@ func TestNonExhaustiveLargeADT(t *testing.T) {
 	_, err := eng.NewRuntime(`
 data Color = Red | Green | Blue | Yellow | Cyan | Magenta
 
-f := \c -> case c of {
+f := \c -> case c {
   Red -> True;
   Blue -> True
 }
@@ -1576,9 +1576,9 @@ func TestTypeClassEqBool(t *testing.T) {
 data Bool = True | False
 class Eq a { eq :: a -> a -> Bool }
 instance Eq Bool {
-  eq := \x -> \y -> case x of {
-    True  -> case y of { True -> True;  False -> False };
-    False -> case y of { True -> False; False -> True }
+  eq := \x -> \y -> case x {
+    True  -> case y { True -> True;  False -> False };
+    False -> case y { True -> False; False -> True }
   }
 }
 main := eq True False
@@ -1603,9 +1603,9 @@ func TestTypeClassPolymorphic(t *testing.T) {
 data Bool = True | False
 class Eq a { eq :: a -> a -> Bool }
 instance Eq Bool {
-  eq := \x -> \y -> case x of {
-    True  -> case y of { True -> True;  False -> False };
-    False -> case y of { True -> False; False -> True }
+  eq := \x -> \y -> case x {
+    True  -> case y { True -> True;  False -> False };
+    False -> case y { True -> False; False -> True }
   }
 }
 f :: forall a. Eq a => a -> a -> Bool
@@ -1663,12 +1663,12 @@ data Bool = True | False
 data Maybe a = Just a | Nothing
 class Functor f { fmap :: forall a b. (a -> b) -> f a -> f b }
 instance Functor Maybe {
-  fmap := \g -> \mx -> case mx of {
+  fmap := \g -> \mx -> case mx {
     Just x  -> Just (g x);
     Nothing -> Nothing
   }
 }
-not := \b -> case b of { True -> False; False -> True }
+not := \b -> case b { True -> False; False -> True }
 main := fmap not (Just True)
 `)
 	if err != nil {
@@ -1806,9 +1806,9 @@ func TestGADTEvalExpr(t *testing.T) {
 data Expr a = { LitBool :: Bool -> Expr Bool; Not :: Expr Bool -> Expr Bool }
 
 eval :: Expr Bool -> Bool
-eval := fix (\self -> \e -> case e of {
+eval := fix (\self -> \e -> case e {
   LitBool b -> b;
-  Not inner -> case self inner of { True -> False; False -> True }
+  Not inner -> case self inner { True -> False; False -> True }
 })
 
 main := eval (Not (LitBool True))
@@ -1835,7 +1835,7 @@ data DB s = MkDB
 data Action s = { Open :: Action Opened; Close :: Action Closed }
 
 describe :: Action Opened -> DB Opened
-describe := \a -> case a of { Open -> MkDB }
+describe := \a -> case a { Open -> MkDB }
 
 main := describe Open
 `)
@@ -1859,8 +1859,8 @@ data Expr a = { LitBool :: Bool -> Expr Bool; Not :: Expr Bool -> Expr Bool }
 
 -- Nested pattern: match on Not (LitBool _)
 isDoubleNeg :: Expr Bool -> Bool
-isDoubleNeg := \e -> case e of {
-  Not inner -> case inner of {
+isDoubleNeg := \e -> case e {
+  Not inner -> case inner {
     Not _ -> True;
     LitBool _ -> False
   };
@@ -1890,7 +1890,7 @@ func TestRegisterModule(t *testing.T) {
 	err := eng.RegisterModule("Lib", `
 data Bool = True | False
 not :: Bool -> Bool
-not := \b -> case b of { True -> False; False -> True }
+not := \b -> case b { True -> False; False -> True }
 `)
 	if err != nil {
 		t.Fatal(err)
@@ -1903,7 +1903,7 @@ func TestImportModuleTypes(t *testing.T) {
 	err := eng.RegisterModule("Lib", `
 data Bool = True | False
 not :: Bool -> Bool
-not := \b -> case b of { True -> False; False -> True }
+not := \b -> case b { True -> False; False -> True }
 `)
 	if err != nil {
 		t.Fatal(err)
@@ -1931,7 +1931,7 @@ func TestImportModuleInstances(t *testing.T) {
 	err := eng.RegisterModule("EqLib", `
 data Bool = True | False
 class Eq a { eq :: a -> a -> Bool }
-instance Eq Bool { eq := \x y -> True }
+instance Eq Bool { eq := \x -> \y -> True }
 `)
 	if err != nil {
 		t.Fatal(err)
@@ -2027,7 +2027,7 @@ func TestStdlibFunctor(t *testing.T) {
 	eng := gmp.NewEngine()
 	rt, err := eng.NewRuntime(`
 not :: Bool -> Bool
-not := \b -> case b of { True -> False; False -> True }
+not := \b -> case b { True -> False; False -> True }
 
 main := fmap not (Just True)
 `)
@@ -2051,7 +2051,7 @@ main := fmap not (Just True)
 func TestStdlibFoldable(t *testing.T) {
 	eng := gmp.NewEngine()
 	rt, err := eng.NewRuntime(`
-main := foldr (\x _ -> x) False (Just True)
+main := foldr (\x -> \_ -> x) False (Just True)
 `)
 	if err != nil {
 		t.Fatal(err)
@@ -2259,7 +2259,7 @@ func TestUnifySkolemSame(t *testing.T) {
 	_, err := eng.Check(`
 data SameTest = { MkSame :: forall a. a -> a -> SameTest }
 useIt :: SameTest -> Bool
-useIt := \s -> case s of { MkSame x y -> True }
+useIt := \s -> case s { MkSame x y -> True }
 `)
 	if err != nil {
 		t.Fatal("existential pattern match should pass:", err)
@@ -2273,7 +2273,7 @@ func TestSkolemEscapeDetected(t *testing.T) {
 	_, err := eng.Check(`
 data Exists = { MkExists :: forall a. a -> Exists }
 escape :: Exists -> Bool
-escape := \e -> case e of { MkExists x -> x }
+escape := \e -> case e { MkExists x -> x }
 `)
 	if err == nil {
 		t.Fatal("expected escape error, got nil")
@@ -2288,7 +2288,7 @@ func TestSkolemNoEscape(t *testing.T) {
 	_, err := eng.Check(`
 data Wrapper = { MkWrapper :: forall a. a -> Wrapper }
 safe :: Wrapper -> Bool
-safe := \w -> case w of { MkWrapper _ -> True }
+safe := \w -> case w { MkWrapper _ -> True }
 `)
 	if err != nil {
 		t.Fatal("non-escaping existential should pass:", err)
@@ -2299,7 +2299,7 @@ func TestSkolemEscapeInMeta(t *testing.T) {
 	eng := gmp.NewEngine()
 	_, err := eng.Check(`
 data SomeVal = { MkSome :: forall a. a -> SomeVal }
-leaky := \s -> case s of { MkSome x -> Just x }
+leaky := \s -> case s { MkSome x -> Just x }
 `)
 	if err == nil {
 		t.Fatal("expected escape error for Just x where x is existential")
@@ -2313,7 +2313,7 @@ func TestExistentialBasic(t *testing.T) {
 	rt, err := eng.NewRuntime(`
 data SomeEq = { MkSomeEq :: forall a. Eq a => a -> SomeEq }
 useSomeEq :: SomeEq -> Bool
-useSomeEq := \s -> case s of { MkSomeEq x -> eq x x }
+useSomeEq := \s -> case s { MkSomeEq x -> eq x x }
 main := useSomeEq (MkSomeEq True)
 `)
 	if err != nil {
@@ -2331,7 +2331,7 @@ func TestExistentialEscapeError(t *testing.T) {
 	_, err := eng.Check(`
 data SomeEq = { MkSomeEq :: forall a. Eq a => a -> SomeEq }
 escape :: SomeEq -> Bool
-escape := \s -> case s of { MkSomeEq x -> x }
+escape := \s -> case s { MkSomeEq x -> x }
 `)
 	if err == nil {
 		t.Fatal("expected type error for escaping existential")
@@ -2343,7 +2343,7 @@ func TestExistentialNoConstraint(t *testing.T) {
 	rt, err := eng.NewRuntime(`
 data ExistsF f = { MkExistsF :: forall a. f a -> ExistsF f }
 useMaybe :: ExistsF Maybe -> Bool
-useMaybe := \e -> case e of { MkExistsF _ -> True }
+useMaybe := \e -> case e { MkExistsF _ -> True }
 main := useMaybe (MkExistsF (Just True))
 `)
 	if err != nil {
@@ -2361,7 +2361,7 @@ func TestExistentialMixed(t *testing.T) {
 	rt, err := eng.NewRuntime(`
 data Wrapper a = { MkWrapper :: forall b. (b -> a) -> b -> Wrapper a }
 useWrapper :: Wrapper Bool -> Bool
-useWrapper := \w -> case w of { MkWrapper f x -> f x }
+useWrapper := \w -> case w { MkWrapper f x -> f x }
 main := useWrapper (MkWrapper (\x -> x) True)
 `)
 	if err != nil {
@@ -2379,7 +2379,7 @@ func TestExistentialMultiConstraint(t *testing.T) {
 	_, err := eng.Check(`
 data ShowOrd = { MkShowOrd :: forall a. Eq a => Ord a => a -> a -> ShowOrd }
 use :: ShowOrd -> Ordering
-use := \s -> case s of { MkShowOrd x y -> compare x y }
+use := \s -> case s { MkShowOrd x y -> compare x y }
 `)
 	if err != nil {
 		t.Fatal(err)
@@ -2393,7 +2393,7 @@ func TestExistentialWithTypeClass(t *testing.T) {
 	rt, err := eng.NewRuntime(`
 data SomeEq = { MkSomeEq :: forall a. Eq a => a -> SomeEq }
 isSame :: SomeEq -> Bool
-isSame := \s -> case s of { MkSomeEq x -> eq x x }
+isSame := \s -> case s { MkSomeEq x -> eq x x }
 main := isSame (MkSomeEq (Pair True False))
 `)
 	if err != nil {
@@ -2413,7 +2413,7 @@ func TestExistentialWithGADT(t *testing.T) {
 data Typed a = { MkBool :: Bool -> Typed Bool; MkUnit :: Typed Unit }
 data SomeTyped = { MkSome :: forall a. Typed a -> SomeTyped }
 classify :: SomeTyped -> Bool
-classify := \s -> case s of { MkSome t -> True }
+classify := \s -> case s { MkSome t -> True }
 main := classify (MkSome (MkBool True))
 `)
 	if err != nil {
@@ -2431,8 +2431,8 @@ func TestExistentialNestedCase(t *testing.T) {
 	rt, err := eng.NewRuntime(`
 data Wrap = { MkWrap :: forall a. Eq a => a -> Wrap }
 bothSame :: Wrap -> Wrap -> Bool
-bothSame := \w1 w2 ->
-  case w1 of { MkWrap x -> case w2 of { MkWrap y -> True } }
+bothSame := \w1 -> \w2 ->
+  case w1 { MkWrap x -> case w2 { MkWrap y -> True } }
 main := bothSame (MkWrap True) (MkWrap False)
 `)
 	if err != nil {
@@ -2658,7 +2658,7 @@ func TestTraversableMaybe(t *testing.T) {
 	eng := gmp.NewEngine()
 	rt, err := eng.NewRuntime(`
 not :: Bool -> Bool
-not := \b -> case b of { True -> False; False -> True }
+not := \b -> case b { True -> False; False -> True }
 main := traverse (\x -> Just (not x)) (Just True)
 `)
 	if err != nil {
@@ -2738,7 +2738,7 @@ func TestExistentialWithStdlib(t *testing.T) {
 	rt, err := eng.NewRuntime(`
 data SomeSemigroup = { MkSomeSG :: forall a. Semigroup a => a -> a -> SomeSemigroup }
 combine :: SomeSemigroup -> Bool
-combine := \s -> case s of { MkSomeSG x y -> case append x y of { _ -> True } }
+combine := \s -> case s { MkSomeSG x y -> case append x y { _ -> True } }
 main := combine (MkSomeSG EQ LT)
 `)
 	if err != nil {
@@ -2756,7 +2756,7 @@ func TestFullPipeline(t *testing.T) {
 	rt, err := eng.NewRuntime(`
 data SomeEq = { MkSomeEq :: forall a. Eq a => a -> SomeEq }
 isSelf :: SomeEq -> Bool
-isSelf := \s -> case s of { MkSomeEq x -> eq x x }
+isSelf := \s -> case s { MkSomeEq x -> eq x x }
 applyToBoth :: (forall a. a -> a) -> Pair Bool Unit
 applyToBoth := \f -> Pair (f True) (f Unit)
 id :: forall a. a -> a

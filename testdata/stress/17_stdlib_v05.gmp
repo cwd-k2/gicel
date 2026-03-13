@@ -26,17 +26,17 @@ ordPair2  := compare (Pair True False) (Pair True True)
 
 -- Applicative tests
 appWrap := (wrap True :: Maybe Bool)
-appAp   := ap (Just (\x -> case x of { True -> False; False -> True })) (Just True)
+appAp   := ap (Just (\x -> case x { True -> False; False -> True })) (Just True)
 
 -- Traversable tests
 travMaybeJust := traverse (\x -> Just x) (Just True)
 travMaybeNothing := traverse (\x -> Just x) (Nothing :: Maybe Bool)
 
 -- Functor Pair
-fmapPair := fmap (\x -> case x of { True -> False; False -> True }) (Pair Unit True)
+fmapPair := fmap (\x -> case x { True -> False; False -> True }) (Pair Unit True)
 
 -- Foldable Pair
-foldPair := foldr (\x acc -> x) False (Pair Unit True)
+foldPair := foldr (\x -> \acc -> x) False (Pair Unit True)
 
 -- Traversable Pair
 travPair := traverse (\x -> Just x) (Pair Unit True)

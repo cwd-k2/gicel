@@ -22,13 +22,13 @@ fail :: forall r a. Computation { fail : Unit | r } { fail : Unit | r } a
 fail := failWith Unit
 
 fromMaybe :: forall a r. Maybe a -> Computation { fail : Unit | r } { fail : Unit | r } a
-fromMaybe := \m -> case m of {
+fromMaybe := \m -> case m {
   Nothing -> fail;
   Just x  -> pure x
 }
 
 fromResult :: forall e a r. Result e a -> Computation { fail : e | r } { fail : e | r } a
-fromResult := \r -> case r of {
+fromResult := \r -> case r {
   Err e -> failWith e;
   Ok x  -> pure x
 }

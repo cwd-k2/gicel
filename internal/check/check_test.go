@@ -524,7 +524,7 @@ func TestClassMethodInScope(t *testing.T) {
 	source := `data Bool = True | False
 class Eq a { eq :: a -> a -> Bool }
 f :: Eq a => a -> a -> Bool
-f := \x y -> eq x y`
+f := \x -> \y -> eq x y`
 	prog := checkSource(t, source, nil)
 	found := false
 	for _, b := range prog.Bindings {
@@ -564,7 +564,7 @@ class Eq a => Ord a { compare :: a -> a -> Bool }`
 func TestInstanceElaboratesBinding(t *testing.T) {
 	source := `data Bool = True | False
 class Eq a { eq :: a -> a -> Bool }
-instance Eq Bool { eq := \x y -> True }`
+instance Eq Bool { eq := \x -> \y -> True }`
 	prog := checkSource(t, source, nil)
 	found := false
 	for _, b := range prog.Bindings {
@@ -582,7 +582,7 @@ func TestInstanceWithContextElaborates(t *testing.T) {
 	source := `data Bool = True | False
 data Maybe a = Just a | Nothing
 class Eq a { eq :: a -> a -> Bool }
-instance Eq a => Eq (Maybe a) { eq := \x y -> True }`
+instance Eq a => Eq (Maybe a) { eq := \x -> \y -> True }`
 	prog := checkSource(t, source, nil)
 	found := false
 	for _, b := range prog.Bindings {
@@ -601,13 +601,13 @@ instance Eq a => Eq (Maybe a) { eq := \x y -> True }`
 
 func TestExhaustiveComplete(t *testing.T) {
 	source := `data Bool = True | False
-main := \b -> case b of { True -> True; False -> False }`
+main := \b -> case b { True -> True; False -> False }`
 	checkSource(t, source, nil)
 }
 
 func TestExhaustiveIncomplete(t *testing.T) {
 	source := `data Bool = True | False
-main := \b -> case b of { True -> True }`
+main := \b -> case b { True -> True }`
 	errMsg := checkSourceExpectCode(t, source, nil, errs.ErrNonExhaustive)
 	if !strings.Contains(errMsg, "False") {
 		t.Errorf("expected missing constructor 'False' in error, got: %s", errMsg)
@@ -616,13 +616,13 @@ main := \b -> case b of { True -> True }`
 
 func TestExhaustiveWildcard(t *testing.T) {
 	source := `data Bool = True | False
-main := \b -> case b of { _ -> True }`
+main := \b -> case b { _ -> True }`
 	checkSource(t, source, nil)
 }
 
 func TestExhaustiveVarPattern(t *testing.T) {
 	source := `data Bool = True | False
-main := \b -> case b of { x -> x }`
+main := \b -> case b { x -> x }`
 	checkSource(t, source, nil)
 }
 
@@ -664,7 +664,7 @@ func TestInstanceIndexLookup(t *testing.T) {
 	source := `data Bool = True | False
 class Eq a { eq :: a -> a -> Bool }
 class Show a { show :: a -> Bool }
-instance Eq Bool { eq := \x y -> True }
+instance Eq Bool { eq := \x -> \y -> True }
 instance Show Bool { show := \x -> True }
 main := eq True False`
 	prog := checkSource(t, source, nil)
@@ -684,8 +684,8 @@ func BenchmarkInstanceResolve100(b *testing.B) {
 	source := `data Bool = True | False
 data Unit = Unit
 class Eq a { eq :: a -> a -> Bool }
-instance Eq Bool { eq := \x y -> True }
-instance Eq Unit { eq := \x y -> True }
+instance Eq Bool { eq := \x -> \y -> True }
+instance Eq Unit { eq := \x -> \y -> True }
 main := eq True False`
 
 	b.ResetTimer()
@@ -797,11 +797,11 @@ main := IntLit True`
 }
 
 func TestGADTPatternRefinement(t *testing.T) {
-	// case (e : Expr Bool) of { BoolLit b -> b } should derive b : Bool
+	// case (e : Expr Bool) { BoolLit b -> b } should derive b : Bool
 	source := `data Bool = True | False
 data Expr a = { BoolLit :: Bool -> Expr Bool; IntLit :: Bool -> Expr Bool }
 f :: Expr Bool -> Bool
-f := \e -> case e of { BoolLit b -> b; IntLit b -> b }`
+f := \e -> case e { BoolLit b -> b; IntLit b -> b }`
 	checkSource(t, source, nil)
 }
 
@@ -810,7 +810,7 @@ func TestGADTMultiBranch(t *testing.T) {
 	source := `data Bool = True | False
 data Expr a = { Lit :: Bool -> Expr Bool; Not :: Expr Bool -> Expr Bool }
 eval :: Expr Bool -> Bool
-eval := \e -> case e of { Lit b -> b; Not inner -> True }`
+eval := \e -> case e { Lit b -> b; Not inner -> True }`
 	checkSource(t, source, nil)
 }
 
@@ -821,7 +821,7 @@ func TestGADTExhaustiveRelevant(t *testing.T) {
 data Unit = Unit
 data Tag a = { TagBool :: Bool -> Tag Bool; TagUnit :: Unit -> Tag Unit }
 f :: Tag Bool -> Bool
-f := \t -> case t of { TagBool b -> b }`
+f := \t -> case t { TagBool b -> b }`
 	checkSource(t, source, nil)
 }
 
@@ -831,7 +831,7 @@ func TestGADTNonExhaustiveError(t *testing.T) {
 data Unit = Unit
 data Tag a = { TagBool :: Bool -> Tag Bool; TagUnit :: Unit -> Tag Unit }
 f :: Tag Bool -> Bool
-f := \t -> case t of { TagUnit _ -> True }`
+f := \t -> case t { TagUnit _ -> True }`
 	errMsg := checkSourceExpectCode(t, source, nil, errs.ErrNonExhaustive)
 	if !strings.Contains(errMsg, "TagBool") {
 		t.Errorf("expected missing TagBool, got: %s", errMsg)
@@ -846,7 +846,7 @@ data Unit = Unit
 data Void = MkVoid
 data Tag a = { TagBool :: Bool -> Tag Bool; TagUnit :: Unit -> Tag Unit }
 f :: Tag Void -> Void
-f := \t -> case t of { _ -> MkVoid }`
+f := \t -> case t { _ -> MkVoid }`
 	checkSource(t, source, nil)
 }
 
@@ -887,8 +887,8 @@ func TestOverlappingInstances(t *testing.T) {
 	// Two instances of Eq for the same type should trigger ErrOverlap.
 	source := `data Bool = True | False
 class Eq a { eq :: a -> a -> Bool }
-instance Eq Bool { eq := \x y -> case x of { True -> y; False -> case y of { True -> False; False -> True } } }
-instance Eq Bool { eq := \x y -> True }
+instance Eq Bool { eq := \x -> \y -> case x { True -> y; False -> case y { True -> False; False -> True } } }
+instance Eq Bool { eq := \x -> \y -> True }
 main := eq True False`
 	checkSourceExpectCode(t, source, nil, errs.ErrOverlap)
 }
@@ -898,8 +898,8 @@ func TestNonOverlappingInstances(t *testing.T) {
 	source := `data Bool = True | False
 data Unit = Unit
 class Eq a { eq :: a -> a -> Bool }
-instance Eq Bool { eq := \x y -> case x of { True -> y; False -> case y of { True -> False; False -> True } } }
-instance Eq Unit { eq := \_ _ -> True }
+instance Eq Bool { eq := \x -> \y -> case x { True -> y; False -> case y { True -> False; False -> True } } }
+instance Eq Unit { eq := \_ -> \_ -> True }
 main := eq True False`
 	checkSource(t, source, nil)
 }
@@ -908,7 +908,7 @@ func TestInstanceArityMismatch(t *testing.T) {
 	// Class Eq has 1 type param, instance provides 2 → ErrBadInstance.
 	source := `data Bool = True | False
 class Eq a { eq :: a -> a -> Bool }
-instance Eq Bool Bool { eq := \x y -> True }`
+instance Eq Bool Bool { eq := \x -> \y -> True }`
 	checkSourceExpectCode(t, source, nil, errs.ErrBadInstance)
 }
 
@@ -917,7 +917,7 @@ func TestInstanceUnknownContextClass(t *testing.T) {
 	source := `data Bool = True | False
 data Maybe a = Nothing | Just a
 class Eq a { eq :: a -> a -> Bool }
-instance Phantom a => Eq (Maybe a) { eq := \_ _ -> True }`
+instance Phantom a => Eq (Maybe a) { eq := \_ -> \_ -> True }`
 	checkSourceExpectCode(t, source, nil, errs.ErrBadInstance)
 }
 
@@ -925,7 +925,7 @@ func TestInstanceSelfCycle(t *testing.T) {
 	// Instance context requires itself → ErrBadInstance.
 	source := `data Bool = True | False
 class Eq a { eq :: a -> a -> Bool }
-instance Eq a => Eq a { eq := \x y -> True }`
+instance Eq a => Eq a { eq := \x -> \y -> True }`
 	checkSourceExpectCode(t, source, nil, errs.ErrBadInstance)
 }
 
@@ -933,7 +933,7 @@ func TestInstanceExtraMethod(t *testing.T) {
 	// Instance defines a method not declared in the class → ErrBadInstance.
 	source := `data Bool = True | False
 class Eq a { eq :: a -> a -> Bool }
-instance Eq Bool { eq := \x y -> True; notAMethod := \x -> x }`
+instance Eq Bool { eq := \x -> \y -> True; notAMethod := \x -> x }`
 	checkSourceExpectCode(t, source, nil, errs.ErrBadInstance)
 }
 
@@ -942,11 +942,11 @@ func TestInstanceValidContextClass(t *testing.T) {
 	source := `data Bool = True | False
 data Maybe a = Nothing | Just a
 class Eq a { eq :: a -> a -> Bool }
-instance Eq Bool { eq := \x y -> case x of { True -> y; False -> case y of { True -> False; False -> True } } }
+instance Eq Bool { eq := \x -> \y -> case x { True -> y; False -> case y { True -> False; False -> True } } }
 instance Eq a => Eq (Maybe a) {
-  eq := \x y -> case x of {
-    Nothing -> case y of { Nothing -> True; Just _ -> False };
-    Just a  -> case y of { Nothing -> False; Just b -> eq a b }
+  eq := \x -> \y -> case x {
+    Nothing -> case y { Nothing -> True; Just _ -> False };
+    Just a  -> case y { Nothing -> False; Just b -> eq a b }
   }
 }`
 	checkSource(t, source, nil)
@@ -958,13 +958,13 @@ func TestParametricOverlappingInstances(t *testing.T) {
 data Maybe a = Nothing | Just a
 class Eq a { eq :: a -> a -> Bool }
 instance Eq a => Eq (Maybe a) {
-  eq := \x y -> case x of {
-    Nothing -> case y of { Nothing -> True; Just _ -> False };
-    Just a  -> case y of { Nothing -> False; Just b -> eq a b }
+  eq := \x -> \y -> case x {
+    Nothing -> case y { Nothing -> True; Just _ -> False };
+    Just a  -> case y { Nothing -> False; Just b -> eq a b }
   }
 }
 instance Eq (Maybe Bool) {
-  eq := \_ _ -> True
+  eq := \_ -> \_ -> True
 }`
 	checkSourceExpectCode(t, source, nil, errs.ErrOverlap)
 }
@@ -974,7 +974,7 @@ func TestSelfCycleCompoundType(t *testing.T) {
 	source := `data Bool = True | False
 data Maybe a = Nothing | Just a
 class Eq a { eq :: a -> a -> Bool }
-instance Eq (Maybe a) => Eq (Maybe a) { eq := \x y -> True }`
+instance Eq (Maybe a) => Eq (Maybe a) { eq := \x -> \y -> True }`
 	checkSourceExpectCode(t, source, nil, errs.ErrBadInstance)
 }
 
@@ -983,8 +983,8 @@ func TestOverlapBlocksRegistration(t *testing.T) {
 	// with "no instance" rather than silently picking one.
 	source := `data Bool = True | False
 class Eq a { eq :: a -> a -> Bool }
-instance Eq Bool { eq := \x y -> case x of { True -> y; False -> case y of { True -> False; False -> True } } }
-instance Eq Bool { eq := \x y -> True }
+instance Eq Bool { eq := \x -> \y -> case x { True -> y; False -> case y { True -> False; False -> True } } }
+instance Eq Bool { eq := \x -> \y -> True }
 main := eq True False`
 	// We expect ErrOverlap from the duplicate instance declaration.
 	// The second instance is rejected, so resolution uses the first — no ambiguity.
@@ -995,7 +995,7 @@ func TestSelfCycleBlocksRegistration(t *testing.T) {
 	// Self-cycle should not be registered — no cascading errors from resolution.
 	source := `data Bool = True | False
 class Eq a { eq :: a -> a -> Bool }
-instance Eq a => Eq a { eq := \x y -> True }`
+instance Eq a => Eq a { eq := \x -> \y -> True }`
 	checkSourceExpectCode(t, source, nil, errs.ErrBadInstance)
 }
 

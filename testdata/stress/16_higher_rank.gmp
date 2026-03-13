@@ -11,11 +11,11 @@ applyPolyId := \f -> f True
 
 -- Multiple rank-2 uses
 dualApply :: (forall a. a -> a) -> (forall a. a -> a) -> Pair Bool Unit
-dualApply := \f g -> Pair (f True) (g Unit)
+dualApply := \f -> \g -> Pair (f True) (g Unit)
 
 -- Rank-2 in case branch
 caseWithPoly :: Bool -> (forall a. a -> a) -> Bool
-caseWithPoly := \b f -> case b of { True -> f True; False -> f False }
+caseWithPoly := \b -> \f -> case b { True -> f True; False -> f False }
 
 -- Helper: polymorphic identity
 id :: forall a. a -> a
@@ -23,7 +23,7 @@ id := \x -> x
 
 -- Compose with rank-2
 composeId :: (forall a. a -> a) -> (forall a. a -> a) -> Pair Bool Unit
-composeId := \f g -> Pair (f (g True)) (g (f Unit))
+composeId := \f -> \g -> Pair (f (g True)) (g (f Unit))
 
 -- Subsumption: poly used at mono position
 useMono :: (Bool -> Bool) -> Bool

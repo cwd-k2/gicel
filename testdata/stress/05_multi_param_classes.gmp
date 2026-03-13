@@ -6,14 +6,14 @@ instance Coercible Bool Unit { coerce := \_ -> Unit }
 instance Coercible Unit Bool { coerce := \_ -> True }
 instance Coercible Bool Bool { coerce := \x -> x }
 instance Coercible (Maybe Bool) Bool {
-  coerce := \m -> case m of { Just _ -> True; Nothing -> False }
+  coerce := \m -> case m { Just _ -> True; Nothing -> False }
 }
 
 instance Convert Bool (Maybe Bool) {
-  convert := \b -> case b of { True -> Just True; False -> Nothing }
+  convert := \b -> case b { True -> Just True; False -> Nothing }
 }
 instance Convert (Maybe Bool) Bool {
-  convert := \m -> case m of { Just _ -> True; Nothing -> False }
+  convert := \m -> case m { Just _ -> True; Nothing -> False }
 }
 
 instance Iso Bool Bool { to := \x -> x; from := \x -> x }
@@ -30,4 +30,4 @@ convertedBool := convertAndCoerce True
 coerced1 := coerce True
 coerced2 := (coerce :: Unit -> Bool) (coerce True)
 
-main := case convertedBool of { True -> coerced2; False -> False }
+main := case convertedBool { True -> coerced2; False -> False }

@@ -15,11 +15,12 @@ type Fixity struct {
 
 // Parser is a Pratt parser for the surface language.
 type Parser struct {
-	tokens []Token
-	pos    int
-	fixity map[string]Fixity
-	errors *errs.Errors
-	depth  int // paren/brace nesting depth
+	tokens      []Token
+	pos         int
+	fixity      map[string]Fixity
+	errors      *errs.Errors
+	depth       int  // paren/brace nesting depth
+	noBraceAtom bool // when true, { is not an atom start (inside case scrutinee)
 }
 
 // NewParser creates a parser from a token stream.
@@ -674,14 +675,11 @@ func (p *Parser) parseParen() Expr {
 func (p *Parser) parseLambda() Expr {
 	start := p.peek().S.Start
 	p.expect(TokBackslash)
-	var params []Pattern
-	for p.peek().Kind != TokArrow && p.peek().Kind != TokEOF {
-		params = append(params, p.parsePattern())
-	}
+	param := p.parsePattern()
 	p.expect(TokArrow)
 	body := p.parseExpr()
 	return &ExprLam{
-		Params: params, Body: body,
+		Params: []Pattern{param}, Body: body,
 		S: span.Span{Start: start, End: p.prevEnd()},
 	}
 }
@@ -689,8 +687,9 @@ func (p *Parser) parseLambda() Expr {
 func (p *Parser) parseCase() Expr {
 	start := p.peek().S.Start
 	p.expect(TokCase)
+	p.noBraceAtom = true
 	scrut := p.parseExpr()
-	p.expect(TokOf)
+	p.noBraceAtom = false
 	p.expect(TokLBrace)
 	var alts []AstAlt
 	for p.peek().Kind != TokRBrace && p.peek().Kind != TokEOF {
@@ -1026,16 +1025,6 @@ func (p *Parser) parseTypeAtom() TypeExpr {
 		start := p.peek().S.Start
 		p.advance()
 		ty := p.parseType()
-		if p.peek().Kind == TokComma {
-			// Tuple: (T1, T2, ...)
-			elements := []TypeExpr{ty}
-			for p.peek().Kind == TokComma {
-				p.advance()
-				elements = append(elements, p.parseType())
-			}
-			p.expect(TokRParen)
-			return &TyExprTuple{Elements: elements, S: span.Span{Start: start, End: p.prevEnd()}}
-		}
 		p.expect(TokRParen)
 		return &TyExprParen{Inner: ty, S: span.Span{Start: start, End: p.prevEnd()}}
 	case TokLBrace:
@@ -1197,6 +1186,9 @@ func (p *Parser) isAtomStart() bool {
 		return false
 	}
 	k := p.peek().Kind
+	if p.noBraceAtom && k == TokLBrace {
+		return false
+	}
 	return k == TokLower || k == TokUpper || k == TokLParen || k == TokBackslash || k == TokLBrace || k == TokCase || k == TokDo || k == TokIntLit || k == TokStrLit || k == TokRuneLit || k == TokLBracket
 }
 

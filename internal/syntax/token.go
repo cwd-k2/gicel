@@ -33,9 +33,8 @@ const (
 	TokUnderscore // _
 	TokEq         // =
 
-	// Keywords (11)
+	// Keywords (10)
 	TokCase
-	TokOf
 	TokDo
 	TokData
 	TokType
@@ -70,7 +69,6 @@ type Token struct {
 
 var keywords = map[string]TokenKind{
 	"case":     TokCase,
-	"of":       TokOf,
 	"do":       TokDo,
 	"data":     TokData,
 	"type":     TokType,

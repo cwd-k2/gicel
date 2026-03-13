@@ -3,14 +3,14 @@ data Tree a = Leaf a | Branch (Tree a) (Tree a)
 class Functor f { fmap :: forall a b. (a -> b) -> f a -> f b }
 
 instance Functor Maybe {
-  fmap := \g -> \mx -> case mx of {
+  fmap := \g -> \mx -> case mx {
     Nothing -> Nothing;
     Just x  -> Just (g x)
   }
 }
 
 instance Functor Tree {
-  fmap := \g -> \t -> case t of {
+  fmap := \g -> \t -> case t {
     Leaf x       -> Leaf (g x);
     Branch l r   -> Branch (fmap g l) (fmap g r)
   }
@@ -24,7 +24,7 @@ instance Applicative Maybe {
   wrap := \x -> Just x
 }
 
-not := \b -> case b of { True -> False; False -> True }
+not := \b -> case b { True -> False; False -> True }
 
 liftF :: forall f a b. Functor f => (a -> b) -> f a -> f b
 liftF := \g -> \fa -> fmap g fa
@@ -39,8 +39,8 @@ treeOfBools := Branch (Leaf True) (Branch (Leaf False) (Leaf True))
 
 mappedTree := fmap not treeOfBools
 
-main := case mappedTree of {
-  Branch l _ -> case l of {
+main := case mappedTree {
+  Branch l _ -> case l {
     Leaf v -> v;
     _      -> True
   };

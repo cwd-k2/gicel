@@ -30,8 +30,8 @@ func parse(input string) (*AstProgram, *errs.Errors) {
 // --- Lexer tests ---
 
 func TestLexKeywords(t *testing.T) {
-	tokens := lex("case of do data type forall infixl infixr infixn")
-	expected := []TokenKind{TokCase, TokOf, TokDo, TokData, TokType, TokForall, TokInfixl, TokInfixr, TokInfixn, TokEOF}
+	tokens := lex("case do data type forall infixl infixr infixn")
+	expected := []TokenKind{TokCase, TokDo, TokData, TokType, TokForall, TokInfixl, TokInfixr, TokInfixn, TokEOF}
 	for i, want := range expected {
 		if tokens[i].Kind != want {
 			t.Errorf("token[%d]: got %v, want %v", i, tokens[i].Kind, want)
@@ -249,7 +249,7 @@ func TestParseOperatorValueDef(t *testing.T) {
 func TestParseOperatorInModule(t *testing.T) {
 	src := `data Int = MkInt
 add :: Int -> Int -> Int
-add := \x y -> x
+add := \x -> \y -> x
 infixl 6 +
 (+) :: Int -> Int -> Int
 (+) := add`
@@ -365,7 +365,7 @@ func TestParseFunctionApplication(t *testing.T) {
 }
 
 func TestParseCaseExpr(t *testing.T) {
-	prog, es := parse("main := case x of { True -> a; False -> b }")
+	prog, es := parse("main := case x { True -> a; False -> b }")
 	if es.HasErrors() {
 		t.Fatal(es.Format())
 	}
@@ -573,163 +573,6 @@ func TestParseCurriedConstraints(t *testing.T) {
 	}
 }
 
-func TestParseConstraintProduct(t *testing.T) {
-	// (Eq a, Ord a) => a -> Bool should parse as TyExprQual
-	// with constraint being a TyExprTuple of two constraints.
-	prog, es := parse("f :: (Eq a, Ord a) => a -> Bool")
-	if es.HasErrors() {
-		t.Fatal(es.Format())
-	}
-	d := prog.Decls[0].(*DeclTypeAnn)
-	qual, ok := d.Type.(*TyExprQual)
-	if !ok {
-		t.Fatalf("expected TyExprQual, got %T", d.Type)
-	}
-	tuple, ok := qual.Constraint.(*TyExprTuple)
-	if !ok {
-		t.Fatalf("expected TyExprTuple constraint, got %T", qual.Constraint)
-	}
-	if len(tuple.Elements) != 2 {
-		t.Fatalf("expected 2 constraints, got %d", len(tuple.Elements))
-	}
-	// First: Eq a
-	app1, ok := tuple.Elements[0].(*TyExprApp)
-	if !ok {
-		t.Fatalf("expected TyExprApp for first constraint, got %T", tuple.Elements[0])
-	}
-	if con, ok := app1.Fun.(*TyExprCon); !ok || con.Name != "Eq" {
-		t.Error("expected Eq constraint first")
-	}
-	// Second: Ord a
-	app2, ok := tuple.Elements[1].(*TyExprApp)
-	if !ok {
-		t.Fatalf("expected TyExprApp for second constraint, got %T", tuple.Elements[1])
-	}
-	if con, ok := app2.Fun.(*TyExprCon); !ok || con.Name != "Ord" {
-		t.Error("expected Ord constraint second")
-	}
-	// Body: a -> Bool
-	_, ok = qual.Body.(*TyExprArrow)
-	if !ok {
-		t.Fatalf("expected TyExprArrow body, got %T", qual.Body)
-	}
-}
-
-func TestParseConstraintProductForall(t *testing.T) {
-	// forall a. (Eq a, Ord a) => a -> Bool
-	prog, es := parse("f :: forall a. (Eq a, Ord a) => a -> Bool")
-	if es.HasErrors() {
-		t.Fatal(es.Format())
-	}
-	d := prog.Decls[0].(*DeclTypeAnn)
-	fa, ok := d.Type.(*TyExprForall)
-	if !ok {
-		t.Fatalf("expected TyExprForall, got %T", d.Type)
-	}
-	qual, ok := fa.Body.(*TyExprQual)
-	if !ok {
-		t.Fatalf("expected TyExprQual, got %T", fa.Body)
-	}
-	tuple, ok := qual.Constraint.(*TyExprTuple)
-	if !ok {
-		t.Fatalf("expected TyExprTuple, got %T", qual.Constraint)
-	}
-	if len(tuple.Elements) != 2 {
-		t.Fatalf("expected 2 constraints, got %d", len(tuple.Elements))
-	}
-}
-
-func TestParseConstraintProductSingle(t *testing.T) {
-	// (Eq a) => a -> Bool — single element in parens should NOT be tuple,
-	// should remain TyExprParen wrapping TyExprApp.
-	prog, es := parse("f :: (Eq a) => a -> Bool")
-	if es.HasErrors() {
-		t.Fatal(es.Format())
-	}
-	d := prog.Decls[0].(*DeclTypeAnn)
-	qual, ok := d.Type.(*TyExprQual)
-	if !ok {
-		t.Fatalf("expected TyExprQual, got %T", d.Type)
-	}
-	// Should NOT be a tuple — it's just a parenthesized constraint.
-	if _, ok := qual.Constraint.(*TyExprTuple); ok {
-		t.Error("single (Eq a) should not parse as TyExprTuple")
-	}
-}
-
-func TestParseConstraintProductTriple(t *testing.T) {
-	// (Eq a, Ord a, Show a) => a -> Bool — three constraints.
-	prog, es := parse("f :: (Eq a, Ord a, Show a) => a -> Bool")
-	if es.HasErrors() {
-		t.Fatal(es.Format())
-	}
-	d := prog.Decls[0].(*DeclTypeAnn)
-	qual, ok := d.Type.(*TyExprQual)
-	if !ok {
-		t.Fatalf("expected TyExprQual, got %T", d.Type)
-	}
-	tuple, ok := qual.Constraint.(*TyExprTuple)
-	if !ok {
-		t.Fatalf("expected TyExprTuple, got %T", qual.Constraint)
-	}
-	if len(tuple.Elements) != 3 {
-		t.Fatalf("expected 3 constraints, got %d", len(tuple.Elements))
-	}
-}
-
-func TestParseConstraintProductNested(t *testing.T) {
-	// (Eq a, Ord a) => Show a => a -> Bool — product + curried mix.
-	prog, es := parse("f :: (Eq a, Ord a) => Show a => a -> Bool")
-	if es.HasErrors() {
-		t.Fatal(es.Format())
-	}
-	d := prog.Decls[0].(*DeclTypeAnn)
-	q1, ok := d.Type.(*TyExprQual)
-	if !ok {
-		t.Fatalf("expected outer TyExprQual, got %T", d.Type)
-	}
-	// Outer constraint should be tuple (Eq a, Ord a).
-	_, ok = q1.Constraint.(*TyExprTuple)
-	if !ok {
-		t.Fatalf("expected TyExprTuple, got %T", q1.Constraint)
-	}
-	// Body should be another TyExprQual (Show a => ...).
-	q2, ok := q1.Body.(*TyExprQual)
-	if !ok {
-		t.Fatalf("expected inner TyExprQual, got %T", q1.Body)
-	}
-	// Inner body should be arrow.
-	_, ok = q2.Body.(*TyExprArrow)
-	if !ok {
-		t.Fatalf("expected TyExprArrow, got %T", q2.Body)
-	}
-}
-
-func TestParseTupleInTypePosition(t *testing.T) {
-	// (Int, Bool) in type position (not before =>) should parse as tuple.
-	prog, es := parse("f :: (Int, Bool) -> Bool")
-	if es.HasErrors() {
-		t.Fatal(es.Format())
-	}
-	d := prog.Decls[0].(*DeclTypeAnn)
-	arr, ok := d.Type.(*TyExprArrow)
-	if !ok {
-		t.Fatalf("expected TyExprArrow, got %T", d.Type)
-	}
-	_, ok = arr.From.(*TyExprTuple)
-	if !ok {
-		t.Fatalf("expected TyExprTuple in arrow from, got %T", arr.From)
-	}
-}
-
-func TestParseTrailingCommaInTuple(t *testing.T) {
-	// (Eq a,) => — trailing comma parses the empty trailing element.
-	// Parser should handle this gracefully (not crash).
-	_, es := parse("f :: (Eq a,) => Bool")
-	// Whether this errors or not, it should not panic.
-	_ = es
-}
-
 func TestParseClassDecl(t *testing.T) {
 	prog, es := parse("class Eq a { eq :: a -> a -> Bool }")
 	if es.HasErrors() {
@@ -782,7 +625,7 @@ func TestParseClassMultiParam(t *testing.T) {
 }
 
 func TestParseInstanceDecl(t *testing.T) {
-	prog, es := parse("instance Eq Bool { eq := \\x y -> True }")
+	prog, es := parse("instance Eq Bool { eq := \\x -> \\y -> True }")
 	if es.HasErrors() {
 		t.Fatal(es.Format())
 	}
@@ -802,7 +645,7 @@ func TestParseInstanceDecl(t *testing.T) {
 }
 
 func TestParseInstanceWithContext(t *testing.T) {
-	prog, es := parse("instance Eq a => Eq (Maybe a) { eq := \\x y -> True }")
+	prog, es := parse("instance Eq a => Eq (Maybe a) { eq := \\x -> \\y -> True }")
 	if es.HasErrors() {
 		t.Fatal(es.Format())
 	}

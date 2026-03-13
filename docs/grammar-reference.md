@@ -2,12 +2,11 @@
 
 ## Lexical Structure
 
-### Keywords (12)
+### Keywords (11)
 
 | Keyword    | Purpose                          |
 |------------|----------------------------------|
 | `case`     | Pattern matching                 |
-| `of`       | Case alternative separator       |
 | `do`       | Monadic do-block                 |
 | `data`     | Algebraic data type declaration  |
 | `type`     | Type alias declaration           |
@@ -148,7 +147,7 @@ name := Expr
 
 Example:
 ```
-not := \b -> case b of { True -> False; False -> True }
+not := \b -> case b { True -> False; False -> True }
 ```
 
 ### Operator Definition
@@ -225,9 +224,9 @@ Examples:
 ```
 instance Eq Bool { eq := \x -> \y -> True }
 instance Eq a => Eq (Maybe a) {
-  eq := \x -> \y -> case x of {
-    Nothing -> case y of { Nothing -> True; Just _ -> False };
-    Just a  -> case y of { Nothing -> False; Just b -> eq a b }
+  eq := \x -> \y -> case x {
+    Nothing -> case y { Nothing -> True; Just _ -> False };
+    Just a  -> case y { Nothing -> False; Just b -> eq a b }
   }
 }
 ```
@@ -249,7 +248,6 @@ Just x      -- applied constructor (via App)
 ```
 \param -> body
 \x -> \y -> expr      -- curried
-\x y -> expr           -- multi-parameter (sugar)
 \(Con x y) -> expr     -- pattern parameter
 ```
 
@@ -264,7 +262,7 @@ f @Int        -- explicit type application
 ### Case Expression
 
 ```
-case scrutinee of {
+case scrutinee {
   Con x y -> expr;
   _       -> expr
 }
@@ -342,19 +340,17 @@ a -> b -> c     -- = a -> (b -> c)
 ```
 Eq a => a -> a -> Bool
 Eq a => Ord b => a -> b -> Bool    -- curried constraints
-(Eq a, Ord a) => a -> Bool         -- constraint product
-(Eq a, Ord a, Show a) => a -> Bool -- multiple constraints
-(Eq a, Ord a) => Show a => a -> Bool  -- product + curried (mixed)
+Eq a => Show a => Ord a => a -> Bool  -- multiple constraints
 ```
 
-Constraint products `(C1, C2, ...)` and curried constraints `C1 => C2 => ...` are equivalent; both elaborate to a single `TyEvidence` with multiple constraint entries. `(C)` with a single constraint is treated as a parenthesized constraint, not a product.
+Constraints are curried: each `C => ...` introduces one constraint. Multiple constraints are chained with `=>`.
 
 ### Quantified Constraints
 
 ```
 (forall a. Eq a => Eq (f a)) => f Bool -> f Bool -> Bool
 (forall a. Eq a => Show a => Eq (f a)) => ...    -- multiple premises
-(Show Bool, forall a. Eq a => Eq (f a)) => ...   -- mixed with product
+Show Bool => (forall a. Eq a => Eq (f a)) => ...  -- mixed with curried
 ```
 
 A quantified constraint `forall vars. context => head` asserts that, for any instantiation of `vars`, if the `context` constraints hold, then the `head` constraint holds. Evidence for a quantified constraint is a *function* from context dictionaries to the head dictionary:
@@ -387,7 +383,7 @@ Pattern matching on `Dict` brings the evidence back into scope:
 
 ```
 withDict :: forall a. Dict (Eq a) -> a -> a -> Bool
-withDict := \d x y -> case d of { MkDict -> eq x y }
+withDict := \d -> \x -> \y -> case d { MkDict -> eq x y }
 ```
 
 The user writes `MkDict` with zero explicit pattern arguments; the evidence field is implicit. Inside the branch body, the constraint `Eq a` is available for resolution.
@@ -418,12 +414,11 @@ forall (f : Type -> Type). f a -> f b
 { get : Unit -> Int | r }      -- capability row
 ```
 
-### Parenthesized Type / Constraint Tuple
+### Parenthesized Type
 
 ```
 (a -> b)          -- grouping
 (Maybe a)         -- grouping
-(Eq a, Ord a)     -- constraint tuple (only valid before =>)
 ```
 
 ---

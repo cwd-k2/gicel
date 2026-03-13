@@ -960,26 +960,6 @@ func (ch *Checker) resolveTypeExpr(texpr syntax.TypeExpr) types.Type {
 		return &types.TyRow{Fields: fields, Tail: tail, S: t.S}
 	case *syntax.TyExprQual:
 		body := ch.resolveTypeExpr(t.Body)
-		// Constraint product: (C1, C2, ...) => T
-		if tuple, ok := t.Constraint.(*syntax.TyExprTuple); ok {
-			entries := ch.resolveConstraintTuple(tuple)
-			// Fold into existing TyEvidence body.
-			if ev, ok := body.(*types.TyEvidence); ok {
-				all := make([]types.ConstraintEntry, 0, len(entries)+len(ev.Constraints.Entries))
-				all = append(all, entries...)
-				all = append(all, ev.Constraints.Entries...)
-				return &types.TyEvidence{
-					Constraints: &types.TyConstraintRow{Entries: all},
-					Body:        ev.Body,
-					S:           t.S,
-				}
-			}
-			return &types.TyEvidence{
-				Constraints: &types.TyConstraintRow{Entries: entries},
-				Body:        body,
-				S:           t.S,
-			}
-		}
 		// Single constraint: C a => T
 		constraint := ch.resolveTypeExpr(t.Constraint)
 		// Quantified constraint: (forall a. C1 a => C2 (f a)) => T
@@ -1028,12 +1008,6 @@ func (ch *Checker) resolveTypeExpr(texpr syntax.TypeExpr) types.Type {
 		}
 		ch.addCodedError(errs.ErrNoInstance, t.S, fmt.Sprintf("invalid constraint: %s", types.Pretty(constraint)))
 		return body
-	case *syntax.TyExprTuple:
-		ch.addCodedError(errs.ErrBadTypeApp, t.S, "constraint tuple (C1, C2) can only appear before =>")
-		if len(t.Elements) > 0 {
-			return ch.resolveTypeExpr(t.Elements[0])
-		}
-		return &types.TyError{}
 	case *syntax.TyExprParen:
 		return ch.resolveTypeExpr(t.Inner)
 	default:
@@ -1081,36 +1055,6 @@ func (ch *Checker) decomposeQuantifiedConstraint(ty types.Type) *types.Quantifie
 		Context: ev.Constraints.Entries,
 		Head:    head,
 	}
-}
-
-// resolveConstraintTuple converts a TyExprTuple into constraint entries.
-func (ch *Checker) resolveConstraintTuple(tuple *syntax.TyExprTuple) []types.ConstraintEntry {
-	entries := make([]types.ConstraintEntry, 0, len(tuple.Elements))
-	for _, elem := range tuple.Elements {
-		constraint := ch.resolveTypeExpr(elem)
-		// Check for quantified constraint element.
-		if qc := ch.decomposeQuantifiedConstraint(constraint); qc != nil {
-			entries = append(entries, types.ConstraintEntry{
-				ClassName:  qc.Head.ClassName,
-				Args:       qc.Head.Args,
-				Quantified: qc,
-				S:          elem.Span(),
-			})
-			continue
-		}
-		head, args := types.UnwindApp(constraint)
-		if con, ok := head.(*types.TyCon); ok {
-			entries = append(entries, types.ConstraintEntry{
-				ClassName: con.Name,
-				Args:      args,
-				S:         elem.Span(),
-			})
-		} else {
-			ch.addCodedError(errs.ErrNoInstance, elem.Span(),
-				fmt.Sprintf("invalid constraint in product: %s", types.Pretty(constraint)))
-		}
-	}
-	return entries
 }
 
 // tryExpandApp recognizes fully-saturated Computation and Thunk applications

@@ -8,42 +8,42 @@ intEq :: Int -> Int -> Bool
 intEq := assumption
 
 length :: forall a. List a -> Int
-length := fix (\self -> \xs -> case xs of {
+length := fix (\self -> \xs -> case xs {
   Nil       -> intZero Unit;
   Cons _ rest -> intSucc (self rest)
 })
 
 map :: forall a b. (a -> b) -> List a -> List b
-map := \f -> fix (\self -> \xs -> case xs of {
+map := \f -> fix (\self -> \xs -> case xs {
   Nil        -> Nil;
   Cons x rest -> Cons (f x) (self rest)
 })
 
 append :: forall a. List a -> List a -> List a
-append := \xs -> \ys -> fix (\self -> \zs -> case zs of {
+append := \xs -> \ys -> fix (\self -> \zs -> case zs {
   Nil        -> ys;
   Cons z rest -> Cons z (self rest)
 }) xs
 
 filter :: forall a. (a -> Bool) -> List a -> List a
-filter := \p -> fix (\self -> \xs -> case xs of {
+filter := \p -> fix (\self -> \xs -> case xs {
   Nil        -> Nil;
-  Cons x rest -> case p x of {
+  Cons x rest -> case p x {
     True  -> Cons x (self rest);
     False -> self rest
   }
 })
 
 reverse :: forall a. List a -> List a
-reverse := \xs -> fix (\go -> \acc -> \ys -> case ys of {
+reverse := \xs -> fix (\go -> \acc -> \ys -> case ys {
   Nil        -> acc;
   Cons y rest -> go (Cons y acc) rest
 }) Nil xs
 
 take :: forall a. Int -> List a -> List a
-take := \n -> fix (\self -> \xs -> case intEq n (intZero Unit) of {
+take := \n -> fix (\self -> \xs -> case intEq n (intZero Unit) {
   True  -> Nil;
-  False -> case xs of {
+  False -> case xs {
     Nil        -> Nil;
     Cons x rest -> Cons x (self rest)
   }
@@ -52,18 +52,18 @@ take := \n -> fix (\self -> \xs -> case intEq n (intZero Unit) of {
 data Tree a = Leaf a | Branch (Tree a) (Tree a)
 
 treeSize :: forall a. Tree a -> Int
-treeSize := fix (\self -> \t -> case t of {
+treeSize := fix (\self -> \t -> case t {
   Leaf _     -> intSucc (intZero Unit);
   Branch l r -> intAdd (self l) (self r)
 })
 
 treeMap :: forall a b. (a -> b) -> Tree a -> Tree b
-treeMap := \f -> fix (\self -> \t -> case t of {
+treeMap := \f -> fix (\self -> \t -> case t {
   Leaf x     -> Leaf (f x);
   Branch l r -> Branch (self l) (self r)
 })
 
-not := \b -> case b of { True -> False; False -> True }
+not := \b -> case b { True -> False; False -> True }
 
 list1 := Cons True (Cons False (Cons True (Cons False (Cons True Nil))))
 mapped := map not list1

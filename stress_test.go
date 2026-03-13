@@ -141,7 +141,7 @@ var stressPrograms = []stressProgram{
 			// convert True (Convert Bool (Maybe Bool)) = Just True
 			// coerce (Just True) (Coercible (Maybe Bool) Bool) = True
 			// coerced2 = (coerce :: Unit -> Bool) (coerce True) = True
-			// main = case True of { True -> coerced2; ... } = True
+			// main = case True { True -> coerced2; ... } = True
 			assertCon(t, v, "True")
 		},
 	},
@@ -292,7 +292,7 @@ var stressPrograms = []stressProgram{
 data LibBool = LibTrue | LibFalse
 libTrue := LibTrue
 libNot :: LibBool -> LibBool
-libNot := \b -> case b of { LibTrue -> LibFalse; LibFalse -> LibTrue }
+libNot := \b -> case b { LibTrue -> LibFalse; LibFalse -> LibTrue }
 `)
 			if err != nil {
 				panic(err)
@@ -717,7 +717,7 @@ func TestStressGeneratedLargeProgram(t *testing.T) {
 	// Generate Eq instances for D0
 	source += `
 class Eq a { eq :: a -> a -> Bool }
-instance Eq Bool { eq := \x -> \y -> case x of { True -> y; False -> case y of { True -> False; False -> True } } }
+instance Eq Bool { eq := \x -> \y -> case x { True -> y; False -> case y { True -> False; False -> True } } }
 instance Eq Unit { eq := \_ -> \_ -> True }
 `
 
@@ -1306,16 +1306,16 @@ r10 := (empty :: Ordering)
 r11 := (empty :: List Bool)
 
 -- Functor
-r12 := fmap (\x -> case x of { True -> False; False -> True }) (Just True)
+r12 := fmap (\x -> case x { True -> False; False -> True }) (Just True)
 r13 := fmap (\x -> Just x) (Cons True (Cons False Nil))
 
 -- Foldable
-r14 := foldr (\x acc -> acc) Unit (Just True)
-r15 := foldr (\x acc -> Cons x acc) Nil (Cons True (Cons False Nil))
+r14 := foldr (\x -> \acc -> acc) Unit (Just True)
+r15 := foldr (\x -> \acc -> Cons x acc) Nil (Cons True (Cons False Nil))
 
 -- Applicative
 r16 := (wrap True :: Maybe Bool)
-r17 := ap (Just (\x -> case x of { True -> False; False -> True })) (Just True)
+r17 := ap (Just (\x -> case x { True -> False; False -> True })) (Just True)
 
 main := Pair r1 (Pair r2 (Pair r3 (Pair r4 (Pair r5 (Pair r6 (Pair r7 (Pair r8
   (Pair r9 (Pair r10 (Pair r11 (Pair r12 (Pair r13 (Pair r14 (Pair r15
@@ -1357,7 +1357,7 @@ func TestStressMixedMonadicValueLevel(t *testing.T) {
 	rt, err := eng.NewRuntime(`
 -- fmap over a Maybe-do result
 not :: Bool -> Bool
-not := \b -> case b of { True -> False; False -> True }
+not := \b -> case b { True -> False; False -> True }
 
 inner :: Maybe Bool
 inner := do { x <- Just True; pure (not x) }
@@ -1513,7 +1513,7 @@ func TestStressTraverseMaybeOverList(t *testing.T) {
 	// Traversable Maybe instead.
 	rt, err := eng.NewRuntime(`
 not :: Bool -> Bool
-not := \b -> case b of { True -> False; False -> True }
+not := \b -> case b { True -> False; False -> True }
 
 -- traverse over Maybe (Traversable Maybe is in prelude)
 test1 := traverse (\x -> Just (not x)) (Just True)
@@ -1614,7 +1614,7 @@ func TestStressExistentialWithMonadic(t *testing.T) {
 data SomeEq = { MkSomeEq :: forall a. Eq a => a -> SomeEq }
 
 testSelf :: SomeEq -> Bool
-testSelf := \s -> case s of { MkSomeEq x -> eq x x }
+testSelf := \s -> case s { MkSomeEq x -> eq x x }
 
 -- Pack a Maybe value into SomeEq and test self-equality
 packed := MkSomeEq (Just True)
@@ -1706,9 +1706,9 @@ func TestStressGADTWithMonadic(t *testing.T) {
 data Expr a = { LitBool :: Bool -> Expr Bool; Not :: Expr Bool -> Expr Bool }
 
 eval :: Expr Bool -> Bool
-eval := fix (\self -> \e -> case e of {
+eval := fix (\self -> \e -> case e {
   LitBool b -> b;
-  Not inner -> case self inner of { True -> False; False -> True }
+  Not inner -> case self inner { True -> False; False -> True }
 })
 
 -- Use GADT eval result in a Maybe do block
@@ -1829,7 +1829,7 @@ func TestStressMonoidFoldableList(t *testing.T) {
 	rt, err := eng.NewRuntime(`
 -- foldr over List of Orderings using Semigroup's append
 -- foldr append EQ [LT, EQ, GT] → LT (first non-EQ wins)
-main := foldr (\x acc -> append x acc) (empty :: Ordering) (Cons LT (Cons EQ (Cons GT Nil)))
+main := foldr (\x -> \acc -> append x acc) (empty :: Ordering) (Cons LT (Cons EQ (Cons GT Nil)))
 `)
 	if err != nil {
 		t.Fatal(err)
