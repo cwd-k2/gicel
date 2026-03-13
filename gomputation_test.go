@@ -3413,6 +3413,76 @@ main := (empty :: List Bool)
 }
 
 // ---------------------------------------------------------------------------
+// Go Boundary Conversion (Group 1D)
+// ---------------------------------------------------------------------------
+
+func TestToListFromList(t *testing.T) {
+	list := gmp.ToList([]any{
+		&gmp.HostVal{Inner: int64(1)},
+		&gmp.HostVal{Inner: int64(2)},
+		&gmp.HostVal{Inner: int64(3)},
+	})
+	items, ok := gmp.FromList(list)
+	if !ok {
+		t.Fatal("expected valid list")
+	}
+	if len(items) != 3 {
+		t.Fatalf("expected 3 items, got %d", len(items))
+	}
+	for i, want := range []int64{1, 2, 3} {
+		hv := items[i].(*gmp.HostVal)
+		if hv.Inner != want {
+			t.Fatalf("element %d: expected %d, got %v", i, want, hv.Inner)
+		}
+	}
+}
+
+func TestToListEmpty(t *testing.T) {
+	list := gmp.ToList(nil)
+	con, ok := list.(*gmp.ConVal)
+	if !ok || con.Con != "Nil" {
+		t.Fatalf("expected Nil, got %v", list)
+	}
+}
+
+func TestFromListInvalid(t *testing.T) {
+	_, ok := gmp.FromList(&gmp.HostVal{Inner: 42})
+	if ok {
+		t.Fatal("expected false for non-list")
+	}
+}
+
+func TestToListWithBinding(t *testing.T) {
+	eng := gmp.NewEngine()
+	if err := eng.Use(gmp.Num); err != nil {
+		t.Fatal(err)
+	}
+	eng.DeclareBinding("xs", gmp.AppType(gmp.ConType("List"), gmp.ConType("Int")))
+	rt, err := eng.NewRuntime(`
+import Std.Num
+main := foldr add 0 xs
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	bindings := map[string]gmp.Value{
+		"xs": gmp.ToList([]any{
+			&gmp.HostVal{Inner: int64(1)},
+			&gmp.HostVal{Inner: int64(2)},
+			&gmp.HostVal{Inner: int64(3)},
+		}),
+	}
+	result, err := rt.RunContext(context.Background(), nil, bindings, "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	hv, ok := result.Value.(*gmp.HostVal)
+	if !ok || hv.Inner != int64(6) {
+		t.Fatalf("expected 6, got %v", result.Value)
+	}
+}
+
+// ---------------------------------------------------------------------------
 // List Literal Syntax (Group 1C)
 // ---------------------------------------------------------------------------
 

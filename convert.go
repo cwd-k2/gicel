@@ -62,6 +62,43 @@ func FromCon(v Value) (name string, args []Value, ok bool) {
 	return con.Con, con.Args, true
 }
 
+// ToList converts a Go slice to a Gomputation List (ConVal chain).
+func ToList(items []any) Value {
+	var result Value = &eval.ConVal{Con: "Nil"}
+	for i := len(items) - 1; i >= 0; i-- {
+		item, ok := items[i].(Value)
+		if !ok {
+			item = ToValue(items[i])
+		}
+		result = &eval.ConVal{Con: "Cons", Args: []Value{item, result}}
+	}
+	return result
+}
+
+// FromList converts a Gomputation List (ConVal chain) to a Go slice.
+// Returns nil and false if the value is not a valid List.
+func FromList(v Value) ([]any, bool) {
+	var result []any
+	for {
+		con, ok := v.(*eval.ConVal)
+		if !ok {
+			return nil, false
+		}
+		switch con.Con {
+		case "Nil":
+			return result, true
+		case "Cons":
+			if len(con.Args) != 2 {
+				return nil, false
+			}
+			result = append(result, con.Args[0])
+			v = con.Args[1]
+		default:
+			return nil, false
+		}
+	}
+}
+
 // MustHost extracts the inner Go value from a HostVal, panicking if it is not one.
 func MustHost[T any](v Value) T {
 	hv, ok := v.(*eval.HostVal)
