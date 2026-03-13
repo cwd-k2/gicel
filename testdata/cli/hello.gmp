@@ -1,0 +1,10 @@
+import Std.Num
+import Std.Str
+
+greeting :: String
+greeting := "Hello, Gomputation!"
+
+answer :: Int
+answer := 6 * 7
+
+main := Pair greeting answer
