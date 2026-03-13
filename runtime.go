@@ -1,0 +1,209 @@
+package gomputation
+
+import (
+	"context"
+	"fmt"
+
+	"github.com/cwd-k2/gomputation/internal/core"
+	"github.com/cwd-k2/gomputation/internal/eval"
+	"github.com/cwd-k2/gomputation/internal/types"
+)
+
+// Runtime is an immutable, compiled Gomputation program.
+// It is goroutine-safe and can be executed concurrently.
+type Runtime struct {
+	prog          *core.Program
+	prims         *eval.PrimRegistry
+	stepLimit     int
+	depthLimit    int
+	traceHook     eval.TraceHook
+	bindings      map[string]types.Type
+	gatedBuiltins map[string]bool
+	moduleProgs   []*core.Program
+}
+
+// Program returns the compiled Core IR for debugging/inspection.
+func (r *Runtime) Program() *CoreProgram {
+	return &CoreProgram{prog: r.prog}
+}
+
+// PrettyProgram returns a human-readable representation of the Core IR.
+func (r *Runtime) PrettyProgram() string {
+	return core.PrettyProgram(r.prog)
+}
+
+// RunResult holds the result of a single execution.
+type RunResult struct {
+	Value Value
+	Stats EvalStats
+}
+
+// RunResultFull holds the full result of an execution including the final capability environment.
+type RunResultFull struct {
+	Value  Value
+	CapEnv CapEnv
+	Stats  EvalStats
+}
+
+// buildEnv constructs the base runtime environment with builtins, bindings, and constructors.
+func (r *Runtime) buildEnv(bindings map[string]Value) (*eval.Env, error) {
+	env := eval.EmptyEnv()
+	for name := range r.bindings {
+		v, ok := bindings[name]
+		if !ok {
+			return nil, fmt.Errorf("missing binding: %s", name)
+		}
+		env = env.Extend(name, v)
+	}
+
+	// Built-in values.
+	env = env.Extend("pure", &eval.Closure{
+		Env: eval.EmptyEnv(), Param: "_v",
+		Body: &core.Var{Name: "_v"},
+	})
+	env = env.Extend("bind", &eval.Closure{
+		Env: eval.EmptyEnv(), Param: "_comp",
+		Body: &core.Lam{
+			Param: "_f",
+			Body:  &core.App{Fun: &core.Var{Name: "_f"}, Arg: &core.Var{Name: "_comp"}},
+		},
+	})
+	env = env.Extend("force", &eval.Closure{
+		Env: eval.EmptyEnv(), Param: "_thk",
+		Body: &core.Force{Expr: &core.Var{Name: "_thk"}},
+	})
+
+	// Gated built-ins: rec and fix (enabled via EnableRecursion).
+	if r.gatedBuiltins["fix"] {
+		env = env.Extend("fix", &eval.Closure{
+			Env: eval.EmptyEnv(), Param: "_f",
+			Body: fixpointBody(),
+		})
+	}
+	if r.gatedBuiltins["rec"] {
+		env = env.Extend("rec", &eval.Closure{
+			Env: eval.EmptyEnv(), Param: "_f",
+			Body: fixpointBody(),
+		})
+	}
+
+	// Constructors from imported modules.
+	for _, modProg := range r.moduleProgs {
+		for _, d := range modProg.DataDecls {
+			for _, con := range d.Cons {
+				env = env.Extend(con.Name, &eval.ConVal{Con: con.Name})
+			}
+		}
+	}
+
+	// Constructors from main program.
+	for _, d := range r.prog.DataDecls {
+		for _, con := range d.Cons {
+			env = env.Extend(con.Name, &eval.ConVal{Con: con.Name})
+		}
+	}
+	return env, nil
+}
+
+// fixpointBody returns the LetRec body shared by fix and rec.
+// letrec x = \arg -> (f x) arg in x
+func fixpointBody() *core.LetRec {
+	return &core.LetRec{
+		Bindings: []core.Binding{{
+			Name: "_x",
+			Expr: &core.Lam{Param: "_arg", Body: &core.App{
+				Fun: &core.App{Fun: &core.Var{Name: "_f"}, Arg: &core.Var{Name: "_x"}},
+				Arg: &core.Var{Name: "_arg"},
+			}},
+		}},
+		Body: &core.Var{Name: "_x"},
+	}
+}
+
+// run is the shared implementation for RunContext and RunContextFull.
+func (r *Runtime) run(ctx context.Context, caps map[string]any, bindings map[string]Value, entry string) (eval.EvalResult, EvalStats, error) {
+	env, err := r.buildEnv(bindings)
+	if err != nil {
+		return eval.EvalResult{}, EvalStats{}, err
+	}
+
+	// Evaluate module bindings first (in registration order).
+	for _, modProg := range r.moduleProgs {
+		env, err = r.evalBindings(ctx, env, modProg.Bindings)
+		if err != nil {
+			return eval.EvalResult{}, EvalStats{}, err
+		}
+	}
+
+	// Pre-populate env with forward-reference cells for all non-entry bindings.
+	var entryExpr core.Core
+	var nonEntry []core.Binding
+	for _, b := range r.prog.Bindings {
+		if b.Name == entry {
+			entryExpr = b.Expr
+		} else {
+			nonEntry = append(nonEntry, b)
+		}
+	}
+
+	env, err = r.evalBindings(ctx, env, nonEntry)
+	if err != nil {
+		return eval.EvalResult{}, EvalStats{}, err
+	}
+
+	if entryExpr == nil {
+		return eval.EvalResult{}, EvalStats{}, fmt.Errorf("entry point %q not found", entry)
+	}
+
+	capEnv := eval.NewCapEnv(caps)
+	ev := eval.NewEvaluator(ctx, r.prims, eval.NewLimit(r.stepLimit, r.depthLimit), r.traceHook)
+	result, err := ev.Eval(env, capEnv, entryExpr)
+	if err != nil {
+		return eval.EvalResult{}, EvalStats{}, err
+	}
+	// Force effectful PrimVals at top-level (e.g. main := get).
+	result, err = ev.ForceEffectful(result)
+	if err != nil {
+		return eval.EvalResult{}, EvalStats{}, err
+	}
+	return result, ev.Stats(), nil
+}
+
+// evalBindings evaluates a slice of bindings using forward-reference cells.
+func (r *Runtime) evalBindings(ctx context.Context, env *eval.Env, bindings []core.Binding) (*eval.Env, error) {
+	cells := make(map[string]*eval.IndirectVal, len(bindings))
+	for _, b := range bindings {
+		cell := &eval.IndirectVal{}
+		cells[b.Name] = cell
+		env = env.Extend(b.Name, cell)
+	}
+	for _, b := range bindings {
+		ev := eval.NewEvaluator(ctx, r.prims, eval.NewLimit(r.stepLimit, r.depthLimit), r.traceHook)
+		result, err := ev.Eval(env, eval.NewCapEnv(nil), b.Expr)
+		if err != nil {
+			return nil, fmt.Errorf("evaluating %s: %w", b.Name, err)
+		}
+		v := result.Value
+		cells[b.Name].Ref = &v
+	}
+	return env, nil
+}
+
+// RunContext executes the program with the given capabilities and bindings.
+// entry specifies the top-level binding to evaluate (typically "main").
+func (r *Runtime) RunContext(ctx context.Context, caps map[string]any, bindings map[string]Value, entry string) (*RunResult, error) {
+	result, stats, err := r.run(ctx, caps, bindings, entry)
+	if err != nil {
+		return nil, err
+	}
+	return &RunResult{Value: result.Value, Stats: stats}, nil
+}
+
+// RunContextFull is like RunContext but also returns the final capability environment.
+func (r *Runtime) RunContextFull(ctx context.Context, caps map[string]any, bindings map[string]Value, entry string) (*RunResultFull, error) {
+	result, stats, err := r.run(ctx, caps, bindings, entry)
+	if err != nil {
+		return nil, err
+	}
+	return &RunResultFull{Value: result.Value, CapEnv: result.CapEnv, Stats: stats}, nil
+}
