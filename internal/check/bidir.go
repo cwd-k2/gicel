@@ -1281,7 +1281,13 @@ func (ch *Checker) inferList(e *syntax.ExprList) (types.Type, core.Core) {
 func (ch *Checker) inferRecord(e *syntax.ExprRecord) (types.Type, core.Core) {
 	fields := make([]types.RowField, len(e.Fields))
 	coreFields := make([]core.RecordField, len(e.Fields))
+	seen := make(map[string]bool, len(e.Fields))
 	for i, f := range e.Fields {
+		if seen[f.Label] {
+			ch.addCodedError(errs.ErrDuplicateLabel, f.S,
+				fmt.Sprintf("duplicate label %q in record literal", f.Label))
+		}
+		seen[f.Label] = true
 		ty, coreVal := ch.infer(f.Value)
 		fields[i] = types.RowField{Label: f.Label, Type: ty, S: f.S}
 		coreFields[i] = core.RecordField{Label: f.Label, Value: coreVal}
@@ -1358,7 +1364,13 @@ func (ch *Checker) matchRecordField(ty types.Type, label string, s span.Span) ty
 func (ch *Checker) inferRecordUpdate(e *syntax.ExprRecordUpdate) (types.Type, core.Core) {
 	recTy, recCore := ch.infer(e.Record)
 	coreUpdates := make([]core.RecordField, len(e.Updates))
+	seen := make(map[string]bool, len(e.Updates))
 	for i, upd := range e.Updates {
+		if seen[upd.Label] {
+			ch.addCodedError(errs.ErrDuplicateLabel, upd.S,
+				fmt.Sprintf("duplicate label %q in record update", upd.Label))
+		}
+		seen[upd.Label] = true
 		// Infer the update value type, then check it matches the existing field.
 		fieldTy := ch.matchRecordField(recTy, upd.Label, upd.S)
 		updCore := ch.check(upd.Value, fieldTy)
@@ -1371,7 +1383,13 @@ func (ch *Checker) inferRecordUpdate(e *syntax.ExprRecordUpdate) (types.Type, co
 func (ch *Checker) checkRecordPattern(p *syntax.PatRecord, scrutTy types.Type) (core.Pattern, map[string]types.Type, map[int]string, bool) {
 	bindings := make(map[string]types.Type)
 	coreFields := make([]core.PRecordField, len(p.Fields))
+	seen := make(map[string]bool, len(p.Fields))
 	for i, f := range p.Fields {
+		if seen[f.Label] {
+			ch.addCodedError(errs.ErrDuplicateLabel, f.S,
+				fmt.Sprintf("duplicate label %q in record pattern", f.Label))
+		}
+		seen[f.Label] = true
 		fieldTy := ch.matchRecordField(scrutTy, f.Label, f.S)
 		corePat, fieldBindings, _, _ := ch.checkPattern(f.Pattern, fieldTy)
 		coreFields[i] = core.PRecordField{Label: f.Label, Pattern: corePat}

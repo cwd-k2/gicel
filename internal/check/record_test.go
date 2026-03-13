@@ -116,6 +116,25 @@ main := f { x = 1, y = 2 }`
 	checkSource(t, source, nil)
 }
 
+func TestRecordLitDuplicateLabel(t *testing.T) {
+	// Duplicate labels in a record literal should be rejected.
+	source := `main := { x = 1, x = 2 }`
+	checkSourceExpectCode(t, source, nil, errs.ErrDuplicateLabel)
+}
+
+func TestRecordUpdateDuplicateLabel(t *testing.T) {
+	// Duplicate labels in a record update should be rejected.
+	source := `main := { { x = 1, y = 2 } | x = 10, x = 20 }`
+	checkSourceExpectCode(t, source, nil, errs.ErrDuplicateLabel)
+}
+
+func TestRecordPatternDuplicateLabel(t *testing.T) {
+	// Duplicate labels in a record pattern should be rejected.
+	source := `f := \r -> case r { { x = a, x = b } -> a }
+main := f { x = 42 }`
+	checkSourceExpectCode(t, source, nil, errs.ErrDuplicateLabel)
+}
+
 func TestRecordCheckModeTypeMismatch(t *testing.T) {
 	// Field type mismatch should error.
 	source := `data Bool = True | False
