@@ -209,7 +209,6 @@ Examples:
 class Eq a { eq :: a -> a -> Bool }
 class Eq a => Ord a { compare :: a -> a -> Ordering }
 class Functor f { fmap :: forall a b. (a -> b) -> f a -> f b }
-class Coercible a b { coerce :: a -> b }
 ```
 
 ### Type Class Instance
@@ -267,6 +266,37 @@ case scrutinee {
   Con x y -> expr;
   _       -> expr
 }
+```
+
+### Record Literal
+
+```
+{ x = 1, y = True }            -- record construction
+{ r | x = 42 }                 -- record update (functional)
+```
+
+### Record Projection
+
+```
+r!#x                            -- project field x from record r
+r!#_1                           -- project first element of tuple
+```
+
+`!#` binds at atom level (tighter than function application).
+
+### Tuple
+
+```
+(1, True)                       -- 2-tuple, desugars to { _1 = 1, _2 = True }
+(1, True, "hello")              -- 3-tuple
+(1)                             -- grouping (not a 1-tuple)
+```
+
+### List Literal
+
+```
+[1, 2, 3]                      -- desugars to Cons 1 (Cons 2 (Cons 3 Nil))
+[]                              -- Nil
 ```
 
 ### Block Expression
@@ -415,6 +445,14 @@ forall (f : Type -> Type). f a -> f b
 { get : Unit -> Int | r }      -- capability row
 ```
 
+### Record / Tuple Type
+
+```
+Record { x : Int, y : Bool }   -- record type
+(Int, Bool)                     -- tuple type, desugars to Record { _1 : Int, _2 : Bool }
+(Int, Bool, String)             -- 3-tuple type
+```
+
 ### Parenthesized Type
 
 ```
@@ -470,6 +508,9 @@ _               -- wildcard
 Con             -- nullary constructor
 Con x y         -- constructor with arguments
 (Con x y)       -- parenthesized pattern
+(a, b)          -- tuple pattern, desugars to { _1 = a, _2 = b }
+{ x = a, y = b }           -- record pattern (closed)
+{ x = a, y = b | _ }       -- record pattern (open)
 ```
 
 ---
@@ -577,6 +618,34 @@ put    :: forall s r. s -> Computation { state : s | r } { state : s | r } Unit
 modify :: forall s r. (s -> s) -> Computation { state : s | r } { state : s | r } Unit
 ```
 
+### Std.List
+
+Provides list operations via host primitives.
+
+```
+fromSlice :: forall a. List a -> List a
+toSlice   :: forall a. List a -> List a
+length    :: forall a. List a -> Int
+concat    :: forall a. List a -> List a -> List a
+foldl     :: forall a b. (b -> a -> b) -> b -> List a -> b
+take      :: forall a. Int -> List a -> List a
+drop      :: forall a. Int -> List a -> List a
+index     :: forall a. Int -> List a -> Maybe a
+replicate :: forall a. Int -> a -> List a
+reverse   :: forall a. List a -> List a
+zip       :: forall a b. List a -> List b -> List (a, b)
+unzip     :: forall a b. List (a, b) -> (List a, List b)
+```
+
+### Std.IO
+
+Provides print/debug capabilities using the `io` capability.
+
+```
+print :: String -> Computation { io : () | r } { io : () | r } ()
+debug :: forall a. a -> Computation { io : () | r } { io : () | r } ()
+```
+
 ---
 
 ## Prelude (auto-included unless `NoPrelude`)
@@ -585,13 +654,13 @@ modify :: forall s r. (s -> s) -> Computation { state : s | r } { state : s | r 
 
 ```
 data Bool = True | False
-data Unit = Unit
 data Ordering = LT | EQ | GT
 data Result e a = Ok a | Err e
-data Pair a b = Pair a b
 data Maybe a = Just a | Nothing
 data List a = Cons a (List a) | Nil
 ```
+
+Note: `Unit` is represented by `()` (empty tuple/record), `Pair a b` by tuples `(a, b)`.
 
 ### Type Classes
 
@@ -628,6 +697,28 @@ type Lift (m : Type -> Type) (r1 : Row) (r2 : Row) a = m a
 ```
 then :: forall a b (r1 : Row) (r2 : Row) (r3 : Row).
   Computation r1 r2 a -> Computation r2 r3 b -> Computation r1 r3 b
+
+id    :: forall a. a -> a
+const :: forall a b. a -> b -> a
+flip  :: forall a b c. (a -> b -> c) -> b -> a -> c
+not   :: Bool -> Bool
+maybe  :: forall a b. b -> (a -> b) -> Maybe a -> b
+result :: forall e a b. (e -> b) -> (a -> b) -> Result e a -> b
+fst   :: forall a b. (a, b) -> a
+snd   :: forall a b. (a, b) -> b
+head  :: forall a. List a -> Maybe a
+tail  :: forall a. List a -> Maybe (List a)
+null  :: forall a. List a -> Bool
+map   :: forall a b. (a -> b) -> List a -> List b
+filter :: forall a. (a -> Bool) -> List a -> List a
+singleton :: forall a. a -> List a
+min   :: forall a. Ord a => a -> a -> a
+max   :: forall a. Ord a => a -> a -> a
+
+infixr 9 .         -- function composition
+infixr 3 &&        -- logical AND
+infixr 2 ||        -- logical OR
+infixn 4 ==  /=  <  >  <=  >=
 ```
 
 ### Instances
@@ -638,29 +729,29 @@ instance IxMonad Computation    -- uses built-in pure/bind
 instance IxMonad Maybe          instance IxMonad List
 
 -- Eq
-instance Eq Bool          instance Eq Unit
+instance Eq Bool          instance Eq ()
 instance Eq Ordering      instance Eq a => Eq (Maybe a)
-instance Eq a => Eq b => Eq (Pair a b)
+instance Eq a => Eq b => Eq (a, b)
 instance Eq a => Eq (List a)
 
 -- Ord
-instance Ord Bool         instance Ord Unit
+instance Ord Bool         instance Ord ()
 instance Ord Ordering     instance Ord a => Ord (Maybe a)
-instance Ord a => Ord b => Ord (Pair a b)
+instance Ord a => Ord b => Ord (a, b)
 
 -- Semigroup / Monoid
-instance Semigroup Unit        instance Semigroup Ordering
+instance Semigroup ()          instance Semigroup Ordering
 instance Semigroup a => Semigroup (Maybe a)
 instance Semigroup (List a)
-instance Monoid Unit           instance Monoid Ordering
+instance Monoid ()             instance Monoid Ordering
 instance Semigroup a => Monoid (Maybe a)
 instance Monoid (List a)
 
 -- Functor / Foldable / Applicative / Traversable
-instance Functor Maybe         instance Functor (Pair a)
+instance Functor Maybe
 instance Functor List
-instance Foldable Maybe        instance Foldable (Pair a)
+instance Foldable Maybe
 instance Foldable List
 instance Applicative Maybe
-instance Traversable Maybe     instance Traversable (Pair a)
+instance Traversable Maybe
 ```
