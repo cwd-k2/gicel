@@ -114,7 +114,7 @@ func (ch *Checker) inferRecordUpdate(e *syntax.ExprRecordUpdate) (types.Type, co
 }
 
 // checkRecordPattern checks a record pattern { l1 = p1, ..., ln = pn } against a scrutinee type.
-func (ch *Checker) checkRecordPattern(p *syntax.PatRecord, scrutTy types.Type) (core.Pattern, map[string]types.Type, map[int]string, bool) {
+func (ch *Checker) checkRecordPattern(p *syntax.PatRecord, scrutTy types.Type) patternResult {
 	bindings := make(map[string]types.Type)
 	coreFields := make([]core.PRecordField, len(p.Fields))
 	seen := make(map[string]bool, len(p.Fields))
@@ -125,11 +125,14 @@ func (ch *Checker) checkRecordPattern(p *syntax.PatRecord, scrutTy types.Type) (
 		}
 		seen[f.Label] = true
 		fieldTy := ch.matchRecordField(scrutTy, f.Label, f.S)
-		corePat, fieldBindings, _, _ := ch.checkPattern(f.Pattern, fieldTy)
-		coreFields[i] = core.PRecordField{Label: f.Label, Pattern: corePat}
-		for k, v := range fieldBindings {
+		child := ch.checkPattern(f.Pattern, fieldTy)
+		coreFields[i] = core.PRecordField{Label: f.Label, Pattern: child.Pattern}
+		for k, v := range child.Bindings {
 			bindings[k] = v
 		}
 	}
-	return &core.PRecord{Fields: coreFields, S: p.S}, bindings, nil, false
+	return patternResult{
+		Pattern:  &core.PRecord{Fields: coreFields, S: p.S},
+		Bindings: bindings,
+	}
 }

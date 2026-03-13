@@ -424,14 +424,14 @@ func (ch *Checker) checkCase(e *syntax.ExprCase, expected types.Type) core.Core 
 func (ch *Checker) checkCaseAlts(scrutTy, resultTy types.Type, scrutCore core.Core, e *syntax.ExprCase) core.Core {
 	var alts []core.Alt
 	for _, alt := range e.Alts {
-		pat, bindings, skolemIDs, hasEvidence := ch.checkPattern(alt.Pattern, scrutTy)
-		for name, ty := range bindings {
+		pr := ch.checkPattern(alt.Pattern, scrutTy)
+		for name, ty := range pr.Bindings {
 			ch.ctx.Push(&CtxVar{Name: name, Type: ty})
 		}
 		// Isolate deferred constraints when the branch introduces evidence bindings
 		// (existential skolems or Dict-style reified evidence). Evidence is only
 		// in scope within the alt body, so constraints must be resolved here.
-		needsLocalResolve := len(skolemIDs) > 0 || hasEvidence
+		needsLocalResolve := len(pr.SkolemIDs) > 0 || pr.HasEvidence
 		savedDeferred := ch.deferred
 		if needsLocalResolve {
 			ch.deferred = nil
@@ -443,149 +443,173 @@ func (ch *Checker) checkCaseAlts(scrutTy, resultTy types.Type, scrutCore core.Co
 			// Restore outer deferred constraints.
 			ch.deferred = append(savedDeferred, ch.deferred...)
 		}
-		for range bindings {
+		for range pr.Bindings {
 			ch.ctx.Pop()
 		}
 		// Existential escape check: skolems must not appear in the result type.
-		if len(skolemIDs) > 0 {
-			ch.checkSkolemEscape(ch.unifier.Zonk(resultTy), skolemIDs, alt.Body.Span())
+		if len(pr.SkolemIDs) > 0 {
+			ch.checkSkolemEscape(ch.unifier.Zonk(resultTy), pr.SkolemIDs, alt.Body.Span())
 		}
-		alts = append(alts, core.Alt{Pattern: pat, Body: bodyCore, S: alt.S})
+		alts = append(alts, core.Alt{Pattern: pr.Pattern, Body: bodyCore, S: alt.S})
 	}
 	ch.checkExhaustive(scrutTy, alts, e.S)
 	return &core.Case{Scrutinee: scrutCore, Alts: alts, S: e.S}
 }
 
-func (ch *Checker) checkPattern(pat syntax.Pattern, scrutTy types.Type) (core.Pattern, map[string]types.Type, map[int]string, bool) {
+// patternResult holds the outputs of pattern checking.
+type patternResult struct {
+	Pattern     core.Pattern
+	Bindings    map[string]types.Type
+	SkolemIDs   map[int]string
+	HasEvidence bool
+}
+
+func (ch *Checker) checkPattern(pat syntax.Pattern, scrutTy types.Type) patternResult {
 	switch p := pat.(type) {
 	case *syntax.PatVar:
-		return &core.PVar{Name: p.Name, S: p.S}, map[string]types.Type{p.Name: scrutTy}, nil, false
+		return patternResult{
+			Pattern:  &core.PVar{Name: p.Name, S: p.S},
+			Bindings: map[string]types.Type{p.Name: scrutTy},
+		}
 	case *syntax.PatWild:
-		return &core.PWild{S: p.S}, nil, nil, false
+		return patternResult{Pattern: &core.PWild{S: p.S}}
 	case *syntax.PatCon:
-		conTy, ok := ch.conTypes[p.Con]
-		if !ok {
-			ch.addCodedError(errs.ErrUnboundCon, p.S, fmt.Sprintf("unknown constructor in pattern: %s", p.Con))
-			return &core.PWild{S: p.S}, nil, nil, false
-		}
-		// Instantiate constructor type and match argument types.
-		conTy = ch.unifier.Zonk(conTy)
-		var args []core.Pattern
-		bindings := make(map[string]types.Type)
-		currentTy := conTy
-
-		// 1. Collect forall vars.
-		type forallVar struct {
-			name string
-			kind types.Kind
-		}
-		var forallVars []forallVar
-		tmpTy := currentTy
-		for {
-			if f, ok := tmpTy.(*types.TyForall); ok {
-				forallVars = append(forallVars, forallVar{name: f.Var, kind: f.Kind})
-				tmpTy = f.Body
-			} else {
-				break
-			}
-		}
-
-		// 2. Get the return type's free vars (strip arrows from after foralls).
-		_, retTy := decomposeConSig(conTy)
-		retFreeVars := types.FreeVars(retTy)
-
-		// 3. Classify each forall var: universal (in return type) → meta, existential → skolem.
-		skolemIDs := map[int]string{}
-		for _, fv := range forallVars {
-			if f, ok := currentTy.(*types.TyForall); ok {
-				if _, isUniversal := retFreeVars[fv.name]; isUniversal {
-					meta := ch.freshMeta(fv.kind)
-					currentTy = types.Subst(f.Body, f.Var, meta)
-				} else {
-					skolem := ch.freshSkolem(fv.name, fv.kind)
-					skolemIDs[skolem.ID] = fv.name
-					currentTy = types.Subst(f.Body, f.Var, skolem)
-				}
-			}
-		}
-
-		// 4. Peel constraints — generate dict bindings and pattern args for existential constraints.
-		// For ConstraintVar entries, the concrete className/args are unknown until
-		// return type unification (step 6). Record them and resolve after unification.
-		type pendingCV struct {
-			constraintVar types.Type
-			dictParam     string
-		}
-		var pendingCVs []pendingCV
-		for {
-			if ev, ok := currentTy.(*types.TyEvidence); ok {
-				for _, entry := range ev.Constraints.Entries {
-					if entry.ConstraintVar != nil && entry.ClassName == "" {
-						dictParam := fmt.Sprintf("$d_cv_%d", ch.fresh())
-						pendingCVs = append(pendingCVs, pendingCV{
-							constraintVar: entry.ConstraintVar,
-							dictParam:     dictParam,
-						})
-						args = append(args, &core.PVar{Name: dictParam, S: p.S})
-					} else {
-						dictParam := fmt.Sprintf("$d_%s_%d", entry.ClassName, ch.fresh())
-						dictTy := ch.buildDictType(entry.ClassName, entry.Args)
-						bindings[dictParam] = dictTy
-						args = append(args, &core.PVar{Name: dictParam, S: p.S})
-					}
-				}
-				currentTy = ev.Body
-			} else {
-				break
-			}
-		}
-
-		// 5. Peel arrow arguments matching user-supplied pattern args.
-		for _, argPat := range p.Args {
-			argTy, restTy := ch.matchArrow(currentTy, p.S)
-			corePat, argBindings, childSkolems, _ := ch.checkPattern(argPat, argTy)
-			args = append(args, corePat)
-			for k, v := range argBindings {
-				bindings[k] = v
-			}
-			for k, v := range childSkolems {
-				skolemIDs[k] = v
-			}
-			currentTy = restTy
-		}
-		// 6. Unify result type with scrutinee type.
-		// GADT: if this constructor has a refined return type that is
-		// incompatible with the scrutinee, the branch is inaccessible.
-		// Suppress the error — exhaustiveness handles relevance.
-		if info := ch.conInfo[p.Con]; info != nil {
-			for _, c := range info.Constructors {
-				if c.Name == p.Con && c.ReturnType != nil {
-					if !ch.canUnifyWith(c.ReturnType, scrutTy) {
-						return &core.PCon{Con: p.Con, Args: args, S: p.S}, bindings, skolemIDs, len(pendingCVs) > 0
-					}
-				}
-			}
-		}
-		if err := ch.unifier.Unify(currentTy, scrutTy); err != nil {
-			ch.addUnifyError(err, p.S, "constructor type mismatch")
-			return &core.PCon{Con: p.Con, Args: args, S: p.S}, bindings, skolemIDs, len(pendingCVs) > 0
-		}
-		// 7. Resolve pending constraint variable entries now that metas are solved.
-		for _, pcv := range pendingCVs {
-			cv := ch.unifier.Zonk(pcv.constraintVar)
-			if cn, cArgs, ok := DecomposeConstraintType(cv); ok {
-				dictTy := ch.buildDictType(cn, cArgs)
-				bindings[pcv.dictParam] = dictTy
-			}
-		}
-		return &core.PCon{Con: p.Con, Args: args, S: p.S}, bindings, skolemIDs, len(pendingCVs) > 0
+		return ch.checkConPattern(p, scrutTy)
 	case *syntax.PatRecord:
 		return ch.checkRecordPattern(p, scrutTy)
 	case *syntax.PatParen:
 		return ch.checkPattern(p.Inner, scrutTy)
 	default:
-		return &core.PWild{S: pat.Span()}, nil, nil, false
+		return patternResult{Pattern: &core.PWild{S: pat.Span()}}
 	}
+}
+
+func (ch *Checker) checkConPattern(p *syntax.PatCon, scrutTy types.Type) patternResult {
+	conTy, ok := ch.conTypes[p.Con]
+	if !ok {
+		ch.addCodedError(errs.ErrUnboundCon, p.S, fmt.Sprintf("unknown constructor in pattern: %s", p.Con))
+		return patternResult{Pattern: &core.PWild{S: p.S}}
+	}
+	// Instantiate constructor type and match argument types.
+	conTy = ch.unifier.Zonk(conTy)
+	var args []core.Pattern
+	bindings := make(map[string]types.Type)
+	currentTy := conTy
+
+	// 1. Collect forall vars.
+	type forallVar struct {
+		name string
+		kind types.Kind
+	}
+	var forallVars []forallVar
+	tmpTy := currentTy
+	for {
+		if f, ok := tmpTy.(*types.TyForall); ok {
+			forallVars = append(forallVars, forallVar{name: f.Var, kind: f.Kind})
+			tmpTy = f.Body
+		} else {
+			break
+		}
+	}
+
+	// 2. Get the return type's free vars (strip arrows from after foralls).
+	_, retTy := decomposeConSig(conTy)
+	retFreeVars := types.FreeVars(retTy)
+
+	// 3. Classify each forall var: universal (in return type) → meta, existential → skolem.
+	skolemIDs := map[int]string{}
+	for _, fv := range forallVars {
+		if f, ok := currentTy.(*types.TyForall); ok {
+			if _, isUniversal := retFreeVars[fv.name]; isUniversal {
+				meta := ch.freshMeta(fv.kind)
+				currentTy = types.Subst(f.Body, f.Var, meta)
+			} else {
+				skolem := ch.freshSkolem(fv.name, fv.kind)
+				skolemIDs[skolem.ID] = fv.name
+				currentTy = types.Subst(f.Body, f.Var, skolem)
+			}
+		}
+	}
+
+	// 4. Peel constraints — generate dict bindings and pattern args for existential constraints.
+	// For ConstraintVar entries, the concrete className/args are unknown until
+	// return type unification (step 6). Record them and resolve after unification.
+	type pendingCV struct {
+		constraintVar types.Type
+		dictParam     string
+	}
+	var pendingCVs []pendingCV
+	for {
+		if ev, ok := currentTy.(*types.TyEvidence); ok {
+			for _, entry := range ev.Constraints.Entries {
+				if entry.ConstraintVar != nil && entry.ClassName == "" {
+					dictParam := fmt.Sprintf("$d_cv_%d", ch.fresh())
+					pendingCVs = append(pendingCVs, pendingCV{
+						constraintVar: entry.ConstraintVar,
+						dictParam:     dictParam,
+					})
+					args = append(args, &core.PVar{Name: dictParam, S: p.S})
+				} else {
+					dictParam := fmt.Sprintf("$d_%s_%d", entry.ClassName, ch.fresh())
+					dictTy := ch.buildDictType(entry.ClassName, entry.Args)
+					bindings[dictParam] = dictTy
+					args = append(args, &core.PVar{Name: dictParam, S: p.S})
+				}
+			}
+			currentTy = ev.Body
+		} else {
+			break
+		}
+	}
+
+	mkResult := func() patternResult {
+		return patternResult{
+			Pattern:     &core.PCon{Con: p.Con, Args: args, S: p.S},
+			Bindings:    bindings,
+			SkolemIDs:   skolemIDs,
+			HasEvidence: len(pendingCVs) > 0,
+		}
+	}
+
+	// 5. Peel arrow arguments matching user-supplied pattern args.
+	for _, argPat := range p.Args {
+		argTy, restTy := ch.matchArrow(currentTy, p.S)
+		child := ch.checkPattern(argPat, argTy)
+		args = append(args, child.Pattern)
+		for k, v := range child.Bindings {
+			bindings[k] = v
+		}
+		for k, v := range child.SkolemIDs {
+			skolemIDs[k] = v
+		}
+		currentTy = restTy
+	}
+	// 6. Unify result type with scrutinee type.
+	// GADT: if this constructor has a refined return type that is
+	// incompatible with the scrutinee, the branch is inaccessible.
+	// Suppress the error — exhaustiveness handles relevance.
+	if info := ch.conInfo[p.Con]; info != nil {
+		for _, c := range info.Constructors {
+			if c.Name == p.Con && c.ReturnType != nil {
+				if !ch.canUnifyWith(c.ReturnType, scrutTy) {
+					return mkResult()
+				}
+			}
+		}
+	}
+	if err := ch.unifier.Unify(currentTy, scrutTy); err != nil {
+		ch.addUnifyError(err, p.S, "constructor type mismatch")
+		return mkResult()
+	}
+	// 7. Resolve pending constraint variable entries now that metas are solved.
+	for _, pcv := range pendingCVs {
+		cv := ch.unifier.Zonk(pcv.constraintVar)
+		if cn, cArgs, ok := DecomposeConstraintType(cv); ok {
+			dictTy := ch.buildDictType(cn, cArgs)
+			bindings[pcv.dictParam] = dictTy
+		}
+	}
+	return mkResult()
 }
 
 func (ch *Checker) matchArrow(ty types.Type, s span.Span) (types.Type, types.Type) {
