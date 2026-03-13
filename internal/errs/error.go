@@ -22,9 +22,7 @@ const (
 
 // Parse errors (E0100–E0199)
 const (
-	ErrParseSyntax    Code = 100 // general syntax error
-	ErrParseExpected  Code = 101 // expected token not found
-	ErrParseBadFixity Code = 102 // invalid fixity declaration
+	ErrParseSyntax Code = 100 // general syntax error
 )
 
 // Type check errors (E0200–E0299)

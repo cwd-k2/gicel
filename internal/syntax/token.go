@@ -33,7 +33,7 @@ const (
 	TokUnderscore // _
 	TokEq         // =
 
-	// Keywords (10)
+	// Keywords (11)
 	TokCase
 	TokDo
 	TokData

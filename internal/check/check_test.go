@@ -999,6 +999,102 @@ instance Eq a => Eq a { eq := \x -> \y -> True }`
 	checkSourceExpectCode(t, source, nil, errs.ErrBadInstance)
 }
 
+// --- Error code coverage tests ---
+
+func TestErrorUnboundCon(t *testing.T) {
+	source := `data Bool = True | False
+main := case True { Foo -> True; _ -> False }`
+	checkSourceExpectCode(t, source, nil, errs.ErrUnboundCon)
+}
+
+func TestErrorBadApplication(t *testing.T) {
+	source := `data Bool = True | False
+main := True True`
+	checkSourceExpectCode(t, source, nil, errs.ErrBadApplication)
+}
+
+func TestErrorBadComputation(t *testing.T) {
+	source := `data Bool = True | False
+main := do { x <- True; pure x }`
+	checkSourceExpectCode(t, source, nil, errs.ErrBadComputation)
+}
+
+func TestErrorBadThunk(t *testing.T) {
+	source := `data Bool = True | False
+main := force True`
+	checkSourceExpectCode(t, source, nil, errs.ErrBadThunk)
+}
+
+func TestErrorSpecialForm(t *testing.T) {
+	source := `main := pure`
+	checkSourceExpectCode(t, source, nil, errs.ErrSpecialForm)
+}
+
+func TestErrorDuplicateLabel(t *testing.T) {
+	// Trigger UnifyDupLabel via the unifier's label context mechanism:
+	// a row meta with label context {x} solved to a row containing x.
+	u := NewUnifier()
+	m := u.freshMeta(types.KRow{})
+	// Register label context: the meta is the tail of a row with field "x".
+	u.RegisterLabelContext(m.ID, map[string]struct{}{"x": {}})
+	// Solve the meta to a row that also contains "x" → duplicate.
+	row := types.ClosedRow(types.RowField{Label: "x", Type: types.Con("Int")})
+	err := u.Unify(m, row)
+	if err == nil {
+		t.Fatal("expected duplicate label error, got nil")
+	}
+	ue, ok := err.(*UnifyError)
+	if !ok {
+		t.Fatalf("expected UnifyError, got %T: %v", err, err)
+	}
+	if ue.Kind != UnifyDupLabel {
+		t.Errorf("expected UnifyDupLabel, got %v: %s", ue.Kind, ue.Detail)
+	}
+}
+
+func TestErrorOccursCheck(t *testing.T) {
+	source := `main := \x -> x x`
+	checkSourceExpectCode(t, source, nil, errs.ErrOccursCheck)
+}
+
+func TestErrorEmptyDo(t *testing.T) {
+	source := `main := do {}`
+	checkSourceExpectCode(t, source, nil, errs.ErrEmptyDo)
+}
+
+func TestErrorBadDoEnding(t *testing.T) {
+	source := `main := do { x <- pure 1 }`
+	checkSourceExpectCode(t, source, nil, errs.ErrBadDoEnding)
+}
+
+func TestErrorBadClass(t *testing.T) {
+	source := `data Bool = True | False
+instance Phantom Bool { foo := \x -> x }`
+	checkSourceExpectCode(t, source, nil, errs.ErrBadClass)
+}
+
+func TestErrorMissingMethod(t *testing.T) {
+	source := `data Bool = True | False
+class Eq a { eq :: a -> a -> Bool }
+instance Eq Bool {}`
+	checkSourceExpectCode(t, source, nil, errs.ErrMissingMethod)
+}
+
+func TestErrorSkolemEscape(t *testing.T) {
+	// Existential type variable escapes via GADT pattern match:
+	// MkExists packs an existential 'a'; extracting it leaks 'a' into the result.
+	source := `data Exists = { MkExists :: forall a. a -> Exists }
+bad := \e -> case e { MkExists x -> x }`
+	checkSourceExpectCode(t, source, nil, errs.ErrSkolemEscape)
+}
+
+func TestErrorSkolemRigid(t *testing.T) {
+	source := `data Bool = True | False
+main :: forall a b. a -> b
+main := \x -> x`
+	checkSourceExpectCode(t, source, nil, errs.ErrSkolemRigid)
+}
+
 func BenchmarkZonkDeepChain(b *testing.B) {
 	u := NewUnifier()
 	// Build a deep TyApp chain with no metavariables.

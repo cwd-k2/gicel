@@ -245,7 +245,7 @@ func (l *Lexer) skipWhitespaceAndComments() {
 			}
 			if depth > 0 {
 				l.errors.Add(&errs.Error{
-					Code:    errs.ErrUnterminatedStr,
+					Code:    errs.ErrUnterminatedLit,
 					Phase:   errs.PhaseLex,
 					Span:    span.Span{Start: span.Pos(l.pos), End: span.Pos(l.pos)},
 					Message: "unterminated block comment",
