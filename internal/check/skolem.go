@@ -27,19 +27,6 @@ func (ch *Checker) containsSkolem(ty types.Type, skolemIDs map[int]string) (int,
 	return 0, false
 }
 
-// containsAnySkolem checks whether the given type contains any TySkolem at all.
-func containsAnySkolem(ty types.Type) (*types.TySkolem, bool) {
-	if sk, ok := ty.(*types.TySkolem); ok {
-		return sk, true
-	}
-	for _, child := range ty.Children() {
-		if sk, found := containsAnySkolem(child); found {
-			return sk, true
-		}
-	}
-	return nil, false
-}
-
 // checkSkolemEscape verifies that no skolem from the given set appears
 // in the type. Adds a diagnostic error if escape is detected.
 func (ch *Checker) checkSkolemEscape(ty types.Type, skolemIDs map[int]string, s span.Span) {

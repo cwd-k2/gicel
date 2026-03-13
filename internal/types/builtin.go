@@ -1,14 +1,10 @@
 package types
 
-import "github.com/cwd-k2/gomputation/internal/span"
-
 // Pre-defined type constructor kinds.
 var (
 	KindOfComputation = &KArrow{KRow{}, &KArrow{KRow{}, &KArrow{KType{}, KType{}}}}
 	KindOfThunk       = &KArrow{KRow{}, &KArrow{KRow{}, &KArrow{KType{}, KType{}}}}
 )
-
-var noSpan = span.Span{}
 
 // MkComp creates a Computation type.
 func MkComp(pre, post, result Type) *TyComp {
