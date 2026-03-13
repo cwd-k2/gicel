@@ -642,3 +642,213 @@ func TestStressMemory(t *testing.T) {
 		t.Errorf("excessive memory usage: %.2f MB", allocMB)
 	}
 }
+
+// ---------------------------------------------------------------------------
+// List stress tests (Group 1E)
+// ---------------------------------------------------------------------------
+
+func TestStressListFoldrLarge(t *testing.T) {
+	// Deep fold: foldr over a large list.
+	eng := gmp.NewEngine()
+	eng.RegisterPrim("add", func(ctx context.Context, ce gmp.CapEnv, args []gmp.Value) (gmp.Value, gmp.CapEnv, error) {
+		return gmp.ToValue(gmp.MustHost[int64](args[0]) + gmp.MustHost[int64](args[1])), ce, nil
+	})
+	eng.EnableRecursion()
+	eng.SetStepLimit(10_000_000)
+	eng.SetDepthLimit(100_000)
+	eng.DeclareBinding("xs", gmp.AppType(gmp.ConType("List"), gmp.ConType("Int")))
+
+	rt, err := eng.NewRuntime(`
+add :: Int -> Int -> Int
+add := assumption
+main := foldr add 0 xs
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Build a large list: [1, 2, ..., 1000]
+	const n = 1000
+	items := make([]any, n)
+	for i := range items {
+		items[i] = int64(i + 1)
+	}
+	start := time.Now()
+	result, err := rt.RunContext(context.Background(), nil, map[string]gmp.Value{
+		"xs": gmp.ToList(items),
+	}, "main")
+	elapsed := time.Since(start)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Logf("foldr over %d elements: %v, steps=%d", n, elapsed, result.Stats.Steps)
+
+	// Sum 1..1000 = 500500
+	hv, ok := result.Value.(*gmp.HostVal)
+	if !ok || hv.Inner != int64(500500) {
+		t.Fatalf("expected 500500, got %v", result.Value)
+	}
+}
+
+func TestStressListFmapLarge(t *testing.T) {
+	eng := gmp.NewEngine()
+	eng.RegisterPrim("add", func(ctx context.Context, ce gmp.CapEnv, args []gmp.Value) (gmp.Value, gmp.CapEnv, error) {
+		return gmp.ToValue(gmp.MustHost[int64](args[0]) + gmp.MustHost[int64](args[1])), ce, nil
+	})
+	eng.EnableRecursion()
+	eng.SetStepLimit(10_000_000)
+	eng.SetDepthLimit(100_000)
+	eng.DeclareBinding("xs", gmp.AppType(gmp.ConType("List"), gmp.ConType("Int")))
+
+	rt, err := eng.NewRuntime(`
+add :: Int -> Int -> Int
+add := assumption
+main := fmap (\x -> add x 1) xs
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	const n = 500
+	items := make([]any, n)
+	for i := range items {
+		items[i] = int64(i)
+	}
+	start := time.Now()
+	result, err := rt.RunContext(context.Background(), nil, map[string]gmp.Value{
+		"xs": gmp.ToList(items),
+	}, "main")
+	elapsed := time.Since(start)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Logf("fmap over %d elements: %v, steps=%d", n, elapsed, result.Stats.Steps)
+
+	got, ok := gmp.FromList(result.Value)
+	if !ok || len(got) != n {
+		t.Fatalf("expected %d elements, got %d", n, len(got))
+	}
+	// Verify first and last
+	if hv := got[0].(*gmp.HostVal); hv.Inner != int64(1) {
+		t.Fatalf("first element: expected 1, got %v", hv.Inner)
+	}
+	if hv := got[n-1].(*gmp.HostVal); hv.Inner != int64(n) {
+		t.Fatalf("last element: expected %d, got %v", n, hv.Inner)
+	}
+}
+
+func TestStressListFromSliceRoundTrip(t *testing.T) {
+	eng := gmp.NewEngine()
+	if err := eng.Use(gmp.List); err != nil {
+		t.Fatal(err)
+	}
+	eng.DeclareBinding("xs", gmp.AppType(gmp.ConType("List"), gmp.ConType("Int")))
+
+	rt, err := eng.NewRuntime(`
+import Std.List
+main := toSlice xs
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	const n = 5000
+	items := make([]any, n)
+	for i := range items {
+		items[i] = int64(i)
+	}
+	start := time.Now()
+	result, err := rt.RunContext(context.Background(), nil, map[string]gmp.Value{
+		"xs": gmp.ToList(items),
+	}, "main")
+	elapsed := time.Since(start)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Logf("toSlice round-trip %d elements: %v, steps=%d", n, elapsed, result.Stats.Steps)
+
+	// toSlice returns a HostVal([]any)
+	hv, ok := result.Value.(*gmp.HostVal)
+	if !ok {
+		t.Fatalf("expected HostVal, got %T", result.Value)
+	}
+	slice, ok := hv.Inner.([]any)
+	if !ok || len(slice) != n {
+		t.Fatalf("expected slice of %d, got %v", n, hv.Inner)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// IxMonad stress tests (Group 4C)
+// ---------------------------------------------------------------------------
+
+func TestStressDeepDoChainComputation(t *testing.T) {
+	// Deep Computation do chain (Core.Bind path) — 100 binds.
+	eng := gmp.NewEngine()
+	eng.DeclareBinding("x", gmp.ConType("Int"))
+
+	// Generate: main := do { v0 <- pure x; v1 <- pure v0; ... ; pure vN }
+	source := ""
+	const depth = 100
+	source += "main := do {\n"
+	source += "  v0 <- pure x;\n"
+	for i := 1; i < depth; i++ {
+		source += fmt.Sprintf("  v%d <- pure v%d;\n", i, i-1)
+	}
+	source += fmt.Sprintf("  pure v%d\n}\n", depth-1)
+
+	rt, err := eng.NewRuntime(source)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	start := time.Now()
+	result, err := rt.RunContext(context.Background(), nil, map[string]gmp.Value{
+		"x": gmp.ToValue(42),
+	}, "main")
+	elapsed := time.Since(start)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Logf("deep Computation do chain (%d binds): %v, steps=%d", depth, elapsed, result.Stats.Steps)
+
+	hv, ok := result.Value.(*gmp.HostVal)
+	if !ok || hv.Inner != 42 {
+		t.Fatalf("expected 42, got %v", result.Value)
+	}
+}
+
+func TestStressDeepDoChainMaybe(t *testing.T) {
+	// Deep Maybe do chain (class dispatch path) — 50 binds.
+	eng := gmp.NewEngine()
+
+	const depth = 50
+	source := "main :: Maybe Int\nmain := do {\n"
+	source += "  v0 <- Just 1;\n"
+	for i := 1; i < depth; i++ {
+		source += fmt.Sprintf("  v%d <- Just v%d;\n", i, i-1)
+	}
+	source += fmt.Sprintf("  pure v%d\n}\n", depth-1)
+
+	rt, err := eng.NewRuntime(source)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	start := time.Now()
+	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	elapsed := time.Since(start)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Logf("deep Maybe do chain (%d binds): %v, steps=%d", depth, elapsed, result.Stats.Steps)
+
+	con, ok := result.Value.(*gmp.ConVal)
+	if !ok || con.Con != "Just" {
+		t.Fatalf("expected Just 1, got %v", result.Value)
+	}
+	hv, ok := con.Args[0].(*gmp.HostVal)
+	if !ok || hv.Inner != int64(1) {
+		t.Fatalf("expected Just 1, got Just %v", con.Args[0])
+	}
+}
