@@ -383,6 +383,67 @@ func TestUnifyRowOpenOpenDisjoint(t *testing.T) {
 	}
 }
 
+func TestNormalizeCompAppPrePostOrder(t *testing.T) {
+	// Computation pre post result as TyApp chain: ((Computation pre) post) result
+	// normalizeCompApp must preserve: Pre=pre, Post=post, Result=result.
+	u := NewUnifier()
+	pre := types.Con("Pre")
+	post := types.Con("Post")
+	result := types.Con("Result")
+
+	// Build TyApp(TyApp(TyApp(TyCon("Computation"), pre), post), result)
+	appChain := &types.TyApp{
+		Fun: &types.TyApp{
+			Fun: &types.TyApp{
+				Fun: &types.TyCon{Name: "Computation"},
+				Arg: pre,
+			},
+			Arg: post,
+		},
+		Arg: result,
+	}
+
+	// Unify with a TyComp — the normalize path converts the TyApp chain.
+	comp := &types.TyComp{Pre: pre, Post: post, Result: result}
+	if err := u.Unify(appChain, comp); err != nil {
+		t.Fatalf("should unify: %v", err)
+	}
+
+	// Now test with distinct pre/post — swapping should fail.
+	comp2 := &types.TyComp{Pre: post, Post: pre, Result: result}
+	if err := u.Unify(appChain, comp2); err == nil {
+		t.Fatal("should fail when pre and post are swapped")
+	}
+}
+
+func TestNormalizeThunkAppPrePostOrder(t *testing.T) {
+	u := NewUnifier()
+	pre := types.Con("Pre")
+	post := types.Con("Post")
+	result := types.Con("Result")
+
+	appChain := &types.TyApp{
+		Fun: &types.TyApp{
+			Fun: &types.TyApp{
+				Fun: &types.TyCon{Name: "Thunk"},
+				Arg: pre,
+			},
+			Arg: post,
+		},
+		Arg: result,
+	}
+
+	thunk := &types.TyThunk{Pre: pre, Post: post, Result: result}
+	if err := u.Unify(appChain, thunk); err != nil {
+		t.Fatalf("should unify: %v", err)
+	}
+
+	thunk2 := &types.TyThunk{Pre: post, Post: pre, Result: result}
+	if err := u.Unify(appChain, thunk2); err == nil {
+		t.Fatal("should fail when pre and post are swapped")
+	}
+}
+
 func TestPatternConArityTooMany(t *testing.T) {
 	// Just takes one arg, pattern supplies two → should error.
 	source := `data Maybe a = Nothing | Just a
@@ -1149,6 +1210,25 @@ func TestErrorDuplicateLabel(t *testing.T) {
 	err := u.Unify(m, row)
 	if err == nil {
 		t.Fatal("expected duplicate label error, got nil")
+	}
+	ue, ok := err.(*UnifyError)
+	if !ok {
+		t.Fatalf("expected UnifyError, got %T: %v", err, err)
+	}
+	if ue.Kind != UnifyDupLabel {
+		t.Errorf("expected UnifyDupLabel, got %v: %s", ue.Kind, ue.Detail)
+	}
+}
+
+func TestErrorDuplicateLabelEvidenceRow(t *testing.T) {
+	// Same as TestErrorDuplicateLabel but for TyEvidenceRow (capability entries).
+	u := NewUnifier()
+	m := u.freshMeta(types.KRow{})
+	u.RegisterLabelContext(m.ID, map[string]struct{}{"x": {}})
+	evRow := types.EvClosedRow(types.RowField{Label: "x", Type: types.Con("Int")})
+	err := u.Unify(m, evRow)
+	if err == nil {
+		t.Fatal("expected duplicate label error for evidence row, got nil")
 	}
 	ue, ok := err.(*UnifyError)
 	if !ok {

@@ -430,6 +430,39 @@ func TestEvidenceSubst(t *testing.T) {
 	}
 }
 
+func TestQuantifiedConstraintSubstCaptureAvoidance(t *testing.T) {
+	// forall b. Eq b => Show b   [a := b]
+	// should alpha-rename bound b to avoid capture.
+	entry := ConstraintEntry{
+		ClassName: "Show",
+		Args:      []Type{Var("a")},
+		Quantified: &QuantifiedConstraint{
+			Vars:    []ForallBinder{{Name: "b", Kind: KType{}}},
+			Context: []ConstraintEntry{{ClassName: "Eq", Args: []Type{Var("b")}}},
+			Head:    ConstraintEntry{ClassName: "Show", Args: []Type{Var("b")}},
+		},
+	}
+	cr := &TyConstraintRow{Entries: []ConstraintEntry{entry}}
+	result := Subst(cr, "a", Var("b"))
+	rc := result.(*TyConstraintRow)
+	qc := rc.Entries[0].Quantified
+	if qc == nil {
+		t.Fatal("expected quantified constraint to be preserved")
+	}
+	// Bound variable should be renamed away from "b".
+	if qc.Vars[0].Name == "b" {
+		t.Error("should have renamed bound variable to avoid capture with replacement 'b'")
+	}
+	// Context and head should use the renamed variable.
+	freshName := qc.Vars[0].Name
+	if !Equal(qc.Context[0].Args[0], Var(freshName)) {
+		t.Errorf("context should reference renamed var %q, got %s", freshName, Pretty(qc.Context[0].Args[0]))
+	}
+	if !Equal(qc.Head.Args[0], Var(freshName)) {
+		t.Errorf("head should reference renamed var %q, got %s", freshName, Pretty(qc.Head.Args[0]))
+	}
+}
+
 func TestEvidenceSubstIdentity(t *testing.T) {
 	ev := &TyEvidence{
 		Constraints: SingleConstraint("Eq", []Type{Con("Int")}),

@@ -301,9 +301,20 @@ func TestMatchPatterns(t *testing.T) {
 	if bindings["a"].(*HostVal).Inner != 1 || bindings["b"].(*HostVal).Inner != 2 {
 		t.Error("binding values wrong")
 	}
-	// Mismatch
+	// Mismatch: different constructor
 	if Match(val, &core.PCon{Con: "Other"}) != nil {
 		t.Error("should not match different constructor")
+	}
+	// Mismatch: arity too few
+	if Match(val, &core.PCon{Con: "Pair", Args: []core.Pattern{&core.PVar{Name: "a"}}}) != nil {
+		t.Error("should not match with fewer pattern args than value args")
+	}
+	// Mismatch: arity too many
+	threePat := &core.PCon{Con: "Pair", Args: []core.Pattern{
+		&core.PVar{Name: "a"}, &core.PVar{Name: "b"}, &core.PVar{Name: "c"},
+	}}
+	if Match(val, threePat) != nil {
+		t.Error("should not match with more pattern args than value args")
 	}
 }
 
