@@ -1,0 +1,266 @@
+package check
+
+import (
+	"fmt"
+	"testing"
+
+	"github.com/cwd-k2/gomputation/internal/types"
+)
+
+// =============================================================================
+// Stress: Large evidence rows — unification
+// =============================================================================
+
+func TestStressUnifyLargeEvCapRows(t *testing.T) {
+	const N = 100
+	u := NewUnifier()
+
+	fields1 := make([]types.RowField, N)
+	fields2 := make([]types.RowField, N)
+	for i := range N {
+		label := fmt.Sprintf("f%03d", i)
+		fields1[i] = types.RowField{Label: label, Type: types.Con("Int")}
+		fields2[N-1-i] = types.RowField{Label: label, Type: types.Con("Int")}
+	}
+	r1 := types.EvClosedRow(fields1...)
+	r2 := types.EvClosedRow(fields2...)
+
+	if err := u.Unify(r1, r2); err != nil {
+		t.Fatalf("100-field rows should unify: %v", err)
+	}
+}
+
+func TestStressUnifyLargeEvConRows(t *testing.T) {
+	const N = 50
+	u := NewUnifier()
+
+	entries1 := make([]types.ConstraintEntry, N)
+	entries2 := make([]types.ConstraintEntry, N)
+	for i := range N {
+		cn := fmt.Sprintf("C%03d", i)
+		entries1[i] = types.ConstraintEntry{ClassName: cn, Args: []types.Type{types.Con("Int")}}
+		entries2[N-1-i] = types.ConstraintEntry{ClassName: cn, Args: []types.Type{types.Con("Int")}}
+	}
+	r1 := &types.TyEvidenceRow{Entries: &types.ConstraintEntries{Entries: entries1}}
+	r2 := &types.TyEvidenceRow{Entries: &types.ConstraintEntries{Entries: entries2}}
+
+	if err := u.Unify(r1, r2); err != nil {
+		t.Fatalf("50-constraint rows should unify: %v", err)
+	}
+}
+
+// =============================================================================
+// Stress: Open-open with disjoint fields
+// =============================================================================
+
+func TestStressEvOpenOpenDisjoint(t *testing.T) {
+	u := NewUnifier()
+	m1 := &types.TyMeta{ID: 1000, Kind: types.KRow{}}
+	m2 := &types.TyMeta{ID: 1001, Kind: types.KRow{}}
+
+	leftFields := make([]types.RowField, 10)
+	rightFields := make([]types.RowField, 10)
+	for i := range 10 {
+		leftFields[i] = types.RowField{Label: fmt.Sprintf("left%d", i), Type: types.Con("Int")}
+		rightFields[i] = types.RowField{Label: fmt.Sprintf("right%d", i), Type: types.Con("Bool")}
+	}
+
+	r1 := types.EvOpenRow(leftFields, m1)
+	r2 := types.EvOpenRow(rightFields, m2)
+
+	if err := u.Unify(r1, r2); err != nil {
+		t.Fatalf("disjoint open-open should succeed: %v", err)
+	}
+
+	soln1 := u.Zonk(m1)
+	ev1, ok := soln1.(*types.TyEvidenceRow)
+	if !ok {
+		t.Fatalf("m1 solution should be TyEvidenceRow, got %T", soln1)
+	}
+	if ev1.Entries.EntryCount() != 10 {
+		t.Errorf("m1 should have 10 fields, got %d", ev1.Entries.EntryCount())
+	}
+}
+
+// =============================================================================
+// Stress: Deeply nested tail chains
+// =============================================================================
+
+func TestStressEvDeeplyNestedTails(t *testing.T) {
+	u := NewUnifier()
+	const depth = 20
+	metas := make([]*types.TyMeta, depth)
+	for i := range depth {
+		metas[i] = &types.TyMeta{ID: 2000 + i, Kind: types.KRow{}}
+	}
+
+	for i := range depth - 1 {
+		r1 := types.EvOpenRow(
+			[]types.RowField{{Label: fmt.Sprintf("f%d", i), Type: types.Con("Int")}},
+			metas[i],
+		)
+		r2 := types.EvOpenRow(
+			[]types.RowField{
+				{Label: fmt.Sprintf("f%d", i), Type: types.Con("Int")},
+				{Label: fmt.Sprintf("f%d", i+1), Type: types.Con("Int")},
+			},
+			metas[i+1],
+		)
+		if err := u.Unify(r1, r2); err != nil {
+			t.Fatalf("depth %d unification failed: %v", i, err)
+		}
+	}
+
+	for i := range depth - 1 {
+		soln := u.Zonk(metas[i])
+		if _, ok := soln.(*types.TyMeta); ok {
+			t.Errorf("meta %d should be solved", i)
+		}
+	}
+}
+
+// =============================================================================
+// Stress: Fiber isolation
+// =============================================================================
+
+func TestStressEvFiberIsolation(t *testing.T) {
+	u := NewUnifier()
+	cap := types.EvClosedRow(types.RowField{Label: "x", Type: types.Con("Int")})
+	con := types.EvSingleConstraint("Eq", []types.Type{types.Con("Int")})
+
+	if err := u.Unify(cap, con); err == nil {
+		t.Error("capability and constraint rows must not unify")
+	}
+}
+
+// =============================================================================
+// Stress: Zonk large evidence rows
+// =============================================================================
+
+func TestStressEvZonkLargeRow(t *testing.T) {
+	u := NewUnifier()
+	const N = 100
+	metas := make([]*types.TyMeta, N)
+	for i := range N {
+		metas[i] = &types.TyMeta{ID: 3000 + i, Kind: types.KType{}}
+		u.soln[3000+i] = types.Con(fmt.Sprintf("T%d", i))
+	}
+
+	fields := make([]types.RowField, N)
+	for i := range N {
+		fields[i] = types.RowField{Label: fmt.Sprintf("f%d", i), Type: metas[i]}
+	}
+	r := types.EvClosedRow(fields...)
+	result := u.Zonk(r)
+
+	ev, ok := result.(*types.TyEvidenceRow)
+	if !ok {
+		t.Fatalf("expected TyEvidenceRow, got %T", result)
+	}
+	// Fields are sorted by label after EvClosedRow normalization.
+	// Verify by looking up each field's label → type mapping.
+	capFields := ev.CapFields()
+	fieldMap := make(map[string]string, len(capFields))
+	for _, f := range capFields {
+		if c, ok := f.Type.(*types.TyCon); ok {
+			fieldMap[f.Label] = c.Name
+		}
+	}
+	for i := range N {
+		label := fmt.Sprintf("f%d", i)
+		expected := fmt.Sprintf("T%d", i)
+		if got, ok := fieldMap[label]; !ok || got != expected {
+			t.Errorf("field %s: expected %s, got %s", label, expected, got)
+		}
+	}
+}
+
+// =============================================================================
+// Stress: Subst + Equal + FreeVars on large evidence rows
+// =============================================================================
+
+func TestStressEvSubstLargeRow(t *testing.T) {
+	const N = 50
+	fields := make([]types.RowField, N)
+	for i := range N {
+		fields[i] = types.RowField{Label: fmt.Sprintf("f%d", i), Type: types.Var("a")}
+	}
+	r := types.EvClosedRow(fields...)
+	result := types.Subst(r, "a", types.Con("Int"))
+
+	ev, ok := result.(*types.TyEvidenceRow)
+	if !ok {
+		t.Fatalf("expected TyEvidenceRow, got %T", result)
+	}
+	for _, f := range ev.CapFields() {
+		if c, ok := f.Type.(*types.TyCon); !ok || c.Name != "Int" {
+			t.Errorf("field %s: expected Int, got %s", f.Label, types.Pretty(f.Type))
+		}
+	}
+}
+
+func TestStressEvEqualLargeRows(t *testing.T) {
+	const N = 100
+	fields1 := make([]types.RowField, N)
+	fields2 := make([]types.RowField, N)
+	for i := range N {
+		label := fmt.Sprintf("f%03d", i)
+		fields1[i] = types.RowField{Label: label, Type: types.Con("Int")}
+		fields2[N-1-i] = types.RowField{Label: label, Type: types.Con("Int")}
+	}
+	r1 := types.EvClosedRow(fields1...)
+	r2 := types.EvClosedRow(fields2...)
+
+	if !types.Equal(r1, r2) {
+		t.Error("100-field rows with reversed order should be equal")
+	}
+}
+
+func TestStressEvFreeVarsLargeRow(t *testing.T) {
+	const N = 50
+	fields := make([]types.RowField, N)
+	for i := range N {
+		fields[i] = types.RowField{Label: fmt.Sprintf("f%d", i), Type: types.Var(fmt.Sprintf("a%d", i))}
+	}
+	r := types.EvOpenRow(fields, types.Var("tail"))
+	fv := types.FreeVars(r)
+
+	if len(fv) != N+1 {
+		t.Errorf("expected %d free vars, got %d", N+1, len(fv))
+	}
+	if _, ok := fv["tail"]; !ok {
+		t.Error("missing tail var")
+	}
+}
+
+// =============================================================================
+// Integration: Evidence rows in full programs
+// =============================================================================
+
+func TestEvSortIntegrationCapabilityProgram(t *testing.T) {
+	// Capability rows now flow through TyEvidenceRow.
+	source := `data Bool = True | False
+data Unit = Unit
+f :: Computation { x : Int } { x : Int } Bool
+f := do { pure True }
+main := f`
+	checkSource(t, source, nil)
+}
+
+func TestEvSortIntegrationCapabilityMultiField(t *testing.T) {
+	source := `data Bool = True | False
+data Unit = Unit
+g :: Computation { x : Int, y : Bool } { x : Int, y : Bool } Bool
+g := do { pure True }
+main := g`
+	checkSource(t, source, nil)
+}
+
+func TestEvSortIntegrationCapabilityRowVar(t *testing.T) {
+	source := `data Bool = True | False
+data Unit = Unit
+h :: forall (r : Row). Computation { x : Int | r } { x : Int | r } Bool
+h := do { pure True }
+main := h`
+	checkSource(t, source, nil)
+}
