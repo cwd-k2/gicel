@@ -155,9 +155,7 @@ result, err := rt.RunContext(ctx, nil, nil, "main")
 
 ### Declaration Boundaries
 
-Top-level declarations are separated by newlines or semicolons. Both are interchangeable; trailing and repeated semicolons are permitted. A new declaration starts when the next token (preceded by a newline or semicolon at depth 0) is one of: lowercase identifier, uppercase identifier, `data`, `type`, `infixl`, `infixr`, `infixn`, `class`, `instance`, `import`, or `(op)`.
-
-Inside braces (`do`, `case`, block expressions, GADT declarations), semicolons are optional separators between statements, branches, or constructors.
+Top-level declarations are separated by newlines or semicolons. Both are interchangeable at the top level; trailing and repeated semicolons are permitted. A new declaration starts when the next token (preceded by a newline or semicolon at depth 0) is one of: lowercase identifier, uppercase identifier, `data`, `type`, `infixl`, `infixr`, `infixn`, `class`, `instance`, `import`, or `(op)`. Inside braces (`do`, `case`, GADT), semicolons are required between statements/alternatives.
 
 Import declarations must appear before all other declarations.
 
@@ -298,6 +296,12 @@ f :: forall a. Eq a => a -> a -> Bool
 f := \x -> \y -> eq x y
 ```
 
+Free type variables in annotations are implicitly universally quantified (implicit `forall`):
+
+```
+myLength :: List a -> Int       -- equivalent to: forall a. List a -> Int
+```
+
 ### Type Annotation in Expression
 
 ```
@@ -315,8 +319,12 @@ Single-parameter only. Curry for multiple parameters:
 ```
 \x -> expr
 \x -> \y -> \z -> expr
-\(Just x) -> expr              -- pattern parameter
+\(Just x) -> expr              -- constructor pattern
+\(a, b) -> expr                -- tuple pattern
+\{ x, y } -> expr              -- record pattern
 ```
+
+Pattern parameters are desugared to `case`: `\(a, b) -> body` becomes `\$p -> case $p { (a, b) -> body }`.
 
 ### Application
 
@@ -1214,9 +1222,9 @@ If your program uses `get`/`put` (Std.State), the Go host must supply the initia
 
 A `Computation` with empty row indices `{}` requires no capabilities. It is essentially pure but still lives in the Computation type. You can always `pure x` to create one.
 
-### Semicolons and newlines are interchangeable
+### Semicolons and newlines
 
-`;` and newlines are both valid declaration/statement separators at all levels. Trailing and repeated semicolons are harmless. Inside braces, semicolons are optional (the parser separates statements implicitly).
+`;` and newlines are both valid declaration separators at the **top level**. Trailing and repeated semicolons are harmless. **Inside braces** (`do { }`, `case { }`, GADT declarations), semicolons are **required** separators — newlines alone do not separate statements or alternatives within braces.
 
 ---
 

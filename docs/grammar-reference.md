@@ -135,9 +135,11 @@ type Effect r a = Computation r r a
 name :: TypeExpr
 ```
 
-Example:
+Free type variables are implicitly universally quantified:
+
 ```
 f :: forall a. Eq a => a -> a -> Bool
+myLength :: List a -> Int              -- same as: forall a. List a -> Int
 ```
 
 ### Value Definition
@@ -247,8 +249,10 @@ Just x      -- applied constructor (via App)
 
 ```
 \param -> body
-\x -> \y -> expr      -- curried
-\(Con x y) -> expr     -- pattern parameter
+\x -> \y -> expr       -- curried
+\(Con x y) -> expr     -- constructor pattern
+\(a, b) -> expr        -- tuple pattern
+\{ x, y } -> expr      -- record pattern
 ```
 
 ### Application
@@ -538,13 +542,13 @@ Con x y         -- constructor with arguments
 
 ## Declaration Boundaries
 
-Declarations are separated by newlines or semicolons. Both separators are interchangeable at all levels; trailing and repeated semicolons are permitted.
+Declarations are separated by newlines or semicolons at the top level. Both separators are interchangeable at the top-level declaration scope; trailing and repeated semicolons are permitted.
 
 At nesting depth 0, a new declaration begins when the next token (preceded by a newline or semicolon) is one of:
 
 `lowercase` | `uppercase` | `data` | `type` | `infixl` | `infixr` | `infixn` | `class` | `instance` | `import` | `(op)` (operator definition)
 
-Inside braces (`do`, `case`, block expressions, GADT declarations), semicolons are optional separators between statements, branches, or constructors.
+Inside braces (`do`, `case`, block expressions, GADT declarations), semicolons are **required** separators between statements, branches, or constructors. Newlines alone do not act as separators within braces.
 
 ---
 

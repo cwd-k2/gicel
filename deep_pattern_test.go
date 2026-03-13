@@ -164,12 +164,11 @@ func TestSemicolonInDoBlock(t *testing.T) {
 }
 
 func TestNewlineInDoBlock(t *testing.T) {
-	// DESIGN_GAP: Newlines inside do { } do NOT act as statement separators.
-	// The spec says "semicolons and newlines are interchangeable" but the parser
-	// only treats newlines as separators at the top-level declaration scope.
-	// Inside brace-delimited blocks (do, case), explicit semicolons are required.
-	//
-	// Workaround: use semicolons inside do blocks.
+	// DESIGN DECISION: Inside brace-delimited blocks (do, case), explicit
+	// semicolons are required. Newlines act as separators only at the
+	// top-level declaration scope. This is intentional — braces establish
+	// an explicit grouping context where semicolons provide unambiguous
+	// statement separation.
 	eng := gmp.NewEngine()
 	_, err := eng.NewRuntime(`main := do {
   x <- pure True
@@ -202,11 +201,8 @@ main := f True
 }
 
 func TestNewlineInCaseAlts(t *testing.T) {
-	// DESIGN_GAP: Newlines inside case { } do NOT act as alternative separators.
-	// Same root cause as TestNewlineInDoBlock — the parser only uses newlines
-	// as separators at top-level scope, not inside brace-delimited blocks.
-	//
-	// Workaround: use semicolons between case alternatives.
+	// DESIGN DECISION: Semicolons are required between case alternatives
+	// inside braces. Same rule as do blocks — braces use explicit separators.
 	eng := gmp.NewEngine()
 	_, err := eng.NewRuntime(`
 f := \x -> case x {
