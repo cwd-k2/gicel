@@ -34,7 +34,7 @@ main := f True False`
 }
 
 func TestCheckTyEvidenceMultiConstraint(t *testing.T) {
-	// Eq a => Ord a => ... should work (chained TyQual).
+	// Eq a => Ord a => ... should work (chained TyEvidence).
 	source := `data Bool = True | False
 class Eq a { eq :: a -> a -> Bool }
 class Eq a => Ord a { compare :: a -> a -> Bool }
@@ -83,9 +83,7 @@ main := eq True False`
 // =============================================================================
 
 func TestResolveTypeExprProducesTyEvidence(t *testing.T) {
-	// After migration, resolveTypeExpr for "Eq a => a -> Bool"
-	// should produce TyEvidence. For now we test that the existing
-	// TyQual path is unbroken.
+	// resolveTypeExpr for "Eq a => a -> Bool" produces TyEvidence.
 	source := `data Bool = True | False
 class Eq a { eq :: a -> a -> Bool }
 f :: Eq a => a -> Bool
@@ -98,23 +96,34 @@ f := \x -> True`
 // =============================================================================
 
 func TestClassSelectorTypeMigration(t *testing.T) {
-	// Class selector type uses TyQual. After migration it should use TyEvidence.
-	// This regression test verifies the selector still works.
+	// Class selector type should use TyEvidence (not TyQual).
 	source := `data Bool = True | False
 class Eq a { eq :: a -> a -> Bool }
 instance Eq Bool { eq := \x y -> True }
 main := eq True False`
 	prog := checkSource(t, source, nil)
-	// Verify eq binding exists and resolves correctly.
 	found := false
 	for _, b := range prog.Bindings {
 		if b.Name == "eq" {
 			found = true
-			// The selector should be elaborated as a Lam (dict pattern match).
+			// The selector should be elaborated as a TyLam wrapping a Lam.
 			if _, ok := b.Expr.(*core.TyLam); !ok {
 				if _, ok := b.Expr.(*core.Lam); !ok {
 					t.Errorf("expected TyLam or Lam for eq selector, got %T", b.Expr)
 				}
+			}
+			// The binding type must be TyEvidence (not TyQual) after migration.
+			ty := b.Type
+			// Strip outer foralls.
+			for {
+				if f, ok := ty.(*types.TyForall); ok {
+					ty = f.Body
+				} else {
+					break
+				}
+			}
+			if _, ok := ty.(*types.TyEvidence); !ok {
+				t.Errorf("selector type should be TyEvidence after stripping foralls, got %T", ty)
 			}
 		}
 	}

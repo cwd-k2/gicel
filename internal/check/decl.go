@@ -216,10 +216,6 @@ func decomposeConSig(ty types.Type) (fields []types.Type, ret types.Type) {
 			// Evidence constraints become implicit dict fields at runtime.
 			ty = t.Body
 			continue
-		case *types.TyQual:
-			// Constraints become implicit dict fields at runtime.
-			ty = t.Body
-			continue
 		}
 		break
 	}
@@ -235,7 +231,7 @@ func isComputationType(ty types.Type) bool {
 			ty = t.Body
 		case *types.TyArrow:
 			ty = t.To
-		case *types.TyQual:
+		case *types.TyEvidence:
 			ty = t.Body
 		case *types.TyComp:
 			return true

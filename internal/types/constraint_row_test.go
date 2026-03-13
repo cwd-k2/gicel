@@ -256,14 +256,14 @@ func TestEvidenceNotEqual(t *testing.T) {
 	}
 }
 
-func TestEvidenceNotEqualToTyQual(t *testing.T) {
+func TestEvidenceNotEqualToArrow(t *testing.T) {
 	ev := &TyEvidence{
 		Constraints: SingleConstraint("Eq", []Type{Var("a")}),
 		Body:        MkArrow(Var("a"), Con("Bool")),
 	}
-	q := MkQual("Eq", []Type{Var("a")}, MkArrow(Var("a"), Con("Bool")))
-	if Equal(ev, q) {
-		t.Error("TyEvidence should not equal TyQual")
+	arr := MkArrow(Var("a"), Con("Bool"))
+	if Equal(ev, arr) {
+		t.Error("TyEvidence should not equal TyArrow")
 	}
 }
 

@@ -206,28 +206,6 @@ func (ch *Checker) check(expr syntax.Expr, expected types.Type) core.Core {
 		return bodyCore
 	}
 
-	// If the expected type is a TyQual, introduce an implicit dict parameter.
-	//   ⟦ e : C a => T ⟧ = Lam($d : C$Dict a, ⟦e : T⟧)
-	if q, ok := expected.(*types.TyQual); ok {
-		dictParam := fmt.Sprintf("$d_%s_%d", q.ClassName, ch.fresh())
-		dictTy := ch.buildDictType(q.ClassName, q.Args)
-		ch.ctx.Push(&CtxVar{Name: dictParam, Type: dictTy})
-		ch.ctx.Push(&CtxEvidence{
-			ClassName: q.ClassName,
-			Args:      q.Args,
-			DictName:  dictParam,
-			DictType:  dictTy,
-		})
-		bodyCore := ch.check(expr, q.Body)
-		// Resolve deferred constraints while the dict param is still in scope.
-		// Inner uses of class methods (e.g. `eq x y` inside `f :: Eq a => ...`)
-		// create deferred constraints that must see this dict variable.
-		bodyCore = ch.resolveDeferredConstraints(bodyCore)
-		ch.ctx.Pop() // CtxEvidence
-		ch.ctx.Pop() // CtxVar
-		return &core.Lam{Param: dictParam, ParamType: dictTy, Body: bodyCore, S: expr.Span()}
-	}
-
 	switch e := expr.(type) {
 	case *syntax.ExprLam:
 		return ch.checkLam(e, expected)
@@ -277,19 +255,6 @@ func (ch *Checker) subsCheck(inferred, expected types.Type, expr core.Core, s sp
 			expr = &core.App{Fun: expr, Arg: &core.Var{Name: placeholder, S: s}, S: s}
 		}
 		return ch.subsCheck(ev.Body, expected, expr, s)
-	}
-
-	// Inferred C a => A ≤ B  →  resolve constraint, check A ≤ B
-	if q, ok := inferred.(*types.TyQual); ok {
-		placeholder := fmt.Sprintf("$dict_%d", ch.fresh())
-		ch.deferred = append(ch.deferred, deferredConstraint{
-			placeholder: placeholder,
-			className:   q.ClassName,
-			args:        q.Args,
-			s:           s,
-		})
-		expr = &core.App{Fun: expr, Arg: &core.Var{Name: placeholder, S: s}, S: s}
-		return ch.subsCheck(q.Body, expected, expr, s)
 	}
 
 	// Default: unify
@@ -426,12 +391,6 @@ func (ch *Checker) checkPattern(pat syntax.Pattern, scrutTy types.Type) (core.Pa
 					args = append(args, &core.PVar{Name: dictParam, S: p.S})
 				}
 				currentTy = ev.Body
-			} else if q, ok := currentTy.(*types.TyQual); ok {
-				dictParam := fmt.Sprintf("$d_%s_%d", q.ClassName, ch.fresh())
-				dictTy := ch.buildDictType(q.ClassName, q.Args)
-				bindings[dictParam] = dictTy
-				args = append(args, &core.PVar{Name: dictParam, S: p.S})
-				currentTy = q.Body
 			} else {
 				break
 			}
@@ -842,20 +801,6 @@ func (ch *Checker) instantiate(ty types.Type, expr core.Core) (types.Type, core.
 				expr = &core.App{Fun: expr, Arg: &core.Var{Name: placeholder, S: expr.Span()}, S: expr.Span()}
 			}
 			ty = ev.Body
-			continue
-		}
-		if q, ok := ty.(*types.TyQual); ok {
-			// Insert a placeholder for the dict arg. It will be resolved
-			// after type inference when metas are solved.
-			placeholder := fmt.Sprintf("$dict_%d", ch.fresh())
-			ch.deferred = append(ch.deferred, deferredConstraint{
-				placeholder: placeholder,
-				className:   q.ClassName,
-				args:        q.Args,
-				s:           expr.Span(),
-			})
-			expr = &core.App{Fun: expr, Arg: &core.Var{Name: placeholder, S: expr.Span()}, S: expr.Span()}
-			ty = q.Body
 			continue
 		}
 		return ty, expr

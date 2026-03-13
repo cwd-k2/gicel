@@ -129,7 +129,8 @@ func (ch *Checker) processClassDecl(d *syntax.DeclClass, prog *core.Program) {
 		for j, p := range tyParams {
 			tyParamVars[j] = &types.TyVar{Name: p}
 		}
-		var selectorTy types.Type = types.MkQual(d.Name, tyParamVars, m.Type)
+		entry := types.ConstraintEntry{ClassName: d.Name, Args: tyParamVars, S: d.S}
+		var selectorTy types.Type = types.MkEvidence([]types.ConstraintEntry{entry}, m.Type)
 		for j := len(tyParams) - 1; j >= 0; j-- {
 			selectorTy = types.MkForall(tyParams[j], tyParamKinds[j], selectorTy)
 		}

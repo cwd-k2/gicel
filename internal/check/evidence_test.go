@@ -173,12 +173,11 @@ func TestClassifyEvidencePartial(t *testing.T) {
 }
 
 // =============================================================================
-// Integration: TyQual check mode still works with CtxEvidence
+// Integration: TyEvidence check mode works with CtxEvidence
 // =============================================================================
 
-func TestCheckTyQualWithEvidence(t *testing.T) {
-	// This is a regression test: the existing TyQual path should
-	// still work after adding CtxEvidence alongside CtxVar.
+func TestCheckTyEvidenceWithEvidence(t *testing.T) {
+	// Regression test: TyEvidence check mode works with CtxEvidence.
 	source := `data Bool = True | False
 class Eq a { eq :: a -> a -> Bool }
 instance Eq Bool { eq := \x y -> True }

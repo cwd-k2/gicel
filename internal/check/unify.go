@@ -112,20 +112,6 @@ func (u *Unifier) Zonk(t types.Type) types.Type {
 			return ty
 		}
 		return &types.TyThunk{Pre: zPre, Post: zPost, Result: zResult, S: ty.S}
-	case *types.TyQual:
-		changed := false
-		args := make([]types.Type, len(ty.Args))
-		for i, a := range ty.Args {
-			args[i] = u.Zonk(a)
-			if args[i] != a {
-				changed = true
-			}
-		}
-		zBody := u.Zonk(ty.Body)
-		if !changed && zBody == ty.Body {
-			return ty
-		}
-		return &types.TyQual{ClassName: ty.ClassName, Args: args, Body: zBody, S: ty.S}
 	case *types.TyRow:
 		changed := false
 		fields := make([]types.RowField, len(ty.Fields))
@@ -321,18 +307,6 @@ func (u *Unifier) Unify(a, b types.Type) error {
 		}
 		if _, ok := b.(*types.TyApp); ok {
 			return u.unifyAppWithTriple(b, "Thunk", [3]types.Type{at.Pre, at.Post, at.Result})
-		}
-	case *types.TyQual:
-		if bt, ok := b.(*types.TyQual); ok {
-			if at.ClassName != bt.ClassName || len(at.Args) != len(bt.Args) {
-				break
-			}
-			for i := range at.Args {
-				if err := u.Unify(at.Args[i], bt.Args[i]); err != nil {
-					return err
-				}
-			}
-			return u.Unify(at.Body, bt.Body)
 		}
 	case *types.TyRow:
 		if bt, ok := b.(*types.TyRow); ok {

@@ -73,15 +73,6 @@ type RowField struct {
 	S     span.Span
 }
 
-// TyQual is a qualified type: ClassName Args => Body.
-// Represents a type class constraint in the type system.
-type TyQual struct {
-	ClassName string
-	Args      []Type
-	Body      Type
-	S         span.Span
-}
-
 // TyConstraintRow is a constraint row type { C1 a, C2 b | tail? }.
 // Kind: KConstraint. Parallel to TyRow for capability rows.
 type TyConstraintRow struct {
@@ -136,7 +127,6 @@ func (*TyForall) typeNode() {}
 func (*TyComp) typeNode()   {}
 func (*TyThunk) typeNode()  {}
 func (*TyRow) typeNode()    {}
-func (*TyQual) typeNode()          {}
 func (*TyConstraintRow) typeNode() {}
 func (*TyEvidence) typeNode()      {}
 func (*TySkolem) typeNode()        {}
@@ -153,7 +143,6 @@ func (t *TyForall) Span() span.Span { return t.S }
 func (t *TyComp) Span() span.Span   { return t.S }
 func (t *TyThunk) Span() span.Span  { return t.S }
 func (t *TyRow) Span() span.Span    { return t.S }
-func (t *TyQual) Span() span.Span          { return t.S }
 func (t *TyConstraintRow) Span() span.Span { return t.S }
 func (t *TyEvidence) Span() span.Span      { return t.S }
 func (t *TySkolem) Span() span.Span        { return t.S }
@@ -169,12 +158,6 @@ func (t *TyArrow) Children() []Type  { return []Type{t.From, t.To} }
 func (t *TyForall) Children() []Type { return []Type{t.Body} }
 func (t *TyComp) Children() []Type   { return []Type{t.Pre, t.Post, t.Result} }
 func (t *TyThunk) Children() []Type  { return []Type{t.Pre, t.Post, t.Result} }
-func (t *TyQual) Children() []Type {
-	ch := make([]Type, 0, len(t.Args)+1)
-	ch = append(ch, t.Args...)
-	ch = append(ch, t.Body)
-	return ch
-}
 func (t *TyConstraintRow) Children() []Type {
 	var ch []Type
 	for _, e := range t.Entries {
