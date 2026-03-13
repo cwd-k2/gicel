@@ -6,7 +6,7 @@ Current state: **v0.5** (spec) / **Phase 5 complete** (implementation through ty
 
 ## v0.6 — Literals, Operators, Standard Library Packs
 
-**Status**: Designed, not yet implemented.
+**Status**: Implemented.
 
 ### Scope
 

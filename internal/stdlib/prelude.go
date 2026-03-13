@@ -76,8 +76,13 @@ instance Foldable Maybe { foldr := \f z ma -> case ma of {
 
 instance Semigroup Unit { append := \_ _ -> Unit }
 instance Semigroup Ordering { append := \x y -> case x of { EQ -> y; _ -> x } }
+instance Semigroup a => Semigroup (Maybe a) { append := \x y -> case x of {
+  Nothing -> y;
+  Just a -> case y of { Nothing -> Just a; Just b -> Just (append a b) }
+} }
 instance Monoid Unit { empty := Unit }
 instance Monoid Ordering { empty := EQ }
+instance Semigroup a => Monoid (Maybe a) { empty := Nothing }
 
 instance Ord Bool { compare := \x y -> case x of {
   False -> case y of { False -> EQ; True -> LT };

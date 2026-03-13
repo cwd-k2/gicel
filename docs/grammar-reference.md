@@ -652,8 +652,10 @@ instance Ord a => Ord b => Ord (Pair a b)
 
 -- Semigroup / Monoid
 instance Semigroup Unit        instance Semigroup Ordering
+instance Semigroup a => Semigroup (Maybe a)
 instance Semigroup (List a)
 instance Monoid Unit           instance Monoid Ordering
+instance Semigroup a => Monoid (Maybe a)
 instance Monoid (List a)
 
 -- Functor / Foldable / Applicative / Traversable
