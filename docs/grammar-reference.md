@@ -376,13 +376,21 @@ forall (f : Type -> Type). f a -> f b
 ## Kind Expressions
 
 ```
-Type                -- kind of value types
-Row                 -- kind of row types
-Constraint          -- kind of class constraints
-Type -> Type        -- higher-kinded (e.g. Maybe : Type -> Type)
-(Row -> Type)       -- parenthesized kind
-Bool                -- DataKinds: promoted data type as kind
-DBState             -- DataKinds: user-defined promoted kind
+Type                  -- kind of value types
+Row                   -- kind of row types
+Constraint            -- kind of class constraints
+Type -> Type          -- higher-kinded (e.g. Maybe : Type -> Type)
+Constraint -> Type    -- constraint-parameterized (higher-kinded constraint)
+(Row -> Type)         -- parenthesized kind
+Bool                  -- DataKinds: promoted data type as kind
+DBState               -- DataKinds: user-defined promoted kind
+```
+
+`Constraint` can be used in kind annotations for type parameters:
+```
+forall (c : Constraint). Bool                    -- constraint-kinded param
+forall a (c : Constraint). a -> Bool             -- mixed kinds
+class Constrained (c : Constraint) { ... }       -- in class declarations
 ```
 
 ### DataKinds Promotion
