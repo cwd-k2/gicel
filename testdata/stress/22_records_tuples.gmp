@@ -1,0 +1,103 @@
+import Std.Num
+import Std.Str
+
+-- Record literals and projection
+origin := { x = 0, y = 0 }
+point := { x = 3, y = 4 }
+getX := \r -> r!#x
+getY := \r -> r!#y
+
+-- Record update
+moved := { point | x = 10 }
+
+-- Row-polymorphic record functions
+getLabel :: forall r. Record { label : String | r } -> String
+getLabel := \r -> r!#label
+
+named := { label = "hello", value = 42 }
+tagged := { label = "world", x = 1, y = 2 }
+
+label1 := getLabel named
+label2 := getLabel tagged
+
+-- Nested records
+nested := { inner = { a = True, b = False }, tag = "test" }
+innerA := nested!#inner!#a
+
+-- Unit and tuples
+unit := ()
+pair := (1, 2)
+triple := (True, "hello", 42)
+
+-- Tuple projection
+fstVal := fst (10, 20)
+sndVal := snd (10, 20)
+
+-- Tuple Eq and Ord instances
+eqUnit := eq () ()
+eqPair := eq (1, 2) (1, 2)
+eqPairF := eq (1, 2) (1, 3)
+cmpUnit := compare () ()
+cmpPair := compare (1, 2) (1, 3)
+
+-- Tuple pattern matching
+swap :: forall a b. (a, b) -> (b, a)
+swap := \p -> case p { (x, y) -> (y, x) }
+swapped := swap (True, False)
+
+-- Record pattern matching
+extractXY := \p -> case p { { x = px, y = py } -> (px, py) }
+xyTuple := extractXY point
+
+-- Deeply nested tuples
+deep := (1, (2, (3, (4, (5, ())))))
+d1 := fst deep
+d2 := fst (snd deep)
+d3 := fst (snd (snd deep))
+
+-- Records with type class operations
+eqRecord := eq (True, False) (True, False)
+ordRecord := compare (False, True) (True, False)
+
+-- Mixed records and Maybe
+wrapped := Just { x = 1, y = 2 }
+unwrapped := case wrapped {
+  Just r -> r!#x;
+  Nothing -> 0
+}
+
+-- Large record (many fields)
+big := { f1 = 1, f2 = 2, f3 = 3, f4 = 4, f5 = 5,
+         f6 = 6, f7 = 7, f8 = 8, f9 = 9, f10 = 10 }
+
+sumBig := big!#f1 + big!#f2 + big!#f3 + big!#f4 + big!#f5 +
+          big!#f6 + big!#f7 + big!#f8 + big!#f9 + big!#f10
+
+-- Records in lists
+points := Cons { x = 0, y = 0 } (Cons { x = 1, y = 1 } Nil)
+firstPoint := case points {
+  Cons p _ -> p!#x;
+  Nil -> 0
+}
+
+-- Accumulate results
+main := (getX point,
+  (getY moved,
+  (label1,
+  (label2,
+  (innerA,
+  (eqUnit,
+  (eqPair,
+  (eqPairF,
+  (cmpUnit,
+  (cmpPair,
+  (swapped,
+  (xyTuple,
+  (d1,
+  (d2,
+  (d3,
+  (eqRecord,
+  (ordRecord,
+  (unwrapped,
+  (sumBig,
+  firstPoint)))))))))))))))))))

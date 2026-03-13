@@ -585,6 +585,107 @@ libNot := \b -> case b { LibTrue -> LibFalse; LibFalse -> LibTrue }
 			_ = p
 		},
 	},
+	{
+		name: "records_tuples",
+		file: "22_records_tuples.gmp",
+		setup: func(e *gmp.Engine) {
+			e.Use(gmp.Num)
+			e.Use(gmp.Str)
+		},
+		check: func(t *testing.T, v gmp.Value) {
+			p := v
+			// getX point = 3
+			p = assertPairHead(t, p, "getX", func(t *testing.T, v gmp.Value) {
+				assertHostVal(t, v, int64(3))
+			})
+			// getY moved = 4 (y unchanged by update)
+			p = assertPairHead(t, p, "getY moved", func(t *testing.T, v gmp.Value) {
+				assertHostVal(t, v, int64(4))
+			})
+			// label1 = "hello"
+			p = assertPairHead(t, p, "label1", func(t *testing.T, v gmp.Value) {
+				assertHostVal(t, v, "hello")
+			})
+			// label2 = "world"
+			p = assertPairHead(t, p, "label2", func(t *testing.T, v gmp.Value) {
+				assertHostVal(t, v, "world")
+			})
+			// innerA = True
+			p = assertPairHead(t, p, "innerA", func(t *testing.T, v gmp.Value) {
+				assertCon(t, v, "True")
+			})
+			// eqUnit = True
+			p = assertPairHead(t, p, "eqUnit", func(t *testing.T, v gmp.Value) {
+				assertCon(t, v, "True")
+			})
+			// eqPair = True
+			p = assertPairHead(t, p, "eqPair", func(t *testing.T, v gmp.Value) {
+				assertCon(t, v, "True")
+			})
+			// eqPairF = False
+			p = assertPairHead(t, p, "eqPairF", func(t *testing.T, v gmp.Value) {
+				assertCon(t, v, "False")
+			})
+			// cmpUnit = EQ
+			p = assertPairHead(t, p, "cmpUnit", func(t *testing.T, v gmp.Value) {
+				assertCon(t, v, "EQ")
+			})
+			// cmpPair = LT
+			p = assertPairHead(t, p, "cmpPair", func(t *testing.T, v gmp.Value) {
+				assertCon(t, v, "LT")
+			})
+			// swapped = (False, True)
+			p = assertPairHead(t, p, "swapped", func(t *testing.T, v gmp.Value) {
+				rv, ok := v.(*gmp.RecordVal)
+				if !ok {
+					t.Errorf("expected RecordVal, got %T", v)
+					return
+				}
+				assertCon(t, rv.Fields["_1"], "False")
+				assertCon(t, rv.Fields["_2"], "True")
+			})
+			// xyTuple = (3, 4)
+			p = assertPairHead(t, p, "xyTuple", func(t *testing.T, v gmp.Value) {
+				rv, ok := v.(*gmp.RecordVal)
+				if !ok {
+					t.Errorf("expected RecordVal, got %T", v)
+					return
+				}
+				assertHostVal(t, rv.Fields["_1"], int64(3))
+				assertHostVal(t, rv.Fields["_2"], int64(4))
+			})
+			// d1 = 1
+			p = assertPairHead(t, p, "d1", func(t *testing.T, v gmp.Value) {
+				assertHostVal(t, v, int64(1))
+			})
+			// d2 = 2
+			p = assertPairHead(t, p, "d2", func(t *testing.T, v gmp.Value) {
+				assertHostVal(t, v, int64(2))
+			})
+			// d3 = 3
+			p = assertPairHead(t, p, "d3", func(t *testing.T, v gmp.Value) {
+				assertHostVal(t, v, int64(3))
+			})
+			// eqRecord = True
+			p = assertPairHead(t, p, "eqRecord", func(t *testing.T, v gmp.Value) {
+				assertCon(t, v, "True")
+			})
+			// ordRecord = LT
+			p = assertPairHead(t, p, "ordRecord", func(t *testing.T, v gmp.Value) {
+				assertCon(t, v, "LT")
+			})
+			// unwrapped = 1
+			p = assertPairHead(t, p, "unwrapped", func(t *testing.T, v gmp.Value) {
+				assertHostVal(t, v, int64(1))
+			})
+			// sumBig = 55
+			p = assertPairHead(t, p, "sumBig", func(t *testing.T, v gmp.Value) {
+				assertHostVal(t, v, int64(55))
+			})
+			// firstPoint = 0
+			assertHostVal(t, p, int64(0))
+		},
+	},
 }
 
 func copyCaps(m map[string]any) map[string]any {
@@ -596,6 +697,18 @@ func copyCaps(m map[string]any) map[string]any {
 		c[k] = v
 	}
 	return c
+}
+
+func assertHostVal(t *testing.T, v gmp.Value, want any) {
+	t.Helper()
+	hv, ok := v.(*gmp.HostVal)
+	if !ok {
+		t.Errorf("expected HostVal, got %T: %s", v, v)
+		return
+	}
+	if hv.Inner != want {
+		t.Errorf("expected %v, got %v", want, hv.Inner)
+	}
 }
 
 func assertCon(t *testing.T, v gmp.Value, name string) {
