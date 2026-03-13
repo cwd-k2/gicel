@@ -38,12 +38,12 @@ func (ch *Checker) processClassDecl(d *syntax.DeclClass, prog *core.Program) {
 	dictTyName := d.Name + "$Dict"
 	dictConName := d.Name + "$Dict"
 
-	// Collect type parameters.
+	// Collect type parameters with their kinds.
 	var tyParams []string
 	var tyParamKinds []types.Kind
 	for _, p := range d.TyParams {
 		tyParams = append(tyParams, p.Name)
-		tyParamKinds = append(tyParamKinds, types.KType{})
+		tyParamKinds = append(tyParamKinds, ch.resolveKindExpr(p.Kind))
 	}
 
 	// Process superclass constraints.
@@ -85,8 +85,8 @@ func (ch *Checker) processClassDecl(d *syntax.DeclClass, prog *core.Program) {
 
 	// Register the dict type constructor kind.
 	var dictKind types.Kind = types.KType{}
-	for i := len(tyParams) - 1; i >= 0; i-- {
-		dictKind = &types.KArrow{From: types.KType{}, To: dictKind}
+	for i := len(tyParamKinds) - 1; i >= 0; i-- {
+		dictKind = &types.KArrow{From: tyParamKinds[i], To: dictKind}
 	}
 	ch.config.RegisteredTypes[dictTyName] = dictKind
 
@@ -102,7 +102,7 @@ func (ch *Checker) processClassDecl(d *syntax.DeclClass, prog *core.Program) {
 		conType = types.MkArrow(allFieldTypes[i], conType)
 	}
 	for i := len(tyParams) - 1; i >= 0; i-- {
-		conType = types.MkForall(tyParams[i], types.KType{}, conType)
+		conType = types.MkForall(tyParams[i], tyParamKinds[i], conType)
 	}
 
 	// Register constructor.
@@ -115,8 +115,8 @@ func (ch *Checker) processClassDecl(d *syntax.DeclClass, prog *core.Program) {
 
 	// Core DataDecl.
 	coreDecl := core.DataDecl{Name: dictTyName, S: d.S}
-	for _, p := range tyParams {
-		coreDecl.TyParams = append(coreDecl.TyParams, core.TyParam{Name: p, Kind: types.KType{}})
+	for i, p := range tyParams {
+		coreDecl.TyParams = append(coreDecl.TyParams, core.TyParam{Name: p, Kind: tyParamKinds[i]})
 	}
 	coreDecl.Cons = append(coreDecl.Cons, core.ConDecl{Name: dictConName, Fields: allFieldTypes, S: d.S})
 	prog.DataDecls = append(prog.DataDecls, coreDecl)
@@ -131,7 +131,7 @@ func (ch *Checker) processClassDecl(d *syntax.DeclClass, prog *core.Program) {
 		}
 		var selectorTy types.Type = types.MkQual(d.Name, tyParamVars, m.Type)
 		for j := len(tyParams) - 1; j >= 0; j-- {
-			selectorTy = types.MkForall(tyParams[j], types.KType{}, selectorTy)
+			selectorTy = types.MkForall(tyParams[j], tyParamKinds[j], selectorTy)
 		}
 
 		ch.ctx.Push(&CtxVar{Name: m.Name, Type: selectorTy})
@@ -162,7 +162,7 @@ func (ch *Checker) processClassDecl(d *syntax.DeclClass, prog *core.Program) {
 		}
 
 		for j := len(tyParams) - 1; j >= 0; j-- {
-			selectorBody = &core.TyLam{TyParam: tyParams[j], Kind: types.KType{}, Body: selectorBody, S: d.S}
+			selectorBody = &core.TyLam{TyParam: tyParams[j], Kind: tyParamKinds[j], Body: selectorBody, S: d.S}
 		}
 
 		prog.Bindings = append(prog.Bindings, core.Binding{

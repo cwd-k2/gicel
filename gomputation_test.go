@@ -3413,6 +3413,47 @@ main := (empty :: List Bool)
 }
 
 // ---------------------------------------------------------------------------
+// Kinded Class Type Params (Group 2A)
+// ---------------------------------------------------------------------------
+
+func TestKindedClassParam(t *testing.T) {
+	eng := gmp.NewEngine()
+	_, err := eng.NewRuntime(`
+class MyClass (m : Row -> Row -> Type -> Type) {
+  myPure :: forall a (r : Row). a -> m r r a
+}
+main := True
+`)
+	if err != nil {
+		t.Fatalf("kinded class param should compile: %v", err)
+	}
+}
+
+func TestKindedClassParamWithInstance(t *testing.T) {
+	eng := gmp.NewEngine()
+	rt, err := eng.NewRuntime(`
+class Wrap (f : Type -> Type) {
+  wrap :: forall a. a -> f a
+}
+instance Wrap Maybe {
+  wrap := \x -> Just x
+}
+main := wrap True
+`)
+	if err != nil {
+		t.Fatalf("kinded class with instance should compile: %v", err)
+	}
+	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	con, ok := result.Value.(*gmp.ConVal)
+	if !ok || con.Con != "Just" {
+		t.Fatalf("expected Just, got %v", result.Value)
+	}
+}
+
+// ---------------------------------------------------------------------------
 // Go Boundary Conversion (Group 1D)
 // ---------------------------------------------------------------------------
 

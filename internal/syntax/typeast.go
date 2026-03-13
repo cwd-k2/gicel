@@ -10,6 +10,7 @@ type TypeExpr interface {
 
 type TyExprVar struct {
 	Name string
+	Kind KindExpr // non-nil when used as a kinded class type parameter
 	S    span.Span
 }
 

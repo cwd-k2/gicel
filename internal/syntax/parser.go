@@ -267,10 +267,26 @@ func (p *Parser) parseClassDecl() *DeclClass {
 	var supers []TypeExpr
 	firstName := p.expectUpper()
 	var firstArgs []TypeExpr
-	for p.peek().Kind == TokLower {
-		tok := p.peek()
-		p.advance()
-		firstArgs = append(firstArgs, &TyExprVar{Name: tok.Text, S: tok.S})
+	// Parse class params: either bare lowercase vars or kinded binders (v : Kind).
+	for p.peek().Kind == TokLower || (p.peek().Kind == TokLParen && p.isClassKindedBinder()) {
+		if p.peek().Kind == TokLParen {
+			// Kinded class param: (m : Kind)
+			lp := p.peek().S.Start
+			p.advance()
+			name := p.expectLower()
+			p.expect(TokColon)
+			kind := p.parseKindExpr()
+			p.expect(TokRParen)
+			firstArgs = append(firstArgs, &TyExprVar{
+				Name: name,
+				S:    span.Span{Start: lp, End: p.prevEnd()},
+				Kind: kind,
+			})
+		} else {
+			tok := p.peek()
+			p.advance()
+			firstArgs = append(firstArgs, &TyExprVar{Name: tok.Text, S: tok.S})
+		}
 	}
 
 	if p.peek().Kind == TokFatArrow {
@@ -286,10 +302,24 @@ func (p *Parser) parseClassDecl() *DeclClass {
 		for {
 			nextName := p.expectUpper()
 			var nextArgs []TypeExpr
-			for p.peek().Kind == TokLower {
-				tok := p.peek()
-				p.advance()
-				nextArgs = append(nextArgs, &TyExprVar{Name: tok.Text, S: tok.S})
+			for p.peek().Kind == TokLower || (p.peek().Kind == TokLParen && p.isClassKindedBinder()) {
+				if p.peek().Kind == TokLParen {
+					lp := p.peek().S.Start
+					p.advance()
+					name := p.expectLower()
+					p.expect(TokColon)
+					kind := p.parseKindExpr()
+					p.expect(TokRParen)
+					nextArgs = append(nextArgs, &TyExprVar{
+						Name: name,
+						S:    span.Span{Start: lp, End: p.prevEnd()},
+						Kind: kind,
+					})
+				} else {
+					tok := p.peek()
+					p.advance()
+					nextArgs = append(nextArgs, &TyExprVar{Name: tok.Text, S: tok.S})
+				}
 			}
 			if p.peek().Kind == TokFatArrow {
 				// Another superclass constraint.
@@ -305,7 +335,7 @@ func (p *Parser) parseClassDecl() *DeclClass {
 			var params []TyBinder
 			for _, arg := range nextArgs {
 				v := arg.(*TyExprVar)
-				params = append(params, TyBinder{Name: v.Name, S: v.S})
+				params = append(params, TyBinder{Name: v.Name, Kind: v.Kind, S: v.S})
 			}
 			methods := p.parseClassMethods()
 			return &DeclClass{
@@ -319,7 +349,7 @@ func (p *Parser) parseClassDecl() *DeclClass {
 	var params []TyBinder
 	for _, arg := range firstArgs {
 		v := arg.(*TyExprVar)
-		params = append(params, TyBinder{Name: v.Name, S: v.S})
+		params = append(params, TyBinder{Name: v.Name, Kind: v.Kind, S: v.S})
 	}
 	methods := p.parseClassMethods()
 	return &DeclClass{
@@ -1138,6 +1168,15 @@ func (p *Parser) isTypeAtomStart() bool {
 	}
 	k := p.peek().Kind
 	return k == TokLower || k == TokUpper || k == TokLParen || k == TokLBrace
+}
+
+// isClassKindedBinder checks if the next tokens form (name : Kind) pattern.
+func (p *Parser) isClassKindedBinder() bool {
+	// Current is '(', check if followed by lower : Kind )
+	if p.pos+2 >= len(p.tokens) {
+		return false
+	}
+	return p.tokens[p.pos+1].Kind == TokLower && p.tokens[p.pos+2].Kind == TokColon
 }
 
 func (p *Parser) isFixityKeyword() bool {
