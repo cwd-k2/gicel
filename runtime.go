@@ -68,6 +68,19 @@ func (r *Runtime) initBuiltinEnv() {
 		Body: &core.Force{Expr: &core.Var{Name: "_thk"}},
 	})
 
+	// Internal builtin names for IxMonad instance bodies.
+	env = env.Extend("_builtinPure", &eval.Closure{
+		Env: eval.EmptyEnv(), Param: "_v",
+		Body: &core.Var{Name: "_v"},
+	})
+	env = env.Extend("_builtinBind", &eval.Closure{
+		Env: eval.EmptyEnv(), Param: "_comp",
+		Body: &core.Lam{
+			Param: "_f",
+			Body:  &core.App{Fun: &core.Var{Name: "_f"}, Arg: &core.Var{Name: "_comp"}},
+		},
+	})
+
 	// Gated built-ins: rec and fix (enabled via EnableRecursion).
 	if r.gatedBuiltins["fix"] {
 		env = env.Extend("fix", &eval.Closure{

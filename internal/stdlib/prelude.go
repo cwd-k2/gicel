@@ -35,6 +35,11 @@ class IxMonad (m : Row -> Row -> Type -> Type) {
 
 type Lift (m : Type -> Type) (r1 : Row) (r2 : Row) a = m a
 
+instance IxMonad Computation {
+  ixpure := _builtinPure;
+  ixbind := _builtinBind
+}
+
 instance Eq Bool { eq := \x y -> case x of {
   True -> case y of { True -> True; False -> False };
   False -> case y of { True -> False; False -> True }

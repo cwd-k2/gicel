@@ -3661,3 +3661,70 @@ func assertList(t *testing.T, v gmp.Value, expected []int64) {
 		t.Fatalf("expected Nil at end, got %v", v)
 	}
 }
+
+// ---------------------------------------------------------------------------
+// Instance IxMonad Computation (Group 2C)
+// ---------------------------------------------------------------------------
+
+func TestIxMonadComputationIxpure(t *testing.T) {
+	eng := gmp.NewEngine()
+	eng.DeclareBinding("n", gmp.ConType("Int"))
+	rt, err := eng.NewRuntime(`
+main := ixpure n
+`)
+	if err != nil {
+		t.Fatalf("ixpure should resolve via IxMonad Computation: %v", err)
+	}
+	result, err := rt.RunContext(context.Background(), nil, map[string]gmp.Value{
+		"n": &gmp.HostVal{Inner: 42},
+	}, "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	hv, ok := result.Value.(*gmp.HostVal)
+	if !ok || hv.Inner != 42 {
+		t.Fatalf("expected 42, got %v", result.Value)
+	}
+}
+
+func TestIxMonadComputationIxbind(t *testing.T) {
+	eng := gmp.NewEngine()
+	eng.DeclareBinding("n", gmp.ConType("Int"))
+	rt, err := eng.NewRuntime(`
+main := ixbind (ixpure n) (\x -> ixpure x)
+`)
+	if err != nil {
+		t.Fatalf("ixbind should resolve via IxMonad Computation: %v", err)
+	}
+	result, err := rt.RunContext(context.Background(), nil, map[string]gmp.Value{
+		"n": &gmp.HostVal{Inner: 99},
+	}, "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	hv, ok := result.Value.(*gmp.HostVal)
+	if !ok || hv.Inner != 99 {
+		t.Fatalf("expected 99, got %v", result.Value)
+	}
+}
+
+func TestIxMonadGenericFunction(t *testing.T) {
+	// A generic function using IxMonad constraint should work with Computation.
+	eng := gmp.NewEngine()
+	rt, err := eng.NewRuntime(`
+myReturn :: forall (m : Row -> Row -> Type -> Type). IxMonad m => forall a (r : Row). a -> m r r a
+myReturn := ixpure
+main := myReturn True
+`)
+	if err != nil {
+		t.Fatalf("generic IxMonad function should compile: %v", err)
+	}
+	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	con, ok := result.Value.(*gmp.ConVal)
+	if !ok || con.Con != "True" {
+		t.Fatalf("expected True, got %v", result.Value)
+	}
+}

@@ -150,10 +150,44 @@ func (u *Unifier) Zonk(t types.Type) types.Type {
 	}
 }
 
+// normalizeCompApp converts fully-applied TyApp chains to their special type
+// representations. e.g. TyApp(TyApp(TyApp(TyCon("Computation"), pre), post), result)
+// becomes TyComp{pre, post, result}. This arises when a class type parameter
+// (m : Row -> Row -> Type -> Type) is substituted with Computation.
+func normalizeCompApp(t types.Type) types.Type {
+	app1, ok := t.(*types.TyApp)
+	if !ok {
+		return t
+	}
+	app2, ok := app1.Fun.(*types.TyApp)
+	if !ok {
+		return t
+	}
+	app3, ok := app2.Fun.(*types.TyApp)
+	if !ok {
+		return t
+	}
+	con, ok := app3.Fun.(*types.TyCon)
+	if !ok {
+		return t
+	}
+	switch con.Name {
+	case "Computation":
+		return &types.TyComp{Pre: app3.Arg, Post: app2.Arg, Result: app1.Arg, S: t.Span()}
+	case "Thunk":
+		return &types.TyThunk{Pre: app3.Arg, Post: app2.Arg, Result: app1.Arg, S: t.Span()}
+	}
+	return t
+}
+
 // Unify solves the constraint a ~ b.
 func (u *Unifier) Unify(a, b types.Type) error {
 	a = u.Zonk(a)
 	b = u.Zonk(b)
+
+	// Normalize special type applications (e.g. Computation applied via TyApp chain).
+	a = normalizeCompApp(a)
+	b = normalizeCompApp(b)
 
 	// Error types unify with anything.
 	if _, ok := a.(*types.TyError); ok {
