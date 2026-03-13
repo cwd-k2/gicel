@@ -264,15 +264,16 @@ func TestUnifyRowOpenOpen(t *testing.T) {
 
 	// ?1 should be solved to { c: Str | ?fresh }
 	soln1 := u.Zonk(m1)
-	row1, ok := soln1.(*types.TyRow)
+	row1, ok := soln1.(*types.TyEvidenceRow)
 	if !ok {
 		t.Fatalf("?1 should be solved to a row, got %T: %s", soln1, types.Pretty(soln1))
 	}
-	if len(row1.Fields) != 1 || row1.Fields[0].Label != "c" {
+	cap1 := row1.Entries.(*types.CapabilityEntries)
+	if len(cap1.Fields) != 1 || cap1.Fields[0].Label != "c" {
 		t.Errorf("?1 should have field 'c', got %s", types.Pretty(row1))
 	}
-	if !types.Equal(row1.Fields[0].Type, types.Con("Str")) {
-		t.Errorf("?1.c should be Str, got %s", types.Pretty(row1.Fields[0].Type))
+	if !types.Equal(cap1.Fields[0].Type, types.Con("Str")) {
+		t.Errorf("?1.c should be Str, got %s", types.Pretty(cap1.Fields[0].Type))
 	}
 	if row1.Tail == nil {
 		t.Error("?1 should have an open tail (the fresh meta)")
@@ -280,15 +281,16 @@ func TestUnifyRowOpenOpen(t *testing.T) {
 
 	// ?2 should be solved to { b: Bool | ?fresh }
 	soln2 := u.Zonk(m2)
-	row2, ok := soln2.(*types.TyRow)
+	row2, ok := soln2.(*types.TyEvidenceRow)
 	if !ok {
 		t.Fatalf("?2 should be solved to a row, got %T: %s", soln2, types.Pretty(soln2))
 	}
-	if len(row2.Fields) != 1 || row2.Fields[0].Label != "b" {
+	cap2 := row2.Entries.(*types.CapabilityEntries)
+	if len(cap2.Fields) != 1 || cap2.Fields[0].Label != "b" {
 		t.Errorf("?2 should have field 'b', got %s", types.Pretty(row2))
 	}
-	if !types.Equal(row2.Fields[0].Type, types.Con("Bool")) {
-		t.Errorf("?2.b should be Bool, got %s", types.Pretty(row2.Fields[0].Type))
+	if !types.Equal(cap2.Fields[0].Type, types.Con("Bool")) {
+		t.Errorf("?2.b should be Bool, got %s", types.Pretty(cap2.Fields[0].Type))
 	}
 	if row2.Tail == nil {
 		t.Error("?2 should have an open tail (the fresh meta)")
@@ -331,13 +333,15 @@ func TestUnifyRowOpenOpenShared(t *testing.T) {
 
 	// When both rows have identical fields, the solutions should both be a row
 	// with no extra fields and a shared fresh tail.
-	row1, ok1 := soln1.(*types.TyRow)
-	row2, ok2 := soln2.(*types.TyRow)
+	row1, ok1 := soln1.(*types.TyEvidenceRow)
+	row2, ok2 := soln2.(*types.TyEvidenceRow)
 	if ok1 && ok2 {
-		if len(row1.Fields) != 0 {
+		ce1 := row1.Entries.(*types.CapabilityEntries)
+		if len(ce1.Fields) != 0 {
 			t.Errorf("?200 should have no extra fields, got %s", types.Pretty(row1))
 		}
-		if len(row2.Fields) != 0 {
+		ce2 := row2.Entries.(*types.CapabilityEntries)
+		if len(ce2.Fields) != 0 {
 			t.Errorf("?201 should have no extra fields, got %s", types.Pretty(row2))
 		}
 	}
@@ -364,21 +368,23 @@ func TestUnifyRowOpenOpenDisjoint(t *testing.T) {
 
 	// ?1 = { b: Bool | ?fresh }
 	soln1 := u.Zonk(m1)
-	row1, ok := soln1.(*types.TyRow)
+	row1, ok := soln1.(*types.TyEvidenceRow)
 	if !ok {
 		t.Fatalf("?300 should be solved to a row, got %s", types.Pretty(soln1))
 	}
-	if len(row1.Fields) != 1 || row1.Fields[0].Label != "b" {
+	cap1 := row1.Entries.(*types.CapabilityEntries)
+	if len(cap1.Fields) != 1 || cap1.Fields[0].Label != "b" {
 		t.Errorf("?300 should have field 'b', got %s", types.Pretty(row1))
 	}
 
 	// ?2 = { a: Int | ?fresh }
 	soln2 := u.Zonk(m2)
-	row2, ok := soln2.(*types.TyRow)
+	row2, ok := soln2.(*types.TyEvidenceRow)
 	if !ok {
 		t.Fatalf("?301 should be solved to a row, got %s", types.Pretty(soln2))
 	}
-	if len(row2.Fields) != 1 || row2.Fields[0].Label != "a" {
+	cap2 := row2.Entries.(*types.CapabilityEntries)
+	if len(cap2.Fields) != 1 || cap2.Fields[0].Label != "a" {
 		t.Errorf("?301 should have field 'a', got %s", types.Pretty(row2))
 	}
 }
@@ -518,11 +524,12 @@ func TestUnifyRowOpenClosedSubset(t *testing.T) {
 		t.Fatalf("open row should absorb extra closed labels into tail: %v", err)
 	}
 	soln := u.Zonk(m)
-	row, ok := soln.(*types.TyRow)
+	row, ok := soln.(*types.TyEvidenceRow)
 	if !ok {
 		t.Fatalf("tail should be solved to a row, got %s", types.Pretty(soln))
 	}
-	if len(row.Fields) != 1 || row.Fields[0].Label != "y" {
+	cap := row.Entries.(*types.CapabilityEntries)
+	if len(cap.Fields) != 1 || cap.Fields[0].Label != "y" {
 		t.Errorf("tail should have field 'y', got %s", types.Pretty(row))
 	}
 }

@@ -439,11 +439,11 @@ func (u *Unifier) Unify(a, b types.Type) error {
 		}
 	case *types.TyRow:
 		if bt, ok := b.(*types.TyRow); ok {
-			return u.unifyRows(at, bt)
+			return u.unifyEvidenceRows(at.ToEvidence(), bt.ToEvidence())
 		}
 	case *types.TyConstraintRow:
 		if bt, ok := b.(*types.TyConstraintRow); ok {
-			return u.unifyConstraintRows(at, bt)
+			return u.unifyEvidenceRows(at.ToEvidence(), bt.ToEvidence())
 		}
 	case *types.TyEvidenceRow:
 		if bt, ok := b.(*types.TyEvidenceRow); ok {

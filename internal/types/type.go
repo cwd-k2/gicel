@@ -73,12 +73,22 @@ type RowField struct {
 	S     span.Span
 }
 
+// ToEvidence converts a TyRow to the unified TyEvidenceRow representation.
+func (r *TyRow) ToEvidence() *TyEvidenceRow {
+	return &TyEvidenceRow{Entries: &CapabilityEntries{Fields: r.Fields}, Tail: r.Tail, S: r.S}
+}
+
 // TyConstraintRow is a constraint row type { C1 a, C2 b | tail? }.
 // Kind: KConstraint. Parallel to TyRow for capability rows.
 type TyConstraintRow struct {
 	Entries []ConstraintEntry
 	Tail    Type // nil = closed, TyVar or TyMeta = open
 	S       span.Span
+}
+
+// ToEvidence converts a TyConstraintRow to the unified TyEvidenceRow representation.
+func (r *TyConstraintRow) ToEvidence() *TyEvidenceRow {
+	return &TyEvidenceRow{Entries: &ConstraintEntries{Entries: r.Entries}, Tail: r.Tail, S: r.S}
 }
 
 // ConstraintEntry is a single class constraint in a constraint row.

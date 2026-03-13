@@ -148,11 +148,12 @@ func TestUnifyConstraintRowOpenClosed(t *testing.T) {
 	}
 	// c should be solved to { Ord Int }.
 	solnC := u.Zonk(m)
-	rc, ok := solnC.(*types.TyConstraintRow)
+	rc, ok := solnC.(*types.TyEvidenceRow)
 	if !ok {
-		t.Fatalf("c should be TyConstraintRow, got %T: %s", solnC, types.Pretty(solnC))
+		t.Fatalf("c should be TyEvidenceRow, got %T: %s", solnC, types.Pretty(solnC))
 	}
-	if len(rc.Entries) != 1 || rc.Entries[0].ClassName != "Ord" {
+	ce := rc.Entries.(*types.ConstraintEntries)
+	if len(ce.Entries) != 1 || ce.Entries[0].ClassName != "Ord" {
 		t.Errorf("c should be {Ord Int}, got %s", types.Pretty(rc))
 	}
 }
