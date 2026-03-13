@@ -17,26 +17,8 @@ type CtxTyVar struct {
 	Kind types.Kind
 }
 
-type CtxMeta struct {
-	ID   int
-	Kind types.Kind
-}
-
-type CtxSolved struct {
-	ID   int
-	Kind types.Kind
-	Soln types.Type
-}
-
-type CtxMarker struct {
-	ID int
-}
-
-func (*CtxVar) ctxEntry()    {}
-func (*CtxTyVar) ctxEntry()  {}
-func (*CtxMeta) ctxEntry()   {}
-func (*CtxSolved) ctxEntry() {}
-func (*CtxMarker) ctxEntry() {}
+func (*CtxVar) ctxEntry()   {}
+func (*CtxTyVar) ctxEntry() {}
 
 // Context is an ordered typing context (DK-style).
 type Context struct {
@@ -78,16 +60,3 @@ func (c *Context) LookupTyVar(name string) (types.Kind, bool) {
 	return nil, false
 }
 
-// Apply walks the context and substitutes all solved metavariables in a type.
-func (c *Context) Apply(t types.Type) types.Type {
-	for _, e := range c.entries {
-		if s, ok := e.(*CtxSolved); ok {
-			t = types.Subst(t, metaName(s.ID), s.Soln)
-		}
-	}
-	return t
-}
-
-func metaName(id int) string {
-	return ""
-}

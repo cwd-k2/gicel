@@ -13,8 +13,11 @@ type Code int
 // --- Error codes ---
 // Lex errors (E0001–E0099)
 const (
-	ErrUnexpectedChar Code = 1  // unexpected character in source
-	ErrUnterminatedStr Code = 2  // unterminated string literal
+	ErrUnexpectedChar  Code = 1 // unexpected character in source
+	ErrUnterminatedStr Code = 2 // unterminated string literal
+	ErrBadEscape       Code = 3 // unknown escape sequence
+	ErrUnterminatedLit Code = 4 // unterminated literal
+	ErrEmptyRuneLit    Code = 5 // empty rune literal
 )
 
 // Parse errors (E0100–E0199)

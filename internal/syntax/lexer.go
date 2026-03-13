@@ -187,7 +187,7 @@ func (l *Lexer) scanToken() Token {
 	// Unknown character
 	l.pos += utf8.RuneLen(ch)
 	l.errors.Add(&errs.Error{
-		Code:    1,
+		Code:    errs.ErrUnexpectedChar,
 		Phase:   errs.PhaseLex,
 		Span:    span.Span{Start: span.Pos(start), End: span.Pos(l.pos)},
 		Message: "unexpected character",
@@ -232,7 +232,7 @@ func (l *Lexer) skipWhitespaceAndComments() {
 			}
 			if depth > 0 {
 				l.errors.Add(&errs.Error{
-					Code:    2,
+					Code:    errs.ErrUnterminatedStr,
 					Phase:   errs.PhaseLex,
 					Span:    span.Span{Start: span.Pos(l.pos), End: span.Pos(l.pos)},
 					Message: "unterminated block comment",
@@ -310,7 +310,7 @@ func (l *Lexer) scanString() Token {
 				buf = append(buf, 0)
 			default:
 				l.errors.Add(&errs.Error{
-					Code:    3,
+					Code:    errs.ErrBadEscape,
 					Phase:   errs.PhaseLex,
 					Span:    span.Span{Start: span.Pos(l.pos - 2), End: span.Pos(l.pos)},
 					Message: "unknown escape sequence",
@@ -326,7 +326,7 @@ func (l *Lexer) scanString() Token {
 		l.pos++
 	}
 	l.errors.Add(&errs.Error{
-		Code:    4,
+		Code:    errs.ErrUnterminatedLit,
 		Phase:   errs.PhaseLex,
 		Span:    span.Span{Start: span.Pos(start), End: span.Pos(l.pos)},
 		Message: "unterminated string literal",
@@ -342,7 +342,7 @@ func (l *Lexer) scanRune(start int) Token {
 	l.pos++ // skip opening '\''
 	if l.pos >= len(l.source.Text) || l.source.Text[l.pos] == '\'' {
 		l.errors.Add(&errs.Error{
-			Code:    5,
+			Code:    errs.ErrEmptyRuneLit,
 			Phase:   errs.PhaseLex,
 			Span:    span.Span{Start: span.Pos(start), End: span.Pos(l.pos)},
 			Message: "empty rune literal",
@@ -362,7 +362,7 @@ func (l *Lexer) scanRune(start int) Token {
 		l.pos++
 		if l.pos >= len(l.source.Text) {
 			l.errors.Add(&errs.Error{
-				Code:    4,
+				Code:    errs.ErrUnterminatedLit,
 				Phase:   errs.PhaseLex,
 				Span:    span.Span{Start: span.Pos(start), End: span.Pos(l.pos)},
 				Message: "unterminated rune literal",
@@ -388,7 +388,7 @@ func (l *Lexer) scanRune(start int) Token {
 			r = 0
 		default:
 			l.errors.Add(&errs.Error{
-				Code:    3,
+				Code:    errs.ErrBadEscape,
 				Phase:   errs.PhaseLex,
 				Span:    span.Span{Start: span.Pos(l.pos - 2), End: span.Pos(l.pos)},
 				Message: "unknown escape sequence",
@@ -402,7 +402,7 @@ func (l *Lexer) scanRune(start int) Token {
 
 	if l.pos >= len(l.source.Text) || l.source.Text[l.pos] != '\'' {
 		l.errors.Add(&errs.Error{
-			Code:    4,
+			Code:    errs.ErrUnterminatedLit,
 			Phase:   errs.PhaseLex,
 			Span:    span.Span{Start: span.Pos(start), End: span.Pos(l.pos)},
 			Message: "unterminated rune literal",

@@ -12,6 +12,7 @@ package gomputation
 import (
 	"context"
 	"fmt"
+	"maps"
 
 	"github.com/cwd-k2/gomputation/internal/check"
 	"github.com/cwd-k2/gomputation/internal/core"
@@ -294,10 +295,10 @@ func (e *Engine) makeCheckConfig() *check.CheckConfig {
 		imported[name] = mod.exports
 	}
 	return &check.CheckConfig{
-		RegisteredTypes: copyKindMap(e.registeredTys),
-		Assumptions:     copyTypeMap(e.assumptions),
-		Bindings:        copyTypeMap(e.bindings),
-		GatedBuiltins:   copyBoolMap(e.gatedBuiltins),
+		RegisteredTypes: maps.Clone(e.registeredTys),
+		Assumptions:     maps.Clone(e.assumptions),
+		Bindings:        maps.Clone(e.bindings),
+		GatedBuiltins:   maps.Clone(e.gatedBuiltins),
 		Trace:           e.checkTraceHook,
 		ImportedModules: imported,
 	}
@@ -403,8 +404,8 @@ func (e *Engine) NewRuntime(source string) (*Runtime, error) {
 		stepLimit:     e.stepLimit,
 		depthLimit:    e.depthLimit,
 		traceHook:     e.traceHook,
-		bindings:      copyTypeMap(e.bindings),
-		gatedBuiltins: copyBoolMap(e.gatedBuiltins),
+		bindings:      maps.Clone(e.bindings),
+		gatedBuiltins: maps.Clone(e.gatedBuiltins),
 		moduleProgs:   modProgs,
 	}, nil
 }
@@ -619,26 +620,3 @@ func (r *Runtime) RunContextFull(ctx context.Context, caps map[string]any, bindi
 	return &RunResultFull{Value: result.Value, CapEnv: result.CapEnv, Stats: stats}, nil
 }
 
-func copyTypeMap(m map[string]types.Type) map[string]types.Type {
-	c := make(map[string]types.Type, len(m))
-	for k, v := range m {
-		c[k] = v
-	}
-	return c
-}
-
-func copyKindMap(m map[string]types.Kind) map[string]types.Kind {
-	c := make(map[string]types.Kind, len(m))
-	for k, v := range m {
-		c[k] = v
-	}
-	return c
-}
-
-func copyBoolMap(m map[string]bool) map[string]bool {
-	c := make(map[string]bool, len(m))
-	for k, v := range m {
-		c[k] = v
-	}
-	return c
-}
