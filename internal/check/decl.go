@@ -212,6 +212,10 @@ func decomposeConSig(ty types.Type) (fields []types.Type, ret types.Type) {
 			fields = append(fields, t.From)
 			ty = t.To
 			continue
+		case *types.TyEvidence:
+			// Evidence constraints become implicit dict fields at runtime.
+			ty = t.Body
+			continue
 		case *types.TyQual:
 			// Constraints become implicit dict fields at runtime.
 			ty = t.Body

@@ -173,6 +173,39 @@ func (ch *Checker) check(expr syntax.Expr, expected types.Type) core.Core {
 		return &core.TyLam{TyParam: f.Var, Kind: f.Kind, Body: bodyCore, S: expr.Span()}
 	}
 
+	// If the expected type is a TyEvidence, introduce implicit dict parameters
+	// for each constraint entry.
+	//   ⟦ e : { C1 a, C2 b } => T ⟧ = Lam($d1, Lam($d2, ⟦e : T⟧))
+	if ev, ok := expected.(*types.TyEvidence); ok {
+		type dictInfo struct {
+			param string
+			ty    types.Type
+		}
+		dicts := make([]dictInfo, len(ev.Constraints.Entries))
+		for i, entry := range ev.Constraints.Entries {
+			dictParam := fmt.Sprintf("$d_%s_%d", entry.ClassName, ch.fresh())
+			dictTy := ch.buildDictType(entry.ClassName, entry.Args)
+			dicts[i] = dictInfo{param: dictParam, ty: dictTy}
+			ch.ctx.Push(&CtxVar{Name: dictParam, Type: dictTy})
+			ch.ctx.Push(&CtxEvidence{
+				ClassName: entry.ClassName,
+				Args:      entry.Args,
+				DictName:  dictParam,
+				DictType:  dictTy,
+			})
+		}
+		bodyCore := ch.check(expr, ev.Body)
+		bodyCore = ch.resolveDeferredConstraints(bodyCore)
+		for i := 0; i < len(dicts)*2; i++ {
+			ch.ctx.Pop()
+		}
+		// Wrap in Lam from last to first (innermost dict last).
+		for i := len(dicts) - 1; i >= 0; i-- {
+			bodyCore = &core.Lam{Param: dicts[i].param, ParamType: dicts[i].ty, Body: bodyCore, S: expr.Span()}
+		}
+		return bodyCore
+	}
+
 	// If the expected type is a TyQual, introduce an implicit dict parameter.
 	//   ⟦ e : C a => T ⟧ = Lam($d : C$Dict a, ⟦e : T⟧)
 	if q, ok := expected.(*types.TyQual); ok {
@@ -227,6 +260,23 @@ func (ch *Checker) subsCheck(inferred, expected types.Type, expr core.Core, s sp
 		body := types.Subst(f.Body, f.Var, meta)
 		expr = &core.TyApp{Expr: expr, TyArg: meta, S: s}
 		return ch.subsCheck(body, expected, expr, s)
+	}
+
+	// Inferred { C1, C2 } => A ≤ B  →  defer all constraints, check A ≤ B
+	if ev, ok := inferred.(*types.TyEvidence); ok {
+		groupID := ch.fresh()
+		for _, entry := range ev.Constraints.Entries {
+			placeholder := fmt.Sprintf("$dict_%d", ch.fresh())
+			ch.deferred = append(ch.deferred, deferredConstraint{
+				placeholder: placeholder,
+				className:   entry.ClassName,
+				args:        entry.Args,
+				s:           s,
+				group:       groupID,
+			})
+			expr = &core.App{Fun: expr, Arg: &core.Var{Name: placeholder, S: s}, S: s}
+		}
+		return ch.subsCheck(ev.Body, expected, expr, s)
 	}
 
 	// Inferred C a => A ≤ B  →  resolve constraint, check A ≤ B
@@ -366,13 +416,20 @@ func (ch *Checker) checkPattern(pat syntax.Pattern, scrutTy types.Type) (core.Pa
 			}
 		}
 
-		// 4. Peel TyQual constraints — generate dict bindings and pattern args for existential constraints.
+		// 4. Peel constraints — generate dict bindings and pattern args for existential constraints.
 		for {
-			if q, ok := currentTy.(*types.TyQual); ok {
+			if ev, ok := currentTy.(*types.TyEvidence); ok {
+				for _, entry := range ev.Constraints.Entries {
+					dictParam := fmt.Sprintf("$d_%s_%d", entry.ClassName, ch.fresh())
+					dictTy := ch.buildDictType(entry.ClassName, entry.Args)
+					bindings[dictParam] = dictTy
+					args = append(args, &core.PVar{Name: dictParam, S: p.S})
+				}
+				currentTy = ev.Body
+			} else if q, ok := currentTy.(*types.TyQual); ok {
 				dictParam := fmt.Sprintf("$d_%s_%d", q.ClassName, ch.fresh())
 				dictTy := ch.buildDictType(q.ClassName, q.Args)
 				bindings[dictParam] = dictTy
-				// Add pattern variable for the dict arg (constructor stores it at runtime).
 				args = append(args, &core.PVar{Name: dictParam, S: p.S})
 				currentTy = q.Body
 			} else {
@@ -771,6 +828,22 @@ func (ch *Checker) instantiate(ty types.Type, expr core.Core) (types.Type, core.
 			expr = &core.TyApp{Expr: expr, TyArg: meta, S: expr.Span()}
 			continue
 		}
+		if ev, ok := ty.(*types.TyEvidence); ok {
+			groupID := ch.fresh()
+			for _, entry := range ev.Constraints.Entries {
+				placeholder := fmt.Sprintf("$dict_%d", ch.fresh())
+				ch.deferred = append(ch.deferred, deferredConstraint{
+					placeholder: placeholder,
+					className:   entry.ClassName,
+					args:        entry.Args,
+					s:           expr.Span(),
+					group:       groupID,
+				})
+				expr = &core.App{Fun: expr, Arg: &core.Var{Name: placeholder, S: expr.Span()}, S: expr.Span()}
+			}
+			ty = ev.Body
+			continue
+		}
 		if q, ok := ty.(*types.TyQual); ok {
 			// Insert a placeholder for the dict arg. It will be resolved
 			// after type inference when metas are solved.
@@ -851,7 +924,23 @@ func (ch *Checker) resolveTypeExpr(texpr syntax.TypeExpr) types.Type {
 		// Decompose constraint: Eq a → className="Eq", args=[a]
 		head, args := types.UnwindApp(constraint)
 		if con, ok := head.(*types.TyCon); ok {
-			return &types.TyQual{ClassName: con.Name, Args: args, Body: body, S: t.S}
+			entry := types.ConstraintEntry{ClassName: con.Name, Args: args, S: t.S}
+			// Fold chained constraints into a single TyEvidence.
+			if ev, ok := body.(*types.TyEvidence); ok {
+				entries := make([]types.ConstraintEntry, 0, 1+len(ev.Constraints.Entries))
+				entries = append(entries, entry)
+				entries = append(entries, ev.Constraints.Entries...)
+				return &types.TyEvidence{
+					Constraints: &types.TyConstraintRow{Entries: entries},
+					Body:        ev.Body,
+					S:           t.S,
+				}
+			}
+			return &types.TyEvidence{
+				Constraints: types.SingleConstraint(con.Name, args),
+				Body:        body,
+				S:           t.S,
+			}
 		}
 		ch.addCodedError(errs.ErrNoInstance, t.S, fmt.Sprintf("invalid constraint: %s", types.Pretty(constraint)))
 		return body
