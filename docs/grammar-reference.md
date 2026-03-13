@@ -593,7 +593,6 @@ data Result e a = Ok a | Err e
 data Pair a b = Pair a b
 data Maybe a = Just a | Nothing
 data List a = Cons a (List a) | Nil
-type Effect r a = Computation r r a
 ```
 
 ### Type Classes
@@ -612,21 +611,56 @@ class Functor f => Applicative f {
 class Functor t => Foldable t => Traversable t {
   traverse :: forall f a b. Applicative f => (a -> f b) -> t a -> f (t b)
 }
+class IxMonad (m : Row -> Row -> Type -> Type) {
+  ixpure :: forall a (r : Row). a -> m r r a;
+  ixbind :: forall a b (r1 : Row) (r2 : Row) (r3 : Row).
+              m r1 r2 a -> (a -> m r2 r3 b) -> m r1 r3 b
+}
+```
+
+### Type Aliases
+
+```
+type Effect r a = Computation r r a
+type Lift (m : Type -> Type) (r1 : Row) (r2 : Row) a = m a
+```
+
+### Functions
+
+```
+then :: forall a b (r1 : Row) (r2 : Row) (r3 : Row).
+  Computation r1 r2 a -> Computation r2 r3 b -> Computation r1 r3 b
 ```
 
 ### Instances
 
 ```
+-- IxMonad
+instance IxMonad Computation    -- uses built-in pure/bind
+instance IxMonad Maybe          instance IxMonad List
+
+-- Eq
 instance Eq Bool          instance Eq Unit
 instance Eq Ordering      instance Eq a => Eq (Maybe a)
 instance Eq a => Eq b => Eq (Pair a b)
+instance Eq a => Eq (List a)
+
+-- Ord
 instance Ord Bool         instance Ord Unit
 instance Ord Ordering     instance Ord a => Ord (Maybe a)
 instance Ord a => Ord b => Ord (Pair a b)
-instance Semigroup Unit   instance Semigroup Ordering
-instance Monoid Unit      instance Monoid Ordering
-instance Functor Maybe    instance Functor (Pair a)
-instance Foldable Maybe   instance Foldable (Pair a)
+
+-- Semigroup / Monoid
+instance Semigroup Unit        instance Semigroup Ordering
+instance Semigroup (List a)
+instance Monoid Unit           instance Monoid Ordering
+instance Monoid (List a)
+
+-- Functor / Foldable / Applicative / Traversable
+instance Functor Maybe         instance Functor (Pair a)
+instance Functor List
+instance Foldable Maybe        instance Foldable (Pair a)
+instance Foldable List
 instance Applicative Maybe
-instance Traversable Maybe  instance Traversable (Pair a)
+instance Traversable Maybe     instance Traversable (Pair a)
 ```
