@@ -11,28 +11,44 @@ import (
 	"github.com/cwd-k2/gomputation/internal/types"
 )
 
-// addUnifyError maps a unification error to the appropriate structured error code.
-// If the error is not a *UnifyError, it falls back to ErrTypeMismatch.
-func (ch *Checker) addUnifyError(err error, s span.Span, ctx string) {
+// unifyErrorCode maps a UnifyError to the corresponding errs.Code.
+// Returns ErrTypeMismatch for non-UnifyError or general mismatch.
+func unifyErrorCode(err error) errs.Code {
 	ue, ok := err.(*UnifyError)
 	if !ok {
-		ch.addCodedError(errs.ErrTypeMismatch, s, ctx+": "+err.Error())
-		return
+		return errs.ErrTypeMismatch
 	}
-	var code errs.Code
 	switch ue.Kind {
 	case UnifyOccursCheck:
-		code = errs.ErrOccursCheck
+		return errs.ErrOccursCheck
 	case UnifyDupLabel:
-		code = errs.ErrDuplicateLabel
+		return errs.ErrDuplicateLabel
 	case UnifyRowMismatch:
-		code = errs.ErrRowMismatch
+		return errs.ErrRowMismatch
 	case UnifySkolemRigid:
-		code = errs.ErrSkolemRigid
+		return errs.ErrSkolemRigid
 	default:
-		code = errs.ErrTypeMismatch
+		return errs.ErrTypeMismatch
 	}
-	ch.addCodedError(code, s, ctx+": "+ue.Detail)
+}
+
+// addUnifyError maps a unification error to the appropriate structured error code.
+// Used at general type-mismatch sites where the UnifyError kind IS the primary diagnosis.
+func (ch *Checker) addUnifyError(err error, s span.Span, ctx string) {
+	ch.addCodedError(unifyErrorCode(err), s, ctx+": "+err.Error())
+}
+
+// addSemanticUnifyError reports a unification failure with a semantic error code.
+// For simple mismatches, the semantic code and message are used as-is.
+// For specific failures (occurs check, skolem rigidity, etc.), the underlying
+// unification error overrides the semantic code — it reveals the root cause.
+func (ch *Checker) addSemanticUnifyError(semanticCode errs.Code, err error, s span.Span, ctx string) {
+	code := unifyErrorCode(err)
+	if code == errs.ErrTypeMismatch {
+		ch.addCodedError(semanticCode, s, ctx)
+		return
+	}
+	ch.addCodedError(code, s, ctx+": "+err.Error())
 }
 
 // infer produces a type for an expression and a Core IR node.
@@ -729,7 +745,7 @@ func (ch *Checker) extractMonadResult(ty types.Type, monadHead types.Type, s spa
 	result := ch.freshMeta(types.KType{})
 	headApp := &types.TyApp{Fun: monadHead, Arg: result}
 	if err := ch.unifier.Unify(ty, headApp); err != nil {
-		ch.addCodedError(errs.ErrBadComputation, s, fmt.Sprintf("expected %s type, got %s",
+		ch.addSemanticUnifyError(errs.ErrBadComputation, err, s, fmt.Sprintf("expected %s type, got %s",
 			types.Pretty(monadHead), types.Pretty(ty)))
 		return &types.TyError{S: s}
 	}
@@ -832,7 +848,7 @@ func (ch *Checker) extractCompResult(ty types.Type, s span.Span) types.Type {
 	result := ch.freshMeta(types.KType{})
 	expected := types.MkComp(pre, post, result)
 	if err := ch.unifier.Unify(ty, expected); err != nil {
-		ch.addCodedError(errs.ErrBadComputation, s, fmt.Sprintf("expected computation type, got %s", types.Pretty(ty)))
+		ch.addSemanticUnifyError(errs.ErrBadComputation, err, s, fmt.Sprintf("expected computation type, got %s", types.Pretty(ty)))
 		return &types.TyError{S: s}
 	}
 	return result
@@ -847,7 +863,7 @@ func (ch *Checker) matchArrow(ty types.Type, s span.Span) (types.Type, types.Typ
 	argTy := ch.freshMeta(types.KType{})
 	retTy := ch.freshMeta(types.KType{})
 	if err := ch.unifier.Unify(ty, types.MkArrow(argTy, retTy)); err != nil {
-		ch.addCodedError(errs.ErrBadApplication, s, fmt.Sprintf("expected function type, got %s", types.Pretty(ty)))
+		ch.addSemanticUnifyError(errs.ErrBadApplication, err, s, fmt.Sprintf("expected function type, got %s", types.Pretty(ty)))
 	}
 	return argTy, retTy
 }
@@ -1147,7 +1163,7 @@ func (ch *Checker) inferBind(compExpr, contExpr syntax.Expr, s span.Span) (types
 	r2 := ch.freshMeta(types.KRow{})
 	a := ch.freshMeta(types.KType{})
 	if err := ch.unifier.Unify(compTy, types.MkComp(r1, r2, a)); err != nil {
-		ch.addCodedError(errs.ErrBadComputation, compExpr.Span(), fmt.Sprintf("bind: first argument must be a computation, got %s", types.Pretty(compTy)))
+		ch.addSemanticUnifyError(errs.ErrBadComputation, err, compExpr.Span(), fmt.Sprintf("bind: first argument must be a computation, got %s", types.Pretty(compTy)))
 		return ch.errorPair(s)
 	}
 
@@ -1204,7 +1220,7 @@ func (ch *Checker) inferThunk(e *syntax.ExprApp) (types.Type, core.Core) {
 	result := ch.freshMeta(types.KType{})
 	expected := types.MkComp(pre, post, result)
 	if err := ch.unifier.Unify(argTy, expected); err != nil {
-		ch.addCodedError(errs.ErrBadThunk, e.S, fmt.Sprintf("thunk requires a computation argument, got %s", types.Pretty(argTy)))
+		ch.addSemanticUnifyError(errs.ErrBadThunk, err, e.S, fmt.Sprintf("thunk requires a computation argument, got %s", types.Pretty(argTy)))
 		return &types.TyError{S: e.S}, &core.Thunk{Comp: argCore, S: e.S}
 	}
 	resultTy := types.MkThunk(
@@ -1236,7 +1252,7 @@ func (ch *Checker) inferForce(e *syntax.ExprApp) (types.Type, core.Core) {
 	result := ch.freshMeta(types.KType{})
 	expected := types.MkThunk(pre, post, result)
 	if err := ch.unifier.Unify(argTy, expected); err != nil {
-		ch.addCodedError(errs.ErrBadThunk, e.S, fmt.Sprintf("force requires a thunk argument, got %s", types.Pretty(argTy)))
+		ch.addSemanticUnifyError(errs.ErrBadThunk, err, e.S, fmt.Sprintf("force requires a thunk argument, got %s", types.Pretty(argTy)))
 		return &types.TyError{S: e.S}, &core.Force{Expr: argCore, S: e.S}
 	}
 	resultTy := types.MkComp(

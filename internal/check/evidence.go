@@ -69,7 +69,8 @@ func (ch *Checker) classifyEvidence(
 			if len(a.args) != len(w.args) {
 				continue
 			}
-			// Try to match by unifying args.
+			// Try to match by unifying args (trial unification with rollback).
+			saved := ch.saveUnifierState()
 			allMatch := true
 			for j := range w.args {
 				wArg := ch.unifier.Zonk(w.args[j])
@@ -79,15 +80,17 @@ func (ch *Checker) classifyEvidence(
 					break
 				}
 			}
-			if allMatch {
-				matched = append(matched, resolvedEvidence{
-					placeholder: w.placeholder,
-					dictExpr:    a.dictExpr,
-				})
-				availUsed[ai] = true
-				found = true
-				break
+			if !allMatch {
+				ch.restoreUnifierState(saved)
+				continue
 			}
+			matched = append(matched, resolvedEvidence{
+				placeholder: w.placeholder,
+				dictExpr:    a.dictExpr,
+			})
+			availUsed[ai] = true
+			found = true
+			break
 		}
 		if !found {
 			unmatched = append(unmatched, w)

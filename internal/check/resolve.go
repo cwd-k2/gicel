@@ -218,11 +218,7 @@ func (ch *Checker) applyQuantifiedEvidence(e *CtxEvidence, className string, arg
 	}
 
 	// Try to unify head args with wanted args.
-	// Save unifier state so we can roll back on failure.
-	savedSoln := make(map[int]types.Type)
-	for k, v := range ch.unifier.Solutions() {
-		savedSoln[k] = v
-	}
+	saved := ch.saveUnifierState()
 
 	allMatched := true
 	for i := range args {
@@ -234,15 +230,7 @@ func (ch *Checker) applyQuantifiedEvidence(e *CtxEvidence, className string, arg
 	}
 
 	if !allMatched {
-		// Roll back unification changes.
-		for k := range ch.unifier.Solutions() {
-			if _, existed := savedSoln[k]; !existed {
-				delete(ch.unifier.Solutions(), k)
-			}
-		}
-		for k, v := range savedSoln {
-			ch.unifier.Solutions()[k] = v
-		}
+		ch.restoreUnifierState(saved)
 		return nil
 	}
 

@@ -95,7 +95,7 @@ func (ch *Checker) processInstanceHeader(d *syntax.DeclInstance) *InstanceInfo {
 		if ctx.ClassName == d.ClassName && len(ctx.Args) == len(typeArgs) {
 			selfCycle := true
 			for i := range ctx.Args {
-				if types.Pretty(ctx.Args[i]) != types.Pretty(typeArgs[i]) {
+				if !types.Equal(ctx.Args[i], typeArgs[i]) {
 					selfCycle = false
 					break
 				}
@@ -104,6 +104,7 @@ func (ch *Checker) processInstanceHeader(d *syntax.DeclInstance) *InstanceInfo {
 				ch.addCodedError(errs.ErrBadInstance, d.S,
 					fmt.Sprintf("instance %s: self-referential context (instance requires itself)",
 						d.ClassName))
+				return nil
 			}
 		}
 	}
@@ -161,7 +162,7 @@ func (ch *Checker) processInstanceHeader(d *syntax.DeclInstance) *InstanceInfo {
 			ch.addCodedError(errs.ErrOverlap, d.S,
 				fmt.Sprintf("overlapping instances for class %s: %s and %s",
 					d.ClassName, existing.DictBindName, dictName))
-			break
+			return nil
 		}
 	}
 
@@ -302,22 +303,8 @@ func typeNameForDict(ty types.Type) string {
 // using trial unification with fresh metavariables. The unifier state is saved
 // and restored so no side effects persist.
 func (ch *Checker) instancesOverlap(a, b *InstanceInfo) bool {
-	// Save unifier state.
-	savedSoln := make(map[int]types.Type)
-	for k, v := range ch.unifier.Solutions() {
-		savedSoln[k] = v
-	}
-	defer func() {
-		// Roll back unification changes.
-		for k := range ch.unifier.Solutions() {
-			if _, existed := savedSoln[k]; !existed {
-				delete(ch.unifier.Solutions(), k)
-			}
-		}
-		for k, v := range savedSoln {
-			ch.unifier.Solutions()[k] = v
-		}
-	}()
+	saved := ch.saveUnifierState()
+	defer ch.restoreUnifierState(saved)
 
 	substA := ch.freshInstanceSubst(a)
 	substB := ch.freshInstanceSubst(b)

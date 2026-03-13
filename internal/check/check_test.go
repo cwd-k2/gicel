@@ -989,6 +989,53 @@ instance Eq a => Eq (Maybe a) {
 	checkSource(t, source, nil)
 }
 
+func TestParametricOverlappingInstances(t *testing.T) {
+	// instance Eq (Maybe a) overlaps with instance Eq (Maybe Bool).
+	source := `data Bool = True | False
+data Maybe a = Nothing | Just a
+class Eq a { eq :: a -> a -> Bool }
+instance Eq a => Eq (Maybe a) {
+  eq := \x y -> case x of {
+    Nothing -> case y of { Nothing -> True; Just _ -> False };
+    Just a  -> case y of { Nothing -> False; Just b -> eq a b }
+  }
+}
+instance Eq (Maybe Bool) {
+  eq := \_ _ -> True
+}`
+	checkSourceExpectCode(t, source, nil, errs.ErrOverlap)
+}
+
+func TestSelfCycleCompoundType(t *testing.T) {
+	// instance Eq (Maybe a) => Eq (Maybe a) is a self-cycle with compound types.
+	source := `data Bool = True | False
+data Maybe a = Nothing | Just a
+class Eq a { eq :: a -> a -> Bool }
+instance Eq (Maybe a) => Eq (Maybe a) { eq := \x y -> True }`
+	checkSourceExpectCode(t, source, nil, errs.ErrBadInstance)
+}
+
+func TestOverlapBlocksRegistration(t *testing.T) {
+	// Overlapping instance should NOT be registered — resolution should fail
+	// with "no instance" rather than silently picking one.
+	source := `data Bool = True | False
+class Eq a { eq :: a -> a -> Bool }
+instance Eq Bool { eq := \x y -> case x of { True -> y; False -> case y of { True -> False; False -> True } } }
+instance Eq Bool { eq := \x y -> True }
+main := eq True False`
+	// We expect ErrOverlap from the duplicate instance declaration.
+	// The second instance is rejected, so resolution uses the first — no ambiguity.
+	checkSourceExpectCode(t, source, nil, errs.ErrOverlap)
+}
+
+func TestSelfCycleBlocksRegistration(t *testing.T) {
+	// Self-cycle should not be registered — no cascading errors from resolution.
+	source := `data Bool = True | False
+class Eq a { eq :: a -> a -> Bool }
+instance Eq a => Eq a { eq := \x y -> True }`
+	checkSourceExpectCode(t, source, nil, errs.ErrBadInstance)
+}
+
 func BenchmarkZonkDeepChain(b *testing.B) {
 	u := NewUnifier()
 	// Build a deep TyApp chain with no metavariables.

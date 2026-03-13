@@ -296,6 +296,27 @@ func (ch *Checker) errorPair(s span.Span) (types.Type, core.Core) {
 	return &types.TyError{S: s}, &core.Var{Name: "<error>", S: s}
 }
 
+// saveUnifierState snapshots the unifier's solution map for later rollback.
+func (ch *Checker) saveUnifierState() map[int]types.Type {
+	saved := make(map[int]types.Type, len(ch.unifier.Solutions()))
+	for k, v := range ch.unifier.Solutions() {
+		saved[k] = v
+	}
+	return saved
+}
+
+// restoreUnifierState rolls back the unifier to a previously saved snapshot.
+func (ch *Checker) restoreUnifierState(saved map[int]types.Type) {
+	for k := range ch.unifier.Solutions() {
+		if _, existed := saved[k]; !existed {
+			delete(ch.unifier.Solutions(), k)
+		}
+	}
+	for k, v := range saved {
+		ch.unifier.Solutions()[k] = v
+	}
+}
+
 func (ch *Checker) addCodedError(code errs.Code, s span.Span, msg string) {
 	ch.errors.Add(&errs.Error{
 		Code:    code,
