@@ -10,7 +10,7 @@ import (
 )
 
 func newTestEval() *Evaluator {
-	return NewEvaluator(context.Background(), NewPrimRegistry(), DefaultLimit(), nil)
+	return NewEvaluator(context.Background(), NewPrimRegistry(), DefaultLimit(), nil, nil)
 }
 
 func TestEvalVar(t *testing.T) {
@@ -119,7 +119,7 @@ func TestEvalPrimOp(t *testing.T) {
 	prims.Register("id", func(ctx context.Context, cap CapEnv, args []Value, _ Applier) (Value, CapEnv, error) {
 		return args[0], cap, nil
 	})
-	ev := NewEvaluator(context.Background(), prims, DefaultLimit(), nil)
+	ev := NewEvaluator(context.Background(), prims, DefaultLimit(), nil, nil)
 	term := &core.PrimOp{
 		Name: "id",
 		Args: []core.Core{&core.Con{Name: "Unit"}},
@@ -139,7 +139,7 @@ func TestEvalCapEnvThreading(t *testing.T) {
 	prims.Register("setFoo", func(ctx context.Context, cap CapEnv, args []Value, _ Applier) (Value, CapEnv, error) {
 		return &ConVal{Con: "Unit"}, cap.Set("foo", "bar"), nil
 	})
-	ev := NewEvaluator(context.Background(), prims, DefaultLimit(), nil)
+	ev := NewEvaluator(context.Background(), prims, DefaultLimit(), nil, nil)
 	// Bind(PrimOp("setFoo"), "_", Pure(Con("Unit")))
 	term := &core.Bind{
 		Comp: &core.PrimOp{Name: "setFoo"},
@@ -157,7 +157,7 @@ func TestEvalCapEnvThreading(t *testing.T) {
 }
 
 func TestStepLimit(t *testing.T) {
-	ev := NewEvaluator(context.Background(), NewPrimRegistry(), NewLimit(3, 100), nil)
+	ev := NewEvaluator(context.Background(), NewPrimRegistry(), NewLimit(3, 100), nil, nil)
 	// A chain: App(App(Lam, Lam), Con) — will exceed 3 steps
 	term := &core.App{
 		Fun: &core.Lam{Param: "f",
@@ -174,7 +174,7 @@ func TestStepLimit(t *testing.T) {
 func TestContextCancellation(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel() // cancel immediately
-	ev := NewEvaluator(ctx, NewPrimRegistry(), DefaultLimit(), nil)
+	ev := NewEvaluator(ctx, NewPrimRegistry(), DefaultLimit(), nil, nil)
 	_, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), &core.Con{Name: "Unit"})
 	if !errors.Is(err, context.Canceled) {
 		t.Errorf("expected context.Canceled, got %v", err)
@@ -192,7 +192,7 @@ func TestTraceHook(t *testing.T) {
 		}
 		return nil
 	}
-	ev := NewEvaluator(context.Background(), NewPrimRegistry(), DefaultLimit(), hook)
+	ev := NewEvaluator(context.Background(), NewPrimRegistry(), DefaultLimit(), hook, nil)
 	term := &core.Pure{Expr: &core.Con{Name: "Unit"}}
 	_, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), term)
 	if err != nil {
@@ -368,7 +368,7 @@ func TestAllocLimit(t *testing.T) {
 	// A tight alloc limit should stop evaluation before producing large structures.
 	limit := NewLimit(1_000_000, 1_000)
 	limit.SetAllocLimit(100) // 100 bytes — enough for a few small values
-	ev := NewEvaluator(context.Background(), NewPrimRegistry(), limit, nil)
+	ev := NewEvaluator(context.Background(), NewPrimRegistry(), limit, nil, nil)
 
 	// Build a 10-field record: costRecBase(56) + costRecFld(32)*10 = 376 bytes > 100
 	fields := make([]core.RecordField, 10)
@@ -418,7 +418,7 @@ func TestBindForceEffectfulBody(t *testing.T) {
 	prims.Register("setFoo", func(ctx context.Context, cap CapEnv, args []Value, _ Applier) (Value, CapEnv, error) {
 		return &ConVal{Con: "Unit"}, cap.Set("foo", "done"), nil
 	})
-	ev := NewEvaluator(context.Background(), prims, DefaultLimit(), nil)
+	ev := NewEvaluator(context.Background(), prims, DefaultLimit(), nil, nil)
 	term := &core.Bind{
 		Comp: &core.Pure{Expr: &core.Con{Name: "Unit"}},
 		Var:  "_",
@@ -577,7 +577,7 @@ func TestThunkCapEnvMarkShared(t *testing.T) {
 
 func TestStepLimitBoundary(t *testing.T) {
 	// NewLimit(n, ...) allows exactly n eval steps.
-	ev := NewEvaluator(context.Background(), NewPrimRegistry(), NewLimit(2, 100), nil)
+	ev := NewEvaluator(context.Background(), NewPrimRegistry(), NewLimit(2, 100), nil, nil)
 	_, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), &core.Lit{Value: int64(42)})
 	if err != nil {
 		t.Fatalf("NewLimit(2): first eval should succeed, got %v", err)
@@ -594,7 +594,7 @@ func TestStepLimitBoundary(t *testing.T) {
 
 func TestDepthLimitBoundary(t *testing.T) {
 	// maxDepth=1: one level of function application should succeed.
-	ev := NewEvaluator(context.Background(), NewPrimRegistry(), NewLimit(1_000_000, 1), nil)
+	ev := NewEvaluator(context.Background(), NewPrimRegistry(), NewLimit(1_000_000, 1), nil, nil)
 	term := &core.App{
 		Fun: &core.Lam{Param: "x", Body: &core.Var{Name: "x"}},
 		Arg: &core.Con{Name: "Unit"},
@@ -609,7 +609,7 @@ func TestAllocLimitBoundary(t *testing.T) {
 	// allocLimit = costConBase: exactly one ConVal allocation should succeed.
 	limit := NewLimit(1_000_000, 1_000)
 	limit.SetAllocLimit(int64(costConBase))
-	ev := NewEvaluator(context.Background(), NewPrimRegistry(), limit, nil)
+	ev := NewEvaluator(context.Background(), NewPrimRegistry(), limit, nil, nil)
 	_, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), &core.Con{Name: "Unit"})
 	if err != nil {
 		t.Fatalf("allocLimit=costConBase: one ConVal should succeed, got %v", err)
@@ -619,7 +619,7 @@ func TestAllocLimitBoundary(t *testing.T) {
 func TestDepthLimitError(t *testing.T) {
 	// To stack depth, the *body* of a function must contain another application.
 	// Build: \x -> (\y -> y) x, applied to Unit → depth 2 (outer Enter + inner Enter).
-	ev := NewEvaluator(context.Background(), NewPrimRegistry(), NewLimit(1_000_000, 1), nil)
+	ev := NewEvaluator(context.Background(), NewPrimRegistry(), NewLimit(1_000_000, 1), nil, nil)
 	// (\x -> (\y -> y) x) Unit — body applies identity, giving depth=2.
 	term := &core.App{
 		Fun: &core.Lam{Param: "x", Body: &core.App{
@@ -656,14 +656,14 @@ func TestDepthLimitMultiLevel(t *testing.T) {
 	}
 
 	// maxDepth=5: chain of 5 should succeed.
-	ev := NewEvaluator(context.Background(), NewPrimRegistry(), NewLimit(1_000_000, 5), nil)
+	ev := NewEvaluator(context.Background(), NewPrimRegistry(), NewLimit(1_000_000, 5), nil, nil)
 	_, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), buildChain(5))
 	if err != nil {
 		t.Fatalf("depth-5 chain at maxDepth=5 should succeed, got: %v", err)
 	}
 
 	// Chain of 6 should fail.
-	ev2 := NewEvaluator(context.Background(), NewPrimRegistry(), NewLimit(1_000_000, 5), nil)
+	ev2 := NewEvaluator(context.Background(), NewPrimRegistry(), NewLimit(1_000_000, 5), nil, nil)
 	_, err = ev2.Eval(EmptyEnv(), EmptyCapEnv(), buildChain(6))
 	if _, ok := err.(*DepthLimitError); !ok {
 		t.Errorf("depth-6 chain at maxDepth=5 should fail with DepthLimitError, got %T: %v", err, err)
@@ -685,7 +685,7 @@ func TestLetRecDepthLimit(t *testing.T) {
 	}
 
 	// With maxDepth=5, 10 nested LetRecs should hit the depth limit.
-	ev := NewEvaluator(context.Background(), NewPrimRegistry(), NewLimit(1_000_000, 5), nil)
+	ev := NewEvaluator(context.Background(), NewPrimRegistry(), NewLimit(1_000_000, 5), nil, nil)
 	_, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), term)
 	if err == nil {
 		t.Fatal("expected DepthLimitError for deeply nested LetRec")
@@ -744,7 +744,7 @@ func TestTraceHookAbort(t *testing.T) {
 	sentinel := errors.New("abort from hook")
 	hook := func(ev TraceEvent) error { return sentinel }
 	limit := NewLimit(1_000_000, 1_000)
-	evl := NewEvaluator(context.Background(), NewPrimRegistry(), limit, hook)
+	evl := NewEvaluator(context.Background(), NewPrimRegistry(), limit, hook, nil)
 	_, err := evl.Eval(EmptyEnv(), EmptyCapEnv(), &core.Lit{Value: int64(1)})
 	if !errors.Is(err, sentinel) {
 		t.Errorf("expected sentinel error from hook, got %v", err)

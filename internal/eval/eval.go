@@ -3,6 +3,7 @@ package eval
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/cwd-k2/gicel/internal/core"
 )
@@ -26,16 +27,17 @@ type EvalResult struct {
 
 // Evaluator is the per-execution evaluation engine.
 type Evaluator struct {
-	ctx   context.Context
-	prims *PrimRegistry
-	limit *Limit
-	trace TraceHook
-	stats EvalStats
+	ctx     context.Context
+	prims   *PrimRegistry
+	limit   *Limit
+	trace   TraceHook
+	explain ExplainHook
+	stats   EvalStats
 }
 
 // NewEvaluator creates an Evaluator for a single execution.
-func NewEvaluator(ctx context.Context, prims *PrimRegistry, limit *Limit, trace TraceHook) *Evaluator {
-	return &Evaluator{ctx: ctx, prims: prims, limit: limit, trace: trace}
+func NewEvaluator(ctx context.Context, prims *PrimRegistry, limit *Limit, trace TraceHook, explain ExplainHook) *Evaluator {
+	return &Evaluator{ctx: ctx, prims: prims, limit: limit, trace: trace, explain: explain}
 }
 
 // Stats returns the accumulated statistics.
@@ -107,6 +109,16 @@ func (ev *Evaluator) Eval(env *Env, capEnv CapEnv, expr core.Core) (EvalResult, 
 		if err != nil {
 			return EvalResult{}, err
 		}
+		// Detect let-encoding: (\y -> body) expr → emit "y = value".
+		if ev.explain != nil {
+			if lam, ok := e.Fun.(*core.Lam); ok && lam.Param != "_" && !strings.HasPrefix(lam.Param, "$") {
+				ev.explain(ExplainStep{
+					Depth:   ev.limit.Depth(),
+					Kind:    ExplainBind,
+					Message: lam.Param + " = " + PrettyValue(argR.Value),
+				})
+			}
+		}
 		return ev.apply(argR.CapEnv, funR.Value, argR.Value, e)
 
 	case *core.TyApp:
@@ -141,6 +153,13 @@ func (ev *Evaluator) Eval(env *Env, capEnv CapEnv, expr core.Core) (EvalResult, 
 		for _, alt := range e.Alts {
 			bindings := Match(scrutR.Value, alt.Pattern)
 			if bindings != nil {
+				if ev.explain != nil && !isInternalPattern(alt.Pattern) {
+					msg := "match " + PrettyValue(scrutR.Value) + " → " + FormatPattern(alt.Pattern)
+					if bs := FormatBindings(bindings); bs != "" {
+						msg += "    " + bs
+					}
+					ev.explain(ExplainStep{Depth: ev.limit.Depth(), Kind: ExplainMatch, Message: msg})
+				}
 				altEnv := env.ExtendMany(bindings)
 				return ev.Eval(altEnv, scrutR.CapEnv, alt.Body)
 			}
@@ -198,6 +217,13 @@ func (ev *Evaluator) Eval(env *Env, capEnv CapEnv, expr core.Core) (EvalResult, 
 		compR, err = ev.ForceEffectful(compR)
 		if err != nil {
 			return EvalResult{}, err
+		}
+		if ev.explain != nil && e.Var != "_" && !strings.HasPrefix(e.Var, "$") {
+			ev.explain(ExplainStep{
+				Depth:   ev.limit.Depth(),
+				Kind:    ExplainBind,
+				Message: e.Var + " ← " + PrettyValue(compR.Value),
+			})
 		}
 		bodyEnv := env.Extend(e.Var, compR.Value)
 		if err := ev.limit.Enter(); err != nil {
@@ -362,6 +388,13 @@ func (ev *Evaluator) ForceEffectful(r EvalResult) (EvalResult, error) {
 	val, newCap, err := impl(ev.ctx, r.CapEnv, pv.Args, ev.applier())
 	if err != nil {
 		return EvalResult{}, err
+	}
+	if ev.explain != nil {
+		ev.explain(ExplainStep{
+			Depth:   ev.limit.Depth(),
+			Kind:    ExplainEffect,
+			Message: FormatEffect(pv.Name, pv.Args, val, r.CapEnv, newCap),
+		})
 	}
 	return EvalResult{val, newCap}, nil
 }

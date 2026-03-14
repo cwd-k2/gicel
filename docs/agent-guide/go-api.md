@@ -183,6 +183,7 @@ openRow := gicel.NewRow().And("state", gicel.ConType("Int")).Open("r")
 | `eng.NoPrelude()`                           | Disable automatic Prelude loading                                       |
 | `eng.SetPrelude(source string)`             | Replace default Prelude with custom source (CoreSource still prepended) |
 | `eng.SetTraceHook(hook)`                    | Set evaluation trace callback (hook returns error to abort)             |
+| `eng.SetExplainHook(hook)`                  | Set semantic explain callback (effects, binds, matches, result)         |
 | `eng.SetCheckTraceHook(hook)`               | Set type checking trace callback                                        |
 | `eng.RegisterModule(name, src)`             | Compile and register a custom module                                    |
 | `eng.NewRuntime(source) (*Runtime, error)`  | Compile source to Runtime                                               |
@@ -252,6 +253,29 @@ eng.SetTraceHook(func(event gicel.TraceEvent) error {
 | `CapEnv` | `CapEnv`    | Current capability environment                                 |
 
 Important: `TraceHook` has signature `func(TraceEvent) error` — returning a non-nil error aborts evaluation immediately. `Node` and `Env` are internal types; external users can inspect them via `fmt.Sprintf("%T", event.Node)` to see the Core IR node type (e.g., `*core.App`, `*core.Case`).
+
+**Semantic explain** (`SetExplainHook`):
+
+Unlike TraceHook (which fires on every internal evaluation step), ExplainHook fires only at semantically meaningful boundaries — what the program _does_, not how the evaluator works:
+
+```go
+eng.SetExplainHook(func(step gicel.ExplainStep) {
+    indent := strings.Repeat("  ", step.Depth)
+    fmt.Printf("%s%s\n", indent, step.Message)
+})
+```
+
+`ExplainStep` fields:
+
+| Field     | Type          | Description                       |
+| --------- | ------------- | --------------------------------- |
+| `Depth`   | `int`         | Call depth (for indentation)      |
+| `Kind`    | `ExplainKind` | Event type (see below)            |
+| `Message` | `string`      | Human-readable event description  |
+
+`ExplainKind` constants: `ExplainBind` (do-block bind), `ExplainMatch` (pattern match decision), `ExplainEffect` (effectful primitive), `ExplainResult` (final value).
+
+Values in messages use `PrettyValue` format — source-level terms, not internal representations (e.g., `(0, 1)` instead of `{ _1 = HostVal(0), _2 = HostVal(1) }`).
 
 **Type checking trace** (`SetCheckTraceHook`):
 

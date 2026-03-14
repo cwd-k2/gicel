@@ -45,6 +45,27 @@ type TraceEvent = eval.TraceEvent
 // TraceHook is called before each evaluation step.
 type TraceHook = eval.TraceHook
 
+// ExplainStep is a single semantic event during evaluation.
+type ExplainStep = eval.ExplainStep
+
+// ExplainHook receives semantic evaluation events.
+type ExplainHook = eval.ExplainHook
+
+// ExplainKind classifies semantic evaluation events.
+type ExplainKind = eval.ExplainKind
+
+// ExplainKind constants.
+const (
+	ExplainBind   = eval.ExplainBind
+	ExplainMatch  = eval.ExplainMatch
+	ExplainEffect = eval.ExplainEffect
+	ExplainLabel  = eval.ExplainLabel
+	ExplainResult = eval.ExplainResult
+)
+
+// PrettyValue formats a runtime value in source-level terms.
+func PrettyValue(v Value) string { return eval.PrettyValue(v) }
+
 // CheckTraceKind classifies type checking trace events.
 type CheckTraceKind = check.CheckTraceKind
 

@@ -218,7 +218,7 @@ func FuzzEvalLimits(f *testing.F) {
 
 		limit := eval.NewLimit(100_000, 200)
 		limit.SetAllocLimit(64 * 1024) // 64 KiB
-		ev := eval.NewEvaluator(context.Background(), eval.NewPrimRegistry(), limit, nil)
+		ev := eval.NewEvaluator(context.Background(), eval.NewPrimRegistry(), limit, nil, nil)
 		ev.Eval(eval.EmptyEnv(), eval.EmptyCapEnv(), term) // panics are the signal
 	})
 }

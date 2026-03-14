@@ -56,13 +56,15 @@ Commands:
 
 Flags (run, check):
   --use <packs>    Stdlib packs: Num,Str,List,Fail,State,IO (default: all)
+  --recursion      Enable recursive definitions (fix/rec)
 
 Flags (run only):
   --entry <name>   Entry point binding (default: main)
   --timeout <dur>  Execution timeout (default: 5s)
   --max-steps <n>  Step limit (default: 100000)
   --max-depth <n>  Depth limit (default: 100)
-  --json           Output result as JSON`)
+  --json           Output result as JSON
+  --explain        Show semantic evaluation trace`)
 }
 
 func cmdDocs(args []string) int {
@@ -174,11 +176,13 @@ func setupEngine(use string) (*gicel.Engine, error) {
 func cmdRun(args []string) int {
 	fs := flag.NewFlagSet("run", flag.ContinueOnError)
 	use := fs.String("use", "all", "comma-separated stdlib packs")
+	recursion := fs.Bool("recursion", false, "enable recursive definitions (fix/rec)")
 	entry := fs.String("entry", "main", "entry point binding")
 	timeout := fs.Duration("timeout", 5*time.Second, "execution timeout")
 	maxSteps := fs.Int("max-steps", 100000, "step limit")
 	maxDepth := fs.Int("max-depth", 100, "depth limit")
 	jsonOut := fs.Bool("json", false, "output as JSON")
+	explain := fs.Bool("explain", false, "show semantic evaluation trace")
 	if err := fs.Parse(args); err != nil {
 		return 1
 	}
@@ -199,8 +203,21 @@ func cmdRun(args []string) int {
 		return 1
 	}
 
+	if *recursion {
+		eng.EnableRecursion()
+	}
 	eng.SetStepLimit(*maxSteps)
 	eng.SetDepthLimit(*maxDepth)
+
+	if *explain {
+		eng.SetExplainHook(func(step gicel.ExplainStep) {
+			if step.Kind == gicel.ExplainResult {
+				return // result goes to stdout, not the trace
+			}
+			indent := strings.Repeat("  ", step.Depth)
+			fmt.Fprintf(os.Stderr, "%s%s\n", indent, step.Message)
+		})
+	}
 
 	rt, err := eng.NewRuntime(string(source))
 	if err != nil {
@@ -235,7 +252,7 @@ func cmdRun(args []string) int {
 			},
 		})
 	} else {
-		fmt.Println(result.Value)
+		fmt.Println(gicel.PrettyValue(result.Value))
 	}
 	return 0
 }
@@ -243,6 +260,7 @@ func cmdRun(args []string) int {
 func cmdCheck(args []string) int {
 	fs := flag.NewFlagSet("check", flag.ContinueOnError)
 	use := fs.String("use", "all", "comma-separated stdlib packs")
+	recursion := fs.Bool("recursion", false, "enable recursive definitions (fix/rec)")
 	jsonOut := fs.Bool("json", false, "output as JSON")
 	if err := fs.Parse(args); err != nil {
 		return 1
@@ -262,6 +280,10 @@ func cmdCheck(args []string) int {
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		return 1
+	}
+
+	if *recursion {
+		eng.EnableRecursion()
 	}
 
 	_, err = eng.Check(string(source))

@@ -18,6 +18,7 @@ type Runtime struct {
 	depthLimit  int
 	allocLimit  int64
 	traceHook   eval.TraceHook
+	explainHook eval.ExplainHook
 	bindings    map[string]types.Type
 	moduleProgs []*core.Program
 	builtinEnv  *eval.Env // pre-built pure/bind/force/fix/rec closures
@@ -91,11 +92,11 @@ func (r *Runtime) run(ctx context.Context, caps map[string]any, bindings map[str
 	if r.allocLimit > 0 {
 		limit.SetAllocLimit(r.allocLimit)
 	}
-	ev := eval.NewEvaluator(ctx, r.prims, limit, r.traceHook)
+	ev := eval.NewEvaluator(ctx, r.prims, limit, r.traceHook, r.explainHook)
 
 	// Evaluate module bindings first (in registration order).
 	for _, modProg := range r.moduleProgs {
-		env, err = r.evalBindings(ev, env, modProg.Bindings)
+		env, err = r.evalBindings(ev, env, modProg.Bindings, false)
 		if err != nil {
 			return eval.EvalResult{}, EvalStats{}, err
 		}
@@ -112,7 +113,7 @@ func (r *Runtime) run(ctx context.Context, caps map[string]any, bindings map[str
 		}
 	}
 
-	env, err = r.evalBindings(ev, env, nonEntry)
+	env, err = r.evalBindings(ev, env, nonEntry, true)
 	if err != nil {
 		return eval.EvalResult{}, EvalStats{}, err
 	}
@@ -121,6 +122,9 @@ func (r *Runtime) run(ctx context.Context, caps map[string]any, bindings map[str
 		return eval.EvalResult{}, EvalStats{}, fmt.Errorf("entry point %q not found", entry)
 	}
 
+	if r.explainHook != nil {
+		r.explainHook(eval.ExplainStep{Kind: eval.ExplainLabel, Message: "── " + entry + " ──"})
+	}
 	capEnv := eval.NewCapEnv(caps)
 	result, err := ev.Eval(env, capEnv, entryExpr)
 	if err != nil {
@@ -131,13 +135,20 @@ func (r *Runtime) run(ctx context.Context, caps map[string]any, bindings map[str
 	if err != nil {
 		return eval.EvalResult{}, EvalStats{}, err
 	}
+	if r.explainHook != nil {
+		r.explainHook(eval.ExplainStep{
+			Kind:    eval.ExplainResult,
+			Message: "→ " + eval.PrettyValue(result.Value),
+		})
+	}
 	return result, ev.Stats(), nil
 }
 
 // evalBindings evaluates a slice of bindings using forward-reference cells.
 // The provided Evaluator is shared with the caller so that resource limits
 // (steps, allocation, depth) are enforced cumulatively across all bindings.
-func (r *Runtime) evalBindings(ev *eval.Evaluator, env *eval.Env, bindings []core.Binding) (*eval.Env, error) {
+// When label is true, explain events mark each binding's evaluation boundary.
+func (r *Runtime) evalBindings(ev *eval.Evaluator, env *eval.Env, bindings []core.Binding, label bool) (*eval.Env, error) {
 	cells := make(map[string]*eval.IndirectVal, len(bindings))
 	for _, b := range bindings {
 		cell := &eval.IndirectVal{}
@@ -145,6 +156,9 @@ func (r *Runtime) evalBindings(ev *eval.Evaluator, env *eval.Env, bindings []cor
 		env = env.Extend(b.Name, cell)
 	}
 	for _, b := range bindings {
+		if label && r.explainHook != nil {
+			r.explainHook(eval.ExplainStep{Kind: eval.ExplainLabel, Message: "── " + b.Name + " ──"})
+		}
 		result, err := ev.Eval(env, eval.NewCapEnv(nil), b.Expr)
 		if err != nil {
 			return nil, fmt.Errorf("evaluating %s: %w", b.Name, err)

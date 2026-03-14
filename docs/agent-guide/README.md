@@ -85,6 +85,9 @@ gicel run --use Num,Str program.gicel
 
 # Custom entry point, limits, JSON output
 gicel run --entry myFunc --timeout 10s --max-steps 500000 --json program.gicel
+
+# Semantic evaluation trace — shows effects, binds, and pattern matches
+gicel run --explain program.gicel
 ```
 
 CLI flags:
@@ -97,6 +100,7 @@ CLI flags:
 | `--max-steps` | `100000` | Step limit (run only)                                  |
 | `--max-depth` | `100`    | Depth limit (run only)                                 |
 | `--json`      | `false`  | Output result as JSON (run only)                       |
+| `--explain`   | `false`  | Show semantic evaluation trace (run only)              |
 
 **Go API (Sandbox):**
 
