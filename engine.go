@@ -11,9 +11,11 @@ import (
 	"github.com/cwd-k2/gomputation/internal/core"
 	"github.com/cwd-k2/gomputation/internal/errs"
 	"github.com/cwd-k2/gomputation/internal/eval"
+	"github.com/cwd-k2/gomputation/internal/reg"
 	"github.com/cwd-k2/gomputation/internal/span"
 	"github.com/cwd-k2/gomputation/internal/stdlib"
 	"github.com/cwd-k2/gomputation/internal/syntax"
+	"github.com/cwd-k2/gomputation/internal/syntax/parse"
 	"github.com/cwd-k2/gomputation/internal/types"
 )
 
@@ -38,7 +40,7 @@ type compiledModule struct {
 	prog    *core.Program
 	exports *check.ModuleExports
 	deps    []string
-	fixity  map[string]syntax.Fixity
+	fixity  map[string]parse.Fixity
 }
 
 // NewEngine creates a new Engine with default limits.
@@ -60,8 +62,12 @@ func NewEngine() *Engine {
 	return e
 }
 
-// Pack configures an Engine with a coherent set of types, primitives, and modules.
-type Pack func(e *Engine) error
+// Registrar is the interface for registering primitives and modules.
+// *Engine satisfies this interface.
+type Registrar = reg.Registrar
+
+// Pack configures a Registrar with a coherent set of types, primitives, and modules.
+type Pack = reg.Pack
 
 // Use applies a Pack to the Engine.
 func (e *Engine) Use(p Pack) error {
@@ -142,13 +148,13 @@ func (e *Engine) RegisterModule(name, source string) error {
 	}
 
 	src := span.NewSource(name, source)
-	l := syntax.NewLexer(src)
+	l := parse.NewLexer(src)
 	tokens, lexErrs := l.Tokenize()
 	if lexErrs.HasErrors() {
 		return &CompileError{Errors: lexErrs}
 	}
 	parseErrs := &errs.Errors{Source: src}
-	p := syntax.NewParser(tokens, parseErrs)
+	p := parse.NewParser(tokens, parseErrs)
 	ast := p.ParseProgram()
 	if parseErrs.HasErrors() {
 		return &CompileError{Errors: parseErrs}
@@ -177,10 +183,10 @@ func (e *Engine) RegisterModule(name, source string) error {
 	}
 
 	// Collect fixity declarations from the module AST.
-	modFixity := make(map[string]syntax.Fixity)
+	modFixity := make(map[string]parse.Fixity)
 	for _, d := range ast.Decls {
 		if fix, ok := d.(*syntax.DeclFixity); ok {
-			modFixity[fix.Op] = syntax.Fixity{Assoc: fix.Assoc, Prec: fix.Prec}
+			modFixity[fix.Op] = parse.Fixity{Assoc: fix.Assoc, Prec: fix.Prec}
 		}
 	}
 
@@ -268,13 +274,13 @@ func (e *Engine) ensurePrelude() {
 func (e *Engine) parseSource(source string) (*syntax.AstProgram, *span.Source, error) {
 	e.ensurePrelude()
 	src := span.NewSource("<input>", source)
-	l := syntax.NewLexer(src)
+	l := parse.NewLexer(src)
 	tokens, lexErrs := l.Tokenize()
 	if lexErrs.HasErrors() {
 		return nil, nil, &CompileError{Errors: lexErrs}
 	}
 	parseErrs := &errs.Errors{Source: src}
-	p := syntax.NewParser(tokens, parseErrs)
+	p := parse.NewParser(tokens, parseErrs)
 	// Seed parser with fixity declarations from registered modules.
 	for _, mod := range e.modules {
 		p.AddFixity(mod.fixity)

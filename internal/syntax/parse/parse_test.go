@@ -1,7 +1,9 @@
-package syntax
+package parse
 
 import (
 	"testing"
+
+	. "github.com/cwd-k2/gomputation/internal/syntax" //nolint:revive // dot import for tightly-coupled subpackage
 
 	"github.com/cwd-k2/gomputation/internal/errs"
 	"github.com/cwd-k2/gomputation/internal/span"

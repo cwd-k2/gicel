@@ -1,8 +1,10 @@
-package syntax
+package parse
 
 import (
 	"unicode"
 	"unicode/utf8"
+
+	. "github.com/cwd-k2/gomputation/internal/syntax" //nolint:revive // dot import for tightly-coupled subpackage
 
 	"github.com/cwd-k2/gomputation/internal/errs"
 	"github.com/cwd-k2/gomputation/internal/span"
@@ -428,6 +430,20 @@ func (l *Lexer) scanRune(start int) Token {
 		Text: string(r),
 		S:    span.Span{Start: span.Pos(start), End: span.Pos(l.pos)},
 	}
+}
+
+var keywords = map[string]TokenKind{
+	"case":     TokCase,
+	"do":       TokDo,
+	"data":     TokData,
+	"type":     TokType,
+	"forall":   TokForall,
+	"infixl":   TokInfixl,
+	"infixr":   TokInfixr,
+	"infixn":   TokInfixn,
+	"class":    TokClass,
+	"instance": TokInstance,
+	"import":   TokImport,
 }
 
 func isLowerStart(r rune) bool {

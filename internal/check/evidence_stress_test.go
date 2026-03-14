@@ -7,7 +7,7 @@ import (
 
 	"github.com/cwd-k2/gomputation/internal/errs"
 	"github.com/cwd-k2/gomputation/internal/span"
-	"github.com/cwd-k2/gomputation/internal/syntax"
+	"github.com/cwd-k2/gomputation/internal/syntax/parse"
 )
 
 // =============================================================================
@@ -167,13 +167,13 @@ f :: () => Bool -> Bool
 f := \x -> x
 main := f True`
 	src := span.NewSource("test", source)
-	l := syntax.NewLexer(src)
+	l := parse.NewLexer(src)
 	tokens, lexErrs := l.Tokenize()
 	if lexErrs.HasErrors() {
 		t.Fatal("lex errors:", lexErrs.Format())
 	}
 	es := &errs.Errors{Source: src}
-	p := syntax.NewParser(tokens, es)
+	p := parse.NewParser(tokens, es)
 	ast := p.ParseProgram()
 	if es.HasErrors() {
 		// Parse error is also acceptable — depends on parser's type resolution.

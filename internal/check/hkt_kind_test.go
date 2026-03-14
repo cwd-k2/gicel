@@ -5,7 +5,7 @@ import (
 
 	"github.com/cwd-k2/gomputation/internal/errs"
 	"github.com/cwd-k2/gomputation/internal/span"
-	"github.com/cwd-k2/gomputation/internal/syntax"
+	"github.com/cwd-k2/gomputation/internal/syntax/parse"
 )
 
 // =============================================================================
@@ -85,13 +85,13 @@ use_maybe := id_k (Just True)
 func parseKindPoly(t *testing.T, source string) {
 	t.Helper()
 	src := span.NewSource("test", source)
-	l := syntax.NewLexer(src)
+	l := parse.NewLexer(src)
 	tokens, lexErrs := l.Tokenize()
 	if lexErrs.HasErrors() {
 		t.Fatal("lex errors:", lexErrs.Format())
 	}
 	es := &errs.Errors{Source: src}
-	p := syntax.NewParser(tokens, es)
+	p := parse.NewParser(tokens, es)
 	_ = p.ParseProgram()
 	if es.HasErrors() {
 		t.Fatal("parse errors:", es.Format())

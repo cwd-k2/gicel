@@ -7,20 +7,20 @@ import (
 	"github.com/cwd-k2/gomputation/internal/core"
 	"github.com/cwd-k2/gomputation/internal/errs"
 	"github.com/cwd-k2/gomputation/internal/span"
-	"github.com/cwd-k2/gomputation/internal/syntax"
+	"github.com/cwd-k2/gomputation/internal/syntax/parse"
 	"github.com/cwd-k2/gomputation/internal/types"
 )
 
 func checkSource(t *testing.T, source string, config *CheckConfig) *core.Program {
 	t.Helper()
 	src := span.NewSource("test", source)
-	l := syntax.NewLexer(src)
+	l := parse.NewLexer(src)
 	tokens, lexErrs := l.Tokenize()
 	if lexErrs.HasErrors() {
 		t.Fatal("lex errors:", lexErrs.Format())
 	}
 	es := &errs.Errors{Source: src}
-	p := syntax.NewParser(tokens, es)
+	p := parse.NewParser(tokens, es)
 	ast := p.ParseProgram()
 	if es.HasErrors() {
 		t.Fatal("parse errors:", es.Format())
@@ -539,13 +539,13 @@ func TestUnifyRowOpenClosedSubset(t *testing.T) {
 func checkSourceExpectError(t *testing.T, source string, config *CheckConfig) string {
 	t.Helper()
 	src := span.NewSource("test", source)
-	l := syntax.NewLexer(src)
+	l := parse.NewLexer(src)
 	tokens, lexErrs := l.Tokenize()
 	if lexErrs.HasErrors() {
 		t.Fatal("lex errors:", lexErrs.Format())
 	}
 	es := &errs.Errors{Source: src}
-	p := syntax.NewParser(tokens, es)
+	p := parse.NewParser(tokens, es)
 	ast := p.ParseProgram()
 	if es.HasErrors() {
 		t.Fatal("parse errors:", es.Format())
@@ -853,10 +853,10 @@ main := eq True False`
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		src := span.NewSource("bench", source)
-		l := syntax.NewLexer(src)
+		l := parse.NewLexer(src)
 		tokens, _ := l.Tokenize()
 		es := &errs.Errors{Source: src}
-		p := syntax.NewParser(tokens, es)
+		p := parse.NewParser(tokens, es)
 		ast := p.ParseProgram()
 		Check(ast, src, nil)
 	}
@@ -1030,13 +1030,13 @@ f := \t -> case t { _ -> MkVoid }`
 func checkSourceExpectCode(t *testing.T, source string, config *CheckConfig, code errs.Code) string {
 	t.Helper()
 	src := span.NewSource("test", source)
-	l := syntax.NewLexer(src)
+	l := parse.NewLexer(src)
 	tokens, lexErrs := l.Tokenize()
 	if lexErrs.HasErrors() {
 		t.Fatal("lex errors:", lexErrs.Format())
 	}
 	es := &errs.Errors{Source: src}
-	p := syntax.NewParser(tokens, es)
+	p := parse.NewParser(tokens, es)
 	ast := p.ParseProgram()
 	if es.HasErrors() {
 		t.Fatal("parse errors:", es.Format())

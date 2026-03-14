@@ -132,7 +132,7 @@ func TestEvalStrLit(t *testing.T) {
 func TestEngineUse(t *testing.T) {
 	eng := gmp.NewEngine()
 	called := false
-	pack := gmp.Pack(func(e *gmp.Engine) error {
+	pack := gmp.Pack(func(r gmp.Registrar) error {
 		called = true
 		return nil
 	})
@@ -3100,11 +3100,11 @@ main := Just (v1 + v2)
 
 func TestCustomPack(t *testing.T) {
 	// A user-defined Pack that provides a custom constant.
-	customPack := gmp.Pack(func(e *gmp.Engine) error {
-		e.RegisterPrim("myConst", func(_ context.Context, ce gmp.CapEnv, args []gmp.Value, _ gmp.Applier) (gmp.Value, gmp.CapEnv, error) {
+	customPack := gmp.Pack(func(r gmp.Registrar) error {
+		r.RegisterPrim("myConst", func(_ context.Context, ce gmp.CapEnv, args []gmp.Value, _ gmp.Applier) (gmp.Value, gmp.CapEnv, error) {
 			return &gmp.HostVal{Inner: int64(999)}, ce, nil
 		})
-		return e.RegisterModule("Custom", `
+		return r.RegisterModule("Custom", `
 import Prelude
 
 myConst :: Int

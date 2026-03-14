@@ -66,19 +66,19 @@ func NewCapEnv(caps map[string]any) CapEnv {
 // Stdlib re-exports — users import only the root package.
 
 // Num provides integer arithmetic: Num class, Eq/Ord Int instances, and operators.
-var Num Pack = func(e *Engine) error { return stdlib.Num(e) }
+var Num Pack = stdlib.Num
 
 // Str provides string and rune operations.
-var Str Pack = func(e *Engine) error { return stdlib.Str(e) }
+var Str Pack = stdlib.Str
 
 // Fail provides the fail effect capability.
-var Fail Pack = func(e *Engine) error { return stdlib.Fail(e) }
+var Fail Pack = stdlib.Fail
 
 // State provides get/put state capabilities.
-var State Pack = func(e *Engine) error { return stdlib.State(e) }
+var State Pack = stdlib.State
 
 // List provides list operations: fromSlice, toSlice, length, concat, foldl, etc.
-var List Pack = func(e *Engine) error { return stdlib.List(e) }
+var List Pack = stdlib.List
 
 // IO provides print/debug capabilities using CapEnv buffer.
-var IO Pack = func(e *Engine) error { return stdlib.IO(e) }
+var IO Pack = stdlib.IO

@@ -68,20 +68,6 @@ type Token struct {
 	NewlineBefore bool // true if a newline was skipped before this token
 }
 
-var keywords = map[string]TokenKind{
-	"case":     TokCase,
-	"do":       TokDo,
-	"data":     TokData,
-	"type":     TokType,
-	"forall":   TokForall,
-	"infixl":   TokInfixl,
-	"infixr":   TokInfixr,
-	"infixn":   TokInfixn,
-	"class":    TokClass,
-	"instance": TokInstance,
-	"import":   TokImport,
-}
-
 // String returns a human-readable token kind name.
 func (k TokenKind) String() string {
 	switch k {
