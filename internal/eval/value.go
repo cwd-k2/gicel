@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/cwd-k2/gicel/internal/core"
+	"github.com/cwd-k2/gicel/internal/span"
 )
 
 // Value is a runtime value.
@@ -45,6 +46,7 @@ type PrimVal struct {
 	Arity     int
 	Effectful bool
 	Args      []Value
+	S         span.Span // source location from the originating PrimOp
 }
 
 // RecordVal is a record value { l1 = v1, ..., ln = vn }.

@@ -6,6 +6,7 @@ import (
 
 	"github.com/cwd-k2/gicel/internal/core"
 	"github.com/cwd-k2/gicel/internal/eval"
+	"github.com/cwd-k2/gicel/internal/span"
 	"github.com/cwd-k2/gicel/internal/types"
 )
 
@@ -19,6 +20,7 @@ type Runtime struct {
 	allocLimit  int64
 	traceHook   eval.TraceHook
 	explainHook eval.ExplainHook
+	source      *span.Source
 	bindings    map[string]types.Type
 	moduleProgs []*core.Program
 	builtinEnv  *eval.Env // pre-built pure/bind/force/fix/rec closures
@@ -93,6 +95,7 @@ func (r *Runtime) run(ctx context.Context, caps map[string]any, bindings map[str
 		limit.SetAllocLimit(r.allocLimit)
 	}
 	ev := eval.NewEvaluator(ctx, r.prims, limit, r.traceHook, r.explainHook)
+	ev.SetSource(r.source)
 
 	// Evaluate module bindings first (in registration order).
 	for _, modProg := range r.moduleProgs {
@@ -131,7 +134,7 @@ func (r *Runtime) run(ctx context.Context, caps map[string]any, bindings map[str
 		return eval.EvalResult{}, EvalStats{}, err
 	}
 	// Force effectful PrimVals at top-level (e.g. main := get).
-	result, err = ev.ForceEffectful(result)
+	result, err = ev.ForceEffectful(result, span.Span{})
 	if err != nil {
 		return eval.EvalResult{}, EvalStats{}, err
 	}

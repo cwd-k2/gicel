@@ -209,13 +209,21 @@ func cmdRun(args []string) int {
 	eng.SetStepLimit(*maxSteps)
 	eng.SetDepthLimit(*maxDepth)
 
+	var explainSteps []gicel.ExplainStep
 	if *explain {
 		eng.SetExplainHook(func(step gicel.ExplainStep) {
+			if *jsonOut {
+				explainSteps = append(explainSteps, step)
+				return
+			}
 			if step.Kind == gicel.ExplainResult {
 				return // result goes to stdout, not the trace
 			}
-			indent := strings.Repeat("  ", step.Depth)
-			fmt.Fprintf(os.Stderr, "%s%s\n", indent, step.Message)
+			if step.Line > 0 {
+				fmt.Fprintf(os.Stderr, "L%d: %s\n", step.Line, step.Message)
+			} else {
+				fmt.Fprintf(os.Stderr, "%s\n", step.Message)
+			}
 		})
 	}
 
@@ -243,14 +251,18 @@ func cmdRun(args []string) int {
 	}
 
 	if *jsonOut {
-		outputJSON(map[string]any{
+		out := map[string]any{
 			"ok":    true,
 			"value": formatValue(result.Value),
 			"stats": map[string]any{
 				"steps":    result.Stats.Steps,
 				"maxDepth": result.Stats.MaxDepth,
 			},
-		})
+		}
+		if *explain {
+			out["explain"] = explainSteps
+		}
+		outputJSON(out)
 	} else {
 		fmt.Println(gicel.PrettyValue(result.Value))
 	}

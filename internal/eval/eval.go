@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/cwd-k2/gicel/internal/core"
+	"github.com/cwd-k2/gicel/internal/span"
 )
 
 // Allocation cost estimates (bytes per value type).
@@ -32,12 +33,29 @@ type Evaluator struct {
 	limit   *Limit
 	trace   TraceHook
 	explain ExplainHook
+	source  *span.Source // for line/col in explain events; nil if unavailable
 	stats   EvalStats
 }
 
 // NewEvaluator creates an Evaluator for a single execution.
 func NewEvaluator(ctx context.Context, prims *PrimRegistry, limit *Limit, trace TraceHook, explain ExplainHook) *Evaluator {
 	return &Evaluator{ctx: ctx, prims: prims, limit: limit, trace: trace, explain: explain}
+}
+
+// SetSource sets the source for line/col resolution in explain events.
+func (ev *Evaluator) SetSource(src *span.Source) {
+	ev.source = src
+}
+
+// explainAt emits an ExplainStep with line/col derived from a Span.
+// Line/col are only set when the Span falls within the user's source text;
+// spans from stdlib modules (compiled with a different Source) are excluded.
+func (ev *Evaluator) explainAt(kind ExplainKind, msg string, s span.Span) {
+	step := ExplainStep{Depth: ev.limit.Depth(), Kind: kind, Message: msg}
+	if ev.source != nil && s.Start > 0 && int(s.Start) < len(ev.source.Text) {
+		step.Line, step.Col = ev.source.Location(s.Start)
+	}
+	ev.explain(step)
 }
 
 // Stats returns the accumulated statistics.
@@ -112,11 +130,7 @@ func (ev *Evaluator) Eval(env *Env, capEnv CapEnv, expr core.Core) (EvalResult, 
 		// Detect let-encoding: (\y -> body) expr → emit "y = value".
 		if ev.explain != nil {
 			if lam, ok := e.Fun.(*core.Lam); ok && lam.Param != "_" && !strings.HasPrefix(lam.Param, "$") {
-				ev.explain(ExplainStep{
-					Depth:   ev.limit.Depth(),
-					Kind:    ExplainBind,
-					Message: lam.Param + " = " + PrettyValue(argR.Value),
-				})
+				ev.explainAt(ExplainBind, lam.Param+" = "+PrettyValue(argR.Value), e.S)
 			}
 		}
 		return ev.apply(argR.CapEnv, funR.Value, argR.Value, e)
@@ -158,7 +172,7 @@ func (ev *Evaluator) Eval(env *Env, capEnv CapEnv, expr core.Core) (EvalResult, 
 					if bs := FormatBindings(bindings); bs != "" {
 						msg += "    " + bs
 					}
-					ev.explain(ExplainStep{Depth: ev.limit.Depth(), Kind: ExplainMatch, Message: msg})
+					ev.explainAt(ExplainMatch, msg, e.S)
 				}
 				altEnv := env.ExtendMany(bindings)
 				return ev.Eval(altEnv, scrutR.CapEnv, alt.Body)
@@ -228,16 +242,12 @@ func (ev *Evaluator) Eval(env *Env, capEnv CapEnv, expr core.Core) (EvalResult, 
 			return EvalResult{}, err
 		}
 		// Force effectful PrimVals (e.g. get, failWith ()) at bind-time.
-		compR, err = ev.ForceEffectful(compR)
+		compR, err = ev.ForceEffectful(compR, e.S)
 		if err != nil {
 			return EvalResult{}, err
 		}
 		if ev.explain != nil && e.Var != "_" && !strings.HasPrefix(e.Var, "$") {
-			ev.explain(ExplainStep{
-				Depth:   ev.limit.Depth(),
-				Kind:    ExplainBind,
-				Message: e.Var + " ← " + PrettyValue(compR.Value),
-			})
+			ev.explainAt(ExplainBind, e.Var+" ← "+PrettyValue(compR.Value), e.S)
 		}
 		bodyEnv := env.Extend(e.Var, compR.Value)
 		if err := ev.limit.Enter(); err != nil {
@@ -249,7 +259,7 @@ func (ev *Evaluator) Eval(env *Env, capEnv CapEnv, expr core.Core) (EvalResult, 
 			return EvalResult{}, err
 		}
 		// Force effectful PrimVals in the body result too (e.g. do { put 42; get }).
-		return ev.ForceEffectful(bodyR)
+		return ev.ForceEffectful(bodyR, e.S)
 
 	case *core.Thunk:
 		if err := ev.limit.Alloc(costThunk); err != nil {
@@ -288,7 +298,7 @@ func (ev *Evaluator) Eval(env *Env, capEnv CapEnv, expr core.Core) (EvalResult, 
 		if len(e.Args) == 0 && (e.Arity > 0 || e.Effectful) {
 			// Unapplied or effectful primitive: produce a PrimVal that accumulates args.
 			// Effectful 0-arity PrimOps (e.g. get) are deferred until forced in Bind.
-			return EvalResult{&PrimVal{Name: e.Name, Arity: e.Arity, Effectful: e.Effectful}, capEnv}, nil
+			return EvalResult{&PrimVal{Name: e.Name, Arity: e.Arity, Effectful: e.Effectful, S: e.S}, capEnv}, nil
 		}
 		args := make([]Value, len(e.Args))
 		ce := capEnv
@@ -390,7 +400,8 @@ func (ev *Evaluator) Eval(env *Env, capEnv CapEnv, expr core.Core) (EvalResult, 
 
 // ForceEffectful invokes a saturated effectful PrimVal, passing the current CapEnv.
 // Non-effectful values and unsaturated PrimVals are returned unchanged.
-func (ev *Evaluator) ForceEffectful(r EvalResult) (EvalResult, error) {
+// callSite is the Span of the calling context (e.g. Bind node) for explain events.
+func (ev *Evaluator) ForceEffectful(r EvalResult, callSite span.Span) (EvalResult, error) {
 	pv, ok := r.Value.(*PrimVal)
 	if !ok || !pv.Effectful || len(pv.Args) < pv.Arity {
 		return r, nil
@@ -404,11 +415,12 @@ func (ev *Evaluator) ForceEffectful(r EvalResult) (EvalResult, error) {
 		return EvalResult{}, err
 	}
 	if ev.explain != nil {
-		ev.explain(ExplainStep{
-			Depth:   ev.limit.Depth(),
-			Kind:    ExplainEffect,
-			Message: FormatEffect(pv.Name, pv.Args, val, r.CapEnv, newCap),
-		})
+		// Prefer callSite (user's code) over pv.S (may be stdlib module).
+		site := callSite
+		if site.Start == 0 {
+			site = pv.S
+		}
+		ev.explainAt(ExplainEffect, FormatEffect(pv.Name, pv.Args, val, r.CapEnv, newCap), site)
 	}
 	return EvalResult{val, newCap}, nil
 }
@@ -449,11 +461,11 @@ func (ev *Evaluator) apply(capEnv CapEnv, fn Value, arg Value, site *core.App) (
 		copy(args, f.Args)
 		args[len(f.Args)] = arg
 		if len(args) < f.Arity {
-			return EvalResult{&PrimVal{Name: f.Name, Arity: f.Arity, Effectful: f.Effectful, Args: args}, capEnv}, nil
+			return EvalResult{&PrimVal{Name: f.Name, Arity: f.Arity, Effectful: f.Effectful, Args: args, S: f.S}, capEnv}, nil
 		}
 		if f.Effectful {
 			// Effectful primitives are deferred until forced in Bind or top-level.
-			return EvalResult{&PrimVal{Name: f.Name, Arity: f.Arity, Effectful: true, Args: args}, capEnv}, nil
+			return EvalResult{&PrimVal{Name: f.Name, Arity: f.Arity, Effectful: true, Args: args, S: f.S}, capEnv}, nil
 		}
 		impl, ok := ev.prims.Lookup(f.Name)
 		if !ok {

@@ -2,6 +2,7 @@ package gicel_test
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"os"
 	"strings"
@@ -4327,5 +4328,142 @@ main := (mymax 3 7, mymax True False)
 	rv, ok := result.Value.(*gicel.RecordVal)
 	if !ok || len(rv.Fields) != 2 {
 		t.Fatalf("expected (7, True), got %v", result.Value)
+	}
+}
+
+// ── Explain: line numbers (#4) ──
+
+func TestExplainStepHasLineNumbers(t *testing.T) {
+	eng := gicel.NewEngine()
+	_ = eng.Use(gicel.State)
+
+	var steps []gicel.ExplainStep
+	eng.SetExplainHook(func(s gicel.ExplainStep) {
+		steps = append(steps, s)
+	})
+
+	// Lines:
+	// 1: import Std.State
+	// 2: main := do {
+	// 3:   _ <- put 42;
+	// 4:   get
+	// 5: }
+	rt, err := eng.NewRuntime("import Std.State\nmain := do {\n  _ <- put 42;\n  get\n}")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = rt.RunContext(context.Background(), nil, nil, "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Filter to effect events (put, get) — these should have line numbers.
+	var effects []gicel.ExplainStep
+	for _, s := range steps {
+		if s.Kind == gicel.ExplainEffect {
+			effects = append(effects, s)
+		}
+	}
+	if len(effects) < 2 {
+		t.Fatalf("expected at least 2 effect events, got %d", len(effects))
+	}
+
+	// Each effect event must have a non-zero line number.
+	for i, e := range effects {
+		if e.Line == 0 {
+			t.Errorf("effect[%d] %q: expected non-zero Line", i, e.Message)
+		}
+	}
+}
+
+func TestExplainLineNumbersForBindAndMatch(t *testing.T) {
+	eng := gicel.NewEngine()
+
+	var steps []gicel.ExplainStep
+	eng.SetExplainHook(func(s gicel.ExplainStep) {
+		steps = append(steps, s)
+	})
+
+	// Lines:
+	// 1: main := do {
+	// 2:   x <- pure True;
+	// 3:   case x {
+	// 4:     True -> pure x;
+	// 5:     False -> pure x
+	// 6:   }
+	// 7: }
+	rt, err := eng.NewRuntime("main := do {\n  x <- pure True;\n  case x {\n    True -> pure x;\n    False -> pure x\n  }\n}")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = rt.RunContext(context.Background(), nil, nil, "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var binds, matches []gicel.ExplainStep
+	for _, s := range steps {
+		switch s.Kind {
+		case gicel.ExplainBind:
+			binds = append(binds, s)
+		case gicel.ExplainMatch:
+			matches = append(matches, s)
+		}
+	}
+
+	// Bind "x ← True" should have a line number.
+	if len(binds) == 0 {
+		t.Fatal("expected at least 1 bind event")
+	}
+	if binds[0].Line == 0 {
+		t.Errorf("bind %q: expected non-zero Line", binds[0].Message)
+	}
+
+	// Match should have a line number.
+	if len(matches) == 0 {
+		t.Fatal("expected at least 1 match event")
+	}
+	if matches[0].Line == 0 {
+		t.Errorf("match %q: expected non-zero Line", matches[0].Message)
+	}
+}
+
+// ── Explain: JSON output (#6) ──
+
+func TestExplainStepJSON(t *testing.T) {
+	eng := gicel.NewEngine()
+	_ = eng.Use(gicel.State)
+
+	var steps []gicel.ExplainStep
+	eng.SetExplainHook(func(s gicel.ExplainStep) {
+		steps = append(steps, s)
+	})
+
+	rt, err := eng.NewRuntime("import Std.State\nmain := do {\n  _ <- put 42;\n  get\n}")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = rt.RunContext(context.Background(), nil, nil, "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// ExplainStep should be JSON-marshalable with structured fields.
+	for _, s := range steps {
+		data, err := json.Marshal(s)
+		if err != nil {
+			t.Fatalf("ExplainStep should marshal to JSON: %v", err)
+		}
+		// Verify it round-trips to a map with expected keys.
+		var m map[string]any
+		if err := json.Unmarshal(data, &m); err != nil {
+			t.Fatalf("ExplainStep JSON should unmarshal to map: %v", err)
+		}
+		if _, ok := m["kind"]; !ok {
+			t.Error("ExplainStep JSON missing 'kind' field")
+		}
+		if _, ok := m["message"]; !ok {
+			t.Error("ExplainStep JSON missing 'message' field")
+		}
 	}
 }

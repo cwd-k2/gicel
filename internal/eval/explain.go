@@ -22,9 +22,27 @@ const (
 
 // ExplainStep is a single semantic event during evaluation.
 type ExplainStep struct {
-	Depth   int
-	Kind    ExplainKind
-	Message string
+	Depth   int         `json:"depth"`
+	Kind    ExplainKind `json:"kind"`
+	Message string      `json:"message"`
+	Line    int         `json:"line,omitempty"`
+	Col     int         `json:"col,omitempty"`
+}
+
+var explainKindNames = [...]string{
+	ExplainBind:   "bind",
+	ExplainMatch:  "match",
+	ExplainEffect: "effect",
+	ExplainLabel:  "label",
+	ExplainResult: "result",
+}
+
+// MarshalJSON encodes ExplainKind as a string.
+func (k ExplainKind) MarshalJSON() ([]byte, error) {
+	if int(k) < len(explainKindNames) {
+		return []byte(`"` + explainKindNames[k] + `"`), nil
+	}
+	return []byte(`"unknown"`), nil
 }
 
 // ExplainHook receives semantic evaluation events.
@@ -250,7 +268,7 @@ func capEnvDiff(old, new CapEnv) string {
 			diffs = append(diffs, fmt.Sprintf("[%s: _ → %s]", l, fmtCapVal(nv)))
 		} else if oldOK && !newOK {
 			diffs = append(diffs, fmt.Sprintf("[%s: removed]", l))
-		} else if oldOK && newOK && fmt.Sprintf("%v", ov) != fmt.Sprintf("%v", nv) {
+		} else if oldOK && newOK && fmtCapVal(ov) != fmtCapVal(nv) {
 			diffs = append(diffs, fmt.Sprintf("[%s: %s → %s]", l, fmtCapVal(ov), fmtCapVal(nv)))
 		}
 	}

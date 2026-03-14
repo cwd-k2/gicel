@@ -387,6 +387,7 @@ func (e *Engine) NewRuntime(source string) (*Runtime, error) {
 		allocLimit:  e.allocLimit,
 		traceHook:   e.traceHook,
 		explainHook: e.explainHook,
+		source:      src,
 		bindings:    maps.Clone(e.bindings),
 		moduleProgs: modProgs,
 	}
