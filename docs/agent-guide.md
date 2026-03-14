@@ -1210,9 +1210,17 @@ infixl 6 +
 (+) := add
 ```
 
+### `length` name collision
+
+Both Std.List and Std.Str export `length` with incompatible types (`List a -> Int` vs `String -> Int`). When both are imported (or when running via CLI which loads all packs), calling `length` is ambiguous. Workarounds:
+
+- Use `foldl (\acc -> \_ -> acc + 1) 0 xs` for list length.
+- Use `strlen s` for string length (if available after stdlib update).
+- Import only the pack you need.
+
 ### Prelude names shadow freely
 
-The Prelude provides `length` for lists (`List a -> Bool` via `null` -- actually `head`/`tail`). Std.List and Std.Str also export `length` with different types. Importing multiple modules that export the same name can cause ambiguity.
+The Prelude provides several names that may overlap with stdlib exports. Importing multiple modules that export the same name can cause ambiguity.
 
 ### CapEnv capabilities must be provided by the host
 
@@ -1262,6 +1270,16 @@ result, err := gicel.RunSandbox(source, &gicel.SandboxConfig{
 | `Value`  | `Value`     | The result of evaluating `entry`  |
 | `CapEnv` | `CapEnv`    | Final capability environment      |
 | `Stats`  | `EvalStats` | Steps taken and max depth reached |
+
+**EvalStats fields:**
+
+| Field       | Type    | Description                            |
+| ----------- | ------- | -------------------------------------- |
+| `Steps`     | `int`   | Total evaluation steps taken           |
+| `MaxDepth`  | `int`   | Maximum call depth reached             |
+| `Allocated` | `int64` | Bytes allocated (0 if tracking is off) |
+
+Note: the field is `Allocated`, not `Allocs` or `AllocBytes`.
 
 ### Full Lifecycle API
 
@@ -1351,26 +1369,31 @@ In source, `myInput` is available as a variable of type `Int`.
 | `gicel.MustHost[T](v) T`            | Extract typed HostVal, panics on mismatch               |
 | `gicel.ToList(items []any) Value`   | Build a Cons/Nil chain from Go slice                    |
 | `gicel.FromList(v) ([]any, bool)`   | Destructure Cons/Nil chain to Go slice                  |
+| `gicel.FromRecord(v) (map, bool)`   | Extract record fields as `map[string]Value`             |
 
 ### Type Construction Helpers
 
 For use with `DeclareBinding` and `DeclareAssumption`:
 
-| Function                                  | Description                                |
-| ----------------------------------------- | ------------------------------------------ |
-| `gicel.ConType(name) Type`                | Simple type constructor: `"Int"`, `"Bool"` |
-| `gicel.VarType(name) Type`                | Type variable reference                    |
-| `gicel.ArrowType(from, to) Type`          | Function type: `from -> to`                |
-| `gicel.AppType(f, arg) Type`              | Type application: `f a`                    |
-| `gicel.CompType(pre, post, result) Type`  | `Computation pre post result`              |
-| `gicel.ThunkType(pre, post, result) Type` | `Thunk pre post result`                    |
-| `gicel.ForallType(var, body) Type`        | `forall var. body` (kind Type)             |
-| `gicel.ForallRow(var, body) Type`         | `forall (var : Row). body`                 |
-| `gicel.ForallKind(var, k, body) Type`     | `forall (var : k). body`                   |
-| `gicel.EmptyRowType() Type`               | Empty closed row `{}`                      |
-| `gicel.KindType() Kind`                   | The `Type` kind                            |
-| `gicel.KindRow() Kind`                    | The `Row` kind                             |
-| `gicel.KindArrow(from, to) Kind`          | Kind arrow: `from -> to`                   |
+| Function                                    | Description                                |
+| ------------------------------------------- | ------------------------------------------ |
+| `gicel.ConType(name) Type`                  | Simple type constructor: `"Int"`, `"Bool"` |
+| `gicel.VarType(name) Type`                  | Type variable reference                    |
+| `gicel.ArrowType(from, to) Type`            | Function type: `from -> to`                |
+| `gicel.AppType(f, arg) Type`                | Type application: `f a`                    |
+| `gicel.CompType(pre, post, result) Type`    | `Computation pre post result`              |
+| `gicel.ThunkType(pre, post, result) Type`   | `Thunk pre post result`                    |
+| `gicel.ForallType(var, body) Type`          | `forall var. body` (kind Type)             |
+| `gicel.ForallRow(var, body) Type`           | `forall (var : Row). body`                 |
+| `gicel.ForallKind(var, k, body) Type`       | `forall (var : k). body`                   |
+| `gicel.EmptyRowType() Type`                 | Empty closed row `{}`                      |
+| `gicel.KindType() Kind`                     | The `Type` kind                            |
+| `gicel.KindRow() Kind`                      | The `Row` kind                             |
+| `gicel.KindArrow(from, to) Kind`            | Kind arrow: `from -> to`                   |
+| `gicel.RecordType(fields ...RowField) Type` | Shorthand for closed record type           |
+| `gicel.TupleType(elems ...Type) Type`       | Shorthand for tuple record type            |
+| `gicel.TypePretty(t Type) string`           | Pretty-print a type for debugging          |
+| `gicel.TypeEqual(a, b Type) bool`           | Structural type equality check             |
 
 **RowBuilder** for constructing row types:
 
@@ -1394,8 +1417,10 @@ openRow := gicel.NewRow().And("state", gicel.ConType("Int")).Open("r")
 | `eng.EnableRecursion()`                     | Enable `rec` and `fix` built-ins                                        |
 | `eng.SetStepLimit(n int)`                   | Set maximum evaluation steps                                            |
 | `eng.SetDepthLimit(n int)`                  | Set maximum call depth                                                  |
+| `eng.SetAllocLimit(bytes int64)`            | Set maximum allocation bytes (0 = disabled)                             |
 | `eng.NoPrelude()`                           | Disable automatic Prelude loading                                       |
-| `eng.SetTraceHook(hook)`                    | Set evaluation trace callback                                           |
+| `eng.SetPrelude(source string)`             | Replace default Prelude with custom source (CoreSource still prepended) |
+| `eng.SetTraceHook(hook)`                    | Set evaluation trace callback (hook returns error to abort)             |
 | `eng.SetCheckTraceHook(hook)`               | Set type checking trace callback                                        |
 | `eng.RegisterModule(name, src)`             | Compile and register a custom module                                    |
 | `eng.NewRuntime(source) (*Runtime, error)`  | Compile source to Runtime                                               |
@@ -1404,4 +1429,74 @@ openRow := gicel.NewRow().And("state", gicel.ConType("Int")).Open("r")
 
 ### Error Handling
 
-Compilation errors are returned as `*gicel.CompileError`, which wraps structured error information with source locations. Runtime errors (step limit exceeded, depth limit exceeded, missing capability, division by zero, explicit `fail`) are returned as plain `error` values.
+**Compile errors:**
+
+```go
+rt, err := eng.NewRuntime(source)
+if err != nil {
+    var ce *gicel.CompileError
+    if errors.As(err, &ce) {
+        for _, d := range ce.Diagnostics() {
+            fmt.Printf("[%s] line %d col %d: %s\n", d.Phase, d.Line, d.Col, d.Message)
+        }
+    }
+}
+```
+
+`Diagnostic` fields:
+
+| Field     | Type     | Description                      |
+| --------- | -------- | -------------------------------- |
+| `Code`    | `int`    | Error code                       |
+| `Phase`   | `string` | `"lex"`, `"parse"`, or `"check"` |
+| `Line`    | `int`    | 1-based line number              |
+| `Col`     | `int`    | 1-based column number            |
+| `Message` | `string` | Human-readable error message     |
+
+Note: `Phase` is a `string`, not an `int`.
+
+**Runtime errors:**
+
+```go
+_, err := rt.RunContext(ctx, caps, bindings, "main")
+if err != nil {
+    var re *gicel.RuntimeError
+    if errors.As(err, &re) {
+        fmt.Println(re.Message)  // e.g. "step limit exceeded"
+    }
+}
+```
+
+`RuntimeError` fields: `Message string`, `Span span.Span`. Runtime errors include: step limit exceeded, depth limit exceeded, alloc limit exceeded, missing capability, division by zero, explicit `fail`/`failWith`.
+
+### Trace Hooks
+
+**Evaluation trace** (`SetTraceHook`):
+
+```go
+eng.SetTraceHook(func(event gicel.TraceEvent) error {
+    fmt.Printf("depth=%d node=%T\n", event.Depth, event.Node)
+    return nil  // return non-nil error to abort evaluation
+})
+```
+
+`TraceEvent` fields:
+
+| Field    | Type        | Description                                                    |
+| -------- | ----------- | -------------------------------------------------------------- |
+| `Depth`  | `int`       | Current call depth                                             |
+| `Node`   | `core.Core` | Core IR node being evaluated (internal type; use `%T` or `%v`) |
+| `Env`    | `*eval.Env` | Current environment (internal type; opaque to external users)  |
+| `CapEnv` | `CapEnv`    | Current capability environment                                 |
+
+Important: `TraceHook` has signature `func(TraceEvent) error` — returning a non-nil error aborts evaluation immediately. `Node` and `Env` are internal types; external users can inspect them via `fmt.Sprintf("%T", event.Node)` to see the Core IR node type (e.g., `*core.App`, `*core.Case`).
+
+**Type checking trace** (`SetCheckTraceHook`):
+
+```go
+eng.SetCheckTraceHook(func(event gicel.CheckTraceEvent) {
+    fmt.Printf("[%d] depth=%d %s\n", event.Kind, event.Depth, event.Message)
+})
+```
+
+`CheckTraceEvent` fields: `Kind CheckTraceKind`, `Depth int`, `Message string`, `Span span.Span`. Note: `CheckTraceHook` does NOT return an error (unlike `TraceHook`). `CheckTraceKind` constants are internal; compare numerically if needed (0=Unify, 1=SolveMeta, 2=Infer, 3=Check, 4=Instantiate, 5=RowUnify).
