@@ -32,7 +32,7 @@ import Std.IO
 main := print "Hello, world!"
 ```
 
-`main` here is a `Computation { io : Unit | r } { io : Unit | r } Unit`. The host must provide the `io` capability.
+`main` here is a `Computation { io : () | r } { io : () | r } ()`. The host must provide the `io` capability.
 
 ### Running Programs
 
@@ -168,7 +168,7 @@ Import declarations must appear before all other declarations.
 | Type       | Kind   | Description          | Source   |
 |------------|--------|----------------------|----------|
 | `Bool`     | `Type` | `True \| False`      | Prelude  |
-| `Unit`     | `Type` | `Unit`               | Prelude  |
+| `()`       | `Type` | Empty record / unit  | Built-in |
 | `Ordering` | `Type` | `LT \| EQ \| GT`    | Prelude  |
 | `Int`      | `Type` | 64-bit integer       | Built-in |
 | `String`   | `Type` | Unicode string       | Built-in |
@@ -284,7 +284,7 @@ data DB (s : DBState) = MkDB
 {}                              -- empty row (closed)
 { x : Int, y : Bool }          -- closed row
 { x : Int | r }                -- open row (tail variable r)
-{ get : Unit -> Int | r }      -- capability row
+{ get : () -> Int | r }        -- capability row
 ```
 
 ### Type Annotations
@@ -462,7 +462,7 @@ Capability environments are row types that describe what effects are available:
 {}                                            -- no capabilities (pure)
 { state : Int }                               -- state holding an Int
 { state : Int, fail : String }                -- state and failure
-{ io : Unit | r }                             -- io plus whatever else r contains
+{ io : () | r }                               -- io plus whatever else r contains
 ```
 
 A function requiring state:
@@ -511,13 +511,13 @@ The Prelude is automatically loaded unless `NoPrelude` is set on the Engine. Eve
 
 ```
 data Bool = True | False
-data Unit = Unit
 data Ordering = LT | EQ | GT
 data Result e a = Ok a | Err e
-data Pair a b = Pair a b
 data Maybe a = Just a | Nothing
 data List a = Cons a (List a) | Nil
 ```
+
+`()` is the unit type (empty record). `(a, b)` is the tuple type (sugar for `Record { _1 : a, _2 : b }`).
 
 ### Type Aliases
 
@@ -618,10 +618,10 @@ class IxMonad (m : Row -> Row -> Type -> Type) {
 | Instance                          |
 |-----------------------------------|
 | `Eq Bool`                         |
-| `Eq Unit`                         |
+| `Eq ()`                           |
 | `Eq Ordering`                     |
 | `Eq a => Eq (Maybe a)`           |
-| `Eq a => Eq b => Eq (Pair a b)` |
+| `Eq a => Eq b => Eq (a, b)`     |
 | `Eq a => Eq (List a)`           |
 
 **Ord instances:**
@@ -629,16 +629,16 @@ class IxMonad (m : Row -> Row -> Type -> Type) {
 | Instance                            |
 |-------------------------------------|
 | `Ord Bool`                          |
-| `Ord Unit`                          |
+| `Ord ()`                            |
 | `Ord Ordering`                      |
 | `Ord a => Ord (Maybe a)`           |
-| `Ord a => Ord b => Ord (Pair a b)` |
+| `Ord a => Ord b => Ord (a, b)`     |
 
 **Semigroup instances:**
 
 | Instance                                    |
 |---------------------------------------------|
-| `Semigroup Unit`                            |
+| `Semigroup ()`                              |
 | `Semigroup Ordering`                        |
 | `Semigroup a => Semigroup (Maybe a)`       |
 | `Semigroup (List a)`                        |
@@ -647,7 +647,7 @@ class IxMonad (m : Row -> Row -> Type -> Type) {
 
 | Instance                                |
 |-----------------------------------------|
-| `Monoid Unit`                           |
+| `Monoid ()`                             |
 | `Monoid Ordering`                       |
 | `Semigroup a => Monoid (Maybe a)`      |
 | `Monoid (List a)`                       |
@@ -657,7 +657,6 @@ class IxMonad (m : Row -> Row -> Type -> Type) {
 | Instance              |
 |-----------------------|
 | `Functor Maybe`       |
-| `Functor (Pair a)`   |
 | `Functor List`        |
 
 **Foldable instances:**
@@ -665,7 +664,6 @@ class IxMonad (m : Row -> Row -> Type -> Type) {
 | Instance               |
 |------------------------|
 | `Foldable Maybe`       |
-| `Foldable (Pair a)`   |
 | `Foldable List`        |
 
 **Applicative instances:**
@@ -679,7 +677,6 @@ class IxMonad (m : Row -> Row -> Type -> Type) {
 | Instance                  |
 |---------------------------|
 | `Traversable Maybe`       |
-| `Traversable (Pair a)`   |
 
 ### Functions
 
@@ -733,14 +730,14 @@ result :: forall e a b. (e -> b) -> (a -> b) -> Result e a -> b
 result := \onErr -> \onOk -> \r -> case r { Err e -> onErr e; Ok a -> onOk a }
 ```
 
-**Pair:**
+**Tuple:**
 
 ```
-fst :: forall a b. Pair a b -> a
-fst := \p -> case p { Pair a _ -> a }
+fst :: forall a b. (a, b) -> a
+fst := \p -> p!#_1
 
-snd :: forall a b. Pair a b -> b
-snd := \p -> case p { Pair _ b -> b }
+snd :: forall a b. (a, b) -> b
+snd := \p -> p!#_2
 ```
 
 **List:**
@@ -925,8 +922,8 @@ Provides list operations (native-speed implementations).
 | `index`     | `forall a. Int -> List a -> Maybe a`                  | Element at index (0-based)              |
 | `replicate` | `forall a. Int -> a -> List a`                        | List of n copies of a value             |
 | `reverse`   | `forall a. List a -> List a`                          | Reverse a list                          |
-| `zip`       | `forall a b. List a -> List b -> List (Pair a b)`     | Zip two lists into pairs                |
-| `unzip`     | `forall a b. List (Pair a b) -> Pair (List a) (List b)` | Unzip a list of pairs                 |
+| `zip`       | `forall a b. List a -> List b -> List (a, b)`          | Zip two lists into pairs                |
+| `unzip`     | `forall a b. List (a, b) -> (List a, List b)`           | Unzip a list of pairs                 |
 
 **Notes:**
 
@@ -943,8 +940,8 @@ Provides get/put state capabilities via the `state` capability in CapEnv.
 | Name     | Type                                                                                   | Description                    |
 |----------|----------------------------------------------------------------------------------------|--------------------------------|
 | `get`    | `forall s r. Computation { state : s \| r } { state : s \| r } s`                     | Read current state             |
-| `put`    | `forall s r. s -> Computation { state : s \| r } { state : s \| r } Unit`             | Replace current state          |
-| `modify` | `forall s r. (s -> s) -> Computation { state : s \| r } { state : s \| r } Unit`      | Apply a function to state      |
+| `put`    | `forall s r. s -> Computation { state : s \| r } { state : s \| r } ()`               | Replace current state          |
+| `modify` | `forall s r. (s -> s) -> Computation { state : s \| r } { state : s \| r } ()`        | Apply a function to state      |
 
 **Host setup:** Provide the initial state as the `"state"` capability:
 
@@ -963,8 +960,8 @@ Provides failure/error effects via the `fail` capability.
 | Name         | Type                                                                                              | Description                           |
 |--------------|---------------------------------------------------------------------------------------------------|---------------------------------------|
 | `failWith`   | `forall e r a. e -> Computation { fail : e \| r } { fail : e \| r } a`                           | Fail with a typed error value         |
-| `fail`       | `forall r a. Computation { fail : Unit \| r } { fail : Unit \| r } a`                            | Fail with Unit (no error payload)     |
-| `fromMaybe`  | `forall a r. Maybe a -> Computation { fail : Unit \| r } { fail : Unit \| r } a`                 | Extract Just or fail on Nothing       |
+| `fail`       | `forall r a. Computation { fail : () \| r } { fail : () \| r } a`                                | Fail with () (no error payload)       |
+| `fromMaybe`  | `forall a r. Maybe a -> Computation { fail : () \| r } { fail : () \| r } a`                     | Extract Just or fail on Nothing       |
 | `fromResult` | `forall e a r. Result e a -> Computation { fail : e \| r } { fail : e \| r } a`                  | Extract Ok or failWith on Err         |
 
 **Notes:**
@@ -980,8 +977,8 @@ Provides print/debug capabilities via the `io` capability.
 
 | Name    | Type                                                                          | Description                         |
 |---------|-------------------------------------------------------------------------------|-------------------------------------|
-| `print` | `String -> Computation { io : Unit \| r } { io : Unit \| r } Unit`           | Append a string to the IO buffer    |
-| `debug` | `forall a. a -> Computation { io : Unit \| r } { io : Unit \| r } Unit`      | Append debug representation to IO buffer |
+| `print` | `String -> Computation { io : () \| r } { io : () \| r } ()`                | Append a string to the IO buffer    |
+| `debug` | `forall a. a -> Computation { io : () \| r } { io : () \| r } ()`           | Append debug representation to IO buffer |
 
 **Host setup:** Provide the `"io"` capability. Output accumulates as `[]string` in the final CapEnv:
 
@@ -1084,7 +1081,7 @@ import Std.Str
 import Std.Fail
 
 -- Parse an Int or fail
-parseOrFail :: String -> Computation { fail : Unit | r } { fail : Unit | r } Int
+parseOrFail :: String -> Computation { fail : () | r } { fail : () | r } Int
 parseOrFail := \s -> fromMaybe (readInt s)
 
 -- Typed error
@@ -1119,7 +1116,7 @@ import Std.State
 import Std.Fail
 
 -- A computation that uses both state and fail
-process :: Computation { state : Int, fail : Unit } { state : Int, fail : Unit } Int
+process :: Computation { state : Int, fail : () } { state : Int, fail : () } Int
 process := do {
   n <- get;
   case n > 0 {
@@ -1299,7 +1296,7 @@ Register a Go function as a primitive callable from Gomputation:
 
 ```go
 // In source: declare type and mark as assumption
-// greet :: String -> Unit
+// greet :: String -> ()
 // greet := assumption
 
 eng.RegisterPrim("greet", func(
@@ -1310,7 +1307,7 @@ eng.RegisterPrim("greet", func(
 ) (gmp.Value, gmp.CapEnv, error) {
     s := gmp.MustHost[string](args[0])
     fmt.Println("Hello,", s)
-    return gmp.ToValue(nil), capEnv, nil  // nil -> Unit
+    return gmp.ToValue(nil), capEnv, nil  // nil -> ()
 })
 ```
 
@@ -1344,7 +1341,7 @@ In source, `myInput` is available as a variable of type `Int`.
 
 | Function                       | Description                                    |
 |--------------------------------|------------------------------------------------|
-| `gmp.ToValue(v any) Value`    | Wrap Go value: nil->Unit, bool->True/False, else->HostVal |
+| `gmp.ToValue(v any) Value`    | Wrap Go value: nil->(), bool->True/False, else->HostVal   |
 | `gmp.FromBool(v) (bool, bool)` | Extract Bool constructor                      |
 | `gmp.FromHost(v) (any, bool)` | Extract inner value from HostVal               |
 | `gmp.FromCon(v) (name, args, ok)` | Extract constructor name and arguments     |

@@ -446,7 +446,7 @@ forall (f : Type -> Type). f a -> f b
 {}                              -- empty row (closed)
 { x : Int, y : Bool }          -- closed row
 { x : Int | r }                -- open row (tail variable)
-{ get : Unit -> Int | r }      -- capability row
+{ get : () -> Int | r }        -- capability row
 ```
 
 ### Record / Tuple Type
@@ -607,8 +607,8 @@ Provides fail effect capability.
 
 ```
 failWith :: forall e r a. e -> Computation { fail : e | r } { fail : e | r } a
-fail     :: forall r a. Computation { fail : Unit | r } { fail : Unit | r } a
-fromMaybe  :: forall a r. Maybe a -> Computation { fail : Unit | r } ... a
+fail     :: forall r a. Computation { fail : () | r } { fail : () | r } a
+fromMaybe  :: forall a r. Maybe a -> Computation { fail : () | r } ... a
 fromResult :: forall e a r. Result e a -> Computation { fail : e | r } ... a
 ```
 
@@ -618,8 +618,8 @@ Provides get/put state capabilities.
 
 ```
 get    :: forall s r. Computation { state : s | r } { state : s | r } s
-put    :: forall s r. s -> Computation { state : s | r } { state : s | r } Unit
-modify :: forall s r. (s -> s) -> Computation { state : s | r } { state : s | r } Unit
+put    :: forall s r. s -> Computation { state : s | r } { state : s | r } ()
+modify :: forall s r. (s -> s) -> Computation { state : s | r } { state : s | r } ()
 ```
 
 ### Std.List
@@ -664,7 +664,7 @@ data Maybe a = Just a | Nothing
 data List a = Cons a (List a) | Nil
 ```
 
-Note: `Unit` is represented by `()` (empty tuple/record), `Pair a b` by tuples `(a, b)`.
+`()` is the unit type (empty record). `(a, b)` is the tuple type (sugar for `Record { _1 : a, _2 : b }`).
 
 ### Type Classes
 
