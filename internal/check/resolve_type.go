@@ -82,17 +82,18 @@ func (ch *Checker) resolveTypeExpr(texpr syntax.TypeExpr) types.Type {
 				S:          t.S,
 			}
 			if ev, ok := body.(*types.TyEvidence); ok {
-				entries := make([]types.ConstraintEntry, 0, 1+len(ev.Constraints.Entries))
+				old := ev.Constraints.ConEntries()
+				entries := make([]types.ConstraintEntry, 0, 1+len(old))
 				entries = append(entries, entry)
-				entries = append(entries, ev.Constraints.Entries...)
+				entries = append(entries, old...)
 				return &types.TyEvidence{
-					Constraints: &types.TyConstraintRow{Entries: entries},
+					Constraints: &types.TyEvidenceRow{Entries: &types.ConstraintEntries{Entries: entries}},
 					Body:        ev.Body,
 					S:           t.S,
 				}
 			}
 			return &types.TyEvidence{
-				Constraints: &types.TyConstraintRow{Entries: []types.ConstraintEntry{entry}},
+				Constraints: &types.TyEvidenceRow{Entries: &types.ConstraintEntries{Entries: []types.ConstraintEntry{entry}}},
 				Body:        body,
 				S:           t.S,
 			}
@@ -102,17 +103,18 @@ func (ch *Checker) resolveTypeExpr(texpr syntax.TypeExpr) types.Type {
 			entry := types.ConstraintEntry{ClassName: con.Name, Args: args, S: t.S}
 			// Fold chained constraints into a single TyEvidence.
 			if ev, ok := body.(*types.TyEvidence); ok {
-				entries := make([]types.ConstraintEntry, 0, 1+len(ev.Constraints.Entries))
+				old := ev.Constraints.ConEntries()
+				entries := make([]types.ConstraintEntry, 0, 1+len(old))
 				entries = append(entries, entry)
-				entries = append(entries, ev.Constraints.Entries...)
+				entries = append(entries, old...)
 				return &types.TyEvidence{
-					Constraints: &types.TyConstraintRow{Entries: entries},
+					Constraints: &types.TyEvidenceRow{Entries: &types.ConstraintEntries{Entries: entries}},
 					Body:        ev.Body,
 					S:           t.S,
 				}
 			}
 			return &types.TyEvidence{
-				Constraints: types.SingleConstraint(con.Name, args),
+				Constraints: types.EvSingleConstraint(con.Name, args),
 				Body:        body,
 				S:           t.S,
 			}
@@ -149,7 +151,8 @@ func (ch *Checker) decomposeQuantifiedConstraint(ty types.Type) *types.Quantifie
 	if !ok {
 		return nil // forall a. T without => is not a quantified constraint
 	}
-	if len(ev.Constraints.Entries) == 0 {
+	conEntries := ev.Constraints.ConEntries()
+	if len(conEntries) == 0 {
 		return nil
 	}
 	// The body of the evidence is the head constraint (after the last =>).
@@ -163,7 +166,7 @@ func (ch *Checker) decomposeQuantifiedConstraint(ty types.Type) *types.Quantifie
 	// All entries in the evidence are context (premise) constraints.
 	return &types.QuantifiedConstraint{
 		Vars:    vars,
-		Context: ev.Constraints.Entries,
+		Context: conEntries,
 		Head:    head,
 	}
 }

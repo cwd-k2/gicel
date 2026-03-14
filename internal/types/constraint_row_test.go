@@ -81,10 +81,10 @@ func TestConstraintRowChildrenMultiArgs(t *testing.T) {
 
 func TestEvidenceTypeNode(t *testing.T) {
 	ev := &TyEvidence{
-		Constraints: &TyConstraintRow{
-			Entries: []ConstraintEntry{
+		Constraints: &TyEvidenceRow{
+			Entries: &ConstraintEntries{Entries: []ConstraintEntry{
 				{ClassName: "Eq", Args: []Type{Var("a")}},
-			},
+			}},
 		},
 		Body: MkArrow(Var("a"), Con("Bool")),
 	}
@@ -94,10 +94,10 @@ func TestEvidenceTypeNode(t *testing.T) {
 }
 
 func TestEvidenceChildren(t *testing.T) {
-	cr := &TyConstraintRow{
-		Entries: []ConstraintEntry{
+	cr := &TyEvidenceRow{
+		Entries: &ConstraintEntries{Entries: []ConstraintEntry{
 			{ClassName: "Eq", Args: []Type{Var("a")}},
-		},
+		}},
 	}
 	body := MkArrow(Var("a"), Con("Bool"))
 	ev := &TyEvidence{Constraints: cr, Body: body}
@@ -215,12 +215,12 @@ func TestConstraintRowAlphaEquivalence(t *testing.T) {
 	// forall a. { Eq a } => a  ==  forall b. { Eq b } => b
 	t1 := MkForall("a", KType{},
 		&TyEvidence{
-			Constraints: SingleConstraint("Eq", []Type{Var("a")}),
+			Constraints: EvSingleConstraint("Eq", []Type{Var("a")}),
 			Body:        Var("a"),
 		})
 	t2 := MkForall("b", KType{},
 		&TyEvidence{
-			Constraints: SingleConstraint("Eq", []Type{Var("b")}),
+			Constraints: EvSingleConstraint("Eq", []Type{Var("b")}),
 			Body:        Var("b"),
 		})
 	if !Equal(t1, t2) {
@@ -230,11 +230,11 @@ func TestConstraintRowAlphaEquivalence(t *testing.T) {
 
 func TestEvidenceEqual(t *testing.T) {
 	ev1 := &TyEvidence{
-		Constraints: SingleConstraint("Eq", []Type{Var("a")}),
+		Constraints: EvSingleConstraint("Eq", []Type{Var("a")}),
 		Body:        MkArrow(Var("a"), Con("Bool")),
 	}
 	ev2 := &TyEvidence{
-		Constraints: SingleConstraint("Eq", []Type{Var("a")}),
+		Constraints: EvSingleConstraint("Eq", []Type{Var("a")}),
 		Body:        MkArrow(Var("a"), Con("Bool")),
 	}
 	if !Equal(ev1, ev2) {
@@ -244,11 +244,11 @@ func TestEvidenceEqual(t *testing.T) {
 
 func TestEvidenceNotEqual(t *testing.T) {
 	ev1 := &TyEvidence{
-		Constraints: SingleConstraint("Eq", []Type{Var("a")}),
+		Constraints: EvSingleConstraint("Eq", []Type{Var("a")}),
 		Body:        MkArrow(Var("a"), Con("Bool")),
 	}
 	ev2 := &TyEvidence{
-		Constraints: SingleConstraint("Ord", []Type{Var("a")}),
+		Constraints: EvSingleConstraint("Ord", []Type{Var("a")}),
 		Body:        MkArrow(Var("a"), Con("Bool")),
 	}
 	if Equal(ev1, ev2) {
@@ -258,7 +258,7 @@ func TestEvidenceNotEqual(t *testing.T) {
 
 func TestEvidenceNotEqualToArrow(t *testing.T) {
 	ev := &TyEvidence{
-		Constraints: SingleConstraint("Eq", []Type{Var("a")}),
+		Constraints: EvSingleConstraint("Eq", []Type{Var("a")}),
 		Body:        MkArrow(Var("a"), Con("Bool")),
 	}
 	arr := MkArrow(Var("a"), Con("Bool"))
@@ -332,7 +332,7 @@ func TestEvidencePretty(t *testing.T) {
 		{
 			"single constraint",
 			&TyEvidence{
-				Constraints: SingleConstraint("Eq", []Type{Var("a")}),
+				Constraints: EvSingleConstraint("Eq", []Type{Var("a")}),
 				Body:        MkArrow(Var("a"), Con("Bool")),
 			},
 			"{ Eq a } => a -> Bool",
@@ -340,11 +340,11 @@ func TestEvidencePretty(t *testing.T) {
 		{
 			"multi constraint",
 			&TyEvidence{
-				Constraints: &TyConstraintRow{
-					Entries: []ConstraintEntry{
+				Constraints: &TyEvidenceRow{
+					Entries: &ConstraintEntries{Entries: []ConstraintEntry{
 						{ClassName: "Eq", Args: []Type{Var("a")}},
 						{ClassName: "Ord", Args: []Type{Var("a")}},
-					},
+					}},
 				},
 				Body: MkArrow(Var("a"), Con("Bool")),
 			},
@@ -369,12 +369,12 @@ func TestConstraintRowSubst(t *testing.T) {
 	// { Eq a }[a := Int] = { Eq Int }
 	cr := SingleConstraint("Eq", []Type{Var("a")})
 	result := Subst(cr, "a", Con("Int"))
-	rc, ok := result.(*TyConstraintRow)
+	rc, ok := result.(*TyEvidenceRow)
 	if !ok {
-		t.Fatalf("expected TyConstraintRow, got %T", result)
+		t.Fatalf("expected TyEvidenceRow, got %T", result)
 	}
-	if !Equal(rc.Entries[0].Args[0], Con("Int")) {
-		t.Errorf("expected Eq Int, got Eq %s", Pretty(rc.Entries[0].Args[0]))
+	if !Equal(rc.ConEntries()[0].Args[0], Con("Int")) {
+		t.Errorf("expected Eq Int, got Eq %s", Pretty(rc.ConEntries()[0].Args[0]))
 	}
 }
 
@@ -386,9 +386,9 @@ func TestConstraintRowSubstTail(t *testing.T) {
 	}
 	replacement := SingleConstraint("Ord", []Type{Var("b")})
 	result := Subst(cr, "c", replacement)
-	rc, ok := result.(*TyConstraintRow)
+	rc, ok := result.(*TyEvidenceRow)
 	if !ok {
-		t.Fatalf("expected TyConstraintRow, got %T", result)
+		t.Fatalf("expected TyEvidenceRow, got %T", result)
 	}
 	if !Equal(rc.Tail, replacement) {
 		t.Errorf("tail should be replaced, got %s", Pretty(rc.Tail))
@@ -397,7 +397,7 @@ func TestConstraintRowSubstTail(t *testing.T) {
 
 func TestConstraintRowSubstIdentity(t *testing.T) {
 	// Substituting a non-occurring variable returns same pointer.
-	cr := SingleConstraint("Eq", []Type{Var("a")})
+	cr := EvSingleConstraint("Eq", []Type{Var("a")})
 	result := Subst(cr, "z", Con("Int"))
 	if result != cr {
 		t.Error("subst of non-occurring variable should return same pointer")
@@ -407,7 +407,7 @@ func TestConstraintRowSubstIdentity(t *testing.T) {
 func TestEvidenceSubst(t *testing.T) {
 	// { Eq a } => a -> Bool  [a := Int]  =  { Eq Int } => Int -> Bool
 	ev := &TyEvidence{
-		Constraints: SingleConstraint("Eq", []Type{Var("a")}),
+		Constraints: EvSingleConstraint("Eq", []Type{Var("a")}),
 		Body:        MkArrow(Var("a"), Con("Bool")),
 	}
 	result := Subst(ev, "a", Con("Int"))
@@ -416,9 +416,9 @@ func TestEvidenceSubst(t *testing.T) {
 		t.Fatalf("expected TyEvidence, got %T", result)
 	}
 	// Check constraints substituted.
-	rc := re.Constraints
-	if !Equal(rc.Entries[0].Args[0], Con("Int")) {
-		t.Errorf("constraint arg: expected Int, got %s", Pretty(rc.Entries[0].Args[0]))
+	rc := re.Constraints.ConEntries()
+	if !Equal(rc[0].Args[0], Con("Int")) {
+		t.Errorf("constraint arg: expected Int, got %s", Pretty(rc[0].Args[0]))
 	}
 	// Check body substituted.
 	arr, ok := re.Body.(*TyArrow)
@@ -444,8 +444,8 @@ func TestQuantifiedConstraintSubstCaptureAvoidance(t *testing.T) {
 	}
 	cr := &TyConstraintRow{Entries: []ConstraintEntry{entry}}
 	result := Subst(cr, "a", Var("b"))
-	rc := result.(*TyConstraintRow)
-	qc := rc.Entries[0].Quantified
+	rc := result.(*TyEvidenceRow)
+	qc := rc.ConEntries()[0].Quantified
 	if qc == nil {
 		t.Fatal("expected quantified constraint to be preserved")
 	}
@@ -465,7 +465,7 @@ func TestQuantifiedConstraintSubstCaptureAvoidance(t *testing.T) {
 
 func TestEvidenceSubstIdentity(t *testing.T) {
 	ev := &TyEvidence{
-		Constraints: SingleConstraint("Eq", []Type{Con("Int")}),
+		Constraints: EvSingleConstraint("Eq", []Type{Con("Int")}),
 		Body:        Con("Bool"),
 	}
 	result := Subst(ev, "z", Con("String"))
@@ -496,7 +496,7 @@ func TestConstraintRowFreeVars(t *testing.T) {
 
 func TestEvidenceFreeVars(t *testing.T) {
 	ev := &TyEvidence{
-		Constraints: SingleConstraint("Eq", []Type{Var("a")}),
+		Constraints: EvSingleConstraint("Eq", []Type{Var("a")}),
 		Body:        MkArrow(Var("a"), Var("b")),
 	}
 	fv := FreeVars(ev)
@@ -511,7 +511,7 @@ func TestEvidenceFreeVarsUnderForall(t *testing.T) {
 	// forall a. { Eq a } => a -> b — FV = {b}
 	ty := MkForall("a", KType{},
 		&TyEvidence{
-			Constraints: SingleConstraint("Eq", []Type{Var("a")}),
+			Constraints: EvSingleConstraint("Eq", []Type{Var("a")}),
 			Body:        MkArrow(Var("a"), Var("b")),
 		})
 	fv := FreeVars(ty)
@@ -559,8 +559,8 @@ func TestMkEvidence(t *testing.T) {
 	if ev.Constraints == nil {
 		t.Fatal("Constraints should not be nil")
 	}
-	if len(ev.Constraints.Entries) != 1 {
-		t.Fatalf("expected 1 entry, got %d", len(ev.Constraints.Entries))
+	if len(ev.Constraints.ConEntries()) != 1 {
+		t.Fatalf("expected 1 entry, got %d", len(ev.Constraints.ConEntries()))
 	}
 	if ev.Body != body {
 		t.Error("Body mismatch")

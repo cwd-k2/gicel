@@ -121,9 +121,9 @@ type ForallBinder struct {
 }
 
 // TyEvidence is a qualified type: { C1, C2 | c } => Body.
-// Successor to TyQual; represents multiple constraints via a constraint row.
+// Successor to TyQual; represents multiple constraints via an evidence row.
 type TyEvidence struct {
-	Constraints *TyConstraintRow
+	Constraints *TyEvidenceRow
 	Body        Type
 	S           span.Span
 }

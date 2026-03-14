@@ -218,11 +218,11 @@ f := \x -> True`
 			if ev.Constraints == nil {
 				t.Fatal("expected non-nil Constraints")
 			}
-			if len(ev.Constraints.Entries) == 0 {
+			if len(ev.Constraints.ConEntries()) == 0 {
 				t.Fatal("expected at least one constraint entry")
 			}
-			if ev.Constraints.Entries[0].ClassName != "Eq" {
-				t.Errorf("expected Eq constraint, got %s", ev.Constraints.Entries[0].ClassName)
+			if ev.Constraints.ConEntries()[0].ClassName != "Eq" {
+				t.Errorf("expected Eq constraint, got %s", ev.Constraints.ConEntries()[0].ClassName)
 			}
 			return
 		}

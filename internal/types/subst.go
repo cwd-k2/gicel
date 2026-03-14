@@ -79,22 +79,7 @@ func Subst(t Type, varName string, replacement Type) Type {
 		return Subst(ty.ToEvidence(), varName, replacement)
 
 	case *TyConstraintRow:
-		changed := false
-		entries := make([]ConstraintEntry, len(ty.Entries))
-		for i, e := range ty.Entries {
-			entries[i] = substConstraintEntry(e, varName, replacement, &changed)
-		}
-		var newTail Type
-		if ty.Tail != nil {
-			newTail = Subst(ty.Tail, varName, replacement)
-			if newTail != ty.Tail {
-				changed = true
-			}
-		}
-		if !changed {
-			return ty
-		}
-		return &TyConstraintRow{Entries: entries, Tail: newTail, S: ty.S}
+		return Subst(ty.ToEvidence(), varName, replacement)
 
 	case *TyEvidence:
 		newConstraints := Subst(ty.Constraints, varName, replacement)
@@ -102,9 +87,9 @@ func Subst(t Type, varName string, replacement Type) Type {
 		if newConstraints == ty.Constraints && newBody == ty.Body {
 			return ty
 		}
-		cr, ok := newConstraints.(*TyConstraintRow)
+		cr, ok := newConstraints.(*TyEvidenceRow)
 		if !ok {
-			// Subst produced a non-constraint-row; preserve original to avoid nil.
+			// Subst produced a non-evidence-row; preserve original to avoid nil.
 			return &TyEvidence{Constraints: ty.Constraints, Body: newBody, S: ty.S}
 		}
 		return &TyEvidence{Constraints: cr, Body: newBody, S: ty.S}

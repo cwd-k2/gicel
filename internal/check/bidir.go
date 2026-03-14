@@ -265,8 +265,8 @@ func (ch *Checker) checkWithEvidence(expr syntax.Expr, ev *types.TyEvidence) cor
 		param string
 		ty    types.Type
 	}
-	dicts := make([]dictInfo, len(ev.Constraints.Entries))
-	for i, entry := range ev.Constraints.Entries {
+	dicts := make([]dictInfo, len(ev.Constraints.ConEntries()))
+	for i, entry := range ev.Constraints.ConEntries() {
 		var dictTy types.Type
 		var className string
 		var args []types.Type
@@ -336,7 +336,7 @@ func (ch *Checker) subsCheck(inferred, expected types.Type, expr core.Core, s sp
 	// Inferred { C1, C2 } => A ≤ B  →  defer all constraints, check A ≤ B
 	if ev, ok := inferred.(*types.TyEvidence); ok {
 		groupID := ch.fresh()
-		for _, entry := range ev.Constraints.Entries {
+		for _, entry := range ev.Constraints.ConEntries() {
 			placeholder := fmt.Sprintf("$dict_%d", ch.fresh())
 			ch.deferred = append(ch.deferred, deferredConstraint{
 				placeholder:   placeholder,
@@ -545,7 +545,7 @@ func (ch *Checker) checkConPattern(p *syntax.PatCon, scrutTy types.Type) pattern
 	var pendingCVs []pendingCV
 	for {
 		if ev, ok := currentTy.(*types.TyEvidence); ok {
-			for _, entry := range ev.Constraints.Entries {
+			for _, entry := range ev.Constraints.ConEntries() {
 				if entry.ConstraintVar != nil && entry.ClassName == "" {
 					dictParam := fmt.Sprintf("$d_cv_%d", ch.fresh())
 					pendingCVs = append(pendingCVs, pendingCV{
@@ -643,7 +643,7 @@ func (ch *Checker) instantiate(ty types.Type, expr core.Core) (types.Type, core.
 		}
 		if ev, ok := ty.(*types.TyEvidence); ok {
 			groupID := ch.fresh()
-			for _, entry := range ev.Constraints.Entries {
+			for _, entry := range ev.Constraints.ConEntries() {
 				placeholder := fmt.Sprintf("$dict_%d", ch.fresh())
 				ch.deferred = append(ch.deferred, deferredConstraint{
 					placeholder:   placeholder,

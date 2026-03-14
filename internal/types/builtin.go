@@ -66,7 +66,7 @@ func SingleConstraint(className string, args []Type) *TyConstraintRow {
 // MkEvidence creates a TyEvidence from constraint entries and a body type.
 func MkEvidence(entries []ConstraintEntry, body Type) *TyEvidence {
 	return &TyEvidence{
-		Constraints: &TyConstraintRow{Entries: entries},
+		Constraints: &TyEvidenceRow{Entries: &ConstraintEntries{Entries: entries}},
 		Body:        body,
 	}
 }

@@ -140,7 +140,7 @@ func (ch *Checker) processDataDecl(d *syntax.DeclData, prog *core.Program) {
 		// Wrap with evidence constraints if any fields were Constraint-kinded.
 		if len(constraintEntries) > 0 {
 			conType = &types.TyEvidence{
-				Constraints: &types.TyConstraintRow{Entries: constraintEntries},
+				Constraints: &types.TyEvidenceRow{Entries: &types.ConstraintEntries{Entries: constraintEntries}},
 				Body:        conType,
 			}
 		}

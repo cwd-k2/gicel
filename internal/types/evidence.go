@@ -146,7 +146,7 @@ func EvSingleConstraint(className string, args []Type) *TyEvidenceRow {
 // EvMkEvidence creates a TyEvidence from constraint entries and a body type.
 func EvMkEvidence(entries []ConstraintEntry, body Type) *TyEvidence {
 	return &TyEvidence{
-		Constraints: &TyConstraintRow{Entries: entries},
+		Constraints: &TyEvidenceRow{Entries: &ConstraintEntries{Entries: entries}},
 		Body:        body,
 	}
 }
