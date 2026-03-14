@@ -233,6 +233,11 @@ reference and [spec/language.md](spec/language.md) for the formal specification.
 - `examples/gicel/` — GICEL programs covering ADTs, type classes, HKT, records, effects, etc.
 - `examples/go/` — Go programs demonstrating the embedding API (lifecycle, capabilities, sandbox, etc.)
 
+## Editor Support
+
+- [tree-sitter-gicel](https://github.com/cwd-k2/tree-sitter-gicel) — Tree-sitter grammar for GICEL
+- [vscode-gicel](https://github.com/cwd-k2/vscode-gicel) — VS Code extension (syntax highlighting, diagnostics)
+
 ## License
 
 MIT
