@@ -8,108 +8,94 @@ import (
 	"github.com/cwd-k2/gicel/internal/types"
 )
 
-// resolveDeferredConstraints walks a Core expression and replaces
-// placeholder dict variables with resolved instance dictionaries.
+// resolveDeferredConstraints discharges all deferred constraints eagerly.
+// Used in check mode where the type is already known and every constraint
+// must be resolved immediately.
 func (ch *Checker) resolveDeferredConstraints(expr core.Core) core.Core {
-	if len(ch.deferred) == 0 {
-		return expr
-	}
-
-	// Build resolution map: placeholder name → resolved Core expression.
-	resolutions := make(map[string]core.Core)
-	for _, dc := range ch.deferred {
-		if dc.quantified != nil {
-			// Resolve quantified constraint by finding matching evidence.
-			resolved := ch.resolveQuantifiedConstraint(dc.quantified, dc.s)
-			resolutions[dc.placeholder] = resolved
-		} else if dc.constraintVar != nil {
-			// Constraint variable: zonk and decompose into className + args.
-			cv := ch.unifier.Zonk(dc.constraintVar)
-			cn, cArgs, ok := DecomposeConstraintType(cv)
-			if ok {
-				resolved := ch.resolveInstance(cn, cArgs, dc.s)
-				resolutions[dc.placeholder] = resolved
-			} else {
-				// Still unresolved — try using className/args if available.
-				if dc.className != "" {
-					zonkedArgs := make([]types.Type, len(dc.args))
-					for i, a := range dc.args {
-						zonkedArgs[i] = ch.unifier.Zonk(a)
-					}
-					resolved := ch.resolveInstance(dc.className, zonkedArgs, dc.s)
-					resolutions[dc.placeholder] = resolved
-				} else {
-					ch.addCodedError(errs.ErrNoInstance, dc.s,
-						fmt.Sprintf("cannot resolve constraint variable %s", types.Pretty(cv)))
-					resolutions[dc.placeholder] = &core.Var{Name: "<no-instance>", S: dc.s}
-				}
-			}
-		} else {
-			zonkedArgs := make([]types.Type, len(dc.args))
-			for i, a := range dc.args {
-				zonkedArgs[i] = ch.unifier.Zonk(a)
-			}
-			resolved := ch.resolveInstance(dc.className, zonkedArgs, dc.s)
-			resolutions[dc.placeholder] = resolved
-		}
-	}
-	ch.deferred = ch.deferred[:0]
-
-	return ch.substitutePlaceholders(expr, resolutions)
+	result, _ := ch.resolveDeferred(expr, nil)
+	return result
 }
 
-// resolveDeferredConstraintsDeferrable works like resolveDeferredConstraints
-// but returns constraints whose zonked args contain unsolved metavariables
-// instead of resolving them eagerly. Used by let-generalization to lift
-// such constraints into forall-qualified types.
+// resolveDeferredConstraintsDeferrable resolves deferred constraints but
+// returns ambiguous plain-args constraints as residuals instead of forcing
+// them. Used in infer mode so let-generalization can lift residuals into
+// forall-qualified types.
 func (ch *Checker) resolveDeferredConstraintsDeferrable(expr core.Core) (core.Core, []deferredConstraint) {
+	return ch.resolveDeferred(expr, func(className string, zonkedArgs []types.Type) bool {
+		return hasMeta(zonkedArgs) && ch.isAmbiguousInstance(className, zonkedArgs)
+	})
+}
+
+// resolveDeferred is the parameterized fold over ch.deferred.
+//
+// Each deferred constraint falls into one of three branches:
+//
+//	(A) quantified     → resolveQuantifiedConstraint
+//	(B) constraintVar  → zonk, decompose, resolveInstance / fallback
+//	(C) plain args     → zonkArgs, then ask shouldDefer
+//
+// shouldDefer governs branch (C): when non-nil and returning true, the
+// constraint becomes a residual rather than being discharged. This mirrors
+// the check/infer duality in bidirectional constraint resolution — check
+// mode passes nil (discharge all), infer mode passes a predicate that
+// defers ambiguous constraints containing unsolved metavariables.
+//
+// A single-pass fold preserves the sequential resolution order, which
+// matters because earlier resolutions may solve metavariables that later
+// constraints depend on.
+func (ch *Checker) resolveDeferred(
+	expr core.Core,
+	shouldDefer func(className string, zonkedArgs []types.Type) bool,
+) (core.Core, []deferredConstraint) {
 	if len(ch.deferred) == 0 {
 		return expr, nil
 	}
 
 	resolutions := make(map[string]core.Core)
-	var unresolved []deferredConstraint
+	var residuals []deferredConstraint
+
 	for _, dc := range ch.deferred {
 		if dc.quantified != nil {
+			// (A) Quantified constraint: resolve by finding matching evidence.
 			resolved := ch.resolveQuantifiedConstraint(dc.quantified, dc.s)
 			resolutions[dc.placeholder] = resolved
 		} else if dc.constraintVar != nil {
+			// (B) Constraint variable: zonk and decompose into className + args.
 			cv := ch.unifier.Zonk(dc.constraintVar)
 			cn, cArgs, ok := DecomposeConstraintType(cv)
 			if ok {
-				resolved := ch.resolveInstance(cn, cArgs, dc.s)
-				resolutions[dc.placeholder] = resolved
+				resolutions[dc.placeholder] = ch.resolveInstance(cn, cArgs, dc.s)
 			} else if dc.className != "" {
-				zonkedArgs := make([]types.Type, len(dc.args))
-				for i, a := range dc.args {
-					zonkedArgs[i] = ch.unifier.Zonk(a)
-				}
-				resolved := ch.resolveInstance(dc.className, zonkedArgs, dc.s)
-				resolutions[dc.placeholder] = resolved
+				zonkedArgs := ch.zonkAll(dc.args)
+				resolutions[dc.placeholder] = ch.resolveInstance(dc.className, zonkedArgs, dc.s)
 			} else {
 				ch.addCodedError(errs.ErrNoInstance, dc.s,
 					fmt.Sprintf("cannot resolve constraint variable %s", types.Pretty(cv)))
 				resolutions[dc.placeholder] = &core.Var{Name: "<no-instance>", S: dc.s}
 			}
 		} else {
-			zonkedArgs := make([]types.Type, len(dc.args))
-			for i, a := range dc.args {
-				zonkedArgs[i] = ch.unifier.Zonk(a)
-			}
-			// If args contain unsolved metas AND the constraint is ambiguous
-			// (multiple instances match), defer for let-generalization.
-			// Otherwise resolve normally (which may solve metas via unification).
-			if hasMeta(zonkedArgs) && ch.isAmbiguousInstance(dc.className, zonkedArgs) {
+			// (C) Plain className + args: the only branch where the mode matters.
+			zonkedArgs := ch.zonkAll(dc.args)
+			if shouldDefer != nil && shouldDefer(dc.className, zonkedArgs) {
 				dc.args = zonkedArgs
-				unresolved = append(unresolved, dc)
+				residuals = append(residuals, dc)
 			} else {
-				resolved := ch.resolveInstance(dc.className, zonkedArgs, dc.s)
-				resolutions[dc.placeholder] = resolved
+				resolutions[dc.placeholder] = ch.resolveInstance(dc.className, zonkedArgs, dc.s)
 			}
 		}
 	}
+
 	ch.deferred = ch.deferred[:0]
-	return ch.substitutePlaceholders(expr, resolutions), unresolved
+	return ch.substitutePlaceholders(expr, resolutions), residuals
+}
+
+// zonkAll applies Zonk to each type in the slice.
+func (ch *Checker) zonkAll(tys []types.Type) []types.Type {
+	result := make([]types.Type, len(tys))
+	for i, t := range tys {
+		result[i] = ch.unifier.Zonk(t)
+	}
+	return result
 }
 
 // hasMeta returns true if any type in the slice contains an unsolved TyMeta.
