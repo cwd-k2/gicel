@@ -4277,3 +4277,55 @@ main := foldr add 0 (fmap (\x -> add x 10) xs)
 		t.Fatalf("expected 36, got %v", result.Value)
 	}
 }
+
+// ---------------------------------------------------------------------------
+// Let-Generalization with Constraints
+// ---------------------------------------------------------------------------
+
+func TestLetGeneralizationConstrainedEq(t *testing.T) {
+	// same := \x -> \y -> eq x y  (no annotation)
+	// Should generalize to: forall a. Eq a => a -> a -> Bool
+	// and work at both Int and Bool.
+	eng := gicel.NewEngine()
+	gicel.Num(eng) // provides Eq Int
+	rt, err := eng.NewRuntime(`
+import Std.Num
+same := \x -> \y -> eq x y
+main := (same 1 2, same True True)
+`)
+	if err != nil {
+		t.Fatalf("constrained let-gen should compile: %v", err)
+	}
+	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	if err != nil {
+		t.Fatalf("constrained let-gen should run: %v", err)
+	}
+	// same 1 2 = False, same True True = True
+	rv, ok := result.Value.(*gicel.RecordVal)
+	if !ok || len(rv.Fields) != 2 {
+		t.Fatalf("expected (False, True), got %v", result.Value)
+	}
+}
+
+func TestLetGeneralizationConstrainedOrd(t *testing.T) {
+	// mymax := \x -> \y -> case compare x y { GT -> x; _ -> y }
+	// Should generalize to: forall a. Ord a => a -> a -> a
+	eng := gicel.NewEngine()
+	gicel.Num(eng)
+	rt, err := eng.NewRuntime(`
+import Std.Num
+mymax := \x -> \y -> case compare x y { GT -> x; _ -> y }
+main := (mymax 3 7, mymax True False)
+`)
+	if err != nil {
+		t.Fatalf("constrained let-gen Ord should compile: %v", err)
+	}
+	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	if err != nil {
+		t.Fatalf("constrained let-gen Ord should run: %v", err)
+	}
+	rv, ok := result.Value.(*gicel.RecordVal)
+	if !ok || len(rv.Fields) != 2 {
+		t.Fatalf("expected (7, True), got %v", result.Value)
+	}
+}

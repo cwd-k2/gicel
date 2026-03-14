@@ -358,15 +358,23 @@ func (ch *Checker) processValueDef(d *syntax.DeclValueDef, annotations map[strin
 	}
 
 	// Resolve deferred constraints now that metas are solved.
-	coreExpr = ch.resolveDeferredConstraints(coreExpr)
+	// For unannotated bindings, defer constraints on unsolved metas
+	// so they can be lifted into qualified types by generalization.
+	var unresolvedConstraints []deferredConstraint
+	if hasAnn {
+		coreExpr = ch.resolveDeferredConstraints(coreExpr)
+	} else {
+		coreExpr, unresolvedConstraints = ch.resolveDeferredConstraintsDeferrable(coreExpr)
+	}
 
 	// Zonk the type.
 	ty = ch.unifier.Zonk(ty)
 
 	// Let-generalization: for unannotated bindings, replace unsolved
-	// metavariables with universally quantified type variables.
+	// metavariables with universally quantified type variables,
+	// and lift unresolved constraints into qualified types.
 	if !hasAnn {
-		ty = ch.generalize(ty)
+		ty, coreExpr = ch.generalizeConstrained(ty, coreExpr, unresolvedConstraints)
 	}
 
 	ch.ctx.Push(&CtxVar{Name: d.Name, Type: ty})
@@ -378,17 +386,20 @@ func (ch *Checker) processValueDef(d *syntax.DeclValueDef, annotations map[strin
 	})
 }
 
-// generalize replaces unsolved metavariables in ty with universally
-// quantified type variables. Called for unannotated top-level bindings
-// after inference, constraint resolution, and zonking.
+// generalizeConstrained replaces unsolved metavariables with universally
+// quantified type variables and lifts unresolved constraints into qualified
+// types (TyEvidence). Called for unannotated top-level bindings.
 //
-// Approach: temporarily register solutions mapping each unsolved meta to
-// a fresh TyVar, re-zonk (reusing existing walk logic), then remove
-// the temporary solutions and wrap in forall.
-func (ch *Checker) generalize(ty types.Type) types.Type {
+// Example: \x -> x + x  with unresolved Num ?a
+//   → forall a. Num a => a -> a  with Core: \dict -> \x -> ...
+func (ch *Checker) generalizeConstrained(ty types.Type, expr core.Core, unresolved []deferredConstraint) (types.Type, core.Core) {
 	metas := collectUnsolvedMetas(ty)
-	if len(metas) == 0 {
-		return ty
+	// Also collect metas from unresolved constraint args.
+	for _, uc := range unresolved {
+		metas = append(metas, collectUnsolvedMetas(uc.args...)...)
+	}
+	if len(metas) == 0 && len(unresolved) == 0 {
+		return ty, expr
 	}
 
 	// Deduplicate and sort by ID for deterministic naming.
@@ -409,21 +420,38 @@ func (ch *Checker) generalize(ty types.Type) types.Type {
 		ch.unifier.soln[m.id] = &types.TyVar{Name: name}
 	}
 
-	// Re-zonk to replace metas with vars.
+	// Re-zonk type to replace metas with vars.
 	ty = ch.unifier.Zonk(ty)
 
-	// Remove temporary solutions so other bindings aren't affected.
+	// Wrap unresolved constraints into the type and Core expression.
+	// Each constraint becomes a dict parameter (lambda in Core, TyEvidence in type).
+	for _, uc := range unresolved {
+		zonkedArgs := make([]types.Type, len(uc.args))
+		for i, a := range uc.args {
+			zonkedArgs[i] = ch.unifier.Zonk(a)
+		}
+		// Wrap Core: \placeholder -> expr (placeholder becomes the dict param)
+		expr = &core.Lam{Param: uc.placeholder, Body: expr, S: uc.s}
+		// Wrap type: ClassName args => ty
+		ty = &types.TyEvidence{
+			Constraints: types.SingleConstraint(uc.className, zonkedArgs),
+			Body:        ty,
+			S:           uc.s,
+		}
+	}
+
+	// Remove temporary solutions.
 	for _, m := range unique {
 		delete(ch.unifier.soln, m.id)
 	}
 
-	// Wrap in forall (innermost variable last in the source).
+	// Wrap in forall.
 	for i := len(unique) - 1; i >= 0; i-- {
 		kind := ch.unifier.ZonkKind(unique[i].kind)
 		ty = types.MkForall(unique[i].name, kind, ty)
 	}
 
-	return ty
+	return ty, expr
 }
 
 type metaInfo struct {
@@ -439,8 +467,8 @@ func genVarName(i int) string {
 	return fmt.Sprintf("t%d", i-26)
 }
 
-// collectUnsolvedMetas walks a type and collects all TyMeta nodes.
-func collectUnsolvedMetas(ty types.Type) []metaInfo {
+// collectUnsolvedMetas walks one or more types and collects all TyMeta nodes.
+func collectUnsolvedMetas(tys ...types.Type) []metaInfo {
 	var result []metaInfo
 	seen := make(map[int]bool)
 	var walk func(types.Type)
@@ -480,7 +508,9 @@ func collectUnsolvedMetas(ty types.Type) []metaInfo {
 			}
 		}
 	}
-	walk(ty)
+	for _, ty := range tys {
+		walk(ty)
+	}
 	return result
 }
 
