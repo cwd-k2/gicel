@@ -64,7 +64,9 @@ Flags (run only):
   --max-steps <n>  Step limit (default: 100000)
   --max-depth <n>  Depth limit (default: 100)
   --json           Output result as JSON
-  --explain        Show semantic evaluation trace`)
+  --explain        Show semantic evaluation trace
+  --verbose        Show source context in explain trace
+  --no-color       Disable color output`)
 }
 
 func cmdDocs(args []string) int {
@@ -186,6 +188,8 @@ func cmdRun(args []string) int {
 	maxDepth := fs.Int("max-depth", 100, "depth limit")
 	jsonOut := fs.Bool("json", false, "output as JSON")
 	explain := fs.Bool("explain", false, "show semantic evaluation trace")
+	verbose := fs.Bool("verbose", false, "show source context in explain trace")
+	noColor := fs.Bool("no-color", false, "disable color output")
 	if err := fs.Parse(args); err != nil {
 		return 1
 	}
@@ -213,21 +217,16 @@ func cmdRun(args []string) int {
 	eng.SetDepthLimit(*maxDepth)
 
 	var explainSteps []gicel.ExplainStep
+	var formatter *explainFormatter
 	if *explain {
-		eng.SetExplainHook(func(step gicel.ExplainStep) {
-			if *jsonOut {
+		if *jsonOut {
+			eng.SetExplainHook(func(step gicel.ExplainStep) {
 				explainSteps = append(explainSteps, step)
-				return
-			}
-			if step.Kind == gicel.ExplainResult {
-				return // result goes to stdout, not the trace
-			}
-			if step.Line > 0 {
-				fmt.Fprintf(os.Stderr, "L%d: %s\n", step.Line, step.Message)
-			} else {
-				fmt.Fprintf(os.Stderr, "%s\n", step.Message)
-			}
-		})
+			})
+		} else {
+			formatter = newExplainFormatter(os.Stderr, useColor(*noColor), *verbose, string(source))
+			eng.SetExplainHook(formatter.Emit)
+		}
 	}
 
 	rt, err := eng.NewRuntime(string(source))
@@ -251,6 +250,10 @@ func cmdRun(args []string) int {
 			fmt.Fprintf(os.Stderr, "runtime error: %v\n", err)
 		}
 		return 1
+	}
+
+	if formatter != nil {
+		formatter.Flush()
 	}
 
 	if *jsonOut {
@@ -339,6 +342,6 @@ func formatValue(v gicel.Value) any {
 		}
 		return map[string]any{"con": val.Con, "args": args}
 	default:
-		return v.String()
+		return gicel.PrettyValue(v)
 	}
 }

@@ -88,6 +88,9 @@ gicel run --entry myFunc --timeout 10s --max-steps 500000 --json program.gicel
 
 # Semantic evaluation trace — shows effects, binds, and pattern matches
 gicel run --explain program.gicel
+
+# Verbose trace with source context
+gicel run --explain --verbose program.gicel
 ```
 
 CLI flags:
@@ -102,6 +105,8 @@ CLI flags:
 | `--max-depth` | `100`    | Depth limit (run only)                                 |
 | `--json`      | `false`  | Output result as JSON (run only)                       |
 | `--explain`   | `false`  | Show semantic evaluation trace (run only)              |
+| `--verbose`   | `false`  | Show source context in explain trace (run only)        |
+| `--no-color`  | `false`  | Disable color output; also respects `NO_COLOR` env var |
 
 **Go API (Sandbox):**
 
