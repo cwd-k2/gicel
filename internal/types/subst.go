@@ -201,7 +201,7 @@ func SubstKindInType(t Type, varName string, replacement Kind) Type {
 		}
 		return &TySkolem{ID: ty.ID, Name: ty.Name, Kind: newKind}
 	default:
-		// TyVar, TyCon, TyRow, TyConstraintRow, TyEvidenceRow, TyEvidence,
+		// TyVar, TyCon, TyEvidenceRow, TyEvidence,
 		// TyError, TyLit — no embedded kind annotations to substitute.
 		return ty
 	}
