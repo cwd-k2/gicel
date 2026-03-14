@@ -81,6 +81,33 @@ func FuzzCheck(f *testing.F) {
 	})
 }
 
+// --- Stage 3b: Type Checker (bare, no Prelude) ---
+// Tests checker robustness against arbitrary input without Prelude environment.
+// Catches nil-guard omissions (e.g. missing IxMonad class).
+func FuzzCheckBare(f *testing.F) {
+	f.Add([]byte("id := \\x -> x; main := id True"))
+	f.Add([]byte("data T = A | B; main := A"))
+	f.Add([]byte("do { x <- pure True; pure x }"))
+	f.Add([]byte("class Foo a { bar :: a -> a }"))
+	f.Add([]byte(""))
+
+	f.Fuzz(func(t *testing.T, src []byte) {
+		source := span.NewSource("fuzz", string(src))
+		l := parse.NewLexer(source)
+		tokens, lexErrs := l.Tokenize()
+		if lexErrs.HasErrors() {
+			return
+		}
+		es := &errs.Errors{Source: source}
+		p := parse.NewParser(tokens, es)
+		ast := p.ParseProgram()
+		if es.HasErrors() {
+			return
+		}
+		check.Check(ast, source, nil) // panics are the signal
+	})
+}
+
 // --- Stage 4: Full Pipeline ---
 // Detects panics in evaluation; compile errors are expected and skipped.
 func FuzzEval(f *testing.F) {

@@ -5,19 +5,25 @@ import "github.com/cwd-k2/gomputation/internal/types"
 // FreeVars returns term-level free variables in a Core expression.
 func FreeVars(c Core) map[string]struct{} {
 	fv := make(map[string]struct{})
-	freeVarsRec(c, nil, fv)
+	bound := make(map[string]int)
+	freeVarsRec(c, bound, fv)
 	return fv
 }
 
-func freeVarsRec(c Core, bound map[string]bool, fv map[string]struct{}) {
+// bind/unbind use a depth counter to handle shadowing without map copies.
+func bind(bound map[string]int, name string)   { bound[name]++ }
+func unbind(bound map[string]int, name string) { bound[name]--; if bound[name] == 0 { delete(bound, name) } }
+
+func freeVarsRec(c Core, bound map[string]int, fv map[string]struct{}) {
 	switch n := c.(type) {
 	case *Var:
-		if bound == nil || !bound[n.Name] {
+		if bound[n.Name] == 0 {
 			fv[n.Name] = struct{}{}
 		}
 	case *Lam:
-		newBound := extendBound(bound, n.Param)
-		freeVarsRec(n.Body, newBound, fv)
+		bind(bound, n.Param)
+		freeVarsRec(n.Body, bound, fv)
+		unbind(bound, n.Param)
 	case *App:
 		freeVarsRec(n.Fun, bound, fv)
 		freeVarsRec(n.Arg, bound, fv)
@@ -32,27 +38,33 @@ func freeVarsRec(c Core, bound map[string]bool, fv map[string]struct{}) {
 	case *Case:
 		freeVarsRec(n.Scrutinee, bound, fv)
 		for _, alt := range n.Alts {
-			altBound := bound
-			for _, name := range alt.Pattern.Bindings() {
-				altBound = extendBound(altBound, name)
+			names := alt.Pattern.Bindings()
+			for _, name := range names {
+				bind(bound, name)
 			}
-			freeVarsRec(alt.Body, altBound, fv)
+			freeVarsRec(alt.Body, bound, fv)
+			for _, name := range names {
+				unbind(bound, name)
+			}
 		}
 	case *LetRec:
-		recBound := bound
 		for _, b := range n.Bindings {
-			recBound = extendBound(recBound, b.Name)
+			bind(bound, b.Name)
 		}
 		for _, b := range n.Bindings {
-			freeVarsRec(b.Expr, recBound, fv)
+			freeVarsRec(b.Expr, bound, fv)
 		}
-		freeVarsRec(n.Body, recBound, fv)
+		freeVarsRec(n.Body, bound, fv)
+		for _, b := range n.Bindings {
+			unbind(bound, b.Name)
+		}
 	case *Pure:
 		freeVarsRec(n.Expr, bound, fv)
 	case *Bind:
 		freeVarsRec(n.Comp, bound, fv)
-		newBound := extendBound(bound, n.Var)
-		freeVarsRec(n.Body, newBound, fv)
+		bind(bound, n.Var)
+		freeVarsRec(n.Body, bound, fv)
+		unbind(bound, n.Var)
 	case *Thunk:
 		freeVarsRec(n.Comp, bound, fv)
 	case *Force:
@@ -75,15 +87,6 @@ func freeVarsRec(c Core, bound map[string]bool, fv map[string]struct{}) {
 			freeVarsRec(f.Value, bound, fv)
 		}
 	}
-}
-
-func extendBound(bound map[string]bool, name string) map[string]bool {
-	newBound := make(map[string]bool, len(bound)+1)
-	for k, v := range bound {
-		newBound[k] = v
-	}
-	newBound[name] = true
-	return newBound
 }
 
 // AnnotateFreeVars populates FV fields on Lam and Thunk nodes in a single
