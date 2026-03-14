@@ -180,10 +180,10 @@ maybe := \def -> \f -> \m -> case m { Nothing -> def; Just a -> f a }
 result :: forall e a b. (e -> b) -> (a -> b) -> Result e a -> b
 result := \onErr -> \onOk -> \r -> case r { Err e -> onErr e; Ok a -> onOk a }
 
-fst :: forall a b. (a, b) -> a
+fst :: forall a (r : Row). Record { _1 : a | r } -> a
 fst := \p -> p!#_1
 
-snd :: forall a b. (a, b) -> b
+snd :: forall a (r : Row). Record { _2 : a | r } -> a
 snd := \p -> p!#_2
 
 head :: forall a. List a -> Maybe a
@@ -239,13 +239,28 @@ infixr 6 <>
 (<>) :: forall a. Semigroup a => a -> a -> a
 (<>) := append
 
+class Monad (m : Type -> Type) {
+  mpure :: forall a. a -> m a;
+  mbind :: forall a b. m a -> (a -> m b) -> m b
+}
+
+instance Monad Maybe {
+  mpure := \a -> Just a;
+  mbind := \ma -> \f -> case ma { Nothing -> Nothing; Just a -> f a }
+}
+
+instance Monad List {
+  mpure := \a -> Cons a Nil;
+  mbind := \xs -> \f -> foldr (\x -> \acc -> append (f x) acc) Nil xs
+}
+
 infixl 1 >>=
-(>>=) :: forall (m : Row -> Row -> Type -> Type) a b (r1 : Row) (r2 : Row) (r3 : Row). IxMonad m => m r1 r2 a -> (a -> m r2 r3 b) -> m r1 r3 b
-(>>=) := ixbind
+(>>=) :: forall (m : Type -> Type) a b. Monad m => m a -> (a -> m b) -> m b
+(>>=) := mbind
 
 infixl 1 >>
-(>>) :: forall (m : Row -> Row -> Type -> Type) a b (r1 : Row) (r2 : Row) (r3 : Row). IxMonad m => m r1 r2 a -> m r2 r3 b -> m r1 r3 b
-(>>) := \m1 -> \m2 -> ixbind m1 (\_ -> m2)
+(>>) :: forall (m : Type -> Type) a b. Monad m => m a -> m b -> m b
+(>>) := \m1 -> \m2 -> mbind m1 (\_ -> m2)
 
 instance IxMonad Maybe {
   ixpure := \a -> Just a;

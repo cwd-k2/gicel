@@ -198,6 +198,20 @@ func (ev *Evaluator) Eval(env *Env, capEnv CapEnv, expr core.Core) (EvalResult, 
 		for _, clo := range closures {
 			clo.Env = recEnv
 		}
+		// Optimize fix/rec pattern: letrec _x = \arg -> (f _x) arg
+		// Evaluate (f _x) once and inline the result closure into _x,
+		// eliminating the redundant application on every recursive call.
+		if len(closures) == 1 {
+			if inner, ok := isFixpointBody(e.Bindings[0]); ok {
+				if r, err := ev.Eval(closures[0].Env, capEnv, inner); err == nil {
+					if rc, ok := r.Value.(*Closure); ok {
+						closures[0].Param = rc.Param
+						closures[0].Body = rc.Body
+						closures[0].Env = rc.Env
+					}
+				}
+			}
+		}
 		if err := ev.limit.Enter(); err != nil {
 			return EvalResult{}, err
 		}
@@ -459,6 +473,38 @@ func (ev *Evaluator) apply(capEnv CapEnv, fn Value, arg Value, site *core.App) (
 			Span:    site.S,
 		}
 	}
+}
+
+// isFixpointBody detects the fix/rec pattern in a LetRec binding:
+//
+//	name = \arg -> (f name) arg
+//
+// Returns the inner application (f name) so it can be evaluated once
+// and inlined into the closure, avoiding redundant re-evaluation.
+func isFixpointBody(b core.Binding) (inner core.Core, ok bool) {
+	lam, isLam := b.Expr.(*core.Lam)
+	if !isLam {
+		return nil, false
+	}
+	outerApp, isApp := lam.Body.(*core.App)
+	if !isApp {
+		return nil, false
+	}
+	// Check: outer arg == lambda param (the eta-expanded argument)
+	argVar, isVar := outerApp.Arg.(*core.Var)
+	if !isVar || argVar.Name != lam.Param {
+		return nil, false
+	}
+	// Check: fun is (f name) — an application whose arg is the binding name
+	innerApp, isInner := outerApp.Fun.(*core.App)
+	if !isInner {
+		return nil, false
+	}
+	selfVar, isSelf := innerApp.Arg.(*core.Var)
+	if !isSelf || selfVar.Name != b.Name {
+		return nil, false
+	}
+	return outerApp.Fun, true
 }
 
 // letRecGroupFV collects the union of free variables from all Lam bindings
