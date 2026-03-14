@@ -5,7 +5,7 @@ import (
 )
 
 // =============================================================================
-// TyConstraintRow — type node interface
+// TyEvidenceRow — type node interface
 // =============================================================================
 
 func TestConstraintRowTypeNode(t *testing.T) {
@@ -523,32 +523,6 @@ func TestEvidenceFreeVarsUnderForall(t *testing.T) {
 	}
 }
 
-// =============================================================================
-// Builders
-// =============================================================================
-
-func TestEmptyConstraintRow(t *testing.T) {
-	cr := EmptyConstraintRow()
-	if len(cr.ConEntries()) != 0 {
-		t.Error("empty constraint row should have no entries")
-	}
-	if cr.Tail != nil {
-		t.Error("empty constraint row should have nil tail")
-	}
-}
-
-func TestSingleConstraint(t *testing.T) {
-	cr := SingleConstraint("Eq", []Type{Var("a")})
-	if len(cr.ConEntries()) != 1 {
-		t.Fatalf("expected 1 entry, got %d", len(cr.ConEntries()))
-	}
-	if cr.ConEntries()[0].ClassName != "Eq" {
-		t.Errorf("expected class 'Eq', got %q", cr.ConEntries()[0].ClassName)
-	}
-	if len(cr.ConEntries()[0].Args) != 1 {
-		t.Fatalf("expected 1 arg, got %d", len(cr.ConEntries()[0].Args))
-	}
-}
 
 func TestMkEvidence(t *testing.T) {
 	entries := []ConstraintEntry{

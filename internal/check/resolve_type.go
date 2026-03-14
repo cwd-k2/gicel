@@ -71,7 +71,6 @@ func (ch *Checker) resolveTypeExpr(texpr syntax.TypeExpr) types.Type {
 		}
 	case *syntax.TyExprQual:
 		body := ch.resolveTypeExpr(t.Body)
-		// Single constraint: C a => T
 		constraint := ch.resolveTypeExpr(t.Constraint)
 		// Quantified constraint: (forall a. C1 a => C2 (f a)) => T
 		if qc := ch.decomposeQuantifiedConstraint(constraint); qc != nil {
@@ -81,43 +80,13 @@ func (ch *Checker) resolveTypeExpr(texpr syntax.TypeExpr) types.Type {
 				Quantified: qc,
 				S:          t.S,
 			}
-			if ev, ok := body.(*types.TyEvidence); ok {
-				old := ev.Constraints.ConEntries()
-				entries := make([]types.ConstraintEntry, 0, 1+len(old))
-				entries = append(entries, entry)
-				entries = append(entries, old...)
-				return &types.TyEvidence{
-					Constraints: &types.TyEvidenceRow{Entries: &types.ConstraintEntries{Entries: entries}},
-					Body:        ev.Body,
-					S:           t.S,
-				}
-			}
-			return &types.TyEvidence{
-				Constraints: &types.TyEvidenceRow{Entries: &types.ConstraintEntries{Entries: []types.ConstraintEntry{entry}}},
-				Body:        body,
-				S:           t.S,
-			}
+			return qualifyBody(entry, body, t.S)
 		}
+		// Simple constraint: C a => T
 		head, args := types.UnwindApp(constraint)
 		if con, ok := head.(*types.TyCon); ok {
 			entry := types.ConstraintEntry{ClassName: con.Name, Args: args, S: t.S}
-			// Fold chained constraints into a single TyEvidence.
-			if ev, ok := body.(*types.TyEvidence); ok {
-				old := ev.Constraints.ConEntries()
-				entries := make([]types.ConstraintEntry, 0, 1+len(old))
-				entries = append(entries, entry)
-				entries = append(entries, old...)
-				return &types.TyEvidence{
-					Constraints: &types.TyEvidenceRow{Entries: &types.ConstraintEntries{Entries: entries}},
-					Body:        ev.Body,
-					S:           t.S,
-				}
-			}
-			return &types.TyEvidence{
-				Constraints: types.SingleConstraint(con.Name, args),
-				Body:        body,
-				S:           t.S,
-			}
+			return qualifyBody(entry, body, t.S)
 		}
 		ch.addCodedError(errs.ErrNoInstance, t.S, fmt.Sprintf("invalid constraint: %s", types.Pretty(constraint)))
 		return body
@@ -125,6 +94,27 @@ func (ch *Checker) resolveTypeExpr(texpr syntax.TypeExpr) types.Type {
 		return ch.resolveTypeExpr(t.Inner)
 	default:
 		return &types.TyError{}
+	}
+}
+
+// qualifyBody prepends a constraint entry to a body type, folding into an
+// existing TyEvidence if the body is already qualified.
+func qualifyBody(entry types.ConstraintEntry, body types.Type, s span.Span) *types.TyEvidence {
+	if ev, ok := body.(*types.TyEvidence); ok {
+		old := ev.Constraints.ConEntries()
+		entries := make([]types.ConstraintEntry, 0, 1+len(old))
+		entries = append(entries, entry)
+		entries = append(entries, old...)
+		return &types.TyEvidence{
+			Constraints: &types.TyEvidenceRow{Entries: &types.ConstraintEntries{Entries: entries}},
+			Body:        ev.Body,
+			S:           s,
+		}
+	}
+	return &types.TyEvidence{
+		Constraints: &types.TyEvidenceRow{Entries: &types.ConstraintEntries{Entries: []types.ConstraintEntry{entry}}},
+		Body:        body,
+		S:           s,
 	}
 }
 

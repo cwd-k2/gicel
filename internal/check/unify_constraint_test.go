@@ -7,7 +7,7 @@ import (
 )
 
 // =============================================================================
-// Zonk — TyConstraintRow / TyEvidence
+// Zonk — TyEvidenceRow / TyEvidence
 // =============================================================================
 
 func TestZonkConstraintRow(t *testing.T) {
@@ -116,7 +116,7 @@ func TestZonkEvidenceIdentity(t *testing.T) {
 }
 
 // =============================================================================
-// Unify — TyConstraintRow
+// Unify — TyEvidenceRow (Constraint)
 // =============================================================================
 
 func TestUnifyConstraintRowClosedClosed(t *testing.T) {

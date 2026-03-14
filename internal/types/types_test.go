@@ -75,45 +75,6 @@ func TestRowNormalizePanicsOnDuplicate(t *testing.T) {
 	NormalizeRow(r)
 }
 
-func TestExtendRow(t *testing.T) {
-	r := EmptyRow()
-	r2, err := ExtendRow(r, RowField{Label: "x", Type: Con("Int")})
-	if err != nil {
-		t.Fatal(err)
-	}
-	r3, err := ExtendRow(r2, RowField{Label: "a", Type: Con("Bool")})
-	if err != nil {
-		t.Fatal(err)
-	}
-	fields := r3.CapFields()
-	if fields[0].Label != "a" || fields[1].Label != "x" {
-		t.Error("fields should be sorted after extend")
-	}
-	_, err = ExtendRow(r3, RowField{Label: "x", Type: Con("String")})
-	if err == nil {
-		t.Error("expected error on duplicate label")
-	}
-}
-
-func TestRemoveLabel(t *testing.T) {
-	r := ClosedRow(
-		RowField{Label: "a", Type: Con("A")},
-		RowField{Label: "b", Type: Con("B")},
-	)
-	f, rest, ok := RemoveLabel(r, "a")
-	if !ok || f.Label != "a" {
-		t.Error("should find 'a'")
-	}
-	restFields := rest.CapFields()
-	if len(restFields) != 1 || restFields[0].Label != "b" {
-		t.Error("remaining should have only 'b'")
-	}
-	_, _, ok = RemoveLabel(r, "z")
-	if ok {
-		t.Error("should not find 'z'")
-	}
-}
-
 // --- Equality ---
 
 func TestEqualSimple(t *testing.T) {

@@ -21,8 +21,7 @@ type EvidenceEntries interface {
 	FiberKind() Kind
 }
 
-// TyEvidenceRow is a unified row type for both capability and constraint rows.
-// It replaces the former TyRow and TyConstraintRow.
+// TyEvidenceRow is the unified row type for capability and constraint rows.
 type TyEvidenceRow struct {
 	Entries EvidenceEntries
 	Tail    Type // nil = closed row, TyVar or TyMeta = open row

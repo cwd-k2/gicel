@@ -4,7 +4,7 @@ import "testing"
 
 // --- Group 1A: TyEvidenceRow type construction and interface ---
 
-func TestEvEmptyRow(t *testing.T) {
+func TestEmptyRow(t *testing.T) {
 	r := EmptyRow()
 	if !r.IsCapabilityRow() {
 		t.Fatal("expected capability fiber")
@@ -20,7 +20,7 @@ func TestEvEmptyRow(t *testing.T) {
 	}
 }
 
-func TestEvClosedRow(t *testing.T) {
+func TestClosedRow(t *testing.T) {
 	r := ClosedRow(
 		RowField{Label: "x", Type: Con("Int")},
 		RowField{Label: "y", Type: Con("Bool")},
@@ -38,7 +38,7 @@ func TestEvClosedRow(t *testing.T) {
 	}
 }
 
-func TestEvOpenRow(t *testing.T) {
+func TestOpenRow(t *testing.T) {
 	tail := Var("r")
 	r := OpenRow(
 		[]RowField{{Label: "db", Type: Con("DB")}},
@@ -56,7 +56,7 @@ func TestEvOpenRow(t *testing.T) {
 	}
 }
 
-func TestEvEmptyConstraintRow(t *testing.T) {
+func TestEmptyConstraintRow(t *testing.T) {
 	r := EmptyConstraintRow()
 	if !r.IsConstraintRow() {
 		t.Fatal("expected constraint fiber")
@@ -66,7 +66,7 @@ func TestEvEmptyConstraintRow(t *testing.T) {
 	}
 }
 
-func TestEvSingleConstraint(t *testing.T) {
+func TestSingleConstraint(t *testing.T) {
 	r := SingleConstraint("Eq", []Type{Con("Int")})
 	if r.Entries.EntryCount() != 1 {
 		t.Fatalf("expected 1 entry, got %d", r.Entries.EntryCount())
@@ -81,7 +81,7 @@ func TestEvSingleConstraint(t *testing.T) {
 	}
 }
 
-func TestEvFiberKind(t *testing.T) {
+func TestFiberKind(t *testing.T) {
 	cap := EmptyRow()
 	if !cap.Entries.FiberKind().Equal(KRow{}) {
 		t.Error("capability fiber should have Row kind")
@@ -92,7 +92,7 @@ func TestEvFiberKind(t *testing.T) {
 	}
 }
 
-func TestEvCapabilityMapChildren(t *testing.T) {
+func TestCapabilityMapChildren(t *testing.T) {
 	r := ClosedRow(
 		RowField{Label: "x", Type: Con("Int")},
 		RowField{Label: "y", Type: Con("Bool")},
@@ -112,7 +112,7 @@ func TestEvCapabilityMapChildren(t *testing.T) {
 	}
 }
 
-func TestEvConstraintMapChildren(t *testing.T) {
+func TestConstraintMapChildren(t *testing.T) {
 	r := SingleConstraint("Eq", []Type{Con("Int")})
 	mapped := r.Entries.MapChildren(func(ty Type) Type {
 		if c, ok := ty.(*TyCon); ok {
@@ -126,7 +126,7 @@ func TestEvConstraintMapChildren(t *testing.T) {
 	}
 }
 
-func TestEvRowFieldSorting(t *testing.T) {
+func TestRowFieldSorting(t *testing.T) {
 	// Fields should be sorted after normalization.
 	r := ClosedRow(
 		RowField{Label: "z", Type: Con("String")},
@@ -140,7 +140,7 @@ func TestEvRowFieldSorting(t *testing.T) {
 	}
 }
 
-func TestEvFiberMismatchPanics(t *testing.T) {
+func TestFiberMismatchPanics(t *testing.T) {
 	defer func() {
 		if r := recover(); r == nil {
 			t.Fatal("expected panic on CapFields() for constraint row")
@@ -150,7 +150,7 @@ func TestEvFiberMismatchPanics(t *testing.T) {
 	_ = r.CapFields() // should panic
 }
 
-func TestEvTypeInterface(t *testing.T) {
+func TestTypeInterface(t *testing.T) {
 	// TyEvidenceRow satisfies the Type interface.
 	var ty Type = EmptyRow()
 	_ = ty.Span()
@@ -159,7 +159,7 @@ func TestEvTypeInterface(t *testing.T) {
 
 // --- Group 1B: Evidence row operations ---
 
-func TestEvLabels(t *testing.T) {
+func TestLabels(t *testing.T) {
 	r := ClosedRow(
 		RowField{Label: "x", Type: Con("Int")},
 		RowField{Label: "y", Type: Con("Bool")},
@@ -176,7 +176,7 @@ func TestEvLabels(t *testing.T) {
 	}
 }
 
-func TestEvHasLabel(t *testing.T) {
+func TestHasLabel(t *testing.T) {
 	r := ClosedRow(RowField{Label: "x", Type: Con("Int")})
 	if !HasLabel(r, "x") {
 		t.Error("expected HasLabel(x) = true")
@@ -186,7 +186,7 @@ func TestEvHasLabel(t *testing.T) {
 	}
 }
 
-func TestEvExtendCapField(t *testing.T) {
+func TestExtendRow(t *testing.T) {
 	r := ClosedRow(RowField{Label: "x", Type: Con("Int")})
 	r2, err := ExtendRow(r, RowField{Label: "y", Type: Con("Bool")})
 	if err != nil {
@@ -202,7 +202,7 @@ func TestEvExtendCapField(t *testing.T) {
 	}
 }
 
-func TestEvExtendCapFieldDuplicate(t *testing.T) {
+func TestExtendRowDuplicate(t *testing.T) {
 	r := ClosedRow(RowField{Label: "x", Type: Con("Int")})
 	_, err := ExtendRow(r, RowField{Label: "x", Type: Con("Bool")})
 	if err == nil {
@@ -210,7 +210,7 @@ func TestEvExtendCapFieldDuplicate(t *testing.T) {
 	}
 }
 
-func TestEvRemoveCapField(t *testing.T) {
+func TestRemoveLabel(t *testing.T) {
 	r := ClosedRow(
 		RowField{Label: "x", Type: Con("Int")},
 		RowField{Label: "y", Type: Con("Bool")},
@@ -227,7 +227,7 @@ func TestEvRemoveCapField(t *testing.T) {
 	}
 }
 
-func TestEvRemoveCapFieldNotFound(t *testing.T) {
+func TestRemoveLabelNotFound(t *testing.T) {
 	r := ClosedRow(RowField{Label: "x", Type: Con("Int")})
 	_, _, ok := RemoveLabel(r, "z")
 	if ok {
@@ -235,31 +235,7 @@ func TestEvRemoveCapFieldNotFound(t *testing.T) {
 	}
 }
 
-func TestEvNormalizeConstraints(t *testing.T) {
-	r := &TyEvidenceRow{
-		Entries: &ConstraintEntries{
-			Entries: []ConstraintEntry{
-				{ClassName: "Ord", Args: []Type{Con("Int")}},
-				{ClassName: "Eq", Args: []Type{Con("Int")}},
-			},
-		},
-	}
-	normalized := NormalizeConstraints(r)
-	entries := normalized.ConEntries()
-	if entries[0].ClassName != "Eq" || entries[1].ClassName != "Ord" {
-		t.Errorf("expected [Eq, Ord], got [%s, %s]", entries[0].ClassName, entries[1].ClassName)
-	}
-}
-
-func TestEvExtendConstraint(t *testing.T) {
-	r := SingleConstraint("Eq", []Type{Con("Int")})
-	r2 := ExtendConstraint(r, ConstraintEntry{ClassName: "Ord", Args: []Type{Con("Int")}})
-	if r2.Entries.EntryCount() != 2 {
-		t.Fatalf("expected 2 entries, got %d", r2.Entries.EntryCount())
-	}
-}
-
-func TestEvPreservesTail(t *testing.T) {
+func TestPreservesTail(t *testing.T) {
 	tail := Var("r")
 	r := OpenRow([]RowField{{Label: "x", Type: Con("Int")}}, tail)
 	r2, err := ExtendRow(r, RowField{Label: "y", Type: Con("Bool")})
@@ -273,7 +249,7 @@ func TestEvPreservesTail(t *testing.T) {
 
 // --- Group 1C: Subst, Equal, FreeVars, Pretty for TyEvidenceRow ---
 
-func TestEvSubstCapability(t *testing.T) {
+func TestSubstCapability(t *testing.T) {
 	// { x : a | r } with a := Int → { x : Int | r }
 	r := OpenRow([]RowField{{Label: "x", Type: Var("a")}}, Var("r"))
 	result := Subst(r, "a", Con("Int"))
@@ -287,7 +263,7 @@ func TestEvSubstCapability(t *testing.T) {
 	}
 }
 
-func TestEvSubstConstraint(t *testing.T) {
+func TestSubstConstraint(t *testing.T) {
 	// { Eq a } with a := Int → { Eq Int }
 	r := SingleConstraint("Eq", []Type{Var("a")})
 	result := Subst(r, "a", Con("Int"))
@@ -301,7 +277,7 @@ func TestEvSubstConstraint(t *testing.T) {
 	}
 }
 
-func TestEvSubstTail(t *testing.T) {
+func TestSubstTail(t *testing.T) {
 	// { x : Int | r } with r := { y : Bool } → { x : Int, y : Bool }
 	r := OpenRow([]RowField{{Label: "x", Type: Con("Int")}}, Var("r"))
 	replacement := ClosedRow(RowField{Label: "y", Type: Con("Bool")})
@@ -317,7 +293,7 @@ func TestEvSubstTail(t *testing.T) {
 	}
 }
 
-func TestEvEqualCapability(t *testing.T) {
+func TestEqualCapability(t *testing.T) {
 	r1 := ClosedRow(RowField{Label: "x", Type: Con("Int")}, RowField{Label: "y", Type: Con("Bool")})
 	r2 := ClosedRow(RowField{Label: "y", Type: Con("Bool")}, RowField{Label: "x", Type: Con("Int")})
 	if !Equal(r1, r2) {
@@ -325,7 +301,7 @@ func TestEvEqualCapability(t *testing.T) {
 	}
 }
 
-func TestEvEqualConstraint(t *testing.T) {
+func TestEqualConstraint(t *testing.T) {
 	r1 := SingleConstraint("Eq", []Type{Con("Int")})
 	r2 := SingleConstraint("Eq", []Type{Con("Int")})
 	if !Equal(r1, r2) {
@@ -333,7 +309,7 @@ func TestEvEqualConstraint(t *testing.T) {
 	}
 }
 
-func TestEvNotEqualFibers(t *testing.T) {
+func TestNotEqualFibers(t *testing.T) {
 	cap := EmptyRow()
 	con := EmptyConstraintRow()
 	if Equal(cap, con) {
@@ -341,7 +317,7 @@ func TestEvNotEqualFibers(t *testing.T) {
 	}
 }
 
-func TestEvFreeVarsCapability(t *testing.T) {
+func TestFreeVarsCapability(t *testing.T) {
 	r := OpenRow([]RowField{{Label: "x", Type: Var("a")}}, Var("r"))
 	fv := FreeVars(r)
 	if _, ok := fv["a"]; !ok {
@@ -352,7 +328,7 @@ func TestEvFreeVarsCapability(t *testing.T) {
 	}
 }
 
-func TestEvFreeVarsConstraint(t *testing.T) {
+func TestFreeVarsConstraint(t *testing.T) {
 	r := SingleConstraint("Eq", []Type{Var("a")})
 	fv := FreeVars(r)
 	if _, ok := fv["a"]; !ok {
@@ -360,7 +336,7 @@ func TestEvFreeVarsConstraint(t *testing.T) {
 	}
 }
 
-func TestEvPrettyCapability(t *testing.T) {
+func TestPrettyCapability(t *testing.T) {
 	r := ClosedRow(RowField{Label: "x", Type: Con("Int")}, RowField{Label: "y", Type: Con("Bool")})
 	s := Pretty(r)
 	if s != "{ x : Int, y : Bool }" {
@@ -368,7 +344,7 @@ func TestEvPrettyCapability(t *testing.T) {
 	}
 }
 
-func TestEvPrettyConstraint(t *testing.T) {
+func TestPrettyConstraint(t *testing.T) {
 	r := SingleConstraint("Eq", []Type{Con("Int")})
 	s := Pretty(r)
 	if s != "{ Eq Int }" {
@@ -376,14 +352,14 @@ func TestEvPrettyConstraint(t *testing.T) {
 	}
 }
 
-func TestEvPrettyEmpty(t *testing.T) {
+func TestPrettyEmpty(t *testing.T) {
 	r := EmptyRow()
 	if Pretty(r) != "{}" {
 		t.Errorf("expected '{}', got '%s'", Pretty(r))
 	}
 }
 
-func TestEvPrettyOpenRow(t *testing.T) {
+func TestPrettyOpenRow(t *testing.T) {
 	r := OpenRow([]RowField{{Label: "x", Type: Con("Int")}}, Var("r"))
 	s := Pretty(r)
 	if s != "{ x : Int | r }" {

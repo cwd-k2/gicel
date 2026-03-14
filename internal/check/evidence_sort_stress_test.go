@@ -11,7 +11,7 @@ import (
 // Stress: Large evidence rows — unification
 // =============================================================================
 
-func TestStressUnifyLargeEvCapRows(t *testing.T) {
+func TestStressUnifyLargeCapRows(t *testing.T) {
 	const N = 100
 	u := NewUnifier()
 
@@ -30,7 +30,7 @@ func TestStressUnifyLargeEvCapRows(t *testing.T) {
 	}
 }
 
-func TestStressUnifyLargeEvConRows(t *testing.T) {
+func TestStressUnifyLargeConRows(t *testing.T) {
 	const N = 50
 	u := NewUnifier()
 
@@ -53,7 +53,7 @@ func TestStressUnifyLargeEvConRows(t *testing.T) {
 // Stress: Open-open with disjoint fields
 // =============================================================================
 
-func TestStressEvOpenOpenDisjoint(t *testing.T) {
+func TestStressOpenOpenDisjoint(t *testing.T) {
 	u := NewUnifier()
 	m1 := &types.TyMeta{ID: 1000, Kind: types.KRow{}}
 	m2 := &types.TyMeta{ID: 1001, Kind: types.KRow{}}
@@ -86,7 +86,7 @@ func TestStressEvOpenOpenDisjoint(t *testing.T) {
 // Stress: Deeply nested tail chains
 // =============================================================================
 
-func TestStressEvDeeplyNestedTails(t *testing.T) {
+func TestStressDeeplyNestedTails(t *testing.T) {
 	u := NewUnifier()
 	const depth = 20
 	metas := make([]*types.TyMeta, depth)
@@ -123,7 +123,7 @@ func TestStressEvDeeplyNestedTails(t *testing.T) {
 // Stress: Fiber isolation
 // =============================================================================
 
-func TestStressEvFiberIsolation(t *testing.T) {
+func TestStressFiberIsolation(t *testing.T) {
 	u := NewUnifier()
 	cap := types.ClosedRow(types.RowField{Label: "x", Type: types.Con("Int")})
 	con := types.SingleConstraint("Eq", []types.Type{types.Con("Int")})
@@ -137,7 +137,7 @@ func TestStressEvFiberIsolation(t *testing.T) {
 // Stress: Zonk large evidence rows
 // =============================================================================
 
-func TestStressEvZonkLargeRow(t *testing.T) {
+func TestStressZonkLargeRow(t *testing.T) {
 	u := NewUnifier()
 	const N = 100
 	metas := make([]*types.TyMeta, N)
@@ -179,7 +179,7 @@ func TestStressEvZonkLargeRow(t *testing.T) {
 // Stress: Subst + Equal + FreeVars on large evidence rows
 // =============================================================================
 
-func TestStressEvSubstLargeRow(t *testing.T) {
+func TestStressSubstLargeRow(t *testing.T) {
 	const N = 50
 	fields := make([]types.RowField, N)
 	for i := range N {
@@ -199,7 +199,7 @@ func TestStressEvSubstLargeRow(t *testing.T) {
 	}
 }
 
-func TestStressEvEqualLargeRows(t *testing.T) {
+func TestStressEqualLargeRows(t *testing.T) {
 	const N = 100
 	fields1 := make([]types.RowField, N)
 	fields2 := make([]types.RowField, N)
@@ -216,7 +216,7 @@ func TestStressEvEqualLargeRows(t *testing.T) {
 	}
 }
 
-func TestStressEvFreeVarsLargeRow(t *testing.T) {
+func TestStressFreeVarsLargeRow(t *testing.T) {
 	const N = 50
 	fields := make([]types.RowField, N)
 	for i := range N {
@@ -237,7 +237,7 @@ func TestStressEvFreeVarsLargeRow(t *testing.T) {
 // Integration: Evidence rows in full programs
 // =============================================================================
 
-func TestEvSortIntegrationCapabilityProgram(t *testing.T) {
+func TestSortIntegrationCapabilityProgram(t *testing.T) {
 	// Capability rows now flow through TyEvidenceRow.
 	source := `data Bool = True | False
 data Unit = Unit
@@ -247,7 +247,7 @@ main := f`
 	checkSource(t, source, nil)
 }
 
-func TestEvSortIntegrationCapabilityMultiField(t *testing.T) {
+func TestSortIntegrationCapabilityMultiField(t *testing.T) {
 	source := `data Bool = True | False
 data Unit = Unit
 g :: Computation { x : Int, y : Bool } { x : Int, y : Bool } Bool
@@ -256,7 +256,7 @@ main := g`
 	checkSource(t, source, nil)
 }
 
-func TestEvSortIntegrationCapabilityRowVar(t *testing.T) {
+func TestSortIntegrationCapabilityRowVar(t *testing.T) {
 	source := `data Bool = True | False
 data Unit = Unit
 h :: forall (r : Row). Computation { x : Int | r } { x : Int | r } Bool
