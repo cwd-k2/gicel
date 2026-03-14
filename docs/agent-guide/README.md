@@ -1,7 +1,27 @@
 # GICEL Agent Guide
 
-A self-contained reference for writing correct GICEL programs.
-Read this document and you have everything you need.
+## What is GICEL?
+
+GICEL is a typed, pure functional language embedded in Go. It exists so that AI agents can **write and execute programs in a sandboxed environment** — the host defines what capabilities are available, the agent writes GICEL source, and the host compiles and runs it safely with resource limits (step count, call depth, allocation, timeout).
+
+Key properties for agents:
+
+- **Safe by construction.** No file I/O, no network, no system calls unless the host explicitly provides them as capabilities.
+- **Typed.** The type checker catches errors before execution. Use `gicel check` to validate without running.
+- **Resource-bounded.** Step limits, depth limits, and allocation limits prevent runaway programs.
+- **Deterministic.** Same source + same bindings = same result. No implicit state.
+
+## How to use this guide
+
+Use `gicel help <topic>` to query a specific chapter. Start with `syntax` for the language, `stdlib` for available operations, `patterns` for idiomatic code, or `go-api` for embedding in Go.
+
+Typical agent workflow:
+
+1. `gicel help stdlib` — check what operations are available
+2. Write a `.gicel` file with a `main` binding
+3. `gicel check program.gicel` — validate types
+4. `gicel run program.gicel` — execute and read the result
+5. `gicel run --json program.gicel` — machine-readable output
 
 ## Chapters
 
