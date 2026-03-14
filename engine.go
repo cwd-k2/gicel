@@ -29,6 +29,7 @@ type Engine struct {
 	gatedBuiltins  map[string]bool
 	stepLimit      int
 	depthLimit     int
+	allocLimit     int64
 	noPrelude      bool
 	customPrelude  *string
 	traceHook      eval.TraceHook
@@ -113,6 +114,12 @@ func (e *Engine) SetDepthLimit(n int) {
 	e.depthLimit = n
 }
 
+// SetAllocLimit sets the maximum cumulative allocation in bytes.
+// Zero disables allocation tracking.
+func (e *Engine) SetAllocLimit(bytes int64) {
+	e.allocLimit = bytes
+}
+
 // SetTraceHook sets the evaluation trace hook.
 func (e *Engine) SetTraceHook(hook eval.TraceHook) {
 	e.traceHook = hook
@@ -189,6 +196,8 @@ func (e *Engine) RegisterModule(name, source string) error {
 			modFixity[fix.Op] = parse.Fixity{Assoc: fix.Assoc, Prec: fix.Prec}
 		}
 	}
+
+	core.AnnotateFreeVarsProgram(prog)
 
 	e.modules[name] = &compiledModule{
 		prog:    prog,
@@ -352,6 +361,9 @@ func (e *Engine) NewRuntime(source string) (*Runtime, error) {
 		return nil, &CompileError{Errors: checkErrs}
 	}
 
+	// Annotate free variables for safe-for-space closure conversion.
+	core.AnnotateFreeVarsProgram(prog)
+
 	// Collect module programs for runtime constructor/binding registration.
 	var modProgs []*core.Program
 	for _, mod := range e.modules {
@@ -363,6 +375,7 @@ func (e *Engine) NewRuntime(source string) (*Runtime, error) {
 		prims:         e.prims,
 		stepLimit:     e.stepLimit,
 		depthLimit:    e.depthLimit,
+		allocLimit:    e.allocLimit,
 		traceHook:     e.traceHook,
 		bindings:      maps.Clone(e.bindings),
 		moduleProgs: modProgs,

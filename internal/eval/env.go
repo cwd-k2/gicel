@@ -74,6 +74,21 @@ func (e *Env) Len() int {
 	return e.size
 }
 
+// TrimTo returns a new flat Env containing only the named variables.
+// Used to implement safe-for-space closure conversion.
+func (e *Env) TrimTo(names []string) *Env {
+	if len(names) == 0 {
+		return EmptyEnv()
+	}
+	m := make(map[string]Value, len(names))
+	for _, name := range names {
+		if val, ok := e.Lookup(name); ok {
+			m[name] = val
+		}
+	}
+	return &Env{flat: m, size: len(m)}
+}
+
 // flatten materializes the full binding map from the parent chain.
 // Caches the result for future lookups.
 func (e *Env) flatten() map[string]Value {

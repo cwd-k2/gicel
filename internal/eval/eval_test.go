@@ -363,3 +363,48 @@ func TestEvalStats(t *testing.T) {
 		t.Errorf("expected 2 steps, got %d", ev.Stats().Steps)
 	}
 }
+
+func TestAllocLimit(t *testing.T) {
+	// A tight alloc limit should stop evaluation before producing large structures.
+	limit := NewLimit(1_000_000, 1_000)
+	limit.SetAllocLimit(100) // 100 bytes — enough for a few small values
+	ev := NewEvaluator(context.Background(), NewPrimRegistry(), limit, nil)
+
+	// Build a 10-field record: costRecBase(56) + costRecFld(32)*10 = 376 bytes > 100
+	fields := make([]core.RecordField, 10)
+	for i := range fields {
+		fields[i] = core.RecordField{
+			Label: fmt.Sprintf("f%d", i),
+			Value: &core.Lit{Value: i},
+		}
+	}
+	_, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), &core.RecordLit{Fields: fields})
+	if err == nil {
+		t.Fatal("expected AllocLimitError, got nil")
+	}
+	var allocErr *AllocLimitError
+	if !errors.As(err, &allocErr) {
+		t.Fatalf("expected AllocLimitError, got %T: %v", err, err)
+	}
+}
+
+func TestAllocTracking(t *testing.T) {
+	ev := newTestEval()
+	// Evaluate: (\x -> x) Unit — creates a Closure then a ConVal.
+	term := &core.App{
+		Fun: &core.Lam{Param: "x", Body: &core.Var{Name: "x"}},
+		Arg: &core.Con{Name: "Unit"},
+	}
+	_, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), term)
+	if err != nil {
+		t.Fatal(err)
+	}
+	stats := ev.Stats()
+	if stats.Allocated <= 0 {
+		t.Errorf("expected positive allocation, got %d", stats.Allocated)
+	}
+	// Closure(40) + ConVal(32) = 72 at minimum
+	if stats.Allocated < 72 {
+		t.Errorf("expected at least 72 bytes allocated, got %d", stats.Allocated)
+	}
+}

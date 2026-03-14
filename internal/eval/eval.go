@@ -7,6 +7,17 @@ import (
 	"github.com/cwd-k2/gomputation/internal/core"
 )
 
+// Allocation cost estimates (bytes per value type).
+const (
+	costClosure = 40               // Closure struct
+	costConBase = 32               // ConVal struct
+	costConArg  = 16               // per arg in []Value
+	costThunk   = 24               // ThunkVal struct
+	costRecBase = 56               // RecordVal struct + map header
+	costRecFld  = 32               // per field in map[string]Value
+	costLetRec  = costClosure + 40 // Closure + Env node per binding
+)
+
 // EvalResult is the result of evaluation.
 type EvalResult struct {
 	Value  Value
@@ -29,6 +40,7 @@ func NewEvaluator(ctx context.Context, prims *PrimRegistry, limit *Limit, trace 
 
 // Stats returns the accumulated statistics.
 func (ev *Evaluator) Stats() EvalStats {
+	ev.stats.Allocated = ev.limit.Allocated()
 	return ev.stats
 }
 
@@ -77,7 +89,14 @@ func (ev *Evaluator) Eval(env *Env, capEnv CapEnv, expr core.Core) (EvalResult, 
 		return EvalResult{v, capEnv}, nil
 
 	case *core.Lam:
-		return EvalResult{&Closure{Env: env, Param: e.Param, Body: e.Body}, capEnv}, nil
+		if err := ev.limit.Alloc(costClosure); err != nil {
+			return EvalResult{}, err
+		}
+		closureEnv := env
+		if e.FV != nil {
+			closureEnv = env.TrimTo(e.FV)
+		}
+		return EvalResult{&Closure{Env: closureEnv, Param: e.Param, Body: e.Body}, capEnv}, nil
 
 	case *core.App:
 		funR, err := ev.Eval(env, capEnv, e.Fun)
@@ -99,6 +118,9 @@ func (ev *Evaluator) Eval(env *Env, capEnv CapEnv, expr core.Core) (EvalResult, 
 		return ev.Eval(env, capEnv, e.Body)
 
 	case *core.Con:
+		if err := ev.limit.Alloc(int64(costConBase + costConArg*len(e.Args))); err != nil {
+			return EvalResult{}, err
+		}
 		args := make([]Value, len(e.Args))
 		ce := capEnv
 		for i, arg := range e.Args {
@@ -129,8 +151,17 @@ func (ev *Evaluator) Eval(env *Env, capEnv CapEnv, expr core.Core) (EvalResult, 
 		}
 
 	case *core.LetRec:
+		if err := ev.limit.Alloc(int64(costLetRec * len(e.Bindings))); err != nil {
+			return EvalResult{}, err
+		}
 		// Knot-tying for recursive bindings.
-		recEnv := env
+		// Trim closure environments to union of FV for safe-for-space.
+		closureBase := env
+		if fv := letRecGroupFV(e); fv != nil {
+			closureBase = env.TrimTo(fv)
+		}
+		recEnv := closureBase
+		bodyEnv := env
 		closures := make([]*Closure, len(e.Bindings))
 		for i, b := range e.Bindings {
 			lam, ok := b.Expr.(*core.Lam)
@@ -143,11 +174,12 @@ func (ev *Evaluator) Eval(env *Env, capEnv CapEnv, expr core.Core) (EvalResult, 
 			clo := &Closure{Env: nil, Param: lam.Param, Body: lam.Body}
 			closures[i] = clo
 			recEnv = recEnv.Extend(b.Name, clo)
+			bodyEnv = bodyEnv.Extend(b.Name, clo)
 		}
 		for _, clo := range closures {
 			clo.Env = recEnv
 		}
-		return ev.Eval(recEnv, capEnv, e.Body)
+		return ev.Eval(bodyEnv, capEnv, e.Body)
 
 	case *core.Pure:
 		return ev.Eval(env, capEnv, e.Expr)
@@ -171,6 +203,9 @@ func (ev *Evaluator) Eval(env *Env, capEnv CapEnv, expr core.Core) (EvalResult, 
 		return ev.ForceEffectful(bodyR)
 
 	case *core.Thunk:
+		if err := ev.limit.Alloc(costThunk); err != nil {
+			return EvalResult{}, err
+		}
 		// Mark capEnv as shared since ThunkVal captures it.
 		return EvalResult{&ThunkVal{Env: env, Comp: e.Comp}, capEnv.MarkShared()}, nil
 
@@ -226,6 +261,9 @@ func (ev *Evaluator) Eval(env *Env, capEnv CapEnv, expr core.Core) (EvalResult, 
 		return EvalResult{val, newCap}, nil
 
 	case *core.RecordLit:
+		if err := ev.limit.Alloc(int64(costRecBase + costRecFld*len(e.Fields))); err != nil {
+			return EvalResult{}, err
+		}
 		fields := make(map[string]Value, len(e.Fields))
 		ce := capEnv
 		for _, f := range e.Fields {
@@ -270,6 +308,9 @@ func (ev *Evaluator) Eval(env *Env, capEnv CapEnv, expr core.Core) (EvalResult, 
 				Message: fmt.Sprintf("update on non-record: %s", recR.Value),
 				Span:    e.S,
 			}
+		}
+		if err := ev.limit.Alloc(int64(costRecBase + costRecFld*len(rec.Fields))); err != nil {
+			return EvalResult{}, err
 		}
 		// Copy all fields, then overwrite with updates.
 		newFields := make(map[string]Value, len(rec.Fields))
@@ -334,6 +375,9 @@ func (ev *Evaluator) apply(capEnv CapEnv, fn Value, arg Value, site *core.App) (
 		ev.limit.Leave()
 		return result, err
 	case *ConVal:
+		if err := ev.limit.Alloc(int64(costConBase + costConArg*(len(f.Args)+1))); err != nil {
+			return EvalResult{}, err
+		}
 		// Constructor application: accumulate arguments.
 		args := make([]Value, len(f.Args)+1)
 		copy(args, f.Args)
@@ -369,4 +413,27 @@ func (ev *Evaluator) apply(capEnv CapEnv, fn Value, arg Value, site *core.App) (
 			Span:    site.S,
 		}
 	}
+}
+
+// letRecGroupFV collects the union of free variables from all Lam bindings
+// in a LetRec group. Returns nil if no FV annotations are present.
+func letRecGroupFV(e *core.LetRec) []string {
+	var hasAnnotation bool
+	fvSet := make(map[string]struct{})
+	for _, b := range e.Bindings {
+		if lam, ok := b.Expr.(*core.Lam); ok && lam.FV != nil {
+			hasAnnotation = true
+			for _, v := range lam.FV {
+				fvSet[v] = struct{}{}
+			}
+		}
+	}
+	if !hasAnnotation {
+		return nil
+	}
+	result := make([]string, 0, len(fvSet))
+	for v := range fvSet {
+		result = append(result, v)
+	}
+	return result
 }

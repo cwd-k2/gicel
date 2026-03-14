@@ -86,6 +86,34 @@ func extendBound(bound map[string]bool, name string) map[string]bool {
 	return newBound
 }
 
+// AnnotateFreeVars populates FV fields on Lam nodes throughout a Core tree.
+// For each Lam, FV = FreeVars(body) ∖ {param}: the variables the closure
+// must capture from its enclosing environment.
+func AnnotateFreeVars(c Core) {
+	Walk(c, func(n Core) bool {
+		if lam, ok := n.(*Lam); ok {
+			bodyFV := FreeVars(lam.Body)
+			delete(bodyFV, lam.Param)
+			if len(bodyFV) > 0 {
+				lam.FV = make([]string, 0, len(bodyFV))
+				for name := range bodyFV {
+					lam.FV = append(lam.FV, name)
+				}
+			} else {
+				lam.FV = []string{}
+			}
+		}
+		return true
+	})
+}
+
+// AnnotateFreeVarsProgram annotates all bindings in a Program.
+func AnnotateFreeVarsProgram(p *Program) {
+	for _, b := range p.Bindings {
+		AnnotateFreeVars(b.Expr)
+	}
+}
+
 // FreeTypeVars returns type-level free variables in Core.
 func FreeTypeVars(c Core) map[string]struct{} {
 	fv := make(map[string]struct{})

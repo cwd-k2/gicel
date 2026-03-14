@@ -23,6 +23,7 @@ type Lam struct {
 	Param     string
 	ParamType types.Type
 	Body      Core
+	FV        []string // Free variables (populated by AnnotateFreeVars)
 	S         span.Span
 }
 

@@ -16,6 +16,7 @@ type TraceHook func(TraceEvent) error
 
 // EvalStats holds post-evaluation statistics.
 type EvalStats struct {
-	Steps    int
-	MaxDepth int
+	Steps     int
+	MaxDepth  int
+	Allocated int64
 }

@@ -16,6 +16,7 @@ type Runtime struct {
 	prims         *eval.PrimRegistry
 	stepLimit     int
 	depthLimit    int
+	allocLimit    int64
 	traceHook     eval.TraceHook
 	bindings      map[string]types.Type
 	moduleProgs []*core.Program
@@ -119,7 +120,11 @@ func (r *Runtime) run(ctx context.Context, caps map[string]any, bindings map[str
 	}
 
 	capEnv := eval.NewCapEnv(caps)
-	ev := eval.NewEvaluator(ctx, r.prims, eval.NewLimit(r.stepLimit, r.depthLimit), r.traceHook)
+	limit := eval.NewLimit(r.stepLimit, r.depthLimit)
+	if r.allocLimit > 0 {
+		limit.SetAllocLimit(r.allocLimit)
+	}
+	ev := eval.NewEvaluator(ctx, r.prims, limit, r.traceHook)
 	result, err := ev.Eval(env, capEnv, entryExpr)
 	if err != nil {
 		return eval.EvalResult{}, EvalStats{}, err
@@ -141,7 +146,11 @@ func (r *Runtime) evalBindings(ctx context.Context, env *eval.Env, bindings []co
 		env = env.Extend(b.Name, cell)
 	}
 	for _, b := range bindings {
-		ev := eval.NewEvaluator(ctx, r.prims, eval.NewLimit(r.stepLimit, r.depthLimit), r.traceHook)
+		limit := eval.NewLimit(r.stepLimit, r.depthLimit)
+		if r.allocLimit > 0 {
+			limit.SetAllocLimit(r.allocLimit)
+		}
+		ev := eval.NewEvaluator(ctx, r.prims, limit, r.traceHook)
 		result, err := ev.Eval(env, eval.NewCapEnv(nil), b.Expr)
 		if err != nil {
 			return nil, fmt.Errorf("evaluating %s: %w", b.Name, err)

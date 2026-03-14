@@ -13,6 +13,7 @@ type SandboxConfig struct {
 	Timeout  time.Duration // execution timeout (default: 5s)
 	MaxSteps int           // step limit (default: 100_000)
 	MaxDepth int           // depth limit (default: 100)
+	MaxAlloc int64         // allocation byte limit (default: 10 MiB)
 	Caps     map[string]any
 	Bindings map[string]Value
 }
@@ -47,10 +48,15 @@ func RunSandbox(source string, cfg *SandboxConfig) (*SandboxResult, error) {
 	if maxDepth == 0 {
 		maxDepth = 100
 	}
+	maxAlloc := cfg.MaxAlloc
+	if maxAlloc == 0 {
+		maxAlloc = 10 * 1024 * 1024 // 10 MiB
+	}
 
 	eng := NewEngine()
 	eng.SetStepLimit(maxSteps)
 	eng.SetDepthLimit(maxDepth)
+	eng.SetAllocLimit(maxAlloc)
 
 	for _, p := range cfg.Packs {
 		if err := p(eng); err != nil {
