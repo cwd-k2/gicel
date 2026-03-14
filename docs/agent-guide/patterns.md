@@ -170,7 +170,17 @@ Correct: `(a == b) && (b == c)`
 
 ### No general recursion without rec/fix
 
-By default, `rec` and `fix` are gated (disabled). Without them, you cannot define recursive functions at the value level. The Prelude's `foldr` and Std.List's `foldl` provide recursion for list processing. The host must call `eng.EnableRecursion()` to unlock `rec`/`fix`.
+By default, `rec` and `fix` are gated (disabled). Without them, you cannot define recursive functions at the value level. The Prelude's `foldr` and Std.List's `foldl` provide recursion for list processing. The host must call `eng.EnableRecursion()` (or CLI `--recursion`) to unlock `rec`/`fix`.
+
+Self-recursive functions use `fix` explicitly:
+
+```
+-- Wrong: countdown references itself but is not in scope during checking
+countdown := \n -> case n == 0 { True -> 0; False -> countdown (n - 1) }
+
+-- Correct: fix provides self as an explicit parameter
+countdown := fix (\self -> \n -> case n == 0 { True -> 0; False -> self (n - 1) })
+```
 
 ### The dot is overloaded
 
@@ -206,6 +216,34 @@ If your program uses `get`/`put` (Std.State), the Go host must supply the initia
 
 A `Computation` with empty row indices `{}` requires no capabilities. It is essentially pure but still lives in the Computation type. You can always `pure x` to create one.
 
-### Semicolons and newlines
+### Semicolons inside braces are required
 
 `;` and newlines are both valid declaration separators at the **top level**. Trailing and repeated semicolons are harmless. **Inside braces** (`do { }`, `case { }`, GADT declarations), semicolons are **required** separators — newlines alone do not separate statements or alternatives within braces.
+
+```
+-- Wrong: the parser reads `Nil False` as function application (Nil applied to False)
+case xs {
+  Nil -> Nil
+  Cons x rest -> Cons (f x) rest
+}
+
+-- Correct: semicolons separate branches
+case xs { Nil -> Nil; Cons x rest -> Cons (f x) rest }
+
+-- Also correct: semicolons on separate lines
+case xs {
+  Nil -> Nil;
+  Cons x rest -> Cons (f x) rest
+}
+```
+
+The same rule applies to GADT constructor declarations:
+
+```
+-- Correct: semicolons between constructors
+data Expr a = {
+  LitBool :: Bool -> Expr Bool;
+  LitInt  :: Int -> Expr Int;
+  Add     :: Expr Int -> Expr Int -> Expr Int
+}
+```
