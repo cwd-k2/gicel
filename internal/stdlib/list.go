@@ -215,17 +215,7 @@ func listToSlice(v eval.Value) ([]eval.Value, bool) {
 
 // --- New List primitives ---
 
-func asInt64List(v eval.Value) (int64, error) {
-	hv, ok := v.(*eval.HostVal)
-	if !ok {
-		return 0, fmt.Errorf("stdlib/list: expected HostVal(int64), got %T", v)
-	}
-	n, ok := hv.Inner.(int64)
-	if !ok {
-		return 0, fmt.Errorf("stdlib/list: expected int64, got %T", hv.Inner)
-	}
-	return n, nil
-}
+func asInt64List(v eval.Value) (int64, error) { return asInt64(v, "list") }
 
 // foldlImpl is a strict left fold that uses the Applier callback to apply closures.
 func foldlImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, apply eval.Applier) (eval.Value, eval.CapEnv, error) {
