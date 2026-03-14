@@ -59,12 +59,6 @@ func NewUnifierShared(freshID *int) *Unifier {
 	}
 }
 
-// freshMeta allocates a fresh metavariable of the given kind.
-func (u *Unifier) freshMeta(k types.Kind) *types.TyMeta {
-	*u.freshID++
-	return &types.TyMeta{ID: *u.freshID, Kind: k}
-}
-
 // Solve returns the current solution for a metavariable.
 func (u *Unifier) Solve(id int) types.Type {
 	return u.soln[id]
@@ -466,6 +460,8 @@ func (u *Unifier) solveMeta(m *types.TyMeta, t types.Type) error {
 	return nil
 }
 
+// occursIn uses Children() for generic traversal, unlike Zonk which uses
+// manual recursion for identity-preserving path compression.
 func (u *Unifier) occursIn(id int, t types.Type) bool {
 	t = u.Zonk(t)
 	switch ty := t.(type) {
@@ -702,7 +698,8 @@ func (u *Unifier) unifyEvCapRows(
 		}
 		return u.solveEvCapTail(bn.Tail, collectEvCapFields(aFieldsN, onlyLeft), nil)
 	default:
-		rFresh := u.freshMeta(types.KRow{})
+		*u.freshID++
+		rFresh := &types.TyMeta{ID: *u.freshID, Kind: types.KRow{}}
 		if err := u.solveEvCapTail(an.Tail, collectEvCapFields(bFieldsN, onlyRight), rFresh); err != nil {
 			return err
 		}
@@ -798,7 +795,8 @@ func (u *Unifier) unifyEvConRows(
 		}
 		return u.solveEvConTail(bN.Tail, onlyLeft, nil)
 	default:
-		cFresh := u.freshMeta(types.KConstraint{})
+		*u.freshID++
+		cFresh := &types.TyMeta{ID: *u.freshID, Kind: types.KConstraint{}}
 		if err := u.solveEvConTail(aN.Tail, onlyRight, cFresh); err != nil {
 			return err
 		}

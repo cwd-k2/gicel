@@ -18,8 +18,7 @@ type Runtime struct {
 	depthLimit    int
 	traceHook     eval.TraceHook
 	bindings      map[string]types.Type
-	gatedBuiltins map[string]bool
-	moduleProgs   []*core.Program
+	moduleProgs []*core.Program
 	builtinEnv    *eval.Env // pre-built pure/bind/force/fix/rec closures
 }
 
@@ -48,52 +47,8 @@ type RunResultFull struct {
 
 // initBuiltinEnv constructs the immutable base environment with builtins and constructors.
 // Called once at NewRuntime time; the result is shared across all executions.
-func (r *Runtime) initBuiltinEnv() {
-	env := eval.EmptyEnv()
-
-	// Built-in values.
-	env = env.Extend("pure", &eval.Closure{
-		Env: eval.EmptyEnv(), Param: "_v",
-		Body: &core.Var{Name: "_v"},
-	})
-	env = env.Extend("bind", &eval.Closure{
-		Env: eval.EmptyEnv(), Param: "_comp",
-		Body: &core.Lam{
-			Param: "_f",
-			Body:  &core.App{Fun: &core.Var{Name: "_f"}, Arg: &core.Var{Name: "_comp"}},
-		},
-	})
-	env = env.Extend("force", &eval.Closure{
-		Env: eval.EmptyEnv(), Param: "_thk",
-		Body: &core.Force{Expr: &core.Var{Name: "_thk"}},
-	})
-
-	// Internal builtin names for IxMonad instance bodies.
-	env = env.Extend("_builtinPure", &eval.Closure{
-		Env: eval.EmptyEnv(), Param: "_v",
-		Body: &core.Var{Name: "_v"},
-	})
-	env = env.Extend("_builtinBind", &eval.Closure{
-		Env: eval.EmptyEnv(), Param: "_comp",
-		Body: &core.Lam{
-			Param: "_f",
-			Body:  &core.App{Fun: &core.Var{Name: "_f"}, Arg: &core.Var{Name: "_comp"}},
-		},
-	})
-
-	// Gated built-ins: rec and fix (enabled via EnableRecursion).
-	if r.gatedBuiltins["fix"] {
-		env = env.Extend("fix", &eval.Closure{
-			Env: eval.EmptyEnv(), Param: "_f",
-			Body: fixpointBody(),
-		})
-	}
-	if r.gatedBuiltins["rec"] {
-		env = env.Extend("rec", &eval.Closure{
-			Env: eval.EmptyEnv(), Param: "_f",
-			Body: fixpointBody(),
-		})
-	}
+func (r *Runtime) initBuiltinEnv(gatedBuiltins map[string]bool) {
+	env := eval.BuiltinEnv(gatedBuiltins["fix"], gatedBuiltins["rec"])
 
 	// Constructors from imported modules.
 	for _, modProg := range r.moduleProgs {
@@ -127,20 +82,6 @@ func (r *Runtime) buildEnv(bindings map[string]Value) (*eval.Env, error) {
 	return env, nil
 }
 
-// fixpointBody returns the LetRec body shared by fix and rec.
-// letrec x = \arg -> (f x) arg in x
-func fixpointBody() *core.LetRec {
-	return &core.LetRec{
-		Bindings: []core.Binding{{
-			Name: "_x",
-			Expr: &core.Lam{Param: "_arg", Body: &core.App{
-				Fun: &core.App{Fun: &core.Var{Name: "_f"}, Arg: &core.Var{Name: "_x"}},
-				Arg: &core.Var{Name: "_arg"},
-			}},
-		}},
-		Body: &core.Var{Name: "_x"},
-	}
-}
 
 // run is the shared implementation for RunContext and RunContextFull.
 func (r *Runtime) run(ctx context.Context, caps map[string]any, bindings map[string]Value, entry string) (eval.EvalResult, EvalStats, error) {

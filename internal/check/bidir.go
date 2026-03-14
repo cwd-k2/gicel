@@ -488,6 +488,13 @@ func (ch *Checker) checkPattern(pat syntax.Pattern, scrutTy types.Type) patternR
 	}
 }
 
+// pendingCV tracks a constraint variable entry whose class/args are unknown
+// until return type unification resolves the meta.
+type pendingCV struct {
+	constraintVar types.Type
+	dictParam     string
+}
+
 func (ch *Checker) checkConPattern(p *syntax.PatCon, scrutTy types.Type) patternResult {
 	conTy, ok := ch.conTypes[p.Con]
 	if !ok {
@@ -538,10 +545,6 @@ func (ch *Checker) checkConPattern(p *syntax.PatCon, scrutTy types.Type) pattern
 	// 4. Peel constraints — generate dict bindings and pattern args for existential constraints.
 	// For ConstraintVar entries, the concrete className/args are unknown until
 	// return type unification (step 6). Record them and resolve after unification.
-	type pendingCV struct {
-		constraintVar types.Type
-		dictParam     string
-	}
 	var pendingCVs []pendingCV
 	for {
 		if ev, ok := currentTy.(*types.TyEvidence); ok {
@@ -589,31 +592,44 @@ func (ch *Checker) checkConPattern(p *syntax.PatCon, scrutTy types.Type) pattern
 		currentTy = restTy
 	}
 	// 6. Unify result type with scrutinee type.
-	// GADT: if this constructor has a refined return type that is
-	// incompatible with the scrutinee, the branch is inaccessible.
-	// Suppress the error — exhaustiveness handles relevance.
-	if info := ch.conInfo[p.Con]; info != nil {
-		for _, c := range info.Constructors {
-			if c.Name == p.Con && c.ReturnType != nil {
-				if !ch.canUnifyWith(c.ReturnType, scrutTy) {
-					return mkResult()
-				}
-			}
-		}
+	if ch.isInaccessibleGADTBranch(p.Con, scrutTy) {
+		return mkResult()
 	}
 	if err := ch.unifier.Unify(currentTy, scrutTy); err != nil {
 		ch.addUnifyError(err, p.S, "constructor type mismatch")
 		return mkResult()
 	}
 	// 7. Resolve pending constraint variable entries now that metas are solved.
-	for _, pcv := range pendingCVs {
+	ch.resolvePendingCVs(pendingCVs, bindings)
+	return mkResult()
+}
+
+// isInaccessibleGADTBranch returns true if the constructor's return type
+// cannot unify with the scrutinee, making the branch inaccessible.
+func (ch *Checker) isInaccessibleGADTBranch(conName string, scrutTy types.Type) bool {
+	info := ch.conInfo[conName]
+	if info == nil {
+		return false
+	}
+	for _, c := range info.Constructors {
+		if c.Name == conName && c.ReturnType != nil {
+			if !ch.canUnifyWith(c.ReturnType, scrutTy) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// resolvePendingCVs resolves deferred constraint variable entries after metas are solved.
+func (ch *Checker) resolvePendingCVs(pending []pendingCV, bindings map[string]types.Type) {
+	for _, pcv := range pending {
 		cv := ch.unifier.Zonk(pcv.constraintVar)
 		if cn, cArgs, ok := DecomposeConstraintType(cv); ok {
 			dictTy := ch.buildDictType(cn, cArgs)
 			bindings[pcv.dictParam] = dictTy
 		}
 	}
-	return mkResult()
 }
 
 func (ch *Checker) matchArrow(ty types.Type, s span.Span) (types.Type, types.Type) {
@@ -732,68 +748,64 @@ func (ch *Checker) inferBind(compExpr, contExpr syntax.Expr, s span.Span) (types
 	return resultTy, &core.Bind{Comp: compCore, Var: bindVar, Body: bodyCore, S: s}
 }
 
-// inferThunk handles the special form 'thunk <expr>'.
-// The argument must have computation type Computation pre post a,
-// and the result is Thunk pre post a, elaborated to Core.Thunk.
-func (ch *Checker) inferThunk(e *syntax.ExprApp) (types.Type, core.Core) {
-	argTy, argCore := ch.infer(e.Arg)
-	argTy = ch.unifier.Zonk(argTy)
-
-	// The argument must be a computation type.
-	if comp, ok := argTy.(*types.TyComp); ok {
-		resultTy := types.MkThunk(comp.Pre, comp.Post, comp.Result)
-		ch.trace(TraceInfer, e.S, "thunk: %s ⇒ %s", types.Pretty(argTy), types.Pretty(resultTy))
-		return resultTy, &core.Thunk{Comp: argCore, S: e.S}
+// cbpvTriple extracts (pre, post, result) from a computation or thunk type.
+// Returns nil fields if the type is neither.
+func cbpvTriple(ty types.Type) (pre, post, result types.Type) {
+	switch t := ty.(type) {
+	case *types.TyComp:
+		return t.Pre, t.Post, t.Result
+	case *types.TyThunk:
+		return t.Pre, t.Post, t.Result
 	}
-
-	// Try unifying with a fresh Computation type.
-	pre := ch.freshMeta(types.KRow{})
-	post := ch.freshMeta(types.KRow{})
-	result := ch.freshMeta(types.KType{})
-	expected := types.MkComp(pre, post, result)
-	if err := ch.unifier.Unify(argTy, expected); err != nil {
-		ch.addSemanticUnifyError(errs.ErrBadThunk, err, e.S, fmt.Sprintf("thunk requires a computation argument, got %s", types.Pretty(argTy)))
-		return &types.TyError{S: e.S}, &core.Thunk{Comp: argCore, S: e.S}
-	}
-	resultTy := types.MkThunk(
-		ch.unifier.Zonk(pre),
-		ch.unifier.Zonk(post),
-		ch.unifier.Zonk(result),
-	)
-	ch.trace(TraceInfer, e.S, "thunk: %s ⇒ %s", types.Pretty(argTy), types.Pretty(resultTy))
-	return resultTy, &core.Thunk{Comp: argCore, S: e.S}
+	return nil, nil, nil
 }
 
-// inferForce handles direct application 'force <expr>'.
-// The argument must have type Thunk pre post a,
-// and the result is Computation pre post a, elaborated to Core.Force.
-func (ch *Checker) inferForce(e *syntax.ExprApp) (types.Type, core.Core) {
+// inferDualForm infers the CBPV dual: thunk (Comp→Thunk) or force (Thunk→Comp).
+func (ch *Checker) inferDualForm(
+	e *syntax.ExprApp, label string,
+	mkExpected func(pre, post, result types.Type) types.Type,
+	mkResult func(pre, post, result types.Type) types.Type,
+	mkCore func(argCore core.Core) core.Core,
+) (types.Type, core.Core) {
 	argTy, argCore := ch.infer(e.Arg)
 	argTy = ch.unifier.Zonk(argTy)
 
-	// The argument must be a thunk type.
-	if thunk, ok := argTy.(*types.TyThunk); ok {
-		resultTy := types.MkComp(thunk.Pre, thunk.Post, thunk.Result)
-		ch.trace(TraceInfer, e.S, "force: %s ⇒ %s", types.Pretty(argTy), types.Pretty(resultTy))
-		return resultTy, &core.Force{Expr: argCore, S: e.S}
+	// Fast path: direct triple extraction.
+	if pre, post, result := cbpvTriple(argTy); pre != nil {
+		resultTy := mkResult(pre, post, result)
+		ch.trace(TraceInfer, e.S, "%s: %s ⇒ %s", label, types.Pretty(argTy), types.Pretty(resultTy))
+		return resultTy, mkCore(argCore)
 	}
 
-	// Try unifying with a fresh Thunk type.
+	// Fallback: unify with a fresh triple.
 	pre := ch.freshMeta(types.KRow{})
 	post := ch.freshMeta(types.KRow{})
 	result := ch.freshMeta(types.KType{})
-	expected := types.MkThunk(pre, post, result)
+	expected := mkExpected(pre, post, result)
 	if err := ch.unifier.Unify(argTy, expected); err != nil {
-		ch.addSemanticUnifyError(errs.ErrBadThunk, err, e.S, fmt.Sprintf("force requires a thunk argument, got %s", types.Pretty(argTy)))
-		return &types.TyError{S: e.S}, &core.Force{Expr: argCore, S: e.S}
+		ch.addSemanticUnifyError(errs.ErrBadThunk, err, e.S,
+			fmt.Sprintf("%s requires a %s argument, got %s", label, types.Pretty(expected), types.Pretty(argTy)))
+		return &types.TyError{S: e.S}, mkCore(argCore)
 	}
-	resultTy := types.MkComp(
-		ch.unifier.Zonk(pre),
-		ch.unifier.Zonk(post),
-		ch.unifier.Zonk(result),
+	resultTy := mkResult(ch.unifier.Zonk(pre), ch.unifier.Zonk(post), ch.unifier.Zonk(result))
+	ch.trace(TraceInfer, e.S, "%s: %s ⇒ %s", label, types.Pretty(argTy), types.Pretty(resultTy))
+	return resultTy, mkCore(argCore)
+}
+
+func (ch *Checker) inferThunk(e *syntax.ExprApp) (types.Type, core.Core) {
+	return ch.inferDualForm(e, "thunk",
+		func(p, q, r types.Type) types.Type { return types.MkComp(p, q, r) },
+		func(p, q, r types.Type) types.Type { return types.MkThunk(p, q, r) },
+		func(c core.Core) core.Core { return &core.Thunk{Comp: c, S: e.S} },
 	)
-	ch.trace(TraceInfer, e.S, "force: %s ⇒ %s", types.Pretty(argTy), types.Pretty(resultTy))
-	return resultTy, &core.Force{Expr: argCore, S: e.S}
+}
+
+func (ch *Checker) inferForce(e *syntax.ExprApp) (types.Type, core.Core) {
+	return ch.inferDualForm(e, "force",
+		func(p, q, r types.Type) types.Type { return types.MkThunk(p, q, r) },
+		func(p, q, r types.Type) types.Type { return types.MkComp(p, q, r) },
+		func(c core.Core) core.Core { return &core.Force{Expr: c, S: e.S} },
+	)
 }
 
 // inferList handles list literal [e1, e2, ...] by desugaring to Cons/Nil chain.

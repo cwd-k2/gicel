@@ -359,9 +359,8 @@ func (e *Engine) NewRuntime(source string) (*Runtime, error) {
 		depthLimit:    e.depthLimit,
 		traceHook:     e.traceHook,
 		bindings:      maps.Clone(e.bindings),
-		gatedBuiltins: maps.Clone(e.gatedBuiltins),
-		moduleProgs:   modProgs,
+		moduleProgs: modProgs,
 	}
-	rt.initBuiltinEnv()
+	rt.initBuiltinEnv(e.gatedBuiltins)
 	return rt, nil
 }

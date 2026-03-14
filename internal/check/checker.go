@@ -296,6 +296,24 @@ func (ch *Checker) restoreUnifierState(snap UnifierSnapshot) {
 	ch.unifier.Restore(snap)
 }
 
+// withTrial runs fn in a trial unification scope. If fn returns false,
+// the unifier state is rolled back to the snapshot taken before fn was called.
+func (ch *Checker) withTrial(fn func() bool) bool {
+	saved := ch.saveUnifierState()
+	if fn() {
+		return true
+	}
+	ch.restoreUnifierState(saved)
+	return false
+}
+
+// tryUnify attempts to unify a and b, rolling back on failure.
+func (ch *Checker) tryUnify(a, b types.Type) bool {
+	return ch.withTrial(func() bool {
+		return ch.unifier.Unify(a, b) == nil
+	})
+}
+
 func (ch *Checker) addCodedError(code errs.Code, s span.Span, msg string) {
 	ch.errors.Add(&errs.Error{
 		Code:    code,

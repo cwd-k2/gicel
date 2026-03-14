@@ -33,8 +33,8 @@ type resolvedEvidence struct {
 // Parallel to collecting row fields from a row type.
 func (ch *Checker) collectContextEvidence() []availableEvidence {
 	var result []availableEvidence
-	for i := len(ch.ctx.entries) - 1; i >= 0; i-- {
-		if e, ok := ch.ctx.entries[i].(*CtxEvidence); ok {
+	ch.ctx.Scan(func(entry CtxEntry) bool {
+		if e, ok := entry.(*CtxEvidence); ok {
 			result = append(result, availableEvidence{
 				className: e.ClassName,
 				args:      e.Args,
@@ -42,7 +42,8 @@ func (ch *Checker) collectContextEvidence() []availableEvidence {
 				source:    evidenceContext,
 			})
 		}
-	}
+		return true
+	})
 	return result
 }
 
@@ -70,18 +71,16 @@ func (ch *Checker) classifyEvidence(
 				continue
 			}
 			// Try to match by unifying args (trial unification with rollback).
-			saved := ch.saveUnifierState()
-			allMatch := true
-			for j := range w.args {
-				wArg := ch.unifier.Zonk(w.args[j])
-				aArg := ch.unifier.Zonk(a.args[j])
-				if err := ch.unifier.Unify(wArg, aArg); err != nil {
-					allMatch = false
-					break
+			if !ch.withTrial(func() bool {
+				for j := range w.args {
+					wArg := ch.unifier.Zonk(w.args[j])
+					aArg := ch.unifier.Zonk(a.args[j])
+					if err := ch.unifier.Unify(wArg, aArg); err != nil {
+						return false
+					}
 				}
-			}
-			if !allMatch {
-				ch.restoreUnifierState(saved)
+				return true
+			}) {
 				continue
 			}
 			matched = append(matched, resolvedEvidence{

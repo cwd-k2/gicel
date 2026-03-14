@@ -70,6 +70,16 @@ func (c *Context) LookupTyVar(name string) (types.Kind, bool) {
 	return nil, false
 }
 
+// Scan iterates entries from most recent to oldest, calling fn for each.
+// Iteration stops when fn returns false.
+func (c *Context) Scan(fn func(CtxEntry) bool) {
+	for i := len(c.entries) - 1; i >= 0; i-- {
+		if !fn(c.entries[i]) {
+			return
+		}
+	}
+}
+
 // LookupEvidence returns all CtxEvidence entries for a given class name.
 func (c *Context) LookupEvidence(className string) []*CtxEvidence {
 	var result []*CtxEvidence

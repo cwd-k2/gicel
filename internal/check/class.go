@@ -2,6 +2,7 @@ package check
 
 import (
 	"fmt"
+	"strings"
 	"unicode"
 
 	"github.com/cwd-k2/gomputation/internal/core"
@@ -27,6 +28,15 @@ func collectKindVars(k syntax.KindExpr, kindVars map[string]bool, params *[]stri
 	}
 }
 
+// dictName returns the dictionary type/constructor name for a class.
+func dictName(className string) string { return className + "$Dict" }
+
+// classFromDict recovers the class name from a dictionary name.
+func classFromDict(name string) string { return strings.TrimSuffix(name, "$Dict") }
+
+// isDictName reports whether name is a dictionary type/constructor name.
+func isDictName(name string) bool { return strings.HasSuffix(name, "$Dict") }
+
 // ClassInfo stores elaborated class information.
 type ClassInfo struct {
 	Name         string
@@ -35,8 +45,7 @@ type ClassInfo struct {
 	KindParams   []string     // implicit kind variables (e.g., "k" in f : k -> Type)
 	Supers       []SuperInfo  // superclass constraints
 	Methods      []MethodInfo // method signatures
-	DictTyName   string       // e.g. "Eq$Dict"
-	DictConName  string       // e.g. "Eq$Dict"
+	DictName     string       // e.g. "Eq$Dict" — used as both type and constructor name
 }
 
 // SuperInfo describes a superclass constraint.
@@ -55,8 +64,7 @@ type MethodInfo struct {
 // 1. A DataDecl for the dictionary type
 // 2. Selector bindings for each method
 func (ch *Checker) processClassDecl(d *syntax.DeclClass, prog *core.Program) {
-	dictTyName := d.Name + "$Dict"
-	dictConName := d.Name + "$Dict"
+	dn := dictName(d.Name)
 
 	// Collect implicit kind variables from type parameter kind annotations.
 	// e.g., class Functor (f : k -> Type) → kindParams = ["k"]
@@ -108,8 +116,7 @@ func (ch *Checker) processClassDecl(d *syntax.DeclClass, prog *core.Program) {
 		KindParams:   kindParams,
 		Supers:       supers,
 		Methods:      methods,
-		DictTyName:   dictTyName,
-		DictConName:  dictConName,
+		DictName: dn,
 	}
 	ch.classes[d.Name] = info
 
@@ -121,10 +128,10 @@ func (ch *Checker) processClassDecl(d *syntax.DeclClass, prog *core.Program) {
 	for i := len(tyParamKinds) - 1; i >= 0; i-- {
 		dictKind = &types.KArrow{From: tyParamKinds[i], To: dictKind}
 	}
-	ch.config.RegisteredTypes[dictTyName] = dictKind
+	ch.config.RegisteredTypes[dn] = dictKind
 
 	// Build result type: DictTy a b c ...
-	var resultType types.Type = &types.TyCon{Name: dictTyName, S: d.S}
+	var resultType types.Type = &types.TyCon{Name: dn, S: d.S}
 	for _, p := range tyParams {
 		resultType = &types.TyApp{Fun: resultType, Arg: &types.TyVar{Name: p}, S: d.S}
 	}
@@ -143,19 +150,19 @@ func (ch *Checker) processClassDecl(d *syntax.DeclClass, prog *core.Program) {
 	}
 
 	// Register constructor.
-	ch.conTypes[dictConName] = conType
-	ch.ctx.Push(&CtxVar{Name: dictConName, Type: conType})
+	ch.conTypes[dn] = conType
+	ch.ctx.Push(&CtxVar{Name: dn, Type: conType})
 
-	dataInfo := &DataTypeInfo{Name: dictTyName}
-	dataInfo.Constructors = append(dataInfo.Constructors, ConInfo{Name: dictConName, Arity: len(allFieldTypes)})
-	ch.conInfo[dictConName] = dataInfo
+	dataInfo := &DataTypeInfo{Name: dn}
+	dataInfo.Constructors = append(dataInfo.Constructors, ConInfo{Name: dn, Arity: len(allFieldTypes)})
+	ch.conInfo[dn] = dataInfo
 
 	// Core DataDecl.
-	coreDecl := core.DataDecl{Name: dictTyName, S: d.S}
+	coreDecl := core.DataDecl{Name: dn, S: d.S}
 	for i, p := range tyParams {
 		coreDecl.TyParams = append(coreDecl.TyParams, core.TyParam{Name: p, Kind: tyParamKinds[i]})
 	}
-	coreDecl.Cons = append(coreDecl.Cons, core.ConDecl{Name: dictConName, Fields: allFieldTypes, S: d.S})
+	coreDecl.Cons = append(coreDecl.Cons, core.ConDecl{Name: dn, Fields: allFieldTypes, S: d.S})
 	prog.DataDecls = append(prog.DataDecls, coreDecl)
 
 	// Generate selector bindings for each method.
@@ -192,7 +199,7 @@ func (ch *Checker) processClassDecl(d *syntax.DeclClass, prog *core.Program) {
 		caseExpr := &core.Case{
 			Scrutinee: &core.Var{Name: selName, S: d.S},
 			Alts: []core.Alt{{
-				Pattern: &core.PCon{Con: dictConName, Args: patArgs, S: d.S},
+				Pattern: &core.PCon{Con: dn, Args: patArgs, S: d.S},
 				Body:    resultExpr,
 				S:       d.S,
 			}},
@@ -222,8 +229,7 @@ func (ch *Checker) processClassDecl(d *syntax.DeclClass, prog *core.Program) {
 
 // buildDictType constructs the dictionary type for a class applied to arguments.
 func (ch *Checker) buildDictType(className string, args []types.Type) types.Type {
-	dictTyName := className + "$Dict"
-	var ty types.Type = &types.TyCon{Name: dictTyName}
+	var ty types.Type = &types.TyCon{Name: dictName(className)}
 	for _, a := range args {
 		ty = &types.TyApp{Fun: ty, Arg: a}
 	}

@@ -52,24 +52,21 @@ func (ch *Checker) processInstanceHeader(d *syntax.DeclInstance) *InstanceInfo {
 			continue
 		}
 		// Try kind unification first (handles kind variables in paramKind).
-		// Save/restore kind solutions around the trial to avoid leaking partial results.
-		kindSnap := ch.saveUnifierState()
-		kindMatch := ch.unifier.UnifyKinds(argKind, paramKind) == nil
-		if kindMatch {
+		if ch.withTrial(func() bool {
+			return ch.unifier.UnifyKinds(argKind, paramKind) == nil
+		}) {
 			continue
 		}
-		ch.restoreUnifierState(kindSnap)
 		// Kind mismatch — check if Lift wrapping fixes it.
 		liftKind := ch.kindOfType(&types.TyCon{Name: "Lift"})
 		if liftKind != nil {
 			if ka, ok := liftKind.(*types.KArrow); ok && ka.From.Equal(argKind) {
 				lifted := &types.TyApp{Fun: &types.TyCon{Name: "Lift"}, Arg: typeArgs[i]}
 				liftedKind := ka.To
-				liftSnap := ch.saveUnifierState()
-				if ch.unifier.UnifyKinds(liftedKind, paramKind) == nil {
+				if ch.withTrial(func() bool {
+					return ch.unifier.UnifyKinds(liftedKind, paramKind) == nil
+				}) {
 					typeArgs[i] = lifted
-				} else {
-					ch.restoreUnifierState(liftSnap)
 				}
 			}
 		}
@@ -254,7 +251,7 @@ func (ch *Checker) processInstanceBody(inst *InstanceInfo, prog *core.Program) {
 	}
 
 	// Build the dictionary value: DictCon @types... arg1 arg2 ...
-	var dictExpr core.Core = &core.Con{Name: classInfo.DictConName, S: inst.S}
+	var dictExpr core.Core = &core.Con{Name: classInfo.DictName, S: inst.S}
 	for _, ta := range inst.TypeArgs {
 		dictExpr = &core.TyApp{Expr: dictExpr, TyArg: ta, S: inst.S}
 	}

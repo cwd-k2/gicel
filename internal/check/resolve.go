@@ -25,30 +25,44 @@ func (ch *Checker) resolveInstance(className string, args []types.Type, s span.S
 	}
 
 	// 1. Search context for dictionary variables (from Eq a => parameters).
-	for i := len(ch.ctx.entries) - 1; i >= 0; i-- {
-		if v, ok := ch.ctx.entries[i].(*CtxVar); ok {
-			if ch.matchesDictVar(v, className, args) {
-				return &core.Var{Name: v.Name, S: s}
-			}
+	var ctxResult core.Core
+	ch.ctx.Scan(func(entry CtxEntry) bool {
+		if v, ok := entry.(*CtxVar); ok && ch.matchesDictVar(v, className, args) {
+			ctxResult = &core.Var{Name: v.Name, S: s}
+			return false
 		}
+		return true
+	})
+	if ctxResult != nil {
+		return ctxResult
 	}
 
 	// 1.5. Search context for superclass dictionaries.
-	for i := len(ch.ctx.entries) - 1; i >= 0; i-- {
-		if v, ok := ch.ctx.entries[i].(*CtxVar); ok {
+	ch.ctx.Scan(func(entry CtxEntry) bool {
+		if v, ok := entry.(*CtxVar); ok {
 			if expr := ch.extractSuperDict(v, className, args, s); expr != nil {
-				return expr
+				ctxResult = expr
+				return false
 			}
 		}
+		return true
+	})
+	if ctxResult != nil {
+		return ctxResult
 	}
 
 	// 1.6. Search context for quantified evidence that can produce the needed dictionary.
-	for i := len(ch.ctx.entries) - 1; i >= 0; i-- {
-		if e, ok := ch.ctx.entries[i].(*CtxEvidence); ok && e.Quantified != nil {
+	ch.ctx.Scan(func(entry CtxEntry) bool {
+		if e, ok := entry.(*CtxEvidence); ok && e.Quantified != nil {
 			if expr := ch.applyQuantifiedEvidence(e, className, args, s); expr != nil {
-				return expr
+				ctxResult = expr
+				return false
 			}
 		}
+		return true
+	})
+	if ctxResult != nil {
+		return ctxResult
 	}
 
 	// 2. Search global instances (indexed by class name).
@@ -57,17 +71,15 @@ func (ch *Checker) resolveInstance(className string, args []types.Type, s span.S
 			continue
 		}
 		freshSubst := ch.freshInstanceSubst(inst)
-		saved := ch.saveUnifierState()
-		matched := true
-		for i := range args {
-			instArg := types.SubstMany(inst.TypeArgs[i], freshSubst)
-			if err := ch.unifier.Unify(instArg, args[i]); err != nil {
-				matched = false
-				break
+		if !ch.withTrial(func() bool {
+			for i := range args {
+				instArg := types.SubstMany(inst.TypeArgs[i], freshSubst)
+				if err := ch.unifier.Unify(instArg, args[i]); err != nil {
+					return false
+				}
 			}
-		}
-		if !matched {
-			ch.restoreUnifierState(saved)
+			return true
+		}) {
 			continue
 		}
 		var dictExpr core.Core = &core.Var{Name: inst.DictBindName, S: s}
@@ -89,23 +101,31 @@ func (ch *Checker) resolveInstance(className string, args []types.Type, s span.S
 
 // matchesDictVar checks if a context variable is a dictionary for the given class and args.
 func (ch *Checker) matchesDictVar(v *CtxVar, className string, args []types.Type) bool {
-	dictTyName := className + "$Dict"
 	ty := ch.unifier.Zonk(v.Type)
 	head, tyArgs := types.UnwindApp(ty)
-	if con, ok := head.(*types.TyCon); ok && con.Name == dictTyName {
+	if con, ok := head.(*types.TyCon); ok && con.Name == dictName(className) {
 		if len(tyArgs) != len(args) {
 			return false
 		}
-		saved := ch.saveUnifierState()
-		for i := range args {
-			if err := ch.unifier.Unify(tyArgs[i], args[i]); err != nil {
-				ch.restoreUnifierState(saved)
-				return false
+		return ch.withTrial(func() bool {
+			for i := range args {
+				if err := ch.unifier.Unify(tyArgs[i], args[i]); err != nil {
+					return false
+				}
 			}
-		}
-		return true
+			return true
+		})
 	}
 	return false
+}
+
+// superDictSearch holds the immutable context for a superclass dictionary search.
+type superDictSearch struct {
+	ch          *Checker
+	targetClass string
+	targetArgs  []types.Type
+	s           span.Span
+	visited     map[string]bool
 }
 
 // extractSuperDict checks if a context variable is a dict for a class that
@@ -114,34 +134,26 @@ func (ch *Checker) extractSuperDict(v *CtxVar, targetClass string, targetArgs []
 	ty := ch.unifier.Zonk(v.Type)
 	head, tyArgs := types.UnwindApp(ty)
 	con, ok := head.(*types.TyCon)
-	if !ok || !strings.HasSuffix(con.Name, "$Dict") {
+	if !ok || !isDictName(con.Name) {
 		return nil
 	}
-	return ch.extractSuperDictChain(
-		&core.Var{Name: v.Name, S: s},
-		con.Name, tyArgs,
-		targetClass, targetArgs,
-		s, nil,
-	)
+	search := &superDictSearch{
+		ch: ch, targetClass: targetClass, targetArgs: targetArgs,
+		s: s, visited: make(map[string]bool),
+	}
+	return search.chain(&core.Var{Name: v.Name, S: s}, con.Name, tyArgs)
 }
 
-// extractSuperDictChain recursively searches the superclass hierarchy for
-// the target class, building chained Case extractions along the path.
-func (ch *Checker) extractSuperDictChain(
-	dictExpr core.Core, dictTyName string, dictTyArgs []types.Type,
-	targetClass string, targetArgs []types.Type,
-	s span.Span, visited map[string]bool,
-) core.Core {
-	if visited == nil {
-		visited = make(map[string]bool)
-	}
-	parentClass := strings.TrimSuffix(dictTyName, "$Dict")
-	if visited[parentClass] {
+// chain recursively searches the superclass hierarchy for the target class,
+// building chained Case extractions along the path.
+func (sd *superDictSearch) chain(dictExpr core.Core, dictTyName string, dictTyArgs []types.Type) core.Core {
+	parentClass := classFromDict(dictTyName)
+	if sd.visited[parentClass] {
 		return nil
 	}
-	visited[parentClass] = true
+	sd.visited[parentClass] = true
 
-	classInfo, ok := ch.classes[parentClass]
+	classInfo, ok := sd.ch.classes[parentClass]
 	if !ok {
 		return nil
 	}
@@ -164,51 +176,40 @@ func (ch *Checker) extractSuperDictChain(
 		allFields := len(classInfo.Supers) + len(classInfo.Methods)
 		var patArgs []core.Pattern
 		var fieldExpr core.Core
-		freshBase := ch.fresh()
+		freshBase := sd.ch.fresh()
 		for j := 0; j < allFields; j++ {
 			argName := fmt.Sprintf("$sf_%d_%d_%d", superIdx, j, freshBase)
-			patArgs = append(patArgs, &core.PVar{Name: argName, S: s})
+			patArgs = append(patArgs, &core.PVar{Name: argName, S: sd.s})
 			if j == superIdx {
-				fieldExpr = &core.Var{Name: argName, S: s}
+				fieldExpr = &core.Var{Name: argName, S: sd.s}
 			}
 		}
 		extractExpr := &core.Case{
 			Scrutinee: dictExpr,
 			Alts: []core.Alt{{
-				Pattern: &core.PCon{Con: classInfo.DictConName, Args: patArgs, S: s},
+				Pattern: &core.PCon{Con: classInfo.DictName, Args: patArgs, S: sd.s},
 				Body:    fieldExpr,
-				S:       s,
+				S:       sd.s,
 			}},
-			S: s,
+			S: sd.s,
 		}
 
 		// Direct match: this superclass IS the target.
-		if sup.ClassName == targetClass {
-			match := len(superArgs) == len(targetArgs)
-			if match {
-				saved := ch.saveUnifierState()
-				for j := range targetArgs {
-					if err := ch.unifier.Unify(superArgs[j], targetArgs[j]); err != nil {
-						match = false
-						break
+		if sup.ClassName == sd.targetClass && len(superArgs) == len(sd.targetArgs) {
+			if sd.ch.withTrial(func() bool {
+				for j := range sd.targetArgs {
+					if err := sd.ch.unifier.Unify(superArgs[j], sd.targetArgs[j]); err != nil {
+						return false
 					}
 				}
-				if !match {
-					ch.restoreUnifierState(saved)
-				}
-			}
-			if match {
+				return true
+			}) {
 				return extractExpr
 			}
 		}
 
 		// Transitive: search within this superclass's dict.
-		superDictTyName := sup.ClassName + "$Dict"
-		result := ch.extractSuperDictChain(
-			extractExpr, superDictTyName, superArgs,
-			targetClass, targetArgs,
-			s, visited,
-		)
+		result := sd.chain(extractExpr, dictName(sup.ClassName), superArgs)
 		if result != nil {
 			return result
 		}
@@ -237,19 +238,15 @@ func (ch *Checker) applyQuantifiedEvidence(e *CtxEvidence, className string, arg
 	}
 
 	// Try to unify head args with wanted args.
-	saved := ch.saveUnifierState()
-
-	allMatched := true
-	for i := range args {
-		headArg := types.SubstMany(qc.Head.Args[i], freshSubst)
-		if err := ch.unifier.Unify(headArg, args[i]); err != nil {
-			allMatched = false
-			break
+	if !ch.withTrial(func() bool {
+		for i := range args {
+			headArg := types.SubstMany(qc.Head.Args[i], freshSubst)
+			if err := ch.unifier.Unify(headArg, args[i]); err != nil {
+				return false
+			}
 		}
-	}
-
-	if !allMatched {
-		ch.restoreUnifierState(saved)
+		return true
+	}) {
 		return nil
 	}
 
@@ -298,36 +295,25 @@ func (ch *Checker) resolveQuantifiedConstraint(qc *types.QuantifiedConstraint, s
 		// Also create fresh metas for the instance's own free vars.
 		instSubst := ch.freshInstanceSubst(inst)
 
-		saved := ch.saveUnifierState()
-		matched := true
-		for i := range qc.Head.Args {
-			headArg := types.SubstMany(qc.Head.Args[i], freshSubst)
-			instArg := types.SubstMany(inst.TypeArgs[i], instSubst)
-			if err := ch.unifier.Unify(headArg, instArg); err != nil {
-				matched = false
-				break
+		if !ch.withTrial(func() bool {
+			for i := range qc.Head.Args {
+				headArg := types.SubstMany(qc.Head.Args[i], freshSubst)
+				instArg := types.SubstMany(inst.TypeArgs[i], instSubst)
+				if err := ch.unifier.Unify(headArg, instArg); err != nil {
+					return false
+				}
 			}
-		}
-		if !matched {
-			ch.restoreUnifierState(saved)
-			continue
-		}
-
-		// Verify context compatibility: instance context should subsume quantified context.
-		// For simple cases, just check that the instance context matches.
-		if len(inst.Context) != len(qc.Context) {
-			ch.restoreUnifierState(saved)
-			continue
-		}
-		ctxMatch := true
-		for i, ic := range inst.Context {
-			if ic.ClassName != qc.Context[i].ClassName {
-				ctxMatch = false
-				break
+			// Verify context compatibility: instance context should subsume quantified context.
+			if len(inst.Context) != len(qc.Context) {
+				return false
 			}
-		}
-		if !ctxMatch {
-			ch.restoreUnifierState(saved)
+			for i, ic := range inst.Context {
+				if ic.ClassName != qc.Context[i].ClassName {
+					return false
+				}
+			}
+			return true
+		}) {
 			continue
 		}
 
@@ -336,12 +322,18 @@ func (ch *Checker) resolveQuantifiedConstraint(qc *types.QuantifiedConstraint, s
 	}
 
 	// Also search context for quantified evidence variables.
-	for i := len(ch.ctx.entries) - 1; i >= 0; i-- {
-		if e, ok := ch.ctx.entries[i].(*CtxEvidence); ok && e.Quantified != nil {
+	var qcResult core.Core
+	ch.ctx.Scan(func(entry CtxEntry) bool {
+		if e, ok := entry.(*CtxEvidence); ok && e.Quantified != nil {
 			if e.Quantified.Head.ClassName == qc.Head.ClassName {
-				return &core.Var{Name: e.DictName, S: s}
+				qcResult = &core.Var{Name: e.DictName, S: s}
+				return false
 			}
 		}
+		return true
+	})
+	if qcResult != nil {
+		return qcResult
 	}
 
 	ch.addCodedError(errs.ErrNoInstance, s,

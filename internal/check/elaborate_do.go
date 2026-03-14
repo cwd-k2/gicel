@@ -275,7 +275,7 @@ func (ch *Checker) extractIxMethod(monadHead types.Type, methodIdx int, s span.S
 	return &core.Case{
 		Scrutinee: dict,
 		Alts: []core.Alt{{
-			Pattern: &core.PCon{Con: classInfo.DictConName, Args: patArgs, S: s},
+			Pattern: &core.PCon{Con: classInfo.DictName, Args: patArgs, S: s},
 			Body:    methodExpr,
 			S:       s,
 		}},
