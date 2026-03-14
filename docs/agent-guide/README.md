@@ -13,15 +13,16 @@ Key properties for agents:
 
 ## How to use this guide
 
-Use `gicel help <topic>` to query a specific chapter. Start with `syntax` for the language, `stdlib` for available operations, `patterns` for idiomatic code, or `go-api` for embedding in Go.
+Use `gicel docs <topic>` to query a specific chapter. Start with `syntax` for the language, `stdlib` for available operations, `patterns` for idiomatic code, or `go-api` for embedding in Go. Use `gicel example` to browse example programs.
 
 Typical agent workflow:
 
-1. `gicel help stdlib` — check what operations are available
-2. Write a `.gicel` file with a `main` binding
-3. `gicel check program.gicel` — validate types
-4. `gicel run program.gicel` — execute and read the result
-5. `gicel run --json program.gicel` — machine-readable output
+1. `gicel example` — browse example programs to learn patterns
+2. `gicel docs stdlib` — check what operations are available
+3. Write a `.gicel` file with a `main` binding
+4. `gicel check program.gicel` — validate types
+5. `gicel run program.gicel` — execute and read the result
+6. `gicel run --json program.gicel` — machine-readable output
 
 ## Chapters
 

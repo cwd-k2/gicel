@@ -2,8 +2,10 @@
 //
 // Usage:
 //
-//	gicel run  [flags] <file>    compile and execute
-//	gicel check [flags] <file>   type-check only
+//	gicel run     [flags] <file>   compile and execute
+//	gicel check   [flags] <file>   type-check only
+//	gicel docs    [topic]          show language reference
+//	gicel example [name]           show example programs
 package main
 
 import (
@@ -29,8 +31,13 @@ func main() {
 		os.Exit(cmdRun(os.Args[2:]))
 	case "check":
 		os.Exit(cmdCheck(os.Args[2:]))
+	case "docs":
+		os.Exit(cmdDocs(os.Args[2:]))
+	case "example":
+		os.Exit(cmdExample(os.Args[2:]))
 	case "help", "-h", "--help":
-		os.Exit(cmdHelp(os.Args[2:]))
+		printUsage()
+		os.Exit(0)
 	default:
 		fmt.Fprintf(os.Stderr, "unknown command: %s\n", os.Args[1])
 		printUsage()
@@ -42,20 +49,23 @@ func printUsage() {
 	fmt.Fprintln(os.Stderr, `Usage: gicel <command> [flags] [args]
 
 Commands:
-  run    Compile and execute a GICEL program
-  check  Type-check a GICEL program
-  help   Show language reference (help <topic> for details)
+  run      Compile and execute a GICEL program
+  check    Type-check a GICEL program
+  docs     Show language reference (docs <topic> for details)
+  example  Show example programs (example <name> for source)
 
-Flags:
-  --use <packs>    Comma-separated stdlib packs: Num,Str,List,Fail,State,IO (default: all)
-  --entry <name>   Entry point binding (default: main, run only)
-  --timeout <dur>  Execution timeout (default: 5s, run only)
-  --max-steps <n>  Step limit (default: 100000, run only)
-  --max-depth <n>  Depth limit (default: 100, run only)
-  --json           Output result as JSON (run only)`)
+Flags (run, check):
+  --use <packs>    Stdlib packs: Num,Str,List,Fail,State,IO (default: all)
+
+Flags (run only):
+  --entry <name>   Entry point binding (default: main)
+  --timeout <dur>  Execution timeout (default: 5s)
+  --max-steps <n>  Step limit (default: 100000)
+  --max-depth <n>  Depth limit (default: 100)
+  --json           Output result as JSON`)
 }
 
-func cmdHelp(args []string) int {
+func cmdDocs(args []string) int {
 	if len(args) == 0 {
 		content := gicel.Doc("index")
 		if content == "" {
@@ -76,6 +86,52 @@ func cmdHelp(args []string) int {
 	}
 	fmt.Print(content)
 	return 0
+}
+
+func cmdExample(args []string) int {
+	if len(args) == 0 {
+		examples := gicel.Examples()
+		if len(examples) == 0 {
+			fmt.Fprintln(os.Stderr, "no examples available")
+			return 1
+		}
+		fmt.Println("Available examples:")
+		fmt.Println()
+		for _, name := range examples {
+			desc := exampleDesc(gicel.Example(name))
+			if desc != "" {
+				fmt.Printf("  %-26s %s\n", name, desc)
+			} else {
+				fmt.Printf("  %s\n", name)
+			}
+		}
+		fmt.Println()
+		fmt.Println("Run 'gicel example <name>' to view source.")
+		return 0
+	}
+	name := args[0]
+	content := gicel.Example(name)
+	if content == "" {
+		fmt.Fprintf(os.Stderr, "unknown example: %s\n\nAvailable examples:\n", name)
+		for _, e := range gicel.Examples() {
+			fmt.Fprintf(os.Stderr, "  %s\n", e)
+		}
+		return 1
+	}
+	fmt.Print(content)
+	return 0
+}
+
+// exampleDesc extracts the title from "-- GICEL Example: <title>".
+func exampleDesc(source string) string {
+	const prefix = "-- GICEL Example: "
+	if i := strings.Index(source, "\n"); i >= 0 {
+		source = source[:i]
+	}
+	if strings.HasPrefix(source, prefix) {
+		return strings.TrimPrefix(source, prefix)
+	}
+	return ""
 }
 
 // packMap maps pack names to their Pack functions.
