@@ -1,0 +1,56 @@
+-- GICEL Example: CBPV Thunk and Force
+--
+-- GICEL uses Call-By-Push-Value (CBPV):
+--   thunk expr   suspends a computation (wraps it in a Thunk)
+--   force t      runs a suspended computation (unwraps the Thunk)
+-- Thunks are first-class values: store them, pass them, choose which to force.
+
+import Std.Num
+
+-- Basic: create a thunk and force it
+basic := do {
+  t := thunk (pure 42);
+  x <- force t;
+  pure x
+}
+
+-- Thunks as first-class values: store two, force one based on a condition
+choose := \flag -> \thenBranch -> \elseBranch ->
+  case flag { True -> thenBranch; False -> elseBranch }
+
+branching := do {
+  tA := thunk (pure 100);
+  tB := thunk (pure 200);
+  -- Choose which thunk to force
+  selected := choose True tA tB;
+  x <- force selected;
+  pure x
+}
+
+branchFalse := do {
+  tA := thunk (pure 100);
+  tB := thunk (pure 200);
+  selected := choose False tA tB;
+  x <- force selected;
+  pure x
+}
+
+-- Thunks capturing bindings from outer scope
+capturing := do {
+  a <- pure 10;
+  b <- pure 20;
+  t := thunk (pure (a + b));
+  result <- force t;
+  pure result
+}
+
+-- Nested thunking: thunk of a thunk
+nestedThunk := do {
+  inner := thunk (pure 99);
+  outer := thunk (force inner);
+  x <- force outer;
+  pure x
+}
+
+-- Output: (42, 100, 200, 30, 99)
+main := (basic, branching, branchFalse, capturing, nestedThunk)

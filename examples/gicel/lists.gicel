@@ -1,0 +1,72 @@
+-- GICEL Example: List Operations
+--
+-- Lists in GICEL are built with Cons and Nil constructors.
+-- Import Std.List for higher-order list operations.
+--
+-- Note: `length` has a name conflict between Std.List and Std.Str,
+-- so we compute list length using foldl instead.
+
+import Std.Num
+import Std.List
+
+-- Building lists with Cons/Nil
+nums := Cons 1 (Cons 2 (Cons 3 (Cons 4 (Cons 5 Nil))))
+
+-- Count elements using foldl
+len := foldl (\acc -> \_ -> acc + 1) 0 nums   -- 5
+
+-- map (via fmap): transform each element
+doubled := fmap (\x -> x * 2) nums
+-- Cons 2 (Cons 4 (Cons 6 (Cons 8 (Cons 10 Nil))))
+
+-- filter: keep elements satisfying a predicate
+evens := filter (\x -> eq (mod x 2) 0) nums
+-- Cons 2 (Cons 4 Nil)
+
+-- foldl: left fold (strict, tail-recursive in the runtime)
+total := foldl (\acc -> \x -> acc + x) 0 nums
+-- 15
+
+-- foldr: right fold (from prelude Foldable instance)
+totalR := foldr (\x -> \acc -> x + acc) 0 nums
+-- 15
+
+-- reverse: flip the list
+rev := reverse nums
+-- Cons 5 (Cons 4 (Cons 3 (Cons 2 (Cons 1 Nil))))
+
+-- take and drop: slice from the front
+first3 := take 3 nums              -- Cons 1 (Cons 2 (Cons 3 Nil))
+last2 := drop 3 nums               -- Cons 4 (Cons 5 Nil)
+
+-- concat: join two lists
+joined := concat (Cons 1 (Cons 2 Nil)) (Cons 3 (Cons 4 Nil))
+-- Cons 1 (Cons 2 (Cons 3 (Cons 4 Nil)))
+
+-- append (Semigroup): same as concat for lists
+appended := append (Cons 10 Nil) (Cons 20 Nil)
+-- Cons 10 (Cons 20 Nil)
+
+-- replicate: create a list of n copies
+fives := replicate 4 5
+-- Cons 5 (Cons 5 (Cons 5 (Cons 5 Nil)))
+
+-- zip: pair elements from two lists
+zipped := zip (Cons 1 (Cons 2 (Cons 3 Nil))) (Cons 10 (Cons 20 (Cons 30 Nil)))
+-- Cons (1,10) (Cons (2,20) (Cons (3,30) Nil))
+
+-- index: safe element access
+atTwo := index 2 nums              -- Just 3
+atTen := index 10 nums             -- Nothing
+
+-- Monoid: empty list
+nil := empty :: List Int            -- Nil
+
+-- Data pipeline: filter, transform, fold
+pipeline := foldl (\acc -> \x -> acc + x) 0
+              (fmap (\x -> x * x)
+                (filter (\x -> x > 2) nums))
+-- squares of elements > 2: 9 + 16 + 25 = 50
+
+-- Output: (5, 15, 15, Just 3, 50)
+main := (len, total, totalR, atTwo, pipeline)

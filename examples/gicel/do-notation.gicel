@@ -1,0 +1,50 @@
+-- GICEL Example: Do Notation
+--
+-- Do blocks sequence Computations. Inside a do block:
+--   x <- comp     binds the result of a computation (monadic bind)
+--   y := expr     creates a let binding (non-monadic, pure value)
+-- The last expression must be a Computation (use `pure` to wrap values).
+
+import Std.Num
+
+-- Simple: bind a pure value and return it
+simple := do {
+  x <- pure 42;
+  pure x
+}
+
+-- Chain: use the result of one computation in the next
+chain := do {
+  x <- pure 10;
+  y <- pure 20;
+  pure (x + y)
+}
+
+-- Let binding: `:=` binds a pure expression, no `<-` needed
+withLet := do {
+  x <- pure 6;
+  y <- pure 7;
+  product := x * y;   -- let binding, not a computation
+  pure product
+}
+
+-- Nested computations: earlier results feed into later ones
+nested := do {
+  a <- pure 100;
+  b <- pure 50;
+  sum := a + b;
+  c <- pure (sum * 2);
+  pure c
+}
+
+-- Compound: mix let bindings and monadic bindings freely
+compound := do {
+  base <- pure 10;
+  scale := 3;
+  offset <- pure 7;
+  result := base * scale + offset;
+  pure result
+}
+
+-- Output: (42, 30, 42, 300, 37)
+main := (simple, chain, withLet, nested, compound)

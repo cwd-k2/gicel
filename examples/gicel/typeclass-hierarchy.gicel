@@ -1,0 +1,64 @@
+-- GICEL Example: Type Class Hierarchy
+--
+-- Defines a hierarchy of type classes with superclass constraints.
+-- Uses custom names (Show', Eq', Ord') to avoid conflict with the
+-- Prelude's Eq and Ord. Demonstrates constraint propagation: a
+-- function requiring Ord' can use Show' and Eq' methods too.
+
+-- A custom ADT to work with
+data Priority = Low | Medium | High
+
+-- Base class: can convert to a Bool representation
+class Show' a {
+  toBool :: a -> Bool
+}
+
+-- Eq' requires Show': any Eq' type must also be Show'
+class Show' a => Eq' a {
+  eq' :: a -> a -> Bool
+}
+
+-- Ord' requires Eq' (and transitively Show'): full ordering
+class Eq' a => Ord' a {
+  compare' :: a -> a -> Ordering
+}
+
+-- Show' instance for Priority: High is "truthy"
+instance Show' Priority {
+  toBool := \p -> case p { High -> True; Medium -> False; Low -> False }
+}
+
+-- Eq' instance for Priority
+instance Eq' Priority {
+  eq' := \a -> \b -> case a {
+    Low    -> case b { Low -> True;    Medium -> False; High -> False };
+    Medium -> case b { Low -> False;   Medium -> True;  High -> False };
+    High   -> case b { Low -> False;   Medium -> False; High -> True }
+  }
+}
+
+-- Ord' instance for Priority: Low < Medium < High
+instance Ord' Priority {
+  compare' := \a -> \b -> case a {
+    Low -> case b { Low -> EQ; Medium -> LT; High -> LT };
+    Medium -> case b { Low -> GT; Medium -> EQ; High -> LT };
+    High -> case b { Low -> GT; Medium -> GT; High -> EQ }
+  }
+}
+
+-- A function that requires Ord' can use all three class methods
+-- because Ord' => Eq' => Show'
+describe :: forall a. Ord' a => a -> a -> (Ordering, (Bool, Bool))
+describe := \x -> \y -> (compare' x y, (eq' x y, toBool x))
+
+-- Tests
+test1 := describe Low High        -- (LT, (False, False))
+test2 := describe High High       -- (EQ, (True, True))
+test3 := describe Medium Low      -- (GT, (False, False))
+
+-- Using superclass methods directly through an Ord' constraint
+test4 := toBool High              -- True (Show' via Ord' => Eq' => Show')
+test5 := eq' Medium Medium        -- True (Eq' via Ord' => Eq')
+
+-- Output: ((LT, (False, False)), ((EQ, (True, True)), ((GT, (False, False)), (True, True))))
+main := (test1, (test2, (test3, (test4, test5))))

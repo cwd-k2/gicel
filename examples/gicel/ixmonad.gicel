@@ -1,0 +1,73 @@
+-- GICEL Example: Indexed Monad Patterns
+--
+-- GICEL provides Functor, Applicative, Foldable, and IxMonad instances
+-- for Maybe and List. This file demonstrates each pattern.
+
+import Std.Num
+
+-- Functor: fmap applies a function inside a context
+fmapMaybe := fmap (\x -> x + 1) (Just 10)
+-- Output: Just 11
+
+fmapNothing := fmap (\x -> x + 1) Nothing
+-- Output: Nothing
+
+fmapList := fmap (\x -> x * 2) (Cons 1 (Cons 2 (Cons 3 Nil)))
+-- Output: Cons 2 (Cons 4 (Cons 6 Nil))
+
+-- Applicative Maybe: wrap lifts a value, ap applies a wrapped function
+wrapped := wrap 42 :: Maybe Int
+-- Output: Just 42
+
+applied := ap (Just (\x -> x + 100)) (Just 5)
+-- Output: Just 105
+
+apNothing := ap Nothing (Just 5)
+-- Output: Nothing
+
+apNothingArg := ap (Just (\x -> x + 1)) Nothing
+-- Output: Nothing
+
+-- Foldable: foldr collapses a structure
+sumMaybe := foldr (\x -> \acc -> x + acc) 0 (Just 10)
+-- Output: 10
+
+sumNothing := foldr (\x -> \acc -> x + acc) 0 Nothing
+-- Output: 0
+
+sumList := foldr (\x -> \acc -> x + acc) 0 (Cons 1 (Cons 2 (Cons 3 Nil)))
+-- Output: 6
+
+-- Semigroup on List: append joins two lists
+concatLists := append (Cons 1 (Cons 2 Nil)) (Cons 3 (Cons 4 Nil))
+-- Output: Cons 1 (Cons 2 (Cons 3 (Cons 4 Nil)))
+
+-- Monoid on List: empty is Nil
+emptyList := empty :: List Int
+-- Output: Nil
+
+-- Semigroup on Ordering: append is "first non-EQ wins"
+ordAppend := append EQ GT      -- GT (EQ is neutral)
+ordAppend2 := append LT GT     -- LT (first non-EQ wins)
+
+-- Monoid on Ordering: EQ is the identity
+ordEmpty := empty :: Ordering   -- EQ
+
+-- maybe: the eliminator for Maybe
+fromJust := maybe 0 (\x -> x + 1) (Just 41)
+-- Output: 42
+
+fromNone := maybe 0 (\x -> x + 1) Nothing
+-- Output: 0
+
+-- Traversable Maybe with Applicative Maybe:
+-- traverse wraps Just values, passes Nothing through
+traverseJust := traverse (\x -> Just (x + 1)) (Just 10)
+-- Output: Just (Just 11)
+
+traverseNone := traverse (\x -> Just (x + 1)) (Nothing :: Maybe Int)
+-- Output: Just Nothing
+
+-- Gather results as a tuple
+-- Output: (Just 11, Nothing, Cons 2 (Cons 4 (Cons 6 Nil)), Just 42, Just 105, 6, 42, 0)
+main := (fmapMaybe, fmapNothing, fmapList, wrapped, applied, sumList, fromJust, fromNone)

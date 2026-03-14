@@ -1,0 +1,64 @@
+-- GICEL Example: State Effect
+--
+-- Std.State provides get, put, and modify for stateful computations.
+-- The state is threaded through the capability environment.
+-- Always `put` an initial value before `get` — the CLI starts with
+-- no state capability.
+
+import Std.Num
+import Std.State
+
+-- Basic: put an initial value, read it back
+-- Output: 42
+basic := do {
+  _ <- put 42;
+  get
+}
+
+-- Modify: increment state three times
+-- Output: 3
+counter := do {
+  _ <- put 0;
+  _ <- modify (\n -> n + 1);
+  _ <- modify (\n -> n + 1);
+  _ <- modify (\n -> n + 1);
+  get
+}
+
+-- Accumulate: build up a result step by step
+-- Output: 55  (sum of 1..10 = 55)
+accumulate := do {
+  _ <- put 0;
+  _ <- modify (\n -> n + 1);
+  _ <- modify (\n -> n + 2);
+  _ <- modify (\n -> n + 3);
+  _ <- modify (\n -> n + 4);
+  _ <- modify (\n -> n + 5);
+  _ <- modify (\n -> n + 6);
+  _ <- modify (\n -> n + 7);
+  _ <- modify (\n -> n + 8);
+  _ <- modify (\n -> n + 9);
+  _ <- modify (\n -> n + 10);
+  get
+}
+
+-- Read and compute: get state, compute with it, update
+-- Output: 144  (start 12, square it)
+readAndCompute := do {
+  _ <- put 12;
+  x <- get;
+  _ <- put (x * x);
+  get
+}
+
+-- Multi-step pipeline: each step reads, transforms, writes
+-- Output: 100  (start 2, *5 = 10, *10 = 100)
+pipeline := do {
+  _ <- put 2;
+  _ <- modify (\n -> n * 5);
+  _ <- modify (\n -> n * 10);
+  get
+}
+
+-- Output: (42, 3, 55, 144, 100)
+main := (basic, counter, accumulate, readAndCompute, pipeline)
