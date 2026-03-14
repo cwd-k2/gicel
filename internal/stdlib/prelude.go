@@ -235,6 +235,18 @@ min := \x -> \y -> case compare x y { GT -> y; _ -> x }
 max :: forall a. Ord a => a -> a -> a
 max := \x -> \y -> case compare x y { LT -> y; _ -> x }
 
+infixr 6 <>
+(<>) :: forall a. Semigroup a => a -> a -> a
+(<>) := append
+
+infixl 1 >>=
+(>>=) :: forall (m : Row -> Row -> Type -> Type) a b (r1 : Row) (r2 : Row) (r3 : Row). IxMonad m => m r1 r2 a -> (a -> m r2 r3 b) -> m r1 r3 b
+(>>=) := ixbind
+
+infixl 1 >>
+(>>) :: forall (m : Row -> Row -> Type -> Type) a b (r1 : Row) (r2 : Row) (r3 : Row). IxMonad m => m r1 r2 a -> m r2 r3 b -> m r1 r3 b
+(>>) := \m1 -> \m2 -> ixbind m1 (\_ -> m2)
+
 instance IxMonad Maybe {
   ixpure := \a -> Just a;
   ixbind := \ma -> \f -> case ma {

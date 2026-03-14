@@ -114,6 +114,7 @@ main := 2 + 3
     Packs: []gicel.Pack{gicel.Num},
 })
 // result.Value is HostVal{Inner: int64(5)}
+// CLI prints: 5  (PrettyValue formats source-level terms)
 ```
 
 **Go API (Full lifecycle):**

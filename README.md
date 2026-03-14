@@ -30,8 +30,10 @@ go install github.com/cwd-k2/gicel/cmd/gicel@latest
 ## CLI
 
 ```
-gicel run  [flags] <file>    # compile and execute
-gicel check [flags] <file>   # type-check only
+gicel run     [flags] <file>   # compile and execute
+gicel check   [flags] <file>   # type-check only
+gicel docs    [topic]          # show language reference
+gicel example [name]           # show example programs
 ```
 
 Flags:
@@ -39,16 +41,21 @@ Flags:
 | Flag              | Default  | Description                                   |
 | ----------------- | -------- | --------------------------------------------- |
 | `--use <packs>`   | `all`    | Stdlib packs: Num, Str, List, Fail, State, IO |
+| `--recursion`     |          | Enable recursive definitions (run, check)     |
 | `--entry <name>`  | `main`   | Entry point binding (run only)                |
 | `--timeout <dur>` | `5s`     | Execution timeout (run only)                  |
 | `--max-steps <n>` | `100000` | Step limit (run only)                         |
 | `--max-depth <n>` | `100`    | Depth limit (run only)                        |
 | `--json`          |          | JSON output (run only)                        |
+| `--explain`       |          | Semantic evaluation trace (run only)          |
 
 ```
 gicel run hello.gicel
 gicel run --use Num,Str --json program.gicel
+gicel run --explain program.gicel
 gicel check program.gicel
+gicel docs stdlib
+gicel example hello
 ```
 
 ## Library

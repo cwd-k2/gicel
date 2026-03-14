@@ -363,6 +363,12 @@ func (ch *Checker) processValueDef(d *syntax.DeclValueDef, annotations map[strin
 	// Zonk the type.
 	ty = ch.unifier.Zonk(ty)
 
+	// Let-generalization: for unannotated bindings, replace unsolved
+	// metavariables with universally quantified type variables.
+	if !hasAnn {
+		ty = ch.generalize(ty)
+	}
+
 	ch.ctx.Push(&CtxVar{Name: d.Name, Type: ty})
 	prog.Bindings = append(prog.Bindings, core.Binding{
 		Name: d.Name,
@@ -370,6 +376,112 @@ func (ch *Checker) processValueDef(d *syntax.DeclValueDef, annotations map[strin
 		Expr: coreExpr,
 		S:    d.S,
 	})
+}
+
+// generalize replaces unsolved metavariables in ty with universally
+// quantified type variables. Called for unannotated top-level bindings
+// after inference, constraint resolution, and zonking.
+//
+// Approach: temporarily register solutions mapping each unsolved meta to
+// a fresh TyVar, re-zonk (reusing existing walk logic), then remove
+// the temporary solutions and wrap in forall.
+func (ch *Checker) generalize(ty types.Type) types.Type {
+	metas := collectUnsolvedMetas(ty)
+	if len(metas) == 0 {
+		return ty
+	}
+
+	// Deduplicate and sort by ID for deterministic naming.
+	seen := make(map[int]bool)
+	var unique []metaInfo
+	for _, m := range metas {
+		if !seen[m.id] {
+			seen[m.id] = true
+			unique = append(unique, m)
+		}
+	}
+	sort.Slice(unique, func(i, j int) bool { return unique[i].id < unique[j].id })
+
+	// Register temporary solutions: meta → TyVar.
+	for i, m := range unique {
+		name := genVarName(i)
+		unique[i].name = name
+		ch.unifier.soln[m.id] = &types.TyVar{Name: name}
+	}
+
+	// Re-zonk to replace metas with vars.
+	ty = ch.unifier.Zonk(ty)
+
+	// Remove temporary solutions so other bindings aren't affected.
+	for _, m := range unique {
+		delete(ch.unifier.soln, m.id)
+	}
+
+	// Wrap in forall (innermost variable last in the source).
+	for i := len(unique) - 1; i >= 0; i-- {
+		kind := ch.unifier.ZonkKind(unique[i].kind)
+		ty = types.MkForall(unique[i].name, kind, ty)
+	}
+
+	return ty
+}
+
+type metaInfo struct {
+	id   int
+	kind types.Kind
+	name string
+}
+
+func genVarName(i int) string {
+	if i < 26 {
+		return string(rune('a' + i))
+	}
+	return fmt.Sprintf("t%d", i-26)
+}
+
+// collectUnsolvedMetas walks a type and collects all TyMeta nodes.
+func collectUnsolvedMetas(ty types.Type) []metaInfo {
+	var result []metaInfo
+	seen := make(map[int]bool)
+	var walk func(types.Type)
+	walk = func(t types.Type) {
+		switch ty := t.(type) {
+		case *types.TyMeta:
+			if !seen[ty.ID] {
+				seen[ty.ID] = true
+				result = append(result, metaInfo{id: ty.ID, kind: ty.Kind})
+			}
+		case *types.TyApp:
+			walk(ty.Fun)
+			walk(ty.Arg)
+		case *types.TyArrow:
+			walk(ty.From)
+			walk(ty.To)
+		case *types.TyForall:
+			walk(ty.Body)
+		case *types.TyEvidence:
+			if ty.Constraints != nil {
+				for _, ch := range ty.Constraints.Children() {
+					walk(ch)
+				}
+			}
+			walk(ty.Body)
+		case *types.TyComp:
+			walk(ty.Pre)
+			walk(ty.Post)
+			walk(ty.Result)
+		case *types.TyThunk:
+			walk(ty.Pre)
+			walk(ty.Post)
+			walk(ty.Result)
+		case *types.TyEvidenceRow:
+			for _, ch := range ty.Children() {
+				walk(ch)
+			}
+		}
+	}
+	walk(ty)
+	return result
 }
 
 // quantifyFreeVars wraps free type variables in implicit forall quantifiers.
