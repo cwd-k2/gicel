@@ -21,9 +21,11 @@ type HostVal struct {
 
 // Closure is a function value capturing its definition environment.
 type Closure struct {
-	Env   *Env
-	Param string
-	Body  core.Core
+	Env      *Env
+	Param    string
+	Body     core.Core
+	Name     string // top-level binding name; "" for anonymous lambdas
+	Internal bool   // true for stdlib/module-internal closures
 }
 
 // ConVal is a fully-applied constructor value.

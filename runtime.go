@@ -167,6 +167,11 @@ func (r *Runtime) evalBindings(ev *eval.Evaluator, env *eval.Env, bindings []cor
 			return nil, fmt.Errorf("evaluating %s: %w", b.Name, err)
 		}
 		v := result.Value
+		// Annotate closures with their binding name and module origin.
+		if clo, ok := v.(*eval.Closure); ok {
+			clo.Name = b.Name
+			clo.Internal = !label // module bindings are internal
+		}
 		cells[b.Name].Ref = &v
 	}
 	return env, nil

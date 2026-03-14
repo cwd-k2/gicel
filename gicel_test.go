@@ -4467,3 +4467,97 @@ func TestExplainStepJSON(t *testing.T) {
 		}
 	}
 }
+
+// ── Explain: function call boundaries (#5) and stdlib suppression (#7) ──
+
+func TestExplainFunctionBoundaries(t *testing.T) {
+	eng := gicel.NewEngine()
+	_ = eng.Use(gicel.Num)
+	_ = eng.Use(gicel.State)
+
+	var steps []gicel.ExplainStep
+	eng.SetExplainHook(func(s gicel.ExplainStep) {
+		steps = append(steps, s)
+	})
+
+	rt, err := eng.NewRuntime(`
+import Std.Num
+import Std.State
+
+step := \u -> do {
+  _ <- modify (\n -> n + 1);
+  get
+}
+
+main := do {
+  _ <- put 0;
+  _ <- step ();
+  _ <- step ();
+  get
+}
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = rt.RunContext(context.Background(), nil, nil, "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// There should be label events for entering "step" when it's called.
+	var labels []string
+	for _, s := range steps {
+		if s.Kind == gicel.ExplainLabel {
+			labels = append(labels, s.Message)
+		}
+	}
+
+	// Expect: "── step ──" (top-level), "── main ──" (top-level),
+	// plus "enter step" boundaries when step is called.
+	enterCount := 0
+	for _, l := range labels {
+		if strings.Contains(l, "enter step") {
+			enterCount++
+		}
+	}
+	if enterCount != 2 {
+		t.Errorf("expected 2 'enter step' labels, got %d; labels: %v", enterCount, labels)
+	}
+}
+
+func TestExplainStdlibSuppression(t *testing.T) {
+	eng := gicel.NewEngine()
+	_ = eng.Use(gicel.Num)
+	_ = eng.Use(gicel.State)
+
+	var steps []gicel.ExplainStep
+	eng.SetExplainHook(func(s gicel.ExplainStep) {
+		steps = append(steps, s)
+	})
+
+	rt, err := eng.NewRuntime(`
+import Std.Num
+import Std.State
+
+main := do {
+  _ <- put 0;
+  _ <- modify (\n -> n + 1);
+  get
+}
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = rt.RunContext(context.Background(), nil, nil, "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// When stdlib suppression is active, modify's internal get/s/put
+	// should NOT appear. Only the user-level effects should be visible.
+	for _, s := range steps {
+		if s.Kind == gicel.ExplainBind && s.Message == "s ← 0" {
+			t.Errorf("stdlib internal bind 's ← 0' should be suppressed")
+		}
+	}
+}

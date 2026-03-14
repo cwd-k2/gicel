@@ -28,13 +28,14 @@ type EvalResult struct {
 
 // Evaluator is the per-execution evaluation engine.
 type Evaluator struct {
-	ctx     context.Context
-	prims   *PrimRegistry
-	limit   *Limit
-	trace   TraceHook
-	explain ExplainHook
-	source  *span.Source // for line/col in explain events; nil if unavailable
-	stats   EvalStats
+	ctx       context.Context
+	prims     *PrimRegistry
+	limit     *Limit
+	trace     TraceHook
+	explain   ExplainHook
+	source    *span.Source // for line/col in explain events; nil if unavailable
+	suppress  int         // >0: suppress explain events (inside stdlib)
+	stats     EvalStats
 }
 
 // NewEvaluator creates an Evaluator for a single execution.
@@ -50,7 +51,11 @@ func (ev *Evaluator) SetSource(src *span.Source) {
 // explainAt emits an ExplainStep with line/col derived from a Span.
 // Line/col are only set when the Span falls within the user's source text;
 // spans from stdlib modules (compiled with a different Source) are excluded.
+// Events are suppressed when inside stdlib/internal closures.
 func (ev *Evaluator) explainAt(kind ExplainKind, msg string, s span.Span) {
+	if ev.suppress > 0 {
+		return
+	}
 	step := ExplainStep{Depth: ev.limit.Depth(), Kind: kind, Message: msg}
 	if ev.source != nil && s.Start > 0 && int(s.Start) < len(ev.source.Text) {
 		step.Line, step.Col = ev.source.Location(s.Start)
@@ -442,8 +447,21 @@ func (ev *Evaluator) apply(capEnv CapEnv, fn Value, arg Value, site *core.App) (
 		if err := ev.limit.Enter(); err != nil {
 			return EvalResult{}, err
 		}
+		// Explain: function call boundaries and stdlib suppression.
+		if ev.explain != nil && f.Name != "" {
+			if f.Internal {
+				ev.suppress++
+			} else {
+				ev.explain(ExplainStep{Kind: ExplainLabel, Message: "enter " + f.Name})
+			}
+		}
 		bodyEnv := f.Env.Extend(f.Param, arg)
 		result, err := ev.Eval(bodyEnv, capEnv, f.Body)
+		if ev.explain != nil && f.Name != "" {
+			if f.Internal {
+				ev.suppress--
+			}
+		}
 		ev.limit.Leave()
 		return result, err
 	case *ConVal:
