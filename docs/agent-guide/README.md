@@ -95,6 +95,7 @@ CLI flags:
 | Flag          | Default  | Description                                            |
 | ------------- | -------- | ------------------------------------------------------ |
 | `--use`       | `all`    | Comma-separated packs: Num, Str, List, Fail, State, IO |
+| `--recursion` |          | Enable recursive definitions (run, check)              |
 | `--entry`     | `main`   | Entry point binding name                               |
 | `--timeout`   | `5s`     | Execution timeout (run only)                           |
 | `--max-steps` | `100000` | Step limit (run only)                                  |
