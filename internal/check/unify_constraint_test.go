@@ -15,9 +15,11 @@ func TestZonkConstraintRow(t *testing.T) {
 	m := &types.TyMeta{ID: 1, Kind: types.KType{}}
 	u.soln[1] = types.Con("Int")
 
-	cr := &types.TyConstraintRow{
-		Entries: []types.ConstraintEntry{
-			{ClassName: "Eq", Args: []types.Type{m}},
+	cr := &types.TyEvidenceRow{
+		Entries: &types.ConstraintEntries{
+			Entries: []types.ConstraintEntry{
+				{ClassName: "Eq", Args: []types.Type{m}},
+			},
 		},
 	}
 	result := u.Zonk(cr)
@@ -25,9 +27,8 @@ func TestZonkConstraintRow(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected TyEvidenceRow, got %T", result)
 	}
-	ce := rc.Entries.(*types.ConstraintEntries)
-	if !types.Equal(ce.Entries[0].Args[0], types.Con("Int")) {
-		t.Errorf("expected Eq Int, got Eq %s", types.Pretty(ce.Entries[0].Args[0]))
+	if !types.Equal(rc.ConEntries()[0].Args[0], types.Con("Int")) {
+		t.Errorf("expected Eq Int, got Eq %s", types.Pretty(rc.ConEntries()[0].Args[0]))
 	}
 }
 
@@ -58,9 +59,11 @@ func TestZonkConstraintRowTail(t *testing.T) {
 	}
 	u.soln[1] = remaining
 
-	cr := &types.TyConstraintRow{
-		Entries: []types.ConstraintEntry{
-			{ClassName: "Eq", Args: []types.Type{types.Con("Int")}},
+	cr := &types.TyEvidenceRow{
+		Entries: &types.ConstraintEntries{
+			Entries: []types.ConstraintEntry{
+				{ClassName: "Eq", Args: []types.Type{types.Con("Int")}},
+			},
 		},
 		Tail: m,
 	}
@@ -118,8 +121,8 @@ func TestZonkEvidenceIdentity(t *testing.T) {
 
 func TestUnifyConstraintRowClosedClosed(t *testing.T) {
 	u := NewUnifier()
-	cr1 := types.SingleConstraint("Eq", []types.Type{types.Con("Int")})
-	cr2 := types.SingleConstraint("Eq", []types.Type{types.Con("Int")})
+	cr1 := types.EvSingleConstraint("Eq", []types.Type{types.Con("Int")})
+	cr2 := types.EvSingleConstraint("Eq", []types.Type{types.Con("Int")})
 	if err := u.Unify(cr1, cr2); err != nil {
 		t.Errorf("{Eq Int} ~ {Eq Int} should succeed: %v", err)
 	}
@@ -127,8 +130,8 @@ func TestUnifyConstraintRowClosedClosed(t *testing.T) {
 
 func TestUnifyConstraintRowClosedMismatch(t *testing.T) {
 	u := NewUnifier()
-	cr1 := types.SingleConstraint("Eq", []types.Type{types.Con("Int")})
-	cr2 := types.SingleConstraint("Ord", []types.Type{types.Con("Int")})
+	cr1 := types.EvSingleConstraint("Eq", []types.Type{types.Con("Int")})
+	cr2 := types.EvSingleConstraint("Ord", []types.Type{types.Con("Int")})
 	if err := u.Unify(cr1, cr2); err == nil {
 		t.Error("{Eq Int} ~ {Ord Int} should fail")
 	}
@@ -139,16 +142,20 @@ func TestUnifyConstraintRowOpenClosed(t *testing.T) {
 	m := &types.TyMeta{ID: 1, Kind: types.KConstraint{}}
 	// { Eq a | c } ~ { Eq Int, Ord Int }
 	mA := &types.TyMeta{ID: 2, Kind: types.KType{}}
-	cr1 := &types.TyConstraintRow{
-		Entries: []types.ConstraintEntry{
-			{ClassName: "Eq", Args: []types.Type{mA}},
+	cr1 := &types.TyEvidenceRow{
+		Entries: &types.ConstraintEntries{
+			Entries: []types.ConstraintEntry{
+				{ClassName: "Eq", Args: []types.Type{mA}},
+			},
 		},
 		Tail: m,
 	}
-	cr2 := &types.TyConstraintRow{
-		Entries: []types.ConstraintEntry{
-			{ClassName: "Eq", Args: []types.Type{types.Con("Int")}},
-			{ClassName: "Ord", Args: []types.Type{types.Con("Int")}},
+	cr2 := &types.TyEvidenceRow{
+		Entries: &types.ConstraintEntries{
+			Entries: []types.ConstraintEntry{
+				{ClassName: "Eq", Args: []types.Type{types.Con("Int")}},
+				{ClassName: "Ord", Args: []types.Type{types.Con("Int")}},
+			},
 		},
 	}
 	if err := u.Unify(cr1, cr2); err != nil {
@@ -165,8 +172,8 @@ func TestUnifyConstraintRowOpenClosed(t *testing.T) {
 	if !ok {
 		t.Fatalf("c should be TyEvidenceRow, got %T: %s", solnC, types.Pretty(solnC))
 	}
-	ce := rc.Entries.(*types.ConstraintEntries)
-	if len(ce.Entries) != 1 || ce.Entries[0].ClassName != "Ord" {
+	ces := rc.ConEntries()
+	if len(ces) != 1 || ces[0].ClassName != "Ord" {
 		t.Errorf("c should be {Ord Int}, got %s", types.Pretty(rc))
 	}
 }
@@ -179,15 +186,19 @@ func TestUnifyConstraintRowOpenOpen(t *testing.T) {
 	mB := &types.TyMeta{ID: 103, Kind: types.KType{}}
 
 	// { Eq ?a | c1 } ~ { Eq ?b | c2 }
-	cr1 := &types.TyConstraintRow{
-		Entries: []types.ConstraintEntry{
-			{ClassName: "Eq", Args: []types.Type{mA}},
+	cr1 := &types.TyEvidenceRow{
+		Entries: &types.ConstraintEntries{
+			Entries: []types.ConstraintEntry{
+				{ClassName: "Eq", Args: []types.Type{mA}},
+			},
 		},
 		Tail: m1,
 	}
-	cr2 := &types.TyConstraintRow{
-		Entries: []types.ConstraintEntry{
-			{ClassName: "Eq", Args: []types.Type{mB}},
+	cr2 := &types.TyEvidenceRow{
+		Entries: &types.ConstraintEntries{
+			Entries: []types.ConstraintEntry{
+				{ClassName: "Eq", Args: []types.Type{mB}},
+			},
 		},
 		Tail: m2,
 	}
@@ -205,16 +216,20 @@ func TestUnifyConstraintRowOpenOpen(t *testing.T) {
 func TestUnifyConstraintRowMultiEntry(t *testing.T) {
 	u := NewUnifier()
 	// { Eq Int, Ord Int } ~ { Ord Int, Eq Int }
-	cr1 := &types.TyConstraintRow{
-		Entries: []types.ConstraintEntry{
-			{ClassName: "Eq", Args: []types.Type{types.Con("Int")}},
-			{ClassName: "Ord", Args: []types.Type{types.Con("Int")}},
+	cr1 := &types.TyEvidenceRow{
+		Entries: &types.ConstraintEntries{
+			Entries: []types.ConstraintEntry{
+				{ClassName: "Eq", Args: []types.Type{types.Con("Int")}},
+				{ClassName: "Ord", Args: []types.Type{types.Con("Int")}},
+			},
 		},
 	}
-	cr2 := &types.TyConstraintRow{
-		Entries: []types.ConstraintEntry{
-			{ClassName: "Ord", Args: []types.Type{types.Con("Int")}},
-			{ClassName: "Eq", Args: []types.Type{types.Con("Int")}},
+	cr2 := &types.TyEvidenceRow{
+		Entries: &types.ConstraintEntries{
+			Entries: []types.ConstraintEntry{
+				{ClassName: "Ord", Args: []types.Type{types.Con("Int")}},
+				{ClassName: "Eq", Args: []types.Type{types.Con("Int")}},
+			},
 		},
 	}
 	if err := u.Unify(cr1, cr2); err != nil {
@@ -225,16 +240,20 @@ func TestUnifyConstraintRowMultiEntry(t *testing.T) {
 func TestUnifyConstraintRowSameClassDifferentArgs(t *testing.T) {
 	u := NewUnifier()
 	// { Eq Int, Eq Bool } ~ { Eq Bool, Eq Int }
-	cr1 := &types.TyConstraintRow{
-		Entries: []types.ConstraintEntry{
-			{ClassName: "Eq", Args: []types.Type{types.Con("Int")}},
-			{ClassName: "Eq", Args: []types.Type{types.Con("Bool")}},
+	cr1 := &types.TyEvidenceRow{
+		Entries: &types.ConstraintEntries{
+			Entries: []types.ConstraintEntry{
+				{ClassName: "Eq", Args: []types.Type{types.Con("Int")}},
+				{ClassName: "Eq", Args: []types.Type{types.Con("Bool")}},
+			},
 		},
 	}
-	cr2 := &types.TyConstraintRow{
-		Entries: []types.ConstraintEntry{
-			{ClassName: "Eq", Args: []types.Type{types.Con("Bool")}},
-			{ClassName: "Eq", Args: []types.Type{types.Con("Int")}},
+	cr2 := &types.TyEvidenceRow{
+		Entries: &types.ConstraintEntries{
+			Entries: []types.ConstraintEntry{
+				{ClassName: "Eq", Args: []types.Type{types.Con("Bool")}},
+				{ClassName: "Eq", Args: []types.Type{types.Con("Int")}},
+			},
 		},
 	}
 	if err := u.Unify(cr1, cr2); err != nil {
@@ -249,16 +268,20 @@ func TestUnifyConstraintRowOpenClosedExtraOnOpenSide(t *testing.T) {
 	m := &types.TyMeta{ID: 900, Kind: types.KConstraint{}}
 	mA := &types.TyMeta{ID: 901, Kind: types.KType{}}
 
-	cr1 := &types.TyConstraintRow{
-		Entries: []types.ConstraintEntry{
-			{ClassName: "Eq", Args: []types.Type{mA}},
-			{ClassName: "Ord", Args: []types.Type{mA}},
+	cr1 := &types.TyEvidenceRow{
+		Entries: &types.ConstraintEntries{
+			Entries: []types.ConstraintEntry{
+				{ClassName: "Eq", Args: []types.Type{mA}},
+				{ClassName: "Ord", Args: []types.Type{mA}},
+			},
 		},
 		Tail: m,
 	}
-	cr2 := &types.TyConstraintRow{
-		Entries: []types.ConstraintEntry{
-			{ClassName: "Eq", Args: []types.Type{types.Con("Int")}},
+	cr2 := &types.TyEvidenceRow{
+		Entries: &types.ConstraintEntries{
+			Entries: []types.ConstraintEntry{
+				{ClassName: "Eq", Args: []types.Type{types.Con("Int")}},
+			},
 		},
 	}
 	if err := u.Unify(cr1, cr2); err == nil {

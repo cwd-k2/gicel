@@ -50,13 +50,14 @@ func TestKindString(t *testing.T) {
 // --- Row ---
 
 func TestRowNormalize(t *testing.T) {
-	r := &TyRow{Fields: []RowField{
+	r := &TyEvidenceRow{Entries: &CapabilityEntries{Fields: []RowField{
 		{Label: "c", Type: Con("C")},
 		{Label: "a", Type: Con("A")},
 		{Label: "b", Type: Con("B")},
-	}}
-	n := Normalize(r)
-	if n.Fields[0].Label != "a" || n.Fields[1].Label != "b" || n.Fields[2].Label != "c" {
+	}}}
+	n := EvNormalize(r)
+	fields := n.CapFields()
+	if fields[0].Label != "a" || fields[1].Label != "b" || fields[2].Label != "c" {
 		t.Error("normalization should sort by label")
 	}
 }
@@ -67,45 +68,47 @@ func TestRowNormalizePanicsOnDuplicate(t *testing.T) {
 			t.Error("expected panic on duplicate label")
 		}
 	}()
-	r := &TyRow{Fields: []RowField{
+	r := &TyEvidenceRow{Entries: &CapabilityEntries{Fields: []RowField{
 		{Label: "a", Type: Con("A")},
 		{Label: "a", Type: Con("B")},
-	}}
-	Normalize(r)
+	}}}
+	EvNormalize(r)
 }
 
 func TestExtendRow(t *testing.T) {
-	r := EmptyRow()
-	r2, err := ExtendRow(r, RowField{Label: "x", Type: Con("Int")})
+	r := EvEmptyRow()
+	r2, err := EvExtendCapField(r, RowField{Label: "x", Type: Con("Int")})
 	if err != nil {
 		t.Fatal(err)
 	}
-	r3, err := ExtendRow(r2, RowField{Label: "a", Type: Con("Bool")})
+	r3, err := EvExtendCapField(r2, RowField{Label: "a", Type: Con("Bool")})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if r3.Fields[0].Label != "a" || r3.Fields[1].Label != "x" {
+	fields := r3.CapFields()
+	if fields[0].Label != "a" || fields[1].Label != "x" {
 		t.Error("fields should be sorted after extend")
 	}
-	_, err = ExtendRow(r3, RowField{Label: "x", Type: Con("String")})
+	_, err = EvExtendCapField(r3, RowField{Label: "x", Type: Con("String")})
 	if err == nil {
 		t.Error("expected error on duplicate label")
 	}
 }
 
 func TestRemoveLabel(t *testing.T) {
-	r := ClosedRow(
+	r := EvClosedRow(
 		RowField{Label: "a", Type: Con("A")},
 		RowField{Label: "b", Type: Con("B")},
 	)
-	f, rest, ok := RemoveLabel(r, "a")
+	f, rest, ok := EvRemoveCapField(r, "a")
 	if !ok || f.Label != "a" {
 		t.Error("should find 'a'")
 	}
-	if len(rest.Fields) != 1 || rest.Fields[0].Label != "b" {
+	restFields := rest.CapFields()
+	if len(restFields) != 1 || restFields[0].Label != "b" {
 		t.Error("remaining should have only 'b'")
 	}
-	_, _, ok = RemoveLabel(r, "z")
+	_, _, ok = EvRemoveCapField(r, "z")
 	if ok {
 		t.Error("should not find 'z'")
 	}
@@ -149,11 +152,11 @@ func TestEqualAlpha(t *testing.T) {
 }
 
 func TestEqualRow(t *testing.T) {
-	r1 := ClosedRow(
+	r1 := EvClosedRow(
 		RowField{Label: "b", Type: Con("B")},
 		RowField{Label: "a", Type: Con("A")},
 	)
-	r2 := ClosedRow(
+	r2 := EvClosedRow(
 		RowField{Label: "a", Type: Con("A")},
 		RowField{Label: "b", Type: Con("B")},
 	)
@@ -273,8 +276,8 @@ func TestPretty(t *testing.T) {
 		{MkForall("a", KType{}, MkArrow(Var("a"), Var("a"))), "forall a. a -> a"},
 		{MkForall("a", KType{}, MkForall("b", KType{}, MkArrow(Var("a"), Var("b")))),
 			"forall a b. a -> b"},
-		{EmptyRow(), "{}"},
-		{ClosedRow(RowField{Label: "x", Type: Con("Int")}), "{ x : Int }"},
+		{EvEmptyRow(), "{}"},
+		{EvClosedRow(RowField{Label: "x", Type: Con("Int")}), "{ x : Int }"},
 	}
 	for _, tt := range tests {
 		got := Pretty(tt.ty)
@@ -337,15 +340,15 @@ func TestConstraintRowEqualOrderIndependent(t *testing.T) {
 	eqA := ConstraintEntry{ClassName: "Eq", Args: []Type{Var("a")}}
 	ordB := ConstraintEntry{ClassName: "Ord", Args: []Type{Var("b")}}
 	// Same entries, different order.
-	r1 := &TyConstraintRow{Entries: []ConstraintEntry{eqA, ordB}}
-	r2 := &TyConstraintRow{Entries: []ConstraintEntry{ordB, eqA}}
+	r1 := &TyEvidenceRow{Entries: &ConstraintEntries{Entries: []ConstraintEntry{eqA, ordB}}}
+	r2 := &TyEvidenceRow{Entries: &ConstraintEntries{Entries: []ConstraintEntry{ordB, eqA}}}
 	if !Equal(r1, r2) {
-		t.Error("TyConstraintRow Equal should be order-independent")
+		t.Error("TyEvidenceRow with ConstraintEntries Equal should be order-independent")
 	}
 	// Different entries should not be equal.
 	showC := ConstraintEntry{ClassName: "Show", Args: []Type{Var("c")}}
-	r3 := &TyConstraintRow{Entries: []ConstraintEntry{eqA, showC}}
+	r3 := &TyEvidenceRow{Entries: &ConstraintEntries{Entries: []ConstraintEntry{eqA, showC}}}
 	if Equal(r1, r3) {
-		t.Error("different TyConstraintRows should not be equal")
+		t.Error("different TyEvidenceRow ConstraintEntries should not be equal")
 	}
 }
