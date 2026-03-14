@@ -55,7 +55,7 @@ func TestRowNormalize(t *testing.T) {
 		{Label: "a", Type: Con("A")},
 		{Label: "b", Type: Con("B")},
 	}}}
-	n := EvNormalize(r)
+	n := NormalizeRow(r)
 	fields := n.CapFields()
 	if fields[0].Label != "a" || fields[1].Label != "b" || fields[2].Label != "c" {
 		t.Error("normalization should sort by label")
@@ -72,16 +72,16 @@ func TestRowNormalizePanicsOnDuplicate(t *testing.T) {
 		{Label: "a", Type: Con("A")},
 		{Label: "a", Type: Con("B")},
 	}}}
-	EvNormalize(r)
+	NormalizeRow(r)
 }
 
 func TestExtendRow(t *testing.T) {
-	r := EvEmptyRow()
-	r2, err := EvExtendCapField(r, RowField{Label: "x", Type: Con("Int")})
+	r := EmptyRow()
+	r2, err := ExtendRow(r, RowField{Label: "x", Type: Con("Int")})
 	if err != nil {
 		t.Fatal(err)
 	}
-	r3, err := EvExtendCapField(r2, RowField{Label: "a", Type: Con("Bool")})
+	r3, err := ExtendRow(r2, RowField{Label: "a", Type: Con("Bool")})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -89,18 +89,18 @@ func TestExtendRow(t *testing.T) {
 	if fields[0].Label != "a" || fields[1].Label != "x" {
 		t.Error("fields should be sorted after extend")
 	}
-	_, err = EvExtendCapField(r3, RowField{Label: "x", Type: Con("String")})
+	_, err = ExtendRow(r3, RowField{Label: "x", Type: Con("String")})
 	if err == nil {
 		t.Error("expected error on duplicate label")
 	}
 }
 
 func TestRemoveLabel(t *testing.T) {
-	r := EvClosedRow(
+	r := ClosedRow(
 		RowField{Label: "a", Type: Con("A")},
 		RowField{Label: "b", Type: Con("B")},
 	)
-	f, rest, ok := EvRemoveCapField(r, "a")
+	f, rest, ok := RemoveLabel(r, "a")
 	if !ok || f.Label != "a" {
 		t.Error("should find 'a'")
 	}
@@ -108,7 +108,7 @@ func TestRemoveLabel(t *testing.T) {
 	if len(restFields) != 1 || restFields[0].Label != "b" {
 		t.Error("remaining should have only 'b'")
 	}
-	_, _, ok = EvRemoveCapField(r, "z")
+	_, _, ok = RemoveLabel(r, "z")
 	if ok {
 		t.Error("should not find 'z'")
 	}
@@ -152,11 +152,11 @@ func TestEqualAlpha(t *testing.T) {
 }
 
 func TestEqualRow(t *testing.T) {
-	r1 := EvClosedRow(
+	r1 := ClosedRow(
 		RowField{Label: "b", Type: Con("B")},
 		RowField{Label: "a", Type: Con("A")},
 	)
-	r2 := EvClosedRow(
+	r2 := ClosedRow(
 		RowField{Label: "a", Type: Con("A")},
 		RowField{Label: "b", Type: Con("B")},
 	)
@@ -276,8 +276,8 @@ func TestPretty(t *testing.T) {
 		{MkForall("a", KType{}, MkArrow(Var("a"), Var("a"))), "forall a. a -> a"},
 		{MkForall("a", KType{}, MkForall("b", KType{}, MkArrow(Var("a"), Var("b")))),
 			"forall a b. a -> b"},
-		{EvEmptyRow(), "{}"},
-		{EvClosedRow(RowField{Label: "x", Type: Con("Int")}), "{ x : Int }"},
+		{EmptyRow(), "{}"},
+		{ClosedRow(RowField{Label: "x", Type: Con("Int")}), "{ x : Int }"},
 	}
 	for _, tt := range tests {
 		got := Pretty(tt.ty)

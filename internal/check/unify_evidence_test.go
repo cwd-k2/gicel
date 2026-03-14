@@ -15,7 +15,7 @@ func TestZonkEvidenceRowCapability(t *testing.T) {
 	m := &types.TyMeta{ID: 1, Kind: types.KType{}}
 	u.soln[1] = types.Con("Int")
 
-	ev := types.EvClosedRow(types.RowField{Label: "x", Type: m})
+	ev := types.ClosedRow(types.RowField{Label: "x", Type: m})
 	result := u.Zonk(ev)
 	re, ok := result.(*types.TyEvidenceRow)
 	if !ok {
@@ -29,7 +29,7 @@ func TestZonkEvidenceRowCapability(t *testing.T) {
 
 func TestZonkEvidenceRowCapabilityIdentity(t *testing.T) {
 	u := NewUnifier()
-	ev := types.EvClosedRow(types.RowField{Label: "x", Type: types.Con("Int")})
+	ev := types.ClosedRow(types.RowField{Label: "x", Type: types.Con("Int")})
 	result := u.Zonk(ev)
 	if result != ev {
 		t.Error("Zonk of meta-free evidence row should return same pointer")
@@ -41,7 +41,7 @@ func TestZonkEvidenceRowConstraint(t *testing.T) {
 	m := &types.TyMeta{ID: 1, Kind: types.KType{}}
 	u.soln[1] = types.Con("Int")
 
-	ev := types.EvSingleConstraint("Eq", []types.Type{m})
+	ev := types.SingleConstraint("Eq", []types.Type{m})
 	result := u.Zonk(ev)
 	re, ok := result.(*types.TyEvidenceRow)
 	if !ok {
@@ -55,7 +55,7 @@ func TestZonkEvidenceRowConstraint(t *testing.T) {
 
 func TestZonkEvidenceRowConstraintIdentity(t *testing.T) {
 	u := NewUnifier()
-	ev := types.EvSingleConstraint("Eq", []types.Type{types.Con("Int")})
+	ev := types.SingleConstraint("Eq", []types.Type{types.Con("Int")})
 	result := u.Zonk(ev)
 	if result != ev {
 		t.Error("Zonk of meta-free evidence row should return same pointer")
@@ -65,10 +65,10 @@ func TestZonkEvidenceRowConstraintIdentity(t *testing.T) {
 func TestZonkEvidenceRowTail(t *testing.T) {
 	u := NewUnifier()
 	m := &types.TyMeta{ID: 1, Kind: types.KRow{}}
-	remaining := types.EvClosedRow(types.RowField{Label: "y", Type: types.Con("Bool")})
+	remaining := types.ClosedRow(types.RowField{Label: "y", Type: types.Con("Bool")})
 	u.soln[1] = remaining
 
-	ev := types.EvOpenRow([]types.RowField{{Label: "x", Type: types.Con("Int")}}, m)
+	ev := types.OpenRow([]types.RowField{{Label: "x", Type: types.Con("Int")}}, m)
 	result := u.Zonk(ev)
 	re, ok := result.(*types.TyEvidenceRow)
 	if !ok {
@@ -85,11 +85,11 @@ func TestZonkEvidenceRowTail(t *testing.T) {
 
 func TestUnifyEvidenceRowCapClosedClosed(t *testing.T) {
 	u := NewUnifier()
-	r1 := types.EvClosedRow(
+	r1 := types.ClosedRow(
 		types.RowField{Label: "x", Type: types.Con("Int")},
 		types.RowField{Label: "y", Type: types.Con("Bool")},
 	)
-	r2 := types.EvClosedRow(
+	r2 := types.ClosedRow(
 		types.RowField{Label: "y", Type: types.Con("Bool")},
 		types.RowField{Label: "x", Type: types.Con("Int")},
 	)
@@ -100,8 +100,8 @@ func TestUnifyEvidenceRowCapClosedClosed(t *testing.T) {
 
 func TestUnifyEvidenceRowCapClosedMismatch(t *testing.T) {
 	u := NewUnifier()
-	r1 := types.EvClosedRow(types.RowField{Label: "x", Type: types.Con("Int")})
-	r2 := types.EvClosedRow(types.RowField{Label: "y", Type: types.Con("Int")})
+	r1 := types.ClosedRow(types.RowField{Label: "x", Type: types.Con("Int")})
+	r2 := types.ClosedRow(types.RowField{Label: "y", Type: types.Con("Int")})
 	if err := u.Unify(r1, r2); err == nil {
 		t.Error("different labels should not unify")
 	}
@@ -110,8 +110,8 @@ func TestUnifyEvidenceRowCapClosedMismatch(t *testing.T) {
 func TestUnifyEvidenceRowCapOpenClosed(t *testing.T) {
 	u := NewUnifier()
 	m := &types.TyMeta{ID: 1, Kind: types.KRow{}}
-	r1 := types.EvOpenRow([]types.RowField{{Label: "x", Type: types.Con("Int")}}, m)
-	r2 := types.EvClosedRow(
+	r1 := types.OpenRow([]types.RowField{{Label: "x", Type: types.Con("Int")}}, m)
+	r2 := types.ClosedRow(
 		types.RowField{Label: "x", Type: types.Con("Int")},
 		types.RowField{Label: "y", Type: types.Con("Bool")},
 	)
@@ -137,8 +137,8 @@ func TestUnifyEvidenceRowCapOpenOpen(t *testing.T) {
 	mA := &types.TyMeta{ID: 102, Kind: types.KType{}}
 	mB := &types.TyMeta{ID: 103, Kind: types.KType{}}
 
-	r1 := types.EvOpenRow([]types.RowField{{Label: "x", Type: mA}}, m1)
-	r2 := types.EvOpenRow([]types.RowField{{Label: "x", Type: mB}}, m2)
+	r1 := types.OpenRow([]types.RowField{{Label: "x", Type: mA}}, m1)
+	r2 := types.OpenRow([]types.RowField{{Label: "x", Type: mB}}, m2)
 	if err := u.Unify(r1, r2); err != nil {
 		t.Fatalf("open-open should succeed: %v", err)
 	}
@@ -154,8 +154,8 @@ func TestUnifyEvidenceRowCapOpenOpen(t *testing.T) {
 
 func TestUnifyEvidenceRowConClosedClosed(t *testing.T) {
 	u := NewUnifier()
-	r1 := types.EvSingleConstraint("Eq", []types.Type{types.Con("Int")})
-	r2 := types.EvSingleConstraint("Eq", []types.Type{types.Con("Int")})
+	r1 := types.SingleConstraint("Eq", []types.Type{types.Con("Int")})
+	r2 := types.SingleConstraint("Eq", []types.Type{types.Con("Int")})
 	if err := u.Unify(r1, r2); err != nil {
 		t.Errorf("{Eq Int} ~ {Eq Int} should succeed: %v", err)
 	}
@@ -163,8 +163,8 @@ func TestUnifyEvidenceRowConClosedClosed(t *testing.T) {
 
 func TestUnifyEvidenceRowConClosedMismatch(t *testing.T) {
 	u := NewUnifier()
-	r1 := types.EvSingleConstraint("Eq", []types.Type{types.Con("Int")})
-	r2 := types.EvSingleConstraint("Ord", []types.Type{types.Con("Int")})
+	r1 := types.SingleConstraint("Eq", []types.Type{types.Con("Int")})
+	r2 := types.SingleConstraint("Ord", []types.Type{types.Con("Int")})
 	if err := u.Unify(r1, r2); err == nil {
 		t.Error("{Eq Int} ~ {Ord Int} should fail")
 	}
@@ -242,11 +242,11 @@ func TestUnifyEvidenceRowCapOpenClosedExtraOnOpenSide(t *testing.T) {
 	// Open side has extra y — error.
 	u := NewUnifier()
 	m := &types.TyMeta{ID: 800, Kind: types.KRow{}}
-	r1 := types.EvOpenRow([]types.RowField{
+	r1 := types.OpenRow([]types.RowField{
 		{Label: "x", Type: types.Con("Int")},
 		{Label: "y", Type: types.Con("Bool")},
 	}, m)
-	r2 := types.EvClosedRow(types.RowField{Label: "x", Type: types.Con("Int")})
+	r2 := types.ClosedRow(types.RowField{Label: "x", Type: types.Con("Int")})
 	if err := u.Unify(r1, r2); err == nil {
 		t.Fatal("open row with extra labels should not unify with closed row")
 	}
@@ -254,8 +254,8 @@ func TestUnifyEvidenceRowCapOpenClosedExtraOnOpenSide(t *testing.T) {
 
 func TestUnifyEvidenceRowFiberMismatch(t *testing.T) {
 	u := NewUnifier()
-	cap := types.EvEmptyRow()
-	con := types.EvEmptyConstraintRow()
+	cap := types.EmptyRow()
+	con := types.EmptyConstraintRow()
 	if err := u.Unify(cap, con); err == nil {
 		t.Error("capability and constraint rows should not unify")
 	}

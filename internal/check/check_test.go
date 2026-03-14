@@ -227,8 +227,8 @@ func TestUnifyOccursCheck(t *testing.T) {
 
 func TestUnifyRow(t *testing.T) {
 	u := NewUnifier()
-	r1 := types.EvClosedRow(types.RowField{Label: "a", Type: types.Con("Int")})
-	r2 := types.EvClosedRow(types.RowField{Label: "a", Type: types.Con("Int")})
+	r1 := types.ClosedRow(types.RowField{Label: "a", Type: types.Con("Int")})
+	r2 := types.ClosedRow(types.RowField{Label: "a", Type: types.Con("Int")})
 	if err := u.Unify(r1, r2); err != nil {
 		t.Errorf("identical rows should unify: %v", err)
 	}
@@ -248,12 +248,12 @@ func TestUnifyRowOpenOpen(t *testing.T) {
 	m1 := &types.TyMeta{ID: 100, Kind: types.KRow{}}
 	m2 := &types.TyMeta{ID: 101, Kind: types.KRow{}}
 
-	r1 := types.EvOpenRow([]types.RowField{
+	r1 := types.OpenRow([]types.RowField{
 		{Label: "a", Type: types.Con("Int")},
 		{Label: "b", Type: types.Con("Bool")},
 	}, m1)
 
-	r2 := types.EvOpenRow([]types.RowField{
+	r2 := types.OpenRow([]types.RowField{
 		{Label: "a", Type: types.Con("Int")},
 		{Label: "c", Type: types.Con("Str")},
 	}, m2)
@@ -315,11 +315,11 @@ func TestUnifyRowOpenOpenShared(t *testing.T) {
 	m1 := &types.TyMeta{ID: 200, Kind: types.KRow{}}
 	m2 := &types.TyMeta{ID: 201, Kind: types.KRow{}}
 
-	r1 := types.EvOpenRow([]types.RowField{
+	r1 := types.OpenRow([]types.RowField{
 		{Label: "x", Type: types.Con("Int")},
 	}, m1)
 
-	r2 := types.EvOpenRow([]types.RowField{
+	r2 := types.OpenRow([]types.RowField{
 		{Label: "x", Type: types.Con("Int")},
 	}, m2)
 
@@ -354,11 +354,11 @@ func TestUnifyRowOpenOpenDisjoint(t *testing.T) {
 	m1 := &types.TyMeta{ID: 300, Kind: types.KRow{}}
 	m2 := &types.TyMeta{ID: 301, Kind: types.KRow{}}
 
-	r1 := types.EvOpenRow([]types.RowField{
+	r1 := types.OpenRow([]types.RowField{
 		{Label: "a", Type: types.Con("Int")},
 	}, m1)
 
-	r2 := types.EvOpenRow([]types.RowField{
+	r2 := types.OpenRow([]types.RowField{
 		{Label: "b", Type: types.Con("Bool")},
 	}, m2)
 
@@ -475,12 +475,12 @@ func TestUnifyRowOpenClosedExtraLabels(t *testing.T) {
 	u := NewUnifier()
 	m := &types.TyMeta{ID: 400, Kind: types.KRow{}}
 
-	r1 := types.EvOpenRow([]types.RowField{
+	r1 := types.OpenRow([]types.RowField{
 		{Label: "x", Type: types.Con("Int")},
 		{Label: "y", Type: types.Con("Bool")},
 	}, m)
 
-	r2 := types.EvClosedRow(types.RowField{Label: "x", Type: types.Con("Int")})
+	r2 := types.ClosedRow(types.RowField{Label: "x", Type: types.Con("Int")})
 
 	if err := u.Unify(r1, r2); err == nil {
 		t.Fatal("open row with extra labels should not unify with closed row missing those labels")
@@ -493,9 +493,9 @@ func TestUnifyRowClosedOpenAbsorbExtra(t *testing.T) {
 	u := NewUnifier()
 	m := &types.TyMeta{ID: 500, Kind: types.KRow{}}
 
-	r1 := types.EvClosedRow(types.RowField{Label: "x", Type: types.Con("Int")})
+	r1 := types.ClosedRow(types.RowField{Label: "x", Type: types.Con("Int")})
 
-	r2 := types.EvOpenRow([]types.RowField{
+	r2 := types.OpenRow([]types.RowField{
 		{Label: "x", Type: types.Con("Int")},
 		{Label: "y", Type: types.Con("Bool")},
 	}, m)
@@ -511,11 +511,11 @@ func TestUnifyRowOpenClosedSubset(t *testing.T) {
 	u := NewUnifier()
 	m := &types.TyMeta{ID: 600, Kind: types.KRow{}}
 
-	r1 := types.EvOpenRow([]types.RowField{
+	r1 := types.OpenRow([]types.RowField{
 		{Label: "x", Type: types.Con("Int")},
 	}, m)
 
-	r2 := types.EvClosedRow(
+	r2 := types.ClosedRow(
 		types.RowField{Label: "x", Type: types.Con("Int")},
 		types.RowField{Label: "y", Type: types.Con("Bool")},
 	)
@@ -1213,7 +1213,7 @@ func TestErrorDuplicateLabel(t *testing.T) {
 	// Register label context: the meta is the tail of a row with field "x".
 	u.RegisterLabelContext(m.ID, map[string]struct{}{"x": {}})
 	// Solve the meta to a row that also contains "x" → duplicate.
-	row := types.EvClosedRow(types.RowField{Label: "x", Type: types.Con("Int")})
+	row := types.ClosedRow(types.RowField{Label: "x", Type: types.Con("Int")})
 	err := u.Unify(m, row)
 	if err == nil {
 		t.Fatal("expected duplicate label error, got nil")
@@ -1232,7 +1232,7 @@ func TestErrorDuplicateLabelEvidenceRow(t *testing.T) {
 	u := NewUnifier()
 	m := u.freshMeta(types.KRow{})
 	u.RegisterLabelContext(m.ID, map[string]struct{}{"x": {}})
-	evRow := types.EvClosedRow(types.RowField{Label: "x", Type: types.Con("Int")})
+	evRow := types.ClosedRow(types.RowField{Label: "x", Type: types.Con("Int")})
 	err := u.Unify(m, evRow)
 	if err == nil {
 		t.Fatal("expected duplicate label error for evidence row, got nil")

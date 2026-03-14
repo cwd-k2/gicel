@@ -22,8 +22,8 @@ func TestStressUnifyLargeEvCapRows(t *testing.T) {
 		fields1[i] = types.RowField{Label: label, Type: types.Con("Int")}
 		fields2[N-1-i] = types.RowField{Label: label, Type: types.Con("Int")}
 	}
-	r1 := types.EvClosedRow(fields1...)
-	r2 := types.EvClosedRow(fields2...)
+	r1 := types.ClosedRow(fields1...)
+	r2 := types.ClosedRow(fields2...)
 
 	if err := u.Unify(r1, r2); err != nil {
 		t.Fatalf("100-field rows should unify: %v", err)
@@ -65,8 +65,8 @@ func TestStressEvOpenOpenDisjoint(t *testing.T) {
 		rightFields[i] = types.RowField{Label: fmt.Sprintf("right%d", i), Type: types.Con("Bool")}
 	}
 
-	r1 := types.EvOpenRow(leftFields, m1)
-	r2 := types.EvOpenRow(rightFields, m2)
+	r1 := types.OpenRow(leftFields, m1)
+	r2 := types.OpenRow(rightFields, m2)
 
 	if err := u.Unify(r1, r2); err != nil {
 		t.Fatalf("disjoint open-open should succeed: %v", err)
@@ -95,11 +95,11 @@ func TestStressEvDeeplyNestedTails(t *testing.T) {
 	}
 
 	for i := range depth - 1 {
-		r1 := types.EvOpenRow(
+		r1 := types.OpenRow(
 			[]types.RowField{{Label: fmt.Sprintf("f%d", i), Type: types.Con("Int")}},
 			metas[i],
 		)
-		r2 := types.EvOpenRow(
+		r2 := types.OpenRow(
 			[]types.RowField{
 				{Label: fmt.Sprintf("f%d", i), Type: types.Con("Int")},
 				{Label: fmt.Sprintf("f%d", i+1), Type: types.Con("Int")},
@@ -125,8 +125,8 @@ func TestStressEvDeeplyNestedTails(t *testing.T) {
 
 func TestStressEvFiberIsolation(t *testing.T) {
 	u := NewUnifier()
-	cap := types.EvClosedRow(types.RowField{Label: "x", Type: types.Con("Int")})
-	con := types.EvSingleConstraint("Eq", []types.Type{types.Con("Int")})
+	cap := types.ClosedRow(types.RowField{Label: "x", Type: types.Con("Int")})
+	con := types.SingleConstraint("Eq", []types.Type{types.Con("Int")})
 
 	if err := u.Unify(cap, con); err == nil {
 		t.Error("capability and constraint rows must not unify")
@@ -150,14 +150,14 @@ func TestStressEvZonkLargeRow(t *testing.T) {
 	for i := range N {
 		fields[i] = types.RowField{Label: fmt.Sprintf("f%d", i), Type: metas[i]}
 	}
-	r := types.EvClosedRow(fields...)
+	r := types.ClosedRow(fields...)
 	result := u.Zonk(r)
 
 	ev, ok := result.(*types.TyEvidenceRow)
 	if !ok {
 		t.Fatalf("expected TyEvidenceRow, got %T", result)
 	}
-	// Fields are sorted by label after EvClosedRow normalization.
+	// Fields are sorted by label after ClosedRow normalization.
 	// Verify by looking up each field's label → type mapping.
 	capFields := ev.CapFields()
 	fieldMap := make(map[string]string, len(capFields))
@@ -185,7 +185,7 @@ func TestStressEvSubstLargeRow(t *testing.T) {
 	for i := range N {
 		fields[i] = types.RowField{Label: fmt.Sprintf("f%d", i), Type: types.Var("a")}
 	}
-	r := types.EvClosedRow(fields...)
+	r := types.ClosedRow(fields...)
 	result := types.Subst(r, "a", types.Con("Int"))
 
 	ev, ok := result.(*types.TyEvidenceRow)
@@ -208,8 +208,8 @@ func TestStressEvEqualLargeRows(t *testing.T) {
 		fields1[i] = types.RowField{Label: label, Type: types.Con("Int")}
 		fields2[N-1-i] = types.RowField{Label: label, Type: types.Con("Int")}
 	}
-	r1 := types.EvClosedRow(fields1...)
-	r2 := types.EvClosedRow(fields2...)
+	r1 := types.ClosedRow(fields1...)
+	r2 := types.ClosedRow(fields2...)
 
 	if !types.Equal(r1, r2) {
 		t.Error("100-field rows with reversed order should be equal")
@@ -222,7 +222,7 @@ func TestStressEvFreeVarsLargeRow(t *testing.T) {
 	for i := range N {
 		fields[i] = types.RowField{Label: fmt.Sprintf("f%d", i), Type: types.Var(fmt.Sprintf("a%d", i))}
 	}
-	r := types.EvOpenRow(fields, types.Var("tail"))
+	r := types.OpenRow(fields, types.Var("tail"))
 	fv := types.FreeVars(r)
 
 	if len(fv) != N+1 {

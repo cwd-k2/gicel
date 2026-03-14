@@ -114,7 +114,7 @@ func (ch *Checker) resolveTypeExpr(texpr syntax.TypeExpr) types.Type {
 				}
 			}
 			return &types.TyEvidence{
-				Constraints: types.EvSingleConstraint(con.Name, args),
+				Constraints: types.SingleConstraint(con.Name, args),
 				Body:        body,
 				S:           t.S,
 			}

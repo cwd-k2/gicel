@@ -87,8 +87,8 @@ func equalAlpha(a, b Type, bindings []alphaBinding) bool {
 			if !ok {
 				return false
 			}
-			an := EvNormalize(&TyEvidenceRow{Entries: aEntries, Tail: at.Tail})
-			bn := EvNormalize(&TyEvidenceRow{Entries: bEntries, Tail: bt.Tail})
+			an := NormalizeRow(&TyEvidenceRow{Entries: aEntries, Tail: at.Tail})
+			bn := NormalizeRow(&TyEvidenceRow{Entries: bEntries, Tail: bt.Tail})
 			aFields := an.CapFields()
 			bFields := bn.CapFields()
 			if len(aFields) != len(bFields) {
@@ -114,8 +114,8 @@ func equalAlpha(a, b Type, bindings []alphaBinding) bool {
 			if !ok {
 				return false
 			}
-			an := EvNormalizeConstraintEntries(&TyEvidenceRow{Entries: aEntries, Tail: at.Tail})
-			bn := EvNormalizeConstraintEntries(&TyEvidenceRow{Entries: bEntries, Tail: bt.Tail})
+			an := NormalizeConstraints(&TyEvidenceRow{Entries: aEntries, Tail: at.Tail})
+			bn := NormalizeConstraints(&TyEvidenceRow{Entries: bEntries, Tail: bt.Tail})
 			aCons := an.ConEntries()
 			bCons := bn.ConEntries()
 			if len(aCons) != len(bCons) {

@@ -77,12 +77,12 @@ func (rb *RowBuilder) And(label string, ty types.Type) *RowBuilder {
 
 // Closed builds a closed row (no tail variable).
 func (rb *RowBuilder) Closed() types.Type {
-	return types.EvClosedRow(rb.fields...)
+	return types.ClosedRow(rb.fields...)
 }
 
 // Open builds an open row with a tail variable.
 func (rb *RowBuilder) Open(tailVar string) types.Type {
-	return types.EvOpenRow(rb.fields, types.Var(tailVar))
+	return types.OpenRow(rb.fields, types.Var(tailVar))
 }
 
 // KindType returns the Type kind (for RegisterType).
@@ -97,7 +97,7 @@ func KindRow() types.Kind {
 
 // EmptyRowType creates an empty closed row type.
 func EmptyRowType() types.Type {
-	return types.EvEmptyRow()
+	return types.EmptyRow()
 }
 
 // KindArrow creates a kind arrow: from -> to.
@@ -112,14 +112,14 @@ func ForallKind(name string, k types.Kind, body types.Type) types.Type {
 
 // ClosedRowType creates a closed row type from fields.
 func ClosedRowType(fields ...types.RowField) types.Type {
-	return types.EvClosedRow(fields...)
+	return types.ClosedRow(fields...)
 }
 
 // RecordType creates a closed record type: Record { l1 : T1, ..., ln : Tn }.
 func RecordType(fields ...types.RowField) types.Type {
 	return &types.TyApp{
 		Fun: &types.TyCon{Name: "Record"},
-		Arg: types.EvClosedRow(fields...),
+		Arg: types.ClosedRow(fields...),
 	}
 }
 

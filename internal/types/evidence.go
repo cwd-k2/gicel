@@ -126,28 +126,28 @@ func (c *ConstraintEntries) FiberKind() Kind { return KConstraint{} }
 
 // --- Evidence row builders ---
 
-// EvEmptyRow creates an empty closed capability evidence row.
-func EvEmptyRow() *TyEvidenceRow {
+// EmptyRow creates an empty closed capability evidence row.
+func EmptyRow() *TyEvidenceRow {
 	return &TyEvidenceRow{Entries: &CapabilityEntries{}}
 }
 
-// EvClosedRow creates a closed capability evidence row from fields.
-func EvClosedRow(fields ...RowField) *TyEvidenceRow {
-	return EvNormalize(&TyEvidenceRow{Entries: &CapabilityEntries{Fields: fields}})
+// ClosedRow creates a closed capability evidence row from fields.
+func ClosedRow(fields ...RowField) *TyEvidenceRow {
+	return NormalizeRow(&TyEvidenceRow{Entries: &CapabilityEntries{Fields: fields}})
 }
 
-// EvOpenRow creates an open capability evidence row with a tail.
-func EvOpenRow(fields []RowField, tail Type) *TyEvidenceRow {
-	return EvNormalize(&TyEvidenceRow{Entries: &CapabilityEntries{Fields: fields}, Tail: tail})
+// OpenRow creates an open capability evidence row with a tail.
+func OpenRow(fields []RowField, tail Type) *TyEvidenceRow {
+	return NormalizeRow(&TyEvidenceRow{Entries: &CapabilityEntries{Fields: fields}, Tail: tail})
 }
 
-// EvEmptyConstraintRow creates an empty closed constraint evidence row.
-func EvEmptyConstraintRow() *TyEvidenceRow {
+// EmptyConstraintRow creates an empty closed constraint evidence row.
+func EmptyConstraintRow() *TyEvidenceRow {
 	return &TyEvidenceRow{Entries: &ConstraintEntries{}}
 }
 
-// EvSingleConstraint creates a constraint evidence row with one entry.
-func EvSingleConstraint(className string, args []Type) *TyEvidenceRow {
+// SingleConstraint creates a constraint evidence row with one entry.
+func SingleConstraint(className string, args []Type) *TyEvidenceRow {
 	return &TyEvidenceRow{
 		Entries: &ConstraintEntries{
 			Entries: []ConstraintEntry{{ClassName: className, Args: args}},
@@ -155,16 +155,8 @@ func EvSingleConstraint(className string, args []Type) *TyEvidenceRow {
 	}
 }
 
-// EvMkEvidence creates a TyEvidence from constraint entries and a body type.
-func EvMkEvidence(entries []ConstraintEntry, body Type) *TyEvidence {
-	return &TyEvidence{
-		Constraints: &TyEvidenceRow{Entries: &ConstraintEntries{Entries: entries}},
-		Body:        body,
-	}
-}
-
-// EvNormalize sorts capability fields in an evidence row.
-func EvNormalize(r *TyEvidenceRow) *TyEvidenceRow {
+// NormalizeRow sorts capability fields in an evidence row.
+func NormalizeRow(r *TyEvidenceRow) *TyEvidenceRow {
 	cap, ok := r.Entries.(*CapabilityEntries)
 	if !ok || len(cap.Fields) <= 1 {
 		return r
@@ -210,8 +202,8 @@ func (r *TyEvidenceRow) ConEntries() []ConstraintEntry {
 
 // --- Capability row operations ---
 
-// EvLabels returns the set of label names in a capability evidence row.
-func EvLabels(r *TyEvidenceRow) map[string]struct{} {
+// Labels returns the set of label names in a capability evidence row.
+func Labels(r *TyEvidenceRow) map[string]struct{} {
 	fields := r.CapFields()
 	m := make(map[string]struct{}, len(fields))
 	for _, f := range fields {
@@ -220,8 +212,8 @@ func EvLabels(r *TyEvidenceRow) map[string]struct{} {
 	return m
 }
 
-// EvHasLabel checks if a label exists in a capability evidence row.
-func EvHasLabel(r *TyEvidenceRow, label string) bool {
+// HasLabel checks if a label exists in a capability evidence row.
+func HasLabel(r *TyEvidenceRow, label string) bool {
 	for _, f := range r.CapFields() {
 		if f.Label == label {
 			return true
@@ -230,8 +222,8 @@ func EvHasLabel(r *TyEvidenceRow, label string) bool {
 	return false
 }
 
-// EvExtendCapField adds a field to a capability evidence row, maintaining sorted order.
-func EvExtendCapField(r *TyEvidenceRow, f RowField) (*TyEvidenceRow, error) {
+// ExtendRow adds a field to a capability evidence row, maintaining sorted order.
+func ExtendRow(r *TyEvidenceRow, f RowField) (*TyEvidenceRow, error) {
 	fields := r.CapFields()
 	for _, existing := range fields {
 		if existing.Label == f.Label {
@@ -257,8 +249,8 @@ func EvExtendCapField(r *TyEvidenceRow, f RowField) (*TyEvidenceRow, error) {
 	}, nil
 }
 
-// EvRemoveCapField removes a field by label from a capability evidence row.
-func EvRemoveCapField(r *TyEvidenceRow, label string) (RowField, *TyEvidenceRow, bool) {
+// RemoveLabel removes a field by label from a capability evidence row.
+func RemoveLabel(r *TyEvidenceRow, label string) (RowField, *TyEvidenceRow, bool) {
 	fields := r.CapFields()
 	for i, f := range fields {
 		if f.Label == label {
@@ -277,8 +269,8 @@ func EvRemoveCapField(r *TyEvidenceRow, label string) (RowField, *TyEvidenceRow,
 
 // --- Constraint row operations ---
 
-// EvNormalizeConstraintEntries sorts constraint entries by canonical key.
-func EvNormalizeConstraintEntries(r *TyEvidenceRow) *TyEvidenceRow {
+// NormalizeConstraints sorts constraint entries by canonical key.
+func NormalizeConstraints(r *TyEvidenceRow) *TyEvidenceRow {
 	entries := r.ConEntries()
 	if len(entries) <= 1 {
 		return r
@@ -295,8 +287,8 @@ func EvNormalizeConstraintEntries(r *TyEvidenceRow) *TyEvidenceRow {
 	}
 }
 
-// EvExtendConstraintEntry adds a constraint entry to a constraint evidence row.
-func EvExtendConstraintEntry(r *TyEvidenceRow, e ConstraintEntry) *TyEvidenceRow {
+// ExtendConstraint adds a constraint entry to a constraint evidence row.
+func ExtendConstraint(r *TyEvidenceRow, e ConstraintEntry) *TyEvidenceRow {
 	old := r.ConEntries()
 	entries := make([]ConstraintEntry, len(old)+1)
 	copy(entries, old)

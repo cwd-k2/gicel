@@ -667,8 +667,8 @@ func (u *Unifier) unifyEvCapRows(
 	bFields []types.RowField, bTail types.Type,
 ) error {
 	// Normalize field order.
-	an := types.EvNormalize(&types.TyEvidenceRow{Entries: &types.CapabilityEntries{Fields: aFields}, Tail: aTail})
-	bn := types.EvNormalize(&types.TyEvidenceRow{Entries: &types.CapabilityEntries{Fields: bFields}, Tail: bTail})
+	an := types.NormalizeRow(&types.TyEvidenceRow{Entries: &types.CapabilityEntries{Fields: aFields}, Tail: aTail})
+	bn := types.NormalizeRow(&types.TyEvidenceRow{Entries: &types.CapabilityEntries{Fields: bFields}, Tail: bTail})
 	aFieldsN := an.CapFields()
 	bFieldsN := bn.CapFields()
 
@@ -736,7 +736,7 @@ func (u *Unifier) solveEvCapTail(tail types.Type, fields []types.RowField, newTa
 	}
 	var solution types.Type
 	if len(fields) == 0 && newTail == nil {
-		solution = types.EvEmptyRow()
+		solution = types.EmptyRow()
 	} else {
 		solution = &types.TyEvidenceRow{
 			Entries: &types.CapabilityEntries{Fields: fields},
@@ -764,8 +764,8 @@ func (u *Unifier) unifyEvConRows(
 	aEntries []types.ConstraintEntry, aTail types.Type,
 	bEntries []types.ConstraintEntry, bTail types.Type,
 ) error {
-	aN := types.EvNormalizeConstraintEntries(&types.TyEvidenceRow{Entries: &types.ConstraintEntries{Entries: aEntries}, Tail: aTail})
-	bN := types.EvNormalizeConstraintEntries(&types.TyEvidenceRow{Entries: &types.ConstraintEntries{Entries: bEntries}, Tail: bTail})
+	aN := types.NormalizeConstraints(&types.TyEvidenceRow{Entries: &types.ConstraintEntries{Entries: aEntries}, Tail: aTail})
+	bN := types.NormalizeConstraints(&types.TyEvidenceRow{Entries: &types.ConstraintEntries{Entries: bEntries}, Tail: bTail})
 
 	shared, onlyLeft, onlyRight := classifyConstraints(aN.ConEntries(), bN.ConEntries(), u)
 
@@ -813,7 +813,7 @@ func (u *Unifier) solveEvConTail(tail types.Type, entries []types.ConstraintEntr
 	}
 	var solution types.Type
 	if len(entries) == 0 && newTail == nil {
-		solution = types.EvEmptyConstraintRow()
+		solution = types.EmptyConstraintRow()
 	} else {
 		solution = &types.TyEvidenceRow{
 			Entries: &types.ConstraintEntries{Entries: entries},

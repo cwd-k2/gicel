@@ -83,7 +83,7 @@ func TestZonkEvidence(t *testing.T) {
 	u.soln[1] = types.Con("Int")
 
 	ev := &types.TyEvidence{
-		Constraints: types.EvSingleConstraint("Eq", []types.Type{m}),
+		Constraints: types.SingleConstraint("Eq", []types.Type{m}),
 		Body:        types.MkArrow(m, types.Con("Bool")),
 	}
 	result := u.Zonk(ev)
@@ -106,7 +106,7 @@ func TestZonkEvidence(t *testing.T) {
 func TestZonkEvidenceIdentity(t *testing.T) {
 	u := NewUnifier()
 	ev := &types.TyEvidence{
-		Constraints: types.EvSingleConstraint("Eq", []types.Type{types.Con("Int")}),
+		Constraints: types.SingleConstraint("Eq", []types.Type{types.Con("Int")}),
 		Body:        types.Con("Bool"),
 	}
 	result := u.Zonk(ev)
@@ -121,8 +121,8 @@ func TestZonkEvidenceIdentity(t *testing.T) {
 
 func TestUnifyConstraintRowClosedClosed(t *testing.T) {
 	u := NewUnifier()
-	cr1 := types.EvSingleConstraint("Eq", []types.Type{types.Con("Int")})
-	cr2 := types.EvSingleConstraint("Eq", []types.Type{types.Con("Int")})
+	cr1 := types.SingleConstraint("Eq", []types.Type{types.Con("Int")})
+	cr2 := types.SingleConstraint("Eq", []types.Type{types.Con("Int")})
 	if err := u.Unify(cr1, cr2); err != nil {
 		t.Errorf("{Eq Int} ~ {Eq Int} should succeed: %v", err)
 	}
@@ -130,8 +130,8 @@ func TestUnifyConstraintRowClosedClosed(t *testing.T) {
 
 func TestUnifyConstraintRowClosedMismatch(t *testing.T) {
 	u := NewUnifier()
-	cr1 := types.EvSingleConstraint("Eq", []types.Type{types.Con("Int")})
-	cr2 := types.EvSingleConstraint("Ord", []types.Type{types.Con("Int")})
+	cr1 := types.SingleConstraint("Eq", []types.Type{types.Con("Int")})
+	cr2 := types.SingleConstraint("Ord", []types.Type{types.Con("Int")})
 	if err := u.Unify(cr1, cr2); err == nil {
 		t.Error("{Eq Int} ~ {Ord Int} should fail")
 	}
@@ -294,11 +294,11 @@ func TestUnifyEvidence(t *testing.T) {
 	m := &types.TyMeta{ID: 1, Kind: types.KType{}}
 
 	ev1 := &types.TyEvidence{
-		Constraints: types.EvSingleConstraint("Eq", []types.Type{m}),
+		Constraints: types.SingleConstraint("Eq", []types.Type{m}),
 		Body:        types.MkArrow(m, types.Con("Bool")),
 	}
 	ev2 := &types.TyEvidence{
-		Constraints: types.EvSingleConstraint("Eq", []types.Type{types.Con("Int")}),
+		Constraints: types.SingleConstraint("Eq", []types.Type{types.Con("Int")}),
 		Body:        types.MkArrow(types.Con("Int"), types.Con("Bool")),
 	}
 	if err := u.Unify(ev1, ev2); err != nil {
@@ -313,11 +313,11 @@ func TestUnifyEvidence(t *testing.T) {
 func TestUnifyEvidenceMismatch(t *testing.T) {
 	u := NewUnifier()
 	ev1 := &types.TyEvidence{
-		Constraints: types.EvSingleConstraint("Eq", []types.Type{types.Con("Int")}),
+		Constraints: types.SingleConstraint("Eq", []types.Type{types.Con("Int")}),
 		Body:        types.Con("Bool"),
 	}
 	ev2 := &types.TyEvidence{
-		Constraints: types.EvSingleConstraint("Ord", []types.Type{types.Con("Int")}),
+		Constraints: types.SingleConstraint("Ord", []types.Type{types.Con("Int")}),
 		Body:        types.Con("Bool"),
 	}
 	if err := u.Unify(ev1, ev2); err == nil {
