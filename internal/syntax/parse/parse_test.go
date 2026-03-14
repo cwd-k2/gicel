@@ -1506,4 +1506,3 @@ func TestParseStepsResetBetweenPasses(t *testing.T) {
 		t.Fatalf("valid program should parse when steps are properly reset: %s", es.Format())
 	}
 }
-

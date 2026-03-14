@@ -21,8 +21,8 @@ type CtxTyVar struct {
 type CtxEvidence struct {
 	ClassName  string
 	Args       []types.Type
-	DictName   string     // context variable name for the dictionary
-	DictType   types.Type // dictionary type
+	DictName   string                      // context variable name for the dictionary
+	DictType   types.Type                  // dictionary type
 	Quantified *types.QuantifiedConstraint // non-nil for quantified constraints
 }
 

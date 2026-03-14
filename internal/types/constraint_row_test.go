@@ -523,7 +523,6 @@ func TestEvidenceFreeVarsUnderForall(t *testing.T) {
 	}
 }
 
-
 func TestMkEvidence(t *testing.T) {
 	entries := []ConstraintEntry{
 		{ClassName: "Eq", Args: []Type{Var("a")}},

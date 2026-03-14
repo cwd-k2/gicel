@@ -229,7 +229,7 @@ func asInt64List(v eval.Value) (int64, error) {
 
 // foldlImpl is a strict left fold that uses the Applier callback to apply closures.
 func foldlImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, apply eval.Applier) (eval.Value, eval.CapEnv, error) {
-	f := args[0]   // (b -> a -> b)
+	f := args[0]    // (b -> a -> b)
 	acc := args[1]  // b
 	list := args[2] // List a
 	for {

@@ -10,8 +10,8 @@ type evidenceSource int
 
 const (
 	evidenceContext    evidenceSource = iota // from CtxEvidence in context
-	evidenceSuperclass                      // extracted from superclass dict
-	evidenceGlobal                          // from global instance
+	evidenceSuperclass                       // extracted from superclass dict
+	evidenceGlobal                           // from global instance
 )
 
 // availableEvidence represents a single piece of type class evidence

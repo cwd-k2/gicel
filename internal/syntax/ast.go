@@ -120,38 +120,38 @@ type ExprProject struct {
 	S      span.Span
 }
 
-func (*ExprVar) exprNode()     {}
-func (*ExprCon) exprNode()     {}
-func (*ExprApp) exprNode()     {}
-func (*ExprTyApp) exprNode()   {}
-func (*ExprLam) exprNode()     {}
-func (*ExprCase) exprNode()    {}
-func (*ExprDo) exprNode()      {}
-func (*ExprBlock) exprNode()   {}
-func (*ExprInfix) exprNode()   {}
-func (*ExprAnn) exprNode()     {}
-func (*ExprParen) exprNode()   {}
-func (*ExprIntLit) exprNode()  {}
-func (*ExprStrLit) exprNode()  {}
+func (*ExprVar) exprNode()          {}
+func (*ExprCon) exprNode()          {}
+func (*ExprApp) exprNode()          {}
+func (*ExprTyApp) exprNode()        {}
+func (*ExprLam) exprNode()          {}
+func (*ExprCase) exprNode()         {}
+func (*ExprDo) exprNode()           {}
+func (*ExprBlock) exprNode()        {}
+func (*ExprInfix) exprNode()        {}
+func (*ExprAnn) exprNode()          {}
+func (*ExprParen) exprNode()        {}
+func (*ExprIntLit) exprNode()       {}
+func (*ExprStrLit) exprNode()       {}
 func (*ExprRuneLit) exprNode()      {}
 func (*ExprList) exprNode()         {}
 func (*ExprRecord) exprNode()       {}
 func (*ExprRecordUpdate) exprNode() {}
 func (*ExprProject) exprNode()      {}
 
-func (e *ExprVar) Span() span.Span     { return e.S }
-func (e *ExprCon) Span() span.Span     { return e.S }
-func (e *ExprApp) Span() span.Span     { return e.S }
-func (e *ExprTyApp) Span() span.Span   { return e.S }
-func (e *ExprLam) Span() span.Span     { return e.S }
-func (e *ExprCase) Span() span.Span    { return e.S }
-func (e *ExprDo) Span() span.Span      { return e.S }
-func (e *ExprBlock) Span() span.Span   { return e.S }
-func (e *ExprInfix) Span() span.Span   { return e.S }
-func (e *ExprAnn) Span() span.Span     { return e.S }
-func (e *ExprParen) Span() span.Span   { return e.S }
-func (e *ExprIntLit) Span() span.Span  { return e.S }
-func (e *ExprStrLit) Span() span.Span  { return e.S }
+func (e *ExprVar) Span() span.Span          { return e.S }
+func (e *ExprCon) Span() span.Span          { return e.S }
+func (e *ExprApp) Span() span.Span          { return e.S }
+func (e *ExprTyApp) Span() span.Span        { return e.S }
+func (e *ExprLam) Span() span.Span          { return e.S }
+func (e *ExprCase) Span() span.Span         { return e.S }
+func (e *ExprDo) Span() span.Span           { return e.S }
+func (e *ExprBlock) Span() span.Span        { return e.S }
+func (e *ExprInfix) Span() span.Span        { return e.S }
+func (e *ExprAnn) Span() span.Span          { return e.S }
+func (e *ExprParen) Span() span.Span        { return e.S }
+func (e *ExprIntLit) Span() span.Span       { return e.S }
+func (e *ExprStrLit) Span() span.Span       { return e.S }
 func (e *ExprRuneLit) Span() span.Span      { return e.S }
 func (e *ExprList) Span() span.Span         { return e.S }
 func (e *ExprRecord) Span() span.Span       { return e.S }
@@ -255,4 +255,4 @@ func (p *PatVar) Span() span.Span    { return p.S }
 func (p *PatWild) Span() span.Span   { return p.S }
 func (p *PatCon) Span() span.Span    { return p.S }
 func (p *PatRecord) Span() span.Span { return p.S }
-func (p *PatParen) Span() span.Span { return p.S }
+func (p *PatParen) Span() span.Span  { return p.S }

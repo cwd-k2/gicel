@@ -12,15 +12,15 @@ import (
 // Runtime is an immutable, compiled GICEL program.
 // It is goroutine-safe and can be executed concurrently.
 type Runtime struct {
-	prog          *core.Program
-	prims         *eval.PrimRegistry
-	stepLimit     int
-	depthLimit    int
-	allocLimit    int64
-	traceHook     eval.TraceHook
-	bindings      map[string]types.Type
+	prog        *core.Program
+	prims       *eval.PrimRegistry
+	stepLimit   int
+	depthLimit  int
+	allocLimit  int64
+	traceHook   eval.TraceHook
+	bindings    map[string]types.Type
 	moduleProgs []*core.Program
-	builtinEnv    *eval.Env // pre-built pure/bind/force/fix/rec closures
+	builtinEnv  *eval.Env // pre-built pure/bind/force/fix/rec closures
 }
 
 // Program returns the compiled Core IR for debugging/inspection.
@@ -82,7 +82,6 @@ func (r *Runtime) buildEnv(bindings map[string]Value) (*eval.Env, error) {
 	}
 	return env, nil
 }
-
 
 // run is the shared implementation for RunContext and RunContextFull.
 func (r *Runtime) run(ctx context.Context, caps map[string]any, bindings map[string]Value, entry string) (eval.EvalResult, EvalStats, error) {

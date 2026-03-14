@@ -36,14 +36,14 @@ gicel check [flags] <file>   # type-check only
 
 Flags:
 
-| Flag | Default | Description |
-|---|---|---|
-| `--use <packs>` | `all` | Stdlib packs: Num, Str, List, Fail, State, IO |
-| `--entry <name>` | `main` | Entry point binding |
-| `--timeout <dur>` | `5s` | Execution timeout (run only) |
-| `--max-steps <n>` | `100000` | Step limit (run only) |
-| `--max-depth <n>` | `100` | Depth limit (run only) |
-| `--json` | | JSON output (run only) |
+| Flag              | Default  | Description                                   |
+| ----------------- | -------- | --------------------------------------------- |
+| `--use <packs>`   | `all`    | Stdlib packs: Num, Str, List, Fail, State, IO |
+| `--entry <name>`  | `main`   | Entry point binding                           |
+| `--timeout <dur>` | `5s`     | Execution timeout (run only)                  |
+| `--max-steps <n>` | `100000` | Step limit (run only)                         |
+| `--max-depth <n>` | `100`    | Depth limit (run only)                        |
+| `--json`          |          | JSON output (run only)                        |
 
 ```
 gicel run hello.gicel
@@ -171,14 +171,14 @@ result, err := gicel.RunSandbox(source, &gicel.SandboxConfig{
 
 ### Stdlib packs
 
-| Pack | Contents |
-|---|---|
-| `Num` | Integer arithmetic, `Eq`/`Ord` Int instances |
-| `Str` | String and rune operations |
-| `List` | `fromSlice`, `toSlice`, `length`, `concat`, `foldl`, etc. |
-| `Fail` | Fail effect capability |
-| `State` | `get`/`put` state capabilities |
-| `IO` | `print`/`debug` via CapEnv buffer |
+| Pack    | Contents                                                  |
+| ------- | --------------------------------------------------------- |
+| `Num`   | Integer arithmetic, `Eq`/`Ord` Int instances              |
+| `Str`   | String and rune operations                                |
+| `List`  | `fromSlice`, `toSlice`, `length`, `concat`, `foldl`, etc. |
+| `Fail`  | Fail effect capability                                    |
+| `State` | `get`/`put` state capabilities                            |
+| `IO`    | `print`/`debug` via CapEnv buffer                         |
 
 ### Value conversion
 

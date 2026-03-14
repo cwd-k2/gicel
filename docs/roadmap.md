@@ -16,28 +16,28 @@ Connects to the open fork point: usage judgment for linear/affine capabilities.
 
 ## Module System Evolution
 
-* Prelude becomes an ordinary module (currently built-in source)
-* Stdlib packs become importable modules
-* Selective exports
-* Qualified imports
+- Prelude becomes an ordinary module (currently built-in source)
+- Stdlib packs become importable modules
+- Selective exports
+- Qualified imports
 
 ---
 
 ## Open Design Fork Points
 
-| Fork Point | Current State | Decision Trigger |
-|------------|---------------|-----------------|
-| Branching with divergent post-states | Equal post-states required | User demand for `if`-like branching where branches modify capabilities differently |
-| `Row` as built-in kind vs general structured-index | Built-in kind | Need for non-capability indexing (e.g., session types) |
-| Usage judgment (linear/affine capabilities) | Not implemented | Graded Evidence design |
-| Algebraic effects/handlers vs indexed monad | Indexed monad (Atkey) | Evidence that handler-based approach better serves the AI agent use case |
+| Fork Point                                         | Current State              | Decision Trigger                                                                   |
+| -------------------------------------------------- | -------------------------- | ---------------------------------------------------------------------------------- |
+| Branching with divergent post-states               | Equal post-states required | User demand for `if`-like branching where branches modify capabilities differently |
+| `Row` as built-in kind vs general structured-index | Built-in kind              | Need for non-capability indexing (e.g., session types)                             |
+| Usage judgment (linear/affine capabilities)        | Not implemented            | Graded Evidence design                                                             |
+| Algebraic effects/handlers vs indexed monad        | Indexed monad (Atkey)      | Evidence that handler-based approach better serves the AI agent use case           |
 
 ---
 
 ## Potential Extensions (assessed, not planned)
 
-| Extension | Classification | Prerequisite |
-|-----------|---------------|-------------|
-| Type Families | Phase transition | Substantial checker changes |
-| Refinement Types | Phase transition | Separate analysis |
-| Dependent Types | Full restructure | Far future |
+| Extension        | Classification   | Prerequisite                |
+| ---------------- | ---------------- | --------------------------- |
+| Type Families    | Phase transition | Substantial checker changes |
+| Refinement Types | Phase transition | Separate analysis           |
+| Dependent Types  | Full restructure | Far future                  |

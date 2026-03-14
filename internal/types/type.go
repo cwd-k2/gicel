@@ -81,7 +81,9 @@ type ConstraintEntry struct {
 }
 
 // QuantifiedConstraint represents a universally quantified constraint:
-//   forall vars. context => head
+//
+//	forall vars. context => head
+//
 // Evidence for this constraint is a function from context dicts to a head dict.
 type QuantifiedConstraint struct {
 	Vars    []ForallBinder
@@ -126,41 +128,41 @@ type TyError struct {
 
 // --- typeNode markers ---
 
-func (*TyVar) typeNode()    {}
-func (*TyCon) typeNode()    {}
-func (*TyApp) typeNode()    {}
-func (*TyArrow) typeNode()  {}
-func (*TyForall) typeNode() {}
-func (*TyComp) typeNode()   {}
-func (*TyThunk) typeNode()  {}
-func (*TyEvidence) typeNode()      {}
-func (*TySkolem) typeNode()        {}
-func (*TyMeta) typeNode()          {}
-func (*TyError) typeNode()         {}
+func (*TyVar) typeNode()      {}
+func (*TyCon) typeNode()      {}
+func (*TyApp) typeNode()      {}
+func (*TyArrow) typeNode()    {}
+func (*TyForall) typeNode()   {}
+func (*TyComp) typeNode()     {}
+func (*TyThunk) typeNode()    {}
+func (*TyEvidence) typeNode() {}
+func (*TySkolem) typeNode()   {}
+func (*TyMeta) typeNode()     {}
+func (*TyError) typeNode()    {}
 
 // --- Span accessors ---
 
-func (t *TyVar) Span() span.Span    { return t.S }
-func (t *TyCon) Span() span.Span    { return t.S }
-func (t *TyApp) Span() span.Span    { return t.S }
-func (t *TyArrow) Span() span.Span  { return t.S }
-func (t *TyForall) Span() span.Span { return t.S }
-func (t *TyComp) Span() span.Span   { return t.S }
-func (t *TyThunk) Span() span.Span  { return t.S }
-func (t *TyEvidence) Span() span.Span      { return t.S }
-func (t *TySkolem) Span() span.Span        { return t.S }
-func (t *TyMeta) Span() span.Span          { return t.S }
-func (t *TyError) Span() span.Span         { return t.S }
+func (t *TyVar) Span() span.Span      { return t.S }
+func (t *TyCon) Span() span.Span      { return t.S }
+func (t *TyApp) Span() span.Span      { return t.S }
+func (t *TyArrow) Span() span.Span    { return t.S }
+func (t *TyForall) Span() span.Span   { return t.S }
+func (t *TyComp) Span() span.Span     { return t.S }
+func (t *TyThunk) Span() span.Span    { return t.S }
+func (t *TyEvidence) Span() span.Span { return t.S }
+func (t *TySkolem) Span() span.Span   { return t.S }
+func (t *TyMeta) Span() span.Span     { return t.S }
+func (t *TyError) Span() span.Span    { return t.S }
 
 // --- Children ---
 
-func (t *TyVar) Children() []Type    { return nil }
-func (t *TyCon) Children() []Type    { return nil }
-func (t *TyApp) Children() []Type    { return []Type{t.Fun, t.Arg} }
-func (t *TyArrow) Children() []Type  { return []Type{t.From, t.To} }
-func (t *TyForall) Children() []Type { return []Type{t.Body} }
-func (t *TyComp) Children() []Type   { return []Type{t.Pre, t.Post, t.Result} }
-func (t *TyThunk) Children() []Type  { return []Type{t.Pre, t.Post, t.Result} }
+func (t *TyVar) Children() []Type      { return nil }
+func (t *TyCon) Children() []Type      { return nil }
+func (t *TyApp) Children() []Type      { return []Type{t.Fun, t.Arg} }
+func (t *TyArrow) Children() []Type    { return []Type{t.From, t.To} }
+func (t *TyForall) Children() []Type   { return []Type{t.Body} }
+func (t *TyComp) Children() []Type     { return []Type{t.Pre, t.Post, t.Result} }
+func (t *TyThunk) Children() []Type    { return []Type{t.Pre, t.Post, t.Result} }
 func (t *TyEvidence) Children() []Type { return []Type{t.Constraints, t.Body} }
 func (t *TySkolem) Children() []Type   { return nil }
 func (t *TyMeta) Children() []Type     { return nil }
@@ -179,4 +181,3 @@ func UnwindApp(ty Type) (Type, []Type) {
 		ty = app.Fun
 	}
 }
-

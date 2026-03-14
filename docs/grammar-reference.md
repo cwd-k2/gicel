@@ -4,24 +4,24 @@
 
 ### Keywords (11)
 
-| Keyword    | Purpose                          |
-|------------|----------------------------------|
-| `case`     | Pattern matching                 |
-| `do`       | Monadic do-block                 |
-| `data`     | Algebraic data type declaration  |
-| `type`     | Type alias declaration           |
-| `forall`   | Universal quantification         |
-| `infixl`   | Left-associative operator fixity |
-| `infixr`   | Right-associative operator fixity|
-| `infixn`   | Non-associative operator fixity  |
-| `class`    | Type class declaration           |
-| `instance` | Type class instance declaration  |
-| `import`   | Module import                    |
+| Keyword    | Purpose                           |
+| ---------- | --------------------------------- |
+| `case`     | Pattern matching                  |
+| `do`       | Monadic do-block                  |
+| `data`     | Algebraic data type declaration   |
+| `type`     | Type alias declaration            |
+| `forall`   | Universal quantification          |
+| `infixl`   | Left-associative operator fixity  |
+| `infixr`   | Right-associative operator fixity |
+| `infixn`   | Non-associative operator fixity   |
+| `class`    | Type class declaration            |
+| `instance` | Type class instance declaration   |
+| `import`   | Module import                     |
 
 ### Built-in Identifiers
 
 | Identifier   | Role                              |
-|--------------|-----------------------------------|
+| ------------ | --------------------------------- |
 | `pure`       | Value → Computation (F)           |
 | `bind`       | Monadic sequencing                |
 | `thunk`      | Computation → suspended value (U) |
@@ -32,21 +32,21 @@
 
 ### Punctuation & Operators
 
-| Token  | Meaning                       |
-|--------|-------------------------------|
-| `->`   | Function type / lambda body   |
-| `<-`   | Monadic bind in do-block      |
-| `=>`   | Constraint qualifier          |
-| `::`   | Type annotation               |
-| `:=`   | Value definition / let-bind   |
-| `:`    | Kind annotation separator     |
-| `.`    | Forall body separator         |
-| `\`    | Lambda introducer             |
-| `_`    | Wildcard pattern              |
-| `=`    | Data constructor separator    |
-| `@`    | Explicit type application     |
-| `\|`   | Constructor / row tail separator |
-| `;`    | Declaration / statement separator |
+| Token | Meaning                           |
+| ----- | --------------------------------- |
+| `->`  | Function type / lambda body       |
+| `<-`  | Monadic bind in do-block          |
+| `=>`  | Constraint qualifier              |
+| `::`  | Type annotation                   |
+| `:=`  | Value definition / let-bind       |
+| `:`   | Kind annotation separator         |
+| `.`   | Forall body separator             |
+| `\`   | Lambda introducer                 |
+| `_`   | Wildcard pattern                  |
+| `=`   | Data constructor separator        |
+| `@`   | Explicit type application         |
+| `\|`  | Constructor / row tail separator  |
+| `;`   | Declaration / statement separator |
 
 ### Identifiers
 
@@ -86,6 +86,7 @@ data Name param* = Con field* (| Con field*)*
 Parameters can be bare type variables or kinded: `(name : Kind)`.
 
 Examples:
+
 ```
 data Bool = True | False
 data Maybe a = Just a | Nothing
@@ -107,6 +108,7 @@ data Name param* = {
 Distinguished from ADT by `= {`. Each constructor has a full type signature including return type.
 
 Examples:
+
 ```
 data Expr a = {
   LitBool :: Bool -> Expr Bool;
@@ -125,6 +127,7 @@ type Name param* = TypeExpr
 ```
 
 Example:
+
 ```
 type Effect r a = Computation r r a
 ```
@@ -149,6 +152,7 @@ name := Expr
 ```
 
 Example:
+
 ```
 not := \b -> case b { True -> False; False -> True }
 ```
@@ -163,6 +167,7 @@ not := \b -> case b { True -> False; False -> True }
 Operators are defined by wrapping the operator symbol in parentheses. This allows defining type annotations and value definitions for infix operators.
 
 Example:
+
 ```
 infixl 6 +
 (+) :: forall a. Num a => a -> a -> a
@@ -178,6 +183,7 @@ infixn Prec Op    -- non-associative
 ```
 
 Precedence: 0–9 (default: left-associative, 9). Example:
+
 ```
 infixl 6 plus
 infixr 5 cons
@@ -190,6 +196,7 @@ import ModuleName
 ```
 
 Dotted module names are supported for stdlib packs:
+
 ```
 import Std.Num
 import Std.Str
@@ -207,6 +214,7 @@ class [Constraint =>] ClassName param* {
 ```
 
 Examples:
+
 ```
 class Eq a { eq :: a -> a -> Bool }
 class Eq a => Ord a { compare :: a -> a -> Ordering }
@@ -223,6 +231,7 @@ instance [Constraint =>] ClassName TypeArg* {
 ```
 
 Examples:
+
 ```
 instance Eq Bool { eq := \x -> \y -> True }
 instance Eq a => Eq (Maybe a) {
@@ -388,7 +397,7 @@ Constraints are curried: each `C => ...` introduces one constraint. Multiple con
 Show Bool => (forall a. Eq a => Eq (f a)) => ...  -- mixed with curried
 ```
 
-A quantified constraint `forall vars. context => head` asserts that, for any instantiation of `vars`, if the `context` constraints hold, then the `head` constraint holds. Evidence for a quantified constraint is a *function* from context dictionaries to the head dictionary:
+A quantified constraint `forall vars. context => head` asserts that, for any instantiation of `vars`, if the `context` constraints hold, then the `head` constraint holds. Evidence for a quantified constraint is a _function_ from context dictionaries to the head dictionary:
 
 ```
 -- Evidence type for (forall a. Eq a => Eq (f a)):
@@ -480,6 +489,7 @@ DBState               -- DataKinds: user-defined promoted kind
 ```
 
 `Constraint` can be used in kind annotations for type parameters:
+
 ```
 forall (c : Constraint). Bool                    -- constraint-kinded param
 forall a (c : Constraint). a -> Bool             -- mixed kinds
@@ -521,22 +531,22 @@ Con x y         -- constructor with arguments
 
 ## Parser Precedence (Expressions)
 
-| Level | Form              | Associativity |
-|-------|-------------------|---------------|
-| 0     | `:: Type`         | right         |
+| Level | Form              | Associativity    |
+| ----- | ----------------- | ---------------- |
+| 0     | `:: Type`         | right            |
 | 1–9   | Infix operators   | per `infixl/r/n` |
-| 10    | Application `f x` | left          |
-| —     | Atoms             | —             |
+| 10    | Application `f x` | left             |
+| —     | Atoms             | —                |
 
 ### Type Expression Precedence
 
-| Level | Form         | Associativity |
-|-------|--------------|---------------|
-| 0     | `forall`     | —             |
-| 1     | `=>`         | right         |
-| 2     | `->`         | right         |
-| 3     | Application  | left          |
-| —     | Atoms        | —             |
+| Level | Form        | Associativity |
+| ----- | ----------- | ------------- |
+| 0     | `forall`    | —             |
+| 1     | `=>`        | right         |
+| 2     | `->`        | right         |
+| 3     | Application | left          |
+| —     | Atoms       | —             |
 
 ---
 
@@ -554,13 +564,13 @@ Inside braces (`do`, `case`, block expressions, GADT declarations), semicolons a
 
 ## Built-in Types
 
-| Type                        | Kind              | Description                |
-|-----------------------------|-------------------|----------------------------|
-| `Computation pre post a`    | `Row → Row → Type → Type` | Effectful computation |
-| `Thunk pre post a`          | `Row → Row → Type → Type` | Suspended computation |
-| `Int`                       | `Type`            | 64-bit integer             |
-| `String`                    | `Type`            | Unicode string             |
-| `Rune`                      | `Type`            | Unicode code point         |
+| Type                     | Kind                      | Description           |
+| ------------------------ | ------------------------- | --------------------- |
+| `Computation pre post a` | `Row → Row → Type → Type` | Effectful computation |
+| `Thunk pre post a`       | `Row → Row → Type → Type` | Suspended computation |
+| `Int`                    | `Type`                    | 64-bit integer        |
+| `String`                 | `Type`                    | Unicode string        |
+| `Rune`                   | `Type`                    | Unicode code point    |
 
 ---
 

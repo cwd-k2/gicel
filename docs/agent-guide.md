@@ -54,14 +54,14 @@ gicel run --entry myFunc --timeout 10s --max-steps 500000 --json program.gicel
 
 CLI flags:
 
-| Flag            | Default   | Description                                      |
-|-----------------|-----------|--------------------------------------------------|
-| `--use`         | `all`     | Comma-separated packs: Num, Str, List, Fail, State, IO |
-| `--entry`       | `main`    | Entry point binding name                         |
-| `--timeout`     | `5s`      | Execution timeout (run only)                     |
-| `--max-steps`   | `100000`  | Step limit (run only)                            |
-| `--max-depth`   | `100`     | Depth limit (run only)                           |
-| `--json`        | `false`   | Output result as JSON (run only)                 |
+| Flag          | Default  | Description                                            |
+| ------------- | -------- | ------------------------------------------------------ |
+| `--use`       | `all`    | Comma-separated packs: Num, Str, List, Fail, State, IO |
+| `--entry`     | `main`   | Entry point binding name                               |
+| `--timeout`   | `5s`     | Execution timeout (run only)                           |
+| `--max-steps` | `100000` | Step limit (run only)                                  |
+| `--max-depth` | `100`    | Depth limit (run only)                                 |
+| `--json`      | `false`  | Output result as JSON (run only)                       |
 
 **Go API (Sandbox):**
 
@@ -94,51 +94,51 @@ result, err := rt.RunContext(ctx, nil, nil, "main")
 
 ### Keywords (11)
 
-| Keyword    | Purpose                          |
-|------------|----------------------------------|
-| `case`     | Pattern matching                 |
-| `do`       | Monadic do-block                 |
-| `data`     | Algebraic data type declaration  |
-| `type`     | Type alias declaration           |
-| `forall`   | Universal quantification         |
-| `infixl`   | Left-associative operator fixity |
-| `infixr`   | Right-associative operator fixity|
-| `infixn`   | Non-associative operator fixity  |
-| `class`    | Type class declaration           |
-| `instance` | Type class instance declaration  |
-| `import`   | Module import                    |
+| Keyword    | Purpose                           |
+| ---------- | --------------------------------- |
+| `case`     | Pattern matching                  |
+| `do`       | Monadic do-block                  |
+| `data`     | Algebraic data type declaration   |
+| `type`     | Type alias declaration            |
+| `forall`   | Universal quantification          |
+| `infixl`   | Left-associative operator fixity  |
+| `infixr`   | Right-associative operator fixity |
+| `infixn`   | Non-associative operator fixity   |
+| `class`    | Type class declaration            |
+| `instance` | Type class instance declaration   |
+| `import`   | Module import                     |
 
 ### Built-in Identifiers
 
-| Identifier   | Role                                          |
-|--------------|-----------------------------------------------|
+| Identifier   | Role                                            |
+| ------------ | ----------------------------------------------- |
 | `pure`       | Lift a value into a Computation (the F of CBPV) |
-| `bind`       | Monadic sequencing                            |
-| `thunk`      | Suspend a Computation into a value (U of CBPV) |
-| `force`      | Eliminate a thunk, resuming the computation    |
-| `assumption` | Marker for host-provided primitive bindings   |
-| `rec`        | Recursive combinator (gated, must be enabled) |
-| `fix`        | Value-level fixpoint (gated, must be enabled) |
+| `bind`       | Monadic sequencing                              |
+| `thunk`      | Suspend a Computation into a value (U of CBPV)  |
+| `force`      | Eliminate a thunk, resuming the computation     |
+| `assumption` | Marker for host-provided primitive bindings     |
+| `rec`        | Recursive combinator (gated, must be enabled)   |
+| `fix`        | Value-level fixpoint (gated, must be enabled)   |
 
 `pure` and `bind` are always available without any import.
 
 ### Punctuation and Delimiters
 
-| Token  | Meaning                              |
-|--------|--------------------------------------|
-| `->`   | Function type arrow / lambda body    |
-| `<-`   | Monadic bind in do-block             |
-| `=>`   | Constraint qualifier                 |
-| `::`   | Type annotation                      |
-| `:=`   | Value definition                     |
-| `:`    | Kind annotation separator            |
-| `.`    | Forall body separator (also compose operator) |
-| `\`    | Lambda introducer                    |
-| `_`    | Wildcard pattern                     |
-| `=`    | Data constructor separator           |
-| `@`    | Explicit type application            |
-| `\|`   | Constructor alternative / row tail   |
-| `;`    | Declaration / statement separator    |
+| Token | Meaning                                       |
+| ----- | --------------------------------------------- |
+| `->`  | Function type arrow / lambda body             |
+| `<-`  | Monadic bind in do-block                      |
+| `=>`  | Constraint qualifier                          |
+| `::`  | Type annotation                               |
+| `:=`  | Value definition                              |
+| `:`   | Kind annotation separator                     |
+| `.`   | Forall body separator (also compose operator) |
+| `\`   | Lambda introducer                             |
+| `_`   | Wildcard pattern                              |
+| `=`   | Data constructor separator                    |
+| `@`   | Explicit type application                     |
+| `\|`  | Constructor alternative / row tail            |
+| `;`   | Declaration / statement separator             |
 
 ### Comments
 
@@ -165,21 +165,21 @@ Import declarations must appear before all other declarations.
 
 ### Base Types
 
-| Type       | Kind   | Description          | Source   |
-|------------|--------|----------------------|----------|
-| `Bool`     | `Type` | `True \| False`      | Prelude  |
-| `()`       | `Type` | Empty record / unit  | Built-in |
+| Type       | Kind   | Description         | Source   |
+| ---------- | ------ | ------------------- | -------- |
+| `Bool`     | `Type` | `True \| False`     | Prelude  |
+| `()`       | `Type` | Empty record / unit | Built-in |
 | `Ordering` | `Type` | `LT \| EQ \| GT`    | Prelude  |
-| `Int`      | `Type` | 64-bit integer       | Built-in |
-| `String`   | `Type` | Unicode string       | Built-in |
-| `Rune`     | `Type` | Unicode code point   | Built-in |
+| `Int`      | `Type` | 64-bit integer      | Built-in |
+| `String`   | `Type` | Unicode string      | Built-in |
+| `Rune`     | `Type` | Unicode code point  | Built-in |
 
 ### Built-in Computation Types
 
-| Type                        | Kind                       | Description            |
-|-----------------------------|----------------------------|------------------------|
-| `Computation pre post a`    | `Row -> Row -> Type -> Type` | Effectful computation |
-| `Thunk pre post a`          | `Row -> Row -> Type -> Type` | Suspended computation |
+| Type                     | Kind                         | Description           |
+| ------------------------ | ---------------------------- | --------------------- |
+| `Computation pre post a` | `Row -> Row -> Type -> Type` | Effectful computation |
+| `Thunk pre post a`       | `Row -> Row -> Type -> Type` | Suspended computation |
 
 ### Algebraic Data Types (ADT)
 
@@ -256,14 +256,14 @@ Eq a => Ord a => a -> Bool
 
 ### Kinds
 
-| Kind                    | Description                          |
-|-------------------------|--------------------------------------|
-| `Type`                  | Kind of value types                  |
-| `Row`                   | Kind of row types                    |
-| `Constraint`            | Kind of class constraints            |
-| `Type -> Type`          | Higher-kinded (e.g., `Maybe`)        |
+| Kind                         | Description                    |
+| ---------------------------- | ------------------------------ |
+| `Type`                       | Kind of value types            |
+| `Row`                        | Kind of row types              |
+| `Constraint`                 | Kind of class constraints      |
+| `Type -> Type`               | Higher-kinded (e.g., `Maybe`)  |
 | `Row -> Row -> Type -> Type` | Kind of `Computation`, `Thunk` |
-| `Constraint -> Type`    | Constraint-parameterized             |
+| `Constraint -> Type`         | Constraint-parameterized       |
 
 ### DataKinds Promotion
 
@@ -394,22 +394,22 @@ force thunked_value            -- resume a suspended computation
 
 ### Expression Precedence
 
-| Level | Form              | Associativity |
-|-------|-------------------|---------------|
-| 0     | `:: Type`         | right         |
+| Level | Form              | Associativity    |
+| ----- | ----------------- | ---------------- |
+| 0     | `:: Type`         | right            |
 | 1-9   | Infix operators   | per `infixl/r/n` |
-| 10    | Application `f x` | left          |
-| --    | Atoms             | --            |
+| 10    | Application `f x` | left             |
+| --    | Atoms             | --               |
 
 ### Type Expression Precedence
 
-| Level | Form         | Associativity |
-|-------|--------------|---------------|
-| 0     | `forall`     | --            |
-| 1     | `=>`         | right         |
-| 2     | `->`         | right         |
-| 3     | Application  | left          |
-| --    | Atoms        | --            |
+| Level | Form        | Associativity |
+| ----- | ----------- | ------------- |
+| 0     | `forall`    | --            |
+| 1     | `=>`        | right         |
+| 2     | `->`        | right         |
+| 3     | Application | left          |
+| --    | Atoms       | --            |
 
 ---
 
@@ -607,76 +607,76 @@ class IxMonad (m : Row -> Row -> Type -> Type) {
 
 **IxMonad instances:**
 
-| Instance                | Notes                                    |
-|-------------------------|------------------------------------------|
-| `IxMonad Computation`   | Uses built-in `pure`/`bind`              |
-| `IxMonad Maybe`         | `Nothing` propagates; `Just a` applies f |
-| `IxMonad List`          | Concatmap (list monad)                   |
+| Instance              | Notes                                    |
+| --------------------- | ---------------------------------------- |
+| `IxMonad Computation` | Uses built-in `pure`/`bind`              |
+| `IxMonad Maybe`       | `Nothing` propagates; `Just a` applies f |
+| `IxMonad List`        | Concatmap (list monad)                   |
 
 **Eq instances:**
 
-| Instance                          |
-|-----------------------------------|
-| `Eq Bool`                         |
-| `Eq ()`                           |
-| `Eq Ordering`                     |
-| `Eq a => Eq (Maybe a)`           |
-| `Eq a => Eq b => Eq (a, b)`     |
-| `Eq a => Eq (List a)`           |
+| Instance                    |
+| --------------------------- |
+| `Eq Bool`                   |
+| `Eq ()`                     |
+| `Eq Ordering`               |
+| `Eq a => Eq (Maybe a)`      |
+| `Eq a => Eq b => Eq (a, b)` |
+| `Eq a => Eq (List a)`       |
 
 **Ord instances:**
 
-| Instance                            |
-|-------------------------------------|
-| `Ord Bool`                          |
-| `Ord ()`                            |
-| `Ord Ordering`                      |
-| `Ord a => Ord (Maybe a)`           |
-| `Ord a => Ord b => Ord (a, b)`     |
+| Instance                       |
+| ------------------------------ |
+| `Ord Bool`                     |
+| `Ord ()`                       |
+| `Ord Ordering`                 |
+| `Ord a => Ord (Maybe a)`       |
+| `Ord a => Ord b => Ord (a, b)` |
 
 **Semigroup instances:**
 
-| Instance                                    |
-|---------------------------------------------|
-| `Semigroup ()`                              |
-| `Semigroup Ordering`                        |
-| `Semigroup a => Semigroup (Maybe a)`       |
-| `Semigroup (List a)`                        |
+| Instance                             |
+| ------------------------------------ |
+| `Semigroup ()`                       |
+| `Semigroup Ordering`                 |
+| `Semigroup a => Semigroup (Maybe a)` |
+| `Semigroup (List a)`                 |
 
 **Monoid instances:**
 
-| Instance                                |
-|-----------------------------------------|
-| `Monoid ()`                             |
-| `Monoid Ordering`                       |
-| `Semigroup a => Monoid (Maybe a)`      |
-| `Monoid (List a)`                       |
+| Instance                          |
+| --------------------------------- |
+| `Monoid ()`                       |
+| `Monoid Ordering`                 |
+| `Semigroup a => Monoid (Maybe a)` |
+| `Monoid (List a)`                 |
 
 **Functor instances:**
 
-| Instance              |
-|-----------------------|
-| `Functor Maybe`       |
-| `Functor List`        |
+| Instance        |
+| --------------- |
+| `Functor Maybe` |
+| `Functor List`  |
 
 **Foldable instances:**
 
-| Instance               |
-|------------------------|
-| `Foldable Maybe`       |
-| `Foldable List`        |
+| Instance         |
+| ---------------- |
+| `Foldable Maybe` |
+| `Foldable List`  |
 
 **Applicative instances:**
 
-| Instance              |
-|-----------------------|
-| `Applicative Maybe`   |
+| Instance            |
+| ------------------- |
+| `Applicative Maybe` |
 
 **Traversable instances:**
 
-| Instance                  |
-|---------------------------|
-| `Traversable Maybe`       |
+| Instance            |
+| ------------------- |
+| `Traversable Maybe` |
 
 ### Functions
 
@@ -831,33 +831,33 @@ class Eq a => Num a {
 
 **Instances:**
 
-| Instance   |
-|------------|
-| `Eq Int`   |
-| `Ord Int`  |
-| `Num Int`  |
+| Instance  |
+| --------- |
+| `Eq Int`  |
+| `Ord Int` |
+| `Num Int` |
 
 **Functions:**
 
-| Name     | Type                   | Description           |
-|----------|------------------------|-----------------------|
-| `add`    | `forall a. Num a => a -> a -> a` | Addition (class method)  |
-| `sub`    | `forall a. Num a => a -> a -> a` | Subtraction (class method) |
+| Name     | Type                             | Description                   |
+| -------- | -------------------------------- | ----------------------------- |
+| `add`    | `forall a. Num a => a -> a -> a` | Addition (class method)       |
+| `sub`    | `forall a. Num a => a -> a -> a` | Subtraction (class method)    |
 | `mul`    | `forall a. Num a => a -> a -> a` | Multiplication (class method) |
-| `negate` | `forall a. Num a => a -> a`      | Negation (class method) |
-| `div`    | `Int -> Int -> Int`    | Integer division      |
-| `mod`    | `Int -> Int -> Int`    | Modulo                |
-| `abs`    | `Int -> Int`           | Absolute value        |
-| `sign`   | `Int -> Int`           | Sign (-1, 0, or 1)   |
+| `negate` | `forall a. Num a => a -> a`      | Negation (class method)       |
+| `div`    | `Int -> Int -> Int`              | Integer division              |
+| `mod`    | `Int -> Int -> Int`              | Modulo                        |
+| `abs`    | `Int -> Int`                     | Absolute value                |
+| `sign`   | `Int -> Int`                     | Sign (-1, 0, or 1)            |
 
 **Operators:**
 
-| Operator | Fixity     | Type                                   |
-|----------|------------|----------------------------------------|
-| `+`      | `infixl 6` | `forall a. Num a => a -> a -> a`       |
-| `-`      | `infixl 6` | `forall a. Num a => a -> a -> a`       |
-| `*`      | `infixl 7` | `forall a. Num a => a -> a -> a`       |
-| `/`      | `infixl 7` | `Int -> Int -> Int`                    |
+| Operator | Fixity     | Type                             |
+| -------- | ---------- | -------------------------------- |
+| `+`      | `infixl 6` | `forall a. Num a => a -> a -> a` |
+| `-`      | `infixl 6` | `forall a. Num a => a -> a -> a` |
+| `*`      | `infixl 7` | `forall a. Num a => a -> a -> a` |
+| `/`      | `infixl 7` | `Int -> Int -> Int`              |
 
 **Notes:**
 
@@ -871,31 +871,31 @@ Provides string and rune operations.
 
 **Instances:**
 
-| Instance            |
-|---------------------|
-| `Eq String`         |
-| `Ord String`        |
-| `Semigroup String`  |
-| `Monoid String`     |
-| `Eq Rune`           |
-| `Ord Rune`          |
+| Instance           |
+| ------------------ |
+| `Eq String`        |
+| `Ord String`       |
+| `Semigroup String` |
+| `Monoid String`    |
+| `Eq Rune`          |
+| `Ord Rune`         |
 
 **Functions:**
 
-| Name       | Type                                  | Description                              |
-|------------|---------------------------------------|------------------------------------------|
-| `length`   | `String -> Int`                       | Length in runes (Unicode code points)     |
-| `charAt`   | `Int -> String -> Maybe Rune`        | Rune at index (0-based), Nothing if out of range |
-| `substring`| `Int -> Int -> String -> String`     | `substring start count s` extracts a substring |
-| `toUpper`  | `String -> String`                    | Convert to uppercase                     |
-| `toLower`  | `String -> String`                    | Convert to lowercase                     |
-| `trim`     | `String -> String`                    | Trim leading/trailing whitespace         |
-| `contains` | `String -> String -> Bool`           | `contains needle haystack`               |
-| `split`    | `String -> String -> List String`    | `split separator string`                 |
-| `join`     | `String -> List String -> String`    | `join separator parts`                   |
-| `showInt`  | `Int -> String`                       | Convert Int to its decimal string        |
-| `showBool` | `Bool -> String`                      | Convert Bool to "True" or "False"        |
-| `readInt`  | `String -> Maybe Int`                | Parse decimal string to Int              |
+| Name        | Type                              | Description                                      |
+| ----------- | --------------------------------- | ------------------------------------------------ |
+| `length`    | `String -> Int`                   | Length in runes (Unicode code points)            |
+| `charAt`    | `Int -> String -> Maybe Rune`     | Rune at index (0-based), Nothing if out of range |
+| `substring` | `Int -> Int -> String -> String`  | `substring start count s` extracts a substring   |
+| `toUpper`   | `String -> String`                | Convert to uppercase                             |
+| `toLower`   | `String -> String`                | Convert to lowercase                             |
+| `trim`      | `String -> String`                | Trim leading/trailing whitespace                 |
+| `contains`  | `String -> String -> Bool`        | `contains needle haystack`                       |
+| `split`     | `String -> String -> List String` | `split separator string`                         |
+| `join`      | `String -> List String -> String` | `join separator parts`                           |
+| `showInt`   | `Int -> String`                   | Convert Int to its decimal string                |
+| `showBool`  | `Bool -> String`                  | Convert Bool to "True" or "False"                |
+| `readInt`   | `String -> Maybe Int`             | Parse decimal string to Int                      |
 
 **Notes:**
 
@@ -910,20 +910,20 @@ Provides list operations (native-speed implementations).
 
 **Functions:**
 
-| Name        | Type                                                   | Description                             |
-|-------------|--------------------------------------------------------|-----------------------------------------|
-| `fromSlice` | `forall a. List a -> List a`                          | Identity on Cons/Nil chains; converts HostVal slices |
-| `toSlice`   | `forall a. List a -> List a`                          | Identity on Cons/Nil chains; converts to HostVal slice |
-| `length`    | `forall a. List a -> Int`                             | Count elements                          |
-| `concat`    | `forall a. List a -> List a -> List a`                | Concatenate two lists                   |
-| `foldl`     | `forall a b. (b -> a -> b) -> b -> List a -> b`      | Strict left fold                        |
-| `take`      | `forall a. Int -> List a -> List a`                   | First n elements                        |
-| `drop`      | `forall a. Int -> List a -> List a`                   | Drop first n elements                   |
-| `index`     | `forall a. Int -> List a -> Maybe a`                  | Element at index (0-based)              |
-| `replicate` | `forall a. Int -> a -> List a`                        | List of n copies of a value             |
-| `reverse`   | `forall a. List a -> List a`                          | Reverse a list                          |
-| `zip`       | `forall a b. List a -> List b -> List (a, b)`          | Zip two lists into pairs                |
-| `unzip`     | `forall a b. List (a, b) -> (List a, List b)`           | Unzip a list of pairs                 |
+| Name        | Type                                            | Description                                            |
+| ----------- | ----------------------------------------------- | ------------------------------------------------------ |
+| `fromSlice` | `forall a. List a -> List a`                    | Identity on Cons/Nil chains; converts HostVal slices   |
+| `toSlice`   | `forall a. List a -> List a`                    | Identity on Cons/Nil chains; converts to HostVal slice |
+| `length`    | `forall a. List a -> Int`                       | Count elements                                         |
+| `concat`    | `forall a. List a -> List a -> List a`          | Concatenate two lists                                  |
+| `foldl`     | `forall a b. (b -> a -> b) -> b -> List a -> b` | Strict left fold                                       |
+| `take`      | `forall a. Int -> List a -> List a`             | First n elements                                       |
+| `drop`      | `forall a. Int -> List a -> List a`             | Drop first n elements                                  |
+| `index`     | `forall a. Int -> List a -> Maybe a`            | Element at index (0-based)                             |
+| `replicate` | `forall a. Int -> a -> List a`                  | List of n copies of a value                            |
+| `reverse`   | `forall a. List a -> List a`                    | Reverse a list                                         |
+| `zip`       | `forall a b. List a -> List b -> List (a, b)`   | Zip two lists into pairs                               |
+| `unzip`     | `forall a b. List (a, b) -> (List a, List b)`   | Unzip a list of pairs                                  |
 
 **Notes:**
 
@@ -937,11 +937,11 @@ Provides get/put state capabilities via the `state` capability in CapEnv.
 
 **Functions:**
 
-| Name     | Type                                                                                   | Description                    |
-|----------|----------------------------------------------------------------------------------------|--------------------------------|
-| `get`    | `forall s r. Computation { state : s \| r } { state : s \| r } s`                     | Read current state             |
-| `put`    | `forall s r. s -> Computation { state : s \| r } { state : s \| r } ()`               | Replace current state          |
-| `modify` | `forall s r. (s -> s) -> Computation { state : s \| r } { state : s \| r } ()`        | Apply a function to state      |
+| Name     | Type                                                                           | Description               |
+| -------- | ------------------------------------------------------------------------------ | ------------------------- |
+| `get`    | `forall s r. Computation { state : s \| r } { state : s \| r } s`              | Read current state        |
+| `put`    | `forall s r. s -> Computation { state : s \| r } { state : s \| r } ()`        | Replace current state     |
+| `modify` | `forall s r. (s -> s) -> Computation { state : s \| r } { state : s \| r } ()` | Apply a function to state |
 
 **Host setup:** Provide the initial state as the `"state"` capability:
 
@@ -957,12 +957,12 @@ Provides failure/error effects via the `fail` capability.
 
 **Functions:**
 
-| Name         | Type                                                                                              | Description                           |
-|--------------|---------------------------------------------------------------------------------------------------|---------------------------------------|
-| `failWith`   | `forall e r a. e -> Computation { fail : e \| r } { fail : e \| r } a`                           | Fail with a typed error value         |
-| `fail`       | `forall r a. Computation { fail : () \| r } { fail : () \| r } a`                                | Fail with () (no error payload)       |
-| `fromMaybe`  | `forall a r. Maybe a -> Computation { fail : () \| r } { fail : () \| r } a`                     | Extract Just or fail on Nothing       |
-| `fromResult` | `forall e a r. Result e a -> Computation { fail : e \| r } { fail : e \| r } a`                  | Extract Ok or failWith on Err         |
+| Name         | Type                                                                            | Description                     |
+| ------------ | ------------------------------------------------------------------------------- | ------------------------------- |
+| `failWith`   | `forall e r a. e -> Computation { fail : e \| r } { fail : e \| r } a`          | Fail with a typed error value   |
+| `fail`       | `forall r a. Computation { fail : () \| r } { fail : () \| r } a`               | Fail with () (no error payload) |
+| `fromMaybe`  | `forall a r. Maybe a -> Computation { fail : () \| r } { fail : () \| r } a`    | Extract Just or fail on Nothing |
+| `fromResult` | `forall e a r. Result e a -> Computation { fail : e \| r } { fail : e \| r } a` | Extract Ok or failWith on Err   |
 
 **Notes:**
 
@@ -975,10 +975,10 @@ Provides print/debug capabilities via the `io` capability.
 
 **Functions:**
 
-| Name    | Type                                                                          | Description                         |
-|---------|-------------------------------------------------------------------------------|-------------------------------------|
-| `print` | `String -> Computation { io : () \| r } { io : () \| r } ()`                | Append a string to the IO buffer    |
-| `debug` | `forall a. a -> Computation { io : () \| r } { io : () \| r } ()`           | Append debug representation to IO buffer |
+| Name    | Type                                                              | Description                              |
+| ------- | ----------------------------------------------------------------- | ---------------------------------------- |
+| `print` | `String -> Computation { io : () \| r } { io : () \| r } ()`      | Append a string to the IO buffer         |
+| `debug` | `forall a. a -> Computation { io : () \| r } { io : () \| r } ()` | Append debug representation to IO buffer |
 
 **Host setup:** Provide the `"io"` capability. Output accumulates as `[]string` in the final CapEnv:
 
@@ -996,21 +996,21 @@ lines := ioVal.([]string)
 
 All operators sorted by precedence (highest binds tightest):
 
-| Precedence | Operator | Associativity  | Type                                     | Source   |
-|------------|----------|----------------|------------------------------------------|----------|
-| 9          | `.`      | right          | `forall b c a. (b -> c) -> (a -> b) -> a -> c` | Prelude  |
-| 7          | `*`      | left           | `forall a. Num a => a -> a -> a`         | Std.Num  |
-| 7          | `/`      | left           | `Int -> Int -> Int`                      | Std.Num  |
-| 6          | `+`      | left           | `forall a. Num a => a -> a -> a`         | Std.Num  |
-| 6          | `-`      | left           | `forall a. Num a => a -> a -> a`         | Std.Num  |
-| 4          | `==`     | non-associative | `forall a. Eq a => a -> a -> Bool`       | Prelude  |
-| 4          | `/=`     | non-associative | `forall a. Eq a => a -> a -> Bool`       | Prelude  |
-| 4          | `<`      | non-associative | `forall a. Ord a => a -> a -> Bool`      | Prelude  |
-| 4          | `>`      | non-associative | `forall a. Ord a => a -> a -> Bool`      | Prelude  |
-| 4          | `<=`     | non-associative | `forall a. Ord a => a -> a -> Bool`      | Prelude  |
-| 4          | `>=`     | non-associative | `forall a. Ord a => a -> a -> Bool`      | Prelude  |
-| 3          | `&&`     | right          | `Bool -> Bool -> Bool`                   | Prelude  |
-| 2          | `\|\|`   | right          | `Bool -> Bool -> Bool`                   | Prelude  |
+| Precedence | Operator | Associativity   | Type                                           | Source  |
+| ---------- | -------- | --------------- | ---------------------------------------------- | ------- |
+| 9          | `.`      | right           | `forall b c a. (b -> c) -> (a -> b) -> a -> c` | Prelude |
+| 7          | `*`      | left            | `forall a. Num a => a -> a -> a`               | Std.Num |
+| 7          | `/`      | left            | `Int -> Int -> Int`                            | Std.Num |
+| 6          | `+`      | left            | `forall a. Num a => a -> a -> a`               | Std.Num |
+| 6          | `-`      | left            | `forall a. Num a => a -> a -> a`               | Std.Num |
+| 4          | `==`     | non-associative | `forall a. Eq a => a -> a -> Bool`             | Prelude |
+| 4          | `/=`     | non-associative | `forall a. Eq a => a -> a -> Bool`             | Prelude |
+| 4          | `<`      | non-associative | `forall a. Ord a => a -> a -> Bool`            | Prelude |
+| 4          | `>`      | non-associative | `forall a. Ord a => a -> a -> Bool`            | Prelude |
+| 4          | `<=`     | non-associative | `forall a. Ord a => a -> a -> Bool`            | Prelude |
+| 4          | `>=`     | non-associative | `forall a. Ord a => a -> a -> Bool`            | Prelude |
+| 3          | `&&`     | right           | `Bool -> Bool -> Bool`                         | Prelude |
+| 2          | `\|\|`   | right           | `Bool -> Bool -> Bool`                         | Prelude |
 
 Undeclared operators default to `infixl 9`.
 
@@ -1159,10 +1159,13 @@ Correct: `negate 5` (requires Std.Num)
 ### Type annotation is a separate declaration
 
 Wrong:
+
 ```
 f := \x -> x :: forall a. a -> a
 ```
+
 Correct:
+
 ```
 f :: forall a. a -> a
 f := \x -> x
@@ -1255,7 +1258,7 @@ result, err := gicel.RunSandbox(source, &gicel.SandboxConfig{
 `SandboxResult` contains:
 
 | Field    | Type        | Description                       |
-|----------|-------------|-----------------------------------|
+| -------- | ----------- | --------------------------------- |
 | `Value`  | `Value`     | The result of evaluating `entry`  |
 | `CapEnv` | `CapEnv`    | Final capability environment      |
 | `Stats`  | `EvalStats` | Steps taken and max depth reached |
@@ -1281,14 +1284,14 @@ result, err := rt.RunContextFull(ctx, caps, bindings, "main")
 
 ### Available Packs
 
-| Pack        | Variable    | Module Name  | Provides                                |
-|-------------|-------------|--------------|-----------------------------------------|
-| `gicel.Num`   | `Num`       | `Std.Num`    | Arithmetic, Int instances               |
-| `gicel.Str`   | `Str`       | `Std.Str`    | String/Rune ops, instances              |
-| `gicel.List`  | `List`      | `Std.List`   | Native list operations                  |
-| `gicel.Fail`  | `Fail`      | `Std.Fail`   | Failure effect                          |
-| `gicel.State` | `State`     | `Std.State`  | Get/put state                           |
-| `gicel.IO`    | `IO`        | `Std.IO`     | Print/debug output                      |
+| Pack          | Variable | Module Name | Provides                   |
+| ------------- | -------- | ----------- | -------------------------- |
+| `gicel.Num`   | `Num`    | `Std.Num`   | Arithmetic, Int instances  |
+| `gicel.Str`   | `Str`    | `Std.Str`   | String/Rune ops, instances |
+| `gicel.List`  | `List`   | `Std.List`  | Native list operations     |
+| `gicel.Fail`  | `Fail`   | `Std.Fail`  | Failure effect             |
+| `gicel.State` | `State`  | `Std.State` | Get/put state              |
+| `gicel.IO`    | `IO`     | `Std.IO`    | Print/debug output         |
 
 ### Custom Primitives (RegisterPrim)
 
@@ -1339,35 +1342,35 @@ In source, `myInput` is available as a variable of type `Int`.
 
 ### Value Conversion Helpers
 
-| Function                       | Description                                    |
-|--------------------------------|------------------------------------------------|
-| `gicel.ToValue(v any) Value`    | Wrap Go value: nil->(), bool->True/False, else->HostVal   |
-| `gicel.FromBool(v) (bool, bool)` | Extract Bool constructor                      |
-| `gicel.FromHost(v) (any, bool)` | Extract inner value from HostVal               |
-| `gicel.FromCon(v) (name, args, ok)` | Extract constructor name and arguments     |
-| `gicel.MustHost[T](v) T`       | Extract typed HostVal, panics on mismatch      |
-| `gicel.ToList(items []any) Value` | Build a Cons/Nil chain from Go slice         |
-| `gicel.FromList(v) ([]any, bool)` | Destructure Cons/Nil chain to Go slice       |
+| Function                            | Description                                             |
+| ----------------------------------- | ------------------------------------------------------- |
+| `gicel.ToValue(v any) Value`        | Wrap Go value: nil->(), bool->True/False, else->HostVal |
+| `gicel.FromBool(v) (bool, bool)`    | Extract Bool constructor                                |
+| `gicel.FromHost(v) (any, bool)`     | Extract inner value from HostVal                        |
+| `gicel.FromCon(v) (name, args, ok)` | Extract constructor name and arguments                  |
+| `gicel.MustHost[T](v) T`            | Extract typed HostVal, panics on mismatch               |
+| `gicel.ToList(items []any) Value`   | Build a Cons/Nil chain from Go slice                    |
+| `gicel.FromList(v) ([]any, bool)`   | Destructure Cons/Nil chain to Go slice                  |
 
 ### Type Construction Helpers
 
 For use with `DeclareBinding` and `DeclareAssumption`:
 
-| Function                             | Description                           |
-|--------------------------------------|---------------------------------------|
-| `gicel.ConType(name) Type`           | Simple type constructor: `"Int"`, `"Bool"` |
-| `gicel.VarType(name) Type`           | Type variable reference               |
-| `gicel.ArrowType(from, to) Type`     | Function type: `from -> to`           |
-| `gicel.AppType(f, arg) Type`         | Type application: `f a`              |
-| `gicel.CompType(pre, post, result) Type` | `Computation pre post result`     |
-| `gicel.ThunkType(pre, post, result) Type` | `Thunk pre post result`          |
-| `gicel.ForallType(var, body) Type`   | `forall var. body` (kind Type)        |
-| `gicel.ForallRow(var, body) Type`    | `forall (var : Row). body`            |
-| `gicel.ForallKind(var, k, body) Type` | `forall (var : k). body`            |
-| `gicel.EmptyRowType() Type`          | Empty closed row `{}`                |
-| `gicel.KindType() Kind`              | The `Type` kind                       |
-| `gicel.KindRow() Kind`               | The `Row` kind                        |
-| `gicel.KindArrow(from, to) Kind`     | Kind arrow: `from -> to`             |
+| Function                                  | Description                                |
+| ----------------------------------------- | ------------------------------------------ |
+| `gicel.ConType(name) Type`                | Simple type constructor: `"Int"`, `"Bool"` |
+| `gicel.VarType(name) Type`                | Type variable reference                    |
+| `gicel.ArrowType(from, to) Type`          | Function type: `from -> to`                |
+| `gicel.AppType(f, arg) Type`              | Type application: `f a`                    |
+| `gicel.CompType(pre, post, result) Type`  | `Computation pre post result`              |
+| `gicel.ThunkType(pre, post, result) Type` | `Thunk pre post result`                    |
+| `gicel.ForallType(var, body) Type`        | `forall var. body` (kind Type)             |
+| `gicel.ForallRow(var, body) Type`         | `forall (var : Row). body`                 |
+| `gicel.ForallKind(var, k, body) Type`     | `forall (var : k). body`                   |
+| `gicel.EmptyRowType() Type`               | Empty closed row `{}`                      |
+| `gicel.KindType() Kind`                   | The `Type` kind                            |
+| `gicel.KindRow() Kind`                    | The `Row` kind                             |
+| `gicel.KindArrow(from, to) Kind`          | Kind arrow: `from -> to`                   |
 
 **RowBuilder** for constructing row types:
 
@@ -1381,23 +1384,23 @@ openRow := gicel.NewRow().And("state", gicel.ConType("Int")).Open("r")
 
 ### Engine Configuration Methods
 
-| Method                            | Description                                 |
-|-----------------------------------|---------------------------------------------|
-| `eng.Use(pack Pack) error`       | Apply a stdlib pack                         |
-| `eng.RegisterPrim(name, impl)`   | Register a primitive implementation         |
-| `eng.RegisterType(name, kind)`   | Register an opaque host type                |
-| `eng.DeclareBinding(name, ty)`   | Declare a host-provided variable            |
-| `eng.DeclareAssumption(name, ty)` | Declare a primitive type (usually not needed if `::` is used in source) |
-| `eng.EnableRecursion()`          | Enable `rec` and `fix` built-ins            |
-| `eng.SetStepLimit(n int)`        | Set maximum evaluation steps                |
-| `eng.SetDepthLimit(n int)`       | Set maximum call depth                      |
-| `eng.NoPrelude()`               | Disable automatic Prelude loading           |
-| `eng.SetTraceHook(hook)`        | Set evaluation trace callback               |
-| `eng.SetCheckTraceHook(hook)`   | Set type checking trace callback            |
-| `eng.RegisterModule(name, src)`  | Compile and register a custom module        |
-| `eng.NewRuntime(source) (*Runtime, error)` | Compile source to Runtime        |
-| `eng.Check(source) (*CoreProgram, error)`  | Type-check without creating Runtime |
-| `eng.Parse(source) (*ParsedProgram, error)` | Parse without type-checking      |
+| Method                                      | Description                                                             |
+| ------------------------------------------- | ----------------------------------------------------------------------- |
+| `eng.Use(pack Pack) error`                  | Apply a stdlib pack                                                     |
+| `eng.RegisterPrim(name, impl)`              | Register a primitive implementation                                     |
+| `eng.RegisterType(name, kind)`              | Register an opaque host type                                            |
+| `eng.DeclareBinding(name, ty)`              | Declare a host-provided variable                                        |
+| `eng.DeclareAssumption(name, ty)`           | Declare a primitive type (usually not needed if `::` is used in source) |
+| `eng.EnableRecursion()`                     | Enable `rec` and `fix` built-ins                                        |
+| `eng.SetStepLimit(n int)`                   | Set maximum evaluation steps                                            |
+| `eng.SetDepthLimit(n int)`                  | Set maximum call depth                                                  |
+| `eng.NoPrelude()`                           | Disable automatic Prelude loading                                       |
+| `eng.SetTraceHook(hook)`                    | Set evaluation trace callback                                           |
+| `eng.SetCheckTraceHook(hook)`               | Set type checking trace callback                                        |
+| `eng.RegisterModule(name, src)`             | Compile and register a custom module                                    |
+| `eng.NewRuntime(source) (*Runtime, error)`  | Compile source to Runtime                                               |
+| `eng.Check(source) (*CoreProgram, error)`   | Type-check without creating Runtime                                     |
+| `eng.Parse(source) (*ParsedProgram, error)` | Parse without type-checking                                             |
 
 ### Error Handling
 

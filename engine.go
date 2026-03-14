@@ -371,13 +371,13 @@ func (e *Engine) NewRuntime(source string) (*Runtime, error) {
 	}
 
 	rt := &Runtime{
-		prog:          prog,
-		prims:         e.prims,
-		stepLimit:     e.stepLimit,
-		depthLimit:    e.depthLimit,
-		allocLimit:    e.allocLimit,
-		traceHook:     e.traceHook,
-		bindings:      maps.Clone(e.bindings),
+		prog:        prog,
+		prims:       e.prims,
+		stepLimit:   e.stepLimit,
+		depthLimit:  e.depthLimit,
+		allocLimit:  e.allocLimit,
+		traceHook:   e.traceHook,
+		bindings:    maps.Clone(e.bindings),
 		moduleProgs: modProgs,
 	}
 	rt.initBuiltinEnv(e.gatedBuiltins)

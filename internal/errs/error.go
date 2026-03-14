@@ -27,33 +27,33 @@ const (
 
 // Type check errors (E0200–E0299)
 const (
-	ErrTypeMismatch   Code = 200 // type mismatch in unification
-	ErrUnboundVar     Code = 201 // unbound variable
-	ErrUnboundCon     Code = 202 // unknown constructor
-	ErrNonExhaustive  Code = 203 // non-exhaustive pattern match
-	ErrBadApplication Code = 204 // application of non-function type
-	ErrBadComputation Code = 205 // expected computation type
-	ErrBadThunk       Code = 206 // thunk/force type error
-	ErrSpecialForm    Code = 207 // misuse of special form (pure/bind/thunk/force)
-	ErrAssumption     Code = 208 // assumption declaration error
-	ErrCyclicAlias    Code = 209 // cyclic type alias
-	ErrDuplicateLabel Code = 210 // duplicate label in row
-	ErrRowMismatch    Code = 211 // row unification failure
-	ErrOccursCheck    Code = 212 // infinite type (occurs check)
-	ErrBadTypeApp     Code = 213 // type application error
-	ErrEmptyDo        Code = 214 // empty do block
-	ErrBadDoEnding    Code = 215 // do block doesn't end with expression
-	ErrNoInstance     Code = 220 // no matching type class instance
-	ErrOverlap        Code = 221 // overlapping instances
-	ErrBadClass       Code = 222 // invalid class declaration
-	ErrBadInstance    Code = 223 // invalid instance declaration
-	ErrMissingMethod  Code = 224 // missing method in instance
-	ErrImport         Code = 230 // module import error
-	ErrSkolemEscape   Code = 240 // existential type variable escapes scope
-	ErrSkolemRigid    Code = 241 // cannot unify rigid (skolem) type variable
-	ErrKindMismatch      Code = 250 // kind mismatch in type application
-	ErrResolutionDepth   Code = 260 // instance resolution depth limit exceeded
-	ErrAliasExpansion    Code = 270 // alias expansion depth limit exceeded
+	ErrTypeMismatch    Code = 200 // type mismatch in unification
+	ErrUnboundVar      Code = 201 // unbound variable
+	ErrUnboundCon      Code = 202 // unknown constructor
+	ErrNonExhaustive   Code = 203 // non-exhaustive pattern match
+	ErrBadApplication  Code = 204 // application of non-function type
+	ErrBadComputation  Code = 205 // expected computation type
+	ErrBadThunk        Code = 206 // thunk/force type error
+	ErrSpecialForm     Code = 207 // misuse of special form (pure/bind/thunk/force)
+	ErrAssumption      Code = 208 // assumption declaration error
+	ErrCyclicAlias     Code = 209 // cyclic type alias
+	ErrDuplicateLabel  Code = 210 // duplicate label in row
+	ErrRowMismatch     Code = 211 // row unification failure
+	ErrOccursCheck     Code = 212 // infinite type (occurs check)
+	ErrBadTypeApp      Code = 213 // type application error
+	ErrEmptyDo         Code = 214 // empty do block
+	ErrBadDoEnding     Code = 215 // do block doesn't end with expression
+	ErrNoInstance      Code = 220 // no matching type class instance
+	ErrOverlap         Code = 221 // overlapping instances
+	ErrBadClass        Code = 222 // invalid class declaration
+	ErrBadInstance     Code = 223 // invalid instance declaration
+	ErrMissingMethod   Code = 224 // missing method in instance
+	ErrImport          Code = 230 // module import error
+	ErrSkolemEscape    Code = 240 // existential type variable escapes scope
+	ErrSkolemRigid     Code = 241 // cannot unify rigid (skolem) type variable
+	ErrKindMismatch    Code = 250 // kind mismatch in type application
+	ErrResolutionDepth Code = 260 // instance resolution depth limit exceeded
+	ErrAliasExpansion  Code = 270 // alias expansion depth limit exceeded
 )
 
 // Phase indicates which compiler stage produced the error.
@@ -106,7 +106,7 @@ const MaxErrors = 100
 
 // Errors collects multiple diagnostics for a single source.
 type Errors struct {
-	Source    *span.Source
+	Source   *span.Source
 	Errs     []*Error
 	Overflow int // count of errors dropped after MaxErrors
 }

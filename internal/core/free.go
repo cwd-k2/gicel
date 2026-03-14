@@ -11,8 +11,13 @@ func FreeVars(c Core) map[string]struct{} {
 }
 
 // bind/unbind use a depth counter to handle shadowing without map copies.
-func bind(bound map[string]int, name string)   { bound[name]++ }
-func unbind(bound map[string]int, name string) { bound[name]--; if bound[name] == 0 { delete(bound, name) } }
+func bind(bound map[string]int, name string) { bound[name]++ }
+func unbind(bound map[string]int, name string) {
+	bound[name]--
+	if bound[name] == 0 {
+		delete(bound, name)
+	}
+}
 
 func freeVarsRec(c Core, bound map[string]int, fv map[string]struct{}) {
 	switch n := c.(type) {

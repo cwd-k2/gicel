@@ -141,18 +141,18 @@ type RecordUpdate struct {
 }
 
 // --- coreNode markers ---
-func (*Var) coreNode()    {}
-func (*Lam) coreNode()    {}
-func (*App) coreNode()    {}
-func (*TyApp) coreNode()  {}
-func (*TyLam) coreNode()  {}
-func (*Con) coreNode()    {}
-func (*Case) coreNode()   {}
-func (*LetRec) coreNode() {}
-func (*Pure) coreNode()   {}
-func (*Bind) coreNode()   {}
-func (*Thunk) coreNode()  {}
-func (*Force) coreNode()  {}
+func (*Var) coreNode()          {}
+func (*Lam) coreNode()          {}
+func (*App) coreNode()          {}
+func (*TyApp) coreNode()        {}
+func (*TyLam) coreNode()        {}
+func (*Con) coreNode()          {}
+func (*Case) coreNode()         {}
+func (*LetRec) coreNode()       {}
+func (*Pure) coreNode()         {}
+func (*Bind) coreNode()         {}
+func (*Thunk) coreNode()        {}
+func (*Force) coreNode()        {}
 func (*PrimOp) coreNode()       {}
 func (*Lit) coreNode()          {}
 func (*RecordLit) coreNode()    {}
@@ -160,18 +160,18 @@ func (*RecordProj) coreNode()   {}
 func (*RecordUpdate) coreNode() {}
 
 // --- Span accessors ---
-func (c *Var) Span() span.Span    { return c.S }
-func (c *Lam) Span() span.Span    { return c.S }
-func (c *App) Span() span.Span    { return c.S }
-func (c *TyApp) Span() span.Span  { return c.S }
-func (c *TyLam) Span() span.Span  { return c.S }
-func (c *Con) Span() span.Span    { return c.S }
-func (c *Case) Span() span.Span   { return c.S }
-func (c *LetRec) Span() span.Span { return c.S }
-func (c *Pure) Span() span.Span   { return c.S }
-func (c *Bind) Span() span.Span   { return c.S }
-func (c *Thunk) Span() span.Span  { return c.S }
-func (c *Force) Span() span.Span  { return c.S }
+func (c *Var) Span() span.Span          { return c.S }
+func (c *Lam) Span() span.Span          { return c.S }
+func (c *App) Span() span.Span          { return c.S }
+func (c *TyApp) Span() span.Span        { return c.S }
+func (c *TyLam) Span() span.Span        { return c.S }
+func (c *Con) Span() span.Span          { return c.S }
+func (c *Case) Span() span.Span         { return c.S }
+func (c *LetRec) Span() span.Span       { return c.S }
+func (c *Pure) Span() span.Span         { return c.S }
+func (c *Bind) Span() span.Span         { return c.S }
+func (c *Thunk) Span() span.Span        { return c.S }
+func (c *Force) Span() span.Span        { return c.S }
 func (c *PrimOp) Span() span.Span       { return c.S }
 func (c *Lit) Span() span.Span          { return c.S }
 func (c *RecordLit) Span() span.Span    { return c.S }

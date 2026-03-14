@@ -4,11 +4,11 @@ GICEL is a typed embedded language designed to run inside a Go application as a 
 
 The host Go application defines the available capabilities — database access, network calls, file operations, or any domain-specific effect. The agent writes GICEL source code that composes these capabilities under static type checking. The language guarantees that:
 
-* the agent **cannot access resources** not explicitly provided by the host
-* the agent **cannot diverge** without the host's explicit opt-in (`EnableRecursion`)
-* the agent's code is **deterministic** and **reproducible**
-* all **type errors are caught before execution** — no ill-typed program reaches the evaluator
-* execution is **bounded** by step limits, depth limits, and context cancellation
+- the agent **cannot access resources** not explicitly provided by the host
+- the agent **cannot diverge** without the host's explicit opt-in (`EnableRecursion`)
+- the agent's code is **deterministic** and **reproducible**
+- all **type errors are caught before execution** — no ill-typed program reaches the evaluator
+- execution is **bounded** by step limits, depth limits, and context cancellation
 
 These guarantees are enforced by the type system (capability-indexed computation types with row polymorphism), the evaluation model (strict CBV with defense-in-depth limits), and the architecture (three-tier Engine → Runtime → Evaluator separation).
 
@@ -22,12 +22,12 @@ Beyond the agent sandbox use case, the language serves as a general-purpose core
 
 The language is:
 
-* purely functional at the value level
-* effectful at the computation level
-* statically typed
-* capability-based
-* indexed by capability state
-* deterministic
+- purely functional at the value level
+- effectful at the computation level
+- statically typed
+- capability-based
+- indexed by capability state
+- deterministic
 
 ## 1.2 Methodological Commitments
 
@@ -35,12 +35,12 @@ The specification is organized by **constitutive vocabulary** — concepts whose
 
 Additionally:
 
-* judgments are explicit
-* the relationship between values and computations is clear
-* capabilities are explicit in types
-* formation is defined before typing
-* typing rules follow introduction/elimination structure
-* `Term` and `Type` are treated as distinct layers
+- judgments are explicit
+- the relationship between values and computations is clear
+- capabilities are explicit in types
+- formation is defined before typing
+- typing rules follow introduction/elimination structure
+- `Term` and `Type` are treated as distinct layers
 
 ## 1.3 Extension Framework
 
@@ -56,13 +56,13 @@ Phase transitions cannot be reached by incremental refinement. They require expl
 
 # 2. Constitutive Vocabulary
 
-The vocabulary names concepts that make this language *this* language. Removing any item produces a fundamentally different language. Items that are universal to all typed languages (contexts, introduction/elimination structure) are treated as specification methodology, not vocabulary.
+The vocabulary names concepts that make this language _this_ language. Removing any item produces a fundamentally different language. Items that are universal to all typed languages (contexts, introduction/elimination structure) are treated as specification methodology, not vocabulary.
 
 The vocabulary is organized into four strata reflecting conceptual dependency.
 
 ## 2.1 Stratum 0 — Principles
 
-These define what computation *means*. Changing Stratum 0 changes the language's identity.
+These define what computation _means_. Changing Stratum 0 changes the language's identity.
 
 ### 2.1.1 Value / Computation
 
@@ -74,9 +74,9 @@ The language has two modes of expression.
 
 This split follows Call-By-Push-Value (Levy 1999). The two directions of the adjunction are:
 
-* **F** (`pure`): lifts a value into a computation — introduction of computations from values
-* **U** (`thunk`): suspends a computation into a value — introduction of suspended computations
-* **force**: resumes a suspended computation — elimination of thunks
+- **F** (`pure`): lifts a value into a computation — introduction of computations from values
+- **U** (`thunk`): suspends a computation into a value — introduction of suspended computations
+- **force**: resumes a suspended computation — elimination of thunks
 
 `bind` provides computation sequencing.
 
@@ -107,14 +107,14 @@ These laws are verified by construction in the evaluator, not by the type checke
 
 #### Relationship to monad variants
 
-| Variant | Index structure | Composition | What it tracks |
-|---------|----------------|-------------|----------------|
-| Standard monad | None | `M a → (a → M b) → M b` | Effects |
-| Atkey parameterized | Pre/post pair (i,j) | `M i j a → (a → M j k b) → M i k b` | State transitions |
-| Graded (Katsumata) | Monoid element g | `M g a → (a → M h b) → M (g⊕h) b` | Effect accumulation |
-| Category-graded | Category morphism | Subsumes both above | Both simultaneously |
+| Variant             | Index structure     | Composition                         | What it tracks      |
+| ------------------- | ------------------- | ----------------------------------- | ------------------- |
+| Standard monad      | None                | `M a → (a → M b) → M b`             | Effects             |
+| Atkey parameterized | Pre/post pair (i,j) | `M i j a → (a → M j k b) → M i k b` | State transitions   |
+| Graded (Katsumata)  | Monoid element g    | `M g a → (a → M h b) → M (g⊕h) b`   | Effect accumulation |
+| Category-graded     | Category morphism   | Subsumes both above                 | Both simultaneously |
 
-GICEL uses the Atkey specialization because capability environments are *state transitions* (pre → post), not *accumulated effect descriptions*. The rows compose by index matching (handoff), not by a monoidal operation.
+GICEL uses the Atkey specialization because capability environments are _state transitions_ (pre → post), not _accumulated effect descriptions_. The rows compose by index matching (handoff), not by a monoidal operation.
 
 ### 2.1.3 thunk / force
 
@@ -250,11 +250,11 @@ Type class predicates of kind `Constraint`. Values of kind `Constraint` are type
 
 Type, row, and kind equivalence. The equality theory includes:
 
-* alpha-equivalence of bound variables
-* row permutation (label order is irrelevant)
-* row normalization
-* local equality refinement (GADTs: pattern matching introduces type equalities)
-* kind unification (with kind metavariables)
+- alpha-equivalence of bound variables
+- row permutation (label order is irrelevant)
+- row normalization
+- local equality refinement (GADTs: pattern matching introduces type equalities)
+- kind unification (with kind metavariables)
 
 ---
 
@@ -283,17 +283,17 @@ Op     ::= operator characters              -- +, -, *, /, ==, >>=, .
 
 ## 3.3 Tokens
 
-| Token | Meaning |
-|-------|---------|
-| `::` | Type annotation |
-| `:=` | Definition binding |
-| `->` | Function type arrow |
-| `=>` | Constraint arrow |
-| `\` | Lambda |
-| `\|` | Row extension / record update / case separator |
-| `.` | forall body separator / composition operator (infixr 9) |
-| `!#` | Record projection |
-| `@` | Explicit type application |
+| Token | Meaning                                                 |
+| ----- | ------------------------------------------------------- |
+| `::`  | Type annotation                                         |
+| `:=`  | Definition binding                                      |
+| `->`  | Function type arrow                                     |
+| `=>`  | Constraint arrow                                        |
+| `\`   | Lambda                                                  |
+| `\|`  | Row extension / record update / case separator          |
+| `.`   | forall body separator / composition operator (infixr 9) |
+| `!#`  | Record projection                                       |
+| `@`   | Explicit type application                               |
 
 ## 3.4 Type Syntax
 
@@ -428,21 +428,21 @@ RowField ::= Label ':' Type
 
 Built-in operators:
 
-| Operator | Fixity | Precedence | Meaning |
-|----------|--------|------------|---------|
-| `.` | infixr | 9 | Function composition |
-| `*` | infixl | 7 | Multiplication |
-| `/` | infixl | 7 | Division |
-| `%` | infixl | 7 | Modulo |
-| `+` | infixl | 6 | Addition |
-| `-` | infixl | 6 | Subtraction |
-| `<>` | infixr | 6 | Append (Semigroup) |
-| `==` | infixn | 4 | Equality |
-| `/=` | infixn | 4 | Inequality |
-| `<` | infixn | 4 | Less than |
-| `>` | infixn | 4 | Greater than |
-| `<=` | infixn | 4 | Less or equal |
-| `>=` | infixn | 4 | Greater or equal |
+| Operator | Fixity | Precedence | Meaning              |
+| -------- | ------ | ---------- | -------------------- |
+| `.`      | infixr | 9          | Function composition |
+| `*`      | infixl | 7          | Multiplication       |
+| `/`      | infixl | 7          | Division             |
+| `%`      | infixl | 7          | Modulo               |
+| `+`      | infixl | 6          | Addition             |
+| `-`      | infixl | 6          | Subtraction          |
+| `<>`     | infixr | 6          | Append (Semigroup)   |
+| `==`     | infixn | 4          | Equality             |
+| `/=`     | infixn | 4          | Inequality           |
+| `<`      | infixn | 4          | Less than            |
+| `>`      | infixn | 4          | Greater than         |
+| `<=`     | infixn | 4          | Less or equal        |
+| `>=`     | infixn | 4          | Greater or equal     |
 
 ---
 
@@ -450,11 +450,11 @@ Built-in operators:
 
 ## 4.1 Base Kinds
 
-| Kind | Purpose |
-|------|---------|
-| `Type` | Kind of value types |
-| `Row` | Kind of row descriptors (capabilities, record fields) |
-| `Constraint` | Kind of type class predicates |
+| Kind         | Purpose                                               |
+| ------------ | ----------------------------------------------------- |
+| `Type`       | Kind of value types                                   |
+| `Row`        | Kind of row descriptors (capabilities, record fields) |
+| `Constraint` | Kind of type class predicates                         |
 
 ## 4.2 Kind Arrows
 
@@ -477,11 +477,11 @@ data DBState = Opened | Closed
 
 Produces:
 
-| Level | Name | Classification |
-|-------|------|---------------|
-| Term | `Opened`, `Closed` | Constructor, type `DBState` |
-| Type | `Opened`, `Closed` | Type, kind `DBState` |
-| Kind | `DBState` | Kind |
+| Level | Name               | Classification              |
+| ----- | ------------------ | --------------------------- |
+| Term  | `Opened`, `Closed` | Constructor, type `DBState` |
+| Type  | `Opened`, `Closed` | Type, kind `DBState`        |
+| Kind  | `DBState`          | Kind                        |
 
 This enables precise capability tracking:
 
@@ -507,9 +507,9 @@ forall (k : Kind). forall (f : k -> Type). f a -> f a
 
 Kind inference uses kind metavariables and unification:
 
-* `KindMeta` metavariables in the ordered context
-* Kind occurs check
-* Kind substitution (`applyKindSubst`)
+- `KindMeta` metavariables in the ordered context
+- Kind occurs check
+- Kind substitution (`applyKindSubst`)
 
 Kind variables are explicit and never inferred. Programs without kind variables have unchanged kind inference behavior.
 
@@ -521,8 +521,8 @@ Kind variables are explicit and never inferred. Programs without kind variables 
 
 The type checker uses two modes following Dunfield-Krishnaswami:
 
-* **Check mode** (Γ ⊢ e ⇐ A): verify that expression `e` has type `A`
-* **Infer mode** (Γ ⊢ e ⇒ A): synthesize the type of expression `e`
+- **Check mode** (Γ ⊢ e ⇐ A): verify that expression `e` has type `A`
+- **Infer mode** (Γ ⊢ e ⇒ A): synthesize the type of expression `e`
 
 The checker maintains an ordered context with union-find for metavariable solving.
 
@@ -715,17 +715,17 @@ IxMonad   (independent — indexed monadic interface)
 
 9 type classes total:
 
-| Class | Parameters | Key Methods |
-|-------|-----------|-------------|
-| `Eq` | `a` | `eq :: a -> a -> Bool` |
-| `Ord` | `a` (requires Eq) | `compare :: a -> a -> Ordering` |
-| `Semigroup` | `a` | `append :: a -> a -> a` |
-| `Monoid` | `a` (requires Semigroup) | `empty :: a` |
-| `Functor` | `f : k -> Type` | `fmap :: (a -> b) -> f a -> f b` |
-| `Foldable` | `t` | `foldr :: (a -> b -> b) -> b -> t a -> b` |
-| `Applicative` | `f` (requires Functor) | `wrap :: a -> f a`, `ap :: f (a -> b) -> f a -> f b` |
+| Class         | Parameters                       | Key Methods                                                 |
+| ------------- | -------------------------------- | ----------------------------------------------------------- |
+| `Eq`          | `a`                              | `eq :: a -> a -> Bool`                                      |
+| `Ord`         | `a` (requires Eq)                | `compare :: a -> a -> Ordering`                             |
+| `Semigroup`   | `a`                              | `append :: a -> a -> a`                                     |
+| `Monoid`      | `a` (requires Semigroup)         | `empty :: a`                                                |
+| `Functor`     | `f : k -> Type`                  | `fmap :: (a -> b) -> f a -> f b`                            |
+| `Foldable`    | `t`                              | `foldr :: (a -> b -> b) -> b -> t a -> b`                   |
+| `Applicative` | `f` (requires Functor)           | `wrap :: a -> f a`, `ap :: f (a -> b) -> f a -> f b`        |
 | `Traversable` | `t` (requires Functor, Foldable) | `traverse :: Applicative f => (a -> f b) -> t a -> f (t b)` |
-| `IxMonad` | `m : Row -> Row -> Type -> Type` | `ixpure`, `ixbind` |
+| `IxMonad`     | `m : Row -> Row -> Type -> Type` | `ixpure`, `ixbind`                                          |
 
 `Applicative.wrap` corresponds to Haskell's `pure` but uses a different name to avoid collision with the language built-in `pure`.
 
@@ -850,12 +850,12 @@ Field order is semantically irrelevant (Row property). `{ x = 1, y = 2 }` and `{
 
 Tuples are syntactic sugar for records with positional labels `_1`, `_2`, `_3`, ...
 
-| Surface | Desugars to |
-|---------|-------------|
-| `(1, True)` | `{ _1 = 1, _2 = True }` |
-| `(Int, Bool)` | `Record { _1 : Int, _2 : Bool }` |
-| `t!#_1` | record projection on `_1` |
-| `(a, b)` (pattern) | `{ _1 = a, _2 = b }` (pattern) |
+| Surface            | Desugars to                      |
+| ------------------ | -------------------------------- |
+| `(1, True)`        | `{ _1 = 1, _2 = True }`          |
+| `(Int, Bool)`      | `Record { _1 : Int, _2 : Bool }` |
+| `t!#_1`            | record projection on `_1`        |
+| `(a, b)` (pattern) | `{ _1 = a, _2 = b }` (pattern)   |
 
 `()` is the 0-tuple, equivalent to the empty record `{}`. It replaces the former `Unit` type.
 
@@ -867,11 +867,11 @@ Tuples are syntactic sugar for records with positional labels `_1`, `_2`, `_3`, 
 
 Records elaborate to three Core IR formers:
 
-| Operation | Core Former |
-|-----------|-------------|
-| Literal | `RecordCon` |
-| Projection | `RecordProj` |
-| Update | `RecordUpdate` |
+| Operation  | Core Former    |
+| ---------- | -------------- |
+| Literal    | `RecordCon`    |
+| Projection | `RecordProj`   |
+| Update     | `RecordUpdate` |
 
 Runtime representation: `RecordVal` wrapping `map[string]Value`.
 
@@ -967,25 +967,25 @@ put :: forall s r. s -> Computation { state : s | r } { state : s | r } ()
 
 The Core intermediate representation has **17 formers**:
 
-| Former | Category | Description |
-|--------|----------|-------------|
-| `Var` | Variable | Variable reference |
-| `Lam` | Function | Lambda abstraction |
-| `App` | Function | Function application |
-| `TyLam` | Polymorphism | Type abstraction |
-| `TyApp` | Polymorphism | Type application |
-| `Con` | Data | Constructor application |
-| `Case` | Data | Pattern matching |
-| `LetRec` | Binding | Recursive let binding |
-| `Pure` | Computation | Lift value to computation (F) |
-| `Bind` | Computation | Sequence computations |
-| `Thunk` | Computation | Suspend computation (U) |
-| `Force` | Computation | Resume thunked computation |
-| `PrimOp` | Primitive | Host-provided operation |
-| `Lit` | Literal | Integer, String, Rune literals |
-| `RecordCon` | Record | Record construction |
-| `RecordProj` | Record | Field projection |
-| `RecordUpdate` | Record | Field update |
+| Former         | Category     | Description                    |
+| -------------- | ------------ | ------------------------------ |
+| `Var`          | Variable     | Variable reference             |
+| `Lam`          | Function     | Lambda abstraction             |
+| `App`          | Function     | Function application           |
+| `TyLam`        | Polymorphism | Type abstraction               |
+| `TyApp`        | Polymorphism | Type application               |
+| `Con`          | Data         | Constructor application        |
+| `Case`         | Data         | Pattern matching               |
+| `LetRec`       | Binding      | Recursive let binding          |
+| `Pure`         | Computation  | Lift value to computation (F)  |
+| `Bind`         | Computation  | Sequence computations          |
+| `Thunk`        | Computation  | Suspend computation (U)        |
+| `Force`        | Computation  | Resume thunked computation     |
+| `PrimOp`       | Primitive    | Host-provided operation        |
+| `Lit`          | Literal      | Integer, String, Rune literals |
+| `RecordCon`    | Record       | Record construction            |
+| `RecordProj`   | Record       | Field projection               |
+| `RecordUpdate` | Record       | Field update                   |
 
 Type classes, GADTs, DataKinds, modules, and constraints all elaborate to these formers — no additional Core nodes are needed.
 
@@ -999,22 +999,22 @@ Strict call-by-value (CBV) evaluation with an environment-based evaluator.
 
 ## 11.2 Runtime Values
 
-| Value | Description |
-|-------|-------------|
-| `HostVal` | Opaque Go values (`int64`, `string`, `rune`, etc.) |
-| `Closure` | Functions with captured environment |
-| `ConVal` | Constructor applications |
-| `ThunkVal` | Suspended computations |
-| `RecordVal` | Record values (`map[string]Value`) |
+| Value       | Description                                        |
+| ----------- | -------------------------------------------------- |
+| `HostVal`   | Opaque Go values (`int64`, `string`, `rune`, etc.) |
+| `Closure`   | Functions with captured environment                |
+| `ConVal`    | Constructor applications                           |
+| `ThunkVal`  | Suspended computations                             |
+| `RecordVal` | Record values (`map[string]Value`)                 |
 
 ## 11.3 Defense-in-Depth Limits
 
 The evaluator enforces multiple layers of protection:
 
-* **Step limit**: maximum number of evaluation steps (default: 100,000)
-* **Depth limit**: maximum call stack depth (default: 1,000)
-* **Context cancellation**: Go `context.Context` integration for timeout
-* **Recursion guard**: recursive definitions rejected unless `EnableRecursion()` is called
+- **Step limit**: maximum number of evaluation steps (default: 100,000)
+- **Depth limit**: maximum call stack depth (default: 1,000)
+- **Context cancellation**: Go `context.Context` integration for timeout
+- **Recursion guard**: recursive definitions rejected unless `EnableRecursion()` is called
 
 These limits are orthogonal and cumulative — the strictest applicable limit applies.
 
@@ -1047,8 +1047,8 @@ Modules are parsed and type-checked at registration time. Circular imports are f
 
 The Prelude is split into two parts:
 
-* **Core** (not replaceable): language-essential definitions — `IxMonad` class, `Computation` instance, `Effect` alias, `then` combinator, `Lift` type alias
-* **Prelude** (replaceable): standard library types, classes, instances — `Bool`, `Maybe`, `List`, `Ordering`, all 9 type classes, instances
+- **Core** (not replaceable): language-essential definitions — `IxMonad` class, `Computation` instance, `Effect` alias, `then` combinator, `Lift` type alias
+- **Prelude** (replaceable): standard library types, classes, instances — `Bool`, `Maybe`, `List`, `Ordering`, all 9 type classes, instances
 
 ```go
 eng.SetPrelude(customSource)  // Replace default Prelude with custom source
@@ -1066,11 +1066,11 @@ All top-level definitions in a module are exported. Selective exports are a futu
 
 ## 13.1 Three-Tier Lifecycle
 
-| Tier | Mutability | Purpose |
-|------|-----------|---------|
-| **Engine** | Mutable | Configuration: register types, assumptions, primitives, modules, stdlib packs |
-| **Runtime** | Immutable, goroutine-safe | Compiled program: type-checked Core IR ready for execution |
-| **Evaluator** | Per-execution | Fresh evaluation state with limits, hooks, capability environment |
+| Tier          | Mutability                | Purpose                                                                       |
+| ------------- | ------------------------- | ----------------------------------------------------------------------------- |
+| **Engine**    | Mutable                   | Configuration: register types, assumptions, primitives, modules, stdlib packs |
+| **Runtime**   | Immutable, goroutine-safe | Compiled program: type-checked Core IR ready for execution                    |
+| **Evaluator** | Per-execution             | Fresh evaluation state with limits, hooks, capability environment             |
 
 ## 13.2 Engine API
 
@@ -1151,8 +1151,8 @@ TyEvidenceRow {
 
 Two fibers are implemented:
 
-* **CapabilityEntries** — capability rows (pre/post states of `Computation`)
-* **ConstraintEntries** — constraint rows (type class predicates)
+- **CapabilityEntries** — capability rows (pre/post states of `Computation`)
+- **ConstraintEntries** — constraint rows (type class predicates)
 
 New fibers can be added by implementing the `EvidenceEntries` interface.
 
@@ -1187,14 +1187,14 @@ snd :: forall a b. (a, b) -> b
 
 ## 15.2 Stdlib Packs
 
-| Pack | Provides |
-|------|----------|
-| `Num` | `Num` class, `Eq`/`Ord` Int, arithmetic operators (`+`, `-`, `*`, `/`, `%`) |
-| `Str` | `Eq`/`Ord`/`Semigroup`/`Monoid` String, `Eq`/`Ord` Rune |
-| `List` | `fromSlice`, `toSlice`, `length`, `concat`, `foldl` |
-| `Fail` | `fail` capability, `fromMaybe`, `fromResult` |
-| `State` | `get`/`put` capabilities |
-| `IO` | `print`/`debug` via CapEnv buffer |
+| Pack    | Provides                                                                    |
+| ------- | --------------------------------------------------------------------------- |
+| `Num`   | `Num` class, `Eq`/`Ord` Int, arithmetic operators (`+`, `-`, `*`, `/`, `%`) |
+| `Str`   | `Eq`/`Ord`/`Semigroup`/`Monoid` String, `Eq`/`Ord` Rune                     |
+| `List`  | `fromSlice`, `toSlice`, `length`, `concat`, `foldl`                         |
+| `Fail`  | `fail` capability, `fromMaybe`, `fromResult`                                |
+| `State` | `get`/`put` capabilities                                                    |
+| `IO`    | `print`/`debug` via CapEnv buffer                                           |
 
 Types (`Int`, `String`, `Rune`) are checker built-ins; operations come from stdlib packs. Runtime representation: `HostVal` wrapping Go values (`int64`, `string`, `rune`).
 
@@ -1202,21 +1202,21 @@ Types (`Int`, `String`, `Rune`) are checker built-ins; operations come from stdl
 
 # 16. Open Design Fork Points
 
-| Fork Point | Current State | Decision Trigger |
-|------------|---------------|-----------------|
-| Branching with divergent post-states | Equal post-states required | User demand for `if`-like branching where branches modify capabilities differently |
-| `Row` as built-in kind vs general structured-index | Built-in kind | Need for non-capability indexing (e.g., session types) |
-| Usage judgment (linear/affine capabilities) | Not implemented | Graded Evidence (Level 10) design |
-| Algebraic effects/handlers vs indexed monad | Indexed monad (Atkey) | Evidence that handler-based approach better serves the AI agent use case |
+| Fork Point                                         | Current State              | Decision Trigger                                                                   |
+| -------------------------------------------------- | -------------------------- | ---------------------------------------------------------------------------------- |
+| Branching with divergent post-states               | Equal post-states required | User demand for `if`-like branching where branches modify capabilities differently |
+| `Row` as built-in kind vs general structured-index | Built-in kind              | Need for non-capability indexing (e.g., session types)                             |
+| Usage judgment (linear/affine capabilities)        | Not implemented            | Graded Evidence (Level 10) design                                                  |
+| Algebraic effects/handlers vs indexed monad        | Indexed monad (Atkey)      | Evidence that handler-based approach better serves the AI agent use case           |
 
 ---
 
 # 17. Extension Assessment
 
-| Extension | Classification | Prerequisite |
-|-----------|---------------|-------------|
-| Type Families | Phase transition | Substantial checker changes |
-| Refinement Types | Phase transition | Separate analysis |
-| Dependent Types | Full restructure | Far future |
-| Graded Evidence | Addition | Unified evidence architecture (done) |
-| Selective module exports | Refinement | Module system maturity |
+| Extension                | Classification   | Prerequisite                         |
+| ------------------------ | ---------------- | ------------------------------------ |
+| Type Families            | Phase transition | Substantial checker changes          |
+| Refinement Types         | Phase transition | Separate analysis                    |
+| Dependent Types          | Full restructure | Far future                           |
+| Graded Evidence          | Addition         | Unified evidence architecture (done) |
+| Selective module exports | Refinement       | Module system maturity               |

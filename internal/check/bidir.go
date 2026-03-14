@@ -837,4 +837,3 @@ func (ch *Checker) inferList(e *syntax.ExprList) (types.Type, core.Core) {
 
 	return ch.unifier.Zonk(listTy), result
 }
-

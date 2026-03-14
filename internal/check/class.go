@@ -116,7 +116,7 @@ func (ch *Checker) processClassDecl(d *syntax.DeclClass, prog *core.Program) {
 		KindParams:   kindParams,
 		Supers:       supers,
 		Methods:      methods,
-		DictName: dn,
+		DictName:     dn,
 	}
 	ch.classes[d.Name] = info
 

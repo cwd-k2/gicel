@@ -8,9 +8,9 @@ import (
 )
 
 // Helper constructors.
-func intVal(n int64) eval.Value         { return &eval.HostVal{Inner: n} }
-func strVal(s string) eval.Value        { return &eval.HostVal{Inner: s} }
-func runeVal(r rune) eval.Value         { return &eval.HostVal{Inner: r} }
+func intVal(n int64) eval.Value          { return &eval.HostVal{Inner: n} }
+func strVal(s string) eval.Value         { return &eval.HostVal{Inner: s} }
+func runeVal(r rune) eval.Value          { return &eval.HostVal{Inner: r} }
 func args(vs ...eval.Value) []eval.Value { return vs }
 
 var (

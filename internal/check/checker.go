@@ -12,12 +12,12 @@ import (
 
 // Generated name prefixes for internal variables.
 const (
-	prefixDict       = "$d"      // dictionary parameters
-	prefixDictCV     = "$d_cv"   // constraint-variable dictionary parameters
-	prefixDictDefer  = "$dict"   // deferred dictionary placeholders
-	prefixPat        = "$pat"    // desugared structured pattern variables
-	prefixBind       = "$bind"   // anonymous bind variables
-	prefixSel        = "$sel"    // class method selectors
+	prefixDict      = "$d"    // dictionary parameters
+	prefixDictCV    = "$d_cv" // constraint-variable dictionary parameters
+	prefixDictDefer = "$dict" // deferred dictionary placeholders
+	prefixPat       = "$pat"  // desugared structured pattern variables
+	prefixBind      = "$bind" // anonymous bind variables
+	prefixSel       = "$sel"  // class method selectors
 )
 
 // CheckConfig provides environment for type checking.
@@ -70,25 +70,25 @@ type CheckTraceHook func(CheckTraceEvent)
 
 // Checker holds mutable state during type checking.
 type Checker struct {
-	ctx              *Context
-	unifier          *Unifier
-	errors           *errs.Errors
-	source           *span.Source
-	freshID          int
-	config           *CheckConfig
-	conTypes         map[string]types.Type
-	conInfo          map[string]*DataTypeInfo
-	aliases          map[string]*aliasInfo
-	classes          map[string]*ClassInfo
-	instances          []*InstanceInfo
-	instancesByClass   map[string][]*InstanceInfo
-	importedInstances  map[*InstanceInfo]bool
-	promotedKinds    map[string]types.Kind // DataKinds: data name → KData
-	promotedCons     map[string]types.Kind // DataKinds: nullary con → KData
-	kindVars         map[string]bool       // HKT: kind variables in scope (from forall (k : Kind))
-	deferred         []deferredConstraint
-	depth            int
-	resolveDepth     int // instance resolution recursion depth
+	ctx               *Context
+	unifier           *Unifier
+	errors            *errs.Errors
+	source            *span.Source
+	freshID           int
+	config            *CheckConfig
+	conTypes          map[string]types.Type
+	conInfo           map[string]*DataTypeInfo
+	aliases           map[string]*aliasInfo
+	classes           map[string]*ClassInfo
+	instances         []*InstanceInfo
+	instancesByClass  map[string][]*InstanceInfo
+	importedInstances map[*InstanceInfo]bool
+	promotedKinds     map[string]types.Kind // DataKinds: data name → KData
+	promotedCons      map[string]types.Kind // DataKinds: nullary con → KData
+	kindVars          map[string]bool       // HKT: kind variables in scope (from forall (k : Kind))
+	deferred          []deferredConstraint
+	depth             int
+	resolveDepth      int // instance resolution recursion depth
 }
 
 // DataTypeInfo carries constructor information for exhaustiveness.
@@ -116,9 +116,9 @@ type deferredConstraint struct {
 	className     string
 	args          []types.Type
 	s             span.Span
-	group         int                          // constraints from same qualified type chain; 0 = ungrouped
-	quantified    *types.QuantifiedConstraint  // non-nil for quantified constraints
-	constraintVar types.Type                   // non-nil for constraint variable entries (Dict reification)
+	group         int                         // constraints from same qualified type chain; 0 = ungrouped
+	quantified    *types.QuantifiedConstraint // non-nil for quantified constraints
+	constraintVar types.Type                  // non-nil for constraint variable entries (Dict reification)
 }
 
 // Check type-checks a surface AST program and produces Core IR.
