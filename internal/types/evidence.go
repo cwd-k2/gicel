@@ -89,6 +89,18 @@ func (c *ConstraintEntries) AllChildren() []Type {
 	return ch
 }
 
+func constraintEntryChildren(e ConstraintEntry) []Type {
+	ch := make([]Type, 0, len(e.Args))
+	ch = append(ch, e.Args...)
+	if e.Quantified != nil {
+		for _, c := range e.Quantified.Context {
+			ch = append(ch, constraintEntryChildren(c)...)
+		}
+		ch = append(ch, constraintEntryChildren(e.Quantified.Head)...)
+	}
+	return ch
+}
+
 func (c *ConstraintEntries) MapChildren(f func(Type) Type) EvidenceEntries {
 	entries := make([]ConstraintEntry, len(c.Entries))
 	for i, e := range c.Entries {

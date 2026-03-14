@@ -2,7 +2,6 @@ package types
 
 import (
 	"fmt"
-	"sort"
 	"strings"
 )
 
@@ -38,10 +37,6 @@ func structuralKey(t Type) string {
 		return fmt.Sprintf("Meta(%d)", v.ID)
 	case *TySkolem:
 		return fmt.Sprintf("Skolem(%d)", v.ID)
-	case *TyRow:
-		return structuralKey(v.ToEvidence())
-	case *TyConstraintRow:
-		return structuralKey(v.ToEvidence())
 	case *TyEvidence:
 		return "Ev(" + structuralKey(v.Constraints) + "," + structuralKey(v.Body) + ")"
 	case *TyEvidenceRow:
@@ -73,26 +68,4 @@ func structuralKey(t Type) string {
 		}
 		return "?"
 	}
-}
-
-// NormalizeConstraints sorts entries by canonical key and returns a new TyConstraintRow.
-// For display ordering only; matching uses className + type unification.
-func NormalizeConstraints(r *TyConstraintRow) *TyConstraintRow {
-	if len(r.Entries) <= 1 {
-		return r
-	}
-	sorted := make([]ConstraintEntry, len(r.Entries))
-	copy(sorted, r.Entries)
-	sort.Slice(sorted, func(i, j int) bool {
-		return ConstraintKey(sorted[i]) < ConstraintKey(sorted[j])
-	})
-	return &TyConstraintRow{Entries: sorted, Tail: r.Tail, S: r.S}
-}
-
-// ExtendConstraint adds an entry to a constraint row.
-func ExtendConstraint(r *TyConstraintRow, e ConstraintEntry) *TyConstraintRow {
-	entries := make([]ConstraintEntry, len(r.Entries)+1)
-	copy(entries, r.Entries)
-	entries[len(r.Entries)] = e
-	return &TyConstraintRow{Entries: entries, Tail: r.Tail, S: r.S}
 }

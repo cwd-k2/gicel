@@ -76,20 +76,6 @@ func equalAlpha(a, b Type, bindings []alphaBinding) bool {
 			equalAlpha(at.Post, bt.Post, bindings) &&
 			equalAlpha(at.Result, bt.Result, bindings)
 
-	case *TyRow:
-		bt, ok := b.(*TyRow)
-		if !ok {
-			return false
-		}
-		return equalAlpha(at.ToEvidence(), bt.ToEvidence(), bindings)
-
-	case *TyConstraintRow:
-		bt, ok := b.(*TyConstraintRow)
-		if !ok {
-			return false
-		}
-		return equalAlpha(at.ToEvidence(), bt.ToEvidence(), bindings)
-
 	case *TyEvidenceRow:
 		bt, ok := b.(*TyEvidenceRow)
 		if !ok {

@@ -26,21 +26,6 @@ func MkForall(v string, k Kind, body Type) *TyForall {
 	return &TyForall{Var: v, Kind: k, Body: body}
 }
 
-// EmptyRow creates an empty closed row.
-func EmptyRow() *TyRow {
-	return &TyRow{}
-}
-
-// ClosedRow creates a closed row from fields.
-func ClosedRow(fields ...RowField) *TyRow {
-	return Normalize(&TyRow{Fields: fields})
-}
-
-// OpenRow creates an open row with a tail.
-func OpenRow(fields []RowField, tail Type) *TyRow {
-	return Normalize(&TyRow{Fields: fields, Tail: tail})
-}
-
 // Con creates a TyCon.
 func Con(name string) *TyCon {
 	return &TyCon{Name: name}
@@ -49,18 +34,6 @@ func Con(name string) *TyCon {
 // Var creates a TyVar.
 func Var(name string) *TyVar {
 	return &TyVar{Name: name}
-}
-
-// EmptyConstraintRow creates an empty closed constraint row.
-func EmptyConstraintRow() *TyConstraintRow {
-	return &TyConstraintRow{}
-}
-
-// SingleConstraint creates a constraint row with one entry.
-func SingleConstraint(className string, args []Type) *TyConstraintRow {
-	return &TyConstraintRow{
-		Entries: []ConstraintEntry{{ClassName: className, Args: args}},
-	}
 }
 
 // MkEvidence creates a TyEvidence from constraint entries and a body type.

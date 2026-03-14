@@ -75,12 +75,6 @@ func Subst(t Type, varName string, replacement Type) Type {
 		}
 		return &TyThunk{Pre: newPre, Post: newPost, Result: newResult, S: ty.S}
 
-	case *TyRow:
-		return Subst(ty.ToEvidence(), varName, replacement)
-
-	case *TyConstraintRow:
-		return Subst(ty.ToEvidence(), varName, replacement)
-
 	case *TyEvidence:
 		newConstraints := Subst(ty.Constraints, varName, replacement)
 		newBody := Subst(ty.Body, varName, replacement)

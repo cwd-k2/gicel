@@ -59,36 +59,11 @@ type TyThunk struct {
 	S      span.Span
 }
 
-// TyRow is a row type { l1:T1, ..., ln:Tn | tail? }.
-type TyRow struct {
-	Fields []RowField
-	Tail   Type // nil = closed row, TyVar or TyMeta = open row
-	S      span.Span
-}
-
 // RowField is a single label:type pair in a row.
 type RowField struct {
 	Label string
 	Type  Type
 	S     span.Span
-}
-
-// ToEvidence converts a TyRow to the unified TyEvidenceRow representation.
-func (r *TyRow) ToEvidence() *TyEvidenceRow {
-	return &TyEvidenceRow{Entries: &CapabilityEntries{Fields: r.Fields}, Tail: r.Tail, S: r.S}
-}
-
-// TyConstraintRow is a constraint row type { C1 a, C2 b | tail? }.
-// Kind: KConstraint. Parallel to TyRow for capability rows.
-type TyConstraintRow struct {
-	Entries []ConstraintEntry
-	Tail    Type // nil = closed, TyVar or TyMeta = open
-	S       span.Span
-}
-
-// ToEvidence converts a TyConstraintRow to the unified TyEvidenceRow representation.
-func (r *TyConstraintRow) ToEvidence() *TyEvidenceRow {
-	return &TyEvidenceRow{Entries: &ConstraintEntries{Entries: r.Entries}, Tail: r.Tail, S: r.S}
 }
 
 // ConstraintEntry is a single class constraint in a constraint row.
@@ -158,8 +133,6 @@ func (*TyArrow) typeNode()  {}
 func (*TyForall) typeNode() {}
 func (*TyComp) typeNode()   {}
 func (*TyThunk) typeNode()  {}
-func (*TyRow) typeNode()    {}
-func (*TyConstraintRow) typeNode() {}
 func (*TyEvidence) typeNode()      {}
 func (*TySkolem) typeNode()        {}
 func (*TyMeta) typeNode()          {}
@@ -174,8 +147,6 @@ func (t *TyArrow) Span() span.Span  { return t.S }
 func (t *TyForall) Span() span.Span { return t.S }
 func (t *TyComp) Span() span.Span   { return t.S }
 func (t *TyThunk) Span() span.Span  { return t.S }
-func (t *TyRow) Span() span.Span    { return t.S }
-func (t *TyConstraintRow) Span() span.Span { return t.S }
 func (t *TyEvidence) Span() span.Span      { return t.S }
 func (t *TySkolem) Span() span.Span        { return t.S }
 func (t *TyMeta) Span() span.Span          { return t.S }
@@ -190,28 +161,6 @@ func (t *TyArrow) Children() []Type  { return []Type{t.From, t.To} }
 func (t *TyForall) Children() []Type { return []Type{t.Body} }
 func (t *TyComp) Children() []Type   { return []Type{t.Pre, t.Post, t.Result} }
 func (t *TyThunk) Children() []Type  { return []Type{t.Pre, t.Post, t.Result} }
-func (t *TyConstraintRow) Children() []Type {
-	var ch []Type
-	for _, e := range t.Entries {
-		ch = append(ch, constraintEntryChildren(e)...)
-	}
-	if t.Tail != nil {
-		ch = append(ch, t.Tail)
-	}
-	return ch
-}
-
-func constraintEntryChildren(e ConstraintEntry) []Type {
-	ch := make([]Type, 0, len(e.Args))
-	ch = append(ch, e.Args...)
-	if e.Quantified != nil {
-		for _, c := range e.Quantified.Context {
-			ch = append(ch, constraintEntryChildren(c)...)
-		}
-		ch = append(ch, constraintEntryChildren(e.Quantified.Head)...)
-	}
-	return ch
-}
 func (t *TyEvidence) Children() []Type { return []Type{t.Constraints, t.Body} }
 func (t *TySkolem) Children() []Type   { return nil }
 func (t *TyMeta) Children() []Type     { return nil }
@@ -231,13 +180,3 @@ func UnwindApp(ty Type) (Type, []Type) {
 	}
 }
 
-func (t *TyRow) Children() []Type {
-	ch := make([]Type, 0, len(t.Fields)+1)
-	for _, f := range t.Fields {
-		ch = append(ch, f.Type)
-	}
-	if t.Tail != nil {
-		ch = append(ch, t.Tail)
-	}
-	return ch
-}

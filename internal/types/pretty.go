@@ -29,10 +29,6 @@ func Pretty(t Type) string {
 	case *TyThunk:
 		return fmt.Sprintf("Thunk %s %s %s",
 			prettyAtom(ty.Pre), prettyAtom(ty.Post), prettyAtom(ty.Result))
-	case *TyRow:
-		return prettyCapFields(ty.Fields, ty.Tail)
-	case *TyConstraintRow:
-		return prettyConstraintEntries(ty.Entries, ty.Tail)
 	case *TyEvidenceRow:
 		return prettyEvidenceRow(ty)
 	case *TyEvidence:
@@ -50,7 +46,7 @@ func Pretty(t Type) string {
 
 func prettyAtom(t Type) string {
 	switch t.(type) {
-	case *TyVar, *TyCon, *TyRow, *TyEvidenceRow, *TySkolem, *TyMeta, *TyError:
+	case *TyVar, *TyCon, *TyEvidenceRow, *TySkolem, *TyMeta, *TyError:
 		return Pretty(t)
 	default:
 		return "(" + Pretty(t) + ")"

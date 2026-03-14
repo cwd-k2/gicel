@@ -110,10 +110,6 @@ func collectAliasRefsRec(ty types.Type, aliases map[string]*aliasInfo, seen map[
 		collectAliasRefsRec(t.Pre, aliases, seen, refs)
 		collectAliasRefsRec(t.Post, aliases, seen, refs)
 		collectAliasRefsRec(t.Result, aliases, seen, refs)
-	case *types.TyRow:
-		collectAliasRefsRec(t.ToEvidence(), aliases, seen, refs)
-	case *types.TyConstraintRow:
-		collectAliasRefsRec(t.ToEvidence(), aliases, seen, refs)
 	case *types.TyEvidenceRow:
 		for _, ch := range t.Entries.AllChildren() {
 			collectAliasRefsRec(ch, aliases, seen, refs)

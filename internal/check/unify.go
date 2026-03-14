@@ -200,10 +200,6 @@ func (u *Unifier) Zonk(t types.Type) types.Type {
 			return ty
 		}
 		return &types.TyThunk{Pre: zPre, Post: zPost, Result: zResult, S: ty.S}
-	case *types.TyRow:
-		return u.Zonk(ty.ToEvidence())
-	case *types.TyConstraintRow:
-		return u.Zonk(ty.ToEvidence())
 	case *types.TyEvidenceRow:
 		switch entries := ty.Entries.(type) {
 		case *types.CapabilityEntries:
@@ -403,14 +399,6 @@ func (u *Unifier) Unify(a, b types.Type) error {
 		if _, ok := b.(*types.TyApp); ok {
 			return u.unifyAppWithTriple(b, "Thunk", [3]types.Type{at.Pre, at.Post, at.Result})
 		}
-	case *types.TyRow:
-		if bt, ok := b.(*types.TyRow); ok {
-			return u.unifyEvidenceRows(at.ToEvidence(), bt.ToEvidence())
-		}
-	case *types.TyConstraintRow:
-		if bt, ok := b.(*types.TyConstraintRow); ok {
-			return u.unifyEvidenceRows(at.ToEvidence(), bt.ToEvidence())
-		}
 	case *types.TyEvidenceRow:
 		if bt, ok := b.(*types.TyEvidenceRow); ok {
 			return u.unifyEvidenceRows(at, bt)
@@ -464,13 +452,6 @@ func (u *Unifier) solveMeta(m *types.TyMeta, t types.Type) error {
 	// Label uniqueness: if this meta has a label context, verify the
 	// solution doesn't introduce duplicate labels (spec §8, §6.3).
 	if ctx, ok := u.labels[m.ID]; ok {
-		if row, ok := t.(*types.TyRow); ok {
-			for _, f := range row.Fields {
-				if _, dup := ctx[f.Label]; dup {
-					return &UnifyError{Kind: UnifyDupLabel, Detail: fmt.Sprintf("duplicate label %q in row", f.Label)}
-				}
-			}
-		}
 		if ev, ok := t.(*types.TyEvidenceRow); ok {
 			if cap, ok := ev.Entries.(*types.CapabilityEntries); ok {
 				for _, f := range cap.Fields {
