@@ -229,7 +229,7 @@ func cmdCheck(args []string) int {
 func outputJSON(v any) {
 	enc := json.NewEncoder(os.Stdout)
 	enc.SetIndent("", "  ")
-	_ = enc.Encode(v)
+	_ = enc.Encode(v) // write error to stdout is intentionally ignored
 }
 
 func formatValue(v gicel.Value) any {

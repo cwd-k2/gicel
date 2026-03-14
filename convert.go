@@ -7,8 +7,8 @@ import (
 )
 
 // ToValue wraps a Go value as a GICEL Value.
-// Supported types: int, int64, float64, string, bool, nil.
-// For other types, use &HostVal{Inner: v} directly.
+// nil becomes unit (empty record), bool becomes True/False constructor,
+// and all other types are wrapped as HostVal.
 func ToValue(v any) Value {
 	if v == nil {
 		return &eval.RecordVal{Fields: map[string]eval.Value{}}

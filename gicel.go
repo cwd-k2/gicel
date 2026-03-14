@@ -48,6 +48,16 @@ type TraceHook = eval.TraceHook
 // CheckTraceKind classifies type checking trace events.
 type CheckTraceKind = check.CheckTraceKind
 
+// CheckTraceKind constants for filtering trace events.
+const (
+	TraceUnify       = check.TraceUnify
+	TraceSolveMeta   = check.TraceSolveMeta
+	TraceInfer       = check.TraceInfer
+	TraceCheck       = check.TraceCheck
+	TraceInstantiate = check.TraceInstantiate
+	TraceRowUnify    = check.TraceRowUnify
+)
+
 // CheckTraceEvent describes one type checking decision.
 type CheckTraceEvent = check.CheckTraceEvent
 

@@ -41,6 +41,8 @@ func BuiltinEnv(enableFix, enableRec bool) *Env {
 	})
 
 	// Gated built-ins: rec and fix (enabled via EnableRecursion).
+	// Both share the same fixpoint body; two names exist for user ergonomics
+	// (fix for explicit fixed-point, rec for recursive let sugar).
 	if enableFix {
 		env = env.Extend("fix", &Closure{
 			Env: EmptyEnv(), Param: "_f",

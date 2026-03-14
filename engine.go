@@ -144,7 +144,7 @@ func (e *Engine) RegisterModuleFile(path string) error {
 // RegisterModule compiles a module and makes it available for import.
 // Circular dependencies are detected and rejected.
 func (e *Engine) RegisterModule(name, source string) error {
-	// Circular dependency check.
+	// Reject duplicate registration.
 	if _, exists := e.modules[name]; exists {
 		return fmt.Errorf("module %s already registered", name)
 	}

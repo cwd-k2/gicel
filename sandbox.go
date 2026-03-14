@@ -5,6 +5,13 @@ import (
 	"time"
 )
 
+// Sandbox defaults — intentionally more conservative than Engine defaults.
+const (
+	sandboxDefaultSteps = 100_000
+	sandboxDefaultDepth = 100
+	sandboxDefaultAlloc = 10 * 1024 * 1024 // 10 MiB
+)
+
 // SandboxConfig configures a sandboxed execution.
 // All fields are optional; nil config uses conservative defaults.
 type SandboxConfig struct {
@@ -42,15 +49,15 @@ func RunSandbox(source string, cfg *SandboxConfig) (*SandboxResult, error) {
 	}
 	maxSteps := cfg.MaxSteps
 	if maxSteps == 0 {
-		maxSteps = 100_000
+		maxSteps = sandboxDefaultSteps
 	}
 	maxDepth := cfg.MaxDepth
 	if maxDepth == 0 {
-		maxDepth = 100
+		maxDepth = sandboxDefaultDepth
 	}
 	maxAlloc := cfg.MaxAlloc
 	if maxAlloc == 0 {
-		maxAlloc = 10 * 1024 * 1024 // 10 MiB
+		maxAlloc = sandboxDefaultAlloc
 	}
 
 	eng := NewEngine()

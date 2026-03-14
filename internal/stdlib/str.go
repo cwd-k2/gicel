@@ -416,14 +416,4 @@ func toRunesImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Ap
 	return result, ce, nil
 }
 
-func asInt64Str(v eval.Value) (int64, error) {
-	hv, ok := v.(*eval.HostVal)
-	if !ok {
-		return 0, fmt.Errorf("stdlib/str: expected HostVal(int64), got %T", v)
-	}
-	n, ok := hv.Inner.(int64)
-	if !ok {
-		return 0, fmt.Errorf("stdlib/str: expected int64, got %T", hv.Inner)
-	}
-	return n, nil
-}
+func asInt64Str(v eval.Value) (int64, error) { return asInt64(v, "str") }

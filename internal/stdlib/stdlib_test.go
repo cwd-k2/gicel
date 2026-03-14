@@ -254,7 +254,7 @@ func TestGetImplNonValue(t *testing.T) {
 // --- asInt64 / asString error ---
 
 func TestAsInt64Error(t *testing.T) {
-	_, err := asInt64(strVal("oops"))
+	_, err := asInt64(strVal("oops"), "test")
 	if err == nil {
 		t.Fatal("expected error from asInt64 with string")
 	}
