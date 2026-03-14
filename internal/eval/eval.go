@@ -206,8 +206,12 @@ func (ev *Evaluator) Eval(env *Env, capEnv CapEnv, expr core.Core) (EvalResult, 
 		if err := ev.limit.Alloc(costThunk); err != nil {
 			return EvalResult{}, err
 		}
+		thunkEnv := env
+		if e.FV != nil {
+			thunkEnv = env.TrimTo(e.FV)
+		}
 		// Mark capEnv as shared since ThunkVal captures it.
-		return EvalResult{&ThunkVal{Env: env, Comp: e.Comp}, capEnv.MarkShared()}, nil
+		return EvalResult{&ThunkVal{Env: thunkEnv, Comp: e.Comp}, capEnv.MarkShared()}, nil
 
 	case *core.Force:
 		exprR, err := ev.Eval(env, capEnv, e.Expr)

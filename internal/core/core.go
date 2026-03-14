@@ -87,6 +87,7 @@ type Bind struct {
 // Thunk — suspend computation (thunk c).
 type Thunk struct {
 	Comp Core
+	FV   []string // Free variables (populated by AnnotateFreeVars)
 	S    span.Span
 }
 

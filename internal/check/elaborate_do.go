@@ -263,10 +263,13 @@ const (
 // extractIxMethod resolves the IxMonad (Lift monadHead) dictionary and
 // extracts the method at the given index via pattern matching.
 func (ch *Checker) extractIxMethod(monadHead types.Type, methodIdx int, s span.Span) core.Core {
+	classInfo := ch.classes["IxMonad"]
+	if classInfo == nil {
+		ch.errors.Add(&errs.Error{Code: errs.ErrNoInstance, Span: s, Message: "IxMonad class not available (missing Prelude?)"})
+		return &core.Var{Name: "<error>", S: s}
+	}
 	liftedMonad := &types.TyApp{Fun: &types.TyCon{Name: "Lift"}, Arg: monadHead}
 	dict := ch.resolveInstance("IxMonad", []types.Type{liftedMonad}, s)
-
-	classInfo := ch.classes["IxMonad"]
 	fieldIdx := len(classInfo.Supers) + methodIdx
 	return ch.extractDictField(classInfo, dict, fieldIdx, "ixm", s)
 }
