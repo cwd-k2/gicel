@@ -1,9 +1,9 @@
-package gomputation
+package gicel
 
 import (
 	"fmt"
 
-	"github.com/cwd-k2/gomputation/internal/types"
+	"github.com/cwd-k2/gicel/internal/types"
 )
 
 // Type is the unified type representation used across the public API.

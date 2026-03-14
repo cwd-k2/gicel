@@ -1,4 +1,4 @@
-package gomputation_test
+package gicel_test
 
 import (
 	"context"
@@ -7,18 +7,18 @@ import (
 	"path/filepath"
 	"testing"
 
-	gmp "github.com/cwd-k2/gomputation"
-	"github.com/cwd-k2/gomputation/internal/check"
-	"github.com/cwd-k2/gomputation/internal/core"
-	"github.com/cwd-k2/gomputation/internal/errs"
-	"github.com/cwd-k2/gomputation/internal/eval"
-	"github.com/cwd-k2/gomputation/internal/span"
-	"github.com/cwd-k2/gomputation/internal/syntax/parse"
+	"github.com/cwd-k2/gicel"
+	"github.com/cwd-k2/gicel/internal/check"
+	"github.com/cwd-k2/gicel/internal/core"
+	"github.com/cwd-k2/gicel/internal/errs"
+	"github.com/cwd-k2/gicel/internal/eval"
+	"github.com/cwd-k2/gicel/internal/span"
+	"github.com/cwd-k2/gicel/internal/syntax/parse"
 )
 
-// addSeedCorpus adds all .gmp files from testdata/stress/ as seed inputs.
+// addSeedCorpus adds all .gicel files from testdata/stress/ as seed inputs.
 func addSeedCorpus(f *testing.F) {
-	seeds, _ := filepath.Glob("testdata/stress/*.gmp")
+	seeds, _ := filepath.Glob("testdata/stress/*.gicel")
 	for _, path := range seeds {
 		data, err := os.ReadFile(path)
 		if err != nil {
@@ -77,7 +77,7 @@ func FuzzCheck(f *testing.F) {
 	f.Add([]byte("f :: Int -> Int; f := \\x -> x; main := f 42"))
 
 	f.Fuzz(func(t *testing.T, src []byte) {
-		eng := gmp.NewEngine()
+		eng := gicel.NewEngine()
 		eng.Check(string(src)) // panics are the signal; compile/type errors are expected
 	})
 }
@@ -118,7 +118,7 @@ func FuzzEval(f *testing.F) {
 	f.Add([]byte("data Pair a b = MkPair a b; main := MkPair True False"))
 
 	f.Fuzz(func(t *testing.T, src []byte) {
-		_, err := gmp.RunSandbox(string(src), &gmp.SandboxConfig{
+		_, err := gicel.RunSandbox(string(src), &gicel.SandboxConfig{
 			MaxSteps: 10_000,
 			MaxDepth: 50,
 			MaxAlloc: 1024 * 1024, // 1 MiB

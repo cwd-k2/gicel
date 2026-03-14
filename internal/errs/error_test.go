@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/cwd-k2/gomputation/internal/span"
+	"github.com/cwd-k2/gicel/internal/span"
 )
 
 func TestErrorString(t *testing.T) {
@@ -47,7 +47,7 @@ func TestErrorsEmpty(t *testing.T) {
 
 func TestFormatSingleError(t *testing.T) {
 	// "let x = 42\n"
-	src := span.NewSource("test.gmp", "let x = 42\n")
+	src := span.NewSource("test.gicel", "let x = 42\n")
 	es := &Errors{Source: src}
 	es.Add(&Error{
 		Code:    1,
@@ -61,13 +61,13 @@ func TestFormatSingleError(t *testing.T) {
 	// Check key fragments.
 	assertContains(t, got, "error[E0001]")
 	assertContains(t, got, "unexpected keyword")
-	assertContains(t, got, "test.gmp:1:1")
+	assertContains(t, got, "test.gicel:1:1")
 	assertContains(t, got, "let x = 42")
 	assertContains(t, got, "^^^") // underline for 3 bytes
 }
 
 func TestFormatWithHint(t *testing.T) {
-	src := span.NewSource("test.gmp", "f x y\n")
+	src := span.NewSource("test.gicel", "f x y\n")
 	es := &Errors{Source: src}
 	es.Add(&Error{
 		Code:    2,
@@ -83,12 +83,12 @@ func TestFormatWithHint(t *testing.T) {
 
 	assertContains(t, got, "error[E0002]")
 	assertContains(t, got, "type mismatch")
-	assertContains(t, got, "test.gmp:1:3")
+	assertContains(t, got, "test.gicel:1:3")
 	assertContains(t, got, "hint: expected Int")
 }
 
 func TestFormatMultipleErrors(t *testing.T) {
-	src := span.NewSource("test.gmp", "a b c\n")
+	src := span.NewSource("test.gicel", "a b c\n")
 	es := &Errors{Source: src}
 	es.Add(&Error{Code: 1, Phase: PhaseLex, Span: span.Span{Start: 0, End: 1}, Message: "err one"})
 	es.Add(&Error{Code: 2, Phase: PhaseLex, Span: span.Span{Start: 4, End: 5}, Message: "err two"})

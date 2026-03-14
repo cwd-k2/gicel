@@ -1,8 +1,8 @@
-# Gomputation — Language Specification
+# GICEL — Language Specification
 
-Gomputation is a typed embedded language designed to run inside a Go application as a library. Its primary purpose is to let **AI agents safely construct and execute pure computations** within a host-controlled sandbox.
+GICEL is a typed embedded language designed to run inside a Go application as a library. Its primary purpose is to let **AI agents safely construct and execute pure computations** within a host-controlled sandbox.
 
-The host Go application defines the available capabilities — database access, network calls, file operations, or any domain-specific effect. The agent writes Gomputation source code that composes these capabilities under static type checking. The language guarantees that:
+The host Go application defines the available capabilities — database access, network calls, file operations, or any domain-specific effect. The agent writes GICEL source code that composes these capabilities under static type checking. The language guarantees that:
 
 * the agent **cannot access resources** not explicitly provided by the host
 * the agent **cannot diverge** without the host's explicit opt-in (`EnableRecursion`)
@@ -114,7 +114,7 @@ These laws are verified by construction in the evaluator, not by the type checke
 | Graded (Katsumata) | Monoid element g | `M g a → (a → M h b) → M (g⊕h) b` | Effect accumulation |
 | Category-graded | Category morphism | Subsumes both above | Both simultaneously |
 
-Gomputation uses the Atkey specialization because capability environments are *state transitions* (pre → post), not *accumulated effect descriptions*. The rows compose by index matching (handoff), not by a monoidal operation.
+GICEL uses the Atkey specialization because capability environments are *state transitions* (pre → post), not *accumulated effect descriptions*. The rows compose by index matching (handoff), not by a monoidal operation.
 
 ### 2.1.3 thunk / force
 
@@ -1038,7 +1038,7 @@ import ModuleName
 
 ```go
 eng.RegisterModule("MyLib", source)        // Register module from source string
-eng.RegisterModuleFile("path/to/mod.gmp")  // Register module from file
+eng.RegisterModuleFile("path/to/mod.gicel")  // Register module from file
 ```
 
 Modules are parsed and type-checked at registration time. Circular imports are forbidden (topological sort at registration). Name collisions between imported modules are an error at the import site.
@@ -1075,24 +1075,24 @@ All top-level definitions in a module are exported. Selective exports are a futu
 ## 13.2 Engine API
 
 ```go
-eng := gomputation.NewEngine()
+eng := gicel.NewEngine()
 
 // Type registration
-eng.RegisterType("DB", gomputation.KindArrow(userKind, gomputation.KindType))
+eng.RegisterType("DB", gicel.KindArrow(userKind, gicel.KindType))
 
 // Assumption (effect declaration)
 eng.DeclareAssumption("dbOpen", "forall r. Computation { db : DB Closed | r } { db : DB Opened | r } ()")
 
 // Primitive implementation
-eng.RegisterPrim("dbOpen", gomputation.PrimImpl{...})
+eng.RegisterPrim("dbOpen", gicel.PrimImpl{...})
 
 // Stdlib packs
-eng.Use(gomputation.Num)    // Num class, arithmetic operators
-eng.Use(gomputation.Str)    // String/Rune operations
-eng.Use(gomputation.List)   // List operations
-eng.Use(gomputation.Fail)   // fail capability
-eng.Use(gomputation.State)  // get/put capabilities
-eng.Use(gomputation.IO)     // print/debug via CapEnv buffer
+eng.Use(gicel.Num)    // Num class, arithmetic operators
+eng.Use(gicel.Str)    // String/Rune operations
+eng.Use(gicel.List)   // List operations
+eng.Use(gicel.Fail)   // fail capability
+eng.Use(gicel.State)  // get/put capabilities
+eng.Use(gicel.IO)     // print/debug via CapEnv buffer
 ```
 
 A stdlib pack is `func(*Engine) error` — it bundles `RegisterType` + `RegisterModule` + `RegisterPrim`. A pack is not a module; it is a Go-side configuration action.
@@ -1116,7 +1116,7 @@ result, capEnv, err := rt.RunContextFull(ctx)
 ## 13.5 Sandbox API
 
 ```go
-result, err := gomputation.RunSandbox(source, config)
+result, err := gicel.RunSandbox(source, config)
 ```
 
 Single-call compile+execute for AI agents.

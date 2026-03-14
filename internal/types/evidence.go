@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/cwd-k2/gomputation/internal/span"
+	"github.com/cwd-k2/gicel/internal/span"
 )
 
 // EvidenceEntries is the interface for fiber-specific entry collections

@@ -3,7 +3,7 @@ package stdlib
 import (
 	"context"
 
-	"github.com/cwd-k2/gomputation/internal/eval"
+	"github.com/cwd-k2/gicel/internal/eval"
 )
 
 // Fail provides the fail effect capability.

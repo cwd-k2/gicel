@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/cwd-k2/gomputation/internal/types"
+	"github.com/cwd-k2/gicel/internal/types"
 )
 
 // Pretty renders a Core term as readable pseudo-syntax.

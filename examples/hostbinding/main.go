@@ -1,9 +1,9 @@
-// Example: hostbinding — injecting Go values into Gomputation.
+// Example: hostbinding — injecting Go values into GICEL.
 //
-// Gomputation has no literals. All data enters from the Go host via
+// GICEL has no literals. All data enters from the Go host via
 // DeclareBinding (compile-time type declaration) and RunContext (run-time
 // value provision). This example registers an opaque "Int" type, declares
-// a binding of that type, and wraps it in a Maybe from Gomputation source.
+// a binding of that type, and wraps it in a Maybe from GICEL source.
 package main
 
 import (
@@ -11,7 +11,7 @@ import (
 	"fmt"
 	"log"
 
-	gmp "github.com/cwd-k2/gomputation"
+	"github.com/cwd-k2/gicel"
 )
 
 // The source references `n` — a host-provided variable of type Int.
@@ -21,14 +21,14 @@ main := Just n
 `
 
 func main() {
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 
 	// Register "Int" as an opaque host type (kind: Type).
-	eng.RegisterType("Int", gmp.KindType())
+	eng.RegisterType("Int", gicel.KindType())
 
 	// Declare that `n` exists at type Int.
 	// The checker will verify all uses of `n` are consistent with this type.
-	eng.DeclareBinding("n", gmp.ConType("Int"))
+	eng.DeclareBinding("n", gicel.ConType("Int"))
 
 	// Compile.
 	rt, err := eng.NewRuntime(source)
@@ -38,8 +38,8 @@ func main() {
 
 	// Provide the actual value for `n` at runtime.
 	// The same Runtime can be executed many times with different values.
-	bindings := map[string]gmp.Value{
-		"n": gmp.ToValue(42),
+	bindings := map[string]gicel.Value{
+		"n": gicel.ToValue(42),
 	}
 
 	result, err := rt.RunContext(context.Background(), nil, bindings, "main")
@@ -49,12 +49,12 @@ func main() {
 
 	// The result is (Just HostVal(42)).
 	// Destructure the ConVal to reach the inner Go value.
-	name, args, ok := gmp.FromCon(result.Value)
+	name, args, ok := gicel.FromCon(result.Value)
 	if !ok || name != "Just" || len(args) != 1 {
 		log.Fatal("expected Just <value>")
 	}
 
-	inner := gmp.MustHost[int](args[0])
+	inner := gicel.MustHost[int](args[0])
 	fmt.Printf("Just %d\n", inner)
 	// Output: Just 42
 }

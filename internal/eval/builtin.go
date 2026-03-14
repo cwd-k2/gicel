@@ -1,6 +1,6 @@
 package eval
 
-import "github.com/cwd-k2/gomputation/internal/core"
+import "github.com/cwd-k2/gicel/internal/core"
 
 // BuiltinEnv constructs the base environment with pure, bind, force,
 // and optional fix/rec closures. This centralizes Core IR construction

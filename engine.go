@@ -1,4 +1,4 @@
-package gomputation
+package gicel
 
 import (
 	"fmt"
@@ -7,19 +7,19 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/cwd-k2/gomputation/internal/check"
-	"github.com/cwd-k2/gomputation/internal/core"
-	"github.com/cwd-k2/gomputation/internal/errs"
-	"github.com/cwd-k2/gomputation/internal/eval"
-	"github.com/cwd-k2/gomputation/internal/reg"
-	"github.com/cwd-k2/gomputation/internal/span"
-	"github.com/cwd-k2/gomputation/internal/stdlib"
-	"github.com/cwd-k2/gomputation/internal/syntax"
-	"github.com/cwd-k2/gomputation/internal/syntax/parse"
-	"github.com/cwd-k2/gomputation/internal/types"
+	"github.com/cwd-k2/gicel/internal/check"
+	"github.com/cwd-k2/gicel/internal/core"
+	"github.com/cwd-k2/gicel/internal/errs"
+	"github.com/cwd-k2/gicel/internal/eval"
+	"github.com/cwd-k2/gicel/internal/reg"
+	"github.com/cwd-k2/gicel/internal/span"
+	"github.com/cwd-k2/gicel/internal/stdlib"
+	"github.com/cwd-k2/gicel/internal/syntax"
+	"github.com/cwd-k2/gicel/internal/syntax/parse"
+	"github.com/cwd-k2/gicel/internal/types"
 )
 
-// Engine configures and compiles Gomputation programs.
+// Engine configures and compiles GICEL programs.
 // It is mutable and must not be shared across goroutines.
 type Engine struct {
 	bindings       map[string]types.Type
@@ -76,7 +76,7 @@ func (e *Engine) Use(p Pack) error {
 }
 
 // DeclareBinding registers a host-provided value binding at compile time.
-// The name becomes available in Gomputation source as a variable of the given type.
+// The name becomes available in GICEL source as a variable of the given type.
 // The actual value must be provided at runtime via RunContext.
 func (e *Engine) DeclareBinding(name string, ty types.Type) {
 	e.bindings[name] = ty
@@ -130,7 +130,7 @@ func (e *Engine) SetCheckTraceHook(hook check.CheckTraceHook) {
 	e.checkTraceHook = hook
 }
 
-// RegisterModuleFile reads a .gmp file and registers it as a module.
+// RegisterModuleFile reads a .gicel file and registers it as a module.
 // The module name is derived from the filename (without extension).
 func (e *Engine) RegisterModuleFile(path string) error {
 	data, err := os.ReadFile(path)

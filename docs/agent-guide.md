@@ -1,6 +1,6 @@
-# Gomputation Agent Guide
+# GICEL Agent Guide
 
-A self-contained reference for writing correct Gomputation programs.
+A self-contained reference for writing correct GICEL programs.
 Read this document and you have everything you need.
 
 ---
@@ -40,16 +40,16 @@ main := print "Hello, world!"
 
 ```sh
 # Run with all stdlib packs (default)
-gomputation run program.gmp
+gicel run program.gicel
 
 # Type-check only
-gomputation check program.gmp
+gicel check program.gicel
 
 # Select specific packs
-gomputation run --use Num,Str program.gmp
+gicel run --use Num,Str program.gicel
 
 # Custom entry point, limits, JSON output
-gomputation run --entry myFunc --timeout 10s --max-steps 500000 --json program.gmp
+gicel run --entry myFunc --timeout 10s --max-steps 500000 --json program.gicel
 ```
 
 CLI flags:
@@ -66,13 +66,13 @@ CLI flags:
 **Go API (Sandbox):**
 
 ```go
-import gmp "github.com/cwd-k2/gomputation"
+import "github.com/cwd-k2/gicel"
 
-result, err := gmp.RunSandbox(`
+result, err := gicel.RunSandbox(`
 import Std.Num
 main := 2 + 3
-`, &gmp.SandboxConfig{
-    Packs: []gmp.Pack{gmp.Num},
+`, &gicel.SandboxConfig{
+    Packs: []gicel.Pack{gicel.Num},
 })
 // result.Value is HostVal{Inner: int64(5)}
 ```
@@ -80,9 +80,9 @@ main := 2 + 3
 **Go API (Full lifecycle):**
 
 ```go
-eng := gmp.NewEngine()
-eng.Use(gmp.Num)
-eng.Use(gmp.Str)
+eng := gicel.NewEngine()
+eng.Use(gicel.Num)
+eng.Use(gicel.Str)
 
 rt, err := eng.NewRuntime(source)
 result, err := rt.RunContext(ctx, nil, nil, "main")
@@ -812,7 +812,7 @@ then := \m1 -> \m2 -> bind m1 (\_ -> m2)
 
 ## 7. Stdlib Reference
 
-Each stdlib module must be loaded on the host side (`eng.Use(gmp.Num)`) and imported in source (`import Std.Num`).
+Each stdlib module must be loaded on the host side (`eng.Use(gicel.Num)`) and imported in source (`import Std.Num`).
 
 ### Std.Num
 
@@ -946,7 +946,7 @@ Provides get/put state capabilities via the `state` capability in CapEnv.
 **Host setup:** Provide the initial state as the `"state"` capability:
 
 ```go
-caps := map[string]any{"state": gmp.ToValue(0)}
+caps := map[string]any{"state": gicel.ToValue(0)}
 result, err := rt.RunContextFull(ctx, caps, nil, "main")
 // result.CapEnv contains the final state
 ```
@@ -983,7 +983,7 @@ Provides print/debug capabilities via the `io` capability.
 **Host setup:** Provide the `"io"` capability. Output accumulates as `[]string` in the final CapEnv:
 
 ```go
-caps := map[string]any{"io": gmp.ToValue(nil)}
+caps := map[string]any{"io": gicel.ToValue(nil)}
 result, err := rt.RunContextFull(ctx, caps, nil, "main")
 // Read output:
 ioVal, _ := result.CapEnv.Get("io")
@@ -1229,23 +1229,23 @@ A `Computation` with empty row indices `{}` requires no capabilities. It is esse
 
 ### Sandbox API
 
-The simplest way to run Gomputation from Go:
+The simplest way to run GICEL from Go:
 
 ```go
-import gmp "github.com/cwd-k2/gomputation"
+import "github.com/cwd-k2/gicel"
 
-result, err := gmp.RunSandbox(source, &gmp.SandboxConfig{
-    Packs:    []gmp.Pack{gmp.Num, gmp.Str, gmp.List, gmp.Fail, gmp.State, gmp.IO},
+result, err := gicel.RunSandbox(source, &gicel.SandboxConfig{
+    Packs:    []gicel.Pack{gicel.Num, gicel.Str, gicel.List, gicel.Fail, gicel.State, gicel.IO},
     Entry:    "main",              // default: "main"
     Timeout:  5 * time.Second,     // default: 5s
     MaxSteps: 100_000,             // default: 100,000
     MaxDepth: 100,                 // default: 100
     Caps:     map[string]any{      // initial capabilities
-        "state": gmp.ToValue(0),
-        "io":    gmp.ToValue(nil),
+        "state": gicel.ToValue(0),
+        "io":    gicel.ToValue(nil),
     },
-    Bindings: map[string]gmp.Value{  // host-provided variable values
-        "input": gmp.ToValue("hello"),
+    Bindings: map[string]gicel.Value{  // host-provided variable values
+        "input": gicel.ToValue("hello"),
     },
 })
 ```
@@ -1264,9 +1264,9 @@ result, err := gmp.RunSandbox(source, &gmp.SandboxConfig{
 
 ```go
 // 1. Create and configure the engine
-eng := gmp.NewEngine()
-eng.Use(gmp.Num)
-eng.Use(gmp.Str)
+eng := gicel.NewEngine()
+eng.Use(gicel.Num)
+eng.Use(gicel.Str)
 eng.SetStepLimit(500_000)
 eng.SetDepthLimit(200)
 
@@ -1283,16 +1283,16 @@ result, err := rt.RunContextFull(ctx, caps, bindings, "main")
 
 | Pack        | Variable    | Module Name  | Provides                                |
 |-------------|-------------|--------------|-----------------------------------------|
-| `gmp.Num`   | `Num`       | `Std.Num`    | Arithmetic, Int instances               |
-| `gmp.Str`   | `Str`       | `Std.Str`    | String/Rune ops, instances              |
-| `gmp.List`  | `List`      | `Std.List`   | Native list operations                  |
-| `gmp.Fail`  | `Fail`      | `Std.Fail`   | Failure effect                          |
-| `gmp.State` | `State`     | `Std.State`  | Get/put state                           |
-| `gmp.IO`    | `IO`        | `Std.IO`     | Print/debug output                      |
+| `gicel.Num`   | `Num`       | `Std.Num`    | Arithmetic, Int instances               |
+| `gicel.Str`   | `Str`       | `Std.Str`    | String/Rune ops, instances              |
+| `gicel.List`  | `List`      | `Std.List`   | Native list operations                  |
+| `gicel.Fail`  | `Fail`      | `Std.Fail`   | Failure effect                          |
+| `gicel.State` | `State`     | `Std.State`  | Get/put state                           |
+| `gicel.IO`    | `IO`        | `Std.IO`     | Print/debug output                      |
 
 ### Custom Primitives (RegisterPrim)
 
-Register a Go function as a primitive callable from Gomputation:
+Register a Go function as a primitive callable from GICEL:
 
 ```go
 // In source: declare type and mark as assumption
@@ -1301,13 +1301,13 @@ Register a Go function as a primitive callable from Gomputation:
 
 eng.RegisterPrim("greet", func(
     ctx context.Context,
-    capEnv gmp.CapEnv,
-    args []gmp.Value,
-    apply gmp.Applier,
-) (gmp.Value, gmp.CapEnv, error) {
-    s := gmp.MustHost[string](args[0])
+    capEnv gicel.CapEnv,
+    args []gicel.Value,
+    apply gicel.Applier,
+) (gicel.Value, gicel.CapEnv, error) {
+    s := gicel.MustHost[string](args[0])
     fmt.Println("Hello,", s)
-    return gmp.ToValue(nil), capEnv, nil  // nil -> ()
+    return gicel.ToValue(nil), capEnv, nil  // nil -> ()
 })
 ```
 
@@ -1316,7 +1316,7 @@ eng.RegisterPrim("greet", func(
 - `ctx`: context for cancellation/timeout
 - `capEnv`: current capability environment (copy-on-write)
 - `args`: fully-applied argument values (the runtime curries automatically)
-- `apply`: callback to apply a Gomputation closure to an argument (for higher-order primitives like `foldl`)
+- `apply`: callback to apply a GICEL closure to an argument (for higher-order primitives like `foldl`)
 
 The primitive must return the new CapEnv (or the same one if unchanged).
 
@@ -1325,12 +1325,12 @@ The primitive must return the new CapEnv (or the same one if unchanged).
 Inject a typed variable from Go that the source can reference:
 
 ```go
-eng.RegisterType("Int", gmp.KindType())
-eng.DeclareBinding("myInput", gmp.ConType("Int"))
+eng.RegisterType("Int", gicel.KindType())
+eng.DeclareBinding("myInput", gicel.ConType("Int"))
 
 // At runtime, provide the value:
-bindings := map[string]gmp.Value{
-    "myInput": gmp.ToValue(42),
+bindings := map[string]gicel.Value{
+    "myInput": gicel.ToValue(42),
 }
 result, err := rt.RunContext(ctx, nil, bindings, "main")
 ```
@@ -1341,13 +1341,13 @@ In source, `myInput` is available as a variable of type `Int`.
 
 | Function                       | Description                                    |
 |--------------------------------|------------------------------------------------|
-| `gmp.ToValue(v any) Value`    | Wrap Go value: nil->(), bool->True/False, else->HostVal   |
-| `gmp.FromBool(v) (bool, bool)` | Extract Bool constructor                      |
-| `gmp.FromHost(v) (any, bool)` | Extract inner value from HostVal               |
-| `gmp.FromCon(v) (name, args, ok)` | Extract constructor name and arguments     |
-| `gmp.MustHost[T](v) T`       | Extract typed HostVal, panics on mismatch      |
-| `gmp.ToList(items []any) Value` | Build a Cons/Nil chain from Go slice         |
-| `gmp.FromList(v) ([]any, bool)` | Destructure Cons/Nil chain to Go slice       |
+| `gicel.ToValue(v any) Value`    | Wrap Go value: nil->(), bool->True/False, else->HostVal   |
+| `gicel.FromBool(v) (bool, bool)` | Extract Bool constructor                      |
+| `gicel.FromHost(v) (any, bool)` | Extract inner value from HostVal               |
+| `gicel.FromCon(v) (name, args, ok)` | Extract constructor name and arguments     |
+| `gicel.MustHost[T](v) T`       | Extract typed HostVal, panics on mismatch      |
+| `gicel.ToList(items []any) Value` | Build a Cons/Nil chain from Go slice         |
+| `gicel.FromList(v) ([]any, bool)` | Destructure Cons/Nil chain to Go slice       |
 
 ### Type Construction Helpers
 
@@ -1355,27 +1355,27 @@ For use with `DeclareBinding` and `DeclareAssumption`:
 
 | Function                             | Description                           |
 |--------------------------------------|---------------------------------------|
-| `gmp.ConType(name) Type`           | Simple type constructor: `"Int"`, `"Bool"` |
-| `gmp.VarType(name) Type`           | Type variable reference               |
-| `gmp.ArrowType(from, to) Type`     | Function type: `from -> to`           |
-| `gmp.AppType(f, arg) Type`         | Type application: `f a`              |
-| `gmp.CompType(pre, post, result) Type` | `Computation pre post result`     |
-| `gmp.ThunkType(pre, post, result) Type` | `Thunk pre post result`          |
-| `gmp.ForallType(var, body) Type`   | `forall var. body` (kind Type)        |
-| `gmp.ForallRow(var, body) Type`    | `forall (var : Row). body`            |
-| `gmp.ForallKind(var, k, body) Type` | `forall (var : k). body`            |
-| `gmp.EmptyRowType() Type`          | Empty closed row `{}`                |
-| `gmp.KindType() Kind`              | The `Type` kind                       |
-| `gmp.KindRow() Kind`               | The `Row` kind                        |
-| `gmp.KindArrow(from, to) Kind`     | Kind arrow: `from -> to`             |
+| `gicel.ConType(name) Type`           | Simple type constructor: `"Int"`, `"Bool"` |
+| `gicel.VarType(name) Type`           | Type variable reference               |
+| `gicel.ArrowType(from, to) Type`     | Function type: `from -> to`           |
+| `gicel.AppType(f, arg) Type`         | Type application: `f a`              |
+| `gicel.CompType(pre, post, result) Type` | `Computation pre post result`     |
+| `gicel.ThunkType(pre, post, result) Type` | `Thunk pre post result`          |
+| `gicel.ForallType(var, body) Type`   | `forall var. body` (kind Type)        |
+| `gicel.ForallRow(var, body) Type`    | `forall (var : Row). body`            |
+| `gicel.ForallKind(var, k, body) Type` | `forall (var : k). body`            |
+| `gicel.EmptyRowType() Type`          | Empty closed row `{}`                |
+| `gicel.KindType() Kind`              | The `Type` kind                       |
+| `gicel.KindRow() Kind`               | The `Row` kind                        |
+| `gicel.KindArrow(from, to) Kind`     | Kind arrow: `from -> to`             |
 
 **RowBuilder** for constructing row types:
 
 ```go
-row := gmp.NewRow().And("state", gmp.ConType("Int")).And("fail", gmp.ConType("String")).Closed()
+row := gicel.NewRow().And("state", gicel.ConType("Int")).And("fail", gicel.ConType("String")).Closed()
 // produces { state : Int, fail : String }
 
-openRow := gmp.NewRow().And("state", gmp.ConType("Int")).Open("r")
+openRow := gicel.NewRow().And("state", gicel.ConType("Int")).Open("r")
 // produces { state : Int | r }
 ```
 
@@ -1401,4 +1401,4 @@ openRow := gmp.NewRow().And("state", gmp.ConType("Int")).Open("r")
 
 ### Error Handling
 
-Compilation errors are returned as `*gmp.CompileError`, which wraps structured error information with source locations. Runtime errors (step limit exceeded, depth limit exceeded, missing capability, division by zero, explicit `fail`) are returned as plain `error` values.
+Compilation errors are returned as `*gicel.CompileError`, which wraps structured error information with source locations. Runtime errors (step limit exceeded, depth limit exceeded, missing capability, division by zero, explicit `fail`) are returned as plain `error` values.

@@ -1,4 +1,4 @@
-package gomputation_test
+package gicel_test
 
 import (
 	"context"
@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	gmp "github.com/cwd-k2/gomputation"
+	"github.com/cwd-k2/gicel"
 )
 
 // =============================================================================
@@ -24,7 +24,7 @@ import (
 func TestDotAsCompositionOperator(t *testing.T) {
 	// The `.` operator with infixr 9 should be parsed as function composition
 	// when fixity is declared.
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`
 infixr 9 .
 (.) :: forall a b c. (b -> c) -> (a -> b) -> a -> c
@@ -51,7 +51,7 @@ main := (not . id) True
 func TestDotInForallDoesNotConflictWithComposition(t *testing.T) {
 	// `.` in forall type body separator vs `.` as operator: both should
 	// coexist without ambiguity.
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`
 infixr 9 .
 (.) :: forall a b c. (b -> c) -> (a -> b) -> a -> c
@@ -78,8 +78,8 @@ main := (id . id) True
 
 func TestOperatorPrecedenceMixedAssociativity(t *testing.T) {
 	// infixl 6 + and infixl 7 * : 1 + 2 * 3 should be 1 + (2*3) = 7
-	eng := gmp.NewEngine()
-	eng.Use(gmp.Num)
+	eng := gicel.NewEngine()
+	eng.Use(gicel.Num)
 	rt, err := eng.NewRuntime(`
 import Std.Num
 main := 1 + 2 * 3
@@ -91,7 +91,7 @@ main := 1 + 2 * 3
 	if err != nil {
 		t.Fatal(err)
 	}
-	hv := gmp.MustHost[int64](result.Value)
+	hv := gicel.MustHost[int64](result.Value)
 	if hv != 7 {
 		t.Errorf("expected 7, got %d (precedence issue)", hv)
 	}
@@ -99,8 +99,8 @@ main := 1 + 2 * 3
 
 func TestOperatorRightAssociativity(t *testing.T) {
 	// infixr 5 :: (cons operator) should associate to the right.
-	eng := gmp.NewEngine()
-	eng.Use(gmp.Num)
+	eng := gicel.NewEngine()
+	eng.Use(gicel.Num)
 	rt, err := eng.NewRuntime(`
 import Std.Num
 infixr 5 ++
@@ -117,7 +117,7 @@ main := 1 ++ 2 ++ 3
 	if err != nil {
 		t.Fatal(err)
 	}
-	hv := gmp.MustHost[int64](result.Value)
+	hv := gicel.MustHost[int64](result.Value)
 	if hv != 6 {
 		t.Errorf("expected 6, got %d (right associativity issue)", hv)
 	}
@@ -125,8 +125,8 @@ main := 1 ++ 2 ++ 3
 
 func TestOperatorLeftAssociativity(t *testing.T) {
 	// infixl 6 - : a - b - c should be (a - b) - c
-	eng := gmp.NewEngine()
-	eng.Use(gmp.Num)
+	eng := gicel.NewEngine()
+	eng.Use(gicel.Num)
 	rt, err := eng.NewRuntime(`
 import Std.Num
 -- 10 - 3 - 2 should be (10 - 3) - 2 = 5 (left assoc)
@@ -140,7 +140,7 @@ main := 10 - 3 - 2
 	if err != nil {
 		t.Fatal(err)
 	}
-	hv := gmp.MustHost[int64](result.Value)
+	hv := gicel.MustHost[int64](result.Value)
 	if hv != 5 {
 		t.Errorf("expected 5, got %d (left associativity issue)", hv)
 	}
@@ -152,7 +152,7 @@ main := 10 - 3 - 2
 
 func TestSemicolonInDoBlock(t *testing.T) {
 	// Semicolons should work as statement separators in do blocks.
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`main := do { x <- pure True; y <- pure False; pure x }`)
 	if err != nil {
 		t.Fatal(err)
@@ -170,7 +170,7 @@ func TestNewlineInDoBlock(t *testing.T) {
 	// top-level declaration scope. This is intentional — braces establish
 	// an explicit grouping context where semicolons provide unambiguous
 	// statement separation.
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	_, err := eng.NewRuntime(`main := do {
   x <- pure True
   y <- pure False
@@ -186,7 +186,7 @@ func TestNewlineInDoBlock(t *testing.T) {
 
 func TestSemicolonInCaseAlts(t *testing.T) {
 	// Semicolons between case alternatives.
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`
 f := \x -> case x { True -> False; False -> True }
 main := f True
@@ -204,7 +204,7 @@ main := f True
 func TestNewlineInCaseAlts(t *testing.T) {
 	// DESIGN DECISION: Semicolons are required between case alternatives
 	// inside braces. Same rule as do blocks — braces use explicit separators.
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	_, err := eng.NewRuntime(`
 f := \x -> case x {
   True -> False
@@ -226,7 +226,7 @@ main := f False
 
 func TestMultiParamLambdaDeep(t *testing.T) {
 	// Nested lambdas: \x -> \y -> \z -> x
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`
 konst3 := \x -> \y -> \z -> x
 main := konst3 True False True
@@ -247,7 +247,7 @@ main := konst3 True False True
 
 func TestBlockExpressionBindingShadowing(t *testing.T) {
 	// Block: { x := True; x } — the block-local x should shadow any outer x.
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`
 x := False
 main := { x := True; x }
@@ -264,7 +264,7 @@ main := { x := True; x }
 
 func TestEmptyRecordAndUnit(t *testing.T) {
 	// {} and () should both produce empty records.
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`
 r := {}
 u := ()
@@ -277,7 +277,7 @@ main := r
 	if err != nil {
 		t.Fatal(err)
 	}
-	rv, ok := result.Value.(*gmp.RecordVal)
+	rv, ok := result.Value.(*gicel.RecordVal)
 	if !ok || len(rv.Fields) != 0 {
 		t.Errorf("expected empty record, got %s", result.Value)
 	}
@@ -289,7 +289,7 @@ main := r
 
 func TestHigherRankPolyIdFunction(t *testing.T) {
 	// A function that takes a polymorphic function and uses it at two types.
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`
 applyBoth :: (forall a. a -> a) -> Bool
 applyBoth := \f -> f True
@@ -308,7 +308,7 @@ main := applyBoth (\x -> x)
 
 func TestHigherRankRejection(t *testing.T) {
 	// A monomorphic function should NOT satisfy a higher-rank requirement.
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	_, err := eng.NewRuntime(`
 applyBoth :: (forall a. a -> a) -> Bool
 applyBoth := \f -> f True
@@ -330,7 +330,7 @@ main := applyBoth not
 
 func TestRowUnifyEmptyOpenClosed(t *testing.T) {
 	// An open row { | r } should unify with a closed empty row {}.
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`
 f :: forall (r : Row). Record { | r } -> Bool
 f := \_ -> True
@@ -348,8 +348,8 @@ main := f {}
 
 func TestRowUnifyFieldSubset(t *testing.T) {
 	// A function that requires field x should accept a record with x and y.
-	eng := gmp.NewEngine()
-	eng.Use(gmp.Num)
+	eng := gicel.NewEngine()
+	eng.Use(gicel.Num)
 	rt, err := eng.NewRuntime(`
 import Std.Num
 getX :: forall r. Record { x : Int | r } -> Int
@@ -363,7 +363,7 @@ main := getX { x = 42, y = 0 }
 	if err != nil {
 		t.Fatal(err)
 	}
-	hv := gmp.MustHost[int64](result.Value)
+	hv := gicel.MustHost[int64](result.Value)
 	if hv != 42 {
 		t.Errorf("expected 42, got %d", hv)
 	}
@@ -371,8 +371,8 @@ main := getX { x = 42, y = 0 }
 
 func TestRowUnifyMissingField(t *testing.T) {
 	// A function requiring field x should reject a record without x.
-	eng := gmp.NewEngine()
-	eng.Use(gmp.Num)
+	eng := gicel.NewEngine()
+	eng.Use(gicel.Num)
 	_, err := eng.NewRuntime(`
 import Std.Num
 getX :: Record { x : Int } -> Int
@@ -390,7 +390,7 @@ main := getX { y = 0 }
 
 func TestConstraintResolutionChain(t *testing.T) {
 	// Using a superclass method (eq) through a subclass constraint (Ord).
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`
 useSuperFromSub :: forall a. Ord a => a -> a -> Bool
 useSuperFromSub := \x -> \y -> eq x y
@@ -409,7 +409,7 @@ main := useSuperFromSub True True
 
 func TestPolymorphicInstanceResolution(t *testing.T) {
 	// Eq (Maybe Bool) should resolve through Eq a => Eq (Maybe a) and Eq Bool.
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`
 main := eq (Just True) (Just True)
 `)
@@ -425,7 +425,7 @@ main := eq (Just True) (Just True)
 
 func TestPolymorphicInstanceResolutionNeg(t *testing.T) {
 	// Eq (Maybe (Maybe Bool)) should also resolve.
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`
 main := eq (Just (Just True)) (Just Nothing)
 `)
@@ -445,7 +445,7 @@ main := eq (Just (Just True)) (Just Nothing)
 
 func TestKindInferenceSimple(t *testing.T) {
 	// data Maybe a = Just a | Nothing  -- 'a' should get kind Type.
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	_, err := eng.Check(`
 data MyMaybe a = MyJust a | MyNothing
 main := MyJust True
@@ -459,7 +459,7 @@ func TestKindMismatchInApplication(t *testing.T) {
 	// FALSE_NEGATIVE: Applying a type constructor to the wrong kind should fail,
 	// but the kind checker does not reject this.
 	// F expects (a : Type -> Type) but receives Bool : Type.
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	_, err := eng.Check(`
 data F (a : Type -> Type) = MkF
 main := (MkF :: F Bool)
@@ -475,7 +475,7 @@ main := (MkF :: F Bool)
 
 func TestOccursCheckInApplication(t *testing.T) {
 	// Self-application: \x -> x x should trigger occurs check.
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	_, err := eng.NewRuntime(`main := \x -> x x`)
 	if err == nil {
 		t.Fatal("expected occurs check error for self-application")
@@ -492,7 +492,7 @@ func TestOccursCheckInApplication(t *testing.T) {
 func TestGADTRefinementDisjointBranches(t *testing.T) {
 	// Two GADT constructors producing different type-level indices:
 	// matching on each should refine the types differently.
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`
 data Token a = { BoolTok :: Bool -> Token Bool; UnitTok :: Token () }
 
@@ -521,9 +521,9 @@ func TestLetRecFix(t *testing.T) {
 	// the annotation as rigid (skolem) rather than instantiating it.
 	//
 	// Workaround: omit the type annotation and let the checker infer.
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	eng.EnableRecursion()
-	eng.Use(gmp.Num)
+	eng.Use(gicel.Num)
 
 	// First, demonstrate the workaround works (no annotation):
 	rt, err := eng.NewRuntime(`
@@ -540,15 +540,15 @@ main := myLength (Cons True (Cons False (Cons True Nil)))
 	if err != nil {
 		t.Fatal(err)
 	}
-	hv := gmp.MustHost[int64](result.Value)
+	hv := gicel.MustHost[int64](result.Value)
 	if hv != 3 {
 		t.Errorf("expected 3, got %d", hv)
 	}
 
 	// Annotation version with implicit forall:
-	eng2 := gmp.NewEngine()
+	eng2 := gicel.NewEngine()
 	eng2.EnableRecursion()
-	eng2.Use(gmp.Num)
+	eng2.Use(gicel.Num)
 	rt2, err := eng2.NewRuntime(`
 import Std.Num
 
@@ -564,7 +564,7 @@ main := myLength (Cons True (Cons False (Cons True Nil)))
 	if err != nil {
 		t.Fatal(err)
 	}
-	hv2 := gmp.MustHost[int64](result2.Value)
+	hv2 := gicel.MustHost[int64](result2.Value)
 	if hv2 != 3 {
 		t.Errorf("expected 3, got %d", hv2)
 	}
@@ -575,7 +575,7 @@ main := myLength (Cons True (Cons False (Cons True Nil)))
 // ---------------------------------------------------------------------------
 
 func TestNestedConstructorPatternMatch(t *testing.T) {
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`
 data Pair a b = MkPair a b
 
@@ -598,7 +598,7 @@ main := fst (MkPair True False)
 }
 
 func TestDoubleNestedPatternMatch(t *testing.T) {
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`
 isJustTrue :: Maybe Bool -> Bool
 isJustTrue := \m -> case m {
@@ -622,8 +622,8 @@ main := isJustTrue (Just True)
 // ---------------------------------------------------------------------------
 
 func TestRecordProjectionEndToEnd(t *testing.T) {
-	eng := gmp.NewEngine()
-	eng.Use(gmp.Num)
+	eng := gicel.NewEngine()
+	eng.Use(gicel.Num)
 	rt, err := eng.NewRuntime(`
 import Std.Num
 r := { x = 1, y = 2 }
@@ -636,15 +636,15 @@ main := r!#x + r!#y
 	if err != nil {
 		t.Fatal(err)
 	}
-	hv := gmp.MustHost[int64](result.Value)
+	hv := gicel.MustHost[int64](result.Value)
 	if hv != 3 {
 		t.Errorf("expected 3, got %d", hv)
 	}
 }
 
 func TestRecordUpdateEndToEnd(t *testing.T) {
-	eng := gmp.NewEngine()
-	eng.Use(gmp.Num)
+	eng := gicel.NewEngine()
+	eng.Use(gicel.Num)
 	rt, err := eng.NewRuntime(`
 import Std.Num
 r := { x = 1, y = 2 }
@@ -658,15 +658,15 @@ main := r2!#x + r2!#y
 	if err != nil {
 		t.Fatal(err)
 	}
-	hv := gmp.MustHost[int64](result.Value)
+	hv := gicel.MustHost[int64](result.Value)
 	if hv != 102 {
 		t.Errorf("expected 102, got %d", hv)
 	}
 }
 
 func TestRecordPatternMatchEndToEnd(t *testing.T) {
-	eng := gmp.NewEngine()
-	eng.Use(gmp.Num)
+	eng := gicel.NewEngine()
+	eng.Use(gicel.Num)
 	rt, err := eng.NewRuntime(`
 import Std.Num
 swap := \r -> case r { { x = a, y = b } -> { x = b, y = a } }
@@ -680,7 +680,7 @@ main := r!#x
 	if err != nil {
 		t.Fatal(err)
 	}
-	hv := gmp.MustHost[int64](result.Value)
+	hv := gicel.MustHost[int64](result.Value)
 	if hv != 2 {
 		t.Errorf("expected 2 (swapped), got %d", hv)
 	}
@@ -691,8 +691,8 @@ main := r!#x
 // ---------------------------------------------------------------------------
 
 func TestTupleConstructAndProject(t *testing.T) {
-	eng := gmp.NewEngine()
-	eng.Use(gmp.Num)
+	eng := gicel.NewEngine()
+	eng.Use(gicel.Num)
 	rt, err := eng.NewRuntime(`
 import Std.Num
 t := (1, 2, 3)
@@ -705,7 +705,7 @@ main := t!#_1 + t!#_2 + t!#_3
 	if err != nil {
 		t.Fatal(err)
 	}
-	hv := gmp.MustHost[int64](result.Value)
+	hv := gicel.MustHost[int64](result.Value)
 	if hv != 6 {
 		t.Errorf("expected 6, got %d", hv)
 	}
@@ -717,7 +717,7 @@ func TestTuplePatternMatch(t *testing.T) {
 	// patterns, so bindings introduced by the pattern are silently discarded.
 	//
 	// Workaround: use `case` to destructure, or use projection (e.g., p!#_1).
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 
 	// Demonstrate the workaround using case:
 	rt, err := eng.NewRuntime(`
@@ -734,7 +734,7 @@ main := myFst (True, False)
 	assertConName(t, result.Value, "True")
 
 	// Direct lambda pattern version:
-	eng2 := gmp.NewEngine()
+	eng2 := gicel.NewEngine()
 	rt2, err := eng2.NewRuntime(`
 myFst := \(a, b) -> a
 main := myFst (True, False)
@@ -755,7 +755,7 @@ main := myFst (True, False)
 
 func TestCBPVTriadInDo(t *testing.T) {
 	// thunk delays evaluation; force resumes it. pure lifts values.
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`
 main := do {
   t := thunk (pure True);
@@ -775,7 +775,7 @@ main := do {
 
 func TestForceNonThunkError(t *testing.T) {
 	// Forcing a non-thunk value should produce a type error at compile time.
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	_, err := eng.NewRuntime(`main := force True`)
 	if err == nil {
 		t.Fatal("expected compile error: cannot force a non-thunk")
@@ -788,8 +788,8 @@ func TestForceNonThunkError(t *testing.T) {
 
 func TestFN_TypeAnnotationMismatch(t *testing.T) {
 	// Value annotated as Int but defined as Bool should fail.
-	eng := gmp.NewEngine()
-	eng.Use(gmp.Num)
+	eng := gicel.NewEngine()
+	eng.Use(gicel.Num)
 	_, err := eng.NewRuntime(`
 import Std.Num
 main :: Int
@@ -802,7 +802,7 @@ main := True
 
 func TestFN_ConstructorArityMismatch(t *testing.T) {
 	// Just applied to too many arguments should fail.
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	_, err := eng.NewRuntime(`main := Just True False`)
 	if err == nil {
 		t.Fatal("expected type error: Just takes 1 argument, not 2")
@@ -811,8 +811,8 @@ func TestFN_ConstructorArityMismatch(t *testing.T) {
 
 func TestFN_RecordFieldTypeMismatch(t *testing.T) {
 	// A function expecting { x : Int } given { x : Bool } should fail.
-	eng := gmp.NewEngine()
-	eng.Use(gmp.Num)
+	eng := gicel.NewEngine()
+	eng.Use(gicel.Num)
 	_, err := eng.NewRuntime(`
 import Std.Num
 f :: Record { x : Int } -> Int
@@ -826,7 +826,7 @@ main := f { x = True }
 
 func TestFN_EmptyCaseBody(t *testing.T) {
 	// Empty case expression should produce an error.
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	_, err := eng.NewRuntime(`main := case True {}`)
 	if err == nil {
 		t.Fatal("expected error for case with no alternatives")
@@ -835,7 +835,7 @@ func TestFN_EmptyCaseBody(t *testing.T) {
 
 func TestFN_DoBlockEndingWithBind(t *testing.T) {
 	// A do block ending with a bind (<-) is malformed.
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	_, err := eng.NewRuntime(`main := do { x <- pure True }`)
 	if err == nil {
 		t.Fatal("expected error: do block must end with an expression")
@@ -848,7 +848,7 @@ func TestFN_DoBlockEndingWithBind(t *testing.T) {
 
 func TestFP_PolymorphicFunctionApplication(t *testing.T) {
 	// Polymorphic identity applied at different types should work.
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`
 id :: forall a. a -> a
 id := \x -> x
@@ -862,7 +862,7 @@ main := case id True { True -> id (); False -> id () }
 	if err != nil {
 		t.Fatal(err)
 	}
-	rv, ok := result.Value.(*gmp.RecordVal)
+	rv, ok := result.Value.(*gicel.RecordVal)
 	if !ok || len(rv.Fields) != 0 {
 		t.Errorf("expected (), got %s", result.Value)
 	}
@@ -874,7 +874,7 @@ func TestFP_LambdaWithRecordPattern(t *testing.T) {
 	// returns "_" for PatRecord, discarding all bindings.
 	//
 	// Workaround: use `case` or projection (r!#x) instead.
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 
 	// Workaround using case:
 	rt, err := eng.NewRuntime(`
@@ -891,7 +891,7 @@ main := getX { x = True }
 	assertConName(t, result.Value, "True")
 
 	// Direct lambda pattern version:
-	eng2 := gmp.NewEngine()
+	eng2 := gicel.NewEngine()
 	rt2, err := eng2.NewRuntime(`
 getX := \{ x = v } -> v
 main := getX { x = True }
@@ -908,7 +908,7 @@ main := getX { x = True }
 
 func TestFP_WildcardInCasePattern(t *testing.T) {
 	// Wildcard pattern in case should exhaust all remaining alternatives.
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`
 data Color = Red | Green | Blue
 isRed := \c -> case c { Red -> True; _ -> False }
@@ -929,7 +929,7 @@ func TestFP_NestedTuplePattern(t *testing.T) {
 	// Same root cause as TestTuplePatternMatch and TestFP_LambdaWithRecordPattern.
 	//
 	// Workaround: use nested `case` or chained projection.
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 
 	// Workaround using case:
 	rt, err := eng.NewRuntime(`
@@ -946,7 +946,7 @@ main := f (True, (False, True))
 	assertConName(t, result.Value, "False")
 
 	// Direct nested tuple pattern version:
-	eng2 := gmp.NewEngine()
+	eng2 := gicel.NewEngine()
 	rt2, err := eng2.NewRuntime(`
 f := \(a, (b, c)) -> b
 main := f (True, (False, True))
@@ -966,7 +966,7 @@ main := f (True, (False, True))
 // ---------------------------------------------------------------------------
 
 func TestErrorReportsUnboundVarName(t *testing.T) {
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	_, err := eng.NewRuntime(`main := unknownVariable`)
 	if err == nil {
 		t.Fatal("expected error")
@@ -977,7 +977,7 @@ func TestErrorReportsUnboundVarName(t *testing.T) {
 }
 
 func TestErrorReportsNonExhaustiveConstructor(t *testing.T) {
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	_, err := eng.NewRuntime(`
 data Color = Red | Green | Blue
 f := \c -> case c { Red -> True }
@@ -994,8 +994,8 @@ main := f Red
 
 func TestErrorReportsTypeMismatchTypes(t *testing.T) {
 	// The error message should include the expected and actual types.
-	eng := gmp.NewEngine()
-	eng.Use(gmp.Num)
+	eng := gicel.NewEngine()
+	eng.Use(gicel.Num)
 	_, err := eng.NewRuntime(`
 import Std.Num
 f :: Int -> Int
@@ -1020,9 +1020,9 @@ main := f True
 
 func TestCapEnvPersistsThroughBinds(t *testing.T) {
 	// Capability environment mutations should persist through do-block binds.
-	eng := gmp.NewEngine()
-	eng.Use(gmp.Num)
-	eng.Use(gmp.State)
+	eng := gicel.NewEngine()
+	eng.Use(gicel.Num)
+	eng.Use(gicel.State)
 	rt, err := eng.NewRuntime(`
 import Std.Num
 import Std.State
@@ -1036,12 +1036,12 @@ main := do {
 	if err != nil {
 		t.Fatal(err)
 	}
-	caps := map[string]any{"state": &gmp.HostVal{Inner: int64(0)}}
+	caps := map[string]any{"state": &gicel.HostVal{Inner: int64(0)}}
 	result, err := rt.RunContext(context.Background(), caps, nil, "main")
 	if err != nil {
 		t.Fatal(err)
 	}
-	hv := gmp.MustHost[int64](result.Value)
+	hv := gicel.MustHost[int64](result.Value)
 	if hv != 15 {
 		t.Errorf("expected 15, got %d", hv)
 	}
@@ -1053,7 +1053,7 @@ main := do {
 
 func TestInlineTypeAnnotation(t *testing.T) {
 	// (expr :: Type) should work for expression-level type annotations.
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`
 main := (True :: Bool)
 `)
@@ -1069,8 +1069,8 @@ main := (True :: Bool)
 
 func TestInlineTypeAnnotationMismatch(t *testing.T) {
 	// (True :: Int) should fail at compile time.
-	eng := gmp.NewEngine()
-	eng.Use(gmp.Num)
+	eng := gicel.NewEngine()
+	eng.Use(gicel.Num)
 	_, err := eng.NewRuntime(`
 import Std.Num
 main := (True :: Int)
@@ -1085,7 +1085,7 @@ main := (True :: Int)
 // ---------------------------------------------------------------------------
 
 func TestListLiteralSyntax(t *testing.T) {
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`
 main := [True, False, True]
 `)
@@ -1097,14 +1097,14 @@ main := [True, False, True]
 		t.Fatal(err)
 	}
 	// Should produce Cons True (Cons False (Cons True Nil))
-	con, ok := result.Value.(*gmp.ConVal)
+	con, ok := result.Value.(*gicel.ConVal)
 	if !ok || con.Con != "Cons" {
 		t.Errorf("expected Cons, got %s", result.Value)
 	}
 }
 
 func TestEmptyListLiteral(t *testing.T) {
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`
 main := ([] :: List Bool)
 `)
@@ -1115,7 +1115,7 @@ main := ([] :: List Bool)
 	if err != nil {
 		t.Fatal(err)
 	}
-	con, ok := result.Value.(*gmp.ConVal)
+	con, ok := result.Value.(*gicel.ConVal)
 	if !ok || con.Con != "Nil" {
 		t.Errorf("expected Nil, got %s", result.Value)
 	}
@@ -1126,7 +1126,7 @@ main := ([] :: List Bool)
 // ---------------------------------------------------------------------------
 
 func TestTypeAliasInFunctionSig(t *testing.T) {
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`
 type Predicate a = a -> Bool
 isTrue :: Predicate Bool
@@ -1144,7 +1144,7 @@ main := isTrue True
 }
 
 func TestTypeAliasWithParams(t *testing.T) {
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`
 type Pair a b = (a, b)
 mkPair :: forall a b. a -> b -> Pair a b
@@ -1166,7 +1166,7 @@ main := (mkPair True False)!#_1
 // ---------------------------------------------------------------------------
 
 func TestDataKindsInGADTIndex(t *testing.T) {
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`
 data Phase = Building | Running
 
@@ -1192,7 +1192,7 @@ func TestDataKindsMismatch(t *testing.T) {
 	// at a kind-annotated position should fail, but it is accepted.
 	// Builder expects (p : Phase) but True has kind Bool — these are different
 	// promoted data kinds. The kind checker does not enforce cross-kind boundaries.
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	_, err := eng.NewRuntime(`
 data Phase = Building | Running
 data Builder (p : Phase) = MkBuilder
@@ -1211,7 +1211,7 @@ main := start
 
 func TestEffectTypeAlias(t *testing.T) {
 	// The prelude defines: type Effect r a = Computation r r a
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`
 myId :: Effect {} Bool
 myId := pure True
@@ -1233,7 +1233,7 @@ main := myId
 
 func TestThenInDoBlock(t *testing.T) {
 	// Using >> (then) between two computations.
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`
 main := do {
   pure ();
@@ -1257,7 +1257,7 @@ main := do {
 // Fix 1: resolveInstance must have a depth limit to prevent stack overflow
 // from self-referential or mutually recursive instance contexts.
 func TestInstanceResolutionDepthLimit(t *testing.T) {
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	// instance C a => C a would cause infinite resolution without a depth limit.
 	// We use a realistic scenario: two classes with mutually recursive instances.
 	_, err := eng.NewRuntime(`
@@ -1280,7 +1280,7 @@ main := foo True
 // Fix 2: expandTypeAliases must have a fuel limit, and cyclic aliases
 // must not install the expander at all.
 func TestCyclicAliasExpansionTerminates(t *testing.T) {
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	// Direct cycle: type A = A — already caught by validateAliasGraph.
 	_, err := eng.NewRuntime(`
 type A = A
@@ -1292,7 +1292,7 @@ main := pure @A True
 
 	// Parametric cycle: type F a = F a — the expansion could loop even if
 	// the name-level cycle is detected.
-	eng2 := gmp.NewEngine()
+	eng2 := gicel.NewEngine()
 	_, err2 := eng2.NewRuntime(`
 type F a = F a
 main := pure @(F Int) True
@@ -1304,7 +1304,7 @@ main := pure @(F Int) True
 
 // Alias expansion depth limit: deeply nested but non-cyclic aliases.
 func TestAliasExpansionDepthLimit(t *testing.T) {
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	// Build a chain of aliases: T0 a = a, T1 a = T0 (T0 a), ..., TN a = T(N-1) (T(N-1) a)
 	// This grows exponentially in expansion depth.
 	src := `
@@ -1331,7 +1331,7 @@ main := id True
 
 // Fix 3: Error accumulation must have a cap.
 func TestErrorAccumulationCap(t *testing.T) {
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	// Generate a program with many type errors.
 	var lines []string
 	lines = append(lines, "import Std.Num")
@@ -1357,7 +1357,7 @@ func TestErrorAccumulationCap(t *testing.T) {
 // Fix 4: parseKindExpr must use enterRecurse() to prevent stack overflow
 // from deeply nested kind expressions.
 func TestParserKindExprDepthLimit(t *testing.T) {
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	// Build deeply nested kind: ((((((...Type))))))
 	kind := "Type"
 	for i := 0; i < 300; i++ {
@@ -1372,4 +1372,4 @@ func TestParserKindExprDepthLimit(t *testing.T) {
 	// The main thing is it didn't panic.
 }
 
-// assertConName is defined in gomputation_test.go — reused here.
+// assertConName is defined in gicel_test.go — reused here.

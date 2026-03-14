@@ -2,7 +2,7 @@
 // the root package and internal/stdlib, breaking the circular dependency.
 package reg
 
-import "github.com/cwd-k2/gomputation/internal/eval"
+import "github.com/cwd-k2/gicel/internal/eval"
 
 // Registrar is the interface for registering primitives and modules.
 type Registrar interface {

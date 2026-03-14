@@ -1,7 +1,7 @@
-// Package stdlib provides standard library packs for Gomputation.
+// Package stdlib provides standard library packs for GICEL.
 package stdlib
 
-import "github.com/cwd-k2/gomputation/internal/reg"
+import "github.com/cwd-k2/gicel/internal/reg"
 
 // Registrar is the registration interface that Engine implements.
 type Registrar = reg.Registrar

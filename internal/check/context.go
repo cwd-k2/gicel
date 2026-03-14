@@ -1,6 +1,6 @@
 package check
 
-import "github.com/cwd-k2/gomputation/internal/types"
+import "github.com/cwd-k2/gicel/internal/types"
 
 // CtxEntry is an entry in the typing context.
 type CtxEntry interface {

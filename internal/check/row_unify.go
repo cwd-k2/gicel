@@ -3,7 +3,7 @@ package check
 import (
 	"fmt"
 
-	"github.com/cwd-k2/gomputation/internal/types"
+	"github.com/cwd-k2/gicel/internal/types"
 )
 
 // Row unification

@@ -3,7 +3,7 @@ package check
 import (
 	"testing"
 
-	"github.com/cwd-k2/gomputation/internal/errs"
+	"github.com/cwd-k2/gicel/internal/errs"
 )
 
 // =============================================================================

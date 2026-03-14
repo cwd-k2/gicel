@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/cwd-k2/gomputation/internal/eval"
+	"github.com/cwd-k2/gicel/internal/eval"
 )
 
 // Helper constructors.

@@ -1,4 +1,4 @@
-// Example: hkt — Higher-Kinded Types in Gomputation.
+// Example: hkt — Higher-Kinded Types in GICEL.
 //
 // Demonstrates kind-polymorphic type classes, kind variables in forall
 // binders, and poly-kinded instance resolution.
@@ -9,7 +9,7 @@ import (
 	"fmt"
 	"log"
 
-	gmp "github.com/cwd-k2/gomputation"
+	"github.com/cwd-k2/gicel"
 )
 
 // The source defines a kind-polymorphic Functor class and uses it with Maybe.
@@ -38,7 +38,7 @@ main := fmap (\b -> case b { True -> False; False -> True }) (Just True)
 `
 
 func main() {
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 
 	rt, err := eng.NewRuntime(source)
 	if err != nil {

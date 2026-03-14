@@ -1,6 +1,6 @@
 package types
 
-import "github.com/cwd-k2/gomputation/internal/span"
+import "github.com/cwd-k2/gicel/internal/span"
 
 // Type is the unified representation for value types, computation types, and row types.
 type Type interface {

@@ -7,7 +7,7 @@
 // This example implements a simple counter: getCounter reads the current count,
 // incCounter increments it. The do-block sequences the operations.
 //
-// Note: type annotations are written in Gomputation source via `::`,
+// Note: type annotations are written in GICEL source via `::`,
 // so the Go side only needs RegisterPrim (not DeclareAssumption).
 package main
 
@@ -16,7 +16,7 @@ import (
 	"fmt"
 	"log"
 
-	gmp "github.com/cwd-k2/gomputation"
+	"github.com/cwd-k2/gicel"
 )
 
 // The source declares types with :: annotations directly in the language.
@@ -36,25 +36,25 @@ main := do {
 `
 
 func main() {
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 
 	// Register Int as an opaque host type.
-	eng.RegisterType("Int", gmp.KindType())
+	eng.RegisterType("Int", gicel.KindType())
 
 	// Only RegisterPrim is needed — types are declared in the source via ::.
 
 	// getCounter reads "counter" from CapEnv.
-	eng.RegisterPrim("getCounter", func(ctx context.Context, capEnv gmp.CapEnv, args []gmp.Value, _ gmp.Applier) (gmp.Value, gmp.CapEnv, error) {
+	eng.RegisterPrim("getCounter", func(ctx context.Context, capEnv gicel.CapEnv, args []gicel.Value, _ gicel.Applier) (gicel.Value, gicel.CapEnv, error) {
 		v, _ := capEnv.Get("counter")
 		n, _ := v.(int)
-		return gmp.ToValue(n), capEnv, nil
+		return gicel.ToValue(n), capEnv, nil
 	})
 
 	// incCounter increments "counter" in CapEnv.
-	eng.RegisterPrim("incCounter", func(ctx context.Context, capEnv gmp.CapEnv, args []gmp.Value, _ gmp.Applier) (gmp.Value, gmp.CapEnv, error) {
+	eng.RegisterPrim("incCounter", func(ctx context.Context, capEnv gicel.CapEnv, args []gicel.Value, _ gicel.Applier) (gicel.Value, gicel.CapEnv, error) {
 		v, _ := capEnv.Get("counter")
 		n, _ := v.(int)
-		return gmp.ToValue(nil), capEnv.Set("counter", n+1), nil
+		return gicel.ToValue(nil), capEnv.Set("counter", n+1), nil
 	})
 
 	rt, err := eng.NewRuntime(source)
@@ -72,7 +72,7 @@ func main() {
 	}
 
 	// The returned value is the counter after two increments.
-	counter := gmp.MustHost[int](result.Value)
+	counter := gicel.MustHost[int](result.Value)
 	fmt.Println("counter value:", counter)
 	// Output: counter value: 2
 

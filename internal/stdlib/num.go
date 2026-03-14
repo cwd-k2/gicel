@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/cwd-k2/gomputation/internal/eval"
+	"github.com/cwd-k2/gicel/internal/eval"
 )
 
 // Num provides integer arithmetic: Num class, Eq/Ord Int instances, and operators.

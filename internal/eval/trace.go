@@ -1,6 +1,6 @@
 package eval
 
-import "github.com/cwd-k2/gomputation/internal/core"
+import "github.com/cwd-k2/gicel/internal/core"
 
 // TraceEvent describes one evaluation step.
 type TraceEvent struct {

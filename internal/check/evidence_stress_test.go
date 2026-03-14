@@ -5,9 +5,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/cwd-k2/gomputation/internal/errs"
-	"github.com/cwd-k2/gomputation/internal/span"
-	"github.com/cwd-k2/gomputation/internal/syntax/parse"
+	"github.com/cwd-k2/gicel/internal/errs"
+	"github.com/cwd-k2/gicel/internal/span"
+	"github.com/cwd-k2/gicel/internal/syntax/parse"
 )
 
 // =============================================================================

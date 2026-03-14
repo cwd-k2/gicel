@@ -1,13 +1,13 @@
-package gomputation_test
+package gicel_test
 
 import (
 	"testing"
 
-	gmp "github.com/cwd-k2/gomputation"
+	"github.com/cwd-k2/gicel"
 )
 
 func TestSandboxRun(t *testing.T) {
-	result, err := gmp.RunSandbox(`main := True`, nil)
+	result, err := gicel.RunSandbox(`main := True`, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -15,8 +15,8 @@ func TestSandboxRun(t *testing.T) {
 }
 
 func TestSandboxRunWithPacks(t *testing.T) {
-	result, err := gmp.RunSandbox("import Std.Num\nmain := 1 + 2", &gmp.SandboxConfig{
-		Packs: []gmp.Pack{gmp.Num},
+	result, err := gicel.RunSandbox("import Std.Num\nmain := 1 + 2", &gicel.SandboxConfig{
+		Packs: []gicel.Pack{gicel.Num},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -26,13 +26,13 @@ func TestSandboxRunWithPacks(t *testing.T) {
 
 func TestSandboxRunTimeout(t *testing.T) {
 	// This should not hang — step limit will catch infinite recursion.
-	_, err := gmp.RunSandbox(`
+	_, err := gicel.RunSandbox(`
 import Std.Num
 loop :: Int -> Int
 loop := \n -> loop (n + 1)
 main := loop 0
-`, &gmp.SandboxConfig{
-		Packs:    []gmp.Pack{gmp.Num},
+`, &gicel.SandboxConfig{
+		Packs:    []gicel.Pack{gicel.Num},
 		MaxSteps: 1000,
 	})
 	if err == nil {
@@ -41,14 +41,14 @@ main := loop 0
 }
 
 func TestSandboxRunCompileError(t *testing.T) {
-	_, err := gmp.RunSandbox(`main := x`, nil)
+	_, err := gicel.RunSandbox(`main := x`, nil)
 	if err == nil {
 		t.Fatal("expected compile error")
 	}
 }
 
 func TestSandboxRunJSON(t *testing.T) {
-	result, err := gmp.RunSandbox(`main := True`, nil)
+	result, err := gicel.RunSandbox(`main := True`, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -67,7 +67,7 @@ func TestSandboxDeepNesting(t *testing.T) {
 	for range 500 {
 		src += ")"
 	}
-	_, err := gmp.RunSandbox(src, nil)
+	_, err := gicel.RunSandbox(src, nil)
 	if err == nil {
 		t.Fatal("expected error from deeply nested expression")
 	}
@@ -75,7 +75,7 @@ func TestSandboxDeepNesting(t *testing.T) {
 
 func TestSandboxMalformedDo(t *testing.T) {
 	// Malformed do-block that previously caused infinite loop.
-	_, err := gmp.RunSandbox("main := do { let x = 42; pure x }", nil)
+	_, err := gicel.RunSandbox("main := do { let x = 42; pure x }", nil)
 	if err == nil {
 		t.Fatal("expected error from invalid do-block")
 	}
@@ -83,13 +83,13 @@ func TestSandboxMalformedDo(t *testing.T) {
 
 func TestSandboxDeepRecursion(t *testing.T) {
 	// Deep recursion — depth limit should catch.
-	_, err := gmp.RunSandbox(`
+	_, err := gicel.RunSandbox(`
 import Std.Num
 f :: Int -> Int
 f := \n -> f (n + 1)
 main := f 0
-`, &gmp.SandboxConfig{
-		Packs:    []gmp.Pack{gmp.Num},
+`, &gicel.SandboxConfig{
+		Packs:    []gicel.Pack{gicel.Num},
 		MaxSteps: 500,
 		MaxDepth: 50,
 	})
@@ -99,8 +99,8 @@ main := f 0
 }
 
 func TestSandboxRunAllPacks(t *testing.T) {
-	result, err := gmp.RunSandbox("import Std.Num\nimport Std.Str\nimport Std.List\nmain := showInt (foldl (\\acc -> \\x -> acc + x) 0 (Cons 1 (Cons 2 (Cons 3 Nil))))", &gmp.SandboxConfig{
-		Packs: []gmp.Pack{gmp.Num, gmp.Str, gmp.List},
+	result, err := gicel.RunSandbox("import Std.Num\nimport Std.Str\nimport Std.List\nmain := showInt (foldl (\\acc -> \\x -> acc + x) 0 (Cons 1 (Cons 2 (Cons 3 Nil))))", &gicel.SandboxConfig{
+		Packs: []gicel.Pack{gicel.Num, gicel.Str, gicel.List},
 	})
 	if err != nil {
 		t.Fatal(err)

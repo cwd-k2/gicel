@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/cwd-k2/gomputation/internal/core"
+	"github.com/cwd-k2/gicel/internal/core"
 )
 
 func TestEvalRecordLitEmpty(t *testing.T) {

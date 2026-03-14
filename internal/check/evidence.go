@@ -1,8 +1,8 @@
 package check
 
 import (
-	"github.com/cwd-k2/gomputation/internal/core"
-	"github.com/cwd-k2/gomputation/internal/types"
+	"github.com/cwd-k2/gicel/internal/core"
+	"github.com/cwd-k2/gicel/internal/types"
 )
 
 // evidenceSource indicates where available evidence comes from.

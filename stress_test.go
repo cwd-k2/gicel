@@ -1,4 +1,4 @@
-package gomputation_test
+package gicel_test
 
 import (
 	"context"
@@ -9,12 +9,12 @@ import (
 	"testing"
 	"time"
 
-	gmp "github.com/cwd-k2/gomputation"
+	"github.com/cwd-k2/gicel"
 )
 
 // ---------------------------------------------------------------------------
 // Stress test programs — each exercises a distinct stress vector.
-// Programs are stored in testdata/stress/*.gmp files.
+// Programs are stored in testdata/stress/*.gicel files.
 // ---------------------------------------------------------------------------
 
 func loadStressProgram(t testing.TB, name string) string {
@@ -33,51 +33,51 @@ func loadStressProgram(t testing.TB, name string) string {
 type stressProgram struct {
 	name  string
 	file  string // filename under testdata/stress/
-	setup func(*gmp.Engine)
-	check func(*testing.T, gmp.Value)
+	setup func(*gicel.Engine)
+	check func(*testing.T, gicel.Value)
 	caps  map[string]any
-	binds map[string]gmp.Value
+	binds map[string]gicel.Value
 }
 
-func intPrimSetup(eng *gmp.Engine) {
-	eng.RegisterType("Int", gmp.KindType())
-	eng.RegisterPrim("intZero", func(ctx context.Context, ce gmp.CapEnv, args []gmp.Value, _ gmp.Applier) (gmp.Value, gmp.CapEnv, error) {
-		return gmp.ToValue(0), ce, nil
+func intPrimSetup(eng *gicel.Engine) {
+	eng.RegisterType("Int", gicel.KindType())
+	eng.RegisterPrim("intZero", func(ctx context.Context, ce gicel.CapEnv, args []gicel.Value, _ gicel.Applier) (gicel.Value, gicel.CapEnv, error) {
+		return gicel.ToValue(0), ce, nil
 	})
-	eng.RegisterPrim("intSucc", func(ctx context.Context, ce gmp.CapEnv, args []gmp.Value, _ gmp.Applier) (gmp.Value, gmp.CapEnv, error) {
-		n := gmp.MustHost[int](args[0])
-		return gmp.ToValue(n + 1), ce, nil
+	eng.RegisterPrim("intSucc", func(ctx context.Context, ce gicel.CapEnv, args []gicel.Value, _ gicel.Applier) (gicel.Value, gicel.CapEnv, error) {
+		n := gicel.MustHost[int](args[0])
+		return gicel.ToValue(n + 1), ce, nil
 	})
-	eng.RegisterPrim("intAdd", func(ctx context.Context, ce gmp.CapEnv, args []gmp.Value, _ gmp.Applier) (gmp.Value, gmp.CapEnv, error) {
-		a := gmp.MustHost[int](args[0])
-		b := gmp.MustHost[int](args[1])
-		return gmp.ToValue(a + b), ce, nil
+	eng.RegisterPrim("intAdd", func(ctx context.Context, ce gicel.CapEnv, args []gicel.Value, _ gicel.Applier) (gicel.Value, gicel.CapEnv, error) {
+		a := gicel.MustHost[int](args[0])
+		b := gicel.MustHost[int](args[1])
+		return gicel.ToValue(a + b), ce, nil
 	})
-	eng.RegisterPrim("intEq", func(ctx context.Context, ce gmp.CapEnv, args []gmp.Value, _ gmp.Applier) (gmp.Value, gmp.CapEnv, error) {
-		a := gmp.MustHost[int](args[0])
-		b := gmp.MustHost[int](args[1])
+	eng.RegisterPrim("intEq", func(ctx context.Context, ce gicel.CapEnv, args []gicel.Value, _ gicel.Applier) (gicel.Value, gicel.CapEnv, error) {
+		a := gicel.MustHost[int](args[0])
+		b := gicel.MustHost[int](args[1])
 		if a == b {
-			return &gmp.ConVal{Con: "True"}, ce, nil
+			return &gicel.ConVal{Con: "True"}, ce, nil
 		}
-		return &gmp.ConVal{Con: "False"}, ce, nil
+		return &gicel.ConVal{Con: "False"}, ce, nil
 	})
 }
 
-func capEnvSetup(eng *gmp.Engine) {
-	eng.RegisterType("Int", gmp.KindType())
-	eng.RegisterPrim("intAdd", func(ctx context.Context, ce gmp.CapEnv, args []gmp.Value, _ gmp.Applier) (gmp.Value, gmp.CapEnv, error) {
-		a := gmp.MustHost[int](args[0])
-		b := gmp.MustHost[int](args[1])
-		return gmp.ToValue(a + b), ce, nil
+func capEnvSetup(eng *gicel.Engine) {
+	eng.RegisterType("Int", gicel.KindType())
+	eng.RegisterPrim("intAdd", func(ctx context.Context, ce gicel.CapEnv, args []gicel.Value, _ gicel.Applier) (gicel.Value, gicel.CapEnv, error) {
+		a := gicel.MustHost[int](args[0])
+		b := gicel.MustHost[int](args[1])
+		return gicel.ToValue(a + b), ce, nil
 	})
 }
 
 var stressPrograms = []stressProgram{
 	{
 		name:  "adt_exhaustiveness",
-		file:  "01_adt_exhaustiveness.gmp",
-		setup: func(e *gmp.Engine) {},
-		check: func(t *testing.T, v gmp.Value) {
+		file:  "01_adt_exhaustiveness.gicel",
+		setup: func(e *gicel.Engine) {},
+		check: func(t *testing.T, v gicel.Value) {
 			// pairMatch (shapeToColor (chainAll Cyan)) (chainAll Cyan)
 			// chainAll Cyan = dayToShape (colorToDay Cyan) = dayToShape Fri = Hexagon
 			// shapeToColor Hexagon = Cyan
@@ -87,46 +87,46 @@ var stressPrograms = []stressProgram{
 	},
 	{
 		name:  "typeclass_hierarchy",
-		file:  "02_typeclass_hierarchy.gmp",
-		setup: func(e *gmp.Engine) {},
-		check: func(t *testing.T, v gmp.Value) {
+		file:  "02_typeclass_hierarchy.gicel",
+		setup: func(e *gicel.Engine) {},
+		check: func(t *testing.T, v gicel.Value) {
 			assertCon(t, v, "True") // isEqOrdering True True => EQ => True
 		},
 	},
 	{
 		name:  "hkt_functor",
-		file:  "03_hkt_functor.gmp",
-		setup: func(e *gmp.Engine) {},
-		check: func(t *testing.T, v gmp.Value) {
+		file:  "03_hkt_functor.gicel",
+		setup: func(e *gicel.Engine) {},
+		check: func(t *testing.T, v gicel.Value) {
 			assertCon(t, v, "False") // fmap not (Branch (Leaf True) ...) => Leaf False at left
 		},
 	},
 	{
 		name: "deep_do_chain",
-		file: "04_deep_do_chain.gmp",
-		setup: func(e *gmp.Engine) {
+		file: "04_deep_do_chain.gicel",
+		setup: func(e *gicel.Engine) {
 			capEnvSetup(e)
-			e.RegisterPrim("getN", func(ctx context.Context, ce gmp.CapEnv, args []gmp.Value, _ gmp.Applier) (gmp.Value, gmp.CapEnv, error) {
+			e.RegisterPrim("getN", func(ctx context.Context, ce gicel.CapEnv, args []gicel.Value, _ gicel.Applier) (gicel.Value, gicel.CapEnv, error) {
 				v, _ := ce.Get("n")
 				n, _ := v.(int)
-				return gmp.ToValue(n), ce, nil
+				return gicel.ToValue(n), ce, nil
 			})
-			e.RegisterPrim("incN", func(ctx context.Context, ce gmp.CapEnv, args []gmp.Value, _ gmp.Applier) (gmp.Value, gmp.CapEnv, error) {
+			e.RegisterPrim("incN", func(ctx context.Context, ce gicel.CapEnv, args []gicel.Value, _ gicel.Applier) (gicel.Value, gicel.CapEnv, error) {
 				v, _ := ce.Get("n")
 				n, _ := v.(int)
-				return &gmp.RecordVal{Fields: map[string]gmp.Value{}}, ce.Set("n", n+1), nil
+				return &gicel.RecordVal{Fields: map[string]gicel.Value{}}, ce.Set("n", n+1), nil
 			})
-			e.RegisterPrim("addN", func(ctx context.Context, ce gmp.CapEnv, args []gmp.Value, _ gmp.Applier) (gmp.Value, gmp.CapEnv, error) {
+			e.RegisterPrim("addN", func(ctx context.Context, ce gicel.CapEnv, args []gicel.Value, _ gicel.Applier) (gicel.Value, gicel.CapEnv, error) {
 				v, _ := ce.Get("n")
 				n, _ := v.(int)
-				delta := gmp.MustHost[int](args[0])
-				return &gmp.RecordVal{Fields: map[string]gmp.Value{}}, ce.Set("n", n+delta), nil
+				delta := gicel.MustHost[int](args[0])
+				return &gicel.RecordVal{Fields: map[string]gicel.Value{}}, ce.Set("n", n+delta), nil
 			})
 		},
 		caps: map[string]any{"n": 0},
-		check: func(t *testing.T, v gmp.Value) {
+		check: func(t *testing.T, v gicel.Value) {
 			// After 20 steps of addN(n)+incN, counter grows rapidly
-			n := gmp.MustHost[int](v)
+			n := gicel.MustHost[int](v)
 			if n <= 0 {
 				t.Errorf("expected positive counter, got %d", n)
 			}
@@ -134,9 +134,9 @@ var stressPrograms = []stressProgram{
 	},
 	{
 		name:  "multi_param_classes",
-		file:  "05_multi_param_classes.gmp",
-		setup: func(e *gmp.Engine) {},
-		check: func(t *testing.T, v gmp.Value) {
+		file:  "05_multi_param_classes.gicel",
+		setup: func(e *gicel.Engine) {},
+		check: func(t *testing.T, v gicel.Value) {
 			// convertAndCoerce True = coerce (convert True)
 			// convert True (Convert Bool (Maybe Bool)) = Just True
 			// coerce (Just True) (Coercible (Maybe Bool) Bool) = True
@@ -147,23 +147,23 @@ var stressPrograms = []stressProgram{
 	},
 	{
 		name: "thunk_force",
-		file: "06_thunk_force.gmp",
-		setup: func(e *gmp.Engine) {
+		file: "06_thunk_force.gicel",
+		setup: func(e *gicel.Engine) {
 			eng := e
-			eng.RegisterType("Int", gmp.KindType())
+			eng.RegisterType("Int", gicel.KindType())
 			counter := 0
-			eng.RegisterPrim("mkVal", func(ctx context.Context, ce gmp.CapEnv, args []gmp.Value, _ gmp.Applier) (gmp.Value, gmp.CapEnv, error) {
+			eng.RegisterPrim("mkVal", func(ctx context.Context, ce gicel.CapEnv, args []gicel.Value, _ gicel.Applier) (gicel.Value, gicel.CapEnv, error) {
 				counter++
-				return gmp.ToValue(counter), ce, nil
+				return gicel.ToValue(counter), ce, nil
 			})
-			eng.RegisterPrim("addInts", func(ctx context.Context, ce gmp.CapEnv, args []gmp.Value, _ gmp.Applier) (gmp.Value, gmp.CapEnv, error) {
-				a := gmp.MustHost[int](args[0])
-				b := gmp.MustHost[int](args[1])
-				return gmp.ToValue(a + b), ce, nil
+			eng.RegisterPrim("addInts", func(ctx context.Context, ce gicel.CapEnv, args []gicel.Value, _ gicel.Applier) (gicel.Value, gicel.CapEnv, error) {
+				a := gicel.MustHost[int](args[0])
+				b := gicel.MustHost[int](args[1])
+				return gicel.ToValue(a + b), ce, nil
 			})
 		},
-		check: func(t *testing.T, v gmp.Value) {
-			n := gmp.MustHost[int](v)
+		check: func(t *testing.T, v gicel.Value) {
+			n := gicel.MustHost[int](v)
 			if n <= 0 {
 				t.Errorf("expected positive result from thunk chain, got %d", n)
 			}
@@ -171,15 +171,15 @@ var stressPrograms = []stressProgram{
 	},
 	{
 		name: "recursive_data",
-		file: "07_recursive_data.gmp",
-		setup: func(e *gmp.Engine) {
+		file: "07_recursive_data.gicel",
+		setup: func(e *gicel.Engine) {
 			e.EnableRecursion()
 			e.SetStepLimit(100_000_000)
 			e.SetDepthLimit(100_000)
 			intPrimSetup(e)
 		},
-		check: func(t *testing.T, v gmp.Value) {
-			rv, ok := v.(*gmp.RecordVal)
+		check: func(t *testing.T, v gicel.Value) {
+			rv, ok := v.(*gicel.RecordVal)
 			if !ok || len(rv.Fields) != 2 {
 				t.Errorf("expected tuple, got %s", v)
 			}
@@ -187,45 +187,45 @@ var stressPrograms = []stressProgram{
 	},
 	{
 		name: "row_polymorphism",
-		file: "08_row_polymorphism.gmp",
-		setup: func(e *gmp.Engine) {
+		file: "08_row_polymorphism.gicel",
+		setup: func(e *gicel.Engine) {
 			capEnvSetup(e)
-			e.RegisterPrim("readDB", func(ctx context.Context, ce gmp.CapEnv, args []gmp.Value, _ gmp.Applier) (gmp.Value, gmp.CapEnv, error) {
+			e.RegisterPrim("readDB", func(ctx context.Context, ce gicel.CapEnv, args []gicel.Value, _ gicel.Applier) (gicel.Value, gicel.CapEnv, error) {
 				v, _ := ce.Get("db")
 				n, _ := v.(int)
-				return gmp.ToValue(n), ce, nil
+				return gicel.ToValue(n), ce, nil
 			})
-			e.RegisterPrim("writeDB", func(ctx context.Context, ce gmp.CapEnv, args []gmp.Value, _ gmp.Applier) (gmp.Value, gmp.CapEnv, error) {
-				n := gmp.MustHost[int](args[0])
-				return &gmp.RecordVal{Fields: map[string]gmp.Value{}}, ce.Set("db", n), nil
+			e.RegisterPrim("writeDB", func(ctx context.Context, ce gicel.CapEnv, args []gicel.Value, _ gicel.Applier) (gicel.Value, gicel.CapEnv, error) {
+				n := gicel.MustHost[int](args[0])
+				return &gicel.RecordVal{Fields: map[string]gicel.Value{}}, ce.Set("db", n), nil
 			})
-			e.RegisterPrim("getLog", func(ctx context.Context, ce gmp.CapEnv, args []gmp.Value, _ gmp.Applier) (gmp.Value, gmp.CapEnv, error) {
+			e.RegisterPrim("getLog", func(ctx context.Context, ce gicel.CapEnv, args []gicel.Value, _ gicel.Applier) (gicel.Value, gicel.CapEnv, error) {
 				v, _ := ce.Get("log")
 				n, _ := v.(int)
-				return gmp.ToValue(n), ce, nil
+				return gicel.ToValue(n), ce, nil
 			})
-			e.RegisterPrim("appendLog", func(ctx context.Context, ce gmp.CapEnv, args []gmp.Value, _ gmp.Applier) (gmp.Value, gmp.CapEnv, error) {
+			e.RegisterPrim("appendLog", func(ctx context.Context, ce gicel.CapEnv, args []gicel.Value, _ gicel.Applier) (gicel.Value, gicel.CapEnv, error) {
 				v, _ := ce.Get("log")
 				n, _ := v.(int)
-				delta := gmp.MustHost[int](args[0])
-				return &gmp.RecordVal{Fields: map[string]gmp.Value{}}, ce.Set("log", n+delta), nil
+				delta := gicel.MustHost[int](args[0])
+				return &gicel.RecordVal{Fields: map[string]gicel.Value{}}, ce.Set("log", n+delta), nil
 			})
-			e.RegisterPrim("readConfig", func(ctx context.Context, ce gmp.CapEnv, args []gmp.Value, _ gmp.Applier) (gmp.Value, gmp.CapEnv, error) {
+			e.RegisterPrim("readConfig", func(ctx context.Context, ce gicel.CapEnv, args []gicel.Value, _ gicel.Applier) (gicel.Value, gicel.CapEnv, error) {
 				v, _ := ce.Get("cfg")
 				n, _ := v.(int)
-				return gmp.ToValue(n), ce, nil
+				return gicel.ToValue(n), ce, nil
 			})
 		},
 		caps: map[string]any{"db": 0, "log": 0, "cfg": 1},
 	},
 	{
 		name:  "conditional_instances",
-		file:  "09_conditional_instances.gmp",
-		setup: func(e *gmp.Engine) {},
-		check: func(t *testing.T, v gmp.Value) {
+		file:  "09_conditional_instances.gicel",
+		setup: func(e *gicel.Engine) {},
+		check: func(t *testing.T, v gicel.Value) {
 			// main = (eqTest1, (eqTest2, (eqTest3, eqTest4)))
 			// eqTest1 = True (val1==val2), eqTest2 = False (val1!=val3)
-			rv, ok := v.(*gmp.RecordVal)
+			rv, ok := v.(*gicel.RecordVal)
 			if !ok || len(rv.Fields) < 2 {
 				t.Errorf("expected tuple, got %s", v)
 				return
@@ -235,24 +235,24 @@ var stressPrograms = []stressProgram{
 	},
 	{
 		name: "full_grammar",
-		file: "10_full_grammar.gmp",
-		setup: func(e *gmp.Engine) {
+		file: "10_full_grammar.gicel",
+		setup: func(e *gicel.Engine) {
 			capEnvSetup(e)
-			e.DeclareBinding("seed", gmp.ConType("Int"))
-			e.RegisterPrim("readS", func(ctx context.Context, ce gmp.CapEnv, args []gmp.Value, _ gmp.Applier) (gmp.Value, gmp.CapEnv, error) {
+			e.DeclareBinding("seed", gicel.ConType("Int"))
+			e.RegisterPrim("readS", func(ctx context.Context, ce gicel.CapEnv, args []gicel.Value, _ gicel.Applier) (gicel.Value, gicel.CapEnv, error) {
 				v, _ := ce.Get("s")
 				n, _ := v.(int)
-				return gmp.ToValue(n), ce, nil
+				return gicel.ToValue(n), ce, nil
 			})
-			e.RegisterPrim("writeS", func(ctx context.Context, ce gmp.CapEnv, args []gmp.Value, _ gmp.Applier) (gmp.Value, gmp.CapEnv, error) {
-				n := gmp.MustHost[int](args[0])
-				return &gmp.RecordVal{Fields: map[string]gmp.Value{}}, ce.Set("s", n), nil
+			e.RegisterPrim("writeS", func(ctx context.Context, ce gicel.CapEnv, args []gicel.Value, _ gicel.Applier) (gicel.Value, gicel.CapEnv, error) {
+				n := gicel.MustHost[int](args[0])
+				return &gicel.RecordVal{Fields: map[string]gicel.Value{}}, ce.Set("s", n), nil
 			})
 		},
 		caps:  map[string]any{"s": 0},
-		binds: map[string]gmp.Value{"seed": gmp.ToValue(10)},
-		check: func(t *testing.T, v gmp.Value) {
-			rv, ok := v.(*gmp.RecordVal)
+		binds: map[string]gicel.Value{"seed": gicel.ToValue(10)},
+		check: func(t *testing.T, v gicel.Value) {
+			rv, ok := v.(*gicel.RecordVal)
 			if !ok || len(rv.Fields) != 2 {
 				t.Errorf("expected tuple, got %s", v)
 			}
@@ -260,21 +260,21 @@ var stressPrograms = []stressProgram{
 	},
 	{
 		name:  "datakinds",
-		file:  "11_datakinds.gmp",
-		setup: func(e *gmp.Engine) {},
-		check: func(t *testing.T, v gmp.Value) {
+		file:  "11_datakinds.gicel",
+		setup: func(e *gicel.Engine) {},
+		check: func(t *testing.T, v gicel.Value) {
 			assertCon(t, v, "MkDB") // pipeline returns MkDB
 		},
 	},
 	{
 		name: "gadts",
-		file: "12_gadts.gmp",
-		setup: func(e *gmp.Engine) {
+		file: "12_gadts.gicel",
+		setup: func(e *gicel.Engine) {
 			e.EnableRecursion()
 			e.SetStepLimit(100_000_000)
 		},
-		check: func(t *testing.T, v gmp.Value) {
-			rv, ok := v.(*gmp.RecordVal)
+		check: func(t *testing.T, v gicel.Value) {
+			rv, ok := v.(*gicel.RecordVal)
 			if !ok || len(rv.Fields) < 2 {
 				t.Errorf("expected tuple, got %s", v)
 				return
@@ -285,8 +285,8 @@ var stressPrograms = []stressProgram{
 	},
 	{
 		name: "modules",
-		file: "13_modules.gmp",
-		setup: func(e *gmp.Engine) {
+		file: "13_modules.gicel",
+		setup: func(e *gicel.Engine) {
 			e.NoPrelude()
 			err := e.RegisterModule("Lib", `
 data LibBool = LibTrue | LibFalse
@@ -298,17 +298,17 @@ libNot := \b -> case b { LibTrue -> LibFalse; LibFalse -> LibTrue }
 				panic(err)
 			}
 		},
-		check: func(t *testing.T, v gmp.Value) {
+		check: func(t *testing.T, v gicel.Value) {
 			assertCon(t, v, "LibTrue") // double negation
 		},
 	},
 	{
 		name:  "stdlib",
-		file:  "14_stdlib.gmp",
-		setup: func(e *gmp.Engine) {},
-		check: func(t *testing.T, v gmp.Value) {
+		file:  "14_stdlib.gicel",
+		setup: func(e *gicel.Engine) {},
+		check: func(t *testing.T, v gicel.Value) {
 			// main = (True, (True, (False, (True, ((Just False), True)))))
-			rv, ok := v.(*gmp.RecordVal)
+			rv, ok := v.(*gicel.RecordVal)
 			if !ok || len(rv.Fields) < 2 {
 				t.Errorf("expected tuple, got %s", v)
 				return
@@ -318,11 +318,11 @@ libNot := \b -> case b { LibTrue -> LibFalse; LibFalse -> LibTrue }
 	},
 	{
 		name:  "existentials",
-		file:  "15_existentials.gmp",
-		setup: func(e *gmp.Engine) {},
-		check: func(t *testing.T, v gmp.Value) {
+		file:  "15_existentials.gicel",
+		setup: func(e *gicel.Engine) {},
+		check: func(t *testing.T, v gicel.Value) {
 			// selfEq packBool = True (eq True True)
-			rv, ok := v.(*gmp.RecordVal)
+			rv, ok := v.(*gicel.RecordVal)
 			if !ok || len(rv.Fields) < 2 {
 				t.Errorf("expected tuple, got %s", v)
 				return
@@ -332,23 +332,23 @@ libNot := \b -> case b { LibTrue -> LibFalse; LibFalse -> LibTrue }
 	},
 	{
 		name:  "higher_rank",
-		file:  "16_higher_rank.gmp",
-		setup: func(e *gmp.Engine) {},
-		check: func(t *testing.T, v gmp.Value) {
+		file:  "16_higher_rank.gicel",
+		setup: func(e *gicel.Engine) {},
+		check: func(t *testing.T, v gicel.Value) {
 			// main = ((True, ()), (True, ...))
-			rv, ok := v.(*gmp.RecordVal)
+			rv, ok := v.(*gicel.RecordVal)
 			if !ok || len(rv.Fields) < 2 {
 				t.Errorf("expected tuple, got %s", v)
 				return
 			}
 			// first element is applyToBoth id = (True, ())
-			inner, ok := rv.Fields["_1"].(*gmp.RecordVal)
+			inner, ok := rv.Fields["_1"].(*gicel.RecordVal)
 			if !ok || len(inner.Fields) != 2 {
 				t.Errorf("expected inner tuple, got %s", rv.Fields["_1"])
 				return
 			}
 			assertCon(t, inner.Fields["_1"], "True")
-			unitV, ok := inner.Fields["_2"].(*gmp.RecordVal)
+			unitV, ok := inner.Fields["_2"].(*gicel.RecordVal)
 			if !ok || len(unitV.Fields) != 0 {
 				t.Errorf("expected () in inner _2, got %s", inner.Fields["_2"])
 			}
@@ -356,10 +356,10 @@ libNot := \b -> case b { LibTrue -> LibFalse; LibFalse -> LibTrue }
 	},
 	{
 		name:  "stdlib_v05",
-		file:  "17_stdlib_v05.gmp",
-		setup: func(e *gmp.Engine) {},
-		check: func(t *testing.T, v gmp.Value) {
-			rv, ok := v.(*gmp.RecordVal)
+		file:  "17_stdlib_v05.gicel",
+		setup: func(e *gicel.Engine) {},
+		check: func(t *testing.T, v gicel.Value) {
+			rv, ok := v.(*gicel.RecordVal)
 			if !ok || len(rv.Fields) < 2 {
 				t.Errorf("expected tuple, got %s", v)
 				return
@@ -370,123 +370,123 @@ libNot := \b -> case b { LibTrue -> LibFalse; LibFalse -> LibTrue }
 	},
 	{
 		name: "literals_arithmetic",
-		file: "18_literals_arithmetic.gmp",
-		setup: func(e *gmp.Engine) {
-			if err := e.Use(gmp.Num); err != nil {
+		file: "18_literals_arithmetic.gicel",
+		setup: func(e *gicel.Engine) {
+			if err := e.Use(gicel.Num); err != nil {
 				panic(err)
 			}
 		},
-		check: func(t *testing.T, v gmp.Value) {
+		check: func(t *testing.T, v gicel.Value) {
 			// main = (42, (3, (7, (10, (True, (LT, 21))))))
-			rv, ok := v.(*gmp.RecordVal)
+			rv, ok := v.(*gicel.RecordVal)
 			if !ok || len(rv.Fields) < 2 {
 				t.Errorf("expected tuple, got %s", v)
 				return
 			}
 			// litInt = 42
-			if hv := gmp.MustHost[int64](rv.Fields["_1"]); hv != 42 {
+			if hv := gicel.MustHost[int64](rv.Fields["_1"]); hv != 42 {
 				t.Errorf("litInt: expected 42, got %d", hv)
 			}
 		},
 	},
 	{
 		name: "string_operations",
-		file: "19_string_operations.gmp",
-		setup: func(e *gmp.Engine) {
-			if err := e.Use(gmp.Num); err != nil {
+		file: "19_string_operations.gicel",
+		setup: func(e *gicel.Engine) {
+			if err := e.Use(gicel.Num); err != nil {
 				panic(err)
 			}
-			if err := e.Use(gmp.Str); err != nil {
+			if err := e.Use(gicel.Str); err != nil {
 				panic(err)
 			}
 		},
-		check: func(t *testing.T, v gmp.Value) {
+		check: func(t *testing.T, v gicel.Value) {
 			// main = ("hello world", (5, (True, ...)))
-			rv, ok := v.(*gmp.RecordVal)
+			rv, ok := v.(*gicel.RecordVal)
 			if !ok || len(rv.Fields) < 2 {
 				t.Errorf("expected tuple, got %s", v)
 				return
 			}
-			if hv := gmp.MustHost[string](rv.Fields["_1"]); hv != "hello world" {
+			if hv := gicel.MustHost[string](rv.Fields["_1"]); hv != "hello world" {
 				t.Errorf("strConcat: expected 'hello world', got '%s'", hv)
 			}
 		},
 	},
 	{
 		name: "effect_capabilities",
-		file: "20_effect_capabilities.gmp",
-		setup: func(e *gmp.Engine) {
-			if err := e.Use(gmp.Num); err != nil {
+		file: "20_effect_capabilities.gicel",
+		setup: func(e *gicel.Engine) {
+			if err := e.Use(gicel.Num); err != nil {
 				panic(err)
 			}
-			if err := e.Use(gmp.Fail); err != nil {
+			if err := e.Use(gicel.Fail); err != nil {
 				panic(err)
 			}
-			if err := e.Use(gmp.State); err != nil {
+			if err := e.Use(gicel.State); err != nil {
 				panic(err)
 			}
 		},
 		caps: map[string]any{
-			"state": &gmp.HostVal{Inner: int64(0)},
-			"fail":  &gmp.RecordVal{Fields: map[string]gmp.Value{}},
+			"state": &gicel.HostVal{Inner: int64(0)},
+			"fail":  &gicel.RecordVal{Fields: map[string]gicel.Value{}},
 		},
-		check: func(t *testing.T, v gmp.Value) {
+		check: func(t *testing.T, v gicel.Value) {
 			// main = (v1, (v2, (v3, (v4, (v5, v6)))))
 			// v1=100, v2=1, v3=42, v4=True, v5=20, v6=111
-			rv, ok := v.(*gmp.RecordVal)
+			rv, ok := v.(*gicel.RecordVal)
 			if !ok || len(rv.Fields) < 2 {
 				t.Errorf("expected tuple, got %s", v)
 				return
 			}
-			if hv := gmp.MustHost[int64](rv.Fields["_1"]); hv != 100 {
+			if hv := gicel.MustHost[int64](rv.Fields["_1"]); hv != 100 {
 				t.Errorf("v1 (putAndGet): expected 100, got %d", hv)
 			}
 		},
 	},
 	{
 		name: "ixmonad_monadic",
-		file: "21_ixmonad_monadic.gmp",
-		setup: func(e *gmp.Engine) {
+		file: "21_ixmonad_monadic.gicel",
+		setup: func(e *gicel.Engine) {
 			e.EnableRecursion()
 		},
-		check: func(t *testing.T, v gmp.Value) {
+		check: func(t *testing.T, v gicel.Value) {
 			// Deeply nested tuple. Walk the spine and check key values.
 			p := v
 			// Element 0: maybeChain = Just True
-			p = assertPairHead(t, p, "maybeChain", func(t *testing.T, v gmp.Value) {
+			p = assertPairHead(t, p, "maybeChain", func(t *testing.T, v gicel.Value) {
 				assertConArg(t, v, "Just", "True")
 			})
 			// Element 1: nothingFirst = Nothing
-			p = assertPairHead(t, p, "nothingFirst", func(t *testing.T, v gmp.Value) {
+			p = assertPairHead(t, p, "nothingFirst", func(t *testing.T, v gicel.Value) {
 				assertCon(t, v, "Nothing")
 			})
 			// Element 2: nothingMiddle = Nothing
-			p = assertPairHead(t, p, "nothingMiddle", func(t *testing.T, v gmp.Value) {
+			p = assertPairHead(t, p, "nothingMiddle", func(t *testing.T, v gicel.Value) {
 				assertCon(t, v, "Nothing")
 			})
 			// Element 3: nothingLast = Nothing
-			p = assertPairHead(t, p, "nothingLast", func(t *testing.T, v gmp.Value) {
+			p = assertPairHead(t, p, "nothingLast", func(t *testing.T, v gicel.Value) {
 				assertCon(t, v, "Nothing")
 			})
 			// Element 4: nestedMaybeDo = Just (Just True)
-			p = assertPairHead(t, p, "nestedMaybeDo", func(t *testing.T, v gmp.Value) {
+			p = assertPairHead(t, p, "nestedMaybeDo", func(t *testing.T, v gicel.Value) {
 				assertConArg(t, v, "Just", "")
 			})
 			// Element 5: maybePure = Just True
-			p = assertPairHead(t, p, "maybePure", func(t *testing.T, v gmp.Value) {
+			p = assertPairHead(t, p, "maybePure", func(t *testing.T, v gicel.Value) {
 				assertConArg(t, v, "Just", "True")
 			})
 			// Element 6: maybeDoCase = Just LT
-			p = assertPairHead(t, p, "maybeDoCase", func(t *testing.T, v gmp.Value) {
+			p = assertPairHead(t, p, "maybeDoCase", func(t *testing.T, v gicel.Value) {
 				assertConArg(t, v, "Just", "LT")
 			})
 			// Element 7: maybeDoNestedCase = Just True
-			p = assertPairHead(t, p, "maybeDoNestedCase", func(t *testing.T, v gmp.Value) {
+			p = assertPairHead(t, p, "maybeDoNestedCase", func(t *testing.T, v gicel.Value) {
 				assertConArg(t, v, "Just", "True")
 			})
 			// Element 8: listFlatMap = [True, True, False, False]
-			p = assertPairHead(t, p, "listFlatMap", func(t *testing.T, v gmp.Value) {
-				items, ok := gmp.FromList(v)
+			p = assertPairHead(t, p, "listFlatMap", func(t *testing.T, v gicel.Value) {
+				items, ok := gicel.FromList(v)
 				if !ok {
 					t.Errorf("expected list, got %v", v)
 					return
@@ -496,8 +496,8 @@ libNot := \b -> case b { LibTrue -> LibFalse; LibFalse -> LibTrue }
 				}
 			})
 			// Element 9: listFilter = [True, True]
-			p = assertPairHead(t, p, "listFilter", func(t *testing.T, v gmp.Value) {
-				items, ok := gmp.FromList(v)
+			p = assertPairHead(t, p, "listFilter", func(t *testing.T, v gicel.Value) {
+				items, ok := gicel.FromList(v)
 				if !ok {
 					t.Errorf("expected list, got %v", v)
 					return
@@ -507,8 +507,8 @@ libNot := \b -> case b { LibTrue -> LibFalse; LibFalse -> LibTrue }
 				}
 			})
 			// Element 10: listCartesian = 4 pairs
-			p = assertPairHead(t, p, "listCartesian", func(t *testing.T, v gmp.Value) {
-				items, ok := gmp.FromList(v)
+			p = assertPairHead(t, p, "listCartesian", func(t *testing.T, v gicel.Value) {
+				items, ok := gicel.FromList(v)
 				if !ok {
 					t.Errorf("expected list, got %v", v)
 					return
@@ -518,67 +518,67 @@ libNot := \b -> case b { LibTrue -> LibFalse; LibFalse -> LibTrue }
 				}
 			})
 			// Element 11: listEmpty = Nil
-			p = assertPairHead(t, p, "listEmpty", func(t *testing.T, v gmp.Value) {
+			p = assertPairHead(t, p, "listEmpty", func(t *testing.T, v gicel.Value) {
 				assertCon(t, v, "Nil")
 			})
 			// Element 12: listSingleton = Cons True Nil
-			p = assertPairHead(t, p, "listSingleton", func(t *testing.T, v gmp.Value) {
-				items, ok := gmp.FromList(v)
+			p = assertPairHead(t, p, "listSingleton", func(t *testing.T, v gicel.Value) {
+				items, ok := gicel.FromList(v)
 				if !ok || len(items) != 1 {
 					t.Errorf("listSingleton: expected 1 element, got %v", v)
 				}
 			})
 			// Element 13: listEqTest = True
-			p = assertPairHead(t, p, "listEqTest", func(t *testing.T, v gmp.Value) {
+			p = assertPairHead(t, p, "listEqTest", func(t *testing.T, v gicel.Value) {
 				assertCon(t, v, "True")
 			})
 			// Element 14: listEqTestFalse = False
-			p = assertPairHead(t, p, "listEqTestFalse", func(t *testing.T, v gmp.Value) {
+			p = assertPairHead(t, p, "listEqTestFalse", func(t *testing.T, v gicel.Value) {
 				assertCon(t, v, "False")
 			})
 			// Element 15: listEqNilNil = True
-			p = assertPairHead(t, p, "listEqNilNil", func(t *testing.T, v gmp.Value) {
+			p = assertPairHead(t, p, "listEqNilNil", func(t *testing.T, v gicel.Value) {
 				assertCon(t, v, "True")
 			})
 			// Element 16: listEqNilCons = False
-			p = assertPairHead(t, p, "listEqNilCons", func(t *testing.T, v gmp.Value) {
+			p = assertPairHead(t, p, "listEqNilCons", func(t *testing.T, v gicel.Value) {
 				assertCon(t, v, "False")
 			})
 			// Element 17: listAppendTest = [True, False]
-			p = assertPairHead(t, p, "listAppendTest", func(t *testing.T, v gmp.Value) {
-				items, ok := gmp.FromList(v)
+			p = assertPairHead(t, p, "listAppendTest", func(t *testing.T, v gicel.Value) {
+				items, ok := gicel.FromList(v)
 				if !ok || len(items) != 2 {
 					t.Errorf("listAppendTest: expected 2 elements, got %v", v)
 				}
 			})
 			// Element 18: listMonoidTest = [True]
-			p = assertPairHead(t, p, "listMonoidTest", func(t *testing.T, v gmp.Value) {
-				items, ok := gmp.FromList(v)
+			p = assertPairHead(t, p, "listMonoidTest", func(t *testing.T, v gicel.Value) {
+				items, ok := gicel.FromList(v)
 				if !ok || len(items) != 1 {
 					t.Errorf("listMonoidTest: expected 1 element, got %v", v)
 				}
 			})
 			// Element 19: listFmapTest = [False, True]
-			p = assertPairHead(t, p, "listFmapTest", func(t *testing.T, v gmp.Value) {
-				items, ok := gmp.FromList(v)
+			p = assertPairHead(t, p, "listFmapTest", func(t *testing.T, v gicel.Value) {
+				items, ok := gicel.FromList(v)
 				if !ok || len(items) != 2 {
 					t.Errorf("listFmapTest: expected 2 elements, got %v", v)
 				}
 			})
 			// Element 20: listFoldrTest = True
-			p = assertPairHead(t, p, "listFoldrTest", func(t *testing.T, v gmp.Value) {
+			p = assertPairHead(t, p, "listFoldrTest", func(t *testing.T, v gicel.Value) {
 				assertCon(t, v, "True")
 			})
 			// Element 21: eqMaybeChain = True
-			p = assertPairHead(t, p, "eqMaybeChain", func(t *testing.T, v gmp.Value) {
+			p = assertPairHead(t, p, "eqMaybeChain", func(t *testing.T, v gicel.Value) {
 				assertCon(t, v, "True")
 			})
 			// Element 22: ordMaybeTest = LT
-			p = assertPairHead(t, p, "ordMaybeTest", func(t *testing.T, v gmp.Value) {
+			p = assertPairHead(t, p, "ordMaybeTest", func(t *testing.T, v gicel.Value) {
 				assertCon(t, v, "LT")
 			})
 			// Element 23: eqPairMaybe = True
-			p = assertPairHead(t, p, "eqPairMaybe", func(t *testing.T, v gmp.Value) {
+			p = assertPairHead(t, p, "eqPairMaybe", func(t *testing.T, v gicel.Value) {
 				assertCon(t, v, "True")
 			})
 			// Skip remaining elements — just verify evaluation completes.
@@ -587,56 +587,56 @@ libNot := \b -> case b { LibTrue -> LibFalse; LibFalse -> LibTrue }
 	},
 	{
 		name: "records_tuples",
-		file: "22_records_tuples.gmp",
-		setup: func(e *gmp.Engine) {
-			e.Use(gmp.Num)
-			e.Use(gmp.Str)
+		file: "22_records_tuples.gicel",
+		setup: func(e *gicel.Engine) {
+			e.Use(gicel.Num)
+			e.Use(gicel.Str)
 		},
-		check: func(t *testing.T, v gmp.Value) {
+		check: func(t *testing.T, v gicel.Value) {
 			p := v
 			// getX point = 3
-			p = assertPairHead(t, p, "getX", func(t *testing.T, v gmp.Value) {
+			p = assertPairHead(t, p, "getX", func(t *testing.T, v gicel.Value) {
 				assertHostVal(t, v, int64(3))
 			})
 			// getY moved = 4 (y unchanged by update)
-			p = assertPairHead(t, p, "getY moved", func(t *testing.T, v gmp.Value) {
+			p = assertPairHead(t, p, "getY moved", func(t *testing.T, v gicel.Value) {
 				assertHostVal(t, v, int64(4))
 			})
 			// label1 = "hello"
-			p = assertPairHead(t, p, "label1", func(t *testing.T, v gmp.Value) {
+			p = assertPairHead(t, p, "label1", func(t *testing.T, v gicel.Value) {
 				assertHostVal(t, v, "hello")
 			})
 			// label2 = "world"
-			p = assertPairHead(t, p, "label2", func(t *testing.T, v gmp.Value) {
+			p = assertPairHead(t, p, "label2", func(t *testing.T, v gicel.Value) {
 				assertHostVal(t, v, "world")
 			})
 			// innerA = True
-			p = assertPairHead(t, p, "innerA", func(t *testing.T, v gmp.Value) {
+			p = assertPairHead(t, p, "innerA", func(t *testing.T, v gicel.Value) {
 				assertCon(t, v, "True")
 			})
 			// eqUnit = True
-			p = assertPairHead(t, p, "eqUnit", func(t *testing.T, v gmp.Value) {
+			p = assertPairHead(t, p, "eqUnit", func(t *testing.T, v gicel.Value) {
 				assertCon(t, v, "True")
 			})
 			// eqPair = True
-			p = assertPairHead(t, p, "eqPair", func(t *testing.T, v gmp.Value) {
+			p = assertPairHead(t, p, "eqPair", func(t *testing.T, v gicel.Value) {
 				assertCon(t, v, "True")
 			})
 			// eqPairF = False
-			p = assertPairHead(t, p, "eqPairF", func(t *testing.T, v gmp.Value) {
+			p = assertPairHead(t, p, "eqPairF", func(t *testing.T, v gicel.Value) {
 				assertCon(t, v, "False")
 			})
 			// cmpUnit = EQ
-			p = assertPairHead(t, p, "cmpUnit", func(t *testing.T, v gmp.Value) {
+			p = assertPairHead(t, p, "cmpUnit", func(t *testing.T, v gicel.Value) {
 				assertCon(t, v, "EQ")
 			})
 			// cmpPair = LT
-			p = assertPairHead(t, p, "cmpPair", func(t *testing.T, v gmp.Value) {
+			p = assertPairHead(t, p, "cmpPair", func(t *testing.T, v gicel.Value) {
 				assertCon(t, v, "LT")
 			})
 			// swapped = (False, True)
-			p = assertPairHead(t, p, "swapped", func(t *testing.T, v gmp.Value) {
-				rv, ok := v.(*gmp.RecordVal)
+			p = assertPairHead(t, p, "swapped", func(t *testing.T, v gicel.Value) {
+				rv, ok := v.(*gicel.RecordVal)
 				if !ok {
 					t.Errorf("expected RecordVal, got %T", v)
 					return
@@ -645,8 +645,8 @@ libNot := \b -> case b { LibTrue -> LibFalse; LibFalse -> LibTrue }
 				assertCon(t, rv.Fields["_2"], "True")
 			})
 			// xyTuple = (3, 4)
-			p = assertPairHead(t, p, "xyTuple", func(t *testing.T, v gmp.Value) {
-				rv, ok := v.(*gmp.RecordVal)
+			p = assertPairHead(t, p, "xyTuple", func(t *testing.T, v gicel.Value) {
+				rv, ok := v.(*gicel.RecordVal)
 				if !ok {
 					t.Errorf("expected RecordVal, got %T", v)
 					return
@@ -655,31 +655,31 @@ libNot := \b -> case b { LibTrue -> LibFalse; LibFalse -> LibTrue }
 				assertHostVal(t, rv.Fields["_2"], int64(4))
 			})
 			// d1 = 1
-			p = assertPairHead(t, p, "d1", func(t *testing.T, v gmp.Value) {
+			p = assertPairHead(t, p, "d1", func(t *testing.T, v gicel.Value) {
 				assertHostVal(t, v, int64(1))
 			})
 			// d2 = 2
-			p = assertPairHead(t, p, "d2", func(t *testing.T, v gmp.Value) {
+			p = assertPairHead(t, p, "d2", func(t *testing.T, v gicel.Value) {
 				assertHostVal(t, v, int64(2))
 			})
 			// d3 = 3
-			p = assertPairHead(t, p, "d3", func(t *testing.T, v gmp.Value) {
+			p = assertPairHead(t, p, "d3", func(t *testing.T, v gicel.Value) {
 				assertHostVal(t, v, int64(3))
 			})
 			// eqRecord = True
-			p = assertPairHead(t, p, "eqRecord", func(t *testing.T, v gmp.Value) {
+			p = assertPairHead(t, p, "eqRecord", func(t *testing.T, v gicel.Value) {
 				assertCon(t, v, "True")
 			})
 			// ordRecord = LT
-			p = assertPairHead(t, p, "ordRecord", func(t *testing.T, v gmp.Value) {
+			p = assertPairHead(t, p, "ordRecord", func(t *testing.T, v gicel.Value) {
 				assertCon(t, v, "LT")
 			})
 			// unwrapped = 1
-			p = assertPairHead(t, p, "unwrapped", func(t *testing.T, v gmp.Value) {
+			p = assertPairHead(t, p, "unwrapped", func(t *testing.T, v gicel.Value) {
 				assertHostVal(t, v, int64(1))
 			})
 			// sumBig = 55
-			p = assertPairHead(t, p, "sumBig", func(t *testing.T, v gmp.Value) {
+			p = assertPairHead(t, p, "sumBig", func(t *testing.T, v gicel.Value) {
 				assertHostVal(t, v, int64(55))
 			})
 			// firstPoint = 0
@@ -699,9 +699,9 @@ func copyCaps(m map[string]any) map[string]any {
 	return c
 }
 
-func assertHostVal(t *testing.T, v gmp.Value, want any) {
+func assertHostVal(t *testing.T, v gicel.Value, want any) {
 	t.Helper()
-	hv, ok := v.(*gmp.HostVal)
+	hv, ok := v.(*gicel.HostVal)
 	if !ok {
 		t.Errorf("expected HostVal, got %T: %s", v, v)
 		return
@@ -711,9 +711,9 @@ func assertHostVal(t *testing.T, v gmp.Value, want any) {
 	}
 }
 
-func assertCon(t *testing.T, v gmp.Value, name string) {
+func assertCon(t *testing.T, v gicel.Value, name string) {
 	t.Helper()
-	con, ok := v.(*gmp.ConVal)
+	con, ok := v.(*gicel.ConVal)
 	if !ok {
 		t.Errorf("expected ConVal, got %T: %s", v, v)
 		return
@@ -731,7 +731,7 @@ func TestStressPrograms(t *testing.T) {
 	for _, sp := range stressPrograms {
 		t.Run(sp.name, func(t *testing.T) {
 			source := loadStressProgram(t, sp.file)
-			eng := gmp.NewEngine()
+			eng := gicel.NewEngine()
 			sp.setup(eng)
 
 			start := time.Now()
@@ -745,14 +745,14 @@ func TestStressPrograms(t *testing.T) {
 
 			ctx := context.Background()
 			start = time.Now()
-			var result *gmp.RunResult
+			var result *gicel.RunResult
 			caps := copyCaps(sp.caps)
 			if caps != nil {
 				full, err := rt.RunContextFull(ctx, caps, sp.binds, "main")
 				if err != nil {
 					t.Fatalf("eval failed: %v", err)
 				}
-				result = &gmp.RunResult{Value: full.Value, Stats: full.Stats}
+				result = &gicel.RunResult{Value: full.Value, Stats: full.Stats}
 			} else {
 				result, err = rt.RunContext(ctx, nil, sp.binds, "main")
 				if err != nil {
@@ -779,7 +779,7 @@ func BenchmarkStressCompile(b *testing.B) {
 			source := loadStressProgram(b, sp.file)
 			b.ResetTimer()
 			for i := 0; i < b.N; i++ {
-				eng := gmp.NewEngine()
+				eng := gicel.NewEngine()
 				sp.setup(eng)
 				_, err := eng.NewRuntime(source)
 				if err != nil {
@@ -794,7 +794,7 @@ func BenchmarkStressEval(b *testing.B) {
 	for _, sp := range stressPrograms {
 		b.Run(sp.name, func(b *testing.B) {
 			source := loadStressProgram(b, sp.file)
-			eng := gmp.NewEngine()
+			eng := gicel.NewEngine()
 			sp.setup(eng)
 			rt, err := eng.NewRuntime(source)
 			if err != nil {
@@ -849,7 +849,7 @@ f%d := \x -> x
 	// Generate chain
 	source += "main := f0 (f1 (f2 (f3 (f4 (f5 (f6 (f7 (f8 (f9 True)))))))))\n"
 
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	start := time.Now()
 	rt, err := eng.NewRuntime(source)
 	compileTime := time.Since(start)
@@ -884,7 +884,7 @@ func TestStressMemory(t *testing.T) {
 			continue // skip missing files in memory test
 		}
 		source := string(data)
-		eng := gmp.NewEngine()
+		eng := gicel.NewEngine()
 		sp.setup(eng)
 		rt, err := eng.NewRuntime(source)
 		if err != nil {
@@ -915,14 +915,14 @@ func TestStressMemory(t *testing.T) {
 
 func TestStressListFoldrLarge(t *testing.T) {
 	// Deep fold: foldr over a large list.
-	eng := gmp.NewEngine()
-	eng.RegisterPrim("add", func(ctx context.Context, ce gmp.CapEnv, args []gmp.Value, _ gmp.Applier) (gmp.Value, gmp.CapEnv, error) {
-		return gmp.ToValue(gmp.MustHost[int64](args[0]) + gmp.MustHost[int64](args[1])), ce, nil
+	eng := gicel.NewEngine()
+	eng.RegisterPrim("add", func(ctx context.Context, ce gicel.CapEnv, args []gicel.Value, _ gicel.Applier) (gicel.Value, gicel.CapEnv, error) {
+		return gicel.ToValue(gicel.MustHost[int64](args[0]) + gicel.MustHost[int64](args[1])), ce, nil
 	})
 	eng.EnableRecursion()
 	eng.SetStepLimit(10_000_000)
 	eng.SetDepthLimit(100_000)
-	eng.DeclareBinding("xs", gmp.AppType(gmp.ConType("List"), gmp.ConType("Int")))
+	eng.DeclareBinding("xs", gicel.AppType(gicel.ConType("List"), gicel.ConType("Int")))
 
 	rt, err := eng.NewRuntime(`
 add :: Int -> Int -> Int
@@ -940,8 +940,8 @@ main := foldr add 0 xs
 		items[i] = int64(i + 1)
 	}
 	start := time.Now()
-	result, err := rt.RunContext(context.Background(), nil, map[string]gmp.Value{
-		"xs": gmp.ToList(items),
+	result, err := rt.RunContext(context.Background(), nil, map[string]gicel.Value{
+		"xs": gicel.ToList(items),
 	}, "main")
 	elapsed := time.Since(start)
 	if err != nil {
@@ -950,21 +950,21 @@ main := foldr add 0 xs
 	t.Logf("foldr over %d elements: %v, steps=%d", n, elapsed, result.Stats.Steps)
 
 	// Sum 1..1000 = 500500
-	hv, ok := result.Value.(*gmp.HostVal)
+	hv, ok := result.Value.(*gicel.HostVal)
 	if !ok || hv.Inner != int64(500500) {
 		t.Fatalf("expected 500500, got %v", result.Value)
 	}
 }
 
 func TestStressListFmapLarge(t *testing.T) {
-	eng := gmp.NewEngine()
-	eng.RegisterPrim("add", func(ctx context.Context, ce gmp.CapEnv, args []gmp.Value, _ gmp.Applier) (gmp.Value, gmp.CapEnv, error) {
-		return gmp.ToValue(gmp.MustHost[int64](args[0]) + gmp.MustHost[int64](args[1])), ce, nil
+	eng := gicel.NewEngine()
+	eng.RegisterPrim("add", func(ctx context.Context, ce gicel.CapEnv, args []gicel.Value, _ gicel.Applier) (gicel.Value, gicel.CapEnv, error) {
+		return gicel.ToValue(gicel.MustHost[int64](args[0]) + gicel.MustHost[int64](args[1])), ce, nil
 	})
 	eng.EnableRecursion()
 	eng.SetStepLimit(10_000_000)
 	eng.SetDepthLimit(100_000)
-	eng.DeclareBinding("xs", gmp.AppType(gmp.ConType("List"), gmp.ConType("Int")))
+	eng.DeclareBinding("xs", gicel.AppType(gicel.ConType("List"), gicel.ConType("Int")))
 
 	rt, err := eng.NewRuntime(`
 add :: Int -> Int -> Int
@@ -981,8 +981,8 @@ main := fmap (\x -> add x 1) xs
 		items[i] = int64(i)
 	}
 	start := time.Now()
-	result, err := rt.RunContext(context.Background(), nil, map[string]gmp.Value{
-		"xs": gmp.ToList(items),
+	result, err := rt.RunContext(context.Background(), nil, map[string]gicel.Value{
+		"xs": gicel.ToList(items),
 	}, "main")
 	elapsed := time.Since(start)
 	if err != nil {
@@ -990,25 +990,25 @@ main := fmap (\x -> add x 1) xs
 	}
 	t.Logf("fmap over %d elements: %v, steps=%d", n, elapsed, result.Stats.Steps)
 
-	got, ok := gmp.FromList(result.Value)
+	got, ok := gicel.FromList(result.Value)
 	if !ok || len(got) != n {
 		t.Fatalf("expected %d elements, got %d", n, len(got))
 	}
 	// Verify first and last
-	if hv := got[0].(*gmp.HostVal); hv.Inner != int64(1) {
+	if hv := got[0].(*gicel.HostVal); hv.Inner != int64(1) {
 		t.Fatalf("first element: expected 1, got %v", hv.Inner)
 	}
-	if hv := got[n-1].(*gmp.HostVal); hv.Inner != int64(n) {
+	if hv := got[n-1].(*gicel.HostVal); hv.Inner != int64(n) {
 		t.Fatalf("last element: expected %d, got %v", n, hv.Inner)
 	}
 }
 
 func TestStressListFromSliceRoundTrip(t *testing.T) {
-	eng := gmp.NewEngine()
-	if err := eng.Use(gmp.List); err != nil {
+	eng := gicel.NewEngine()
+	if err := eng.Use(gicel.List); err != nil {
 		t.Fatal(err)
 	}
-	eng.DeclareBinding("xs", gmp.AppType(gmp.ConType("List"), gmp.ConType("Int")))
+	eng.DeclareBinding("xs", gicel.AppType(gicel.ConType("List"), gicel.ConType("Int")))
 
 	rt, err := eng.NewRuntime(`
 import Std.List
@@ -1024,8 +1024,8 @@ main := toSlice xs
 		items[i] = int64(i)
 	}
 	start := time.Now()
-	result, err := rt.RunContext(context.Background(), nil, map[string]gmp.Value{
-		"xs": gmp.ToList(items),
+	result, err := rt.RunContext(context.Background(), nil, map[string]gicel.Value{
+		"xs": gicel.ToList(items),
 	}, "main")
 	elapsed := time.Since(start)
 	if err != nil {
@@ -1034,7 +1034,7 @@ main := toSlice xs
 	t.Logf("toSlice round-trip %d elements: %v, steps=%d", n, elapsed, result.Stats.Steps)
 
 	// toSlice returns a HostVal([]any)
-	hv, ok := result.Value.(*gmp.HostVal)
+	hv, ok := result.Value.(*gicel.HostVal)
 	if !ok {
 		t.Fatalf("expected HostVal, got %T", result.Value)
 	}
@@ -1050,8 +1050,8 @@ main := toSlice xs
 
 func TestStressDeepDoChainComputation(t *testing.T) {
 	// Deep Computation do chain (Core.Bind path) — 100 binds.
-	eng := gmp.NewEngine()
-	eng.DeclareBinding("x", gmp.ConType("Int"))
+	eng := gicel.NewEngine()
+	eng.DeclareBinding("x", gicel.ConType("Int"))
 
 	// Generate: main := do { v0 <- pure x; v1 <- pure v0; ... ; pure vN }
 	source := ""
@@ -1069,8 +1069,8 @@ func TestStressDeepDoChainComputation(t *testing.T) {
 	}
 
 	start := time.Now()
-	result, err := rt.RunContext(context.Background(), nil, map[string]gmp.Value{
-		"x": gmp.ToValue(42),
+	result, err := rt.RunContext(context.Background(), nil, map[string]gicel.Value{
+		"x": gicel.ToValue(42),
 	}, "main")
 	elapsed := time.Since(start)
 	if err != nil {
@@ -1078,7 +1078,7 @@ func TestStressDeepDoChainComputation(t *testing.T) {
 	}
 	t.Logf("deep Computation do chain (%d binds): %v, steps=%d", depth, elapsed, result.Stats.Steps)
 
-	hv, ok := result.Value.(*gmp.HostVal)
+	hv, ok := result.Value.(*gicel.HostVal)
 	if !ok || hv.Inner != 42 {
 		t.Fatalf("expected 42, got %v", result.Value)
 	}
@@ -1086,7 +1086,7 @@ func TestStressDeepDoChainComputation(t *testing.T) {
 
 func TestStressDeepDoChainMaybe(t *testing.T) {
 	// Deep Maybe do chain (class dispatch path) — 50 binds.
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 
 	const depth = 50
 	source := "main :: Maybe Int\nmain := do {\n"
@@ -1109,11 +1109,11 @@ func TestStressDeepDoChainMaybe(t *testing.T) {
 	}
 	t.Logf("deep Maybe do chain (%d binds): %v, steps=%d", depth, elapsed, result.Stats.Steps)
 
-	con, ok := result.Value.(*gmp.ConVal)
+	con, ok := result.Value.(*gicel.ConVal)
 	if !ok || con.Con != "Just" {
 		t.Fatalf("expected Just 1, got %v", result.Value)
 	}
-	hv, ok := con.Args[0].(*gmp.HostVal)
+	hv, ok := con.Args[0].(*gicel.HostVal)
 	if !ok || hv.Inner != int64(1) {
 		t.Fatalf("expected Just 1, got Just %v", con.Args[0])
 	}
@@ -1124,9 +1124,9 @@ func TestStressDeepDoChainMaybe(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 // assertPairHead extracts the first element of a tuple, checks it, and returns the second.
-func assertPairHead(t *testing.T, v gmp.Value, label string, check func(*testing.T, gmp.Value)) gmp.Value {
+func assertPairHead(t *testing.T, v gicel.Value, label string, check func(*testing.T, gicel.Value)) gicel.Value {
 	t.Helper()
-	rv, ok := v.(*gmp.RecordVal)
+	rv, ok := v.(*gicel.RecordVal)
 	if !ok || len(rv.Fields) < 2 {
 		t.Errorf("%s: expected tuple, got %v", label, v)
 		return v
@@ -1137,15 +1137,15 @@ func assertPairHead(t *testing.T, v gmp.Value, label string, check func(*testing
 
 // assertConArg checks that v is a ConVal with name `con` and first arg is a ConVal with name `arg`.
 // If arg is empty, only the outer constructor is checked.
-func assertConArg(t *testing.T, v gmp.Value, conName, argName string) {
+func assertConArg(t *testing.T, v gicel.Value, conName, argName string) {
 	t.Helper()
-	con, ok := v.(*gmp.ConVal)
+	con, ok := v.(*gicel.ConVal)
 	if !ok || con.Con != conName {
 		t.Errorf("expected %s, got %v", conName, v)
 		return
 	}
 	if argName != "" && len(con.Args) > 0 {
-		inner, ok := con.Args[0].(*gmp.ConVal)
+		inner, ok := con.Args[0].(*gicel.ConVal)
 		if !ok || inner.Con != argName {
 			t.Errorf("expected %s(%s), got %s(%v)", conName, argName, conName, con.Args[0])
 		}
@@ -1159,7 +1159,7 @@ func assertConArg(t *testing.T, v gmp.Value, conName, argName string) {
 func TestStressMaybeDoChainScaling(t *testing.T) {
 	for _, depth := range []int{10, 25, 50, 100} {
 		t.Run(fmt.Sprintf("depth_%d", depth), func(t *testing.T) {
-			eng := gmp.NewEngine()
+			eng := gicel.NewEngine()
 			source := "main :: Maybe Bool\nmain := do {\n"
 			source += "  v0 <- Just True;\n"
 			for i := 1; i < depth; i++ {
@@ -1183,7 +1183,7 @@ func TestStressMaybeDoChainScaling(t *testing.T) {
 			}
 			t.Logf("depth=%d: eval %v, steps=%d", depth, evalTime, result.Stats.Steps)
 
-			con, ok := result.Value.(*gmp.ConVal)
+			con, ok := result.Value.(*gicel.ConVal)
 			if !ok || con.Con != "Just" {
 				t.Fatalf("expected Just True, got %v", result.Value)
 			}
@@ -1197,7 +1197,7 @@ func TestStressMaybeDoChainScaling(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestStressListCartesianProduct(t *testing.T) {
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	eng.EnableRecursion()
 	eng.SetStepLimit(100_000_000)
 	eng.SetDepthLimit(100_000)
@@ -1223,7 +1223,7 @@ main := do {
 	}
 	t.Logf("list cartesian 3×2: %v, steps=%d", elapsed, result.Stats.Steps)
 
-	items, ok := gmp.FromList(result.Value)
+	items, ok := gicel.FromList(result.Value)
 	if !ok || len(items) != 6 {
 		t.Fatalf("expected 6 pairs, got %d", len(items))
 	}
@@ -1234,7 +1234,7 @@ main := do {
 // ---------------------------------------------------------------------------
 
 func TestStressListFlatMapScaling(t *testing.T) {
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	eng.EnableRecursion()
 	eng.SetStepLimit(100_000_000)
 	eng.SetDepthLimit(100_000)
@@ -1255,14 +1255,14 @@ main := do {
 	if err != nil {
 		t.Fatal(err)
 	}
-	items, ok := gmp.FromList(result.Value)
+	items, ok := gicel.FromList(result.Value)
 	if !ok || len(items) != 6 {
 		t.Fatalf("expected 6, got %d", len(items))
 	}
 	// [True, True, False, False, True, True]
 	expected := []string{"True", "True", "False", "False", "True", "True"}
 	for i, v := range items {
-		con, ok := v.(*gmp.ConVal)
+		con, ok := v.(*gicel.ConVal)
 		if !ok || con.Con != expected[i] {
 			t.Fatalf("element %d: expected %s, got %v", i, expected[i], v)
 		}
@@ -1276,7 +1276,7 @@ main := do {
 func TestStressMaybeNothingShortCircuit(t *testing.T) {
 	for _, nothingAt := range []int{1, 5, 10, 20} {
 		t.Run(fmt.Sprintf("nothing_at_%d", nothingAt), func(t *testing.T) {
-			eng := gmp.NewEngine()
+			eng := gicel.NewEngine()
 			const depth = 25
 			source := "main :: Maybe Bool\nmain := do {\n"
 			for i := 0; i < depth; i++ {
@@ -1298,7 +1298,7 @@ func TestStressMaybeNothingShortCircuit(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			con, ok := result.Value.(*gmp.ConVal)
+			con, ok := result.Value.(*gicel.ConVal)
 			if !ok || con.Con != "Nothing" {
 				t.Fatalf("expected Nothing, got %v", result.Value)
 			}
@@ -1311,11 +1311,11 @@ func TestStressMaybeNothingShortCircuit(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestStressComputationEffectsWithMonadicValues(t *testing.T) {
-	eng := gmp.NewEngine()
-	if err := eng.Use(gmp.Num); err != nil {
+	eng := gicel.NewEngine()
+	if err := eng.Use(gicel.Num); err != nil {
 		t.Fatal(err)
 	}
-	if err := eng.Use(gmp.State); err != nil {
+	if err := eng.Use(gicel.State); err != nil {
 		t.Fatal(err)
 	}
 
@@ -1337,16 +1337,16 @@ main := do {
 	if err != nil {
 		t.Fatal(err)
 	}
-	caps := map[string]any{"state": &gmp.HostVal{Inner: int64(0)}}
+	caps := map[string]any{"state": &gicel.HostVal{Inner: int64(0)}}
 	result, err := rt.RunContext(context.Background(), caps, nil, "main")
 	if err != nil {
 		t.Fatal(err)
 	}
-	con, ok := result.Value.(*gmp.ConVal)
+	con, ok := result.Value.(*gicel.ConVal)
 	if !ok || con.Con != "Just" {
 		t.Fatalf("expected Just, got %v", result.Value)
 	}
-	hv, ok := con.Args[0].(*gmp.HostVal)
+	hv, ok := con.Args[0].(*gicel.HostVal)
 	if !ok || hv.Inner != int64(2) {
 		t.Fatalf("expected Just 2, got Just %v", con.Args[0])
 	}
@@ -1358,7 +1358,7 @@ main := do {
 
 func TestStressInstanceResolutionDeep(t *testing.T) {
 	// Deeply nested conditional instance: Eq (Maybe (Maybe (Maybe ... Bool)))
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	const depth = 10
 
 	// Build: Eq (Maybe (Maybe (... (Maybe Bool) ...)))
@@ -1401,7 +1401,7 @@ main := eq %s %s
 // ---------------------------------------------------------------------------
 
 func TestStressAllClassesCombined(t *testing.T) {
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`
 -- Eq
 r1 := eq True True
@@ -1447,21 +1447,21 @@ main := (r1, (r2, (r3, (r4, (r5, (r6, (r7, (r8,
 	}
 	// r1 = True
 	p := result.Value
-	p = assertPairHead(t, p, "eq Bool", func(t *testing.T, v gmp.Value) { assertCon(t, v, "True") })
+	p = assertPairHead(t, p, "eq Bool", func(t *testing.T, v gicel.Value) { assertCon(t, v, "True") })
 	// r2 = True (eq (Just LT) (Just LT))
-	p = assertPairHead(t, p, "eq Maybe Ordering", func(t *testing.T, v gmp.Value) { assertCon(t, v, "True") })
+	p = assertPairHead(t, p, "eq Maybe Ordering", func(t *testing.T, v gicel.Value) { assertCon(t, v, "True") })
 	// r3 = True (eq (True, ()) (True, ()))
-	p = assertPairHead(t, p, "eq tuple", func(t *testing.T, v gmp.Value) { assertCon(t, v, "True") })
+	p = assertPairHead(t, p, "eq tuple", func(t *testing.T, v gicel.Value) { assertCon(t, v, "True") })
 	// r4 = True (eq List 2-element)
-	p = assertPairHead(t, p, "eq List 2", func(t *testing.T, v gmp.Value) { assertCon(t, v, "True") })
+	p = assertPairHead(t, p, "eq List 2", func(t *testing.T, v gicel.Value) { assertCon(t, v, "True") })
 	// r5 = LT (compare False True)
-	p = assertPairHead(t, p, "compare Bool", func(t *testing.T, v gmp.Value) { assertCon(t, v, "LT") })
+	p = assertPairHead(t, p, "compare Bool", func(t *testing.T, v gicel.Value) { assertCon(t, v, "LT") })
 	// r6 = LT (compare Just False, Just True)
-	p = assertPairHead(t, p, "compare Maybe", func(t *testing.T, v gmp.Value) { assertCon(t, v, "LT") })
+	p = assertPairHead(t, p, "compare Maybe", func(t *testing.T, v gicel.Value) { assertCon(t, v, "LT") })
 	// r7 = LT (compare (True, False) (True, True) → append EQ LT = LT)
-	p = assertPairHead(t, p, "compare tuple", func(t *testing.T, v gmp.Value) { assertCon(t, v, "LT") })
+	p = assertPairHead(t, p, "compare tuple", func(t *testing.T, v gicel.Value) { assertCon(t, v, "LT") })
 	// r8 = LT (append LT GT = LT, non-EQ preserves)
-	p = assertPairHead(t, p, "semigroup Ordering", func(t *testing.T, v gmp.Value) { assertCon(t, v, "LT") })
+	p = assertPairHead(t, p, "semigroup Ordering", func(t *testing.T, v gicel.Value) { assertCon(t, v, "LT") })
 	_ = p
 }
 
@@ -1470,7 +1470,7 @@ main := (r1, (r2, (r3, (r4, (r5, (r6, (r7, (r8,
 // ---------------------------------------------------------------------------
 
 func TestStressMixedMonadicValueLevel(t *testing.T) {
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`
 -- fmap over a Maybe-do result
 not :: Bool -> Bool
@@ -1490,7 +1490,7 @@ main := (inner, outer)
 	if err != nil {
 		t.Fatal(err)
 	}
-	rv, ok := result.Value.(*gmp.RecordVal)
+	rv, ok := result.Value.(*gicel.RecordVal)
 	if !ok || len(rv.Fields) != 2 {
 		t.Fatalf("expected tuple, got %v", result.Value)
 	}
@@ -1515,7 +1515,7 @@ func TestStressComputationVsMaybePerformance(t *testing.T) {
 	}
 	compSource += fmt.Sprintf("  pure v%d\n}\n", depth-1)
 
-	eng1 := gmp.NewEngine()
+	eng1 := gicel.NewEngine()
 	rt1, err := eng1.NewRuntime(compSource)
 	if err != nil {
 		t.Fatal(err)
@@ -1532,7 +1532,7 @@ func TestStressComputationVsMaybePerformance(t *testing.T) {
 	}
 	maybeSource += fmt.Sprintf("  pure v%d\n}\n", depth-1)
 
-	eng2 := gmp.NewEngine()
+	eng2 := gicel.NewEngine()
 	rt2, err := eng2.NewRuntime(maybeSource)
 	if err != nil {
 		t.Fatal(err)
@@ -1547,7 +1547,7 @@ func TestStressComputationVsMaybePerformance(t *testing.T) {
 
 	// Both should produce correct results
 	assertCon(t, r1.Value, "True")
-	con, ok := r2.Value.(*gmp.ConVal)
+	con, ok := r2.Value.(*gicel.ConVal)
 	if !ok || con.Con != "Just" {
 		t.Fatalf("expected Just True, got %v", r2.Value)
 	}
@@ -1559,15 +1559,15 @@ func TestStressComputationVsMaybePerformance(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestStressListDoLargeCartesian(t *testing.T) {
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	eng.EnableRecursion()
 	eng.SetStepLimit(100_000_000)
 	eng.SetDepthLimit(100_000)
-	eng.RegisterPrim("add", func(ctx context.Context, ce gmp.CapEnv, args []gmp.Value, _ gmp.Applier) (gmp.Value, gmp.CapEnv, error) {
-		return gmp.ToValue(gmp.MustHost[int64](args[0]) + gmp.MustHost[int64](args[1])), ce, nil
+	eng.RegisterPrim("add", func(ctx context.Context, ce gicel.CapEnv, args []gicel.Value, _ gicel.Applier) (gicel.Value, gicel.CapEnv, error) {
+		return gicel.ToValue(gicel.MustHost[int64](args[0]) + gicel.MustHost[int64](args[1])), ce, nil
 	})
-	eng.DeclareBinding("xs", gmp.AppType(gmp.ConType("List"), gmp.ConType("Int")))
-	eng.DeclareBinding("ys", gmp.AppType(gmp.ConType("List"), gmp.ConType("Int")))
+	eng.DeclareBinding("xs", gicel.AppType(gicel.ConType("List"), gicel.ConType("Int")))
+	eng.DeclareBinding("ys", gicel.AppType(gicel.ConType("List"), gicel.ConType("Int")))
 
 	rt, err := eng.NewRuntime(`
 add :: Int -> Int -> Int
@@ -1594,23 +1594,23 @@ main := do {
 	}
 
 	start := time.Now()
-	result, err := rt.RunContext(context.Background(), nil, map[string]gmp.Value{
-		"xs": gmp.ToList(xs),
-		"ys": gmp.ToList(ys),
+	result, err := rt.RunContext(context.Background(), nil, map[string]gicel.Value{
+		"xs": gicel.ToList(xs),
+		"ys": gicel.ToList(ys),
 	}, "main")
 	elapsed := time.Since(start)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	items, ok := gmp.FromList(result.Value)
+	items, ok := gicel.FromList(result.Value)
 	if !ok || len(items) != 50 {
 		t.Fatalf("expected 50 elements, got %d", len(items))
 	}
 	t.Logf("list cartesian 10×5: %v, steps=%d", elapsed, result.Stats.Steps)
 
 	// First element: add 1 1 = 2
-	hv, ok := items[0].(*gmp.HostVal)
+	hv, ok := items[0].(*gicel.HostVal)
 	if !ok || hv.Inner != int64(2) {
 		t.Fatalf("first element: expected 2, got %v", items[0])
 	}
@@ -1621,7 +1621,7 @@ main := do {
 // ---------------------------------------------------------------------------
 
 func TestStressTraverseMaybeOverList(t *testing.T) {
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	eng.EnableRecursion()
 
 	// traverse Just [True, False, True] → Just [True, False, True]
@@ -1650,13 +1650,13 @@ main := (test1, (test2, test3))
 	}
 	p := result.Value
 	// test1 = Just (Just False)
-	p = assertPairHead(t, p, "traverse Just over Just", func(t *testing.T, v gmp.Value) {
-		outer, ok := v.(*gmp.ConVal)
+	p = assertPairHead(t, p, "traverse Just over Just", func(t *testing.T, v gicel.Value) {
+		outer, ok := v.(*gicel.ConVal)
 		if !ok || outer.Con != "Just" {
 			t.Errorf("expected Just, got %v", v)
 			return
 		}
-		inner, ok := outer.Args[0].(*gmp.ConVal)
+		inner, ok := outer.Args[0].(*gicel.ConVal)
 		if !ok || inner.Con != "Just" {
 			t.Errorf("expected Just (Just False), got %v", v)
 			return
@@ -1664,8 +1664,8 @@ main := (test1, (test2, test3))
 		assertCon(t, inner.Args[0], "False")
 	})
 	// test2 = Just Nothing
-	p = assertPairHead(t, p, "traverse Just over Nothing", func(t *testing.T, v gmp.Value) {
-		outer, ok := v.(*gmp.ConVal)
+	p = assertPairHead(t, p, "traverse Just over Nothing", func(t *testing.T, v gicel.Value) {
+		outer, ok := v.(*gicel.ConVal)
 		if !ok || outer.Con != "Just" {
 			t.Errorf("expected Just, got %v", v)
 			return
@@ -1673,7 +1673,7 @@ main := (test1, (test2, test3))
 		assertCon(t, outer.Args[0], "Nothing")
 	})
 	// test3 = Nothing (traverse over Just True with a function that returns Nothing)
-	con, ok := p.(*gmp.ConVal)
+	con, ok := p.(*gicel.ConVal)
 	if !ok || con.Con != "Nothing" {
 		t.Fatalf("expected Nothing, got %v", p)
 	}
@@ -1684,7 +1684,7 @@ main := (test1, (test2, test3))
 // ---------------------------------------------------------------------------
 
 func TestStressHigherRankWithMonad(t *testing.T) {
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`
 -- Higher-rank function applied across types, combined with monadic operations
 applyToBoth :: (forall a. a -> a) -> (Bool, ())
@@ -1706,12 +1706,12 @@ main := do {
 	if err != nil {
 		t.Fatal(err)
 	}
-	rv, ok := result.Value.(*gmp.RecordVal)
+	rv, ok := result.Value.(*gicel.RecordVal)
 	if !ok {
 		t.Fatalf("expected RecordVal (tuple), got %v", result.Value)
 	}
 	assertCon(t, rv.Fields["_1"], "True")
-	unitVal, ok := rv.Fields["_2"].(*gmp.RecordVal)
+	unitVal, ok := rv.Fields["_2"].(*gicel.RecordVal)
 	if !ok || len(unitVal.Fields) != 0 {
 		t.Fatalf("expected (), got %v", rv.Fields["_2"])
 	}
@@ -1722,7 +1722,7 @@ main := do {
 // ---------------------------------------------------------------------------
 
 func TestStressExistentialWithMonadic(t *testing.T) {
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`
 data SomeEq = { MkSomeEq :: forall a. Eq a => a -> SomeEq }
 
@@ -1753,10 +1753,10 @@ main := do {
 // ---------------------------------------------------------------------------
 
 func TestStressMultiMonadProgram(t *testing.T) {
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	eng.EnableRecursion()
-	eng.RegisterPrim("add", func(ctx context.Context, ce gmp.CapEnv, args []gmp.Value, _ gmp.Applier) (gmp.Value, gmp.CapEnv, error) {
-		return gmp.ToValue(gmp.MustHost[int64](args[0]) + gmp.MustHost[int64](args[1])), ce, nil
+	eng.RegisterPrim("add", func(ctx context.Context, ce gicel.CapEnv, args []gicel.Value, _ gicel.Applier) (gicel.Value, gicel.CapEnv, error) {
+		return gicel.ToValue(gicel.MustHost[int64](args[0]) + gicel.MustHost[int64](args[1])), ce, nil
 	})
 
 	rt, err := eng.NewRuntime(`
@@ -1787,21 +1787,21 @@ main := compResult
 	if err != nil {
 		t.Fatal(err)
 	}
-	rv, ok := result.Value.(*gmp.RecordVal)
+	rv, ok := result.Value.(*gicel.RecordVal)
 	if !ok {
 		t.Fatalf("expected RecordVal (tuple), got %v", result.Value)
 	}
 	// maybeResult = Just 30
-	maybeVal, ok := rv.Fields["_1"].(*gmp.ConVal)
+	maybeVal, ok := rv.Fields["_1"].(*gicel.ConVal)
 	if !ok || maybeVal.Con != "Just" {
 		t.Fatalf("expected Just 30, got %v", rv.Fields["_1"])
 	}
-	hv, ok := maybeVal.Args[0].(*gmp.HostVal)
+	hv, ok := maybeVal.Args[0].(*gicel.HostVal)
 	if !ok || hv.Inner != int64(30) {
 		t.Fatalf("expected Just 30, got Just %v", maybeVal.Args[0])
 	}
 	// listResult = [11, 12]
-	items, ok := gmp.FromList(rv.Fields["_2"])
+	items, ok := gicel.FromList(rv.Fields["_2"])
 	if !ok || len(items) != 2 {
 		t.Fatalf("expected 2 elements, got %v", rv.Fields["_2"])
 	}
@@ -1812,7 +1812,7 @@ main := compResult
 // ---------------------------------------------------------------------------
 
 func TestStressGADTWithMonadic(t *testing.T) {
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	eng.EnableRecursion()
 
 	rt, err := eng.NewRuntime(`
@@ -1846,7 +1846,7 @@ main := (maybeEval, compEval)
 	if err != nil {
 		t.Fatal(err)
 	}
-	rv, ok := result.Value.(*gmp.RecordVal)
+	rv, ok := result.Value.(*gicel.RecordVal)
 	if !ok {
 		t.Fatalf("expected RecordVal (tuple), got %v", result.Value)
 	}
@@ -1861,7 +1861,7 @@ main := (maybeEval, compEval)
 // ---------------------------------------------------------------------------
 
 func TestStressConcurrentMonadic(t *testing.T) {
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	eng.EnableRecursion()
 
 	rt, err := eng.NewRuntime(`
@@ -1884,12 +1884,12 @@ main := do {
 				errs <- err
 				return
 			}
-			con, ok := result.Value.(*gmp.ConVal)
+			con, ok := result.Value.(*gicel.ConVal)
 			if !ok || con.Con != "Just" {
 				errs <- fmt.Errorf("expected Just, got %v", result.Value)
 				return
 			}
-			inner, ok := con.Args[0].(*gmp.ConVal)
+			inner, ok := con.Args[0].(*gicel.ConVal)
 			if !ok || inner.Con != "True" {
 				errs <- fmt.Errorf("expected True, got %v", con.Args[0])
 				return
@@ -1909,7 +1909,7 @@ main := do {
 // ---------------------------------------------------------------------------
 
 func TestStressListDoEmpty(t *testing.T) {
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	eng.EnableRecursion()
 	rt, err := eng.NewRuntime(`
 main :: List Bool
@@ -1925,7 +1925,7 @@ main := do {
 	if err != nil {
 		t.Fatal(err)
 	}
-	con, ok := result.Value.(*gmp.ConVal)
+	con, ok := result.Value.(*gicel.ConVal)
 	if !ok || con.Con != "Nil" {
 		t.Fatalf("expected Nil, got %v", result.Value)
 	}
@@ -1936,7 +1936,7 @@ main := do {
 // ---------------------------------------------------------------------------
 
 func TestStressMonoidFoldableList(t *testing.T) {
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	eng.EnableRecursion()
 
 	rt, err := eng.NewRuntime(`

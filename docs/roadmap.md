@@ -1,4 +1,4 @@
-# Gomputation Roadmap
+# GICEL Roadmap
 
 Current state: **First release ready.** All planned features implemented — type system (bidirectional DK, higher-rank, row polymorphism), type classes (9 classes, dictionary passing), GADTs with existentials, DataKinds, HKT (kind variables, kind unification, poly-kinded classes), records and tuples (row-polymorphic, `!#` projection), evidence sort (unified fiber architecture), module system, host boundary (Engine → Runtime → Evaluator), 6 stdlib packs, CLI tool.
 

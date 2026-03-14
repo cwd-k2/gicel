@@ -1,6 +1,6 @@
 package syntax
 
-import "github.com/cwd-k2/gomputation/internal/span"
+import "github.com/cwd-k2/gicel/internal/span"
 
 // TypeExpr is a surface-level type expression (before kind checking).
 type TypeExpr interface {

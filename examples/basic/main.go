@@ -1,4 +1,4 @@
-// Example: basic — pure Bool logic in Gomputation.
+// Example: basic — pure Bool logic in GICEL.
 //
 // Demonstrates the minimal lifecycle: Engine -> Runtime -> RunContext.
 // No host bindings or assumptions; everything lives in the language.
@@ -9,7 +9,7 @@ import (
 	"fmt"
 	"log"
 
-	gmp "github.com/cwd-k2/gomputation"
+	"github.com/cwd-k2/gicel"
 )
 
 // The source defines three functions using only the prelude Bool type.
@@ -24,7 +24,7 @@ main := and (not False) True
 
 func main() {
 	// 1. Create an engine with default limits.
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 
 	// 2. Compile the source into an immutable, goroutine-safe Runtime.
 	//    This performs lexing, parsing, type-checking, and elaboration to Core IR.
@@ -40,7 +40,7 @@ func main() {
 	}
 
 	// 4. Extract the result. Bool values are ConVal with Con = "True" or "False".
-	b, ok := gmp.FromBool(result.Value)
+	b, ok := gicel.FromBool(result.Value)
 	if !ok {
 		log.Fatal("expected a Bool value")
 	}

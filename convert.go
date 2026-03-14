@@ -1,12 +1,12 @@
-package gomputation
+package gicel
 
 import (
 	"fmt"
 
-	"github.com/cwd-k2/gomputation/internal/eval"
+	"github.com/cwd-k2/gicel/internal/eval"
 )
 
-// ToValue wraps a Go value as a Gomputation Value.
+// ToValue wraps a Go value as a GICEL Value.
 // Supported types: int, int64, float64, string, bool, nil.
 // For other types, use &HostVal{Inner: v} directly.
 func ToValue(v any) Value {
@@ -62,7 +62,7 @@ func FromCon(v Value) (name string, args []Value, ok bool) {
 	return con.Con, con.Args, true
 }
 
-// ToList converts a Go slice to a Gomputation List (ConVal chain).
+// ToList converts a Go slice to a GICEL List (ConVal chain).
 func ToList(items []any) Value {
 	var result Value = &eval.ConVal{Con: "Nil"}
 	for i := len(items) - 1; i >= 0; i-- {
@@ -75,7 +75,7 @@ func ToList(items []any) Value {
 	return result
 }
 
-// FromList converts a Gomputation List (ConVal chain) to a Go slice.
+// FromList converts a GICEL List (ConVal chain) to a Go slice.
 // Returns nil and false if the value is not a valid List.
 func FromList(v Value) ([]any, bool) {
 	var result []any
@@ -113,11 +113,11 @@ func FromRecord(v Value) (map[string]Value, bool) {
 func MustHost[T any](v Value) T {
 	hv, ok := v.(*eval.HostVal)
 	if !ok {
-		panic(fmt.Sprintf("gomputation: expected HostVal, got %T", v))
+		panic(fmt.Sprintf("gicel: expected HostVal, got %T", v))
 	}
 	t, ok := hv.Inner.(T)
 	if !ok {
-		panic(fmt.Sprintf("gomputation: expected HostVal(%T), got HostVal(%T)", *new(T), hv.Inner))
+		panic(fmt.Sprintf("gicel: expected HostVal(%T), got HostVal(%T)", *new(T), hv.Inner))
 	}
 	return t
 }

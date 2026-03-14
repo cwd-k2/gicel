@@ -1,8 +1,8 @@
 package core
 
 import (
-	"github.com/cwd-k2/gomputation/internal/span"
-	"github.com/cwd-k2/gomputation/internal/types"
+	"github.com/cwd-k2/gicel/internal/span"
+	"github.com/cwd-k2/gicel/internal/types"
 )
 
 // Core is a term in the core intermediate representation.

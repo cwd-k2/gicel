@@ -3,10 +3,10 @@ package check
 import (
 	"fmt"
 
-	"github.com/cwd-k2/gomputation/internal/errs"
-	"github.com/cwd-k2/gomputation/internal/span"
-	"github.com/cwd-k2/gomputation/internal/syntax"
-	"github.com/cwd-k2/gomputation/internal/types"
+	"github.com/cwd-k2/gicel/internal/errs"
+	"github.com/cwd-k2/gicel/internal/span"
+	"github.com/cwd-k2/gicel/internal/syntax"
+	"github.com/cwd-k2/gicel/internal/types"
 )
 
 func (ch *Checker) resolveTypeExpr(texpr syntax.TypeExpr) types.Type {

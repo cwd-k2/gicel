@@ -1,15 +1,15 @@
-package gomputation
+package gicel
 
 import (
 	"context"
 	"fmt"
 
-	"github.com/cwd-k2/gomputation/internal/core"
-	"github.com/cwd-k2/gomputation/internal/eval"
-	"github.com/cwd-k2/gomputation/internal/types"
+	"github.com/cwd-k2/gicel/internal/core"
+	"github.com/cwd-k2/gicel/internal/eval"
+	"github.com/cwd-k2/gicel/internal/types"
 )
 
-// Runtime is an immutable, compiled Gomputation program.
+// Runtime is an immutable, compiled GICEL program.
 // It is goroutine-safe and can be executed concurrently.
 type Runtime struct {
 	prog          *core.Program

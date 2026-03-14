@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/cwd-k2/gomputation/internal/eval"
+	"github.com/cwd-k2/gicel/internal/eval"
 )
 
 // List provides list operations: fromSlice, toSlice, length, concat, foldl,

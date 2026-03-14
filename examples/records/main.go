@@ -1,4 +1,4 @@
-// Example: records — Anonymous structural records and tuples in Gomputation.
+// Example: records — Anonymous structural records and tuples in GICEL.
 //
 // Demonstrates record literals, projection (!#), update, row-polymorphic
 // functions, tuples as sugar for records, and pattern matching on records.
@@ -9,7 +9,7 @@ import (
 	"fmt"
 	"log"
 
-	gmp "github.com/cwd-k2/gomputation"
+	"github.com/cwd-k2/gicel"
 )
 
 // Records are anonymous structural types: Record { label : Type, ... }.
@@ -58,8 +58,8 @@ main := (px, (getX moved, (p1, (p2, (first, (eqTest, (cmpTest, deep)))))))
 `
 
 func main() {
-	eng := gmp.NewEngine()
-	eng.Use(gmp.Num)
+	eng := gicel.NewEngine()
+	eng.Use(gicel.Num)
 
 	rt, err := eng.NewRuntime(source)
 	if err != nil {
@@ -75,7 +75,7 @@ func main() {
 	p := result.Value
 	labels := []string{"point!#x", "moved!#x", "p1", "p2", "fst pair", "eq test", "cmp test", "nested!#inner!#a"}
 	for _, label := range labels {
-		rv, ok := p.(*gmp.RecordVal)
+		rv, ok := p.(*gicel.RecordVal)
 		if !ok {
 			fmt.Printf("%-18s = %v\n", label, p)
 			break

@@ -1,4 +1,4 @@
-package gomputation
+package gicel
 
 import (
 	"context"
@@ -25,7 +25,7 @@ type SandboxResult struct {
 	Stats  EvalStats
 }
 
-// RunSandbox compiles and executes a Gomputation program in a single call
+// RunSandbox compiles and executes a GICEL program in a single call
 // with conservative resource limits. Designed for AI agent use cases.
 func RunSandbox(source string, cfg *SandboxConfig) (*SandboxResult, error) {
 	if cfg == nil {

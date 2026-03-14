@@ -5,9 +5,9 @@ import (
 	"strings"
 	"unicode"
 
-	"github.com/cwd-k2/gomputation/internal/core"
-	"github.com/cwd-k2/gomputation/internal/syntax"
-	"github.com/cwd-k2/gomputation/internal/types"
+	"github.com/cwd-k2/gicel/internal/core"
+	"github.com/cwd-k2/gicel/internal/syntax"
+	"github.com/cwd-k2/gicel/internal/types"
 )
 
 // collectKindVars scans a kind expression for unbound lowercase names

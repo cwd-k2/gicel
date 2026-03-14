@@ -1,6 +1,6 @@
-# Domain Extensions: Gomputation
+# Domain Extensions: GICEL
 
-Go / Gomputation 固有の QA チェック。グローバル `quality-assurance` コマンドから自動的に読み込まれる。
+Go / GICEL 固有の QA チェック。グローバル `quality-assurance` コマンドから自動的に読み込まれる。
 
 ## Go-Specific Signals
 

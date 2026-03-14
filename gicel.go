@@ -1,4 +1,4 @@
-// Package gomputation provides an embedded typed effect language for Go.
+// Package gicel provides an embedded typed effect language for Go.
 //
 // The compilation pipeline follows a three-tier lifecycle:
 //
@@ -7,12 +7,12 @@
 //	Runtime  (immutable, goroutine-safe)
 //	  ↓ RunContext(ctx, ...)
 //	result   (per-execution)
-package gomputation
+package gicel
 
 import (
-	"github.com/cwd-k2/gomputation/internal/check"
-	"github.com/cwd-k2/gomputation/internal/eval"
-	"github.com/cwd-k2/gomputation/internal/stdlib"
+	"github.com/cwd-k2/gicel/internal/check"
+	"github.com/cwd-k2/gicel/internal/eval"
+	"github.com/cwd-k2/gicel/internal/stdlib"
 )
 
 // Value is a runtime value produced by evaluation.

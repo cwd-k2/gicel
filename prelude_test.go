@@ -1,10 +1,10 @@
-package gomputation_test
+package gicel_test
 
 import (
 	"context"
 	"testing"
 
-	gmp "github.com/cwd-k2/gomputation"
+	"github.com/cwd-k2/gicel"
 )
 
 // ---------------------------------------------------------------------------
@@ -13,10 +13,10 @@ import (
 // ---------------------------------------------------------------------------
 
 // runPure compiles a source fragment (with Prelude + Std.Num) and evaluates "main".
-func runPure(t *testing.T, source string) gmp.Value {
+func runPure(t *testing.T, source string) gicel.Value {
 	t.Helper()
-	eng := gmp.NewEngine()
-	if err := gmp.Num(eng); err != nil {
+	eng := gicel.NewEngine()
+	if err := gicel.Num(eng); err != nil {
 		t.Fatal(err)
 	}
 	rt, err := eng.NewRuntime(source)
@@ -30,9 +30,9 @@ func runPure(t *testing.T, source string) gmp.Value {
 	return result.Value
 }
 
-func assertConVal(t *testing.T, v gmp.Value, name string) {
+func assertConVal(t *testing.T, v gicel.Value, name string) {
 	t.Helper()
-	con, ok := v.(*gmp.ConVal)
+	con, ok := v.(*gicel.ConVal)
 	if !ok {
 		t.Fatalf("expected ConVal(%s), got %T: %v", name, v, v)
 	}
@@ -41,9 +41,9 @@ func assertConVal(t *testing.T, v gmp.Value, name string) {
 	}
 }
 
-func assertHostInt(t *testing.T, v gmp.Value, expected int64) {
+func assertHostInt(t *testing.T, v gicel.Value, expected int64) {
 	t.Helper()
-	hv, ok := v.(*gmp.HostVal)
+	hv, ok := v.(*gicel.HostVal)
 	if !ok {
 		t.Fatalf("expected HostVal(%d), got %T: %v", expected, v, v)
 	}
@@ -196,7 +196,7 @@ func TestPreludeSnd(t *testing.T) {
 func TestPreludeHead(t *testing.T) {
 	v := runPure(t, `main := head (Cons True Nil)`)
 	assertConVal(t, v, "Just")
-	con := v.(*gmp.ConVal)
+	con := v.(*gicel.ConVal)
 	assertConVal(t, con.Args[0], "True")
 }
 
@@ -232,7 +232,7 @@ func TestPreludeNullNonEmpty(t *testing.T) {
 func TestPreludeMap(t *testing.T) {
 	v := runPure(t, `main := map not (Cons True (Cons False Nil))`)
 	assertConVal(t, v, "Cons")
-	con := v.(*gmp.ConVal)
+	con := v.(*gicel.ConVal)
 	assertConVal(t, con.Args[0], "False") // not True
 }
 
@@ -243,7 +243,7 @@ func TestPreludeFilter(t *testing.T) {
 	// filter not [True, False, True] → not True = False (drop), not False = True (keep), not True = False (drop) → [False]
 	v := runPure(t, `main := filter not (Cons True (Cons False (Cons True Nil)))`)
 	assertConVal(t, v, "Cons")
-	con := v.(*gmp.ConVal)
+	con := v.(*gicel.ConVal)
 	assertConVal(t, con.Args[0], "False")
 	assertConVal(t, con.Args[1], "Nil")
 }
@@ -261,7 +261,7 @@ main := filter always (Cons True (Cons False Nil))
 func TestPreludeSingleton(t *testing.T) {
 	v := runPure(t, `main := singleton True`)
 	assertConVal(t, v, "Cons")
-	con := v.(*gmp.ConVal)
+	con := v.(*gicel.ConVal)
 	assertConVal(t, con.Args[0], "True")
 	assertConVal(t, con.Args[1], "Nil")
 }

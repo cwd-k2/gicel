@@ -1,9 +1,9 @@
-// Command gomputation provides a CLI for the Gomputation language.
+// Command gicel provides a CLI for the GICEL language.
 //
 // Usage:
 //
-//	gomputation run  [flags] <file>    compile and execute
-//	gomputation check [flags] <file>   type-check only
+//	gicel run  [flags] <file>    compile and execute
+//	gicel check [flags] <file>   type-check only
 package main
 
 import (
@@ -15,7 +15,7 @@ import (
 	"strings"
 	"time"
 
-	gmp "github.com/cwd-k2/gomputation"
+	"github.com/cwd-k2/gicel"
 )
 
 func main() {
@@ -39,11 +39,11 @@ func main() {
 }
 
 func printUsage() {
-	fmt.Fprintln(os.Stderr, `Usage: gomputation <command> [flags] <file>
+	fmt.Fprintln(os.Stderr, `Usage: gicel <command> [flags] <file>
 
 Commands:
-  run    Compile and execute a Gomputation program
-  check  Type-check a Gomputation program
+  run    Compile and execute a GICEL program
+  check  Type-check a GICEL program
 
 Flags:
   --use <packs>    Comma-separated stdlib packs: Num,Str,List,Fail,State,IO (default: all)
@@ -55,17 +55,17 @@ Flags:
 }
 
 // packMap maps pack names to their Pack functions.
-var packMap = map[string]gmp.Pack{
-	"num":   gmp.Num,
-	"str":   gmp.Str,
-	"list":  gmp.List,
-	"fail":  gmp.Fail,
-	"state": gmp.State,
-	"io":    gmp.IO,
+var packMap = map[string]gicel.Pack{
+	"num":   gicel.Num,
+	"str":   gicel.Str,
+	"list":  gicel.List,
+	"fail":  gicel.Fail,
+	"state": gicel.State,
+	"io":    gicel.IO,
 }
 
-func setupEngine(use string) (*gmp.Engine, error) {
-	eng := gmp.NewEngine()
+func setupEngine(use string) (*gicel.Engine, error) {
+	eng := gicel.NewEngine()
 	names := strings.Split(strings.ToLower(use), ",")
 	for _, name := range names {
 		name = strings.TrimSpace(name)
@@ -208,11 +208,11 @@ func outputJSON(v any) {
 	_ = enc.Encode(v)
 }
 
-func formatValue(v gmp.Value) any {
+func formatValue(v gicel.Value) any {
 	switch val := v.(type) {
-	case *gmp.HostVal:
+	case *gicel.HostVal:
 		return val.Inner
-	case *gmp.ConVal:
+	case *gicel.ConVal:
 		if len(val.Args) == 0 {
 			return val.Con
 		}

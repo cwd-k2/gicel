@@ -1,4 +1,4 @@
-# Gomputation Grammar Reference
+# GICEL Grammar Reference
 
 ## Lexical Structure
 

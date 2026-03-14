@@ -11,7 +11,7 @@ import (
 	"fmt"
 	"log"
 
-	gmp "github.com/cwd-k2/gomputation"
+	"github.com/cwd-k2/gicel"
 )
 
 // The source declares `greet` as an assumption with its type annotation
@@ -24,14 +24,14 @@ main := greet Unit
 `
 
 func main() {
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 
 	// Register the Go implementation.
 	// PrimImpl receives context, the current capability environment, and arguments.
 	// The type is declared in the source via ::, so DeclareAssumption is not needed.
-	eng.RegisterPrim("greet", func(ctx context.Context, capEnv gmp.CapEnv, args []gmp.Value, _ gmp.Applier) (gmp.Value, gmp.CapEnv, error) {
+	eng.RegisterPrim("greet", func(ctx context.Context, capEnv gicel.CapEnv, args []gicel.Value, _ gicel.Applier) (gicel.Value, gicel.CapEnv, error) {
 		fmt.Println("Hello from Go!")
-		return gmp.ToValue(nil), capEnv, nil // nil converts to Unit via ToValue
+		return gicel.ToValue(nil), capEnv, nil // nil converts to Unit via ToValue
 	})
 
 	rt, err := eng.NewRuntime(source)

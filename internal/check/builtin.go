@@ -1,6 +1,6 @@
 package check
 
-import "github.com/cwd-k2/gomputation/internal/types"
+import "github.com/cwd-k2/gicel/internal/types"
 
 // Built-in type signatures.
 // pure, bind, thunk, force are handled as special forms in the checker

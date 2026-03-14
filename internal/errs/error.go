@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/cwd-k2/gomputation/internal/span"
+	"github.com/cwd-k2/gicel/internal/span"
 )
 
 // Code is a numeric error identifier (E0001–E9999).
@@ -147,7 +147,7 @@ func (es *Errors) Format() string {
 func (es *Errors) formatOne(b *strings.Builder, e *Error) {
 	line, col := es.Source.Location(e.Span.Start)
 	// error[E0001]: message
-	//  --> file.gmp:1:5
+	//  --> file.gicel:1:5
 	fmt.Fprintf(b, "error[E%04d]: %s\n", e.Code, e.Message)
 	fmt.Fprintf(b, " --> %s:%d:%d\n", es.Source.Name, line, col)
 

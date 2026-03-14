@@ -3,7 +3,7 @@ package eval
 import (
 	"fmt"
 
-	"github.com/cwd-k2/gomputation/internal/span"
+	"github.com/cwd-k2/gicel/internal/span"
 )
 
 // RuntimeError represents an error during evaluation.

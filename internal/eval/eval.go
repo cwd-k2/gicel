@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/cwd-k2/gomputation/internal/core"
+	"github.com/cwd-k2/gicel/internal/core"
 )
 
 // Allocation cost estimates (bytes per value type).

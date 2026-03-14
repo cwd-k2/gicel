@@ -1,4 +1,4 @@
-package gomputation_test
+package gicel_test
 
 import (
 	"context"
@@ -9,11 +9,11 @@ import (
 	"testing"
 	"time"
 
-	gmp "github.com/cwd-k2/gomputation"
+	"github.com/cwd-k2/gicel"
 )
 
 func TestIdentity(t *testing.T) {
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`
 id := \x -> x
 main := id True
@@ -25,14 +25,14 @@ main := id True
 	if err != nil {
 		t.Fatal(err)
 	}
-	con, ok := result.Value.(*gmp.ConVal)
+	con, ok := result.Value.(*gicel.ConVal)
 	if !ok || con.Con != "True" {
 		t.Errorf("expected True, got %s", result.Value)
 	}
 }
 
 func TestPure(t *testing.T) {
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`main := pure ()`)
 	if err != nil {
 		t.Fatal(err)
@@ -41,38 +41,38 @@ func TestPure(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	rv, ok := result.Value.(*gmp.RecordVal)
+	rv, ok := result.Value.(*gicel.RecordVal)
 	if !ok || len(rv.Fields) != 0 {
 		t.Errorf("expected (), got %s", result.Value)
 	}
 }
 
 func TestHostBinding(t *testing.T) {
-	eng := gmp.NewEngine()
-	eng.RegisterType("Int", gmp.KindType())
-	eng.DeclareBinding("x", gmp.ConType("Int"))
+	eng := gicel.NewEngine()
+	eng.RegisterType("Int", gicel.KindType())
+	eng.DeclareBinding("x", gicel.ConType("Int"))
 	rt, err := eng.NewRuntime(`main := x`)
 	if err != nil {
 		t.Fatal(err)
 	}
-	bindings := map[string]gmp.Value{
-		"x": &gmp.HostVal{Inner: 42},
+	bindings := map[string]gicel.Value{
+		"x": &gicel.HostVal{Inner: 42},
 	}
 	result, err := rt.RunContext(context.Background(), nil, bindings, "main")
 	if err != nil {
 		t.Fatal(err)
 	}
-	hv, ok := result.Value.(*gmp.HostVal)
+	hv, ok := result.Value.(*gicel.HostVal)
 	if !ok || hv.Inner != 42 {
 		t.Errorf("expected HostVal(42), got %s", result.Value)
 	}
 }
 
 func TestAssumption(t *testing.T) {
-	eng := gmp.NewEngine()
-	eng.DeclareAssumption("getUnit", gmp.ArrowType(gmp.ConType("Bool"), gmp.ConType("Bool")))
-	eng.RegisterPrim("getUnit", func(ctx context.Context, capEnv gmp.CapEnv, args []gmp.Value, _ gmp.Applier) (gmp.Value, gmp.CapEnv, error) {
-		return &gmp.ConVal{Con: "True"}, capEnv, nil
+	eng := gicel.NewEngine()
+	eng.DeclareAssumption("getUnit", gicel.ArrowType(gicel.ConType("Bool"), gicel.ConType("Bool")))
+	eng.RegisterPrim("getUnit", func(ctx context.Context, capEnv gicel.CapEnv, args []gicel.Value, _ gicel.Applier) (gicel.Value, gicel.CapEnv, error) {
+		return &gicel.ConVal{Con: "True"}, capEnv, nil
 	})
 	rt, err := eng.NewRuntime(`
 getUnit := assumption
@@ -85,14 +85,14 @@ main := getUnit True
 	if err != nil {
 		t.Fatal(err)
 	}
-	con, ok := result.Value.(*gmp.ConVal)
+	con, ok := result.Value.(*gicel.ConVal)
 	if !ok || con.Con != "True" {
 		t.Errorf("expected True, got %s", result.Value)
 	}
 }
 
 func TestEvalIntLit(t *testing.T) {
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`main := 42`)
 	if err != nil {
 		t.Fatal(err)
@@ -101,7 +101,7 @@ func TestEvalIntLit(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	hv, ok := result.Value.(*gmp.HostVal)
+	hv, ok := result.Value.(*gicel.HostVal)
 	if !ok {
 		t.Fatalf("expected HostVal, got %T", result.Value)
 	}
@@ -111,7 +111,7 @@ func TestEvalIntLit(t *testing.T) {
 }
 
 func TestEvalStrLit(t *testing.T) {
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`main := "hello"`)
 	if err != nil {
 		t.Fatal(err)
@@ -120,7 +120,7 @@ func TestEvalStrLit(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	hv, ok := result.Value.(*gmp.HostVal)
+	hv, ok := result.Value.(*gicel.HostVal)
 	if !ok {
 		t.Fatalf("expected HostVal, got %T", result.Value)
 	}
@@ -130,9 +130,9 @@ func TestEvalStrLit(t *testing.T) {
 }
 
 func TestEngineUse(t *testing.T) {
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	called := false
-	pack := gmp.Pack(func(r gmp.Registrar) error {
+	pack := gicel.Pack(func(r gicel.Registrar) error {
 		called = true
 		return nil
 	})
@@ -145,8 +145,8 @@ func TestEngineUse(t *testing.T) {
 }
 
 func TestNumAdd(t *testing.T) {
-	eng := gmp.NewEngine()
-	if err := eng.Use(gmp.Num); err != nil {
+	eng := gicel.NewEngine()
+	if err := eng.Use(gicel.Num); err != nil {
 		t.Fatal(err)
 	}
 	rt, err := eng.NewRuntime(`
@@ -160,15 +160,15 @@ main := add 1 2
 	if err != nil {
 		t.Fatal(err)
 	}
-	hv := gmp.MustHost[int64](result.Value)
+	hv := gicel.MustHost[int64](result.Value)
 	if hv != 3 {
 		t.Errorf("expected 3, got %d", hv)
 	}
 }
 
 func TestNumOperators(t *testing.T) {
-	eng := gmp.NewEngine()
-	if err := eng.Use(gmp.Num); err != nil {
+	eng := gicel.NewEngine()
+	if err := eng.Use(gicel.Num); err != nil {
 		t.Fatal(err)
 	}
 	rt, err := eng.NewRuntime(`
@@ -182,15 +182,15 @@ main := 1 + 2 * 3
 	if err != nil {
 		t.Fatal(err)
 	}
-	hv := gmp.MustHost[int64](result.Value)
+	hv := gicel.MustHost[int64](result.Value)
 	if hv != 7 {
 		t.Errorf("expected 7, got %d", hv)
 	}
 }
 
 func TestNumNegate(t *testing.T) {
-	eng := gmp.NewEngine()
-	if err := eng.Use(gmp.Num); err != nil {
+	eng := gicel.NewEngine()
+	if err := eng.Use(gicel.Num); err != nil {
 		t.Fatal(err)
 	}
 	rt, err := eng.NewRuntime(`
@@ -204,15 +204,15 @@ main := negate 42
 	if err != nil {
 		t.Fatal(err)
 	}
-	hv := gmp.MustHost[int64](result.Value)
+	hv := gicel.MustHost[int64](result.Value)
 	if hv != -42 {
 		t.Errorf("expected -42, got %d", hv)
 	}
 }
 
 func TestNumEqInt(t *testing.T) {
-	eng := gmp.NewEngine()
-	if err := eng.Use(gmp.Num); err != nil {
+	eng := gicel.NewEngine()
+	if err := eng.Use(gicel.Num); err != nil {
 		t.Fatal(err)
 	}
 	rt, err := eng.NewRuntime(`
@@ -226,15 +226,15 @@ main := eq 1 1
 	if err != nil {
 		t.Fatal(err)
 	}
-	b, ok := gmp.FromBool(result.Value)
+	b, ok := gicel.FromBool(result.Value)
 	if !ok || !b {
 		t.Errorf("expected True, got %s", result.Value)
 	}
 }
 
 func TestNumOrdInt(t *testing.T) {
-	eng := gmp.NewEngine()
-	if err := eng.Use(gmp.Num); err != nil {
+	eng := gicel.NewEngine()
+	if err := eng.Use(gicel.Num); err != nil {
 		t.Fatal(err)
 	}
 	rt, err := eng.NewRuntime(`
@@ -248,15 +248,15 @@ main := compare 1 2
 	if err != nil {
 		t.Fatal(err)
 	}
-	con, ok := result.Value.(*gmp.ConVal)
+	con, ok := result.Value.(*gicel.ConVal)
 	if !ok || con.Con != "LT" {
 		t.Errorf("expected LT, got %s", result.Value)
 	}
 }
 
 func TestNumDivMod(t *testing.T) {
-	eng := gmp.NewEngine()
-	if err := eng.Use(gmp.Num); err != nil {
+	eng := gicel.NewEngine()
+	if err := eng.Use(gicel.Num); err != nil {
 		t.Fatal(err)
 	}
 	rt, err := eng.NewRuntime(`
@@ -270,15 +270,15 @@ main := div 7 3
 	if err != nil {
 		t.Fatal(err)
 	}
-	hv := gmp.MustHost[int64](result.Value)
+	hv := gicel.MustHost[int64](result.Value)
 	if hv != 2 {
 		t.Errorf("expected 2, got %d", hv)
 	}
 }
 
 func TestStrConcat(t *testing.T) {
-	eng := gmp.NewEngine()
-	if err := eng.Use(gmp.Str); err != nil {
+	eng := gicel.NewEngine()
+	if err := eng.Use(gicel.Str); err != nil {
 		t.Fatal(err)
 	}
 	rt, err := eng.NewRuntime(`
@@ -292,15 +292,15 @@ main := append "hello" " world"
 	if err != nil {
 		t.Fatal(err)
 	}
-	hv := gmp.MustHost[string](result.Value)
+	hv := gicel.MustHost[string](result.Value)
 	if hv != "hello world" {
 		t.Errorf("expected 'hello world', got %s", hv)
 	}
 }
 
 func TestStrEq(t *testing.T) {
-	eng := gmp.NewEngine()
-	if err := eng.Use(gmp.Str); err != nil {
+	eng := gicel.NewEngine()
+	if err := eng.Use(gicel.Str); err != nil {
 		t.Fatal(err)
 	}
 	rt, err := eng.NewRuntime(`
@@ -314,15 +314,15 @@ main := eq "abc" "abc"
 	if err != nil {
 		t.Fatal(err)
 	}
-	b, ok := gmp.FromBool(result.Value)
+	b, ok := gicel.FromBool(result.Value)
 	if !ok || !b {
 		t.Errorf("expected True, got %s", result.Value)
 	}
 }
 
 func TestStrOrd(t *testing.T) {
-	eng := gmp.NewEngine()
-	if err := eng.Use(gmp.Str); err != nil {
+	eng := gicel.NewEngine()
+	if err := eng.Use(gicel.Str); err != nil {
 		t.Fatal(err)
 	}
 	rt, err := eng.NewRuntime(`
@@ -336,15 +336,15 @@ main := compare "a" "b"
 	if err != nil {
 		t.Fatal(err)
 	}
-	con, ok := result.Value.(*gmp.ConVal)
+	con, ok := result.Value.(*gicel.ConVal)
 	if !ok || con.Con != "LT" {
 		t.Errorf("expected LT, got %s", result.Value)
 	}
 }
 
 func TestStrLength(t *testing.T) {
-	eng := gmp.NewEngine()
-	if err := eng.Use(gmp.Str); err != nil {
+	eng := gicel.NewEngine()
+	if err := eng.Use(gicel.Str); err != nil {
 		t.Fatal(err)
 	}
 	rt, err := eng.NewRuntime(`
@@ -358,15 +358,15 @@ main := length "hello"
 	if err != nil {
 		t.Fatal(err)
 	}
-	hv := gmp.MustHost[int64](result.Value)
+	hv := gicel.MustHost[int64](result.Value)
 	if hv != 5 {
 		t.Errorf("expected 5, got %d", hv)
 	}
 }
 
 func TestRuneEq(t *testing.T) {
-	eng := gmp.NewEngine()
-	if err := eng.Use(gmp.Str); err != nil {
+	eng := gicel.NewEngine()
+	if err := eng.Use(gicel.Str); err != nil {
 		t.Fatal(err)
 	}
 	rt, err := eng.NewRuntime(`
@@ -380,15 +380,15 @@ main := eq 'a' 'a'
 	if err != nil {
 		t.Fatal(err)
 	}
-	b, ok := gmp.FromBool(result.Value)
+	b, ok := gicel.FromBool(result.Value)
 	if !ok || !b {
 		t.Errorf("expected True, got %s", result.Value)
 	}
 }
 
 func TestFailAbort(t *testing.T) {
-	eng := gmp.NewEngine()
-	if err := eng.Use(gmp.Fail); err != nil {
+	eng := gicel.NewEngine()
+	if err := eng.Use(gicel.Fail); err != nil {
 		t.Fatal(err)
 	}
 	rt, err := eng.NewRuntime(`
@@ -398,7 +398,7 @@ main := do { fail; pure True }
 	if err != nil {
 		t.Fatal(err)
 	}
-	caps := map[string]any{"fail": &gmp.RecordVal{Fields: map[string]gmp.Value{}}}
+	caps := map[string]any{"fail": &gicel.RecordVal{Fields: map[string]gicel.Value{}}}
 	_, err = rt.RunContext(context.Background(), caps, nil, "main")
 	if err == nil {
 		t.Fatal("expected error from fail")
@@ -406,8 +406,8 @@ main := do { fail; pure True }
 }
 
 func TestFromMaybe(t *testing.T) {
-	eng := gmp.NewEngine()
-	if err := eng.Use(gmp.Fail); err != nil {
+	eng := gicel.NewEngine()
+	if err := eng.Use(gicel.Fail); err != nil {
 		t.Fatal(err)
 	}
 	rt, err := eng.NewRuntime(`
@@ -417,23 +417,23 @@ main := fromMaybe (Just True)
 	if err != nil {
 		t.Fatal(err)
 	}
-	caps := map[string]any{"fail": &gmp.RecordVal{Fields: map[string]gmp.Value{}}}
+	caps := map[string]any{"fail": &gicel.RecordVal{Fields: map[string]gicel.Value{}}}
 	result, err := rt.RunContext(context.Background(), caps, nil, "main")
 	if err != nil {
 		t.Fatal(err)
 	}
-	b, ok := gmp.FromBool(result.Value)
+	b, ok := gicel.FromBool(result.Value)
 	if !ok || !b {
 		t.Errorf("expected True, got %s", result.Value)
 	}
 }
 
 func TestStateGetPut(t *testing.T) {
-	eng := gmp.NewEngine()
-	if err := eng.Use(gmp.Num); err != nil {
+	eng := gicel.NewEngine()
+	if err := eng.Use(gicel.Num); err != nil {
 		t.Fatal(err)
 	}
-	if err := eng.Use(gmp.State); err != nil {
+	if err := eng.Use(gicel.State); err != nil {
 		t.Fatal(err)
 	}
 	rt, err := eng.NewRuntime(`
@@ -444,23 +444,23 @@ main := do { put 42; get }
 	if err != nil {
 		t.Fatal(err)
 	}
-	caps := map[string]any{"state": &gmp.HostVal{Inner: int64(0)}}
+	caps := map[string]any{"state": &gicel.HostVal{Inner: int64(0)}}
 	result, err := rt.RunContext(context.Background(), caps, nil, "main")
 	if err != nil {
 		t.Fatal(err)
 	}
-	hv := gmp.MustHost[int64](result.Value)
+	hv := gicel.MustHost[int64](result.Value)
 	if hv != 42 {
 		t.Errorf("expected 42, got %d", hv)
 	}
 }
 
 func TestStateThread(t *testing.T) {
-	eng := gmp.NewEngine()
-	if err := eng.Use(gmp.Num); err != nil {
+	eng := gicel.NewEngine()
+	if err := eng.Use(gicel.Num); err != nil {
 		t.Fatal(err)
 	}
-	if err := eng.Use(gmp.State); err != nil {
+	if err := eng.Use(gicel.State); err != nil {
 		t.Fatal(err)
 	}
 	rt, err := eng.NewRuntime(`
@@ -471,20 +471,20 @@ main := do { n <- get; put (n + 1); get }
 	if err != nil {
 		t.Fatal(err)
 	}
-	caps := map[string]any{"state": &gmp.HostVal{Inner: int64(0)}}
+	caps := map[string]any{"state": &gicel.HostVal{Inner: int64(0)}}
 	result, err := rt.RunContext(context.Background(), caps, nil, "main")
 	if err != nil {
 		t.Fatal(err)
 	}
-	hv := gmp.MustHost[int64](result.Value)
+	hv := gicel.MustHost[int64](result.Value)
 	if hv != 1 {
 		t.Errorf("expected 1, got %d", hv)
 	}
 }
 
 func TestFromResult(t *testing.T) {
-	eng := gmp.NewEngine()
-	if err := eng.Use(gmp.Fail); err != nil {
+	eng := gicel.NewEngine()
+	if err := eng.Use(gicel.Fail); err != nil {
 		t.Fatal(err)
 	}
 	rt, err := eng.NewRuntime(`
@@ -494,26 +494,26 @@ main := fromResult (Ok True)
 	if err != nil {
 		t.Fatal(err)
 	}
-	caps := map[string]any{"fail": &gmp.RecordVal{Fields: map[string]gmp.Value{}}}
+	caps := map[string]any{"fail": &gicel.RecordVal{Fields: map[string]gicel.Value{}}}
 	result, err := rt.RunContext(context.Background(), caps, nil, "main")
 	if err != nil {
 		t.Fatal(err)
 	}
-	b, ok := gmp.FromBool(result.Value)
+	b, ok := gicel.FromBool(result.Value)
 	if !ok || !b {
 		t.Errorf("expected True, got %s", result.Value)
 	}
 }
 
 func TestFailWithState(t *testing.T) {
-	eng := gmp.NewEngine()
-	if err := eng.Use(gmp.Num); err != nil {
+	eng := gicel.NewEngine()
+	if err := eng.Use(gicel.Num); err != nil {
 		t.Fatal(err)
 	}
-	if err := eng.Use(gmp.Fail); err != nil {
+	if err := eng.Use(gicel.Fail); err != nil {
 		t.Fatal(err)
 	}
-	if err := eng.Use(gmp.State); err != nil {
+	if err := eng.Use(gicel.State); err != nil {
 		t.Fatal(err)
 	}
 	rt, err := eng.NewRuntime(`
@@ -526,8 +526,8 @@ main := do { put 42; fail }
 		t.Fatal(err)
 	}
 	caps := map[string]any{
-		"state": &gmp.HostVal{Inner: int64(0)},
-		"fail":  &gmp.RecordVal{Fields: map[string]gmp.Value{}},
+		"state": &gicel.HostVal{Inner: int64(0)},
+		"fail":  &gicel.RecordVal{Fields: map[string]gicel.Value{}},
 	}
 	_, err = rt.RunContext(context.Background(), caps, nil, "main")
 	if err == nil {
@@ -536,7 +536,7 @@ main := do { put 42; fail }
 }
 
 func TestCaseExpression(t *testing.T) {
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`
 not := \b -> case b { True -> False; False -> True }
 main := not True
@@ -548,14 +548,14 @@ main := not True
 	if err != nil {
 		t.Fatal(err)
 	}
-	con, ok := result.Value.(*gmp.ConVal)
+	con, ok := result.Value.(*gicel.ConVal)
 	if !ok || con.Con != "False" {
 		t.Errorf("expected False, got %s", result.Value)
 	}
 }
 
 func TestDoBlock(t *testing.T) {
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`main := do { pure () }`)
 	if err != nil {
 		t.Fatal(err)
@@ -564,14 +564,14 @@ func TestDoBlock(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	rv, ok := result.Value.(*gmp.RecordVal)
+	rv, ok := result.Value.(*gicel.RecordVal)
 	if !ok || len(rv.Fields) != 0 {
 		t.Errorf("expected (), got %s", result.Value)
 	}
 }
 
 func TestNoPrelude(t *testing.T) {
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	eng.NoPrelude()
 	rt, err := eng.NewRuntime(`
 data MyBool = MyTrue | MyFalse
@@ -584,26 +584,26 @@ main := MyTrue
 	if err != nil {
 		t.Fatal(err)
 	}
-	con, ok := result.Value.(*gmp.ConVal)
+	con, ok := result.Value.(*gicel.ConVal)
 	if !ok || con.Con != "MyTrue" {
 		t.Errorf("expected MyTrue, got %s", result.Value)
 	}
 }
 
 func TestCompileError(t *testing.T) {
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	_, err := eng.NewRuntime(`main := undefined_thing`)
 	if err == nil {
 		t.Error("expected compile error")
 	}
-	_, ok := err.(*gmp.CompileError)
+	_, ok := err.(*gicel.CompileError)
 	if !ok {
 		t.Errorf("expected CompileError, got %T", err)
 	}
 }
 
 func TestMissingEntry(t *testing.T) {
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`x := True`)
 	if err != nil {
 		t.Fatal(err)
@@ -615,7 +615,7 @@ func TestMissingEntry(t *testing.T) {
 }
 
 func TestConstructorArgs(t *testing.T) {
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`
 main := Just True
 `)
@@ -626,21 +626,21 @@ main := Just True
 	if err != nil {
 		t.Fatal(err)
 	}
-	con, ok := result.Value.(*gmp.ConVal)
+	con, ok := result.Value.(*gicel.ConVal)
 	if !ok || con.Con != "Just" {
 		t.Errorf("expected Just, got %s", result.Value)
 	}
 	if len(con.Args) != 1 {
 		t.Fatalf("expected 1 arg, got %d", len(con.Args))
 	}
-	inner, ok := con.Args[0].(*gmp.ConVal)
+	inner, ok := con.Args[0].(*gicel.ConVal)
 	if !ok || inner.Con != "True" {
 		t.Errorf("expected True, got %s", con.Args[0])
 	}
 }
 
 func TestPairConstructor(t *testing.T) {
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`
 main := (True, False)
 `)
@@ -651,7 +651,7 @@ main := (True, False)
 	if err != nil {
 		t.Fatal(err)
 	}
-	rv, ok := result.Value.(*gmp.RecordVal)
+	rv, ok := result.Value.(*gicel.RecordVal)
 	if !ok {
 		t.Errorf("expected RecordVal (tuple), got %T: %s", result.Value, result.Value)
 	}
@@ -661,7 +661,7 @@ main := (True, False)
 }
 
 func TestStepLimit(t *testing.T) {
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	eng.SetStepLimit(10)
 	eng.EnableRecursion()
 	eng.NoPrelude()
@@ -683,7 +683,7 @@ main := Unit
 }
 
 func TestGoroutineSafety(t *testing.T) {
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`main := True`)
 	if err != nil {
 		t.Fatal(err)
@@ -707,7 +707,7 @@ func TestGoroutineSafety(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestMultiParamLambda(t *testing.T) {
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`
 konst := \x -> \y -> x
 main := konst True False
@@ -719,14 +719,14 @@ main := konst True False
 	if err != nil {
 		t.Fatal(err)
 	}
-	con, ok := result.Value.(*gmp.ConVal)
+	con, ok := result.Value.(*gicel.ConVal)
 	if !ok || con.Con != "True" {
 		t.Errorf("expected True, got %s", result.Value)
 	}
 }
 
 func TestNestedCase(t *testing.T) {
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`
 bothTrue := \x -> \y -> case x { True -> case y { True -> True; False -> False }; False -> False }
 main := bothTrue True True
@@ -738,14 +738,14 @@ main := bothTrue True True
 	if err != nil {
 		t.Fatal(err)
 	}
-	con, ok := result.Value.(*gmp.ConVal)
+	con, ok := result.Value.(*gicel.ConVal)
 	if !ok || con.Con != "True" {
 		t.Errorf("expected True, got %s", result.Value)
 	}
 }
 
 func TestBlockExpression(t *testing.T) {
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	// Block binding: { x := True; x } desugars to (\x -> x) True.
 	// The body references the block binding variable.
 	rt, err := eng.NewRuntime(`main := { x := True; x }`)
@@ -756,14 +756,14 @@ func TestBlockExpression(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	con, ok := result.Value.(*gmp.ConVal)
+	con, ok := result.Value.(*gicel.ConVal)
 	if !ok || con.Con != "True" {
 		t.Errorf("expected True, got %s", result.Value)
 	}
 }
 
 func TestBlockMultipleBindings(t *testing.T) {
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`main := { x := True; y := False; x }`)
 	if err != nil {
 		t.Fatal(err)
@@ -772,7 +772,7 @@ func TestBlockMultipleBindings(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	con, ok := result.Value.(*gmp.ConVal)
+	con, ok := result.Value.(*gicel.ConVal)
 	if !ok || con.Con != "True" {
 		t.Errorf("expected True, got %s", result.Value)
 	}
@@ -783,7 +783,7 @@ func TestBlockMultipleBindings(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestBindChain(t *testing.T) {
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`main := do { x <- pure True; pure x }`)
 	if err != nil {
 		t.Fatal(err)
@@ -792,14 +792,14 @@ func TestBindChain(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	con, ok := result.Value.(*gmp.ConVal)
+	con, ok := result.Value.(*gicel.ConVal)
 	if !ok || con.Con != "True" {
 		t.Errorf("expected True, got %s", result.Value)
 	}
 }
 
 func TestThunkForce(t *testing.T) {
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`main := force (thunk (pure ()))`)
 	if err != nil {
 		t.Fatal(err)
@@ -808,7 +808,7 @@ func TestThunkForce(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	rv, ok := result.Value.(*gmp.RecordVal)
+	rv, ok := result.Value.(*gicel.RecordVal)
 	if !ok || len(rv.Fields) != 0 {
 		t.Errorf("expected (), got %s", result.Value)
 	}
@@ -819,18 +819,18 @@ func TestThunkForce(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestTypeErrorUnboundVar(t *testing.T) {
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	_, err := eng.NewRuntime(`main := totally_undefined`)
 	if err == nil {
 		t.Fatal("expected compile error for unbound variable")
 	}
-	if _, ok := err.(*gmp.CompileError); !ok {
+	if _, ok := err.(*gicel.CompileError); !ok {
 		t.Errorf("expected CompileError, got %T", err)
 	}
 }
 
 func TestTypeErrorNonExhaustive(t *testing.T) {
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	_, err := eng.NewRuntime(`
 f := \x -> case x { True -> () }
 main := f True
@@ -838,7 +838,7 @@ main := f True
 	if err == nil {
 		t.Fatal("expected compile error for non-exhaustive pattern")
 	}
-	ce, ok := err.(*gmp.CompileError)
+	ce, ok := err.(*gicel.CompileError)
 	if !ok {
 		t.Fatalf("expected CompileError, got %T", err)
 	}
@@ -848,13 +848,13 @@ main := f True
 }
 
 func TestTypeErrorMismatch(t *testing.T) {
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	// Apply True (a Bool, not a function) to an argument.
 	_, err := eng.NewRuntime(`main := True ()`)
 	if err == nil {
 		t.Fatal("expected compile error for type mismatch")
 	}
-	if _, ok := err.(*gmp.CompileError); !ok {
+	if _, ok := err.(*gicel.CompileError); !ok {
 		t.Errorf("expected CompileError, got %T", err)
 	}
 }
@@ -864,7 +864,7 @@ func TestTypeErrorMismatch(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestContextCancellation(t *testing.T) {
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`main := pure ()`)
 	if err != nil {
 		t.Fatal(err)
@@ -878,7 +878,7 @@ func TestContextCancellation(t *testing.T) {
 }
 
 func TestContextTimeout(t *testing.T) {
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	eng.SetStepLimit(1) // extremely low step limit
 	eng.EnableRecursion()
 	eng.NoPrelude()
@@ -904,37 +904,37 @@ main := not (not (not True))
 // ---------------------------------------------------------------------------
 
 func TestRuntimeReuse(t *testing.T) {
-	eng := gmp.NewEngine()
-	eng.RegisterType("Int", gmp.KindType())
-	eng.DeclareBinding("x", gmp.ConType("Int"))
+	eng := gicel.NewEngine()
+	eng.RegisterType("Int", gicel.KindType())
+	eng.DeclareBinding("x", gicel.ConType("Int"))
 	rt, err := eng.NewRuntime(`main := x`)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	// First run with value 1.
-	r1, err := rt.RunContext(context.Background(), nil, map[string]gmp.Value{"x": &gmp.HostVal{Inner: 1}}, "main")
+	r1, err := rt.RunContext(context.Background(), nil, map[string]gicel.Value{"x": &gicel.HostVal{Inner: 1}}, "main")
 	if err != nil {
 		t.Fatal(err)
 	}
-	h1, ok := r1.Value.(*gmp.HostVal)
+	h1, ok := r1.Value.(*gicel.HostVal)
 	if !ok || h1.Inner != 1 {
 		t.Errorf("first run: expected HostVal(1), got %s", r1.Value)
 	}
 
 	// Second run with value 2.
-	r2, err := rt.RunContext(context.Background(), nil, map[string]gmp.Value{"x": &gmp.HostVal{Inner: 2}}, "main")
+	r2, err := rt.RunContext(context.Background(), nil, map[string]gicel.Value{"x": &gicel.HostVal{Inner: 2}}, "main")
 	if err != nil {
 		t.Fatal(err)
 	}
-	h2, ok := r2.Value.(*gmp.HostVal)
+	h2, ok := r2.Value.(*gicel.HostVal)
 	if !ok || h2.Inner != 2 {
 		t.Errorf("second run: expected HostVal(2), got %s", r2.Value)
 	}
 }
 
 func TestRuntimeConcurrent(t *testing.T) {
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`
 not := \b -> case b { True -> False; False -> True }
 main := not False
@@ -953,7 +953,7 @@ main := not False
 				errs[idx] = err
 				return
 			}
-			con, ok := result.Value.(*gmp.ConVal)
+			con, ok := result.Value.(*gicel.ConVal)
 			if !ok || con.Con != "True" {
 				errs[idx] = context.DeadlineExceeded // sentinel
 			}
@@ -972,12 +972,12 @@ main := not False
 // ---------------------------------------------------------------------------
 
 func TestDiagnostics(t *testing.T) {
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	_, err := eng.NewRuntime(`main := undefined_xyz`)
 	if err == nil {
 		t.Fatal("expected compile error")
 	}
-	ce, ok := err.(*gmp.CompileError)
+	ce, ok := err.(*gicel.CompileError)
 	if !ok {
 		t.Fatalf("expected CompileError, got %T", err)
 	}
@@ -998,7 +998,7 @@ func TestDiagnostics(t *testing.T) {
 }
 
 func TestCheckOnly(t *testing.T) {
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	prog, err := eng.Check(`main := True`)
 	if err != nil {
 		t.Fatal(err)
@@ -1009,7 +1009,7 @@ func TestCheckOnly(t *testing.T) {
 }
 
 func TestParseOnly(t *testing.T) {
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	ast, err := eng.Parse(`main := True`)
 	if err != nil {
 		t.Fatal(err)
@@ -1020,7 +1020,7 @@ func TestParseOnly(t *testing.T) {
 }
 
 func TestPrettyProgram(t *testing.T) {
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`main := True`)
 	if err != nil {
 		t.Fatal(err)
@@ -1032,7 +1032,7 @@ func TestPrettyProgram(t *testing.T) {
 }
 
 func TestRunContextFull(t *testing.T) {
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`main := pure ()`)
 	if err != nil {
 		t.Fatal(err)
@@ -1041,7 +1041,7 @@ func TestRunContextFull(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	rv, ok := result.Value.(*gmp.RecordVal)
+	rv, ok := result.Value.(*gicel.RecordVal)
 	if !ok || len(rv.Fields) != 0 {
 		t.Errorf("expected (), got %s", result.Value)
 	}
@@ -1052,7 +1052,7 @@ func TestRunContextFull(t *testing.T) {
 
 func TestValueConversion(t *testing.T) {
 	// HostVal wraps arbitrary Go values.
-	hv := &gmp.HostVal{Inner: "hello"}
+	hv := &gicel.HostVal{Inner: "hello"}
 	if hv.Inner != "hello" {
 		t.Errorf("expected HostVal.Inner = hello, got %v", hv.Inner)
 	}
@@ -1061,13 +1061,13 @@ func TestValueConversion(t *testing.T) {
 	}
 
 	// ConVal represents constructors.
-	cv := &gmp.ConVal{Con: "True"}
+	cv := &gicel.ConVal{Con: "True"}
 	if cv.String() != "True" {
 		t.Errorf("expected True, got %s", cv.String())
 	}
 
 	// ConVal with arguments.
-	cv2 := &gmp.ConVal{Con: "Just", Args: []gmp.Value{&gmp.ConVal{Con: "True"}}}
+	cv2 := &gicel.ConVal{Con: "Just", Args: []gicel.Value{&gicel.ConVal{Con: "True"}}}
 	s := cv2.String()
 	if !strings.Contains(s, "Just") || !strings.Contains(s, "True") {
 		t.Errorf("expected (Just True), got %s", s)
@@ -1084,10 +1084,10 @@ func TestValueConversion(t *testing.T) {
 
 // :: type annotation in source — the spec-canonical way to type assumptions.
 func TestInSourceTypeAnnotation(t *testing.T) {
-	eng := gmp.NewEngine()
-	eng.RegisterType("Int", gmp.KindType())
-	eng.RegisterPrim("getVal", func(ctx context.Context, capEnv gmp.CapEnv, args []gmp.Value, _ gmp.Applier) (gmp.Value, gmp.CapEnv, error) {
-		return gmp.ToValue(99), capEnv, nil
+	eng := gicel.NewEngine()
+	eng.RegisterType("Int", gicel.KindType())
+	eng.RegisterPrim("getVal", func(ctx context.Context, capEnv gicel.CapEnv, args []gicel.Value, _ gicel.Applier) (gicel.Value, gicel.CapEnv, error) {
+		return gicel.ToValue(99), capEnv, nil
 	})
 	rt, err := eng.NewRuntime(`
 getVal :: () -> Computation {} {} Int
@@ -1101,7 +1101,7 @@ main := do { x <- getVal (); pure x }
 	if err != nil {
 		t.Fatal("runtime error:", err)
 	}
-	v := gmp.MustHost[int](result.Value)
+	v := gicel.MustHost[int](result.Value)
 	if v != 99 {
 		t.Errorf("expected 99, got %d", v)
 	}
@@ -1109,7 +1109,7 @@ main := do { x <- getVal (); pure x }
 
 // Assumption without any type annotation must produce a compile error.
 func TestAssumptionNoType(t *testing.T) {
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	_, err := eng.NewRuntime(`
 noType := assumption
 main := noType ()
@@ -1117,7 +1117,7 @@ main := noType ()
 	if err == nil {
 		t.Fatal("expected compile error for assumption without type")
 	}
-	ce, ok := err.(*gmp.CompileError)
+	ce, ok := err.(*gicel.CompileError)
 	if !ok {
 		t.Fatalf("expected CompileError, got %T", err)
 	}
@@ -1128,7 +1128,7 @@ main := noType ()
 
 // _ <- in do blocks must work (was a parser bug: TokUnderscore != TokLower).
 func TestDoWildcardBind(t *testing.T) {
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`
 main := do {
   _ <- pure True;
@@ -1142,7 +1142,7 @@ main := do {
 	if err != nil {
 		t.Fatal(err)
 	}
-	con, ok := result.Value.(*gmp.ConVal)
+	con, ok := result.Value.(*gicel.ConVal)
 	if !ok || con.Con != "False" {
 		t.Errorf("expected False, got %s", result.Value)
 	}
@@ -1150,17 +1150,17 @@ main := do {
 
 // CapEnv threading: mutations propagate through do-block bind chain.
 func TestCapEnvThreading(t *testing.T) {
-	eng := gmp.NewEngine()
-	eng.RegisterType("Int", gmp.KindType())
-	eng.RegisterPrim("inc", func(ctx context.Context, capEnv gmp.CapEnv, args []gmp.Value, _ gmp.Applier) (gmp.Value, gmp.CapEnv, error) {
+	eng := gicel.NewEngine()
+	eng.RegisterType("Int", gicel.KindType())
+	eng.RegisterPrim("inc", func(ctx context.Context, capEnv gicel.CapEnv, args []gicel.Value, _ gicel.Applier) (gicel.Value, gicel.CapEnv, error) {
 		v, _ := capEnv.Get("n")
 		n, _ := v.(int)
-		return gmp.ToValue(nil), capEnv.Set("n", n+1), nil
+		return gicel.ToValue(nil), capEnv.Set("n", n+1), nil
 	})
-	eng.RegisterPrim("getN", func(ctx context.Context, capEnv gmp.CapEnv, args []gmp.Value, _ gmp.Applier) (gmp.Value, gmp.CapEnv, error) {
+	eng.RegisterPrim("getN", func(ctx context.Context, capEnv gicel.CapEnv, args []gicel.Value, _ gicel.Applier) (gicel.Value, gicel.CapEnv, error) {
 		v, _ := capEnv.Get("n")
 		n, _ := v.(int)
-		return gmp.ToValue(n), capEnv, nil
+		return gicel.ToValue(n), capEnv, nil
 	})
 	rt, err := eng.NewRuntime(`
 inc :: () -> Computation {} {} ()
@@ -1176,7 +1176,7 @@ main := do { _ <- inc (); _ <- inc (); _ <- inc (); getN () }
 	if err != nil {
 		t.Fatal(err)
 	}
-	n := gmp.MustHost[int](result.Value)
+	n := gicel.MustHost[int](result.Value)
 	if n != 3 {
 		t.Errorf("expected 3, got %d", n)
 	}
@@ -1188,9 +1188,9 @@ main := do { _ <- inc (); _ <- inc (); _ <- inc (); getN () }
 
 // Missing runtime binding must produce a runtime error (not panic).
 func TestMissingRuntimeBinding(t *testing.T) {
-	eng := gmp.NewEngine()
-	eng.RegisterType("Int", gmp.KindType())
-	eng.DeclareBinding("x", gmp.ConType("Int"))
+	eng := gicel.NewEngine()
+	eng.RegisterType("Int", gicel.KindType())
+	eng.DeclareBinding("x", gicel.ConType("Int"))
 	rt, err := eng.NewRuntime(`main := x`)
 	if err != nil {
 		t.Fatal(err)
@@ -1207,15 +1207,15 @@ func TestMissingRuntimeBinding(t *testing.T) {
 
 // PrimVal partial application: binary assumption applied to one arg, then another.
 func TestPrimPartialApplication(t *testing.T) {
-	eng := gmp.NewEngine()
-	eng.RegisterType("Int", gmp.KindType())
-	eng.RegisterPrim("add", func(ctx context.Context, capEnv gmp.CapEnv, args []gmp.Value, _ gmp.Applier) (gmp.Value, gmp.CapEnv, error) {
-		a := gmp.MustHost[int](args[0])
-		b := gmp.MustHost[int](args[1])
-		return gmp.ToValue(a + b), capEnv, nil
+	eng := gicel.NewEngine()
+	eng.RegisterType("Int", gicel.KindType())
+	eng.RegisterPrim("add", func(ctx context.Context, capEnv gicel.CapEnv, args []gicel.Value, _ gicel.Applier) (gicel.Value, gicel.CapEnv, error) {
+		a := gicel.MustHost[int](args[0])
+		b := gicel.MustHost[int](args[1])
+		return gicel.ToValue(a + b), capEnv, nil
 	})
-	eng.DeclareBinding("a", gmp.ConType("Int"))
-	eng.DeclareBinding("b", gmp.ConType("Int"))
+	eng.DeclareBinding("a", gicel.ConType("Int"))
+	eng.DeclareBinding("b", gicel.ConType("Int"))
 	rt, err := eng.NewRuntime(`
 add :: Int -> Int -> Int
 add := assumption
@@ -1224,15 +1224,15 @@ main := add a b
 	if err != nil {
 		t.Fatal(err)
 	}
-	bindings := map[string]gmp.Value{
-		"a": gmp.ToValue(10),
-		"b": gmp.ToValue(32),
+	bindings := map[string]gicel.Value{
+		"a": gicel.ToValue(10),
+		"b": gicel.ToValue(32),
 	}
 	result, err := rt.RunContext(context.Background(), nil, bindings, "main")
 	if err != nil {
 		t.Fatal(err)
 	}
-	v := gmp.MustHost[int](result.Value)
+	v := gicel.MustHost[int](result.Value)
 	if v != 42 {
 		t.Errorf("expected 42, got %d", v)
 	}
@@ -1240,7 +1240,7 @@ main := add a b
 
 // Cyclic type alias must produce a compile error.
 func TestCyclicTypeAlias(t *testing.T) {
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	_, err := eng.NewRuntime(`
 type A = B
 type B = A
@@ -1256,7 +1256,7 @@ main := True
 
 // Non-exhaustive case on Maybe must name the missing constructor.
 func TestNonExhaustiveMaybe(t *testing.T) {
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	_, err := eng.NewRuntime(`
 f := \x -> case x { Just y -> y }
 main := f (Just True)
@@ -1264,7 +1264,7 @@ main := f (Just True)
 	if err == nil {
 		t.Fatal("expected compile error for non-exhaustive case on Maybe")
 	}
-	ce := err.(*gmp.CompileError)
+	ce := err.(*gicel.CompileError)
 	if !strings.Contains(ce.Error(), "Nothing") {
 		t.Errorf("expected missing constructor 'Nothing', got: %s", ce.Error())
 	}
@@ -1272,13 +1272,13 @@ main := f (Just True)
 
 // ToValue and FromBool round-trip.
 func TestToValueFromBool(t *testing.T) {
-	v := gmp.ToValue(true)
-	b, ok := gmp.FromBool(v)
+	v := gicel.ToValue(true)
+	b, ok := gicel.FromBool(v)
 	if !ok || b != true {
 		t.Errorf("ToValue(true) -> FromBool failed")
 	}
-	v2 := gmp.ToValue(false)
-	b2, ok := gmp.FromBool(v2)
+	v2 := gicel.ToValue(false)
+	b2, ok := gicel.FromBool(v2)
 	if !ok || b2 != false {
 		t.Errorf("ToValue(false) -> FromBool failed")
 	}
@@ -1286,8 +1286,8 @@ func TestToValueFromBool(t *testing.T) {
 
 // ToValue(nil) produces ().
 func TestToValueNil(t *testing.T) {
-	v := gmp.ToValue(nil)
-	rv, ok := v.(*gmp.RecordVal)
+	v := gicel.ToValue(nil)
+	rv, ok := v.(*gicel.RecordVal)
 	if !ok || len(rv.Fields) != 0 {
 		t.Errorf("ToValue(nil) should produce (), got %s", v)
 	}
@@ -1295,8 +1295,8 @@ func TestToValueNil(t *testing.T) {
 
 // FromHost on non-HostVal returns ok=false.
 func TestFromHostNonHost(t *testing.T) {
-	v := gmp.ToValue(true) // ConVal, not HostVal
-	_, ok := gmp.FromHost(v)
+	v := gicel.ToValue(true) // ConVal, not HostVal
+	_, ok := gicel.FromHost(v)
 	if ok {
 		t.Error("FromHost on ConVal should return ok=false")
 	}
@@ -1309,12 +1309,12 @@ func TestMustHostPanic(t *testing.T) {
 			t.Error("expected panic from MustHost on ConVal")
 		}
 	}()
-	gmp.MustHost[int](gmp.ToValue(true))
+	gicel.MustHost[int](gicel.ToValue(true))
 }
 
 func TestRuntimeErrorType(t *testing.T) {
-	eng := gmp.NewEngine()
-	eng.Use(gmp.Fail)
+	eng := gicel.NewEngine()
+	eng.Use(gicel.Fail)
 	rt, err := eng.NewRuntime(`
 import Std.Fail
 main := do { _ <- fail; pure True }
@@ -1326,15 +1326,15 @@ main := do { _ <- fail; pure True }
 	if err == nil {
 		t.Fatal("expected runtime error from fail")
 	}
-	var rtErr *gmp.RuntimeError
+	var rtErr *gicel.RuntimeError
 	if !errors.As(err, &rtErr) {
 		t.Errorf("expected RuntimeError, got %T: %v", err, err)
 	}
 }
 
 func TestFromRecord(t *testing.T) {
-	eng := gmp.NewEngine()
-	eng.Use(gmp.Num)
+	eng := gicel.NewEngine()
+	eng.Use(gicel.Num)
 	rt, err := eng.NewRuntime(`
 import Std.Num
 main := { x = 1, y = 2 }
@@ -1346,7 +1346,7 @@ main := { x = 1, y = 2 }
 	if err != nil {
 		t.Fatal(err)
 	}
-	fields, ok := gmp.FromRecord(result.Value)
+	fields, ok := gicel.FromRecord(result.Value)
 	if !ok {
 		t.Fatal("expected record value")
 	}
@@ -1359,33 +1359,33 @@ main := { x = 1, y = 2 }
 }
 
 func TestFromRecordNonRecord(t *testing.T) {
-	_, ok := gmp.FromRecord(gmp.ToValue(42))
+	_, ok := gicel.FromRecord(gicel.ToValue(42))
 	if ok {
 		t.Error("FromRecord on HostVal should return ok=false")
 	}
 }
 
 func TestRecordTypeHelper(t *testing.T) {
-	rty := gmp.RecordType(
-		gmp.RowField{Label: "x", Type: gmp.ConType("Int")},
-		gmp.RowField{Label: "y", Type: gmp.ConType("Int")},
+	rty := gicel.RecordType(
+		gicel.RowField{Label: "x", Type: gicel.ConType("Int")},
+		gicel.RowField{Label: "y", Type: gicel.ConType("Int")},
 	)
-	got := gmp.TypePretty(rty)
+	got := gicel.TypePretty(rty)
 	if !strings.Contains(got, "Record") {
 		t.Errorf("expected Record type, got %s", got)
 	}
 }
 
 func TestTupleTypeHelper(t *testing.T) {
-	tt := gmp.TupleType(gmp.ConType("Int"), gmp.ConType("Bool"))
-	got := gmp.TypePretty(tt)
+	tt := gicel.TupleType(gicel.ConType("Int"), gicel.ConType("Bool"))
+	got := gicel.TypePretty(tt)
 	if !strings.Contains(got, "Record") || !strings.Contains(got, "_1") {
 		t.Errorf("expected Record{_1, _2} type, got %s", got)
 	}
 }
 
 func TestNewCapEnvExported(t *testing.T) {
-	ce := gmp.NewCapEnv(map[string]any{"key": "val"})
+	ce := gicel.NewCapEnv(map[string]any{"key": "val"})
 	v, ok := ce.Get("key")
 	if !ok {
 		t.Fatal("expected key in CapEnv")
@@ -1397,7 +1397,7 @@ func TestNewCapEnvExported(t *testing.T) {
 
 // Explicit bind syntax: bind comp (\x -> body) elaborates to Core.Bind.
 func TestExplicitBind(t *testing.T) {
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`
 main := bind (pure True) (\x -> pure x)
 `)
@@ -1408,7 +1408,7 @@ main := bind (pure True) (\x -> pure x)
 	if err != nil {
 		t.Fatal(err)
 	}
-	con, ok := result.Value.(*gmp.ConVal)
+	con, ok := result.Value.(*gicel.ConVal)
 	if !ok || con.Con != "True" {
 		t.Errorf("expected True, got %s", result.Value)
 	}
@@ -1418,7 +1418,7 @@ main := bind (pure True) (\x -> pure x)
 func TestSpecialFormStandalone(t *testing.T) {
 	forms := []string{"pure", "bind", "thunk", "force"}
 	for _, name := range forms {
-		eng := gmp.NewEngine()
+		eng := gicel.NewEngine()
 		_, err := eng.NewRuntime("main := " + name)
 		if err == nil {
 			t.Errorf("expected compile error for standalone %s", name)
@@ -1428,7 +1428,7 @@ func TestSpecialFormStandalone(t *testing.T) {
 
 // Thunk/force round-trip in do block.
 func TestThunkForceInDo(t *testing.T) {
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`
 main := do {
   t := thunk (pure True);
@@ -1442,7 +1442,7 @@ main := do {
 	if err != nil {
 		t.Fatal(err)
 	}
-	con, ok := result.Value.(*gmp.ConVal)
+	con, ok := result.Value.(*gicel.ConVal)
 	if !ok || con.Con != "True" {
 		t.Errorf("expected True, got %s", result.Value)
 	}
@@ -1450,10 +1450,10 @@ main := do {
 
 // Forall with kinded binder: forall (r : Row). T
 func TestKindedForallBinder(t *testing.T) {
-	eng := gmp.NewEngine()
-	eng.RegisterType("Int", gmp.KindType())
-	eng.RegisterPrim("getVal", func(ctx context.Context, capEnv gmp.CapEnv, args []gmp.Value, _ gmp.Applier) (gmp.Value, gmp.CapEnv, error) {
-		return gmp.ToValue(7), capEnv, nil
+	eng := gicel.NewEngine()
+	eng.RegisterType("Int", gicel.KindType())
+	eng.RegisterPrim("getVal", func(ctx context.Context, capEnv gicel.CapEnv, args []gicel.Value, _ gicel.Applier) (gicel.Value, gicel.CapEnv, error) {
+		return gicel.ToValue(7), capEnv, nil
 	})
 	rt, err := eng.NewRuntime(`
 getVal :: forall (r : Row). () -> Computation r r Int
@@ -1467,7 +1467,7 @@ main := do { getVal () }
 	if err != nil {
 		t.Fatal("runtime error:", err)
 	}
-	v := gmp.MustHost[int](result.Value)
+	v := gicel.MustHost[int](result.Value)
 	if v != 7 {
 		t.Errorf("expected 7, got %d", v)
 	}
@@ -1475,8 +1475,8 @@ main := do { getVal () }
 
 // Result type has 2 parameters: Result e a = Ok a | Err e
 func TestResult2Params(t *testing.T) {
-	eng := gmp.NewEngine()
-	eng.RegisterType("String", gmp.KindType())
+	eng := gicel.NewEngine()
+	eng.RegisterType("String", gicel.KindType())
 	rt, err := eng.NewRuntime(`
 main := Ok True
 `)
@@ -1487,14 +1487,14 @@ main := Ok True
 	if err != nil {
 		t.Fatal(err)
 	}
-	con, ok := result.Value.(*gmp.ConVal)
+	con, ok := result.Value.(*gicel.ConVal)
 	if !ok || con.Con != "Ok" {
 		t.Errorf("expected Ok, got %s", result.Value)
 	}
 	if len(con.Args) != 1 {
 		t.Fatalf("expected 1 arg, got %d", len(con.Args))
 	}
-	inner, ok := con.Args[0].(*gmp.ConVal)
+	inner, ok := con.Args[0].(*gicel.ConVal)
 	if !ok || inner.Con != "True" {
 		t.Errorf("expected True inside Ok, got %s", con.Args[0])
 	}
@@ -1502,7 +1502,7 @@ main := Ok True
 
 // Type alias: type Effect r a = Computation r r a
 func TestTypeAlias(t *testing.T) {
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`
 type Effect r a = Computation r r a
 
@@ -1516,7 +1516,7 @@ main := pure True
 	if err != nil {
 		t.Fatal(err)
 	}
-	con, ok := result.Value.(*gmp.ConVal)
+	con, ok := result.Value.(*gicel.ConVal)
 	if !ok || con.Con != "True" {
 		t.Errorf("expected True, got %s", result.Value)
 	}
@@ -1524,7 +1524,7 @@ main := pure True
 
 // Prelude's Effect alias should work without user-defined alias.
 func TestPreludeEffectAlias(t *testing.T) {
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`
 main :: Effect {} Bool
 main := pure True
@@ -1536,7 +1536,7 @@ main := pure True
 	if err != nil {
 		t.Fatal("runtime error:", err)
 	}
-	con, ok := result.Value.(*gmp.ConVal)
+	con, ok := result.Value.(*gicel.ConVal)
 	if !ok || con.Con != "True" {
 		t.Errorf("expected True, got %s", result.Value)
 	}
@@ -1544,11 +1544,11 @@ main := pure True
 
 // Env flat map: deeply nested binds don't retain parent chains.
 func TestDeepBindEnvDoesNotLeak(t *testing.T) {
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	eng.EnableRecursion()
-	eng.RegisterType("Int", gmp.KindType())
-	eng.RegisterPrim("mkInt", func(ctx context.Context, capEnv gmp.CapEnv, args []gmp.Value, _ gmp.Applier) (gmp.Value, gmp.CapEnv, error) {
-		return gmp.ToValue(0), capEnv, nil
+	eng.RegisterType("Int", gicel.KindType())
+	eng.RegisterPrim("mkInt", func(ctx context.Context, capEnv gicel.CapEnv, args []gicel.Value, _ gicel.Applier) (gicel.Value, gicel.CapEnv, error) {
+		return gicel.ToValue(0), capEnv, nil
 	})
 	// A chain of 100 nested binds. With linked-list Env, each
 	// closure would retain the entire chain. With flat Env, each
@@ -1577,7 +1577,7 @@ main := do {
 	if err != nil {
 		t.Fatal(err)
 	}
-	v := gmp.MustHost[int](result.Value)
+	v := gicel.MustHost[int](result.Value)
 	if v != 0 {
 		t.Errorf("expected 0, got %d", v)
 	}
@@ -1585,7 +1585,7 @@ main := do {
 
 // Empty program (no main) should produce a runtime error, not panic.
 func TestNoMainEntry(t *testing.T) {
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`helper := True`)
 	if err != nil {
 		t.Fatal(err)
@@ -1598,7 +1598,7 @@ func TestNoMainEntry(t *testing.T) {
 
 // Large case expression: exhaustiveness on 6-constructor ADT.
 func TestExhaustiveLargeADT(t *testing.T) {
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`
 data Color = Red | Green | Blue | Yellow | Cyan | Magenta
 
@@ -1620,7 +1620,7 @@ main := f Red
 	if err != nil {
 		t.Fatal(err)
 	}
-	con, ok := result.Value.(*gmp.ConVal)
+	con, ok := result.Value.(*gicel.ConVal)
 	if !ok || con.Con != "True" {
 		t.Errorf("expected True, got %s", result.Value)
 	}
@@ -1628,7 +1628,7 @@ main := f Red
 
 // Non-exhaustive on large ADT names missing constructors.
 func TestNonExhaustiveLargeADT(t *testing.T) {
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	_, err := eng.NewRuntime(`
 data Color = Red | Green | Blue | Yellow | Cyan | Magenta
 
@@ -1655,7 +1655,7 @@ main := f Red
 // ---------------------------------------------------------------------------
 
 func TestTypeClassEqBool(t *testing.T) {
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	eng.NoPrelude()
 	rt, err := eng.NewRuntime(`
 data Bool = True | False
@@ -1675,14 +1675,14 @@ main := eq True False
 	if err != nil {
 		t.Fatal(err)
 	}
-	con, ok := result.Value.(*gmp.ConVal)
+	con, ok := result.Value.(*gicel.ConVal)
 	if !ok || con.Con != "False" {
 		t.Errorf("expected False, got %s", result.Value)
 	}
 }
 
 func TestTypeClassPolymorphic(t *testing.T) {
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	eng.NoPrelude()
 	rt, err := eng.NewRuntime(`
 data Bool = True | False
@@ -1704,14 +1704,14 @@ main := f True True
 	if err != nil {
 		t.Fatal(err)
 	}
-	con, ok := result.Value.(*gmp.ConVal)
+	con, ok := result.Value.(*gicel.ConVal)
 	if !ok || con.Con != "True" {
 		t.Errorf("expected True, got %s", result.Value)
 	}
 }
 
 func TestTypeClassSuperclass(t *testing.T) {
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	eng.NoPrelude()
 	rt, err := eng.NewRuntime(`
 data Bool = True | False
@@ -1734,14 +1734,14 @@ main := useOrd True False
 	if err != nil {
 		t.Fatal(err)
 	}
-	con, ok := result.Value.(*gmp.ConVal)
+	con, ok := result.Value.(*gicel.ConVal)
 	if !ok || con.Con != "True" {
 		t.Errorf("expected True, got %s", result.Value)
 	}
 }
 
 func TestTypeClassFunctor(t *testing.T) {
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	eng.NoPrelude()
 	rt, err := eng.NewRuntime(`
 data Bool = True | False
@@ -1763,21 +1763,21 @@ main := fmap not (Just True)
 	if err != nil {
 		t.Fatal(err)
 	}
-	con, ok := result.Value.(*gmp.ConVal)
+	con, ok := result.Value.(*gicel.ConVal)
 	if !ok || con.Con != "Just" {
 		t.Errorf("expected Just, got %s", result.Value)
 	}
 	if len(con.Args) != 1 {
 		t.Fatalf("expected 1 arg, got %d", len(con.Args))
 	}
-	inner, ok := con.Args[0].(*gmp.ConVal)
+	inner, ok := con.Args[0].(*gicel.ConVal)
 	if !ok || inner.Con != "False" {
 		t.Errorf("expected False inside Just, got %s", con.Args[0])
 	}
 }
 
 func TestTypeClassMultiParam(t *testing.T) {
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	eng.NoPrelude()
 	rt, err := eng.NewRuntime(`
 data Bool = True | False
@@ -1794,7 +1794,7 @@ main := coerce True
 	if err != nil {
 		t.Fatal(err)
 	}
-	con, ok := result.Value.(*gmp.ConVal)
+	con, ok := result.Value.(*gicel.ConVal)
 	if !ok || con.Con != "True" {
 		t.Errorf("expected True, got %s", result.Value)
 	}
@@ -1809,7 +1809,7 @@ main := coerce True
 // ---------------------------------------------------------------------------
 
 func TestDataKindsDBState(t *testing.T) {
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`
 data DBState = Opened | Closed
 data DB s = MkDB
@@ -1829,17 +1829,17 @@ main := close (open (MkDB :: DB Closed))
 	if err != nil {
 		t.Fatal(err)
 	}
-	con, ok := result.Value.(*gmp.ConVal)
+	con, ok := result.Value.(*gicel.ConVal)
 	if !ok || con.Con != "MkDB" {
 		t.Errorf("expected MkDB, got %s", result.Value)
 	}
 }
 
 func TestDataKindsInRow(t *testing.T) {
-	eng := gmp.NewEngine()
-	eng.RegisterType("Int", gmp.KindType())
-	eng.RegisterPrim("readDB", func(ctx context.Context, ce gmp.CapEnv, args []gmp.Value, _ gmp.Applier) (gmp.Value, gmp.CapEnv, error) {
-		return gmp.ToValue(42), ce, nil
+	eng := gicel.NewEngine()
+	eng.RegisterType("Int", gicel.KindType())
+	eng.RegisterPrim("readDB", func(ctx context.Context, ce gicel.CapEnv, args []gicel.Value, _ gicel.Applier) (gicel.Value, gicel.CapEnv, error) {
+		return gicel.ToValue(42), ce, nil
 	})
 	rt, err := eng.NewRuntime(`
 data DBState = Opened | Closed
@@ -1857,14 +1857,14 @@ main := do { readDB () }
 	if err != nil {
 		t.Fatal(err)
 	}
-	v := gmp.MustHost[int](result.Value)
+	v := gicel.MustHost[int](result.Value)
 	if v != 42 {
 		t.Errorf("expected 42, got %d", v)
 	}
 }
 
 func TestDataKindsBoolPromotion(t *testing.T) {
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`
 data Proxy s = MkProxy
 main := (MkProxy :: Proxy True)
@@ -1876,7 +1876,7 @@ main := (MkProxy :: Proxy True)
 	if err != nil {
 		t.Fatal(err)
 	}
-	con, ok := result.Value.(*gmp.ConVal)
+	con, ok := result.Value.(*gicel.ConVal)
 	if !ok || con.Con != "MkProxy" {
 		t.Errorf("expected MkProxy, got %s", result.Value)
 	}
@@ -1885,7 +1885,7 @@ main := (MkProxy :: Proxy True)
 // --- GADT integration tests ---
 
 func TestGADTEvalExpr(t *testing.T) {
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	eng.EnableRecursion()
 	rt, err := eng.NewRuntime(`
 data Expr a = { LitBool :: Bool -> Expr Bool; Not :: Expr Bool -> Expr Bool }
@@ -1905,14 +1905,14 @@ main := eval (Not (LitBool True))
 	if err != nil {
 		t.Fatal(err)
 	}
-	con, ok := result.Value.(*gmp.ConVal)
+	con, ok := result.Value.(*gicel.ConVal)
 	if !ok || con.Con != "False" {
 		t.Errorf("expected False, got %s", result.Value)
 	}
 }
 
 func TestGADTWithDataKinds(t *testing.T) {
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`
 data DBState = Opened | Closed
 data DB s = MkDB
@@ -1931,14 +1931,14 @@ main := describe Open
 	if err != nil {
 		t.Fatal(err)
 	}
-	con, ok := result.Value.(*gmp.ConVal)
+	con, ok := result.Value.(*gicel.ConVal)
 	if !ok || con.Con != "MkDB" {
 		t.Errorf("expected MkDB, got %s", result.Value)
 	}
 }
 
 func TestGADTNestedPattern(t *testing.T) {
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`
 data Expr a = { LitBool :: Bool -> Expr Bool; Not :: Expr Bool -> Expr Bool }
 
@@ -1961,7 +1961,7 @@ main := isDoubleNeg (Not (Not (LitBool True)))
 	if err != nil {
 		t.Fatal(err)
 	}
-	con, ok := result.Value.(*gmp.ConVal)
+	con, ok := result.Value.(*gicel.ConVal)
 	if !ok || con.Con != "True" {
 		t.Errorf("expected True, got %s", result.Value)
 	}
@@ -1970,7 +1970,7 @@ main := isDoubleNeg (Not (Not (LitBool True)))
 // --- Module system integration tests ---
 
 func TestRegisterModule(t *testing.T) {
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	eng.NoPrelude()
 	err := eng.RegisterModule("Lib", `
 data Bool = True | False
@@ -1983,7 +1983,7 @@ not := \b -> case b { True -> False; False -> True }
 }
 
 func TestImportModuleTypes(t *testing.T) {
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	eng.NoPrelude()
 	err := eng.RegisterModule("Lib", `
 data Bool = True | False
@@ -2004,14 +2004,14 @@ main := not True
 	if err != nil {
 		t.Fatal(err)
 	}
-	con, ok := result.Value.(*gmp.ConVal)
+	con, ok := result.Value.(*gicel.ConVal)
 	if !ok || con.Con != "False" {
 		t.Errorf("expected False, got %s", result.Value)
 	}
 }
 
 func TestImportModuleInstances(t *testing.T) {
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	eng.NoPrelude()
 	err := eng.RegisterModule("EqLib", `
 data Bool = True | False
@@ -2032,7 +2032,7 @@ main := eq True False
 	if err != nil {
 		t.Fatal(err)
 	}
-	con, ok := result.Value.(*gmp.ConVal)
+	con, ok := result.Value.(*gicel.ConVal)
 	if !ok || con.Con != "True" {
 		t.Errorf("expected True, got %s", result.Value)
 	}
@@ -2040,13 +2040,13 @@ main := eq True False
 
 func TestRegisterModuleFile(t *testing.T) {
 	dir := t.TempDir()
-	path := dir + "/Lib.gmp"
+	path := dir + "/Lib.gicel"
 	if err := os.WriteFile(path, []byte(`
 data Color = Red | Blue
 `), 0644); err != nil {
 		t.Fatal(err)
 	}
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	eng.NoPrelude()
 	if err := eng.RegisterModuleFile(path); err != nil {
 		t.Fatal(err)
@@ -2062,22 +2062,22 @@ main := Red
 	if err != nil {
 		t.Fatal(err)
 	}
-	con, ok := result.Value.(*gmp.ConVal)
+	con, ok := result.Value.(*gicel.ConVal)
 	if !ok || con.Con != "Red" {
 		t.Errorf("expected Red, got %s", result.Value)
 	}
 }
 
 func TestRegisterModuleFileMissing(t *testing.T) {
-	eng := gmp.NewEngine()
-	err := eng.RegisterModuleFile("/nonexistent/path/Foo.gmp")
+	eng := gicel.NewEngine()
+	err := eng.RegisterModuleFile("/nonexistent/path/Foo.gicel")
 	if err == nil {
 		t.Error("expected error for missing file")
 	}
 }
 
 func TestCircularImportError(t *testing.T) {
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	eng.NoPrelude()
 	// Register module A that imports B.
 	err := eng.RegisterModule("A", `
@@ -2102,7 +2102,7 @@ data Void = MkVoid
 }
 
 func TestImportNameCollision(t *testing.T) {
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	eng.NoPrelude()
 	// Module A defines Bool.
 	err := eng.RegisterModule("A", `data Bool = True | False`)
@@ -2129,7 +2129,7 @@ main := True
 // --- Stdlib integration tests ---
 
 func TestStdlibEqOrd(t *testing.T) {
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`
 main := eq True True
 `)
@@ -2140,14 +2140,14 @@ main := eq True True
 	if err != nil {
 		t.Fatal(err)
 	}
-	con, ok := result.Value.(*gmp.ConVal)
+	con, ok := result.Value.(*gicel.ConVal)
 	if !ok || con.Con != "True" {
 		t.Errorf("expected True, got %s", result.Value)
 	}
 }
 
 func TestStdlibFunctor(t *testing.T) {
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`
 not :: Bool -> Bool
 not := \b -> case b { True -> False; False -> True }
@@ -2161,18 +2161,18 @@ main := fmap not (Just True)
 	if err != nil {
 		t.Fatal(err)
 	}
-	con, ok := result.Value.(*gmp.ConVal)
+	con, ok := result.Value.(*gicel.ConVal)
 	if !ok || con.Con != "Just" {
 		t.Fatalf("expected Just, got %s", result.Value)
 	}
-	inner, ok := con.Args[0].(*gmp.ConVal)
+	inner, ok := con.Args[0].(*gicel.ConVal)
 	if !ok || inner.Con != "False" {
 		t.Errorf("expected Just False, got Just %s", con.Args[0])
 	}
 }
 
 func TestStdlibFoldable(t *testing.T) {
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`
 main := foldr (\x -> \_ -> x) False (Just True)
 `)
@@ -2183,7 +2183,7 @@ main := foldr (\x -> \_ -> x) False (Just True)
 	if err != nil {
 		t.Fatal(err)
 	}
-	con, ok := result.Value.(*gmp.ConVal)
+	con, ok := result.Value.(*gicel.ConVal)
 	if !ok || con.Con != "True" {
 		t.Errorf("expected True, got %s", result.Value)
 	}
@@ -2192,7 +2192,7 @@ main := foldr (\x -> \_ -> x) False (Just True)
 func TestStdlibEqPair(t *testing.T) {
 	// NOTE: Eq (a, b) on tuples is not yet supported at runtime (evidence/record interaction).
 	// Test Eq on List as a multi-element container substitute.
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`
 main := eq (Cons True (Cons False Nil)) (Cons True (Cons False Nil))
 `)
@@ -2203,7 +2203,7 @@ main := eq (Cons True (Cons False Nil)) (Cons True (Cons False Nil))
 	if err != nil {
 		t.Fatal(err)
 	}
-	con, ok := result.Value.(*gmp.ConVal)
+	con, ok := result.Value.(*gicel.ConVal)
 	if !ok || con.Con != "True" {
 		t.Errorf("expected True, got %s", result.Value)
 	}
@@ -2212,7 +2212,7 @@ main := eq (Cons True (Cons False Nil)) (Cons True (Cons False Nil))
 // --- Coercible integration tests ---
 
 func TestCoercibleMultiParam(t *testing.T) {
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`
 class Coercible a b { coerce :: a -> b }
 
@@ -2227,14 +2227,14 @@ main := coerce True
 	if err != nil {
 		t.Fatal(err)
 	}
-	rv, ok := result.Value.(*gmp.RecordVal)
+	rv, ok := result.Value.(*gicel.RecordVal)
 	if !ok || len(rv.Fields) != 0 {
 		t.Errorf("expected (), got %s", result.Value)
 	}
 }
 
 func TestCoercibleUsage(t *testing.T) {
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`
 class Coercible a b { coerce :: a -> b }
 
@@ -2250,7 +2250,7 @@ main := coerce True
 	if err != nil {
 		t.Fatal(err)
 	}
-	con, ok := result.Value.(*gmp.ConVal)
+	con, ok := result.Value.(*gicel.ConVal)
 	if !ok || con.Con != "True" {
 		t.Errorf("expected True, got %s", result.Value)
 	}
@@ -2258,7 +2258,7 @@ main := coerce True
 
 func TestPreludeAsModule(t *testing.T) {
 	// Prelude is now loaded as an implicit module — Bool, (), etc. should be available.
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`main := True`)
 	if err != nil {
 		t.Fatal(err)
@@ -2267,14 +2267,14 @@ func TestPreludeAsModule(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	con, ok := result.Value.(*gmp.ConVal)
+	con, ok := result.Value.(*gicel.ConVal)
 	if !ok || con.Con != "True" {
 		t.Errorf("expected True, got %s", result.Value)
 	}
 }
 
 func TestNoPreludeWithModules(t *testing.T) {
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	eng.NoPrelude()
 	// Without prelude, Bool is not defined — need to define it ourselves.
 	rt, err := eng.NewRuntime(`
@@ -2288,7 +2288,7 @@ main := Yes
 	if err != nil {
 		t.Fatal(err)
 	}
-	con, ok := result.Value.(*gmp.ConVal)
+	con, ok := result.Value.(*gicel.ConVal)
 	if !ok || con.Con != "Yes" {
 		t.Errorf("expected Yes, got %s", result.Value)
 	}
@@ -2296,7 +2296,7 @@ main := Yes
 
 func TestSetPreludeCustom(t *testing.T) {
 	// Custom prelude replaces default: only defines MyBool, no standard Bool.
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	eng.SetPrelude(`
 data MyBool = Yes | No
 `)
@@ -2308,7 +2308,7 @@ data MyBool = Yes | No
 	if err != nil {
 		t.Fatal(err)
 	}
-	con, ok := result.Value.(*gmp.ConVal)
+	con, ok := result.Value.(*gicel.ConVal)
 	if !ok || con.Con != "Yes" {
 		t.Errorf("expected Yes, got %s", result.Value)
 	}
@@ -2316,7 +2316,7 @@ data MyBool = Yes | No
 
 func TestSetPreludeCoreStillAvailable(t *testing.T) {
 	// Core definitions (IxMonad, Effect, then) available even with custom Prelude.
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	eng.SetPrelude(`
 data Bool = True | False
 `)
@@ -2332,7 +2332,7 @@ main := pure True
 	if err != nil {
 		t.Fatal(err)
 	}
-	con, ok := result.Value.(*gmp.ConVal)
+	con, ok := result.Value.(*gicel.ConVal)
 	if !ok || con.Con != "True" {
 		t.Errorf("expected True, got %s", result.Value)
 	}
@@ -2340,7 +2340,7 @@ main := pure True
 
 func TestSetPreludeNoDefaultBool(t *testing.T) {
 	// Custom prelude that doesn't define Bool — standard Bool should not be available.
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	eng.SetPrelude(`data Color = Red | Blue`)
 	_, err := eng.NewRuntime(`main := True`)
 	if err == nil {
@@ -2350,66 +2350,66 @@ func TestSetPreludeNoDefaultBool(t *testing.T) {
 
 func TestTypeHelpers(t *testing.T) {
 	// ConType constructs a type constructor.
-	intTy := gmp.ConType("Int")
-	if gmp.TypePretty(intTy) != "Int" {
-		t.Errorf("expected Int, got %s", gmp.TypePretty(intTy))
+	intTy := gicel.ConType("Int")
+	if gicel.TypePretty(intTy) != "Int" {
+		t.Errorf("expected Int, got %s", gicel.TypePretty(intTy))
 	}
 
 	// ArrowType constructs a function type.
-	arrTy := gmp.ArrowType(gmp.ConType("Bool"), gmp.ConType("Bool"))
-	if got := gmp.TypePretty(arrTy); got != "Bool -> Bool" {
+	arrTy := gicel.ArrowType(gicel.ConType("Bool"), gicel.ConType("Bool"))
+	if got := gicel.TypePretty(arrTy); got != "Bool -> Bool" {
 		t.Errorf("expected Bool -> Bool, got %s", got)
 	}
 
 	// EmptyRowType constructs an empty row.
-	row := gmp.EmptyRowType()
-	if gmp.TypePretty(row) != "{}" {
-		t.Errorf("expected {}, got %s", gmp.TypePretty(row))
+	row := gicel.EmptyRowType()
+	if gicel.TypePretty(row) != "{}" {
+		t.Errorf("expected {}, got %s", gicel.TypePretty(row))
 	}
 
 	// ClosedRowType constructs a row with fields.
-	row2 := gmp.ClosedRowType(gmp.RowField{Label: "x", Type: gmp.ConType("Int")})
-	if got := gmp.TypePretty(row2); !strings.Contains(got, "x") {
+	row2 := gicel.ClosedRowType(gicel.RowField{Label: "x", Type: gicel.ConType("Int")})
+	if got := gicel.TypePretty(row2); !strings.Contains(got, "x") {
 		t.Errorf("expected row with field x, got %s", got)
 	}
 
 	// ForallType constructs a quantified type.
-	forallTy := gmp.ForallType("a", gmp.ArrowType(gmp.VarType("a"), gmp.VarType("a")))
-	if got := gmp.TypePretty(forallTy); !strings.Contains(got, "forall") {
+	forallTy := gicel.ForallType("a", gicel.ArrowType(gicel.VarType("a"), gicel.VarType("a")))
+	if got := gicel.TypePretty(forallTy); !strings.Contains(got, "forall") {
 		t.Errorf("expected forall in pretty, got %s", got)
 	}
 
 	// CompType constructs a computation type.
-	compTy := gmp.CompType(gmp.EmptyRowType(), gmp.EmptyRowType(), gmp.ConType("Bool"))
-	if got := gmp.TypePretty(compTy); !strings.Contains(got, "Bool") {
+	compTy := gicel.CompType(gicel.EmptyRowType(), gicel.EmptyRowType(), gicel.ConType("Bool"))
+	if got := gicel.TypePretty(compTy); !strings.Contains(got, "Bool") {
 		t.Errorf("expected Bool in computation type, got %s", got)
 	}
 
 	// VarType constructs a type variable.
-	tv := gmp.VarType("a")
-	if gmp.TypePretty(tv) != "a" {
-		t.Errorf("expected a, got %s", gmp.TypePretty(tv))
+	tv := gicel.VarType("a")
+	if gicel.TypePretty(tv) != "a" {
+		t.Errorf("expected a, got %s", gicel.TypePretty(tv))
 	}
 
 	// Kind helpers.
-	k := gmp.KindType()
-	if !k.Equal(gmp.KindType()) {
+	k := gicel.KindType()
+	if !k.Equal(gicel.KindType()) {
 		t.Errorf("KType should equal KType")
 	}
-	kr := gmp.KindRow()
-	if kr.Equal(gmp.KindType()) {
+	kr := gicel.KindRow()
+	if kr.Equal(gicel.KindType()) {
 		t.Errorf("KRow should not equal KType")
 	}
-	ka := gmp.KindArrow(gmp.KindType(), gmp.KindType())
-	if !ka.Equal(gmp.KindArrow(gmp.KindType(), gmp.KindType())) {
+	ka := gicel.KindArrow(gicel.KindType(), gicel.KindType())
+	if !ka.Equal(gicel.KindArrow(gicel.KindType(), gicel.KindType())) {
 		t.Errorf("KArrow(Type,Type) should equal itself")
 	}
 
 	// TypeEqual
-	if !gmp.TypeEqual(gmp.ConType("Int"), gmp.ConType("Int")) {
+	if !gicel.TypeEqual(gicel.ConType("Int"), gicel.ConType("Int")) {
 		t.Errorf("Int should equal Int")
 	}
-	if gmp.TypeEqual(gmp.ConType("Int"), gmp.ConType("Bool")) {
+	if gicel.TypeEqual(gicel.ConType("Int"), gicel.ConType("Bool")) {
 		t.Errorf("Int should not equal Bool")
 	}
 }
@@ -2421,7 +2421,7 @@ func TestTypeHelpers(t *testing.T) {
 // --- Phase 1: Skolem Infrastructure ---
 
 func TestUnifySkolemRigid(t *testing.T) {
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	_, err := eng.Check(`
 not :: Bool -> Bool
 not := \x -> x
@@ -2434,7 +2434,7 @@ main := not True
 
 func TestUnifySkolemSame(t *testing.T) {
 	// Indirect test: use a GADT constructor with existential that unifies skolem with itself
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	_, err := eng.Check(`
 data SameTest = { MkSame :: forall a. a -> a -> SameTest }
 useIt :: SameTest -> Bool
@@ -2448,7 +2448,7 @@ useIt := \s -> case s { MkSame x y -> True }
 // --- Phase 1B: Skolem Escape Check ---
 
 func TestSkolemEscapeDetected(t *testing.T) {
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	_, err := eng.Check(`
 data Exists = { MkExists :: forall a. a -> Exists }
 escape :: Exists -> Bool
@@ -2463,7 +2463,7 @@ escape := \e -> case e { MkExists x -> x }
 }
 
 func TestSkolemNoEscape(t *testing.T) {
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	_, err := eng.Check(`
 data Wrapper = { MkWrapper :: forall a. a -> Wrapper }
 safe :: Wrapper -> Bool
@@ -2475,7 +2475,7 @@ safe := \w -> case w { MkWrapper _ -> True }
 }
 
 func TestSkolemEscapeInMeta(t *testing.T) {
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	_, err := eng.Check(`
 data SomeVal = { MkSome :: forall a. a -> SomeVal }
 leaky := \s -> case s { MkSome x -> Just x }
@@ -2488,7 +2488,7 @@ leaky := \s -> case s { MkSome x -> Just x }
 // --- Phase 2: Existential Types ---
 
 func TestExistentialBasic(t *testing.T) {
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`
 data SomeEq = { MkSomeEq :: forall a. Eq a => a -> SomeEq }
 useSomeEq :: SomeEq -> Bool
@@ -2506,7 +2506,7 @@ main := useSomeEq (MkSomeEq True)
 }
 
 func TestExistentialEscapeError(t *testing.T) {
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	_, err := eng.Check(`
 data SomeEq = { MkSomeEq :: forall a. Eq a => a -> SomeEq }
 escape :: SomeEq -> Bool
@@ -2518,7 +2518,7 @@ escape := \s -> case s { MkSomeEq x -> x }
 }
 
 func TestExistentialNoConstraint(t *testing.T) {
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`
 data ExistsF f = { MkExistsF :: forall a. f a -> ExistsF f }
 useMaybe :: ExistsF Maybe -> Bool
@@ -2536,7 +2536,7 @@ main := useMaybe (MkExistsF (Just True))
 }
 
 func TestExistentialMixed(t *testing.T) {
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`
 data Wrapper a = { MkWrapper :: forall b. (b -> a) -> b -> Wrapper a }
 useWrapper :: Wrapper Bool -> Bool
@@ -2554,7 +2554,7 @@ main := useWrapper (MkWrapper (\x -> x) True)
 }
 
 func TestExistentialMultiConstraint(t *testing.T) {
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	_, err := eng.Check(`
 data ShowOrd = { MkShowOrd :: forall a. Eq a => Ord a => a -> a -> ShowOrd }
 use :: ShowOrd -> Ordering
@@ -2568,7 +2568,7 @@ use := \s -> case s { MkShowOrd x y -> compare x y }
 // --- Phase 2D: Existential Integration ---
 
 func TestExistentialWithTypeClass(t *testing.T) {
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`
 data SomeEq = { MkSomeEq :: forall a. Eq a => a -> SomeEq }
 isSame :: SomeEq -> Bool
@@ -2587,7 +2587,7 @@ main := isSame (MkSomeEq (Just True))
 }
 
 func TestExistentialWithGADT(t *testing.T) {
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`
 data Typed a = { MkBool :: Bool -> Typed Bool; MkUnit :: Typed () }
 data SomeTyped = { MkSome :: forall a. Typed a -> SomeTyped }
@@ -2606,7 +2606,7 @@ main := classify (MkSome (MkBool True))
 }
 
 func TestExistentialNestedCase(t *testing.T) {
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`
 data Wrap = { MkWrap :: forall a. Eq a => a -> Wrap }
 bothSame :: Wrap -> Wrap -> Bool
@@ -2627,7 +2627,7 @@ main := bothSame (MkWrap True) (MkWrap False)
 // --- Phase 3: Higher-Rank Polymorphism ---
 
 func TestSubsumptionInstantiate(t *testing.T) {
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`
 id :: forall a. a -> a
 id := \x -> x
@@ -2646,7 +2646,7 @@ main := useBool id
 }
 
 func TestHigherRankBasic(t *testing.T) {
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`
 applyToTrue :: (forall a. a -> a) -> Bool
 applyToTrue := \f -> f True
@@ -2666,7 +2666,7 @@ main := applyToTrue id
 
 func TestHigherRankAnnotationRequired(t *testing.T) {
 	// Rank-2 types should require annotation on the parameter
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`
 apply :: (forall a. a -> a) -> (Bool, ())
 apply := \f -> (f True, f ())
@@ -2681,7 +2681,7 @@ main := apply id
 	if err != nil {
 		t.Fatal(err)
 	}
-	rv, ok := result.Value.(*gmp.RecordVal)
+	rv, ok := result.Value.(*gicel.RecordVal)
 	if !ok || len(rv.Fields) != 2 {
 		t.Errorf("expected tuple (Bool, ()), got %s", result.Value)
 	}
@@ -2690,7 +2690,7 @@ main := apply id
 // --- Phase 3F: Higher-Rank Integration ---
 
 func TestHigherRankPolymorphicArg(t *testing.T) {
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`
 runId :: (forall a. a -> a) -> (Bool, ())
 runId := \f -> (f True, f ())
@@ -2705,12 +2705,12 @@ main := runId id
 	if err != nil {
 		t.Fatal(err)
 	}
-	rv, ok := result.Value.(*gmp.RecordVal)
+	rv, ok := result.Value.(*gicel.RecordVal)
 	if !ok || len(rv.Fields) != 2 {
 		t.Errorf("expected tuple (Bool, ()), got %s", result.Value)
 	}
 	assertConName(t, rv.Fields["_1"], "True")
-	unitField, ok := rv.Fields["_2"].(*gmp.RecordVal)
+	unitField, ok := rv.Fields["_2"].(*gicel.RecordVal)
 	if !ok || len(unitField.Fields) != 0 {
 		t.Errorf("expected () in _2, got %s", rv.Fields["_2"])
 	}
@@ -2719,7 +2719,7 @@ main := runId id
 // --- Phase 4: Stdlib Expansion ---
 
 func TestClassSemigroup(t *testing.T) {
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`
 main := append () ()
 `)
@@ -2730,14 +2730,14 @@ main := append () ()
 	if err != nil {
 		t.Fatal(err)
 	}
-	rv, ok := result.Value.(*gmp.RecordVal)
+	rv, ok := result.Value.(*gicel.RecordVal)
 	if !ok || len(rv.Fields) != 0 {
 		t.Errorf("expected (), got %s", result.Value)
 	}
 }
 
 func TestClassMonoid(t *testing.T) {
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`
 main := (empty :: Ordering)
 `)
@@ -2752,7 +2752,7 @@ main := (empty :: Ordering)
 }
 
 func TestClassApplicative(t *testing.T) {
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	_, err := eng.Check(`
 test := (wrap True :: Maybe Bool)
 `)
@@ -2762,7 +2762,7 @@ test := (wrap True :: Maybe Bool)
 }
 
 func TestClassTraversable(t *testing.T) {
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	_, err := eng.Check(`
 test :: forall f a b. Applicative f => (a -> f b) -> Maybe a -> f (Maybe b)
 test := traverse
@@ -2773,7 +2773,7 @@ test := traverse
 }
 
 func TestSemigroupUnit(t *testing.T) {
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`main := append () ()`)
 	if err != nil {
 		t.Fatal(err)
@@ -2782,14 +2782,14 @@ func TestSemigroupUnit(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	rv, ok := result.Value.(*gmp.RecordVal)
+	rv, ok := result.Value.(*gicel.RecordVal)
 	if !ok || len(rv.Fields) != 0 {
 		t.Errorf("expected (), got %s", result.Value)
 	}
 }
 
 func TestSemigroupOrdering(t *testing.T) {
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`
 test1 := append LT EQ
 test2 := append EQ GT
@@ -2802,7 +2802,7 @@ main := (test1, test2)
 	if err != nil {
 		t.Fatal(err)
 	}
-	rv, ok := result.Value.(*gmp.RecordVal)
+	rv, ok := result.Value.(*gicel.RecordVal)
 	if !ok || len(rv.Fields) != 2 {
 		t.Fatalf("expected tuple, got %s", result.Value)
 	}
@@ -2811,7 +2811,7 @@ main := (test1, test2)
 }
 
 func TestMonoidUnit(t *testing.T) {
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`main := (empty :: ())`)
 	if err != nil {
 		t.Fatal(err)
@@ -2820,14 +2820,14 @@ func TestMonoidUnit(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	rv, ok := result.Value.(*gmp.RecordVal)
+	rv, ok := result.Value.(*gicel.RecordVal)
 	if !ok || len(rv.Fields) != 0 {
 		t.Errorf("expected (), got %s", result.Value)
 	}
 }
 
 func TestApplicativeMaybe(t *testing.T) {
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`
 wrapped := (wrap True :: Maybe Bool)
 main := wrapped
@@ -2839,14 +2839,14 @@ main := wrapped
 	if err != nil {
 		t.Fatal(err)
 	}
-	con, ok := result.Value.(*gmp.ConVal)
+	con, ok := result.Value.(*gicel.ConVal)
 	if !ok || con.Con != "Just" {
 		t.Errorf("expected Just, got %s", result.Value)
 	}
 }
 
 func TestTraversableMaybe(t *testing.T) {
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`
 not :: Bool -> Bool
 not := \b -> case b { True -> False; False -> True }
@@ -2860,11 +2860,11 @@ main := traverse (\x -> Just (not x)) (Just True)
 		t.Fatal(err)
 	}
 	// traverse (\x -> Just (not x)) (Just True) = Just (Just False)
-	outer, ok := result.Value.(*gmp.ConVal)
+	outer, ok := result.Value.(*gicel.ConVal)
 	if !ok || outer.Con != "Just" {
 		t.Fatalf("expected Just, got %s", result.Value)
 	}
-	inner, ok := outer.Args[0].(*gmp.ConVal)
+	inner, ok := outer.Args[0].(*gicel.ConVal)
 	if !ok || inner.Con != "Just" {
 		t.Fatalf("expected inner Just, got %s", outer.Args[0])
 	}
@@ -2872,7 +2872,7 @@ main := traverse (\x -> Just (not x)) (Just True)
 }
 
 func TestOrdBool(t *testing.T) {
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`main := compare False True`)
 	if err != nil {
 		t.Fatal(err)
@@ -2885,7 +2885,7 @@ func TestOrdBool(t *testing.T) {
 }
 
 func TestOrdMaybe(t *testing.T) {
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`
 test1 := compare (Nothing :: Maybe Bool) (Just True)
 test2 := compare (Just False) (Just True)
@@ -2898,7 +2898,7 @@ main := (test1, test2)
 	if err != nil {
 		t.Fatal(err)
 	}
-	rv, ok := result.Value.(*gmp.RecordVal)
+	rv, ok := result.Value.(*gicel.RecordVal)
 	if !ok || len(rv.Fields) != 2 {
 		t.Fatalf("expected tuple, got %s", result.Value)
 	}
@@ -2909,7 +2909,7 @@ main := (test1, test2)
 func TestOrdPair(t *testing.T) {
 	// NOTE: Ord (a, b) on tuples is not yet supported at runtime (evidence/record interaction).
 	// Test Ord on Maybe as a parameterized type substitute.
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`main := compare (Just False) (Just True)`)
 	if err != nil {
 		t.Fatal(err)
@@ -2925,7 +2925,7 @@ func TestOrdPair(t *testing.T) {
 // --- Phase 5: Cross-Feature Integration ---
 
 func TestExistentialWithStdlib(t *testing.T) {
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`
 data SomeSemigroup = { MkSomeSG :: forall a. Semigroup a => a -> a -> SomeSemigroup }
 combine :: SomeSemigroup -> Bool
@@ -2943,7 +2943,7 @@ main := combine (MkSomeSG EQ LT)
 }
 
 func TestFullPipeline(t *testing.T) {
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`
 data SomeEq = { MkSomeEq :: forall a. Eq a => a -> SomeEq }
 isSelf :: SomeEq -> Bool
@@ -2966,7 +2966,7 @@ main := case isSelf (MkSomeEq True) { True -> applyId id; False -> False }
 
 func TestStdlibClassHierarchy(t *testing.T) {
 	// Verify all 8 classes compile and instances work
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`
 testEq := eq True True
 testOrd := compare False True
@@ -2983,7 +2983,7 @@ main := (testEq, (testOrd, (testSemigroup, (testMonoid, (testFunctor, testApplic
 	if err != nil {
 		t.Fatal(err)
 	}
-	rv, ok := result.Value.(*gmp.RecordVal)
+	rv, ok := result.Value.(*gicel.RecordVal)
 	if !ok || len(rv.Fields) != 2 {
 		t.Fatalf("expected tuple, got %s", result.Value)
 	}
@@ -2991,9 +2991,9 @@ main := (testEq, (testOrd, (testSemigroup, (testMonoid, (testFunctor, testApplic
 }
 
 // helper for v0.5 tests
-func assertConName(t *testing.T, v gmp.Value, name string) {
+func assertConName(t *testing.T, v gicel.Value, name string) {
 	t.Helper()
-	con, ok := v.(*gmp.ConVal)
+	con, ok := v.(*gicel.ConVal)
 	if !ok {
 		t.Errorf("expected ConVal(%s), got %T: %s", name, v, v)
 		return
@@ -3008,8 +3008,8 @@ func assertConName(t *testing.T, v gmp.Value, name string) {
 // ---------------------------------------------------------------------------
 
 func TestLiteralWithNumPack(t *testing.T) {
-	eng := gmp.NewEngine()
-	if err := eng.Use(gmp.Num); err != nil {
+	eng := gicel.NewEngine()
+	if err := eng.Use(gicel.Num); err != nil {
 		t.Fatal(err)
 	}
 	rt, err := eng.NewRuntime(`
@@ -3023,20 +3023,20 @@ main := 1 + 2 * 3
 	if err != nil {
 		t.Fatal(err)
 	}
-	if hv := gmp.MustHost[int64](result.Value); hv != 7 {
+	if hv := gicel.MustHost[int64](result.Value); hv != 7 {
 		t.Errorf("expected 7, got %d", hv)
 	}
 }
 
 func TestEffectComposition(t *testing.T) {
-	eng := gmp.NewEngine()
-	if err := eng.Use(gmp.Num); err != nil {
+	eng := gicel.NewEngine()
+	if err := eng.Use(gicel.Num); err != nil {
 		t.Fatal(err)
 	}
-	if err := eng.Use(gmp.Fail); err != nil {
+	if err := eng.Use(gicel.Fail); err != nil {
 		t.Fatal(err)
 	}
-	if err := eng.Use(gmp.State); err != nil {
+	if err := eng.Use(gicel.State); err != nil {
 		t.Fatal(err)
 	}
 	rt, err := eng.NewRuntime(`
@@ -3055,24 +3055,24 @@ main := do {
 		t.Fatal(err)
 	}
 	caps := map[string]any{
-		"state": &gmp.HostVal{Inner: int64(0)},
-		"fail":  &gmp.RecordVal{Fields: map[string]gmp.Value{}},
+		"state": &gicel.HostVal{Inner: int64(0)},
+		"fail":  &gicel.RecordVal{Fields: map[string]gicel.Value{}},
 	}
 	result, err := rt.RunContext(context.Background(), caps, nil, "main")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if hv := gmp.MustHost[int64](result.Value); hv != 15 {
+	if hv := gicel.MustHost[int64](result.Value); hv != 15 {
 		t.Errorf("expected 15, got %d", hv)
 	}
 }
 
 func TestPackModuleImport(t *testing.T) {
-	eng := gmp.NewEngine()
-	if err := eng.Use(gmp.Num); err != nil {
+	eng := gicel.NewEngine()
+	if err := eng.Use(gicel.Num); err != nil {
 		t.Fatal(err)
 	}
-	if err := eng.Use(gmp.Str); err != nil {
+	if err := eng.Use(gicel.Str); err != nil {
 		t.Fatal(err)
 	}
 	rt, err := eng.NewRuntime(`
@@ -3089,20 +3089,20 @@ main := Just (v1 + v2)
 	if err != nil {
 		t.Fatal(err)
 	}
-	con, ok := result.Value.(*gmp.ConVal)
+	con, ok := result.Value.(*gicel.ConVal)
 	if !ok || con.Con != "Just" {
 		t.Fatalf("expected Just, got %s", result.Value)
 	}
-	if hv := gmp.MustHost[int64](con.Args[0]); hv != 8 {
+	if hv := gicel.MustHost[int64](con.Args[0]); hv != 8 {
 		t.Errorf("expected 8, got %d", hv)
 	}
 }
 
 func TestCustomPack(t *testing.T) {
 	// A user-defined Pack that provides a custom constant.
-	customPack := gmp.Pack(func(r gmp.Registrar) error {
-		r.RegisterPrim("myConst", func(_ context.Context, ce gmp.CapEnv, args []gmp.Value, _ gmp.Applier) (gmp.Value, gmp.CapEnv, error) {
-			return &gmp.HostVal{Inner: int64(999)}, ce, nil
+	customPack := gicel.Pack(func(r gicel.Registrar) error {
+		r.RegisterPrim("myConst", func(_ context.Context, ce gicel.CapEnv, args []gicel.Value, _ gicel.Applier) (gicel.Value, gicel.CapEnv, error) {
+			return &gicel.HostVal{Inner: int64(999)}, ce, nil
 		})
 		return r.RegisterModule("Custom", `
 import Prelude
@@ -3113,7 +3113,7 @@ myConst := assumption
 main := myConst
 `)
 	})
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	if err := eng.Use(customPack); err != nil {
 		t.Fatal(err)
 	}
@@ -3128,7 +3128,7 @@ main := myConst
 	if err != nil {
 		t.Fatal(err)
 	}
-	if hv := gmp.MustHost[int64](result.Value); hv != 999 {
+	if hv := gicel.MustHost[int64](result.Value); hv != 999 {
 		t.Errorf("expected 999, got %d", hv)
 	}
 }
@@ -3138,9 +3138,9 @@ main := myConst
 // ---------------------------------------------------------------------------
 
 func TestSetTraceHookPublicAPI(t *testing.T) {
-	eng := gmp.NewEngine()
-	var events []gmp.TraceEvent
-	eng.SetTraceHook(func(e gmp.TraceEvent) error {
+	eng := gicel.NewEngine()
+	var events []gicel.TraceEvent
+	eng.SetTraceHook(func(e gicel.TraceEvent) error {
 		events = append(events, e)
 		return nil
 	})
@@ -3158,9 +3158,9 @@ func TestSetTraceHookPublicAPI(t *testing.T) {
 }
 
 func TestSetCheckTraceHookPublicAPI(t *testing.T) {
-	eng := gmp.NewEngine()
-	var events []gmp.CheckTraceEvent
-	eng.SetCheckTraceHook(func(e gmp.CheckTraceEvent) {
+	eng := gicel.NewEngine()
+	var events []gicel.CheckTraceEvent
+	eng.SetCheckTraceHook(func(e gicel.CheckTraceEvent) {
 		events = append(events, e)
 	})
 	_, err := eng.Check(`main := True`)
@@ -3173,7 +3173,7 @@ func TestSetCheckTraceHookPublicAPI(t *testing.T) {
 }
 
 func TestParseReturnsOpaque(t *testing.T) {
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	parsed, err := eng.Parse(`main := True`)
 	if err != nil {
 		t.Fatal(err)
@@ -3184,7 +3184,7 @@ func TestParseReturnsOpaque(t *testing.T) {
 }
 
 func TestCheckReturnsOpaque(t *testing.T) {
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	core, err := eng.Check(`main := True`)
 	if err != nil {
 		t.Fatal(err)
@@ -3198,7 +3198,7 @@ func TestCheckReturnsOpaque(t *testing.T) {
 }
 
 func TestProgramOpaque(t *testing.T) {
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`main := True`)
 	if err != nil {
 		t.Fatal(err)
@@ -3215,7 +3215,7 @@ func TestProgramOpaque(t *testing.T) {
 // --- Phase 7B: Public API Edge Cases ---
 
 func TestSetDepthLimit(t *testing.T) {
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	eng.EnableRecursion()
 	eng.SetDepthLimit(10)
 	rt, err := eng.NewRuntime(`
@@ -3235,7 +3235,7 @@ main := loop ()
 }
 
 func TestEngineMultipleRuntimes(t *testing.T) {
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	rt1, err := eng.NewRuntime(`main := True`)
 	if err != nil {
 		t.Fatal(err)
@@ -3252,18 +3252,18 @@ func TestEngineMultipleRuntimes(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if c, ok := r1.Value.(*gmp.ConVal); !ok || c.Con != "True" {
+	if c, ok := r1.Value.(*gicel.ConVal); !ok || c.Con != "True" {
 		t.Errorf("rt1: expected True, got %v", r1.Value)
 	}
-	if c, ok := r2.Value.(*gmp.ConVal); !ok || c.Con != "False" {
+	if c, ok := r2.Value.(*gicel.ConVal); !ok || c.Con != "False" {
 		t.Errorf("rt2: expected False, got %v", r2.Value)
 	}
 }
 
 func TestEngineMutationAfterRuntime(t *testing.T) {
-	eng := gmp.NewEngine()
-	eng.RegisterType("Int", gmp.KindType())
-	eng.DeclareBinding("x", gmp.ConType("Int"))
+	eng := gicel.NewEngine()
+	eng.RegisterType("Int", gicel.KindType())
+	eng.DeclareBinding("x", gicel.ConType("Int"))
 	rt, err := eng.NewRuntime(`main := x`)
 	if err != nil {
 		t.Fatal(err)
@@ -3271,19 +3271,19 @@ func TestEngineMutationAfterRuntime(t *testing.T) {
 	// Mutate engine after runtime creation.
 	eng.SetStepLimit(1)
 	// Runtime should still work with original limits.
-	bindings := map[string]gmp.Value{"x": &gmp.HostVal{Inner: int64(99)}}
+	bindings := map[string]gicel.Value{"x": &gicel.HostVal{Inner: int64(99)}}
 	result, err := rt.RunContext(context.Background(), nil, bindings, "main")
 	if err != nil {
 		t.Fatal(err)
 	}
-	hv, ok := result.Value.(*gmp.HostVal)
+	hv, ok := result.Value.(*gicel.HostVal)
 	if !ok || hv.Inner != int64(99) {
 		t.Errorf("expected 99, got %v", result.Value)
 	}
 }
 
 func TestModuleAccumulation(t *testing.T) {
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	eng.NoPrelude()
 	err := eng.RegisterModule("A", `
 data Bool = True | False
@@ -3310,13 +3310,13 @@ main := MkPair True False
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, ok := result.Value.(*gmp.ConVal); !ok {
+	if _, ok := result.Value.(*gicel.ConVal); !ok {
 		t.Fatalf("expected ConVal, got %T", result.Value)
 	}
 }
 
 func TestInvalidModuleSource(t *testing.T) {
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	err := eng.RegisterModule("Bad", `this is not valid syntax @@@@`)
 	if err == nil {
 		t.Fatal("expected error for invalid module source")
@@ -3326,8 +3326,8 @@ func TestInvalidModuleSource(t *testing.T) {
 // --- Phase 7C: Effectful PrimOp Deferral ---
 
 func TestEffectfulDeferUntilBind(t *testing.T) {
-	eng := gmp.NewEngine()
-	if err := eng.Use(gmp.State); err != nil {
+	eng := gicel.NewEngine()
+	if err := eng.Use(gicel.State); err != nil {
 		t.Fatal(err)
 	}
 	rt, err := eng.NewRuntime(`
@@ -3338,20 +3338,20 @@ main := do { s <- get; pure s }
 	if err != nil {
 		t.Fatal(err)
 	}
-	caps := map[string]any{"state": &gmp.HostVal{Inner: int64(42)}}
+	caps := map[string]any{"state": &gicel.HostVal{Inner: int64(42)}}
 	result, err := rt.RunContext(context.Background(), caps, nil, "main")
 	if err != nil {
 		t.Fatal(err)
 	}
-	hv, ok := result.Value.(*gmp.HostVal)
+	hv, ok := result.Value.(*gicel.HostVal)
 	if !ok || hv.Inner != int64(42) {
 		t.Errorf("expected 42, got %v", result.Value)
 	}
 }
 
 func TestEffectfulTopLevelForce(t *testing.T) {
-	eng := gmp.NewEngine()
-	if err := eng.Use(gmp.State); err != nil {
+	eng := gicel.NewEngine()
+	if err := eng.Use(gicel.State); err != nil {
 		t.Fatal(err)
 	}
 	rt, err := eng.NewRuntime(`
@@ -3362,20 +3362,20 @@ main := get
 	if err != nil {
 		t.Fatal(err)
 	}
-	caps := map[string]any{"state": &gmp.HostVal{Inner: int64(7)}}
+	caps := map[string]any{"state": &gicel.HostVal{Inner: int64(7)}}
 	result, err := rt.RunContext(context.Background(), caps, nil, "main")
 	if err != nil {
 		t.Fatal(err)
 	}
-	hv, ok := result.Value.(*gmp.HostVal)
+	hv, ok := result.Value.(*gicel.HostVal)
 	if !ok || hv.Inner != int64(7) {
 		t.Errorf("expected 7, got %v", result.Value)
 	}
 }
 
 func TestNonEffectfulImmediate(t *testing.T) {
-	eng := gmp.NewEngine()
-	if err := eng.Use(gmp.Num); err != nil {
+	eng := gicel.NewEngine()
+	if err := eng.Use(gicel.Num); err != nil {
 		t.Fatal(err)
 	}
 	rt, err := eng.NewRuntime(`
@@ -3389,7 +3389,7 @@ main := 1 + 2
 	if err != nil {
 		t.Fatal(err)
 	}
-	hv, ok := result.Value.(*gmp.HostVal)
+	hv, ok := result.Value.(*gicel.HostVal)
 	if !ok || hv.Inner != int64(3) {
 		t.Errorf("expected 3, got %v", result.Value)
 	}
@@ -3398,7 +3398,7 @@ main := 1 + 2
 // --- Phase 7D: Error Path Tests ---
 
 func TestDepthLimitError(t *testing.T) {
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	eng.EnableRecursion()
 	eng.SetDepthLimit(5)
 	rt, err := eng.NewRuntime(`
@@ -3415,8 +3415,8 @@ main := deep ()
 }
 
 func TestPrimImplError(t *testing.T) {
-	eng := gmp.NewEngine()
-	if err := eng.Use(gmp.Num); err != nil {
+	eng := gicel.NewEngine()
+	if err := eng.Use(gicel.Num); err != nil {
 		t.Fatal(err)
 	}
 	rt, err := eng.NewRuntime(`
@@ -3436,9 +3436,9 @@ main := div 1 0
 }
 
 func TestMissingBinding(t *testing.T) {
-	eng := gmp.NewEngine()
-	eng.RegisterType("Int", gmp.KindType())
-	eng.DeclareBinding("x", gmp.ConType("Int"))
+	eng := gicel.NewEngine()
+	eng.RegisterType("Int", gicel.KindType())
+	eng.DeclareBinding("x", gicel.ConType("Int"))
 	rt, err := eng.NewRuntime(`main := x`)
 	if err != nil {
 		t.Fatal(err)
@@ -3454,7 +3454,7 @@ func TestMissingBinding(t *testing.T) {
 }
 
 func TestMissingEntryPoint(t *testing.T) {
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`foo := True`)
 	if err != nil {
 		t.Fatal(err)
@@ -3473,8 +3473,8 @@ func TestMissingEntryPoint(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestListFmap(t *testing.T) {
-	eng := gmp.NewEngine()
-	if err := eng.Use(gmp.Num); err != nil {
+	eng := gicel.NewEngine()
+	if err := eng.Use(gicel.Num); err != nil {
 		t.Fatal(err)
 	}
 	rt, err := eng.NewRuntime(`
@@ -3493,8 +3493,8 @@ main := fmap (\x -> add x 1) (Cons 1 (Cons 2 (Cons 3 Nil)))
 }
 
 func TestListFoldr(t *testing.T) {
-	eng := gmp.NewEngine()
-	if err := eng.Use(gmp.Num); err != nil {
+	eng := gicel.NewEngine()
+	if err := eng.Use(gicel.Num); err != nil {
 		t.Fatal(err)
 	}
 	rt, err := eng.NewRuntime(`
@@ -3508,7 +3508,7 @@ main := foldr add 0 (Cons 1 (Cons 2 (Cons 3 Nil)))
 	if err != nil {
 		t.Fatal(err)
 	}
-	hv, ok := result.Value.(*gmp.HostVal)
+	hv, ok := result.Value.(*gicel.HostVal)
 	if !ok {
 		t.Fatalf("expected HostVal, got %T", result.Value)
 	}
@@ -3518,8 +3518,8 @@ main := foldr add 0 (Cons 1 (Cons 2 (Cons 3 Nil)))
 }
 
 func TestListAppend(t *testing.T) {
-	eng := gmp.NewEngine()
-	if err := eng.Use(gmp.Num); err != nil {
+	eng := gicel.NewEngine()
+	if err := eng.Use(gicel.Num); err != nil {
 		t.Fatal(err)
 	}
 	rt, err := eng.NewRuntime(`
@@ -3537,8 +3537,8 @@ main := append (Cons 1 (Cons 2 Nil)) (Cons 3 Nil)
 }
 
 func TestListEq(t *testing.T) {
-	eng := gmp.NewEngine()
-	if err := eng.Use(gmp.Num); err != nil {
+	eng := gicel.NewEngine()
+	if err := eng.Use(gicel.Num); err != nil {
 		t.Fatal(err)
 	}
 	rt, err := eng.NewRuntime(`
@@ -3552,15 +3552,15 @@ main := eq (Cons 1 (Cons 2 Nil)) (Cons 1 (Cons 2 Nil))
 	if err != nil {
 		t.Fatal(err)
 	}
-	con, ok := result.Value.(*gmp.ConVal)
+	con, ok := result.Value.(*gicel.ConVal)
 	if !ok || con.Con != "True" {
 		t.Fatalf("expected True, got %v", result.Value)
 	}
 }
 
 func TestListEqDifferent(t *testing.T) {
-	eng := gmp.NewEngine()
-	if err := eng.Use(gmp.Num); err != nil {
+	eng := gicel.NewEngine()
+	if err := eng.Use(gicel.Num); err != nil {
 		t.Fatal(err)
 	}
 	rt, err := eng.NewRuntime(`
@@ -3574,14 +3574,14 @@ main := eq (Cons 1 Nil) (Cons 2 Nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	con, ok := result.Value.(*gmp.ConVal)
+	con, ok := result.Value.(*gicel.ConVal)
 	if !ok || con.Con != "False" {
 		t.Fatalf("expected False, got %v", result.Value)
 	}
 }
 
 func TestListMonoidEmpty(t *testing.T) {
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`
 main := (empty :: List Bool)
 `)
@@ -3592,7 +3592,7 @@ main := (empty :: List Bool)
 	if err != nil {
 		t.Fatal(err)
 	}
-	con, ok := result.Value.(*gmp.ConVal)
+	con, ok := result.Value.(*gicel.ConVal)
 	if !ok || con.Con != "Nil" {
 		t.Fatalf("expected Nil, got %v", result.Value)
 	}
@@ -3604,7 +3604,7 @@ main := (empty :: List Bool)
 
 func TestIxMonadClassExists(t *testing.T) {
 	// Verify IxMonad class is defined in prelude and usable in type annotations.
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	_, err := eng.NewRuntime(`
 myFn :: forall (m : Row -> Row -> Type -> Type). IxMonad m => forall a (r : Row). a -> m r r a
 myFn := ixpure
@@ -3616,7 +3616,7 @@ main := True
 }
 
 func TestLiftAliasExpansion(t *testing.T) {
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	_, err := eng.NewRuntime(`
 test :: Lift Maybe {} {} Bool
 test := Just True
@@ -3632,7 +3632,7 @@ main := True
 // ---------------------------------------------------------------------------
 
 func TestKindedClassParam(t *testing.T) {
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	_, err := eng.NewRuntime(`
 class MyClass (m : Row -> Row -> Type -> Type) {
   myPure :: forall a (r : Row). a -> m r r a
@@ -3645,7 +3645,7 @@ main := True
 }
 
 func TestKindedClassParamWithInstance(t *testing.T) {
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`
 class Wrap (f : Type -> Type) {
   wrap :: forall a. a -> f a
@@ -3662,7 +3662,7 @@ main := wrap True
 	if err != nil {
 		t.Fatal(err)
 	}
-	con, ok := result.Value.(*gmp.ConVal)
+	con, ok := result.Value.(*gicel.ConVal)
 	if !ok || con.Con != "Just" {
 		t.Fatalf("expected Just, got %v", result.Value)
 	}
@@ -3673,12 +3673,12 @@ main := wrap True
 // ---------------------------------------------------------------------------
 
 func TestToListFromList(t *testing.T) {
-	list := gmp.ToList([]any{
-		&gmp.HostVal{Inner: int64(1)},
-		&gmp.HostVal{Inner: int64(2)},
-		&gmp.HostVal{Inner: int64(3)},
+	list := gicel.ToList([]any{
+		&gicel.HostVal{Inner: int64(1)},
+		&gicel.HostVal{Inner: int64(2)},
+		&gicel.HostVal{Inner: int64(3)},
 	})
-	items, ok := gmp.FromList(list)
+	items, ok := gicel.FromList(list)
 	if !ok {
 		t.Fatal("expected valid list")
 	}
@@ -3686,7 +3686,7 @@ func TestToListFromList(t *testing.T) {
 		t.Fatalf("expected 3 items, got %d", len(items))
 	}
 	for i, want := range []int64{1, 2, 3} {
-		hv := items[i].(*gmp.HostVal)
+		hv := items[i].(*gicel.HostVal)
 		if hv.Inner != want {
 			t.Fatalf("element %d: expected %d, got %v", i, want, hv.Inner)
 		}
@@ -3694,26 +3694,26 @@ func TestToListFromList(t *testing.T) {
 }
 
 func TestToListEmpty(t *testing.T) {
-	list := gmp.ToList(nil)
-	con, ok := list.(*gmp.ConVal)
+	list := gicel.ToList(nil)
+	con, ok := list.(*gicel.ConVal)
 	if !ok || con.Con != "Nil" {
 		t.Fatalf("expected Nil, got %v", list)
 	}
 }
 
 func TestFromListInvalid(t *testing.T) {
-	_, ok := gmp.FromList(&gmp.HostVal{Inner: 42})
+	_, ok := gicel.FromList(&gicel.HostVal{Inner: 42})
 	if ok {
 		t.Fatal("expected false for non-list")
 	}
 }
 
 func TestToListWithBinding(t *testing.T) {
-	eng := gmp.NewEngine()
-	if err := eng.Use(gmp.Num); err != nil {
+	eng := gicel.NewEngine()
+	if err := eng.Use(gicel.Num); err != nil {
 		t.Fatal(err)
 	}
-	eng.DeclareBinding("xs", gmp.AppType(gmp.ConType("List"), gmp.ConType("Int")))
+	eng.DeclareBinding("xs", gicel.AppType(gicel.ConType("List"), gicel.ConType("Int")))
 	rt, err := eng.NewRuntime(`
 import Std.Num
 main := foldr add 0 xs
@@ -3721,18 +3721,18 @@ main := foldr add 0 xs
 	if err != nil {
 		t.Fatal(err)
 	}
-	bindings := map[string]gmp.Value{
-		"xs": gmp.ToList([]any{
-			&gmp.HostVal{Inner: int64(1)},
-			&gmp.HostVal{Inner: int64(2)},
-			&gmp.HostVal{Inner: int64(3)},
+	bindings := map[string]gicel.Value{
+		"xs": gicel.ToList([]any{
+			&gicel.HostVal{Inner: int64(1)},
+			&gicel.HostVal{Inner: int64(2)},
+			&gicel.HostVal{Inner: int64(3)},
 		}),
 	}
 	result, err := rt.RunContext(context.Background(), nil, bindings, "main")
 	if err != nil {
 		t.Fatal(err)
 	}
-	hv, ok := result.Value.(*gmp.HostVal)
+	hv, ok := result.Value.(*gicel.HostVal)
 	if !ok || hv.Inner != int64(6) {
 		t.Fatalf("expected 6, got %v", result.Value)
 	}
@@ -3743,8 +3743,8 @@ main := foldr add 0 xs
 // ---------------------------------------------------------------------------
 
 func TestListLiteralBasic(t *testing.T) {
-	eng := gmp.NewEngine()
-	if err := eng.Use(gmp.Num); err != nil {
+	eng := gicel.NewEngine()
+	if err := eng.Use(gicel.Num); err != nil {
 		t.Fatal(err)
 	}
 	rt, err := eng.NewRuntime(`
@@ -3762,7 +3762,7 @@ main := [1, 2, 3]
 }
 
 func TestListLiteralEmpty(t *testing.T) {
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`main := ([] :: List Bool)`)
 	if err != nil {
 		t.Fatal(err)
@@ -3771,15 +3771,15 @@ func TestListLiteralEmpty(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	con, ok := result.Value.(*gmp.ConVal)
+	con, ok := result.Value.(*gicel.ConVal)
 	if !ok || con.Con != "Nil" {
 		t.Fatalf("expected Nil, got %v", result.Value)
 	}
 }
 
 func TestListLiteralFmap(t *testing.T) {
-	eng := gmp.NewEngine()
-	if err := eng.Use(gmp.Num); err != nil {
+	eng := gicel.NewEngine()
+	if err := eng.Use(gicel.Num); err != nil {
 		t.Fatal(err)
 	}
 	rt, err := eng.NewRuntime(`
@@ -3801,8 +3801,8 @@ main := fmap (\x -> add x 10) [1, 2, 3]
 // ---------------------------------------------------------------------------
 
 func TestListStdlibLength(t *testing.T) {
-	eng := gmp.NewEngine()
-	if err := eng.Use(gmp.List); err != nil {
+	eng := gicel.NewEngine()
+	if err := eng.Use(gicel.List); err != nil {
 		t.Fatal(err)
 	}
 	rt, err := eng.NewRuntime(`
@@ -3816,24 +3816,24 @@ main := length (Cons True (Cons False Nil))
 	if err != nil {
 		t.Fatal(err)
 	}
-	hv, ok := result.Value.(*gmp.HostVal)
+	hv, ok := result.Value.(*gicel.HostVal)
 	if !ok || hv.Inner != int64(2) {
 		t.Fatalf("expected 2, got %v", result.Value)
 	}
 }
 
 // assertList checks that a Value is a List with the given int64 elements.
-func assertList(t *testing.T, v gmp.Value, expected []int64) {
+func assertList(t *testing.T, v gicel.Value, expected []int64) {
 	t.Helper()
 	for i, want := range expected {
-		con, ok := v.(*gmp.ConVal)
+		con, ok := v.(*gicel.ConVal)
 		if !ok || con.Con != "Cons" {
 			t.Fatalf("element %d: expected Cons, got %v", i, v)
 		}
 		if len(con.Args) != 2 {
 			t.Fatalf("element %d: Cons has %d args, expected 2", i, len(con.Args))
 		}
-		hv, ok := con.Args[0].(*gmp.HostVal)
+		hv, ok := con.Args[0].(*gicel.HostVal)
 		if !ok {
 			t.Fatalf("element %d: expected HostVal, got %T", i, con.Args[0])
 		}
@@ -3842,7 +3842,7 @@ func assertList(t *testing.T, v gmp.Value, expected []int64) {
 		}
 		v = con.Args[1]
 	}
-	con, ok := v.(*gmp.ConVal)
+	con, ok := v.(*gicel.ConVal)
 	if !ok || con.Con != "Nil" {
 		t.Fatalf("expected Nil at end, got %v", v)
 	}
@@ -3853,8 +3853,8 @@ func assertList(t *testing.T, v gmp.Value, expected []int64) {
 // ---------------------------------------------------------------------------
 
 func TestIxMonadComputationIxpure(t *testing.T) {
-	eng := gmp.NewEngine()
-	eng.DeclareBinding("n", gmp.ConType("Int"))
+	eng := gicel.NewEngine()
+	eng.DeclareBinding("n", gicel.ConType("Int"))
 	rt, err := eng.NewRuntime(`
 main :: Computation {} {} Int
 main := ixpure n
@@ -3862,21 +3862,21 @@ main := ixpure n
 	if err != nil {
 		t.Fatalf("ixpure should resolve via IxMonad Computation: %v", err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, map[string]gmp.Value{
-		"n": &gmp.HostVal{Inner: 42},
+	result, err := rt.RunContext(context.Background(), nil, map[string]gicel.Value{
+		"n": &gicel.HostVal{Inner: 42},
 	}, "main")
 	if err != nil {
 		t.Fatal(err)
 	}
-	hv, ok := result.Value.(*gmp.HostVal)
+	hv, ok := result.Value.(*gicel.HostVal)
 	if !ok || hv.Inner != 42 {
 		t.Fatalf("expected 42, got %v", result.Value)
 	}
 }
 
 func TestIxMonadComputationIxbind(t *testing.T) {
-	eng := gmp.NewEngine()
-	eng.DeclareBinding("n", gmp.ConType("Int"))
+	eng := gicel.NewEngine()
+	eng.DeclareBinding("n", gicel.ConType("Int"))
 	rt, err := eng.NewRuntime(`
 main :: Computation {} {} Int
 main := ixbind (ixpure n) (\x -> ixpure x)
@@ -3884,13 +3884,13 @@ main := ixbind (ixpure n) (\x -> ixpure x)
 	if err != nil {
 		t.Fatalf("ixbind should resolve via IxMonad Computation: %v", err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, map[string]gmp.Value{
-		"n": &gmp.HostVal{Inner: 99},
+	result, err := rt.RunContext(context.Background(), nil, map[string]gicel.Value{
+		"n": &gicel.HostVal{Inner: 99},
 	}, "main")
 	if err != nil {
 		t.Fatal(err)
 	}
-	hv, ok := result.Value.(*gmp.HostVal)
+	hv, ok := result.Value.(*gicel.HostVal)
 	if !ok || hv.Inner != 99 {
 		t.Fatalf("expected 99, got %v", result.Value)
 	}
@@ -3898,7 +3898,7 @@ main := ixbind (ixpure n) (\x -> ixpure x)
 
 func TestIxMonadGenericFunction(t *testing.T) {
 	// A generic function using IxMonad constraint should work with Computation.
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`
 myReturn :: forall (m : Row -> Row -> Type -> Type). IxMonad m => forall a (r : Row). a -> m r r a
 myReturn := ixpure
@@ -3912,7 +3912,7 @@ main := myReturn True
 	if err != nil {
 		t.Fatal(err)
 	}
-	con, ok := result.Value.(*gmp.ConVal)
+	con, ok := result.Value.(*gicel.ConVal)
 	if !ok || con.Con != "True" {
 		t.Fatalf("expected True, got %v", result.Value)
 	}
@@ -3924,21 +3924,21 @@ main := myReturn True
 
 func TestDoBlockComputationRegression(t *testing.T) {
 	// Existing do blocks with Computation should still use Core.Bind path.
-	eng := gmp.NewEngine()
-	eng.DeclareBinding("x", gmp.ConType("Int"))
+	eng := gicel.NewEngine()
+	eng.DeclareBinding("x", gicel.ConType("Int"))
 	rt, err := eng.NewRuntime(`
 main := do { v <- pure x; pure v }
 `)
 	if err != nil {
 		t.Fatalf("Computation do block regression failed: %v", err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, map[string]gmp.Value{
-		"x": &gmp.HostVal{Inner: 42},
+	result, err := rt.RunContext(context.Background(), nil, map[string]gicel.Value{
+		"x": &gicel.HostVal{Inner: 42},
 	}, "main")
 	if err != nil {
 		t.Fatal(err)
 	}
-	hv, ok := result.Value.(*gmp.HostVal)
+	hv, ok := result.Value.(*gicel.HostVal)
 	if !ok || hv.Inner != 42 {
 		t.Fatalf("expected 42, got %v", result.Value)
 	}
@@ -3946,8 +3946,8 @@ main := do { v <- pure x; pure v }
 
 func TestDoBlockComputationCoreBind(t *testing.T) {
 	// Verify Computation do blocks elaborate to Core.Bind (not class dispatch).
-	eng := gmp.NewEngine()
-	eng.DeclareBinding("x", gmp.ConType("Int"))
+	eng := gicel.NewEngine()
+	eng.DeclareBinding("x", gicel.ConType("Int"))
 	rt, err := eng.NewRuntime(`
 main := do { v <- pure x; pure v }
 `)
@@ -3967,9 +3967,9 @@ main := do { v <- pure x; pure v }
 
 func TestMaybeDoBlockPure(t *testing.T) {
 	// do { x <- Just 5; pure (add x 1) } :: Maybe Int → Just 6
-	eng := gmp.NewEngine()
-	eng.RegisterPrim("add", func(ctx context.Context, capEnv gmp.CapEnv, args []gmp.Value, _ gmp.Applier) (gmp.Value, gmp.CapEnv, error) {
-		return gmp.ToValue(gmp.MustHost[int64](args[0]) + gmp.MustHost[int64](args[1])), capEnv, nil
+	eng := gicel.NewEngine()
+	eng.RegisterPrim("add", func(ctx context.Context, capEnv gicel.CapEnv, args []gicel.Value, _ gicel.Applier) (gicel.Value, gicel.CapEnv, error) {
+		return gicel.ToValue(gicel.MustHost[int64](args[0]) + gicel.MustHost[int64](args[1])), capEnv, nil
 	})
 	rt, err := eng.NewRuntime(`
 add :: Int -> Int -> Int
@@ -3984,11 +3984,11 @@ main := do { x <- Just 5; pure (add x 1) }
 	if err != nil {
 		t.Fatal(err)
 	}
-	con, ok := result.Value.(*gmp.ConVal)
+	con, ok := result.Value.(*gicel.ConVal)
 	if !ok || con.Con != "Just" || len(con.Args) != 1 {
 		t.Fatalf("expected Just 6, got %v", result.Value)
 	}
-	hv, ok := con.Args[0].(*gmp.HostVal)
+	hv, ok := con.Args[0].(*gicel.HostVal)
 	if !ok || hv.Inner != int64(6) {
 		t.Fatalf("expected Just 6, got Just %v", con.Args[0])
 	}
@@ -3996,7 +3996,7 @@ main := do { x <- Just 5; pure (add x 1) }
 
 func TestMaybeDoBlockNothing(t *testing.T) {
 	// do { x <- Just 5; Nothing; pure x } :: Maybe Int → Nothing
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`
 main :: Maybe Int
 main := do { x <- Just 5; Nothing; pure x }
@@ -4008,7 +4008,7 @@ main := do { x <- Just 5; Nothing; pure x }
 	if err != nil {
 		t.Fatal(err)
 	}
-	con, ok := result.Value.(*gmp.ConVal)
+	con, ok := result.Value.(*gicel.ConVal)
 	if !ok || con.Con != "Nothing" {
 		t.Fatalf("expected Nothing, got %v", result.Value)
 	}
@@ -4016,9 +4016,9 @@ main := do { x <- Just 5; Nothing; pure x }
 
 func TestListDoBlockCartesian(t *testing.T) {
 	// do { x <- [1,2]; y <- [10,20]; pure (add x y) } :: List Int → [11, 21, 12, 22]
-	eng := gmp.NewEngine()
-	eng.RegisterPrim("add", func(ctx context.Context, capEnv gmp.CapEnv, args []gmp.Value, _ gmp.Applier) (gmp.Value, gmp.CapEnv, error) {
-		return gmp.ToValue(gmp.MustHost[int64](args[0]) + gmp.MustHost[int64](args[1])), capEnv, nil
+	eng := gicel.NewEngine()
+	eng.RegisterPrim("add", func(ctx context.Context, capEnv gicel.CapEnv, args []gicel.Value, _ gicel.Applier) (gicel.Value, gicel.CapEnv, error) {
+		return gicel.ToValue(gicel.MustHost[int64](args[0]) + gicel.MustHost[int64](args[1])), capEnv, nil
 	})
 	eng.EnableRecursion()
 	rt, err := eng.NewRuntime(`
@@ -4038,13 +4038,13 @@ main := do {
 	if err != nil {
 		t.Fatal(err)
 	}
-	got, ok := gmp.FromList(result.Value)
+	got, ok := gicel.FromList(result.Value)
 	if !ok || len(got) != 4 {
 		t.Fatalf("expected 4 elements, got %v", result.Value)
 	}
 	expected := []int64{11, 21, 12, 22}
 	for i, v := range got {
-		hv, ok := v.(*gmp.HostVal)
+		hv, ok := v.(*gicel.HostVal)
 		if !ok || hv.Inner != expected[i] {
 			t.Fatalf("element %d: expected %d, got %v", i, expected[i], v)
 		}
@@ -4053,7 +4053,7 @@ main := do {
 
 func TestMaybeDoBlockDirectReturn(t *testing.T) {
 	// Last expression not using pure — direct constructor.
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`
 main :: Maybe Int
 main := do { x <- Just 5; Just x }
@@ -4065,11 +4065,11 @@ main := do { x <- Just 5; Just x }
 	if err != nil {
 		t.Fatal(err)
 	}
-	con, ok := result.Value.(*gmp.ConVal)
+	con, ok := result.Value.(*gicel.ConVal)
 	if !ok || con.Con != "Just" || len(con.Args) != 1 {
 		t.Fatalf("expected Just 5, got %v", result.Value)
 	}
-	hv, ok := con.Args[0].(*gmp.HostVal)
+	hv, ok := con.Args[0].(*gicel.HostVal)
 	if !ok || hv.Inner != int64(5) {
 		t.Fatalf("expected Just 5, got Just %v", con.Args[0])
 	}
@@ -4080,23 +4080,23 @@ main := do { x <- Just 5; Just x }
 // ---------------------------------------------------------------------------
 
 func TestThenCombinator(t *testing.T) {
-	eng := gmp.NewEngine()
-	eng.DeclareBinding("x", gmp.ConType("Int"))
-	eng.DeclareBinding("y", gmp.ConType("Int"))
+	eng := gicel.NewEngine()
+	eng.DeclareBinding("x", gicel.ConType("Int"))
+	eng.DeclareBinding("y", gicel.ConType("Int"))
 	rt, err := eng.NewRuntime(`
 main := then (pure x) (pure y)
 `)
 	if err != nil {
 		t.Fatalf("then combinator should compile: %v", err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, map[string]gmp.Value{
-		"x": gmp.ToValue(1),
-		"y": gmp.ToValue(2),
+	result, err := rt.RunContext(context.Background(), nil, map[string]gicel.Value{
+		"x": gicel.ToValue(1),
+		"y": gicel.ToValue(2),
 	}, "main")
 	if err != nil {
 		t.Fatal(err)
 	}
-	hv, ok := result.Value.(*gmp.HostVal)
+	hv, ok := result.Value.(*gicel.HostVal)
 	if !ok || hv.Inner != 2 {
 		t.Fatalf("expected 2 (from second computation), got %v", result.Value)
 	}
@@ -4104,8 +4104,8 @@ main := then (pure x) (pure y)
 
 func TestGenericMonadicFunction(t *testing.T) {
 	// A generic IxMonad function used with Computation via type annotation.
-	eng := gmp.NewEngine()
-	eng.DeclareBinding("x", gmp.ConType("Int"))
+	eng := gicel.NewEngine()
+	eng.DeclareBinding("x", gicel.ConType("Int"))
 	rt, err := eng.NewRuntime(`
 myReturn :: forall (m : Row -> Row -> Type -> Type). IxMonad m => forall a (r : Row). a -> m r r a
 myReturn := ixpure
@@ -4115,13 +4115,13 @@ main := myReturn x
 	if err != nil {
 		t.Fatalf("generic monadic function should compile: %v", err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, map[string]gmp.Value{
-		"x": gmp.ToValue(99),
+	result, err := rt.RunContext(context.Background(), nil, map[string]gicel.Value{
+		"x": gicel.ToValue(99),
 	}, "main")
 	if err != nil {
 		t.Fatal(err)
 	}
-	hv, ok := result.Value.(*gmp.HostVal)
+	hv, ok := result.Value.(*gicel.HostVal)
 	if !ok || hv.Inner != 99 {
 		t.Fatalf("expected 99, got %v", result.Value)
 	}
@@ -4129,9 +4129,9 @@ main := myReturn x
 
 func TestMaybeDoChain(t *testing.T) {
 	// Chain multiple binds in a Maybe do block.
-	eng := gmp.NewEngine()
-	eng.RegisterPrim("add", func(ctx context.Context, capEnv gmp.CapEnv, args []gmp.Value, _ gmp.Applier) (gmp.Value, gmp.CapEnv, error) {
-		return gmp.ToValue(gmp.MustHost[int64](args[0]) + gmp.MustHost[int64](args[1])), capEnv, nil
+	eng := gicel.NewEngine()
+	eng.RegisterPrim("add", func(ctx context.Context, capEnv gicel.CapEnv, args []gicel.Value, _ gicel.Applier) (gicel.Value, gicel.CapEnv, error) {
+		return gicel.ToValue(gicel.MustHost[int64](args[0]) + gicel.MustHost[int64](args[1])), capEnv, nil
 	})
 	rt, err := eng.NewRuntime(`
 add :: Int -> Int -> Int
@@ -4151,11 +4151,11 @@ main := do {
 	if err != nil {
 		t.Fatal(err)
 	}
-	con, ok := result.Value.(*gmp.ConVal)
+	con, ok := result.Value.(*gicel.ConVal)
 	if !ok || con.Con != "Just" {
 		t.Fatalf("expected Just 6, got %v", result.Value)
 	}
-	hv, ok := con.Args[0].(*gmp.HostVal)
+	hv, ok := con.Args[0].(*gicel.HostVal)
 	if !ok || hv.Inner != int64(6) {
 		t.Fatalf("expected Just 6, got Just %v", con.Args[0])
 	}
@@ -4163,9 +4163,9 @@ main := do {
 
 func TestMaybeDoEarlyExit(t *testing.T) {
 	// Nothing anywhere in the chain short-circuits.
-	eng := gmp.NewEngine()
-	eng.RegisterPrim("add", func(ctx context.Context, capEnv gmp.CapEnv, args []gmp.Value, _ gmp.Applier) (gmp.Value, gmp.CapEnv, error) {
-		return gmp.ToValue(gmp.MustHost[int64](args[0]) + gmp.MustHost[int64](args[1])), capEnv, nil
+	eng := gicel.NewEngine()
+	eng.RegisterPrim("add", func(ctx context.Context, capEnv gicel.CapEnv, args []gicel.Value, _ gicel.Applier) (gicel.Value, gicel.CapEnv, error) {
+		return gicel.ToValue(gicel.MustHost[int64](args[0]) + gicel.MustHost[int64](args[1])), capEnv, nil
 	})
 	rt, err := eng.NewRuntime(`
 add :: Int -> Int -> Int
@@ -4184,7 +4184,7 @@ main := do {
 	if err != nil {
 		t.Fatal(err)
 	}
-	con, ok := result.Value.(*gmp.ConVal)
+	con, ok := result.Value.(*gicel.ConVal)
 	if !ok || con.Con != "Nothing" {
 		t.Fatalf("expected Nothing, got %v", result.Value)
 	}
@@ -4192,7 +4192,7 @@ main := do {
 
 func TestListDoFlatMap(t *testing.T) {
 	// flatMap: each element maps to multiple elements.
-	eng := gmp.NewEngine()
+	eng := gicel.NewEngine()
 	eng.EnableRecursion()
 	rt, err := eng.NewRuntime(`
 main :: List Int
@@ -4208,7 +4208,7 @@ main := do {
 	if err != nil {
 		t.Fatal(err)
 	}
-	got, ok := gmp.FromList(result.Value)
+	got, ok := gicel.FromList(result.Value)
 	if !ok {
 		t.Fatalf("expected list, got %v", result.Value)
 	}
@@ -4217,7 +4217,7 @@ main := do {
 		t.Fatalf("expected %d elements, got %d: %v", len(expected), len(got), result.Value)
 	}
 	for i, v := range got {
-		hv, ok := v.(*gmp.HostVal)
+		hv, ok := v.(*gicel.HostVal)
 		if !ok || hv.Inner != expected[i] {
 			t.Fatalf("element %d: expected %d, got %v", i, expected[i], v)
 		}
@@ -4226,23 +4226,23 @@ main := do {
 
 func TestComputationDoRegression(t *testing.T) {
 	// Ensure Computation do blocks still use Core.Bind (not class dispatch).
-	eng := gmp.NewEngine()
-	eng.DeclareBinding("x", gmp.ConType("Int"))
-	eng.DeclareBinding("y", gmp.ConType("Int"))
+	eng := gicel.NewEngine()
+	eng.DeclareBinding("x", gicel.ConType("Int"))
+	eng.DeclareBinding("y", gicel.ConType("Int"))
 	rt, err := eng.NewRuntime(`
 main := do { a <- pure x; b <- pure y; pure a }
 `)
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, map[string]gmp.Value{
-		"x": gmp.ToValue(10),
-		"y": gmp.ToValue(20),
+	result, err := rt.RunContext(context.Background(), nil, map[string]gicel.Value{
+		"x": gicel.ToValue(10),
+		"y": gicel.ToValue(20),
 	}, "main")
 	if err != nil {
 		t.Fatal(err)
 	}
-	hv, ok := result.Value.(*gmp.HostVal)
+	hv, ok := result.Value.(*gicel.HostVal)
 	if !ok || hv.Inner != 10 {
 		t.Fatalf("expected 10, got %v", result.Value)
 	}
@@ -4250,12 +4250,12 @@ main := do { a <- pure x; b <- pure y; pure a }
 
 func TestListPipelineEndToEnd(t *testing.T) {
 	// fromSlice → fmap → foldr → toSlice full pipeline.
-	eng := gmp.NewEngine()
-	eng.RegisterPrim("add", func(ctx context.Context, capEnv gmp.CapEnv, args []gmp.Value, _ gmp.Applier) (gmp.Value, gmp.CapEnv, error) {
-		return gmp.ToValue(gmp.MustHost[int64](args[0]) + gmp.MustHost[int64](args[1])), capEnv, nil
+	eng := gicel.NewEngine()
+	eng.RegisterPrim("add", func(ctx context.Context, capEnv gicel.CapEnv, args []gicel.Value, _ gicel.Applier) (gicel.Value, gicel.CapEnv, error) {
+		return gicel.ToValue(gicel.MustHost[int64](args[0]) + gicel.MustHost[int64](args[1])), capEnv, nil
 	})
 	eng.EnableRecursion()
-	eng.DeclareBinding("xs", gmp.AppType(gmp.ConType("List"), gmp.ConType("Int")))
+	eng.DeclareBinding("xs", gicel.AppType(gicel.ConType("List"), gicel.ConType("Int")))
 	rt, err := eng.NewRuntime(`
 add :: Int -> Int -> Int
 add := assumption
@@ -4265,14 +4265,14 @@ main := foldr add 0 (fmap (\x -> add x 10) xs)
 		t.Fatal(err)
 	}
 	// xs = [1, 2, 3]
-	result, err := rt.RunContext(context.Background(), nil, map[string]gmp.Value{
-		"xs": gmp.ToList([]any{int64(1), int64(2), int64(3)}),
+	result, err := rt.RunContext(context.Background(), nil, map[string]gicel.Value{
+		"xs": gicel.ToList([]any{int64(1), int64(2), int64(3)}),
 	}, "main")
 	if err != nil {
 		t.Fatal(err)
 	}
 	// fmap (+10) [1,2,3] = [11,12,13], foldr add 0 = 36
-	hv, ok := result.Value.(*gmp.HostVal)
+	hv, ok := result.Value.(*gicel.HostVal)
 	if !ok || hv.Inner != int64(36) {
 		t.Fatalf("expected 36, got %v", result.Value)
 	}

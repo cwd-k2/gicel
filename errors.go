@@ -1,6 +1,6 @@
-package gomputation
+package gicel
 
-import "github.com/cwd-k2/gomputation/internal/errs"
+import "github.com/cwd-k2/gicel/internal/errs"
 
 // Diagnostic is a single structured error from compilation.
 type Diagnostic struct {

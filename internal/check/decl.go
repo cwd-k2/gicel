@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/cwd-k2/gomputation/internal/core"
-	"github.com/cwd-k2/gomputation/internal/errs"
-	"github.com/cwd-k2/gomputation/internal/syntax"
-	"github.com/cwd-k2/gomputation/internal/types"
+	"github.com/cwd-k2/gicel/internal/core"
+	"github.com/cwd-k2/gicel/internal/errs"
+	"github.com/cwd-k2/gicel/internal/syntax"
+	"github.com/cwd-k2/gicel/internal/types"
 )
 
 func (ch *Checker) checkDecls(decls []syntax.Decl) *core.Program {
