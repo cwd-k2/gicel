@@ -189,7 +189,7 @@ func (ev *Evaluator) Eval(env *Env, capEnv CapEnv, expr core.Core) (EvalResult, 
 		if err != nil {
 			return EvalResult{}, err
 		}
-		// Force effectful PrimVals (e.g. get, failWith Unit) at bind-time.
+		// Force effectful PrimVals (e.g. get, failWith ()) at bind-time.
 		compR, err = ev.ForceEffectful(compR)
 		if err != nil {
 			return EvalResult{}, err

@@ -17,10 +17,10 @@ import (
 // The source declares `greet` as an assumption with its type annotation
 // written directly in the language via `::`.
 const source = `
-greet :: Unit -> Unit
+greet :: () -> ()
 greet := assumption
 
-main := greet Unit
+main := greet ()
 `
 
 func main() {
@@ -31,7 +31,7 @@ func main() {
 	// The type is declared in the source via ::, so DeclareAssumption is not needed.
 	eng.RegisterPrim("greet", func(ctx context.Context, capEnv gicel.CapEnv, args []gicel.Value, _ gicel.Applier) (gicel.Value, gicel.CapEnv, error) {
 		fmt.Println("Hello from Go!")
-		return gicel.ToValue(nil), capEnv, nil // nil converts to Unit via ToValue
+		return gicel.ToValue(nil), capEnv, nil // nil converts to () via ToValue
 	})
 
 	rt, err := eng.NewRuntime(source)

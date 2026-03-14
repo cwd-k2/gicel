@@ -234,7 +234,7 @@ The sole source of effects. Host-provided operations are declared with `assumpti
 ```
 dbOpen :: forall r. Computation { db : DB Closed | r }
                                 { db : DB Opened | r }
-                                Unit
+                                ()
 dbOpen := assumption
 ```
 
@@ -488,7 +488,7 @@ This enables precise capability tracking:
 ```
 dbOpen :: forall r. Computation { db : DB Closed | r }
                                 { db : DB Opened | r }
-                                Unit
+                                ()
 ```
 
 Promotion applies only to nullary constructors. Constructors with fields are not promoted (promoting them would require type families — a phase transition).

@@ -9,9 +9,9 @@ environments.
 
 ```
 main := do {
-  _ <- incCounter Unit;
-  _ <- incCounter Unit;
-  getCounter Unit
+  _ <- incCounter ();
+  _ <- incCounter ();
+  getCounter ()
 }
 ```
 
@@ -136,16 +136,16 @@ eng.RegisterPrim("incCounter",
     })
 
 rt, _ := eng.NewRuntime(`
-    getCounter :: Unit -> Computation {} {} Int
+    getCounter :: () -> Computation {} {} Int
     getCounter := assumption
 
-    incCounter :: Unit -> Computation {} {} Unit
+    incCounter :: () -> Computation {} {} ()
     incCounter := assumption
 
     main := do {
-      _ <- incCounter Unit;
-      _ <- incCounter Unit;
-      getCounter Unit
+      _ <- incCounter ();
+      _ <- incCounter ();
+      getCounter ()
     }
 `)
 
