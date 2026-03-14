@@ -1,0 +1,105 @@
+# GICEL Agent Guide
+
+A self-contained reference for writing correct GICEL programs.
+Read this document and you have everything you need.
+
+## Chapters
+
+| File             | Content                                     |
+| ---------------- | ------------------------------------------- |
+| [syntax.md]      | Keywords, punctuation, literals, comments   |
+| [types.md]       | Type system: ADT, GADT, forall, rows, kinds |
+| [expressions.md] | Lambda, case, do, operators, special forms  |
+| [effects.md]     | Computation, pure/bind, CapEnv, thunk/force |
+| [prelude.md]     | Prelude types, classes, instances           |
+| [functions.md]   | Prelude functions + operator reference      |
+| [stdlib.md]      | Std.Num, Str, List, State, Fail, IO         |
+| [patterns.md]    | Common patterns + pitfalls                  |
+| [go-api.md]      | Go integration: sandbox, lifecycle, errors  |
+
+---
+
+## 1. Quick Start
+
+### Minimal Program
+
+```
+main := True
+```
+
+This defines a binding `main` whose value is `True` (a Bool constructor from the Prelude).
+
+### With Arithmetic (requires Std.Num)
+
+```
+import Std.Num
+
+main := 2 + 3
+```
+
+### Hello World (requires Std.Str and Std.IO)
+
+```
+import Std.Str
+import Std.IO
+
+main := print "Hello, world!"
+```
+
+`main` here is a `Computation { io : () | r } { io : () | r } ()`. The host must provide the `io` capability.
+
+### Running Programs
+
+**CLI:**
+
+```sh
+# Run with all stdlib packs (default)
+gicel run program.gicel
+
+# Type-check only
+gicel check program.gicel
+
+# Select specific packs
+gicel run --use Num,Str program.gicel
+
+# Custom entry point, limits, JSON output
+gicel run --entry myFunc --timeout 10s --max-steps 500000 --json program.gicel
+```
+
+CLI flags:
+
+| Flag          | Default  | Description                                            |
+| ------------- | -------- | ------------------------------------------------------ |
+| `--use`       | `all`    | Comma-separated packs: Num, Str, List, Fail, State, IO |
+| `--entry`     | `main`   | Entry point binding name                               |
+| `--timeout`   | `5s`     | Execution timeout (run only)                           |
+| `--max-steps` | `100000` | Step limit (run only)                                  |
+| `--max-depth` | `100`    | Depth limit (run only)                                 |
+| `--json`      | `false`  | Output result as JSON (run only)                       |
+
+**Go API (Sandbox):**
+
+```go
+import "github.com/cwd-k2/gicel"
+
+result, err := gicel.RunSandbox(`
+import Std.Num
+main := 2 + 3
+`, &gicel.SandboxConfig{
+    Packs: []gicel.Pack{gicel.Num},
+})
+// result.Value is HostVal{Inner: int64(5)}
+```
+
+**Go API (Full lifecycle):**
+
+```go
+eng := gicel.NewEngine()
+eng.Use(gicel.Num)
+eng.Use(gicel.Str)
+
+rt, err := eng.NewRuntime(source)
+result, err := rt.RunContext(ctx, nil, nil, "main")
+```
+
+---
