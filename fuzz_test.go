@@ -2,6 +2,7 @@ package gomputation_test
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -203,7 +204,7 @@ func FuzzEvalLimits(f *testing.F) {
 		// Build a record with nFields fields.
 		fields := make([]core.RecordField, nFields)
 		for i := range fields {
-			fields[i] = core.RecordField{Label: "f", Value: &core.Lit{Value: int64(i)}}
+			fields[i] = core.RecordField{Label: fmt.Sprintf("f%d", i), Value: &core.Lit{Value: int64(i)}}
 		}
 		term := core.Core(&core.RecordLit{Fields: fields})
 

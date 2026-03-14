@@ -91,9 +91,17 @@ func (r *Runtime) run(ctx context.Context, caps map[string]any, bindings map[str
 		return eval.EvalResult{}, EvalStats{}, err
 	}
 
+	// Single Evaluator shared across all binding evaluations and entry execution.
+	// This ensures step/alloc/depth limits are cumulative, not per-binding.
+	limit := eval.NewLimit(r.stepLimit, r.depthLimit)
+	if r.allocLimit > 0 {
+		limit.SetAllocLimit(r.allocLimit)
+	}
+	ev := eval.NewEvaluator(ctx, r.prims, limit, r.traceHook)
+
 	// Evaluate module bindings first (in registration order).
 	for _, modProg := range r.moduleProgs {
-		env, err = r.evalBindings(ctx, env, modProg.Bindings)
+		env, err = r.evalBindings(ev, env, modProg.Bindings)
 		if err != nil {
 			return eval.EvalResult{}, EvalStats{}, err
 		}
@@ -110,7 +118,7 @@ func (r *Runtime) run(ctx context.Context, caps map[string]any, bindings map[str
 		}
 	}
 
-	env, err = r.evalBindings(ctx, env, nonEntry)
+	env, err = r.evalBindings(ev, env, nonEntry)
 	if err != nil {
 		return eval.EvalResult{}, EvalStats{}, err
 	}
@@ -120,11 +128,6 @@ func (r *Runtime) run(ctx context.Context, caps map[string]any, bindings map[str
 	}
 
 	capEnv := eval.NewCapEnv(caps)
-	limit := eval.NewLimit(r.stepLimit, r.depthLimit)
-	if r.allocLimit > 0 {
-		limit.SetAllocLimit(r.allocLimit)
-	}
-	ev := eval.NewEvaluator(ctx, r.prims, limit, r.traceHook)
 	result, err := ev.Eval(env, capEnv, entryExpr)
 	if err != nil {
 		return eval.EvalResult{}, EvalStats{}, err
@@ -138,7 +141,9 @@ func (r *Runtime) run(ctx context.Context, caps map[string]any, bindings map[str
 }
 
 // evalBindings evaluates a slice of bindings using forward-reference cells.
-func (r *Runtime) evalBindings(ctx context.Context, env *eval.Env, bindings []core.Binding) (*eval.Env, error) {
+// The provided Evaluator is shared with the caller so that resource limits
+// (steps, allocation, depth) are enforced cumulatively across all bindings.
+func (r *Runtime) evalBindings(ev *eval.Evaluator, env *eval.Env, bindings []core.Binding) (*eval.Env, error) {
 	cells := make(map[string]*eval.IndirectVal, len(bindings))
 	for _, b := range bindings {
 		cell := &eval.IndirectVal{}
@@ -146,11 +151,6 @@ func (r *Runtime) evalBindings(ctx context.Context, env *eval.Env, bindings []co
 		env = env.Extend(b.Name, cell)
 	}
 	for _, b := range bindings {
-		limit := eval.NewLimit(r.stepLimit, r.depthLimit)
-		if r.allocLimit > 0 {
-			limit.SetAllocLimit(r.allocLimit)
-		}
-		ev := eval.NewEvaluator(ctx, r.prims, limit, r.traceHook)
 		result, err := ev.Eval(env, eval.NewCapEnv(nil), b.Expr)
 		if err != nil {
 			return nil, fmt.Errorf("evaluating %s: %w", b.Name, err)

@@ -576,15 +576,19 @@ func TestThunkCapEnvMarkShared(t *testing.T) {
 }
 
 func TestStepLimitBoundary(t *testing.T) {
-	// NewLimit(2, ...) allows exactly 1 eval step.
+	// NewLimit(n, ...) allows exactly n eval steps.
 	ev := NewEvaluator(context.Background(), NewPrimRegistry(), NewLimit(2, 100), nil)
 	_, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), &core.Lit{Value: int64(42)})
 	if err != nil {
 		t.Fatalf("NewLimit(2): first eval should succeed, got %v", err)
 	}
 	_, err = ev.Eval(EmptyEnv(), EmptyCapEnv(), &core.Lit{Value: int64(43)})
+	if err != nil {
+		t.Fatalf("NewLimit(2): second eval should succeed, got %v", err)
+	}
+	_, err = ev.Eval(EmptyEnv(), EmptyCapEnv(), &core.Lit{Value: int64(44)})
 	if _, ok := err.(*StepLimitError); !ok {
-		t.Errorf("NewLimit(2): second eval should fail with StepLimitError, got %v", err)
+		t.Errorf("NewLimit(2): third eval should fail with StepLimitError, got %v", err)
 	}
 }
 

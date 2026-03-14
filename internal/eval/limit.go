@@ -31,7 +31,7 @@ func (l *Limit) SetAllocLimit(bytes int64) {
 // Step decrements the counter. Returns error at zero.
 func (l *Limit) Step() error {
 	l.remaining--
-	if l.remaining <= 0 {
+	if l.remaining < 0 {
 		return &StepLimitError{}
 	}
 	return nil
