@@ -73,6 +73,54 @@ func TestFreeVarsBind(t *testing.T) {
 	}
 }
 
+func TestFreeVarsLamSibling(t *testing.T) {
+	// App(Lam("x", Var("x")), Var("x")) — outer x is free.
+	// Catches: unbind counter inversion, missing unbind after Lam body.
+	term := &App{
+		Fun: &Lam{Param: "x", Body: &Var{Name: "x"}},
+		Arg: &Var{Name: "x"},
+	}
+	fv := FreeVars(term)
+	if _, ok := fv["x"]; !ok {
+		t.Error("'x' should be free in Arg position (sibling of Lam)")
+	}
+}
+
+func TestFreeVarsCaseAltBody(t *testing.T) {
+	// case Unit of { _ -> y } — y is free.
+	// Catches: skipping Case alt body recursion in freeVarsRec.
+	term := &Case{
+		Scrutinee: &Con{Name: "Unit"},
+		Alts: []Alt{{
+			Pattern: &PWild{},
+			Body:    &Var{Name: "y"},
+		}},
+	}
+	fv := FreeVars(term)
+	if _, ok := fv["y"]; !ok {
+		t.Error("'y' should be free in case alt body")
+	}
+}
+
+func TestFreeVarsNestedLamShadow(t *testing.T) {
+	// Lam("x", App(Lam("x", Var("x")), Var("y"))) — only y is free.
+	// Double bind of same name must unbind correctly.
+	term := &Lam{
+		Param: "x",
+		Body: &App{
+			Fun: &Lam{Param: "x", Body: &Var{Name: "x"}},
+			Arg: &Var{Name: "y"},
+		},
+	}
+	fv := FreeVars(term)
+	if _, ok := fv["x"]; ok {
+		t.Error("'x' should not be free (doubly bound)")
+	}
+	if _, ok := fv["y"]; !ok {
+		t.Error("'y' should be free")
+	}
+}
+
 func TestPatternBindings(t *testing.T) {
 	p := &PCon{
 		Con: "Pair",

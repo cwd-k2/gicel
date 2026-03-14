@@ -408,3 +408,206 @@ func TestAllocTracking(t *testing.T) {
 		t.Errorf("expected at least 72 bytes allocated, got %d", stats.Allocated)
 	}
 }
+
+// --- Mutation-killing tests ---
+
+func TestBindForceEffectfulBody(t *testing.T) {
+	// do { _ <- pure Unit; setFoo } where setFoo is effectful 0-arity.
+	// Body result is a PrimVal that must be forced via ForceEffectful.
+	prims := NewPrimRegistry()
+	prims.Register("setFoo", func(ctx context.Context, cap CapEnv, args []Value, _ Applier) (Value, CapEnv, error) {
+		return &ConVal{Con: "Unit"}, cap.Set("foo", "done"), nil
+	})
+	ev := NewEvaluator(context.Background(), prims, DefaultLimit(), nil)
+	term := &core.Bind{
+		Comp: &core.Pure{Expr: &core.Con{Name: "Unit"}},
+		Var:  "_",
+		Body: &core.PrimOp{Name: "setFoo", Arity: 0, Effectful: true},
+	}
+	r, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), term)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := r.Value.(*PrimVal); ok {
+		t.Fatal("body effectful PrimVal should have been forced, got PrimVal")
+	}
+	v, ok := r.CapEnv.Get("foo")
+	if !ok || v != "done" {
+		t.Errorf("expected foo=done in CapEnv, got %v (ok=%v)", v, ok)
+	}
+}
+
+func TestClosureEnvTrimmed(t *testing.T) {
+	// Closure with FV annotation should trim env to named vars only.
+	ev := newTestEval()
+	lam := &core.Lam{Param: "x", Body: &core.Var{Name: "y"}, FV: []string{"y"}}
+	env := EmptyEnv().Extend("y", &HostVal{Inner: 1}).Extend("z", &HostVal{Inner: 2})
+	r, err := ev.Eval(env, EmptyCapEnv(), lam)
+	if err != nil {
+		t.Fatal(err)
+	}
+	clo := r.Value.(*Closure)
+	if _, ok := clo.Env.Lookup("z"); ok {
+		t.Error("trimmed closure env should not contain 'z'")
+	}
+	if _, ok := clo.Env.Lookup("y"); !ok {
+		t.Error("trimmed closure env should contain 'y'")
+	}
+}
+
+func TestThunkEnvTrimmed(t *testing.T) {
+	// Thunk with FV annotation should trim env.
+	ev := newTestEval()
+	thunk := &core.Thunk{
+		Comp: &core.Pure{Expr: &core.Var{Name: "y"}},
+		FV:   []string{"y"},
+	}
+	env := EmptyEnv().Extend("y", &HostVal{Inner: 1}).Extend("z", &HostVal{Inner: 2})
+	r, err := ev.Eval(env, EmptyCapEnv(), thunk)
+	if err != nil {
+		t.Fatal(err)
+	}
+	tv := r.Value.(*ThunkVal)
+	if _, ok := tv.Env.Lookup("z"); ok {
+		t.Error("trimmed thunk env should not contain 'z'")
+	}
+	if _, ok := tv.Env.Lookup("y"); !ok {
+		t.Error("trimmed thunk env should contain 'y'")
+	}
+}
+
+func TestLetRecEnvTrimmed(t *testing.T) {
+	// letrec f = \x -> ext in f — returned closure should have trimmed env.
+	ev := newTestEval()
+	fLam := &core.Lam{
+		Param: "x",
+		Body:  &core.Var{Name: "ext"},
+		FV:    []string{"ext"},
+	}
+	term := &core.LetRec{
+		Bindings: []core.Binding{{Name: "f", Expr: fLam}},
+		Body:     &core.Var{Name: "f"},
+	}
+	env := EmptyEnv().
+		Extend("ext", &HostVal{Inner: 1}).
+		Extend("noise", &HostVal{Inner: 2})
+	r, err := ev.Eval(env, EmptyCapEnv(), term)
+	if err != nil {
+		t.Fatal(err)
+	}
+	clo := r.Value.(*Closure)
+	if _, ok := clo.Env.Lookup("noise"); ok {
+		t.Error("LetRec closure env should not contain 'noise'")
+	}
+	if _, ok := clo.Env.Lookup("ext"); !ok {
+		t.Error("LetRec closure env should contain 'ext'")
+	}
+}
+
+func TestAllocTrackingThunk(t *testing.T) {
+	ev := newTestEval()
+	_, err := ev.Eval(EmptyEnv(), EmptyCapEnv(),
+		&core.Thunk{Comp: &core.Pure{Expr: &core.Con{Name: "Unit"}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ev.Stats().Allocated < costThunk {
+		t.Errorf("Thunk should allocate at least %d bytes, got %d", costThunk, ev.Stats().Allocated)
+	}
+}
+
+func TestAllocTrackingLetRec(t *testing.T) {
+	ev := newTestEval()
+	term := &core.LetRec{
+		Bindings: []core.Binding{
+			{Name: "f", Expr: &core.Lam{Param: "x", Body: &core.Var{Name: "x"}}},
+		},
+		Body: &core.Con{Name: "Unit"},
+	}
+	_, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), term)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// LetRec: costLetRec per binding + ConVal(Unit): costConBase
+	expected := int64(costLetRec + costConBase)
+	if ev.Stats().Allocated != expected {
+		t.Errorf("expected %d bytes, got %d", expected, ev.Stats().Allocated)
+	}
+}
+
+func TestAllocTrackingRecordUpdate(t *testing.T) {
+	ev := newTestEval()
+	term := &core.RecordUpdate{
+		Record: &core.RecordLit{Fields: []core.RecordField{
+			{Label: "a", Value: &core.Lit{Value: int64(1)}},
+		}},
+		Updates: []core.RecordField{
+			{Label: "a", Value: &core.Lit{Value: int64(2)}},
+		},
+	}
+	_, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), term)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// RecordLit: costRecBase + costRecFld*1
+	// RecordUpdate copy: costRecBase + costRecFld*1
+	expected := int64(2 * (costRecBase + costRecFld))
+	if ev.Stats().Allocated != expected {
+		t.Errorf("expected %d bytes, got %d", expected, ev.Stats().Allocated)
+	}
+}
+
+func TestThunkCapEnvMarkShared(t *testing.T) {
+	// After thunk creation, returned CapEnv should be CoW-protected.
+	ev := newTestEval()
+	capEnv := EmptyCapEnv().Set("a", 1)
+	thunk := &core.Thunk{Comp: &core.Pure{Expr: &core.Con{Name: "Unit"}}}
+	r, err := ev.Eval(EmptyEnv(), capEnv, thunk)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Mutate via Set — if MarkShared was applied, map is copied (no leak).
+	// If MarkShared was skipped, Set mutates the shared map in place.
+	r.CapEnv.Set("a", 999)
+	v, _ := r.CapEnv.Get("a")
+	if v != 1 {
+		t.Errorf("MarkShared should prevent mutation leak: expected a=1, got %v", v)
+	}
+}
+
+func TestStepLimitBoundary(t *testing.T) {
+	// NewLimit(2, ...) allows exactly 1 eval step.
+	ev := NewEvaluator(context.Background(), NewPrimRegistry(), NewLimit(2, 100), nil)
+	_, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), &core.Lit{Value: int64(42)})
+	if err != nil {
+		t.Fatalf("NewLimit(2): first eval should succeed, got %v", err)
+	}
+	_, err = ev.Eval(EmptyEnv(), EmptyCapEnv(), &core.Lit{Value: int64(43)})
+	if _, ok := err.(*StepLimitError); !ok {
+		t.Errorf("NewLimit(2): second eval should fail with StepLimitError, got %v", err)
+	}
+}
+
+func TestDepthLimitBoundary(t *testing.T) {
+	// maxDepth=1: one level of function application should succeed.
+	ev := NewEvaluator(context.Background(), NewPrimRegistry(), NewLimit(1_000_000, 1), nil)
+	term := &core.App{
+		Fun: &core.Lam{Param: "x", Body: &core.Var{Name: "x"}},
+		Arg: &core.Con{Name: "Unit"},
+	}
+	_, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), term)
+	if err != nil {
+		t.Fatalf("maxDepth=1: single application should succeed, got %v", err)
+	}
+}
+
+func TestAllocLimitBoundary(t *testing.T) {
+	// allocLimit = costConBase: exactly one ConVal allocation should succeed.
+	limit := NewLimit(1_000_000, 1_000)
+	limit.SetAllocLimit(int64(costConBase))
+	ev := NewEvaluator(context.Background(), NewPrimRegistry(), limit, nil)
+	_, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), &core.Con{Name: "Unit"})
+	if err != nil {
+		t.Fatalf("allocLimit=costConBase: one ConVal should succeed, got %v", err)
+	}
+}
