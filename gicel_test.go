@@ -349,7 +349,7 @@ func TestStrLength(t *testing.T) {
 	}
 	rt, err := eng.NewRuntime(`
 import Std.Str
-main := length "hello"
+main := strlen "hello"
 `)
 	if err != nil {
 		t.Fatal(err)
@@ -3079,7 +3079,7 @@ func TestPackModuleImport(t *testing.T) {
 import Std.Num
 import Std.Str
 v1 := 1 + 2
-v2 := length "hello"
+v2 := strlen "hello"
 main := Just (v1 + v2)
 `)
 	if err != nil {

@@ -29,6 +29,7 @@ var Str Pack = func(e Registrar) error {
 	e.RegisterPrim("_join", joinImpl)
 	e.RegisterPrim("_showInt", showIntImpl)
 	e.RegisterPrim("_readInt", readIntImpl)
+	e.RegisterPrim("_toRunes", toRunesImpl)
 	return e.RegisterModule("Std.Str", strSource)
 }
 
@@ -63,8 +64,8 @@ instance Monoid String { empty := _emptyStr }
 instance Eq Rune { eq := _eqRune }
 instance Ord Rune { compare := _cmpRune }
 
-length :: String -> Int
-length := _lengthStr
+strlen :: String -> Int
+strlen := _lengthStr
 
 _charAt :: Int -> String -> Maybe Rune
 _charAt := assumption
@@ -128,6 +129,12 @@ showBool := \b -> case b { True -> "True"; False -> "False" }
 
 readInt :: String -> Maybe Int
 readInt := _readInt
+
+_toRunes :: String -> List Rune
+_toRunes := assumption
+
+toRunes :: String -> List Rune
+toRunes := _toRunes
 `
 
 func asString(v eval.Value) (string, error) {
@@ -394,6 +401,19 @@ func readIntImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Ap
 		return &eval.ConVal{Con: "Nothing"}, ce, nil
 	}
 	return &eval.ConVal{Con: "Just", Args: []eval.Value{&eval.HostVal{Inner: n}}}, ce, nil
+}
+
+func toRunesImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
+	s, err := asString(args[0])
+	if err != nil {
+		return nil, ce, err
+	}
+	var result eval.Value = &eval.ConVal{Con: "Nil"}
+	runes := []rune(s)
+	for i := len(runes) - 1; i >= 0; i-- {
+		result = &eval.ConVal{Con: "Cons", Args: []eval.Value{&eval.HostVal{Inner: runes[i]}, result}}
+	}
+	return result, ce, nil
 }
 
 func asInt64Str(v eval.Value) (int64, error) {

@@ -4,9 +4,8 @@
 -- Demonstrates: literals, charAt, substring, case conversion,
 -- contains, split, join, append, eq, compare, showInt, readInt.
 --
--- Note: Std.Str and Std.List both export `length`. We avoid calling
--- `length` here to prevent ambiguity at runtime. Use `_lengthStr`
--- or work with other Str functions instead.
+-- String length uses `strlen` (not `length`) to avoid collision
+-- with Std.List's `length`.
 
 import Std.Num
 import Std.Str

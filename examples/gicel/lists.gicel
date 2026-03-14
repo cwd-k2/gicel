@@ -3,17 +3,14 @@
 -- Lists in GICEL are built with Cons and Nil constructors.
 -- Import Std.List for higher-order list operations.
 --
--- Note: `length` has a name conflict between Std.List and Std.Str,
--- so we compute list length using foldl instead.
-
 import Std.Num
 import Std.List
 
 -- Building lists with Cons/Nil
 nums := Cons 1 (Cons 2 (Cons 3 (Cons 4 (Cons 5 Nil))))
 
--- Count elements using foldl
-len := foldl (\acc -> \_ -> acc + 1) 0 nums   -- 5
+-- Count elements with length (from Std.List)
+len := length nums                              -- 5
 
 -- map (via fmap): transform each element
 doubled := fmap (\x -> x * 2) nums

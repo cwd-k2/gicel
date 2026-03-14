@@ -1,5 +1,5 @@
 -- Stress test 19: String and Rune operations
--- Tests String/Rune literals, Eq, Ord, Semigroup, Monoid, length.
+-- Tests String/Rune literals, Eq, Ord, Semigroup, Monoid, strlen.
 
 import Std.Str
 import Std.Num
@@ -7,7 +7,7 @@ import Std.Num
 -- String literals and operations
 strConcat := append "hello" " world"
 strEmpty  := (empty :: String)
-strLen    := length "hello"
+strLen    := strlen "hello"
 
 -- String equality
 strEqT := eq "abc" "abc"
@@ -29,7 +29,7 @@ strIdentL := append empty "test"
 strIdentR := append "test" empty
 
 -- Length of concatenated string
-concatLen := length (append "abc" "de")
+concatLen := strlen (append "abc" "de")
 
 main := (strConcat,
              (strLen,

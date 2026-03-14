@@ -831,11 +831,13 @@ class Eq a => Num a {
 
 **Instances:**
 
-| Instance  |
-| --------- |
-| `Eq Int`  |
-| `Ord Int` |
-| `Num Int` |
+| Instance        |
+| --------------- |
+| `Eq Int`        |
+| `Ord Int`       |
+| `Num Int`       |
+| `Semigroup Int` |
+| `Monoid Int`    |
 
 **Functions:**
 
@@ -884,7 +886,8 @@ Provides string and rune operations.
 
 | Name        | Type                              | Description                                      |
 | ----------- | --------------------------------- | ------------------------------------------------ |
-| `length`    | `String -> Int`                   | Length in runes (Unicode code points)            |
+| `strlen`    | `String -> Int`                   | Length in runes (Unicode code points)            |
+| `toRunes`   | `String -> List Rune`             | Convert string to list of runes                  |
 | `charAt`    | `Int -> String -> Maybe Rune`     | Rune at index (0-based), Nothing if out of range |
 | `substring` | `Int -> Int -> String -> String`  | `substring start count s` extracts a substring   |
 | `toUpper`   | `String -> String`                | Convert to uppercase                             |
@@ -899,7 +902,8 @@ Provides string and rune operations.
 
 **Notes:**
 
-- `length` counts Unicode code points, not bytes.
+- `strlen` counts Unicode code points, not bytes. Named `strlen` (not `length`) to avoid collision with `Std.List.length`.
+- `toRunes` decomposes a string into a `List Rune` for character-level processing.
 - `charAt` and `substring` use 0-based rune indexing.
 - String concatenation uses the `append` method from `Semigroup String`. The empty string is `empty` from `Monoid String`.
 - No string interpolation. Build strings with `append` and conversion functions.
@@ -1210,13 +1214,9 @@ infixl 6 +
 (+) := add
 ```
 
-### `length` name collision
+### String length is `strlen`, not `length`
 
-Both Std.List and Std.Str export `length` with incompatible types (`List a -> Int` vs `String -> Int`). When both are imported (or when running via CLI which loads all packs), calling `length` is ambiguous. Workarounds:
-
-- Use `foldl (\acc -> \_ -> acc + 1) 0 xs` for list length.
-- Use `strlen s` for string length (if available after stdlib update).
-- Import only the pack you need.
+Std.Str uses `strlen` (not `length`) for string length to avoid collision with `Std.List.length`. Use `toRunes` to convert a string to `List Rune` for character-level processing.
 
 ### Prelude names shadow freely
 

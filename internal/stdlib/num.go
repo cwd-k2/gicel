@@ -49,6 +49,8 @@ _cmpInt := assumption
 
 instance Eq Int { eq := _eqInt }
 instance Ord Int { compare := _cmpInt }
+instance Semigroup Int { append := _addInt }
+instance Monoid Int { empty := 0 }
 
 class Eq a => Num a {
   add    :: a -> a -> a;

@@ -608,7 +608,8 @@ instance Eq String    instance Ord String
 instance Semigroup String    instance Monoid String
 instance Eq Rune    instance Ord Rune
 
-length :: String -> Int
+strlen :: String -> Int
+toRunes :: String -> List Rune
 ```
 
 ### Std.Fail
