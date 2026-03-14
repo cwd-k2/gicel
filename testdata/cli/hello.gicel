@@ -7,4 +7,4 @@ greeting := "Hello, GICEL!"
 answer :: Int
 answer := 6 * 7
 
-main := Pair greeting answer
+main := (greeting, answer)
