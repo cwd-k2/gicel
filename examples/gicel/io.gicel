@@ -1,0 +1,13 @@
+-- GICEL Example: IO Effect
+--
+-- The IO pack provides print and debug capabilities
+-- that write to the CapEnv io buffer.
+
+import Std.Str
+import Std.IO
+
+main := do {
+  _ <- print "hello";
+  _ <- print (append "hello" " world!");
+  debug "trace message"
+}

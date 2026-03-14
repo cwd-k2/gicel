@@ -39,7 +39,7 @@ Flags:
 | Flag              | Default  | Description                                   |
 | ----------------- | -------- | --------------------------------------------- |
 | `--use <packs>`   | `all`    | Stdlib packs: Num, Str, List, Fail, State, IO |
-| `--entry <name>`  | `main`   | Entry point binding                           |
+| `--entry <name>`  | `main`   | Entry point binding (run only)                |
 | `--timeout <dur>` | `5s`     | Execution timeout (run only)                  |
 | `--max-steps <n>` | `100000` | Step limit (run only)                         |
 | `--max-depth <n>` | `100`    | Depth limit (run only)                        |
@@ -225,8 +225,13 @@ eng.EnableRecursion()       // enable rec/fix (off by default)
 
 GICEL has 11 keywords: `case do data type forall infixl infixr infixn class instance import`.
 
-See [docs/agent-guide.md](docs/agent-guide.md) for a complete language
+See [docs/agent-guide/](docs/agent-guide/) for a complete language
 reference and [spec/language.md](spec/language.md) for the formal specification.
+
+## Examples
+
+- `examples/gicel/` — GICEL programs covering ADTs, type classes, HKT, records, effects, etc.
+- `examples/go/` — Go programs demonstrating the embedding API (lifecycle, capabilities, sandbox, etc.)
 
 ## License
 

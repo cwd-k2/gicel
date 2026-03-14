@@ -158,13 +158,13 @@ func (e *Engine) RegisterModule(name, source string) error {
 	l := parse.NewLexer(src)
 	tokens, lexErrs := l.Tokenize()
 	if lexErrs.HasErrors() {
-		return &CompileError{Errors: lexErrs}
+		return &CompileError{errors: lexErrs}
 	}
 	parseErrs := &errs.Errors{Source: src}
 	p := parse.NewParser(tokens, parseErrs)
 	ast := p.ParseProgram()
 	if parseErrs.HasErrors() {
-		return &CompileError{Errors: parseErrs}
+		return &CompileError{errors: parseErrs}
 	}
 
 	// Inject implicit prelude import for non-prelude modules.
@@ -186,7 +186,7 @@ func (e *Engine) RegisterModule(name, source string) error {
 	config := e.makeCheckConfig()
 	prog, exports, checkErrs := check.CheckModule(ast, src, config)
 	if checkErrs.HasErrors() {
-		return &CompileError{Errors: checkErrs}
+		return &CompileError{errors: checkErrs}
 	}
 
 	// Collect fixity declarations from the module AST.
@@ -286,7 +286,7 @@ func (e *Engine) parseSource(source string) (*syntax.AstProgram, *span.Source, e
 	l := parse.NewLexer(src)
 	tokens, lexErrs := l.Tokenize()
 	if lexErrs.HasErrors() {
-		return nil, nil, &CompileError{Errors: lexErrs}
+		return nil, nil, &CompileError{errors: lexErrs}
 	}
 	parseErrs := &errs.Errors{Source: src}
 	p := parse.NewParser(tokens, parseErrs)
@@ -296,7 +296,7 @@ func (e *Engine) parseSource(source string) (*syntax.AstProgram, *span.Source, e
 	}
 	ast := p.ParseProgram()
 	if parseErrs.HasErrors() {
-		return nil, nil, &CompileError{Errors: parseErrs}
+		return nil, nil, &CompileError{errors: parseErrs}
 	}
 	// Inject implicit prelude import.
 	if !e.noPrelude {
@@ -343,7 +343,7 @@ func (e *Engine) Check(source string) (*CoreProgram, error) {
 	}
 	prog, checkErrs := check.Check(ast, src, e.makeCheckConfig())
 	if checkErrs.HasErrors() {
-		return nil, &CompileError{Errors: checkErrs}
+		return nil, &CompileError{errors: checkErrs}
 	}
 	return &CoreProgram{prog: prog}, nil
 }
@@ -358,7 +358,7 @@ func (e *Engine) NewRuntime(source string) (*Runtime, error) {
 	// Type check.
 	prog, checkErrs := check.Check(ast, src, e.makeCheckConfig())
 	if checkErrs.HasErrors() {
-		return nil, &CompileError{Errors: checkErrs}
+		return nil, &CompileError{errors: checkErrs}
 	}
 
 	// Annotate free variables for safe-for-space closure conversion.

@@ -69,5 +69,5 @@ traverseNone := traverse (\x -> Just (x + 1)) (Nothing :: Maybe Int)
 -- Output: Just Nothing
 
 -- Gather results as a tuple
--- Output: (Just 11, Nothing, Cons 2 (Cons 4 (Cons 6 Nil)), Just 42, Just 105, 6, 42, 0)
-main := (fmapMaybe, fmapNothing, fmapList, wrapped, applied, sumList, fromJust, fromNone)
+-- Output: (Just 11, Nothing, Cons 2 (Cons 4 (Cons 6 Nil)), Just 42, Just 105, 6, 42, 0, Just (Just 11), Just Nothing)
+main := (fmapMaybe, fmapNothing, fmapList, wrapped, applied, sumList, fromJust, fromNone, traverseJust, traverseNone)

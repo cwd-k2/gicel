@@ -59,6 +59,7 @@ type CheckTraceHook = check.CheckTraceHook
 type RuntimeError = eval.RuntimeError
 
 // NewCapEnv creates a new capability environment from a map.
+// The map is not copied; the caller must not modify it after this call.
 func NewCapEnv(caps map[string]any) CapEnv {
 	return eval.NewCapEnv(caps)
 }

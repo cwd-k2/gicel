@@ -28,11 +28,6 @@ func (r *Runtime) Program() *CoreProgram {
 	return &CoreProgram{prog: r.prog}
 }
 
-// PrettyProgram returns a human-readable representation of the Core IR.
-func (r *Runtime) PrettyProgram() string {
-	return core.PrettyProgram(r.prog)
-}
-
 // RunResult holds the result of a single execution.
 type RunResult struct {
 	Value Value

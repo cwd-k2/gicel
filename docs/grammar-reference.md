@@ -52,7 +52,7 @@
 
 - **Lowercase** `[a-z_][a-zA-Z0-9_']*` — variables, type variables, field labels
 - **Uppercase** `[A-Z][a-zA-Z0-9_']*` — constructors, type constructors, class names
-- **Operators** sequences of `! # $ % & * + - / < = > ? ^ ~ | : .` (excluding reserved)
+- **Operators** sequences of `! # $ % & * + - / < = > ? ^ ~ |` (excluding reserved; `:` and `.` are handled specially by the lexer)
 
 ### Comments
 
@@ -592,8 +592,10 @@ class Eq a => Num a {
 
 instance Eq Int    instance Ord Int    instance Num Int
 
-div :: Int -> Int -> Int
-mod :: Int -> Int -> Int
+div    :: Int -> Int -> Int
+mod    :: Int -> Int -> Int
+abs    :: Int -> Int
+sign   :: Int -> Int
 
 infixl 6 +   infixl 6 -
 infixl 7 *   infixl 7 /

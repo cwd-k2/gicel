@@ -1025,9 +1025,9 @@ func TestPrettyProgram(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	pretty := rt.PrettyProgram()
+	pretty := rt.Program().Pretty()
 	if pretty == "" {
-		t.Error("expected non-empty PrettyProgram output")
+		t.Error("expected non-empty Program().Pretty() output")
 	}
 }
 
@@ -3954,8 +3954,8 @@ main := do { v <- pure x; pure v }
 	if err != nil {
 		t.Fatal(err)
 	}
-	// Core.Bind is used when PrettyProgram shows "bind" nodes rather than "ixbind" calls.
-	pretty := rt.PrettyProgram()
+	// Core.Bind is used when Program().Pretty() shows "bind" nodes rather than "ixbind" calls.
+	pretty := rt.Program().Pretty()
 	if !strings.Contains(pretty, "bind") {
 		t.Fatalf("expected Core.Bind in pretty output, got:\n%s", pretty)
 	}

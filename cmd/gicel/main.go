@@ -46,9 +46,9 @@ Commands:
   check  Type-check a GICEL program
   help   Show language reference (help <topic> for details)
 
-Flags (run/check):
+Flags:
   --use <packs>    Comma-separated stdlib packs: Num,Str,List,Fail,State,IO (default: all)
-  --entry <name>   Entry point binding (default: main)
+  --entry <name>   Entry point binding (default: main, run only)
   --timeout <dur>  Execution timeout (default: 5s, run only)
   --max-steps <n>  Step limit (default: 100000, run only)
   --max-depth <n>  Depth limit (default: 100, run only)
@@ -208,7 +208,7 @@ func cmdCheck(args []string) int {
 		return 1
 	}
 
-	_, err = eng.NewRuntime(string(source))
+	_, err = eng.Check(string(source))
 	if err != nil {
 		if *jsonOut {
 			outputJSON(map[string]any{"ok": false, "error": err.Error()})

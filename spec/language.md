@@ -268,7 +268,7 @@ case  do  data  type  forall  infixl  infixr  infixn  class  instance  import
 
 11 keywords. Note that `pure`, `bind`, `thunk`, `force`, `assumption`, `rec`, and `fix` are **not** keywords — they are ordinary identifiers with built-in meaning.
 
-`;` and newline are interchangeable as declaration/statement separators at all levels.
+`;` and newline are interchangeable as declaration/statement separators at the top level. Inside braces (`do`, `case`, GADT bodies), semicolons are required — newlines alone do not act as separators.
 
 ## 3.2 Identifiers
 
@@ -333,7 +333,7 @@ Precedence of type operators (loosest to tightest):
 
 ```
 Expr      ::= 'do' '{' Stmt+ '}'                           -- do block
-            | '\' Pattern+ '->' Expr                        -- lambda
+            | '\' Pattern '->' Expr                         -- lambda (single parameter)
             | 'case' Expr '{' Branch (';' Branch)* '}'     -- case analysis
             | 'thunk' Expr                                  -- suspend computation
             | ExprInfix
@@ -359,6 +359,7 @@ ExprAtom  ::= Var | Con | Lit
 FieldBind ::= LowerName '=' Expr
 
 Stmt      ::= Var '<-' Expr                                  -- bind
+            | Var ':=' Expr                                   -- pure let-bind
             | Expr                                            -- execute
 
 Branch    ::= Pattern '->' Expr
@@ -1078,13 +1079,22 @@ All top-level definitions in a module are exported. Selective exports are a futu
 eng := gicel.NewEngine()
 
 // Type registration
-eng.RegisterType("DB", gicel.KindArrow(userKind, gicel.KindType))
+eng.RegisterType("DB", gicel.KindArrow(userKind, gicel.KindType()))
 
-// Assumption (effect declaration)
-eng.DeclareAssumption("dbOpen", "forall r. Computation { db : DB Closed | r } { db : DB Opened | r } ()")
+// Assumption (effect declaration) — type must be constructed with helpers
+dbOpenTy := gicel.ForallRow("r",
+    gicel.ArrowType(
+        gicel.ConType("()"),
+        gicel.CompType(
+            gicel.NewRow().And("db", gicel.AppType(gicel.ConType("DB"), gicel.ConType("Closed"))).Open("r"),
+            gicel.NewRow().And("db", gicel.AppType(gicel.ConType("DB"), gicel.ConType("Opened"))).Open("r"),
+            gicel.ConType("()"))))
+eng.DeclareAssumption("dbOpen", dbOpenTy)
 
-// Primitive implementation
-eng.RegisterPrim("dbOpen", gicel.PrimImpl{...})
+// Primitive implementation — PrimImpl is a function type
+eng.RegisterPrim("dbOpen", func(ctx context.Context, capEnv gicel.CapEnv, args []gicel.Value, apply gicel.Applier) (gicel.Value, gicel.CapEnv, error) {
+    return gicel.ToValue(nil), capEnv.Set("db", "opened"), nil
+})
 
 // Stdlib packs
 eng.Use(gicel.Num)    // Num class, arithmetic operators
@@ -1095,28 +1105,35 @@ eng.Use(gicel.State)  // get/put capabilities
 eng.Use(gicel.IO)     // print/debug via CapEnv buffer
 ```
 
-A stdlib pack is `func(*Engine) error` — it bundles `RegisterType` + `RegisterModule` + `RegisterPrim`. A pack is not a module; it is a Go-side configuration action.
+A stdlib pack is `func(Registrar) error` — it bundles `RegisterType` + `RegisterModule` + `RegisterPrim`. A pack is not a module; it is a Go-side configuration action.
 
 ## 13.3 Runtime Compilation
 
 ```go
-rt, err := eng.Compile(source)
-// or
-rt, err := eng.CompileWithEntry(source, "myFunc")
+rt, err := eng.NewRuntime(source)
 ```
 
 ## 13.4 Execution
 
 ```go
-result, err := rt.RunContext(ctx)
-// or with full control:
-result, capEnv, err := rt.RunContextFull(ctx)
+// Basic: returns value and stats
+result, err := rt.RunContext(ctx, caps, bindings, "main")
+// result.Value, result.Stats
+
+// Full: also returns the final capability environment
+result, err := rt.RunContextFull(ctx, caps, bindings, "main")
+// result.Value, result.CapEnv, result.Stats
 ```
 
 ## 13.5 Sandbox API
 
 ```go
-result, err := gicel.RunSandbox(source, config)
+result, err := gicel.RunSandbox(source, &gicel.SandboxConfig{
+    Packs:    []gicel.Pack{gicel.Num, gicel.Str},
+    Timeout:  3 * time.Second,
+    MaxSteps: 50_000,
+    MaxAlloc: 10 * 1024 * 1024,
+})
 ```
 
 Single-call compile+execute for AI agents.
@@ -1124,12 +1141,12 @@ Single-call compile+execute for AI agents.
 ## 13.6 Primitive Implementation
 
 ```go
-type PrimImpl struct {
-    Applier func(fn, arg Value, capEnv CapEnv) (Value, CapEnv, error)
-}
+type PrimImpl func(ctx context.Context, capEnv CapEnv, args []Value, apply Applier) (Value, CapEnv, error)
+
+type Applier func(fn Value, arg Value, capEnv CapEnv) (Value, CapEnv, error)
 ```
 
-The `Applier` function enables higher-order primitives (e.g., `foldl`). Each application step receives the current argument and capability environment, returning the next value and updated environment.
+The `Applier` callback enables higher-order primitives (e.g., `foldl`). It applies a GICEL function value to an argument within the current capability environment.
 
 ---
 
