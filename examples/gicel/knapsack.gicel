@@ -1,0 +1,71 @@
+-- GICEL Example: Knapsack Problem
+--
+-- 0/1 knapsack solved two ways and cross-checked.
+-- Approach 1 uses fix to enumerate all subsets (brute-force).
+-- Approach 2 uses foldl to iteratively update a DP table.
+-- Requires: --recursion flag
+
+import Std.Num
+import Std.List
+import Std.Str
+
+-- ── Problem ────────────────────────────────────────────────
+
+-- Items: (weight, value)
+items := [(2, 3), (3, 4), (4, 5), (5, 6)]
+capacity := 10
+-- Optimal: pick items 0+1+3 → weight 10, value 13
+
+-- ── Helpers ────────────────────────────────────────────────
+
+range :: Int -> Int -> List Int
+range := fix (\self -> \lo -> \hi ->
+  case lo > hi { True -> []; False -> Cons lo (self (lo + 1) hi) })
+
+getOr := \def -> \i -> \xs -> maybe def id (index i xs)
+
+setAt := \i -> \v -> \xs ->
+  concat (take i xs) (Cons v (drop (i + 1) xs))
+
+sumBy :: forall a. (a -> Int) -> List a -> Int
+sumBy := \f -> foldl (\acc -> \x -> acc + f x) 0
+
+-- ── Approach 1: Brute-force ────────────────────────────────
+
+-- All subsets of a list, via structural recursion
+subsets :: forall a. List a -> List (List a)
+subsets := fix (\self -> \xs -> case xs {
+  Nil      -> [[]];
+  Cons x t -> { ss := self t; concat (fmap (\s -> Cons x s) ss) ss }
+})
+
+bruteForce := {
+  valid := filter (\s -> sumBy fst s <= capacity) (subsets items);
+  foldl (\best -> \s -> max best (sumBy snd s)) 0 valid
+}
+
+-- ── Approach 2: Dynamic Programming ────────────────────────
+
+-- dp[j] = max value with capacity j
+-- For each item (w,v): sweep j from high to low
+--   dp[j] = max(dp[j], dp[j−w] + v)
+revRange := reverse (range 0 capacity)
+
+dpAnswer := {
+  finalDp := foldl (\dp -> \item -> case item { (w, v) ->
+    foldl (\t -> \j -> case j >= w {
+      True  -> setAt j (max (getOr 0 j t) (getOr 0 (j - w) t + v)) t;
+      False -> t
+    }) dp revRange
+  }) (replicate (capacity + 1) 0) items;
+  getOr 0 capacity finalDp
+}
+
+-- ── Verify ─────────────────────────────────────────────────
+
+-- Output: "brute=13 dp=13 ok=True"
+main := join " " [
+  append "brute=" (showInt bruteForce),
+  append "dp=" (showInt dpAnswer),
+  append "ok=" (showBool (eq bruteForce dpAnswer))
+]
