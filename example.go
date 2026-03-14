@@ -28,6 +28,9 @@ func Examples() []string {
 // Example returns the source code of the named GICEL example.
 // Returns empty string if the example is not found.
 func Example(name string) string {
+	if strings.ContainsAny(name, "/\\") {
+		return ""
+	}
 	data, err := exampleFS.ReadFile(exampleDir + "/" + name + ".gicel")
 	if err != nil {
 		return ""

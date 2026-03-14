@@ -28,19 +28,28 @@ type EvalResult struct {
 
 // Evaluator is the per-execution evaluation engine.
 type Evaluator struct {
-	ctx       context.Context
-	prims     *PrimRegistry
-	limit     *Limit
-	trace     TraceHook
-	explain   ExplainHook
-	source    *span.Source // for line/col in explain events; nil if unavailable
-	suppress  int         // >0: suppress explain events (inside stdlib)
-	stats     EvalStats
+	ctx           context.Context
+	prims         *PrimRegistry
+	limit         *Limit
+	trace         TraceHook
+	explain       ExplainHook
+	source        *span.Source // for line/col in explain events; nil if unavailable
+	suppress      int         // >0: suppress explain events (inside stdlib)
+	cachedApplier Applier     // reused across all primitive invocations
+	stats         EvalStats
 }
 
 // NewEvaluator creates an Evaluator for a single execution.
 func NewEvaluator(ctx context.Context, prims *PrimRegistry, limit *Limit, trace TraceHook, explain ExplainHook) *Evaluator {
-	return &Evaluator{ctx: ctx, prims: prims, limit: limit, trace: trace, explain: explain}
+	ev := &Evaluator{ctx: ctx, prims: prims, limit: limit, trace: trace, explain: explain}
+	ev.cachedApplier = func(fn Value, arg Value, capEnv CapEnv) (Value, CapEnv, error) {
+		r, err := ev.apply(capEnv, fn, arg, &core.App{})
+		if err != nil {
+			return nil, capEnv, err
+		}
+		return r.Value, r.CapEnv, nil
+	}
+	return ev
 }
 
 // SetSource sets the source for line/col resolution in explain events.
@@ -133,7 +142,7 @@ func (ev *Evaluator) Eval(env *Env, capEnv CapEnv, expr core.Core) (EvalResult, 
 			return EvalResult{}, err
 		}
 		// Detect let-encoding: (\y -> body) expr → emit "y = value".
-		if ev.explain != nil {
+		if ev.explain != nil && ev.suppress == 0 {
 			if lam, ok := e.Fun.(*core.Lam); ok && lam.Param != "_" && !strings.HasPrefix(lam.Param, "$") {
 				ev.explainAt(ExplainBind, lam.Param+" = "+PrettyValue(argR.Value), e.S)
 			}
@@ -172,7 +181,7 @@ func (ev *Evaluator) Eval(env *Env, capEnv CapEnv, expr core.Core) (EvalResult, 
 		for _, alt := range e.Alts {
 			bindings := Match(scrutR.Value, alt.Pattern)
 			if bindings != nil {
-				if ev.explain != nil && !isInternalPattern(alt.Pattern) {
+				if ev.explain != nil && ev.suppress == 0 && !isInternalPattern(alt.Pattern) {
 					msg := "match " + PrettyValue(scrutR.Value) + " → " + FormatPattern(alt.Pattern)
 					if bs := FormatBindings(bindings); bs != "" {
 						msg += "    " + bs
@@ -251,7 +260,7 @@ func (ev *Evaluator) Eval(env *Env, capEnv CapEnv, expr core.Core) (EvalResult, 
 		if err != nil {
 			return EvalResult{}, err
 		}
-		if ev.explain != nil && e.Var != "_" && !strings.HasPrefix(e.Var, "$") {
+		if ev.explain != nil && ev.suppress == 0 && e.Var != "_" && !strings.HasPrefix(e.Var, "$") {
 			ev.explainAt(ExplainBind, e.Var+" ← "+PrettyValue(compR.Value), e.S)
 		}
 		bodyEnv := env.Extend(e.Var, compR.Value)
@@ -430,15 +439,9 @@ func (ev *Evaluator) ForceEffectful(r EvalResult, callSite span.Span) (EvalResul
 	return EvalResult{val, newCap}, nil
 }
 
-// applier creates an Applier callback that delegates to the evaluator's apply method.
+// applier returns the cached Applier that delegates to the evaluator's apply method.
 func (ev *Evaluator) applier() Applier {
-	return func(fn Value, arg Value, capEnv CapEnv) (Value, CapEnv, error) {
-		r, err := ev.apply(capEnv, fn, arg, &core.App{})
-		if err != nil {
-			return nil, capEnv, err
-		}
-		return r.Value, r.CapEnv, nil
-	}
+	return ev.cachedApplier
 }
 
 func (ev *Evaluator) apply(capEnv CapEnv, fn Value, arg Value, site *core.App) (EvalResult, error) {
@@ -452,7 +455,7 @@ func (ev *Evaluator) apply(capEnv CapEnv, fn Value, arg Value, site *core.App) (
 			if f.Internal {
 				ev.suppress++
 			} else {
-				ev.explain(ExplainStep{Kind: ExplainLabel, Message: "enter " + f.Name})
+				ev.explainAt(ExplainLabel, "enter "+f.Name, site.S)
 			}
 		}
 		bodyEnv := f.Env.Extend(f.Param, arg)

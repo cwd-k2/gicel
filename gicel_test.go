@@ -4561,3 +4561,63 @@ main := do {
 		}
 	}
 }
+
+// ---------------------------------------------------------------------------
+// Example API
+// ---------------------------------------------------------------------------
+
+func TestExamplesReturnsNonEmpty(t *testing.T) {
+	names := gicel.Examples()
+	if len(names) == 0 {
+		t.Fatal("Examples() should return at least one example")
+	}
+	// Names should be sorted.
+	for i := 1; i < len(names); i++ {
+		if names[i] < names[i-1] {
+			t.Errorf("Examples() not sorted: %s before %s", names[i-1], names[i])
+		}
+	}
+}
+
+func TestExampleReturnsSource(t *testing.T) {
+	for _, name := range gicel.Examples() {
+		src := gicel.Example(name)
+		if src == "" {
+			t.Errorf("Example(%q) returned empty string", name)
+		}
+	}
+}
+
+func TestExampleNotFound(t *testing.T) {
+	if gicel.Example("nonexistent-example-xyz") != "" {
+		t.Error("Example(nonexistent) should return empty string")
+	}
+}
+
+func TestExampleRejectsPathSeparators(t *testing.T) {
+	if gicel.Example("../cmd/gicel/main") != "" {
+		t.Error("Example should reject path with /")
+	}
+	if gicel.Example("..\\cmd") != "" {
+		t.Error("Example should reject path with \\")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// ExplainKind JSON: negative value should not panic
+// ---------------------------------------------------------------------------
+
+func TestExplainKindNegativeJSON(t *testing.T) {
+	step := gicel.ExplainStep{Kind: gicel.ExplainKind(-1), Message: "test"}
+	data, err := json.Marshal(step)
+	if err != nil {
+		t.Fatalf("should not error: %v", err)
+	}
+	var m map[string]any
+	if err := json.Unmarshal(data, &m); err != nil {
+		t.Fatalf("should unmarshal: %v", err)
+	}
+	if m["kind"] != "unknown" {
+		t.Errorf("negative kind should serialize as 'unknown', got %v", m["kind"])
+	}
+}

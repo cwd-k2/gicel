@@ -146,6 +146,9 @@ var packMap = map[string]gicel.Pack{
 	"io":    gicel.IO,
 }
 
+// allPackOrder ensures deterministic pack loading.
+var allPackOrder = []string{"num", "str", "list", "fail", "state", "io"}
+
 func setupEngine(use string) (*gicel.Engine, error) {
 	eng := gicel.NewEngine()
 	names := strings.Split(strings.ToLower(use), ",")
@@ -155,8 +158,8 @@ func setupEngine(use string) (*gicel.Engine, error) {
 			continue
 		}
 		if name == "all" {
-			for _, p := range packMap {
-				if err := p(eng); err != nil {
+			for _, n := range allPackOrder {
+				if err := packMap[n](eng); err != nil {
 					return nil, err
 				}
 			}

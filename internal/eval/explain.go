@@ -39,7 +39,7 @@ var explainKindNames = [...]string{
 
 // MarshalJSON encodes ExplainKind as a string.
 func (k ExplainKind) MarshalJSON() ([]byte, error) {
-	if int(k) < len(explainKindNames) {
+	if k >= 0 && int(k) < len(explainKindNames) {
 		return []byte(`"` + explainKindNames[k] + `"`), nil
 	}
 	return []byte(`"unknown"`), nil
@@ -245,12 +245,18 @@ func FormatEffect(name string, args []Value, result Value, oldCap, newCap CapEnv
 
 // capEnvDiff computes a human-readable description of CapEnv changes.
 func capEnvDiff(old, new CapEnv) string {
+	// Fast path: no change.
+	oldLabels := old.Labels()
+	newLabels := new.Labels()
+	if len(oldLabels) == 0 && len(newLabels) == 0 {
+		return ""
+	}
 	// Collect all labels from both.
 	seen := make(map[string]bool)
-	for _, l := range old.Labels() {
+	for _, l := range oldLabels {
 		seen[l] = true
 	}
-	for _, l := range new.Labels() {
+	for _, l := range newLabels {
 		seen[l] = true
 	}
 
