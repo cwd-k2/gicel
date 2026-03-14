@@ -179,7 +179,12 @@ func (ev *Evaluator) Eval(env *Env, capEnv CapEnv, expr core.Core) (EvalResult, 
 		for _, clo := range closures {
 			clo.Env = recEnv
 		}
-		return ev.Eval(bodyEnv, capEnv, e.Body)
+		if err := ev.limit.Enter(); err != nil {
+			return EvalResult{}, err
+		}
+		result, err := ev.Eval(bodyEnv, capEnv, e.Body)
+		ev.limit.Leave()
+		return result, err
 
 	case *core.Pure:
 		return ev.Eval(env, capEnv, e.Expr)

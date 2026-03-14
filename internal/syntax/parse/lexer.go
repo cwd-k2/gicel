@@ -232,6 +232,7 @@ func (l *Lexer) skipWhitespaceAndComments() {
 		}
 		// Block comment (nestable)
 		if ch == '{' && l.peekAt(1) == '-' {
+			commentStart := l.pos
 			l.pos += 2
 			depth := 1
 			for l.pos < len(l.source.Text) && depth > 0 {
@@ -249,7 +250,7 @@ func (l *Lexer) skipWhitespaceAndComments() {
 				l.errors.Add(&errs.Error{
 					Code:    errs.ErrUnterminatedLit,
 					Phase:   errs.PhaseLex,
-					Span:    span.Span{Start: span.Pos(l.pos), End: span.Pos(l.pos)},
+					Span:    span.Span{Start: span.Pos(commentStart), End: span.Pos(l.pos)},
 					Message: "unterminated block comment",
 				})
 			}

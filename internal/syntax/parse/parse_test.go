@@ -1488,6 +1488,169 @@ func TestParseMaxStepsFloor(t *testing.T) {
 	}
 }
 
+// --- Edge case / robustness tests ---
+
+func lexWithErrors(input string) ([]Token, *errs.Errors) {
+	src := span.NewSource("test", input)
+	l := NewLexer(src)
+	return l.Tokenize()
+}
+
+func TestLexUnterminatedBlockComment(t *testing.T) {
+	_, es := lexWithErrors("{- hello")
+	if !es.HasErrors() {
+		t.Fatal("expected error for unterminated block comment")
+	}
+	if es.Errs[0].Code != errs.ErrUnterminatedLit {
+		t.Errorf("expected ErrUnterminatedLit, got E%04d", es.Errs[0].Code)
+	}
+	// Span should point to the {- start, not EOF.
+	if es.Errs[0].Span.Start != 0 {
+		t.Errorf("expected span start at 0 (the '{-'), got %d", es.Errs[0].Span.Start)
+	}
+}
+
+func TestLexUnterminatedBlockCommentNested(t *testing.T) {
+	_, es := lexWithErrors("{- outer {- inner -}")
+	if !es.HasErrors() {
+		t.Fatal("expected error for unterminated nested block comment")
+	}
+	if es.Errs[0].Code != errs.ErrUnterminatedLit {
+		t.Errorf("expected ErrUnterminatedLit, got E%04d", es.Errs[0].Code)
+	}
+}
+
+func TestLexDeeplyNestedBlockComment(t *testing.T) {
+	// Three levels of nesting, all properly closed.
+	tokens := lex("x {- a {- b {- c -} b -} a -} y")
+	if len(tokens) != 3 { // x, y, EOF
+		t.Errorf("expected 3 tokens for triple-nested comment, got %d", len(tokens))
+	}
+}
+
+func TestLexUnterminatedString(t *testing.T) {
+	_, es := lexWithErrors(`"hello`)
+	if !es.HasErrors() {
+		t.Fatal("expected error for unterminated string")
+	}
+	if es.Errs[0].Code != errs.ErrUnterminatedLit {
+		t.Errorf("expected ErrUnterminatedLit, got E%04d", es.Errs[0].Code)
+	}
+}
+
+func TestLexUnterminatedStringNewline(t *testing.T) {
+	_, es := lexWithErrors("\"hello\nworld\"")
+	if !es.HasErrors() {
+		t.Fatal("expected error for string terminated by newline")
+	}
+}
+
+func TestLexEmptyString(t *testing.T) {
+	tokens := lex(`""`)
+	if tokens[0].Kind != TokStrLit || tokens[0].Text != "" {
+		t.Errorf("expected empty string literal, got %v %q", tokens[0].Kind, tokens[0].Text)
+	}
+}
+
+func TestLexStringUnicode(t *testing.T) {
+	tokens := lex(`"αβγ日本語"`)
+	if tokens[0].Kind != TokStrLit || tokens[0].Text != "αβγ日本語" {
+		t.Errorf("expected unicode string preserved, got %v %q", tokens[0].Kind, tokens[0].Text)
+	}
+}
+
+func TestLexStringAllEscapes(t *testing.T) {
+	tokens := lex(`"\n\t\r\\\"\'\0"`)
+	if tokens[0].Kind != TokStrLit {
+		t.Fatalf("expected string literal, got %v", tokens[0].Kind)
+	}
+	expected := "\n\t\r\\\"'\x00"
+	if tokens[0].Text != expected {
+		t.Errorf("expected all escapes decoded, got %q (want %q)", tokens[0].Text, expected)
+	}
+}
+
+func TestLexBadEscape(t *testing.T) {
+	_, es := lexWithErrors(`"\z"`)
+	if !es.HasErrors() {
+		t.Fatal("expected error for unknown escape sequence")
+	}
+	if es.Errs[0].Code != errs.ErrBadEscape {
+		t.Errorf("expected ErrBadEscape, got E%04d", es.Errs[0].Code)
+	}
+}
+
+func TestLexEmpty(t *testing.T) {
+	tokens, es := lexWithErrors("")
+	if es.HasErrors() {
+		t.Fatalf("empty input should not produce errors: %s", es.Format())
+	}
+	if len(tokens) != 1 || tokens[0].Kind != TokEOF {
+		t.Errorf("expected [EOF] for empty input, got %d tokens", len(tokens))
+	}
+}
+
+func TestLexWhitespaceOnly(t *testing.T) {
+	tokens, es := lexWithErrors("   \t\n  ")
+	if es.HasErrors() {
+		t.Fatalf("whitespace-only input should not produce errors: %s", es.Format())
+	}
+	if len(tokens) != 1 || tokens[0].Kind != TokEOF {
+		t.Errorf("expected [EOF] for whitespace-only input, got %d tokens", len(tokens))
+	}
+}
+
+func TestLexCommentOnly(t *testing.T) {
+	tokens, es := lexWithErrors("-- just a comment")
+	if es.HasErrors() {
+		t.Fatalf("comment-only input should not produce errors: %s", es.Format())
+	}
+	if len(tokens) != 1 || tokens[0].Kind != TokEOF {
+		t.Errorf("expected [EOF] for comment-only input, got %d tokens", len(tokens))
+	}
+}
+
+func TestLexBlockCommentOnly(t *testing.T) {
+	tokens, es := lexWithErrors("{- block comment -}")
+	if es.HasErrors() {
+		t.Fatalf("block-comment-only input should not produce errors: %s", es.Format())
+	}
+	if len(tokens) != 1 || tokens[0].Kind != TokEOF {
+		t.Errorf("expected [EOF] for block-comment-only input, got %d tokens", len(tokens))
+	}
+}
+
+func TestLexUnicodeIdentRejected(t *testing.T) {
+	_, es := lexWithErrors("α := 42")
+	if !es.HasErrors() {
+		t.Fatal("expected error for unicode identifier start")
+	}
+	if es.Errs[0].Code != errs.ErrUnexpectedChar {
+		t.Errorf("expected ErrUnexpectedChar, got E%04d", es.Errs[0].Code)
+	}
+}
+
+func TestParseMultipleErrors(t *testing.T) {
+	// Two distinct syntax errors in one program — both should be reported.
+	_, es := parse("f := )\ng := )")
+	if !es.HasErrors() {
+		t.Fatal("expected parse errors")
+	}
+	if len(es.Errs) < 2 {
+		t.Errorf("expected at least 2 errors, got %d", len(es.Errs))
+	}
+}
+
+func TestParseEmptyInput(t *testing.T) {
+	prog, es := parse("")
+	if es.HasErrors() {
+		t.Fatalf("empty input should parse without errors: %s", es.Format())
+	}
+	if len(prog.Decls) != 0 || len(prog.Imports) != 0 {
+		t.Errorf("expected empty program, got %d decls, %d imports", len(prog.Decls), len(prog.Imports))
+	}
+}
+
 func TestParseStepsResetBetweenPasses(t *testing.T) {
 	// After collectFixity (first pass), steps are reset to 0.
 	// Without the reset, collectFixity's steps would carry over,
