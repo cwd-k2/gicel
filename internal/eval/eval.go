@@ -428,7 +428,7 @@ func (ev *Evaluator) ForceEffectful(r EvalResult, callSite span.Span) (EvalResul
 	if err != nil {
 		return EvalResult{}, err
 	}
-	if ev.explain != nil {
+	if ev.explain != nil && ev.suppress == 0 {
 		// Prefer callSite (user's code) over pv.S (may be stdlib module).
 		site := callSite
 		if site.Start == 0 {
@@ -454,17 +454,13 @@ func (ev *Evaluator) apply(capEnv CapEnv, fn Value, arg Value, site *core.App) (
 		if ev.explain != nil && f.Name != "" {
 			if f.Internal {
 				ev.suppress++
+				defer func() { ev.suppress-- }()
 			} else {
 				ev.explainAt(ExplainLabel, "enter "+f.Name, site.S)
 			}
 		}
 		bodyEnv := f.Env.Extend(f.Param, arg)
 		result, err := ev.Eval(bodyEnv, capEnv, f.Body)
-		if ev.explain != nil && f.Name != "" {
-			if f.Internal {
-				ev.suppress--
-			}
-		}
 		ev.limit.Leave()
 		return result, err
 	case *ConVal:

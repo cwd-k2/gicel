@@ -245,7 +245,7 @@ func FormatEffect(name string, args []Value, result Value, oldCap, newCap CapEnv
 
 // capEnvDiff computes a human-readable description of CapEnv changes.
 func capEnvDiff(old, new CapEnv) string {
-	// Fast path: no change.
+	// Fast path: both empty (no capabilities in either env).
 	oldLabels := old.Labels()
 	newLabels := new.Labels()
 	if len(oldLabels) == 0 && len(newLabels) == 0 {
