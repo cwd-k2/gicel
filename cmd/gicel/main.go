@@ -30,7 +30,7 @@ func main() {
 	case "check":
 		os.Exit(cmdCheck(os.Args[2:]))
 	case "help", "-h", "--help":
-		printUsage()
+		os.Exit(cmdHelp(os.Args[2:]))
 	default:
 		fmt.Fprintf(os.Stderr, "unknown command: %s\n", os.Args[1])
 		printUsage()
@@ -39,19 +39,43 @@ func main() {
 }
 
 func printUsage() {
-	fmt.Fprintln(os.Stderr, `Usage: gicel <command> [flags] <file>
+	fmt.Fprintln(os.Stderr, `Usage: gicel <command> [flags] [args]
 
 Commands:
   run    Compile and execute a GICEL program
   check  Type-check a GICEL program
+  help   Show language reference (help <topic> for details)
 
-Flags:
+Flags (run/check):
   --use <packs>    Comma-separated stdlib packs: Num,Str,List,Fail,State,IO (default: all)
   --entry <name>   Entry point binding (default: main)
   --timeout <dur>  Execution timeout (default: 5s, run only)
   --max-steps <n>  Step limit (default: 100000, run only)
   --max-depth <n>  Depth limit (default: 100, run only)
   --json           Output result as JSON (run only)`)
+}
+
+func cmdHelp(args []string) int {
+	if len(args) == 0 {
+		content := gicel.Doc("index")
+		if content == "" {
+			fmt.Fprintln(os.Stderr, "no documentation available")
+			return 1
+		}
+		fmt.Print(content)
+		return 0
+	}
+	topic := args[0]
+	content := gicel.Doc(topic)
+	if content == "" {
+		fmt.Fprintf(os.Stderr, "unknown topic: %s\n\nAvailable topics:\n", topic)
+		for _, t := range gicel.DocTopics() {
+			fmt.Fprintf(os.Stderr, "  %s\n", t)
+		}
+		return 1
+	}
+	fmt.Print(content)
+	return 0
 }
 
 // packMap maps pack names to their Pack functions.
