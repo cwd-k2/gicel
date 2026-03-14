@@ -12,6 +12,31 @@ import (
 
 const maxResolveDepth = 64
 
+// extractDictField builds a Case expression that extracts the field at fieldIdx
+// from a class dictionary constructor. prefix is used for generated variable names.
+func (ch *Checker) extractDictField(classInfo *ClassInfo, dictExpr core.Core, fieldIdx int, prefix string, s span.Span) core.Core {
+	allFields := len(classInfo.Supers) + len(classInfo.Methods)
+	freshBase := ch.fresh()
+	var patArgs []core.Pattern
+	var fieldExpr core.Core
+	for j := 0; j < allFields; j++ {
+		argName := fmt.Sprintf("$%s_%d_%d", prefix, j, freshBase)
+		patArgs = append(patArgs, &core.PVar{Name: argName, S: s})
+		if j == fieldIdx {
+			fieldExpr = &core.Var{Name: argName, S: s}
+		}
+	}
+	return &core.Case{
+		Scrutinee: dictExpr,
+		Alts: []core.Alt{{
+			Pattern: &core.PCon{Con: classInfo.DictName, Args: patArgs, S: s},
+			Body:    fieldExpr,
+			S:       s,
+		}},
+		S: s,
+	}
+}
+
 // resolveInstance finds a dictionary expression for a given class constraint.
 // Returns a Core expression that evaluates to the dictionary value.
 func (ch *Checker) resolveInstance(className string, args []types.Type, s span.Span) core.Core {
@@ -172,27 +197,7 @@ func (sd *superDictSearch) chain(dictExpr core.Core, dictTyName string, dictTyAr
 			superArgs[j] = types.SubstMany(a, subst)
 		}
 
-		// Build Case extraction for this super field.
-		allFields := len(classInfo.Supers) + len(classInfo.Methods)
-		var patArgs []core.Pattern
-		var fieldExpr core.Core
-		freshBase := sd.ch.fresh()
-		for j := 0; j < allFields; j++ {
-			argName := fmt.Sprintf("$sf_%d_%d_%d", superIdx, j, freshBase)
-			patArgs = append(patArgs, &core.PVar{Name: argName, S: sd.s})
-			if j == superIdx {
-				fieldExpr = &core.Var{Name: argName, S: sd.s}
-			}
-		}
-		extractExpr := &core.Case{
-			Scrutinee: dictExpr,
-			Alts: []core.Alt{{
-				Pattern: &core.PCon{Con: classInfo.DictName, Args: patArgs, S: sd.s},
-				Body:    fieldExpr,
-				S:       sd.s,
-			}},
-			S: sd.s,
-		}
+		extractExpr := sd.ch.extractDictField(classInfo, dictExpr, superIdx, "sf", sd.s)
 
 		// Direct match: this superclass IS the target.
 		if sup.ClassName == sd.targetClass && len(superArgs) == len(sd.targetArgs) {

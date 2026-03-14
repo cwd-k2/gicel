@@ -254,6 +254,12 @@ func extractPureArg(expr syntax.Expr) syntax.Expr {
 	return nil
 }
 
+// IxMonad method indices (offset from the start of the methods block, after supers).
+const (
+	ixMethodPure = 0 // ixpure
+	ixMethodBind = 1 // ixbind
+)
+
 // extractIxMethod resolves the IxMonad (Lift monadHead) dictionary and
 // extracts the method at the given index via pattern matching.
 func (ch *Checker) extractIxMethod(monadHead types.Type, methodIdx int, s span.Span) core.Core {
@@ -261,37 +267,19 @@ func (ch *Checker) extractIxMethod(monadHead types.Type, methodIdx int, s span.S
 	dict := ch.resolveInstance("IxMonad", []types.Type{liftedMonad}, s)
 
 	classInfo := ch.classes["IxMonad"]
-	allFields := len(classInfo.Supers) + len(classInfo.Methods)
-	var patArgs []core.Pattern
-	var methodExpr core.Core
-	freshBase := ch.fresh()
-	for j := 0; j < allFields; j++ {
-		argName := fmt.Sprintf("$ixm_%d_%d", j, freshBase)
-		patArgs = append(patArgs, &core.PVar{Name: argName, S: s})
-		if j == len(classInfo.Supers)+methodIdx {
-			methodExpr = &core.Var{Name: argName, S: s}
-		}
-	}
-	return &core.Case{
-		Scrutinee: dict,
-		Alts: []core.Alt{{
-			Pattern: &core.PCon{Con: classInfo.DictName, Args: patArgs, S: s},
-			Body:    methodExpr,
-			S:       s,
-		}},
-		S: s,
-	}
+	fieldIdx := len(classInfo.Supers) + methodIdx
+	return ch.extractDictField(classInfo, dict, fieldIdx, "ixm", s)
 }
 
 // mkIxPure generates Core for monadic pure using the IxMonad dictionary.
 func (ch *Checker) mkIxPure(monadHead types.Type, val core.Core, s span.Span) core.Core {
-	selector := ch.extractIxMethod(monadHead, 0, s) // ixpure is method 0
+	selector := ch.extractIxMethod(monadHead, ixMethodPure, s)
 	return &core.App{Fun: selector, Arg: val, S: s}
 }
 
 // mkIxBind generates Core for a monadic bind using the IxMonad dictionary.
 func (ch *Checker) mkIxBind(monadHead types.Type, comp core.Core, varName string, body core.Core, s span.Span) core.Core {
-	selector := ch.extractIxMethod(monadHead, 1, s) // ixbind is method 1
+	selector := ch.extractIxMethod(monadHead, ixMethodBind, s)
 	return &core.App{
 		Fun: &core.App{Fun: selector, Arg: comp, S: s},
 		Arg: &core.Lam{Param: varName, Body: body, S: s},

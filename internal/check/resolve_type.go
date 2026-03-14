@@ -254,7 +254,7 @@ func (ch *Checker) checkTypeAppKind(fun, arg types.Type, s span.Span) {
 		return
 	}
 	if err := ch.unifier.UnifyKinds(ka.From, argKind); err != nil {
-		ch.addCodedError(errs.ErrTypeMismatch, s, // MUTATION 5: wrong error code
+		ch.addCodedError(errs.ErrKindMismatch, s,
 			fmt.Sprintf("kind mismatch in type application: expected kind %s, got %s", ka.From, argKind))
 	}
 }

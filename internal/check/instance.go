@@ -211,7 +211,7 @@ func (ch *Checker) processInstanceBody(inst *InstanceInfo, prog *core.Program) {
 	}
 	var ctxParams []ctxParam
 	for _, ctx := range inst.Context {
-		paramName := fmt.Sprintf("$d_%s_%d", ctx.ClassName, ch.fresh())
+		paramName := fmt.Sprintf("%s_%s_%d", prefixDict, ctx.ClassName, ch.fresh())
 		paramTy := ch.buildDictType(ctx.ClassName, ctx.Args)
 		ctxParams = append(ctxParams, ctxParam{name: paramName, ty: paramTy})
 		ch.ctx.Push(&CtxVar{Name: paramName, Type: paramTy})

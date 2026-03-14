@@ -158,39 +158,7 @@ func (ch *Checker) processDataDecl(d *syntax.DeclData, prog *core.Program) {
 
 	// GADT constructors.
 	for _, gcon := range d.GADTCons {
-		conTy := ch.resolveTypeExpr(gcon.Type)
-
-		// Wrap data type params that appear free in the constructor type
-		// but aren't already quantified. This makes `data F f = { MkF :: forall a. f a -> F f }`
-		// work correctly by wrapping f in an outer forall.
-		existingForalls := collectForallNames(conTy)
-		for i := len(d.Params) - 1; i >= 0; i-- {
-			p := d.Params[i].Name
-			if _, already := existingForalls[p]; !already {
-				if types.OccursIn(p, conTy) {
-					conTy = types.MkForall(p, types.KType{}, conTy)
-				}
-			}
-		}
-
-		// Decompose the resolved type into (field types, return type),
-		// skipping any outer foralls and qualifications.
-		fieldTypes, retTy := decomposeConSig(conTy)
-
-		ch.conTypes[gcon.Name] = conTy
-		ch.ctx.Push(&CtxVar{Name: gcon.Name, Type: conTy})
-		dataInfo.Constructors = append(dataInfo.Constructors, ConInfo{
-			Name:       gcon.Name,
-			Arity:      len(fieldTypes),
-			ReturnType: retTy,
-		})
-		ch.conInfo[gcon.Name] = dataInfo
-		coreDecl.Cons = append(coreDecl.Cons, core.ConDecl{
-			Name:       gcon.Name,
-			Fields:     fieldTypes,
-			ReturnType: retTy,
-			S:          gcon.S,
-		})
+		ch.processGADTCon(gcon, d.Params, dataInfo, &coreDecl)
 	}
 
 	prog.DataDecls = append(prog.DataDecls, coreDecl)
@@ -209,6 +177,41 @@ func (ch *Checker) processDataDecl(d *syntax.DeclData, prog *core.Program) {
 			ch.promotedCons[gcon.Name] = dataKind
 		}
 	}
+}
+
+// processGADTCon registers a single GADT constructor: resolves its type,
+// wraps unquantified data params, and registers it into conTypes/conInfo/coreDecl.
+func (ch *Checker) processGADTCon(gcon syntax.GADTConDecl, dataParams []syntax.TyBinder, dataInfo *DataTypeInfo, coreDecl *core.DataDecl) {
+	conTy := ch.resolveTypeExpr(gcon.Type)
+
+	// Wrap data type params that appear free in the constructor type
+	// but aren't already quantified.
+	existingForalls := collectForallNames(conTy)
+	for i := len(dataParams) - 1; i >= 0; i-- {
+		p := dataParams[i].Name
+		if _, already := existingForalls[p]; !already {
+			if types.OccursIn(p, conTy) {
+				conTy = types.MkForall(p, types.KType{}, conTy)
+			}
+		}
+	}
+
+	fieldTypes, retTy := decomposeConSig(conTy)
+
+	ch.conTypes[gcon.Name] = conTy
+	ch.ctx.Push(&CtxVar{Name: gcon.Name, Type: conTy})
+	dataInfo.Constructors = append(dataInfo.Constructors, ConInfo{
+		Name:       gcon.Name,
+		Arity:      len(fieldTypes),
+		ReturnType: retTy,
+	})
+	ch.conInfo[gcon.Name] = dataInfo
+	coreDecl.Cons = append(coreDecl.Cons, core.ConDecl{
+		Name:       gcon.Name,
+		Fields:     fieldTypes,
+		ReturnType: retTy,
+		S:          gcon.S,
+	})
 }
 
 // isConstraintKindedField checks if a field type references a Constraint-kinded type variable.

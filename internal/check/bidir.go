@@ -289,7 +289,7 @@ func (ch *Checker) checkWithEvidence(expr syntax.Expr, ev *types.TyEvidence) cor
 			args = entry.Args
 			dictTy = ch.buildDictType(entry.ClassName, entry.Args)
 		}
-		dictParam := fmt.Sprintf("$d_%s_%d", className, ch.fresh())
+		dictParam := fmt.Sprintf("%s_%s_%d", prefixDict, className, ch.fresh())
 		dicts[i] = dictInfo{param: dictParam, ty: dictTy}
 		ch.ctx.Push(&CtxVar{Name: dictParam, Type: dictTy})
 		ch.ctx.Push(&CtxEvidence{
@@ -337,7 +337,7 @@ func (ch *Checker) subsCheck(inferred, expected types.Type, expr core.Core, s sp
 	if ev, ok := inferred.(*types.TyEvidence); ok {
 		groupID := ch.fresh()
 		for _, entry := range ev.Constraints.ConEntries() {
-			placeholder := fmt.Sprintf("$dict_%d", ch.fresh())
+			placeholder := fmt.Sprintf("%s_%d", prefixDictDefer, ch.fresh())
 			ch.deferred = append(ch.deferred, deferredConstraint{
 				placeholder:   placeholder,
 				className:     entry.ClassName,
@@ -368,7 +368,7 @@ func (ch *Checker) checkLam(e *syntax.ExprLam, expected types.Type) core.Core {
 
 	// Desugar structured patterns: \pat -> body  →  \$p -> case $p { pat -> body }
 	if isStructuredPattern(e.Params[0]) {
-		freshName := fmt.Sprintf("$pat_%d", ch.fresh())
+		freshName := fmt.Sprintf("%s_%d", prefixPat, ch.fresh())
 		var innerBody syntax.Expr
 		if len(e.Params) == 1 {
 			innerBody = e.Body
@@ -495,39 +495,32 @@ type pendingCV struct {
 	dictParam     string
 }
 
-func (ch *Checker) checkConPattern(p *syntax.PatCon, scrutTy types.Type) patternResult {
-	conTy, ok := ch.conTypes[p.Con]
-	if !ok {
-		ch.addCodedError(errs.ErrUnboundCon, p.S, fmt.Sprintf("unknown constructor in pattern: %s", p.Con))
-		return patternResult{Pattern: &core.PWild{S: p.S}}
-	}
-	// Instantiate constructor type and match argument types.
-	conTy = ch.unifier.Zonk(conTy)
-	var args []core.Pattern
-	bindings := make(map[string]types.Type)
-	currentTy := conTy
-
-	// 1. Collect forall vars.
-	type forallVar struct {
+// instantiateConForalls peels outer foralls from a constructor type,
+// classifying each variable as universal (meta) or existential (skolem).
+// Returns the body type after substitution and a map of skolem IDs.
+func (ch *Checker) instantiateConForalls(conTy types.Type) (types.Type, map[int]string) {
+	// Collect forall vars.
+	type fvar struct {
 		name string
 		kind types.Kind
 	}
-	var forallVars []forallVar
-	tmpTy := currentTy
+	var forallVars []fvar
+	tmpTy := conTy
 	for {
 		if f, ok := tmpTy.(*types.TyForall); ok {
-			forallVars = append(forallVars, forallVar{name: f.Var, kind: f.Kind})
+			forallVars = append(forallVars, fvar{name: f.Var, kind: f.Kind})
 			tmpTy = f.Body
 		} else {
 			break
 		}
 	}
 
-	// 2. Get the return type's free vars (strip arrows from after foralls).
+	// Get the return type's free vars (strip arrows from after foralls).
 	_, retTy := decomposeConSig(conTy)
 	retFreeVars := types.FreeVars(retTy)
 
-	// 3. Classify each forall var: universal (in return type) → meta, existential → skolem.
+	// Classify each forall var: universal (in return type) → meta, existential → skolem.
+	currentTy := conTy
 	skolemIDs := map[int]string{}
 	for _, fv := range forallVars {
 		if f, ok := currentTy.(*types.TyForall); ok {
@@ -541,6 +534,20 @@ func (ch *Checker) checkConPattern(p *syntax.PatCon, scrutTy types.Type) pattern
 			}
 		}
 	}
+	return currentTy, skolemIDs
+}
+
+func (ch *Checker) checkConPattern(p *syntax.PatCon, scrutTy types.Type) patternResult {
+	conTy, ok := ch.conTypes[p.Con]
+	if !ok {
+		ch.addCodedError(errs.ErrUnboundCon, p.S, fmt.Sprintf("unknown constructor in pattern: %s", p.Con))
+		return patternResult{Pattern: &core.PWild{S: p.S}}
+	}
+	conTy = ch.unifier.Zonk(conTy)
+	var args []core.Pattern
+	bindings := make(map[string]types.Type)
+
+	currentTy, skolemIDs := ch.instantiateConForalls(conTy)
 
 	// 4. Peel constraints — generate dict bindings and pattern args for existential constraints.
 	// For ConstraintVar entries, the concrete className/args are unknown until
@@ -550,14 +557,14 @@ func (ch *Checker) checkConPattern(p *syntax.PatCon, scrutTy types.Type) pattern
 		if ev, ok := currentTy.(*types.TyEvidence); ok {
 			for _, entry := range ev.Constraints.ConEntries() {
 				if entry.ConstraintVar != nil && entry.ClassName == "" {
-					dictParam := fmt.Sprintf("$d_cv_%d", ch.fresh())
+					dictParam := fmt.Sprintf("%s_%d", prefixDictCV, ch.fresh())
 					pendingCVs = append(pendingCVs, pendingCV{
 						constraintVar: entry.ConstraintVar,
 						dictParam:     dictParam,
 					})
 					args = append(args, &core.PVar{Name: dictParam, S: p.S})
 				} else {
-					dictParam := fmt.Sprintf("$d_%s_%d", entry.ClassName, ch.fresh())
+					dictParam := fmt.Sprintf("%s_%s_%d", prefixDict, entry.ClassName, ch.fresh())
 					dictTy := ch.buildDictType(entry.ClassName, entry.Args)
 					bindings[dictParam] = dictTy
 					args = append(args, &core.PVar{Name: dictParam, S: p.S})
@@ -660,7 +667,7 @@ func (ch *Checker) instantiate(ty types.Type, expr core.Core) (types.Type, core.
 		if ev, ok := ty.(*types.TyEvidence); ok {
 			groupID := ch.fresh()
 			for _, entry := range ev.Constraints.ConEntries() {
-				placeholder := fmt.Sprintf("$dict_%d", ch.fresh())
+				placeholder := fmt.Sprintf("%s_%d", prefixDictDefer, ch.fresh())
 				ch.deferred = append(ch.deferred, deferredConstraint{
 					placeholder:   placeholder,
 					className:     entry.ClassName,
@@ -733,7 +740,7 @@ func (ch *Checker) inferBind(compExpr, contExpr syntax.Expr, s span.Span) (types
 		}
 		ch.ctx.Pop()
 	} else {
-		bindVar = fmt.Sprintf("_bind_%d", ch.fresh())
+		bindVar = fmt.Sprintf("%s_%d", prefixBind, ch.fresh())
 		contExpected := types.MkArrow(ch.unifier.Zonk(a), types.MkComp(ch.unifier.Zonk(r2), r3, b))
 		contCore := ch.check(contExpr, contExpected)
 		bodyCore = &core.App{

@@ -185,7 +185,7 @@ func (ch *Checker) processClassDecl(d *syntax.DeclClass, prog *core.Program) {
 
 		ch.ctx.Push(&CtxVar{Name: m.Name, Type: selectorTy})
 
-		selName := fmt.Sprintf("$sel_%s_%d", m.Name, ch.fresh())
+		selName := fmt.Sprintf("%s_%s_%d", prefixSel, m.Name, ch.fresh())
 		var patArgs []core.Pattern
 		var resultExpr core.Core
 		for j := 0; j < len(allFieldTypes); j++ {

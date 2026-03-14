@@ -10,6 +10,16 @@ import (
 	"github.com/cwd-k2/gomputation/internal/types"
 )
 
+// Generated name prefixes for internal variables.
+const (
+	prefixDict       = "$d"      // dictionary parameters
+	prefixDictCV     = "$d_cv"   // constraint-variable dictionary parameters
+	prefixDictDefer  = "$dict"   // deferred dictionary placeholders
+	prefixPat        = "$pat"    // desugared structured pattern variables
+	prefixBind       = "$bind"   // anonymous bind variables
+	prefixSel        = "$sel"    // class method selectors
+)
+
 // CheckConfig provides environment for type checking.
 type CheckConfig struct {
 	RegisteredTypes map[string]types.Kind
@@ -32,7 +42,7 @@ type ModuleExports struct {
 	PromotedKinds map[string]types.Kind    // DataKinds promotions
 	PromotedCons  map[string]types.Kind    // promoted constructors
 	DataDecls     []core.DataDecl          // for evaluator constructor registration
-	Bindings      []core.Binding           // for evaluator top-level bindings
+	CoreBindings  []core.Binding           // compiled top-level bindings (Core IR)
 }
 
 // CheckTraceKind classifies trace events.
@@ -201,30 +211,22 @@ func (ch *Checker) ExportModule(prog *core.Program) *ModuleExports {
 		values[b.Name] = b.Type
 	}
 	return &ModuleExports{
-		Types:         copyKindMap(ch.config.RegisteredTypes),
-		ConTypes:      copyTypeMap(ch.conTypes),
+		Types:         copyMap(ch.config.RegisteredTypes),
+		ConTypes:      copyMap(ch.conTypes),
 		ConInfo:       ch.conInfo,
 		Aliases:       ch.aliases,
 		Classes:       ch.classes,
 		Instances:     ch.instances,
 		Values:        values,
-		PromotedKinds: copyKindMap(ch.promotedKinds),
-		PromotedCons:  copyKindMap(ch.promotedCons),
+		PromotedKinds: copyMap(ch.promotedKinds),
+		PromotedCons:  copyMap(ch.promotedCons),
 		DataDecls:     prog.DataDecls,
-		Bindings:      prog.Bindings,
+		CoreBindings:  prog.Bindings,
 	}
 }
 
-func copyKindMap(m map[string]types.Kind) map[string]types.Kind {
-	out := make(map[string]types.Kind, len(m))
-	for k, v := range m {
-		out[k] = v
-	}
-	return out
-}
-
-func copyTypeMap(m map[string]types.Type) map[string]types.Type {
-	out := make(map[string]types.Type, len(m))
+func copyMap[V any](m map[string]V) map[string]V {
+	out := make(map[string]V, len(m))
 	for k, v := range m {
 		out[k] = v
 	}
