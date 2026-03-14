@@ -694,3 +694,96 @@ func TestLetRecDepthLimit(t *testing.T) {
 		t.Errorf("expected *DepthLimitError, got %T: %v", err, err)
 	}
 }
+
+// --- Error path and contract tests ---
+
+func TestEvalVarUnbound(t *testing.T) {
+	ev := newTestEval()
+	_, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), &core.Var{Name: "missing"})
+	if err == nil {
+		t.Fatal("expected error for unbound variable")
+	}
+	if _, ok := err.(*RuntimeError); !ok {
+		t.Errorf("expected *RuntimeError, got %T", err)
+	}
+}
+
+func TestEvalCaseNoMatch(t *testing.T) {
+	ev := newTestEval()
+	term := &core.Case{
+		Scrutinee: &core.Con{Name: "Foo"},
+		Alts: []core.Alt{
+			{Pattern: &core.PCon{Con: "Bar"}, Body: &core.Lit{Value: int64(1)}},
+		},
+	}
+	_, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), term)
+	if err == nil {
+		t.Fatal("expected error for non-exhaustive case")
+	}
+	if _, ok := err.(*RuntimeError); !ok {
+		t.Errorf("expected *RuntimeError, got %T", err)
+	}
+}
+
+func TestLetRecNonLamBinding(t *testing.T) {
+	ev := newTestEval()
+	term := &core.LetRec{
+		Bindings: []core.Binding{{Name: "x", Expr: &core.Con{Name: "Unit"}}},
+		Body:     &core.Var{Name: "x"},
+	}
+	_, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), term)
+	if err == nil {
+		t.Fatal("expected error for LetRec non-lambda binding")
+	}
+	if _, ok := err.(*RuntimeError); !ok {
+		t.Errorf("expected *RuntimeError, got %T", err)
+	}
+}
+
+func TestTraceHookAbort(t *testing.T) {
+	sentinel := errors.New("abort from hook")
+	hook := func(ev TraceEvent) error { return sentinel }
+	limit := NewLimit(1_000_000, 1_000)
+	evl := NewEvaluator(context.Background(), NewPrimRegistry(), limit, hook)
+	_, err := evl.Eval(EmptyEnv(), EmptyCapEnv(), &core.Lit{Value: int64(1)})
+	if !errors.Is(err, sentinel) {
+		t.Errorf("expected sentinel error from hook, got %v", err)
+	}
+}
+
+func TestCapEnvDeleteAndLabels(t *testing.T) {
+	ce := NewCapEnv(map[string]any{"a": 1, "b": 2, "c": 3})
+	ce2 := ce.Delete("b")
+	if _, ok := ce2.Get("b"); ok {
+		t.Error("expected key 'b' to be deleted")
+	}
+	if v, ok := ce2.Get("a"); !ok || v != 1 {
+		t.Error("expected key 'a' to survive delete")
+	}
+	labels := ce2.Labels()
+	if len(labels) != 2 || labels[0] != "a" || labels[1] != "c" {
+		t.Errorf("expected [a c], got %v", labels)
+	}
+
+	// CoW: delete on shared env should not mutate original.
+	shared := NewCapEnv(map[string]any{"x": 1, "y": 2}).MarkShared()
+	del := shared.Delete("x")
+	if _, ok := del.Get("x"); ok {
+		t.Error("expected x deleted in new env")
+	}
+	if _, ok := shared.Get("x"); !ok {
+		t.Error("expected x still present in shared env after CoW delete")
+	}
+}
+
+func TestPrimOpNotRegistered(t *testing.T) {
+	ev := newTestEval()
+	term := &core.PrimOp{Name: "nonexistent", Args: []core.Core{&core.Lit{Value: int64(0)}}}
+	_, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), term)
+	if err == nil {
+		t.Fatal("expected error for unregistered PrimOp")
+	}
+	if _, ok := err.(*RuntimeError); !ok {
+		t.Errorf("expected *RuntimeError, got %T", err)
+	}
+}

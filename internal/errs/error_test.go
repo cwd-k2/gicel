@@ -1,6 +1,7 @@
 package errs
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
@@ -99,6 +100,39 @@ func TestFormatMultipleErrors(t *testing.T) {
 	assertContains(t, got, "err one")
 	assertContains(t, got, "E0002")
 	assertContains(t, got, "err two")
+}
+
+func TestErrorsOverflow(t *testing.T) {
+	src := span.NewSource("test", "x")
+	es := &Errors{Source: src}
+	for i := range MaxErrors + 5 {
+		es.Add(&Error{Code: 1, Phase: PhaseLex, Span: span.Span{}, Message: fmt.Sprintf("err %d", i)})
+	}
+	if len(es.Errs) != MaxErrors {
+		t.Errorf("expected %d errors, got %d", MaxErrors, len(es.Errs))
+	}
+	if es.Overflow != 5 {
+		t.Errorf("expected overflow=5, got %d", es.Overflow)
+	}
+	assertContains(t, es.Format(), "more errors")
+}
+
+func TestFormatZeroWidthSpan(t *testing.T) {
+	src := span.NewSource("test", "hello\n")
+	es := &Errors{Source: src}
+	es.Add(&Error{Code: 1, Phase: PhaseLex, Span: span.Span{Start: 3, End: 3}, Message: "at point"})
+	got := es.Format()
+	assertContains(t, got, "^") // single caret for zero-width
+}
+
+func TestFormatMultiLineSpan(t *testing.T) {
+	src := span.NewSource("test", "line1\nline2\n")
+	es := &Errors{Source: src}
+	// Error at start of "line2" (offset 6)
+	es.Add(&Error{Code: 1, Phase: PhaseLex, Span: span.Span{Start: 6, End: 11}, Message: "on line 2"})
+	got := es.Format()
+	assertContains(t, got, "2:1")
+	assertContains(t, got, "line2")
 }
 
 func assertContains(t *testing.T, s, substr string) {
