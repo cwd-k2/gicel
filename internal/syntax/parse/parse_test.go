@@ -1543,6 +1543,9 @@ func TestLexUnterminatedStringNewline(t *testing.T) {
 	if !es.HasErrors() {
 		t.Fatal("expected error for string terminated by newline")
 	}
+	if es.Errs[0].Code != errs.ErrUnterminatedLit {
+		t.Errorf("expected ErrUnterminatedLit, got E%04d", es.Errs[0].Code)
+	}
 }
 
 func TestLexEmptyString(t *testing.T) {

@@ -1078,8 +1078,8 @@ All top-level definitions in a module are exported. Selective exports are a futu
 ```go
 eng := gicel.NewEngine()
 
-// Type registration
-eng.RegisterType("DB", gicel.KindArrow(userKind, gicel.KindType()))
+// Type registration (DB : Type -> Type)
+eng.RegisterType("DB", gicel.KindArrow(gicel.KindType(), gicel.KindType()))
 
 // Assumption (effect declaration) — type must be constructed with helpers
 dbOpenTy := gicel.ForallRow("r",

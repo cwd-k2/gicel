@@ -7,7 +7,7 @@ import Std.Str
 import Std.IO
 
 main := do {
-  _ <- print "hello";
-  _ <- print (append "hello" " world!");
-  debug "trace message"
+  _ <- print "hello, ";
+  _ <- print (append "world" "!");
+  debug "done"
 }

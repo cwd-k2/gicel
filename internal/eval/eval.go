@@ -200,7 +200,11 @@ func (ev *Evaluator) Eval(env *Env, capEnv CapEnv, expr core.Core) (EvalResult, 
 			return EvalResult{}, err
 		}
 		bodyEnv := env.Extend(e.Var, compR.Value)
+		if err := ev.limit.Enter(); err != nil {
+			return EvalResult{}, err
+		}
 		bodyR, err := ev.Eval(bodyEnv, compR.CapEnv, e.Body)
+		ev.limit.Leave()
 		if err != nil {
 			return EvalResult{}, err
 		}
