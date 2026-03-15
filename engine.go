@@ -35,7 +35,8 @@ type Engine struct {
 	traceHook      eval.TraceHook
 	explainHook    eval.ExplainHook
 	checkTraceHook check.CheckTraceHook
-	modules        map[string]*compiledModule
+	modules          map[string]*compiledModule
+	runtimeRecursion bool // set by RegisterModuleRec; ensures fix/rec in eval env
 }
 
 type compiledModule struct {
@@ -100,10 +101,30 @@ func (e *Engine) RegisterPrim(name string, impl PrimImpl) {
 	e.prims.Register(name, impl)
 }
 
-// EnableRecursion enables the rec and fix built-in identifiers.
+// EnableRecursion enables the rec and fix built-in identifiers for all
+// subsequent compilations on this engine. Use RegisterModuleRec instead
+// when recursion should be scoped to a single module (stdlib packs).
 func (e *Engine) EnableRecursion() {
 	e.gatedBuiltins["rec"] = true
 	e.gatedBuiltins["fix"] = true
+}
+
+// RegisterModuleRec compiles a module with fix/rec enabled, scoped to
+// this single compilation. The type-checker gate is saved and restored,
+// so subsequent compilations are not affected. The runtime environment
+// is permanently extended with fix/rec to support evaluation of the
+// compiled module — this is safe because user code without type-level
+// access to fix/rec cannot produce Core IR that references them.
+func (e *Engine) RegisterModuleRec(name, source string) error {
+	saved := maps.Clone(e.gatedBuiltins)
+	e.gatedBuiltins["rec"] = true
+	e.gatedBuiltins["fix"] = true
+	err := e.RegisterModule(name, source)
+	// Restore type-checker gate — subsequent user code cannot reference fix/rec.
+	// But keep runtimeRecursion flag so the evaluator has fix/rec available.
+	e.gatedBuiltins = saved
+	e.runtimeRecursion = true
+	return err
 }
 
 // SetStepLimit sets the maximum number of evaluation steps.
@@ -392,6 +413,11 @@ func (e *Engine) NewRuntime(source string) (*Runtime, error) {
 		bindings:    maps.Clone(e.bindings),
 		moduleProgs: modProgs,
 	}
-	rt.initBuiltinEnv(e.gatedBuiltins)
+	runtimeGates := maps.Clone(e.gatedBuiltins)
+	if e.runtimeRecursion {
+		runtimeGates["fix"] = true
+		runtimeGates["rec"] = true
+	}
+	rt.initBuiltinEnv(runtimeGates)
 	return rt, nil
 }

@@ -8,9 +8,11 @@ import "github.com/cwd-k2/gicel/internal/eval"
 type Registrar interface {
 	RegisterPrim(name string, impl eval.PrimImpl)
 	RegisterModule(name string, source string) error
-	// EnableRecursion enables rec/fix builtins for subsequent module compilation.
-	// Trusted stdlib packs call this to use recursion in their GICEL source.
-	EnableRecursion()
+	// RegisterModuleRec compiles a module with fix/rec enabled, scoped
+	// to this single compilation. The recursion gate is saved before
+	// and restored after, so subsequent compilations on the same engine
+	// are not affected. This preserves the sandbox security boundary.
+	RegisterModuleRec(name string, source string) error
 }
 
 // Pack configures a Registrar with a coherent set of types, primitives, and modules.

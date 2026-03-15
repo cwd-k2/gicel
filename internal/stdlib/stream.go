@@ -15,10 +15,9 @@ import (
 // as GICEL recursive definitions, requiring rec/fix. Only takeS/dropS
 // remain as Go primitives due to Int arithmetic.
 var Stream Pack = func(e Registrar) error {
-	e.EnableRecursion()
 	e.RegisterPrim("_takeS", takeSImpl)
 	e.RegisterPrim("_dropS", dropSImpl)
-	return e.RegisterModule("Std.Stream", streamSource)
+	return e.RegisterModuleRec("Std.Stream", streamSource)
 }
 
 const streamSource = `
