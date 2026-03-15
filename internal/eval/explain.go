@@ -22,17 +22,14 @@ const (
 )
 
 // ExplainStep is a single semantic event during evaluation.
-//
-// Message is a human-readable summary (kept for backward compatibility).
-// Detail carries structured data for machine consumption (JSON, agent feedback).
+// Detail carries all event data; consumers format as needed.
 type ExplainStep struct {
-	Seq     int           `json:"seq"`
-	Depth   int           `json:"depth"`
-	Kind    ExplainKind   `json:"kind"`
-	Message string        `json:"message,omitempty"`
-	Line    int           `json:"line,omitempty"`
-	Col     int           `json:"col,omitempty"`
-	Detail  ExplainDetail `json:"detail,omitempty"`
+	Seq    int           `json:"seq"`
+	Depth  int           `json:"depth"`
+	Kind   ExplainKind   `json:"kind"`
+	Line   int           `json:"line,omitempty"`
+	Col    int           `json:"col,omitempty"`
+	Detail ExplainDetail `json:"detail,omitempty"`
 }
 
 // ExplainDetail carries kind-specific structured data.
@@ -103,12 +100,12 @@ func (o *ExplainObserver) Active() bool {
 
 // Emit sends a trace event through the hook, assigning seq and resolving location.
 // Suppressed events are silently dropped.
-func (o *ExplainObserver) Emit(depth int, kind ExplainKind, msg string, detail ExplainDetail, s span.Span) {
+func (o *ExplainObserver) Emit(depth int, kind ExplainKind, detail ExplainDetail, s span.Span) {
 	if !o.Active() {
 		return
 	}
 	o.seq++
-	step := ExplainStep{Seq: o.seq, Depth: depth, Kind: kind, Message: msg, Detail: detail}
+	step := ExplainStep{Seq: o.seq, Depth: depth, Kind: kind, Detail: detail}
 	if o.source != nil && s.Start > 0 && int(s.Start) < len(o.source.Text) {
 		step.Line, step.Col = o.source.Location(s.Start)
 	}
@@ -118,23 +115,13 @@ func (o *ExplainObserver) Emit(depth int, kind ExplainKind, msg string, detail E
 // Section emits a section label (not subject to suppression).
 func (o *ExplainObserver) Section(name string) {
 	o.seq++
-	o.hook(ExplainStep{
-		Seq:     o.seq,
-		Kind:    ExplainLabel,
-		Message: "── " + name + " ──",
-		Detail:  LabelDetail(name, "section"),
-	})
+	o.hook(ExplainStep{Seq: o.seq, Kind: ExplainLabel, Detail: LabelDetail(name, "section")})
 }
 
 // Result emits the final result (not subject to suppression).
 func (o *ExplainObserver) Result(value string) {
 	o.seq++
-	o.hook(ExplainStep{
-		Seq:     o.seq,
-		Kind:    ExplainResult,
-		Message: "→ " + value,
-		Detail:  ResultDetail(value),
-	})
+	o.hook(ExplainStep{Seq: o.seq, Kind: ExplainResult, Detail: ResultDetail(value)})
 }
 
 // MarkInternal registers a closure name as stdlib-internal.
@@ -294,14 +281,13 @@ func FormatPattern(p core.Pattern) string {
 	return "?"
 }
 
-// isInternalPattern returns true if the pattern involves compiler-generated
-// names (type class dictionaries, elaboration artifacts) — not user-visible.
+// isInternalPattern reports whether a pattern involves compiler-generated names.
 func isInternalPattern(p core.Pattern) bool {
 	switch pat := p.(type) {
 	case *core.PCon:
-		return strings.Contains(pat.Con, "$")
+		return isCompilerGenerated(pat.Con)
 	case *core.PVar:
-		return strings.HasPrefix(pat.Name, "$")
+		return isCompilerGenerated(pat.Name)
 	}
 	return false
 }
@@ -313,23 +299,6 @@ func isTuplePattern(p *core.PRecord) bool {
 		}
 	}
 	return true
-}
-
-// FormatBindings renders match bindings as "a = v1, b = v2".
-func FormatBindings(bindings map[string]Value) string {
-	if len(bindings) == 0 {
-		return ""
-	}
-	keys := make([]string, 0, len(bindings))
-	for k := range bindings {
-		keys = append(keys, k)
-	}
-	sort.Strings(keys)
-	parts := make([]string, len(keys))
-	for i, k := range keys {
-		parts[i] = k + " = " + PrettyValue(bindings[k])
-	}
-	return strings.Join(parts, ", ")
 }
 
 // BindDetail builds an ExplainDetail for a bind event.
@@ -410,66 +379,6 @@ func capEnvDiffStructured(old, new CapEnv) map[string][2]string {
 		}
 	}
 	return diffs
-}
-
-// FormatEffect describes an effectful primitive execution with CapEnv diff.
-func FormatEffect(name string, args []Value, result Value, oldCap, newCap CapEnv) string {
-	var b strings.Builder
-	b.WriteString(name)
-	for _, a := range args {
-		s := PrettyValue(a)
-		if strings.Contains(s, " ") {
-			s = "(" + s + ")"
-		}
-		b.WriteByte(' ')
-		b.WriteString(s)
-	}
-	b.WriteString(" → ")
-	b.WriteString(PrettyValue(result))
-
-	if diff := capEnvDiff(oldCap, newCap); diff != "" {
-		b.WriteString("    ")
-		b.WriteString(diff)
-	}
-	return b.String()
-}
-
-// capEnvDiff computes a human-readable description of CapEnv changes.
-func capEnvDiff(old, new CapEnv) string {
-	// Fast path: both empty (no capabilities in either env).
-	oldLabels := old.Labels()
-	newLabels := new.Labels()
-	if len(oldLabels) == 0 && len(newLabels) == 0 {
-		return ""
-	}
-	// Collect all labels from both.
-	seen := make(map[string]bool)
-	for _, l := range oldLabels {
-		seen[l] = true
-	}
-	for _, l := range newLabels {
-		seen[l] = true
-	}
-
-	labels := make([]string, 0, len(seen))
-	for l := range seen {
-		labels = append(labels, l)
-	}
-	sort.Strings(labels)
-
-	var diffs []string
-	for _, l := range labels {
-		ov, oldOK := old.Get(l)
-		nv, newOK := new.Get(l)
-		if !oldOK && newOK {
-			diffs = append(diffs, fmt.Sprintf("[%s: _ → %s]", l, fmtCapVal(nv)))
-		} else if oldOK && !newOK {
-			diffs = append(diffs, fmt.Sprintf("[%s: removed]", l))
-		} else if oldOK && newOK && fmtCapVal(ov) != fmtCapVal(nv) {
-			diffs = append(diffs, fmt.Sprintf("[%s: %s → %s]", l, fmtCapVal(ov), fmtCapVal(nv)))
-		}
-	}
-	return strings.Join(diffs, " ")
 }
 
 func fmtCapVal(v any) string {

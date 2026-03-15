@@ -9,6 +9,18 @@ import (
 	"github.com/cwd-k2/gicel/internal/span"
 )
 
+// isCompilerGenerated reports whether a name was introduced by the compiler
+// during elaboration (type class dictionaries, desugaring artifacts).
+func isCompilerGenerated(name string) bool {
+	return strings.Contains(name, "$")
+}
+
+// isUserVisible reports whether a binding name originated from user source.
+// Compiler-generated names and explicit discards are excluded.
+func isUserVisible(name string) bool {
+	return name != "_" && !isCompilerGenerated(name)
+}
+
 // Allocation cost estimates (bytes per value type).
 const (
 	costClosure = 40               // Closure struct
@@ -119,11 +131,10 @@ func (ev *Evaluator) Eval(env *Env, capEnv CapEnv, expr core.Core) (EvalResult, 
 		if err != nil {
 			return EvalResult{}, err
 		}
-		// Detect let-encoding: (\y -> body) expr → emit "y = value".
+		// Detect let-encoding: (\y -> body) expr → emit bind event.
 		if ev.obs.Active() {
-			if lam, ok := e.Fun.(*core.Lam); ok && lam.Param != "_" && !strings.HasPrefix(lam.Param, "$") {
-				val := PrettyValue(argR.Value)
-				ev.obs.Emit(ev.limit.Depth(), ExplainBind, lam.Param+" = "+val, BindDetail(lam.Param, val, false), e.S)
+			if lam, ok := e.Fun.(*core.Lam); ok && isUserVisible(lam.Param) {
+				ev.obs.Emit(ev.limit.Depth(), ExplainBind, BindDetail(lam.Param, PrettyValue(argR.Value), false), e.S)
 			}
 		}
 		return ev.apply(argR.CapEnv, funR.Value, argR.Value, e)
@@ -161,13 +172,7 @@ func (ev *Evaluator) Eval(env *Env, capEnv CapEnv, expr core.Core) (EvalResult, 
 			bindings := Match(scrutR.Value, alt.Pattern)
 			if bindings != nil {
 				if ev.obs.Active() && !isInternalPattern(alt.Pattern) {
-					scrut := PrettyValue(scrutR.Value)
-					pat := FormatPattern(alt.Pattern)
-					msg := "match " + scrut + " → " + pat
-					if bs := FormatBindings(bindings); bs != "" {
-						msg += "    " + bs
-					}
-					ev.obs.Emit(ev.limit.Depth(), ExplainMatch, msg, MatchDetail(scrut, pat, bindings), e.S)
+					ev.obs.Emit(ev.limit.Depth(), ExplainMatch, MatchDetail(PrettyValue(scrutR.Value), FormatPattern(alt.Pattern), bindings), e.S)
 				}
 				altEnv := env.ExtendMany(bindings)
 				return ev.Eval(altEnv, scrutR.CapEnv, alt.Body)
@@ -241,9 +246,8 @@ func (ev *Evaluator) Eval(env *Env, capEnv CapEnv, expr core.Core) (EvalResult, 
 		if err != nil {
 			return EvalResult{}, err
 		}
-		if ev.obs.Active() && e.Var != "_" && !strings.HasPrefix(e.Var, "$") {
-			val := PrettyValue(compR.Value)
-			ev.obs.Emit(ev.limit.Depth(), ExplainBind, e.Var+" ← "+val, BindDetail(e.Var, val, true), e.S)
+		if ev.obs.Active() && isUserVisible(e.Var) {
+			ev.obs.Emit(ev.limit.Depth(), ExplainBind, BindDetail(e.Var, PrettyValue(compR.Value), true), e.S)
 		}
 		bodyEnv := env.Extend(e.Var, compR.Value)
 		if err := ev.limit.Enter(); err != nil {
@@ -418,7 +422,7 @@ func (ev *Evaluator) ForceEffectful(r EvalResult, callSite span.Span) (EvalResul
 		if site.Start == 0 {
 			site = pv.S
 		}
-		ev.obs.Emit(ev.limit.Depth(), ExplainEffect, FormatEffect(pv.Name, pv.Args, val, capForImpl, newCap), EffectDetail(pv.Name, pv.Args, val, capForImpl, newCap), site)
+		ev.obs.Emit(ev.limit.Depth(), ExplainEffect, EffectDetail(pv.Name, pv.Args, val, capForImpl, newCap), site)
 	}
 	return EvalResult{val, newCap}, nil
 }
@@ -441,7 +445,7 @@ func (ev *Evaluator) apply(capEnv CapEnv, fn Value, arg Value, site *core.App) (
 			} else if ev.obs.Active() {
 				detail := LabelDetail(f.Name, "enter")
 				detail.Value = PrettyValue(arg)
-				ev.obs.Emit(ev.limit.Depth(), ExplainLabel, "enter "+f.Name, detail, site.S)
+				ev.obs.Emit(ev.limit.Depth(), ExplainLabel, detail, site.S)
 			}
 		}
 		bodyEnv := f.Env.Extend(f.Param, arg)

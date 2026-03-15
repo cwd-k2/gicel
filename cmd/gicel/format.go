@@ -247,11 +247,7 @@ func (f *explainFormatter) writeSep() {
 }
 
 func (f *explainFormatter) writeRaw(step gicel.ExplainStep) {
-	if step.Line > 0 {
-		fmt.Fprintf(f.w, "L%d: %s\n", step.Line, step.Message)
-	} else {
-		fmt.Fprintln(f.w, step.Message)
-	}
+	fmt.Fprintf(f.w, "[kind=%d depth=%d]\n", step.Kind, step.Depth)
 }
 
 // styled wraps s in ANSI color codes when color is enabled.
