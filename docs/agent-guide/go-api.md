@@ -112,11 +112,9 @@ eng.DeclareBinding("myInput", gicel.ConType("Int"))
 | `eng.SetStepLimit(n)` / `SetDepthLimit(n)` | Resource limits                          |
 | `eng.SetAllocLimit(bytes)`                 | Allocation limit (0 = disabled)          |
 | `eng.NoPrelude()` / `SetPrelude(src)`      | Prelude control                          |
-| `eng.SetTraceHook(hook)`                   | Eval trace (returns error to abort)      |
-| `eng.SetExplainHook(hook)`                 | Semantic trace (effects, binds, matches) |
 | `eng.RegisterModule(name, src)`            | Register a custom module                 |
 | `eng.NewRuntime(source)`                   | Compile to Runtime                       |
-| `eng.Check(source)` / `Parse(source)`      | Type-check or parse only                 |
+| `eng.Compile(source)` / `Parse(source)`    | Type-check or parse only                 |
 
 ### Error Handling
 
@@ -136,12 +134,19 @@ if errors.As(err, &re) { fmt.Println(re.Message) }
 
 `Diagnostic`: `Code int`, `Phase string` ("lex"/"parse"/"check"), `Line int`, `Col int`, `Message string`.
 
-`RuntimeError`: `Message string`, `Span span.Span`. Includes: step/depth/alloc limit exceeded, missing capability, division by zero, `fail`/`failWith`.
+`RuntimeError`: `Message string`, `Span span.Span`. Covers: unbound variable, non-exhaustive match, division by zero, `fail`/`failWith`. Step/depth/alloc limit exceeded return distinct error types (check with `err.Error()` or `errors.As`).
 
-### Trace Hooks
+### Hooks (per-execution via RunOptions)
 
 **TraceHook** fires on every eval step. Signature: `func(TraceEvent) error`. Fields: `Depth int`, `Node core.Core`, `Env *eval.Env`, `CapEnv CapEnv`. Return non-nil error to abort.
 
-**ExplainHook** fires at semantic boundaries. Signature: `func(ExplainStep)`. Fields: `Depth int`, `Kind ExplainKind`, `Message string`. Kinds: `ExplainBind`, `ExplainMatch`, `ExplainEffect`, `ExplainResult`.
+**ExplainHook** fires at semantic boundaries. Signature: `func(ExplainStep)`. Fields: `Seq int`, `Depth int`, `Kind ExplainKind`, `Line int`, `Col int`, `Detail ExplainDetail`. Kinds: `ExplainBind`, `ExplainMatch`, `ExplainEffect`, `ExplainLabel`, `ExplainResult`.
 
-**CheckTraceHook** fires during type checking. Signature: `func(CheckTraceEvent)`. Fields: `Kind CheckTraceKind`, `Depth int`, `Message string`, `Span span.Span`.
+```go
+rt.RunWith(ctx, &gicel.RunOptions{
+    Explain: func(s gicel.ExplainStep) { /* ... */ },
+    Trace:   func(e gicel.TraceEvent) error { return nil },
+})
+```
+
+**CheckTraceHook** fires during type checking. Set via `eng.SetCheckTraceHook(hook)`. Signature: `func(CheckTraceEvent)`. Fields: `Kind CheckTraceKind`, `Depth int`, `Message string`, `Span span.Span`.
