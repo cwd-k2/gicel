@@ -33,7 +33,7 @@ test3 := applyEq eq
 wrapBoth :: (forall a. a -> Maybe a) -> (Maybe Bool, Maybe Ordering)
 wrapBoth := \wrap -> (wrap True, wrap GT)
 
-test4 := wrapBoth (\x -> Just x)
+test4 := wrapBoth Just
 
 -- Output: ((True, Just False), (Just True, Just EQ), (False, True), (Just True, Just GT))
 main := (test1, test2, test3, test4)

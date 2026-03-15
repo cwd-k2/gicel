@@ -56,7 +56,7 @@ subsets := fix (\self -> \xs -> case xs {
 })
 
 coinResult := amb (subsets coins) (\s ->
-  amb (guard (eq (foldl (\a -> \b -> a + b) 0 s) 28)) (\_ -> [s]))
+  amb (guard (eq (foldl (+) 0 s) 28)) (\_ -> [s]))
 -- [[1,2,5,20]]
 
 -- ── Layer 3: Free monad ────────────────────────────────────
@@ -65,7 +65,7 @@ coinResult := amb (subsets coins) (\s ->
 data NDFree a = NDPure a | NDChoice (NDFree a) (NDFree a) | NDFail
 
 returnND :: forall a. a -> NDFree a
-returnND := \a -> NDPure a
+returnND := NDPure
 
 failND :: forall a. NDFree a
 failND := NDFail

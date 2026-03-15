@@ -27,7 +27,7 @@ instance Coercible (Maybe a) Bool {
 
 -- Coerce () to Bool: unit is False
 instance Coercible () Bool {
-  coerce := \u -> False
+  coerce := const False
 }
 
 -- Convert Bool to Ordering: True -> GT, False -> LT

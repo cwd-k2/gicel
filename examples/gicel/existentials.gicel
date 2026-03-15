@@ -17,7 +17,7 @@ data Testable = {
 -- Construct existential values: the concrete type is hidden after wrapping
 boolTest := MkTestable not True
 maybeTest := MkTestable (\m -> case m { Just _ -> True; Nothing -> False }) (Just False)
-unitTest := MkTestable (\u -> False) ()
+unitTest := MkTestable (const False) ()
 
 -- Run the predicate on the hidden value.
 -- Pattern matching on MkTestable brings the existential `a` into scope,

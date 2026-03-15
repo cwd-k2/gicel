@@ -23,12 +23,12 @@ infixl 5 <+>
 -- [infixr] — right-associative operator at precedence 8
 infixr 8 <**>
 (<**>) :: Int -> Int -> Int
-(<**>) := \x -> \y -> x * y
+(<**>) := (*)
 
 -- [infixn] — non-associative operator at precedence 4
 infixn 4 ===
 (===) :: Int -> Int -> Bool
-(===) := \x -> \y -> eq x y
+(===) := eq
 
 -- [class] — define a type class
 class Describe a {

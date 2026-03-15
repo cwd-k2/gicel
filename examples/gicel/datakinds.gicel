@@ -27,18 +27,18 @@ openDoor := MkDoor
 -- openDoor takes a closed door and returns an open one.
 -- This is a type-safe state transition: you can only open a closed door.
 openIt :: Door Closed -> Door Open
-openIt := \d -> MkDoor
+openIt := const MkDoor
 
 -- closeIt takes an open door and returns a closed one.
 closeIt :: Door Open -> Door Closed
-closeIt := \d -> MkDoor
+closeIt := const MkDoor
 
 -- Observe the state of a door (converting phantom type to a value)
 isClosed :: Door Closed -> Bool
-isClosed := \d -> True
+isClosed := const True
 
 isOpen :: Door Open -> Bool
-isOpen := \d -> True
+isOpen := const True
 
 -- Valid transitions:
 -- closedDoor -> open -> close -> open
@@ -65,11 +65,11 @@ data FileHandle (s : FileState) = MkHandle
 
 -- Only a Reading handle can be read from
 readHandle :: FileHandle Reading -> Bool
-readHandle := \h -> True
+readHandle := const True
 
 -- Only a Writing handle can be written to
 writeHandle :: FileHandle Writing -> Bool
-writeHandle := \h -> True
+writeHandle := const True
 
 -- Output: (True, True, True, True, True)
 main := (test1, test2, test3, test4, test5)

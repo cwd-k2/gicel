@@ -30,13 +30,13 @@ apNothingArg := ap (Just (\x -> x + 1)) Nothing
 -- Output: Nothing
 
 -- Foldable: foldr collapses a structure
-sumMaybe := foldr (\x -> \acc -> x + acc) 0 (Just 10)
+sumMaybe := foldr (+) 0 (Just 10)
 -- Output: 10
 
-sumNothing := foldr (\x -> \acc -> x + acc) 0 Nothing
+sumNothing := foldr (+) 0 Nothing
 -- Output: 0
 
-sumList := foldr (\x -> \acc -> x + acc) 0 (Cons 1 (Cons 2 (Cons 3 Nil)))
+sumList := foldr (+) 0 (Cons 1 (Cons 2 (Cons 3 Nil)))
 -- Output: 6
 
 -- Semigroup on List: append joins two lists
