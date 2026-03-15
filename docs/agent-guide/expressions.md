@@ -71,6 +71,13 @@ x + y                          -- operator syntax (if fixity is declared)
 x `plus` y                     -- backtick syntax for any binary function
 ```
 
+Wrap an operator in parentheses to use it as a first-class value:
+
+```
+foldr (+) 0 xs                 -- pass operator to higher-order function
+(.) f g x                     -- use composition as a regular function
+```
+
 ### Special Forms
 
 ```

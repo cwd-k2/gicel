@@ -348,6 +348,7 @@ ExprProj  ::= ExprProj '!#' LowerName                      -- record projection
             | ExprAtom
 
 ExprAtom  ::= Var | Con | Lit
+            | '(' Op ')'                                     -- operator section
             | '(' Expr ')'
             | '(' Expr ',' Expr (',' Expr)* ')'             -- tuple literal
             | '(' ')'                                        -- unit literal
@@ -368,6 +369,8 @@ Lit       ::= IntLit | StringLit | RuneLit
 ```
 
 `!#` binds at atom level (tighter than function application).
+
+`(op)` wraps an operator symbol in parentheses to use it as a first-class value (e.g. `foldr (+) 0 xs`). This mirrors the declaration-level `(op) := ...` syntax. `(.)` is also supported.
 
 Disambiguation of `{`: `ident :=` → block expression, `ident =` → record literal, `expr |` → record update.
 

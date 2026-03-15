@@ -297,6 +297,22 @@ r!#_1                           -- project first element of tuple
 
 `!#` binds at atom level (tighter than function application).
 
+### Operator Section
+
+```
+(+)                             -- operator as first-class value
+(.)                             -- composition operator as value
+```
+
+Wrapping an operator in parentheses produces a regular value that can be passed as an argument:
+
+```
+foldr (+) 0 xs                  -- pass (+) to higher-order function
+map (.) fs                      -- pass composition
+```
+
+This is the expression-level counterpart of the declaration syntax `(op) := ...`.
+
 ### Tuple
 
 ```
