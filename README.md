@@ -3,17 +3,31 @@
 **G**o's **I**ndexed **C**apability **E**ffect **L**ibrary /
 **G**ICEL's **I**ndexed **C**apability **E**ffect **L**anguage
 
-An embedded typed effect language for Go. Haskell-like surface syntax with an
-Atkey parameterized monad (`Computation pre post a`) and row-typed capability
-environments.
+Write pure, type-checked computations in Haskell-like syntax —
+compile and run them safely inside your Go program.
 
-```
-main := do {
-  _ <- incCounter ();
-  _ <- incCounter ();
-  getCounter ()
+```gicel
+import Std.Num
+import Std.State
+
+processOrder := do {
+  _ <- put 50;                           -- base price
+  _ <- modify (\p -> p * 3);             -- quantity: 3
+  _ <- modify (\t -> t - t * 10 / 100);  -- 10% discount
+  get
 }
+
+main := processOrder  -- 135
 ```
+
+## Features
+
+- **Haskell-like surface syntax** — 11 keywords, ADTs, pattern matching, type classes, do-notation
+- **Atkey parameterized monad** — `Computation pre post a` with row-typed capability environments
+- **Bidirectional type checking** — higher-rank polymorphism, HKT with kind inference
+- **Three-tier lifecycle** — Engine (configure) → Runtime (immutable, goroutine-safe) → result (per-call)
+- **AI agent sandboxing** — single-call `RunSandbox` API with resource limits, built-in documentation and examples queryable from CLI and Go API, semantic evaluation trace (`--explain`)
+- **8 stdlib packs** — Num, Str, List, Fail, State, IO, Stream, Slice
 
 ## Install
 
@@ -27,44 +41,20 @@ CLI:
 go install github.com/cwd-k2/gicel/cmd/gicel@latest
 ```
 
-## CLI
+## Quick Start
 
-```
-gicel run     [flags] <file>   # compile and execute
-gicel check   [flags] <file>   # type-check only
-gicel docs    [topic]          # show language reference
-gicel example [name]           # show example programs
-```
+### CLI
 
-Flags:
-
-| Flag              | Default  | Description                                           |
-| ----------------- | -------- | ----------------------------------------------------- |
-| `--use <packs>`   | `all`    | Stdlib packs: Num,Str,List,Fail,State,IO,Stream,Slice |
-| `--recursion`     |          | Enable recursive definitions (run, check)             |
-| `--entry <name>`  | `main`   | Entry point binding (run only)                        |
-| `--timeout <dur>` | `5s`     | Execution timeout (run only)                          |
-| `--max-steps <n>` | `100000` | Step limit (run only)                                 |
-| `--max-depth <n>` | `100`    | Depth limit (run only)                                |
-| `--json`          |          | JSON output (run only)                                |
-| `--explain`       |          | Semantic evaluation trace (run only)                  |
-| `--explain-all`   |          | Trace stdlib internals too (with --explain)           |
-| `--verbose`       |          | Show source context in explain trace (run only)       |
-| `--no-color`      |          | Disable color output (run only)                       |
-| `--stdin`         |          | Read source from stdin (run only)                     |
-
-```
-gicel run hello.gicel
-gicel run --use Num,Str --json program.gicel
-gicel run --explain program.gicel
-gicel check program.gicel
-gicel docs stdlib
-gicel example hello
+```sh
+gicel run hello.gicel              # compile and execute
+gicel check program.gicel          # type-check only
+gicel run --explain program.gicel  # semantic evaluation trace
+gicel run --json program.gicel     # machine-readable output
+gicel docs stdlib                  # query language reference
+gicel example hello                # browse example programs
 ```
 
-## Library
-
-### Three-tier lifecycle
+### Go Library
 
 ```
 Engine   (mutable, configurable)
@@ -73,8 +63,6 @@ Runtime  (immutable, goroutine-safe)
   ↓ RunWith(ctx, opts)
 result   (per-execution)
 ```
-
-### Minimal example
 
 ```go
 package main
@@ -107,70 +95,10 @@ func main() {
 }
 ```
 
-### Host bindings
+## Sandbox
 
-Inject Go values into GICEL programs:
-
-```go
-eng := gicel.NewEngine()
-eng.RegisterType("Int", gicel.KindType())
-eng.DeclareBinding("n", gicel.ConType("Int"))
-
-rt, err := eng.NewRuntime(`main := Just n`)
-if err != nil { log.Fatal(err) }
-
-result, err := rt.RunWith(context.Background(), &gicel.RunOptions{
-    Bindings: map[string]gicel.Value{"n": gicel.ToValue(42)},
-})
-```
-
-The same `Runtime` can be executed concurrently with different binding values.
-
-### Capabilities
-
-Primitives interact with a capability environment (`CapEnv`) that threads
-through evaluation with copy-on-write semantics:
-
-```go
-eng := gicel.NewEngine()
-eng.RegisterType("Int", gicel.KindType())
-
-eng.RegisterPrim("getCounter",
-    func(ctx context.Context, capEnv gicel.CapEnv, args []gicel.Value, _ gicel.Applier) (gicel.Value, gicel.CapEnv, error) {
-        v, _ := capEnv.Get("counter")
-        return gicel.ToValue(v.(int)), capEnv, nil
-    })
-
-eng.RegisterPrim("incCounter",
-    func(ctx context.Context, capEnv gicel.CapEnv, args []gicel.Value, _ gicel.Applier) (gicel.Value, gicel.CapEnv, error) {
-        v, _ := capEnv.Get("counter")
-        return gicel.ToValue(nil), capEnv.Set("counter", v.(int)+1), nil
-    })
-
-rt, _ := eng.NewRuntime(`
-    getCounter :: () -> Computation {} {} Int
-    getCounter := assumption
-
-    incCounter :: () -> Computation {} {} ()
-    incCounter := assumption
-
-    main := do {
-      _ <- incCounter ();
-      _ <- incCounter ();
-      getCounter ()
-    }
-`)
-
-result, _ := rt.RunWith(context.Background(),
-    &gicel.RunOptions{Caps: map[string]any{"counter": 0}})
-
-fmt.Println(gicel.MustHost[int](result.Value)) // 2
-```
-
-### Sandbox API
-
-Single-call compile+execute with conservative resource limits. Designed for
-AI agent integration:
+Single-call compile+execute with resource limits.
+Designed for AI agent integration — no Engine/Runtime lifecycle management needed:
 
 ```go
 result, err := gicel.RunSandbox(source, &gicel.SandboxConfig{
@@ -181,7 +109,34 @@ result, err := gicel.RunSandbox(source, &gicel.SandboxConfig{
 })
 ```
 
-### Stdlib packs
+The CLI also supports sandboxed execution with the same resource controls:
+
+```sh
+gicel run --timeout 3s --max-steps 50000 program.gicel
+```
+
+### Built-in documentation
+
+Language reference and example programs are embedded in the CLI and queryable
+from Go, so AI agents can learn the language without external resources:
+
+```sh
+gicel docs stdlib       # query a topic
+gicel docs patterns     # idiomatic patterns and pitfalls
+gicel example hello     # show a named example
+```
+
+### Evaluation trace
+
+`--explain` produces a semantic trace of evaluation — useful for agents to
+debug programs or understand execution flow:
+
+```sh
+gicel run --explain program.gicel          # high-level trace
+gicel run --explain --verbose program.gicel # with source context
+```
+
+## Stdlib Packs
 
 | Pack     | Contents                                                  |
 | -------- | --------------------------------------------------------- |
@@ -191,66 +146,26 @@ result, err := gicel.RunSandbox(source, &gicel.SandboxConfig{
 | `Fail`   | Fail effect capability                                    |
 | `State`  | `get`/`put` state capabilities                            |
 | `IO`     | `print`/`debug` via CapEnv buffer                         |
-| `Stream` | Lazy list: `LCons`/`LNil`, `headS`, `tailS`, `takeS`      |
+| `Stream` | Lazy list: `LCons`/`LNil`, `headS`, `tailS`, `takeS`     |
 | `Slice`  | Contiguous array: O(1) length/index, `Functor`/`Foldable` |
 
-### Value conversion
+## Documentation
 
-```go
-gicel.ToValue(42)                       // Go → GICEL
-gicel.MustHost[int](v)                  // GICEL → Go (panics on type mismatch)
-gicel.FromHost(v)                       // GICEL → Go (returns ok)
-gicel.FromBool(v)                       // Bool constructor → bool
-gicel.FromCon(v)                        // Constructor → (name, args, ok)
-gicel.FromRecord(v)                     // Record → map[string]Value
-gicel.ToList([]any{1, 2, 3})            // Go slice → GICEL List
-gicel.FromList(v)                       // GICEL List → Go slice
-```
-
-### Error handling
-
-Compilation errors are returned as `*gicel.CompileError` with structured
-diagnostics:
-
-```go
-rt, err := eng.NewRuntime(source)
-if err != nil {
-    var ce *gicel.CompileError
-    if errors.As(err, &ce) {
-        for _, d := range ce.Diagnostics() {
-            fmt.Printf("%s:%d:%d: %s\n", d.Phase, d.Line, d.Col, d.Message)
-        }
-    }
-}
-```
-
-Runtime errors are returned as `*gicel.RuntimeError`.
-
-### Resource limits
-
-```go
-eng.SetStepLimit(500_000)   // max evaluation steps
-eng.SetDepthLimit(200)      // max call depth
-eng.SetAllocLimit(10 << 20) // max allocation (bytes)
-eng.EnableRecursion()       // enable rec/fix (off by default)
-```
-
-## Language
-
-GICEL has 11 keywords: `case do data type forall infixl infixr infixn class instance import`.
-
-See [docs/agent-guide/](docs/agent-guide/) for a complete language
-reference and [spec/language.md](spec/language.md) for the formal specification.
+- [Language Specification](spec/language.md) — formal spec (17 chapters)
+- [Agent Guide](docs/agent-guide/) — complete language reference with Go API details
+- [Grammar Reference](docs/grammar-reference.md) — syntax at a glance
 
 ## Examples
 
-- `examples/gicel/` — GICEL programs covering ADTs, type classes, HKT, records, effects, etc.
-- `examples/go/` — Go programs demonstrating the embedding API (lifecycle, capabilities, sandbox, etc.)
+- [`examples/gicel/`](examples/gicel/) — GICEL programs: ADTs, type classes, HKT, records, effects, ...
+- [`examples/go/`](examples/go/) — Go embedding: lifecycle, capabilities, sandbox, ...
 
 ## Editor Support
 
-- [tree-sitter-gicel](https://github.com/cwd-k2/tree-sitter-gicel) — Tree-sitter grammar for GICEL
-- [vscode-gicel](https://github.com/cwd-k2/vscode-gicel) — VS Code extension (syntax highlighting, diagnostics)
+- [tree-sitter-gicel](https://github.com/cwd-k2/tree-sitter-gicel) — Tree-sitter grammar
+- [vscode-gicel](https://github.com/cwd-k2/vscode-gicel) — VS Code extension
+- [nvim-gicel](https://github.com/cwd-k2/nvim-gicel) — Neovim plugin
+- [zed-gicel](https://github.com/cwd-k2/zed-gicel) — Zed extension
 
 ## License
 
