@@ -120,6 +120,18 @@ func (es *Errors) Add(e *Error) {
 	es.Errs = append(es.Errs, e)
 }
 
+// Len returns the current number of collected errors.
+func (es *Errors) Len() int { return len(es.Errs) }
+
+// Truncate discards errors beyond position n, restoring the error list
+// to a previously saved length. Used by speculative parsing to discard
+// phantom errors from backtracked attempts.
+func (es *Errors) Truncate(n int) {
+	if n < len(es.Errs) {
+		es.Errs = es.Errs[:n]
+	}
+}
+
 // HasErrors returns true if any errors have been collected.
 func (es *Errors) HasErrors() bool {
 	return len(es.Errs) > 0

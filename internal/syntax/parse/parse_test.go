@@ -1789,3 +1789,21 @@ func TestParseStepsResetBetweenPasses(t *testing.T) {
 		t.Fatalf("valid program should parse when steps are properly reset: %s", es.Format())
 	}
 }
+
+func TestParseBlockNoPhantomErrors(t *testing.T) {
+	// { f x | y = 1 } is a record update: expr = f x, field y = 1.
+	prog, es := parse("main := { f x | y = 1 }")
+	if es.HasErrors() {
+		t.Fatalf("record update should parse without errors:\n%s", es.Format())
+	}
+	if len(prog.Decls) != 1 {
+		t.Fatalf("expected 1 decl, got %d", len(prog.Decls))
+	}
+
+	// { f x; g y } is a block — the speculative parse for record update should
+	// not leave phantom errors when it backtracks.
+	_, es2 := parse("main := { r := f x; g r }")
+	if es2.HasErrors() {
+		t.Fatalf("block expression should parse without errors:\n%s", es2.Format())
+	}
+}

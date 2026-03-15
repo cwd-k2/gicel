@@ -447,6 +447,7 @@ func (p *Parser) parseInstanceDecl() *DeclInstance {
 		if p.peek().Kind == TokLParen {
 			saved := p.pos
 			savedDepth := p.depth
+			savedErrLen := p.errors.Len()
 			ty := p.parseTypeAtom() // parses (Eq a)
 			if p.peek().Kind == TokFatArrow {
 				if paren, ok := ty.(*TyExprParen); ok {
@@ -457,9 +458,10 @@ func (p *Parser) parseInstanceDecl() *DeclInstance {
 				p.advance() // consume =>
 				continue
 			}
-			// Not a constraint — backtrack and parse as class TypeArgs
+			// Not a constraint — backtrack and discard phantom errors.
 			p.pos = saved
 			p.depth = savedDepth
+			p.errors.Truncate(savedErrLen)
 			break
 		}
 

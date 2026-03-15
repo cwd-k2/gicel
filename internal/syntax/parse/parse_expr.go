@@ -345,13 +345,15 @@ func (p *Parser) parseBlock() Expr {
 	// For simplicity, handle the case where the record is a single variable or expression.
 	// Attempt: if after parsing the first expression we see |, it's a record update.
 	savedForUpdate := p.pos
+	savedErrLen := p.errors.Len()
 	firstExpr := p.parseExpr()
 	if p.peek().Kind == TokPipe {
 		p.advance() // skip |
 		return p.parseRecordUpdateFields(start, firstExpr)
 	}
-	// Not a record update — restore and parse as block.
+	// Not a record update — restore and discard phantom errors.
 	p.pos = savedForUpdate
+	p.errors.Truncate(savedErrLen)
 
 	// Block expression with bindings.
 	var binds []AstBind
