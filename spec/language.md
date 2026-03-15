@@ -1116,12 +1116,10 @@ rt, err := eng.NewRuntime(source)
 ## 13.4 Execution
 
 ```go
-// Basic: returns value and stats
-result, err := rt.RunContext(ctx, caps, bindings, "main")
-// result.Value, result.Stats
-
-// Full: also returns the final capability environment
-result, err := rt.RunContextFull(ctx, caps, bindings, "main")
+result, err := rt.RunWith(ctx, &gicel.RunOptions{
+    Caps:     caps,
+    Bindings: bindings,
+})
 // result.Value, result.CapEnv, result.Stats
 ```
 

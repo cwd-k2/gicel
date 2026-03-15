@@ -34,7 +34,7 @@ main := swap Red
 		log.Fatal("compile error: ", err)
 	}
 
-	result, err := rt.RunContext(ctx, nil, nil, "main")
+	result, err := rt.RunWith(ctx, nil)
 	if err != nil {
 		log.Fatal("runtime error: ", err)
 	}
@@ -61,7 +61,7 @@ main := flip (flip Off)
 		log.Fatal("compile error: ", err)
 	}
 
-	result, err = rt2.RunContext(ctx, nil, nil, "main")
+	result, err = rt2.RunWith(ctx, nil)
 	if err != nil {
 		log.Fatal("runtime error: ", err)
 	}

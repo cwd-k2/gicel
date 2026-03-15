@@ -41,7 +41,7 @@ main := (not . id) True
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -65,7 +65,7 @@ main := (id . id) True
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -87,7 +87,7 @@ main := 1 + 2 * 3
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -113,7 +113,7 @@ main := 1 ++ 2 ++ 3
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -136,7 +136,7 @@ main := 10 - 3 - 2
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -157,7 +157,7 @@ func TestSemicolonInDoBlock(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -194,7 +194,7 @@ main := f True
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -234,7 +234,7 @@ main := konst3 True False True
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -255,7 +255,7 @@ main := { x := True; x }
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -273,7 +273,7 @@ main := r
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -299,7 +299,7 @@ main := applyBoth (\x -> x)
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -339,7 +339,7 @@ main := f {}
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -359,7 +359,7 @@ main := getX { x = 42, y = 0 }
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -400,7 +400,7 @@ main := useSuperFromSub True True
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -416,7 +416,7 @@ main := eq (Just True) (Just True)
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -432,7 +432,7 @@ main := eq (Just (Just True)) (Just Nothing)
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -504,7 +504,7 @@ main := toBool (BoolTok True)
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -536,7 +536,7 @@ main := myLength (Cons True (Cons False (Cons True Nil)))
 	if err != nil {
 		t.Fatal("workaround (no annotation) should succeed:", err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -560,7 +560,7 @@ main := myLength (Cons True (Cons False (Cons True Nil)))
 	if err != nil {
 		t.Fatal("polymorphic annotation should work with implicit forall:", err)
 	}
-	result2, err := rt2.RunContext(context.Background(), nil, nil, "main")
+	result2, err := rt2.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -590,7 +590,7 @@ main := fst (MkPair True False)
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -610,7 +610,7 @@ main := isJustTrue (Just True)
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -632,7 +632,7 @@ main := r!#x + r!#y
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -654,7 +654,7 @@ main := r2!#x + r2!#y
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -676,7 +676,7 @@ main := r!#x
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -701,7 +701,7 @@ main := t!#_1 + t!#_2 + t!#_3
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -727,7 +727,7 @@ main := myFst (True, False)
 	if err != nil {
 		t.Fatal("workaround (case destructure) should succeed:", err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -742,7 +742,7 @@ main := myFst (True, False)
 	if err != nil {
 		t.Fatal("tuple pattern in lambda should work:", err)
 	}
-	result2, err := rt2.RunContext(context.Background(), nil, nil, "main")
+	result2, err := rt2.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -766,7 +766,7 @@ main := do {
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -858,7 +858,7 @@ main := case id True { True -> id (); False -> id () }
 	if err != nil {
 		t.Fatal("polymorphic function at multiple types should be accepted:", err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -884,7 +884,7 @@ main := getX { x = True }
 	if err != nil {
 		t.Fatal("workaround (case destructure) should succeed:", err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -899,7 +899,7 @@ main := getX { x = True }
 	if err != nil {
 		t.Fatal("record pattern in lambda should work:", err)
 	}
-	result2, err := rt2.RunContext(context.Background(), nil, nil, "main")
+	result2, err := rt2.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -917,7 +917,7 @@ main := isRed Blue
 	if err != nil {
 		t.Fatal("wildcard should satisfy exhaustiveness:", err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -939,7 +939,7 @@ main := f (True, (False, True))
 	if err != nil {
 		t.Fatal("workaround (nested case destructure) should succeed:", err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -954,7 +954,7 @@ main := f (True, (False, True))
 	if err != nil {
 		t.Fatal("nested tuple pattern in lambda should work:", err)
 	}
-	result2, err := rt2.RunContext(context.Background(), nil, nil, "main")
+	result2, err := rt2.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1037,7 +1037,7 @@ main := do {
 		t.Fatal(err)
 	}
 	caps := map[string]any{"state": &gicel.HostVal{Inner: int64(0)}}
-	result, err := rt.RunContext(context.Background(), caps, nil, "main")
+	result, err := rt.RunWith(context.Background(), &gicel.RunOptions{Caps: caps})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1060,7 +1060,7 @@ main := (True :: Bool)
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1092,7 +1092,7 @@ main := [True, False, True]
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1111,7 +1111,7 @@ main := ([] :: List Bool)
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1136,7 +1136,7 @@ main := isTrue True
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1154,7 +1154,7 @@ main := (mkPair True False)!#_1
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1180,7 +1180,7 @@ main := start
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1220,7 +1220,7 @@ main := myId
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1243,7 +1243,7 @@ main := do {
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}

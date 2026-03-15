@@ -27,7 +27,7 @@ main := wrap True
 	if err != nil {
 		t.Fatalf("compile: %v", err)
 	}
-	r, err := rt.RunContext(context.Background(), nil, nil, "main")
+	r, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatalf("runtime: %v", err)
 	}
@@ -57,7 +57,7 @@ main := scale 3 10
 	if err != nil {
 		t.Fatalf("compile: %v", err)
 	}
-	r, err := rt.RunContext(context.Background(), nil, nil, "main")
+	r, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatalf("runtime: %v", err)
 	}

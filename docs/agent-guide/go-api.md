@@ -31,8 +31,8 @@ eng.Use(gicel.Str)
 eng.SetStepLimit(500_000)
 
 rt, err := eng.NewRuntime(source)
-result, err := rt.RunContext(ctx, caps, bindings, "main")
-// or rt.RunContextFull for CapEnv in result
+result, err := rt.RunWith(ctx, &gicel.RunOptions{Caps: caps, Bindings: bindings})
+// result.Value, result.CapEnv, result.Stats
 ```
 
 ### Available Packs

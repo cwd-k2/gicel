@@ -24,7 +24,7 @@ func runWithPacks(t *testing.T, source string, packs ...gicel.Pack) gicel.Value 
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -479,7 +479,7 @@ main := do { print "hello" }
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := rt.RunContextFull(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -517,7 +517,7 @@ main := do { debug 42 }
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := rt.RunContextFull(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}

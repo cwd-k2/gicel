@@ -116,7 +116,7 @@ type CheckTraceEvent = check.CheckTraceEvent
 type CheckTraceHook = check.CheckTraceHook
 
 // RuntimeError represents an error during evaluation.
-// Use errors.As to match this type from RunContext errors.
+// Use errors.As to match this type from RunWith errors.
 type RuntimeError = eval.RuntimeError
 
 // NewCapEnv creates a new capability environment from a map.

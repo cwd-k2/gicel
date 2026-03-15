@@ -22,7 +22,7 @@ main := id True
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -38,7 +38,7 @@ func TestPure(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -59,7 +59,7 @@ func TestHostBinding(t *testing.T) {
 	bindings := map[string]gicel.Value{
 		"x": &gicel.HostVal{Inner: 42},
 	}
-	result, err := rt.RunContext(context.Background(), nil, bindings, "main")
+	result, err := rt.RunWith(context.Background(), &gicel.RunOptions{Bindings: bindings})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -82,7 +82,7 @@ main := getUnit True
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -98,7 +98,7 @@ func TestEvalIntLit(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -117,7 +117,7 @@ func TestEvalStrLit(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -157,7 +157,7 @@ main := add 1 2
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -179,7 +179,7 @@ main := 1 + 2 * 3
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -201,7 +201,7 @@ main := negate 42
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -223,7 +223,7 @@ main := eq 1 1
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -245,7 +245,7 @@ main := compare 1 2
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -267,7 +267,7 @@ main := div 7 3
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -289,7 +289,7 @@ main := append "hello" " world"
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -311,7 +311,7 @@ main := eq "abc" "abc"
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -333,7 +333,7 @@ main := compare "a" "b"
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -355,7 +355,7 @@ main := strlen "hello"
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -377,7 +377,7 @@ main := eq 'a' 'a'
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -400,7 +400,7 @@ main := do { fail; pure True }
 		t.Fatal(err)
 	}
 	caps := map[string]any{"fail": &gicel.RecordVal{Fields: map[string]gicel.Value{}}}
-	_, err = rt.RunContext(context.Background(), caps, nil, "main")
+	_, err = rt.RunWith(context.Background(), &gicel.RunOptions{Caps: caps})
 	if err == nil {
 		t.Fatal("expected error from fail")
 	}
@@ -419,7 +419,7 @@ main := fromMaybe (Just True)
 		t.Fatal(err)
 	}
 	caps := map[string]any{"fail": &gicel.RecordVal{Fields: map[string]gicel.Value{}}}
-	result, err := rt.RunContext(context.Background(), caps, nil, "main")
+	result, err := rt.RunWith(context.Background(), &gicel.RunOptions{Caps: caps})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -446,7 +446,7 @@ main := do { put 42; get }
 		t.Fatal(err)
 	}
 	caps := map[string]any{"state": &gicel.HostVal{Inner: int64(0)}}
-	result, err := rt.RunContext(context.Background(), caps, nil, "main")
+	result, err := rt.RunWith(context.Background(), &gicel.RunOptions{Caps: caps})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -473,7 +473,7 @@ main := do { n <- get; put (n + 1); get }
 		t.Fatal(err)
 	}
 	caps := map[string]any{"state": &gicel.HostVal{Inner: int64(0)}}
-	result, err := rt.RunContext(context.Background(), caps, nil, "main")
+	result, err := rt.RunWith(context.Background(), &gicel.RunOptions{Caps: caps})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -496,7 +496,7 @@ main := fromResult (Ok True)
 		t.Fatal(err)
 	}
 	caps := map[string]any{"fail": &gicel.RecordVal{Fields: map[string]gicel.Value{}}}
-	result, err := rt.RunContext(context.Background(), caps, nil, "main")
+	result, err := rt.RunWith(context.Background(), &gicel.RunOptions{Caps: caps})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -530,7 +530,7 @@ main := do { put 42; fail }
 		"state": &gicel.HostVal{Inner: int64(0)},
 		"fail":  &gicel.RecordVal{Fields: map[string]gicel.Value{}},
 	}
-	_, err = rt.RunContext(context.Background(), caps, nil, "main")
+	_, err = rt.RunWith(context.Background(), &gicel.RunOptions{Caps: caps})
 	if err == nil {
 		t.Fatal("expected error from fail")
 	}
@@ -545,7 +545,7 @@ main := not True
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -561,7 +561,7 @@ func TestDoBlock(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -581,7 +581,7 @@ main := MyTrue
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -609,7 +609,7 @@ func TestMissingEntry(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = rt.RunContext(context.Background(), nil, nil, "main")
+	_, err = rt.RunWith(context.Background(), nil)
 	if err == nil {
 		t.Error("expected error for missing entry point")
 	}
@@ -623,7 +623,7 @@ main := Just True
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -648,7 +648,7 @@ main := (True, False)
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -674,7 +674,7 @@ main := Unit
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -692,7 +692,7 @@ func TestGoroutineSafety(t *testing.T) {
 	errs := make(chan error, 10)
 	for range 10 {
 		go func() {
-			_, err := rt.RunContext(context.Background(), nil, nil, "main")
+			_, err := rt.RunWith(context.Background(), nil)
 			errs <- err
 		}()
 	}
@@ -716,7 +716,7 @@ main := konst True False
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -735,7 +735,7 @@ main := bothTrue True True
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -753,7 +753,7 @@ func TestBlockExpression(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -769,7 +769,7 @@ func TestBlockMultipleBindings(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -789,7 +789,7 @@ func TestBindChain(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -805,7 +805,7 @@ func TestThunkForce(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -872,7 +872,7 @@ func TestContextCancellation(t *testing.T) {
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel() // cancel immediately
-	_, err = rt.RunContext(ctx, nil, nil, "main")
+	_, err = rt.RunWith(ctx, nil)
 	if err == nil {
 		t.Error("expected error from cancelled context")
 	}
@@ -894,7 +894,7 @@ main := not (not (not True))
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 	defer cancel()
-	_, err = rt.RunContext(ctx, nil, nil, "main")
+	_, err = rt.RunWith(ctx, nil)
 	if err == nil {
 		t.Error("expected error from step limit or timeout")
 	}
@@ -914,7 +914,7 @@ func TestRuntimeReuse(t *testing.T) {
 	}
 
 	// First run with value 1.
-	r1, err := rt.RunContext(context.Background(), nil, map[string]gicel.Value{"x": &gicel.HostVal{Inner: 1}}, "main")
+	r1, err := rt.RunWith(context.Background(), &gicel.RunOptions{Bindings: map[string]gicel.Value{"x": &gicel.HostVal{Inner: 1}}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -924,7 +924,7 @@ func TestRuntimeReuse(t *testing.T) {
 	}
 
 	// Second run with value 2.
-	r2, err := rt.RunContext(context.Background(), nil, map[string]gicel.Value{"x": &gicel.HostVal{Inner: 2}}, "main")
+	r2, err := rt.RunWith(context.Background(), &gicel.RunOptions{Bindings: map[string]gicel.Value{"x": &gicel.HostVal{Inner: 2}}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -949,7 +949,7 @@ main := not False
 		wg.Add(1)
 		go func(idx int) {
 			defer wg.Done()
-			result, err := rt.RunContext(context.Background(), nil, nil, "main")
+			result, err := rt.RunWith(context.Background(), nil)
 			if err != nil {
 				errs[idx] = err
 				return
@@ -1032,13 +1032,13 @@ func TestPrettyProgram(t *testing.T) {
 	}
 }
 
-func TestRunContextFull(t *testing.T) {
+func TestRunWith(t *testing.T) {
 	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`main := pure ()`)
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := rt.RunContextFull(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1098,7 +1098,7 @@ main := do { x <- getVal (); pure x }
 	if err != nil {
 		t.Fatal("compile error:", err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal("runtime error:", err)
 	}
@@ -1139,7 +1139,7 @@ main := do {
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1173,7 +1173,7 @@ main := do { _ <- inc (); _ <- inc (); _ <- inc (); getN () }
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := rt.RunContextFull(context.Background(), map[string]any{"n": 0}, nil, "main")
+	result, err := rt.RunWith(context.Background(), &gicel.RunOptions{Caps: map[string]any{"n": 0}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1197,7 +1197,7 @@ func TestMissingRuntimeBinding(t *testing.T) {
 		t.Fatal(err)
 	}
 	// Run without providing binding "x".
-	_, err = rt.RunContext(context.Background(), nil, nil, "main")
+	_, err = rt.RunWith(context.Background(), nil)
 	if err == nil {
 		t.Fatal("expected error for missing runtime binding")
 	}
@@ -1229,7 +1229,7 @@ main := add a b
 		"a": gicel.ToValue(10),
 		"b": gicel.ToValue(32),
 	}
-	result, err := rt.RunContext(context.Background(), nil, bindings, "main")
+	result, err := rt.RunWith(context.Background(), &gicel.RunOptions{Bindings: bindings})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1323,7 +1323,7 @@ main := do { _ <- fail; pure True }
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = rt.RunContext(context.Background(), nil, nil, "main")
+	_, err = rt.RunWith(context.Background(), nil)
 	if err == nil {
 		t.Fatal("expected runtime error from fail")
 	}
@@ -1343,7 +1343,7 @@ main := { x = 1, y = 2 }
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1405,7 +1405,7 @@ main := bind (pure True) (\x -> pure x)
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1439,7 +1439,7 @@ main := do {
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1464,7 +1464,7 @@ main := do { getVal () }
 	if err != nil {
 		t.Fatal("compile error:", err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal("runtime error:", err)
 	}
@@ -1484,7 +1484,7 @@ main := Ok True
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1513,7 +1513,7 @@ main := pure True
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1533,7 +1533,7 @@ main := pure True
 	if err != nil {
 		t.Fatal("compile error:", err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal("runtime error:", err)
 	}
@@ -1574,7 +1574,7 @@ main := do {
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1591,7 +1591,7 @@ func TestNoMainEntry(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = rt.RunContext(context.Background(), nil, nil, "main")
+	_, err = rt.RunWith(context.Background(), nil)
 	if err == nil {
 		t.Fatal("expected error for missing entry point 'main'")
 	}
@@ -1617,7 +1617,7 @@ main := f Red
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1672,7 +1672,7 @@ main := eq True False
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1701,7 +1701,7 @@ main := f True True
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1731,7 +1731,7 @@ main := useOrd True False
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1760,7 +1760,7 @@ main := fmap not (Just True)
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1791,7 +1791,7 @@ main := coerce True
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1826,7 +1826,7 @@ main := close (open (MkDB :: DB Closed))
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1854,7 +1854,7 @@ main := do { readDB () }
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := rt.RunContext(context.Background(), map[string]any{"db": 0}, nil, "main")
+	result, err := rt.RunWith(context.Background(), &gicel.RunOptions{Caps: map[string]any{"db": 0}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1873,7 +1873,7 @@ main := (MkProxy :: Proxy True)
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1902,7 +1902,7 @@ main := eval (Not (LitBool True))
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1928,7 +1928,7 @@ main := describe Open
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1958,7 +1958,7 @@ main := isDoubleNeg (Not (Not (LitBool True)))
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -2001,7 +2001,7 @@ main := not True
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -2029,7 +2029,7 @@ main := eq True False
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -2059,7 +2059,7 @@ main := Red
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -2137,7 +2137,7 @@ main := eq True True
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -2158,7 +2158,7 @@ main := fmap not (Just True)
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -2180,7 +2180,7 @@ main := foldr (\x -> \_ -> x) False (Just True)
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -2200,7 +2200,7 @@ main := eq (Cons True (Cons False Nil)) (Cons True (Cons False Nil))
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -2224,7 +2224,7 @@ main := coerce True
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -2247,7 +2247,7 @@ main := coerce True
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -2264,7 +2264,7 @@ func TestPreludeAsModule(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -2285,7 +2285,7 @@ main := Yes
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -2305,7 +2305,7 @@ data MyBool = Yes | No
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -2329,7 +2329,7 @@ main := pure True
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -2499,7 +2499,7 @@ main := useSomeEq (MkSomeEq True)
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -2529,7 +2529,7 @@ main := useMaybe (MkExistsF (Just True))
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -2547,7 +2547,7 @@ main := useWrapper (MkWrapper (\x -> x) True)
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -2579,7 +2579,7 @@ main := isSame (MkSomeEq (Just True))
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -2599,7 +2599,7 @@ main := classify (MkSome (MkBool True))
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -2618,7 +2618,7 @@ main := bothSame (MkWrap True) (MkWrap False)
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -2639,7 +2639,7 @@ main := useBool id
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -2658,7 +2658,7 @@ main := applyToTrue id
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -2678,7 +2678,7 @@ main := apply id
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -2702,7 +2702,7 @@ main := runId id
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -2727,7 +2727,7 @@ main := append () ()
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -2745,7 +2745,7 @@ main := (empty :: Ordering)
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -2779,7 +2779,7 @@ func TestSemigroupUnit(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -2799,7 +2799,7 @@ main := (test1, test2)
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -2817,7 +2817,7 @@ func TestMonoidUnit(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -2836,7 +2836,7 @@ main := wrapped
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -2856,7 +2856,7 @@ main := traverse (\x -> Just (not x)) (Just True)
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -2878,7 +2878,7 @@ func TestOrdBool(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -2895,7 +2895,7 @@ main := (test1, test2)
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -2915,7 +2915,7 @@ func TestOrdPair(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -2936,7 +2936,7 @@ main := combine (MkSomeSG EQ LT)
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -2958,7 +2958,7 @@ main := case isSelf (MkSomeEq True) { True -> applyId id; False -> False }
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -2980,7 +2980,7 @@ main := (testEq, (testOrd, (testSemigroup, (testMonoid, (testFunctor, testApplic
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -3020,7 +3020,7 @@ main := 1 + 2 * 3
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -3059,7 +3059,7 @@ main := do {
 		"state": &gicel.HostVal{Inner: int64(0)},
 		"fail":  &gicel.RecordVal{Fields: map[string]gicel.Value{}},
 	}
-	result, err := rt.RunContext(context.Background(), caps, nil, "main")
+	result, err := rt.RunWith(context.Background(), &gicel.RunOptions{Caps: caps})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -3086,7 +3086,7 @@ main := Just (v1 + v2)
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -3125,7 +3125,7 @@ main := myConst
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -3227,7 +3227,7 @@ main := loop ()
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = rt.RunContext(context.Background(), nil, nil, "main")
+	_, err = rt.RunWith(context.Background(), nil)
 	if err == nil {
 		t.Fatal("expected depth limit error")
 	}
@@ -3246,11 +3246,11 @@ func TestEngineMultipleRuntimes(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	r1, err := rt1.RunContext(context.Background(), nil, nil, "main")
+	r1, err := rt1.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	r2, err := rt2.RunContext(context.Background(), nil, nil, "main")
+	r2, err := rt2.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -3274,7 +3274,7 @@ func TestEngineMutationAfterRuntime(t *testing.T) {
 	eng.SetStepLimit(1)
 	// Runtime should still work with original limits.
 	bindings := map[string]gicel.Value{"x": &gicel.HostVal{Inner: int64(99)}}
-	result, err := rt.RunContext(context.Background(), nil, bindings, "main")
+	result, err := rt.RunWith(context.Background(), &gicel.RunOptions{Bindings: bindings})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -3308,7 +3308,7 @@ main := MkPair True False
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -3341,7 +3341,7 @@ main := do { s <- get; pure s }
 		t.Fatal(err)
 	}
 	caps := map[string]any{"state": &gicel.HostVal{Inner: int64(42)}}
-	result, err := rt.RunContext(context.Background(), caps, nil, "main")
+	result, err := rt.RunWith(context.Background(), &gicel.RunOptions{Caps: caps})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -3365,7 +3365,7 @@ main := get
 		t.Fatal(err)
 	}
 	caps := map[string]any{"state": &gicel.HostVal{Inner: int64(7)}}
-	result, err := rt.RunContext(context.Background(), caps, nil, "main")
+	result, err := rt.RunWith(context.Background(), &gicel.RunOptions{Caps: caps})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -3387,7 +3387,7 @@ main := 1 + 2
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -3410,7 +3410,7 @@ main := deep ()
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = rt.RunContext(context.Background(), nil, nil, "main")
+	_, err = rt.RunWith(context.Background(), nil)
 	if err == nil {
 		t.Fatal("expected error for deep recursion")
 	}
@@ -3428,7 +3428,7 @@ main := div 1 0
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = rt.RunContext(context.Background(), nil, nil, "main")
+	_, err = rt.RunWith(context.Background(), nil)
 	if err == nil {
 		t.Fatal("expected error for division by zero")
 	}
@@ -3446,7 +3446,7 @@ func TestMissingBinding(t *testing.T) {
 		t.Fatal(err)
 	}
 	// Run without providing the binding.
-	_, err = rt.RunContext(context.Background(), nil, nil, "main")
+	_, err = rt.RunWith(context.Background(), nil)
 	if err == nil {
 		t.Fatal("expected error for missing binding")
 	}
@@ -3461,7 +3461,7 @@ func TestMissingEntryPoint(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = rt.RunContext(context.Background(), nil, nil, "main")
+	_, err = rt.RunWith(context.Background(), nil)
 	if err == nil {
 		t.Fatal("expected error for missing entry point")
 	}
@@ -3486,7 +3486,7 @@ main := fmap (\x -> add x 1) (Cons 1 (Cons 2 (Cons 3 Nil)))
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -3506,7 +3506,7 @@ main := foldr add 0 (Cons 1 (Cons 2 (Cons 3 Nil)))
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -3531,7 +3531,7 @@ main := append (Cons 1 (Cons 2 Nil)) (Cons 3 Nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -3550,7 +3550,7 @@ main := eq (Cons 1 (Cons 2 Nil)) (Cons 1 (Cons 2 Nil))
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -3572,7 +3572,7 @@ main := eq (Cons 1 Nil) (Cons 2 Nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -3590,7 +3590,7 @@ main := (empty :: List Bool)
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -3660,7 +3660,7 @@ main := wrap True
 	if err != nil {
 		t.Fatalf("kinded class with instance should compile: %v", err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -3730,7 +3730,7 @@ main := foldr add 0 xs
 			&gicel.HostVal{Inner: int64(3)},
 		}),
 	}
-	result, err := rt.RunContext(context.Background(), nil, bindings, "main")
+	result, err := rt.RunWith(context.Background(), &gicel.RunOptions{Bindings: bindings})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -3756,7 +3756,7 @@ main := [1, 2, 3]
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -3769,7 +3769,7 @@ func TestListLiteralEmpty(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -3791,7 +3791,7 @@ main := fmap (\x -> add x 10) [1, 2, 3]
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -3814,7 +3814,7 @@ main := length (Cons True (Cons False Nil))
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -3864,9 +3864,9 @@ main := ixpure n
 	if err != nil {
 		t.Fatalf("ixpure should resolve via IxMonad Computation: %v", err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, map[string]gicel.Value{
+	result, err := rt.RunWith(context.Background(), &gicel.RunOptions{Bindings: map[string]gicel.Value{
 		"n": &gicel.HostVal{Inner: 42},
-	}, "main")
+	}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -3886,9 +3886,9 @@ main := ixbind (ixpure n) (\x -> ixpure x)
 	if err != nil {
 		t.Fatalf("ixbind should resolve via IxMonad Computation: %v", err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, map[string]gicel.Value{
+	result, err := rt.RunWith(context.Background(), &gicel.RunOptions{Bindings: map[string]gicel.Value{
 		"n": &gicel.HostVal{Inner: 99},
-	}, "main")
+	}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -3910,7 +3910,7 @@ main := myReturn True
 	if err != nil {
 		t.Fatalf("generic IxMonad function should compile: %v", err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -3934,9 +3934,9 @@ main := do { v <- pure x; pure v }
 	if err != nil {
 		t.Fatalf("Computation do block regression failed: %v", err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, map[string]gicel.Value{
+	result, err := rt.RunWith(context.Background(), &gicel.RunOptions{Bindings: map[string]gicel.Value{
 		"x": &gicel.HostVal{Inner: 42},
-	}, "main")
+	}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -3983,7 +3983,7 @@ main := do { x <- Just 5; pure (add x 1) }
 	if err != nil {
 		t.Fatalf("Maybe do block should compile: %v", err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -4007,7 +4007,7 @@ main := do { x <- Just 5; Nothing; pure x }
 	if err != nil {
 		t.Fatalf("Maybe do block Nothing should compile: %v", err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -4037,7 +4037,7 @@ main := do {
 	if err != nil {
 		t.Fatalf("List do block cartesian should compile: %v", err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -4064,7 +4064,7 @@ main := do { x <- Just 5; Just x }
 	if err != nil {
 		t.Fatalf("Maybe do block direct return should compile: %v", err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -4092,10 +4092,10 @@ main := then (pure x) (pure y)
 	if err != nil {
 		t.Fatalf("then combinator should compile: %v", err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, map[string]gicel.Value{
+	result, err := rt.RunWith(context.Background(), &gicel.RunOptions{Bindings: map[string]gicel.Value{
 		"x": gicel.ToValue(1),
 		"y": gicel.ToValue(2),
-	}, "main")
+	}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -4118,9 +4118,9 @@ main := myReturn x
 	if err != nil {
 		t.Fatalf("generic monadic function should compile: %v", err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, map[string]gicel.Value{
+	result, err := rt.RunWith(context.Background(), &gicel.RunOptions{Bindings: map[string]gicel.Value{
 		"x": gicel.ToValue(99),
-	}, "main")
+	}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -4150,7 +4150,7 @@ main := do {
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -4183,7 +4183,7 @@ main := do {
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -4207,7 +4207,7 @@ main := do {
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -4238,10 +4238,10 @@ main := do { a <- pure x; b <- pure y; pure a }
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, map[string]gicel.Value{
+	result, err := rt.RunWith(context.Background(), &gicel.RunOptions{Bindings: map[string]gicel.Value{
 		"x": gicel.ToValue(10),
 		"y": gicel.ToValue(20),
-	}, "main")
+	}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -4268,9 +4268,9 @@ main := foldr add 0 (fmap (\x -> add x 10) xs)
 		t.Fatal(err)
 	}
 	// xs = [1, 2, 3]
-	result, err := rt.RunContext(context.Background(), nil, map[string]gicel.Value{
+	result, err := rt.RunWith(context.Background(), &gicel.RunOptions{Bindings: map[string]gicel.Value{
 		"xs": gicel.ToList([]any{int64(1), int64(2), int64(3)}),
-	}, "main")
+	}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -4299,7 +4299,7 @@ main := (same 1 2, same True True)
 	if err != nil {
 		t.Fatalf("constrained let-gen should compile: %v", err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatalf("constrained let-gen should run: %v", err)
 	}
@@ -4323,7 +4323,7 @@ main := (mymax 3 7, mymax True False)
 	if err != nil {
 		t.Fatalf("constrained let-gen Ord should compile: %v", err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatalf("constrained let-gen Ord should run: %v", err)
 	}

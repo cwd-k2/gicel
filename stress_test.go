@@ -747,17 +747,10 @@ func TestStressPrograms(t *testing.T) {
 			start = time.Now()
 			var result *gicel.RunResult
 			caps := copyCaps(sp.caps)
-			if caps != nil {
-				full, err := rt.RunContextFull(ctx, caps, sp.binds, "main")
-				if err != nil {
-					t.Fatalf("eval failed: %v", err)
-				}
-				result = &gicel.RunResult{Value: full.Value, Stats: full.Stats}
-			} else {
-				result, err = rt.RunContext(ctx, nil, sp.binds, "main")
-				if err != nil {
-					t.Fatalf("eval failed: %v", err)
-				}
+			opts := &gicel.RunOptions{Caps: caps, Bindings: sp.binds}
+			result, err = rt.RunWith(ctx, opts)
+			if err != nil {
+				t.Fatalf("eval failed: %v", err)
 			}
 			evalTime := time.Since(start)
 			t.Logf("evaluated in %v, steps=%d", evalTime, result.Stats.Steps)
@@ -804,11 +797,7 @@ func BenchmarkStressEval(b *testing.B) {
 			for i := 0; i < b.N; i++ {
 				ctx := context.Background()
 				caps := copyCaps(sp.caps)
-				if caps != nil {
-					_, err = rt.RunContextFull(ctx, caps, sp.binds, "main")
-				} else {
-					_, err = rt.RunContext(ctx, nil, sp.binds, "main")
-				}
+				_, err = rt.RunWith(ctx, &gicel.RunOptions{Caps: caps, Bindings: sp.binds})
 				if err != nil {
 					b.Fatal(err)
 				}
@@ -859,7 +848,7 @@ f%d := \x -> x
 	t.Logf("generated program: compiled in %v", compileTime)
 
 	start = time.Now()
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	evalTime := time.Since(start)
 	if err != nil {
 		t.Fatalf("eval failed: %v", err)
@@ -892,11 +881,7 @@ func TestStressMemory(t *testing.T) {
 		}
 		ctx := context.Background()
 		caps := copyCaps(sp.caps)
-		if caps != nil {
-			rt.RunContextFull(ctx, caps, sp.binds, "main")
-		} else {
-			rt.RunContext(ctx, nil, sp.binds, "main")
-		}
+		rt.RunWith(ctx, &gicel.RunOptions{Caps: caps, Bindings: sp.binds})
 	}
 
 	runtime.GC()
@@ -940,9 +925,9 @@ main := foldr add 0 xs
 		items[i] = int64(i + 1)
 	}
 	start := time.Now()
-	result, err := rt.RunContext(context.Background(), nil, map[string]gicel.Value{
+	result, err := rt.RunWith(context.Background(), &gicel.RunOptions{Bindings: map[string]gicel.Value{
 		"xs": gicel.ToList(items),
-	}, "main")
+	}})
 	elapsed := time.Since(start)
 	if err != nil {
 		t.Fatal(err)
@@ -981,9 +966,9 @@ main := fmap (\x -> add x 1) xs
 		items[i] = int64(i)
 	}
 	start := time.Now()
-	result, err := rt.RunContext(context.Background(), nil, map[string]gicel.Value{
+	result, err := rt.RunWith(context.Background(), &gicel.RunOptions{Bindings: map[string]gicel.Value{
 		"xs": gicel.ToList(items),
-	}, "main")
+	}})
 	elapsed := time.Since(start)
 	if err != nil {
 		t.Fatal(err)
@@ -1024,9 +1009,9 @@ main := toSlice xs
 		items[i] = int64(i)
 	}
 	start := time.Now()
-	result, err := rt.RunContext(context.Background(), nil, map[string]gicel.Value{
+	result, err := rt.RunWith(context.Background(), &gicel.RunOptions{Bindings: map[string]gicel.Value{
 		"xs": gicel.ToList(items),
-	}, "main")
+	}})
 	elapsed := time.Since(start)
 	if err != nil {
 		t.Fatal(err)
@@ -1069,9 +1054,9 @@ func TestStressDeepDoChainComputation(t *testing.T) {
 	}
 
 	start := time.Now()
-	result, err := rt.RunContext(context.Background(), nil, map[string]gicel.Value{
+	result, err := rt.RunWith(context.Background(), &gicel.RunOptions{Bindings: map[string]gicel.Value{
 		"x": gicel.ToValue(42),
-	}, "main")
+	}})
 	elapsed := time.Since(start)
 	if err != nil {
 		t.Fatal(err)
@@ -1102,7 +1087,7 @@ func TestStressDeepDoChainMaybe(t *testing.T) {
 	}
 
 	start := time.Now()
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	elapsed := time.Since(start)
 	if err != nil {
 		t.Fatal(err)
@@ -1176,7 +1161,7 @@ func TestStressMaybeDoChainScaling(t *testing.T) {
 			t.Logf("compiled in %v", compileTime)
 
 			start = time.Now()
-			result, err := rt.RunContext(context.Background(), nil, nil, "main")
+			result, err := rt.RunWith(context.Background(), nil)
 			evalTime := time.Since(start)
 			if err != nil {
 				t.Fatal(err)
@@ -1216,7 +1201,7 @@ main := do {
 		t.Fatal(err)
 	}
 	start := time.Now()
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	elapsed := time.Since(start)
 	if err != nil {
 		t.Fatal(err)
@@ -1251,7 +1236,7 @@ main := do {
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1294,7 +1279,7 @@ func TestStressMaybeNothingShortCircuit(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			result, err := rt.RunContext(context.Background(), nil, nil, "main")
+			result, err := rt.RunWith(context.Background(), nil)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -1338,7 +1323,7 @@ main := do {
 		t.Fatal(err)
 	}
 	caps := map[string]any{"state": &gicel.HostVal{Inner: int64(0)}}
-	result, err := rt.RunContext(context.Background(), caps, nil, "main")
+	result, err := rt.RunWith(context.Background(), &gicel.RunOptions{Caps: caps})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1386,7 +1371,7 @@ main := eq %s %s
 	t.Logf("instance resolution depth=%d: compiled in %v", depth, compileTime)
 
 	start = time.Now()
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	evalTime := time.Since(start)
 	if err != nil {
 		t.Fatal(err)
@@ -1441,7 +1426,7 @@ main := (r1, (r2, (r3, (r4, (r5, (r6, (r7, (r8,
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1486,7 +1471,7 @@ main := (inner, outer)
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1520,7 +1505,7 @@ func TestStressComputationVsMaybePerformance(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	r1, err := rt1.RunContext(context.Background(), nil, nil, "main")
+	r1, err := rt1.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1537,7 +1522,7 @@ func TestStressComputationVsMaybePerformance(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	r2, err := rt2.RunContext(context.Background(), nil, nil, "main")
+	r2, err := rt2.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1594,10 +1579,10 @@ main := do {
 	}
 
 	start := time.Now()
-	result, err := rt.RunContext(context.Background(), nil, map[string]gicel.Value{
+	result, err := rt.RunWith(context.Background(), &gicel.RunOptions{Bindings: map[string]gicel.Value{
 		"xs": gicel.ToList(xs),
 		"ys": gicel.ToList(ys),
-	}, "main")
+	}})
 	elapsed := time.Since(start)
 	if err != nil {
 		t.Fatal(err)
@@ -1644,7 +1629,7 @@ main := (test1, (test2, test3))
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1702,7 +1687,7 @@ main := do {
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1741,7 +1726,7 @@ main := do {
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1783,7 +1768,7 @@ main := compResult
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1842,7 +1827,7 @@ main := (maybeEval, compEval)
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1879,7 +1864,7 @@ main := do {
 	errs := make(chan error, 20)
 	for range 20 {
 		go func() {
-			result, err := rt.RunContext(context.Background(), nil, nil, "main")
+			result, err := rt.RunWith(context.Background(), nil)
 			if err != nil {
 				errs <- err
 				return
@@ -1921,7 +1906,7 @@ main := do {
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1947,7 +1932,7 @@ main := foldr (\x -> \acc -> append x acc) (empty :: Ordering) (Cons LT (Cons EQ
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}

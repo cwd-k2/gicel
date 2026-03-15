@@ -1,7 +1,7 @@
 // Example: hostbinding — injecting Go values into GICEL.
 //
 // GICEL has no literals. All data enters from the Go host via
-// DeclareBinding (compile-time type declaration) and RunContext (run-time
+// DeclareBinding (compile-time type declaration) and RunWith (run-time
 // value provision). This example registers an opaque "Int" type, declares
 // a binding of that type, and wraps it in a Maybe from GICEL source.
 package main
@@ -42,7 +42,7 @@ func main() {
 		"n": gicel.ToValue(42),
 	}
 
-	result, err := rt.RunContext(context.Background(), nil, bindings, "main")
+	result, err := rt.RunWith(context.Background(), &gicel.RunOptions{Bindings: bindings})
 	if err != nil {
 		log.Fatal("runtime error: ", err)
 	}

@@ -2,7 +2,7 @@
 //
 // A Runtime is immutable and goroutine-safe. Once compiled, it can be
 // executed many times with different host-provided bindings. Each call
-// to RunContext is independent: bindings do not leak between executions.
+// to RunWith is independent: bindings do not leak between executions.
 // This pattern is useful for template-like evaluation or batch processing.
 package main
 
@@ -42,7 +42,7 @@ func main() {
 		bindings := map[string]gicel.Value{
 			"n": gicel.ToValue(input),
 		}
-		result, err := rt.RunContext(ctx, nil, bindings, "main")
+		result, err := rt.RunWith(ctx, &gicel.RunOptions{Bindings: bindings})
 		if err != nil {
 			log.Fatal("runtime error: ", err)
 		}

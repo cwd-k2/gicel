@@ -1,7 +1,7 @@
 // Example: multi-entry — evaluating different entry points from a single Runtime.
 //
 // A compiled Runtime contains all top-level bindings. By passing different
-// entry point names to RunContext, different parts of the same program can
+// entry point names to RunWith, different parts of the same program can
 // be evaluated without recompilation. This is useful for programs that
 // expose multiple named results or services.
 //
@@ -47,7 +47,7 @@ func main() {
 	ctx := context.Background()
 
 	// Evaluate "greeting" — a String value.
-	r1, err := rt.RunContext(ctx, nil, nil, "greeting")
+	r1, err := rt.RunWith(ctx, &gicel.RunOptions{Entry: "greeting"})
 	if err != nil {
 		log.Fatal("runtime error: ", err)
 	}
@@ -55,7 +55,7 @@ func main() {
 	// Output: greeting: hello, GICEL
 
 	// Evaluate "answer" — an Int value.
-	r2, err := rt.RunContext(ctx, nil, nil, "answer")
+	r2, err := rt.RunWith(ctx, &gicel.RunOptions{Entry: "answer"})
 	if err != nil {
 		log.Fatal("runtime error: ", err)
 	}
@@ -63,7 +63,7 @@ func main() {
 	// Output: answer:   42
 
 	// Evaluate "doubled" — another Int value using the same helper.
-	r3, err := rt.RunContext(ctx, nil, nil, "doubled")
+	r3, err := rt.RunWith(ctx, &gicel.RunOptions{Entry: "doubled"})
 	if err != nil {
 		log.Fatal("runtime error: ", err)
 	}

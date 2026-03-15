@@ -27,7 +27,7 @@ type SandboxConfig struct {
 
 // RunSandbox compiles and executes a GICEL program in a single call
 // with conservative resource limits. Designed for AI agent use cases.
-func RunSandbox(source string, cfg *SandboxConfig) (*RunResultFull, error) {
+func RunSandbox(source string, cfg *SandboxConfig) (*RunResult, error) {
 	if cfg == nil {
 		cfg = &SandboxConfig{}
 	}

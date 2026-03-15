@@ -131,7 +131,7 @@ eng.Use(gicel.Num)
 eng.Use(gicel.Str)
 
 rt, err := eng.NewRuntime(source)
-result, err := rt.RunContext(ctx, nil, nil, "main")
+result, err := rt.RunWith(ctx, nil)
 ```
 
 ---

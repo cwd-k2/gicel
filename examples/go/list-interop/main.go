@@ -41,7 +41,7 @@ func main() {
 	gicelList := gicel.ToList(goSlice)
 
 	bindings := map[string]gicel.Value{"xs": gicelList}
-	result, err := rt.RunContext(context.Background(), nil, bindings, "main")
+	result, err := rt.RunWith(context.Background(), &gicel.RunOptions{Bindings: bindings})
 	if err != nil {
 		log.Fatal("runtime error: ", err)
 	}

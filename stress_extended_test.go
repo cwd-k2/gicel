@@ -222,7 +222,7 @@ main := countdown 500
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -259,7 +259,7 @@ func TestStressCapEnvMultiEffectDeep(t *testing.T) {
 	caps := map[string]any{
 		"state": &gicel.HostVal{Inner: int64(0)},
 	}
-	result, err := rt.RunContextFull(context.Background(), caps, nil, "main")
+	result, err := rt.RunWith(context.Background(), &gicel.RunOptions{Caps: caps})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -347,7 +347,7 @@ main := foldl (\acc -> \x -> acc + x) 0 (mkRange 1 201)
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -386,8 +386,8 @@ func TestStressDeepThunkForceChain(t *testing.T) {
 // Public API Stress
 // =============================================================================
 
-// TestStressConcurrentRunContext — 50 concurrent goroutines sharing one Runtime.
-func TestStressConcurrentRunContext(t *testing.T) {
+// TestStressConcurrentRunWith — 50 concurrent goroutines sharing one Runtime.
+func TestStressConcurrentRunWith(t *testing.T) {
 	eng := gicel.NewEngine()
 	if err := eng.Use(gicel.Num); err != nil {
 		t.Fatal(err)
@@ -417,7 +417,7 @@ main := double x
 			bindings := map[string]gicel.Value{
 				"x": gicel.ToValue(int64(idx)),
 			}
-			r, err := rt.RunContext(context.Background(), nil, bindings, "main")
+			r, err := rt.RunWith(context.Background(), &gicel.RunOptions{Bindings: bindings})
 			if err != nil {
 				errs[idx] = err
 				return
@@ -436,8 +436,8 @@ main := double x
 	}
 }
 
-// TestStressConcurrentRunContextWithCaps — concurrent CapEnv isolation.
-func TestStressConcurrentRunContextWithCaps(t *testing.T) {
+// TestStressConcurrentRunWithCaps — concurrent CapEnv isolation.
+func TestStressConcurrentRunWithCaps(t *testing.T) {
 	eng := gicel.NewEngine()
 	if err := eng.Use(gicel.Num); err != nil {
 		t.Fatal(err)
@@ -472,7 +472,7 @@ main := do {
 			caps := map[string]any{
 				"state": &gicel.HostVal{Inner: int64(idx * 10)},
 			}
-			r, err := rt.RunContextFull(context.Background(), caps, nil, "main")
+			r, err := rt.RunWith(context.Background(), &gicel.RunOptions{Caps: caps})
 			if err != nil {
 				errs[idx] = err
 				return
@@ -519,7 +519,7 @@ main := val9
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -544,7 +544,7 @@ func TestStressConcurrentSandbox(t *testing.T) {
 	const N = 20
 	var wg sync.WaitGroup
 	errs := make([]error, N)
-	results := make([]*gicel.RunResultFull, N)
+	results := make([]*gicel.RunResult, N)
 
 	for i := range N {
 		wg.Add(1)
@@ -588,7 +588,7 @@ myNot := \b -> case b { Yes -> No; No -> Yes }
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -598,7 +598,7 @@ myNot := \b -> case b { Yes -> No; No -> Yes }
 	}
 }
 
-// TestStressMultiEntryIndependentLimits — each RunContext has independent limits.
+// TestStressMultiEntryIndependentLimits — each RunWith has independent limits.
 func TestStressMultiEntryIndependentLimits(t *testing.T) {
 	eng := gicel.NewEngine()
 	eng.SetStepLimit(100_000)
@@ -606,11 +606,11 @@ func TestStressMultiEntryIndependentLimits(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	r1, err := rt.RunContext(context.Background(), nil, nil, "a")
+	r1, err := rt.RunWith(context.Background(), &gicel.RunOptions{Entry: "a"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	r2, err := rt.RunContext(context.Background(), nil, nil, "b")
+	r2, err := rt.RunWith(context.Background(), &gicel.RunOptions{Entry: "b"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -682,9 +682,9 @@ func TestStressDepthLimitWithThunkForce(t *testing.T) {
 		t.Fatal(err)
 	}
 	idFn := &gicel.ConVal{Con: "True"} // f = const True
-	_, err = rt.RunContext(context.Background(), nil, map[string]gicel.Value{
+	_, err = rt.RunWith(context.Background(), &gicel.RunOptions{Bindings: map[string]gicel.Value{
 		"f": nil, // placeholder — we need an actual function
-	}, "main")
+	}})
 	_ = idFn
 
 	// For depth limit test, just use RunSandbox with a simple recursive pattern.
@@ -719,7 +719,7 @@ main := loop True
 	ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
 	defer cancel()
 
-	_, err = rt.RunContext(ctx, nil, nil, "main")
+	_, err = rt.RunWith(ctx, nil)
 	if err == nil {
 		t.Fatal("expected error from context cancellation")
 	}
@@ -753,7 +753,7 @@ main := build 10000 { a = 0, b = 0, c = 0, d = 0, e = 0 }
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = rt.RunContext(context.Background(), nil, nil, "main")
+	_, err = rt.RunWith(context.Background(), nil)
 	if err == nil {
 		t.Fatal("expected alloc limit error")
 	}
@@ -784,7 +784,7 @@ main := case True { True -> longBranch 10000; False -> 42 }
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = rt.RunContext(context.Background(), nil, nil, "main")
+	_, err = rt.RunWith(context.Background(), nil)
 	if err == nil {
 		t.Fatal("expected step limit error on long branch")
 	}
@@ -799,7 +799,7 @@ func TestStressConcurrentSandboxDifferentLimits(t *testing.T) {
 	var wg sync.WaitGroup
 	type result struct {
 		err error
-		val *gicel.RunResultFull
+		val *gicel.RunResult
 	}
 	results := make([]result, N)
 
@@ -831,7 +831,7 @@ func TestStressRepeatedRuntimeExecution(t *testing.T) {
 		t.Fatal(err)
 	}
 	for i := range 100 {
-		result, err := rt.RunContext(context.Background(), nil, nil, "main")
+		result, err := rt.RunWith(context.Background(), nil)
 		if err != nil {
 			t.Fatalf("iteration %d: %v", i, err)
 		}

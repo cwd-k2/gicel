@@ -65,8 +65,8 @@ func main() {
 	// Provide the initial capability environment with counter = 0.
 	caps := map[string]any{"counter": 0}
 
-	// RunContextFull returns the final CapEnv alongside the value.
-	result, err := rt.RunContextFull(context.Background(), caps, nil, "main")
+	// RunWith returns the final CapEnv alongside the value.
+	result, err := rt.RunWith(context.Background(), &gicel.RunOptions{Caps: caps})
 	if err != nil {
 		log.Fatal("runtime error: ", err)
 	}

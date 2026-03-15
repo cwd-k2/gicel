@@ -80,7 +80,7 @@ func (e *Engine) Use(p Pack) error {
 
 // DeclareBinding registers a host-provided value binding at compile time.
 // The name becomes available in GICEL source as a variable of the given type.
-// The actual value must be provided at runtime via RunContext.
+// The actual value must be provided at runtime via RunWith.
 func (e *Engine) DeclareBinding(name string, ty types.Type) {
 	e.bindings[name] = ty
 }

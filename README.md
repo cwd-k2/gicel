@@ -66,7 +66,7 @@ gicel example hello
 Engine   (mutable, configurable)
   ↓ NewRuntime(source)
 Runtime  (immutable, goroutine-safe)
-  ↓ RunContext(ctx, ...)
+  ↓ RunWith(ctx, opts)
 result   (per-execution)
 ```
 
@@ -94,7 +94,7 @@ func main() {
         log.Fatal(err)
     }
 
-    result, err := rt.RunContext(context.Background(), nil, nil, "main")
+    result, err := rt.RunWith(context.Background(), nil)
     if err != nil {
         log.Fatal(err)
     }
@@ -115,8 +115,9 @@ eng.DeclareBinding("n", gicel.ConType("Int"))
 rt, err := eng.NewRuntime(`main := Just n`)
 if err != nil { log.Fatal(err) }
 
-result, err := rt.RunContext(context.Background(), nil,
-    map[string]gicel.Value{"n": gicel.ToValue(42)}, "main")
+result, err := rt.RunWith(context.Background(), &gicel.RunOptions{
+    Bindings: map[string]gicel.Value{"n": gicel.ToValue(42)},
+})
 ```
 
 The same `Runtime` can be executed concurrently with different binding values.
@@ -156,8 +157,8 @@ rt, _ := eng.NewRuntime(`
     }
 `)
 
-result, _ := rt.RunContextFull(context.Background(),
-    map[string]any{"counter": 0}, nil, "main")
+result, _ := rt.RunWith(context.Background(),
+    &gicel.RunOptions{Caps: map[string]any{"counter": 0}})
 
 fmt.Println(gicel.MustHost[int](result.Value)) // 2
 ```

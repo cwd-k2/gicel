@@ -1,7 +1,7 @@
 // Example: concurrent — goroutine-safe Runtime with concurrent execution.
 //
 // Runtime is immutable after compilation. Multiple goroutines can call
-// RunContext on the same Runtime concurrently, each with its own bindings.
+// RunWith on the same Runtime concurrently, each with its own bindings.
 // Each execution gets an independent evaluator with its own step counter.
 package main
 
@@ -40,7 +40,7 @@ func main() {
 			bindings := map[string]gicel.Value{
 				"n": gicel.ToValue(val),
 			}
-			result, err := rt.RunContext(context.Background(), nil, bindings, "main")
+			result, err := rt.RunWith(context.Background(), &gicel.RunOptions{Bindings: bindings})
 			if err != nil {
 				log.Printf("goroutine %d: runtime error: %v", val, err)
 				return

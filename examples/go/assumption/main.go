@@ -39,7 +39,7 @@ func main() {
 		log.Fatal("compile error: ", err)
 	}
 
-	_, err = rt.RunContext(context.Background(), nil, nil, "main")
+	_, err = rt.RunWith(context.Background(), nil)
 	if err != nil {
 		log.Fatal("runtime error: ", err)
 	}

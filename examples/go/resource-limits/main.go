@@ -38,7 +38,7 @@ func main() {
 		log.Fatal("compile error: ", err)
 	}
 
-	_, err = rt.RunContext(ctx, nil, nil, "main")
+	_, err = rt.RunWith(ctx, nil)
 	fmt.Println("step limit test:", err)
 	// Output: step limit test: step limit exceeded
 
@@ -54,7 +54,7 @@ func main() {
 		log.Fatal("compile error: ", err)
 	}
 
-	_, err = rt2.RunContext(ctx, nil, nil, "main")
+	_, err = rt2.RunWith(ctx, nil)
 	fmt.Println("depth limit test:", err)
 	// Output: depth limit test: call depth limit exceeded
 
@@ -72,7 +72,7 @@ main := 1 + 2 + 3
 		log.Fatal("compile error: ", err)
 	}
 
-	result, err := rt3.RunContext(ctx, nil, nil, "main")
+	result, err := rt3.RunWith(ctx, nil)
 	if err != nil {
 		log.Fatal("runtime error: ", err)
 	}

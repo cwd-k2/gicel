@@ -1,6 +1,6 @@
 // Example: basic — pure Bool logic in GICEL.
 //
-// Demonstrates the minimal lifecycle: Engine -> Runtime -> RunContext.
+// Demonstrates the minimal lifecycle: Engine -> Runtime -> RunWith.
 // No host bindings or assumptions; everything lives in the language.
 package main
 
@@ -34,7 +34,7 @@ func main() {
 	}
 
 	// 3. Execute the "main" binding. No capabilities or host bindings needed here.
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		log.Fatal("runtime error: ", err)
 	}

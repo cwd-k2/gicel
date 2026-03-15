@@ -73,7 +73,7 @@ main := wrapJust (origin!#x + origin!#y)
 		}},
 	}
 
-	result, err := rt.RunContext(context.Background(), nil, bindings, "main")
+	result, err := rt.RunWith(context.Background(), &gicel.RunOptions{Bindings: bindings})
 	if err != nil {
 		log.Fatal("runtime error: ", err)
 	}

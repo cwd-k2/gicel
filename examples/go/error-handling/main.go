@@ -46,7 +46,7 @@ main := loop True
 		log.Fatal("unexpected compile error: ", err)
 	}
 
-	_, err = rt.RunContext(context.Background(), nil, nil, "main")
+	_, err = rt.RunWith(context.Background(), nil)
 	if err != nil {
 		fmt.Println("runtime error caught:", err)
 	}
@@ -57,7 +57,7 @@ main := loop True
 	if err != nil {
 		log.Fatal(err)
 	}
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		log.Fatal(err)
 	}

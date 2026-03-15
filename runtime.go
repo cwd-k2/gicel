@@ -29,14 +29,8 @@ func (r *Runtime) Program() *CoreProgram {
 	return &CoreProgram{prog: r.prog}
 }
 
-// RunResult holds the result of a single execution.
+// RunResult holds the result of an execution.
 type RunResult struct {
-	Value Value
-	Stats EvalStats
-}
-
-// RunResultFull holds the full result of an execution including the final capability environment.
-type RunResultFull struct {
 	Value  Value
 	CapEnv CapEnv
 	Stats  EvalStats
@@ -80,8 +74,6 @@ func (r *Runtime) buildEnv(bindings map[string]Value) (*eval.Env, error) {
 }
 
 // execute is the unified execution core.
-// All public Run methods delegate here, differing only in how the
-// ExplainObserver is constructed (or left nil).
 func (r *Runtime) execute(ctx context.Context, caps map[string]any, bindings map[string]Value, entry string, obs *eval.ExplainObserver, traceHook eval.TraceHook) (eval.EvalResult, EvalStats, error) {
 	env, err := r.buildEnv(bindings)
 	if err != nil {
@@ -174,10 +166,9 @@ func (r *Runtime) evalBindings(ev *eval.Evaluator, env *eval.Env, bindings []cor
 	return env, nil
 }
 
-// RunWith executes the program with per-execution options.
-// Explain and trace hooks are scoped to this execution, not shared with
-// the Runtime. This is the preferred API for agent and LSP integration.
-func (r *Runtime) RunWith(ctx context.Context, opts *RunOptions) (*RunResultFull, error) {
+// RunWith executes the program with the given options.
+// A nil opts is equivalent to &RunOptions{} (entry "main", no hooks).
+func (r *Runtime) RunWith(ctx context.Context, opts *RunOptions) (*RunResult, error) {
 	if opts == nil {
 		opts = &RunOptions{}
 	}
@@ -196,24 +187,5 @@ func (r *Runtime) RunWith(ctx context.Context, opts *RunOptions) (*RunResultFull
 	if err != nil {
 		return nil, err
 	}
-	return &RunResultFull{Value: result.Value, CapEnv: result.CapEnv, Stats: stats}, nil
-}
-
-// RunContext executes the program with the given capabilities and bindings.
-// entry specifies the top-level binding to evaluate (typically "main").
-func (r *Runtime) RunContext(ctx context.Context, caps map[string]any, bindings map[string]Value, entry string) (*RunResult, error) {
-	result, stats, err := r.execute(ctx, caps, bindings, entry, nil, nil)
-	if err != nil {
-		return nil, err
-	}
-	return &RunResult{Value: result.Value, Stats: stats}, nil
-}
-
-// RunContextFull is like RunContext but also returns the final capability environment.
-func (r *Runtime) RunContextFull(ctx context.Context, caps map[string]any, bindings map[string]Value, entry string) (*RunResultFull, error) {
-	result, stats, err := r.execute(ctx, caps, bindings, entry, nil, nil)
-	if err != nil {
-		return nil, err
-	}
-	return &RunResultFull{Value: result.Value, CapEnv: result.CapEnv, Stats: stats}, nil
+	return &RunResult{Value: result.Value, CapEnv: result.CapEnv, Stats: stats}, nil
 }

@@ -66,7 +66,7 @@ func run(ctx context.Context, label string, setup func(*gicel.Engine), source st
 	if err != nil {
 		log.Fatalf("%s compile error: %v", label, err)
 	}
-	result, err := rt.RunContext(ctx, nil, nil, "main")
+	result, err := rt.RunWith(ctx, nil)
 	if err != nil {
 		log.Fatalf("%s runtime error: %v", label, err)
 	}
@@ -86,7 +86,7 @@ main := do { _ <- failWith (); pure True }
 		log.Fatal("Fail compile error: ", err)
 	}
 
-	_, err = rt.RunContextFull(ctx, map[string]any{"fail": nil}, nil, "main")
+	_, err = rt.RunWith(ctx, &gicel.RunOptions{Caps: map[string]any{"fail": nil}})
 	if err != nil {
 		// The error wraps a RuntimeError from the fail primitive.
 		var re *gicel.RuntimeError
@@ -120,7 +120,7 @@ main := do {
 	// State pack reads/writes the "state" key in CapEnv.
 	// The value must be a gicel.Value (not a raw Go value).
 	caps := map[string]any{"state": gicel.ToValue(int64(32))}
-	result, err := rt.RunContextFull(ctx, caps, nil, "main")
+	result, err := rt.RunWith(ctx, &gicel.RunOptions{Caps: caps})
 	if err != nil {
 		log.Fatal("State runtime error: ", err)
 	}
@@ -146,7 +146,7 @@ main := do {
 
 	// IO pack reads/writes the "io" key in CapEnv as []string.
 	caps := map[string]any{"io": nil}
-	result, err := rt.RunContextFull(ctx, caps, nil, "main")
+	result, err := rt.RunWith(ctx, &gicel.RunOptions{Caps: caps})
 	if err != nil {
 		log.Fatal("IO runtime error: ", err)
 	}

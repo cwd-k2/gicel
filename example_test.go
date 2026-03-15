@@ -32,7 +32,7 @@ func ExampleEngine_NewRuntime() {
 		panic(err)
 	}
 
-	result, err := rt.RunContext(context.Background(), nil, nil, "main")
+	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
 		panic(err)
 	}
