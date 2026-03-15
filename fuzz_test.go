@@ -78,7 +78,7 @@ func FuzzCheck(f *testing.F) {
 
 	f.Fuzz(func(t *testing.T, src []byte) {
 		eng := gicel.NewEngine()
-		eng.Check(string(src)) // panics are the signal; compile/type errors are expected
+		eng.Compile(string(src)) // panics are the signal; compile/type errors are expected
 	})
 }
 

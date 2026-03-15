@@ -1000,7 +1000,7 @@ func TestDiagnostics(t *testing.T) {
 
 func TestCheckOnly(t *testing.T) {
 	eng := gicel.NewEngine()
-	prog, err := eng.Check(`main := True`)
+	prog, err := eng.Compile(`main := True`)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -2423,7 +2423,7 @@ func TestTypeHelpers(t *testing.T) {
 
 func TestUnifySkolemRigid(t *testing.T) {
 	eng := gicel.NewEngine()
-	_, err := eng.Check(`
+	_, err := eng.Compile(`
 not :: Bool -> Bool
 not := \x -> x
 main := not True
@@ -2436,7 +2436,7 @@ main := not True
 func TestUnifySkolemSame(t *testing.T) {
 	// Indirect test: use a GADT constructor with existential that unifies skolem with itself
 	eng := gicel.NewEngine()
-	_, err := eng.Check(`
+	_, err := eng.Compile(`
 data SameTest = { MkSame :: forall a. a -> a -> SameTest }
 useIt :: SameTest -> Bool
 useIt := \s -> case s { MkSame x y -> True }
@@ -2450,7 +2450,7 @@ useIt := \s -> case s { MkSame x y -> True }
 
 func TestSkolemEscapeDetected(t *testing.T) {
 	eng := gicel.NewEngine()
-	_, err := eng.Check(`
+	_, err := eng.Compile(`
 data Exists = { MkExists :: forall a. a -> Exists }
 escape :: Exists -> Bool
 escape := \e -> case e { MkExists x -> x }
@@ -2465,7 +2465,7 @@ escape := \e -> case e { MkExists x -> x }
 
 func TestSkolemNoEscape(t *testing.T) {
 	eng := gicel.NewEngine()
-	_, err := eng.Check(`
+	_, err := eng.Compile(`
 data Wrapper = { MkWrapper :: forall a. a -> Wrapper }
 safe :: Wrapper -> Bool
 safe := \w -> case w { MkWrapper _ -> True }
@@ -2477,7 +2477,7 @@ safe := \w -> case w { MkWrapper _ -> True }
 
 func TestSkolemEscapeInMeta(t *testing.T) {
 	eng := gicel.NewEngine()
-	_, err := eng.Check(`
+	_, err := eng.Compile(`
 data SomeVal = { MkSome :: forall a. a -> SomeVal }
 leaky := \s -> case s { MkSome x -> Just x }
 `)
@@ -2508,7 +2508,7 @@ main := useSomeEq (MkSomeEq True)
 
 func TestExistentialEscapeError(t *testing.T) {
 	eng := gicel.NewEngine()
-	_, err := eng.Check(`
+	_, err := eng.Compile(`
 data SomeEq = { MkSomeEq :: forall a. Eq a => a -> SomeEq }
 escape :: SomeEq -> Bool
 escape := \s -> case s { MkSomeEq x -> x }
@@ -2556,7 +2556,7 @@ main := useWrapper (MkWrapper (\x -> x) True)
 
 func TestExistentialMultiConstraint(t *testing.T) {
 	eng := gicel.NewEngine()
-	_, err := eng.Check(`
+	_, err := eng.Compile(`
 data ShowOrd = { MkShowOrd :: forall a. Eq a => Ord a => a -> a -> ShowOrd }
 use :: ShowOrd -> Ordering
 use := \s -> case s { MkShowOrd x y -> compare x y }
@@ -2754,7 +2754,7 @@ main := (empty :: Ordering)
 
 func TestClassApplicative(t *testing.T) {
 	eng := gicel.NewEngine()
-	_, err := eng.Check(`
+	_, err := eng.Compile(`
 test := (wrap True :: Maybe Bool)
 `)
 	if err != nil {
@@ -2764,7 +2764,7 @@ test := (wrap True :: Maybe Bool)
 
 func TestClassTraversable(t *testing.T) {
 	eng := gicel.NewEngine()
-	_, err := eng.Check(`
+	_, err := eng.Compile(`
 test :: forall f a b. Applicative f => (a -> f b) -> Maybe a -> f (Maybe b)
 test := traverse
 `)
@@ -3165,7 +3165,7 @@ func TestSetCheckTraceHookPublicAPI(t *testing.T) {
 	eng.SetCheckTraceHook(func(e gicel.CheckTraceEvent) {
 		events = append(events, e)
 	})
-	_, err := eng.Check(`main := True`)
+	_, err := eng.Compile(`main := True`)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -3187,7 +3187,7 @@ func TestParseReturnsOpaque(t *testing.T) {
 
 func TestCheckReturnsOpaque(t *testing.T) {
 	eng := gicel.NewEngine()
-	core, err := eng.Check(`main := True`)
+	core, err := eng.Compile(`main := True`)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -3951,7 +3951,7 @@ func TestDoBlockComputationCoreBind(t *testing.T) {
 	// Use Check() to inspect pre-optimization Core IR.
 	eng := gicel.NewEngine()
 	eng.DeclareBinding("x", gicel.ConType("Int"))
-	cp, err := eng.Check(`
+	cp, err := eng.Compile(`
 main := do { v <- pure x; pure v }
 `)
 	if err != nil {

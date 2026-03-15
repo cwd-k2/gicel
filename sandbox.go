@@ -25,16 +25,9 @@ type SandboxConfig struct {
 	Bindings map[string]Value // host-provided value bindings (nil for none)
 }
 
-// SandboxResult holds the output of a sandboxed execution.
-type SandboxResult struct {
-	Value  Value
-	CapEnv CapEnv
-	Stats  EvalStats
-}
-
 // RunSandbox compiles and executes a GICEL program in a single call
 // with conservative resource limits. Designed for AI agent use cases.
-func RunSandbox(source string, cfg *SandboxConfig) (*SandboxResult, error) {
+func RunSandbox(source string, cfg *SandboxConfig) (*RunResultFull, error) {
 	if cfg == nil {
 		cfg = &SandboxConfig{}
 	}
@@ -79,14 +72,9 @@ func RunSandbox(source string, cfg *SandboxConfig) (*SandboxResult, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
-	result, err := rt.RunContextFull(ctx, cfg.Caps, cfg.Bindings, entry)
-	if err != nil {
-		return nil, err
-	}
-
-	return &SandboxResult{
-		Value:  result.Value,
-		CapEnv: result.CapEnv,
-		Stats:  result.Stats,
-	}, nil
+	return rt.RunWith(ctx, &RunOptions{
+		Entry:    entry,
+		Caps:     cfg.Caps,
+		Bindings: cfg.Bindings,
+	})
 }

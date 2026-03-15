@@ -113,15 +113,23 @@ func (o *ExplainObserver) Emit(depth int, kind ExplainKind, detail ExplainDetail
 }
 
 // Section emits a section label (not subject to suppression).
+// Safe to call on a nil observer.
 func (o *ExplainObserver) Section(name string) {
+	if o == nil {
+		return
+	}
 	o.seq++
-	o.hook(ExplainStep{Seq: o.seq, Kind: ExplainLabel, Detail: LabelDetail(name, "section")})
+	o.hook(ExplainStep{Seq: o.seq, Kind: ExplainLabel, Detail: labelDetail(name, "section")})
 }
 
 // Result emits the final result (not subject to suppression).
+// Safe to call on a nil observer.
 func (o *ExplainObserver) Result(value string) {
+	if o == nil {
+		return
+	}
 	o.seq++
-	o.hook(ExplainStep{Seq: o.seq, Kind: ExplainResult, Detail: ResultDetail(value)})
+	o.hook(ExplainStep{Seq: o.seq, Kind: ExplainResult, Detail: resultDetail(value)})
 }
 
 // MarkInternal registers a closure name as stdlib-internal.
@@ -133,6 +141,7 @@ func (o *ExplainObserver) MarkInternal(name string) {
 }
 
 // IsInternal reports whether the named closure is stdlib-internal.
+// Safe to call on a nil observer.
 func (o *ExplainObserver) IsInternal(name string) bool {
 	return o != nil && o.internals[name]
 }
@@ -241,7 +250,7 @@ func prettyRecord(r *RecordVal) string {
 }
 
 // FormatPattern renders a Core pattern in source-level terms.
-func FormatPattern(p core.Pattern) string {
+func formatPattern(p core.Pattern) string {
 	switch pat := p.(type) {
 	case *core.PVar:
 		return pat.Name
@@ -253,7 +262,7 @@ func FormatPattern(p core.Pattern) string {
 		}
 		args := make([]string, len(pat.Args))
 		for i, a := range pat.Args {
-			s := FormatPattern(a)
+			s := formatPattern(a)
 			if strings.Contains(s, " ") {
 				s = "(" + s + ")"
 			}
@@ -268,13 +277,13 @@ func FormatPattern(p core.Pattern) string {
 		if isTuplePattern(pat) {
 			parts := make([]string, len(pat.Fields))
 			for i, f := range pat.Fields {
-				parts[i] = FormatPattern(f.Pattern)
+				parts[i] = formatPattern(f.Pattern)
 			}
 			return "(" + strings.Join(parts, ", ") + ")"
 		}
 		parts := make([]string, len(pat.Fields))
 		for i, f := range pat.Fields {
-			parts[i] = f.Label + " = " + FormatPattern(f.Pattern)
+			parts[i] = f.Label + " = " + formatPattern(f.Pattern)
 		}
 		return "{ " + strings.Join(parts, ", ") + " }"
 	}
@@ -301,13 +310,11 @@ func isTuplePattern(p *core.PRecord) bool {
 	return true
 }
 
-// BindDetail builds an ExplainDetail for a bind event.
-func BindDetail(varName, value string, monadic bool) ExplainDetail {
+func bindDetail(varName, value string, monadic bool) ExplainDetail {
 	return ExplainDetail{Var: varName, Value: value, Monadic: monadic}
 }
 
-// MatchDetail builds an ExplainDetail for a match event.
-func MatchDetail(scrutinee, pattern string, bindings map[string]Value) ExplainDetail {
+func matchDetail(scrutinee, pattern string, bindings map[string]Value) ExplainDetail {
 	d := ExplainDetail{Scrutinee: scrutinee, Pattern: pattern}
 	if len(bindings) > 0 {
 		d.Bindings = make(map[string]string, len(bindings))
@@ -318,8 +325,7 @@ func MatchDetail(scrutinee, pattern string, bindings map[string]Value) ExplainDe
 	return d
 }
 
-// EffectDetail builds an ExplainDetail for an effect event.
-func EffectDetail(name string, args []Value, result Value, oldCap, newCap CapEnv) ExplainDetail {
+func effectDetail(name string, args []Value, result Value, oldCap, newCap CapEnv) ExplainDetail {
 	d := ExplainDetail{
 		Op:     name,
 		Result: PrettyValue(result),
@@ -334,14 +340,12 @@ func EffectDetail(name string, args []Value, result Value, oldCap, newCap CapEnv
 	return d
 }
 
-// LabelDetail builds an ExplainDetail for a label event.
-func LabelDetail(name, labelKind string) ExplainDetail {
+func labelDetail(name, labelKind string) ExplainDetail {
 	return ExplainDetail{Name: name, LabelKind: labelKind}
 }
 
-// ResultDetail builds an ExplainDetail for a result event.
-func ResultDetail(value string) ExplainDetail {
-	return ExplainDetail{Name: "result", Value: value}
+func resultDetail(value string) ExplainDetail {
+	return ExplainDetail{Value: value}
 }
 
 // capEnvDiffStructured computes structured CapEnv changes as [old, new] pairs.

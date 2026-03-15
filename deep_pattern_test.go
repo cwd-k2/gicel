@@ -446,7 +446,7 @@ main := eq (Just (Just True)) (Just Nothing)
 func TestKindInferenceSimple(t *testing.T) {
 	// data Maybe a = Just a | Nothing  -- 'a' should get kind Type.
 	eng := gicel.NewEngine()
-	_, err := eng.Check(`
+	_, err := eng.Compile(`
 data MyMaybe a = MyJust a | MyNothing
 main := MyJust True
 `)
@@ -460,7 +460,7 @@ func TestKindMismatchInApplication(t *testing.T) {
 	// but the kind checker does not reject this.
 	// F expects (a : Type -> Type) but receives Bool : Type.
 	eng := gicel.NewEngine()
-	_, err := eng.Check(`
+	_, err := eng.Compile(`
 data F (a : Type -> Type) = MkF
 main := (MkF :: F Bool)
 `)

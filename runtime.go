@@ -174,11 +174,6 @@ func (r *Runtime) evalBindings(ev *eval.Evaluator, env *eval.Env, bindings []cor
 	return env, nil
 }
 
-// run delegates to execute without hooks. Used by RunContext/RunContextFull.
-func (r *Runtime) run(ctx context.Context, caps map[string]any, bindings map[string]Value, entry string) (eval.EvalResult, EvalStats, error) {
-	return r.execute(ctx, caps, bindings, entry, nil, nil)
-}
-
 // RunWith executes the program with per-execution options.
 // Explain and trace hooks are scoped to this execution, not shared with
 // the Runtime. This is the preferred API for agent and LSP integration.
@@ -207,7 +202,7 @@ func (r *Runtime) RunWith(ctx context.Context, opts *RunOptions) (*RunResultFull
 // RunContext executes the program with the given capabilities and bindings.
 // entry specifies the top-level binding to evaluate (typically "main").
 func (r *Runtime) RunContext(ctx context.Context, caps map[string]any, bindings map[string]Value, entry string) (*RunResult, error) {
-	result, stats, err := r.run(ctx, caps, bindings, entry)
+	result, stats, err := r.execute(ctx, caps, bindings, entry, nil, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -216,7 +211,7 @@ func (r *Runtime) RunContext(ctx context.Context, caps map[string]any, bindings 
 
 // RunContextFull is like RunContext but also returns the final capability environment.
 func (r *Runtime) RunContextFull(ctx context.Context, caps map[string]any, bindings map[string]Value, entry string) (*RunResultFull, error) {
-	result, stats, err := r.run(ctx, caps, bindings, entry)
+	result, stats, err := r.execute(ctx, caps, bindings, entry, nil, nil)
 	if err != nil {
 		return nil, err
 	}

@@ -350,12 +350,10 @@ type CoreProgram struct{ prog *core.Program }
 func (c *CoreProgram) Pretty() string { return core.PrettyProgram(c.prog) }
 
 // CompileResult holds all static information produced by compilation:
-// Core IR, inferred types, binding names, and source mapping.
-// This is the foundation for both agent APIs and LSP integration.
+// Core IR, inferred types, and binding names.
 type CompileResult struct {
 	prog   *core.Program
 	values map[string]types.Type
-	source *span.Source
 }
 
 // Pretty returns the Core IR as a human-readable string.
@@ -406,18 +404,7 @@ func (e *Engine) Compile(source string) (*CompileResult, error) {
 	if checkErrs.HasErrors() {
 		return nil, &CompileError{errors: checkErrs}
 	}
-	return &CompileResult{prog: prog, values: exports.Values, source: src}, nil
-}
-
-// Check compiles and type-checks source code without creating a Runtime.
-// Returns the compiled Core IR program for inspection.
-// Deprecated: use Compile for richer output including types.
-func (e *Engine) Check(source string) (*CoreProgram, error) {
-	cr, err := e.Compile(source)
-	if err != nil {
-		return nil, err
-	}
-	return cr.CoreProgram(), nil
+	return &CompileResult{prog: prog, values: exports.Values}, nil
 }
 
 // NewRuntime compiles source code into an immutable, goroutine-safe Runtime.

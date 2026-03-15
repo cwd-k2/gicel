@@ -42,7 +42,6 @@ type ModuleExports struct {
 	PromotedKinds map[string]types.Kind    // DataKinds promotions
 	PromotedCons  map[string]types.Kind    // promoted constructors
 	DataDecls     []core.DataDecl          // for evaluator constructor registration
-	CoreBindings  []core.Binding           // compiled top-level bindings (Core IR)
 }
 
 // CheckTraceKind classifies trace events.
@@ -221,7 +220,6 @@ func (ch *Checker) ExportModule(prog *core.Program) *ModuleExports {
 		PromotedKinds: copyMap(ch.promotedKinds),
 		PromotedCons:  copyMap(ch.promotedCons),
 		DataDecls:     prog.DataDecls,
-		CoreBindings:  prog.Bindings,
 	}
 }
 

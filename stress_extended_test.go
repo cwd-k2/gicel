@@ -544,7 +544,7 @@ func TestStressConcurrentSandbox(t *testing.T) {
 	const N = 20
 	var wg sync.WaitGroup
 	errs := make([]error, N)
-	results := make([]*gicel.SandboxResult, N)
+	results := make([]*gicel.RunResultFull, N)
 
 	for i := range N {
 		wg.Add(1)
@@ -799,7 +799,7 @@ func TestStressConcurrentSandboxDifferentLimits(t *testing.T) {
 	var wg sync.WaitGroup
 	type result struct {
 		err error
-		val *gicel.SandboxResult
+		val *gicel.RunResultFull
 	}
 	results := make([]result, N)
 
