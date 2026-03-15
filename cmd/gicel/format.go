@@ -133,6 +133,14 @@ func (f *explainFormatter) writeSection(name string) {
 // 0  :52  enter  │ name ───────────────────────
 func (f *explainFormatter) writeEnter(step gicel.ExplainStep) {
 	name := strings.TrimPrefix(step.Message, "enter ")
+	// Show argument if available from detail.
+	if step.Detail.Value != "" {
+		argStr := step.Detail.Value
+		if len(argStr) > 30 {
+			argStr = argStr[:27] + "..."
+		}
+		name += "(" + argStr + ")"
+	}
 
 	if f.hadEvent && !f.prevIsEnter {
 		f.writeSep()

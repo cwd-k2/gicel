@@ -476,7 +476,10 @@ func (ev *Evaluator) apply(capEnv CapEnv, fn Value, arg Value, site *core.App) (
 				ev.suppress++
 				defer func() { ev.suppress-- }()
 			} else {
-				ev.explainAt(ExplainLabel, "enter "+f.Name, LabelDetail(f.Name, "enter"), site.S)
+				detail := LabelDetail(f.Name, "enter")
+				argStr := PrettyValue(arg)
+				detail.Value = argStr
+				ev.explainAt(ExplainLabel, "enter "+f.Name, detail, site.S)
 			}
 		}
 		bodyEnv := f.Env.Extend(f.Param, arg)
