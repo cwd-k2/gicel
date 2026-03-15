@@ -205,6 +205,34 @@ func TestCmpRuneImpl(t *testing.T) {
 	assertCon(t, v, "LT")
 }
 
+func TestSubstringImplNegativeCount(t *testing.T) {
+	v, _, err := substringImpl(ctx, ce, args(intVal(0), intVal(-1), strVal("hello")), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertStr(t, v, "")
+}
+
+func TestToRunesImpl(t *testing.T) {
+	v, _, err := toRunesImpl(ctx, ce, args(strVal("hi")), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	c1, ok := v.(*eval.ConVal)
+	if !ok || c1.Con != "Cons" {
+		t.Fatalf("expected Cons, got %v", v)
+	}
+	r1, ok := c1.Args[0].(*eval.HostVal)
+	if !ok || r1.Inner != 'h' {
+		t.Fatalf("expected 'h', got %v", c1.Args[0])
+	}
+	c2 := c1.Args[1].(*eval.ConVal)
+	r2 := c2.Args[0].(*eval.HostVal)
+	if r2.Inner != 'i' {
+		t.Fatalf("expected 'i', got %v", c2.Args[0])
+	}
+}
+
 // --- Fail ---
 
 func TestFailImpl(t *testing.T) {
@@ -362,6 +390,181 @@ func TestSliceSnocImpl(t *testing.T) {
 		t.Fatalf("expected 2 elements, got %d", len(s))
 	}
 	assertInt(t, s[1], 2)
+}
+
+func TestSliceIndexNegative(t *testing.T) {
+	v, _, err := sliceIndexImpl(ctx, ce, args(intVal(-1), sliceOf(intVal(10))), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertCon(t, v, "Nothing")
+}
+
+func TestSliceAppendOrder(t *testing.T) {
+	// [1] ++ [2,3] = [1,2,3] — element order must be preserved (M21).
+	v, _, err := sliceAppendImpl(ctx, ce, args(sliceOf(intVal(1)), sliceOf(intVal(2), intVal(3))), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s, err := asSlice(v)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(s) != 3 {
+		t.Fatalf("expected 3 elements, got %d", len(s))
+	}
+	assertInt(t, s[0], 1)
+	assertInt(t, s[1], 2)
+	assertInt(t, s[2], 3)
+}
+
+func TestSliceMapImpl(t *testing.T) {
+	fn := &eval.Closure{Param: "x", Body: nil}
+	applier := func(fn, arg eval.Value, capEnv eval.CapEnv) (eval.Value, eval.CapEnv, error) {
+		n := arg.(*eval.HostVal).Inner.(int64)
+		return intVal(n * 2), capEnv, nil
+	}
+	v, _, err := sliceMapImpl(ctx, ce, args(fn, sliceOf(intVal(1), intVal(2))), applier)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s, err := asSlice(v)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(s) != 2 {
+		t.Fatalf("expected 2 elements, got %d", len(s))
+	}
+	assertInt(t, s[0], 2)
+	assertInt(t, s[1], 4)
+}
+
+func TestSliceMapImplEmpty(t *testing.T) {
+	fn := &eval.Closure{Param: "x", Body: nil}
+	applier := func(fn, arg eval.Value, capEnv eval.CapEnv) (eval.Value, eval.CapEnv, error) {
+		t.Fatal("applier should not be called on empty slice")
+		return nil, capEnv, nil
+	}
+	v, _, err := sliceMapImpl(ctx, ce, args(fn, sliceOf()), applier)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s, err := asSlice(v)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(s) != 0 {
+		t.Fatalf("expected empty slice, got %d elements", len(s))
+	}
+}
+
+func TestSliceFoldrDirection(t *testing.T) {
+	// foldr (\x acc -> x : acc) [] [1,2,3] with non-commutative op
+	// Right fold: 1 : (2 : (3 : [])) = [1,2,3]
+	// Left fold would give: 3 : (2 : (1 : [])) = [3,2,1]
+	fn := &eval.Closure{Param: "x", Body: nil}
+	applier := func(fn, arg eval.Value, capEnv eval.CapEnv) (eval.Value, eval.CapEnv, error) {
+		if _, ok := fn.(*eval.Closure); ok {
+			return &eval.HostVal{Inner: arg}, capEnv, nil // partial: capture element
+		}
+		elem := fn.(*eval.HostVal).Inner.(eval.Value)
+		acc := arg.(*eval.HostVal).Inner.([]eval.Value)
+		result := make([]eval.Value, 0, len(acc)+1)
+		result = append(result, elem)
+		result = append(result, acc...)
+		return &eval.HostVal{Inner: result}, capEnv, nil
+	}
+	emptySlice := &eval.HostVal{Inner: []eval.Value{}}
+	v, _, err := sliceFoldrImpl(ctx, ce, args(fn, emptySlice, sliceOf(intVal(1), intVal(2), intVal(3))), applier)
+	if err != nil {
+		t.Fatal(err)
+	}
+	result := v.(*eval.HostVal).Inner.([]eval.Value)
+	if len(result) != 3 {
+		t.Fatalf("expected 3 elements, got %d", len(result))
+	}
+	// Right fold preserves order: [1,2,3]
+	assertInt(t, result[0], 1)
+	assertInt(t, result[1], 2)
+	assertInt(t, result[2], 3)
+}
+
+func TestSliceFoldrImplEmpty(t *testing.T) {
+	fn := &eval.Closure{Param: "x", Body: nil}
+	applier := func(fn, arg eval.Value, capEnv eval.CapEnv) (eval.Value, eval.CapEnv, error) {
+		t.Fatal("applier should not be called on empty slice")
+		return nil, capEnv, nil
+	}
+	v, _, err := sliceFoldrImpl(ctx, ce, args(fn, intVal(42), sliceOf()), applier)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertInt(t, v, 42)
+}
+
+func TestSliceFoldlDirection(t *testing.T) {
+	// foldl (\acc x -> acc ++ [x]) [] [1,2,3]
+	// Left fold: (([] ++ [1]) ++ [2]) ++ [3] = [1,2,3]
+	// Right fold would give: [3,2,1]
+	fn := &eval.Closure{Param: "acc", Body: nil}
+	applier := func(fn, arg eval.Value, capEnv eval.CapEnv) (eval.Value, eval.CapEnv, error) {
+		if _, ok := fn.(*eval.Closure); ok {
+			return &eval.HostVal{Inner: arg}, capEnv, nil // partial: capture acc
+		}
+		acc := fn.(*eval.HostVal).Inner.(eval.Value).(*eval.HostVal).Inner.([]eval.Value)
+		elem := arg
+		result := make([]eval.Value, len(acc)+1)
+		copy(result, acc)
+		result[len(acc)] = elem
+		return &eval.HostVal{Inner: result}, capEnv, nil
+	}
+	emptySlice := &eval.HostVal{Inner: []eval.Value{}}
+	v, _, err := sliceFoldlImpl(ctx, ce, args(fn, emptySlice, sliceOf(intVal(1), intVal(2), intVal(3))), applier)
+	if err != nil {
+		t.Fatal(err)
+	}
+	result := v.(*eval.HostVal).Inner.([]eval.Value)
+	if len(result) != 3 {
+		t.Fatalf("expected 3 elements, got %d", len(result))
+	}
+	// Left fold preserves order: [1,2,3]
+	assertInt(t, result[0], 1)
+	assertInt(t, result[1], 2)
+	assertInt(t, result[2], 3)
+}
+
+func TestSliceFromListImpl(t *testing.T) {
+	list := conList(intVal(10), intVal(20), intVal(30))
+	v, _, err := sliceFromListImpl(ctx, ce, args(list), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s, err := asSlice(v)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(s) != 3 {
+		t.Fatalf("expected 3 elements, got %d", len(s))
+	}
+	assertInt(t, s[0], 10)
+	assertInt(t, s[1], 20)
+	assertInt(t, s[2], 30)
+}
+
+func TestSliceToListImpl(t *testing.T) {
+	v, _, err := sliceToListImpl(ctx, ce, args(sliceOf(intVal(1), intVal(2))), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	items, ok := listToSlice(v)
+	if !ok {
+		t.Fatal("expected list")
+	}
+	if len(items) != 2 {
+		t.Fatalf("expected 2 items, got %d", len(items))
+	}
+	assertInt(t, items[0], 1)
+	assertInt(t, items[1], 2)
 }
 
 // Stream unit tests removed — recursive operations now expressed in GICEL.

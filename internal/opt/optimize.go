@@ -1,18 +1,20 @@
 // Package opt provides Core IR optimization passes.
 package opt
 
-import "github.com/cwd-k2/gicel/internal/core"
+import (
+	"slices"
+
+	"github.com/cwd-k2/gicel/internal/core"
+)
 
 // Optimize applies simplification rules to a Core expression.
-// Runs multiple bottom-up passes until no further reductions apply.
+// Runs a fixed number of bottom-up passes. Each pass applies all rules
+// at every node. Multiple passes handle cases where one transformation
+// creates opportunities for another at a higher tree level.
 func Optimize(c core.Core) core.Core {
 	const maxPasses = 4
 	for range maxPasses {
-		prev := c
 		c = core.Transform(c, simplify)
-		if coreIdentical(prev, c) {
-			break
-		}
 	}
 	return c
 }
@@ -320,19 +322,5 @@ func subst(expr core.Core, name string, replacement core.Core) core.Core {
 
 // binds checks if a pattern binds the given name.
 func binds(p core.Pattern, name string) bool {
-	for _, b := range p.Bindings() {
-		if b == name {
-			return true
-		}
-	}
-	return false
-}
-
-// coreIdentical performs a fast pointer-equality-first structural check.
-func coreIdentical(a, b core.Core) bool {
-	if a == b {
-		return true
-	}
-	// Different pointers after Transform means something changed.
-	return false
+	return slices.Contains(p.Bindings(), name)
 }

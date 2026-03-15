@@ -331,3 +331,95 @@ func TestNoOp_ForceNonThunk(t *testing.T) {
 		t.Fatalf("should not transform force of non-thunk")
 	}
 }
+
+// ===== Substitution shadowing (M39-M42) =====
+
+func TestSubst_LamShadowing(t *testing.T) {
+	// (\x -> \x -> x) y  →  \x -> x  (inner x shadows, must NOT become y)
+	input := app(lam("x", lam("x", v("x"))), v("y"))
+	result := Optimize(input)
+	expected := lam("x", v("x"))
+	if !coreEq(result, expected) {
+		t.Fatalf("Lam shadowing: expected \\x -> x, got %v", result)
+	}
+}
+
+func TestSubst_LetRecShadowing(t *testing.T) {
+	// (\x -> letrec x = lit 1 in x) y  →  letrec x = lit 1 in x
+	inner := &core.LetRec{
+		Bindings: []core.Binding{{Name: "x", Expr: lit(int64(1))}},
+		Body:     v("x"),
+	}
+	input := app(lam("x", inner), v("y"))
+	result := Optimize(input)
+	// The letrec shadows x, so the body must remain v("x"), not v("y").
+	lr, ok := result.(*core.LetRec)
+	if !ok {
+		t.Fatalf("LetRec shadowing: expected LetRec, got %T", result)
+	}
+	if !coreEq(lr.Body, v("x")) {
+		t.Fatalf("LetRec shadowing: body should be x, got %v", lr.Body)
+	}
+}
+
+func TestSubst_BindShadowing(t *testing.T) {
+	// (\x -> bind comp x (x)) y  →  bind comp[x:=y] x (x)
+	// The bind variable x shadows, so the body must remain v("x").
+	inner := &core.Bind{Comp: v("x"), Var: "x", Body: v("x")}
+	input := app(lam("x", inner), v("y"))
+	result := Optimize(input)
+	b, ok := result.(*core.Bind)
+	if !ok {
+		t.Fatalf("Bind shadowing: expected Bind, got %T", result)
+	}
+	// Comp should be substituted: x -> y
+	if !coreEq(b.Comp, v("y")) {
+		t.Fatalf("Bind shadowing: comp should be y, got %v", b.Comp)
+	}
+	// Body should NOT be substituted (x is shadowed by bind var)
+	if !coreEq(b.Body, v("x")) {
+		t.Fatalf("Bind shadowing: body should be x (shadowed), got %v", b.Body)
+	}
+}
+
+func TestSubst_CasePatternShadowing(t *testing.T) {
+	// (\x -> case z of { Just x -> x; Nothing -> x }) y
+	// In the Just branch, x is bound by the pattern — must NOT become y.
+	// In the Nothing branch, x is free — must become y.
+	inner := cas(
+		v("z"),
+		alt(pcon("Just", pvar("x")), v("x")),
+		alt(pcon("Nothing"), v("x")),
+	)
+	input := app(lam("x", inner), v("y"))
+	result := Optimize(input)
+	cs, ok := result.(*core.Case)
+	if !ok {
+		t.Fatalf("Case shadowing: expected Case, got %T", result)
+	}
+	// Just branch: x is pattern-bound, body stays v("x")
+	if !coreEq(cs.Alts[0].Body, v("x")) {
+		t.Fatalf("Case shadowing: Just branch body should be x, got %v", cs.Alts[0].Body)
+	}
+	// Nothing branch: x is free, body becomes v("y")
+	if !coreEq(cs.Alts[1].Body, v("y")) {
+		t.Fatalf("Case shadowing: Nothing branch body should be y, got %v", cs.Alts[1].Body)
+	}
+}
+
+// ===== Multi-pass convergence (M12) =====
+
+func TestMultiPass_NestedBetaRequiresIteration(t *testing.T) {
+	// (\a -> \b -> case a of { Just x -> x }) (Just ((\c -> c) z))
+	// Pass 1 (bottom-up): inner beta (\c -> c) z → z, outer beta fires → \b -> case (Just z) of ...
+	// Pass 2: case-of-known-constructor fires → \b -> z
+	input := app(
+		lam("a", lam("b", cas(v("a"), alt(pcon("Just", pvar("x")), v("x"))))),
+		con("Just", app(lam("c", v("c")), v("z"))),
+	)
+	result := Optimize(input)
+	expected := lam("b", v("z"))
+	if !coreEq(result, expected) {
+		t.Fatalf("multi-pass nested beta: expected \\b -> z, got %v", result)
+	}
+}

@@ -122,9 +122,11 @@ func (e *Engine) RegisterModuleRec(name, source string) error {
 	e.gatedBuiltins["fix"] = true
 	err := e.RegisterModule(name, source)
 	// Restore type-checker gate — subsequent user code cannot reference fix/rec.
-	// But keep runtimeRecursion flag so the evaluator has fix/rec available.
 	e.gatedBuiltins = saved
-	e.runtimeRecursion = true
+	// Only extend runtime with fix/rec if the module compiled successfully.
+	if err == nil {
+		e.runtimeRecursion = true
+	}
 	return err
 }
 

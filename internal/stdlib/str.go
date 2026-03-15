@@ -304,10 +304,7 @@ func substringImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.
 	if start >= n {
 		return &eval.HostVal{Inner: ""}, ce, nil
 	}
-	end := start + count
-	if end > n {
-		end = n
-	}
+	end := min(start+max(count, 0), n)
 	return &eval.HostVal{Inner: string(runes[start:end])}, ce, nil
 }
 
