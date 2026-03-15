@@ -144,8 +144,8 @@ fromRunes :: List Rune -> String
 fromRunes := _fromRunes
 
 instance Packed String Rune {
-  pack   := _fromRunes;
-  unpack := _toRunes
+  pack   := fromRunes;
+  unpack := toRunes
 }
 `
 

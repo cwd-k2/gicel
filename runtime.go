@@ -152,6 +152,10 @@ func (r *Runtime) run(ctx context.Context, caps map[string]any, bindings map[str
 // (steps, allocation, depth) are enforced cumulatively across all bindings.
 // When label is true, explain events mark each binding's evaluation boundary.
 func (r *Runtime) evalBindings(ev *eval.Evaluator, env *eval.Env, bindings []core.Binding, label bool) (*eval.Env, error) {
+	// Sort bindings by dependency so that each binding is evaluated
+	// after the bindings it references, eliminating forward-reference
+	// errors for non-cyclic dependencies.
+	bindings = core.SortBindings(bindings)
 	cells := make(map[string]*eval.IndirectVal, len(bindings))
 	for _, b := range bindings {
 		cell := &eval.IndirectVal{}

@@ -281,7 +281,7 @@ class Packed c e {
 }
 
 instance Packed (List a) a {
-  pack   := \xs -> xs;
-  unpack := \xs -> xs
+  pack   := id;
+  unpack := id
 }
 `
