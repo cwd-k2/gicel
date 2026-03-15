@@ -47,11 +47,11 @@ fmNone := fmap (\x -> x * 10) (Nothing :: Maybe Int)  -- Nothing
 fmList := fmap (\x -> x + 1) (Cons 10 (Cons 20 Nil))  -- Cons 11 (Cons 21 Nil)
 
 -- Foldable Maybe
-foldJust := foldr (\x -> \acc -> x + acc) 0 (Just 7)   -- 7
-foldNone := foldr (\x -> \acc -> x + acc) 0 (Nothing :: Maybe Int)  -- 0
+foldJust := foldr (+) 0 (Just 7)                        -- 7
+foldNone := foldr (+) 0 (Nothing :: Maybe Int)           -- 0
 
 -- Foldable List
-foldList := foldr (\x -> \acc -> x + acc) 0 (Cons 1 (Cons 2 (Cons 3 Nil)))  -- 6
+foldList := foldr (+) 0 (Cons 1 (Cons 2 (Cons 3 Nil)))  -- 6
 
 -- Semigroup on List: append joins two lists
 appList := append (Cons 1 Nil) (Cons 2 Nil)  -- Cons 1 (Cons 2 Nil)

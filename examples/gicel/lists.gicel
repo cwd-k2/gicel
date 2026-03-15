@@ -22,11 +22,11 @@ evens := filter (\x -> mod x 2 == 0) nums
 -- Cons 2 (Cons 4 Nil)
 
 -- foldl: left fold (strict, tail-recursive in the runtime)
-total := foldl (\acc -> \x -> acc + x) 0 nums
+total := foldl (+) 0 nums
 -- 15
 
 -- foldr: right fold (from prelude Foldable instance)
-totalR := foldr (\x -> \acc -> x + acc) 0 nums
+totalR := foldr (+) 0 nums
 -- 15
 
 -- reverse: flip the list
@@ -61,7 +61,7 @@ atTen := index 10 nums             -- Nothing
 nil := empty :: List Int            -- Nil
 
 -- Data pipeline: filter, transform, fold
-pipeline := foldl (\acc -> \x -> acc + x) 0
+pipeline := foldl (+) 0
               (fmap (\x -> x * x)
                 (filter (\x -> x > 2) nums))
 -- squares of elements > 2: 9 + 16 + 25 = 50

@@ -25,7 +25,7 @@ boosted := fmap (\s -> s + 5) passing
 -- Cons 90 (Cons 97 (Cons 100 (Cons 83 (Cons 93 Nil))))
 
 -- Step 5: Sum of boosted scores
-totalBoosted := foldl (\acc -> \x -> acc + x) 0 boosted -- 463
+totalBoosted := foldl (+) 0 boosted                      -- 463
 
 -- Step 6: Find the highest score using foldl
 highest := foldl max 0 scores
