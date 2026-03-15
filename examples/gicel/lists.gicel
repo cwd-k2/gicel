@@ -13,8 +13,8 @@ nums := [1, 2, 3, 4, 5]
 -- Count elements with length (from Std.List)
 len := length nums                              -- 5
 
--- map (via fmap): transform each element
-doubled := fmap (\x -> x * 2) nums              -- [2, 4, 6, 8, 10]
+-- (<$>): transform each element (operator form of fmap)
+doubled := (\x -> x * 2) <$> nums               -- [2, 4, 6, 8, 10]
 
 -- filter: keep elements satisfying a predicate
 evens := filter (\x -> mod x 2 == 0) nums       -- [2, 4]
@@ -52,9 +52,7 @@ atTen := index 10 nums                           -- Nothing
 nil := empty :: List Int                         -- []
 
 -- Data pipeline: filter, transform, fold
-pipeline := foldl (+) 0
-              (fmap (\x -> x * x)
-                (filter (\x -> x > 2) nums))
+pipeline := foldl (+) 0 $ (\x -> x * x) <$> filter (\x -> x > 2) nums
 -- squares of elements > 2: 9 + 16 + 25 = 50
 
 -- Output: (5, 15, 15, Just 3, 50)

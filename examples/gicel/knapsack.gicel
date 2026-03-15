@@ -38,7 +38,7 @@ sumBy := \f -> foldl (\acc -> \x -> acc + f x) 0
 subsets :: forall a. List a -> List (List a)
 subsets := fix (\self -> \xs -> case xs {
   Nil      -> [[]];
-  Cons x t -> { ss := self t; concat (fmap (\s -> Cons x s) ss) ss }
+  Cons x t -> { ss := self t; concat ((\s -> Cons x s) <$> ss) ss }
 })
 
 bruteForce := {
@@ -67,7 +67,7 @@ dpAnswer := {
 
 -- Output: "brute=13 dp=13 ok=True"
 main := join " " [
-  append "brute=" (showInt bruteForce),
-  append "dp=" (showInt dpAnswer),
-  append "ok=" (showBool (eq bruteForce dpAnswer))
+  "brute=" <> showInt bruteForce,
+  "dp=" <> showInt dpAnswer,
+  "ok=" <> showBool (eq bruteForce dpAnswer)
 ]

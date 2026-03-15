@@ -52,7 +52,7 @@ coins := [1, 2, 5, 10, 20, 50]
 subsets :: forall a. List a -> List (List a)
 subsets := fix (\self -> \xs -> case xs {
   Nil      -> [[]];
-  Cons x t -> { ss := self t; concat (fmap (\s -> Cons x s) ss) ss }
+  Cons x t -> { ss := self t; concat ((\s -> Cons x s) <$> ss) ss }
 })
 
 coinResult := amb (subsets coins) (\s ->

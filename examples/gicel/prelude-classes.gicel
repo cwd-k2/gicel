@@ -57,8 +57,8 @@ foldList := foldr (+) 0 [1, 2, 3]        -- 6
 appList := [1] <> [2]                    -- [1, 2]
 
 -- Semigroup on Ordering: first non-EQ wins
-appOrd := append EQ GT                   -- GT
-appOrd2 := append LT EQ                  -- LT
+appOrd := EQ <> GT                       -- GT
+appOrd2 := LT <> EQ                      -- LT
 
 -- Monoid on List: empty is Nil
 emList := empty :: List Int              -- Nil

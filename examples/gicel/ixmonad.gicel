@@ -47,9 +47,9 @@ concatLists := [1, 2] <> [3, 4]
 emptyList := empty :: List Int
 -- Output: Nil
 
--- Semigroup on Ordering: append is "first non-EQ wins"
-ordAppend := append EQ GT      -- GT (EQ is neutral)
-ordAppend2 := append LT GT     -- LT (first non-EQ wins)
+-- Semigroup on Ordering: (<>) is "first non-EQ wins"
+ordAppend := EQ <> GT          -- GT (EQ is neutral)
+ordAppend2 := LT <> GT         -- LT (first non-EQ wins)
 
 -- Monoid on Ordering: EQ is the identity
 ordEmpty := empty :: Ordering   -- EQ

@@ -11,6 +11,6 @@ import Std.IO
 -- Return value: ()
 main := do {
   _ <- print "hello, ";
-  _ <- print (append "world" "!");
+  _ <- print ("world" <> "!");
   debug "done"
 }

@@ -14,8 +14,8 @@ import Std.Str
 -- String literals
 greeting := "Hello, GICEL!"
 
--- Semigroup: string concatenation via append
-combined := append "Hello" " World"  -- "Hello World"
+-- Semigroup: string concatenation via (<>)
+combined := "Hello" <> " World"      -- "Hello World"
 
 -- Monoid: empty string
 blank := empty :: String             -- ""
