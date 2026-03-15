@@ -20,7 +20,7 @@ result, err := gicel.RunSandbox(source, &gicel.SandboxConfig{
 
 `SandboxConfig` fields are all optional. `nil` uses conservative defaults.
 
-`SandboxResult`: `Value` (result), `CapEnv` (final capabilities), `Stats` (EvalStats: `Steps int`, `MaxDepth int`, `Allocated int64`).
+`RunResult`: `Value` (result), `CapEnv` (final capabilities), `Stats` (EvalStats: `Steps int`, `MaxDepth int`, `Allocated int64`).
 
 ### Full Lifecycle API
 
@@ -102,19 +102,19 @@ eng.DeclareBinding("myInput", gicel.ConType("Int"))
 
 ### Engine Configuration
 
-| Method                                     | Description                              |
-| ------------------------------------------ | ---------------------------------------- |
-| `eng.Use(pack)`                            | Apply a stdlib pack                      |
-| `eng.RegisterPrim(name, impl)`             | Register a primitive                     |
-| `eng.RegisterType(name, kind)`             | Register an opaque host type             |
-| `eng.DeclareBinding(name, ty)`             | Declare a host-provided variable         |
-| `eng.EnableRecursion()`                    | Enable `rec` and `fix` built-ins         |
-| `eng.SetStepLimit(n)` / `SetDepthLimit(n)` | Resource limits                          |
-| `eng.SetAllocLimit(bytes)`                 | Allocation limit (0 = disabled)          |
-| `eng.NoPrelude()` / `SetPrelude(src)`      | Prelude control                          |
-| `eng.RegisterModule(name, src)`            | Register a custom module                 |
-| `eng.NewRuntime(source)`                   | Compile to Runtime                       |
-| `eng.Compile(source)` / `Parse(source)`    | Type-check or parse only                 |
+| Method                                     | Description                      |
+| ------------------------------------------ | -------------------------------- |
+| `eng.Use(pack)`                            | Apply a stdlib pack              |
+| `eng.RegisterPrim(name, impl)`             | Register a primitive             |
+| `eng.RegisterType(name, kind)`             | Register an opaque host type     |
+| `eng.DeclareBinding(name, ty)`             | Declare a host-provided variable |
+| `eng.EnableRecursion()`                    | Enable `rec` and `fix` built-ins |
+| `eng.SetStepLimit(n)` / `SetDepthLimit(n)` | Resource limits                  |
+| `eng.SetAllocLimit(bytes)`                 | Allocation limit (0 = disabled)  |
+| `eng.NoPrelude()` / `SetPrelude(src)`      | Prelude control                  |
+| `eng.RegisterModule(name, src)`            | Register a custom module         |
+| `eng.NewRuntime(source)`                   | Compile to Runtime               |
+| `eng.Compile(source)` / `Parse(source)`    | Type-check or parse only         |
 
 ### Error Handling
 
@@ -134,11 +134,11 @@ if errors.As(err, &re) { fmt.Println(re.Message) }
 
 `Diagnostic`: `Code int`, `Phase string` ("lex"/"parse"/"check"), `Line int`, `Col int`, `Message string`.
 
-`RuntimeError`: `Message string`, `Span span.Span`. Covers: unbound variable, non-exhaustive match, division by zero, `fail`/`failWith`. Step/depth/alloc limit exceeded return distinct error types (check with `err.Error()` or `errors.As`).
+`RuntimeError`: `Message string`, `Span`. Covers: unbound variable, non-exhaustive match, division by zero, `fail`/`failWith`. Step/depth/alloc limit exceeded return distinct error types (check with `err.Error()` or `errors.As`).
 
 ### Hooks (per-execution via RunOptions)
 
-**TraceHook** fires on every eval step. Signature: `func(TraceEvent) error`. Fields: `Depth int`, `Node core.Core`, `Env *eval.Env`, `CapEnv CapEnv`. Return non-nil error to abort.
+**TraceHook** fires on every eval step. Signature: `func(TraceEvent) error`. Fields: `Depth int`, `Node` (Core IR node, opaque), `Env` (lexical environment), `CapEnv`. Return non-nil error to abort.
 
 **ExplainHook** fires at semantic boundaries. Signature: `func(ExplainStep)`. Fields: `Seq int`, `Depth int`, `Kind ExplainKind`, `Line int`, `Col int`, `Detail ExplainDetail`. Kinds: `ExplainBind`, `ExplainMatch`, `ExplainEffect`, `ExplainLabel`, `ExplainResult`.
 
@@ -149,4 +149,4 @@ rt.RunWith(ctx, &gicel.RunOptions{
 })
 ```
 
-**CheckTraceHook** fires during type checking. Set via `eng.SetCheckTraceHook(hook)`. Signature: `func(CheckTraceEvent)`. Fields: `Kind CheckTraceKind`, `Depth int`, `Message string`, `Span span.Span`.
+**CheckTraceHook** fires during type checking. Set via `eng.SetCheckTraceHook(hook)`. Signature: `func(CheckTraceEvent)`. Fields: `Kind CheckTraceKind`, `Depth int`, `Message string`.

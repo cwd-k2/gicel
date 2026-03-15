@@ -1202,14 +1202,16 @@ snd :: forall a b. (a, b) -> b
 
 ## 15.2 Stdlib Packs
 
-| Pack    | Provides                                                                    |
-| ------- | --------------------------------------------------------------------------- |
-| `Num`   | `Num` class, `Eq`/`Ord` Int, arithmetic operators (`+`, `-`, `*`, `/`, `%`) |
-| `Str`   | `Eq`/`Ord`/`Semigroup`/`Monoid` String, `Eq`/`Ord` Rune                     |
-| `List`  | `fromSlice`, `toSlice`, `length`, `concat`, `foldl`                         |
-| `Fail`  | `fail` capability, `fromMaybe`, `fromResult`                                |
-| `State` | `get`/`put` capabilities                                                    |
-| `IO`    | `print`/`debug` via CapEnv buffer                                           |
+| Pack     | Provides                                                                    |
+| -------- | --------------------------------------------------------------------------- |
+| `Num`    | `Num` class, `Eq`/`Ord` Int, arithmetic operators (`+`, `-`, `*`, `/`, `%`) |
+| `Str`    | `Eq`/`Ord`/`Semigroup`/`Monoid` String, `Eq`/`Ord` Rune                     |
+| `List`   | `fromSlice`, `toSlice`, `length`, `concat`, `foldl`                         |
+| `Fail`   | `fail` capability, `fromMaybe`, `fromResult`                                |
+| `State`  | `get`/`put` capabilities                                                    |
+| `IO`     | `print`/`debug` via CapEnv buffer                                           |
+| `Stream` | Lazy list: `LCons`/`LNil`, `headS`, `tailS`, `takeS`, `dropS`               |
+| `Slice`  | Contiguous array: O(1) `sliceLength`/`sliceIndex`, `Functor`/`Foldable`     |
 
 Types (`Int`, `String`, `Rune`) are checker built-ins; operations come from stdlib packs. Runtime representation: `HostVal` wrapping Go values (`int64`, `string`, `rune`).
 

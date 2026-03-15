@@ -1,9 +1,9 @@
-// Example: stdlib-packs — demonstrating all six standard library packs.
+// Example: stdlib-packs — demonstrating standard library packs.
 //
-// GICEL provides six packs via eng.Use(): Num, Str, List, Fail, State,
-// and IO. Each pack registers primitive operations and a GICEL module
-// (e.g. Std.Num, Std.Str) that the source can import. This example
-// compiles and runs a small program for each pack to show its features.
+// GICEL provides eight packs via eng.Use(): Num, Str, List, Fail, State,
+// IO, Stream, and Slice. Each pack registers primitive operations and a
+// GICEL module (e.g. Std.Num, Std.Str) that the source can import. This
+// example compiles and runs a small program for several packs.
 package main
 
 import (

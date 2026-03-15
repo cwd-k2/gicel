@@ -38,16 +38,20 @@ gicel example [name]           # show example programs
 
 Flags:
 
-| Flag              | Default  | Description                                   |
-| ----------------- | -------- | --------------------------------------------- |
-| `--use <packs>`   | `all`    | Stdlib packs: Num, Str, List, Fail, State, IO |
-| `--recursion`     |          | Enable recursive definitions (run, check)     |
-| `--entry <name>`  | `main`   | Entry point binding (run only)                |
-| `--timeout <dur>` | `5s`     | Execution timeout (run only)                  |
-| `--max-steps <n>` | `100000` | Step limit (run only)                         |
-| `--max-depth <n>` | `100`    | Depth limit (run only)                        |
-| `--json`          |          | JSON output (run only)                        |
-| `--explain`       |          | Semantic evaluation trace (run only)          |
+| Flag              | Default  | Description                                           |
+| ----------------- | -------- | ----------------------------------------------------- |
+| `--use <packs>`   | `all`    | Stdlib packs: Num,Str,List,Fail,State,IO,Stream,Slice |
+| `--recursion`     |          | Enable recursive definitions (run, check)             |
+| `--entry <name>`  | `main`   | Entry point binding (run only)                        |
+| `--timeout <dur>` | `5s`     | Execution timeout (run only)                          |
+| `--max-steps <n>` | `100000` | Step limit (run only)                                 |
+| `--max-depth <n>` | `100`    | Depth limit (run only)                                |
+| `--json`          |          | JSON output (run only)                                |
+| `--explain`       |          | Semantic evaluation trace (run only)                  |
+| `--explain-all`   |          | Trace stdlib internals too (with --explain)           |
+| `--verbose`       |          | Show source context in explain trace (run only)       |
+| `--no-color`      |          | Disable color output (run only)                       |
+| `--stdin`         |          | Read source from stdin (run only)                     |
 
 ```
 gicel run hello.gicel
@@ -179,14 +183,16 @@ result, err := gicel.RunSandbox(source, &gicel.SandboxConfig{
 
 ### Stdlib packs
 
-| Pack    | Contents                                                  |
-| ------- | --------------------------------------------------------- |
-| `Num`   | Integer arithmetic, `Eq`/`Ord` Int instances              |
-| `Str`   | String and rune operations                                |
-| `List`  | `fromSlice`, `toSlice`, `length`, `concat`, `foldl`, etc. |
-| `Fail`  | Fail effect capability                                    |
-| `State` | `get`/`put` state capabilities                            |
-| `IO`    | `print`/`debug` via CapEnv buffer                         |
+| Pack     | Contents                                                  |
+| -------- | --------------------------------------------------------- |
+| `Num`    | Integer arithmetic, `Eq`/`Ord` Int instances              |
+| `Str`    | String and rune operations                                |
+| `List`   | `fromSlice`, `toSlice`, `length`, `concat`, `foldl`, etc. |
+| `Fail`   | Fail effect capability                                    |
+| `State`  | `get`/`put` state capabilities                            |
+| `IO`     | `print`/`debug` via CapEnv buffer                         |
+| `Stream` | Lazy list: `LCons`/`LNil`, `headS`, `tailS`, `takeS`      |
+| `Slice`  | Contiguous array: O(1) length/index, `Functor`/`Foldable` |
 
 ### Value conversion
 

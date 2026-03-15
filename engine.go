@@ -377,7 +377,7 @@ func (cr *CompileResult) BindingTypes() map[string]string {
 	return m
 }
 
-// CoreProgram returns the Core IR for backward compatibility.
+// CoreProgram returns the compiled Core IR for inspection.
 func (cr *CompileResult) CoreProgram() *CoreProgram {
 	return &CoreProgram{prog: cr.prog}
 }
