@@ -63,8 +63,38 @@ const (
 	ExplainResult = eval.ExplainResult
 )
 
+// ExplainDetail carries kind-specific structured data for explain events.
+type ExplainDetail = eval.ExplainDetail
+
 // PrettyValue formats a runtime value in source-level terms.
 func PrettyValue(v Value) string { return eval.PrettyValue(v) }
+
+// ExplainDepth controls how deeply the explain trace instruments evaluation.
+type ExplainDepth int
+
+const (
+	// ExplainUser traces user code only; stdlib internals are suppressed.
+	ExplainUser ExplainDepth = iota
+	// ExplainAll traces all code including stdlib internals.
+	ExplainAll
+)
+
+// RunOptions configures a single execution. Per-execution concerns
+// (explain, trace, entry point) live here, not on the Runtime.
+type RunOptions struct {
+	// Entry is the top-level binding to evaluate (default: "main").
+	Entry string
+	// Caps provides initial capability values.
+	Caps map[string]any
+	// Bindings provides host-injected value bindings.
+	Bindings map[string]Value
+	// Explain receives semantic evaluation events. Nil disables explain.
+	Explain ExplainHook
+	// ExplainDepth controls stdlib suppression (default: ExplainUser).
+	ExplainDepth ExplainDepth
+	// Trace receives low-level evaluation step events. Nil disables trace.
+	Trace TraceHook
+}
 
 // CheckTraceKind classifies type checking trace events.
 type CheckTraceKind = check.CheckTraceKind

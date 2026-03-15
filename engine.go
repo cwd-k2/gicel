@@ -364,6 +364,41 @@ type CoreProgram struct{ prog *core.Program }
 // Pretty returns a human-readable representation of the Core IR.
 func (c *CoreProgram) Pretty() string { return core.PrettyProgram(c.prog) }
 
+// CompileResult holds all static information produced by compilation:
+// Core IR, inferred types, binding names, and source mapping.
+// This is the foundation for both agent APIs and LSP integration.
+type CompileResult struct {
+	prog   *core.Program
+	values map[string]types.Type
+	source *span.Source
+}
+
+// Pretty returns the Core IR as a human-readable string.
+func (cr *CompileResult) Pretty() string { return core.PrettyProgram(cr.prog) }
+
+// BindingNames returns the names of all top-level bindings.
+func (cr *CompileResult) BindingNames() []string {
+	names := make([]string, len(cr.prog.Bindings))
+	for i, b := range cr.prog.Bindings {
+		names[i] = b.Name
+	}
+	return names
+}
+
+// BindingTypes returns a map of binding names to their pretty-printed types.
+func (cr *CompileResult) BindingTypes() map[string]string {
+	m := make(map[string]string, len(cr.values))
+	for name, ty := range cr.values {
+		m[name] = types.Pretty(ty)
+	}
+	return m
+}
+
+// CoreProgram returns the Core IR for backward compatibility.
+func (cr *CompileResult) CoreProgram() *CoreProgram {
+	return &CoreProgram{prog: cr.prog}
+}
+
 // Parse lexes and parses source code, returning an opaque parsed program.
 // Useful for tooling and editor integration.
 func (e *Engine) Parse(source string) (*ParsedProgram, error) {
@@ -374,18 +409,30 @@ func (e *Engine) Parse(source string) (*ParsedProgram, error) {
 	return &ParsedProgram{prog: ast}, nil
 }
 
-// Check compiles and type-checks source code without creating a Runtime.
-// Returns the compiled Core IR program for inspection.
-func (e *Engine) Check(source string) (*CoreProgram, error) {
+// Compile compiles and type-checks source code, returning all static
+// information: Core IR, inferred types, and source mapping.
+// Use this for tooling, LSP integration, and agent APIs.
+func (e *Engine) Compile(source string) (*CompileResult, error) {
 	ast, src, err := e.parseSource(source)
 	if err != nil {
 		return nil, err
 	}
-	prog, checkErrs := check.Check(ast, src, e.makeCheckConfig())
+	prog, exports, checkErrs := check.CheckModule(ast, src, e.makeCheckConfig())
 	if checkErrs.HasErrors() {
 		return nil, &CompileError{errors: checkErrs}
 	}
-	return &CoreProgram{prog: prog}, nil
+	return &CompileResult{prog: prog, values: exports.Values, source: src}, nil
+}
+
+// Check compiles and type-checks source code without creating a Runtime.
+// Returns the compiled Core IR program for inspection.
+// Deprecated: use Compile for richer output including types.
+func (e *Engine) Check(source string) (*CoreProgram, error) {
+	cr, err := e.Compile(source)
+	if err != nil {
+		return nil, err
+	}
+	return cr.CoreProgram(), nil
 }
 
 // NewRuntime compiles source code into an immutable, goroutine-safe Runtime.

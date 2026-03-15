@@ -89,6 +89,88 @@ func (r *Runtime) buildEnv(bindings map[string]Value) (*eval.Env, error) {
 	return env, nil
 }
 
+// runWith is the per-execution implementation with local hooks and seq.
+func (r *Runtime) runWith(ctx context.Context, caps map[string]any, bindings map[string]Value, entry string, explainHook eval.ExplainHook, traceHook eval.TraceHook, explainDepth ExplainDepth) (eval.EvalResult, EvalStats, error) {
+	env, err := r.buildEnv(bindings)
+	if err != nil {
+		return eval.EvalResult{}, EvalStats{}, err
+	}
+
+	limit := eval.NewLimit(r.stepLimit, r.depthLimit)
+	if r.allocLimit > 0 {
+		limit.SetAllocLimit(r.allocLimit)
+	}
+
+	// Per-execution seq counter — no shared state with Runtime.
+	var seq int
+	emit := func(step eval.ExplainStep) {
+		seq++
+		step.Seq = seq
+		explainHook(step)
+	}
+
+	ev := eval.NewEvaluator(ctx, r.prims, limit, traceHook, explainHook)
+	ev.SetSource(r.source)
+	if explainDepth == ExplainAll {
+		ev.SetSuppressDisabled(true)
+	}
+
+	for _, modProg := range r.moduleProgs {
+		env, err = r.evalBindingsWith(ev, env, modProg.Bindings, false, nil)
+		if err != nil {
+			return eval.EvalResult{}, EvalStats{}, err
+		}
+	}
+
+	var entryExpr core.Core
+	var nonEntry []core.Binding
+	for _, b := range r.prog.Bindings {
+		if b.Name == entry {
+			entryExpr = b.Expr
+		} else {
+			nonEntry = append(nonEntry, b)
+		}
+	}
+
+	env, err = r.evalBindingsWith(ev, env, nonEntry, true, emit)
+	if err != nil {
+		return eval.EvalResult{}, EvalStats{}, err
+	}
+
+	if entryExpr == nil {
+		return eval.EvalResult{}, EvalStats{}, fmt.Errorf("entry point %q not found", entry)
+	}
+
+	if explainHook != nil {
+		seq = ev.ExplainSeq()
+		emit(eval.ExplainStep{
+			Kind:    eval.ExplainLabel,
+			Message: "── " + entry + " ──",
+			Detail:  eval.LabelDetail(entry, "section"),
+		})
+		ev.SetExplainSeq(seq)
+	}
+	capEnv := eval.NewCapEnv(caps)
+	result, err := ev.Eval(env, capEnv, entryExpr)
+	if err != nil {
+		return eval.EvalResult{}, EvalStats{}, err
+	}
+	result, err = ev.ForceEffectful(result, span.Span{})
+	if err != nil {
+		return eval.EvalResult{}, EvalStats{}, err
+	}
+	if explainHook != nil {
+		seq = ev.ExplainSeq()
+		val := eval.PrettyValue(result.Value)
+		emit(eval.ExplainStep{
+			Kind:    eval.ExplainResult,
+			Message: "→ " + val,
+			Detail:  eval.ResultDetail(val),
+		})
+	}
+	return result, ev.Stats(), nil
+}
+
 // run is the shared implementation for RunContext and RunContextFull.
 func (r *Runtime) run(ctx context.Context, caps map[string]any, bindings map[string]Value, entry string) (eval.EvalResult, EvalStats, error) {
 	env, err := r.buildEnv(bindings)
@@ -165,6 +247,40 @@ func (r *Runtime) run(ctx context.Context, caps map[string]any, bindings map[str
 	return result, ev.Stats(), nil
 }
 
+// evalBindingsWith is like evalBindings but uses a per-call emit function
+// for explain events, decoupling explain state from the Runtime.
+func (r *Runtime) evalBindingsWith(ev *eval.Evaluator, env *eval.Env, bindings []core.Binding, label bool, emit func(eval.ExplainStep)) (*eval.Env, error) {
+	bindings = core.SortBindings(bindings)
+	cells := make(map[string]*eval.IndirectVal, len(bindings))
+	for _, b := range bindings {
+		cell := &eval.IndirectVal{}
+		cells[b.Name] = cell
+		env = env.Extend(b.Name, cell)
+	}
+	for _, b := range bindings {
+		if label && emit != nil {
+			seq := ev.ExplainSeq()
+			emit(eval.ExplainStep{
+				Kind:    eval.ExplainLabel,
+				Message: "── " + b.Name + " ──",
+				Detail:  eval.LabelDetail(b.Name, "section"),
+			})
+			ev.SetExplainSeq(seq + 1) // sync back
+		}
+		result, err := ev.Eval(env, eval.NewCapEnv(nil), b.Expr)
+		if err != nil {
+			return nil, fmt.Errorf("evaluating %s: %w", b.Name, err)
+		}
+		v := result.Value
+		if clo, ok := v.(*eval.Closure); ok {
+			clo.Name = b.Name
+			clo.Internal = !label
+		}
+		cells[b.Name].Ref = &v
+	}
+	return env, nil
+}
+
 // evalBindings evaluates a slice of bindings using forward-reference cells.
 // The provided Evaluator is shared with the caller so that resource limits
 // (steps, allocation, depth) are enforced cumulatively across all bindings.
@@ -203,6 +319,24 @@ func (r *Runtime) evalBindings(ev *eval.Evaluator, env *eval.Env, bindings []cor
 		cells[b.Name].Ref = &v
 	}
 	return env, nil
+}
+
+// RunWith executes the program with per-execution options.
+// Explain and trace hooks are scoped to this execution, not shared with
+// the Runtime. This is the preferred API for agent and LSP integration.
+func (r *Runtime) RunWith(ctx context.Context, opts *RunOptions) (*RunResultFull, error) {
+	if opts == nil {
+		opts = &RunOptions{}
+	}
+	entry := opts.Entry
+	if entry == "" {
+		entry = "main"
+	}
+	result, stats, err := r.runWith(ctx, opts.Caps, opts.Bindings, entry, opts.Explain, opts.Trace, opts.ExplainDepth)
+	if err != nil {
+		return nil, err
+	}
+	return &RunResultFull{Value: result.Value, CapEnv: result.CapEnv, Stats: stats}, nil
 }
 
 // RunContext executes the program with the given capabilities and bindings.

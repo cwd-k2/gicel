@@ -248,6 +248,7 @@ func cmdRun(args []string) int {
 	verbose := fs.Bool("verbose", false, "show source context in explain trace")
 	noColor := fs.Bool("no-color", false, "disable color output")
 	stdin := fs.Bool("stdin", false, "read source from stdin")
+	explainAll := fs.Bool("explain-all", false, "trace stdlib internals (with --explain)")
 	if err := fs.Parse(args); err != nil {
 		return 1
 	}
@@ -280,19 +281,6 @@ func cmdRun(args []string) int {
 	eng.SetStepLimit(*maxSteps)
 	eng.SetDepthLimit(*maxDepth)
 
-	var explainSteps []gicel.ExplainStep
-	var formatter *explainFormatter
-	if *explain {
-		if *jsonOut {
-			eng.SetExplainHook(func(step gicel.ExplainStep) {
-				explainSteps = append(explainSteps, step)
-			})
-		} else {
-			formatter = newExplainFormatter(os.Stderr, useColor(*noColor), *verbose, string(source))
-			eng.SetExplainHook(formatter.Emit)
-		}
-	}
-
 	rt, err := eng.NewRuntime(string(source))
 	if err != nil {
 		if *jsonOut {
@@ -303,10 +291,28 @@ func cmdRun(args []string) int {
 		return 1
 	}
 
+	// Build per-execution options with explain/trace hooks.
+	var explainSteps []gicel.ExplainStep
+	var formatter *explainFormatter
+	opts := &gicel.RunOptions{Entry: *entry}
+	if *explain {
+		if *jsonOut {
+			opts.Explain = func(step gicel.ExplainStep) {
+				explainSteps = append(explainSteps, step)
+			}
+		} else {
+			formatter = newExplainFormatter(os.Stderr, useColor(*noColor), *verbose, string(source))
+			opts.Explain = formatter.Emit
+		}
+		if *explainAll {
+			opts.ExplainDepth = gicel.ExplainAll
+		}
+	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), *timeout)
 	defer cancel()
 
-	result, err := rt.RunContextFull(ctx, nil, nil, *entry)
+	result, err := rt.RunWith(ctx, opts)
 	if err != nil {
 		if *jsonOut {
 			outputJSON(map[string]any{"ok": false, "error": err.Error(), "phase": "eval"})
@@ -372,7 +378,7 @@ func cmdCheck(args []string) int {
 		eng.EnableRecursion()
 	}
 
-	_, err = eng.Check(string(source))
+	cr, err := eng.Compile(string(source))
 	if err != nil {
 		if *jsonOut {
 			outputJSON(compileErrorJSON(err))
@@ -383,7 +389,11 @@ func cmdCheck(args []string) int {
 	}
 
 	if *jsonOut {
-		outputJSON(map[string]any{"ok": true})
+		out := map[string]any{"ok": true}
+		if types := cr.BindingTypes(); len(types) > 0 {
+			out["bindings"] = types
+		}
+		outputJSON(out)
 	} else {
 		fmt.Println("ok")
 	}

@@ -28,16 +28,17 @@ type EvalResult struct {
 
 // Evaluator is the per-execution evaluation engine.
 type Evaluator struct {
-	ctx           context.Context
-	prims         *PrimRegistry
-	limit         *Limit
-	trace         TraceHook
-	explain       ExplainHook
-	source        *span.Source // for line/col in explain events; nil if unavailable
-	suppress      int          // >0: suppress explain events (inside stdlib)
-	explainSeq    int          // monotonic step counter for explain events
-	cachedApplier Applier      // reused across all primitive invocations
-	stats         EvalStats
+	ctx              context.Context
+	prims            *PrimRegistry
+	limit            *Limit
+	trace            TraceHook
+	explain          ExplainHook
+	source           *span.Source // for line/col in explain events; nil if unavailable
+	suppress         int          // >0: suppress explain events (inside stdlib)
+	suppressDisabled bool         // when true, suppress is ignored (ExplainAll mode)
+	explainSeq       int          // monotonic step counter for explain events
+	cachedApplier    Applier      // reused across all primitive invocations
+	stats            EvalStats
 }
 
 // NewEvaluator creates an Evaluator for a single execution.
@@ -58,6 +59,15 @@ func (ev *Evaluator) SetSource(src *span.Source) {
 	ev.source = src
 }
 
+// explainActive reports whether explain events should be emitted.
+func (ev *Evaluator) explainActive() bool {
+	return ev.suppress == 0 || ev.suppressDisabled
+}
+
+// SetSuppressDisabled disables explain suppression for stdlib internals.
+// When true, all code is traced regardless of f.Internal.
+func (ev *Evaluator) SetSuppressDisabled(v bool) { ev.suppressDisabled = v }
+
 // SetExplainSeq sets the monotonic counter for explain events,
 // allowing the caller to synchronize seq numbering across runtime
 // and evaluator boundaries.
@@ -71,7 +81,7 @@ func (ev *Evaluator) ExplainSeq() int { return ev.explainSeq }
 // spans from stdlib modules (compiled with a different Source) are excluded.
 // Events are suppressed when inside stdlib/internal closures.
 func (ev *Evaluator) explainAt(kind ExplainKind, msg string, detail ExplainDetail, s span.Span) {
-	if ev.suppress > 0 {
+	if !ev.explainActive() {
 		return
 	}
 	ev.explainSeq++
@@ -152,7 +162,7 @@ func (ev *Evaluator) Eval(env *Env, capEnv CapEnv, expr core.Core) (EvalResult, 
 			return EvalResult{}, err
 		}
 		// Detect let-encoding: (\y -> body) expr → emit "y = value".
-		if ev.explain != nil && ev.suppress == 0 {
+		if ev.explain != nil && ev.explainActive() {
 			if lam, ok := e.Fun.(*core.Lam); ok && lam.Param != "_" && !strings.HasPrefix(lam.Param, "$") {
 				val := PrettyValue(argR.Value)
 				ev.explainAt(ExplainBind, lam.Param+" = "+val, BindDetail(lam.Param, val, false), e.S)
@@ -192,7 +202,7 @@ func (ev *Evaluator) Eval(env *Env, capEnv CapEnv, expr core.Core) (EvalResult, 
 		for _, alt := range e.Alts {
 			bindings := Match(scrutR.Value, alt.Pattern)
 			if bindings != nil {
-				if ev.explain != nil && ev.suppress == 0 && !isInternalPattern(alt.Pattern) {
+				if ev.explain != nil && ev.explainActive() && !isInternalPattern(alt.Pattern) {
 					scrut := PrettyValue(scrutR.Value)
 					pat := FormatPattern(alt.Pattern)
 					msg := "match " + scrut + " → " + pat
@@ -273,7 +283,7 @@ func (ev *Evaluator) Eval(env *Env, capEnv CapEnv, expr core.Core) (EvalResult, 
 		if err != nil {
 			return EvalResult{}, err
 		}
-		if ev.explain != nil && ev.suppress == 0 && e.Var != "_" && !strings.HasPrefix(e.Var, "$") {
+		if ev.explain != nil && ev.explainActive() && e.Var != "_" && !strings.HasPrefix(e.Var, "$") {
 			val := PrettyValue(compR.Value)
 			ev.explainAt(ExplainBind, e.Var+" ← "+val, BindDetail(e.Var, val, true), e.S)
 		}
@@ -441,14 +451,14 @@ func (ev *Evaluator) ForceEffectful(r EvalResult, callSite span.Span) (EvalResul
 	// When explain is active, mark CapEnv shared so impl copies on write.
 	// This preserves the old state for the explain diff.
 	capForImpl := r.CapEnv
-	if ev.explain != nil && ev.suppress == 0 {
+	if ev.explain != nil && ev.explainActive() {
 		capForImpl = r.CapEnv.MarkShared()
 	}
 	val, newCap, err := impl(ev.ctx, capForImpl, pv.Args, ev.applier())
 	if err != nil {
 		return EvalResult{}, err
 	}
-	if ev.explain != nil && ev.suppress == 0 {
+	if ev.explain != nil && ev.explainActive() {
 		// Prefer callSite (user's code) over pv.S (may be stdlib module).
 		site := callSite
 		if site.Start == 0 {
