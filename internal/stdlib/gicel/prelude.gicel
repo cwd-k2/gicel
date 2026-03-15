@@ -84,7 +84,7 @@ instance Ord a => Ord b => Ord (a, b) { compare := \x -> \y -> case x {
 } }
 
 instance Applicative Maybe {
-  wrap := \x -> Just x;
+  wrap := Just;
   ap := \mf -> \mx -> case mf {
     Nothing -> Nothing;
     Just f  -> case mx { Nothing -> Nothing; Just x -> Just (f x) }
@@ -94,7 +94,7 @@ instance Applicative Maybe {
 instance Traversable Maybe {
   traverse := \f -> \x -> case x {
     Nothing -> wrap Nothing;
-    Just a  -> fmap (\b -> Just b) (f a)
+    Just a  -> fmap Just (f a)
   }
 }
 
@@ -218,12 +218,12 @@ class Monad (m : Type -> Type) {
 }
 
 instance Monad Maybe {
-  mpure := \a -> Just a;
+  mpure := Just;
   mbind := \ma -> \f -> case ma { Nothing -> Nothing; Just a -> f a }
 }
 
 instance Monad List {
-  mpure := \a -> Cons a Nil;
+  mpure := singleton;
   mbind := \xs -> \f -> foldr (\x -> \acc -> append (f x) acc) Nil xs
 }
 
@@ -236,7 +236,7 @@ infixl 1 >>
 (>>) := \m1 -> \m2 -> mbind m1 (\_ -> m2)
 
 instance IxMonad Maybe {
-  ixpure := \a -> Just a;
+  ixpure := Just;
   ixbind := \ma -> \f -> case ma {
     Nothing -> Nothing;
     Just a  -> f a
@@ -244,7 +244,7 @@ instance IxMonad Maybe {
 }
 
 instance IxMonad List {
-  ixpure := \a -> Cons a Nil;
+  ixpure := singleton;
   ixbind := \xs -> \f -> foldr (\x -> \acc -> append (f x) acc) Nil xs
 }
 
@@ -264,7 +264,7 @@ instance Applicative List {
 }
 
 instance Traversable List {
-  traverse := \f -> foldr (\x -> \acc -> ap (fmap (\b -> \bs -> Cons b bs) (f x)) acc) (wrap Nil)
+  traverse := \f -> foldr (\x -> \acc -> ap (fmap Cons (f x)) acc) (wrap Nil)
 }
 
 instance Eq e => Eq a => Eq (Result e a) { eq := \x -> \y -> case x {
@@ -309,7 +309,7 @@ infixl 4 <$>
 
 infixl 1 <&>
 (<&>) :: forall (f : Type -> Type) a b. Functor f => f a -> (a -> b) -> f b
-(<&>) := \fa -> \f -> fmap f fa
+(<&>) := flip fmap
 
 infixl 4 <*>
 (<*>) :: forall (f : Type -> Type) a b. Applicative f => f (a -> b) -> f a -> f b
@@ -325,7 +325,7 @@ infixl 4 <*
 
 infixr 1 =<<
 (=<<) :: forall (m : Type -> Type) a b. Monad m => (a -> m b) -> m a -> m b
-(=<<) := \f -> \m -> mbind m f
+(=<<) := flip mbind
 
 infixr 1 >=>
 (>=>) :: forall (m : Type -> Type) a b c. Monad m => (a -> m b) -> (b -> m c) -> a -> m c
@@ -384,7 +384,7 @@ unless :: forall (m : Type -> Type). Monad m => Bool -> m () -> m ()
 unless := \b -> when (not b)
 
 void :: forall (f : Type -> Type) a. Functor f => f a -> f ()
-void := fmap (\_ -> ())
+void := fmap (const ())
 
 liftA2 :: forall (f : Type -> Type) a b c. Applicative f => (a -> b -> c) -> f a -> f b -> f c
 liftA2 := \f -> \fa -> \fb -> ap (fmap f fa) fb
@@ -402,7 +402,7 @@ elem :: forall a. Eq a => a -> List a -> Bool
 elem := \x -> foldr (\y -> \acc -> case eq x y { True -> True; False -> acc }) False
 
 notElem :: forall a. Eq a => a -> List a -> Bool
-notElem := \x -> \xs -> not (elem x xs)
+notElem := \x -> not . elem x
 
 any :: forall a. (a -> Bool) -> List a -> Bool
 any := \p -> foldr (\x -> \acc -> case p x { True -> True; False -> acc }) False

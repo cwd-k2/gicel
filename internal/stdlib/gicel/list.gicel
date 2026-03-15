@@ -97,7 +97,7 @@ span :: forall a. (a -> Bool) -> List a -> (List a, List a)
 span := _listSpan
 
 break :: forall a. (a -> Bool) -> List a -> (List a, List a)
-break := \p -> span (\x -> not (p x))
+break := \p -> span (not . p)
 
 sortBy :: forall a. (a -> a -> Ordering) -> List a -> List a
 sortBy := _listSortBy
