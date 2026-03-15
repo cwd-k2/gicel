@@ -233,11 +233,16 @@ GICEL source declares the type with `assumption` — a placeholder that says
 host side":
 
 ```gicel
-fetchPrice :: String -> Computation {} {} Int
+fetchPrice :: forall (r : Row). String -> Effect { db : () | r } Int
 fetchPrice := assumption
 
 main := fetchPrice "item-42"
 ```
+
+`Effect { db : () | r } Int` means: this function requires a `db` capability.
+If you compose it with other effectful functions, the type system ensures all
+required capabilities are present — your custom effects get the same
+compile-time guarantees as the built-in ones.
 
 Register types, bindings, and primitives — GICEL programs can only use what
 you explicitly provide. See [`examples/go/`](examples/go/) for full patterns:
