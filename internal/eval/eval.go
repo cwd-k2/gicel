@@ -28,22 +28,18 @@ type EvalResult struct {
 
 // Evaluator is the per-execution evaluation engine.
 type Evaluator struct {
-	ctx              context.Context
-	prims            *PrimRegistry
-	limit            *Limit
-	trace            TraceHook
-	explain          ExplainHook
-	source           *span.Source // for line/col in explain events; nil if unavailable
-	suppress         int          // >0: suppress explain events (inside stdlib)
-	suppressDisabled bool         // when true, suppress is ignored (ExplainAll mode)
-	explainSeq       int          // monotonic step counter for explain events
-	cachedApplier    Applier      // reused across all primitive invocations
-	stats            EvalStats
+	ctx           context.Context
+	prims         *PrimRegistry
+	limit         *Limit
+	trace         TraceHook
+	obs           *ExplainObserver // nil when explain is disabled
+	cachedApplier Applier          // reused across all primitive invocations
+	stats         EvalStats
 }
 
 // NewEvaluator creates an Evaluator for a single execution.
-func NewEvaluator(ctx context.Context, prims *PrimRegistry, limit *Limit, trace TraceHook, explain ExplainHook) *Evaluator {
-	ev := &Evaluator{ctx: ctx, prims: prims, limit: limit, trace: trace, explain: explain}
+func NewEvaluator(ctx context.Context, prims *PrimRegistry, limit *Limit, trace TraceHook, obs *ExplainObserver) *Evaluator {
+	ev := &Evaluator{ctx: ctx, prims: prims, limit: limit, trace: trace, obs: obs}
 	ev.cachedApplier = func(fn Value, arg Value, capEnv CapEnv) (Value, CapEnv, error) {
 		r, err := ev.apply(capEnv, fn, arg, &core.App{})
 		if err != nil {
@@ -52,44 +48,6 @@ func NewEvaluator(ctx context.Context, prims *PrimRegistry, limit *Limit, trace 
 		return r.Value, r.CapEnv, nil
 	}
 	return ev
-}
-
-// SetSource sets the source for line/col resolution in explain events.
-func (ev *Evaluator) SetSource(src *span.Source) {
-	ev.source = src
-}
-
-// explainActive reports whether explain events should be emitted.
-func (ev *Evaluator) explainActive() bool {
-	return ev.suppress == 0 || ev.suppressDisabled
-}
-
-// SetSuppressDisabled disables explain suppression for stdlib internals.
-// When true, all code is traced regardless of f.Internal.
-func (ev *Evaluator) SetSuppressDisabled(v bool) { ev.suppressDisabled = v }
-
-// SetExplainSeq sets the monotonic counter for explain events,
-// allowing the caller to synchronize seq numbering across runtime
-// and evaluator boundaries.
-func (ev *Evaluator) SetExplainSeq(seq int) { ev.explainSeq = seq }
-
-// ExplainSeq returns the current explain event counter.
-func (ev *Evaluator) ExplainSeq() int { return ev.explainSeq }
-
-// explainAt emits an ExplainStep with line/col derived from a Span.
-// Line/col are only set when the Span falls within the user's source text;
-// spans from stdlib modules (compiled with a different Source) are excluded.
-// Events are suppressed when inside stdlib/internal closures.
-func (ev *Evaluator) explainAt(kind ExplainKind, msg string, detail ExplainDetail, s span.Span) {
-	if !ev.explainActive() {
-		return
-	}
-	ev.explainSeq++
-	step := ExplainStep{Seq: ev.explainSeq, Depth: ev.limit.Depth(), Kind: kind, Message: msg, Detail: detail}
-	if ev.source != nil && s.Start > 0 && int(s.Start) < len(ev.source.Text) {
-		step.Line, step.Col = ev.source.Location(s.Start)
-	}
-	ev.explain(step)
 }
 
 // Stats returns the accumulated statistics.
@@ -162,10 +120,10 @@ func (ev *Evaluator) Eval(env *Env, capEnv CapEnv, expr core.Core) (EvalResult, 
 			return EvalResult{}, err
 		}
 		// Detect let-encoding: (\y -> body) expr → emit "y = value".
-		if ev.explain != nil && ev.explainActive() {
+		if ev.obs.Active() {
 			if lam, ok := e.Fun.(*core.Lam); ok && lam.Param != "_" && !strings.HasPrefix(lam.Param, "$") {
 				val := PrettyValue(argR.Value)
-				ev.explainAt(ExplainBind, lam.Param+" = "+val, BindDetail(lam.Param, val, false), e.S)
+				ev.obs.Emit(ev.limit.Depth(), ExplainBind, lam.Param+" = "+val, BindDetail(lam.Param, val, false), e.S)
 			}
 		}
 		return ev.apply(argR.CapEnv, funR.Value, argR.Value, e)
@@ -202,14 +160,14 @@ func (ev *Evaluator) Eval(env *Env, capEnv CapEnv, expr core.Core) (EvalResult, 
 		for _, alt := range e.Alts {
 			bindings := Match(scrutR.Value, alt.Pattern)
 			if bindings != nil {
-				if ev.explain != nil && ev.explainActive() && !isInternalPattern(alt.Pattern) {
+				if ev.obs.Active() && !isInternalPattern(alt.Pattern) {
 					scrut := PrettyValue(scrutR.Value)
 					pat := FormatPattern(alt.Pattern)
 					msg := "match " + scrut + " → " + pat
 					if bs := FormatBindings(bindings); bs != "" {
 						msg += "    " + bs
 					}
-					ev.explainAt(ExplainMatch, msg, MatchDetail(scrut, pat, bindings), e.S)
+					ev.obs.Emit(ev.limit.Depth(), ExplainMatch, msg, MatchDetail(scrut, pat, bindings), e.S)
 				}
 				altEnv := env.ExtendMany(bindings)
 				return ev.Eval(altEnv, scrutR.CapEnv, alt.Body)
@@ -283,9 +241,9 @@ func (ev *Evaluator) Eval(env *Env, capEnv CapEnv, expr core.Core) (EvalResult, 
 		if err != nil {
 			return EvalResult{}, err
 		}
-		if ev.explain != nil && ev.explainActive() && e.Var != "_" && !strings.HasPrefix(e.Var, "$") {
+		if ev.obs.Active() && e.Var != "_" && !strings.HasPrefix(e.Var, "$") {
 			val := PrettyValue(compR.Value)
-			ev.explainAt(ExplainBind, e.Var+" ← "+val, BindDetail(e.Var, val, true), e.S)
+			ev.obs.Emit(ev.limit.Depth(), ExplainBind, e.Var+" ← "+val, BindDetail(e.Var, val, true), e.S)
 		}
 		bodyEnv := env.Extend(e.Var, compR.Value)
 		if err := ev.limit.Enter(); err != nil {
@@ -448,23 +406,19 @@ func (ev *Evaluator) ForceEffectful(r EvalResult, callSite span.Span) (EvalResul
 	if !ok {
 		return EvalResult{}, &RuntimeError{Message: fmt.Sprintf("missing primitive: %s", pv.Name)}
 	}
-	// When explain is active, mark CapEnv shared so impl copies on write.
-	// This preserves the old state for the explain diff.
-	capForImpl := r.CapEnv
-	if ev.explain != nil && ev.explainActive() {
-		capForImpl = r.CapEnv.MarkShared()
-	}
+	// Mark shared unconditionally: external code may mutate, so protect the original.
+	// Cost is negligible (sets one bool on a value-type copy).
+	capForImpl := r.CapEnv.MarkShared()
 	val, newCap, err := impl(ev.ctx, capForImpl, pv.Args, ev.applier())
 	if err != nil {
 		return EvalResult{}, err
 	}
-	if ev.explain != nil && ev.explainActive() {
-		// Prefer callSite (user's code) over pv.S (may be stdlib module).
+	if ev.obs.Active() {
 		site := callSite
 		if site.Start == 0 {
 			site = pv.S
 		}
-		ev.explainAt(ExplainEffect, FormatEffect(pv.Name, pv.Args, val, capForImpl, newCap), EffectDetail(pv.Name, pv.Args, val, capForImpl, newCap), site)
+		ev.obs.Emit(ev.limit.Depth(), ExplainEffect, FormatEffect(pv.Name, pv.Args, val, capForImpl, newCap), EffectDetail(pv.Name, pv.Args, val, capForImpl, newCap), site)
 	}
 	return EvalResult{val, newCap}, nil
 }
@@ -480,16 +434,14 @@ func (ev *Evaluator) apply(capEnv CapEnv, fn Value, arg Value, site *core.App) (
 		if err := ev.limit.Enter(); err != nil {
 			return EvalResult{}, err
 		}
-		// Explain: function call boundaries and stdlib suppression.
-		if ev.explain != nil && f.Name != "" {
-			if f.Internal {
-				ev.suppress++
-				defer func() { ev.suppress-- }()
-			} else {
+		if ev.obs != nil && f.Name != "" {
+			if ev.obs.IsInternal(f.Name) {
+				ev.obs.EnterInternal()
+				defer ev.obs.LeaveInternal()
+			} else if ev.obs.Active() {
 				detail := LabelDetail(f.Name, "enter")
-				argStr := PrettyValue(arg)
-				detail.Value = argStr
-				ev.explainAt(ExplainLabel, "enter "+f.Name, detail, site.S)
+				detail.Value = PrettyValue(arg)
+				ev.obs.Emit(ev.limit.Depth(), ExplainLabel, "enter "+f.Name, detail, site.S)
 			}
 		}
 		bodyEnv := f.Env.Extend(f.Param, arg)

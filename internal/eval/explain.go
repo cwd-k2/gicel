@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/cwd-k2/gicel/internal/core"
+	"github.com/cwd-k2/gicel/internal/span"
 )
 
 // ExplainKind classifies semantic evaluation events.
@@ -77,6 +78,86 @@ func (k ExplainKind) MarshalJSON() ([]byte, error) {
 
 // ExplainHook receives semantic evaluation events.
 type ExplainHook func(ExplainStep)
+
+// ExplainObserver instruments evaluation with semantic trace events.
+// A nil *ExplainObserver is safe to call — all methods are no-ops.
+type ExplainObserver struct {
+	hook      ExplainHook
+	source    *span.Source
+	seq       int
+	suppress  int
+	all       bool            // ignore suppression (ExplainAll mode)
+	internals map[string]bool // stdlib/module-internal closure names
+}
+
+// NewExplainObserver creates an observer with the given hook and source.
+func NewExplainObserver(hook ExplainHook, source *span.Source) *ExplainObserver {
+	return &ExplainObserver{hook: hook, source: source, internals: make(map[string]bool)}
+}
+
+// Active reports whether trace events should be emitted.
+// A nil observer is never active.
+func (o *ExplainObserver) Active() bool {
+	return o != nil && (o.suppress == 0 || o.all)
+}
+
+// Emit sends a trace event through the hook, assigning seq and resolving location.
+// Suppressed events are silently dropped.
+func (o *ExplainObserver) Emit(depth int, kind ExplainKind, msg string, detail ExplainDetail, s span.Span) {
+	if !o.Active() {
+		return
+	}
+	o.seq++
+	step := ExplainStep{Seq: o.seq, Depth: depth, Kind: kind, Message: msg, Detail: detail}
+	if o.source != nil && s.Start > 0 && int(s.Start) < len(o.source.Text) {
+		step.Line, step.Col = o.source.Location(s.Start)
+	}
+	o.hook(step)
+}
+
+// Section emits a section label (not subject to suppression).
+func (o *ExplainObserver) Section(name string) {
+	o.seq++
+	o.hook(ExplainStep{
+		Seq:     o.seq,
+		Kind:    ExplainLabel,
+		Message: "── " + name + " ──",
+		Detail:  LabelDetail(name, "section"),
+	})
+}
+
+// Result emits the final result (not subject to suppression).
+func (o *ExplainObserver) Result(value string) {
+	o.seq++
+	o.hook(ExplainStep{
+		Seq:     o.seq,
+		Kind:    ExplainResult,
+		Message: "→ " + value,
+		Detail:  ResultDetail(value),
+	})
+}
+
+// MarkInternal registers a closure name as stdlib-internal.
+// Safe to call on a nil observer.
+func (o *ExplainObserver) MarkInternal(name string) {
+	if o != nil {
+		o.internals[name] = true
+	}
+}
+
+// IsInternal reports whether the named closure is stdlib-internal.
+func (o *ExplainObserver) IsInternal(name string) bool {
+	return o != nil && o.internals[name]
+}
+
+// EnterInternal increments the suppression counter.
+func (o *ExplainObserver) EnterInternal() { o.suppress++ }
+
+// LeaveInternal decrements the suppression counter.
+func (o *ExplainObserver) LeaveInternal() { o.suppress-- }
+
+// SetAll disables suppression (ExplainAll mode).
+func (o *ExplainObserver) SetAll(v bool) { o.all = v }
 
 // PrettyValue formats a runtime value in source-level terms.
 // No "HostVal(...)", no "{ _1 = ..., _2 = ... }" — uses tuples and bare values.

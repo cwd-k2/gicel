@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"sort"
 	"strings"
 
 	"github.com/cwd-k2/gicel"
@@ -72,14 +73,14 @@ func useColor(noColorFlag bool) bool {
 	return fi.Mode()&os.ModeCharDevice != 0
 }
 
-// Emit processes a single ExplainStep.
+// Emit processes a single ExplainStep using structured Detail data.
 func (f *explainFormatter) Emit(step gicel.ExplainStep) {
 	if step.Kind == gicel.ExplainResult {
 		return
 	}
 
 	// Buffer section labels; discard empty ones.
-	if step.Kind == gicel.ExplainLabel && strings.HasPrefix(step.Message, "── ") {
+	if step.Kind == gicel.ExplainLabel && step.Detail.LabelKind == "section" {
 		f.flushPending(false)
 		cp := step
 		f.pendingLabel = &cp
@@ -113,8 +114,7 @@ func (f *explainFormatter) flushPending(show bool) {
 		return
 	}
 	if show {
-		name := strings.TrimSuffix(strings.TrimPrefix(f.pendingLabel.Message, "── "), " ──")
-		f.writeSection(name)
+		f.writeSection(f.pendingLabel.Detail.Name)
 	}
 	f.pendingLabel = nil
 	f.hadEvent = false
@@ -132,8 +132,7 @@ func (f *explainFormatter) writeSection(name string) {
 
 // 0  :52  enter  │ name ───────────────────────
 func (f *explainFormatter) writeEnter(step gicel.ExplainStep) {
-	name := strings.TrimPrefix(step.Message, "enter ")
-	// Show argument if available from detail.
+	name := step.Detail.Name
 	if step.Detail.Value != "" {
 		argStr := step.Detail.Value
 		if len(argStr) > 30 {
@@ -169,18 +168,16 @@ func (f *explainFormatter) writeEnter(step gicel.ExplainStep) {
 // 1  :25  bind   │ price ← 50
 func (f *explainFormatter) writeBind(step gicel.ExplainStep) {
 	f.hadEvent = true
-
-	var name, value, op string
-	if i := strings.Index(step.Message, " ← "); i >= 0 {
-		name, value, op = step.Message[:i], step.Message[i+len(" ← "):], "←"
-	} else if i := strings.Index(step.Message, " = "); i >= 0 {
-		name, value, op = step.Message[:i], step.Message[i+len(" = "):], "="
-	} else {
+	d := step.Detail
+	if d.Var == "" {
 		f.writeRaw(step)
 		return
 	}
-
-	content := f.styled(cCyan, name+" "+op+" "+value)
+	op := "="
+	if d.Monadic {
+		op = "←"
+	}
+	content := f.styled(cCyan, d.Var+" "+op+" "+d.Value)
 	f.writeLine(step.Depth, step.Line, "bind", cCyan, content)
 }
 
@@ -188,60 +185,34 @@ func (f *explainFormatter) writeBind(step gicel.ExplainStep) {
 // 1  :25  effect │ get ⇒ 50
 func (f *explainFormatter) writeEffect(step gicel.ExplainStep) {
 	f.hadEvent = true
-
-	msg := step.Message
-	var nameArgs, result, capDiff string
-
-	if i := strings.Index(msg, " → "); i >= 0 {
-		nameArgs = msg[:i]
-		rest := msg[i+len(" → "):]
-		if j := strings.Index(rest, "    "); j >= 0 {
-			result, capDiff = rest[:j], rest[j+4:]
+	d := step.Detail
+	s := d.Op
+	for _, a := range d.Args {
+		if strings.Contains(a, " ") {
+			s += " (" + a + ")"
 		} else {
-			result = rest
+			s += " " + a
 		}
-	} else {
-		nameArgs = msg
 	}
-
-	s := nameArgs
-	if result != "" && result != "()" {
-		s += " ⇒ " + result
+	if d.Result != "" && d.Result != "()" {
+		s += " ⇒ " + d.Result
 	}
-
 	content := f.styled(cYellow, s)
-	if capDiff != "" {
-		content += "  " + f.styled(cDim, capDiff)
+	if len(d.CapDiff) > 0 {
+		content += "  " + f.styled(cDim, fmtCapDiff(d.CapDiff))
 	}
-
 	f.writeLine(step.Depth, step.Line, "effect", cYellow, content)
 }
 
 // 1  :26  match  │ Circle 5 ▸ Circle r  r = 5
 func (f *explainFormatter) writeMatch(step gicel.ExplainStep) {
 	f.hadEvent = true
-
-	msg := strings.TrimPrefix(step.Message, "match ")
-	var scrutinee, pattern, bindings string
-
-	if i := strings.Index(msg, " → "); i >= 0 {
-		scrutinee = msg[:i]
-		rest := msg[i+len(" → "):]
-		if j := strings.Index(rest, "    "); j >= 0 {
-			pattern, bindings = rest[:j], rest[j+4:]
-		} else {
-			pattern = rest
-		}
-	} else {
-		scrutinee = msg
-	}
-
-	s := scrutinee + " ▸ " + pattern
+	d := step.Detail
+	s := d.Scrutinee + " ▸ " + d.Pattern
 	content := f.styled(cGreen, s)
-	if bindings != "" {
-		content += "  " + f.styled(cDim, bindings)
+	if len(d.Bindings) > 0 {
+		content += "  " + f.styled(cDim, fmtBindings(d.Bindings))
 	}
-
 	f.writeLine(step.Depth, step.Line, "match", cGreen, content)
 }
 
@@ -289,4 +260,40 @@ func (f *explainFormatter) styled(code, s string) string {
 		return code + s + cReset
 	}
 	return s
+}
+
+// fmtCapDiff renders structured capability environment changes.
+func fmtCapDiff(diff map[string][2]string) string {
+	keys := make([]string, 0, len(diff))
+	for k := range diff {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	parts := make([]string, len(keys))
+	for i, k := range keys {
+		pair := diff[k]
+		switch {
+		case pair[0] == "":
+			parts[i] = fmt.Sprintf("[%s: _ → %s]", k, pair[1])
+		case pair[1] == "":
+			parts[i] = fmt.Sprintf("[%s: removed]", k)
+		default:
+			parts[i] = fmt.Sprintf("[%s: %s → %s]", k, pair[0], pair[1])
+		}
+	}
+	return strings.Join(parts, " ")
+}
+
+// fmtBindings renders structured match bindings as "a = v1, b = v2".
+func fmtBindings(bindings map[string]string) string {
+	keys := make([]string, 0, len(bindings))
+	for k := range bindings {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	parts := make([]string, len(keys))
+	for i, k := range keys {
+		parts[i] = k + " = " + bindings[k]
+	}
+	return strings.Join(parts, ", ")
 }
