@@ -3,6 +3,7 @@
 -- Demonstrates kind annotations in type class declarations, kind
 -- variables in forall binders, and higher-kinded type class instances.
 -- GICEL supports HKT via explicit kind annotations using (f : Kind).
+-- Level: types
 
 -- A binary tree type (Type -> Type)
 data Tree a = TLeaf a | TBranch (Tree a) (Tree a)
@@ -55,5 +56,5 @@ test3 := mmap not tree                -- TBranch (TLeaf False) (TLeaf True)
 -- This maps `not` inside a Tree inside a Maybe
 test4 := mmap (mmap not) (Just tree)
 
--- Output: (Just False, (Nothing, (True, test4)))
+-- Output: (Just False, (Nothing, (True, Just (TBranch (TLeaf False) (TLeaf True)))))
 main := (test1, (test2, (testIdType, test4)))

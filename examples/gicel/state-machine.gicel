@@ -8,6 +8,7 @@
 --   Step 4: Add tax
 --   Step 5: Add shipping
 -- Each step reads the current total, transforms it, and writes it back.
+-- Level: effects
 
 import Std.Num
 import Std.State

@@ -3,6 +3,7 @@
 -- Demonstrates record literals, projection (!#), functional update,
 -- row-polymorphic functions, tuples (as record sugar), unit, nested
 -- records, and pattern matching on tuples.
+-- Level: basics
 
 import Std.Num
 

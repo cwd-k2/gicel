@@ -2,6 +2,7 @@
 --
 -- Defines custom ADTs and demonstrates exhaustive pattern matching,
 -- nested case expressions, and converting between types.
+-- Level: types
 
 import Std.Num
 

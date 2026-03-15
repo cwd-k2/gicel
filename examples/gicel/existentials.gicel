@@ -5,6 +5,7 @@
 -- type signature uses `forall` to introduce type variables that do not
 -- appear in the data type's parameters, making them existentially
 -- quantified when pattern matching.
+-- Level: types
 
 -- A simple existential: wraps a value with a predicate that can test it.
 -- `a` is universally quantified in the constructor but existentially

@@ -4,6 +4,7 @@
 -- kind. Nullary constructors become types of that kind. This enables
 -- phantom type parameters that encode state at the type level,
 -- preventing invalid transitions statically.
+-- Level: types
 
 -- Declare door states. This creates:
 --   DoorState : a kind

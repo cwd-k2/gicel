@@ -4,6 +4,7 @@
 -- values and pattern matching on their structure. Since recursive
 -- functions require EnableRecursion (not available in standalone CLI),
 -- we focus on construction and shallow matching.
+-- Level: types
 
 -- Peano natural numbers: zero and successor
 data Nat = Z | S Nat

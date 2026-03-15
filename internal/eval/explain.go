@@ -21,12 +21,41 @@ const (
 )
 
 // ExplainStep is a single semantic event during evaluation.
+//
+// Message is a human-readable summary (kept for backward compatibility).
+// Detail carries structured data for machine consumption (JSON, agent feedback).
 type ExplainStep struct {
-	Depth   int         `json:"depth"`
-	Kind    ExplainKind `json:"kind"`
-	Message string      `json:"message"`
-	Line    int         `json:"line,omitempty"`
-	Col     int         `json:"col,omitempty"`
+	Depth   int           `json:"depth"`
+	Kind    ExplainKind   `json:"kind"`
+	Message string        `json:"message,omitempty"`
+	Line    int           `json:"line,omitempty"`
+	Col     int           `json:"col,omitempty"`
+	Detail  ExplainDetail `json:"detail,omitempty"`
+}
+
+// ExplainDetail carries kind-specific structured data.
+// Exactly one group of fields is populated, corresponding to the step's Kind.
+type ExplainDetail struct {
+	// Label/Result: section name or entry point.
+	Name string `json:"name,omitempty"`
+	// Label: "enter" for function call, "section" for top-level binding.
+	LabelKind string `json:"labelKind,omitempty"`
+
+	// Bind: variable name and value.
+	Var     string `json:"var,omitempty"`
+	Value   string `json:"value,omitempty"`
+	Monadic bool   `json:"monadic,omitempty"` // true for ← (do-bind), false for = (let)
+
+	// Effect: primitive operation details.
+	Op      string               `json:"op,omitempty"`
+	Args    []string             `json:"args,omitempty"`
+	Result  string               `json:"result,omitempty"`
+	CapDiff map[string][2]string `json:"capDiff,omitempty"` // label → [old, new]
+
+	// Match: pattern matching details.
+	Scrutinee string            `json:"scrutinee,omitempty"`
+	Pattern   string            `json:"pattern,omitempty"`
+	Bindings  map[string]string `json:"bindings,omitempty"`
 }
 
 var explainKindNames = [...]string{
@@ -219,6 +248,86 @@ func FormatBindings(bindings map[string]Value) string {
 		parts[i] = k + " = " + PrettyValue(bindings[k])
 	}
 	return strings.Join(parts, ", ")
+}
+
+// BindDetail builds an ExplainDetail for a bind event.
+func BindDetail(varName, value string, monadic bool) ExplainDetail {
+	return ExplainDetail{Var: varName, Value: value, Monadic: monadic}
+}
+
+// MatchDetail builds an ExplainDetail for a match event.
+func MatchDetail(scrutinee, pattern string, bindings map[string]Value) ExplainDetail {
+	d := ExplainDetail{Scrutinee: scrutinee, Pattern: pattern}
+	if len(bindings) > 0 {
+		d.Bindings = make(map[string]string, len(bindings))
+		for k, v := range bindings {
+			d.Bindings[k] = PrettyValue(v)
+		}
+	}
+	return d
+}
+
+// EffectDetail builds an ExplainDetail for an effect event.
+func EffectDetail(name string, args []Value, result Value, oldCap, newCap CapEnv) ExplainDetail {
+	d := ExplainDetail{
+		Op:     name,
+		Result: PrettyValue(result),
+	}
+	if len(args) > 0 {
+		d.Args = make([]string, len(args))
+		for i, a := range args {
+			d.Args[i] = PrettyValue(a)
+		}
+	}
+	d.CapDiff = capEnvDiffStructured(oldCap, newCap)
+	return d
+}
+
+// LabelDetail builds an ExplainDetail for a label event.
+func LabelDetail(name, labelKind string) ExplainDetail {
+	return ExplainDetail{Name: name, LabelKind: labelKind}
+}
+
+// ResultDetail builds an ExplainDetail for a result event.
+func ResultDetail(value string) ExplainDetail {
+	return ExplainDetail{Name: "result", Value: value}
+}
+
+// capEnvDiffStructured computes structured CapEnv changes as [old, new] pairs.
+func capEnvDiffStructured(old, new CapEnv) map[string][2]string {
+	oldLabels := old.Labels()
+	newLabels := new.Labels()
+	if len(oldLabels) == 0 && len(newLabels) == 0 {
+		return nil
+	}
+	seen := make(map[string]bool)
+	for _, l := range oldLabels {
+		seen[l] = true
+	}
+	for _, l := range newLabels {
+		seen[l] = true
+	}
+
+	var diffs map[string][2]string
+	for l := range seen {
+		ov, oldOK := old.Get(l)
+		nv, newOK := new.Get(l)
+		oldStr := ""
+		newStr := ""
+		if oldOK {
+			oldStr = fmtCapVal(ov)
+		}
+		if newOK {
+			newStr = fmtCapVal(nv)
+		}
+		if oldStr != newStr {
+			if diffs == nil {
+				diffs = make(map[string][2]string)
+			}
+			diffs[l] = [2]string{oldStr, newStr}
+		}
+	}
+	return diffs
 }
 
 // FormatEffect describes an effectful primitive execution with CapEnv diff.

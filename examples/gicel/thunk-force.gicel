@@ -4,6 +4,7 @@
 --   thunk expr   suspends a computation (wraps it in a Thunk)
 --   force t      runs a suspended computation (unwraps the Thunk)
 -- Thunks are first-class values: store them, pass them, choose which to force.
+-- Level: basics
 
 import Std.Num
 

@@ -3,6 +3,7 @@
 -- This program exercises all 11 keywords in one file:
 --   case, do, data, type, forall, infixl, infixr, infixn,
 --   class, instance, import
+-- Level: effects
 
 -- [import] — bring in stdlib
 import Std.Num

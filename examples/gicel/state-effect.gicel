@@ -4,6 +4,7 @@
 -- The state is threaded through the capability environment.
 -- Always `put` an initial value before `get` — the CLI starts with
 -- no state capability.
+-- Level: effects
 
 import Std.Num
 import Std.State

@@ -6,6 +6,7 @@
 --   fromResult :: Result e a -> Computation {fail:e|r}  {fail:e|r}  a
 -- If the value is Nothing or Err, the computation fails (runtime error).
 -- If the value is Just or Ok, the inner value is extracted and returned.
+-- Level: effects
 
 import Std.Num
 import Std.Fail

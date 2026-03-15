@@ -4,6 +4,7 @@
 -- instances). Defines a custom Eq' class and shows how
 -- `instance Eq' a => Eq' (Maybe a)` propagates the constraint: you
 -- can compare Maybe values only when the element type is comparable.
+-- Level: types
 
 -- Custom equality class (to avoid conflict with Prelude's Eq)
 class Eq' a {

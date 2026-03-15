@@ -99,17 +99,55 @@ func cmdExample(args []string) int {
 			fmt.Fprintln(os.Stderr, "no examples available")
 			return 1
 		}
-		fmt.Println("Available examples:")
-		fmt.Println()
+		// Group examples by level for progressive learning.
+		type entry struct {
+			name, desc string
+		}
+		groups := map[string][]entry{}
+		var ungrouped []entry
 		for _, name := range examples {
-			desc := exampleDesc(gicel.Example(name))
-			if desc != "" {
-				fmt.Printf("  %-26s %s\n", name, desc)
+			src := gicel.Example(name)
+			desc := exampleDesc(src)
+			level := exampleLevel(src)
+			e := entry{name, desc}
+			if level != "" {
+				groups[level] = append(groups[level], e)
 			} else {
-				fmt.Printf("  %s\n", name)
+				ungrouped = append(ungrouped, e)
 			}
 		}
-		fmt.Println()
+
+		levelOrder := []struct{ key, label string }{
+			{"basics", "Basics"},
+			{"types", "Type System"},
+			{"effects", "Effects & Applications"},
+		}
+		for _, lv := range levelOrder {
+			entries := groups[lv.key]
+			if len(entries) == 0 {
+				continue
+			}
+			fmt.Printf("%s:\n", lv.label)
+			for _, e := range entries {
+				if e.desc != "" {
+					fmt.Printf("  %-26s %s\n", e.name, e.desc)
+				} else {
+					fmt.Printf("  %s\n", e.name)
+				}
+			}
+			fmt.Println()
+		}
+		if len(ungrouped) > 0 {
+			fmt.Println("Other:")
+			for _, e := range ungrouped {
+				if e.desc != "" {
+					fmt.Printf("  %-26s %s\n", e.name, e.desc)
+				} else {
+					fmt.Printf("  %s\n", e.name)
+				}
+			}
+			fmt.Println()
+		}
 		fmt.Println("Run 'gicel example <name>' to view source.")
 		return 0
 	}
@@ -134,6 +172,20 @@ func exampleDesc(source string) string {
 	}
 	if strings.HasPrefix(source, prefix) {
 		return strings.TrimPrefix(source, prefix)
+	}
+	return ""
+}
+
+// exampleLevel extracts the level from "-- Level: <level>".
+func exampleLevel(source string) string {
+	const prefix = "-- Level: "
+	for _, line := range strings.SplitN(source, "\n", 20) {
+		if strings.HasPrefix(line, prefix) {
+			return strings.TrimSpace(strings.TrimPrefix(line, prefix))
+		}
+		if line == "" {
+			break // stop at end of header block
+		}
 	}
 	return ""
 }
@@ -267,6 +319,7 @@ func cmdRun(args []string) int {
 		}
 		if *explain {
 			out["explain"] = explainSteps
+			out["summary"] = summarizeSteps(explainSteps)
 		}
 		outputJSON(out)
 	} else {
@@ -326,6 +379,66 @@ func outputJSON(v any) {
 	enc := json.NewEncoder(os.Stdout)
 	enc.SetIndent("", "  ")
 	_ = enc.Encode(v) // write error to stdout is intentionally ignored
+}
+
+// summarizeSteps produces a per-section breakdown of explain events.
+// Each section entry lists the count of binds, effects, and matches,
+// plus effect operations used. This lets an agent grasp the execution
+// shape without reading every step.
+func summarizeSteps(steps []gicel.ExplainStep) any {
+	type sectionSummary struct {
+		Binds   int      `json:"binds"`
+		Effects int      `json:"effects"`
+		Matches int      `json:"matches"`
+		Ops     []string `json:"ops,omitempty"`
+	}
+
+	var sections []map[string]any
+	var current *sectionSummary
+	var currentName string
+	opSet := map[string]bool{}
+
+	flush := func() {
+		if current != nil && (current.Binds+current.Effects+current.Matches) > 0 {
+			sections = append(sections, map[string]any{
+				"section": currentName,
+				"binds":   current.Binds,
+				"effects": current.Effects,
+				"matches": current.Matches,
+				"ops":     current.Ops,
+			})
+		}
+	}
+
+	for _, s := range steps {
+		switch s.Kind {
+		case gicel.ExplainLabel:
+			if s.Detail.LabelKind == "section" {
+				flush()
+				currentName = s.Detail.Name
+				current = &sectionSummary{}
+				opSet = map[string]bool{}
+			}
+		case gicel.ExplainBind:
+			if current != nil {
+				current.Binds++
+			}
+		case gicel.ExplainEffect:
+			if current != nil {
+				current.Effects++
+				if op := s.Detail.Op; op != "" && !opSet[op] {
+					opSet[op] = true
+					current.Ops = append(current.Ops, op)
+				}
+			}
+		case gicel.ExplainMatch:
+			if current != nil {
+				current.Matches++
+			}
+		}
+	}
+	flush()
+	return sections
 }
 
 func formatValue(v gicel.Value) any {

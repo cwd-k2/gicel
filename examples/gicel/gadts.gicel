@@ -7,6 +7,7 @@
 -- Note: recursive functions require EnableRecursion (not available in
 -- standalone CLI mode), so we demonstrate type refinement via shallow
 -- pattern matching on GADT constructors.
+-- Level: types
 
 import Std.Num
 

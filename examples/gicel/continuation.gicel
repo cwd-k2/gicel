@@ -4,7 +4,9 @@
 -- higher-order functions — no special runtime support needed.
 -- Demonstrates CPS transform, callCC for early exit, and
 -- multi-shot continuations for nondeterministic search.
--- Requires: --recursion flag (for range generation)
+-- Requires: --recursion (for range generation)
+-- Run: gicel run --recursion continuation.gicel
+-- Level: effects
 
 import Std.Num
 import Std.List

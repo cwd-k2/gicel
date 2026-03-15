@@ -126,7 +126,11 @@ func (r *Runtime) run(ctx context.Context, caps map[string]any, bindings map[str
 	}
 
 	if r.explainHook != nil {
-		r.explainHook(eval.ExplainStep{Kind: eval.ExplainLabel, Message: "── " + entry + " ──"})
+		r.explainHook(eval.ExplainStep{
+			Kind:    eval.ExplainLabel,
+			Message: "── " + entry + " ──",
+			Detail:  eval.LabelDetail(entry, "section"),
+		})
 	}
 	capEnv := eval.NewCapEnv(caps)
 	result, err := ev.Eval(env, capEnv, entryExpr)
@@ -139,9 +143,11 @@ func (r *Runtime) run(ctx context.Context, caps map[string]any, bindings map[str
 		return eval.EvalResult{}, EvalStats{}, err
 	}
 	if r.explainHook != nil {
+		val := eval.PrettyValue(result.Value)
 		r.explainHook(eval.ExplainStep{
 			Kind:    eval.ExplainResult,
-			Message: "→ " + eval.PrettyValue(result.Value),
+			Message: "→ " + val,
+			Detail:  eval.ResultDetail(val),
 		})
 	}
 	return result, ev.Stats(), nil
@@ -164,7 +170,11 @@ func (r *Runtime) evalBindings(ev *eval.Evaluator, env *eval.Env, bindings []cor
 	}
 	for _, b := range bindings {
 		if label && r.explainHook != nil {
-			r.explainHook(eval.ExplainStep{Kind: eval.ExplainLabel, Message: "── " + b.Name + " ──"})
+			r.explainHook(eval.ExplainStep{
+				Kind:    eval.ExplainLabel,
+				Message: "── " + b.Name + " ──",
+				Detail:  eval.LabelDetail(b.Name, "section"),
+			})
 		}
 		result, err := ev.Eval(env, eval.NewCapEnv(nil), b.Expr)
 		if err != nil {

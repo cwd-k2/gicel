@@ -4,6 +4,7 @@
 -- functions as arguments. The key insight is that a rank-2 type
 -- like `(forall a. a -> a) -> (Bool, Bool)` requires the caller
 -- to pass a function that works for ALL types, not just one.
+-- Level: types
 
 -- A rank-2 function: accepts a polymorphic identity and applies it
 -- at two different types (Bool and Maybe Bool).

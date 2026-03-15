@@ -4,6 +4,7 @@
 --   x <- comp     binds the result of a computation (monadic bind)
 --   y := expr     creates a let binding (non-monadic, pure value)
 -- The last expression must be a Computation (use `pure` to wrap values).
+-- Level: basics
 
 import Std.Num
 

@@ -2,7 +2,8 @@
 --
 -- Lists in GICEL are built with Cons and Nil constructors.
 -- Import Std.List for higher-order list operations.
---
+-- Level: basics
+
 import Std.Num
 import Std.List
 

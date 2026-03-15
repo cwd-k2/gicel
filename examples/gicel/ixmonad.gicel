@@ -2,6 +2,7 @@
 --
 -- GICEL provides Functor, Applicative, Foldable, and IxMonad instances
 -- for Maybe and List. This file demonstrates each pattern.
+-- Level: types
 
 import Std.Num
 

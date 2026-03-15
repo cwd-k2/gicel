@@ -4,7 +4,9 @@
 --   1. List do-notation — the simplest way (IxMonad List)
 --   2. Multi-shot continuations — how it works under the hood
 --   3. Free monad — reified computation as a data structure
--- Requires: --recursion flag (for Free monad and range)
+-- Requires: --recursion (for Free monad and range)
+-- Run: gicel run --recursion nondeterminism.gicel
+-- Level: effects
 
 import Std.Num
 import Std.List

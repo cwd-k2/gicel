@@ -3,7 +3,9 @@
 -- 0/1 knapsack solved two ways and cross-checked.
 -- Approach 1 uses fix to enumerate all subsets (brute-force).
 -- Approach 2 uses foldl to iteratively update a DP table.
--- Requires: --recursion flag
+-- Requires: --recursion
+-- Run: gicel run --recursion knapsack.gicel
+-- Level: effects
 
 import Std.Num
 import Std.List

@@ -2,10 +2,13 @@
 --
 -- The IO pack provides print and debug capabilities
 -- that write to the CapEnv io buffer.
+-- Level: effects
 
 import Std.Str
 import Std.IO
 
+-- Side effects: prints "hello, world!" and debug "done" to the io buffer.
+-- Return value: ()
 main := do {
   _ <- print "hello, ";
   _ <- print (append "world" "!");

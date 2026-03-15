@@ -2,6 +2,7 @@
 --
 -- Import Std.Num for Int type and all arithmetic operators.
 -- Demonstrates: +, -, *, div (/), mod, negate, abs, eq, compare.
+-- Level: basics
 
 import Std.Num
 

@@ -2,7 +2,8 @@
 --
 -- A practical data processing workflow using lists.
 -- Process a list of exam scores: filter, transform, and summarize.
---
+-- Level: effects
+
 import Std.Num
 import Std.List
 

@@ -61,11 +61,11 @@ func (ev *Evaluator) SetSource(src *span.Source) {
 // Line/col are only set when the Span falls within the user's source text;
 // spans from stdlib modules (compiled with a different Source) are excluded.
 // Events are suppressed when inside stdlib/internal closures.
-func (ev *Evaluator) explainAt(kind ExplainKind, msg string, s span.Span) {
+func (ev *Evaluator) explainAt(kind ExplainKind, msg string, detail ExplainDetail, s span.Span) {
 	if ev.suppress > 0 {
 		return
 	}
-	step := ExplainStep{Depth: ev.limit.Depth(), Kind: kind, Message: msg}
+	step := ExplainStep{Depth: ev.limit.Depth(), Kind: kind, Message: msg, Detail: detail}
 	if ev.source != nil && s.Start > 0 && int(s.Start) < len(ev.source.Text) {
 		step.Line, step.Col = ev.source.Location(s.Start)
 	}
@@ -144,7 +144,8 @@ func (ev *Evaluator) Eval(env *Env, capEnv CapEnv, expr core.Core) (EvalResult, 
 		// Detect let-encoding: (\y -> body) expr → emit "y = value".
 		if ev.explain != nil && ev.suppress == 0 {
 			if lam, ok := e.Fun.(*core.Lam); ok && lam.Param != "_" && !strings.HasPrefix(lam.Param, "$") {
-				ev.explainAt(ExplainBind, lam.Param+" = "+PrettyValue(argR.Value), e.S)
+				val := PrettyValue(argR.Value)
+				ev.explainAt(ExplainBind, lam.Param+" = "+val, BindDetail(lam.Param, val, false), e.S)
 			}
 		}
 		return ev.apply(argR.CapEnv, funR.Value, argR.Value, e)
@@ -182,11 +183,13 @@ func (ev *Evaluator) Eval(env *Env, capEnv CapEnv, expr core.Core) (EvalResult, 
 			bindings := Match(scrutR.Value, alt.Pattern)
 			if bindings != nil {
 				if ev.explain != nil && ev.suppress == 0 && !isInternalPattern(alt.Pattern) {
-					msg := "match " + PrettyValue(scrutR.Value) + " → " + FormatPattern(alt.Pattern)
+					scrut := PrettyValue(scrutR.Value)
+					pat := FormatPattern(alt.Pattern)
+					msg := "match " + scrut + " → " + pat
 					if bs := FormatBindings(bindings); bs != "" {
 						msg += "    " + bs
 					}
-					ev.explainAt(ExplainMatch, msg, e.S)
+					ev.explainAt(ExplainMatch, msg, MatchDetail(scrut, pat, bindings), e.S)
 				}
 				altEnv := env.ExtendMany(bindings)
 				return ev.Eval(altEnv, scrutR.CapEnv, alt.Body)
@@ -261,7 +264,8 @@ func (ev *Evaluator) Eval(env *Env, capEnv CapEnv, expr core.Core) (EvalResult, 
 			return EvalResult{}, err
 		}
 		if ev.explain != nil && ev.suppress == 0 && e.Var != "_" && !strings.HasPrefix(e.Var, "$") {
-			ev.explainAt(ExplainBind, e.Var+" ← "+PrettyValue(compR.Value), e.S)
+			val := PrettyValue(compR.Value)
+			ev.explainAt(ExplainBind, e.Var+" ← "+val, BindDetail(e.Var, val, true), e.S)
 		}
 		bodyEnv := env.Extend(e.Var, compR.Value)
 		if err := ev.limit.Enter(); err != nil {
@@ -424,7 +428,13 @@ func (ev *Evaluator) ForceEffectful(r EvalResult, callSite span.Span) (EvalResul
 	if !ok {
 		return EvalResult{}, &RuntimeError{Message: fmt.Sprintf("missing primitive: %s", pv.Name)}
 	}
-	val, newCap, err := impl(ev.ctx, r.CapEnv, pv.Args, ev.applier())
+	// When explain is active, mark CapEnv shared so impl copies on write.
+	// This preserves the old state for the explain diff.
+	capForImpl := r.CapEnv
+	if ev.explain != nil && ev.suppress == 0 {
+		capForImpl = r.CapEnv.MarkShared()
+	}
+	val, newCap, err := impl(ev.ctx, capForImpl, pv.Args, ev.applier())
 	if err != nil {
 		return EvalResult{}, err
 	}
@@ -434,7 +444,7 @@ func (ev *Evaluator) ForceEffectful(r EvalResult, callSite span.Span) (EvalResul
 		if site.Start == 0 {
 			site = pv.S
 		}
-		ev.explainAt(ExplainEffect, FormatEffect(pv.Name, pv.Args, val, r.CapEnv, newCap), site)
+		ev.explainAt(ExplainEffect, FormatEffect(pv.Name, pv.Args, val, capForImpl, newCap), EffectDetail(pv.Name, pv.Args, val, capForImpl, newCap), site)
 	}
 	return EvalResult{val, newCap}, nil
 }
@@ -456,7 +466,7 @@ func (ev *Evaluator) apply(capEnv CapEnv, fn Value, arg Value, site *core.App) (
 				ev.suppress++
 				defer func() { ev.suppress-- }()
 			} else {
-				ev.explainAt(ExplainLabel, "enter "+f.Name, site.S)
+				ev.explainAt(ExplainLabel, "enter "+f.Name, LabelDetail(f.Name, "enter"), site.S)
 			}
 		}
 		bodyEnv := f.Env.Extend(f.Param, arg)

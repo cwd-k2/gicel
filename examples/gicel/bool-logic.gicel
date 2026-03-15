@@ -4,6 +4,7 @@
 -- (True, False). Demonstrates pattern matching and function composition.
 -- Note: `not` is already in the Prelude; we redefine it as `myNot` for
 -- educational purposes.
+-- Level: basics
 
 -- Boolean negation via pattern matching
 myNot :: Bool -> Bool
