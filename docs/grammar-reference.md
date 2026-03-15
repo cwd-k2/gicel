@@ -571,103 +571,15 @@ Inside braces (`do`, `case`, block expressions, GADT declarations), semicolons a
 | `Int`                    | `Type`                    | 64-bit integer        |
 | `String`                 | `Type`                    | Unicode string        |
 | `Rune`                   | `Type`                    | Unicode code point    |
+| `Slice a`                | `Type → Type`             | Contiguous array      |
 
 ---
 
-## Stdlib Packs
+## Prelude
 
-Stdlib packs are loaded via `Engine.Use(pack)` on the host side and `import Std.X` in source.
+The Prelude is auto-included unless `NoPrelude` is set. Full reference: [agent-guide/prelude.md](agent-guide/prelude.md).
 
-### Std.Num
-
-Provides `Num` class, `Eq`/`Ord` Int instances, and arithmetic operators.
-
-```
-class Eq a => Num a {
-  add    :: a -> a -> a;
-  sub    :: a -> a -> a;
-  mul    :: a -> a -> a;
-  negate :: a -> a
-}
-
-instance Eq Int    instance Ord Int    instance Num Int
-
-div    :: Int -> Int -> Int
-mod    :: Int -> Int -> Int
-abs    :: Int -> Int
-sign   :: Int -> Int
-
-infixl 6 +   infixl 6 -
-infixl 7 *   infixl 7 /
-```
-
-### Std.Str
-
-Provides `Eq`/`Ord`/`Semigroup`/`Monoid` String instances, `Eq`/`Ord` Rune instances.
-
-```
-instance Eq String    instance Ord String
-instance Semigroup String    instance Monoid String
-instance Eq Rune    instance Ord Rune
-
-strlen :: String -> Int
-toRunes :: String -> List Rune
-```
-
-### Std.Fail
-
-Provides fail effect capability.
-
-```
-failWith :: forall e r a. e -> Computation { fail : e | r } { fail : e | r } a
-fail     :: forall r a. Computation { fail : () | r } { fail : () | r } a
-fromMaybe  :: forall a r. Maybe a -> Computation { fail : () | r } ... a
-fromResult :: forall e a r. Result e a -> Computation { fail : e | r } ... a
-```
-
-### Std.State
-
-Provides get/put state capabilities.
-
-```
-get    :: forall s r. Computation { state : s | r } { state : s | r } s
-put    :: forall s r. s -> Computation { state : s | r } { state : s | r } ()
-modify :: forall s r. (s -> s) -> Computation { state : s | r } { state : s | r } ()
-```
-
-### Std.List
-
-Provides list operations via host primitives.
-
-```
-fromSlice :: forall a. List a -> List a
-toSlice   :: forall a. List a -> List a
-length    :: forall a. List a -> Int
-concat    :: forall a. List a -> List a -> List a
-foldl     :: forall a b. (b -> a -> b) -> b -> List a -> b
-take      :: forall a. Int -> List a -> List a
-drop      :: forall a. Int -> List a -> List a
-index     :: forall a. Int -> List a -> Maybe a
-replicate :: forall a. Int -> a -> List a
-reverse   :: forall a. List a -> List a
-zip       :: forall a b. List a -> List b -> List (a, b)
-unzip     :: forall a b. List (a, b) -> (List a, List b)
-```
-
-### Std.IO
-
-Provides print/debug capabilities using the `io` capability.
-
-```
-print :: String -> Computation { io : () | r } { io : () | r } ()
-debug :: forall a. a -> Computation { io : () | r } { io : () | r } ()
-```
-
----
-
-## Prelude (auto-included unless `NoPrelude`)
-
-### Data Types
+### Data Types and Constructors
 
 ```
 data Bool = True | False
@@ -679,96 +591,31 @@ data List a = Cons a (List a) | Nil
 
 `()` is the unit type (empty record). `(a, b)` is the tuple type (sugar for `Record { _1 : a, _2 : b }`).
 
-### Type Classes
+### Operators
 
 ```
-class Eq a { eq :: a -> a -> Bool }
-class Eq a => Ord a { compare :: a -> a -> Ordering }
-class Semigroup a { append :: a -> a -> a }
-class Semigroup a => Monoid a { empty :: a }
-class Functor f { fmap :: forall a b. (a -> b) -> f a -> f b }
-class Foldable t { foldr :: forall a b. (a -> b -> b) -> b -> t a -> b }
-class Functor f => Applicative f {
-  wrap :: forall a. a -> f a;
-  ap   :: forall a b. f (a -> b) -> f a -> f b
-}
-class Functor t => Foldable t => Traversable t {
-  traverse :: forall f a b. Applicative f => (a -> f b) -> t a -> f (t b)
-}
-class IxMonad (m : Row -> Row -> Type -> Type) {
-  ixpure :: forall a (r : Row). a -> m r r a;
-  ixbind :: forall a b (r1 : Row) (r2 : Row) (r3 : Row).
-              m r1 r2 a -> (a -> m r2 r3 b) -> m r1 r3 b
-}
-```
-
-### Type Aliases
-
-```
-type Effect r a = Computation r r a
-type Lift (m : Type -> Type) (r1 : Row) (r2 : Row) a = m a
-```
-
-### Functions
-
-```
-then :: forall a b (r1 : Row) (r2 : Row) (r3 : Row).
-  Computation r1 r2 a -> Computation r2 r3 b -> Computation r1 r3 b
-
-id    :: forall a. a -> a
-const :: forall a b. a -> b -> a
-flip  :: forall a b c. (a -> b -> c) -> b -> a -> c
-not   :: Bool -> Bool
-maybe  :: forall a b. b -> (a -> b) -> Maybe a -> b
-result :: forall e a b. (e -> b) -> (a -> b) -> Result e a -> b
-fst   :: forall a b. (a, b) -> a
-snd   :: forall a b. (a, b) -> b
-head  :: forall a. List a -> Maybe a
-tail  :: forall a. List a -> Maybe (List a)
-null  :: forall a. List a -> Bool
-map   :: forall a b. (a -> b) -> List a -> List b
-filter :: forall a. (a -> Bool) -> List a -> List a
-singleton :: forall a. a -> List a
-min   :: forall a. Ord a => a -> a -> a
-max   :: forall a. Ord a => a -> a -> a
-
 infixr 9 .         -- function composition
+infixr 6 <>        -- Semigroup append
 infixr 3 &&        -- logical AND
 infixr 2 ||        -- logical OR
 infixn 4 ==  /=  <  >  <=  >=
+infixl 1 >>=       -- Monad bind
+infixl 1 >>        -- Monad sequence
 ```
 
-### Instances
+---
 
-```
--- IxMonad
-instance IxMonad Computation    -- uses built-in pure/bind
-instance IxMonad Maybe          instance IxMonad List
+## Stdlib Packs
 
--- Eq
-instance Eq Bool          instance Eq ()
-instance Eq Ordering      instance Eq a => Eq (Maybe a)
-instance Eq a => Eq b => Eq (a, b)
-instance Eq a => Eq (List a)
+Stdlib packs are loaded via `Engine.Use(pack)` on the host side and `import Std.X` in source. Full reference: [agent-guide/stdlib.md](agent-guide/stdlib.md).
 
--- Ord
-instance Ord Bool         instance Ord ()
-instance Ord Ordering     instance Ord a => Ord (Maybe a)
-instance Ord a => Ord b => Ord (a, b)
-
--- Semigroup / Monoid
-instance Semigroup ()          instance Semigroup Ordering
-instance Semigroup a => Semigroup (Maybe a)
-instance Semigroup (List a)
-instance Monoid ()             instance Monoid Ordering
-instance Semigroup a => Monoid (Maybe a)
-instance Monoid (List a)
-
--- Functor / Foldable / Applicative / Traversable
-instance Functor Maybe
-instance Functor List
-instance Foldable Maybe
-instance Foldable List
-instance Applicative Maybe
-instance Traversable Maybe
-```
+| Pack         | Provides                                                      |
+| ------------ | ------------------------------------------------------------- |
+| `Std.Num`    | `Num` class, `Int` instances, arithmetic operators (`+−*/`)   |
+| `Std.Str`    | String/Rune instances, string operations, `showInt`/`readInt` |
+| `Std.List`   | Native-speed list operations (`length`, `foldl`, `zip`, etc.) |
+| `Std.Fail`   | Fail effect (`failWith`, `fromMaybe`, `fromResult`)           |
+| `Std.State`  | State effect (`get`, `put`, `modify`)                         |
+| `Std.IO`     | IO effect (`print`, `debug`)                                  |
+| `Std.Stream` | Lazy streams (`Stream a`), requires recursion                 |
+| `Std.Slice`  | Contiguous arrays (`Slice a`), O(1) length/index              |
