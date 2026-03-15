@@ -267,6 +267,101 @@ func TestAsStringError(t *testing.T) {
 	}
 }
 
+// --- Slice ---
+
+func sliceOf(vals ...eval.Value) eval.Value {
+	items := make([]eval.Value, len(vals))
+	copy(items, vals)
+	return &eval.HostVal{Inner: items}
+}
+
+func TestSliceEmptyImpl(t *testing.T) {
+	v, _, err := sliceEmptyImpl(ctx, ce, args(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s, err := asSlice(v)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(s) != 0 {
+		t.Fatalf("expected empty slice, got %d elements", len(s))
+	}
+}
+
+func TestSliceSingletonImpl(t *testing.T) {
+	v, _, err := sliceSingletonImpl(ctx, ce, args(intVal(42)), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s, err := asSlice(v)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(s) != 1 {
+		t.Fatalf("expected 1 element, got %d", len(s))
+	}
+	assertInt(t, s[0], 42)
+}
+
+func TestSliceLengthImpl(t *testing.T) {
+	v, _, err := sliceLengthImpl(ctx, ce, args(sliceOf(intVal(1), intVal(2), intVal(3))), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertInt(t, v, 3)
+}
+
+func TestSliceIndexImpl(t *testing.T) {
+	v, _, err := sliceIndexImpl(ctx, ce, args(intVal(1), sliceOf(intVal(10), intVal(20))), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	con := v.(*eval.ConVal)
+	if con.Con != "Just" {
+		t.Fatalf("expected Just, got %s", con.Con)
+	}
+	assertInt(t, con.Args[0], 20)
+}
+
+func TestSliceIndexOutOfBounds(t *testing.T) {
+	v, _, err := sliceIndexImpl(ctx, ce, args(intVal(5), sliceOf(intVal(1))), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertCon(t, v, "Nothing")
+}
+
+func TestSliceConsImpl(t *testing.T) {
+	v, _, err := sliceConsImpl(ctx, ce, args(intVal(0), sliceOf(intVal(1), intVal(2))), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s, err := asSlice(v)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(s) != 3 {
+		t.Fatalf("expected 3 elements, got %d", len(s))
+	}
+	assertInt(t, s[0], 0)
+}
+
+func TestSliceSnocImpl(t *testing.T) {
+	v, _, err := sliceSnocImpl(ctx, ce, args(sliceOf(intVal(1)), intVal(2)), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s, err := asSlice(v)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(s) != 2 {
+		t.Fatalf("expected 2 elements, got %d", len(s))
+	}
+	assertInt(t, s[1], 2)
+}
+
 // --- Stream ---
 
 func TestBuildStreamEmpty(t *testing.T) {

@@ -117,3 +117,6 @@ var IO Pack = stdlib.IO
 
 // Stream provides lazy list operations: LCons/LNil, headS, tailS, takeS, dropS.
 var Stream Pack = stdlib.Stream
+
+// Slice provides contiguous array operations: O(1) length/index, Functor/Foldable.
+var Slice Pack = stdlib.Slice

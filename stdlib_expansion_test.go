@@ -295,6 +295,66 @@ main := foldl (\acc -> \x -> case x { True -> acc + 1; False -> acc }) 0 (Cons T
 }
 
 // ===========================================================================
+// Std.Slice
+// ===========================================================================
+
+func TestSliceSingletonLength(t *testing.T) {
+	v := runWithPacks(t, `
+import Std.Num
+import Std.Slice
+main := sliceLength (sliceSingleton True)
+`, gicel.Num, gicel.Slice)
+	assertHostInt(t, v, 1)
+}
+
+func TestSliceIndex(t *testing.T) {
+	v := runWithPacks(t, `
+import Std.Num
+import Std.Slice
+main :: Maybe Bool
+main := sliceIndex 0 (pack (Cons True Nil))
+`, gicel.Num, gicel.Slice)
+	con, ok := v.(*gicel.ConVal)
+	if !ok || con.Con != "Just" {
+		t.Fatalf("expected Just, got %v", v)
+	}
+	assertConVal(t, con.Args[0], "True")
+}
+
+func TestSlicePackedRoundtrip(t *testing.T) {
+	v := runWithPacks(t, `
+import Std.Slice
+main := unpack (pack (Cons True (Cons False Nil)) :: Slice Bool)
+`, gicel.Slice)
+	con := v.(*gicel.ConVal)
+	if con.Con != "Cons" {
+		t.Fatalf("expected Cons, got %s", con.Con)
+	}
+	assertConVal(t, con.Args[0], "True")
+	second := con.Args[1].(*gicel.ConVal)
+	assertConVal(t, second.Args[0], "False")
+	assertConVal(t, second.Args[1], "Nil")
+}
+
+func TestSliceFmap(t *testing.T) {
+	v := runWithPacks(t, `
+import Std.Num
+import Std.Slice
+main := sliceLength (fmap not (sliceSingleton True))
+`, gicel.Num, gicel.Slice)
+	assertHostInt(t, v, 1)
+}
+
+func TestSliceMonoid(t *testing.T) {
+	v := runWithPacks(t, `
+import Std.Num
+import Std.Slice
+main := sliceLength (append (sliceSingleton True) (sliceSingleton False))
+`, gicel.Num, gicel.Slice)
+	assertHostInt(t, v, 2)
+}
+
+// ===========================================================================
 // Std.Stream
 // ===========================================================================
 
