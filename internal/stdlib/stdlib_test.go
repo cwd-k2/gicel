@@ -673,6 +673,80 @@ func TestConcatImpl(t *testing.T) {
 	}
 }
 
+// --- Str: charAt, split, join ---
+
+func TestCharAtImpl(t *testing.T) {
+	v, _, err := charAtImpl(ctx, ce, args(intVal(1), strVal("abc")), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	con := v.(*eval.ConVal)
+	if con.Con != "Just" {
+		t.Fatalf("expected Just, got %s", con.Con)
+	}
+	r, err := asRune(con.Args[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	if r != 'b' {
+		t.Fatalf("expected 'b', got '%c'", r)
+	}
+}
+
+func TestCharAtImplOutOfBounds(t *testing.T) {
+	v, _, err := charAtImpl(ctx, ce, args(intVal(3), strVal("abc")), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertCon(t, v, "Nothing")
+}
+
+func TestCharAtImplExactBoundary(t *testing.T) {
+	// Index exactly at len(runes) should return Nothing, not panic.
+	v, _, err := charAtImpl(ctx, ce, args(intVal(3), strVal("abc")), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertCon(t, v, "Nothing")
+}
+
+func TestSplitImpl(t *testing.T) {
+	v, _, err := splitImpl(ctx, ce, args(strVal(","), strVal("a,b,c")), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	items, ok := listToSlice(v)
+	if !ok {
+		t.Fatal("expected list")
+	}
+	if len(items) != 3 {
+		t.Fatalf("expected 3 items, got %d", len(items))
+	}
+	assertStr(t, items[0], "a")
+	assertStr(t, items[1], "b")
+	assertStr(t, items[2], "c")
+}
+
+func TestJoinImpl(t *testing.T) {
+	list := conList(strVal("a"), strVal("b"), strVal("c"))
+	v, _, err := joinImpl(ctx, ce, args(strVal("-"), list), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertStr(t, v, "a-b-c")
+}
+
+// --- Slice: exact boundary index ---
+
+func TestSliceIndexExactBoundary(t *testing.T) {
+	// Index exactly at len(slice) should return Nothing, not panic.
+	v, _, err := sliceIndexImpl(ctx, ce, args(intVal(2), sliceOf(intVal(10), intVal(20))), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertCon(t, v, "Nothing")
+}
+
 func TestRoundTrip(t *testing.T) {
 	original := []any{intVal(1), intVal(2), intVal(3)}
 	list := sliceToList(original)

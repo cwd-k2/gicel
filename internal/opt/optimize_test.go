@@ -499,6 +499,101 @@ func TestSubst_BindCaptureAvoidance(t *testing.T) {
 	}
 }
 
+// ===== Subst through various Core nodes =====
+
+func TestSubst_ThroughTyLam(t *testing.T) {
+	// subst (TyLam "a" (Var "x")) "x" (Var "y") → TyLam "a" (Var "y")
+	expr := &core.TyLam{TyParam: "a", Body: v("x")}
+	result := subst(expr, "x", v("y"))
+	tl, ok := result.(*core.TyLam)
+	if !ok {
+		t.Fatalf("expected TyLam, got %T", result)
+	}
+	if !coreEq(tl.Body, v("y")) {
+		t.Fatalf("TyLam subst: body should be y, got %v", tl.Body)
+	}
+}
+
+func TestSubst_ThroughPrimOp(t *testing.T) {
+	// subst (PrimOp "_f" [Var "x", Var "z"]) "x" (Var "y")
+	//   → PrimOp "_f" [Var "y", Var "z"]
+	expr := primop("_f", 2, v("x"), v("z"))
+	result := subst(expr, "x", v("y"))
+	po, ok := result.(*core.PrimOp)
+	if !ok {
+		t.Fatalf("expected PrimOp, got %T", result)
+	}
+	if !coreEq(po.Args[0], v("y")) {
+		t.Fatalf("PrimOp subst: arg 0 should be y, got %v", po.Args[0])
+	}
+	if !coreEq(po.Args[1], v("z")) {
+		t.Fatalf("PrimOp subst: arg 1 should be z, got %v", po.Args[1])
+	}
+}
+
+func TestSubst_ThroughRecordLit(t *testing.T) {
+	// subst (RecordLit {a: Var "x"}) "x" (Var "y") → RecordLit {a: Var "y"}
+	expr := &core.RecordLit{Fields: []core.RecordField{{Label: "a", Value: v("x")}}}
+	result := subst(expr, "x", v("y"))
+	rec, ok := result.(*core.RecordLit)
+	if !ok {
+		t.Fatalf("expected RecordLit, got %T", result)
+	}
+	if !coreEq(rec.Fields[0].Value, v("y")) {
+		t.Fatalf("RecordLit subst: field should be y, got %v", rec.Fields[0].Value)
+	}
+}
+
+// ===== R11: foldr/map fusion =====
+
+func TestR11_SliceFoldrMapFusion(t *testing.T) {
+	// _sliceFoldr k z (_sliceMap f xs) → _sliceFoldr (\$x $acc -> k (f $x) $acc) z xs
+	fusionRule := func(c core.Core) core.Core {
+		po, ok := c.(*core.PrimOp)
+		if !ok || po.Name != "_sliceFoldr" || len(po.Args) != 3 {
+			return c
+		}
+		inner, ok := po.Args[2].(*core.PrimOp)
+		if !ok || inner.Name != "_sliceMap" || len(inner.Args) != 2 {
+			return c
+		}
+		k, z, f, xs := po.Args[0], po.Args[1], inner.Args[0], inner.Args[1]
+		x, acc := "$opt_x", "$opt_acc"
+		fused := &core.Lam{Param: x, Body: &core.Lam{Param: acc, Body: &core.App{
+			Fun: &core.App{Fun: k, Arg: &core.App{Fun: f, Arg: &core.Var{Name: x}}},
+			Arg: &core.Var{Name: acc},
+		}}}
+		return &core.PrimOp{Name: "_sliceFoldr", Arity: 3, Args: []core.Core{fused, z, xs}, S: po.S}
+	}
+	input := primop("_sliceFoldr", 3, v("k"), v("z"),
+		primop("_sliceMap", 2, v("f"), v("xs")))
+	result := Optimize(input, []func(core.Core) core.Core{fusionRule})
+
+	po, ok := result.(*core.PrimOp)
+	if !ok || po.Name != "_sliceFoldr" {
+		t.Fatalf("R11: expected _sliceFoldr, got %T", result)
+	}
+	if len(po.Args) != 3 {
+		t.Fatalf("R11: expected 3 args, got %d", len(po.Args))
+	}
+	// Fused function: \$opt_x -> \$opt_acc -> k (f $opt_x) $opt_acc
+	outerLam, ok := po.Args[0].(*core.Lam)
+	if !ok || outerLam.Param != "$opt_x" {
+		t.Fatalf("R11: expected outer lambda with param $opt_x")
+	}
+	innerLam, ok := outerLam.Body.(*core.Lam)
+	if !ok || innerLam.Param != "$opt_acc" {
+		t.Fatalf("R11: expected inner lambda with param $opt_acc")
+	}
+	// z and xs should be passed through
+	if !coreEq(po.Args[1], v("z")) {
+		t.Fatalf("R11: second arg should be z")
+	}
+	if !coreEq(po.Args[2], v("xs")) {
+		t.Fatalf("R11: third arg should be xs")
+	}
+}
+
 // ===== Multi-pass convergence (M12) =====
 
 func TestMultiPass_NestedBetaRequiresIteration(t *testing.T) {

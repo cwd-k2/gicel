@@ -132,3 +132,33 @@ func TestSortBindingsInstanceDictPattern(t *testing.T) {
 		t.Fatalf("Eq$Bool should precede user, got %v", bindingNames(sorted))
 	}
 }
+
+func TestSortBindingsSelfReference(t *testing.T) {
+	// A self-referencing binding (e.g., letrec f = ... f ...).
+	// SortBindings should handle this gracefully — the binding has
+	// in-degree from itself, but the j != i guard prevents self-edges.
+	bs := []Binding{
+		binding("f", "f", "x"), // f references itself and x
+		binding("x"),           // x has no dependencies
+	}
+	sorted := SortBindings(bs)
+	if len(sorted) != 2 {
+		t.Fatalf("expected 2 bindings, got %d", len(sorted))
+	}
+	// x should come before f (f depends on x)
+	idx := make(map[string]int)
+	for i, b := range sorted {
+		idx[b.Name] = i
+	}
+	if idx["x"] >= idx["f"] {
+		t.Fatalf("x should precede f, got %v", bindingNames(sorted))
+	}
+}
+
+func TestSortBindingsSingleton(t *testing.T) {
+	bs := []Binding{binding("a")}
+	sorted := SortBindings(bs)
+	if len(sorted) != 1 || sorted[0].Name != "a" {
+		t.Fatalf("expected [a], got %v", bindingNames(sorted))
+	}
+}
