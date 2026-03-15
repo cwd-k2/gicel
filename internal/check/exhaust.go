@@ -2,6 +2,7 @@ package check
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/cwd-k2/gicel/internal/core"
@@ -10,76 +11,496 @@ import (
 	"github.com/cwd-k2/gicel/internal/types"
 )
 
-// checkExhaustive verifies that a set of case alternatives covers every
-// constructor of the scrutinee's data type. It implements a simplified
-// Maranget-style exhaustiveness check: a pattern matrix is exhaustive
-// when every constructor of the scrutinee type appears in at least one
-// top-level pattern, or when a wildcard/variable pattern exists.
+// --- Maranget exhaustiveness + redundancy ---
 //
-// Redundancy detection is deferred to a later phase.
+// Reference: Luc Maranget, "Warnings for Pattern Matching" (JFP 2007).
+//
+// Core idea: a pattern vector q is "useful" w.r.t. a pattern matrix P iff
+// there exists a value vector v matched by q but not by any row of P.
+//
+// Exhaustiveness: the wildcard vector (_, _, ...) is NOT useful w.r.t. the
+// full matrix ⟹ all cases are covered.
+//
+// Redundancy: row i is useful w.r.t. rows 0..i-1 ⟹ row i contributes;
+// otherwise it is redundant.
+
+// ---- Pattern representation ----
+
+// pat is the internal pattern representation for the algorithm.
+type pat interface{ patTag() }
+
+type pWild struct{}                                      // _
+type pCon struct{ con string; arity int; args []pat }    // C p1 ... pn
+type pRecord struct{ fields map[string]pat }              // { l1 = p1, ... }
+
+func (pWild) patTag()   {}
+func (pCon) patTag()    {}
+func (pRecord) patTag() {}
+
+type patVec []pat
+type patMatrix []patVec
+
+// ---- Convert core.Pattern → pat ----
+
+func coreToPat(p core.Pattern) pat {
+	switch pp := p.(type) {
+	case *core.PVar:
+		return pWild{}
+	case *core.PWild:
+		return pWild{}
+	case *core.PCon:
+		args := make([]pat, len(pp.Args))
+		for i, a := range pp.Args {
+			args[i] = coreToPat(a)
+		}
+		return pCon{con: pp.Con, arity: len(pp.Args), args: args}
+	case *core.PRecord:
+		fields := make(map[string]pat, len(pp.Fields))
+		for _, f := range pp.Fields {
+			fields[f.Label] = coreToPat(f.Pattern)
+		}
+		return pRecord{fields: fields}
+	default:
+		return pWild{}
+	}
+}
+
+// ---- Signature (complete set of constructors) ----
+
+type conSig struct {
+	name  string
+	arity int
+}
+
+// constructorSigs returns the signature for a type, filtering by GADT
+// applicability. Returns nil if the type is not a known ADT.
+func (ch *Checker) constructorSigs(scrutTy types.Type) []conSig {
+	tyName := headTyCon(scrutTy)
+	if tyName == "" {
+		return nil
+	}
+	info := ch.lookupDataType(tyName)
+	if info == nil {
+		return nil
+	}
+	var sigs []conSig
+	for _, c := range info.Constructors {
+		if c.ReturnType != nil && !ch.canUnifyWith(c.ReturnType, scrutTy) {
+			continue
+		}
+		sigs = append(sigs, conSig{name: c.Name, arity: c.Arity})
+	}
+	return sigs
+}
+
+// ---- Specialize S(c, P) ----
+// Keep rows whose column 0 matches constructor c, expanding sub-patterns.
+// Wildcard rows are expanded to c.arity wildcards.
+
+func specialize(mx patMatrix, con string, arity int) patMatrix {
+	var result patMatrix
+	for _, row := range mx {
+		if len(row) == 0 {
+			continue
+		}
+		switch p := row[0].(type) {
+		case pCon:
+			if p.con == con {
+				newRow := make(patVec, 0, arity+len(row)-1)
+				newRow = append(newRow, p.args...)
+				newRow = append(newRow, row[1:]...)
+				result = append(result, newRow)
+			}
+		case pWild:
+			newRow := make(patVec, 0, arity+len(row)-1)
+			for range arity {
+				newRow = append(newRow, pWild{})
+			}
+			newRow = append(newRow, row[1:]...)
+			result = append(result, newRow)
+		}
+	}
+	return result
+}
+
+// ---- Default D(P) ----
+// Keep rows whose column 0 is a wildcard/variable, dropping column 0.
+
+func defaultMatrix(mx patMatrix) patMatrix {
+	var result patMatrix
+	for _, row := range mx {
+		if len(row) == 0 {
+			continue
+		}
+		if _, ok := row[0].(pWild); ok {
+			result = append(result, row[1:])
+		}
+	}
+	return result
+}
+
+// ---- Record specialize/default ----
+
+// allRecordLabels collects all labels mentioned in column 0 of the matrix.
+func allRecordLabels(mx patMatrix) []string {
+	set := map[string]struct{}{}
+	for _, row := range mx {
+		if len(row) == 0 {
+			continue
+		}
+		if p, ok := row[0].(pRecord); ok {
+			for l := range p.fields {
+				set[l] = struct{}{}
+			}
+		}
+	}
+	labels := make([]string, 0, len(set))
+	for l := range set {
+		labels = append(labels, l)
+	}
+	sort.Strings(labels)
+	return labels
+}
+
+// specializeRecord expands column 0 into per-label columns.
+func specializeRecord(mx patMatrix, labels []string) patMatrix {
+	var result patMatrix
+	for _, row := range mx {
+		if len(row) == 0 {
+			continue
+		}
+		switch p := row[0].(type) {
+		case pRecord:
+			newRow := make(patVec, 0, len(labels)+len(row)-1)
+			for _, l := range labels {
+				if sub, ok := p.fields[l]; ok {
+					newRow = append(newRow, sub)
+				} else {
+					newRow = append(newRow, pWild{})
+				}
+			}
+			newRow = append(newRow, row[1:]...)
+			result = append(result, newRow)
+		case pWild:
+			newRow := make(patVec, 0, len(labels)+len(row)-1)
+			for range labels {
+				newRow = append(newRow, pWild{})
+			}
+			newRow = append(newRow, row[1:]...)
+			result = append(result, newRow)
+		}
+	}
+	return result
+}
+
+// ---- isUseful ----
+
+const maxExhaustDepth = 32
+
+// isUseful returns true if the given pattern vector is useful w.r.t.
+// the pattern matrix, along with a witness pattern for error reporting.
+func (ch *Checker) isUseful(mx patMatrix, q patVec, scrutTys []types.Type) (bool, pat) {
+	return ch.isUsefulAt(mx, q, scrutTys, 0)
+}
+
+func (ch *Checker) isUsefulAt(mx patMatrix, q patVec, scrutTys []types.Type, depth int) (bool, pat) {
+	if depth > maxExhaustDepth {
+		return false, nil // conservative: assume covered
+	}
+	// Base: no columns → useful iff matrix has no rows.
+	if len(q) == 0 {
+		return len(mx) == 0, pWild{}
+	}
+
+	// Empty matrix: every query vector is trivially useful.
+	// The caller reconstructs the witness constructor around pWild{}.
+	if len(mx) == 0 {
+		return true, pWild{}
+	}
+
+	// Check column 0 type.
+	var ty types.Type
+	if len(scrutTys) > 0 {
+		ty = ch.unifier.Zonk(scrutTys[0])
+	}
+	restTys := scrutTys
+	if len(restTys) > 0 {
+		restTys = restTys[1:]
+	}
+
+	// If column 0 of q is a constructor pattern, specialize.
+	if cp, ok := q[0].(pCon); ok {
+		smx := specialize(mx, cp.con, cp.arity)
+		sq := make(patVec, 0, cp.arity+len(q)-1)
+		sq = append(sq, cp.args...)
+		sq = append(sq, q[1:]...)
+
+		argTys := ch.constructorArgTypes(cp.con, ty)
+		newTys := append(argTys, restTys...)
+		useful, witness := ch.isUsefulAt(smx, sq, newTys, depth+1)
+		if useful {
+			return true, reconstructCon(cp.con, cp.arity, witness, q[1:])
+		}
+		return false, nil
+	}
+
+	// If column 0 of q is a record pattern, specialize by labels.
+	if rp, ok := q[0].(pRecord); ok {
+		labels := allRecordLabels(append(mx, q))
+		smx := specializeRecord(mx, labels)
+		sq := make(patVec, 0, len(labels)+len(q)-1)
+		for _, l := range labels {
+			if sub, ok := rp.fields[l]; ok {
+				sq = append(sq, sub)
+			} else {
+				sq = append(sq, pWild{})
+			}
+		}
+		sq = append(sq, q[1:]...)
+
+		newTys := make([]types.Type, len(labels))
+		newTys = append(newTys, restTys...)
+		return ch.isUsefulAt(smx, sq, newTys, depth+1)
+	}
+
+	// Column 0 of q is a wildcard.
+
+	// If column 0 has any record patterns, use record specialization.
+	if hasRecordPats(mx) {
+		labels := allRecordLabels(mx)
+		smx := specializeRecord(mx, labels)
+		sq := make(patVec, 0, len(labels)+len(q)-1)
+		for range labels {
+			sq = append(sq, pWild{})
+		}
+		sq = append(sq, q[1:]...)
+		newTys := make([]types.Type, len(labels))
+		newTys = append(newTys, restTys...)
+		return ch.isUsefulAt(smx, sq, newTys, depth+1)
+	}
+
+	// Determine head constructors in column 0 of the matrix.
+	headCons := columnHeadCons(mx)
+
+	// Get the complete signature for the scrutinee type.
+	sigs := ch.constructorSigs(ty)
+
+	if sigs != nil && len(headCons) >= len(sigs) {
+		// Complete signature covered: specialize for each constructor.
+		for _, sig := range sigs {
+			smx := specialize(mx, sig.name, sig.arity)
+			sq := make(patVec, 0, sig.arity+len(q)-1)
+			for range sig.arity {
+				sq = append(sq, pWild{})
+			}
+			sq = append(sq, q[1:]...)
+
+			argTys := ch.constructorArgTypes(sig.name, ty)
+			newTys := append(argTys, restTys...)
+			useful, witness := ch.isUsefulAt(smx, sq, newTys, depth+1)
+			if useful {
+				return true, reconstructCon(sig.name, sig.arity, witness, q[1:])
+			}
+		}
+		return false, nil
+	}
+
+	// Known signature but incomplete: check each missing constructor.
+	if sigs != nil {
+		for _, sig := range sigs {
+			if _, covered := headCons[sig.name]; covered {
+				continue
+			}
+			smx := specialize(mx, sig.name, sig.arity)
+			sq := make(patVec, 0, sig.arity+len(q)-1)
+			for range sig.arity {
+				sq = append(sq, pWild{})
+			}
+			sq = append(sq, q[1:]...)
+
+			argTys := ch.constructorArgTypes(sig.name, ty)
+			newTys := append(argTys, restTys...)
+			useful, witness := ch.isUsefulAt(smx, sq, newTys, depth+1)
+			if useful {
+				return true, reconstructCon(sig.name, sig.arity, witness, q[1:])
+			}
+		}
+		return false, nil
+	}
+
+	// No signature (opaque type): use default matrix.
+	dmx := defaultMatrix(mx)
+	useful, witness := ch.isUsefulAt(dmx, q[1:], restTys, depth+1)
+	if useful {
+		return true, witness
+	}
+	return false, nil
+}
+
+// hasRecordPats returns true if column 0 of the matrix has any record patterns.
+func hasRecordPats(mx patMatrix) bool {
+	for _, row := range mx {
+		if len(row) > 0 {
+			if _, ok := row[0].(pRecord); ok {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// columnHeadCons returns the set of constructor names in column 0.
+func columnHeadCons(mx patMatrix) map[string]int {
+	result := map[string]int{}
+	for _, row := range mx {
+		if len(row) == 0 {
+			continue
+		}
+		if cp, ok := row[0].(pCon); ok {
+			result[cp.con] = cp.arity
+		}
+	}
+	return result
+}
+
+// constructorArgTypes returns the argument types for a constructor given
+// the scrutinee type. Returns nil slice for unknown types.
+func (ch *Checker) constructorArgTypes(conName string, scrutTy types.Type) []types.Type {
+	info, ok := ch.conInfo[conName]
+	if !ok {
+		return nil
+	}
+	// Find this constructor's arity.
+	var arity int
+	for _, c := range info.Constructors {
+		if c.Name == conName {
+			arity = c.Arity
+			break
+		}
+	}
+	conTy := ch.conTypes[conName]
+	if conTy == nil {
+		return nil
+	}
+	// Instantiate and peel arrows to get argument types.
+	ty := ch.instantiateForExhaust(conTy)
+	var argTys []types.Type
+	for range arity {
+		if arr, ok := ty.(*types.TyArrow); ok {
+			argTys = append(argTys, arr.From)
+			ty = arr.To
+		} else {
+			argTys = append(argTys, nil)
+		}
+	}
+	return argTys
+}
+
+// instantiateForExhaust strips foralls and evidence qualifiers from a type
+// by substituting fresh metas, for use in exhaustiveness argument type
+// extraction. This is a best-effort heuristic — precise types aren't needed
+// since we only care about the structure of nested patterns.
+func (ch *Checker) instantiateForExhaust(ty types.Type) types.Type {
+	for {
+		switch t := ty.(type) {
+		case *types.TyForall:
+			m := &types.TyMeta{ID: ch.fresh(), Kind: t.Kind}
+			ty = types.Subst(t.Body, t.Var, m)
+		case *types.TyEvidence:
+			ty = t.Body
+		default:
+			return ty
+		}
+	}
+}
+
+// reconstructCon builds a witness pattern from the recursive useful result.
+func reconstructCon(con string, arity int, inner pat, _ patVec) pat {
+	// Extract sub-patterns from the witness (best-effort).
+	args := make([]pat, arity)
+	for i := range args {
+		args[i] = pWild{}
+	}
+	// If the inner result gives us sub-pattern info, propagate it.
+	if arity > 0 {
+		if ic, ok := inner.(pCon); ok && ic.con == con {
+			copy(args, ic.args)
+		}
+	}
+	return pCon{con: con, arity: arity, args: args}
+}
+
+// ---- Public API ----
+
+// checkExhaustive verifies that a set of case alternatives covers every
+// constructor of the scrutinee's data type and reports redundant patterns.
 func (ch *Checker) checkExhaustive(scrutTy types.Type, alts []core.Alt, s span.Span) {
 	scrutTy = ch.unifier.Zonk(scrutTy)
 
-	// Extract the head type constructor name from the scrutinee type.
-	tyName := headTyCon(scrutTy)
-	if tyName == "" {
-		// Cannot determine the data type (meta, error, etc.) — skip.
-		return
-	}
+	// Build pattern matrix.
+	var mx patMatrix
+	for i, alt := range alts {
+		row := patVec{coreToPat(alt.Pattern)}
 
-	// Look up the DataTypeInfo for this type.
-	info := ch.lookupDataType(tyName)
-	if info == nil {
-		// Not a known algebraic data type (e.g. opaque host type) — skip.
-		return
-	}
-
-	// Build the set of constructors required for exhaustiveness.
-	// GADT: skip constructors whose ReturnType cannot unify with the scrutinee type.
-	required := make(map[string]bool, len(info.Constructors))
-	for _, c := range info.Constructors {
-		if c.ReturnType != nil {
-			if !ch.canUnifyWith(c.ReturnType, scrutTy) {
-				continue // irrelevant constructor
+		// Redundancy check: is this row useful w.r.t. previous rows?
+		if i > 0 {
+			useful, _ := ch.isUsefulAt(mx, row, []types.Type{scrutTy}, 0)
+			if !useful {
+				ch.addCodedError(errs.ErrRedundantPattern, alt.S,
+					"redundant pattern in case expression")
 			}
 		}
-		required[c.Name] = true
+
+		mx = append(mx, row)
 	}
 
-	// Walk the alternatives. A wildcard or variable pattern covers
-	// all constructors; a constructor pattern covers exactly one.
-	for _, alt := range alts {
-		switch p := alt.Pattern.(type) {
-		case *core.PVar, *core.PWild:
-			// Covers every constructor — the match is trivially exhaustive.
-			return
-		case *core.PCon:
-			delete(required, p.Con)
-		}
+	// Exhaustiveness check: is the wildcard vector useful?
+	wildcard := patVec{pWild{}}
+	useful, witness := ch.isUsefulAt(mx, wildcard, []types.Type{scrutTy}, 0)
+	if useful {
+		ch.addCodedError(errs.ErrNonExhaustive, s, fmt.Sprintf(
+			"non-exhaustive patterns: missing %s", formatWitness(witness),
+		))
 	}
-
-	if len(required) == 0 {
-		return
-	}
-
-	// Collect missing constructor names in declaration order.
-	var missing []string
-	for _, c := range info.Constructors {
-		if required[c.Name] {
-			missing = append(missing, c.Name)
-		}
-	}
-
-	ch.addCodedError(errs.ErrNonExhaustive, s, fmt.Sprintf(
-		"non-exhaustive patterns: missing %s",
-		strings.Join(missing, ", "),
-	))
 }
 
+// formatWitness renders a witness pattern for error messages.
+func formatWitness(p pat) string {
+	switch pp := p.(type) {
+	case pCon:
+		if len(pp.args) == 0 {
+			return pp.con
+		}
+		args := make([]string, len(pp.args))
+		for i, a := range pp.args {
+			s := formatWitness(a)
+			// Wrap nested constructors with args in parens.
+			if ac, ok := a.(pCon); ok && len(ac.args) > 0 {
+				s = "(" + s + ")"
+			}
+			args[i] = s
+		}
+		return pp.con + " " + strings.Join(args, " ")
+	case pWild:
+		return "_"
+	case pRecord:
+		if len(pp.fields) == 0 {
+			return "{}"
+		}
+		var parts []string
+		for l, v := range pp.fields {
+			parts = append(parts, l+" = "+formatWitness(v))
+		}
+		sort.Strings(parts)
+		return "{ " + strings.Join(parts, ", ") + " }"
+	default:
+		return "_"
+	}
+}
+
+// ---- Helpers shared with old code ----
+
 // headTyCon extracts the outermost type constructor name from a type.
-// For a bare TyCon it returns the name directly; for a TyApp chain
-// (e.g. Maybe a = TyApp(TyCon("Maybe"), TyVar("a"))) it peels
-// applications until it reaches the head.
 func headTyCon(ty types.Type) string {
 	switch t := ty.(type) {
 	case *types.TyCon:
@@ -92,17 +513,13 @@ func headTyCon(ty types.Type) string {
 }
 
 // canUnifyWith tests whether retTy can unify with scrutTy in a temporary
-// unifier. Used for GADT exhaustiveness: if a constructor's return type
-// cannot unify with the scrutinee, the constructor is irrelevant.
+// unifier. Used for GADT exhaustiveness to filter irrelevant constructors.
 func (ch *Checker) canUnifyWith(retTy, scrutTy types.Type) bool {
 	tmp := NewUnifierShared(&ch.freshID)
-	// Instantiate any free type variables in retTy with fresh metas.
 	retTy = ch.instantiateFresh(tmp, retTy)
 	return tmp.Unify(retTy, scrutTy) == nil
 }
 
-// instantiateFresh replaces TyVar nodes with fresh metas, simulating
-// the forall-instantiation that checkPattern performs.
 func (ch *Checker) instantiateFresh(u *Unifier, ty types.Type) types.Type {
 	vars := make(map[string]*types.TyMeta)
 	return ch.substVarsWithMetas(u, ty, vars)
@@ -138,9 +555,6 @@ func (ch *Checker) substVarsWithMetas(u *Unifier, ty types.Type, vars map[string
 	}
 }
 
-// lookupDataType finds the DataTypeInfo for a given type name by
-// scanning the conInfo map. Every constructor of the same data type
-// points to the same *DataTypeInfo, so we stop at the first match.
 func (ch *Checker) lookupDataType(tyName string) *DataTypeInfo {
 	for _, info := range ch.conInfo {
 		if info.Name == tyName {
