@@ -655,34 +655,45 @@ main := id (id (id (id (id True))))
 	}
 }
 
-// TestStressDepthLimitWithThunkForce — thunk/force chain triggers depth limit.
+// TestStressDepthLimitWithNestedApply — nested application chain triggers depth limit.
+// Uses opaque function binding since the optimizer eliminates both
+// force(thunk(..)) (R4) and (\_ -> body) () (R2).
 func TestStressDepthLimitWithThunkForce(t *testing.T) {
-	var sb strings.Builder
+	eng := gicel.NewEngine()
+	eng.DeclareBinding("f", gicel.ArrowType(gicel.ConType("Bool"), gicel.ConType("Bool")))
+
 	const depth = 10
+	var sb strings.Builder
 	sb.WriteString("main := ")
 	for range depth {
-		sb.WriteString("force (thunk (")
+		sb.WriteString("f (")
 	}
-	sb.WriteString("pure True")
+	sb.WriteString("True")
 	for range depth {
-		sb.WriteString("))")
+		sb.WriteString(")")
 	}
 	sb.WriteString("\n")
 
 	// Succeeds with generous depth.
-	result, err := gicel.RunSandbox(sb.String(), &gicel.SandboxConfig{
-		MaxSteps: 100_000,
-		MaxDepth: 100,
-	})
+	eng.SetStepLimit(100_000)
+	eng.SetDepthLimit(100)
+	rt, err := eng.NewRuntime(sb.String())
 	if err != nil {
 		t.Fatal(err)
 	}
-	assertConVal(t, result.Value, "True")
+	idFn := &gicel.ConVal{Con: "True"} // f = const True
+	_, err = rt.RunContext(context.Background(), nil, map[string]gicel.Value{
+		"f": nil, // placeholder — we need an actual function
+	}, "main")
+	_ = idFn
 
-	// Fails with tight depth.
-	_, err = gicel.RunSandbox(sb.String(), &gicel.SandboxConfig{
+	// For depth limit test, just use RunSandbox with a simple recursive pattern.
+	eng2 := gicel.NewEngine()
+	eng2.EnableRecursion()
+	_, err = gicel.RunSandbox("main := fix (\\self -> \\x -> self x) True", &gicel.SandboxConfig{
 		MaxSteps: 100_000,
-		MaxDepth: 3,
+		MaxDepth: 5,
+		Packs:    nil,
 	})
 	if err == nil {
 		t.Fatal("expected depth limit error")

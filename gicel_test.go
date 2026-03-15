@@ -3947,16 +3947,17 @@ main := do { v <- pure x; pure v }
 
 func TestDoBlockComputationCoreBind(t *testing.T) {
 	// Verify Computation do blocks elaborate to Core.Bind (not class dispatch).
+	// Use Check() to inspect pre-optimization Core IR.
 	eng := gicel.NewEngine()
 	eng.DeclareBinding("x", gicel.ConType("Int"))
-	rt, err := eng.NewRuntime(`
+	cp, err := eng.Check(`
 main := do { v <- pure x; pure v }
 `)
 	if err != nil {
 		t.Fatal(err)
 	}
-	// Core.Bind is used when Program().Pretty() shows "bind" nodes rather than "ixbind" calls.
-	pretty := rt.Program().Pretty()
+	// Core.Bind is used when Pretty() shows "bind" nodes rather than "ixbind" calls.
+	pretty := cp.Pretty()
 	if !strings.Contains(pretty, "bind") {
 		t.Fatalf("expected Core.Bind in pretty output, got:\n%s", pretty)
 	}
@@ -4384,19 +4385,27 @@ func TestExplainLineNumbersForBindAndMatch(t *testing.T) {
 		steps = append(steps, s)
 	})
 
+	// Use an opaque binding so the optimizer cannot eliminate the bind.
+	eng.DeclareBinding("getBool", gicel.CompType(
+		gicel.EmptyRowType(), gicel.EmptyRowType(), gicel.ConType("Bool"),
+	))
+
 	// Lines:
 	// 1: main := do {
-	// 2:   x <- pure True;
+	// 2:   x <- getBool;
 	// 3:   case x {
 	// 4:     True -> pure x;
 	// 5:     False -> pure x
 	// 6:   }
 	// 7: }
-	rt, err := eng.NewRuntime("main := do {\n  x <- pure True;\n  case x {\n    True -> pure x;\n    False -> pure x\n  }\n}")
+	rt, err := eng.NewRuntime("main := do {\n  x <- getBool;\n  case x {\n    True -> pure x;\n    False -> pure x\n  }\n}")
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = rt.RunContext(context.Background(), nil, nil, "main")
+	bindings := map[string]gicel.Value{
+		"getBool": &gicel.ConVal{Con: "True"},
+	}
+	_, err = rt.RunContext(context.Background(), nil, bindings, "main")
 	if err != nil {
 		t.Fatal(err)
 	}

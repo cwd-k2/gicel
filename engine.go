@@ -11,6 +11,7 @@ import (
 	"github.com/cwd-k2/gicel/internal/core"
 	"github.com/cwd-k2/gicel/internal/errs"
 	"github.com/cwd-k2/gicel/internal/eval"
+	"github.com/cwd-k2/gicel/internal/opt"
 	"github.com/cwd-k2/gicel/internal/reg"
 	"github.com/cwd-k2/gicel/internal/span"
 	"github.com/cwd-k2/gicel/internal/stdlib"
@@ -391,6 +392,9 @@ func (e *Engine) NewRuntime(source string) (*Runtime, error) {
 	if checkErrs.HasErrors() {
 		return nil, &CompileError{errors: checkErrs}
 	}
+
+	// Optimize Core IR: algebraic simplifications + fusion.
+	opt.OptimizeProgram(prog)
 
 	// Annotate free variables for safe-for-space closure conversion.
 	core.AnnotateFreeVarsProgram(prog)
