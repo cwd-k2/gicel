@@ -1289,6 +1289,51 @@ main := \x -> x`
 	checkSourceExpectCode(t, source, nil, errs.ErrSkolemRigid)
 }
 
+func TestQuantifyFreeVarsKindInference(t *testing.T) {
+	// Row variable in Computation pre/post should be quantified as KRow.
+	compTy := &types.TyComp{
+		Pre:    &types.TyVar{Name: "r"},
+		Post:   &types.TyVar{Name: "r"},
+		Result: types.Con("Int"),
+	}
+	arrowTy := &types.TyArrow{From: &types.TyVar{Name: "a"}, To: compTy}
+	result := quantifyFreeVars(arrowTy)
+
+	forall1, ok := result.(*types.TyForall)
+	if !ok {
+		t.Fatalf("expected TyForall, got %T", result)
+	}
+	// Sorted: "a" first, then "r"
+	if forall1.Var != "a" {
+		t.Errorf("first quantifier: got %q, want 'a'", forall1.Var)
+	}
+	if _, ok := forall1.Kind.(types.KType); !ok {
+		t.Errorf("'a' kind: got %v, want KType", forall1.Kind)
+	}
+
+	forall2, ok := forall1.Body.(*types.TyForall)
+	if !ok {
+		t.Fatalf("expected nested TyForall, got %T", forall1.Body)
+	}
+	if forall2.Var != "r" {
+		t.Errorf("second quantifier: got %q, want 'r'", forall2.Var)
+	}
+	if _, ok := forall2.Kind.(types.KRow); !ok {
+		t.Errorf("'r' kind: got %v, want KRow", forall2.Kind)
+	}
+
+	// Pure type variable should get KType.
+	pureTy := &types.TyArrow{From: &types.TyVar{Name: "a"}, To: &types.TyVar{Name: "a"}}
+	pureResult := quantifyFreeVars(pureTy)
+	pureForall, ok := pureResult.(*types.TyForall)
+	if !ok {
+		t.Fatalf("expected TyForall, got %T", pureResult)
+	}
+	if _, ok := pureForall.Kind.(types.KType); !ok {
+		t.Errorf("pure 'a' kind: got %v, want KType", pureForall.Kind)
+	}
+}
+
 func BenchmarkZonkDeepChain(b *testing.B) {
 	u := NewUnifier()
 	// Build a deep TyApp chain with no metavariables.

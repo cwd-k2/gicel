@@ -533,18 +533,108 @@ func collectUnsolvedMetas(tys ...types.Type) []metaInfo {
 // quantifyFreeVars wraps free type variables in implicit forall quantifiers.
 // This implements Haskell-style implicit universal quantification for type annotations:
 // `f :: List a -> Int` is treated as `f :: forall a. List a -> Int`.
+// Kind inference: variables appearing in row positions (TyComp.Pre/Post,
+// TyThunk.Pre/Post, TyEvidenceRow.Tail) are quantified as KRow; all others as KType.
 func quantifyFreeVars(ty types.Type) types.Type {
 	fv := types.FreeVars(ty)
 	if len(fv) == 0 {
 		return ty
 	}
+	kinds := inferFreeVarKinds(ty, fv)
 	vars := make([]string, 0, len(fv))
 	for v := range fv {
 		vars = append(vars, v)
 	}
 	sort.Strings(vars)
 	for i := len(vars) - 1; i >= 0; i-- {
-		ty = types.MkForall(vars[i], types.KType{}, ty)
+		k := kinds[vars[i]]
+		if k == nil {
+			k = types.KType{}
+		}
+		ty = types.MkForall(vars[i], k, ty)
 	}
 	return ty
+}
+
+// inferFreeVarKinds walks a type and determines the kind for each free variable
+// based on the position where it appears. Variables in row positions get KRow;
+// variables in type positions get KType. If a variable appears in both, KRow wins
+// (a row variable used where a type is expected is more likely a mistake caught by
+// the kind checker, whereas a type variable in a row position is the real bug).
+func inferFreeVarKinds(ty types.Type, fv map[string]struct{}) map[string]types.Kind {
+	result := make(map[string]types.Kind, len(fv))
+
+	var walkAsRow func(types.Type)
+	var walkAsType func(types.Type)
+
+	markRow := func(name string) {
+		if _, ok := fv[name]; ok {
+			result[name] = types.KRow{}
+		}
+	}
+	markType := func(name string) {
+		if _, ok := fv[name]; ok {
+			if _, already := result[name]; !already {
+				result[name] = types.KType{}
+			}
+		}
+	}
+
+	walkAsRow = func(t types.Type) {
+		if t == nil {
+			return
+		}
+		switch tt := t.(type) {
+		case *types.TyVar:
+			markRow(tt.Name)
+		case *types.TyEvidenceRow:
+			for _, ch := range tt.Entries.AllChildren() {
+				walkAsType(ch)
+			}
+			if tt.Tail != nil {
+				walkAsRow(tt.Tail)
+			}
+		default:
+			walkAsType(t)
+		}
+	}
+
+	walkAsType = func(t types.Type) {
+		if t == nil {
+			return
+		}
+		switch tt := t.(type) {
+		case *types.TyVar:
+			markType(tt.Name)
+		case *types.TyApp:
+			walkAsType(tt.Fun)
+			walkAsType(tt.Arg)
+		case *types.TyArrow:
+			walkAsType(tt.From)
+			walkAsType(tt.To)
+		case *types.TyForall:
+			walkAsType(tt.Body)
+		case *types.TyComp:
+			walkAsRow(tt.Pre)
+			walkAsRow(tt.Post)
+			walkAsType(tt.Result)
+		case *types.TyThunk:
+			walkAsRow(tt.Pre)
+			walkAsRow(tt.Post)
+			walkAsType(tt.Result)
+		case *types.TyEvidence:
+			walkAsRow(tt.Constraints)
+			walkAsType(tt.Body)
+		case *types.TyEvidenceRow:
+			for _, ch := range tt.Entries.AllChildren() {
+				walkAsType(ch)
+			}
+			if tt.Tail != nil {
+				walkAsRow(tt.Tail)
+			}
+		}
+	}
+
+	walkAsType(ty)
+	return result
 }
