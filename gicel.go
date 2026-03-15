@@ -5,7 +5,7 @@
 //	Engine   (mutable, configurable)
 //	  ↓ NewRuntime(source)
 //	Runtime  (immutable, goroutine-safe)
-//	  ↓ RunContext(ctx, ...)
+//	  ↓ RunWith(ctx, opts)
 //	result   (per-execution)
 package gicel
 

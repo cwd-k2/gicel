@@ -33,8 +33,6 @@ type Engine struct {
 	allocLimit       int64
 	noPrelude        bool
 	customPrelude    *string
-	traceHook        eval.TraceHook
-	explainHook      eval.ExplainHook
 	checkTraceHook   check.CheckTraceHook
 	modules          map[string]*compiledModule
 	runtimeRecursion bool // set by RegisterModuleRec; ensures fix/rec in eval env
@@ -150,19 +148,6 @@ func (e *Engine) SetDepthLimit(n int) {
 // Zero disables allocation tracking.
 func (e *Engine) SetAllocLimit(bytes int64) {
 	e.allocLimit = bytes
-}
-
-// SetTraceHook sets the evaluation trace hook.
-func (e *Engine) SetTraceHook(hook eval.TraceHook) {
-	e.traceHook = hook
-}
-
-// SetExplainHook sets the semantic evaluation explain hook.
-// Unlike TraceHook (which fires on every evaluation step with internal IR nodes),
-// ExplainHook fires at meaningful semantic boundaries: do-block binds, pattern
-// match decisions, effectful primitive executions, and the final result.
-func (e *Engine) SetExplainHook(hook eval.ExplainHook) {
-	e.explainHook = hook
 }
 
 // SetCheckTraceHook sets the type checking trace hook.
@@ -466,8 +451,6 @@ func (e *Engine) NewRuntime(source string) (*Runtime, error) {
 		stepLimit:   e.stepLimit,
 		depthLimit:  e.depthLimit,
 		allocLimit:  e.allocLimit,
-		traceHook:   e.traceHook,
-		explainHook: e.explainHook,
 		source:      src,
 		bindings:    maps.Clone(e.bindings),
 		moduleProgs: modProgs,

@@ -18,8 +18,6 @@ type Runtime struct {
 	stepLimit   int
 	depthLimit  int
 	allocLimit  int64
-	traceHook   eval.TraceHook
-	explainHook eval.ExplainHook
 	source      *span.Source
 	bindings    map[string]types.Type
 	moduleProgs []*core.Program
@@ -176,13 +174,9 @@ func (r *Runtime) evalBindings(ev *eval.Evaluator, env *eval.Env, bindings []cor
 	return env, nil
 }
 
-// run creates an observer from the Runtime-level hook and delegates to execute.
+// run delegates to execute without hooks. Used by RunContext/RunContextFull.
 func (r *Runtime) run(ctx context.Context, caps map[string]any, bindings map[string]Value, entry string) (eval.EvalResult, EvalStats, error) {
-	var obs *eval.ExplainObserver
-	if r.explainHook != nil {
-		obs = eval.NewExplainObserver(r.explainHook, r.source)
-	}
-	return r.execute(ctx, caps, bindings, entry, obs, r.traceHook)
+	return r.execute(ctx, caps, bindings, entry, nil, nil)
 }
 
 // RunWith executes the program with per-execution options.
