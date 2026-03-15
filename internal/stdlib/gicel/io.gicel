@@ -1,0 +1,13 @@
+import Prelude
+
+_ioPrint :: String -> Computation { io : () | r } { io : () | r } ()
+_ioPrint := assumption
+
+_ioDebug :: forall a. a -> Computation { io : () | r } { io : () | r } ()
+_ioDebug := assumption
+
+print :: String -> Computation { io : () | r } { io : () | r } ()
+print := _ioPrint
+
+debug :: forall a. a -> Computation { io : () | r } { io : () | r } ()
+debug := _ioDebug

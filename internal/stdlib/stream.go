@@ -20,63 +20,7 @@ var Stream Pack = func(e Registrar) error {
 	return e.RegisterModuleRec("Std.Stream", streamSource)
 }
 
-const streamSource = `
-import Prelude
-
-data Stream a = LCons a (() -> Stream a) | LNil
-
-headS :: forall a. Stream a -> Maybe a
-headS := \s -> case s { LNil -> Nothing; LCons x _ -> Just x }
-
-tailS :: forall a. Stream a -> Maybe (Stream a)
-tailS := \s -> case s { LNil -> Nothing; LCons _ t -> Just (t ()) }
-
-toList :: forall a. Stream a -> List a
-toList := fix \self -> \s -> case s {
-  LNil -> Nil;
-  LCons x t -> Cons x (self (t ()))
-}
-
-fromList :: forall a. List a -> Stream a
-fromList := fix \self -> \xs -> case xs {
-  Nil -> LNil;
-  Cons x rest -> LCons x (\_ -> self rest)
-}
-
-mapS :: forall a b. (a -> b) -> Stream a -> Stream b
-mapS := \f -> fix \self -> \s -> case s {
-  LNil -> LNil;
-  LCons x t -> LCons (f x) (\_ -> self (t ()))
-}
-
-foldrS :: forall a b. (a -> b -> b) -> b -> Stream a -> b
-foldrS := \f -> \z -> fix \self -> \s -> case s {
-  LNil -> z;
-  LCons x t -> f x (self (t ()))
-}
-
-_takeS :: forall a. Int -> Stream a -> List a
-_takeS := assumption
-
-_dropS :: forall a. Int -> Stream a -> Stream a
-_dropS := assumption
-
-takeS :: forall a. Int -> Stream a -> List a
-takeS := _takeS
-
-dropS :: forall a. Int -> Stream a -> Stream a
-dropS := _dropS
-
-instance Functor Stream { fmap := \f -> fix \self -> \s -> case s {
-  LNil -> LNil;
-  LCons x t -> LCons (f x) (\_ -> self (t ()))
-} }
-
-instance Foldable Stream { foldr := \f -> \z -> fix \self -> \s -> case s {
-  LNil -> z;
-  LCons x t -> f x (self (t ()))
-} }
-`
+var streamSource = mustReadSource("stream")
 
 // forceTail calls the thunk `() -> Stream a` by applying it to Unit.
 func forceTail(t eval.Value, ce eval.CapEnv, apply eval.Applier) (eval.Value, eval.CapEnv, error) {

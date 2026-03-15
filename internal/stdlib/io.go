@@ -15,21 +15,7 @@ var IO Pack = func(e Registrar) error {
 	return e.RegisterModule("Std.IO", ioSource)
 }
 
-const ioSource = `
-import Prelude
-
-_ioPrint :: String -> Computation { io : () | r } { io : () | r } ()
-_ioPrint := assumption
-
-_ioDebug :: forall a. a -> Computation { io : () | r } { io : () | r } ()
-_ioDebug := assumption
-
-print :: String -> Computation { io : () | r } { io : () | r } ()
-print := _ioPrint
-
-debug :: forall a. a -> Computation { io : () | r } { io : () | r } ()
-debug := _ioDebug
-`
+var ioSource = mustReadSource("io")
 
 func printImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
 	hv, ok := args[0].(*eval.HostVal)

@@ -13,18 +13,7 @@ var State Pack = func(e Registrar) error {
 	return e.RegisterModule("Std.State", stateSource)
 }
 
-const stateSource = `
-import Prelude
-
-get :: forall s r. Computation { state : s | r } { state : s | r } s
-get := assumption
-
-put :: forall s r. s -> Computation { state : s | r } { state : s | r } ()
-put := assumption
-
-modify :: forall s r. (s -> s) -> Computation { state : s | r } { state : s | r } ()
-modify := \f -> do { s <- get; put (f s) }
-`
+var stateSource = mustReadSource("state")
 
 func getImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
 	v, ok := ce.Get("state")
