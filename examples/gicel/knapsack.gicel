@@ -54,12 +54,12 @@ bruteForce := {
 revRange := reverse (range 0 capacity)
 
 dpAnswer := {
-  finalDp := foldl (\dp -> \item -> case item { (w, v) ->
+  finalDp := foldl (\dp -> \(w, v) ->
     foldl (\t -> \j -> case j >= w {
       True  -> setAt j (max (getOr 0 j t) (getOr 0 (j - w) t + v)) t;
       False -> t
     }) dp revRange
-  }) (replicate (capacity + 1) 0) items;
+  ) (replicate (capacity + 1) 0) items;
   getOr 0 capacity finalDp
 }
 

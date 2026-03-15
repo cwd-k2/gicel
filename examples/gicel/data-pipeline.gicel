@@ -28,11 +28,11 @@ boosted := fmap (\s -> s + 5) passing
 totalBoosted := foldl (\acc -> \x -> acc + x) 0 boosted -- 463
 
 -- Step 6: Find the highest score using foldl
-highest := foldl (\best -> \x -> case compare x best { GT -> x; _ -> best }) 0 scores
+highest := foldl max 0 scores
 -- 95
 
 -- Step 7: Find the lowest score
-lowest := foldl (\worst -> \x -> case compare x worst { LT -> x; _ -> worst }) 999 scores
+lowest := foldl min 999 scores
 -- 43
 
 -- Step 8: Count how many scored above 80

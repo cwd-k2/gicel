@@ -53,5 +53,5 @@ test5 := isLeaf bigTree      -- False
 test6 := leafValue leaf1     -- Just True
 test7 := leafValue smallTree -- Nothing
 
--- Output: (True, (False, (True, (True, (False, (Just True, Nothing))))))
-main := (test1, (test2, (isLeaf (Leaf Z), (test4, (test5, (test6, test7))))))
+-- Output: (True, False, True, True, False, Just True, Nothing)
+main := (test1, test2, isLeaf (Leaf Z), test4, test5, test6, test7)

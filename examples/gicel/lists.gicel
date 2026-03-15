@@ -18,7 +18,7 @@ doubled := fmap (\x -> x * 2) nums
 -- Cons 2 (Cons 4 (Cons 6 (Cons 8 (Cons 10 Nil))))
 
 -- filter: keep elements satisfying a predicate
-evens := filter (\x -> eq (mod x 2) 0) nums
+evens := filter (\x -> mod x 2 == 0) nums
 -- Cons 2 (Cons 4 Nil)
 
 -- foldl: left fold (strict, tail-recursive in the runtime)

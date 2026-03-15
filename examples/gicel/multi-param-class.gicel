@@ -65,5 +65,5 @@ test7 := (convertAndCoerce True :: Bool)
 -- False -> LT -> False
 test8 := (convertAndCoerce False :: Bool)
 
--- Output: (Just True, (True, (False, (False, (GT, (False, (True, False)))))))
-main := (test1, (test2, (test3, (test4, (test5, (test6, (test7, test8)))))))
+-- Output: (Just True, True, False, False, GT, False, True, False)
+main := (test1, test2, test3, test4, test5, test6, test7, test8)

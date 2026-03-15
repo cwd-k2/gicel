@@ -38,7 +38,7 @@ instance Warm a => Warm (Maybe a) {
 
 -- A polymorphic function using the Warm constraint
 warmOrCold :: forall a. Warm a => a -> Bool
-warmOrCold := \x -> isWarm x
+warmOrCold := isWarm
 
 -- Test the custom class
 test1 := isWarm Summer             -- True
@@ -55,5 +55,5 @@ test7 := eq Nothing (Nothing :: Maybe Bool) -- True
 test8 := warmOrCold True           -- True
 test9 := warmOrCold False          -- False
 
--- Output: (True, (False, (True, (False, (True, (False, (True, (True, False))))))))
-main := (test1, (test2, (test3, (test4, (test5, (test6, (test7, (test8, test9))))))))
+-- Output: (True, False, True, False, True, False, True, True, False)
+main := (test1, test2, test3, test4, test5, test6, test7, test8, test9)

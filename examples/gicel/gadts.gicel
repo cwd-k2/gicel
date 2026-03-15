@@ -92,5 +92,5 @@ test6 := evalNot (LitBool False)         -- Just False (literal)
 test7 := evalAdd addExpr                 -- Just 42    (10 + 32)
 test8 := evalAdd (LitInt 7)             -- Just 7     (literal)
 
--- Output: (Just True, (Just 42, (True, (False, (Just True, (Just False, (Just 42, Just 7)))))))
-main := (test1, (test2, (test3, (test4, (test5, (test6, (test7, test8)))))))
+-- Output: (Just True, Just 42, True, False, Just True, Just False, Just 42, Just 7)
+main := (test1, test2, test3, test4, test5, test6, test7, test8)

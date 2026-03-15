@@ -71,5 +71,5 @@ readHandle := \h -> True
 writeHandle :: FileHandle Writing -> Bool
 writeHandle := \h -> True
 
--- Output: (True, (True, (True, (True, True))))
-main := (test1, (test2, (test3, (test4, test5))))
+-- Output: (True, True, True, True, True)
+main := (test1, test2, test3, test4, test5)

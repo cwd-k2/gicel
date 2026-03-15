@@ -64,5 +64,5 @@ t2 := MkTransform (\m -> case m { Just _ -> True; Nothing -> False }) Nothing
 test6 := runTransform t1      -- not False = True
 test7 := runTransform t2      -- Nothing -> False
 
--- Output: (False, (True, (False, (True, (False, (True, False))))))
-main := (test1, (test2, (test3, (test4, (test5, (test6, test7))))))
+-- Output: (False, True, False, True, False, True, False)
+main := (test1, test2, test3, test4, test5, test6, test7)

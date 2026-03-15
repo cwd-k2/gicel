@@ -56,5 +56,5 @@ test3 := mmap not tree                -- TBranch (TLeaf False) (TLeaf True)
 -- This maps `not` inside a Tree inside a Maybe
 test4 := mmap (mmap not) (Just tree)
 
--- Output: (Just False, (Nothing, (True, Just (TBranch (TLeaf False) (TLeaf True)))))
-main := (test1, (test2, (testIdType, test4)))
+-- Output: (Just False, Nothing, True, Just (TBranch (TLeaf False) (TLeaf True)))
+main := (test1, test2, testIdType, test4)

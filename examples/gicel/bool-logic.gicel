@@ -41,5 +41,5 @@ test3 := myXor True True
 -- OR composed with NOT: (not True) OR False = False OR False = False
 test4 := myOr (myNot True) False
 
--- Output: (True, (False, (False, False)))
-main := (test1, (test2, (test3, test4)))
+-- Output: (True, False, False, False)
+main := (test1, test2, test3, test4)
