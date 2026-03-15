@@ -71,3 +71,54 @@ zip := _listZip
 
 unzip :: forall a b. List (a, b) -> (List a, List b)
 unzip := _listUnzip
+
+_listDropWhile :: forall a. (a -> Bool) -> List a -> List a
+_listDropWhile := assumption
+
+_listSpan :: forall a. (a -> Bool) -> List a -> (List a, List a)
+_listSpan := assumption
+
+_listSortBy :: forall a. (a -> a -> Ordering) -> List a -> List a
+_listSortBy := assumption
+
+_listScanl :: forall a b. (b -> a -> b) -> b -> List a -> List b
+_listScanl := assumption
+
+_listUnfoldr :: forall a b. (b -> Maybe (a, b)) -> b -> List a
+_listUnfoldr := assumption
+
+_listIterateN :: forall a. Int -> (a -> a) -> a -> List a
+_listIterateN := assumption
+
+dropWhile :: forall a. (a -> Bool) -> List a -> List a
+dropWhile := _listDropWhile
+
+span :: forall a. (a -> Bool) -> List a -> (List a, List a)
+span := _listSpan
+
+break :: forall a. (a -> Bool) -> List a -> (List a, List a)
+break := \p -> span (\x -> not (p x))
+
+sortBy :: forall a. (a -> a -> Ordering) -> List a -> List a
+sortBy := _listSortBy
+
+sort :: forall a. Ord a => List a -> List a
+sort := sortBy compare
+
+scanl :: forall a b. (b -> a -> b) -> b -> List a -> List b
+scanl := _listScanl
+
+unfoldr :: forall a b. (b -> Maybe (a, b)) -> b -> List a
+unfoldr := _listUnfoldr
+
+iterateN :: forall a. Int -> (a -> a) -> a -> List a
+iterateN := _listIterateN
+
+zipWith :: forall a b c. (a -> b -> c) -> List a -> List b -> List c
+zipWith := \f -> \xs -> \ys -> map (uncurry f) (zip xs ys)
+
+intercalate :: forall a. List a -> List (List a) -> List a
+intercalate := \sep -> \xss -> flatten (intersperse sep xss)
+
+nubBy :: forall a. (a -> a -> Bool) -> List a -> List a
+nubBy := \eq -> foldl (\acc -> \x -> case any (eq x) acc { True -> acc; False -> append acc (singleton x) }) Nil
