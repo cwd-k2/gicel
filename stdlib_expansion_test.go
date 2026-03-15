@@ -501,6 +501,177 @@ main := do { print "hello" }
 	}
 }
 
+// ===========================================================================
+// Std.List expansion — new primitives and GICEL functions
+// ===========================================================================
+
+func TestListDropWhile(t *testing.T) {
+	v := runWithPacks(t, `
+import Std.List
+main := dropWhile not (Cons False (Cons False (Cons True (Cons False Nil))))
+`, gicel.List)
+	// dropWhile not [F,F,T,F] — not F = True (drop), not F = True (drop), not T = False (stop)
+	// result = [T,F]
+	con := v.(*gicel.ConVal)
+	assertConVal(t, con.Args[0], "True")
+	con2 := con.Args[1].(*gicel.ConVal)
+	assertConVal(t, con2.Args[0], "False")
+	assertConVal(t, con2.Args[1], "Nil")
+}
+
+func TestListSpan(t *testing.T) {
+	v := runWithPacks(t, `
+import Std.List
+main := fst (span not (Cons False (Cons True Nil)))
+`, gicel.List)
+	// span not [F,T] — not F = True (take), not T = False (stop)
+	// fst = [F]
+	con := v.(*gicel.ConVal)
+	assertConVal(t, con.Args[0], "False")
+	assertConVal(t, con.Args[1], "Nil")
+}
+
+func TestListBreak(t *testing.T) {
+	v := runWithPacks(t, `
+import Std.List
+main := fst (break not (Cons True (Cons False Nil)))
+`, gicel.List)
+	// break not [T,F] = span (not . not) [T,F] = span id [T,F]
+	// id T = True (take), id F = False (stop) → fst = [T]
+	con := v.(*gicel.ConVal)
+	assertConVal(t, con.Args[0], "True")
+	assertConVal(t, con.Args[1], "Nil")
+}
+
+func TestListSortBy(t *testing.T) {
+	v := runWithPacks(t, `
+import Std.Num
+import Std.List
+main := sortBy compare (Cons 3 (Cons 1 (Cons 2 Nil)))
+`, gicel.Num, gicel.List)
+	con := v.(*gicel.ConVal)
+	hv := con.Args[0].(*gicel.HostVal)
+	if hv.Inner.(int64) != 1 {
+		t.Fatalf("expected 1 first, got %v", hv.Inner)
+	}
+}
+
+func TestListSort(t *testing.T) {
+	v := runWithPacks(t, `
+import Std.Num
+import Std.List
+main := sort (Cons 3 (Cons 1 (Cons 2 Nil)))
+`, gicel.Num, gicel.List)
+	con := v.(*gicel.ConVal)
+	hv := con.Args[0].(*gicel.HostVal)
+	if hv.Inner.(int64) != 1 {
+		t.Fatalf("expected 1 first, got %v", hv.Inner)
+	}
+	con2 := con.Args[1].(*gicel.ConVal)
+	hv2 := con2.Args[0].(*gicel.HostVal)
+	if hv2.Inner.(int64) != 2 {
+		t.Fatalf("expected 2 second, got %v", hv2.Inner)
+	}
+	con3 := con2.Args[1].(*gicel.ConVal)
+	hv3 := con3.Args[0].(*gicel.HostVal)
+	if hv3.Inner.(int64) != 3 {
+		t.Fatalf("expected 3 third, got %v", hv3.Inner)
+	}
+}
+
+func TestListSortEmpty(t *testing.T) {
+	v := runWithPacks(t, `
+import Std.Num
+import Std.List
+main := sort Nil :: List Int
+`, gicel.Num, gicel.List)
+	assertConVal(t, v, "Nil")
+}
+
+func TestListScanl(t *testing.T) {
+	v := runWithPacks(t, `
+import Std.Num
+import Std.List
+main := scanl (\x -> \y -> x + y) 0 (Cons 1 (Cons 2 (Cons 3 Nil)))
+`, gicel.Num, gicel.List)
+	// scanl (+) 0 [1,2,3] = [0,1,3,6]
+	con := v.(*gicel.ConVal)
+	hv := con.Args[0].(*gicel.HostVal)
+	if hv.Inner.(int64) != 0 {
+		t.Fatalf("expected 0 first, got %v", hv.Inner)
+	}
+}
+
+func TestListUnfoldr(t *testing.T) {
+	v := runWithPacks(t, `
+import Std.Num
+import Std.List
+main := unfoldr (\n -> case n == 0 { True -> Nothing; False -> Just (n, n - 1) }) 3
+`, gicel.Num, gicel.List)
+	// unfoldr from 3: Just (3,2), Just (2,1), Just (1,0), Nothing → [3,2,1]
+	con := v.(*gicel.ConVal)
+	hv := con.Args[0].(*gicel.HostVal)
+	if hv.Inner.(int64) != 3 {
+		t.Fatalf("expected 3 first, got %v", hv.Inner)
+	}
+}
+
+func TestListIterateN(t *testing.T) {
+	v := runWithPacks(t, `
+import Std.Num
+import Std.List
+main := iterateN 4 (\x -> x * 2) 1
+`, gicel.Num, gicel.List)
+	// iterateN 4 (*2) 1 = [1,2,4,8]
+	con := v.(*gicel.ConVal)
+	hv := con.Args[0].(*gicel.HostVal)
+	if hv.Inner.(int64) != 1 {
+		t.Fatalf("expected 1 first, got %v", hv.Inner)
+	}
+}
+
+func TestListZipWith(t *testing.T) {
+	v := runWithPacks(t, `
+import Std.Num
+import Std.List
+main := zipWith (\x -> \y -> x + y) (Cons 1 (Cons 2 Nil)) (Cons 10 (Cons 20 Nil))
+`, gicel.Num, gicel.List)
+	// zipWith (+) [1,2] [10,20] = [11,22]
+	con := v.(*gicel.ConVal)
+	hv := con.Args[0].(*gicel.HostVal)
+	if hv.Inner.(int64) != 11 {
+		t.Fatalf("expected 11 first, got %v", hv.Inner)
+	}
+}
+
+func TestListIntercalate(t *testing.T) {
+	v := runWithPacks(t, `
+import Std.Num
+import Std.List
+main := intercalate (Cons 0 Nil) (Cons (Cons 1 Nil) (Cons (Cons 2 Nil) (Cons (Cons 3 Nil) Nil)))
+`, gicel.Num, gicel.List)
+	// intercalate [0] [[1],[2],[3]] = [1,0,2,0,3]
+	con := v.(*gicel.ConVal)
+	hv := con.Args[0].(*gicel.HostVal)
+	if hv.Inner.(int64) != 1 {
+		t.Fatalf("expected 1 first, got %v", hv.Inner)
+	}
+}
+
+func TestListNubBy(t *testing.T) {
+	v := runWithPacks(t, `
+import Std.Num
+import Std.List
+main := nubBy eq (Cons 1 (Cons 2 (Cons 1 (Cons 3 Nil))))
+`, gicel.Num, gicel.List)
+	// nubBy eq [1,2,1,3] = [1,2,3] (preserves first occurrences via foldl)
+	con := v.(*gicel.ConVal)
+	hv := con.Args[0].(*gicel.HostVal)
+	if hv.Inner.(int64) != 1 {
+		t.Fatalf("expected 1 first, got %v", hv.Inner)
+	}
+}
+
 func TestIODebug(t *testing.T) {
 	eng := gicel.NewEngine()
 	if err := gicel.Num(eng); err != nil {

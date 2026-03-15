@@ -758,3 +758,239 @@ func TestRoundTrip(t *testing.T) {
 		t.Fatalf("round-trip: expected %d items, got %d", len(original), len(items))
 	}
 }
+
+// --- List new primitives ---
+
+// boolApplier creates an Applier that applies a Bool-returning predicate.
+func boolApplier(pred func(eval.Value) bool) eval.Applier {
+	return func(fn, arg eval.Value, capEnv eval.CapEnv) (eval.Value, eval.CapEnv, error) {
+		if pred(arg) {
+			return &eval.ConVal{Con: "True"}, capEnv, nil
+		}
+		return &eval.ConVal{Con: "False"}, capEnv, nil
+	}
+}
+
+func TestDropWhileImpl(t *testing.T) {
+	// dropWhile (>2) [3,4,1,5] = [1,5]
+	list := conList(intVal(3), intVal(4), intVal(1), intVal(5))
+	pred := &eval.Closure{Param: "x", Body: nil}
+	applier := boolApplier(func(v eval.Value) bool {
+		return v.(*eval.HostVal).Inner.(int64) > 2
+	})
+	v, _, err := dropWhileImpl(ctx, ce, args(pred, list), applier)
+	if err != nil {
+		t.Fatal(err)
+	}
+	items, ok := listToSlice(v)
+	if !ok {
+		t.Fatal("expected list")
+	}
+	if len(items) != 2 {
+		t.Fatalf("expected 2 items, got %d", len(items))
+	}
+	assertInt(t, items[0], 1)
+	assertInt(t, items[1], 5)
+}
+
+func TestDropWhileImplAll(t *testing.T) {
+	list := conList(intVal(1), intVal(2))
+	pred := &eval.Closure{Param: "x", Body: nil}
+	applier := boolApplier(func(eval.Value) bool { return true })
+	v, _, err := dropWhileImpl(ctx, ce, args(pred, list), applier)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertCon(t, v, "Nil")
+}
+
+func TestSpanImpl(t *testing.T) {
+	// span (<3) [1,2,4,1] = ([1,2], [4,1])
+	list := conList(intVal(1), intVal(2), intVal(4), intVal(1))
+	pred := &eval.Closure{Param: "x", Body: nil}
+	applier := boolApplier(func(v eval.Value) bool {
+		return v.(*eval.HostVal).Inner.(int64) < 3
+	})
+	v, _, err := spanImpl(ctx, ce, args(pred, list), applier)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rv := v.(*eval.RecordVal)
+	prefix, ok := listToSlice(rv.Fields["_1"])
+	if !ok {
+		t.Fatal("expected list for _1")
+	}
+	suffix, ok := listToSlice(rv.Fields["_2"])
+	if !ok {
+		t.Fatal("expected list for _2")
+	}
+	if len(prefix) != 2 {
+		t.Fatalf("expected 2 prefix items, got %d", len(prefix))
+	}
+	if len(suffix) != 2 {
+		t.Fatalf("expected 2 suffix items, got %d", len(suffix))
+	}
+	assertInt(t, prefix[0], 1)
+	assertInt(t, prefix[1], 2)
+	assertInt(t, suffix[0], 4)
+	assertInt(t, suffix[1], 1)
+}
+
+func TestSortByImpl(t *testing.T) {
+	list := conList(intVal(3), intVal(1), intVal(2))
+	cmpFn := &eval.Closure{Param: "a", Body: nil}
+	applier := func(fn, arg eval.Value, capEnv eval.CapEnv) (eval.Value, eval.CapEnv, error) {
+		if _, ok := fn.(*eval.Closure); ok {
+			// partial application: capture first arg
+			return &eval.HostVal{Inner: arg}, capEnv, nil
+		}
+		// full application: compare
+		a := fn.(*eval.HostVal).Inner.(eval.Value).(*eval.HostVal).Inner.(int64)
+		b := arg.(*eval.HostVal).Inner.(int64)
+		if a < b {
+			return &eval.ConVal{Con: "LT"}, capEnv, nil
+		}
+		if a > b {
+			return &eval.ConVal{Con: "GT"}, capEnv, nil
+		}
+		return &eval.ConVal{Con: "EQ"}, capEnv, nil
+	}
+	v, _, err := sortByImpl(ctx, ce, args(cmpFn, list), applier)
+	if err != nil {
+		t.Fatal(err)
+	}
+	items, ok := listToSlice(v)
+	if !ok {
+		t.Fatal("expected list")
+	}
+	if len(items) != 3 {
+		t.Fatalf("expected 3 items, got %d", len(items))
+	}
+	assertInt(t, items[0], 1)
+	assertInt(t, items[1], 2)
+	assertInt(t, items[2], 3)
+}
+
+func TestSortByImplStable(t *testing.T) {
+	// sortBy on single element
+	list := conList(intVal(42))
+	v, _, err := sortByImpl(ctx, ce, args(&eval.Closure{Param: "a"}, list), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	items, ok := listToSlice(v)
+	if !ok {
+		t.Fatal("expected list")
+	}
+	if len(items) != 1 {
+		t.Fatalf("expected 1 item, got %d", len(items))
+	}
+	assertInt(t, items[0], 42)
+}
+
+func TestScanlImpl(t *testing.T) {
+	// scanl (+) 0 [1,2,3] = [0,1,3,6]
+	f := &eval.Closure{Param: "acc", Body: nil}
+	list := conList(intVal(1), intVal(2), intVal(3))
+	applier := func(fn, arg eval.Value, capEnv eval.CapEnv) (eval.Value, eval.CapEnv, error) {
+		if _, ok := fn.(*eval.Closure); ok {
+			return &eval.HostVal{Inner: arg}, capEnv, nil
+		}
+		a := fn.(*eval.HostVal).Inner.(eval.Value).(*eval.HostVal).Inner.(int64)
+		b := arg.(*eval.HostVal).Inner.(int64)
+		return intVal(a + b), capEnv, nil
+	}
+	v, _, err := scanlImpl(ctx, ce, args(f, intVal(0), list), applier)
+	if err != nil {
+		t.Fatal(err)
+	}
+	items, ok := listToSlice(v)
+	if !ok {
+		t.Fatal("expected list")
+	}
+	if len(items) != 4 {
+		t.Fatalf("expected 4 items, got %d", len(items))
+	}
+	assertInt(t, items[0], 0)
+	assertInt(t, items[1], 1)
+	assertInt(t, items[2], 3)
+	assertInt(t, items[3], 6)
+}
+
+func TestScanlImplEmpty(t *testing.T) {
+	f := &eval.Closure{Param: "acc", Body: nil}
+	v, _, err := scanlImpl(ctx, ce, args(f, intVal(42), &eval.ConVal{Con: "Nil"}), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	items, ok := listToSlice(v)
+	if !ok {
+		t.Fatal("expected list")
+	}
+	if len(items) != 1 {
+		t.Fatalf("expected 1 item, got %d", len(items))
+	}
+	assertInt(t, items[0], 42)
+}
+
+func TestUnfoldrImpl(t *testing.T) {
+	// unfoldr (\n -> if n==0 then Nothing else Just (n, n-1)) 3 = [3,2,1]
+	f := &eval.Closure{Param: "n", Body: nil}
+	applier := func(fn, arg eval.Value, capEnv eval.CapEnv) (eval.Value, eval.CapEnv, error) {
+		n := arg.(*eval.HostVal).Inner.(int64)
+		if n == 0 {
+			return &eval.ConVal{Con: "Nothing"}, capEnv, nil
+		}
+		pair := &eval.RecordVal{Fields: map[string]eval.Value{
+			"_1": intVal(n),
+			"_2": intVal(n - 1),
+		}}
+		return &eval.ConVal{Con: "Just", Args: []eval.Value{pair}}, capEnv, nil
+	}
+	v, _, err := unfoldrImpl(ctx, ce, args(f, intVal(3)), applier)
+	if err != nil {
+		t.Fatal(err)
+	}
+	items, ok := listToSlice(v)
+	if !ok {
+		t.Fatal("expected list")
+	}
+	if len(items) != 3 {
+		t.Fatalf("expected 3 items, got %d", len(items))
+	}
+	assertInt(t, items[0], 3)
+	assertInt(t, items[1], 2)
+	assertInt(t, items[2], 1)
+}
+
+func TestIterateNImpl(t *testing.T) {
+	// iterateN 4 (*2) 1 = [1,2,4,8]
+	f := &eval.Closure{Param: "x", Body: nil}
+	applier := func(fn, arg eval.Value, capEnv eval.CapEnv) (eval.Value, eval.CapEnv, error) {
+		n := arg.(*eval.HostVal).Inner.(int64)
+		return intVal(n * 2), capEnv, nil
+	}
+	v, _, err := iterateNImpl(ctx, ce, args(intVal(4), f, intVal(1)), applier)
+	if err != nil {
+		t.Fatal(err)
+	}
+	items, ok := listToSlice(v)
+	if !ok {
+		t.Fatal("expected list")
+	}
+	if len(items) != 4 {
+		t.Fatalf("expected 4 items, got %d", len(items))
+	}
+	assertInt(t, items[0], 1)
+	assertInt(t, items[1], 2)
+	assertInt(t, items[2], 4)
+	assertInt(t, items[3], 8)
+}
+
+func TestIterateNImplZero(t *testing.T) {
+	v, _, err := iterateNImpl(ctx, ce, args(intVal(0), &eval.Closure{Param: "x"}, intVal(1)), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertCon(t, v, "Nil")
+}

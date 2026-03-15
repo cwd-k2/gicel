@@ -354,10 +354,524 @@ func TestPreludeOrAndPrecedence(t *testing.T) {
 
 func TestPreludeComposePrecedence(t *testing.T) {
 	// (.) has infixr 9 which is highest among user-defined operators
-	// not . not $ True — but we don't have $, so test with explicit app
 	v := runPure(t, `
 f := not . not
 main := f True
 `)
 	assertConVal(t, v, "True")
+}
+
+// ===========================================================================
+// Group 0: Missing Instances
+// ===========================================================================
+
+func TestApplicativeList(t *testing.T) {
+	// wrap 42 = [42]
+	v := runPure(t, "import Std.Num\nmain := wrap 42 :: List Int")
+	con := v.(*gicel.ConVal)
+	if con.Con != "Cons" {
+		t.Fatalf("expected Cons, got %s", con.Con)
+	}
+	assertHostInt(t, con.Args[0], 42)
+	assertConVal(t, con.Args[1], "Nil")
+}
+
+func TestApplicativeListAp(t *testing.T) {
+	// ap [not] [True, False] = [False, True]
+	v := runPure(t, `main := ap (Cons not Nil) (Cons True (Cons False Nil))`)
+	con := v.(*gicel.ConVal)
+	if con.Con != "Cons" {
+		t.Fatalf("expected Cons, got %s", con.Con)
+	}
+	assertConVal(t, con.Args[0], "False")
+	con2 := con.Args[1].(*gicel.ConVal)
+	assertConVal(t, con2.Args[0], "True")
+	assertConVal(t, con2.Args[1], "Nil")
+}
+
+func TestEqResultOk(t *testing.T) {
+	v := runPure(t, `main := eq (Ok True) (Ok True)`)
+	assertConVal(t, v, "True")
+}
+
+func TestEqResultErr(t *testing.T) {
+	v := runPure(t, `main := eq (Err False) (Err True)`)
+	assertConVal(t, v, "False")
+}
+
+func TestEqResultMixed(t *testing.T) {
+	v := runPure(t, `main := eq (Ok True) (Err False)`)
+	assertConVal(t, v, "False")
+}
+
+func TestOrdResultErrLtOk(t *testing.T) {
+	v := runPure(t, `main := compare (Err True) (Ok True)`)
+	assertConVal(t, v, "LT")
+}
+
+func TestFunctorResult(t *testing.T) {
+	v := runPure(t, `main := fmap not (Ok True)`)
+	con := v.(*gicel.ConVal)
+	if con.Con != "Ok" {
+		t.Fatalf("expected Ok, got %s", con.Con)
+	}
+	assertConVal(t, con.Args[0], "False")
+}
+
+func TestFunctorResultErr(t *testing.T) {
+	v := runPure(t, `main := fmap not (Err ())`)
+	assertConVal(t, v, "Err")
+}
+
+func TestFoldableResult(t *testing.T) {
+	// Use non-constrained function to avoid partially-applied-tycon + class-constraint bug.
+	v := runPure(t, `main := foldr (\x -> \_ -> Just x) Nothing (Ok True)`)
+	con := v.(*gicel.ConVal)
+	if con.Con != "Just" {
+		t.Fatalf("expected Just, got %s", con.Con)
+	}
+	assertConVal(t, con.Args[0], "True")
+}
+
+func TestFoldableResultErr(t *testing.T) {
+	v := runPure(t, `main := foldr (\x -> \_ -> Just x) Nothing (Err ())`)
+	assertConVal(t, v, "Nothing")
+}
+
+func TestOrdListLex(t *testing.T) {
+	// [1,2] < [1,3]
+	v := runPure(t, "import Std.Num\nmain := compare (Cons 1 (Cons 2 Nil)) (Cons 1 (Cons 3 Nil))")
+	assertConVal(t, v, "LT")
+}
+
+func TestOrdListPrefix(t *testing.T) {
+	// [1] < [1,2]
+	v := runPure(t, "import Std.Num\nmain := compare (Cons 1 Nil) (Cons 1 (Cons 2 Nil))")
+	assertConVal(t, v, "LT")
+}
+
+// ===========================================================================
+// Group 1: $ and &
+// ===========================================================================
+
+func TestDollarOp(t *testing.T) {
+	v := runPure(t, `main := not $ True`)
+	assertConVal(t, v, "False")
+}
+
+func TestDollarPrecedence(t *testing.T) {
+	// not $ not $ True = not (not True) = True
+	v := runPure(t, `main := not $ not $ True`)
+	assertConVal(t, v, "True")
+}
+
+func TestPipeOp(t *testing.T) {
+	v := runPure(t, `main := True & not`)
+	assertConVal(t, v, "False")
+}
+
+func TestPipeChain(t *testing.T) {
+	v := runPure(t, `main := True & not & not`)
+	assertConVal(t, v, "True")
+}
+
+// ===========================================================================
+// Group 2: Functor / Applicative / Monad operators
+// ===========================================================================
+
+func TestFmapOp(t *testing.T) {
+	v := runPure(t, `main := not <$> Just True`)
+	con := v.(*gicel.ConVal)
+	if con.Con != "Just" {
+		t.Fatalf("expected Just, got %s", con.Con)
+	}
+	assertConVal(t, con.Args[0], "False")
+}
+
+func TestFlippedFmapOp(t *testing.T) {
+	v := runPure(t, `main := Just True <&> not`)
+	con := v.(*gicel.ConVal)
+	if con.Con != "Just" {
+		t.Fatalf("expected Just, got %s", con.Con)
+	}
+	assertConVal(t, con.Args[0], "False")
+}
+
+func TestApOp(t *testing.T) {
+	v := runPure(t, `main := Just not <*> Just True`)
+	con := v.(*gicel.ConVal)
+	if con.Con != "Just" {
+		t.Fatalf("expected Just, got %s", con.Con)
+	}
+	assertConVal(t, con.Args[0], "False")
+}
+
+func TestSequenceRight(t *testing.T) {
+	v := runPure(t, `main := Just True *> Just False`)
+	con := v.(*gicel.ConVal)
+	if con.Con != "Just" {
+		t.Fatalf("expected Just, got %s", con.Con)
+	}
+	assertConVal(t, con.Args[0], "False")
+}
+
+func TestSequenceLeft(t *testing.T) {
+	v := runPure(t, `main := Just True <* Just False`)
+	con := v.(*gicel.ConVal)
+	if con.Con != "Just" {
+		t.Fatalf("expected Just, got %s", con.Con)
+	}
+	assertConVal(t, con.Args[0], "True")
+}
+
+func TestReverseBind(t *testing.T) {
+	v := runPure(t, `main := (\x -> Just (not x)) =<< Just True`)
+	con := v.(*gicel.ConVal)
+	if con.Con != "Just" {
+		t.Fatalf("expected Just, got %s", con.Con)
+	}
+	assertConVal(t, con.Args[0], "False")
+}
+
+func TestKleisliLR(t *testing.T) {
+	v := runPure(t, `
+f := (\x -> Just (not x)) >=> (\y -> Just (not y))
+main := f True
+`)
+	con := v.(*gicel.ConVal)
+	if con.Con != "Just" {
+		t.Fatalf("expected Just, got %s", con.Con)
+	}
+	assertConVal(t, con.Args[0], "True")
+}
+
+// ===========================================================================
+// Group 3: Utility Functions
+// ===========================================================================
+
+func TestOn(t *testing.T) {
+	v := runPure(t, "import Std.Num\nmain := on (\\x -> \\y -> x + y) (\\_ -> 1) True False")
+	assertHostInt(t, v, 2)
+}
+
+func TestComparing(t *testing.T) {
+	v := runPure(t, "import Std.Num\nmain := comparing fst (1, True) (2, False)")
+	assertConVal(t, v, "LT")
+}
+
+func TestEquating(t *testing.T) {
+	v := runPure(t, "import Std.Num\nmain := equating fst (1, True) (1, False)")
+	assertConVal(t, v, "True")
+}
+
+func TestIsJust(t *testing.T) {
+	v := runPure(t, `main := isJust (Just True)`)
+	assertConVal(t, v, "True")
+}
+
+func TestIsNothing(t *testing.T) {
+	v := runPure(t, `main := isNothing Nothing`)
+	assertConVal(t, v, "True")
+}
+
+func TestIsOk(t *testing.T) {
+	v := runPure(t, `main := isOk (Ok True)`)
+	assertConVal(t, v, "True")
+}
+
+func TestIsErr(t *testing.T) {
+	v := runPure(t, `main := isErr (Err ())`)
+	assertConVal(t, v, "True")
+}
+
+func TestFromOk(t *testing.T) {
+	v := runPure(t, `main := fromOk False (Ok True)`)
+	assertConVal(t, v, "True")
+}
+
+func TestFromOkDefault(t *testing.T) {
+	v := runPure(t, `main := fromOk False (Err ())`)
+	assertConVal(t, v, "False")
+}
+
+func TestFromErr(t *testing.T) {
+	v := runPure(t, `main := fromErr False (Err True)`)
+	assertConVal(t, v, "True")
+}
+
+func TestBool(t *testing.T) {
+	v := runPure(t, "import Std.Num\nmain := bool 0 1 True")
+	assertHostInt(t, v, 1)
+}
+
+func TestBoolFalse(t *testing.T) {
+	v := runPure(t, "import Std.Num\nmain := bool 0 1 False")
+	assertHostInt(t, v, 0)
+}
+
+func TestSwap(t *testing.T) {
+	v := runPure(t, `main := fst (swap (True, False))`)
+	assertConVal(t, v, "False")
+}
+
+func TestCurry(t *testing.T) {
+	v := runPure(t, `main := curry fst True False`)
+	assertConVal(t, v, "True")
+}
+
+func TestUncurry(t *testing.T) {
+	v := runPure(t, `main := uncurry const (True, False)`)
+	assertConVal(t, v, "True")
+}
+
+func TestMjoin(t *testing.T) {
+	v := runPure(t, `main := mjoin (Just (Just True))`)
+	con := v.(*gicel.ConVal)
+	if con.Con != "Just" {
+		t.Fatalf("expected Just, got %s", con.Con)
+	}
+	assertConVal(t, con.Args[0], "True")
+}
+
+func TestMjoinNothing(t *testing.T) {
+	v := runPure(t, `main := mjoin Nothing :: Maybe Bool`)
+	assertConVal(t, v, "Nothing")
+}
+
+func TestVoid(t *testing.T) {
+	v := runPure(t, `main := void (Just True)`)
+	con := v.(*gicel.ConVal)
+	if con.Con != "Just" {
+		t.Fatalf("expected Just, got %s", con.Con)
+	}
+}
+
+func TestLiftA2(t *testing.T) {
+	v := runPure(t, `main := liftA2 const (Just True) (Just False)`)
+	con := v.(*gicel.ConVal)
+	if con.Con != "Just" {
+		t.Fatalf("expected Just, got %s", con.Con)
+	}
+	assertConVal(t, con.Args[0], "True")
+}
+
+func TestFoldMap(t *testing.T) {
+	// foldMap singleton [1,2,3] = [1,2,3] (Monoid for List is append)
+	v := runPure(t, "import Std.Num\nmain := foldMap singleton (Cons 1 (Cons 2 Nil))")
+	con := v.(*gicel.ConVal)
+	if con.Con != "Cons" {
+		t.Fatalf("expected Cons, got %s", con.Con)
+	}
+	assertHostInt(t, con.Args[0], 1)
+}
+
+func TestToList(t *testing.T) {
+	// toList (Just True) = [True] via Foldable Maybe
+	v := runPure(t, `main := toList (Just True)`)
+	con := v.(*gicel.ConVal)
+	if con.Con != "Cons" {
+		t.Fatalf("expected Cons, got %s", con.Con)
+	}
+	assertConVal(t, con.Args[0], "True")
+	assertConVal(t, con.Args[1], "Nil")
+}
+
+func TestToListNothing(t *testing.T) {
+	v := runPure(t, `main := toList Nothing :: List Bool`)
+	assertConVal(t, v, "Nil")
+}
+
+// ===========================================================================
+// Group 4: List Functions via foldr
+// ===========================================================================
+
+func TestFind(t *testing.T) {
+	v := runPure(t, `main := find not (Cons True (Cons False Nil))`)
+	con := v.(*gicel.ConVal)
+	if con.Con != "Just" {
+		t.Fatalf("expected Just, got %s", con.Con)
+	}
+	assertConVal(t, con.Args[0], "False")
+}
+
+func TestFindNone(t *testing.T) {
+	v := runPure(t, `main := find not (Cons True Nil)`)
+	assertConVal(t, v, "Nothing")
+}
+
+func TestElem(t *testing.T) {
+	v := runPure(t, `main := elem True (Cons False (Cons True Nil))`)
+	assertConVal(t, v, "True")
+}
+
+func TestElemMissing(t *testing.T) {
+	v := runPure(t, `main := elem True (Cons False Nil)`)
+	assertConVal(t, v, "False")
+}
+
+func TestNotElem(t *testing.T) {
+	v := runPure(t, `main := notElem True (Cons False Nil)`)
+	assertConVal(t, v, "True")
+}
+
+func TestAny(t *testing.T) {
+	v := runPure(t, `main := any not (Cons True (Cons False Nil))`)
+	assertConVal(t, v, "True")
+}
+
+func TestAll(t *testing.T) {
+	v := runPure(t, `main := all not (Cons False Nil)`)
+	assertConVal(t, v, "True")
+}
+
+func TestAllFalse(t *testing.T) {
+	v := runPure(t, `main := all not (Cons True Nil)`)
+	assertConVal(t, v, "False")
+}
+
+func TestAnd(t *testing.T) {
+	v := runPure(t, `main := and (Cons True (Cons True Nil))`)
+	assertConVal(t, v, "True")
+}
+
+func TestAndFalse(t *testing.T) {
+	v := runPure(t, `main := and (Cons True (Cons False Nil))`)
+	assertConVal(t, v, "False")
+}
+
+func TestOr(t *testing.T) {
+	v := runPure(t, `main := or (Cons False (Cons True Nil))`)
+	assertConVal(t, v, "True")
+}
+
+func TestOrFalse(t *testing.T) {
+	v := runPure(t, `main := or (Cons False Nil)`)
+	assertConVal(t, v, "False")
+}
+
+func TestLookup(t *testing.T) {
+	v := runPure(t, "import Std.Num\nmain := lookup 2 (Cons (1, True) (Cons (2, False) Nil))")
+	con := v.(*gicel.ConVal)
+	if con.Con != "Just" {
+		t.Fatalf("expected Just, got %s", con.Con)
+	}
+	assertConVal(t, con.Args[0], "False")
+}
+
+func TestLookupMissing(t *testing.T) {
+	v := runPure(t, "import Std.Num\nmain := lookup 3 (Cons (1, True) Nil)")
+	assertConVal(t, v, "Nothing")
+}
+
+func TestConcatMap(t *testing.T) {
+	// concatMap (\x -> Cons x (Cons x Nil)) [True] = [True, True]
+	v := runPure(t, `main := concatMap (\x -> Cons x (Cons x Nil)) (Cons True Nil)`)
+	con := v.(*gicel.ConVal)
+	assertConVal(t, con.Args[0], "True")
+	con2 := con.Args[1].(*gicel.ConVal)
+	assertConVal(t, con2.Args[0], "True")
+	assertConVal(t, con2.Args[1], "Nil")
+}
+
+func TestFlatten(t *testing.T) {
+	// flatten [[1],[2,3]] = [1,2,3]
+	v := runPure(t, "import Std.Num\nmain := flatten (Cons (Cons 1 Nil) (Cons (Cons 2 (Cons 3 Nil)) Nil))")
+	items := listToSliceTest(t, v)
+	if len(items) != 3 {
+		t.Fatalf("expected 3 items, got %d", len(items))
+	}
+}
+
+func TestCatMaybes(t *testing.T) {
+	v := runPure(t, `main := catMaybes (Cons (Just True) (Cons Nothing (Cons (Just False) Nil)))`)
+	con := v.(*gicel.ConVal)
+	assertConVal(t, con.Args[0], "True")
+	con2 := con.Args[1].(*gicel.ConVal)
+	assertConVal(t, con2.Args[0], "False")
+	assertConVal(t, con2.Args[1], "Nil")
+}
+
+func TestMapMaybe(t *testing.T) {
+	// mapMaybe (\x -> case x { True -> Just False; False -> Nothing }) [True, False, True]
+	v := runPure(t, `main := mapMaybe (\x -> case x { True -> Just False; False -> Nothing }) (Cons True (Cons False (Cons True Nil)))`)
+	con := v.(*gicel.ConVal)
+	assertConVal(t, con.Args[0], "False")
+	con2 := con.Args[1].(*gicel.ConVal)
+	assertConVal(t, con2.Args[0], "False")
+	assertConVal(t, con2.Args[1], "Nil")
+}
+
+func TestPartition(t *testing.T) {
+	v := runPure(t, `main := fst (partition not (Cons True (Cons False (Cons True Nil))))`)
+	// partition not [T,F,T] → falses=[T,T], trues=[F]... wait, not True = False, not False = True
+	// partition predicate splits: True-branch (predicate holds) = [False], False-branch = [True, True]
+	// fst = True-branch = [False]
+	con := v.(*gicel.ConVal)
+	assertConVal(t, con.Args[0], "False")
+	assertConVal(t, con.Args[1], "Nil")
+}
+
+func TestTakeWhile(t *testing.T) {
+	v := runPure(t, `main := takeWhile not (Cons False (Cons False (Cons True Nil)))`)
+	con := v.(*gicel.ConVal)
+	assertConVal(t, con.Args[0], "False")
+	con2 := con.Args[1].(*gicel.ConVal)
+	assertConVal(t, con2.Args[0], "False")
+	assertConVal(t, con2.Args[1], "Nil")
+}
+
+func TestIntersperse(t *testing.T) {
+	v := runPure(t, "import Std.Num\nmain := intersperse 0 (Cons 1 (Cons 2 (Cons 3 Nil)))")
+	// [1, 0, 2, 0, 3]
+	items := listToSliceTest(t, v)
+	if len(items) != 5 {
+		t.Fatalf("expected 5 items, got %d", len(items))
+	}
+	assertHostInt(t, items[0], 1)
+	assertHostInt(t, items[1], 0)
+	assertHostInt(t, items[2], 2)
+	assertHostInt(t, items[3], 0)
+	assertHostInt(t, items[4], 3)
+}
+
+func TestIntersperseEmpty(t *testing.T) {
+	v := runPure(t, "import Std.Num\nmain := intersperse 0 Nil :: List Int")
+	assertConVal(t, v, "Nil")
+}
+
+func TestIntersperseSingleton(t *testing.T) {
+	v := runPure(t, "import Std.Num\nmain := intersperse 0 (Cons 1 Nil)")
+	items := listToSliceTest(t, v)
+	if len(items) != 1 {
+		t.Fatalf("expected 1 item, got %d", len(items))
+	}
+}
+
+func TestNub(t *testing.T) {
+	v := runPure(t, `main := nub (Cons True (Cons False (Cons True Nil)))`)
+	items := listToSliceTest(t, v)
+	if len(items) != 2 {
+		t.Fatalf("expected 2 items, got %d", len(items))
+	}
+}
+
+// --- helpers ---
+
+func listToSliceTest(t *testing.T, v gicel.Value) []gicel.Value {
+	t.Helper()
+	var result []gicel.Value
+	for {
+		con, ok := v.(*gicel.ConVal)
+		if !ok {
+			t.Fatalf("expected ConVal, got %T", v)
+		}
+		if con.Con == "Nil" {
+			return result
+		}
+		if con.Con != "Cons" || len(con.Args) != 2 {
+			t.Fatalf("malformed list node: %s", con.Con)
+		}
+		result = append(result, con.Args[0])
+		v = con.Args[1]
+	}
 }
