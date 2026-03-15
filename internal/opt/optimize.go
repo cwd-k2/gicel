@@ -8,36 +8,43 @@ import (
 	"github.com/cwd-k2/gicel/internal/core"
 )
 
-// Optimize applies simplification rules to a Core expression.
+// Optimize applies algebraic simplifications and registered rewrite rules.
 // Runs a fixed number of bottom-up passes. Each pass applies all rules
 // at every node. Multiple passes handle cases where one transformation
 // creates opportunities for another at a higher tree level.
-func Optimize(c core.Core) core.Core {
+func Optimize(c core.Core, rules []func(core.Core) core.Core) core.Core {
+	rewrite := makeRewriter(rules)
 	const maxPasses = 4
 	for range maxPasses {
-		c = core.Transform(c, simplify)
+		c = core.Transform(c, rewrite)
 	}
 	return c
 }
 
 // OptimizeProgram optimizes all bindings in a program.
-func OptimizeProgram(prog *core.Program) {
+func OptimizeProgram(prog *core.Program, rules []func(core.Core) core.Core) {
 	for i, b := range prog.Bindings {
-		prog.Bindings[i].Expr = Optimize(b.Expr)
+		prog.Bindings[i].Expr = Optimize(b.Expr, rules)
 	}
 }
 
-// simplify is the bottom-up rewrite function applied at each node.
-func simplify(c core.Core) core.Core {
-	c = betaReduce(c)
-	c = caseOfKnownCtor(c)
-	c = bindPureElim(c)
-	c = forceThunkElim(c)
-	c = recordProjKnown(c)
-	c = recordUpdateChain(c)
-	c = sliceFusion(c)
-	c = packedRoundtrip(c)
-	return c
+// makeRewriter builds the bottom-up rewrite function that applies
+// algebraic simplifications followed by registered fusion rules.
+func makeRewriter(rules []func(core.Core) core.Core) func(core.Core) core.Core {
+	return func(c core.Core) core.Core {
+		// Phase 1: algebraic simplifications (always active).
+		c = betaReduce(c)
+		c = caseOfKnownCtor(c)
+		c = bindPureElim(c)
+		c = forceThunkElim(c)
+		c = recordProjKnown(c)
+		c = recordUpdateChain(c)
+		// Phase 4: registered fusion rules.
+		for _, rule := range rules {
+			c = rule(c)
+		}
+		return c
+	}
 }
 
 // R2: App (Lam x body) arg  →  body[x := arg]
@@ -153,88 +160,6 @@ func recordUpdateChain(c core.Core) core.Core {
 	}
 	merged = append(merged, outer.Updates...)
 	return &core.RecordUpdate{Record: inner.Record, Updates: merged, S: outer.Span()}
-}
-
-// R10/R11: Slice PrimOp fusion.
-func sliceFusion(c core.Core) core.Core {
-	po, ok := c.(*core.PrimOp)
-	if !ok {
-		return c
-	}
-	switch po.Name {
-	case "_sliceMap":
-		// R10: _sliceMap f (_sliceMap g xs) → _sliceMap (\$x -> f (g $x)) xs
-		if len(po.Args) == 2 {
-			if inner, ok := po.Args[1].(*core.PrimOp); ok && inner.Name == "_sliceMap" && len(inner.Args) == 2 {
-				f, g, xs := po.Args[0], inner.Args[0], inner.Args[1]
-				composed := makeCompose(f, g)
-				return &core.PrimOp{Name: "_sliceMap", Arity: 2, Args: []core.Core{composed, xs}, S: po.S}
-			}
-		}
-	case "_sliceFoldr":
-		// R11: _sliceFoldr k z (_sliceMap f xs) → _sliceFoldr (\$x $acc -> k (f $x) $acc) z xs
-		if len(po.Args) == 3 {
-			if inner, ok := po.Args[2].(*core.PrimOp); ok && inner.Name == "_sliceMap" && len(inner.Args) == 2 {
-				k, z, f, xs := po.Args[0], po.Args[1], inner.Args[0], inner.Args[1]
-				fused := makeFoldMapFusion(k, f)
-				return &core.PrimOp{Name: "_sliceFoldr", Arity: 3, Args: []core.Core{fused, z, xs}, S: po.S}
-			}
-		}
-	}
-	return c
-}
-
-// R12/R13: Packed roundtrip elimination.
-func packedRoundtrip(c core.Core) core.Core {
-	po, ok := c.(*core.PrimOp)
-	if !ok {
-		return c
-	}
-	if len(po.Args) != 1 {
-		return c
-	}
-	inner, ok := po.Args[0].(*core.PrimOp)
-	if !ok || len(inner.Args) != 1 {
-		return c
-	}
-	// Check known roundtrip pairs: pack (unpack x) = x
-	switch {
-	case po.Name == "_fromRunes" && inner.Name == "_toRunes":
-		return inner.Args[0] // R13
-	case po.Name == "_sliceToList" && inner.Name == "_sliceFromList":
-		return inner.Args[0] // R12
-	}
-	return c
-}
-
-// makeCompose builds \$x -> f (g $x).
-func makeCompose(f, g core.Core) core.Core {
-	x := "$opt_x"
-	return &core.Lam{
-		Param: x,
-		Body: &core.App{
-			Fun: f,
-			Arg: &core.App{Fun: g, Arg: &core.Var{Name: x}},
-		},
-	}
-}
-
-// makeFoldMapFusion builds \$x $acc -> k (f $x) $acc.
-func makeFoldMapFusion(k, f core.Core) core.Core {
-	x, acc := "$opt_x", "$opt_acc"
-	return &core.Lam{
-		Param: x,
-		Body: &core.Lam{
-			Param: acc,
-			Body: &core.App{
-				Fun: &core.App{
-					Fun: k,
-					Arg: &core.App{Fun: f, Arg: &core.Var{Name: x}},
-				},
-				Arg: &core.Var{Name: acc},
-			},
-		},
-	}
 }
 
 // subst replaces free occurrences of name with replacement in expr.

@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/cwd-k2/gicel/internal/core"
 	"github.com/cwd-k2/gicel/internal/eval"
 )
 
@@ -31,7 +32,22 @@ var Str Pack = func(e Registrar) error {
 	e.RegisterPrim("_readInt", readIntImpl)
 	e.RegisterPrim("_toRunes", toRunesImpl)
 	e.RegisterPrim("_fromRunes", fromRunesImpl)
+	// Fusion rule: packed roundtrip elimination.
+	e.RegisterRewriteRule(strPackedRoundtrip)
 	return e.RegisterModule("Std.Str", strSource)
+}
+
+// R13: _fromRunes (_toRunes x) → x
+func strPackedRoundtrip(c core.Core) core.Core {
+	po, ok := c.(*core.PrimOp)
+	if !ok || po.Name != "_fromRunes" || len(po.Args) != 1 {
+		return c
+	}
+	inner, ok := po.Args[0].(*core.PrimOp)
+	if !ok || inner.Name != "_toRunes" || len(inner.Args) != 1 {
+		return c
+	}
+	return inner.Args[0]
 }
 
 const strSource = `

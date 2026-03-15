@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/cwd-k2/gicel/internal/core"
 	"github.com/cwd-k2/gicel/internal/eval"
 )
 
@@ -22,7 +23,63 @@ var Slice Pack = func(e Registrar) error {
 	e.RegisterPrim("_sliceFoldr", sliceFoldrImpl)
 	e.RegisterPrim("_sliceMap", sliceMapImpl)
 	e.RegisterPrim("_sliceFoldl", sliceFoldlImpl)
+	// Fusion rules: domain-specific rewrites for this pack's primitives.
+	e.RegisterRewriteRule(sliceMapMapFusion)
+	e.RegisterRewriteRule(sliceFoldrMapFusion)
+	e.RegisterRewriteRule(slicePackedRoundtrip)
 	return e.RegisterModule("Std.Slice", sliceSource)
+}
+
+// --- Fusion rules (applied by optimizer) ---
+
+// R10: _sliceMap f (_sliceMap g xs) → _sliceMap (\$x -> f (g $x)) xs
+func sliceMapMapFusion(c core.Core) core.Core {
+	po, ok := c.(*core.PrimOp)
+	if !ok || po.Name != "_sliceMap" || len(po.Args) != 2 {
+		return c
+	}
+	inner, ok := po.Args[1].(*core.PrimOp)
+	if !ok || inner.Name != "_sliceMap" || len(inner.Args) != 2 {
+		return c
+	}
+	f, g, xs := po.Args[0], inner.Args[0], inner.Args[1]
+	x := "$opt_x"
+	composed := &core.Lam{Param: x, Body: &core.App{
+		Fun: f, Arg: &core.App{Fun: g, Arg: &core.Var{Name: x}},
+	}}
+	return &core.PrimOp{Name: "_sliceMap", Arity: 2, Args: []core.Core{composed, xs}, S: po.S}
+}
+
+// R11: _sliceFoldr k z (_sliceMap f xs) → _sliceFoldr (\$x $acc -> k (f $x) $acc) z xs
+func sliceFoldrMapFusion(c core.Core) core.Core {
+	po, ok := c.(*core.PrimOp)
+	if !ok || po.Name != "_sliceFoldr" || len(po.Args) != 3 {
+		return c
+	}
+	inner, ok := po.Args[2].(*core.PrimOp)
+	if !ok || inner.Name != "_sliceMap" || len(inner.Args) != 2 {
+		return c
+	}
+	k, z, f, xs := po.Args[0], po.Args[1], inner.Args[0], inner.Args[1]
+	x, acc := "$opt_x", "$opt_acc"
+	fused := &core.Lam{Param: x, Body: &core.Lam{Param: acc, Body: &core.App{
+		Fun: &core.App{Fun: k, Arg: &core.App{Fun: f, Arg: &core.Var{Name: x}}},
+		Arg: &core.Var{Name: acc},
+	}}}
+	return &core.PrimOp{Name: "_sliceFoldr", Arity: 3, Args: []core.Core{fused, z, xs}, S: po.S}
+}
+
+// R12: _sliceToList (_sliceFromList xs) → xs
+func slicePackedRoundtrip(c core.Core) core.Core {
+	po, ok := c.(*core.PrimOp)
+	if !ok || po.Name != "_sliceToList" || len(po.Args) != 1 {
+		return c
+	}
+	inner, ok := po.Args[0].(*core.PrimOp)
+	if !ok || inner.Name != "_sliceFromList" || len(inner.Args) != 1 {
+		return c
+	}
+	return inner.Args[0]
 }
 
 const sliceSource = `

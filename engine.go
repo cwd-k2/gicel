@@ -38,6 +38,7 @@ type Engine struct {
 	checkTraceHook check.CheckTraceHook
 	modules          map[string]*compiledModule
 	runtimeRecursion bool // set by RegisterModuleRec; ensures fix/rec in eval env
+	rewriteRules     []reg.RewriteRule
 }
 
 type compiledModule struct {
@@ -116,6 +117,11 @@ func (e *Engine) EnableRecursion() {
 // is permanently extended with fix/rec to support evaluation of the
 // compiled module — this is safe because user code without type-level
 // access to fix/rec cannot produce Core IR that references them.
+// RegisterRewriteRule adds a fusion rule to the optimization pipeline.
+func (e *Engine) RegisterRewriteRule(rule reg.RewriteRule) {
+	e.rewriteRules = append(e.rewriteRules, rule)
+}
+
 func (e *Engine) RegisterModuleRec(name, source string) error {
 	saved := maps.Clone(e.gatedBuiltins)
 	e.gatedBuiltins["rec"] = true
@@ -396,7 +402,7 @@ func (e *Engine) NewRuntime(source string) (*Runtime, error) {
 	}
 
 	// Optimize Core IR: algebraic simplifications + fusion.
-	opt.OptimizeProgram(prog)
+	opt.OptimizeProgram(prog, e.rewriteRules)
 
 	// Annotate free variables for safe-for-space closure conversion.
 	core.AnnotateFreeVarsProgram(prog)
