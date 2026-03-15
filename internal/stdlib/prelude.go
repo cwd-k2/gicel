@@ -274,4 +274,14 @@ instance IxMonad List {
   ixpure := \a -> Cons a Nil;
   ixbind := \xs -> \f -> foldr (\x -> \acc -> append (f x) acc) Nil xs
 }
+
+class Packed c e {
+  pack   :: List e -> c;
+  unpack :: c -> List e
+}
+
+instance Packed (List a) a {
+  pack   := \xs -> xs;
+  unpack := \xs -> xs
+}
 `

@@ -154,6 +154,36 @@ func TestStrReadIntFail(t *testing.T) {
 	assertConVal(t, v, "Nothing")
 }
 
+func TestStrFromRunes(t *testing.T) {
+	v := runWithPacks(t, "import Std.Str\nmain := fromRunes (Cons 'h' (Cons 'i' Nil))", gicel.Str)
+	assertHostString(t, v, "hi")
+}
+
+// ===========================================================================
+// Packed type class
+// ===========================================================================
+
+func TestPackedStringRoundtrip(t *testing.T) {
+	v := runWithPacks(t, `
+import Std.Str
+main :: String
+main := pack (unpack "hello")
+`, gicel.Str)
+	assertHostString(t, v, "hello")
+}
+
+func TestPackedListIdentity(t *testing.T) {
+	v := runWithPacks(t, `
+main := pack (Cons True Nil)
+`)
+	con, ok := v.(*gicel.ConVal)
+	if !ok || con.Con != "Cons" {
+		t.Fatalf("expected Cons, got %v", v)
+	}
+	assertConVal(t, con.Args[0], "True")
+	assertConVal(t, con.Args[1], "Nil")
+}
+
 // ===========================================================================
 // Std.List expansion
 // ===========================================================================

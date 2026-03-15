@@ -30,6 +30,7 @@ var Str Pack = func(e Registrar) error {
 	e.RegisterPrim("_showInt", showIntImpl)
 	e.RegisterPrim("_readInt", readIntImpl)
 	e.RegisterPrim("_toRunes", toRunesImpl)
+	e.RegisterPrim("_fromRunes", fromRunesImpl)
 	return e.RegisterModule("Std.Str", strSource)
 }
 
@@ -135,6 +136,17 @@ _toRunes := assumption
 
 toRunes :: String -> List Rune
 toRunes := _toRunes
+
+_fromRunes :: List Rune -> String
+_fromRunes := assumption
+
+fromRunes :: List Rune -> String
+fromRunes := _fromRunes
+
+instance Packed String Rune {
+  pack   := _fromRunes;
+  unpack := _toRunes
+}
 `
 
 func asString(v eval.Value) (string, error) {
@@ -414,6 +426,22 @@ func toRunesImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Ap
 		result = &eval.ConVal{Con: "Cons", Args: []eval.Value{&eval.HostVal{Inner: runes[i]}, result}}
 	}
 	return result, ce, nil
+}
+
+func fromRunesImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
+	items, ok := listToSlice(args[0])
+	if !ok {
+		return nil, ce, fmt.Errorf("fromRunes: expected List Rune")
+	}
+	runes := make([]rune, len(items))
+	for i, item := range items {
+		r, err := asRune(item)
+		if err != nil {
+			return nil, ce, fmt.Errorf("fromRunes: element %d: %w", i, err)
+		}
+		runes[i] = r
+	}
+	return &eval.HostVal{Inner: string(runes)}, ce, nil
 }
 
 func asInt64Str(v eval.Value) (int64, error) { return asInt64(v, "str") }

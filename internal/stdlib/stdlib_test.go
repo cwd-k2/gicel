@@ -267,6 +267,25 @@ func TestAsStringError(t *testing.T) {
 	}
 }
 
+// --- fromRunes ---
+
+func TestFromRunesImplEmpty(t *testing.T) {
+	v, _, err := fromRunesImpl(ctx, ce, args(&eval.ConVal{Con: "Nil"}), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertStr(t, v, "")
+}
+
+func TestFromRunesImpl(t *testing.T) {
+	list := conList(runeVal('h'), runeVal('i'))
+	v, _, err := fromRunesImpl(ctx, ce, args(list), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertStr(t, v, "hi")
+}
+
 // --- List ---
 
 func conList(vals ...eval.Value) eval.Value {
