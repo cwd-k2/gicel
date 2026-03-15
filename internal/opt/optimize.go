@@ -2,6 +2,7 @@
 package opt
 
 import (
+	"fmt"
 	"slices"
 
 	"github.com/cwd-k2/gicel/internal/core"
@@ -317,7 +318,7 @@ func subst(expr core.Core, name string, replacement core.Core) core.Core {
 		}
 		return &core.RecordUpdate{Record: subst(n.Record, name, replacement), Updates: updates, S: n.S}
 	}
-	return expr
+	panic(fmt.Sprintf("subst: unhandled Core node %T", expr))
 }
 
 // binds checks if a pattern binds the given name.
