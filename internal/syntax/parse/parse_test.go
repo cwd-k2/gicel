@@ -1654,6 +1654,70 @@ func TestParseEmptyInput(t *testing.T) {
 	}
 }
 
+func TestParseOperatorSection(t *testing.T) {
+	prog, es := parse("main := foldr (+) 0 xs")
+	if es.HasErrors() {
+		t.Fatal(es.Format())
+	}
+	if len(prog.Decls) != 1 {
+		t.Fatalf("expected 1 decl, got %d", len(prog.Decls))
+	}
+	d, ok := prog.Decls[0].(*DeclValueDef)
+	if !ok {
+		t.Fatalf("expected DeclValueDef, got %T", prog.Decls[0])
+	}
+	// The body should be an application chain containing ExprVar{Name: "+"}
+	found := false
+	var walk func(Expr)
+	walk = func(e Expr) {
+		if e == nil {
+			return
+		}
+		switch e := e.(type) {
+		case *ExprVar:
+			if e.Name == "+" {
+				found = true
+			}
+		case *ExprApp:
+			walk(e.Fun)
+			walk(e.Arg)
+		case *ExprParen:
+			walk(e.Inner)
+		}
+	}
+	walk(d.Expr)
+	if !found {
+		t.Error("expected ExprVar with name '+' from operator section (+)")
+	}
+}
+
+func TestParseOperatorSectionDot(t *testing.T) {
+	prog, es := parse("main := (.) f g")
+	if es.HasErrors() {
+		t.Fatal(es.Format())
+	}
+	if len(prog.Decls) != 1 {
+		t.Fatalf("expected 1 decl, got %d", len(prog.Decls))
+	}
+	d := prog.Decls[0].(*DeclValueDef)
+	// First element in the application chain should be ExprVar{Name: "."}
+	var root Expr = d.Expr
+	for {
+		app, ok := root.(*ExprApp)
+		if !ok {
+			break
+		}
+		root = app.Fun
+	}
+	v, ok := root.(*ExprVar)
+	if !ok {
+		t.Fatalf("expected ExprVar at root, got %T", root)
+	}
+	if v.Name != "." {
+		t.Errorf("expected name '.', got %s", v.Name)
+	}
+}
+
 func TestParseStepsResetBetweenPasses(t *testing.T) {
 	// After collectFixity (first pass), steps are reset to 0.
 	// Without the reset, collectFixity's steps would carry over,

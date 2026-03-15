@@ -146,6 +146,19 @@ func (p *Parser) parseParen() Expr {
 		return &ExprRecord{S: span.Span{Start: start, End: p.prevEnd()}}
 	}
 
+	// (op) → operator as value reference
+	if (p.peek().Kind == TokOp || p.peek().Kind == TokDot) &&
+		p.pos+1 < len(p.tokens) && p.tokens[p.pos+1].Kind == TokRParen {
+		opTok := p.peek()
+		p.advance()
+		p.advance()
+		name := opTok.Text
+		if opTok.Kind == TokDot {
+			name = "."
+		}
+		return &ExprVar{Name: name, S: span.Span{Start: start, End: p.prevEnd()}}
+	}
+
 	e := p.parseExpr()
 
 	// (e) → grouping
