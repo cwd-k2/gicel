@@ -267,6 +267,31 @@ func TestAsStringError(t *testing.T) {
 	}
 }
 
+// --- Stream ---
+
+func TestBuildStreamEmpty(t *testing.T) {
+	s := buildStream(nil)
+	assertCon(t, s, "LNil")
+}
+
+func TestBuildStreamSingle(t *testing.T) {
+	s := buildStream([]eval.Value{intVal(1)})
+	con := s.(*eval.ConVal)
+	if con.Con != "LCons" || len(con.Args) != 2 {
+		t.Fatalf("expected LCons with 2 args, got %v", s)
+	}
+	assertInt(t, con.Args[0], 1)
+}
+
+func TestStreamConstImpl(t *testing.T) {
+	captured := intVal(42)
+	v, _, err := streamConstImpl(ctx, ce, args(captured, &eval.RecordVal{Fields: map[string]eval.Value{}}), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertInt(t, v, 42)
+}
+
 // --- fromRunes ---
 
 func TestFromRunesImplEmpty(t *testing.T) {

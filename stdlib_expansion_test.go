@@ -295,6 +295,87 @@ main := foldl (\acc -> \x -> case x { True -> acc + 1; False -> acc }) 0 (Cons T
 }
 
 // ===========================================================================
+// Std.Stream
+// ===========================================================================
+
+func TestStreamHeadS(t *testing.T) {
+	v := runWithPacks(t, `
+import Std.Stream
+main := headS (LCons True (\_ -> LNil))
+`, gicel.Stream)
+	con, ok := v.(*gicel.ConVal)
+	if !ok || con.Con != "Just" {
+		t.Fatalf("expected Just, got %v", v)
+	}
+	assertConVal(t, con.Args[0], "True")
+}
+
+func TestStreamHeadSEmpty(t *testing.T) {
+	v := runWithPacks(t, `
+import Std.Stream
+main :: Maybe Bool
+main := headS LNil
+`, gicel.Stream)
+	assertConVal(t, v, "Nothing")
+}
+
+func TestStreamToListFromList(t *testing.T) {
+	v := runWithPacks(t, `
+import Std.Stream
+main := toList (fromList (Cons True (Cons False Nil)))
+`, gicel.Stream)
+	con := v.(*gicel.ConVal)
+	if con.Con != "Cons" {
+		t.Fatalf("expected Cons, got %s", con.Con)
+	}
+	assertConVal(t, con.Args[0], "True")
+	second := con.Args[1].(*gicel.ConVal)
+	assertConVal(t, second.Args[0], "False")
+	assertConVal(t, second.Args[1], "Nil")
+}
+
+func TestStreamTakeS(t *testing.T) {
+	v := runWithPacks(t, `
+import Std.Num
+import Std.Stream
+main := takeS 2 (LCons True (\_ -> LCons False (\_ -> LCons True (\_ -> LNil))))
+`, gicel.Num, gicel.Stream)
+	con := v.(*gicel.ConVal)
+	if con.Con != "Cons" {
+		t.Fatalf("expected Cons, got %s", con.Con)
+	}
+	assertConVal(t, con.Args[0], "True")
+	second := con.Args[1].(*gicel.ConVal)
+	assertConVal(t, second.Args[0], "False")
+	assertConVal(t, second.Args[1], "Nil")
+}
+
+func TestStreamFmap(t *testing.T) {
+	v := runWithPacks(t, `
+import Std.Stream
+main := headS (fmap not (LCons True (\_ -> LNil)))
+`, gicel.Stream)
+	con, ok := v.(*gicel.ConVal)
+	if !ok || con.Con != "Just" {
+		t.Fatalf("expected Just, got %v", v)
+	}
+	assertConVal(t, con.Args[0], "False")
+}
+
+func TestStreamDropS(t *testing.T) {
+	v := runWithPacks(t, `
+import Std.Num
+import Std.Stream
+main := headS (dropS 1 (LCons True (\_ -> LCons False (\_ -> LNil))))
+`, gicel.Num, gicel.Stream)
+	con, ok := v.(*gicel.ConVal)
+	if !ok || con.Con != "Just" {
+		t.Fatalf("expected Just, got %v", v)
+	}
+	assertConVal(t, con.Args[0], "False")
+}
+
+// ===========================================================================
 // Std.IO
 // ===========================================================================
 

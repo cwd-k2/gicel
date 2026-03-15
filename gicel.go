@@ -114,3 +114,6 @@ var List Pack = stdlib.List
 
 // IO provides print/debug capabilities using CapEnv buffer.
 var IO Pack = stdlib.IO
+
+// Stream provides lazy list operations: LCons/LNil, headS, tailS, takeS, dropS.
+var Stream Pack = stdlib.Stream
