@@ -393,7 +393,7 @@ foldMap :: forall (t : Type -> Type) a m. Foldable t => Monoid m => (a -> m) -> 
 foldMap := \f -> foldr (\x -> \acc -> append (f x) acc) empty
 
 toList :: forall (t : Type -> Type) a. Foldable t => t a -> List a
-toList := foldr (\x -> \acc -> Cons x acc) Nil
+toList := foldr Cons Nil
 
 find :: forall a. (a -> Bool) -> List a -> Maybe a
 find := \p -> foldr (\x -> \acc -> case p x { True -> Just x; False -> acc }) Nothing
@@ -411,10 +411,10 @@ all :: forall a. (a -> Bool) -> List a -> Bool
 all := \p -> foldr (\x -> \acc -> case p x { True -> acc; False -> False }) True
 
 and :: List Bool -> Bool
-and := foldr (\x -> \acc -> case x { True -> acc; False -> False }) True
+and := foldr (&&) True
 
 or :: List Bool -> Bool
-or := foldr (\x -> \acc -> case x { True -> True; False -> acc }) False
+or := foldr (||) False
 
 lookup :: forall a b. Eq a => a -> List (a, b) -> Maybe b
 lookup := \key -> foldr (\pair -> \acc -> case eq key (fst pair) { True -> Just (snd pair); False -> acc }) Nothing
