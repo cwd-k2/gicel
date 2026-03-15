@@ -424,7 +424,6 @@ func TestFunctorResultErr(t *testing.T) {
 }
 
 func TestFoldableResult(t *testing.T) {
-	// Use non-constrained function to avoid partially-applied-tycon + class-constraint bug.
 	v := runPure(t, `main := foldr (\x -> \_ -> Just x) Nothing (Ok True)`)
 	con := v.(*gicel.ConVal)
 	if con.Con != "Just" {
@@ -853,6 +852,39 @@ func TestNub(t *testing.T) {
 	if len(items) != 2 {
 		t.Fatalf("expected 2 items, got %d", len(items))
 	}
+}
+
+// --- operator section tests ---
+
+func TestOperatorSectionFoldr(t *testing.T) {
+	v := runPure(t, `import Std.Num
+main := foldr (+) 0 (Cons 1 (Cons 2 (Cons 3 Nil)))`)
+	assertHostInt(t, v, 6)
+}
+
+func TestOperatorSectionCompose(t *testing.T) {
+	v := runPure(t, `main := (.) not not True`)
+	assertConVal(t, v, "True")
+}
+
+// --- Result + class constraint tests (instance dedup) ---
+
+func TestFunctorResultWithConstraint(t *testing.T) {
+	// This failed before: fmap with a constrained function over (Result e)
+	// produced a Closure due to instance duplication from transitive imports.
+	v := runPure(t, `import Std.Num
+main := fmap (\x -> x + 1) (Ok 5)`)
+	con := v.(*gicel.ConVal)
+	if con.Con != "Ok" {
+		t.Fatalf("expected Ok, got %s", con.Con)
+	}
+	assertHostInt(t, con.Args[0], 6)
+}
+
+func TestFoldableResultWithConstraint(t *testing.T) {
+	v := runPure(t, `import Std.Num
+main := foldr (+) 0 (Ok 10)`)
+	assertHostInt(t, v, 10)
 }
 
 // --- helpers ---

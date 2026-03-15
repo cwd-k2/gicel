@@ -187,6 +187,9 @@ func (ch *Checker) importModules(imports []syntax.DeclImport) {
 			ch.classes[name] = cls
 		}
 		for _, inst := range mod.Instances {
+			if ch.importedInstances[inst] {
+				continue
+			}
 			ch.instances = append(ch.instances, inst)
 			ch.instancesByClass[inst.ClassName] = append(ch.instancesByClass[inst.ClassName], inst)
 			ch.importedInstances[inst] = true
