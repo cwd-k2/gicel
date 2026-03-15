@@ -406,7 +406,8 @@ func (ch *Checker) processValueDef(d *syntax.DeclValueDef, annotations map[strin
 // types (TyEvidence). Called for unannotated top-level bindings.
 //
 // Example: \x -> x + x  with unresolved Num ?a
-//   → forall a. Num a => a -> a  with Core: \dict -> \x -> ...
+//
+//	→ forall a. Num a => a -> a  with Core: \dict -> \x -> ...
 func (ch *Checker) generalizeConstrained(ty types.Type, expr core.Core, unresolved []deferredConstraint) (types.Type, core.Core) {
 	metas := collectUnsolvedMetas(ty)
 	// Also collect metas from unresolved constraint args.

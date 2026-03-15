@@ -26,7 +26,7 @@ func SortBindings(bs []Binding) []Binding {
 
 	// Compute dependency edges: deps[i] = set of indices that binding i depends on.
 	deps := make([]map[int]bool, len(bs))
-	rdeps := make([][]int, len(bs))   // reverse edges for Kahn's
+	rdeps := make([][]int, len(bs)) // reverse edges for Kahn's
 	inDeg := make([]int, len(bs))
 	for i, b := range bs {
 		fv := FreeVars(b.Expr)

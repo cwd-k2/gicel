@@ -594,7 +594,6 @@ func (p *Parser) parseNamedDecl() Decl {
 	}
 }
 
-
 // Expression and pattern parsing is in parse_expr.go.
 
 // --- Helpers ---

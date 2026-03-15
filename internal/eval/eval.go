@@ -34,8 +34,8 @@ type Evaluator struct {
 	trace         TraceHook
 	explain       ExplainHook
 	source        *span.Source // for line/col in explain events; nil if unavailable
-	suppress      int         // >0: suppress explain events (inside stdlib)
-	cachedApplier Applier     // reused across all primitive invocations
+	suppress      int          // >0: suppress explain events (inside stdlib)
+	cachedApplier Applier      // reused across all primitive invocations
 	stats         EvalStats
 }
 

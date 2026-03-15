@@ -15,14 +15,14 @@ const (
 // SandboxConfig configures a sandboxed execution.
 // All fields are optional; nil config uses conservative defaults.
 type SandboxConfig struct {
-	Packs    []Pack        // stdlib packs to load (default: none)
-	Entry    string        // entry point binding (default: "main")
-	Timeout  time.Duration // execution timeout (default: 5s)
-	MaxSteps int           // step limit (default: 100_000)
-	MaxDepth int           // depth limit (default: 100)
-	MaxAlloc int64         // allocation byte limit (default: 10 MiB)
-	Caps     map[string]any    // initial capability environment (nil for empty)
-	Bindings map[string]Value  // host-provided value bindings (nil for none)
+	Packs    []Pack           // stdlib packs to load (default: none)
+	Entry    string           // entry point binding (default: "main")
+	Timeout  time.Duration    // execution timeout (default: 5s)
+	MaxSteps int              // step limit (default: 100_000)
+	MaxDepth int              // depth limit (default: 100)
+	MaxAlloc int64            // allocation byte limit (default: 10 MiB)
+	Caps     map[string]any   // initial capability environment (nil for empty)
+	Bindings map[string]Value // host-provided value bindings (nil for none)
 }
 
 // SandboxResult holds the output of a sandboxed execution.
