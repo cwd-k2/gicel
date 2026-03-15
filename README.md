@@ -3,31 +3,64 @@
 **G**o's **I**ndexed **C**apability **E**ffect **L**ibrary /
 **G**ICEL's **I**ndexed **C**apability **E**ffect **L**anguage
 
-Write pure, type-checked computations in Haskell-like syntax —
-compile and run them safely inside your Go program.
+Embed a type-safe, sandboxed language in your Go application.
+GICEL compiles Haskell-like source into typed computations, runs them with
+explicitly granted capabilities, and returns results — all in pure Go.
 
 ```gicel
 import Std.Num
 import Std.State
 
-processOrder := do {
-  _ <- put 50;                           -- base price
-  _ <- modify (\p -> p * 3);             -- quantity: 3
-  _ <- modify (\t -> t - t * 10 / 100);  -- 10% discount
-  get
-}
-
-main := processOrder  -- 135
+main := do { _ <- put 42; get }
 ```
 
-## Features
+The source imports `Std.State` — but the host decides whether that module exists:
 
-- **Haskell-like surface syntax** — 11 keywords, ADTs, pattern matching, type classes, do-notation
-- **Atkey parameterized monad** — `Computation pre post a` with row-typed capability environments
-- **Bidirectional type checking** — higher-rank polymorphism, HKT with kind inference
-- **Three-tier lifecycle** — Engine (configure) → Runtime (immutable, goroutine-safe) → result (per-call)
-- **AI agent sandboxing** — single-call `RunSandbox` API with resource limits, built-in documentation and examples queryable from CLI and Go API, semantic evaluation trace (`--explain`)
-- **8 stdlib packs** — Num, Str, List, Fail, State, IO, Stream, Slice
+```sh
+$ gicel run --use Num program.gicel        # host grants only Num
+error[E0230]: unknown module: Std.State
+ --> program.gicel:2:1
+   |
+ 2 | import Std.State
+   | ^^^^^^^^^^^^^^^^
+
+$ gicel run --use Num,State program.gicel  # host grants State too
+42
+```
+
+Same source. The difference is what the host allowed.
+No blacklist. No restricted mode. Capabilities are absent until granted.
+
+## Why GICEL?
+
+When you run untrusted code inside Go — from an AI agent, a user script,
+or a plugin — existing approaches force trade-offs:
+
+| Approach            | Trade-off                                               |
+| ------------------- | ------------------------------------------------------- |
+| Lua / JS embed      | Dynamically typed; capabilities leak via global state   |
+| Wasm sandbox        | Heavy runtime; complex FFI boundary with Go             |
+| Template engine     | Safe, but limited expressiveness                        |
+| Go subset interpret | Powerful, but attack surface equals Go itself           |
+
+All of these share a fundamental problem: they try to **restrict a permissive
+environment** — blacklisting dangerous APIs, blocking syscalls, filtering
+globals. The harder you lock down, the more edge cases slip through.
+
+**GICEL inverts the model.**
+
+- **Nothing exists until you grant it.** Programs run in an empty capability
+  environment. No IO, no state, no network — not restricted, simply absent.
+  The host explicitly opts in to each capability via Packs. This is a
+  whitelist, not a blacklist.
+- **No side effects by default.** A GICEL computation is pure. It cannot
+  touch the host's filesystem, memory, or goroutines. Effects like State
+  or IO only become available when the host provides them, and the type
+  system enforces this boundary at compile time.
+- **Resource limits with clean termination.** Step count, memory ceiling,
+  and timeout. Execution halts cleanly — no killed goroutines, no leaked state.
+- **Go-native.** No CGo, no FFI. Runtimes are immutable and goroutine-safe.
+  Embed it like any other Go library.
 
 ## Install
 
@@ -50,18 +83,18 @@ gicel run hello.gicel              # compile and execute
 gicel check program.gicel          # type-check only
 gicel run --explain program.gicel  # semantic evaluation trace
 gicel run --json program.gicel     # machine-readable output
-gicel docs stdlib                  # query language reference
-gicel example hello                # browse example programs
 ```
 
 ### Go Library
 
+Three-tier lifecycle for production use:
+
 ```
-Engine   (mutable, configurable)
+Engine   (mutable)     — register types, capabilities, packs
   ↓ NewRuntime(source)
-Runtime  (immutable, goroutine-safe)
+Runtime  (immutable)   — goroutine-safe, reuse across requests
   ↓ RunWith(ctx, opts)
-result   (per-execution)
+result   (per-call)    — value + execution stats
 ```
 
 ```go
@@ -77,64 +110,146 @@ import (
 
 func main() {
     eng := gicel.NewEngine()
+    eng.Use(gicel.Num)   // grant Std.Num
+    eng.Use(gicel.State) // grant Std.State
 
     rt, err := eng.NewRuntime(`
-        not := \b -> case b { True -> False; False -> True }
-        main := not False
+        import Std.Num
+        import Std.State
+
+        main := do {
+            _ <- put 10;
+            _ <- modify (\n -> n * 2);
+            get
+        }
     `)
     if err != nil {
         log.Fatal(err)
     }
 
+    // Safe to call from multiple goroutines
     result, err := rt.RunWith(context.Background(), nil)
     if err != nil {
         log.Fatal(err)
     }
 
-    fmt.Println(result.Value) // True
+    fmt.Println(gicel.MustHost[int](result.Value)) // 20
 }
 ```
 
-## Sandbox
+## AI Agent Sandbox
 
-Single-call compile+execute with resource limits.
-Designed for AI agent integration — no Engine/Runtime lifecycle management needed:
+LLM generates code → GICEL compiles and type-checks → sandbox executes →
+only the result comes back. The agent never touches the host environment.
+
+Single-call API — no Engine/Runtime lifecycle management needed:
 
 ```go
-result, err := gicel.RunSandbox(source, &gicel.SandboxConfig{
+result, err := gicel.RunSandbox(agentCode, &gicel.SandboxConfig{
     Packs:    []gicel.Pack{gicel.Num, gicel.Str},
     Timeout:  3 * time.Second,
     MaxSteps: 50_000,
     MaxAlloc: 10 * 1024 * 1024, // 10 MiB
 })
+// result.Value, result.Stats.Steps, result.Stats.Allocated
 ```
 
-The CLI also supports sandboxed execution with the same resource controls:
+### Self-contained feedback loop
+
+Docs, examples, type checker, and execution trace are all in the binary.
+No external resources, no API calls — an agent can learn, write, check,
+and debug without leaving the CLI:
 
 ```sh
-gicel run --timeout 3s --max-steps 50000 program.gicel
+# 1. Learn — browse available examples
+$ gicel example
+Basics:
+  hello           Hello World
+  lists           List Operations
+  ...
+Effects & Applications:
+  state-machine   State Machine
+  data-pipeline   Data Pipeline
+  ...
+
+# 2. Study — read an example
+$ gicel example state-effect
+import Std.Num
+import Std.State
+...
+
+# 3. Write and check — catch errors before execution
+$ cat program.gicel
+import Std.Num
+main := do { _ <- put 42; get }
+
+$ gicel check program.gicel
+error[E0201]: unbound variable: put
+ --> program.gicel:2:19
+   |
+ 2 | main := do { _ <- put 42; get }
+   |                   ^^^
+
+# 4. Fix — grant the State capability, run with trace
+$ cat program.gicel
+import Std.Num
+import Std.State
+main := do { _ <- put 42; get }
+
+$ gicel run --explain program.gicel
+── main ────────────────────────────────────────────────
+  0  :  3  effect │ put 42  [state: _ → 42]
+  0  :  3  effect │ get ⇒ 42
+42
 ```
 
-### Built-in documentation
-
-Language reference and example programs are embedded in the CLI and queryable
-from Go, so AI agents can learn the language without external resources:
+Reference docs are also queryable by topic:
 
 ```sh
-gicel docs stdlib       # query a topic
+gicel docs stdlib       # available types and functions
 gicel docs patterns     # idiomatic patterns and pitfalls
-gicel example hello     # show a named example
+gicel docs syntax       # language syntax reference
 ```
 
-### Evaluation trace
+## Extend with Go
 
-`--explain` produces a semantic trace of evaluation — useful for agents to
-debug programs or understand execution flow:
+The whitelist model means nothing exists by default — and it means you can
+grant anything. Expose your own Go functions as capabilities:
 
-```sh
-gicel run --explain program.gicel          # high-level trace
-gicel run --explain --verbose program.gicel # with source context
+```go
+eng.RegisterPrim("fetchPrice",
+    func(ctx context.Context, capEnv gicel.CapEnv, args []gicel.Value, _ gicel.Applier) (gicel.Value, gicel.CapEnv, error) {
+        itemID := gicel.MustHost[string](args[0])
+        price, err := db.GetPrice(ctx, itemID) // your Go code
+        if err != nil {
+            return gicel.Nil, capEnv, err
+        }
+        return gicel.ToValue(price), capEnv, nil
+    })
 ```
+
+GICEL source declares the type with `assumption` — a placeholder that says
+"this function exists, with this type, but the implementation lives on the
+host side":
+
+```gicel
+fetchPrice :: String -> Computation {} {} Int
+fetchPrice := assumption
+
+main := fetchPrice "item-42"
+```
+
+Register types, bindings, and primitives — GICEL programs can only use what
+you explicitly provide. See [`examples/go/`](examples/go/) for full patterns:
+host bindings, custom capabilities, custom prelude, and more.
+
+## Features
+
+- **Small, learnable syntax** — 11 keywords. ADTs, pattern matching, type classes, do-notation
+- **Errors caught before execution** — full type inference with bidirectional checking. Missing capabilities are compile-time errors, not runtime surprises
+- **Expressive when you need it** — higher-rank polymorphism, higher-kinded types, kind inference
+- **Records & tuples** — structured data with row polymorphism
+- **8 stdlib packs** — Num, Str, List, Fail, State, IO, Stream, Slice — opt in to what you need
 
 ## Stdlib Packs
 
