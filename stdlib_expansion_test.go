@@ -436,6 +436,30 @@ main := headS (dropS 1 (LCons True (\_ -> LCons False (\_ -> LNil))))
 }
 
 // ===========================================================================
+// Fusion integration (RegisterRewriteRule pipeline)
+// ===========================================================================
+
+func TestSliceFusionMapMapIntegration(t *testing.T) {
+	// Verify that the production sliceMapMapFusion rule fires through the engine pipeline.
+	// Two consecutive fmap calls should be fused into one _sliceMap with a composed function.
+	v := runWithPacks(t, `
+import Std.Num
+import Std.Slice
+main := sliceLength (fmap (\x -> x + 1) (fmap (\x -> x + 2) (sliceSingleton 0)))
+`, gicel.Num, gicel.Slice)
+	assertHostInt(t, v, 1)
+}
+
+func TestStringPackedRoundtripIntegration(t *testing.T) {
+	// Verify production strPackedRoundtrip fires: fromRunes (toRunes x) → x
+	v := runWithPacks(t, `
+import Std.Str
+main := fromRunes (toRunes "abc")
+`, gicel.Str)
+	assertHostString(t, v, "abc")
+}
+
+// ===========================================================================
 // Std.IO
 // ===========================================================================
 
