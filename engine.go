@@ -35,7 +35,8 @@ type Engine struct {
 	customPrelude    *string
 	checkTraceHook   check.CheckTraceHook
 	modules          map[string]*compiledModule
-	runtimeRecursion bool // set by RegisterModuleRec; ensures fix/rec in eval env
+	moduleOrder      []string // insertion order for deterministic iteration
+	runtimeRecursion bool     // set by RegisterModuleRec; ensures fix/rec in eval env
 	rewriteRules     []reg.RewriteRule
 }
 
@@ -230,6 +231,7 @@ func (e *Engine) RegisterModule(name, source string) error {
 		deps:    deps,
 		fixity:  modFixity,
 	}
+	e.moduleOrder = append(e.moduleOrder, name)
 	return nil
 }
 
@@ -315,9 +317,9 @@ func (e *Engine) parseSource(source string) (*syntax.AstProgram, *span.Source, e
 	}
 	parseErrs := &errs.Errors{Source: src}
 	p := parse.NewParser(tokens, parseErrs)
-	// Seed parser with fixity declarations from registered modules.
-	for _, mod := range e.modules {
-		p.AddFixity(mod.fixity)
+	// Seed parser with fixity declarations from registered modules (in registration order).
+	for _, name := range e.moduleOrder {
+		p.AddFixity(e.modules[name].fixity)
 	}
 	ast := p.ParseProgram()
 	if parseErrs.HasErrors() {
@@ -426,10 +428,10 @@ func (e *Engine) NewRuntime(source string) (*Runtime, error) {
 	// Annotate free variables for safe-for-space closure conversion.
 	core.AnnotateFreeVarsProgram(prog)
 
-	// Collect module programs for runtime constructor/binding registration.
-	var modProgs []*core.Program
-	for _, mod := range e.modules {
-		modProgs = append(modProgs, mod.prog)
+	// Collect module programs in registration order for deterministic evaluation.
+	modProgs := make([]*core.Program, 0, len(e.moduleOrder))
+	for _, name := range e.moduleOrder {
+		modProgs = append(modProgs, e.modules[name].prog)
 	}
 
 	rt := &Runtime{
