@@ -23,19 +23,19 @@ import (
 // Engine configures and compiles GICEL programs.
 // It is mutable and must not be shared across goroutines.
 type Engine struct {
-	bindings       map[string]types.Type
-	assumptions    map[string]types.Type
-	registeredTys  map[string]types.Kind
-	prims          *eval.PrimRegistry
-	gatedBuiltins  map[string]bool
-	stepLimit      int
-	depthLimit     int
-	allocLimit     int64
-	noPrelude      bool
-	customPrelude  *string
-	traceHook      eval.TraceHook
-	explainHook    eval.ExplainHook
-	checkTraceHook check.CheckTraceHook
+	bindings         map[string]types.Type
+	assumptions      map[string]types.Type
+	registeredTys    map[string]types.Kind
+	prims            *eval.PrimRegistry
+	gatedBuiltins    map[string]bool
+	stepLimit        int
+	depthLimit       int
+	allocLimit       int64
+	noPrelude        bool
+	customPrelude    *string
+	traceHook        eval.TraceHook
+	explainHook      eval.ExplainHook
+	checkTraceHook   check.CheckTraceHook
 	modules          map[string]*compiledModule
 	runtimeRecursion bool // set by RegisterModuleRec; ensures fix/rec in eval env
 	rewriteRules     []reg.RewriteRule
@@ -111,17 +111,17 @@ func (e *Engine) EnableRecursion() {
 	e.gatedBuiltins["fix"] = true
 }
 
+// RegisterRewriteRule adds a fusion rule to the optimization pipeline.
+func (e *Engine) RegisterRewriteRule(rule reg.RewriteRule) {
+	e.rewriteRules = append(e.rewriteRules, rule)
+}
+
 // RegisterModuleRec compiles a module with fix/rec enabled, scoped to
 // this single compilation. The type-checker gate is saved and restored,
 // so subsequent compilations are not affected. The runtime environment
 // is permanently extended with fix/rec to support evaluation of the
 // compiled module — this is safe because user code without type-level
 // access to fix/rec cannot produce Core IR that references them.
-// RegisterRewriteRule adds a fusion rule to the optimization pipeline.
-func (e *Engine) RegisterRewriteRule(rule reg.RewriteRule) {
-	e.rewriteRules = append(e.rewriteRules, rule)
-}
-
 func (e *Engine) RegisterModuleRec(name, source string) error {
 	saved := maps.Clone(e.gatedBuiltins)
 	e.gatedBuiltins["rec"] = true

@@ -4,6 +4,7 @@ package stdlib
 import (
 	"fmt"
 
+	"github.com/cwd-k2/gicel/internal/core"
 	"github.com/cwd-k2/gicel/internal/eval"
 	"github.com/cwd-k2/gicel/internal/reg"
 )
@@ -13,6 +14,13 @@ type Registrar = reg.Registrar
 
 // Pack configures a Registrar with a coherent set of types, primitives, and modules.
 type Pack = reg.Pack
+
+// freeIn checks if name appears free in a Core expression.
+// Used by fusion rules to guard against variable capture.
+func freeIn(name string, c core.Core) bool {
+	_, ok := core.FreeVars(c)[name]
+	return ok
+}
 
 // asInt64 extracts an int64 from a HostVal. Shared by Num and Str packs.
 func asInt64(v eval.Value, pack string) (int64, error) {

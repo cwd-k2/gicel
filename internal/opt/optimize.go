@@ -174,6 +174,9 @@ func subst(expr core.Core, name string, replacement core.Core) core.Core {
 		if n.Param == name {
 			return n // shadowed
 		}
+		if capturedBy(n.Param, replacement) {
+			return n // would capture — bail out to preserve correctness
+		}
 		return &core.Lam{Param: n.Param, ParamType: n.ParamType, Body: subst(n.Body, name, replacement), FV: n.FV, S: n.S}
 	case *core.App:
 		return &core.App{Fun: subst(n.Fun, name, replacement), Arg: subst(n.Arg, name, replacement), S: n.S}
@@ -203,6 +206,13 @@ func subst(expr core.Core, name string, replacement core.Core) core.Core {
 				return n // shadowed by letrec binding
 			}
 		}
+		// Guard: if replacement contains a free variable that would be
+		// captured by a letrec binder, bail out to preserve correctness.
+		for _, b := range n.Bindings {
+			if capturedBy(b.Name, replacement) {
+				return n
+			}
+		}
 		bindings := make([]core.Binding, len(n.Bindings))
 		for i, b := range n.Bindings {
 			bindings[i] = core.Binding{Name: b.Name, Type: b.Type, Expr: subst(b.Expr, name, replacement), S: b.S}
@@ -213,6 +223,9 @@ func subst(expr core.Core, name string, replacement core.Core) core.Core {
 	case *core.Bind:
 		comp := subst(n.Comp, name, replacement)
 		if n.Var == name {
+			return &core.Bind{Comp: comp, Var: n.Var, Body: n.Body, S: n.S}
+		}
+		if capturedBy(n.Var, replacement) {
 			return &core.Bind{Comp: comp, Var: n.Var, Body: n.Body, S: n.S}
 		}
 		return &core.Bind{Comp: comp, Var: n.Var, Body: subst(n.Body, name, replacement), S: n.S}
@@ -244,6 +257,13 @@ func subst(expr core.Core, name string, replacement core.Core) core.Core {
 		return &core.RecordUpdate{Record: subst(n.Record, name, replacement), Updates: updates, S: n.S}
 	}
 	panic(fmt.Sprintf("subst: unhandled Core node %T", expr))
+}
+
+// capturedBy checks if binder would capture a free variable in replacement.
+// If so, subst must bail out to avoid incorrect variable capture.
+func capturedBy(binder string, replacement core.Core) bool {
+	_, free := core.FreeVars(replacement)[binder]
+	return free
 }
 
 // binds checks if a pattern binds the given name.

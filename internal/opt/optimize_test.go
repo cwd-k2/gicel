@@ -101,15 +101,15 @@ func coreEq(a, b core.Core) bool {
 	return false
 }
 
-func v(name string) core.Core          { return &core.Var{Name: name} }
-func lit(val any) core.Core            { return &core.Lit{Value: val} }
-func app(f, x core.Core) core.Core     { return &core.App{Fun: f, Arg: x} }
-func lam(p string, b core.Core) core.Core { return &core.Lam{Param: p, Body: b} }
+func v(name string) core.Core                      { return &core.Var{Name: name} }
+func lit(val any) core.Core                        { return &core.Lit{Value: val} }
+func app(f, x core.Core) core.Core                 { return &core.App{Fun: f, Arg: x} }
+func lam(p string, b core.Core) core.Core          { return &core.Lam{Param: p, Body: b} }
 func con(name string, args ...core.Core) core.Core { return &core.Con{Name: name, Args: args} }
 func pcon(name string, args ...core.Pattern) core.Pattern {
 	return &core.PCon{Con: name, Args: args}
 }
-func pvar(name string) core.Pattern { return &core.PVar{Name: name} }
+func pvar(name string) core.Pattern                 { return &core.PVar{Name: name} }
 func alt(pat core.Pattern, body core.Core) core.Alt { return core.Alt{Pattern: pat, Body: body} }
 func cas(scrut core.Core, alts ...core.Alt) core.Core {
 	return &core.Case{Scrutinee: scrut, Alts: alts}
@@ -435,6 +435,67 @@ func TestSubst_CasePatternShadowing(t *testing.T) {
 	// Nothing branch: x is free, body becomes v("y")
 	if !coreEq(cs.Alts[1].Body, v("y")) {
 		t.Fatalf("Case shadowing: Nothing branch body should be y, got %v", cs.Alts[1].Body)
+	}
+}
+
+// ===== Capture-avoiding substitution =====
+
+func TestSubst_LamCaptureAvoidance(t *testing.T) {
+	// subst (Lam "y" (App (Var "x") (Var "y"))) "x" (Var "y")
+	// Without capture guard, this would produce: Lam "y" (App (Var "y") (Var "y"))
+	// which captures the free "y" in the replacement. With the guard, we bail out.
+	expr := lam("y", app(v("x"), v("y")))
+	replacement := v("y")
+	result := subst(expr, "x", replacement)
+	// The guard should detect that "y" is free in replacement and Lam binds "y",
+	// so subst bails out, returning the original expression unchanged.
+	if !coreEq(result, expr) {
+		t.Fatalf("Lam capture: expected unchanged expr, got %v", result)
+	}
+}
+
+func TestSubst_LetRecCaptureAvoidance(t *testing.T) {
+	// letrec f = Var "x" in (App (Var "f") (Var "x"))
+	// subst "x" (Var "f") — "f" is free in replacement and bound by letrec
+	expr := &core.LetRec{
+		Bindings: []core.Binding{{Name: "f", Expr: v("x")}},
+		Body:     app(v("f"), v("x")),
+	}
+	replacement := v("f")
+	// Verify capturedBy detects the conflict.
+	if !capturedBy("f", replacement) {
+		t.Fatalf("capturedBy should detect 'f' free in Var{f}")
+	}
+	result := subst(expr, "x", replacement)
+	// Guard should bail out — result should be the exact same pointer.
+	if result != expr {
+		t.Fatalf("LetRec capture: expected same pointer (bail out), got different object")
+	}
+}
+
+func TestSubst_BindCaptureAvoidance(t *testing.T) {
+	// Bind (Pure (Var "a")) "y" (App (Var "x") (Var "y"))
+	// subst "x" (Var "y") — "y" in replacement would be captured by bind var
+	expr := &core.Bind{
+		Comp: &core.Pure{Expr: v("a")},
+		Var:  "y",
+		Body: app(v("x"), v("y")),
+	}
+	replacement := v("y")
+	result := subst(expr, "x", replacement)
+	// Comp should still be substituted (it's not under the binder),
+	// but body should be left unchanged due to capture risk.
+	bind, ok := result.(*core.Bind)
+	if !ok {
+		t.Fatalf("expected Bind, got %T", result)
+	}
+	// Comp is substituted: Pure (Var "a") → Pure (Var "a") (no "x" in comp, so unchanged)
+	if !coreEq(bind.Comp, &core.Pure{Expr: v("a")}) {
+		t.Fatalf("Bind capture: comp changed unexpectedly")
+	}
+	// Body should be unchanged due to capture guard
+	if !coreEq(bind.Body, app(v("x"), v("y"))) {
+		t.Fatalf("Bind capture: body should be unchanged, got %v", bind.Body)
 	}
 }
 

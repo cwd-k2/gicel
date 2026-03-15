@@ -44,6 +44,9 @@ func sliceMapMapFusion(c core.Core) core.Core {
 	}
 	f, g, xs := po.Args[0], inner.Args[0], inner.Args[1]
 	x := "$opt_x"
+	if freeIn(x, f) || freeIn(x, g) {
+		return c
+	}
 	composed := &core.Lam{Param: x, Body: &core.App{
 		Fun: f, Arg: &core.App{Fun: g, Arg: &core.Var{Name: x}},
 	}}
@@ -62,6 +65,9 @@ func sliceFoldrMapFusion(c core.Core) core.Core {
 	}
 	k, z, f, xs := po.Args[0], po.Args[1], inner.Args[0], inner.Args[1]
 	x, acc := "$opt_x", "$opt_acc"
+	if freeIn(x, k) || freeIn(x, f) || freeIn(acc, k) || freeIn(acc, f) {
+		return c
+	}
 	fused := &core.Lam{Param: x, Body: &core.Lam{Param: acc, Body: &core.App{
 		Fun: &core.App{Fun: k, Arg: &core.App{Fun: f, Arg: &core.Var{Name: x}}},
 		Arg: &core.Var{Name: acc},
