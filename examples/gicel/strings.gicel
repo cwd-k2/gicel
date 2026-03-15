@@ -39,8 +39,8 @@ hasIt := contains "ICE" "GICEL"      -- True
 noIt := contains "xyz" "GICEL"       -- False
 
 -- Split and join
-parts := split "," "a,b,c"          -- Cons "a" (Cons "b" (Cons "c" Nil))
-joined := join "-" (Cons "x" (Cons "y" (Cons "z" Nil)))  -- "x-y-z"
+parts := split "," "a,b,c"          -- ["a", "b", "c"]
+joined := join "-" ["x", "y", "z"]  -- "x-y-z"
 
 -- Eq String
 same := eq "abc" "abc"               -- True

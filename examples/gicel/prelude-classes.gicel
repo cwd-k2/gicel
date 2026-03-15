@@ -20,8 +20,8 @@ eqNothing := eq Nothing (Nothing :: Maybe Int)  -- True
 eqMixed := eq (Just 1) Nothing           -- False
 
 -- Eq List: element-wise
-eqList := eq (Cons 1 (Cons 2 Nil)) (Cons 1 (Cons 2 Nil))   -- True
-neqList := eq (Cons 1 Nil) (Cons 2 Nil)                     -- False
+eqList := eq [1, 2] [1, 2]              -- True
+neqList := eq [1] [2]                    -- False
 
 -- Eq Tuple
 eqTuple := eq (1, True) (1, True)        -- True
@@ -44,17 +44,17 @@ fmJust := fmap (\x -> x * 10) (Just 5)   -- Just 50
 fmNone := fmap (\x -> x * 10) (Nothing :: Maybe Int)  -- Nothing
 
 -- Functor List
-fmList := fmap (\x -> x + 1) (Cons 10 (Cons 20 Nil))  -- Cons 11 (Cons 21 Nil)
+fmList := fmap (\x -> x + 1) [10, 20]    -- [11, 21]
 
 -- Foldable Maybe
 foldJust := foldr (+) 0 (Just 7)                        -- 7
 foldNone := foldr (+) 0 (Nothing :: Maybe Int)           -- 0
 
 -- Foldable List
-foldList := foldr (+) 0 (Cons 1 (Cons 2 (Cons 3 Nil)))  -- 6
+foldList := foldr (+) 0 [1, 2, 3]        -- 6
 
--- Semigroup on List: append joins two lists
-appList := append (Cons 1 Nil) (Cons 2 Nil)  -- Cons 1 (Cons 2 Nil)
+-- Semigroup on List: (<>) joins two lists
+appList := [1] <> [2]                    -- [1, 2]
 
 -- Semigroup on Ordering: first non-EQ wins
 appOrd := append EQ GT                   -- GT

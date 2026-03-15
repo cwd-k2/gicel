@@ -43,7 +43,7 @@ main := toUpper (append "hello" " world")
 	}, `
 import Std.Num
 import Std.List
-main := foldl (+) 0 (Cons 1 (Cons 2 (Cons 3 Nil)))
+main := foldl (+) 0 [1, 2, 3]
 `, func(v gicel.Value) {
 		fmt.Println("List:  foldl (+) =", gicel.MustHost[int64](v))
 	})

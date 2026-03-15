@@ -1,64 +1,55 @@
 -- GICEL Example: List Operations
 --
--- Lists in GICEL are built with Cons and Nil constructors.
+-- Lists can be written as [1, 2, 3] (desugars to Cons/Nil).
 -- Import Std.List for higher-order list operations.
 -- Level: basics
 
 import Std.Num
 import Std.List
 
--- Building lists with Cons/Nil
-nums := Cons 1 (Cons 2 (Cons 3 (Cons 4 (Cons 5 Nil))))
+-- Building lists with list literals
+nums := [1, 2, 3, 4, 5]
 
 -- Count elements with length (from Std.List)
 len := length nums                              -- 5
 
 -- map (via fmap): transform each element
-doubled := fmap (\x -> x * 2) nums
--- Cons 2 (Cons 4 (Cons 6 (Cons 8 (Cons 10 Nil))))
+doubled := fmap (\x -> x * 2) nums              -- [2, 4, 6, 8, 10]
 
 -- filter: keep elements satisfying a predicate
-evens := filter (\x -> mod x 2 == 0) nums
--- Cons 2 (Cons 4 Nil)
+evens := filter (\x -> mod x 2 == 0) nums       -- [2, 4]
 
 -- foldl: left fold (strict, tail-recursive in the runtime)
-total := foldl (+) 0 nums
--- 15
+total := foldl (+) 0 nums                        -- 15
 
 -- foldr: right fold (from prelude Foldable instance)
-totalR := foldr (+) 0 nums
--- 15
+totalR := foldr (+) 0 nums                       -- 15
 
 -- reverse: flip the list
-rev := reverse nums
--- Cons 5 (Cons 4 (Cons 3 (Cons 2 (Cons 1 Nil))))
+rev := reverse nums                              -- [5, 4, 3, 2, 1]
 
 -- take and drop: slice from the front
-first3 := take 3 nums              -- Cons 1 (Cons 2 (Cons 3 Nil))
-last2 := drop 3 nums               -- Cons 4 (Cons 5 Nil)
+first3 := take 3 nums                            -- [1, 2, 3]
+last2 := drop 3 nums                             -- [4, 5]
 
--- concat: join two lists
-joined := concat (Cons 1 (Cons 2 Nil)) (Cons 3 (Cons 4 Nil))
--- Cons 1 (Cons 2 (Cons 3 (Cons 4 Nil)))
+-- (<>): join two lists (Semigroup operator)
+joined := [1, 2] <> [3, 4]                       -- [1, 2, 3, 4]
 
--- append (Semigroup): same as concat for lists
-appended := append (Cons 10 Nil) (Cons 20 Nil)
--- Cons 10 (Cons 20 Nil)
+-- singleton: wrap a value in a one-element list
+single := singleton 42                           -- [42]
 
 -- replicate: create a list of n copies
-fives := replicate 4 5
--- Cons 5 (Cons 5 (Cons 5 (Cons 5 Nil)))
+fives := replicate 4 5                           -- [5, 5, 5, 5]
 
 -- zip: pair elements from two lists
-zipped := zip (Cons 1 (Cons 2 (Cons 3 Nil))) (Cons 10 (Cons 20 (Cons 30 Nil)))
--- Cons (1,10) (Cons (2,20) (Cons (3,30) Nil))
+zipped := zip [1, 2, 3] [10, 20, 30]             -- [(1,10), (2,20), (3,30)]
 
 -- index: safe element access
-atTwo := index 2 nums              -- Just 3
-atTen := index 10 nums             -- Nothing
+atTwo := index 2 nums                            -- Just 3
+atTen := index 10 nums                           -- Nothing
 
 -- Monoid: empty list
-nil := empty :: List Int            -- Nil
+nil := empty :: List Int                         -- []
 
 -- Data pipeline: filter, transform, fold
 pipeline := foldl (+) 0

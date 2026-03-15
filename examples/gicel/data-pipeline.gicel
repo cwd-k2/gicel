@@ -8,35 +8,31 @@ import Std.Num
 import Std.List
 
 -- Raw scores from a class of students
-scores := Cons 85 (Cons 92 (Cons 67 (Cons 95 (Cons 43 (Cons 78 (Cons 88 (Cons 55 Nil)))))))
+scores := [85, 92, 67, 95, 43, 78, 88, 55]
 
 -- Step 1: Count total students
 totalStudents := length scores                            -- 8
 
 -- Step 2: Filter passing scores (>= 70)
-passing := filter (\s -> s >= 70) scores
--- Cons 85 (Cons 92 (Cons 95 (Cons 78 (Cons 88 Nil))))
+passing := filter (\s -> s >= 70) scores                  -- [85, 92, 95, 78, 88]
 
 -- Step 3: Count passing students
 passingCount := length passing                            -- 5
 
 -- Step 4: Grade boost — add 5 bonus points to each passing score
-boosted := fmap (\s -> s + 5) passing
--- Cons 90 (Cons 97 (Cons 100 (Cons 83 (Cons 93 Nil))))
+boosted := fmap (\s -> s + 5) passing                     -- [90, 97, 100, 83, 93]
 
 -- Step 5: Sum of boosted scores
-totalBoosted := foldl (+) 0 boosted                      -- 463
+totalBoosted := foldl (+) 0 boosted                       -- 463
 
 -- Step 6: Find the highest score using foldl
-highest := foldl max 0 scores
--- 95
+highest := foldl max 0 scores                             -- 95
 
 -- Step 7: Find the lowest score
-lowest := foldl min 999 scores
--- 43
+lowest := foldl min 999 scores                            -- 43
 
 -- Step 8: Count how many scored above 80
-aboveEighty := length (filter (\s -> s > 80) scores)     -- 4
+aboveEighty := length (filter (\s -> s > 80) scores)      -- 4
 
 -- Compose a report tuple
 -- Output: (8, 5, 463, 95, 43, 4)
