@@ -73,6 +73,21 @@ func (ch *Checker) checkDecls(decls []syntax.Decl) *core.Program {
 		}
 	}
 
+	// 7.5. Pre-register annotated non-assumption bindings into the context.
+	// Only the type is registered; bodies are checked in phase 9.
+	// This allows instance methods (phase 8) to reference these bindings,
+	// matching the open-scope semantics of Wadler & Blott type classes.
+	for _, d := range decls {
+		if def, ok := d.(*syntax.DeclValueDef); ok {
+			if v, ok := def.Expr.(*syntax.ExprVar); ok && v.Name == "assumption" {
+				continue
+			}
+			if annTy, hasAnn := annotations[def.Name]; hasAnn {
+				ch.ctx.Push(&CtxVar{Name: def.Name, Type: annTy})
+			}
+		}
+	}
+
 	// 8. Process instance bodies (type-checks methods, generates dict bindings).
 	for _, inst := range instanceDecls {
 		ch.processInstanceBody(inst, prog)
