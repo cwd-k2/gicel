@@ -79,6 +79,59 @@ func TestLexOperators(t *testing.T) {
 	}
 }
 
+func TestLexUTF8AdjacentOperator(t *testing.T) {
+	// Multi-byte continuation chars inside identifier: the identifier scanner
+	// should handle them correctly (isIdentCont accepts unicode.IsLetter).
+	tokens := lex("xα + yβ")
+	if len(tokens) < 4 {
+		t.Fatalf("expected at least 4 tokens, got %d", len(tokens))
+	}
+	if tokens[0].Kind != TokLower || tokens[0].Text != "xα" {
+		t.Errorf("token[0]: got %v %q, want TokLower 'xα'", tokens[0].Kind, tokens[0].Text)
+	}
+	if tokens[1].Kind != TokOp || tokens[1].Text != "+" {
+		t.Errorf("token[1]: got %v %q, want TokOp '+'", tokens[1].Kind, tokens[1].Text)
+	}
+	if tokens[2].Kind != TokLower || tokens[2].Text != "yβ" {
+		t.Errorf("token[2]: got %v %q, want TokLower 'yβ'", tokens[2].Kind, tokens[2].Text)
+	}
+
+	// Operator immediately followed by multi-byte char should not consume it.
+	tokens2 := lex("+xα")
+	if tokens2[0].Kind != TokOp || tokens2[0].Text != "+" {
+		t.Errorf("token[0]: got %v %q, want TokOp '+'", tokens2[0].Kind, tokens2[0].Text)
+	}
+	if tokens2[1].Kind != TokLower || tokens2[1].Text != "xα" {
+		t.Errorf("token[1]: got %v %q, want TokLower 'xα'", tokens2[1].Kind, tokens2[1].Text)
+	}
+}
+
+func TestLexUTF8InComments(t *testing.T) {
+	// Line comment with multi-byte characters
+	tokens := lex("x -- コメント\ny")
+	if len(tokens) < 3 {
+		t.Fatalf("expected at least 3 tokens, got %d", len(tokens))
+	}
+	if tokens[0].Kind != TokLower || tokens[0].Text != "x" {
+		t.Errorf("token[0]: got %v %q, want TokLower 'x'", tokens[0].Kind, tokens[0].Text)
+	}
+	if tokens[1].Kind != TokLower || tokens[1].Text != "y" {
+		t.Errorf("token[1]: got %v %q, want TokLower 'y'", tokens[1].Kind, tokens[1].Text)
+	}
+
+	// Block comment with multi-byte characters
+	tokens2 := lex("a {- ブロック -} b")
+	if len(tokens2) < 3 {
+		t.Fatalf("expected at least 3 tokens, got %d", len(tokens2))
+	}
+	if tokens2[0].Kind != TokLower || tokens2[0].Text != "a" {
+		t.Errorf("token[0]: got %v %q, want TokLower 'a'", tokens2[0].Kind, tokens2[0].Text)
+	}
+	if tokens2[1].Kind != TokLower || tokens2[1].Text != "b" {
+		t.Errorf("token[1]: got %v %q, want TokLower 'b'", tokens2[1].Kind, tokens2[1].Text)
+	}
+}
+
 func TestLexBangHash(t *testing.T) {
 	tokens := lex("r!#x")
 	// r, !#, x, EOF

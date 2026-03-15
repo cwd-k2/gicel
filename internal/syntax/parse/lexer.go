@@ -193,8 +193,12 @@ func (l *Lexer) scanToken() Token {
 
 		// Operator
 		if isOperatorChar(ch) {
-			for l.pos < len(l.source.Text) && isOperatorChar(rune(l.source.Text[l.pos])) {
-				l.pos++
+			for l.pos < len(l.source.Text) {
+				r, size := utf8.DecodeRuneInString(l.source.Text[l.pos:])
+				if !isOperatorChar(r) {
+					break
+				}
+				l.pos += size
 			}
 			return l.tok(TokOp, start)
 		}
@@ -243,7 +247,8 @@ func (l *Lexer) skipWhitespaceAndComments() {
 					depth--
 					l.pos += 2
 				} else {
-					l.pos++
+					_, size := utf8.DecodeRuneInString(l.source.Text[l.pos:])
+					l.pos += size
 				}
 			}
 			if depth > 0 {
@@ -273,11 +278,15 @@ func (l *Lexer) peekAt(offset int) rune {
 	if p >= len(l.source.Text) {
 		return 0
 	}
-	return rune(l.source.Text[p])
+	r, _ := utf8.DecodeRuneInString(l.source.Text[p:])
+	return r
 }
 
 func (l *Lexer) advance() {
-	l.pos++
+	if l.pos < len(l.source.Text) {
+		_, size := utf8.DecodeRuneInString(l.source.Text[l.pos:])
+		l.pos += size
+	}
 }
 
 func (l *Lexer) tok(kind TokenKind, start int) Token {
