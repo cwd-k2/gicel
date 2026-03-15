@@ -88,13 +88,7 @@ Provides string and rune operations.
 | `showBool`  | `Bool -> String`                  | Convert Bool to "True" or "False"                |
 | `readInt`   | `String -> Maybe Int`             | Parse decimal string to Int                      |
 
-**Notes:**
-
-- `strlen` counts Unicode code points, not bytes. Named `strlen` (not `length`) to avoid collision with `Std.List.length`.
-- `toRunes` decomposes a string into a `List Rune` for character-level processing.
-- `charAt` and `substring` use 0-based rune indexing.
-- String concatenation uses the `append` method from `Semigroup String`. The empty string is `empty` from `Monoid String`.
-- No string interpolation. Build strings with `append` and conversion functions.
+Instances: `Eq/Ord/Semigroup/Monoid String`, `Eq/Ord Rune`, `Packed String Rune`. `strlen` counts runes, not bytes. `charAt`/`substring` use 0-based rune indexing. Concatenation via `append`.
 
 ### Std.List
 
@@ -117,11 +111,7 @@ Provides list operations (native-speed implementations).
 | `zip`       | `forall a b. List a -> List b -> List (a, b)`   | Zip two lists into pairs                               |
 | `unzip`     | `forall a b. List (a, b) -> (List a, List b)`   | Unzip a list of pairs                                  |
 
-**Notes:**
-
-- When both Std.List and Std.Str are imported, `length` may be ambiguous. Qualify if needed, or use only one.
-- `foldl` is strict (evaluates the accumulator at each step).
-- The Prelude already provides `foldr`, `map`, `filter`, `head`, `tail`, `null`, `singleton`, and `append` for lists.
+`foldl` is strict. Prelude provides `foldr`, `map`, `filter`, `head`, `tail`, `null`, `singleton`, `append` for lists.
 
 ### Std.State
 
@@ -135,13 +125,7 @@ Provides get/put state capabilities via the `state` capability in CapEnv.
 | `put`    | `forall s r. s -> Computation { state : s \| r } { state : s \| r } ()`        | Replace current state     |
 | `modify` | `forall s r. (s -> s) -> Computation { state : s \| r } { state : s \| r } ()` | Apply a function to state |
 
-**Host setup:** Provide the initial state as the `"state"` capability:
-
-```go
-caps := map[string]any{"state": gicel.ToValue(0)}
-result, err := rt.RunContextFull(ctx, caps, nil, "main")
-// result.CapEnv contains the final state
-```
+Host provides `"state"` capability. Final state is in `result.CapEnv`.
 
 ### Std.Fail
 
@@ -156,10 +140,7 @@ Provides failure/error effects via the `fail` capability.
 | `fromMaybe`  | `forall a r. Maybe a -> Computation { fail : () \| r } { fail : () \| r } a`    | Extract Just or fail on Nothing |
 | `fromResult` | `forall e a r. Result e a -> Computation { fail : e \| r } { fail : e \| r } a` | Extract Ok or failWith on Err   |
 
-**Notes:**
-
-- `fail` and `failWith` abort the computation. There is no catch/recover at the language level; the host handles the error.
-- The return type is `a` (universally quantified), meaning failure can appear in any position.
+`fail`/`failWith` abort the computation. No catch/recover at language level; the host handles errors.
 
 ### Std.IO
 
@@ -172,14 +153,47 @@ Provides print/debug capabilities via the `io` capability.
 | `print` | `String -> Computation { io : () \| r } { io : () \| r } ()`      | Append a string to the IO buffer         |
 | `debug` | `forall a. a -> Computation { io : () \| r } { io : () \| r } ()` | Append debug representation to IO buffer |
 
-**Host setup:** Provide the `"io"` capability. Output accumulates as `[]string` in the final CapEnv:
+Host provides `"io"` capability. Output accumulates as `[]string` in the final CapEnv.
 
-```go
-caps := map[string]any{"io": gicel.ToValue(nil)}
-result, err := rt.RunContextFull(ctx, caps, nil, "main")
-// Read output:
-ioVal, _ := result.CapEnv.Get("io")
-lines := ioVal.([]string)
+### Std.Stream
+
+Provides lazy list (stream) operations. Requires recursion (`fix`), loaded via `RegisterModuleRec`.
+
 ```
+data Stream a = LCons a (() -> Stream a) | LNil
+```
+
+| Name       | Type                                              | Description            |
+| ---------- | ------------------------------------------------- | ---------------------- |
+| `headS`    | `forall a. Stream a -> Maybe a`                   | First element          |
+| `tailS`    | `forall a. Stream a -> Maybe (Stream a)`          | Tail (forces thunk)    |
+| `toList`   | `forall a. Stream a -> List a`                    | Convert to strict list |
+| `fromList` | `forall a. List a -> Stream a`                    | Convert to lazy stream |
+| `mapS`     | `forall a b. (a -> b) -> Stream a -> Stream b`    | Map over stream        |
+| `foldrS`   | `forall a b. (a -> b -> b) -> b -> Stream a -> b` | Right fold             |
+| `takeS`    | `forall a. Int -> Stream a -> List a`             | Take first n as list   |
+| `dropS`    | `forall a. Int -> Stream a -> Stream a`           | Drop first n           |
+
+Instances: `Functor Stream`, `Foldable Stream`
+
+### Std.Slice
+
+Provides contiguous array with O(1) length/index.
+
+| Name             | Type                                             | Description    |
+| ---------------- | ------------------------------------------------ | -------------- |
+| `sliceEmpty`     | `forall a. Slice a`                              | Empty slice    |
+| `sliceSingleton` | `forall a. a -> Slice a`                         | Single-element |
+| `sliceCons`      | `forall a. a -> Slice a -> Slice a`              | Prepend        |
+| `sliceSnoc`      | `forall a. Slice a -> a -> Slice a`              | Append         |
+| `sliceLength`    | `forall a. Slice a -> Int`                       | O(1) length    |
+| `sliceIndex`     | `forall a. Int -> Slice a -> Maybe a`            | O(1) index     |
+| `sliceFromList`  | `forall a. List a -> Slice a`                    | From list      |
+| `sliceToList`    | `forall a. Slice a -> List a`                    | To list        |
+| `sliceAppend`    | `forall a. Slice a -> Slice a -> Slice a`        | Concatenate    |
+| `sliceFoldr`     | `forall a b. (a -> b -> b) -> b -> Slice a -> b` | Right fold     |
+| `sliceFoldl`     | `forall a b. (b -> a -> b) -> b -> Slice a -> b` | Left fold      |
+
+Instances: `Functor Slice`, `Foldable Slice`, `Semigroup (Slice a)`, `Monoid (Slice a)`, `Packed (Slice a) a`
 
 ---

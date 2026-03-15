@@ -26,17 +26,17 @@ Typical agent workflow:
 
 ## Chapters
 
-| File             | Content                                     |
-| ---------------- | ------------------------------------------- |
-| [syntax.md]      | Keywords, punctuation, literals, comments   |
-| [types.md]       | Type system: ADT, GADT, forall, rows, kinds |
-| [expressions.md] | Lambda, case, do, operators, special forms  |
-| [effects.md]     | Computation, pure/bind, CapEnv, thunk/force |
-| [prelude.md]     | Prelude types, classes, instances           |
-| [functions.md]   | Prelude functions + operator reference      |
-| [stdlib.md]      | Std.Num, Str, List, State, Fail, IO         |
-| [patterns.md]    | Common patterns + pitfalls                  |
-| [go-api.md]      | Go integration: sandbox, lifecycle, errors  |
+| File             | Content                                            |
+| ---------------- | -------------------------------------------------- |
+| [syntax.md]      | Keywords, punctuation, literals, comments          |
+| [types.md]       | Type system: ADT, GADT, forall, rows, kinds        |
+| [expressions.md] | Lambda, case, do, operators, special forms         |
+| [effects.md]     | Computation, pure/bind, CapEnv, thunk/force        |
+| [prelude.md]     | Prelude types, classes, instances                  |
+| [functions.md]   | Prelude functions + operator reference             |
+| [stdlib.md]      | Std.Num, Str, List, State, Fail, IO, Stream, Slice |
+| [patterns.md]    | Common patterns + pitfalls                         |
+| [go-api.md]      | Go integration: sandbox, lifecycle, errors         |
 
 ---
 
@@ -95,18 +95,18 @@ gicel run --explain --verbose program.gicel
 
 CLI flags:
 
-| Flag          | Default  | Description                                            |
-| ------------- | -------- | ------------------------------------------------------ |
-| `--use`       | `all`    | Comma-separated packs: Num, Str, List, Fail, State, IO |
-| `--recursion` |          | Enable recursive definitions (run, check)              |
-| `--entry`     | `main`   | Entry point binding name                               |
-| `--timeout`   | `5s`     | Execution timeout (run only)                           |
-| `--max-steps` | `100000` | Step limit (run only)                                  |
-| `--max-depth` | `100`    | Depth limit (run only)                                 |
-| `--json`      | `false`  | Output result as JSON (run only)                       |
-| `--explain`   | `false`  | Show semantic evaluation trace (run only)              |
-| `--verbose`   | `false`  | Show source context in explain trace (run only)        |
-| `--no-color`  | `false`  | Disable color output; also respects `NO_COLOR` env var |
+| Flag          | Default  | Description                                                           |
+| ------------- | -------- | --------------------------------------------------------------------- |
+| `--use`       | `all`    | Comma-separated packs: Num, Str, List, Fail, State, IO, Stream, Slice |
+| `--recursion` |          | Enable recursive definitions (run, check)                             |
+| `--entry`     | `main`   | Entry point binding name                                              |
+| `--timeout`   | `5s`     | Execution timeout (run only)                                          |
+| `--max-steps` | `100000` | Step limit (run only)                                                 |
+| `--max-depth` | `100`    | Depth limit (run only)                                                |
+| `--json`      | `false`  | Output result as JSON (run only)                                      |
+| `--explain`   | `false`  | Show semantic evaluation trace (run only)                             |
+| `--verbose`   | `false`  | Show source context in explain trace (run only)                       |
+| `--no-color`  | `false`  | Disable color output; also respects `NO_COLOR` env var                |
 
 **Go API (Sandbox):**
 
@@ -117,7 +117,7 @@ result, err := gicel.RunSandbox(`
 import Std.Num
 main := 2 + 3
 `, &gicel.SandboxConfig{
-    Packs: []gicel.Pack{gicel.Num},
+    Packs: []gicel.Pack{gicel.Num, gicel.Str},
 })
 // result.Value is HostVal{Inner: int64(5)}
 // CLI prints: 5  (PrettyValue formats source-level terms)

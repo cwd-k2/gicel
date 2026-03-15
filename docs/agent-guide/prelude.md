@@ -98,77 +98,36 @@ class IxMonad (m : Row -> Row -> Type -> Type) {
 }
 ```
 
+**Monad**
+
+```
+class Monad (m : Type -> Type) {
+  mpure :: forall a. a -> m a;
+  mbind :: forall a b. m a -> (a -> m b) -> m b
+}
+```
+
+**Packed**
+
+```
+class Packed c e {
+  pack   :: List e -> c;
+  unpack :: c -> List e
+}
+```
+
 ### Instances
 
-**IxMonad instances:**
-
-| Instance              | Notes                                    |
-| --------------------- | ---------------------------------------- |
-| `IxMonad Computation` | Uses built-in `pure`/`bind`              |
-| `IxMonad Maybe`       | `Nothing` propagates; `Just a` applies f |
-| `IxMonad List`        | Concatmap (list monad)                   |
-
-**Eq instances:**
-
-| Instance                    |
-| --------------------------- |
-| `Eq Bool`                   |
-| `Eq ()`                     |
-| `Eq Ordering`               |
-| `Eq a => Eq (Maybe a)`      |
-| `Eq a => Eq b => Eq (a, b)` |
-| `Eq a => Eq (List a)`       |
-
-**Ord instances:**
-
-| Instance                       |
-| ------------------------------ |
-| `Ord Bool`                     |
-| `Ord ()`                       |
-| `Ord Ordering`                 |
-| `Ord a => Ord (Maybe a)`       |
-| `Ord a => Ord b => Ord (a, b)` |
-
-**Semigroup instances:**
-
-| Instance                             |
-| ------------------------------------ |
-| `Semigroup ()`                       |
-| `Semigroup Ordering`                 |
-| `Semigroup a => Semigroup (Maybe a)` |
-| `Semigroup (List a)`                 |
-
-**Monoid instances:**
-
-| Instance                          |
-| --------------------------------- |
-| `Monoid ()`                       |
-| `Monoid Ordering`                 |
-| `Semigroup a => Monoid (Maybe a)` |
-| `Monoid (List a)`                 |
-
-**Functor instances:**
-
-| Instance        |
-| --------------- |
-| `Functor Maybe` |
-| `Functor List`  |
-
-**Foldable instances:**
-
-| Instance         |
-| ---------------- |
-| `Foldable Maybe` |
-| `Foldable List`  |
-
-**Applicative instances:**
-
-| Instance            |
-| ------------------- |
-| `Applicative Maybe` |
-
-**Traversable instances:**
-
-| Instance            |
-| ------------------- |
-| `Traversable Maybe` |
+| Class         | Instances                                              |
+| ------------- | ------------------------------------------------------ |
+| `IxMonad`     | `Computation` (built-in), `Maybe`, `List`              |
+| `Monad`       | `Maybe`, `List`                                        |
+| `Eq`          | `Bool`, `()`, `Ordering`, `Maybe a`, `(a,b)`, `List a` |
+| `Ord`         | `Bool`, `()`, `Ordering`, `Maybe a`, `(a,b)`           |
+| `Semigroup`   | `()`, `Ordering`, `Maybe a`, `List a`                  |
+| `Monoid`      | `()`, `Ordering`, `Maybe a`, `List a`                  |
+| `Functor`     | `Maybe`, `List`                                        |
+| `Foldable`    | `Maybe`, `List`                                        |
+| `Applicative` | `Maybe`                                                |
+| `Traversable` | `Maybe`                                                |
+| `Packed`      | `Packed (List a) a` (identity)                         |
