@@ -11,8 +11,10 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 	"time"
@@ -55,7 +57,7 @@ Commands:
   example  Show example programs (example <name> for source)
 
 Flags (run, check):
-  --use <packs>    Stdlib packs: Num,Str,List,Fail,State,IO (default: all)
+  --use <packs>    Stdlib packs: Num,Str,List,Fail,State,IO,Stream,Slice (default: all)
   --recursion      Enable recursive definitions (fix/rec)
 
 Flags (run only):
@@ -66,7 +68,8 @@ Flags (run only):
   --json           Output result as JSON
   --explain        Show semantic evaluation trace
   --verbose        Show source context in explain trace
-  --no-color       Disable color output`)
+  --no-color       Disable color output
+  --stdin          Read source from stdin`)
 }
 
 func cmdDocs(args []string) int {
@@ -192,16 +195,18 @@ func exampleLevel(source string) string {
 
 // packMap maps pack names to their Pack functions.
 var packMap = map[string]gicel.Pack{
-	"num":   gicel.Num,
-	"str":   gicel.Str,
-	"list":  gicel.List,
-	"fail":  gicel.Fail,
-	"state": gicel.State,
-	"io":    gicel.IO,
+	"num":    gicel.Num,
+	"str":    gicel.Str,
+	"list":   gicel.List,
+	"fail":   gicel.Fail,
+	"state":  gicel.State,
+	"io":     gicel.IO,
+	"stream": gicel.Stream,
+	"slice":  gicel.Slice,
 }
 
 // allPackOrder ensures deterministic pack loading.
-var allPackOrder = []string{"num", "str", "list", "fail", "state", "io"}
+var allPackOrder = []string{"num", "str", "list", "fail", "state", "io", "stream", "slice"}
 
 func setupEngine(use string) (*gicel.Engine, error) {
 	eng := gicel.NewEngine()
@@ -242,15 +247,22 @@ func cmdRun(args []string) int {
 	explain := fs.Bool("explain", false, "show semantic evaluation trace")
 	verbose := fs.Bool("verbose", false, "show source context in explain trace")
 	noColor := fs.Bool("no-color", false, "disable color output")
+	stdin := fs.Bool("stdin", false, "read source from stdin")
 	if err := fs.Parse(args); err != nil {
 		return 1
 	}
-	if fs.NArg() < 1 {
-		fmt.Fprintln(os.Stderr, "error: no source file specified")
-		return 1
-	}
 
-	source, err := os.ReadFile(fs.Arg(0))
+	var source []byte
+	var err error
+	if *stdin {
+		source, err = io.ReadAll(os.Stdin)
+	} else {
+		if fs.NArg() < 1 {
+			fmt.Fprintln(os.Stderr, "error: no source file specified")
+			return 1
+		}
+		source, err = os.ReadFile(fs.Arg(0))
+	}
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		return 1
@@ -284,7 +296,7 @@ func cmdRun(args []string) int {
 	rt, err := eng.NewRuntime(string(source))
 	if err != nil {
 		if *jsonOut {
-			outputJSON(map[string]any{"ok": false, "error": err.Error(), "phase": "compile"})
+			outputJSON(compileErrorJSON(err))
 		} else {
 			fmt.Fprintf(os.Stderr, "%v\n", err)
 		}
@@ -316,6 +328,9 @@ func cmdRun(args []string) int {
 				"steps":    result.Stats.Steps,
 				"maxDepth": result.Stats.MaxDepth,
 			},
+		}
+		if caps := formatCapEnv(result.CapEnv); len(caps) > 0 {
+			out["capEnv"] = caps
 		}
 		if *explain {
 			out["explain"] = explainSteps
@@ -360,7 +375,7 @@ func cmdCheck(args []string) int {
 	_, err = eng.Check(string(source))
 	if err != nil {
 		if *jsonOut {
-			outputJSON(map[string]any{"ok": false, "error": err.Error()})
+			outputJSON(compileErrorJSON(err))
 		} else {
 			fmt.Fprintf(os.Stderr, "%v\n", err)
 		}
@@ -375,6 +390,28 @@ func cmdCheck(args []string) int {
 	return 0
 }
 
+// compileErrorJSON produces structured JSON from a compile error.
+// If the error is a *gicel.CompileError, diagnostics are included.
+func compileErrorJSON(err error) map[string]any {
+	out := map[string]any{"ok": false, "phase": "compile", "error": err.Error()}
+	var ce *gicel.CompileError
+	if errors.As(err, &ce) {
+		diags := ce.Diagnostics()
+		jdiags := make([]map[string]any, len(diags))
+		for i, d := range diags {
+			jdiags[i] = map[string]any{
+				"code":    fmt.Sprintf("E%04d", d.Code),
+				"phase":   d.Phase,
+				"line":    d.Line,
+				"col":     d.Col,
+				"message": d.Message,
+			}
+		}
+		out["diagnostics"] = jdiags
+	}
+	return out
+}
+
 func outputJSON(v any) {
 	enc := json.NewEncoder(os.Stdout)
 	enc.SetIndent("", "  ")
@@ -387,10 +424,9 @@ func outputJSON(v any) {
 // shape without reading every step.
 func summarizeSteps(steps []gicel.ExplainStep) any {
 	type sectionSummary struct {
-		Binds   int      `json:"binds"`
-		Effects int      `json:"effects"`
-		Matches int      `json:"matches"`
-		Ops     []string `json:"ops,omitempty"`
+		binds, effects, matches int
+		ops                     []string
+		result                  string
 	}
 
 	var sections []map[string]any
@@ -399,15 +435,23 @@ func summarizeSteps(steps []gicel.ExplainStep) any {
 	opSet := map[string]bool{}
 
 	flush := func() {
-		if current != nil && (current.Binds+current.Effects+current.Matches) > 0 {
-			sections = append(sections, map[string]any{
-				"section": currentName,
-				"binds":   current.Binds,
-				"effects": current.Effects,
-				"matches": current.Matches,
-				"ops":     current.Ops,
-			})
+		if current == nil {
+			return
 		}
+		if current.binds+current.effects+current.matches == 0 && current.result == "" {
+			return
+		}
+		entry := map[string]any{
+			"section": currentName,
+			"binds":   current.binds,
+			"effects": current.effects,
+			"matches": current.matches,
+			"ops":     current.ops,
+		}
+		if current.result != "" {
+			entry["result"] = current.result
+		}
+		sections = append(sections, entry)
 	}
 
 	for _, s := range steps {
@@ -421,24 +465,46 @@ func summarizeSteps(steps []gicel.ExplainStep) any {
 			}
 		case gicel.ExplainBind:
 			if current != nil {
-				current.Binds++
+				current.binds++
 			}
 		case gicel.ExplainEffect:
 			if current != nil {
-				current.Effects++
+				current.effects++
 				if op := s.Detail.Op; op != "" && !opSet[op] {
 					opSet[op] = true
-					current.Ops = append(current.Ops, op)
+					current.ops = append(current.ops, op)
 				}
 			}
 		case gicel.ExplainMatch:
 			if current != nil {
-				current.Matches++
+				current.matches++
+			}
+		case gicel.ExplainResult:
+			if current != nil {
+				current.result = s.Detail.Value
 			}
 		}
 	}
 	flush()
 	return sections
+}
+
+// formatCapEnv serializes a CapEnv as a map of pretty-printed values.
+func formatCapEnv(ce gicel.CapEnv) map[string]any {
+	labels := ce.Labels()
+	if len(labels) == 0 {
+		return nil
+	}
+	m := make(map[string]any, len(labels))
+	for _, l := range labels {
+		v, _ := ce.Get(l)
+		if val, ok := v.(gicel.Value); ok {
+			m[l] = gicel.PrettyValue(val)
+		} else {
+			m[l] = fmt.Sprintf("%v", v)
+		}
+	}
+	return m
 }
 
 func formatValue(v gicel.Value) any {

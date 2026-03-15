@@ -25,6 +25,7 @@ const (
 // Message is a human-readable summary (kept for backward compatibility).
 // Detail carries structured data for machine consumption (JSON, agent feedback).
 type ExplainStep struct {
+	Seq     int           `json:"seq"`
 	Depth   int           `json:"depth"`
 	Kind    ExplainKind   `json:"kind"`
 	Message string        `json:"message,omitempty"`

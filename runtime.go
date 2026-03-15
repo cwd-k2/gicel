@@ -20,6 +20,7 @@ type Runtime struct {
 	allocLimit  int64
 	traceHook   eval.TraceHook
 	explainHook eval.ExplainHook
+	explainSeq  int // shared monotonic counter for explain events
 	source      *span.Source
 	bindings    map[string]types.Type
 	moduleProgs []*core.Program
@@ -29,6 +30,13 @@ type Runtime struct {
 // Program returns the compiled Core IR for debugging/inspection.
 func (r *Runtime) Program() *CoreProgram {
 	return &CoreProgram{prog: r.prog}
+}
+
+// emitExplain sends an ExplainStep to the hook with an auto-incremented seq.
+func (r *Runtime) emitExplain(step eval.ExplainStep) {
+	r.explainSeq++
+	step.Seq = r.explainSeq
+	r.explainHook(step)
 }
 
 // RunResult holds the result of a single execution.
@@ -96,6 +104,7 @@ func (r *Runtime) run(ctx context.Context, caps map[string]any, bindings map[str
 	}
 	ev := eval.NewEvaluator(ctx, r.prims, limit, r.traceHook, r.explainHook)
 	ev.SetSource(r.source)
+	ev.SetExplainSeq(r.explainSeq) // sync seq from runtime → evaluator
 
 	// Evaluate module bindings first (in registration order).
 	for _, modProg := range r.moduleProgs {
@@ -126,11 +135,13 @@ func (r *Runtime) run(ctx context.Context, caps map[string]any, bindings map[str
 	}
 
 	if r.explainHook != nil {
-		r.explainHook(eval.ExplainStep{
+		r.explainSeq = ev.ExplainSeq()
+		r.emitExplain(eval.ExplainStep{
 			Kind:    eval.ExplainLabel,
 			Message: "── " + entry + " ──",
 			Detail:  eval.LabelDetail(entry, "section"),
 		})
+		ev.SetExplainSeq(r.explainSeq)
 	}
 	capEnv := eval.NewCapEnv(caps)
 	result, err := ev.Eval(env, capEnv, entryExpr)
@@ -143,8 +154,9 @@ func (r *Runtime) run(ctx context.Context, caps map[string]any, bindings map[str
 		return eval.EvalResult{}, EvalStats{}, err
 	}
 	if r.explainHook != nil {
+		r.explainSeq = ev.ExplainSeq() // sync seq from evaluator → runtime
 		val := eval.PrettyValue(result.Value)
-		r.explainHook(eval.ExplainStep{
+		r.emitExplain(eval.ExplainStep{
 			Kind:    eval.ExplainResult,
 			Message: "→ " + val,
 			Detail:  eval.ResultDetail(val),
@@ -170,11 +182,13 @@ func (r *Runtime) evalBindings(ev *eval.Evaluator, env *eval.Env, bindings []cor
 	}
 	for _, b := range bindings {
 		if label && r.explainHook != nil {
-			r.explainHook(eval.ExplainStep{
+			r.explainSeq = ev.ExplainSeq()
+			r.emitExplain(eval.ExplainStep{
 				Kind:    eval.ExplainLabel,
 				Message: "── " + b.Name + " ──",
 				Detail:  eval.LabelDetail(b.Name, "section"),
 			})
+			ev.SetExplainSeq(r.explainSeq)
 		}
 		result, err := ev.Eval(env, eval.NewCapEnv(nil), b.Expr)
 		if err != nil {

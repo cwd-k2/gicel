@@ -35,6 +35,7 @@ type Evaluator struct {
 	explain       ExplainHook
 	source        *span.Source // for line/col in explain events; nil if unavailable
 	suppress      int          // >0: suppress explain events (inside stdlib)
+	explainSeq    int          // monotonic step counter for explain events
 	cachedApplier Applier      // reused across all primitive invocations
 	stats         EvalStats
 }
@@ -57,6 +58,14 @@ func (ev *Evaluator) SetSource(src *span.Source) {
 	ev.source = src
 }
 
+// SetExplainSeq sets the monotonic counter for explain events,
+// allowing the caller to synchronize seq numbering across runtime
+// and evaluator boundaries.
+func (ev *Evaluator) SetExplainSeq(seq int) { ev.explainSeq = seq }
+
+// ExplainSeq returns the current explain event counter.
+func (ev *Evaluator) ExplainSeq() int { return ev.explainSeq }
+
 // explainAt emits an ExplainStep with line/col derived from a Span.
 // Line/col are only set when the Span falls within the user's source text;
 // spans from stdlib modules (compiled with a different Source) are excluded.
@@ -65,7 +74,8 @@ func (ev *Evaluator) explainAt(kind ExplainKind, msg string, detail ExplainDetai
 	if ev.suppress > 0 {
 		return
 	}
-	step := ExplainStep{Depth: ev.limit.Depth(), Kind: kind, Message: msg, Detail: detail}
+	ev.explainSeq++
+	step := ExplainStep{Seq: ev.explainSeq, Depth: ev.limit.Depth(), Kind: kind, Message: msg, Detail: detail}
 	if ev.source != nil && s.Start > 0 && int(s.Start) < len(ev.source.Text) {
 		step.Line, step.Col = ev.source.Location(s.Start)
 	}
