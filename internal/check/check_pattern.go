@@ -41,29 +41,28 @@ func (ch *Checker) checkPattern(pat syntax.Pattern, scrutTy types.Type) patternR
 }
 
 func (ch *Checker) checkLitPattern(p *syntax.PatLit, scrutTy types.Type) patternResult {
-	var litTy types.Type
-	var litVal any
-	switch p.Kind {
-	case syntax.LitInt:
-		litTy = &types.TyCon{Name: "Int"}
-		n, _ := strconv.ParseInt(p.Value, 10, 64)
-		litVal = n
-	case syntax.LitString:
-		litTy = &types.TyCon{Name: "String"}
-		litVal = p.Value
-	case syntax.LitRune:
-		litTy = &types.TyCon{Name: "Rune"}
-		runes := []rune(p.Value)
-		if len(runes) > 0 {
-			litVal = runes[0]
-		} else {
-			litVal = rune(0)
-		}
-	}
+	litTy, litVal := parseLitValue(p.Kind, p.Value)
 	if err := ch.unifier.Unify(litTy, scrutTy); err != nil {
 		ch.addUnifyError(err, p.S, "literal pattern type mismatch")
 	}
 	return patternResult{Pattern: &core.PLit{Value: litVal, S: p.S}}
+}
+
+// parseLitValue converts a raw literal text into a (type, runtime value) pair.
+// Shared between literal patterns (checkLitPattern) and literal expressions (infer).
+func parseLitValue(kind syntax.LitKind, raw string) (types.Type, any) {
+	switch kind {
+	case syntax.LitInt:
+		n, _ := strconv.ParseInt(raw, 10, 64)
+		return &types.TyCon{Name: "Int"}, n
+	case syntax.LitString:
+		return &types.TyCon{Name: "String"}, raw
+	case syntax.LitRune:
+		// Runtime stores rune values as single-character strings (matching ExprRuneLit).
+		return &types.TyCon{Name: "Rune"}, raw
+	default:
+		return &types.TyCon{Name: "Int"}, int64(0)
+	}
 }
 
 // pendingCV tracks a constraint variable entry whose class/args are unknown

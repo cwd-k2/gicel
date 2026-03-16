@@ -120,17 +120,9 @@ func (ch *Checker) infer(expr syntax.Expr) (types.Type, core.Core) {
 		return retTy, &core.App{Fun: funCore, Arg: argCore, S: e.S}
 
 	case *syntax.ExprTyApp:
-		innerTy, innerCore := ch.inferHead(e.Expr)
-		ty := ch.resolveTypeExpr(e.TyArg)
-		innerTy = ch.unifier.Zonk(innerTy)
-		f, ok := innerTy.(*types.TyForall)
-		if !ok {
-			ch.addCodedError(errs.ErrBadTypeApp, e.S, "type application to non-polymorphic type")
-			return &types.TyError{S: e.S}, innerCore
-		}
-		resultTy := types.Subst(f.Body, f.Var, ty)
-		resultCore := &core.TyApp{Expr: innerCore, TyArg: ty, S: e.S}
-		return ch.instantiate(resultTy, resultCore)
+		// Delegate to inferHead (which preserves foralls) then instantiate remaining.
+		ty, coreExpr := ch.inferHead(e)
+		return ch.instantiate(ty, coreExpr)
 
 	case *syntax.ExprAnn:
 		ty := ch.resolveTypeExpr(e.AnnType)
