@@ -33,6 +33,13 @@ func (p *Parser) parseAnnotation() Expr {
 
 func (p *Parser) parseInfix(minPrec int) Expr {
 	left := p.parseApp()
+	return p.continueInfix(left, minPrec)
+}
+
+// continueInfix parses the infix portion of an expression, given an
+// already-parsed left operand. This enables parseParen to detect
+// left operator sections between parseApp and infix continuation.
+func (p *Parser) continueInfix(left Expr, minPrec int) Expr {
 	for p.isInfixOp() {
 		op := p.peek().Text
 		fix := p.lookupFixity(op)
@@ -137,6 +144,10 @@ func (p *Parser) parseAtom() Expr {
 }
 
 func (p *Parser) parseParen() Expr {
+	if !p.enterRecurse() {
+		return &ExprVar{Name: "<error>", S: span.Span{Start: span.Pos(p.pos), End: span.Pos(p.pos)}}
+	}
+	defer p.leaveRecurse()
 	start := p.peek().S.Start
 	p.expect(TokLParen)
 
@@ -147,19 +158,65 @@ func (p *Parser) parseParen() Expr {
 	}
 
 	// (op) → operator as value reference
-	if (p.peek().Kind == TokOp || p.peek().Kind == TokDot) &&
-		p.pos+1 < len(p.tokens) && p.tokens[p.pos+1].Kind == TokRParen {
+	// (op expr) → right section: \x -> x op expr
+	if p.peek().Kind == TokOp || p.peek().Kind == TokDot {
 		opTok := p.peek()
-		p.advance()
-		p.advance()
-		name := opTok.Text
+		opName := opTok.Text
 		if opTok.Kind == TokDot {
-			name = "."
+			opName = "."
 		}
-		return &ExprVar{Name: name, S: span.Span{Start: start, End: p.prevEnd()}}
+		// Check for (op) — operator as value
+		if p.pos+1 < len(p.tokens) && p.tokens[p.pos+1].Kind == TokRParen {
+			p.advance()
+			p.advance()
+			return &ExprVar{Name: opName, S: span.Span{Start: start, End: p.prevEnd()}}
+		}
+		// Try right section: (op expr)
+		saved := p.pos
+		savedErrLen := p.errors.Len()
+		p.advance() // skip op
+		arg := p.parseExpr()
+		if p.peek().Kind == TokRParen {
+			p.advance()
+			return &ExprSection{
+				Op: opName, Arg: arg, IsRight: true,
+				S: span.Span{Start: start, End: p.prevEnd()},
+			}
+		}
+		// Not a section — backtrack.
+		p.pos = saved
+		p.errors.Truncate(savedErrLen)
 	}
 
-	e := p.parseExpr()
+	// Parse the first sub-expression without infix operators,
+	// so we can detect left sections like (1 +).
+	firstApp := p.parseApp()
+	if firstApp == nil {
+		firstApp = &ExprVar{Name: "<error>", S: span.Span{Start: span.Pos(p.pos), End: span.Pos(p.pos)}}
+	}
+
+	// (e op) → left section: \x -> e op x
+	if p.isInfixOp() && p.pos+1 < len(p.tokens) && p.tokens[p.pos+1].Kind == TokRParen {
+		opTok := p.peek()
+		opName := opTok.Text
+		if opTok.Kind == TokDot {
+			opName = "."
+		}
+		p.advance() // skip op
+		p.advance() // skip )
+		return &ExprSection{
+			Op: opName, Arg: firstApp, IsRight: false,
+			S: span.Span{Start: start, End: p.prevEnd()},
+		}
+	}
+
+	// Continue with infix + annotation parsing.
+	e := p.continueInfix(firstApp, 0)
+	if p.peek().Kind == TokColonColon {
+		p.advance()
+		ty := p.parseType()
+		e = &ExprAnn{Expr: e, AnnType: ty, S: span.Span{Start: e.Span().Start, End: p.prevEnd()}}
+	}
 
 	// (e) → grouping
 	if p.peek().Kind == TokRParen {

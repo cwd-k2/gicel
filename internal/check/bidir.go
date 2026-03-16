@@ -162,6 +162,21 @@ func (ch *Checker) infer(expr syntax.Expr) (types.Type, core.Core) {
 	case *syntax.ExprParen:
 		return ch.infer(e.Inner)
 
+	case *syntax.ExprSection:
+		// Desugar operator sections to lambda:
+		// (+ 1)  → \$x -> $x + 1   (IsRight=true)
+		// (1 +)  → \$x -> 1 + $x   (IsRight=false)
+		param := "$sec"
+		var body syntax.Expr
+		paramVar := &syntax.ExprVar{Name: param, S: e.S}
+		if e.IsRight {
+			body = &syntax.ExprInfix{Left: paramVar, Op: e.Op, Right: e.Arg, S: e.S}
+		} else {
+			body = &syntax.ExprInfix{Left: e.Arg, Op: e.Op, Right: paramVar, S: e.S}
+		}
+		lam := &syntax.ExprLam{Params: []syntax.Pattern{&syntax.PatVar{Name: param, S: e.S}}, Body: body, S: e.S}
+		return ch.infer(lam)
+
 	case *syntax.ExprLam:
 		// In infer mode, generate fresh metas for param types.
 		paramTy := ch.freshMeta(types.KType{})

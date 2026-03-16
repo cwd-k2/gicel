@@ -1807,3 +1807,62 @@ func TestParseBlockNoPhantomErrors(t *testing.T) {
 		t.Fatalf("block expression should parse without errors:\n%s", es2.Format())
 	}
 }
+
+func TestParseRightSection(t *testing.T) {
+	prog, es := parse("main := (+ 1)")
+	if es.HasErrors() {
+		t.Fatalf("right section should parse without errors:\n%s", es.Format())
+	}
+	d := prog.Decls[0].(*DeclValueDef)
+	sec, ok := d.Expr.(*ExprSection)
+	if !ok {
+		t.Fatalf("expected ExprSection, got %T", d.Expr)
+	}
+	if sec.Op != "+" || !sec.IsRight {
+		t.Errorf("expected right section (+), got op=%q right=%v", sec.Op, sec.IsRight)
+	}
+}
+
+func TestParseLeftSection(t *testing.T) {
+	prog, es := parse("main := (1 +)")
+	if es.HasErrors() {
+		t.Fatalf("left section should parse without errors:\n%s", es.Format())
+	}
+	d := prog.Decls[0].(*DeclValueDef)
+	sec, ok := d.Expr.(*ExprSection)
+	if !ok {
+		t.Fatalf("expected ExprSection, got %T", d.Expr)
+	}
+	if sec.Op != "+" || sec.IsRight {
+		t.Errorf("expected left section (1 +), got op=%q right=%v", sec.Op, sec.IsRight)
+	}
+}
+
+func TestParseGroupingNotSection(t *testing.T) {
+	// (1 + 2) should be grouping, not a section.
+	prog, es := parse("main := (1 + 2)")
+	if es.HasErrors() {
+		t.Fatalf("grouping should parse without errors:\n%s", es.Format())
+	}
+	d := prog.Decls[0].(*DeclValueDef)
+	_, ok := d.Expr.(*ExprParen)
+	if !ok {
+		t.Fatalf("expected ExprParen (grouping), got %T", d.Expr)
+	}
+}
+
+func TestParseOperatorValueStillWorks(t *testing.T) {
+	// (+) should still work as operator value reference.
+	prog, es := parse("main := (+)")
+	if es.HasErrors() {
+		t.Fatalf("operator value should parse without errors:\n%s", es.Format())
+	}
+	d := prog.Decls[0].(*DeclValueDef)
+	v, ok := d.Expr.(*ExprVar)
+	if !ok {
+		t.Fatalf("expected ExprVar, got %T", d.Expr)
+	}
+	if v.Name != "+" {
+		t.Errorf("expected name '+', got %q", v.Name)
+	}
+}
