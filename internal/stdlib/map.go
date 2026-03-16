@@ -95,13 +95,17 @@ func avlRebalance(n *avlNode) *avlNode {
 	bal := avlBalance(n)
 	if bal > 1 {
 		if avlBalance(n.left) < 0 {
-			n.left = avlRotateLeft(n.left)
+			// Left-right case: copy n with rotated left child.
+			n = &avlNode{key: n.key, value: n.value,
+				left: avlRotateLeft(n.left), right: n.right, height: n.height}
 		}
 		return avlRotateRight(n)
 	}
 	if bal < -1 {
 		if avlBalance(n.right) > 0 {
-			n.right = avlRotateRight(n.right)
+			// Right-left case: copy n with rotated right child.
+			n = &avlNode{key: n.key, value: n.value,
+				left: n.left, right: avlRotateRight(n.right), height: n.height}
 		}
 		return avlRotateLeft(n)
 	}

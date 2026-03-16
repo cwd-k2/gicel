@@ -617,20 +617,23 @@ func TestAllocLimitBoundary(t *testing.T) {
 }
 
 func TestDepthLimitError(t *testing.T) {
-	// To stack depth, the *body* of a function must contain another application.
-	// Build: \x -> (\y -> y) x, applied to Unit → depth 2 (outer Enter + inner Enter).
+	// With TCO, closure application depth is flat (Enter→bounce→Leave).
+	// Depth only accumulates via Bind chains (not trampolined).
+	// Build: Bind(Pure(Unit), \_ -> Bind(Pure(Unit), \_ -> Pure(Unit)))
+	// = 2 nested Binds → depth 2.
 	ev := NewEvaluator(context.Background(), NewPrimRegistry(), NewLimit(1_000_000, 1), nil, nil)
-	// (\x -> (\y -> y) x) Unit — body applies identity, giving depth=2.
-	term := &core.App{
-		Fun: &core.Lam{Param: "x", Body: &core.App{
-			Fun: &core.Lam{Param: "y", Body: &core.Var{Name: "y"}},
-			Arg: &core.Var{Name: "x"},
-		}},
-		Arg: &core.Con{Name: "Unit"},
+	term := &core.Bind{
+		Comp: &core.Pure{Expr: &core.Con{Name: "Unit"}},
+		Var:  "_",
+		Body: &core.Bind{
+			Comp: &core.Pure{Expr: &core.Con{Name: "Unit"}},
+			Var:  "_",
+			Body: &core.Pure{Expr: &core.Con{Name: "Unit"}},
+		},
 	}
 	_, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), term)
 	if err == nil {
-		t.Fatal("expected DepthLimitError for depth-2 chain at maxDepth=1")
+		t.Fatal("expected DepthLimitError for depth-2 Bind chain at maxDepth=1")
 	}
 	if _, ok := err.(*DepthLimitError); !ok {
 		t.Errorf("expected *DepthLimitError, got %T: %v", err, err)
@@ -638,41 +641,37 @@ func TestDepthLimitError(t *testing.T) {
 }
 
 func TestDepthLimitMultiLevel(t *testing.T) {
-	// Build chain of N depth levels:
-	// Level 1: \x -> x
-	// Level 2: \x -> (level1) x
-	// Level N: \x -> (level(N-1)) x
-	// Applying levelN to Unit gives depth=N.
-	buildChain := func(depth int) core.Core {
-		var fn core.Core = &core.Lam{Param: "x0", Body: &core.Var{Name: "x0"}}
-		for i := 1; i < depth; i++ {
-			param := fmt.Sprintf("x%d", i)
-			fn = &core.Lam{Param: param, Body: &core.App{
-				Fun: fn,
-				Arg: &core.Var{Name: param},
-			}}
+	// Build chain of N nested Binds (depth accumulates via Bind).
+	buildBindChain := func(depth int) core.Core {
+		var body core.Core = &core.Pure{Expr: &core.Con{Name: "Unit"}}
+		for range depth {
+			body = &core.Bind{
+				Comp: &core.Pure{Expr: &core.Con{Name: "Unit"}},
+				Var:  "_",
+				Body: body,
+			}
 		}
-		return &core.App{Fun: fn, Arg: &core.Con{Name: "Unit"}}
+		return body
 	}
 
-	// maxDepth=5: chain of 5 should succeed.
+	// maxDepth=5: chain of 5 Binds should succeed.
 	ev := NewEvaluator(context.Background(), NewPrimRegistry(), NewLimit(1_000_000, 5), nil, nil)
-	_, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), buildChain(5))
+	_, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), buildBindChain(5))
 	if err != nil {
-		t.Fatalf("depth-5 chain at maxDepth=5 should succeed, got: %v", err)
+		t.Fatalf("depth-5 Bind chain at maxDepth=5 should succeed, got: %v", err)
 	}
 
 	// Chain of 6 should fail.
 	ev2 := NewEvaluator(context.Background(), NewPrimRegistry(), NewLimit(1_000_000, 5), nil, nil)
-	_, err = ev2.Eval(EmptyEnv(), EmptyCapEnv(), buildChain(6))
+	_, err = ev2.Eval(EmptyEnv(), EmptyCapEnv(), buildBindChain(6))
 	if _, ok := err.(*DepthLimitError); !ok {
-		t.Errorf("depth-6 chain at maxDepth=5 should fail with DepthLimitError, got %T: %v", err, err)
+		t.Errorf("depth-6 Bind chain at maxDepth=5 should fail with DepthLimitError, got %T: %v", err, err)
 	}
 }
 
-func TestLetRecDepthLimit(t *testing.T) {
-	// LetRec body evaluation should consume depth budget.
-	// Build nested LetRec: letrec f = \x -> x in (letrec g = \x -> x in ... Unit)
+func TestLetRecTCOFlat(t *testing.T) {
+	// With TCO, nested LetRec bodies bounce instead of accumulating depth.
+	// 10 nested LetRecs at maxDepth=5 should succeed (depth stays at 1).
 	term := core.Core(&core.Con{Name: "Unit"})
 	for i := range 10 {
 		name := string(rune('a' + i))
@@ -684,14 +683,13 @@ func TestLetRecDepthLimit(t *testing.T) {
 		}
 	}
 
-	// With maxDepth=5, 10 nested LetRecs should hit the depth limit.
 	ev := NewEvaluator(context.Background(), NewPrimRegistry(), NewLimit(1_000_000, 5), nil, nil)
-	_, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), term)
-	if err == nil {
-		t.Fatal("expected DepthLimitError for deeply nested LetRec")
+	r, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), term)
+	if err != nil {
+		t.Fatalf("expected success for LetRec TCO, got: %v", err)
 	}
-	if _, ok := err.(*DepthLimitError); !ok {
-		t.Errorf("expected *DepthLimitError, got %T: %v", err, err)
+	if con, ok := r.Value.(*ConVal); !ok || con.Con != "Unit" {
+		t.Errorf("expected Unit, got %v", r.Value)
 	}
 }
 

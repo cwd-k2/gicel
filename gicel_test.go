@@ -3217,9 +3217,13 @@ func TestProgramOpaque(t *testing.T) {
 // --- Phase 7B: Public API Edge Cases ---
 
 func TestSetDepthLimit(t *testing.T) {
+	// With TCO, tail-recursive loops keep depth flat (depth oscillates 0-1).
+	// The step limit is what prevents infinite tail recursion now.
+	// Verify that an infinite tail-recursive loop hits the step limit.
 	eng := gicel.NewEngine()
 	eng.EnableRecursion()
-	eng.SetDepthLimit(10)
+	eng.SetStepLimit(1000)
+	eng.SetDepthLimit(10000) // high enough to not interfere
 	rt, err := eng.NewRuntime(`
 loop := fix (\self -> \x -> self x)
 main := loop ()
@@ -3229,10 +3233,10 @@ main := loop ()
 	}
 	_, err = rt.RunWith(context.Background(), nil)
 	if err == nil {
-		t.Fatal("expected depth limit error")
+		t.Fatal("expected step limit error for infinite tail recursion")
 	}
-	if !strings.Contains(err.Error(), "depth limit") {
-		t.Fatalf("expected depth limit error, got: %v", err)
+	if !strings.Contains(err.Error(), "step limit") {
+		t.Fatalf("expected step limit error, got: %v", err)
 	}
 }
 

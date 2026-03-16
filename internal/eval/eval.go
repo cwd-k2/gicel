@@ -53,7 +53,7 @@ type Evaluator struct {
 func NewEvaluator(ctx context.Context, prims *PrimRegistry, limit *Limit, trace TraceHook, obs *ExplainObserver) *Evaluator {
 	ev := &Evaluator{ctx: ctx, prims: prims, limit: limit, trace: trace, obs: obs}
 	ev.cachedApplier = func(fn Value, arg Value, capEnv CapEnv) (Value, CapEnv, error) {
-		r, err := ev.apply(capEnv, fn, arg, &core.App{})
+		r, err := ev.applyResolved(capEnv, fn, arg, &core.App{})
 		if err != nil {
 			return nil, capEnv, err
 		}
@@ -70,16 +70,35 @@ func (ev *Evaluator) Stats() EvalStats {
 
 // Eval evaluates a Core expression using a trampoline loop for TCO.
 // Tail-position expressions return a bounceVal instead of recursing,
-// keeping the Go stack flat for deep recursion (e.g. tail-recursive case).
+// keeping the Go stack flat for deep recursion. Bounce sites include
+// case alt bodies, closure application, LetRec bodies, and Force.
 func (ev *Evaluator) Eval(env *Env, capEnv CapEnv, expr core.Core) (EvalResult, error) {
+	var pendingLeaveObs int // accumulated LeaveInternal calls to fire on resolution
 	for {
 		r, err := ev.evalStep(env, capEnv, expr)
 		if err != nil {
+			// Unwind observer suppression even on error (matches defer semantics).
+			for range pendingLeaveObs {
+				ev.obs.LeaveInternal()
+			}
 			return EvalResult{}, err
 		}
 		b, ok := r.Value.(*bounceVal)
 		if !ok {
+			// Final result: unwind all pending observer leaves.
+			for range pendingLeaveObs {
+				ev.obs.LeaveInternal()
+			}
 			return r, nil
+		}
+		// Unwind depth from the frame that bounced (Enter was already called).
+		for range b.leaveDepth {
+			ev.limit.Leave()
+		}
+		// Observer LeaveInternal is deferred until the continuation fully
+		// resolves, keeping suppression active during body evaluation.
+		if b.leaveObs {
+			pendingLeaveObs++
 		}
 		env, capEnv, expr = b.env, b.capEnv, b.expr
 	}
@@ -248,9 +267,11 @@ func (ev *Evaluator) evalStep(env *Env, capEnv CapEnv, expr core.Core) (EvalResu
 		if err := ev.limit.Enter(); err != nil {
 			return EvalResult{}, err
 		}
-		result, err := ev.Eval(bodyEnv, capEnv, e.Body)
-		ev.limit.Leave()
-		return result, err
+		// Tail position: bounce instead of recursing.
+		return EvalResult{Value: &bounceVal{
+			env: bodyEnv, capEnv: capEnv, expr: e.Body,
+			leaveDepth: 1,
+		}}, nil
 
 	case *core.Pure:
 		return ev.Eval(env, capEnv, e.Expr)
@@ -306,9 +327,11 @@ func (ev *Evaluator) evalStep(env *Env, capEnv CapEnv, expr core.Core) (EvalResu
 		if err := ev.limit.Enter(); err != nil {
 			return EvalResult{}, err
 		}
-		result, err := ev.Eval(thunk.Env, exprR.CapEnv, thunk.Comp)
-		ev.limit.Leave()
-		return result, err
+		// Tail position: bounce instead of recursing.
+		return EvalResult{Value: &bounceVal{
+			env: thunk.Env, capEnv: exprR.CapEnv, expr: thunk.Comp,
+			leaveDepth: 1,
+		}}, nil
 
 	case *core.Lit:
 		return EvalResult{&HostVal{Inner: e.Value}, capEnv}, nil
@@ -446,6 +469,37 @@ func (ev *Evaluator) ForceEffectful(r EvalResult, callSite span.Span) (EvalResul
 	return EvalResult{val, newCap}, nil
 }
 
+// applyResolved calls apply and resolves any bounceVal before returning.
+// Used by the cached Applier (exposed to primitives) which must not leak
+// internal bounceVal values to external code.
+func (ev *Evaluator) applyResolved(capEnv CapEnv, fn Value, arg Value, site *core.App) (EvalResult, error) {
+	r, err := ev.apply(capEnv, fn, arg, site)
+	if err != nil {
+		return EvalResult{}, err
+	}
+	b, ok := r.Value.(*bounceVal)
+	if !ok {
+		return r, nil
+	}
+	// Unwind depth; observer LeaveInternal is handled by the inner Eval's
+	// pendingLeaveObs since EnterInternal is already in effect.
+	for range b.leaveDepth {
+		ev.limit.Leave()
+	}
+	// Delegate to Eval which will handle pendingLeaveObs accumulation.
+	// We must re-enter the suppression scope so Eval can leave it.
+	if b.leaveObs {
+		// EnterInternal was already called in apply; Eval will call
+		// LeaveInternal when the continuation resolves.
+		// We use a direct Eval call here; it starts with pendingLeaveObs=0,
+		// so we must handle the leave ourselves after Eval returns.
+		result, err := ev.Eval(b.env, b.capEnv, b.expr)
+		ev.obs.LeaveInternal()
+		return result, err
+	}
+	return ev.Eval(b.env, b.capEnv, b.expr)
+}
+
 // applier returns the cached Applier that delegates to the evaluator's apply method.
 func (ev *Evaluator) applier() Applier {
 	return ev.cachedApplier
@@ -457,10 +511,11 @@ func (ev *Evaluator) apply(capEnv CapEnv, fn Value, arg Value, site *core.App) (
 		if err := ev.limit.Enter(); err != nil {
 			return EvalResult{}, err
 		}
+		var leaveObs bool
 		if ev.obs != nil && f.Name != "" {
 			if ev.obs.IsInternal(f.Name) {
 				ev.obs.EnterInternal()
-				defer ev.obs.LeaveInternal()
+				leaveObs = true
 			} else if ev.obs.Active() {
 				detail := labelDetail(f.Name, "enter")
 				detail.Value = PrettyValue(arg)
@@ -468,9 +523,11 @@ func (ev *Evaluator) apply(capEnv CapEnv, fn Value, arg Value, site *core.App) (
 			}
 		}
 		bodyEnv := f.Env.Extend(f.Param, arg)
-		result, err := ev.Eval(bodyEnv, capEnv, f.Body)
-		ev.limit.Leave()
-		return result, err
+		// Tail position: bounce instead of recursing.
+		return EvalResult{Value: &bounceVal{
+			env: bodyEnv, capEnv: capEnv, expr: f.Body,
+			leaveDepth: 1, leaveObs: leaveObs,
+		}}, nil
 	case *ConVal:
 		if err := ev.limit.Alloc(int64(costConBase + costConArg*(len(f.Args)+1))); err != nil {
 			return EvalResult{}, err
