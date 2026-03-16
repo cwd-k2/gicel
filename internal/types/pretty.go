@@ -79,7 +79,11 @@ func prettyCapFields(fields []RowField, tail Type) string {
 	}
 	parts := make([]string, len(fields))
 	for i, f := range fields {
-		parts[i] = fmt.Sprintf("%s : %s", f.Label, Pretty(f.Type))
+		if f.Mult != nil {
+			parts[i] = fmt.Sprintf("%s : %s @ %s", f.Label, Pretty(f.Type), Pretty(f.Mult))
+		} else {
+			parts[i] = fmt.Sprintf("%s : %s", f.Label, Pretty(f.Type))
+		}
 	}
 	inner := strings.Join(parts, ", ")
 	if tail != nil {

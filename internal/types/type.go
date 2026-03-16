@@ -59,10 +59,12 @@ type TyThunk struct {
 	S      span.Span
 }
 
-// RowField is a single label:type pair in a row.
+// RowField is a single label:type pair in a row, with optional multiplicity.
+// Mult is nil for unrestricted (the default); non-nil for graded capabilities.
 type RowField struct {
 	Label string
 	Type  Type
+	Mult  Type // nil = Unrestricted; e.g., TyCon("Linear"), TyCon("Affine")
 	S     span.Span
 }
 

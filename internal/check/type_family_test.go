@@ -344,6 +344,86 @@ class Bad a b | z -> b {
 	checkSourceExpectCode(t, source, nil, errs.ErrBadClass)
 }
 
+// --- Graded Evidence: RowField.Mult ---
+
+func TestRowFieldMultPretty(t *testing.T) {
+	// RowField with Mult should pretty-print as "label : Type @ Mult"
+	row := types.ClosedRow(types.RowField{
+		Label: "handle",
+		Type:  &types.TyCon{Name: "FileHandle"},
+		Mult:  &types.TyCon{Name: "Linear"},
+	})
+	s := types.Pretty(row)
+	if !strings.Contains(s, "@ Linear") {
+		t.Errorf("expected '@ Linear' in pretty output, got %q", s)
+	}
+}
+
+func TestRowFieldMultEquality(t *testing.T) {
+	a := types.ClosedRow(types.RowField{Label: "x", Type: &types.TyCon{Name: "Int"}, Mult: &types.TyCon{Name: "Linear"}})
+	b := types.ClosedRow(types.RowField{Label: "x", Type: &types.TyCon{Name: "Int"}, Mult: &types.TyCon{Name: "Linear"}})
+	c := types.ClosedRow(types.RowField{Label: "x", Type: &types.TyCon{Name: "Int"}, Mult: &types.TyCon{Name: "Affine"}})
+	d := types.ClosedRow(types.RowField{Label: "x", Type: &types.TyCon{Name: "Int"}}) // no Mult
+
+	if !types.Equal(a, b) {
+		t.Error("same Mult should be equal")
+	}
+	if types.Equal(a, c) {
+		t.Error("different Mult should not be equal")
+	}
+	if types.Equal(a, d) {
+		t.Error("Mult vs no-Mult should not be equal")
+	}
+}
+
+func TestRowFieldMultSubst(t *testing.T) {
+	row := types.ClosedRow(types.RowField{
+		Label: "cap",
+		Type:  &types.TyVar{Name: "a"},
+		Mult:  &types.TyVar{Name: "m"},
+	})
+	result := types.Subst(row, "m", &types.TyCon{Name: "Linear"})
+	evRow, ok := result.(*types.TyEvidenceRow)
+	if !ok {
+		t.Fatalf("expected TyEvidenceRow, got %T", result)
+	}
+	fields := evRow.CapFields()
+	if len(fields) != 1 {
+		t.Fatalf("expected 1 field, got %d", len(fields))
+	}
+	mult := fields[0].Mult
+	if mult == nil {
+		t.Fatal("expected non-nil Mult after subst")
+	}
+	if con, ok := mult.(*types.TyCon); !ok || con.Name != "Linear" {
+		t.Errorf("expected Mult = Linear, got %v", mult)
+	}
+}
+
+func TestRowFieldMultZonk(t *testing.T) {
+	u := NewUnifier()
+	meta := &types.TyMeta{ID: 1, Kind: types.KType{}}
+	u.soln[1] = &types.TyCon{Name: "Affine"}
+	row := types.ClosedRow(types.RowField{
+		Label: "cap",
+		Type:  &types.TyCon{Name: "Int"},
+		Mult:  meta,
+	})
+	result := u.Zonk(row)
+	evRow, ok := result.(*types.TyEvidenceRow)
+	if !ok {
+		t.Fatalf("expected TyEvidenceRow, got %T", result)
+	}
+	fields := evRow.CapFields()
+	if len(fields) != 1 {
+		t.Fatalf("expected 1 field, got %d", len(fields))
+	}
+	mult := fields[0].Mult
+	if con, ok := mult.(*types.TyCon); !ok || con.Name != "Affine" {
+		t.Errorf("expected Mult = Affine after zonk, got %v", mult)
+	}
+}
+
 // --- Unit tests for TyFamilyApp operations ---
 
 func TestTyFamilyAppPretty(t *testing.T) {

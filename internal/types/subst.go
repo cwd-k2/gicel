@@ -101,7 +101,14 @@ func Subst(t Type, varName string, replacement Type) Type {
 				if newT != f.Type {
 					changed = true
 				}
-				fields[i] = RowField{Label: f.Label, Type: newT, S: f.S}
+				var newMult Type
+				if f.Mult != nil {
+					newMult = Subst(f.Mult, varName, replacement)
+					if newMult != f.Mult {
+						changed = true
+					}
+				}
+				fields[i] = RowField{Label: f.Label, Type: newT, Mult: newMult, S: f.S}
 			}
 			var newTail Type
 			if ty.Tail != nil {

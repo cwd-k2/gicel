@@ -315,6 +315,23 @@ func collectPatternVarsRec(t types.Type, seen map[string]bool, result *[]string)
 	}
 }
 
+// checkMultiplicity validates multiplicity constraints in bind elaboration.
+// When a capability in pre has a non-nil Mult:
+//   - Linear: must appear in pre but NOT in post (consumed exactly once)
+//   - Affine: may appear in pre but NOT in post (consumed at most once)
+//   - Unrestricted (nil Mult): no constraint
+//
+// This is a foundation stub — full checking is activated when multiplicity
+// annotation syntax is finalized (Phase 5d).
+func (ch *Checker) checkMultiplicity(pre, post types.Type, s span.Span) {
+	// TODO(Phase 5d): implement once annotation syntax is decided.
+	// For now, the structural foundation (Mult field on RowField) is in place,
+	// and row unification propagates Mult through unification.
+	_ = pre
+	_ = post
+	_ = s
+}
+
 // applyFunDepImprovement uses functional dependencies to improve type inference.
 // For each fundep a -> b in the class, if the "from" args are determined (no metas),
 // search instances whose "from" positions match, and unify the "to" positions.

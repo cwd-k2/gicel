@@ -41,6 +41,15 @@ func fieldType(fields []types.RowField, label string) types.Type {
 	return nil
 }
 
+func fieldMult(fields []types.RowField, label string) types.Type {
+	for _, f := range fields {
+		if f.Label == label {
+			return f.Mult
+		}
+	}
+	return nil
+}
+
 type constraintMatch struct {
 	A, B types.ConstraintEntry
 }
@@ -204,6 +213,14 @@ func (u *Unifier) unifyEvCapRows(
 		t2 := fieldType(bFieldsN, label)
 		if err := u.Unify(t1, t2); err != nil {
 			return err
+		}
+		// Unify multiplicity annotations if both sides have them.
+		m1 := fieldMult(aFieldsN, label)
+		m2 := fieldMult(bFieldsN, label)
+		if m1 != nil && m2 != nil {
+			if err := u.Unify(m1, m2); err != nil {
+				return err
+			}
 		}
 	}
 

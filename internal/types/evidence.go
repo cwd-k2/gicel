@@ -55,6 +55,9 @@ func (c *CapabilityEntries) AllChildren() []Type {
 	ch := make([]Type, 0, len(c.Fields))
 	for _, f := range c.Fields {
 		ch = append(ch, f.Type)
+		if f.Mult != nil {
+			ch = append(ch, f.Mult)
+		}
 	}
 	return ch
 }
@@ -62,7 +65,11 @@ func (c *CapabilityEntries) AllChildren() []Type {
 func (c *CapabilityEntries) MapChildren(f func(Type) Type) EvidenceEntries {
 	fields := make([]RowField, len(c.Fields))
 	for i, fld := range c.Fields {
-		fields[i] = RowField{Label: fld.Label, Type: f(fld.Type), S: fld.S}
+		var mult Type
+		if fld.Mult != nil {
+			mult = f(fld.Mult)
+		}
+		fields[i] = RowField{Label: fld.Label, Type: f(fld.Type), Mult: mult, S: fld.S}
 	}
 	return &CapabilityEntries{Fields: fields}
 }

@@ -205,7 +205,14 @@ func (u *Unifier) Zonk(t types.Type) types.Type {
 			fields := make([]types.RowField, len(entries.Fields))
 			for i, f := range entries.Fields {
 				zTy := u.Zonk(f.Type)
-				fields[i] = types.RowField{Label: f.Label, Type: zTy, S: f.S}
+				var zMult types.Type
+				if f.Mult != nil {
+					zMult = u.Zonk(f.Mult)
+					if zMult != f.Mult {
+						changed = true
+					}
+				}
+				fields[i] = types.RowField{Label: f.Label, Type: zTy, Mult: zMult, S: f.S}
 				if zTy != f.Type {
 					changed = true
 				}

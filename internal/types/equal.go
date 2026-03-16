@@ -101,6 +101,13 @@ func equalAlpha(a, b Type, bindings []alphaBinding) bool {
 				if !equalAlpha(aFields[i].Type, bFields[i].Type, bindings) {
 					return false
 				}
+				// Compare multiplicity annotations.
+				if (aFields[i].Mult == nil) != (bFields[i].Mult == nil) {
+					return false
+				}
+				if aFields[i].Mult != nil && !equalAlpha(aFields[i].Mult, bFields[i].Mult, bindings) {
+					return false
+				}
 			}
 			if (an.Tail == nil) != (bn.Tail == nil) {
 				return false
