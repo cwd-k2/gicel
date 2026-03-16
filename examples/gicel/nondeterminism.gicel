@@ -17,6 +17,8 @@ range :: Int -> Int -> List Int
 range := fix (\self -> \lo -> \hi ->
   case lo > hi { True -> []; False -> Cons lo (self (lo + 1) hi) })
 
+-- Concrete guard for List do-notation.
+-- The Prelude also provides `guard :: Alternative f => Bool -> f ()`.
 guard :: Bool -> List ()
 guard := \c -> case c { True -> [()]; False -> [] }
 

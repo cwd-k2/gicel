@@ -26,20 +26,12 @@ counter := do {
   get
 }
 
--- Accumulate: build up a result step by step
--- Output: 55  (sum of 1..10 = 55)
+-- Accumulate: read-modify-write cycle
+-- Output: 25  (start 5, square it)
 accumulate := do {
-  _ <- put 0;
-  _ <- modify (\n -> n + 1);
-  _ <- modify (\n -> n + 2);
-  _ <- modify (\n -> n + 3);
-  _ <- modify (\n -> n + 4);
-  _ <- modify (\n -> n + 5);
-  _ <- modify (\n -> n + 6);
-  _ <- modify (\n -> n + 7);
-  _ <- modify (\n -> n + 8);
-  _ <- modify (\n -> n + 9);
-  _ <- modify (\n -> n + 10);
+  _ <- put 5;
+  n <- get;
+  _ <- put (n * n);
   get
 }
 
@@ -61,5 +53,5 @@ pipeline := do {
   get
 }
 
--- Output: (42, 3, 55, 144, 100)
+-- Output: (42, 3, 25, 144, 100)
 main := (basic, counter, accumulate, readAndCompute, pipeline)

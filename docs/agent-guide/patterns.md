@@ -21,14 +21,19 @@ isZeroOrd := \o -> case o { EQ -> True; _ -> False }
 ```
 import Std.Num
 
-sum :: List Int -> Int
-sum := foldr (\x -> \acc -> x + acc) 0
-
+-- Use list literals, not Cons/Nil
 myList :: List Int
-myList := Cons 1 (Cons 2 (Cons 3 Nil))
+myList := [1, 2, 3, 4, 5]
+
+-- Operator sections instead of verbose lambdas
+sum :: List Int -> Int
+sum := foldr (+) 0
 
 evens :: List Int -> List Int
-evens := filter (\x -> x `mod` 2 == 0)
+evens := filter (\x -> mod x 2 == 0)
+
+-- Compose a pipeline: filter, transform, fold
+pipeline := foldl (+) 0 $ (\x -> x * x) <$> filter (0 <) myList
 ```
 
 ### Stateful Computation
@@ -105,7 +110,7 @@ resumed := force suspended
 - **No negative literals.** Use `negate 5`, not `-5`.
 - **Type annotation is a declaration.** `f :: T` then `f := expr`, not `f := expr :: T`.
 - **case uses braces, not "of".** `case x { ... }`, not `case x of { ... }`.
-- **No string interpolation.** Use `append "count: " (showInt n)`.
+- **No string interpolation.** Use `"count: " <> showInt n`.
 - **Non-associative operators cannot chain.** `a == b == c` is an error; use `(a == b) && (b == c)`.
 - **Operator defs need parens.** `(+) :: ... ; (+) := add`
 - **import must come first.** All imports before any other declaration.
@@ -115,13 +120,15 @@ resumed := force suspended
 `;` and newlines are both valid at the **top level**. Inside braces (`do { }`, `case { }`, GADT), semicolons are **required** separators.
 
 ```
--- Wrong: parser reads `Nil False` as application
-case xs { Nil -> Nil
-           Cons x rest -> Cons (f x) rest }
+-- Wrong: parser reads `[] 0` as application
+case xs { Nil -> 0
+           Cons x _ -> x }
 
--- Correct
-case xs { Nil -> Nil; Cons x rest -> Cons (f x) rest }
+-- Correct: semicolons separate branches inside braces
+case xs { Nil -> 0; Cons x _ -> x }
 ```
+
+Note: for list traversal, prefer Prelude's `map`/`filter`/`foldr` over manual `case` on `Cons`/`Nil`.
 
 ### Recursion
 
