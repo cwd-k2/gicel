@@ -236,8 +236,13 @@ func (p *Parser) parseRowType() TypeExpr {
 		label := p.expectLower()
 		p.expect(TokColon)
 		ty := p.parseType()
+		var mult TypeExpr
+		if p.peek().Kind == TokAt {
+			p.advance()
+			mult = p.parseTypeAtom()
+		}
 		fields = append(fields, TyRowField{
-			Label: label, Type: ty,
+			Label: label, Type: ty, Mult: mult,
 			S: span.Span{Start: span.Pos(p.pos), End: p.prevEnd()},
 		})
 		if p.peek().Kind == TokComma {

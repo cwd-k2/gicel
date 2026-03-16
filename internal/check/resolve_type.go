@@ -68,7 +68,11 @@ func (ch *Checker) resolveTypeExpr(texpr syntax.TypeExpr) types.Type {
 				continue
 			}
 			seen[f.Label] = true
-			fields = append(fields, types.RowField{Label: f.Label, Type: ch.resolveTypeExpr(f.Type), S: f.S})
+			var mult types.Type
+			if f.Mult != nil {
+				mult = ch.resolveTypeExpr(f.Mult)
+			}
+			fields = append(fields, types.RowField{Label: f.Label, Type: ch.resolveTypeExpr(f.Type), Mult: mult, S: f.S})
 		}
 		var tail types.Type
 		if t.Tail != nil {
