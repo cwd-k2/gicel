@@ -1,6 +1,9 @@
 package eval
 
-import "fmt"
+import (
+	"context"
+	"fmt"
+)
 
 // Limit tracks evaluation budget: steps, call depth, and heap allocation.
 type Limit struct {
@@ -89,4 +92,22 @@ type AllocLimitError struct {
 
 func (e *AllocLimitError) Error() string {
 	return fmt.Sprintf("allocation limit exceeded: %d bytes used, %d bytes allowed", e.Used, e.Limit)
+}
+
+// limitKey is the context key for embedding *Limit.
+type limitKey struct{}
+
+// ContextWithLimit returns a context carrying the given Limit.
+func ContextWithLimit(ctx context.Context, l *Limit) context.Context {
+	return context.WithValue(ctx, limitKey{}, l)
+}
+
+// ChargeAlloc charges bytes against the Limit embedded in ctx.
+// Returns nil if ctx carries no Limit or the limit has not been set.
+// Stdlib primitives call this for Go-level allocations invisible to the evaluator.
+func ChargeAlloc(ctx context.Context, bytes int64) error {
+	if l, ok := ctx.Value(limitKey{}).(*Limit); ok {
+		return l.Alloc(bytes)
+	}
+	return nil
 }

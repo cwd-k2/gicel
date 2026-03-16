@@ -51,6 +51,9 @@ type Evaluator struct {
 
 // NewEvaluator creates an Evaluator for a single execution.
 func NewEvaluator(ctx context.Context, prims *PrimRegistry, limit *Limit, trace TraceHook, obs *ExplainObserver) *Evaluator {
+	// Embed the Limit in the context so that stdlib primitives can charge
+	// Go-level allocations via ChargeAlloc(ctx, bytes).
+	ctx = ContextWithLimit(ctx, limit)
 	ev := &Evaluator{ctx: ctx, prims: prims, limit: limit, trace: trace, obs: obs}
 	ev.cachedApplier = func(fn Value, arg Value, capEnv CapEnv) (Value, CapEnv, error) {
 		r, err := ev.applyResolved(capEnv, fn, arg, &core.App{})

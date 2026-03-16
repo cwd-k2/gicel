@@ -616,6 +616,30 @@ func TestAllocLimitBoundary(t *testing.T) {
 	}
 }
 
+func TestChargeAllocViaContext(t *testing.T) {
+	limit := NewLimit(1_000_000, 1_000)
+	limit.SetAllocLimit(100)
+	ctx := ContextWithLimit(context.Background(), limit)
+
+	// Charging within budget should succeed.
+	if err := ChargeAlloc(ctx, 50); err != nil {
+		t.Fatalf("expected success, got %v", err)
+	}
+	if limit.Allocated() != 50 {
+		t.Fatalf("expected 50 allocated, got %d", limit.Allocated())
+	}
+
+	// Charging over budget should fail.
+	if err := ChargeAlloc(ctx, 60); err == nil {
+		t.Fatal("expected AllocLimitError")
+	}
+
+	// No-limit context should always succeed.
+	if err := ChargeAlloc(context.Background(), 999); err != nil {
+		t.Fatalf("expected success without limit, got %v", err)
+	}
+}
+
 func TestDepthLimitError(t *testing.T) {
 	// With TCO, closure application depth is flat (Enter→bounce→Leave).
 	// Depth only accumulates via Bind chains (not trampolined).
