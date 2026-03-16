@@ -316,26 +316,111 @@ func collectPatternVarsRec(t types.Type, seen map[string]bool, result *[]string)
 }
 
 // lubPostStates computes the join of multiple post-states from case branches.
-// When the LUB type family is available and multiplicities are in use,
-// this performs field-by-field LUB. Currently falls back to unification
-// (requiring equal post-states), which is the v0 behavior.
+// Strategy: intersect labels present in all branches. Labels present in only
+// some branches are dropped (capability was consumed in those branches).
+// For shared labels, types and multiplicities are unified.
 func (ch *Checker) lubPostStates(posts []types.Type, s span.Span) types.Type {
 	if len(posts) == 0 {
 		return ch.freshMeta(types.KRow{})
 	}
-	result := posts[0]
-	for i := 1; i < len(posts); i++ {
-		if _, ok := ch.families["LUB"]; ok {
-			// TODO(Phase 6): implement field-by-field LUB using the LUB type family.
-			// For now, fall through to unification.
+	if len(posts) == 1 {
+		return posts[0]
+	}
+
+	// Zonk all post-states to resolve metas.
+	zonked := make([]types.Type, len(posts))
+	for i, p := range posts {
+		zonked[i] = ch.unifier.Zonk(p)
+	}
+
+	// Try to extract capability rows from each post-state.
+	rows := make([]*types.TyEvidenceRow, 0, len(zonked))
+	for _, z := range zonked {
+		if ev, ok := z.(*types.TyEvidenceRow); ok {
+			rows = append(rows, ev)
 		}
-		if err := ch.unifier.Unify(result, posts[i]); err != nil {
+	}
+
+	// If all posts resolved to capability rows, compute intersection.
+	if len(rows) == len(zonked) {
+		return ch.intersectCapRows(rows, s)
+	}
+
+	// Fallback: unify all posts (v0 behavior).
+	result := zonked[0]
+	for i := 1; i < len(zonked); i++ {
+		if err := ch.unifier.Unify(result, zonked[i]); err != nil {
 			ch.addCodedError(errs.ErrTypeMismatch, s,
-				fmt.Sprintf("divergent post-states in case branches: %s vs %s (requires LUB type family for automatic join)",
-					types.Pretty(result), types.Pretty(posts[i])))
+				fmt.Sprintf("divergent post-states in case branches: %s vs %s",
+					types.Pretty(result), types.Pretty(zonked[i])))
 		}
 	}
 	return result
+}
+
+// intersectCapRows computes the intersection of capability rows.
+// Labels present in ALL rows are kept; labels present in only some are dropped.
+// For shared labels, field types and multiplicities are unified.
+func (ch *Checker) intersectCapRows(rows []*types.TyEvidenceRow, s span.Span) types.Type {
+	if len(rows) == 0 {
+		return types.ClosedRow()
+	}
+
+	// Count label occurrences across all rows.
+	labelCount := make(map[string]int)
+	for _, r := range rows {
+		for _, f := range r.CapFields() {
+			labelCount[f.Label]++
+		}
+	}
+
+	// Shared labels: present in ALL rows.
+	n := len(rows)
+	var sharedFields []types.RowField
+	firstRow := rows[0]
+	for _, f := range firstRow.CapFields() {
+		if labelCount[f.Label] == n {
+			// This label is in all branches — keep it.
+			// Unify the type and mult from all branches.
+			resultField := types.RowField{Label: f.Label, Type: f.Type, Mult: f.Mult, S: f.S}
+			for _, otherRow := range rows[1:] {
+				for _, of := range otherRow.CapFields() {
+					if of.Label == f.Label {
+						_ = ch.unifier.Unify(resultField.Type, of.Type)
+						if resultField.Mult != nil && of.Mult != nil {
+							_ = ch.unifier.Unify(resultField.Mult, of.Mult)
+						}
+						break
+					}
+				}
+			}
+			sharedFields = append(sharedFields, resultField)
+		}
+	}
+
+	// Handle tail: if all rows have the same tail variable, preserve it.
+	var tail types.Type
+	if firstRow.Tail != nil {
+		allSameTail := true
+		for _, r := range rows[1:] {
+			if r.Tail == nil {
+				allSameTail = false
+				break
+			}
+			if err := ch.unifier.Unify(firstRow.Tail, r.Tail); err != nil {
+				allSameTail = false
+				break
+			}
+		}
+		if allSameTail {
+			tail = firstRow.Tail
+		}
+	}
+
+	if tail != nil {
+		return types.OpenRow(sharedFields, tail)
+	}
+	return types.ClosedRow(sharedFields...)
 }
 
 // checkMultiplicity validates multiplicity constraints in bind elaboration.

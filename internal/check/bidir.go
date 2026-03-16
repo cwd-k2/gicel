@@ -434,36 +434,54 @@ func (ch *Checker) checkCase(e *syntax.ExprCase, expected types.Type) core.Core 
 }
 
 func (ch *Checker) checkCaseAlts(scrutTy, resultTy types.Type, scrutCore core.Core, e *syntax.ExprCase) core.Core {
+	// Divergent post-states: when result is TyComp, each branch gets a
+	// fresh post-state meta. After all branches, post-states are joined.
+	comp, isComp := ch.unifier.Zonk(resultTy).(*types.TyComp)
+	var branchPosts []types.Type
+
 	var alts []core.Alt
 	for _, alt := range e.Alts {
 		pr := ch.checkPattern(alt.Pattern, scrutTy)
 		for name, ty := range pr.Bindings {
 			ch.ctx.Push(&CtxVar{Name: name, Type: ty})
 		}
-		// Isolate deferred constraints when the branch introduces evidence bindings
-		// (existential skolems or Dict-style reified evidence). Evidence is only
-		// in scope within the alt body, so constraints must be resolved here.
 		needsLocalResolve := len(pr.SkolemIDs) > 0 || pr.HasEvidence
 		savedDeferred := ch.deferred
 		if needsLocalResolve {
 			ch.deferred = nil
 		}
-		bodyCore := ch.check(alt.Body, resultTy)
+
+		// Per-branch expected type: same resultTy for non-Comp,
+		// or TyComp with fresh post-state meta for Comp.
+		branchExpected := resultTy
+		if isComp {
+			freshPost := ch.freshMeta(types.KRow{})
+			branchExpected = &types.TyComp{
+				Pre: comp.Pre, Post: freshPost, Result: comp.Result, S: comp.S,
+			}
+			branchPosts = append(branchPosts, freshPost)
+		}
+
+		bodyCore := ch.check(alt.Body, branchExpected)
 		if needsLocalResolve {
-			// Resolve only the constraints generated within this branch body.
 			bodyCore = ch.resolveDeferredConstraints(bodyCore)
-			// Restore outer deferred constraints.
 			ch.deferred = append(savedDeferred, ch.deferred...)
 		}
 		for range pr.Bindings {
 			ch.ctx.Pop()
 		}
-		// Existential escape check: skolems must not appear in the result type.
 		if len(pr.SkolemIDs) > 0 {
 			ch.checkSkolemEscape(ch.unifier.Zonk(resultTy), pr.SkolemIDs, alt.Body.Span())
 		}
 		alts = append(alts, core.Alt{Pattern: pr.Pattern, Body: bodyCore, S: alt.S})
 	}
+
+	// Join divergent post-states.
+	if isComp && len(branchPosts) > 0 {
+		joinedPost := ch.lubPostStates(branchPosts, e.S)
+		_ = ch.unifier.Unify(comp.Post, joinedPost)
+	}
+
 	ch.checkExhaustive(scrutTy, alts, e.S)
 	return &core.Case{Scrutinee: scrutCore, Alts: alts, S: e.S}
 }
