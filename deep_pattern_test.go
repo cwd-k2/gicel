@@ -1389,7 +1389,7 @@ func TestNestedPatternParenthesized(t *testing.T) {
 	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`
 isJustTrue := \m -> case m { Just True -> True; _ -> False }
-main := isJustTrue (Just True)
+main := (isJustTrue (Just True), isJustTrue (Just False), isJustTrue Nothing)
 `)
 	if err != nil {
 		t.Fatal("nested constructor pattern (Just True) should be accepted:", err)
@@ -1398,7 +1398,11 @@ main := isJustTrue (Just True)
 	if err != nil {
 		t.Fatal(err)
 	}
-	assertConName(t, result.Value, "True")
+	// Verify: (True, False, False) — positive AND negative cases
+	rv := result.Value.(*gicel.RecordVal)
+	assertConName(t, rv.Fields["_1"], "True")
+	assertConName(t, rv.Fields["_2"], "False")
+	assertConName(t, rv.Fields["_3"], "False")
 }
 
 func TestNestedPatternExhaustiveness(t *testing.T) {
@@ -1418,11 +1422,10 @@ main := f (Just True)
 }
 
 func TestNestedPatternDeepNesting(t *testing.T) {
-	// Deeply nested: Just (Just (Just True))
 	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`
 f := \x -> case x { Just (Just (Just True)) -> True; _ -> False }
-main := f (Just (Just (Just True)))
+main := (f (Just (Just (Just True))), f (Just (Just (Just False))), f (Just (Just Nothing)))
 `)
 	if err != nil {
 		t.Fatal("deeply nested pattern should be accepted:", err)
@@ -1431,7 +1434,10 @@ main := f (Just (Just (Just True)))
 	if err != nil {
 		t.Fatal(err)
 	}
-	assertConName(t, result.Value, "True")
+	rv := result.Value.(*gicel.RecordVal)
+	assertConName(t, rv.Fields["_1"], "True")
+	assertConName(t, rv.Fields["_2"], "False")
+	assertConName(t, rv.Fields["_3"], "False")
 }
 
 // ---------------------------------------------------------------------------
@@ -1439,8 +1445,11 @@ main := f (Just (Just (Just True)))
 // ---------------------------------------------------------------------------
 
 func TestExplicitTypeApplication(t *testing.T) {
+	// Verify @Type actually constrains: id @Bool applied to non-Bool must fail.
 	eng := gicel.NewEngine()
+	eng.Use(gicel.Num)
 	rt, err := eng.NewRuntime(`
+import Std.Num
 id :: forall a. a -> a
 id := \x -> x
 main := id @Bool True
@@ -1453,6 +1462,19 @@ main := id @Bool True
 		t.Fatal(err)
 	}
 	assertConName(t, result.Value, "True")
+
+	// Negative: @Bool constrains, so Int argument must fail.
+	eng2 := gicel.NewEngine()
+	eng2.Use(gicel.Num)
+	_, err = eng2.NewRuntime(`
+import Std.Num
+id :: forall a. a -> a
+id := \x -> x
+main := id @Bool 42
+`)
+	if err == nil {
+		t.Fatal("expected type error: @Bool applied but Int argument given")
+	}
 }
 
 func TestExplicitTypeApplicationWrongType(t *testing.T) {
@@ -1466,6 +1488,10 @@ main := id @Int True
 `)
 	if err == nil {
 		t.Fatal("expected type error: @Int applied but Bool argument given")
+	}
+	errStr := err.Error()
+	if !strings.Contains(errStr, "mismatch") && !strings.Contains(errStr, "Int") {
+		t.Errorf("expected type mismatch error mentioning Int, got: %s", errStr)
 	}
 }
 
@@ -1481,7 +1507,11 @@ main := Just @Bool True
 	if err != nil {
 		t.Fatal(err)
 	}
-	assertConName(t, result.Value, "Just")
+	con := result.Value.(*gicel.ConVal)
+	if con.Con != "Just" || len(con.Args) != 1 {
+		t.Fatalf("expected Just with 1 arg, got %s", result.Value)
+	}
+	assertConName(t, con.Args[0], "True")
 }
 
 // ---------------------------------------------------------------------------
@@ -1490,10 +1520,12 @@ main := Just @Bool True
 
 func TestHigherRankRecordField(t *testing.T) {
 	eng := gicel.NewEngine()
+	eng.Use(gicel.Num)
 	rt, err := eng.NewRuntime(`
+import Std.Num
 r :: Record { apply : forall a. a -> a }
 r := { apply = \x -> x }
-main := (r!#apply) True
+main := ((r!#apply) True, (r!#apply) 42)
 `)
 	if err != nil {
 		t.Fatal("higher-rank record field should be accepted:", err)
@@ -1502,7 +1534,13 @@ main := (r!#apply) True
 	if err != nil {
 		t.Fatal(err)
 	}
-	assertConName(t, result.Value, "True")
+	// Verify polymorphic use: (True, 42) — field used at Bool AND Int.
+	rv := result.Value.(*gicel.RecordVal)
+	assertConName(t, rv.Fields["_1"], "True")
+	v := gicel.MustHost[int64](rv.Fields["_2"])
+	if v != 42 {
+		t.Errorf("expected 42, got %d", v)
+	}
 }
 
 // ---------------------------------------------------------------------------

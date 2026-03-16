@@ -546,8 +546,7 @@ Con             -- nullary constructor
 Con x y         -- constructor with arguments
 (Con x y)       -- parenthesized pattern
 (a, b)          -- tuple pattern, desugars to { _1 = a, _2 = b }
-{ x = a, y = b }           -- record pattern (closed)
-{ x = a, y = b | _ }       -- record pattern (open)
+{ x = a, y = b }           -- record pattern (open by default)
 ```
 
 ### Literal Patterns

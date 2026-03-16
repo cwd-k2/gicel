@@ -347,6 +347,9 @@ ExprApp   ::= ExprApp ExprProj                              -- function applicat
 ExprProj  ::= ExprProj '!#' LowerName                      -- record projection
             | ExprAtom
 
+ExprApp   ::= ...
+            | ExprApp '@' TypeAtom                            -- type application
+
 ExprAtom  ::= Var | Con | Lit
             | '(' Op ')'                                     -- operator section (prefix)
             | '(' Op Expr ')'                                -- right section
@@ -357,7 +360,6 @@ ExprAtom  ::= Var | Con | Lit
             | '{' FieldBind (',' FieldBind)* '}'             -- record literal
             | '{' Expr '|' FieldBind (',' FieldBind)* '}'   -- record update
             | '{' Bind (';' Bind)* ';' Expr '}'              -- block expression
-            | Expr '@' TypeAtom                               -- type application
 
 FieldBind ::= LowerName '=' Expr
 
