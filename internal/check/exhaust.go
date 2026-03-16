@@ -29,7 +29,7 @@ import (
 // pat is the internal pattern representation for the algorithm.
 type pat interface{ patTag() }
 
-type pWild struct{}                          // _
+type pWild struct{} // _
 type pCon struct {
 	con   string
 	arity int
@@ -436,6 +436,9 @@ func (ch *Checker) isUsefulAt(mx patMatrix, q patVec, scrutTys []types.Type, dep
 }
 
 // isUsefulWildcard handles the wildcard-in-column-0 case of isUsefulAt.
+// Invariant: constructors and literals do not mix in column 0 for well-typed
+// programs (Int/String/Rune have no constructors; ADTs have no literals).
+// The branches below rely on this mutual exclusion.
 func (ch *Checker) isUsefulWildcard(mx patMatrix, q patVec, ty types.Type, restTys []types.Type, depth int) (bool, pat) {
 	headCons := columnHeadCons(mx)
 	headLits := columnHeadLits(mx)

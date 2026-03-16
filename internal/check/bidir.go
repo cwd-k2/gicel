@@ -72,23 +72,19 @@ func (ch *Checker) infer(expr syntax.Expr) (types.Type, core.Core) {
 			ch.addCodedError(errs.ErrSpecialForm, e.S, "force is a special form; use 'force <expr>'")
 			return &types.TyError{S: e.S}, &core.Var{Name: e.Name, S: e.S}
 		}
-		ty, ok := ch.ctx.LookupVar(e.Name)
+		ty, coreExpr, ok := ch.lookupVar(e)
 		if !ok {
-			ch.addCodedError(errs.ErrUnboundVar, e.S, fmt.Sprintf("unbound variable: %s", e.Name))
-			return &types.TyError{S: e.S}, &core.Var{Name: e.Name, S: e.S}
+			return ty, coreExpr
 		}
 		ch.trace(TraceInfer, e.S, "infer: %s ⇒ %s", e.Name, types.Pretty(ty))
-		ty, coreExpr := ch.instantiate(ty, &core.Var{Name: e.Name, S: e.S})
-		return ty, coreExpr
+		return ch.instantiate(ty, coreExpr)
 
 	case *syntax.ExprCon:
-		ty, ok := ch.conTypes[e.Name]
+		ty, coreExpr, ok := ch.lookupCon(e)
 		if !ok {
-			ch.addCodedError(errs.ErrUnboundCon, e.S, fmt.Sprintf("unknown constructor: %s", e.Name))
-			return &types.TyError{S: e.S}, &core.Con{Name: e.Name, S: e.S}
+			return ty, coreExpr
 		}
-		ty, coreExpr := ch.instantiate(ty, &core.Con{Name: e.Name, S: e.S})
-		return ty, coreExpr
+		return ch.instantiate(ty, coreExpr)
 
 	case *syntax.ExprApp:
 		// Special forms: pure, bind, thunk, force elaborate directly to Core nodes.
@@ -486,24 +482,36 @@ func (ch *Checker) matchArrow(ty types.Type, s span.Span) (types.Type, types.Typ
 	return argTy, retTy
 }
 
+// lookupVar resolves a variable name to its type and Core node.
+func (ch *Checker) lookupVar(e *syntax.ExprVar) (types.Type, core.Core, bool) {
+	ty, ok := ch.ctx.LookupVar(e.Name)
+	if !ok {
+		ch.addCodedError(errs.ErrUnboundVar, e.S, fmt.Sprintf("unbound variable: %s", e.Name))
+		return &types.TyError{S: e.S}, &core.Var{Name: e.Name, S: e.S}, false
+	}
+	return ty, &core.Var{Name: e.Name, S: e.S}, true
+}
+
+// lookupCon resolves a constructor name to its type and Core node.
+func (ch *Checker) lookupCon(e *syntax.ExprCon) (types.Type, core.Core, bool) {
+	ty, ok := ch.conTypes[e.Name]
+	if !ok {
+		ch.addCodedError(errs.ErrUnboundCon, e.S, fmt.Sprintf("unknown constructor: %s", e.Name))
+		return &types.TyError{S: e.S}, &core.Con{Name: e.Name, S: e.S}, false
+	}
+	return ty, &core.Con{Name: e.Name, S: e.S}, true
+}
+
 // inferHead infers the type of an expression without instantiating outer foralls.
 // Used by ExprTyApp to preserve the forall for explicit type application (@).
 func (ch *Checker) inferHead(expr syntax.Expr) (types.Type, core.Core) {
 	switch e := expr.(type) {
 	case *syntax.ExprVar:
-		ty, ok := ch.ctx.LookupVar(e.Name)
-		if !ok {
-			ch.addCodedError(errs.ErrUnboundVar, e.S, fmt.Sprintf("unbound variable: %s", e.Name))
-			return &types.TyError{S: e.S}, &core.Var{Name: e.Name, S: e.S}
-		}
-		return ty, &core.Var{Name: e.Name, S: e.S}
+		ty, coreExpr, _ := ch.lookupVar(e)
+		return ty, coreExpr
 	case *syntax.ExprCon:
-		ty, ok := ch.conTypes[e.Name]
-		if !ok {
-			ch.addCodedError(errs.ErrUnboundCon, e.S, fmt.Sprintf("unknown constructor: %s", e.Name))
-			return &types.TyError{S: e.S}, &core.Con{Name: e.Name, S: e.S}
-		}
-		return ty, &core.Con{Name: e.Name, S: e.S}
+		ty, coreExpr, _ := ch.lookupCon(e)
+		return ty, coreExpr
 	case *syntax.ExprTyApp:
 		innerTy, innerCore := ch.inferHead(e.Expr)
 		ty := ch.resolveTypeExpr(e.TyArg)
