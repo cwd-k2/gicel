@@ -1,6 +1,7 @@
 package gicel_test
 
 import (
+	"strings"
 	"testing"
 	"time"
 
@@ -114,6 +115,27 @@ func TestSandboxTimeoutCoversCompilation(t *testing.T) {
 	// The total call should not exceed a generous bound.
 	if elapsed > 5*time.Second {
 		t.Fatalf("RunSandbox took %v, expected bounded by timeout + compile", elapsed)
+	}
+}
+
+// Regression: stdlib allocations (list reverse, slice ops) must be charged
+// against MaxAlloc so that the alloc limit fires for stdlib-heavy programs.
+func TestSandboxAllocLimitFiresForStdlib(t *testing.T) {
+	// Build a large list and reverse it — stdlib allocates proportionally.
+	// With a very tight alloc limit, this must fail.
+	_, err := gicel.RunSandbox(`
+import Std.Num
+import Std.List
+main := reverse (replicate 500 1)
+`, &gicel.SandboxConfig{
+		Packs:    []gicel.Pack{gicel.Num, gicel.List},
+		MaxAlloc: 1024, // 1 KiB — far too small for 500-element reverse
+	})
+	if err == nil {
+		t.Fatal("expected alloc limit error for stdlib-heavy program")
+	}
+	if !strings.Contains(err.Error(), "allocation limit exceeded") {
+		t.Fatalf("expected allocation limit error, got: %v", err)
 	}
 }
 
