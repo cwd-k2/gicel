@@ -114,9 +114,12 @@ func sliceSingletonImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ 
 	return sliceVal([]eval.Value{args[0]}), ce, nil
 }
 
-func sliceConsImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
+func sliceConsImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
 	s, err := asSlice(args[1])
 	if err != nil {
+		return nil, ce, err
+	}
+	if err := eval.ChargeAlloc(ctx, int64(len(s)+1)*costSlotSize); err != nil {
 		return nil, ce, err
 	}
 	result := make([]eval.Value, len(s)+1)
@@ -125,9 +128,12 @@ func sliceConsImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.
 	return sliceVal(result), ce, nil
 }
 
-func sliceSnocImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
+func sliceSnocImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
 	s, err := asSlice(args[0])
 	if err != nil {
+		return nil, ce, err
+	}
+	if err := eval.ChargeAlloc(ctx, int64(len(s)+1)*costSlotSize); err != nil {
 		return nil, ce, err
 	}
 	result := make([]eval.Value, len(s)+1)
@@ -159,31 +165,40 @@ func sliceIndexImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval
 	return &eval.ConVal{Con: "Just", Args: []eval.Value{s[idx]}}, ce, nil
 }
 
-func sliceFromListImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
+func sliceFromListImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
 	items, ok := listToSlice(args[0])
 	if !ok {
 		return nil, ce, fmt.Errorf("sliceFromList: expected List")
+	}
+	if err := eval.ChargeAlloc(ctx, int64(len(items))*2*costSlotSize); err != nil {
+		return nil, ce, err
 	}
 	result := make([]eval.Value, len(items))
 	copy(result, items)
 	return sliceVal(result), ce, nil
 }
 
-func sliceToListImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
+func sliceToListImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
 	s, err := asSlice(args[0])
 	if err != nil {
+		return nil, ce, err
+	}
+	if err := eval.ChargeAlloc(ctx, int64(len(s))*costConsNode); err != nil {
 		return nil, ce, err
 	}
 	return buildList(s), ce, nil
 }
 
-func sliceAppendImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
+func sliceAppendImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
 	a, err := asSlice(args[0])
 	if err != nil {
 		return nil, ce, err
 	}
 	b, err := asSlice(args[1])
 	if err != nil {
+		return nil, ce, err
+	}
+	if err := eval.ChargeAlloc(ctx, int64(len(a)+len(b))*costSlotSize); err != nil {
 		return nil, ce, err
 	}
 	result := make([]eval.Value, len(a)+len(b))
@@ -213,10 +228,13 @@ func sliceFoldrImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, apply 
 	return acc, ce, nil
 }
 
-func sliceMapImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, apply eval.Applier) (eval.Value, eval.CapEnv, error) {
+func sliceMapImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, apply eval.Applier) (eval.Value, eval.CapEnv, error) {
 	f := args[0]
 	s, err := asSlice(args[1])
 	if err != nil {
+		return nil, ce, err
+	}
+	if err := eval.ChargeAlloc(ctx, int64(len(s))*costSlotSize); err != nil {
 		return nil, ce, err
 	}
 	result := make([]eval.Value, len(s))

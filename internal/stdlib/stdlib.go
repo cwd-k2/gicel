@@ -15,6 +15,17 @@ type Registrar = reg.Registrar
 // Pack configures a Registrar with a coherent set of types, primitives, and modules.
 type Pack = reg.Pack
 
+// Allocation cost estimates for ChargeAlloc in stdlib primitives.
+// These parallel the evaluator's cost model (eval.go costClosure, costConBase, etc.)
+// and target the same order-of-magnitude accuracy.
+const (
+	costSlotSize  = 16  // one pointer in []Value / []any / []string
+	costConsNode  = 64  // ConVal{"Cons", [elem, tail]}: 32 base + 2×16 args
+	costTupleNode = 120 // RecordVal{_1, _2}: 56 base + 2×32 fields
+	costAVLNode   = 64  // avlNode struct (key, value, left, right, height)
+	costPerByte   = 1   // string/[]rune allocation per byte
+)
+
 // freeIn checks if name appears free in a Core expression.
 // Used by fusion rules to guard against variable capture.
 func freeIn(name string, c core.Core) bool {

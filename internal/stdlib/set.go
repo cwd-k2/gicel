@@ -30,10 +30,13 @@ func setEmptyImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.A
 }
 
 // _setInsert :: (k -> k -> Ordering) -> k -> Set k -> Set k
-func setInsertImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, apply eval.Applier) (eval.Value, eval.CapEnv, error) {
+func setInsertImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, apply eval.Applier) (eval.Value, eval.CapEnv, error) {
 	key := args[1]
 	m, err := asMapVal(args[2])
 	if err != nil {
+		return nil, ce, err
+	}
+	if err := eval.ChargeAlloc(ctx, costAVLNode); err != nil {
 		return nil, ce, err
 	}
 	newRoot, inserted, newCe, err := avlInsert(m.root, key, unitVal, m.cmp, ce, apply)
@@ -52,10 +55,13 @@ func setInsertImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, apply e
 var setMemberImpl = mapMemberImpl
 
 // _setDelete :: (k -> k -> Ordering) -> k -> Set k -> Set k
-func setDeleteImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, apply eval.Applier) (eval.Value, eval.CapEnv, error) {
+func setDeleteImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, apply eval.Applier) (eval.Value, eval.CapEnv, error) {
 	key := args[1]
 	m, err := asMapVal(args[2])
 	if err != nil {
+		return nil, ce, err
+	}
+	if err := eval.ChargeAlloc(ctx, costAVLNode); err != nil {
 		return nil, ce, err
 	}
 	newRoot, deleted, newCe, err := avlDelete(m.root, key, m.cmp, ce, apply)
@@ -74,9 +80,12 @@ func setDeleteImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, apply e
 var setSizeImpl = mapSizeImpl
 
 // _setToList :: Set k -> List k
-func setToListImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
+func setToListImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
 	m, err := asMapVal(args[0])
 	if err != nil {
+		return nil, ce, err
+	}
+	if err := eval.ChargeAlloc(ctx, int64(m.size)*(costSlotSize+costConsNode)); err != nil {
 		return nil, ce, err
 	}
 	var keys []eval.Value
@@ -94,7 +103,7 @@ func collectKeys(n *avlNode, acc *[]eval.Value) {
 }
 
 // _setFromList :: (k -> k -> Ordering) -> List k -> Set k
-func setFromListImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, apply eval.Applier) (eval.Value, eval.CapEnv, error) {
+func setFromListImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, apply eval.Applier) (eval.Value, eval.CapEnv, error) {
 	cmp := args[0]
 	list := args[1]
 	m := &mapVal{root: nil, cmp: cmp, size: 0}
@@ -108,6 +117,9 @@ func setFromListImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, apply
 		}
 		if con.Con != "Cons" || len(con.Args) != 2 {
 			return nil, ce, fmt.Errorf("setFromList: malformed list")
+		}
+		if err := eval.ChargeAlloc(ctx, costAVLNode); err != nil {
+			return nil, ce, err
 		}
 		var err error
 		var inserted bool

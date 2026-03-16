@@ -285,13 +285,16 @@ func mapEmptyImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.A
 }
 
 // _mapInsert :: (k -> k -> Ordering) -> k -> v -> Map k v -> Map k v
-func mapInsertImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, apply eval.Applier) (eval.Value, eval.CapEnv, error) {
+func mapInsertImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, apply eval.Applier) (eval.Value, eval.CapEnv, error) {
 	// args[0] is the compare function passed from GICEL; we use m.cmp instead
 	// because the map stores its comparator at creation time.
 	key := args[1]
 	value := args[2]
 	m, err := asMapVal(args[3])
 	if err != nil {
+		return nil, ce, err
+	}
+	if err := eval.ChargeAlloc(ctx, costAVLNode); err != nil {
 		return nil, ce, err
 	}
 	newRoot, inserted, newCe, err := avlInsert(m.root, key, value, m.cmp, ce, apply)
@@ -323,10 +326,13 @@ func mapLookupImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, apply e
 }
 
 // _mapDelete :: (k -> k -> Ordering) -> k -> Map k v -> Map k v
-func mapDeleteImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, apply eval.Applier) (eval.Value, eval.CapEnv, error) {
+func mapDeleteImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, apply eval.Applier) (eval.Value, eval.CapEnv, error) {
 	key := args[1]
 	m, err := asMapVal(args[2])
 	if err != nil {
+		return nil, ce, err
+	}
+	if err := eval.ChargeAlloc(ctx, costAVLNode); err != nil {
 		return nil, ce, err
 	}
 	newRoot, deleted, newCe, err := avlDelete(m.root, key, m.cmp, ce, apply)
@@ -350,9 +356,12 @@ func mapSizeImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Ap
 }
 
 // _mapToList :: Map k v -> List (k, v)
-func mapToListImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
+func mapToListImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
 	m, err := asMapVal(args[0])
 	if err != nil {
+		return nil, ce, err
+	}
+	if err := eval.ChargeAlloc(ctx, int64(m.size)*(costTupleNode+costSlotSize+costConsNode)); err != nil {
 		return nil, ce, err
 	}
 	pairs := avlToList(m.root, nil)
@@ -360,7 +369,7 @@ func mapToListImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.
 }
 
 // _mapFromList :: (k -> k -> Ordering) -> List (k, v) -> Map k v
-func mapFromListImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, apply eval.Applier) (eval.Value, eval.CapEnv, error) {
+func mapFromListImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, apply eval.Applier) (eval.Value, eval.CapEnv, error) {
 	cmp := args[0]
 	list := args[1]
 	m := &mapVal{root: nil, cmp: cmp, size: 0}
@@ -383,6 +392,9 @@ func mapFromListImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, apply
 		value, ok2 := pair.Fields["_2"]
 		if !ok1 || !ok2 {
 			return nil, ce, fmt.Errorf("mapFromList: tuple must have _1 and _2")
+		}
+		if err := eval.ChargeAlloc(ctx, costAVLNode); err != nil {
+			return nil, ce, err
 		}
 		var inserted bool
 		var err error
@@ -427,7 +439,7 @@ func mapMemberImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, apply e
 }
 
 // _mapUnionWith :: (v -> v -> v) -> Map k v -> Map k v -> Map k v
-func mapUnionWithImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, apply eval.Applier) (eval.Value, eval.CapEnv, error) {
+func mapUnionWithImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, apply eval.Applier) (eval.Value, eval.CapEnv, error) {
 	f := args[0]
 	m1, err := asMapVal(args[1])
 	if err != nil {
@@ -440,6 +452,9 @@ func mapUnionWithImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, appl
 	// Insert all entries from m2 into m1, using f to combine on collision.
 	result := &mapVal{root: m1.root, cmp: m1.cmp, size: m1.size}
 	pairs := avlToList(m2.root, nil)
+	if err := eval.ChargeAlloc(ctx, int64(len(pairs))*(costTupleNode+costSlotSize+costAVLNode)); err != nil {
+		return nil, ce, err
+	}
 	for _, p := range pairs {
 		pair := p.(*eval.RecordVal)
 		key := pair.Fields["_1"]

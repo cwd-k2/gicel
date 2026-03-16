@@ -28,7 +28,7 @@ func forceTail(t eval.Value, ce eval.CapEnv, apply eval.Applier) (eval.Value, ev
 	return apply(t, unit, ce)
 }
 
-func takeSImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, apply eval.Applier) (eval.Value, eval.CapEnv, error) {
+func takeSImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, apply eval.Applier) (eval.Value, eval.CapEnv, error) {
 	n, err := asInt64(args[0], "stream")
 	if err != nil {
 		return nil, ce, err
@@ -51,6 +51,9 @@ func takeSImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, apply eval.
 		if err != nil {
 			return nil, ce, err
 		}
+	}
+	if err := eval.ChargeAlloc(ctx, int64(len(items))*(costSlotSize+costConsNode)); err != nil {
+		return nil, ce, err
 	}
 	return buildList(items), ce, nil
 }

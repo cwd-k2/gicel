@@ -110,13 +110,16 @@ func cmpStrImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.App
 	}
 }
 
-func appendStrImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
+func appendStrImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
 	a, err := asString(args[0])
 	if err != nil {
 		return nil, ce, err
 	}
 	b, err := asString(args[1])
 	if err != nil {
+		return nil, ce, err
+	}
+	if err := eval.ChargeAlloc(ctx, int64(len(a)+len(b))*costPerByte); err != nil {
 		return nil, ce, err
 	}
 	return &eval.HostVal{Inner: a + b}, ce, nil
@@ -126,9 +129,12 @@ func emptyStrImpl(_ context.Context, ce eval.CapEnv, _ []eval.Value, _ eval.Appl
 	return &eval.HostVal{Inner: ""}, ce, nil
 }
 
-func lengthStrImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
+func lengthStrImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
 	s, err := asString(args[0])
 	if err != nil {
+		return nil, ce, err
+	}
+	if err := eval.ChargeAlloc(ctx, int64(len(s))*4); err != nil {
 		return nil, ce, err
 	}
 	return &eval.HostVal{Inner: int64(len([]rune(s)))}, ce, nil
@@ -170,13 +176,16 @@ func cmpRuneImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Ap
 
 // --- New Str primitives ---
 
-func charAtImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
+func charAtImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
 	idx, err := asInt64Str(args[0])
 	if err != nil {
 		return nil, ce, err
 	}
 	s, err := asString(args[1])
 	if err != nil {
+		return nil, ce, err
+	}
+	if err := eval.ChargeAlloc(ctx, int64(len(s))*4); err != nil {
 		return nil, ce, err
 	}
 	runes := []rune(s)
@@ -186,7 +195,7 @@ func charAtImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.App
 	return &eval.ConVal{Con: "Just", Args: []eval.Value{&eval.HostVal{Inner: runes[idx]}}}, ce, nil
 }
 
-func substringImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
+func substringImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
 	start, err := asInt64Str(args[0])
 	if err != nil {
 		return nil, ce, err
@@ -197,6 +206,9 @@ func substringImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.
 	}
 	s, err := asString(args[2])
 	if err != nil {
+		return nil, ce, err
+	}
+	if err := eval.ChargeAlloc(ctx, int64(len(s))*4); err != nil {
 		return nil, ce, err
 	}
 	runes := []rune(s)
@@ -211,17 +223,23 @@ func substringImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.
 	return &eval.HostVal{Inner: string(runes[start:end])}, ce, nil
 }
 
-func toUpperImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
+func toUpperImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
 	s, err := asString(args[0])
 	if err != nil {
+		return nil, ce, err
+	}
+	if err := eval.ChargeAlloc(ctx, int64(len(s))*costPerByte); err != nil {
 		return nil, ce, err
 	}
 	return &eval.HostVal{Inner: strings.ToUpper(s)}, ce, nil
 }
 
-func toLowerImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
+func toLowerImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
 	s, err := asString(args[0])
 	if err != nil {
+		return nil, ce, err
+	}
+	if err := eval.ChargeAlloc(ctx, int64(len(s))*costPerByte); err != nil {
 		return nil, ce, err
 	}
 	return &eval.HostVal{Inner: strings.ToLower(s)}, ce, nil
@@ -250,7 +268,7 @@ func containsImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.A
 	return &eval.ConVal{Con: "False"}, ce, nil
 }
 
-func splitImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
+func splitImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
 	sep, err := asString(args[0])
 	if err != nil {
 		return nil, ce, err
@@ -260,6 +278,9 @@ func splitImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Appl
 		return nil, ce, err
 	}
 	parts := strings.Split(s, sep)
+	if err := eval.ChargeAlloc(ctx, int64(len(parts))*(costSlotSize+costConsNode)+int64(len(s))*costPerByte); err != nil {
+		return nil, ce, err
+	}
 	var result eval.Value = &eval.ConVal{Con: "Nil"}
 	for i := len(parts) - 1; i >= 0; i-- {
 		result = &eval.ConVal{Con: "Cons", Args: []eval.Value{&eval.HostVal{Inner: parts[i]}, result}}
@@ -267,7 +288,7 @@ func splitImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Appl
 	return result, ce, nil
 }
 
-func joinImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
+func joinImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
 	sep, err := asString(args[0])
 	if err != nil {
 		return nil, ce, err
@@ -292,6 +313,9 @@ func joinImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Appli
 		strs = append(strs, s)
 		v = con.Args[1]
 	}
+	if err := eval.ChargeAlloc(ctx, int64(len(strs))*costSlotSize); err != nil {
+		return nil, ce, err
+	}
 	return &eval.HostVal{Inner: strings.Join(strs, sep)}, ce, nil
 }
 
@@ -315,23 +339,29 @@ func readIntImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Ap
 	return &eval.ConVal{Con: "Just", Args: []eval.Value{&eval.HostVal{Inner: n}}}, ce, nil
 }
 
-func toRunesImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
+func toRunesImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
 	s, err := asString(args[0])
 	if err != nil {
 		return nil, ce, err
 	}
-	var result eval.Value = &eval.ConVal{Con: "Nil"}
 	runes := []rune(s)
+	if err := eval.ChargeAlloc(ctx, int64(len(runes))*(4+costConsNode)); err != nil {
+		return nil, ce, err
+	}
+	var result eval.Value = &eval.ConVal{Con: "Nil"}
 	for i := len(runes) - 1; i >= 0; i-- {
 		result = &eval.ConVal{Con: "Cons", Args: []eval.Value{&eval.HostVal{Inner: runes[i]}, result}}
 	}
 	return result, ce, nil
 }
 
-func fromRunesImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
+func fromRunesImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
 	items, ok := listToSlice(args[0])
 	if !ok {
 		return nil, ce, fmt.Errorf("fromRunes: expected List Rune")
+	}
+	if err := eval.ChargeAlloc(ctx, int64(len(items))*(costSlotSize+4)); err != nil {
+		return nil, ce, err
 	}
 	runes := make([]rune, len(items))
 	for i, item := range items {
