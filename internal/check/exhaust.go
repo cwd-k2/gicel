@@ -431,44 +431,39 @@ func (ch *Checker) isUsefulAt(mx patMatrix, q patVec, scrutTys []types.Type, dep
 		return ch.isUsefulAt(smx, sq, newTys, depth+1)
 	}
 
-	// Column 0 of q is a wildcard.
+	// Column 0 of q is a wildcard — delegate to wildcard-specific logic.
+	return ch.isUsefulWildcard(mx, q, ty, restTys, depth)
+}
 
-	// If column 0 has only wildcards (no constructor, record, or literal patterns),
-	// usefulness depends on the remaining columns — use the default matrix.
+// isUsefulWildcard handles the wildcard-in-column-0 case of isUsefulAt.
+func (ch *Checker) isUsefulWildcard(mx patMatrix, q patVec, ty types.Type, restTys []types.Type, depth int) (bool, pat) {
 	headCons := columnHeadCons(mx)
 	headLits := columnHeadLits(mx)
+
+	// All wildcards: usefulness depends on remaining columns.
 	if len(headCons) == 0 && len(headLits) == 0 && !hasRecordPats(mx) {
 		dmx := defaultMatrix(mx)
 		return ch.isUsefulAt(dmx, q[1:], restTys, depth+1)
 	}
 
-	// If column 0 has any record patterns, use record specialization.
+	// Record patterns: specialize by label set.
 	if hasRecordPats(mx) {
 		labels := allRecordLabels(mx)
 		smx := specializeRecord(mx, labels)
-		sq := make(patVec, 0, len(labels)+len(q)-1)
-		for range labels {
-			sq = append(sq, pWild{})
-		}
-		sq = append(sq, q[1:]...)
+		sq := makeWildcardVec(len(labels), q[1:])
 		newTys := nilTypesWithTail(len(labels), restTys)
 		return ch.isUsefulAt(smx, sq, newTys, depth+1)
 	}
 
-	// If column 0 has only literal patterns (no constructors), the signature
-	// is always incomplete — we can't enumerate all Int/String values.
-	// Use the default matrix: wildcard is useful iff it adds coverage.
+	// Literals only (no constructors): signature is always incomplete.
 	if len(headCons) == 0 && len(headLits) > 0 {
 		dmx := defaultMatrix(mx)
 		return ch.isUsefulAt(dmx, q[1:], restTys, depth+1)
 	}
 
-	// Get the complete signature for the scrutinee type.
+	// Constructor patterns: check against the complete signature.
 	sigs := ch.constructorSigs(ty)
-
 	if sigs != nil {
-		// When the complete signature is covered (len(headCons) >= len(sigs)),
-		// check all constructors. Otherwise, only check uncovered ones.
 		complete := len(headCons) >= len(sigs)
 		for _, sig := range sigs {
 			if !complete {
@@ -478,7 +473,6 @@ func (ch *Checker) isUsefulAt(mx patMatrix, q patVec, scrutTys []types.Type, dep
 			}
 			smx := specialize(mx, sig.name, sig.arity)
 			sq := makeWildcardVec(sig.arity, q[1:])
-
 			newTys := ch.subPatternTypes(sig.name, ty, sig.arity, restTys)
 			useful, witness := ch.isUsefulAt(smx, sq, newTys, depth+1)
 			if useful {
@@ -488,20 +482,14 @@ func (ch *Checker) isUsefulAt(mx patMatrix, q patVec, scrutTys []types.Type, dep
 		return false, nil
 	}
 
-	// No signature (opaque type / unresolved meta): conservatively assume
-	// the matrix covers all cases. This matches the old behavior of skipping
-	// the check when the type cannot be determined.
+	// Opaque type with constructors: conservatively assume covered.
 	if len(headCons) > 0 {
 		return false, nil
 	}
 
-	// No constructors at all: use default matrix.
+	// No patterns at all: use default matrix.
 	dmx := defaultMatrix(mx)
-	useful, witness := ch.isUsefulAt(dmx, q[1:], restTys, depth+1)
-	if useful {
-		return true, witness
-	}
-	return false, nil
+	return ch.isUsefulAt(dmx, q[1:], restTys, depth+1)
 }
 
 // hasRecordPats returns true if column 0 of the matrix has any record patterns.
