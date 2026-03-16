@@ -934,6 +934,33 @@ func TestRuntimeReuse(t *testing.T) {
 	}
 }
 
+// Regression: NewRuntime must snapshot the primitive registry.
+// Post-compilation RegisterPrim on the Engine must not affect existing Runtimes.
+func TestRuntimePrimRegistryIsolation(t *testing.T) {
+	eng := gicel.NewEngine()
+	eng.DeclareAssumption("f", gicel.ArrowType(gicel.ConType("Bool"), gicel.ConType("Bool")))
+	eng.RegisterPrim("f", func(_ context.Context, ce gicel.CapEnv, args []gicel.Value, _ gicel.Applier) (gicel.Value, gicel.CapEnv, error) {
+		return &gicel.ConVal{Con: "True"}, ce, nil
+	})
+
+	rt, err := eng.NewRuntime("f := assumption\nmain := f False")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Overwrite "f" on the Engine after NewRuntime.
+	eng.RegisterPrim("f", func(_ context.Context, ce gicel.CapEnv, args []gicel.Value, _ gicel.Applier) (gicel.Value, gicel.CapEnv, error) {
+		return &gicel.ConVal{Con: "False"}, ce, nil
+	})
+
+	result, err := rt.RunWith(context.Background(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Runtime should use the original "f" (returns True), not the overwritten one.
+	assertConVal(t, result.Value, "True")
+}
+
 func TestRuntimeConcurrent(t *testing.T) {
 	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`

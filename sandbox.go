@@ -64,13 +64,15 @@ func RunSandbox(source string, cfg *SandboxConfig) (*RunResult, error) {
 		}
 	}
 
+	// Start the timeout clock before compilation so that compile + execute
+	// total is bounded by the configured timeout.
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
 	rt, err := eng.NewRuntime(source)
 	if err != nil {
 		return nil, err
 	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
-	defer cancel()
 
 	return rt.RunWith(ctx, &RunOptions{
 		Entry:    entry,

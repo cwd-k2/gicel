@@ -2,6 +2,7 @@ package gicel_test
 
 import (
 	"testing"
+	"time"
 
 	"github.com/cwd-k2/gicel"
 )
@@ -95,6 +96,24 @@ main := f 0
 	})
 	if err == nil {
 		t.Fatal("expected error from deep recursion")
+	}
+}
+
+// Regression: timeout clock must start before compilation so that
+// compile + execute total is bounded by the configured timeout.
+func TestSandboxTimeoutCoversCompilation(t *testing.T) {
+	start := time.Now()
+	_, err := gicel.RunSandbox("import Std.Num\nmain := 1 + 2", &gicel.SandboxConfig{
+		Packs:   []gicel.Pack{gicel.Num},
+		Timeout: time.Nanosecond,
+	})
+	elapsed := time.Since(start)
+	if err == nil {
+		t.Fatal("expected error: nanosecond timeout should expire")
+	}
+	// The total call should not exceed a generous bound.
+	if elapsed > 5*time.Second {
+		t.Fatalf("RunSandbox took %v, expected bounded by timeout + compile", elapsed)
 	}
 }
 

@@ -438,7 +438,7 @@ func (e *Engine) NewRuntime(source string) (*Runtime, error) {
 
 	rt := &Runtime{
 		prog:        prog,
-		prims:       e.prims,
+		prims:       e.prims.Clone(),
 		stepLimit:   e.stepLimit,
 		depthLimit:  e.depthLimit,
 		allocLimit:  e.allocLimit,

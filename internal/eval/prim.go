@@ -32,3 +32,12 @@ func (r *PrimRegistry) Lookup(name string) (PrimImpl, bool) {
 	impl, ok := r.impls[name]
 	return impl, ok
 }
+
+// Clone returns a shallow copy of the registry, decoupled from the original.
+func (r *PrimRegistry) Clone() *PrimRegistry {
+	c := &PrimRegistry{impls: make(map[string]PrimImpl, len(r.impls))}
+	for k, v := range r.impls {
+		c.impls[k] = v
+	}
+	return c
+}
