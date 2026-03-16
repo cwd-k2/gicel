@@ -53,6 +53,10 @@ func freeVarsRec(t Type, bound map[string]bool, fv map[string]struct{}) {
 	case *TyEvidence:
 		freeVarsRec(ty.Constraints, bound, fv)
 		freeVarsRec(ty.Body, bound, fv)
+	case *TyFamilyApp:
+		for _, a := range ty.Args {
+			freeVarsRec(a, bound, fv)
+		}
 	case *TySkolem, *TyMeta, *TyError:
 		// no free vars
 	}

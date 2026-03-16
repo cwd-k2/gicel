@@ -33,6 +33,12 @@ func Pretty(t Type) string {
 		return prettyEvidenceRow(ty)
 	case *TyEvidence:
 		return Pretty(ty.Constraints) + " => " + Pretty(ty.Body)
+	case *TyFamilyApp:
+		parts := []string{ty.Name}
+		for _, a := range ty.Args {
+			parts = append(parts, prettyAtom(a))
+		}
+		return strings.Join(parts, " ")
 	case *TySkolem:
 		return fmt.Sprintf("#%s", ty.Name)
 	case *TyMeta:

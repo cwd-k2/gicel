@@ -135,6 +135,21 @@ func Subst(t Type, varName string, replacement Type) Type {
 			return ty
 		}
 
+	case *TyFamilyApp:
+		changed := false
+		args := make([]Type, len(ty.Args))
+		for i, a := range ty.Args {
+			newA := Subst(a, varName, replacement)
+			if newA != a {
+				changed = true
+			}
+			args[i] = newA
+		}
+		if !changed {
+			return ty
+		}
+		return &TyFamilyApp{Name: ty.Name, Args: args, Kind: ty.Kind, S: ty.S}
+
 	case *TyMeta:
 		return ty
 
@@ -200,6 +215,20 @@ func SubstKindInType(t Type, varName string, replacement Kind) Type {
 			return ty
 		}
 		return &TySkolem{ID: ty.ID, Name: ty.Name, Kind: newKind}
+	case *TyFamilyApp:
+		changed := false
+		args := make([]Type, len(ty.Args))
+		for i, a := range ty.Args {
+			newA := SubstKindInType(a, varName, replacement)
+			if newA != a {
+				changed = true
+			}
+			args[i] = newA
+		}
+		if !changed {
+			return ty
+		}
+		return &TyFamilyApp{Name: ty.Name, Args: args, Kind: KindSubst(ty.Kind, varName, replacement), S: ty.S}
 	default:
 		// TyVar, TyCon, TyEvidenceRow, TyEvidence,
 		// TyError, TyLit — no embedded kind annotations to substitute.

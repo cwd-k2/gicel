@@ -147,6 +147,18 @@ func equalAlpha(a, b Type, bindings []alphaBinding) bool {
 		}
 		return equalAlpha(at.Body, bt.Body, bindings)
 
+	case *TyFamilyApp:
+		bt, ok := b.(*TyFamilyApp)
+		if !ok || at.Name != bt.Name || len(at.Args) != len(bt.Args) {
+			return false
+		}
+		for i := range at.Args {
+			if !equalAlpha(at.Args[i], bt.Args[i], bindings) {
+				return false
+			}
+		}
+		return true
+
 	case *TySkolem:
 		bt, ok := b.(*TySkolem)
 		return ok && at.ID == bt.ID

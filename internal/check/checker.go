@@ -41,7 +41,8 @@ type ModuleExports struct {
 	Values        map[string]types.Type    // top-level value types
 	PromotedKinds map[string]types.Kind    // DataKinds promotions
 	PromotedCons  map[string]types.Kind    // promoted constructors
-	DataDecls     []core.DataDecl          // for evaluator constructor registration
+	TypeFamilies  map[string]*TypeFamilyInfo // type family declarations
+	DataDecls     []core.DataDecl            // for evaluator constructor registration
 }
 
 // CheckTraceKind classifies trace events.
@@ -85,6 +86,7 @@ type Checker struct {
 	promotedKinds     map[string]types.Kind // DataKinds: data name → KData
 	promotedCons      map[string]types.Kind // DataKinds: nullary con → KData
 	kindVars          map[string]bool       // HKT: kind variables in scope (from forall (k : Kind))
+	families          map[string]*TypeFamilyInfo // type family declarations
 	deferred          []deferredConstraint
 	depth             int
 	resolveDepth      int // instance resolution recursion depth
@@ -145,6 +147,7 @@ func CheckModule(prog *syntax.AstProgram, source *span.Source, config *CheckConf
 		promotedKinds:     make(map[string]types.Kind),
 		promotedCons:      make(map[string]types.Kind),
 		kindVars:          make(map[string]bool),
+		families:          make(map[string]*TypeFamilyInfo),
 	}
 	ch.unifier = NewUnifierShared(&ch.freshID)
 	ch.initContext()
@@ -203,6 +206,9 @@ func (ch *Checker) importModules(imports []syntax.DeclImport) {
 		for name, kind := range mod.PromotedCons {
 			ch.promotedCons[name] = kind
 		}
+		for name, fam := range mod.TypeFamilies {
+			ch.families[name] = fam
+		}
 	}
 }
 
@@ -222,6 +228,7 @@ func (ch *Checker) ExportModule(prog *core.Program) *ModuleExports {
 		Values:        values,
 		PromotedKinds: copyMap(ch.promotedKinds),
 		PromotedCons:  copyMap(ch.promotedCons),
+		TypeFamilies:  ch.families,
 		DataDecls:     prog.DataDecls,
 	}
 }

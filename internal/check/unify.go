@@ -28,6 +28,9 @@ func (e *UnifyError) Error() string { return e.Detail }
 // AliasExpander is a callback for expanding type aliases during unification.
 type AliasExpander func(types.Type) types.Type
 
+// FamilyReducer is a callback for reducing type family applications during unification.
+type FamilyReducer func(types.Type) types.Type
+
 // Unifier manages type unification.
 type Unifier struct {
 	soln          map[int]types.Type
@@ -35,6 +38,7 @@ type Unifier struct {
 	kindSoln      map[int]types.Kind // kind metavariable solutions
 	freshID       *int
 	aliasExpander AliasExpander // optional; set by Checker after alias processing
+	familyReducer FamilyReducer // optional; set by Checker after type family processing
 }
 
 // NewUnifier creates a Unifier with its own internal fresh ID counter.
@@ -250,6 +254,20 @@ func (u *Unifier) Zonk(t types.Type) types.Type {
 			return &types.TyEvidence{Constraints: ty.Constraints, Body: zBody, S: ty.S}
 		}
 		return &types.TyEvidence{Constraints: cr, Body: zBody, S: ty.S}
+	case *types.TyFamilyApp:
+		changed := false
+		args := make([]types.Type, len(ty.Args))
+		for i, a := range ty.Args {
+			zA := u.Zonk(a)
+			args[i] = zA
+			if zA != a {
+				changed = true
+			}
+		}
+		if !changed {
+			return ty
+		}
+		return &types.TyFamilyApp{Name: ty.Name, Args: args, Kind: ty.Kind, S: ty.S}
 	case *types.TySkolem:
 		return ty
 	default:
@@ -261,6 +279,9 @@ func (u *Unifier) Zonk(t types.Type) types.Type {
 func (u *Unifier) normalize(t types.Type) types.Type {
 	if u.aliasExpander != nil {
 		t = u.aliasExpander(t)
+	}
+	if u.familyReducer != nil {
+		t = u.familyReducer(t)
 	}
 	return normalizeCompApp(t)
 }
@@ -403,6 +424,15 @@ func (u *Unifier) Unify(a, b types.Type) error {
 				return err
 			}
 			return u.Unify(at.Body, bt.Body)
+		}
+	case *types.TyFamilyApp:
+		if bt, ok := b.(*types.TyFamilyApp); ok && at.Name == bt.Name && len(at.Args) == len(bt.Args) {
+			for i := range at.Args {
+				if err := u.Unify(at.Args[i], bt.Args[i]); err != nil {
+					return err
+				}
+			}
+			return nil
 		}
 	}
 

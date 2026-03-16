@@ -27,6 +27,13 @@ func (ch *Checker) checkDecls(decls []syntax.Decl) *core.Program {
 		}
 	}
 
+	// 2.5. Process type family declarations.
+	for _, d := range decls {
+		if tf, ok := d.(*syntax.DeclTypeFamily); ok {
+			ch.processTypeFamily(tf)
+		}
+	}
+
 	// 3. Detect cyclic aliases.
 	hasCyclicAlias := ch.validateAliasGraph()
 
@@ -35,6 +42,9 @@ func (ch *Checker) checkDecls(decls []syntax.Decl) *core.Program {
 	if !hasCyclicAlias {
 		ch.installAliasExpander()
 	}
+
+	// 3.6. Install type family reducer in unifier.
+	ch.installFamilyReducer()
 
 	// 4. Process class declarations (generates dict types + selectors).
 	for _, d := range decls {
@@ -518,6 +528,10 @@ func collectUnsolvedMetas(tys ...types.Type) []metaInfo {
 			walk(ty.Pre)
 			walk(ty.Post)
 			walk(ty.Result)
+		case *types.TyFamilyApp:
+			for _, a := range ty.Args {
+				walk(a)
+			}
 		case *types.TyEvidenceRow:
 			for _, ch := range ty.Children() {
 				walk(ch)
@@ -625,6 +639,10 @@ func inferFreeVarKinds(ty types.Type, fv map[string]struct{}) map[string]types.K
 		case *types.TyEvidence:
 			walkAsRow(tt.Constraints)
 			walkAsType(tt.Body)
+		case *types.TyFamilyApp:
+			for _, a := range tt.Args {
+				walkAsType(a)
+			}
 		case *types.TyEvidenceRow:
 			for _, ch := range tt.Entries.AllChildren() {
 				walkAsType(ch)
