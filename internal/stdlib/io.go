@@ -37,12 +37,15 @@ func debugImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Appl
 }
 
 // appendIO appends a message to the "io" capability buffer.
+// The three-index slice ensures append allocates a new backing array,
+// preventing aliasing with the caller's original slice.
 func appendIO(ce eval.CapEnv, msg string) eval.CapEnv {
 	existing, _ := ce.Get("io")
 	var buf []string
 	if b, ok := existing.([]string); ok {
-		buf = b
+		buf = append(b[:len(b):len(b)], msg)
+	} else {
+		buf = []string{msg}
 	}
-	buf = append(buf, msg)
 	return ce.Set("io", buf)
 }

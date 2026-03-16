@@ -2137,3 +2137,23 @@ func TestCollectKeysNil(t *testing.T) {
 		t.Errorf("expected no keys from nil node, got %d", len(keys))
 	}
 }
+
+// Regression: appendIO must not alias the caller's backing array.
+func TestAppendIONoAlias(t *testing.T) {
+	// Pre-allocate with spare capacity so append could reuse the array.
+	orig := make([]string, 1, 4)
+	orig[0] = "before"
+	ce := eval.NewCapEnv(map[string]any{"io": orig})
+
+	ce2 := appendIO(ce, "after")
+	got, _ := ce2.Get("io")
+	buf := got.([]string)
+	if len(buf) != 2 || buf[0] != "before" || buf[1] != "after" {
+		t.Fatalf("unexpected io buffer: %v", buf)
+	}
+
+	// The original slice must be untouched.
+	if len(orig) != 1 || orig[0] != "before" {
+		t.Errorf("appendIO mutated caller's original slice: %v", orig)
+	}
+}

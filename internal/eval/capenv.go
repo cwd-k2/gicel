@@ -14,13 +14,14 @@ func EmptyCapEnv() CapEnv {
 	return CapEnv{caps: make(map[string]any), cow: false}
 }
 
-// NewCapEnv creates a CapEnv from a map. The map is not copied — caller
-// must not modify it after passing.
+// NewCapEnv creates a CapEnv from a map. The map is shared with the caller
+// under copy-on-write: the first Set or Delete will copy before mutating,
+// leaving the caller's original map untouched.
 func NewCapEnv(m map[string]any) CapEnv {
 	if m == nil {
 		m = make(map[string]any)
 	}
-	return CapEnv{caps: m, cow: false}
+	return CapEnv{caps: m, cow: true}
 }
 
 // Get retrieves a capability by label.

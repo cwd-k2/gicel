@@ -774,6 +774,24 @@ func TestCapEnvDeleteAndLabels(t *testing.T) {
 	}
 }
 
+// Regression: NewCapEnv must not allow Set/Delete to mutate the caller's map.
+func TestNewCapEnvIsolatesCallerMap(t *testing.T) {
+	orig := map[string]any{"a": 1, "b": 2}
+	ce := NewCapEnv(orig)
+
+	// Set should not touch the original map.
+	ce.Set("c", 3)
+	if _, ok := orig["c"]; ok {
+		t.Error("Set mutated caller's original map")
+	}
+
+	// Delete should not touch the original map.
+	ce.Delete("a")
+	if _, ok := orig["a"]; !ok {
+		t.Error("Delete mutated caller's original map")
+	}
+}
+
 func TestPrimOpNotRegistered(t *testing.T) {
 	ev := newTestEval()
 	term := &core.PrimOp{Name: "nonexistent", Args: []core.Core{&core.Lit{Value: int64(0)}}}

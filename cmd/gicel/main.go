@@ -65,6 +65,7 @@ Flags (run only):
   --timeout <dur>  Execution timeout (default: 5s)
   --max-steps <n>  Step limit (default: 100000)
   --max-depth <n>  Depth limit (default: 100)
+  --max-alloc <n>  Allocation byte limit (default: 100 MiB)
   --json           Output result as JSON
   --explain        Show semantic evaluation trace
   --verbose        Show source context in explain trace
@@ -243,6 +244,7 @@ func cmdRun(args []string) int {
 	timeout := fs.Duration("timeout", 5*time.Second, "execution timeout")
 	maxSteps := fs.Int("max-steps", 100000, "step limit")
 	maxDepth := fs.Int("max-depth", 100, "depth limit")
+	maxAlloc := fs.Int64("max-alloc", 100*1024*1024, "allocation byte limit (default: 100 MiB)")
 	jsonOut := fs.Bool("json", false, "output as JSON")
 	explain := fs.Bool("explain", false, "show semantic evaluation trace")
 	verbose := fs.Bool("verbose", false, "show source context in explain trace")
@@ -280,6 +282,7 @@ func cmdRun(args []string) int {
 	}
 	eng.SetStepLimit(*maxSteps)
 	eng.SetDepthLimit(*maxDepth)
+	eng.SetAllocLimit(*maxAlloc)
 
 	rt, err := eng.NewRuntime(string(source))
 	if err != nil {
