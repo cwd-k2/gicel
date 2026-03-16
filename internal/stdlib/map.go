@@ -1,0 +1,464 @@
+package stdlib
+
+import (
+	"context"
+	"fmt"
+
+	"github.com/cwd-k2/gicel/internal/eval"
+)
+
+// Map provides an immutable ordered map backed by an AVL tree.
+// Comparison uses the GICEL Ord dictionary (compare function) via Applier.
+var Map Pack = func(e Registrar) error {
+	e.RegisterPrim("_mapEmpty", mapEmptyImpl)
+	e.RegisterPrim("_mapInsert", mapInsertImpl)
+	e.RegisterPrim("_mapLookup", mapLookupImpl)
+	e.RegisterPrim("_mapDelete", mapDeleteImpl)
+	e.RegisterPrim("_mapSize", mapSizeImpl)
+	e.RegisterPrim("_mapToList", mapToListImpl)
+	e.RegisterPrim("_mapFromList", mapFromListImpl)
+	e.RegisterPrim("_mapFoldlWithKey", mapFoldlWithKeyImpl)
+	e.RegisterPrim("_mapMember", mapMemberImpl)
+	e.RegisterPrim("_mapUnionWith", mapUnionWithImpl)
+	return e.RegisterModule("Std.Map", mapSource)
+}
+
+var mapSource = mustReadSource("map")
+
+// --- AVL tree ---
+
+type avlNode struct {
+	key    eval.Value
+	value  eval.Value
+	left   *avlNode
+	right  *avlNode
+	height int
+}
+
+type mapVal struct {
+	root *avlNode
+	cmp  eval.Value // compare :: k -> k -> Ordering
+	size int
+}
+
+func (*mapVal) String() string { return "Map(...)" }
+
+func avlHeight(n *avlNode) int {
+	if n == nil {
+		return 0
+	}
+	return n.height
+}
+
+func avlBalance(n *avlNode) int {
+	if n == nil {
+		return 0
+	}
+	return avlHeight(n.left) - avlHeight(n.right)
+}
+
+func avlNewNode(key, value eval.Value) *avlNode {
+	return &avlNode{key: key, value: value, height: 1}
+}
+
+func avlUpdateHeight(n *avlNode) {
+	lh, rh := avlHeight(n.left), avlHeight(n.right)
+	if lh > rh {
+		n.height = lh + 1
+	} else {
+		n.height = rh + 1
+	}
+}
+
+func avlRotateRight(y *avlNode) *avlNode {
+	x := y.left
+	t := x.right
+	x.right = y
+	y.left = t
+	avlUpdateHeight(y)
+	avlUpdateHeight(x)
+	return x
+}
+
+func avlRotateLeft(x *avlNode) *avlNode {
+	y := x.right
+	t := y.left
+	y.left = x
+	x.right = t
+	avlUpdateHeight(x)
+	avlUpdateHeight(y)
+	return y
+}
+
+func avlRebalance(n *avlNode) *avlNode {
+	avlUpdateHeight(n)
+	bal := avlBalance(n)
+	if bal > 1 {
+		if avlBalance(n.left) < 0 {
+			n.left = avlRotateLeft(n.left)
+		}
+		return avlRotateRight(n)
+	}
+	if bal < -1 {
+		if avlBalance(n.right) > 0 {
+			n.right = avlRotateRight(n.right)
+		}
+		return avlRotateLeft(n)
+	}
+	return n
+}
+
+// compareKeys applies the compare function via Applier.
+// Returns: -1 (LT), 0 (EQ), 1 (GT).
+func compareKeys(cmp eval.Value, a, b eval.Value, ce eval.CapEnv, apply eval.Applier) (int, eval.CapEnv, error) {
+	partial, newCe, err := apply(cmp, a, ce)
+	if err != nil {
+		return 0, ce, err
+	}
+	result, newCe, err := apply(partial, b, newCe)
+	if err != nil {
+		return 0, ce, err
+	}
+	con, ok := result.(*eval.ConVal)
+	if !ok {
+		return 0, newCe, fmt.Errorf("map: compare must return Ordering, got %T", result)
+	}
+	switch con.Con {
+	case "LT":
+		return -1, newCe, nil
+	case "EQ":
+		return 0, newCe, nil
+	case "GT":
+		return 1, newCe, nil
+	default:
+		return 0, newCe, fmt.Errorf("map: unknown Ordering constructor: %s", con.Con)
+	}
+}
+
+func avlInsert(n *avlNode, key, value, cmp eval.Value, ce eval.CapEnv, apply eval.Applier) (*avlNode, eval.CapEnv, error) {
+	if n == nil {
+		return avlNewNode(key, value), ce, nil
+	}
+	ord, newCe, err := compareKeys(cmp, key, n.key, ce, apply)
+	if err != nil {
+		return n, ce, err
+	}
+	// Persistent: copy node.
+	node := &avlNode{key: n.key, value: n.value, left: n.left, right: n.right, height: n.height}
+	switch ord {
+	case -1:
+		node.left, newCe, err = avlInsert(n.left, key, value, cmp, newCe, apply)
+	case 1:
+		node.right, newCe, err = avlInsert(n.right, key, value, cmp, newCe, apply)
+	default:
+		node.value = value
+		return node, newCe, nil
+	}
+	if err != nil {
+		return n, ce, err
+	}
+	return avlRebalance(node), newCe, nil
+}
+
+func avlLookup(n *avlNode, key, cmp eval.Value, ce eval.CapEnv, apply eval.Applier) (eval.Value, bool, eval.CapEnv, error) {
+	if n == nil {
+		return nil, false, ce, nil
+	}
+	ord, newCe, err := compareKeys(cmp, key, n.key, ce, apply)
+	if err != nil {
+		return nil, false, ce, err
+	}
+	switch ord {
+	case -1:
+		return avlLookup(n.left, key, cmp, newCe, apply)
+	case 1:
+		return avlLookup(n.right, key, cmp, newCe, apply)
+	default:
+		return n.value, true, newCe, nil
+	}
+}
+
+func avlMinNode(n *avlNode) *avlNode {
+	for n.left != nil {
+		n = n.left
+	}
+	return n
+}
+
+func avlDelete(n *avlNode, key, cmp eval.Value, ce eval.CapEnv, apply eval.Applier) (*avlNode, bool, eval.CapEnv, error) {
+	if n == nil {
+		return nil, false, ce, nil
+	}
+	ord, newCe, err := compareKeys(cmp, key, n.key, ce, apply)
+	if err != nil {
+		return n, false, ce, err
+	}
+	node := &avlNode{key: n.key, value: n.value, left: n.left, right: n.right, height: n.height}
+	var deleted bool
+	switch ord {
+	case -1:
+		node.left, deleted, newCe, err = avlDelete(n.left, key, cmp, newCe, apply)
+	case 1:
+		node.right, deleted, newCe, err = avlDelete(n.right, key, cmp, newCe, apply)
+	default:
+		deleted = true
+		if node.left == nil {
+			return node.right, true, newCe, nil
+		}
+		if node.right == nil {
+			return node.left, true, newCe, nil
+		}
+		successor := avlMinNode(node.right)
+		node.key = successor.key
+		node.value = successor.value
+		node.right, _, newCe, err = avlDelete(node.right, successor.key, cmp, newCe, apply)
+	}
+	if err != nil {
+		return n, false, ce, err
+	}
+	if !deleted {
+		return n, false, newCe, nil
+	}
+	return avlRebalance(node), true, newCe, nil
+}
+
+func avlToList(n *avlNode, acc []eval.Value) []eval.Value {
+	if n == nil {
+		return acc
+	}
+	acc = avlToList(n.left, acc)
+	pair := &eval.RecordVal{Fields: map[string]eval.Value{"_1": n.key, "_2": n.value}}
+	acc = append(acc, pair)
+	acc = avlToList(n.right, acc)
+	return acc
+}
+
+func avlSize(n *avlNode) int {
+	if n == nil {
+		return 0
+	}
+	return 1 + avlSize(n.left) + avlSize(n.right)
+}
+
+func avlFoldlWithKey(n *avlNode, f, acc, cmp eval.Value, ce eval.CapEnv, apply eval.Applier) (eval.Value, eval.CapEnv, error) {
+	if n == nil {
+		return acc, ce, nil
+	}
+	var err error
+	acc, ce, err = avlFoldlWithKey(n.left, f, acc, cmp, ce, apply)
+	if err != nil {
+		return nil, ce, err
+	}
+	// f acc key value
+	partial1, ce, err := apply(f, acc, ce)
+	if err != nil {
+		return nil, ce, err
+	}
+	partial2, ce, err := apply(partial1, n.key, ce)
+	if err != nil {
+		return nil, ce, err
+	}
+	acc, ce, err = apply(partial2, n.value, ce)
+	if err != nil {
+		return nil, ce, err
+	}
+	return avlFoldlWithKey(n.right, f, acc, cmp, ce, apply)
+}
+
+// --- Primitives ---
+
+func asMapVal(v eval.Value) (*mapVal, error) {
+	hv, ok := v.(*eval.HostVal)
+	if !ok {
+		return nil, fmt.Errorf("map: expected Map, got %T", v)
+	}
+	mv, ok := hv.Inner.(*mapVal)
+	if !ok {
+		return nil, fmt.Errorf("map: expected Map, got %T", hv.Inner)
+	}
+	return mv, nil
+}
+
+// _mapEmpty :: (k -> k -> Ordering) -> Map k v
+func mapEmptyImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
+	cmp := args[0]
+	return &eval.HostVal{Inner: &mapVal{root: nil, cmp: cmp, size: 0}}, ce, nil
+}
+
+// _mapInsert :: (k -> k -> Ordering) -> k -> v -> Map k v -> Map k v
+func mapInsertImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, apply eval.Applier) (eval.Value, eval.CapEnv, error) {
+	cmp := args[0]
+	key := args[1]
+	value := args[2]
+	m, err := asMapVal(args[3])
+	if err != nil {
+		return nil, ce, err
+	}
+	_ = cmp // Use map's stored cmp
+	newRoot, newCe, err := avlInsert(m.root, key, value, m.cmp, ce, apply)
+	if err != nil {
+		return nil, ce, err
+	}
+	return &eval.HostVal{Inner: &mapVal{root: newRoot, cmp: m.cmp, size: avlSize(newRoot)}}, newCe, nil
+}
+
+// _mapLookup :: (k -> k -> Ordering) -> k -> Map k v -> Maybe v
+func mapLookupImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, apply eval.Applier) (eval.Value, eval.CapEnv, error) {
+	key := args[1]
+	m, err := asMapVal(args[2])
+	if err != nil {
+		return nil, ce, err
+	}
+	v, found, newCe, err := avlLookup(m.root, key, m.cmp, ce, apply)
+	if err != nil {
+		return nil, ce, err
+	}
+	if found {
+		return &eval.ConVal{Con: "Just", Args: []eval.Value{v}}, newCe, nil
+	}
+	return &eval.ConVal{Con: "Nothing"}, newCe, nil
+}
+
+// _mapDelete :: (k -> k -> Ordering) -> k -> Map k v -> Map k v
+func mapDeleteImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, apply eval.Applier) (eval.Value, eval.CapEnv, error) {
+	key := args[1]
+	m, err := asMapVal(args[2])
+	if err != nil {
+		return nil, ce, err
+	}
+	newRoot, deleted, newCe, err := avlDelete(m.root, key, m.cmp, ce, apply)
+	if err != nil {
+		return nil, ce, err
+	}
+	newSize := m.size
+	if deleted {
+		newSize--
+	}
+	return &eval.HostVal{Inner: &mapVal{root: newRoot, cmp: m.cmp, size: newSize}}, newCe, nil
+}
+
+// _mapSize :: Map k v -> Int
+func mapSizeImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
+	m, err := asMapVal(args[0])
+	if err != nil {
+		return nil, ce, err
+	}
+	return &eval.HostVal{Inner: int64(m.size)}, ce, nil
+}
+
+// _mapToList :: Map k v -> List (k, v)
+func mapToListImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
+	m, err := asMapVal(args[0])
+	if err != nil {
+		return nil, ce, err
+	}
+	pairs := avlToList(m.root, nil)
+	return buildList(pairs), ce, nil
+}
+
+// _mapFromList :: (k -> k -> Ordering) -> List (k, v) -> Map k v
+func mapFromListImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, apply eval.Applier) (eval.Value, eval.CapEnv, error) {
+	cmp := args[0]
+	list := args[1]
+	m := &mapVal{root: nil, cmp: cmp, size: 0}
+	for {
+		con, ok := list.(*eval.ConVal)
+		if !ok {
+			return nil, ce, fmt.Errorf("mapFromList: expected List, got %T", list)
+		}
+		if con.Con == "Nil" {
+			break
+		}
+		if con.Con != "Cons" || len(con.Args) != 2 {
+			return nil, ce, fmt.Errorf("mapFromList: malformed list")
+		}
+		pair, ok := con.Args[0].(*eval.RecordVal)
+		if !ok {
+			return nil, ce, fmt.Errorf("mapFromList: expected tuple, got %T", con.Args[0])
+		}
+		key, ok1 := pair.Fields["_1"]
+		value, ok2 := pair.Fields["_2"]
+		if !ok1 || !ok2 {
+			return nil, ce, fmt.Errorf("mapFromList: tuple must have _1 and _2")
+		}
+		var err error
+		m.root, ce, err = avlInsert(m.root, key, value, cmp, ce, apply)
+		if err != nil {
+			return nil, ce, err
+		}
+		list = con.Args[1]
+	}
+	m.size = avlSize(m.root)
+	return &eval.HostVal{Inner: m}, ce, nil
+}
+
+// _mapFoldlWithKey :: (b -> k -> v -> b) -> b -> Map k v -> b
+func mapFoldlWithKeyImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, apply eval.Applier) (eval.Value, eval.CapEnv, error) {
+	f := args[0]
+	acc := args[1]
+	m, err := asMapVal(args[2])
+	if err != nil {
+		return nil, ce, err
+	}
+	return avlFoldlWithKey(m.root, f, acc, m.cmp, ce, apply)
+}
+
+// _mapMember :: (k -> k -> Ordering) -> k -> Map k v -> Bool
+func mapMemberImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, apply eval.Applier) (eval.Value, eval.CapEnv, error) {
+	key := args[1]
+	m, err := asMapVal(args[2])
+	if err != nil {
+		return nil, ce, err
+	}
+	_, found, newCe, err := avlLookup(m.root, key, m.cmp, ce, apply)
+	if err != nil {
+		return nil, ce, err
+	}
+	if found {
+		return &eval.ConVal{Con: "True"}, newCe, nil
+	}
+	return &eval.ConVal{Con: "False"}, newCe, nil
+}
+
+// _mapUnionWith :: (v -> v -> v) -> Map k v -> Map k v -> Map k v
+func mapUnionWithImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, apply eval.Applier) (eval.Value, eval.CapEnv, error) {
+	f := args[0]
+	m1, err := asMapVal(args[1])
+	if err != nil {
+		return nil, ce, err
+	}
+	m2, err := asMapVal(args[2])
+	if err != nil {
+		return nil, ce, err
+	}
+	// Insert all entries from m2 into m1, using f to combine on collision.
+	result := &mapVal{root: m1.root, cmp: m1.cmp}
+	pairs := avlToList(m2.root, nil)
+	for _, p := range pairs {
+		pair := p.(*eval.RecordVal)
+		key := pair.Fields["_1"]
+		val2 := pair.Fields["_2"]
+		existing, found, newCe, err := avlLookup(result.root, key, result.cmp, ce, apply)
+		if err != nil {
+			return nil, ce, err
+		}
+		ce = newCe
+		insertVal := val2
+		if found {
+			partial, newCe2, err := apply(f, existing, ce)
+			if err != nil {
+				return nil, ce, err
+			}
+			insertVal, ce, err = apply(partial, val2, newCe2)
+			if err != nil {
+				return nil, ce, err
+			}
+		}
+		result.root, ce, err = avlInsert(result.root, key, insertVal, result.cmp, ce, apply)
+		if err != nil {
+			return nil, ce, err
+		}
+	}
+	result.size = avlSize(result.root)
+	return &eval.HostVal{Inner: result}, ce, nil
+}

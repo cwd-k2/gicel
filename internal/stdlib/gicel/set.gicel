@@ -1,0 +1,43 @@
+import Prelude
+
+_setEmpty :: forall k. (k -> k -> Ordering) -> Set k
+_setEmpty := assumption
+
+_setInsert :: forall k. (k -> k -> Ordering) -> k -> Set k -> Set k
+_setInsert := assumption
+
+_setMember :: forall k. (k -> k -> Ordering) -> k -> Set k -> Bool
+_setMember := assumption
+
+_setDelete :: forall k. (k -> k -> Ordering) -> k -> Set k -> Set k
+_setDelete := assumption
+
+_setSize :: forall k. Set k -> Int
+_setSize := assumption
+
+_setToList :: forall k. Set k -> List k
+_setToList := assumption
+
+_setFromList :: forall k. (k -> k -> Ordering) -> List k -> Set k
+_setFromList := assumption
+
+setEmpty :: forall k. Ord k => Set k
+setEmpty := _setEmpty compare
+
+setInsert :: forall k. Ord k => k -> Set k -> Set k
+setInsert := _setInsert compare
+
+setMember :: forall k. Ord k => k -> Set k -> Bool
+setMember := _setMember compare
+
+setDelete :: forall k. Ord k => k -> Set k -> Set k
+setDelete := _setDelete compare
+
+setSize :: forall k. Set k -> Int
+setSize := _setSize
+
+setToList :: forall k. Set k -> List k
+setToList := _setToList
+
+setFromList :: forall k. Ord k => List k -> Set k
+setFromList := _setFromList compare

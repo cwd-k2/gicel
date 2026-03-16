@@ -994,3 +994,129 @@ func TestIterateNImplZero(t *testing.T) {
 	}
 	assertCon(t, v, "Nil")
 }
+
+// --- Map primitives ---
+
+// intCmpApplier creates an Applier that compares int64 values via Ordering.
+// Handles curried style: apply(cmpFn, a) → partial, apply(partial, b) → Ordering.
+// Uses HostVal with a marker struct to distinguish partials from regular values.
+type intCmpPartialInner struct{ val int64 }
+
+func intCmpApplier() eval.Applier {
+	return func(fn eval.Value, arg eval.Value, capEnv eval.CapEnv) (eval.Value, eval.CapEnv, error) {
+		// Second application: partial(b) → Ordering
+		if hv, ok := fn.(*eval.HostVal); ok {
+			if p, ok := hv.Inner.(*intCmpPartialInner); ok {
+				b := arg.(*eval.HostVal).Inner.(int64)
+				switch {
+				case p.val < b:
+					return &eval.ConVal{Con: "LT"}, capEnv, nil
+				case p.val > b:
+					return &eval.ConVal{Con: "GT"}, capEnv, nil
+				default:
+					return &eval.ConVal{Con: "EQ"}, capEnv, nil
+				}
+			}
+		}
+		// First application: cmpFn(a) → partial capturing a
+		a := arg.(*eval.HostVal).Inner.(int64)
+		return &eval.HostVal{Inner: &intCmpPartialInner{val: a}}, capEnv, nil
+	}
+}
+
+func TestMapInsertLookup(t *testing.T) {
+	apply := intCmpApplier()
+	cmpFn := &eval.HostVal{Inner: "cmp"} // dummy, Applier handles comparison directly
+
+	// Create empty map.
+	emptyV, _, err := mapEmptyImpl(ctx, ce, args(cmpFn), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Insert (1, "a").
+	m1, _, err := mapInsertImpl(ctx, ce, args(cmpFn, intVal(1), strVal("a"), emptyV), apply)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Insert (2, "b").
+	m2, _, err := mapInsertImpl(ctx, ce, args(cmpFn, intVal(2), strVal("b"), m1), apply)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Lookup 1 → Just "a".
+	v, _, err := mapLookupImpl(ctx, ce, args(cmpFn, intVal(1), m2), apply)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertCon(t, v, "Just")
+	assertStr(t, v.(*eval.ConVal).Args[0], "a")
+
+	// Lookup 3 → Nothing.
+	v, _, err = mapLookupImpl(ctx, ce, args(cmpFn, intVal(3), m2), apply)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertCon(t, v, "Nothing")
+}
+
+func TestMapDeleteSize(t *testing.T) {
+	apply := intCmpApplier()
+	cmpFn := &eval.HostVal{Inner: "cmp"}
+
+	emptyV, _, _ := mapEmptyImpl(ctx, ce, args(cmpFn), nil)
+	m1, _, _ := mapInsertImpl(ctx, ce, args(cmpFn, intVal(1), strVal("a"), emptyV), apply)
+	m2, _, _ := mapInsertImpl(ctx, ce, args(cmpFn, intVal(2), strVal("b"), m1), apply)
+
+	// Size = 2.
+	sv, _, _ := mapSizeImpl(ctx, ce, args(m2), nil)
+	assertInt(t, sv, 2)
+
+	// Delete key 1.
+	m3, _, _ := mapDeleteImpl(ctx, ce, args(cmpFn, intVal(1), m2), apply)
+	sv2, _, _ := mapSizeImpl(ctx, ce, args(m3), nil)
+	assertInt(t, sv2, 1)
+
+	// Lookup 1 → Nothing (deleted).
+	v, _, _ := mapLookupImpl(ctx, ce, args(cmpFn, intVal(1), m3), apply)
+	assertCon(t, v, "Nothing")
+
+	// Lookup 2 → still present.
+	v2, _, _ := mapLookupImpl(ctx, ce, args(cmpFn, intVal(2), m3), apply)
+	assertCon(t, v2, "Just")
+}
+
+func TestMapToListFromList(t *testing.T) {
+	apply := intCmpApplier()
+	cmpFn := &eval.HostVal{Inner: "cmp"}
+
+	// Build list [(2, "b"), (1, "a"), (3, "c")]
+	pairs := []eval.Value{
+		&eval.RecordVal{Fields: map[string]eval.Value{"_1": intVal(2), "_2": strVal("b")}},
+		&eval.RecordVal{Fields: map[string]eval.Value{"_1": intVal(1), "_2": strVal("a")}},
+		&eval.RecordVal{Fields: map[string]eval.Value{"_1": intVal(3), "_2": strVal("c")}},
+	}
+	list := buildList(pairs)
+
+	// fromList then toList: should be sorted.
+	m, _, err := mapFromListImpl(ctx, ce, args(cmpFn, list), apply)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sorted, _, err := mapToListImpl(ctx, ce, args(m), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	items, _ := listToSlice(sorted)
+	if len(items) != 3 {
+		t.Fatalf("expected 3 items, got %d", len(items))
+	}
+	// In-order traversal should give sorted keys: 1, 2, 3.
+	for i, want := range []int64{1, 2, 3} {
+		pair := items[i].(*eval.RecordVal)
+		assertInt(t, pair.Fields["_1"], want)
+	}
+}

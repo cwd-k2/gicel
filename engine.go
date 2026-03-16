@@ -64,6 +64,8 @@ func NewEngine() *Engine {
 	e.registeredTys["String"] = types.KType{}
 	e.registeredTys["Rune"] = types.KType{}
 	e.registeredTys["Slice"] = &types.KArrow{From: types.KType{}, To: types.KType{}}
+	e.registeredTys["Map"] = &types.KArrow{From: types.KType{}, To: &types.KArrow{From: types.KType{}, To: types.KType{}}}
+	e.registeredTys["Set"] = &types.KArrow{From: types.KType{}, To: types.KType{}}
 	return e
 }
 

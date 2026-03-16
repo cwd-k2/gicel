@@ -150,3 +150,9 @@ var Stream Pack = stdlib.Stream
 
 // Slice provides contiguous array operations: O(1) length/index, Functor/Foldable.
 var Slice Pack = stdlib.Slice
+
+// Map provides immutable ordered map backed by AVL tree, keyed by Ord.
+var Map Pack = stdlib.Map
+
+// Set provides immutable ordered set backed by Map k ().
+var Set Pack = stdlib.Set

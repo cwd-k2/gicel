@@ -1,0 +1,61 @@
+import Prelude
+
+_mapEmpty :: forall k v. (k -> k -> Ordering) -> Map k v
+_mapEmpty := assumption
+
+_mapInsert :: forall k v. (k -> k -> Ordering) -> k -> v -> Map k v -> Map k v
+_mapInsert := assumption
+
+_mapLookup :: forall k v. (k -> k -> Ordering) -> k -> Map k v -> Maybe v
+_mapLookup := assumption
+
+_mapDelete :: forall k v. (k -> k -> Ordering) -> k -> Map k v -> Map k v
+_mapDelete := assumption
+
+_mapSize :: forall k v. Map k v -> Int
+_mapSize := assumption
+
+_mapToList :: forall k v. Map k v -> List (k, v)
+_mapToList := assumption
+
+_mapFromList :: forall k v. (k -> k -> Ordering) -> List (k, v) -> Map k v
+_mapFromList := assumption
+
+_mapFoldlWithKey :: forall k v b. (b -> k -> v -> b) -> b -> Map k v -> b
+_mapFoldlWithKey := assumption
+
+_mapMember :: forall k v. (k -> k -> Ordering) -> k -> Map k v -> Bool
+_mapMember := assumption
+
+_mapUnionWith :: forall k v. (v -> v -> v) -> Map k v -> Map k v -> Map k v
+_mapUnionWith := assumption
+
+mapEmpty :: forall k v. Ord k => Map k v
+mapEmpty := _mapEmpty compare
+
+insert :: forall k v. Ord k => k -> v -> Map k v -> Map k v
+insert := _mapInsert compare
+
+mapLookup :: forall k v. Ord k => k -> Map k v -> Maybe v
+mapLookup := _mapLookup compare
+
+delete :: forall k v. Ord k => k -> Map k v -> Map k v
+delete := _mapDelete compare
+
+mapSize :: forall k v. Map k v -> Int
+mapSize := _mapSize
+
+toList :: forall k v. Map k v -> List (k, v)
+toList := _mapToList
+
+fromList :: forall k v. Ord k => List (k, v) -> Map k v
+fromList := _mapFromList compare
+
+foldlWithKey :: forall k v b. (b -> k -> v -> b) -> b -> Map k v -> b
+foldlWithKey := _mapFoldlWithKey
+
+member :: forall k v. Ord k => k -> Map k v -> Bool
+member := _mapMember compare
+
+unionWith :: forall k v. (v -> v -> v) -> Map k v -> Map k v -> Map k v
+unionWith := _mapUnionWith
