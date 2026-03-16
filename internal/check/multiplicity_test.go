@@ -93,8 +93,6 @@ use := assumption
 // --- checkMultiplicity: linear consumption ---
 
 func TestMultInComputationPrePost(t *testing.T) {
-	// Multiplicity annotations flow through Computation pre/post rows.
-	// An assumption with @Linear pre and empty post is well-typed.
 	source := `
 data Mult = Unrestricted | Affine | Linear
 data Unit = Unit
@@ -105,7 +103,6 @@ consume := assumption
 }
 
 func TestMultPreserveInComputation(t *testing.T) {
-	// Linear cap in both pre and post — capability is preserved, not consumed.
 	source := `
 data Mult = Unrestricted | Affine | Linear
 data Unit = Unit
@@ -113,6 +110,67 @@ noop :: Computation { handle : Unit @Linear } { handle : Unit @Linear } Unit
 noop := assumption
 `
 	checkSource(t, source, nil)
+}
+
+// --- Do block with multiplicity: open/use/close ---
+
+func TestMultDoOpenUseClose(t *testing.T) {
+	source := `
+data Mult = Unrestricted | Affine | Linear
+data Unit = Unit
+open :: Computation {} { h : Unit @Linear } Unit
+open := assumption
+use :: Computation { h : Unit @Linear } { h : Unit @Linear } Unit
+use := assumption
+close :: Computation { h : Unit @Linear } {} Unit
+close := assumption
+main :: Computation {} {} Unit
+main := do { open; use; close }
+`
+	checkSource(t, source, nil)
+}
+
+func TestMultDoBindResult(t *testing.T) {
+	source := `
+data Mult = Unrestricted | Affine | Linear
+data Unit = Unit
+open :: Computation {} { h : Unit @Linear } Unit
+open := assumption
+read :: Computation { h : Unit @Linear } { h : Unit @Linear } Int
+read := assumption
+close :: Computation { h : Unit @Linear } {} Unit
+close := assumption
+main :: Computation {} {} Int
+main := do {
+  open;
+  n <- read;
+  close;
+  pure n
+}
+`
+	config := &CheckConfig{
+		RegisteredTypes: map[string]types.Kind{"Int": types.KType{}},
+	}
+	checkSource(t, source, config)
+}
+
+// --- checkMultiplicity enforcement ---
+
+func TestMultLinearMustBeConsumedEventually(t *testing.T) {
+	// A computation that opens a @Linear handle but never closes it.
+	// The overall type has @Linear in post — this is fine as a building block.
+	// But if the CALLER expects post = {}, unification will catch it.
+	source := `
+data Mult = Unrestricted | Affine | Linear
+data Unit = Unit
+open :: Computation {} { h : Unit @Linear } Unit
+open := assumption
+main :: Computation {} {} Unit
+main := do { open }
+`
+	// open's post is { h : Unit @Linear }, but main expects post = {}
+	// Row unification catches this.
+	checkSourceExpectError(t, source, nil)
 }
 
 // --- Type family LUB with Mult ---
