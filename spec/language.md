@@ -453,14 +453,28 @@ ConDecl   ::= ConName TypeAtom*
 GADTCon   ::= ConName '::' Type
 
 DeclType  ::= 'type' ConName TyBinder* '=' Type              -- type alias
+            | 'type' ConName TyBinder* '::' ResultKind '=' '{' TFEq (';' TFEq)* '}'  -- type family
+
+ResultKind ::= KindExpr                                       -- non-injective
+             | '(' TyVar '::' KindExpr ')' '|' DepList       -- injective
+
+DepList   ::= TyVar '->' TyVar+
+
+TFEq      ::= ConName TypePattern* '=' Type                   -- type family equation
 
 DeclFixity ::= ('infixl' | 'infixr' | 'infixn') Int Var
 
-DeclClass ::= 'class' Constraint* ConName TyVar+ '{' ClassMethod (';' ClassMethod)* '}'
-ClassMethod ::= VarName '::' Type
+DeclClass ::= 'class' Constraint* ConName TyVar+ ClassFunDep? '{' ClassMember (';' ClassMember)* '}'
+ClassMember ::= VarName '::' Type                              -- method
+              | 'type' ConName TyBinder* '::' ResultKind       -- associated type decl
+              | 'data' ConName TyBinder* '::' KindExpr         -- associated data decl
 
-DeclInstance ::= 'instance' Constraint* ConName Type+ '{' InstMethod (';' InstMethod)* '}'
-InstMethod ::= VarName ':=' Expr
+ClassFunDep ::= '|' TyVar '->' TyVar+ (',' TyVar '->' TyVar+)*
+
+DeclInstance ::= 'instance' Constraint* ConName Type+ '{' InstMember (';' InstMember)* '}'
+InstMember ::= VarName ':=' Expr                               -- method
+             | 'type' ConName TypePattern* '=' Type            -- associated type def
+             | 'data' ConName TypePattern* '=' ConDecl ('|' ConDecl)*  -- associated data def
 ```
 
 ## 3.8 Row Syntax
@@ -469,8 +483,10 @@ InstMethod ::= VarName ':=' Expr
 RowExpr  ::= '{' '}'                                          -- empty row
            | '{' RowField (',' RowField)* ('|' TyVar)? '}'   -- row
 
-RowField ::= Label ':' Type
+RowField ::= Label ':' Type ('@' TypeAtom)?                   -- optional multiplicity
 ```
+
+The optional `@Mult` suffix annotates a field with a multiplicity (`@Linear`, `@Affine`, or `@Unrestricted`). Without annotation, fields default to `@Unrestricted`.
 
 ## 3.9 Operator Fixity
 
@@ -1310,20 +1326,195 @@ Types (`Int`, `String`, `Rune`) are checker built-ins; operations come from stdl
 
 # 16. Open Design Fork Points
 
-| Fork Point                                         | Current State              | Decision Trigger                                                                   |
-| -------------------------------------------------- | -------------------------- | ---------------------------------------------------------------------------------- |
-| Branching with divergent post-states               | Equal post-states required | User demand for `if`-like branching where branches modify capabilities differently |
-| `Row` as built-in kind vs general structured-index | Built-in kind              | Need for non-capability indexing (e.g., session types)                             |
-| Usage judgment (linear/affine capabilities)        | Not implemented            | Graded Evidence (Level 10) design                                                  |
-| Algebraic effects/handlers vs indexed monad        | Indexed monad (Atkey)      | Evidence that handler-based approach better serves the AI agent use case           |
+| Fork Point                                         | Current State                                 | Decision Trigger                                                                   |
+| -------------------------------------------------- | --------------------------------------------- | ---------------------------------------------------------------------------------- |
+| Branching with divergent post-states               | Mechanism available (LUB via TF); policy open | User demand for `if`-like branching where branches modify capabilities differently |
+| `Row` as built-in kind vs general structured-index | Built-in kind; reduced pressure via DataKinds | Need for non-capability indexing (e.g., session types)                             |
+| Usage judgment (linear/affine capabilities)        | Mult annotation designed; enforcement pending | Graded Evidence (Level 10) design                                                  |
+| Algebraic effects/handlers vs indexed monad        | Indexed monad (Atkey); TF reduces motivation  | Evidence that handler-based approach better serves the AI agent use case           |
 
 ---
 
-# 17. Extension Assessment
+# 17. Type System Extensions
+
+## 17.1 Type Families
+
+Type families introduce type-level computation: functions from types to types, evaluated during type checking and fully erased before Core IR generation. No runtime representation exists.
+
+### 17.1.1 Standalone Closed Type Family
+
+A closed type family declares an ordered sequence of equations. Reduction proceeds top-to-bottom; the first matching equation wins.
+
+```
+type Name TyBinder* :: ResultKind = { Equation (; Equation)* }
+```
+
+The `::` after parameters distinguishes type families from type aliases. Each equation repeats the family name.
+
+```
+type Elem (c :: Type) :: Type = {
+  Elem (List a) = a;
+  Elem (Slice a) = a;
+  Elem String = Rune
+}
+```
+
+**Reduction semantics**: For each equation, the checker attempts to match the arguments against the left-hand side patterns. On success, the result is the substituted right-hand side. On failure, the next equation is tried. On **indeterminate** match (unsolved metavariables), reduction is **stuck** — further equations are not tried. This prevents premature commitment when a metavariable may later unify with an earlier equation's pattern.
+
+**Confluence**: guaranteed by ordered, first-match semantics. **Termination**: Phase 1 (non-recursive) reduces in one step per application; Phase 3 (recursive) uses a fuel limit.
+
+### 17.1.2 Associated Types
+
+A class body may declare associated type families (kind signature only). Instance bodies provide definitions (single equation each).
+
+```
+class Container c {
+  type Elem c :: Type;
+  cfold :: forall b. (Elem c -> b -> b) -> b -> c -> b
+}
+
+instance Container (List a) {
+  type Elem (List a) = a;
+  cfold := foldr
+}
+
+instance Container String {
+  type Elem String = Rune;
+  cfold := strFoldr
+}
+```
+
+Associated types elaborate to standalone type families whose equations are collected from all instances. The checker verifies that every instance provides a definition and that definitions are kind-consistent.
+
+### 17.1.3 Data Families
+
+A class body may declare associated data families (kind signature only). Instance bodies provide data type definitions, enabling per-instance representation.
+
+```
+class Collection c {
+  data Elem c :: Type;
+  insert :: Elem c -> c -> c
+}
+
+instance Collection IntSet {
+  data Elem IntSet = MkElem Int;
+  insert := intSetInsert
+}
+```
+
+Data families are generative: `Elem IntSet` and `Elem CharSet` are distinct types even if both wrap the same representation.
+
+### 17.1.4 Functional Dependencies
+
+Type class declarations may include functional dependencies after the class parameters, constraining instance resolution:
+
+```
+class Convert a b | a -> b {
+  convert :: a -> b
+}
+```
+
+`| a -> b` means: knowing `a` uniquely determines `b`. Multiple dependencies are comma-separated: `| a -> b, b -> a`. The checker rejects instances that violate the declared dependencies.
+
+### 17.1.5 Injectivity Annotation
+
+A type family may declare its result injective via a named result binder with functional dependency:
+
+```
+type Effects (mode :: AppMode) :: (r :: Row) | r -> mode = {
+  Effects ReadOnly  = { get : () -> String };
+  Effects ReadWrite = { get : () -> String, put : String -> () }
+}
+```
+
+`| r -> mode` means the result uniquely determines the argument. Verified at declaration time by pairwise comparison: if two equations' right-hand sides unify, their left-hand sides must also unify. Many natural type families (e.g., `Elem` where both `List Rune` and `String` map to `Rune`) are not injective.
+
+### 17.1.6 Type-Level Pattern Matching
+
+| Pattern form           | Matches                     |
+| ---------------------- | --------------------------- |
+| Type variable `a`      | Any type (binding)          |
+| Type constructor `Int` | Exact match                 |
+| Promoted constructor   | Exact match (kind-directed) |
+| Application `List a`   | Head match + recursive      |
+| Wildcard `_`           | Any type (non-binding)      |
+
+Nested patterns are supported: `Elem (List (Maybe a)) = Maybe a`.
+
+### 17.1.7 Interaction with Existing Features
+
+**Row types**: Type families operate above rows. Row unification remains built-in. Type families can return row types but cannot pattern-match on row structure.
+
+**Evidence system**: Type families appearing inside evidence entries are reduced before instance search: `Eq (Elem (List Int))` reduces to `Eq Int`, then resolves normally.
+
+**GADTs**: Type family reduction occurs during GADT refinement; the checker normalizes types before computing local equalities.
+
+**Partial application**: Type families cannot be partially applied. `F Int` where `F` has arity 2 is not a valid `Type -> Type`.
+
+**Core IR**: Fully reduced at compile time. No `TyFamilyApp` survives into Core. No runtime representation.
+
+**Keyword count**: Remains 11. `type` is reused; `::` after parameters is the disambiguator.
+
+## 17.2 Multiplicity Annotations
+
+Row fields accept an optional multiplicity annotation using `@`:
+
+```
+RowField ::= Label ':' Type ('@' TypeAtom)?
+```
+
+The annotation tracks usage discipline for capabilities:
+
+```
+open  :: Computation {} { h : Handle @Linear } ()
+close :: Computation { h : Handle @Linear } {} ()
+```
+
+Without annotation, fields are `@Unrestricted`. The multiplicity kind is:
+
+```
+data Mult = Unrestricted | Affine | Linear
+```
+
+Multiplicity annotations are checked by the type system but do not affect runtime evaluation. They constrain how capabilities may be used: `@Linear` requires exactly-once consumption, `@Affine` allows at-most-once.
+
+The `LUB` (least upper bound) of multiplicities at branch join points can be computed via a type family:
+
+```
+type LUB (m1 :: Mult) (m2 :: Mult) :: Mult = {
+  LUB Linear _ = Linear;
+  LUB _ Linear = Linear;
+  LUB Affine _ = Affine;
+  LUB _ Affine = Affine;
+  LUB Unrestricted Unrestricted = Unrestricted
+}
+```
+
+## 17.3 Divergent Post-States in Case Expressions
+
+The current specification requires all branches of a `case` expression to produce the same post-state. With multiplicity annotations and `LUB`, branches may produce divergent post-states that are joined:
+
+```
+case cond {
+  True  -> consume handle;    -- post: { }
+  False -> pure ()            -- post: { h : Handle @Linear }
+}
+-- joined post-state: LUB applied field-wise
+```
+
+The joined post-state is computed by applying `LUB` field-wise across the post-states of all branches. A field present in one branch but absent in another is treated as consumed (`Linear`), and the join reflects the most restrictive usage.
+
+This remains a design fork point (see Chapter 16) — the mechanism is available via type families, but the policy of whether to permit divergent post-states is a separate design decision.
+
+---
+
+# 18. Extension Assessment
 
 | Extension                | Classification   | Prerequisite                         |
 | ------------------------ | ---------------- | ------------------------------------ |
-| Type Families            | Phase transition | Substantial checker changes          |
+| Type Families (Phase 1)  | Phase transition | Checker changes (Ch. 17 design)      |
+| Associated Types (Ph. 2) | Phase transition | Phase 1 complete                     |
+| Recursive TF (Phase 3)   | Phase transition | Fuel counter, cycle detection        |
 | Refinement Types         | Phase transition | Separate analysis                    |
 | Dependent Types          | Full restructure | Far future                           |
 | Graded Evidence          | Addition         | Unified evidence architecture (done) |
