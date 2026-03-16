@@ -24,6 +24,10 @@ _eqInt := assumption
 _cmpInt :: Int -> Int -> Ordering
 _cmpInt := assumption
 
+_showInt :: Int -> String
+_showInt := assumption
+
+instance Show Int { show := _showInt }
 instance Eq Int { eq := _eqInt }
 instance Ord Int { compare := _cmpInt }
 instance Semigroup Int { append := _addInt }

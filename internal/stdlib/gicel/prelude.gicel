@@ -212,6 +212,25 @@ infixr 6 <>
 (<>) :: forall a. Semigroup a => a -> a -> a
 (<>) := append
 
+class Show a { show :: a -> String }
+instance Show Bool { show := \b -> case b { True -> "True"; False -> "False" } }
+instance Show () { show := \_ -> "()" }
+instance Show Ordering { show := \x -> case x { LT -> "LT"; EQ -> "EQ"; GT -> "GT" } }
+
+class Applicative f => Alternative f {
+  none :: forall a. f a;
+  alt  :: forall a. f a -> f a -> f a
+}
+infixl 3 <|>
+(<|>) :: forall (f : Type -> Type) a. Alternative f => f a -> f a -> f a
+(<|>) := alt
+
+instance Alternative Maybe { none := Nothing; alt := \x -> \y -> case x { Just _ -> x; Nothing -> y } }
+instance Alternative List { none := Nil; alt := append }
+
+guard :: forall (f : Type -> Type). Alternative f => Bool -> f ()
+guard := \b -> case b { True -> wrap (); False -> none }
+
 class Monad (m : Type -> Type) {
   mpure :: forall a. a -> m a;
   mbind :: forall a b. m a -> (a -> m b) -> m b

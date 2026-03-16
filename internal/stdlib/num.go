@@ -3,6 +3,7 @@ package stdlib
 import (
 	"context"
 	"fmt"
+	"strconv"
 
 	"github.com/cwd-k2/gicel/internal/eval"
 )
@@ -17,6 +18,7 @@ var Num Pack = func(e Registrar) error {
 	e.RegisterPrim("_negInt", negIntImpl)
 	e.RegisterPrim("_eqInt", eqIntImpl)
 	e.RegisterPrim("_cmpInt", cmpIntImpl)
+	e.RegisterPrim("_showInt", numShowIntImpl)
 	return e.RegisterModule("Std.Num", numSource)
 }
 
@@ -115,6 +117,14 @@ func eqIntImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Appl
 		return &eval.ConVal{Con: "True"}, ce, nil
 	}
 	return &eval.ConVal{Con: "False"}, ce, nil
+}
+
+func numShowIntImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
+	n, err := asInt64Num(args[0])
+	if err != nil {
+		return nil, ce, err
+	}
+	return &eval.HostVal{Inner: strconv.FormatInt(n, 10)}, ce, nil
 }
 
 func cmpIntImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
