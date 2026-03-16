@@ -103,6 +103,7 @@ CLI flags:
 | `--timeout`     | `5s`     | Execution timeout (run only)                                          |
 | `--max-steps`   | `100000` | Step limit (run only)                                                 |
 | `--max-depth`   | `100`    | Depth limit (run only)                                                |
+| `--max-alloc`   | `100MiB` | Allocation byte limit (run only)                                      |
 | `--json`        | `false`  | Output result as JSON (run only)                                      |
 | `--explain`     | `false`  | Show semantic evaluation trace (run only)                             |
 | `--explain-all` | `false`  | Trace stdlib internals too (with --explain)                           |
