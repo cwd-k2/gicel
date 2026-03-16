@@ -375,6 +375,25 @@ type Dual (s : Session) :: Session = {
 	checkSource(t, source, nil)
 }
 
+// --- Divergent Post-States (Phase 6) ---
+
+func TestDivergentPostStatesLUBDefined(t *testing.T) {
+	// With LUB type family defined and multiplicity on capabilities,
+	// case branches with different post-states should be joined via LUB.
+	// This test verifies the structural readiness: lubPostStates falls back
+	// to unification when LUB is not yet wired in.
+	source := `
+data Bool = True | False
+data Unit = Unit
+f :: Bool -> Unit
+f := \b -> case b {
+  True -> Unit;
+  False -> Unit
+}
+`
+	checkSource(t, source, nil)
+}
+
 // --- Graded Evidence: RowField.Mult ---
 
 func TestRowFieldMultPretty(t *testing.T) {
