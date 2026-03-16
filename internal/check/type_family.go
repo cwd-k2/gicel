@@ -312,16 +312,31 @@ func (ch *Checker) installFamilyReducer() {
 	}
 }
 
-// reduceFamilyApps walks a type and reduces any TyFamilyApp nodes.
+// reduceFamilyApps walks a type and reduces any TyFamilyApp nodes
+// or TyApp chains that form a saturated type family application.
 func (ch *Checker) reduceFamilyApps(t types.Type) types.Type {
-	tf, ok := t.(*types.TyFamilyApp)
-	if !ok {
+	// Case 1: explicit TyFamilyApp.
+	if tf, ok := t.(*types.TyFamilyApp); ok {
+		result, reduced := ch.reduceTyFamily(tf.Name, tf.Args)
+		if reduced {
+			return ch.reduceFamilyApps(result)
+		}
 		return t
 	}
-	result, reduced := ch.reduceTyFamily(tf.Name, tf.Args)
-	if reduced {
-		// Recursively reduce in case the result contains more family apps.
-		return ch.reduceFamilyApps(result)
+	// Case 2: TyApp chain with TyCon head that is a known type family.
+	// This arises from substitution (e.g., Elem c [c := List a]).
+	if _, ok := t.(*types.TyApp); ok {
+		head, args := types.UnwindApp(t)
+		if con, ok := head.(*types.TyCon); ok {
+			if fam, ok := ch.families[con.Name]; ok && len(fam.Params) == len(args) {
+				result, reduced := ch.reduceTyFamily(con.Name, args)
+				if reduced {
+					return ch.reduceFamilyApps(result)
+				}
+				// Not reduced — rewrite to TyFamilyApp for cleaner types.
+				return &types.TyFamilyApp{Name: con.Name, Args: args, Kind: fam.ResultKind, S: t.Span()}
+			}
+		}
 	}
 	return t
 }

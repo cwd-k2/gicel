@@ -46,6 +46,7 @@ type ClassInfo struct {
 	Supers       []SuperInfo  // superclass constraints
 	Methods      []MethodInfo // method signatures
 	DictName     string       // e.g. "Eq$Dict" — used as both type and constructor name
+	AssocTypes   []string     // associated type family names
 }
 
 // SuperInfo describes a superclass constraint.
@@ -108,6 +109,34 @@ func (ch *Checker) processClassDecl(d *syntax.DeclClass, prog *core.Program) {
 		delete(ch.kindVars, kv)
 	}
 
+	// Process associated type declarations.
+	var assocTypeNames []string
+	for _, atd := range d.AssocTypes {
+		assocTypeNames = append(assocTypeNames, atd.Name)
+		// Register as a type family with no equations yet (equations come from instances).
+		var atParams []string
+		var atParamKinds []types.Kind
+		for _, p := range atd.Params {
+			atParams = append(atParams, p.Name)
+			atParamKinds = append(atParamKinds, ch.resolveKindExpr(p.Kind))
+		}
+		resultKind := ch.resolveKindExpr(atd.ResultKind)
+		var deps []tfDep
+		for _, fd := range atd.Deps {
+			deps = append(deps, tfDep{From: fd.From, To: fd.To})
+		}
+		ch.families[atd.Name] = &TypeFamilyInfo{
+			Name:       atd.Name,
+			Params:     atParams,
+			ParamKinds: atParamKinds,
+			ResultKind: resultKind,
+			ResultName: atd.ResultName,
+			Deps:       deps,
+			IsAssoc:    true,
+			ClassName:  d.Name,
+		}
+	}
+
 	// Store class info.
 	info := &ClassInfo{
 		Name:         d.Name,
@@ -117,6 +146,7 @@ func (ch *Checker) processClassDecl(d *syntax.DeclClass, prog *core.Program) {
 		Supers:       supers,
 		Methods:      methods,
 		DictName:     dn,
+		AssocTypes:   assocTypeNames,
 	}
 	ch.classes[d.Name] = info
 

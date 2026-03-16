@@ -187,6 +187,42 @@ func (ch *Checker) processInstanceHeader(d *syntax.DeclInstance) *InstanceInfo {
 		}
 	}
 
+	// Process associated type definitions: convert to equations and append
+	// to the corresponding TypeFamilyInfo registered during class processing.
+	for _, atd := range d.AssocTypeDefs {
+		fam, ok := ch.families[atd.Name]
+		if !ok {
+			ch.addCodedError(errs.ErrBadInstance, d.S,
+				fmt.Sprintf("instance %s: associated type %s not declared in class %s",
+					d.ClassName, atd.Name, d.ClassName))
+			continue
+		}
+		if !fam.IsAssoc || fam.ClassName != d.ClassName {
+			ch.addCodedError(errs.ErrBadInstance, d.S,
+				fmt.Sprintf("instance %s: %s is not an associated type of class %s",
+					d.ClassName, atd.Name, d.ClassName))
+			continue
+		}
+		// Arity check.
+		if len(atd.Patterns) != len(fam.Params) {
+			ch.addCodedError(errs.ErrTypeFamilyEquation, atd.S,
+				fmt.Sprintf("associated type %s expects %d argument(s), got %d",
+					atd.Name, len(fam.Params), len(atd.Patterns)))
+			continue
+		}
+		// Resolve patterns and RHS.
+		resolvedPats := make([]types.Type, len(atd.Patterns))
+		for i, pat := range atd.Patterns {
+			resolvedPats[i] = ch.resolveTypeExpr(pat)
+		}
+		resolvedRHS := ch.resolveTypeExpr(atd.RHS)
+		fam.Equations = append(fam.Equations, tfEquation{
+			Patterns: resolvedPats,
+			RHS:      resolvedRHS,
+			S:        atd.S,
+		})
+	}
+
 	ch.instances = append(ch.instances, inst)
 	ch.instancesByClass[inst.ClassName] = append(ch.instancesByClass[inst.ClassName], inst)
 	return inst

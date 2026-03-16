@@ -229,6 +229,70 @@ f := \x -> x
 	checkSource(t, source, nil)
 }
 
+// --- Associated types ---
+
+func TestAssocTypeBasic(t *testing.T) {
+	source := `
+data List a = Nil | Cons a (List a)
+data Unit = Unit
+
+class Container c {
+  type Elem c :: Type;
+  cfold :: forall b. (Elem c -> b -> b) -> b -> c -> b
+}
+
+instance Container (List a) {
+  type Elem (List a) = a;
+  cfold := foldr
+}
+
+foldr :: forall a b. (a -> b -> b) -> b -> List a -> b
+foldr := assumption
+
+f :: Elem (List Unit) -> Unit
+f := \x -> x
+`
+	checkSource(t, source, nil)
+}
+
+func TestAssocTypeMultipleInstances(t *testing.T) {
+	source := `
+data List a = Nil | Cons a (List a)
+data Unit = Unit
+data Pair a b = MkPair a b
+
+class Container c {
+  type Elem c :: Type;
+  clength :: c -> Int
+}
+
+instance Container (List a) {
+  type Elem (List a) = a;
+  clength := listLength
+}
+
+instance Container (Pair a b) {
+  type Elem (Pair a b) = a;
+  clength := pairLength
+}
+
+listLength :: forall a. List a -> Int
+listLength := assumption
+
+pairLength :: forall a b. Pair a b -> Int
+pairLength := assumption
+
+f :: Elem (List Unit) -> Unit
+f := \x -> x
+g :: Elem (Pair Unit Unit) -> Unit
+g := \x -> x
+`
+	config := &CheckConfig{
+		RegisteredTypes: map[string]types.Kind{"Int": types.KType{}},
+	}
+	checkSource(t, source, config)
+}
+
 // --- Unit tests for TyFamilyApp operations ---
 
 func TestTyFamilyAppPretty(t *testing.T) {

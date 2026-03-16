@@ -43,9 +43,6 @@ func (ch *Checker) checkDecls(decls []syntax.Decl) *core.Program {
 		ch.installAliasExpander()
 	}
 
-	// 3.6. Install type family reducer in unifier.
-	ch.installFamilyReducer()
-
 	// 4. Process class declarations (generates dict types + selectors).
 	for _, d := range decls {
 		if cls, ok := d.(*syntax.DeclClass); ok {
@@ -63,6 +60,12 @@ func (ch *Checker) checkDecls(decls []syntax.Decl) *core.Program {
 			}
 		}
 	}
+
+	// 5.5. Install type family reducer in unifier.
+	// Placed after class (phase 4) and instance headers (phase 5) because
+	// associated type families are registered in class processing and their
+	// equations are collected from instances.
+	ch.installFamilyReducer()
 
 	// 6. Collect type annotations.
 	// Free type variables are implicitly universally quantified (implicit forall).

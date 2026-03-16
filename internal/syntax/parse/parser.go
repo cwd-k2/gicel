@@ -508,9 +508,9 @@ func (p *Parser) parseClassDecl() *DeclClass {
 				v := arg.(*TyExprVar)
 				params = append(params, TyBinder{Name: v.Name, Kind: v.Kind, S: v.S})
 			}
-			methods := p.parseClassMethods()
+			methods, assocTypes := p.parseClassBody()
 			return &DeclClass{
-				Supers: supers, Name: nextName, TyParams: params, Methods: methods,
+				Supers: supers, Name: nextName, TyParams: params, Methods: methods, AssocTypes: assocTypes,
 				S: span.Span{Start: start, End: p.prevEnd()},
 			}
 		}
@@ -522,23 +522,32 @@ func (p *Parser) parseClassDecl() *DeclClass {
 		v := arg.(*TyExprVar)
 		params = append(params, TyBinder{Name: v.Name, Kind: v.Kind, S: v.S})
 	}
-	methods := p.parseClassMethods()
+	methods, assocTypes := p.parseClassBody()
 	return &DeclClass{
-		Name: firstName, TyParams: params, Methods: methods,
+		Name: firstName, TyParams: params, Methods: methods, AssocTypes: assocTypes,
 		S: span.Span{Start: start, End: p.prevEnd()},
 	}
 }
 
-func (p *Parser) parseClassMethods() []ClassMethod {
+func (p *Parser) parseClassBody() ([]ClassMethod, []AssocTypeDecl) {
 	p.expect(TokLBrace)
 	var methods []ClassMethod
+	var assocTypes []AssocTypeDecl
 	for p.peek().Kind != TokRBrace && p.peek().Kind != TokEOF {
 		before := p.pos
-		mStart := p.peek().S.Start
-		name := p.expectLower()
-		p.expect(TokColonColon)
-		ty := p.parseType()
-		methods = append(methods, ClassMethod{Name: name, Type: ty, S: span.Span{Start: mStart, End: p.prevEnd()}})
+		if p.peek().Kind == TokType {
+			// Associated type declaration: type Name params :: Kind
+			atd := p.parseAssocTypeDecl()
+			if atd != nil {
+				assocTypes = append(assocTypes, *atd)
+			}
+		} else {
+			mStart := p.peek().S.Start
+			name := p.expectLower()
+			p.expect(TokColonColon)
+			ty := p.parseType()
+			methods = append(methods, ClassMethod{Name: name, Type: ty, S: span.Span{Start: mStart, End: p.prevEnd()}})
+		}
 		if p.peek().Kind == TokSemicolon {
 			p.advance()
 		} else if p.pos == before {
@@ -547,7 +556,31 @@ func (p *Parser) parseClassMethods() []ClassMethod {
 		}
 	}
 	p.expect(TokRBrace)
-	return methods
+	return methods, assocTypes
+}
+
+// parseAssocTypeDecl parses an associated type declaration in a class body:
+//
+//	type Name params :: Kind
+func (p *Parser) parseAssocTypeDecl() *AssocTypeDecl {
+	start := p.peek().S.Start
+	p.expect(TokType)
+	name := p.expectUpper()
+	params := p.parseTyBinderList()
+	p.expect(TokColonColon)
+	resultKind, resultName, deps := p.parseResultKind()
+	var funDeps []FunDep
+	for _, d := range deps {
+		funDeps = append(funDeps, FunDep{From: d.From, To: d.To})
+	}
+	return &AssocTypeDecl{
+		Name:       name,
+		Params:     params,
+		ResultKind: resultKind,
+		ResultName: resultName,
+		Deps:       funDeps,
+		S:          span.Span{Start: start, End: p.prevEnd()},
+	}
 }
 
 // parseInstanceDecl parses: instance [Constraint =>]* ClassName types { method := expr; ... }
@@ -609,9 +642,10 @@ func (p *Parser) parseInstanceDecl() *DeclInstance {
 		}
 
 		// No =>, firstName IS the class name.
-		methods := p.parseInstMethods()
+		methods, assocTypeDefs := p.parseInstBody()
 		return &DeclInstance{
-			Context: context, ClassName: firstName, TypeArgs: firstArgs, Methods: methods,
+			Context: context, ClassName: firstName, TypeArgs: firstArgs,
+			Methods: methods, AssocTypeDefs: assocTypeDefs,
 			S: span.Span{Start: start, End: p.prevEnd()},
 		}
 	}
@@ -622,34 +656,63 @@ func (p *Parser) parseInstanceDecl() *DeclInstance {
 	for p.isTypeAtomStart() && p.peek().Kind != TokLBrace && !p.atDeclBoundary() {
 		typeArgs = append(typeArgs, p.parseTypeAtom())
 	}
-	methods := p.parseInstMethods()
+	methods, assocTypeDefs := p.parseInstBody()
 	return &DeclInstance{
-		Context: context, ClassName: className, TypeArgs: typeArgs, Methods: methods,
+		Context: context, ClassName: className, TypeArgs: typeArgs,
+		Methods: methods, AssocTypeDefs: assocTypeDefs,
 		S: span.Span{Start: start, End: p.prevEnd()},
 	}
 }
 
-func (p *Parser) parseInstMethods() []InstMethod {
+func (p *Parser) parseInstBody() ([]InstMethod, []AssocTypeDef) {
 	p.expect(TokLBrace)
 	var methods []InstMethod
+	var assocTypeDefs []AssocTypeDef
 	for p.peek().Kind != TokRBrace && p.peek().Kind != TokEOF {
 		mStart := p.peek().S.Start
-		if p.peek().Kind != TokLower {
-			// Skip unexpected token to avoid infinite loop.
-			p.addError("expected method name in instance declaration")
+		if p.peek().Kind == TokType {
+			// Associated type definition: type Name patterns = TypeExpr
+			atd := p.parseAssocTypeDef()
+			if atd != nil {
+				assocTypeDefs = append(assocTypeDefs, *atd)
+			}
+		} else if p.peek().Kind == TokLower {
+			name := p.expectLower()
+			p.expect(TokColonEq)
+			expr := p.parseExpr()
+			methods = append(methods, InstMethod{Name: name, Expr: expr, S: span.Span{Start: mStart, End: p.prevEnd()}})
+		} else {
+			p.addError("expected method name or 'type' in instance declaration")
 			p.advance()
 			continue
 		}
-		name := p.expectLower()
-		p.expect(TokColonEq)
-		expr := p.parseExpr()
-		methods = append(methods, InstMethod{Name: name, Expr: expr, S: span.Span{Start: mStart, End: p.prevEnd()}})
 		if p.peek().Kind == TokSemicolon {
 			p.advance()
 		}
 	}
 	p.expect(TokRBrace)
-	return methods
+	return methods, assocTypeDefs
+}
+
+// parseAssocTypeDef parses an associated type definition in an instance body:
+//
+//	type Name patterns = TypeExpr
+func (p *Parser) parseAssocTypeDef() *AssocTypeDef {
+	start := p.peek().S.Start
+	p.expect(TokType)
+	name := p.expectUpper()
+	var patterns []TypeExpr
+	for p.isTypeAtomStart() && p.peek().Kind != TokEq {
+		patterns = append(patterns, p.parseTypeAtom())
+	}
+	p.expect(TokEq)
+	rhs := p.parseType()
+	return &AssocTypeDef{
+		Name:     name,
+		Patterns: patterns,
+		RHS:      rhs,
+		S:        span.Span{Start: start, End: p.prevEnd()},
+	}
 }
 
 func (p *Parser) isOperatorDeclStart() bool {

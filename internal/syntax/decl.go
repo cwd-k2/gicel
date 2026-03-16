@@ -73,11 +73,12 @@ const (
 
 // DeclClass is a type class declaration (class Super => ClassName params { methods }).
 type DeclClass struct {
-	Supers   []TypeExpr // superclass constraints
-	Name     string
-	TyParams []TyBinder
-	Methods  []ClassMethod
-	S        span.Span
+	Supers     []TypeExpr // superclass constraints
+	Name       string
+	TyParams   []TyBinder
+	Methods    []ClassMethod
+	AssocTypes []AssocTypeDecl // associated type declarations
+	S          span.Span
 }
 
 // ClassMethod is a method signature in a class declaration.
@@ -89,11 +90,12 @@ type ClassMethod struct {
 
 // DeclInstance is a type class instance (instance Context => ClassName types { methods }).
 type DeclInstance struct {
-	Context   []TypeExpr // instance constraints
-	ClassName string
-	TypeArgs  []TypeExpr
-	Methods   []InstMethod
-	S         span.Span
+	Context      []TypeExpr // instance constraints
+	ClassName    string
+	TypeArgs     []TypeExpr
+	Methods      []InstMethod
+	AssocTypeDefs []AssocTypeDef // associated type definitions
+	S            span.Span
 }
 
 // InstMethod is a method definition in an instance declaration.
