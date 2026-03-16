@@ -98,6 +98,23 @@ class IxMonad (m : Row -> Row -> Type -> Type) {
 }
 ```
 
+**Show**
+
+```
+class Show a {
+  show :: a -> String
+}
+```
+
+**Alternative**
+
+```
+class Applicative f => Alternative f {
+  none :: forall a. f a;
+  alt  :: forall a. f a -> f a -> f a
+}
+```
+
 **Monad**
 
 ```
@@ -118,16 +135,20 @@ class Packed c e {
 
 ### Instances
 
-| Class         | Instances                                              |
-| ------------- | ------------------------------------------------------ |
-| `IxMonad`     | `Computation` (built-in), `Maybe`, `List`              |
-| `Monad`       | `Maybe`, `List`                                        |
-| `Eq`          | `Bool`, `()`, `Ordering`, `Maybe a`, `(a,b)`, `List a` |
-| `Ord`         | `Bool`, `()`, `Ordering`, `Maybe a`, `(a,b)`           |
-| `Semigroup`   | `()`, `Ordering`, `Maybe a`, `List a`                  |
-| `Monoid`      | `()`, `Ordering`, `Maybe a`, `List a`                  |
-| `Functor`     | `Maybe`, `List`                                        |
-| `Foldable`    | `Maybe`, `List`                                        |
-| `Applicative` | `Maybe`                                                |
-| `Traversable` | `Maybe`                                                |
-| `Packed`      | `Packed (List a) a` (identity)                         |
+| Class         | Instances                                                            |
+| ------------- | -------------------------------------------------------------------- |
+| `IxMonad`     | `Computation` (built-in), `Maybe`, `List`                            |
+| `Monad`       | `Maybe`, `List`                                                      |
+| `Eq`          | `Bool`, `()`, `Ordering`, `Maybe a`, `(a,b)`, `List a`, `Result e a` |
+| `Ord`         | `Bool`, `()`, `Ordering`, `Maybe a`, `(a,b)`, `List a`, `Result e a` |
+| `Semigroup`   | `()`, `Ordering`, `Maybe a`, `List a`                                |
+| `Monoid`      | `()`, `Ordering`, `Maybe a`, `List a`                                |
+| `Show`        | `Bool`, `()`, `Ordering`                                             |
+| `Functor`     | `Maybe`, `List`, `Result e`                                          |
+| `Foldable`    | `Maybe`, `List`, `Result e`                                          |
+| `Applicative` | `Maybe`, `List`                                                      |
+| `Traversable` | `Maybe`, `List`                                                      |
+| `Alternative` | `Maybe`, `List`                                                      |
+| `Packed`      | `Packed (List a) a` (identity)                                       |
+
+`Show Int` is provided by `Std.Num`.

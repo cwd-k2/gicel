@@ -78,6 +78,21 @@ foldr (+) 0 xs                 -- pass operator to higher-order function
 (.) f g x                     -- use composition as a regular function
 ```
 
+**Operator sections** partially apply one argument:
+
+```
+(+ 1)                          -- right section: \x -> x + 1
+(1 +)                          -- left section:  \x -> 1 + x
+```
+
+Right sections bind the right argument, left sections bind the left. Both desugar to single-argument lambdas:
+
+```
+map (+ 1) xs                   -- increment each element
+filter (0 <) xs                -- keep positives
+map (show) xs                  -- (op) alone is the prefix form
+```
+
 ### Special Forms
 
 ```

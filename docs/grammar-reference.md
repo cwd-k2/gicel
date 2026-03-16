@@ -299,16 +299,20 @@ r!#_1                           -- project first element of tuple
 
 ### Operator Section
 
+Three forms:
+
 ```
-(+)                             -- operator as first-class value
-(.)                             -- composition operator as value
+(+)                             -- prefix: operator as first-class value
+(+ 1)                           -- right section: \x -> x + 1
+(1 +)                           -- left section:  \x -> 1 + x
 ```
 
-Wrapping an operator in parentheses produces a regular value that can be passed as an argument:
+`(op)` wraps an operator in parentheses to produce a regular value. `(op expr)` binds the right argument, `(expr op)` binds the left argument. Both sections desugar to single-argument lambdas.
 
 ```
 foldr (+) 0 xs                  -- pass (+) to higher-order function
-map (.) fs                      -- pass composition
+map (+ 1) xs                    -- right section: increment each element
+filter (0 <) xs                 -- left section: keep positives
 ```
 
 This is the expression-level counterpart of the declaration syntax `(op) := ...`.
@@ -588,6 +592,8 @@ Inside braces (`do`, `case`, block expressions, GADT declarations), semicolons a
 | `String`                 | `Type`                    | Unicode string        |
 | `Rune`                   | `Type`                    | Unicode code point    |
 | `Slice a`                | `Type → Type`             | Contiguous array      |
+| `Map k v`                | `Type → Type → Type`      | Ordered immutable map |
+| `Set a`                  | `Type → Type`             | Ordered immutable set |
 
 ---
 
@@ -612,12 +618,50 @@ data List a = Cons a (List a) | Nil
 ```
 infixr 9 .         -- function composition
 infixr 6 <>        -- Semigroup append
-infixr 3 &&        -- logical AND
-infixr 2 ||        -- logical OR
+infixl 4 <$>       -- Functor map
+infixl 4 <*>       -- Applicative apply
+infixl 4 *>        -- Applicative sequence
+infixl 4 <*        -- Applicative discard
 infixn 4 ==  /=  <  >  <=  >=
+infixr 3 &&        -- logical AND
+infixl 3 <|>       -- Alternative choice
+infixr 2 ||        -- logical OR
 infixl 1 >>=       -- Monad bind
 infixl 1 >>        -- Monad sequence
+infixl 1 <&>       -- flipped Functor map
+infixr 1 =<<       -- flipped Monad bind
+infixr 1 >=>       -- Kleisli left-to-right
+infixr 1 <=<       -- Kleisli right-to-left
 ```
+
+### Type Classes (12)
+
+```
+Eq ──→ Ord
+Show
+Semigroup ──→ Monoid
+Functor ──→ Applicative ──→ Alternative
+                         ──→ Monad
+Functor ─┐
+          ├──→ Traversable
+Foldable ┘
+IxMonad
+```
+
+| Class         | Key Methods                                                 |
+| ------------- | ----------------------------------------------------------- |
+| `Eq`          | `eq :: a -> a -> Bool`                                      |
+| `Ord`         | `compare :: a -> a -> Ordering`                             |
+| `Show`        | `show :: a -> String`                                       |
+| `Semigroup`   | `append :: a -> a -> a`                                     |
+| `Monoid`      | `empty :: a`                                                |
+| `Functor`     | `fmap :: (a -> b) -> f a -> f b`                            |
+| `Foldable`    | `foldr :: (a -> b -> b) -> b -> t a -> b`                   |
+| `Applicative` | `wrap :: a -> f a`, `ap :: f (a -> b) -> f a -> f b`        |
+| `Alternative` | `none :: f a`, `alt :: f a -> f a -> f a`                   |
+| `Monad`       | `mpure :: a -> m a`, `mbind :: m a -> (a -> m b) -> m b`    |
+| `Traversable` | `traverse :: Applicative f => (a -> f b) -> t a -> f (t b)` |
+| `IxMonad`     | `ixpure`, `ixbind`                                          |
 
 ---
 
@@ -635,3 +679,5 @@ Stdlib packs are loaded via `Engine.Use(pack)` on the host side and `import Std.
 | `Std.IO`     | IO effect (`print`, `debug`)                                  |
 | `Std.Stream` | Lazy streams (`Stream a`), requires recursion                 |
 | `Std.Slice`  | Contiguous arrays (`Slice a`), O(1) length/index              |
+| `Std.Map`    | Ordered immutable map (AVL), requires `Ord k`                 |
+| `Std.Set`    | Ordered immutable set (backed by Map), requires `Ord k`       |

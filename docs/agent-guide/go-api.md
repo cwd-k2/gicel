@@ -8,7 +8,7 @@ The simplest way to run GICEL from Go:
 import "github.com/cwd-k2/gicel"
 
 result, err := gicel.RunSandbox(source, &gicel.SandboxConfig{
-    Packs:    []gicel.Pack{gicel.Num, gicel.Str, gicel.List, gicel.Fail, gicel.State, gicel.IO, gicel.Stream, gicel.Slice},
+    Packs:    []gicel.Pack{gicel.Num, gicel.Str, gicel.List, gicel.Map, gicel.Set, gicel.Fail, gicel.State, gicel.IO, gicel.Stream, gicel.Slice},
     Entry:    "main",              // default: "main"
     Timeout:  5 * time.Second,     // default: 5s
     MaxSteps: 100_000,             // default: 100,000
@@ -42,6 +42,8 @@ result, err := rt.RunWith(ctx, &gicel.RunOptions{Caps: caps, Bindings: bindings}
 | `gicel.Num`    | `Std.Num`    | Arithmetic, Int instances       |
 | `gicel.Str`    | `Std.Str`    | String/Rune ops, Packed String  |
 | `gicel.List`   | `Std.List`   | Native list operations          |
+| `gicel.Map`    | `Std.Map`    | Ordered immutable map (AVL)     |
+| `gicel.Set`    | `Std.Set`    | Ordered immutable set           |
 | `gicel.Fail`   | `Std.Fail`   | Failure effect                  |
 | `gicel.State`  | `Std.State`  | Get/put state                   |
 | `gicel.IO`     | `Std.IO`     | Print/debug output              |

@@ -348,7 +348,9 @@ ExprProj  ::= ExprProj '!#' LowerName                      -- record projection
             | ExprAtom
 
 ExprAtom  ::= Var | Con | Lit
-            | '(' Op ')'                                     -- operator section
+            | '(' Op ')'                                     -- operator section (prefix)
+            | '(' Op Expr ')'                                -- right section
+            | '(' Expr Op ')'                                -- left section
             | '(' Expr ')'
             | '(' Expr ',' Expr (',' Expr)* ')'             -- tuple literal
             | '(' ')'                                        -- unit literal
@@ -370,7 +372,13 @@ Lit       ::= IntLit | StringLit | RuneLit
 
 `!#` binds at atom level (tighter than function application).
 
-`(op)` wraps an operator symbol in parentheses to use it as a first-class value (e.g. `foldr (+) 0 xs`). This mirrors the declaration-level `(op) := ...` syntax. `(.)` is also supported.
+Three operator section forms exist:
+
+- `(op)` wraps an operator in parentheses to use it as a first-class value (e.g. `foldr (+) 0 xs`). This mirrors the declaration-level `(op) := ...` syntax.
+- `(op expr)` is a right section: `(+ 1)` desugars to `\x -> x + 1`. The operator binds the right argument.
+- `(expr op)` is a left section: `(1 +)` desugars to `\x -> 1 + x`. The operator binds the left argument.
+
+All three forms produce ordinary values of function type and can be passed to higher-order functions.
 
 Disambiguation of `{`: `ident :=` → block expression, `ident =` → record literal, `expr |` → record update.
 
@@ -432,21 +440,32 @@ RowField ::= Label ':' Type
 
 Built-in operators:
 
-| Operator | Fixity | Precedence | Meaning              |
-| -------- | ------ | ---------- | -------------------- |
-| `.`      | infixr | 9          | Function composition |
-| `*`      | infixl | 7          | Multiplication       |
-| `/`      | infixl | 7          | Division             |
-| `%`      | infixl | 7          | Modulo               |
-| `+`      | infixl | 6          | Addition             |
-| `-`      | infixl | 6          | Subtraction          |
-| `<>`     | infixr | 6          | Append (Semigroup)   |
-| `==`     | infixn | 4          | Equality             |
-| `/=`     | infixn | 4          | Inequality           |
-| `<`      | infixn | 4          | Less than            |
-| `>`      | infixn | 4          | Greater than         |
-| `<=`     | infixn | 4          | Less or equal        |
-| `>=`     | infixn | 4          | Greater or equal     |
+| Operator | Fixity | Precedence | Meaning               |
+| -------- | ------ | ---------- | --------------------- |
+| `.`      | infixr | 9          | Function composition  |
+| `*`      | infixl | 7          | Multiplication        |
+| `/`      | infixl | 7          | Division              |
+| `%`      | infixl | 7          | Modulo                |
+| `+`      | infixl | 6          | Addition              |
+| `-`      | infixl | 6          | Subtraction           |
+| `<>`     | infixr | 6          | Append (Semigroup)    |
+| `<$>`    | infixl | 4          | Functor map           |
+| `<*>`    | infixl | 4          | Applicative apply     |
+| `*>`     | infixl | 4          | Applicative sequence  |
+| `<*`     | infixl | 4          | Applicative discard   |
+| `==`     | infixn | 4          | Equality              |
+| `/=`     | infixn | 4          | Inequality            |
+| `<`      | infixn | 4          | Less than             |
+| `>`      | infixn | 4          | Greater than          |
+| `<=`     | infixn | 4          | Less or equal         |
+| `>=`     | infixn | 4          | Greater or equal      |
+| `<\|>`   | infixl | 3          | Alternative choice    |
+| `>>=`    | infixl | 1          | Monad bind            |
+| `>>`     | infixl | 1          | Monad sequence        |
+| `<&>`    | infixl | 1          | Flipped Functor map   |
+| `=<<`    | infixr | 1          | Flipped Monad bind    |
+| `>=>`    | infixr | 1          | Kleisli left-to-right |
+| `<=<`    | infixr | 1          | Kleisli right-to-left |
 
 ---
 
@@ -707,9 +726,12 @@ No backtracking — resolution is greedy. Instance resolution matches kind argum
 ```
 Eq ──→ Ord
 
+Show   (independent)
+
 Semigroup ──→ Monoid
 
-Functor ──→ Applicative
+Functor ──→ Applicative ──→ Alternative
+                         ──→ Monad
 Functor ─┐
           ├──→ Traversable
 Foldable ┘
@@ -717,21 +739,24 @@ Foldable ┘
 IxMonad   (independent — indexed monadic interface)
 ```
 
-9 type classes total:
+12 type classes total:
 
 | Class         | Parameters                       | Key Methods                                                 |
 | ------------- | -------------------------------- | ----------------------------------------------------------- |
 | `Eq`          | `a`                              | `eq :: a -> a -> Bool`                                      |
 | `Ord`         | `a` (requires Eq)                | `compare :: a -> a -> Ordering`                             |
+| `Show`        | `a`                              | `show :: a -> String`                                       |
 | `Semigroup`   | `a`                              | `append :: a -> a -> a`                                     |
 | `Monoid`      | `a` (requires Semigroup)         | `empty :: a`                                                |
 | `Functor`     | `f : k -> Type`                  | `fmap :: (a -> b) -> f a -> f b`                            |
 | `Foldable`    | `t`                              | `foldr :: (a -> b -> b) -> b -> t a -> b`                   |
 | `Applicative` | `f` (requires Functor)           | `wrap :: a -> f a`, `ap :: f (a -> b) -> f a -> f b`        |
+| `Alternative` | `f` (requires Applicative)       | `none :: f a`, `alt :: f a -> f a -> f a`                   |
+| `Monad`       | `m : Type -> Type`               | `mpure :: a -> m a`, `mbind :: m a -> (a -> m b) -> m b`    |
 | `Traversable` | `t` (requires Functor, Foldable) | `traverse :: Applicative f => (a -> f b) -> t a -> f (t b)` |
 | `IxMonad`     | `m : Row -> Row -> Type -> Type` | `ixpure`, `ixbind`                                          |
 
-`Applicative.wrap` corresponds to Haskell's `pure` but uses a different name to avoid collision with the language built-in `pure`.
+`Applicative.wrap` corresponds to Haskell's `pure` but uses a different name to avoid collision with the language built-in `pure`. `Monad.mpure` and `Monad.mbind` similarly avoid collision with the built-in `pure` and `bind`.
 
 ## 6.6 Interaction with Computation Types
 
@@ -1052,7 +1077,7 @@ Modules are parsed and type-checked at registration time. Circular imports are f
 The Prelude is split into two parts:
 
 - **Core** (not replaceable): language-essential definitions — `IxMonad` class, `Computation` instance, `Effect` alias, `then` combinator, `Lift` type alias
-- **Prelude** (replaceable): standard library types, classes, instances — `Bool`, `Maybe`, `List`, `Ordering`, all 9 type classes, instances
+- **Prelude** (replaceable): standard library types, classes, instances — `Bool`, `Maybe`, `List`, `Ordering`, all 12 type classes, instances
 
 ```go
 eng.SetPrelude(customSource)  // Replace default Prelude with custom source
@@ -1205,16 +1230,18 @@ snd :: forall a b. (a, b) -> b
 
 ## 15.2 Stdlib Packs
 
-| Pack     | Provides                                                                    |
-| -------- | --------------------------------------------------------------------------- |
-| `Num`    | `Num` class, `Eq`/`Ord` Int, arithmetic operators (`+`, `-`, `*`, `/`, `%`) |
-| `Str`    | `Eq`/`Ord`/`Semigroup`/`Monoid` String, `Eq`/`Ord` Rune                     |
-| `List`   | `fromSlice`, `toSlice`, `length`, `concat`, `foldl`                         |
-| `Fail`   | `fail` capability, `fromMaybe`, `fromResult`                                |
-| `State`  | `get`/`put` capabilities                                                    |
-| `IO`     | `print`/`debug` via CapEnv buffer                                           |
-| `Stream` | Lazy list: `LCons`/`LNil`, `headS`, `tailS`, `takeS`, `dropS`               |
-| `Slice`  | Contiguous array: O(1) `sliceLength`/`sliceIndex`, `Functor`/`Foldable`     |
+| Pack     | Provides                                                                       |
+| -------- | ------------------------------------------------------------------------------ |
+| `Num`    | `Num` class, `Eq`/`Ord` Int, arithmetic operators (`+`, `-`, `*`, `/`, `%`)    |
+| `Str`    | `Eq`/`Ord`/`Semigroup`/`Monoid` String, `Eq`/`Ord` Rune                        |
+| `List`   | `fromSlice`, `toSlice`, `length`, `concat`, `foldl`                            |
+| `Fail`   | `fail` capability, `fromMaybe`, `fromResult`                                   |
+| `State`  | `get`/`put` capabilities                                                       |
+| `IO`     | `print`/`debug` via CapEnv buffer                                              |
+| `Stream` | Lazy list: `LCons`/`LNil`, `headS`, `tailS`, `takeS`, `dropS`                  |
+| `Slice`  | Contiguous array: O(1) `sliceLength`/`sliceIndex`, `Functor`/`Foldable`        |
+| `Map`    | Ordered immutable map (AVL): `insert`, `mapLookup`, `delete`, `fromList`       |
+| `Set`    | Ordered immutable set (backed by Map): `setInsert`, `setMember`, `setFromList` |
 
 Types (`Int`, `String`, `Rune`) are checker built-ins; operations come from stdlib packs. Runtime representation: `HostVal` wrapping Go values (`int64`, `string`, `rune`).
 

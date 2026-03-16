@@ -3,153 +3,113 @@
 **Identity and combinators:**
 
 ```
-id :: forall a. a -> a
-id := \x -> x
-
+id    :: forall a. a -> a
 const :: forall a b. a -> b -> a
-const := \x -> \_ -> x
-
-flip :: forall a b c. (a -> b -> c) -> b -> a -> c
-flip := \f -> \b -> \a -> f a b
+flip  :: forall a b c. (a -> b -> c) -> b -> a -> c
 ```
 
-**Composition operator:**
+**Composition:**
 
 ```
 infixr 9 .
 (.) :: forall b c a. (b -> c) -> (a -> b) -> a -> c
-(.) := \f -> \g -> \x -> f (g x)
 ```
 
 **Boolean logic:**
 
 ```
-not :: Bool -> Bool
-not := \b -> case b { True -> False; False -> True }
-
-infixr 3 &&
-(&&) :: Bool -> Bool -> Bool
-(&&) := \x -> \y -> case x { False -> False; True -> y }
-
-infixr 2 ||
-(||) :: Bool -> Bool -> Bool
-(||) := \x -> \y -> case x { True -> True; False -> y }
+not  :: Bool -> Bool
+(&&) :: Bool -> Bool -> Bool   -- infixr 3
+(||) :: Bool -> Bool -> Bool   -- infixr 2
 ```
 
-**Maybe:**
+**Eliminators:**
 
 ```
-maybe :: forall a b. b -> (a -> b) -> Maybe a -> b
-maybe := \def -> \f -> \m -> case m { Nothing -> def; Just a -> f a }
-```
-
-**Result:**
-
-```
+maybe  :: forall a b. b -> (a -> b) -> Maybe a -> b
 result :: forall e a b. (e -> b) -> (a -> b) -> Result e a -> b
-result := \onErr -> \onOk -> \r -> case r { Err e -> onErr e; Ok a -> onOk a }
+bool   :: forall a. a -> a -> Bool -> a
 ```
 
-**Tuple:**
+**Tuple / List basics:**
 
 ```
-fst :: forall a b. (a, b) -> a
-fst := \p -> p!#_1
+fst :: forall a b. (a, b) -> a          snd :: forall a b. (a, b) -> b
+swap :: forall a b. (a, b) -> (b, a)    curry :: forall a b c. ((a, b) -> c) -> a -> b -> c
+uncurry :: forall a b c. (a -> b -> c) -> (a, b) -> c
 
-snd :: forall a b. (a, b) -> b
-snd := \p -> p!#_2
-```
-
-**List:**
-
-```
-head :: forall a. List a -> Maybe a
-head := \xs -> case xs { Nil -> Nothing; Cons x _ -> Just x }
-
-tail :: forall a. List a -> Maybe (List a)
-tail := \xs -> case xs { Nil -> Nothing; Cons _ rest -> Just rest }
-
-null :: forall a. List a -> Bool
-null := \xs -> case xs { Nil -> True; Cons _ _ -> False }
-
-map :: forall a b. (a -> b) -> List a -> List b
-map := fmap
-
+head :: forall a. List a -> Maybe a     tail :: forall a. List a -> Maybe (List a)
+null :: forall a. List a -> Bool        singleton :: forall a. a -> List a
+map  :: forall a b. (a -> b) -> List a -> List b
 filter :: forall a. (a -> Bool) -> List a -> List a
-filter := \p -> foldr (\x -> \acc -> case p x { True -> Cons x acc; False -> acc }) Nil
-
-singleton :: forall a. a -> List a
-singleton := \x -> Cons x Nil
 ```
 
-**Comparison operators:**
+**Comparison:**
 
 ```
-infixn 4 ==
-(==) :: forall a. Eq a => a -> a -> Bool
-(==) := eq
-
-infixn 4 /=
-(/=) :: forall a. Eq a => a -> a -> Bool
-(/=) := \x -> \y -> not (eq x y)
-
-infixn 4 <
-(<) :: forall a. Ord a => a -> a -> Bool
-(<) := \x -> \y -> case compare x y { LT -> True; _ -> False }
-
-infixn 4 >
-(>) :: forall a. Ord a => a -> a -> Bool
-(>) := \x -> \y -> case compare x y { GT -> True; _ -> False }
-
-infixn 4 <=
-(<=) :: forall a. Ord a => a -> a -> Bool
-(<=) := \x -> \y -> case compare x y { GT -> False; _ -> True }
-
-infixn 4 >=
-(>=) :: forall a. Ord a => a -> a -> Bool
-(>=) := \x -> \y -> case compare x y { LT -> False; _ -> True }
+(==) (/=) :: Eq a => a -> a -> Bool       -- infixn 4
+(<) (>) (<=) (>=) :: Ord a => a -> a -> Bool  -- infixn 4
+min  max :: Ord a => a -> a -> a
+on :: forall a b c. (b -> b -> c) -> (a -> b) -> a -> a -> c
+comparing :: Ord b => (a -> b) -> a -> a -> Ordering
+equating  :: Eq b => (a -> b) -> a -> a -> Bool
 ```
 
-**Min / Max:**
+**Effect sequencing:**
 
 ```
-min :: forall a. Ord a => a -> a -> a
-min := \x -> \y -> case compare x y { GT -> y; _ -> x }
-
-max :: forall a. Ord a => a -> a -> a
-max := \x -> \y -> case compare x y { LT -> y; _ -> x }
-```
-
-**Monadic sequencing:**
-
-```
-then :: forall a b (r1 : Row) (r2 : Row) (r3 : Row).
-  Computation r1 r2 a -> Computation r2 r3 b -> Computation r1 r3 b
-then := \m1 -> \m2 -> bind m1 (\_ -> m2)
+then :: Computation r1 r2 a -> Computation r2 r3 b -> Computation r1 r3 b
 ```
 
 ---
 
-## 8. Operator Quick Reference
+### Prelude Utility Functions
+
+| Category | Functions                                                    |
+| -------- | ------------------------------------------------------------ |
+| Maybe    | `isJust`, `isNothing`, `fromMaybe`                           |
+| Result   | `isOk`, `isErr`, `fromOk`, `fromErr`                         |
+| Foldable | `foldMap`, `toList`, `find`, `elem`, `notElem`, `any`, `all` |
+| List     | `lookup`, `concatMap`, `flatten`, `catMaybes`, `mapMaybe`    |
+| List     | `partition`, `takeWhile`, `intersperse`, `nub`, `and`, `or`  |
+| Monadic  | `guard`, `when`, `unless`, `mjoin`, `liftA2`, `void`         |
+
+---
+
+### Operator Quick Reference
 
 All operators sorted by precedence (highest binds tightest):
 
-| Precedence | Operator | Associativity   | Type                                           | Source  |
-| ---------- | -------- | --------------- | ---------------------------------------------- | ------- |
-| 9          | `.`      | right           | `forall b c a. (b -> c) -> (a -> b) -> a -> c` | Prelude |
-| 7          | `*`      | left            | `forall a. Num a => a -> a -> a`               | Std.Num |
-| 7          | `/`      | left            | `Int -> Int -> Int`                            | Std.Num |
-| 6          | `+`      | left            | `forall a. Num a => a -> a -> a`               | Std.Num |
-| 6          | `-`      | left            | `forall a. Num a => a -> a -> a`               | Std.Num |
-| 4          | `==`     | non-associative | `forall a. Eq a => a -> a -> Bool`             | Prelude |
-| 4          | `/=`     | non-associative | `forall a. Eq a => a -> a -> Bool`             | Prelude |
-| 4          | `<`      | non-associative | `forall a. Ord a => a -> a -> Bool`            | Prelude |
-| 4          | `>`      | non-associative | `forall a. Ord a => a -> a -> Bool`            | Prelude |
-| 4          | `<=`     | non-associative | `forall a. Ord a => a -> a -> Bool`            | Prelude |
-| 4          | `>=`     | non-associative | `forall a. Ord a => a -> a -> Bool`            | Prelude |
-| 3          | `&&`     | right           | `Bool -> Bool -> Bool`                         | Prelude |
-| 2          | `\|\|`   | right           | `Bool -> Bool -> Bool`                         | Prelude |
+| Prec | Op    | Assoc | Meaning              | Source  |
+| ---- | ----- | ----- | -------------------- | ------- |
+| 9    | `.`   | right | function composition | Prelude |
+| 7    | `*`   | left  | multiplication       | Std.Num |
+| 7    | `/`   | left  | integer division     | Std.Num |
+| 6    | `+`   | left  | addition             | Std.Num |
+| 6    | `-`   | left  | subtraction          | Std.Num |
+| 6    | `<>`  | right | semigroup append     | Prelude |
+| 4    | `<$>` | left  | functor map          | Prelude |
+| 4    | `<*>` | left  | applicative apply    | Prelude |
+| 4    | `*>`  | left  | applicative then     | Prelude |
+| 4    | `<*`  | left  | applicative but      | Prelude |
+| 4    | `==`  | none  | equality             | Prelude |
+| 4    | `/=`  | none  | inequality           | Prelude |
+| 4    | `<`   | none  | less than            | Prelude |
+| 4    | `>`   | none  | greater than         | Prelude |
+| 4    | `<=`  | none  | less or equal        | Prelude |
+| 4    | `>=`  | none  | greater or equal     | Prelude |
+| 3    | `&&`  | right | boolean and          | Prelude |
+| 3    | `<¦>` | left  | alternative choice   | Prelude |
+| 2    | `¦¦`  | right | boolean or           | Prelude |
+| 1    | `<&>` | left  | flipped fmap         | Prelude |
+| 1    | `>>=` | left  | monad bind           | Prelude |
+| 1    | `>>`  | left  | monad sequence       | Prelude |
+| 1    | `&`   | left  | reverse application  | Prelude |
+| 1    | `=<<` | right | flipped bind         | Prelude |
+| 1    | `>=>` | right | Kleisli composition  | Prelude |
+| 1    | `<=<` | right | flipped Kleisli      | Prelude |
+| 0    | `$`   | right | low-precedence apply | Prelude |
 
 Undeclared operators default to `infixl 9`.
 
-Non-associative (`infixn`) operators cannot be chained: `a == b == c` is a parse error. Write `(a == b) && (b == c)`.
+Non-associative (`infixn`) operators cannot be chained: `a == b == c` is a parse error.

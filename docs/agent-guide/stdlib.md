@@ -23,37 +23,16 @@ class Eq a => Num a {
 | --------------- |
 | `Eq Int`        |
 | `Ord Int`       |
+| `Show Int`      |
 | `Num Int`       |
 | `Semigroup Int` |
 | `Monoid Int`    |
 
-**Functions:**
+**Functions:** `add`, `sub`, `mul`, `negate` (class methods), `div`, `mod`, `abs`, `sign`.
 
-| Name     | Type                             | Description                   |
-| -------- | -------------------------------- | ----------------------------- |
-| `add`    | `forall a. Num a => a -> a -> a` | Addition (class method)       |
-| `sub`    | `forall a. Num a => a -> a -> a` | Subtraction (class method)    |
-| `mul`    | `forall a. Num a => a -> a -> a` | Multiplication (class method) |
-| `negate` | `forall a. Num a => a -> a`      | Negation (class method)       |
-| `div`    | `Int -> Int -> Int`              | Integer division              |
-| `mod`    | `Int -> Int -> Int`              | Modulo                        |
-| `abs`    | `Int -> Int`                     | Absolute value                |
-| `sign`   | `Int -> Int`                     | Sign (-1, 0, or 1)            |
+**Operators:** `+` `-` (infixl 6), `*` `/` (infixl 7).
 
-**Operators:**
-
-| Operator | Fixity     | Type                             |
-| -------- | ---------- | -------------------------------- |
-| `+`      | `infixl 6` | `forall a. Num a => a -> a -> a` |
-| `-`      | `infixl 6` | `forall a. Num a => a -> a -> a` |
-| `*`      | `infixl 7` | `forall a. Num a => a -> a -> a` |
-| `/`      | `infixl 7` | `Int -> Int -> Int`              |
-
-**Notes:**
-
-- Integer literals (`42`) only parse when Std.Num is imported.
-- Negative numbers: write `negate 5`, not `-5`.
-- Division by zero is a runtime error.
+Instances: `Eq/Ord/Show/Num/Semigroup/Monoid Int`. Integer literals require `import Std.Num`. Negative numbers: `negate 5`. Division by zero is a runtime error.
 
 ### Std.Str
 
@@ -70,25 +49,9 @@ Provides string and rune operations.
 | `Eq Rune`          |
 | `Ord Rune`         |
 
-**Functions:**
+**Functions:** `strlen`, `toRunes`, `charAt`, `substring`, `toUpper`, `toLower`, `trim`, `contains`, `split`, `join`, `showInt`, `showBool`, `readInt`.
 
-| Name        | Type                              | Description                                      |
-| ----------- | --------------------------------- | ------------------------------------------------ |
-| `strlen`    | `String -> Int`                   | Length in runes (Unicode code points)            |
-| `toRunes`   | `String -> List Rune`             | Convert string to list of runes                  |
-| `charAt`    | `Int -> String -> Maybe Rune`     | Rune at index (0-based), Nothing if out of range |
-| `substring` | `Int -> Int -> String -> String`  | `substring start count s` extracts a substring   |
-| `toUpper`   | `String -> String`                | Convert to uppercase                             |
-| `toLower`   | `String -> String`                | Convert to lowercase                             |
-| `trim`      | `String -> String`                | Trim leading/trailing whitespace                 |
-| `contains`  | `String -> String -> Bool`        | `contains needle haystack`                       |
-| `split`     | `String -> String -> List String` | `split separator string`                         |
-| `join`      | `String -> List String -> String` | `join separator parts`                           |
-| `showInt`   | `Int -> String`                   | Convert Int to its decimal string                |
-| `showBool`  | `Bool -> String`                  | Convert Bool to "True" or "False"                |
-| `readInt`   | `String -> Maybe Int`             | Parse decimal string to Int                      |
-
-Instances: `Eq/Ord/Semigroup/Monoid String`, `Eq/Ord Rune`, `Packed String Rune`. `strlen` counts runes, not bytes. `charAt`/`substring` use 0-based rune indexing. Concatenation via `append`.
+Instances: `Eq/Ord/Semigroup/Monoid String`, `Eq/Ord Rune`, `Packed String Rune`, `Show String`. Rune-based indexing. Concatenation via `append`.
 
 ### Std.List
 
@@ -96,22 +59,78 @@ Provides list operations (native-speed implementations).
 
 **Functions:**
 
-| Name        | Type                                            | Description                                            |
-| ----------- | ----------------------------------------------- | ------------------------------------------------------ |
-| `fromSlice` | `forall a. List a -> List a`                    | Identity on Cons/Nil chains; converts HostVal slices   |
-| `toSlice`   | `forall a. List a -> List a`                    | Identity on Cons/Nil chains; converts to HostVal slice |
-| `length`    | `forall a. List a -> Int`                       | Count elements                                         |
-| `concat`    | `forall a. List a -> List a -> List a`          | Concatenate two lists                                  |
-| `foldl`     | `forall a b. (b -> a -> b) -> b -> List a -> b` | Strict left fold                                       |
-| `take`      | `forall a. Int -> List a -> List a`             | First n elements                                       |
-| `drop`      | `forall a. Int -> List a -> List a`             | Drop first n elements                                  |
-| `index`     | `forall a. Int -> List a -> Maybe a`            | Element at index (0-based)                             |
-| `replicate` | `forall a. Int -> a -> List a`                  | List of n copies of a value                            |
-| `reverse`   | `forall a. List a -> List a`                    | Reverse a list                                         |
-| `zip`       | `forall a b. List a -> List b -> List (a, b)`   | Zip two lists into pairs                               |
-| `unzip`     | `forall a b. List (a, b) -> (List a, List b)`   | Unzip a list of pairs                                  |
+| Name          | Type                                                        | Description                                            |
+| ------------- | ----------------------------------------------------------- | ------------------------------------------------------ |
+| `fromSlice`   | `forall a. List a -> List a`                                | Identity on Cons/Nil chains; converts HostVal slices   |
+| `toSlice`     | `forall a. List a -> List a`                                | Identity on Cons/Nil chains; converts to HostVal slice |
+| `length`      | `forall a. List a -> Int`                                   | Count elements                                         |
+| `concat`      | `forall a. List a -> List a -> List a`                      | Concatenate two lists                                  |
+| `foldl`       | `forall a b. (b -> a -> b) -> b -> List a -> b`             | Strict left fold                                       |
+| `take`        | `forall a. Int -> List a -> List a`                         | First n elements                                       |
+| `drop`        | `forall a. Int -> List a -> List a`                         | Drop first n elements                                  |
+| `index`       | `forall a. Int -> List a -> Maybe a`                        | Element at index (0-based)                             |
+| `replicate`   | `forall a. Int -> a -> List a`                              | List of n copies of a value                            |
+| `reverse`     | `forall a. List a -> List a`                                | Reverse a list                                         |
+| `zip`         | `forall a b. List a -> List b -> List (a, b)`               | Zip two lists into pairs                               |
+| `unzip`       | `forall a b. List (a, b) -> (List a, List b)`               | Unzip a list of pairs                                  |
+| `dropWhile`   | `forall a. (a -> Bool) -> List a -> List a`                 | Drop leading elements while predicate holds            |
+| `span`        | `forall a. (a -> Bool) -> List a -> (List a, List a)`       | Split at first element failing predicate               |
+| `break`       | `forall a. (a -> Bool) -> List a -> (List a, List a)`       | Split at first element satisfying predicate            |
+| `sortBy`      | `forall a. (a -> a -> Ordering) -> List a -> List a`        | Merge sort with custom comparator                      |
+| `sort`        | `forall a. Ord a => List a -> List a`                       | Merge sort using `compare`                             |
+| `scanl`       | `forall a b. (b -> a -> b) -> b -> List a -> List b`        | Left scan collecting accumulator values                |
+| `unfoldr`     | `forall a b. (b -> Maybe (a, b)) -> b -> List a`            | Build list from seed                                   |
+| `iterateN`    | `forall a. Int -> (a -> a) -> a -> List a`                  | Generate n elements by repeated application            |
+| `zipWith`     | `forall a b c. (a -> b -> c) -> List a -> List b -> List c` | Zip with combining function                            |
+| `intercalate` | `forall a. List a -> List (List a) -> List a`               | Insert separator between sublists and flatten          |
+| `nubBy`       | `forall a. (a -> a -> Bool) -> List a -> List a`            | Remove duplicates with custom equality                 |
 
 `foldl` is strict. Prelude provides `foldr`, `map`, `filter`, `head`, `tail`, `null`, `singleton`, `append` for lists.
+
+### Std.Map
+
+Provides an ordered immutable map backed by an AVL tree. All key-parameterized operations require `Ord k`.
+
+**Functions:**
+
+| Name           | Type                                                         | Description                          |
+| -------------- | ------------------------------------------------------------ | ------------------------------------ |
+| `mapEmpty`     | `forall k v. Ord k => Map k v`                               | Empty map                            |
+| `insert`       | `forall k v. Ord k => k -> v -> Map k v -> Map k v`          | Insert or overwrite a key-value pair |
+| `mapLookup`    | `forall k v. Ord k => k -> Map k v -> Maybe v`               | Lookup by key                        |
+| `delete`       | `forall k v. Ord k => k -> Map k v -> Map k v`               | Remove a key                         |
+| `mapSize`      | `forall k v. Map k v -> Int`                                 | Number of entries                    |
+| `toList`       | `forall k v. Map k v -> List (k, v)`                         | In-order key-value pairs             |
+| `fromList`     | `forall k v. Ord k => List (k, v) -> Map k v`                | Build map from pairs                 |
+| `member`       | `forall k v. Ord k => k -> Map k v -> Bool`                  | Key membership test                  |
+| `foldlWithKey` | `forall k v b. (b -> k -> v -> b) -> b -> Map k v -> b`      | Left fold with key and value         |
+| `unionWith`    | `forall k v. (v -> v -> v) -> Map k v -> Map k v -> Map k v` | Union, combining duplicates with f   |
+
+**Notes:**
+
+- Maps are persistent (immutable). Insert/delete return new maps.
+- `toList` returns pairs sorted by key.
+
+### Std.Set
+
+Provides an ordered immutable set backed by a Map.
+
+**Functions:**
+
+| Name          | Type                                     | Description         |
+| ------------- | ---------------------------------------- | ------------------- |
+| `setEmpty`    | `forall k. Ord k => Set k`               | Empty set           |
+| `setInsert`   | `forall k. Ord k => k -> Set k -> Set k` | Insert an element   |
+| `setMember`   | `forall k. Ord k => k -> Set k -> Bool`  | Membership test     |
+| `setDelete`   | `forall k. Ord k => k -> Set k -> Set k` | Remove an element   |
+| `setSize`     | `forall k. Set k -> Int`                 | Number of elements  |
+| `setToList`   | `forall k. Set k -> List k`              | Sorted element list |
+| `setFromList` | `forall k. Ord k => List k -> Set k`     | Build set from list |
+
+**Notes:**
+
+- Sets are persistent (immutable). Insert/delete return new sets.
+- `setToList` returns elements in sorted order.
 
 ### Std.State
 
