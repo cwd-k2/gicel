@@ -315,6 +315,29 @@ func collectPatternVarsRec(t types.Type, seen map[string]bool, result *[]string)
 	}
 }
 
+// lubPostStates computes the join of multiple post-states from case branches.
+// When the LUB type family is available and multiplicities are in use,
+// this performs field-by-field LUB. Currently falls back to unification
+// (requiring equal post-states), which is the v0 behavior.
+func (ch *Checker) lubPostStates(posts []types.Type, s span.Span) types.Type {
+	if len(posts) == 0 {
+		return ch.freshMeta(types.KRow{})
+	}
+	result := posts[0]
+	for i := 1; i < len(posts); i++ {
+		if _, ok := ch.families["LUB"]; ok {
+			// TODO(Phase 6): implement field-by-field LUB using the LUB type family.
+			// For now, fall through to unification.
+		}
+		if err := ch.unifier.Unify(result, posts[i]); err != nil {
+			ch.addCodedError(errs.ErrTypeMismatch, s,
+				fmt.Sprintf("divergent post-states in case branches: %s vs %s (requires LUB type family for automatic join)",
+					types.Pretty(result), types.Pretty(posts[i])))
+		}
+	}
+	return result
+}
+
 // checkMultiplicity validates multiplicity constraints in bind elaboration.
 // When a capability in pre has a non-nil Mult:
 //   - Linear: must appear in pre but NOT in post (consumed exactly once)
