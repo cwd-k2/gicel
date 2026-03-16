@@ -148,6 +148,11 @@ func (p *Parser) parseTypeApp() TypeExpr {
 
 func (p *Parser) parseTypeAtom() TypeExpr {
 	switch p.peek().Kind {
+	case TokUnderscore:
+		// Wildcard type pattern: _ (used in type family equations)
+		tok := p.peek()
+		p.advance()
+		return &TyExprVar{Name: "_", S: tok.S}
 	case TokLower:
 		tok := p.peek()
 		p.advance()

@@ -17,6 +17,10 @@ func (ch *Checker) resolveTypeExpr(texpr syntax.TypeExpr) types.Type {
 		if info, ok := ch.aliases[t.Name]; ok && len(info.params) == 0 {
 			return info.body
 		}
+		// Zero-arity type family: immediate TyFamilyApp.
+		if fam, ok := ch.families[t.Name]; ok && len(fam.Params) == 0 {
+			return &types.TyFamilyApp{Name: t.Name, Args: nil, Kind: fam.ResultKind, S: t.S}
+		}
 		// DataKinds: if the name is a promoted constructor, treat it as a TyCon
 		// (it will be kind-checked later; for now it's just a name in type position).
 		return &types.TyCon{Name: t.Name, S: t.S}
@@ -183,8 +187,8 @@ func (ch *Checker) tryExpandApp(fun types.Type, arg types.Type, s span.Span) typ
 			}
 		}
 	}
-	// General alias expansion: collect the TyApp spine and check if the
-	// head is an alias with matching parameter count.
+	// General alias/family expansion: collect the TyApp spine and check if the
+	// head is an alias or type family with matching parameter count.
 	result := &types.TyApp{Fun: fun, Arg: arg, S: s}
 	head, args := types.UnwindApp(result)
 	if con, ok := head.(*types.TyCon); ok {
@@ -194,6 +198,10 @@ func (ch *Checker) tryExpandApp(fun types.Type, arg types.Type, s span.Span) typ
 				body = types.Subst(body, p, args[i])
 			}
 			return body
+		}
+		// Type family: saturated application → TyFamilyApp.
+		if fam, ok := ch.families[con.Name]; ok && len(fam.Params) == len(args) {
+			return &types.TyFamilyApp{Name: con.Name, Args: args, Kind: fam.ResultKind, S: s}
 		}
 	}
 	return nil

@@ -221,17 +221,27 @@ func (ch *Checker) matchTyPattern(pat, arg types.Type, subst map[string]types.Ty
 // injectivity annotation by pairwise equation comparison.
 // For every pair of equations, if the RHSes can unify,
 // the corresponding LHS patterns must also unify.
+//
+// Pattern variables are instantiated as fresh metavariables before comparison,
+// since TyVar (pattern variable) ≠ TyMeta (solvable) in unification.
 func (ch *Checker) verifyInjectivity(info *TypeFamilyInfo) {
 	for i := 0; i < len(info.Equations); i++ {
 		for j := i + 1; j < len(info.Equations); j++ {
 			eqI := info.Equations[i]
 			eqJ := info.Equations[j]
+
+			// Instantiate pattern variables as fresh metas for both equations.
+			rhsI := ch.instantiatePatVars(eqI.RHS, eqI.Patterns)
+			rhsJ := ch.instantiatePatVars(eqJ.RHS, eqJ.Patterns)
+			patsI := ch.instantiatePatVarsList(eqI.Patterns)
+			patsJ := ch.instantiatePatVarsList(eqJ.Patterns)
+
 			// Trial unification on RHSes.
-			if ch.tryUnify(eqI.RHS, eqJ.RHS) {
+			if ch.tryUnify(rhsI, rhsJ) {
 				// RHSes can unify — check that LHSes also unify.
 				allMatch := true
-				for k := range eqI.Patterns {
-					if !ch.tryUnify(eqI.Patterns[k], eqJ.Patterns[k]) {
+				for k := range patsI {
+					if !ch.tryUnify(patsI[k], patsJ[k]) {
 						allMatch = false
 						break
 					}
@@ -243,6 +253,52 @@ func (ch *Checker) verifyInjectivity(info *TypeFamilyInfo) {
 				}
 			}
 		}
+	}
+}
+
+// instantiatePatVars replaces free TyVars (pattern variables) with fresh metas.
+func (ch *Checker) instantiatePatVars(ty types.Type, patterns []types.Type) types.Type {
+	vars := collectPatternVars(patterns)
+	for _, v := range vars {
+		ty = types.Subst(ty, v, ch.freshMeta(types.KType{}))
+	}
+	return ty
+}
+
+// instantiatePatVarsList replaces free TyVars in each pattern with fresh metas.
+func (ch *Checker) instantiatePatVarsList(patterns []types.Type) []types.Type {
+	vars := collectPatternVars(patterns)
+	result := make([]types.Type, len(patterns))
+	subs := make(map[string]types.Type, len(vars))
+	for _, v := range vars {
+		subs[v] = ch.freshMeta(types.KType{})
+	}
+	for i, p := range patterns {
+		result[i] = types.SubstMany(p, subs)
+	}
+	return result
+}
+
+// collectPatternVars collects all TyVar names from type patterns.
+func collectPatternVars(patterns []types.Type) []string {
+	seen := make(map[string]bool)
+	var result []string
+	for _, p := range patterns {
+		collectPatternVarsRec(p, seen, &result)
+	}
+	return result
+}
+
+func collectPatternVarsRec(t types.Type, seen map[string]bool, result *[]string) {
+	switch ty := t.(type) {
+	case *types.TyVar:
+		if ty.Name != "_" && !seen[ty.Name] {
+			seen[ty.Name] = true
+			*result = append(*result, ty.Name)
+		}
+	case *types.TyApp:
+		collectPatternVarsRec(ty.Fun, seen, result)
+		collectPatternVarsRec(ty.Arg, seen, result)
 	}
 }
 

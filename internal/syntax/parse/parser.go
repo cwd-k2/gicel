@@ -116,7 +116,7 @@ func (p *Parser) parseDecl() Decl {
 	case p.peek().Kind == TokData:
 		return p.parseDataDecl()
 	case p.peek().Kind == TokType:
-		return p.parseTypeAlias()
+		return p.parseTypeDecl()
 	case p.peek().Kind == TokClass:
 		return p.parseClassDecl()
 	case p.peek().Kind == TokInstance:
@@ -242,10 +242,34 @@ func (p *Parser) parseConDecl() DeclCon {
 	return DeclCon{Name: name, Fields: fields, S: span.Span{Start: start, End: p.prevEnd()}}
 }
 
-func (p *Parser) parseTypeAlias() *DeclTypeAlias {
+// parseTypeDecl parses either a type alias or a type family declaration.
+//
+//	type Name params = TypeExpr              → type alias
+//	type Name params :: Kind = { equations } → type family
+func (p *Parser) parseTypeDecl() Decl {
 	start := p.peek().S.Start
 	p.expect(TokType)
 	name := p.expectUpper()
+	params := p.parseTyBinderList()
+
+	if p.peek().Kind == TokColonColon {
+		// Type family declaration.
+		return p.parseTypeFamilyBody(name, params, start)
+	}
+
+	// Type alias.
+	p.expect(TokEq)
+	body := p.parseType()
+	return &DeclTypeAlias{
+		Name:   name,
+		Params: params,
+		Body:   body,
+		S:      span.Span{Start: start, End: p.prevEnd()},
+	}
+}
+
+// parseTyBinderList parses a sequence of type binders: bare or kinded.
+func (p *Parser) parseTyBinderList() []TyBinder {
 	var params []TyBinder
 	for p.peek().Kind == TokLower || (p.peek().Kind == TokLParen && p.isClassKindedBinder()) {
 		if p.peek().Kind == TokLParen {
@@ -263,14 +287,108 @@ func (p *Parser) parseTypeAlias() *DeclTypeAlias {
 			params = append(params, TyBinder{Name: pName, S: pS})
 		}
 	}
+	return params
+}
+
+// parseTypeFamilyBody parses the body of a type family declaration after `::`.
+//
+//	:: Kind = { equations }
+//	:: (r :: Kind) | deps = { equations }
+func (p *Parser) parseTypeFamilyBody(name string, params []TyBinder, start span.Pos) *DeclTypeFamily {
+	p.expect(TokColonColon)
+	resultKind, resultName, deps := p.parseResultKind()
+
 	p.expect(TokEq)
-	body := p.parseType()
-	return &DeclTypeAlias{
-		Name:   name,
-		Params: params,
-		Body:   body,
-		S:      span.Span{Start: start, End: p.prevEnd()},
+	equations := p.parseTypeFamilyEquations(name)
+
+	return &DeclTypeFamily{
+		Name:       name,
+		Params:     params,
+		ResultKind: resultKind,
+		ResultName: resultName,
+		Deps:       deps,
+		Equations:  equations,
+		S:          span.Span{Start: start, End: p.prevEnd()},
 	}
+}
+
+// parseResultKind parses either a plain kind or an injective result kind.
+//
+//	Type                            → (KindExprType, "", nil)
+//	(r :: Type) | r -> a            → (KindExprType, "r", [{From:"r", To:["a"]}])
+func (p *Parser) parseResultKind() (KindExpr, string, []FunDep) {
+	// Check for injective form: (name :: Kind) | deps
+	if p.peek().Kind == TokLParen && p.isInjectiveResult() {
+		p.advance() // consume (
+		resultName := p.expectLower()
+		p.expect(TokColonColon)
+		kind := p.parseKindExpr()
+		p.expect(TokRParen)
+
+		// Parse | deps
+		p.expect(TokPipe)
+		var deps []FunDep
+		for {
+			from := p.expectLower()
+			p.expect(TokArrow)
+			var to []string
+			for p.peek().Kind == TokLower {
+				to = append(to, p.expectLower())
+			}
+			deps = append(deps, FunDep{From: from, To: to})
+			if p.peek().Kind == TokComma {
+				p.advance()
+				continue
+			}
+			break
+		}
+		return kind, resultName, deps
+	}
+
+	// Plain kind expression.
+	kind := p.parseKindExpr()
+	return kind, "", nil
+}
+
+// isInjectiveResult checks if the tokens at current position form
+// (lower :: Kind) | ..., which indicates an injective result kind.
+func (p *Parser) isInjectiveResult() bool {
+	if p.pos+3 >= len(p.tokens) {
+		return false
+	}
+	return p.tokens[p.pos+1].Kind == TokLower && p.tokens[p.pos+2].Kind == TokColonColon
+}
+
+// parseTypeFamilyEquations parses the equation block { Name Pat* = RHS; ... }.
+func (p *Parser) parseTypeFamilyEquations(familyName string) []TFEquation {
+	p.expect(TokLBrace)
+	var equations []TFEquation
+	for p.peek().Kind != TokRBrace && p.peek().Kind != TokEOF {
+		before := p.pos
+		eqStart := p.peek().S.Start
+		eqName := p.expectUpper()
+		// Parse LHS type patterns.
+		var patterns []TypeExpr
+		for p.isTypeAtomStart() && p.peek().Kind != TokEq {
+			patterns = append(patterns, p.parseTypeAtom())
+		}
+		p.expect(TokEq)
+		rhs := p.parseType()
+		equations = append(equations, TFEquation{
+			Name:     eqName,
+			Patterns: patterns,
+			RHS:      rhs,
+			S:        span.Span{Start: eqStart, End: p.prevEnd()},
+		})
+		if p.peek().Kind == TokSemicolon {
+			p.advance()
+		} else if p.pos == before {
+			p.addError("unexpected token in type family declaration")
+			p.advance()
+		}
+	}
+	p.expect(TokRBrace)
+	return equations
 }
 
 func (p *Parser) parseFixityDecl() *DeclFixity {
@@ -726,7 +844,7 @@ func (p *Parser) isTypeAtomStart() bool {
 		return false
 	}
 	k := p.peek().Kind
-	return k == TokLower || k == TokUpper || k == TokLParen || k == TokLBrace
+	return k == TokLower || k == TokUpper || k == TokLParen || k == TokLBrace || k == TokUnderscore
 }
 
 // isClassKindedBinder checks if the next tokens form (name : Kind) pattern.
