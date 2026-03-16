@@ -146,6 +146,34 @@ func (ch *Checker) processClassDecl(d *syntax.DeclClass, prog *core.Program) {
 		}
 	}
 
+	// Process associated data family declarations.
+	// Data families are registered as type families (for Elem reduction)
+	// AND as data type placeholders (for constructor resolution).
+	for _, add := range d.AssocDataDecls {
+		assocTypeNames = append(assocTypeNames, add.Name)
+		var dfParams []string
+		var dfParamKinds []types.Kind
+		for _, p := range add.Params {
+			dfParams = append(dfParams, p.Name)
+			dfParamKinds = append(dfParamKinds, ch.resolveKindExpr(p.Kind))
+		}
+		resultKind := ch.resolveKindExpr(add.ResultKind)
+		ch.families[add.Name] = &TypeFamilyInfo{
+			Name:       add.Name,
+			Params:     dfParams,
+			ParamKinds: dfParamKinds,
+			ResultKind: resultKind,
+			IsAssoc:    true,
+			ClassName:  d.Name,
+		}
+		// Register the data family name as a type constructor.
+		var dfKind types.Kind = resultKind
+		for i := len(dfParamKinds) - 1; i >= 0; i-- {
+			dfKind = &types.KArrow{From: dfParamKinds[i], To: dfKind}
+		}
+		ch.config.RegisteredTypes[add.Name] = dfKind
+	}
+
 	// Elaborate functional dependencies: convert param names to indices.
 	paramIndex := make(map[string]int, len(tyParams))
 	for i, p := range tyParams {

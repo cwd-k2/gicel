@@ -543,6 +543,9 @@ func reconstructCon(con string, arity int, inner pat, _ patVec) pat {
 // constructor of the scrutinee's data type and reports redundant patterns.
 func (ch *Checker) checkExhaustive(scrutTy types.Type, alts []core.Alt, s span.Span) {
 	scrutTy = ch.unifier.Zonk(scrutTy)
+	// Reduce type family applications in the scrutinee type so that
+	// data family instances are resolved to their mangled concrete types.
+	scrutTy = ch.reduceFamilyInType(scrutTy)
 
 	// Build pattern matrix.
 	var mx patMatrix
@@ -644,9 +647,36 @@ func headTyCon(ty types.Type) string {
 		return t.Name
 	case *types.TyApp:
 		return headTyCon(t.Fun)
+	case *types.TyFamilyApp:
+		// Data families: the family app itself acts as a data type name.
+		// Return the mangled name if we can determine it.
+		return ""
 	default:
 		return ""
 	}
+}
+
+// headTyConWithFamilies is like headTyCon but reduces type family applications first.
+func (ch *Checker) headTyConWithFamilies(ty types.Type) string {
+	// Try reducing type families.
+	if tf, ok := ty.(*types.TyFamilyApp); ok {
+		result, reduced := ch.reduceTyFamily(tf.Name, tf.Args)
+		if reduced {
+			return ch.headTyConWithFamilies(result)
+		}
+	}
+	if _, ok := ty.(*types.TyApp); ok {
+		head, args := types.UnwindApp(ty)
+		if con, ok := head.(*types.TyCon); ok {
+			if fam, ok := ch.families[con.Name]; ok && len(fam.Params) == len(args) {
+				result, reduced := ch.reduceTyFamily(con.Name, args)
+				if reduced {
+					return ch.headTyConWithFamilies(result)
+				}
+			}
+		}
+	}
+	return headTyCon(ty)
 }
 
 // canUnifyWith tests whether retTy can unify with scrutTy in a temporary

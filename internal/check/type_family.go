@@ -410,6 +410,40 @@ func (ch *Checker) applyFunDepImprovement(className string, args []types.Type) {
 	}
 }
 
+// reduceFamilyInType reduces type family applications within a type.
+// Used by exhaustiveness checking to resolve data family instances.
+func (ch *Checker) reduceFamilyInType(t types.Type) types.Type {
+	if ch.unifier.familyReducer != nil {
+		return ch.unifier.familyReducer(t)
+	}
+	return t
+}
+
+// mangledDataFamilyName produces a mangled name for a data family instance.
+// E.g., Elem applied to (List a) → "Elem$List".
+func (ch *Checker) mangledDataFamilyName(familyName string, patterns []types.Type) string {
+	name := familyName
+	for _, p := range patterns {
+		name += "$" + typeNameForMangling(p)
+	}
+	return name
+}
+
+// typeNameForMangling extracts a short name from a type for mangling purposes.
+func typeNameForMangling(t types.Type) string {
+	switch ty := t.(type) {
+	case *types.TyCon:
+		return ty.Name
+	case *types.TyApp:
+		head, _ := types.UnwindApp(t)
+		return typeNameForMangling(head)
+	case *types.TyVar:
+		return ty.Name
+	default:
+		return "X"
+	}
+}
+
 // installFamilyReducer sets the family reducer callback in the unifier.
 func (ch *Checker) installFamilyReducer() {
 	if len(ch.families) == 0 {

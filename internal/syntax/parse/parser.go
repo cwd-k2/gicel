@@ -509,10 +509,10 @@ func (p *Parser) parseClassDecl() *DeclClass {
 				params = append(params, TyBinder{Name: v.Name, Kind: v.Kind, S: v.S})
 			}
 			funDeps := p.parseClassFunDeps()
-			methods, assocTypes := p.parseClassBody()
+			methods, assocTypes, assocDataDecls := p.parseClassBody()
 			return &DeclClass{
 				Supers: supers, Name: nextName, TyParams: params, FunDeps: funDeps,
-				Methods: methods, AssocTypes: assocTypes,
+				Methods: methods, AssocTypes: assocTypes, AssocDataDecls: assocDataDecls,
 				S: span.Span{Start: start, End: p.prevEnd()},
 			}
 		}
@@ -525,10 +525,10 @@ func (p *Parser) parseClassDecl() *DeclClass {
 		params = append(params, TyBinder{Name: v.Name, Kind: v.Kind, S: v.S})
 	}
 	funDeps := p.parseClassFunDeps()
-	methods, assocTypes := p.parseClassBody()
+	methods, assocTypes, assocDataDecls := p.parseClassBody()
 	return &DeclClass{
 		Name: firstName, TyParams: params, FunDeps: funDeps,
-		Methods: methods, AssocTypes: assocTypes,
+		Methods: methods, AssocTypes: assocTypes, AssocDataDecls: assocDataDecls,
 		S: span.Span{Start: start, End: p.prevEnd()},
 	}
 }
@@ -557,17 +557,22 @@ func (p *Parser) parseClassFunDeps() []FunDep {
 	return deps
 }
 
-func (p *Parser) parseClassBody() ([]ClassMethod, []AssocTypeDecl) {
+func (p *Parser) parseClassBody() ([]ClassMethod, []AssocTypeDecl, []AssocDataDecl) {
 	p.expect(TokLBrace)
 	var methods []ClassMethod
 	var assocTypes []AssocTypeDecl
+	var assocDataDecls []AssocDataDecl
 	for p.peek().Kind != TokRBrace && p.peek().Kind != TokEOF {
 		before := p.pos
 		if p.peek().Kind == TokType {
-			// Associated type declaration: type Name params :: Kind
 			atd := p.parseAssocTypeDecl()
 			if atd != nil {
 				assocTypes = append(assocTypes, *atd)
+			}
+		} else if p.peek().Kind == TokData {
+			add := p.parseAssocDataDecl()
+			if add != nil {
+				assocDataDecls = append(assocDataDecls, *add)
 			}
 		} else {
 			mStart := p.peek().S.Start
@@ -584,7 +589,25 @@ func (p *Parser) parseClassBody() ([]ClassMethod, []AssocTypeDecl) {
 		}
 	}
 	p.expect(TokRBrace)
-	return methods, assocTypes
+	return methods, assocTypes, assocDataDecls
+}
+
+// parseAssocDataDecl parses an associated data family declaration in a class body:
+//
+//	data Name params :: Kind
+func (p *Parser) parseAssocDataDecl() *AssocDataDecl {
+	start := p.peek().S.Start
+	p.expect(TokData)
+	name := p.expectUpper()
+	params := p.parseTyBinderList()
+	p.expect(TokColonColon)
+	resultKind := p.parseKindExpr()
+	return &AssocDataDecl{
+		Name:       name,
+		Params:     params,
+		ResultKind: resultKind,
+		S:          span.Span{Start: start, End: p.prevEnd()},
+	}
 }
 
 // parseAssocTypeDecl parses an associated type declaration in a class body:
@@ -670,10 +693,10 @@ func (p *Parser) parseInstanceDecl() *DeclInstance {
 		}
 
 		// No =>, firstName IS the class name.
-		methods, assocTypeDefs := p.parseInstBody()
+		methods, assocTypeDefs, assocDataDefs := p.parseInstBody()
 		return &DeclInstance{
 			Context: context, ClassName: firstName, TypeArgs: firstArgs,
-			Methods: methods, AssocTypeDefs: assocTypeDefs,
+			Methods: methods, AssocTypeDefs: assocTypeDefs, AssocDataDefs: assocDataDefs,
 			S: span.Span{Start: start, End: p.prevEnd()},
 		}
 	}
@@ -684,21 +707,32 @@ func (p *Parser) parseInstanceDecl() *DeclInstance {
 	for p.isTypeAtomStart() && p.peek().Kind != TokLBrace && !p.atDeclBoundary() {
 		typeArgs = append(typeArgs, p.parseTypeAtom())
 	}
-	methods, assocTypeDefs := p.parseInstBody()
+	methods, assocTypeDefs, assocDataDefs := p.parseInstBody()
 	return &DeclInstance{
 		Context: context, ClassName: className, TypeArgs: typeArgs,
-		Methods: methods, AssocTypeDefs: assocTypeDefs,
+		Methods: methods, AssocTypeDefs: assocTypeDefs, AssocDataDefs: assocDataDefs,
 		S: span.Span{Start: start, End: p.prevEnd()},
 	}
 }
 
-func (p *Parser) parseInstBody() ([]InstMethod, []AssocTypeDef) {
+func (p *Parser) parseInstBody() ([]InstMethod, []AssocTypeDef, []AssocDataDef) {
 	p.expect(TokLBrace)
 	var methods []InstMethod
 	var assocTypeDefs []AssocTypeDef
+	var assocDataDefs []AssocDataDef
 	for p.peek().Kind != TokRBrace && p.peek().Kind != TokEOF {
 		mStart := p.peek().S.Start
-		if p.peek().Kind == TokType {
+		if p.peek().Kind == TokData {
+			// Associated data family definition: data Name patterns = Con ... | Con ...
+			add := p.parseAssocDataDef()
+			if add != nil {
+				assocDataDefs = append(assocDataDefs, *add)
+			}
+			if p.peek().Kind == TokSemicolon {
+				p.advance()
+			}
+			continue
+		} else if p.peek().Kind == TokType {
 			// Associated type definition: type Name patterns = TypeExpr
 			atd := p.parseAssocTypeDef()
 			if atd != nil {
@@ -719,7 +753,7 @@ func (p *Parser) parseInstBody() ([]InstMethod, []AssocTypeDef) {
 		}
 	}
 	p.expect(TokRBrace)
-	return methods, assocTypeDefs
+	return methods, assocTypeDefs, assocDataDefs
 }
 
 // parseAssocTypeDef parses an associated type definition in an instance body:
@@ -739,6 +773,43 @@ func (p *Parser) parseAssocTypeDef() *AssocTypeDef {
 		Name:     name,
 		Patterns: patterns,
 		RHS:      rhs,
+		S:        span.Span{Start: start, End: p.prevEnd()},
+	}
+}
+
+// parseAssocDataDef parses an associated data family definition in an instance body:
+//
+//	data Name patterns = Con fields | Con fields
+func (p *Parser) parseAssocDataDef() *AssocDataDef {
+	start := p.peek().S.Start
+	p.expect(TokData)
+	name := p.expectUpper()
+	// Parse type patterns (same as type family equations).
+	var patterns []TypeExpr
+	for p.isTypeAtomStart() && p.peek().Kind != TokEq {
+		patterns = append(patterns, p.parseTypeAtom())
+	}
+	p.expect(TokEq)
+	// Parse constructors: Con fields | Con fields | ...
+	var cons []DeclCon
+	for {
+		conStart := p.peek().S.Start
+		conName := p.expectUpper()
+		var fields []TypeExpr
+		for p.isTypeAtomStart() && p.peek().Kind != TokPipe && p.peek().Kind != TokSemicolon && p.peek().Kind != TokRBrace {
+			fields = append(fields, p.parseTypeAtom())
+		}
+		cons = append(cons, DeclCon{Name: conName, Fields: fields, S: span.Span{Start: conStart, End: p.prevEnd()}})
+		if p.peek().Kind == TokPipe {
+			p.advance()
+			continue
+		}
+		break
+	}
+	return &AssocDataDef{
+		Name:     name,
+		Patterns: patterns,
+		Cons:     cons,
 		S:        span.Span{Start: start, End: p.prevEnd()},
 	}
 }
