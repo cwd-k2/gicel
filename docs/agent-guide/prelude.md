@@ -151,4 +151,4 @@ class Packed c e {
 | `Alternative` | `Maybe`, `List`                                                      |
 | `Packed`      | `Packed (List a) a` (identity)                                       |
 
-`Show Int` is provided by `Std.Num`.
+`Show Int` is provided by `Std.Num`. Additional `Show` instances (`String`, `Maybe a`, `List a`, `Result e a`, `(a,b)`) and `Packed String Rune` are provided by `Std.Str`.

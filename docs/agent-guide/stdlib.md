@@ -40,18 +40,24 @@ Provides string and rune operations.
 
 **Instances:**
 
-| Instance           |
-| ------------------ |
-| `Eq String`        |
-| `Ord String`       |
-| `Semigroup String` |
-| `Monoid String`    |
-| `Eq Rune`          |
-| `Ord Rune`         |
+| Instance             |
+| -------------------- |
+| `Eq String`          |
+| `Ord String`         |
+| `Semigroup String`   |
+| `Monoid String`      |
+| `Eq Rune`            |
+| `Ord Rune`           |
+| `Packed String Rune` |
+| `Show String`        |
+| `Show (Maybe a)`     |
+| `Show (List a)`      |
+| `Show (Result e a)`  |
+| `Show (a, b)`        |
 
-**Functions:** `strlen`, `toRunes`, `charAt`, `substring`, `toUpper`, `toLower`, `trim`, `contains`, `split`, `join`, `showInt`, `showBool`, `readInt`.
+**Functions:** `strlen`, `toRunes`, `fromRunes`, `charAt`, `substring`, `toUpper`, `toLower`, `trim`, `contains`, `split`, `join`, `showInt`, `showBool`, `readInt`.
 
-Instances: `Eq/Ord/Semigroup/Monoid String`, `Eq/Ord Rune`, `Packed String Rune`, `Show String`. Rune-based indexing. Concatenation via `append`.
+Rune-based indexing. Concatenation via `append`.
 
 ### Std.List
 

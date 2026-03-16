@@ -629,12 +629,14 @@ infixr 2 ||        -- logical OR
 infixl 1 >>=       -- Monad bind
 infixl 1 >>        -- Monad sequence
 infixl 1 <&>       -- flipped Functor map
+infixl 1 &         -- reverse application
 infixr 1 =<<       -- flipped Monad bind
 infixr 1 >=>       -- Kleisli left-to-right
 infixr 1 <=<       -- Kleisli right-to-left
+infixr 0 $         -- low-precedence apply
 ```
 
-### Type Classes (12)
+### Type Classes (13 in Prelude, 14 with Std.Num)
 
 ```
 Eq ──→ Ord
@@ -646,6 +648,9 @@ Functor ─┐
           ├──→ Traversable
 Foldable ┘
 IxMonad
+Packed
+
+Eq ──→ Num   (in Std.Num)
 ```
 
 | Class         | Key Methods                                                 |
@@ -662,6 +667,7 @@ IxMonad
 | `Monad`       | `mpure :: a -> m a`, `mbind :: m a -> (a -> m b) -> m b`    |
 | `Traversable` | `traverse :: Applicative f => (a -> f b) -> t a -> f (t b)` |
 | `IxMonad`     | `ixpure`, `ixbind`                                          |
+| `Packed`      | `pack :: List e -> c`, `unpack :: c -> List e`              |
 
 ---
 

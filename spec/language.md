@@ -445,7 +445,6 @@ Built-in operators:
 | `.`      | infixr | 9          | Function composition  |
 | `*`      | infixl | 7          | Multiplication        |
 | `/`      | infixl | 7          | Division              |
-| `%`      | infixl | 7          | Modulo                |
 | `+`      | infixl | 6          | Addition              |
 | `-`      | infixl | 6          | Subtraction           |
 | `<>`     | infixr | 6          | Append (Semigroup)    |
@@ -459,13 +458,17 @@ Built-in operators:
 | `>`      | infixn | 4          | Greater than          |
 | `<=`     | infixn | 4          | Less or equal         |
 | `>=`     | infixn | 4          | Greater or equal      |
+| `&&`     | infixr | 3          | Boolean AND           |
 | `<\|>`   | infixl | 3          | Alternative choice    |
+| `\|\|`   | infixr | 2          | Boolean OR            |
 | `>>=`    | infixl | 1          | Monad bind            |
 | `>>`     | infixl | 1          | Monad sequence        |
 | `<&>`    | infixl | 1          | Flipped Functor map   |
+| `&`      | infixl | 1          | Reverse application   |
 | `=<<`    | infixr | 1          | Flipped Monad bind    |
 | `>=>`    | infixr | 1          | Kleisli left-to-right |
 | `<=<`    | infixr | 1          | Kleisli right-to-left |
+| `$`      | infixr | 0          | Low-precedence apply  |
 
 ---
 
@@ -737,9 +740,12 @@ Functor ─┐
 Foldable ┘
 
 IxMonad   (independent — indexed monadic interface)
+Packed    (independent — collection packing)
+
+Eq ──→ Num   (in Std.Num)
 ```
 
-12 type classes total:
+14 type classes total (13 in Prelude + Core, 1 in Std.Num):
 
 | Class         | Parameters                       | Key Methods                                                 |
 | ------------- | -------------------------------- | ----------------------------------------------------------- |
@@ -755,6 +761,8 @@ IxMonad   (independent — indexed monadic interface)
 | `Monad`       | `m : Type -> Type`               | `mpure :: a -> m a`, `mbind :: m a -> (a -> m b) -> m b`    |
 | `Traversable` | `t` (requires Functor, Foldable) | `traverse :: Applicative f => (a -> f b) -> t a -> f (t b)` |
 | `IxMonad`     | `m : Row -> Row -> Type -> Type` | `ixpure`, `ixbind`                                          |
+| `Packed`      | `c`, `e`                         | `pack :: List e -> c`, `unpack :: c -> List e`              |
+| `Num`         | `a` (requires Eq, in Std.Num)    | `add`, `sub`, `mul`, `negate`                               |
 
 `Applicative.wrap` corresponds to Haskell's `pure` but uses a different name to avoid collision with the language built-in `pure`. `Monad.mpure` and `Monad.mbind` similarly avoid collision with the built-in `pure` and `bind`.
 
@@ -1077,7 +1085,7 @@ Modules are parsed and type-checked at registration time. Circular imports are f
 The Prelude is split into two parts:
 
 - **Core** (not replaceable): language-essential definitions — `IxMonad` class, `Computation` instance, `Effect` alias, `then` combinator, `Lift` type alias
-- **Prelude** (replaceable): standard library types, classes, instances — `Bool`, `Maybe`, `List`, `Ordering`, all 12 type classes, instances
+- **Prelude** (replaceable): standard library types, classes, instances — `Bool`, `Maybe`, `List`, `Ordering`, 12 type classes (Eq through Packed), instances
 
 ```go
 eng.SetPrelude(customSource)  // Replace default Prelude with custom source
@@ -1230,18 +1238,18 @@ snd :: forall a b. (a, b) -> b
 
 ## 15.2 Stdlib Packs
 
-| Pack     | Provides                                                                       |
-| -------- | ------------------------------------------------------------------------------ |
-| `Num`    | `Num` class, `Eq`/`Ord` Int, arithmetic operators (`+`, `-`, `*`, `/`, `%`)    |
-| `Str`    | `Eq`/`Ord`/`Semigroup`/`Monoid` String, `Eq`/`Ord` Rune                        |
-| `List`   | `fromSlice`, `toSlice`, `length`, `concat`, `foldl`                            |
-| `Fail`   | `fail` capability, `fromMaybe`, `fromResult`                                   |
-| `State`  | `get`/`put` capabilities                                                       |
-| `IO`     | `print`/`debug` via CapEnv buffer                                              |
-| `Stream` | Lazy list: `LCons`/`LNil`, `headS`, `tailS`, `takeS`, `dropS`                  |
-| `Slice`  | Contiguous array: O(1) `sliceLength`/`sliceIndex`, `Functor`/`Foldable`        |
-| `Map`    | Ordered immutable map (AVL): `insert`, `mapLookup`, `delete`, `fromList`       |
-| `Set`    | Ordered immutable set (backed by Map): `setInsert`, `setMember`, `setFromList` |
+| Pack     | Provides                                                                                        |
+| -------- | ----------------------------------------------------------------------------------------------- |
+| `Num`    | `Num` class, `Eq`/`Ord`/`Show` Int, arithmetic operators (`+`, `-`, `*`, `/`), `div`, `mod`     |
+| `Str`    | `Eq`/`Ord`/`Semigroup`/`Monoid` String, `Eq`/`Ord` Rune, `Packed String Rune`, `Show` instances |
+| `List`   | `fromSlice`, `toSlice`, `length`, `concat`, `foldl`                                             |
+| `Fail`   | `fail` capability, `fromMaybe`, `fromResult`                                                    |
+| `State`  | `get`/`put` capabilities                                                                        |
+| `IO`     | `print`/`debug` via CapEnv buffer                                                               |
+| `Stream` | Lazy list: `LCons`/`LNil`, `headS`, `tailS`, `takeS`, `dropS`                                   |
+| `Slice`  | Contiguous array: O(1) `sliceLength`/`sliceIndex`, `Functor`/`Foldable`                         |
+| `Map`    | Ordered immutable map (AVL): `insert`, `mapLookup`, `delete`, `fromList`                        |
+| `Set`    | Ordered immutable set (backed by Map): `setInsert`, `setMember`, `setFromList`                  |
 
 Types (`Int`, `String`, `Rune`) are checker built-ins; operations come from stdlib packs. Runtime representation: `HostVal` wrapping Go values (`int64`, `string`, `rune`).
 

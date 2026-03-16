@@ -67,7 +67,7 @@ then :: Computation r1 r2 a -> Computation r2 r3 b -> Computation r1 r3 b
 
 | Category | Functions                                                    |
 | -------- | ------------------------------------------------------------ |
-| Maybe    | `isJust`, `isNothing`, `fromMaybe`                           |
+| Maybe    | `isJust`, `isNothing`                                        |
 | Result   | `isOk`, `isErr`, `fromOk`, `fromErr`                         |
 | Foldable | `foldMap`, `toList`, `find`, `elem`, `notElem`, `any`, `all` |
 | List     | `lookup`, `concatMap`, `flatten`, `catMaybes`, `mapMaybe`    |
