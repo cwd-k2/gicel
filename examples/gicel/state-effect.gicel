@@ -20,9 +20,9 @@ basic := do {
 -- Output: 3
 counter := do {
   _ <- put 0;
-  _ <- modify (\n -> n + 1);
-  _ <- modify (\n -> n + 1);
-  _ <- modify (\n -> n + 1);
+  _ <- modify (+ 1);             -- equivalent to \n -> n + 1
+  _ <- modify (+ 1);
+  _ <- modify (+ 1);
   get
 }
 
@@ -48,8 +48,8 @@ readAndCompute := do {
 -- Output: 100  (start 2, *5 = 10, *10 = 100)
 pipeline := do {
   _ <- put 2;
-  _ <- modify (\n -> n * 5);
-  _ <- modify (\n -> n * 10);
+  _ <- modify (* 5);
+  _ <- modify (* 10);
   get
 }
 

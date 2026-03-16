@@ -73,11 +73,11 @@ premiumOrder := do {
 -- Simulate a running total from deposits
 ledger := do {
   _ <- put 1000;             -- opening balance
-  _ <- modify (\b -> b + 250);   -- deposit
+  _ <- modify (+ 250);       -- deposit  (equivalent to \b -> b + 250)
   _ <- modify (\b -> b - 100);   -- withdrawal
-  _ <- modify (\b -> b + 500);   -- deposit
+  _ <- modify (+ 500);       -- deposit
   _ <- modify (\b -> b - 75);    -- withdrawal
-  _ <- modify (\b -> b + 300);   -- deposit
+  _ <- modify (+ 300);       -- deposit
   get
 }
 -- 1000 + 250 - 100 + 500 - 75 + 300 = 1875

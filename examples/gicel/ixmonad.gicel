@@ -7,26 +7,26 @@
 import Std.Num
 
 -- Functor: fmap applies a function inside a context
-fmapMaybe := fmap (\x -> x + 1) (Just 10)
+fmapMaybe := fmap (+ 1) (Just 10)    -- equivalent to \x -> x + 1
 -- Output: Just 11
 
-fmapNothing := fmap (\x -> x + 1) Nothing
+fmapNothing := fmap (+ 1) Nothing
 -- Output: Nothing
 
-fmapList := fmap (\x -> x * 2) [1, 2, 3]
+fmapList := fmap (* 2) [1, 2, 3]
 -- Output: [2, 4, 6]
 
 -- Applicative Maybe: wrap lifts a value, ap applies a wrapped function
 wrapped := wrap 42 :: Maybe Int
 -- Output: Just 42
 
-applied := ap (Just (\x -> x + 100)) (Just 5)
+applied := ap (Just (+ 100)) (Just 5)
 -- Output: Just 105
 
 apNothing := ap Nothing (Just 5)
 -- Output: Nothing
 
-apNothingArg := ap (Just (\x -> x + 1)) Nothing
+apNothingArg := ap (Just (+ 1)) Nothing
 -- Output: Nothing
 
 -- Foldable: foldr collapses a structure
@@ -55,18 +55,18 @@ ordAppend2 := LT <> GT         -- LT (first non-EQ wins)
 ordEmpty := empty :: Ordering   -- EQ
 
 -- maybe: the eliminator for Maybe
-fromJust := maybe 0 (\x -> x + 1) (Just 41)
+fromJust := maybe 0 (+ 1) (Just 41)
 -- Output: 42
 
-fromNone := maybe 0 (\x -> x + 1) Nothing
+fromNone := maybe 0 (+ 1) Nothing
 -- Output: 0
 
 -- Traversable Maybe with Applicative Maybe:
 -- traverse wraps Just values, passes Nothing through
-traverseJust := traverse (\x -> Just (x + 1)) (Just 10)
+traverseJust := traverse (Just . (+ 1)) (Just 10)
 -- Output: Just (Just 11)
 
-traverseNone := traverse (\x -> Just (x + 1)) (Nothing :: Maybe Int)
+traverseNone := traverse (Just . (+ 1)) (Nothing :: Maybe Int)
 -- Output: Just Nothing
 
 -- Gather results as a tuple

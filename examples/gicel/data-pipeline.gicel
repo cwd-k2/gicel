@@ -14,13 +14,13 @@ scores := [85, 92, 67, 95, 43, 78, 88, 55]
 totalStudents := length scores                            -- 8
 
 -- Step 2: Filter passing scores (>= 70)
-passing := filter (\s -> s >= 70) scores                  -- [85, 92, 95, 78, 88]
+passing := filter (>= 70) scores                         -- [85, 92, 95, 78, 88]  (equivalent to \s -> s >= 70)
 
 -- Step 3: Count passing students
 passingCount := length passing                            -- 5
 
 -- Step 4: Grade boost — add 5 bonus points to each passing score
-boosted := (\s -> s + 5) <$> passing                      -- [90, 97, 100, 83, 93]
+boosted := (+ 5) <$> passing                              -- [90, 97, 100, 83, 93]
 
 -- Step 5: Sum of boosted scores
 totalBoosted := foldl (+) 0 boosted                       -- 463
@@ -32,7 +32,7 @@ highest := foldl max 0 scores                             -- 95
 lowest := foldl min 999 scores                            -- 43
 
 -- Step 8: Count how many scored above 80
-aboveEighty := length $ filter (\s -> s > 80) scores       -- 4
+aboveEighty := length $ filter (> 80) scores               -- 4
 
 -- Compose a report tuple
 -- Output: (8, 5, 463, 95, 43, 4)

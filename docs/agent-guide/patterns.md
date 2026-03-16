@@ -53,7 +53,10 @@ import Std.Num
 myList :: List Int
 myList := [1, 2, 3, 4, 5]
 
--- Operator sections instead of verbose lambdas
+-- Operator sections replace verbose lambdas:
+--   (* 2)  is  \x -> x * 2   (right section)
+--   (> 0)  is  \x -> x > 0   (right section)
+--   (+)    is  \x -> \y -> x + y  (operator as function)
 sum :: List Int -> Int
 sum := foldr (+) 0
 
@@ -61,7 +64,7 @@ evens :: List Int -> List Int
 evens := filter (\x -> mod x 2 == 0)
 
 -- Compose a pipeline: filter, transform, fold
-pipeline := foldl (+) 0 $ (\x -> x * x) <$> filter (0 <) myList
+pipeline := foldl (+) 0 $ (\x -> x * x) <$> filter (> 0) myList
 ```
 
 ### Stateful Computation
@@ -71,7 +74,7 @@ import Std.Num
 import Std.State
 
 counter :: Computation { state : Int } { state : Int } Int
-counter := do { modify (\n -> n + 1); modify (\n -> n + 1); modify (\n -> n + 1); get }
+counter := do { modify (+ 1); modify (+ 1); modify (+ 1); get }
 ```
 
 ### Error Handling
@@ -100,7 +103,7 @@ doubleNegate :: Int -> Int
 doubleNegate := negate . negate
 
 transform :: List Int -> List Int
-transform := filter (\x -> x > 0) . map (\x -> x * 2)
+transform := filter (> 0) . map (* 2)
 ```
 
 ### Combining Effects
