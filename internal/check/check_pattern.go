@@ -41,7 +41,10 @@ func (ch *Checker) checkPattern(pat syntax.Pattern, scrutTy types.Type) patternR
 }
 
 func (ch *Checker) checkLitPattern(p *syntax.PatLit, scrutTy types.Type) patternResult {
-	litTy, litVal := parseLitValue(p.Kind, p.Value)
+	litTy, litVal, parseErr := parseLitValue(p.Kind, p.Value)
+	if parseErr != nil {
+		ch.addCodedError(errs.ErrTypeMismatch, p.S, fmt.Sprintf("invalid literal in pattern: %s", p.Value))
+	}
 	if err := ch.unifier.Unify(litTy, scrutTy); err != nil {
 		ch.addUnifyError(err, p.S, "literal pattern type mismatch")
 	}
@@ -50,18 +53,22 @@ func (ch *Checker) checkLitPattern(p *syntax.PatLit, scrutTy types.Type) pattern
 
 // parseLitValue converts a raw literal text into a (type, runtime value) pair.
 // Shared between literal patterns (checkLitPattern) and literal expressions (infer).
-func parseLitValue(kind syntax.LitKind, raw string) (types.Type, any) {
+func parseLitValue(kind syntax.LitKind, raw string) (types.Type, any, error) {
 	switch kind {
 	case syntax.LitInt:
-		n, _ := strconv.ParseInt(raw, 10, 64)
-		return &types.TyCon{Name: "Int"}, n
+		n, err := strconv.ParseInt(raw, 10, 64)
+		return &types.TyCon{Name: "Int"}, n, err
 	case syntax.LitString:
-		return &types.TyCon{Name: "String"}, raw
+		return &types.TyCon{Name: "String"}, raw, nil
 	case syntax.LitRune:
-		// Runtime stores rune values as single-character strings (matching ExprRuneLit).
-		return &types.TyCon{Name: "Rune"}, raw
+		// Runtime stores rune values as Go rune (int32), matching ExprRuneLit.Value.
+		runes := []rune(raw)
+		if len(runes) > 0 {
+			return &types.TyCon{Name: "Rune"}, runes[0], nil
+		}
+		return &types.TyCon{Name: "Rune"}, rune(0), nil
 	default:
-		return &types.TyCon{Name: "Int"}, int64(0)
+		panic(fmt.Sprintf("parseLitValue: unknown LitKind %d", kind))
 	}
 }
 

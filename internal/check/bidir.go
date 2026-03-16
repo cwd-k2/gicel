@@ -516,6 +516,9 @@ func (ch *Checker) inferHead(expr syntax.Expr) (types.Type, core.Core) {
 		resultTy := types.Subst(f.Body, f.Var, ty)
 		return resultTy, &core.TyApp{Expr: innerCore, TyArg: ty, S: e.S}
 	default:
+		// Non-variable/constructor/TyApp expressions cannot be targets of explicit
+		// type application. Falling through to infer (which instantiates) is correct:
+		// the caller's instantiate call becomes a no-op since foralls are already gone.
 		return ch.infer(expr)
 	}
 }

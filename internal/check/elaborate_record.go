@@ -13,18 +13,19 @@ import (
 // inferRecord infers the type of a record literal { l1 = e1, ..., ln = en }.
 // Type: Record { l1 : T1, ..., ln : Tn }
 func (ch *Checker) inferRecord(e *syntax.ExprRecord) (types.Type, core.Core) {
-	fields := make([]types.RowField, len(e.Fields))
-	coreFields := make([]core.RecordField, len(e.Fields))
 	seen := make(map[string]bool, len(e.Fields))
-	for i, f := range e.Fields {
+	var fields []types.RowField
+	var coreFields []core.RecordField
+	for _, f := range e.Fields {
 		if seen[f.Label] {
 			ch.addCodedError(errs.ErrDuplicateLabel, f.S,
 				fmt.Sprintf("duplicate label %q in record literal", f.Label))
+			continue
 		}
 		seen[f.Label] = true
 		ty, coreVal := ch.infer(f.Value)
-		fields[i] = types.RowField{Label: f.Label, Type: ty, S: f.S}
-		coreFields[i] = core.RecordField{Label: f.Label, Value: coreVal}
+		fields = append(fields, types.RowField{Label: f.Label, Type: ty, S: f.S})
+		coreFields = append(coreFields, core.RecordField{Label: f.Label, Value: coreVal})
 	}
 	row := &types.TyEvidenceRow{
 		Entries: &types.CapabilityEntries{Fields: fields},
@@ -125,23 +126,24 @@ func (ch *Checker) checkRecord(e *syntax.ExprRecord, expected types.Type) core.C
 		return ch.subsCheck(inferredTy, expected, coreExpr, e.S)
 	}
 
-	coreFields := make([]core.RecordField, len(e.Fields))
-	rowFields := make([]types.RowField, len(e.Fields))
 	seen := make(map[string]bool, len(e.Fields))
-	for i, f := range e.Fields {
+	var coreFields []core.RecordField
+	var rowFields []types.RowField
+	for _, f := range e.Fields {
 		if seen[f.Label] {
 			ch.addCodedError(errs.ErrDuplicateLabel, f.S,
 				fmt.Sprintf("duplicate label %q in record literal", f.Label))
+			continue
 		}
 		seen[f.Label] = true
 		if fieldTy, ok := expectedFields[f.Label]; ok {
 			coreVal := ch.check(f.Value, fieldTy)
-			coreFields[i] = core.RecordField{Label: f.Label, Value: coreVal}
-			rowFields[i] = types.RowField{Label: f.Label, Type: fieldTy, S: f.S}
+			coreFields = append(coreFields, core.RecordField{Label: f.Label, Value: coreVal})
+			rowFields = append(rowFields, types.RowField{Label: f.Label, Type: fieldTy, S: f.S})
 		} else {
 			ty, coreVal := ch.infer(f.Value)
-			coreFields[i] = core.RecordField{Label: f.Label, Value: coreVal}
-			rowFields[i] = types.RowField{Label: f.Label, Type: ty, S: f.S}
+			coreFields = append(coreFields, core.RecordField{Label: f.Label, Value: coreVal})
+			rowFields = append(rowFields, types.RowField{Label: f.Label, Type: ty, S: f.S})
 		}
 	}
 	row := &types.TyEvidenceRow{

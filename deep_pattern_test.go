@@ -1644,4 +1644,25 @@ main := f (Just 0)
 	assertConName(t, result.Value, "True")
 }
 
+func TestLiteralPatternRune(t *testing.T) {
+	eng := gicel.NewEngine()
+	eng.Use(gicel.Str)
+	rt, err := eng.NewRuntime(`
+import Std.Str
+classify := \c -> case c { 'a' -> "vowel"; 'e' -> "vowel"; _ -> "other" }
+main := classify 'a'
+`)
+	if err != nil {
+		t.Fatal("rune literal pattern should be accepted:", err)
+	}
+	result, err := rt.RunWith(context.Background(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := gicel.MustHost[string](result.Value)
+	if s != "vowel" {
+		t.Errorf("expected \"vowel\", got %q (rune pattern match failed)", s)
+	}
+}
+
 // assertConName is defined in gicel_test.go — reused here.
