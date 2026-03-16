@@ -85,21 +85,26 @@ func setToListImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, _ eva
 	if err != nil {
 		return nil, ce, err
 	}
-	if err := eval.ChargeAlloc(ctx, int64(m.size)*(costSlotSize+costConsNode)); err != nil {
+	if err := eval.ChargeAlloc(ctx, int64(m.size)*costConsNode); err != nil {
 		return nil, ce, err
 	}
-	var keys []eval.Value
-	collectKeys(m.root, &keys)
-	return buildList(keys), ce, nil
+	return avlKeysToConsList(m.root), ce, nil
 }
 
-func collectKeys(n *avlNode, acc *[]eval.Value) {
+// avlKeysToConsList builds an in-order ConVal list of keys from the AVL tree.
+func avlKeysToConsList(n *avlNode) eval.Value {
+	var acc eval.Value = &eval.ConVal{Con: "Nil"}
+	avlKeysConsRight(n, &acc)
+	return acc
+}
+
+func avlKeysConsRight(n *avlNode, acc *eval.Value) {
 	if n == nil {
 		return
 	}
-	collectKeys(n.left, acc)
-	*acc = append(*acc, n.key)
-	collectKeys(n.right, acc)
+	avlKeysConsRight(n.right, acc)
+	*acc = &eval.ConVal{Con: "Cons", Args: []eval.Value{n.key, *acc}}
+	avlKeysConsRight(n.left, acc)
 }
 
 // _setFromList :: (k -> k -> Ordering) -> List k -> Set k

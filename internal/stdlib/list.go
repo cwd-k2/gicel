@@ -190,41 +190,54 @@ func takeImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, _ eval.App
 	if err != nil {
 		return nil, ce, err
 	}
-	items, ok := listToSlice(args[1])
-	if !ok {
-		return nil, ce, fmt.Errorf("take: expected List")
+	if n <= 0 {
+		return &eval.ConVal{Con: "Nil"}, ce, nil
 	}
-	if err := eval.ChargeAlloc(ctx, int64(len(items))*costSlotSize); err != nil {
+	v := args[1]
+	var prefix []eval.Value
+	for i := int64(0); i < n; i++ {
+		con, ok := v.(*eval.ConVal)
+		if !ok {
+			return nil, ce, fmt.Errorf("take: expected List, got %T", v)
+		}
+		if con.Con == "Nil" {
+			break
+		}
+		if con.Con != "Cons" || len(con.Args) != 2 {
+			return nil, ce, fmt.Errorf("take: malformed list node: %s", con.Con)
+		}
+		prefix = append(prefix, con.Args[0])
+		v = con.Args[1]
+	}
+	if err := eval.ChargeAlloc(ctx, int64(len(prefix))*costConsNode); err != nil {
 		return nil, ce, err
 	}
-	if n < 0 {
-		n = 0
-	}
-	if int64(len(items)) < n {
-		n = int64(len(items))
-	}
-	return buildList(items[:n]), ce, nil
+	return buildList(prefix), ce, nil
 }
 
-func dropImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
+func dropImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
 	n, err := asInt64List(args[0])
 	if err != nil {
 		return nil, ce, err
 	}
-	items, ok := listToSlice(args[1])
-	if !ok {
-		return nil, ce, fmt.Errorf("drop: expected List")
+	if n <= 0 {
+		return args[1], ce, nil
 	}
-	if err := eval.ChargeAlloc(ctx, int64(len(items))*costSlotSize); err != nil {
-		return nil, ce, err
+	v := args[1]
+	for i := int64(0); i < n; i++ {
+		con, ok := v.(*eval.ConVal)
+		if !ok {
+			return nil, ce, fmt.Errorf("drop: expected List, got %T", v)
+		}
+		if con.Con == "Nil" {
+			return v, ce, nil
+		}
+		if con.Con != "Cons" || len(con.Args) != 2 {
+			return nil, ce, fmt.Errorf("drop: malformed list node: %s", con.Con)
+		}
+		v = con.Args[1]
 	}
-	if n < 0 {
-		n = 0
-	}
-	if int64(len(items)) < n {
-		n = int64(len(items))
-	}
-	return buildList(items[n:]), ce, nil
+	return v, ce, nil
 }
 
 func indexImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
@@ -267,18 +280,28 @@ func replicateImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.
 }
 
 func reverseImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
-	items, ok := listToSlice(args[0])
-	if !ok {
-		return nil, ce, fmt.Errorf("reverse: expected List")
+	v := args[0]
+	var result eval.Value = &eval.ConVal{Con: "Nil"}
+	var n int64
+	for {
+		con, ok := v.(*eval.ConVal)
+		if !ok {
+			return nil, ce, fmt.Errorf("reverse: expected List, got %T", v)
+		}
+		if con.Con == "Nil" {
+			break
+		}
+		if con.Con != "Cons" || len(con.Args) != 2 {
+			return nil, ce, fmt.Errorf("reverse: malformed list node: %s", con.Con)
+		}
+		result = &eval.ConVal{Con: "Cons", Args: []eval.Value{con.Args[0], result}}
+		n++
+		v = con.Args[1]
 	}
-	if err := eval.ChargeAlloc(ctx, int64(len(items))*(costSlotSize+costConsNode)); err != nil {
+	if err := eval.ChargeAlloc(ctx, n*costConsNode); err != nil {
 		return nil, ce, err
 	}
-	reversed := make([]eval.Value, len(items))
-	for i, item := range items {
-		reversed[len(items)-1-i] = item
-	}
-	return buildList(reversed), ce, nil
+	return result, ce, nil
 }
 
 func zipImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
@@ -311,27 +334,34 @@ func zipImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Appl
 }
 
 func unzipImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
-	items, ok := listToSlice(args[0])
-	if !ok {
-		return nil, ce, fmt.Errorf("unzip: expected List")
-	}
-	if err := eval.ChargeAlloc(ctx, int64(len(items))*(2*costSlotSize+2*costConsNode+costTupleNode)); err != nil {
-		return nil, ce, err
-	}
-	as := make([]eval.Value, len(items))
-	bs := make([]eval.Value, len(items))
-	for i, item := range items {
-		rec, ok := item.(*eval.RecordVal)
+	v := args[0]
+	var as, bs []eval.Value
+	for {
+		con, ok := v.(*eval.ConVal)
 		if !ok {
-			return nil, ce, fmt.Errorf("unzip: expected tuple at index %d", i)
+			return nil, ce, fmt.Errorf("unzip: expected List, got %T", v)
+		}
+		if con.Con == "Nil" {
+			break
+		}
+		if con.Con != "Cons" || len(con.Args) != 2 {
+			return nil, ce, fmt.Errorf("unzip: malformed list node")
+		}
+		rec, ok := con.Args[0].(*eval.RecordVal)
+		if !ok {
+			return nil, ce, fmt.Errorf("unzip: expected tuple")
 		}
 		a, ok1 := rec.Fields["_1"]
 		b, ok2 := rec.Fields["_2"]
 		if !ok1 || !ok2 {
-			return nil, ce, fmt.Errorf("unzip: expected tuple with _1 and _2 at index %d", i)
+			return nil, ce, fmt.Errorf("unzip: expected tuple with _1 and _2")
 		}
-		as[i] = a
-		bs[i] = b
+		as = append(as, a)
+		bs = append(bs, b)
+		v = con.Args[1]
+	}
+	if err := eval.ChargeAlloc(ctx, int64(len(as))*2*costConsNode); err != nil {
+		return nil, ce, err
 	}
 	return &eval.RecordVal{Fields: map[string]eval.Value{"_1": buildList(as), "_2": buildList(bs)}}, ce, nil
 }
@@ -407,7 +437,7 @@ func spanImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, apply eval
 		prefix = append(prefix, con.Args[0])
 		list = con.Args[1]
 	}
-	if err := eval.ChargeAlloc(ctx, int64(len(prefix))*(costSlotSize+costConsNode)); err != nil {
+	if err := eval.ChargeAlloc(ctx, int64(len(prefix))*costConsNode); err != nil {
 		return nil, ce, err
 	}
 	return &eval.RecordVal{Fields: map[string]eval.Value{
@@ -426,7 +456,7 @@ func sortByImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, apply ev
 	if len(items) <= 1 {
 		return args[1], ce, nil
 	}
-	if err := eval.ChargeAlloc(ctx, int64(len(items))*(costSlotSize+costConsNode)); err != nil {
+	if err := eval.ChargeAlloc(ctx, int64(len(items))*costConsNode); err != nil {
 		return nil, ce, err
 	}
 	sorted, newCe, err := mergeSort(items, cmp, ce, apply)
@@ -511,7 +541,7 @@ func scanlImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, apply eva
 		results = append(results, acc)
 		list = con.Args[1]
 	}
-	if err := eval.ChargeAlloc(ctx, int64(len(results))*(costSlotSize+costConsNode)); err != nil {
+	if err := eval.ChargeAlloc(ctx, int64(len(results))*costConsNode); err != nil {
 		return nil, ce, err
 	}
 	return buildList(results), ce, nil
@@ -550,7 +580,7 @@ func unfoldrImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, apply e
 		items = append(items, a)
 		seed = b
 	}
-	if err := eval.ChargeAlloc(ctx, int64(len(items))*(costSlotSize+costConsNode)); err != nil {
+	if err := eval.ChargeAlloc(ctx, int64(len(items))*costConsNode); err != nil {
 		return nil, ce, err
 	}
 	return buildList(items), ce, nil
@@ -567,7 +597,7 @@ func iterateNImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, apply 
 	if n <= 0 {
 		return &eval.ConVal{Con: "Nil"}, ce, nil
 	}
-	if err := eval.ChargeAlloc(ctx, n*(costSlotSize+costConsNode)); err != nil {
+	if err := eval.ChargeAlloc(ctx, n*costConsNode); err != nil {
 		return nil, ce, err
 	}
 	items := make([]eval.Value, 0, n)

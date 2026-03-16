@@ -228,15 +228,23 @@ func avlDelete(n *avlNode, key, cmp eval.Value, ce eval.CapEnv, apply eval.Appli
 	return avlRebalance(node), true, newCe, nil
 }
 
-func avlToList(n *avlNode, acc []eval.Value) []eval.Value {
-	if n == nil {
-		return acc
-	}
-	acc = avlToList(n.left, acc)
-	pair := &eval.RecordVal{Fields: map[string]eval.Value{"_1": n.key, "_2": n.value}}
-	acc = append(acc, pair)
-	acc = avlToList(n.right, acc)
+// avlToConsList builds an in-order ConVal list from the AVL tree without
+// an intermediate slice. Traverses right-to-left, consing each (key, value)
+// pair onto the accumulator.
+func avlToConsList(n *avlNode) eval.Value {
+	var acc eval.Value = &eval.ConVal{Con: "Nil"}
+	avlConsRight(n, &acc)
 	return acc
+}
+
+func avlConsRight(n *avlNode, acc *eval.Value) {
+	if n == nil {
+		return
+	}
+	avlConsRight(n.right, acc)
+	pair := &eval.RecordVal{Fields: map[string]eval.Value{"_1": n.key, "_2": n.value}}
+	*acc = &eval.ConVal{Con: "Cons", Args: []eval.Value{pair, *acc}}
+	avlConsRight(n.left, acc)
 }
 
 func avlFoldlWithKey(n *avlNode, f, acc eval.Value, ce eval.CapEnv, apply eval.Applier) (eval.Value, eval.CapEnv, error) {
@@ -361,11 +369,10 @@ func mapToListImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, _ eva
 	if err != nil {
 		return nil, ce, err
 	}
-	if err := eval.ChargeAlloc(ctx, int64(m.size)*(costTupleNode+costSlotSize+costConsNode)); err != nil {
+	if err := eval.ChargeAlloc(ctx, int64(m.size)*(costTupleNode+costConsNode)); err != nil {
 		return nil, ce, err
 	}
-	pairs := avlToList(m.root, nil)
-	return buildList(pairs), ce, nil
+	return avlToConsList(m.root), ce, nil
 }
 
 // _mapFromList :: (k -> k -> Ordering) -> List (k, v) -> Map k v
@@ -449,40 +456,52 @@ func mapUnionWithImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, ap
 	if err != nil {
 		return nil, ce, err
 	}
-	// Insert all entries from m2 into m1, using f to combine on collision.
 	result := &mapVal{root: m1.root, cmp: m1.cmp, size: m1.size}
-	pairs := avlToList(m2.root, nil)
-	if err := eval.ChargeAlloc(ctx, int64(len(pairs))*(costTupleNode+costSlotSize+costAVLNode)); err != nil {
+	ce, err = avlWalkMerge(ctx, m2.root, f, result, ce, apply)
+	if err != nil {
 		return nil, ce, err
 	}
-	for _, p := range pairs {
-		pair := p.(*eval.RecordVal)
-		key := pair.Fields["_1"]
-		val2 := pair.Fields["_2"]
-		existing, found, newCe, err := avlLookup(result.root, key, result.cmp, ce, apply)
+	return &eval.HostVal{Inner: result}, ce, nil
+}
+
+// avlWalkMerge traverses the source AVL tree in-order and inserts each entry
+// into the result map, using f to combine values on key collision.
+// No intermediate slice is allocated.
+func avlWalkMerge(ctx context.Context, n *avlNode, f eval.Value, result *mapVal, ce eval.CapEnv, apply eval.Applier) (eval.CapEnv, error) {
+	if n == nil {
+		return ce, nil
+	}
+	var err error
+	ce, err = avlWalkMerge(ctx, n.left, f, result, ce, apply)
+	if err != nil {
+		return ce, err
+	}
+	existing, found, newCe, err := avlLookup(result.root, n.key, result.cmp, ce, apply)
+	if err != nil {
+		return ce, err
+	}
+	ce = newCe
+	insertVal := n.value
+	if found {
+		partial, newCe2, err := apply(f, existing, ce)
 		if err != nil {
-			return nil, ce, err
+			return ce, err
 		}
-		ce = newCe
-		insertVal := val2
-		if found {
-			partial, newCe2, err := apply(f, existing, ce)
-			if err != nil {
-				return nil, ce, err
-			}
-			insertVal, ce, err = apply(partial, val2, newCe2)
-			if err != nil {
-				return nil, ce, err
-			}
-		}
-		var inserted bool
-		result.root, inserted, ce, err = avlInsert(result.root, key, insertVal, result.cmp, ce, apply)
+		insertVal, ce, err = apply(partial, n.value, newCe2)
 		if err != nil {
-			return nil, ce, err
-		}
-		if inserted {
-			result.size++
+			return ce, err
 		}
 	}
-	return &eval.HostVal{Inner: result}, ce, nil
+	if err := eval.ChargeAlloc(ctx, costAVLNode); err != nil {
+		return ce, err
+	}
+	var inserted bool
+	result.root, inserted, ce, err = avlInsert(result.root, n.key, insertVal, result.cmp, ce, apply)
+	if err != nil {
+		return ce, err
+	}
+	if inserted {
+		result.size++
+	}
+	return avlWalkMerge(ctx, n.right, f, result, ce, apply)
 }

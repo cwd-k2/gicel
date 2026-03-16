@@ -2130,11 +2130,11 @@ func TestFoldlWithKeyEmpty(t *testing.T) {
 	assertInt(t, v, 99)
 }
 
-func TestCollectKeysNil(t *testing.T) {
-	var keys []eval.Value
-	collectKeys(nil, &keys)
-	if len(keys) != 0 {
-		t.Errorf("expected no keys from nil node, got %d", len(keys))
+func TestAvlKeysToConsListNil(t *testing.T) {
+	result := avlKeysToConsList(nil)
+	con, ok := result.(*eval.ConVal)
+	if !ok || con.Con != "Nil" {
+		t.Errorf("expected Nil from nil node, got %v", result)
 	}
 }
 
