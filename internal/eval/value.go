@@ -61,6 +61,15 @@ type IndirectVal struct {
 	Ref *Value
 }
 
+// bounceVal is an internal value used by the trampoline TCO mechanism.
+// It signals that evaluation should continue with a new (env, capEnv, expr)
+// without growing the Go call stack.
+type bounceVal struct {
+	env    *Env
+	capEnv CapEnv
+	expr   core.Core
+}
+
 func (*HostVal) valueNode()     {}
 func (*Closure) valueNode()     {}
 func (*ConVal) valueNode()      {}
@@ -68,6 +77,9 @@ func (*ThunkVal) valueNode()    {}
 func (*PrimVal) valueNode()     {}
 func (*RecordVal) valueNode()   {}
 func (*IndirectVal) valueNode() {}
+func (*bounceVal) valueNode()   {}
+
+func (v *bounceVal) String() string { return "bounceVal(...)" }
 
 func (v *HostVal) String() string {
 	return fmt.Sprintf("HostVal(%v)", v.Inner)

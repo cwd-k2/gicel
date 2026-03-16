@@ -68,8 +68,26 @@ func (ev *Evaluator) Stats() EvalStats {
 	return ev.stats
 }
 
-// Eval evaluates a Core expression.
+// Eval evaluates a Core expression using a trampoline loop for TCO.
+// Tail-position expressions return a bounceVal instead of recursing,
+// keeping the Go stack flat for deep recursion (e.g. tail-recursive case).
 func (ev *Evaluator) Eval(env *Env, capEnv CapEnv, expr core.Core) (EvalResult, error) {
+	for {
+		r, err := ev.evalStep(env, capEnv, expr)
+		if err != nil {
+			return EvalResult{}, err
+		}
+		b, ok := r.Value.(*bounceVal)
+		if !ok {
+			return r, nil
+		}
+		env, capEnv, expr = b.env, b.capEnv, b.expr
+	}
+}
+
+// evalStep performs one evaluation step. Tail positions return bounceVal
+// to be continued by the Eval trampoline.
+func (ev *Evaluator) evalStep(env *Env, capEnv CapEnv, expr core.Core) (EvalResult, error) {
 	// Check context cancellation.
 	select {
 	case <-ev.ctx.Done():
@@ -175,7 +193,8 @@ func (ev *Evaluator) Eval(env *Env, capEnv CapEnv, expr core.Core) (EvalResult, 
 					ev.obs.Emit(ev.limit.Depth(), ExplainMatch, matchDetail(PrettyValue(scrutR.Value), formatPattern(alt.Pattern), bindings), e.S)
 				}
 				altEnv := env.ExtendMany(bindings)
-				return ev.Eval(altEnv, scrutR.CapEnv, alt.Body)
+				// Tail position: bounce instead of recursing.
+				return EvalResult{Value: &bounceVal{env: altEnv, capEnv: scrutR.CapEnv, expr: alt.Body}}, nil
 			}
 		}
 		return EvalResult{}, &RuntimeError{

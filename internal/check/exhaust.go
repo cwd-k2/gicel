@@ -235,8 +235,10 @@ func (ch *Checker) isUsefulAt(mx patMatrix, q patVec, scrutTys []types.Type, dep
 		sq = append(sq, cp.args...)
 		sq = append(sq, q[1:]...)
 
-		argTys := ch.constructorArgTypes(cp.con, ty)
-		newTys := append(argTys, restTys...)
+		// Don't propagate type info into sub-patterns to avoid expensive
+		// recursive constructorSigs calls on GADT types.
+		newTys := make([]types.Type, cp.arity)
+		newTys = append(newTys, restTys...)
 		useful, witness := ch.isUsefulAt(smx, sq, newTys, depth+1)
 		if useful {
 			return true, reconstructCon(cp.con, cp.arity, witness, q[1:])
@@ -295,8 +297,8 @@ func (ch *Checker) isUsefulAt(mx patMatrix, q patVec, scrutTys []types.Type, dep
 			}
 			sq = append(sq, q[1:]...)
 
-			argTys := ch.constructorArgTypes(sig.name, ty)
-			newTys := append(argTys, restTys...)
+			newTys := make([]types.Type, sig.arity)
+			newTys = append(newTys, restTys...)
 			useful, witness := ch.isUsefulAt(smx, sq, newTys, depth+1)
 			if useful {
 				return true, reconstructCon(sig.name, sig.arity, witness, q[1:])
@@ -318,8 +320,8 @@ func (ch *Checker) isUsefulAt(mx patMatrix, q patVec, scrutTys []types.Type, dep
 			}
 			sq = append(sq, q[1:]...)
 
-			argTys := ch.constructorArgTypes(sig.name, ty)
-			newTys := append(argTys, restTys...)
+			newTys := make([]types.Type, sig.arity)
+			newTys = append(newTys, restTys...)
 			useful, witness := ch.isUsefulAt(smx, sq, newTys, depth+1)
 			if useful {
 				return true, reconstructCon(sig.name, sig.arity, witness, q[1:])
@@ -328,7 +330,14 @@ func (ch *Checker) isUsefulAt(mx patMatrix, q patVec, scrutTys []types.Type, dep
 		return false, nil
 	}
 
-	// No signature (opaque type): use default matrix.
+	// No signature (opaque type / unresolved meta): conservatively assume
+	// the matrix covers all cases. This matches the old behavior of skipping
+	// the check when the type cannot be determined.
+	if len(headCons) > 0 {
+		return false, nil
+	}
+
+	// No constructors at all: use default matrix.
 	dmx := defaultMatrix(mx)
 	useful, witness := ch.isUsefulAt(dmx, q[1:], restTys, depth+1)
 	if useful {
@@ -361,57 +370,6 @@ func columnHeadCons(mx patMatrix) map[string]int {
 		}
 	}
 	return result
-}
-
-// constructorArgTypes returns the argument types for a constructor given
-// the scrutinee type. Returns nil slice for unknown types.
-func (ch *Checker) constructorArgTypes(conName string, scrutTy types.Type) []types.Type {
-	info, ok := ch.conInfo[conName]
-	if !ok {
-		return nil
-	}
-	// Find this constructor's arity.
-	var arity int
-	for _, c := range info.Constructors {
-		if c.Name == conName {
-			arity = c.Arity
-			break
-		}
-	}
-	conTy := ch.conTypes[conName]
-	if conTy == nil {
-		return nil
-	}
-	// Instantiate and peel arrows to get argument types.
-	ty := ch.instantiateForExhaust(conTy)
-	var argTys []types.Type
-	for range arity {
-		if arr, ok := ty.(*types.TyArrow); ok {
-			argTys = append(argTys, arr.From)
-			ty = arr.To
-		} else {
-			argTys = append(argTys, nil)
-		}
-	}
-	return argTys
-}
-
-// instantiateForExhaust strips foralls and evidence qualifiers from a type
-// by substituting fresh metas, for use in exhaustiveness argument type
-// extraction. This is a best-effort heuristic — precise types aren't needed
-// since we only care about the structure of nested patterns.
-func (ch *Checker) instantiateForExhaust(ty types.Type) types.Type {
-	for {
-		switch t := ty.(type) {
-		case *types.TyForall:
-			m := &types.TyMeta{ID: ch.fresh(), Kind: t.Kind}
-			ty = types.Subst(t.Body, t.Var, m)
-		case *types.TyEvidence:
-			ty = t.Body
-		default:
-			return ty
-		}
-	}
 }
 
 // reconstructCon builds a witness pattern from the recursive useful result.
@@ -454,10 +412,38 @@ func (ch *Checker) checkExhaustive(scrutTy types.Type, alts []core.Alt, s span.S
 		mx = append(mx, row)
 	}
 
-	// Exhaustiveness check: is the wildcard vector useful?
+	// Exhaustiveness check.
+	// First, a quick wildcard usefulness check to avoid expensive per-constructor
+	// enumeration when the matrix is already exhaustive.
 	wildcard := patVec{pWild{}}
 	useful, witness := ch.isUsefulAt(mx, wildcard, []types.Type{scrutTy}, 0)
-	if useful {
+	if !useful {
+		return
+	}
+
+	// The match is non-exhaustive. Enumerate which constructors are missing.
+	sigs := ch.constructorSigs(scrutTy)
+	if sigs != nil {
+		var missing []string
+		for _, sig := range sigs {
+			q := make(patVec, 1)
+			args := make([]pat, sig.arity)
+			for i := range args {
+				args[i] = pWild{}
+			}
+			q[0] = pCon{con: sig.name, arity: sig.arity, args: args}
+			u, _ := ch.isUsefulAt(mx, q, []types.Type{scrutTy}, 0)
+			if u {
+				missing = append(missing, sig.name)
+			}
+		}
+		if len(missing) > 0 {
+			ch.addCodedError(errs.ErrNonExhaustive, s, fmt.Sprintf(
+				"non-exhaustive patterns: missing %s",
+				strings.Join(missing, ", "),
+			))
+		}
+	} else {
 		ch.addCodedError(errs.ErrNonExhaustive, s, fmt.Sprintf(
 			"non-exhaustive patterns: missing %s", formatWitness(witness),
 		))
