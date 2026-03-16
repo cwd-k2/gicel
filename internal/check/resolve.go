@@ -90,6 +90,11 @@ func (ch *Checker) resolveInstance(className string, args []types.Type, s span.S
 		return ctxResult
 	}
 
+	// 1.7. Apply functional dependency improvement before instance search.
+	// If the class has fundeps and some "from" args are determined,
+	// search instances to unify "to" positions.
+	ch.applyFunDepImprovement(className, args)
+
 	// 2. Search global instances (indexed by class name).
 	for _, inst := range ch.instancesByClass[className] {
 		if len(inst.TypeArgs) != len(args) {

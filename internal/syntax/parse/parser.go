@@ -508,9 +508,11 @@ func (p *Parser) parseClassDecl() *DeclClass {
 				v := arg.(*TyExprVar)
 				params = append(params, TyBinder{Name: v.Name, Kind: v.Kind, S: v.S})
 			}
+			funDeps := p.parseClassFunDeps()
 			methods, assocTypes := p.parseClassBody()
 			return &DeclClass{
-				Supers: supers, Name: nextName, TyParams: params, Methods: methods, AssocTypes: assocTypes,
+				Supers: supers, Name: nextName, TyParams: params, FunDeps: funDeps,
+				Methods: methods, AssocTypes: assocTypes,
 				S: span.Span{Start: start, End: p.prevEnd()},
 			}
 		}
@@ -522,11 +524,37 @@ func (p *Parser) parseClassDecl() *DeclClass {
 		v := arg.(*TyExprVar)
 		params = append(params, TyBinder{Name: v.Name, Kind: v.Kind, S: v.S})
 	}
+	funDeps := p.parseClassFunDeps()
 	methods, assocTypes := p.parseClassBody()
 	return &DeclClass{
-		Name: firstName, TyParams: params, Methods: methods, AssocTypes: assocTypes,
+		Name: firstName, TyParams: params, FunDeps: funDeps,
+		Methods: methods, AssocTypes: assocTypes,
 		S: span.Span{Start: start, End: p.prevEnd()},
 	}
+}
+
+// parseClassFunDeps parses optional functional dependencies: | a -> b, c -> d
+func (p *Parser) parseClassFunDeps() []FunDep {
+	if p.peek().Kind != TokPipe {
+		return nil
+	}
+	p.advance() // consume |
+	var deps []FunDep
+	for {
+		from := p.expectLower()
+		p.expect(TokArrow)
+		var to []string
+		for p.peek().Kind == TokLower {
+			to = append(to, p.expectLower())
+		}
+		deps = append(deps, FunDep{From: from, To: to})
+		if p.peek().Kind == TokComma {
+			p.advance()
+			continue
+		}
+		break
+	}
+	return deps
 }
 
 func (p *Parser) parseClassBody() ([]ClassMethod, []AssocTypeDecl) {

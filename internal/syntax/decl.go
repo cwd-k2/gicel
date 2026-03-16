@@ -71,11 +71,12 @@ const (
 	AssocNone
 )
 
-// DeclClass is a type class declaration (class Super => ClassName params { methods }).
+// DeclClass is a type class declaration (class Super => ClassName params | deps { methods }).
 type DeclClass struct {
 	Supers     []TypeExpr // superclass constraints
 	Name       string
 	TyParams   []TyBinder
+	FunDeps    []FunDep       // functional dependencies: | a -> b
 	Methods    []ClassMethod
 	AssocTypes []AssocTypeDecl // associated type declarations
 	S          span.Span

@@ -6,6 +6,7 @@ import (
 	"unicode"
 
 	"github.com/cwd-k2/gicel/internal/core"
+	"github.com/cwd-k2/gicel/internal/errs"
 	"github.com/cwd-k2/gicel/internal/syntax"
 	"github.com/cwd-k2/gicel/internal/types"
 )
@@ -47,6 +48,14 @@ type ClassInfo struct {
 	Methods      []MethodInfo // method signatures
 	DictName     string       // e.g. "Eq$Dict" — used as both type and constructor name
 	AssocTypes   []string     // associated type family names
+	FunDeps      []ClassFunDep // functional dependencies: | a -> b
+}
+
+// ClassFunDep is an elaborated functional dependency on a class.
+// From params determine To params: | a -> b means knowing a determines b.
+type ClassFunDep struct {
+	From []int // indices into TyParams
+	To   []int // indices into TyParams
 }
 
 // SuperInfo describes a superclass constraint.
@@ -137,6 +146,32 @@ func (ch *Checker) processClassDecl(d *syntax.DeclClass, prog *core.Program) {
 		}
 	}
 
+	// Elaborate functional dependencies: convert param names to indices.
+	paramIndex := make(map[string]int, len(tyParams))
+	for i, p := range tyParams {
+		paramIndex[p] = i
+	}
+	var funDeps []ClassFunDep
+	for _, fd := range d.FunDeps {
+		fromIdx, ok := paramIndex[fd.From]
+		if !ok {
+			ch.addCodedError(errs.ErrBadClass, d.S,
+				fmt.Sprintf("class %s: functional dependency references unknown parameter %s", d.Name, fd.From))
+			continue
+		}
+		var toIdxs []int
+		for _, to := range fd.To {
+			toIdx, ok := paramIndex[to]
+			if !ok {
+				ch.addCodedError(errs.ErrBadClass, d.S,
+					fmt.Sprintf("class %s: functional dependency references unknown parameter %s", d.Name, to))
+				continue
+			}
+			toIdxs = append(toIdxs, toIdx)
+		}
+		funDeps = append(funDeps, ClassFunDep{From: []int{fromIdx}, To: toIdxs})
+	}
+
 	// Store class info.
 	info := &ClassInfo{
 		Name:         d.Name,
@@ -147,6 +182,7 @@ func (ch *Checker) processClassDecl(d *syntax.DeclClass, prog *core.Program) {
 		Methods:      methods,
 		DictName:     dn,
 		AssocTypes:   assocTypeNames,
+		FunDeps:      funDeps,
 	}
 	ch.classes[d.Name] = info
 

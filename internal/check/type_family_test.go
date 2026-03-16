@@ -293,6 +293,31 @@ g := \x -> x
 	checkSource(t, source, config)
 }
 
+// --- Functional dependencies ---
+
+func TestFunDepParse(t *testing.T) {
+	source := `
+data Unit = Unit
+data List a = Nil | Cons a (List a)
+class Elem c e | c -> e {
+  cfold :: (e -> e) -> c -> c
+}
+instance Elem (List a) a {
+  cfold := \f -> \xs -> xs
+}
+`
+	checkSource(t, source, nil)
+}
+
+func TestFunDepUnknownParam(t *testing.T) {
+	source := `
+class Bad a b | z -> b {
+  m :: a -> b
+}
+`
+	checkSourceExpectCode(t, source, nil, errs.ErrBadClass)
+}
+
 // --- Unit tests for TyFamilyApp operations ---
 
 func TestTyFamilyAppPretty(t *testing.T) {
