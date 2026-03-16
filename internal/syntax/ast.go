@@ -257,10 +257,19 @@ type PatRecordField struct {
 	S       span.Span
 }
 
+// LitKind identifies the type of a literal pattern.
+type LitKind int
+
+const (
+	LitInt    LitKind = iota // integer literal
+	LitString                // string literal
+	LitRune                  // rune literal
+)
+
 // PatLit is a literal pattern: 42, "hello", 'x'
 type PatLit struct {
 	Value string // raw text (for Int: "42", for String: "hello", for Rune: "x")
-	Kind  string // "Int", "String", "Rune"
+	Kind  LitKind
 	S     span.Span
 }
 

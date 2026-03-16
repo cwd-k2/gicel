@@ -456,9 +456,9 @@ main := MyJust True
 }
 
 func TestKindMismatchInApplication(t *testing.T) {
-	// FALSE_NEGATIVE: Applying a type constructor to the wrong kind should fail,
-	// but the kind checker does not reject this.
+	// Applying a type constructor to the wrong kind should fail.
 	// F expects (a : Type -> Type) but receives Bool : Type.
+	// Previously FALSE_NEGATIVE — fixed in 923721f.
 	eng := gicel.NewEngine()
 	_, err := eng.Compile(`
 data F (a : Type -> Type) = MkF
@@ -712,11 +712,8 @@ main := t!#_1 + t!#_2 + t!#_3
 }
 
 func TestTuplePatternMatch(t *testing.T) {
-	// DESIGN_GAP: Tuple (and record) patterns in lambda position are not
-	// elaborated. The checker's patternName() returns "_" for non-variable
-	// patterns, so bindings introduced by the pattern are silently discarded.
-	//
-	// Workaround: use `case` to destructure, or use projection (e.g., p!#_1).
+	// Tuple patterns in lambda position are desugared to case expressions
+	// via isStructuredPattern. Previously DESIGN_GAP — fixed in 3782967.
 	eng := gicel.NewEngine()
 
 	// Demonstrate the workaround using case:
@@ -869,11 +866,8 @@ main := case id True { True -> id (); False -> id () }
 }
 
 func TestFP_LambdaWithRecordPattern(t *testing.T) {
-	// DESIGN_GAP: Record patterns in lambda position are not elaborated.
-	// Same root cause as TestTuplePatternMatch: patternName() in bidir.go
-	// returns "_" for PatRecord, discarding all bindings.
-	//
-	// Workaround: use `case` or projection (r!#x) instead.
+	// Record patterns in lambda position are desugared to case expressions.
+	// Previously DESIGN_GAP — fixed in 3782967.
 	eng := gicel.NewEngine()
 
 	// Workaround using case:
@@ -925,10 +919,8 @@ main := isRed Blue
 }
 
 func TestFP_NestedTuplePattern(t *testing.T) {
-	// DESIGN_GAP: Nested tuple patterns in lambda position are not elaborated.
-	// Same root cause as TestTuplePatternMatch and TestFP_LambdaWithRecordPattern.
-	//
-	// Workaround: use nested `case` or chained projection.
+	// Nested tuple patterns in lambda position are desugared to case expressions.
+	// Previously DESIGN_GAP — fixed in 3782967.
 	eng := gicel.NewEngine()
 
 	// Workaround using case:
@@ -1188,10 +1180,9 @@ main := start
 }
 
 func TestDataKindsMismatch(t *testing.T) {
-	// FALSE_NEGATIVE: Using a promoted constructor from a different data type
-	// at a kind-annotated position should fail, but it is accepted.
-	// Builder expects (p : Phase) but True has kind Bool — these are different
-	// promoted data kinds. The kind checker does not enforce cross-kind boundaries.
+	// Using a promoted constructor from a different data type at a kind-annotated
+	// position should fail. Builder expects (p : Phase) but True has kind Bool.
+	// Previously FALSE_NEGATIVE — fixed in 923721f.
 	eng := gicel.NewEngine()
 	_, err := eng.NewRuntime(`
 data Phase = Building | Running

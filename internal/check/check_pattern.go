@@ -44,14 +44,14 @@ func (ch *Checker) checkLitPattern(p *syntax.PatLit, scrutTy types.Type) pattern
 	var litTy types.Type
 	var litVal any
 	switch p.Kind {
-	case "Int":
+	case syntax.LitInt:
 		litTy = &types.TyCon{Name: "Int"}
 		n, _ := strconv.ParseInt(p.Value, 10, 64)
 		litVal = n
-	case "String":
+	case syntax.LitString:
 		litTy = &types.TyCon{Name: "String"}
 		litVal = p.Value
-	case "Rune":
+	case syntax.LitRune:
 		litTy = &types.TyCon{Name: "Rune"}
 		runes := []rune(p.Value)
 		if len(runes) > 0 {
