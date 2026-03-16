@@ -87,6 +87,7 @@ type Checker struct {
 	promotedCons      map[string]types.Kind // DataKinds: nullary con → KData
 	kindVars          map[string]bool       // HKT: kind variables in scope (from forall (k : Kind))
 	families          map[string]*TypeFamilyInfo // type family declarations
+	reductionDepth    int                        // current type family reduction depth
 	deferred          []deferredConstraint
 	depth             int
 	resolveDepth      int // instance resolution recursion depth

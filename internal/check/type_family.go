@@ -122,9 +122,22 @@ func (ch *Checker) processTypeFamily(d *syntax.DeclTypeFamily) {
 	ch.families[d.Name] = info
 }
 
+// maxReductionDepth is the fuel limit for type family reduction.
+// Prevents non-termination in recursive type families.
+const maxReductionDepth = 100
+
 // reduceTyFamily attempts to reduce a saturated type family application.
 // Returns (result, true) on success, or (nil, false) if stuck/no match.
+// Uses a checker-level depth counter to bound recursive reductions.
+// The counter is incremented on each successful reduction and never decremented
+// within a single normalize() call — it resets at the normalize entry point.
 func (ch *Checker) reduceTyFamily(name string, args []types.Type) (types.Type, bool) {
+	ch.reductionDepth++
+	if ch.reductionDepth > maxReductionDepth {
+		ch.addCodedError(errs.ErrTypeFamilyReduction, span.Span{},
+			fmt.Sprintf("type family %s: reduction depth limit exceeded (possible infinite recursion)", name))
+		return nil, false
+	}
 	fam, ok := ch.families[name]
 	if !ok {
 		return nil, false
@@ -363,6 +376,7 @@ func (ch *Checker) installFamilyReducer() {
 		return
 	}
 	ch.unifier.familyReducer = func(t types.Type) types.Type {
+		ch.reductionDepth = 0 // reset per normalize() call
 		return ch.reduceFamilyApps(t)
 	}
 }
@@ -370,6 +384,10 @@ func (ch *Checker) installFamilyReducer() {
 // reduceFamilyApps walks a type and reduces any TyFamilyApp nodes
 // or TyApp chains that form a saturated type family application.
 func (ch *Checker) reduceFamilyApps(t types.Type) types.Type {
+	// Bail out if we've exceeded the reduction depth (set by reduceTyFamily calls).
+	if ch.reductionDepth > maxReductionDepth {
+		return t
+	}
 	// Case 1: explicit TyFamilyApp.
 	if tf, ok := t.(*types.TyFamilyApp); ok {
 		result, reduced := ch.reduceTyFamily(tf.Name, tf.Args)

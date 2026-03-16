@@ -293,6 +293,32 @@ g := \x -> x
 	checkSource(t, source, config)
 }
 
+// --- Recursive type families ---
+
+func TestRecursiveTypeFamilyDual(t *testing.T) {
+	source := `
+data Session = Send Session | Recv Session | End
+type Dual (s : Session) :: Session = {
+  Dual (Send s) = Recv (Dual s);
+  Dual (Recv s) = Send (Dual s);
+  Dual End = End
+}
+`
+	checkSource(t, source, nil)
+}
+
+func TestRecursiveTypeFamilyFuelExhaustion(t *testing.T) {
+	source := `
+data Unit = Unit
+type Loop (a : Type) :: Type = {
+  Loop a = Loop a
+}
+f :: Loop Unit -> Unit
+f := \x -> x
+`
+	checkSourceExpectCode(t, source, nil, errs.ErrTypeFamilyReduction)
+}
+
 // --- Functional dependencies ---
 
 func TestFunDepParse(t *testing.T) {
