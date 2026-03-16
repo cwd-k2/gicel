@@ -266,9 +266,15 @@ func indexImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Appl
 	}
 }
 
-func replicateImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
+func replicateImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
 	n, err := asInt64List(args[0])
 	if err != nil {
+		return nil, ce, err
+	}
+	if n <= 0 {
+		return &eval.ConVal{Con: "Nil"}, ce, nil
+	}
+	if err := eval.ChargeAlloc(ctx, n*costConsNode); err != nil {
 		return nil, ce, err
 	}
 	elem := args[1]
@@ -280,8 +286,8 @@ func replicateImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.
 }
 
 func reverseImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
+	// Pass 1: count elements and validate structure.
 	v := args[0]
-	var result eval.Value = &eval.ConVal{Con: "Nil"}
 	var n int64
 	for {
 		con, ok := v.(*eval.ConVal)
@@ -294,12 +300,19 @@ func reverseImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, _ eval.
 		if con.Con != "Cons" || len(con.Args) != 2 {
 			return nil, ce, fmt.Errorf("reverse: malformed list node: %s", con.Con)
 		}
-		result = &eval.ConVal{Con: "Cons", Args: []eval.Value{con.Args[0], result}}
 		n++
 		v = con.Args[1]
 	}
 	if err := eval.ChargeAlloc(ctx, n*costConsNode); err != nil {
 		return nil, ce, err
+	}
+	// Pass 2: build reversed list via foldl-cons.
+	v = args[0]
+	var result eval.Value = &eval.ConVal{Con: "Nil"}
+	for i := int64(0); i < n; i++ {
+		con := v.(*eval.ConVal)
+		result = &eval.ConVal{Con: "Cons", Args: []eval.Value{con.Args[0], result}}
+		v = con.Args[1]
 	}
 	return result, ce, nil
 }
