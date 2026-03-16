@@ -539,12 +539,37 @@ Resolution order in type positions: registered type constructor â†’ type alias â
 ```
 x               -- variable binding
 _               -- wildcard
+42              -- integer literal pattern
+"hello"         -- string literal pattern
+'a'             -- rune literal pattern
 Con             -- nullary constructor
 Con x y         -- constructor with arguments
 (Con x y)       -- parenthesized pattern
 (a, b)          -- tuple pattern, desugars to { _1 = a, _2 = b }
 { x = a, y = b }           -- record pattern (closed)
 { x = a, y = b | _ }       -- record pattern (open)
+```
+
+### Literal Patterns
+
+Integer, string, and rune literals can appear as case patterns. They match by equality:
+
+```
+case n { 0 -> "zero"; 1 -> "one"; _ -> "other" }
+case name { "Alice" -> "hello"; _ -> "hi" }
+case ch { 'x' -> True; _ -> False }
+```
+
+Since literal types cannot be exhaustively enumerated, a wildcard or variable catch-all is always required.
+
+### Nested Patterns
+
+Constructor patterns can be nested. Nullary constructors need no parentheses; multi-argument constructors must be parenthesized:
+
+```
+case m { Just True -> "yes"; Just False -> "no"; Nothing -> "none" }
+case xs { Cons Nothing rest -> rest; Cons (Just x) rest -> rest; Nil -> Nil }
+case m { Just (Just (Just True)) -> "deep"; _ -> "other" }
 ```
 
 ---

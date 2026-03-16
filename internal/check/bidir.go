@@ -120,15 +120,17 @@ func (ch *Checker) infer(expr syntax.Expr) (types.Type, core.Core) {
 		return retTy, &core.App{Fun: funCore, Arg: argCore, S: e.S}
 
 	case *syntax.ExprTyApp:
-		innerTy, innerCore := ch.infer(e.Expr)
+		innerTy, innerCore := ch.inferHead(e.Expr)
 		ty := ch.resolveTypeExpr(e.TyArg)
+		innerTy = ch.unifier.Zonk(innerTy)
 		f, ok := innerTy.(*types.TyForall)
 		if !ok {
 			ch.addCodedError(errs.ErrBadTypeApp, e.S, "type application to non-polymorphic type")
 			return &types.TyError{S: e.S}, innerCore
 		}
 		resultTy := types.Subst(f.Body, f.Var, ty)
-		return resultTy, &core.TyApp{Expr: innerCore, TyArg: ty, S: e.S}
+		resultCore := &core.TyApp{Expr: innerCore, TyArg: ty, S: e.S}
+		return ch.instantiate(resultTy, resultCore)
 
 	case *syntax.ExprAnn:
 		ty := ch.resolveTypeExpr(e.AnnType)
@@ -264,6 +266,9 @@ func (ch *Checker) check(expr syntax.Expr, expected types.Type) core.Core {
 
 	case *syntax.ExprDo:
 		return ch.checkDo(e, expected)
+
+	case *syntax.ExprRecord:
+		return ch.checkRecord(e, expected)
 
 	default:
 		// Subsumption: infer type, then check inferred ≤ expected.
@@ -487,6 +492,40 @@ func (ch *Checker) matchArrow(ty types.Type, s span.Span) (types.Type, types.Typ
 		ch.addSemanticUnifyError(errs.ErrBadApplication, err, s, fmt.Sprintf("expected function type, got %s", types.Pretty(ty)))
 	}
 	return argTy, retTy
+}
+
+// inferHead infers the type of an expression without instantiating outer foralls.
+// Used by ExprTyApp to preserve the forall for explicit type application (@).
+func (ch *Checker) inferHead(expr syntax.Expr) (types.Type, core.Core) {
+	switch e := expr.(type) {
+	case *syntax.ExprVar:
+		ty, ok := ch.ctx.LookupVar(e.Name)
+		if !ok {
+			ch.addCodedError(errs.ErrUnboundVar, e.S, fmt.Sprintf("unbound variable: %s", e.Name))
+			return &types.TyError{S: e.S}, &core.Var{Name: e.Name, S: e.S}
+		}
+		return ty, &core.Var{Name: e.Name, S: e.S}
+	case *syntax.ExprCon:
+		ty, ok := ch.conTypes[e.Name]
+		if !ok {
+			ch.addCodedError(errs.ErrUnboundCon, e.S, fmt.Sprintf("unknown constructor: %s", e.Name))
+			return &types.TyError{S: e.S}, &core.Con{Name: e.Name, S: e.S}
+		}
+		return ty, &core.Con{Name: e.Name, S: e.S}
+	case *syntax.ExprTyApp:
+		innerTy, innerCore := ch.inferHead(e.Expr)
+		ty := ch.resolveTypeExpr(e.TyArg)
+		innerTy = ch.unifier.Zonk(innerTy)
+		f, ok := innerTy.(*types.TyForall)
+		if !ok {
+			ch.addCodedError(errs.ErrBadTypeApp, e.S, "type application to non-polymorphic type")
+			return &types.TyError{S: e.S}, innerCore
+		}
+		resultTy := types.Subst(f.Body, f.Var, ty)
+		return resultTy, &core.TyApp{Expr: innerCore, TyArg: ty, S: e.S}
+	default:
+		return ch.infer(expr)
+	}
 }
 
 func (ch *Checker) instantiate(ty types.Type, expr core.Core) (types.Type, core.Core) {

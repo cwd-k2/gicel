@@ -24,6 +24,14 @@ f x y                          -- = (f x) y
 f @Int                         -- explicit type application
 ```
 
+**Explicit type application** (`@`) passes a type argument to a polymorphic function or constructor. Works with any user-defined polymorphic binding:
+
+```
+id @Bool True                  -- instantiate id at Bool
+Just @Bool True                -- instantiate Just at Bool
+eq @(Maybe Int) x y            -- instantiate eq at Maybe Int
+```
+
 ### Case Expression
 
 ```
@@ -38,10 +46,17 @@ No `of` keyword. Branches separated by `;`. Patterns:
 ```
 x                              -- variable binding
 _                              -- wildcard
+42                             -- integer literal
+"hello"                        -- string literal
+'a'                            -- rune literal
 Con                            -- nullary constructor
 Con x y                        -- constructor with arguments
+Con (Just x) y                 -- nested constructor (parens for multi-arg)
+Con Nothing y                  -- nested nullary constructor (no parens needed)
 (Con x y)                      -- parenthesized pattern
 ```
+
+Literal patterns require a wildcard catch-all (literal types cannot be exhaustively enumerated).
 
 ### Block Expression (let-bindings)
 

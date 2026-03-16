@@ -257,14 +257,23 @@ type PatRecordField struct {
 	S       span.Span
 }
 
+// PatLit is a literal pattern: 42, "hello", 'x'
+type PatLit struct {
+	Value string // raw text (for Int: "42", for String: "hello", for Rune: "x")
+	Kind  string // "Int", "String", "Rune"
+	S     span.Span
+}
+
 func (*PatVar) patternNode()    {}
 func (*PatWild) patternNode()   {}
 func (*PatCon) patternNode()    {}
 func (*PatParen) patternNode()  {}
 func (*PatRecord) patternNode() {}
+func (*PatLit) patternNode()    {}
 
 func (p *PatVar) Span() span.Span    { return p.S }
 func (p *PatWild) Span() span.Span   { return p.S }
 func (p *PatCon) Span() span.Span    { return p.S }
 func (p *PatRecord) Span() span.Span { return p.S }
 func (p *PatParen) Span() span.Span  { return p.S }
+func (p *PatLit) Span() span.Span    { return p.S }

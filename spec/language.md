@@ -382,19 +382,53 @@ All three forms produce ordinary values of function type and can be passed to hi
 
 Disambiguation of `{`: `ident :=` → block expression, `ident =` → record literal, `expr |` → record update.
 
+`Expr '@' TypeAtom` is explicit type application. It passes a type argument to a polymorphic binding or constructor:
+
+```
+id @Bool True                     -- instantiate id at Bool
+Just @Bool True                   -- instantiate Just at Bool
+eq @(Maybe Int) (Just 1) Nothing  -- instantiate eq at Maybe Int
+```
+
+Works with any user-defined polymorphic binding, not just built-in forms. The `@` token must immediately follow the expression being applied (no intervening operator).
+
 ## 3.6 Pattern Syntax
 
 ```
-Pattern   ::= Con Pattern*                                   -- constructor
+Pattern   ::= Con PatArg*                                    -- constructor
             | Var                                            -- variable binding
             | '_'                                            -- wildcard
+            | IntLit                                         -- integer literal
+            | StringLit                                      -- string literal
+            | RuneLit                                        -- rune literal
             | '(' Pattern ')'                                -- parenthesized
             | '(' Pattern ',' Pattern (',' Pattern)* ')'     -- tuple pattern
             | '(' ')'                                        -- unit pattern
             | '{' FieldPat (',' FieldPat)* '}'               -- record pattern (open)
 
+PatArg    ::= Var | '_' | Con | IntLit | StringLit | RuneLit
+            | '(' Pattern ')'                                -- nested pattern (parenthesized)
+
 FieldPat  ::= LowerName '=' Pattern
 ```
+
+Constructor patterns can be nested. A nullary constructor appearing as an argument to another constructor needs no parentheses; a multi-argument constructor argument must be parenthesized (Haskell convention):
+
+```
+case m { Just True -> "yes"; Just False -> "no"; Nothing -> "empty" }
+case xs { Cons Nothing rest -> rest; Cons (Just x) rest -> rest; Nil -> Nil }
+case m { Just (Just (Just True)) -> "deep"; _ -> "other" }
+```
+
+Literal patterns match by equality on `Int`, `String`, and `Rune`:
+
+```
+case n { 0 -> "zero"; 1 -> "one"; _ -> "other" }
+case name { "Alice" -> "hello"; _ -> "hi" }
+case ch { 'a' -> True; _ -> False }
+```
+
+Literal types are open — the exhaustiveness checker cannot enumerate all values of `Int`, `String`, or `Rune`, so a wildcard or variable catch-all is required.
 
 Record patterns are **open** — partial match is permitted. Unmentioned fields are ignored.
 
@@ -631,6 +665,8 @@ eval := \e -> case e {
 -- IntLit is irrelevant: Expr Int does not unify with Expr Bool
 ```
 
+For literal patterns on `Int`, `String`, and `Rune`, the type's value space is open (cannot be enumerated), so a wildcard or variable catch-all is always required. Omitting the catch-all produces a non-exhaustive match error.
+
 ---
 
 # 6. Type Classes
@@ -836,6 +872,21 @@ GADTs elaborate to the same Core IR as regular ADTs. The refined typing is enfor
 Record { x : Int, y : Bool }
 Record { x : Int | r }
 Record {}
+```
+
+Record fields may have higher-rank types:
+
+```
+r :: Record { apply : forall a. a -> a }
+r := { apply = \x -> x }
+```
+
+The expected type propagates into the record literal, so the lambda receives the `forall a. a -> a` annotation and type-checks at rank 2.
+
+Duplicate field labels in a record type are rejected at compile time (error E0210):
+
+```
+Record { x : Int, x : Bool }     -- compile error: duplicate field "x"
 ```
 
 ## 8.2 Record Literals

@@ -40,11 +40,12 @@ colorIf := \cond -> \c -> case cond {
   False -> Nothing
 }
 
--- Nested case: describe a Maybe Shape
+-- Nested pattern: match constructor inside Maybe directly
 describeShape :: Maybe Shape -> Bool
 describeShape := \ms -> case ms {
-  Nothing -> False;
-  Just s  -> isLarge s
+  Nothing          -> False;
+  Just (Circle r)  -> r * r * 3 > 50;
+  Just (Rect w h)  -> w * h > 50
 }
 
 -- Test values

@@ -512,6 +512,18 @@ func (p *Parser) parsePattern() Pattern {
 		tok := p.peek()
 		p.advance()
 		return &PatWild{S: tok.S}
+	case TokIntLit:
+		tok := p.peek()
+		p.advance()
+		return &PatLit{Value: tok.Text, Kind: "Int", S: tok.S}
+	case TokStrLit:
+		tok := p.peek()
+		p.advance()
+		return &PatLit{Value: tok.Text, Kind: "String", S: tok.S}
+	case TokRuneLit:
+		tok := p.peek()
+		p.advance()
+		return &PatLit{Value: tok.Text, Kind: "Rune", S: tok.S}
 	case TokLParen:
 		start := p.peek().S.Start
 		p.advance()
@@ -599,6 +611,23 @@ func (p *Parser) parsePatternAtom() Pattern {
 		tok := p.peek()
 		p.advance()
 		return &PatWild{S: tok.S}
+	case TokUpper:
+		// Bare constructor as pattern atom (0-arg constructor in nested position).
+		tok := p.peek()
+		p.advance()
+		return &PatCon{Con: tok.Text, S: tok.S}
+	case TokIntLit:
+		tok := p.peek()
+		p.advance()
+		return &PatLit{Value: tok.Text, Kind: "Int", S: tok.S}
+	case TokStrLit:
+		tok := p.peek()
+		p.advance()
+		return &PatLit{Value: tok.Text, Kind: "String", S: tok.S}
+	case TokRuneLit:
+		tok := p.peek()
+		p.advance()
+		return &PatLit{Value: tok.Text, Kind: "Rune", S: tok.S}
 	case TokLParen:
 		start := p.peek().S.Start
 		p.advance()
@@ -615,7 +644,7 @@ func (p *Parser) isPatternAtomStart() bool {
 		return false
 	}
 	k := p.peek().Kind
-	return k == TokLower || k == TokUnderscore || k == TokLParen
+	return k == TokLower || k == TokUnderscore || k == TokLParen || k == TokUpper || k == TokIntLit || k == TokStrLit || k == TokRuneLit
 }
 
 func (p *Parser) parseListLit() Expr {

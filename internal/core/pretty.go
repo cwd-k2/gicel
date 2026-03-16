@@ -114,6 +114,8 @@ func prettyPattern(p Pattern) string {
 			fields[i] = fmt.Sprintf("%s = %s", f.Label, prettyPattern(f.Pattern))
 		}
 		return fmt.Sprintf("{ %s }", strings.Join(fields, ", "))
+	case *PLit:
+		return fmt.Sprintf("%v", pat.Value)
 	default:
 		return "?"
 	}

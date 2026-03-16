@@ -29,17 +29,19 @@ import (
 // pat is the internal pattern representation for the algorithm.
 type pat interface{ patTag() }
 
-type pWild struct{} // _
+type pWild struct{}                          // _
 type pCon struct {
 	con   string
 	arity int
 	args  []pat
 }                                            // C p1 ... pn
 type pRecord struct{ fields map[string]pat } // { l1 = p1, ... }
+type pLit struct{ value any }                // 42, "hello", 'x'
 
 func (pWild) patTag()   {}
 func (pCon) patTag()    {}
 func (pRecord) patTag() {}
+func (pLit) patTag()    {}
 
 type patVec []pat
 type patMatrix []patVec
@@ -64,6 +66,8 @@ func coreToPat(p core.Pattern) pat {
 			fields[f.Label] = coreToPat(f.Pattern)
 		}
 		return pRecord{fields: fields}
+	case *core.PLit:
+		return pLit{value: pp.Value}
 	default:
 		return pWild{}
 	}
@@ -240,6 +244,42 @@ func defaultMatrix(mx patMatrix) patMatrix {
 	return result
 }
 
+// ---- Literal specialize ----
+
+// specializeLit keeps rows whose column 0 matches a specific literal value.
+// Wildcard rows are included (literal always matches subset of wildcard).
+func specializeLit(mx patMatrix, val any) patMatrix {
+	var result patMatrix
+	for _, row := range mx {
+		if len(row) == 0 {
+			continue
+		}
+		switch p := row[0].(type) {
+		case pLit:
+			if p.value == val {
+				result = append(result, row[1:])
+			}
+		case pWild:
+			result = append(result, row[1:])
+		}
+	}
+	return result
+}
+
+// columnHeadLits returns the set of literal values in column 0.
+func columnHeadLits(mx patMatrix) map[any]bool {
+	result := map[any]bool{}
+	for _, row := range mx {
+		if len(row) == 0 {
+			continue
+		}
+		if lp, ok := row[0].(pLit); ok {
+			result[lp.value] = true
+		}
+	}
+	return result
+}
+
 // ---- Record specialize/default ----
 
 // allRecordLabels collects all labels mentioned in column 0 of the matrix.
@@ -362,6 +402,17 @@ func (ch *Checker) isUsefulAt(mx patMatrix, q patVec, scrutTys []types.Type, dep
 		return false, nil
 	}
 
+	// If column 0 of q is a literal pattern, specialize.
+	if lp, ok := q[0].(pLit); ok {
+		smx := specializeLit(mx, lp.value)
+		sq := q[1:]
+		useful, witness := ch.isUsefulAt(smx, sq, restTys, depth+1)
+		if useful {
+			return true, witness
+		}
+		return false, nil
+	}
+
 	// If column 0 of q is a record pattern, specialize by labels.
 	if rp, ok := q[0].(pRecord); ok {
 		labels := allRecordLabels(append(mx, q))
@@ -382,10 +433,11 @@ func (ch *Checker) isUsefulAt(mx patMatrix, q patVec, scrutTys []types.Type, dep
 
 	// Column 0 of q is a wildcard.
 
-	// If column 0 has only wildcards (no constructor or record patterns),
+	// If column 0 has only wildcards (no constructor, record, or literal patterns),
 	// usefulness depends on the remaining columns — use the default matrix.
 	headCons := columnHeadCons(mx)
-	if len(headCons) == 0 && !hasRecordPats(mx) {
+	headLits := columnHeadLits(mx)
+	if len(headCons) == 0 && len(headLits) == 0 && !hasRecordPats(mx) {
 		dmx := defaultMatrix(mx)
 		return ch.isUsefulAt(dmx, q[1:], restTys, depth+1)
 	}
@@ -401,6 +453,14 @@ func (ch *Checker) isUsefulAt(mx patMatrix, q patVec, scrutTys []types.Type, dep
 		sq = append(sq, q[1:]...)
 		newTys := nilTypesWithTail(len(labels), restTys)
 		return ch.isUsefulAt(smx, sq, newTys, depth+1)
+	}
+
+	// If column 0 has only literal patterns (no constructors), the signature
+	// is always incomplete — we can't enumerate all Int/String values.
+	// Use the default matrix: wildcard is useful iff it adds coverage.
+	if len(headCons) == 0 && len(headLits) > 0 {
+		dmx := defaultMatrix(mx)
+		return ch.isUsefulAt(dmx, q[1:], restTys, depth+1)
 	}
 
 	// Get the complete signature for the scrutinee type.
@@ -567,6 +627,8 @@ func formatWitness(p pat) string {
 		return pp.con + " " + strings.Join(args, " ")
 	case pWild:
 		return "_"
+	case pLit:
+		return fmt.Sprintf("%v", pp.value)
 	case pRecord:
 		if len(pp.fields) == 0 {
 			return "{}"

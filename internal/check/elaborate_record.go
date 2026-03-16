@@ -38,7 +38,8 @@ func (ch *Checker) inferRecord(e *syntax.ExprRecord) (types.Type, core.Core) {
 func (ch *Checker) inferProject(e *syntax.ExprProject) (types.Type, core.Core) {
 	recTy, recCore := ch.infer(e.Record)
 	fieldTy := ch.matchRecordField(recTy, e.Label, e.S)
-	return fieldTy, &core.RecordProj{Record: recCore, Label: e.Label, S: e.S}
+	projCore := &core.RecordProj{Record: recCore, Label: e.Label, S: e.S}
+	return ch.instantiate(fieldTy, projCore)
 }
 
 // matchRecordField extracts a field's type from a Record row type.
@@ -111,6 +112,73 @@ func (ch *Checker) inferRecordUpdate(e *syntax.ExprRecordUpdate) (types.Type, co
 		coreUpdates[i] = core.RecordField{Label: upd.Label, Value: updCore}
 	}
 	return recTy, &core.RecordUpdate{Record: recCore, Updates: coreUpdates, S: e.S}
+}
+
+// checkRecord checks a record literal against an expected record type,
+// propagating expected field types to enable higher-rank fields.
+func (ch *Checker) checkRecord(e *syntax.ExprRecord, expected types.Type) core.Core {
+	// Try to extract expected field types from the expected record type.
+	expectedFields := ch.extractRecordFieldTypes(expected)
+	if expectedFields == nil {
+		// Can't decompose — fall back to infer + subsCheck.
+		inferredTy, coreExpr := ch.inferRecord(e)
+		return ch.subsCheck(inferredTy, expected, coreExpr, e.S)
+	}
+
+	coreFields := make([]core.RecordField, len(e.Fields))
+	rowFields := make([]types.RowField, len(e.Fields))
+	seen := make(map[string]bool, len(e.Fields))
+	for i, f := range e.Fields {
+		if seen[f.Label] {
+			ch.addCodedError(errs.ErrDuplicateLabel, f.S,
+				fmt.Sprintf("duplicate label %q in record literal", f.Label))
+		}
+		seen[f.Label] = true
+		if fieldTy, ok := expectedFields[f.Label]; ok {
+			coreVal := ch.check(f.Value, fieldTy)
+			coreFields[i] = core.RecordField{Label: f.Label, Value: coreVal}
+			rowFields[i] = types.RowField{Label: f.Label, Type: fieldTy, S: f.S}
+		} else {
+			ty, coreVal := ch.infer(f.Value)
+			coreFields[i] = core.RecordField{Label: f.Label, Value: coreVal}
+			rowFields[i] = types.RowField{Label: f.Label, Type: ty, S: f.S}
+		}
+	}
+	row := &types.TyEvidenceRow{
+		Entries: &types.CapabilityEntries{Fields: rowFields},
+		S:       e.S,
+	}
+	recTy := &types.TyApp{Fun: &types.TyCon{Name: "Record"}, Arg: row, S: e.S}
+	coreExpr := &core.RecordLit{Fields: coreFields, S: e.S}
+	return ch.subsCheck(ch.unifier.Zonk(recTy), expected, coreExpr, e.S)
+}
+
+// extractRecordFieldTypes decomposes a Record type into a map of field types.
+// Returns nil if the type is not a decomposable Record.
+func (ch *Checker) extractRecordFieldTypes(ty types.Type) map[string]types.Type {
+	ty = ch.unifier.Zonk(ty)
+	app, ok := ty.(*types.TyApp)
+	if !ok {
+		return nil
+	}
+	con, ok := app.Fun.(*types.TyCon)
+	if !ok || con.Name != "Record" {
+		return nil
+	}
+	row := ch.unifier.Zonk(app.Arg)
+	evRow, ok := row.(*types.TyEvidenceRow)
+	if !ok {
+		return nil
+	}
+	cap, ok := evRow.Entries.(*types.CapabilityEntries)
+	if !ok {
+		return nil
+	}
+	result := make(map[string]types.Type, len(cap.Fields))
+	for _, f := range cap.Fields {
+		result[f.Label] = f.Type
+	}
+	return result
 }
 
 // checkRecordPattern checks a record pattern { l1 = p1, ..., ln = pn } against a scrutinee type.

@@ -3,18 +3,46 @@
 ### Pattern Matching
 
 ```
--- Destructure Maybe
+-- Destructure Maybe with nested patterns
 describe :: Maybe Bool -> String
 describe := \m -> case m {
-  Nothing -> "empty";
-  Just b  -> case b { True -> "yes"; False -> "no" }
+  Just True  -> "yes";
+  Just False -> "no";
+  Nothing    -> "empty"
 }
 
--- Nested patterns are not supported; nest case expressions.
 -- Wildcard for catch-all
 isZeroOrd :: Ordering -> Bool
 isZeroOrd := \o -> case o { EQ -> True; _ -> False }
 ```
+
+### Nested Patterns
+
+Constructor patterns can appear inside other constructor patterns. Nullary constructors (like `Nothing`, `True`) need no parentheses; multi-argument constructors must be parenthesized:
+
+```
+-- Bare nullary constructor as argument
+case xs { Cons Nothing rest -> rest; Cons (Just x) rest -> rest; Nil -> Nil }
+
+-- Deep nesting
+case m { Just (Just (Just True)) -> "deep"; _ -> "other" }
+```
+
+### Literal Patterns
+
+Integer, string, and rune literals can be used directly in case patterns:
+
+```
+import Std.Num
+
+classify :: Int -> String
+classify := \n -> case n { 0 -> "zero"; 1 -> "one"; _ -> "other" }
+
+greet :: String -> String
+greet := \name -> case name { "Alice" -> "hello"; _ -> "hi" }
+```
+
+Literal types are open (cannot enumerate all values), so a wildcard or variable catch-all is always required.
 
 ### List Processing
 

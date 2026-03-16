@@ -46,6 +46,15 @@ func Match(val Value, pat core.Pattern) map[string]Value {
 			}
 		}
 		return bindings
+	case *core.PLit:
+		hv, ok := val.(*HostVal)
+		if !ok {
+			return nil
+		}
+		if hv.Inner == p.Value {
+			return map[string]Value{}
+		}
+		return nil
 	}
 	return nil
 }

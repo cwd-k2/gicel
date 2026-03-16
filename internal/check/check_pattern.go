@@ -2,6 +2,7 @@ package check
 
 import (
 	"fmt"
+	"strconv"
 
 	"github.com/cwd-k2/gicel/internal/core"
 	"github.com/cwd-k2/gicel/internal/errs"
@@ -32,9 +33,37 @@ func (ch *Checker) checkPattern(pat syntax.Pattern, scrutTy types.Type) patternR
 		return ch.checkRecordPattern(p, scrutTy)
 	case *syntax.PatParen:
 		return ch.checkPattern(p.Inner, scrutTy)
+	case *syntax.PatLit:
+		return ch.checkLitPattern(p, scrutTy)
 	default:
 		return patternResult{Pattern: &core.PWild{S: pat.Span()}}
 	}
+}
+
+func (ch *Checker) checkLitPattern(p *syntax.PatLit, scrutTy types.Type) patternResult {
+	var litTy types.Type
+	var litVal any
+	switch p.Kind {
+	case "Int":
+		litTy = &types.TyCon{Name: "Int"}
+		n, _ := strconv.ParseInt(p.Value, 10, 64)
+		litVal = n
+	case "String":
+		litTy = &types.TyCon{Name: "String"}
+		litVal = p.Value
+	case "Rune":
+		litTy = &types.TyCon{Name: "Rune"}
+		runes := []rune(p.Value)
+		if len(runes) > 0 {
+			litVal = runes[0]
+		} else {
+			litVal = rune(0)
+		}
+	}
+	if err := ch.unifier.Unify(litTy, scrutTy); err != nil {
+		ch.addUnifyError(err, p.S, "literal pattern type mismatch")
+	}
+	return patternResult{Pattern: &core.PLit{Value: litVal, S: p.S}}
 }
 
 // pendingCV tracks a constraint variable entry whose class/args are unknown

@@ -1372,4 +1372,285 @@ func TestParserKindExprDepthLimit(t *testing.T) {
 	// The main thing is it didn't panic.
 }
 
+// ---------------------------------------------------------------------------
+// NP1. Nested patterns: bare constructor in pattern argument position
+// ---------------------------------------------------------------------------
+
+func TestNestedPatternBareConstructor(t *testing.T) {
+	eng := gicel.NewEngine()
+	rt, err := eng.NewRuntime(`
+data Pair a b = MkPair a b
+
+match := \p -> case p { MkPair (Just x) Nothing -> x; _ -> False }
+main := match (MkPair (Just True) Nothing)
+`)
+	if err != nil {
+		t.Fatal("bare constructor in pattern arg should be accepted:", err)
+	}
+	result, err := rt.RunWith(context.Background(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertConName(t, result.Value, "True")
+}
+
+func TestNestedPatternParenthesized(t *testing.T) {
+	eng := gicel.NewEngine()
+	rt, err := eng.NewRuntime(`
+isJustTrue := \m -> case m { Just True -> True; _ -> False }
+main := isJustTrue (Just True)
+`)
+	if err != nil {
+		t.Fatal("nested constructor pattern (Just True) should be accepted:", err)
+	}
+	result, err := rt.RunWith(context.Background(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertConName(t, result.Value, "True")
+}
+
+func TestNestedPatternExhaustiveness(t *testing.T) {
+	// Non-exhaustive nested pattern should produce clear error.
+	eng := gicel.NewEngine()
+	_, err := eng.NewRuntime(`
+f := \x -> case x { Just True -> True }
+main := f (Just True)
+`)
+	if err == nil {
+		t.Fatal("expected non-exhaustive error for nested pattern")
+	}
+	errStr := err.Error()
+	if !strings.Contains(errStr, "non-exhaustive") {
+		t.Errorf("expected non-exhaustive message, got: %s", errStr)
+	}
+}
+
+func TestNestedPatternDeepNesting(t *testing.T) {
+	// Deeply nested: Just (Just (Just True))
+	eng := gicel.NewEngine()
+	rt, err := eng.NewRuntime(`
+f := \x -> case x { Just (Just (Just True)) -> True; _ -> False }
+main := f (Just (Just (Just True)))
+`)
+	if err != nil {
+		t.Fatal("deeply nested pattern should be accepted:", err)
+	}
+	result, err := rt.RunWith(context.Background(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertConName(t, result.Value, "True")
+}
+
+// ---------------------------------------------------------------------------
+// TA1. Type application: explicit @Type should work
+// ---------------------------------------------------------------------------
+
+func TestExplicitTypeApplication(t *testing.T) {
+	eng := gicel.NewEngine()
+	rt, err := eng.NewRuntime(`
+id :: forall a. a -> a
+id := \x -> x
+main := id @Bool True
+`)
+	if err != nil {
+		t.Fatal("explicit type application should be accepted:", err)
+	}
+	result, err := rt.RunWith(context.Background(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertConName(t, result.Value, "True")
+}
+
+func TestExplicitTypeApplicationWrongType(t *testing.T) {
+	eng := gicel.NewEngine()
+	eng.Use(gicel.Num)
+	_, err := eng.NewRuntime(`
+import Std.Num
+id :: forall a. a -> a
+id := \x -> x
+main := id @Int True
+`)
+	if err == nil {
+		t.Fatal("expected type error: @Int applied but Bool argument given")
+	}
+}
+
+func TestExplicitTypeApplicationOnConstructor(t *testing.T) {
+	eng := gicel.NewEngine()
+	rt, err := eng.NewRuntime(`
+main := Just @Bool True
+`)
+	if err != nil {
+		t.Fatal("explicit type application on constructor should work:", err)
+	}
+	result, err := rt.RunWith(context.Background(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertConName(t, result.Value, "Just")
+}
+
+// ---------------------------------------------------------------------------
+// HR1. Higher-rank types in record fields
+// ---------------------------------------------------------------------------
+
+func TestHigherRankRecordField(t *testing.T) {
+	eng := gicel.NewEngine()
+	rt, err := eng.NewRuntime(`
+r :: Record { apply : forall a. a -> a }
+r := { apply = \x -> x }
+main := (r!#apply) True
+`)
+	if err != nil {
+		t.Fatal("higher-rank record field should be accepted:", err)
+	}
+	result, err := rt.RunWith(context.Background(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertConName(t, result.Value, "True")
+}
+
+// ---------------------------------------------------------------------------
+// PC1. Packed class: Slice instance resolution with concrete types
+// ---------------------------------------------------------------------------
+
+func TestPackedSliceConcreteType(t *testing.T) {
+	eng := gicel.NewEngine()
+	eng.Use(gicel.Num)
+	eng.Use(gicel.Slice)
+
+	// Test 1: with annotation
+	rt, err := eng.NewRuntime(`
+import Std.Num
+import Std.Slice
+xs :: Slice Int
+xs := pack [1, 2, 3]
+main := unpack xs
+`)
+	if err != nil {
+		t.Fatal("Packed (Slice Int) Int should resolve:", err)
+	}
+	result, err := rt.RunWith(context.Background(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Result should be a List (Cons 1 (Cons 2 (Cons 3 Nil)))
+	con, ok := result.Value.(*gicel.ConVal)
+	if !ok || con.Con != "Cons" {
+		t.Fatalf("expected Cons, got %s", result.Value)
+	}
+
+	// Test 2: without annotation (inferred)
+	eng2 := gicel.NewEngine()
+	eng2.Use(gicel.Num)
+	eng2.Use(gicel.Slice)
+	rt2, err := eng2.NewRuntime(`
+import Std.Num
+import Std.Slice
+main := unpack (pack [1, 2, 3] :: Slice Int)
+`)
+	if err != nil {
+		t.Fatal("Packed Slice without annotation should resolve:", err)
+	}
+	result2, err := rt2.RunWith(context.Background(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	con2, ok := result2.Value.(*gicel.ConVal)
+	if !ok || con2.Con != "Cons" {
+		t.Fatalf("expected Cons, got %s", result2.Value)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// LP1. Literal patterns in case expressions
+// ---------------------------------------------------------------------------
+
+func TestLiteralPatternInt(t *testing.T) {
+	eng := gicel.NewEngine()
+	eng.Use(gicel.Num)
+	eng.Use(gicel.Str)
+	rt, err := eng.NewRuntime(`
+import Std.Num
+import Std.Str
+describe := \n -> case n { 0 -> "zero"; 1 -> "one"; _ -> "other" }
+main := describe 1
+`)
+	if err != nil {
+		t.Fatal("integer literal pattern should be accepted:", err)
+	}
+	result, err := rt.RunWith(context.Background(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := gicel.MustHost[string](result.Value)
+	if s != "one" {
+		t.Errorf("expected \"one\", got %q", s)
+	}
+}
+
+func TestLiteralPatternString(t *testing.T) {
+	eng := gicel.NewEngine()
+	eng.Use(gicel.Str)
+	rt, err := eng.NewRuntime(`
+import Std.Str
+greet := \name -> case name { "Alice" -> "Hello Alice"; _ -> "Hello stranger" }
+main := greet "Alice"
+`)
+	if err != nil {
+		t.Fatal("string literal pattern should be accepted:", err)
+	}
+	result, err := rt.RunWith(context.Background(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := gicel.MustHost[string](result.Value)
+	if s != "Hello Alice" {
+		t.Errorf("expected \"Hello Alice\", got %q", s)
+	}
+}
+
+func TestLiteralPatternFallthrough(t *testing.T) {
+	eng := gicel.NewEngine()
+	eng.Use(gicel.Num)
+	rt, err := eng.NewRuntime(`
+import Std.Num
+fib := \n -> case n { 0 -> 0; 1 -> 1; _ -> 99 }
+main := fib 5
+`)
+	if err != nil {
+		t.Fatal("literal pattern with wildcard fallthrough should work:", err)
+	}
+	result, err := rt.RunWith(context.Background(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	v := gicel.MustHost[int64](result.Value)
+	if v != 99 {
+		t.Errorf("expected 99, got %d", v)
+	}
+}
+
+func TestLiteralPatternInNestedCase(t *testing.T) {
+	eng := gicel.NewEngine()
+	eng.Use(gicel.Num)
+	rt, err := eng.NewRuntime(`
+import Std.Num
+f := \m -> case m { Just n -> case n { 0 -> True; _ -> False }; Nothing -> False }
+main := f (Just 0)
+`)
+	if err != nil {
+		t.Fatal("literal pattern in nested case should work:", err)
+	}
+	result, err := rt.RunWith(context.Background(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertConName(t, result.Value, "True")
+}
+
 // assertConName is defined in gicel_test.go — reused here.

@@ -57,12 +57,25 @@ func (ch *Checker) resolveTypeExpr(texpr syntax.TypeExpr) types.Type {
 		return ty
 	case *syntax.TyExprRow:
 		fields := make([]types.RowField, len(t.Fields))
+		seen := make(map[string]bool, len(t.Fields))
 		for i, f := range t.Fields {
+			if seen[f.Label] {
+				ch.addCodedError(errs.ErrDuplicateLabel, f.S, fmt.Sprintf("duplicate label %q in record type", f.Label))
+			}
+			seen[f.Label] = true
 			fields[i] = types.RowField{Label: f.Label, Type: ch.resolveTypeExpr(f.Type), S: f.S}
 		}
 		var tail types.Type
 		if t.Tail != nil {
 			tail = &types.TyVar{Name: t.Tail.Name, S: t.Tail.S}
+		}
+		// Skip normalization if duplicates were found (NormalizeRow panics on duplicates).
+		if len(seen) < len(fields) {
+			return &types.TyEvidenceRow{
+				Entries: &types.CapabilityEntries{Fields: fields[:len(seen)]},
+				Tail:    tail,
+				S:       t.S,
+			}
 		}
 		return &types.TyEvidenceRow{
 			Entries: &types.CapabilityEntries{Fields: fields},

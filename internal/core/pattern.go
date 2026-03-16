@@ -49,18 +49,27 @@ type PRecordField struct {
 	Pattern Pattern
 }
 
+// PLit — literal pattern (matches a literal value by equality).
+type PLit struct {
+	Value interface{} // int64, string, or rune
+	S     span.Span
+}
+
 func (*PVar) patternNode()    {}
 func (*PWild) patternNode()   {}
 func (*PCon) patternNode()    {}
 func (*PRecord) patternNode() {}
+func (*PLit) patternNode()    {}
 
 func (p *PVar) Span() span.Span    { return p.S }
 func (p *PWild) Span() span.Span   { return p.S }
 func (p *PCon) Span() span.Span    { return p.S }
 func (p *PRecord) Span() span.Span { return p.S }
+func (p *PLit) Span() span.Span    { return p.S }
 
 func (p *PVar) Bindings() []string  { return []string{p.Name} }
 func (p *PWild) Bindings() []string { return nil }
+func (p *PLit) Bindings() []string  { return nil }
 func (p *PCon) Bindings() []string {
 	var bs []string
 	for _, arg := range p.Args {
