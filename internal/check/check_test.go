@@ -788,6 +788,29 @@ main := \b -> case b { x -> x }`
 	checkSource(t, source, nil)
 }
 
+func TestExhaustiveNestedComplete(t *testing.T) {
+	source := `data Maybe a = Just a | Nothing
+data Bool = True | False
+main := \m -> case m { Just (Just _) -> 1; Just (Nothing) -> 2; Nothing -> 3 }`
+	checkSource(t, source, nil)
+}
+
+func TestExhaustiveNestedIncomplete(t *testing.T) {
+	source := `data Maybe a = Just a | Nothing
+data Bool = True | False
+main := \m -> case m { Just (Just _) -> 1; Nothing -> 3 }`
+	errMsg := checkSourceExpectCode(t, source, nil, errs.ErrNonExhaustive)
+	if !strings.Contains(errMsg, "Nothing") && !strings.Contains(errMsg, "Just") {
+		t.Errorf("expected mention of missing pattern, got: %s", errMsg)
+	}
+}
+
+func TestRedundantPattern(t *testing.T) {
+	source := `data Bool = True | False
+main := \b -> case b { _ -> 1; True -> 2 }`
+	checkSourceExpectCode(t, source, nil, errs.ErrRedundantPattern)
+}
+
 // --- Zonk optimization tests ---
 
 func TestZonkPathCompression(t *testing.T) {

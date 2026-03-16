@@ -787,3 +787,62 @@ func TestPrimOpNotRegistered(t *testing.T) {
 		t.Errorf("expected *RuntimeError, got %T", err)
 	}
 }
+
+func TestTCOTailRecursionFlat(t *testing.T) {
+	// Tail-recursive countdown: self 100000 → 0 via case.
+	// Without TCO the Go stack would overflow. With TCO (Case alt body
+	// returns bounceVal) the stack stays flat.
+	const N = 100_000
+	ctx := context.Background()
+	prims := NewPrimRegistry()
+	limit := NewLimit(N*10, N*2)
+	ev := NewEvaluator(ctx, prims, limit, nil, nil)
+
+	zeroLit := &core.Lit{Value: int64(0)}
+	oneLit := &core.Lit{Value: int64(1)}
+	eqOp := &core.PrimOp{Name: "eq", Arity: 2, Args: []core.Core{
+		&core.Var{Name: "n"}, zeroLit,
+	}}
+	subOp := &core.PrimOp{Name: "sub", Arity: 2, Args: []core.Core{
+		&core.Var{Name: "n"}, oneLit,
+	}}
+	selfCall := &core.App{Fun: &core.Var{Name: "self"}, Arg: subOp}
+	body := &core.Case{
+		Scrutinee: eqOp,
+		Alts: []core.Alt{
+			{Pattern: &core.PCon{Con: "True"}, Body: &core.Var{Name: "n"}},
+			{Pattern: &core.PCon{Con: "False"}, Body: selfCall},
+		},
+	}
+	innerLam := &core.Lam{Param: "n", Body: body}
+	letrec := &core.LetRec{
+		Bindings: []core.Binding{{Name: "self", Expr: innerLam}},
+		Body:     &core.App{Fun: &core.Var{Name: "self"}, Arg: &core.Lit{Value: int64(N)}},
+	}
+
+	prims.Register("eq", func(_ context.Context, ce CapEnv, args []Value, _ Applier) (Value, CapEnv, error) {
+		a := args[0].(*HostVal).Inner.(int64)
+		b := args[1].(*HostVal).Inner.(int64)
+		if a == b {
+			return &ConVal{Con: "True"}, ce, nil
+		}
+		return &ConVal{Con: "False"}, ce, nil
+	})
+	prims.Register("sub", func(_ context.Context, ce CapEnv, args []Value, _ Applier) (Value, CapEnv, error) {
+		a := args[0].(*HostVal).Inner.(int64)
+		b := args[1].(*HostVal).Inner.(int64)
+		return &HostVal{Inner: a - b}, ce, nil
+	})
+
+	result, err := ev.Eval(EmptyEnv(), NewCapEnv(nil), letrec)
+	if err != nil {
+		t.Fatalf("TCO tail recursion failed: %v", err)
+	}
+	n := result.Value.(*HostVal).Inner.(int64)
+	if n != 0 {
+		t.Errorf("expected 0, got %d", n)
+	}
+	// TCO keeps the Go call stack flat even though depth counter still
+	// increments (apply still calls Enter/Leave). The key test is that
+	// the 100k recursion completes without Go stack overflow.
+}

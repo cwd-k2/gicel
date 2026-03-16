@@ -72,6 +72,109 @@ type conSig struct {
 	arity int
 }
 
+// isGADT returns true if any constructor of the scrutinee's data type
+// has a refined return type (i.e., is a GADT constructor).
+func (ch *Checker) isGADT(scrutTy types.Type) bool {
+	tyName := headTyCon(scrutTy)
+	if tyName == "" {
+		return false
+	}
+	info := ch.lookupDataType(tyName)
+	if info == nil {
+		return false
+	}
+	for _, c := range info.Constructors {
+		if c.ReturnType != nil {
+			return true
+		}
+	}
+	return false
+}
+
+// constructorArgTypes returns the argument types for a non-GADT constructor,
+// refined by unifying the constructor's return type with the scrutinee type.
+// For example, Just :: forall a. a -> Maybe a with scrutinee Maybe (Maybe Int)
+// yields arg type Maybe Int (not a fresh meta).
+func (ch *Checker) constructorArgTypes(conName string, scrutTy types.Type) []types.Type {
+	info, ok := ch.conInfo[conName]
+	if !ok {
+		return nil
+	}
+	var arity int
+	for _, c := range info.Constructors {
+		if c.Name == conName {
+			arity = c.Arity
+			break
+		}
+	}
+	conTy := ch.conTypes[conName]
+	if conTy == nil {
+		return nil
+	}
+	ty := ch.instantiateForExhaust(conTy)
+
+	// Peel arrows to get arg types and the return type.
+	var argTys []types.Type
+	for range arity {
+		if arr, ok := ty.(*types.TyArrow); ok {
+			argTys = append(argTys, arr.From)
+			ty = arr.To
+		} else {
+			argTys = append(argTys, nil)
+		}
+	}
+
+	// Refine type variables by unifying the return type with the scrutinee.
+	// Only worth doing when the scrutinee has a known head type constructor.
+	if scrutTy != nil && headTyCon(ch.unifier.Zonk(scrutTy)) != "" {
+		tmp := NewUnifierShared(&ch.freshID)
+		if tmp.Unify(ty, ch.unifier.Zonk(scrutTy)) == nil {
+			for i, a := range argTys {
+				if a != nil {
+					argTys[i] = tmp.Zonk(a)
+				}
+			}
+		}
+	}
+	return argTys
+}
+
+// instantiateForExhaust strips foralls and evidence qualifiers by substituting
+// fresh metas. Used to extract constructor argument types for exhaustiveness.
+func (ch *Checker) instantiateForExhaust(ty types.Type) types.Type {
+	return ch.instantiateForExhaustWith(ty, nil)
+}
+
+// instantiateForExhaustWith strips foralls/evidence, creating fresh metas
+// in the given unifier (or standalone if u is nil).
+func (ch *Checker) instantiateForExhaustWith(ty types.Type, u *Unifier) types.Type {
+	for {
+		switch t := ty.(type) {
+		case *types.TyForall:
+			m := &types.TyMeta{ID: ch.fresh(), Kind: t.Kind}
+			ty = types.Subst(t.Body, t.Var, m)
+		case *types.TyEvidence:
+			ty = t.Body
+		default:
+			return ty
+		}
+	}
+}
+
+// subPatternTypes returns argument types for specialization into sub-patterns.
+// For non-GADT types, returns actual argument types from the constructor signature.
+// For GADT types (or unknown), returns nil types to avoid expensive canUnifyWith calls.
+func (ch *Checker) subPatternTypes(conName string, scrutTy types.Type, arity int, restTys []types.Type) []types.Type {
+	if scrutTy != nil && !ch.isGADT(scrutTy) {
+		argTys := ch.constructorArgTypes(conName, scrutTy)
+		if argTys != nil {
+			return append(argTys, restTys...)
+		}
+	}
+	newTys := make([]types.Type, arity)
+	return append(newTys, restTys...)
+}
+
 // constructorSigs returns the signature for a type, filtering by GADT
 // applicability. Returns nil if the type is not a known ADT.
 func (ch *Checker) constructorSigs(scrutTy types.Type) []conSig {
@@ -235,10 +338,7 @@ func (ch *Checker) isUsefulAt(mx patMatrix, q patVec, scrutTys []types.Type, dep
 		sq = append(sq, cp.args...)
 		sq = append(sq, q[1:]...)
 
-		// Don't propagate type info into sub-patterns to avoid expensive
-		// recursive constructorSigs calls on GADT types.
-		newTys := make([]types.Type, cp.arity)
-		newTys = append(newTys, restTys...)
+		newTys := ch.subPatternTypes(cp.con, ty, cp.arity, restTys)
 		useful, witness := ch.isUsefulAt(smx, sq, newTys, depth+1)
 		if useful {
 			return true, reconstructCon(cp.con, cp.arity, witness, q[1:])
@@ -267,6 +367,13 @@ func (ch *Checker) isUsefulAt(mx patMatrix, q patVec, scrutTys []types.Type, dep
 
 	// Column 0 of q is a wildcard.
 
+	// Fast path: if column 0 of the matrix has only wildcards (no constructor
+	// or record patterns), the first row already covers any value. Not useful.
+	headCons := columnHeadCons(mx)
+	if len(headCons) == 0 && !hasRecordPats(mx) {
+		return false, nil
+	}
+
 	// If column 0 has any record patterns, use record specialization.
 	if hasRecordPats(mx) {
 		labels := allRecordLabels(mx)
@@ -281,9 +388,6 @@ func (ch *Checker) isUsefulAt(mx patMatrix, q patVec, scrutTys []types.Type, dep
 		return ch.isUsefulAt(smx, sq, newTys, depth+1)
 	}
 
-	// Determine head constructors in column 0 of the matrix.
-	headCons := columnHeadCons(mx)
-
 	// Get the complete signature for the scrutinee type.
 	sigs := ch.constructorSigs(ty)
 
@@ -297,8 +401,7 @@ func (ch *Checker) isUsefulAt(mx patMatrix, q patVec, scrutTys []types.Type, dep
 			}
 			sq = append(sq, q[1:]...)
 
-			newTys := make([]types.Type, sig.arity)
-			newTys = append(newTys, restTys...)
+			newTys := ch.subPatternTypes(sig.name, ty, sig.arity, restTys)
 			useful, witness := ch.isUsefulAt(smx, sq, newTys, depth+1)
 			if useful {
 				return true, reconstructCon(sig.name, sig.arity, witness, q[1:])
@@ -320,8 +423,7 @@ func (ch *Checker) isUsefulAt(mx patMatrix, q patVec, scrutTys []types.Type, dep
 			}
 			sq = append(sq, q[1:]...)
 
-			newTys := make([]types.Type, sig.arity)
-			newTys = append(newTys, restTys...)
+			newTys := ch.subPatternTypes(sig.name, ty, sig.arity, restTys)
 			useful, witness := ch.isUsefulAt(smx, sq, newTys, depth+1)
 			if useful {
 				return true, reconstructCon(sig.name, sig.arity, witness, q[1:])

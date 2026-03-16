@@ -36,11 +36,15 @@ func setInsertImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, apply e
 	if err != nil {
 		return nil, ce, err
 	}
-	newRoot, newCe, err := avlInsert(m.root, key, unitVal, m.cmp, ce, apply)
+	newRoot, inserted, newCe, err := avlInsert(m.root, key, unitVal, m.cmp, ce, apply)
 	if err != nil {
 		return nil, ce, err
 	}
-	return &eval.HostVal{Inner: &mapVal{root: newRoot, cmp: m.cmp, size: avlSize(newRoot)}}, newCe, nil
+	newSize := m.size
+	if inserted {
+		newSize++
+	}
+	return &eval.HostVal{Inner: &mapVal{root: newRoot, cmp: m.cmp, size: newSize}}, newCe, nil
 }
 
 // _setMember :: (k -> k -> Ordering) -> k -> Set k -> Bool
@@ -124,12 +128,15 @@ func setFromListImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, apply
 			return nil, ce, fmt.Errorf("setFromList: malformed list")
 		}
 		var err error
-		m.root, ce, err = avlInsert(m.root, con.Args[0], unitVal, cmp, ce, apply)
+		var inserted bool
+		m.root, inserted, ce, err = avlInsert(m.root, con.Args[0], unitVal, cmp, ce, apply)
 		if err != nil {
 			return nil, ce, err
 		}
+		if inserted {
+			m.size++
+		}
 		list = con.Args[1]
 	}
-	m.size = avlSize(m.root)
 	return &eval.HostVal{Inner: m}, ce, nil
 }

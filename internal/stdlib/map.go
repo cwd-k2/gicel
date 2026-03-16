@@ -135,29 +135,31 @@ func compareKeys(cmp eval.Value, a, b eval.Value, ce eval.CapEnv, apply eval.App
 	}
 }
 
-func avlInsert(n *avlNode, key, value, cmp eval.Value, ce eval.CapEnv, apply eval.Applier) (*avlNode, eval.CapEnv, error) {
+// avlInsert returns the new root and whether a new key was added (not an overwrite).
+func avlInsert(n *avlNode, key, value, cmp eval.Value, ce eval.CapEnv, apply eval.Applier) (*avlNode, bool, eval.CapEnv, error) {
 	if n == nil {
-		return avlNewNode(key, value), ce, nil
+		return avlNewNode(key, value), true, ce, nil
 	}
 	ord, newCe, err := compareKeys(cmp, key, n.key, ce, apply)
 	if err != nil {
-		return n, ce, err
+		return n, false, ce, err
 	}
 	// Persistent: copy node.
 	node := &avlNode{key: n.key, value: n.value, left: n.left, right: n.right, height: n.height}
+	var inserted bool
 	switch ord {
 	case -1:
-		node.left, newCe, err = avlInsert(n.left, key, value, cmp, newCe, apply)
+		node.left, inserted, newCe, err = avlInsert(n.left, key, value, cmp, newCe, apply)
 	case 1:
-		node.right, newCe, err = avlInsert(n.right, key, value, cmp, newCe, apply)
+		node.right, inserted, newCe, err = avlInsert(n.right, key, value, cmp, newCe, apply)
 	default:
 		node.value = value
-		return node, newCe, nil
+		return node, false, newCe, nil
 	}
 	if err != nil {
-		return n, ce, err
+		return n, false, ce, err
 	}
-	return avlRebalance(node), newCe, nil
+	return avlRebalance(node), inserted, newCe, nil
 }
 
 func avlLookup(n *avlNode, key, cmp eval.Value, ce eval.CapEnv, apply eval.Applier) (eval.Value, bool, eval.CapEnv, error) {
@@ -233,13 +235,6 @@ func avlToList(n *avlNode, acc []eval.Value) []eval.Value {
 	return acc
 }
 
-func avlSize(n *avlNode) int {
-	if n == nil {
-		return 0
-	}
-	return 1 + avlSize(n.left) + avlSize(n.right)
-}
-
 func avlFoldlWithKey(n *avlNode, f, acc, cmp eval.Value, ce eval.CapEnv, apply eval.Applier) (eval.Value, eval.CapEnv, error) {
 	if n == nil {
 		return acc, ce, nil
@@ -295,11 +290,15 @@ func mapInsertImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, apply e
 		return nil, ce, err
 	}
 	_ = cmp // Use map's stored cmp
-	newRoot, newCe, err := avlInsert(m.root, key, value, m.cmp, ce, apply)
+	newRoot, inserted, newCe, err := avlInsert(m.root, key, value, m.cmp, ce, apply)
 	if err != nil {
 		return nil, ce, err
 	}
-	return &eval.HostVal{Inner: &mapVal{root: newRoot, cmp: m.cmp, size: avlSize(newRoot)}}, newCe, nil
+	newSize := m.size
+	if inserted {
+		newSize++
+	}
+	return &eval.HostVal{Inner: &mapVal{root: newRoot, cmp: m.cmp, size: newSize}}, newCe, nil
 }
 
 // _mapLookup :: (k -> k -> Ordering) -> k -> Map k v -> Maybe v
@@ -381,14 +380,17 @@ func mapFromListImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, apply
 		if !ok1 || !ok2 {
 			return nil, ce, fmt.Errorf("mapFromList: tuple must have _1 and _2")
 		}
+		var inserted bool
 		var err error
-		m.root, ce, err = avlInsert(m.root, key, value, cmp, ce, apply)
+		m.root, inserted, ce, err = avlInsert(m.root, key, value, cmp, ce, apply)
 		if err != nil {
 			return nil, ce, err
 		}
+		if inserted {
+			m.size++
+		}
 		list = con.Args[1]
 	}
-	m.size = avlSize(m.root)
 	return &eval.HostVal{Inner: m}, ce, nil
 }
 
@@ -432,7 +434,7 @@ func mapUnionWithImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, appl
 		return nil, ce, err
 	}
 	// Insert all entries from m2 into m1, using f to combine on collision.
-	result := &mapVal{root: m1.root, cmp: m1.cmp}
+	result := &mapVal{root: m1.root, cmp: m1.cmp, size: m1.size}
 	pairs := avlToList(m2.root, nil)
 	for _, p := range pairs {
 		pair := p.(*eval.RecordVal)
@@ -454,11 +456,14 @@ func mapUnionWithImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, appl
 				return nil, ce, err
 			}
 		}
-		result.root, ce, err = avlInsert(result.root, key, insertVal, result.cmp, ce, apply)
+		var inserted bool
+		result.root, inserted, ce, err = avlInsert(result.root, key, insertVal, result.cmp, ce, apply)
 		if err != nil {
 			return nil, ce, err
 		}
+		if inserted {
+			result.size++
+		}
 	}
-	result.size = avlSize(result.root)
 	return &eval.HostVal{Inner: result}, ce, nil
 }
