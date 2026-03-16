@@ -72,22 +72,22 @@ func avlUpdateHeight(n *avlNode) {
 
 func avlRotateRight(y *avlNode) *avlNode {
 	x := y.left
-	t := x.right
-	x.right = y
-	y.left = t
-	avlUpdateHeight(y)
-	avlUpdateHeight(x)
-	return x
+	// Copy both nodes to preserve persistence — x may be shared.
+	newY := &avlNode{key: y.key, value: y.value, left: x.right, right: y.right, height: y.height}
+	newX := &avlNode{key: x.key, value: x.value, left: x.left, right: newY, height: x.height}
+	avlUpdateHeight(newY)
+	avlUpdateHeight(newX)
+	return newX
 }
 
 func avlRotateLeft(x *avlNode) *avlNode {
 	y := x.right
-	t := y.left
-	y.left = x
-	x.right = t
-	avlUpdateHeight(x)
-	avlUpdateHeight(y)
-	return y
+	// Copy both nodes to preserve persistence — y may be shared.
+	newX := &avlNode{key: x.key, value: x.value, left: x.left, right: y.left, height: x.height}
+	newY := &avlNode{key: y.key, value: y.value, left: newX, right: y.right, height: y.height}
+	avlUpdateHeight(newX)
+	avlUpdateHeight(newY)
+	return newY
 }
 
 func avlRebalance(n *avlNode) *avlNode {
@@ -235,12 +235,12 @@ func avlToList(n *avlNode, acc []eval.Value) []eval.Value {
 	return acc
 }
 
-func avlFoldlWithKey(n *avlNode, f, acc, cmp eval.Value, ce eval.CapEnv, apply eval.Applier) (eval.Value, eval.CapEnv, error) {
+func avlFoldlWithKey(n *avlNode, f, acc eval.Value, ce eval.CapEnv, apply eval.Applier) (eval.Value, eval.CapEnv, error) {
 	if n == nil {
 		return acc, ce, nil
 	}
 	var err error
-	acc, ce, err = avlFoldlWithKey(n.left, f, acc, cmp, ce, apply)
+	acc, ce, err = avlFoldlWithKey(n.left, f, acc, ce, apply)
 	if err != nil {
 		return nil, ce, err
 	}
@@ -257,7 +257,7 @@ func avlFoldlWithKey(n *avlNode, f, acc, cmp eval.Value, ce eval.CapEnv, apply e
 	if err != nil {
 		return nil, ce, err
 	}
-	return avlFoldlWithKey(n.right, f, acc, cmp, ce, apply)
+	return avlFoldlWithKey(n.right, f, acc, ce, apply)
 }
 
 // --- Primitives ---
@@ -282,14 +282,14 @@ func mapEmptyImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.A
 
 // _mapInsert :: (k -> k -> Ordering) -> k -> v -> Map k v -> Map k v
 func mapInsertImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, apply eval.Applier) (eval.Value, eval.CapEnv, error) {
-	cmp := args[0]
+	// args[0] is the compare function passed from GICEL; we use m.cmp instead
+	// because the map stores its comparator at creation time.
 	key := args[1]
 	value := args[2]
 	m, err := asMapVal(args[3])
 	if err != nil {
 		return nil, ce, err
 	}
-	_ = cmp // Use map's stored cmp
 	newRoot, inserted, newCe, err := avlInsert(m.root, key, value, m.cmp, ce, apply)
 	if err != nil {
 		return nil, ce, err
@@ -402,7 +402,7 @@ func mapFoldlWithKeyImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, a
 	if err != nil {
 		return nil, ce, err
 	}
-	return avlFoldlWithKey(m.root, f, acc, m.cmp, ce, apply)
+	return avlFoldlWithKey(m.root, f, acc, ce, apply)
 }
 
 // _mapMember :: (k -> k -> Ordering) -> k -> Map k v -> Bool

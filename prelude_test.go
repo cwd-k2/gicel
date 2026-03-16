@@ -887,6 +887,89 @@ main := foldr (+) 0 (Ok 10)`)
 	assertHostInt(t, v, 10)
 }
 
+// ===========================================================================
+// Show typeclass
+// ===========================================================================
+
+func TestShowBoolTrue(t *testing.T) {
+	v := runPure(t, `main := show True`)
+	assertHostString(t, v, "True")
+}
+
+func TestShowBoolFalse(t *testing.T) {
+	v := runPure(t, `main := show False`)
+	assertHostString(t, v, "False")
+}
+
+func TestShowUnit(t *testing.T) {
+	v := runPure(t, `main := show ()`)
+	assertHostString(t, v, "()")
+}
+
+func TestShowOrdering(t *testing.T) {
+	v := runPure(t, `main := show LT`)
+	assertHostString(t, v, "LT")
+}
+
+func TestShowInt(t *testing.T) {
+	v := runPure(t, `import Std.Num
+main := show 42`)
+	assertHostString(t, v, "42")
+}
+
+// ===========================================================================
+// Alternative typeclass
+// ===========================================================================
+
+func TestAlternativeMaybeNone(t *testing.T) {
+	v := runPure(t, `main := (none :: Maybe Bool)`)
+	assertConVal(t, v, "Nothing")
+}
+
+func TestAlternativeMaybeAltJust(t *testing.T) {
+	v := runPure(t, `main := alt (Just True) (Just False)`)
+	con := v.(*gicel.ConVal)
+	if con.Con != "Just" {
+		t.Fatalf("expected Just, got %s", con.Con)
+	}
+	assertConVal(t, con.Args[0], "True")
+}
+
+func TestAlternativeMaybeAltNothing(t *testing.T) {
+	v := runPure(t, `main := alt Nothing (Just False)`)
+	con := v.(*gicel.ConVal)
+	if con.Con != "Just" {
+		t.Fatalf("expected Just, got %s", con.Con)
+	}
+	assertConVal(t, con.Args[0], "False")
+}
+
+func TestAlternativeListNone(t *testing.T) {
+	v := runPure(t, `main := (none :: List Bool)`)
+	assertConVal(t, v, "Nil")
+}
+
+func TestAlternativeOperator(t *testing.T) {
+	v := runPure(t, `main := Nothing <|> Just True`)
+	con := v.(*gicel.ConVal)
+	if con.Con != "Just" {
+		t.Fatalf("expected Just, got %s", con.Con)
+	}
+}
+
+func TestGuardTrue(t *testing.T) {
+	v := runPure(t, `main := guard True :: Maybe ()`)
+	con := v.(*gicel.ConVal)
+	if con.Con != "Just" {
+		t.Fatalf("expected Just, got %s", con.Con)
+	}
+}
+
+func TestGuardFalse(t *testing.T) {
+	v := runPure(t, `main := guard False :: Maybe ()`)
+	assertConVal(t, v, "Nothing")
+}
+
 // --- helpers ---
 
 func listToSliceTest(t *testing.T, v gicel.Value) []gicel.Value {

@@ -705,3 +705,128 @@ main := do { debug 42 }
 		t.Fatalf("expected 1 message, got %d", len(msgs))
 	}
 }
+
+// ===========================================================================
+// Std.Map integration
+// ===========================================================================
+
+func TestMapInsertLookupIntegration(t *testing.T) {
+	v := runWithPacks(t, `
+import Std.Num
+import Std.Map
+main := mapLookup 1 (insert 1 True (mapEmpty :: Map Int Bool))
+`, gicel.Num, gicel.Map)
+	con, ok := v.(*gicel.ConVal)
+	if !ok || con.Con != "Just" {
+		t.Fatalf("expected Just, got %v", v)
+	}
+	assertConVal(t, con.Args[0], "True")
+}
+
+func TestMapLookupMissingIntegration(t *testing.T) {
+	v := runWithPacks(t, `
+import Std.Num
+import Std.Map
+main := mapLookup 99 (insert 1 True (mapEmpty :: Map Int Bool))
+`, gicel.Num, gicel.Map)
+	assertConVal(t, v, "Nothing")
+}
+
+func TestMapSizeIntegration(t *testing.T) {
+	v := runWithPacks(t, `
+import Std.Num
+import Std.Map
+main := mapSize (insert 2 False (insert 1 True (mapEmpty :: Map Int Bool)))
+`, gicel.Num, gicel.Map)
+	assertHostInt(t, v, 2)
+}
+
+func TestMapMemberIntegration(t *testing.T) {
+	v := runWithPacks(t, `
+import Std.Num
+import Std.Map
+main := member 1 (insert 1 True (mapEmpty :: Map Int Bool))
+`, gicel.Num, gicel.Map)
+	assertConVal(t, v, "True")
+}
+
+func TestMapDeleteIntegration(t *testing.T) {
+	v := runWithPacks(t, `
+import Std.Num
+import Std.Map
+main := mapSize (delete 1 (insert 1 True (mapEmpty :: Map Int Bool)))
+`, gicel.Num, gicel.Map)
+	assertHostInt(t, v, 0)
+}
+
+func TestMapFromListToListIntegration(t *testing.T) {
+	v := runWithPacks(t, `
+import Std.Num
+import Std.Map
+main := mapSize (fromList (Cons (1, True) (Cons (2, False) Nil)) :: Map Int Bool)
+`, gicel.Num, gicel.Map)
+	assertHostInt(t, v, 2)
+}
+
+// ===========================================================================
+// Std.Set integration
+// ===========================================================================
+
+func TestSetInsertMemberIntegration(t *testing.T) {
+	v := runWithPacks(t, `
+import Std.Num
+import Std.Set
+main := setMember 1 (setInsert 1 (setEmpty :: Set Int))
+`, gicel.Num, gicel.Set)
+	assertConVal(t, v, "True")
+}
+
+func TestSetMemberMissingIntegration(t *testing.T) {
+	v := runWithPacks(t, `
+import Std.Num
+import Std.Set
+main := setMember 99 (setInsert 1 (setEmpty :: Set Int))
+`, gicel.Num, gicel.Set)
+	assertConVal(t, v, "False")
+}
+
+func TestSetSizeIntegration(t *testing.T) {
+	v := runWithPacks(t, `
+import Std.Num
+import Std.Set
+main := setSize (setInsert 2 (setInsert 1 (setEmpty :: Set Int)))
+`, gicel.Num, gicel.Set)
+	assertHostInt(t, v, 2)
+}
+
+func TestSetDeleteIntegration(t *testing.T) {
+	v := runWithPacks(t, `
+import Std.Num
+import Std.Set
+main := setSize (setDelete 1 (setInsert 2 (setInsert 1 (setEmpty :: Set Int))))
+`, gicel.Num, gicel.Set)
+	assertHostInt(t, v, 1)
+}
+
+func TestSetFromListIntegration(t *testing.T) {
+	v := runWithPacks(t, `
+import Std.Num
+import Std.Set
+main := setSize (setFromList (Cons 1 (Cons 2 (Cons 1 Nil))) :: Set Int)
+`, gicel.Num, gicel.Set)
+	assertHostInt(t, v, 2) // duplicates removed
+}
+
+func TestSetToListIntegration(t *testing.T) {
+	v := runWithPacks(t, `
+import Std.Num
+import Std.Set
+main := setToList (setInsert 2 (setInsert 1 (setEmpty :: Set Int)))
+`, gicel.Num, gicel.Set)
+	// Should be sorted: [1, 2]
+	con, ok := v.(*gicel.ConVal)
+	if !ok || con.Con != "Cons" {
+		t.Fatalf("expected Cons, got %v", v)
+	}
+	assertHostInt(t, con.Args[0], 1)
+}

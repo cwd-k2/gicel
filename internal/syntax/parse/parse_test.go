@@ -1866,3 +1866,106 @@ func TestParseOperatorValueStillWorks(t *testing.T) {
 		t.Errorf("expected name '+', got %q", v.Name)
 	}
 }
+
+func TestParseDotSection(t *testing.T) {
+	// (.) should parse as operator value.
+	prog, es := parse("main := (.)")
+	if es.HasErrors() {
+		t.Fatalf("dot section should parse without errors:\n%s", es.Format())
+	}
+	d := prog.Decls[0].(*DeclValueDef)
+	v, ok := d.Expr.(*ExprVar)
+	if !ok {
+		t.Fatalf("expected ExprVar for (.), got %T", d.Expr)
+	}
+	if v.Name != "." {
+		t.Errorf("expected name '.', got %q", v.Name)
+	}
+}
+
+func TestParseRightSectionDot(t *testing.T) {
+	// (. f) should parse as right section with dot operator.
+	prog, es := parse("main := (. f)")
+	if es.HasErrors() {
+		t.Fatalf("right dot section should parse without errors:\n%s", es.Format())
+	}
+	d := prog.Decls[0].(*DeclValueDef)
+	sec, ok := d.Expr.(*ExprSection)
+	if !ok {
+		t.Fatalf("expected ExprSection for (. f), got %T", d.Expr)
+	}
+	if sec.Op != "." || !sec.IsRight {
+		t.Errorf("expected right section (. f), got op=%q right=%v", sec.Op, sec.IsRight)
+	}
+}
+
+func TestParseLeftSectionDot(t *testing.T) {
+	// (f .) should parse as left section with dot operator.
+	prog, es := parse("main := (f .)")
+	if es.HasErrors() {
+		t.Fatalf("left dot section should parse without errors:\n%s", es.Format())
+	}
+	d := prog.Decls[0].(*DeclValueDef)
+	sec, ok := d.Expr.(*ExprSection)
+	if !ok {
+		t.Fatalf("expected ExprSection for (f .), got %T", d.Expr)
+	}
+	if sec.Op != "." || sec.IsRight {
+		t.Errorf("expected left section (f .), got op=%q right=%v", sec.Op, sec.IsRight)
+	}
+}
+
+func TestParseSectionInApplication(t *testing.T) {
+	// foldr (+) 0 xs — section used as function argument.
+	prog, es := parse("infixl 6 +\nmain := foldr (+) 0 xs")
+	if es.HasErrors() {
+		t.Fatalf("section in application should parse without errors:\n%s", es.Format())
+	}
+	if len(prog.Decls) < 2 {
+		t.Fatalf("expected at least 2 decls, got %d", len(prog.Decls))
+	}
+}
+
+func TestParseNestedSections(t *testing.T) {
+	// f (+ 1) (2 *) — two sections as arguments.
+	prog, es := parse("infixl 6 +\ninfixl 7 *\nmain := f (+ 1) (2 *)")
+	if es.HasErrors() {
+		t.Fatalf("nested sections should parse without errors:\n%s", es.Format())
+	}
+	if len(prog.Decls) < 3 {
+		t.Fatalf("expected at least 3 decls, got %d", len(prog.Decls))
+	}
+}
+
+func TestParseTupleInParen(t *testing.T) {
+	// (1, 2, 3) should parse as tuple (record sugar).
+	prog, es := parse("main := (1, 2, 3)")
+	if es.HasErrors() {
+		t.Fatalf("tuple should parse without errors:\n%s", es.Format())
+	}
+	d := prog.Decls[0].(*DeclValueDef)
+	rec, ok := d.Expr.(*ExprRecord)
+	if !ok {
+		t.Fatalf("expected ExprRecord for tuple, got %T", d.Expr)
+	}
+	if len(rec.Fields) != 3 {
+		t.Errorf("expected 3 tuple fields, got %d", len(rec.Fields))
+	}
+}
+
+func TestParseAnnotationInParen(t *testing.T) {
+	// (x :: Bool) should parse as annotated expression.
+	prog, es := parse("main := (x :: Bool)")
+	if es.HasErrors() {
+		t.Fatalf("annotation in paren should parse without errors:\n%s", es.Format())
+	}
+	d := prog.Decls[0].(*DeclValueDef)
+	paren, ok := d.Expr.(*ExprParen)
+	if !ok {
+		t.Fatalf("expected ExprParen, got %T", d.Expr)
+	}
+	_, ok = paren.Inner.(*ExprAnn)
+	if !ok {
+		t.Fatalf("expected ExprAnn inside paren, got %T", paren.Inner)
+	}
+}

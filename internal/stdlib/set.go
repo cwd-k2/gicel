@@ -48,21 +48,8 @@ func setInsertImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, apply e
 }
 
 // _setMember :: (k -> k -> Ordering) -> k -> Set k -> Bool
-func setMemberImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, apply eval.Applier) (eval.Value, eval.CapEnv, error) {
-	key := args[1]
-	m, err := asMapVal(args[2])
-	if err != nil {
-		return nil, ce, err
-	}
-	_, found, newCe, err := avlLookup(m.root, key, m.cmp, ce, apply)
-	if err != nil {
-		return nil, ce, err
-	}
-	if found {
-		return &eval.ConVal{Con: "True"}, newCe, nil
-	}
-	return &eval.ConVal{Con: "False"}, newCe, nil
-}
+// Set is backed by Map k (), so member is identical to mapMember.
+var setMemberImpl = mapMemberImpl
 
 // _setDelete :: (k -> k -> Ordering) -> k -> Set k -> Set k
 func setDeleteImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, apply eval.Applier) (eval.Value, eval.CapEnv, error) {
@@ -83,13 +70,8 @@ func setDeleteImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, apply e
 }
 
 // _setSize :: Set k -> Int
-func setSizeImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
-	m, err := asMapVal(args[0])
-	if err != nil {
-		return nil, ce, err
-	}
-	return &eval.HostVal{Inner: int64(m.size)}, ce, nil
-}
+// Set is backed by Map k (), so size is identical to mapSize.
+var setSizeImpl = mapSizeImpl
 
 // _setToList :: Set k -> List k
 func setToListImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {

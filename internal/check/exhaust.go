@@ -29,9 +29,13 @@ import (
 // pat is the internal pattern representation for the algorithm.
 type pat interface{ patTag() }
 
-type pWild struct{}                                      // _
-type pCon struct{ con string; arity int; args []pat }    // C p1 ... pn
-type pRecord struct{ fields map[string]pat }              // { l1 = p1, ... }
+type pWild struct{} // _
+type pCon struct {
+	con   string
+	arity int
+	args  []pat
+}                                            // C p1 ... pn
+type pRecord struct{ fields map[string]pat } // { l1 = p1, ... }
 
 func (pWild) patTag()   {}
 func (pCon) patTag()    {}
@@ -142,12 +146,6 @@ func (ch *Checker) constructorArgTypes(conName string, scrutTy types.Type) []typ
 // instantiateForExhaust strips foralls and evidence qualifiers by substituting
 // fresh metas. Used to extract constructor argument types for exhaustiveness.
 func (ch *Checker) instantiateForExhaust(ty types.Type) types.Type {
-	return ch.instantiateForExhaustWith(ty, nil)
-}
-
-// instantiateForExhaustWith strips foralls/evidence, creating fresh metas
-// in the given unifier (or standalone if u is nil).
-func (ch *Checker) instantiateForExhaustWith(ty types.Type, u *Unifier) types.Type {
 	for {
 		switch t := ty.(type) {
 		case *types.TyForall:
@@ -296,6 +294,24 @@ func specializeRecord(mx patMatrix, labels []string) patMatrix {
 	return result
 }
 
+// ---- Helpers ----
+
+// nilTypesWithTail builds a type slice of n nil entries followed by tail.
+// Used to represent unknown sub-pattern types for record fields.
+func nilTypesWithTail(n int, tail []types.Type) []types.Type {
+	result := make([]types.Type, n, n+len(tail))
+	return append(result, tail...)
+}
+
+// makeWildcardVec builds a pattern vector of n wildcards followed by tail.
+func makeWildcardVec(n int, tail patVec) patVec {
+	result := make(patVec, 0, n+len(tail))
+	for range n {
+		result = append(result, pWild{})
+	}
+	return append(result, tail...)
+}
+
 // ---- isUseful ----
 
 const maxExhaustDepth = 32
@@ -360,18 +376,18 @@ func (ch *Checker) isUsefulAt(mx patMatrix, q patVec, scrutTys []types.Type, dep
 		}
 		sq = append(sq, q[1:]...)
 
-		newTys := make([]types.Type, len(labels))
-		newTys = append(newTys, restTys...)
+		newTys := nilTypesWithTail(len(labels), restTys)
 		return ch.isUsefulAt(smx, sq, newTys, depth+1)
 	}
 
 	// Column 0 of q is a wildcard.
 
-	// Fast path: if column 0 of the matrix has only wildcards (no constructor
-	// or record patterns), the first row already covers any value. Not useful.
+	// If column 0 has only wildcards (no constructor or record patterns),
+	// usefulness depends on the remaining columns — use the default matrix.
 	headCons := columnHeadCons(mx)
 	if len(headCons) == 0 && !hasRecordPats(mx) {
-		return false, nil
+		dmx := defaultMatrix(mx)
+		return ch.isUsefulAt(dmx, q[1:], restTys, depth+1)
 	}
 
 	// If column 0 has any record patterns, use record specialization.
@@ -383,45 +399,25 @@ func (ch *Checker) isUsefulAt(mx patMatrix, q patVec, scrutTys []types.Type, dep
 			sq = append(sq, pWild{})
 		}
 		sq = append(sq, q[1:]...)
-		newTys := make([]types.Type, len(labels))
-		newTys = append(newTys, restTys...)
+		newTys := nilTypesWithTail(len(labels), restTys)
 		return ch.isUsefulAt(smx, sq, newTys, depth+1)
 	}
 
 	// Get the complete signature for the scrutinee type.
 	sigs := ch.constructorSigs(ty)
 
-	if sigs != nil && len(headCons) >= len(sigs) {
-		// Complete signature covered: specialize for each constructor.
-		for _, sig := range sigs {
-			smx := specialize(mx, sig.name, sig.arity)
-			sq := make(patVec, 0, sig.arity+len(q)-1)
-			for range sig.arity {
-				sq = append(sq, pWild{})
-			}
-			sq = append(sq, q[1:]...)
-
-			newTys := ch.subPatternTypes(sig.name, ty, sig.arity, restTys)
-			useful, witness := ch.isUsefulAt(smx, sq, newTys, depth+1)
-			if useful {
-				return true, reconstructCon(sig.name, sig.arity, witness, q[1:])
-			}
-		}
-		return false, nil
-	}
-
-	// Known signature but incomplete: check each missing constructor.
 	if sigs != nil {
+		// When the complete signature is covered (len(headCons) >= len(sigs)),
+		// check all constructors. Otherwise, only check uncovered ones.
+		complete := len(headCons) >= len(sigs)
 		for _, sig := range sigs {
-			if _, covered := headCons[sig.name]; covered {
-				continue
+			if !complete {
+				if _, covered := headCons[sig.name]; covered {
+					continue
+				}
 			}
 			smx := specialize(mx, sig.name, sig.arity)
-			sq := make(patVec, 0, sig.arity+len(q)-1)
-			for range sig.arity {
-				sq = append(sq, pWild{})
-			}
-			sq = append(sq, q[1:]...)
+			sq := makeWildcardVec(sig.arity, q[1:])
 
 			newTys := ch.subPatternTypes(sig.name, ty, sig.arity, restTys)
 			useful, witness := ch.isUsefulAt(smx, sq, newTys, depth+1)
@@ -504,7 +500,7 @@ func (ch *Checker) checkExhaustive(scrutTy types.Type, alts []core.Alt, s span.S
 
 		// Redundancy check: is this row useful w.r.t. previous rows?
 		if i > 0 {
-			useful, _ := ch.isUsefulAt(mx, row, []types.Type{scrutTy}, 0)
+			useful, _ := ch.isUseful(mx, row, []types.Type{scrutTy})
 			if !useful {
 				ch.addCodedError(errs.ErrRedundantPattern, alt.S,
 					"redundant pattern in case expression")
@@ -518,7 +514,7 @@ func (ch *Checker) checkExhaustive(scrutTy types.Type, alts []core.Alt, s span.S
 	// First, a quick wildcard usefulness check to avoid expensive per-constructor
 	// enumeration when the matrix is already exhaustive.
 	wildcard := patVec{pWild{}}
-	useful, witness := ch.isUsefulAt(mx, wildcard, []types.Type{scrutTy}, 0)
+	useful, witness := ch.isUseful(mx, wildcard, []types.Type{scrutTy})
 	if !useful {
 		return
 	}
@@ -534,7 +530,7 @@ func (ch *Checker) checkExhaustive(scrutTy types.Type, alts []core.Alt, s span.S
 				args[i] = pWild{}
 			}
 			q[0] = pCon{con: sig.name, arity: sig.arity, args: args}
-			u, _ := ch.isUsefulAt(mx, q, []types.Type{scrutTy}, 0)
+			u, _ := ch.isUseful(mx, q, []types.Type{scrutTy})
 			if u {
 				missing = append(missing, sig.name)
 			}

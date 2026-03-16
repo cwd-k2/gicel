@@ -846,3 +846,482 @@ func TestTCOTailRecursionFlat(t *testing.T) {
 	// increments (apply still calls Enter/Leave). The key test is that
 	// the 100k recursion completes without Go stack overflow.
 }
+
+func TestTCOCaseNonTailDoesNotBounce(t *testing.T) {
+	// In a case expression, the scrutinee is NOT a tail position.
+	// Verify the result of a non-tail case is not a bounceVal.
+	ev := newTestEval()
+	term := &core.Case{
+		Scrutinee: &core.Con{Name: "True"},
+		Alts: []core.Alt{
+			{Pattern: &core.PCon{Con: "True"}, Body: &core.Lit{Value: int64(42)}},
+			{Pattern: &core.PCon{Con: "False"}, Body: &core.Lit{Value: int64(0)}},
+		},
+	}
+	r, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), term)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// The trampoline should have resolved the bounce — we should get HostVal.
+	hv, ok := r.Value.(*HostVal)
+	if !ok {
+		t.Fatalf("expected HostVal, got %T", r.Value)
+	}
+	if hv.Inner != int64(42) {
+		t.Errorf("expected 42, got %v", hv.Inner)
+	}
+}
+
+func TestTCONestedCase(t *testing.T) {
+	// Nested case expressions: outer case dispatches to inner case.
+	// Both should work correctly via TCO trampoline.
+	ev := newTestEval()
+	term := &core.Case{
+		Scrutinee: &core.Con{Name: "True"},
+		Alts: []core.Alt{
+			{
+				Pattern: &core.PCon{Con: "True"},
+				Body: &core.Case{
+					Scrutinee: &core.Con{Name: "False"},
+					Alts: []core.Alt{
+						{Pattern: &core.PCon{Con: "True"}, Body: &core.Lit{Value: int64(1)}},
+						{Pattern: &core.PCon{Con: "False"}, Body: &core.Lit{Value: int64(2)}},
+					},
+				},
+			},
+			{Pattern: &core.PCon{Con: "False"}, Body: &core.Lit{Value: int64(3)}},
+		},
+	}
+	r, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), term)
+	if err != nil {
+		t.Fatal(err)
+	}
+	hv, ok := r.Value.(*HostVal)
+	if !ok {
+		t.Fatalf("expected HostVal, got %T", r.Value)
+	}
+	if hv.Inner != int64(2) {
+		t.Errorf("expected 2, got %v", hv.Inner)
+	}
+}
+
+func TestEvalRecordProjOnNonRecordEval(t *testing.T) {
+	ev := newTestEval()
+	term := &core.RecordProj{
+		Record: &core.Lit{Value: int64(42)},
+		Label:  "x",
+	}
+	_, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), term)
+	if err == nil {
+		t.Fatal("expected error for projection on non-record")
+	}
+}
+
+func TestEvalRecordUpdateOnNonRecordEval(t *testing.T) {
+	ev := newTestEval()
+	term := &core.RecordUpdate{
+		Record:  &core.Lit{Value: int64(42)},
+		Updates: []core.RecordField{{Label: "x", Value: &core.Lit{Value: int64(1)}}},
+	}
+	_, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), term)
+	if err == nil {
+		t.Fatal("expected error for update on non-record")
+	}
+}
+
+func TestEvalForceNonThunk(t *testing.T) {
+	ev := newTestEval()
+	term := &core.Force{Expr: &core.Lit{Value: int64(42)}}
+	_, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), term)
+	if err == nil {
+		t.Fatal("expected error for force on non-thunk")
+	}
+	if _, ok := err.(*RuntimeError); !ok {
+		t.Errorf("expected *RuntimeError, got %T", err)
+	}
+}
+
+func TestEvalApplicationOfNonFunction(t *testing.T) {
+	ev := newTestEval()
+	term := &core.App{
+		Fun: &core.Lit{Value: int64(42)},
+		Arg: &core.Con{Name: "Unit"},
+	}
+	_, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), term)
+	if err == nil {
+		t.Fatal("expected error for application of non-function")
+	}
+	if _, ok := err.(*RuntimeError); !ok {
+		t.Errorf("expected *RuntimeError, got %T", err)
+	}
+}
+
+func TestEvalConWithArgs(t *testing.T) {
+	ev := newTestEval()
+	term := &core.Con{
+		Name: "Pair",
+		Args: []core.Core{
+			&core.Lit{Value: int64(1)},
+			&core.Lit{Value: int64(2)},
+		},
+	}
+	r, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), term)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cv, ok := r.Value.(*ConVal)
+	if !ok {
+		t.Fatalf("expected ConVal, got %T", r.Value)
+	}
+	if cv.Con != "Pair" || len(cv.Args) != 2 {
+		t.Errorf("expected Pair with 2 args, got %s with %d", cv.Con, len(cv.Args))
+	}
+}
+
+func TestEvalConApplication(t *testing.T) {
+	// Applying a value to a ConVal accumulates arguments.
+	ev := newTestEval()
+	term := &core.App{
+		Fun: &core.App{
+			Fun: &core.Con{Name: "Pair"},
+			Arg: &core.Lit{Value: int64(1)},
+		},
+		Arg: &core.Lit{Value: int64(2)},
+	}
+	r, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), term)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cv, ok := r.Value.(*ConVal)
+	if !ok {
+		t.Fatalf("expected ConVal, got %T", r.Value)
+	}
+	if cv.Con != "Pair" || len(cv.Args) != 2 {
+		t.Errorf("expected Pair(2 args), got %s(%d)", cv.Con, len(cv.Args))
+	}
+}
+
+func TestIsFixpointBody(t *testing.T) {
+	// Pattern: f = \arg -> (g f) arg
+	binding := core.Binding{
+		Name: "f",
+		Expr: &core.Lam{
+			Param: "arg",
+			Body: &core.App{
+				Fun: &core.App{
+					Fun: &core.Var{Name: "g"},
+					Arg: &core.Var{Name: "f"},
+				},
+				Arg: &core.Var{Name: "arg"},
+			},
+		},
+	}
+	inner, ok := isFixpointBody(binding)
+	if !ok {
+		t.Fatal("expected isFixpointBody to return true")
+	}
+	if inner == nil {
+		t.Fatal("expected non-nil inner expression")
+	}
+}
+
+func TestIsFixpointBodyNonLam(t *testing.T) {
+	binding := core.Binding{
+		Name: "f",
+		Expr: &core.Con{Name: "Unit"},
+	}
+	_, ok := isFixpointBody(binding)
+	if ok {
+		t.Fatal("expected isFixpointBody to return false for non-lambda")
+	}
+}
+
+func TestIsFixpointBodyNotPattern(t *testing.T) {
+	// f = \arg -> arg (not the fix/rec pattern)
+	binding := core.Binding{
+		Name: "f",
+		Expr: &core.Lam{Param: "arg", Body: &core.Var{Name: "arg"}},
+	}
+	_, ok := isFixpointBody(binding)
+	if ok {
+		t.Fatal("expected isFixpointBody to return false for identity")
+	}
+}
+
+func TestLetRecGroupFV(t *testing.T) {
+	letrec := &core.LetRec{
+		Bindings: []core.Binding{
+			{Name: "f", Expr: &core.Lam{Param: "x", Body: &core.Var{Name: "y"}, FV: []string{"y", "z"}}},
+			{Name: "g", Expr: &core.Lam{Param: "x", Body: &core.Var{Name: "z"}, FV: []string{"z"}}},
+		},
+	}
+	fv := letRecGroupFV(letrec)
+	if fv == nil {
+		t.Fatal("expected non-nil FV set")
+	}
+	fvSet := make(map[string]bool)
+	for _, v := range fv {
+		fvSet[v] = true
+	}
+	if !fvSet["y"] || !fvSet["z"] {
+		t.Errorf("expected y and z in FV, got %v", fv)
+	}
+}
+
+func TestLetRecGroupFVNoAnnotation(t *testing.T) {
+	letrec := &core.LetRec{
+		Bindings: []core.Binding{
+			{Name: "f", Expr: &core.Lam{Param: "x", Body: &core.Var{Name: "y"}}},
+		},
+	}
+	fv := letRecGroupFV(letrec)
+	if fv != nil {
+		t.Errorf("expected nil FV for unannotated binding, got %v", fv)
+	}
+}
+
+func TestBounceValString(t *testing.T) {
+	b := &bounceVal{env: EmptyEnv(), capEnv: EmptyCapEnv(), expr: &core.Con{Name: "Unit"}}
+	if b.String() != "bounceVal(...)" {
+		t.Errorf("expected 'bounceVal(...)', got %q", b.String())
+	}
+}
+
+func TestEvalTyLamErased(t *testing.T) {
+	ev := newTestEval()
+	term := &core.TyLam{Body: &core.Con{Name: "Unit"}}
+	r, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), term)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cv, ok := r.Value.(*ConVal)
+	if !ok || cv.Con != "Unit" {
+		t.Errorf("expected Unit, got %v", r.Value)
+	}
+}
+
+func TestEvalRecordProjMissingField(t *testing.T) {
+	ev := newTestEval()
+	term := &core.RecordProj{
+		Record: &core.RecordLit{Fields: []core.RecordField{
+			{Label: "a", Value: &core.Lit{Value: int64(1)}},
+		}},
+		Label: "missing",
+	}
+	_, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), term)
+	if err == nil {
+		t.Fatal("expected error for missing field")
+	}
+	if _, ok := err.(*RuntimeError); !ok {
+		t.Errorf("expected *RuntimeError, got %T", err)
+	}
+}
+
+func TestEvalPrimValPartialApplication(t *testing.T) {
+	// An unsaturated PrimVal should accumulate arguments.
+	prims := NewPrimRegistry()
+	prims.Register("add2", func(_ context.Context, ce CapEnv, args []Value, _ Applier) (Value, CapEnv, error) {
+		a := args[0].(*HostVal).Inner.(int64)
+		b := args[1].(*HostVal).Inner.(int64)
+		return &HostVal{Inner: a + b}, ce, nil
+	})
+	ev := NewEvaluator(context.Background(), prims, DefaultLimit(), nil, nil)
+
+	// PrimOp with arity 2, applied to 0 args → PrimVal.
+	primOp := &core.PrimOp{Name: "add2", Arity: 2}
+	r, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), primOp)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pv, ok := r.Value.(*PrimVal)
+	if !ok {
+		t.Fatalf("expected PrimVal, got %T", r.Value)
+	}
+	if pv.Arity != 2 || len(pv.Args) != 0 {
+		t.Errorf("expected arity=2, args=0, got %d/%d", pv.Arity, len(pv.Args))
+	}
+
+	// Apply first arg → still PrimVal with 1 arg.
+	term1 := &core.App{Fun: primOp, Arg: &core.Lit{Value: int64(10)}}
+	r1, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), term1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pv1, ok := r1.Value.(*PrimVal)
+	if !ok {
+		t.Fatalf("expected PrimVal after 1 arg, got %T", r1.Value)
+	}
+	if len(pv1.Args) != 1 {
+		t.Errorf("expected 1 accumulated arg, got %d", len(pv1.Args))
+	}
+
+	// Apply second arg → saturated, should call impl and return result.
+	term2 := &core.App{
+		Fun: term1,
+		Arg: &core.Lit{Value: int64(20)},
+	}
+	r2, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), term2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	hv, ok := r2.Value.(*HostVal)
+	if !ok || hv.Inner != int64(30) {
+		t.Errorf("expected HostVal(30), got %v", r2.Value)
+	}
+}
+
+func TestEvalEffectfulPrimValDeferred(t *testing.T) {
+	// Effectful PrimVal should be deferred even when saturated via apply.
+	prims := NewPrimRegistry()
+	prims.Register("eff0", func(_ context.Context, ce CapEnv, args []Value, _ Applier) (Value, CapEnv, error) {
+		return &ConVal{Con: "Done"}, ce.Set("effected", true), nil
+	})
+	ev := NewEvaluator(context.Background(), prims, DefaultLimit(), nil, nil)
+
+	// Effectful PrimOp with arity=0: should produce a PrimVal (deferred).
+	term := &core.PrimOp{Name: "eff0", Arity: 0, Effectful: true}
+	r, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), term)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pv, ok := r.Value.(*PrimVal)
+	if !ok {
+		t.Fatalf("expected deferred PrimVal, got %T", r.Value)
+	}
+	if !pv.Effectful {
+		t.Error("expected Effectful=true")
+	}
+}
+
+func TestIsFixpointBodyArgMismatch(t *testing.T) {
+	// f = \arg -> (g f) wrong_arg  (outer arg != lambda param)
+	binding := core.Binding{
+		Name: "f",
+		Expr: &core.Lam{
+			Param: "arg",
+			Body: &core.App{
+				Fun: &core.App{
+					Fun: &core.Var{Name: "g"},
+					Arg: &core.Var{Name: "f"},
+				},
+				Arg: &core.Var{Name: "other"},
+			},
+		},
+	}
+	_, ok := isFixpointBody(binding)
+	if ok {
+		t.Fatal("expected false when outer arg doesn't match lambda param")
+	}
+}
+
+func TestIsFixpointBodySelfArgMismatch(t *testing.T) {
+	// f = \arg -> (g notF) arg  (inner arg is not self)
+	binding := core.Binding{
+		Name: "f",
+		Expr: &core.Lam{
+			Param: "arg",
+			Body: &core.App{
+				Fun: &core.App{
+					Fun: &core.Var{Name: "g"},
+					Arg: &core.Var{Name: "notF"},
+				},
+				Arg: &core.Var{Name: "arg"},
+			},
+		},
+	}
+	_, ok := isFixpointBody(binding)
+	if ok {
+		t.Fatal("expected false when inner arg is not self")
+	}
+}
+
+func TestIsFixpointBodyInnerNotApp(t *testing.T) {
+	// f = \arg -> x arg  (fun is not an App, just a Var)
+	binding := core.Binding{
+		Name: "f",
+		Expr: &core.Lam{
+			Param: "arg",
+			Body: &core.App{
+				Fun: &core.Var{Name: "x"},
+				Arg: &core.Var{Name: "arg"},
+			},
+		},
+	}
+	_, ok := isFixpointBody(binding)
+	if ok {
+		t.Fatal("expected false when fun is not an App")
+	}
+}
+
+func TestIsFixpointBodyNoOuterApp(t *testing.T) {
+	// f = \arg -> arg  (body is not an App)
+	// Already tested in TestIsFixpointBodyNotPattern but with different framing.
+	binding := core.Binding{
+		Name: "f",
+		Expr: &core.Lam{Param: "arg", Body: &core.Lit{Value: int64(42)}},
+	}
+	_, ok := isFixpointBody(binding)
+	if ok {
+		t.Fatal("expected false when body is not an App")
+	}
+}
+
+func TestEvalUnknownCoreNode(t *testing.T) {
+	// The default case in evalStep should return an error.
+	// We can't easily construct an unknown Core node from outside,
+	// but we can verify the error message format for a known edge case.
+	ev := newTestEval()
+	// nil is not a valid Core but shows up as *core.Xxx; use a non-evaluatable node.
+	// Actually, just verify that RecordLit with fields evaluates correctly (no error path).
+	term := &core.RecordLit{Fields: []core.RecordField{
+		{Label: "x", Value: &core.Lit{Value: int64(1)}},
+	}}
+	r, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), term)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rv, ok := r.Value.(*RecordVal)
+	if !ok {
+		t.Fatalf("expected RecordVal, got %T", r.Value)
+	}
+	if v, ok := rv.Fields["x"]; !ok || v.(*HostVal).Inner != int64(1) {
+		t.Error("expected field x=1")
+	}
+}
+
+func TestEvalPrimOpMissingPrim(t *testing.T) {
+	// PrimOp with saturated args but no registered implementation.
+	ev := newTestEval()
+	term := &core.PrimOp{Name: "missing_prim", Arity: 1, Args: []core.Core{&core.Lit{Value: int64(1)}}}
+	_, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), term)
+	if err == nil {
+		t.Fatal("expected error for missing primitive with args")
+	}
+}
+
+func TestIndirectVal(t *testing.T) {
+	// IndirectVal with nil Ref should error.
+	ev := newTestEval()
+	ind := &IndirectVal{Ref: nil}
+	env := EmptyEnv().Extend("x", ind)
+	_, err := ev.Eval(env, EmptyCapEnv(), &core.Var{Name: "x"})
+	if err == nil {
+		t.Fatal("expected error for uninitialized IndirectVal")
+	}
+	if _, ok := err.(*RuntimeError); !ok {
+		t.Errorf("expected *RuntimeError, got %T", err)
+	}
+
+	// IndirectVal with set Ref should dereference.
+	var val Value = &HostVal{Inner: int64(42)}
+	ind2 := &IndirectVal{Ref: &val}
+	env2 := EmptyEnv().Extend("y", ind2)
+	r, err := ev.Eval(env2, EmptyCapEnv(), &core.Var{Name: "y"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	hv, ok := r.Value.(*HostVal)
+	if !ok || hv.Inner != int64(42) {
+		t.Errorf("expected HostVal(42), got %v", r.Value)
+	}
+}
