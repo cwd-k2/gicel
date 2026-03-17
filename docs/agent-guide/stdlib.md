@@ -1,10 +1,12 @@
 ## 7. Stdlib Reference
 
-Each stdlib module must be loaded on the host side (`eng.Use(gicel.Num)`) and imported in source (`import Std.Num`).
+Stdlib packs are loaded on the host side via `eng.Use(pack)` and imported in source. Core is auto-registered and auto-imported; the user cannot control it. Prelude requires explicit `eng.Use(gicel.Prelude)` on the engine and `import Prelude` in source. `NewEngine()` returns a bare engine with only Core.
 
-### Std.Num
+### Prelude
 
-Provides integer arithmetic.
+Prelude bundles what was previously Num, Str, and List into a single pack. Load with `eng.Use(gicel.Prelude)` and import with `import Prelude`. All types, instances, functions, and operators below become available with a single import.
+
+#### Num (integer arithmetic)
 
 **Type class:**
 
@@ -32,11 +34,9 @@ class Eq a => Num a {
 
 **Operators:** `+` `-` (infixl 6), `*` `/` (infixl 7).
 
-Instances: `Eq/Ord/Show/Num/Semigroup/Monoid Int`. Integer literals require `import Std.Num`. Negative numbers: `negate 5`. Division by zero is a runtime error.
+Instances: `Eq/Ord/Show/Num/Semigroup/Monoid Int`. Integer literals require `import Prelude`. Negative numbers: `negate 5`. Division by zero is a runtime error.
 
-### Std.Str
-
-Provides string and rune operations.
+#### Str (string and rune operations)
 
 **Instances:**
 
@@ -59,9 +59,7 @@ Provides string and rune operations.
 
 Rune-based indexing. Concatenation via `append`.
 
-### Std.List
-
-Provides list operations (native-speed implementations).
+#### List (native-speed list operations)
 
 **Functions:**
 
@@ -91,11 +89,11 @@ Provides list operations (native-speed implementations).
 | `intercalate` | `\a. List a -> List (List a) -> List a`               | Insert separator between sublists and flatten          |
 | `nubBy`       | `\a. (a -> a -> Bool) -> List a -> List a`            | Remove duplicates with custom equality                 |
 
-`foldl` is strict. Prelude provides `foldr`, `map`, `filter`, `head`, `tail`, `null`, `singleton`, `append` for lists.
+`foldl` is strict. Prelude also provides `foldr`, `map`, `filter`, `head`, `tail`, `null`, `singleton`, `append` for lists.
 
-### Std.Map
+### Data.Map
 
-Provides an ordered immutable map backed by an AVL tree. All key-parameterized operations require `Ord k`.
+Provides an ordered immutable map backed by an AVL tree. All key-parameterized operations require `Ord k`. Load with `eng.Use(gicel.DataMap)` and import with `import Data.Map`.
 
 **Functions:**
 
@@ -117,9 +115,9 @@ Provides an ordered immutable map backed by an AVL tree. All key-parameterized o
 - Maps are persistent (immutable). Insert/delete return new maps.
 - `toList` returns pairs sorted by key.
 
-### Std.Set
+### Data.Set
 
-Provides an ordered immutable set backed by a Map.
+Provides an ordered immutable set backed by a Map. Load with `eng.Use(gicel.DataSet)` and import with `import Data.Set`.
 
 **Functions:**
 
@@ -138,9 +136,9 @@ Provides an ordered immutable set backed by a Map.
 - Sets are persistent (immutable). Insert/delete return new sets.
 - `setToList` returns elements in sorted order.
 
-### Std.State
+### Effect.State
 
-Provides get/put state capabilities via the `state` capability in CapEnv.
+Provides get/put state capabilities via the `state` capability in CapEnv. Load with `eng.Use(gicel.EffectState)` and import with `import Effect.State`.
 
 **Functions:**
 
@@ -152,9 +150,9 @@ Provides get/put state capabilities via the `state` capability in CapEnv.
 
 Host provides `"state"` capability. Final state is in `result.CapEnv`.
 
-### Std.Fail
+### Effect.Fail
 
-Provides failure/error effects via the `fail` capability.
+Provides failure/error effects via the `fail` capability. Load with `eng.Use(gicel.EffectFail)` and import with `import Effect.Fail`.
 
 **Functions:**
 
@@ -167,9 +165,9 @@ Provides failure/error effects via the `fail` capability.
 
 `fail`/`failWith` abort the computation. No catch/recover at language level; the host handles errors.
 
-### Std.IO
+### Effect.IO
 
-Provides print/debug capabilities via the `io` capability.
+Provides print/debug capabilities via the `io` capability. Load with `eng.Use(gicel.EffectIO)` and import with `import Effect.IO`.
 
 **Functions:**
 
@@ -180,9 +178,9 @@ Provides print/debug capabilities via the `io` capability.
 
 Host provides `"io"` capability. Output accumulates as `[]string` in the final CapEnv.
 
-### Std.Stream
+### Data.Stream
 
-Provides lazy list (stream) operations. Requires recursion (`fix`), loaded via `RegisterModuleRec`.
+Provides lazy list (stream) operations. Requires recursion (`fix`), loaded via `RegisterModuleRec`. Load with `eng.Use(gicel.DataStream)` and import with `import Data.Stream`.
 
 ```
 data Stream a := LCons a (() -> Stream a) | LNil
@@ -201,9 +199,9 @@ data Stream a := LCons a (() -> Stream a) | LNil
 
 Instances: `Functor Stream`, `Foldable Stream`
 
-### Std.Slice
+### Data.Slice
 
-Provides contiguous array with O(1) length/index.
+Provides contiguous array with O(1) length/index. Load with `eng.Use(gicel.DataSlice)` and import with `import Data.Slice`.
 
 | Name             | Type                                       | Description    |
 | ---------------- | ------------------------------------------ | -------------- |

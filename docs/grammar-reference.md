@@ -197,8 +197,8 @@ import ModuleName
 Dotted module names are supported for stdlib packs:
 
 ```
-import Std.Num
-import Std.Str
+import Prelude
+import Effect.State
 ```
 
 Import declarations must appear before all other declarations. All exported types, constructors, type classes, instances, and values from the named module become available.
@@ -724,7 +724,7 @@ Inside braces (`do`, `case`, block expressions, GADT declarations), semicolons a
 
 ## Prelude
 
-The Prelude is auto-included unless `NoPrelude` is set. Full reference: [agent-guide/prelude.md](agent-guide/prelude.md).
+The Prelude is loaded via `eng.Use(gicel.Prelude)` and imported in source with `import Prelude`. Core is auto-registered and auto-imported. Full reference: [agent-guide/prelude.md](agent-guide/prelude.md).
 
 ### Data Types and Constructors
 
@@ -761,7 +761,7 @@ infixr 1 <=<       -- Kleisli right-to-left
 infixr 0 $         -- low-precedence apply
 ```
 
-### Type Classes (13 in Prelude, 14 with Std.Num)
+### Type Classes (14 in Prelude + Core)
 
 ```
 Eq ──→ Ord
@@ -775,7 +775,7 @@ Foldable ┘
 IxMonad
 Packed
 
-Eq ──→ Num   (in Std.Num)
+Eq ──→ Num   (in Prelude)
 ```
 
 | Class         | Key Methods                                                 |
@@ -798,17 +798,15 @@ Eq ──→ Num   (in Std.Num)
 
 ## Stdlib Packs
 
-Stdlib packs are loaded via `Engine.Use(pack)` on the host side and `import Std.X` in source. Full reference: [agent-guide/stdlib.md](agent-guide/stdlib.md).
+Stdlib packs are loaded via `Engine.Use(pack)` on the host side and imported in source. `NewEngine()` returns a bare engine with only Core. Full reference: [agent-guide/stdlib.md](agent-guide/stdlib.md).
 
-| Pack         | Provides                                                      |
-| ------------ | ------------------------------------------------------------- |
-| `Std.Num`    | `Num` class, `Int` instances, arithmetic operators (`+−*/`)   |
-| `Std.Str`    | String/Rune instances, string operations, `showInt`/`readInt` |
-| `Std.List`   | Native-speed list operations (`length`, `foldl`, `zip`, etc.) |
-| `Std.Fail`   | Fail effect (`failWith`, `fromMaybe`, `fromResult`)           |
-| `Std.State`  | State effect (`get`, `put`, `modify`)                         |
-| `Std.IO`     | IO effect (`print`, `debug`)                                  |
-| `Std.Stream` | Lazy streams (`Stream a`), requires recursion                 |
-| `Std.Slice`  | Contiguous arrays (`Slice a`), O(1) length/index              |
-| `Std.Map`    | Ordered immutable map (AVL), requires `Ord k`                 |
-| `Std.Set`    | Ordered immutable set (backed by Map), requires `Ord k`       |
+| Pack           | Module         | Provides                                                      |
+| -------------- | -------------- | ------------------------------------------------------------- |
+| `Prelude`      | `Prelude`      | Num, Str, List — arithmetic, string ops, list operations      |
+| `EffectFail`   | `Effect.Fail`  | Fail effect (`failWith`, `fromMaybe`, `fromResult`)           |
+| `EffectState`  | `Effect.State` | State effect (`get`, `put`, `modify`)                         |
+| `EffectIO`     | `Effect.IO`    | IO effect (`print`, `debug`)                                  |
+| `DataStream`   | `Data.Stream`  | Lazy streams (`Stream a`), requires recursion                 |
+| `DataSlice`    | `Data.Slice`   | Contiguous arrays (`Slice a`), O(1) length/index              |
+| `DataMap`      | `Data.Map`     | Ordered immutable map (AVL), requires `Ord k`                 |
+| `DataSet`      | `Data.Set`     | Ordered immutable set (backed by Map), requires `Ord k`       |

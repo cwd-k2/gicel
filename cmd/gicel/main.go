@@ -57,7 +57,7 @@ Commands:
   example  Show example programs (example <name> for source)
 
 Flags (run, check):
-  --use <packs>    Stdlib packs: Num,Str,List,Fail,State,IO,Stream,Slice,Map,Set (default: all)
+  --use <packs>    Packs: Prelude,Fail,State,IO,Stream,Slice,Map,Set (default: all)
   --recursion      Enable recursive definitions (fix/rec)
   --stdin          Read source from stdin
 
@@ -228,7 +228,7 @@ func setupEngine(use string) (*gicel.Engine, error) {
 		}
 		p, ok := packMap[name]
 		if !ok {
-			return nil, fmt.Errorf("unknown pack: %s (available: Num,Str,List,Fail,State,IO,Stream,Slice,Map,Set)", name)
+			return nil, fmt.Errorf("unknown pack: %s (available: Prelude,Fail,State,IO,Stream,Slice,Map,Set)", name)
 		}
 		if err := p(eng); err != nil {
 			return nil, err

@@ -8,7 +8,7 @@ The simplest way to run GICEL from Go:
 import "github.com/cwd-k2/gicel"
 
 result, err := gicel.RunSandbox(source, &gicel.SandboxConfig{
-    Packs:    []gicel.Pack{gicel.Num, gicel.Str, gicel.List, gicel.Map, gicel.Set, gicel.Fail, gicel.State, gicel.IO, gicel.Stream, gicel.Slice},
+    Packs:    []gicel.Pack{gicel.Prelude, gicel.DataMap, gicel.DataSet, gicel.EffectFail, gicel.EffectState, gicel.EffectIO, gicel.DataStream, gicel.DataSlice},
     Entry:    "main",              // default: "main"
     Timeout:  5 * time.Second,     // default: 5s
     MaxSteps: 100_000,             // default: 100,000
@@ -26,8 +26,8 @@ result, err := gicel.RunSandbox(source, &gicel.SandboxConfig{
 
 ```go
 eng := gicel.NewEngine()
-eng.Use(gicel.Num)
-eng.Use(gicel.Str)
+eng.Use(gicel.Prelude)
+eng.Use(gicel.EffectState)
 eng.SetStepLimit(500_000)
 
 rt, err := eng.NewRuntime(source)
@@ -37,18 +37,16 @@ result, err := rt.RunWith(ctx, &gicel.RunOptions{Caps: caps, Bindings: bindings}
 
 ### Available Packs
 
-| Pack           | Module       | Provides                        |
-| -------------- | ------------ | ------------------------------- |
-| `gicel.Num`    | `Std.Num`    | Arithmetic, Int instances       |
-| `gicel.Str`    | `Std.Str`    | String/Rune ops, Packed String  |
-| `gicel.List`   | `Std.List`   | Native list operations          |
-| `gicel.Map`    | `Std.Map`    | Ordered immutable map (AVL)     |
-| `gicel.Set`    | `Std.Set`    | Ordered immutable set           |
-| `gicel.Fail`   | `Std.Fail`   | Failure effect                  |
-| `gicel.State`  | `Std.State`  | Get/put state                   |
-| `gicel.IO`     | `Std.IO`     | Print/debug output              |
-| `gicel.Stream` | `Std.Stream` | Lazy lists (requires recursion) |
-| `gicel.Slice`  | `Std.Slice`  | O(1) contiguous arrays          |
+| Pack               | Module         | Provides                                 |
+| ------------------ | -------------- | ---------------------------------------- |
+| `gicel.Prelude`    | `Prelude`      | Num, Str, List — arithmetic, strings, lists |
+| `gicel.EffectFail` | `Effect.Fail`  | Failure effect                           |
+| `gicel.EffectState`| `Effect.State` | Get/put state                            |
+| `gicel.EffectIO`   | `Effect.IO`    | Print/debug output                       |
+| `gicel.DataStream` | `Data.Stream`  | Lazy lists (requires recursion)          |
+| `gicel.DataSlice`  | `Data.Slice`   | O(1) contiguous arrays                   |
+| `gicel.DataMap`    | `Data.Map`     | Ordered immutable map (AVL)              |
+| `gicel.DataSet`    | `Data.Set`     | Ordered immutable set                    |
 
 ### Custom Primitives (RegisterPrim)
 
@@ -113,7 +111,7 @@ eng.DeclareBinding("myInput", gicel.ConType("Int"))
 | `eng.EnableRecursion()`                    | Enable `rec` and `fix` built-ins |
 | `eng.SetStepLimit(n)` / `SetDepthLimit(n)` | Resource limits                  |
 | `eng.SetAllocLimit(bytes)`                 | Allocation limit (0 = disabled)  |
-| `eng.NoPrelude()` / `SetPrelude(src)`      | Prelude control                  |
+| `eng.Use(gicel.Prelude)`                   | Load Prelude (Num, Str, List)    |
 | `eng.RegisterModule(name, src)`            | Register a custom module         |
 | `eng.NewRuntime(source)`                   | Compile to Runtime               |
 | `eng.Compile(source)` / `Parse(source)`    | Type-check or parse only         |

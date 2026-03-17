@@ -8,23 +8,23 @@ GICEL compiles Haskell-like source into typed computations, runs them with
 explicitly granted capabilities, and returns results — all in pure Go.
 
 ```gicel
-import Std.Num
-import Std.State
+import Prelude
+import Effect.State
 
 main := do { _ <- put 42; get }
 ```
 
-The source imports `Std.State` — but the host decides whether that module exists:
+The source imports `Effect.State` — but the host decides whether that module exists:
 
 ```sh
-$ gicel run --use Num program.gicel        # host grants only Num
-error[E0230]: unknown module: Std.State
+$ gicel run --use Prelude program.gicel        # host grants only Prelude
+error[E0230]: unknown module: Effect.State
  --> program.gicel:2:1
    |
- 2 | import Std.State
-   | ^^^^^^^^^^^^^^^^
+ 2 | import Effect.State
+   | ^^^^^^^^^^^^^^^^^^^
 
-$ gicel run --use Num,State program.gicel  # host grants State too
+$ gicel run --use Prelude,EffectState program.gicel  # host grants EffectState too
 42
 ```
 
@@ -110,12 +110,12 @@ import (
 
 func main() {
     eng := gicel.NewEngine()
-    eng.Use(gicel.Num)   // grant Std.Num
-    eng.Use(gicel.State) // grant Std.State
+    eng.Use(gicel.Prelude)      // grant Prelude (Num, Str, List)
+    eng.Use(gicel.EffectState)  // grant Effect.State
 
     rt, err := eng.NewRuntime(`
-        import Std.Num
-        import Std.State
+        import Prelude
+        import Effect.State
 
         main := do {
             _ <- put 10;
@@ -146,7 +146,7 @@ Single-call API — no Engine/Runtime lifecycle management needed:
 
 ```go
 result, err := gicel.RunSandbox(agentCode, &gicel.SandboxConfig{
-    Packs:    []gicel.Pack{gicel.Num, gicel.Str},
+    Packs:    []gicel.Pack{gicel.Prelude, gicel.EffectState},
     Timeout:  3 * time.Second,
     MaxSteps: 50_000,
     MaxAlloc: 10 * 1024 * 1024, // 10 MiB
@@ -174,13 +174,13 @@ Effects & Applications:
 
 # 2. Study — read an example
 $ gicel example state-effect
-import Std.Num
-import Std.State
+import Prelude
+import Effect.State
 ...
 
 # 3. Write and check — catch errors before execution
 $ cat program.gicel
-import Std.Num
+import Prelude
 main := do { _ <- put 42; get }
 
 $ gicel check program.gicel
@@ -192,8 +192,8 @@ error[E0201]: unbound variable: put
 
 # 4. Fix — grant the State capability, run with trace
 $ cat program.gicel
-import Std.Num
-import Std.State
+import Prelude
+import Effect.State
 main := do { _ <- put 42; get }
 
 $ gicel run --explain program.gicel
@@ -254,22 +254,20 @@ host bindings, custom capabilities, custom prelude, and more.
 - **Errors caught before execution** — full type inference with bidirectional checking. Missing capabilities are compile-time errors, not runtime surprises
 - **Expressive when you need it** — higher-rank polymorphism, higher-kinded types, kind inference
 - **Records & tuples** — structured data with row polymorphism
-- **10 stdlib packs** — Num, Str, List, Fail, State, IO, Stream, Slice, Map, Set — opt in to what you need
+- **Prelude + 7 optional packs** — Prelude bundles Num, Str, List; effect and data packs opt in to what you need
 
 ## Stdlib Packs
 
-| Pack     | Contents                                                  |
-| -------- | --------------------------------------------------------- |
-| `Num`    | Integer arithmetic, `Eq`/`Ord` Int instances              |
-| `Str`    | String and rune operations                                |
-| `List`   | `fromSlice`, `toSlice`, `length`, `concat`, `foldl`, etc. |
-| `Fail`   | Fail effect capability                                    |
-| `State`  | `get`/`put` state capabilities                            |
-| `IO`     | `print`/`debug` via CapEnv buffer                         |
-| `Stream` | Lazy list: `LCons`/`LNil`, `headS`, `tailS`, `takeS`      |
-| `Slice`  | Contiguous array: O(1) length/index, `Functor`/`Foldable` |
-| `Map`    | Ordered immutable map (AVL), `Ord`-keyed                   |
-| `Set`    | Ordered immutable set, backed by `Map`                     |
+| Pack          | Module         | Contents                                                  |
+| ------------- | -------------- | --------------------------------------------------------- |
+| `Prelude`     | `Prelude`      | Num, Str, List — arithmetic, string ops, list operations  |
+| `EffectFail`  | `Effect.Fail`  | Fail effect capability                                    |
+| `EffectState` | `Effect.State` | `get`/`put` state capabilities                            |
+| `EffectIO`    | `Effect.IO`    | `print`/`debug` via CapEnv buffer                         |
+| `DataStream`  | `Data.Stream`  | Lazy list: `LCons`/`LNil`, `headS`, `tailS`, `takeS`      |
+| `DataSlice`   | `Data.Slice`   | Contiguous array: O(1) length/index, `Functor`/`Foldable` |
+| `DataMap`     | `Data.Map`     | Ordered immutable map (AVL), `Ord`-keyed                   |
+| `DataSet`     | `Data.Set`     | Ordered immutable set, backed by `Map`                     |
 
 ## Documentation
 

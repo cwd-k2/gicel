@@ -83,10 +83,10 @@ All operators sorted by precedence (highest binds tightest):
 | Prec | Op    | Assoc | Meaning              | Source  |
 | ---- | ----- | ----- | -------------------- | ------- |
 | 9    | `.`   | right | function composition | Prelude |
-| 7    | `*`   | left  | multiplication       | Std.Num |
-| 7    | `/`   | left  | integer division     | Std.Num |
-| 6    | `+`   | left  | addition             | Std.Num |
-| 6    | `-`   | left  | subtraction          | Std.Num |
+| 7    | `*`   | left  | multiplication       | Prelude |
+| 7    | `/`   | left  | integer division     | Prelude |
+| 6    | `+`   | left  | addition             | Prelude |
+| 6    | `-`   | left  | subtraction          | Prelude |
 | 6    | `<>`  | right | semigroup append     | Prelude |
 | 4    | `<$>` | left  | functor map          | Prelude |
 | 4    | `<*>` | left  | applicative apply    | Prelude |

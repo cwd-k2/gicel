@@ -822,10 +822,10 @@ Foldable ┘
 IxMonad   (independent — indexed monadic interface)
 Packed    (independent — collection packing)
 
-Eq ──→ Num   (in Std.Num)
+Eq ──→ Num   (in Prelude)
 ```
 
-14 type classes total (13 in Prelude + Core, 1 in Std.Num):
+14 type classes total (13 in Prelude + Core, 1 Num class also in Prelude):
 
 | Class         | Parameters                       | Key Methods                                                 |
 | ------------- | -------------------------------- | ----------------------------------------------------------- |
@@ -842,7 +842,7 @@ Eq ──→ Num   (in Std.Num)
 | `Traversable` | `t` (requires Functor, Foldable) | `traverse :: Applicative f => (a -> f b) -> t a -> f (t b)` |
 | `IxMonad`     | `m: Row -> Row -> Type -> Type` | `ixpure`, `ixbind`                                          |
 | `Packed`      | `c`, `e`                         | `pack :: List e -> c`, `unpack :: c -> List e`              |
-| `Num`         | `a` (requires Eq, in Std.Num)    | `add`, `sub`, `mul`, `negate`                               |
+| `Num`         | `a` (requires Eq, in Prelude)    | `add`, `sub`, `mul`, `negate`                               |
 
 `Applicative.wrap` corresponds to Haskell's `pure` but uses a different name to avoid collision with the language built-in `pure`. `Monad.mpure` and `Monad.mbind` similarly avoid collision with the built-in `pure` and `bind`.
 
@@ -1182,11 +1182,7 @@ The Prelude is split into two parts:
 - **Core** (not replaceable): language-essential definitions — `IxMonad` class, `Computation` instance, `Effect` alias, `then` combinator, `Lift` type alias
 - **Prelude** (replaceable): standard library types, classes, instances — `Bool`, `Maybe`, `List`, `Ordering`, 12 type classes (Eq through Packed), instances
 
-```go
-eng.SetPrelude(customSource)  // Replace default Prelude with custom source
-```
-
-The prelude is implicitly imported. `NoPrelude()` suppresses it.
+Core is auto-registered and auto-imported; the user cannot control it. Prelude requires explicit `Use(Prelude)` on the engine and `import Prelude` in source.
 
 ## 12.4 No Export Control
 
@@ -1228,12 +1224,10 @@ eng.RegisterPrim("dbOpen", func(ctx context.Context, capEnv gicel.CapEnv, args [
 })
 
 // Stdlib packs
-eng.Use(gicel.Num)    // Num class, arithmetic operators
-eng.Use(gicel.Str)    // String/Rune operations
-eng.Use(gicel.List)   // List operations
-eng.Use(gicel.Fail)   // fail capability
-eng.Use(gicel.State)  // get/put capabilities
-eng.Use(gicel.IO)     // print/debug via CapEnv buffer
+eng.Use(gicel.Prelude)      // Num, Str, List (import Prelude)
+eng.Use(gicel.EffectFail)   // fail capability (import Effect.Fail)
+eng.Use(gicel.EffectState)  // get/put capabilities (import Effect.State)
+eng.Use(gicel.EffectIO)     // print/debug via CapEnv buffer (import Effect.IO)
 ```
 
 A stdlib pack is `func(Registrar) error` — it bundles `RegisterType` + `RegisterModule` + `RegisterPrim`. A pack is not a module; it is a Go-side configuration action.
@@ -1258,7 +1252,7 @@ result, err := rt.RunWith(ctx, &gicel.RunOptions{
 
 ```go
 result, err := gicel.RunSandbox(source, &gicel.SandboxConfig{
-    Packs:    []gicel.Pack{gicel.Num, gicel.Str},
+    Packs:    []gicel.Pack{gicel.Prelude},
     Timeout:  3 * time.Second,
     MaxSteps: 50_000,
     MaxAlloc: 10 * 1024 * 1024,

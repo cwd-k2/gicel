@@ -33,7 +33,7 @@ case m { Just (Just (Just True)) -> "deep"; _ -> "other" }
 Integer, string, and rune literals can be used directly in case patterns:
 
 ```
-import Std.Num
+import Prelude
 
 classify :: Int -> String
 classify := \n. case n { 0 -> "zero"; 1 -> "one"; _ -> "other" }
@@ -47,7 +47,7 @@ Literal types are open (cannot enumerate all values), so a wildcard or variable 
 ### List Processing
 
 ```
-import Std.Num
+import Prelude
 
 -- Use list literals, not Cons/Nil
 myList :: List Int
@@ -70,8 +70,8 @@ pipeline := foldl (+) 0 $ (\x. x * x) <$> filter (> 0) myList
 ### Stateful Computation
 
 ```
-import Std.Num
-import Std.State
+import Prelude
+import Effect.State
 
 counter :: Computation { state: Int } { state: Int } Int
 counter := do { modify (+ 1); modify (+ 1); modify (+ 1); get }
@@ -80,9 +80,8 @@ counter := do { modify (+ 1); modify (+ 1); modify (+ 1); get }
 ### Error Handling
 
 ```
-import Std.Num
-import Std.Str
-import Std.Fail
+import Prelude
+import Effect.Fail
 
 parseOrFail :: String -> Computation { fail: () | r } { fail: () | r } Int
 parseOrFail := \s. fromMaybe (readInt s)
@@ -97,7 +96,7 @@ safeDivide := \x y. case y == 0 {
 ### Function Composition
 
 ```
-import Std.Num
+import Prelude
 
 doubleNegate :: Int -> Int
 doubleNegate := negate . negate
@@ -109,9 +108,9 @@ transform := filter (> 0) . map (* 2)
 ### Combining Effects
 
 ```
-import Std.Num
-import Std.State
-import Std.Fail
+import Prelude
+import Effect.State
+import Effect.Fail
 
 process :: Computation { state: Int, fail: () } { state: Int, fail: () } Int
 process := do {
@@ -137,7 +136,7 @@ resumed := force suspended
 ### Syntax
 
 - **Lambda uses `.` not `->`.** `\x. e`, not `\x -> e`. Multi-parameter: `\x y. e` (desugars to `\x. \y. e`)
-- **Int literals require Std.Num.** Without `import Std.Num`, `42` is a parse error.
+- **Int literals require Prelude.** Without `import Prelude`, `42` is a parse error.
 - **No negative literals.** Use `negate 5`, not `-5`.
 - **Type annotation is a declaration.** `f :: T` then `f := expr`, not `f := expr :: T`.
 - **case uses braces, not "of".** `case x { ... }`, not `case x of { ... }`.
@@ -163,7 +162,7 @@ Note: for list traversal, prefer Prelude's `map`/`filter`/`foldr` over manual `c
 
 ### Recursion
 
-`rec`/`fix` are gated by default. Without them, use Prelude's `foldr` or Std.List's `foldl`. Enable with `eng.EnableRecursion()` or `--recursion`.
+`rec`/`fix` are gated by default. Without them, use Prelude's `foldr` or `foldl`. Enable with `eng.EnableRecursion()` or `--recursion`.
 
 ```
 -- Wrong: self-reference without fix
@@ -179,8 +178,8 @@ countdown := fix (\self n. case n == 0 { True -> 0; False -> self (n - 1) })
 
 ### Naming collisions
 
-- `strlen` (not `length`) for string length, to avoid collision with `Std.List.length`.
-- Prelude names may overlap with stdlib exports. Importing multiple modules with the same name causes ambiguity.
+- `strlen` (not `length`) for string length, to avoid collision with the list `length` function.
+- Names may overlap between stdlib modules. Importing multiple modules with the same name causes ambiguity.
 
 ### CapEnv must be provided by host
 

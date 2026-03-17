@@ -34,7 +34,7 @@ Typical agent workflow:
 | [effects.md]     | Computation, pure/bind, CapEnv, thunk/force        |
 | [prelude.md]     | Prelude types, classes, instances                  |
 | [functions.md]   | Prelude functions + operator reference             |
-| [stdlib.md]      | Std.Num, Str, List, State, Fail, IO, Stream, Slice |
+| [stdlib.md]      | Prelude, Effect.*, Data.* packs                    |
 | [patterns.md]    | Common patterns + pitfalls                         |
 | [go-api.md]      | Go integration: sandbox, lifecycle, errors         |
 
@@ -50,19 +50,19 @@ main := True
 
 This defines a binding `main` whose value is `True` (a Bool constructor from the Prelude).
 
-### With Arithmetic (requires Std.Num)
+### With Arithmetic (requires Prelude)
 
 ```
-import Std.Num
+import Prelude
 
 main := 2 + 3
 ```
 
-### Hello World (requires Std.Str and Std.IO)
+### Hello World (requires Prelude and Effect.IO)
 
 ```
-import Std.Str
-import Std.IO
+import Prelude
+import Effect.IO
 
 main := print "Hello, world!"
 ```
@@ -81,7 +81,7 @@ gicel run program.gicel
 gicel check program.gicel
 
 # Select specific packs
-gicel run --use Num,Str program.gicel
+gicel run --use Prelude,EffectState program.gicel
 
 # Custom entry point, limits, JSON output
 gicel run --entry myFunc --timeout 10s --max-steps 500000 --json program.gicel
@@ -97,7 +97,7 @@ CLI flags:
 
 | Flag            | Default  | Description                                                           |
 | --------------- | -------- | --------------------------------------------------------------------- |
-| `--use`         | `all`    | Comma-separated packs: Num, Str, List, Fail, State, IO, Stream, Slice |
+| `--use`         | `all`    | Comma-separated packs: Prelude, EffectFail, EffectState, EffectIO, DataStream, DataSlice, DataMap, DataSet |
 | `--recursion`   |          | Enable recursive definitions (run, check)                             |
 | `--entry`       | `main`   | Entry point binding name                                              |
 | `--timeout`     | `5s`     | Execution timeout (run only)                                          |
@@ -117,10 +117,10 @@ CLI flags:
 import "github.com/cwd-k2/gicel"
 
 result, err := gicel.RunSandbox(`
-import Std.Num
+import Prelude
 main := 2 + 3
 `, &gicel.SandboxConfig{
-    Packs: []gicel.Pack{gicel.Num, gicel.Str},
+    Packs: []gicel.Pack{gicel.Prelude},
 })
 // result.Value is HostVal{Inner: int64(5)}
 // CLI prints: 5  (PrettyValue formats source-level terms)
@@ -130,8 +130,8 @@ main := 2 + 3
 
 ```go
 eng := gicel.NewEngine()
-eng.Use(gicel.Num)
-eng.Use(gicel.Str)
+eng.Use(gicel.Prelude)
+eng.Use(gicel.EffectState)
 
 rt, err := eng.NewRuntime(source)
 result, err := rt.RunWith(ctx, nil)

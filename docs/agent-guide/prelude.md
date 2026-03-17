@@ -1,6 +1,6 @@
 ## 6. Prelude Reference
 
-The Prelude is automatically loaded unless `NoPrelude` is set on the Engine. Everything below is available without any `import`.
+The Prelude is loaded via `eng.Use(gicel.Prelude)` and must be explicitly imported in source with `import Prelude`. It bundles Num, Str, and List alongside the core data types and type classes. Everything below becomes available with `import Prelude`.
 
 ### Data Types
 
@@ -151,4 +151,4 @@ class Packed c e {
 | `Alternative` | `Maybe`, `List`                                                      |
 | `Packed`      | `Packed (List a) a` (identity)                                       |
 
-`Show Int` is provided by `Std.Num`. Additional `Show` instances (`String`, `Maybe a`, `List a`, `Result e a`, `(a,b)`) and `Packed String Rune` are provided by `Std.Str`.
+`Show Int`, additional `Show` instances (`String`, `Maybe a`, `List a`, `Result e a`, `(a,b)`), and `Packed String Rune` are all provided by the Prelude.

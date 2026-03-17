@@ -56,7 +56,7 @@
 
 ### Literals
 
-- **Integer:** Unsigned decimal digits `[0-9]+`. Requires `import Std.Num` to use. Negative values via `negate 5`, not `-5`.
+- **Integer:** Unsigned decimal digits `[0-9]+`. Available with `import Prelude`. Negative values via `negate 5`, not `-5`.
 - **String:** Double-quoted `"hello\nworld"`. Escape sequences: `\n`, `\t`, `\r`, `\\`, `\"`, `\'`, `\0`.
 - **Rune:** Single-quoted single character `'a'`, `'\n'`. Same escapes as strings.
 
