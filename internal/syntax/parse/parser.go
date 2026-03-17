@@ -204,6 +204,10 @@ func (p *Parser) parseImportName() ImportName {
 			p.advance()
 		} else {
 			p.addError("expected operator in import list")
+			// Skip to closing paren for error recovery.
+			for p.peek().Kind != TokRParen && p.peek().Kind != TokEOF {
+				p.advance()
+			}
 			opName = "<error>"
 		}
 		p.expect(TokRParen)
@@ -215,6 +219,16 @@ func (p *Parser) parseImportName() ImportName {
 		name := p.peek().Text
 		p.advance()
 		return ImportName{Name: name}
+	}
+
+	// Reject unexpected tokens early with recovery.
+	if p.peek().Kind != TokUpper {
+		p.addError("expected name in import list")
+		// Skip to next comma or closing paren.
+		for p.peek().Kind != TokComma && p.peek().Kind != TokRParen && p.peek().Kind != TokEOF {
+			p.advance()
+		}
+		return ImportName{Name: "<error>"}
 	}
 
 	// Type/class: Upper [(..) | (A, B)]
