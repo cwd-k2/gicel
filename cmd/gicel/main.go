@@ -59,6 +59,7 @@ Commands:
 Flags (run, check):
   --use <packs>    Stdlib packs: Num,Str,List,Fail,State,IO,Stream,Slice,Map,Set (default: all)
   --recursion      Enable recursive definitions (fix/rec)
+  --stdin          Read source from stdin
 
 Flags (run only):
   --entry <name>   Entry point binding (default: main)
@@ -69,8 +70,7 @@ Flags (run only):
   --json           Output result as JSON
   --explain        Show semantic evaluation trace
   --verbose        Show source context in explain trace
-  --no-color       Disable color output
-  --stdin          Read source from stdin`)
+  --no-color       Disable color output`)
 }
 
 func cmdDocs(args []string) int {
@@ -238,6 +238,17 @@ func setupEngine(use string) (*gicel.Engine, error) {
 	return eng, nil
 }
 
+// readSource loads GICEL source from stdin or a file argument.
+func readSource(fs *flag.FlagSet, stdin bool) ([]byte, error) {
+	if stdin {
+		return io.ReadAll(os.Stdin)
+	}
+	if fs.NArg() < 1 {
+		return nil, fmt.Errorf("no source file specified")
+	}
+	return os.ReadFile(fs.Arg(0))
+}
+
 func cmdRun(args []string) int {
 	fs := flag.NewFlagSet("run", flag.ContinueOnError)
 	use := fs.String("use", "all", "comma-separated stdlib packs")
@@ -257,17 +268,7 @@ func cmdRun(args []string) int {
 		return 1
 	}
 
-	var source []byte
-	var err error
-	if *stdin {
-		source, err = io.ReadAll(os.Stdin)
-	} else {
-		if fs.NArg() < 1 {
-			fmt.Fprintln(os.Stderr, "error: no source file specified")
-			return 1
-		}
-		source, err = os.ReadFile(fs.Arg(0))
-	}
+	source, err := readSource(fs, *stdin)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		return 1
@@ -359,15 +360,12 @@ func cmdCheck(args []string) int {
 	use := fs.String("use", "all", "comma-separated stdlib packs")
 	recursion := fs.Bool("recursion", false, "enable recursive definitions (fix/rec)")
 	jsonOut := fs.Bool("json", false, "output as JSON")
+	stdin := fs.Bool("stdin", false, "read source from stdin")
 	if err := fs.Parse(args); err != nil {
 		return 1
 	}
-	if fs.NArg() < 1 {
-		fmt.Fprintln(os.Stderr, "error: no source file specified")
-		return 1
-	}
 
-	source, err := os.ReadFile(fs.Arg(0))
+	source, err := readSource(fs, *stdin)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		return 1
