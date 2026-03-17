@@ -293,7 +293,7 @@ func (p *Parser) parseTyBinderList() []TyBinder {
 // parseTypeFamilyBody parses the body of a type family declaration after `::`.
 //
 //	:: Kind = { equations }
-//	:: (r :: Kind) | deps = { equations }
+//	:: (r : Kind) | deps = { equations }
 func (p *Parser) parseTypeFamilyBody(name string, params []TyBinder, start span.Pos) *DeclTypeFamily {
 	p.expect(TokColonColon)
 	resultKind, resultName, deps := p.parseResultKind()
@@ -315,33 +315,19 @@ func (p *Parser) parseTypeFamilyBody(name string, params []TyBinder, start span.
 // parseResultKind parses either a plain kind or an injective result kind.
 //
 //	Type                            → (KindExprType, "", nil)
-//	(r :: Type) | r -> a            → (KindExprType, "r", [{From:"r", To:["a"]}])
+//	(r : Type) | r -> a             → (KindExprType, "r", [{From:"r", To:["a"]}])
 func (p *Parser) parseResultKind() (KindExpr, string, []FunDep) {
-	// Check for injective form: (name :: Kind) | deps
+	// Check for injective form: (name : Kind) | deps
 	if p.peek().Kind == TokLParen && p.isInjectiveResult() {
 		p.advance() // consume (
 		resultName := p.expectLower()
-		p.expect(TokColonColon)
+		p.expect(TokColon)
 		kind := p.parseKindExpr()
 		p.expect(TokRParen)
 
 		// Parse | deps
 		p.expect(TokPipe)
-		var deps []FunDep
-		for {
-			from := p.expectLower()
-			p.expect(TokArrow)
-			var to []string
-			for p.peek().Kind == TokLower {
-				to = append(to, p.expectLower())
-			}
-			deps = append(deps, FunDep{From: from, To: to})
-			if p.peek().Kind == TokComma {
-				p.advance()
-				continue
-			}
-			break
-		}
+		deps := p.parseFunDepList()
 		return kind, resultName, deps
 	}
 
@@ -351,12 +337,12 @@ func (p *Parser) parseResultKind() (KindExpr, string, []FunDep) {
 }
 
 // isInjectiveResult checks if the tokens at current position form
-// (lower :: Kind) | ..., which indicates an injective result kind.
+// (lower : Kind) | ..., which indicates an injective result kind.
 func (p *Parser) isInjectiveResult() bool {
 	if p.pos+3 >= len(p.tokens) {
 		return false
 	}
-	return p.tokens[p.pos+1].Kind == TokLower && p.tokens[p.pos+2].Kind == TokColonColon
+	return p.tokens[p.pos+1].Kind == TokLower && p.tokens[p.pos+2].Kind == TokColon
 }
 
 // parseTypeFamilyEquations parses the equation block { Name Pat* = RHS; ... }.
@@ -539,6 +525,11 @@ func (p *Parser) parseClassFunDeps() []FunDep {
 		return nil
 	}
 	p.advance() // consume |
+	return p.parseFunDepList()
+}
+
+// parseFunDepList parses a comma-separated list of functional dependencies: a -> b, c -> d
+func (p *Parser) parseFunDepList() []FunDep {
 	var deps []FunDep
 	for {
 		from := p.expectLower()
@@ -620,16 +611,12 @@ func (p *Parser) parseAssocTypeDecl() *AssocTypeDecl {
 	params := p.parseTyBinderList()
 	p.expect(TokColonColon)
 	resultKind, resultName, deps := p.parseResultKind()
-	var funDeps []FunDep
-	for _, d := range deps {
-		funDeps = append(funDeps, FunDep{From: d.From, To: d.To})
-	}
 	return &AssocTypeDecl{
 		Name:       name,
 		Params:     params,
 		ResultKind: resultKind,
 		ResultName: resultName,
-		Deps:       funDeps,
+		Deps:       deps,
 		S:          span.Span{Start: start, End: p.prevEnd()},
 	}
 }

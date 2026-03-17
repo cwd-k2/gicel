@@ -165,10 +165,9 @@ func (ch *Checker) elaborateStmtsChecked(stmts []syntax.Stmt, comp *types.TyComp
 			restCore := ch.elaborateStmtsChecked(stmts[1:], restComp, s)
 			return &core.Bind{Comp: compCore, Var: "_", Body: restCore, S: st.S}
 		}
-		_, compCoreInferred := ch.infer(st.Expr)
 		restTy, restCore := ch.elaborateStmts(stmts[1:], s)
 		_ = ch.unifier.Unify(restTy, comp)
-		return &core.Bind{Comp: compCoreInferred, Var: "_", Body: restCore, S: st.S}
+		return &core.Bind{Comp: compCore, Var: "_", Body: restCore, S: st.S}
 	}
 
 	ch.addCodedError(errs.ErrBadComputation, s, "unexpected statement in do block")

@@ -43,11 +43,11 @@ type ClassInfo struct {
 	Name         string
 	TyParams     []string
 	TyParamKinds []types.Kind
-	KindParams   []string     // implicit kind variables (e.g., "k" in f : k -> Type)
-	Supers       []SuperInfo  // superclass constraints
-	Methods      []MethodInfo // method signatures
-	DictName     string       // e.g. "Eq$Dict" — used as both type and constructor name
-	AssocTypes   []string     // associated type family names
+	KindParams   []string      // implicit kind variables (e.g., "k" in f : k -> Type)
+	Supers       []SuperInfo   // superclass constraints
+	Methods      []MethodInfo  // method signatures
+	DictName     string        // e.g. "Eq$Dict" — used as both type and constructor name
+	AssocTypes   []string      // associated type family names
 	FunDeps      []ClassFunDep // functional dependencies: | a -> b
 }
 
@@ -123,11 +123,9 @@ func (ch *Checker) processClassDecl(d *syntax.DeclClass, prog *core.Program) {
 	for _, atd := range d.AssocTypes {
 		assocTypeNames = append(assocTypeNames, atd.Name)
 		// Register as a type family with no equations yet (equations come from instances).
-		var atParams []string
-		var atParamKinds []types.Kind
+		var atParams []TFParam
 		for _, p := range atd.Params {
-			atParams = append(atParams, p.Name)
-			atParamKinds = append(atParamKinds, ch.resolveKindExpr(p.Kind))
+			atParams = append(atParams, TFParam{Name: p.Name, Kind: ch.resolveKindExpr(p.Kind)})
 		}
 		resultKind := ch.resolveKindExpr(atd.ResultKind)
 		var deps []tfDep
@@ -137,7 +135,6 @@ func (ch *Checker) processClassDecl(d *syntax.DeclClass, prog *core.Program) {
 		ch.families[atd.Name] = &TypeFamilyInfo{
 			Name:       atd.Name,
 			Params:     atParams,
-			ParamKinds: atParamKinds,
 			ResultKind: resultKind,
 			ResultName: atd.ResultName,
 			Deps:       deps,
@@ -151,25 +148,22 @@ func (ch *Checker) processClassDecl(d *syntax.DeclClass, prog *core.Program) {
 	// AND as data type placeholders (for constructor resolution).
 	for _, add := range d.AssocDataDecls {
 		assocTypeNames = append(assocTypeNames, add.Name)
-		var dfParams []string
-		var dfParamKinds []types.Kind
+		var dfParams []TFParam
 		for _, p := range add.Params {
-			dfParams = append(dfParams, p.Name)
-			dfParamKinds = append(dfParamKinds, ch.resolveKindExpr(p.Kind))
+			dfParams = append(dfParams, TFParam{Name: p.Name, Kind: ch.resolveKindExpr(p.Kind)})
 		}
 		resultKind := ch.resolveKindExpr(add.ResultKind)
 		ch.families[add.Name] = &TypeFamilyInfo{
 			Name:       add.Name,
 			Params:     dfParams,
-			ParamKinds: dfParamKinds,
 			ResultKind: resultKind,
 			IsAssoc:    true,
 			ClassName:  d.Name,
 		}
 		// Register the data family name as a type constructor.
 		var dfKind types.Kind = resultKind
-		for i := len(dfParamKinds) - 1; i >= 0; i-- {
-			dfKind = &types.KArrow{From: dfParamKinds[i], To: dfKind}
+		for i := len(dfParams) - 1; i >= 0; i-- {
+			dfKind = &types.KArrow{From: dfParams[i].Kind, To: dfKind}
 		}
 		ch.config.RegisteredTypes[add.Name] = dfKind
 	}

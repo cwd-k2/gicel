@@ -660,7 +660,7 @@ func headTyCon(ty types.Type) string {
 func (ch *Checker) headTyConWithFamilies(ty types.Type) string {
 	// Try reducing type families.
 	if tf, ok := ty.(*types.TyFamilyApp); ok {
-		result, reduced := ch.reduceTyFamily(tf.Name, tf.Args)
+		result, reduced := ch.reduceTyFamily(tf.Name, tf.Args, tf.S)
 		if reduced {
 			return ch.headTyConWithFamilies(result)
 		}
@@ -669,7 +669,7 @@ func (ch *Checker) headTyConWithFamilies(ty types.Type) string {
 		head, args := types.UnwindApp(ty)
 		if con, ok := head.(*types.TyCon); ok {
 			if fam, ok := ch.families[con.Name]; ok && len(fam.Params) == len(args) {
-				result, reduced := ch.reduceTyFamily(con.Name, args)
+				result, reduced := ch.reduceTyFamily(con.Name, args, ty.Span())
 				if reduced {
 					return ch.headTyConWithFamilies(result)
 				}

@@ -12,14 +12,19 @@ import (
 // TypeFamilyInfo holds the elaborated information for a type family.
 type TypeFamilyInfo struct {
 	Name       string
-	Params     []string
-	ParamKinds []types.Kind
+	Params     []TFParam
 	ResultKind types.Kind
-	ResultName string   // non-empty if injective
-	Deps       []tfDep  // injectivity deps (elaborated)
+	ResultName string  // non-empty if injective
+	Deps       []tfDep // injectivity deps (elaborated)
 	Equations  []tfEquation
-	IsAssoc    bool // true if declared as associated type in a class
+	IsAssoc    bool   // true if declared as associated type in a class
 	ClassName  string // non-empty if IsAssoc
+}
+
+// TFParam is a type family parameter with its name and kind.
+type TFParam struct {
+	Name string
+	Kind types.Kind
 }
 
 // tfDep is an elaborated functional dependency.
@@ -59,11 +64,9 @@ func (ch *Checker) processTypeFamily(d *syntax.DeclTypeFamily) {
 	}
 
 	// Resolve parameter kinds.
-	var params []string
-	var paramKinds []types.Kind
+	var params []TFParam
 	for _, p := range d.Params {
-		params = append(params, p.Name)
-		paramKinds = append(paramKinds, ch.resolveKindExpr(p.Kind))
+		params = append(params, TFParam{Name: p.Name, Kind: ch.resolveKindExpr(p.Kind)})
 	}
 
 	// Resolve result kind.
@@ -107,7 +110,6 @@ func (ch *Checker) processTypeFamily(d *syntax.DeclTypeFamily) {
 	info := &TypeFamilyInfo{
 		Name:       d.Name,
 		Params:     params,
-		ParamKinds: paramKinds,
 		ResultKind: resultKind,
 		ResultName: d.ResultName,
 		Deps:       deps,
@@ -131,10 +133,10 @@ const maxReductionDepth = 100
 // Uses a checker-level depth counter to bound recursive reductions.
 // The counter is incremented on each successful reduction and never decremented
 // within a single normalize() call — it resets at the normalize entry point.
-func (ch *Checker) reduceTyFamily(name string, args []types.Type) (types.Type, bool) {
+func (ch *Checker) reduceTyFamily(name string, args []types.Type, s span.Span) (types.Type, bool) {
 	ch.reductionDepth++
 	if ch.reductionDepth > maxReductionDepth {
-		ch.addCodedError(errs.ErrTypeFamilyReduction, span.Span{},
+		ch.addCodedError(errs.ErrTypeFamilyReduction, s,
 			fmt.Sprintf("type family %s: reduction depth limit exceeded (possible infinite recursion)", name))
 		return nil, false
 	}
@@ -315,186 +317,6 @@ func collectPatternVarsRec(t types.Type, seen map[string]bool, result *[]string)
 	}
 }
 
-// lubPostStates computes the join of multiple post-states from case branches.
-// Strategy: intersect labels present in all branches. Labels present in only
-// some branches are dropped (capability was consumed in those branches).
-// For shared labels, types and multiplicities are unified.
-func (ch *Checker) lubPostStates(posts []types.Type, s span.Span) types.Type {
-	if len(posts) == 0 {
-		return ch.freshMeta(types.KRow{})
-	}
-	if len(posts) == 1 {
-		return posts[0]
-	}
-
-	// Zonk all post-states to resolve metas.
-	zonked := make([]types.Type, len(posts))
-	for i, p := range posts {
-		zonked[i] = ch.unifier.Zonk(p)
-	}
-
-	// Try to extract capability rows from each post-state.
-	rows := make([]*types.TyEvidenceRow, 0, len(zonked))
-	for _, z := range zonked {
-		if ev, ok := z.(*types.TyEvidenceRow); ok {
-			rows = append(rows, ev)
-		}
-	}
-
-	// If all posts resolved to capability rows, compute intersection.
-	if len(rows) == len(zonked) {
-		return ch.intersectCapRows(rows, s)
-	}
-
-	// Fallback: unify all posts (v0 behavior).
-	result := zonked[0]
-	for i := 1; i < len(zonked); i++ {
-		if err := ch.unifier.Unify(result, zonked[i]); err != nil {
-			ch.addCodedError(errs.ErrTypeMismatch, s,
-				fmt.Sprintf("divergent post-states in case branches: %s vs %s",
-					types.Pretty(result), types.Pretty(zonked[i])))
-		}
-	}
-	return result
-}
-
-// intersectCapRows computes the intersection of capability rows.
-// Labels present in ALL rows are kept; labels present in only some are dropped.
-// For shared labels, field types and multiplicities are unified.
-func (ch *Checker) intersectCapRows(rows []*types.TyEvidenceRow, s span.Span) types.Type {
-	if len(rows) == 0 {
-		return types.ClosedRow()
-	}
-
-	// Count label occurrences across all rows.
-	labelCount := make(map[string]int)
-	for _, r := range rows {
-		for _, f := range r.CapFields() {
-			labelCount[f.Label]++
-		}
-	}
-
-	// Shared labels: present in ALL rows.
-	n := len(rows)
-	var sharedFields []types.RowField
-	firstRow := rows[0]
-	for _, f := range firstRow.CapFields() {
-		if labelCount[f.Label] == n {
-			// This label is in all branches — keep it.
-			// Unify the type and mult from all branches.
-			resultField := types.RowField{Label: f.Label, Type: f.Type, Mult: f.Mult, S: f.S}
-			for _, otherRow := range rows[1:] {
-				for _, of := range otherRow.CapFields() {
-					if of.Label == f.Label {
-						_ = ch.unifier.Unify(resultField.Type, of.Type)
-						if resultField.Mult != nil && of.Mult != nil {
-							_ = ch.unifier.Unify(resultField.Mult, of.Mult)
-						}
-						break
-					}
-				}
-			}
-			sharedFields = append(sharedFields, resultField)
-		}
-	}
-
-	// Handle tail: if all rows have the same tail variable, preserve it.
-	var tail types.Type
-	if firstRow.Tail != nil {
-		allSameTail := true
-		for _, r := range rows[1:] {
-			if r.Tail == nil {
-				allSameTail = false
-				break
-			}
-			if err := ch.unifier.Unify(firstRow.Tail, r.Tail); err != nil {
-				allSameTail = false
-				break
-			}
-		}
-		if allSameTail {
-			tail = firstRow.Tail
-		}
-	}
-
-	if tail != nil {
-		return types.OpenRow(sharedFields, tail)
-	}
-	return types.ClosedRow(sharedFields...)
-}
-
-// checkMultiplicity validates multiplicity constraints in bind elaboration.
-// When a capability in pre has a non-nil Mult:
-//   - Linear: must appear in pre but NOT in post (consumed exactly once)
-//   - Affine: may appear in pre but NOT in post (consumed at most once)
-//   - Unrestricted (nil Mult): no constraint
-//
-// This is a foundation stub — full checking is activated when multiplicity
-// annotation syntax is finalized (Phase 5d).
-func (ch *Checker) checkMultiplicity(pre, post types.Type, s span.Span) {
-	// TODO(Phase 5d): implement once annotation syntax is decided.
-	// For now, the structural foundation (Mult field on RowField) is in place,
-	// and row unification propagates Mult through unification.
-	_ = pre
-	_ = post
-	_ = s
-}
-
-// applyFunDepImprovement uses functional dependencies to improve type inference.
-// For each fundep a -> b in the class, if the "from" args are determined (no metas),
-// search instances whose "from" positions match, and unify the "to" positions.
-func (ch *Checker) applyFunDepImprovement(className string, args []types.Type) {
-	classInfo, ok := ch.classes[className]
-	if !ok || len(classInfo.FunDeps) == 0 {
-		return
-	}
-	for _, fd := range classInfo.FunDeps {
-		// Check if all "from" positions are determined (no unsolved metas after zonk).
-		allDetermined := true
-		for _, fromIdx := range fd.From {
-			if fromIdx >= len(args) {
-				allDetermined = false
-				break
-			}
-			zonked := ch.unifier.Zonk(args[fromIdx])
-			if _, isMeta := zonked.(*types.TyMeta); isMeta {
-				allDetermined = false
-				break
-			}
-		}
-		if !allDetermined {
-			continue
-		}
-		// Search instances: if "from" positions match, unify "to" positions.
-		for _, inst := range ch.instancesByClass[className] {
-			if len(inst.TypeArgs) != len(args) {
-				continue
-			}
-			freshSubst := ch.freshInstanceSubst(inst)
-			fromMatch := ch.withTrial(func() bool {
-				for _, fromIdx := range fd.From {
-					instArg := types.SubstMany(inst.TypeArgs[fromIdx], freshSubst)
-					if err := ch.unifier.Unify(instArg, args[fromIdx]); err != nil {
-						return false
-					}
-				}
-				return true
-			})
-			if fromMatch {
-				// "From" positions match — unify "to" positions.
-				for _, toIdx := range fd.To {
-					if toIdx >= len(args) {
-						continue
-					}
-					instArg := ch.unifier.Zonk(types.SubstMany(inst.TypeArgs[toIdx], freshSubst))
-					_ = ch.unifier.Unify(args[toIdx], instArg)
-				}
-				break // first matching instance wins
-			}
-		}
-	}
-}
-
 // reduceFamilyInType reduces type family applications within a type.
 // Used by exhaustiveness checking to resolve data family instances.
 func (ch *Checker) reduceFamilyInType(t types.Type) types.Type {
@@ -549,7 +371,7 @@ func (ch *Checker) reduceFamilyApps(t types.Type) types.Type {
 	}
 	// Case 1: explicit TyFamilyApp.
 	if tf, ok := t.(*types.TyFamilyApp); ok {
-		result, reduced := ch.reduceTyFamily(tf.Name, tf.Args)
+		result, reduced := ch.reduceTyFamily(tf.Name, tf.Args, tf.S)
 		if reduced {
 			return ch.reduceFamilyApps(result)
 		}
@@ -561,7 +383,7 @@ func (ch *Checker) reduceFamilyApps(t types.Type) types.Type {
 		head, args := types.UnwindApp(t)
 		if con, ok := head.(*types.TyCon); ok {
 			if fam, ok := ch.families[con.Name]; ok && len(fam.Params) == len(args) {
-				result, reduced := ch.reduceTyFamily(con.Name, args)
+				result, reduced := ch.reduceTyFamily(con.Name, args, t.Span())
 				if reduced {
 					return ch.reduceFamilyApps(result)
 				}
