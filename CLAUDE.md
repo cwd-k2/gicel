@@ -28,7 +28,7 @@ bin/gicel run [flags] <file>.gicel
 | `--use <packs>`      | `all`    | Stdlib packs: `prelude,fail,state,io,stream,slice,map,set` |
 | `--module Name=path` | —        | Register user module (repeatable, order matters)           |
 | `--recursion`        | off      | Enable `fix`/`rec`                                         |
-| `--stdin`            | off      | Read source from stdin instead of file                     |
+| `-e <source>`        | —        | Evaluate source string directly                            |
 | `--entry <name>`     | `main`   | Entry point binding                                        |
 | `--timeout <dur>`    | `5s`     | Execution timeout                                          |
 | `--max-steps <n>`    | `100000` | Step limit                                                 |
@@ -46,7 +46,7 @@ bin/gicel run [flags] <file>.gicel
 bin/gicel check [flags] <file>.gicel
 ```
 
-Shares `--use`, `--module`, `--recursion`, `--stdin`, `--json` with `run`.
+Shares `--use`, `--module`, `--recursion`, `-e`, `--json` with `run`.
 
 ### docs / example — reference & examples
 
@@ -92,8 +92,11 @@ bin/gicel check --json program.gicel
 bin/gicel run --explain --verbose program.gicel
 bin/gicel run --explain --explain-all program.gicel  # include stdlib internals
 
-# Read from stdin
-echo 'import Prelude; main := 1 + 2' | bin/gicel run --stdin
+# Inline eval
+bin/gicel run -e 'import Prelude; main := 1 + 2'
+
+# Read from stdin (- as filename)
+echo 'import Prelude; main := 1 + 2' | bin/gicel run -
 ```
 
 ### Working multi-module example

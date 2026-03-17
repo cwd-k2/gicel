@@ -81,6 +81,7 @@ go install github.com/cwd-k2/gicel/cmd/gicel@latest
 ```sh
 gicel run hello.gicel              # compile and execute
 gicel check program.gicel          # type-check only
+gicel run -e 'import Prelude; main := 1 + 2'  # inline eval
 gicel run --explain program.gicel  # semantic evaluation trace
 gicel run --json program.gicel     # machine-readable output
 

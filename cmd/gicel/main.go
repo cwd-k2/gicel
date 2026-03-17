@@ -60,7 +60,7 @@ Flags (run, check):
   --use <packs>    Packs: prelude,fail,state,io,stream,slice,map,set (default: all)
   --module Name=path  Register a user module (repeatable)
   --recursion      Enable recursive definitions (fix/rec)
-  --stdin          Read source from stdin
+  -e <source>      Evaluate source string directly
 
 Flags (run only):
   --entry <name>   Entry point binding (default: main)
@@ -250,13 +250,16 @@ func (m *moduleFlags) Set(val string) error {
 	return nil
 }
 
-// readSource loads GICEL source from stdin or a file argument.
-func readSource(fs *flag.FlagSet, stdin bool) ([]byte, error) {
-	if stdin {
-		return io.ReadAll(os.Stdin)
+// readSource loads GICEL source from -e string, stdin ("-"), or a file argument.
+func readSource(fs *flag.FlagSet, expr string) ([]byte, error) {
+	if expr != "" {
+		return []byte(expr), nil
 	}
 	if fs.NArg() < 1 {
-		return nil, fmt.Errorf("no source file specified")
+		return nil, fmt.Errorf("no source file specified (use -e or pass a file, - for stdin)")
+	}
+	if fs.Arg(0) == "-" {
+		return io.ReadAll(os.Stdin)
 	}
 	return os.ReadFile(fs.Arg(0))
 }
@@ -282,8 +285,8 @@ func registerUserModules(eng *gicel.Engine, modules []string) error {
 }
 
 // prepareEngine loads source and configures the engine with common flags.
-func prepareEngine(fs *flag.FlagSet, use string, recursion, stdin bool, modules []string) ([]byte, *gicel.Engine, error) {
-	source, err := readSource(fs, stdin)
+func prepareEngine(fs *flag.FlagSet, use string, recursion bool, expr string, modules []string) ([]byte, *gicel.Engine, error) {
+	source, err := readSource(fs, expr)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -324,13 +327,13 @@ func cmdRun(args []string) int {
 	explain := fs.Bool("explain", false, "show semantic evaluation trace")
 	verbose := fs.Bool("verbose", false, "show source context in explain trace")
 	noColor := fs.Bool("no-color", false, "disable color output")
-	stdin := fs.Bool("stdin", false, "read source from stdin")
+	expr := fs.String("e", "", "evaluate source string directly")
 	explainAll := fs.Bool("explain-all", false, "trace stdlib internals (with --explain)")
 	if err := fs.Parse(args); err != nil {
 		return 1
 	}
 
-	source, eng, err := prepareEngine(fs, *use, *recursion, *stdin, modules)
+	source, eng, err := prepareEngine(fs, *use, *recursion, *expr, modules)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		return 1
@@ -409,12 +412,12 @@ func cmdCheck(args []string) int {
 	var modules moduleFlags
 	fs.Var(&modules, "module", "register module: Name=path (repeatable)")
 	jsonOut := fs.Bool("json", false, "output as JSON")
-	stdin := fs.Bool("stdin", false, "read source from stdin")
+	expr := fs.String("e", "", "evaluate source string directly")
 	if err := fs.Parse(args); err != nil {
 		return 1
 	}
 
-	source, eng, err := prepareEngine(fs, *use, *recursion, *stdin, modules)
+	source, eng, err := prepareEngine(fs, *use, *recursion, *expr, modules)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		return 1

@@ -1230,9 +1230,19 @@ The Prelude is split into two parts:
 
 Core is auto-registered and auto-imported; the user cannot control it. Prelude requires explicit `Use(Prelude)` on the engine and `import Prelude` in source.
 
-## 12.4 No Export Control
+## 12.4 Private Names
 
-All top-level definitions in a module are exported. Selective exports are a future direction.
+Value bindings whose name starts with `_` are module-private and excluded from exports. Importing modules cannot access them through any import form (open, selective, or qualified).
+
+```gicel
+_helper :: Int -> Int        -- private: not exported
+_helper := \x. x + 1
+
+publicFn :: Int -> Int       -- exported
+publicFn := \x. _helper x
+```
+
+Type names (uppercase) cannot start with `_`, so type-level privacy requires selective exports (a future direction).
 
 ---
 

@@ -385,10 +385,13 @@ func containsStr(ss []string, s string) bool {
 }
 
 // ExportModule captures the current checker state as a ModuleExports.
+// Names starting with '_' are private and excluded from exports.
 func (ch *Checker) ExportModule(prog *core.Program) *ModuleExports {
 	values := make(map[string]types.Type)
 	for _, b := range prog.Bindings {
-		values[b.Name] = b.Type
+		if !isPrivateName(b.Name) {
+			values[b.Name] = b.Type
+		}
 	}
 	return &ModuleExports{
 		Types:         copyMap(ch.config.RegisteredTypes),
@@ -403,6 +406,12 @@ func (ch *Checker) ExportModule(prog *core.Program) *ModuleExports {
 		TypeFamilies:  cloneFamilies(ch.families),
 		DataDecls:     prog.DataDecls,
 	}
+}
+
+// isPrivateName reports whether a name is module-private (starts with '_').
+// Compiler-generated names (containing '$') are always internal and never exported.
+func isPrivateName(name string) bool {
+	return len(name) > 0 && name[0] == '_'
 }
 
 func copyMap[V any](m map[string]V) map[string]V {
