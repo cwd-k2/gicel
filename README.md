@@ -17,14 +17,14 @@ main := do { _ <- put 42; get }
 The source imports `Effect.State` — but the host decides whether that module exists:
 
 ```sh
-$ gicel run --use Prelude program.gicel        # host grants only Prelude
+$ gicel run --use prelude program.gicel         # host grants only Prelude
 error[E0230]: unknown module: Effect.State
  --> program.gicel:2:1
    |
  2 | import Effect.State
    | ^^^^^^^^^^^^^^^^^^^
 
-$ gicel run --use Prelude,EffectState program.gicel  # host grants EffectState too
+$ gicel run --use prelude,state program.gicel   # host grants State too
 42
 ```
 
@@ -266,8 +266,8 @@ host bindings, custom capabilities, custom prelude, and more.
 | `EffectIO`    | `Effect.IO`    | `print`/`debug` via CapEnv buffer                         |
 | `DataStream`  | `Data.Stream`  | Lazy list: `LCons`/`LNil`, `headS`, `tailS`, `takeS`      |
 | `DataSlice`   | `Data.Slice`   | Contiguous array: O(1) length/index, `Functor`/`Foldable` |
-| `DataMap`     | `Data.Map`     | Ordered immutable map (AVL), `Ord`-keyed                   |
-| `DataSet`     | `Data.Set`     | Ordered immutable set, backed by `Map`                     |
+| `DataMap`     | `Data.Map`     | Ordered immutable map (AVL), `Ord`-keyed                  |
+| `DataSet`     | `Data.Set`     | Ordered immutable set, backed by `Map`                    |
 
 ## Documentation
 

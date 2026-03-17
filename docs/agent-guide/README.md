@@ -81,7 +81,7 @@ gicel run program.gicel
 gicel check program.gicel
 
 # Select specific packs
-gicel run --use Prelude,EffectState program.gicel
+gicel run --use prelude,state program.gicel
 
 # Custom entry point, limits, JSON output
 gicel run --entry myFunc --timeout 10s --max-steps 500000 --json program.gicel
@@ -95,21 +95,21 @@ gicel run --explain --verbose program.gicel
 
 CLI flags:
 
-| Flag            | Default  | Description                                                                                                |
-| --------------- | -------- | ---------------------------------------------------------------------------------------------------------- |
-| `--use`         | `all`    | Comma-separated packs: Prelude, EffectFail, EffectState, EffectIO, DataStream, DataSlice, DataMap, DataSet |
-| `--recursion`   |          | Enable recursive definitions (run, check)                                                                  |
-| `--entry`       | `main`   | Entry point binding name                                                                                   |
-| `--timeout`     | `5s`     | Execution timeout (run only)                                                                               |
-| `--max-steps`   | `100000` | Step limit (run only)                                                                                      |
-| `--max-depth`   | `100`    | Depth limit (run only)                                                                                     |
-| `--max-alloc`   | `100MiB` | Allocation byte limit (run only)                                                                           |
-| `--json`        | `false`  | Output result as JSON (run only)                                                                           |
-| `--explain`     | `false`  | Show semantic evaluation trace (run only)                                                                  |
-| `--explain-all` | `false`  | Trace stdlib internals too (with --explain)                                                                |
-| `--verbose`     | `false`  | Show source context in explain trace (run only)                                                            |
-| `--no-color`    | `false`  | Disable color output; also respects `NO_COLOR` env var                                                     |
-| `--stdin`       | `false`  | Read source from stdin instead of file (run only)                                                          |
+| Flag            | Default  | Description                                                              |
+| --------------- | -------- | ------------------------------------------------------------------------ |
+| `--use`         | `all`    | Comma-separated packs: prelude, fail, state, io, stream, slice, map, set |
+| `--recursion`   |          | Enable recursive definitions (run, check)                                |
+| `--entry`       | `main`   | Entry point binding name                                                 |
+| `--timeout`     | `5s`     | Execution timeout (run only)                                             |
+| `--max-steps`   | `100000` | Step limit (run only)                                                    |
+| `--max-depth`   | `100`    | Depth limit (run only)                                                   |
+| `--max-alloc`   | `100MiB` | Allocation byte limit (run only)                                         |
+| `--json`        | `false`  | Output result as JSON (run only)                                         |
+| `--explain`     | `false`  | Show semantic evaluation trace (run only)                                |
+| `--explain-all` | `false`  | Trace stdlib internals too (with --explain)                              |
+| `--verbose`     | `false`  | Show source context in explain trace (run only)                          |
+| `--no-color`    | `false`  | Disable color output; also respects `NO_COLOR` env var                   |
+| `--stdin`       | `false`  | Read source from stdin instead of file (run only)                        |
 
 **Go API (Sandbox):**
 
