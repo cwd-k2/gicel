@@ -62,12 +62,6 @@ func (ch *Checker) infer(expr syntax.Expr) (types.Type, core.Core) {
 		case "thunk":
 			ch.addCodedError(errs.ErrSpecialForm, e.S, "thunk is a special form; use 'thunk <expr>'")
 			return &types.TyError{S: e.S}, &core.Var{Name: e.Name, S: e.S}
-		case "pure":
-			ch.addCodedError(errs.ErrSpecialForm, e.S, "pure is a special form; use 'pure <expr>'")
-			return &types.TyError{S: e.S}, &core.Var{Name: e.Name, S: e.S}
-		case "bind":
-			ch.addCodedError(errs.ErrSpecialForm, e.S, "bind is a special form; use do blocks for computation sequencing")
-			return &types.TyError{S: e.S}, &core.Var{Name: e.Name, S: e.S}
 		case "force":
 			ch.addCodedError(errs.ErrSpecialForm, e.S, "force is a special form; use 'force <expr>'")
 			return &types.TyError{S: e.S}, &core.Var{Name: e.Name, S: e.S}
@@ -87,7 +81,7 @@ func (ch *Checker) infer(expr syntax.Expr) (types.Type, core.Core) {
 		return ch.instantiate(ty, coreExpr)
 
 	case *syntax.ExprApp:
-		// Special forms: pure, bind, thunk, force elaborate directly to Core nodes.
+		// Optimization: fully applied pure/bind elaborate directly to Core nodes.
 		if v, ok := e.Fun.(*syntax.ExprVar); ok {
 			switch v.Name {
 			case "pure":
@@ -104,11 +98,6 @@ func (ch *Checker) infer(expr syntax.Expr) (types.Type, core.Core) {
 			if v, ok := inner.Fun.(*syntax.ExprVar); ok && v.Name == "bind" {
 				return ch.inferBind(inner.Arg, e.Arg, e.S)
 			}
-		}
-		// Partial application of bind (bind <comp> without continuation).
-		if v, ok := e.Fun.(*syntax.ExprVar); ok && v.Name == "bind" {
-			ch.addCodedError(errs.ErrSpecialForm, e.S, "bind requires two arguments: bind <comp> (\\x -> <body>)")
-			return &types.TyError{S: e.S}, &core.Var{Name: "bind", S: e.S}
 		}
 		funTy, funCore := ch.infer(e.Fun)
 		argTy, retTy := ch.matchArrow(funTy, e.S)

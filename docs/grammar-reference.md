@@ -20,15 +20,15 @@
 
 ### Built-in Identifiers
 
-| Identifier   | Role                              |
-| ------------ | --------------------------------- |
-| `pure`       | Value → Computation (F)           |
-| `bind`       | Monadic sequencing                |
-| `thunk`      | Computation → suspended value (U) |
-| `force`      | Elimination of U                  |
-| `assumption` | Host-provided primitive marker    |
-| `rec`        | Recursive combinator (gated)      |
-| `fix`        | Value-level fixpoint (gated)      |
+| Identifier   | Role                              | Status            |
+| ------------ | --------------------------------- | ----------------- |
+| `pure`       | Value → Computation (F)           | first-class fn    |
+| `bind`       | Monadic sequencing                | first-class fn    |
+| `thunk`      | Computation → suspended value (U) | term former       |
+| `force`      | Elimination of U                  | term former       |
+| `assumption` | Host-provided primitive marker    | declaration form  |
+| `rec`        | Recursive combinator (gated)      | first-class fn    |
+| `fix`        | Value-level fixpoint (gated)      | first-class fn    |
 
 ### Punctuation & Operators
 
@@ -451,11 +451,18 @@ x + y               -- operator syntax (if declared)
 ### Special Forms
 
 ```
-pure expr                    -- F: value → computation
-bind comp (\x -> body)       -- monadic bind (explicit)
-thunk computation            -- U: computation → value
-force thunked_value          -- elimination of U
+thunk computation            -- U: computation → value (term former)
+force thunked_value          -- elimination of U (term former)
 ```
+
+### Built-in Functions
+
+```
+pure expr                    -- F: value → computation (first-class function)
+bind comp (\x -> body)       -- monadic bind (first-class function)
+```
+
+`pure` and `bind` are first-class functions: they can be partially applied and passed to higher-order functions (e.g. `map pure xs`). When fully applied, the checker optimizes them to direct Core nodes for capability environment threading.
 
 ---
 

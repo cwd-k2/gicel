@@ -103,7 +103,7 @@ bind (bind m f) g     =  bind m (\a -> bind (f a) g)           -- associativity
 
 These laws are verified by construction in the evaluator, not by the type checker.
 
-`pure` and `bind` are not reserved keywords. They are built-in definitions with known types. They elaborate to dedicated Core nodes (`Pure`, `Bind`). The `IxMonad` type class provides a generalized interface; the `Computation` instance uses these Core nodes as its implementation.
+`pure` and `bind` are not reserved keywords. They are first-class built-in functions that can be partially applied and passed to higher-order functions (e.g. `map pure xs`). When fully applied, the checker optimizes them to direct Core nodes (`Pure`, `Bind`) for correct capability environment threading. The `IxMonad` type class provides a generalized interface; the `Computation` instance delegates to these built-in functions.
 
 #### Relationship to monad variants
 
@@ -145,9 +145,9 @@ force (thunk c) = c                 -- thunk/force cancellation
 
 Semantics: `thunk` does not evaluate its argument — it captures the computation as a value. `force` triggers evaluation. Thunks are not memoized: forcing the same thunk multiple times executes the computation each time.
 
-`thunk` is a **term former** (like `\` or `case`), not a function. It cannot be partially applied. It elaborates to `Core.Thunk`. `force` is an ordinary function. It elaborates to `Core.Force`.
+`thunk` and `force` are **term formers** (like `\` or `case`), not functions. They cannot be partially applied. They elaborate to `Core.Thunk` and `Core.Force` respectively.
 
-`thunk`/`force` are part of the evaluation model (the CBPV adjunction), not the computation algebra. They remain built-in term formers regardless of type class design.
+`thunk`/`force` are part of the evaluation model (the CBPV adjunction), not the computation algebra. They remain term formers regardless of type class design.
 
 ## 2.2 Stratum 1 — Classification
 
@@ -266,7 +266,7 @@ Type, row, and kind equivalence. The equality theory includes:
 case  do  data  type  forall  infixl  infixr  infixn  class  instance  import
 ```
 
-11 keywords. Note that `pure`, `bind`, `thunk`, `force`, `assumption`, `rec`, and `fix` are **not** keywords — they are ordinary identifiers with built-in meaning.
+11 keywords. Note that `pure`, `bind`, `thunk`, `force`, `assumption`, `rec`, and `fix` are **not** keywords — they are ordinary identifiers with built-in meaning. `pure`, `bind`, `rec`, and `fix` are first-class functions (can be partially applied and passed to higher-order functions); `thunk` and `force` are term formers (must be fully applied).
 
 `;` and newline are interchangeable as declaration/statement separators at the top level. Inside braces (`do`, `case`, GADT bodies), semicolons are required — newlines alone do not act as separators.
 

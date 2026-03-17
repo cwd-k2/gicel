@@ -1444,12 +1444,21 @@ main := bind (pure True) (\x -> pure x)
 
 // pure/bind/thunk/force used standalone (not applied) must error.
 func TestSpecialFormStandalone(t *testing.T) {
-	forms := []string{"pure", "bind", "thunk", "force"}
+	// thunk and force are still special forms.
+	forms := []string{"thunk", "force"}
 	for _, name := range forms {
 		eng := gicel.NewEngine()
 		_, err := eng.NewRuntime("main := " + name)
 		if err == nil {
 			t.Errorf("expected compile error for standalone %s", name)
+		}
+	}
+	// pure and bind are first-class functions — standalone use is valid.
+	for _, name := range []string{"pure", "bind"} {
+		eng := gicel.NewEngine()
+		_, err := eng.NewRuntime("main := " + name)
+		if err != nil {
+			t.Errorf("standalone %s should compile, got: %v", name, err)
 		}
 	}
 }

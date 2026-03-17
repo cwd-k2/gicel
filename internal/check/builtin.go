@@ -3,8 +3,9 @@ package check
 import "github.com/cwd-k2/gicel/internal/types"
 
 // Built-in type signatures.
-// pure, bind, thunk, force are handled as special forms in the checker
-// and elaborate directly to Core nodes (Pure, Bind, Thunk, Force).
+// When fully applied, pure and bind are optimized to Core.Pure / Core.Bind
+// by the checker; as standalone values they resolve through builtinTypes.
+// thunk and force are handled as special forms and elaborate to Core nodes.
 var builtinTypes = map[string]types.Type{
 	// rec : forall (r : Row) a. (Computation r r a -> Computation r r a) -> Computation r r a
 	// Computation-level fixpoint; requires pre = post.
@@ -26,19 +27,17 @@ var builtinTypes = map[string]types.Type{
 			types.Var("a"),
 		)),
 
-	// _builtinPure : forall a (r : Row). a -> Computation r r a
-	// Internal name for pure; usable in instance bodies (not a special form).
-	"_builtinPure": types.MkForall("a", types.KType{},
+	// pure : forall a (r : Row). a -> Computation r r a
+	"pure": types.MkForall("a", types.KType{},
 		types.MkForall("r", types.KRow{},
 			types.MkArrow(
 				types.Var("a"),
 				types.MkComp(types.Var("r"), types.Var("r"), types.Var("a")),
 			))),
 
-	// _builtinBind : forall a b (r1 : Row) (r2 : Row) (r3 : Row).
+	// bind : forall a b (r1 : Row) (r2 : Row) (r3 : Row).
 	//   Computation r1 r2 a -> (a -> Computation r2 r3 b) -> Computation r1 r3 b
-	// Internal name for bind; usable in instance bodies (not a special form).
-	"_builtinBind": types.MkForall("a", types.KType{},
+	"bind": types.MkForall("a", types.KType{},
 		types.MkForall("b", types.KType{},
 			types.MkForall("r1", types.KRow{},
 				types.MkForall("r2", types.KRow{},

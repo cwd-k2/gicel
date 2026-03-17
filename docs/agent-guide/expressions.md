@@ -111,11 +111,18 @@ map (show) xs                  -- (op) alone is the prefix form
 ### Special Forms
 
 ```
+thunk computation              -- suspend a computation into a value (term former)
+force thunked_value            -- resume a suspended computation (term former)
+```
+
+### Built-in Functions
+
+```
 pure expr                      -- lift a value into Computation
 bind comp (\x -> body)         -- explicit monadic bind
-thunk computation              -- suspend a computation into a value
-force thunked_value            -- resume a suspended computation
 ```
+
+`pure` and `bind` are first-class functions — they can be partially applied (`map pure xs`) and passed to higher-order functions.
 
 ### Expression Precedence
 

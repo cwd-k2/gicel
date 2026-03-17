@@ -1224,7 +1224,8 @@ main := force True`
 }
 
 func TestErrorSpecialForm(t *testing.T) {
-	source := `main := pure`
+	// thunk and force remain special forms.
+	source := `main := thunk`
 	checkSourceExpectCode(t, source, nil, errs.ErrSpecialForm)
 }
 

@@ -3,8 +3,9 @@ package eval
 import "github.com/cwd-k2/gicel/internal/core"
 
 // BuiltinEnv constructs the base environment with pure, bind, force,
-// and optional fix/rec closures. This centralizes Core IR construction
-// for built-in primitives within the eval package.
+// and optional fix/rec closures. pure and bind are first-class functions
+// here; the checker also optimizes fully-applied pure/bind to direct
+// Core.Pure/Core.Bind nodes for capability environment threading.
 func BuiltinEnv(enableFix, enableRec bool) *Env {
 	env := EmptyEnv()
 
@@ -28,16 +29,6 @@ func BuiltinEnv(enableFix, enableRec bool) *Env {
 	env = env.Extend("force", &Closure{
 		Env: EmptyEnv(), Param: "_thk",
 		Body: &core.Force{Expr: &core.Var{Name: "_thk"}},
-	})
-
-	// Internal builtin names for IxMonad instance bodies.
-	env = env.Extend("_builtinPure", &Closure{
-		Env: EmptyEnv(), Param: "_v",
-		Body: &core.Var{Name: "_v"},
-	})
-	env = env.Extend("_builtinBind", &Closure{
-		Env: EmptyEnv(), Param: "_comp",
-		Body: bindBody,
 	})
 
 	// Gated built-ins: rec and fix (enabled via EnableRecursion).
