@@ -3,6 +3,7 @@ package check
 import (
 	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/cwd-k2/gicel/internal/core"
 	"github.com/cwd-k2/gicel/internal/errs"
@@ -167,7 +168,7 @@ func (ch *Checker) infer(expr syntax.Expr) (types.Type, core.Core) {
 		return ch.inferCase(e)
 
 	case *syntax.ExprIntLit:
-		val, err := strconv.ParseInt(e.Value, 10, 64)
+		val, err := strconv.ParseInt(strings.ReplaceAll(e.Value, "_", ""), 10, 64)
 		if err != nil {
 			ch.addCodedError(errs.ErrTypeMismatch, e.S, fmt.Sprintf("invalid integer literal: %s", e.Value))
 		}
@@ -175,6 +176,13 @@ func (ch *Checker) infer(expr syntax.Expr) (types.Type, core.Core) {
 
 	case *syntax.ExprStrLit:
 		return ch.mkType("String"), &core.Lit{Value: e.Value, S: e.S}
+
+	case *syntax.ExprDoubleLit:
+		val, err := strconv.ParseFloat(strings.ReplaceAll(e.Value, "_", ""), 64)
+		if err != nil {
+			ch.addCodedError(errs.ErrTypeMismatch, e.S, fmt.Sprintf("invalid double literal: %s", e.Value))
+		}
+		return ch.mkType("Double"), &core.Lit{Value: val, S: e.S}
 
 	case *syntax.ExprRuneLit:
 		return ch.mkType("Rune"), &core.Lit{Value: e.Value, S: e.S}

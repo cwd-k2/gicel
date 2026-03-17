@@ -3,6 +3,7 @@ package check
 import (
 	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/cwd-k2/gicel/internal/core"
 	"github.com/cwd-k2/gicel/internal/errs"
@@ -56,8 +57,11 @@ func (ch *Checker) checkLitPattern(p *syntax.PatLit, scrutTy types.Type) pattern
 func parseLitValue(kind syntax.LitKind, raw string) (types.Type, any, error) {
 	switch kind {
 	case syntax.LitInt:
-		n, err := strconv.ParseInt(raw, 10, 64)
+		n, err := strconv.ParseInt(strings.ReplaceAll(raw, "_", ""), 10, 64)
 		return &types.TyCon{Name: "Int"}, n, err
+	case syntax.LitDouble:
+		f, err := strconv.ParseFloat(strings.ReplaceAll(raw, "_", ""), 64)
+		return &types.TyCon{Name: "Double"}, f, err
 	case syntax.LitString:
 		return &types.TyCon{Name: "String"}, raw, nil
 	case syntax.LitRune:
