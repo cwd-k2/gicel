@@ -319,7 +319,7 @@ func TestMatchPatterns(t *testing.T) {
 }
 
 func TestMatchRecordPattern(t *testing.T) {
-	// Match { x = 1, y = 2 } against { x = a, y = b }
+	// Match { x: 1, y: 2 } against { x: a, y: b }
 	rv := &RecordVal{Fields: map[string]Value{
 		"x": &HostVal{Inner: 10},
 		"y": &HostVal{Inner: 20},

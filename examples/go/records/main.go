@@ -20,21 +20,21 @@ const source = `
 import Std.Num
 
 -- Record literal and projection
-point := { x = 3, y = 4 }
+point := { x: 3, y: 4 }
 px := point.#x
 
 -- Record update (copy + overwrite)
-moved := { point | x = 10 }
+moved := { point | x: 10 }
 
 -- Row-polymorphic function: works on any record with an "x" field
 getX :: \ r. Record { x : Int | r } -> Int
 getX := \r. r.#x
 
 -- Works with different record shapes
-p1 := getX { x = 1, y = 2 }
-p2 := getX { x = 5, label = "hello" }
+p1 := getX { x: 1, y: 2 }
+p2 := getX { x: 5, label: "hello" }
 
--- Tuples: (a, b) desugars to Record { _1 = a, _2 = b }
+-- Tuples: (a, b) desugars to Record { _1: a, _2: b }
 pair := (True, 42)
 first := fst pair
 second := snd pair
@@ -51,7 +51,7 @@ swap :: \ a b. (a, b) -> (b, a)
 swap := \p. case p { (x, y) -> (y, x) }
 
 -- Nested records
-nested := { inner = { a = True, b = False }, tag = 42 }
+nested := { inner: { a: True, b: False }, tag: 42 }
 deep := nested.#inner.#a
 
 main := (px, (getX moved, (p1, (p2, (first, (eqTest, (cmpTest, deep)))))))

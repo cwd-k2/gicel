@@ -141,7 +141,7 @@ type Elem (c : Type) :: Type = {
 }
 
 mkRecord :: Elem (List Unit) -> Record { value : Unit }
-mkRecord := \x. { value = x }
+mkRecord := \x. { value: x }
 `
 	checkSource(t, source, nil)
 }

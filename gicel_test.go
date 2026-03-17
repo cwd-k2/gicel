@@ -1365,7 +1365,7 @@ func TestFromRecord(t *testing.T) {
 	eng.Use(gicel.Num)
 	rt, err := eng.NewRuntime(`
 import Std.Num
-main := { x = 1, y = 2 }
+main := { x: 1, y: 2 }
 `)
 	if err != nil {
 		t.Fatal(err)

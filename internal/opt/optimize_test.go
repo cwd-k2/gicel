@@ -189,7 +189,7 @@ func TestR4_ForceThunk(t *testing.T) {
 
 // R5: RecordProj of known literal
 func TestR5_RecordProjKnown(t *testing.T) {
-	// { x = 1, y = 2 }.#x  →  1
+	// { x: 1, y: 2 }.#x  →  1
 	input := &core.RecordProj{
 		Record: &core.RecordLit{Fields: []core.RecordField{
 			{Label: "x", Value: lit(int64(1))},
@@ -205,7 +205,7 @@ func TestR5_RecordProjKnown(t *testing.T) {
 
 // R6: RecordUpdate chain collapse
 func TestR6_RecordUpdateChain(t *testing.T) {
-	// { { r | x = 1 } | y = 2 }  →  { r | x = 1, y = 2 }
+	// { { r | x: 1 } | y: 2 }  →  { r | x: 1, y: 2 }
 	input := &core.RecordUpdate{
 		Record: &core.RecordUpdate{
 			Record:  v("r"),
@@ -227,7 +227,7 @@ func TestR6_RecordUpdateChain(t *testing.T) {
 }
 
 func TestR6_RecordUpdateOverwrite(t *testing.T) {
-	// { { r | x = 1 } | x = 2 }  →  { r | x = 2 }
+	// { { r | x: 1 } | x: 2 }  →  { r | x: 2 }
 	input := &core.RecordUpdate{
 		Record: &core.RecordUpdate{
 			Record:  v("r"),

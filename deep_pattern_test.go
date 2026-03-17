@@ -354,7 +354,7 @@ func TestRowUnifyFieldSubset(t *testing.T) {
 import Std.Num
 getX :: \r. Record { x : Int | r } -> Int
 getX := \rec. rec.#x
-main := getX { x = 42, y = 0 }
+main := getX { x: 42, y: 0 }
 `)
 	if err != nil {
 		t.Fatal(err)
@@ -377,7 +377,7 @@ func TestRowUnifyMissingField(t *testing.T) {
 import Std.Num
 getX :: Record { x : Int } -> Int
 getX := \rec. rec.#x
-main := getX { y = 0 }
+main := getX { y: 0 }
 `)
 	if err == nil {
 		t.Fatal("expected compile error: record { y } does not have field x")
@@ -626,7 +626,7 @@ func TestRecordProjectionEndToEnd(t *testing.T) {
 	eng.Use(gicel.Num)
 	rt, err := eng.NewRuntime(`
 import Std.Num
-r := { x = 1, y = 2 }
+r := { x: 1, y: 2 }
 main := r.#x + r.#y
 `)
 	if err != nil {
@@ -647,8 +647,8 @@ func TestRecordUpdateEndToEnd(t *testing.T) {
 	eng.Use(gicel.Num)
 	rt, err := eng.NewRuntime(`
 import Std.Num
-r := { x = 1, y = 2 }
-r2 := { r | x = 100 }
+r := { x: 1, y: 2 }
+r2 := { r | x: 100 }
 main := r2.#x + r2.#y
 `)
 	if err != nil {
@@ -669,8 +669,8 @@ func TestRecordPatternMatchEndToEnd(t *testing.T) {
 	eng.Use(gicel.Num)
 	rt, err := eng.NewRuntime(`
 import Std.Num
-swap := \r. case r { { x = a, y = b } -> { x = b, y = a } }
-r := swap { x = 1, y = 2 }
+swap := \r. case r { { x: a, y: b } -> { x: b, y: a } }
+r := swap { x: 1, y: 2 }
 main := r.#x
 `)
 	if err != nil {
@@ -814,7 +814,7 @@ func TestFN_RecordFieldTypeMismatch(t *testing.T) {
 import Std.Num
 f :: Record { x : Int } -> Int
 f := \r. r.#x
-main := f { x = True }
+main := f { x: True }
 `)
 	if err == nil {
 		t.Fatal("expected type mismatch: field x is Bool, expected Int")
@@ -872,8 +872,8 @@ func TestFP_LambdaWithRecordPattern(t *testing.T) {
 
 	// Workaround using case:
 	rt, err := eng.NewRuntime(`
-getX := \r. case r { { x = v } -> v }
-main := getX { x = True }
+getX := \r. case r { { x: v } -> v }
+main := getX { x: True }
 `)
 	if err != nil {
 		t.Fatal("workaround (case destructure) should succeed:", err)
@@ -887,8 +887,8 @@ main := getX { x = True }
 	// Direct lambda pattern version:
 	eng2 := gicel.NewEngine()
 	rt2, err := eng2.NewRuntime(`
-getX := \{ x = v }. v
-main := getX { x = True }
+getX := \{ x: v }. v
+main := getX { x: True }
 `)
 	if err != nil {
 		t.Fatal("record pattern in lambda should work:", err)
@@ -1524,7 +1524,7 @@ func TestHigherRankRecordField(t *testing.T) {
 	rt, err := eng.NewRuntime(`
 import Std.Num
 r :: Record { apply : \a. a -> a }
-r := { apply = \x. x }
+r := { apply: \x. x }
 main := ((r.#apply) True, (r.#apply) 42)
 `)
 	if err != nil {

@@ -386,8 +386,8 @@ func (p *Parser) parseBlock() Expr {
 		saved := p.pos
 		p.advance() // skip name
 		switch p.peek().Kind {
-		case TokEq:
-			// name = ... → record literal
+		case TokColon:
+			// name: ... → record literal
 			p.pos = saved
 			return p.parseRecordLiteral(start)
 		case TokPipe:
@@ -451,7 +451,7 @@ func (p *Parser) parseRecordLiteral(start span.Pos) Expr {
 	for p.peek().Kind != TokRBrace && p.peek().Kind != TokEOF {
 		fStart := p.peek().S.Start
 		label := p.expectLower()
-		p.expect(TokEq)
+		p.expect(TokColon)
 		value := p.parseExpr()
 		fields = append(fields, RecordField{
 			Label: label, Value: value,
@@ -478,7 +478,7 @@ func (p *Parser) parseRecordUpdateFields(start span.Pos, record Expr) Expr {
 	for p.peek().Kind != TokRBrace && p.peek().Kind != TokEOF {
 		fStart := p.peek().S.Start
 		label := p.expectLower()
-		p.expect(TokEq)
+		p.expect(TokColon)
 		value := p.parseExpr()
 		updates = append(updates, RecordField{
 			Label: label, Value: value,
@@ -577,7 +577,7 @@ func (p *Parser) parseRecordPattern() Pattern {
 		for {
 			fStart := p.peek().S.Start
 			label := p.expectLower()
-			p.expect(TokEq)
+			p.expect(TokColon)
 			pat := p.parsePattern()
 			fields = append(fields, PatRecordField{
 				Label: label, Pattern: pat,

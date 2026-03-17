@@ -156,7 +156,7 @@ func (o *ExplainObserver) LeaveInternal() { o.suppress-- }
 func (o *ExplainObserver) SetAll(v bool) { o.all = v }
 
 // PrettyValue formats a runtime value in source-level terms.
-// No "HostVal(...)", no "{ _1 = ..., _2 = ... }" — uses tuples and bare values.
+// No "HostVal(...)", no "{ _1: ..., _2: ... }" — uses tuples and bare values.
 func PrettyValue(v Value) string {
 	switch val := v.(type) {
 	case *HostVal:
@@ -244,7 +244,7 @@ func prettyRecord(r *RecordVal) string {
 	sort.Strings(keys)
 	parts := make([]string, len(keys))
 	for i, k := range keys {
-		parts[i] = k + " = " + PrettyValue(r.Fields[k])
+		parts[i] = k + ": " + PrettyValue(r.Fields[k])
 	}
 	return "{ " + strings.Join(parts, ", ") + " }"
 }

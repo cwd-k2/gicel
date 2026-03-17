@@ -118,7 +118,7 @@ func TestEvalRecordUpdate(t *testing.T) {
 
 func TestEvalRecordPattern(t *testing.T) {
 	ev := newTestEval()
-	// case { x = 42, y = 7 } of { x = a } -> a
+	// case { x: 42, y: 7 } of { x: a } -> a
 	term := &core.Case{
 		Scrutinee: &core.RecordLit{
 			Fields: []core.RecordField{
@@ -149,7 +149,7 @@ func TestEvalRecordPattern(t *testing.T) {
 
 func TestEvalRecordPatternWild(t *testing.T) {
 	ev := newTestEval()
-	// case { x = 42 } of { x = _ } -> 0
+	// case { x: 42 } of { x: _ } -> 0
 	term := &core.Case{
 		Scrutinee: &core.RecordLit{
 			Fields: []core.RecordField{

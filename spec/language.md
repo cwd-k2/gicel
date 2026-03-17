@@ -900,7 +900,7 @@ Record fields may have higher-rank types:
 
 ```
 r :: Record { apply : \a. a -> a }
-r := { apply = \x. x }
+r := { apply: \x. x }
 ```
 
 The expected type propagates into the record literal, so the lambda receives the `\a. a -> a` annotation and type-checks at rank 2.
@@ -914,11 +914,11 @@ Record { x : Int, x : Bool }     -- compile error: duplicate field "x"
 ## 8.2 Record Literals
 
 ```
-{ x = 1, y = True }
+{ x: 1, y: True }
 {}
 ```
 
-A record literal `{ l₁ = e₁, ..., lₙ = eₙ }` has type `Record { l₁ : T₁, ..., lₙ : Tₙ }`.
+A record literal `{ l₁: e₁, ..., lₙ: eₙ }` has type `Record { l₁ : T₁, ..., lₙ : Tₙ }`.
 
 ## 8.3 Projection
 
@@ -935,8 +935,8 @@ Typing rule: if `e : Record { l : T | r }`, then `e.#l : T`.
 ## 8.4 Update
 
 ```
-{ r | x = 42 }
-{ r | x = 42, y = True }
+{ r | x: 42 }
+{ r | x: 42, y: True }
 ```
 
 The field must exist in the original record.
@@ -946,15 +946,15 @@ The field must exist in the original record.
 Record patterns are open (partial match permitted):
 
 ```
-\{ x = a, y = b }. a
-\{ x = a }. a                 -- other fields ignored
-case r { { x = a, y = b } -> a }
-{ x = n } := r                -- block binding destructuring
+\{ x: a, y: b }. a
+\{ x: a }. a                 -- other fields ignored
+case r { { x: a, y: b } -> a }
+{ x: n } := r                -- block binding destructuring
 ```
 
 ## 8.6 Field Order
 
-Field order is semantically irrelevant (Row property). `{ x = 1, y = 2 }` and `{ y = 2, x = 1 }` are equal.
+Field order is semantically irrelevant (Row property). `{ x: 1, y: 2 }` and `{ y: 2, x: 1 }` are equal.
 
 ## 8.7 Tuples
 
@@ -962,10 +962,10 @@ Tuples are syntactic sugar for records with positional labels `_1`, `_2`, `_3`, 
 
 | Surface            | Desugars to                      |
 | ------------------ | -------------------------------- |
-| `(1, True)`        | `{ _1 = 1, _2 = True }`          |
+| `(1, True)`        | `{ _1: 1, _2: True }`            |
 | `(Int, Bool)`      | `Record { _1 : Int, _2 : Bool }` |
 | `t.#_1`            | record projection on `_1`        |
-| `(a, b)` (pattern) | `{ _1 = a, _2 = b }` (pattern)   |
+| `(a, b)` (pattern) | `{ _1: a, _2: b }` (pattern)     |
 
 `()` is the 0-tuple, equivalent to the empty record `{}`. It replaces the former `Unit` type.
 

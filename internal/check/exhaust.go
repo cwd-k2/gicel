@@ -35,7 +35,7 @@ type pCon struct {
 	arity int
 	args  []pat
 }                                            // C p1 ... pn
-type pRecord struct{ fields map[string]pat } // { l1 = p1, ... }
+type pRecord struct{ fields map[string]pat } // { l1: p1, ... }
 type pLit struct{ value any }                // 42, "hello", 'x'
 
 func (pWild) patTag()   {}
@@ -629,7 +629,7 @@ func formatWitness(p pat) string {
 		}
 		var parts []string
 		for l, v := range pp.fields {
-			parts = append(parts, l+" = "+formatWitness(v))
+			parts = append(parts, l+": "+formatWitness(v))
 		}
 		sort.Strings(parts)
 		return "{ " + strings.Join(parts, ", ") + " }"

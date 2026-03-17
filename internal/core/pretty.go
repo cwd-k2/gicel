@@ -74,7 +74,7 @@ func prettyCore(c Core, indent int) string {
 		}
 		fields := make([]string, len(n.Fields))
 		for i, f := range n.Fields {
-			fields[i] = fmt.Sprintf("%s = %s", f.Label, prettyCore(f.Value, indent))
+			fields[i] = fmt.Sprintf("%s: %s", f.Label, prettyCore(f.Value, indent))
 		}
 		return fmt.Sprintf("{ %s }", strings.Join(fields, ", "))
 	case *RecordProj:
@@ -82,7 +82,7 @@ func prettyCore(c Core, indent int) string {
 	case *RecordUpdate:
 		updates := make([]string, len(n.Updates))
 		for i, f := range n.Updates {
-			updates[i] = fmt.Sprintf("%s = %s", f.Label, prettyCore(f.Value, indent))
+			updates[i] = fmt.Sprintf("%s: %s", f.Label, prettyCore(f.Value, indent))
 		}
 		return fmt.Sprintf("{ %s | %s }", prettyCore(n.Record, indent), strings.Join(updates, ", "))
 	default:
@@ -111,7 +111,7 @@ func prettyPattern(p Pattern) string {
 		}
 		fields := make([]string, len(pat.Fields))
 		for i, f := range pat.Fields {
-			fields[i] = fmt.Sprintf("%s = %s", f.Label, prettyPattern(f.Pattern))
+			fields[i] = fmt.Sprintf("%s: %s", f.Label, prettyPattern(f.Pattern))
 		}
 		return fmt.Sprintf("{ %s }", strings.Join(fields, ", "))
 	case *PLit:

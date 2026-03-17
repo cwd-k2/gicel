@@ -1120,7 +1120,7 @@ func TestParseKindSortInArrow(t *testing.T) {
 // --- Records ---
 
 func TestParseRecordLiteral(t *testing.T) {
-	prog, es := parse("r := { x = 1, y = 2 }")
+	prog, es := parse("r := { x: 1, y: 2 }")
 	if es.HasErrors() {
 		t.Fatal(es.Format())
 	}
@@ -1156,7 +1156,7 @@ func TestParseEmptyRecord(t *testing.T) {
 }
 
 func TestParseRecordUpdate(t *testing.T) {
-	prog, es := parse("r2 := { r | x = 1 }")
+	prog, es := parse("r2 := { r | x: 1 }")
 	if es.HasErrors() {
 		t.Fatal(es.Format())
 	}
@@ -1222,7 +1222,7 @@ func TestParseChainedProjection(t *testing.T) {
 }
 
 func TestParseRecordPattern(t *testing.T) {
-	prog, es := parse(`f := \{ x = a, y = b }. a`)
+	prog, es := parse(`f := \{ x: a, y: b }. a`)
 	if es.HasErrors() {
 		t.Fatal(es.Format())
 	}
@@ -1836,8 +1836,8 @@ func TestParseStepsResetBetweenPasses(t *testing.T) {
 }
 
 func TestParseBlockNoPhantomErrors(t *testing.T) {
-	// { f x | y = 1 } is a record update: expr = f x, field y = 1.
-	prog, es := parse("main := { f x | y = 1 }")
+	// { f x | y: 1 } is a record update: expr = f x, field y: 1.
+	prog, es := parse("main := { f x | y: 1 }")
 	if es.HasErrors() {
 		t.Fatalf("record update should parse without errors:\n%s", es.Format())
 	}

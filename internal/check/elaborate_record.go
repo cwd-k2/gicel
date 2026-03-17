@@ -10,7 +10,7 @@ import (
 	"github.com/cwd-k2/gicel/internal/types"
 )
 
-// inferRecord infers the type of a record literal { l1 = e1, ..., ln = en }.
+// inferRecord infers the type of a record literal { l1: e1, ..., ln: en }.
 // Type: Record { l1 : T1, ..., ln : Tn }
 func (ch *Checker) inferRecord(e *syntax.ExprRecord) (types.Type, core.Core) {
 	seen := make(map[string]bool, len(e.Fields))
@@ -96,7 +96,7 @@ func (ch *Checker) matchRecordField(ty types.Type, label string, s span.Span) ty
 	return ch.unifier.Zonk(fieldMeta)
 }
 
-// inferRecordUpdate infers the type of a record update { r | l1 = e1, ..., ln = en }.
+// inferRecordUpdate infers the type of a record update { r | l1: e1, ..., ln: en }.
 func (ch *Checker) inferRecordUpdate(e *syntax.ExprRecordUpdate) (types.Type, core.Core) {
 	recTy, recCore := ch.infer(e.Record)
 	coreUpdates := make([]core.RecordField, len(e.Updates))
@@ -183,7 +183,7 @@ func (ch *Checker) extractRecordFieldTypes(ty types.Type) map[string]types.Type 
 	return result
 }
 
-// checkRecordPattern checks a record pattern { l1 = p1, ..., ln = pn } against a scrutinee type.
+// checkRecordPattern checks a record pattern { l1: p1, ..., ln: pn } against a scrutinee type.
 func (ch *Checker) checkRecordPattern(p *syntax.PatRecord, scrutTy types.Type) patternResult {
 	bindings := make(map[string]types.Type)
 	coreFields := make([]core.PRecordField, len(p.Fields))

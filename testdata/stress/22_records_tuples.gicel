@@ -2,26 +2,26 @@ import Std.Num
 import Std.Str
 
 -- Record literals and projection
-origin := { x = 0, y = 0 }
-point := { x = 3, y = 4 }
+origin := { x: 0, y: 0 }
+point := { x: 3, y: 4 }
 getX := \r. r.#x
 getY := \r. r.#y
 
 -- Record update
-moved := { point | x = 10 }
+moved := { point | x: 10 }
 
 -- Row-polymorphic record functions
 getLabel :: \r. Record { label : String | r } -> String
 getLabel := \r. r.#label
 
-named := { label = "hello", value = 42 }
-tagged := { label = "world", x = 1, y = 2 }
+named := { label: "hello", value: 42 }
+tagged := { label: "world", x: 1, y: 2 }
 
 label1 := getLabel named
 label2 := getLabel tagged
 
 -- Nested records
-nested := { inner = { a = True, b = False }, tag = "test" }
+nested := { inner: { a: True, b: False }, tag: "test" }
 innerA := nested.#inner.#a
 
 -- Unit and tuples
@@ -46,7 +46,7 @@ swap := \p. case p { (x, y) -> (y, x) }
 swapped := swap (True, False)
 
 -- Record pattern matching
-extractXY := \p. case p { { x = px, y = py } -> (px, py) }
+extractXY := \p. case p { { x: px, y: py } -> (px, py) }
 xyTuple := extractXY point
 
 -- Deeply nested tuples
@@ -60,21 +60,21 @@ eqRecord := eq (True, False) (True, False)
 ordRecord := compare (False, True) (True, False)
 
 -- Mixed records and Maybe
-wrapped := Just { x = 1, y = 2 }
+wrapped := Just { x: 1, y: 2 }
 unwrapped := case wrapped {
   Just r -> r.#x;
   Nothing -> 0
 }
 
 -- Large record (many fields)
-big := { f1 = 1, f2 = 2, f3 = 3, f4 = 4, f5 = 5,
-         f6 = 6, f7 = 7, f8 = 8, f9 = 9, f10 = 10 }
+big := { f1: 1, f2: 2, f3: 3, f4: 4, f5: 5,
+         f6: 6, f7: 7, f8: 8, f9: 9, f10: 10 }
 
 sumBig := big.#f1 + big.#f2 + big.#f3 + big.#f4 + big.#f5 +
           big.#f6 + big.#f7 + big.#f8 + big.#f9 + big.#f10
 
 -- Records in lists
-points := Cons { x = 0, y = 0 } (Cons { x = 1, y = 1 } Nil)
+points := Cons { x: 0, y: 0 } (Cons { x: 1, y: 1 } Nil)
 firstPoint := case points {
   Cons p _ -> p.#x;
   Nil -> 0

@@ -114,7 +114,7 @@ type Lit struct {
 	S     span.Span
 }
 
-// RecordLit — record construction { l1 = e1, ..., ln = en }.
+// RecordLit — record construction { l1: e1, ..., ln: en }.
 type RecordLit struct {
 	Fields []RecordField
 	S      span.Span
@@ -133,7 +133,7 @@ type RecordProj struct {
 	S      span.Span
 }
 
-// RecordUpdate — record update { r | l1 = e1, ..., ln = en }.
+// RecordUpdate — record update { r | l1: e1, ..., ln: en }.
 type RecordUpdate struct {
 	Record  Core
 	Updates []RecordField

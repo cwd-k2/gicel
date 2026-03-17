@@ -8,14 +8,14 @@
 import Std.Num
 
 -- Record literal: a 2D point
-point := { x = 3, y = 4 }
+point := { x: 3, y: 4 }
 
 -- Projection: extract a field with .#
 px := point.#x
 py := point.#y
 
 -- Record update: copy with one field overwritten
-moved := { point | x = 10 }
+moved := { point | x: 10 }
 movedX := moved.#x
 
 -- Row-polymorphic function: accepts any record with an "x" field
@@ -24,10 +24,10 @@ getX :: \r. Record { x : Int | r } -> Int
 getX := \r. r.#x
 
 -- Works on records of different shapes
-p1 := getX { x = 1, y = 2 }
-p2 := getX { x = 5, label = "hello" }
+p1 := getX { x: 1, y: 2 }
+p2 := getX { x: 5, label: "hello" }
 
--- Tuples: (a, b) is sugar for Record { _1 = a, _2 = b }
+-- Tuples: (a, b) is sugar for Record { _1: a, _2: b }
 pair := (True, 42)
 first := fst pair
 second := snd pair
@@ -46,7 +46,7 @@ swap := \(x, y). (y, x)
 swapped := swap (True, False)
 
 -- Nested records
-nested := { inner = { a = True, b = False }, tag = 42 }
+nested := { inner: { a: True, b: False }, tag: 42 }
 deep := nested.#inner.#a
 
 -- 3-tuple

@@ -1363,7 +1363,7 @@ func TestQuantifyFreeVarsKindInference(t *testing.T) {
 func TestExhaustiveRecordPatterns(t *testing.T) {
 	// Record patterns should be handled by the exhaustiveness checker.
 	source := `data Bool = True | False
-main := \r. case r { { x = True, y = _ } -> 1; { x = False, y = _ } -> 2 }`
+main := \r. case r { { x: True, y: _ } -> 1; { x: False, y: _ } -> 2 }`
 	checkSource(t, source, nil)
 }
 
@@ -1441,8 +1441,8 @@ func TestFormatWitnessWild(t *testing.T) {
 func TestFormatWitnessRecord(t *testing.T) {
 	r := pRecord{fields: map[string]pat{"x": pWild{}, "y": pWild{}}}
 	w := formatWitness(r)
-	if w != "{ x = _, y = _ }" {
-		t.Errorf("expected '{ x = _, y = _ }', got %q", w)
+	if w != "{ x: _, y: _ }" {
+		t.Errorf("expected '{ x: _, y: _ }', got %q", w)
 	}
 }
 

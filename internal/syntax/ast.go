@@ -93,7 +93,7 @@ type ExprList struct {
 	S     span.Span
 }
 
-// ExprRecord is a record literal: { x = 1, y = True }
+// ExprRecord is a record literal: { x: 1, y: True }
 type ExprRecord struct {
 	Fields []RecordField
 	S      span.Span
@@ -106,7 +106,7 @@ type RecordField struct {
 	S     span.Span
 }
 
-// ExprRecordUpdate is a record update: { r | x = 1 }
+// ExprRecordUpdate is a record update: { r | x: 1 }
 type ExprRecordUpdate struct {
 	Record  Expr
 	Updates []RecordField
@@ -245,7 +245,7 @@ type PatParen struct {
 	S     span.Span
 }
 
-// PatRecord is a record pattern: { x = a, y = b }
+// PatRecord is a record pattern: { x: a, y: b }
 type PatRecord struct {
 	Fields []PatRecordField
 	S      span.Span

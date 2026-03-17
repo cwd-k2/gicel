@@ -50,7 +50,7 @@ type PrimVal struct {
 	S         span.Span // source location from the originating PrimOp
 }
 
-// RecordVal is a record value { l1 = v1, ..., ln = vn }.
+// RecordVal is a record value { l1: v1, ..., ln: vn }.
 type RecordVal struct {
 	Fields map[string]Value
 }

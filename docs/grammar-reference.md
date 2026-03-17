@@ -367,8 +367,8 @@ case scrutinee {
 ### Record Literal
 
 ```
-{ x = 1, y = True }            -- record construction
-{ r | x = 42 }                 -- record update (functional)
+{ x: 1, y: True }              -- record construction
+{ r | x: 42 }                  -- record update (functional)
 ```
 
 ### Record Projection
@@ -403,7 +403,7 @@ This is the expression-level counterpart of the declaration syntax `(op) := ...`
 ### Tuple
 
 ```
-(1, True)                       -- 2-tuple, desugars to { _1 = 1, _2 = True }
+(1, True)                       -- 2-tuple, desugars to { _1: 1, _2: True }
 (1, True, "hello")              -- 3-tuple
 (1)                             -- grouping (not a 1-tuple)
 ```
@@ -647,8 +647,8 @@ _                -- wildcard
 Con              -- nullary constructor
 Con x y          -- constructor with arguments
 (Con x y)        -- parenthesized pattern
-(a, b)           -- tuple pattern, desugars to { _1 = a, _2 = b }
-{ x = a, y = b } -- record pattern (open by default)
+(a, b)           -- tuple pattern, desugars to { _1: a, _2: b }
+{ x: a, y: b }   -- record pattern (open by default)
 ```
 
 ### Literal Patterns

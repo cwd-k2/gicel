@@ -84,7 +84,7 @@ func TestStressLargeRecordLiteral(t *testing.T) {
 		if i > 0 {
 			sb.WriteString(", ")
 		}
-		sb.WriteString(fmt.Sprintf("f%d = %d", i, i))
+		sb.WriteString(fmt.Sprintf("f%d: %d", i, i))
 	}
 	sb.WriteString(" }\n")
 	sb.WriteString("main := r.#f29\n")
@@ -278,11 +278,11 @@ func TestStressRecordUpdate(t *testing.T) {
 		if i > 0 {
 			sb.WriteString(", ")
 		}
-		sb.WriteString(fmt.Sprintf("f%d = 0", i))
+		sb.WriteString(fmt.Sprintf("f%d: 0", i))
 	}
 	sb.WriteString(" }\n")
 	for i := range 20 {
-		sb.WriteString(fmt.Sprintf("r%d := { r%d | f%d = %d }\n", i+1, i, i, i+1))
+		sb.WriteString(fmt.Sprintf("r%d := { r%d | f%d: %d }\n", i+1, i, i, i+1))
 	}
 	sb.WriteString("main := r20.#f19\n")
 
@@ -736,9 +736,9 @@ func TestStressAllocLimitRecursiveRecord(t *testing.T) {
 import Std.Num
 
 build :: Int -> Record { a : Int, b : Int, c : Int, d : Int, e : Int } -> Int
-build := fix (\self n r. case n == 0 { True -> r.#a; False -> self (n - 1) { r | a = n } })
+build := fix (\self n r. case n == 0 { True -> r.#a; False -> self (n - 1) { r | a: n } })
 
-main := build 10000 { a = 0, b = 0, c = 0, d = 0, e = 0 }
+main := build 10000 { a: 0, b: 0, c: 0, d: 0, e: 0 }
 `
 	eng := gicel.NewEngine()
 	eng.EnableRecursion()

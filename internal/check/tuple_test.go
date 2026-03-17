@@ -106,11 +106,11 @@ main := f (True, 2)`
 // =============================================================================
 
 func TestMixedRecordInTuple(t *testing.T) {
-	source := `main := ({ x = 42 }, 0)`
+	source := `main := ({ x: 42 }, 0)`
 	checkSource(t, source, nil)
 }
 
 func TestMixedTupleInRecord(t *testing.T) {
-	source := `main := { x = (1, 2) }`
+	source := `main := { x: (1, 2) }`
 	checkSource(t, source, nil)
 }

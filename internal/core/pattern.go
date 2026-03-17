@@ -37,7 +37,7 @@ type PCon struct {
 	S    span.Span
 }
 
-// PRecord — record pattern { l1 = p1, ..., ln = pn }.
+// PRecord — record pattern { l1: p1, ..., ln: pn }.
 type PRecord struct {
 	Fields []PRecordField
 	S      span.Span
