@@ -19,6 +19,13 @@ type TyExprCon struct {
 	S    span.Span
 }
 
+// TyExprQualCon is a qualified type constructor reference: N.Int
+type TyExprQualCon struct {
+	Qualifier string
+	Name      string
+	S         span.Span
+}
+
 type TyExprApp struct {
 	Fun TypeExpr
 	Arg TypeExpr
@@ -94,8 +101,9 @@ type KindExprName struct {
 // Used in \ binders: \ (k: Kind). ...
 type KindExprSort struct{ S span.Span }
 
-func (*TyExprVar) typeExprNode()    {}
-func (*TyExprCon) typeExprNode()    {}
+func (*TyExprVar) typeExprNode()     {}
+func (*TyExprCon) typeExprNode()     {}
+func (*TyExprQualCon) typeExprNode() {}
 func (*TyExprApp) typeExprNode()    {}
 func (*TyExprArrow) typeExprNode()  {}
 func (*TyExprForall) typeExprNode() {}
@@ -103,8 +111,9 @@ func (*TyExprRow) typeExprNode()    {}
 func (*TyExprParen) typeExprNode()  {}
 func (*TyExprQual) typeExprNode()   {}
 
-func (t *TyExprVar) Span() span.Span    { return t.S }
-func (t *TyExprCon) Span() span.Span    { return t.S }
+func (t *TyExprVar) Span() span.Span     { return t.S }
+func (t *TyExprCon) Span() span.Span     { return t.S }
+func (t *TyExprQualCon) Span() span.Span { return t.S }
 func (t *TyExprApp) Span() span.Span    { return t.S }
 func (t *TyExprArrow) Span() span.Span  { return t.S }
 func (t *TyExprForall) Span() span.Span { return t.S }

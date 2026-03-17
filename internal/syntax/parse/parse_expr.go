@@ -101,7 +101,13 @@ func (p *Parser) parseAtom() Expr {
 	case TokUpper:
 		tok := p.peek()
 		p.advance()
-		e = &ExprCon{Name: tok.Text, S: tok.S}
+		// Qualified name: Upper.lower → ExprQualVar, Upper.Upper → ExprQualCon
+		// Requires all three tokens to be adjacent (no whitespace).
+		if e2 := p.tryQualifiedExpr(tok); e2 != nil {
+			e = e2
+		} else {
+			e = &ExprCon{Name: tok.Text, S: tok.S}
+		}
 	case TokLParen:
 		e = p.parseParen()
 	case TokBackslash:
@@ -691,6 +697,41 @@ func (p *Parser) parseListLit() Expr {
 	return &ExprList{
 		Elems: elems,
 		S:     span.Span{Start: start, End: p.prevEnd()},
+	}
+}
+
+// tryQualifiedExpr checks if the current position forms a qualified name
+// Upper.lower or Upper.Upper where all tokens are adjacent (no whitespace).
+// The Upper token has already been consumed and is passed as prevTok.
+// Returns nil if no qualified name is formed.
+func (p *Parser) tryQualifiedExpr(prevTok Token) Expr {
+	if p.peek().Kind != TokDot {
+		return nil
+	}
+	dotTok := p.peek()
+	if !tokensAdjacent(prevTok, dotTok) {
+		return nil
+	}
+	if p.pos+1 >= len(p.tokens) {
+		return nil
+	}
+	nextTok := p.tokens[p.pos+1]
+	if !tokensAdjacent(dotTok, nextTok) {
+		return nil
+	}
+	switch nextTok.Kind {
+	case TokLower:
+		p.advance() // consume .
+		p.advance() // consume lower
+		return &ExprQualVar{Qualifier: prevTok.Text, Name: nextTok.Text,
+			S: span.Span{Start: prevTok.S.Start, End: nextTok.S.End}}
+	case TokUpper:
+		p.advance() // consume .
+		p.advance() // consume Upper
+		return &ExprQualCon{Qualifier: prevTok.Text, Name: nextTok.Text,
+			S: span.Span{Start: prevTok.S.Start, End: nextTok.S.End}}
+	default:
+		return nil
 	}
 }
 

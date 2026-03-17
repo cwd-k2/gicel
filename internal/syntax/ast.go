@@ -20,6 +20,20 @@ type ExprCon struct {
 	S    span.Span
 }
 
+// ExprQualVar is a qualified variable reference: N.add
+type ExprQualVar struct {
+	Qualifier string
+	Name      string
+	S         span.Span
+}
+
+// ExprQualCon is a qualified constructor reference: N.Just
+type ExprQualCon struct {
+	Qualifier string
+	Name      string
+	S         span.Span
+}
+
 type ExprApp struct {
 	Fun Expr
 	Arg Expr
@@ -137,6 +151,8 @@ type ExprSection struct {
 
 func (*ExprVar) exprNode()          {}
 func (*ExprCon) exprNode()          {}
+func (*ExprQualVar) exprNode()      {}
+func (*ExprQualCon) exprNode()      {}
 func (*ExprApp) exprNode()          {}
 func (*ExprTyApp) exprNode()        {}
 func (*ExprLam) exprNode()          {}
@@ -158,6 +174,8 @@ func (*ExprSection) exprNode()      {}
 
 func (e *ExprVar) Span() span.Span          { return e.S }
 func (e *ExprCon) Span() span.Span          { return e.S }
+func (e *ExprQualVar) Span() span.Span      { return e.S }
+func (e *ExprQualCon) Span() span.Span      { return e.S }
 func (e *ExprApp) Span() span.Span          { return e.S }
 func (e *ExprTyApp) Span() span.Span        { return e.S }
 func (e *ExprLam) Span() span.Span          { return e.S }

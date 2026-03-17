@@ -145,10 +145,103 @@ func (p *Parser) parseImportDecl() DeclImport {
 		part := p.expectUpper()
 		modName = modName + "." + part
 	}
-	return DeclImport{
-		ModuleName: modName,
-		S:          span.Span{Start: start, End: p.prevEnd()},
+
+	imp := DeclImport{ModuleName: modName}
+
+	// Check for qualified import: import M as N
+	if p.peek().Kind == TokLower && p.peek().Text == "as" {
+		p.advance() // consume "as"
+		imp.Alias = p.expectUpper()
+		imp.S = span.Span{Start: start, End: p.prevEnd()}
+		return imp
 	}
+
+	// Check for selective import: import M (name, T(..), C(A,B))
+	if p.peek().Kind == TokLParen {
+		imp.Names = p.parseImportList()
+	}
+
+	imp.S = span.Span{Start: start, End: p.prevEnd()}
+	return imp
+}
+
+// parseImportList parses the parenthesized import name list: (name, T(..), (op), C(A,B))
+func (p *Parser) parseImportList() []ImportName {
+	p.expect(TokLParen)
+	var names []ImportName
+	for p.peek().Kind != TokRParen && p.peek().Kind != TokEOF {
+		names = append(names, p.parseImportName())
+		if p.peek().Kind == TokComma {
+			p.advance()
+		} else {
+			break
+		}
+	}
+	p.expect(TokRParen)
+	return names
+}
+
+// parseImportName parses one entry in an import list.
+//
+//	lower            → value binding
+//	(op)             → operator
+//	Upper            → type/class bare
+//	Upper (..)       → type/class with all subs
+//	Upper (A, B)     → type/class with specific subs
+func (p *Parser) parseImportName() ImportName {
+	// Operator: (op)
+	if p.peek().Kind == TokLParen {
+		p.advance()
+		var opName string
+		if p.peek().Kind == TokOp {
+			opName = p.peek().Text
+			p.advance()
+		} else if p.peek().Kind == TokDot {
+			opName = "."
+			p.advance()
+		} else {
+			p.addError("expected operator in import list")
+			opName = "<error>"
+		}
+		p.expect(TokRParen)
+		return ImportName{Name: opName}
+	}
+
+	// Value binding: lower
+	if p.peek().Kind == TokLower {
+		name := p.peek().Text
+		p.advance()
+		return ImportName{Name: name}
+	}
+
+	// Type/class: Upper [(..) | (A, B)]
+	name := p.expectUpper()
+	in := ImportName{Name: name}
+
+	if p.peek().Kind == TokLParen {
+		p.advance()
+		in.HasSub = true
+		if p.peek().Kind == TokDot && p.pos+1 < len(p.tokens) && p.tokens[p.pos+1].Kind == TokDot {
+			// (..)
+			p.advance() // first .
+			p.advance() // second .
+			in.AllSubs = true
+		} else if p.peek().Kind != TokRParen {
+			// Explicit sub-list: (A, B, ...)
+			for {
+				sub := p.expectUpper()
+				in.SubList = append(in.SubList, sub)
+				if p.peek().Kind == TokComma {
+					p.advance()
+				} else {
+					break
+				}
+			}
+		}
+		p.expect(TokRParen)
+	}
+
+	return in
 }
 
 func (p *Parser) parseDataDecl() *DeclData {
@@ -1086,6 +1179,11 @@ func (p *Parser) lookupFixity(op string) Fixity {
 		return f
 	}
 	return Fixity{Assoc: AssocLeft, Prec: 9} // default
+}
+
+// tokensAdjacent checks if two tokens have no whitespace between them.
+func tokensAdjacent(a, b Token) bool {
+	return a.S.End == b.S.Start
 }
 
 func (p *Parser) addError(msg string) {

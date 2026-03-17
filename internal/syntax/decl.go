@@ -108,9 +108,23 @@ type InstMethod struct {
 	S    span.Span
 }
 
-// DeclImport is a module import declaration (import ModuleName).
+// ImportName identifies a single name in a selective import list.
+type ImportName struct {
+	Name    string   // "add", "Bool", "Maybe", "(+)"
+	SubList []string // nil = name only, non-nil = explicit sub-list
+	HasSub  bool     // true if parenthesized form used: Name(...) or Name(..)
+	AllSubs bool     // true if (..) used
+}
+
+// DeclImport is a module import declaration.
+//
+//	import ModuleName                       -- open: all names unqualified
+//	import ModuleName (name, T(..), C(A))   -- selective: specified names only
+//	import ModuleName as Alias              -- qualified: Alias.name access only
 type DeclImport struct {
 	ModuleName string
+	Alias      string       // "" = open/selective, non-empty = qualified
+	Names      []ImportName // nil = import all (open), non-nil = selective
 	S          span.Span
 }
 

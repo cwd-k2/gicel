@@ -171,6 +171,19 @@ func (p *Parser) parseTypeAtom() TypeExpr {
 	case TokUpper:
 		tok := p.peek()
 		p.advance()
+		// Qualified type: Upper.Upper (adjacent, no whitespace) → TyExprQualCon
+		if p.peek().Kind == TokDot && tokensAdjacent(tok, p.peek()) {
+			dotTok := p.peek()
+			if p.pos+1 < len(p.tokens) {
+				nextTok := p.tokens[p.pos+1]
+				if tokensAdjacent(dotTok, nextTok) && nextTok.Kind == TokUpper {
+					p.advance() // consume .
+					p.advance() // consume Upper
+					return &TyExprQualCon{Qualifier: tok.Text, Name: nextTok.Text,
+						S: span.Span{Start: tok.S.Start, End: nextTok.S.End}}
+				}
+			}
+		}
 		return &TyExprCon{Name: tok.Text, S: tok.S}
 	case TokLParen:
 		start := p.peek().S.Start
