@@ -568,7 +568,16 @@ func (p *Parser) parsePattern() Pattern {
 
 func (p *Parser) parseConPattern() Pattern {
 	start := p.peek().S.Start
+	tok := p.peek()
 	name := p.expectUpper()
+	// Detect qualified constructor in pattern: Q.Con — not yet supported.
+	if p.peek().Kind == TokDot && tokensAdjacent(tok, p.peek()) {
+		if p.pos+1 < len(p.tokens) && p.tokens[p.pos+1].Kind == TokUpper && tokensAdjacent(p.peek(), p.tokens[p.pos+1]) {
+			p.addError("qualified constructors in patterns are not supported; use open or selective import")
+			p.advance() // skip .
+			p.advance() // skip Upper
+		}
+	}
 	var args []Pattern
 	for p.isPatternAtomStart() {
 		args = append(args, p.parsePatternAtom())

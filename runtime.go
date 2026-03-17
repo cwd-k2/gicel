@@ -26,8 +26,9 @@ type Runtime struct {
 
 // moduleEntry pairs a module name with its compiled program.
 type moduleEntry struct {
-	name string
-	prog *core.Program
+	name          string
+	prog          *core.Program
+	qualifiedOnly bool // true if imported as qualified (no plain-name registration)
 }
 
 // Program returns the compiled Core IR for debugging/inspection.
@@ -53,8 +54,20 @@ func (r *Runtime) initBuiltinEnv(gatedBuiltins map[string]bool) {
 			for _, con := range d.Cons {
 				cv := &eval.ConVal{Con: con.Name}
 				env = env.Extend(con.Name, cv)
-				// Qualified key for qualified import resolution.
 				env = env.Extend(me.name+"\x00"+con.Name, cv)
+			}
+		}
+	}
+	// Re-register open-imported constructors so their plain names win.
+	for _, me := range r.moduleEntries {
+		if me.qualifiedOnly {
+			continue
+		}
+		for _, d := range me.prog.DataDecls {
+			for _, con := range d.Cons {
+				if v, ok := env.Lookup(me.name + "\x00" + con.Name); ok {
+					env = env.Extend(con.Name, v)
+				}
 			}
 		}
 	}
@@ -96,11 +109,26 @@ func (r *Runtime) execute(ctx context.Context, caps map[string]any, bindings map
 
 	ev := eval.NewEvaluator(ctx, r.prims, limit, traceHook, obs)
 
-	// Module bindings (internal — suppressed in explain, dual registration).
+	// Module bindings (internal — suppressed in explain).
+	// All modules evaluated in registration order (preserves dependency ordering).
+	// Each binding is registered under both plain name and qualified key.
 	for _, me := range r.moduleEntries {
 		env, err = r.evalModuleBindings(ev, env, me.name, me.prog.Bindings, obs)
 		if err != nil {
 			return eval.EvalResult{}, EvalStats{}, err
+		}
+	}
+
+	// Re-register open-imported bindings so their plain names shadow
+	// any qualified-only module's plain names from the step above.
+	for _, me := range r.moduleEntries {
+		if me.qualifiedOnly {
+			continue
+		}
+		for _, b := range me.prog.Bindings {
+			if v, ok := env.Lookup(me.name + "\x00" + b.Name); ok {
+				env = env.Extend(b.Name, v)
+			}
 		}
 	}
 
@@ -185,7 +213,6 @@ func (r *Runtime) evalModuleBindings(ev *eval.Evaluator, env *eval.Env, moduleNa
 		cell := &eval.IndirectVal{}
 		cells[b.Name] = cell
 		env = env.Extend(b.Name, cell)
-		// Qualified key for qualified import resolution.
 		env = env.Extend(moduleName+"\x00"+b.Name, cell)
 	}
 	for _, b := range bindings {

@@ -30,16 +30,31 @@ func (ch *Checker) resolveTypeExpr(texpr syntax.TypeExpr) types.Type {
 			ch.addCodedError(errs.ErrImport, t.S, fmt.Sprintf("unknown qualifier: %s", t.Qualifier))
 			return &types.TyError{S: t.S}
 		}
-		// Check qualified aliases
-		if info, ok := qs.exports.Aliases[t.Name]; ok && len(info.params) == 0 {
-			return info.body
+		// Check qualified aliases (zero-arity: expand inline; parameterized: inject into local scope for TyApp expansion)
+		if info, ok := qs.exports.Aliases[t.Name]; ok {
+			if len(info.params) == 0 {
+				return info.body
+			}
+			ch.aliases[t.Name] = info
+			return &types.TyCon{Name: t.Name, S: t.S}
 		}
-		// Check qualified type families
-		if fam, ok := qs.exports.TypeFamilies[t.Name]; ok && len(fam.Params) == 0 {
-			return &types.TyFamilyApp{Name: t.Name, Args: nil, Kind: fam.ResultKind, S: t.S}
+		// Check qualified type families (zero-arity: immediate; parameterized: inject for TyApp expansion)
+		if fam, ok := qs.exports.TypeFamilies[t.Name]; ok {
+			if len(fam.Params) == 0 {
+				return &types.TyFamilyApp{Name: t.Name, Args: nil, Kind: fam.ResultKind, S: t.S}
+			}
+			ch.families[t.Name] = fam.Clone()
+			return &types.TyCon{Name: t.Name, S: t.S}
 		}
 		// Check qualified types
 		if _, ok := qs.exports.Types[t.Name]; ok {
+			return &types.TyCon{Name: t.Name, S: t.S}
+		}
+		// Check promoted kinds/constructors
+		if _, ok := qs.exports.PromotedKinds[t.Name]; ok {
+			return &types.TyCon{Name: t.Name, S: t.S}
+		}
+		if _, ok := qs.exports.PromotedCons[t.Name]; ok {
 			return &types.TyCon{Name: t.Name, S: t.S}
 		}
 		ch.addCodedError(errs.ErrImport, t.S,

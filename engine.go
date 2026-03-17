@@ -397,10 +397,22 @@ func (e *Engine) NewRuntime(source string) (*Runtime, error) {
 	// Annotate free variables for safe-for-space closure conversion.
 	core.AnnotateFreeVarsProgram(prog)
 
+	// Determine which modules are imported qualified-only (no plain-name registration).
+	qualifiedOnly := make(map[string]bool)
+	for _, imp := range ast.Imports {
+		if imp.Alias != "" {
+			qualifiedOnly[imp.ModuleName] = true
+		}
+	}
+
 	// Collect module entries in registration order for deterministic evaluation.
 	entries := make([]moduleEntry, 0, len(e.moduleOrder))
 	for _, name := range e.moduleOrder {
-		entries = append(entries, moduleEntry{name: name, prog: e.modules[name].prog})
+		entries = append(entries, moduleEntry{
+			name:          name,
+			prog:          e.modules[name].prog,
+			qualifiedOnly: qualifiedOnly[name],
+		})
 	}
 
 	rt := &Runtime{

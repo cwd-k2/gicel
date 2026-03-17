@@ -138,12 +138,15 @@ func (p *Parser) parseDecl() Decl {
 func (p *Parser) parseImportDecl() DeclImport {
 	start := p.peek().S.Start
 	p.expect(TokImport)
+	modTok := p.peek()
 	modName := p.expectUpper()
 	// Support dotted module names: Std.Num, Std.Str, etc.
-	for p.peek().Kind == TokDot {
+	// Only adjacent dots (no whitespace) form module paths.
+	for p.peek().Kind == TokDot && tokensAdjacent(modTok, p.peek()) {
 		p.advance()
 		part := p.expectUpper()
 		modName = modName + "." + part
+		modTok = p.tokens[p.pos-1] // update for next adjacency check
 	}
 
 	imp := DeclImport{ModuleName: modName}
@@ -168,7 +171,7 @@ func (p *Parser) parseImportDecl() DeclImport {
 // parseImportList parses the parenthesized import name list: (name, T(..), (op), C(A,B))
 func (p *Parser) parseImportList() []ImportName {
 	p.expect(TokLParen)
-	var names []ImportName
+	names := []ImportName{} // non-nil empty slice distinguishes import M () from import M
 	for p.peek().Kind != TokRParen && p.peek().Kind != TokEOF {
 		names = append(names, p.parseImportName())
 		if p.peek().Kind == TokComma {
@@ -227,9 +230,19 @@ func (p *Parser) parseImportName() ImportName {
 			p.advance() // second .
 			in.AllSubs = true
 		} else if p.peek().Kind != TokRParen {
-			// Explicit sub-list: (A, B, ...)
+			// Explicit sub-list: (A, B, methodName, ...)
 			for {
-				sub := p.expectUpper()
+				var sub string
+				if p.peek().Kind == TokUpper {
+					sub = p.peek().Text
+					p.advance()
+				} else if p.peek().Kind == TokLower {
+					sub = p.peek().Text
+					p.advance()
+				} else {
+					p.addError("expected name in import sub-list")
+					break
+				}
 				in.SubList = append(in.SubList, sub)
 				if p.peek().Kind == TokComma {
 					p.advance()
