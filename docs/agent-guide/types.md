@@ -211,7 +211,7 @@ Without annotation, fields are `@Unrestricted`. The `@Linear` annotation means t
 A type family can declare its result injective with a named result binder and functional dependency:
 
 ```
-type Effects (mode : AppMode) :: (r :: Row) | r -> mode = {
+type Effects (mode : AppMode) :: (r : Row) | r -> mode = {
   Effects ReadOnly  = { get : () -> String };
   Effects ReadWrite = { get : () -> String, put : String -> () }
 }

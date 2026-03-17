@@ -1352,7 +1352,7 @@ type Name TyBinder* :: ResultKind = { Equation (; Equation)* }
 The `::` after parameters distinguishes type families from type aliases. Each equation repeats the family name.
 
 ```
-type Elem (c :: Type) :: Type = {
+type Elem (c : Type) :: Type = {
   Elem (List a) = a;
   Elem (Slice a) = a;
   Elem String = Rune
@@ -1421,7 +1421,7 @@ class Convert a b | a -> b {
 A type family may declare its result injective via a named result binder with functional dependency:
 
 ```
-type Effects (mode :: AppMode) :: (r :: Row) | r -> mode = {
+type Effects (mode : AppMode) :: (r : Row) | r -> mode = {
   Effects ReadOnly  = { get : () -> String };
   Effects ReadWrite = { get : () -> String, put : String -> () }
 }
@@ -1481,7 +1481,7 @@ Multiplicity annotations are checked by the type system but do not affect runtim
 The `LUB` (least upper bound) of multiplicities at branch join points can be computed via a type family:
 
 ```
-type LUB (m1 :: Mult) (m2 :: Mult) :: Mult = {
+type LUB (m1 : Mult) (m2 : Mult) :: Mult = {
   LUB Linear _ = Linear;
   LUB _ Linear = Linear;
   LUB Affine _ = Affine;

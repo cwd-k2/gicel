@@ -267,7 +267,7 @@ instance IxMonad List {
   ixbind := \xs -> \f -> foldr (\x -> \acc -> append (f x) acc) Nil xs
 }
 
-class Packed c e {
+class Packed c e | c -> e {
   pack   :: List e -> c;
   unpack :: c -> List e
 }

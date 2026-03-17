@@ -171,7 +171,7 @@ func TestTypeFamilyInjectivityViolation(t *testing.T) {
 	source := `
 data Unit = Unit
 data List a = Nil | Cons a (List a)
-type Elem (c : Type) :: (r :: Type) | r -> c = {
+type Elem (c : Type) :: (r : Type) | r -> c = {
   Elem (List a) = a;
   Elem Unit = Unit
 }

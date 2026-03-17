@@ -212,7 +212,7 @@ TypeFamilyDecl
 
 ResultKind
   = KindExpr
-  | '(' LowerName '::' KindExpr ')' '|' DepList
+  | '(' LowerName ':' KindExpr ')' '|' DepList
 
 DepList
   = LowerName '->' LowerName+
@@ -232,7 +232,7 @@ type Elem (c : Type) :: Type = {
 }
 
 -- Injective (named result with functional dependency)
-type Effects (mode : AppMode) :: (r :: Row) | r -> mode = {
+type Effects (mode : AppMode) :: (r : Row) | r -> mode = {
   Effects ReadOnly  = { get : () -> String };
   Effects ReadWrite = { get : () -> String, put : String -> () }
 }

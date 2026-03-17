@@ -38,7 +38,7 @@ Level 10 (Graded Evidence) requires computing the least upper bound of multiplic
 ```gicel
 data Mult = Unrestricted | Affine | Linear
 
-type LUB (m1 :: Mult) (m2 :: Mult) :: Mult = {
+type LUB (m1 : Mult) (m2 : Mult) :: Mult = {
   LUB Linear _ = Linear;
   LUB _ Linear = Linear;
   LUB Affine _ = Affine;
@@ -56,7 +56,7 @@ If GICEL adopts session types (fork point: Row as general structured-index), dua
 ```gicel
 data Session = Send Type Session | Recv Type Session | End
 
-type Dual (s :: Session) :: Session = {
+type Dual (s : Session) :: Session = {
   Dual (Send a s) = Recv a (Dual s);
   Dual (Recv a s) = Send a (Dual s);
   Dual End = End
@@ -68,7 +68,7 @@ type Dual (s :: Session) :: Session = {
 Since `Constraint` is already a first-class kind, type families with result kind `Constraint` arise naturally — no special syntax needed:
 
 ```gicel
-type Required (cap :: Capability) :: Constraint = {
+type Required (cap : Capability) :: Constraint = {
   Required FileHandle = (Ord FilePath);
   Required Database   = (Eq ConnStr, Show ConnStr)
 }
@@ -88,7 +88,7 @@ TypeFamilyDecl
 
 ResultKind
   = KindExpr                                         -- non-injective
-  | '(' LowerName '::' KindExpr ')' '|' DepList     -- injective (named result)
+  | '(' LowerName ':' KindExpr ')' '|' DepList      -- injective (named result)
 
 DepList
   = LowerName '->' LowerName+                        -- functional dependency
@@ -101,7 +101,7 @@ Examples:
 
 ```gicel
 -- Non-injective
-type LUB (m1 :: Mult) (m2 :: Mult) :: Mult = {
+type LUB (m1 : Mult) (m2 : Mult) :: Mult = {
   LUB Linear _ = Linear;
   LUB _ Linear = Linear;
   LUB Affine _ = Affine;
@@ -110,7 +110,7 @@ type LUB (m1 :: Mult) (m2 :: Mult) :: Mult = {
 }
 
 -- Injective (named result variable with dependency)
-type Elem (c :: Type) :: (r :: Type) | r -> c = {
+type Elem (c : Type) :: (r : Type) | r -> c = {
   Elem (List a) = a;
   Elem (Slice a) = a;
   Elem String = Rune
@@ -169,8 +169,8 @@ The result kind position supports an optional named binder with functional depen
 
 ```
 :: Type                            -- unnamed, non-injective
-:: (r :: Type) | r -> c            -- named result r, r determines c
-:: (r :: Type) | r -> a b          -- r determines both a and b
+:: (r : Type) | r -> c            -- named result r, r determines c
+:: (r : Type) | r -> a b          -- r determines both a and b
 ```
 
 Injectivity is checked at declaration time by pairwise comparison: for every pair of equations, if the right-hand sides can unify, the left-hand sides must also unify. Injectivity is a strong property — many natural type families (e.g., `Elem` where `List Rune` and `String` both map to `Rune`) do not satisfy it.
@@ -182,7 +182,7 @@ The `| a -> b` notation uses the same syntax as functional dependencies on MPTCs
 Each equation repeats the type family name:
 
 ```gicel
-type F (a :: Type) (b :: Type) :: Type = {
+type F (a : Type) (b : Type) :: Type = {
   F Int Bool = String;
   F a (List b) = b
 }
@@ -199,11 +199,11 @@ Rationale:
 Declaration level:
   type Name params = TypeExpr                            -- type alias (existing)
   type Name params :: Kind = { equations }               -- standalone type family
-  type Name params :: (r :: Kind) | deps = { equations } -- standalone, injective
+  type Name params :: (r : Kind) | deps = { equations } -- standalone, injective
 
 Class body:
   type Name params :: Kind                               -- associated type decl
-  type Name params :: (r :: Kind) | deps                 -- associated type decl, injective
+  type Name params :: (r : Kind) | deps                 -- associated type decl, injective
 
 Instance body:
   type Name params = TypeExpr                            -- associated type def
@@ -229,7 +229,7 @@ A closed type family defines a sequence of equations checked top-to-bottom. To r
 The indeterminate case (1d) is critical:
 
 ```gicel
-type F (a :: Type) :: Type = {
+type F (a : Type) :: Type = {
   F Int = Bool;
   F a   = String
 }
@@ -282,7 +282,7 @@ Elaborates to:
 
 ```
 -- Standalone type family (equations collected from instances)
-type Elem (c :: Type) :: Type = { ... }
+type Elem (c : Type) :: Type = { ... }
 
 -- Dictionary has no field for Elem (type-level only)
 data Container$Dict c = Container$MkDict (forall b. (Elem c -> b -> b) -> b -> c -> b)
@@ -300,13 +300,13 @@ Type families operate **above** rows, not within them. Row unification remains b
 
 ```gicel
 -- Valid: returns a row
-type DefaultCaps (mode :: AppMode) :: Row = {
+type DefaultCaps (mode : AppMode) :: Row = {
   DefaultCaps ReadOnly  = { get : () -> String };
   DefaultCaps ReadWrite = { get : () -> String, put : String -> () }
 }
 
 -- Invalid: pattern matching on row structure
-type HasLabel (r :: Row) (l :: Symbol) :: Bool = { ... }  -- NOT SUPPORTED
+type HasLabel (r : Row) (l : Symbol) :: Bool = { ... }  -- NOT SUPPORTED
 ```
 
 ### 4.2 Constraint System
@@ -378,7 +378,7 @@ Lane 6 — Usage Discipline
 | 1 (Index) | Computation over promoted kinds | `Dual (Send a s) = Recv a (Dual s)` |
 | 3 (Type-equality) | Type-level reduction in unifier | `Elem (List Int) ~ Int` |
 | 4 (Logic) | Type-level predicates via promoted Bool | `IsLinear FileHandle ~ True` |
-| 5 (Effect) | Computed effect type aliases | `type Effects (mode :: AppMode) :: Row` |
+| 5 (Effect) | Computed effect type aliases | `type Effects (mode : AppMode) :: Row` |
 | 6 (Usage) | Multiplicity lattice operations | `LUB Linear Affine ~ Linear` |
 
 ---
@@ -459,7 +459,7 @@ Session types can use promoted data kinds (`data Session = Send | Recv | End`) w
 Type families let the indexed monad express **computed capability sets**:
 
 ```gicel
-type Effects (mode :: AppMode) :: Row = {
+type Effects (mode : AppMode) :: Row = {
   Effects ReadOnly  = { get : () -> String };
   Effects ReadWrite = { get : () -> String, put : String -> () }
 }
@@ -505,8 +505,8 @@ The two grades are not always independent — a linear capability is consumed (s
 Type families cross fiber boundaries:
 
 ```gicel
-type Required (cap :: Type) :: Constraint = { ... }   -- Type → Constraint
-type Effects (mode :: AppMode) :: Row = { ... }        -- promoted kind → Row
+type Required (cap : Type) :: Constraint = { ... }   -- Type → Constraint
+type Effects (mode : AppMode) :: Row = { ... }        -- promoted kind → Row
 ```
 
 The EvidenceFiber architecture (Level 9 design) provides the structural foundation. The question of where fiber independence ends and fiber interaction begins — mediated by type family reduction — is specific to GICEL's evidence architecture.
@@ -553,7 +553,7 @@ When a type family returns a Row (`type Effects mode :: Row`), and that Row appe
 ### 9.1 Elem — Collection Element Type
 
 ```gicel
-type Elem (c :: Type) :: Type = {
+type Elem (c : Type) :: Type = {
   Elem (List a) = a;
   Elem (Slice a) = a;
   Elem String = Rune
@@ -589,7 +589,7 @@ Note: `Elem` is not injective — `Elem (List Rune) = Rune` and `Elem String = R
 ```gicel
 data Mult = Unrestricted | Affine | Linear
 
-type LUB (m1 :: Mult) (m2 :: Mult) :: Mult = {
+type LUB (m1 : Mult) (m2 : Mult) :: Mult = {
   LUB Linear _ = Linear;
   LUB _ Linear = Linear;
   LUB Affine _ = Affine;
@@ -597,7 +597,7 @@ type LUB (m1 :: Mult) (m2 :: Mult) :: Mult = {
   LUB Unrestricted Unrestricted = Unrestricted
 }
 
-type GLB (m1 :: Mult) (m2 :: Mult) :: Mult = {
+type GLB (m1 : Mult) (m2 : Mult) :: Mult = {
   GLB Unrestricted _ = Unrestricted;
   GLB _ Unrestricted = Unrestricted;
   GLB Affine _ = Affine;
@@ -611,14 +611,14 @@ type GLB (m1 :: Mult) (m2 :: Mult) :: Mult = {
 ```gicel
 data AppMode = ReadOnly | ReadWrite | Admin
 
-type Effects (mode :: AppMode) :: Row = {
+type Effects (mode : AppMode) :: Row = {
   Effects ReadOnly  = { get : () -> String };
   Effects ReadWrite = { get : () -> String, put : String -> () };
   Effects Admin     = { get : () -> String, put : String -> (), delete : String -> () }
 }
 
 -- Injective: each mode maps to a distinct row
-type Effects' (mode :: AppMode) :: (r :: Row) | r -> mode = {
+type Effects' (mode : AppMode) :: (r : Row) | r -> mode = {
   Effects' ReadOnly  = { get : () -> String };
   Effects' ReadWrite = { get : () -> String, put : String -> () };
   Effects' Admin     = { get : () -> String, put : String -> (), delete : String -> () }
@@ -631,7 +631,7 @@ type Effects' (mode :: AppMode) :: (r :: Row) | r -> mode = {
 data Session = Send Type Session | Recv Type Session | Choose Session Session
              | Offer Session Session | End
 
-type Dual (s :: Session) :: Session = {
+type Dual (s : Session) :: Session = {
   Dual (Send a s) = Recv a (Dual s);
   Dual (Recv a s) = Send a (Dual s);
   Dual (Choose a b) = Offer (Dual a) (Dual b);
@@ -645,7 +645,7 @@ type Dual (s :: Session) :: Session = {
 ```gicel
 data Serialization = JSON | Binary | CSV
 
-type Serializable (fmt :: Serialization) :: Constraint = {
+type Serializable (fmt : Serialization) :: Constraint = {
   Serializable JSON   = Show;
   Serializable Binary = Packed;
   Serializable CSV    = (Show, Packed)
