@@ -410,10 +410,21 @@ func (ch *Checker) ExportModule(prog *core.Program) *ModuleExports {
 	}
 }
 
-// isPrivateName reports whether a name is module-private (starts with '_').
-// Compiler-generated names (containing '$') are always internal and never exported.
+// isPrivateName reports whether a name is module-private.
+// Private: '_' prefix (user convention) or compiler-generated ($d, $dict, $pat, $bind, $sel prefixes).
 func isPrivateName(name string) bool {
-	return len(name) > 0 && name[0] == '_'
+	if len(name) == 0 {
+		return false
+	}
+	if name[0] == '_' {
+		return true
+	}
+	if name[0] == '$' && len(name) > 1 {
+		// Compiler-generated names start with $d, $dict, $pat, $bind, $sel.
+		// User-defined operator "$" is len==1 and not matched here.
+		return true
+	}
+	return false
 }
 
 func copyMap[V any](m map[string]V) map[string]V {
