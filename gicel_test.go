@@ -5036,3 +5036,218 @@ main := convert Zero
 		t.Fatalf("second compilation: expected False, got %s", r2.Value)
 	}
 }
+
+// --- Module System Extension: Selective & Qualified Imports ---
+
+func TestSelectiveImport(t *testing.T) {
+	eng := gicel.NewEngine()
+	err := eng.RegisterModule("Lib", `
+data Color := Red | Green | Blue
+red :: Color
+red := Red
+green :: Color
+green := Green
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Selective: only import Red and red
+	rt, err := eng.NewRuntime(`
+import Lib (red, Color(Red))
+main := red
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := rt.RunWith(context.Background(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	con, ok := result.Value.(*gicel.ConVal)
+	if !ok || con.Con != "Red" {
+		t.Errorf("expected Red, got %s", result.Value)
+	}
+}
+
+func TestSelectiveImportRejectsUnlisted(t *testing.T) {
+	eng := gicel.NewEngine()
+	err := eng.RegisterModule("Lib", `
+data Color := Red | Green | Blue
+red :: Color
+red := Red
+green :: Color
+green := Green
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Selective import doesn't include 'green'
+	_, err = eng.NewRuntime(`
+import Lib (red)
+main := green
+`)
+	if err == nil {
+		t.Fatal("expected error: green should not be in scope")
+	}
+}
+
+func TestQualifiedImport(t *testing.T) {
+	eng := gicel.NewEngine()
+	err := eng.RegisterModule("Lib", `
+data Color := Red | Green | Blue
+red :: Color
+red := Red
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rt, err := eng.NewRuntime(`
+import Lib as L
+main := L.red
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := rt.RunWith(context.Background(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	con, ok := result.Value.(*gicel.ConVal)
+	if !ok || con.Con != "Red" {
+		t.Errorf("expected Red, got %s", result.Value)
+	}
+}
+
+func TestQualifiedImportConstructor(t *testing.T) {
+	eng := gicel.NewEngine()
+	err := eng.RegisterModule("Lib", `
+data Color := Red | Green | Blue
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rt, err := eng.NewRuntime(`
+import Lib as L
+main := L.Green
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := rt.RunWith(context.Background(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	con, ok := result.Value.(*gicel.ConVal)
+	if !ok || con.Con != "Green" {
+		t.Errorf("expected Green, got %s", result.Value)
+	}
+}
+
+func TestQualifiedNotInUnqualifiedScope(t *testing.T) {
+	eng := gicel.NewEngine()
+	err := eng.RegisterModule("Lib", `
+data Color := Red | Green | Blue
+red :: Color
+red := Red
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Qualified import should NOT bring names into unqualified scope
+	_, err = eng.NewRuntime(`
+import Lib as L
+main := red
+`)
+	if err == nil {
+		t.Fatal("expected error: 'red' should not be in unqualified scope with qualified import")
+	}
+}
+
+func TestDuplicateImportError(t *testing.T) {
+	eng := gicel.NewEngine()
+	err := eng.RegisterModule("Lib", `
+data Color := Red | Green | Blue
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = eng.NewRuntime(`
+import Lib
+import Lib
+main := Red
+`)
+	if err == nil {
+		t.Fatal("expected error for duplicate import")
+	}
+}
+
+func TestAliasCollisionError(t *testing.T) {
+	eng := gicel.NewEngine()
+	err := eng.RegisterModule("LibA", `
+data X := MkX
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = eng.RegisterModule("LibB", `
+data Y := MkY
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = eng.NewRuntime(`
+import LibA as L
+import LibB as L
+main := L.MkX
+`)
+	if err == nil {
+		t.Fatal("expected error for alias collision")
+	}
+}
+
+func TestSelectiveImportAllSubs(t *testing.T) {
+	eng := gicel.NewEngine()
+	err := eng.RegisterModule("Lib", `
+data Maybe a := Nothing | Just a
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rt, err := eng.NewRuntime(`
+import Lib (Maybe(..))
+main := Just 42
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := rt.RunWith(context.Background(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	con, ok := result.Value.(*gicel.ConVal)
+	if !ok || con.Con != "Just" {
+		t.Errorf("expected Just, got %s", result.Value)
+	}
+}
+
+func TestCoreSelectiveImportRejected(t *testing.T) {
+	eng := gicel.NewEngine()
+	_, err := eng.NewRuntime(`
+import Core (pure)
+main := pure 42
+`)
+	if err == nil {
+		t.Fatal("expected error: selective import of Core should be rejected")
+	}
+}
+
+func TestCoreQualifiedImportRejected(t *testing.T) {
+	eng := gicel.NewEngine()
+	_, err := eng.NewRuntime(`
+import Core as C
+main := C.pure 42
+`)
+	if err == nil {
+		t.Fatal("expected error: qualified import of Core should be rejected")
+	}
+}

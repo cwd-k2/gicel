@@ -179,6 +179,13 @@ func (ch *Checker) importModules(imports []syntax.DeclImport) {
 	aliases := make(map[string]string)   // alias → module name (for collision detection)
 
 	for _, imp := range imports {
+		// Core is implicit and user-invisible. Selective/qualified Core is an error.
+		if imp.ModuleName == "Core" && (imp.Alias != "" || imp.Names != nil) {
+			ch.addCodedError(errs.ErrImport, imp.S,
+				"Core module cannot be selectively or qualifiedly imported")
+			continue
+		}
+
 		// Duplicate import detection.
 		if seen[imp.ModuleName] {
 			ch.addCodedError(errs.ErrImport, imp.S,
