@@ -32,15 +32,15 @@ instance Eq Ordering { eq := \x y. case x {
   GT -> case y { LT -> False; EQ -> False; GT -> True }
 } }
 
-instance Eq a => Eq (Maybe a) { eq := \x y. case x {
-  Nothing -> case y { Nothing -> True; Just _ -> False };
-  Just a -> case y { Nothing -> False; Just b -> eq a b }
+instance Eq a => Eq (Maybe a) { eq := \x y. case (x, y) {
+  (Nothing, Nothing) -> True;
+  (Just a, Just b)   -> eq a b;
+  (Nothing, Just _)  -> False;
+  (Just _, Nothing)  -> False
 } }
 
-instance (Eq a, Eq b) => Eq (a, b) { eq := \x y. case x {
-  (a1, b1) -> case y {
-    (a2, b2) -> case eq a1 a2 { True -> eq b1 b2; False -> False }
-  }
+instance (Eq a, Eq b) => Eq (a, b) { eq := \x y. case (x, y) {
+  ((a1, b1), (a2, b2)) -> eq a1 a2 && eq b1 b2
 } }
 
 instance Functor Maybe { fmap := \f ma. case ma {
@@ -73,14 +73,14 @@ instance Ord Ordering { compare := \x y. case x {
   EQ -> case y { LT -> GT; EQ -> EQ; GT -> LT };
   GT -> case y { LT -> GT; EQ -> GT; GT -> EQ }
 } }
-instance Ord a => Ord (Maybe a) { compare := \x y. case x {
-  Nothing -> case y { Nothing -> EQ; Just _ -> LT };
-  Just a  -> case y { Nothing -> GT; Just b -> compare a b }
+instance Ord a => Ord (Maybe a) { compare := \x y. case (x, y) {
+  (Nothing, Nothing) -> EQ;
+  (Nothing, Just _)  -> LT;
+  (Just _, Nothing)  -> GT;
+  (Just a, Just b)   -> compare a b
 } }
-instance (Ord a, Ord b) => Ord (a, b) { compare := \x y. case x {
-  (a1, b1) -> case y {
-    (a2, b2) -> append (compare a1 a2) (compare b1 b2)
-  }
+instance (Ord a, Ord b) => Ord (a, b) { compare := \x y. case (x, y) {
+  ((a1, b1), (a2, b2)) -> append (compare a1 a2) (compare b1 b2)
 } }
 
 instance Applicative Maybe {
@@ -98,12 +98,11 @@ instance Traversable Maybe {
   }
 }
 
-instance Eq a => Eq (List a) { eq := \xs ys. case xs {
-  Nil -> case ys { Nil -> True; Cons _ _ -> False };
-  Cons x rest -> case ys {
-    Nil -> False;
-    Cons y rest2 -> case eq x y { True -> eq rest rest2; False -> False }
-  }
+instance Eq a => Eq (List a) { eq := \xs ys. case (xs, ys) {
+  (Nil, Nil) -> True;
+  (Cons x rest, Cons y rest2) -> eq x y && eq rest rest2;
+  (Nil, Cons _ _) -> False;
+  (Cons _ _, Nil) -> False
 } }
 
 instance Functor List { fmap := \f xs. case xs {
@@ -319,14 +318,18 @@ instance Traversable List {
   traverse := \f. foldr (\x acc. ap (fmap Cons (f x)) acc) (wrap Nil)
 }
 
-instance (Eq e, Eq a) => Eq (Result e a) { eq := \x y. case x {
-  Err e1 -> case y { Err e2 -> eq e1 e2; Ok _ -> False };
-  Ok a1 -> case y { Err _ -> False; Ok a2 -> eq a1 a2 }
+instance (Eq e, Eq a) => Eq (Result e a) { eq := \x y. case (x, y) {
+  (Ok a1, Ok a2)   -> eq a1 a2;
+  (Err e1, Err e2) -> eq e1 e2;
+  (Ok _, Err _)    -> False;
+  (Err _, Ok _)    -> False
 } }
 
-instance (Ord e, Ord a) => Ord (Result e a) { compare := \x y. case x {
-  Err e1 -> case y { Err e2 -> compare e1 e2; Ok _ -> LT };
-  Ok a1 -> case y { Err _ -> GT; Ok a2 -> compare a1 a2 }
+instance (Ord e, Ord a) => Ord (Result e a) { compare := \x y. case (x, y) {
+  (Err e1, Err e2) -> compare e1 e2;
+  (Err _, Ok _)    -> LT;
+  (Ok _, Err _)    -> GT;
+  (Ok a1, Ok a2)   -> compare a1 a2
 } }
 
 instance Functor (Result e) { fmap := \f r. case r {
@@ -339,12 +342,11 @@ instance Foldable (Result e) { foldr := \f z r. case r {
   Ok a -> f a z
 } }
 
-instance Ord a => Ord (List a) { compare := \xs ys. case xs {
-  Nil -> case ys { Nil -> EQ; Cons _ _ -> LT };
-  Cons x rest -> case ys {
-    Nil -> GT;
-    Cons y rest2 -> case compare x y { EQ -> compare rest rest2; c -> c }
-  }
+instance Ord a => Ord (List a) { compare := \xs ys. case (xs, ys) {
+  (Nil, Nil) -> EQ;
+  (Nil, Cons _ _) -> LT;
+  (Cons _ _, Nil) -> GT;
+  (Cons x rest, Cons y rest2) -> case compare x y { EQ -> compare rest rest2; c -> c }
 } }
 
 infixr 0 $
