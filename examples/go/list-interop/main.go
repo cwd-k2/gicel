@@ -16,16 +16,12 @@ import (
 
 // The source receives a list binding, reverses it, and returns the result.
 const source = `
-import Std.Num
-import Std.List
-
 main := reverse xs
 `
 
 func main() {
 	eng := gicel.NewEngine()
-	eng.Use(gicel.Num)
-	eng.Use(gicel.List)
+	eng.Use(gicel.Prelude)
 
 	// Declare `xs` as a List of Int.
 	eng.DeclareBinding("xs", gicel.AppType(gicel.ConType("List"), gicel.ConType("Int")))

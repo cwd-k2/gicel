@@ -127,32 +127,27 @@ func NewCapEnv(caps map[string]any) CapEnv {
 
 // Stdlib re-exports — users import only the root package.
 
-// Num provides integer arithmetic: Num class, Eq/Ord Int instances, and operators.
-var Num Pack = stdlib.Num
+// Prelude provides the combined standard prelude: core computation types,
+// data types, type classes, arithmetic, list operations, and string operations.
+var Prelude Pack = stdlib.Prelude
 
-// Str provides string and rune operations.
-var Str Pack = stdlib.Str
+// EffectFail provides the fail effect capability.
+var EffectFail Pack = stdlib.Fail
 
-// Fail provides the fail effect capability.
-var Fail Pack = stdlib.Fail
+// EffectState provides get/put state capabilities.
+var EffectState Pack = stdlib.State
 
-// State provides get/put state capabilities.
-var State Pack = stdlib.State
+// EffectIO provides print/debug capabilities using CapEnv buffer.
+var EffectIO Pack = stdlib.IO
 
-// List provides list operations: fromSlice, toSlice, length, concat, foldl, etc.
-var List Pack = stdlib.List
+// DataStream provides lazy list operations: LCons/LNil, headS, tailS, takeS, dropS.
+var DataStream Pack = stdlib.Stream
 
-// IO provides print/debug capabilities using CapEnv buffer.
-var IO Pack = stdlib.IO
+// DataSlice provides contiguous array operations: O(1) length/index, Functor/Foldable.
+var DataSlice Pack = stdlib.Slice
 
-// Stream provides lazy list operations: LCons/LNil, headS, tailS, takeS, dropS.
-var Stream Pack = stdlib.Stream
+// DataMap provides immutable ordered map backed by AVL tree, keyed by Ord.
+var DataMap Pack = stdlib.Map
 
-// Slice provides contiguous array operations: O(1) length/index, Functor/Foldable.
-var Slice Pack = stdlib.Slice
-
-// Map provides immutable ordered map backed by AVL tree, keyed by Ord.
-var Map Pack = stdlib.Map
-
-// Set provides immutable ordered set backed by Map k ().
-var Set Pack = stdlib.Set
+// DataSet provides immutable ordered set backed by Map k ().
+var DataSet Pack = stdlib.Set

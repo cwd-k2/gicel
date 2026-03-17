@@ -5,8 +5,7 @@
 -- as a tuple.
 -- Level: basics
 
-import Std.Num
-import Std.Str
+import Prelude
 
 -- A simple string binding
 greeting := "Hello, GICEL!"

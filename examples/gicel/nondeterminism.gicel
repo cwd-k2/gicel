@@ -8,8 +8,7 @@
 -- Run: gicel run --recursion nondeterminism.gicel
 -- Level: effects
 
-import Std.Num
-import Std.List
+import Prelude
 
 -- ── Shared helpers ─────────────────────────────────────────
 

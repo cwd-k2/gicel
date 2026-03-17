@@ -3,9 +3,9 @@
 -- All effectful computations must be inside `main` (entry point),
 -- since only the entry gets user-provided capabilities.
 
-import Std.Num
-import Std.Fail
-import Std.State
+import Prelude
+import Effect.Fail
+import Effect.State
 
 main := do {
   -- putAndGet: put then get

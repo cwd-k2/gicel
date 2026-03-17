@@ -5,7 +5,7 @@
 -- and Applicative on Bool, Maybe, List, Ordering, and tuples.
 -- Level: types
 
-import Std.Num
+import Prelude
 
 -- Eq: structural equality
 eqBool := eq True True                    -- True

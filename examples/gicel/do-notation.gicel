@@ -6,7 +6,7 @@
 -- The last expression must be a Computation (use `pure` to wrap values).
 -- Level: basics
 
-import Std.Num
+import Prelude
 
 -- Simple: bind a pure value and return it
 simple := do {

@@ -6,6 +6,8 @@
 -- function requiring Ord' can use Show' and Eq' methods too.
 -- Level: types
 
+import Prelude
+
 -- A custom ADT to work with
 data Priority := Low | Medium | High
 

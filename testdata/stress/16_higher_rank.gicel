@@ -1,5 +1,6 @@
 -- Stress test 16: Higher-rank polymorphism
 -- Tests rank-2 polymorphic arguments and subsumption.
+import Prelude
 
 -- Rank-2: argument must be truly polymorphic
 applyToBoth :: (\a. a -> a) -> (Bool, ())

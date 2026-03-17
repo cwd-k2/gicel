@@ -1,5 +1,3 @@
-import Prelude
-
 _addInt :: Int -> Int -> Int
 _addInt := assumption
 

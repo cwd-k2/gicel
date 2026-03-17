@@ -31,8 +31,6 @@ type Engine struct {
 	stepLimit        int
 	depthLimit       int
 	allocLimit       int64
-	noPrelude        bool
-	customPrelude    *string
 	checkTraceHook   check.CheckTraceHook
 	modules          map[string]*compiledModule
 	moduleOrder      []string // insertion order for deterministic iteration
@@ -67,6 +65,10 @@ func NewEngine() *Engine {
 	e.registeredTys["Slice"] = &types.KArrow{From: types.KType{}, To: types.KType{}}
 	e.registeredTys["Map"] = &types.KArrow{From: types.KType{}, To: &types.KArrow{From: types.KType{}, To: types.KType{}}}
 	e.registeredTys["Set"] = &types.KArrow{From: types.KType{}, To: types.KType{}}
+	// Core is always registered — provides IxMonad, Computation primitives.
+	if err := e.RegisterModule("Core", stdlib.CoreSource); err != nil {
+		panic("internal: core module: " + err.Error())
+	}
 	return e
 }
 
@@ -178,11 +180,6 @@ func (e *Engine) RegisterModule(name, source string) error {
 		return fmt.Errorf("module %s already registered", name)
 	}
 
-	// Ensure prelude is available for non-prelude modules.
-	if name != "Prelude" && !e.noPrelude {
-		e.ensurePrelude()
-	}
-
 	src := span.NewSource(name, source)
 	l := parse.NewLexer(src)
 	tokens, lexErrs := l.Tokenize()
@@ -196,9 +193,9 @@ func (e *Engine) RegisterModule(name, source string) error {
 		return &CompileError{errors: parseErrs}
 	}
 
-	// Inject implicit prelude import for non-prelude modules.
-	if name != "Prelude" && !e.noPrelude {
-		injectPreludeImport(ast)
+	// Inject implicit Core import for non-Core modules.
+	if name != "Core" && e.modules["Core"] != nil {
+		injectCoreImport(ast)
 	}
 
 	// Collect dependencies.
@@ -279,39 +276,8 @@ func (e *Engine) makeCheckConfig() *check.CheckConfig {
 	}
 }
 
-// NoPrelude disables automatic prelude inclusion.
-func (e *Engine) NoPrelude() {
-	e.noPrelude = true
-}
-
-// SetPrelude replaces the default Prelude with custom source.
-// CoreSource (IxMonad, Effect, Lift, then) is still prepended automatically.
-func (e *Engine) SetPrelude(source string) {
-	e.customPrelude = &source
-}
-
-// ensurePrelude registers the prelude module if it hasn't been registered yet.
-func (e *Engine) ensurePrelude() {
-	if e.noPrelude {
-		return
-	}
-	if _, exists := e.modules["Prelude"]; exists {
-		return
-	}
-	// Build prelude source: CoreSource + (custom or default) PreludeSource.
-	preludeSrc := stdlib.PreludeSource
-	if e.customPrelude != nil {
-		preludeSrc = *e.customPrelude
-	}
-	// Register prelude as an implicit module (errors are programming errors, so panic).
-	if err := e.RegisterModule("Prelude", stdlib.CoreSource+"\n"+preludeSrc); err != nil {
-		panic(fmt.Sprintf("failed to compile prelude: %v", err))
-	}
-}
-
-// parseSource lexes and parses source, adding implicit prelude import if needed.
+// parseSource lexes and parses source, adding implicit Core import if needed.
 func (e *Engine) parseSource(source string) (*syntax.AstProgram, *span.Source, error) {
-	e.ensurePrelude()
 	src := span.NewSource("<input>", source)
 	l := parse.NewLexer(src)
 	tokens, lexErrs := l.Tokenize()
@@ -328,21 +294,21 @@ func (e *Engine) parseSource(source string) (*syntax.AstProgram, *span.Source, e
 	if parseErrs.HasErrors() {
 		return nil, nil, &CompileError{errors: parseErrs}
 	}
-	// Inject implicit prelude import.
-	if !e.noPrelude {
-		injectPreludeImport(ast)
+	// Inject implicit Core import.
+	if e.modules["Core"] != nil {
+		injectCoreImport(ast)
 	}
 	return ast, src, nil
 }
 
-// injectPreludeImport adds an implicit "import Prelude" if not already present.
-func injectPreludeImport(ast *syntax.AstProgram) {
+// injectCoreImport adds an implicit "import Core" if not already present.
+func injectCoreImport(ast *syntax.AstProgram) {
 	for _, imp := range ast.Imports {
-		if imp.ModuleName == "Prelude" {
+		if imp.ModuleName == "Core" {
 			return
 		}
 	}
-	ast.Imports = append([]syntax.DeclImport{{ModuleName: "Prelude"}}, ast.Imports...)
+	ast.Imports = append([]syntax.DeclImport{{ModuleName: "Core"}}, ast.Imports...)
 }
 
 // ParsedProgram is an opaque parsed program for inspection.

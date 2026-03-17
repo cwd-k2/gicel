@@ -5,6 +5,8 @@
 -- compose constraints in function signatures.
 -- Level: types
 
+import Prelude
+
 -- A multi-parameter class for lossless coercion between types
 class Coercible a b {
   coerce :: a -> b

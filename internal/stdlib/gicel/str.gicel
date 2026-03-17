@@ -1,5 +1,3 @@
-import Prelude
-
 _eqStr :: String -> String -> Bool
 _eqStr := assumption
 
@@ -55,9 +53,6 @@ _split := assumption
 _join :: String -> List String -> String
 _join := assumption
 
-_showInt :: Int -> String
-_showInt := assumption
-
 _readInt :: String -> Maybe Int
 _readInt := assumption
 
@@ -86,7 +81,7 @@ join :: String -> List String -> String
 join := _join
 
 showInt :: Int -> String
-showInt := _showInt
+showInt := show
 
 showBool :: Bool -> String
 showBool := \b. case b { True -> "True"; False -> "False" }

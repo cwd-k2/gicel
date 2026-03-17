@@ -7,6 +7,8 @@
 -- quantified when pattern matching.
 -- Level: types
 
+import Prelude
+
 -- A simple existential: wraps a value with a predicate that can test it.
 -- `a` is universally quantified in the constructor but existentially
 -- bound when pattern matching -- the consumer doesn't know what `a` is.

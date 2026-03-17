@@ -4,7 +4,7 @@
 -- during type checking, and are fully erased at runtime.
 -- Level: types
 
-import Std.Num
+import Prelude
 
 -- A closed type family: equations tried top-to-bottom, first match wins.
 -- Elem maps a container type to its element type.

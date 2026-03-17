@@ -4,7 +4,7 @@
 -- of the same family use different runtime representations.
 -- Level: types (advanced)
 
-import Std.Num
+import Prelude
 
 -- A Collection class with an associated data family for keys.
 -- Each collection type determines its own key representation.

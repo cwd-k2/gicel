@@ -197,20 +197,18 @@ func exampleLevel(source string) string {
 
 // packMap maps pack names to their Pack functions.
 var packMap = map[string]gicel.Pack{
-	"num":    gicel.Num,
-	"str":    gicel.Str,
-	"list":   gicel.List,
-	"fail":   gicel.Fail,
-	"state":  gicel.State,
-	"io":     gicel.IO,
-	"stream": gicel.Stream,
-	"slice":  gicel.Slice,
-	"map":    gicel.Map,
-	"set":    gicel.Set,
+	"prelude": gicel.Prelude,
+	"fail":    gicel.EffectFail,
+	"state":   gicel.EffectState,
+	"io":      gicel.EffectIO,
+	"stream":  gicel.DataStream,
+	"slice":   gicel.DataSlice,
+	"map":     gicel.DataMap,
+	"set":     gicel.DataSet,
 }
 
 // allPackOrder ensures deterministic pack loading.
-var allPackOrder = []string{"num", "str", "list", "fail", "state", "io", "stream", "slice", "map", "set"}
+var allPackOrder = []string{"prelude", "fail", "state", "io", "stream", "slice", "map", "set"}
 
 func setupEngine(use string) (*gicel.Engine, error) {
 	eng := gicel.NewEngine()

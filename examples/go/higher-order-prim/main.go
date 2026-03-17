@@ -18,8 +18,6 @@ import (
 // myApply takes a GICEL function and a value, applies the function via
 // the Applier callback, and returns the result.
 const source = `
-import Std.Num
-
 myApply :: (Int -> Int) -> Int -> Int
 myApply := assumption
 
@@ -31,7 +29,7 @@ main := myApply double 21
 
 func main() {
 	eng := gicel.NewEngine()
-	eng.Use(gicel.Num)
+	eng.Use(gicel.Prelude)
 
 	// The fourth parameter (applier) is the key: it lets Go code invoke
 	// GICEL closures. Here we apply fn to arg and return the result.

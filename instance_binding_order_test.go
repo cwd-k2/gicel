@@ -14,7 +14,9 @@ import (
 //   - SortBindings (runtime: dependency-ordered evaluation)
 func TestInstanceMethodReferencesRegularBinding(t *testing.T) {
 	eng := gicel.NewEngine()
+	eng.Use(gicel.Prelude)
 	rt, err := eng.NewRuntime(`
+import Prelude
 class Wrap f { wrap :: \ a. a -> f a }
 
 myJust :: \ a. a -> Maybe a
@@ -41,9 +43,9 @@ main := wrap True
 // assumption -> helper -> instance method -> user code.
 func TestInstanceMethodReferencesChain(t *testing.T) {
 	eng := gicel.NewEngine()
-	_ = gicel.Num(eng)
+	_ = gicel.Prelude(eng)
 	rt, err := eng.NewRuntime(`
-import Std.Num
+import Prelude
 
 class Scale a { scale :: Int -> a -> a }
 

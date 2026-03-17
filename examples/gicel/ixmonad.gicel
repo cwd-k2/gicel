@@ -4,7 +4,7 @@
 -- for Maybe and List. This file demonstrates each pattern.
 -- Level: types
 
-import Std.Num
+import Prelude
 
 -- Functor: fmap applies a function inside a context
 fmapMaybe := fmap (+ 1) (Just 10)    -- equivalent to \x -> x + 1

@@ -9,7 +9,7 @@
 -- pattern matching on GADT constructors.
 -- Level: types
 
-import Std.Num
+import Prelude
 
 -- A GADT for typed expressions.
 -- The `:= { ... }` syntax with full type signatures per constructor

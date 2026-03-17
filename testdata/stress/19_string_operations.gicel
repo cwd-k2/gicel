@@ -1,8 +1,6 @@
 -- Stress test 19: String and Rune operations
 -- Tests String/Rune literals, Eq, Ord, Semigroup, Monoid, strlen.
-
-import Std.Str
-import Std.Num
+import Prelude
 
 -- String literals and operations
 strConcat := append "hello" " world"

@@ -25,7 +25,9 @@ func TestDotAsCompositionOperator(t *testing.T) {
 	// The `.` operator with infixr 9 should be parsed as function composition
 	// when fixity is declared.
 	eng := gicel.NewEngine()
+	eng.Use(gicel.Prelude)
 	rt, err := eng.NewRuntime(`
+import Prelude
 infixr 9 .
 (.) :: \ a b c. (b -> c) -> (a -> b) -> a -> c
 (.) := \f g x. f (g x)
@@ -52,7 +54,9 @@ func TestDotInForallDoesNotConflictWithComposition(t *testing.T) {
 	// `.` in \ type body separator vs `.` as operator: both should
 	// coexist without ambiguity.
 	eng := gicel.NewEngine()
+	eng.Use(gicel.Prelude)
 	rt, err := eng.NewRuntime(`
+import Prelude
 infixr 9 .
 (.) :: \ a b c. (b -> c) -> (a -> b) -> a -> c
 (.) := \f g x. f (g x)
@@ -79,9 +83,9 @@ main := (id . id) True
 func TestOperatorPrecedenceMixedAssociativity(t *testing.T) {
 	// infixl 6 + and infixl 7 * : 1 + 2 * 3 should be 1 + (2*3) = 7
 	eng := gicel.NewEngine()
-	eng.Use(gicel.Num)
+	eng.Use(gicel.Prelude)
 	rt, err := eng.NewRuntime(`
-import Std.Num
+import Prelude
 main := 1 + 2 * 3
 `)
 	if err != nil {
@@ -100,9 +104,9 @@ main := 1 + 2 * 3
 func TestOperatorRightAssociativity(t *testing.T) {
 	// infixr 5 :: (cons operator) should associate to the right.
 	eng := gicel.NewEngine()
-	eng.Use(gicel.Num)
+	eng.Use(gicel.Prelude)
 	rt, err := eng.NewRuntime(`
-import Std.Num
+import Prelude
 infixr 5 ++
 (++) :: Int -> Int -> Int
 (++) := \x y. x + y
@@ -126,9 +130,9 @@ main := 1 ++ 2 ++ 3
 func TestOperatorLeftAssociativity(t *testing.T) {
 	// infixl 6 - : a - b - c should be (a - b) - c
 	eng := gicel.NewEngine()
-	eng.Use(gicel.Num)
+	eng.Use(gicel.Prelude)
 	rt, err := eng.NewRuntime(`
-import Std.Num
+import Prelude
 -- 10 - 3 - 2 should be (10 - 3) - 2 = 5 (left assoc)
 -- not 10 - (3 - 2) = 10 - 1 = 9 (right assoc)
 main := 10 - 3 - 2
@@ -153,7 +157,11 @@ main := 10 - 3 - 2
 func TestSemicolonInDoBlock(t *testing.T) {
 	// Semicolons should work as statement separators in do blocks.
 	eng := gicel.NewEngine()
-	rt, err := eng.NewRuntime(`main := do { x <- pure True; y <- pure False; pure x }`)
+	eng.Use(gicel.Prelude)
+	rt, err := eng.NewRuntime(`
+import Prelude
+main := do { x <- pure True; y <- pure False; pure x }
+`)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -171,6 +179,7 @@ func TestNewlineInDoBlock(t *testing.T) {
 	// an explicit grouping context where semicolons provide unambiguous
 	// statement separation.
 	eng := gicel.NewEngine()
+	eng.Use(gicel.Prelude)
 	_, err := eng.NewRuntime(`main := do {
   x <- pure True
   y <- pure False
@@ -187,7 +196,9 @@ func TestNewlineInDoBlock(t *testing.T) {
 func TestSemicolonInCaseAlts(t *testing.T) {
 	// Semicolons between case alternatives.
 	eng := gicel.NewEngine()
+	eng.Use(gicel.Prelude)
 	rt, err := eng.NewRuntime(`
+import Prelude
 f := \x. case x { True -> False; False -> True }
 main := f True
 `)
@@ -205,7 +216,9 @@ func TestNewlineInCaseAlts(t *testing.T) {
 	// DESIGN DECISION: Semicolons are required between case alternatives
 	// inside braces. Same rule as do blocks — braces use explicit separators.
 	eng := gicel.NewEngine()
+	eng.Use(gicel.Prelude)
 	_, err := eng.NewRuntime(`
+import Prelude
 f := \x. case x {
   True -> False
   False -> True
@@ -227,7 +240,9 @@ main := f False
 func TestMultiParamLambdaDeep(t *testing.T) {
 	// Nested lambdas: \x y z. x
 	eng := gicel.NewEngine()
+	eng.Use(gicel.Prelude)
 	rt, err := eng.NewRuntime(`
+import Prelude
 konst3 := \x y z. x
 main := konst3 True False True
 `)
@@ -248,7 +263,9 @@ main := konst3 True False True
 func TestBlockExpressionBindingShadowing(t *testing.T) {
 	// Block: { x := True; x } — the block-local x should shadow any outer x.
 	eng := gicel.NewEngine()
+	eng.Use(gicel.Prelude)
 	rt, err := eng.NewRuntime(`
+import Prelude
 x := False
 main := { x := True; x }
 `)
@@ -265,6 +282,7 @@ main := { x := True; x }
 func TestEmptyRecordAndUnit(t *testing.T) {
 	// {} and () should both produce empty records.
 	eng := gicel.NewEngine()
+	eng.Use(gicel.Prelude)
 	rt, err := eng.NewRuntime(`
 r := {}
 u := ()
@@ -290,7 +308,9 @@ main := r
 func TestHigherRankPolyIdFunction(t *testing.T) {
 	// A function that takes a polymorphic function and uses it at two types.
 	eng := gicel.NewEngine()
+	eng.Use(gicel.Prelude)
 	rt, err := eng.NewRuntime(`
+import Prelude
 applyBoth :: (\ a. a -> a) -> Bool
 applyBoth := \f. f True
 
@@ -309,7 +329,9 @@ main := applyBoth (\x. x)
 func TestHigherRankRejection(t *testing.T) {
 	// A monomorphic function should NOT satisfy a higher-rank requirement.
 	eng := gicel.NewEngine()
+	eng.Use(gicel.Prelude)
 	_, err := eng.NewRuntime(`
+import Prelude
 applyBoth :: (\a. a -> a) -> Bool
 applyBoth := \f. f True
 
@@ -331,7 +353,9 @@ main := applyBoth not
 func TestRowUnifyEmptyOpenClosed(t *testing.T) {
 	// An open row { | r } should unify with a closed empty row {}.
 	eng := gicel.NewEngine()
+	eng.Use(gicel.Prelude)
 	rt, err := eng.NewRuntime(`
+import Prelude
 f :: \(r: Row). Record { | r } -> Bool
 f := \_. True
 main := f {}
@@ -349,9 +373,9 @@ main := f {}
 func TestRowUnifyFieldSubset(t *testing.T) {
 	// A function that requires field x should accept a record with x and y.
 	eng := gicel.NewEngine()
-	eng.Use(gicel.Num)
+	eng.Use(gicel.Prelude)
 	rt, err := eng.NewRuntime(`
-import Std.Num
+import Prelude
 getX :: \r. Record { x: Int | r } -> Int
 getX := \rec. rec.#x
 main := getX { x: 42, y: 0 }
@@ -372,9 +396,9 @@ main := getX { x: 42, y: 0 }
 func TestRowUnifyMissingField(t *testing.T) {
 	// A function requiring field x should reject a record without x.
 	eng := gicel.NewEngine()
-	eng.Use(gicel.Num)
+	eng.Use(gicel.Prelude)
 	_, err := eng.NewRuntime(`
-import Std.Num
+import Prelude
 getX :: Record { x: Int } -> Int
 getX := \rec. rec.#x
 main := getX { y: 0 }
@@ -391,7 +415,9 @@ main := getX { y: 0 }
 func TestConstraintResolutionChain(t *testing.T) {
 	// Using a superclass method (eq) through a subclass constraint (Ord).
 	eng := gicel.NewEngine()
+	eng.Use(gicel.Prelude)
 	rt, err := eng.NewRuntime(`
+import Prelude
 useSuperFromSub :: \a. Ord a => a -> a -> Bool
 useSuperFromSub := \x y. eq x y
 
@@ -410,7 +436,9 @@ main := useSuperFromSub True True
 func TestPolymorphicInstanceResolution(t *testing.T) {
 	// Eq (Maybe Bool) should resolve through Eq a => Eq (Maybe a) and Eq Bool.
 	eng := gicel.NewEngine()
+	eng.Use(gicel.Prelude)
 	rt, err := eng.NewRuntime(`
+import Prelude
 main := eq (Just True) (Just True)
 `)
 	if err != nil {
@@ -426,7 +454,9 @@ main := eq (Just True) (Just True)
 func TestPolymorphicInstanceResolutionNeg(t *testing.T) {
 	// Eq (Maybe (Maybe Bool)) should also resolve.
 	eng := gicel.NewEngine()
+	eng.Use(gicel.Prelude)
 	rt, err := eng.NewRuntime(`
+import Prelude
 main := eq (Just (Just True)) (Just Nothing)
 `)
 	if err != nil {
@@ -446,7 +476,9 @@ main := eq (Just (Just True)) (Just Nothing)
 func TestKindInferenceSimple(t *testing.T) {
 	// data Maybe a := Just a | Nothing  -- 'a' should get kind Type.
 	eng := gicel.NewEngine()
+	eng.Use(gicel.Prelude)
 	_, err := eng.Compile(`
+import Prelude
 data MyMaybe a := MyJust a | MyNothing
 main := MyJust True
 `)
@@ -460,7 +492,9 @@ func TestKindMismatchInApplication(t *testing.T) {
 	// F expects (a: Type -> Type) but receives Bool: Type.
 	// Previously FALSE_NEGATIVE — fixed in 923721f.
 	eng := gicel.NewEngine()
+	eng.Use(gicel.Prelude)
 	_, err := eng.Compile(`
+import Prelude
 data F (a: Type -> Type) := MkF
 main := (MkF :: F Bool)
 `)
@@ -493,7 +527,9 @@ func TestGADTRefinementDisjointBranches(t *testing.T) {
 	// Two GADT constructors producing different type-level indices:
 	// matching on each should refine the types differently.
 	eng := gicel.NewEngine()
+	eng.Use(gicel.Prelude)
 	rt, err := eng.NewRuntime(`
+import Prelude
 data Token a := { BoolTok :: Bool -> Token Bool; UnitTok :: Token () }
 
 toBool :: Token Bool -> Bool
@@ -523,11 +559,11 @@ func TestLetRecFix(t *testing.T) {
 	// Workaround: omit the type annotation and let the checker infer.
 	eng := gicel.NewEngine()
 	eng.EnableRecursion()
-	eng.Use(gicel.Num)
+	eng.Use(gicel.Prelude)
 
 	// First, demonstrate the workaround works (no annotation):
 	rt, err := eng.NewRuntime(`
-import Std.Num
+import Prelude
 
 myLength := fix (\self xs. case xs { Nil -> 0; Cons _ rest -> 1 + self rest })
 
@@ -548,9 +584,9 @@ main := myLength (Cons True (Cons False (Cons True Nil)))
 	// Annotation version with implicit \:
 	eng2 := gicel.NewEngine()
 	eng2.EnableRecursion()
-	eng2.Use(gicel.Num)
+	eng2.Use(gicel.Prelude)
 	rt2, err := eng2.NewRuntime(`
-import Std.Num
+import Prelude
 
 myLength :: List a -> Int
 myLength := fix (\self xs. case xs { Nil -> 0; Cons _ rest -> 1 + self rest })
@@ -576,7 +612,9 @@ main := myLength (Cons True (Cons False (Cons True Nil)))
 
 func TestNestedConstructorPatternMatch(t *testing.T) {
 	eng := gicel.NewEngine()
+	eng.Use(gicel.Prelude)
 	rt, err := eng.NewRuntime(`
+import Prelude
 data Pair a b := MkPair a b
 
 fst :: \a b. Pair a b -> a
@@ -599,7 +637,9 @@ main := fst (MkPair True False)
 
 func TestDoubleNestedPatternMatch(t *testing.T) {
 	eng := gicel.NewEngine()
+	eng.Use(gicel.Prelude)
 	rt, err := eng.NewRuntime(`
+import Prelude
 isJustTrue :: Maybe Bool -> Bool
 isJustTrue := \m. case m {
   Just b -> case b { True -> True; False -> False };
@@ -623,9 +663,9 @@ main := isJustTrue (Just True)
 
 func TestRecordProjectionEndToEnd(t *testing.T) {
 	eng := gicel.NewEngine()
-	eng.Use(gicel.Num)
+	eng.Use(gicel.Prelude)
 	rt, err := eng.NewRuntime(`
-import Std.Num
+import Prelude
 r := { x: 1, y: 2 }
 main := r.#x + r.#y
 `)
@@ -644,9 +684,9 @@ main := r.#x + r.#y
 
 func TestRecordUpdateEndToEnd(t *testing.T) {
 	eng := gicel.NewEngine()
-	eng.Use(gicel.Num)
+	eng.Use(gicel.Prelude)
 	rt, err := eng.NewRuntime(`
-import Std.Num
+import Prelude
 r := { x: 1, y: 2 }
 r2 := { r | x: 100 }
 main := r2.#x + r2.#y
@@ -666,9 +706,9 @@ main := r2.#x + r2.#y
 
 func TestRecordPatternMatchEndToEnd(t *testing.T) {
 	eng := gicel.NewEngine()
-	eng.Use(gicel.Num)
+	eng.Use(gicel.Prelude)
 	rt, err := eng.NewRuntime(`
-import Std.Num
+import Prelude
 swap := \r. case r { { x: a, y: b } -> { x: b, y: a } }
 r := swap { x: 1, y: 2 }
 main := r.#x
@@ -692,9 +732,9 @@ main := r.#x
 
 func TestTupleConstructAndProject(t *testing.T) {
 	eng := gicel.NewEngine()
-	eng.Use(gicel.Num)
+	eng.Use(gicel.Prelude)
 	rt, err := eng.NewRuntime(`
-import Std.Num
+import Prelude
 t := (1, 2, 3)
 main := t.#_1 + t.#_2 + t.#_3
 `)
@@ -715,9 +755,11 @@ func TestTuplePatternMatch(t *testing.T) {
 	// Tuple patterns in lambda position are desugared to case expressions
 	// via isStructuredPattern. Previously DESIGN_GAP — fixed in 3782967.
 	eng := gicel.NewEngine()
+	eng.Use(gicel.Prelude)
 
 	// Demonstrate the workaround using case:
 	rt, err := eng.NewRuntime(`
+import Prelude
 myFst := \p. case p { (a, b) -> a }
 main := myFst (True, False)
 `)
@@ -732,7 +774,9 @@ main := myFst (True, False)
 
 	// Direct lambda pattern version:
 	eng2 := gicel.NewEngine()
+	eng2.Use(gicel.Prelude)
 	rt2, err := eng2.NewRuntime(`
+import Prelude
 myFst := \(a, b). a
 main := myFst (True, False)
 `)
@@ -753,7 +797,9 @@ main := myFst (True, False)
 func TestCBPVTriadInDo(t *testing.T) {
 	// thunk delays evaluation; force resumes it. pure lifts values.
 	eng := gicel.NewEngine()
+	eng.Use(gicel.Prelude)
 	rt, err := eng.NewRuntime(`
+import Prelude
 main := do {
   t := thunk (pure True);
   x <- force t;
@@ -773,7 +819,11 @@ main := do {
 func TestForceNonThunkError(t *testing.T) {
 	// Forcing a non-thunk value should produce a type error at compile time.
 	eng := gicel.NewEngine()
-	_, err := eng.NewRuntime(`main := force True`)
+	eng.Use(gicel.Prelude)
+	_, err := eng.NewRuntime(`
+import Prelude
+main := force True
+`)
 	if err == nil {
 		t.Fatal("expected compile error: cannot force a non-thunk")
 	}
@@ -786,9 +836,9 @@ func TestForceNonThunkError(t *testing.T) {
 func TestFN_TypeAnnotationMismatch(t *testing.T) {
 	// Value annotated as Int but defined as Bool should fail.
 	eng := gicel.NewEngine()
-	eng.Use(gicel.Num)
+	eng.Use(gicel.Prelude)
 	_, err := eng.NewRuntime(`
-import Std.Num
+import Prelude
 main :: Int
 main := True
 `)
@@ -800,7 +850,11 @@ main := True
 func TestFN_ConstructorArityMismatch(t *testing.T) {
 	// Just applied to too many arguments should fail.
 	eng := gicel.NewEngine()
-	_, err := eng.NewRuntime(`main := Just True False`)
+	eng.Use(gicel.Prelude)
+	_, err := eng.NewRuntime(`
+import Prelude
+main := Just True False
+`)
 	if err == nil {
 		t.Fatal("expected type error: Just takes 1 argument, not 2")
 	}
@@ -809,9 +863,9 @@ func TestFN_ConstructorArityMismatch(t *testing.T) {
 func TestFN_RecordFieldTypeMismatch(t *testing.T) {
 	// A function expecting { x: Int } given { x: Bool } should fail.
 	eng := gicel.NewEngine()
-	eng.Use(gicel.Num)
+	eng.Use(gicel.Prelude)
 	_, err := eng.NewRuntime(`
-import Std.Num
+import Prelude
 f :: Record { x: Int } -> Int
 f := \r. r.#x
 main := f { x: True }
@@ -824,7 +878,11 @@ main := f { x: True }
 func TestFN_EmptyCaseBody(t *testing.T) {
 	// Empty case expression should produce an error.
 	eng := gicel.NewEngine()
-	_, err := eng.NewRuntime(`main := case True {}`)
+	eng.Use(gicel.Prelude)
+	_, err := eng.NewRuntime(`
+import Prelude
+main := case True {}
+`)
 	if err == nil {
 		t.Fatal("expected error for case with no alternatives")
 	}
@@ -833,7 +891,11 @@ func TestFN_EmptyCaseBody(t *testing.T) {
 func TestFN_DoBlockEndingWithBind(t *testing.T) {
 	// A do block ending with a bind (<-) is malformed.
 	eng := gicel.NewEngine()
-	_, err := eng.NewRuntime(`main := do { x <- pure True }`)
+	eng.Use(gicel.Prelude)
+	_, err := eng.NewRuntime(`
+import Prelude
+main := do { x <- pure True }
+`)
 	if err == nil {
 		t.Fatal("expected error: do block must end with an expression")
 	}
@@ -846,7 +908,9 @@ func TestFN_DoBlockEndingWithBind(t *testing.T) {
 func TestFP_PolymorphicFunctionApplication(t *testing.T) {
 	// Polymorphic identity applied at different types should work.
 	eng := gicel.NewEngine()
+	eng.Use(gicel.Prelude)
 	rt, err := eng.NewRuntime(`
+import Prelude
 id :: \a. a -> a
 id := \x. x
 
@@ -869,9 +933,11 @@ func TestFP_LambdaWithRecordPattern(t *testing.T) {
 	// Record patterns in lambda position are desugared to case expressions.
 	// Previously DESIGN_GAP — fixed in 3782967.
 	eng := gicel.NewEngine()
+	eng.Use(gicel.Prelude)
 
 	// Workaround using case:
 	rt, err := eng.NewRuntime(`
+import Prelude
 getX := \r. case r { { x: v } -> v }
 main := getX { x: True }
 `)
@@ -886,7 +952,9 @@ main := getX { x: True }
 
 	// Direct lambda pattern version:
 	eng2 := gicel.NewEngine()
+	eng2.Use(gicel.Prelude)
 	rt2, err := eng2.NewRuntime(`
+import Prelude
 getX := \{ x: v }. v
 main := getX { x: True }
 `)
@@ -903,7 +971,9 @@ main := getX { x: True }
 func TestFP_WildcardInCasePattern(t *testing.T) {
 	// Wildcard pattern in case should exhaust all remaining alternatives.
 	eng := gicel.NewEngine()
+	eng.Use(gicel.Prelude)
 	rt, err := eng.NewRuntime(`
+import Prelude
 data Color := Red | Green | Blue
 isRed := \c. case c { Red -> True; _ -> False }
 main := isRed Blue
@@ -922,9 +992,11 @@ func TestFP_NestedTuplePattern(t *testing.T) {
 	// Nested tuple patterns in lambda position are desugared to case expressions.
 	// Previously DESIGN_GAP — fixed in 3782967.
 	eng := gicel.NewEngine()
+	eng.Use(gicel.Prelude)
 
 	// Workaround using case:
 	rt, err := eng.NewRuntime(`
+import Prelude
 f := \p. case p { (a, inner) -> case inner { (b, c) -> b } }
 main := f (True, (False, True))
 `)
@@ -939,7 +1011,9 @@ main := f (True, (False, True))
 
 	// Direct nested tuple pattern version:
 	eng2 := gicel.NewEngine()
+	eng2.Use(gicel.Prelude)
 	rt2, err := eng2.NewRuntime(`
+import Prelude
 f := \(a, (b, c)). b
 main := f (True, (False, True))
 `)
@@ -970,7 +1044,9 @@ func TestErrorReportsUnboundVarName(t *testing.T) {
 
 func TestErrorReportsNonExhaustiveConstructor(t *testing.T) {
 	eng := gicel.NewEngine()
+	eng.Use(gicel.Prelude)
 	_, err := eng.NewRuntime(`
+import Prelude
 data Color := Red | Green | Blue
 f := \c. case c { Red -> True }
 main := f Red
@@ -987,9 +1063,9 @@ main := f Red
 func TestErrorReportsTypeMismatchTypes(t *testing.T) {
 	// The error message should include the expected and actual types.
 	eng := gicel.NewEngine()
-	eng.Use(gicel.Num)
+	eng.Use(gicel.Prelude)
 	_, err := eng.NewRuntime(`
-import Std.Num
+import Prelude
 f :: Int -> Int
 f := \x. x
 main := f True
@@ -1013,11 +1089,11 @@ main := f True
 func TestCapEnvPersistsThroughBinds(t *testing.T) {
 	// Capability environment mutations should persist through do-block binds.
 	eng := gicel.NewEngine()
-	eng.Use(gicel.Num)
-	eng.Use(gicel.State)
+	eng.Use(gicel.Prelude)
+	eng.Use(gicel.EffectState)
 	rt, err := eng.NewRuntime(`
-import Std.Num
-import Std.State
+import Prelude
+import Effect.State
 main := do {
   put 10;
   n <- get;
@@ -1046,7 +1122,9 @@ main := do {
 func TestInlineTypeAnnotation(t *testing.T) {
 	// (expr :: Type) should work for expression-level type annotations.
 	eng := gicel.NewEngine()
+	eng.Use(gicel.Prelude)
 	rt, err := eng.NewRuntime(`
+import Prelude
 main := (True :: Bool)
 `)
 	if err != nil {
@@ -1062,9 +1140,9 @@ main := (True :: Bool)
 func TestInlineTypeAnnotationMismatch(t *testing.T) {
 	// (True :: Int) should fail at compile time.
 	eng := gicel.NewEngine()
-	eng.Use(gicel.Num)
+	eng.Use(gicel.Prelude)
 	_, err := eng.NewRuntime(`
-import Std.Num
+import Prelude
 main := (True :: Int)
 `)
 	if err == nil {
@@ -1078,7 +1156,9 @@ main := (True :: Int)
 
 func TestListLiteralSyntax(t *testing.T) {
 	eng := gicel.NewEngine()
+	eng.Use(gicel.Prelude)
 	rt, err := eng.NewRuntime(`
+import Prelude
 main := [True, False, True]
 `)
 	if err != nil {
@@ -1097,7 +1177,9 @@ main := [True, False, True]
 
 func TestEmptyListLiteral(t *testing.T) {
 	eng := gicel.NewEngine()
+	eng.Use(gicel.Prelude)
 	rt, err := eng.NewRuntime(`
+import Prelude
 main := ([] :: List Bool)
 `)
 	if err != nil {
@@ -1119,7 +1201,9 @@ main := ([] :: List Bool)
 
 func TestTypeAliasInFunctionSig(t *testing.T) {
 	eng := gicel.NewEngine()
+	eng.Use(gicel.Prelude)
 	rt, err := eng.NewRuntime(`
+import Prelude
 type Predicate a := a -> Bool
 isTrue :: Predicate Bool
 isTrue := \b. b
@@ -1137,7 +1221,9 @@ main := isTrue True
 
 func TestTypeAliasWithParams(t *testing.T) {
 	eng := gicel.NewEngine()
+	eng.Use(gicel.Prelude)
 	rt, err := eng.NewRuntime(`
+import Prelude
 type Pair a b := (a, b)
 mkPair :: \a b. a -> b -> Pair a b
 mkPair := \x y. (x, y)
@@ -1184,7 +1270,9 @@ func TestDataKindsMismatch(t *testing.T) {
 	// position should fail. Builder expects (p: Phase) but True has kind Bool.
 	// Previously FALSE_NEGATIVE — fixed in 923721f.
 	eng := gicel.NewEngine()
+	eng.Use(gicel.Prelude)
 	_, err := eng.NewRuntime(`
+import Prelude
 data Phase := Building | Running
 data Builder (p: Phase) := MkBuilder
 start :: Builder True
@@ -1203,7 +1291,9 @@ main := start
 func TestEffectTypeAlias(t *testing.T) {
 	// The prelude defines: type Effect r a := Computation r r a
 	eng := gicel.NewEngine()
+	eng.Use(gicel.Prelude)
 	rt, err := eng.NewRuntime(`
+import Prelude
 myId :: Effect {} Bool
 myId := pure True
 main := myId
@@ -1225,7 +1315,9 @@ main := myId
 func TestThenInDoBlock(t *testing.T) {
 	// Using >> (then) between two computations.
 	eng := gicel.NewEngine()
+	eng.Use(gicel.Prelude)
 	rt, err := eng.NewRuntime(`
+import Prelude
 main := do {
   pure ();
   pure True
@@ -1249,9 +1341,11 @@ main := do {
 // from self-referential or mutually recursive instance contexts.
 func TestInstanceResolutionDepthLimit(t *testing.T) {
 	eng := gicel.NewEngine()
+	eng.Use(gicel.Prelude)
 	// instance C a => C a would cause infinite resolution without a depth limit.
 	// We use a realistic scenario: two classes with mutually recursive instances.
 	_, err := eng.NewRuntime(`
+import Prelude
 class Foo a { foo :: a -> Int }
 class Bar a { bar :: a -> Int }
 instance Bar a => Foo a { foo := \x. bar x }
@@ -1274,6 +1368,7 @@ func TestCyclicAliasExpansionTerminates(t *testing.T) {
 	eng := gicel.NewEngine()
 	// Direct cycle: type A := A — already caught by validateAliasGraph.
 	_, err := eng.NewRuntime(`
+import Prelude
 type A := A
 main := pure @A True
 `)
@@ -1284,7 +1379,9 @@ main := pure @A True
 	// Parametric cycle: type F a := F a — the expansion could loop even if
 	// the name-level cycle is detected.
 	eng2 := gicel.NewEngine()
+	eng2.Use(gicel.Prelude)
 	_, err2 := eng2.NewRuntime(`
+import Prelude
 type F a := F a
 main := pure @(F Int) True
 `)
@@ -1296,6 +1393,7 @@ main := pure @(F Int) True
 // Alias expansion depth limit: deeply nested but non-cyclic aliases.
 func TestAliasExpansionDepthLimit(t *testing.T) {
 	eng := gicel.NewEngine()
+	eng.Use(gicel.Prelude)
 	// Build a chain of aliases: T0 a = a, T1 a = T0 (T0 a), ..., TN a = T(N-1) (T(N-1) a)
 	// This grows exponentially in expansion depth.
 	src := `
@@ -1323,9 +1421,10 @@ main := id True
 // Fix 3: Error accumulation must have a cap.
 func TestErrorAccumulationCap(t *testing.T) {
 	eng := gicel.NewEngine()
+	eng.Use(gicel.Prelude)
 	// Generate a program with many type errors.
 	var lines []string
-	lines = append(lines, "import Std.Num")
+	lines = append(lines, "import Prelude")
 	for i := 0; i < 500; i++ {
 		lines = append(lines, fmt.Sprintf("x%d := unknownVar%d", i, i))
 	}
@@ -1349,6 +1448,7 @@ func TestErrorAccumulationCap(t *testing.T) {
 // from deeply nested kind expressions.
 func TestParserKindExprDepthLimit(t *testing.T) {
 	eng := gicel.NewEngine()
+	eng.Use(gicel.Prelude)
 	// Build deeply nested kind: ((((((...Type))))))
 	kind := "Type"
 	for i := 0; i < 300; i++ {
@@ -1369,7 +1469,9 @@ func TestParserKindExprDepthLimit(t *testing.T) {
 
 func TestNestedPatternBareConstructor(t *testing.T) {
 	eng := gicel.NewEngine()
+	eng.Use(gicel.Prelude)
 	rt, err := eng.NewRuntime(`
+import Prelude
 data Pair a b := MkPair a b
 
 match := \p. case p { MkPair (Just x) Nothing -> x; _ -> False }
@@ -1387,7 +1489,9 @@ main := match (MkPair (Just True) Nothing)
 
 func TestNestedPatternParenthesized(t *testing.T) {
 	eng := gicel.NewEngine()
+	eng.Use(gicel.Prelude)
 	rt, err := eng.NewRuntime(`
+import Prelude
 isJustTrue := \m. case m { Just True -> True; _ -> False }
 main := (isJustTrue (Just True), isJustTrue (Just False), isJustTrue Nothing)
 `)
@@ -1408,7 +1512,9 @@ main := (isJustTrue (Just True), isJustTrue (Just False), isJustTrue Nothing)
 func TestNestedPatternExhaustiveness(t *testing.T) {
 	// Non-exhaustive nested pattern should produce clear error.
 	eng := gicel.NewEngine()
+	eng.Use(gicel.Prelude)
 	_, err := eng.NewRuntime(`
+import Prelude
 f := \x. case x { Just True -> True }
 main := f (Just True)
 `)
@@ -1423,7 +1529,9 @@ main := f (Just True)
 
 func TestNestedPatternDeepNesting(t *testing.T) {
 	eng := gicel.NewEngine()
+	eng.Use(gicel.Prelude)
 	rt, err := eng.NewRuntime(`
+import Prelude
 f := \x. case x { Just (Just (Just True)) -> True; _ -> False }
 main := (f (Just (Just (Just True))), f (Just (Just (Just False))), f (Just (Just Nothing)))
 `)
@@ -1447,9 +1555,9 @@ main := (f (Just (Just (Just True))), f (Just (Just (Just False))), f (Just (Jus
 func TestExplicitTypeApplication(t *testing.T) {
 	// Verify @Type actually constrains: id @Bool applied to non-Bool must fail.
 	eng := gicel.NewEngine()
-	eng.Use(gicel.Num)
+	eng.Use(gicel.Prelude)
 	rt, err := eng.NewRuntime(`
-import Std.Num
+import Prelude
 id :: \a. a -> a
 id := \x. x
 main := id @Bool True
@@ -1465,9 +1573,9 @@ main := id @Bool True
 
 	// Negative: @Bool constrains, so Int argument must fail.
 	eng2 := gicel.NewEngine()
-	eng2.Use(gicel.Num)
+	eng2.Use(gicel.Prelude)
 	_, err = eng2.NewRuntime(`
-import Std.Num
+import Prelude
 id :: \a. a -> a
 id := \x. x
 main := id @Bool 42
@@ -1479,9 +1587,9 @@ main := id @Bool 42
 
 func TestExplicitTypeApplicationWrongType(t *testing.T) {
 	eng := gicel.NewEngine()
-	eng.Use(gicel.Num)
+	eng.Use(gicel.Prelude)
 	_, err := eng.NewRuntime(`
-import Std.Num
+import Prelude
 id :: \a. a -> a
 id := \x. x
 main := id @Int True
@@ -1497,7 +1605,9 @@ main := id @Int True
 
 func TestExplicitTypeApplicationOnConstructor(t *testing.T) {
 	eng := gicel.NewEngine()
+	eng.Use(gicel.Prelude)
 	rt, err := eng.NewRuntime(`
+import Prelude
 main := Just @Bool True
 `)
 	if err != nil {
@@ -1520,9 +1630,9 @@ main := Just @Bool True
 
 func TestHigherRankRecordField(t *testing.T) {
 	eng := gicel.NewEngine()
-	eng.Use(gicel.Num)
+	eng.Use(gicel.Prelude)
 	rt, err := eng.NewRuntime(`
-import Std.Num
+import Prelude
 r :: Record { apply : \a. a -> a }
 r := { apply: \x. x }
 main := ((r.#apply) True, (r.#apply) 42)
@@ -1549,13 +1659,13 @@ main := ((r.#apply) True, (r.#apply) 42)
 
 func TestPackedSliceConcreteType(t *testing.T) {
 	eng := gicel.NewEngine()
-	eng.Use(gicel.Num)
-	eng.Use(gicel.Slice)
+	eng.Use(gicel.Prelude)
+	eng.Use(gicel.DataSlice)
 
 	// Test 1: with annotation
 	rt, err := eng.NewRuntime(`
-import Std.Num
-import Std.Slice
+import Prelude
+import Data.Slice
 xs :: Slice Int
 xs := pack [1, 2, 3]
 main := unpack xs
@@ -1575,11 +1685,11 @@ main := unpack xs
 
 	// Test 2: without annotation (inferred)
 	eng2 := gicel.NewEngine()
-	eng2.Use(gicel.Num)
-	eng2.Use(gicel.Slice)
+	eng2.Use(gicel.Prelude)
+	eng2.Use(gicel.DataSlice)
 	rt2, err := eng2.NewRuntime(`
-import Std.Num
-import Std.Slice
+import Prelude
+import Data.Slice
 main := unpack (pack [1, 2, 3] :: Slice Int)
 `)
 	if err != nil {
@@ -1601,11 +1711,9 @@ main := unpack (pack [1, 2, 3] :: Slice Int)
 
 func TestLiteralPatternInt(t *testing.T) {
 	eng := gicel.NewEngine()
-	eng.Use(gicel.Num)
-	eng.Use(gicel.Str)
+	eng.Use(gicel.Prelude)
 	rt, err := eng.NewRuntime(`
-import Std.Num
-import Std.Str
+import Prelude
 describe := \n. case n { 0 -> "zero"; 1 -> "one"; _ -> "other" }
 main := describe 1
 `)
@@ -1624,9 +1732,9 @@ main := describe 1
 
 func TestLiteralPatternString(t *testing.T) {
 	eng := gicel.NewEngine()
-	eng.Use(gicel.Str)
+	eng.Use(gicel.Prelude)
 	rt, err := eng.NewRuntime(`
-import Std.Str
+import Prelude
 greet := \name. case name { "Alice" -> "Hello Alice"; _ -> "Hello stranger" }
 main := greet "Alice"
 `)
@@ -1645,9 +1753,9 @@ main := greet "Alice"
 
 func TestLiteralPatternFallthrough(t *testing.T) {
 	eng := gicel.NewEngine()
-	eng.Use(gicel.Num)
+	eng.Use(gicel.Prelude)
 	rt, err := eng.NewRuntime(`
-import Std.Num
+import Prelude
 fib := \n. case n { 0 -> 0; 1 -> 1; _ -> 99 }
 main := fib 5
 `)
@@ -1666,9 +1774,9 @@ main := fib 5
 
 func TestLiteralPatternInNestedCase(t *testing.T) {
 	eng := gicel.NewEngine()
-	eng.Use(gicel.Num)
+	eng.Use(gicel.Prelude)
 	rt, err := eng.NewRuntime(`
-import Std.Num
+import Prelude
 f := \m. case m { Just n -> case n { 0 -> True; _ -> False }; Nothing -> False }
 main := f (Just 0)
 `)
@@ -1684,9 +1792,9 @@ main := f (Just 0)
 
 func TestLiteralPatternRune(t *testing.T) {
 	eng := gicel.NewEngine()
-	eng.Use(gicel.Str)
+	eng.Use(gicel.Prelude)
 	rt, err := eng.NewRuntime(`
-import Std.Str
+import Prelude
 classify := \c. case c { 'a' -> "vowel"; 'e' -> "vowel"; _ -> "other" }
 main := classify 'a'
 `)

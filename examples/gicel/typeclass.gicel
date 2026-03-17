@@ -5,6 +5,8 @@
 -- the Prelude's Eq class.
 -- Level: types
 
+import Prelude
+
 -- A custom ADT for demonstration
 data Season := Spring | Summer | Autumn | Winter
 

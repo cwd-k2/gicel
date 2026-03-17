@@ -4,8 +4,7 @@
 -- Process a list of exam scores: filter, transform, and summarize.
 -- Level: effects
 
-import Std.Num
-import Std.List
+import Prelude
 
 -- Raw scores from a class of students
 scores := [85, 92, 67, 95, 43, 78, 88, 55]

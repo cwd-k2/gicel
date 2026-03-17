@@ -6,7 +6,7 @@
 -- Thunks are first-class values: store them, pass them, choose which to force.
 -- Level: basics
 
-import Std.Num
+import Prelude
 
 -- Basic: create a thunk and force it
 basic := do {

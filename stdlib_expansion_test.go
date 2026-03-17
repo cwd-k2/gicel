@@ -65,7 +65,7 @@ func assertHostBool(t *testing.T, v gicel.Value, expected bool) {
 // ===========================================================================
 
 func TestStrCharAt(t *testing.T) {
-	v := runWithPacks(t, "import Std.Num\nimport Std.Str\nmain := charAt 0 \"hello\"", gicel.Num, gicel.Str)
+	v := runWithPacks(t, "import Prelude\nmain := charAt 0 \"hello\"", gicel.Prelude)
 	// charAt returns Maybe Rune; 'h' = Just 'h'
 	con, ok := v.(*gicel.ConVal)
 	if !ok || con.Con != "Just" {
@@ -74,43 +74,43 @@ func TestStrCharAt(t *testing.T) {
 }
 
 func TestStrCharAtOutOfBounds(t *testing.T) {
-	v := runWithPacks(t, "import Std.Num\nimport Std.Str\nmain := charAt 99 \"hi\"", gicel.Num, gicel.Str)
+	v := runWithPacks(t, "import Prelude\nmain := charAt 99 \"hi\"", gicel.Prelude)
 	assertConVal(t, v, "Nothing")
 }
 
 func TestStrSubstring(t *testing.T) {
-	v := runWithPacks(t, "import Std.Num\nimport Std.Str\nmain := substring 1 2 \"hello\"", gicel.Num, gicel.Str)
+	v := runWithPacks(t, "import Prelude\nmain := substring 1 2 \"hello\"", gicel.Prelude)
 	assertHostString(t, v, "el")
 }
 
 func TestStrToUpper(t *testing.T) {
-	v := runWithPacks(t, "import Std.Str\nmain := toUpper \"hello\"", gicel.Str)
+	v := runWithPacks(t, "import Prelude\nmain := toUpper \"hello\"", gicel.Prelude)
 	assertHostString(t, v, "HELLO")
 }
 
 func TestStrToLower(t *testing.T) {
-	v := runWithPacks(t, "import Std.Str\nmain := toLower \"HELLO\"", gicel.Str)
+	v := runWithPacks(t, "import Prelude\nmain := toLower \"HELLO\"", gicel.Prelude)
 	assertHostString(t, v, "hello")
 }
 
 func TestStrTrim(t *testing.T) {
-	v := runWithPacks(t, "import Std.Str\nmain := trim \"  hello  \"", gicel.Str)
+	v := runWithPacks(t, "import Prelude\nmain := trim \"  hello  \"", gicel.Prelude)
 	assertHostString(t, v, "hello")
 }
 
 func TestStrContains(t *testing.T) {
-	v := runWithPacks(t, "import Std.Str\nmain := contains \"ell\" \"hello\"", gicel.Str)
+	v := runWithPacks(t, "import Prelude\nmain := contains \"ell\" \"hello\"", gicel.Prelude)
 	assertHostBool(t, v, true)
 }
 
 func TestStrContainsFalse(t *testing.T) {
-	v := runWithPacks(t, "import Std.Str\nmain := contains \"xyz\" \"hello\"", gicel.Str)
+	v := runWithPacks(t, "import Prelude\nmain := contains \"xyz\" \"hello\"", gicel.Prelude)
 	assertHostBool(t, v, false)
 }
 
 func TestStrSplit(t *testing.T) {
 	// split "," "a,b,c" => List String: Cons "a" (Cons "b" (Cons "c" Nil))
-	v := runWithPacks(t, "import Std.Str\nmain := split \",\" \"a,b,c\"", gicel.Str)
+	v := runWithPacks(t, "import Prelude\nmain := split \",\" \"a,b,c\"", gicel.Prelude)
 	con, ok := v.(*gicel.ConVal)
 	if !ok || con.Con != "Cons" {
 		t.Fatalf("expected Cons, got %v", v)
@@ -119,23 +119,23 @@ func TestStrSplit(t *testing.T) {
 }
 
 func TestStrJoin(t *testing.T) {
-	v := runWithPacks(t, "import Std.Str\nmain := join \",\" (Cons \"a\" (Cons \"b\" (Cons \"c\" Nil)))", gicel.Str)
+	v := runWithPacks(t, "import Prelude\nmain := join \",\" (Cons \"a\" (Cons \"b\" (Cons \"c\" Nil)))", gicel.Prelude)
 	assertHostString(t, v, "a,b,c")
 }
 
 func TestStrShowInt(t *testing.T) {
-	v := runWithPacks(t, "import Std.Num\nimport Std.Str\nmain := showInt 42", gicel.Num, gicel.Str)
+	v := runWithPacks(t, "import Prelude\nmain := showInt 42", gicel.Prelude)
 	assertHostString(t, v, "42")
 }
 
 func TestStrShowBool(t *testing.T) {
-	v := runWithPacks(t, "import Std.Str\nmain := showBool True", gicel.Str)
+	v := runWithPacks(t, "import Prelude\nmain := showBool True", gicel.Prelude)
 	assertHostString(t, v, "True")
 }
 
 func TestStrReadInt(t *testing.T) {
 	// readInt returns Maybe Int
-	v := runWithPacks(t, "import Std.Num\nimport Std.Str\nmain := readInt \"42\"", gicel.Num, gicel.Str)
+	v := runWithPacks(t, "import Prelude\nmain := readInt \"42\"", gicel.Prelude)
 	con, ok := v.(*gicel.ConVal)
 	if !ok || con.Con != "Just" {
 		t.Fatalf("expected Just, got %v", v)
@@ -150,12 +150,12 @@ func TestStrReadInt(t *testing.T) {
 }
 
 func TestStrReadIntFail(t *testing.T) {
-	v := runWithPacks(t, "import Std.Str\nmain := readInt \"abc\"", gicel.Str)
+	v := runWithPacks(t, "import Prelude\nmain := readInt \"abc\"", gicel.Prelude)
 	assertConVal(t, v, "Nothing")
 }
 
 func TestStrFromRunes(t *testing.T) {
-	v := runWithPacks(t, "import Std.Str\nmain := fromRunes (Cons 'h' (Cons 'i' Nil))", gicel.Str)
+	v := runWithPacks(t, "import Prelude\nmain := fromRunes (Cons 'h' (Cons 'i' Nil))", gicel.Prelude)
 	assertHostString(t, v, "hi")
 }
 
@@ -165,17 +165,18 @@ func TestStrFromRunes(t *testing.T) {
 
 func TestPackedStringRoundtrip(t *testing.T) {
 	v := runWithPacks(t, `
-import Std.Str
+import Prelude
 main :: String
 main := pack (unpack "hello")
-`, gicel.Str)
+`, gicel.Prelude)
 	assertHostString(t, v, "hello")
 }
 
 func TestPackedListIdentity(t *testing.T) {
 	v := runWithPacks(t, `
+import Prelude
 main := pack (Cons True Nil)
-`)
+`, gicel.Prelude)
 	con, ok := v.(*gicel.ConVal)
 	if !ok || con.Con != "Cons" {
 		t.Fatalf("expected Cons, got %v", v)
@@ -190,9 +191,9 @@ main := pack (Cons True Nil)
 
 func TestListZip(t *testing.T) {
 	v := runWithPacks(t, `
-import Std.List
+import Prelude
 main := zip (Cons True (Cons False Nil)) (Cons () Nil)
-`, gicel.List)
+`, gicel.Prelude)
 	// zip [True,False] [()] = [(True, ())]
 	con, ok := v.(*gicel.ConVal)
 	if !ok || con.Con != "Cons" {
@@ -207,9 +208,9 @@ main := zip (Cons True (Cons False Nil)) (Cons () Nil)
 
 func TestListUnzip(t *testing.T) {
 	v := runWithPacks(t, `
-import Std.List
+import Prelude
 main := unzip (Cons (True, ()) Nil)
-`, gicel.List)
+`, gicel.Prelude)
 	// unzip [(True, ())] = ([True], [()])
 	rv, ok := v.(*gicel.RecordVal)
 	if !ok || len(rv.Fields) != 2 {
@@ -218,7 +219,7 @@ main := unzip (Cons (True, ()) Nil)
 }
 
 func TestListTake(t *testing.T) {
-	v := runWithPacks(t, "import Std.Num\nimport Std.List\nmain := take 2 (Cons True (Cons False (Cons True Nil)))", gicel.Num, gicel.List)
+	v := runWithPacks(t, "import Prelude\nmain := take 2 (Cons True (Cons False (Cons True Nil)))", gicel.Prelude)
 	// take 2 [True,False,True] = [True,False]
 	con := v.(*gicel.ConVal)
 	if con.Con != "Cons" {
@@ -232,7 +233,7 @@ func TestListTake(t *testing.T) {
 }
 
 func TestListDrop(t *testing.T) {
-	v := runWithPacks(t, "import Std.Num\nimport Std.List\nmain := drop 1 (Cons True (Cons False Nil))", gicel.Num, gicel.List)
+	v := runWithPacks(t, "import Prelude\nmain := drop 1 (Cons True (Cons False Nil))", gicel.Prelude)
 	// drop 1 [True,False] = [False]
 	con := v.(*gicel.ConVal)
 	if con.Con != "Cons" {
@@ -244,16 +245,16 @@ func TestListDrop(t *testing.T) {
 
 func TestListReverse(t *testing.T) {
 	v := runWithPacks(t, `
-import Std.List
+import Prelude
 main := reverse (Cons True (Cons False Nil))
-`, gicel.List)
+`, gicel.Prelude)
 	// reverse [True,False] = [False,True]
 	con := v.(*gicel.ConVal)
 	assertConVal(t, con.Args[0], "False")
 }
 
 func TestListIndex(t *testing.T) {
-	v := runWithPacks(t, "import Std.Num\nimport Std.List\nmain := index 1 (Cons True (Cons False Nil))", gicel.Num, gicel.List)
+	v := runWithPacks(t, "import Prelude\nmain := index 1 (Cons True (Cons False Nil))", gicel.Prelude)
 	// index 1 [True,False] = Just False
 	con, ok := v.(*gicel.ConVal)
 	if !ok || con.Con != "Just" {
@@ -263,12 +264,12 @@ func TestListIndex(t *testing.T) {
 }
 
 func TestListIndexOutOfBounds(t *testing.T) {
-	v := runWithPacks(t, "import Std.Num\nimport Std.List\nmain := index 5 (Cons True Nil)", gicel.Num, gicel.List)
+	v := runWithPacks(t, "import Prelude\nmain := index 5 (Cons True Nil)", gicel.Prelude)
 	assertConVal(t, v, "Nothing")
 }
 
 func TestListReplicate(t *testing.T) {
-	v := runWithPacks(t, "import Std.Num\nimport Std.List\nmain := replicate 3 True", gicel.Num, gicel.List)
+	v := runWithPacks(t, "import Prelude\nmain := replicate 3 True", gicel.Prelude)
 	// replicate 3 True = [True, True, True]
 	con := v.(*gicel.ConVal)
 	if con.Con != "Cons" {
@@ -281,10 +282,9 @@ func TestListFoldl(t *testing.T) {
 	// foldl (\acc x -> case x { True -> acc + 1; False -> acc }) 0 [True, False, True]
 	// = ((0 + 1) + 0) + 1 = 2
 	v := runWithPacks(t, `
-import Std.Num
-import Std.List
+import Prelude
 main := foldl (\acc x. case x { True -> acc + 1; False -> acc }) 0 (Cons True (Cons False (Cons True Nil)))
-`, gicel.Num, gicel.List)
+`, gicel.Prelude)
 	hv, ok := v.(*gicel.HostVal)
 	if !ok {
 		t.Fatalf("expected HostVal, got %T: %v", v, v)
@@ -300,20 +300,20 @@ main := foldl (\acc x. case x { True -> acc + 1; False -> acc }) 0 (Cons True (C
 
 func TestSliceSingletonLength(t *testing.T) {
 	v := runWithPacks(t, `
-import Std.Num
-import Std.Slice
+import Prelude
+import Data.Slice
 main := sliceLength (sliceSingleton True)
-`, gicel.Num, gicel.Slice)
+`, gicel.Prelude, gicel.DataSlice)
 	assertHostInt(t, v, 1)
 }
 
 func TestSliceIndex(t *testing.T) {
 	v := runWithPacks(t, `
-import Std.Num
-import Std.Slice
+import Prelude
+import Data.Slice
 main :: Maybe Bool
 main := sliceIndex 0 (pack (Cons True Nil))
-`, gicel.Num, gicel.Slice)
+`, gicel.Prelude, gicel.DataSlice)
 	con, ok := v.(*gicel.ConVal)
 	if !ok || con.Con != "Just" {
 		t.Fatalf("expected Just, got %v", v)
@@ -323,9 +323,10 @@ main := sliceIndex 0 (pack (Cons True Nil))
 
 func TestSlicePackedRoundtrip(t *testing.T) {
 	v := runWithPacks(t, `
-import Std.Slice
+import Prelude
+import Data.Slice
 main := unpack (pack (Cons True (Cons False Nil)) :: Slice Bool)
-`, gicel.Slice)
+`, gicel.Prelude, gicel.DataSlice)
 	con := v.(*gicel.ConVal)
 	if con.Con != "Cons" {
 		t.Fatalf("expected Cons, got %s", con.Con)
@@ -338,19 +339,19 @@ main := unpack (pack (Cons True (Cons False Nil)) :: Slice Bool)
 
 func TestSliceFmap(t *testing.T) {
 	v := runWithPacks(t, `
-import Std.Num
-import Std.Slice
+import Prelude
+import Data.Slice
 main := sliceLength (fmap not (sliceSingleton True))
-`, gicel.Num, gicel.Slice)
+`, gicel.Prelude, gicel.DataSlice)
 	assertHostInt(t, v, 1)
 }
 
 func TestSliceMonoid(t *testing.T) {
 	v := runWithPacks(t, `
-import Std.Num
-import Std.Slice
+import Prelude
+import Data.Slice
 main := sliceLength (append (sliceSingleton True) (sliceSingleton False))
-`, gicel.Num, gicel.Slice)
+`, gicel.Prelude, gicel.DataSlice)
 	assertHostInt(t, v, 2)
 }
 
@@ -360,9 +361,10 @@ main := sliceLength (append (sliceSingleton True) (sliceSingleton False))
 
 func TestStreamHeadS(t *testing.T) {
 	v := runWithPacks(t, `
-import Std.Stream
+import Prelude
+import Data.Stream
 main := headS (LCons True (\_. LNil))
-`, gicel.Stream)
+`, gicel.Prelude, gicel.DataStream)
 	con, ok := v.(*gicel.ConVal)
 	if !ok || con.Con != "Just" {
 		t.Fatalf("expected Just, got %v", v)
@@ -372,18 +374,20 @@ main := headS (LCons True (\_. LNil))
 
 func TestStreamHeadSEmpty(t *testing.T) {
 	v := runWithPacks(t, `
-import Std.Stream
+import Prelude
+import Data.Stream
 main :: Maybe Bool
 main := headS LNil
-`, gicel.Stream)
+`, gicel.Prelude, gicel.DataStream)
 	assertConVal(t, v, "Nothing")
 }
 
 func TestStreamToListFromList(t *testing.T) {
 	v := runWithPacks(t, `
-import Std.Stream
+import Prelude
+import Data.Stream
 main := toList (fromList (Cons True (Cons False Nil)) :: Stream Bool)
-`, gicel.Stream)
+`, gicel.Prelude, gicel.DataStream)
 	con := v.(*gicel.ConVal)
 	if con.Con != "Cons" {
 		t.Fatalf("expected Cons, got %s", con.Con)
@@ -396,10 +400,10 @@ main := toList (fromList (Cons True (Cons False Nil)) :: Stream Bool)
 
 func TestStreamTakeS(t *testing.T) {
 	v := runWithPacks(t, `
-import Std.Num
-import Std.Stream
+import Prelude
+import Data.Stream
 main := takeS 2 (LCons True (\_. LCons False (\_. LCons True (\_. LNil))))
-`, gicel.Num, gicel.Stream)
+`, gicel.Prelude, gicel.DataStream)
 	con := v.(*gicel.ConVal)
 	if con.Con != "Cons" {
 		t.Fatalf("expected Cons, got %s", con.Con)
@@ -412,9 +416,10 @@ main := takeS 2 (LCons True (\_. LCons False (\_. LCons True (\_. LNil))))
 
 func TestStreamFmap(t *testing.T) {
 	v := runWithPacks(t, `
-import Std.Stream
+import Prelude
+import Data.Stream
 main := headS (fmap not (LCons True (\_. LNil)))
-`, gicel.Stream)
+`, gicel.Prelude, gicel.DataStream)
 	con, ok := v.(*gicel.ConVal)
 	if !ok || con.Con != "Just" {
 		t.Fatalf("expected Just, got %v", v)
@@ -424,10 +429,10 @@ main := headS (fmap not (LCons True (\_. LNil)))
 
 func TestStreamDropS(t *testing.T) {
 	v := runWithPacks(t, `
-import Std.Num
-import Std.Stream
+import Prelude
+import Data.Stream
 main := headS (dropS 1 (LCons True (\_. LCons False (\_. LNil))))
-`, gicel.Num, gicel.Stream)
+`, gicel.Prelude, gicel.DataStream)
 	con, ok := v.(*gicel.ConVal)
 	if !ok || con.Con != "Just" {
 		t.Fatalf("expected Just, got %v", v)
@@ -443,19 +448,19 @@ func TestSliceFusionMapMapIntegration(t *testing.T) {
 	// Verify that the production sliceMapMapFusion rule fires through the engine pipeline.
 	// Two consecutive fmap calls should be fused into one _sliceMap with a composed function.
 	v := runWithPacks(t, `
-import Std.Num
-import Std.Slice
+import Prelude
+import Data.Slice
 main := sliceLength (fmap (\x. x + 1) (fmap (\x. x + 2) (sliceSingleton 0)))
-`, gicel.Num, gicel.Slice)
+`, gicel.Prelude, gicel.DataSlice)
 	assertHostInt(t, v, 1)
 }
 
 func TestStringPackedRoundtripIntegration(t *testing.T) {
 	// Verify production strPackedRoundtrip fires: fromRunes (toRunes x) → x
 	v := runWithPacks(t, `
-import Std.Str
+import Prelude
 main := fromRunes (toRunes "abc")
-`, gicel.Str)
+`, gicel.Prelude)
 	assertHostString(t, v, "abc")
 }
 
@@ -465,15 +470,15 @@ main := fromRunes (toRunes "abc")
 
 func TestIOPrint(t *testing.T) {
 	eng := gicel.NewEngine()
-	if err := gicel.Str(eng); err != nil {
+	if err := gicel.Prelude(eng); err != nil {
 		t.Fatal(err)
 	}
-	if err := gicel.IO(eng); err != nil {
+	if err := gicel.EffectIO(eng); err != nil {
 		t.Fatal(err)
 	}
 	rt, err := eng.NewRuntime(`
-import Std.Str
-import Std.IO
+import Prelude
+import Effect.IO
 main := do { print "hello" }
 `)
 	if err != nil {
@@ -507,9 +512,9 @@ main := do { print "hello" }
 
 func TestListDropWhile(t *testing.T) {
 	v := runWithPacks(t, `
-import Std.List
+import Prelude
 main := dropWhile not (Cons False (Cons False (Cons True (Cons False Nil))))
-`, gicel.List)
+`, gicel.Prelude)
 	// dropWhile not [F,F,T,F] — not F = True (drop), not F = True (drop), not T = False (stop)
 	// result = [T,F]
 	con := v.(*gicel.ConVal)
@@ -521,9 +526,9 @@ main := dropWhile not (Cons False (Cons False (Cons True (Cons False Nil))))
 
 func TestListSpan(t *testing.T) {
 	v := runWithPacks(t, `
-import Std.List
+import Prelude
 main := fst (span not (Cons False (Cons True Nil)))
-`, gicel.List)
+`, gicel.Prelude)
 	// span not [F,T] — not F = True (take), not T = False (stop)
 	// fst = [F]
 	con := v.(*gicel.ConVal)
@@ -533,9 +538,9 @@ main := fst (span not (Cons False (Cons True Nil)))
 
 func TestListBreak(t *testing.T) {
 	v := runWithPacks(t, `
-import Std.List
+import Prelude
 main := fst (break not (Cons True (Cons False Nil)))
-`, gicel.List)
+`, gicel.Prelude)
 	// break not [T,F] = span (not . not) [T,F] = span id [T,F]
 	// id T = True (take), id F = False (stop) → fst = [T]
 	con := v.(*gicel.ConVal)
@@ -545,10 +550,9 @@ main := fst (break not (Cons True (Cons False Nil)))
 
 func TestListSortBy(t *testing.T) {
 	v := runWithPacks(t, `
-import Std.Num
-import Std.List
+import Prelude
 main := sortBy compare (Cons 3 (Cons 1 (Cons 2 Nil)))
-`, gicel.Num, gicel.List)
+`, gicel.Prelude)
 	con := v.(*gicel.ConVal)
 	hv := con.Args[0].(*gicel.HostVal)
 	if hv.Inner.(int64) != 1 {
@@ -558,10 +562,9 @@ main := sortBy compare (Cons 3 (Cons 1 (Cons 2 Nil)))
 
 func TestListSort(t *testing.T) {
 	v := runWithPacks(t, `
-import Std.Num
-import Std.List
+import Prelude
 main := sort (Cons 3 (Cons 1 (Cons 2 Nil)))
-`, gicel.Num, gicel.List)
+`, gicel.Prelude)
 	con := v.(*gicel.ConVal)
 	hv := con.Args[0].(*gicel.HostVal)
 	if hv.Inner.(int64) != 1 {
@@ -581,19 +584,17 @@ main := sort (Cons 3 (Cons 1 (Cons 2 Nil)))
 
 func TestListSortEmpty(t *testing.T) {
 	v := runWithPacks(t, `
-import Std.Num
-import Std.List
+import Prelude
 main := sort Nil :: List Int
-`, gicel.Num, gicel.List)
+`, gicel.Prelude)
 	assertConVal(t, v, "Nil")
 }
 
 func TestListScanl(t *testing.T) {
 	v := runWithPacks(t, `
-import Std.Num
-import Std.List
+import Prelude
 main := scanl (\x y. x + y) 0 (Cons 1 (Cons 2 (Cons 3 Nil)))
-`, gicel.Num, gicel.List)
+`, gicel.Prelude)
 	// scanl (+) 0 [1,2,3] = [0,1,3,6]
 	con := v.(*gicel.ConVal)
 	hv := con.Args[0].(*gicel.HostVal)
@@ -604,10 +605,9 @@ main := scanl (\x y. x + y) 0 (Cons 1 (Cons 2 (Cons 3 Nil)))
 
 func TestListUnfoldr(t *testing.T) {
 	v := runWithPacks(t, `
-import Std.Num
-import Std.List
+import Prelude
 main := unfoldr (\n. case n == 0 { True -> Nothing; False -> Just (n, n - 1) }) 3
-`, gicel.Num, gicel.List)
+`, gicel.Prelude)
 	// unfoldr from 3: Just (3,2), Just (2,1), Just (1,0), Nothing → [3,2,1]
 	con := v.(*gicel.ConVal)
 	hv := con.Args[0].(*gicel.HostVal)
@@ -618,10 +618,9 @@ main := unfoldr (\n. case n == 0 { True -> Nothing; False -> Just (n, n - 1) }) 
 
 func TestListIterateN(t *testing.T) {
 	v := runWithPacks(t, `
-import Std.Num
-import Std.List
+import Prelude
 main := iterateN 4 (\x. x * 2) 1
-`, gicel.Num, gicel.List)
+`, gicel.Prelude)
 	// iterateN 4 (*2) 1 = [1,2,4,8]
 	con := v.(*gicel.ConVal)
 	hv := con.Args[0].(*gicel.HostVal)
@@ -632,10 +631,9 @@ main := iterateN 4 (\x. x * 2) 1
 
 func TestListZipWith(t *testing.T) {
 	v := runWithPacks(t, `
-import Std.Num
-import Std.List
+import Prelude
 main := zipWith (\x y. x + y) (Cons 1 (Cons 2 Nil)) (Cons 10 (Cons 20 Nil))
-`, gicel.Num, gicel.List)
+`, gicel.Prelude)
 	// zipWith (+) [1,2] [10,20] = [11,22]
 	con := v.(*gicel.ConVal)
 	hv := con.Args[0].(*gicel.HostVal)
@@ -646,10 +644,9 @@ main := zipWith (\x y. x + y) (Cons 1 (Cons 2 Nil)) (Cons 10 (Cons 20 Nil))
 
 func TestListIntercalate(t *testing.T) {
 	v := runWithPacks(t, `
-import Std.Num
-import Std.List
+import Prelude
 main := intercalate (Cons 0 Nil) (Cons (Cons 1 Nil) (Cons (Cons 2 Nil) (Cons (Cons 3 Nil) Nil)))
-`, gicel.Num, gicel.List)
+`, gicel.Prelude)
 	// intercalate [0] [[1],[2],[3]] = [1,0,2,0,3]
 	con := v.(*gicel.ConVal)
 	hv := con.Args[0].(*gicel.HostVal)
@@ -660,10 +657,9 @@ main := intercalate (Cons 0 Nil) (Cons (Cons 1 Nil) (Cons (Cons 2 Nil) (Cons (Co
 
 func TestListNubBy(t *testing.T) {
 	v := runWithPacks(t, `
-import Std.Num
-import Std.List
+import Prelude
 main := nubBy eq (Cons 1 (Cons 2 (Cons 1 (Cons 3 Nil))))
-`, gicel.Num, gicel.List)
+`, gicel.Prelude)
 	// nubBy eq [1,2,1,3] = [1,2,3] (preserves first occurrences via foldl)
 	con := v.(*gicel.ConVal)
 	hv := con.Args[0].(*gicel.HostVal)
@@ -674,15 +670,15 @@ main := nubBy eq (Cons 1 (Cons 2 (Cons 1 (Cons 3 Nil))))
 
 func TestIODebug(t *testing.T) {
 	eng := gicel.NewEngine()
-	if err := gicel.Num(eng); err != nil {
+	if err := gicel.Prelude(eng); err != nil {
 		t.Fatal(err)
 	}
-	if err := gicel.IO(eng); err != nil {
+	if err := gicel.EffectIO(eng); err != nil {
 		t.Fatal(err)
 	}
 	rt, err := eng.NewRuntime(`
-import Std.Num
-import Std.IO
+import Prelude
+import Effect.IO
 main := do { debug 42 }
 `)
 	if err != nil {
@@ -712,10 +708,10 @@ main := do { debug 42 }
 
 func TestMapInsertLookupIntegration(t *testing.T) {
 	v := runWithPacks(t, `
-import Std.Num
-import Std.Map
+import Prelude
+import Data.Map
 main := mapLookup 1 (insert 1 True (mapEmpty :: Map Int Bool))
-`, gicel.Num, gicel.Map)
+`, gicel.Prelude, gicel.DataMap)
 	con, ok := v.(*gicel.ConVal)
 	if !ok || con.Con != "Just" {
 		t.Fatalf("expected Just, got %v", v)
@@ -725,46 +721,46 @@ main := mapLookup 1 (insert 1 True (mapEmpty :: Map Int Bool))
 
 func TestMapLookupMissingIntegration(t *testing.T) {
 	v := runWithPacks(t, `
-import Std.Num
-import Std.Map
+import Prelude
+import Data.Map
 main := mapLookup 99 (insert 1 True (mapEmpty :: Map Int Bool))
-`, gicel.Num, gicel.Map)
+`, gicel.Prelude, gicel.DataMap)
 	assertConVal(t, v, "Nothing")
 }
 
 func TestMapSizeIntegration(t *testing.T) {
 	v := runWithPacks(t, `
-import Std.Num
-import Std.Map
+import Prelude
+import Data.Map
 main := mapSize (insert 2 False (insert 1 True (mapEmpty :: Map Int Bool)))
-`, gicel.Num, gicel.Map)
+`, gicel.Prelude, gicel.DataMap)
 	assertHostInt(t, v, 2)
 }
 
 func TestMapMemberIntegration(t *testing.T) {
 	v := runWithPacks(t, `
-import Std.Num
-import Std.Map
+import Prelude
+import Data.Map
 main := member 1 (insert 1 True (mapEmpty :: Map Int Bool))
-`, gicel.Num, gicel.Map)
+`, gicel.Prelude, gicel.DataMap)
 	assertConVal(t, v, "True")
 }
 
 func TestMapDeleteIntegration(t *testing.T) {
 	v := runWithPacks(t, `
-import Std.Num
-import Std.Map
+import Prelude
+import Data.Map
 main := mapSize (delete 1 (insert 1 True (mapEmpty :: Map Int Bool)))
-`, gicel.Num, gicel.Map)
+`, gicel.Prelude, gicel.DataMap)
 	assertHostInt(t, v, 0)
 }
 
 func TestMapFromListToListIntegration(t *testing.T) {
 	v := runWithPacks(t, `
-import Std.Num
-import Std.Map
+import Prelude
+import Data.Map
 main := mapSize (fromList (Cons (1, True) (Cons (2, False) Nil)) :: Map Int Bool)
-`, gicel.Num, gicel.Map)
+`, gicel.Prelude, gicel.DataMap)
 	assertHostInt(t, v, 2)
 }
 
@@ -774,55 +770,55 @@ main := mapSize (fromList (Cons (1, True) (Cons (2, False) Nil)) :: Map Int Bool
 
 func TestSetInsertMemberIntegration(t *testing.T) {
 	v := runWithPacks(t, `
-import Std.Num
-import Std.Set
+import Prelude
+import Data.Set
 main := setMember 1 (setInsert 1 (setEmpty :: Set Int))
-`, gicel.Num, gicel.Set)
+`, gicel.Prelude, gicel.DataSet)
 	assertConVal(t, v, "True")
 }
 
 func TestSetMemberMissingIntegration(t *testing.T) {
 	v := runWithPacks(t, `
-import Std.Num
-import Std.Set
+import Prelude
+import Data.Set
 main := setMember 99 (setInsert 1 (setEmpty :: Set Int))
-`, gicel.Num, gicel.Set)
+`, gicel.Prelude, gicel.DataSet)
 	assertConVal(t, v, "False")
 }
 
 func TestSetSizeIntegration(t *testing.T) {
 	v := runWithPacks(t, `
-import Std.Num
-import Std.Set
+import Prelude
+import Data.Set
 main := setSize (setInsert 2 (setInsert 1 (setEmpty :: Set Int)))
-`, gicel.Num, gicel.Set)
+`, gicel.Prelude, gicel.DataSet)
 	assertHostInt(t, v, 2)
 }
 
 func TestSetDeleteIntegration(t *testing.T) {
 	v := runWithPacks(t, `
-import Std.Num
-import Std.Set
+import Prelude
+import Data.Set
 main := setSize (setDelete 1 (setInsert 2 (setInsert 1 (setEmpty :: Set Int))))
-`, gicel.Num, gicel.Set)
+`, gicel.Prelude, gicel.DataSet)
 	assertHostInt(t, v, 1)
 }
 
 func TestSetFromListIntegration(t *testing.T) {
 	v := runWithPacks(t, `
-import Std.Num
-import Std.Set
+import Prelude
+import Data.Set
 main := setSize (setFromList (Cons 1 (Cons 2 (Cons 1 Nil))) :: Set Int)
-`, gicel.Num, gicel.Set)
+`, gicel.Prelude, gicel.DataSet)
 	assertHostInt(t, v, 2) // duplicates removed
 }
 
 func TestSetToListIntegration(t *testing.T) {
 	v := runWithPacks(t, `
-import Std.Num
-import Std.Set
+import Prelude
+import Data.Set
 main := setToList (setInsert 2 (setInsert 1 (setEmpty :: Set Int)))
-`, gicel.Num, gicel.Set)
+`, gicel.Prelude, gicel.DataSet)
 	// Should be sorted: [1, 2]
 	con, ok := v.(*gicel.ConVal)
 	if !ok || con.Con != "Cons" {

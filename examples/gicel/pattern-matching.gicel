@@ -3,8 +3,7 @@
 -- Demonstrates nested constructor patterns and literal patterns.
 -- Level: basic
 
-import Std.Num
-import Std.Str
+import Prelude
 
 -- Nested constructor patterns: match inside Maybe without nesting case
 describe :: Maybe Bool -> String

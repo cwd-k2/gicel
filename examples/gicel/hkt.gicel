@@ -5,6 +5,8 @@
 -- GICEL supports HKT via explicit kind annotations using (f: Kind).
 -- Level: types
 
+import Prelude
+
 -- A binary tree type (Type -> Type)
 data Tree a := TLeaf a | TBranch (Tree a) (Tree a)
 

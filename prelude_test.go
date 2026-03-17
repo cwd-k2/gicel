@@ -2,6 +2,7 @@ package gicel_test
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	"github.com/cwd-k2/gicel"
@@ -12,12 +13,15 @@ import (
 // for new Prelude functions. Written before the implementation.
 // ---------------------------------------------------------------------------
 
-// runPure compiles a source fragment (with Prelude + Std.Num) and evaluates "main".
+// runPure compiles a source fragment (with Prelude) and evaluates "main".
 func runPure(t *testing.T, source string) gicel.Value {
 	t.Helper()
 	eng := gicel.NewEngine()
-	if err := gicel.Num(eng); err != nil {
+	if err := gicel.Prelude(eng); err != nil {
 		t.Fatal(err)
+	}
+	if !strings.Contains(source, "import Prelude") {
+		source = "import Prelude\n" + source
 	}
 	rt, err := eng.NewRuntime(source)
 	if err != nil {
@@ -65,7 +69,7 @@ func TestPreludeId(t *testing.T) {
 
 func TestPreludeIdInt(t *testing.T) {
 	v := runPure(t, `
-import Std.Num
+import Prelude
 main := id 42
 `)
 	assertHostInt(t, v, 42)
@@ -82,7 +86,7 @@ func TestPreludeConst(t *testing.T) {
 
 func TestPreludeFlip(t *testing.T) {
 	v := runPure(t, `
-import Std.Num
+import Prelude
 main := flip const 1 2
 `)
 	assertHostInt(t, v, 2)
@@ -279,44 +283,44 @@ func TestPreludeNeqOp(t *testing.T) {
 }
 
 func TestPreludeLtOp(t *testing.T) {
-	v := runPure(t, "import Std.Num\nmain := 1 < 2")
+	v := runPure(t, "import Prelude\nmain := 1 < 2")
 	assertConVal(t, v, "True")
 }
 
 func TestPreludeGtOp(t *testing.T) {
-	v := runPure(t, "import Std.Num\nmain := 2 > 1")
+	v := runPure(t, "import Prelude\nmain := 2 > 1")
 	assertConVal(t, v, "True")
 }
 
 func TestPreludeLeOp(t *testing.T) {
-	v := runPure(t, "import Std.Num\nmain := 1 <= 1")
+	v := runPure(t, "import Prelude\nmain := 1 <= 1")
 	assertConVal(t, v, "True")
 }
 
 func TestPreludeGeOp(t *testing.T) {
-	v := runPure(t, "import Std.Num\nmain := 2 >= 1")
+	v := runPure(t, "import Prelude\nmain := 2 >= 1")
 	assertConVal(t, v, "True")
 }
 
 func TestPreludeMin(t *testing.T) {
-	v := runPure(t, "import Std.Num\nmain := min 3 7")
+	v := runPure(t, "import Prelude\nmain := min 3 7")
 	assertHostInt(t, v, 3)
 }
 
 func TestPreludeMax(t *testing.T) {
-	v := runPure(t, "import Std.Num\nmain := max 3 7")
+	v := runPure(t, "import Prelude\nmain := max 3 7")
 	assertHostInt(t, v, 7)
 }
 
 // --- abs / sign in Std.Num ---
 
 func TestNumAbs(t *testing.T) {
-	v := runPure(t, "import Std.Num\nmain := abs (negate 5)")
+	v := runPure(t, "import Prelude\nmain := abs (negate 5)")
 	assertHostInt(t, v, 5)
 }
 
 func TestNumAbsPositive(t *testing.T) {
-	v := runPure(t, "import Std.Num\nmain := abs 3")
+	v := runPure(t, "import Prelude\nmain := abs 3")
 	assertHostInt(t, v, 3)
 }
 
@@ -325,9 +329,9 @@ func TestNumSign(t *testing.T) {
 		src  string
 		want int64
 	}{
-		{"import Std.Num\nmain := sign 42", 1},
-		{"import Std.Num\nmain := sign (negate 3)", -1},
-		{"import Std.Num\nmain := sign 0", 0},
+		{"import Prelude\nmain := sign 42", 1},
+		{"import Prelude\nmain := sign (negate 3)", -1},
+		{"import Prelude\nmain := sign 0", 0},
 	}
 	for _, tt := range tests {
 		t.Run("", func(t *testing.T) {
@@ -367,7 +371,7 @@ main := f True
 
 func TestApplicativeList(t *testing.T) {
 	// wrap 42 = [42]
-	v := runPure(t, "import Std.Num\nmain := wrap 42 :: List Int")
+	v := runPure(t, "import Prelude\nmain := wrap 42 :: List Int")
 	con := v.(*gicel.ConVal)
 	if con.Con != "Cons" {
 		t.Fatalf("expected Cons, got %s", con.Con)
@@ -439,13 +443,13 @@ func TestFoldableResultErr(t *testing.T) {
 
 func TestOrdListLex(t *testing.T) {
 	// [1,2] < [1,3]
-	v := runPure(t, "import Std.Num\nmain := compare (Cons 1 (Cons 2 Nil)) (Cons 1 (Cons 3 Nil))")
+	v := runPure(t, "import Prelude\nmain := compare (Cons 1 (Cons 2 Nil)) (Cons 1 (Cons 3 Nil))")
 	assertConVal(t, v, "LT")
 }
 
 func TestOrdListPrefix(t *testing.T) {
 	// [1] < [1,2]
-	v := runPure(t, "import Std.Num\nmain := compare (Cons 1 Nil) (Cons 1 (Cons 2 Nil))")
+	v := runPure(t, "import Prelude\nmain := compare (Cons 1 Nil) (Cons 1 (Cons 2 Nil))")
 	assertConVal(t, v, "LT")
 }
 
@@ -549,17 +553,17 @@ main := f True
 // ===========================================================================
 
 func TestOn(t *testing.T) {
-	v := runPure(t, "import Std.Num\nmain := on (\\x y. x + y) (\\_. 1) True False")
+	v := runPure(t, "import Prelude\nmain := on (\\x y. x + y) (\\_. 1) True False")
 	assertHostInt(t, v, 2)
 }
 
 func TestComparing(t *testing.T) {
-	v := runPure(t, "import Std.Num\nmain := comparing fst (1, True) (2, False)")
+	v := runPure(t, "import Prelude\nmain := comparing fst (1, True) (2, False)")
 	assertConVal(t, v, "LT")
 }
 
 func TestEquating(t *testing.T) {
-	v := runPure(t, "import Std.Num\nmain := equating fst (1, True) (1, False)")
+	v := runPure(t, "import Prelude\nmain := equating fst (1, True) (1, False)")
 	assertConVal(t, v, "True")
 }
 
@@ -599,12 +603,12 @@ func TestFromErr(t *testing.T) {
 }
 
 func TestBool(t *testing.T) {
-	v := runPure(t, "import Std.Num\nmain := bool 0 1 True")
+	v := runPure(t, "import Prelude\nmain := bool 0 1 True")
 	assertHostInt(t, v, 1)
 }
 
 func TestBoolFalse(t *testing.T) {
-	v := runPure(t, "import Std.Num\nmain := bool 0 1 False")
+	v := runPure(t, "import Prelude\nmain := bool 0 1 False")
 	assertHostInt(t, v, 0)
 }
 
@@ -656,7 +660,7 @@ func TestLiftA2(t *testing.T) {
 
 func TestFoldMap(t *testing.T) {
 	// foldMap singleton [1,2,3] = [1,2,3] (Monoid for List is append)
-	v := runPure(t, "import Std.Num\nmain := foldMap singleton (Cons 1 (Cons 2 Nil))")
+	v := runPure(t, "import Prelude\nmain := foldMap singleton (Cons 1 (Cons 2 Nil))")
 	con := v.(*gicel.ConVal)
 	if con.Con != "Cons" {
 		t.Fatalf("expected Cons, got %s", con.Con)
@@ -749,7 +753,7 @@ func TestOrFalse(t *testing.T) {
 }
 
 func TestLookup(t *testing.T) {
-	v := runPure(t, "import Std.Num\nmain := lookup 2 (Cons (1, True) (Cons (2, False) Nil))")
+	v := runPure(t, "import Prelude\nmain := lookup 2 (Cons (1, True) (Cons (2, False) Nil))")
 	con := v.(*gicel.ConVal)
 	if con.Con != "Just" {
 		t.Fatalf("expected Just, got %s", con.Con)
@@ -758,7 +762,7 @@ func TestLookup(t *testing.T) {
 }
 
 func TestLookupMissing(t *testing.T) {
-	v := runPure(t, "import Std.Num\nmain := lookup 3 (Cons (1, True) Nil)")
+	v := runPure(t, "import Prelude\nmain := lookup 3 (Cons (1, True) Nil)")
 	assertConVal(t, v, "Nothing")
 }
 
@@ -774,7 +778,7 @@ func TestConcatMap(t *testing.T) {
 
 func TestFlatten(t *testing.T) {
 	// flatten [[1],[2,3]] = [1,2,3]
-	v := runPure(t, "import Std.Num\nmain := flatten (Cons (Cons 1 Nil) (Cons (Cons 2 (Cons 3 Nil)) Nil))")
+	v := runPure(t, "import Prelude\nmain := flatten (Cons (Cons 1 Nil) (Cons (Cons 2 (Cons 3 Nil)) Nil))")
 	items := listToSliceTest(t, v)
 	if len(items) != 3 {
 		t.Fatalf("expected 3 items, got %d", len(items))
@@ -820,7 +824,7 @@ func TestTakeWhile(t *testing.T) {
 }
 
 func TestIntersperse(t *testing.T) {
-	v := runPure(t, "import Std.Num\nmain := intersperse 0 (Cons 1 (Cons 2 (Cons 3 Nil)))")
+	v := runPure(t, "import Prelude\nmain := intersperse 0 (Cons 1 (Cons 2 (Cons 3 Nil)))")
 	// [1, 0, 2, 0, 3]
 	items := listToSliceTest(t, v)
 	if len(items) != 5 {
@@ -834,12 +838,12 @@ func TestIntersperse(t *testing.T) {
 }
 
 func TestIntersperseEmpty(t *testing.T) {
-	v := runPure(t, "import Std.Num\nmain := intersperse 0 Nil :: List Int")
+	v := runPure(t, "import Prelude\nmain := intersperse 0 Nil :: List Int")
 	assertConVal(t, v, "Nil")
 }
 
 func TestIntersperseSingleton(t *testing.T) {
-	v := runPure(t, "import Std.Num\nmain := intersperse 0 (Cons 1 Nil)")
+	v := runPure(t, "import Prelude\nmain := intersperse 0 (Cons 1 Nil)")
 	items := listToSliceTest(t, v)
 	if len(items) != 1 {
 		t.Fatalf("expected 1 item, got %d", len(items))
@@ -857,7 +861,7 @@ func TestNub(t *testing.T) {
 // --- operator section tests ---
 
 func TestOperatorSectionFoldr(t *testing.T) {
-	v := runPure(t, `import Std.Num
+	v := runPure(t, `import Prelude
 main := foldr (+) 0 (Cons 1 (Cons 2 (Cons 3 Nil)))`)
 	assertHostInt(t, v, 6)
 }
@@ -872,7 +876,7 @@ func TestOperatorSectionCompose(t *testing.T) {
 func TestFunctorResultWithConstraint(t *testing.T) {
 	// This failed before: fmap with a constrained function over (Result e)
 	// produced a Closure due to instance duplication from transitive imports.
-	v := runPure(t, `import Std.Num
+	v := runPure(t, `import Prelude
 main := fmap (\x. x + 1) (Ok 5)`)
 	con := v.(*gicel.ConVal)
 	if con.Con != "Ok" {
@@ -882,7 +886,7 @@ main := fmap (\x. x + 1) (Ok 5)`)
 }
 
 func TestFoldableResultWithConstraint(t *testing.T) {
-	v := runPure(t, `import Std.Num
+	v := runPure(t, `import Prelude
 main := foldr (+) 0 (Ok 10)`)
 	assertHostInt(t, v, 10)
 }
@@ -912,7 +916,7 @@ func TestShowOrdering(t *testing.T) {
 }
 
 func TestShowInt(t *testing.T) {
-	v := runPure(t, `import Std.Num
+	v := runPure(t, `import Prelude
 main := show 42`)
 	assertHostString(t, v, "42")
 }

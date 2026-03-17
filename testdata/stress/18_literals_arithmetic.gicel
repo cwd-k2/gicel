@@ -1,7 +1,6 @@
 -- Stress test 18: Literals and arithmetic
 -- Tests Int/String/Rune literals, Num class, operator fixity, div/mod.
-
-import Std.Num
+import Prelude
 
 -- Basic literal evaluation
 litInt := 42

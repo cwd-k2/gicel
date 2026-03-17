@@ -7,31 +7,6 @@ import (
 	"github.com/cwd-k2/gicel/internal/eval"
 )
 
-// List provides list operations: fromSlice, toSlice, length, concat, foldl,
-// take, drop, index, replicate, reverse, zip, unzip, dropWhile, span,
-// sortBy, scanl, unfoldr, iterateN.
-var List Pack = func(e Registrar) error {
-	e.RegisterPrim("_listFromSlice", fromSliceImpl)
-	e.RegisterPrim("_listToSlice", toSliceImpl)
-	e.RegisterPrim("_listLength", lengthImpl)
-	e.RegisterPrim("_listConcat", concatImpl)
-	e.RegisterPrim("_listFoldl", foldlImpl)
-	e.RegisterPrim("_listTake", takeImpl)
-	e.RegisterPrim("_listDrop", dropImpl)
-	e.RegisterPrim("_listIndex", indexImpl)
-	e.RegisterPrim("_listReplicate", replicateImpl)
-	e.RegisterPrim("_listReverse", reverseImpl)
-	e.RegisterPrim("_listZip", zipImpl)
-	e.RegisterPrim("_listUnzip", unzipImpl)
-	e.RegisterPrim("_listDropWhile", dropWhileImpl)
-	e.RegisterPrim("_listSpan", spanImpl)
-	e.RegisterPrim("_listSortBy", sortByImpl)
-	e.RegisterPrim("_listScanl", scanlImpl)
-	e.RegisterPrim("_listUnfoldr", unfoldrImpl)
-	e.RegisterPrim("_listIterateN", iterateNImpl)
-	return e.RegisterModule("Std.List", listSource)
-}
-
 var listSource = mustReadSource("list")
 
 // fromSliceImpl converts a HostVal([]any) to a ConVal chain (Cons/Nil).

@@ -10,7 +10,7 @@ import (
 var State Pack = func(e Registrar) error {
 	e.RegisterPrim("get", getImpl)
 	e.RegisterPrim("put", putImpl)
-	return e.RegisterModule("Std.State", stateSource)
+	return e.RegisterModule("Effect.State", stateSource)
 }
 
 var stateSource = mustReadSource("state")

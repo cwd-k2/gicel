@@ -287,7 +287,6 @@ var stressPrograms = []stressProgram{
 		name: "modules",
 		file: "13_modules.gicel",
 		setup: func(e *gicel.Engine) {
-			e.NoPrelude()
 			err := e.RegisterModule("Lib", `
 data LibBool := LibTrue | LibFalse
 libTrue := LibTrue
@@ -371,11 +370,7 @@ libNot := \b. case b { LibTrue -> LibFalse; LibFalse -> LibTrue }
 	{
 		name: "literals_arithmetic",
 		file: "18_literals_arithmetic.gicel",
-		setup: func(e *gicel.Engine) {
-			if err := e.Use(gicel.Num); err != nil {
-				panic(err)
-			}
-		},
+		setup: func(e *gicel.Engine) {},
 		check: func(t *testing.T, v gicel.Value) {
 			// main = (42, (3, (7, (10, (True, (LT, 21))))))
 			rv, ok := v.(*gicel.RecordVal)
@@ -392,14 +387,7 @@ libNot := \b. case b { LibTrue -> LibFalse; LibFalse -> LibTrue }
 	{
 		name: "string_operations",
 		file: "19_string_operations.gicel",
-		setup: func(e *gicel.Engine) {
-			if err := e.Use(gicel.Num); err != nil {
-				panic(err)
-			}
-			if err := e.Use(gicel.Str); err != nil {
-				panic(err)
-			}
-		},
+		setup: func(e *gicel.Engine) {},
 		check: func(t *testing.T, v gicel.Value) {
 			// main = ("hello world", (5, (True, ...)))
 			rv, ok := v.(*gicel.RecordVal)
@@ -416,13 +404,10 @@ libNot := \b. case b { LibTrue -> LibFalse; LibFalse -> LibTrue }
 		name: "effect_capabilities",
 		file: "20_effect_capabilities.gicel",
 		setup: func(e *gicel.Engine) {
-			if err := e.Use(gicel.Num); err != nil {
+			if err := e.Use(gicel.EffectFail); err != nil {
 				panic(err)
 			}
-			if err := e.Use(gicel.Fail); err != nil {
-				panic(err)
-			}
-			if err := e.Use(gicel.State); err != nil {
+			if err := e.Use(gicel.EffectState); err != nil {
 				panic(err)
 			}
 		},
@@ -588,10 +573,7 @@ libNot := \b. case b { LibTrue -> LibFalse; LibFalse -> LibTrue }
 	{
 		name: "records_tuples",
 		file: "22_records_tuples.gicel",
-		setup: func(e *gicel.Engine) {
-			e.Use(gicel.Num)
-			e.Use(gicel.Str)
-		},
+		setup: func(e *gicel.Engine) {},
 		check: func(t *testing.T, v gicel.Value) {
 			p := v
 			// getX point = 3
@@ -732,6 +714,7 @@ func TestStressPrograms(t *testing.T) {
 		t.Run(sp.name, func(t *testing.T) {
 			source := loadStressProgram(t, sp.file)
 			eng := gicel.NewEngine()
+			eng.Use(gicel.Prelude)
 			sp.setup(eng)
 
 			start := time.Now()
@@ -813,6 +796,7 @@ func BenchmarkStressEval(b *testing.B) {
 func TestStressGeneratedLargeProgram(t *testing.T) {
 	// Generate a program with 100 data types, 100 functions, 50 class instances.
 	var source string
+	source += "import Prelude\n"
 	source += "data D0 := D0C0 | D0C1 | D0C2\n"
 
 	// Generate 50 additional data types
@@ -820,12 +804,9 @@ func TestStressGeneratedLargeProgram(t *testing.T) {
 		source += fmt.Sprintf("data D%d a := D%dA a | D%dB\n", i, i, i)
 	}
 
-	// Generate Eq instances for D0
-	source += `
-class Eq a { eq :: a -> a -> Bool }
-instance Eq Bool { eq := \x y. case x { True -> y; False -> case y { True -> False; False -> True } } }
-instance Eq () { eq := \_ _. True }
-`
+	// Eq and its instances are already provided by Prelude.
+	// No need to redeclare them.
+
 
 	// Generate 50 functions that pattern match
 	for i := 0; i < 50; i++ {
@@ -839,6 +820,7 @@ f%d := \x. x
 	source += "main := f0 (f1 (f2 (f3 (f4 (f5 (f6 (f7 (f8 (f9 True)))))))))\n"
 
 	eng := gicel.NewEngine()
+	eng.Use(gicel.Prelude)
 	start := time.Now()
 	rt, err := eng.NewRuntime(source)
 	compileTime := time.Since(start)
@@ -874,6 +856,7 @@ func TestStressMemory(t *testing.T) {
 		}
 		source := string(data)
 		eng := gicel.NewEngine()
+		eng.Use(gicel.Prelude)
 		sp.setup(eng)
 		rt, err := eng.NewRuntime(source)
 		if err != nil {
@@ -901,6 +884,7 @@ func TestStressMemory(t *testing.T) {
 func TestStressListFoldrLarge(t *testing.T) {
 	// Deep fold: foldr over a large list.
 	eng := gicel.NewEngine()
+	eng.Use(gicel.Prelude)
 	eng.RegisterPrim("add", func(ctx context.Context, ce gicel.CapEnv, args []gicel.Value, _ gicel.Applier) (gicel.Value, gicel.CapEnv, error) {
 		return gicel.ToValue(gicel.MustHost[int64](args[0]) + gicel.MustHost[int64](args[1])), ce, nil
 	})
@@ -910,6 +894,7 @@ func TestStressListFoldrLarge(t *testing.T) {
 	eng.DeclareBinding("xs", gicel.AppType(gicel.ConType("List"), gicel.ConType("Int")))
 
 	rt, err := eng.NewRuntime(`
+import Prelude
 add :: Int -> Int -> Int
 add := assumption
 main := foldr add 0 xs
@@ -943,6 +928,7 @@ main := foldr add 0 xs
 
 func TestStressListFmapLarge(t *testing.T) {
 	eng := gicel.NewEngine()
+	eng.Use(gicel.Prelude)
 	eng.RegisterPrim("add", func(ctx context.Context, ce gicel.CapEnv, args []gicel.Value, _ gicel.Applier) (gicel.Value, gicel.CapEnv, error) {
 		return gicel.ToValue(gicel.MustHost[int64](args[0]) + gicel.MustHost[int64](args[1])), ce, nil
 	})
@@ -952,6 +938,7 @@ func TestStressListFmapLarge(t *testing.T) {
 	eng.DeclareBinding("xs", gicel.AppType(gicel.ConType("List"), gicel.ConType("Int")))
 
 	rt, err := eng.NewRuntime(`
+import Prelude
 add :: Int -> Int -> Int
 add := assumption
 main := fmap (\x. add x 1) xs
@@ -990,13 +977,13 @@ main := fmap (\x. add x 1) xs
 
 func TestStressListFromSliceRoundTrip(t *testing.T) {
 	eng := gicel.NewEngine()
-	if err := eng.Use(gicel.List); err != nil {
+	if err := eng.Use(gicel.Prelude); err != nil {
 		t.Fatal(err)
 	}
 	eng.DeclareBinding("xs", gicel.AppType(gicel.ConType("List"), gicel.ConType("Int")))
 
 	rt, err := eng.NewRuntime(`
-import Std.List
+import Prelude
 main := toSlice xs
 `)
 	if err != nil {
@@ -1036,6 +1023,7 @@ main := toSlice xs
 func TestStressDeepDoChainComputation(t *testing.T) {
 	// Deep Computation do chain (Core.Bind path) — 100 binds.
 	eng := gicel.NewEngine()
+	eng.Use(gicel.Prelude)
 	eng.DeclareBinding("x", gicel.ConType("Int"))
 
 	// Generate: main := do { v0 <- pure x; v1 <- pure v0; ... ; pure vN }
@@ -1072,9 +1060,10 @@ func TestStressDeepDoChainComputation(t *testing.T) {
 func TestStressDeepDoChainMaybe(t *testing.T) {
 	// Deep Maybe do chain (class dispatch path) — 50 binds.
 	eng := gicel.NewEngine()
+	eng.Use(gicel.Prelude)
 
 	const depth = 50
-	source := "main :: Maybe Int\nmain := do {\n"
+	source := "import Prelude\nmain :: Maybe Int\nmain := do {\n"
 	source += "  v0 <- Just 1;\n"
 	for i := 1; i < depth; i++ {
 		source += fmt.Sprintf("  v%d <- Just v%d;\n", i, i-1)
@@ -1145,7 +1134,8 @@ func TestStressMaybeDoChainScaling(t *testing.T) {
 	for _, depth := range []int{10, 25, 50, 100} {
 		t.Run(fmt.Sprintf("depth_%d", depth), func(t *testing.T) {
 			eng := gicel.NewEngine()
-			source := "main :: Maybe Bool\nmain := do {\n"
+			eng.Use(gicel.Prelude)
+			source := "import Prelude\nmain :: Maybe Bool\nmain := do {\n"
 			source += "  v0 <- Just True;\n"
 			for i := 1; i < depth; i++ {
 				source += fmt.Sprintf("  v%d <- Just v%d;\n", i, i-1)
@@ -1183,6 +1173,7 @@ func TestStressMaybeDoChainScaling(t *testing.T) {
 
 func TestStressListCartesianProduct(t *testing.T) {
 	eng := gicel.NewEngine()
+	eng.Use(gicel.Prelude)
 	eng.EnableRecursion()
 	eng.SetStepLimit(100_000_000)
 	eng.SetDepthLimit(100_000)
@@ -1190,6 +1181,7 @@ func TestStressListCartesianProduct(t *testing.T) {
 	// do { x <- [T,F,T]; y <- [T,F]; Cons (x, y) Nil } :: List (Bool, Bool)
 	// = 3×2 = 6 elements
 	rt, err := eng.NewRuntime(`
+import Prelude
 main :: List (Bool, Bool)
 main := do {
   x <- Cons True (Cons False (Cons True Nil));
@@ -1220,6 +1212,7 @@ main := do {
 
 func TestStressListFlatMapScaling(t *testing.T) {
 	eng := gicel.NewEngine()
+	eng.Use(gicel.Prelude)
 	eng.EnableRecursion()
 	eng.SetStepLimit(100_000_000)
 	eng.SetDepthLimit(100_000)
@@ -1227,6 +1220,7 @@ func TestStressListFlatMapScaling(t *testing.T) {
 	// Each element duplicated: [True, False, True] >>= \x. [x, x]
 	// = 6 elements
 	rt, err := eng.NewRuntime(`
+import Prelude
 main :: List Bool
 main := do {
   x <- Cons True (Cons False (Cons True Nil));
@@ -1262,8 +1256,9 @@ func TestStressMaybeNothingShortCircuit(t *testing.T) {
 	for _, nothingAt := range []int{1, 5, 10, 20} {
 		t.Run(fmt.Sprintf("nothing_at_%d", nothingAt), func(t *testing.T) {
 			eng := gicel.NewEngine()
+			eng.Use(gicel.Prelude)
 			const depth = 25
-			source := "main :: Maybe Bool\nmain := do {\n"
+			source := "import Prelude\nmain :: Maybe Bool\nmain := do {\n"
 			for i := 0; i < depth; i++ {
 				if i == nothingAt {
 					source += fmt.Sprintf("  v%d <- Nothing;\n", i)
@@ -1297,16 +1292,16 @@ func TestStressMaybeNothingShortCircuit(t *testing.T) {
 
 func TestStressComputationEffectsWithMonadicValues(t *testing.T) {
 	eng := gicel.NewEngine()
-	if err := eng.Use(gicel.Num); err != nil {
+	if err := eng.Use(gicel.Prelude); err != nil {
 		t.Fatal(err)
 	}
-	if err := eng.Use(gicel.State); err != nil {
+	if err := eng.Use(gicel.EffectState); err != nil {
 		t.Fatal(err)
 	}
 
 	rt, err := eng.NewRuntime(`
-import Std.Num
-import Std.State
+import Prelude
+import Effect.State
 
 -- Computation do block that manipulates Maybe values internally
 main :: Computation { state: Int | r } { state: Int | r } (Maybe Int)
@@ -1344,6 +1339,7 @@ main := do {
 func TestStressInstanceResolutionDeep(t *testing.T) {
 	// Deeply nested conditional instance: Eq (Maybe (Maybe (Maybe ... Bool)))
 	eng := gicel.NewEngine()
+	eng.Use(gicel.Prelude)
 	const depth = 10
 
 	// Build: Eq (Maybe (Maybe (... (Maybe Bool) ...)))
@@ -1358,7 +1354,7 @@ func TestStressInstanceResolutionDeep(t *testing.T) {
 		valInner = "(Just " + valInner + ")"
 	}
 
-	source := fmt.Sprintf(`
+	source := fmt.Sprintf(`import Prelude
 main := eq %s %s
 `, valInner, valInner)
 
@@ -1387,7 +1383,9 @@ main := eq %s %s
 
 func TestStressAllClassesCombined(t *testing.T) {
 	eng := gicel.NewEngine()
+	eng.Use(gicel.Prelude)
 	rt, err := eng.NewRuntime(`
+import Prelude
 -- Eq
 r1 := eq True True
 r2 := eq (Just LT) (Just LT)
@@ -1456,7 +1454,9 @@ main := (r1, (r2, (r3, (r4, (r5, (r6, (r7, (r8,
 
 func TestStressMixedMonadicValueLevel(t *testing.T) {
 	eng := gicel.NewEngine()
+	eng.Use(gicel.Prelude)
 	rt, err := eng.NewRuntime(`
+import Prelude
 -- fmap over a Maybe-do result
 not :: Bool -> Bool
 not := \b. case b { True -> False; False -> True }
@@ -1494,13 +1494,14 @@ func TestStressComputationVsMaybePerformance(t *testing.T) {
 	const depth = 30
 
 	// Computation path
-	compSource := "main := do {\n  v0 <- pure True;\n"
+	compSource := "import Prelude\nmain := do {\n  v0 <- pure True;\n"
 	for i := 1; i < depth; i++ {
 		compSource += fmt.Sprintf("  v%d <- pure v%d;\n", i, i-1)
 	}
 	compSource += fmt.Sprintf("  pure v%d\n}\n", depth-1)
 
 	eng1 := gicel.NewEngine()
+	eng1.Use(gicel.Prelude)
 	rt1, err := eng1.NewRuntime(compSource)
 	if err != nil {
 		t.Fatal(err)
@@ -1511,13 +1512,14 @@ func TestStressComputationVsMaybePerformance(t *testing.T) {
 	}
 
 	// Maybe path
-	maybeSource := "main :: Maybe Bool\nmain := do {\n  v0 <- Just True;\n"
+	maybeSource := "import Prelude\nmain :: Maybe Bool\nmain := do {\n  v0 <- Just True;\n"
 	for i := 1; i < depth; i++ {
 		maybeSource += fmt.Sprintf("  v%d <- Just v%d;\n", i, i-1)
 	}
 	maybeSource += fmt.Sprintf("  pure v%d\n}\n", depth-1)
 
 	eng2 := gicel.NewEngine()
+	eng2.Use(gicel.Prelude)
 	rt2, err := eng2.NewRuntime(maybeSource)
 	if err != nil {
 		t.Fatal(err)
@@ -1545,6 +1547,7 @@ func TestStressComputationVsMaybePerformance(t *testing.T) {
 
 func TestStressListDoLargeCartesian(t *testing.T) {
 	eng := gicel.NewEngine()
+	eng.Use(gicel.Prelude)
 	eng.EnableRecursion()
 	eng.SetStepLimit(100_000_000)
 	eng.SetDepthLimit(100_000)
@@ -1555,6 +1558,7 @@ func TestStressListDoLargeCartesian(t *testing.T) {
 	eng.DeclareBinding("ys", gicel.AppType(gicel.ConType("List"), gicel.ConType("Int")))
 
 	rt, err := eng.NewRuntime(`
+import Prelude
 add :: Int -> Int -> Int
 add := assumption
 main :: List Int
@@ -1607,6 +1611,7 @@ main := do {
 
 func TestStressTraverseMaybeOverList(t *testing.T) {
 	eng := gicel.NewEngine()
+	eng.Use(gicel.Prelude)
 	eng.EnableRecursion()
 
 	// traverse Just [True, False, True] → Just [True, False, True]
@@ -1614,6 +1619,7 @@ func TestStressTraverseMaybeOverList(t *testing.T) {
 	// Note: Traversable List is NOT in prelude yet, so we test
 	// Traversable Maybe instead.
 	rt, err := eng.NewRuntime(`
+import Prelude
 not :: Bool -> Bool
 not := \b. case b { True -> False; False -> True }
 
@@ -1670,7 +1676,9 @@ main := (test1, (test2, test3))
 
 func TestStressHigherRankWithMonad(t *testing.T) {
 	eng := gicel.NewEngine()
+	eng.Use(gicel.Prelude)
 	rt, err := eng.NewRuntime(`
+import Prelude
 -- Higher-rank function applied across types, combined with monadic operations
 applyToBoth :: (\ a. a -> a) -> (Bool, ())
 applyToBoth := \f. (f True, f ())
@@ -1708,7 +1716,9 @@ main := do {
 
 func TestStressExistentialWithMonadic(t *testing.T) {
 	eng := gicel.NewEngine()
+	eng.Use(gicel.Prelude)
 	rt, err := eng.NewRuntime(`
+import Prelude
 data SomeEq := { MkSomeEq :: \ a. Eq a => a -> SomeEq }
 
 testSelf :: SomeEq -> Bool
@@ -1739,12 +1749,14 @@ main := do {
 
 func TestStressMultiMonadProgram(t *testing.T) {
 	eng := gicel.NewEngine()
+	eng.Use(gicel.Prelude)
 	eng.EnableRecursion()
 	eng.RegisterPrim("add", func(ctx context.Context, ce gicel.CapEnv, args []gicel.Value, _ gicel.Applier) (gicel.Value, gicel.CapEnv, error) {
 		return gicel.ToValue(gicel.MustHost[int64](args[0]) + gicel.MustHost[int64](args[1])), ce, nil
 	})
 
 	rt, err := eng.NewRuntime(`
+import Prelude
 add :: Int -> Int -> Int
 add := assumption
 
@@ -1798,9 +1810,11 @@ main := compResult
 
 func TestStressGADTWithMonadic(t *testing.T) {
 	eng := gicel.NewEngine()
+	eng.Use(gicel.Prelude)
 	eng.EnableRecursion()
 
 	rt, err := eng.NewRuntime(`
+import Prelude
 data Expr a := { LitBool :: Bool -> Expr Bool; Not :: Expr Bool -> Expr Bool }
 
 eval :: Expr Bool -> Bool
@@ -1847,9 +1861,11 @@ main := (maybeEval, compEval)
 
 func TestStressConcurrentMonadic(t *testing.T) {
 	eng := gicel.NewEngine()
+	eng.Use(gicel.Prelude)
 	eng.EnableRecursion()
 
 	rt, err := eng.NewRuntime(`
+import Prelude
 main :: Maybe Bool
 main := do {
   x <- Just True;
@@ -1895,8 +1911,10 @@ main := do {
 
 func TestStressListDoEmpty(t *testing.T) {
 	eng := gicel.NewEngine()
+	eng.Use(gicel.Prelude)
 	eng.EnableRecursion()
 	rt, err := eng.NewRuntime(`
+import Prelude
 main :: List Bool
 main := do {
   x <- Nil;
@@ -1922,9 +1940,11 @@ main := do {
 
 func TestStressMonoidFoldableList(t *testing.T) {
 	eng := gicel.NewEngine()
+	eng.Use(gicel.Prelude)
 	eng.EnableRecursion()
 
 	rt, err := eng.NewRuntime(`
+import Prelude
 -- foldr over List of Orderings using Semigroup's append
 -- foldr append EQ [LT, EQ, GT] → LT (first non-EQ wins)
 main := foldr (\x acc. append x acc) (empty :: Ordering) (Cons LT (Cons EQ (Cons GT Nil)))

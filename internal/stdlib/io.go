@@ -12,7 +12,7 @@ import (
 var IO Pack = func(e Registrar) error {
 	e.RegisterPrim("_ioPrint", printImpl)
 	e.RegisterPrim("_ioDebug", debugImpl)
-	return e.RegisterModule("Std.IO", ioSource)
+	return e.RegisterModule("Effect.IO", ioSource)
 }
 
 var ioSource = mustReadSource("io")

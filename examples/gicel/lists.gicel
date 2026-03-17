@@ -4,8 +4,7 @@
 -- Import Std.List for higher-order list operations.
 -- Level: basics
 
-import Std.Num
-import Std.List
+import Prelude
 
 -- Building lists with list literals
 nums := [1, 2, 3, 4, 5]

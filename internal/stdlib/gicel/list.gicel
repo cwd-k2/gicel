@@ -1,5 +1,3 @@
-import Prelude
-
 _listFromSlice :: \a. List a -> List a
 _listFromSlice := assumption
 

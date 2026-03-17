@@ -5,8 +5,7 @@
 -- is structurally determined by the container — not guessed by instance search.
 -- Level: types
 
-import Std.Num
-import Std.Str
+import Prelude
 
 -- Container class with an associated type Elem.
 -- type Elem c :: Type declares a type family inside the class.

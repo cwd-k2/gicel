@@ -6,7 +6,7 @@
 -- by allowing the compiler to deduce type parameters automatically.
 -- Level: types
 
-import Std.Num
+import Prelude
 
 -- Convert class with fundep: the source type determines the target type.
 class Convert a b | a =: b {

@@ -27,7 +27,7 @@ var Slice Pack = func(e Registrar) error {
 	e.RegisterRewriteRule(sliceMapMapFusion)
 	e.RegisterRewriteRule(sliceFoldrMapFusion)
 	e.RegisterRewriteRule(slicePackedRoundtrip)
-	return e.RegisterModule("Std.Slice", sliceSource)
+	return e.RegisterModule("Data.Slice", sliceSource)
 }
 
 // --- Fusion rules (applied by optimizer) ---

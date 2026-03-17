@@ -6,6 +6,8 @@
 -- preventing invalid transitions statically.
 -- Level: types
 
+import Prelude
+
 -- Declare door states. This creates:
 --   DoorState: a kind
 --   Open   : DoorState  (a type of kind DoorState)

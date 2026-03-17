@@ -9,7 +9,7 @@ import (
 // Fail provides the fail effect capability.
 var Fail Pack = func(e Registrar) error {
 	e.RegisterPrim("failWith", failImpl)
-	return e.RegisterModule("Std.Fail", failSource)
+	return e.RegisterModule("Effect.Fail", failSource)
 }
 
 var failSource = mustReadSource("fail")

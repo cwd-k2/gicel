@@ -9,36 +9,6 @@ import (
 	"github.com/cwd-k2/gicel/internal/eval"
 )
 
-// Num provides arithmetic: Num class with Int and Double instances, and operators.
-var Num Pack = func(e Registrar) error {
-	// Int primitives
-	e.RegisterPrim("_addInt", addIntImpl)
-	e.RegisterPrim("_subInt", subIntImpl)
-	e.RegisterPrim("_mulInt", mulIntImpl)
-	e.RegisterPrim("_divInt", divIntImpl)
-	e.RegisterPrim("_modInt", modIntImpl)
-	e.RegisterPrim("_negInt", negIntImpl)
-	e.RegisterPrim("_eqInt", eqIntImpl)
-	e.RegisterPrim("_cmpInt", cmpIntImpl)
-	e.RegisterPrim("_showInt", numShowIntImpl)
-	// Double primitives
-	e.RegisterPrim("_addDouble", addDoubleImpl)
-	e.RegisterPrim("_subDouble", subDoubleImpl)
-	e.RegisterPrim("_mulDouble", mulDoubleImpl)
-	e.RegisterPrim("_negDouble", negDoubleImpl)
-	e.RegisterPrim("_eqDouble", eqDoubleImpl)
-	e.RegisterPrim("_cmpDouble", cmpDoubleImpl)
-	e.RegisterPrim("_showDouble", showDoubleImpl)
-	e.RegisterPrim("_divDouble", divDoubleImpl)
-	// Conversion primitives
-	e.RegisterPrim("_toDouble", toDoubleImpl)
-	e.RegisterPrim("_round", roundImpl)
-	e.RegisterPrim("_floor", floorImpl)
-	e.RegisterPrim("_ceiling", ceilingImpl)
-	e.RegisterPrim("_truncate", truncateImpl)
-	return e.RegisterModule("Std.Num", numSource)
-}
-
 var numSource = mustReadSource("num")
 
 func asInt64Num(v eval.Value) (int64, error) { return asInt64(v, "num") }

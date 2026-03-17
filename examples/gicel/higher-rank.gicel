@@ -6,6 +6,8 @@
 -- to pass a function that works for ALL types, not just one.
 -- Level: types
 
+import Prelude
+
 -- A rank-2 function: accepts a polymorphic identity and applies it
 -- at two different types (Bool and Maybe Bool).
 -- The `\a.` inside the argument type is what makes this rank-2.

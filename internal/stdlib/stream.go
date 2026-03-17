@@ -17,7 +17,7 @@ import (
 var Stream Pack = func(e Registrar) error {
 	e.RegisterPrim("_takeS", takeSImpl)
 	e.RegisterPrim("_dropS", dropSImpl)
-	return e.RegisterModuleRec("Std.Stream", streamSource)
+	return e.RegisterModuleRec("Data.Stream", streamSource)
 }
 
 var streamSource = mustReadSource("stream")

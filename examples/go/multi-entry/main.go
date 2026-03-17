@@ -22,8 +22,6 @@ import (
 // The source defines a shared helper (square) and three independent entry
 // points that each use the helper but do not depend on each other.
 const source = `
-import Std.Num
-
 square :: Int -> Int
 square := \x. x * x
 
@@ -36,7 +34,7 @@ doubled := square 8
 
 func main() {
 	eng := gicel.NewEngine()
-	eng.Use(gicel.Num)
+	eng.Use(gicel.Prelude)
 
 	// Compile once.
 	rt, err := eng.NewRuntime(source)

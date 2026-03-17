@@ -1,3 +1,5 @@
+import Prelude
+
 mkVal :: () -> Computation {} {} Int
 mkVal := assumption
 addInts :: Int -> Int -> Int

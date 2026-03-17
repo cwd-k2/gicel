@@ -17,14 +17,12 @@ import (
 // The source references `n`, a host-provided binding of type Int.
 // The program squares the input.
 const source = `
-import Std.Num
-
 main := n * n
 `
 
 func main() {
 	eng := gicel.NewEngine()
-	eng.Use(gicel.Num)
+	eng.Use(gicel.Prelude)
 
 	// Declare that `n` will be provided at runtime as an Int.
 	eng.DeclareBinding("n", gicel.ConType("Int"))

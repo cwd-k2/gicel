@@ -17,7 +17,6 @@ import (
 // Projection uses the .# operator (atom-level precedence).
 // Row polymorphism lets functions accept any record with required fields.
 const source = `
-import Std.Num
 
 -- Record literal and projection
 point := { x: 3, y: 4 }
@@ -59,7 +58,7 @@ main := (px, (getX moved, (p1, (p2, (first, (eqTest, (cmpTest, deep)))))))
 
 func main() {
 	eng := gicel.NewEngine()
-	eng.Use(gicel.Num)
+	eng.Use(gicel.Prelude)
 
 	rt, err := eng.NewRuntime(source)
 	if err != nil {

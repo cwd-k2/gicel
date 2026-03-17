@@ -1,9 +1,9 @@
 // Example: stdlib-packs — demonstrating standard library packs.
 //
-// GICEL provides ten packs via eng.Use(): Num, Str, List, Fail, State,
-// IO, Stream, Slice, Map, and Set. Each pack registers primitive operations
-// and a GICEL module (e.g. Std.Num, Std.Str) that the source can import.
-// This example compiles and runs a small program for several packs.
+// GICEL provides packs via eng.Use(): Prelude (arithmetic, strings, lists),
+// EffectFail, EffectState, EffectIO, DataStream, DataSlice, DataMap, DataSet.
+// Each pack registers primitive operations and a GICEL module that the source
+// can import. This example compiles and runs a small program for several packs.
 package main
 
 import (
@@ -18,31 +18,25 @@ import (
 func main() {
 	ctx := context.Background()
 
-	// --- 1. Num: integer arithmetic, Eq/Ord instances ---
-	run(ctx, "Num", func(eng *gicel.Engine) { eng.Use(gicel.Num) }, `
-import Std.Num
+	// --- 1. Prelude: arithmetic, strings, lists ---
+	run(ctx, "Prelude-Num", func(eng *gicel.Engine) { eng.Use(gicel.Prelude) }, `
 main := (3 + 4) * 2
 `, func(v gicel.Value) {
 		fmt.Println("Num:   (3+4)*2 =", gicel.MustHost[int64](v))
 	})
 
-	// --- 2. Str: string operations, showInt, toUpper ---
-	run(ctx, "Str", func(eng *gicel.Engine) { eng.Use(gicel.Num); eng.Use(gicel.Str) }, `
-import Std.Num
-import Std.Str
+	// --- 2. Prelude includes Str operations ---
+	run(ctx, "Prelude-Str", func(eng *gicel.Engine) { eng.Use(gicel.Prelude) }, `
 main := toUpper (append "hello" " world")
 `, func(v gicel.Value) {
 		fmt.Println("Str:   toUpper =", gicel.MustHost[string](v))
 	})
 
-	// --- 3. List: list operations (reverse, length, foldl) ---
-	run(ctx, "List", func(eng *gicel.Engine) {
-		eng.Use(gicel.Num)
-		eng.Use(gicel.List)
+	// --- 3. Prelude includes List operations ---
+	run(ctx, "Prelude-List", func(eng *gicel.Engine) {
+		eng.Use(gicel.Prelude)
 		eng.EnableRecursion()
 	}, `
-import Std.Num
-import Std.List
 main := foldl (+) 0 [1, 2, 3]
 `, func(v gicel.Value) {
 		fmt.Println("List:  foldl (+) =", gicel.MustHost[int64](v))
@@ -76,10 +70,11 @@ func run(ctx context.Context, label string, setup func(*gicel.Engine), source st
 // runFail demonstrates the Fail pack. failWith triggers a RuntimeError.
 func runFail(ctx context.Context) {
 	eng := gicel.NewEngine()
-	eng.Use(gicel.Fail)
+	eng.Use(gicel.Prelude)
+	eng.Use(gicel.EffectFail)
 
 	rt, err := eng.NewRuntime(`
-import Std.Fail
+import Effect.Fail
 main := do { _ <- failWith (); pure True }
 `)
 	if err != nil {
@@ -101,12 +96,11 @@ main := do { _ <- failWith (); pure True }
 // runState demonstrates the State pack: get, put, modify.
 func runState(ctx context.Context) {
 	eng := gicel.NewEngine()
-	eng.Use(gicel.Num)
-	eng.Use(gicel.State)
+	eng.Use(gicel.Prelude)
+	eng.Use(gicel.EffectState)
 
 	rt, err := eng.NewRuntime(`
-import Std.Num
-import Std.State
+import Effect.State
 main := do {
   s <- get;
   put (s + 10);
@@ -131,10 +125,11 @@ main := do {
 // runIO demonstrates the IO pack: print accumulates into the CapEnv buffer.
 func runIO(ctx context.Context) {
 	eng := gicel.NewEngine()
-	eng.Use(gicel.IO)
+	eng.Use(gicel.Prelude)
+	eng.Use(gicel.EffectIO)
 
 	rt, err := eng.NewRuntime(`
-import Std.IO
+import Effect.IO
 main := do {
   _ <- print "line 1";
   print "line 2"

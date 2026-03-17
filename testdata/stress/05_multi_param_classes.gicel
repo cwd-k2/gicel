@@ -1,3 +1,5 @@
+import Prelude
+
 class Coercible a b { coerce :: a -> b }
 class Convert a b { convert :: a -> b }
 class Iso a b { to :: a -> b; from :: b -> a }

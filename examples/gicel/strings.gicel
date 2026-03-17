@@ -8,8 +8,7 @@
 -- with Std.List's `length`.
 -- Level: basics
 
-import Std.Num
-import Std.Str
+import Prelude
 
 -- String literals
 greeting := "Hello, GICEL!"

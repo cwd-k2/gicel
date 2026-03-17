@@ -24,10 +24,9 @@ func main() {
 
 	// 2. With Packs and custom limits.
 	result, err = gicel.RunSandbox(`
-import Std.Num
 main := (1 + 2) * 3
 `, &gicel.SandboxConfig{
-		Packs:    []gicel.Pack{gicel.Num},
+		Packs:    []gicel.Pack{gicel.Prelude},
 		Timeout:  2 * time.Second,
 		MaxSteps: 50_000,
 		MaxDepth: 50,

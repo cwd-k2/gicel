@@ -8,8 +8,8 @@
 -- If the value is Just or Ok, the inner value is extracted and returned.
 -- Level: effects
 
-import Std.Num
-import Std.Fail
+import Prelude
+import Effect.Fail
 
 -- fromMaybe with Just: extracts the value
 -- Output: 42

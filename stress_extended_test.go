@@ -19,12 +19,12 @@ import (
 // TestStressDeepLeftAssocInfix — 200-operator left-associative chain.
 func TestStressDeepLeftAssocInfix(t *testing.T) {
 	var sb strings.Builder
-	sb.WriteString("import Std.Num\nmain := 0")
+	sb.WriteString("import Prelude\nmain := 0")
 	for range 200 {
 		sb.WriteString(" + 1")
 	}
 	result, err := gicel.RunSandbox(sb.String(), &gicel.SandboxConfig{
-		Packs:    []gicel.Pack{gicel.Num},
+		Packs:    []gicel.Pack{gicel.Prelude},
 		MaxSteps: 500_000,
 	})
 	if err != nil {
@@ -39,6 +39,7 @@ func TestStressDeepLeftAssocInfix(t *testing.T) {
 // TestStressDeepRightAssocInfix — 150 right-associative compositions.
 func TestStressDeepRightAssocInfix(t *testing.T) {
 	var sb strings.Builder
+	sb.WriteString("import Prelude\n")
 	sb.WriteString("infixr 9 .\n")
 	sb.WriteString("(.) :: \\ a b c. (b -> c) -> (a -> b) -> a -> c\n")
 	sb.WriteString("(.) := \\f g x. f (g x)\n")
@@ -49,6 +50,7 @@ func TestStressDeepRightAssocInfix(t *testing.T) {
 	}
 	sb.WriteString("id) True")
 	result, err := gicel.RunSandbox(sb.String(), &gicel.SandboxConfig{
+		Packs:    []gicel.Pack{gicel.Prelude},
 		MaxSteps: 1_000_000,
 		MaxDepth: 500,
 	})
@@ -61,12 +63,14 @@ func TestStressDeepRightAssocInfix(t *testing.T) {
 // TestStressDeepDoBlock — 100 bind statements in a single do-block.
 func TestStressDeepDoBlock(t *testing.T) {
 	var sb strings.Builder
+	sb.WriteString("import Prelude\n")
 	sb.WriteString("main := do {\n")
 	for i := range 100 {
 		sb.WriteString(fmt.Sprintf("  x%d <- pure True;\n", i))
 	}
 	sb.WriteString("  pure x0\n}\n")
 	result, err := gicel.RunSandbox(sb.String(), &gicel.SandboxConfig{
+		Packs:    []gicel.Pack{gicel.Prelude},
 		MaxSteps: 500_000,
 	})
 	if err != nil {
@@ -78,7 +82,7 @@ func TestStressDeepDoBlock(t *testing.T) {
 // TestStressLargeRecordLiteral — record literal with 30 fields.
 func TestStressLargeRecordLiteral(t *testing.T) {
 	var sb strings.Builder
-	sb.WriteString("import Std.Num\n")
+	sb.WriteString("import Prelude\n")
 	sb.WriteString("r := { ")
 	for i := range 30 {
 		if i > 0 {
@@ -89,7 +93,7 @@ func TestStressLargeRecordLiteral(t *testing.T) {
 	sb.WriteString(" }\n")
 	sb.WriteString("main := r.#f29\n")
 	result, err := gicel.RunSandbox(sb.String(), &gicel.SandboxConfig{
-		Packs:    []gicel.Pack{gicel.Num},
+		Packs:    []gicel.Pack{gicel.Prelude},
 		MaxSteps: 500_000,
 	})
 	if err != nil {
@@ -104,7 +108,7 @@ func TestStressLargeRecordLiteral(t *testing.T) {
 // TestStressManyFixityDecls — 5 user-defined operators at distinct precedences.
 func TestStressManyFixityDecls(t *testing.T) {
 	source := `
-import Std.Num
+import Prelude
 
 infixl 6 ++
 (++) :: Int -> Int -> Int
@@ -137,7 +141,7 @@ infixr 8 ^^
 main := 1 << 2 $$ 3 ++ 4 ** 5 ^^ 6
 `
 	result, err := gicel.RunSandbox(source, &gicel.SandboxConfig{
-		Packs:    []gicel.Pack{gicel.Num},
+		Packs:    []gicel.Pack{gicel.Prelude},
 		MaxSteps: 500_000,
 	})
 	if err != nil {
@@ -152,7 +156,7 @@ main := 1 << 2 $$ 3 ++ 4 ** 5 ^^ 6
 // TestStressListLiteral100 — list literal with 100 elements.
 func TestStressListLiteral100(t *testing.T) {
 	var sb strings.Builder
-	sb.WriteString("import Std.Num\nimport Std.List\n")
+	sb.WriteString("import Prelude\n")
 	sb.WriteString("xs := [")
 	for i := range 100 {
 		if i > 0 {
@@ -163,7 +167,7 @@ func TestStressListLiteral100(t *testing.T) {
 	sb.WriteString("]\n")
 	sb.WriteString("main := length xs\n")
 	result, err := gicel.RunSandbox(sb.String(), &gicel.SandboxConfig{
-		Packs:    []gicel.Pack{gicel.Num, gicel.List},
+		Packs:    []gicel.Pack{gicel.Prelude},
 		MaxSteps: 1_000_000,
 	})
 	if err != nil {
@@ -179,12 +183,12 @@ func TestStressListLiteral100(t *testing.T) {
 func TestStressAlternatingPrecedence(t *testing.T) {
 	// 1 + 2 * 3 + 4 * 5 + ... alternating + and * for 50 pairs.
 	var sb strings.Builder
-	sb.WriteString("import Std.Num\nmain := 0")
+	sb.WriteString("import Prelude\nmain := 0")
 	for i := 1; i <= 50; i++ {
 		sb.WriteString(fmt.Sprintf(" + %d * %d", i, i))
 	}
 	result, err := gicel.RunSandbox(sb.String(), &gicel.SandboxConfig{
-		Packs:    []gicel.Pack{gicel.Num},
+		Packs:    []gicel.Pack{gicel.Prelude},
 		MaxSteps: 500_000,
 	})
 	if err != nil {
@@ -204,7 +208,7 @@ func TestStressAlternatingPrecedence(t *testing.T) {
 // TestStressDeepSelfRecursion — single recursive function via fix, depth 500.
 func TestStressDeepSelfRecursion(t *testing.T) {
 	source := `
-import Std.Num
+import Prelude
 
 countdown :: Int -> Int
 countdown := fix (\self n. case n == 0 { True -> 0; False -> self (n - 1) })
@@ -215,7 +219,7 @@ main := countdown 500
 	eng.EnableRecursion()
 	eng.SetStepLimit(100_000_000)
 	eng.SetDepthLimit(100_000)
-	if err := eng.Use(gicel.Num); err != nil {
+	if err := eng.Use(gicel.Prelude); err != nil {
 		t.Fatal(err)
 	}
 	rt, err := eng.NewRuntime(source)
@@ -235,16 +239,16 @@ main := countdown 500
 // TestStressCapEnvMultiEffectDeep — 30 interleaved put/get across do-block.
 func TestStressCapEnvMultiEffectDeep(t *testing.T) {
 	eng := gicel.NewEngine()
-	if err := eng.Use(gicel.Num); err != nil {
+	if err := eng.Use(gicel.Prelude); err != nil {
 		t.Fatal(err)
 	}
-	if err := eng.Use(gicel.State); err != nil {
+	if err := eng.Use(gicel.EffectState); err != nil {
 		t.Fatal(err)
 	}
 	eng.SetStepLimit(10_000_000)
 
 	var sb strings.Builder
-	sb.WriteString("import Std.Num\nimport Std.State\n")
+	sb.WriteString("import Prelude\nimport Effect.State\n")
 	sb.WriteString("main := do {\n")
 	for i := range 30 {
 		sb.WriteString(fmt.Sprintf("  _ <- put %d;\n", i))
@@ -272,7 +276,7 @@ func TestStressCapEnvMultiEffectDeep(t *testing.T) {
 // TestStressRecordUpdate — 20 sequential updates on a multi-field record.
 func TestStressRecordUpdate(t *testing.T) {
 	var sb strings.Builder
-	sb.WriteString("import Std.Num\n")
+	sb.WriteString("import Prelude\n")
 	sb.WriteString("r0 := { ")
 	for i := range 20 {
 		if i > 0 {
@@ -287,7 +291,7 @@ func TestStressRecordUpdate(t *testing.T) {
 	sb.WriteString("main := r20.#f19\n")
 
 	result, err := gicel.RunSandbox(sb.String(), &gicel.SandboxConfig{
-		Packs:    []gicel.Pack{gicel.Num},
+		Packs:    []gicel.Pack{gicel.Prelude},
 		MaxSteps: 500_000,
 	})
 	if err != nil {
@@ -302,6 +306,7 @@ func TestStressRecordUpdate(t *testing.T) {
 // TestStressClosureFVTrimming — 50 outer bindings, closure captures only 2.
 func TestStressClosureFVTrimming(t *testing.T) {
 	var sb strings.Builder
+	sb.WriteString("import Prelude\n")
 	for i := range 50 {
 		sb.WriteString(fmt.Sprintf("x%d := True\n", i))
 	}
@@ -309,6 +314,7 @@ func TestStressClosureFVTrimming(t *testing.T) {
 	sb.WriteString("main := (f True, f False)\n")
 
 	result, err := gicel.RunSandbox(sb.String(), &gicel.SandboxConfig{
+		Packs:    []gicel.Pack{gicel.Prelude},
 		MaxSteps: 500_000,
 	})
 	if err != nil {
@@ -325,8 +331,7 @@ func TestStressClosureFVTrimming(t *testing.T) {
 // TestStressRecursiveListFoldl — foldl over a 200-element list.
 func TestStressRecursiveListFoldl(t *testing.T) {
 	source := `
-import Std.Num
-import Std.List
+import Prelude
 
 mkRange :: Int -> Int -> List Int
 mkRange := fix (\self lo hi. case lo == hi { True -> Nil; False -> Cons lo (self (lo + 1) hi) })
@@ -337,10 +342,7 @@ main := foldl (\acc x. acc + x) 0 (mkRange 1 201)
 	eng.EnableRecursion()
 	eng.SetStepLimit(100_000_000)
 	eng.SetDepthLimit(100_000)
-	if err := eng.Use(gicel.Num); err != nil {
-		t.Fatal(err)
-	}
-	if err := eng.Use(gicel.List); err != nil {
+	if err := eng.Use(gicel.Prelude); err != nil {
 		t.Fatal(err)
 	}
 	rt, err := eng.NewRuntime(source)
@@ -362,6 +364,7 @@ main := foldl (\acc x. acc + x) 0 (mkRange 1 201)
 func TestStressDeepThunkForceChain(t *testing.T) {
 	var sb strings.Builder
 	const depth = 30
+	sb.WriteString("import Prelude\n")
 	sb.WriteString("main := ")
 	for range depth {
 		sb.WriteString("force (thunk (")
@@ -373,6 +376,7 @@ func TestStressDeepThunkForceChain(t *testing.T) {
 	sb.WriteString("\n")
 
 	result, err := gicel.RunSandbox(sb.String(), &gicel.SandboxConfig{
+		Packs:    []gicel.Pack{gicel.Prelude},
 		MaxSteps: 500_000,
 		MaxDepth: 200,
 	})
@@ -389,14 +393,14 @@ func TestStressDeepThunkForceChain(t *testing.T) {
 // TestStressConcurrentRunWith — 50 concurrent goroutines sharing one Runtime.
 func TestStressConcurrentRunWith(t *testing.T) {
 	eng := gicel.NewEngine()
-	if err := eng.Use(gicel.Num); err != nil {
+	if err := eng.Use(gicel.Prelude); err != nil {
 		t.Fatal(err)
 	}
 	eng.DeclareBinding("x", gicel.ConType("Int"))
 	eng.SetStepLimit(10_000_000)
 
 	rt, err := eng.NewRuntime(`
-import Std.Num
+import Prelude
 double :: Int -> Int
 double := \n. n + n
 main := double x
@@ -439,17 +443,17 @@ main := double x
 // TestStressConcurrentRunWithCaps — concurrent CapEnv isolation.
 func TestStressConcurrentRunWithCaps(t *testing.T) {
 	eng := gicel.NewEngine()
-	if err := eng.Use(gicel.Num); err != nil {
+	if err := eng.Use(gicel.Prelude); err != nil {
 		t.Fatal(err)
 	}
-	if err := eng.Use(gicel.State); err != nil {
+	if err := eng.Use(gicel.EffectState); err != nil {
 		t.Fatal(err)
 	}
 	eng.SetStepLimit(10_000_000)
 
 	rt, err := eng.NewRuntime(`
-import Std.Num
-import Std.State
+import Prelude
+import Effect.State
 main := do {
   v <- get;
   _ <- put (v + 1);
@@ -494,7 +498,6 @@ main := do {
 // TestStressModuleDependencyChain — 10 modules in a linear dependency chain.
 func TestStressModuleDependencyChain(t *testing.T) {
 	eng := gicel.NewEngine()
-	eng.NoPrelude()
 
 	// Each module defines its own type and value, importing the previous.
 	err := eng.RegisterModule("M0", `
@@ -532,7 +535,6 @@ main := val9
 // TestStressModuleUnknownImport — importing a non-existent module must error.
 func TestStressModuleUnknownImport(t *testing.T) {
 	eng := gicel.NewEngine()
-	eng.NoPrelude()
 	err := eng.RegisterModule("A", "import NonExistent\ndata TA := MkTA")
 	if err == nil {
 		t.Fatal("expected error for unknown module import")
@@ -554,7 +556,8 @@ func TestStressConcurrentSandbox(t *testing.T) {
 			if idx%2 != 0 {
 				val = "False"
 			}
-			r, err := gicel.RunSandbox(fmt.Sprintf("main := %s", val), &gicel.SandboxConfig{
+			r, err := gicel.RunSandbox(fmt.Sprintf("import Prelude\nmain := %s", val), &gicel.SandboxConfig{
+				Packs:    []gicel.Pack{gicel.Prelude},
 				MaxSteps: 1000 + idx*100,
 			})
 			errs[idx] = err
@@ -576,15 +579,18 @@ func TestStressConcurrentSandbox(t *testing.T) {
 	}
 }
 
-// TestStressCustomPrelude — SetPrelude replaces default prelude entirely.
+// TestStressCustomPrelude — custom Prelude module replaces default prelude entirely.
 func TestStressCustomPrelude(t *testing.T) {
 	eng := gicel.NewEngine()
-	eng.SetPrelude(`
+	err := eng.RegisterModule("Prelude", `
 data MyBool := Yes | No
 myNot :: MyBool -> MyBool
 myNot := \b. case b { Yes -> No; No -> Yes }
 `)
-	rt, err := eng.NewRuntime("main := myNot Yes\n")
+	if err != nil {
+		t.Fatal(err)
+	}
+	rt, err := eng.NewRuntime("import Prelude\nmain := myNot Yes\n")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -601,8 +607,9 @@ myNot := \b. case b { Yes -> No; No -> Yes }
 // TestStressMultiEntryIndependentLimits — each RunWith has independent limits.
 func TestStressMultiEntryIndependentLimits(t *testing.T) {
 	eng := gicel.NewEngine()
+	eng.Use(gicel.Prelude)
 	eng.SetStepLimit(100_000)
-	rt, err := eng.NewRuntime("a := True\nb := False\n")
+	rt, err := eng.NewRuntime("import Prelude\na := True\nb := False\n")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -624,11 +631,12 @@ func TestStressMultiEntryIndependentLimits(t *testing.T) {
 
 // TestStressStepLimitBoundary — verify step limit fires precisely.
 func TestStressStepLimitBoundary(t *testing.T) {
-	source := `
+	source := `import Prelude
 id := \x. x
 main := id (id (id (id (id True))))
 `
 	result, err := gicel.RunSandbox(source, &gicel.SandboxConfig{
+		Packs:    []gicel.Pack{gicel.Prelude},
 		MaxSteps: 100_000,
 	})
 	if err != nil {
@@ -639,6 +647,7 @@ main := id (id (id (id (id True))))
 
 	// Exact steps — should succeed.
 	result, err = gicel.RunSandbox(source, &gicel.SandboxConfig{
+		Packs:    []gicel.Pack{gicel.Prelude},
 		MaxSteps: usedSteps,
 	})
 	if err != nil {
@@ -648,6 +657,7 @@ main := id (id (id (id (id True))))
 
 	// One step fewer — should fail.
 	_, err = gicel.RunSandbox(source, &gicel.SandboxConfig{
+		Packs:    []gicel.Pack{gicel.Prelude},
 		MaxSteps: usedSteps - 1,
 	})
 	if err == nil {
@@ -660,10 +670,12 @@ main := id (id (id (id (id True))))
 // force(thunk(..)) (R4) and (\_. body) () (R2).
 func TestStressDepthLimitWithThunkForce(t *testing.T) {
 	eng := gicel.NewEngine()
+	eng.Use(gicel.Prelude)
 	eng.DeclareBinding("f", gicel.ArrowType(gicel.ConType("Bool"), gicel.ConType("Bool")))
 
 	const depth = 10
 	var sb strings.Builder
+	sb.WriteString("import Prelude\n")
 	sb.WriteString("main := ")
 	for range depth {
 		sb.WriteString("f (")
@@ -688,12 +700,10 @@ func TestStressDepthLimitWithThunkForce(t *testing.T) {
 	_ = idFn
 
 	// For depth limit test, just use RunSandbox with a simple recursive pattern.
-	eng2 := gicel.NewEngine()
-	eng2.EnableRecursion()
-	_, err = gicel.RunSandbox("main := fix (\\self x. self x) True", &gicel.SandboxConfig{
+	_, err = gicel.RunSandbox("import Prelude\nmain := fix (\\self x. self x) True", &gicel.SandboxConfig{
+		Packs:    []gicel.Pack{gicel.Prelude},
 		MaxSteps: 100_000,
 		MaxDepth: 5,
-		Packs:    nil,
 	})
 	if err == nil {
 		t.Fatal("expected depth limit error")
@@ -702,12 +712,13 @@ func TestStressDepthLimitWithThunkForce(t *testing.T) {
 
 // TestStressContextCancellation — cancellation propagates mid-evaluation.
 func TestStressContextCancellation(t *testing.T) {
-	source := `
+	source := `import Prelude
 loop :: Bool -> Bool
 loop := fix (\self x. self x)
 main := loop True
 `
 	eng := gicel.NewEngine()
+	eng.Use(gicel.Prelude)
 	eng.EnableRecursion()
 	eng.SetStepLimit(1_000_000_000)
 	eng.SetDepthLimit(1_000_000)
@@ -733,7 +744,7 @@ main := loop True
 // TestStressAllocLimitRecursiveRecord — alloc limit via recursive record update.
 func TestStressAllocLimitRecursiveRecord(t *testing.T) {
 	source := `
-import Std.Num
+import Prelude
 
 build :: Int -> Record { a: Int, b: Int, c: Int, d: Int, e: Int } -> Int
 build := fix (\self n r. case n == 0 { True -> r.#a; False -> self (n - 1) { r | a: n } })
@@ -745,7 +756,7 @@ main := build 10000 { a: 0, b: 0, c: 0, d: 0, e: 0 }
 	eng.SetStepLimit(10_000_000)
 	eng.SetDepthLimit(100_000)
 	eng.SetAllocLimit(64 * 1024) // 64 KiB — tight.
-	if err := eng.Use(gicel.Num); err != nil {
+	if err := eng.Use(gicel.Prelude); err != nil {
 		t.Fatal(err)
 	}
 
@@ -765,7 +776,7 @@ main := build 10000 { a: 0, b: 0, c: 0, d: 0, e: 0 }
 // TestStressStepLimitBranching — step limit counted from start, not branch point.
 func TestStressStepLimitBranching(t *testing.T) {
 	source := `
-import Std.Num
+import Prelude
 
 longBranch :: Int -> Int
 longBranch := fix (\self n. case n == 0 { True -> 0; False -> self (n - 1) })
@@ -776,7 +787,7 @@ main := case True { True -> longBranch 10000; False -> 42 }
 	eng.EnableRecursion()
 	eng.SetStepLimit(5000)
 	eng.SetDepthLimit(100_000)
-	if err := eng.Use(gicel.Num); err != nil {
+	if err := eng.Use(gicel.Prelude); err != nil {
 		t.Fatal(err)
 	}
 
@@ -808,7 +819,8 @@ func TestStressConcurrentSandboxDifferentLimits(t *testing.T) {
 		go func(idx int) {
 			defer wg.Done()
 			// Prelude evaluation needs ~500 steps; use generous limits.
-			r, err := gicel.RunSandbox("main := True", &gicel.SandboxConfig{
+			r, err := gicel.RunSandbox("import Prelude\nmain := True", &gicel.SandboxConfig{
+				Packs:    []gicel.Pack{gicel.Prelude},
 				MaxSteps: 10_000 + idx*1000,
 			})
 			results[idx] = result{err: err, val: r}
@@ -826,7 +838,8 @@ func TestStressConcurrentSandboxDifferentLimits(t *testing.T) {
 // TestStressRepeatedRuntimeExecution — same Runtime executed 100 times.
 func TestStressRepeatedRuntimeExecution(t *testing.T) {
 	eng := gicel.NewEngine()
-	rt, err := eng.NewRuntime("main := True\n")
+	eng.Use(gicel.Prelude)
+	rt, err := eng.NewRuntime("import Prelude\nmain := True\n")
 	if err != nil {
 		t.Fatal(err)
 	}

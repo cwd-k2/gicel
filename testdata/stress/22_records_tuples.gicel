@@ -1,7 +1,6 @@
-import Std.Num
-import Std.Str
-
 -- Record literals and projection
+import Prelude
+
 origin := { x: 0, y: 0 }
 point := { x: 3, y: 4 }
 getX := \r. r.#x

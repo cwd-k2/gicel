@@ -4,8 +4,8 @@
 -- that write to the CapEnv io buffer.
 -- Level: effects
 
-import Std.Str
-import Std.IO
+import Prelude
+import Effect.IO
 
 -- Side effects: prints "hello, world!" and debug "done" to the io buffer.
 -- Return value: ()

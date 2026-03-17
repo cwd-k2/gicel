@@ -4,7 +4,7 @@
 -- nested case expressions, and converting between types.
 -- Level: types
 
-import Std.Num
+import Prelude
 
 -- A simple enumeration type
 data Color := Red | Green | Blue

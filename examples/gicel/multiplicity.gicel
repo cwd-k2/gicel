@@ -9,8 +9,7 @@
 -- computations without affecting runtime behavior.
 -- Level: types
 
-import Std.Num
-import Std.Str
+import Prelude
 
 data Mult := Unrestricted | Affine | Linear
 

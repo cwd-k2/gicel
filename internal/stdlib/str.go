@@ -11,33 +11,6 @@ import (
 	"github.com/cwd-k2/gicel/internal/eval"
 )
 
-// Str provides string and rune operations: Eq/Ord/Semigroup/Monoid instances, length,
-// charAt, substring, toUpper, toLower, trim, contains, split, join, showInt, readInt.
-var Str Pack = func(e Registrar) error {
-	e.RegisterPrim("_eqStr", eqStrImpl)
-	e.RegisterPrim("_cmpStr", cmpStrImpl)
-	e.RegisterPrim("_appendStr", appendStrImpl)
-	e.RegisterPrim("_emptyStr", emptyStrImpl)
-	e.RegisterPrim("_lengthStr", lengthStrImpl)
-	e.RegisterPrim("_eqRune", eqRuneImpl)
-	e.RegisterPrim("_cmpRune", cmpRuneImpl)
-	e.RegisterPrim("_charAt", charAtImpl)
-	e.RegisterPrim("_substring", substringImpl)
-	e.RegisterPrim("_toUpper", toUpperImpl)
-	e.RegisterPrim("_toLower", toLowerImpl)
-	e.RegisterPrim("_trim", trimImpl)
-	e.RegisterPrim("_contains", containsImpl)
-	e.RegisterPrim("_split", splitImpl)
-	e.RegisterPrim("_join", joinImpl)
-	e.RegisterPrim("_showInt", showIntImpl)
-	e.RegisterPrim("_readInt", readIntImpl)
-	e.RegisterPrim("_toRunes", toRunesImpl)
-	e.RegisterPrim("_fromRunes", fromRunesImpl)
-	// Fusion rule: packed roundtrip elimination.
-	e.RegisterRewriteRule(strPackedRoundtrip)
-	return e.RegisterModule("Std.Str", strSource)
-}
-
 // R13: _fromRunes (_toRunes x) → x
 func strPackedRoundtrip(c core.Core) core.Core {
 	po, ok := c.(*core.PrimOp)

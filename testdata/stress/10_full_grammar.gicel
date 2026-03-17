@@ -1,3 +1,5 @@
+import Prelude
+
 type Eff r a := Computation r r a
 
 data Ordering := LT | EQ | GT

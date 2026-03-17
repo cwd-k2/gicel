@@ -9,7 +9,9 @@ import (
 )
 
 func TestSandboxRun(t *testing.T) {
-	result, err := gicel.RunSandbox(`main := True`, nil)
+	result, err := gicel.RunSandbox("import Prelude\nmain := True", &gicel.SandboxConfig{
+		Packs: []gicel.Pack{gicel.Prelude},
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -17,8 +19,8 @@ func TestSandboxRun(t *testing.T) {
 }
 
 func TestSandboxRunWithPacks(t *testing.T) {
-	result, err := gicel.RunSandbox("import Std.Num\nmain := 1 + 2", &gicel.SandboxConfig{
-		Packs: []gicel.Pack{gicel.Num},
+	result, err := gicel.RunSandbox("import Prelude\nmain := 1 + 2", &gicel.SandboxConfig{
+		Packs: []gicel.Pack{gicel.Prelude},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -29,12 +31,12 @@ func TestSandboxRunWithPacks(t *testing.T) {
 func TestSandboxRunTimeout(t *testing.T) {
 	// This should not hang — step limit will catch infinite recursion.
 	_, err := gicel.RunSandbox(`
-import Std.Num
+import Prelude
 loop :: Int -> Int
 loop := \n. loop (n + 1)
 main := loop 0
 `, &gicel.SandboxConfig{
-		Packs:    []gicel.Pack{gicel.Num},
+		Packs:    []gicel.Pack{gicel.Prelude},
 		MaxSteps: 1000,
 	})
 	if err == nil {
@@ -50,7 +52,9 @@ func TestSandboxRunCompileError(t *testing.T) {
 }
 
 func TestSandboxRunJSON(t *testing.T) {
-	result, err := gicel.RunSandbox(`main := True`, nil)
+	result, err := gicel.RunSandbox("import Prelude\nmain := True", &gicel.SandboxConfig{
+		Packs: []gicel.Pack{gicel.Prelude},
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -86,12 +90,12 @@ func TestSandboxMalformedDo(t *testing.T) {
 func TestSandboxDeepRecursion(t *testing.T) {
 	// Deep recursion — depth limit should catch.
 	_, err := gicel.RunSandbox(`
-import Std.Num
+import Prelude
 f :: Int -> Int
 f := \n. f (n + 1)
 main := f 0
 `, &gicel.SandboxConfig{
-		Packs:    []gicel.Pack{gicel.Num},
+		Packs:    []gicel.Pack{gicel.Prelude},
 		MaxSteps: 500,
 		MaxDepth: 50,
 	})
@@ -104,8 +108,8 @@ main := f 0
 // compile + execute total is bounded by the configured timeout.
 func TestSandboxTimeoutCoversCompilation(t *testing.T) {
 	start := time.Now()
-	_, err := gicel.RunSandbox("import Std.Num\nmain := 1 + 2", &gicel.SandboxConfig{
-		Packs:   []gicel.Pack{gicel.Num},
+	_, err := gicel.RunSandbox("import Prelude\nmain := 1 + 2", &gicel.SandboxConfig{
+		Packs:   []gicel.Pack{gicel.Prelude},
 		Timeout: time.Nanosecond,
 	})
 	elapsed := time.Since(start)
@@ -124,11 +128,10 @@ func TestSandboxAllocLimitFiresForStdlib(t *testing.T) {
 	// Build a large list and reverse it — stdlib allocates proportionally.
 	// With a very tight alloc limit, this must fail.
 	_, err := gicel.RunSandbox(`
-import Std.Num
-import Std.List
+import Prelude
 main := reverse (replicate 500 1)
 `, &gicel.SandboxConfig{
-		Packs:    []gicel.Pack{gicel.Num, gicel.List},
+		Packs:    []gicel.Pack{gicel.Prelude},
 		MaxAlloc: 1024, // 1 KiB — far too small for 500-element reverse
 	})
 	if err == nil {
@@ -140,8 +143,8 @@ main := reverse (replicate 500 1)
 }
 
 func TestSandboxRunAllPacks(t *testing.T) {
-	result, err := gicel.RunSandbox("import Std.Num\nimport Std.Str\nimport Std.List\nmain := showInt (foldl (\\acc x. acc + x) 0 (Cons 1 (Cons 2 (Cons 3 Nil))))", &gicel.SandboxConfig{
-		Packs: []gicel.Pack{gicel.Num, gicel.Str, gicel.List},
+	result, err := gicel.RunSandbox("import Prelude\nmain := showInt (foldl (\\acc x. acc + x) 0 (Cons 1 (Cons 2 (Cons 3 Nil))))", &gicel.SandboxConfig{
+		Packs: []gicel.Pack{gicel.Prelude},
 	})
 	if err != nil {
 		t.Fatal(err)

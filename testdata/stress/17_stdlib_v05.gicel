@@ -1,5 +1,6 @@
 -- Stress test 17: v0.5 Stdlib expansion
 -- Tests Semigroup, Monoid, Applicative, Traversable, and Ord completion.
+import Prelude
 
 -- Semigroup tests
 sgOrdLT := append LT EQ

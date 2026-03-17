@@ -3,8 +3,7 @@
 -- This example exercises nested type families, recursive reduction,
 -- and type-level computation in actual value-level code.
 -- Level: types (advanced)
-
-import Std.Num
+import Prelude
 
 -- Peano naturals as DataKinds for type-level arithmetic.
 data Nat := Z | S Nat

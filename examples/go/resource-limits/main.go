@@ -17,7 +17,6 @@ import (
 
 // An infinite loop via fix — will hit whichever limit is tightest.
 const loopSource = `
-import Std.Num
 loop :: Int -> Int
 loop := fix (\self n. self (n + 1))
 main := loop 0
@@ -29,7 +28,7 @@ func main() {
 	// --- Step limit: catches flat iteration ---
 	eng := gicel.NewEngine()
 	eng.EnableRecursion()
-	eng.Use(gicel.Num)
+	eng.Use(gicel.Prelude)
 	eng.SetStepLimit(500)
 	eng.SetDepthLimit(10_000) // high enough to not interfere
 
@@ -45,7 +44,7 @@ func main() {
 	// --- Depth limit: catches deep recursion ---
 	eng2 := gicel.NewEngine()
 	eng2.EnableRecursion()
-	eng2.Use(gicel.Num)
+	eng2.Use(gicel.Prelude)
 	eng2.SetStepLimit(1_000_000) // high enough to not interfere
 	eng2.SetDepthLimit(10)
 
@@ -60,12 +59,11 @@ func main() {
 
 	// --- Success with generous limits ---
 	eng3 := gicel.NewEngine()
-	eng3.Use(gicel.Num)
+	eng3.Use(gicel.Prelude)
 	eng3.SetStepLimit(1_000_000)
 	eng3.SetDepthLimit(1_000)
 
 	rt3, err := eng3.NewRuntime(`
-import Std.Num
 main := 1 + 2 + 3
 `)
 	if err != nil {

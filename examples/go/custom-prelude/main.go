@@ -1,8 +1,8 @@
 // Example: custom-prelude — bare-bones and custom prelude modes.
 //
-// NoPrelude() disables all default types (Bool, Maybe, List, etc.).
-// SetPrelude() replaces the default prelude with custom source while
-// keeping CoreSource (IxMonad, Effect, Lift, then) intact.
+// NewEngine() returns a bare engine with no prelude loaded.
+// You can define your own data types from scratch, or register
+// a custom "Prelude" module with exactly the types you need.
 package main
 
 import (
@@ -16,11 +16,11 @@ import (
 func main() {
 	ctx := context.Background()
 
-	// --- Part 1: NoPrelude — completely bare environment ---
-	// Only CoreSource (IxMonad, Computation primitives) is available.
-	// You must define your own data types.
+	// --- Part 1: No Prelude — completely bare environment ---
+	// NewEngine() has no prelude by default; only built-in literal types
+	// (Int, Double, String, Rune) are registered. You must define your
+	// own data types.
 	eng := gicel.NewEngine()
-	eng.NoPrelude()
 
 	rt, err := eng.NewRuntime(`
 data Color := Red | Green | Blue
@@ -43,16 +43,19 @@ main := swap Red
 	fmt.Println("no-prelude:", name)
 	// Output: no-prelude: Blue
 
-	// --- Part 2: SetPrelude — custom prelude with only what you need ---
-	// CoreSource (IxMonad, bind, pure, etc.) is always prepended.
-	// Your custom prelude replaces the default Bool/Maybe/List definitions.
+	// --- Part 2: Custom Prelude — register a custom "Prelude" module ---
+	// You can register any source as the "Prelude" module; subsequent
+	// modules and user code will auto-import it.
 	eng2 := gicel.NewEngine()
-	eng2.SetPrelude(`
+	err = eng2.RegisterModule("Prelude", `
 data Bit := On | Off
 
 flip :: Bit -> Bit
 flip := \b. case b { On -> Off; Off -> On }
 `)
+	if err != nil {
+		log.Fatal("register prelude error: ", err)
+	}
 
 	rt2, err := eng2.NewRuntime(`
 main := flip (flip Off)

@@ -20,7 +20,7 @@ var Map Pack = func(e Registrar) error {
 	e.RegisterPrim("_mapFoldlWithKey", mapFoldlWithKeyImpl)
 	e.RegisterPrim("_mapMember", mapMemberImpl)
 	e.RegisterPrim("_mapUnionWith", mapUnionWithImpl)
-	return e.RegisterModule("Std.Map", mapSource)
+	return e.RegisterModule("Data.Map", mapSource)
 }
 
 var mapSource = mustReadSource("map")

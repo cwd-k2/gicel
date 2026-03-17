@@ -1,6 +1,7 @@
 -- Stress test 21: IxMonad and monadic patterns
 -- Exercises Maybe monad, List monad, Computation monad, class hierarchy,
 -- cross-feature interactions, type class dispatch, and edge cases.
+import Prelude
 
 -- ======================================================================
 -- Maybe Monad patterns

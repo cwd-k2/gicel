@@ -1,3 +1,5 @@
+import Prelude
+
 data Color := Red | Green | Blue | Yellow | Cyan | Magenta | White | Black
 data Shape := Circle | Square | Triangle | Pentagon | Hexagon | Octagon
 data Day := Mon | Tue | Wed | Thu | Fri | Sat | Sun

@@ -16,7 +16,7 @@ var Set Pack = func(e Registrar) error {
 	e.RegisterPrim("_setSize", setSizeImpl)
 	e.RegisterPrim("_setToList", setToListImpl)
 	e.RegisterPrim("_setFromList", setFromListImpl)
-	return e.RegisterModule("Std.Set", setSource)
+	return e.RegisterModule("Data.Set", setSource)
 }
 
 var setSource = mustReadSource("set")

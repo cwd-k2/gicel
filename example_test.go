@@ -9,10 +9,10 @@ import (
 
 func ExampleRunSandbox() {
 	result, err := gicel.RunSandbox(`
-import Std.Num
+import Prelude
 main := 2 + 3
 `, &gicel.SandboxConfig{
-		Packs: []gicel.Pack{gicel.Num},
+		Packs: []gicel.Pack{gicel.Prelude},
 	})
 	if err != nil {
 		panic(err)
@@ -23,8 +23,10 @@ main := 2 + 3
 
 func ExampleEngine_NewRuntime() {
 	eng := gicel.NewEngine()
+	eng.Use(gicel.Prelude)
 
 	rt, err := eng.NewRuntime(`
+		import Prelude
 		not := \b. case b { True -> False; False -> True }
 		main := not False
 	`)

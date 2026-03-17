@@ -6,6 +6,8 @@
 -- we focus on construction and shallow matching.
 -- Level: types
 
+import Prelude
+
 -- Peano natural numbers: zero and successor
 data Nat := Z | S Nat
 

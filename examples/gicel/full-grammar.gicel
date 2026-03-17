@@ -5,9 +5,9 @@
 --   class, instance, import
 -- Level: effects
 
+import Prelude
+
 -- [import] — bring in stdlib
-import Std.Num
-import Std.Str
 
 -- [data] — define an algebraic data type
 data Color := Red | Green | Blue

@@ -6,6 +6,8 @@
 -- educational purposes.
 -- Level: basics
 
+import Prelude
+
 -- Boolean negation via pattern matching
 myNot :: Bool -> Bool
 myNot := \b. case b { True -> False; False -> True }

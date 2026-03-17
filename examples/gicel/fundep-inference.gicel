@@ -5,7 +5,7 @@
 -- type inference through multi-parameter type classes.
 -- Level: types (advanced)
 
-import Std.Num
+import Prelude
 
 -- A type class for serialization with fundep: the format determines
 -- the wire type uniquely.

@@ -6,8 +6,8 @@
 -- no state capability.
 -- Level: effects
 
-import Std.Num
-import Std.State
+import Prelude
+import Effect.State
 
 -- Basic: put an initial value, read it back
 -- Output: 42

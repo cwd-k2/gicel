@@ -1,3 +1,5 @@
+import Prelude
+
 class Eq a { eq :: a -> a -> Bool }
 
 instance Eq Bool {
