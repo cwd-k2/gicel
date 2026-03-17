@@ -1,0 +1,76 @@
+-- GICEL Example: Data Family Polymorphism
+--
+-- Data families create type-indexed data structures: different instances
+-- of the same family use different runtime representations.
+-- Level: types (advanced)
+
+import Std.Num
+
+-- A Collection class with an associated data family for keys.
+-- Each collection type determines its own key representation.
+class Collection c {
+  data Key c :: Type;
+  insert :: Key c -> c -> c;
+  lookup :: Key c -> c -> Maybe (Elem c)
+}
+
+-- Elem is a closed type family that extracts the element type.
+type Elem (c : Type) :: Type = {
+  Elem (List a) = a;
+  Elem (Maybe a) = a
+}
+
+-- Instance for List: keys are Int (positional index).
+-- Key (List a) = ListIndex
+instance Collection (List a) {
+  data Key (List a) = ListIndex Int;
+  insert := \k -> \xs -> xs;
+  lookup := \k -> \xs -> case xs { Cons x _ -> Just x; Nil -> Nothing }
+}
+
+-- A Wrapper class with associated data for the wrapped form.
+-- Different types wrap into different runtime shapes.
+class Wrappable w {
+  data Wrapped w :: Type;
+  wrap :: w -> Wrapped w;
+  unwrap :: Wrapped w -> w
+}
+
+-- Int wraps to a tagged box.
+instance Wrappable Int {
+  data Wrapped Int = IntBox Int;
+  wrap := \n -> IntBox n;
+  unwrap := \w -> case w { IntBox n -> n }
+}
+
+-- Bool wraps to a bitflag.
+instance Wrappable Bool {
+  data Wrapped Bool = BoolBit Bool;
+  wrap := \b -> BoolBit b;
+  unwrap := \w -> case w { BoolBit b -> b }
+}
+
+-- Maybe wraps to an optional box.
+instance Wrappable (Maybe a) {
+  data Wrapped (Maybe a) = OptBox (Maybe a);
+  wrap := \m -> OptBox m;
+  unwrap := \w -> case w { OptBox m -> m }
+}
+
+-- Usage: type-safe wrapping and unwrapping.
+wrappedInt :: Wrapped Int
+wrappedInt := wrap 42
+
+recoveredInt :: Int
+recoveredInt := unwrap wrappedInt
+
+wrappedBool :: Wrapped Bool
+wrappedBool := wrap True
+
+recoveredBool :: Bool
+recoveredBool := unwrap wrappedBool
+
+-- Each Wrapped type has distinct constructors:
+-- IntBox 42 and BoolBit True cannot be confused at the type level.
+
+main := (recoveredInt, recoveredBool)
