@@ -16,11 +16,14 @@ import (
 
 // The source wraps a host-provided integer in Just.
 const source = `
+import Prelude
+
 main := Just n
 `
 
 func main() {
 	eng := gicel.NewEngine()
+	eng.Use(gicel.Prelude)
 	eng.RegisterType("Int", gicel.KindType())
 	eng.DeclareBinding("n", gicel.ConType("Int"))
 

@@ -18,6 +18,8 @@ import (
 // myApply takes a GICEL function and a value, applies the function via
 // the Applier callback, and returns the result.
 const source = `
+import Prelude
+
 myApply :: (Int -> Int) -> Int -> Int
 myApply := assumption
 

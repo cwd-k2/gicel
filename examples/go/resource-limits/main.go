@@ -17,6 +17,8 @@ import (
 
 // An infinite loop via fix — will hit whichever limit is tightest.
 const loopSource = `
+import Prelude
+
 loop :: Int -> Int
 loop := fix (\self n. self (n + 1))
 main := loop 0
@@ -64,6 +66,8 @@ func main() {
 	eng3.SetDepthLimit(1_000)
 
 	rt3, err := eng3.NewRuntime(`
+import Prelude
+
 main := 1 + 2 + 3
 `)
 	if err != nil {

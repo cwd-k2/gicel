@@ -17,6 +17,8 @@ import (
 // The source references `n`, a host-provided binding of type Int.
 // The program squares the input.
 const source = `
+import Prelude
+
 main := n * n
 `
 

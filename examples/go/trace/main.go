@@ -17,13 +17,16 @@ import (
 )
 
 const source = `
-not := \b. case b { True -> False; False -> True }
+import Prelude
 
-main := not True
+myNot := \b. case b { True -> False; False -> True }
+
+main := myNot True
 `
 
 func main() {
 	eng := gicel.NewEngine()
+	eng.Use(gicel.Prelude)
 
 	rt, err := eng.NewRuntime(source)
 	if err != nil {

@@ -15,6 +15,8 @@ import (
 // The source defines three functions using only the prelude Bool type.
 // There are no literals — True and False are constructors provided by the prelude.
 const source = `
+import Prelude
+
 not := \b. case b { True -> False; False -> True }
 
 and := \a b. case a { True -> b; False -> False }
@@ -23,8 +25,9 @@ main := and (not False) True
 `
 
 func main() {
-	// 1. Create an engine with default limits.
+	// 1. Create an engine with default limits and register the prelude.
 	eng := gicel.NewEngine()
+	eng.Use(gicel.Prelude)
 
 	// 2. Compile the source into an immutable, goroutine-safe Runtime.
 	//    This performs lexing, parsing, type-checking, and elaboration to Core IR.

@@ -14,8 +14,10 @@ import (
 )
 
 func main() {
-	// 1. Simplest case: default config (entry "main", 5s timeout, 100k steps).
-	result, err := gicel.RunSandbox(`main := not False`, nil)
+	// 1. Simplest case: Prelude pack + import in source.
+	result, err := gicel.RunSandbox(`import Prelude; main := not False`, &gicel.SandboxConfig{
+		Packs: []gicel.Pack{gicel.Prelude},
+	})
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -24,6 +26,7 @@ func main() {
 
 	// 2. With Packs and custom limits.
 	result, err = gicel.RunSandbox(`
+import Prelude
 main := (1 + 2) * 3
 `, &gicel.SandboxConfig{
 		Packs:    []gicel.Pack{gicel.Prelude},

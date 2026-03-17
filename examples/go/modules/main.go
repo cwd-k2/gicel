@@ -33,6 +33,7 @@ swapPair := \p. case p { MkPair a b -> MkPair b a }
 
 // The main program uses types and functions from the module.
 const mainSource = `
+import Prelude
 import Utils
 
 main := fstPair (swapPair (mkPair True False))
@@ -40,6 +41,7 @@ main := fstPair (swapPair (mkPair True False))
 
 func main() {
 	eng := gicel.NewEngine()
+	eng.Use(gicel.Prelude)
 
 	// Register the module — it becomes importable as "Utils".
 	if err := eng.RegisterModule("Utils", utilsSource); err != nil {

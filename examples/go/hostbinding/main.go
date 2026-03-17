@@ -17,11 +17,14 @@ import (
 // The source references `n` — a host-provided variable of type Int.
 // It wraps the value in Just (from the prelude: data Maybe a := Just a | Nothing).
 const source = `
+import Prelude
+
 main := Just n
 `
 
 func main() {
 	eng := gicel.NewEngine()
+	eng.Use(gicel.Prelude)
 
 	// Register "Int" as an opaque host type (kind: Type).
 	eng.RegisterType("Int", gicel.KindType())

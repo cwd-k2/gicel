@@ -35,9 +35,12 @@ func main() {
 	// but exceeds the step limit at runtime.
 	eng2 := gicel.NewEngine()
 	eng2.EnableRecursion()
+	eng2.Use(gicel.Prelude)
 	eng2.SetStepLimit(500) // low enough to catch the infinite loop
 
 	rt, err := eng2.NewRuntime(`
+import Prelude
+
 loop :: Bool -> Bool
 loop := fix (\self b. self b)
 main := loop True
@@ -53,7 +56,8 @@ main := loop True
 
 	// --- Part 3: Successful run for contrast ---
 	eng3 := gicel.NewEngine()
-	rt, err = eng3.NewRuntime(`main := not False`)
+	eng3.Use(gicel.Prelude)
+	rt, err = eng3.NewRuntime(`import Prelude; main := not False`)
 	if err != nil {
 		log.Fatal(err)
 	}

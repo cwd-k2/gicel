@@ -16,6 +16,8 @@ import (
 
 // The source receives a list binding, reverses it, and returns the result.
 const source = `
+import Prelude
+
 main := reverse xs
 `
 

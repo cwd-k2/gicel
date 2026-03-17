@@ -20,6 +20,7 @@ func main() {
 
 	// --- 1. Prelude: arithmetic, strings, lists ---
 	run(ctx, "Prelude-Num", func(eng *gicel.Engine) { eng.Use(gicel.Prelude) }, `
+import Prelude
 main := (3 + 4) * 2
 `, func(v gicel.Value) {
 		fmt.Println("Num:   (3+4)*2 =", gicel.MustHost[int64](v))
@@ -27,6 +28,7 @@ main := (3 + 4) * 2
 
 	// --- 2. Prelude includes Str operations ---
 	run(ctx, "Prelude-Str", func(eng *gicel.Engine) { eng.Use(gicel.Prelude) }, `
+import Prelude
 main := toUpper (append "hello" " world")
 `, func(v gicel.Value) {
 		fmt.Println("Str:   toUpper =", gicel.MustHost[string](v))
@@ -37,6 +39,7 @@ main := toUpper (append "hello" " world")
 		eng.Use(gicel.Prelude)
 		eng.EnableRecursion()
 	}, `
+import Prelude
 main := foldl (+) 0 [1, 2, 3]
 `, func(v gicel.Value) {
 		fmt.Println("List:  foldl (+) =", gicel.MustHost[int64](v))
@@ -74,6 +77,7 @@ func runFail(ctx context.Context) {
 	eng.Use(gicel.EffectFail)
 
 	rt, err := eng.NewRuntime(`
+import Prelude
 import Effect.Fail
 main := do { _ <- failWith (); pure True }
 `)
@@ -100,6 +104,7 @@ func runState(ctx context.Context) {
 	eng.Use(gicel.EffectState)
 
 	rt, err := eng.NewRuntime(`
+import Prelude
 import Effect.State
 main := do {
   s <- get;
@@ -129,6 +134,7 @@ func runIO(ctx context.Context) {
 	eng.Use(gicel.EffectIO)
 
 	rt, err := eng.NewRuntime(`
+import Prelude
 import Effect.IO
 main := do {
   _ <- print "line 1";

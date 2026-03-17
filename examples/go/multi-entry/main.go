@@ -22,6 +22,8 @@ import (
 // The source defines a shared helper (square) and three independent entry
 // points that each use the helper but do not depend on each other.
 const source = `
+import Prelude
+
 square :: Int -> Int
 square := \x. x * x
 

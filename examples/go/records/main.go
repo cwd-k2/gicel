@@ -17,6 +17,7 @@ import (
 // Projection uses the .# operator (atom-level precedence).
 // Row polymorphism lets functions accept any record with required fields.
 const source = `
+import Prelude
 
 -- Record literal and projection
 point := { x: 3, y: 4 }
