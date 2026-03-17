@@ -19,10 +19,10 @@ instance Convert (Maybe Bool) Bool {
 instance Iso Bool Bool { to := \x. x; from := \x. x }
 instance Iso () () { to := \x. x; from := \x. x }
 
-convertAndCoerce :: \a b c. Convert a b => Coercible b c => a -> c
+convertAndCoerce :: \a b c. (Convert a b, Coercible b c) => a -> c
 convertAndCoerce := \x. coerce (convert x)
 
-chainCoerce :: \a b c. Coercible a b => Coercible b c => a -> c
+chainCoerce :: \a b c. (Coercible a b, Coercible b c) => a -> c
 chainCoerce := \x. coerce (coerce x)
 
 convertedBool := convertAndCoerce True

@@ -80,11 +80,11 @@ type Effect r a = Computation r r a
 
 ### Constraints (=>)
 
-Constraints are curried. Each `C =>` introduces one constraint. Multiple constraints are chained:
+Single constraints use `C => T`. Multiple constraints use tuple syntax:
 
 ```
 Eq a => a -> a -> Bool
-Eq a => Ord a => a -> Bool
+(Eq a, Ord a) => a -> Bool
 ```
 
 ### Quantified Constraints
@@ -121,9 +121,9 @@ data DB (s : DBState) = MkDB
 
 ```
 {}                              -- empty row (closed)
-{ x : Int, y : Bool }          -- closed row
-{ x : Int | r }                -- open row (tail variable r)
-{ get : () -> Int | r }        -- capability row
+{ x: Int, y: Bool }            -- closed row
+{ x: Int | r }                 -- open row (tail variable r)
+{ get: () -> Int | r }         -- capability row
 ```
 
 ### Type Annotations
@@ -222,8 +222,8 @@ class Convert a b | a -> b {
 Row fields can carry an optional multiplicity annotation using `@Mult`:
 
 ```
-open :: Computation {} { h : Handle @Linear } ()
-close :: Computation { h : Handle @Linear } {} ()
+open :: Computation {} { h: Handle @Linear } ()
+close :: Computation { h: Handle @Linear } {} ()
 ```
 
 Without annotation, fields are `@Unrestricted`. The `@Linear` annotation means the capability must be consumed exactly once.
@@ -234,8 +234,8 @@ A type family can declare its result injective with a named result binder and fu
 
 ```
 type Effects (mode : AppMode) :: (r : Row) | r -> mode = {
-  Effects ReadOnly  = { get : () -> String };
-  Effects ReadWrite = { get : () -> String, put : String -> () }
+  Effects ReadOnly  = { get: () -> String };
+  Effects ReadWrite = { get: () -> String, put: String -> () }
 }
 ```
 

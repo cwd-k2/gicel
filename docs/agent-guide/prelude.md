@@ -12,7 +12,7 @@ data Maybe a = Just a | Nothing
 data List a = Cons a (List a) | Nil
 ```
 
-`()` is the unit type (empty record). `(a, b)` is the tuple type (sugar for `Record { _1 : a, _2 : b }`).
+`()` is the unit type (empty record). `(a, b)` is the tuple type (sugar for `Record { _1: a, _2: b }`).
 
 ### Type Aliases
 

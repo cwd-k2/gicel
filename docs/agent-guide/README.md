@@ -67,7 +67,7 @@ import Std.IO
 main := print "Hello, world!"
 ```
 
-`main` here is a `Computation { io : () | r } { io : () | r } ()`. The host must provide the `io` capability.
+`main` here is a `Computation { io: () | r } { io: () | r } ()`. The host must provide the `io` capability.
 
 ### Running Programs
 

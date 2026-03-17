@@ -80,7 +80,7 @@ liftMap := \g fa. fmap g fa
 eqViaOrd :: \a. Ord a => a -> a -> Bool
 eqViaOrd := \x y. case cmp x y { EQ -> True; _ -> False }
 
-convertAndCheck :: \a b. Coercible a b => Eq b => a -> b -> Bool
+convertAndCheck :: \a b. (Coercible a b, Eq b) => a -> b -> Bool
 convertAndCheck := \x expected. eq (coerce x) expected
 
 readS :: \(r : Row). () -> Computation { s : Int | r } { s : Int | r } Int

@@ -159,7 +159,7 @@ class Eq a => Ord a { compare :: a -> a -> Bool }
 instance Eq Bool { eq := \x y. True }
 instance Ord Bool { compare := \x y. True }
 
-type EqOrd a = Eq a => Ord a => a -> a -> Bool
+type EqOrd a = (Eq a, Ord a) => a -> a -> Bool
 
 -- Use the alias.
 bothCheck :: \ a. EqOrd a

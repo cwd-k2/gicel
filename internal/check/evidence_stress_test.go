@@ -94,7 +94,7 @@ class Eq a { eq :: a -> a -> Bool }
 class Show a { show :: a -> Bool }
 instance Eq Bool { eq := \x y. True }
 instance Show Bool { show := \x. True }
-f :: \ a b. Eq a => Show b => a -> b -> Bool
+f :: \ a b. (Eq a, Show b) => a -> b -> Bool
 f := \x y. eq x x
 main := f True False`
 	checkSource(t, source, nil)
@@ -111,7 +111,7 @@ data Unit = Unit
 class Eq a { eq :: a -> a -> Bool }
 instance Eq Bool { eq := \x y. True }
 instance Eq Unit { eq := \x y. True }
-f :: \ a b. Eq a => Eq b => a -> b -> Bool
+f :: \ a b. (Eq a, Eq b) => a -> b -> Bool
 f := \x y. eq x x
 main := f True Unit`
 	checkSource(t, source, nil)
@@ -125,7 +125,7 @@ class Eq a { eq :: a -> a -> Bool }
 class Eq a => Ord a { compare :: a -> a -> Bool }
 instance Eq Bool { eq := \x y. True }
 instance Ord Bool { compare := \x y. True }
-f :: \ a. Eq a => Ord a => a -> a -> Bool
+f :: \ a. (Eq a, Ord a) => a -> a -> Bool
 f := \x y. compare x y
 main := f True False`
 	checkSource(t, source, nil)
@@ -138,7 +138,7 @@ class Eq a { eq :: a -> a -> Bool }
 class Eq a => Ord a { compare :: a -> a -> Bool }
 instance Eq Bool { eq := \x y. True }
 instance Ord Bool { compare := \x y. True }
-type EqOrd a = Eq a => Ord a => a -> Bool
+type EqOrd a = (Eq a, Ord a) => a -> Bool
 f :: \ a. EqOrd a
 f := \x. eq x x
 main := f True`
@@ -152,7 +152,7 @@ class Eq a { eq :: a -> a -> Bool }
 class Show a { show :: a -> Bool }
 instance Eq Bool { eq := \x y. True }
 instance Show Bool { show := \x. True }
-f :: \ a. Eq a => Show a => a -> Bool
+f :: \ a. (Eq a, Show a) => a -> Bool
 f := \x. { r := eq x x; r }
 main := f True`
 	checkSource(t, source, nil)
@@ -187,13 +187,13 @@ main := f True`
 }
 
 func TestEdgeConstraintWithForall(t *testing.T) {
-	// \ a b. Eq a => Eq b => Pair a b -> Bool
+	// \ a b. (Eq a, Eq b) => Pair a b -> Bool
 	source := `data Bool = True | False
 data Pair a b = MkPair a b
 class Eq a { eq :: a -> a -> Bool }
 instance Eq Bool { eq := \x y. True }
 instance Eq a => Eq b => Eq (Pair a b) { eq := \x y. True }
-f :: \ a b. Eq a => Eq b => Pair a b -> Pair a b -> Bool
+f :: \ a b. (Eq a, Eq b) => Pair a b -> Pair a b -> Bool
 f := \x y. eq x y
 main := f (MkPair True True) (MkPair False False)`
 	checkSource(t, source, nil)
@@ -205,7 +205,7 @@ func TestEdgeMissingInstance(t *testing.T) {
 class Eq a { eq :: a -> a -> Bool }
 class Eq a => Ord a { compare :: a -> a -> Bool }
 instance Eq Bool { eq := \x y. True }
-f :: \ a. Eq a => Ord a => a -> Bool
+f :: \ a. (Eq a, Ord a) => a -> Bool
 f := \x. eq x x
 main := f True`
 	checkSourceExpectCode(t, source, nil, errs.ErrNoInstance)
@@ -227,7 +227,7 @@ main := eq (MkTriple True True True) (MkTriple False False False)`
 // =============================================================================
 
 func TestRegressionCurriedConstraints(t *testing.T) {
-	// Eq a => Ord a => T must behave identically to Eq a => Ord a => T
+	// (Eq a, Ord a) => T must behave identically to Eq a => Ord a => T
 	// in all aspects: check mode, subsCheck, instantiate.
 	templateProd := `data Bool = True | False
 class Eq a { eq :: a -> a -> Bool }
@@ -253,7 +253,7 @@ instance Ord Bool { compare := \x y. True }
 		product string
 		curried string
 	}{
-		{"Eq a => Ord a =>", "Eq a => Ord a =>"},
+		{"(Eq a, Ord a) =>", "Eq a => Ord a =>"},
 	}
 
 	for _, tc := range cases {

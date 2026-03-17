@@ -232,8 +232,8 @@ type Elem (c : Type) :: Type = {
 
 -- Injective (named result with functional dependency)
 type Effects (mode : AppMode) :: (r : Row) | r -> mode = {
-  Effects ReadOnly  = { get : () -> String };
-  Effects ReadWrite = { get : () -> String, put : String -> () }
+  Effects ReadOnly  = { get: () -> String };
+  Effects ReadWrite = { get: () -> String, put: String -> () }
 }
 ```
 
@@ -493,18 +493,18 @@ a -> b -> c     -- = a -> (b -> c)
 
 ```
 Eq a => a -> a -> Bool
-Eq a => Ord b => a -> b -> Bool    -- curried constraints
-Eq a => Show a => Ord a => a -> Bool  -- multiple constraints
+(Eq a, Ord b) => a -> b -> Bool           -- constraint tuple
+(Eq a, Show a, Ord a) => a -> Bool        -- multiple constraints
 ```
 
-Constraints are curried: each `C => ...` introduces one constraint. Multiple constraints are chained with `=>`.
+Multiple constraints use tuple syntax: `(C1, C2, ...) => T`. Single constraints remain bare: `C => T`.
 
 ### Quantified Constraints
 
 ```
 (\a. Eq a => Eq (f a)) => f Bool -> f Bool -> Bool
-(\a. Eq a => Show a => Eq (f a)) => ...    -- multiple premises
-Show Bool => (\a. Eq a => Eq (f a)) => ...  -- mixed with curried
+(\a. (Eq a, Show a) => Eq (f a)) => ...                  -- multiple premises
+(Show Bool, (\a. Eq a => Eq (f a))) => ...                -- mixed with tuple
 ```
 
 A quantified constraint `\vars. context => head` asserts that, for any instantiation of `vars`, if the `context` constraints hold, then the `head` constraint holds. Evidence for a quantified constraint is a _function_ from context dictionaries to the head dictionary:
@@ -565,10 +565,10 @@ Here `c` is the implicit evidence field and `a` is a regular field.
 
 ```
 {}                              -- empty row (closed)
-{ x : Int, y : Bool }          -- closed row
-{ x : Int | r }                -- open row (tail variable)
-{ get : () -> Int | r }        -- capability row
-{ h : Handle @Linear | r }    -- multiplicity-annotated field
+{ x: Int, y: Bool }            -- closed row
+{ x: Int | r }                 -- open row (tail variable)
+{ get: () -> Int | r }         -- capability row
+{ h: Handle @Linear | r }     -- multiplicity-annotated field
 ```
 
 Row field grammar (updated):
@@ -583,8 +583,8 @@ The optional `@Mult` suffix annotates a field with a multiplicity (e.g., `@Linea
 ### Record / Tuple Type
 
 ```
-Record { x : Int, y : Bool }   -- record type
-(Int, Bool)                     -- tuple type, desugars to Record { _1 : Int, _2 : Bool }
+Record { x: Int, y: Bool }     -- record type
+(Int, Bool)                     -- tuple type, desugars to Record { _1: Int, _2: Bool }
 (Int, Bool, String)             -- 3-tuple type
 ```
 
@@ -737,7 +737,7 @@ data Maybe a = Just a | Nothing
 data List a = Cons a (List a) | Nil
 ```
 
-`()` is the unit type (empty record). `(a, b)` is the tuple type (sugar for `Record { _1 : a, _2 : b }`).
+`()` is the unit type (empty record). `(a, b)` is the tuple type (sugar for `Record { _1: a, _2: b }`).
 
 ### Operators
 

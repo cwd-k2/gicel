@@ -34,13 +34,13 @@ main := f True False`
 }
 
 func TestCheckTyEvidenceMultiConstraint(t *testing.T) {
-	// Eq a => Ord a => ... should work (chained TyEvidence).
+	// (Eq a, Ord a) => ... should work (constraint tuple).
 	source := `data Bool = True | False
 class Eq a { eq :: a -> a -> Bool }
 class Eq a => Ord a { compare :: a -> a -> Bool }
 instance Eq Bool { eq := \x y. True }
 instance Ord Bool { compare := \x y. True }
-g :: \ a. Eq a => Ord a => a -> a -> Bool
+g :: \ a. (Eq a, Ord a) => a -> a -> Bool
 g := \x y. eq x y
 main := g True False`
 	prog := checkSource(t, source, nil)

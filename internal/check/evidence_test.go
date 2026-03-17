@@ -197,13 +197,13 @@ main := f True False`
 }
 
 func TestCheckMultiConstraintResolution(t *testing.T) {
-	// Test that multiple constraints (Eq a => Ord a => ...) resolve correctly.
+	// Test that multiple constraints ((Eq a, Ord a) => ...) resolve correctly.
 	source := `data Bool = True | False
 class Eq a { eq :: a -> a -> Bool }
 class Eq a => Ord a { compare :: a -> a -> Bool }
 instance Eq Bool { eq := \x y. True }
 instance Ord Bool { compare := \x y. True }
-f :: \ a. Eq a => Ord a => a -> Bool
+f :: \ a. (Eq a, Ord a) => a -> Bool
 f := \x. eq x x
 main := f True`
 	prog := checkSource(t, source, nil)

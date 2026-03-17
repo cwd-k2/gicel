@@ -2593,7 +2593,7 @@ main := useWrapper (MkWrapper (\x. x) True)
 func TestExistentialMultiConstraint(t *testing.T) {
 	eng := gicel.NewEngine()
 	_, err := eng.Compile(`
-data ShowOrd = { MkShowOrd :: \a. Eq a => Ord a => a -> a -> ShowOrd }
+data ShowOrd = { MkShowOrd :: \a. (Eq a, Ord a) => a -> a -> ShowOrd }
 use :: ShowOrd -> Ordering
 use := \s. case s { MkShowOrd x y -> compare x y }
 `)

@@ -408,7 +408,7 @@ void := fmap (const ())
 liftA2 :: \(f : Type -> Type) a b c. Applicative f => (a -> b -> c) -> f a -> f b -> f c
 liftA2 := \f fa fb. ap (fmap f fa) fb
 
-foldMap :: \(t : Type -> Type) a m. Foldable t => Monoid m => (a -> m) -> t a -> m
+foldMap :: \(t : Type -> Type) a m. (Foldable t, Monoid m) => (a -> m) -> t a -> m
 foldMap := \f. foldr (\x acc. append (f x) acc) empty
 
 toList :: \(t : Type -> Type) a. Foldable t => t a -> List a

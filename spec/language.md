@@ -234,8 +234,8 @@ Higher-rank polymorphism: `\` quantifiers may appear under arrows, enabling rank
 The sole source of effects. Host-provided operations are declared with `assumption`:
 
 ```
-dbOpen :: \r. Computation { db : DB Closed | r }
-                          { db : DB Opened | r }
+dbOpen :: \r. Computation { db: DB Closed | r }
+                          { db: DB Opened | r }
                           ()
 dbOpen := assumption
 ```
@@ -568,8 +568,8 @@ Produces:
 This enables precise capability tracking:
 
 ```
-dbOpen :: \r. Computation { db : DB Closed | r }
-                          { db : DB Opened | r }
+dbOpen :: \r. Computation { db: DB Closed | r }
+                          { db: DB Opened | r }
                           ()
 ```
 
@@ -630,7 +630,7 @@ Rows unify structurally with label-set matching.
 
 ### 5.2.1 Algorithm
 
-Given rows `{ l₁ : T₁, ... | r₁ }` and `{ m₁ : S₁, ... | r₂ }`:
+Given rows `{ l₁: T₁, ... | r₁ }` and `{ m₁: S₁, ... | r₂ }`:
 
 1. **Normalize** both rows by collecting labels and tail.
 2. **Classify** labels into three groups: shared (in both), left-only, right-only.
@@ -646,7 +646,7 @@ Given rows `{ l₁ : T₁, ... | r₁ }` and `{ m₁ : S₁, ... | r₂ }`:
 Row unification includes an occurs check to prevent infinite types:
 
 ```
-r ~ { l : T | r }    -- rejected: r occurs in its own definition
+r ~ { l: T | r }    -- rejected: r occurs in its own definition
 ```
 
 ## 5.3 Qualified Types
@@ -657,10 +657,10 @@ The `=>` token introduces constraints in type expressions:
 f :: \a. Eq a => a -> a -> Bool
 ```
 
-Multiple constraints use curried form:
+Multiple constraints use tuple form:
 
 ```
-g :: \a b. Eq a => Ord b => a -> b -> Bool
+g :: \a b. (Eq a, Ord b) => a -> b -> Bool
 ```
 
 Constraints elaborate to implicit dictionary arguments via dictionary passing.
@@ -891,15 +891,15 @@ GADTs elaborate to the same Core IR as regular ADTs. The refined typing is enfor
 `Record` is a built-in type constructor of kind `Row → Type`:
 
 ```
-Record { x : Int, y : Bool }
-Record { x : Int | r }
+Record { x: Int, y: Bool }
+Record { x: Int | r }
 Record {}
 ```
 
 Record fields may have higher-rank types:
 
 ```
-r :: Record { apply : \a. a -> a }
+r :: Record { apply: \a. a -> a }
 r := { apply: \x. x }
 ```
 
@@ -908,7 +908,7 @@ The expected type propagates into the record literal, so the lambda receives the
 Duplicate field labels in a record type are rejected at compile time (error E0210):
 
 ```
-Record { x : Int, x : Bool }     -- compile error: duplicate field "x"
+Record { x: Int, x: Bool }     -- compile error: duplicate field "x"
 ```
 
 ## 8.2 Record Literals
@@ -918,7 +918,7 @@ Record { x : Int, x : Bool }     -- compile error: duplicate field "x"
 {}
 ```
 
-A record literal `{ l₁: e₁, ..., lₙ: eₙ }` has type `Record { l₁ : T₁, ..., lₙ : Tₙ }`.
+A record literal `{ l₁: e₁, ..., lₙ: eₙ }` has type `Record { l₁: T₁, ..., lₙ: Tₙ }`.
 
 ## 8.3 Projection
 
@@ -930,7 +930,7 @@ r.#x.#y         -- chained projection (left-associative, atom-level precedence)
 f r.#x          -- f (r.#x) — projection binds tighter than application
 ```
 
-Typing rule: if `e : Record { l : T | r }`, then `e.#l : T`.
+Typing rule: if `e : Record { l: T | r }`, then `e.#l : T`.
 
 ## 8.4 Update
 
@@ -963,7 +963,7 @@ Tuples are syntactic sugar for records with positional labels `_1`, `_2`, `_3`, 
 | Surface            | Desugars to                      |
 | ------------------ | -------------------------------- |
 | `(1, True)`        | `{ _1: 1, _2: True }`            |
-| `(Int, Bool)`      | `Record { _1 : Int, _2 : Bool }` |
+| `(Int, Bool)`      | `Record { _1: Int, _2: Bool }` |
 | `t.#_1`            | record projection on `_1`        |
 | `(a, b)` (pattern) | `{ _1: a, _2: b }` (pattern)     |
 
@@ -1037,13 +1037,13 @@ Capabilities are tracked in row-typed pre/post states:
 
 ```
 -- Opens a database (requires Closed, produces Opened)
-dbOpen :: \r. Computation { db : DB Closed | r }
-                          { db : DB Opened | r }
+dbOpen :: \r. Computation { db: DB Closed | r }
+                          { db: DB Opened | r }
                           ()
 
 -- Queries (requires Opened, preserves Opened)
-dbQuery :: \r. String -> Computation { db : DB Opened | r }
-                                     { db : DB Opened | r }
+dbQuery :: \r. String -> Computation { db: DB Opened | r }
+                                     { db: DB Opened | r }
                                      (List String)
 
 -- Compose:
@@ -1064,11 +1064,11 @@ Effects are encoded as capability row patterns, not monad transformers:
 type Effect r a = Computation r r a     -- state-preserving computation
 
 -- Maybe as effect: fromMaybe uses the fail capability
-fromMaybe :: \a r. Maybe a -> Computation { fail : () | r } { fail : () | r } a
+fromMaybe :: \a r. Maybe a -> Computation { fail: () | r } { fail: () | r } a
 
 -- State as effect: get/put use the state capability
-get :: \s r. Computation { state : s | r } { state : s | r } s
-put :: \s r. s -> Computation { state : s | r } { state : s | r } ()
+get :: \s r. Computation { state: s | r } { state: s | r } s
+put :: \s r. s -> Computation { state: s | r } { state: s | r } ()
 ```
 
 ---
@@ -1424,8 +1424,8 @@ A type family may declare its result injective via a named result binder with fu
 
 ```
 type Effects (mode : AppMode) :: (r : Row) | r -> mode = {
-  Effects ReadOnly  = { get : () -> String };
-  Effects ReadWrite = { get : () -> String, put : String -> () }
+  Effects ReadOnly  = { get: () -> String };
+  Effects ReadWrite = { get: () -> String, put: String -> () }
 }
 ```
 
@@ -1468,8 +1468,8 @@ RowField ::= Label ':' Type ('@' TypeAtom)?
 The annotation tracks usage discipline for capabilities:
 
 ```
-open  :: Computation {} { h : Handle @Linear } ()
-close :: Computation { h : Handle @Linear } {} ()
+open  :: Computation {} { h: Handle @Linear } ()
+close :: Computation { h: Handle @Linear } {} ()
 ```
 
 Without annotation, fields are `@Unrestricted`. The multiplicity kind is:
@@ -1499,7 +1499,7 @@ The current specification requires all branches of a `case` expression to produc
 ```
 case cond {
   True  -> consume handle;    -- post: { }
-  False -> pure ()            -- post: { h : Handle @Linear }
+  False -> pure ()            -- post: { h: Handle @Linear }
 }
 -- joined post-state: LUB applied field-wise
 ```

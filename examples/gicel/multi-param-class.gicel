@@ -46,7 +46,7 @@ instance Coercible Ordering Bool {
 }
 
 -- Compose two conversions: convert then coerce
-convertAndCoerce :: \a b c. Convert a b => Coercible b c => a -> c
+convertAndCoerce :: \a b c. (Convert a b, Coercible b c) => a -> c
 convertAndCoerce := \x. coerce (convert x)
 
 -- Tests

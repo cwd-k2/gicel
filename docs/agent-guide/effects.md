@@ -45,15 +45,15 @@ Capability environments are row types that describe what effects are available:
 
 ```
 {}                                            -- no capabilities (pure)
-{ state : Int }                               -- state holding an Int
-{ state : Int, fail : String }                -- state and failure
-{ io : () | r }                               -- io plus whatever else r contains
+{ state: Int }                                -- state holding an Int
+{ state: Int, fail: String }                  -- state and failure
+{ io: () | r }                                -- io plus whatever else r contains
 ```
 
 A function requiring state:
 
 ```
-counter :: Computation { state : Int } { state : Int } Int
+counter :: Computation { state: Int } { state: Int } Int
 counter := do {
   n <- get;
   put (n + 1);

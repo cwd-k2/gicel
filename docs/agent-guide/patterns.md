@@ -73,7 +73,7 @@ pipeline := foldl (+) 0 $ (\x. x * x) <$> filter (> 0) myList
 import Std.Num
 import Std.State
 
-counter :: Computation { state : Int } { state : Int } Int
+counter :: Computation { state: Int } { state: Int } Int
 counter := do { modify (+ 1); modify (+ 1); modify (+ 1); get }
 ```
 
@@ -84,10 +84,10 @@ import Std.Num
 import Std.Str
 import Std.Fail
 
-parseOrFail :: String -> Computation { fail : () | r } { fail : () | r } Int
+parseOrFail :: String -> Computation { fail: () | r } { fail: () | r } Int
 parseOrFail := \s. fromMaybe (readInt s)
 
-safeDivide :: Int -> Int -> Computation { fail : String | r } { fail : String | r } Int
+safeDivide :: Int -> Int -> Computation { fail: String | r } { fail: String | r } Int
 safeDivide := \x y. case y == 0 {
   True  -> failWith "division by zero";
   False -> pure (div x y)
@@ -113,7 +113,7 @@ import Std.Num
 import Std.State
 import Std.Fail
 
-process :: Computation { state : Int, fail : () } { state : Int, fail : () } Int
+process :: Computation { state: Int, fail: () } { state: Int, fail: () } Int
 process := do {
   n <- get;
   case n > 0 { True -> do { put (n - 1); pure n }; False -> fail }
