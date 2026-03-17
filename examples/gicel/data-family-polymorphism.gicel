@@ -58,19 +58,14 @@ instance Wrappable (Maybe a) {
 }
 
 -- Usage: type-safe wrapping and unwrapping.
-wrappedInt :: Wrapped Int
-wrappedInt := wrap 42
-
-recoveredInt :: Int
-recoveredInt := unwrap wrappedInt
-
-wrappedBool :: Wrapped Bool
-wrappedBool := wrap True
-
-recoveredBool :: Bool
-recoveredBool := unwrap wrappedBool
-
 -- Each Wrapped type has distinct constructors:
 -- IntBox 42 and BoolBit True cannot be confused at the type level.
+wrappedInt := wrap 42
+wrappedBool := wrap True
 
+-- Pattern matching on data family constructors recovers the original value.
+recoveredInt := case wrappedInt { IntBox n -> n }
+recoveredBool := case wrappedBool { BoolBit b -> b }
+
+-- Output: (42, True)
 main := (recoveredInt, recoveredBool)
