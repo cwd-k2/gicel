@@ -368,8 +368,8 @@ libNot := \b. case b { LibTrue -> LibFalse; LibFalse -> LibTrue }
 		},
 	},
 	{
-		name: "literals_arithmetic",
-		file: "18_literals_arithmetic.gicel",
+		name:  "literals_arithmetic",
+		file:  "18_literals_arithmetic.gicel",
 		setup: func(e *gicel.Engine) {},
 		check: func(t *testing.T, v gicel.Value) {
 			// main = (42, (3, (7, (10, (True, (LT, 21))))))
@@ -385,8 +385,8 @@ libNot := \b. case b { LibTrue -> LibFalse; LibFalse -> LibTrue }
 		},
 	},
 	{
-		name: "string_operations",
-		file: "19_string_operations.gicel",
+		name:  "string_operations",
+		file:  "19_string_operations.gicel",
 		setup: func(e *gicel.Engine) {},
 		check: func(t *testing.T, v gicel.Value) {
 			// main = ("hello world", (5, (True, ...)))
@@ -571,8 +571,8 @@ libNot := \b. case b { LibTrue -> LibFalse; LibFalse -> LibTrue }
 		},
 	},
 	{
-		name: "records_tuples",
-		file: "22_records_tuples.gicel",
+		name:  "records_tuples",
+		file:  "22_records_tuples.gicel",
 		setup: func(e *gicel.Engine) {},
 		check: func(t *testing.T, v gicel.Value) {
 			p := v
@@ -806,7 +806,6 @@ func TestStressGeneratedLargeProgram(t *testing.T) {
 
 	// Eq and its instances are already provided by Prelude.
 	// No need to redeclare them.
-
 
 	// Generate 50 functions that pattern match
 	for i := 0; i < 50; i++ {

@@ -142,8 +142,8 @@ Provides get/put state capabilities via the `state` capability in CapEnv. Load w
 
 **Functions:**
 
-| Name     | Type                                                                     | Description               |
-| -------- | ------------------------------------------------------------------------ | ------------------------- |
+| Name     | Type                                                                   | Description               |
+| -------- | ---------------------------------------------------------------------- | ------------------------- |
 | `get`    | `\s r. Computation { state: s \| r } { state: s \| r } s`              | Read current state        |
 | `put`    | `\s r. s -> Computation { state: s \| r } { state: s \| r } ()`        | Replace current state     |
 | `modify` | `\s r. (s -> s) -> Computation { state: s \| r } { state: s \| r } ()` | Apply a function to state |
@@ -156,8 +156,8 @@ Provides failure/error effects via the `fail` capability. Load with `eng.Use(gic
 
 **Functions:**
 
-| Name         | Type                                                                      | Description                     |
-| ------------ | ------------------------------------------------------------------------- | ------------------------------- |
+| Name         | Type                                                                    | Description                     |
+| ------------ | ----------------------------------------------------------------------- | ------------------------------- |
 | `failWith`   | `\e r a. e -> Computation { fail: e \| r } { fail: e \| r } a`          | Fail with a typed error value   |
 | `fail`       | `\r a. Computation { fail: () \| r } { fail: () \| r } a`               | Fail with () (no error payload) |
 | `fromMaybe`  | `\a r. Maybe a -> Computation { fail: () \| r } { fail: () \| r } a`    | Extract Just or fail on Nothing |
@@ -171,8 +171,8 @@ Provides print/debug capabilities via the `io` capability. Load with `eng.Use(gi
 
 **Functions:**
 
-| Name    | Type                                                         | Description                              |
-| ------- | ------------------------------------------------------------ | ---------------------------------------- |
+| Name    | Type                                                       | Description                              |
+| ------- | ---------------------------------------------------------- | ---------------------------------------- |
 | `print` | `String -> Computation { io: () \| r } { io: () \| r } ()` | Append a string to the IO buffer         |
 | `debug` | `\a. a -> Computation { io: () \| r } { io: () \| r } ()`  | Append debug representation to IO buffer |
 

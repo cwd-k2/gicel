@@ -26,17 +26,17 @@ Typical agent workflow:
 
 ## Chapters
 
-| File             | Content                                            |
-| ---------------- | -------------------------------------------------- |
-| [syntax.md]      | Keywords, punctuation, literals, comments          |
-| [types.md]       | Type system: ADT, GADT, polymorphism, rows, kinds  |
-| [expressions.md] | Lambda, case, do, operators, special forms         |
-| [effects.md]     | Computation, pure/bind, CapEnv, thunk/force        |
-| [prelude.md]     | Prelude types, classes, instances                  |
-| [functions.md]   | Prelude functions + operator reference             |
-| [stdlib.md]      | Prelude, Effect.*, Data.* packs                    |
-| [patterns.md]    | Common patterns + pitfalls                         |
-| [go-api.md]      | Go integration: sandbox, lifecycle, errors         |
+| File             | Content                                           |
+| ---------------- | ------------------------------------------------- |
+| [syntax.md]      | Keywords, punctuation, literals, comments         |
+| [types.md]       | Type system: ADT, GADT, polymorphism, rows, kinds |
+| [expressions.md] | Lambda, case, do, operators, special forms        |
+| [effects.md]     | Computation, pure/bind, CapEnv, thunk/force       |
+| [prelude.md]     | Prelude types, classes, instances                 |
+| [functions.md]   | Prelude functions + operator reference            |
+| [stdlib.md]      | Prelude, Effect._, Data._ packs                   |
+| [patterns.md]    | Common patterns + pitfalls                        |
+| [go-api.md]      | Go integration: sandbox, lifecycle, errors        |
 
 ---
 
@@ -95,21 +95,21 @@ gicel run --explain --verbose program.gicel
 
 CLI flags:
 
-| Flag            | Default  | Description                                                           |
-| --------------- | -------- | --------------------------------------------------------------------- |
+| Flag            | Default  | Description                                                                                                |
+| --------------- | -------- | ---------------------------------------------------------------------------------------------------------- |
 | `--use`         | `all`    | Comma-separated packs: Prelude, EffectFail, EffectState, EffectIO, DataStream, DataSlice, DataMap, DataSet |
-| `--recursion`   |          | Enable recursive definitions (run, check)                             |
-| `--entry`       | `main`   | Entry point binding name                                              |
-| `--timeout`     | `5s`     | Execution timeout (run only)                                          |
-| `--max-steps`   | `100000` | Step limit (run only)                                                 |
-| `--max-depth`   | `100`    | Depth limit (run only)                                                |
-| `--max-alloc`   | `100MiB` | Allocation byte limit (run only)                                      |
-| `--json`        | `false`  | Output result as JSON (run only)                                      |
-| `--explain`     | `false`  | Show semantic evaluation trace (run only)                             |
-| `--explain-all` | `false`  | Trace stdlib internals too (with --explain)                           |
-| `--verbose`     | `false`  | Show source context in explain trace (run only)                       |
-| `--no-color`    | `false`  | Disable color output; also respects `NO_COLOR` env var                |
-| `--stdin`       | `false`  | Read source from stdin instead of file (run only)                     |
+| `--recursion`   |          | Enable recursive definitions (run, check)                                                                  |
+| `--entry`       | `main`   | Entry point binding name                                                                                   |
+| `--timeout`     | `5s`     | Execution timeout (run only)                                                                               |
+| `--max-steps`   | `100000` | Step limit (run only)                                                                                      |
+| `--max-depth`   | `100`    | Depth limit (run only)                                                                                     |
+| `--max-alloc`   | `100MiB` | Allocation byte limit (run only)                                                                           |
+| `--json`        | `false`  | Output result as JSON (run only)                                                                           |
+| `--explain`     | `false`  | Show semantic evaluation trace (run only)                                                                  |
+| `--explain-all` | `false`  | Trace stdlib internals too (with --explain)                                                                |
+| `--verbose`     | `false`  | Show source context in explain trace (run only)                                                            |
+| `--no-color`    | `false`  | Disable color output; also respects `NO_COLOR` env var                                                     |
+| `--stdin`       | `false`  | Read source from stdin instead of file (run only)                                                          |
 
 **Go API (Sandbox):**
 

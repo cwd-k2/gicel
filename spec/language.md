@@ -303,17 +303,17 @@ Op     ::= operator characters              -- +, -, *, /, ==, >>=, .
 
 The language uses 9 relational symbols, each corresponding to a distinct judgment form:
 
-| Symbol | Name           | Judgment              | Usage                                        |
-| ------ | -------------- | --------------------- | -------------------------------------------- |
-| `::`   | classification | `Γ ⊢ e : A`          | type annotation, GADT constructor types      |
-| `:=`   | definition     | `Γ ⊢ x ≡ e`          | value/type/data definitions                  |
-| `:`    | attribution    | `l : T`               | record fields, kind annotations              |
-| `=:`   | rule           | `P ⟶ T`              | TF equations, associated types, fundeps      |
-| `->`   | implication    | `A ⊃ B`              | function types, case alternatives            |
-| `=>`   | premise        | `C ⊢ T`              | constraint qualification, superclass         |
-| `.`    | body           | `λx. e` / `∀a. T`    | lambda/forall body separator, composition    |
-| `<-`   | bind           | `x ← M`              | monadic bind in do-notation                  |
-| `\|`   | alternative    | `A ∨ B`              | constructors, row tail, record update        |
+| Symbol | Name           | Judgment          | Usage                                     |
+| ------ | -------------- | ----------------- | ----------------------------------------- |
+| `::`   | classification | `Γ ⊢ e : A`       | type annotation, GADT constructor types   |
+| `:=`   | definition     | `Γ ⊢ x ≡ e`       | value/type/data definitions               |
+| `:`    | attribution    | `l : T`           | record fields, kind annotations           |
+| `=:`   | rule           | `P ⟶ T`           | TF equations, associated types, fundeps   |
+| `->`   | implication    | `A ⊃ B`           | function types, case alternatives         |
+| `=>`   | premise        | `C ⊢ T`           | constraint qualification, superclass      |
+| `.`    | body           | `λx. e` / `∀a. T` | lambda/forall body separator, composition |
+| `<-`   | bind           | `x ← M`           | monadic bind in do-notation               |
+| `\|`   | alternative    | `A ∨ B`           | constructors, row tail, record update     |
 
 `=` is intentionally absent from the language. In programming, `=` is notoriously overloaded across assignment, comparison, definition, and equation. GICEL splits its roles: `:=` for definitions, `=:` for rules.
 
@@ -838,9 +838,9 @@ Eq ──→ Num   (in Prelude)
 | `Foldable`    | `t`                              | `foldr :: (a -> b -> b) -> b -> t a -> b`                   |
 | `Applicative` | `f` (requires Functor)           | `wrap :: a -> f a`, `ap :: f (a -> b) -> f a -> f b`        |
 | `Alternative` | `f` (requires Applicative)       | `none :: f a`, `alt :: f a -> f a -> f a`                   |
-| `Monad`       | `m: Type -> Type`               | `mpure :: a -> m a`, `mbind :: m a -> (a -> m b) -> m b`    |
+| `Monad`       | `m: Type -> Type`                | `mpure :: a -> m a`, `mbind :: m a -> (a -> m b) -> m b`    |
 | `Traversable` | `t` (requires Functor, Foldable) | `traverse :: Applicative f => (a -> f b) -> t a -> f (t b)` |
-| `IxMonad`     | `m: Row -> Row -> Type -> Type` | `ixpure`, `ixbind`                                          |
+| `IxMonad`     | `m: Row -> Row -> Type -> Type`  | `ixpure`, `ixbind`                                          |
 | `Packed`      | `c`, `e`                         | `pack :: List e -> c`, `unpack :: c -> List e`              |
 | `Num`         | `a` (requires Eq, in Prelude)    | `add`, `sub`, `mul`, `negate`                               |
 
@@ -982,12 +982,12 @@ Field order is semantically irrelevant (Row property). `{ x: 1, y: 2 }` and `{ y
 
 Tuples are syntactic sugar for records with positional labels `_1`, `_2`, `_3`, ...
 
-| Surface            | Desugars to                      |
-| ------------------ | -------------------------------- |
-| `(1, True)`        | `{ _1: 1, _2: True }`            |
+| Surface            | Desugars to                    |
+| ------------------ | ------------------------------ |
+| `(1, True)`        | `{ _1: 1, _2: True }`          |
 | `(Int, Bool)`      | `Record { _1: Int, _2: Bool }` |
-| `t.#_1`            | record projection on `_1`        |
-| `(a, b)` (pattern) | `{ _1: a, _2: b }` (pattern)     |
+| `t.#_1`            | record projection on `_1`      |
+| `(a, b)` (pattern) | `{ _1: a, _2: b }` (pattern)   |
 
 `()` is the 0-tuple, equivalent to the empty record `{}`. It replaces the former `Unit` type.
 

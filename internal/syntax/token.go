@@ -51,7 +51,7 @@ const (
 	TokUpper // uppercase-start
 
 	// Operators
-	TokOp       // operator sequence
+	TokOp      // operator sequence
 	TokDotHash // .# (record projection)
 
 	// Literals

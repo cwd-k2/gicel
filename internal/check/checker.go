@@ -32,15 +32,15 @@ type CheckConfig struct {
 
 // ModuleExports carries the type-level information exported by a compiled module.
 type ModuleExports struct {
-	Types         map[string]types.Kind    // registered type constructors
-	ConTypes      map[string]types.Type    // constructor → full type
-	ConInfo       map[string]*DataTypeInfo // constructor → data type info
-	Aliases       map[string]*aliasInfo    // type aliases
-	Classes       map[string]*ClassInfo    // class declarations
-	Instances     []*InstanceInfo          // instance declarations
-	Values        map[string]types.Type    // top-level value types
-	PromotedKinds map[string]types.Kind    // DataKinds promotions
-	PromotedCons  map[string]types.Kind    // promoted constructors
+	Types         map[string]types.Kind      // registered type constructors
+	ConTypes      map[string]types.Type      // constructor → full type
+	ConInfo       map[string]*DataTypeInfo   // constructor → data type info
+	Aliases       map[string]*aliasInfo      // type aliases
+	Classes       map[string]*ClassInfo      // class declarations
+	Instances     []*InstanceInfo            // instance declarations
+	Values        map[string]types.Type      // top-level value types
+	PromotedKinds map[string]types.Kind      // DataKinds promotions
+	PromotedCons  map[string]types.Kind      // promoted constructors
 	TypeFamilies  map[string]*TypeFamilyInfo // type family declarations
 	DataDecls     []core.DataDecl            // for evaluator constructor registration
 }
@@ -83,9 +83,9 @@ type Checker struct {
 	instances         []*InstanceInfo
 	instancesByClass  map[string][]*InstanceInfo
 	importedInstances map[*InstanceInfo]bool
-	promotedKinds     map[string]types.Kind // DataKinds: data name → KData
-	promotedCons      map[string]types.Kind // DataKinds: nullary con → KData
-	kindVars          map[string]bool       // HKT: kind variables in scope (from \ (k: Kind))
+	promotedKinds     map[string]types.Kind      // DataKinds: data name → KData
+	promotedCons      map[string]types.Kind      // DataKinds: nullary con → KData
+	kindVars          map[string]bool            // HKT: kind variables in scope (from \ (k: Kind))
 	families          map[string]*TypeFamilyInfo // type family declarations
 	reductionDepth    int                        // current type family reduction depth
 	deferred          []deferredConstraint

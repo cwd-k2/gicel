@@ -37,16 +37,16 @@ result, err := rt.RunWith(ctx, &gicel.RunOptions{Caps: caps, Bindings: bindings}
 
 ### Available Packs
 
-| Pack               | Module         | Provides                                 |
-| ------------------ | -------------- | ---------------------------------------- |
-| `gicel.Prelude`    | `Prelude`      | Num, Str, List — arithmetic, strings, lists |
-| `gicel.EffectFail` | `Effect.Fail`  | Failure effect                           |
-| `gicel.EffectState`| `Effect.State` | Get/put state                            |
-| `gicel.EffectIO`   | `Effect.IO`    | Print/debug output                       |
-| `gicel.DataStream` | `Data.Stream`  | Lazy lists (requires recursion)          |
-| `gicel.DataSlice`  | `Data.Slice`   | O(1) contiguous arrays                   |
-| `gicel.DataMap`    | `Data.Map`     | Ordered immutable map (AVL)              |
-| `gicel.DataSet`    | `Data.Set`     | Ordered immutable set                    |
+| Pack                | Module         | Provides                                    |
+| ------------------- | -------------- | ------------------------------------------- |
+| `gicel.Prelude`     | `Prelude`      | Num, Str, List — arithmetic, strings, lists |
+| `gicel.EffectFail`  | `Effect.Fail`  | Failure effect                              |
+| `gicel.EffectState` | `Effect.State` | Get/put state                               |
+| `gicel.EffectIO`    | `Effect.IO`    | Print/debug output                          |
+| `gicel.DataStream`  | `Data.Stream`  | Lazy lists (requires recursion)             |
+| `gicel.DataSlice`   | `Data.Slice`   | O(1) contiguous arrays                      |
+| `gicel.DataMap`     | `Data.Map`     | Ordered immutable map (AVL)                 |
+| `gicel.DataSet`     | `Data.Set`     | Ordered immutable set                       |
 
 ### Custom Primitives (RegisterPrim)
 
@@ -92,7 +92,7 @@ eng.DeclareBinding("myInput", gicel.ConType("Int"))
 | `gicel.AppType(f, arg)`                                | Type application: `f a`       |
 | `gicel.CompType(pre, post, result)`                    | `Computation pre post result` |
 | `gicel.ForallType(var, body)`                          | `\var. body`                  |
-| `gicel.ForallRow(var, body)`                           | `\(var: Row). body`          |
+| `gicel.ForallRow(var, body)`                           | `\(var: Row). body`           |
 | `gicel.EmptyRowType()`                                 | Empty row `{}`                |
 | `gicel.RecordType(fields ...RowField)`                 | Closed record type            |
 | `gicel.TupleType(elems ...Type)`                       | Tuple record type             |

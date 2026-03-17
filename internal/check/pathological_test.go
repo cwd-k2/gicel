@@ -545,7 +545,7 @@ func TestPropertySubstManySimultaneous(t *testing.T) {
 	_ = types.SubstMany(result, subs)
 }
 
-// (e'') SubstMany identity: substituting with empty map should be identity.
+// (e”) SubstMany identity: substituting with empty map should be identity.
 func TestPropertySubstManyIdentity(t *testing.T) {
 	original := types.MkArrow(&types.TyVar{Name: "a"}, &types.TyCon{Name: "Int"})
 	result := types.SubstMany(original, map[string]types.Type{})

@@ -222,7 +222,6 @@ func (l *Lexer) scanToken() Token {
 			return Token{Kind: TokUpper, Text: text, S: span.Span{Start: span.Pos(start), End: span.Pos(l.pos)}}
 		}
 
-
 		// Operator
 		if isOperatorChar(ch) {
 			for l.pos < len(l.source.Text) {
