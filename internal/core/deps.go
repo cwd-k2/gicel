@@ -18,11 +18,9 @@ func SortBindings(bs []Binding) []Binding {
 		return bs
 	}
 
-	// Build the set of names in this binding group.
-	nameSet := make(map[string]bool, len(bs))
+	// Build index of names in this binding group.
 	nameIdx := make(map[string]int, len(bs))
 	for i, b := range bs {
-		nameSet[b.Name] = true
 		nameIdx[b.Name] = i
 	}
 

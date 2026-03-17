@@ -166,8 +166,8 @@ func (r *Runtime) execute(ctx context.Context, req *runRequest) (eval.EvalResult
 
 // evalBindingsCore evaluates a slice of bindings using forward-reference cells.
 // modulePrefix is "" for user bindings or "ModuleName" for module bindings.
-// When modulePrefix is non-empty, each binding is also registered under a
-// qualified key (module\x00name) for qualified import resolution.
+// Module bindings are registered under a qualified key only (module\x00name).
+// User bindings (modulePrefix="") are registered under plain name.
 // When userVisible is true, explain events mark each binding's evaluation
 // boundary; otherwise closures are marked as internal.
 func (r *Runtime) evalBindingsCore(ev *eval.Evaluator, env *eval.Env, bindings []core.Binding, modulePrefix string, userVisible bool, obs *eval.ExplainObserver) (*eval.Env, error) {
