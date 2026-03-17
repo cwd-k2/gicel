@@ -11,7 +11,7 @@ import (
 // ==========================================
 //
 // These tests validate the core logic of the GICEL examples
-// without requiring the full runtime (import Std.Num etc).
+// without requiring the full runtime (import Prelude etc).
 // Each test is a self-contained GICEL program checked through
 // the type checker.
 

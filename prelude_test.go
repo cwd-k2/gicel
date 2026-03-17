@@ -312,7 +312,7 @@ func TestPreludeMax(t *testing.T) {
 	assertHostInt(t, v, 7)
 }
 
-// --- abs / sign in Std.Num ---
+// --- abs / sign in Prelude (Num) ---
 
 func TestNumAbs(t *testing.T) {
 	v := runPure(t, "import Prelude\nmain := abs (negate 5)")

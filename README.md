@@ -222,7 +222,7 @@ eng.RegisterPrim("fetchPrice",
         itemID := gicel.MustHost[string](args[0])
         price, err := db.GetPrice(ctx, itemID) // your Go code
         if err != nil {
-            return gicel.Nil, capEnv, err
+            return nil, capEnv, err
         }
         return gicel.ToValue(price), capEnv, nil
     })

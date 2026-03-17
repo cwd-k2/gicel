@@ -1,9 +1,9 @@
 // Example: hostbinding — injecting Go values into GICEL.
 //
-// GICEL has no literals. All data enters from the Go host via
-// DeclareBinding (compile-time type declaration) and RunWith (run-time
-// value provision). This example registers an opaque "Int" type, declares
-// a binding of that type, and wraps it in a Maybe from GICEL source.
+// This example registers an opaque host type and injects a Go value
+// via DeclareBinding (compile-time type) and RunWith (run-time value).
+// It uses a host-registered "Int" rather than the Prelude's integer type
+// to demonstrate the host binding mechanism.
 package main
 
 import (

@@ -44,8 +44,8 @@ main := swap Red
 	// Output: no-prelude: Blue
 
 	// --- Part 2: Custom Prelude — register a custom "Prelude" module ---
-	// You can register any source as the "Prelude" module; subsequent
-	// modules and user code will auto-import it.
+	// You can register any source as the "Prelude" module; user code
+	// must explicitly write `import Prelude` to access it.
 	eng2 := gicel.NewEngine()
 	err = eng2.RegisterModule("Prelude", `
 data Bit := On | Off
@@ -58,6 +58,7 @@ flip := \b. case b { On -> Off; Off -> On }
 	}
 
 	rt2, err := eng2.NewRuntime(`
+import Prelude
 main := flip (flip Off)
 `)
 	if err != nil {

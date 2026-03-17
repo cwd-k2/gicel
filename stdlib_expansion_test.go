@@ -8,7 +8,7 @@ import (
 )
 
 // ---------------------------------------------------------------------------
-// Stdlib expansion tests — TDD for Std.Str, Std.List, and Std.IO additions.
+// Stdlib expansion tests — TDD for Prelude (Str, List) and Effect.IO additions.
 // ---------------------------------------------------------------------------
 
 // runWithPacks compiles source with given packs and evaluates "main".
@@ -61,7 +61,7 @@ func assertHostBool(t *testing.T, v gicel.Value, expected bool) {
 }
 
 // ===========================================================================
-// Std.Str expansion
+// Prelude — Str expansion
 // ===========================================================================
 
 func TestStrCharAt(t *testing.T) {
@@ -186,7 +186,7 @@ main := pack (Cons True Nil)
 }
 
 // ===========================================================================
-// Std.List expansion
+// Prelude — List expansion
 // ===========================================================================
 
 func TestListZip(t *testing.T) {
@@ -295,7 +295,7 @@ main := foldl (\acc x. case x { True -> acc + 1; False -> acc }) 0 (Cons True (C
 }
 
 // ===========================================================================
-// Std.Slice
+// Data.Slice
 // ===========================================================================
 
 func TestSliceSingletonLength(t *testing.T) {
@@ -356,7 +356,7 @@ main := sliceLength (append (sliceSingleton True) (sliceSingleton False))
 }
 
 // ===========================================================================
-// Std.Stream
+// Data.Stream
 // ===========================================================================
 
 func TestStreamHeadS(t *testing.T) {
@@ -465,7 +465,7 @@ main := fromRunes (toRunes "abc")
 }
 
 // ===========================================================================
-// Std.IO
+// Effect.IO
 // ===========================================================================
 
 func TestIOPrint(t *testing.T) {
@@ -507,7 +507,7 @@ main := do { print "hello" }
 }
 
 // ===========================================================================
-// Std.List expansion — new primitives and GICEL functions
+// Prelude — List expansion — new primitives and GICEL functions
 // ===========================================================================
 
 func TestListDropWhile(t *testing.T) {
@@ -703,7 +703,7 @@ main := do { debug 42 }
 }
 
 // ===========================================================================
-// Std.Map integration
+// Data.Map integration
 // ===========================================================================
 
 func TestMapInsertLookupIntegration(t *testing.T) {
@@ -765,7 +765,7 @@ main := mapSize (fromList (Cons (1, True) (Cons (2, False) Nil)) :: Map Int Bool
 }
 
 // ===========================================================================
-// Std.Set integration
+// Data.Set integration
 // ===========================================================================
 
 func TestSetInsertMemberIntegration(t *testing.T) {

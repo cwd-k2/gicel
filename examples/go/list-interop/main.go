@@ -2,7 +2,7 @@
 //
 // Demonstrates ToList and FromList for converting between Go slices
 // and GICEL's Cons/Nil list representation, plus manual construction
-// and destructuring via FromCon. The Std.List pack provides operations
+// and destructuring via FromCon. The Prelude provides list operations
 // like foldl, reverse, and length that work on these lists.
 package main
 

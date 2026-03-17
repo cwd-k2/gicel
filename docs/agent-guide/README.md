@@ -109,7 +109,7 @@ CLI flags:
 | `--explain-all` | `false`  | Trace stdlib internals too (with --explain)                              |
 | `--verbose`     | `false`  | Show source context in explain trace (run only)                          |
 | `--no-color`    | `false`  | Disable color output; also respects `NO_COLOR` env var                   |
-| `--stdin`       | `false`  | Read source from stdin instead of file (run only)                        |
+| `--stdin`       | `false`  | Read source from stdin instead of file (run, check)                      |
 
 **Go API (Sandbox):**
 
