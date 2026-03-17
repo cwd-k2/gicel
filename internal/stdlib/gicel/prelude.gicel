@@ -229,7 +229,11 @@ infixl 3 <|>
 (<|>) :: \(f: Type -> Type) a. Alternative f => f a -> f a -> f a
 (<|>) := alt
 
-instance Alternative Maybe { none := Nothing; alt := \x y. case x { Just _ -> x; Nothing -> y } }
+instance Alternative Maybe {
+  none := Nothing;
+  alt  := \x y. case x { Just _ -> x; Nothing -> y }
+}
+
 instance Alternative List { none := Nil; alt := append }
 
 guard :: \(f: Type -> Type). Alternative f => Bool -> f ()

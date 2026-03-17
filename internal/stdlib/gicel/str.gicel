@@ -106,6 +106,13 @@ _fromRunes := assumption
 fromRunes :: List Rune -> String
 fromRunes := _fromRunes
 
+instance FromList String {
+  type Elem String =: Rune;
+  fromList := fromRunes
+}
+
+instance ToList String { toList := toRunes }
+
 instance Packed String Rune {
   pack   := fromRunes;
   unpack := toRunes
