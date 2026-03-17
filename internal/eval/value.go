@@ -2,6 +2,7 @@ package eval
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/cwd-k2/gicel/internal/core"
@@ -127,9 +128,14 @@ func (v *RecordVal) String() string {
 	if len(v.Fields) == 0 {
 		return "()"
 	}
-	parts := make([]string, 0, len(v.Fields))
-	for k, val := range v.Fields {
-		parts = append(parts, fmt.Sprintf("%s = %s", k, val))
+	keys := make([]string, 0, len(v.Fields))
+	for k := range v.Fields {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	parts := make([]string, len(keys))
+	for i, k := range keys {
+		parts[i] = fmt.Sprintf("%s = %s", k, v.Fields[k])
 	}
 	return fmt.Sprintf("{ %s }", strings.Join(parts, ", "))
 }

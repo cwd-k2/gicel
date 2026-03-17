@@ -59,7 +59,9 @@ func FromCon(v Value) (name string, args []Value, ok bool) {
 	if !ok {
 		return "", nil, false
 	}
-	return con.Con, con.Args, true
+	args = make([]Value, len(con.Args))
+	copy(args, con.Args)
+	return con.Con, args, true
 }
 
 // ToList converts a Go slice to a GICEL List (ConVal chain).
@@ -106,7 +108,11 @@ func FromRecord(v Value) (map[string]Value, bool) {
 	if !ok {
 		return nil, false
 	}
-	return rv.Fields, true
+	fields := make(map[string]Value, len(rv.Fields))
+	for k, v := range rv.Fields {
+		fields[k] = v
+	}
+	return fields, true
 }
 
 // MustHost extracts the inner Go value from a HostVal, panicking if it is not one.

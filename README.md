@@ -133,7 +133,7 @@ func main() {
         log.Fatal(err)
     }
 
-    fmt.Println(gicel.MustHost[int](result.Value)) // 20
+    fmt.Println(gicel.MustHost[int64](result.Value)) // 20
 }
 ```
 

@@ -57,7 +57,7 @@ Commands:
   example  Show example programs (example <name> for source)
 
 Flags (run, check):
-  --use <packs>    Stdlib packs: Num,Str,List,Fail,State,IO,Stream,Slice (default: all)
+  --use <packs>    Stdlib packs: Num,Str,List,Fail,State,IO,Stream,Slice,Map,Set (default: all)
   --recursion      Enable recursive definitions (fix/rec)
 
 Flags (run only):
@@ -204,10 +204,12 @@ var packMap = map[string]gicel.Pack{
 	"io":     gicel.IO,
 	"stream": gicel.Stream,
 	"slice":  gicel.Slice,
+	"map":    gicel.Map,
+	"set":    gicel.Set,
 }
 
 // allPackOrder ensures deterministic pack loading.
-var allPackOrder = []string{"num", "str", "list", "fail", "state", "io", "stream", "slice"}
+var allPackOrder = []string{"num", "str", "list", "fail", "state", "io", "stream", "slice", "map", "set"}
 
 func setupEngine(use string) (*gicel.Engine, error) {
 	eng := gicel.NewEngine()

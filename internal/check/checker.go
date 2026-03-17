@@ -208,7 +208,7 @@ func (ch *Checker) importModules(imports []syntax.DeclImport) {
 			ch.promotedCons[name] = kind
 		}
 		for name, fam := range mod.TypeFamilies {
-			ch.families[name] = fam
+			ch.families[name] = fam.Clone()
 		}
 	}
 }
@@ -229,7 +229,7 @@ func (ch *Checker) ExportModule(prog *core.Program) *ModuleExports {
 		Values:        values,
 		PromotedKinds: copyMap(ch.promotedKinds),
 		PromotedCons:  copyMap(ch.promotedCons),
-		TypeFamilies:  ch.families,
+		TypeFamilies:  cloneFamilies(ch.families),
 		DataDecls:     prog.DataDecls,
 	}
 }

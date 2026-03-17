@@ -40,6 +40,25 @@ type tfEquation struct {
 	S        span.Span
 }
 
+// Clone returns a deep copy of the TypeFamilyInfo, isolating the Equations
+// slice so that subsequent compilations cannot mutate shared module metadata.
+func (f *TypeFamilyInfo) Clone() *TypeFamilyInfo {
+	cp := *f
+	cp.Params = append([]TFParam(nil), f.Params...)
+	cp.Deps = append([]tfDep(nil), f.Deps...)
+	cp.Equations = append([]tfEquation(nil), f.Equations...)
+	return &cp
+}
+
+// cloneFamilies returns a new map with cloned TypeFamilyInfo values.
+func cloneFamilies(m map[string]*TypeFamilyInfo) map[string]*TypeFamilyInfo {
+	out := make(map[string]*TypeFamilyInfo, len(m))
+	for k, v := range m {
+		out[k] = v.Clone()
+	}
+	return out
+}
+
 // matchResult classifies the outcome of type-level pattern matching.
 type matchResult int
 
