@@ -11,13 +11,13 @@ import Prelude
 class Collection c {
   data Key c :: Type;
   insert :: Key c -> c -> c;
-  lookup :: Key c -> c -> Maybe (Elem c)
+  lookup :: Key c -> c -> Maybe (ElemOf c)
 }
 
--- Elem is a closed type family that extracts the element type.
-type Elem (c: Type) :: Type := {
-  Elem (List a) =: a;
-  Elem (Maybe a) =: a
+-- ElemOf is a closed type family that extracts the element type.
+type ElemOf (c: Type) :: Type := {
+  ElemOf (List a) =: a;
+  ElemOf (Maybe a) =: a
 }
 
 -- Instance for List: keys are Int (positional index).

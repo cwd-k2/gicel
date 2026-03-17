@@ -7,14 +7,14 @@
 import Prelude
 
 -- A closed type family: equations tried top-to-bottom, first match wins.
--- Elem maps a container type to its element type.
-type Elem (c: Type) :: Type := {
-  Elem (List a) =: a
+-- ElemOf maps a container type to its element type.
+type ElemOf (c: Type) :: Type := {
+  ElemOf (List a) =: a
 }
 
--- The type checker reduces Elem (List Int) → Int at compile time.
+-- The type checker reduces ElemOf (List Int) → Int at compile time.
 -- This function's return type is computed by the type family.
-listHead :: List Int -> Maybe (Elem (List Int))
+listHead :: List Int -> Maybe (ElemOf (List Int))
 listHead := \xs. case xs {
   Cons x _ -> Just x;
   Nil -> Nothing
@@ -60,8 +60,8 @@ type IsWeekend (d: Season) :: Bool := {
   IsWeekend _ =: False
 }
 
--- Elem reduces: Elem (List Int) = Int, so answer has type Int.
-answer :: Elem (List Int)
+-- ElemOf reduces: ElemOf (List Int) = Int, so answer has type Int.
+answer :: ElemOf (List Int)
 answer := 42
 
 -- Output: (42, Just 10)
