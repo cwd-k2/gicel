@@ -930,7 +930,7 @@ func TestScanlImplEmpty(t *testing.T) {
 }
 
 func TestUnfoldrImpl(t *testing.T) {
-	// unfoldr (\n -> if n==0 then Nothing else Just (n, n-1)) 3 = [3,2,1]
+	// unfoldr (\n. if n==0 then Nothing else Just (n, n-1)) 3 = [3,2,1]
 	f := &eval.Closure{Param: "n", Body: nil}
 	applier := func(fn, arg eval.Value, capEnv eval.CapEnv) (eval.Value, eval.CapEnv, error) {
 		n := arg.(*eval.HostVal).Inner.(int64)
@@ -1707,7 +1707,7 @@ func TestSpanImplEmpty(t *testing.T) {
 }
 
 func TestSpanImplNoneDrop(t *testing.T) {
-	// span (\_ -> False) [1,2] = ([], [1,2])
+	// span (\_. False) [1,2] = ([], [1,2])
 	pred := &eval.Closure{Param: "x", Body: nil}
 	list := conList(intVal(1), intVal(2))
 	applier := boolApplier(func(eval.Value) bool { return false })

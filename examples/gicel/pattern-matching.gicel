@@ -8,7 +8,7 @@ import Std.Str
 
 -- Nested constructor patterns: match inside Maybe without nesting case
 describe :: Maybe Bool -> String
-describe := \m -> case m {
+describe := \m. case m {
   Just True  -> "yes";
   Just False -> "no";
   Nothing    -> "empty"
@@ -16,7 +16,7 @@ describe := \m -> case m {
 
 -- Deep nesting: three levels of Maybe
 deepUnwrap :: Maybe (Maybe (Maybe Bool)) -> String
-deepUnwrap := \m -> case m {
+deepUnwrap := \m. case m {
   Just (Just (Just True))  -> "deeply true";
   Just (Just (Just False)) -> "deeply false";
   Just (Just Nothing)      -> "two levels";
@@ -28,14 +28,14 @@ deepUnwrap := \m -> case m {
 data Wrapped a = Wrap a
 
 isWrappedNothing :: Wrapped (Maybe Int) -> Bool
-isWrappedNothing := \w -> case w {
+isWrappedNothing := \w. case w {
   Wrap Nothing  -> True;
   Wrap (Just _) -> False
 }
 
 -- List patterns with nested constructors
 firstJust :: List (Maybe Int) -> Maybe Int
-firstJust := \xs -> case xs {
+firstJust := \xs. case xs {
   Cons (Just n) _ -> Just n;
   Cons Nothing rest -> firstJust rest;
   Nil -> Nothing
@@ -43,7 +43,7 @@ firstJust := \xs -> case xs {
 
 -- Integer literal patterns
 classify :: Int -> String
-classify := \n -> case n {
+classify := \n. case n {
   0 -> "zero";
   1 -> "one";
   2 -> "two";
@@ -52,7 +52,7 @@ classify := \n -> case n {
 
 -- String literal patterns
 greet :: String -> String
-greet := \name -> case name {
+greet := \name. case name {
   "Alice" -> "Hello, Alice!";
   "Bob"   -> "Hey, Bob!";
   _       -> "Hi, " <> name <> "!"

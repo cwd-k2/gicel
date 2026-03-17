@@ -16,14 +16,14 @@ data Testable = {
 
 -- Construct existential values: the concrete type is hidden after wrapping
 boolTest := MkTestable not True
-maybeTest := MkTestable (\m -> case m { Just _ -> True; Nothing -> False }) (Just False)
+maybeTest := MkTestable (\m. case m { Just _ -> True; Nothing -> False }) (Just False)
 unitTest := MkTestable (const False) ()
 
 -- Run the predicate on the hidden value.
 -- Pattern matching on MkTestable brings the existential `a` into scope,
 -- along with `f :: a -> Bool` and `x :: a`.
 runTest :: Testable -> Bool
-runTest := \t -> case t { MkTestable f x -> f x }
+runTest := \t. case t { MkTestable f x -> f x }
 
 test1 := runTest boolTest     -- not True = False
 test2 := runTest maybeTest    -- Just _ -> True
@@ -42,7 +42,7 @@ eqMaybes := MkSomeEq (Just False) Nothing
 
 -- Compare the hidden pair using the existential Eq evidence
 checkEq :: SomeEq -> Bool
-checkEq := \s -> case s { MkSomeEq x y -> eq x y }
+checkEq := \s. case s { MkSomeEq x y -> eq x y }
 
 test4 := checkEq eqBools     -- eq True True = True
 test5 := checkEq eqMaybes    -- eq (Just False) Nothing = False
@@ -55,11 +55,11 @@ data Transform b = {
 
 -- Run the hidden transformation
 runTransform :: \b. Transform b -> b
-runTransform := \t -> case t { MkTransform f x -> f x }
+runTransform := \t. case t { MkTransform f x -> f x }
 
 -- Different transformations that all produce Bool
 t1 := MkTransform not False
-t2 := MkTransform (\m -> case m { Just _ -> True; Nothing -> False }) Nothing
+t2 := MkTransform (\m. case m { Just _ -> True; Nothing -> False }) Nothing
 
 test6 := runTransform t1      -- not False = True
 test7 := runTransform t2      -- Nothing -> False

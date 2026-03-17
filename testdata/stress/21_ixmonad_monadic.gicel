@@ -118,11 +118,11 @@ listMonoidTest := append (empty :: List Bool) (Cons True Nil)
 
 -- 15. List Functor
 listFmapTest :: List Bool
-listFmapTest := fmap (\x -> case x { True -> False; False -> True }) (Cons True (Cons False Nil))
+listFmapTest := fmap (\x. case x { True -> False; False -> True }) (Cons True (Cons False Nil))
 
 -- 16. List Foldable
 listFoldrTest :: Bool
-listFoldrTest := foldr (\x -> \_ -> x) False (Cons True (Cons False Nil))
+listFoldrTest := foldr (\x _. x) False (Cons True (Cons False Nil))
 
 -- ======================================================================
 -- Cross-monad patterns
@@ -139,7 +139,7 @@ maybeInComp := do {
 listInComp :: Computation {} {} Bool
 listInComp := do {
   v <- pure (Cons True (Cons False Nil));
-  pure (foldr (\x -> \_ -> x) False v)
+  pure (foldr (\x _. x) False v)
 }
 
 -- ======================================================================
@@ -164,15 +164,15 @@ eqPairMaybe := eq (Just True, Just False) (Just True, Just False)
 
 -- 23. foldr on List of Bools (count True)
 foldListBool :: Bool
-foldListBool := foldr (\x -> \acc -> case x { True -> acc; False -> acc }) True (Cons True (Cons False Nil))
+foldListBool := foldr (\x acc. case x { True -> acc; False -> acc }) True (Cons True (Cons False Nil))
 
 -- 24. foldr with tuple accumulator
 foldPairAcc :: (Bool, Bool)
-foldPairAcc := foldr (\x -> \acc -> case acc { (a, b) -> case x { True -> (True, b); False -> (a, True) } }) (False, False) (Cons True (Cons False Nil))
+foldPairAcc := foldr (\x acc. case acc { (a, b) -> case x { True -> (True, b); False -> (a, True) } }) (False, False) (Cons True (Cons False Nil))
 
 -- 25. Traverse Maybe over Maybe
 traverseMaybeTest :: Maybe (Maybe Bool)
-traverseMaybeTest := traverse (\x -> Just (case x { True -> False; False -> True })) (Just True)
+traverseMaybeTest := traverse (\x. Just (case x { True -> False; False -> True })) (Just True)
 
 -- ======================================================================
 -- Applicative patterns
@@ -180,7 +180,7 @@ traverseMaybeTest := traverse (\x -> Just (case x { True -> False; False -> True
 
 -- 26. wrap + ap
 apTest :: Maybe Bool
-apTest := ap (Just (\x -> case x { True -> False; False -> True })) (Just True)
+apTest := ap (Just (\x. case x { True -> False; False -> True })) (Just True)
 
 -- 27. ap with Nothing function
 apNothingFn :: Maybe Bool
@@ -188,7 +188,7 @@ apNothingFn := ap (Nothing :: Maybe (Bool -> Bool)) (Just True)
 
 -- 28. ap with Nothing value
 apNothingVal :: Maybe Bool
-apNothingVal := ap (Just (\x -> x)) (Nothing :: Maybe Bool)
+apNothingVal := ap (Just (\x. x)) (Nothing :: Maybe Bool)
 
 -- ======================================================================
 -- Deep nesting and complex composition
@@ -217,7 +217,7 @@ resultErrTest := Err ()
 
 -- 32. Combine Semigroup with Maybe functor
 semigroupInFmap :: Maybe Ordering
-semigroupInFmap := fmap (\x -> append x EQ) (Just LT)
+semigroupInFmap := fmap (\x. append x EQ) (Just LT)
 
 -- ======================================================================
 -- IxMonad class method direct use
@@ -229,7 +229,7 @@ ixpureComp := ixpure True
 
 -- 34. ixbind via Computation annotation
 ixbindComp :: Computation {} {} Bool
-ixbindComp := ixbind (ixpure True) (\x -> ixpure x)
+ixbindComp := ixbind (ixpure True) (\x. ixpure x)
 
 -- ======================================================================
 -- Combine everything in main

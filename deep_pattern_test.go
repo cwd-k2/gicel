@@ -28,13 +28,13 @@ func TestDotAsCompositionOperator(t *testing.T) {
 	rt, err := eng.NewRuntime(`
 infixr 9 .
 (.) :: \ a b c. (b -> c) -> (a -> b) -> a -> c
-(.) := \f -> \g -> \x -> f (g x)
+(.) := \f g x. f (g x)
 
 not :: Bool -> Bool
-not := \b -> case b { True -> False; False -> True }
+not := \b. case b { True -> False; False -> True }
 
 id :: \ a. a -> a
-id := \x -> x
+id := \x. x
 
 main := (not . id) True
 `)
@@ -55,10 +55,10 @@ func TestDotInForallDoesNotConflictWithComposition(t *testing.T) {
 	rt, err := eng.NewRuntime(`
 infixr 9 .
 (.) :: \ a b c. (b -> c) -> (a -> b) -> a -> c
-(.) := \f -> \g -> \x -> f (g x)
+(.) := \f g x. f (g x)
 
 id :: \ a. a -> a
-id := \x -> x
+id := \x. x
 
 main := (id . id) True
 `)
@@ -105,7 +105,7 @@ func TestOperatorRightAssociativity(t *testing.T) {
 import Std.Num
 infixr 5 ++
 (++) :: Int -> Int -> Int
-(++) := \x -> \y -> x + y
+(++) := \x y. x + y
 -- a ++ b ++ c should be a ++ (b ++ c)
 -- 1 ++ (2 ++ 3) = 1 + (2 + 3) = 1 + 5 = 6
 main := 1 ++ 2 ++ 3
@@ -188,7 +188,7 @@ func TestSemicolonInCaseAlts(t *testing.T) {
 	// Semicolons between case alternatives.
 	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`
-f := \x -> case x { True -> False; False -> True }
+f := \x. case x { True -> False; False -> True }
 main := f True
 `)
 	if err != nil {
@@ -206,7 +206,7 @@ func TestNewlineInCaseAlts(t *testing.T) {
 	// inside braces. Same rule as do blocks — braces use explicit separators.
 	eng := gicel.NewEngine()
 	_, err := eng.NewRuntime(`
-f := \x -> case x {
+f := \x. case x {
   True -> False
   False -> True
 }
@@ -225,10 +225,10 @@ main := f False
 // ---------------------------------------------------------------------------
 
 func TestMultiParamLambdaDeep(t *testing.T) {
-	// Nested lambdas: \x -> \y -> \z -> x
+	// Nested lambdas: \x y z. x
 	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`
-konst3 := \x -> \y -> \z -> x
+konst3 := \x y z. x
 main := konst3 True False True
 `)
 	if err != nil {
@@ -292,9 +292,9 @@ func TestHigherRankPolyIdFunction(t *testing.T) {
 	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`
 applyBoth :: (\ a. a -> a) -> Bool
-applyBoth := \f -> f True
+applyBoth := \f. f True
 
-main := applyBoth (\x -> x)
+main := applyBoth (\x. x)
 `)
 	if err != nil {
 		t.Fatal(err)
@@ -311,10 +311,10 @@ func TestHigherRankRejection(t *testing.T) {
 	eng := gicel.NewEngine()
 	_, err := eng.NewRuntime(`
 applyBoth :: (\a. a -> a) -> Bool
-applyBoth := \f -> f True
+applyBoth := \f. f True
 
 not :: Bool -> Bool
-not := \b -> case b { True -> False; False -> True }
+not := \b. case b { True -> False; False -> True }
 
 main := applyBoth not
 `)
@@ -333,7 +333,7 @@ func TestRowUnifyEmptyOpenClosed(t *testing.T) {
 	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`
 f :: \(r : Row). Record { | r } -> Bool
-f := \_ -> True
+f := \_. True
 main := f {}
 `)
 	if err != nil {
@@ -353,7 +353,7 @@ func TestRowUnifyFieldSubset(t *testing.T) {
 	rt, err := eng.NewRuntime(`
 import Std.Num
 getX :: \r. Record { x : Int | r } -> Int
-getX := \rec -> rec.#x
+getX := \rec. rec.#x
 main := getX { x = 42, y = 0 }
 `)
 	if err != nil {
@@ -376,7 +376,7 @@ func TestRowUnifyMissingField(t *testing.T) {
 	_, err := eng.NewRuntime(`
 import Std.Num
 getX :: Record { x : Int } -> Int
-getX := \rec -> rec.#x
+getX := \rec. rec.#x
 main := getX { y = 0 }
 `)
 	if err == nil {
@@ -393,7 +393,7 @@ func TestConstraintResolutionChain(t *testing.T) {
 	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`
 useSuperFromSub :: \a. Ord a => a -> a -> Bool
-useSuperFromSub := \x -> \y -> eq x y
+useSuperFromSub := \x y. eq x y
 
 main := useSuperFromSub True True
 `)
@@ -474,9 +474,9 @@ main := (MkF :: F Bool)
 // ---------------------------------------------------------------------------
 
 func TestOccursCheckInApplication(t *testing.T) {
-	// Self-application: \x -> x x should trigger occurs check.
+	// Self-application: \x. x x should trigger occurs check.
 	eng := gicel.NewEngine()
-	_, err := eng.NewRuntime(`main := \x -> x x`)
+	_, err := eng.NewRuntime(`main := \x. x x`)
 	if err == nil {
 		t.Fatal("expected occurs check error for self-application")
 	}
@@ -497,7 +497,7 @@ func TestGADTRefinementDisjointBranches(t *testing.T) {
 data Token a = { BoolTok :: Bool -> Token Bool; UnitTok :: Token () }
 
 toBool :: Token Bool -> Bool
-toBool := \t -> case t { BoolTok b -> b }
+toBool := \t. case t { BoolTok b -> b }
 
 main := toBool (BoolTok True)
 `)
@@ -529,7 +529,7 @@ func TestLetRecFix(t *testing.T) {
 	rt, err := eng.NewRuntime(`
 import Std.Num
 
-myLength := fix (\self -> \xs -> case xs { Nil -> 0; Cons _ rest -> 1 + self rest })
+myLength := fix (\self xs. case xs { Nil -> 0; Cons _ rest -> 1 + self rest })
 
 main := myLength (Cons True (Cons False (Cons True Nil)))
 `)
@@ -553,7 +553,7 @@ main := myLength (Cons True (Cons False (Cons True Nil)))
 import Std.Num
 
 myLength :: List a -> Int
-myLength := fix (\self -> \xs -> case xs { Nil -> 0; Cons _ rest -> 1 + self rest })
+myLength := fix (\self xs. case xs { Nil -> 0; Cons _ rest -> 1 + self rest })
 
 main := myLength (Cons True (Cons False (Cons True Nil)))
 `)
@@ -580,10 +580,10 @@ func TestNestedConstructorPatternMatch(t *testing.T) {
 data Pair a b = MkPair a b
 
 fst :: \a b. Pair a b -> a
-fst := \p -> case p { MkPair x _ -> x }
+fst := \p. case p { MkPair x _ -> x }
 
 snd :: \a b. Pair a b -> b
-snd := \p -> case p { MkPair _ y -> y }
+snd := \p. case p { MkPair _ y -> y }
 
 main := fst (MkPair True False)
 `)
@@ -601,7 +601,7 @@ func TestDoubleNestedPatternMatch(t *testing.T) {
 	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`
 isJustTrue :: Maybe Bool -> Bool
-isJustTrue := \m -> case m {
+isJustTrue := \m. case m {
   Just b -> case b { True -> True; False -> False };
   Nothing -> False
 }
@@ -669,7 +669,7 @@ func TestRecordPatternMatchEndToEnd(t *testing.T) {
 	eng.Use(gicel.Num)
 	rt, err := eng.NewRuntime(`
 import Std.Num
-swap := \r -> case r { { x = a, y = b } -> { x = b, y = a } }
+swap := \r. case r { { x = a, y = b } -> { x = b, y = a } }
 r := swap { x = 1, y = 2 }
 main := r.#x
 `)
@@ -718,7 +718,7 @@ func TestTuplePatternMatch(t *testing.T) {
 
 	// Demonstrate the workaround using case:
 	rt, err := eng.NewRuntime(`
-myFst := \p -> case p { (a, b) -> a }
+myFst := \p. case p { (a, b) -> a }
 main := myFst (True, False)
 `)
 	if err != nil {
@@ -733,7 +733,7 @@ main := myFst (True, False)
 	// Direct lambda pattern version:
 	eng2 := gicel.NewEngine()
 	rt2, err := eng2.NewRuntime(`
-myFst := \(a, b) -> a
+myFst := \(a, b). a
 main := myFst (True, False)
 `)
 	if err != nil {
@@ -813,7 +813,7 @@ func TestFN_RecordFieldTypeMismatch(t *testing.T) {
 	_, err := eng.NewRuntime(`
 import Std.Num
 f :: Record { x : Int } -> Int
-f := \r -> r.#x
+f := \r. r.#x
 main := f { x = True }
 `)
 	if err == nil {
@@ -848,7 +848,7 @@ func TestFP_PolymorphicFunctionApplication(t *testing.T) {
 	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`
 id :: \a. a -> a
-id := \x -> x
+id := \x. x
 
 main := case id True { True -> id (); False -> id () }
 `)
@@ -872,7 +872,7 @@ func TestFP_LambdaWithRecordPattern(t *testing.T) {
 
 	// Workaround using case:
 	rt, err := eng.NewRuntime(`
-getX := \r -> case r { { x = v } -> v }
+getX := \r. case r { { x = v } -> v }
 main := getX { x = True }
 `)
 	if err != nil {
@@ -887,7 +887,7 @@ main := getX { x = True }
 	// Direct lambda pattern version:
 	eng2 := gicel.NewEngine()
 	rt2, err := eng2.NewRuntime(`
-getX := \{ x = v } -> v
+getX := \{ x = v }. v
 main := getX { x = True }
 `)
 	if err != nil {
@@ -905,7 +905,7 @@ func TestFP_WildcardInCasePattern(t *testing.T) {
 	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`
 data Color = Red | Green | Blue
-isRed := \c -> case c { Red -> True; _ -> False }
+isRed := \c. case c { Red -> True; _ -> False }
 main := isRed Blue
 `)
 	if err != nil {
@@ -925,7 +925,7 @@ func TestFP_NestedTuplePattern(t *testing.T) {
 
 	// Workaround using case:
 	rt, err := eng.NewRuntime(`
-f := \p -> case p { (a, inner) -> case inner { (b, c) -> b } }
+f := \p. case p { (a, inner) -> case inner { (b, c) -> b } }
 main := f (True, (False, True))
 `)
 	if err != nil {
@@ -940,7 +940,7 @@ main := f (True, (False, True))
 	// Direct nested tuple pattern version:
 	eng2 := gicel.NewEngine()
 	rt2, err := eng2.NewRuntime(`
-f := \(a, (b, c)) -> b
+f := \(a, (b, c)). b
 main := f (True, (False, True))
 `)
 	if err != nil {
@@ -972,7 +972,7 @@ func TestErrorReportsNonExhaustiveConstructor(t *testing.T) {
 	eng := gicel.NewEngine()
 	_, err := eng.NewRuntime(`
 data Color = Red | Green | Blue
-f := \c -> case c { Red -> True }
+f := \c. case c { Red -> True }
 main := f Red
 `)
 	if err == nil {
@@ -991,7 +991,7 @@ func TestErrorReportsTypeMismatchTypes(t *testing.T) {
 	_, err := eng.NewRuntime(`
 import Std.Num
 f :: Int -> Int
-f := \x -> x
+f := \x. x
 main := f True
 `)
 	if err == nil {
@@ -1122,7 +1122,7 @@ func TestTypeAliasInFunctionSig(t *testing.T) {
 	rt, err := eng.NewRuntime(`
 type Predicate a = a -> Bool
 isTrue :: Predicate Bool
-isTrue := \b -> b
+isTrue := \b. b
 main := isTrue True
 `)
 	if err != nil {
@@ -1140,7 +1140,7 @@ func TestTypeAliasWithParams(t *testing.T) {
 	rt, err := eng.NewRuntime(`
 type Pair a b = (a, b)
 mkPair :: \a b. a -> b -> Pair a b
-mkPair := \x -> \y -> (x, y)
+mkPair := \x y. (x, y)
 main := (mkPair True False).#_1
 `)
 	if err != nil {
@@ -1254,8 +1254,8 @@ func TestInstanceResolutionDepthLimit(t *testing.T) {
 	_, err := eng.NewRuntime(`
 class Foo a { foo :: a -> Int }
 class Bar a { bar :: a -> Int }
-instance Bar a => Foo a { foo := \x -> bar x }
-instance Foo a => Bar a { bar := \x -> foo x }
+instance Bar a => Foo a { foo := \x. bar x }
+instance Foo a => Bar a { bar := \x. foo x }
 main := foo True
 `)
 	if err == nil {
@@ -1311,7 +1311,7 @@ type T8 a = T7 (T7 a)
 type T9 a = T8 (T8 a)
 type T10 a = T9 (T9 a)
 id :: T10 Bool -> T10 Bool
-id := \x -> x
+id := \x. x
 main := id True
 `
 	// This should either succeed (with reasonable expansion) or report an error.
@@ -1372,7 +1372,7 @@ func TestNestedPatternBareConstructor(t *testing.T) {
 	rt, err := eng.NewRuntime(`
 data Pair a b = MkPair a b
 
-match := \p -> case p { MkPair (Just x) Nothing -> x; _ -> False }
+match := \p. case p { MkPair (Just x) Nothing -> x; _ -> False }
 main := match (MkPair (Just True) Nothing)
 `)
 	if err != nil {
@@ -1388,7 +1388,7 @@ main := match (MkPair (Just True) Nothing)
 func TestNestedPatternParenthesized(t *testing.T) {
 	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`
-isJustTrue := \m -> case m { Just True -> True; _ -> False }
+isJustTrue := \m. case m { Just True -> True; _ -> False }
 main := (isJustTrue (Just True), isJustTrue (Just False), isJustTrue Nothing)
 `)
 	if err != nil {
@@ -1409,7 +1409,7 @@ func TestNestedPatternExhaustiveness(t *testing.T) {
 	// Non-exhaustive nested pattern should produce clear error.
 	eng := gicel.NewEngine()
 	_, err := eng.NewRuntime(`
-f := \x -> case x { Just True -> True }
+f := \x. case x { Just True -> True }
 main := f (Just True)
 `)
 	if err == nil {
@@ -1424,7 +1424,7 @@ main := f (Just True)
 func TestNestedPatternDeepNesting(t *testing.T) {
 	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`
-f := \x -> case x { Just (Just (Just True)) -> True; _ -> False }
+f := \x. case x { Just (Just (Just True)) -> True; _ -> False }
 main := (f (Just (Just (Just True))), f (Just (Just (Just False))), f (Just (Just Nothing)))
 `)
 	if err != nil {
@@ -1451,7 +1451,7 @@ func TestExplicitTypeApplication(t *testing.T) {
 	rt, err := eng.NewRuntime(`
 import Std.Num
 id :: \a. a -> a
-id := \x -> x
+id := \x. x
 main := id @Bool True
 `)
 	if err != nil {
@@ -1469,7 +1469,7 @@ main := id @Bool True
 	_, err = eng2.NewRuntime(`
 import Std.Num
 id :: \a. a -> a
-id := \x -> x
+id := \x. x
 main := id @Bool 42
 `)
 	if err == nil {
@@ -1483,7 +1483,7 @@ func TestExplicitTypeApplicationWrongType(t *testing.T) {
 	_, err := eng.NewRuntime(`
 import Std.Num
 id :: \a. a -> a
-id := \x -> x
+id := \x. x
 main := id @Int True
 `)
 	if err == nil {
@@ -1524,7 +1524,7 @@ func TestHigherRankRecordField(t *testing.T) {
 	rt, err := eng.NewRuntime(`
 import Std.Num
 r :: Record { apply : \a. a -> a }
-r := { apply = \x -> x }
+r := { apply = \x. x }
 main := ((r.#apply) True, (r.#apply) 42)
 `)
 	if err != nil {
@@ -1606,7 +1606,7 @@ func TestLiteralPatternInt(t *testing.T) {
 	rt, err := eng.NewRuntime(`
 import Std.Num
 import Std.Str
-describe := \n -> case n { 0 -> "zero"; 1 -> "one"; _ -> "other" }
+describe := \n. case n { 0 -> "zero"; 1 -> "one"; _ -> "other" }
 main := describe 1
 `)
 	if err != nil {
@@ -1627,7 +1627,7 @@ func TestLiteralPatternString(t *testing.T) {
 	eng.Use(gicel.Str)
 	rt, err := eng.NewRuntime(`
 import Std.Str
-greet := \name -> case name { "Alice" -> "Hello Alice"; _ -> "Hello stranger" }
+greet := \name. case name { "Alice" -> "Hello Alice"; _ -> "Hello stranger" }
 main := greet "Alice"
 `)
 	if err != nil {
@@ -1648,7 +1648,7 @@ func TestLiteralPatternFallthrough(t *testing.T) {
 	eng.Use(gicel.Num)
 	rt, err := eng.NewRuntime(`
 import Std.Num
-fib := \n -> case n { 0 -> 0; 1 -> 1; _ -> 99 }
+fib := \n. case n { 0 -> 0; 1 -> 1; _ -> 99 }
 main := fib 5
 `)
 	if err != nil {
@@ -1669,7 +1669,7 @@ func TestLiteralPatternInNestedCase(t *testing.T) {
 	eng.Use(gicel.Num)
 	rt, err := eng.NewRuntime(`
 import Std.Num
-f := \m -> case m { Just n -> case n { 0 -> True; _ -> False }; Nothing -> False }
+f := \m. case m { Just n -> case n { 0 -> True; _ -> False }; Nothing -> False }
 main := f (Just 0)
 `)
 	if err != nil {
@@ -1687,7 +1687,7 @@ func TestLiteralPatternRune(t *testing.T) {
 	eng.Use(gicel.Str)
 	rt, err := eng.NewRuntime(`
 import Std.Str
-classify := \c -> case c { 'a' -> "vowel"; 'e' -> "vowel"; _ -> "other" }
+classify := \c. case c { 'a' -> "vowel"; 'e' -> "vowel"; _ -> "other" }
 main := classify 'a'
 `)
 	if err != nil {

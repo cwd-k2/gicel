@@ -65,8 +65,8 @@ Provides list operations (native-speed implementations).
 
 **Functions:**
 
-| Name          | Type                                                        | Description                                            |
-| ------------- | ----------------------------------------------------------- | ------------------------------------------------------ |
+| Name          | Type                                                  | Description                                            |
+| ------------- | ----------------------------------------------------- | ------------------------------------------------------ |
 | `fromSlice`   | `\a. List a -> List a`                                | Identity on Cons/Nil chains; converts HostVal slices   |
 | `toSlice`     | `\a. List a -> List a`                                | Identity on Cons/Nil chains; converts to HostVal slice |
 | `length`      | `\a. List a -> Int`                                   | Count elements                                         |
@@ -99,8 +99,8 @@ Provides an ordered immutable map backed by an AVL tree. All key-parameterized o
 
 **Functions:**
 
-| Name           | Type                                                         | Description                          |
-| -------------- | ------------------------------------------------------------ | ------------------------------------ |
+| Name           | Type                                                   | Description                          |
+| -------------- | ------------------------------------------------------ | ------------------------------------ |
 | `mapEmpty`     | `\k v. Ord k => Map k v`                               | Empty map                            |
 | `insert`       | `\k v. Ord k => k -> v -> Map k v -> Map k v`          | Insert or overwrite a key-value pair |
 | `mapLookup`    | `\k v. Ord k => k -> Map k v -> Maybe v`               | Lookup by key                        |
@@ -123,8 +123,8 @@ Provides an ordered immutable set backed by a Map.
 
 **Functions:**
 
-| Name          | Type                                     | Description         |
-| ------------- | ---------------------------------------- | ------------------- |
+| Name          | Type                               | Description         |
+| ------------- | ---------------------------------- | ------------------- |
 | `setEmpty`    | `\k. Ord k => Set k`               | Empty set           |
 | `setInsert`   | `\k. Ord k => k -> Set k -> Set k` | Insert an element   |
 | `setMember`   | `\k. Ord k => k -> Set k -> Bool`  | Membership test     |
@@ -144,8 +144,8 @@ Provides get/put state capabilities via the `state` capability in CapEnv.
 
 **Functions:**
 
-| Name     | Type                                                                           | Description               |
-| -------- | ------------------------------------------------------------------------------ | ------------------------- |
+| Name     | Type                                                                     | Description               |
+| -------- | ------------------------------------------------------------------------ | ------------------------- |
 | `get`    | `\s r. Computation { state : s \| r } { state : s \| r } s`              | Read current state        |
 | `put`    | `\s r. s -> Computation { state : s \| r } { state : s \| r } ()`        | Replace current state     |
 | `modify` | `\s r. (s -> s) -> Computation { state : s \| r } { state : s \| r } ()` | Apply a function to state |
@@ -158,8 +158,8 @@ Provides failure/error effects via the `fail` capability.
 
 **Functions:**
 
-| Name         | Type                                                                            | Description                     |
-| ------------ | ------------------------------------------------------------------------------- | ------------------------------- |
+| Name         | Type                                                                      | Description                     |
+| ------------ | ------------------------------------------------------------------------- | ------------------------------- |
 | `failWith`   | `\e r a. e -> Computation { fail : e \| r } { fail : e \| r } a`          | Fail with a typed error value   |
 | `fail`       | `\r a. Computation { fail : () \| r } { fail : () \| r } a`               | Fail with () (no error payload) |
 | `fromMaybe`  | `\a r. Maybe a -> Computation { fail : () \| r } { fail : () \| r } a`    | Extract Just or fail on Nothing |
@@ -173,10 +173,10 @@ Provides print/debug capabilities via the `io` capability.
 
 **Functions:**
 
-| Name    | Type                                                              | Description                              |
-| ------- | ----------------------------------------------------------------- | ---------------------------------------- |
-| `print` | `String -> Computation { io : () \| r } { io : () \| r } ()`      | Append a string to the IO buffer         |
-| `debug` | `\a. a -> Computation { io : () \| r } { io : () \| r } ()` | Append debug representation to IO buffer |
+| Name    | Type                                                         | Description                              |
+| ------- | ------------------------------------------------------------ | ---------------------------------------- |
+| `print` | `String -> Computation { io : () \| r } { io : () \| r } ()` | Append a string to the IO buffer         |
+| `debug` | `\a. a -> Computation { io : () \| r } { io : () \| r } ()`  | Append debug representation to IO buffer |
 
 Host provides `"io"` capability. Output accumulates as `[]string` in the final CapEnv.
 
@@ -188,8 +188,8 @@ Provides lazy list (stream) operations. Requires recursion (`fix`), loaded via `
 data Stream a = LCons a (() -> Stream a) | LNil
 ```
 
-| Name       | Type                                              | Description            |
-| ---------- | ------------------------------------------------- | ---------------------- |
+| Name       | Type                                        | Description            |
+| ---------- | ------------------------------------------- | ---------------------- |
 | `headS`    | `\a. Stream a -> Maybe a`                   | First element          |
 | `tailS`    | `\a. Stream a -> Maybe (Stream a)`          | Tail (forces thunk)    |
 | `toList`   | `\a. Stream a -> List a`                    | Convert to strict list |
@@ -205,8 +205,8 @@ Instances: `Functor Stream`, `Foldable Stream`
 
 Provides contiguous array with O(1) length/index.
 
-| Name             | Type                                             | Description    |
-| ---------------- | ------------------------------------------------ | -------------- |
+| Name             | Type                                       | Description    |
+| ---------------- | ------------------------------------------ | -------------- |
 | `sliceEmpty`     | `\a. Slice a`                              | Empty slice    |
 | `sliceSingleton` | `\a. a -> Slice a`                         | Single-element |
 | `sliceCons`      | `\a. a -> Slice a -> Slice a`              | Prepend        |

@@ -21,29 +21,29 @@ capacity := 10
 -- ── Helpers ────────────────────────────────────────────────
 
 range :: Int -> Int -> List Int
-range := fix (\self -> \lo -> \hi ->
+range := fix (\self lo hi.
   case lo > hi { True -> []; False -> Cons lo (self (lo + 1) hi) })
 
-getOr := \def -> \i -> \xs -> maybe def id (index i xs)
+getOr := \def i xs. maybe def id (index i xs)
 
-setAt := \i -> \v -> \xs ->
+setAt := \i v xs.
   concat (take i xs) (Cons v (drop (i + 1) xs))
 
 sumBy :: \a. (a -> Int) -> List a -> Int
-sumBy := \f -> foldl (\acc -> \x -> acc + f x) 0
+sumBy := \f. foldl (\acc x. acc + f x) 0
 
 -- ── Approach 1: Brute-force ────────────────────────────────
 
 -- All subsets of a list, via structural recursion
 subsets :: \a. List a -> List (List a)
-subsets := fix (\self -> \xs -> case xs {
+subsets := fix (\self xs. case xs {
   Nil      -> [[]];
-  Cons x t -> { ss := self t; concat ((\s -> Cons x s) <$> ss) ss }
+  Cons x t -> { ss := self t; concat ((\s. Cons x s) <$> ss) ss }
 })
 
 bruteForce := {
-  valid := filter (\s -> sumBy fst s <= capacity) (subsets items);
-  foldl (\best -> \s -> max best (sumBy snd s)) 0 valid
+  valid := filter (\s. sumBy fst s <= capacity) (subsets items);
+  foldl (\best s. max best (sumBy snd s)) 0 valid
 }
 
 -- ── Approach 2: Dynamic Programming ────────────────────────
@@ -54,8 +54,8 @@ bruteForce := {
 revRange := reverse (range 0 capacity)
 
 dpAnswer := {
-  finalDp := foldl (\dp -> \(w, v) ->
-    foldl (\t -> \j -> case j >= w {
+  finalDp := foldl (\dp. \(w, v).
+    foldl (\t j. case j >= w {
       True  -> setAt j (max (getOr 0 j t) (getOr 0 (j - w) t + v)) t;
       False -> t
     }) dp revRange

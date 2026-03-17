@@ -17,7 +17,7 @@ len := length nums                              -- 5
 doubled := (* 2) <$> nums                        -- [2, 4, 6, 8, 10]  (equivalent to \x -> x * 2)
 
 -- filter: keep elements satisfying a predicate
-evens := filter (\x -> mod x 2 == 0) nums       -- [2, 4]
+evens := filter (\x. mod x 2 == 0) nums       -- [2, 4]
 
 -- foldl: left fold (strict, tail-recursive in the runtime)
 total := foldl (+) 0 nums                        -- 15
@@ -52,7 +52,7 @@ atTen := index 10 nums                           -- Nothing
 nil := empty :: List Int                         -- []
 
 -- Data pipeline: filter, transform, fold
-pipeline := foldl (+) 0 $ (\x -> x * x) <$> filter (> 2) nums
+pipeline := foldl (+) 0 $ (\x. x * x) <$> filter (> 2) nums
 -- squares of elements > 2: 9 + 16 + 25 = 50
 
 -- Output: (5, 15, 15, Just 3, 50)

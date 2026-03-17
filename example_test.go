@@ -25,7 +25,7 @@ func ExampleEngine_NewRuntime() {
 	eng := gicel.NewEngine()
 
 	rt, err := eng.NewRuntime(`
-		not := \b -> case b { True -> False; False -> True }
+		not := \b. case b { True -> False; False -> True }
 		main := not False
 	`)
 	if err != nil {

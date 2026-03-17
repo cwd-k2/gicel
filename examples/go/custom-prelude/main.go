@@ -26,7 +26,7 @@ func main() {
 data Color = Red | Green | Blue
 
 swap :: Color -> Color
-swap := \c -> case c { Red -> Blue; Blue -> Red; Green -> Green }
+swap := \c. case c { Red -> Blue; Blue -> Red; Green -> Green }
 
 main := swap Red
 `)
@@ -51,7 +51,7 @@ main := swap Red
 data Bit = On | Off
 
 flip :: Bit -> Bit
-flip := \b -> case b { On -> Off; Off -> On }
+flip := \b. case b { On -> Off; Off -> On }
 `)
 
 	rt2, err := eng2.NewRuntime(`

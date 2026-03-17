@@ -51,7 +51,7 @@ type Wrap (a : Type) :: Type = {
 -- Nested reduction: Elem (List (Wrap Int)) reduces as:
 -- Wrap Int = Maybe Int, then Elem (List (Maybe Int)) = Maybe Int
 nestedElem :: Elem (List (Wrap Int)) -> Maybe Int
-nestedElem := \x -> x
+nestedElem := \x. x
 
 -- Season rotation: single-step NextSeason is fully reduced.
 data Season = Spring | Summer | Autumn | Winter
@@ -67,19 +67,19 @@ data Tagged (s : Season) = MkTagged
 
 -- NextSeason reduces for concrete season values.
 nextProof :: Tagged (NextSeason Spring) -> Tagged Summer
-nextProof := \x -> x
+nextProof := \x. x
 
 -- Add (S (S Z)) Z = S (S Z): Peano addition at compile time.
 addProof :: NatProxy (Add (S (S Z)) Z) -> NatProxy (S (S Z))
-addProof := \x -> x
+addProof := \x. x
 
 -- Add Z (S Z) = S Z
 addProof2 :: NatProxy (Add Z (S Z)) -> NatProxy (S Z)
-addProof2 := \x -> x
+addProof2 := \x. x
 
 -- Add (S Z) (S Z) = S (S Z)
 addProof3 :: NatProxy (Add (S Z) (S Z)) -> NatProxy (S (S Z))
-addProof3 := \x -> x
+addProof3 := \x. x
 `
 	checkSource(t, source, config)
 }
@@ -107,26 +107,26 @@ class Wrappable w {
 
 instance Wrappable Int {
   data Wrapped Int = IntBox Int;
-  wrap := \n -> IntBox n;
-  unwrap := \w -> case w { IntBox n -> n }
+  wrap := \n. IntBox n;
+  unwrap := \w. case w { IntBox n -> n }
 }
 
 instance Wrappable Bool {
   data Wrapped Bool = BoolBit Bool;
-  wrap := \b -> BoolBit b;
-  unwrap := \w -> case w { BoolBit b -> b }
+  wrap := \b. BoolBit b;
+  unwrap := \w. case w { BoolBit b -> b }
 }
 
 instance Wrappable Unit {
   data Wrapped Unit = UnitBox;
-  wrap := \_ -> UnitBox;
-  unwrap := \_ -> Unit
+  wrap := \_. UnitBox;
+  unwrap := \_. Unit
 }
 
 instance Wrappable (Maybe a) {
   data Wrapped (Maybe a) = OptBox (Maybe a);
-  wrap := \m -> OptBox m;
-  unwrap := \w -> case w { OptBox m -> m }
+  wrap := \m. OptBox m;
+  unwrap := \w. case w { OptBox m -> m }
 }
 
 -- Data family constructors are type-distinct.
@@ -141,10 +141,10 @@ boxedUnit := UnitBox
 
 -- Pattern matching on data family types.
 isIntBox :: Wrapped Int -> Int
-isIntBox := \w -> case w { IntBox n -> n }
+isIntBox := \w. case w { IntBox n -> n }
 
 isBoolBit :: Wrapped Bool -> Bool
-isBoolBit := \w -> case w { BoolBit b -> b }
+isBoolBit := \w. case w { BoolBit b -> b }
 `
 	checkSource(t, source, config)
 }
@@ -170,11 +170,11 @@ class Convert a b | a -> b {
 }
 
 instance Convert Bool Int {
-  convert := \b -> case b { True -> 1; False -> 0 }
+  convert := \b. case b { True -> 1; False -> 0 }
 }
 
 instance Convert Unit Bool {
-  convert := \_ -> True
+  convert := \_. True
 }
 
 -- Fundep inference: convert True → the checker deduces b = Int from a = Bool.
@@ -191,11 +191,11 @@ class HasElem c e | c -> e {
 }
 
 instance HasElem (List a) a {
-  getFirst := \xs -> case xs { Cons x _ -> Just x; Nil -> Nothing }
+  getFirst := \xs. case xs { Cons x _ -> Just x; Nil -> Nothing }
 }
 
 instance HasElem (Maybe a) a {
-  getFirst := \m -> case m { Just x -> Just x; Nothing -> Nothing }
+  getFirst := \m. case m { Just x -> Just x; Nothing -> Nothing }
 }
 
 -- getFirst (Cons Unit Nil): c = List Unit → e = Unit
@@ -213,8 +213,8 @@ class Iso a b | a -> b, b -> a {
 }
 
 instance Iso Bool Int {
-  forward := \b -> case b { True -> 1; False -> 0 };
-  backward := \_ -> True
+  forward := \b. case b { True -> 1; False -> 0 };
+  backward := \_. True
 }
 
 -- forward True: a = Bool → b = Int
@@ -259,7 +259,7 @@ v := MaybeElem Unit
 -- IsJust reduces for a concrete type.
 data Phantom (b : Bool) = MkPhantom
 proof :: Phantom (IsJust (Maybe Unit)) -> Phantom True
-proof := \x -> x
+proof := \x. x
 `
 	checkSource(t, source, nil)
 }
@@ -282,7 +282,7 @@ class Extract c e | c -> e {
 }
 
 instance Extract (List a) a {
-  extract := \xs -> case xs { Cons x _ -> Just x; Nil -> Nothing }
+  extract := \xs. case xs { Cons x _ -> Just x; Nil -> Nothing }
 }
 
 -- extract (Cons Unit Nil): c = List Unit → e = Unit
@@ -307,11 +307,11 @@ data Chan (s : Session) = MkChan
 
 -- Dual (Send End) = Recv (Dual End) = Recv End
 dualProof1 :: Chan (Dual (Send End)) -> Chan (Recv End)
-dualProof1 := \x -> x
+dualProof1 := \x. x
 
 -- Dual (Recv (Send End)) = Send (Dual (Send End)) = Send (Recv End)
 dualProof2 :: Chan (Dual (Recv (Send End))) -> Chan (Send (Recv End))
-dualProof2 := \x -> x
+dualProof2 := \x. x
 `
 	checkSource(t, source, nil)
 }

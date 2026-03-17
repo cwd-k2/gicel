@@ -19,7 +19,7 @@ import (
 const loopSource = `
 import Std.Num
 loop :: Int -> Int
-loop := fix (\self -> \n -> self (n + 1))
+loop := fix (\self n. self (n + 1))
 main := loop 0
 `
 

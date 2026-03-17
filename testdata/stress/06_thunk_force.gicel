@@ -4,7 +4,7 @@ addInts :: Int -> Int -> Int
 addInts := assumption
 
 chainThunk :: Thunk {} {} Int -> Computation {} {} (Thunk {} {} Int)
-chainThunk := \t -> do {
+chainThunk := \t. do {
   inner := thunk (do {
     x <- force t;
     y <- mkVal ();
@@ -14,7 +14,7 @@ chainThunk := \t -> do {
 }
 
 selectForce :: Bool -> Thunk {} {} Int -> Thunk {} {} Int -> Computation {} {} Int
-selectForce := \which -> \t1 -> \t2 -> case which {
+selectForce := \which t1 t2. case which {
   True  -> force t1;
   False -> force t2
 }

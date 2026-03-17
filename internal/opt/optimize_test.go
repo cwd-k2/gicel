@@ -149,7 +149,7 @@ func TestR1_CaseOfKnownCtorMultiArg(t *testing.T) {
 
 // R2: Beta reduction
 func TestR2_BetaReduction(t *testing.T) {
-	// (\x -> x) y  →  y
+	// (\x. x) y  →  y
 	input := app(lam("x", v("x")), v("y"))
 	result := Optimize(input, nil)
 	if !coreEq(result, v("y")) {
@@ -158,7 +158,7 @@ func TestR2_BetaReduction(t *testing.T) {
 }
 
 func TestR2_BetaReductionNested(t *testing.T) {
-	// (\f -> \x -> f x) g  →  \x -> g x
+	// (\f. \x. f x) g  →  \x. g x
 	input := app(lam("f", lam("x", app(v("f"), v("x")))), v("g"))
 	expected := lam("x", app(v("g"), v("x")))
 	result := Optimize(input, nil)
@@ -330,7 +330,7 @@ func TestR13_StringPackedRoundtrip(t *testing.T) {
 // ===== Multi-pass =====
 
 func TestMultiPass_BetaThenCaseOfKnown(t *testing.T) {
-	// (\d -> case d of { Just y -> y }) (Just x)
+	// (\d. case d of { Just y -> y }) (Just x)
 	// Pass 1: beta → case (Just x) of { Just y -> y }
 	// Pass 2: case-of-known → x
 	input := app(
@@ -366,17 +366,17 @@ func TestNoOp_ForceNonThunk(t *testing.T) {
 // ===== Substitution shadowing (M39-M42) =====
 
 func TestSubst_LamShadowing(t *testing.T) {
-	// (\x -> \x -> x) y  →  \x -> x  (inner x shadows, must NOT become y)
+	// (\x. \x. x) y  →  \x. x  (inner x shadows, must NOT become y)
 	input := app(lam("x", lam("x", v("x"))), v("y"))
 	result := Optimize(input, nil)
 	expected := lam("x", v("x"))
 	if !coreEq(result, expected) {
-		t.Fatalf("Lam shadowing: expected \\x -> x, got %v", result)
+		t.Fatalf("Lam shadowing: expected \\x. x, got %v", result)
 	}
 }
 
 func TestSubst_LetRecShadowing(t *testing.T) {
-	// (\x -> letrec x = lit 1 in x) y  →  letrec x = lit 1 in x
+	// (\x. letrec x = lit 1 in x) y  →  letrec x = lit 1 in x
 	inner := &core.LetRec{
 		Bindings: []core.Binding{{Name: "x", Expr: lit(int64(1))}},
 		Body:     v("x"),
@@ -394,7 +394,7 @@ func TestSubst_LetRecShadowing(t *testing.T) {
 }
 
 func TestSubst_BindShadowing(t *testing.T) {
-	// (\x -> bind comp x (x)) y  →  bind comp[x:=y] x (x)
+	// (\x. bind comp x (x)) y  →  bind comp[x:=y] x (x)
 	// The bind variable x shadows, so the body must remain v("x").
 	inner := &core.Bind{Comp: v("x"), Var: "x", Body: v("x")}
 	input := app(lam("x", inner), v("y"))
@@ -414,7 +414,7 @@ func TestSubst_BindShadowing(t *testing.T) {
 }
 
 func TestSubst_CasePatternShadowing(t *testing.T) {
-	// (\x -> case z of { Just x -> x; Nothing -> x }) y
+	// (\x. case z of { Just x -> x; Nothing -> x }) y
 	// In the Just branch, x is bound by the pattern — must NOT become y.
 	// In the Nothing branch, x is free — must become y.
 	inner := cas(
@@ -597,9 +597,9 @@ func TestR11_SliceFoldrMapFusion(t *testing.T) {
 // ===== Multi-pass convergence (M12) =====
 
 func TestMultiPass_NestedBetaRequiresIteration(t *testing.T) {
-	// (\a -> \b -> case a of { Just x -> x }) (Just ((\c -> c) z))
-	// Pass 1 (bottom-up): inner beta (\c -> c) z → z, outer beta fires → \b -> case (Just z) of ...
-	// Pass 2: case-of-known-constructor fires → \b -> z
+	// (\a. \b. case a of { Just x -> x }) (Just ((\c. c) z))
+	// Pass 1 (bottom-up): inner beta (\c. c) z → z, outer beta fires → \b. case (Just z) of ...
+	// Pass 2: case-of-known-constructor fires → \b. z
 	input := app(
 		lam("a", lam("b", cas(v("a"), alt(pcon("Just", pvar("x")), v("x"))))),
 		con("Just", app(lam("c", v("c")), v("z"))),
@@ -607,6 +607,6 @@ func TestMultiPass_NestedBetaRequiresIteration(t *testing.T) {
 	result := Optimize(input, nil)
 	expected := lam("b", v("z"))
 	if !coreEq(result, expected) {
-		t.Fatalf("multi-pass nested beta: expected \\b -> z, got %v", result)
+		t.Fatalf("multi-pass nested beta: expected \\b. z, got %v", result)
 	}
 }

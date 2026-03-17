@@ -76,7 +76,7 @@ type Effect r a = Computation r r a
 \(f : Type -> Type). f a -> f b
 ```
 
-`\` serves dual purpose: lambda in expression context (`\x -> e`), and universal quantification in type context (`\a. T`). The separator distinguishes: `->` for lambda, `.` for quantification. The parser disambiguates by context. The `.` is the same character as the compose operator; context disambiguates there as well.
+`\` serves dual purpose: lambda in expression context (`\x. e`) and universal quantification in type context (`\a. T`). Both use `.` as the body separator. The parser disambiguates by context. The `.` is also the compose operator (`infixr 9`); context disambiguates. Multi-parameter lambdas are supported: `\x y. e` desugars to `\x. \y. e`.
 
 ### Constraints (=>)
 
@@ -132,7 +132,7 @@ Type annotations are written on a separate line from the definition:
 
 ```
 f :: \a. Eq a => a -> a -> Bool
-f := \x -> \y -> eq x y
+f := \x y. eq x y
 ```
 
 Free type variables in annotations are implicitly universally quantified (implicit `\`):
@@ -198,7 +198,7 @@ class Collection c {
 -- Instance provides constructors
 instance Collection (List a) {
   data Key (List a) = ListIndex Int;
-  lookup := \k -> \xs -> case k {
+  lookup := \k xs. case k {
     ListIndex i -> index xs i
   }
 }

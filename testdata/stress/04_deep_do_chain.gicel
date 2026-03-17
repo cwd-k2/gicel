@@ -6,7 +6,7 @@ addN :: \(r : Row). Int -> Computation { n : Int | r } { n : Int | r } ()
 addN := assumption
 
 step :: () -> Computation { n : Int } { n : Int } ()
-step := \_ -> do {
+step := \_. do {
   v <- getN ();
   _ <- addN v;
   incN ()

@@ -14,35 +14,35 @@ import Std.Num
 import Std.State
 
 -- Helper: integer percentage (amount * percent / 100)
-pct := \amount -> \percent -> amount * percent / 100
+pct := \amount percent. amount * percent / 100
 
 -- Step functions: each reads state, computes, updates state
 
 -- Set the base unit price
-initPrice := \unitPrice -> put unitPrice
+initPrice := \unitPrice. put unitPrice
 
 -- Multiply by quantity
-applyQuantity := \qty -> do {
+applyQuantity := \qty. do {
   price <- get;
   put (price * qty)
 }
 
 -- Apply a percentage discount
-applyDiscount := \percent -> do {
+applyDiscount := \percent. do {
   total <- get;
   discount := pct total percent;
   put (total - discount)
 }
 
 -- Add tax as a percentage
-addTax := \percent -> do {
+addTax := \percent. do {
   total <- get;
   tax := pct total percent;
   put (total + tax)
 }
 
 -- Add a flat shipping fee
-addShipping := \fee -> do {
+addShipping := \fee. do {
   total <- get;
   put (total + fee)
 }
@@ -74,9 +74,9 @@ premiumOrder := do {
 ledger := do {
   _ <- put 1000;             -- opening balance
   _ <- modify (+ 250);       -- deposit  (equivalent to \b -> b + 250)
-  _ <- modify (\b -> b - 100);   -- withdrawal
+  _ <- modify (\b. b - 100);   -- withdrawal
   _ <- modify (+ 500);       -- deposit
-  _ <- modify (\b -> b - 75);    -- withdrawal
+  _ <- modify (\b. b - 75);    -- withdrawal
   _ <- modify (+ 300);       -- deposit
   get
 }

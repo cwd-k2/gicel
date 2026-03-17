@@ -25,7 +25,7 @@ func TestConstraintKindedParamMultiple(t *testing.T) {
 	// Multiple \ binders, one with Constraint kind.
 	source := `data Bool = True | False
 f :: \ a (c : Constraint). a -> Bool
-f := \x -> True`
+f := \x. True`
 	checkSource(t, source, nil)
 }
 
@@ -42,10 +42,10 @@ func TestConstraintKindedParamInTypeAlias(t *testing.T) {
 	// Already tested in Phase 5A, but now with explicit Constraint kind:
 	source := `data Bool = True | False
 class Eq a { eq :: a -> a -> Bool }
-instance Eq Bool { eq := \x -> \y -> True }
+instance Eq Bool { eq := \x y. True }
 type Eqable a = Eq a => a -> a -> Bool
 f :: \ a. Eqable a
-f := \x -> \y -> eq x y
+f := \x y. eq x y
 main := f True False`
 	checkSource(t, source, nil)
 }

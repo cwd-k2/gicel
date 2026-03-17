@@ -1,23 +1,23 @@
 class Eq a { eq :: a -> a -> Bool }
 
 instance Eq Bool {
-  eq := \x -> \y -> case x {
+  eq := \x y. case x {
     True  -> y;
     False -> case y { True -> False; False -> True }
   }
 }
 
-instance Eq () { eq := \_ -> \_ -> True }
+instance Eq () { eq := \_ _. True }
 
 instance Eq a => Eq (Maybe a) {
-  eq := \x -> \y -> case x {
+  eq := \x y. case x {
     Nothing -> case y { Nothing -> True; Just _ -> False };
     Just a  -> case y { Nothing -> False; Just b -> eq a b }
   }
 }
 
 instance (Eq a) => (Eq b) => Eq (a, b) {
-  eq := \x -> \y -> case x {
+  eq := \x y. case x {
     (a1, b1) -> case y {
       (a2, b2) -> case eq a1 a2 {
         True  -> eq b1 b2;
@@ -28,26 +28,26 @@ instance (Eq a) => (Eq b) => Eq (a, b) {
 }
 
 instance (Eq a) => (Eq b) => Eq (Result a b) {
-  eq := \x -> \y -> case x {
+  eq := \x y. case x {
     Ok a  -> case y { Ok b -> eq a b;  Err _ -> False };
     Err a -> case y { Ok _ -> False; Err b -> eq a b }
   }
 }
 
 neq :: \a. Eq a => a -> a -> Bool
-neq := \x -> \y -> case eq x y { True -> False; False -> True }
+neq := \x y. case eq x y { True -> False; False -> True }
 
 eqMaybeBool :: Maybe Bool -> Maybe Bool -> Bool
-eqMaybeBool := \x -> \y -> eq x y
+eqMaybeBool := \x y. eq x y
 
 eqPairBool :: (Bool, Bool) -> (Bool, Bool) -> Bool
-eqPairBool := \x -> \y -> eq x y
+eqPairBool := \x y. eq x y
 
 eqResultBool :: Result Bool Bool -> Result Bool Bool -> Bool
-eqResultBool := \x -> \y -> eq x y
+eqResultBool := \x y. eq x y
 
 eqDeep :: Maybe (Bool, (Result () Bool)) -> Maybe (Bool, (Result () Bool)) -> Bool
-eqDeep := \x -> \y -> eq x y
+eqDeep := \x y. eq x y
 
 val1 := Just (True, (Ok False))
 val2 := Just (True, (Ok False))

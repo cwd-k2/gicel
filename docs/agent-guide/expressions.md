@@ -2,17 +2,17 @@
 
 ### Lambda
 
-Single-parameter only. Curry for multiple parameters:
+Multi-parameter lambdas are supported. `.` separates parameters from body:
 
 ```
-\x -> expr
-\x -> \y -> \z -> expr
-\(Just x) -> expr              -- constructor pattern
-\(a, b) -> expr                -- tuple pattern
-\{ x, y } -> expr              -- record pattern
+\x. expr
+\x y z. expr                   -- desugars to \x. \y. \z. expr
+\(Just x). expr                -- constructor pattern
+\(a, b). expr                  -- tuple pattern
+\{ x, y }. expr                -- record pattern
 ```
 
-Pattern parameters are desugared to `case`: `\(a, b) -> body` becomes `\$p -> case $p { (a, b) -> body }`.
+Pattern parameters are desugared to `case`: `\(a, b). body` becomes `\$p. case $p { (a, b) -> body }`.
 
 ### Application
 
@@ -64,7 +64,7 @@ Literal patterns require a wildcard catch-all (literal types cannot be exhaustiv
 { x := e1; y := e2; body }
 ```
 
-Desugars to `(\x -> (\y -> body) e2) e1`.
+Desugars to `(\x. (\y. body) e2) e1`.
 
 ### Do Block
 
@@ -77,7 +77,7 @@ do {
 }
 ```
 
-`x <- expr` desugars to `bind expr (\x -> ...)`. The entire do-block produces a `Computation`.
+`x <- expr` desugars to `bind expr (\x. ...)`. The entire do-block produces a `Computation`.
 
 ### Infix Operators
 
@@ -96,8 +96,8 @@ foldr (+) 0 xs                 -- pass operator to higher-order function
 **Operator sections** partially apply one argument:
 
 ```
-(+ 1)                          -- right section: \x -> x + 1
-(1 +)                          -- left section:  \x -> 1 + x
+(+ 1)                          -- right section: \x. x + 1
+(1 +)                          -- left section:  \x. 1 + x
 ```
 
 Right sections bind the right argument, left sections bind the left. Both desugar to single-argument lambdas:
@@ -119,7 +119,7 @@ force thunked_value            -- resume a suspended computation (term former)
 
 ```
 pure expr                      -- lift a value into Computation
-bind comp (\x -> body)         -- explicit monadic bind
+bind comp (\x. body)           -- explicit monadic bind
 ```
 
 `pure` and `bind` are first-class functions — they can be partially applied (`map pure xs`) and passed to higher-order functions.

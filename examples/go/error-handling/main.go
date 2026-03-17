@@ -39,7 +39,7 @@ func main() {
 
 	rt, err := eng2.NewRuntime(`
 loop :: Bool -> Bool
-loop := fix (\self -> \b -> self b)
+loop := fix (\self b. self b)
 main := loop True
 `)
 	if err != nil {

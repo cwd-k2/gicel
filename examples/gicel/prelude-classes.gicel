@@ -82,7 +82,7 @@ geOp := 5 >= 4                           -- True
 -- Helper functions: id, const, flip, not
 idVal := id 42                           -- 42
 constVal := const True 99                -- True
-flipped := flip (\a -> \b -> (a, b)) 1 2 -- (2, 1)
+flipped := flip (\a b. (a, b)) 1 2 -- (2, 1)
 negBool := not True                      -- False
 
 -- maybe: eliminator

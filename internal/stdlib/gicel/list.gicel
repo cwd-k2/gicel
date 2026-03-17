@@ -97,7 +97,7 @@ span :: \a. (a -> Bool) -> List a -> (List a, List a)
 span := _listSpan
 
 break :: \a. (a -> Bool) -> List a -> (List a, List a)
-break := \p -> span (not . p)
+break := \p. span (not . p)
 
 sortBy :: \a. (a -> a -> Ordering) -> List a -> List a
 sortBy := _listSortBy
@@ -115,10 +115,10 @@ iterateN :: \a. Int -> (a -> a) -> a -> List a
 iterateN := _listIterateN
 
 zipWith :: \a b c. (a -> b -> c) -> List a -> List b -> List c
-zipWith := \f -> \xs -> \ys -> map (uncurry f) (zip xs ys)
+zipWith := \f xs ys. map (uncurry f) (zip xs ys)
 
 intercalate :: \a. List a -> List (List a) -> List a
-intercalate := \sep -> \xss -> flatten (intersperse sep xss)
+intercalate := \sep xss. flatten (intersperse sep xss)
 
 nubBy :: \a. (a -> a -> Bool) -> List a -> List a
-nubBy := \eq -> foldl (\acc -> \x -> case any (eq x) acc { True -> acc; False -> append acc (singleton x) }) Nil
+nubBy := \eq. foldl (\acc x. case any (eq x) acc { True -> acc; False -> append acc (singleton x) }) Nil

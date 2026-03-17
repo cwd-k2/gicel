@@ -49,7 +49,7 @@ type G (a : Type) :: Type = {
   G a = F a
 }
 f :: F Unit -> Unit
-f := \x -> x
+f := \x. x
 `
 	checkSourceExpectCode(t, source, nil, errs.ErrTypeFamilyReduction)
 }
@@ -65,7 +65,7 @@ type F (a : Type) :: Type = {
   F a = a
 }
 f :: F (List (List Unit)) -> Unit
-f := \x -> x
+f := \x. x
 `
 	// F (List (List Unit)) -> F (List Unit) -> F Unit -> Unit
 	// Three reduction steps, well within the 100 fuel limit.
@@ -105,7 +105,7 @@ func TestPathological100Instances(t *testing.T) {
 	b.WriteString("data Bool = True | False\n")
 	b.WriteString("class Eq a { eq :: a -> a -> Bool }\n")
 	for i := 0; i < 100; i++ {
-		b.WriteString(fmt.Sprintf("instance Eq T%d { eq := \\x -> \\y -> True }\n", i))
+		b.WriteString(fmt.Sprintf("instance Eq T%d { eq := \\x y. True }\n", i))
 	}
 	checkSource(t, b.String(), nil)
 }
@@ -178,7 +178,7 @@ class Show a {
 
 instance Show Unit {
   type Elem Unit = Unit;
-  show := \x -> x
+  show := \x. x
 }
 `
 	// Elem is an assoc type of Container, not Show.
@@ -244,12 +244,12 @@ class HasRepr c {
 
 instance HasRepr Unit {
   data Repr Unit = ReprA | ReprB | ReprC;
-  toRepr := \_ -> ReprA
+  toRepr := \_. ReprA
 }
 
 -- Nested pattern match on data family + Maybe.
 f :: Maybe (Repr Unit) -> Unit
-f := \x -> case x {
+f := \x. case x {
   Nothing -> Unit;
   Just r -> case r {
     ReprA -> Unit;
@@ -271,7 +271,7 @@ type Grow (a : Type) :: Type = {
   Grow a = Grow (Pair a a)
 }
 f :: Grow Unit -> Unit
-f := \x -> x
+f := \x. x
 `
 	checkSourceExpectCode(t, source, nil, errs.ErrTypeFamilyReduction)
 }
@@ -286,7 +286,7 @@ type AddTen (n : Nat) :: Nat = {
 }
 data Phantom (n : Nat) = MkPhantom
 f :: Phantom (AddTen Z) -> Phantom (S (S (S (S (S (S (S (S (S (S Z))))))))))
-f := \x -> x
+f := \x. x
 `
 	checkSource(t, source, nil)
 }
@@ -317,10 +317,10 @@ type Id (a : Type) :: Type = {
 		label string
 		usage string
 	}{
-		{"Elem_List", "f :: Elem (List Unit) -> Unit\nf := \\x -> x"},
-		{"Elem_Maybe", "g :: Elem (Maybe Unit) -> Unit\ng := \\x -> x"},
-		{"Id_Unit", "h :: Id Unit -> Unit\nh := \\x -> x"},
-		{"Id_List", "i :: Id (List Unit) -> List Unit\ni := \\x -> x"},
+		{"Elem_List", "f :: Elem (List Unit) -> Unit\nf := \\x. x"},
+		{"Elem_Maybe", "g :: Elem (Maybe Unit) -> Unit\ng := \\x. x"},
+		{"Id_Unit", "h :: Id Unit -> Unit\nh := \\x. x"},
+		{"Id_List", "i :: Id (List Unit) -> List Unit\ni := \\x. x"},
 	}
 	for _, tc := range testCases {
 		t.Run(tc.label, func(t *testing.T) {
@@ -347,7 +347,7 @@ data Phantom (n : Nat) = MkPhantom
 -- Add (S (S Z)) (S Z) = S (S (S Z))
 -- Reducing again: S (S (S Z)) has no TF app at the top → same result.
 f :: Phantom (Add (S (S Z)) (S Z)) -> Phantom (S (S (S Z)))
-f := \x -> x
+f := \x. x
 `
 	checkSource(t, source, nil)
 }
@@ -363,7 +363,7 @@ type Elem (c : Type) :: Type = {
   Elem (List a) = a
 }
 f :: Elem (List Unit) -> Unit
-f := \x -> x
+f := \x. x
 `
 	source2 := `
 data Unit = Unit
@@ -372,7 +372,7 @@ type Elem (c : Type) :: Type = {
   Elem (List a) = a
 }
 f :: Unit -> Elem (List Unit)
-f := \x -> x
+f := \x. x
 `
 	// Both should succeed: Elem (List Unit) = Unit in either direction.
 	checkSource(t, source1, nil)
@@ -389,7 +389,7 @@ type Elem (c : Type) :: Type = {
   Elem (List a) = a
 }
 f :: \ c. Elem c -> Elem c
-f := \x -> x
+f := \x. x
 `
 	checkSource(t, source, nil)
 }
@@ -406,7 +406,7 @@ consumeA := assumption
 consumeB :: Computation { a : Unit, b : Unit } { a : Unit } Unit
 consumeB := assumption
 f :: Bool -> Computation { a : Unit, b : Unit } {} Unit
-f := \b -> case b {
+f := \b. case b {
   True -> consumeA;
   False -> consumeB
 }
@@ -419,7 +419,7 @@ consumeA := assumption
 consumeB :: Computation { a : Unit, b : Unit } { a : Unit } Unit
 consumeB := assumption
 f :: Bool -> Computation { a : Unit, b : Unit } {} Unit
-f := \b -> case b {
+f := \b. case b {
   False -> consumeB;
   True -> consumeA
 }
@@ -443,7 +443,7 @@ consumeAC := assumption
 consumeBC :: Computation { a : Unit, b : Unit, c : Unit } { a : Unit } Unit
 consumeBC := assumption
 f :: Three -> Computation { a : Unit, b : Unit, c : Unit } {} Unit
-f := \t -> case t {
+f := \t. case t {
   One -> consumeAB;
   Two -> consumeAC;
   Three -> consumeBC
@@ -468,16 +468,16 @@ type Elem (c : Type) :: Type = {
 }
 
 f1 :: Elem (List Unit) -> Unit
-f1 := \x -> x
+f1 := \x. x
 f2 :: Elem (List Unit) -> Unit
-f2 := \x -> x
+f2 := \x. x
 f3 :: Elem (List Unit) -> Unit
-f3 := \x -> x
+f3 := \x. x
 
 g1 :: Elem (Maybe Unit) -> Unit
-g1 := \x -> x
+g1 := \x. x
 g2 :: Elem (Maybe Unit) -> Unit
-g2 := \x -> x
+g2 := \x. x
 `
 	// All these identical usages must succeed — if matchTyPattern were
 	// non-deterministic, some might fail unpredictably.
@@ -596,7 +596,7 @@ type Elem (c : Type) :: Type = {
   Elem (List a) = a
 }
 f :: \ a. a -> Elem (List a)
-f := \x -> x
+f := \x. x
 `
 	checkSource(t, source, nil)
 }
@@ -611,7 +611,7 @@ type Elem (c : Type) :: Type = {
   Elem (List a) = a
 }
 f :: \ c. Computation {} {} (Elem c) -> Computation {} {} (Elem c)
-f := \x -> x
+f := \x. x
 `
 	checkSource(t, source, nil)
 }
@@ -626,7 +626,7 @@ type Same (a : Type) (b : Type) :: Type = {
   Same a a = Unit
 }
 f :: Same Unit Unit -> Unit
-f := \x -> x
+f := \x. x
 `
 	// Same Unit Unit: pattern a matches Unit (first param), then a must also
 	// match Unit (second param). Both are Unit -> matchSuccess.
@@ -643,7 +643,7 @@ type Same (a : Type) (b : Type) :: Type = {
   Same a a = Unit
 }
 f :: Same Unit Bool -> Unit
-f := \x -> x
+f := \x. x
 `
 	// Same Unit Bool: pattern a matches Unit (first param), then a must also
 	// match Bool (second param). Unit != Bool -> matchFail.

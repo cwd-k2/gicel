@@ -17,7 +17,7 @@ func TestMultAnnotationParse(t *testing.T) {
 data Mult = Unrestricted | Affine | Linear
 data Unit = Unit
 f :: { cap : Unit @Linear | r } -> Unit
-f := \x -> Unit
+f := \x. Unit
 `
 	checkSource(t, source, nil)
 }
@@ -27,7 +27,7 @@ func TestMultAnnotationParseMultipleFields(t *testing.T) {
 data Mult = Unrestricted | Affine | Linear
 data Unit = Unit
 f :: { a : Unit @Linear, b : Unit @Affine } -> Unit
-f := \x -> Unit
+f := \x. Unit
 `
 	checkSource(t, source, nil)
 }
@@ -38,7 +38,7 @@ func TestMultAnnotationParseMixed(t *testing.T) {
 data Mult = Unrestricted | Affine | Linear
 data Unit = Unit
 f :: { a : Unit @Linear, b : Unit } -> Unit
-f := \x -> Unit
+f := \x. Unit
 `
 	checkSource(t, source, nil)
 }
@@ -51,7 +51,7 @@ func TestMultAnnotationResolves(t *testing.T) {
 data Mult = Unrestricted | Affine | Linear
 data Unit = Unit
 f :: { cap : Unit @Linear } -> { cap : Unit @Linear } -> Unit
-f := \x -> \y -> Unit
+f := \x y. Unit
 `
 	checkSource(t, source, nil)
 }
@@ -63,7 +63,7 @@ func TestMultAnnotationUnifyMatch(t *testing.T) {
 data Mult = Unrestricted | Affine | Linear
 data Unit = Unit
 id :: { cap : Unit @Linear } -> { cap : Unit @Linear }
-id := \x -> x
+id := \x. x
 `
 	checkSource(t, source, nil)
 }
@@ -73,7 +73,7 @@ func TestMultAnnotationUnifyMismatch(t *testing.T) {
 data Mult = Unrestricted | Affine | Linear
 data Unit = Unit
 bad :: { cap : Unit @Linear } -> { cap : Unit @Affine }
-bad := \x -> x
+bad := \x. x
 `
 	checkSourceExpectError(t, source, nil)
 }

@@ -31,21 +31,21 @@
 
 ### Punctuation and Delimiters
 
-| Token | Meaning                                       |
-| ----- | --------------------------------------------- |
-| `->`  | Function type arrow / lambda body             |
-| `<-`  | Monadic bind in do-block                      |
-| `=>`  | Constraint qualifier                          |
-| `::`  | Type annotation                               |
-| `:=`  | Value definition                              |
-| `:`   | Kind annotation separator                     |
-| `.`   | Quantifier body separator (also compose operator) |
-| `\`   | Lambda / universal quantification                 |
-| `_`   | Wildcard pattern                              |
-| `=`   | Data constructor separator                    |
-| `@`   | Explicit type application                     |
-| `\|`  | Constructor alternative / row tail            |
-| `;`   | Declaration / statement separator             |
+| Token | Meaning                                                    |
+| ----- | ---------------------------------------------------------- |
+| `->`  | Function type arrow / case alternative                     |
+| `<-`  | Monadic bind in do-block                                   |
+| `=>`  | Constraint qualifier                                       |
+| `::`  | Type annotation                                            |
+| `:=`  | Value definition                                           |
+| `:`   | Kind annotation separator                                  |
+| `.`   | Lambda / quantifier body separator (also compose operator) |
+| `\`   | Lambda / universal quantification                          |
+| `_`   | Wildcard pattern                                           |
+| `=`   | Data constructor separator                                 |
+| `@`   | Explicit type application                                  |
+| `\|`  | Constructor alternative / row tail                         |
+| `;`   | Declaration / statement separator                          |
 
 ### Comments
 

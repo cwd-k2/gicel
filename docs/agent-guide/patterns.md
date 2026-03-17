@@ -5,7 +5,7 @@
 ```
 -- Destructure Maybe with nested patterns
 describe :: Maybe Bool -> String
-describe := \m -> case m {
+describe := \m. case m {
   Just True  -> "yes";
   Just False -> "no";
   Nothing    -> "empty"
@@ -13,7 +13,7 @@ describe := \m -> case m {
 
 -- Wildcard for catch-all
 isZeroOrd :: Ordering -> Bool
-isZeroOrd := \o -> case o { EQ -> True; _ -> False }
+isZeroOrd := \o. case o { EQ -> True; _ -> False }
 ```
 
 ### Nested Patterns
@@ -36,10 +36,10 @@ Integer, string, and rune literals can be used directly in case patterns:
 import Std.Num
 
 classify :: Int -> String
-classify := \n -> case n { 0 -> "zero"; 1 -> "one"; _ -> "other" }
+classify := \n. case n { 0 -> "zero"; 1 -> "one"; _ -> "other" }
 
 greet :: String -> String
-greet := \name -> case name { "Alice" -> "hello"; _ -> "hi" }
+greet := \name. case name { "Alice" -> "hello"; _ -> "hi" }
 ```
 
 Literal types are open (cannot enumerate all values), so a wildcard or variable catch-all is always required.
@@ -54,17 +54,17 @@ myList :: List Int
 myList := [1, 2, 3, 4, 5]
 
 -- Operator sections replace verbose lambdas:
---   (* 2)  is  \x -> x * 2   (right section)
---   (> 0)  is  \x -> x > 0   (right section)
---   (+)    is  \x -> \y -> x + y  (operator as function)
+--   (* 2)  is  \x. x * 2   (right section)
+--   (> 0)  is  \x. x > 0   (right section)
+--   (+)    is  \x y. x + y  (operator as function)
 sum :: List Int -> Int
 sum := foldr (+) 0
 
 evens :: List Int -> List Int
-evens := filter (\x -> mod x 2 == 0)
+evens := filter (\x. mod x 2 == 0)
 
 -- Compose a pipeline: filter, transform, fold
-pipeline := foldl (+) 0 $ (\x -> x * x) <$> filter (> 0) myList
+pipeline := foldl (+) 0 $ (\x. x * x) <$> filter (> 0) myList
 ```
 
 ### Stateful Computation
@@ -85,10 +85,10 @@ import Std.Str
 import Std.Fail
 
 parseOrFail :: String -> Computation { fail : () | r } { fail : () | r } Int
-parseOrFail := \s -> fromMaybe (readInt s)
+parseOrFail := \s. fromMaybe (readInt s)
 
 safeDivide :: Int -> Int -> Computation { fail : String | r } { fail : String | r } Int
-safeDivide := \x -> \y -> case y == 0 {
+safeDivide := \x y. case y == 0 {
   True  -> failWith "division by zero";
   False -> pure (div x y)
 }
@@ -136,7 +136,7 @@ resumed := force suspended
 
 ### Syntax
 
-- **No multi-parameter lambdas.** `\x y -> ...` is wrong; use `\x -> \y -> ...`
+- **Lambda uses `.` not `->`.** `\x. e`, not `\x -> e`. Multi-parameter: `\x y. e` (desugars to `\x. \y. e`)
 - **Int literals require Std.Num.** Without `import Std.Num`, `42` is a parse error.
 - **No negative literals.** Use `negate 5`, not `-5`.
 - **Type annotation is a declaration.** `f :: T` then `f := expr`, not `f := expr :: T`.
@@ -167,15 +167,15 @@ Note: for list traversal, prefer Prelude's `map`/`filter`/`foldr` over manual `c
 
 ```
 -- Wrong: self-reference without fix
-countdown := \n -> case n == 0 { True -> 0; False -> countdown (n - 1) }
+countdown := \n. case n == 0 { True -> 0; False -> countdown (n - 1) }
 
 -- Correct: fix provides self as parameter
-countdown := fix (\self -> \n -> case n == 0 { True -> 0; False -> self (n - 1) })
+countdown := fix (\self n. case n == 0 { True -> 0; False -> self (n - 1) })
 ```
 
-### The dot is overloaded
+### The dot serves triple duty
 
-`.` is both the quantifier body separator (`\a. T`) and the compose operator (`infixr 9`). Context disambiguates.
+`.` is the lambda body separator (`\x. e`), the quantifier body separator (`\a. T`), and the compose operator (`infixr 9`). Context disambiguates.
 
 ### Naming collisions
 

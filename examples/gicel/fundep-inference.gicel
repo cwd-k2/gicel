@@ -17,13 +17,13 @@ class Serialize a b | a -> b {
 -- Int serializes to String.
 instance Serialize Int String {
   encode := show;
-  decode := \s -> 0
+  decode := \s. 0
 }
 
 -- Bool serializes to Int (1/0).
 instance Serialize Bool Int {
-  encode := \b -> case b { True -> 1; False -> 0 };
-  decode := \n -> True
+  encode := \b. case b { True -> 1; False -> 0 };
+  decode := \n. True
 }
 
 -- Without the fundep, `encode True` would be ambiguous: the checker
@@ -43,11 +43,11 @@ class HasElem c e | c -> e {
 }
 
 instance HasElem (List a) a {
-  getFirst := \xs -> case xs { Cons x _ -> Just x; Nil -> Nothing }
+  getFirst := \xs. case xs { Cons x _ -> Just x; Nil -> Nothing }
 }
 
 instance HasElem (Maybe a) a {
-  getFirst := \m -> case m { Just x -> Just x; Nothing -> Nothing }
+  getFirst := \m. case m { Just x -> Just x; Nothing -> Nothing }
 }
 
 -- The fundep c -> e means:
@@ -66,8 +66,8 @@ class Iso a b | a -> b, b -> a {
 }
 
 instance Iso Bool Int {
-  forward := \b -> case b { True -> 1; False -> 0 };
-  backward := \n -> True
+  forward := \b. case b { True -> 1; False -> 0 };
+  backward := \n. True
 }
 
 -- forward True: a = Bool determines b = Int.

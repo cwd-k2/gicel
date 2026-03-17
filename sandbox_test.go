@@ -31,7 +31,7 @@ func TestSandboxRunTimeout(t *testing.T) {
 	_, err := gicel.RunSandbox(`
 import Std.Num
 loop :: Int -> Int
-loop := \n -> loop (n + 1)
+loop := \n. loop (n + 1)
 main := loop 0
 `, &gicel.SandboxConfig{
 		Packs:    []gicel.Pack{gicel.Num},
@@ -88,7 +88,7 @@ func TestSandboxDeepRecursion(t *testing.T) {
 	_, err := gicel.RunSandbox(`
 import Std.Num
 f :: Int -> Int
-f := \n -> f (n + 1)
+f := \n. f (n + 1)
 main := f 0
 `, &gicel.SandboxConfig{
 		Packs:    []gicel.Pack{gicel.Num},
@@ -140,7 +140,7 @@ main := reverse (replicate 500 1)
 }
 
 func TestSandboxRunAllPacks(t *testing.T) {
-	result, err := gicel.RunSandbox("import Std.Num\nimport Std.Str\nimport Std.List\nmain := showInt (foldl (\\acc -> \\x -> acc + x) 0 (Cons 1 (Cons 2 (Cons 3 Nil))))", &gicel.SandboxConfig{
+	result, err := gicel.RunSandbox("import Std.Num\nimport Std.Str\nimport Std.List\nmain := showInt (foldl (\\acc x. acc + x) 0 (Cons 1 (Cons 2 (Cons 3 Nil))))", &gicel.SandboxConfig{
 		Packs: []gicel.Pack{gicel.Num, gicel.Str, gicel.List},
 	})
 	if err != nil {

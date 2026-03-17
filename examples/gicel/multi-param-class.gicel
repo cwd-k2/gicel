@@ -17,12 +17,12 @@ class Convert a b {
 
 -- Coerce Bool to Maybe Bool: True -> Just True, False -> Nothing
 instance Coercible Bool (Maybe Bool) {
-  coerce := \b -> case b { True -> Just True; False -> Nothing }
+  coerce := \b. case b { True -> Just True; False -> Nothing }
 }
 
 -- Coerce Maybe a to Bool: Just -> True, Nothing -> False
 instance Coercible (Maybe a) Bool {
-  coerce := \m -> case m { Just _ -> True; Nothing -> False }
+  coerce := \m. case m { Just _ -> True; Nothing -> False }
 }
 
 -- Coerce () to Bool: unit is False
@@ -32,22 +32,22 @@ instance Coercible () Bool {
 
 -- Convert Bool to Ordering: True -> GT, False -> LT
 instance Convert Bool Ordering {
-  convert := \b -> case b { True -> GT; False -> LT }
+  convert := \b. case b { True -> GT; False -> LT }
 }
 
 -- Convert Ordering to Bool: GT/EQ -> True, LT -> False
 instance Convert Ordering Bool {
-  convert := \o -> case o { GT -> True; EQ -> True; LT -> False }
+  convert := \o. case o { GT -> True; EQ -> True; LT -> False }
 }
 
 -- Coerce Ordering to Bool (same mapping as Convert, for composition demo)
 instance Coercible Ordering Bool {
-  coerce := \o -> case o { GT -> True; EQ -> True; LT -> False }
+  coerce := \o. case o { GT -> True; EQ -> True; LT -> False }
 }
 
 -- Compose two conversions: convert then coerce
 convertAndCoerce :: \a b c. Convert a b => Coercible b c => a -> c
-convertAndCoerce := \x -> coerce (convert x)
+convertAndCoerce := \x. coerce (convert x)
 
 -- Tests
 test1 := coerce True               -- Just True  (Bool -> Maybe Bool)

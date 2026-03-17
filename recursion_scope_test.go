@@ -20,7 +20,7 @@ func TestEnableRecursionScopedToModule(t *testing.T) {
 
 	// User code should NOT have access to fix.
 	_, err := eng.NewRuntime(`
-main := fix (\self -> \x -> x) True
+main := fix (\self x. x) True
 `)
 	if err == nil {
 		t.Fatal("expected compile error: fix should not be in scope for user code")
@@ -59,7 +59,7 @@ func TestExplicitEnableRecursionStillWorks(t *testing.T) {
 	eng.EnableRecursion()
 
 	rt, err := eng.NewRuntime(`
-main := fix (\self -> \x -> x) True
+main := fix (\self x. x) True
 `)
 	if err != nil {
 		t.Fatalf("explicit EnableRecursion should work: %v", err)

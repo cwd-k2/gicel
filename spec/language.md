@@ -98,7 +98,7 @@ Together, these operations form an **Atkey parameterized monad** (Atkey, JFP 200
 ```
 bind (pure a) f       =  f a                                  -- left identity
 bind m pure           =  m                                     -- right identity
-bind (bind m f) g     =  bind m (\a -> bind (f a) g)           -- associativity
+bind (bind m f) g     =  bind m (\a. bind (f a) g)             -- associativity
 ```
 
 These laws are verified by construction in the evaluator, not by the type checker.
@@ -225,7 +225,7 @@ Universal quantification over type variables, row variables, and kind variables:
 \(k : Kind). T     -- kind polymorphism
 ```
 
-`\` serves dual purpose: lambda in expression context (`\x -> e`), and universal quantification in type context (`\a. T`). The separator distinguishes the two: `->` for lambda, `.` for quantification. There is no ambiguity because the parser knows whether it is in type or expression context.
+`\` serves dual purpose: lambda in expression context (`\x. e`) and universal quantification in type context (`\a. T`). Both use `.` as the body separator. There is no ambiguity because the parser knows whether it is in type or expression context. Multi-parameter lambdas are supported: `\x y z. e` desugars to `\x. \y. \z. e`.
 
 Higher-rank polymorphism: `\` quantifiers may appear under arrows, enabling rank-N types. Higher-rank types require explicit annotations. The checker uses subsumption (DK bidirectional approach): skolemization for checking, instantiation for inference.
 
@@ -270,7 +270,7 @@ case  do  data  type  infixl  infixr  infixn  class  instance  import
 
 10 keywords. Note that `pure`, `bind`, `thunk`, `force`, `assumption`, `rec`, and `fix` are **not** keywords — they are ordinary identifiers with built-in meaning. `pure`, `bind`, `rec`, and `fix` are first-class functions (can be partially applied and passed to higher-order functions); `thunk` and `force` are term formers (must be fully applied).
 
-`\` is used for both lambda (`\x -> e`) and universal quantification (`\a. T`). The separator distinguishes: `->` for lambda, `.` for quantification. The parser disambiguates by context (expression vs. type).
+`\` is used for both lambda (`\x. e`) and universal quantification (`\a. T`). Both use `.` as the body separator. The parser disambiguates by context (expression vs. type). Multi-parameter lambdas are supported: `\x y. e` desugars to `\x. \y. e`.
 
 `;` and newline are interchangeable as declaration/statement separators at the top level. Inside braces (`do`, `case`, GADT bodies), semicolons are required — newlines alone do not act as separators.
 
@@ -287,17 +287,17 @@ Op     ::= operator characters              -- +, -, *, /, ==, >>=, .
 
 ## 3.3 Tokens
 
-| Token | Meaning                                                 |
-| ----- | ------------------------------------------------------- |
-| `::`  | Type annotation                                         |
-| `:=`  | Definition binding                                      |
-| `->`  | Function type arrow                                     |
-| `=>`  | Constraint arrow                                        |
-| `\`   | Lambda                                                  |
-| `\|`  | Row extension / record update / case separator          |
-| `.`   | quantifier body separator / composition operator (infixr 9) |
-| `.#`  | Record projection                                       |
-| `@`   | Explicit type application                               |
+| Token | Meaning                                                                             |
+| ----- | ----------------------------------------------------------------------------------- |
+| `::`  | Type annotation                                                                     |
+| `:=`  | Definition binding                                                                  |
+| `->`  | Function type arrow / case alternative                                              |
+| `=>`  | Constraint arrow                                                                    |
+| `\`   | Lambda                                                                              |
+| `\|`  | Row extension / record update / case separator                                      |
+| `.`   | lambda body separator / quantifier body separator / composition operator (infixr 9) |
+| `.#`  | Record projection                                                                   |
+| `@`   | Explicit type application                                                           |
 
 ## 3.4 Type Syntax
 
@@ -337,7 +337,7 @@ Precedence of type operators (loosest to tightest):
 
 ```
 Expr      ::= 'do' '{' Stmt+ '}'                           -- do block
-            | '\' Pattern '->' Expr                         -- lambda (single parameter)
+            | '\' Pattern+ '.' Expr                         -- lambda (multi-parameter)
             | 'case' Expr '{' Branch (';' Branch)* '}'     -- case analysis
             | 'thunk' Expr                                  -- suspend computation
             | ExprInfix
@@ -381,8 +381,8 @@ Lit       ::= IntLit | StringLit | RuneLit
 Three operator section forms exist:
 
 - `(op)` wraps an operator in parentheses to use it as a first-class value (e.g. `foldr (+) 0 xs`). This mirrors the declaration-level `(op) := ...` syntax.
-- `(op expr)` is a right section: `(+ 1)` desugars to `\x -> x + 1`. The operator binds the right argument.
-- `(expr op)` is a left section: `(1 +)` desugars to `\x -> 1 + x`. The operator binds the left argument.
+- `(op expr)` is a right section: `(+ 1)` desugars to `\x. x + 1`. The operator binds the right argument.
+- `(expr op)` is a left section: `(1 +)` desugars to `\x. 1 + x`. The operator binds the left argument.
 
 All three forms produce ordinary values of function type and can be passed to higher-order functions.
 
@@ -680,7 +680,7 @@ The exhaustiveness checker uses the Maranget algorithm. For GADTs, a constructor
 
 ```
 eval :: Expr Bool -> Bool
-eval := \e -> case e {
+eval := \e. case e {
   BoolLit b -> b;
   If c t f  -> ...
 }
@@ -900,7 +900,7 @@ Record fields may have higher-rank types:
 
 ```
 r :: Record { apply : \a. a -> a }
-r := { apply = \x -> x }
+r := { apply = \x. x }
 ```
 
 The expected type propagates into the record literal, so the lambda receives the `\a. a -> a` annotation and type-checks at rank 2.
@@ -946,8 +946,8 @@ The field must exist in the original record.
 Record patterns are open (partial match permitted):
 
 ```
-\{ x = a, y = b } -> a
-\{ x = a } -> a               -- other fields ignored
+\{ x = a, y = b }. a
+\{ x = a }. a                 -- other fields ignored
 case r { { x = a, y = b } -> a }
 { x = n } := r                -- block binding destructuring
 ```
@@ -1001,10 +1001,10 @@ do {
 }
 
 -- desugars to:
-bind getLine (\x -> bind getLine (\y -> pure (append x y)))
+bind getLine (\x. bind getLine (\y. pure (append x y)))
 ```
 
-A bare expression `e` at the end of a `do` block is the final computation. A bare expression `e` followed by more statements desugars to `bind e (\_ -> ...)`.
+A bare expression `e` at the end of a `do` block is the final computation. A bare expression `e` followed by more statements desugars to `bind e (\_. ...)`.
 
 ## 9.2 Block Expressions
 
@@ -1013,7 +1013,7 @@ Block expressions `{ x := e; body }` desugar to lambda application:
 ```
 { x := 1; x + 2 }
 -- desugars to:
-(\x -> x + 2) 1
+(\x. x + 2) 1
 ```
 
 ## 9.3 Recursion
@@ -1023,13 +1023,13 @@ Recursion is opt-in. The host must call `EnableRecursion()` to permit recursive 
 `rec` introduces recursive bindings:
 
 ```
-rec fac := \n -> case eq n 0 {
+rec fac := \n. case eq n 0 {
   True -> 1;
   False -> n * fac (n - 1)
 }
 ```
 
-`fix` is the fixpoint combinator. `rec f := e` elaborates to `f := fix (\f -> e)`.
+`fix` is the fixpoint combinator. `rec f := e` elaborates to `f := fix (\f. e)`.
 
 ## 9.4 Capability State Transitions
 
@@ -1330,10 +1330,10 @@ Types (`Int`, `String`, `Rune`) are checker built-ins; operations come from stdl
 
 # 16. Open Design Fork Points
 
-| Fork Point                                         | Current State                                           | Decision Trigger                                                        |
-| -------------------------------------------------- | ------------------------------------------------------- | ----------------------------------------------------------------------- |
-| `Row` as built-in kind vs general structured-index | Built-in kind; reduced pressure via DataKinds           | Need for non-capability indexing (e.g., session types)                  |
-| Algebraic effects/handlers vs indexed monad        | Indexed monad (Atkey); type families reduce motivation  | Evidence that handler-based approach better serves the AI agent use case |
+| Fork Point                                         | Current State                                          | Decision Trigger                                                         |
+| -------------------------------------------------- | ------------------------------------------------------ | ------------------------------------------------------------------------ |
+| `Row` as built-in kind vs general structured-index | Built-in kind; reduced pressure via DataKinds          | Need for non-capability indexing (e.g., session types)                   |
+| Algebraic effects/handlers vs indexed monad        | Indexed monad (Atkey); type families reduce motivation | Evidence that handler-based approach better serves the AI agent use case |
 
 ---
 

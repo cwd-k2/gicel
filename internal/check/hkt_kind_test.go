@@ -16,21 +16,21 @@ func TestResolveKindSort(t *testing.T) {
 	// \ (k : Kind). \ (a : k). a -> a
 	// Should parse and resolve without errors.
 	source := `id_k :: \ (k : Kind). \ (a : k). a -> a
-id_k := \x -> x`
+id_k := \x. x`
 	checkSource(t, source, nil)
 }
 
 func TestResolveKindVarInArrow(t *testing.T) {
 	// \ (k : Kind). \ (f : k -> Type). f Int -> f Int
 	source := `apply_f :: \ (k : Kind). \ (f : k -> Type). f Int -> f Int
-apply_f := \x -> x`
+apply_f := \x. x`
 	checkSource(t, source, nil)
 }
 
 func TestKindVarSingleForall(t *testing.T) {
 	// Kind variable in a single \ with multiple binders
 	source := `id_k :: \ (k : Kind) (a : k). a -> a
-id_k := \x -> x`
+id_k := \x. x`
 	checkSource(t, source, nil)
 }
 
@@ -43,7 +43,7 @@ func TestKindVarNotInScopeOutside(t *testing.T) {
 	// KindExprName "k" should fall through to KType{} (not an error,
 	// just treated as unknown → defaults to Type).
 	source := `f :: \ (a : k). a -> a
-f := \x -> x`
+f := \x. x`
 	checkSource(t, source, nil)
 }
 
@@ -57,7 +57,7 @@ func TestKindPolyInstantiation(t *testing.T) {
 data Bool = True | False
 
 id_k :: \ (k : Kind). \ (a : k). a -> a
-id_k := \x -> x
+id_k := \x. x
 
 use := id_k True
 `
@@ -71,7 +71,7 @@ data Bool = True | False
 data Maybe a = Nothing | Just a
 
 id_k :: \ (k : Kind). \ (a : k). a -> a
-id_k := \x -> x
+id_k := \x. x
 
 use_maybe := id_k (Just True)
 `
@@ -100,10 +100,10 @@ func parseKindPoly(t *testing.T, source string) {
 
 func TestParseKindPolyFunction(t *testing.T) {
 	parseKindPoly(t, `f :: \ (k : Kind). \ (f : k -> Type). f Int -> f Int
-f := \x -> x`)
+f := \x. x`)
 }
 
 func TestParseKindPolyNestedArrow(t *testing.T) {
 	parseKindPoly(t, `f :: \ (k : Kind) (j : Kind). \ (f : k -> j -> Type). Int
-f := \x -> x`)
+f := \x. x`)
 }

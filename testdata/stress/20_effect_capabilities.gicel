@@ -26,7 +26,7 @@ main := do {
 
   -- modify
   put 10;
-  modify (\x -> x * 2);
+  modify (\x. x * 2);
   v5 <- get;
 
   -- chain state operations

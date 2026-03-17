@@ -264,7 +264,7 @@ func (ch *Checker) elaborateDoMonadic(stmts []syntax.Stmt, monadHead types.Type,
 
 	switch st := stmts[0].(type) {
 	case *syntax.StmtBind:
-		// x <- comp; rest  →  ixbind comp (\x -> rest)
+		// x <- comp; rest  →  ixbind comp (\x. rest)
 		// Intercept `x <- pure val` / `x <- ixpure val`.
 		var compCore core.Core
 		var resultTy types.Type
@@ -283,7 +283,7 @@ func (ch *Checker) elaborateDoMonadic(stmts []syntax.Stmt, monadHead types.Type,
 		return ch.mkIxBind(monadHead, compCore, st.Var, restCore, st.S)
 
 	case *syntax.StmtExpr:
-		// comp; rest  →  ixbind comp (\_ -> rest)
+		// comp; rest  →  ixbind comp (\_. rest)
 		var compCore core.Core
 		if pureVal := extractPureArg(st.Expr); pureVal != nil {
 			_, vc := ch.infer(pureVal)
@@ -296,7 +296,7 @@ func (ch *Checker) elaborateDoMonadic(stmts []syntax.Stmt, monadHead types.Type,
 		return ch.mkIxBind(monadHead, compCore, "_", restCore, st.S)
 
 	case *syntax.StmtPureBind:
-		// x := e; rest  →  (\x -> rest) e
+		// x := e; rest  →  (\x. rest) e
 		bindTy, bindCore := ch.infer(st.Expr)
 		ch.ctx.Push(&CtxVar{Name: st.Var, Type: bindTy})
 		restCore := ch.elaborateDoMonadic(stmts[1:], monadHead, expected, s)

@@ -8,25 +8,25 @@ intEq :: Int -> Int -> Bool
 intEq := assumption
 
 length :: \a. List a -> Int
-length := fix (\self -> \xs -> case xs {
+length := fix (\self xs. case xs {
   Nil       -> intZero ();
   Cons _ rest -> intSucc (self rest)
 })
 
 map :: \a b. (a -> b) -> List a -> List b
-map := \f -> fix (\self -> \xs -> case xs {
+map := \f. fix (\self xs. case xs {
   Nil        -> Nil;
   Cons x rest -> Cons (f x) (self rest)
 })
 
 append :: \a. List a -> List a -> List a
-append := \xs -> \ys -> fix (\self -> \zs -> case zs {
+append := \xs ys. fix (\self zs. case zs {
   Nil        -> ys;
   Cons z rest -> Cons z (self rest)
 }) xs
 
 filter :: \a. (a -> Bool) -> List a -> List a
-filter := \p -> fix (\self -> \xs -> case xs {
+filter := \p. fix (\self xs. case xs {
   Nil        -> Nil;
   Cons x rest -> case p x {
     True  -> Cons x (self rest);
@@ -35,13 +35,13 @@ filter := \p -> fix (\self -> \xs -> case xs {
 })
 
 reverse :: \a. List a -> List a
-reverse := \xs -> fix (\go -> \acc -> \ys -> case ys {
+reverse := \xs. fix (\go acc ys. case ys {
   Nil        -> acc;
   Cons y rest -> go (Cons y acc) rest
 }) Nil xs
 
 take :: \a. Int -> List a -> List a
-take := \n -> fix (\self -> \xs -> case intEq n (intZero ()) {
+take := \n. fix (\self xs. case intEq n (intZero ()) {
   True  -> Nil;
   False -> case xs {
     Nil        -> Nil;
@@ -52,22 +52,22 @@ take := \n -> fix (\self -> \xs -> case intEq n (intZero ()) {
 data Tree a = Leaf a | Branch (Tree a) (Tree a)
 
 treeSize :: \a. Tree a -> Int
-treeSize := fix (\self -> \t -> case t {
+treeSize := fix (\self t. case t {
   Leaf _     -> intSucc (intZero ());
   Branch l r -> intAdd (self l) (self r)
 })
 
 treeMap :: \a b. (a -> b) -> Tree a -> Tree b
-treeMap := \f -> fix (\self -> \t -> case t {
+treeMap := \f. fix (\self t. case t {
   Leaf x     -> Leaf (f x);
   Branch l r -> Branch (self l) (self r)
 })
 
-not := \b -> case b { True -> False; False -> True }
+not := \b. case b { True -> False; False -> True }
 
 list1 := Cons True (Cons False (Cons True (Cons False (Cons True Nil))))
 mapped := map not list1
-filtered := filter (\x -> x) mapped
+filtered := filter (\x. x) mapped
 combined := append filtered (reverse list1)
 
 tree1 := Branch (Branch (Leaf True) (Leaf False)) (Leaf True)

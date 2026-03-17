@@ -10,28 +10,28 @@
 -- at two different types (Bool and Maybe Bool).
 -- The `\a.` inside the argument type is what makes this rank-2.
 applyToBoth :: (\a. a -> a) -> (Bool, Maybe Bool)
-applyToBoth := \f -> (f True, f (Just False))
+applyToBoth := \f. (f True, f (Just False))
 
 -- The polymorphic identity works because it is `\a. a -> a`
-test1 := applyToBoth (\x -> x)
+test1 := applyToBoth (\x. x)
 
 -- Another rank-2 function: applies a polymorphic function to
 -- values wrapped in Maybe at different types
 applyInMaybe :: (\a. a -> a) -> (Maybe Bool, Maybe Ordering)
-applyInMaybe := \f -> (fmap f (Just True), fmap f (Just EQ))
+applyInMaybe := \f. (fmap f (Just True), fmap f (Just EQ))
 
 test2 := applyInMaybe id
 
 -- Rank-2 with constraints: the polymorphic argument must satisfy Eq
 -- for whatever type it's used at
 applyEq :: (\a. Eq a => a -> a -> Bool) -> (Bool, Bool)
-applyEq := \f -> (f True False, f (Just True) (Just True))
+applyEq := \f. (f True False, f (Just True) (Just True))
 
 test3 := applyEq eq
 
 -- A rank-2 function that creates pairs using a polymorphic wrapper
 wrapBoth :: (\a. a -> Maybe a) -> (Maybe Bool, Maybe Ordering)
-wrapBoth := \wrap -> (wrap True, wrap GT)
+wrapBoth := \wrap. (wrap True, wrap GT)
 
 test4 := wrapBoth Just
 

@@ -51,7 +51,7 @@ func BuiltinEnv(enableFix, enableRec bool) *Env {
 }
 
 // fixpointBody returns the LetRec body shared by fix and rec.
-// letrec x = \arg -> (f x) arg in x
+// letrec x = \arg. (f x) arg in x
 func fixpointBody() *core.LetRec {
 	return &core.LetRec{
 		Bindings: []core.Binding{{

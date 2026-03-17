@@ -18,7 +18,7 @@ type Pair a b = (a, b)
 -- [infixl] — left-associative operator at precedence 5
 infixl 5 <+>
 (<+>) :: Int -> Int -> Int
-(<+>) := \x -> \y -> x + y + 1
+(<+>) := \x y. x + y + 1
 
 -- [infixr] — right-associative operator at precedence 8
 infixr 8 <**>
@@ -37,7 +37,7 @@ class Describe a {
 
 -- [instance] — implement the class for Color
 instance Describe Color {
-  describe := \c -> case c {
+  describe := \c. case c {
     Red   -> "red";
     Green -> "green";
     Blue  -> "blue"
@@ -46,7 +46,7 @@ instance Describe Color {
 
 -- [instance] — implement for Bool (from prelude)
 instance Describe Bool {
-  describe := \b -> case b {
+  describe := \b. case b {
     True  -> "true";
     False -> "false"
   }

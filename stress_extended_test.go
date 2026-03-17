@@ -41,8 +41,8 @@ func TestStressDeepRightAssocInfix(t *testing.T) {
 	var sb strings.Builder
 	sb.WriteString("infixr 9 .\n")
 	sb.WriteString("(.) :: \\ a b c. (b -> c) -> (a -> b) -> a -> c\n")
-	sb.WriteString("(.) := \\f -> \\g -> \\x -> f (g x)\n")
-	sb.WriteString("id :: \\ a. a -> a\nid := \\x -> x\n")
+	sb.WriteString("(.) := \\f g x. f (g x)\n")
+	sb.WriteString("id :: \\ a. a -> a\nid := \\x. x\n")
 	sb.WriteString("main := (")
 	for range 150 {
 		sb.WriteString("id . ")
@@ -108,23 +108,23 @@ import Std.Num
 
 infixl 6 ++
 (++) :: Int -> Int -> Int
-(++) := \a -> \b -> a + b
+(++) := \a b. a + b
 
 infixl 7 **
 (**) :: Int -> Int -> Int
-(**) := \a -> \b -> a * b
+(**) := \a b. a * b
 
 infixr 5 $$
 ($$) :: Int -> Int -> Int
-($$) := \a -> \b -> a + b
+($$) := \a b. a + b
 
 infixl 4 <<
 (<<) :: Int -> Int -> Int
-(<<) := \a -> \b -> a + b
+(<<) := \a b. a + b
 
 infixr 8 ^^
 (^^) :: Int -> Int -> Int
-(^^) := \a -> \b -> a + b
+(^^) := \a b. a + b
 
 -- Higher precedence binds tighter: ^^ (8) > ** (7) > ++ (6) > $$ (5) > << (4)
 -- 1 << 2 $$ 3 ++ 4 ** 5 ^^ 6
@@ -207,7 +207,7 @@ func TestStressDeepSelfRecursion(t *testing.T) {
 import Std.Num
 
 countdown :: Int -> Int
-countdown := fix (\self -> \n -> case n == 0 { True -> 0; False -> self (n - 1) })
+countdown := fix (\self n. case n == 0 { True -> 0; False -> self (n - 1) })
 
 main := countdown 500
 `
@@ -305,7 +305,7 @@ func TestStressClosureFVTrimming(t *testing.T) {
 	for i := range 50 {
 		sb.WriteString(fmt.Sprintf("x%d := True\n", i))
 	}
-	sb.WriteString("f := \\y -> case y { True -> x0; False -> x49 }\n")
+	sb.WriteString("f := \\y. case y { True -> x0; False -> x49 }\n")
 	sb.WriteString("main := (f True, f False)\n")
 
 	result, err := gicel.RunSandbox(sb.String(), &gicel.SandboxConfig{
@@ -329,9 +329,9 @@ import Std.Num
 import Std.List
 
 mkRange :: Int -> Int -> List Int
-mkRange := fix (\self -> \lo -> \hi -> case lo == hi { True -> Nil; False -> Cons lo (self (lo + 1) hi) })
+mkRange := fix (\self lo hi. case lo == hi { True -> Nil; False -> Cons lo (self (lo + 1) hi) })
 
-main := foldl (\acc -> \x -> acc + x) 0 (mkRange 1 201)
+main := foldl (\acc x. acc + x) 0 (mkRange 1 201)
 `
 	eng := gicel.NewEngine()
 	eng.EnableRecursion()
@@ -398,7 +398,7 @@ func TestStressConcurrentRunWith(t *testing.T) {
 	rt, err := eng.NewRuntime(`
 import Std.Num
 double :: Int -> Int
-double := \n -> n + n
+double := \n. n + n
 main := double x
 `)
 	if err != nil {
@@ -582,7 +582,7 @@ func TestStressCustomPrelude(t *testing.T) {
 	eng.SetPrelude(`
 data MyBool = Yes | No
 myNot :: MyBool -> MyBool
-myNot := \b -> case b { Yes -> No; No -> Yes }
+myNot := \b. case b { Yes -> No; No -> Yes }
 `)
 	rt, err := eng.NewRuntime("main := myNot Yes\n")
 	if err != nil {
@@ -625,7 +625,7 @@ func TestStressMultiEntryIndependentLimits(t *testing.T) {
 // TestStressStepLimitBoundary — verify step limit fires precisely.
 func TestStressStepLimitBoundary(t *testing.T) {
 	source := `
-id := \x -> x
+id := \x. x
 main := id (id (id (id (id True))))
 `
 	result, err := gicel.RunSandbox(source, &gicel.SandboxConfig{
@@ -657,7 +657,7 @@ main := id (id (id (id (id True))))
 
 // TestStressDepthLimitWithNestedApply — nested application chain triggers depth limit.
 // Uses opaque function binding since the optimizer eliminates both
-// force(thunk(..)) (R4) and (\_ -> body) () (R2).
+// force(thunk(..)) (R4) and (\_. body) () (R2).
 func TestStressDepthLimitWithThunkForce(t *testing.T) {
 	eng := gicel.NewEngine()
 	eng.DeclareBinding("f", gicel.ArrowType(gicel.ConType("Bool"), gicel.ConType("Bool")))
@@ -690,7 +690,7 @@ func TestStressDepthLimitWithThunkForce(t *testing.T) {
 	// For depth limit test, just use RunSandbox with a simple recursive pattern.
 	eng2 := gicel.NewEngine()
 	eng2.EnableRecursion()
-	_, err = gicel.RunSandbox("main := fix (\\self -> \\x -> self x) True", &gicel.SandboxConfig{
+	_, err = gicel.RunSandbox("main := fix (\\self x. self x) True", &gicel.SandboxConfig{
 		MaxSteps: 100_000,
 		MaxDepth: 5,
 		Packs:    nil,
@@ -704,7 +704,7 @@ func TestStressDepthLimitWithThunkForce(t *testing.T) {
 func TestStressContextCancellation(t *testing.T) {
 	source := `
 loop :: Bool -> Bool
-loop := fix (\self -> \x -> self x)
+loop := fix (\self x. self x)
 main := loop True
 `
 	eng := gicel.NewEngine()
@@ -736,7 +736,7 @@ func TestStressAllocLimitRecursiveRecord(t *testing.T) {
 import Std.Num
 
 build :: Int -> Record { a : Int, b : Int, c : Int, d : Int, e : Int } -> Int
-build := fix (\self -> \n -> \r -> case n == 0 { True -> r.#a; False -> self (n - 1) { r | a = n } })
+build := fix (\self n r. case n == 0 { True -> r.#a; False -> self (n - 1) { r | a = n } })
 
 main := build 10000 { a = 0, b = 0, c = 0, d = 0, e = 0 }
 `
@@ -768,7 +768,7 @@ func TestStressStepLimitBranching(t *testing.T) {
 import Std.Num
 
 longBranch :: Int -> Int
-longBranch := fix (\self -> \n -> case n == 0 { True -> 0; False -> self (n - 1) })
+longBranch := fix (\self n. case n == 0 { True -> 0; False -> self (n - 1) })
 
 main := case True { True -> longBranch 10000; False -> 42 }
 `

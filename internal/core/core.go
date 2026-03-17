@@ -76,7 +76,7 @@ type Pure struct {
 	S    span.Span
 }
 
-// Bind — computation sequencing (bind c (\x -> e)).
+// Bind — computation sequencing (bind c (\x. e)).
 type Bind struct {
 	Comp Core
 	Var  string

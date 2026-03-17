@@ -24,16 +24,16 @@ instance Container (List a) {
 -- Instance for String: Elem String = Rune.
 instance Container String {
   type Elem String = Rune;
-  cfold := \f -> \z -> \s -> foldr f z (toRunes s)
+  cfold := \f z s. foldr f z (toRunes s)
 }
 
 -- Generic operations that work on any Container.
 -- The type checker reduces Elem c at each call site.
 clength :: \c. Container c => c -> Int
-clength := cfold (\_ -> \n -> n + 1) 0
+clength := cfold (\_ n. n + 1) 0
 
 cany :: \c. Container c => (Elem c -> Bool) -> c -> Bool
-cany := \p -> cfold (\x -> \acc -> case acc { True -> True; False -> p x }) False
+cany := \p. cfold (\x acc. case acc { True -> True; False -> p x }) False
 
 -- clength on List Int: Elem (List Int) → Int, fold counts elements.
 listLen := clength (Cons 1 (Cons 2 (Cons 3 Nil)))
@@ -44,7 +44,7 @@ strLen := clength "hello"
 -- cany on List: checks if any element satisfies a predicate.
 -- @(List Int) is explicit type application — it tells the checker
 -- which Container instance to use, so Elem c can reduce.
-hasPositive := cany @(List Int) (\x -> x > 0) (Cons 0 (Cons 0 (Cons 1 Nil)))
+hasPositive := cany @(List Int) (\x. x > 0) (Cons 0 (Cons 0 (Cons 1 Nil)))
 
 -- Output: (3, 5, True)
 main := (listLen, strLen, hasPositive)

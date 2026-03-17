@@ -15,9 +15,9 @@ import (
 // The source defines three functions using only the prelude Bool type.
 // There are no literals — True and False are constructors provided by the prelude.
 const source = `
-not := \b -> case b { True -> False; False -> True }
+not := \b. case b { True -> False; False -> True }
 
-and := \a -> \b -> case a { True -> b; False -> False }
+and := \a b. case a { True -> b; False -> False }
 
 main := and (not False) True
 `

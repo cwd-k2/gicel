@@ -20,7 +20,7 @@ data Unit = Unit
 consumeAll :: Computation { a : Unit, b : Unit } {} Unit
 consumeAll := assumption
 f :: Bool -> Computation { a : Unit, b : Unit } {} Unit
-f := \b -> case b {
+f := \b. case b {
   True -> consumeAll;
   False -> consumeAll
 }
@@ -34,7 +34,7 @@ data Unit = MkUnit
 consume :: Computation { a : Unit } {} Unit
 consume := assumption
 f :: Unit -> Computation { a : Unit } {} Unit
-f := \u -> case u {
+f := \u. case u {
   MkUnit -> consume
 }
 `
@@ -55,7 +55,7 @@ consumeA := assumption
 noop :: Computation { a : Unit, b : Unit } { a : Unit, b : Unit } Unit
 noop := assumption
 f :: Bool -> Computation { a : Unit, b : Unit } { b : Unit } Unit
-f := \b -> case b {
+f := \b. case b {
   True -> consumeA;
   False -> noop
 }
@@ -73,7 +73,7 @@ data Unit = Unit
 close :: Computation { h : Unit @Linear } {} Unit
 close := assumption
 f :: Bool -> Computation { h : Unit @Linear } {} Unit
-f := \b -> case b {
+f := \b. case b {
   True -> close;
   False -> close
 }
@@ -104,7 +104,7 @@ func TestCasePureValueUnchanged(t *testing.T) {
 data Bool = True | False
 data Unit = Unit
 f :: Bool -> Unit
-f := \b -> case b {
+f := \b. case b {
   True -> Unit;
   False -> Unit
 }
@@ -128,7 +128,7 @@ consumeA := assumption
 consumeB :: Computation { a : Unit, b : Unit } { a : Unit } Unit
 consumeB := assumption
 f :: Bool -> Computation { a : Unit, b : Unit } {} Unit
-f := \b -> case b {
+f := \b. case b {
   True -> consumeA;
   False -> consumeB
 }
@@ -148,7 +148,7 @@ func TestTypehelpersWithMult(t *testing.T) {
 	source := `
 data Mult = Unrestricted | Affine | Linear
 f :: { x : Int @Linear } -> Int
-f := \r -> 0
+f := \r. 0
 `
 	checkSource(t, source, config)
 }

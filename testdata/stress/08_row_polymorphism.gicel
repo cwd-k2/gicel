@@ -13,27 +13,27 @@ intAdd :: Int -> Int -> Int
 intAdd := assumption
 
 dbOp :: \(r : Row). Int -> Computation { db : Int | r } { db : Int | r } Int
-dbOp := \delta -> do {
+dbOp := \delta. do {
   v <- readDB ();
   _ <- writeDB (intAdd v delta);
   readDB ()
 }
 
 logOp :: \(r : Row). Int -> Computation { log : Int | r } { log : Int | r } ()
-logOp := \val -> do {
+logOp := \val. do {
   _ <- appendLog val;
   pure ()
 }
 
 dbWithLog :: \(r : Row). Int -> Computation { db : Int, log : Int | r } { db : Int, log : Int | r } Int
-dbWithLog := \delta -> do {
+dbWithLog := \delta. do {
   result <- dbOp delta;
   _ <- logOp result;
   pure result
 }
 
 fullPipeline :: Int -> Computation { db : Int, log : Int, cfg : Int } { db : Int, log : Int, cfg : Int } Int
-fullPipeline := \_ -> do {
+fullPipeline := \_. do {
   cfg <- readConfig ();
   r1 <- dbWithLog cfg;
   r2 <- dbWithLog r1;
@@ -42,7 +42,7 @@ fullPipeline := \_ -> do {
 }
 
 compose :: \(r : Row). (() -> Computation r r Int) -> (Int -> Computation r r Int) -> () -> Computation r r Int
-compose := \f -> \g -> \_ -> do { x <- f (); g x }
+compose := \f g _. do { x <- f (); g x }
 
 main := do {
   cfg <- readConfig ();

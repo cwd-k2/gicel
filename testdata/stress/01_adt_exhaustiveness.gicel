@@ -6,51 +6,51 @@ data Prio = Low | Medium | High | Critical | Blocker
 data Dir = North | South | East | West | Up | Down
 
 colorToDay :: Color -> Day
-colorToDay := \c -> case c {
+colorToDay := \c. case c {
   Red     -> Mon; Green   -> Tue; Blue    -> Wed;
   Yellow  -> Thu; Cyan    -> Fri; Magenta -> Sat;
   White   -> Sun; Black   -> Mon
 }
 
 dayToShape :: Day -> Shape
-dayToShape := \d -> case d {
+dayToShape := \d. case d {
   Mon -> Circle;   Tue -> Square;    Wed -> Triangle;
   Thu -> Pentagon;  Fri -> Hexagon;   Sat -> Octagon;
   Sun -> Circle
 }
 
 shapeToColor :: Shape -> Color
-shapeToColor := \s -> case s {
+shapeToColor := \s. case s {
   Circle   -> Red;    Square   -> Green;  Triangle -> Blue;
   Pentagon -> Yellow; Hexagon  -> Cyan;   Octagon  -> Magenta
 }
 
 suitToPrio :: Suit -> Prio
-suitToPrio := \s -> case s {
+suitToPrio := \s. case s {
   Spade -> Critical; Heart -> High; Diamond -> Medium; Club -> Low
 }
 
 prioToDir :: Prio -> Dir
-prioToDir := \p -> case p {
+prioToDir := \p. case p {
   Low -> South; Medium -> East; High -> North; Critical -> Up; Blocker -> Down
 }
 
 dirToBool :: Dir -> Bool
-dirToBool := \d -> case d {
+dirToBool := \d. case d {
   North -> True;  South -> False; East -> True;
   West  -> False; Up    -> True;  Down -> False
 }
 
-not := \b -> case b { True -> False; False -> True }
+not := \b. case b { True -> False; False -> True }
 
 colorToBool :: Color -> Bool
-colorToBool := \c -> case c {
+colorToBool := \c. case c {
   Red -> True; Green -> False; Blue -> True; Yellow -> False;
   Cyan -> True; Magenta -> False; White -> True; Black -> False
 }
 
 pairMatch :: Color -> Shape -> Bool
-pairMatch := \c -> \s -> case c {
+pairMatch := \c s. case c {
   Red   -> case s { Circle -> True; _ -> False };
   Green -> case s { Square -> True; _ -> False };
   Blue  -> case s { Triangle -> True; _ -> False };
@@ -58,17 +58,17 @@ pairMatch := \c -> \s -> case c {
 }
 
 tripleChain :: Color -> Bool
-tripleChain := \c -> dirToBool (prioToDir (suitToPrio (case c {
+tripleChain := \c. dirToBool (prioToDir (suitToPrio (case c {
   Red -> Spade; Green -> Heart; Blue -> Diamond;
   Yellow -> Club; Cyan -> Spade; Magenta -> Heart;
   White -> Diamond; Black -> Club
 })))
 
 chainAll :: Color -> Shape
-chainAll := \c -> dayToShape (colorToDay c)
+chainAll := \c. dayToShape (colorToDay c)
 
 matchColor :: Color -> Color -> Bool
-matchColor := \a -> \b -> case a {
+matchColor := \a b. case a {
   Red     -> case b { Red -> True; _ -> False };
   Green   -> case b { Green -> True; _ -> False };
   Blue    -> case b { Blue -> True; _ -> False };

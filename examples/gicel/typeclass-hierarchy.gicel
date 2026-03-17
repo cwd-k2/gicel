@@ -26,12 +26,12 @@ class Eq' a => Ord' a {
 
 -- Show' instance for Priority: High is "truthy"
 instance Show' Priority {
-  toBool := \p -> case p { High -> True; Medium -> False; Low -> False }
+  toBool := \p. case p { High -> True; Medium -> False; Low -> False }
 }
 
 -- Eq' instance for Priority
 instance Eq' Priority {
-  eq' := \a -> \b -> case a {
+  eq' := \a b. case a {
     Low    -> case b { Low -> True;    Medium -> False; High -> False };
     Medium -> case b { Low -> False;   Medium -> True;  High -> False };
     High   -> case b { Low -> False;   Medium -> False; High -> True }
@@ -40,7 +40,7 @@ instance Eq' Priority {
 
 -- Ord' instance for Priority: Low < Medium < High
 instance Ord' Priority {
-  compare' := \a -> \b -> case a {
+  compare' := \a b. case a {
     Low -> case b { Low -> EQ; Medium -> LT; High -> LT };
     Medium -> case b { Low -> GT; Medium -> EQ; High -> LT };
     High -> case b { Low -> GT; Medium -> GT; High -> EQ }
@@ -50,7 +50,7 @@ instance Ord' Priority {
 -- A function that requires Ord' can use all three class methods
 -- because Ord' => Eq' => Show'
 describe :: \a. Ord' a => a -> a -> (Ordering, Bool, Bool)
-describe := \x -> \y -> (compare' x y, eq' x y, toBool x)
+describe := \x y. (compare' x y, eq' x y, toBool x)
 
 -- Tests
 test1 := describe Low High        -- (LT, False, False)

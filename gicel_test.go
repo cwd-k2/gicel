@@ -16,7 +16,7 @@ import (
 func TestIdentity(t *testing.T) {
 	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`
-id := \x -> x
+id := \x. x
 main := id True
 `)
 	if err != nil {
@@ -539,7 +539,7 @@ main := do { put 42; fail }
 func TestCaseExpression(t *testing.T) {
 	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`
-not := \b -> case b { True -> False; False -> True }
+not := \b. case b { True -> False; False -> True }
 main := not True
 `)
 	if err != nil {
@@ -710,7 +710,7 @@ func TestGoroutineSafety(t *testing.T) {
 func TestMultiParamLambda(t *testing.T) {
 	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`
-konst := \x -> \y -> x
+konst := \x y. x
 main := konst True False
 `)
 	if err != nil {
@@ -729,7 +729,7 @@ main := konst True False
 func TestNestedCase(t *testing.T) {
 	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`
-bothTrue := \x -> \y -> case x { True -> case y { True -> True; False -> False }; False -> False }
+bothTrue := \x y. case x { True -> case y { True -> True; False -> False }; False -> False }
 main := bothTrue True True
 `)
 	if err != nil {
@@ -747,7 +747,7 @@ main := bothTrue True True
 
 func TestBlockExpression(t *testing.T) {
 	eng := gicel.NewEngine()
-	// Block binding: { x := True; x } desugars to (\x -> x) True.
+	// Block binding: { x := True; x } desugars to (\x. x) True.
 	// The body references the block binding variable.
 	rt, err := eng.NewRuntime(`main := { x := True; x }`)
 	if err != nil {
@@ -833,7 +833,7 @@ func TestTypeErrorUnboundVar(t *testing.T) {
 func TestTypeErrorNonExhaustive(t *testing.T) {
 	eng := gicel.NewEngine()
 	_, err := eng.NewRuntime(`
-f := \x -> case x { True -> () }
+f := \x. case x { True -> () }
 main := f True
 `)
 	if err == nil {
@@ -886,7 +886,7 @@ func TestContextTimeout(t *testing.T) {
 	rt, err := eng.NewRuntime(`
 data Unit = Unit
 data Bool = True | False
-not := \b -> case b { True -> False; False -> True }
+not := \b. case b { True -> False; False -> True }
 main := not (not (not True))
 `)
 	if err != nil {
@@ -964,7 +964,7 @@ func TestRuntimePrimRegistryIsolation(t *testing.T) {
 func TestRuntimeConcurrent(t *testing.T) {
 	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`
-not := \b -> case b { True -> False; False -> True }
+not := \b. case b { True -> False; False -> True }
 main := not False
 `)
 	if err != nil {
@@ -1286,7 +1286,7 @@ main := True
 func TestNonExhaustiveMaybe(t *testing.T) {
 	eng := gicel.NewEngine()
 	_, err := eng.NewRuntime(`
-f := \x -> case x { Just y -> y }
+f := \x. case x { Just y -> y }
 main := f (Just True)
 `)
 	if err == nil {
@@ -1423,11 +1423,11 @@ func TestNewCapEnvExported(t *testing.T) {
 	}
 }
 
-// Explicit bind syntax: bind comp (\x -> body) elaborates to Core.Bind.
+// Explicit bind syntax: bind comp (\x. body) elaborates to Core.Bind.
 func TestExplicitBind(t *testing.T) {
 	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`
-main := bind (pure True) (\x -> pure x)
+main := bind (pure True) (\x. pure x)
 `)
 	if err != nil {
 		t.Fatal(err)
@@ -1639,7 +1639,7 @@ func TestExhaustiveLargeADT(t *testing.T) {
 	rt, err := eng.NewRuntime(`
 data Color = Red | Green | Blue | Yellow | Cyan | Magenta
 
-f := \c -> case c {
+f := \c. case c {
   Red -> True;
   Green -> False;
   Blue -> True;
@@ -1669,7 +1669,7 @@ func TestNonExhaustiveLargeADT(t *testing.T) {
 	_, err := eng.NewRuntime(`
 data Color = Red | Green | Blue | Yellow | Cyan | Magenta
 
-f := \c -> case c {
+f := \c. case c {
   Red -> True;
   Blue -> True
 }
@@ -1698,7 +1698,7 @@ func TestTypeClassEqBool(t *testing.T) {
 data Bool = True | False
 class Eq a { eq :: a -> a -> Bool }
 instance Eq Bool {
-  eq := \x -> \y -> case x {
+  eq := \x y. case x {
     True  -> case y { True -> True;  False -> False };
     False -> case y { True -> False; False -> True }
   }
@@ -1725,13 +1725,13 @@ func TestTypeClassPolymorphic(t *testing.T) {
 data Bool = True | False
 class Eq a { eq :: a -> a -> Bool }
 instance Eq Bool {
-  eq := \x -> \y -> case x {
+  eq := \x y. case x {
     True  -> case y { True -> True;  False -> False };
     False -> case y { True -> False; False -> True }
   }
 }
 f :: \a. Eq a => a -> a -> Bool
-f := \x -> \y -> eq x y
+f := \x y. eq x y
 main := f True True
 `)
 	if err != nil {
@@ -1755,13 +1755,13 @@ data Bool = True | False
 class Eq a { eq :: a -> a -> Bool }
 class Eq a => Ord a { lt :: a -> a -> Bool }
 instance Eq Bool {
-  eq := \x -> \y -> True
+  eq := \x y. True
 }
 instance Ord Bool {
-  lt := \x -> \y -> False
+  lt := \x y. False
 }
 useOrd :: \a. Ord a => a -> a -> Bool
-useOrd := \x -> \y -> eq x y
+useOrd := \x y. eq x y
 main := useOrd True False
 `)
 	if err != nil {
@@ -1785,12 +1785,12 @@ data Bool = True | False
 data Maybe a = Just a | Nothing
 class Functor f { fmap :: \a b. (a -> b) -> f a -> f b }
 instance Functor Maybe {
-  fmap := \g -> \mx -> case mx {
+  fmap := \g mx. case mx {
     Just x  -> Just (g x);
     Nothing -> Nothing
   }
 }
-not := \b -> case b { True -> False; False -> True }
+not := \b. case b { True -> False; False -> True }
 main := fmap not (Just True)
 `)
 	if err != nil {
@@ -1820,7 +1820,7 @@ func TestTypeClassMultiParam(t *testing.T) {
 data Bool = True | False
 class Coercible a b { coerce :: a -> b }
 instance Coercible Bool Bool {
-  coerce := \x -> x
+  coerce := \x. x
 }
 main := coerce True
 `)
@@ -1852,10 +1852,10 @@ data DBState = Opened | Closed
 data DB s = MkDB
 
 open :: DB Closed -> DB Opened
-open := \_ -> MkDB
+open := \_. MkDB
 
 close :: DB Opened -> DB Closed
-close := \_ -> MkDB
+close := \_. MkDB
 
 main := close (open (MkDB :: DB Closed))
 `)
@@ -1928,7 +1928,7 @@ func TestGADTEvalExpr(t *testing.T) {
 data Expr a = { LitBool :: Bool -> Expr Bool; Not :: Expr Bool -> Expr Bool }
 
 eval :: Expr Bool -> Bool
-eval := fix (\self -> \e -> case e {
+eval := fix (\self e. case e {
   LitBool b -> b;
   Not inner -> case self inner { True -> False; False -> True }
 })
@@ -1957,7 +1957,7 @@ data DB s = MkDB
 data Action s = { Open :: Action Opened; Close :: Action Closed }
 
 describe :: Action Opened -> DB Opened
-describe := \a -> case a { Open -> MkDB }
+describe := \a. case a { Open -> MkDB }
 
 main := describe Open
 `)
@@ -1981,7 +1981,7 @@ data Expr a = { LitBool :: Bool -> Expr Bool; Not :: Expr Bool -> Expr Bool }
 
 -- Nested pattern: match on Not (LitBool _)
 isDoubleNeg :: Expr Bool -> Bool
-isDoubleNeg := \e -> case e {
+isDoubleNeg := \e. case e {
   Not inner -> case inner {
     Not _ -> True;
     LitBool _ -> False
@@ -2012,7 +2012,7 @@ func TestRegisterModule(t *testing.T) {
 	err := eng.RegisterModule("Lib", `
 data Bool = True | False
 not :: Bool -> Bool
-not := \b -> case b { True -> False; False -> True }
+not := \b. case b { True -> False; False -> True }
 `)
 	if err != nil {
 		t.Fatal(err)
@@ -2025,7 +2025,7 @@ func TestImportModuleTypes(t *testing.T) {
 	err := eng.RegisterModule("Lib", `
 data Bool = True | False
 not :: Bool -> Bool
-not := \b -> case b { True -> False; False -> True }
+not := \b. case b { True -> False; False -> True }
 `)
 	if err != nil {
 		t.Fatal(err)
@@ -2053,7 +2053,7 @@ func TestImportModuleInstances(t *testing.T) {
 	err := eng.RegisterModule("EqLib", `
 data Bool = True | False
 class Eq a { eq :: a -> a -> Bool }
-instance Eq Bool { eq := \x -> \y -> True }
+instance Eq Bool { eq := \x y. True }
 `)
 	if err != nil {
 		t.Fatal(err)
@@ -2187,7 +2187,7 @@ func TestStdlibFunctor(t *testing.T) {
 	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`
 not :: Bool -> Bool
-not := \b -> case b { True -> False; False -> True }
+not := \b. case b { True -> False; False -> True }
 
 main := fmap not (Just True)
 `)
@@ -2211,7 +2211,7 @@ main := fmap not (Just True)
 func TestStdlibFoldable(t *testing.T) {
 	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`
-main := foldr (\x -> \_ -> x) False (Just True)
+main := foldr (\x _. x) False (Just True)
 `)
 	if err != nil {
 		t.Fatal(err)
@@ -2253,7 +2253,7 @@ func TestCoercibleMultiParam(t *testing.T) {
 	rt, err := eng.NewRuntime(`
 class Coercible a b { coerce :: a -> b }
 
-instance Coercible Bool () { coerce := \_ -> () }
+instance Coercible Bool () { coerce := \_. () }
 
 main := coerce True
 `)
@@ -2275,7 +2275,7 @@ func TestCoercibleUsage(t *testing.T) {
 	rt, err := eng.NewRuntime(`
 class Coercible a b { coerce :: a -> b }
 
-instance Coercible Bool Bool { coerce := \x -> x }
+instance Coercible Bool Bool { coerce := \x. x }
 
 main :: Bool
 main := coerce True
@@ -2461,7 +2461,7 @@ func TestUnifySkolemRigid(t *testing.T) {
 	eng := gicel.NewEngine()
 	_, err := eng.Compile(`
 not :: Bool -> Bool
-not := \x -> x
+not := \x. x
 main := not True
 `)
 	if err != nil {
@@ -2475,7 +2475,7 @@ func TestUnifySkolemSame(t *testing.T) {
 	_, err := eng.Compile(`
 data SameTest = { MkSame :: \a. a -> a -> SameTest }
 useIt :: SameTest -> Bool
-useIt := \s -> case s { MkSame x y -> True }
+useIt := \s. case s { MkSame x y -> True }
 `)
 	if err != nil {
 		t.Fatal("existential pattern match should pass:", err)
@@ -2489,7 +2489,7 @@ func TestSkolemEscapeDetected(t *testing.T) {
 	_, err := eng.Compile(`
 data Exists = { MkExists :: \a. a -> Exists }
 escape :: Exists -> Bool
-escape := \e -> case e { MkExists x -> x }
+escape := \e. case e { MkExists x -> x }
 `)
 	if err == nil {
 		t.Fatal("expected escape error, got nil")
@@ -2504,7 +2504,7 @@ func TestSkolemNoEscape(t *testing.T) {
 	_, err := eng.Compile(`
 data Wrapper = { MkWrapper :: \a. a -> Wrapper }
 safe :: Wrapper -> Bool
-safe := \w -> case w { MkWrapper _ -> True }
+safe := \w. case w { MkWrapper _ -> True }
 `)
 	if err != nil {
 		t.Fatal("non-escaping existential should pass:", err)
@@ -2515,7 +2515,7 @@ func TestSkolemEscapeInMeta(t *testing.T) {
 	eng := gicel.NewEngine()
 	_, err := eng.Compile(`
 data SomeVal = { MkSome :: \a. a -> SomeVal }
-leaky := \s -> case s { MkSome x -> Just x }
+leaky := \s. case s { MkSome x -> Just x }
 `)
 	if err == nil {
 		t.Fatal("expected escape error for Just x where x is existential")
@@ -2529,7 +2529,7 @@ func TestExistentialBasic(t *testing.T) {
 	rt, err := eng.NewRuntime(`
 data SomeEq = { MkSomeEq :: \a. Eq a => a -> SomeEq }
 useSomeEq :: SomeEq -> Bool
-useSomeEq := \s -> case s { MkSomeEq x -> eq x x }
+useSomeEq := \s. case s { MkSomeEq x -> eq x x }
 main := useSomeEq (MkSomeEq True)
 `)
 	if err != nil {
@@ -2547,7 +2547,7 @@ func TestExistentialEscapeError(t *testing.T) {
 	_, err := eng.Compile(`
 data SomeEq = { MkSomeEq :: \a. Eq a => a -> SomeEq }
 escape :: SomeEq -> Bool
-escape := \s -> case s { MkSomeEq x -> x }
+escape := \s. case s { MkSomeEq x -> x }
 `)
 	if err == nil {
 		t.Fatal("expected type error for escaping existential")
@@ -2559,7 +2559,7 @@ func TestExistentialNoConstraint(t *testing.T) {
 	rt, err := eng.NewRuntime(`
 data ExistsF f = { MkExistsF :: \a. f a -> ExistsF f }
 useMaybe :: ExistsF Maybe -> Bool
-useMaybe := \e -> case e { MkExistsF _ -> True }
+useMaybe := \e. case e { MkExistsF _ -> True }
 main := useMaybe (MkExistsF (Just True))
 `)
 	if err != nil {
@@ -2577,8 +2577,8 @@ func TestExistentialMixed(t *testing.T) {
 	rt, err := eng.NewRuntime(`
 data Wrapper a = { MkWrapper :: \b. (b -> a) -> b -> Wrapper a }
 useWrapper :: Wrapper Bool -> Bool
-useWrapper := \w -> case w { MkWrapper f x -> f x }
-main := useWrapper (MkWrapper (\x -> x) True)
+useWrapper := \w. case w { MkWrapper f x -> f x }
+main := useWrapper (MkWrapper (\x. x) True)
 `)
 	if err != nil {
 		t.Fatal(err)
@@ -2595,7 +2595,7 @@ func TestExistentialMultiConstraint(t *testing.T) {
 	_, err := eng.Compile(`
 data ShowOrd = { MkShowOrd :: \a. Eq a => Ord a => a -> a -> ShowOrd }
 use :: ShowOrd -> Ordering
-use := \s -> case s { MkShowOrd x y -> compare x y }
+use := \s. case s { MkShowOrd x y -> compare x y }
 `)
 	if err != nil {
 		t.Fatal(err)
@@ -2609,7 +2609,7 @@ func TestExistentialWithTypeClass(t *testing.T) {
 	rt, err := eng.NewRuntime(`
 data SomeEq = { MkSomeEq :: \a. Eq a => a -> SomeEq }
 isSame :: SomeEq -> Bool
-isSame := \s -> case s { MkSomeEq x -> eq x x }
+isSame := \s. case s { MkSomeEq x -> eq x x }
 main := isSame (MkSomeEq (Just True))
 `)
 	if err != nil {
@@ -2629,7 +2629,7 @@ func TestExistentialWithGADT(t *testing.T) {
 data Typed a = { MkBool :: Bool -> Typed Bool; MkUnit :: Typed () }
 data SomeTyped = { MkSome :: \a. Typed a -> SomeTyped }
 classify :: SomeTyped -> Bool
-classify := \s -> case s { MkSome t -> True }
+classify := \s. case s { MkSome t -> True }
 main := classify (MkSome (MkBool True))
 `)
 	if err != nil {
@@ -2647,7 +2647,7 @@ func TestExistentialNestedCase(t *testing.T) {
 	rt, err := eng.NewRuntime(`
 data Wrap = { MkWrap :: \a. Eq a => a -> Wrap }
 bothSame :: Wrap -> Wrap -> Bool
-bothSame := \w1 -> \w2 ->
+bothSame := \w1 w2.
   case w1 { MkWrap x -> case w2 { MkWrap y -> True } }
 main := bothSame (MkWrap True) (MkWrap False)
 `)
@@ -2667,9 +2667,9 @@ func TestSubsumptionInstantiate(t *testing.T) {
 	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`
 id :: \a. a -> a
-id := \x -> x
+id := \x. x
 useBool :: (Bool -> Bool) -> Bool
-useBool := \f -> f True
+useBool := \f. f True
 main := useBool id
 `)
 	if err != nil {
@@ -2686,9 +2686,9 @@ func TestHigherRankBasic(t *testing.T) {
 	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`
 applyToTrue :: (\a. a -> a) -> Bool
-applyToTrue := \f -> f True
+applyToTrue := \f. f True
 id :: \a. a -> a
-id := \x -> x
+id := \x. x
 main := applyToTrue id
 `)
 	if err != nil {
@@ -2706,9 +2706,9 @@ func TestHigherRankAnnotationRequired(t *testing.T) {
 	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`
 apply :: (\a. a -> a) -> (Bool, ())
-apply := \f -> (f True, f ())
+apply := \f. (f True, f ())
 id :: \a. a -> a
-id := \x -> x
+id := \x. x
 main := apply id
 `)
 	if err != nil {
@@ -2730,9 +2730,9 @@ func TestHigherRankPolymorphicArg(t *testing.T) {
 	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`
 runId :: (\a. a -> a) -> (Bool, ())
-runId := \f -> (f True, f ())
+runId := \f. (f True, f ())
 id :: \a. a -> a
-id := \x -> x
+id := \x. x
 main := runId id
 `)
 	if err != nil {
@@ -2886,8 +2886,8 @@ func TestTraversableMaybe(t *testing.T) {
 	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`
 not :: Bool -> Bool
-not := \b -> case b { True -> False; False -> True }
-main := traverse (\x -> Just (not x)) (Just True)
+not := \b. case b { True -> False; False -> True }
+main := traverse (\x. Just (not x)) (Just True)
 `)
 	if err != nil {
 		t.Fatal(err)
@@ -2896,7 +2896,7 @@ main := traverse (\x -> Just (not x)) (Just True)
 	if err != nil {
 		t.Fatal(err)
 	}
-	// traverse (\x -> Just (not x)) (Just True) = Just (Just False)
+	// traverse (\x. Just (not x)) (Just True) = Just (Just False)
 	outer, ok := result.Value.(*gicel.ConVal)
 	if !ok || outer.Con != "Just" {
 		t.Fatalf("expected Just, got %s", result.Value)
@@ -2966,7 +2966,7 @@ func TestExistentialWithStdlib(t *testing.T) {
 	rt, err := eng.NewRuntime(`
 data SomeSemigroup = { MkSomeSG :: \a. Semigroup a => a -> a -> SomeSemigroup }
 combine :: SomeSemigroup -> Bool
-combine := \s -> case s { MkSomeSG x y -> case append x y { _ -> True } }
+combine := \s. case s { MkSomeSG x y -> case append x y { _ -> True } }
 main := combine (MkSomeSG EQ LT)
 `)
 	if err != nil {
@@ -2984,11 +2984,11 @@ func TestFullPipeline(t *testing.T) {
 	rt, err := eng.NewRuntime(`
 data SomeEq = { MkSomeEq :: \a. Eq a => a -> SomeEq }
 isSelf :: SomeEq -> Bool
-isSelf := \s -> case s { MkSomeEq x -> eq x x }
+isSelf := \s. case s { MkSomeEq x -> eq x x }
 applyId :: (\a. a -> a) -> Bool
-applyId := \f -> f True
+applyId := \f. f True
 id :: \a. a -> a
-id := \x -> x
+id := \x. x
 main := case isSelf (MkSomeEq True) { True -> applyId id; False -> False }
 `)
 	if err != nil {
@@ -3005,9 +3005,9 @@ func TestBackslashForallE2E(t *testing.T) {
 	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`
 id :: \a. a -> a
-id := \x -> x
+id := \x. x
 applyId :: (\a. a -> a) -> Bool
-applyId := \f -> f True
+applyId := \f. f True
 main := applyId id
 `)
 	if err != nil {
@@ -3028,7 +3028,7 @@ testEq := eq True True
 testOrd := compare False True
 testSemigroup := append EQ LT
 testMonoid := (empty :: Ordering)
-testFunctor := fmap (\x -> True) (Just False)
+testFunctor := fmap (\x. True) (Just False)
 testApplicative := (wrap True :: Maybe Bool)
 main := (testEq, (testOrd, (testSemigroup, (testMonoid, (testFunctor, testApplicative)))))
 `)
@@ -3280,7 +3280,7 @@ func TestSetDepthLimit(t *testing.T) {
 	eng.SetStepLimit(1000)
 	eng.SetDepthLimit(10000) // high enough to not interfere
 	rt, err := eng.NewRuntime(`
-loop := fix (\self -> \x -> self x)
+loop := fix (\self x. self x)
 main := loop ()
 `)
 	if err != nil {
@@ -3463,7 +3463,7 @@ func TestDepthLimitError(t *testing.T) {
 	eng.EnableRecursion()
 	eng.SetDepthLimit(5)
 	rt, err := eng.NewRuntime(`
-deep := fix (\self -> \x -> self x)
+deep := fix (\self x. self x)
 main := deep ()
 `)
 	if err != nil {
@@ -3540,7 +3540,7 @@ func TestListFmap(t *testing.T) {
 	}
 	rt, err := eng.NewRuntime(`
 import Std.Num
-main := fmap (\x -> add x 1) (Cons 1 (Cons 2 (Cons 3 Nil)))
+main := fmap (\x. add x 1) (Cons 1 (Cons 2 (Cons 3 Nil)))
 `)
 	if err != nil {
 		t.Fatal(err)
@@ -3712,7 +3712,7 @@ class Wrap (f : Type -> Type) {
   wrap :: \a. a -> f a
 }
 instance Wrap Maybe {
-  wrap := \x -> Just x
+  wrap := \x. Just x
 }
 main := wrap True
 `)
@@ -3845,7 +3845,7 @@ func TestListLiteralFmap(t *testing.T) {
 	}
 	rt, err := eng.NewRuntime(`
 import Std.Num
-main := fmap (\x -> add x 10) [1, 2, 3]
+main := fmap (\x. add x 10) [1, 2, 3]
 `)
 	if err != nil {
 		t.Fatal(err)
@@ -3940,7 +3940,7 @@ func TestIxMonadComputationIxbind(t *testing.T) {
 	eng.DeclareBinding("n", gicel.ConType("Int"))
 	rt, err := eng.NewRuntime(`
 main :: Computation {} {} Int
-main := ixbind (ixpure n) (\x -> ixpure x)
+main := ixbind (ixpure n) (\x. ixpure x)
 `)
 	if err != nil {
 		t.Fatalf("ixbind should resolve via IxMonad Computation: %v", err)
@@ -4321,7 +4321,7 @@ func TestListPipelineEndToEnd(t *testing.T) {
 	rt, err := eng.NewRuntime(`
 add :: Int -> Int -> Int
 add := assumption
-main := foldr add 0 (fmap (\x -> add x 10) xs)
+main := foldr add 0 (fmap (\x. add x 10) xs)
 `)
 	if err != nil {
 		t.Fatal(err)
@@ -4345,14 +4345,14 @@ main := foldr add 0 (fmap (\x -> add x 10) xs)
 // ---------------------------------------------------------------------------
 
 func TestLetGeneralizationConstrainedEq(t *testing.T) {
-	// same := \x -> \y -> eq x y  (no annotation)
+	// same := \x y. eq x y  (no annotation)
 	// Should generalize to: \ a. Eq a => a -> a -> Bool
 	// and work at both Int and Bool.
 	eng := gicel.NewEngine()
 	gicel.Num(eng) // provides Eq Int
 	rt, err := eng.NewRuntime(`
 import Std.Num
-same := \x -> \y -> eq x y
+same := \x y. eq x y
 main := (same 1 2, same True True)
 `)
 	if err != nil {
@@ -4370,13 +4370,13 @@ main := (same 1 2, same True True)
 }
 
 func TestLetGeneralizationConstrainedOrd(t *testing.T) {
-	// mymax := \x -> \y -> case compare x y { GT -> x; _ -> y }
+	// mymax := \x y. case compare x y { GT -> x; _ -> y }
 	// Should generalize to: \ a. Ord a => a -> a -> a
 	eng := gicel.NewEngine()
 	gicel.Num(eng)
 	rt, err := eng.NewRuntime(`
 import Std.Num
-mymax := \x -> \y -> case compare x y { GT -> x; _ -> y }
+mymax := \x y. case compare x y { GT -> x; _ -> y }
 main := (mymax 3 7, mymax True False)
 `)
 	if err != nil {
@@ -4527,8 +4527,8 @@ func TestExplainFunctionBoundaries(t *testing.T) {
 import Std.Num
 import Std.State
 
-step := \u -> do {
-  _ <- modify (\n -> n + 1);
+step := \u. do {
+  _ <- modify (\n. n + 1);
   get
 }
 
@@ -4573,7 +4573,7 @@ import Std.State
 
 main := do {
   _ <- put 0;
-  _ <- modify (\n -> n + 1);
+  _ <- modify (\n. n + 1);
   get
 }
 `)

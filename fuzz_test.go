@@ -50,9 +50,9 @@ func FuzzLexer(f *testing.F) {
 func FuzzParser(f *testing.F) {
 	addSeedCorpus(f)
 	f.Add([]byte("f :: Int -> Int; f x := x"))
-	f.Add([]byte("main := \\x -> x"))
+	f.Add([]byte("main := \\x. x"))
 	f.Add([]byte("class Eq a { eq :: a -> a -> Bool }"))
-	f.Add([]byte("instance Eq Int { eq := \\a -> \\b -> True }"))
+	f.Add([]byte("instance Eq Int { eq := \\a b. True }"))
 	f.Add([]byte("import Foo"))
 
 	f.Fuzz(func(t *testing.T, src []byte) {
@@ -72,9 +72,9 @@ func FuzzParser(f *testing.F) {
 // Detects panics in type checking via public API (includes Prelude).
 func FuzzCheck(f *testing.F) {
 	addSeedCorpus(f)
-	f.Add([]byte("id :: \\ a. a -> a; id := \\x -> x; main := id True"))
+	f.Add([]byte("id :: \\ a. a -> a; id := \\x. x; main := id True"))
 	f.Add([]byte("data Maybe a = Nothing | Just a; main := Just True"))
-	f.Add([]byte("f :: Int -> Int; f := \\x -> x; main := f 42"))
+	f.Add([]byte("f :: Int -> Int; f := \\x. x; main := f 42"))
 
 	f.Fuzz(func(t *testing.T, src []byte) {
 		eng := gicel.NewEngine()
@@ -86,7 +86,7 @@ func FuzzCheck(f *testing.F) {
 // Tests checker robustness against arbitrary input without Prelude environment.
 // Catches nil-guard omissions (e.g. missing IxMonad class).
 func FuzzCheckBare(f *testing.F) {
-	f.Add([]byte("id := \\x -> x; main := id True"))
+	f.Add([]byte("id := \\x. x; main := id True"))
 	f.Add([]byte("data T = A | B; main := A"))
 	f.Add([]byte("do { x <- pure True; pure x }"))
 	f.Add([]byte("class Foo a { bar :: a -> a }"))
@@ -114,7 +114,7 @@ func FuzzCheckBare(f *testing.F) {
 func FuzzEval(f *testing.F) {
 	addSeedCorpus(f)
 	f.Add([]byte("main := True"))
-	f.Add([]byte("id := \\x -> x; main := id True"))
+	f.Add([]byte("id := \\x. x; main := id True"))
 	f.Add([]byte("data Pair a b = MkPair a b; main := MkPair True False"))
 
 	f.Fuzz(func(t *testing.T, src []byte) {
@@ -132,8 +132,8 @@ func FuzzEval(f *testing.F) {
 // Ensures AnnotateFreeVars does not panic and produces correct annotations.
 func FuzzAnnotateFreeVars(f *testing.F) {
 	addSeedCorpus(f)
-	f.Add([]byte("f := \\x -> \\y -> x; main := f True False"))
-	f.Add([]byte("compose := \\f -> \\g -> \\x -> f (g x); main := compose (\\x -> x) (\\y -> y) True"))
+	f.Add([]byte("f := \\x y. x; main := f True False"))
+	f.Add([]byte("compose := \\f g x. f (g x); main := compose (\\x. x) (\\y. y) True"))
 
 	f.Fuzz(func(t *testing.T, src []byte) {
 		// Parse and type-check without Prelude (lightweight; Prelude uses same code paths).

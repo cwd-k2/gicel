@@ -53,14 +53,14 @@ func TestTupleSnd(t *testing.T) {
 
 func TestTupleAnnotated(t *testing.T) {
 	source := `f :: (Int, Int) -> Int
-f := \p -> p.#_1
+f := \p. p.#_1
 main := f (1, 2)`
 	checkSource(t, source, nil)
 }
 
 func TestUnitAnnotated(t *testing.T) {
 	source := `f :: () -> Int
-f := \u -> 42
+f := \u. 42
 main := f ()`
 	checkSource(t, source, nil)
 }
@@ -71,13 +71,13 @@ main := f ()`
 
 func TestTuplePatternPair(t *testing.T) {
 	source := `data Bool = True | False
-f := \p -> case p { (a, b) -> a }
+f := \p. case p { (a, b) -> a }
 main := f (42, True)`
 	checkSource(t, source, nil)
 }
 
 func TestTuplePatternUnit(t *testing.T) {
-	source := `f := \u -> case u { () -> 42 }
+	source := `f := \u. case u { () -> 42 }
 main := f ()`
 	checkSource(t, source, nil)
 }
@@ -88,7 +88,7 @@ main := f ()`
 
 func TestTupleCheckMode(t *testing.T) {
 	source := `f :: (Int, Int) -> Int
-f := \p -> p.#_1
+f := \p. p.#_1
 main := f (1, 2)`
 	checkSource(t, source, nil)
 }
@@ -96,7 +96,7 @@ main := f (1, 2)`
 func TestTupleCheckModeTypeMismatch(t *testing.T) {
 	source := `data Bool = True | False
 f :: (Int, Int) -> Int
-f := \p -> p.#_1
+f := \p. p.#_1
 main := f (True, 2)`
 	checkSourceExpectCode(t, source, nil, errs.ErrTypeMismatch)
 }

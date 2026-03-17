@@ -26,7 +26,7 @@ data Expr a = {
 -- Pattern matching on LitBool refines `a ~ Bool`, so the type checker
 -- knows `b :: Bool` inside the branch.
 getBool :: Expr Bool -> Maybe Bool
-getBool := \e -> case e {
+getBool := \e. case e {
   LitBool b -> Just b;
   _         -> Nothing
 }
@@ -34,7 +34,7 @@ getBool := \e -> case e {
 -- Extract an Int from a literal Int expression.
 -- Pattern matching on LitInt refines `a ~ Int`.
 getInt :: Expr Int -> Maybe Int
-getInt := \e -> case e {
+getInt := \e. case e {
   LitInt n -> Just n;
   _        -> Nothing
 }
@@ -43,7 +43,7 @@ getInt := \e -> case e {
 -- LitBool and LitInt are both valid patterns regardless of `a`'s
 -- concrete type, but the GADT ensures the match is exhaustive.
 isLiteral :: Expr a -> Bool
-isLiteral := \e -> case e {
+isLiteral := \e. case e {
   LitBool _ -> True;
   LitInt _  -> True;
   _         -> False
@@ -51,7 +51,7 @@ isLiteral := \e -> case e {
 
 -- Evaluate Not on a literal: one level deep, no recursion
 evalNot :: Expr Bool -> Maybe Bool
-evalNot := \e -> case e {
+evalNot := \e. case e {
   Not inner -> case inner {
     LitBool b -> Just (not b);
     _         -> Nothing
@@ -62,7 +62,7 @@ evalNot := \e -> case e {
 
 -- Evaluate Add on two literals: one level deep, no recursion
 evalAdd :: Expr Int -> Maybe Int
-evalAdd := \e -> case e {
+evalAdd := \e. case e {
   Add x y -> case x {
     LitInt a -> case y {
       LitInt b -> Just (a + b);

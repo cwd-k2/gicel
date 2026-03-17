@@ -18,7 +18,7 @@ func TestInstanceMethodReferencesRegularBinding(t *testing.T) {
 class Wrap f { wrap :: \ a. a -> f a }
 
 myJust :: \ a. a -> Maybe a
-myJust := \x -> Just x
+myJust := \x. Just x
 
 instance Wrap Maybe { wrap := myJust }
 
@@ -48,7 +48,7 @@ import Std.Num
 class Scale a { scale :: Int -> a -> a }
 
 scaleInt :: Int -> Int -> Int
-scaleInt := \n -> \x -> n * x
+scaleInt := \n x. n * x
 
 instance Scale Int { scale := scaleInt }
 

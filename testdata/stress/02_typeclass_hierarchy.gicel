@@ -4,21 +4,21 @@ class Show a { tag :: a -> Bool }
 class Show a => Eq a { eq :: a -> a -> Bool }
 class Eq a => Ord a { compare :: a -> a -> Ordering }
 
-instance Show Bool { tag := \_ -> True }
-instance Show () { tag := \_ -> True }
+instance Show Bool { tag := \_. True }
+instance Show () { tag := \_. True }
 instance Show Ordering {
-  tag := \x -> case x { LT -> True; EQ -> True; GT -> True }
+  tag := \x. case x { LT -> True; EQ -> True; GT -> True }
 }
 
 instance Eq Bool {
-  eq := \x -> \y -> case x {
+  eq := \x y. case x {
     True  -> y;
     False -> case y { True -> False; False -> True }
   }
 }
-instance Eq () { eq := \_ -> \_ -> True }
+instance Eq () { eq := \_ _. True }
 instance Eq Ordering {
-  eq := \x -> \y -> case x {
+  eq := \x y. case x {
     LT -> case y { LT -> True; _ -> False };
     EQ -> case y { EQ -> True; _ -> False };
     GT -> case y { GT -> True; _ -> False }
@@ -26,14 +26,14 @@ instance Eq Ordering {
 }
 
 instance Ord Bool {
-  compare := \x -> \y -> case x {
+  compare := \x y. case x {
     False -> case y { False -> EQ; True -> LT };
     True  -> case y { False -> GT; True -> EQ }
   }
 }
-instance Ord () { compare := \_ -> \_ -> EQ }
+instance Ord () { compare := \_ _. EQ }
 instance Ord Ordering {
-  compare := \x -> \y -> case x {
+  compare := \x y. case x {
     LT -> case y { LT -> EQ; _ -> LT };
     EQ -> case y { LT -> GT; EQ -> EQ; GT -> LT };
     GT -> case y { GT -> EQ; _ -> GT }
@@ -41,19 +41,19 @@ instance Ord Ordering {
 }
 
 useShow :: \a. Eq a => a -> Bool
-useShow := \x -> tag x
+useShow := \x. tag x
 
 useEq :: \a. Ord a => a -> a -> Bool
-useEq := \x -> \y -> eq x y
+useEq := \x y. eq x y
 
 compareAndEq :: \a. Ord a => a -> a -> (Ordering, Bool)
-compareAndEq := \x -> \y -> (compare x y, eq x y)
+compareAndEq := \x y. (compare x y, eq x y)
 
 showViaOrd :: \a. Ord a => a -> Bool
-showViaOrd := \x -> tag x
+showViaOrd := \x. tag x
 
 isEqOrdering :: \a. Ord a => a -> a -> Bool
-isEqOrdering := \x -> \y -> case compare x y {
+isEqOrdering := \x y. case compare x y {
   EQ -> True;
   _  -> False
 }

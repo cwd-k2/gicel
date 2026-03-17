@@ -418,9 +418,9 @@ func (ch *Checker) processValueDef(d *syntax.DeclValueDef, annotations map[strin
 // quantified type variables and lifts unresolved constraints into qualified
 // types (TyEvidence). Called for unannotated top-level bindings.
 //
-// Example: \x -> x + x  with unresolved Num ?a
+// Example: \x. x + x  with unresolved Num ?a
 //
-//	→ \ a. Num a => a -> a  with Core: \dict -> \x -> ...
+//	→ \ a. Num a => a -> a  with Core: \dict x. ...
 func (ch *Checker) generalizeConstrained(ty types.Type, expr core.Core, unresolved []deferredConstraint) (types.Type, core.Core) {
 	metas := collectUnsolvedMetas(ty)
 	// Also collect metas from unresolved constraint args.
@@ -459,7 +459,7 @@ func (ch *Checker) generalizeConstrained(ty types.Type, expr core.Core, unresolv
 		for i, a := range uc.args {
 			zonkedArgs[i] = ch.unifier.Zonk(a)
 		}
-		// Wrap Core: \placeholder -> expr (placeholder becomes the dict param)
+		// Wrap Core: \placeholder. expr (placeholder becomes the dict param)
 		expr = &core.Lam{Param: uc.placeholder, Body: expr, S: uc.s}
 		// Wrap type: ClassName args => ty
 		ty = &types.TyEvidence{

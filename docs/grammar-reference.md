@@ -31,21 +31,21 @@
 
 ### Punctuation & Operators
 
-| Token | Meaning                           |
-| ----- | --------------------------------- |
-| `->`  | Function type / lambda body       |
-| `<-`  | Monadic bind in do-block          |
-| `=>`  | Constraint qualifier              |
-| `::`  | Type annotation                   |
-| `:=`  | Value definition / let-bind       |
-| `:`   | Kind annotation separator         |
-| `.`   | Quantifier body separator         |
-| `\`   | Lambda / universal quantification |
-| `_`   | Wildcard pattern                  |
-| `=`   | Data constructor separator        |
-| `@`   | Explicit type application         |
-| `\|`  | Constructor / row tail separator  |
-| `;`   | Declaration / statement separator |
+| Token | Meaning                            |
+| ----- | ---------------------------------- |
+| `->`  | Function type / case alternative   |
+| `<-`  | Monadic bind in do-block           |
+| `=>`  | Constraint qualifier               |
+| `::`  | Type annotation                    |
+| `:=`  | Value definition / let-bind        |
+| `:`   | Kind annotation separator          |
+| `.`   | Lambda / quantifier body separator |
+| `\`   | Lambda / universal quantification  |
+| `_`   | Wildcard pattern                   |
+| `=`   | Data constructor separator         |
+| `@`   | Explicit type application          |
+| `\|`  | Constructor / row tail separator   |
+| `;`   | Declaration / statement separator  |
 
 ### Identifiers
 
@@ -153,7 +153,7 @@ name := Expr
 Example:
 
 ```
-not := \b -> case b { True -> False; False -> True }
+not := \b. case b { True -> False; False -> True }
 ```
 
 ### Operator Definition
@@ -302,9 +302,9 @@ AssocDataDef (in instance body)
 Examples:
 
 ```
-instance Eq Bool { eq := \x -> \y -> True }
+instance Eq Bool { eq := \x y. True }
 instance Eq a => Eq (Maybe a) {
-  eq := \x -> \y -> case x {
+  eq := \x y. case x {
     Nothing -> case y { Nothing -> True; Just _ -> False };
     Just a  -> case y { Nothing -> False; Just b -> eq a b }
   }
@@ -319,7 +319,7 @@ instance Container (List a) {
 -- Associated data family definition in instance
 instance Collection (List a) {
   data Key (List a) = ListIndex Int;
-  lookup := \k -> \xs -> case k {
+  lookup := \k xs. case k {
     ListIndex i -> index xs i
   }
 }
@@ -340,11 +340,11 @@ Just x      -- applied constructor (via App)
 ### Lambda
 
 ```
-\param -> body
-\x -> \y -> expr       -- curried
-\(Con x y) -> expr     -- constructor pattern
-\(a, b) -> expr        -- tuple pattern
-\{ x, y } -> expr      -- record pattern
+\param. body
+\x y z. expr           -- multi-parameter (desugars to \x. \y. \z. expr)
+\(Con x y). expr       -- constructor pattern
+\(a, b). expr          -- tuple pattern
+\{ x, y }. expr        -- record pattern
 ```
 
 ### Application
@@ -386,8 +386,8 @@ Three forms:
 
 ```
 (+)                             -- prefix: operator as first-class value
-(+ 1)                           -- right section: \x -> x + 1
-(1 +)                           -- left section:  \x -> 1 + x
+(+ 1)                           -- right section: \x. x + 1
+(1 +)                           -- left section:  \x. 1 + x
 ```
 
 `(op)` wraps an operator in parentheses to produce a regular value. `(op expr)` binds the right argument, `(expr op)` binds the left argument. Both sections desugar to single-argument lambdas.
@@ -421,7 +421,7 @@ This is the expression-level counterpart of the declaration syntax `(op) := ...`
 { x := e1; y := e2; body }
 ```
 
-Desugars to `(\x -> (\y -> body) e2) e1`.
+Desugars to `(\x. (\y. body) e2) e1`.
 
 ### Do Block
 
@@ -458,7 +458,7 @@ force thunked_value          -- elimination of U (term former)
 
 ```
 pure expr                    -- F: value → computation (first-class function)
-bind comp (\x -> body)       -- monadic bind (first-class function)
+bind comp (\x. body)         -- monadic bind (first-class function)
 ```
 
 `pure` and `bind` are first-class functions: they can be partially applied and passed to higher-order functions (e.g. `map pure xs`). When fully applied, the checker optimizes them to direct Core nodes for capability environment threading.
@@ -537,7 +537,7 @@ Pattern matching on `Dict` brings the evidence back into scope:
 
 ```
 withDict :: \a. Dict (Eq a) -> a -> a -> Bool
-withDict := \d -> \x -> \y -> case d { MkDict -> eq x y }
+withDict := \d x y. case d { MkDict -> eq x y }
 ```
 
 The user writes `MkDict` with zero explicit pattern arguments; the evidence field is implicit. Inside the branch body, the constraint `Eq a` is available for resolution.
@@ -559,7 +559,7 @@ Here `c` is the implicit evidence field and `a` is a regular field.
 \(f : Type -> Type). f a -> f b
 ```
 
-`\` serves dual purpose: lambda in expression context (`\x -> e`), and universal quantification in type context (`\a. T`). The separator distinguishes: `->` for lambda, `.` for quantification. The parser disambiguates by context.
+`\` serves dual purpose: lambda in expression context (`\x. e`) and universal quantification in type context (`\a. T`). Both use `.` as the body separator. The parser disambiguates by context. Multi-parameter lambdas are supported: `\x y z. e` desugars to `\x. \y. \z. e`.
 
 ### Row Type
 

@@ -26,15 +26,15 @@ class Functor (f : k -> Type) {
 }
 
 instance Functor Maybe {
-  fmap := \g -> \mx -> case mx { Nothing -> Nothing; Just x -> Just (g x) }
+  fmap := \g mx. case mx { Nothing -> Nothing; Just x -> Just (g x) }
 }
 
 -- Kind-polymorphic identity function
 id_k :: \ (k : Kind). \ (a : k). a -> a
-id_k := \x -> x
+id_k := \x. x
 
 -- Use fmap: (Bool -> Bool) -> Maybe Bool -> Maybe Bool
-main := fmap (\b -> case b { True -> False; False -> True }) (Just True)
+main := fmap (\b. case b { True -> False; False -> True }) (Just True)
 `
 
 func main() {

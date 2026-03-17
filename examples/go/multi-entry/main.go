@@ -25,7 +25,7 @@ const source = `
 import Std.Num
 
 square :: Int -> Int
-square := \x -> x * x
+square := \x. x * x
 
 greeting := "hello, GICEL"
 

@@ -24,8 +24,8 @@ type Elem (c : Type) :: Type = {
 -- Key (List a) = ListIndex
 instance Collection (List a) {
   data Key (List a) = ListIndex Int;
-  insert := \k -> \xs -> xs;
-  lookup := \k -> \xs -> case xs { Cons x _ -> Just x; Nil -> Nothing }
+  insert := \k xs. xs;
+  lookup := \k xs. case xs { Cons x _ -> Just x; Nil -> Nothing }
 }
 
 -- A Wrapper class with associated data for the wrapped form.
@@ -39,22 +39,22 @@ class Wrappable w {
 -- Int wraps to a tagged box.
 instance Wrappable Int {
   data Wrapped Int = IntBox Int;
-  wrap := \n -> IntBox n;
-  unwrap := \w -> case w { IntBox n -> n }
+  wrap := \n. IntBox n;
+  unwrap := \w. case w { IntBox n -> n }
 }
 
 -- Bool wraps to a bitflag.
 instance Wrappable Bool {
   data Wrapped Bool = BoolBit Bool;
-  wrap := \b -> BoolBit b;
-  unwrap := \w -> case w { BoolBit b -> b }
+  wrap := \b. BoolBit b;
+  unwrap := \w. case w { BoolBit b -> b }
 }
 
 -- Maybe wraps to an optional box.
 instance Wrappable (Maybe a) {
   data Wrapped (Maybe a) = OptBox (Maybe a);
-  wrap := \m -> OptBox m;
-  unwrap := \w -> case w { OptBox m -> m }
+  wrap := \m. OptBox m;
+  unwrap := \w. case w { OptBox m -> m }
 }
 
 -- Usage: type-safe wrapping and unwrapping.

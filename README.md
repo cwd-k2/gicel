@@ -36,12 +36,12 @@ No blacklist. No restricted mode. Capabilities are absent until granted.
 When you run untrusted code inside Go — from an AI agent, a user script,
 or a plugin — existing approaches force trade-offs:
 
-| Approach            | Trade-off                                               |
-| ------------------- | ------------------------------------------------------- |
-| Lua / JS embed      | Dynamically typed; capabilities leak via global state   |
-| Wasm sandbox        | Heavy runtime; complex FFI boundary with Go             |
-| Template engine     | Safe, but limited expressiveness                        |
-| Go subset interpret | Powerful, but attack surface equals Go itself           |
+| Approach            | Trade-off                                             |
+| ------------------- | ----------------------------------------------------- |
+| Lua / JS embed      | Dynamically typed; capabilities leak via global state |
+| Wasm sandbox        | Heavy runtime; complex FFI boundary with Go           |
+| Template engine     | Safe, but limited expressiveness                      |
+| Go subset interpret | Powerful, but attack surface equals Go itself         |
 
 All of these share a fundamental problem: they try to **restrict a permissive
 environment** — blacklisting dangerous APIs, blocking syscalls, filtering
@@ -119,7 +119,7 @@ func main() {
 
         main := do {
             _ <- put 10;
-            _ <- modify (\n -> n * 2);
+            _ <- modify (\n. n * 2);
             get
         }
     `)
@@ -266,7 +266,7 @@ host bindings, custom capabilities, custom prelude, and more.
 | `Fail`   | Fail effect capability                                    |
 | `State`  | `get`/`put` state capabilities                            |
 | `IO`     | `print`/`debug` via CapEnv buffer                         |
-| `Stream` | Lazy list: `LCons`/`LNil`, `headS`, `tailS`, `takeS`     |
+| `Stream` | Lazy list: `LCons`/`LNil`, `headS`, `tailS`, `takeS`      |
 | `Slice`  | Contiguous array: O(1) length/index, `Functor`/`Foldable` |
 
 ## Documentation

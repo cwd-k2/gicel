@@ -36,7 +36,7 @@ type F (a : Type) :: Type = {
   F a = Bool
 }
 f :: \ c. F c -> F c
-f := \x -> x
+f := \x. x
 `
 	config := &CheckConfig{
 		RegisteredTypes: map[string]types.Kind{"Int": types.KType{}},
@@ -53,7 +53,7 @@ type Loop (a : Type) :: Type = {
   Loop a = Loop a
 }
 f :: Loop Unit -> Unit
-f := \x -> x
+f := \x. x
 `
 	// Must produce ErrTypeFamilyReduction, not hang.
 	checkSourceExpectCode(t, source, nil, errs.ErrTypeFamilyReduction)
@@ -66,7 +66,7 @@ data Unit = Unit
 type F (a : Type) :: Type = {
 }
 f :: \ c. F c -> F c
-f := \x -> x
+f := \x. x
 `
 	// F c should be stuck (no equations to match), but F c ~ F c should still unify.
 	checkSource(t, source, nil)
@@ -80,7 +80,7 @@ type F (a : Type) :: Type = {
   F Unit = Unit
 }
 f :: F Unit -> Unit
-f := \x -> x
+f := \x. x
 `
 	checkSource(t, source, nil)
 }
@@ -95,7 +95,7 @@ type F (a : Type) :: Type = {
   F Unit = Bool
 }
 f :: \ a. F a -> F a
-f := \x -> x
+f := \x. x
 `
 	checkSource(t, source, nil)
 }
@@ -111,7 +111,7 @@ type F (a : Type) :: Type = {
   F Unit = Int
 }
 f :: F Unit -> Bool
-f := \x -> x
+f := \x. x
 `
 	config := &CheckConfig{
 		RegisteredTypes: map[string]types.Kind{"Int": types.KType{}},
@@ -130,9 +130,9 @@ type F (a : Type) :: Type = {
   F a = Bool
 }
 g :: F Bool -> Int
-g := \x -> x
+g := \x. x
 h :: F Unit -> Bool
-h := \x -> x
+h := \x. x
 `
 	config := &CheckConfig{
 		RegisteredTypes: map[string]types.Kind{"Int": types.KType{}},
@@ -153,7 +153,7 @@ type Const (a : Type) (b : Type) :: Type = {
   Const a _ = a
 }
 f :: Const Unit Bool -> Unit
-f := \x -> x
+f := \x. x
 `
 	checkSource(t, source, nil)
 }
@@ -170,9 +170,9 @@ type F (a : Type) (b : Type) :: Type = {
   F a b = Bool
 }
 g :: F Unit Unit -> Unit
-g := \x -> x
+g := \x. x
 h :: F Unit Bool -> Bool
-h := \x -> x
+h := \x. x
 `
 	checkSource(t, source, nil)
 }
@@ -189,9 +189,9 @@ type Elem (c : Type) :: Type = {
   Elem (Maybe a) = a
 }
 f :: Elem (List Unit) -> Unit
-f := \x -> x
+f := \x. x
 g :: Elem (Maybe Unit) -> Unit
-g := \x -> x
+g := \x. x
 `
 	checkSource(t, source, nil)
 }
@@ -206,7 +206,7 @@ type F (a : Type) :: Type = {
   F Bool = Unit
 }
 f :: \ a. F a -> F a
-f := \x -> x
+f := \x. x
 `
 	checkSource(t, source, nil)
 }
@@ -230,7 +230,7 @@ consumeA := assumption
 noop :: Computation { a : Unit, b : Unit } { a : Unit, b : Unit } Unit
 noop := assumption
 f :: Bool -> Computation { a : Unit, b : Unit } { b : Unit } Unit
-f := \b -> case b {
+f := \b. case b {
   True -> consumeA;
   False -> noop
 }
@@ -251,7 +251,7 @@ consumeA := assumption
 consumeB :: Computation { a : Unit, b : Unit } { a : Unit } Unit
 consumeB := assumption
 f :: Bool -> Computation { a : Unit, b : Unit } {} Unit
-f := \b -> case b {
+f := \b. case b {
   True -> consumeA;
   False -> consumeB
 }
@@ -267,7 +267,7 @@ data Unit = Unit
 consumeAll :: Computation { a : Unit, b : Unit } {} Unit
 consumeAll := assumption
 f :: Bool -> Computation { a : Unit, b : Unit } {} Unit
-f := \b -> case b {
+f := \b. case b {
   True -> consumeAll;
   False -> consumeAll
 }
@@ -287,7 +287,7 @@ consumeB := assumption
 consumeC :: Computation { a : Unit, b : Unit, c : Unit } { a : Unit, b : Unit } Unit
 consumeC := assumption
 f :: Color -> Computation { a : Unit, b : Unit, c : Unit } {} Unit
-f := \col -> case col {
+f := \col. case col {
   Red -> consumeA;
   Green -> consumeB;
   Blue -> consumeC
@@ -309,7 +309,7 @@ data Unit = MkUnit
 consume :: Computation { x : Unit } {} Unit
 consume := assumption
 f :: Unit -> Computation { x : Unit } {} Unit
-f := \u -> case u {
+f := \u. case u {
   MkUnit -> consume
 }
 `
@@ -323,7 +323,7 @@ func TestLubPostStates_NonCompResultType(t *testing.T) {
 data Bool = True | False
 data Unit = Unit
 f :: Bool -> Unit
-f := \b -> case b {
+f := \b. case b {
   True -> Unit;
   False -> Unit
 }
@@ -339,7 +339,7 @@ data Unit = Unit
 nothing :: Computation {} {} Unit
 nothing := assumption
 f :: Bool -> Computation {} {} Unit
-f := \b -> case b {
+f := \b. case b {
   True -> nothing;
   False -> nothing
 }
@@ -380,10 +380,10 @@ class Elem c e | c -> e {
   extract :: c -> e
 }
 instance Elem (List a) a {
-  extract := \xs -> case xs { Cons x rest -> x; Nil -> extract Nil }
+  extract := \xs. case xs { Cons x rest -> x; Nil -> extract Nil }
 }
 f :: List Unit -> Unit
-f := \xs -> extract xs
+f := \xs. extract xs
 `
 	checkSource(t, source, nil)
 }
@@ -488,9 +488,9 @@ type F (a : Type) :: Type = {
   F Bool = Unit
 }
 f :: F Unit -> Bool
-f := \x -> x
+f := \x. x
 g :: F Bool -> Unit
-g := \x -> x
+g := \x. x
 `
 	checkSource(t, source, nil)
 }
@@ -519,7 +519,7 @@ func TestReduceFamilyApps_NonFamilyHeadUntouched(t *testing.T) {
 data List a = Nil | Cons a (List a)
 data Unit = Unit
 f :: List Unit -> List Unit
-f := \x -> x
+f := \x. x
 `
 	checkSource(t, source, nil)
 }
@@ -533,7 +533,7 @@ type Elem (c : Type) :: Type = {
   Elem (List a) = a
 }
 f :: Elem (List Unit) -> Unit
-f := \x -> x
+f := \x. x
 `
 	checkSource(t, source, nil)
 }
@@ -557,7 +557,7 @@ type G (a : Type) :: Type = {
   G Unit = Bool
 }
 f :: \ x. F (G x) -> F (G x)
-f := \x -> x
+f := \x. x
 `
 	// Using \ x to make it compile as stuck-on-stuck unification.
 	checkSource(t, source, nil)
@@ -578,9 +578,9 @@ type Id (a : Type) :: Type = {
   Id a = a
 }
 f :: Elem (List Unit) -> Unit
-f := \x -> x
+f := \x. x
 g :: Id Unit -> Unit
-g := \x -> x
+g := \x. x
 `
 	checkSource(t, source, nil)
 }
@@ -594,7 +594,7 @@ type Elem (c : Type) :: Type = {
   Elem (List a) = a
 }
 f :: Unit -> Elem (List Unit)
-f := \x -> x
+f := \x. x
 `
 	checkSource(t, source, nil)
 }
@@ -608,7 +608,7 @@ type Elem (c : Type) :: Type = {
   Elem (List a) = a
 }
 f :: Elem (List Unit) -> Elem (List Unit)
-f := \x -> x
+f := \x. x
 `
 	checkSource(t, source, nil)
 }
@@ -723,7 +723,7 @@ type F (a : Type) :: (r : Type) | r -> a = {
   F a = a
 }
 f :: F Unit -> Unit
-f := \x -> x
+f := \x. x
 `
 	checkSource(t, source, nil)
 }
@@ -740,7 +740,7 @@ class Container c {
   clength :: c -> Int
 }
 f :: \ c. Elem c -> Elem c
-f := \x -> x
+f := \x. x
 `
 	config := &CheckConfig{
 		RegisteredTypes: map[string]types.Kind{"Int": types.KType{}},
@@ -863,7 +863,7 @@ func TestMultUnification_MismatchFails(t *testing.T) {
 data Mult = Unrestricted | Affine | Linear
 data Unit = Unit
 f :: { x : Unit @Linear } -> { x : Unit @Affine }
-f := \r -> r
+f := \r. r
 `
 	checkSourceExpectError(t, source, nil)
 }
@@ -874,7 +874,7 @@ func TestMultUnification_MatchSucceeds(t *testing.T) {
 data Mult = Unrestricted | Affine | Linear
 data Unit = Unit
 f :: { x : Unit @Linear } -> { x : Unit @Linear }
-f := \r -> r
+f := \r. r
 `
 	checkSource(t, source, nil)
 }
@@ -885,7 +885,7 @@ func TestMultUnification_AsymmetricMult(t *testing.T) {
 data Mult = Unrestricted | Affine | Linear
 data Unit = Unit
 f :: { x : Unit @Linear } -> { x : Unit }
-f := \r -> r
+f := \r. r
 `
 	// Whether this is an error depends on the semantics: if Mult=nil means
 	// Unrestricted and @Linear != Unrestricted, it should fail.
@@ -908,7 +908,7 @@ type Elem (c : Type) :: Type = {
   Elem (List a) = a
 }
 wrap :: Elem (List Unit) -> Unit
-wrap := \x -> x
+wrap := \x. x
 `
 	checkSource(t, source, nil)
 }
@@ -921,7 +921,7 @@ type Elem (c : Type) :: Type = {
   Elem (List a) = a
 }
 unwrap :: Unit -> Elem (List Unit)
-unwrap := \x -> x
+unwrap := \x. x
 `
 	checkSource(t, source, nil)
 }
@@ -934,7 +934,7 @@ type Elem (c : Type) :: Type = {
   Elem (List a) = a
 }
 id :: Elem (List Unit) -> Elem (List Unit)
-id := \x -> x
+id := \x. x
 `
 	checkSource(t, source, nil)
 }
@@ -951,7 +951,7 @@ type Elem (c : Type) :: Type = {
   Elem (List a) = a
 }
 f :: \ c. Elem c -> Elem c
-f := \x -> x
+f := \x. x
 `
 	checkSource(t, source, nil)
 }
@@ -964,7 +964,7 @@ type Elem (c : Type) :: Type = {
   Elem (List a) = a
 }
 f :: \ a b. Elem a -> Elem b
-f := \x -> x
+f := \x. x
 `
 	// Elem a and Elem b can't unify when a != b (different skolems).
 	checkSourceExpectError(t, source, nil)
@@ -997,7 +997,7 @@ type F (c : Type) :: Type = {
   F (Maybe a) = a
 }
 f :: F (List Unit) -> Unit
-f := \x -> x
+f := \x. x
 `
 	checkSource(t, source, nil)
 }
@@ -1022,7 +1022,7 @@ instance Container Unit {
 }
 
 f :: Entry Unit -> Unit
-f := \e -> case e {
+f := \e. case e {
   Singleton x -> x
 }
 `
@@ -1045,7 +1045,7 @@ instance Container Unit {
 }
 
 f :: Entry Unit -> Unit
-f := \e -> case e {
+f := \e. case e {
   Singleton x -> x;
   Empty -> Unit
 }
@@ -1084,7 +1084,7 @@ consume1 := assumption
 consume2 :: Computation { a : Unit } {} Unit
 consume2 := assumption
 f :: Bool -> Computation { a : Unit } {} Unit
-f := \b -> case b {
+f := \b. case b {
   True -> consume1;
   False -> consume2
 }
@@ -1107,7 +1107,7 @@ keepA := assumption
 keepB :: Computation { a : Unit, b : Unit } { b : Unit } Unit
 keepB := assumption
 f :: Bool -> Computation { a : Unit, b : Unit } {} Unit
-f := \b -> case b {
+f := \b. case b {
   True -> keepA;
   False -> keepB
 }
@@ -1144,7 +1144,7 @@ type F (a : Type) (b : Type) :: Type = {
   F (List a) (List a) = a
 }
 f :: F (List Unit) (List Unit) -> Unit
-f := \x -> x
+f := \x. x
 `
 	checkSource(t, source, nil)
 }
@@ -1162,7 +1162,7 @@ type F (a : Type) (b : Type) :: Type = {
   F (List a) (List a) = a
 }
 f :: F (List Unit) (List Bool) -> Unit
-f := \x -> x
+f := \x. x
 `
 	// This should fail: F (List Unit) (List Bool) doesn't match the pattern,
 	// so F is stuck. Stuck TyFamilyApp != Unit.
@@ -1182,7 +1182,7 @@ type Elem (c : Type) :: Type = {
   Elem (List a) = a
 }
 f :: Id Unit -> Elem (List Unit)
-f := \x -> x
+f := \x. x
 `
 	checkSource(t, source, nil)
 }
@@ -1203,7 +1203,7 @@ opA := assumption
 opB :: Computation { x : Unit } { x : Bool } Unit
 opB := assumption
 f :: Bool -> Computation { x : Unit } { x : Unit } Unit
-f := \b -> case b {
+f := \b. case b {
   True -> opA;
   False -> opB
 }
@@ -1242,7 +1242,7 @@ type Loop (a : Type) :: Type = {
   Loop a = Loop a
 }
 f :: Loop Unit -> Unit
-f := \x -> x
+f := \x. x
 `
 	msg := checkSourceExpectCode(t, source, nil, errs.ErrTypeFamilyReduction)
 	if !strings.Contains(msg, "reduction depth limit") {

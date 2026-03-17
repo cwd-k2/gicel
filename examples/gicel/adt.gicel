@@ -14,7 +14,7 @@ data Shape = Circle Int | Rect Int Int
 
 -- Convert a Color to a descriptive boolean (is it a primary additive color?)
 isPrimary :: Color -> Bool
-isPrimary := \c -> case c {
+isPrimary := \c. case c {
   Red   -> True;
   Green -> True;
   Blue  -> True
@@ -24,25 +24,25 @@ isPrimary := \c -> case c {
 -- Circle area ~ r * r * 3 (integer approximation of pi)
 -- Rect area = w * h
 area :: Shape -> Int
-area := \s -> case s {
+area := \s. case s {
   Circle r   -> r * r * 3;
   Rect   w h -> w * h
 }
 
 -- Is the shape "large"? (area > 50)
 isLarge :: Shape -> Bool
-isLarge := \s -> { a := area s; a > 50 }
+isLarge := \s. { a := area s; a > 50 }
 
 -- Wrap a Color in Maybe based on a condition
 colorIf :: Bool -> Color -> Maybe Color
-colorIf := \cond -> \c -> case cond {
+colorIf := \cond c. case cond {
   True  -> Just c;
   False -> Nothing
 }
 
 -- Nested pattern: match constructor inside Maybe directly
 describeShape :: Maybe Shape -> Bool
-describeShape := \ms -> case ms {
+describeShape := \ms. case ms {
   Nothing          -> False;
   Just (Circle r)  -> r * r * 3 > 50;
   Just (Rect w h)  -> w * h > 50

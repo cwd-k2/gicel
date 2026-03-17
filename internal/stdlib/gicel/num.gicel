@@ -71,7 +71,7 @@ infixl 7 /
 (/) := div
 
 abs :: Int -> Int
-abs := \x -> case _cmpInt x 0 { LT -> negate x; _ -> x }
+abs := \x. case _cmpInt x 0 { LT -> negate x; _ -> x }
 
 sign :: Int -> Int
-sign := \x -> case _cmpInt x 0 { LT -> negate 1; EQ -> 0; GT -> 1 }
+sign := \x. case _cmpInt x 0 { LT -> negate 1; EQ -> 0; GT -> 1 }

@@ -74,7 +74,7 @@ main := { { x = 42, y = True } | x = 0, y = False }`
 
 func TestRecordAnnotated(t *testing.T) {
 	source := `f :: Record { x : Int } -> Int
-f := \r -> r.#x
+f := \r. r.#x
 main := f { x = 42 }`
 	checkSource(t, source, nil)
 }
@@ -82,7 +82,7 @@ main := f { x = 42 }`
 func TestRecordRowPoly(t *testing.T) {
 	// Row-polymorphic function: takes any record with field x : Int.
 	source := `f :: \ r. Record { x : Int | r } -> Int
-f := \r -> r.#x
+f := \r. r.#x
 main := f { x = 42, y = 0 }`
 	checkSource(t, source, nil)
 }
@@ -92,14 +92,14 @@ main := f { x = 42, y = 0 }`
 // =============================================================================
 
 func TestRecordPatternSimple(t *testing.T) {
-	source := `f := \r -> case r { { x = a } -> a }
+	source := `f := \r. case r { { x = a } -> a }
 main := f { x = 42 }`
 	checkSource(t, source, nil)
 }
 
 func TestRecordPatternMultiField(t *testing.T) {
 	source := `data Bool = True | False
-f := \r -> case r { { x = a, y = b } -> a }
+f := \r. case r { { x = a, y = b } -> a }
 main := f { x = 42, y = True }`
 	checkSource(t, source, nil)
 }
@@ -111,7 +111,7 @@ main := f { x = 42, y = True }`
 func TestRecordCheckMode(t *testing.T) {
 	// Check a record literal against an expected record type.
 	source := `f :: Record { x : Int, y : Int } -> Int
-f := \r -> r.#x
+f := \r. r.#x
 main := f { x = 1, y = 2 }`
 	checkSource(t, source, nil)
 }
@@ -130,7 +130,7 @@ func TestRecordUpdateDuplicateLabel(t *testing.T) {
 
 func TestRecordPatternDuplicateLabel(t *testing.T) {
 	// Duplicate labels in a record pattern should be rejected.
-	source := `f := \r -> case r { { x = a, x = b } -> a }
+	source := `f := \r. case r { { x = a, x = b } -> a }
 main := f { x = 42 }`
 	checkSourceExpectCode(t, source, nil, errs.ErrDuplicateLabel)
 }
@@ -139,7 +139,7 @@ func TestRecordCheckModeTypeMismatch(t *testing.T) {
 	// Field type mismatch should error.
 	source := `data Bool = True | False
 f :: Record { x : Int } -> Int
-f := \r -> r.#x
+f := \r. r.#x
 main := f { x = True }`
 	checkSourceExpectCode(t, source, nil, errs.ErrTypeMismatch)
 }

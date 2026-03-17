@@ -17,7 +17,7 @@ import (
 )
 
 const source = `
-not := \b -> case b { True -> False; False -> True }
+not := \b. case b { True -> False; False -> True }
 
 main := not True
 `

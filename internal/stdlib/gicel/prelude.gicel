@@ -19,43 +19,43 @@ class Functor t => Foldable t => Traversable t {
   traverse :: \f a b. Applicative f => (a -> f b) -> t a -> f (t b)
 }
 
-instance Eq Bool { eq := \x -> \y -> case x {
+instance Eq Bool { eq := \x y. case x {
   True -> case y { True -> True; False -> False };
   False -> case y { True -> False; False -> True }
 } }
 
-instance Eq () { eq := \_ -> \_ -> True }
+instance Eq () { eq := \_ _. True }
 
-instance Eq Ordering { eq := \x -> \y -> case x {
+instance Eq Ordering { eq := \x y. case x {
   LT -> case y { LT -> True; EQ -> False; GT -> False };
   EQ -> case y { LT -> False; EQ -> True; GT -> False };
   GT -> case y { LT -> False; EQ -> False; GT -> True }
 } }
 
-instance Eq a => Eq (Maybe a) { eq := \x -> \y -> case x {
+instance Eq a => Eq (Maybe a) { eq := \x y. case x {
   Nothing -> case y { Nothing -> True; Just _ -> False };
   Just a -> case y { Nothing -> False; Just b -> eq a b }
 } }
 
-instance Eq a => Eq b => Eq (a, b) { eq := \x -> \y -> case x {
+instance Eq a => Eq b => Eq (a, b) { eq := \x y. case x {
   (a1, b1) -> case y {
     (a2, b2) -> case eq a1 a2 { True -> eq b1 b2; False -> False }
   }
 } }
 
-instance Functor Maybe { fmap := \f -> \ma -> case ma {
+instance Functor Maybe { fmap := \f ma. case ma {
   Nothing -> Nothing;
   Just a -> Just (f a)
 } }
 
-instance Foldable Maybe { foldr := \f -> \z -> \ma -> case ma {
+instance Foldable Maybe { foldr := \f z ma. case ma {
   Nothing -> z;
   Just a -> f a z
 } }
 
-instance Semigroup () { append := \_ -> \_ -> () }
-instance Semigroup Ordering { append := \x -> \y -> case x { EQ -> y; _ -> x } }
-instance Semigroup a => Semigroup (Maybe a) { append := \x -> \y -> case x {
+instance Semigroup () { append := \_ _. () }
+instance Semigroup Ordering { append := \x y. case x { EQ -> y; _ -> x } }
+instance Semigroup a => Semigroup (Maybe a) { append := \x y. case x {
   Nothing -> y;
   Just a -> case y { Nothing -> Just a; Just b -> Just (append a b) }
 } }
@@ -63,21 +63,21 @@ instance Monoid () { empty := () }
 instance Monoid Ordering { empty := EQ }
 instance Semigroup a => Monoid (Maybe a) { empty := Nothing }
 
-instance Ord Bool { compare := \x -> \y -> case x {
+instance Ord Bool { compare := \x y. case x {
   False -> case y { False -> EQ; True -> LT };
   True  -> case y { False -> GT; True -> EQ }
 } }
-instance Ord () { compare := \_ -> \_ -> EQ }
-instance Ord Ordering { compare := \x -> \y -> case x {
+instance Ord () { compare := \_ _. EQ }
+instance Ord Ordering { compare := \x y. case x {
   LT -> case y { LT -> EQ; EQ -> LT; GT -> LT };
   EQ -> case y { LT -> GT; EQ -> EQ; GT -> LT };
   GT -> case y { LT -> GT; EQ -> GT; GT -> EQ }
 } }
-instance Ord a => Ord (Maybe a) { compare := \x -> \y -> case x {
+instance Ord a => Ord (Maybe a) { compare := \x y. case x {
   Nothing -> case y { Nothing -> EQ; Just _ -> LT };
   Just a  -> case y { Nothing -> GT; Just b -> compare a b }
 } }
-instance Ord a => Ord b => Ord (a, b) { compare := \x -> \y -> case x {
+instance Ord a => Ord b => Ord (a, b) { compare := \x y. case x {
   (a1, b1) -> case y {
     (a2, b2) -> append (compare a1 a2) (compare b1 b2)
   }
@@ -85,20 +85,20 @@ instance Ord a => Ord b => Ord (a, b) { compare := \x -> \y -> case x {
 
 instance Applicative Maybe {
   wrap := Just;
-  ap := \mf -> \mx -> case mf {
+  ap := \mf mx. case mf {
     Nothing -> Nothing;
     Just f  -> case mx { Nothing -> Nothing; Just x -> Just (f x) }
   }
 }
 
 instance Traversable Maybe {
-  traverse := \f -> \x -> case x {
+  traverse := \f x. case x {
     Nothing -> wrap Nothing;
     Just a  -> fmap Just (f a)
   }
 }
 
-instance Eq a => Eq (List a) { eq := \xs -> \ys -> case xs {
+instance Eq a => Eq (List a) { eq := \xs ys. case xs {
   Nil -> case ys { Nil -> True; Cons _ _ -> False };
   Cons x rest -> case ys {
     Nil -> False;
@@ -106,17 +106,17 @@ instance Eq a => Eq (List a) { eq := \xs -> \ys -> case xs {
   }
 } }
 
-instance Functor List { fmap := \f -> \xs -> case xs {
+instance Functor List { fmap := \f xs. case xs {
   Nil -> Nil;
   Cons x rest -> Cons (f x) (fmap f rest)
 } }
 
-instance Foldable List { foldr := \f -> \z -> \xs -> case xs {
+instance Foldable List { foldr := \f z xs. case xs {
   Nil -> z;
   Cons x rest -> f x (foldr f z rest)
 } }
 
-instance Semigroup (List a) { append := \xs -> \ys -> case xs {
+instance Semigroup (List a) { append := \xs ys. case xs {
   Nil -> ys;
   Cons x rest -> Cons x (append rest ys)
 } }
@@ -124,58 +124,58 @@ instance Semigroup (List a) { append := \xs -> \ys -> case xs {
 instance Monoid (List a) { empty := Nil }
 
 id :: \a. a -> a
-id := \x -> x
+id := \x. x
 
 const :: \a b. a -> b -> a
-const := \x -> \_ -> x
+const := \x _. x
 
 flip :: \a b c. (a -> b -> c) -> b -> a -> c
-flip := \f -> \b -> \a -> f a b
+flip := \f b a. f a b
 
 infixr 9 .
 (.) :: \b c a. (b -> c) -> (a -> b) -> a -> c
-(.) := \f -> \g -> \x -> f (g x)
+(.) := \f g x. f (g x)
 
 not :: Bool -> Bool
-not := \b -> case b { True -> False; False -> True }
+not := \b. case b { True -> False; False -> True }
 
 infixr 3 &&
 (&&) :: Bool -> Bool -> Bool
-(&&) := \x -> \y -> case x { False -> False; True -> y }
+(&&) := \x y. case x { False -> False; True -> y }
 
 infixr 2 ||
 (||) :: Bool -> Bool -> Bool
-(||) := \x -> \y -> case x { True -> True; False -> y }
+(||) := \x y. case x { True -> True; False -> y }
 
 maybe :: \a b. b -> (a -> b) -> Maybe a -> b
-maybe := \def -> \f -> \m -> case m { Nothing -> def; Just a -> f a }
+maybe := \def f m. case m { Nothing -> def; Just a -> f a }
 
 result :: \e a b. (e -> b) -> (a -> b) -> Result e a -> b
-result := \onErr -> \onOk -> \r -> case r { Err e -> onErr e; Ok a -> onOk a }
+result := \onErr onOk r. case r { Err e -> onErr e; Ok a -> onOk a }
 
 fst :: \a (r : Row). Record { _1 : a | r } -> a
-fst := \p -> p.#_1
+fst := \p. p.#_1
 
 snd :: \a (r : Row). Record { _2 : a | r } -> a
-snd := \p -> p.#_2
+snd := \p. p.#_2
 
 head :: \a. List a -> Maybe a
-head := \xs -> case xs { Nil -> Nothing; Cons x _ -> Just x }
+head := \xs. case xs { Nil -> Nothing; Cons x _ -> Just x }
 
 tail :: \a. List a -> Maybe (List a)
-tail := \xs -> case xs { Nil -> Nothing; Cons _ rest -> Just rest }
+tail := \xs. case xs { Nil -> Nothing; Cons _ rest -> Just rest }
 
 null :: \a. List a -> Bool
-null := \xs -> case xs { Nil -> True; Cons _ _ -> False }
+null := \xs. case xs { Nil -> True; Cons _ _ -> False }
 
 map :: \a b. (a -> b) -> List a -> List b
 map := fmap
 
 filter :: \a. (a -> Bool) -> List a -> List a
-filter := \p -> foldr (\x -> \acc -> case p x { True -> Cons x acc; False -> acc }) Nil
+filter := \p. foldr (\x acc. case p x { True -> Cons x acc; False -> acc }) Nil
 
 singleton :: \a. a -> List a
-singleton := \x -> Cons x Nil
+singleton := \x. Cons x Nil
 
 infixn 4 ==
 infixn 4 /=
@@ -188,34 +188,34 @@ infixn 4 >=
 (==) := eq
 
 (/=) :: \a. Eq a => a -> a -> Bool
-(/=) := \x -> \y -> not (eq x y)
+(/=) := \x y. not (eq x y)
 
 (<) :: \a. Ord a => a -> a -> Bool
-(<) := \x -> \y -> case compare x y { LT -> True; _ -> False }
+(<) := \x y. case compare x y { LT -> True; _ -> False }
 
 (>) :: \a. Ord a => a -> a -> Bool
-(>) := \x -> \y -> case compare x y { GT -> True; _ -> False }
+(>) := \x y. case compare x y { GT -> True; _ -> False }
 
 (<=) :: \a. Ord a => a -> a -> Bool
-(<=) := \x -> \y -> case compare x y { GT -> False; _ -> True }
+(<=) := \x y. case compare x y { GT -> False; _ -> True }
 
 (>=) :: \a. Ord a => a -> a -> Bool
-(>=) := \x -> \y -> case compare x y { LT -> False; _ -> True }
+(>=) := \x y. case compare x y { LT -> False; _ -> True }
 
 min :: \a. Ord a => a -> a -> a
-min := \x -> \y -> case compare x y { GT -> y; _ -> x }
+min := \x y. case compare x y { GT -> y; _ -> x }
 
 max :: \a. Ord a => a -> a -> a
-max := \x -> \y -> case compare x y { LT -> y; _ -> x }
+max := \x y. case compare x y { LT -> y; _ -> x }
 
 infixr 6 <>
 (<>) :: \a. Semigroup a => a -> a -> a
 (<>) := append
 
 class Show a { show :: a -> String }
-instance Show Bool { show := \b -> case b { True -> "True"; False -> "False" } }
-instance Show () { show := \_ -> "()" }
-instance Show Ordering { show := \x -> case x { LT -> "LT"; EQ -> "EQ"; GT -> "GT" } }
+instance Show Bool { show := \b. case b { True -> "True"; False -> "False" } }
+instance Show () { show := \_. "()" }
+instance Show Ordering { show := \x. case x { LT -> "LT"; EQ -> "EQ"; GT -> "GT" } }
 
 class Applicative f => Alternative f {
   none :: \a. f a;
@@ -225,11 +225,11 @@ infixl 3 <|>
 (<|>) :: \(f : Type -> Type) a. Alternative f => f a -> f a -> f a
 (<|>) := alt
 
-instance Alternative Maybe { none := Nothing; alt := \x -> \y -> case x { Just _ -> x; Nothing -> y } }
+instance Alternative Maybe { none := Nothing; alt := \x y. case x { Just _ -> x; Nothing -> y } }
 instance Alternative List { none := Nil; alt := append }
 
 guard :: \(f : Type -> Type). Alternative f => Bool -> f ()
-guard := \b -> case b { True -> wrap (); False -> none }
+guard := \b. case b { True -> wrap (); False -> none }
 
 class Monad (m : Type -> Type) {
   mpure :: \a. a -> m a;
@@ -238,12 +238,12 @@ class Monad (m : Type -> Type) {
 
 instance Monad Maybe {
   mpure := Just;
-  mbind := \ma -> \f -> case ma { Nothing -> Nothing; Just a -> f a }
+  mbind := \ma f. case ma { Nothing -> Nothing; Just a -> f a }
 }
 
 instance Monad List {
   mpure := singleton;
-  mbind := \xs -> \f -> foldr (\x -> \acc -> append (f x) acc) Nil xs
+  mbind := \xs f. foldr (\x acc. append (f x) acc) Nil xs
 }
 
 infixl 1 >>=
@@ -252,11 +252,11 @@ infixl 1 >>=
 
 infixl 1 >>
 (>>) :: \(m : Type -> Type) a b. Monad m => m a -> m b -> m b
-(>>) := \m1 -> \m2 -> mbind m1 (\_ -> m2)
+(>>) := \m1 m2. mbind m1 (\_. m2)
 
 instance IxMonad Maybe {
   ixpure := Just;
-  ixbind := \ma -> \f -> case ma {
+  ixbind := \ma f. case ma {
     Nothing -> Nothing;
     Just a  -> f a
   }
@@ -264,7 +264,7 @@ instance IxMonad Maybe {
 
 instance IxMonad List {
   ixpure := singleton;
-  ixbind := \xs -> \f -> foldr (\x -> \acc -> append (f x) acc) Nil xs
+  ixbind := \xs f. foldr (\x acc. append (f x) acc) Nil xs
 }
 
 class Packed c e | c -> e {
@@ -279,34 +279,34 @@ instance Packed (List a) a {
 
 instance Applicative List {
   wrap := singleton;
-  ap := \fs -> \xs -> foldr (\f -> \acc -> append (fmap f xs) acc) Nil fs
+  ap := \fs xs. foldr (\f acc. append (fmap f xs) acc) Nil fs
 }
 
 instance Traversable List {
-  traverse := \f -> foldr (\x -> \acc -> ap (fmap Cons (f x)) acc) (wrap Nil)
+  traverse := \f. foldr (\x acc. ap (fmap Cons (f x)) acc) (wrap Nil)
 }
 
-instance Eq e => Eq a => Eq (Result e a) { eq := \x -> \y -> case x {
+instance Eq e => Eq a => Eq (Result e a) { eq := \x y. case x {
   Err e1 -> case y { Err e2 -> eq e1 e2; Ok _ -> False };
   Ok a1 -> case y { Err _ -> False; Ok a2 -> eq a1 a2 }
 } }
 
-instance Ord e => Ord a => Ord (Result e a) { compare := \x -> \y -> case x {
+instance Ord e => Ord a => Ord (Result e a) { compare := \x y. case x {
   Err e1 -> case y { Err e2 -> compare e1 e2; Ok _ -> LT };
   Ok a1 -> case y { Err _ -> GT; Ok a2 -> compare a1 a2 }
 } }
 
-instance Functor (Result e) { fmap := \f -> \r -> case r {
+instance Functor (Result e) { fmap := \f r. case r {
   Err x -> Err x;
   Ok a -> Ok (f a)
 } }
 
-instance Foldable (Result e) { foldr := \f -> \z -> \r -> case r {
+instance Foldable (Result e) { foldr := \f z r. case r {
   Err _ -> z;
   Ok a -> f a z
 } }
 
-instance Ord a => Ord (List a) { compare := \xs -> \ys -> case xs {
+instance Ord a => Ord (List a) { compare := \xs ys. case xs {
   Nil -> case ys { Nil -> EQ; Cons _ _ -> LT };
   Cons x rest -> case ys {
     Nil -> GT;
@@ -316,11 +316,11 @@ instance Ord a => Ord (List a) { compare := \xs -> \ys -> case xs {
 
 infixr 0 $
 ($) :: \a b. (a -> b) -> a -> b
-($) := \f -> \x -> f x
+($) := \f x. f x
 
 infixl 1 &
 (&) :: \a b. a -> (a -> b) -> b
-(&) := \x -> \f -> f x
+(&) := \x f. f x
 
 infixl 4 <$>
 (<$>) :: \(f : Type -> Type) a b. Functor f => (a -> b) -> f a -> f b
@@ -336,11 +336,11 @@ infixl 4 <*>
 
 infixl 4 *>
 (*>) :: \(f : Type -> Type) a b. Applicative f => f a -> f b -> f b
-(*>) := \fa -> \fb -> ap (fmap (const id) fa) fb
+(*>) := \fa fb. ap (fmap (const id) fa) fb
 
 infixl 4 <*
 (<*) :: \(f : Type -> Type) a b. Applicative f => f a -> f b -> f a
-(<*) := \fa -> \fb -> ap (fmap const fa) fb
+(<*) := \fa fb. ap (fmap const fa) fb
 
 infixr 1 =<<
 (=<<) :: \(m : Type -> Type) a b. Monad m => (a -> m b) -> m a -> m b
@@ -348,86 +348,86 @@ infixr 1 =<<
 
 infixr 1 >=>
 (>=>) :: \(m : Type -> Type) a b c. Monad m => (a -> m b) -> (b -> m c) -> a -> m c
-(>=>) := \f -> \g -> \a -> mbind (f a) g
+(>=>) := \f g a. mbind (f a) g
 
 infixr 1 <=<
 (<=<) :: \(m : Type -> Type) b c a. Monad m => (b -> m c) -> (a -> m b) -> a -> m c
-(<=<) := \g -> \f -> \a -> mbind (f a) g
+(<=<) := \g f a. mbind (f a) g
 
 on :: \a b c. (b -> b -> c) -> (a -> b) -> a -> a -> c
-on := \f -> \g -> \x -> \y -> f (g x) (g y)
+on := \f g x y. f (g x) (g y)
 
 comparing :: \a b. Ord b => (a -> b) -> a -> a -> Ordering
-comparing := \f -> on compare f
+comparing := \f. on compare f
 
 equating :: \a b. Eq b => (a -> b) -> a -> a -> Bool
-equating := \f -> on eq f
+equating := \f. on eq f
 
 isJust :: \a. Maybe a -> Bool
-isJust := \m -> case m { Just _ -> True; Nothing -> False }
+isJust := \m. case m { Just _ -> True; Nothing -> False }
 
 isNothing :: \a. Maybe a -> Bool
-isNothing := \m -> case m { Just _ -> False; Nothing -> True }
+isNothing := \m. case m { Just _ -> False; Nothing -> True }
 
 isOk :: \e a. Result e a -> Bool
-isOk := \r -> case r { Ok _ -> True; Err _ -> False }
+isOk := \r. case r { Ok _ -> True; Err _ -> False }
 
 isErr :: \e a. Result e a -> Bool
-isErr := \r -> case r { Ok _ -> False; Err _ -> True }
+isErr := \r. case r { Ok _ -> False; Err _ -> True }
 
 fromOk :: \e a. a -> Result e a -> a
-fromOk := \def -> \r -> case r { Ok x -> x; Err _ -> def }
+fromOk := \def r. case r { Ok x -> x; Err _ -> def }
 
 fromErr :: \e a. e -> Result e a -> e
-fromErr := \def -> \r -> case r { Err x -> x; Ok _ -> def }
+fromErr := \def r. case r { Err x -> x; Ok _ -> def }
 
 bool :: \a. a -> a -> Bool -> a
-bool := \f -> \t -> \b -> case b { False -> f; True -> t }
+bool := \f t b. case b { False -> f; True -> t }
 
 swap :: \a b. (a, b) -> (b, a)
-swap := \p -> (snd p, fst p)
+swap := \p. (snd p, fst p)
 
 curry :: \a b c. ((a, b) -> c) -> a -> b -> c
-curry := \f -> \a -> \b -> f (a, b)
+curry := \f a b. f (a, b)
 
 uncurry :: \a b c. (a -> b -> c) -> (a, b) -> c
-uncurry := \f -> \p -> f (fst p) (snd p)
+uncurry := \f p. f (fst p) (snd p)
 
 mjoin :: \(m : Type -> Type) a. Monad m => m (m a) -> m a
-mjoin := \mma -> mbind mma id
+mjoin := \mma. mbind mma id
 
 when :: \(m : Type -> Type). Monad m => Bool -> m () -> m ()
-when := \b -> \action -> case b { True -> action; False -> mpure () }
+when := \b action. case b { True -> action; False -> mpure () }
 
 unless :: \(m : Type -> Type). Monad m => Bool -> m () -> m ()
-unless := \b -> when (not b)
+unless := \b. when (not b)
 
 void :: \(f : Type -> Type) a. Functor f => f a -> f ()
 void := fmap (const ())
 
 liftA2 :: \(f : Type -> Type) a b c. Applicative f => (a -> b -> c) -> f a -> f b -> f c
-liftA2 := \f -> \fa -> \fb -> ap (fmap f fa) fb
+liftA2 := \f fa fb. ap (fmap f fa) fb
 
 foldMap :: \(t : Type -> Type) a m. Foldable t => Monoid m => (a -> m) -> t a -> m
-foldMap := \f -> foldr (\x -> \acc -> append (f x) acc) empty
+foldMap := \f. foldr (\x acc. append (f x) acc) empty
 
 toList :: \(t : Type -> Type) a. Foldable t => t a -> List a
 toList := foldr Cons Nil
 
 find :: \a. (a -> Bool) -> List a -> Maybe a
-find := \p -> foldr (\x -> \acc -> case p x { True -> Just x; False -> acc }) Nothing
+find := \p. foldr (\x acc. case p x { True -> Just x; False -> acc }) Nothing
 
 elem :: \a. Eq a => a -> List a -> Bool
-elem := \x -> foldr (\y -> \acc -> case eq x y { True -> True; False -> acc }) False
+elem := \x. foldr (\y acc. case eq x y { True -> True; False -> acc }) False
 
 notElem :: \a. Eq a => a -> List a -> Bool
-notElem := \x -> not . elem x
+notElem := \x. not . elem x
 
 any :: \a. (a -> Bool) -> List a -> Bool
-any := \p -> foldr (\x -> \acc -> case p x { True -> True; False -> acc }) False
+any := \p. foldr (\x acc. case p x { True -> True; False -> acc }) False
 
 all :: \a. (a -> Bool) -> List a -> Bool
-all := \p -> foldr (\x -> \acc -> case p x { True -> acc; False -> False }) True
+all := \p. foldr (\x acc. case p x { True -> acc; False -> False }) True
 
 and :: List Bool -> Bool
 and := foldr (&&) True
@@ -436,34 +436,34 @@ or :: List Bool -> Bool
 or := foldr (||) False
 
 lookup :: \a b. Eq a => a -> List (a, b) -> Maybe b
-lookup := \key -> foldr (\pair -> \acc -> case eq key (fst pair) { True -> Just (snd pair); False -> acc }) Nothing
+lookup := \key. foldr (\pair acc. case eq key (fst pair) { True -> Just (snd pair); False -> acc }) Nothing
 
 concatMap :: \a b. (a -> List b) -> List a -> List b
-concatMap := \f -> foldr (\x -> \acc -> append (f x) acc) Nil
+concatMap := \f. foldr (\x acc. append (f x) acc) Nil
 
 flatten :: \a. List (List a) -> List a
 flatten := foldr append Nil
 
 catMaybes :: \a. List (Maybe a) -> List a
-catMaybes := foldr (\m -> \acc -> case m { Just a -> Cons a acc; Nothing -> acc }) Nil
+catMaybes := foldr (\m acc. case m { Just a -> Cons a acc; Nothing -> acc }) Nil
 
 mapMaybe :: \a b. (a -> Maybe b) -> List a -> List b
-mapMaybe := \f -> foldr (\x -> \acc -> case f x { Just b -> Cons b acc; Nothing -> acc }) Nil
+mapMaybe := \f. foldr (\x acc. case f x { Just b -> Cons b acc; Nothing -> acc }) Nil
 
 partition :: \a. (a -> Bool) -> List a -> (List a, List a)
-partition := \p -> foldr (\x -> \acc -> case p x {
+partition := \p. foldr (\x acc. case p x {
   True -> (Cons x (fst acc), snd acc);
   False -> (fst acc, Cons x (snd acc))
 }) (Nil, Nil)
 
 takeWhile :: \a. (a -> Bool) -> List a -> List a
-takeWhile := \p -> foldr (\x -> \acc -> case p x { True -> Cons x acc; False -> Nil }) Nil
+takeWhile := \p. foldr (\x acc. case p x { True -> Cons x acc; False -> Nil }) Nil
 
 intersperse :: \a. a -> List a -> List a
-intersperse := \sep -> \xs -> case xs {
+intersperse := \sep xs. case xs {
   Nil -> Nil;
-  Cons x rest -> Cons x (foldr (\y -> \acc -> Cons sep (Cons y acc)) Nil rest)
+  Cons x rest -> Cons x (foldr (\y acc. Cons sep (Cons y acc)) Nil rest)
 }
 
 nub :: \a. Eq a => List a -> List a
-nub := foldr (\x -> \acc -> case elem x acc { True -> acc; False -> Cons x acc }) Nil
+nub := foldr (\x acc. case elem x acc { True -> acc; False -> Cons x acc }) Nil

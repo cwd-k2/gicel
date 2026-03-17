@@ -18,15 +18,15 @@ data Bool = True | False
 
 -- Level 1: \ a. a -> a
 id :: \ a. a -> a
-id := \x -> x
+id := \x. x
 
 -- Level 2: (\ a. a -> a) -> Bool
 applyId :: (\ a. a -> a) -> Bool
-applyId := \f -> f True
+applyId := \f. f True
 
 -- Level 3: ((\ a. a -> a) -> Bool) -> Bool
 applyApplyId :: ((\ a. a -> a) -> Bool) -> Bool
-applyApplyId := \g -> g id
+applyApplyId := \g. g id
 
 main := applyApplyId applyId
 `
@@ -40,12 +40,12 @@ data Bool = True | False
 data Maybe a = Nothing | Just a
 
 apply :: (\ a. a -> a) -> Bool -> Bool
-apply := \f -> \x -> f x
+apply := \f x. f x
 
 applyMaybe :: (\ a. a -> Maybe a) -> Bool -> Maybe Bool
-applyMaybe := \f -> \x -> f x
+applyMaybe := \f x. f x
 
-main := (apply (\x -> x) True, applyMaybe (\x -> Just x) False)
+main := (apply (\x. x) True, applyMaybe (\x. Just x) False)
 `
 	checkSource(t, source, nil)
 }
@@ -55,7 +55,7 @@ func TestStressManyUnannLetBindings(t *testing.T) {
 	var sb strings.Builder
 	sb.WriteString("data Bool = True | False\n")
 	sb.WriteString("class Eq a { eq :: a -> a -> Bool }\n")
-	sb.WriteString("instance Eq Bool { eq := \\x -> \\y -> True }\n\n")
+	sb.WriteString("instance Eq Bool { eq := \\x y. True }\n\n")
 
 	// 15 unannotated bindings, each using eq.
 	for i := range 15 {
@@ -82,10 +82,10 @@ func TestStressDeepNestedLambdas(t *testing.T) {
 	}
 	sb.WriteString("a0\n")
 
-	// Build body: \x0 -> \x1 -> ... -> \x49 -> x0
+	// Build body: \x0 x1. ... \x49. x0 => \x0 x1 ... x49. x0
 	sb.WriteString("f := ")
 	for i := range N {
-		sb.WriteString(fmt.Sprintf("\\x%d -> ", i))
+		sb.WriteString(fmt.Sprintf("\\x%d. ", i))
 	}
 	sb.WriteString("x0\n")
 
@@ -109,12 +109,12 @@ class Functor (f : Type -> Type) {
 }
 
 instance Functor Maybe {
-  fmap := \g -> \mx -> case mx { Nothing -> Nothing; Just x -> Just (g x) }
+  fmap := \g mx. case mx { Nothing -> Nothing; Just x -> Just (g x) }
 }
 
 -- Use Functor Maybe with a record argument.
 not :: Bool -> Bool
-not := \b -> case b { True -> False; False -> True }
+not := \b. case b { True -> False; False -> True }
 
 main := fmap not (Just True)
 `
@@ -137,7 +137,7 @@ func TestStressExhaustiveGADTManyCons(t *testing.T) {
 	}
 	sb.WriteString("\n}\n\n")
 	// Match all 10 constructors, branches separated by ;
-	sb.WriteString("eval :: Expr Bool -> Bool\neval := \\e -> case e {\n")
+	sb.WriteString("eval :: Expr Bool -> Bool\neval := \\e. case e {\n")
 	for i := range 10 {
 		if i > 0 {
 			sb.WriteString(";\n")
@@ -156,14 +156,14 @@ data Bool = True | False
 
 class Eq a { eq :: a -> a -> Bool }
 class Eq a => Ord a { compare :: a -> a -> Bool }
-instance Eq Bool { eq := \x -> \y -> True }
-instance Ord Bool { compare := \x -> \y -> True }
+instance Eq Bool { eq := \x y. True }
+instance Ord Bool { compare := \x y. True }
 
 type EqOrd a = Eq a => Ord a => a -> a -> Bool
 
 -- Use the alias.
 bothCheck :: \ a. EqOrd a
-bothCheck := \x -> \y -> eq x y
+bothCheck := \x y. eq x y
 
 main := bothCheck True False
 `
@@ -181,22 +181,22 @@ class C1 a => C2 a { m2 :: a -> Bool }
 class C2 a => C3 a { m3 :: a -> Bool }
 class C3 a => C4 a { m4 :: a -> Bool }
 
-instance C1 Bool { m1 := \x -> True }
-instance C2 Bool { m2 := \x -> True }
-instance C3 Bool { m3 := \x -> True }
-instance C4 Bool { m4 := \x -> True }
+instance C1 Bool { m1 := \x. True }
+instance C2 Bool { m2 := \x. True }
+instance C3 Bool { m3 := \x. True }
+instance C4 Bool { m4 := \x. True }
 
 class Functor (f : Type -> Type) {
   fmap :: \ a b. (a -> b) -> f a -> f b
 }
 
 instance Functor Maybe {
-  fmap := \g -> \mx -> case mx { Nothing -> Nothing; Just x -> Just (g x) }
+  fmap := \g mx. case mx { Nothing -> Nothing; Just x -> Just (g x) }
 }
 
 -- Use deep superclass method via top-level constraint + HKT.
 f :: \ a. C4 a => a -> Bool
-f := \x -> m1 x
+f := \x. m1 x
 
 main := fmap f (Just True)
 `
@@ -208,12 +208,12 @@ func TestStressManyContextualInstances(t *testing.T) {
 	var sb strings.Builder
 	sb.WriteString("data Bool = True | False\n")
 	sb.WriteString("class Eq a { eq :: a -> a -> Bool }\n")
-	sb.WriteString("instance Eq Bool { eq := \\x -> \\y -> True }\n\n")
+	sb.WriteString("instance Eq Bool { eq := \\x y. True }\n\n")
 
 	// 8 wrapper types, each with a contextual Eq instance.
 	for i := range 8 {
 		sb.WriteString(fmt.Sprintf("data W%d a = MkW%d a\n", i, i))
-		sb.WriteString(fmt.Sprintf("instance Eq a => Eq (W%d a) { eq := \\x -> \\y -> True }\n\n", i))
+		sb.WriteString(fmt.Sprintf("instance Eq a => Eq (W%d a) { eq := \\x y. True }\n\n", i))
 	}
 
 	// Nested application: Eq (W0 (W1 (W2 (W3 (W4 (W5 (W6 (W7 Bool))))))))
@@ -238,11 +238,11 @@ class Multi a b c d {
 }
 
 instance Multi Bool Bool Bool Bool {
-  multi := \a -> \b -> \c -> \d -> True
+  multi := \a b c d. True
 }
 
 instance Multi Unit Unit Unit Unit {
-  multi := \a -> \b -> \c -> \d -> False
+  multi := \a b c d. False
 }
 
 main := (multi True True True True, multi Unit Unit Unit Unit)

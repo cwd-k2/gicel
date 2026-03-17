@@ -250,11 +250,14 @@ func (p *Parser) parseParen() Expr {
 func (p *Parser) parseLambda() Expr {
 	start := p.peek().S.Start
 	p.expect(TokBackslash)
-	param := p.parsePattern()
-	p.expect(TokArrow)
+	var params []Pattern
+	for p.isPatternAtomStart() {
+		params = append(params, p.parsePatternAtom())
+	}
+	p.expect(TokDot)
 	body := p.parseExpr()
 	return &ExprLam{
-		Params: []Pattern{param}, Body: body,
+		Params: params, Body: body,
 		S: span.Span{Start: start, End: p.prevEnd()},
 	}
 }
@@ -611,9 +614,34 @@ func (p *Parser) parsePatternAtom() Pattern {
 	case TokLParen:
 		start := p.peek().S.Start
 		p.advance()
+		// () → unit pattern
+		if p.peek().Kind == TokRParen {
+			p.advance()
+			return &PatRecord{S: span.Span{Start: start, End: p.prevEnd()}}
+		}
 		inner := p.parsePattern()
+		// (p1, p2, ...) → tuple pattern
+		if p.peek().Kind == TokComma {
+			pats := []Pattern{inner}
+			for p.peek().Kind == TokComma {
+				p.advance()
+				pats = append(pats, p.parsePattern())
+			}
+			p.expect(TokRParen)
+			fields := make([]PatRecordField, len(pats))
+			for i, pat := range pats {
+				fields[i] = PatRecordField{
+					Label:   fmt.Sprintf("_%d", i+1),
+					Pattern: pat,
+					S:       pat.Span(),
+				}
+			}
+			return &PatRecord{Fields: fields, S: span.Span{Start: start, End: p.prevEnd()}}
+		}
 		p.expect(TokRParen)
 		return &PatParen{Inner: inner, S: span.Span{Start: start, End: p.prevEnd()}}
+	case TokLBrace:
+		return p.parseRecordPattern()
 	default:
 		return nil
 	}
@@ -624,7 +652,7 @@ func (p *Parser) isPatternAtomStart() bool {
 		return false
 	}
 	k := p.peek().Kind
-	return k == TokLower || k == TokUnderscore || k == TokLParen || k == TokUpper || k == TokIntLit || k == TokStrLit || k == TokRuneLit
+	return k == TokLower || k == TokUnderscore || k == TokLParen || k == TokUpper || k == TokIntLit || k == TokStrLit || k == TokRuneLit || k == TokLBrace
 }
 
 func (p *Parser) parseLitPattern() Pattern {

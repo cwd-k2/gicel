@@ -17,7 +17,7 @@ func TestStressDeepKindNesting(t *testing.T) {
 	// \ (k : Kind). \ (j : Kind). \ (f : k -> j -> Type). Int
 	source := `
 f :: \ (k : Kind). \ (j : Kind). \ (f : k -> j -> Type). Int -> Int
-f := \x -> x
+f := \x. x
 `
 	checkSource(t, source, nil)
 }
@@ -28,7 +28,7 @@ func TestStressKindPolyIdentityChain(t *testing.T) {
 data Bool = True | False
 
 id_k :: \ (k : Kind). \ (a : k). a -> a
-id_k := \x -> x
+id_k := \x. x
 
 chain := id_k (id_k (id_k True))
 `
@@ -134,13 +134,13 @@ func TestStressPolyKindedClassManyInstances(t *testing.T) {
 	// 10 instances
 	for i := 0; i < 10; i++ {
 		fmt.Fprintf(&sb, "instance Functor D%d {\n", i)
-		fmt.Fprintf(&sb, "  fmap := \\g -> \\x -> case x { MkD%d v -> MkD%d (g v) }\n", i, i)
+		fmt.Fprintf(&sb, "  fmap := \\g x. case x { MkD%d v -> MkD%d (g v) }\n", i, i)
 		sb.WriteString("}\n\n")
 	}
 	// Use each one
 	sb.WriteString("data Bool = True | False\n")
 	for i := 0; i < 10; i++ {
-		fmt.Fprintf(&sb, "test%d := fmap (\\x -> True) (MkD%d True)\n", i, i)
+		fmt.Fprintf(&sb, "test%d := fmap (\\x. True) (MkD%d True)\n", i, i)
 	}
 	checkSource(t, sb.String(), nil)
 }
@@ -156,7 +156,7 @@ class Eq a {
 }
 
 instance Eq Bool {
-  eq := \x -> \y -> True
+  eq := \x y. True
 }
 
 class Functor (f : k -> Type) {
@@ -164,7 +164,7 @@ class Functor (f : k -> Type) {
 }
 
 instance Functor Maybe {
-  fmap := \g -> \mx -> case mx { Nothing -> Nothing; Just x -> Just (g x) }
+  fmap := \g mx. case mx { Nothing -> Nothing; Just x -> Just (g x) }
 }
 
 class Functor f => Applicative (f : k -> Type) {
@@ -172,7 +172,7 @@ class Functor f => Applicative (f : k -> Type) {
 }
 
 instance Applicative Maybe {
-  pure := \x -> Just x
+  pure := \x. Just x
 }
 
 test_pure := pure True

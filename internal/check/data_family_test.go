@@ -114,7 +114,7 @@ instance Collection (List a) {
 }
 
 unwrap :: \ a. Elem (List a) -> a
-unwrap := \e -> case e { ListElem x -> x }
+unwrap := \e. case e { ListElem x -> x }
 `
 	checkSource(t, source, nil)
 }
@@ -172,10 +172,10 @@ instance Collection (List a) {
 }
 
 wrap :: \ a. a -> Elem (List a)
-wrap := \x -> ListElem x
+wrap := \x. ListElem x
 
 id :: Elem (List Int) -> Elem (List Int)
-id := \x -> x
+id := \x. x
 `
 	checkSource(t, source, config)
 }
@@ -197,7 +197,7 @@ instance Container Unit {
 }
 
 f :: Entry Unit -> Unit
-f := \e -> case e {
+f := \e. case e {
   Singleton x -> x;
   Empty -> Unit
 }
@@ -222,7 +222,7 @@ instance Container Unit {
 }
 
 f :: Entry Unit -> Unit
-f := \e -> case e {
+f := \e. case e {
   Singleton x -> x
 }
 `

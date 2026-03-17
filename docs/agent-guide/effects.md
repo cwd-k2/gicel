@@ -34,9 +34,9 @@ do {
 Desugaring:
 
 ```
-bind getState (\x ->
-  bind (putState (x + 1)) (\_ ->
-    (\y -> pure y) (x + 1)))
+bind getState (\x.
+  bind (putState (x + 1)) (\_.
+    (\y. pure y) (x + 1)))
 ```
 
 ### Capability Environments

@@ -3,31 +3,31 @@
 
 -- Rank-2: argument must be truly polymorphic
 applyToBoth :: (\a. a -> a) -> (Bool, ())
-applyToBoth := \f -> (f True, f ())
+applyToBoth := \f. (f True, f ())
 
 -- Rank-2 with constraint propagation
 applyPolyId :: (\a. a -> a) -> Bool
-applyPolyId := \f -> f True
+applyPolyId := \f. f True
 
 -- Multiple rank-2 uses
 dualApply :: (\a. a -> a) -> (\a. a -> a) -> (Bool, ())
-dualApply := \f -> \g -> (f True, g ())
+dualApply := \f g. (f True, g ())
 
 -- Rank-2 in case branch
 caseWithPoly :: Bool -> (\a. a -> a) -> Bool
-caseWithPoly := \b -> \f -> case b { True -> f True; False -> f False }
+caseWithPoly := \b f. case b { True -> f True; False -> f False }
 
 -- Helper: polymorphic identity
 id :: \a. a -> a
-id := \x -> x
+id := \x. x
 
 -- Compose with rank-2
 composeId :: (\a. a -> a) -> (\a. a -> a) -> (Bool, ())
-composeId := \f -> \g -> (f (g True), g (f ()))
+composeId := \f g. (f (g True), g (f ()))
 
 -- Subsumption: poly used at mono position
 useMono :: (Bool -> Bool) -> Bool
-useMono := \f -> f True
+useMono := \f. f True
 
 testSubsumption := useMono id
 

@@ -46,7 +46,7 @@ type Elem (c : Type) :: Type = {
   Elem (List a) = a
 }
 f :: Elem (List Unit) -> Unit
-f := \x -> x
+f := \x. x
 `
 	checkSource(t, source, nil)
 }
@@ -62,9 +62,9 @@ type Elem (c : Type) :: Type = {
   Elem (Pair a b) = a
 }
 f :: Elem (List Unit) -> Unit
-f := \x -> x
+f := \x. x
 g :: Elem (Pair Unit Unit) -> Unit
-g := \x -> x
+g := \x. x
 `
 	checkSource(t, source, nil)
 }
@@ -77,7 +77,7 @@ type Id (a : Type) :: Type = {
   Id a = a
 }
 f :: Id Unit -> Unit
-f := \x -> x
+f := \x. x
 `
 	checkSource(t, source, nil)
 }
@@ -91,7 +91,7 @@ type AlwaysUnit (a : Type) :: Type = {
   AlwaysUnit a = Unit
 }
 f :: AlwaysUnit (List Unit) -> Unit
-f := \x -> x
+f := \x. x
 `
 	checkSource(t, source, nil)
 }
@@ -107,7 +107,7 @@ type Elem (c : Type) :: Type = {
   Elem (List a) = a
 }
 f :: \ c. Elem c -> Elem c
-f := \x -> x
+f := \x. x
 `
 	checkSource(t, source, nil)
 }
@@ -122,7 +122,7 @@ type AlwaysUnit (a : Type) :: Type = {
   AlwaysUnit _ = Unit
 }
 f :: AlwaysUnit (List Unit) -> Unit
-f := \x -> x
+f := \x. x
 `
 	checkSource(t, source, nil)
 }
@@ -208,7 +208,7 @@ length := assumption
 first :: \ a. List a -> Elem (List a)
 first := assumption
 main :: Int
-main := length (map (\x -> x) (Cons Unit Nil))
+main := length (map (\x. x) (Cons Unit Nil))
 `
 	config := &CheckConfig{
 		RegisteredTypes: map[string]types.Kind{"Int": types.KType{}},
@@ -224,7 +224,7 @@ func TestTypeAliasStillWorks(t *testing.T) {
 data Unit = Unit
 type Id a = a
 f :: Id Unit -> Unit
-f := \x -> x
+f := \x. x
 `
 	checkSource(t, source, nil)
 }
@@ -250,7 +250,7 @@ foldr :: \ a b. (a -> b -> b) -> b -> List a -> b
 foldr := assumption
 
 f :: Elem (List Unit) -> Unit
-f := \x -> x
+f := \x. x
 `
 	checkSource(t, source, nil)
 }
@@ -283,9 +283,9 @@ pairLength :: \ a b. Pair a b -> Int
 pairLength := assumption
 
 f :: Elem (List Unit) -> Unit
-f := \x -> x
+f := \x. x
 g :: Elem (Pair Unit Unit) -> Unit
-g := \x -> x
+g := \x. x
 `
 	config := &CheckConfig{
 		RegisteredTypes: map[string]types.Kind{"Int": types.KType{}},
@@ -314,7 +314,7 @@ type Loop (a : Type) :: Type = {
   Loop a = Loop a
 }
 f :: Loop Unit -> Unit
-f := \x -> x
+f := \x. x
 `
 	checkSourceExpectCode(t, source, nil, errs.ErrTypeFamilyReduction)
 }
@@ -329,7 +329,7 @@ class Elem c e | c -> e {
   cfold :: (e -> e) -> c -> c
 }
 instance Elem (List a) a {
-  cfold := \f -> \xs -> xs
+  cfold := \f xs. xs
 }
 `
 	checkSource(t, source, nil)
@@ -386,7 +386,7 @@ func TestDivergentPostStatesLUBDefined(t *testing.T) {
 data Bool = True | False
 data Unit = Unit
 f :: Bool -> Unit
-f := \b -> case b {
+f := \b. case b {
   True -> Unit;
   False -> Unit
 }

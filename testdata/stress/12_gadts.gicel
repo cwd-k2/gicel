@@ -7,7 +7,7 @@ data Expr a = {
 
 -- Evaluate with type refinement in each branch.
 eval :: Expr Bool -> Bool
-eval := fix (\self -> \e -> case e {
+eval := fix (\self e. case e {
   LitBool b -> b;
   Not inner -> case self inner { True -> False; False -> True };
   And l r -> case self l {

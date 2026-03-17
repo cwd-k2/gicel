@@ -18,10 +18,10 @@ func TestQuantifiedConstraintBasic(t *testing.T) {
 	source := `data Bool = True | False
 data F a = MkF a
 class Eq a { eq :: a -> a -> Bool }
-instance Eq Bool { eq := \x -> \y -> True }
+instance Eq Bool { eq := \x y. True }
 f :: \ (g : Type -> Type). (\ a. Eq a => Eq (g a)) => g Bool -> g Bool -> Bool
-f := \x -> \y -> eq x y
-instance Eq a => Eq (F a) { eq := \x -> \y -> True }
+f := \x y. eq x y
+instance Eq a => Eq (F a) { eq := \x y. True }
 main := f (MkF True) (MkF False)`
 	checkSource(t, source, nil)
 }
@@ -32,11 +32,11 @@ func TestQuantifiedConstraintMultiplePremises(t *testing.T) {
 data F a = MkF a
 class Eq a { eq :: a -> a -> Bool }
 class Show a { show :: a -> Bool }
-instance Eq Bool { eq := \x -> \y -> True }
-instance Show Bool { show := \x -> True }
+instance Eq Bool { eq := \x y. True }
+instance Show Bool { show := \x. True }
 f :: \ (g : Type -> Type). (\ a. Eq a => Show a => Eq (g a)) => g Bool -> g Bool -> Bool
-f := \x -> \y -> eq x y
-instance Eq a => Show a => Eq (F a) { eq := \x -> \y -> True }
+f := \x y. eq x y
+instance Eq a => Show a => Eq (F a) { eq := \x y. True }
 main := f (MkF True) (MkF False)`
 	checkSource(t, source, nil)
 }
@@ -47,11 +47,11 @@ func TestQuantifiedConstraintWithOtherConstraints(t *testing.T) {
 data F a = MkF a
 class Eq a { eq :: a -> a -> Bool }
 class Show a { show :: a -> Bool }
-instance Eq Bool { eq := \x -> \y -> True }
-instance Show Bool { show := \x -> True }
-instance Eq a => Eq (F a) { eq := \x -> \y -> True }
+instance Eq Bool { eq := \x y. True }
+instance Show Bool { show := \x. True }
+instance Eq a => Eq (F a) { eq := \x y. True }
 f :: \ (g : Type -> Type). Show Bool => (\ a. Eq a => Eq (g a)) => g Bool -> g Bool -> Bool
-f := \x -> \y -> eq x y
+f := \x y. eq x y
 main := f (MkF True) (MkF False)`
 	checkSource(t, source, nil)
 }
@@ -62,11 +62,11 @@ func TestQuantifiedConstraintInProduct(t *testing.T) {
 data F a = MkF a
 class Eq a { eq :: a -> a -> Bool }
 class Show a { show :: a -> Bool }
-instance Eq Bool { eq := \x -> \y -> True }
-instance Show Bool { show := \x -> True }
-instance Eq a => Eq (F a) { eq := \x -> \y -> True }
+instance Eq Bool { eq := \x y. True }
+instance Show Bool { show := \x. True }
+instance Eq a => Eq (F a) { eq := \x y. True }
 f :: \ (g : Type -> Type). Show Bool => (\ a. Eq a => Eq (g a)) => g Bool -> g Bool -> Bool
-f := \x -> \y -> eq x y
+f := \x y. eq x y
 main := f (MkF True) (MkF False)`
 	checkSource(t, source, nil)
 }
@@ -77,11 +77,11 @@ func TestQuantifiedConstraintNested(t *testing.T) {
 data F a = MkF a
 data G a = MkG a
 class Eq a { eq :: a -> a -> Bool }
-instance Eq Bool { eq := \x -> \y -> True }
-instance Eq a => Eq (F a) { eq := \x -> \y -> True }
-instance Eq a => Eq (G a) { eq := \x -> \y -> True }
+instance Eq Bool { eq := \x y. True }
+instance Eq a => Eq (F a) { eq := \x y. True }
+instance Eq a => Eq (G a) { eq := \x y. True }
 f :: \ (g : Type -> Type) (h : Type -> Type). (\ a. Eq a => Eq (g a)) => (\ a. Eq a => Eq (h a)) => g Bool -> h Bool -> Bool
-f := \x -> \y -> eq x x
+f := \x y. eq x x
 main := f (MkF True) (MkG False)`
 	checkSource(t, source, nil)
 }
@@ -92,10 +92,10 @@ func TestQuantifiedConstraintErrorMissingPremise(t *testing.T) {
 data MyType = MyType
 data F a = MkF a
 class Eq a { eq :: a -> a -> Bool }
-instance Eq Bool { eq := \x -> \y -> True }
+instance Eq Bool { eq := \x y. True }
 f :: \ (g : Type -> Type). (\ a. Eq a => Eq (g a)) => g MyType -> g MyType -> Bool
-f := \x -> \y -> eq x y
-instance Eq a => Eq (F a) { eq := \x -> \y -> True }
+f := \x y. eq x y
+instance Eq a => Eq (F a) { eq := \x y. True }
 main := f (MkF MyType) (MkF MyType)`
 	errMsg := checkSourceExpectError(t, source, nil)
 	if !strings.Contains(errMsg, "no instance") {
@@ -113,11 +113,11 @@ func TestStressQuantifiedConstraintDeepChain(t *testing.T) {
 data F a = MkF a
 data G a = MkG a
 class Eq a { eq :: a -> a -> Bool }
-instance Eq Bool { eq := \x -> \y -> True }
-instance Eq a => Eq (G a) { eq := \x -> \y -> True }
+instance Eq Bool { eq := \x y. True }
+instance Eq a => Eq (G a) { eq := \x y. True }
 f :: \ (h : Type -> Type). (\ a. Eq a => Eq (h a)) => h (G Bool) -> h (G Bool) -> Bool
-f := \x -> \y -> eq x y
-instance Eq a => Eq (F a) { eq := \x -> \y -> True }
+f := \x y. eq x y
+instance Eq a => Eq (F a) { eq := \x y. True }
 main := f (MkF (MkG True)) (MkF (MkG False))`
 	checkSource(t, source, nil)
 }
@@ -129,11 +129,11 @@ func TestQuantifiedConstraintUsedInBody(t *testing.T) {
 data Unit = Unit
 data F a = MkF a
 class Eq a { eq :: a -> a -> Bool }
-instance Eq Bool { eq := \x -> \y -> True }
-instance Eq Unit { eq := \x -> \y -> True }
-instance Eq a => Eq (F a) { eq := \x -> \y -> True }
+instance Eq Bool { eq := \x y. True }
+instance Eq Unit { eq := \x y. True }
+instance Eq a => Eq (F a) { eq := \x y. True }
 f :: \ (g : Type -> Type). (\ a. Eq a => Eq (g a)) => g Bool -> g Unit -> Bool
-f := \x -> \y -> eq x x
+f := \x y. eq x x
 main := f (MkF True) (MkF Unit)`
 	checkSource(t, source, nil)
 }
@@ -143,12 +143,12 @@ func TestQuantifiedConstraintParseDisplay(t *testing.T) {
 	source := `data Bool = True | False
 data F a = MkF a
 class Eq a { eq :: a -> a -> Bool }
-instance Eq Bool { eq := \x -> \y -> True }
-instance Eq a => Eq (F a) { eq := \x -> \y -> True }
+instance Eq Bool { eq := \x y. True }
+instance Eq a => Eq (F a) { eq := \x y. True }
 id :: \ a. a -> a
-id := \x -> x
+id := \x. x
 f :: \ (g : Type -> Type). (\ a. Eq a => Eq (g a)) => g Bool -> Bool
-f := \x -> eq x x
+f := \x. eq x x
 main := f (MkF True)`
 	checkSource(t, source, nil)
 }
@@ -159,11 +159,11 @@ func TestQuantifiedConstraintMixedWithCurried(t *testing.T) {
 data F a = MkF a
 class Eq a { eq :: a -> a -> Bool }
 class Show a { show :: a -> Bool }
-instance Eq Bool { eq := \x -> \y -> True }
-instance Show Bool { show := \x -> True }
-instance Eq a => Eq (F a) { eq := \x -> \y -> True }
+instance Eq Bool { eq := \x y. True }
+instance Show Bool { show := \x. True }
+instance Eq a => Eq (F a) { eq := \x y. True }
 f :: \ (g : Type -> Type). Show Bool => (\ a. Eq a => Eq (g a)) => g Bool -> Bool
-f := \x -> eq x x
+f := \x. eq x x
 main := f (MkF True)`
 	checkSource(t, source, nil)
 }
@@ -174,11 +174,11 @@ func TestQuantifiedConstraintMixed(t *testing.T) {
 data F a = MkF a
 class Eq a { eq :: a -> a -> Bool }
 class Show a { show :: a -> Bool }
-instance Eq Bool { eq := \x -> \y -> True }
-instance Show Bool { show := \x -> True }
-instance Eq a => Eq (F a) { eq := \x -> \y -> True }
+instance Eq Bool { eq := \x y. True }
+instance Show Bool { show := \x. True }
+instance Eq a => Eq (F a) { eq := \x y. True }
 f :: \ (g : Type -> Type). Show Bool => (\ a. Eq a => Eq (g a)) => g Bool -> Bool
-f := \x -> eq x x
+f := \x. eq x x
 main := f (MkF True)`
 	checkSource(t, source, nil)
 }

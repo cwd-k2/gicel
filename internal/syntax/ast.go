@@ -121,8 +121,8 @@ type ExprProject struct {
 }
 
 // ExprSection is an operator section: (+ 1) or (1 +).
-// IsRight=true → right section (+ 1) = \x -> x + 1
-// IsRight=false → left section (1 +) = \x -> 1 + x
+// IsRight=true → right section (+ 1) = \x. x + 1
+// IsRight=false → left section (1 +) = \x. 1 + x
 type ExprSection struct {
 	Op      string
 	Arg     Expr

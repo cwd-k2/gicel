@@ -28,7 +28,7 @@ moved := { point | x = 10 }
 
 -- Row-polymorphic function: works on any record with an "x" field
 getX :: \ r. Record { x : Int | r } -> Int
-getX := \r -> r.#x
+getX := \r. r.#x
 
 -- Works with different record shapes
 p1 := getX { x = 1, y = 2 }
@@ -48,7 +48,7 @@ cmpTest := compare (1, 2) (1, 3)
 
 -- Pattern matching on records
 swap :: \ a b. (a, b) -> (b, a)
-swap := \p -> case p { (x, y) -> (y, x) }
+swap := \p. case p { (x, y) -> (y, x) }
 
 -- Nested records
 nested := { inner = { a = True, b = False }, tag = 42 }

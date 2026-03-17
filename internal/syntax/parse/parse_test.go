@@ -347,7 +347,7 @@ func TestParseOperatorValueDef(t *testing.T) {
 func TestParseOperatorInModule(t *testing.T) {
 	src := `data Int = MkInt
 add :: Int -> Int -> Int
-add := \x -> \y -> x
+add := \x y. x
 infixl 6 +
 (+) :: Int -> Int -> Int
 (+) := add`
@@ -410,7 +410,7 @@ func TestParseTypeAlias(t *testing.T) {
 }
 
 func TestParseValueDef(t *testing.T) {
-	prog, es := parse("id := \\x -> x")
+	prog, es := parse(`id := \x. x`)
 	if es.HasErrors() {
 		t.Fatal(es.Format())
 	}
@@ -764,7 +764,7 @@ func TestParseClassMultiParam(t *testing.T) {
 }
 
 func TestParseInstanceDecl(t *testing.T) {
-	prog, es := parse("instance Eq Bool { eq := \\x -> \\y -> True }")
+	prog, es := parse(`instance Eq Bool { eq := \x y. True }`)
 	if es.HasErrors() {
 		t.Fatal(es.Format())
 	}
@@ -784,7 +784,7 @@ func TestParseInstanceDecl(t *testing.T) {
 }
 
 func TestParseInstanceWithContext(t *testing.T) {
-	prog, es := parse("instance Eq a => Eq (Maybe a) { eq := \\x -> \\y -> True }")
+	prog, es := parse(`instance Eq a => Eq (Maybe a) { eq := \x y. True }`)
 	if es.HasErrors() {
 		t.Fatal(es.Format())
 	}
@@ -1222,7 +1222,7 @@ func TestParseChainedProjection(t *testing.T) {
 }
 
 func TestParseRecordPattern(t *testing.T) {
-	prog, es := parse("f := \\{ x = a, y = b } -> a")
+	prog, es := parse(`f := \{ x = a, y = b }. a`)
 	if es.HasErrors() {
 		t.Fatal(es.Format())
 	}
@@ -1317,7 +1317,7 @@ func TestParseGroupingNotTuple(t *testing.T) {
 }
 
 func TestParseTuplePattern(t *testing.T) {
-	prog, es := parse("f := \\(a, b) -> a")
+	prog, es := parse(`f := \(a, b). a`)
 	if es.HasErrors() {
 		t.Fatal(es.Format())
 	}
@@ -1336,7 +1336,7 @@ func TestParseTuplePattern(t *testing.T) {
 }
 
 func TestParseUnitPattern(t *testing.T) {
-	prog, es := parse("f := \\() -> 1")
+	prog, es := parse(`f := \(). 1`)
 	if es.HasErrors() {
 		t.Fatal(es.Format())
 	}
@@ -1467,11 +1467,11 @@ func TestParseDeepNestingTerminates(t *testing.T) {
 }
 
 func TestParseDeepNestedLambdas(t *testing.T) {
-	// Nested lambdas: \x -> \x -> \x -> ... -> x
+	// Nested lambdas: \x. \x. \x. ... x
 	const depth = 2000
 	src := "main := "
 	for range depth {
-		src += "\\x -> "
+		src += `\x. `
 	}
 	src += "x"
 	_, es := parse(src)

@@ -1,7 +1,7 @@
 -- Stdlib: use Eq, Functor, Foldable from prelude.
 
 not :: Bool -> Bool
-not := \b -> case b { True -> False; False -> True }
+not := \b. case b { True -> False; False -> True }
 
 -- Eq: test equality on various types.
 eqTest1 := eq True True
@@ -13,6 +13,6 @@ eqTest4 := eq (Cons True (Cons False Nil)) (Cons True (Cons False Nil))
 mapTest := fmap not (Just True)
 
 -- Foldable: fold Maybe.
-foldTest := foldr (\x -> \_ -> x) False (Just True)
+foldTest := foldr (\x _. x) False (Just True)
 
 main := (eqTest1, (eqTest2, (eqTest3, (eqTest4, (mapTest, foldTest)))))

@@ -283,7 +283,7 @@ func TestListFoldl(t *testing.T) {
 	v := runWithPacks(t, `
 import Std.Num
 import Std.List
-main := foldl (\acc -> \x -> case x { True -> acc + 1; False -> acc }) 0 (Cons True (Cons False (Cons True Nil)))
+main := foldl (\acc x. case x { True -> acc + 1; False -> acc }) 0 (Cons True (Cons False (Cons True Nil)))
 `, gicel.Num, gicel.List)
 	hv, ok := v.(*gicel.HostVal)
 	if !ok {
@@ -361,7 +361,7 @@ main := sliceLength (append (sliceSingleton True) (sliceSingleton False))
 func TestStreamHeadS(t *testing.T) {
 	v := runWithPacks(t, `
 import Std.Stream
-main := headS (LCons True (\_ -> LNil))
+main := headS (LCons True (\_. LNil))
 `, gicel.Stream)
 	con, ok := v.(*gicel.ConVal)
 	if !ok || con.Con != "Just" {
@@ -398,7 +398,7 @@ func TestStreamTakeS(t *testing.T) {
 	v := runWithPacks(t, `
 import Std.Num
 import Std.Stream
-main := takeS 2 (LCons True (\_ -> LCons False (\_ -> LCons True (\_ -> LNil))))
+main := takeS 2 (LCons True (\_. LCons False (\_. LCons True (\_. LNil))))
 `, gicel.Num, gicel.Stream)
 	con := v.(*gicel.ConVal)
 	if con.Con != "Cons" {
@@ -413,7 +413,7 @@ main := takeS 2 (LCons True (\_ -> LCons False (\_ -> LCons True (\_ -> LNil))))
 func TestStreamFmap(t *testing.T) {
 	v := runWithPacks(t, `
 import Std.Stream
-main := headS (fmap not (LCons True (\_ -> LNil)))
+main := headS (fmap not (LCons True (\_. LNil)))
 `, gicel.Stream)
 	con, ok := v.(*gicel.ConVal)
 	if !ok || con.Con != "Just" {
@@ -426,7 +426,7 @@ func TestStreamDropS(t *testing.T) {
 	v := runWithPacks(t, `
 import Std.Num
 import Std.Stream
-main := headS (dropS 1 (LCons True (\_ -> LCons False (\_ -> LNil))))
+main := headS (dropS 1 (LCons True (\_. LCons False (\_. LNil))))
 `, gicel.Num, gicel.Stream)
 	con, ok := v.(*gicel.ConVal)
 	if !ok || con.Con != "Just" {
@@ -445,7 +445,7 @@ func TestSliceFusionMapMapIntegration(t *testing.T) {
 	v := runWithPacks(t, `
 import Std.Num
 import Std.Slice
-main := sliceLength (fmap (\x -> x + 1) (fmap (\x -> x + 2) (sliceSingleton 0)))
+main := sliceLength (fmap (\x. x + 1) (fmap (\x. x + 2) (sliceSingleton 0)))
 `, gicel.Num, gicel.Slice)
 	assertHostInt(t, v, 1)
 }
@@ -592,7 +592,7 @@ func TestListScanl(t *testing.T) {
 	v := runWithPacks(t, `
 import Std.Num
 import Std.List
-main := scanl (\x -> \y -> x + y) 0 (Cons 1 (Cons 2 (Cons 3 Nil)))
+main := scanl (\x y. x + y) 0 (Cons 1 (Cons 2 (Cons 3 Nil)))
 `, gicel.Num, gicel.List)
 	// scanl (+) 0 [1,2,3] = [0,1,3,6]
 	con := v.(*gicel.ConVal)
@@ -606,7 +606,7 @@ func TestListUnfoldr(t *testing.T) {
 	v := runWithPacks(t, `
 import Std.Num
 import Std.List
-main := unfoldr (\n -> case n == 0 { True -> Nothing; False -> Just (n, n - 1) }) 3
+main := unfoldr (\n. case n == 0 { True -> Nothing; False -> Just (n, n - 1) }) 3
 `, gicel.Num, gicel.List)
 	// unfoldr from 3: Just (3,2), Just (2,1), Just (1,0), Nothing → [3,2,1]
 	con := v.(*gicel.ConVal)
@@ -620,7 +620,7 @@ func TestListIterateN(t *testing.T) {
 	v := runWithPacks(t, `
 import Std.Num
 import Std.List
-main := iterateN 4 (\x -> x * 2) 1
+main := iterateN 4 (\x. x * 2) 1
 `, gicel.Num, gicel.List)
 	// iterateN 4 (*2) 1 = [1,2,4,8]
 	con := v.(*gicel.ConVal)
@@ -634,7 +634,7 @@ func TestListZipWith(t *testing.T) {
 	v := runWithPacks(t, `
 import Std.Num
 import Std.List
-main := zipWith (\x -> \y -> x + y) (Cons 1 (Cons 2 Nil)) (Cons 10 (Cons 20 Nil))
+main := zipWith (\x y. x + y) (Cons 1 (Cons 2 Nil)) (Cons 10 (Cons 20 Nil))
 `, gicel.Num, gicel.List)
 	// zipWith (+) [1,2] [10,20] = [11,22]
 	con := v.(*gicel.ConVal)

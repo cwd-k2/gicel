@@ -89,7 +89,7 @@ showInt :: Int -> String
 showInt := _showInt
 
 showBool :: Bool -> String
-showBool := \b -> case b { True -> "True"; False -> "False" }
+showBool := \b. case b { True -> "True"; False -> "False" }
 
 readInt :: String -> Maybe Int
 readInt := _readInt
@@ -111,18 +111,18 @@ instance Packed String Rune {
   unpack := toRunes
 }
 
-instance Show String { show := \s -> append "\"" (append s "\"") }
-instance Show a => Show (Maybe a) { show := \m -> case m {
+instance Show String { show := \s. append "\"" (append s "\"") }
+instance Show a => Show (Maybe a) { show := \m. case m {
   Nothing -> "Nothing";
   Just a  -> append "Just " (show a)
 } }
-instance Show a => Show (List a) { show := \xs ->
+instance Show a => Show (List a) { show := \xs.
   append "[" (append (join ", " (fmap show xs)) "]")
 }
-instance Show e => Show a => Show (Result e a) { show := \r -> case r {
+instance Show e => Show a => Show (Result e a) { show := \r. case r {
   Err e -> append "Err " (show e);
   Ok a  -> append "Ok " (show a)
 } }
-instance Show a => Show b => Show (a, b) { show := \p ->
+instance Show a => Show b => Show (a, b) { show := \p.
   append "(" (append (show (p.#_1)) (append ", " (append (show (p.#_2)) ")")))
 }

@@ -36,7 +36,7 @@ func peanoSource(depth int) string {
 	// A phantom type indexed by Nat, to force reduction without needing value-level computation.
 	b.WriteString("data Phantom (n : Nat) = MkPhantom\n")
 	b.WriteString(fmt.Sprintf("f :: Phantom (Add %s Z) -> Phantom (Add %s Z)\n", nested, nested))
-	b.WriteString("f := \\x -> x\n")
+	b.WriteString("f := \\x. x\n")
 
 	return b.String()
 }
@@ -71,7 +71,7 @@ type Trampoline (a : Type) :: Type = {
   Trampoline a = Bounce a
 }
 f :: Bounce Unit -> Unit
-f := \x -> x
+f := \x. x
 `
 	checkSourceExpectCode(t, source, nil, errs.ErrTypeFamilyReduction)
 }
@@ -106,11 +106,11 @@ func TestStressManyEquations(t *testing.T) {
 	// Verify specific dispatch results via phantom types.
 	b.WriteString("data Phantom (r : Result) = MkPhantom\n")
 	b.WriteString("first :: Phantom (Dispatch T0) -> Phantom R0\n")
-	b.WriteString("first := \\x -> x\n")
+	b.WriteString("first := \\x. x\n")
 	b.WriteString("last :: Phantom (Dispatch T59) -> Phantom R1\n")
-	b.WriteString("last := \\x -> x\n")
+	b.WriteString("last := \\x. x\n")
 	b.WriteString("middle :: Phantom (Dispatch T30) -> Phantom R0\n")
-	b.WriteString("middle := \\x -> x\n")
+	b.WriteString("middle := \\x. x\n")
 
 	checkSource(t, b.String(), nil)
 }
@@ -137,7 +137,7 @@ type Apply (f : Type) :: Type = {
 
 -- Nested: Unwrap (Wrapper (Head (List (Apply Unit)))) = Head (List Unit) = Unit
 f :: Unwrap (Wrapper (Head (List Unit))) -> Unit
-f := \x -> x
+f := \x. x
 `
 	checkSource(t, source, nil)
 }
@@ -162,7 +162,7 @@ type Id (a : Type) :: Type = {
 
 -- Id(Elem(List(Unbox(Box Unit)))) = Id(Elem(List Unit)) = Id(Unit) = Unit
 g :: Id (Elem (List (Unbox (Box Unit)))) -> Unit
-g := \x -> x
+g := \x. x
 `
 	checkSource(t, source, nil)
 }
@@ -188,7 +188,7 @@ nilFallback :: \ a. a
 nilFallback := assumption
 
 instance Container (List a) {
-  chead := \xs -> case xs {
+  chead := \xs. case xs {
     Cons x _ -> x;
     Nil -> nilFallback
   }
@@ -252,7 +252,7 @@ k4 := MaybeKey Unit
 
 -- Pattern match on data family constructors.
 unwrapListKey :: \ a. Key (List a) -> a
-unwrapListKey := \k -> case k { ListKey x -> x }
+unwrapListKey := \k. case k { ListKey x -> x }
 `
 	checkSource(t, source, nil)
 }
@@ -276,27 +276,27 @@ class HasRepr c {
 
 instance HasRepr Unit {
   data Repr Unit = ReprUnit;
-  toRepr := \_ -> ReprUnit
+  toRepr := \_. ReprUnit
 }
 
 instance HasRepr (List a) {
   data Repr (List a) = ReprList a;
-  toRepr := \xs -> case xs { Cons x _ -> ReprList x; Nil -> nilFallback }
+  toRepr := \xs. case xs { Cons x _ -> ReprList x; Nil -> nilFallback }
 }
 
 instance HasRepr (Pair a b) {
   data Repr (Pair a b) = ReprPair a b;
-  toRepr := \p -> case p { MkPair a b -> ReprPair a b }
+  toRepr := \p. case p { MkPair a b -> ReprPair a b }
 }
 
 instance HasRepr (Either a b) {
   data Repr (Either a b) = ReprLeft a | ReprRight b;
-  toRepr := \e -> case e { Left a -> ReprLeft a; Right b -> ReprRight b }
+  toRepr := \e. case e { Left a -> ReprLeft a; Right b -> ReprRight b }
 }
 
 instance HasRepr (Maybe a) {
   data Repr (Maybe a) = ReprJust a | ReprNothing;
-  toRepr := \m -> case m { Just x -> ReprJust x; Nothing -> ReprNothing }
+  toRepr := \m. case m { Just x -> ReprJust x; Nothing -> ReprNothing }
 }
 
 x1 :: Repr Unit
@@ -332,7 +332,7 @@ type Const :: Type = {
   Const = Unit
 }
 f :: Const -> Unit
-f := \x -> x
+f := \x. x
 `
 	checkSource(t, source, nil)
 }
@@ -353,10 +353,10 @@ type DeepElem (c : Type) :: Type = {
 }
 
 f :: DeepElem (Maybe (List Unit)) -> Unit
-f := \x -> x
+f := \x. x
 
 g :: DeepElem (List (Maybe Unit)) -> Unit
-g := \x -> x
+g := \x. x
 `
 	checkSource(t, source, nil)
 }
@@ -374,8 +374,8 @@ class Iso a b | a -> b, b -> a {
 }
 
 instance Iso Unit Unit {
-  to := \x -> x;
-  from := \x -> x
+  to := \x. x;
+  from := \x. x
 }
 
 f :: Unit -> Unit
@@ -397,7 +397,7 @@ data Void = {
 }
 data Unit = Unit
 absurd :: Void -> Unit
-absurd := \v -> case v { VoidCon -> Unit }
+absurd := \v. case v { VoidCon -> Unit }
 `
 	checkSource(t, source, nil)
 }
@@ -410,7 +410,7 @@ data Unit = MkUnit
 consume :: Computation { a : Unit } {} Unit
 consume := assumption
 f :: Unit -> Computation { a : Unit } {} Unit
-f := \u -> case u {
+f := \u. case u {
   MkUnit -> consume
 }
 `
@@ -427,7 +427,7 @@ data Unit = Unit
 consumeA :: Computation { a : Unit, b : Unit } { b : Unit } Unit
 consumeA := assumption
 f :: Bool -> Computation { a : Unit, b : Unit } { b : Unit } Unit
-f := \b -> case b {
+f := \b. case b {
   True -> consumeA;
   False -> consumeA
 }
@@ -449,7 +449,7 @@ consumeA := assumption
 consumeB :: Computation { a : Unit, b : Unit } { a : Unit } Unit
 consumeB := assumption
 f :: Bool -> Computation { a : Unit, b : Unit } {} Unit
-f := \b -> case b {
+f := \b. case b {
   True -> consumeA;
   False -> consumeB
 }
@@ -475,7 +475,7 @@ consumeA := assumption
 consumeB :: Computation { a : Unit, b : Unit, c : Unit } { a : Unit, c : Unit } Unit
 consumeB := assumption
 f :: Three -> Computation { a : Unit, b : Unit, c : Unit } { c : Unit } Unit
-f := \t -> case t {
+f := \t. case t {
   One -> noop;
   Two -> consumeA;
   Three -> consumeB
@@ -493,7 +493,7 @@ type Always (a : Type) :: Type = {
   Always _ = Unit
 }
 f :: Always Int -> Unit
-f := \x -> x
+f := \x. x
 `
 	config := &CheckConfig{
 		RegisteredTypes: map[string]types.Kind{"Int": types.KType{}},
@@ -512,7 +512,7 @@ type Pred (n : Nat) :: Nat = {
 }
 data Phantom (n : Nat) = MkPhantom
 f :: Phantom (Pred (S Z)) -> Phantom Z
-f := \x -> x
+f := \x. x
 `
 	checkSource(t, source, nil)
 }
@@ -532,10 +532,10 @@ type Elem (c : Type) :: Type = {
 }
 
 f :: Elem (Maybe Unit) -> Unit
-f := \x -> x
+f := \x. x
 
 g :: Elem (List Unit) -> Unit
-g := \x -> x
+g := \x. x
 `
 	checkSource(t, source, nil)
 }
@@ -553,12 +553,12 @@ class HasTag c {
 
 instance HasTag Unit {
   data Tag Unit = TagA | TagB | TagC;
-  getTag := \_ -> TagA
+  getTag := \_. TagA
 }
 
 -- Must match all three constructors.
 f :: Tag Unit -> Unit
-f := \t -> case t {
+f := \t. case t {
   TagA -> Unit;
   TagB -> Unit;
   TagC -> Unit
@@ -578,12 +578,12 @@ class HasTag c {
 
 instance HasTag Unit {
   data Tag Unit = TagA | TagB | TagC;
-  getTag := \_ -> TagA
+  getTag := \_. TagA
 }
 
 -- Missing TagC → non-exhaustive.
 f :: Tag Unit -> Unit
-f := \t -> case t {
+f := \t. case t {
   TagA -> Unit;
   TagB -> Unit
 }

@@ -4,15 +4,15 @@ import Std.Str
 -- Record literals and projection
 origin := { x = 0, y = 0 }
 point := { x = 3, y = 4 }
-getX := \r -> r.#x
-getY := \r -> r.#y
+getX := \r. r.#x
+getY := \r. r.#y
 
 -- Record update
 moved := { point | x = 10 }
 
 -- Row-polymorphic record functions
 getLabel :: \r. Record { label : String | r } -> String
-getLabel := \r -> r.#label
+getLabel := \r. r.#label
 
 named := { label = "hello", value = 42 }
 tagged := { label = "world", x = 1, y = 2 }
@@ -42,11 +42,11 @@ cmpPair := compare (1, 2) (1, 3)
 
 -- Tuple pattern matching
 swap :: \a b. (a, b) -> (b, a)
-swap := \p -> case p { (x, y) -> (y, x) }
+swap := \p. case p { (x, y) -> (y, x) }
 swapped := swap (True, False)
 
 -- Record pattern matching
-extractXY := \p -> case p { { x = px, y = py } -> (px, py) }
+extractXY := \p. case p { { x = px, y = py } -> (px, py) }
 xyTuple := extractXY point
 
 -- Deeply nested tuples

@@ -2,28 +2,28 @@ class Coercible a b { coerce :: a -> b }
 class Convert a b { convert :: a -> b }
 class Iso a b { to :: a -> b; from :: b -> a }
 
-instance Coercible Bool () { coerce := \_ -> () }
-instance Coercible () Bool { coerce := \_ -> True }
-instance Coercible Bool Bool { coerce := \x -> x }
+instance Coercible Bool () { coerce := \_. () }
+instance Coercible () Bool { coerce := \_. True }
+instance Coercible Bool Bool { coerce := \x. x }
 instance Coercible (Maybe Bool) Bool {
-  coerce := \m -> case m { Just _ -> True; Nothing -> False }
+  coerce := \m. case m { Just _ -> True; Nothing -> False }
 }
 
 instance Convert Bool (Maybe Bool) {
-  convert := \b -> case b { True -> Just True; False -> Nothing }
+  convert := \b. case b { True -> Just True; False -> Nothing }
 }
 instance Convert (Maybe Bool) Bool {
-  convert := \m -> case m { Just _ -> True; Nothing -> False }
+  convert := \m. case m { Just _ -> True; Nothing -> False }
 }
 
-instance Iso Bool Bool { to := \x -> x; from := \x -> x }
-instance Iso () () { to := \x -> x; from := \x -> x }
+instance Iso Bool Bool { to := \x. x; from := \x. x }
+instance Iso () () { to := \x. x; from := \x. x }
 
 convertAndCoerce :: \a b c. Convert a b => Coercible b c => a -> c
-convertAndCoerce := \x -> coerce (convert x)
+convertAndCoerce := \x. coerce (convert x)
 
 chainCoerce :: \a b c. Coercible a b => Coercible b c => a -> c
-chainCoerce := \x -> coerce (coerce x)
+chainCoerce := \x. coerce (coerce x)
 
 convertedBool := convertAndCoerce True
 

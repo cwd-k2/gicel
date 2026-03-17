@@ -47,7 +47,7 @@ func TestTransformIdentity(t *testing.T) {
 }
 
 func TestFreeVars(t *testing.T) {
-	// \x -> App(x, y) — y is free
+	// \x. App(x, y) — y is free
 	term := &Lam{
 		Param: "x",
 		Body:  &App{Fun: &Var{Name: "x"}, Arg: &Var{Name: "y"}},

@@ -16,7 +16,7 @@ class Mappable (f : Type -> Type) {
 
 -- Instance for Maybe (from Prelude)
 instance Mappable Maybe {
-  mmap := \g -> \mx -> case mx {
+  mmap := \g mx. case mx {
     Nothing -> Nothing;
     Just x  -> Just (g x)
   }
@@ -24,7 +24,7 @@ instance Mappable Maybe {
 
 -- Instance for Tree
 instance Mappable Tree {
-  mmap := \g -> \t -> case t {
+  mmap := \g t. case t {
     TLeaf x       -> TLeaf (g x);
     TBranch l r   -> TBranch (mmap g l) (mmap g r)
   }
@@ -33,7 +33,7 @@ instance Mappable Tree {
 -- Kind-polymorphic identity function
 -- (k : Kind) quantifies over kinds; (a : k) has the kind variable k
 id_k :: \(k : Kind). \(a : k). a -> a
-id_k := \x -> x
+id_k := \x. x
 
 -- Using id_k at different kinds:
 -- At kind Type: id_k @Type @Bool True

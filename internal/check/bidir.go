@@ -92,7 +92,7 @@ func (ch *Checker) infer(expr syntax.Expr) (types.Type, core.Core) {
 				return ch.inferForce(e)
 			}
 		}
-		// bind takes two args: bind comp (\x -> e) → Core.Bind.
+		// bind takes two args: bind comp (\x. e) → Core.Bind.
 		// Detect App(App(Var("bind"), comp), cont).
 		if inner, ok := e.Fun.(*syntax.ExprApp); ok {
 			if v, ok := inner.Fun.(*syntax.ExprVar); ok && v.Name == "bind" {
@@ -143,8 +143,8 @@ func (ch *Checker) infer(expr syntax.Expr) (types.Type, core.Core) {
 
 	case *syntax.ExprSection:
 		// Desugar operator sections to lambda:
-		// (+ 1)  → \$x -> $x + 1   (IsRight=true)
-		// (1 +)  → \$x -> 1 + $x   (IsRight=false)
+		// (+ 1)  → \$x. $x + 1   (IsRight=true)
+		// (1 +)  → \$x. 1 + $x   (IsRight=false)
 		param := "$sec"
 		var body syntax.Expr
 		paramVar := &syntax.ExprVar{Name: param, S: e.S}
@@ -363,7 +363,7 @@ func (ch *Checker) checkLam(e *syntax.ExprLam, expected types.Type) core.Core {
 	}
 	argTy, retTy := ch.matchArrow(expected, e.S)
 
-	// Desugar structured patterns: \pat -> body  →  \$p -> case $p { pat -> body }
+	// Desugar structured patterns: \pat. body  →  \$p. case $p { pat -> body }
 	if isStructuredPattern(e.Params[0]) {
 		freshName := fmt.Sprintf("%s_%d", prefixPat, ch.fresh())
 		var innerBody syntax.Expr
@@ -599,7 +599,7 @@ func (ch *Checker) inferPure(e *syntax.ExprApp) (types.Type, core.Core) {
 }
 
 // inferBind handles the special form 'bind <comp> <cont>'.
-// bind c (\x -> e) : Computation r1 r3 b, elaborated to Core.Bind.
+// bind c (\x. e) : Computation r1 r3 b, elaborated to Core.Bind.
 func (ch *Checker) inferBind(compExpr, contExpr syntax.Expr, s span.Span) (types.Type, core.Core) {
 	compTy, compCore := ch.infer(compExpr)
 

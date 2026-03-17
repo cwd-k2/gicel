@@ -14,22 +14,22 @@ import Std.List
 -- ── Continuation Monad ─────────────────────────────────────
 -- All operations are plain λ-terms.
 
-returnC := \a -> \k -> k a               -- lift a value
-runC    := \m -> m id                     -- extract via identity
+returnC := \a k. k a               -- lift a value
+runC    := \m. m id                     -- extract via identity
 
 -- callCC: capture the current continuation.
 -- (exit a) discards the rest and jumps straight to k.
-callCC := \f -> \k -> f (\a -> \_ -> k a) k
+callCC := \f k. f (\a _. k a) k
 
 -- (>>=): thread continuations left-to-right
 infixl 1 >>=
-(>>=) := \m -> \f -> \k -> m (\a -> f a k)
+(>>=) := \m f k. m (\a. f a k)
 
 -- ── Basics ─────────────────────────────────────────────────
 
 -- return 5 >>= \x -> return (x * 2)
 ex1 := runC (
-  returnC 5 >>= \x ->
+  returnC 5 >>= \x.
   returnC (x * 2))
 -- 10
 
@@ -37,30 +37,30 @@ ex1 := runC (
 
 -- exit 42 fires; x + 1 is never reached
 ex2 := runC (
-  callCC (\exit ->
-    exit 42 >>= \x ->
+  callCC (\exit.
+    exit 42 >>= \x.
     returnC (x + 1))
-  >>= \v -> returnC v)
+  >>= \v. returnC v)
 -- 42
 
 -- Without exit: normal flow
 ex3 := runC (
-  callCC (\_ -> returnC 10)
-  >>= \x -> returnC (x + 1))
+  callCC (\_. returnC 10)
+  >>= \x. returnC (x + 1))
 -- 11
 
 -- ── CPS pipeline ───────────────────────────────────────────
 
-addCPS := \x -> \y -> \k -> k (x + y)
-mulCPS := \x -> \y -> \k -> k (x * y)
+addCPS := \x y k. k (x + y)
+mulCPS := \x y k. k (x * y)
 
 -- (3 + 4) * 2 = 14, threaded through continuations
-ex4 := addCPS 3 4 (\s -> mulCPS s 2 id)
+ex4 := addCPS 3 4 (\s. mulCPS s 2 id)
 
 -- ── Multi-shot continuations ───────────────────────────────
 -- A continuation is a function — calling it twice branches.
 
-ex5 := (\k -> [k 1, k 2, k 3]) (\x -> x * x)
+ex5 := (\k. [k 1, k 2, k 3]) (\x. x * x)
 -- [1, 4, 9]
 
 -- ── Nondeterministic search via amb ────────────────────────
@@ -68,20 +68,20 @@ ex5 := (\k -> [k 1, k 2, k 3]) (\x -> x * x)
 -- This is the list-monad bind, seen as multi-shot continuation.
 
 amb :: \a b. List a -> (a -> List b) -> List b
-amb := \choices -> \k ->
-  foldr (\x -> \acc -> concat (k x) acc) [] choices
+amb := \choices k.
+  foldr (\x acc. concat (k x) acc) [] choices
 
 guard :: Bool -> List ()
-guard := \cond -> case cond { True -> [()]; False -> [] }
+guard := \cond. case cond { True -> [()]; False -> [] }
 
 range :: Int -> Int -> List Int
-range := fix (\self -> \lo -> \hi ->
+range := fix (\self lo hi.
   case lo > hi { True -> []; False -> Cons lo (self (lo + 1) hi) })
 
 -- Find (x, y) with x + y = 7, searching [1..6] × [1..6]
-sumPairs := amb (range 1 6) (\x ->
-              amb (range 1 6) (\y ->
-                amb (guard (eq (x + y) 7)) (\_ ->
+sumPairs := amb (range 1 6) (\x.
+              amb (range 1 6) (\y.
+                amb (guard (eq (x + y) 7)) (\_.
                   [(x, y)])))
 -- [(1,6),(2,5),(3,4),(4,3),(5,2),(6,1)]
 
@@ -90,10 +90,10 @@ sumPairs := amb (range 1 6) (\x ->
 
 data Triple = MkTriple Int Int Int
 
-pythag := amb (range 1 10) (\a ->
-            amb (range a 10) (\b ->
-              amb (range b 10) (\c ->
-                amb (guard (eq (a * a + b * b) (c * c))) (\_ ->
+pythag := amb (range 1 10) (\a.
+            amb (range a 10) (\b.
+              amb (range b 10) (\c.
+                amb (guard (eq (a * a + b * b) (c * c))) (\_.
                   [MkTriple a b c]))))
 -- [MkTriple 3 4 5, MkTriple 6 8 10]
 

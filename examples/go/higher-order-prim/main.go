@@ -24,7 +24,7 @@ myApply :: (Int -> Int) -> Int -> Int
 myApply := assumption
 
 double :: Int -> Int
-double := \x -> x + x
+double := \x. x + x
 
 main := myApply double 21
 `

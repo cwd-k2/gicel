@@ -45,7 +45,7 @@ class Container (f : k -> Type) {
 }
 
 instance Container List {
-  size := \xs -> 0
+  size := \xs. 0
 }
 `
 	config := &CheckConfig{
@@ -66,7 +66,7 @@ type Elem (c : Type) :: Type = {
 }
 
 first :: List Unit -> Elem (List Unit)
-first := \xs -> case xs { Cons x rest -> x; Nil -> Unit }
+first := \xs. case xs { Cons x rest -> x; Nil -> Unit }
 `
 	checkSource(t, source, nil)
 }
@@ -87,7 +87,7 @@ class Container c {
 
 instance Container (List a) {
   type Elem (List a) = a;
-  chead := \xs -> case xs { Cons x rest -> x; Nil -> chead Nil }
+  chead := \xs. case xs { Cons x rest -> x; Nil -> chead Nil }
 }
 
 class Functor (f : k -> Type) {
@@ -95,11 +95,11 @@ class Functor (f : k -> Type) {
 }
 
 instance Functor Maybe {
-  fmap := \g -> \mx -> case mx { Nothing -> Nothing; Just x -> Just (g x) }
+  fmap := \g mx. case mx { Nothing -> Nothing; Just x -> Just (g x) }
 }
 
 test :: Elem (List Unit) -> Unit
-test := \x -> x
+test := \x. x
 `
 	checkSource(t, source, nil)
 }
@@ -121,10 +121,10 @@ type Elem (c : Type) :: Type = {
 }
 
 f :: Elem (List Unit) -> Unit
-f := \x -> x
+f := \x. x
 
 g :: Record { value : Unit } -> Unit
-g := \r -> r.#value
+g := \r. r.#value
 `
 	checkSource(t, source, nil)
 }
@@ -141,7 +141,7 @@ type Elem (c : Type) :: Type = {
 }
 
 mkRecord :: Elem (List Unit) -> Record { value : Unit }
-mkRecord := \x -> { value = x }
+mkRecord := \x. { value = x }
 `
 	checkSource(t, source, nil)
 }
@@ -164,10 +164,10 @@ type Elem (c : Type) :: Type = {
 }
 
 id :: \ a. a -> a
-id := \x -> x
+id := \x. x
 
 apply :: Elem (List Unit) -> Unit
-apply := \x -> id x
+apply := \x. id x
 `
 	checkSource(t, source, nil)
 }
@@ -187,10 +187,10 @@ map :: \ a b. (a -> b) -> List a -> List b
 map := assumption
 
 toUnit :: Unit -> Bool
-toUnit := \x -> True
+toUnit := \x. True
 
 test :: List Unit -> List Bool
-test := \xs -> map toUnit xs
+test := \xs. map toUnit xs
 `
 	checkSource(t, source, nil)
 }
@@ -213,11 +213,11 @@ class Wrapper a {
 
 instance Wrapper Bool {
   data Wrap Bool = WrapBool Bool;
-  unwrap := \w -> case w { WrapBool b -> b }
+  unwrap := \w. case w { WrapBool b -> b }
 }
 
 test :: Wrap Bool -> Bool
-test := \w -> case w {
+test := \w. case w {
   WrapBool True -> True;
   WrapBool False -> False
 }
@@ -238,11 +238,11 @@ class Wrapper a {
 
 instance Wrapper Bool {
   data Wrap Bool = WrapBool Bool;
-  unwrap := \w -> case w { WrapBool b -> b }
+  unwrap := \w. case w { WrapBool b -> b }
 }
 
 test :: Wrap Bool -> Bool
-test := \w -> case w {
+test := \w. case w {
   WrapBool True -> True
 }
 `
@@ -266,7 +266,7 @@ instance Container (Maybe a) {
 }
 
 test :: \ a. Elem (Maybe a) -> a
-test := \e -> case e { MaybeElem x -> x }
+test := \e. case e { MaybeElem x -> x }
 `
 	checkSource(t, source, nil)
 }
@@ -291,11 +291,11 @@ class Elem c e => Foldable c e | c -> e {
 }
 
 instance Elem (List a) a {
-  extract := \xs -> case xs { Cons x rest -> x; Nil -> extract Nil }
+  extract := \xs. case xs { Cons x rest -> x; Nil -> extract Nil }
 }
 
 instance Foldable (List a) a {
-  cfold := \f -> \z -> \xs -> case xs { Nil -> z; Cons x rest -> f x (cfold f z rest) }
+  cfold := \f z xs. case xs { Nil -> z; Cons x rest -> f x (cfold f z rest) }
 }
 `
 	checkSource(t, source, nil)
@@ -312,11 +312,11 @@ class Elem c e | c -> e {
 }
 
 instance Elem (List a) a {
-  extract := \xs -> case xs { Cons x rest -> x; Nil -> extract Nil }
+  extract := \xs. case xs { Cons x rest -> x; Nil -> extract Nil }
 }
 
 headOrDefault :: \ a. a -> List a -> a
-headOrDefault := \def -> \xs -> case xs { Nil -> def; Cons x rest -> extract (Cons x rest) }
+headOrDefault := \def xs. case xs { Nil -> def; Cons x rest -> extract (Cons x rest) }
 `
 	checkSource(t, source, nil)
 }
@@ -387,7 +387,7 @@ class Container c {
 }
 
 instance Container (List a) {
-  size := \xs -> 0
+  size := \xs. 0
 }
 `
 	config := &CheckConfig{
@@ -425,7 +425,7 @@ type Nullable (c : Type) :: Type = {
 }
 
 f :: Elem (List Unit) -> Nullable (List Unit)
-f := \x -> Just x
+f := \x. Just x
 `
 	checkSource(t, source, nil)
 }
@@ -447,7 +447,7 @@ type Second (c : Type) :: Type = {
 }
 
 swap :: Elem (Pair Unit Unit) -> Second (Pair Unit Unit) -> Pair Unit Unit
-swap := \x -> \y -> MkPair x y
+swap := \x y. MkPair x y
 `
 	checkSource(t, source, nil)
 }
@@ -468,7 +468,7 @@ type Id (a : Type) :: Type = {
 }
 
 f :: Id (Elem (List Unit)) -> Unit
-f := \x -> x
+f := \x. x
 `
 	checkSource(t, source, nil)
 }
@@ -491,10 +491,10 @@ type Elem (c : Type) :: Type = {
 }
 
 id :: \ a. a -> a
-id := \x -> x
+id := \x. x
 
 test :: Int -> Int
-test := \n -> id @(Elem (List Int)) n
+test := \n. id @(Elem (List Int)) n
 `
 	config := &CheckConfig{
 		RegisteredTypes: map[string]types.Kind{"Int": types.KType{}},
@@ -512,7 +512,7 @@ type Id (a : Type) :: Type = {
 }
 
 id :: \ a. a -> a
-id := \x -> x
+id := \x. x
 
 test := id @(Id Unit) Unit
 `
@@ -534,10 +534,10 @@ type Elem (c : Type) :: Type = {
 }
 
 applyToUnit :: (Unit -> Unit) -> Unit
-applyToUnit := \f -> f Unit
+applyToUnit := \f. f Unit
 
 test :: Unit
-test := applyToUnit (\x -> x)
+test := applyToUnit (\x. x)
 `
 	checkSource(t, source, nil)
 }
@@ -627,7 +627,7 @@ type Elem (c : Type) :: Type = {
 }
 
 test :: Elem (List Bool) -> Bool
-test := \x -> case x { True -> False; False -> True }
+test := \x. case x { True -> False; False -> True }
 `
 	checkSource(t, source, nil)
 }
@@ -648,7 +648,7 @@ type Id (a : Type) :: Type = {
   Id a = a
 }
 f :: Id Unit Unit -> Unit
-f := \x -> x
+f := \x. x
 `
 	// Id takes 1 arg, but is applied to 2. This should produce an error.
 	// Depending on how the parser/checker handles extra args, this might
@@ -687,7 +687,7 @@ type Elem (c : Type) :: Type = {
 }
 data List a = Nil | Cons a (List a)
 f :: Elem Bool -> Unit
-f := \x -> x
+f := \x. x
 `
 	// Elem Bool is stuck (no equation matches). Trying to unify
 	// the stuck Elem Bool with Unit should fail.
@@ -726,7 +726,7 @@ type Loop (a : Type) :: Type = {
   Loop a = Loop a
 }
 f :: Loop Unit -> Unit
-f := \x -> x
+f := \x. x
 `
 	errMsg := checkSourceExpectCode(t, source, nil, errs.ErrTypeFamilyReduction)
 	// The error message should include the family name "Loop".
@@ -782,11 +782,11 @@ class Eq a {
 }
 
 instance Eq Bool {
-  eq := \x -> \y -> True
+  eq := \x y. True
 }
 
 test :: List Bool -> Bool
-test := \xs -> case xs {
+test := \xs. case xs {
   Cons x rest -> eq x True;
   Nil -> False
 }
@@ -813,7 +813,7 @@ class Collection c e | c -> e {
 
 instance Collection (List a) a {
   type Key (List a) = Int;
-  elem := \xs -> case xs { Cons x rest -> x; Nil -> elem Nil }
+  elem := \xs. case xs { Cons x rest -> x; Nil -> elem Nil }
 }
 `
 	config := &CheckConfig{
@@ -839,7 +839,7 @@ class Convertible a b | a -> b {
 
 instance Convertible Bool Unit {
   data Result Bool = BoolResult Unit;
-  convert := \b -> BoolResult Unit
+  convert := \b. BoolResult Unit
 }
 
 test :: Result Bool
@@ -868,19 +868,19 @@ class Container c {
 
 instance Container (List a) {
   type Elem (List a) = a;
-  size := \xs -> 0
+  size := \xs. 0
 }
 
 instance Container (Maybe a) {
   type Elem (Maybe a) = a;
-  size := \xs -> 0
+  size := \xs. 0
 }
 
 testList :: Elem (List Bool) -> Bool
-testList := \x -> x
+testList := \x. x
 
 testMaybe :: Elem (Maybe Unit) -> Unit
-testMaybe := \x -> x
+testMaybe := \x. x
 `
 	config := &CheckConfig{
 		RegisteredTypes: map[string]types.Kind{"Int": types.KType{}},
@@ -903,7 +903,7 @@ type Elem (c : Type) :: Type = {
 }
 
 identity :: \ c. Elem c -> Elem c
-identity := \x -> x
+identity := \x. x
 `
 	checkSource(t, source, nil)
 }
@@ -941,7 +941,7 @@ type Elem (c : Type) :: Type = {
 }
 
 wrap :: Elem (List Unit) -> Unit
-wrap := \x -> x
+wrap := \x. x
 
 main :: Unit
 main := { x := Unit; wrap x }
@@ -965,7 +965,7 @@ type Elem (c : Type) :: Type = {
 }
 
 mkPair :: Elem (List Unit) -> Elem (List Unit) -> Pair Unit Unit
-mkPair := \x -> \y -> MkPair x y
+mkPair := \x y. MkPair x y
 `
 	checkSource(t, source, nil)
 }
@@ -990,11 +990,11 @@ class Functor (f : k -> Type) {
 }
 
 instance Functor Maybe {
-  fmap := \g -> \mx -> case mx { Nothing -> Nothing; Just x -> Just (g x) }
+  fmap := \g mx. case mx { Nothing -> Nothing; Just x -> Just (g x) }
 }
 
 test :: Always (Maybe Unit) -> Unit
-test := \x -> x
+test := \x. x
 `
 	checkSource(t, source, nil)
 }
@@ -1049,11 +1049,11 @@ class Eq a {
 }
 
 instance Eq Bool {
-  eq := \x -> \y -> True
+  eq := \x y. True
 }
 
 test :: Eq (Elem (List Bool)) => Elem (List Bool) -> Bool
-test := \x -> eq x True
+test := \x. eq x True
 `
 	checkSource(t, source, nil)
 }
@@ -1118,9 +1118,9 @@ type Snd (c : Type) :: Type = {
   Snd (Pair a b) = b
 }
 f :: Fst (Pair Bool Unit) -> Bool
-f := \x -> x
+f := \x. x
 g :: Snd (Pair Bool Unit) -> Unit
-g := \x -> x
+g := \x. x
 `
 	checkSource(t, source, nil)
 }
@@ -1148,7 +1148,7 @@ instance Container Bool {
 }
 
 test :: Elem Bool -> Bool
-test := \e -> case e {
+test := \e. case e {
   BoolElem b -> b;
   EmptyElem -> False
 }
@@ -1173,7 +1173,7 @@ instance Container Bool {
 }
 
 test :: Elem Bool -> Bool
-test := \e -> case e {
+test := \e. case e {
   BoolElem b -> b
 }
 `
@@ -1201,11 +1201,11 @@ class Eq a {
 }
 
 instance Eq Bool {
-  eq := \x -> \y -> True
+  eq := \x y. True
 }
 
 test :: Bool -> Bool
-test := \x -> eq x True
+test := \x. eq x True
 `
 	checkSource(t, source, nil)
 }
@@ -1226,7 +1226,7 @@ type Elem (c : Type) :: Type = {
 }
 
 id :: \ a. a -> a
-id := \x -> x
+id := \x. x
 
 test :: Unit
 test := id Unit
@@ -1263,10 +1263,10 @@ instance Container (Maybe a) {
 }
 
 testList :: Elem (List Unit) -> Unit
-testList := \x -> x
+testList := \x. x
 
 testMaybe :: Elem (Maybe Unit) -> Unit
-testMaybe := \x -> x
+testMaybe := \x. x
 `
 	checkSource(t, source, nil)
 }
@@ -1285,10 +1285,10 @@ type Elem (c : Type) :: Type = {
 }
 
 id :: \ a. a -> a
-id := \x -> x
+id := \x. x
 
 test :: Int -> Int
-test := \n -> id @(Elem (List Int)) n
+test := \n. id @(Elem (List Int)) n
 `
 	config := &CheckConfig{
 		RegisteredTypes: map[string]types.Kind{"Int": types.KType{}},
@@ -1316,11 +1316,11 @@ class Elem c e | c -> e {
 }
 
 instance Elem (List a) a {
-  extract := \xs -> case xs { Cons x rest -> x; Nil -> extract Nil }
+  extract := \xs. case xs { Cons x rest -> x; Nil -> extract Nil }
 }
 
 test :: List Unit -> Id Unit
-test := \xs -> extract xs
+test := \xs. extract xs
 `
 	checkSource(t, source, nil)
 }
@@ -1348,11 +1348,11 @@ class Eq a {
 }
 
 instance Eq Bool {
-  eq := \x -> \y -> True
+  eq := \x y. True
 }
 
 test :: Bool -> Bool -> Bool
-test := \x -> \y -> eq x y
+test := \x y. eq x y
 `
 	checkSource(t, source, nil)
 }
@@ -1372,10 +1372,10 @@ type Elem (c : Type) :: Type = {
 }
 
 apply :: \ a b. (a -> b) -> a -> b
-apply := \f -> \x -> f x
+apply := \f x. f x
 
 test :: Unit -> Unit
-test := \x -> apply (\y -> y) x
+test := \x. apply (\y. y) x
 `
 	checkSource(t, source, nil)
 }
@@ -1401,12 +1401,12 @@ class Eq a {
 }
 
 instance Eq Unit {
-  eq := \x -> \y -> True
+  eq := \x y. True
 }
 
 -- Function with a qualified type that references a type family.
 testEq :: Elem (List Unit) -> Elem (List Unit) -> Bool
-testEq := \x -> \y -> eq x y
+testEq := \x y. eq x y
 `
 	checkSource(t, source, nil)
 }
@@ -1432,7 +1432,7 @@ instance Container Bool {
 }
 
 id :: \ a. a -> a
-id := \x -> x
+id := \x. x
 
 test :: Elem Bool
 test := id (Tag True)
@@ -1459,15 +1459,15 @@ class Show a {
 }
 
 instance Eq Bool {
-  eq := \x -> \y -> True
+  eq := \x y. True
 }
 
 instance Show Bool {
-  show := \x -> x
+  show := \x. x
 }
 
 test :: Bool -> Bool
-test := \x -> show (eq x True)
+test := \x. show (eq x True)
 `
 	checkSource(t, source, nil)
 }
@@ -1572,11 +1572,11 @@ class Eq a {
 }
 
 instance Eq Unit {
-  eq := \x -> \y -> True
+  eq := \x y. True
 }
 
 testConstrainedBody :: Elem (List Unit) -> Elem (List Unit) -> Bool
-testConstrainedBody := \x -> \y -> eq x y
+testConstrainedBody := \x y. eq x y
 `
 	checkSource(t, source, nil)
 }

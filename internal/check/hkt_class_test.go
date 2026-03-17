@@ -16,7 +16,7 @@ class Functor (f : k -> Type) {
 }
 
 instance Functor Maybe {
-  fmap := \g -> \mx -> case mx { Nothing -> Nothing; Just x -> Just (g x) }
+  fmap := \g mx. case mx { Nothing -> Nothing; Just x -> Just (g x) }
 }
 `
 	checkSource(t, source, nil)
@@ -33,10 +33,10 @@ class Functor (f : k -> Type) {
 }
 
 instance Functor Maybe {
-  fmap := \g -> \mx -> case mx { Nothing -> Nothing; Just x -> Just (g x) }
+  fmap := \g mx. case mx { Nothing -> Nothing; Just x -> Just (g x) }
 }
 
-test := fmap (\x -> True) (Just True)
+test := fmap (\x. True) (Just True)
 `
 	checkSource(t, source, nil)
 }
@@ -51,7 +51,7 @@ class Eq a {
 }
 
 instance Eq Bool {
-  eq := \x -> \y -> True
+  eq := \x y. True
 }
 
 test := eq True False
@@ -96,7 +96,7 @@ class Functor (f : k -> Type) {
 }
 
 instance Functor Maybe {
-  fmap := \g -> \mx -> case mx { Nothing -> Nothing; Just x -> Just (g x) }
+  fmap := \g mx. case mx { Nothing -> Nothing; Just x -> Just (g x) }
 }
 
 class Functor f => Applicative (f : k -> Type) {
@@ -120,7 +120,7 @@ class Functor (f : k -> Type) {
 }
 
 instance Functor Maybe {
-  fmap := \g -> \mx -> case mx { Nothing -> Nothing; Just x -> Just (g x) }
+  fmap := \g mx. case mx { Nothing -> Nothing; Just x -> Just (g x) }
 }
 `
 	checkSource(t, source, nil)

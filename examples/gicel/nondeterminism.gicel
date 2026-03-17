@@ -14,13 +14,13 @@ import Std.List
 -- ── Shared helpers ─────────────────────────────────────────
 
 range :: Int -> Int -> List Int
-range := fix (\self -> \lo -> \hi ->
+range := fix (\self lo hi.
   case lo > hi { True -> []; False -> Cons lo (self (lo + 1) hi) })
 
 -- Concrete guard for List do-notation.
 -- The Prelude also provides `guard :: Alternative f => Bool -> f ()`.
 guard :: Bool -> List ()
-guard := \c -> case c { True -> [()]; False -> [] }
+guard := \c. case c { True -> [()]; False -> [] }
 
 -- ── Layer 1: List do-notation ──────────────────────────────
 -- The type annotation :: List T steers do to the List monad.
@@ -44,21 +44,21 @@ pythag := do {
 -- This IS List >>= written as an explicit continuation.
 
 amb :: \a b. List a -> (a -> List b) -> List b
-amb := \choices -> \k ->
-  foldr (\x -> \acc -> concat (k x) acc) [] choices
+amb := \choices k.
+  foldr (\x acc. concat (k x) acc) [] choices
 
 -- Coin problem: subset of {1,2,5,10,20,50} summing to 28
 coins := [1, 2, 5, 10, 20, 50]
 
 -- All subsets, then filter with continuation k
 subsets :: \a. List a -> List (List a)
-subsets := fix (\self -> \xs -> case xs {
+subsets := fix (\self xs. case xs {
   Nil      -> [[]];
-  Cons x t -> { ss := self t; concat ((\s -> Cons x s) <$> ss) ss }
+  Cons x t -> { ss := self t; concat ((\s. Cons x s) <$> ss) ss }
 })
 
-coinResult := amb (subsets coins) (\s ->
-  amb (guard (eq (foldl (+) 0 s) 28)) (\_ -> [s]))
+coinResult := amb (subsets coins) (\s.
+  amb (guard (eq (foldl (+) 0 s) 28)) (\_. [s]))
 -- [[1,2,5,20]]
 
 -- ── Layer 3: Free monad ────────────────────────────────────
@@ -74,31 +74,31 @@ failND := NDFail
 
 infixl 1 >>=
 (>>=) :: \a b. NDFree a -> (a -> NDFree b) -> NDFree b
-(>>=) := fix (\self -> \m -> \f -> case m {
+(>>=) := fix (\self m f. case m {
   NDPure a     -> f a;
   NDChoice l r -> NDChoice (self l f) (self r f);
   NDFail       -> NDFail
 })
 
 runND :: \a. NDFree a -> List a
-runND := fix (\self -> \m -> case m {
+runND := fix (\self m. case m {
   NDPure a     -> [a];
   NDChoice l r -> concat (self l) (self r);
   NDFail       -> []
 })
 
 fromList :: \a. List a -> NDFree a
-fromList := fix (\self -> \xs -> case xs {
+fromList := fix (\self xs. case xs {
   Nil        -> NDFail;
   Cons x rest -> NDChoice (NDPure x) (self rest)
 })
 
 guardND :: Bool -> NDFree ()
-guardND := \c -> case c { True -> returnND (); False -> failND }
+guardND := \c. case c { True -> returnND (); False -> failND }
 
 -- N-Queens (N=4): place queens so none attack each other
 safe :: Int -> List Int -> Int -> Bool
-safe := fix (\self -> \col -> \qs -> \d -> case qs {
+safe := fix (\self col qs d. case qs {
   Nil -> True;
   Cons q rest ->
     case eq col q   { True -> False;
@@ -107,12 +107,12 @@ safe := fix (\self -> \col -> \qs -> \d -> case qs {
 })
 
 nqueens :: Int -> List Int -> NDFree (List Int)
-nqueens := fix (\self -> \n -> \placed ->
+nqueens := fix (\self n placed.
   case eq (length placed) n {
     True  -> returnND (reverse placed);
     False ->
-      fromList (range 0 (n - 1)) >>= \col ->
-      guardND (safe col placed 1) >>= \_ ->
+      fromList (range 0 (n - 1)) >>= \col.
+      guardND (safe col placed 1) >>= \_.
       self n (Cons col placed)
   })
 

@@ -88,7 +88,7 @@ type Elem (c : Type) :: Type = {
   Elem (List a) = a
 }
 f :: Elem (List Unit) -> Unit
-f := \x -> x
+f := \x. x
 `
 	checkSource(t, source, nil)
 }
@@ -103,7 +103,7 @@ type Elem (c : Type) :: Type = {
   Elem (List a) = a
 }
 f :: Computation {} {} (Elem (List Unit)) -> Computation {} {} Unit
-f := \c -> c
+f := \c. c
 `
 	checkSource(t, source, nil)
 }
@@ -118,7 +118,7 @@ type Elem (c : Type) :: Type = {
   Elem (List a) = a
 }
 f :: (Elem (List Unit) -> Unit) -> Unit -> Unit
-f := \g -> \x -> g x
+f := \g x. g x
 `
 	checkSource(t, source, nil)
 }
@@ -216,7 +216,7 @@ type Grow (a : Type) :: Type = {
   Grow a = Grow (Pair a a)
 }
 f :: Grow Unit -> Unit
-f := \x -> x
+f := \x. x
 `
 	checkSourceExpectCode(t, source, nil, errs.ErrTypeFamilyReduction)
 }
@@ -239,10 +239,10 @@ class Elem c e | c -> e {
   extract :: c -> e
 }
 instance Elem (List a) a {
-  extract := \xs -> case xs { Cons x rest -> x; Nil -> extract Nil }
+  extract := \xs. case xs { Cons x rest -> x; Nil -> extract Nil }
 }
 f :: List Unit -> Unit
-f := \xs -> extract xs
+f := \xs. extract xs
 `
 	checkSource(t, source, nil)
 }

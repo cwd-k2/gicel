@@ -28,7 +28,7 @@ func TestEvalVar(t *testing.T) {
 
 func TestEvalLamApp(t *testing.T) {
 	ev := newTestEval()
-	// (\x -> x) Unit
+	// (\x. x) Unit
 	term := &core.App{
 		Fun: &core.Lam{Param: "x", Body: &core.Var{Name: "x"}},
 		Arg: &core.Con{Name: "Unit"},
@@ -390,7 +390,7 @@ func TestAllocLimit(t *testing.T) {
 
 func TestAllocTracking(t *testing.T) {
 	ev := newTestEval()
-	// Evaluate: (\x -> x) Unit — creates a Closure then a ConVal.
+	// Evaluate: (\x. x) Unit — creates a Closure then a ConVal.
 	term := &core.App{
 		Fun: &core.Lam{Param: "x", Body: &core.Var{Name: "x"}},
 		Arg: &core.Con{Name: "Unit"},
@@ -477,7 +477,7 @@ func TestThunkEnvTrimmed(t *testing.T) {
 }
 
 func TestLetRecEnvTrimmed(t *testing.T) {
-	// letrec f = \x -> ext in f — returned closure should have trimmed env.
+	// letrec f = \x. ext in f — returned closure should have trimmed env.
 	ev := newTestEval()
 	fLam := &core.Lam{
 		Param: "x",
@@ -643,7 +643,7 @@ func TestChargeAllocViaContext(t *testing.T) {
 func TestDepthLimitError(t *testing.T) {
 	// With TCO, closure application depth is flat (Enter→bounce→Leave).
 	// Depth only accumulates via Bind chains (not trampolined).
-	// Build: Bind(Pure(Unit), \_ -> Bind(Pure(Unit), \_ -> Pure(Unit)))
+	// Build: Bind(Pure(Unit), \_. Bind(Pure(Unit), \_. Pure(Unit)))
 	// = 2 nested Binds → depth 2.
 	ev := NewEvaluator(context.Background(), NewPrimRegistry(), NewLimit(1_000_000, 1), nil, nil)
 	term := &core.Bind{
@@ -1042,7 +1042,7 @@ func TestEvalConApplication(t *testing.T) {
 }
 
 func TestIsFixpointBody(t *testing.T) {
-	// Pattern: f = \arg -> (g f) arg
+	// Pattern: f = \arg. (g f) arg
 	binding := core.Binding{
 		Name: "f",
 		Expr: &core.Lam{
@@ -1077,7 +1077,7 @@ func TestIsFixpointBodyNonLam(t *testing.T) {
 }
 
 func TestIsFixpointBodyNotPattern(t *testing.T) {
-	// f = \arg -> arg (not the fix/rec pattern)
+	// f = \arg. arg (not the fix/rec pattern)
 	binding := core.Binding{
 		Name: "f",
 		Expr: &core.Lam{Param: "arg", Body: &core.Var{Name: "arg"}},
@@ -1234,7 +1234,7 @@ func TestEvalEffectfulPrimValDeferred(t *testing.T) {
 }
 
 func TestIsFixpointBodyArgMismatch(t *testing.T) {
-	// f = \arg -> (g f) wrong_arg  (outer arg != lambda param)
+	// f = \arg. (g f) wrong_arg  (outer arg != lambda param)
 	binding := core.Binding{
 		Name: "f",
 		Expr: &core.Lam{
@@ -1255,7 +1255,7 @@ func TestIsFixpointBodyArgMismatch(t *testing.T) {
 }
 
 func TestIsFixpointBodySelfArgMismatch(t *testing.T) {
-	// f = \arg -> (g notF) arg  (inner arg is not self)
+	// f = \arg. (g notF) arg  (inner arg is not self)
 	binding := core.Binding{
 		Name: "f",
 		Expr: &core.Lam{
@@ -1276,7 +1276,7 @@ func TestIsFixpointBodySelfArgMismatch(t *testing.T) {
 }
 
 func TestIsFixpointBodyInnerNotApp(t *testing.T) {
-	// f = \arg -> x arg  (fun is not an App, just a Var)
+	// f = \arg. x arg  (fun is not an App, just a Var)
 	binding := core.Binding{
 		Name: "f",
 		Expr: &core.Lam{
@@ -1294,7 +1294,7 @@ func TestIsFixpointBodyInnerNotApp(t *testing.T) {
 }
 
 func TestIsFixpointBodyNoOuterApp(t *testing.T) {
-	// f = \arg -> arg  (body is not an App)
+	// f = \arg. arg  (body is not an App)
 	// Already tested in TestIsFixpointBodyNotPattern but with different framing.
 	binding := core.Binding{
 		Name: "f",

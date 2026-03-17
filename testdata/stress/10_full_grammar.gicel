@@ -10,34 +10,34 @@ class Functor f { fmap :: \a b. (a -> b) -> f a -> f b }
 class Coercible a b { coerce :: a -> b }
 
 instance Eq Bool {
-  eq := \x -> \y -> case x {
+  eq := \x y. case x {
     True  -> y;
     False -> case y { True -> False; False -> True }
   }
 }
-instance Eq () { eq := \_ -> \_ -> True }
+instance Eq () { eq := \_ _. True }
 instance Eq Ordering {
-  eq := \x -> \y -> case x {
+  eq := \x y. case x {
     LT -> case y { LT -> True; _ -> False };
     EQ -> case y { EQ -> True; _ -> False };
     GT -> case y { GT -> True; _ -> False }
   }
 }
 instance Eq Color {
-  eq := \x -> \y -> case x {
+  eq := \x y. case x {
     Red   -> case y { Red -> True; _ -> False };
     Green -> case y { Green -> True; _ -> False };
     Blue  -> case y { Blue -> True; _ -> False }
   }
 }
 instance Eq a => Eq (Maybe a) {
-  eq := \x -> \y -> case x {
+  eq := \x y. case x {
     Nothing -> case y { Nothing -> True; Just _ -> False };
     Just a  -> case y { Nothing -> False; Just b -> eq a b }
   }
 }
 instance (Eq a) => (Eq b) => Eq (a, b) {
-  eq := \x -> \y -> case x {
+  eq := \x y. case x {
     (a1, b1) -> case y {
       (a2, b2) -> case eq a1 a2 { True -> eq b1 b2; False -> False }
     }
@@ -45,43 +45,43 @@ instance (Eq a) => (Eq b) => Eq (a, b) {
 }
 
 instance Ord Bool {
-  cmp := \x -> \y -> case x {
+  cmp := \x y. case x {
     False -> case y { False -> EQ; True -> LT };
     True  -> case y { False -> GT; True -> EQ }
   }
 }
 
 instance Functor Maybe {
-  fmap := \g -> \mx -> case mx {
+  fmap := \g mx. case mx {
     Nothing -> Nothing;
     Just x  -> Just (g x)
   }
 }
 instance Functor Tree {
-  fmap := \g -> \t -> case t {
+  fmap := \g t. case t {
     Leaf x     -> Leaf (g x);
     Branch l r -> Branch (fmap g l) (fmap g r)
   }
 }
 
-instance Coercible Bool () { coerce := \_ -> () }
+instance Coercible Bool () { coerce := \_. () }
 instance Coercible Color Bool {
-  coerce := \c -> case c { Red -> True; Green -> False; Blue -> True }
+  coerce := \c. case c { Red -> True; Green -> False; Blue -> True }
 }
 
-not := \b -> case b { True -> False; False -> True }
+not := \b. case b { True -> False; False -> True }
 
 genericEq :: \a. Eq a => a -> a -> Bool
-genericEq := \x -> \y -> eq x y
+genericEq := \x y. eq x y
 
 liftMap :: \f a b. Functor f => (a -> b) -> f a -> f b
-liftMap := \g -> \fa -> fmap g fa
+liftMap := \g fa. fmap g fa
 
 eqViaOrd :: \a. Ord a => a -> a -> Bool
-eqViaOrd := \x -> \y -> case cmp x y { EQ -> True; _ -> False }
+eqViaOrd := \x y. case cmp x y { EQ -> True; _ -> False }
 
 convertAndCheck :: \a b. Coercible a b => Eq b => a -> b -> Bool
-convertAndCheck := \x -> \expected -> eq (coerce x) expected
+convertAndCheck := \x expected. eq (coerce x) expected
 
 readS :: \(r : Row). () -> Computation { s : Int | r } { s : Int | r } Int
 readS := assumption
@@ -91,7 +91,7 @@ intAdd :: Int -> Int -> Int
 intAdd := assumption
 
 stateful :: Int -> Eff { s : Int } Int
-stateful := \delta -> do {
+stateful := \delta. do {
   v <- readS ();
   _ <- writeS (intAdd v delta);
   readS ()

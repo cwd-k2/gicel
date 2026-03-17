@@ -33,7 +33,7 @@ type Grow (a : Type) :: Type = {
   Grow a = Grow (Pair a a)
 }
 f :: Grow Unit -> Unit
-f := \x -> x
+f := \x. x
 `
 	start := time.Now()
 	checkSourceExpectCode(t, source, nil, errs.ErrTypeFamilyReduction)
@@ -56,7 +56,7 @@ type GrowList (a : Type) :: Type = {
   GrowList a = Cons Unit (GrowList a)
 }
 f :: GrowList Unit -> Unit
-f := \x -> x
+f := \x. x
 `
 	start := time.Now()
 	// This produces a type mismatch, not fuel exhaustion, because Cons is
@@ -78,7 +78,7 @@ type Ping (a : Type) :: Type = {
   Ping a = Ping (Wrapper a)
 }
 f :: Ping Unit -> Unit
-f := \x -> x
+f := \x. x
 `
 	start := time.Now()
 	checkSourceExpectCode(t, source, nil, errs.ErrTypeFamilyReduction)
@@ -249,7 +249,7 @@ func TestPerformanceIntersectCapRowsManyBranches(t *testing.T) {
 
 	sb.WriteString("data Unit = Unit\n")
 	sb.WriteString("f :: BigEnum -> Unit\n")
-	sb.WriteString("f := \\x -> case x {\n")
+	sb.WriteString("f := \\x. case x {\n")
 	for i := 0; i < numBranches; i++ {
 		if i > 0 {
 			sb.WriteString(";\n")
@@ -289,7 +289,7 @@ func TestPerformanceFunDepManyInstances(t *testing.T) {
 	// N instances.
 	for i := 0; i < N; i++ {
 		sb.WriteString("instance Assoc D" + tagName(i) + " D" + tagName((i+1)%N) + " {\n")
-		sb.WriteString("  assocGet := \\_ -> MkD" + tagName((i+1)%N) + "\n")
+		sb.WriteString("  assocGet := \\_. MkD" + tagName((i+1)%N) + "\n")
 		sb.WriteString("}\n")
 	}
 
@@ -319,7 +319,7 @@ data List a = Nil | Cons a (List a)
 data Unit = Unit
 
 id :: \ a. a -> a
-id := \x -> x
+id := \x. x
 
 f :: Unit
 f := id (id (id (id (id (id (id (id (id (id Unit)))))))))
@@ -346,7 +346,7 @@ type Loop (a : Type) :: Type = {
   Loop a = Loop a
 }
 f :: Loop Unit -> Unit
-f := \x -> x
+f := \x. x
 `
 	start := time.Now()
 	checkSourceExpectCode(t, source, nil, errs.ErrTypeFamilyReduction)
@@ -373,7 +373,7 @@ func TestSecurityParserDeepNesting(t *testing.T) {
 	for i := 0; i < depth; i++ {
 		sb.WriteString(")")
 	}
-	sb.WriteString(" -> Unit\nf := \\x -> x\n")
+	sb.WriteString(" -> Unit\nf := \\x. x\n")
 
 	// Should not panic.
 	start := time.Now()
@@ -442,7 +442,7 @@ type Explode (a : Type) :: Type = {
   Explode a = Explode (Pair a a)
 }
 f :: Explode Unit -> Unit
-f := \x -> x
+f := \x. x
 `
 	start := time.Now()
 	checkSourceExpectCode(t, source, nil, errs.ErrTypeFamilyReduction)

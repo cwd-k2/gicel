@@ -170,12 +170,12 @@ func TestPreludeMaybeJust(t *testing.T) {
 // --- result ---
 
 func TestPreludeResultOk(t *testing.T) {
-	v := runPure(t, `main := result (\_ -> False) (\x -> x) (Ok True)`)
+	v := runPure(t, `main := result (\_. False) (\x. x) (Ok True)`)
 	assertConVal(t, v, "True")
 }
 
 func TestPreludeResultErr(t *testing.T) {
-	v := runPure(t, `main := result (\_ -> False) (\x -> x) (Err ())`)
+	v := runPure(t, `main := result (\_. False) (\x. x) (Err ())`)
 	assertConVal(t, v, "False")
 }
 
@@ -250,7 +250,7 @@ func TestPreludeFilter(t *testing.T) {
 
 func TestPreludeFilterAllDrop(t *testing.T) {
 	v := runPure(t, `
-always := \_ -> False
+always := \_. False
 main := filter always (Cons True (Cons False Nil))
 `)
 	assertConVal(t, v, "Nil")
@@ -424,7 +424,7 @@ func TestFunctorResultErr(t *testing.T) {
 }
 
 func TestFoldableResult(t *testing.T) {
-	v := runPure(t, `main := foldr (\x -> \_ -> Just x) Nothing (Ok True)`)
+	v := runPure(t, `main := foldr (\x _. Just x) Nothing (Ok True)`)
 	con := v.(*gicel.ConVal)
 	if con.Con != "Just" {
 		t.Fatalf("expected Just, got %s", con.Con)
@@ -433,7 +433,7 @@ func TestFoldableResult(t *testing.T) {
 }
 
 func TestFoldableResultErr(t *testing.T) {
-	v := runPure(t, `main := foldr (\x -> \_ -> Just x) Nothing (Err ())`)
+	v := runPure(t, `main := foldr (\x _. Just x) Nothing (Err ())`)
 	assertConVal(t, v, "Nothing")
 }
 
@@ -524,7 +524,7 @@ func TestSequenceLeft(t *testing.T) {
 }
 
 func TestReverseBind(t *testing.T) {
-	v := runPure(t, `main := (\x -> Just (not x)) =<< Just True`)
+	v := runPure(t, `main := (\x. Just (not x)) =<< Just True`)
 	con := v.(*gicel.ConVal)
 	if con.Con != "Just" {
 		t.Fatalf("expected Just, got %s", con.Con)
@@ -534,7 +534,7 @@ func TestReverseBind(t *testing.T) {
 
 func TestKleisliLR(t *testing.T) {
 	v := runPure(t, `
-f := (\x -> Just (not x)) >=> (\y -> Just (not y))
+f := (\x. Just (not x)) >=> (\y. Just (not y))
 main := f True
 `)
 	con := v.(*gicel.ConVal)
@@ -549,7 +549,7 @@ main := f True
 // ===========================================================================
 
 func TestOn(t *testing.T) {
-	v := runPure(t, "import Std.Num\nmain := on (\\x -> \\y -> x + y) (\\_ -> 1) True False")
+	v := runPure(t, "import Std.Num\nmain := on (\\x y. x + y) (\\_. 1) True False")
 	assertHostInt(t, v, 2)
 }
 
@@ -763,8 +763,8 @@ func TestLookupMissing(t *testing.T) {
 }
 
 func TestConcatMap(t *testing.T) {
-	// concatMap (\x -> Cons x (Cons x Nil)) [True] = [True, True]
-	v := runPure(t, `main := concatMap (\x -> Cons x (Cons x Nil)) (Cons True Nil)`)
+	// concatMap (\x. Cons x (Cons x Nil)) [True] = [True, True]
+	v := runPure(t, `main := concatMap (\x. Cons x (Cons x Nil)) (Cons True Nil)`)
 	con := v.(*gicel.ConVal)
 	assertConVal(t, con.Args[0], "True")
 	con2 := con.Args[1].(*gicel.ConVal)
@@ -791,8 +791,8 @@ func TestCatMaybes(t *testing.T) {
 }
 
 func TestMapMaybe(t *testing.T) {
-	// mapMaybe (\x -> case x { True -> Just False; False -> Nothing }) [True, False, True]
-	v := runPure(t, `main := mapMaybe (\x -> case x { True -> Just False; False -> Nothing }) (Cons True (Cons False (Cons True Nil)))`)
+	// mapMaybe (\x. case x { True -> Just False; False -> Nothing }) [True, False, True]
+	v := runPure(t, `main := mapMaybe (\x. case x { True -> Just False; False -> Nothing }) (Cons True (Cons False (Cons True Nil)))`)
 	con := v.(*gicel.ConVal)
 	assertConVal(t, con.Args[0], "False")
 	con2 := con.Args[1].(*gicel.ConVal)
@@ -873,7 +873,7 @@ func TestFunctorResultWithConstraint(t *testing.T) {
 	// This failed before: fmap with a constrained function over (Result e)
 	// produced a Closure due to instance duplication from transitive imports.
 	v := runPure(t, `import Std.Num
-main := fmap (\x -> x + 1) (Ok 5)`)
+main := fmap (\x. x + 1) (Ok 5)`)
 	con := v.(*gicel.ConVal)
 	if con.Con != "Ok" {
 		t.Fatalf("expected Ok, got %s", con.Con)
