@@ -1,0 +1,62 @@
+-- GICEL Example: Multiplicity Annotations
+--
+-- Row fields can carry multiplicity annotations using @Mult.
+--   @Linear    — must be consumed exactly once
+--   @Affine    — may be consumed at most once
+--   @Unrestricted — no usage restriction (default)
+--
+-- Multiplicities are checked by the type system during capability
+-- row unification. They constrain how capabilities flow through
+-- computations without affecting runtime behavior.
+-- Level: types
+
+data Mult = Unrestricted | Affine | Linear
+data Unit = Unit
+
+-- A resource that must be consumed exactly once.
+-- The @Linear annotation on handle tracks this at the type level.
+open :: Computation {} { handle : Unit @Linear } Unit
+open := assumption
+
+-- Using a linear resource preserves it in the post-state.
+use :: Computation { handle : Unit @Linear } { handle : Unit @Linear } Unit
+use := assumption
+
+-- Closing consumes the linear resource (removes from post-state).
+close :: Computation { handle : Unit @Linear } {} Unit
+close := assumption
+
+-- Valid lifecycle: open, use, close.
+-- The capability row threading ensures @Linear is respected:
+--   open:  {} → { handle : Unit @Linear }
+--   use:   { handle : Unit @Linear } → { handle : Unit @Linear }
+--   close: { handle : Unit @Linear } → {}
+lifecycle :: Computation {} {} Unit
+lifecycle := do { open; use; close }
+
+-- Multiple uses before closing is also valid:
+multiUse :: Computation {} {} Unit
+multiUse := do { open; use; use; use; close }
+
+-- The LUB (least upper bound) of multiplicities is definable as a type family:
+type LUB (m1 : Mult) (m2 : Mult) :: Mult = {
+  LUB Linear _ = Linear;
+  LUB _ Linear = Linear;
+  LUB Affine _ = Affine;
+  LUB _ Affine = Affine;
+  LUB Unrestricted Unrestricted = Unrestricted
+}
+
+-- Note: opening without closing is a type error:
+--   bad :: Computation {} {} Unit
+--   bad := do { open }
+-- Error: post-state { handle : Unit @Linear } ≠ {}
+
+-- Multiplicity annotations compose with row polymorphism.
+-- Here, 'use' works in any environment that has a linear handle:
+useOpen :: forall (r : Row). Computation { handle : Unit @Linear | r } { handle : Unit @Linear | r } Unit
+useOpen := assumption
+
+-- Output: this example demonstrates type-level guarantees.
+-- At runtime, assumption-based primitives don't execute.
+main := Unit
