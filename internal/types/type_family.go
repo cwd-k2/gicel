@@ -1,0 +1,20 @@
+package types
+
+import "github.com/cwd-k2/gicel/internal/span"
+
+// TyFamilyApp is a saturated type family application.
+// It only exists when all parameters are supplied.
+// During type checking, it reduces to a concrete type via equation matching.
+// It never survives into Core IR — it is fully erased at compile time.
+type TyFamilyApp struct {
+	Name string
+	Args []Type
+	Kind Kind // result kind (from declaration)
+	S    span.Span
+}
+
+func (*TyFamilyApp) typeNode() {}
+
+func (t *TyFamilyApp) Span() span.Span { return t.S }
+
+func (t *TyFamilyApp) Children() []Type { return t.Args }

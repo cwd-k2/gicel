@@ -129,9 +129,18 @@ func containsMeta(ty types.Type) bool {
 		return containsMeta(t.Body)
 	case *types.TyComp:
 		return containsMeta(t.Pre) || containsMeta(t.Post) || containsMeta(t.Result)
+	case *types.TyThunk:
+		return containsMeta(t.Pre) || containsMeta(t.Post) || containsMeta(t.Result)
 	case *types.TyEvidenceRow:
 		for _, ch := range t.Children() {
 			if containsMeta(ch) {
+				return true
+			}
+		}
+		return false
+	case *types.TyFamilyApp:
+		for _, a := range t.Args {
+			if containsMeta(a) {
 				return true
 			}
 		}

@@ -35,7 +35,7 @@ func FuzzLexer(f *testing.F) {
 	f.Add([]byte("f :: Int -> Int; f x := x"))
 	f.Add([]byte("(.) :: (b -> c) -> (a -> b) -> a -> c"))
 	f.Add([]byte("data T = { Con :: forall a. a -> T }"))
-	f.Add([]byte("{ x = 1, y = 2 }!#x"))
+	f.Add([]byte("{ x = 1, y = 2 }.#x"))
 	f.Add([]byte(""))
 
 	f.Fuzz(func(t *testing.T, src []byte) {

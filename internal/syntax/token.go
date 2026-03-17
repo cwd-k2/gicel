@@ -52,7 +52,7 @@ const (
 
 	// Operators
 	TokOp       // operator sequence
-	TokBangHash // !# (record projection)
+	TokDotHash // .# (record projection)
 
 	// Literals
 	TokIntLit
@@ -119,8 +119,8 @@ func (k TokenKind) String() string {
 		return "upper"
 	case TokOp:
 		return "op"
-	case TokBangHash:
-		return "!#"
+	case TokDotHash:
+		return ".#"
 	case TokIntLit:
 		return "int"
 	case TokStrLit:

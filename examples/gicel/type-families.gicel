@@ -1,0 +1,68 @@
+-- GICEL Example: Type Families
+--
+-- Type families are type-level functions: they compute types from types
+-- during type checking, and are fully erased at runtime.
+-- Level: types
+
+import Std.Num
+
+-- A closed type family: equations tried top-to-bottom, first match wins.
+-- Elem maps a container type to its element type.
+type Elem (c : Type) :: Type = {
+  Elem (List a) = a
+}
+
+-- The type checker reduces Elem (List Int) → Int at compile time.
+-- This function's return type is computed by the type family.
+listHead :: List Int -> Maybe (Elem (List Int))
+listHead := \xs -> case xs {
+  Cons x _ -> Just x;
+  Nil -> Nothing
+}
+
+-- DataKinds + type family: promoted constructors as type-level values.
+data Season = Spring | Summer | Autumn | Winter
+
+type NextSeason (s : Season) :: Season = {
+  NextSeason Spring = Summer;
+  NextSeason Summer = Autumn;
+  NextSeason Autumn = Winter;
+  NextSeason Winter = Spring
+}
+
+-- Phantom-typed tags indexed by Season.
+data Tagged (s : Season) = MkTagged
+
+-- advance uses a recursive type family to compute the next season.
+advance :: forall (s : Season). Tagged s -> Tagged (NextSeason s)
+advance := \_ -> MkTagged
+
+-- Type-safe season progression: the types guarantee correct ordering.
+spring :: Tagged Spring
+spring := MkTagged
+
+summer :: Tagged Summer
+summer := advance spring
+
+autumn :: Tagged Autumn
+autumn := advance summer
+
+winter :: Tagged Winter
+winter := advance autumn
+
+backToSpring :: Tagged Spring
+backToSpring := advance winter
+
+-- Multi-equation type family with wildcard patterns.
+type IsWeekend (d : Season) :: Bool = {
+  IsWeekend Summer = True;
+  IsWeekend Winter = True;
+  IsWeekend _ = False
+}
+
+-- Elem reduces: Elem (List Int) = Int, so answer has type Int.
+answer :: Elem (List Int)
+answer := 42
+
+-- Output: (42, Just 10)
+main := (answer, listHead (Cons 10 (Cons 20 Nil)))

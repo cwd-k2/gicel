@@ -64,6 +64,7 @@ type TyBinder struct {
 type TyRowField struct {
 	Label string
 	Type  TypeExpr
+	Mult  TypeExpr // nil if no @Mult annotation
 	S     span.Span
 }
 

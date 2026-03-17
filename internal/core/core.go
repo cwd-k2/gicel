@@ -126,7 +126,7 @@ type RecordField struct {
 	Value Core
 }
 
-// RecordProj — field projection r!#l.
+// RecordProj — field projection r.#l.
 type RecordProj struct {
 	Record Core
 	Label  string

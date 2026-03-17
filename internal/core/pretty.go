@@ -78,7 +78,7 @@ func prettyCore(c Core, indent int) string {
 		}
 		return fmt.Sprintf("{ %s }", strings.Join(fields, ", "))
 	case *RecordProj:
-		return fmt.Sprintf("(%s!#%s)", prettyCore(n.Record, indent), n.Label)
+		return fmt.Sprintf("(%s.#%s)", prettyCore(n.Record, indent), n.Label)
 	case *RecordUpdate:
 		updates := make([]string, len(n.Updates))
 		for i, f := range n.Updates {

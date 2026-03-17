@@ -204,13 +204,58 @@ import Std.Str
 
 Import declarations must appear before all other declarations. All exported types, constructors, type classes, instances, and values from the named module become available.
 
+### Type Family (Closed)
+
+```
+TypeFamilyDecl
+  = 'type' UpperName TyBinder* '::' ResultKind '=' '{' Equation (';' Equation)* '}'
+
+ResultKind
+  = KindExpr
+  | '(' LowerName ':' KindExpr ')' '|' DepList
+
+DepList
+  = LowerName '->' LowerName+
+
+Equation
+  = UpperName TypePattern* '=' TypeExpr
+```
+
+Distinguished from a type alias by `::` after the parameters. Equations are checked top-to-bottom; first match wins. Reduction is stuck (not skipped) when a match is indeterminate due to unsolved metavariables.
+
+Examples:
+
+```
+type Elem (c : Type) :: Type = {
+  Elem (List a) = a;
+  Elem String = Rune
+}
+
+-- Injective (named result with functional dependency)
+type Effects (mode : AppMode) :: (r : Row) | r -> mode = {
+  Effects ReadOnly  = { get : () -> String };
+  Effects ReadWrite = { get : () -> String, put : String -> () }
+}
+```
+
 ### Type Class
 
 ```
-class [Constraint =>] ClassName param* {
+class [Constraint =>] ClassName param* [ClassFunDep] {
   method1 :: TypeExpr;
-  method2 :: TypeExpr
+  method2 :: TypeExpr;
+  [AssocTypeDecl]*;
+  [AssocDataDecl]*
 }
+
+ClassFunDep (after class params, before '{')
+  = '|' LowerName '->' LowerName+ (',' LowerName '->' LowerName+)*
+
+AssocTypeDecl (in class body)
+  = 'type' UpperName TyBinder* '::' ResultKind
+
+AssocDataDecl (in class body)
+  = 'data' UpperName TyBinder* '::' KindExpr
 ```
 
 Examples:
@@ -219,6 +264,23 @@ Examples:
 class Eq a { eq :: a -> a -> Bool }
 class Eq a => Ord a { compare :: a -> a -> Ordering }
 class Functor f { fmap :: forall a b. (a -> b) -> f a -> f b }
+
+-- Associated type in class
+class Container c {
+  type Elem c :: Type;
+  cfold :: forall b. (Elem c -> b -> b) -> b -> c -> b
+}
+
+-- Functional dependency
+class Convert a b | a -> b {
+  convert :: a -> b
+}
+
+-- Associated data family in class
+class Collection c {
+  data Key c :: Type;
+  lookup :: Key c -> c -> Maybe (Elem c)
+}
 ```
 
 ### Type Class Instance
@@ -226,8 +288,16 @@ class Functor f { fmap :: forall a b. (a -> b) -> f a -> f b }
 ```
 instance [Constraint =>] ClassName TypeArg* {
   method1 := Expr;
-  method2 := Expr
+  method2 := Expr;
+  [AssocTypeDef]*;
+  [AssocDataDef]*
 }
+
+AssocTypeDef (in instance body)
+  = 'type' UpperName TypePattern* '=' TypeExpr
+
+AssocDataDef (in instance body)
+  = 'data' UpperName TypePattern* '=' ConDecl ('|' ConDecl)*
 ```
 
 Examples:
@@ -238,6 +308,20 @@ instance Eq a => Eq (Maybe a) {
   eq := \x -> \y -> case x {
     Nothing -> case y { Nothing -> True; Just _ -> False };
     Just a  -> case y { Nothing -> False; Just b -> eq a b }
+  }
+}
+
+-- Associated type definition in instance
+instance Container (List a) {
+  type Elem (List a) = a;
+  cfold := foldr
+}
+
+-- Associated data family definition in instance
+instance Collection (List a) {
+  data Key (List a) = ListIndex Int;
+  lookup := \k -> \xs -> case k {
+    ListIndex i -> index xs i
   }
 }
 ```
@@ -291,11 +375,11 @@ case scrutinee {
 ### Record Projection
 
 ```
-r!#x                            -- project field x from record r
-r!#_1                           -- project first element of tuple
+r.#x                            -- project field x from record r
+r.#_1                           -- project first element of tuple
 ```
 
-`!#` binds at atom level (tighter than function application).
+`.#` binds at atom level (tighter than function application).
 
 ### Operator Section
 
@@ -476,7 +560,17 @@ forall (f : Type -> Type). f a -> f b
 { x : Int, y : Bool }          -- closed row
 { x : Int | r }                -- open row (tail variable)
 { get : () -> Int | r }        -- capability row
+{ h : Handle @Linear | r }    -- multiplicity-annotated field
 ```
+
+Row field grammar (updated):
+
+```
+RowField
+  = LowerName ':' TypeExpr ('@' TypeAtom)?
+```
+
+The optional `@Mult` suffix annotates a field with a multiplicity (e.g., `@Linear`, `@Affine`). Without annotation, fields are `@Unrestricted`.
 
 ### Record / Tuple Type
 

@@ -35,7 +35,7 @@ func (ch *Checker) inferRecord(e *syntax.ExprRecord) (types.Type, core.Core) {
 	return ch.unifier.Zonk(recTy), &core.RecordLit{Fields: coreFields, S: e.S}
 }
 
-// inferProject infers the type of a record projection r!#label.
+// inferProject infers the type of a record projection r.#label.
 func (ch *Checker) inferProject(e *syntax.ExprProject) (types.Type, core.Core) {
 	recTy, recCore := ch.infer(e.Record)
 	fieldTy := ch.matchRecordField(recTy, e.Label, e.S)

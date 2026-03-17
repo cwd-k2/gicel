@@ -134,8 +134,8 @@ func (p *Parser) parseAtom() Expr {
 	default:
 		return nil
 	}
-	// Chain record projections: r!#x!#y → Project(Project(r, "x"), "y")
-	for p.peek().Kind == TokBangHash {
+	// Chain record projections: r.#x.#y → Project(Project(r, "x"), "y")
+	for p.peek().Kind == TokDotHash {
 		p.advance()
 		label := p.expectLower()
 		e = &ExprProject{Record: e, Label: label, S: span.Span{Start: e.Span().Start, End: p.prevEnd()}}

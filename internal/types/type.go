@@ -59,10 +59,12 @@ type TyThunk struct {
 	S      span.Span
 }
 
-// RowField is a single label:type pair in a row.
+// RowField is a single label:type pair in a row, with optional multiplicity.
+// Mult is nil for unrestricted (the default); non-nil for graded capabilities.
 type RowField struct {
 	Label string
 	Type  Type
+	Mult  Type // nil = Unrestricted; e.g., TyCon("Linear"), TyCon("Affine")
 	S     span.Span
 }
 
@@ -167,6 +169,27 @@ func (t *TyEvidence) Children() []Type { return []Type{t.Constraints, t.Body} }
 func (t *TySkolem) Children() []Type   { return nil }
 func (t *TyMeta) Children() []Type     { return nil }
 func (t *TyError) Children() []Type    { return nil }
+
+// TypeSize returns the number of nodes in a type, up to a limit.
+// If the type has more than limit nodes, it returns limit+1 and stops early.
+// This is used to bound allocation during type family reduction.
+func TypeSize(t Type, limit int) int {
+	return typeSizeRec(t, limit, 0)
+}
+
+func typeSizeRec(t Type, limit, acc int) int {
+	if acc > limit {
+		return acc
+	}
+	acc++
+	for _, ch := range t.Children() {
+		acc = typeSizeRec(ch, limit, acc)
+		if acc > limit {
+			return acc
+		}
+	}
+	return acc
+}
 
 // UnwindApp decomposes a chain of TyApp into the head type and arguments.
 // E.g., TyApp(TyApp(TyCon("F"), A), B) → (TyCon("F"), [A, B]).

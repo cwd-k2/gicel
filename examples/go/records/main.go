@@ -1,6 +1,6 @@
 // Example: records — Anonymous structural records and tuples in GICEL.
 //
-// Demonstrates record literals, projection (!#), update, row-polymorphic
+// Demonstrates record literals, projection (.#), update, row-polymorphic
 // functions, tuples as sugar for records, and pattern matching on records.
 package main
 
@@ -14,21 +14,21 @@ import (
 
 // Records are anonymous structural types: Record { label : Type, ... }.
 // Tuples are sugar: (a, b) ≡ Record { _1 : a, _2 : b }, () ≡ Record {}.
-// Projection uses the !# operator (atom-level precedence).
+// Projection uses the .# operator (atom-level precedence).
 // Row polymorphism lets functions accept any record with required fields.
 const source = `
 import Std.Num
 
 -- Record literal and projection
 point := { x = 3, y = 4 }
-px := point!#x
+px := point.#x
 
 -- Record update (copy + overwrite)
 moved := { point | x = 10 }
 
 -- Row-polymorphic function: works on any record with an "x" field
 getX :: forall r. Record { x : Int | r } -> Int
-getX := \r -> r!#x
+getX := \r -> r.#x
 
 -- Works with different record shapes
 p1 := getX { x = 1, y = 2 }
@@ -52,7 +52,7 @@ swap := \p -> case p { (x, y) -> (y, x) }
 
 -- Nested records
 nested := { inner = { a = True, b = False }, tag = 42 }
-deep := nested!#inner!#a
+deep := nested.#inner.#a
 
 main := (px, (getX moved, (p1, (p2, (first, (eqTest, (cmpTest, deep)))))))
 `
@@ -73,7 +73,7 @@ func main() {
 
 	// Walk the result tuple
 	p := result.Value
-	labels := []string{"point!#x", "moved!#x", "p1", "p2", "fst pair", "eq test", "cmp test", "nested!#inner!#a"}
+	labels := []string{"point.#x", "moved.#x", "p1", "p2", "fst pair", "eq test", "cmp test", "nested.#inner.#a"}
 	for _, label := range labels {
 		rv, ok := p.(*gicel.RecordVal)
 		if !ok {
@@ -84,14 +84,14 @@ func main() {
 		p = rv.Fields["_2"]
 	}
 	// Output:
-	// point!#x           = HostVal(3)
-	// moved!#x           = HostVal(10)
+	// point.#x           = HostVal(3)
+	// moved.#x           = HostVal(10)
 	// p1                 = HostVal(1)
 	// p2                 = HostVal(5)
 	// fst pair           = True
 	// eq test            = True
 	// cmp test           = LT
-	// nested!#inner!#a   = True
+	// nested.#inner.#a   = True
 
 	fmt.Printf("\n(steps: %d, max depth: %d)\n", result.Stats.Steps, result.Stats.MaxDepth)
 }

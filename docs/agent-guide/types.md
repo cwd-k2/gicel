@@ -147,4 +147,98 @@ myLength :: List a -> Int       -- equivalent to: forall a. List a -> Int
 (expr :: Type)
 ```
 
+### Type Families
+
+Type families define type-level functions — computed types that reduce during type checking and are fully erased before evaluation. No runtime cost.
+
+#### Standalone Type Family
+
+A closed type family is declared with `type Name params :: Kind = { equations }`. Equations are checked top-to-bottom; first match wins.
+
+```
+-- Standalone type family
+type Elem (c : Type) :: Type = {
+  Elem (List a) = a;
+  Elem String = Rune
+}
+```
+
+Distinguished from a type alias by `::` after the parameters. Each equation repeats the family name on the left-hand side.
+
+#### Associated Type in Class
+
+Classes can declare associated types. The class body provides the kind signature; instances provide the definition.
+
+```
+-- Associated type in class
+class Container c {
+  type Elem c :: Type;
+  cfold :: forall b. (Elem c -> b -> b) -> b -> c -> b
+}
+
+instance Container (List a) {
+  type Elem (List a) = a;
+  cfold := foldr
+}
+```
+
+`Elem (List Int)` reduces to `Int` during type checking — no instance search heuristic, just structural reduction.
+
+#### Data Families
+
+Data families are like associated types but **generative** — each instance creates a distinct data type with its own constructors. This enables type-indexed data representations.
+
+```
+-- Data family in class: declares kind signature only
+class Collection c {
+  data Key c :: Type;
+  lookup :: Key c -> c -> Maybe (Elem c)
+}
+
+-- Instance provides constructors
+instance Collection (List a) {
+  data Key (List a) = ListIndex Int;
+  lookup := \k -> \xs -> case k {
+    ListIndex i -> index xs i
+  }
+}
+```
+
+Each instance's `Key` is a distinct type: `Key (List a)` has constructor `ListIndex`, while another instance (e.g., `Key (Map k v)`) could have entirely different constructors. Data family constructors are visible wherever the instance is in scope.
+
+#### Functional Dependencies
+
+Classes can declare functional dependencies that constrain instance resolution. The `| a -> b` notation after class parameters means: knowing `a` determines `b`.
+
+```
+-- Functional dependency
+class Convert a b | a -> b {
+  convert :: a -> b
+}
+```
+
+#### Multiplicity Annotations
+
+Row fields can carry an optional multiplicity annotation using `@Mult`:
+
+```
+open :: Computation {} { h : Handle @Linear } ()
+close :: Computation { h : Handle @Linear } {} ()
+```
+
+Without annotation, fields are `@Unrestricted`. The `@Linear` annotation means the capability must be consumed exactly once.
+
+#### Injectivity
+
+A type family can declare its result injective with a named result binder and functional dependency:
+
+```
+type Effects (mode : AppMode) :: (r : Row) | r -> mode = {
+  Effects ReadOnly  = { get : () -> String };
+  Effects ReadWrite = { get : () -> String, put : String -> () }
+}
+```
+
+Here `| r -> mode` means: the result row uniquely determines the `mode` parameter. This enables the checker to infer `mode` from the result type.
+
 ---

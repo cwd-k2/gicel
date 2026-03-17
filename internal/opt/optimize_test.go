@@ -189,7 +189,7 @@ func TestR4_ForceThunk(t *testing.T) {
 
 // R5: RecordProj of known literal
 func TestR5_RecordProjKnown(t *testing.T) {
-	// { x = 1, y = 2 }!#x  →  1
+	// { x = 1, y = 2 }.#x  →  1
 	input := &core.RecordProj{
 		Record: &core.RecordLit{Fields: []core.RecordField{
 			{Label: "x", Value: lit(int64(1))},

@@ -90,6 +90,11 @@ func (ch *Checker) resolveInstance(className string, args []types.Type, s span.S
 		return ctxResult
 	}
 
+	// 1.7. Apply functional dependency improvement before instance search.
+	// If the class has fundeps and some "from" args are determined,
+	// search instances to unify "to" positions.
+	ch.applyFunDepImprovement(className, args)
+
 	// 2. Search global instances (indexed by class name).
 	for _, inst := range ch.instancesByClass[className] {
 		if len(inst.TypeArgs) != len(args) {
@@ -368,6 +373,67 @@ func (ch *Checker) freshInstanceSubst(inst *InstanceInfo) map[string]types.Type 
 		}
 	}
 	return subst
+}
+
+// applyFunDepImprovement uses functional dependencies to improve type inference.
+// For each fundep a -> b in the class, if the "from" args are determined (no metas),
+// search instances whose "from" positions match, and unify the "to" positions.
+func (ch *Checker) applyFunDepImprovement(className string, args []types.Type) {
+	classInfo, ok := ch.classes[className]
+	if !ok || len(classInfo.FunDeps) == 0 {
+		return
+	}
+	for _, fd := range classInfo.FunDeps {
+		// Check if all "from" positions are determined (no unsolved metas after zonk).
+		allDetermined := true
+		for _, fromIdx := range fd.From {
+			if fromIdx >= len(args) {
+				allDetermined = false
+				break
+			}
+			zonked := ch.unifier.Zonk(args[fromIdx])
+			if _, isMeta := zonked.(*types.TyMeta); isMeta {
+				allDetermined = false
+				break
+			}
+		}
+		if !allDetermined {
+			continue
+		}
+		// Search instances: if "from" positions match, unify "to" positions.
+		for _, inst := range ch.instancesByClass[className] {
+			if len(inst.TypeArgs) != len(args) {
+				continue
+			}
+			freshSubst := ch.freshInstanceSubst(inst)
+			fromMatch := ch.withTrial(func() bool {
+				for _, fromIdx := range fd.From {
+					instArg := types.SubstMany(inst.TypeArgs[fromIdx], freshSubst)
+					if err := ch.unifier.Unify(instArg, args[fromIdx]); err != nil {
+						return false
+					}
+				}
+				return true
+			})
+			if fromMatch {
+				// "From" positions match — unify "to" positions.
+				for _, toIdx := range fd.To {
+					if toIdx >= len(args) {
+						continue
+					}
+					instArg := ch.unifier.Zonk(types.SubstMany(inst.TypeArgs[toIdx], freshSubst))
+					// Fundep improvement is best-effort: if the "to" position
+					// cannot be unified (e.g., already constrained to a different
+					// type), we silently skip. This is intentional — fundep
+					// improvement is advisory, not mandatory. A hard error here
+					// would reject valid programs where the fundep simply provides
+					// no additional information.
+					_ = ch.unifier.Unify(args[toIdx], instArg)
+				}
+				break // first matching instance wins
+			}
+		}
+	}
 }
 
 func (ch *Checker) prettyTypeArgs(args []types.Type) string {

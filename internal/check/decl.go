@@ -27,6 +27,13 @@ func (ch *Checker) checkDecls(decls []syntax.Decl) *core.Program {
 		}
 	}
 
+	// 2.5. Process type family declarations.
+	for _, d := range decls {
+		if tf, ok := d.(*syntax.DeclTypeFamily); ok {
+			ch.processTypeFamily(tf)
+		}
+	}
+
 	// 3. Detect cyclic aliases.
 	hasCyclicAlias := ch.validateAliasGraph()
 
@@ -53,6 +60,12 @@ func (ch *Checker) checkDecls(decls []syntax.Decl) *core.Program {
 			}
 		}
 	}
+
+	// 5.5. Install type family reducer in unifier.
+	// Placed after class (phase 4) and instance headers (phase 5) because
+	// associated type families are registered in class processing and their
+	// equations are collected from instances.
+	ch.installFamilyReducer()
 
 	// 6. Collect type annotations.
 	// Free type variables are implicitly universally quantified (implicit forall).
@@ -518,6 +531,10 @@ func collectUnsolvedMetas(tys ...types.Type) []metaInfo {
 			walk(ty.Pre)
 			walk(ty.Post)
 			walk(ty.Result)
+		case *types.TyFamilyApp:
+			for _, a := range ty.Args {
+				walk(a)
+			}
 		case *types.TyEvidenceRow:
 			for _, ch := range ty.Children() {
 				walk(ch)
@@ -625,6 +642,10 @@ func inferFreeVarKinds(ty types.Type, fv map[string]struct{}) map[string]types.K
 		case *types.TyEvidence:
 			walkAsRow(tt.Constraints)
 			walkAsType(tt.Body)
+		case *types.TyFamilyApp:
+			for _, a := range tt.Args {
+				walkAsType(a)
+			}
 		case *types.TyEvidenceRow:
 			for _, ch := range tt.Entries.AllChildren() {
 				walkAsType(ch)

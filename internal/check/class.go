@@ -6,6 +6,7 @@ import (
 	"unicode"
 
 	"github.com/cwd-k2/gicel/internal/core"
+	"github.com/cwd-k2/gicel/internal/errs"
 	"github.com/cwd-k2/gicel/internal/syntax"
 	"github.com/cwd-k2/gicel/internal/types"
 )
@@ -42,10 +43,19 @@ type ClassInfo struct {
 	Name         string
 	TyParams     []string
 	TyParamKinds []types.Kind
-	KindParams   []string     // implicit kind variables (e.g., "k" in f : k -> Type)
-	Supers       []SuperInfo  // superclass constraints
-	Methods      []MethodInfo // method signatures
-	DictName     string       // e.g. "Eq$Dict" — used as both type and constructor name
+	KindParams   []string      // implicit kind variables (e.g., "k" in f : k -> Type)
+	Supers       []SuperInfo   // superclass constraints
+	Methods      []MethodInfo  // method signatures
+	DictName     string        // e.g. "Eq$Dict" — used as both type and constructor name
+	AssocTypes   []string      // associated type family names
+	FunDeps      []ClassFunDep // functional dependencies: | a -> b
+}
+
+// ClassFunDep is an elaborated functional dependency on a class.
+// From params determine To params: | a -> b means knowing a determines b.
+type ClassFunDep struct {
+	From []int // indices into TyParams
+	To   []int // indices into TyParams
 }
 
 // SuperInfo describes a superclass constraint.
@@ -108,6 +118,82 @@ func (ch *Checker) processClassDecl(d *syntax.DeclClass, prog *core.Program) {
 		delete(ch.kindVars, kv)
 	}
 
+	// Process associated type declarations.
+	var assocTypeNames []string
+	for _, atd := range d.AssocTypes {
+		assocTypeNames = append(assocTypeNames, atd.Name)
+		// Register as a type family with no equations yet (equations come from instances).
+		var atParams []TFParam
+		for _, p := range atd.Params {
+			atParams = append(atParams, TFParam{Name: p.Name, Kind: ch.resolveKindExpr(p.Kind)})
+		}
+		resultKind := ch.resolveKindExpr(atd.ResultKind)
+		var deps []tfDep
+		for _, fd := range atd.Deps {
+			deps = append(deps, tfDep{From: fd.From, To: fd.To})
+		}
+		ch.families[atd.Name] = &TypeFamilyInfo{
+			Name:       atd.Name,
+			Params:     atParams,
+			ResultKind: resultKind,
+			ResultName: atd.ResultName,
+			Deps:       deps,
+			IsAssoc:    true,
+			ClassName:  d.Name,
+		}
+	}
+
+	// Process associated data family declarations.
+	// Data families are registered as type families (for Elem reduction)
+	// AND as data type placeholders (for constructor resolution).
+	for _, add := range d.AssocDataDecls {
+		assocTypeNames = append(assocTypeNames, add.Name)
+		var dfParams []TFParam
+		for _, p := range add.Params {
+			dfParams = append(dfParams, TFParam{Name: p.Name, Kind: ch.resolveKindExpr(p.Kind)})
+		}
+		resultKind := ch.resolveKindExpr(add.ResultKind)
+		ch.families[add.Name] = &TypeFamilyInfo{
+			Name:       add.Name,
+			Params:     dfParams,
+			ResultKind: resultKind,
+			IsAssoc:    true,
+			ClassName:  d.Name,
+		}
+		// Register the data family name as a type constructor.
+		var dfKind types.Kind = resultKind
+		for i := len(dfParams) - 1; i >= 0; i-- {
+			dfKind = &types.KArrow{From: dfParams[i].Kind, To: dfKind}
+		}
+		ch.config.RegisteredTypes[add.Name] = dfKind
+	}
+
+	// Elaborate functional dependencies: convert param names to indices.
+	paramIndex := make(map[string]int, len(tyParams))
+	for i, p := range tyParams {
+		paramIndex[p] = i
+	}
+	var funDeps []ClassFunDep
+	for _, fd := range d.FunDeps {
+		fromIdx, ok := paramIndex[fd.From]
+		if !ok {
+			ch.addCodedError(errs.ErrBadClass, d.S,
+				fmt.Sprintf("class %s: functional dependency references unknown parameter %s", d.Name, fd.From))
+			continue
+		}
+		var toIdxs []int
+		for _, to := range fd.To {
+			toIdx, ok := paramIndex[to]
+			if !ok {
+				ch.addCodedError(errs.ErrBadClass, d.S,
+					fmt.Sprintf("class %s: functional dependency references unknown parameter %s", d.Name, to))
+				continue
+			}
+			toIdxs = append(toIdxs, toIdx)
+		}
+		funDeps = append(funDeps, ClassFunDep{From: []int{fromIdx}, To: toIdxs})
+	}
+
 	// Store class info.
 	info := &ClassInfo{
 		Name:         d.Name,
@@ -117,6 +203,8 @@ func (ch *Checker) processClassDecl(d *syntax.DeclClass, prog *core.Program) {
 		Supers:       supers,
 		Methods:      methods,
 		DictName:     dn,
+		AssocTypes:   assocTypeNames,
+		FunDeps:      funDeps,
 	}
 	ch.classes[d.Name] = info
 

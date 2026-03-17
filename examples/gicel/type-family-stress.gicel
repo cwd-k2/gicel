@@ -1,0 +1,101 @@
+-- GICEL Example: Type Family Stress Test
+--
+-- This example exercises nested type families, recursive reduction,
+-- and type-level computation in actual value-level code.
+-- Level: types (advanced)
+
+import Std.Num
+
+-- Peano naturals as DataKinds for type-level arithmetic.
+data Nat = Z | S Nat
+
+-- Type-level addition via recursive type family.
+-- Add Z b = b
+-- Add (S a) b = S (Add a b)
+type Add (a : Nat) (b : Nat) :: Nat = {
+  Add Z b = b;
+  Add (S a) b = S (Add a b)
+}
+
+-- Phantom type indexed by Nat.
+data NatProxy (n : Nat) = MkProxy
+
+-- Type family that maps a container to its element type.
+type Elem (c : Type) :: Type = {
+  Elem (List a) = a;
+  Elem (Maybe a) = a
+}
+
+-- Type family that wraps a type in Maybe.
+type Wrap (a : Type) :: Type = {
+  Wrap a = Maybe a
+}
+
+-- Nested type family usage: Elem (List (Wrap Int)) should reduce
+-- to Elem (List (Maybe Int)) = Maybe Int.
+unwrapList :: List (Wrap Int) -> Elem (List (Wrap Int))
+unwrapList := \xs -> case xs {
+  Cons x _ -> x;
+  Nil -> Nothing
+}
+
+-- Type-safe vector length at the type level.
+-- A simple length-indexed structure using Peano.
+data Vec (n : Nat) a = {
+  VNil :: Vec Z a;
+  VCons :: forall (m : Nat). a -> Vec m a -> Vec (S m) a
+}
+
+-- The return type uses type-level addition:
+-- appending Vec n a and Vec m a gives Vec (Add n m) a.
+-- For now we declare this as assumption since full dependent
+-- append requires more machinery.
+vappend :: forall (n : Nat) (m : Nat) a. Vec n a -> Vec m a -> Vec (Add n m) a
+vappend := assumption
+
+-- Concrete usage: Vec (S (S Z)) Int (length 2)
+pair :: Vec (S (S Z)) Int
+pair := VCons 1 (VCons 2 VNil)
+
+-- Vec Z Int (length 0)
+empty :: Vec Z Int
+empty := VNil
+
+-- Append: Add (S (S Z)) Z = S (S Z)
+-- Type checker reduces the Peano addition at compile time.
+result :: Vec (S (S Z)) Int
+result := vappend pair empty
+
+-- Season rotation uses recursive type family (from type-families.gicel).
+data Season = Spring | Summer | Autumn | Winter
+
+type NextSeason (s : Season) :: Season = {
+  NextSeason Spring = Summer;
+  NextSeason Summer = Autumn;
+  NextSeason Autumn = Winter;
+  NextSeason Winter = Spring
+}
+
+data Tagged (s : Season) = MkTagged
+
+-- NextSeason reduces concrete seasons at compile time.
+advance :: forall (s : Season). Tagged s -> Tagged (NextSeason s)
+advance := \_ -> MkTagged
+
+-- Type-safe progression: the type system guarantees the cycle.
+spring :: Tagged Spring
+spring := MkTagged
+
+summer :: Tagged Summer
+summer := advance spring
+
+autumn :: Tagged Autumn
+autumn := advance summer
+
+winter :: Tagged Winter
+winter := advance autumn
+
+backToSpring :: Tagged Spring
+backToSpring := advance winter
+
+main := (result, unwrapList (Cons (Just 10) Nil))

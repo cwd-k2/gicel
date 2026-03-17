@@ -87,7 +87,7 @@ func TestStressLargeRecordLiteral(t *testing.T) {
 		sb.WriteString(fmt.Sprintf("f%d = %d", i, i))
 	}
 	sb.WriteString(" }\n")
-	sb.WriteString("main := r!#f29\n")
+	sb.WriteString("main := r.#f29\n")
 	result, err := gicel.RunSandbox(sb.String(), &gicel.SandboxConfig{
 		Packs:    []gicel.Pack{gicel.Num},
 		MaxSteps: 500_000,
@@ -284,7 +284,7 @@ func TestStressRecordUpdate(t *testing.T) {
 	for i := range 20 {
 		sb.WriteString(fmt.Sprintf("r%d := { r%d | f%d = %d }\n", i+1, i, i, i+1))
 	}
-	sb.WriteString("main := r20!#f19\n")
+	sb.WriteString("main := r20.#f19\n")
 
 	result, err := gicel.RunSandbox(sb.String(), &gicel.SandboxConfig{
 		Packs:    []gicel.Pack{gicel.Num},
@@ -736,7 +736,7 @@ func TestStressAllocLimitRecursiveRecord(t *testing.T) {
 import Std.Num
 
 build :: Int -> Record { a : Int, b : Int, c : Int, d : Int, e : Int } -> Int
-build := fix (\self -> \n -> \r -> case n == 0 { True -> r!#a; False -> self (n - 1) { r | a = n } })
+build := fix (\self -> \n -> \r -> case n == 0 { True -> r.#a; False -> self (n - 1) { r | a = n } })
 
 main := build 10000 { a = 0, b = 0, c = 0, d = 0, e = 0 }
 `

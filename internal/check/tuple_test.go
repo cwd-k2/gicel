@@ -38,12 +38,12 @@ func TestTupleNested(t *testing.T) {
 // =============================================================================
 
 func TestTupleFst(t *testing.T) {
-	source := `main := (42, 0)!#_1`
+	source := `main := (42, 0).#_1`
 	checkSource(t, source, nil)
 }
 
 func TestTupleSnd(t *testing.T) {
-	source := `main := (42, 0)!#_2`
+	source := `main := (42, 0).#_2`
 	checkSource(t, source, nil)
 }
 
@@ -53,7 +53,7 @@ func TestTupleSnd(t *testing.T) {
 
 func TestTupleAnnotated(t *testing.T) {
 	source := `f :: (Int, Int) -> Int
-f := \p -> p!#_1
+f := \p -> p.#_1
 main := f (1, 2)`
 	checkSource(t, source, nil)
 }
@@ -88,7 +88,7 @@ main := f ()`
 
 func TestTupleCheckMode(t *testing.T) {
 	source := `f :: (Int, Int) -> Int
-f := \p -> p!#_1
+f := \p -> p.#_1
 main := f (1, 2)`
 	checkSource(t, source, nil)
 }
@@ -96,7 +96,7 @@ main := f (1, 2)`
 func TestTupleCheckModeTypeMismatch(t *testing.T) {
 	source := `data Bool = True | False
 f :: (Int, Int) -> Int
-f := \p -> p!#_1
+f := \p -> p.#_1
 main := f (True, 2)`
 	checkSourceExpectCode(t, source, nil, errs.ErrTypeMismatch)
 }

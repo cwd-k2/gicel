@@ -1,6 +1,6 @@
 -- GICEL Example: Records and Tuples
 --
--- Demonstrates record literals, projection (!#), functional update,
+-- Demonstrates record literals, projection (.#), functional update,
 -- row-polymorphic functions, tuples (as record sugar), unit, nested
 -- records, and pattern matching on tuples.
 -- Level: basics
@@ -10,18 +10,18 @@ import Std.Num
 -- Record literal: a 2D point
 point := { x = 3, y = 4 }
 
--- Projection: extract a field with !#
-px := point!#x
-py := point!#y
+-- Projection: extract a field with .#
+px := point.#x
+py := point.#y
 
 -- Record update: copy with one field overwritten
 moved := { point | x = 10 }
-movedX := moved!#x
+movedX := moved.#x
 
 -- Row-polymorphic function: accepts any record with an "x" field
 -- The `r` row variable absorbs all other fields.
 getX :: forall r. Record { x : Int | r } -> Int
-getX := \r -> r!#x
+getX := \r -> r.#x
 
 -- Works on records of different shapes
 p1 := getX { x = 1, y = 2 }
@@ -47,11 +47,11 @@ swapped := swap (True, False)
 
 -- Nested records
 nested := { inner = { a = True, b = False }, tag = 42 }
-deep := nested!#inner!#a
+deep := nested.#inner.#a
 
 -- 3-tuple
 triple := (1, True, "hi")
-tripleFirst := triple!#_1
+tripleFirst := triple.#_1
 
 -- Output: (3, 4, 10, 1, 5, True, 42, True, LT, (False, True), True, 1)
 main := (px, py, movedX, p1, p2, first, second, eqTest, cmpTest, swapped, deep, tripleFirst)

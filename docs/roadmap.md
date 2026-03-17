@@ -1,16 +1,31 @@
 # GICEL Roadmap
 
-Current state: **First release ready.** All planned features implemented — type system (bidirectional DK, higher-rank, row polymorphism), type classes (10 classes, dictionary passing), GADTs with existentials, DataKinds, HKT (kind variables, kind unification, poly-kinded classes), records and tuples (row-polymorphic, `!#` projection), evidence sort (unified fiber architecture), module system, host boundary (Engine → Runtime → Evaluator), 8 stdlib packs, Core IR optimizer (algebraic simplifications + pack-registered fusion rules), CLI tool.
+Current state: **v0.7 + Type System Extensions.** All core features implemented. Type system extended with type families, associated types, functional dependencies, graded evidence, divergent post-states, session types, and data families.
 
 See `spec/language.md` for the complete language specification.
 
 ---
 
-## Graded Evidence
+## Completed: Type System Extensions (2026-03-17)
 
-Usage tracking (linear/affine/unrestricted) over all evidence fibers. The unified evidence architecture (`TyEvidenceRow` with `EvidenceFiber` interface) provides the foundation.
+9 extensions implemented on branch `feature/type-system-extensions`:
 
-Connects to the open fork point: usage judgment for linear/affine capabilities.
+- **Type families**: Closed, recursive (fuel 100), constraint families, injectivity verification
+- **Associated types**: In class declarations, equation collection from instances
+- **Functional dependencies**: `| a -> b` on MPTCs, improvement in instance resolution
+- **Graded Evidence**: `@Mult` syntax on row fields, `RowField.Mult` through full pipeline
+- **Divergent post-states**: Case branches with different post-states joined via intersection
+- **Session types**: Library feature on recursive TF + DataKinds
+- **Data families**: Constructor mangling, exhaustiveness checking
+
+---
+
+## Graded Evidence — Remaining Work
+
+Usage tracking (linear/affine/unrestricted) structural foundation complete. Remaining:
+
+- `checkMultiplicity` enforcement at bind sites (stub ready)
+- LUB type family integration for multiplicity join at branch points
 
 ---
 
@@ -25,19 +40,22 @@ Connects to the open fork point: usage judgment for linear/affine capabilities.
 
 ## Open Design Fork Points
 
-| Fork Point                                         | Current State              | Decision Trigger                                                                   |
-| -------------------------------------------------- | -------------------------- | ---------------------------------------------------------------------------------- |
-| Branching with divergent post-states               | Equal post-states required | User demand for `if`-like branching where branches modify capabilities differently |
-| `Row` as built-in kind vs general structured-index | Built-in kind              | Need for non-capability indexing (e.g., session types)                             |
-| Usage judgment (linear/affine capabilities)        | Not implemented            | Graded Evidence design                                                             |
-| Algebraic effects/handlers vs indexed monad        | Indexed monad (Atkey)      | Evidence that handler-based approach better serves the AI agent use case           |
+| Fork Point                                         | Current State         | Decision Trigger                                                     |
+| -------------------------------------------------- | --------------------- | -------------------------------------------------------------------- |
+| `Row` as built-in kind vs general structured-index | Built-in kind         | Need for non-capability indexing                                     |
+| Algebraic effects/handlers vs indexed monad        | Indexed monad (Atkey) | Evidence that handler-based approach better serves AI agent use case |
+
+Resolved fork points:
+
+- ~~Branching with divergent post-states~~ → **Resolved**: intersection join (2026-03-17)
+- ~~Usage judgment (linear/affine)~~ → **Resolved**: `@Mult` annotation + `RowField.Mult` (2026-03-17)
+- ~~Type families~~ → **Resolved**: full implementation (2026-03-17)
 
 ---
 
 ## Potential Extensions (assessed, not planned)
 
-| Extension        | Classification   | Prerequisite                |
-| ---------------- | ---------------- | --------------------------- |
-| Type Families    | Phase transition | Substantial checker changes |
-| Refinement Types | Phase transition | Separate analysis           |
-| Dependent Types  | Full restructure | Far future                  |
+| Extension        | Classification   | Prerequisite      |
+| ---------------- | ---------------- | ----------------- |
+| Refinement Types | Phase transition | Separate analysis |
+| Dependent Types  | Full restructure | Far future        |

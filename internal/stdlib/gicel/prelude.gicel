@@ -154,10 +154,10 @@ result :: forall e a b. (e -> b) -> (a -> b) -> Result e a -> b
 result := \onErr -> \onOk -> \r -> case r { Err e -> onErr e; Ok a -> onOk a }
 
 fst :: forall a (r : Row). Record { _1 : a | r } -> a
-fst := \p -> p!#_1
+fst := \p -> p.#_1
 
 snd :: forall a (r : Row). Record { _2 : a | r } -> a
-snd := \p -> p!#_2
+snd := \p -> p.#_2
 
 head :: forall a. List a -> Maybe a
 head := \xs -> case xs { Nil -> Nothing; Cons x _ -> Just x }
@@ -267,7 +267,7 @@ instance IxMonad List {
   ixbind := \xs -> \f -> foldr (\x -> \acc -> append (f x) acc) Nil xs
 }
 
-class Packed c e {
+class Packed c e | c -> e {
   pack   :: List e -> c;
   unpack :: c -> List e
 }

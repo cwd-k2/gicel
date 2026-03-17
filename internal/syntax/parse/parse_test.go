@@ -132,17 +132,17 @@ func TestLexUTF8InComments(t *testing.T) {
 	}
 }
 
-func TestLexBangHash(t *testing.T) {
-	tokens := lex("r!#x")
-	// r, !#, x, EOF
+func TestLexDotHash(t *testing.T) {
+	tokens := lex("r.#x")
+	// r, .#, x, EOF
 	if len(tokens) != 4 {
 		t.Fatalf("expected 4 tokens, got %d", len(tokens))
 	}
 	if tokens[0].Kind != TokLower || tokens[0].Text != "r" {
 		t.Errorf("expected 'r', got %v %q", tokens[0].Kind, tokens[0].Text)
 	}
-	if tokens[1].Kind != TokBangHash || tokens[1].Text != "!#" {
-		t.Errorf("expected TokBangHash '!#', got %v %q", tokens[1].Kind, tokens[1].Text)
+	if tokens[1].Kind != TokDotHash || tokens[1].Text != ".#" {
+		t.Errorf("expected TokDotHash '.#', got %v %q", tokens[1].Kind, tokens[1].Text)
 	}
 	if tokens[2].Kind != TokLower || tokens[2].Text != "x" {
 		t.Errorf("expected 'x', got %v %q", tokens[2].Kind, tokens[2].Text)
@@ -163,11 +163,15 @@ func TestLexDoubleBangStillOp(t *testing.T) {
 	}
 }
 
-func TestLexBangHashInLongerOp(t *testing.T) {
-	// !#= should be a single TokOp (not TokBangHash + TokEq)
-	tokens := lex("!#=")
-	if tokens[0].Kind != TokOp || tokens[0].Text != "!#=" {
-		t.Errorf("expected TokOp '!#=', got %v %q", tokens[0].Kind, tokens[0].Text)
+func TestLexDotHashInLongerOp(t *testing.T) {
+	// .#= should lex as TokDot + TokOp "#=" (not TokDotHash + TokEq)
+	// because .# only matches when # is NOT followed by another operator char
+	tokens := lex(".#=")
+	if tokens[0].Kind != TokDot || tokens[0].Text != "." {
+		t.Errorf("expected TokDot '.', got %v %q", tokens[0].Kind, tokens[0].Text)
+	}
+	if tokens[1].Kind != TokOp || tokens[1].Text != "#=" {
+		t.Errorf("expected TokOp '#=', got %v %q", tokens[1].Kind, tokens[1].Text)
 	}
 }
 
@@ -1133,7 +1137,7 @@ func TestParseRecordUpdate(t *testing.T) {
 }
 
 func TestParseRecordProjection(t *testing.T) {
-	prog, es := parse("v := r!#x")
+	prog, es := parse("v := r.#x")
 	if es.HasErrors() {
 		t.Fatal(es.Format())
 	}
@@ -1155,7 +1159,7 @@ func TestParseRecordProjection(t *testing.T) {
 }
 
 func TestParseChainedProjection(t *testing.T) {
-	prog, es := parse("v := r!#x!#y")
+	prog, es := parse("v := r.#x.#y")
 	if es.HasErrors() {
 		t.Fatal(es.Format())
 	}
@@ -1199,8 +1203,8 @@ func TestParseRecordPattern(t *testing.T) {
 }
 
 func TestParseProjectionPrecedence(t *testing.T) {
-	// f r!#x should parse as App(f, Project(r, x)), not Project(App(f, r), x)
-	prog, es := parse("v := f r!#x")
+	// f r.#x should parse as App(f, Project(r, x)), not Project(App(f, r), x)
+	prog, es := parse("v := f r.#x")
 	if es.HasErrors() {
 		t.Fatal(es.Format())
 	}
@@ -1214,7 +1218,7 @@ func TestParseProjectionPrecedence(t *testing.T) {
 	if !ok || fn.Name != "f" {
 		t.Errorf("expected function 'f', got %T", app.Fun)
 	}
-	// r!#x is the argument
+	// r.#x is the argument
 	proj, ok := app.Arg.(*ExprProject)
 	if !ok {
 		t.Fatalf("expected ExprProject as argument, got %T", app.Arg)
@@ -1967,5 +1971,307 @@ func TestParseAnnotationInParen(t *testing.T) {
 	_, ok = paren.Inner.(*ExprAnn)
 	if !ok {
 		t.Fatalf("expected ExprAnn inside paren, got %T", paren.Inner)
+	}
+}
+
+// ==========================================
+// Parser Edge Cases: Type Families & Friends
+// ==========================================
+
+// --- 4a: Type family with trailing semicolon after last equation ---
+
+func TestParseTypeFamilyTrailingSemicolon(t *testing.T) {
+	source := `
+data Bool = True | False
+type IsTrue (b : Bool) :: Bool = {
+  IsTrue True = True;
+  IsTrue False = False;
+}
+`
+	prog, es := parse(source)
+	if es.HasErrors() {
+		t.Fatal("trailing semicolon should be allowed:", es.Format())
+	}
+	found := false
+	for _, d := range prog.Decls {
+		if tf, ok := d.(*DeclTypeFamily); ok && tf.Name == "IsTrue" {
+			if len(tf.Equations) != 2 {
+				t.Errorf("expected 2 equations, got %d", len(tf.Equations))
+			}
+			found = true
+		}
+	}
+	if !found {
+		t.Fatal("expected to find DeclTypeFamily IsTrue")
+	}
+}
+
+// --- 4b: Type family with empty equation block {} ---
+
+func TestParseTypeFamilyEmptyBlock(t *testing.T) {
+	source := `
+type Empty (a : Type) :: Type = {}
+`
+	prog, es := parse(source)
+	if es.HasErrors() {
+		t.Fatal("empty equation block should parse:", es.Format())
+	}
+	found := false
+	for _, d := range prog.Decls {
+		if tf, ok := d.(*DeclTypeFamily); ok && tf.Name == "Empty" {
+			if len(tf.Equations) != 0 {
+				t.Errorf("expected 0 equations, got %d", len(tf.Equations))
+			}
+			found = true
+		}
+	}
+	if !found {
+		t.Fatal("expected to find DeclTypeFamily Empty")
+	}
+}
+
+// --- 4c: Associated type with no parameters ---
+
+func TestParseAssocTypeNoParams(t *testing.T) {
+	// An associated type that takes no extra parameters (only the class param).
+	// The class param is implicit; the associated type itself has 1 param (the class param).
+	source := `
+class HasUnit a {
+  type TheUnit a :: Type;
+  unit :: a
+}
+`
+	prog, es := parse(source)
+	if es.HasErrors() {
+		t.Fatal("assoc type should parse:", es.Format())
+	}
+	cls := prog.Decls[0].(*DeclClass)
+	if cls.Name != "HasUnit" {
+		t.Fatalf("expected HasUnit, got %s", cls.Name)
+	}
+	if len(cls.AssocTypes) != 1 {
+		t.Fatalf("expected 1 assoc type, got %d", len(cls.AssocTypes))
+	}
+	at := cls.AssocTypes[0]
+	if at.Name != "TheUnit" {
+		t.Errorf("expected assoc type name TheUnit, got %s", at.Name)
+	}
+	if len(at.Params) != 1 {
+		t.Errorf("expected 1 param for TheUnit, got %d", len(at.Params))
+	}
+}
+
+// --- 4d: Multiple fundeps: | a -> b, c -> d ---
+
+func TestParseMultipleFunDeps(t *testing.T) {
+	source := `
+class Multi a b c d | a -> b, c -> d {
+  m :: a -> d
+}
+`
+	prog, es := parse(source)
+	if es.HasErrors() {
+		t.Fatal("multiple fundeps should parse:", es.Format())
+	}
+	cls := prog.Decls[0].(*DeclClass)
+	if cls.Name != "Multi" {
+		t.Fatalf("expected Multi, got %s", cls.Name)
+	}
+	if len(cls.FunDeps) != 2 {
+		t.Fatalf("expected 2 fundeps, got %d", len(cls.FunDeps))
+	}
+	if cls.FunDeps[0].From != "a" || len(cls.FunDeps[0].To) != 1 || cls.FunDeps[0].To[0] != "b" {
+		t.Errorf("fundep 0: expected a -> b, got %s -> %v", cls.FunDeps[0].From, cls.FunDeps[0].To)
+	}
+	if cls.FunDeps[1].From != "c" || len(cls.FunDeps[1].To) != 1 || cls.FunDeps[1].To[0] != "d" {
+		t.Errorf("fundep 1: expected c -> d, got %s -> %v", cls.FunDeps[1].From, cls.FunDeps[1].To)
+	}
+}
+
+// --- 4d extended: Fundep with multiple "to" params ---
+
+func TestParseFunDepMultipleTo(t *testing.T) {
+	source := `
+class Expand a b c | a -> b c {
+  expand :: a -> b
+}
+`
+	prog, es := parse(source)
+	if es.HasErrors() {
+		t.Fatal("fundep with multiple to params should parse:", es.Format())
+	}
+	cls := prog.Decls[0].(*DeclClass)
+	if len(cls.FunDeps) != 1 {
+		t.Fatalf("expected 1 fundep, got %d", len(cls.FunDeps))
+	}
+	fd := cls.FunDeps[0]
+	if fd.From != "a" {
+		t.Errorf("expected from 'a', got %s", fd.From)
+	}
+	if len(fd.To) != 2 || fd.To[0] != "b" || fd.To[1] != "c" {
+		t.Errorf("expected to [b, c], got %v", fd.To)
+	}
+}
+
+// --- 4e: Associated data with multiple constructors using | ---
+
+func TestParseAssocDataMultipleConstructors(t *testing.T) {
+	source := `
+data Unit = Unit
+class Container a {
+  data Entry a :: Type;
+  empty :: a
+}
+instance Container Unit {
+  data Entry Unit = Singleton Unit | Empty;
+  empty := Unit
+}
+`
+	prog, es := parse(source)
+	if es.HasErrors() {
+		t.Fatal("assoc data with multiple constructors should parse:", es.Format())
+	}
+	// Find the instance declaration.
+	var inst *DeclInstance
+	for _, d := range prog.Decls {
+		if i, ok := d.(*DeclInstance); ok {
+			inst = i
+			break
+		}
+	}
+	if inst == nil {
+		t.Fatal("expected to find instance declaration")
+	}
+	if len(inst.AssocDataDefs) != 1 {
+		t.Fatalf("expected 1 assoc data def, got %d", len(inst.AssocDataDefs))
+	}
+	add := inst.AssocDataDefs[0]
+	if add.Name != "Entry" {
+		t.Errorf("expected assoc data name Entry, got %s", add.Name)
+	}
+	if len(add.Cons) != 2 {
+		t.Fatalf("expected 2 constructors, got %d", len(add.Cons))
+	}
+	if add.Cons[0].Name != "Singleton" {
+		t.Errorf("expected first constructor Singleton, got %s", add.Cons[0].Name)
+	}
+	if add.Cons[1].Name != "Empty" {
+		t.Errorf("expected second constructor Empty, got %s", add.Cons[1].Name)
+	}
+}
+
+// --- Additional parser edge cases ---
+
+func TestParseTypeFamilySemicolonSeparated(t *testing.T) {
+	// Equations explicitly separated by semicolons (required inside braces).
+	source := `data Bool = True | False
+type Not (b : Bool) :: Bool = {
+  Not True = False;
+  Not False = True
+}`
+	prog, es := parse(source)
+	if es.HasErrors() {
+		t.Fatal("semicolon-separated equations should parse:", es.Format())
+	}
+	for _, d := range prog.Decls {
+		if tf, ok := d.(*DeclTypeFamily); ok && tf.Name == "Not" {
+			if len(tf.Equations) != 2 {
+				t.Errorf("expected 2 equations, got %d", len(tf.Equations))
+			}
+			return
+		}
+	}
+	t.Fatal("expected to find DeclTypeFamily Not")
+}
+
+func TestParseTypeFamilyWithInjectivity(t *testing.T) {
+	source := `
+data Unit = Unit
+data List a = Nil | Cons a (List a)
+type Elem (c : Type) :: (r : Type) | r -> c = {
+  Elem (List a) = a
+}
+`
+	prog, es := parse(source)
+	if es.HasErrors() {
+		t.Fatal("injective type family should parse:", es.Format())
+	}
+	for _, d := range prog.Decls {
+		if tf, ok := d.(*DeclTypeFamily); ok && tf.Name == "Elem" {
+			if tf.ResultName != "r" {
+				t.Errorf("expected result name 'r', got %q", tf.ResultName)
+			}
+			if len(tf.Deps) != 1 {
+				t.Fatalf("expected 1 dep, got %d", len(tf.Deps))
+			}
+			if tf.Deps[0].From != "r" || len(tf.Deps[0].To) != 1 || tf.Deps[0].To[0] != "c" {
+				t.Errorf("expected dep r -> c, got %s -> %v", tf.Deps[0].From, tf.Deps[0].To)
+			}
+			return
+		}
+	}
+	t.Fatal("expected to find DeclTypeFamily Elem")
+}
+
+func TestParseZeroArityTypeFamily(t *testing.T) {
+	source := `
+type Const :: Type = {
+  Const = Int
+}
+`
+	prog, es := parse(source)
+	if es.HasErrors() {
+		t.Fatal("zero-arity type family should parse:", es.Format())
+	}
+	for _, d := range prog.Decls {
+		if tf, ok := d.(*DeclTypeFamily); ok && tf.Name == "Const" {
+			if len(tf.Params) != 0 {
+				t.Errorf("expected 0 params, got %d", len(tf.Params))
+			}
+			if len(tf.Equations) != 1 {
+				t.Errorf("expected 1 equation, got %d", len(tf.Equations))
+			}
+			return
+		}
+	}
+	t.Fatal("expected to find DeclTypeFamily Const")
+}
+
+func TestParseAssocDataNoFields(t *testing.T) {
+	// Nullary constructors in associated data family.
+	source := `
+data Unit = Unit
+class Tag a {
+  data TagType a :: Type;
+  tag :: a
+}
+instance Tag Unit {
+  data TagType Unit = UnitTag;
+  tag := Unit
+}
+`
+	prog, es := parse(source)
+	if es.HasErrors() {
+		t.Fatal("assoc data with nullary constructors should parse:", es.Format())
+	}
+	var inst *DeclInstance
+	for _, d := range prog.Decls {
+		if i, ok := d.(*DeclInstance); ok {
+			inst = i
+			break
+		}
+	}
+	if inst == nil {
+		t.Fatal("expected instance")
+	}
+	if len(inst.AssocDataDefs) != 1 {
+		t.Fatalf("expected 1 assoc data def, got %d", len(inst.AssocDataDefs))
+	}
+	cons := inst.AssocDataDefs[0].Cons
+	if len(cons) != 1 || cons[0].Name != "UnitTag" {
+		t.Errorf("expected constructor UnitTag, got %v", cons)
+	}
+	if len(cons[0].Fields) != 0 {
+		t.Errorf("expected 0 fields, got %d", len(cons[0].Fields))
 	}
 }
