@@ -2,20 +2,21 @@
 
 ## Lexical Structure
 
-### Keywords (10)
+### Keywords (10 + 1 contextual)
 
-| Keyword    | Purpose                           |
-| ---------- | --------------------------------- |
-| `case`     | Pattern matching                  |
-| `do`       | Monadic do-block                  |
-| `data`     | Algebraic data type declaration   |
-| `type`     | Type alias declaration            |
-| `infixl`   | Left-associative operator fixity  |
-| `infixr`   | Right-associative operator fixity |
-| `infixn`   | Non-associative operator fixity   |
-| `class`    | Type class declaration            |
-| `instance` | Type class instance declaration   |
-| `import`   | Module import                     |
+| Keyword    | Purpose                                                                                              |
+| ---------- | ---------------------------------------------------------------------------------------------------- |
+| `case`     | Pattern matching                                                                                     |
+| `do`       | Monadic do-block                                                                                     |
+| `data`     | Algebraic data type declaration                                                                      |
+| `type`     | Type alias declaration                                                                               |
+| `infixl`   | Left-associative operator fixity                                                                     |
+| `infixr`   | Right-associative operator fixity                                                                    |
+| `infixn`   | Non-associative operator fixity                                                                      |
+| `class`    | Type class declaration                                                                               |
+| `instance` | Type class instance declaration                                                                      |
+| `import`   | Module import                                                                                        |
+| `as`       | Qualified import alias (contextual — only special after `import`, usable as variable name elsewhere) |
 
 ### Built-in Identifiers
 
@@ -190,18 +191,31 @@ infixr 5 cons
 
 ### Import Declaration
 
-```
-import ModuleName
-```
-
-Dotted module names are supported for stdlib packs:
+Three forms:
 
 ```
-import Prelude
-import Effect.State
+Import     ::= 'import' ModuleName                         -- open: all names
+             | 'import' ModuleName '(' ImportList ')'       -- selective
+             | 'import' ModuleName 'as' UpperName           -- qualified
+
+ImportList ::= ImportItem (',' ImportItem)*
+ImportItem ::= lower                -- value
+             | '(' op ')'           -- operator
+             | Upper                -- type/class bare
+             | Upper '(' '..' ')'   -- type/class with all subs
+             | Upper '(' Upper (',' Upper)* ')'  -- specific subs
 ```
 
-Import declarations must appear before all other declarations. All exported types, constructors, type classes, instances, and values from the named module become available.
+Examples:
+
+```
+import Prelude                          -- open
+import Prelude (map, Maybe(..), (+))    -- selective
+import Effect.State                     -- dotted module name
+import Data.Map as M                    -- qualified: M.lookup, M.insert
+```
+
+Import declarations must appear before all other declarations. Duplicate imports of the same module are an error. Two modules cannot share the same alias. Instances are always imported regardless of import form (coherence). `as` is contextual — it is only special immediately after the module name in an import declaration.
 
 ### Type Family (Closed)
 

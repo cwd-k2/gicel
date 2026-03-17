@@ -1,6 +1,6 @@
 # GICEL Roadmap
 
-Current state: **v0.7.** All core features implemented, including type families, associated types, functional dependencies, data families, multiplicity annotations, divergent post-states, and session types.
+Current state: **v0.8.** All core features implemented, including type families, associated types, functional dependencies, data families, multiplicity annotations, divergent post-states, session types, and module system extension (selective/qualified imports, CLI multi-file).
 
 See `spec/language.md` for the complete language specification.
 
@@ -17,10 +17,12 @@ Usage tracking (linear/affine/unrestricted) has structural foundation in place (
 
 ## Module System Evolution
 
+Selective imports, qualified imports, and CLI multi-file support are implemented (v0.8). Remaining:
+
 - Prelude becomes an ordinary module (currently built-in source)
 - Stdlib packs become importable modules
-- Selective exports
-- Qualified imports
+- Selective exports (`module M (x, T(..)) where ...`)
+- Qualified patterns (`case x { Q.Con a -> ... }`)
 
 ---
 

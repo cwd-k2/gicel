@@ -1158,22 +1158,68 @@ The `CapEnv` is a mapping from capability labels to runtime values, threaded thr
 
 # 12. Module System
 
-## 12.1 Import
+## 12.1 Import Forms
+
+Three import forms are supported. For a given module, exactly one form is used; the same module cannot be imported twice.
+
+### Open Import
 
 ```
 import ModuleName
 ```
 
-`import` must appear at the top of a source file, before any other declarations. All top-level definitions from the module are brought into scope (no qualified names, no selective imports).
+All top-level definitions from the module are brought into scope unqualified. This is the standard form.
+
+### Selective Import
+
+```
+import ModuleName (name, T(..), C(A,B), (+))
+```
+
+Only the listed names are brought into scope. Import list entries:
+
+| Entry       | Meaning                                          |
+| ----------- | ------------------------------------------------ |
+| `name`      | Value binding                                    |
+| `(op)`      | Operator                                         |
+| `Name`      | Type or class (bare — no constructors/methods)   |
+| `Name(..)`  | Type or class with all constructors/methods      |
+| `Name(A,B)` | Type or class with specific constructors/methods |
+
+Instances are always imported regardless of the selective list (coherence requirement).
+
+### Qualified Import
+
+```
+import ModuleName as Alias
+```
+
+All names are accessible only through the alias prefix: `Alias.value`, `Alias.Constructor`, `Alias.Type`. Operators cannot be qualified (`Alias.+` is not valid syntax). Instances are always imported (coherence).
+
+Qualified name disambiguation: `N.x` (no whitespace) is a qualified reference; `N . x` (whitespace around `.`) is function composition. The parser uses token span adjacency to disambiguate.
+
+### Constraints
+
+- `import` declarations must appear at the top of a source file, before any other declarations.
+- Duplicate imports of the same module are an error.
+- Two modules cannot share the same alias (`import A as N; import B as N` is an error).
+- `import Core` with selective or qualified form is rejected; Core is implicit and user-invisible.
+- `as` is a contextual keyword: it is only special in import position and can be used as a variable name elsewhere.
 
 ## 12.2 Host API
 
 ```go
-eng.RegisterModule("MyLib", source)        // Register module from source string
+eng.RegisterModule("MyLib", source)          // Register module from source string
 eng.RegisterModuleFile("path/to/mod.gicel")  // Register module from file
 ```
 
-Modules are parsed and type-checked at registration time. Circular imports are forbidden (topological sort at registration). Name collisions between imported modules are an error at the import site.
+Modules are parsed and type-checked at registration time. Circular imports are forbidden (topological sort at registration).
+
+CLI multi-file support:
+
+```sh
+gicel run --module Util=lib/Util.gicel main.gicel
+```
 
 ## 12.3 Prelude
 
@@ -1531,6 +1577,7 @@ The intersection of label sets determines the joined post-state. Labels present 
 | Extension                | Classification   | Prerequisite             |
 | ------------------------ | ---------------- | ------------------------ |
 | Multiplicity enforcement | Addition         | `checkMultiplicity` stub |
-| Selective module exports | Refinement       | Module system maturity   |
+| Selective module exports | Refinement       | Module system evolution  |
+| Qualified patterns       | Addition         | Module system evolution  |
 | Refinement Types         | Phase transition | Separate analysis        |
 | Dependent Types          | Full restructure | Far future               |
