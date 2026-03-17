@@ -290,10 +290,18 @@ class FromList l => ToList l {
   toList :: l -> List (Elem l)
 }
 
-instance FromList (List a) { type Elem (List a) =: a; fromList := id }
+instance FromList (List a) {
+  type Elem (List a) =: a;
+  fromList := id
+}
+
 instance ToList (List a) { toList := id }
 
-instance FromList (Maybe a) { type Elem (Maybe a) =: a; fromList := head }
+instance FromList (Maybe a) {
+  type Elem (Maybe a) =: a;
+  fromList := head
+}
+
 instance ToList (Maybe a) {
   toList := \m. case m { Nothing -> Nil; Just x -> Cons x Nil }
 }

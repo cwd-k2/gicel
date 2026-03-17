@@ -20,7 +20,8 @@ streamFromList := fix \self xs. case xs {
   Cons x rest -> LCons x (\_. self rest)
 }
 
-instance FromList (Stream a) { type Elem (Stream a) =: a;
+instance FromList (Stream a) {
+  type Elem (Stream a) =: a;
   fromList := fix \self xs. case xs {
     Nil -> LNil;
     Cons x rest -> LCons x (\_. self rest)
