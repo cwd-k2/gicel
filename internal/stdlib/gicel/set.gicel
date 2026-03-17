@@ -41,3 +41,6 @@ setToList := _setToList
 
 setFromList :: \k. Ord k => List k -> Set k
 setFromList := _setFromList compare
+
+instance Ord k => FromList (Set k) k { fromList := _setFromList compare }
+instance Ord k => ToList (Set k) k { toList := _setToList }

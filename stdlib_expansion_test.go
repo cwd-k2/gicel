@@ -382,7 +382,7 @@ main := headS LNil
 func TestStreamToListFromList(t *testing.T) {
 	v := runWithPacks(t, `
 import Std.Stream
-main := toList (fromList (Cons True (Cons False Nil)))
+main := toList (fromList (Cons True (Cons False Nil)) :: Stream Bool)
 `, gicel.Stream)
 	con := v.(*gicel.ConVal)
 	if con.Con != "Cons" {

@@ -212,6 +212,10 @@ infixr 6 <>
 (<>) :: \a. Semigroup a => a -> a -> a
 (<>) := append
 
+infixr 5 <+
+(<+) :: \a. a -> List a -> List a
+(<+) := Cons
+
 class Show a { show :: a -> String }
 instance Show Bool { show := \b. case b { True -> "True"; False -> "False" } }
 instance Show () { show := \_. "()" }
@@ -275,6 +279,22 @@ class Packed c e | c =: e {
 instance Packed (List a) a {
   pack   := id;
   unpack := id
+}
+
+class FromList l e | l =: e {
+  fromList :: List e -> l
+}
+
+class FromList l e => ToList l e | l =: e {
+  toList :: l -> List e
+}
+
+instance FromList (List a) a { fromList := id }
+instance ToList (List a) a { toList := id }
+
+instance FromList (Maybe a) a { fromList := head }
+instance ToList (Maybe a) a {
+  toList := \m. case m { Nothing -> Nil; Just x -> Cons x Nil }
 }
 
 instance Applicative List {
@@ -411,8 +431,8 @@ liftA2 := \f fa fb. ap (fmap f fa) fb
 foldMap :: \(t: Type -> Type) a m. (Foldable t, Monoid m) => (a -> m) -> t a -> m
 foldMap := \f. foldr (\x acc. append (f x) acc) empty
 
-toList :: \(t: Type -> Type) a. Foldable t => t a -> List a
-toList := foldr Cons Nil
+collectList :: \(t: Type -> Type) a. Foldable t => t a -> List a
+collectList := foldr Cons Nil
 
 find :: \a. (a -> Bool) -> List a -> Maybe a
 find := \p. foldr (\x acc. case p x { True -> Just x; False -> acc }) Nothing

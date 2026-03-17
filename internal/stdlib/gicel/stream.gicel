@@ -8,16 +8,30 @@ headS := \s. case s { LNil -> Nothing; LCons x _ -> Just x }
 tailS :: \a. Stream a -> Maybe (Stream a)
 tailS := \s. case s { LNil -> Nothing; LCons _ t -> Just (t ()) }
 
-toList :: \a. Stream a -> List a
-toList := fix \self s. case s {
+streamToList :: \a. Stream a -> List a
+streamToList := fix \self s. case s {
   LNil -> Nil;
   LCons x t -> Cons x (self (t ()))
 }
 
-fromList :: \a. List a -> Stream a
-fromList := fix \self xs. case xs {
+streamFromList :: \a. List a -> Stream a
+streamFromList := fix \self xs. case xs {
   Nil -> LNil;
   Cons x rest -> LCons x (\_. self rest)
+}
+
+instance FromList (Stream a) a {
+  fromList := fix \self xs. case xs {
+    Nil -> LNil;
+    Cons x rest -> LCons x (\_. self rest)
+  }
+}
+
+instance ToList (Stream a) a {
+  toList := fix \self s. case s {
+    LNil -> Nil;
+    LCons x t -> Cons x (self (t ()))
+  }
 }
 
 mapS :: \a b. (a -> b) -> Stream a -> Stream b

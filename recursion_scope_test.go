@@ -45,7 +45,7 @@ func TestEnableRecursionWorksInModule(t *testing.T) {
 	_, err := eng.NewRuntime(`
 import Std.Num
 import Std.Stream
-main := toList (fromList (Cons True Nil))
+main := toList (fromList (Cons True Nil) :: Stream Bool)
 `)
 	if err != nil {
 		t.Fatalf("Stream module should compile and work: %v", err)
