@@ -809,6 +809,34 @@ func TestParseClassWithSuperclass(t *testing.T) {
 	}
 }
 
+func TestParseClassTupleSuperclass(t *testing.T) {
+	prog, es := parse("class (Functor t, Foldable t) => Traversable t { traverse :: a -> b }")
+	if es.HasErrors() {
+		t.Fatal(es.Format())
+	}
+	cls := prog.Decls[0].(*DeclClass)
+	if cls.Name != "Traversable" {
+		t.Errorf("expected Traversable, got %s", cls.Name)
+	}
+	if len(cls.Supers) != 2 {
+		t.Fatalf("expected 2 superclasses, got %d", len(cls.Supers))
+	}
+}
+
+func TestParseInstanceTupleConstraint(t *testing.T) {
+	prog, es := parse("instance (Eq a, Eq b) => Eq (Pair a b) { eq := eqPair }")
+	if es.HasErrors() {
+		t.Fatal(es.Format())
+	}
+	inst := prog.Decls[0].(*DeclInstance)
+	if inst.ClassName != "Eq" {
+		t.Errorf("expected Eq, got %s", inst.ClassName)
+	}
+	if len(inst.Context) != 2 {
+		t.Fatalf("expected 2 constraints, got %d", len(inst.Context))
+	}
+}
+
 func TestParseClassMultiParam(t *testing.T) {
 	prog, es := parse("class Coercible a b { coerce :: a -> b }")
 	if es.HasErrors() {

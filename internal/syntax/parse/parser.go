@@ -422,6 +422,55 @@ func (p *Parser) parseClassDecl() *DeclClass {
 	// Parse the head: either "ClassName params" or "Constraint => ClassName params".
 	// Strategy: parse type applications, check for => to detect superclass.
 	var supers []TypeExpr
+
+	// Tuple-style superclass constraints: class (C1 a, C2 b) => ClassName params { ... }
+	if p.peek().Kind == TokLParen && !p.isClassKindedBinder() {
+		p.advance() // consume (
+		for {
+			conStart := p.peek().S.Start
+			conName := p.expectUpper()
+			var conExpr TypeExpr = &TyExprCon{Name: conName, S: span.Span{Start: conStart, End: p.prevEnd()}}
+			for p.peek().Kind == TokLower {
+				tok := p.peek()
+				p.advance()
+				arg := &TyExprVar{Name: tok.Text, S: tok.S}
+				conExpr = &TyExprApp{Fun: conExpr, Arg: arg, S: span.Span{Start: conStart, End: tok.S.End}}
+			}
+			supers = append(supers, conExpr)
+			if p.peek().Kind != TokComma {
+				break
+			}
+			p.advance() // consume ,
+		}
+		p.expect(TokRParen)
+		p.expect(TokFatArrow)
+		// Parse class name + params
+		className := p.expectUpper()
+		var params []TyBinder
+		for p.peek().Kind == TokLower || (p.peek().Kind == TokLParen && p.isClassKindedBinder()) {
+			if p.peek().Kind == TokLParen {
+				lp := p.peek().S.Start
+				p.advance()
+				name := p.expectLower()
+				p.expect(TokColon)
+				kind := p.parseKindExpr()
+				p.expect(TokRParen)
+				params = append(params, TyBinder{Name: name, Kind: kind, S: span.Span{Start: lp, End: p.prevEnd()}})
+			} else {
+				tok := p.peek()
+				p.advance()
+				params = append(params, TyBinder{Name: tok.Text, S: tok.S})
+			}
+		}
+		funDeps := p.parseClassFunDeps()
+		methods, assocTypes, assocDataDecls := p.parseClassBody()
+		return &DeclClass{
+			Supers: supers, Name: className, TyParams: params, FunDeps: funDeps,
+			Methods: methods, AssocTypes: assocTypes, AssocDataDecls: assocDataDecls,
+			S: span.Span{Start: start, End: p.prevEnd()},
+		}
+	}
+
 	firstName := p.expectUpper()
 	var firstArgs []TypeExpr
 	// Parse class params: either bare lowercase vars or kinded binders (v: Kind).
@@ -635,18 +684,14 @@ func (p *Parser) parseInstanceDecl() *DeclInstance {
 
 	// Loop: accumulate constraints until we find the actual class head.
 	for {
-		// Parenthesized constraint: (Eq a) => ...
+		// Parenthesized constraint(s): (Eq a) => or (Eq a, Ord a) => ...
 		if p.peek().Kind == TokLParen {
 			saved := p.pos
 			savedDepth := p.depth
 			savedErrLen := p.errors.Len()
-			ty := p.parseTypeAtom() // parses (Eq a)
+			ty := p.parseTypeAtom() // parses (Eq a) or (Eq a, Ord a) as tuple
 			if p.peek().Kind == TokFatArrow {
-				if paren, ok := ty.(*TyExprParen); ok {
-					context = append(context, paren.Inner)
-				} else {
-					context = append(context, ty)
-				}
+				context = append(context, decomposeTupleConstraint(ty)...)
 				p.advance() // consume =>
 				continue
 			}
@@ -1006,6 +1051,29 @@ func (p *Parser) isClassKindedBinder() bool {
 		return false
 	}
 	return p.tokens[p.pos+1].Kind == TokLower && p.tokens[p.pos+2].Kind == TokColon
+}
+
+// decomposeTupleConstraint extracts individual constraints from a parsed type.
+// (Eq a)       → TyExprParen → [Eq a]
+// (Eq a, Ord a) → tuple Record → [Eq a, Ord a]
+// other        → [other]
+func decomposeTupleConstraint(ty TypeExpr) []TypeExpr {
+	if paren, ok := ty.(*TyExprParen); ok {
+		return []TypeExpr{paren.Inner}
+	}
+	// Tuple: TyExprApp { Fun: TyExprCon{Record}, Arg: TyExprRow{Fields: ...} }
+	if app, ok := ty.(*TyExprApp); ok {
+		if con, ok := app.Fun.(*TyExprCon); ok && con.Name == "Record" {
+			if row, ok := app.Arg.(*TyExprRow); ok && len(row.Fields) > 0 {
+				cs := make([]TypeExpr, len(row.Fields))
+				for i, f := range row.Fields {
+					cs[i] = f.Type
+				}
+				return cs
+			}
+		}
+	}
+	return []TypeExpr{ty}
 }
 
 func (p *Parser) isFixityKeyword() bool {

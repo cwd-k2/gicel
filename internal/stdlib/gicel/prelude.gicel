@@ -15,7 +15,7 @@ class Functor f => Applicative f {
   wrap :: \a. a -> f a;
   ap   :: \a b. f (a -> b) -> f a -> f b
 }
-class Functor t => Foldable t => Traversable t {
+class (Functor t, Foldable t) => Traversable t {
   traverse :: \f a b. Applicative f => (a -> f b) -> t a -> f (t b)
 }
 
@@ -37,7 +37,7 @@ instance Eq a => Eq (Maybe a) { eq := \x y. case x {
   Just a -> case y { Nothing -> False; Just b -> eq a b }
 } }
 
-instance Eq a => Eq b => Eq (a, b) { eq := \x y. case x {
+instance (Eq a, Eq b) => Eq (a, b) { eq := \x y. case x {
   (a1, b1) -> case y {
     (a2, b2) -> case eq a1 a2 { True -> eq b1 b2; False -> False }
   }
@@ -77,7 +77,7 @@ instance Ord a => Ord (Maybe a) { compare := \x y. case x {
   Nothing -> case y { Nothing -> EQ; Just _ -> LT };
   Just a  -> case y { Nothing -> GT; Just b -> compare a b }
 } }
-instance Ord a => Ord b => Ord (a, b) { compare := \x y. case x {
+instance (Ord a, Ord b) => Ord (a, b) { compare := \x y. case x {
   (a1, b1) -> case y {
     (a2, b2) -> append (compare a1 a2) (compare b1 b2)
   }
@@ -319,12 +319,12 @@ instance Traversable List {
   traverse := \f. foldr (\x acc. ap (fmap Cons (f x)) acc) (wrap Nil)
 }
 
-instance Eq e => Eq a => Eq (Result e a) { eq := \x y. case x {
+instance (Eq e, Eq a) => Eq (Result e a) { eq := \x y. case x {
   Err e1 -> case y { Err e2 -> eq e1 e2; Ok _ -> False };
   Ok a1 -> case y { Err _ -> False; Ok a2 -> eq a1 a2 }
 } }
 
-instance Ord e => Ord a => Ord (Result e a) { compare := \x y. case x {
+instance (Ord e, Ord a) => Ord (Result e a) { compare := \x y. case x {
   Err e1 -> case y { Err e2 -> compare e1 e2; Ok _ -> LT };
   Ok a1 -> case y { Err _ -> GT; Ok a2 -> compare a1 a2 }
 } }
