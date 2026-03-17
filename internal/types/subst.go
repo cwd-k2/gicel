@@ -449,16 +449,46 @@ func substQuantifiedConstraint(qc *QuantifiedConstraint, varName string, replace
 }
 
 func renameInConstraintEntry(e ConstraintEntry, oldName, newName string) ConstraintEntry {
+	replacement := &TyVar{Name: newName}
 	changed := false
 	args := make([]Type, len(e.Args))
 	for j, a := range e.Args {
-		args[j] = Subst(a, oldName, &TyVar{Name: newName})
+		args[j] = Subst(a, oldName, replacement)
 		if args[j] != a {
 			changed = true
+		}
+	}
+	result := ConstraintEntry{ClassName: e.ClassName, Args: args, S: e.S}
+	if e.ConstraintVar != nil {
+		newCV := Subst(e.ConstraintVar, oldName, replacement)
+		if newCV != e.ConstraintVar {
+			changed = true
+		}
+		result.ConstraintVar = newCV
+	}
+	if e.Quantified != nil {
+		// Check if oldName is shadowed by a quantified variable.
+		shadowed := false
+		for _, v := range e.Quantified.Vars {
+			if v.Name == oldName {
+				shadowed = true
+				break
+			}
+		}
+		if !shadowed {
+			ctx := make([]ConstraintEntry, len(e.Quantified.Context))
+			for i, c := range e.Quantified.Context {
+				ctx[i] = renameInConstraintEntry(c, oldName, newName)
+			}
+			head := renameInConstraintEntry(e.Quantified.Head, oldName, newName)
+			result.Quantified = &QuantifiedConstraint{Vars: e.Quantified.Vars, Context: ctx, Head: head}
+			changed = true
+		} else {
+			result.Quantified = e.Quantified
 		}
 	}
 	if !changed {
 		return e
 	}
-	return ConstraintEntry{ClassName: e.ClassName, Args: args, Quantified: e.Quantified, S: e.S}
+	return result
 }

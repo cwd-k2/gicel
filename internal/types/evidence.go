@@ -115,17 +115,44 @@ func (c *ConstraintEntries) MapChildren(f func(Type) Type) EvidenceEntries {
 			args[j] = f(a)
 		}
 		entries[i] = ConstraintEntry{
-			ClassName:     e.ClassName,
-			Args:          args,
-			Quantified:    e.Quantified,
-			ConstraintVar: e.ConstraintVar,
-			S:             e.S,
+			ClassName: e.ClassName,
+			Args:      args,
+			S:         e.S,
 		}
 		if e.ConstraintVar != nil {
 			entries[i].ConstraintVar = f(e.ConstraintVar)
 		}
+		if e.Quantified != nil {
+			entries[i].Quantified = mapQuantifiedConstraint(e.Quantified, f)
+		}
 	}
 	return &ConstraintEntries{Entries: entries}
+}
+
+// mapQuantifiedConstraint applies f to all type children inside a QuantifiedConstraint.
+func mapQuantifiedConstraint(qc *QuantifiedConstraint, f func(Type) Type) *QuantifiedConstraint {
+	ctx := make([]ConstraintEntry, len(qc.Context))
+	for i, ce := range qc.Context {
+		ctx[i] = mapConstraintEntry(ce, f)
+	}
+	head := mapConstraintEntry(qc.Head, f)
+	return &QuantifiedConstraint{Vars: qc.Vars, Context: ctx, Head: head}
+}
+
+// mapConstraintEntry applies f to all type children in a ConstraintEntry.
+func mapConstraintEntry(e ConstraintEntry, f func(Type) Type) ConstraintEntry {
+	args := make([]Type, len(e.Args))
+	for j, a := range e.Args {
+		args[j] = f(a)
+	}
+	result := ConstraintEntry{ClassName: e.ClassName, Args: args, S: e.S}
+	if e.ConstraintVar != nil {
+		result.ConstraintVar = f(e.ConstraintVar)
+	}
+	if e.Quantified != nil {
+		result.Quantified = mapQuantifiedConstraint(e.Quantified, f)
+	}
+	return result
 }
 
 func (c *ConstraintEntries) FiberKind() Kind { return KConstraint{} }

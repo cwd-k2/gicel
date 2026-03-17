@@ -524,27 +524,26 @@ func (ch *Checker) reduceFamilyApps(t types.Type) types.Type {
 		}
 		return &types.TyEvidence{Constraints: rConstraints, Body: rBody, S: ty.S}
 	case *types.TyEvidenceRow:
-		// Recurse into capability/constraint field types.
-		if cap, ok := ty.Entries.(*types.CapabilityEntries); ok {
-			changed := false
-			fields := make([]types.RowField, len(cap.Fields))
-			for i, f := range cap.Fields {
-				rTy := ch.reduceFamilyApps(f.Type)
-				fields[i] = types.RowField{Label: f.Label, Type: rTy, Mult: f.Mult, S: f.S}
-				if rTy != f.Type {
-					changed = true
-				}
+		// Recurse into all type children via MapChildren.
+		changed := false
+		newEntries := ty.Entries.MapChildren(func(child types.Type) types.Type {
+			r := ch.reduceFamilyApps(child)
+			if r != child {
+				changed = true
 			}
-			if !changed {
-				return t
-			}
-			return &types.TyEvidenceRow{
-				Entries: &types.CapabilityEntries{Fields: fields},
-				Tail:    ty.Tail,
-				S:       ty.S,
+			return r
+		})
+		var newTail types.Type
+		if ty.Tail != nil {
+			newTail = ch.reduceFamilyApps(ty.Tail)
+			if newTail != ty.Tail {
+				changed = true
 			}
 		}
-		return t
+		if !changed {
+			return t
+		}
+		return &types.TyEvidenceRow{Entries: newEntries, Tail: newTail, S: ty.S}
 	}
 	return t
 }
