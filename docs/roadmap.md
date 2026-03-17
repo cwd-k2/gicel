@@ -1,47 +1,73 @@
 # GICEL Roadmap
 
-Current state: **v0.8.** All core features implemented, including type families, associated types, functional dependencies, data families, multiplicity annotations, divergent post-states, session types, and module system extension (selective/qualified imports, CLI multi-file).
-
-See `spec/language.md` for the complete language specification.
+Current state: **v0.8.** All core features implemented. See `spec/language.md` for the complete specification.
 
 ---
 
-## Multiplicity Enforcement
+## Planned Work
 
-Usage tracking (linear/affine/unrestricted) has structural foundation in place (`@Mult` annotation, `RowField.Mult` through the full pipeline). Remaining:
+### Multiplicity Enforcement
+
+`@Mult` annotations propagate through the full pipeline (parser → checker → unifier → row fields), but usage is not enforced. `@Linear` compiles but permits multiple uses.
+
+Remaining:
 
 - `checkMultiplicity` enforcement at bind sites (stub ready)
-- LUB type family integration for multiplicity join at branch points
+- LUB type family for multiplicity join at branch points
 
----
+**Known difficulty**: enforcement requires counting usage within row unification simultaneously with pre/post state transition resolution. See [Double grading](#double-grading) below.
 
-## Module System Evolution
+### Module System
 
-Selective imports, qualified imports, and CLI multi-file support are implemented (v0.8). Remaining:
+Selective imports, qualified imports, `_` private names, and CLI `--module` are implemented. Remaining:
 
-- Prelude becomes an ordinary module (currently built-in source)
-- Stdlib packs become importable modules
-- Selective exports (`module M (x, T(..)) where ...`)
+- Selective exports (`module M (x, T(..)) where ...`) — type-level privacy
 - Qualified patterns (`case x { Q.Con a -> ... }`)
+- Prelude as ordinary module (currently built-in source)
+- Stdlib packs as importable modules
 
 ---
 
-## Open Design Fork Points
+## Design Fork Points
 
-| Fork Point                                         | Current State                                          | Decision Trigger                                                         |
-| -------------------------------------------------- | ------------------------------------------------------ | ------------------------------------------------------------------------ |
-| `Row` as built-in kind vs general structured-index | Built-in kind; reduced pressure via DataKinds          | Need for non-capability indexing (e.g., session types)                   |
-| Algebraic effects/handlers vs indexed monad        | Indexed monad (Atkey); type families reduce motivation | Evidence that handler-based approach better serves the AI agent use case |
+| Fork Point                                  | Current State                                   | Decision Trigger                                          |
+| ------------------------------------------- | ----------------------------------------------- | --------------------------------------------------------- |
+| `Row` as built-in kind vs structured-index  | Built-in kind; DataKinds reduces pressure       | Need for non-capability indexing                          |
+| Algebraic effects/handlers vs indexed monad | Indexed monad (Atkey); type families compensate | Evidence that handlers better serve the AI agent use case |
 
 ---
 
-## Research Directions
+## Known Theoretical Boundaries
 
-Type families introduce type-level computation into GICEL's unique coordinate (Atkey indexed monad × row polymorphism × CBPV × Go embedding), opening research directions specific to this intersection:
+These are not bugs or missing features. They are consequences of GICEL's design coordinate (Atkey indexed monad × row polymorphism × CBPV × Go embedding) that existing literature does not address. Each is currently handled by a practical workaround; the notes below record when the workaround would break.
 
-- **Double grading**: Adding multiplicity grades to `Computation pre post a` creates a doubly-graded structure where state transition and usage discipline interact, mediated by row unification.
-- **Evidence fiber interaction**: Type families cross fiber boundaries (`Type → Constraint`, `promoted kind → Row`). Where fiber independence ends and fiber interaction begins is specific to GICEL's evidence architecture.
-- **Reduction and unification scheduling**: When a type family returns a `Row` used in a unification target, type family reduction and row unification become interdependent — a non-trivial scheduling problem.
+### Double grading
+
+`Computation pre post a` is indexed by state transition (pre → post). Adding `@Mult` grading creates a second axis: how many times a capability can be used. The two axes interact inside row unification — the pre/post diff must account for both label presence and usage count.
+
+**Current state**: `@Mult` is structural only. No enforcement, so no interaction.
+**Triggers**: implementing `checkMultiplicity`. At that point, row unification must solve state-transition and usage constraints simultaneously — a problem not covered by existing graded monad literature (Orchard, Petricek et al.), which treats grading on a single axis.
+
+### Type family / row unification scheduling
+
+Type families can return `Row` values used in `Computation pre post a` indices. This creates a dependency: row unification needs the reduced result, but reduction may need unification to resolve meta-variables first.
+
+```
+f :: Computation (SessionDual r) r a
+--              ^^^^^^^^^^^^^^^^
+-- SessionDual r must reduce before unification can proceed,
+-- but r is determined by unification.
+```
+
+**Current state**: reduce with fuel=100, leave stuck applications as `TyFamilyApp`, re-reduce after unification solves metas. This works for all current programs.
+**Triggers**: multi-stage type family nesting where reduction and unification form a longer cycle. Manifests as fuel exhaustion on a program that should type-check. No reports to date.
+
+### Evidence fiber crossing
+
+The evidence system separates fibers (`Type`, `Constraint`, `Row`). Type families can cross fibers (`Row → Row`, `Type → Constraint`). When a family result feeds into a different fiber's unification, the "fibers are independent" assumption breaks.
+
+**Current state**: the single-pass reduce → unify pipeline handles current cases because family results are fully reduced before entering unification.
+**Triggers**: a family whose result is another family application in a different fiber (e.g., a `Row → Constraint` family whose result enters evidence resolution). Would require interleaved reduction across fibers.
 
 ---
 
