@@ -147,7 +147,7 @@ func (r *Runtime) evalBindings(ev *eval.Evaluator, env *eval.Env, bindings []cor
 		env = env.Extend(b.Name, cell)
 	}
 	for _, b := range bindings {
-		if label && obs != nil {
+		if label {
 			obs.Section(b.Name)
 		}
 		result, err := ev.Eval(env, eval.NewCapEnv(nil), b.Expr)

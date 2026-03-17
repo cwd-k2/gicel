@@ -69,6 +69,7 @@ Flags (run only):
   --max-alloc <n>  Allocation byte limit (default: 100 MiB)
   --json           Output result as JSON
   --explain        Show semantic evaluation trace
+  --explain-all    Trace stdlib internals (with --explain)
   --verbose        Show source context in explain trace
   --no-color       Disable color output`)
 }
@@ -249,6 +250,31 @@ func readSource(fs *flag.FlagSet, stdin bool) ([]byte, error) {
 	return os.ReadFile(fs.Arg(0))
 }
 
+// prepareEngine loads source and configures the engine with common flags.
+func prepareEngine(fs *flag.FlagSet, use string, recursion, stdin bool) ([]byte, *gicel.Engine, error) {
+	source, err := readSource(fs, stdin)
+	if err != nil {
+		return nil, nil, err
+	}
+	eng, err := setupEngine(use)
+	if err != nil {
+		return nil, nil, err
+	}
+	if recursion {
+		eng.EnableRecursion()
+	}
+	return source, eng, nil
+}
+
+func handleCompileError(err error, jsonOut bool) int {
+	if jsonOut {
+		outputJSON(compileErrorJSON(err))
+	} else {
+		fmt.Fprintf(os.Stderr, "%v\n", err)
+	}
+	return 1
+}
+
 func cmdRun(args []string) int {
 	fs := flag.NewFlagSet("run", flag.ContinueOnError)
 	use := fs.String("use", "all", "comma-separated stdlib packs")
@@ -268,20 +294,10 @@ func cmdRun(args []string) int {
 		return 1
 	}
 
-	source, err := readSource(fs, *stdin)
+	source, eng, err := prepareEngine(fs, *use, *recursion, *stdin)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		return 1
-	}
-
-	eng, err := setupEngine(*use)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "error: %v\n", err)
-		return 1
-	}
-
-	if *recursion {
-		eng.EnableRecursion()
 	}
 	eng.SetStepLimit(*maxSteps)
 	eng.SetDepthLimit(*maxDepth)
@@ -289,12 +305,7 @@ func cmdRun(args []string) int {
 
 	rt, err := eng.NewRuntime(string(source))
 	if err != nil {
-		if *jsonOut {
-			outputJSON(compileErrorJSON(err))
-		} else {
-			fmt.Fprintf(os.Stderr, "%v\n", err)
-		}
-		return 1
+		return handleCompileError(err, *jsonOut)
 	}
 
 	// Build per-execution options with explain/trace hooks.
@@ -365,30 +376,15 @@ func cmdCheck(args []string) int {
 		return 1
 	}
 
-	source, err := readSource(fs, *stdin)
+	source, eng, err := prepareEngine(fs, *use, *recursion, *stdin)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		return 1
-	}
-
-	eng, err := setupEngine(*use)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "error: %v\n", err)
-		return 1
-	}
-
-	if *recursion {
-		eng.EnableRecursion()
 	}
 
 	cr, err := eng.Compile(string(source))
 	if err != nil {
-		if *jsonOut {
-			outputJSON(compileErrorJSON(err))
-		} else {
-			fmt.Fprintf(os.Stderr, "%v\n", err)
-		}
-		return 1
+		return handleCompileError(err, *jsonOut)
 	}
 
 	if *jsonOut {
