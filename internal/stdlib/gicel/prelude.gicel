@@ -19,69 +19,91 @@ class (Functor t, Foldable t) => Traversable t {
   traverse :: \f a b. Applicative f => (a -> f b) -> t a -> f (t b)
 }
 
-instance Eq Bool { eq := \x y. case x {
-  True -> case y { True -> True; False -> False };
-  False -> case y { True -> False; False -> True }
-} }
+instance Eq Bool {
+  eq := \x y. case x {
+    True -> case y { True -> True; False -> False };
+    False -> case y { True -> False; False -> True }
+  }
+}
 
 instance Eq () { eq := \_ _. True }
 
-instance Eq Ordering { eq := \x y. case x {
-  LT -> case y { LT -> True; EQ -> False; GT -> False };
-  EQ -> case y { LT -> False; EQ -> True; GT -> False };
-  GT -> case y { LT -> False; EQ -> False; GT -> True }
-} }
+instance Eq Ordering {
+  eq := \x y. case x {
+    LT -> case y { LT -> True; EQ -> False; GT -> False };
+    EQ -> case y { LT -> False; EQ -> True; GT -> False };
+    GT -> case y { LT -> False; EQ -> False; GT -> True }
+  }
+}
 
-instance Eq a => Eq (Maybe a) { eq := \x y. case (x, y) {
-  (Nothing, Nothing) -> True;
-  (Just a, Just b)   -> eq a b;
-  (Nothing, Just _)  -> False;
-  (Just _, Nothing)  -> False
-} }
+instance Eq a => Eq (Maybe a) {
+  eq := \x y. case (x, y) {
+    (Nothing, Nothing) -> True;
+    (Just a, Just b)   -> eq a b;
+    (Nothing, Just _)  -> False;
+    (Just _, Nothing)  -> False
+  }
+}
 
-instance (Eq a, Eq b) => Eq (a, b) { eq := \x y. case (x, y) {
-  ((a1, b1), (a2, b2)) -> eq a1 a2 && eq b1 b2
-} }
+instance (Eq a, Eq b) => Eq (a, b) {
+  eq := \x y. case (x, y) {
+    ((a1, b1), (a2, b2)) -> eq a1 a2 && eq b1 b2
+  }
+}
 
-instance Functor Maybe { fmap := \f ma. case ma {
-  Nothing -> Nothing;
-  Just a -> Just (f a)
-} }
+instance Functor Maybe {
+  fmap := \f ma. case ma {
+    Nothing -> Nothing;
+    Just a -> Just (f a)
+  }
+}
 
-instance Foldable Maybe { foldr := \f z ma. case ma {
-  Nothing -> z;
-  Just a -> f a z
-} }
+instance Foldable Maybe {
+  foldr := \f z ma. case ma {
+    Nothing -> z;
+    Just a -> f a z
+  }
+}
 
 instance Semigroup () { append := \_ _. () }
 instance Semigroup Ordering { append := \x y. case x { EQ -> y; _ -> x } }
-instance Semigroup a => Semigroup (Maybe a) { append := \x y. case x {
-  Nothing -> y;
-  Just a -> case y { Nothing -> Just a; Just b -> Just (append a b) }
-} }
+instance Semigroup a => Semigroup (Maybe a) {
+  append := \x y. case x {
+    Nothing -> y;
+    Just a -> case y { Nothing -> Just a; Just b -> Just (append a b) }
+  }
+}
 instance Monoid () { empty := () }
 instance Monoid Ordering { empty := EQ }
 instance Semigroup a => Monoid (Maybe a) { empty := Nothing }
 
-instance Ord Bool { compare := \x y. case x {
-  False -> case y { False -> EQ; True -> LT };
-  True  -> case y { False -> GT; True -> EQ }
-} }
+instance Ord Bool {
+  compare := \x y. case x {
+    False -> case y { False -> EQ; True -> LT };
+    True  -> case y { False -> GT; True -> EQ }
+  }
+}
 instance Ord () { compare := \_ _. EQ }
-instance Ord Ordering { compare := \x y. case x {
-  LT -> case y { LT -> EQ; EQ -> LT; GT -> LT };
-  EQ -> case y { LT -> GT; EQ -> EQ; GT -> LT };
-  GT -> case y { LT -> GT; EQ -> GT; GT -> EQ }
-} }
-instance Ord a => Ord (Maybe a) { compare := \x y. case (x, y) {
-  (Nothing, Nothing) -> EQ;
-  (Nothing, Just _)  -> LT;
-  (Just _, Nothing)  -> GT;
-  (Just a, Just b)   -> compare a b
-} }
-instance (Ord a, Ord b) => Ord (a, b) { compare := \x y. case (x, y) {
-  ((a1, b1), (a2, b2)) -> append (compare a1 a2) (compare b1 b2)
-} }
+instance Ord Ordering {
+  compare := \x y. case x {
+    LT -> case y { LT -> EQ; EQ -> LT; GT -> LT };
+    EQ -> case y { LT -> GT; EQ -> EQ; GT -> LT };
+    GT -> case y { LT -> GT; EQ -> GT; GT -> EQ }
+  }
+}
+instance Ord a => Ord (Maybe a) {
+  compare := \x y. case (x, y) {
+    (Nothing, Nothing) -> EQ;
+    (Nothing, Just _)  -> LT;
+    (Just _, Nothing)  -> GT;
+    (Just a, Just b)   -> compare a b
+  }
+}
+instance (Ord a, Ord b) => Ord (a, b) {
+  compare := \x y. case (x, y) {
+    ((a1, b1), (a2, b2)) -> append (compare a1 a2) (compare b1 b2)
+  }
+}
 
 instance Applicative Maybe {
   wrap := Just;
@@ -98,27 +120,35 @@ instance Traversable Maybe {
   }
 }
 
-instance Eq a => Eq (List a) { eq := \xs ys. case (xs, ys) {
-  (Nil, Nil) -> True;
-  (Cons x rest, Cons y rest2) -> eq x y && eq rest rest2;
-  (Nil, Cons _ _) -> False;
-  (Cons _ _, Nil) -> False
-} }
+instance Eq a => Eq (List a) {
+  eq := \xs ys. case (xs, ys) {
+    (Nil, Nil) -> True;
+    (Cons x rest, Cons y rest2) -> eq x y && eq rest rest2;
+    (Nil, Cons _ _) -> False;
+    (Cons _ _, Nil) -> False
+  }
+}
 
-instance Functor List { fmap := \f xs. case xs {
-  Nil -> Nil;
-  Cons x rest -> Cons (f x) (fmap f rest)
-} }
+instance Functor List {
+  fmap := \f xs. case xs {
+    Nil -> Nil;
+    Cons x rest -> Cons (f x) (fmap f rest)
+  }
+}
 
-instance Foldable List { foldr := \f z xs. case xs {
-  Nil -> z;
-  Cons x rest -> f x (foldr f z rest)
-} }
+instance Foldable List {
+  foldr := \f z xs. case xs {
+    Nil -> z;
+    Cons x rest -> f x (foldr f z rest)
+  }
+}
 
-instance Semigroup (List a) { append := \xs ys. case xs {
-  Nil -> ys;
-  Cons x rest -> Cons x (append rest ys)
-} }
+instance Semigroup (List a) {
+  append := \xs ys. case xs {
+    Nil -> ys;
+    Cons x rest -> Cons x (append rest ys)
+  }
+}
 
 instance Monoid (List a) { empty := Nil }
 
@@ -318,36 +348,46 @@ instance Traversable List {
   traverse := \f. foldr (\x acc. ap (fmap Cons (f x)) acc) (wrap Nil)
 }
 
-instance (Eq e, Eq a) => Eq (Result e a) { eq := \x y. case (x, y) {
-  (Ok a1, Ok a2)   -> eq a1 a2;
-  (Err e1, Err e2) -> eq e1 e2;
-  (Ok _, Err _)    -> False;
-  (Err _, Ok _)    -> False
-} }
+instance (Eq e, Eq a) => Eq (Result e a) {
+  eq := \x y. case (x, y) {
+    (Ok a1, Ok a2)   -> eq a1 a2;
+    (Err e1, Err e2) -> eq e1 e2;
+    (Ok _, Err _)    -> False;
+    (Err _, Ok _)    -> False
+  }
+}
 
-instance (Ord e, Ord a) => Ord (Result e a) { compare := \x y. case (x, y) {
-  (Err e1, Err e2) -> compare e1 e2;
-  (Err _, Ok _)    -> LT;
-  (Ok _, Err _)    -> GT;
-  (Ok a1, Ok a2)   -> compare a1 a2
-} }
+instance (Ord e, Ord a) => Ord (Result e a) {
+  compare := \x y. case (x, y) {
+    (Err e1, Err e2) -> compare e1 e2;
+    (Err _, Ok _)    -> LT;
+    (Ok _, Err _)    -> GT;
+    (Ok a1, Ok a2)   -> compare a1 a2
+  }
+}
 
-instance Functor (Result e) { fmap := \f r. case r {
-  Err x -> Err x;
-  Ok a -> Ok (f a)
-} }
+instance Functor (Result e) {
+  fmap := \f r. case r {
+    Err x -> Err x;
+    Ok a -> Ok (f a)
+  }
+}
 
-instance Foldable (Result e) { foldr := \f z r. case r {
-  Err _ -> z;
-  Ok a -> f a z
-} }
+instance Foldable (Result e) {
+  foldr := \f z r. case r {
+    Err _ -> z;
+    Ok a -> f a z
+  }
+}
 
-instance Ord a => Ord (List a) { compare := \xs ys. case (xs, ys) {
-  (Nil, Nil) -> EQ;
-  (Nil, Cons _ _) -> LT;
-  (Cons _ _, Nil) -> GT;
-  (Cons x rest, Cons y rest2) -> case compare x y { EQ -> compare rest rest2; c -> c }
-} }
+instance Ord a => Ord (List a) {
+  compare := \xs ys. case (xs, ys) {
+    (Nil, Nil) -> EQ;
+    (Nil, Cons _ _) -> LT;
+    (Cons _ _, Nil) -> GT;
+    (Cons x rest, Cons y rest2) -> case compare x y { EQ -> compare rest rest2; c -> c }
+  }
+}
 
 infixr 0 $
 ($) :: \a b. (a -> b) -> a -> b
