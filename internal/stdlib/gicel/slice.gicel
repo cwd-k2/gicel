@@ -36,12 +36,6 @@ _sliceMap := assumption
 _sliceFoldl :: \a b. (b -> a -> b) -> b -> Slice a -> b
 _sliceFoldl := assumption
 
-empty :: \a. Slice a
-empty := _sliceEmpty
-
-singleton :: \a. a -> Slice a
-singleton := _sliceSingleton
-
 cons :: \a. a -> Slice a -> Slice a
 cons := _sliceCons
 
@@ -53,9 +47,6 @@ length := _sliceLength
 
 index :: \a. Int -> Slice a -> Maybe a
 index := _sliceIndex
-
-append :: \a. Slice a -> Slice a -> Slice a
-append := _sliceAppend
 
 foldl :: \a b. (b -> a -> b) -> b -> Slice a -> b
 foldl := _sliceFoldl

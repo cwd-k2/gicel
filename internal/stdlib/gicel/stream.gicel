@@ -2,11 +2,11 @@ import Prelude
 
 data Stream a := LCons a (() -> Stream a) | LNil
 
-head :: \a. Stream a -> Maybe a
-head := \s. case s { LNil -> Nothing; LCons x _ -> Just x }
+headS :: \a. Stream a -> Maybe a
+headS := \s. case s { LNil -> Nothing; LCons x _ -> Just x }
 
-tail :: \a. Stream a -> Maybe (Stream a)
-tail := \s. case s { LNil -> Nothing; LCons _ t -> Just (t ()) }
+tailS :: \a. Stream a -> Maybe (Stream a)
+tailS := \s. case s { LNil -> Nothing; LCons _ t -> Just (t ()) }
 
 instance FromList (Stream a) {
   type Elem (Stream a) =: a;
