@@ -67,4 +67,8 @@ Top-level declarations are separated by newlines or semicolons. Both are interch
 
 Import declarations must appear before all other declarations.
 
+### Private Names
+
+Value bindings whose name starts with `_` are module-private and excluded from exports. Importing modules cannot access them. Use `_` prefix for internal helpers.
+
 ---

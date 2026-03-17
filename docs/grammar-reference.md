@@ -769,6 +769,8 @@ infixl 4 <*>       -- Applicative apply
 infixl 4 *>        -- Applicative sequence
 infixl 4 <*        -- Applicative discard
 infixn 4 ==  /=  <  >  <=  >=
+infixr 5 <+        -- list cons (Prelude)
+infixl 5 +>        -- slice snoc (Data.Slice)
 infixr 3 &&        -- logical AND
 infixl 3 <|>       -- Alternative choice
 infixr 2 ||        -- logical OR

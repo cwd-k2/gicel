@@ -23,22 +23,22 @@ Build first: `go build -o bin/gicel ./cmd/gicel/`
 bin/gicel run [flags] <file>.gicel
 ```
 
-| Flag                 | Default  | Description                                                |
-| -------------------- | -------- | ---------------------------------------------------------- |
-| `--use <packs>`      | `all`    | Stdlib packs: `prelude,fail,state,io,stream,slice,map,set` |
-| `--module Name=path` | —        | Register user module (repeatable, order matters)           |
-| `--recursion`        | off      | Enable `fix`/`rec`                                         |
-| `-e <source>`        | —        | Evaluate source string directly                            |
-| `--entry <name>`     | `main`   | Entry point binding                                        |
-| `--timeout <dur>`    | `5s`     | Execution timeout                                          |
-| `--max-steps <n>`    | `100000` | Step limit                                                 |
-| `--max-depth <n>`    | `100`    | Depth limit                                                |
-| `--max-alloc <n>`    | `100 MiB`| Allocation byte limit                                      |
-| `--json`             | off      | Output result as JSON                                      |
-| `--explain`          | off      | Show semantic evaluation trace                             |
-| `--explain-all`      | off      | Trace stdlib internals (with `--explain`)                  |
-| `--verbose`          | off      | Show source context in explain trace                       |
-| `--no-color`         | off      | Disable color output                                       |
+| Flag                 | Default   | Description                                                |
+| -------------------- | --------- | ---------------------------------------------------------- |
+| `--use <packs>`      | `all`     | Stdlib packs: `prelude,fail,state,io,stream,slice,map,set` |
+| `--module Name=path` | —         | Register user module (repeatable, order matters)           |
+| `--recursion`        | off       | Enable `fix`/`rec`                                         |
+| `-e <source>`        | —         | Evaluate source string directly                            |
+| `--entry <name>`     | `main`    | Entry point binding                                        |
+| `--timeout <dur>`    | `5s`      | Execution timeout                                          |
+| `--max-steps <n>`    | `100000`  | Step limit                                                 |
+| `--max-depth <n>`    | `100`     | Depth limit                                                |
+| `--max-alloc <n>`    | `100 MiB` | Allocation byte limit                                      |
+| `--json`             | off       | Output result as JSON                                      |
+| `--explain`          | off       | Show semantic evaluation trace                             |
+| `--explain-all`      | off       | Trace stdlib internals (with `--explain`)                  |
+| `--verbose`          | off       | Show source context in explain trace                       |
+| `--no-color`         | off       | Disable color output                                       |
 
 ### check — type-check only
 

@@ -98,6 +98,7 @@ CLI flags:
 | Flag            | Default  | Description                                                              |
 | --------------- | -------- | ------------------------------------------------------------------------ |
 | `--use`         | `all`    | Comma-separated packs: prelude, fail, state, io, stream, slice, map, set |
+| `--module`      | —        | Register user module: `Name=path` (repeatable, run & check)              |
 | `--recursion`   |          | Enable recursive definitions (run, check)                                |
 | `--entry`       | `main`   | Entry point binding name                                                 |
 | `--timeout`     | `5s`     | Execution timeout (run only)                                             |

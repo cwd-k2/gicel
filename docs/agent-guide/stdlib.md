@@ -209,7 +209,7 @@ data Stream a := LCons a (() -> Stream a) | LNil
 | `take`     | `\a. Int -> Stream a -> List a`             | Take first n as list   |
 | `drop`     | `\a. Int -> Stream a -> Stream a`           | Drop first n           |
 
-Instances: `Functor Stream`, `Foldable Stream`
+Instances: `Functor Stream`, `Foldable Stream`, `FromList (Stream a)`, `ToList (Stream a)`
 
 ### Data.Slice
 
