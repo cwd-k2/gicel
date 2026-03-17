@@ -184,6 +184,28 @@ instance Container (List a) {
 
 `Elem (List Int)` reduces to `Int` during type checking — no instance search heuristic, just structural reduction.
 
+#### Data Families
+
+Data families are like associated types but **generative** — each instance creates a distinct data type with its own constructors. This enables type-indexed data representations.
+
+```
+-- Data family in class: declares kind signature only
+class Collection c {
+  data Key c :: Type;
+  lookup :: Key c -> c -> Maybe (Elem c)
+}
+
+-- Instance provides constructors
+instance Collection (List a) {
+  data Key (List a) = ListIndex Int;
+  lookup := \k -> \xs -> case k {
+    ListIndex i -> index xs i
+  }
+}
+```
+
+Each instance's `Key` is a distinct type: `Key (List a)` has constructor `ListIndex`, while another instance (e.g., `Key (Map k v)`) could have entirely different constructors. Data family constructors are visible wherever the instance is in scope.
+
 #### Functional Dependencies
 
 Classes can declare functional dependencies that constrain instance resolution. The `| a -> b` notation after class parameters means: knowing `a` determines `b`.

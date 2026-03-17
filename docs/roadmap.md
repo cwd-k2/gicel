@@ -40,12 +40,13 @@ Usage tracking (linear/affine/unrestricted) structural foundation complete. Rema
 
 ## Open Design Fork Points
 
-| Fork Point | Current State | Decision Trigger |
-|---|---|---|
-| `Row` as built-in kind vs general structured-index | Built-in kind | Need for non-capability indexing |
-| Algebraic effects/handlers vs indexed monad | Indexed monad (Atkey) | Evidence that handler-based approach better serves AI agent use case |
+| Fork Point                                         | Current State         | Decision Trigger                                                     |
+| -------------------------------------------------- | --------------------- | -------------------------------------------------------------------- |
+| `Row` as built-in kind vs general structured-index | Built-in kind         | Need for non-capability indexing                                     |
+| Algebraic effects/handlers vs indexed monad        | Indexed monad (Atkey) | Evidence that handler-based approach better serves AI agent use case |
 
 Resolved fork points:
+
 - ~~Branching with divergent post-states~~ → **Resolved**: intersection join (2026-03-17)
 - ~~Usage judgment (linear/affine)~~ → **Resolved**: `@Mult` annotation + `RowField.Mult` (2026-03-17)
 - ~~Type families~~ → **Resolved**: full implementation (2026-03-17)
@@ -54,7 +55,7 @@ Resolved fork points:
 
 ## Potential Extensions (assessed, not planned)
 
-| Extension | Classification | Prerequisite |
-|---|---|---|
+| Extension        | Classification   | Prerequisite      |
+| ---------------- | ---------------- | ----------------- |
 | Refinement Types | Phase transition | Separate analysis |
-| Dependent Types | Full restructure | Far future |
+| Dependent Types  | Full restructure | Far future        |

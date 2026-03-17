@@ -189,6 +189,7 @@ type F (a : Type) (b : Type) :: Type = {
 ```
 
 Rationale:
+
 - **Multi-argument disambiguation**: Without the name, `Int Bool` parses as type application.
 - **Consistency**: Standalone and associated forms use the same equation syntax.
 - **Recursive calls**: `Dual (Send a s) = Recv a (Dual s)` — the name on both sides is natural.
@@ -239,13 +240,13 @@ Reducing `F α` where `α` is a metavariable: the first equation might match (if
 
 ### 3.2 Type-Level Pattern Matching
 
-| Pattern form | Matches |
-|-------------|---------|
-| Type variable `a` | Any type (binding) |
-| Type constructor `Int`, `Bool` | Exact match |
+| Pattern form                            | Matches                     |
+| --------------------------------------- | --------------------------- |
+| Type variable `a`                       | Any type (binding)          |
+| Type constructor `Int`, `Bool`          | Exact match                 |
 | Promoted constructor `Opened`, `Closed` | Exact match (kind-directed) |
-| Application `List a`, `Maybe Int` | Head match + recursive |
-| Wildcard `_` | Any type (non-binding) |
+| Application `List a`, `Maybe Int`       | Head match + recursive      |
+| Wildcard `_`                            | Any type (non-binding)      |
 
 Nested patterns are supported: `Elem (List (Maybe a)) = Maybe a`.
 
@@ -266,6 +267,10 @@ Reduction is attempted during unification, subsumption, and evidence resolution.
 **Termination (non-recursive, Phase 1)**: Reduction always terminates in one step per application.
 
 **Termination (recursive, Phase 3)**: Fuel limit (default: 100 reductions per type expression), consistent with GICEL's existing resource-bounding philosophy.
+
+**Type size bound**: In addition to the fuel limit, a type size bound (`maxReductionTypeSize = 10000` nodes) prevents exponential type growth. A family like `type Grow a :: Type = { Grow a = Grow (Pair a a) }` doubles the type size on each step; without the size bound, 100 fuel steps would produce ~2^100 nodes before the fuel limit fires. The size check runs after each substitution and halts reduction with `ErrTypeFamilyReduction` if the intermediate type exceeds the bound.
+
+**Data family name mangling**: Data family instances produce mangled type names in the format `FamilyName$$Arity$Pat1$Pat2` (e.g., `Elem$$1$List`). The `$$Arity` prefix prevents collisions between families/patterns with `$` in names. Constructor names from data family instances are checked for conflicts with existing constructors.
 
 ### 3.5 Associated Type Elaboration
 
@@ -373,13 +378,13 @@ Lane 6 — Usage Discipline
 
 ### 5.2 Cross-Lane Effects
 
-| Lane | What type families enable | Example |
-|------|--------------------------|---------|
-| 1 (Index) | Computation over promoted kinds | `Dual (Send a s) = Recv a (Dual s)` |
-| 3 (Type-equality) | Type-level reduction in unifier | `Elem (List Int) ~ Int` |
-| 4 (Logic) | Type-level predicates via promoted Bool | `IsLinear FileHandle ~ True` |
-| 5 (Effect) | Computed effect type aliases | `type Effects (mode : AppMode) :: Row` |
-| 6 (Usage) | Multiplicity lattice operations | `LUB Linear Affine ~ Linear` |
+| Lane              | What type families enable               | Example                                |
+| ----------------- | --------------------------------------- | -------------------------------------- |
+| 1 (Index)         | Computation over promoted kinds         | `Dual (Send a s) = Recv a (Dual s)`    |
+| 3 (Type-equality) | Type-level reduction in unifier         | `Elem (List Int) ~ Int`                |
+| 4 (Logic)         | Type-level predicates via promoted Bool | `IsLinear FileHandle ~ True`           |
+| 5 (Effect)        | Computed effect type aliases            | `type Effects (mode : AppMode) :: Row` |
+| 6 (Usage)         | Multiplicity lattice operations         | `LUB Linear Affine ~ Linear`           |
 
 ---
 
@@ -392,6 +397,7 @@ Lane 6 — Usage Discipline
 **Delivers**: `Elem`, `LUB`, constraint families, effect type families.
 
 **Checker changes**:
+
 - New AST nodes: `DeclTypeFamily`, `TFEquation`
 - New type form: `TyFamilyApp Name [Type]` (saturated application)
 - Type-level pattern matcher (subset of term-level, operating on types)
@@ -400,6 +406,7 @@ Lane 6 — Usage Discipline
 - Injectivity verification (pairwise equation check)
 
 **Parser changes**:
+
 - `parseTypeAlias` → `parseTypeDecl` (branches on `::` after params)
 - New `parseTypeFamilyEquations` and `parseResultKind`
 
@@ -412,6 +419,7 @@ Lane 6 — Usage Discipline
 **Delivers**: `Container` class with associated `Elem`.
 
 **Additional changes**:
+
 - Class elaboration collects associated type declarations
 - Instance checking validates associated type definitions
 - Desugar to standalone type families (equation collection)
@@ -742,12 +750,12 @@ func (c *Checker) reduceTyFamily(name string, args []Type) (Type, bool) {
 
 ### Risks
 
-| Risk | Severity | Mitigation |
-|------|----------|------------|
-| Checker performance (reduction loops) | Medium | Phase 1 non-recursive; Phase 3 fuel limit |
-| Error message quality (stuck reductions) | High | Report "could not reduce F T" with stuck application |
-| Metavariable interaction (premature reduction) | High | Indeterminate match halts reduction; retried after solving |
-| Scope creep (open type families) | Low | Closed-only by design; open families require module system |
+| Risk                                           | Severity | Mitigation                                                 |
+| ---------------------------------------------- | -------- | ---------------------------------------------------------- |
+| Checker performance (reduction loops)          | Medium   | Phase 1 non-recursive; Phase 3 fuel limit                  |
+| Error message quality (stuck reductions)       | High     | Report "could not reduce F T" with stuck application       |
+| Metavariable interaction (premature reduction) | High     | Indeterminate match halts reduction; retried after solving |
+| Scope creep (open type families)               | Low      | Closed-only by design; open families require module system |
 
 ---
 
@@ -757,41 +765,52 @@ The `|` token currently serves as constructor separator (`data T = A | B`) and r
 
 The `| a -> b` notation is forward-compatible with:
 
-| Future extension | Compatible? | Notes |
-|------------------|-------------|-------|
-| Functional dependencies | Identical syntax | `class C a b \| a -> b` |
-| Refinement types | No conflict | Injectivity is in declaration headers; refinement `\|` is in type expressions (and would need to avoid row tail ambiguity independently) |
-| Dependent types | Natural generalization | `\| r -> c` extends from type families to function declarations |
-| Data families | Orthogonal | Data families are generative; injectivity is structural |
+| Future extension        | Compatible?            | Notes                                                                                                                                    |
+| ----------------------- | ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| Functional dependencies | Identical syntax       | `class C a b \| a -> b`                                                                                                                  |
+| Refinement types        | No conflict            | Injectivity is in declaration headers; refinement `\|` is in type expressions (and would need to avoid row tail ambiguity independently) |
+| Dependent types         | Natural generalization | `\| r -> c` extends from type families to function declarations                                                                          |
+| Data families           | Orthogonal             | Data families are generative; injectivity is structural                                                                                  |
 
 ---
 
 ## Implementation Status (2026-03-17)
 
-All 9 extensions implemented across 13 commits on `feature/type-system-extensions`.
+All 9 extensions implemented across 25 commits on `feature/type-system-extensions`.
 
-| Phase | Extension | Status |
-|-------|-----------|--------|
-| 0 | Foundation scaffolding | Complete |
-| 1 | Closed type families + constraint families | Complete |
-| 2 | Associated types | Complete |
-| 3 | Functional dependencies | Complete |
-| 4 | Recursive type families (fuel limit 100) | Complete |
-| 5 | Graded Evidence (`RowField.Mult`) | Complete |
-| 5d | Multiplicity syntax (`@Mult`) | Complete |
-| 6 | Divergent post-states (intersection join) | Complete |
-| 7 | Session types (library feature) | Complete |
-| 8 | Data families (constructor mangling) | Complete |
+| Phase | Extension                                  | Status   |
+| ----- | ------------------------------------------ | -------- |
+| 0     | Foundation scaffolding                     | Complete |
+| 1     | Closed type families + constraint families | Complete |
+| 2     | Associated types                           | Complete |
+| 3     | Functional dependencies                    | Complete |
+| 4     | Recursive type families (fuel limit 100)   | Complete |
+| 5     | Graded Evidence (`RowField.Mult`)          | Complete |
+| 5d    | Multiplicity syntax (`@Mult`)              | Complete |
+| 6     | Divergent post-states (intersection join)  | Complete |
+| 7     | Session types (library feature)            | Complete |
+| 8     | Data families (constructor mangling)       | Complete |
 
-Additional: do block pre/post threading fix (`elaborateStmtsChecked`).
+Post-implementation hardening (refactoring, security, correctness):
+
+- Restructured `type_family.go` for cohesion (moved `lubPostStates` → `bidir.go`, `applyFunDepImprovement` → `resolve.go`)
+- Security fixes: exponential type growth bound (`maxReductionTypeSize`), constructor injection guard, mangled name collision prevention (`F$$arity$pat`)
+- `SubstMany` rewritten as true simultaneous substitution
+- `ConstraintEntries.MapChildren` fixed to recurse into `Quantified` sub-constraints
+- `reduceFamilyApps` extended with full structural recursion (TyArrow, TyComp, TyThunk, TyForall, TyEvidence, TyEvidenceRow including Mult/Tail)
+- `FreeVars` fixed to traverse `RowField.Mult`
+- `containsMeta` fixed for `TyFamilyApp` and `TyThunk`
+- 307 new tests (mutation, stress, security, interaction, pathological, property-based)
 
 Key implementation files:
+
 - `internal/syntax/decl_tf.go` — AST nodes
 - `internal/syntax/decl_df.go` — Data family AST
 - `internal/types/type_family.go` — `TyFamilyApp` type
-- `internal/check/type_family.go` — Checker: reduction, matching, injectivity, LUB
+- `internal/check/type_family.go` — Checker: reduction, matching, injectivity
+- `internal/check/bidir.go` — Divergent post-states (lubPostStates, intersectCapRows)
+- `internal/check/resolve.go` — Functional dependency improvement
 - `internal/check/elaborate_do.go` — Do block pre/post threading
-- `internal/check/bidir.go` — Divergent post-states in case
 
 ---
 

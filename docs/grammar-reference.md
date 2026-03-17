@@ -275,6 +275,12 @@ class Container c {
 class Convert a b | a -> b {
   convert :: a -> b
 }
+
+-- Associated data family in class
+class Collection c {
+  data Key c :: Type;
+  lookup :: Key c -> c -> Maybe (Elem c)
+}
 ```
 
 ### Type Class Instance
@@ -309,6 +315,14 @@ instance Eq a => Eq (Maybe a) {
 instance Container (List a) {
   type Elem (List a) = a;
   cfold := foldr
+}
+
+-- Associated data family definition in instance
+instance Collection (List a) {
+  data Key (List a) = ListIndex Int;
+  lookup := \k -> \xs -> case k {
+    ListIndex i -> index xs i
+  }
 }
 ```
 
