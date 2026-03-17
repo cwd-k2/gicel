@@ -3020,6 +3020,23 @@ main := applyId id
 	assertConName(t, result.Value, "True")
 }
 
+func TestConstraintTupleE2E(t *testing.T) {
+	eng := gicel.NewEngine()
+	rt, err := eng.NewRuntime(`
+eqAndOrd :: \a. (Eq a, Ord a) => a -> a -> Bool
+eqAndOrd := \x y. case eq x y { True -> True; False -> case compare x y { EQ -> True; _ -> False } }
+main := eqAndOrd True True
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := rt.RunWith(context.Background(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertConName(t, result.Value, "True")
+}
+
 func TestStdlibClassHierarchy(t *testing.T) {
 	// Verify all 8 classes compile and instances work
 	eng := gicel.NewEngine()

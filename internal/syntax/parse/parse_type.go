@@ -24,6 +24,17 @@ func (p *Parser) parseTypeArrow() TypeExpr {
 	if p.peek().Kind == TokFatArrow {
 		p.advance()
 		body := p.parseTypeArrow() // right-associative
+		// (C1, C2, ...) => T  desugars to  C1 => C2 => ... => T
+		if constraints := desugarConstraintTuple(left); constraints != nil {
+			result := body
+			for i := len(constraints) - 1; i >= 0; i-- {
+				result = &TyExprQual{
+					Constraint: constraints[i], Body: result,
+					S: span.Span{Start: constraints[i].Span().Start, End: result.Span().End},
+				}
+			}
+			return result
+		}
 		return &TyExprQual{
 			Constraint: left, Body: body,
 			S: span.Span{Start: left.Span().Start, End: body.Span().End},
@@ -254,4 +265,31 @@ func (p *Parser) parseRowType() TypeExpr {
 		Fields: fields, Tail: tail,
 		S: span.Span{Start: start, End: p.prevEnd()},
 	}
+}
+
+// desugarConstraintTuple detects a tuple type used as a constraint group.
+// (C1, C2, ...) parses as TyExprApp(Record, TyExprRow{_1: C1, _2: C2, ...}).
+// Returns the constraint types if the pattern matches, nil otherwise.
+func desugarConstraintTuple(t TypeExpr) []TypeExpr {
+	app, ok := t.(*TyExprApp)
+	if !ok {
+		return nil
+	}
+	con, ok := app.Fun.(*TyExprCon)
+	if !ok || con.Name != "Record" {
+		return nil
+	}
+	row, ok := app.Arg.(*TyExprRow)
+	if !ok || len(row.Fields) < 2 || row.Tail != nil {
+		return nil
+	}
+	// Verify tuple field labels: _1, _2, ...
+	constraints := make([]TypeExpr, len(row.Fields))
+	for i, f := range row.Fields {
+		if f.Label != fmt.Sprintf("_%d", i+1) {
+			return nil
+		}
+		constraints[i] = f.Type
+	}
+	return constraints
 }

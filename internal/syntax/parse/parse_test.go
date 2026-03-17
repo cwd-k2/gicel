@@ -712,6 +712,66 @@ func TestParseCurriedConstraints(t *testing.T) {
 	}
 }
 
+func TestParseConstraintTuple(t *testing.T) {
+	// (Eq a, Ord a) => a -> Bool  desugars to  Eq a => Ord a => a -> Bool
+	prog, es := parse("f :: (Eq a, Ord a) => a -> Bool")
+	if es.HasErrors() {
+		t.Fatal(es.Format())
+	}
+	d := prog.Decls[0].(*DeclTypeAnn)
+	q1, ok := d.Type.(*TyExprQual)
+	if !ok {
+		t.Fatalf("expected outer TyExprQual, got %T", d.Type)
+	}
+	// First constraint: Eq a
+	c1, ok := q1.Constraint.(*TyExprApp)
+	if !ok {
+		t.Fatalf("expected TyExprApp for first constraint, got %T", q1.Constraint)
+	}
+	if con, ok := c1.Fun.(*TyExprCon); !ok || con.Name != "Eq" {
+		t.Errorf("expected Eq, got %v", c1.Fun)
+	}
+	// Second constraint: Ord a
+	q2, ok := q1.Body.(*TyExprQual)
+	if !ok {
+		t.Fatalf("expected inner TyExprQual, got %T", q1.Body)
+	}
+	c2, ok := q2.Constraint.(*TyExprApp)
+	if !ok {
+		t.Fatalf("expected TyExprApp for second constraint, got %T", q2.Constraint)
+	}
+	if con, ok := c2.Fun.(*TyExprCon); !ok || con.Name != "Ord" {
+		t.Errorf("expected Ord, got %v", c2.Fun)
+	}
+	// Body: a -> Bool
+	if _, ok := q2.Body.(*TyExprArrow); !ok {
+		t.Fatalf("expected TyExprArrow in body, got %T", q2.Body)
+	}
+}
+
+func TestParseConstraintTupleWithForall(t *testing.T) {
+	prog, es := parse(`f :: \a. (Eq a, Show a) => a -> String`)
+	if es.HasErrors() {
+		t.Fatal(es.Format())
+	}
+	d := prog.Decls[0].(*DeclTypeAnn)
+	fa, ok := d.Type.(*TyExprForall)
+	if !ok {
+		t.Fatalf("expected TyExprForall, got %T", d.Type)
+	}
+	q1, ok := fa.Body.(*TyExprQual)
+	if !ok {
+		t.Fatalf("expected TyExprQual, got %T", fa.Body)
+	}
+	q2, ok := q1.Body.(*TyExprQual)
+	if !ok {
+		t.Fatalf("expected nested TyExprQual, got %T", q1.Body)
+	}
+	if _, ok := q2.Body.(*TyExprArrow); !ok {
+		t.Fatalf("expected TyExprArrow in body, got %T", q2.Body)
+	}
+}
+
 func TestParseClassDecl(t *testing.T) {
 	prog, es := parse("class Eq a { eq :: a -> a -> Bool }")
 	if es.HasErrors() {
