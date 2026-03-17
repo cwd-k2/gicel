@@ -41,15 +41,15 @@ func RunSandbox(source string, cfg *SandboxConfig) (*RunResult, error) {
 		timeout = 5 * time.Second
 	}
 	maxSteps := cfg.MaxSteps
-	if maxSteps == 0 {
+	if maxSteps <= 0 {
 		maxSteps = sandboxDefaultSteps
 	}
 	maxDepth := cfg.MaxDepth
-	if maxDepth == 0 {
+	if maxDepth <= 0 {
 		maxDepth = sandboxDefaultDepth
 	}
 	maxAlloc := cfg.MaxAlloc
-	if maxAlloc == 0 {
+	if maxAlloc <= 0 {
 		maxAlloc = sandboxDefaultAlloc
 	}
 

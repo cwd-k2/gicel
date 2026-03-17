@@ -371,6 +371,9 @@ func (ch *Checker) processValueDef(d *syntax.DeclValueDef, annotations map[strin
 			ch.addCodedError(errs.ErrAssumption, d.S, fmt.Sprintf("assumption %s requires a type annotation", d.Name))
 			return
 		}
+		// Note: assumptions without a corresponding RegisterPrim are caught at
+		// runtime with "missing primitive" error. Compile-time validation is not
+		// feasible because stdlib modules use RegisterPrim (not DeclareAssumption).
 		ch.ctx.Push(&CtxVar{Name: d.Name, Type: aTy})
 		prog.Bindings = append(prog.Bindings, core.Binding{
 			Name: d.Name,

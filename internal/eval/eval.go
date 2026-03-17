@@ -363,7 +363,7 @@ func (ev *Evaluator) evalStep(env *Env, capEnv CapEnv, expr core.Core) (EvalResu
 				Span:    e.S,
 			}
 		}
-		val, newCap, err := impl(ev.ctx, ce, args, ev.applier())
+		val, newCap, err := callPrim(ev.ctx, impl, ce, args, ev.applier())
 		if err != nil {
 			return EvalResult{}, err
 		}
@@ -459,7 +459,7 @@ func (ev *Evaluator) ForceEffectful(r EvalResult, callSite span.Span) (EvalResul
 	// Mark shared unconditionally: external code may mutate, so protect the original.
 	// Cost is negligible (sets one bool on a value-type copy).
 	capForImpl := r.CapEnv.MarkShared()
-	val, newCap, err := impl(ev.ctx, capForImpl, pv.Args, ev.applier())
+	val, newCap, err := callPrim(ev.ctx, impl, capForImpl, pv.Args, ev.applier())
 	if err != nil {
 		return EvalResult{}, err
 	}
@@ -502,6 +502,20 @@ func (ev *Evaluator) applyResolved(capEnv CapEnv, fn Value, arg Value, site *cor
 		return result, err
 	}
 	return ev.Eval(b.env, b.capEnv, b.expr)
+}
+
+// callPrim safely invokes a PrimImpl, recovering from panics and nil returns.
+func callPrim(ctx context.Context, impl PrimImpl, capEnv CapEnv, args []Value, applier Applier) (val Value, newCap CapEnv, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			val, newCap, err = nil, capEnv, fmt.Errorf("primitive panicked: %v", r)
+		}
+	}()
+	val, newCap, err = impl(ctx, capEnv, args, applier)
+	if err == nil && val == nil {
+		err = fmt.Errorf("primitive returned nil value")
+	}
+	return
 }
 
 // applier returns the cached Applier that delegates to the evaluator's apply method.
@@ -560,7 +574,7 @@ func (ev *Evaluator) apply(capEnv CapEnv, fn Value, arg Value, site *core.App) (
 				Span:    site.S,
 			}
 		}
-		val, newCap, err := impl(ev.ctx, capEnv, args, ev.applier())
+		val, newCap, err := callPrim(ev.ctx, impl, capEnv, args, ev.applier())
 		if err != nil {
 			return EvalResult{}, err
 		}
