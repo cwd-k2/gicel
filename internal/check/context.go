@@ -8,8 +8,9 @@ type CtxEntry interface {
 }
 
 type CtxVar struct {
-	Name string
-	Type types.Type
+	Name   string
+	Type   types.Type
+	Module string // source module ("" = local/builtin, "Prelude" = from module)
 }
 
 type CtxTyVar struct {
@@ -59,6 +60,16 @@ func (c *Context) LookupVar(name string) (types.Type, bool) {
 		}
 	}
 	return nil, false
+}
+
+// LookupVarFull returns the type and source module for a variable.
+func (c *Context) LookupVarFull(name string) (types.Type, string, bool) {
+	for i := len(c.entries) - 1; i >= 0; i-- {
+		if v, ok := c.entries[i].(*CtxVar); ok && v.Name == name {
+			return v.Type, v.Module, true
+		}
+	}
+	return nil, "", false
 }
 
 func (c *Context) LookupTyVar(name string) (types.Kind, bool) {

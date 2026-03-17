@@ -217,6 +217,7 @@ func (e *Engine) RegisterModule(name, source string) error {
 	}
 
 	config := e.makeCheckConfig()
+	config.CurrentModule = name
 	prog, exports, checkErrs := check.CheckModule(ast, src, config)
 	if checkErrs.HasErrors() {
 		return &CompileError{errors: checkErrs}
@@ -406,19 +407,6 @@ func (e *Engine) NewRuntime(source string) (*Runtime, error) {
 		entries = append(entries, moduleEntry{name: name, prog: e.modules[name].prog})
 	}
 
-	// Build import order from main source's non-qualified imports.
-	// This determines which modules' plain names are re-registered last
-	// (controlling shadowing priority for the user's program).
-	var importOrder []importedModule
-	for _, imp := range ast.Imports {
-		if imp.Alias != "" {
-			continue // qualified imports don't contribute plain names
-		}
-		if mod, ok := e.modules[imp.ModuleName]; ok {
-			importOrder = append(importOrder, importedModule{name: imp.ModuleName, prog: mod.prog})
-		}
-	}
-
 	rt := &Runtime{
 		prog:          prog,
 		prims:         e.prims.Clone(),
@@ -428,7 +416,6 @@ func (e *Engine) NewRuntime(source string) (*Runtime, error) {
 		source:        src,
 		bindings:      maps.Clone(e.bindings),
 		moduleEntries: entries,
-		importOrder:   importOrder,
 	}
 	runtimeGates := maps.Clone(e.gatedBuiltins)
 	if e.runtimeRecursion {

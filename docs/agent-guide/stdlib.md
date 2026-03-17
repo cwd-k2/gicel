@@ -111,9 +111,9 @@ Provides an ordered immutable map backed by an AVL tree. All key-parameterized o
 
 | Name           | Type                                                   | Description                          |
 | -------------- | ------------------------------------------------------ | ------------------------------------ |
-| `mapEmpty`     | `\k v. Ord k => Map k v`                               | Empty map                            |
+| `empty`        | `\k v. Ord k => Map k v`                               | Empty map                            |
 | `insert`       | `\k v. Ord k => k -> v -> Map k v -> Map k v`          | Insert or overwrite a key-value pair |
-| `mapLookup`    | `\k v. Ord k => k -> Map k v -> Maybe v`               | Lookup by key                        |
+| `lookup`       | `\k v. Ord k => k -> Map k v -> Maybe v`               | Lookup by key                        |
 | `delete`       | `\k v. Ord k => k -> Map k v -> Map k v`               | Remove a key                         |
 | `size`         | `\k v. Map k v -> Int`                                 | Number of entries                    |
 | `toList`       | `\k v. Map k v -> List (k, v)`                         | In-order key-value pairs             |
@@ -135,7 +135,7 @@ Provides an ordered immutable set backed by a Map. Load with `eng.Use(gicel.Data
 
 | Name       | Type                               | Description         |
 | ---------- | ---------------------------------- | ------------------- |
-| `setEmpty` | `\k. Ord k => Set k`               | Empty set           |
+| `empty`    | `\k. Ord k => Set k`               | Empty set           |
 | `insert`   | `\k. Ord k => k -> Set k -> Set k` | Insert an element   |
 | `member`   | `\k. Ord k => k -> Set k -> Bool`  | Membership test     |
 | `delete`   | `\k. Ord k => k -> Set k -> Set k` | Remove an element   |
@@ -200,8 +200,8 @@ data Stream a := LCons a (() -> Stream a) | LNil
 
 | Name       | Type                                        | Description            |
 | ---------- | ------------------------------------------- | ---------------------- |
-| `headS`    | `\a. Stream a -> Maybe a`                   | First element          |
-| `tailS`    | `\a. Stream a -> Maybe (Stream a)`          | Tail (forces thunk)    |
+| `head`     | `\a. Stream a -> Maybe a`                   | First element          |
+| `tail`     | `\a. Stream a -> Maybe (Stream a)`          | Tail (forces thunk)    |
 | `toList`   | `\a. Stream a -> List a`                    | Convert to strict list |
 | `fromList` | `\a. List a -> Stream a`                    | Convert to lazy stream |
 | `fmap`     | `\a b. (a -> b) -> Stream a -> Stream b`    | Map over stream        |
@@ -215,16 +215,17 @@ Instances: `Functor Stream`, `Foldable Stream`, `FromList (Stream a)`, `ToList (
 
 Provides contiguous array with O(1) length/index. Load with `eng.Use(gicel.DataSlice)` and import with `import Data.Slice`.
 
-| Name     | Type                                       | Description |
-| -------- | ------------------------------------------ | ----------- |
-| `cons`   | `\a. a -> Slice a -> Slice a`              | Prepend     |
-| `snoc`   | `\a. Slice a -> a -> Slice a`              | Append      |
-| `length` | `\a. Slice a -> Int`                       | O(1) length |
-| `index`  | `\a. Int -> Slice a -> Maybe a`            | O(1) index  |
-| `foldl`  | `\a b. (b -> a -> b) -> b -> Slice a -> b` | Left fold   |
+| Name        | Type                                       | Description    |
+| ----------- | ------------------------------------------ | -------------- |
+| `empty`     | `\a. Slice a`                              | Empty slice    |
+| `singleton` | `\a. a -> Slice a`                         | Single-element |
+| `cons`      | `\a. a -> Slice a -> Slice a`              | Prepend        |
+| `snoc`      | `\a. Slice a -> a -> Slice a`              | Append one     |
+| `length`    | `\a. Slice a -> Int`                       | O(1) length    |
+| `index`     | `\a. Int -> Slice a -> Maybe a`            | O(1) index     |
+| `append`    | `\a. Slice a -> Slice a -> Slice a`        | Concatenate    |
+| `foldl`     | `\a b. (b -> a -> b) -> b -> Slice a -> b` | Left fold      |
 
 Instances: `Functor Slice`, `Foldable Slice`, `Semigroup (Slice a)`, `Monoid (Slice a)`, `Packed (Slice a) a`, `FromList (Slice a)`, `ToList (Slice a)`
-
-Use `empty` (via Monoid), `append` (via Semigroup), `pack`/`unpack` (via Packed), `fromList`/`toList` (via instances) for construction and conversion.
 
 ---

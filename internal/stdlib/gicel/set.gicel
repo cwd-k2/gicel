@@ -21,8 +21,8 @@ _setToList := assumption
 _setFromList :: \k. (k -> k -> Ordering) -> List k -> Set k
 _setFromList := assumption
 
-setEmpty :: \k. Ord k => Set k
-setEmpty := _setEmpty compare
+empty :: \k. Ord k => Set k
+empty := _setEmpty compare
 
 insert :: \k. Ord k => k -> Set k -> Set k
 insert := _setInsert compare

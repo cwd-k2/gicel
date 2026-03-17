@@ -38,7 +38,7 @@ func (ch *Checker) collectContextEvidence() []availableEvidence {
 			result = append(result, availableEvidence{
 				className: e.ClassName,
 				args:      e.Args,
-				dictExpr:  &core.Var{Name: e.DictName},
+				dictExpr:  &core.Var{Name: e.DictName}, // dict params are local (lambda-bound)
 				source:    evidenceContext,
 			})
 		}

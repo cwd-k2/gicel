@@ -53,7 +53,7 @@ func (ch *Checker) resolveInstance(className string, args []types.Type, s span.S
 	var ctxResult core.Core
 	ch.ctx.Scan(func(entry CtxEntry) bool {
 		if v, ok := entry.(*CtxVar); ok && ch.matchesDictVar(v, className, args) {
-			ctxResult = &core.Var{Name: v.Name, S: s}
+			ctxResult = &core.Var{Name: v.Name, Module: v.Module, S: s}
 			return false
 		}
 		return true
@@ -112,7 +112,7 @@ func (ch *Checker) resolveInstance(className string, args []types.Type, s span.S
 		}) {
 			continue
 		}
-		var dictExpr core.Core = &core.Var{Name: inst.DictBindName, S: s}
+		var dictExpr core.Core = &core.Var{Name: inst.DictBindName, Module: inst.Module, S: s}
 		for _, ctx := range inst.Context {
 			ctxArgs := make([]types.Type, len(ctx.Args))
 			for j, a := range ctx.Args {
@@ -171,7 +171,7 @@ func (ch *Checker) extractSuperDict(v *CtxVar, targetClass string, targetArgs []
 		ch: ch, targetClass: targetClass, targetArgs: targetArgs,
 		s: s, visited: make(map[string]bool),
 	}
-	return search.chain(&core.Var{Name: v.Name, S: s}, con.Name, tyArgs)
+	return search.chain(&core.Var{Name: v.Name, Module: v.Module, S: s}, con.Name, tyArgs)
 }
 
 // chain recursively searches the superclass hierarchy for the target class,
@@ -328,7 +328,7 @@ func (ch *Checker) resolveQuantifiedConstraint(qc *types.QuantifiedConstraint, s
 		}
 
 		// The instance dict binding has the right type.
-		return &core.Var{Name: inst.DictBindName, S: s}
+		return &core.Var{Name: inst.DictBindName, Module: inst.Module, S: s}
 	}
 
 	// Also search context for quantified evidence variables.
@@ -336,7 +336,7 @@ func (ch *Checker) resolveQuantifiedConstraint(qc *types.QuantifiedConstraint, s
 	ch.ctx.Scan(func(entry CtxEntry) bool {
 		if e, ok := entry.(*CtxEvidence); ok && e.Quantified != nil {
 			if e.Quantified.Head.ClassName == qc.Head.ClassName {
-				qcResult = &core.Var{Name: e.DictName, S: s}
+				qcResult = &core.Var{Name: e.DictName, S: s} // dict params are local (lambda-bound)
 				return false
 			}
 		}

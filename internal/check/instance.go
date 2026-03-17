@@ -18,6 +18,7 @@ type InstanceInfo struct {
 	Context      []ConstraintInfo // instance context constraints
 	Methods      map[string]syntax.Expr
 	DictBindName string // e.g. "Eq$Bool" or "Eq$Maybe"
+	Module       string // source module that defined this instance
 	S            span.Span
 }
 
@@ -164,6 +165,7 @@ func (ch *Checker) processInstanceHeader(d *syntax.DeclInstance) *InstanceInfo {
 		Context:      context,
 		Methods:      methodExprs,
 		DictBindName: dictName,
+		Module:       ch.currentModule,
 		S:            d.S,
 	}
 
@@ -303,7 +305,8 @@ func (ch *Checker) processInstanceHeader(d *syntax.DeclInstance) *InstanceInfo {
 				continue
 			}
 			ch.conTypes[con.Name] = conType
-			ch.ctx.Push(&CtxVar{Name: con.Name, Type: conType})
+			ch.ctx.Push(&CtxVar{Name: con.Name, Type: conType, Module: ch.currentModule})
+			ch.conModules[con.Name] = ch.currentModule
 			dataInfo.Constructors = append(dataInfo.Constructors, ConInfo{Name: con.Name, Arity: len(fieldTypes)})
 			ch.conInfo[con.Name] = dataInfo
 			coreDecl.Cons = append(coreDecl.Cons, core.ConDecl{Name: con.Name, Fields: fieldTypes, S: con.S})
@@ -381,7 +384,9 @@ func (ch *Checker) processInstanceBody(inst *InstanceInfo, prog *core.Program) {
 	}
 
 	// Build the dictionary value: DictCon @types... arg1 arg2 ...
-	var dictExpr core.Core = &core.Con{Name: classInfo.DictName, S: inst.S}
+	// The dict constructor comes from the module that defined the class.
+	dictConMod := ch.conModules[classInfo.DictName]
+	var dictExpr core.Core = &core.Con{Name: classInfo.DictName, Module: dictConMod, S: inst.S}
 	for _, ta := range inst.TypeArgs {
 		dictExpr = &core.TyApp{Expr: dictExpr, TyArg: ta, S: inst.S}
 	}
@@ -404,7 +409,7 @@ func (ch *Checker) processInstanceBody(inst *InstanceInfo, prog *core.Program) {
 	}
 
 	// Register binding.
-	ch.ctx.Push(&CtxVar{Name: inst.DictBindName, Type: dictTy})
+	ch.ctx.Push(&CtxVar{Name: inst.DictBindName, Type: dictTy, Module: ch.currentModule})
 	prog.Bindings = append(prog.Bindings, core.Binding{
 		Name: inst.DictBindName,
 		Type: dictTy,

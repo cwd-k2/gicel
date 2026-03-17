@@ -1,5 +1,7 @@
 package core
 
+import "strings"
+
 // SortBindings reorders bindings so that each binding appears after
 // the bindings it depends on, where possible. Dependencies are
 // determined by free-variable analysis: if binding A's expression
@@ -32,7 +34,13 @@ func SortBindings(bs []Binding) []Binding {
 		fv := FreeVars(b.Expr)
 		deps[i] = make(map[int]bool)
 		for name := range fv {
-			if j, ok := nameIdx[name]; ok && j != i {
+			// Try plain name first, then extract the unqualified component
+			// for qualified keys (Module\x00Name → Name).
+			target := name
+			if idx := strings.IndexByte(name, '\x00'); idx >= 0 {
+				target = name[idx+1:]
+			}
+			if j, ok := nameIdx[target]; ok && j != i {
 				deps[i][j] = true
 			}
 		}

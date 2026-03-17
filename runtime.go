@@ -30,19 +30,12 @@ type Runtime struct {
 	allocLimit    int64
 	source        *span.Source
 	bindings      map[string]types.Type
-	moduleEntries []moduleEntry    // ALL module programs in registration order
-	importOrder   []importedModule // modules imported by main source, in import order
-	builtinEnv    *eval.Env        // pre-built pure/bind/force/fix/rec closures
+	moduleEntries []moduleEntry // ALL module programs in registration order
+	builtinEnv    *eval.Env     // pre-built pure/bind/force/fix/rec closures
 }
 
 // moduleEntry pairs a module name with its compiled program.
 type moduleEntry struct {
-	name string
-	prog *core.Program
-}
-
-// importedModule records a module imported by the main source in import order.
-type importedModule struct {
 	name string
 	prog *core.Program
 }
@@ -64,29 +57,19 @@ type RunResult struct {
 func (r *Runtime) initBuiltinEnv(gatedBuiltins map[string]bool) {
 	env := eval.BuiltinEnv(gatedBuiltins["fix"], gatedBuiltins["rec"])
 
-	// Constructors from imported modules (dual registration: plain + qualified key).
+	// Constructors from modules: qualified key only (Module\x00Name).
+	// Core IR Var/Con nodes carry the Module field, so the evaluator
+	// looks up the qualified key directly via core.VarKey.
 	for _, me := range r.moduleEntries {
 		for _, d := range me.prog.DataDecls {
 			for _, con := range d.Cons {
 				cv := &eval.ConVal{Con: con.Name}
-				env = env.Extend(con.Name, cv)
 				env = env.Extend(me.name+"\x00"+con.Name, cv)
 			}
 		}
 	}
-	// Re-register constructors from imported modules in import order.
-	// This ensures the user's import declarations control name priority.
-	for _, im := range r.importOrder {
-		for _, d := range im.prog.DataDecls {
-			for _, con := range d.Cons {
-				if v, ok := env.Lookup(im.name + "\x00" + con.Name); ok {
-					env = env.Extend(con.Name, v)
-				}
-			}
-		}
-	}
 
-	// Constructors from main program.
+	// Constructors from main program (no module prefix).
 	for _, d := range r.prog.DataDecls {
 		for _, con := range d.Cons {
 			env = env.Extend(con.Name, &eval.ConVal{Con: con.Name})
@@ -134,22 +117,12 @@ func (r *Runtime) execute(ctx context.Context, req *runRequest) (eval.EvalResult
 
 	// Module bindings (internal — suppressed in explain).
 	// All modules evaluated in registration order (preserves dependency ordering).
-	// Each binding is registered under both plain name and qualified key.
+	// Each binding is registered under qualified key only (Module\x00Name).
+	// Core IR Var nodes carry Module, so the evaluator resolves via core.VarKey.
 	for _, me := range r.moduleEntries {
 		env, err = r.evalBindingsCore(ev, env, me.prog.Bindings, me.name, false, req.obs)
 		if err != nil {
 			return eval.EvalResult{}, EvalStats{}, err
-		}
-	}
-
-	// Re-register bindings from imported modules in import order.
-	// This ensures the user's import declarations control name priority,
-	// and modules not imported by the user don't shadow imported names.
-	for _, im := range r.importOrder {
-		for _, b := range im.prog.Bindings {
-			if v, ok := env.Lookup(im.name + "\x00" + b.Name); ok {
-				env = env.Extend(b.Name, v)
-			}
 		}
 	}
 
@@ -203,9 +176,12 @@ func (r *Runtime) evalBindingsCore(ev *eval.Evaluator, env *eval.Env, bindings [
 	for _, b := range bindings {
 		cell := &eval.IndirectVal{}
 		cells[b.Name] = cell
-		env = env.Extend(b.Name, cell)
 		if modulePrefix != "" {
+			// Module bindings: qualified key only. Core IR references carry Module.
 			env = env.Extend(modulePrefix+"\x00"+b.Name, cell)
+		} else {
+			// User bindings: plain name.
+			env = env.Extend(b.Name, cell)
 		}
 	}
 	for _, b := range bindings {

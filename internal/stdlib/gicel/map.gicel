@@ -30,14 +30,14 @@ _mapMember := assumption
 _mapUnionWith :: \k v. (v -> v -> v) -> Map k v -> Map k v -> Map k v
 _mapUnionWith := assumption
 
-mapEmpty :: \k v. Ord k => Map k v
-mapEmpty := _mapEmpty compare
+empty :: \k v. Ord k => Map k v
+empty := _mapEmpty compare
 
 insert :: \k v. Ord k => k -> v -> Map k v -> Map k v
 insert := _mapInsert compare
 
-mapLookup :: \k v. Ord k => k -> Map k v -> Maybe v
-mapLookup := _mapLookup compare
+lookup :: \k v. Ord k => k -> Map k v -> Maybe v
+lookup := _mapLookup compare
 
 delete :: \k v. Ord k => k -> Map k v -> Map k v
 delete := _mapDelete compare

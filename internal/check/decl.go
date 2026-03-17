@@ -101,7 +101,7 @@ func (ch *Checker) checkDecls(decls []syntax.Decl) *core.Program {
 				continue
 			}
 			if annTy, hasAnn := annotations[def.Name]; hasAnn {
-				ch.ctx.Push(&CtxVar{Name: def.Name, Type: annTy})
+				ch.ctx.Push(&CtxVar{Name: def.Name, Type: annTy, Module: ch.currentModule})
 			}
 		}
 	}
@@ -183,7 +183,8 @@ func (ch *Checker) processDataDecl(d *syntax.DeclData, prog *core.Program) {
 		}
 
 		ch.conTypes[con.Name] = conType
-		ch.ctx.Push(&CtxVar{Name: con.Name, Type: conType})
+		ch.ctx.Push(&CtxVar{Name: con.Name, Type: conType, Module: ch.currentModule})
+		ch.conModules[con.Name] = ch.currentModule
 		dataInfo.Constructors = append(dataInfo.Constructors, ConInfo{Name: con.Name, Arity: len(fieldTypes)})
 		ch.conInfo[con.Name] = dataInfo
 		coreDecl.Cons = append(coreDecl.Cons, core.ConDecl{Name: con.Name, Fields: fieldTypes, S: con.S})
@@ -232,7 +233,8 @@ func (ch *Checker) processGADTCon(gcon syntax.GADTConDecl, dataParams []syntax.T
 	fieldTypes, retTy := decomposeConSig(conTy)
 
 	ch.conTypes[gcon.Name] = conTy
-	ch.ctx.Push(&CtxVar{Name: gcon.Name, Type: conTy})
+	ch.ctx.Push(&CtxVar{Name: gcon.Name, Type: conTy, Module: ch.currentModule})
+	ch.conModules[gcon.Name] = ch.currentModule
 	dataInfo.Constructors = append(dataInfo.Constructors, ConInfo{
 		Name:       gcon.Name,
 		Arity:      len(fieldTypes),
@@ -374,7 +376,7 @@ func (ch *Checker) processValueDef(d *syntax.DeclValueDef, annotations map[strin
 		// Note: assumptions without a corresponding RegisterPrim are caught at
 		// runtime with "missing primitive" error. Compile-time validation is not
 		// feasible because stdlib modules use RegisterPrim (not DeclareAssumption).
-		ch.ctx.Push(&CtxVar{Name: d.Name, Type: aTy})
+		ch.ctx.Push(&CtxVar{Name: d.Name, Type: aTy, Module: ch.currentModule})
 		prog.Bindings = append(prog.Bindings, core.Binding{
 			Name: d.Name,
 			Type: aTy,
@@ -413,7 +415,7 @@ func (ch *Checker) processValueDef(d *syntax.DeclValueDef, annotations map[strin
 		ty, coreExpr = ch.generalizeConstrained(ty, coreExpr, unresolvedConstraints)
 	}
 
-	ch.ctx.Push(&CtxVar{Name: d.Name, Type: ty})
+	ch.ctx.Push(&CtxVar{Name: d.Name, Type: ty, Module: ch.currentModule})
 	prog.Bindings = append(prog.Bindings, core.Binding{
 		Name: d.Name,
 		Type: ty,

@@ -240,7 +240,8 @@ func (ch *Checker) processClassDecl(d *syntax.DeclClass, prog *core.Program) {
 
 	// Register constructor.
 	ch.conTypes[dn] = conType
-	ch.ctx.Push(&CtxVar{Name: dn, Type: conType})
+	ch.ctx.Push(&CtxVar{Name: dn, Type: conType, Module: ch.currentModule})
+	ch.conModules[dn] = ch.currentModule
 
 	dataInfo := &DataTypeInfo{Name: dn}
 	dataInfo.Constructors = append(dataInfo.Constructors, ConInfo{Name: dn, Arity: len(allFieldTypes)})
@@ -272,7 +273,7 @@ func (ch *Checker) processClassDecl(d *syntax.DeclClass, prog *core.Program) {
 			selectorTy = types.MkForall(kindParams[j], types.KSort{}, selectorTy)
 		}
 
-		ch.ctx.Push(&CtxVar{Name: m.Name, Type: selectorTy})
+		ch.ctx.Push(&CtxVar{Name: m.Name, Type: selectorTy, Module: ch.currentModule})
 
 		selName := fmt.Sprintf("%s_%s_%d", prefixSel, m.Name, ch.fresh())
 		var patArgs []core.Pattern

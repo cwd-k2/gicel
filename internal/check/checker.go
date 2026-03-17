@@ -28,7 +28,8 @@ type CheckConfig struct {
 	GatedBuiltins   map[string]bool
 	Trace           CheckTraceHook
 	ImportedModules map[string]*ModuleExports
-	StrictTypeNames bool // when true, reject unregistered type constructor names
+	StrictTypeNames bool   // when true, reject unregistered type constructor names
+	CurrentModule   string // module being compiled ("" = user main source)
 }
 
 // ModuleExports carries the type-level information exported by a compiled module.
@@ -79,6 +80,8 @@ type Checker struct {
 	source            *span.Source
 	freshID           int
 	config            *CheckConfig
+	currentModule     string            // module being compiled ("" = user main source)
+	conModules        map[string]string // constructor name → source module name
 	conTypes          map[string]types.Type
 	conInfo           map[string]*DataTypeInfo
 	aliases           map[string]*aliasInfo
@@ -150,6 +153,8 @@ func CheckModule(prog *syntax.AstProgram, source *span.Source, config *CheckConf
 		errors:            &errs.Errors{Source: source},
 		source:            source,
 		config:            config,
+		currentModule:     config.CurrentModule,
+		conModules:        make(map[string]string),
 		conTypes:          make(map[string]types.Type),
 		conInfo:           make(map[string]*DataTypeInfo),
 		aliases:           make(map[string]*aliasInfo),
@@ -227,19 +232,20 @@ func (ch *Checker) importModules(imports []syntax.DeclImport) {
 
 		default:
 			// Open import: import M — merge all exports.
-			ch.importOpen(mod)
+			ch.importOpen(mod, imp.ModuleName)
 		}
 	}
 }
 
 // importOpen merges all exports from a module into the checker state (open import).
-func (ch *Checker) importOpen(mod *ModuleExports) {
+func (ch *Checker) importOpen(mod *ModuleExports, moduleName string) {
 	for name, kind := range mod.Types {
 		ch.config.RegisteredTypes[name] = kind
 	}
 	for name, ty := range mod.ConTypes {
 		ch.conTypes[name] = ty
-		ch.ctx.Push(&CtxVar{Name: name, Type: ty})
+		ch.ctx.Push(&CtxVar{Name: name, Type: ty, Module: moduleName})
+		ch.conModules[name] = moduleName
 	}
 	for name, info := range mod.ConInfo {
 		ch.conInfo[name] = info
@@ -252,7 +258,7 @@ func (ch *Checker) importOpen(mod *ModuleExports) {
 	}
 	ch.importInstances(mod)
 	for name, ty := range mod.Values {
-		ch.ctx.Push(&CtxVar{Name: name, Type: ty})
+		ch.ctx.Push(&CtxVar{Name: name, Type: ty, Module: moduleName})
 	}
 	for name, kind := range mod.PromotedKinds {
 		ch.promotedKinds[name] = kind
@@ -288,7 +294,7 @@ func (ch *Checker) importSelective(mod *ModuleExports, imp syntax.DeclImport) {
 
 		// Value binding (lowercase name or operator)
 		if ty, ok := mod.Values[name]; ok {
-			ch.ctx.Push(&CtxVar{Name: name, Type: ty})
+			ch.ctx.Push(&CtxVar{Name: name, Type: ty, Module: imp.ModuleName})
 			found = true
 		}
 
@@ -299,7 +305,7 @@ func (ch *Checker) importSelective(mod *ModuleExports, imp syntax.DeclImport) {
 
 			// Import constructors if HasSub
 			if in.HasSub {
-				ch.importTypeSubs(mod, name, in)
+				ch.importTypeSubs(mod, name, in, imp.ModuleName)
 			}
 		}
 
@@ -316,12 +322,12 @@ func (ch *Checker) importSelective(mod *ModuleExports, imp syntax.DeclImport) {
 
 			// Import class methods
 			if in.HasSub {
-				ch.importClassSubs(mod, cls, in)
+				ch.importClassSubs(mod, cls, in, imp.ModuleName)
 			} else if !in.HasSub {
 				// Bare class name: import all methods
 				for _, m := range cls.Methods {
 					if ty, ok := mod.Values[m.Name]; ok {
-						ch.ctx.Push(&CtxVar{Name: m.Name, Type: ty})
+						ch.ctx.Push(&CtxVar{Name: m.Name, Type: ty, Module: imp.ModuleName})
 					}
 				}
 			}
@@ -351,7 +357,7 @@ func (ch *Checker) importSelective(mod *ModuleExports, imp syntax.DeclImport) {
 }
 
 // importTypeSubs imports constructors for a type based on the import name spec.
-func (ch *Checker) importTypeSubs(mod *ModuleExports, typeName string, in syntax.ImportName) {
+func (ch *Checker) importTypeSubs(mod *ModuleExports, typeName string, in syntax.ImportName, moduleName string) {
 	for conName, info := range mod.ConInfo {
 		if info.Name != typeName {
 			continue
@@ -359,7 +365,8 @@ func (ch *Checker) importTypeSubs(mod *ModuleExports, typeName string, in syntax
 		if in.AllSubs || containsStr(in.SubList, conName) {
 			if ty, ok := mod.ConTypes[conName]; ok {
 				ch.conTypes[conName] = ty
-				ch.ctx.Push(&CtxVar{Name: conName, Type: ty})
+				ch.ctx.Push(&CtxVar{Name: conName, Type: ty, Module: moduleName})
+				ch.conModules[conName] = moduleName
 			}
 			ch.conInfo[conName] = info
 		}
@@ -367,11 +374,11 @@ func (ch *Checker) importTypeSubs(mod *ModuleExports, typeName string, in syntax
 }
 
 // importClassSubs imports class methods based on the import name spec.
-func (ch *Checker) importClassSubs(mod *ModuleExports, cls *ClassInfo, in syntax.ImportName) {
+func (ch *Checker) importClassSubs(mod *ModuleExports, cls *ClassInfo, in syntax.ImportName, moduleName string) {
 	for _, m := range cls.Methods {
 		if in.AllSubs || containsStr(in.SubList, m.Name) {
 			if ty, ok := mod.Values[m.Name]; ok {
-				ch.ctx.Push(&CtxVar{Name: m.Name, Type: ty})
+				ch.ctx.Push(&CtxVar{Name: m.Name, Type: ty, Module: moduleName})
 			}
 		}
 	}
