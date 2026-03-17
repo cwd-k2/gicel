@@ -217,6 +217,8 @@ import Data.Map as M                    -- qualified: M.lookup, M.insert
 
 Import declarations must appear before all other declarations. Duplicate imports of the same module are an error. Two modules cannot share the same alias. Instances are always imported regardless of import form (coherence). `as` is contextual — it is only special immediately after the module name in an import declaration.
 
+Value bindings whose name starts with `_` are module-private and excluded from exports.
+
 ### Type Family (Closed)
 
 ```
@@ -775,9 +777,11 @@ infixr 1 <=<       -- Kleisli right-to-left
 infixr 0 $         -- low-precedence apply
 ```
 
-### Type Classes (14 in Prelude + Core)
+### Type Classes (15: 1 in Core, 14 in Prelude)
 
 ```
+IxMonad                           (Core)
+
 Eq ──→ Ord
 Show
 Semigroup ──→ Monoid
@@ -786,14 +790,13 @@ Functor ──→ Applicative ──→ Alternative
 Functor ─┐
          ├──→ Traversable
 Foldable ┘
-IxMonad
 Packed
-
-Eq ──→ Num   (in Prelude)
+FromList ──→ ToList
 ```
 
 | Class         | Key Methods                                                 |
 | ------------- | ----------------------------------------------------------- |
+| `IxMonad`     | `ixpure`, `ixbind` (Core)                                   |
 | `Eq`          | `eq :: a -> a -> Bool`                                      |
 | `Ord`         | `compare :: a -> a -> Ordering`                             |
 | `Show`        | `show :: a -> String`                                       |
@@ -805,8 +808,9 @@ Eq ──→ Num   (in Prelude)
 | `Alternative` | `none :: f a`, `alt :: f a -> f a -> f a`                   |
 | `Monad`       | `mpure :: a -> m a`, `mbind :: m a -> (a -> m b) -> m b`    |
 | `Traversable` | `traverse :: Applicative f => (a -> f b) -> t a -> f (t b)` |
-| `IxMonad`     | `ixpure`, `ixbind`                                          |
 | `Packed`      | `pack :: List e -> c`, `unpack :: c -> List e`              |
+| `FromList`    | `fromList :: List (Elem l) -> l` (assoc type: `Elem`)       |
+| `ToList`      | `toList :: l -> List (Elem l)`                              |
 
 ---
 

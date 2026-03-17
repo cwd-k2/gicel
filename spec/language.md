@@ -465,7 +465,9 @@ Record patterns are **open** — partial match is permitted. Unmentioned fields 
 ```
 Program   ::= Import* Decl*
 
-Import    ::= 'import' ModuleName
+Import    ::= 'import' ModuleName                        -- open
+            | 'import' ModuleName '(' ImportList ')'     -- selective
+            | 'import' ModuleName 'as' Upper             -- qualified
 
 Decl      ::= DeclBind | DeclData | DeclType | DeclFixity | DeclClass | DeclInstance
 
@@ -825,10 +827,11 @@ Packed    (independent — collection packing)
 Eq ──→ Num   (in Prelude)
 ```
 
-14 type classes total (13 in Prelude + Core, 1 Num class also in Prelude):
+15 type classes (1 in Core, 14 in Prelude):
 
 | Class         | Parameters                       | Key Methods                                                 |
 | ------------- | -------------------------------- | ----------------------------------------------------------- |
+| `IxMonad`     | `m: Row -> Row -> Type -> Type`  | `ixpure`, `ixbind` (Core)                                   |
 | `Eq`          | `a`                              | `eq :: a -> a -> Bool`                                      |
 | `Ord`         | `a` (requires Eq)                | `compare :: a -> a -> Ordering`                             |
 | `Show`        | `a`                              | `show :: a -> String`                                       |
@@ -840,9 +843,11 @@ Eq ──→ Num   (in Prelude)
 | `Alternative` | `f` (requires Applicative)       | `none :: f a`, `alt :: f a -> f a -> f a`                   |
 | `Monad`       | `m: Type -> Type`                | `mpure :: a -> m a`, `mbind :: m a -> (a -> m b) -> m b`    |
 | `Traversable` | `t` (requires Functor, Foldable) | `traverse :: Applicative f => (a -> f b) -> t a -> f (t b)` |
-| `IxMonad`     | `m: Row -> Row -> Type -> Type`  | `ixpure`, `ixbind`                                          |
-| `Packed`      | `c`, `e`                         | `pack :: List e -> c`, `unpack :: c -> List e`              |
-| `Num`         | `a` (requires Eq, in Prelude)    | `add`, `sub`, `mul`, `negate`                               |
+| `Packed`      | `c`, `e` (fundep: c → e)         | `pack :: List e -> c`, `unpack :: c -> List e`              |
+| `FromList`    | `l` (assoc type: `Elem l`)       | `fromList :: List (Elem l) -> l`                            |
+| `ToList`      | `l` (requires FromList)          | `toList :: l -> List (Elem l)`                              |
+
+Numeric operations (`add`, `sub`, `mul`, `negate`, etc.) are provided as Prelude functions via host primitives, not as a type class.
 
 `Applicative.wrap` corresponds to Haskell's `pure` but uses a different name to avoid collision with the language built-in `pure`. `Monad.mpure` and `Monad.mbind` similarly avoid collision with the built-in `pure` and `bind`.
 
@@ -1001,7 +1006,7 @@ Records elaborate to three Core IR formers:
 
 | Operation  | Core Former    |
 | ---------- | -------------- |
-| Literal    | `RecordCon`    |
+| Literal    | `RecordLit`    |
 | Projection | `RecordProj`   |
 | Update     | `RecordUpdate` |
 
@@ -1115,7 +1120,7 @@ The Core intermediate representation has **17 formers**:
 | `Force`        | Computation  | Resume thunked computation     |
 | `PrimOp`       | Primitive    | Host-provided operation        |
 | `Lit`          | Literal      | Integer, String, Rune literals |
-| `RecordCon`    | Record       | Record construction            |
+| `RecordLit`    | Record       | Record construction            |
 | `RecordProj`   | Record       | Field projection               |
 | `RecordUpdate` | Record       | Field update                   |
 
@@ -1143,8 +1148,8 @@ Strict call-by-value (CBV) evaluation with an environment-based evaluator.
 
 The evaluator enforces multiple layers of protection:
 
-- **Step limit**: maximum number of evaluation steps (default: 100,000)
-- **Depth limit**: maximum call stack depth (default: 1,000)
+- **Step limit**: maximum number of evaluation steps (Engine default: 1,000,000; CLI/Sandbox default: 100,000)
+- **Depth limit**: maximum call stack depth (Engine default: 1,000; CLI/Sandbox default: 100)
 - **Context cancellation**: Go `context.Context` integration for timeout
 - **Recursion guard**: recursive definitions rejected unless `EnableRecursion()` is called
 
@@ -1383,20 +1388,20 @@ snd :: \a b. (a, b) -> b
 
 ## 15.2 Stdlib Packs
 
-| Pack     | Provides                                                                                        |
-| -------- | ----------------------------------------------------------------------------------------------- |
-| `Num`    | `Num` class, `Eq`/`Ord`/`Show` Int, arithmetic operators (`+`, `-`, `*`, `/`), `div`, `mod`     |
-| `Str`    | `Eq`/`Ord`/`Semigroup`/`Monoid` String, `Eq`/`Ord` Rune, `Packed String Rune`, `Show` instances |
-| `List`   | `fromSlice`, `toSlice`, `length`, `concat`, `foldl`                                             |
-| `Fail`   | `fail` capability, `fromMaybe`, `fromResult`                                                    |
-| `State`  | `get`/`put` capabilities                                                                        |
-| `IO`     | `print`/`debug` via CapEnv buffer                                                               |
-| `Stream` | Lazy list: `LCons`/`LNil`, `headS`, `tailS`, `takeS`, `dropS`                                   |
-| `Slice`  | Contiguous array: O(1) `sliceLength`/`sliceIndex`, `Functor`/`Foldable`                         |
-| `Map`    | Ordered immutable map (AVL): `insert`, `mapLookup`, `delete`, `fromList`                        |
-| `Set`    | Ordered immutable set (backed by Map): `setInsert`, `setMember`, `setFromList`                  |
+Each Go-side pack bundles type registration, module source, and primitive implementations. The pack is loaded with `eng.Use(pack)` and imported in source by its module name.
 
-Types (`Int`, `String`, `Rune`) are checker built-ins; operations come from stdlib packs. Runtime representation: `HostVal` wrapping Go values (`int64`, `string`, `rune`).
+| Go Pack       | Module         | Provides                                                                |
+| ------------- | -------------- | ----------------------------------------------------------------------- |
+| `Prelude`     | `Prelude`      | Num/Str/List: arithmetic, string ops, list ops, 14 type classes, 5 ADTs |
+| `EffectFail`  | `Effect.Fail`  | `fail` capability, `fromMaybe`, `fromResult`                            |
+| `EffectState` | `Effect.State` | `get`/`put` capabilities                                                |
+| `EffectIO`    | `Effect.IO`    | `print`/`debug` via CapEnv buffer                                       |
+| `DataStream`  | `Data.Stream`  | Lazy list: `LCons`/`LNil`, `headS`, `tailS`, `takeS`, `dropS`           |
+| `DataSlice`   | `Data.Slice`   | Contiguous array: O(1) `sliceLength`/`sliceIndex`, `Functor`/`Foldable` |
+| `DataMap`     | `Data.Map`     | Ordered immutable map (AVL): `insert`, `mapLookup`, `delete`            |
+| `DataSet`     | `Data.Set`     | Ordered immutable set (backed by Map): `setInsert`, `setMember`         |
+
+Types (`Int`, `Double`, `String`, `Rune`, `Slice`, `Map`, `Set`) are checker built-ins registered in `NewEngine()`. Runtime representation: `HostVal` wrapping Go values.
 
 ---
 

@@ -254,7 +254,7 @@ host bindings, custom capabilities, custom prelude, and more.
 
 ## Features
 
-- **Small, learnable syntax** — 11 keywords. ADTs, pattern matching, type classes, do-notation
+- **Small, learnable syntax** — 10 keywords. ADTs, pattern matching, type classes, do-notation
 - **Errors caught before execution** — full type inference with bidirectional checking. Missing capabilities are compile-time errors, not runtime surprises
 - **Expressive when you need it** — higher-rank polymorphism, higher-kinded types, kind inference
 - **Records & tuples** — structured data with row polymorphism

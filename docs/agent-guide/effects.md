@@ -79,7 +79,7 @@ force :: Thunk pre post a -> Computation pre post a
 
 ### then
 
-Provided by the Prelude for sequencing when you do not need the intermediate result:
+Provided by Core (always available without import) for sequencing when you do not need the intermediate result:
 
 ```
 then :: \a b (r1: Row) (r2: Row) (r3: Row).
