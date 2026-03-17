@@ -273,6 +273,7 @@ func (e *Engine) makeCheckConfig() *check.CheckConfig {
 		GatedBuiltins:   maps.Clone(e.gatedBuiltins),
 		Trace:           e.checkTraceHook,
 		ImportedModules: imported,
+		StrictTypeNames: true,
 	}
 }
 

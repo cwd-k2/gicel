@@ -28,6 +28,7 @@ type CheckConfig struct {
 	GatedBuiltins   map[string]bool
 	Trace           CheckTraceHook
 	ImportedModules map[string]*ModuleExports
+	StrictTypeNames bool // when true, reject unregistered type constructor names
 }
 
 // ModuleExports carries the type-level information exported by a compiled module.
@@ -92,6 +93,7 @@ type Checker struct {
 	depth             int
 	resolveDepth      int                        // instance resolution recursion depth
 	qualifiedScopes   map[string]*qualifiedScope // alias → qualified module scope
+	strictTypeNames   bool                       // enabled after declaration processing
 }
 
 // qualifiedScope holds a module's exports for qualified name resolution.

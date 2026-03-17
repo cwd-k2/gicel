@@ -21,8 +21,11 @@ func (ch *Checker) resolveTypeExpr(texpr syntax.TypeExpr) types.Type {
 		if fam, ok := ch.families[t.Name]; ok && len(fam.Params) == 0 {
 			return &types.TyFamilyApp{Name: t.Name, Args: nil, Kind: fam.ResultKind, S: t.S}
 		}
-		// DataKinds: if the name is a promoted constructor, treat it as a TyCon
-		// (it will be kind-checked later; for now it's just a name in type position).
+		// Validate that the type constructor is known when strict mode is active.
+		if ch.strictTypeNames && !ch.isKnownTypeName(t.Name) {
+			ch.addCodedError(errs.ErrUnboundCon, t.S, fmt.Sprintf("unknown type: %s", t.Name))
+			return &types.TyError{S: t.S}
+		}
 		return &types.TyCon{Name: t.Name, S: t.S}
 	case *syntax.TyExprQualCon:
 		qs, ok := ch.qualifiedScopes[t.Qualifier]
@@ -46,8 +49,9 @@ func (ch *Checker) resolveTypeExpr(texpr syntax.TypeExpr) types.Type {
 			ch.families[t.Name] = fam.Clone()
 			return &types.TyCon{Name: t.Name, S: t.S}
 		}
-		// Check qualified types
-		if _, ok := qs.exports.Types[t.Name]; ok {
+		// Check qualified types — only types defined by this module's data declarations,
+		// not inherited built-in types (Int, String, etc.).
+		if isModuleDefinedType(qs.exports, t.Name) {
 			return &types.TyCon{Name: t.Name, S: t.S}
 		}
 		// Check promoted kinds/constructors
@@ -336,4 +340,56 @@ func (ch *Checker) hasDeterministicKind(ty types.Type) bool {
 	default:
 		return false
 	}
+}
+
+// isModuleDefinedType checks if a type name was defined by the module itself
+// (via data declarations or class declarations), as opposed to being inherited
+// from built-in types or open imports.
+func isModuleDefinedType(exports *ModuleExports, name string) bool {
+	for _, dd := range exports.DataDecls {
+		if dd.Name == name {
+			return true
+		}
+	}
+	// Classes are already checked separately, but class-defined types
+	// (dict types) might appear in Types.
+	if _, ok := exports.Classes[name]; ok {
+		return true
+	}
+	return false
+}
+
+// builtinTypeNames are type constructor names that are intrinsic to the checker
+// (used in TyComp/TyThunk expansion) but not registered in RegisteredTypes.
+var builtinTypeNames = map[string]bool{
+	"Computation": true,
+	"Thunk":       true,
+}
+
+// isKnownTypeName returns true if name refers to a known type: registered type,
+// parameterized alias, parameterized type family, class, promoted kind/constructor,
+// or checker-intrinsic type (Computation, Thunk).
+func (ch *Checker) isKnownTypeName(name string) bool {
+	if builtinTypeNames[name] {
+		return true
+	}
+	if _, ok := ch.config.RegisteredTypes[name]; ok {
+		return true
+	}
+	if _, ok := ch.aliases[name]; ok {
+		return true
+	}
+	if _, ok := ch.families[name]; ok {
+		return true
+	}
+	if _, ok := ch.classes[name]; ok {
+		return true
+	}
+	if _, ok := ch.promotedKinds[name]; ok {
+		return true
+	}
+	if _, ok := ch.promotedCons[name]; ok {
+		return true
+	}
+	return false
 }

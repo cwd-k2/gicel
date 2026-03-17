@@ -104,21 +104,8 @@ func (ch *Checker) processClassDecl(d *syntax.DeclClass, prog *core.Program) {
 		}
 	}
 
-	// Process method signatures.
-	var methods []MethodInfo
-	var methodFieldTypes []types.Type
-	for _, m := range d.Methods {
-		methTy := ch.resolveTypeExpr(m.Type)
-		methods = append(methods, MethodInfo{Name: m.Name, Type: methTy})
-		methodFieldTypes = append(methodFieldTypes, methTy)
-	}
-
-	// Clean up kind variable scope.
-	for _, kv := range kindParams {
-		delete(ch.kindVars, kv)
-	}
-
-	// Process associated type declarations.
+	// Process associated type declarations before method signatures,
+	// so that associated type names are available during method type resolution.
 	var assocTypeNames []string
 	for _, atd := range d.AssocTypes {
 		assocTypeNames = append(assocTypeNames, atd.Name)
@@ -166,6 +153,20 @@ func (ch *Checker) processClassDecl(d *syntax.DeclClass, prog *core.Program) {
 			dfKind = &types.KArrow{From: dfParams[i].Kind, To: dfKind}
 		}
 		ch.config.RegisteredTypes[add.Name] = dfKind
+	}
+
+	// Process method signatures (after associated types/data families are registered).
+	var methods []MethodInfo
+	var methodFieldTypes []types.Type
+	for _, m := range d.Methods {
+		methTy := ch.resolveTypeExpr(m.Type)
+		methods = append(methods, MethodInfo{Name: m.Name, Type: methTy})
+		methodFieldTypes = append(methodFieldTypes, methTy)
+	}
+
+	// Clean up kind variable scope.
+	for _, kv := range kindParams {
+		delete(ch.kindVars, kv)
 	}
 
 	// Elaborate functional dependencies: convert param names to indices.

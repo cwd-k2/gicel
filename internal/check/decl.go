@@ -67,6 +67,11 @@ func (ch *Checker) checkDecls(decls []syntax.Decl) *core.Program {
 	// equations are collected from instances.
 	ch.installFamilyReducer()
 
+	// 5.6. Enable strict type name validation now that all declarations are registered.
+	if ch.config.StrictTypeNames {
+		ch.strictTypeNames = true
+	}
+
 	// 6. Collect type annotations.
 	// Free type variables are implicitly universally quantified (implicit forall).
 	annotations := make(map[string]types.Type)
