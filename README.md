@@ -269,7 +269,7 @@ host bindings, custom capabilities, custom prelude, and more.
 | `EffectFail`  | `Effect.Fail`  | Fail effect capability                                    |
 | `EffectState` | `Effect.State` | `get`/`put` state capabilities                            |
 | `EffectIO`    | `Effect.IO`    | `print`/`debug` via CapEnv buffer                         |
-| `DataStream`  | `Data.Stream`  | Lazy list: `LCons`/`LNil`, `headS`, `tailS`, `takeS`      |
+| `DataStream`  | `Data.Stream`  | Lazy list: `LCons`/`LNil`, `head`, `tail`, `take`         |
 | `DataSlice`   | `Data.Slice`   | Contiguous array: O(1) length/index, `Functor`/`Foldable` |
 | `DataMap`     | `Data.Map`     | Ordered immutable map (AVL), `Ord`-keyed                  |
 | `DataSet`     | `Data.Set`     | Ordered immutable set, backed by `Map`                    |

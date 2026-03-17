@@ -36,38 +36,29 @@ _sliceMap := assumption
 _sliceFoldl :: \a b. (b -> a -> b) -> b -> Slice a -> b
 _sliceFoldl := assumption
 
-sliceEmpty :: \a. Slice a
-sliceEmpty := _sliceEmpty
+empty :: \a. Slice a
+empty := _sliceEmpty
 
-sliceSingleton :: \a. a -> Slice a
-sliceSingleton := _sliceSingleton
+singleton :: \a. a -> Slice a
+singleton := _sliceSingleton
 
-sliceCons :: \a. a -> Slice a -> Slice a
-sliceCons := _sliceCons
+cons :: \a. a -> Slice a -> Slice a
+cons := _sliceCons
 
-sliceSnoc :: \a. Slice a -> a -> Slice a
-sliceSnoc := _sliceSnoc
+snoc :: \a. Slice a -> a -> Slice a
+snoc := _sliceSnoc
 
-sliceLength :: \a. Slice a -> Int
-sliceLength := _sliceLength
+length :: \a. Slice a -> Int
+length := _sliceLength
 
-sliceIndex :: \a. Int -> Slice a -> Maybe a
-sliceIndex := _sliceIndex
+index :: \a. Int -> Slice a -> Maybe a
+index := _sliceIndex
 
-sliceFromList :: \a. List a -> Slice a
-sliceFromList := _sliceFromList
+append :: \a. Slice a -> Slice a -> Slice a
+append := _sliceAppend
 
-sliceToList :: \a. Slice a -> List a
-sliceToList := _sliceToList
-
-sliceAppend :: \a. Slice a -> Slice a -> Slice a
-sliceAppend := _sliceAppend
-
-sliceFoldr :: \a b. (a -> b -> b) -> b -> Slice a -> b
-sliceFoldr := _sliceFoldr
-
-sliceFoldl :: \a b. (b -> a -> b) -> b -> Slice a -> b
-sliceFoldl := _sliceFoldl
+foldl :: \a b. (b -> a -> b) -> b -> Slice a -> b
+foldl := _sliceFoldl
 
 infixl 5 +>
 (+>) :: \a. Slice a -> a -> Slice a

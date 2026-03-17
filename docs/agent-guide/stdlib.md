@@ -111,11 +111,11 @@ Provides an ordered immutable map backed by an AVL tree. All key-parameterized o
 
 | Name           | Type                                                   | Description                          |
 | -------------- | ------------------------------------------------------ | ------------------------------------ |
-| `mapEmpty`     | `\k v. Ord k => Map k v`                               | Empty map                            |
+| `empty`        | `\k v. Ord k => Map k v`                               | Empty map                            |
 | `insert`       | `\k v. Ord k => k -> v -> Map k v -> Map k v`          | Insert or overwrite a key-value pair |
-| `mapLookup`    | `\k v. Ord k => k -> Map k v -> Maybe v`               | Lookup by key                        |
+| `lookup`       | `\k v. Ord k => k -> Map k v -> Maybe v`               | Lookup by key                        |
 | `delete`       | `\k v. Ord k => k -> Map k v -> Map k v`               | Remove a key                         |
-| `mapSize`      | `\k v. Map k v -> Int`                                 | Number of entries                    |
+| `size`         | `\k v. Map k v -> Int`                                 | Number of entries                    |
 | `toList`       | `\k v. Map k v -> List (k, v)`                         | In-order key-value pairs             |
 | `fromList`     | `\k v. Ord k => List (k, v) -> Map k v`                | Build map from pairs                 |
 | `member`       | `\k v. Ord k => k -> Map k v -> Bool`                  | Key membership test                  |
@@ -133,20 +133,20 @@ Provides an ordered immutable set backed by a Map. Load with `eng.Use(gicel.Data
 
 **Functions:**
 
-| Name          | Type                               | Description         |
-| ------------- | ---------------------------------- | ------------------- |
-| `setEmpty`    | `\k. Ord k => Set k`               | Empty set           |
-| `setInsert`   | `\k. Ord k => k -> Set k -> Set k` | Insert an element   |
-| `setMember`   | `\k. Ord k => k -> Set k -> Bool`  | Membership test     |
-| `setDelete`   | `\k. Ord k => k -> Set k -> Set k` | Remove an element   |
-| `setSize`     | `\k. Set k -> Int`                 | Number of elements  |
-| `setToList`   | `\k. Set k -> List k`              | Sorted element list |
-| `setFromList` | `\k. Ord k => List k -> Set k`     | Build set from list |
+| Name       | Type                               | Description         |
+| ---------- | ---------------------------------- | ------------------- |
+| `empty`    | `\k. Ord k => Set k`               | Empty set           |
+| `insert`   | `\k. Ord k => k -> Set k -> Set k` | Insert an element   |
+| `member`   | `\k. Ord k => k -> Set k -> Bool`  | Membership test     |
+| `delete`   | `\k. Ord k => k -> Set k -> Set k` | Remove an element   |
+| `size`     | `\k. Set k -> Int`                 | Number of elements  |
+| `toList`   | `\k. Set k -> List k`              | Sorted element list |
+| `fromList` | `\k. Ord k => List k -> Set k`     | Build set from list |
 
 **Notes:**
 
 - Sets are persistent (immutable). Insert/delete return new sets.
-- `setToList` returns elements in sorted order.
+- `toList` returns elements in sorted order.
 
 ### Effect.State
 
@@ -200,14 +200,14 @@ data Stream a := LCons a (() -> Stream a) | LNil
 
 | Name       | Type                                        | Description            |
 | ---------- | ------------------------------------------- | ---------------------- |
-| `headS`    | `\a. Stream a -> Maybe a`                   | First element          |
-| `tailS`    | `\a. Stream a -> Maybe (Stream a)`          | Tail (forces thunk)    |
+| `head`     | `\a. Stream a -> Maybe a`                   | First element          |
+| `tail`     | `\a. Stream a -> Maybe (Stream a)`          | Tail (forces thunk)    |
 | `toList`   | `\a. Stream a -> List a`                    | Convert to strict list |
 | `fromList` | `\a. List a -> Stream a`                    | Convert to lazy stream |
-| `mapS`     | `\a b. (a -> b) -> Stream a -> Stream b`    | Map over stream        |
-| `foldrS`   | `\a b. (a -> b -> b) -> b -> Stream a -> b` | Right fold             |
-| `takeS`    | `\a. Int -> Stream a -> List a`             | Take first n as list   |
-| `dropS`    | `\a. Int -> Stream a -> Stream a`           | Drop first n           |
+| `fmap`     | `\a b. (a -> b) -> Stream a -> Stream b`    | Map over stream        |
+| `foldr`    | `\a b. (a -> b -> b) -> b -> Stream a -> b` | Right fold             |
+| `take`     | `\a. Int -> Stream a -> List a`             | Take first n as list   |
+| `drop`     | `\a. Int -> Stream a -> Stream a`           | Drop first n           |
 
 Instances: `Functor Stream`, `Foldable Stream`
 
@@ -215,19 +215,19 @@ Instances: `Functor Stream`, `Foldable Stream`
 
 Provides contiguous array with O(1) length/index. Load with `eng.Use(gicel.DataSlice)` and import with `import Data.Slice`.
 
-| Name             | Type                                       | Description    |
-| ---------------- | ------------------------------------------ | -------------- |
-| `sliceEmpty`     | `\a. Slice a`                              | Empty slice    |
-| `sliceSingleton` | `\a. a -> Slice a`                         | Single-element |
-| `sliceCons`      | `\a. a -> Slice a -> Slice a`              | Prepend        |
-| `sliceSnoc`      | `\a. Slice a -> a -> Slice a`              | Append         |
-| `sliceLength`    | `\a. Slice a -> Int`                       | O(1) length    |
-| `sliceIndex`     | `\a. Int -> Slice a -> Maybe a`            | O(1) index     |
-| `sliceFromList`  | `\a. List a -> Slice a`                    | From list      |
-| `sliceToList`    | `\a. Slice a -> List a`                    | To list        |
-| `sliceAppend`    | `\a. Slice a -> Slice a -> Slice a`        | Concatenate    |
-| `sliceFoldr`     | `\a b. (a -> b -> b) -> b -> Slice a -> b` | Right fold     |
-| `sliceFoldl`     | `\a b. (b -> a -> b) -> b -> Slice a -> b` | Left fold      |
+| Name        | Type                                       | Description    |
+| ----------- | ------------------------------------------ | -------------- |
+| `empty`     | `\a. Slice a`                              | Empty slice    |
+| `singleton` | `\a. a -> Slice a`                         | Single-element |
+| `cons`      | `\a. a -> Slice a -> Slice a`              | Prepend        |
+| `sliceSnoc` | `\a. Slice a -> a -> Slice a`              | Append         |
+| `length`    | `\a. Slice a -> Int`                       | O(1) length    |
+| `index`     | `\a. Int -> Slice a -> Maybe a`            | O(1) index     |
+| `fromList`  | `\a. List a -> Slice a`                    | From list      |
+| `toList`    | `\a. Slice a -> List a`                    | To list        |
+| `append`    | `\a. Slice a -> Slice a -> Slice a`        | Concatenate    |
+| `foldr`     | `\a b. (a -> b -> b) -> b -> Slice a -> b` | Right fold     |
+| `foldl`     | `\a b. (b -> a -> b) -> b -> Slice a -> b` | Left fold      |
 
 Instances: `Functor Slice`, `Foldable Slice`, `Semigroup (Slice a)`, `Monoid (Slice a)`, `Packed (Slice a) a`
 

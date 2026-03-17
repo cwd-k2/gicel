@@ -2,23 +2,11 @@ import Prelude
 
 data Stream a := LCons a (() -> Stream a) | LNil
 
-headS :: \a. Stream a -> Maybe a
-headS := \s. case s { LNil -> Nothing; LCons x _ -> Just x }
+head :: \a. Stream a -> Maybe a
+head := \s. case s { LNil -> Nothing; LCons x _ -> Just x }
 
-tailS :: \a. Stream a -> Maybe (Stream a)
-tailS := \s. case s { LNil -> Nothing; LCons _ t -> Just (t ()) }
-
-streamToList :: \a. Stream a -> List a
-streamToList := fix \self s. case s {
-  LNil -> Nil;
-  LCons x t -> Cons x (self (t ()))
-}
-
-streamFromList :: \a. List a -> Stream a
-streamFromList := fix \self xs. case xs {
-  Nil -> LNil;
-  Cons x rest -> LCons x (\_. self rest)
-}
+tail :: \a. Stream a -> Maybe (Stream a)
+tail := \s. case s { LNil -> Nothing; LCons _ t -> Just (t ()) }
 
 instance FromList (Stream a) {
   type Elem (Stream a) =: a;
@@ -35,29 +23,17 @@ instance ToList (Stream a) {
   }
 }
 
-mapS :: \a b. (a -> b) -> Stream a -> Stream b
-mapS := \f. fix \self s. case s {
-  LNil -> LNil;
-  LCons x t -> LCons (f x) (\_. self (t ()))
-}
-
-foldrS :: \a b. (a -> b -> b) -> b -> Stream a -> b
-foldrS := \f z. fix \self s. case s {
-  LNil -> z;
-  LCons x t -> f x (self (t ()))
-}
-
 _takeS :: \a. Int -> Stream a -> List a
 _takeS := assumption
 
 _dropS :: \a. Int -> Stream a -> Stream a
 _dropS := assumption
 
-takeS :: \a. Int -> Stream a -> List a
-takeS := _takeS
+take :: \a. Int -> Stream a -> List a
+take := _takeS
 
-dropS :: \a. Int -> Stream a -> Stream a
-dropS := _dropS
+drop :: \a. Int -> Stream a -> Stream a
+drop := _dropS
 
 instance Functor Stream {
   fmap := \f. fix \self s. case s {

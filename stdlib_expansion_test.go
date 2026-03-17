@@ -302,7 +302,7 @@ func TestSliceSingletonLength(t *testing.T) {
 	v := runWithPacks(t, `
 import Prelude
 import Data.Slice
-main := sliceLength (sliceSingleton True)
+main := length (singleton True)
 `, gicel.Prelude, gicel.DataSlice)
 	assertHostInt(t, v, 1)
 }
@@ -312,7 +312,7 @@ func TestSliceIndex(t *testing.T) {
 import Prelude
 import Data.Slice
 main :: Maybe Bool
-main := sliceIndex 0 (pack (Cons True Nil))
+main := index 0 (pack (Cons True Nil))
 `, gicel.Prelude, gicel.DataSlice)
 	con, ok := v.(*gicel.ConVal)
 	if !ok || con.Con != "Just" {
@@ -341,7 +341,7 @@ func TestSliceFmap(t *testing.T) {
 	v := runWithPacks(t, `
 import Prelude
 import Data.Slice
-main := sliceLength (fmap not (sliceSingleton True))
+main := length (fmap not (singleton True))
 `, gicel.Prelude, gicel.DataSlice)
 	assertHostInt(t, v, 1)
 }
@@ -350,7 +350,7 @@ func TestSliceMonoid(t *testing.T) {
 	v := runWithPacks(t, `
 import Prelude
 import Data.Slice
-main := sliceLength (append (sliceSingleton True) (sliceSingleton False))
+main := length (append (singleton True) (singleton False))
 `, gicel.Prelude, gicel.DataSlice)
 	assertHostInt(t, v, 2)
 }
@@ -359,11 +359,11 @@ main := sliceLength (append (sliceSingleton True) (sliceSingleton False))
 // Data.Stream
 // ===========================================================================
 
-func TestStreamHeadS(t *testing.T) {
+func TestStreamHead(t *testing.T) {
 	v := runWithPacks(t, `
 import Prelude
 import Data.Stream
-main := headS (LCons True (\_. LNil))
+main := head (LCons True (\_. LNil))
 `, gicel.Prelude, gicel.DataStream)
 	con, ok := v.(*gicel.ConVal)
 	if !ok || con.Con != "Just" {
@@ -372,12 +372,12 @@ main := headS (LCons True (\_. LNil))
 	assertConVal(t, con.Args[0], "True")
 }
 
-func TestStreamHeadSEmpty(t *testing.T) {
+func TestStreamHeadEmpty(t *testing.T) {
 	v := runWithPacks(t, `
 import Prelude
 import Data.Stream
 main :: Maybe Bool
-main := headS LNil
+main := head LNil
 `, gicel.Prelude, gicel.DataStream)
 	assertConVal(t, v, "Nothing")
 }
@@ -398,11 +398,11 @@ main := toList (fromList (Cons True (Cons False Nil)) :: Stream Bool)
 	assertConVal(t, second.Args[1], "Nil")
 }
 
-func TestStreamTakeS(t *testing.T) {
+func TestStreamTake(t *testing.T) {
 	v := runWithPacks(t, `
 import Prelude
 import Data.Stream
-main := takeS 2 (LCons True (\_. LCons False (\_. LCons True (\_. LNil))))
+main := take 2 (LCons True (\_. LCons False (\_. LCons True (\_. LNil))))
 `, gicel.Prelude, gicel.DataStream)
 	con := v.(*gicel.ConVal)
 	if con.Con != "Cons" {
@@ -418,7 +418,7 @@ func TestStreamFmap(t *testing.T) {
 	v := runWithPacks(t, `
 import Prelude
 import Data.Stream
-main := headS (fmap not (LCons True (\_. LNil)))
+main := head (fmap not (LCons True (\_. LNil)))
 `, gicel.Prelude, gicel.DataStream)
 	con, ok := v.(*gicel.ConVal)
 	if !ok || con.Con != "Just" {
@@ -427,11 +427,11 @@ main := headS (fmap not (LCons True (\_. LNil)))
 	assertConVal(t, con.Args[0], "False")
 }
 
-func TestStreamDropS(t *testing.T) {
+func TestStreamDrop(t *testing.T) {
 	v := runWithPacks(t, `
 import Prelude
 import Data.Stream
-main := headS (dropS 1 (LCons True (\_. LCons False (\_. LNil))))
+main := head (drop 1 (LCons True (\_. LCons False (\_. LNil))))
 `, gicel.Prelude, gicel.DataStream)
 	con, ok := v.(*gicel.ConVal)
 	if !ok || con.Con != "Just" {
@@ -450,7 +450,7 @@ func TestSliceFusionMapMapIntegration(t *testing.T) {
 	v := runWithPacks(t, `
 import Prelude
 import Data.Slice
-main := sliceLength (fmap (\x. x + 1) (fmap (\x. x + 2) (sliceSingleton 0)))
+main := length (fmap (\x. x + 1) (fmap (\x. x + 2) (singleton 0)))
 `, gicel.Prelude, gicel.DataSlice)
 	assertHostInt(t, v, 1)
 }
@@ -710,7 +710,7 @@ func TestMapInsertLookupIntegration(t *testing.T) {
 	v := runWithPacks(t, `
 import Prelude
 import Data.Map
-main := mapLookup 1 (insert 1 True (mapEmpty :: Map Int Bool))
+main := lookup 1 (insert 1 True (empty :: Map Int Bool))
 `, gicel.Prelude, gicel.DataMap)
 	con, ok := v.(*gicel.ConVal)
 	if !ok || con.Con != "Just" {
@@ -723,7 +723,7 @@ func TestMapLookupMissingIntegration(t *testing.T) {
 	v := runWithPacks(t, `
 import Prelude
 import Data.Map
-main := mapLookup 99 (insert 1 True (mapEmpty :: Map Int Bool))
+main := lookup 99 (insert 1 True (empty :: Map Int Bool))
 `, gicel.Prelude, gicel.DataMap)
 	assertConVal(t, v, "Nothing")
 }
@@ -732,7 +732,7 @@ func TestMapSizeIntegration(t *testing.T) {
 	v := runWithPacks(t, `
 import Prelude
 import Data.Map
-main := mapSize (insert 2 False (insert 1 True (mapEmpty :: Map Int Bool)))
+main := size (insert 2 False (insert 1 True (empty :: Map Int Bool)))
 `, gicel.Prelude, gicel.DataMap)
 	assertHostInt(t, v, 2)
 }
@@ -741,7 +741,7 @@ func TestMapMemberIntegration(t *testing.T) {
 	v := runWithPacks(t, `
 import Prelude
 import Data.Map
-main := member 1 (insert 1 True (mapEmpty :: Map Int Bool))
+main := member 1 (insert 1 True (empty :: Map Int Bool))
 `, gicel.Prelude, gicel.DataMap)
 	assertConVal(t, v, "True")
 }
@@ -750,7 +750,7 @@ func TestMapDeleteIntegration(t *testing.T) {
 	v := runWithPacks(t, `
 import Prelude
 import Data.Map
-main := mapSize (delete 1 (insert 1 True (mapEmpty :: Map Int Bool)))
+main := size (delete 1 (insert 1 True (empty :: Map Int Bool)))
 `, gicel.Prelude, gicel.DataMap)
 	assertHostInt(t, v, 0)
 }
@@ -759,7 +759,7 @@ func TestMapFromListToListIntegration(t *testing.T) {
 	v := runWithPacks(t, `
 import Prelude
 import Data.Map
-main := mapSize (fromList (Cons (1, True) (Cons (2, False) Nil)) :: Map Int Bool)
+main := size (fromList (Cons (1, True) (Cons (2, False) Nil)) :: Map Int Bool)
 `, gicel.Prelude, gicel.DataMap)
 	assertHostInt(t, v, 2)
 }
@@ -772,7 +772,7 @@ func TestSetInsertMemberIntegration(t *testing.T) {
 	v := runWithPacks(t, `
 import Prelude
 import Data.Set
-main := setMember 1 (setInsert 1 (setEmpty :: Set Int))
+main := member 1 (insert 1 (empty :: Set Int))
 `, gicel.Prelude, gicel.DataSet)
 	assertConVal(t, v, "True")
 }
@@ -781,7 +781,7 @@ func TestSetMemberMissingIntegration(t *testing.T) {
 	v := runWithPacks(t, `
 import Prelude
 import Data.Set
-main := setMember 99 (setInsert 1 (setEmpty :: Set Int))
+main := member 99 (insert 1 (empty :: Set Int))
 `, gicel.Prelude, gicel.DataSet)
 	assertConVal(t, v, "False")
 }
@@ -790,7 +790,7 @@ func TestSetSizeIntegration(t *testing.T) {
 	v := runWithPacks(t, `
 import Prelude
 import Data.Set
-main := setSize (setInsert 2 (setInsert 1 (setEmpty :: Set Int)))
+main := size (insert 2 (insert 1 (empty :: Set Int)))
 `, gicel.Prelude, gicel.DataSet)
 	assertHostInt(t, v, 2)
 }
@@ -799,7 +799,7 @@ func TestSetDeleteIntegration(t *testing.T) {
 	v := runWithPacks(t, `
 import Prelude
 import Data.Set
-main := setSize (setDelete 1 (setInsert 2 (setInsert 1 (setEmpty :: Set Int))))
+main := size (delete 1 (insert 2 (insert 1 (empty :: Set Int))))
 `, gicel.Prelude, gicel.DataSet)
 	assertHostInt(t, v, 1)
 }
@@ -808,7 +808,7 @@ func TestSetFromListIntegration(t *testing.T) {
 	v := runWithPacks(t, `
 import Prelude
 import Data.Set
-main := setSize (setFromList (Cons 1 (Cons 2 (Cons 1 Nil))) :: Set Int)
+main := size (fromList (Cons 1 (Cons 2 (Cons 1 Nil))) :: Set Int)
 `, gicel.Prelude, gicel.DataSet)
 	assertHostInt(t, v, 2) // duplicates removed
 }
@@ -817,7 +817,7 @@ func TestSetToListIntegration(t *testing.T) {
 	v := runWithPacks(t, `
 import Prelude
 import Data.Set
-main := setToList (setInsert 2 (setInsert 1 (setEmpty :: Set Int)))
+main := toList (insert 2 (insert 1 (empty :: Set Int)))
 `, gicel.Prelude, gicel.DataSet)
 	// Should be sorted: [1, 2]
 	con, ok := v.(*gicel.ConVal)

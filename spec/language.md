@@ -1398,10 +1398,10 @@ Each Go-side pack bundles type registration, module source, and primitive implem
 | `EffectFail`  | `Effect.Fail`  | `fail` capability, `fromMaybe`, `fromResult`                            |
 | `EffectState` | `Effect.State` | `get`/`put` capabilities                                                |
 | `EffectIO`    | `Effect.IO`    | `print`/`debug` via CapEnv buffer                                       |
-| `DataStream`  | `Data.Stream`  | Lazy list: `LCons`/`LNil`, `headS`, `tailS`, `takeS`, `dropS`           |
-| `DataSlice`   | `Data.Slice`   | Contiguous array: O(1) `sliceLength`/`sliceIndex`, `Functor`/`Foldable` |
-| `DataMap`     | `Data.Map`     | Ordered immutable map (AVL): `insert`, `mapLookup`, `delete`            |
-| `DataSet`     | `Data.Set`     | Ordered immutable set (backed by Map): `setInsert`, `setMember`         |
+| `DataStream`  | `Data.Stream`  | Lazy list: `LCons`/`LNil`, `head`, `tail`, `take`, `drop`               |
+| `DataSlice`   | `Data.Slice`   | Contiguous array: O(1) `length`/`index`, `Functor`/`Foldable`           |
+| `DataMap`     | `Data.Map`     | Ordered immutable map (AVL): `insert`, `lookup`, `delete`               |
+| `DataSet`     | `Data.Set`     | Ordered immutable set (backed by Map): `insert`, `member`               |
 
 Types (`Int`, `Double`, `String`, `Rune`, `Slice`, `Map`, `Set`) are checker built-ins registered in `NewEngine()`. Runtime representation: `HostVal` wrapping Go values.
 
