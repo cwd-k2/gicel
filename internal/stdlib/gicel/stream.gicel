@@ -59,12 +59,16 @@ takeS := _takeS
 dropS :: \a. Int -> Stream a -> Stream a
 dropS := _dropS
 
-instance Functor Stream { fmap := \f. fix \self s. case s {
-  LNil -> LNil;
-  LCons x t -> LCons (f x) (\_. self (t ()))
-} }
+instance Functor Stream {
+  fmap := \f. fix \self s. case s {
+    LNil -> LNil;
+    LCons x t -> LCons (f x) (\_. self (t ()))
+  }
+}
 
-instance Foldable Stream { foldr := \f z. fix \self s. case s {
-  LNil -> z;
-  LCons x t -> f x (self (t ()))
-} }
+instance Foldable Stream {
+  foldr := \f z. fix \self s. case s {
+    LNil -> z;
+    LCons x t -> f x (self (t ()))
+  }
+}
