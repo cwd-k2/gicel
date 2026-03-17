@@ -1,0 +1,30 @@
+-- Multi-module example: demonstrates all three import forms.
+--
+-- Run with:
+--   gicel run --module Geometry=Geometry.gicel \
+--             --module Color=Color.gicel       \
+--             --module MathLib=MathLib.gicel    \
+--             main.gicel
+
+import Prelude
+
+-- Open import: all Geometry names available directly
+import Geometry
+
+-- Selective import: only Color constructors and name function
+import Color (Color(..), name)
+
+-- Qualified import: access MathLib via M qualifier
+import MathLib as M
+
+-- Use open-imported Geometry functions
+point := mkPoint 3 4
+
+-- Use selectively imported Color names
+colorName := name Red
+
+-- Use qualified MathLib access
+doubled := M.double (getX point)
+
+-- Output: (3, "red", 6)
+main := (getX point, colorName, doubled)

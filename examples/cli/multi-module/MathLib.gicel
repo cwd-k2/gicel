@@ -1,0 +1,9 @@
+-- MathLib module: arithmetic helpers.
+
+import Prelude
+
+double :: Int -> Int
+double := \x. x + x
+
+square :: Int -> Int
+square := \x. x * x

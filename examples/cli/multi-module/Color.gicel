@@ -1,0 +1,8 @@
+-- Color module: Color type and display names.
+
+import Prelude
+
+data Color := Red | Green | Blue
+
+name :: Color -> String
+name := \c. case c { Red -> "red"; Green -> "green"; Blue -> "blue" }
