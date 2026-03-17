@@ -58,6 +58,7 @@ Commands:
 
 Flags (run, check):
   --use <packs>    Packs: prelude,fail,state,io,stream,slice,map,set (default: all)
+  --module Name=path  Register a user module (repeatable)
   --recursion      Enable recursive definitions (fix/rec)
   --stdin          Read source from stdin
 
@@ -237,6 +238,18 @@ func setupEngine(use string) (*gicel.Engine, error) {
 	return eng, nil
 }
 
+// moduleFlags is a repeatable flag for --module Name=path pairs.
+type moduleFlags []string
+
+func (m *moduleFlags) String() string { return strings.Join(*m, ", ") }
+func (m *moduleFlags) Set(val string) error {
+	if !strings.Contains(val, "=") {
+		return fmt.Errorf("expected Name=path, got %q", val)
+	}
+	*m = append(*m, val)
+	return nil
+}
+
 // readSource loads GICEL source from stdin or a file argument.
 func readSource(fs *flag.FlagSet, stdin bool) ([]byte, error) {
 	if stdin {
@@ -248,8 +261,28 @@ func readSource(fs *flag.FlagSet, stdin bool) ([]byte, error) {
 	return os.ReadFile(fs.Arg(0))
 }
 
+// registerUserModules parses --module Name=path flags and registers each module.
+func registerUserModules(eng *gicel.Engine, modules []string) error {
+	for _, spec := range modules {
+		eqIdx := strings.IndexByte(spec, '=')
+		if eqIdx < 0 {
+			return fmt.Errorf("invalid module spec: %q (expected Name=path)", spec)
+		}
+		name := spec[:eqIdx]
+		path := spec[eqIdx+1:]
+		data, err := os.ReadFile(path)
+		if err != nil {
+			return fmt.Errorf("reading module %s: %w", name, err)
+		}
+		if err := eng.RegisterModule(name, string(data)); err != nil {
+			return fmt.Errorf("registering module %s: %w", name, err)
+		}
+	}
+	return nil
+}
+
 // prepareEngine loads source and configures the engine with common flags.
-func prepareEngine(fs *flag.FlagSet, use string, recursion, stdin bool) ([]byte, *gicel.Engine, error) {
+func prepareEngine(fs *flag.FlagSet, use string, recursion, stdin bool, modules []string) ([]byte, *gicel.Engine, error) {
 	source, err := readSource(fs, stdin)
 	if err != nil {
 		return nil, nil, err
@@ -260,6 +293,9 @@ func prepareEngine(fs *flag.FlagSet, use string, recursion, stdin bool) ([]byte,
 	}
 	if recursion {
 		eng.EnableRecursion()
+	}
+	if err := registerUserModules(eng, modules); err != nil {
+		return nil, nil, err
 	}
 	return source, eng, nil
 }
@@ -277,6 +313,8 @@ func cmdRun(args []string) int {
 	fs := flag.NewFlagSet("run", flag.ContinueOnError)
 	use := fs.String("use", "all", "comma-separated stdlib packs")
 	recursion := fs.Bool("recursion", false, "enable recursive definitions (fix/rec)")
+	var modules moduleFlags
+	fs.Var(&modules, "module", "register module: Name=path (repeatable)")
 	entry := fs.String("entry", "main", "entry point binding")
 	timeout := fs.Duration("timeout", 5*time.Second, "execution timeout")
 	maxSteps := fs.Int("max-steps", 100000, "step limit")
@@ -292,7 +330,7 @@ func cmdRun(args []string) int {
 		return 1
 	}
 
-	source, eng, err := prepareEngine(fs, *use, *recursion, *stdin)
+	source, eng, err := prepareEngine(fs, *use, *recursion, *stdin, modules)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		return 1
@@ -368,13 +406,15 @@ func cmdCheck(args []string) int {
 	fs := flag.NewFlagSet("check", flag.ContinueOnError)
 	use := fs.String("use", "all", "comma-separated stdlib packs")
 	recursion := fs.Bool("recursion", false, "enable recursive definitions (fix/rec)")
+	var modules moduleFlags
+	fs.Var(&modules, "module", "register module: Name=path (repeatable)")
 	jsonOut := fs.Bool("json", false, "output as JSON")
 	stdin := fs.Bool("stdin", false, "read source from stdin")
 	if err := fs.Parse(args); err != nil {
 		return 1
 	}
 
-	source, eng, err := prepareEngine(fs, *use, *recursion, *stdin)
+	source, eng, err := prepareEngine(fs, *use, *recursion, *stdin, modules)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		return 1
