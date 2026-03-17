@@ -16,27 +16,27 @@ data Unit := Unit
 -- A resource that must be consumed exactly once.
 -- The @Linear annotation on handle tracks this at the type level.
 open :: Computation {} { handle: Unit @Linear } Unit
+open := assumption
 
 -- Using a linear resource preserves it in the post-state.
 use :: Computation { handle: Unit @Linear } { handle: Unit @Linear } Unit
+use := assumption
 
 -- Closing consumes the linear resource (removes from post-state).
 close :: Computation { handle: Unit @Linear } {} Unit
+close := assumption
 
 -- Valid lifecycle: open, use, close.
 -- The capability row threading ensures @Linear is respected:
 --   open:  {} → { handle: Unit @Linear }
 --   use:   { handle: Unit @Linear } → { handle: Unit @Linear }
 --   close: { handle: Unit @Linear } → {}
---
--- These type-check (try `gicel check`):
---   lifecycle :: Computation {} {} Unit
---   lifecycle := do { open; use; close }
---
---   multiUse :: Computation {} {} Unit
---   multiUse := do { open; use; use; use; close }
---
--- But cannot be evaluated at runtime without host-provided primitives.
+lifecycle :: Computation {} {} Unit
+lifecycle := do { open; use; close }
+
+-- Multiple uses before closing is also valid:
+multiUse :: Computation {} {} Unit
+multiUse := do { open; use; use; use; close }
 
 -- The LUB (least upper bound) of multiplicities is definable as a type family:
 type LUB (m1: Mult) (m2: Mult) :: Mult := {
@@ -54,7 +54,8 @@ type LUB (m1: Mult) (m2: Mult) :: Mult := {
 
 -- Multiplicity annotations compose with row polymorphism.
 -- Here, 'use' works in any environment that has a linear handle:
--- useOpen :: \(r: Row). Computation { handle: Unit @Linear | r } { handle: Unit @Linear | r } Unit
+useOpen :: \(r: Row). Computation { handle: Unit @Linear | r } { handle: Unit @Linear | r } Unit
+useOpen := assumption
 
 -- Output: this example demonstrates type-level guarantees.
 -- At runtime, assumption-based primitives don't execute.
