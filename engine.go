@@ -397,21 +397,21 @@ func (e *Engine) NewRuntime(source string) (*Runtime, error) {
 	// Annotate free variables for safe-for-space closure conversion.
 	core.AnnotateFreeVarsProgram(prog)
 
-	// Collect module programs in registration order for deterministic evaluation.
-	modProgs := make([]*core.Program, 0, len(e.moduleOrder))
+	// Collect module entries in registration order for deterministic evaluation.
+	entries := make([]moduleEntry, 0, len(e.moduleOrder))
 	for _, name := range e.moduleOrder {
-		modProgs = append(modProgs, e.modules[name].prog)
+		entries = append(entries, moduleEntry{name: name, prog: e.modules[name].prog})
 	}
 
 	rt := &Runtime{
-		prog:        prog,
-		prims:       e.prims.Clone(),
-		stepLimit:   e.stepLimit,
-		depthLimit:  e.depthLimit,
-		allocLimit:  e.allocLimit,
-		source:      src,
-		bindings:    maps.Clone(e.bindings),
-		moduleProgs: modProgs,
+		prog:          prog,
+		prims:         e.prims.Clone(),
+		stepLimit:     e.stepLimit,
+		depthLimit:    e.depthLimit,
+		allocLimit:    e.allocLimit,
+		source:        src,
+		bindings:      maps.Clone(e.bindings),
+		moduleEntries: entries,
 	}
 	runtimeGates := maps.Clone(e.gatedBuiltins)
 	if e.runtimeRecursion {

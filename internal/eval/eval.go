@@ -139,7 +139,8 @@ func (ev *Evaluator) evalStep(env *Env, capEnv CapEnv, expr core.Core) (EvalResu
 
 	switch e := expr.(type) {
 	case *core.Var:
-		v, ok := env.Lookup(e.Name)
+		key := core.VarKey(e)
+		v, ok := env.Lookup(key)
 		if !ok {
 			return EvalResult{}, &RuntimeError{Message: fmt.Sprintf("unbound variable: %s", e.Name), Span: e.S}
 		}
