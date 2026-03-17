@@ -90,7 +90,7 @@ type Checker struct {
 	reductionDepth    int                        // current type family reduction depth
 	deferred          []deferredConstraint
 	depth             int
-	resolveDepth      int // instance resolution recursion depth
+	resolveDepth      int                        // instance resolution recursion depth
 	qualifiedScopes   map[string]*qualifiedScope // alias → qualified module scope
 }
 
@@ -175,8 +175,8 @@ func (ch *Checker) importModules(imports []syntax.DeclImport) {
 		return
 	}
 
-	seen := make(map[string]bool)       // module names already imported
-	aliases := make(map[string]string)   // alias → module name (for collision detection)
+	seen := make(map[string]bool)      // module names already imported
+	aliases := make(map[string]string) // alias → module name (for collision detection)
 
 	for _, imp := range imports {
 		// Core is implicit and user-invisible. Selective/qualified Core is an error.
