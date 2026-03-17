@@ -254,7 +254,7 @@ host bindings, custom capabilities, custom prelude, and more.
 - **Errors caught before execution** — full type inference with bidirectional checking. Missing capabilities are compile-time errors, not runtime surprises
 - **Expressive when you need it** — higher-rank polymorphism, higher-kinded types, kind inference
 - **Records & tuples** — structured data with row polymorphism
-- **8 stdlib packs** — Num, Str, List, Fail, State, IO, Stream, Slice — opt in to what you need
+- **10 stdlib packs** — Num, Str, List, Fail, State, IO, Stream, Slice, Map, Set — opt in to what you need
 
 ## Stdlib Packs
 
@@ -268,6 +268,8 @@ host bindings, custom capabilities, custom prelude, and more.
 | `IO`     | `print`/`debug` via CapEnv buffer                         |
 | `Stream` | Lazy list: `LCons`/`LNil`, `headS`, `tailS`, `takeS`      |
 | `Slice`  | Contiguous array: O(1) length/index, `Functor`/`Foldable` |
+| `Map`    | Ordered immutable map (AVL), `Ord`-keyed                   |
+| `Set`    | Ordered immutable set, backed by `Map`                     |
 
 ## Documentation
 

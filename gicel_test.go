@@ -4672,3 +4672,104 @@ func TestExplainKindNegativeJSON(t *testing.T) {
 		t.Errorf("negative kind should serialize as 'unknown', got %v", m["kind"])
 	}
 }
+
+// --- Regression tests for defensive-copy and isolation fixes ---
+
+func TestFromConDefensiveCopy(t *testing.T) {
+	v := &gicel.ConVal{Con: "Pair", Args: []gicel.Value{gicel.ToValue(1), gicel.ToValue(2)}}
+	_, args, ok := gicel.FromCon(v)
+	if !ok {
+		t.Fatal("expected ConVal")
+	}
+	// Mutate the returned slice.
+	args[0] = gicel.ToValue(999)
+	// Original must be unchanged.
+	_, orig, _ := gicel.FromCon(v)
+	if gicel.MustHost[int](orig[0]) != 1 {
+		t.Error("FromCon returned slice aliases internal Args — mutation leaked")
+	}
+}
+
+func TestFromRecordDefensiveCopy(t *testing.T) {
+	eng := gicel.NewEngine()
+	eng.Use(gicel.Num)
+	rt, err := eng.NewRuntime("import Std.Num\nmain := { a: 1, b: 2 }")
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := rt.RunWith(context.Background(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	fields, ok := gicel.FromRecord(result.Value)
+	if !ok {
+		t.Fatal("expected record value")
+	}
+	// Mutate the returned map.
+	fields["injected"] = gicel.ToValue(999)
+	// Re-extract — original must not contain the injected key.
+	fields2, _ := gicel.FromRecord(result.Value)
+	if _, found := fields2["injected"]; found {
+		t.Error("FromRecord returned map aliases internal Fields — mutation leaked")
+	}
+}
+
+func TestTypeFamilyIsolationAcrossCompilations(t *testing.T) {
+	eng := gicel.NewEngine()
+	eng.NoPrelude()
+	// Register a module with a class + associated type.
+	err := eng.RegisterModule("TFLib", `
+data Bool := True | False
+data Nat := Zero | Succ Nat
+
+class Convert a {
+  type Target a :: Type;
+  convert :: a -> Target a
+}
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// First compilation: instance Convert Bool.
+	rt1, err := eng.NewRuntime(`
+import TFLib
+instance Convert Bool {
+  type Target Bool =: Nat;
+  convert := \b. case b { True -> Succ Zero; False -> Zero }
+}
+main := convert True
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	r1, err := rt1.RunWith(context.Background(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	con1, ok := r1.Value.(*gicel.ConVal)
+	if !ok || con1.Con != "Succ" {
+		t.Fatalf("first compilation: expected Succ, got %s", r1.Value)
+	}
+	// Second compilation: same import, different instance.
+	// If isolation is broken, the first compilation's equations
+	// would have leaked into the module metadata.
+	rt2, err := eng.NewRuntime(`
+import TFLib
+instance Convert Nat {
+  type Target Nat =: Bool;
+  convert := \n. case n { Zero -> False; Succ _ -> True }
+}
+main := convert Zero
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	r2, err := rt2.RunWith(context.Background(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	con2, ok := r2.Value.(*gicel.ConVal)
+	if !ok || con2.Con != "False" {
+		t.Fatalf("second compilation: expected False, got %s", r2.Value)
+	}
+}

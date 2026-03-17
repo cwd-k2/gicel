@@ -229,7 +229,7 @@ func setupEngine(use string) (*gicel.Engine, error) {
 		}
 		p, ok := packMap[name]
 		if !ok {
-			return nil, fmt.Errorf("unknown pack: %s (available: Num,Str,List,Fail,State,IO,Stream,Slice)", name)
+			return nil, fmt.Errorf("unknown pack: %s (available: Num,Str,List,Fail,State,IO,Stream,Slice,Map,Set)", name)
 		}
 		if err := p(eng); err != nil {
 			return nil, err
