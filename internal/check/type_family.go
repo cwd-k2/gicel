@@ -156,10 +156,7 @@ func (ch *Checker) reduceTyFamily(name string, args []types.Type, s span.Span) (
 		subst, result := ch.matchTyPatterns(eq.Patterns, args)
 		switch result {
 		case matchSuccess:
-			rhs := eq.RHS
-			for varName, repl := range subst {
-				rhs = types.Subst(rhs, varName, repl)
-			}
+			rhs := types.SubstMany(eq.RHS, subst)
 			// Guard against exponential type growth: e.g., `Grow a = Grow (Pair a a)`
 			// doubles the type on each step. Without this check, 100 steps would
 			// produce a type with ~2^100 nodes, causing OOM/hang during Zonk.
@@ -181,6 +178,9 @@ func (ch *Checker) reduceTyFamily(name string, args []types.Type, s span.Span) (
 // matchTyPatterns attempts to match type patterns against arguments.
 // Returns a substitution and match result.
 func (ch *Checker) matchTyPatterns(patterns, args []types.Type) (map[string]types.Type, matchResult) {
+	if len(patterns) != len(args) {
+		return nil, matchFail
+	}
 	subst := make(map[string]types.Type)
 	for i, pat := range patterns {
 		result := ch.matchTyPattern(pat, args[i], subst)
@@ -262,10 +262,10 @@ func (ch *Checker) verifyInjectivity(info *TypeFamilyInfo) {
 			eqJ := info.Equations[j]
 
 			// Instantiate pattern variables as fresh metas for both equations.
-			rhsI := ch.instantiatePatVars(eqI.RHS, eqI.Patterns)
-			rhsJ := ch.instantiatePatVars(eqJ.RHS, eqJ.Patterns)
-			patsI := ch.instantiatePatVarsList(eqI.Patterns)
-			patsJ := ch.instantiatePatVarsList(eqJ.Patterns)
+			rhsI := ch.instantiatePatVars(eqI.RHS, eqI.Patterns, info.Params)
+			rhsJ := ch.instantiatePatVars(eqJ.RHS, eqJ.Patterns, info.Params)
+			patsI := ch.instantiatePatVarsList(eqI.Patterns, info.Params)
+			patsJ := ch.instantiatePatVarsList(eqJ.Patterns, info.Params)
 
 			// Trial unification on RHSes.
 			if ch.tryUnify(rhsI, rhsJ) {
@@ -288,21 +288,26 @@ func (ch *Checker) verifyInjectivity(info *TypeFamilyInfo) {
 }
 
 // instantiatePatVars replaces free TyVars (pattern variables) with fresh metas.
-func (ch *Checker) instantiatePatVars(ty types.Type, patterns []types.Type) types.Type {
-	vars := collectPatternVars(patterns)
-	for _, v := range vars {
-		ty = types.Subst(ty, v, ch.freshMeta(types.KType{}))
+// Uses parameter kinds from the family info to assign correct kinds to metas.
+func (ch *Checker) instantiatePatVars(ty types.Type, patterns []types.Type, params []TFParam) types.Type {
+	varKinds := collectPatternVarKinds(patterns, params)
+	for _, v := range collectPatternVars(patterns) {
+		kind := varKinds[v]
+		ty = types.Subst(ty, v, ch.freshMeta(kind))
 	}
 	return ty
 }
 
 // instantiatePatVarsList replaces free TyVars in each pattern with fresh metas.
-func (ch *Checker) instantiatePatVarsList(patterns []types.Type) []types.Type {
+// Uses parameter kinds from the family info to assign correct kinds to metas.
+func (ch *Checker) instantiatePatVarsList(patterns []types.Type, params []TFParam) []types.Type {
 	vars := collectPatternVars(patterns)
+	varKinds := collectPatternVarKinds(patterns, params)
 	result := make([]types.Type, len(patterns))
 	subs := make(map[string]types.Type, len(vars))
 	for _, v := range vars {
-		subs[v] = ch.freshMeta(types.KType{})
+		kind := varKinds[v]
+		subs[v] = ch.freshMeta(kind)
 	}
 	for i, p := range patterns {
 		result[i] = types.SubstMany(p, subs)
@@ -330,6 +335,41 @@ func collectPatternVarsRec(t types.Type, seen map[string]bool, result *[]string)
 	case *types.TyApp:
 		collectPatternVarsRec(ty.Fun, seen, result)
 		collectPatternVarsRec(ty.Arg, seen, result)
+	}
+}
+
+// collectPatternVarKinds maps each pattern variable to its kind based on the
+// parameter position where it first appears. A bare TyVar at position i gets
+// params[i].Kind; a TyVar nested inside TyApp (e.g., List a) defaults to KType.
+func collectPatternVarKinds(patterns []types.Type, params []TFParam) map[string]types.Kind {
+	result := make(map[string]types.Kind)
+	for i, p := range patterns {
+		var paramKind types.Kind
+		if i < len(params) {
+			paramKind = params[i].Kind
+		} else {
+			paramKind = types.KType{}
+		}
+		collectVarKindsRec(p, paramKind, result)
+	}
+	return result
+}
+
+// collectVarKindsRec assigns kinds to pattern variables. A bare TyVar gets
+// the contextual kind; variables inside TyApp positions default to KType
+// (since they occupy the argument slot of a type-level application).
+func collectVarKindsRec(t types.Type, contextKind types.Kind, result map[string]types.Kind) {
+	switch ty := t.(type) {
+	case *types.TyVar:
+		if ty.Name != "_" {
+			if _, exists := result[ty.Name]; !exists {
+				result[ty.Name] = contextKind
+			}
+		}
+	case *types.TyApp:
+		// The head of a TyApp has a higher kind; args default to KType.
+		collectVarKindsRec(ty.Fun, types.KType{}, result)
+		collectVarKindsRec(ty.Arg, types.KType{}, result)
 	}
 }
 
@@ -385,6 +425,10 @@ func (ch *Checker) installFamilyReducer() {
 
 // reduceFamilyApps walks a type and reduces any TyFamilyApp nodes
 // or TyApp chains that form a saturated type family application.
+// It also recurses into type structure (TyApp, TyArrow, TyComp, etc.)
+// so that nested family applications are reduced — this is important
+// for exhaustiveness checking which calls reduceFamilyInType on the
+// full scrutinee type.
 func (ch *Checker) reduceFamilyApps(t types.Type) types.Type {
 	// Bail out if we've exceeded the reduction depth (set by reduceTyFamily calls).
 	if ch.reductionDepth > maxReductionDepth {
@@ -392,18 +436,27 @@ func (ch *Checker) reduceFamilyApps(t types.Type) types.Type {
 	}
 	// Case 1: explicit TyFamilyApp.
 	if tf, ok := t.(*types.TyFamilyApp); ok {
-		result, reduced := ch.reduceTyFamily(tf.Name, tf.Args, tf.S)
+		// Recurse into arguments first.
+		args := make([]types.Type, len(tf.Args))
+		for i, a := range tf.Args {
+			args[i] = ch.reduceFamilyApps(a)
+		}
+		result, reduced := ch.reduceTyFamily(tf.Name, args, tf.S)
 		if reduced {
 			return ch.reduceFamilyApps(result)
 		}
-		return t
+		return &types.TyFamilyApp{Name: tf.Name, Args: args, Kind: tf.Kind, S: tf.S}
 	}
 	// Case 2: TyApp chain with TyCon head that is a known type family.
 	// This arises from substitution (e.g., Elem c [c := List a]).
-	if _, ok := t.(*types.TyApp); ok {
+	if app, ok := t.(*types.TyApp); ok {
 		head, args := types.UnwindApp(t)
 		if con, ok := head.(*types.TyCon); ok {
 			if fam, ok := ch.families[con.Name]; ok && len(fam.Params) == len(args) {
+				// Recurse into arguments first.
+				for i, a := range args {
+					args[i] = ch.reduceFamilyApps(a)
+				}
 				result, reduced := ch.reduceTyFamily(con.Name, args, t.Span())
 				if reduced {
 					return ch.reduceFamilyApps(result)
@@ -412,6 +465,45 @@ func (ch *Checker) reduceFamilyApps(t types.Type) types.Type {
 				return &types.TyFamilyApp{Name: con.Name, Args: args, Kind: fam.ResultKind, S: t.Span()}
 			}
 		}
+		// Not a type family application — recurse into Fun and Arg.
+		rFun := ch.reduceFamilyApps(app.Fun)
+		rArg := ch.reduceFamilyApps(app.Arg)
+		if rFun == app.Fun && rArg == app.Arg {
+			return t
+		}
+		return &types.TyApp{Fun: rFun, Arg: rArg, S: app.S}
+	}
+	// Case 3: structural recursion into other type formers.
+	switch ty := t.(type) {
+	case *types.TyArrow:
+		rFrom := ch.reduceFamilyApps(ty.From)
+		rTo := ch.reduceFamilyApps(ty.To)
+		if rFrom == ty.From && rTo == ty.To {
+			return t
+		}
+		return &types.TyArrow{From: rFrom, To: rTo, S: ty.S}
+	case *types.TyComp:
+		rPre := ch.reduceFamilyApps(ty.Pre)
+		rPost := ch.reduceFamilyApps(ty.Post)
+		rResult := ch.reduceFamilyApps(ty.Result)
+		if rPre == ty.Pre && rPost == ty.Post && rResult == ty.Result {
+			return t
+		}
+		return &types.TyComp{Pre: rPre, Post: rPost, Result: rResult, S: ty.S}
+	case *types.TyThunk:
+		rPre := ch.reduceFamilyApps(ty.Pre)
+		rPost := ch.reduceFamilyApps(ty.Post)
+		rResult := ch.reduceFamilyApps(ty.Result)
+		if rPre == ty.Pre && rPost == ty.Post && rResult == ty.Result {
+			return t
+		}
+		return &types.TyThunk{Pre: rPre, Post: rPost, Result: rResult, S: ty.S}
+	case *types.TyForall:
+		rBody := ch.reduceFamilyApps(ty.Body)
+		if rBody == ty.Body {
+			return t
+		}
+		return &types.TyForall{Var: ty.Var, Kind: ty.Kind, Body: rBody, S: ty.S}
 	}
 	return t
 }

@@ -505,7 +505,6 @@ func (u *Unifier) occursIn(id int, t types.Type) bool {
 	case *types.TyMeta:
 		return ty.ID == id
 	case *types.TySkolem:
-		_ = ty
 		return false // skolem IDs are in a different namespace
 	default:
 		for _, ch := range t.Children() {

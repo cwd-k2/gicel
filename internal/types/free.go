@@ -41,6 +41,9 @@ func freeVarsRec(t Type, bound map[string]bool, fv map[string]struct{}) {
 		case *CapabilityEntries:
 			for _, f := range entries.Fields {
 				freeVarsRec(f.Type, bound, fv)
+				if f.Mult != nil {
+					freeVarsRec(f.Mult, bound, fv)
+				}
 			}
 		case *ConstraintEntries:
 			for _, e := range entries.Entries {

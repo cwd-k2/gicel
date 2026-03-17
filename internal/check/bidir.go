@@ -479,7 +479,11 @@ func (ch *Checker) checkCaseAlts(scrutTy, resultTy types.Type, scrutCore core.Co
 	// Join divergent post-states.
 	if isComp && len(branchPosts) > 0 {
 		joinedPost := ch.lubPostStates(branchPosts, e.S)
-		_ = ch.unifier.Unify(comp.Post, joinedPost)
+		if err := ch.unifier.Unify(comp.Post, joinedPost); err != nil {
+			ch.addUnifyError(err, e.S, fmt.Sprintf(
+				"cannot unify case post-state: expected %s, got %s",
+				types.Pretty(comp.Post), types.Pretty(joinedPost)))
+		}
 	}
 
 	ch.checkExhaustive(scrutTy, alts, e.S)

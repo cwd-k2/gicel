@@ -656,29 +656,6 @@ func headTyCon(ty types.Type) string {
 	}
 }
 
-// headTyConWithFamilies is like headTyCon but reduces type family applications first.
-func (ch *Checker) headTyConWithFamilies(ty types.Type) string {
-	// Try reducing type families.
-	if tf, ok := ty.(*types.TyFamilyApp); ok {
-		result, reduced := ch.reduceTyFamily(tf.Name, tf.Args, tf.S)
-		if reduced {
-			return ch.headTyConWithFamilies(result)
-		}
-	}
-	if _, ok := ty.(*types.TyApp); ok {
-		head, args := types.UnwindApp(ty)
-		if con, ok := head.(*types.TyCon); ok {
-			if fam, ok := ch.families[con.Name]; ok && len(fam.Params) == len(args) {
-				result, reduced := ch.reduceTyFamily(con.Name, args, ty.Span())
-				if reduced {
-					return ch.headTyConWithFamilies(result)
-				}
-			}
-		}
-	}
-	return headTyCon(ty)
-}
-
 // canUnifyWith tests whether retTy can unify with scrutTy in a temporary
 // unifier. Used for GADT exhaustiveness to filter irrelevant constructors.
 func (ch *Checker) canUnifyWith(retTy, scrutTy types.Type) bool {

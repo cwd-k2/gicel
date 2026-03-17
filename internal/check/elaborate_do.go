@@ -126,7 +126,11 @@ func (ch *Checker) elaborateStmtsChecked(stmts []syntax.Stmt, comp *types.TyComp
 		compTy = ch.unifier.Zonk(compTy)
 		if inferredComp, ok := compTy.(*types.TyComp); ok {
 			// Unify inferred pre with expected pre.
-			_ = ch.unifier.Unify(inferredComp.Pre, comp.Pre)
+			if err := ch.unifier.Unify(inferredComp.Pre, comp.Pre); err != nil {
+				ch.addUnifyError(err, st.S, fmt.Sprintf(
+					"do bind: pre-state mismatch: expected %s, got %s",
+					types.Pretty(comp.Pre), types.Pretty(inferredComp.Pre)))
+			}
 			resultTy := inferredComp.Result
 			ch.ctx.Push(&CtxVar{Name: st.Var, Type: resultTy})
 			// Rest: Computation mid post result — mid from inferred post, post/result from expected.
@@ -140,6 +144,10 @@ func (ch *Checker) elaborateStmtsChecked(stmts []syntax.Stmt, comp *types.TyComp
 		ch.ctx.Push(&CtxVar{Name: st.Var, Type: resultTy})
 		restTy, restCore := ch.elaborateStmts(stmts[1:], s)
 		ch.ctx.Pop()
+		// Best-effort: infer didn't produce TyComp, so pre/post threading
+		// is unavailable. Unifying the inferred rest type with the expected
+		// computation type is advisory — failure means the do block types
+		// are already inconsistent and errors will surface elsewhere.
 		_ = ch.unifier.Unify(restTy, comp)
 		return &core.Bind{Comp: compCore, Var: st.Var, Body: restCore, S: st.S}
 
@@ -160,12 +168,20 @@ func (ch *Checker) elaborateStmtsChecked(stmts []syntax.Stmt, comp *types.TyComp
 		compTy, compCore := ch.infer(st.Expr)
 		compTy = ch.unifier.Zonk(compTy)
 		if inferredComp, ok := compTy.(*types.TyComp); ok {
-			_ = ch.unifier.Unify(inferredComp.Pre, comp.Pre)
+			if err := ch.unifier.Unify(inferredComp.Pre, comp.Pre); err != nil {
+				ch.addUnifyError(err, st.S, fmt.Sprintf(
+					"do statement: pre-state mismatch: expected %s, got %s",
+					types.Pretty(comp.Pre), types.Pretty(inferredComp.Pre)))
+			}
 			restComp := &types.TyComp{Pre: inferredComp.Post, Post: comp.Post, Result: comp.Result, S: comp.S}
 			restCore := ch.elaborateStmtsChecked(stmts[1:], restComp, s)
 			return &core.Bind{Comp: compCore, Var: "_", Body: restCore, S: st.S}
 		}
 		restTy, restCore := ch.elaborateStmts(stmts[1:], s)
+		// Best-effort: infer didn't produce TyComp, so pre/post threading
+		// is unavailable. Unifying the inferred rest type with the expected
+		// computation type is advisory — failure means the do block types
+		// are already inconsistent and errors will surface elsewhere.
 		_ = ch.unifier.Unify(restTy, comp)
 		return &core.Bind{Comp: compCore, Var: "_", Body: restCore, S: st.S}
 	}

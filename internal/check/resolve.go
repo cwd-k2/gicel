@@ -422,6 +422,12 @@ func (ch *Checker) applyFunDepImprovement(className string, args []types.Type) {
 						continue
 					}
 					instArg := ch.unifier.Zonk(types.SubstMany(inst.TypeArgs[toIdx], freshSubst))
+					// Fundep improvement is best-effort: if the "to" position
+					// cannot be unified (e.g., already constrained to a different
+					// type), we silently skip. This is intentional — fundep
+					// improvement is advisory, not mandatory. A hard error here
+					// would reject valid programs where the fundep simply provides
+					// no additional information.
 					_ = ch.unifier.Unify(args[toIdx], instArg)
 				}
 				break // first matching instance wins
