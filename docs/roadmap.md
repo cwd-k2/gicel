@@ -1,28 +1,14 @@
 # GICEL Roadmap
 
-Current state: **v0.7 + Type System Extensions.** All core features implemented. Type system extended with type families, associated types, functional dependencies, graded evidence, divergent post-states, session types, and data families.
+Current state: **v0.7.** All core features implemented, including type families, associated types, functional dependencies, data families, multiplicity annotations, divergent post-states, and session types.
 
 See `spec/language.md` for the complete language specification.
 
 ---
 
-## Completed: Type System Extensions (2026-03-17)
+## Multiplicity Enforcement
 
-9 extensions implemented on branch `feature/type-system-extensions`:
-
-- **Type families**: Closed, recursive (fuel 100), constraint families, injectivity verification
-- **Associated types**: In class declarations, equation collection from instances
-- **Functional dependencies**: `| a -> b` on MPTCs, improvement in instance resolution
-- **Graded Evidence**: `@Mult` syntax on row fields, `RowField.Mult` through full pipeline
-- **Divergent post-states**: Case branches with different post-states joined via intersection
-- **Session types**: Library feature on recursive TF + DataKinds
-- **Data families**: Constructor mangling, exhaustiveness checking
-
----
-
-## Graded Evidence — Remaining Work
-
-Usage tracking (linear/affine/unrestricted) structural foundation complete. Remaining:
+Usage tracking (linear/affine/unrestricted) has structural foundation in place (`@Mult` annotation, `RowField.Mult` through the full pipeline). Remaining:
 
 - `checkMultiplicity` enforcement at bind sites (stub ready)
 - LUB type family integration for multiplicity join at branch points
@@ -40,16 +26,20 @@ Usage tracking (linear/affine/unrestricted) structural foundation complete. Rema
 
 ## Open Design Fork Points
 
-| Fork Point                                         | Current State         | Decision Trigger                                                     |
-| -------------------------------------------------- | --------------------- | -------------------------------------------------------------------- |
-| `Row` as built-in kind vs general structured-index | Built-in kind         | Need for non-capability indexing                                     |
-| Algebraic effects/handlers vs indexed monad        | Indexed monad (Atkey) | Evidence that handler-based approach better serves AI agent use case |
+| Fork Point                                         | Current State                                          | Decision Trigger                                                         |
+| -------------------------------------------------- | ------------------------------------------------------ | ------------------------------------------------------------------------ |
+| `Row` as built-in kind vs general structured-index | Built-in kind; reduced pressure via DataKinds          | Need for non-capability indexing (e.g., session types)                   |
+| Algebraic effects/handlers vs indexed monad        | Indexed monad (Atkey); type families reduce motivation | Evidence that handler-based approach better serves the AI agent use case |
 
-Resolved fork points:
+---
 
-- ~~Branching with divergent post-states~~ → **Resolved**: intersection join (2026-03-17)
-- ~~Usage judgment (linear/affine)~~ → **Resolved**: `@Mult` annotation + `RowField.Mult` (2026-03-17)
-- ~~Type families~~ → **Resolved**: full implementation (2026-03-17)
+## Research Directions
+
+Type families introduce type-level computation into GICEL's unique coordinate (Atkey indexed monad × row polymorphism × CBPV × Go embedding), opening research directions specific to this intersection:
+
+- **Double grading**: Adding multiplicity grades to `Computation pre post a` creates a doubly-graded structure where state transition and usage discipline interact, mediated by row unification.
+- **Evidence fiber interaction**: Type families cross fiber boundaries (`Type → Constraint`, `promoted kind → Row`). Where fiber independence ends and fiber interaction begins is specific to GICEL's evidence architecture.
+- **Reduction and unification scheduling**: When a type family returns a `Row` used in a unification target, type family reduction and row unification become interdependent — a non-trivial scheduling problem.
 
 ---
 

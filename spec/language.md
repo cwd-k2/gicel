@@ -569,7 +569,7 @@ dbOpen :: forall r. Computation { db : DB Closed | r }
                                 ()
 ```
 
-Promotion applies only to nullary constructors. Constructors with fields are not promoted (promoting them would require type families — a phase transition).
+Promotion applies only to nullary constructors. Constructors with fields are not promoted.
 
 In type position, names are resolved by: (1) check type constructors, (2) check promoted data constructors, (3) ambiguity error if both match.
 
@@ -1326,16 +1326,14 @@ Types (`Int`, `String`, `Rune`) are checker built-ins; operations come from stdl
 
 # 16. Open Design Fork Points
 
-| Fork Point                                         | Current State                                 | Decision Trigger                                                                   |
-| -------------------------------------------------- | --------------------------------------------- | ---------------------------------------------------------------------------------- |
-| Branching with divergent post-states               | Mechanism available (LUB via TF); policy open | User demand for `if`-like branching where branches modify capabilities differently |
-| `Row` as built-in kind vs general structured-index | Built-in kind; reduced pressure via DataKinds | Need for non-capability indexing (e.g., session types)                             |
-| Usage judgment (linear/affine capabilities)        | Mult annotation designed; enforcement pending | Graded Evidence (Level 10) design                                                  |
-| Algebraic effects/handlers vs indexed monad        | Indexed monad (Atkey); TF reduces motivation  | Evidence that handler-based approach better serves the AI agent use case           |
+| Fork Point                                         | Current State                                           | Decision Trigger                                                        |
+| -------------------------------------------------- | ------------------------------------------------------- | ----------------------------------------------------------------------- |
+| `Row` as built-in kind vs general structured-index | Built-in kind; reduced pressure via DataKinds           | Need for non-capability indexing (e.g., session types)                  |
+| Algebraic effects/handlers vs indexed monad        | Indexed monad (Atkey); type families reduce motivation  | Evidence that handler-based approach better serves the AI agent use case |
 
 ---
 
-# 17. Type System Extensions
+# 17. Type Families
 
 ## 17.1 Type Families
 
@@ -1361,7 +1359,7 @@ type Elem (c : Type) :: Type = {
 
 **Reduction semantics**: For each equation, the checker attempts to match the arguments against the left-hand side patterns. On success, the result is the substituted right-hand side. On failure, the next equation is tried. On **indeterminate** match (unsolved metavariables), reduction is **stuck** — further equations are not tried. This prevents premature commitment when a metavariable may later unify with an earlier equation's pattern.
 
-**Confluence**: guaranteed by ordered, first-match semantics. **Termination**: Phase 1 (non-recursive) reduces in one step per application; Phase 3 (recursive) uses a fuel limit.
+**Confluence**: guaranteed by ordered, first-match semantics. **Termination**: Non-recursive type families reduce in one step per application. Recursive type families use a fuel limit (default: 100 reductions per type expression) and a type size bound (10000 nodes) to prevent exponential growth.
 
 ### 17.1.2 Associated Types
 
@@ -1504,18 +1502,15 @@ case cond {
 
 The joined post-state is computed by applying `LUB` field-wise across the post-states of all branches. A field present in one branch but absent in another is treated as consumed (`Linear`), and the join reflects the most restrictive usage.
 
-This remains a design fork point (see Chapter 16) — the mechanism is available via type families, but the policy of whether to permit divergent post-states is a separate design decision.
+The intersection of label sets determines the joined post-state. Labels present in one branch but absent in another are treated as consumed in the join. This design permits branches to consume different capabilities while maintaining a sound post-state for the continuation.
 
 ---
 
-# 18. Extension Assessment
+# 18. Potential Extensions
 
-| Extension                | Classification   | Prerequisite                         |
-| ------------------------ | ---------------- | ------------------------------------ |
-| Type Families (Phase 1)  | Phase transition | Checker changes (Ch. 17 design)      |
-| Associated Types (Ph. 2) | Phase transition | Phase 1 complete                     |
-| Recursive TF (Phase 3)   | Phase transition | Fuel counter, cycle detection        |
-| Refinement Types         | Phase transition | Separate analysis                    |
-| Dependent Types          | Full restructure | Far future                           |
-| Graded Evidence          | Addition         | Unified evidence architecture (done) |
-| Selective module exports | Refinement       | Module system maturity               |
+| Extension                | Classification   | Prerequisite             |
+| ------------------------ | ---------------- | ------------------------ |
+| Multiplicity enforcement | Addition         | `checkMultiplicity` stub |
+| Selective module exports | Refinement       | Module system maturity   |
+| Refinement Types         | Phase transition | Separate analysis        |
+| Dependent Types          | Full restructure | Far future               |
