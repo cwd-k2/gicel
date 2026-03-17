@@ -83,6 +83,9 @@ gicel run hello.gicel              # compile and execute
 gicel check program.gicel          # type-check only
 gicel run --explain program.gicel  # semantic evaluation trace
 gicel run --json program.gicel     # machine-readable output
+
+# Multi-file projects
+gicel run --module Util=lib/Util.gicel main.gicel
 ```
 
 ### Go Library
@@ -250,10 +253,11 @@ host bindings, custom capabilities, custom prelude, and more.
 
 ## Features
 
-- **Small, learnable syntax** — 10 keywords. ADTs, pattern matching, type classes, do-notation
+- **Small, learnable syntax** — 11 keywords. ADTs, pattern matching, type classes, do-notation
 - **Errors caught before execution** — full type inference with bidirectional checking. Missing capabilities are compile-time errors, not runtime surprises
 - **Expressive when you need it** — higher-rank polymorphism, higher-kinded types, kind inference
 - **Records & tuples** — structured data with row polymorphism
+- **Module system** — open, selective, and qualified imports for name control
 - **Prelude + 7 optional packs** — Prelude bundles Num, Str, List; effect and data packs opt in to what you need
 
 ## Stdlib Packs
@@ -275,10 +279,24 @@ host bindings, custom capabilities, custom prelude, and more.
 - [Agent Guide](docs/agent-guide/) — complete language reference with Go API details
 - [Grammar Reference](docs/grammar-reference.md) — syntax at a glance
 
+## Import Forms
+
+```gicel
+import Prelude                          -- open: all names unqualified
+import Prelude (map, Maybe(..))         -- selective: listed names only
+import Data.Map as M                    -- qualified: M.lookup, M.insert
+```
+
+Selective imports control which names enter scope. Qualified imports keep all
+names behind a prefix, preventing collisions between modules. See
+[`examples/cli/multi-module/`](examples/cli/multi-module/) for a working
+multi-file project.
+
 ## Examples
 
 - [`examples/gicel/`](examples/gicel/) — GICEL programs: ADTs, type classes, HKT, records, effects, ...
-- [`examples/go/`](examples/go/) — Go embedding: lifecycle, capabilities, sandbox, ...
+- [`examples/go/`](examples/go/) — Go embedding: lifecycle, capabilities, sandbox, multi-module, ...
+- [`examples/cli/multi-module/`](examples/cli/multi-module/) — CLI multi-file project with selective + qualified imports
 
 ## Editor Support
 
