@@ -1,0 +1,67 @@
+-- GICEL Example: Multiplicity Annotations
+--
+-- Row fields can carry multiplicity annotations using @Mult.
+--   @Linear       — must be consumed exactly once
+--   @Affine       — may be consumed at most once
+--   @Unrestricted — no usage restriction (default)
+--
+-- Multiplicities constrain how capabilities flow through
+-- computations without affecting runtime behavior.
+-- Level: types
+
+import Std.Num
+import Std.Str
+
+data Mult := Unrestricted | Affine | Linear
+
+-- Mult values describe resource usage disciplines.
+describe :: Mult -> String
+describe := \m. case m {
+  Linear -> "linear: must use exactly once";
+  Affine -> "affine: use at most once";
+  Unrestricted -> "unrestricted: use freely"
+}
+
+-- LUB (least upper bound): the strictest of two multiplicities.
+-- Definable as a closed type family over promoted Mult constructors.
+type LUB (m1: Mult) (m2: Mult) :: Mult := {
+  LUB Linear _ =: Linear;
+  LUB _ Linear =: Linear;
+  LUB Affine _ =: Affine;
+  LUB _ Affine =: Affine;
+  LUB Unrestricted Unrestricted =: Unrestricted
+}
+
+-- @Mult annotates row fields with a usage discipline.
+-- These type signatures show how capability rows carry multiplicities:
+--
+--   open  :: Computation {} { handle: Unit @Linear } Unit
+--   use   :: Computation { handle: Unit @Linear } { handle: Unit @Linear } Unit
+--   close :: Computation { handle: Unit @Linear } {} Unit
+--
+-- The Atkey-indexed monad threads row types:
+--   open  introduces { handle @Linear } into the post-state
+--   use   preserves it in both pre- and post-state
+--   close consumes it (removes from post-state)
+--
+-- Composing via do-notation:
+--   lifecycle :: Computation {} {} Unit
+--   lifecycle := do { open; use; close }
+--
+-- Opening without closing is a type error:
+--   bad := do { open }   -- post-state { handle @Linear } ≠ {}
+--
+-- See examples/go/assumption for host-provided primitive bindings.
+
+-- Mirror LUB at the value level for demonstration.
+lub :: Mult -> Mult -> Mult
+lub := \a b. case a {
+  Linear -> Linear;
+  Affine -> case b { Linear -> Linear; _ -> Affine };
+  Unrestricted -> b
+}
+
+-- Output: ("linear: must use exactly once", "affine: use at most once",
+--          "unrestricted: use freely", Linear, Affine, Unrestricted)
+main := (describe Linear, describe Affine, describe Unrestricted,
+         lub Linear Affine, lub Affine Unrestricted, lub Unrestricted Unrestricted)
