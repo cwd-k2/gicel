@@ -30,15 +30,21 @@ type Runtime struct {
 	allocLimit    int64
 	source        *span.Source
 	bindings      map[string]types.Type
-	moduleEntries []moduleEntry // module programs in registration order
-	builtinEnv    *eval.Env     // pre-built pure/bind/force/fix/rec closures
+	moduleEntries []moduleEntry    // ALL module programs in registration order
+	importOrder   []importedModule // modules imported by main source, in import order
+	builtinEnv    *eval.Env        // pre-built pure/bind/force/fix/rec closures
 }
 
 // moduleEntry pairs a module name with its compiled program.
 type moduleEntry struct {
-	name          string
-	prog          *core.Program
-	qualifiedOnly bool // true if imported as qualified (no plain-name registration)
+	name string
+	prog *core.Program
+}
+
+// importedModule records a module imported by the main source in import order.
+type importedModule struct {
+	name string
+	prog *core.Program
 }
 
 // Program returns the compiled Core IR for debugging/inspection.
@@ -68,14 +74,12 @@ func (r *Runtime) initBuiltinEnv(gatedBuiltins map[string]bool) {
 			}
 		}
 	}
-	// Re-register open-imported constructors so their plain names win.
-	for _, me := range r.moduleEntries {
-		if me.qualifiedOnly {
-			continue
-		}
-		for _, d := range me.prog.DataDecls {
+	// Re-register constructors from imported modules in import order.
+	// This ensures the user's import declarations control name priority.
+	for _, im := range r.importOrder {
+		for _, d := range im.prog.DataDecls {
 			for _, con := range d.Cons {
-				if v, ok := env.Lookup(me.name + "\x00" + con.Name); ok {
+				if v, ok := env.Lookup(im.name + "\x00" + con.Name); ok {
 					env = env.Extend(con.Name, v)
 				}
 			}
@@ -138,14 +142,12 @@ func (r *Runtime) execute(ctx context.Context, req *runRequest) (eval.EvalResult
 		}
 	}
 
-	// Re-register open-imported bindings so their plain names shadow
-	// any qualified-only module's plain names from the step above.
-	for _, me := range r.moduleEntries {
-		if me.qualifiedOnly {
-			continue
-		}
-		for _, b := range me.prog.Bindings {
-			if v, ok := env.Lookup(me.name + "\x00" + b.Name); ok {
+	// Re-register bindings from imported modules in import order.
+	// This ensures the user's import declarations control name priority,
+	// and modules not imported by the user don't shadow imported names.
+	for _, im := range r.importOrder {
+		for _, b := range im.prog.Bindings {
+			if v, ok := env.Lookup(im.name + "\x00" + b.Name); ok {
 				env = env.Extend(b.Name, v)
 			}
 		}
