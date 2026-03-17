@@ -56,8 +56,9 @@ const (
 
 	// Literals
 	TokIntLit
-	TokStrLit  // "string"
-	TokRuneLit // 'c'
+	TokDoubleLit // 3.14, 1e10, 1.05e+10
+	TokStrLit    // "string"
+	TokRuneLit   // 'c'
 )
 
 // Token is a single lexical unit.
@@ -125,6 +126,8 @@ func (k TokenKind) String() string {
 		return ".#"
 	case TokIntLit:
 		return "int"
+	case TokDoubleLit:
+		return "double"
 	case TokStrLit:
 		return "string"
 	case TokRuneLit:

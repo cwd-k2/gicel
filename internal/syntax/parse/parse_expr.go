@@ -116,6 +116,10 @@ func (p *Parser) parseAtom() Expr {
 		tok := p.peek()
 		p.advance()
 		e = &ExprIntLit{Value: tok.Text, S: tok.S}
+	case TokDoubleLit:
+		tok := p.peek()
+		p.advance()
+		e = &ExprDoubleLit{Value: tok.Text, S: tok.S}
 	case TokStrLit:
 		tok := p.peek()
 		p.advance()
@@ -515,7 +519,7 @@ func (p *Parser) parsePattern() Pattern {
 		tok := p.peek()
 		p.advance()
 		return &PatWild{S: tok.S}
-	case TokIntLit, TokStrLit, TokRuneLit:
+	case TokIntLit, TokDoubleLit, TokStrLit, TokRuneLit:
 		return p.parseLitPattern()
 	case TokLParen:
 		start := p.peek().S.Start
@@ -609,7 +613,7 @@ func (p *Parser) parsePatternAtom() Pattern {
 		tok := p.peek()
 		p.advance()
 		return &PatCon{Con: tok.Text, S: tok.S}
-	case TokIntLit, TokStrLit, TokRuneLit:
+	case TokIntLit, TokDoubleLit, TokStrLit, TokRuneLit:
 		return p.parseLitPattern()
 	case TokLParen:
 		start := p.peek().S.Start
@@ -652,7 +656,7 @@ func (p *Parser) isPatternAtomStart() bool {
 		return false
 	}
 	k := p.peek().Kind
-	return k == TokLower || k == TokUnderscore || k == TokLParen || k == TokUpper || k == TokIntLit || k == TokStrLit || k == TokRuneLit || k == TokLBrace
+	return k == TokLower || k == TokUnderscore || k == TokLParen || k == TokUpper || k == TokIntLit || k == TokDoubleLit || k == TokStrLit || k == TokRuneLit || k == TokLBrace
 }
 
 func (p *Parser) parseLitPattern() Pattern {
@@ -662,6 +666,8 @@ func (p *Parser) parseLitPattern() Pattern {
 	switch tok.Kind {
 	case TokIntLit:
 		kind = LitInt
+	case TokDoubleLit:
+		kind = LitDouble
 	case TokStrLit:
 		kind = LitString
 	case TokRuneLit:
@@ -696,5 +702,5 @@ func (p *Parser) isAtomStart() bool {
 	if p.noBraceAtom && k == TokLBrace {
 		return false
 	}
-	return k == TokLower || k == TokUpper || k == TokLParen || k == TokBackslash || k == TokLBrace || k == TokCase || k == TokDo || k == TokIntLit || k == TokStrLit || k == TokRuneLit || k == TokLBracket
+	return k == TokLower || k == TokUpper || k == TokLParen || k == TokBackslash || k == TokLBrace || k == TokCase || k == TokDo || k == TokIntLit || k == TokDoubleLit || k == TokStrLit || k == TokRuneLit || k == TokLBracket
 }

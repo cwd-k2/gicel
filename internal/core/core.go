@@ -108,9 +108,9 @@ type PrimOp struct {
 	S         span.Span
 }
 
-// Lit — literal value (Int, String, Rune).
+// Lit — literal value (Int, Double, String, Rune).
 type Lit struct {
-	Value any // int64, string, or rune
+	Value any // int64, float64, string, or rune
 	S     span.Span
 }
 

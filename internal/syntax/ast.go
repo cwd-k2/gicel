@@ -88,6 +88,11 @@ type ExprRuneLit struct {
 	S     span.Span
 }
 
+type ExprDoubleLit struct {
+	Value string // raw text "3.14", "1e10"
+	S     span.Span
+}
+
 type ExprList struct {
 	Elems []Expr
 	S     span.Span
@@ -144,6 +149,7 @@ func (*ExprParen) exprNode()        {}
 func (*ExprIntLit) exprNode()       {}
 func (*ExprStrLit) exprNode()       {}
 func (*ExprRuneLit) exprNode()      {}
+func (*ExprDoubleLit) exprNode()    {}
 func (*ExprList) exprNode()         {}
 func (*ExprRecord) exprNode()       {}
 func (*ExprRecordUpdate) exprNode() {}
@@ -164,6 +170,7 @@ func (e *ExprParen) Span() span.Span        { return e.S }
 func (e *ExprIntLit) Span() span.Span       { return e.S }
 func (e *ExprStrLit) Span() span.Span       { return e.S }
 func (e *ExprRuneLit) Span() span.Span      { return e.S }
+func (e *ExprDoubleLit) Span() span.Span    { return e.S }
 func (e *ExprList) Span() span.Span         { return e.S }
 func (e *ExprRecord) Span() span.Span       { return e.S }
 func (e *ExprRecordUpdate) Span() span.Span { return e.S }
@@ -262,6 +269,7 @@ type LitKind int
 
 const (
 	LitInt    LitKind = iota // integer literal
+	LitDouble                // double literal
 	LitString                // string literal
 	LitRune                  // rune literal
 )
