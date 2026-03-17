@@ -375,11 +375,11 @@ case scrutinee {
 ### Record Projection
 
 ```
-r!#x                            -- project field x from record r
-r!#_1                           -- project first element of tuple
+r.#x                            -- project field x from record r
+r.#_1                           -- project first element of tuple
 ```
 
-`!#` binds at atom level (tighter than function application).
+`.#` binds at atom level (tighter than function application).
 
 ### Operator Section
 

@@ -132,17 +132,17 @@ func TestLexUTF8InComments(t *testing.T) {
 	}
 }
 
-func TestLexBangHash(t *testing.T) {
-	tokens := lex("r!#x")
-	// r, !#, x, EOF
+func TestLexDotHash(t *testing.T) {
+	tokens := lex("r.#x")
+	// r, .#, x, EOF
 	if len(tokens) != 4 {
 		t.Fatalf("expected 4 tokens, got %d", len(tokens))
 	}
 	if tokens[0].Kind != TokLower || tokens[0].Text != "r" {
 		t.Errorf("expected 'r', got %v %q", tokens[0].Kind, tokens[0].Text)
 	}
-	if tokens[1].Kind != TokBangHash || tokens[1].Text != "!#" {
-		t.Errorf("expected TokBangHash '!#', got %v %q", tokens[1].Kind, tokens[1].Text)
+	if tokens[1].Kind != TokDotHash || tokens[1].Text != ".#" {
+		t.Errorf("expected TokDotHash '.#', got %v %q", tokens[1].Kind, tokens[1].Text)
 	}
 	if tokens[2].Kind != TokLower || tokens[2].Text != "x" {
 		t.Errorf("expected 'x', got %v %q", tokens[2].Kind, tokens[2].Text)
@@ -163,11 +163,15 @@ func TestLexDoubleBangStillOp(t *testing.T) {
 	}
 }
 
-func TestLexBangHashInLongerOp(t *testing.T) {
-	// !#= should be a single TokOp (not TokBangHash + TokEq)
-	tokens := lex("!#=")
-	if tokens[0].Kind != TokOp || tokens[0].Text != "!#=" {
-		t.Errorf("expected TokOp '!#=', got %v %q", tokens[0].Kind, tokens[0].Text)
+func TestLexDotHashInLongerOp(t *testing.T) {
+	// .#= should lex as TokDot + TokOp "#=" (not TokDotHash + TokEq)
+	// because .# only matches when # is NOT followed by another operator char
+	tokens := lex(".#=")
+	if tokens[0].Kind != TokDot || tokens[0].Text != "." {
+		t.Errorf("expected TokDot '.', got %v %q", tokens[0].Kind, tokens[0].Text)
+	}
+	if tokens[1].Kind != TokOp || tokens[1].Text != "#=" {
+		t.Errorf("expected TokOp '#=', got %v %q", tokens[1].Kind, tokens[1].Text)
 	}
 }
 
@@ -1133,7 +1137,7 @@ func TestParseRecordUpdate(t *testing.T) {
 }
 
 func TestParseRecordProjection(t *testing.T) {
-	prog, es := parse("v := r!#x")
+	prog, es := parse("v := r.#x")
 	if es.HasErrors() {
 		t.Fatal(es.Format())
 	}
@@ -1155,7 +1159,7 @@ func TestParseRecordProjection(t *testing.T) {
 }
 
 func TestParseChainedProjection(t *testing.T) {
-	prog, es := parse("v := r!#x!#y")
+	prog, es := parse("v := r.#x.#y")
 	if es.HasErrors() {
 		t.Fatal(es.Format())
 	}
@@ -1199,8 +1203,8 @@ func TestParseRecordPattern(t *testing.T) {
 }
 
 func TestParseProjectionPrecedence(t *testing.T) {
-	// f r!#x should parse as App(f, Project(r, x)), not Project(App(f, r), x)
-	prog, es := parse("v := f r!#x")
+	// f r.#x should parse as App(f, Project(r, x)), not Project(App(f, r), x)
+	prog, es := parse("v := f r.#x")
 	if es.HasErrors() {
 		t.Fatal(es.Format())
 	}
@@ -1214,7 +1218,7 @@ func TestParseProjectionPrecedence(t *testing.T) {
 	if !ok || fn.Name != "f" {
 		t.Errorf("expected function 'f', got %T", app.Fun)
 	}
-	// r!#x is the argument
+	// r.#x is the argument
 	proj, ok := app.Arg.(*ExprProject)
 	if !ok {
 		t.Fatalf("expected ExprProject as argument, got %T", app.Arg)

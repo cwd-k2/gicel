@@ -38,18 +38,18 @@ func TestRecordLitNested(t *testing.T) {
 // =============================================================================
 
 func TestRecordProjSimple(t *testing.T) {
-	source := `main := { x = 42 }!#x`
+	source := `main := { x = 42 }.#x`
 	checkSource(t, source, nil)
 }
 
 func TestRecordProjChained(t *testing.T) {
-	source := `main := { x = { y = 42 } }!#x!#y`
+	source := `main := { x = { y = 42 } }.#x.#y`
 	checkSource(t, source, nil)
 }
 
 func TestRecordProjMissing(t *testing.T) {
 	// Projecting a field that doesn't exist should error.
-	source := `main := { x = 42 }!#y`
+	source := `main := { x = 42 }.#y`
 	checkSourceExpectCode(t, source, nil, errs.ErrRowMismatch)
 }
 
@@ -74,7 +74,7 @@ main := { { x = 42, y = True } | x = 0, y = False }`
 
 func TestRecordAnnotated(t *testing.T) {
 	source := `f :: Record { x : Int } -> Int
-f := \r -> r!#x
+f := \r -> r.#x
 main := f { x = 42 }`
 	checkSource(t, source, nil)
 }
@@ -82,7 +82,7 @@ main := f { x = 42 }`
 func TestRecordRowPoly(t *testing.T) {
 	// Row-polymorphic function: takes any record with field x : Int.
 	source := `f :: forall r. Record { x : Int | r } -> Int
-f := \r -> r!#x
+f := \r -> r.#x
 main := f { x = 42, y = 0 }`
 	checkSource(t, source, nil)
 }
@@ -111,7 +111,7 @@ main := f { x = 42, y = True }`
 func TestRecordCheckMode(t *testing.T) {
 	// Check a record literal against an expected record type.
 	source := `f :: Record { x : Int, y : Int } -> Int
-f := \r -> r!#x
+f := \r -> r.#x
 main := f { x = 1, y = 2 }`
 	checkSource(t, source, nil)
 }
@@ -139,7 +139,7 @@ func TestRecordCheckModeTypeMismatch(t *testing.T) {
 	// Field type mismatch should error.
 	source := `data Bool = True | False
 f :: Record { x : Int } -> Int
-f := \r -> r!#x
+f := \r -> r.#x
 main := f { x = True }`
 	checkSourceExpectCode(t, source, nil, errs.ErrTypeMismatch)
 }

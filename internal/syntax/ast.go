@@ -113,7 +113,7 @@ type ExprRecordUpdate struct {
 	S       span.Span
 }
 
-// ExprProject is a record projection: r!#x
+// ExprProject is a record projection: r.#x
 type ExprProject struct {
 	Record Expr
 	Label  string

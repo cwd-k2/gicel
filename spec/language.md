@@ -292,7 +292,7 @@ Op     ::= operator characters              -- +, -, *, /, ==, >>=, .
 | `\`   | Lambda                                                  |
 | `\|`  | Row extension / record update / case separator          |
 | `.`   | forall body separator / composition operator (infixr 9) |
-| `!#`  | Record projection                                       |
+| `.#`  | Record projection                                       |
 | `@`   | Explicit type application                               |
 
 ## 3.4 Type Syntax
@@ -344,7 +344,7 @@ ExprInfix ::= ExprInfix Op ExprApp                          -- operator applicat
 ExprApp   ::= ExprApp ExprProj                              -- function application
             | ExprProj
 
-ExprProj  ::= ExprProj '!#' LowerName                      -- record projection
+ExprProj  ::= ExprProj '.#' LowerName                      -- record projection
             | ExprAtom
 
 ExprApp   ::= ...
@@ -372,7 +372,7 @@ Branch    ::= Pattern '->' Expr
 Lit       ::= IntLit | StringLit | RuneLit
 ```
 
-`!#` binds at atom level (tighter than function application).
+`.#` binds at atom level (tighter than function application).
 
 Three operator section forms exist:
 
@@ -918,15 +918,15 @@ A record literal `{ l₁ = e₁, ..., lₙ = eₙ }` has type `Record { l₁ : T
 
 ## 8.3 Projection
 
-The `!#` operator projects a field from a record:
+The `.#` operator projects a field from a record:
 
 ```
-r!#x            -- project field x
-r!#x!#y         -- chained projection (left-associative, atom-level precedence)
-f r!#x          -- f (r!#x) — projection binds tighter than application
+r.#x            -- project field x
+r.#x.#y         -- chained projection (left-associative, atom-level precedence)
+f r.#x          -- f (r.#x) — projection binds tighter than application
 ```
 
-Typing rule: if `e : Record { l : T | r }`, then `e!#l : T`.
+Typing rule: if `e : Record { l : T | r }`, then `e.#l : T`.
 
 ## 8.4 Update
 
@@ -960,7 +960,7 @@ Tuples are syntactic sugar for records with positional labels `_1`, `_2`, `_3`, 
 | ------------------ | -------------------------------- |
 | `(1, True)`        | `{ _1 = 1, _2 = True }`          |
 | `(Int, Bool)`      | `Record { _1 : Int, _2 : Bool }` |
-| `t!#_1`            | record projection on `_1`        |
+| `t.#_1`            | record projection on `_1`        |
 | `(a, b)` (pattern) | `{ _1 = a, _2 = b }` (pattern)   |
 
 `()` is the 0-tuple, equivalent to the empty record `{}`. It replaces the former `Unit` type.

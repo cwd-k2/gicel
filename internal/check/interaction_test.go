@@ -124,7 +124,7 @@ f :: Elem (List Unit) -> Unit
 f := \x -> x
 
 g :: Record { value : Unit } -> Unit
-g := \r -> r!#value
+g := \r -> r.#value
 `
 	checkSource(t, source, nil)
 }

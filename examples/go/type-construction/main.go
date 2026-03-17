@@ -60,7 +60,7 @@ import Std.Num
 
 wrapJust := assumption
 
-main := wrapJust (origin!#x + origin!#y)
+main := wrapJust (origin.#x + origin.#y)
 `)
 	if err != nil {
 		log.Fatal("compile error: ", err)

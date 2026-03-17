@@ -353,7 +353,7 @@ func TestRowUnifyFieldSubset(t *testing.T) {
 	rt, err := eng.NewRuntime(`
 import Std.Num
 getX :: forall r. Record { x : Int | r } -> Int
-getX := \rec -> rec!#x
+getX := \rec -> rec.#x
 main := getX { x = 42, y = 0 }
 `)
 	if err != nil {
@@ -376,7 +376,7 @@ func TestRowUnifyMissingField(t *testing.T) {
 	_, err := eng.NewRuntime(`
 import Std.Num
 getX :: Record { x : Int } -> Int
-getX := \rec -> rec!#x
+getX := \rec -> rec.#x
 main := getX { y = 0 }
 `)
 	if err == nil {
@@ -627,7 +627,7 @@ func TestRecordProjectionEndToEnd(t *testing.T) {
 	rt, err := eng.NewRuntime(`
 import Std.Num
 r := { x = 1, y = 2 }
-main := r!#x + r!#y
+main := r.#x + r.#y
 `)
 	if err != nil {
 		t.Fatal(err)
@@ -649,7 +649,7 @@ func TestRecordUpdateEndToEnd(t *testing.T) {
 import Std.Num
 r := { x = 1, y = 2 }
 r2 := { r | x = 100 }
-main := r2!#x + r2!#y
+main := r2.#x + r2.#y
 `)
 	if err != nil {
 		t.Fatal(err)
@@ -671,7 +671,7 @@ func TestRecordPatternMatchEndToEnd(t *testing.T) {
 import Std.Num
 swap := \r -> case r { { x = a, y = b } -> { x = b, y = a } }
 r := swap { x = 1, y = 2 }
-main := r!#x
+main := r.#x
 `)
 	if err != nil {
 		t.Fatal(err)
@@ -696,7 +696,7 @@ func TestTupleConstructAndProject(t *testing.T) {
 	rt, err := eng.NewRuntime(`
 import Std.Num
 t := (1, 2, 3)
-main := t!#_1 + t!#_2 + t!#_3
+main := t.#_1 + t.#_2 + t.#_3
 `)
 	if err != nil {
 		t.Fatal(err)
@@ -813,7 +813,7 @@ func TestFN_RecordFieldTypeMismatch(t *testing.T) {
 	_, err := eng.NewRuntime(`
 import Std.Num
 f :: Record { x : Int } -> Int
-f := \r -> r!#x
+f := \r -> r.#x
 main := f { x = True }
 `)
 	if err == nil {
@@ -1141,7 +1141,7 @@ func TestTypeAliasWithParams(t *testing.T) {
 type Pair a b = (a, b)
 mkPair :: forall a b. a -> b -> Pair a b
 mkPair := \x -> \y -> (x, y)
-main := (mkPair True False)!#_1
+main := (mkPair True False).#_1
 `)
 	if err != nil {
 		t.Fatal(err)
@@ -1525,7 +1525,7 @@ func TestHigherRankRecordField(t *testing.T) {
 import Std.Num
 r :: Record { apply : forall a. a -> a }
 r := { apply = \x -> x }
-main := ((r!#apply) True, (r!#apply) 42)
+main := ((r.#apply) True, (r.#apply) 42)
 `)
 	if err != nil {
 		t.Fatal("higher-rank record field should be accepted:", err)
