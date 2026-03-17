@@ -11,7 +11,7 @@ import (
 )
 
 // inferRecord infers the type of a record literal { l1: e1, ..., ln: en }.
-// Type: Record { l1 : T1, ..., ln : Tn }
+// Type: Record { l1: T1, ..., ln: Tn }
 func (ch *Checker) inferRecord(e *syntax.ExprRecord) (types.Type, core.Core) {
 	seen := make(map[string]bool, len(e.Fields))
 	var fields []types.RowField

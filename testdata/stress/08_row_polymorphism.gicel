@@ -1,38 +1,38 @@
-readDB :: \(r : Row). () -> Computation { db : Int | r } { db : Int | r } Int
+readDB :: \(r: Row). () -> Computation { db: Int | r } { db: Int | r } Int
 readDB := assumption
-writeDB :: \(r : Row). Int -> Computation { db : Int | r } { db : Int | r } ()
+writeDB :: \(r: Row). Int -> Computation { db: Int | r } { db: Int | r } ()
 writeDB := assumption
-getLog :: \(r : Row). () -> Computation { log : Int | r } { log : Int | r } Int
+getLog :: \(r: Row). () -> Computation { log: Int | r } { log: Int | r } Int
 getLog := assumption
-appendLog :: \(r : Row). Int -> Computation { log : Int | r } { log : Int | r } ()
+appendLog :: \(r: Row). Int -> Computation { log: Int | r } { log: Int | r } ()
 appendLog := assumption
-readConfig :: \(r : Row). () -> Computation { cfg : Int | r } { cfg : Int | r } Int
+readConfig :: \(r: Row). () -> Computation { cfg: Int | r } { cfg: Int | r } Int
 readConfig := assumption
 
 intAdd :: Int -> Int -> Int
 intAdd := assumption
 
-dbOp :: \(r : Row). Int -> Computation { db : Int | r } { db : Int | r } Int
+dbOp :: \(r: Row). Int -> Computation { db: Int | r } { db: Int | r } Int
 dbOp := \delta. do {
   v <- readDB ();
   _ <- writeDB (intAdd v delta);
   readDB ()
 }
 
-logOp :: \(r : Row). Int -> Computation { log : Int | r } { log : Int | r } ()
+logOp :: \(r: Row). Int -> Computation { log: Int | r } { log: Int | r } ()
 logOp := \val. do {
   _ <- appendLog val;
   pure ()
 }
 
-dbWithLog :: \(r : Row). Int -> Computation { db : Int, log : Int | r } { db : Int, log : Int | r } Int
+dbWithLog :: \(r: Row). Int -> Computation { db: Int, log: Int | r } { db: Int, log: Int | r } Int
 dbWithLog := \delta. do {
   result <- dbOp delta;
   _ <- logOp result;
   pure result
 }
 
-fullPipeline :: Int -> Computation { db : Int, log : Int, cfg : Int } { db : Int, log : Int, cfg : Int } Int
+fullPipeline :: Int -> Computation { db: Int, log: Int, cfg: Int } { db: Int, log: Int, cfg: Int } Int
 fullPipeline := \_. do {
   cfg <- readConfig ();
   r1 <- dbWithLog cfg;
@@ -41,7 +41,7 @@ fullPipeline := \_. do {
   readDB ()
 }
 
-compose :: \(r : Row). (() -> Computation r r Int) -> (Int -> Computation r r Int) -> () -> Computation r r Int
+compose :: \(r: Row). (() -> Computation r r Int) -> (Int -> Computation r r Int) -> () -> Computation r r Int
 compose := \f g _. do { x <- f (); g x }
 
 main := do {

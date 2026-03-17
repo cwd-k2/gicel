@@ -21,7 +21,7 @@ import (
 func TestPathologicalOverlappingEquations(t *testing.T) {
 	source := `
 data Bool = True | False
-type F (a : Type) :: Type = {
+type F (a: Type) :: Type = {
   F Int = Bool;
   F Int = String
 }
@@ -42,10 +42,10 @@ type F (a : Type) :: Type = {
 func TestPathologicalCircularTypeFamilies(t *testing.T) {
 	source := `
 data Unit = Unit
-type F (a : Type) :: Type = {
+type F (a: Type) :: Type = {
   F a = G a
 }
-type G (a : Type) :: Type = {
+type G (a: Type) :: Type = {
   G a = F a
 }
 f :: F Unit -> Unit
@@ -60,7 +60,7 @@ func TestPathologicalDecreasingRecursion(t *testing.T) {
 	source := `
 data Unit = Unit
 data List a = Nil | Cons a (List a)
-type F (a : Type) :: Type = {
+type F (a: Type) :: Type = {
   F (List a) = F a;
   F a = a
 }
@@ -145,10 +145,10 @@ func TestPathologicalTFPatternIsTFApp(t *testing.T) {
 	// (since F is in scope as a type name), so this tests the resolution path.
 	source := `
 data Unit = Unit
-type F (a : Type) :: Type = {
+type F (a: Type) :: Type = {
   F a = a
 }
-type G (a : Type) :: Type = {
+type G (a: Type) :: Type = {
   G (F a) = a
 }
 `
@@ -267,7 +267,7 @@ func TestPathologicalExponentialGrowth(t *testing.T) {
 	source := `
 data Unit = Unit
 data Pair a b = MkPair a b
-type Grow (a : Type) :: Type = {
+type Grow (a: Type) :: Type = {
   Grow a = Grow (Pair a a)
 }
 f :: Grow Unit -> Unit
@@ -281,10 +281,10 @@ func TestPathologicalLargeButFiniteResult(t *testing.T) {
 	// This family produces a chain of S wrappers — linear growth, should be fine.
 	source := `
 data Nat = Z | S Nat
-type AddTen (n : Nat) :: Nat = {
+type AddTen (n: Nat) :: Nat = {
   AddTen n = S (S (S (S (S (S (S (S (S (S n)))))))))
 }
-data Phantom (n : Nat) = MkPhantom
+data Phantom (n: Nat) = MkPhantom
 f :: Phantom (AddTen Z) -> Phantom (S (S (S (S (S (S (S (S (S (S Z))))))))))
 f := \x. x
 `
@@ -303,12 +303,12 @@ data Unit = Unit
 data List a = Nil | Cons a (List a)
 data Maybe a = Nothing | Just a
 
-type Elem (c : Type) :: Type = {
+type Elem (c: Type) :: Type = {
   Elem (List a) = a;
   Elem (Maybe a) = a
 }
 
-type Id (a : Type) :: Type = {
+type Id (a: Type) :: Type = {
   Id a = a
 }
 `
@@ -338,11 +338,11 @@ type Id (a : Type) :: Type = {
 func TestPropertyReductionIdempotenceRecursive(t *testing.T) {
 	source := `
 data Nat = Z | S Nat
-type Add (a : Nat) (b : Nat) :: Nat = {
+type Add (a: Nat) (b: Nat) :: Nat = {
   Add Z b = b;
   Add (S a) b = S (Add a b)
 }
-data Phantom (n : Nat) = MkPhantom
+data Phantom (n: Nat) = MkPhantom
 
 -- Add (S (S Z)) (S Z) = S (S (S Z))
 -- Reducing again: S (S (S Z)) has no TF app at the top → same result.
@@ -359,7 +359,7 @@ func TestPropertyUnificationSymmetry(t *testing.T) {
 	source1 := `
 data Unit = Unit
 data List a = Nil | Cons a (List a)
-type Elem (c : Type) :: Type = {
+type Elem (c: Type) :: Type = {
   Elem (List a) = a
 }
 f :: Elem (List Unit) -> Unit
@@ -368,7 +368,7 @@ f := \x. x
 	source2 := `
 data Unit = Unit
 data List a = Nil | Cons a (List a)
-type Elem (c : Type) :: Type = {
+type Elem (c: Type) :: Type = {
   Elem (List a) = a
 }
 f :: Unit -> Elem (List Unit)
@@ -385,7 +385,7 @@ func TestPropertyUnificationSymmetryPoly(t *testing.T) {
 	source := `
 data Unit = Unit
 data List a = Nil | Cons a (List a)
-type Elem (c : Type) :: Type = {
+type Elem (c: Type) :: Type = {
   Elem (List a) = a
 }
 f :: \ c. Elem c -> Elem c
@@ -401,11 +401,11 @@ func TestPropertyIntersectCapRowsCommutativity(t *testing.T) {
 	source1 := `
 data Bool = True | False
 data Unit = Unit
-consumeA :: Computation { a : Unit, b : Unit } { b : Unit } Unit
+consumeA :: Computation { a: Unit, b: Unit } { b: Unit } Unit
 consumeA := assumption
-consumeB :: Computation { a : Unit, b : Unit } { a : Unit } Unit
+consumeB :: Computation { a: Unit, b: Unit } { a: Unit } Unit
 consumeB := assumption
-f :: Bool -> Computation { a : Unit, b : Unit } {} Unit
+f :: Bool -> Computation { a: Unit, b: Unit } {} Unit
 f := \b. case b {
   True -> consumeA;
   False -> consumeB
@@ -414,11 +414,11 @@ f := \b. case b {
 	source2 := `
 data Bool = True | False
 data Unit = Unit
-consumeA :: Computation { a : Unit, b : Unit } { b : Unit } Unit
+consumeA :: Computation { a: Unit, b: Unit } { b: Unit } Unit
 consumeA := assumption
-consumeB :: Computation { a : Unit, b : Unit } { a : Unit } Unit
+consumeB :: Computation { a: Unit, b: Unit } { a: Unit } Unit
 consumeB := assumption
-f :: Bool -> Computation { a : Unit, b : Unit } {} Unit
+f :: Bool -> Computation { a: Unit, b: Unit } {} Unit
 f := \b. case b {
   False -> consumeB;
   True -> consumeA
@@ -432,17 +432,17 @@ f := \b. case b {
 // (c') Three-way commutativity.
 func TestPropertyIntersectCapRowsCommutativity3Way(t *testing.T) {
 	// Three branches consuming different caps.
-	// The intersection should be {c : Unit} regardless of branch order.
+	// The intersection should be {c: Unit} regardless of branch order.
 	source := `
 data Three = One | Two | Three
 data Unit = Unit
-consumeAB :: Computation { a : Unit, b : Unit, c : Unit } { c : Unit } Unit
+consumeAB :: Computation { a: Unit, b: Unit, c: Unit } { c: Unit } Unit
 consumeAB := assumption
-consumeAC :: Computation { a : Unit, b : Unit, c : Unit } { b : Unit } Unit
+consumeAC :: Computation { a: Unit, b: Unit, c: Unit } { b: Unit } Unit
 consumeAC := assumption
-consumeBC :: Computation { a : Unit, b : Unit, c : Unit } { a : Unit } Unit
+consumeBC :: Computation { a: Unit, b: Unit, c: Unit } { a: Unit } Unit
 consumeBC := assumption
-f :: Three -> Computation { a : Unit, b : Unit, c : Unit } {} Unit
+f :: Three -> Computation { a: Unit, b: Unit, c: Unit } {} Unit
 f := \t. case t {
   One -> consumeAB;
   Two -> consumeAC;
@@ -462,7 +462,7 @@ data Unit = Unit
 data List a = Nil | Cons a (List a)
 data Maybe a = Nothing | Just a
 
-type Elem (c : Type) :: Type = {
+type Elem (c: Type) :: Type = {
   Elem (List a) = a;
   Elem (Maybe a) = a
 }
@@ -592,7 +592,7 @@ func TestPathologicalTFInsideForall(t *testing.T) {
 	source := `
 data Unit = Unit
 data List a = Nil | Cons a (List a)
-type Elem (c : Type) :: Type = {
+type Elem (c: Type) :: Type = {
   Elem (List a) = a
 }
 f :: \ a. a -> Elem (List a)
@@ -607,7 +607,7 @@ func TestPathologicalStuckTFInComputation(t *testing.T) {
 	source := `
 data Unit = Unit
 data List a = Nil | Cons a (List a)
-type Elem (c : Type) :: Type = {
+type Elem (c: Type) :: Type = {
   Elem (List a) = a
 }
 f :: \ c. Computation {} {} (Elem c) -> Computation {} {} (Elem c)
@@ -622,7 +622,7 @@ func TestPathologicalRepeatedPatternVar(t *testing.T) {
 	source := `
 data Unit = Unit
 data Pair a b = MkPair a b
-type Same (a : Type) (b : Type) :: Type = {
+type Same (a: Type) (b: Type) :: Type = {
   Same a a = Unit
 }
 f :: Same Unit Unit -> Unit
@@ -639,7 +639,7 @@ func TestPathologicalRepeatedPatternVarFail(t *testing.T) {
 data Unit = Unit
 data Bool = True | False
 data Pair a b = MkPair a b
-type Same (a : Type) (b : Type) :: Type = {
+type Same (a: Type) (b: Type) :: Type = {
   Same a a = Unit
 }
 f :: Same Unit Bool -> Unit

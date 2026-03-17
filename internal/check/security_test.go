@@ -29,7 +29,7 @@ func TestSecurityTypeFamilyDoublingRHS(t *testing.T) {
 	source := `
 data Pair a b = MkPair a b
 data Unit = Unit
-type Grow (a : Type) :: Type = {
+type Grow (a: Type) :: Type = {
   Grow a = Grow (Pair a a)
 }
 f :: Grow Unit -> Unit
@@ -52,7 +52,7 @@ func TestSecurityTypeFamilyLinearGrowth(t *testing.T) {
 	source := `
 data List a = Nil | Cons a (List a)
 data Unit = Unit
-type GrowList (a : Type) :: Type = {
+type GrowList (a: Type) :: Type = {
   GrowList a = Cons Unit (GrowList a)
 }
 f :: GrowList Unit -> Unit
@@ -74,7 +74,7 @@ func TestSecurityTypeFamilyMutualRecursion(t *testing.T) {
 	source := `
 data Unit = Unit
 data Wrapper a = Wrap a
-type Ping (a : Type) :: Type = {
+type Ping (a: Type) :: Type = {
   Ping a = Ping (Wrapper a)
 }
 f :: Ping Unit -> Unit
@@ -202,7 +202,7 @@ func TestPerformanceVerifyInjectivityCost(t *testing.T) {
 	sb.WriteString("\n")
 
 	// Define an injective type family.
-	sb.WriteString("type F (a : Tag) :: (r : Tag) | r -> a = {\n")
+	sb.WriteString("type F (a: Tag) :: (r: Tag) | r -> a = {\n")
 	for i := 0; i < N; i++ {
 		if i > 0 {
 			sb.WriteString(";\n")
@@ -342,7 +342,7 @@ func TestSecurityHeadTyConWithFamiliesDepth(t *testing.T) {
 	// headTyConWithFamilies calls reduceTyFamily, which has fuel.
 	source := `
 data Unit = Unit
-type Loop (a : Type) :: Type = {
+type Loop (a: Type) :: Type = {
   Loop a = Loop a
 }
 f :: Loop Unit -> Unit
@@ -399,7 +399,7 @@ func TestSecurityParserLongEquationBlock(t *testing.T) {
 	}
 	sb.WriteString("\n")
 
-	sb.WriteString("type F (a : Tag) :: Tag = {\n")
+	sb.WriteString("type F (a: Tag) :: Tag = {\n")
 	for i := 0; i < N; i++ {
 		if i > 0 {
 			sb.WriteString(";\n")
@@ -438,7 +438,7 @@ func TestSecurityExponentialTypeGrowth(t *testing.T) {
 	source := `
 data Pair a b = MkPair a b
 data Unit = Unit
-type Explode (a : Type) :: Type = {
+type Explode (a: Type) :: Type = {
   Explode a = Explode (Pair a a)
 }
 f :: Explode Unit -> Unit

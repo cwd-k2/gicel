@@ -31,7 +31,7 @@ Parameters can be bare type variables or kinded:
 ```
 data Maybe a = Just a | Nothing
 data List a = Cons a (List a) | Nil
-data Dict (c : Constraint) = MkDict c
+data Dict (c: Constraint) = MkDict c
 ```
 
 ### GADTs
@@ -72,8 +72,8 @@ type Effect r a = Computation r r a
 ```
 \a. a -> a
 \a b. a -> b -> a
-\(r : Row). Computation r r a
-\(f : Type -> Type). f a -> f b
+\(r: Row). Computation r r a
+\(f: Type -> Type). f a -> f b
 ```
 
 `\` serves dual purpose: lambda in expression context (`\x. e`) and universal quantification in type context (`\a. T`). Both use `.` as the body separator. The parser disambiguates by context. The `.` is also the compose operator (`infixr 9`); context disambiguates. Multi-parameter lambdas are supported: `\x y. e` desugars to `\x. \y. e`.
@@ -111,10 +111,10 @@ When a data type is declared, it is automatically promoted to a kind. Nullary co
 ```
 data DBState = Opened | Closed
 -- DBState is now also a kind
--- Opened : DBState, Closed : DBState at the type level
+-- Opened: DBState, Closed: DBState at the type level
 
-data DB (s : DBState) = MkDB
--- DB Opened : Type, DB Closed : Type
+data DB (s: DBState) = MkDB
+-- DB Opened: Type, DB Closed: Type
 ```
 
 ### Row Types
@@ -157,7 +157,7 @@ A closed type family is declared with `type Name params :: Kind = { equations }`
 
 ```
 -- Standalone type family
-type Elem (c : Type) :: Type = {
+type Elem (c: Type) :: Type = {
   Elem (List a) = a;
   Elem String = Rune
 }
@@ -233,7 +233,7 @@ Without annotation, fields are `@Unrestricted`. The `@Linear` annotation means t
 A type family can declare its result injective with a named result binder and functional dependency:
 
 ```
-type Effects (mode : AppMode) :: (r : Row) | r -> mode = {
+type Effects (mode: AppMode) :: (r: Row) | r -> mode = {
   Effects ReadOnly  = { get: () -> String };
   Effects ReadWrite = { get: () -> String, put: String -> () }
 }

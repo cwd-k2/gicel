@@ -1,13 +1,13 @@
 import Prelude
 
-_ioPrint :: String -> Computation { io : () | r } { io : () | r } ()
+_ioPrint :: String -> Computation { io: () | r } { io: () | r } ()
 _ioPrint := assumption
 
-_ioDebug :: \a. a -> Computation { io : () | r } { io : () | r } ()
+_ioDebug :: \a. a -> Computation { io: () | r } { io: () | r } ()
 _ioDebug := assumption
 
-print :: String -> Computation { io : () | r } { io : () | r } ()
+print :: String -> Computation { io: () | r } { io: () | r } ()
 print := _ioPrint
 
-debug :: \a. a -> Computation { io : () | r } { io : () | r } ()
+debug :: \a. a -> Computation { io: () | r } { io: () | r } ()
 debug := _ioDebug

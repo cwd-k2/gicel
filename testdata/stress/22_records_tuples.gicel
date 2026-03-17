@@ -11,7 +11,7 @@ getY := \r. r.#y
 moved := { point | x: 10 }
 
 -- Row-polymorphic record functions
-getLabel :: \r. Record { label : String | r } -> String
+getLabel :: \r. Record { label: String | r } -> String
 getLabel := \r. r.#label
 
 named := { label: "hello", value: 42 }

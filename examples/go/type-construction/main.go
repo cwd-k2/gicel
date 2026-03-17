@@ -36,7 +36,7 @@ func main() {
 	})
 
 	// --- RowBuilder: record types ---
-	// Record { x : Int, y : Int }
+	// Record { x: Int, y: Int }
 	pointRow := gicel.NewRow().
 		And("x", intTy).
 		And("y", intTy).
@@ -46,7 +46,7 @@ func main() {
 	eng.DeclareBinding("origin", pointTy)
 
 	// --- ForallRow: row-polymorphic types ---
-	// \ (r : Row). Record { x : Int | r } -> Int
+	// \ (r: Row). Record { x: Int | r } -> Int
 	getXTy := gicel.ForallRow("r",
 		gicel.ArrowType(
 			gicel.AppType(gicel.ConType("Record"),

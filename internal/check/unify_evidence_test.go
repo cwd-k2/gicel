@@ -118,7 +118,7 @@ func TestUnifyEvidenceRowCapOpenClosed(t *testing.T) {
 	if err := u.Unify(r1, r2); err != nil {
 		t.Fatalf("open-closed should succeed: %v", err)
 	}
-	// m should be solved to { y : Bool }.
+	// m should be solved to { y: Bool }.
 	soln := u.Zonk(m)
 	re, ok := soln.(*types.TyEvidenceRow)
 	if !ok {
@@ -126,7 +126,7 @@ func TestUnifyEvidenceRowCapOpenClosed(t *testing.T) {
 	}
 	fields := re.CapFields()
 	if len(fields) != 1 || fields[0].Label != "y" {
-		t.Errorf("expected { y : Bool }, got %s", types.Pretty(soln))
+		t.Errorf("expected { y: Bool }, got %s", types.Pretty(soln))
 	}
 }
 

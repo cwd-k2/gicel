@@ -238,7 +238,7 @@ func TestPretty(t *testing.T) {
 		{MkForall("a", KType{}, MkForall("b", KType{}, MkArrow(Var("a"), Var("b")))),
 			`\a b. a -> b`},
 		{EmptyRow(), "{}"},
-		{ClosedRow(RowField{Label: "x", Type: Con("Int")}), "{ x : Int }"},
+		{ClosedRow(RowField{Label: "x", Type: Con("Int")}), "{ x: Int }"},
 	}
 	for _, tt := range tests {
 		got := Pretty(tt.ty)

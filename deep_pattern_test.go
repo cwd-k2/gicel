@@ -332,7 +332,7 @@ func TestRowUnifyEmptyOpenClosed(t *testing.T) {
 	// An open row { | r } should unify with a closed empty row {}.
 	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`
-f :: \(r : Row). Record { | r } -> Bool
+f :: \(r: Row). Record { | r } -> Bool
 f := \_. True
 main := f {}
 `)
@@ -352,7 +352,7 @@ func TestRowUnifyFieldSubset(t *testing.T) {
 	eng.Use(gicel.Num)
 	rt, err := eng.NewRuntime(`
 import Std.Num
-getX :: \r. Record { x : Int | r } -> Int
+getX :: \r. Record { x: Int | r } -> Int
 getX := \rec. rec.#x
 main := getX { x: 42, y: 0 }
 `)
@@ -375,7 +375,7 @@ func TestRowUnifyMissingField(t *testing.T) {
 	eng.Use(gicel.Num)
 	_, err := eng.NewRuntime(`
 import Std.Num
-getX :: Record { x : Int } -> Int
+getX :: Record { x: Int } -> Int
 getX := \rec. rec.#x
 main := getX { y: 0 }
 `)
@@ -457,15 +457,15 @@ main := MyJust True
 
 func TestKindMismatchInApplication(t *testing.T) {
 	// Applying a type constructor to the wrong kind should fail.
-	// F expects (a : Type -> Type) but receives Bool : Type.
+	// F expects (a: Type -> Type) but receives Bool: Type.
 	// Previously FALSE_NEGATIVE — fixed in 923721f.
 	eng := gicel.NewEngine()
 	_, err := eng.Compile(`
-data F (a : Type -> Type) = MkF
+data F (a: Type -> Type) = MkF
 main := (MkF :: F Bool)
 `)
 	if err == nil {
-		t.Fatal("expected kind error: Bool : Type applied where Type -> Type expected")
+		t.Fatal("expected kind error: Bool: Type applied where Type -> Type expected")
 	}
 }
 
@@ -807,12 +807,12 @@ func TestFN_ConstructorArityMismatch(t *testing.T) {
 }
 
 func TestFN_RecordFieldTypeMismatch(t *testing.T) {
-	// A function expecting { x : Int } given { x : Bool } should fail.
+	// A function expecting { x: Int } given { x: Bool } should fail.
 	eng := gicel.NewEngine()
 	eng.Use(gicel.Num)
 	_, err := eng.NewRuntime(`
 import Std.Num
-f :: Record { x : Int } -> Int
+f :: Record { x: Int } -> Int
 f := \r. r.#x
 main := f { x: True }
 `)
@@ -1162,7 +1162,7 @@ func TestDataKindsInGADTIndex(t *testing.T) {
 	rt, err := eng.NewRuntime(`
 data Phase = Building | Running
 
-data Builder (p : Phase) = MkBuilder
+data Builder (p: Phase) = MkBuilder
 
 start :: Builder Building
 start := MkBuilder
@@ -1181,12 +1181,12 @@ main := start
 
 func TestDataKindsMismatch(t *testing.T) {
 	// Using a promoted constructor from a different data type at a kind-annotated
-	// position should fail. Builder expects (p : Phase) but True has kind Bool.
+	// position should fail. Builder expects (p: Phase) but True has kind Bool.
 	// Previously FALSE_NEGATIVE — fixed in 923721f.
 	eng := gicel.NewEngine()
 	_, err := eng.NewRuntime(`
 data Phase = Building | Running
-data Builder (p : Phase) = MkBuilder
+data Builder (p: Phase) = MkBuilder
 start :: Builder True
 start := MkBuilder
 main := start
@@ -1354,7 +1354,7 @@ func TestParserKindExprDepthLimit(t *testing.T) {
 	for i := 0; i < 300; i++ {
 		kind = "(" + kind + ")"
 	}
-	src := fmt.Sprintf("data X (a : %s) = MkX\nmain := MkX", kind)
+	src := fmt.Sprintf("data X (a: %s) = MkX\nmain := MkX", kind)
 	_, err := eng.NewRuntime(src)
 	// Should get a parse error, not a stack overflow.
 	if err == nil {

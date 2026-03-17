@@ -1,10 +1,10 @@
 import Prelude
 
-get :: \s r. Computation { state : s | r } { state : s | r } s
+get :: \s r. Computation { state: s | r } { state: s | r } s
 get := assumption
 
-put :: \s r. s -> Computation { state : s | r } { state : s | r } ()
+put :: \s r. s -> Computation { state: s | r } { state: s | r } ()
 put := assumption
 
-modify :: \s r. (s -> s) -> Computation { state : s | r } { state : s | r } ()
+modify :: \s r. (s -> s) -> Computation { state: s | r } { state: s | r } ()
 modify := \f. do { s <- get; put (f s) }

@@ -233,7 +233,7 @@ GICEL source declares the type with `assumption` — a placeholder that says
 host side":
 
 ```gicel
-fetchPrice :: \(r : Row). String -> Effect { db: () | r } Int
+fetchPrice :: \(r: Row). String -> Effect { db: () | r } Int
 fetchPrice := assumption
 
 main := fetchPrice "item-42"

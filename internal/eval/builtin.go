@@ -9,13 +9,13 @@ import "github.com/cwd-k2/gicel/internal/core"
 func BuiltinEnv(enableFix, enableRec bool) *Env {
 	env := EmptyEnv()
 
-	// pure : a -> a (identity in CBV)
+	// pure: a -> a (identity in CBV)
 	env = env.Extend("pure", &Closure{
 		Env: EmptyEnv(), Param: "_v",
 		Body: &core.Var{Name: "_v"},
 	})
 
-	// bind : m -> (a -> m) -> m (apply continuation)
+	// bind: m -> (a -> m) -> m (apply continuation)
 	bindBody := &core.Lam{
 		Param: "_f",
 		Body:  &core.App{Fun: &core.Var{Name: "_f"}, Arg: &core.Var{Name: "_comp"}},
@@ -25,7 +25,7 @@ func BuiltinEnv(enableFix, enableRec bool) *Env {
 		Body: bindBody,
 	})
 
-	// force : Thunk -> Computation
+	// force: Thunk -> Computation
 	env = env.Extend("force", &Closure{
 		Env: EmptyEnv(), Param: "_thk",
 		Body: &core.Force{Expr: &core.Var{Name: "_thk"}},

@@ -4,7 +4,7 @@ import "github.com/cwd-k2/gicel/internal/span"
 
 // DeclTypeFamily is a closed type family declaration.
 //
-//	type Elem (c : Type) :: Type = {
+//	type Elem (c: Type) :: Type = {
 //	  Elem (List a) = a;
 //	  Elem String   = Rune
 //	}
@@ -12,7 +12,7 @@ type DeclTypeFamily struct {
 	Name       string
 	Params     []TyBinder
 	ResultKind KindExpr     // result kind annotation
-	ResultName string       // non-empty if injective: (r : Kind) | deps
+	ResultName string       // non-empty if injective: (r: Kind) | deps
 	Deps       []FunDep     // injectivity dependencies
 	Equations  []TFEquation // nil for associated type declarations in class bodies
 	S          span.Span

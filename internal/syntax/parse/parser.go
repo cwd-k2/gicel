@@ -158,7 +158,7 @@ func (p *Parser) parseDataDecl() *DeclData {
 	var params []TyBinder
 	for p.peek().Kind == TokLower || p.peek().Kind == TokLParen {
 		if p.peek().Kind == TokLParen {
-			// Kinded param: (name : Kind)
+			// Kinded param: (name: Kind)
 			lp := p.peek().S.Start
 			p.advance()
 			pName := p.expectLower()
@@ -293,7 +293,7 @@ func (p *Parser) parseTyBinderList() []TyBinder {
 // parseTypeFamilyBody parses the body of a type family declaration after `::`.
 //
 //	:: Kind = { equations }
-//	:: (r : Kind) | deps = { equations }
+//	:: (r: Kind) | deps = { equations }
 func (p *Parser) parseTypeFamilyBody(name string, params []TyBinder, start span.Pos) *DeclTypeFamily {
 	p.expect(TokColonColon)
 	resultKind, resultName, deps := p.parseResultKind()
@@ -315,9 +315,9 @@ func (p *Parser) parseTypeFamilyBody(name string, params []TyBinder, start span.
 // parseResultKind parses either a plain kind or an injective result kind.
 //
 //	Type                            → (KindExprType, "", nil)
-//	(r : Type) | r -> a             → (KindExprType, "r", [{From:"r", To:["a"]}])
+//	(r: Type) | r -> a             → (KindExprType, "r", [{From:"r", To:["a"]}])
 func (p *Parser) parseResultKind() (KindExpr, string, []FunDep) {
-	// Check for injective form: (name : Kind) | deps
+	// Check for injective form: (name: Kind) | deps
 	if p.peek().Kind == TokLParen && p.isInjectiveResult() {
 		p.advance() // consume (
 		resultName := p.expectLower()
@@ -337,7 +337,7 @@ func (p *Parser) parseResultKind() (KindExpr, string, []FunDep) {
 }
 
 // isInjectiveResult checks if the tokens at current position form
-// (lower : Kind) | ..., which indicates an injective result kind.
+// (lower: Kind) | ..., which indicates an injective result kind.
 func (p *Parser) isInjectiveResult() bool {
 	if p.pos+3 >= len(p.tokens) {
 		return false
@@ -424,10 +424,10 @@ func (p *Parser) parseClassDecl() *DeclClass {
 	var supers []TypeExpr
 	firstName := p.expectUpper()
 	var firstArgs []TypeExpr
-	// Parse class params: either bare lowercase vars or kinded binders (v : Kind).
+	// Parse class params: either bare lowercase vars or kinded binders (v: Kind).
 	for p.peek().Kind == TokLower || (p.peek().Kind == TokLParen && p.isClassKindedBinder()) {
 		if p.peek().Kind == TokLParen {
-			// Kinded class param: (m : Kind)
+			// Kinded class param: (m: Kind)
 			lp := p.peek().S.Start
 			p.advance()
 			name := p.expectLower()
@@ -999,9 +999,9 @@ func (p *Parser) isTypeAtomStart() bool {
 	return k == TokLower || k == TokUpper || k == TokLParen || k == TokLBrace || k == TokUnderscore
 }
 
-// isClassKindedBinder checks if the next tokens form (name : Kind) pattern.
+// isClassKindedBinder checks if the next tokens form (name: Kind) pattern.
 func (p *Parser) isClassKindedBinder() bool {
-	// Current is '(', check if followed by lower : Kind )
+	// Current is '(', check if followed by lower: Kind )
 	if p.pos+2 >= len(p.tokens) {
 		return false
 	}

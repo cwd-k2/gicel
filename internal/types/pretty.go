@@ -80,9 +80,9 @@ func prettyCapFields(fields []RowField, tail Type) string {
 	parts := make([]string, len(fields))
 	for i, f := range fields {
 		if f.Mult != nil {
-			parts[i] = fmt.Sprintf("%s : %s @ %s", f.Label, Pretty(f.Type), Pretty(f.Mult))
+			parts[i] = fmt.Sprintf("%s: %s @ %s", f.Label, Pretty(f.Type), Pretty(f.Mult))
 		} else {
-			parts[i] = fmt.Sprintf("%s : %s", f.Label, Pretty(f.Type))
+			parts[i] = fmt.Sprintf("%s: %s", f.Label, Pretty(f.Type))
 		}
 	}
 	inner := strings.Join(parts, ", ")
@@ -146,7 +146,7 @@ func prettyQuantifiedConstraint(qc *QuantifiedConstraint) string {
 		if _, ok := v.Kind.(KType); ok {
 			vars = append(vars, v.Name)
 		} else {
-			vars = append(vars, fmt.Sprintf("(%s : %s)", v.Name, v.Kind))
+			vars = append(vars, fmt.Sprintf("(%s: %s)", v.Name, v.Kind))
 		}
 	}
 	result := `\` + strings.Join(vars, " ") + ". "

@@ -8,7 +8,7 @@ import Std.Num
 
 -- A closed type family: equations tried top-to-bottom, first match wins.
 -- Elem maps a container type to its element type.
-type Elem (c : Type) :: Type = {
+type Elem (c: Type) :: Type = {
   Elem (List a) = a
 }
 
@@ -23,7 +23,7 @@ listHead := \xs. case xs {
 -- DataKinds + type family: promoted constructors as type-level values.
 data Season = Spring | Summer | Autumn | Winter
 
-type NextSeason (s : Season) :: Season = {
+type NextSeason (s: Season) :: Season = {
   NextSeason Spring = Summer;
   NextSeason Summer = Autumn;
   NextSeason Autumn = Winter;
@@ -31,10 +31,10 @@ type NextSeason (s : Season) :: Season = {
 }
 
 -- Phantom-typed tags indexed by Season.
-data Tagged (s : Season) = MkTagged
+data Tagged (s: Season) = MkTagged
 
 -- advance uses a recursive type family to compute the next season.
-advance :: \(s : Season). Tagged s -> Tagged (NextSeason s)
+advance :: \(s: Season). Tagged s -> Tagged (NextSeason s)
 advance := \_. MkTagged
 
 -- Type-safe season progression: the types guarantee correct ordering.
@@ -54,7 +54,7 @@ backToSpring :: Tagged Spring
 backToSpring := advance winter
 
 -- Multi-equation type family with wildcard patterns.
-type IsWeekend (d : Season) :: Bool = {
+type IsWeekend (d: Season) :: Bool = {
   IsWeekend Summer = True;
   IsWeekend Winter = True;
   IsWeekend _ = False

@@ -83,21 +83,21 @@ eqViaOrd := \x y. case cmp x y { EQ -> True; _ -> False }
 convertAndCheck :: \a b. (Coercible a b, Eq b) => a -> b -> Bool
 convertAndCheck := \x expected. eq (coerce x) expected
 
-readS :: \(r : Row). () -> Computation { s : Int | r } { s : Int | r } Int
+readS :: \(r: Row). () -> Computation { s: Int | r } { s: Int | r } Int
 readS := assumption
-writeS :: \(r : Row). Int -> Computation { s : Int | r } { s : Int | r } ()
+writeS :: \(r: Row). Int -> Computation { s: Int | r } { s: Int | r } ()
 writeS := assumption
 intAdd :: Int -> Int -> Int
 intAdd := assumption
 
-stateful :: Int -> Eff { s : Int } Int
+stateful :: Int -> Eff { s: Int } Int
 stateful := \delta. do {
   v <- readS ();
   _ <- writeS (intAdd v delta);
   readS ()
 }
 
-pipeline :: Eff { s : Int } (Int, Bool)
+pipeline :: Eff { s: Int } (Int, Bool)
 pipeline := do {
   r1 <- stateful seed;
   r2 <- stateful r1;

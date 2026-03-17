@@ -18,7 +18,7 @@ data List a = Cons a (List a) | Nil
 
 ```
 type Effect r a = Computation r r a
-type Lift (m : Type -> Type) (r1 : Row) (r2 : Row) a = m a
+type Lift (m: Type -> Type) (r1: Row) (r2: Row) a = m a
 ```
 
 ### Type Classes
@@ -91,9 +91,9 @@ class Functor t => Foldable t => Traversable t {
 **IxMonad**
 
 ```
-class IxMonad (m : Row -> Row -> Type -> Type) {
-  ixpure :: \a (r : Row). a -> m r r a;
-  ixbind :: \a b (r1 : Row) (r2 : Row) (r3 : Row).
+class IxMonad (m: Row -> Row -> Type -> Type) {
+  ixpure :: \a (r: Row). a -> m r r a;
+  ixbind :: \a b (r1: Row) (r2: Row) (r3: Row).
               m r1 r2 a -> (a -> m r2 r3 b) -> m r1 r3 b
 }
 ```
@@ -118,7 +118,7 @@ class Applicative f => Alternative f {
 **Monad**
 
 ```
-class Monad (m : Type -> Type) {
+class Monad (m: Type -> Type) {
   mpure :: \a. a -> m a;
   mbind :: \a b. m a -> (a -> m b) -> m b
 }

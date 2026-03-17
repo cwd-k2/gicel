@@ -12,8 +12,8 @@ import (
 	"github.com/cwd-k2/gicel"
 )
 
-// Records are anonymous structural types: Record { label : Type, ... }.
-// Tuples are sugar: (a, b) ≡ Record { _1 : a, _2 : b }, () ≡ Record {}.
+// Records are anonymous structural types: Record { label: Type, ... }.
+// Tuples are sugar: (a, b) ≡ Record { _1: a, _2: b }, () ≡ Record {}.
 // Projection uses the .# operator (atom-level precedence).
 // Row polymorphism lets functions accept any record with required fields.
 const source = `
@@ -27,7 +27,7 @@ px := point.#x
 moved := { point | x: 10 }
 
 -- Row-polymorphic function: works on any record with an "x" field
-getX :: \ r. Record { x : Int | r } -> Int
+getX :: \ r. Record { x: Int | r } -> Int
 getX := \r. r.#x
 
 -- Works with different record shapes

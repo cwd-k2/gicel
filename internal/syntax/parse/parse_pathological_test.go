@@ -39,7 +39,7 @@ func parseMustFail(t *testing.T, source string) string {
 func TestPathologicalLongTypeFamilyName(t *testing.T) {
 	name := strings.Repeat("A", 1024)
 	source := fmt.Sprintf(`data Unit = Unit
-type %s (a : Type) :: Type = {
+type %s (a: Type) :: Type = {
   %s a = Unit
 }`, name, name)
 	prog := parseMustSucceed(t, source)
@@ -70,7 +70,7 @@ func TestPathological100PatternParams(t *testing.T) {
 			paramDecls.WriteString(" ")
 			eqPatterns.WriteString(" ")
 		}
-		paramDecls.WriteString(fmt.Sprintf("(p%d : Type)", i))
+		paramDecls.WriteString(fmt.Sprintf("(p%d: Type)", i))
 		eqPatterns.WriteString(fmt.Sprintf("p%d", i))
 	}
 	source := fmt.Sprintf(`data Unit = Unit
@@ -101,7 +101,7 @@ func TestPathologicalDeeplyNestedRHS(t *testing.T) {
 		rhs = fmt.Sprintf("(Maybe %s)", rhs)
 	}
 	source := fmt.Sprintf(`data Maybe a = Nothing | Just a
-type F (a : Type) :: Type = {
+type F (a: Type) :: Type = {
   F a = %s
 }`, rhs)
 	prog := parseMustSucceed(t, source)
@@ -140,7 +140,7 @@ func TestPathologicalLowercaseEquationName(t *testing.T) {
 	// The equation parser calls expectUpper(), so a lowercase name
 	// will produce a parse error.
 	source := `data Unit = Unit
-type F (a : Type) :: Type = {
+type F (a: Type) :: Type = {
   f a = Unit
 }`
 	errMsg := parseMustFail(t, source)
@@ -232,7 +232,7 @@ func TestPathologicalDoublePipeFunDeps(t *testing.T) {
 // (i) Type family equation with no RHS (just patterns, missing =)
 func TestPathologicalEquationNoRHS(t *testing.T) {
 	source := `data Unit = Unit
-type F (a : Type) :: Type = {
+type F (a: Type) :: Type = {
   F Unit
 }`
 	errMsg := parseMustFail(t, source)

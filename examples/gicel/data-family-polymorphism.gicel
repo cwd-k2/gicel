@@ -15,7 +15,7 @@ class Collection c {
 }
 
 -- Elem is a closed type family that extracts the element type.
-type Elem (c : Type) :: Type = {
+type Elem (c: Type) :: Type = {
   Elem (List a) = a;
   Elem (Maybe a) = a
 }

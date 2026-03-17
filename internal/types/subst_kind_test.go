@@ -7,7 +7,7 @@ import "testing"
 // =============================================================================
 
 func TestSubstKindInTypeForall(t *testing.T) {
-	// forall (f : k -> Type). f Int
+	// forall (f: k -> Type). f Int
 	// SubstKindInType(_, "k", KRow{}) should change f's kind to Row -> Type
 	body := &TyForall{
 		Var:  "f",
@@ -32,9 +32,9 @@ func TestSubstKindInTypeForall(t *testing.T) {
 }
 
 func TestSubstKindInTypeNested(t *testing.T) {
-	// forall (k : Kind). forall (f : k -> Type). f a -> f a
+	// forall (k: Kind). forall (f: k -> Type). f a -> f a
 	// After SubstKindInType(inner, "k", KRow{}):
-	// forall (f : Row -> Type). f a -> f a
+	// forall (f: Row -> Type). f a -> f a
 	inner := &TyForall{
 		Var:  "f",
 		Kind: &KArrow{From: KVar{Name: "k"}, To: KType{}},

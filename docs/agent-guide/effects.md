@@ -13,8 +13,8 @@ When `pre` and `post` are the same, the computation preserves its environment. T
 ### pure and bind
 
 ```
-pure :: \a (r : Row). a -> Computation r r a
-bind :: \a b (r1 : Row) (r2 : Row) (r3 : Row).
+pure :: \a (r: Row). a -> Computation r r a
+bind :: \a b (r1: Row) (r2: Row) (r3: Row).
           Computation r1 r2 a -> (a -> Computation r2 r3 b) -> Computation r1 r3 b
 ```
 
@@ -82,7 +82,7 @@ force :: Thunk pre post a -> Computation pre post a
 Provided by the Prelude for sequencing when you do not need the intermediate result:
 
 ```
-then :: \a b (r1 : Row) (r2 : Row) (r3 : Row).
+then :: \a b (r1: Row) (r2: Row) (r3: Row).
   Computation r1 r2 a -> Computation r2 r3 b -> Computation r1 r3 b
 ```
 

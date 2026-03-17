@@ -57,7 +57,7 @@ func (p *Parser) parseForallType() TypeExpr {
 	var binders []TyBinder
 	for p.peek().Kind == TokLower || p.peek().Kind == TokLParen {
 		if p.peek().Kind == TokLParen {
-			// Kinded binder: (v : Kind)
+			// Kinded binder: (v: Kind)
 			lp := p.peek().S.Start
 			p.advance()
 			name := p.expectLower()
@@ -123,7 +123,7 @@ func (p *Parser) parseKindAtom() KindExpr {
 		p.advance()
 		return &KindExprName{Name: tok.Text, S: tok.S}
 	case p.peek().Kind == TokLower:
-		// Kind variable reference (e.g., k in "\ (k : Kind). k -> Type")
+		// Kind variable reference (e.g., k in "\ (k: Kind). k -> Type")
 		tok := p.peek()
 		p.advance()
 		return &KindExprName{Name: tok.Text, S: tok.S}
@@ -187,7 +187,7 @@ func (p *Parser) parseTypeAtom() TypeExpr {
 		}
 		ty := p.parseType()
 		if p.peek().Kind == TokComma {
-			// (T1, T2, ...) → tuple type: Record { _1 : T1, _2 : T2, ... }
+			// (T1, T2, ...) → tuple type: Record { _1: T1, _2: T2, ... }
 			types := []TypeExpr{ty}
 			for p.peek().Kind == TokComma {
 				p.advance()

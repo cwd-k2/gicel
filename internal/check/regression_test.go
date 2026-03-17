@@ -84,7 +84,7 @@ func TestRegressionReduceFamilyInArrowType(t *testing.T) {
 	source := `
 data List a = Nil | Cons a (List a)
 data Unit = Unit
-type Elem (c : Type) :: Type = {
+type Elem (c: Type) :: Type = {
   Elem (List a) = a
 }
 f :: Elem (List Unit) -> Unit
@@ -99,7 +99,7 @@ func TestRegressionReduceFamilyInCompType(t *testing.T) {
 	source := `
 data List a = Nil | Cons a (List a)
 data Unit = Unit
-type Elem (c : Type) :: Type = {
+type Elem (c: Type) :: Type = {
   Elem (List a) = a
 }
 f :: Computation {} {} (Elem (List Unit)) -> Computation {} {} Unit
@@ -114,7 +114,7 @@ func TestRegressionReduceFamilyInNestedArrow(t *testing.T) {
 	source := `
 data List a = Nil | Cons a (List a)
 data Unit = Unit
-type Elem (c : Type) :: Type = {
+type Elem (c: Type) :: Type = {
   Elem (List a) = a
 }
 f :: (Elem (List Unit) -> Unit) -> Unit -> Unit
@@ -134,7 +134,7 @@ func TestRegressionInjectivityNonTypeKind(t *testing.T) {
 	// and is injective.
 	source := `
 data Session = Send Session | Recv Session | End
-type Dual (s : Session) :: (r : Session) | r -> s = {
+type Dual (s: Session) :: (r: Session) | r -> s = {
   Dual (Send s) = Recv (Dual s);
   Dual (Recv s) = Send (Dual s);
   Dual End = End
@@ -149,7 +149,7 @@ func TestRegressionInjectivityNonTypeKindViolation(t *testing.T) {
 	// Both equations map to End, but from different LHS patterns.
 	source := `
 data Session = Send Session | Recv Session | End
-type Bad (s : Session) :: (r : Session) | r -> s = {
+type Bad (s: Session) :: (r: Session) | r -> s = {
   Bad (Send s) = End;
   Bad (Recv s) = End
 }
@@ -212,7 +212,7 @@ func TestRegressionExponentialTypeGrowthBound(t *testing.T) {
 	source := `
 data Pair a b = MkPair a b
 data Unit = Unit
-type Grow (a : Type) :: Type = {
+type Grow (a: Type) :: Type = {
   Grow a = Grow (Pair a a)
 }
 f :: Grow Unit -> Unit

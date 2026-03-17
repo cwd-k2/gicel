@@ -7,9 +7,9 @@ import "testing"
 // =============================================================================
 
 func TestConstraintKindedParamForall(t *testing.T) {
-	// \ (c : Constraint). ... should parse and check without errors.
+	// \ (c: Constraint). ... should parse and check without errors.
 	source := `data Bool = True | False
-f :: \ (c : Constraint). Bool
+f :: \ (c: Constraint). Bool
 f := True`
 	checkSource(t, source, nil)
 }
@@ -17,14 +17,14 @@ f := True`
 func TestConstraintKindedParamInClassDecl(t *testing.T) {
 	// A class can declare a Constraint-kinded type parameter.
 	source := `data Bool = True | False
-class Constrained (c : Constraint) { witness :: Bool }`
+class Constrained (c: Constraint) { witness :: Bool }`
 	checkSource(t, source, nil)
 }
 
 func TestConstraintKindedParamMultiple(t *testing.T) {
 	// Multiple \ binders, one with Constraint kind.
 	source := `data Bool = True | False
-f :: \ a (c : Constraint). a -> Bool
+f :: \ a (c: Constraint). a -> Bool
 f := \x. True`
 	checkSource(t, source, nil)
 }
@@ -32,7 +32,7 @@ f := \x. True`
 func TestConstraintKindedParamArrowKind(t *testing.T) {
 	// Constraint -> Type kind (higher-kinded constraint).
 	source := `data Bool = True | False
-f :: \ (f : Constraint -> Type). Bool
+f :: \ (f: Constraint -> Type). Bool
 f := True`
 	checkSource(t, source, nil)
 }

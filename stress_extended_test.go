@@ -735,7 +735,7 @@ func TestStressAllocLimitRecursiveRecord(t *testing.T) {
 	source := `
 import Std.Num
 
-build :: Int -> Record { a : Int, b : Int, c : Int, d : Int, e : Int } -> Int
+build :: Int -> Record { a: Int, b: Int, c: Int, d: Int, e: Int } -> Int
 build := fix (\self n r. case n == 0 { True -> r.#a; False -> self (n - 1) { r | a: n } })
 
 main := build 10000 { a: 0, b: 0, c: 0, d: 0, e: 0 }

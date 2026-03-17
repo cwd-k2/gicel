@@ -1309,7 +1309,7 @@ import Std.Num
 import Std.State
 
 -- Computation do block that manipulates Maybe values internally
-main :: Computation { state : Int | r } { state : Int | r } (Maybe Int)
+main :: Computation { state: Int | r } { state: Int | r } (Maybe Int)
 main := do {
   x <- get;
   put (x + 1);

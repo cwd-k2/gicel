@@ -104,7 +104,7 @@ func TestStressRowHKTInteraction(t *testing.T) {
 data Bool = True | False
 data Maybe a = Nothing | Just a
 
-class Functor (f : Type -> Type) {
+class Functor (f: Type -> Type) {
   fmap :: \ a b. (a -> b) -> f a -> f b
 }
 
@@ -186,7 +186,7 @@ instance C2 Bool { m2 := \x. True }
 instance C3 Bool { m3 := \x. True }
 instance C4 Bool { m4 := \x. True }
 
-class Functor (f : Type -> Type) {
+class Functor (f: Type -> Type) {
   fmap :: \ a b. (a -> b) -> f a -> f b
 }
 

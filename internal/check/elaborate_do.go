@@ -121,7 +121,7 @@ func (ch *Checker) elaborateStmtsChecked(stmts []syntax.Stmt, comp *types.TyComp
 	switch st := stmts[0].(type) {
 	case *syntax.StmtBind:
 		// x <- c; rest
-		// c : Computation pre mid a — infer, but pre must match comp.Pre
+		// c: Computation pre mid a — infer, but pre must match comp.Pre
 		compTy, compCore := ch.infer(st.Comp)
 		compTy = ch.unifier.Zonk(compTy)
 		if inferredComp, ok := compTy.(*types.TyComp); ok {

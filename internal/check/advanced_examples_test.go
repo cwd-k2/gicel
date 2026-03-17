@@ -26,25 +26,25 @@ func TestAdvancedTypeFamilyStress(t *testing.T) {
 data Nat = Z | S Nat
 
 -- Type-level addition.
-type Add (a : Nat) (b : Nat) :: Nat = {
+type Add (a: Nat) (b: Nat) :: Nat = {
   Add Z b = b;
   Add (S a) b = S (Add a b)
 }
 
 -- Phantom type indexed by Nat.
-data NatProxy (n : Nat) = MkProxy
+data NatProxy (n: Nat) = MkProxy
 
 -- Elem: container element extraction.
 data List a = Nil | Cons a (List a)
 data Maybe a = Nothing | Just a
 
-type Elem (c : Type) :: Type = {
+type Elem (c: Type) :: Type = {
   Elem (List a) = a;
   Elem (Maybe a) = a
 }
 
 -- Wrap: type-level function.
-type Wrap (a : Type) :: Type = {
+type Wrap (a: Type) :: Type = {
   Wrap a = Maybe a
 }
 
@@ -56,14 +56,14 @@ nestedElem := \x. x
 -- Season rotation: single-step NextSeason is fully reduced.
 data Season = Spring | Summer | Autumn | Winter
 
-type NextSeason (s : Season) :: Season = {
+type NextSeason (s: Season) :: Season = {
   NextSeason Spring = Summer;
   NextSeason Summer = Autumn;
   NextSeason Autumn = Winter;
   NextSeason Winter = Spring
 }
 
-data Tagged (s : Season) = MkTagged
+data Tagged (s: Season) = MkTagged
 
 -- NextSeason reduces for concrete season values.
 nextProof :: Tagged (NextSeason Spring) -> Tagged Summer
@@ -237,7 +237,7 @@ data Unit = Unit
 data Bool = True | False
 data Maybe a = Nothing | Just a
 
-type IsJust (m : Type) :: Bool = {
+type IsJust (m: Type) :: Bool = {
   IsJust (Maybe a) = True;
   IsJust _ = False
 }
@@ -257,7 +257,7 @@ v :: Elem (Maybe Unit)
 v := MaybeElem Unit
 
 -- IsJust reduces for a concrete type.
-data Phantom (b : Bool) = MkPhantom
+data Phantom (b: Bool) = MkPhantom
 proof :: Phantom (IsJust (Maybe Unit)) -> Phantom True
 proof := \x. x
 `
@@ -271,7 +271,7 @@ data Unit = Unit
 data Maybe a = Nothing | Just a
 data List a = Nil | Cons a (List a)
 
-type Elem (c : Type) :: Type = {
+type Elem (c: Type) :: Type = {
   Elem (List a) = a;
   Elem (Maybe a) = a
 }
@@ -297,13 +297,13 @@ func TestAdvancedRecursiveTFWithPhantom(t *testing.T) {
 	source := `
 data Session = Send Session | Recv Session | End
 
-type Dual (s : Session) :: Session = {
+type Dual (s: Session) :: Session = {
   Dual (Send s) = Recv (Dual s);
   Dual (Recv s) = Send (Dual s);
   Dual End = End
 }
 
-data Chan (s : Session) = MkChan
+data Chan (s: Session) = MkChan
 
 -- Dual (Send End) = Recv (Dual End) = Recv End
 dualProof1 :: Chan (Dual (Send End)) -> Chan (Recv End)

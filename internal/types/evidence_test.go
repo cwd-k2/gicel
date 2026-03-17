@@ -250,7 +250,7 @@ func TestPreservesTail(t *testing.T) {
 // --- Group 1C: Subst, Equal, FreeVars, Pretty for TyEvidenceRow ---
 
 func TestSubstCapability(t *testing.T) {
-	// { x : a | r } with a := Int → { x : Int | r }
+	// { x: a | r } with a := Int → { x: Int | r }
 	r := OpenRow([]RowField{{Label: "x", Type: Var("a")}}, Var("r"))
 	result := Subst(r, "a", Con("Int"))
 	ev, ok := result.(*TyEvidenceRow)
@@ -278,7 +278,7 @@ func TestSubstConstraint(t *testing.T) {
 }
 
 func TestSubstTail(t *testing.T) {
-	// { x : Int | r } with r := { y : Bool } → { x : Int, y : Bool }
+	// { x: Int | r } with r := { y: Bool } → { x: Int, y: Bool }
 	r := OpenRow([]RowField{{Label: "x", Type: Con("Int")}}, Var("r"))
 	replacement := ClosedRow(RowField{Label: "y", Type: Con("Bool")})
 	result := Subst(r, "r", replacement)
@@ -339,8 +339,8 @@ func TestFreeVarsConstraint(t *testing.T) {
 func TestPrettyCapability(t *testing.T) {
 	r := ClosedRow(RowField{Label: "x", Type: Con("Int")}, RowField{Label: "y", Type: Con("Bool")})
 	s := Pretty(r)
-	if s != "{ x : Int, y : Bool }" {
-		t.Errorf("expected '{ x : Int, y : Bool }', got '%s'", s)
+	if s != "{ x: Int, y: Bool }" {
+		t.Errorf("expected '{ x: Int, y: Bool }', got '%s'", s)
 	}
 }
 
@@ -362,7 +362,7 @@ func TestPrettyEmpty(t *testing.T) {
 func TestPrettyOpenRow(t *testing.T) {
 	r := OpenRow([]RowField{{Label: "x", Type: Con("Int")}}, Var("r"))
 	s := Pretty(r)
-	if s != "{ x : Int | r }" {
-		t.Errorf("expected '{ x : Int | r }', got '%s'", s)
+	if s != "{ x: Int | r }" {
+		t.Errorf("expected '{ x: Int | r }', got '%s'", s)
 	}
 }

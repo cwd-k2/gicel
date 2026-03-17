@@ -17,9 +17,9 @@ func TestDivergentPostEqualBranches(t *testing.T) {
 	source := `
 data Bool = True | False
 data Unit = Unit
-consumeAll :: Computation { a : Unit, b : Unit } {} Unit
+consumeAll :: Computation { a: Unit, b: Unit } {} Unit
 consumeAll := assumption
-f :: Bool -> Computation { a : Unit, b : Unit } {} Unit
+f :: Bool -> Computation { a: Unit, b: Unit } {} Unit
 f := \b. case b {
   True -> consumeAll;
   False -> consumeAll
@@ -31,9 +31,9 @@ f := \b. case b {
 func TestDivergentPostSingleBranch(t *testing.T) {
 	source := `
 data Unit = MkUnit
-consume :: Computation { a : Unit } {} Unit
+consume :: Computation { a: Unit } {} Unit
 consume := assumption
-f :: Unit -> Computation { a : Unit } {} Unit
+f :: Unit -> Computation { a: Unit } {} Unit
 f := \u. case u {
   MkUnit -> consume
 }
@@ -44,17 +44,17 @@ f := \u. case u {
 // --- Divergent post-states: currently an error (v0) ---
 
 func TestDivergentPostPartialOverlap(t *testing.T) {
-	// Branch True:  post = { b : Unit }  (a consumed)
-	// Branch False: post = { a : Unit, b : Unit }  (nothing consumed)
-	// Intersection: post = { b : Unit }  (b is in both branches)
+	// Branch True:  post = { b: Unit }  (a consumed)
+	// Branch False: post = { a: Unit, b: Unit }  (nothing consumed)
+	// Intersection: post = { b: Unit }  (b is in both branches)
 	source := `
 data Bool = True | False
 data Unit = Unit
-consumeA :: Computation { a : Unit, b : Unit } { b : Unit } Unit
+consumeA :: Computation { a: Unit, b: Unit } { b: Unit } Unit
 consumeA := assumption
-noop :: Computation { a : Unit, b : Unit } { a : Unit, b : Unit } Unit
+noop :: Computation { a: Unit, b: Unit } { a: Unit, b: Unit } Unit
 noop := assumption
-f :: Bool -> Computation { a : Unit, b : Unit } { b : Unit } Unit
+f :: Bool -> Computation { a: Unit, b: Unit } { b: Unit } Unit
 f := \b. case b {
   True -> consumeA;
   False -> noop
@@ -70,9 +70,9 @@ func TestDivergentPostWithMultEqual(t *testing.T) {
 data Mult = Unrestricted | Affine | Linear
 data Bool = True | False
 data Unit = Unit
-close :: Computation { h : Unit @Linear } {} Unit
+close :: Computation { h: Unit @Linear } {} Unit
 close := assumption
-f :: Bool -> Computation { h : Unit @Linear } {} Unit
+f :: Bool -> Computation { h: Unit @Linear } {} Unit
 f := \b. case b {
   True -> close;
   False -> close
@@ -86,7 +86,7 @@ f := \b. case b {
 func TestDivergentPostLUBDefined(t *testing.T) {
 	source := `
 data Mult = Unrestricted | Affine | Linear
-type LUB (m1 : Mult) (m2 : Mult) :: Mult = {
+type LUB (m1: Mult) (m2: Mult) :: Mult = {
   LUB Linear _ = Linear;
   LUB _ Linear = Linear;
   LUB Affine _ = Affine;
@@ -117,17 +117,17 @@ f := \b. case b {
 // For now, it documents the desired behavior.
 
 func TestDivergentPostWithLUBJoin(t *testing.T) {
-	// Branch True:  post = { b : Unit }  (a consumed)
-	// Branch False: post = { a : Unit }  (b consumed)
+	// Branch True:  post = { b: Unit }  (a consumed)
+	// Branch False: post = { a: Unit }  (b consumed)
 	// Intersection join: post = {}  (no label is in ALL branches)
 	source := `
 data Bool = True | False
 data Unit = Unit
-consumeA :: Computation { a : Unit, b : Unit } { b : Unit } Unit
+consumeA :: Computation { a: Unit, b: Unit } { b: Unit } Unit
 consumeA := assumption
-consumeB :: Computation { a : Unit, b : Unit } { a : Unit } Unit
+consumeB :: Computation { a: Unit, b: Unit } { a: Unit } Unit
 consumeB := assumption
-f :: Bool -> Computation { a : Unit, b : Unit } {} Unit
+f :: Bool -> Computation { a: Unit, b: Unit } {} Unit
 f := \b. case b {
   True -> consumeA;
   False -> consumeB
@@ -147,7 +147,7 @@ func TestTypehelpersWithMult(t *testing.T) {
 	}
 	source := `
 data Mult = Unrestricted | Affine | Linear
-f :: { x : Int @Linear } -> Int
+f :: { x: Int @Linear } -> Int
 f := \r. 0
 `
 	checkSource(t, source, config)

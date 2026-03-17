@@ -460,7 +460,7 @@ func TestSliceMapImplEmpty(t *testing.T) {
 }
 
 func TestSliceFoldrDirection(t *testing.T) {
-	// foldr (\x acc -> x : acc) [] [1,2,3] with non-commutative op
+	// foldr (\x acc -> x: acc) [] [1,2,3] with non-commutative op
 	// Right fold: 1 : (2 : (3 : [])) = [1,2,3]
 	// Left fold would give: 3 : (2 : (1 : [])) = [3,2,1]
 	fn := &eval.Closure{Param: "x", Body: nil}

@@ -72,7 +72,7 @@ type RowField struct {
 // For simple constraints (Eq a), ClassName and Args describe the constraint.
 // For quantified constraints (forall a. Eq a => Eq (f a)), Quantified is non-nil
 // and ClassName/Args reflect the head constraint.
-// For constraint variables (c : Constraint), ConstraintVar is non-nil and
+// For constraint variables (c: Constraint), ConstraintVar is non-nil and
 // ClassName/Args are derived from it after substitution/zonking.
 type ConstraintEntry struct {
 	ClassName     string

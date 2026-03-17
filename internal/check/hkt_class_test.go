@@ -7,11 +7,11 @@ import "testing"
 // =============================================================================
 
 func TestPolyKindedClassDecl(t *testing.T) {
-	// class Functor (f : k -> Type) with implicit kind variable k
+	// class Functor (f: k -> Type) with implicit kind variable k
 	source := `
 data Maybe a = Nothing | Just a
 
-class Functor (f : k -> Type) {
+class Functor (f: k -> Type) {
   fmap :: \ a b. (a -> b) -> f a -> f b
 }
 
@@ -28,7 +28,7 @@ func TestPolyKindedClassUseMethod(t *testing.T) {
 data Bool = True | False
 data Maybe a = Nothing | Just a
 
-class Functor (f : k -> Type) {
+class Functor (f: k -> Type) {
   fmap :: \ a b. (a -> b) -> f a -> f b
 }
 
@@ -66,7 +66,7 @@ test := eq True False
 func TestClassInfoKindParams(t *testing.T) {
 	// Verify that kind params are tracked in ClassInfo
 	source := `
-class MyClass (f : k -> Type) {
+class MyClass (f: k -> Type) {
   method :: \ a. f a -> f a
 }
 `
@@ -78,7 +78,7 @@ class MyClass (f : k -> Type) {
 func TestClassMultipleKindVars(t *testing.T) {
 	// Multiple kind variables in a class
 	source := `
-class BiMap (f : k -> j -> Type) {
+class BiMap (f: k -> j -> Type) {
   bimap :: \ a b c d. (a -> c) -> (b -> d) -> f a b -> f c d
 }
 `
@@ -91,7 +91,7 @@ func TestPolyKindedClassWithSuperclass(t *testing.T) {
 data Bool = True | False
 data Maybe a = Nothing | Just a
 
-class Functor (f : k -> Type) {
+class Functor (f: k -> Type) {
   fmap :: \ a b. (a -> b) -> f a -> f b
 }
 
@@ -99,7 +99,7 @@ instance Functor Maybe {
   fmap := \g mx. case mx { Nothing -> Nothing; Just x -> Just (g x) }
 }
 
-class Functor f => Applicative (f : k -> Type) {
+class Functor f => Applicative (f: k -> Type) {
   pure :: \ a. a -> f a
 }
 `
@@ -111,11 +111,11 @@ class Functor f => Applicative (f : k -> Type) {
 // =============================================================================
 
 func TestInstanceKindMatch(t *testing.T) {
-	// instance Functor Maybe — Maybe : Type -> Type, k unifies with Type
+	// instance Functor Maybe — Maybe: Type -> Type, k unifies with Type
 	source := `
 data Maybe a = Nothing | Just a
 
-class Functor (f : k -> Type) {
+class Functor (f: k -> Type) {
   fmap :: \ a b. (a -> b) -> f a -> f b
 }
 

@@ -241,7 +241,7 @@ func TestSortIntegrationCapabilityProgram(t *testing.T) {
 	// Capability rows now flow through TyEvidenceRow.
 	source := `data Bool = True | False
 data Unit = Unit
-f :: Computation { x : Int } { x : Int } Bool
+f :: Computation { x: Int } { x: Int } Bool
 f := do { pure True }
 main := f`
 	checkSource(t, source, nil)
@@ -250,7 +250,7 @@ main := f`
 func TestSortIntegrationCapabilityMultiField(t *testing.T) {
 	source := `data Bool = True | False
 data Unit = Unit
-g :: Computation { x : Int, y : Bool } { x : Int, y : Bool } Bool
+g :: Computation { x: Int, y: Bool } { x: Int, y: Bool } Bool
 g := do { pure True }
 main := g`
 	checkSource(t, source, nil)
@@ -259,7 +259,7 @@ main := g`
 func TestSortIntegrationCapabilityRowVar(t *testing.T) {
 	source := `data Bool = True | False
 data Unit = Unit
-h :: \ (r : Row). Computation { x : Int | r } { x : Int | r } Bool
+h :: \ (r: Row). Computation { x: Int | r } { x: Int | r } Bool
 h := do { pure True }
 main := h`
 	checkSource(t, source, nil)

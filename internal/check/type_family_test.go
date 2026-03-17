@@ -13,7 +13,7 @@ import (
 func TestTypeFamilyParseBasic(t *testing.T) {
 	source := `
 data Bool = True | False
-type IsTrue (b : Bool) :: Bool = {
+type IsTrue (b: Bool) :: Bool = {
   IsTrue True = True;
   IsTrue False = False
 }
@@ -24,7 +24,7 @@ type IsTrue (b : Bool) :: Bool = {
 func TestTypeFamilyParseTwoParams(t *testing.T) {
 	source := `
 data Mult = Unrestricted | Affine | Linear
-type LUB (m1 : Mult) (m2 : Mult) :: Mult = {
+type LUB (m1: Mult) (m2: Mult) :: Mult = {
   LUB Linear _ = Linear;
   LUB _ Linear = Linear;
   LUB Affine _ = Affine;
@@ -42,7 +42,7 @@ func TestTypeFamilyReduceAppPattern(t *testing.T) {
 	source := `
 data List a = Nil | Cons a (List a)
 data Unit = Unit
-type Elem (c : Type) :: Type = {
+type Elem (c: Type) :: Type = {
   Elem (List a) = a
 }
 f :: Elem (List Unit) -> Unit
@@ -57,7 +57,7 @@ func TestTypeFamilyReduceMultiEquations(t *testing.T) {
 data List a = Nil | Cons a (List a)
 data Unit = Unit
 data Pair a b = MkPair a b
-type Elem (c : Type) :: Type = {
+type Elem (c: Type) :: Type = {
   Elem (List a) = a;
   Elem (Pair a b) = a
 }
@@ -73,7 +73,7 @@ func TestTypeFamilyReduceIdentity(t *testing.T) {
 	// Simple identity-like type family.
 	source := `
 data Unit = Unit
-type Id (a : Type) :: Type = {
+type Id (a: Type) :: Type = {
   Id a = a
 }
 f :: Id Unit -> Unit
@@ -87,7 +87,7 @@ func TestTypeFamilyReduceConstant(t *testing.T) {
 	source := `
 data Unit = Unit
 data List a = Nil | Cons a (List a)
-type AlwaysUnit (a : Type) :: Type = {
+type AlwaysUnit (a: Type) :: Type = {
   AlwaysUnit a = Unit
 }
 f :: AlwaysUnit (List Unit) -> Unit
@@ -103,7 +103,7 @@ func TestTypeFamilyStuckOnMeta(t *testing.T) {
 	// The stuck TyFamilyApp should unify with itself.
 	source := `
 data List a = Nil | Cons a (List a)
-type Elem (c : Type) :: Type = {
+type Elem (c: Type) :: Type = {
   Elem (List a) = a
 }
 f :: \ c. Elem c -> Elem c
@@ -118,7 +118,7 @@ func TestTypeFamilyWildcard(t *testing.T) {
 	source := `
 data Unit = Unit
 data List a = Nil | Cons a (List a)
-type AlwaysUnit (a : Type) :: Type = {
+type AlwaysUnit (a: Type) :: Type = {
   AlwaysUnit _ = Unit
 }
 f :: AlwaysUnit (List Unit) -> Unit
@@ -135,7 +135,7 @@ data Serialization = JSON | Binary
 class Show a {
   show :: a -> a
 }
-type Serializable (fmt : Serialization) :: Constraint = {
+type Serializable (fmt: Serialization) :: Constraint = {
   Serializable JSON = Show;
   Serializable Binary = Show
 }
@@ -148,7 +148,7 @@ type Serializable (fmt : Serialization) :: Constraint = {
 func TestTypeFamilyArityMismatch(t *testing.T) {
 	source := `
 data Bool = True | False
-type F (a : Bool) :: Bool = {
+type F (a: Bool) :: Bool = {
   F True False = True
 }
 `
@@ -158,7 +158,7 @@ type F (a : Bool) :: Bool = {
 func TestTypeFamilyNameMismatch(t *testing.T) {
 	source := `
 data Bool = True | False
-type F (a : Bool) :: Bool = {
+type F (a: Bool) :: Bool = {
   G True = True
 }
 `
@@ -171,7 +171,7 @@ func TestTypeFamilyInjectivityViolation(t *testing.T) {
 	source := `
 data Unit = Unit
 data List a = Nil | Cons a (List a)
-type Elem (c : Type) :: (r : Type) | r -> c = {
+type Elem (c: Type) :: (r: Type) | r -> c = {
   Elem (List a) = a;
   Elem Unit = Unit
 }
@@ -182,10 +182,10 @@ type Elem (c : Type) :: (r : Type) | r -> c = {
 func TestTypeFamilyDuplicate(t *testing.T) {
 	source := `
 data Bool = True | False
-type F (a : Bool) :: Bool = {
+type F (a: Bool) :: Bool = {
   F True = True
 }
-type F (a : Bool) :: Bool = {
+type F (a: Bool) :: Bool = {
   F True = False
 }
 `
@@ -198,7 +198,7 @@ func TestTypeFamilyInFunctionType(t *testing.T) {
 	source := `
 data List a = Nil | Cons a (List a)
 data Unit = Unit
-type Elem (c : Type) :: Type = {
+type Elem (c: Type) :: Type = {
   Elem (List a) = a
 }
 map :: \ a b. (a -> b) -> List a -> List b
@@ -298,7 +298,7 @@ g := \x. x
 func TestRecursiveTypeFamilyDual(t *testing.T) {
 	source := `
 data Session = Send Session | Recv Session | End
-type Dual (s : Session) :: Session = {
+type Dual (s: Session) :: Session = {
   Dual (Send s) = Recv (Dual s);
   Dual (Recv s) = Send (Dual s);
   Dual End = End
@@ -310,7 +310,7 @@ type Dual (s : Session) :: Session = {
 func TestRecursiveTypeFamilyFuelExhaustion(t *testing.T) {
 	source := `
 data Unit = Unit
-type Loop (a : Type) :: Type = {
+type Loop (a: Type) :: Type = {
   Loop a = Loop a
 }
 f :: Loop Unit -> Unit
@@ -350,7 +350,7 @@ func TestSessionTypeDual(t *testing.T) {
 	// Session types as a library feature on recursive TF + DataKinds.
 	source := `
 data Session = Send Session | Recv Session | End
-type Dual (s : Session) :: Session = {
+type Dual (s: Session) :: Session = {
   Dual (Send s) = Recv (Dual s);
   Dual (Recv s) = Send (Dual s);
   Dual End = End
@@ -364,7 +364,7 @@ func TestSessionTypeDualOfDual(t *testing.T) {
 	// This tests recursive TF with promoted constructor patterns.
 	source := `
 data Session = Send Session | Recv Session | End
-type Dual (s : Session) :: Session = {
+type Dual (s: Session) :: Session = {
   Dual (Send s) = Recv (Dual s);
   Dual (Recv s) = Send (Dual s);
   Dual End = End
@@ -397,7 +397,7 @@ f := \b. case b {
 // --- Graded Evidence: RowField.Mult ---
 
 func TestRowFieldMultPretty(t *testing.T) {
-	// RowField with Mult should pretty-print as "label : Type @ Mult"
+	// RowField with Mult should pretty-print as "label: Type @ Mult"
 	row := types.ClosedRow(types.RowField{
 		Label: "handle",
 		Type:  &types.TyCon{Name: "FileHandle"},

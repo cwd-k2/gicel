@@ -2,15 +2,15 @@
 --
 -- Demonstrates kind annotations in type class declarations, kind
 -- variables in \binders, and higher-kinded type class instances.
--- GICEL supports HKT via explicit kind annotations using (f : Kind).
+-- GICEL supports HKT via explicit kind annotations using (f: Kind).
 -- Level: types
 
 -- A binary tree type (Type -> Type)
 data Tree a = TLeaf a | TBranch (Tree a) (Tree a)
 
 -- Custom Mappable class with explicit kind annotation
--- (f : Type -> Type) specifies that f is a type constructor
-class Mappable (f : Type -> Type) {
+-- (f: Type -> Type) specifies that f is a type constructor
+class Mappable (f: Type -> Type) {
   mmap :: \a b. (a -> b) -> f a -> f b
 }
 
@@ -31,8 +31,8 @@ instance Mappable Tree {
 }
 
 -- Kind-polymorphic identity function
--- (k : Kind) quantifies over kinds; (a : k) has the kind variable k
-id_k :: \(k : Kind). \(a : k). a -> a
+-- (k: Kind) quantifies over kinds; (a: k) has the kind variable k
+id_k :: \(k: Kind). \(a: k). a -> a
 id_k := \x. x
 
 -- Using id_k at different kinds:

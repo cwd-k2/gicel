@@ -20,7 +20,7 @@ movedX := moved.#x
 
 -- Row-polymorphic function: accepts any record with an "x" field
 -- The `r` row variable absorbs all other fields.
-getX :: \r. Record { x : Int | r } -> Int
+getX :: \r. Record { x: Int | r } -> Int
 getX := \r. r.#x
 
 -- Works on records of different shapes

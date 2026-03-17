@@ -17,7 +17,7 @@ func TestRecordLitEmpty(t *testing.T) {
 }
 
 func TestRecordLitSimple(t *testing.T) {
-	// { x: 42 } should infer Record { x : Int }
+	// { x: 42 } should infer Record { x: Int }
 	source := `main := { x: 42 }`
 	checkSource(t, source, nil)
 }
@@ -73,15 +73,15 @@ main := { { x: 42, y: True } | x: 0, y: False }`
 // =============================================================================
 
 func TestRecordAnnotated(t *testing.T) {
-	source := `f :: Record { x : Int } -> Int
+	source := `f :: Record { x: Int } -> Int
 f := \r. r.#x
 main := f { x: 42 }`
 	checkSource(t, source, nil)
 }
 
 func TestRecordRowPoly(t *testing.T) {
-	// Row-polymorphic function: takes any record with field x : Int.
-	source := `f :: \ r. Record { x : Int | r } -> Int
+	// Row-polymorphic function: takes any record with field x: Int.
+	source := `f :: \ r. Record { x: Int | r } -> Int
 f := \r. r.#x
 main := f { x: 42, y: 0 }`
 	checkSource(t, source, nil)
@@ -110,7 +110,7 @@ main := f { x: 42, y: True }`
 
 func TestRecordCheckMode(t *testing.T) {
 	// Check a record literal against an expected record type.
-	source := `f :: Record { x : Int, y : Int } -> Int
+	source := `f :: Record { x: Int, y: Int } -> Int
 f := \r. r.#x
 main := f { x: 1, y: 2 }`
 	checkSource(t, source, nil)
@@ -138,7 +138,7 @@ main := f { x: 42 }`
 func TestRecordCheckModeTypeMismatch(t *testing.T) {
 	// Field type mismatch should error.
 	source := `data Bool = True | False
-f :: Record { x : Int } -> Int
+f :: Record { x: Int } -> Int
 f := \r. r.#x
 main := f { x: True }`
 	checkSourceExpectCode(t, source, nil, errs.ErrTypeMismatch)

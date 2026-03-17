@@ -206,7 +206,7 @@ func (ch *Checker) check(expr syntax.Expr, expected types.Type) core.Core {
 
 	// If the expected type is a forall, introduce a TyLam and check the body
 	// against the quantified type. This implements the spec rule:
-	//   ⟦ e : \ a:K. T ⟧ = TyLam(a, K, ⟦e : T⟧)
+	//   ⟦ e : \ a:K. T ⟧ = TyLam(a, K, ⟦e: T⟧)
 	if f, ok := expected.(*types.TyForall); ok {
 		if _, isSort := f.Kind.(types.KSort); isSort {
 			// Kind-level quantifier: introduce a fresh kind skolem (KVar)
@@ -229,7 +229,7 @@ func (ch *Checker) check(expr syntax.Expr, expected types.Type) core.Core {
 
 	// If the expected type is a TyEvidence, introduce implicit dict parameters
 	// for each constraint entry.
-	//   ⟦ e : { C1 a, C2 b } => T ⟧ = Lam($d1, Lam($d2, ⟦e : T⟧))
+	//   ⟦ e : { C1 a, C2 b } => T ⟧ = Lam($d1, Lam($d2, ⟦e: T⟧))
 	if ev, ok := expected.(*types.TyEvidence); ok {
 		return ch.checkWithEvidence(expr, ev)
 	}
@@ -589,7 +589,7 @@ func (ch *Checker) patternName(p syntax.Pattern) string {
 }
 
 // inferPure handles the special form 'pure <expr>'.
-// pure e : Computation r r a, elaborated to Core.Pure.
+// pure e: Computation r r a, elaborated to Core.Pure.
 func (ch *Checker) inferPure(e *syntax.ExprApp) (types.Type, core.Core) {
 	argTy, argCore := ch.infer(e.Arg)
 	r := ch.freshMeta(types.KRow{})

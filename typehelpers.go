@@ -43,7 +43,7 @@ func ForallType(varName string, body types.Type) types.Type {
 	return types.MkForall(varName, types.KType{}, body)
 }
 
-// ForallRow creates a universally quantified type with Row kind: \ (r : Row). body.
+// ForallRow creates a universally quantified type with Row kind: \ (r: Row). body.
 func ForallRow(varName string, body types.Type) types.Type {
 	return types.MkForall(varName, types.KRow{}, body)
 }
@@ -115,7 +115,7 @@ func ClosedRowType(fields ...types.RowField) types.Type {
 	return types.ClosedRow(fields...)
 }
 
-// RecordType creates a closed record type: Record { l1 : T1, ..., ln : Tn }.
+// RecordType creates a closed record type: Record { l1: T1, ..., ln: Tn }.
 func RecordType(fields ...types.RowField) types.Type {
 	return &types.TyApp{
 		Fun: &types.TyCon{Name: "Record"},
@@ -123,7 +123,7 @@ func RecordType(fields ...types.RowField) types.Type {
 	}
 }
 
-// TupleType creates a tuple type: (a, b) = Record { _1 : a, _2 : b }.
+// TupleType creates a tuple type: (a, b) = Record { _1: a, _2: b }.
 func TupleType(elems ...types.Type) types.Type {
 	fields := make([]types.RowField, len(elems))
 	for i, t := range elems {

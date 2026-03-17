@@ -296,7 +296,7 @@ func (u *Unifier) normalize(t types.Type) types.Type {
 // normalizeCompApp converts fully-applied TyApp chains to their special type
 // representations. e.g. TyApp(TyApp(TyApp(TyCon("Computation"), pre), post), result)
 // becomes TyComp{pre, post, result}. This arises when a class type parameter
-// (m : Row -> Row -> Type -> Type) is substituted with Computation.
+// (m: Row -> Row -> Type -> Type) is substituted with Computation.
 func normalizeCompApp(t types.Type) types.Type {
 	app1, ok := t.(*types.TyApp)
 	if !ok {

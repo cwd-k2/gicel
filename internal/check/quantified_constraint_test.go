@@ -19,7 +19,7 @@ func TestQuantifiedConstraintBasic(t *testing.T) {
 data F a = MkF a
 class Eq a { eq :: a -> a -> Bool }
 instance Eq Bool { eq := \x y. True }
-f :: \ (g : Type -> Type). (\ a. Eq a => Eq (g a)) => g Bool -> g Bool -> Bool
+f :: \ (g: Type -> Type). (\ a. Eq a => Eq (g a)) => g Bool -> g Bool -> Bool
 f := \x y. eq x y
 instance Eq a => Eq (F a) { eq := \x y. True }
 main := f (MkF True) (MkF False)`
@@ -34,7 +34,7 @@ class Eq a { eq :: a -> a -> Bool }
 class Show a { show :: a -> Bool }
 instance Eq Bool { eq := \x y. True }
 instance Show Bool { show := \x. True }
-f :: \ (g : Type -> Type). (\ a. (Eq a, Show a) => Eq (g a)) => g Bool -> g Bool -> Bool
+f :: \ (g: Type -> Type). (\ a. (Eq a, Show a) => Eq (g a)) => g Bool -> g Bool -> Bool
 f := \x y. eq x y
 instance Eq a => Show a => Eq (F a) { eq := \x y. True }
 main := f (MkF True) (MkF False)`
@@ -50,7 +50,7 @@ class Show a { show :: a -> Bool }
 instance Eq Bool { eq := \x y. True }
 instance Show Bool { show := \x. True }
 instance Eq a => Eq (F a) { eq := \x y. True }
-f :: \ (g : Type -> Type). (Show Bool, (\ a. Eq a => Eq (g a))) => g Bool -> g Bool -> Bool
+f :: \ (g: Type -> Type). (Show Bool, (\ a. Eq a => Eq (g a))) => g Bool -> g Bool -> Bool
 f := \x y. eq x y
 main := f (MkF True) (MkF False)`
 	checkSource(t, source, nil)
@@ -65,7 +65,7 @@ class Show a { show :: a -> Bool }
 instance Eq Bool { eq := \x y. True }
 instance Show Bool { show := \x. True }
 instance Eq a => Eq (F a) { eq := \x y. True }
-f :: \ (g : Type -> Type). (Show Bool, (\ a. Eq a => Eq (g a))) => g Bool -> g Bool -> Bool
+f :: \ (g: Type -> Type). (Show Bool, (\ a. Eq a => Eq (g a))) => g Bool -> g Bool -> Bool
 f := \x y. eq x y
 main := f (MkF True) (MkF False)`
 	checkSource(t, source, nil)
@@ -80,7 +80,7 @@ class Eq a { eq :: a -> a -> Bool }
 instance Eq Bool { eq := \x y. True }
 instance Eq a => Eq (F a) { eq := \x y. True }
 instance Eq a => Eq (G a) { eq := \x y. True }
-f :: \ (g : Type -> Type) (h : Type -> Type). ((\ a. Eq a => Eq (g a)), (\ a. Eq a => Eq (h a))) => g Bool -> h Bool -> Bool
+f :: \ (g: Type -> Type) (h: Type -> Type). ((\ a. Eq a => Eq (g a)), (\ a. Eq a => Eq (h a))) => g Bool -> h Bool -> Bool
 f := \x y. eq x x
 main := f (MkF True) (MkG False)`
 	checkSource(t, source, nil)
@@ -93,7 +93,7 @@ data MyType = MyType
 data F a = MkF a
 class Eq a { eq :: a -> a -> Bool }
 instance Eq Bool { eq := \x y. True }
-f :: \ (g : Type -> Type). (\ a. Eq a => Eq (g a)) => g MyType -> g MyType -> Bool
+f :: \ (g: Type -> Type). (\ a. Eq a => Eq (g a)) => g MyType -> g MyType -> Bool
 f := \x y. eq x y
 instance Eq a => Eq (F a) { eq := \x y. True }
 main := f (MkF MyType) (MkF MyType)`
@@ -115,7 +115,7 @@ data G a = MkG a
 class Eq a { eq :: a -> a -> Bool }
 instance Eq Bool { eq := \x y. True }
 instance Eq a => Eq (G a) { eq := \x y. True }
-f :: \ (h : Type -> Type). (\ a. Eq a => Eq (h a)) => h (G Bool) -> h (G Bool) -> Bool
+f :: \ (h: Type -> Type). (\ a. Eq a => Eq (h a)) => h (G Bool) -> h (G Bool) -> Bool
 f := \x y. eq x y
 instance Eq a => Eq (F a) { eq := \x y. True }
 main := f (MkF (MkG True)) (MkF (MkG False))`
@@ -132,7 +132,7 @@ class Eq a { eq :: a -> a -> Bool }
 instance Eq Bool { eq := \x y. True }
 instance Eq Unit { eq := \x y. True }
 instance Eq a => Eq (F a) { eq := \x y. True }
-f :: \ (g : Type -> Type). (\ a. Eq a => Eq (g a)) => g Bool -> g Unit -> Bool
+f :: \ (g: Type -> Type). (\ a. Eq a => Eq (g a)) => g Bool -> g Unit -> Bool
 f := \x y. eq x x
 main := f (MkF True) (MkF Unit)`
 	checkSource(t, source, nil)
@@ -147,7 +147,7 @@ instance Eq Bool { eq := \x y. True }
 instance Eq a => Eq (F a) { eq := \x y. True }
 id :: \ a. a -> a
 id := \x. x
-f :: \ (g : Type -> Type). (\ a. Eq a => Eq (g a)) => g Bool -> Bool
+f :: \ (g: Type -> Type). (\ a. Eq a => Eq (g a)) => g Bool -> Bool
 f := \x. eq x x
 main := f (MkF True)`
 	checkSource(t, source, nil)
@@ -162,7 +162,7 @@ class Show a { show :: a -> Bool }
 instance Eq Bool { eq := \x y. True }
 instance Show Bool { show := \x. True }
 instance Eq a => Eq (F a) { eq := \x y. True }
-f :: \ (g : Type -> Type). (Show Bool, (\ a. Eq a => Eq (g a))) => g Bool -> Bool
+f :: \ (g: Type -> Type). (Show Bool, (\ a. Eq a => Eq (g a))) => g Bool -> Bool
 f := \x. eq x x
 main := f (MkF True)`
 	checkSource(t, source, nil)
@@ -177,7 +177,7 @@ class Show a { show :: a -> Bool }
 instance Eq Bool { eq := \x y. True }
 instance Show Bool { show := \x. True }
 instance Eq a => Eq (F a) { eq := \x y. True }
-f :: \ (g : Type -> Type). (Show Bool, (\ a. Eq a => Eq (g a))) => g Bool -> Bool
+f :: \ (g: Type -> Type). (Show Bool, (\ a. Eq a => Eq (g a))) => g Bool -> Bool
 f := \x. eq x x
 main := f (MkF True)`
 	checkSource(t, source, nil)

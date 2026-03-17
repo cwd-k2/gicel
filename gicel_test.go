@@ -1485,7 +1485,7 @@ main := do {
 	}
 }
 
-// Forall with kinded binder: \ (r : Row). T
+// Forall with kinded binder: \ (r: Row). T
 func TestKindedForallBinder(t *testing.T) {
 	eng := gicel.NewEngine()
 	eng.RegisterType("Int", gicel.KindType())
@@ -1493,7 +1493,7 @@ func TestKindedForallBinder(t *testing.T) {
 		return gicel.ToValue(7), capEnv, nil
 	})
 	rt, err := eng.NewRuntime(`
-getVal :: \(r : Row). () -> Computation r r Int
+getVal :: \(r: Row). () -> Computation r r Int
 getVal := assumption
 main := do { getVal () }
 `)
@@ -1881,10 +1881,10 @@ func TestDataKindsInRow(t *testing.T) {
 	rt, err := eng.NewRuntime(`
 data DBState = Opened | Closed
 
-readDB :: () -> Computation { db : Int } { db : Int } Int
+readDB :: () -> Computation { db: Int } { db: Int } Int
 readDB := assumption
 
-main :: Computation { db : Int } { db : Int } Int
+main :: Computation { db: Int } { db: Int } Int
 main := do { readDB () }
 `)
 	if err != nil {
@@ -3410,7 +3410,7 @@ func TestEffectfulDeferUntilBind(t *testing.T) {
 	}
 	rt, err := eng.NewRuntime(`
 import Std.State
-main :: Computation { state : Int | r } { state : Int | r } Int
+main :: Computation { state: Int | r } { state: Int | r } Int
 main := do { s <- get; pure s }
 `)
 	if err != nil {
@@ -3434,7 +3434,7 @@ func TestEffectfulTopLevelForce(t *testing.T) {
 	}
 	rt, err := eng.NewRuntime(`
 import Std.State
-main :: Computation { state : Int | r } { state : Int | r } Int
+main :: Computation { state: Int | r } { state: Int | r } Int
 main := get
 `)
 	if err != nil {
@@ -3684,7 +3684,7 @@ func TestIxMonadClassExists(t *testing.T) {
 	// Verify IxMonad class is defined in prelude and usable in type annotations.
 	eng := gicel.NewEngine()
 	_, err := eng.NewRuntime(`
-myFn :: \(m : Row -> Row -> Type -> Type). IxMonad m => \a (r : Row). a -> m r r a
+myFn :: \(m: Row -> Row -> Type -> Type). IxMonad m => \a (r: Row). a -> m r r a
 myFn := ixpure
 main := True
 `)
@@ -3712,8 +3712,8 @@ main := True
 func TestKindedClassParam(t *testing.T) {
 	eng := gicel.NewEngine()
 	_, err := eng.NewRuntime(`
-class MyClass (m : Row -> Row -> Type -> Type) {
-  myPure :: \a (r : Row). a -> m r r a
+class MyClass (m: Row -> Row -> Type -> Type) {
+  myPure :: \a (r: Row). a -> m r r a
 }
 main := True
 `)
@@ -3725,7 +3725,7 @@ main := True
 func TestKindedClassParamWithInstance(t *testing.T) {
 	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`
-class Wrap (f : Type -> Type) {
+class Wrap (f: Type -> Type) {
   wrap :: \a. a -> f a
 }
 instance Wrap Maybe {
@@ -3978,7 +3978,7 @@ func TestIxMonadGenericFunction(t *testing.T) {
 	// A generic function using IxMonad constraint should work with Computation.
 	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`
-myReturn :: \(m : Row -> Row -> Type -> Type). IxMonad m => \a (r : Row). a -> m r r a
+myReturn :: \(m: Row -> Row -> Type -> Type). IxMonad m => \a (r: Row). a -> m r r a
 myReturn := ixpure
 main :: Computation {} {} Bool
 main := myReturn True
@@ -4186,7 +4186,7 @@ func TestGenericMonadicFunction(t *testing.T) {
 	eng := gicel.NewEngine()
 	eng.DeclareBinding("x", gicel.ConType("Int"))
 	rt, err := eng.NewRuntime(`
-myReturn :: \(m : Row -> Row -> Type -> Type). IxMonad m => \a (r : Row). a -> m r r a
+myReturn :: \(m: Row -> Row -> Type -> Type). IxMonad m => \a (r: Row). a -> m r r a
 myReturn := ixpure
 main :: Computation {} {} Int
 main := myReturn x

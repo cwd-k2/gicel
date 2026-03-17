@@ -153,10 +153,10 @@ maybe := \def f m. case m { Nothing -> def; Just a -> f a }
 result :: \e a b. (e -> b) -> (a -> b) -> Result e a -> b
 result := \onErr onOk r. case r { Err e -> onErr e; Ok a -> onOk a }
 
-fst :: \a (r : Row). Record { _1 : a | r } -> a
+fst :: \a (r: Row). Record { _1: a | r } -> a
 fst := \p. p.#_1
 
-snd :: \a (r : Row). Record { _2 : a | r } -> a
+snd :: \a (r: Row). Record { _2: a | r } -> a
 snd := \p. p.#_2
 
 head :: \a. List a -> Maybe a
@@ -222,16 +222,16 @@ class Applicative f => Alternative f {
   alt  :: \a. f a -> f a -> f a
 }
 infixl 3 <|>
-(<|>) :: \(f : Type -> Type) a. Alternative f => f a -> f a -> f a
+(<|>) :: \(f: Type -> Type) a. Alternative f => f a -> f a -> f a
 (<|>) := alt
 
 instance Alternative Maybe { none := Nothing; alt := \x y. case x { Just _ -> x; Nothing -> y } }
 instance Alternative List { none := Nil; alt := append }
 
-guard :: \(f : Type -> Type). Alternative f => Bool -> f ()
+guard :: \(f: Type -> Type). Alternative f => Bool -> f ()
 guard := \b. case b { True -> wrap (); False -> none }
 
-class Monad (m : Type -> Type) {
+class Monad (m: Type -> Type) {
   mpure :: \a. a -> m a;
   mbind :: \a b. m a -> (a -> m b) -> m b
 }
@@ -247,11 +247,11 @@ instance Monad List {
 }
 
 infixl 1 >>=
-(>>=) :: \(m : Type -> Type) a b. Monad m => m a -> (a -> m b) -> m b
+(>>=) :: \(m: Type -> Type) a b. Monad m => m a -> (a -> m b) -> m b
 (>>=) := mbind
 
 infixl 1 >>
-(>>) :: \(m : Type -> Type) a b. Monad m => m a -> m b -> m b
+(>>) :: \(m: Type -> Type) a b. Monad m => m a -> m b -> m b
 (>>) := \m1 m2. mbind m1 (\_. m2)
 
 instance IxMonad Maybe {
@@ -323,35 +323,35 @@ infixl 1 &
 (&) := \x f. f x
 
 infixl 4 <$>
-(<$>) :: \(f : Type -> Type) a b. Functor f => (a -> b) -> f a -> f b
+(<$>) :: \(f: Type -> Type) a b. Functor f => (a -> b) -> f a -> f b
 (<$>) := fmap
 
 infixl 1 <&>
-(<&>) :: \(f : Type -> Type) a b. Functor f => f a -> (a -> b) -> f b
+(<&>) :: \(f: Type -> Type) a b. Functor f => f a -> (a -> b) -> f b
 (<&>) := flip fmap
 
 infixl 4 <*>
-(<*>) :: \(f : Type -> Type) a b. Applicative f => f (a -> b) -> f a -> f b
+(<*>) :: \(f: Type -> Type) a b. Applicative f => f (a -> b) -> f a -> f b
 (<*>) := ap
 
 infixl 4 *>
-(*>) :: \(f : Type -> Type) a b. Applicative f => f a -> f b -> f b
+(*>) :: \(f: Type -> Type) a b. Applicative f => f a -> f b -> f b
 (*>) := \fa fb. ap (fmap (const id) fa) fb
 
 infixl 4 <*
-(<*) :: \(f : Type -> Type) a b. Applicative f => f a -> f b -> f a
+(<*) :: \(f: Type -> Type) a b. Applicative f => f a -> f b -> f a
 (<*) := \fa fb. ap (fmap const fa) fb
 
 infixr 1 =<<
-(=<<) :: \(m : Type -> Type) a b. Monad m => (a -> m b) -> m a -> m b
+(=<<) :: \(m: Type -> Type) a b. Monad m => (a -> m b) -> m a -> m b
 (=<<) := flip mbind
 
 infixr 1 >=>
-(>=>) :: \(m : Type -> Type) a b c. Monad m => (a -> m b) -> (b -> m c) -> a -> m c
+(>=>) :: \(m: Type -> Type) a b c. Monad m => (a -> m b) -> (b -> m c) -> a -> m c
 (>=>) := \f g a. mbind (f a) g
 
 infixr 1 <=<
-(<=<) :: \(m : Type -> Type) b c a. Monad m => (b -> m c) -> (a -> m b) -> a -> m c
+(<=<) :: \(m: Type -> Type) b c a. Monad m => (b -> m c) -> (a -> m b) -> a -> m c
 (<=<) := \g f a. mbind (f a) g
 
 on :: \a b c. (b -> b -> c) -> (a -> b) -> a -> a -> c
@@ -393,25 +393,25 @@ curry := \f a b. f (a, b)
 uncurry :: \a b c. (a -> b -> c) -> (a, b) -> c
 uncurry := \f p. f (fst p) (snd p)
 
-mjoin :: \(m : Type -> Type) a. Monad m => m (m a) -> m a
+mjoin :: \(m: Type -> Type) a. Monad m => m (m a) -> m a
 mjoin := \mma. mbind mma id
 
-when :: \(m : Type -> Type). Monad m => Bool -> m () -> m ()
+when :: \(m: Type -> Type). Monad m => Bool -> m () -> m ()
 when := \b action. case b { True -> action; False -> mpure () }
 
-unless :: \(m : Type -> Type). Monad m => Bool -> m () -> m ()
+unless :: \(m: Type -> Type). Monad m => Bool -> m () -> m ()
 unless := \b. when (not b)
 
-void :: \(f : Type -> Type) a. Functor f => f a -> f ()
+void :: \(f: Type -> Type) a. Functor f => f a -> f ()
 void := fmap (const ())
 
-liftA2 :: \(f : Type -> Type) a b c. Applicative f => (a -> b -> c) -> f a -> f b -> f c
+liftA2 :: \(f: Type -> Type) a b c. Applicative f => (a -> b -> c) -> f a -> f b -> f c
 liftA2 := \f fa fb. ap (fmap f fa) fb
 
-foldMap :: \(t : Type -> Type) a m. (Foldable t, Monoid m) => (a -> m) -> t a -> m
+foldMap :: \(t: Type -> Type) a m. (Foldable t, Monoid m) => (a -> m) -> t a -> m
 foldMap := \f. foldr (\x acc. append (f x) acc) empty
 
-toList :: \(t : Type -> Type) a. Foldable t => t a -> List a
+toList :: \(t: Type -> Type) a. Foldable t => t a -> List a
 toList := foldr Cons Nil
 
 find :: \a. (a -> Bool) -> List a -> Maybe a

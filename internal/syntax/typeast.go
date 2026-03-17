@@ -91,7 +91,7 @@ type KindExprName struct {
 }
 
 // KindExprSort is the sort of kinds: Kind.
-// Used in \ binders: \ (k : Kind). ...
+// Used in \ binders: \ (k: Kind). ...
 type KindExprSort struct{ S span.Span }
 
 func (*TyExprVar) typeExprNode()    {}

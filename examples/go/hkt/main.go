@@ -14,14 +14,14 @@ import (
 
 // The source defines a kind-polymorphic Functor class and uses it with Maybe.
 // Key features demonstrated:
-// - Kind sort (Kind) in \ binders: \ (k : Kind). ...
-// - Kind variable references in kind annotations: \ (f : k -> Type). ...
-// - Implicit kind quantification in class declarations: class Functor (f : k -> Type)
+// - Kind sort (Kind) in \ binders: \ (k: Kind). ...
+// - Kind variable references in kind annotations: \ (f: k -> Type). ...
+// - Implicit kind quantification in class declarations: class Functor (f: k -> Type)
 // - Kind unification during instance resolution
 const source = `
 data Maybe a = Nothing | Just a
 
-class Functor (f : k -> Type) {
+class Functor (f: k -> Type) {
   fmap :: \ a b. (a -> b) -> f a -> f b
 }
 
@@ -30,7 +30,7 @@ instance Functor Maybe {
 }
 
 -- Kind-polymorphic identity function
-id_k :: \ (k : Kind). \ (a : k). a -> a
+id_k :: \ (k: Kind). \ (a: k). a -> a
 id_k := \x. x
 
 -- Use fmap: (Bool -> Bool) -> Maybe Bool -> Maybe Bool

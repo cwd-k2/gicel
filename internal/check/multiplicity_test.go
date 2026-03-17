@@ -16,7 +16,7 @@ func TestMultAnnotationParse(t *testing.T) {
 	source := `
 data Mult = Unrestricted | Affine | Linear
 data Unit = Unit
-f :: { cap : Unit @Linear | r } -> Unit
+f :: { cap: Unit @Linear | r } -> Unit
 f := \x. Unit
 `
 	checkSource(t, source, nil)
@@ -26,7 +26,7 @@ func TestMultAnnotationParseMultipleFields(t *testing.T) {
 	source := `
 data Mult = Unrestricted | Affine | Linear
 data Unit = Unit
-f :: { a : Unit @Linear, b : Unit @Affine } -> Unit
+f :: { a: Unit @Linear, b: Unit @Affine } -> Unit
 f := \x. Unit
 `
 	checkSource(t, source, nil)
@@ -37,7 +37,7 @@ func TestMultAnnotationParseMixed(t *testing.T) {
 	source := `
 data Mult = Unrestricted | Affine | Linear
 data Unit = Unit
-f :: { a : Unit @Linear, b : Unit } -> Unit
+f :: { a: Unit @Linear, b: Unit } -> Unit
 f := \x. Unit
 `
 	checkSource(t, source, nil)
@@ -50,7 +50,7 @@ func TestMultAnnotationResolves(t *testing.T) {
 	source := `
 data Mult = Unrestricted | Affine | Linear
 data Unit = Unit
-f :: { cap : Unit @Linear } -> { cap : Unit @Linear } -> Unit
+f :: { cap: Unit @Linear } -> { cap: Unit @Linear } -> Unit
 f := \x y. Unit
 `
 	checkSource(t, source, nil)
@@ -62,7 +62,7 @@ func TestMultAnnotationUnifyMatch(t *testing.T) {
 	source := `
 data Mult = Unrestricted | Affine | Linear
 data Unit = Unit
-id :: { cap : Unit @Linear } -> { cap : Unit @Linear }
+id :: { cap: Unit @Linear } -> { cap: Unit @Linear }
 id := \x. x
 `
 	checkSource(t, source, nil)
@@ -72,7 +72,7 @@ func TestMultAnnotationUnifyMismatch(t *testing.T) {
 	source := `
 data Mult = Unrestricted | Affine | Linear
 data Unit = Unit
-bad :: { cap : Unit @Linear } -> { cap : Unit @Affine }
+bad :: { cap: Unit @Linear } -> { cap: Unit @Affine }
 bad := \x. x
 `
 	checkSourceExpectError(t, source, nil)
@@ -84,7 +84,7 @@ func TestMultAnnotationInComputation(t *testing.T) {
 	source := `
 data Mult = Unrestricted | Affine | Linear
 data Unit = Unit
-use :: Computation { handle : Unit @Linear } {} Unit
+use :: Computation { handle: Unit @Linear } {} Unit
 use := assumption
 `
 	checkSource(t, source, nil)
@@ -96,7 +96,7 @@ func TestMultInComputationPrePost(t *testing.T) {
 	source := `
 data Mult = Unrestricted | Affine | Linear
 data Unit = Unit
-consume :: Computation { handle : Unit @Linear } {} Unit
+consume :: Computation { handle: Unit @Linear } {} Unit
 consume := assumption
 `
 	checkSource(t, source, nil)
@@ -106,7 +106,7 @@ func TestMultPreserveInComputation(t *testing.T) {
 	source := `
 data Mult = Unrestricted | Affine | Linear
 data Unit = Unit
-noop :: Computation { handle : Unit @Linear } { handle : Unit @Linear } Unit
+noop :: Computation { handle: Unit @Linear } { handle: Unit @Linear } Unit
 noop := assumption
 `
 	checkSource(t, source, nil)
@@ -118,11 +118,11 @@ func TestMultDoOpenUseClose(t *testing.T) {
 	source := `
 data Mult = Unrestricted | Affine | Linear
 data Unit = Unit
-open :: Computation {} { h : Unit @Linear } Unit
+open :: Computation {} { h: Unit @Linear } Unit
 open := assumption
-use :: Computation { h : Unit @Linear } { h : Unit @Linear } Unit
+use :: Computation { h: Unit @Linear } { h: Unit @Linear } Unit
 use := assumption
-close :: Computation { h : Unit @Linear } {} Unit
+close :: Computation { h: Unit @Linear } {} Unit
 close := assumption
 main :: Computation {} {} Unit
 main := do { open; use; close }
@@ -134,11 +134,11 @@ func TestMultDoBindResult(t *testing.T) {
 	source := `
 data Mult = Unrestricted | Affine | Linear
 data Unit = Unit
-open :: Computation {} { h : Unit @Linear } Unit
+open :: Computation {} { h: Unit @Linear } Unit
 open := assumption
-read :: Computation { h : Unit @Linear } { h : Unit @Linear } Int
+read :: Computation { h: Unit @Linear } { h: Unit @Linear } Int
 read := assumption
-close :: Computation { h : Unit @Linear } {} Unit
+close :: Computation { h: Unit @Linear } {} Unit
 close := assumption
 main :: Computation {} {} Int
 main := do {
@@ -163,12 +163,12 @@ func TestMultLinearMustBeConsumedEventually(t *testing.T) {
 	source := `
 data Mult = Unrestricted | Affine | Linear
 data Unit = Unit
-open :: Computation {} { h : Unit @Linear } Unit
+open :: Computation {} { h: Unit @Linear } Unit
 open := assumption
 main :: Computation {} {} Unit
 main := do { open }
 `
-	// open's post is { h : Unit @Linear }, but main expects post = {}
+	// open's post is { h: Unit @Linear }, but main expects post = {}
 	// Row unification catches this.
 	checkSourceExpectError(t, source, nil)
 }
@@ -178,7 +178,7 @@ main := do { open }
 func TestMultLUBTypeFamilyDefined(t *testing.T) {
 	source := `
 data Mult = Unrestricted | Affine | Linear
-type LUB (m1 : Mult) (m2 : Mult) :: Mult = {
+type LUB (m1: Mult) (m2: Mult) :: Mult = {
   LUB Linear _ = Linear;
   LUB _ Linear = Linear;
   LUB Affine _ = Affine;
@@ -198,7 +198,7 @@ func TestMultAnnotationPretty(t *testing.T) {
 		Mult:  &types.TyCon{Name: "Linear"},
 	})
 	s := types.Pretty(row)
-	expected := "{ handle : FileHandle @ Linear }"
+	expected := "{ handle: FileHandle @ Linear }"
 	if s != expected {
 		t.Errorf("expected %q, got %q", expected, s)
 	}

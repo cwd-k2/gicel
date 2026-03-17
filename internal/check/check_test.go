@@ -913,10 +913,10 @@ func TestKDataArity(t *testing.T) {
 }
 
 func TestResolveUserKind(t *testing.T) {
-	// \ (s : DBState). T → the kind annotation DBState should resolve to KData{DBState}
+	// \ (s: DBState). T → the kind annotation DBState should resolve to KData{DBState}
 	source := `data DBState = Opened | Closed
 data DB s = MkDB
-f :: \ (s : DBState). DB s -> DB s
+f :: \ (s: DBState). DB s -> DB s
 f := \x. x
 main := f (MkDB :: DB Opened)`
 	checkSource(t, source, nil)
@@ -987,7 +987,7 @@ main := IntLit True`
 }
 
 func TestGADTPatternRefinement(t *testing.T) {
-	// case (e : Expr Bool) { BoolLit b -> b } should derive b : Bool
+	// case (e: Expr Bool) { BoolLit b -> b } should derive b: Bool
 	source := `data Bool = True | False
 data Expr a = { BoolLit :: Bool -> Expr Bool; IntLit :: Bool -> Expr Bool }
 f :: Expr Bool -> Bool
@@ -995,7 +995,7 @@ f := \e. case e { BoolLit b -> b; IntLit b -> b }`
 	checkSource(t, source, nil)
 
 	// Negative test: refinement must not allow returning wrong type.
-	// After matching BoolLit b, b : Bool; returning it as Int should fail.
+	// After matching BoolLit b, b: Bool; returning it as Int should fail.
 	badSource := `data Bool = True | False
 data Expr a = { BoolLit :: Bool -> Expr Bool; IntLit :: Bool -> Expr Bool }
 f :: Expr Bool -> Expr Bool

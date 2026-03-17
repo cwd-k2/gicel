@@ -496,7 +496,7 @@ func TestParseDoBlock(t *testing.T) {
 }
 
 func TestParseRowType(t *testing.T) {
-	prog, es := parse("f :: { db : DB, log : Log | r } -> Int")
+	prog, es := parse("f :: { db: DB, log: Log | r } -> Int")
 	if es.HasErrors() {
 		t.Fatal(es.Format())
 	}
@@ -546,7 +546,7 @@ func TestParseFixity(t *testing.T) {
 }
 
 func TestParseForallKindedBinder(t *testing.T) {
-	prog, es := parse(`f :: \(r : Row). Computation r r a`)
+	prog, es := parse(`f :: \(r: Row). Computation r r a`)
 	if es.HasErrors() {
 		t.Fatal(es.Format())
 	}
@@ -594,7 +594,7 @@ func TestParseBackslashForall(t *testing.T) {
 }
 
 func TestParseBackslashForallKinded(t *testing.T) {
-	prog, es := parse(`g :: \(f : Type -> Type) a. f a`)
+	prog, es := parse(`g :: \(f: Type -> Type) a. f a`)
 	if es.HasErrors() {
 		t.Fatal(es.Format())
 	}
@@ -858,7 +858,7 @@ func TestParseInstanceWithContext(t *testing.T) {
 }
 
 func TestParseKindConstraint(t *testing.T) {
-	prog, es := parse(`f :: \(c : Constraint). c`)
+	prog, es := parse(`f :: \(c: Constraint). c`)
 	if es.HasErrors() {
 		t.Fatal(es.Format())
 	}
@@ -875,7 +875,7 @@ func TestParseKindConstraint(t *testing.T) {
 
 func TestParseForallMixedBinders(t *testing.T) {
 	// Mixed bare and kinded binders
-	prog, es := parse(`f :: \a (r : Row) (k : Type -> Type). r`)
+	prog, es := parse(`f :: \a (r: Row) (k: Type -> Type). r`)
 	if es.HasErrors() {
 		t.Fatal(es.Format())
 	}
@@ -894,14 +894,14 @@ func TestParseForallMixedBinders(t *testing.T) {
 	if fa.Binders[0].Name != "a" || fa.Binders[0].Kind != nil {
 		t.Errorf("expected bare binder 'a', got name=%q kind=%v", fa.Binders[0].Name, fa.Binders[0].Kind)
 	}
-	// Second binder: (r : Row)
+	// Second binder: (r: Row)
 	if fa.Binders[1].Name != "r" {
 		t.Errorf("expected binder name 'r', got %q", fa.Binders[1].Name)
 	}
 	if _, ok := fa.Binders[1].Kind.(*KindExprRow); !ok {
 		t.Errorf("expected KindExprRow, got %T", fa.Binders[1].Kind)
 	}
-	// Third binder: (k : Type -> Type)
+	// Third binder: (k: Type -> Type)
 	if fa.Binders[2].Name != "k" {
 		t.Errorf("expected binder name 'k', got %q", fa.Binders[2].Name)
 	}
@@ -1133,8 +1133,8 @@ func TestGADTConReturnType(t *testing.T) {
 // --- HKT: Kind sort in type binders ---
 
 func TestParseKindSort(t *testing.T) {
-	// \(k : Kind). k -> Type
-	prog, es := parse(`f :: \(k : Kind). k -> Type`)
+	// \(k: Kind). k -> Type
+	prog, es := parse(`f :: \(k: Kind). k -> Type`)
 	if es.HasErrors() {
 		t.Fatal(es.Format())
 	}
@@ -1150,8 +1150,8 @@ func TestParseKindSort(t *testing.T) {
 }
 
 func TestParseKindSortInArrow(t *testing.T) {
-	// \(k : Kind). \(f : k -> Type). f a -> f a
-	prog, es := parse(`f :: \(k : Kind). \(f : k -> Type). Int`)
+	// \(k: Kind). \(f: k -> Type). f a -> f a
+	prog, es := parse(`f :: \(k: Kind). \(f: k -> Type). Int`)
 	if es.HasErrors() {
 		t.Fatal(es.Format())
 	}
@@ -2084,7 +2084,7 @@ func TestParseAnnotationInParen(t *testing.T) {
 func TestParseTypeFamilyTrailingSemicolon(t *testing.T) {
 	source := `
 data Bool = True | False
-type IsTrue (b : Bool) :: Bool = {
+type IsTrue (b: Bool) :: Bool = {
   IsTrue True = True;
   IsTrue False = False;
 }
@@ -2111,7 +2111,7 @@ type IsTrue (b : Bool) :: Bool = {
 
 func TestParseTypeFamilyEmptyBlock(t *testing.T) {
 	source := `
-type Empty (a : Type) :: Type = {}
+type Empty (a: Type) :: Type = {}
 `
 	prog, es := parse(source)
 	if es.HasErrors() {
@@ -2266,7 +2266,7 @@ instance Container Unit {
 func TestParseTypeFamilySemicolonSeparated(t *testing.T) {
 	// Equations explicitly separated by semicolons (required inside braces).
 	source := `data Bool = True | False
-type Not (b : Bool) :: Bool = {
+type Not (b: Bool) :: Bool = {
   Not True = False;
   Not False = True
 }`
@@ -2289,7 +2289,7 @@ func TestParseTypeFamilyWithInjectivity(t *testing.T) {
 	source := `
 data Unit = Unit
 data List a = Nil | Cons a (List a)
-type Elem (c : Type) :: (r : Type) | r -> c = {
+type Elem (c: Type) :: (r: Type) | r -> c = {
   Elem (List a) = a
 }
 `

@@ -86,7 +86,7 @@ The two primitive operations that define the algebra of computation.
 
 ```
 pure : a -> Computation r r a
-bind : Computation r1 r2 a -> (a -> Computation r2 r3 b) -> Computation r1 r3 b
+bind: Computation r1 r2 a -> (a -> Computation r2 r3 b) -> Computation r1 r3 b
 ```
 
 `pure` lifts a value into a computation that preserves capability state (identity transition).
@@ -121,8 +121,8 @@ GICEL uses the Atkey specialization because capability environments are _state t
 The two operations that mediate between computations and values in the opposite direction to `pure`.
 
 ```
-thunk : Computation pre post a -> Thunk pre post a
-force : Thunk pre post a -> Computation pre post a
+thunk: Computation pre post a -> Thunk pre post a
+force: Thunk pre post a -> Computation pre post a
 ```
 
 `thunk` suspends a computation without executing it, producing a first-class value. This is the CBPV `U` (thunk) operator.
@@ -133,8 +133,8 @@ Together with `pure` (= F), `thunk`/`force` (= U) complete the CBPV adjunction F
 
 ```
 pure  : Value → Computation        -- F: value to computation
-thunk : Computation → Value         -- U: computation to value
-force : U(Computation) → Computation  -- elimination of U
+thunk: Computation → Value         -- U: computation to value
+force: U(Computation) → Computation  -- elimination of U
 ```
 
 Laws:
@@ -177,12 +177,12 @@ Kind ::= 'Type'               -- kind of value types
        | KindVar              -- kind variable (explicit, in \ binders)
 ```
 
-Kind variables are introduced with explicit annotation: `\(k : Kind). ...`. Kind inference uses kind metavariables and unification (occurs check, substitution). Kind variables are never inferred — they must be explicitly bound.
+Kind variables are introduced with explicit annotation: `\(k: Kind). ...`. Kind inference uses kind metavariables and unification (occurs check, substitution). Kind variables are never inferred — they must be explicitly bound.
 
 ### 2.2.4 Computation Type
 
 ```
-Computation : Row -> Row -> Type -> Type
+Computation: Row -> Row -> Type -> Type
 ```
 
 The sole computation classifier. First argument: pre-state (required capability environment). Second argument: post-state (resulting capability environment). Third argument: result type.
@@ -192,7 +192,7 @@ The type alias `Effect r a = Computation r r a` denotes computations that preser
 ### 2.2.5 Thunk Type
 
 ```
-Thunk : Row -> Row -> Type -> Type
+Thunk: Row -> Row -> Type -> Type
 ```
 
 The type of suspended computations. `Thunk pre post a` is a value that, when forced, behaves as `Computation pre post a`.
@@ -200,7 +200,7 @@ The type of suspended computations. `Thunk pre post a` is a value that, when for
 ### 2.2.6 Record Type
 
 ```
-Record : Row -> Type
+Record: Row -> Type
 ```
 
 Record types are parameterized by rows. Records and capabilities share the `Row` kind — row variables, unification, and polymorphic functions apply uniformly.
@@ -221,8 +221,8 @@ Universal quantification over type variables, row variables, and kind variables:
 
 ```
 \a. T              -- type polymorphism
-\(r : Row). T      -- row polymorphism
-\(k : Kind). T     -- kind polymorphism
+\(r: Row). T      -- row polymorphism
+\(k: Kind). T     -- kind polymorphism
 ```
 
 `\` serves dual purpose: lambda in expression context (`\x. e`) and universal quantification in type context (`\a. T`). Both use `.` as the body separator. There is no ambiguity because the parser knows whether it is in type or expression context. Multi-parameter lambdas are supported: `\x y z. e` desugars to `\x. \y. \z. e`.
@@ -244,7 +244,7 @@ No ambient authority exists. Every effect requires an explicit capability in the
 
 ### 2.3.4 Constraint
 
-Type class predicates of kind `Constraint`. Values of kind `Constraint` are type class predicates (e.g., `Eq Bool : Constraint`). Constraints enable qualified polymorphism via dictionary passing — they elaborate to implicit function arguments.
+Type class predicates of kind `Constraint`. Values of kind `Constraint` are type class predicates (e.g., `Eq Bool: Constraint`). Constraints enable qualified polymorphism via dictionary passing — they elaborate to implicit function arguments.
 
 ## 2.4 Stratum 3 — Judgment
 
@@ -544,7 +544,7 @@ Built-in operators:
 
 ```
 Maybe      : Type -> Type
-Computation : Row -> Row -> Type -> Type
+Computation: Row -> Row -> Type -> Type
 Record     : Row -> Type
 Eq         : Type -> Constraint
 ```
@@ -582,7 +582,7 @@ In type position, names are resolved by: (1) check type constructors, (2) check 
 Kind variables are introduced with explicit annotation in `\` binders:
 
 ```
-\(k : Kind). \(f : k -> Type). f a -> f a
+\(k: Kind). \(f: k -> Type). f a -> f a
 ```
 
 `Kind` is a distinguished sort — the kind of kinds. Kind variables range over all kinds.
@@ -713,7 +713,7 @@ class Eq a => Ord a {
 Type class parameters may be kind-polymorphic:
 
 ```
-class Functor (f : k -> Type) {
+class Functor (f: k -> Type) {
   fmap :: \a b. (a -> b) -> f a -> f b
 }
 ```
@@ -816,9 +816,9 @@ Eq ──→ Num   (in Std.Num)
 | `Foldable`    | `t`                              | `foldr :: (a -> b -> b) -> b -> t a -> b`                   |
 | `Applicative` | `f` (requires Functor)           | `wrap :: a -> f a`, `ap :: f (a -> b) -> f a -> f b`        |
 | `Alternative` | `f` (requires Applicative)       | `none :: f a`, `alt :: f a -> f a -> f a`                   |
-| `Monad`       | `m : Type -> Type`               | `mpure :: a -> m a`, `mbind :: m a -> (a -> m b) -> m b`    |
+| `Monad`       | `m: Type -> Type`               | `mpure :: a -> m a`, `mbind :: m a -> (a -> m b) -> m b`    |
 | `Traversable` | `t` (requires Functor, Foldable) | `traverse :: Applicative f => (a -> f b) -> t a -> f (t b)` |
-| `IxMonad`     | `m : Row -> Row -> Type -> Type` | `ixpure`, `ixbind`                                          |
+| `IxMonad`     | `m: Row -> Row -> Type -> Type` | `ixpure`, `ixbind`                                          |
 | `Packed`      | `c`, `e`                         | `pack :: List e -> c`, `unpack :: c -> List e`              |
 | `Num`         | `a` (requires Eq, in Std.Num)    | `add`, `sub`, `mul`, `negate`                               |
 
@@ -930,7 +930,7 @@ r.#x.#y         -- chained projection (left-associative, atom-level precedence)
 f r.#x          -- f (r.#x) — projection binds tighter than application
 ```
 
-Typing rule: if `e : Record { l: T | r }`, then `e.#l : T`.
+Typing rule: if `e: Record { l: T | r }`, then `e.#l: T`.
 
 ## 8.4 Update
 
@@ -1354,7 +1354,7 @@ type Name TyBinder* :: ResultKind = { Equation (; Equation)* }
 The `::` after parameters distinguishes type families from type aliases. Each equation repeats the family name.
 
 ```
-type Elem (c : Type) :: Type = {
+type Elem (c: Type) :: Type = {
   Elem (List a) = a;
   Elem (Slice a) = a;
   Elem String = Rune
@@ -1423,7 +1423,7 @@ class Convert a b | a -> b {
 A type family may declare its result injective via a named result binder with functional dependency:
 
 ```
-type Effects (mode : AppMode) :: (r : Row) | r -> mode = {
+type Effects (mode: AppMode) :: (r: Row) | r -> mode = {
   Effects ReadOnly  = { get: () -> String };
   Effects ReadWrite = { get: () -> String, put: String -> () }
 }
@@ -1483,7 +1483,7 @@ Multiplicity annotations are checked by the type system but do not affect runtim
 The `LUB` (least upper bound) of multiplicities at branch join points can be computed via a type family:
 
 ```
-type LUB (m1 : Mult) (m2 : Mult) :: Mult = {
+type LUB (m1: Mult) (m2: Mult) :: Mult = {
   LUB Linear _ = Linear;
   LUB _ Linear = Linear;
   LUB Affine _ = Affine;

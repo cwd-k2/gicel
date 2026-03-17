@@ -82,7 +82,7 @@ Single-quoted single character: `'a'`, `'\n'`. Same escape sequences as strings.
 data Name param* = Con field* (| Con field*)*
 ```
 
-Parameters can be bare type variables or kinded: `(name : Kind)`.
+Parameters can be bare type variables or kinded: `(name: Kind)`.
 
 Examples:
 
@@ -91,8 +91,8 @@ data Bool = True | False
 data Maybe a = Just a | Nothing
 data Result e a = Ok a | Err e
 data List a = Cons a (List a) | Nil
-data Dict (c : Constraint) = MkDict c    -- Constraint-kinded param
-data Evidence (c : Constraint) a = MkEvidence c a
+data Dict (c: Constraint) = MkDict c    -- Constraint-kinded param
+data Evidence (c: Constraint) a = MkEvidence c a
 ```
 
 ### Data Type (GADT)
@@ -225,13 +225,13 @@ Distinguished from a type alias by `::` after the parameters. Equations are chec
 Examples:
 
 ```
-type Elem (c : Type) :: Type = {
+type Elem (c: Type) :: Type = {
   Elem (List a) = a;
   Elem String = Rune
 }
 
 -- Injective (named result with functional dependency)
-type Effects (mode : AppMode) :: (r : Row) | r -> mode = {
+type Effects (mode: AppMode) :: (r: Row) | r -> mode = {
   Effects ReadOnly  = { get: () -> String };
   Effects ReadWrite = { get: () -> String, put: String -> () }
 }
@@ -523,7 +523,7 @@ Within a function body, quantified evidence can be applied to produce dictionari
 Constraint-kinded type parameters in data declarations enable reification of class evidence as first-class values:
 
 ```
-data Dict (c : Constraint) = MkDict c
+data Dict (c: Constraint) = MkDict c
 ```
 
 The parameter `c` has kind `Constraint`. The constructor field `c` elaborates to an implicit evidence argument — the dictionary for the constraint. At construction, evidence is resolved automatically from the context:
@@ -545,7 +545,7 @@ The user writes `MkDict` with zero explicit pattern arguments; the evidence fiel
 Constraint-kinded parameters can coexist with regular parameters:
 
 ```
-data Evidence (c : Constraint) a = MkEvidence c a
+data Evidence (c: Constraint) a = MkEvidence c a
 ```
 
 Here `c` is the implicit evidence field and `a` is a regular field.
@@ -555,8 +555,8 @@ Here `c` is the implicit evidence field and `a` is a regular field.
 ```
 \a. a -> a
 \a b. a -> b -> a
-\(r : Row). Computation r r a
-\(f : Type -> Type). f a -> f b
+\(r: Row). Computation r r a
+\(f: Type -> Type). f a -> f b
 ```
 
 `\` serves dual purpose: lambda in expression context (`\x. e`) and universal quantification in type context (`\a. T`). Both use `.` as the body separator. The parser disambiguates by context. Multi-parameter lambdas are supported: `\x y z. e` desugars to `\x. \y. \z. e`.
@@ -603,7 +603,7 @@ Record { x: Int, y: Bool }     -- record type
 Type                  -- kind of value types
 Row                   -- kind of row types
 Constraint            -- kind of class constraints
-Type -> Type          -- higher-kinded (e.g. Maybe : Type -> Type)
+Type -> Type          -- higher-kinded (e.g. Maybe: Type -> Type)
 Constraint -> Type    -- constraint-parameterized (higher-kinded constraint)
 (Row -> Type)         -- parenthesized kind
 Bool                  -- DataKinds: promoted data type as kind
@@ -613,10 +613,10 @@ DBState               -- DataKinds: user-defined promoted kind
 `Constraint` can be used in kind annotations for type parameters:
 
 ```
-\(c : Constraint). Bool                    -- constraint-kinded param
-\a (c : Constraint). a -> Bool             -- mixed kinds
-class Constrained (c : Constraint) { ... }       -- in class declarations
-data Dict (c : Constraint) = MkDict c            -- in data declarations (Dict reification)
+\(c: Constraint). Bool                    -- constraint-kinded param
+\a (c: Constraint). a -> Bool             -- mixed kinds
+class Constrained (c: Constraint) { ... }       -- in class declarations
+data Dict (c: Constraint) = MkDict c            -- in data declarations (Dict reification)
 ```
 
 ### DataKinds Promotion
@@ -626,10 +626,10 @@ When a data type is declared, it is automatically promoted to a kind of the same
 ```
 data DBState = Opened | Closed
 -- DBState is now a kind
--- Opened : DBState, Closed : DBState (type-level)
+-- Opened: DBState, Closed: DBState (type-level)
 
-data DB (s : DBState) = MkDB
--- DB Opened : Type, DB Closed : Type
+data DB (s: DBState) = MkDB
+-- DB Opened: Type, DB Closed: Type
 ```
 
 Resolution order in type positions: registered type constructor → type alias → promoted constructor.

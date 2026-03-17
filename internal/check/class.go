@@ -43,7 +43,7 @@ type ClassInfo struct {
 	Name         string
 	TyParams     []string
 	TyParamKinds []types.Kind
-	KindParams   []string      // implicit kind variables (e.g., "k" in f : k -> Type)
+	KindParams   []string      // implicit kind variables (e.g., "k" in f: k -> Type)
 	Supers       []SuperInfo   // superclass constraints
 	Methods      []MethodInfo  // method signatures
 	DictName     string        // e.g. "Eq$Dict" — used as both type and constructor name
@@ -77,7 +77,7 @@ func (ch *Checker) processClassDecl(d *syntax.DeclClass, prog *core.Program) {
 	dn := dictName(d.Name)
 
 	// Collect implicit kind variables from type parameter kind annotations.
-	// e.g., class Functor (f : k -> Type) → kindParams = ["k"]
+	// e.g., class Functor (f: k -> Type) → kindParams = ["k"]
 	var kindParams []string
 	for _, p := range d.TyParams {
 		collectKindVars(p.Kind, ch.kindVars, &kindParams)
