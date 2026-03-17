@@ -170,6 +170,27 @@ func (t *TySkolem) Children() []Type   { return nil }
 func (t *TyMeta) Children() []Type     { return nil }
 func (t *TyError) Children() []Type    { return nil }
 
+// TypeSize returns the number of nodes in a type, up to a limit.
+// If the type has more than limit nodes, it returns limit+1 and stops early.
+// This is used to bound allocation during type family reduction.
+func TypeSize(t Type, limit int) int {
+	return typeSizeRec(t, limit, 0)
+}
+
+func typeSizeRec(t Type, limit, acc int) int {
+	if acc > limit {
+		return acc
+	}
+	acc++
+	for _, ch := range t.Children() {
+		acc = typeSizeRec(ch, limit, acc)
+		if acc > limit {
+			return acc
+		}
+	}
+	return acc
+}
+
 // UnwindApp decomposes a chain of TyApp into the head type and arguments.
 // E.g., TyApp(TyApp(TyCon("F"), A), B) → (TyCon("F"), [A, B]).
 func UnwindApp(ty Type) (Type, []Type) {

@@ -128,6 +128,14 @@ func (ch *Checker) processTypeFamily(d *syntax.DeclTypeFamily) {
 // Prevents non-termination in recursive type families.
 const maxReductionDepth = 100
 
+// maxReductionTypeSize is the maximum allowed size (node count) of a type
+// produced by type family reduction. Without this bound, a family like
+// `type Grow a = Grow (Pair a a)` would produce a type with 2^k nodes after
+// k reductions, causing exponential memory and time consumption even though
+// the fuel limit eventually fires. This bound ensures that reduction halts
+// as soon as the intermediate type becomes unreasonably large.
+const maxReductionTypeSize = 10000
+
 // reduceTyFamily attempts to reduce a saturated type family application.
 // Returns (result, true) on success, or (nil, false) if stuck/no match.
 // Uses a checker-level depth counter to bound recursive reductions.
@@ -151,6 +159,14 @@ func (ch *Checker) reduceTyFamily(name string, args []types.Type, s span.Span) (
 			rhs := eq.RHS
 			for varName, repl := range subst {
 				rhs = types.Subst(rhs, varName, repl)
+			}
+			// Guard against exponential type growth: e.g., `Grow a = Grow (Pair a a)`
+			// doubles the type on each step. Without this check, 100 steps would
+			// produce a type with ~2^100 nodes, causing OOM/hang during Zonk.
+			if types.TypeSize(rhs, maxReductionTypeSize) > maxReductionTypeSize {
+				ch.addCodedError(errs.ErrTypeFamilyReduction, s,
+					fmt.Sprintf("type family %s: result type too large (possible exponential growth)", name))
+				return nil, false
 			}
 			return rhs, true
 		case matchFail:
@@ -327,9 +343,14 @@ func (ch *Checker) reduceFamilyInType(t types.Type) types.Type {
 }
 
 // mangledDataFamilyName produces a mangled name for a data family instance.
-// E.g., Elem applied to (List a) → "Elem$List".
+// E.g., Elem applied to (List a) → "Elem$$1$List".
+// The format is: familyName "$$" arity "$" pat1 "$" pat2 ...
+// The "$$" arity prefix prevents collisions between:
+//   - Family "F" with patterns [A, B]  → "F$$2$A$B"
+//   - Family "F" with pattern  [A$B]   → "F$$1$A$B"   (different)
+//   - Family "F$A" with pattern [B]    → "F$A$$1$B"   (different)
 func (ch *Checker) mangledDataFamilyName(familyName string, patterns []types.Type) string {
-	name := familyName
+	name := fmt.Sprintf("%s$$%d", familyName, len(patterns))
 	for _, p := range patterns {
 		name += "$" + typeNameForMangling(p)
 	}

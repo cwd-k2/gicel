@@ -295,6 +295,13 @@ func (ch *Checker) processInstanceHeader(d *syntax.DeclInstance) *InstanceInfo {
 			for i := len(patVars) - 1; i >= 0; i-- {
 				conType = types.MkForall(patVars[i], types.KType{}, conType)
 			}
+			// Guard against constructor name collision with existing constructors.
+			if existing, dup := ch.conTypes[con.Name]; dup {
+				ch.addCodedError(errs.ErrDuplicateDecl, con.S,
+					fmt.Sprintf("data family instance %s: constructor %s conflicts with existing constructor (type: %s)",
+						add.Name, con.Name, types.Pretty(existing)))
+				continue
+			}
 			ch.conTypes[con.Name] = conType
 			ch.ctx.Push(&CtxVar{Name: con.Name, Type: conType})
 			dataInfo.Constructors = append(dataInfo.Constructors, ConInfo{Name: con.Name, Arity: len(fieldTypes)})
