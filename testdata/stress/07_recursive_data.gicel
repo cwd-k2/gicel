@@ -7,25 +7,25 @@ intAdd := assumption
 intEq :: Int -> Int -> Bool
 intEq := assumption
 
-length :: forall a. List a -> Int
+length :: \a. List a -> Int
 length := fix (\self -> \xs -> case xs {
   Nil       -> intZero ();
   Cons _ rest -> intSucc (self rest)
 })
 
-map :: forall a b. (a -> b) -> List a -> List b
+map :: \a b. (a -> b) -> List a -> List b
 map := \f -> fix (\self -> \xs -> case xs {
   Nil        -> Nil;
   Cons x rest -> Cons (f x) (self rest)
 })
 
-append :: forall a. List a -> List a -> List a
+append :: \a. List a -> List a -> List a
 append := \xs -> \ys -> fix (\self -> \zs -> case zs {
   Nil        -> ys;
   Cons z rest -> Cons z (self rest)
 }) xs
 
-filter :: forall a. (a -> Bool) -> List a -> List a
+filter :: \a. (a -> Bool) -> List a -> List a
 filter := \p -> fix (\self -> \xs -> case xs {
   Nil        -> Nil;
   Cons x rest -> case p x {
@@ -34,13 +34,13 @@ filter := \p -> fix (\self -> \xs -> case xs {
   }
 })
 
-reverse :: forall a. List a -> List a
+reverse :: \a. List a -> List a
 reverse := \xs -> fix (\go -> \acc -> \ys -> case ys {
   Nil        -> acc;
   Cons y rest -> go (Cons y acc) rest
 }) Nil xs
 
-take :: forall a. Int -> List a -> List a
+take :: \a. Int -> List a -> List a
 take := \n -> fix (\self -> \xs -> case intEq n (intZero ()) {
   True  -> Nil;
   False -> case xs {
@@ -51,13 +51,13 @@ take := \n -> fix (\self -> \xs -> case intEq n (intZero ()) {
 
 data Tree a = Leaf a | Branch (Tree a) (Tree a)
 
-treeSize :: forall a. Tree a -> Int
+treeSize :: \a. Tree a -> Int
 treeSize := fix (\self -> \t -> case t {
   Leaf _     -> intSucc (intZero ());
   Branch l r -> intAdd (self l) (self r)
 })
 
-treeMap :: forall a b. (a -> b) -> Tree a -> Tree b
+treeMap :: \a b. (a -> b) -> Tree a -> Tree b
 treeMap := \f -> fix (\self -> \t -> case t {
   Leaf x     -> Leaf (f x);
   Branch l r -> Branch (self l) (self r)

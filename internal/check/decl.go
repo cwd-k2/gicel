@@ -325,7 +325,7 @@ func isComputationType(ty types.Type) bool {
 }
 
 // typeArity counts the number of arrow arguments in a type,
-// stripping outer foralls. E.g. forall a. A -> B -> C has arity 2.
+// stripping outer foralls. E.g. \ a. A -> B -> C has arity 2.
 func typeArity(ty types.Type) int {
 	for {
 		switch t := ty.(type) {
@@ -420,7 +420,7 @@ func (ch *Checker) processValueDef(d *syntax.DeclValueDef, annotations map[strin
 //
 // Example: \x -> x + x  with unresolved Num ?a
 //
-//	→ forall a. Num a => a -> a  with Core: \dict -> \x -> ...
+//	→ \ a. Num a => a -> a  with Core: \dict -> \x -> ...
 func (ch *Checker) generalizeConstrained(ty types.Type, expr core.Core, unresolved []deferredConstraint) (types.Type, core.Core) {
 	metas := collectUnsolvedMetas(ty)
 	// Also collect metas from unresolved constraint args.
@@ -549,7 +549,7 @@ func collectUnsolvedMetas(tys ...types.Type) []metaInfo {
 
 // quantifyFreeVars wraps free type variables in implicit forall quantifiers.
 // This implements Haskell-style implicit universal quantification for type annotations:
-// `f :: List a -> Int` is treated as `f :: forall a. List a -> Int`.
+// `f :: List a -> Int` is treated as `f :: \ a. List a -> Int`.
 // Kind inference: variables appearing in row positions (TyComp.Pre/Post,
 // TyThunk.Pre/Post, TyEvidenceRow.Tail) are quantified as KRow; all others as KType.
 func quantifyFreeVars(ty types.Type) types.Type {

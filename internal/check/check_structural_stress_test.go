@@ -11,21 +11,21 @@ import (
 // per-feature stress tests leave uncovered.
 // =============================================================================
 
-// TestStressHigherRankThreeLevels — three nested forall levels with subsumption.
+// TestStressHigherRankThreeLevels — three nested \ levels with subsumption.
 func TestStressHigherRankThreeLevels(t *testing.T) {
 	source := `
 data Bool = True | False
 
--- Level 1: forall a. a -> a
-id :: forall a. a -> a
+-- Level 1: \ a. a -> a
+id :: \ a. a -> a
 id := \x -> x
 
--- Level 2: (forall a. a -> a) -> Bool
-applyId :: (forall a. a -> a) -> Bool
+-- Level 2: (\ a. a -> a) -> Bool
+applyId :: (\ a. a -> a) -> Bool
 applyId := \f -> f True
 
--- Level 3: ((forall a. a -> a) -> Bool) -> Bool
-applyApplyId :: ((forall a. a -> a) -> Bool) -> Bool
+-- Level 3: ((\ a. a -> a) -> Bool) -> Bool
+applyApplyId :: ((\ a. a -> a) -> Bool) -> Bool
 applyApplyId := \g -> g id
 
 main := applyApplyId applyId
@@ -39,10 +39,10 @@ func TestStressHigherRankNested(t *testing.T) {
 data Bool = True | False
 data Maybe a = Nothing | Just a
 
-apply :: (forall a. a -> a) -> Bool -> Bool
+apply :: (\ a. a -> a) -> Bool -> Bool
 apply := \f -> \x -> f x
 
-applyMaybe :: (forall a. a -> Maybe a) -> Bool -> Maybe Bool
+applyMaybe :: (\ a. a -> Maybe a) -> Bool -> Maybe Bool
 applyMaybe := \f -> \x -> f x
 
 main := (apply (\x -> x) True, applyMaybe (\x -> Just x) False)
@@ -65,14 +65,14 @@ func TestStressManyUnannLetBindings(t *testing.T) {
 	checkSource(t, sb.String(), nil)
 }
 
-// TestStressDeepNestedLambdas — 50 nested lambdas with explicit forall.
+// TestStressDeepNestedLambdas — 50 nested lambdas with explicit \.
 func TestStressDeepNestedLambdas(t *testing.T) {
 	const N = 50
 	var sb strings.Builder
 	sb.WriteString("data Bool = True | False\n")
 
-	// Build signature: forall a0 ... a49. a0 -> a1 -> ... -> a49 -> a0
-	sb.WriteString("f :: forall")
+	// Build signature: \ a0 ... a49. a0 -> a1 -> ... -> a49 -> a0
+	sb.WriteString("f :: \\")
 	for i := range N {
 		sb.WriteString(fmt.Sprintf(" a%d", i))
 	}
@@ -105,7 +105,7 @@ data Bool = True | False
 data Maybe a = Nothing | Just a
 
 class Functor (f : Type -> Type) {
-  fmap :: forall a b. (a -> b) -> f a -> f b
+  fmap :: \ a b. (a -> b) -> f a -> f b
 }
 
 instance Functor Maybe {
@@ -162,7 +162,7 @@ instance Ord Bool { compare := \x -> \y -> True }
 type EqOrd a = Eq a => Ord a => a -> a -> Bool
 
 -- Use the alias.
-bothCheck :: forall a. EqOrd a
+bothCheck :: \ a. EqOrd a
 bothCheck := \x -> \y -> eq x y
 
 main := bothCheck True False
@@ -187,7 +187,7 @@ instance C3 Bool { m3 := \x -> True }
 instance C4 Bool { m4 := \x -> True }
 
 class Functor (f : Type -> Type) {
-  fmap :: forall a b. (a -> b) -> f a -> f b
+  fmap :: \ a b. (a -> b) -> f a -> f b
 }
 
 instance Functor Maybe {
@@ -195,7 +195,7 @@ instance Functor Maybe {
 }
 
 -- Use deep superclass method via top-level constraint + HKT.
-f :: forall a. C4 a => a -> Bool
+f :: \ a. C4 a => a -> Bool
 f := \x -> m1 x
 
 main := fmap f (Just True)

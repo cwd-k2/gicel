@@ -40,9 +40,9 @@ func TestStressDeepLeftAssocInfix(t *testing.T) {
 func TestStressDeepRightAssocInfix(t *testing.T) {
 	var sb strings.Builder
 	sb.WriteString("infixr 9 .\n")
-	sb.WriteString("(.) :: forall a b c. (b -> c) -> (a -> b) -> a -> c\n")
+	sb.WriteString("(.) :: \\ a b c. (b -> c) -> (a -> b) -> a -> c\n")
 	sb.WriteString("(.) := \\f -> \\g -> \\x -> f (g x)\n")
-	sb.WriteString("id :: forall a. a -> a\nid := \\x -> x\n")
+	sb.WriteString("id :: \\ a. a -> a\nid := \\x -> x\n")
 	sb.WriteString("main := (")
 	for range 150 {
 		sb.WriteString("id . ")

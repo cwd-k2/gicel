@@ -17,7 +17,7 @@ func (p *Parser) parseType() TypeExpr {
 }
 
 func (p *Parser) parseTypeArrow() TypeExpr {
-	if p.peek().Kind == TokForall {
+	if p.peek().Kind == TokBackslash {
 		return p.parseForallType()
 	}
 	left := p.parseTypeApp()
@@ -42,7 +42,7 @@ func (p *Parser) parseTypeArrow() TypeExpr {
 
 func (p *Parser) parseForallType() TypeExpr {
 	start := p.peek().S.Start
-	p.expect(TokForall)
+	p.expect(TokBackslash)
 	var binders []TyBinder
 	for p.peek().Kind == TokLower || p.peek().Kind == TokLParen {
 		if p.peek().Kind == TokLParen {
@@ -112,7 +112,7 @@ func (p *Parser) parseKindAtom() KindExpr {
 		p.advance()
 		return &KindExprName{Name: tok.Text, S: tok.S}
 	case p.peek().Kind == TokLower:
-		// Kind variable reference (e.g., k in "forall (k : Kind). k -> Type")
+		// Kind variable reference (e.g., k in "\ (k : Kind). k -> Type")
 		tok := p.peek()
 		p.advance()
 		return &KindExprName{Name: tok.Text, S: tok.S}

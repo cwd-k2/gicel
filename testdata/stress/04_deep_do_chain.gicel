@@ -1,8 +1,8 @@
-getN :: forall (r : Row). () -> Computation { n : Int | r } { n : Int | r } Int
+getN :: \(r : Row). () -> Computation { n : Int | r } { n : Int | r } Int
 getN := assumption
-incN :: forall (r : Row). () -> Computation { n : Int | r } { n : Int | r } ()
+incN :: \(r : Row). () -> Computation { n : Int | r } { n : Int | r } ()
 incN := assumption
-addN :: forall (r : Row). Int -> Computation { n : Int | r } { n : Int | r } ()
+addN :: \(r : Row). Int -> Computation { n : Int | r } { n : Int | r } ()
 addN := assumption
 
 step :: () -> Computation { n : Int } { n : Int } ()

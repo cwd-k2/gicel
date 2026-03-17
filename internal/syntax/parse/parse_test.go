@@ -32,8 +32,8 @@ func parse(input string) (*AstProgram, *errs.Errors) {
 // --- Lexer tests ---
 
 func TestLexKeywords(t *testing.T) {
-	tokens := lex("case do data type forall infixl infixr infixn")
-	expected := []TokenKind{TokCase, TokDo, TokData, TokType, TokForall, TokInfixl, TokInfixr, TokInfixn, TokEOF}
+	tokens := lex("case do data type infixl infixr infixn")
+	expected := []TokenKind{TokCase, TokDo, TokData, TokType, TokInfixl, TokInfixr, TokInfixn, TokEOF}
 	for i, want := range expected {
 		if tokens[i].Kind != want {
 			t.Errorf("token[%d]: got %v, want %v", i, tokens[i].Kind, want)
@@ -428,7 +428,7 @@ func TestParseValueDef(t *testing.T) {
 }
 
 func TestParseTypeAnnotation(t *testing.T) {
-	prog, es := parse("id :: forall a. a -> a")
+	prog, es := parse(`id :: \a. a -> a`)
 	if es.HasErrors() {
 		t.Fatal(es.Format())
 	}
@@ -546,7 +546,7 @@ func TestParseFixity(t *testing.T) {
 }
 
 func TestParseForallKindedBinder(t *testing.T) {
-	prog, es := parse("f :: forall (r : Row). Computation r r a")
+	prog, es := parse(`f :: \(r : Row). Computation r r a`)
 	if es.HasErrors() {
 		t.Fatal(es.Format())
 	}
@@ -570,6 +570,47 @@ func TestParseForallKindedBinder(t *testing.T) {
 	}
 	if _, ok := b.Kind.(*KindExprRow); !ok {
 		t.Errorf("expected KindExprRow, got %T", b.Kind)
+	}
+}
+
+// --- Backslash-as-forall tests ---
+
+func TestParseBackslashForall(t *testing.T) {
+	prog, es := parse(`f :: \a. a -> a`)
+	if es.HasErrors() {
+		t.Fatal(es.Format())
+	}
+	d, ok := prog.Decls[0].(*DeclTypeAnn)
+	if !ok {
+		t.Fatal("expected DeclTypeAnn")
+	}
+	fa, ok := d.Type.(*TyExprForall)
+	if !ok {
+		t.Fatalf("expected TyExprForall, got %T", d.Type)
+	}
+	if len(fa.Binders) != 1 || fa.Binders[0].Name != "a" {
+		t.Errorf("expected single binder 'a', got %v", fa.Binders)
+	}
+}
+
+func TestParseBackslashForallKinded(t *testing.T) {
+	prog, es := parse(`g :: \(f : Type -> Type) a. f a`)
+	if es.HasErrors() {
+		t.Fatal(es.Format())
+	}
+	d := prog.Decls[0].(*DeclTypeAnn)
+	fa, ok := d.Type.(*TyExprForall)
+	if !ok {
+		t.Fatalf("expected TyExprForall, got %T", d.Type)
+	}
+	if len(fa.Binders) != 2 {
+		t.Fatalf("expected 2 binders, got %d", len(fa.Binders))
+	}
+	if fa.Binders[0].Name != "f" || fa.Binders[0].Kind == nil {
+		t.Errorf("expected kinded binder 'f', got %v", fa.Binders[0])
+	}
+	if fa.Binders[1].Name != "a" {
+		t.Errorf("expected bare binder 'a', got %v", fa.Binders[1])
 	}
 }
 
@@ -634,7 +675,7 @@ func TestParseConstraintType(t *testing.T) {
 }
 
 func TestParseForallConstraintType(t *testing.T) {
-	prog, es := parse("f :: forall a. Eq a => a -> Bool")
+	prog, es := parse(`f :: \a. Eq a => a -> Bool`)
 	if es.HasErrors() {
 		t.Fatal(es.Format())
 	}
@@ -645,7 +686,7 @@ func TestParseForallConstraintType(t *testing.T) {
 	}
 	qual, ok := fa.Body.(*TyExprQual)
 	if !ok {
-		t.Fatalf("expected TyExprQual inside forall, got %T", fa.Body)
+		t.Fatalf("expected TyExprQual inside \\, got %T", fa.Body)
 	}
 	_ = qual
 }
@@ -757,7 +798,7 @@ func TestParseInstanceWithContext(t *testing.T) {
 }
 
 func TestParseKindConstraint(t *testing.T) {
-	prog, es := parse("f :: forall (c : Constraint). c")
+	prog, es := parse(`f :: \(c : Constraint). c`)
 	if es.HasErrors() {
 		t.Fatal(es.Format())
 	}
@@ -774,7 +815,7 @@ func TestParseKindConstraint(t *testing.T) {
 
 func TestParseForallMixedBinders(t *testing.T) {
 	// Mixed bare and kinded binders
-	prog, es := parse("f :: forall a (r : Row) (k : Type -> Type). r")
+	prog, es := parse(`f :: \a (r : Row) (k : Type -> Type). r`)
 	if es.HasErrors() {
 		t.Fatal(es.Format())
 	}
@@ -1029,11 +1070,11 @@ func TestGADTConReturnType(t *testing.T) {
 	}
 }
 
-// --- HKT: Kind sort in forall binders ---
+// --- HKT: Kind sort in type binders ---
 
 func TestParseKindSort(t *testing.T) {
-	// forall (k : Kind). k -> Type
-	prog, es := parse("f :: forall (k : Kind). k -> Type")
+	// \(k : Kind). k -> Type
+	prog, es := parse(`f :: \(k : Kind). k -> Type`)
 	if es.HasErrors() {
 		t.Fatal(es.Format())
 	}
@@ -1049,8 +1090,8 @@ func TestParseKindSort(t *testing.T) {
 }
 
 func TestParseKindSortInArrow(t *testing.T) {
-	// forall (k : Kind). forall (f : k -> Type). f a -> f a
-	prog, es := parse("f :: forall (k : Kind). forall (f : k -> Type). Int")
+	// \(k : Kind). \(f : k -> Type). f a -> f a
+	prog, es := parse(`f :: \(k : Kind). \(f : k -> Type). Int`)
 	if es.HasErrors() {
 		t.Fatal(es.Format())
 	}

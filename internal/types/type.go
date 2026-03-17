@@ -35,7 +35,7 @@ type TyArrow struct {
 	S    span.Span
 }
 
-// TyForall is a universal quantification (forall a:K. T).
+// TyForall is a universal quantification (\ a:K. T).
 type TyForall struct {
 	Var  string
 	Kind Kind

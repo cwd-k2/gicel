@@ -106,7 +106,7 @@ data List a = Nil | Cons a (List a)
 type Elem (c : Type) :: Type = {
   Elem (List a) = a
 }
-f :: forall c. Elem c -> Elem c
+f :: \ c. Elem c -> Elem c
 f := \x -> x
 `
 	checkSource(t, source, nil)
@@ -201,11 +201,11 @@ data Unit = Unit
 type Elem (c : Type) :: Type = {
   Elem (List a) = a
 }
-map :: forall a b. (a -> b) -> List a -> List b
+map :: \ a b. (a -> b) -> List a -> List b
 map := assumption
-length :: forall a. List a -> Int
+length :: \ a. List a -> Int
 length := assumption
-first :: forall a. List a -> Elem (List a)
+first :: \ a. List a -> Elem (List a)
 first := assumption
 main :: Int
 main := length (map (\x -> x) (Cons Unit Nil))
@@ -238,7 +238,7 @@ data Unit = Unit
 
 class Container c {
   type Elem c :: Type;
-  cfold :: forall b. (Elem c -> b -> b) -> b -> c -> b
+  cfold :: \ b. (Elem c -> b -> b) -> b -> c -> b
 }
 
 instance Container (List a) {
@@ -246,7 +246,7 @@ instance Container (List a) {
   cfold := foldr
 }
 
-foldr :: forall a b. (a -> b -> b) -> b -> List a -> b
+foldr :: \ a b. (a -> b -> b) -> b -> List a -> b
 foldr := assumption
 
 f :: Elem (List Unit) -> Unit
@@ -276,10 +276,10 @@ instance Container (Pair a b) {
   clength := pairLength
 }
 
-listLength :: forall a. List a -> Int
+listLength :: \ a. List a -> Int
 listLength := assumption
 
-pairLength :: forall a b. Pair a b -> Int
+pairLength :: \ a b. Pair a b -> Int
 pairLength := assumption
 
 f :: Elem (List Unit) -> Unit

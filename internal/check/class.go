@@ -325,7 +325,7 @@ func (ch *Checker) buildDictType(className string, args []types.Type) types.Type
 }
 
 // buildQuantifiedDictType constructs the evidence type for a quantified constraint.
-// forall a. Eq a => Eq (f a) → forall a. Eq$Dict a -> Eq$Dict (f a)
+// \ a. Eq a => Eq (f a) → \ a. Eq$Dict a -> Eq$Dict (f a)
 func (ch *Checker) buildQuantifiedDictType(qc *types.QuantifiedConstraint) types.Type {
 	headDictTy := ch.buildDictType(qc.Head.ClassName, qc.Head.Args)
 	// Build function type from context dicts to head dict.

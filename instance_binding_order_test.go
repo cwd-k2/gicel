@@ -15,9 +15,9 @@ import (
 func TestInstanceMethodReferencesRegularBinding(t *testing.T) {
 	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`
-class Wrap f { wrap :: forall a. a -> f a }
+class Wrap f { wrap :: \ a. a -> f a }
 
-myJust :: forall a. a -> Maybe a
+myJust :: \ a. a -> Maybe a
 myJust := \x -> Just x
 
 instance Wrap Maybe { wrap := myJust }

@@ -113,7 +113,7 @@ instance Collection (List a) {
   empty := Nil
 }
 
-unwrap :: forall a. Elem (List a) -> a
+unwrap :: \ a. Elem (List a) -> a
 unwrap := \e -> case e { ListElem x -> x }
 `
 	checkSource(t, source, nil)
@@ -171,7 +171,7 @@ instance Collection (List a) {
   empty := Nil
 }
 
-wrap :: forall a. a -> Elem (List a)
+wrap :: \ a. a -> Elem (List a)
 wrap := \x -> ListElem x
 
 id :: Elem (List Int) -> Elem (List Int)

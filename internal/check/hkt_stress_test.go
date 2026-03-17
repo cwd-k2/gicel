@@ -14,9 +14,9 @@ import (
 
 // TestStressDeepKindNesting — deeply nested kind applications
 func TestStressDeepKindNesting(t *testing.T) {
-	// forall (k : Kind). forall (j : Kind). forall (f : k -> j -> Type). Int
+	// \ (k : Kind). \ (j : Kind). \ (f : k -> j -> Type). Int
 	source := `
-f :: forall (k : Kind). forall (j : Kind). forall (f : k -> j -> Type). Int -> Int
+f :: \ (k : Kind). \ (j : Kind). \ (f : k -> j -> Type). Int -> Int
 f := \x -> x
 `
 	checkSource(t, source, nil)
@@ -27,7 +27,7 @@ func TestStressKindPolyIdentityChain(t *testing.T) {
 	source := `
 data Bool = True | False
 
-id_k :: forall (k : Kind). forall (a : k). a -> a
+id_k :: \ (k : Kind). \ (a : k). a -> a
 id_k := \x -> x
 
 chain := id_k (id_k (id_k True))
@@ -91,7 +91,7 @@ func TestStressKindMetaChain(t *testing.T) {
 
 // TestStressSubstKindInTypeLarge — SubstKindInType with many nested foralls
 func TestStressSubstKindInTypeLarge(t *testing.T) {
-	// Build forall (f0 : k -> Type). forall (f1 : k -> Type). ... forall (f19 : k -> Type). Int
+	// Build \ (f0 : k -> Type). \ (f1 : k -> Type). ... \ (f19 : k -> Type). Int
 	var ty types.Type = types.Con("Int")
 	for i := 19; i >= 0; i-- {
 		name := fmt.Sprintf("f%d", i)
@@ -129,7 +129,7 @@ func TestStressPolyKindedClassManyInstances(t *testing.T) {
 	}
 	// Poly-kinded Functor
 	sb.WriteString("\nclass Functor (f : k -> Type) {\n")
-	sb.WriteString("  fmap :: forall a b. (a -> b) -> f a -> f b\n")
+	sb.WriteString("  fmap :: \\ a b. (a -> b) -> f a -> f b\n")
 	sb.WriteString("}\n\n")
 	// 10 instances
 	for i := 0; i < 10; i++ {
@@ -160,7 +160,7 @@ instance Eq Bool {
 }
 
 class Functor (f : k -> Type) {
-  fmap :: forall a b. (a -> b) -> f a -> f b
+  fmap :: \ a b. (a -> b) -> f a -> f b
 }
 
 instance Functor Maybe {
@@ -168,7 +168,7 @@ instance Functor Maybe {
 }
 
 class Functor f => Applicative (f : k -> Type) {
-  pure :: forall a. a -> f a
+  pure :: \ a. a -> f a
 }
 
 instance Applicative Maybe {

@@ -81,7 +81,7 @@ main := f { x = 42 }`
 
 func TestRecordRowPoly(t *testing.T) {
 	// Row-polymorphic function: takes any record with field x : Int.
-	source := `f :: forall r. Record { x : Int | r } -> Int
+	source := `f :: \ r. Record { x : Int | r } -> Int
 f := \r -> r.#x
 main := f { x = 42, y = 0 }`
 	checkSource(t, source, nil)

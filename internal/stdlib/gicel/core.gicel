@@ -1,6 +1,6 @@
 class IxMonad (m : Row -> Row -> Type -> Type) {
-  ixpure :: forall a (r : Row). a -> m r r a;
-  ixbind :: forall a b (r1 : Row) (r2 : Row) (r3 : Row).
+  ixpure :: \a (r : Row). a -> m r r a;
+  ixbind :: \a b (r1 : Row) (r2 : Row) (r3 : Row).
               m r1 r2 a -> (a -> m r2 r3 b) -> m r1 r3 b
 }
 
@@ -12,5 +12,5 @@ instance IxMonad Computation {
   ixbind := bind
 }
 
-then :: forall a b (r1 : Row) (r2 : Row) (r3 : Row). Computation r1 r2 a -> Computation r2 r3 b -> Computation r1 r3 b
+then :: \a b (r1 : Row) (r2 : Row) (r3 : Row). Computation r1 r2 a -> Computation r2 r3 b -> Computation r1 r3 b
 then := \m1 -> \m2 -> bind m1 (\_ -> m2)

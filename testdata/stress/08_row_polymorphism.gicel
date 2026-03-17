@@ -1,31 +1,31 @@
-readDB :: forall (r : Row). () -> Computation { db : Int | r } { db : Int | r } Int
+readDB :: \(r : Row). () -> Computation { db : Int | r } { db : Int | r } Int
 readDB := assumption
-writeDB :: forall (r : Row). Int -> Computation { db : Int | r } { db : Int | r } ()
+writeDB :: \(r : Row). Int -> Computation { db : Int | r } { db : Int | r } ()
 writeDB := assumption
-getLog :: forall (r : Row). () -> Computation { log : Int | r } { log : Int | r } Int
+getLog :: \(r : Row). () -> Computation { log : Int | r } { log : Int | r } Int
 getLog := assumption
-appendLog :: forall (r : Row). Int -> Computation { log : Int | r } { log : Int | r } ()
+appendLog :: \(r : Row). Int -> Computation { log : Int | r } { log : Int | r } ()
 appendLog := assumption
-readConfig :: forall (r : Row). () -> Computation { cfg : Int | r } { cfg : Int | r } Int
+readConfig :: \(r : Row). () -> Computation { cfg : Int | r } { cfg : Int | r } Int
 readConfig := assumption
 
 intAdd :: Int -> Int -> Int
 intAdd := assumption
 
-dbOp :: forall (r : Row). Int -> Computation { db : Int | r } { db : Int | r } Int
+dbOp :: \(r : Row). Int -> Computation { db : Int | r } { db : Int | r } Int
 dbOp := \delta -> do {
   v <- readDB ();
   _ <- writeDB (intAdd v delta);
   readDB ()
 }
 
-logOp :: forall (r : Row). Int -> Computation { log : Int | r } { log : Int | r } ()
+logOp :: \(r : Row). Int -> Computation { log : Int | r } { log : Int | r } ()
 logOp := \val -> do {
   _ <- appendLog val;
   pure ()
 }
 
-dbWithLog :: forall (r : Row). Int -> Computation { db : Int, log : Int | r } { db : Int, log : Int | r } Int
+dbWithLog :: \(r : Row). Int -> Computation { db : Int, log : Int | r } { db : Int, log : Int | r } Int
 dbWithLog := \delta -> do {
   result <- dbOp delta;
   _ <- logOp result;
@@ -41,7 +41,7 @@ fullPipeline := \_ -> do {
   readDB ()
 }
 
-compose :: forall (r : Row). (() -> Computation r r Int) -> (Int -> Computation r r Int) -> () -> Computation r r Int
+compose :: \(r : Row). (() -> Computation r r Int) -> (Int -> Computation r r Int) -> () -> Computation r r Int
 compose := \f -> \g -> \_ -> do { x <- f (); g x }
 
 main := do {

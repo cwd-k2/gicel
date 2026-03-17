@@ -229,7 +229,7 @@ func (sd *superDictSearch) chain(dictExpr core.Core, dictTyName string, dictTyAr
 
 // applyQuantifiedEvidence tries to use a quantified evidence entry to produce
 // a dictionary for the given className and args.
-// For example, if evidence is `forall a. Eq a => Eq (g a)` and we need `Eq (g Bool)`,
+// For example, if evidence is `\ a. Eq a => Eq (g a)` and we need `Eq (g Bool)`,
 // it instantiates `a = Bool`, resolves `Eq Bool`, and builds the application.
 func (ch *Checker) applyQuantifiedEvidence(e *CtxEvidence, className string, args []types.Type, s span.Span) core.Core {
 	qc := e.Quantified
@@ -283,12 +283,12 @@ func (ch *Checker) applyQuantifiedEvidence(e *CtxEvidence, className string, arg
 }
 
 // resolveQuantifiedConstraint finds evidence for a quantified constraint.
-// For `forall a. Eq a => Eq (F a)`, it searches for an instance whose structure
+// For `\ a. Eq a => Eq (F a)`, it searches for an instance whose structure
 // matches (e.g., `instance Eq a => Eq (F a)`) and returns its dict binding.
 func (ch *Checker) resolveQuantifiedConstraint(qc *types.QuantifiedConstraint, s span.Span) core.Core {
-	// Strategy: the quantified constraint `forall a. C1 a => C2 (F a)` is satisfied
+	// Strategy: the quantified constraint `\ a. C1 a => C2 (F a)` is satisfied
 	// by a global instance `C2 (F a)` with context `C1 a`, which already has the
-	// right type: `forall a. C1$Dict a -> C2$Dict (F a)`.
+	// right type: `\ a. C1$Dict a -> C2$Dict (F a)`.
 	//
 	// Search global instances for a match on the head.
 	for _, inst := range ch.instancesByClass[qc.Head.ClassName] {

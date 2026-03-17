@@ -41,7 +41,7 @@ type Elem (c : Type) :: Type = {
 }
 
 class Container (f : k -> Type) {
-  size :: forall a. f a -> Int
+  size :: \ a. f a -> Int
 }
 
 instance Container List {
@@ -91,7 +91,7 @@ instance Container (List a) {
 }
 
 class Functor (f : k -> Type) {
-  fmap :: forall a b. (a -> b) -> f a -> f b
+  fmap :: \ a b. (a -> b) -> f a -> f b
 }
 
 instance Functor Maybe {
@@ -163,7 +163,7 @@ type Elem (c : Type) :: Type = {
   Elem (List a) = a
 }
 
-id :: forall a. a -> a
+id :: \ a. a -> a
 id := \x -> x
 
 apply :: Elem (List Unit) -> Unit
@@ -183,7 +183,7 @@ type Elem (c : Type) :: Type = {
   Elem (List a) = a
 }
 
-map :: forall a b. (a -> b) -> List a -> List b
+map :: \ a b. (a -> b) -> List a -> List b
 map := assumption
 
 toUnit :: Unit -> Bool
@@ -265,7 +265,7 @@ instance Container (Maybe a) {
   empty := Nothing
 }
 
-test :: forall a. Elem (Maybe a) -> a
+test :: \ a. Elem (Maybe a) -> a
 test := \e -> case e { MaybeElem x -> x }
 `
 	checkSource(t, source, nil)
@@ -287,7 +287,7 @@ class Elem c e | c -> e {
 }
 
 class Elem c e => Foldable c e | c -> e {
-  cfold :: forall b. (e -> b -> b) -> b -> c -> b
+  cfold :: \ b. (e -> b -> b) -> b -> c -> b
 }
 
 instance Elem (List a) a {
@@ -315,7 +315,7 @@ instance Elem (List a) a {
   extract := \xs -> case xs { Cons x rest -> x; Nil -> extract Nil }
 }
 
-headOrDefault :: forall a. a -> List a -> a
+headOrDefault :: \ a. a -> List a -> a
 headOrDefault := \def -> \xs -> case xs { Nil -> def; Cons x rest -> extract (Cons x rest) }
 `
 	checkSource(t, source, nil)
@@ -490,7 +490,7 @@ type Elem (c : Type) :: Type = {
   Elem (List a) = a
 }
 
-id :: forall a. a -> a
+id :: \ a. a -> a
 id := \x -> x
 
 test :: Int -> Int
@@ -511,7 +511,7 @@ type Id (a : Type) :: Type = {
   Id a = a
 }
 
-id :: forall a. a -> a
+id :: \ a. a -> a
 id := \x -> x
 
 test := id @(Id Unit) Unit
@@ -556,7 +556,7 @@ type Elem (c : Type) :: Type = {
   Elem (List a) = a
 }
 
-length :: forall a. List a -> Int
+length :: \ a. List a -> Int
 length := assumption
 
 main :: Int
@@ -889,11 +889,11 @@ testMaybe := \x -> x
 }
 
 // ----------------------------------------------------------------
-// Type family reduction inside forall body
+// Type family reduction inside \ body
 // ----------------------------------------------------------------
 
 func TestInteractionTypeFamilyInsideForall(t *testing.T) {
-	// Type family application inside a forall-quantified type.
+	// Type family application inside a \-quantified type.
 	source := `
 data List a = Nil | Cons a (List a)
 data Unit = Unit
@@ -902,7 +902,7 @@ type Elem (c : Type) :: Type = {
   Elem (List a) = a
 }
 
-identity :: forall c. Elem c -> Elem c
+identity :: \ c. Elem c -> Elem c
 identity := \x -> x
 `
 	checkSource(t, source, nil)
@@ -986,7 +986,7 @@ type Always (a : Type) :: Type = {
 }
 
 class Functor (f : k -> Type) {
-  fmap :: forall a b. (a -> b) -> f a -> f b
+  fmap :: \ a b. (a -> b) -> f a -> f b
 }
 
 instance Functor Maybe {
@@ -1225,7 +1225,7 @@ type Elem (c : Type) :: Type = {
   Elem (List a) = a
 }
 
-id :: forall a. a -> a
+id :: \ a. a -> a
 id := \x -> x
 
 test :: Unit
@@ -1284,7 +1284,7 @@ type Elem (c : Type) :: Type = {
   Elem (List a) = a
 }
 
-id :: forall a. a -> a
+id :: \ a. a -> a
 id := \x -> x
 
 test :: Int -> Int
@@ -1371,7 +1371,7 @@ type Elem (c : Type) :: Type = {
   Elem (List a) = a
 }
 
-apply :: forall a b. (a -> b) -> a -> b
+apply :: \ a b. (a -> b) -> a -> b
 apply := \f -> \x -> f x
 
 test :: Unit -> Unit
@@ -1431,7 +1431,7 @@ instance Container Bool {
   empty := True
 }
 
-id :: forall a. a -> a
+id :: \ a. a -> a
 id := \x -> x
 
 test :: Elem Bool

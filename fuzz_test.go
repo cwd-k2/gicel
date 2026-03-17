@@ -34,7 +34,7 @@ func FuzzLexer(f *testing.F) {
 	addSeedCorpus(f)
 	f.Add([]byte("f :: Int -> Int; f x := x"))
 	f.Add([]byte("(.) :: (b -> c) -> (a -> b) -> a -> c"))
-	f.Add([]byte("data T = { Con :: forall a. a -> T }"))
+	f.Add([]byte("data T = { Con :: \\ a. a -> T }"))
 	f.Add([]byte("{ x = 1, y = 2 }.#x"))
 	f.Add([]byte(""))
 
@@ -72,7 +72,7 @@ func FuzzParser(f *testing.F) {
 // Detects panics in type checking via public API (includes Prelude).
 func FuzzCheck(f *testing.F) {
 	addSeedCorpus(f)
-	f.Add([]byte("id :: forall a. a -> a; id := \\x -> x; main := id True"))
+	f.Add([]byte("id :: \\ a. a -> a; id := \\x -> x; main := id True"))
 	f.Add([]byte("data Maybe a = Nothing | Just a; main := Just True"))
 	f.Add([]byte("f :: Int -> Int; f := \\x -> x; main := f 42"))
 

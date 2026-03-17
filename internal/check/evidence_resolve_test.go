@@ -33,7 +33,7 @@ class Eq a { eq :: a -> a -> Bool }
 class Eq a => Ord a { compare :: a -> a -> Bool }
 instance Eq Bool { eq := \x -> \y -> True }
 instance Ord Bool { compare := \x -> \y -> True }
-f :: forall a. Eq a => Ord a => a -> a -> Bool
+f :: \ a. Eq a => Ord a => a -> a -> Bool
 f := \x -> \y -> eq x y
 main := f True False`
 	prog := checkSource(t, source, nil)
@@ -55,7 +55,7 @@ class Eq a { eq :: a -> a -> Bool }
 class Eq a => Ord a { compare :: a -> a -> Bool }
 instance Eq Bool { eq := \x -> \y -> True }
 instance Ord Bool { compare := \x -> \y -> True }
-f :: forall a. Ord a => a -> a -> Bool
+f :: \ a. Ord a => a -> a -> Bool
 f := \x -> \y -> eq x y
 main := f True False`
 	checkSource(t, source, nil)
@@ -79,7 +79,7 @@ class Eq a { eq :: a -> a -> Bool }
 class Show a { show :: a -> Bool }
 instance Eq Bool { eq := \x -> \y -> True }
 instance Show Bool { show := \x -> True }
-f :: forall a. Eq a => Show a => a -> Bool
+f :: \ a. Eq a => Show a => a -> Bool
 f := \x -> eq x x
 main := f True`
 	checkSource(t, source, nil)
@@ -106,7 +106,7 @@ class Ord a => Bounded a { minBound :: a }
 instance Eq Bool { eq := \x -> \y -> True }
 instance Ord Bool { compare := \x -> \y -> True }
 instance Bounded Bool { minBound := True }
-f :: forall a. Bounded a => a -> a -> Bool
+f :: \ a. Bounded a => a -> a -> Bool
 f := \x -> \y -> eq x y
 main := f True False`
 	checkSource(t, source, nil)

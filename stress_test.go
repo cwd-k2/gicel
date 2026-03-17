@@ -830,7 +830,7 @@ instance Eq () { eq := \_ -> \_ -> True }
 	// Generate 50 functions that pattern match
 	for i := 0; i < 50; i++ {
 		source += fmt.Sprintf(`
-f%d :: forall a. a -> a
+f%d :: \ a. a -> a
 f%d := \x -> x
 `, i, i)
 	}
@@ -1672,10 +1672,10 @@ func TestStressHigherRankWithMonad(t *testing.T) {
 	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`
 -- Higher-rank function applied across types, combined with monadic operations
-applyToBoth :: (forall a. a -> a) -> (Bool, ())
+applyToBoth :: (\ a. a -> a) -> (Bool, ())
 applyToBoth := \f -> (f True, f ())
 
-id :: forall a. a -> a
+id :: \ a. a -> a
 id := \x -> x
 
 -- Use result in a Computation do block
@@ -1709,7 +1709,7 @@ main := do {
 func TestStressExistentialWithMonadic(t *testing.T) {
 	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`
-data SomeEq = { MkSomeEq :: forall a. Eq a => a -> SomeEq }
+data SomeEq = { MkSomeEq :: \ a. Eq a => a -> SomeEq }
 
 testSelf :: SomeEq -> Bool
 testSelf := \s -> case s { MkSomeEq x -> eq x x }

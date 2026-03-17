@@ -35,14 +35,14 @@ type KMeta struct {
 	ID int
 }
 
-// KVar is a kind variable introduced by explicit kind annotation in forall binders.
-// e.g., forall (k : Kind). forall (f : k -> Type). ...
+// KVar is a kind variable introduced by explicit kind annotation in \ binders.
+// e.g., \ (k : Kind). \ (f : k -> Type). ...
 type KVar struct {
 	Name string
 }
 
 // KSort is the sort of kinds — the kind of kinds.
-// Used in forall binders: forall (k : Kind). ...
+// Used in \ binders: \ (k : Kind). ...
 type KSort struct{}
 
 func (KType) kindNode()       {}

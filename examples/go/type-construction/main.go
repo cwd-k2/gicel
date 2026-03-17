@@ -25,7 +25,7 @@ func main() {
 	_ = gicel.ArrowType(intTy, intTy) // Int -> Int
 
 	// --- ForallType: polymorphic types ---
-	// forall a. a -> Maybe a
+	// \ a. a -> Maybe a
 	wrapMaybeTy := gicel.ForallType("a",
 		gicel.ArrowType(gicel.VarType("a"), gicel.AppType(gicel.ConType("Maybe"), gicel.VarType("a"))))
 
@@ -46,7 +46,7 @@ func main() {
 	eng.DeclareBinding("origin", pointTy)
 
 	// --- ForallRow: row-polymorphic types ---
-	// forall (r : Row). Record { x : Int | r } -> Int
+	// \ (r : Row). Record { x : Int | r } -> Int
 	getXTy := gicel.ForallRow("r",
 		gicel.ArrowType(
 			gicel.AppType(gicel.ConType("Record"),

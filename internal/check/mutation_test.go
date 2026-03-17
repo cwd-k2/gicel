@@ -35,7 +35,7 @@ type F (a : Type) :: Type = {
   F Bool = Int;
   F a = Bool
 }
-f :: forall c. F c -> F c
+f :: \ c. F c -> F c
 f := \x -> x
 `
 	config := &CheckConfig{
@@ -65,7 +65,7 @@ func TestReduceTyFamily_EmptyFamily(t *testing.T) {
 data Unit = Unit
 type F (a : Type) :: Type = {
 }
-f :: forall c. F c -> F c
+f :: \ c. F c -> F c
 f := \x -> x
 `
 	// F c should be stuck (no equations to match), but F c ~ F c should still unify.
@@ -94,7 +94,7 @@ type F (a : Type) :: Type = {
   F Bool = Unit;
   F Unit = Bool
 }
-f :: forall a. F a -> F a
+f :: \ a. F a -> F a
 f := \x -> x
 `
 	checkSource(t, source, nil)
@@ -205,7 +205,7 @@ type F (a : Type) :: Type = {
   F Unit = Bool;
   F Bool = Unit
 }
-f :: forall a. F a -> F a
+f :: \ a. F a -> F a
 f := \x -> x
 `
 	checkSource(t, source, nil)
@@ -556,10 +556,10 @@ type F (a : Type) :: Type = {
 type G (a : Type) :: Type = {
   G Unit = Bool
 }
-f :: forall x. F (G x) -> F (G x)
+f :: \ x. F (G x) -> F (G x)
 f := \x -> x
 `
-	// Using forall x to make it compile as stuck-on-stuck unification.
+	// Using \ x to make it compile as stuck-on-stuck unification.
 	checkSource(t, source, nil)
 }
 
@@ -739,7 +739,7 @@ class Container c {
   type Elem c :: Type;
   clength :: c -> Int
 }
-f :: forall c. Elem c -> Elem c
+f :: \ c. Elem c -> Elem c
 f := \x -> x
 `
 	config := &CheckConfig{
@@ -950,7 +950,7 @@ data List a = Nil | Cons a (List a)
 type Elem (c : Type) :: Type = {
   Elem (List a) = a
 }
-f :: forall c. Elem c -> Elem c
+f :: \ c. Elem c -> Elem c
 f := \x -> x
 `
 	checkSource(t, source, nil)
@@ -963,7 +963,7 @@ data List a = Nil | Cons a (List a)
 type Elem (c : Type) :: Type = {
   Elem (List a) = a
 }
-f :: forall a b. Elem a -> Elem b
+f :: \ a b. Elem a -> Elem b
 f := \x -> x
 `
 	// Elem a and Elem b can't unify when a != b (different skolems).

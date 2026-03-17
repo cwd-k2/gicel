@@ -581,7 +581,7 @@ main := pure Unit`
 func TestResolveMissingInstanceError(t *testing.T) {
 	source := `data Bool = True | False
 class Eq a { eq :: a -> a -> Bool }
-f :: forall a. Eq a => a -> a -> Bool
+f :: \ a. Eq a => a -> a -> Bool
 f := \x -> \y -> eq x y
 main := f True False`
 	checkSourceExpectCode(t, source, nil, errs.ErrNoInstance)
@@ -591,7 +591,7 @@ func TestResolveSimpleInstance(t *testing.T) {
 	source := `data Bool = True | False
 class Eq a { eq :: a -> a -> Bool }
 instance Eq Bool { eq := \x -> \y -> True }
-f :: forall a. Eq a => a -> a -> Bool
+f :: \ a. Eq a => a -> a -> Bool
 f := \x -> \y -> eq x y
 main := f True False`
 	prog := checkSource(t, source, nil)
@@ -612,7 +612,7 @@ data Maybe a = Just a | Nothing
 class Eq a { eq :: a -> a -> Bool }
 instance Eq Bool { eq := \x -> \y -> True }
 instance Eq a => Eq (Maybe a) { eq := \x -> \y -> True }
-f :: forall a. Eq a => a -> a -> Bool
+f :: \ a. Eq a => a -> a -> Bool
 f := \x -> \y -> eq x y
 main := f (Just True) (Just False)`
 	prog := checkSource(t, source, nil)
@@ -913,10 +913,10 @@ func TestKDataArity(t *testing.T) {
 }
 
 func TestResolveUserKind(t *testing.T) {
-	// forall (s : DBState). T → the kind annotation DBState should resolve to KData{DBState}
+	// \ (s : DBState). T → the kind annotation DBState should resolve to KData{DBState}
 	source := `data DBState = Opened | Closed
 data DB s = MkDB
-f :: forall (s : DBState). DB s -> DB s
+f :: \ (s : DBState). DB s -> DB s
 f := \x -> x
 main := f (MkDB :: DB Opened)`
 	checkSource(t, source, nil)
@@ -1301,14 +1301,14 @@ instance Eq Bool {}`
 func TestErrorSkolemEscape(t *testing.T) {
 	// Existential type variable escapes via GADT pattern match:
 	// MkExists packs an existential 'a'; extracting it leaks 'a' into the result.
-	source := `data Exists = { MkExists :: forall a. a -> Exists }
+	source := `data Exists = { MkExists :: \ a. a -> Exists }
 bad := \e -> case e { MkExists x -> x }`
 	checkSourceExpectCode(t, source, nil, errs.ErrSkolemEscape)
 }
 
 func TestErrorSkolemRigid(t *testing.T) {
 	source := `data Bool = True | False
-main :: forall a b. a -> b
+main :: \ a b. a -> b
 main := \x -> x`
 	checkSourceExpectCode(t, source, nil, errs.ErrSkolemRigid)
 }

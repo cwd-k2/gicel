@@ -446,7 +446,6 @@ var keywords = map[string]TokenKind{
 	"do":       TokDo,
 	"data":     TokData,
 	"type":     TokType,
-	"forall":   TokForall,
 	"infixl":   TokInfixl,
 	"infixr":   TokInfixr,
 	"infixn":   TokInfixn,

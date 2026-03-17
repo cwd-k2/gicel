@@ -86,7 +86,7 @@ func (ch *Checker) resolveTypeExpr(texpr syntax.TypeExpr) types.Type {
 	case *syntax.TyExprQual:
 		body := ch.resolveTypeExpr(t.Body)
 		constraint := ch.resolveTypeExpr(t.Constraint)
-		// Quantified constraint: (forall a. C1 a => C2 (f a)) => T
+		// Quantified constraint: (\ a. C1 a => C2 (f a)) => T
 		if qc := ch.decomposeQuantifiedConstraint(constraint); qc != nil {
 			entry := types.ConstraintEntry{
 				ClassName:  qc.Head.ClassName,
@@ -133,10 +133,10 @@ func qualifyBody(entry types.ConstraintEntry, body types.Type, s span.Span) *typ
 }
 
 // decomposeQuantifiedConstraint checks if a resolved type is a quantified constraint
-// (forall vars. context => head) and decomposes it into a QuantifiedConstraint.
+// (\ vars. context => head) and decomposes it into a QuantifiedConstraint.
 // Returns nil if the type is not a quantified constraint.
 func (ch *Checker) decomposeQuantifiedConstraint(ty types.Type) *types.QuantifiedConstraint {
-	// Peel forall binders.
+	// Peel \ binders.
 	var vars []types.ForallBinder
 	current := ty
 	for {
@@ -153,7 +153,7 @@ func (ch *Checker) decomposeQuantifiedConstraint(ty types.Type) *types.Quantifie
 	// Extract evidence: must be TyEvidence with at least one constraint entry for the head.
 	ev, ok := current.(*types.TyEvidence)
 	if !ok {
-		return nil // forall a. T without => is not a quantified constraint
+		return nil // \ a. T without => is not a quantified constraint
 	}
 	conEntries := ev.Constraints.ConEntries()
 	if len(conEntries) == 0 {

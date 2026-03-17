@@ -12,7 +12,7 @@ func TestPolyKindedClassDecl(t *testing.T) {
 data Maybe a = Nothing | Just a
 
 class Functor (f : k -> Type) {
-  fmap :: forall a b. (a -> b) -> f a -> f b
+  fmap :: \ a b. (a -> b) -> f a -> f b
 }
 
 instance Functor Maybe {
@@ -29,7 +29,7 @@ data Bool = True | False
 data Maybe a = Nothing | Just a
 
 class Functor (f : k -> Type) {
-  fmap :: forall a b. (a -> b) -> f a -> f b
+  fmap :: \ a b. (a -> b) -> f a -> f b
 }
 
 instance Functor Maybe {
@@ -67,7 +67,7 @@ func TestClassInfoKindParams(t *testing.T) {
 	// Verify that kind params are tracked in ClassInfo
 	source := `
 class MyClass (f : k -> Type) {
-  method :: forall a. f a -> f a
+  method :: \ a. f a -> f a
 }
 `
 	checkSource(t, source, nil)
@@ -79,7 +79,7 @@ func TestClassMultipleKindVars(t *testing.T) {
 	// Multiple kind variables in a class
 	source := `
 class BiMap (f : k -> j -> Type) {
-  bimap :: forall a b c d. (a -> c) -> (b -> d) -> f a b -> f c d
+  bimap :: \ a b c d. (a -> c) -> (b -> d) -> f a b -> f c d
 }
 `
 	checkSource(t, source, nil)
@@ -92,7 +92,7 @@ data Bool = True | False
 data Maybe a = Nothing | Just a
 
 class Functor (f : k -> Type) {
-  fmap :: forall a b. (a -> b) -> f a -> f b
+  fmap :: \ a b. (a -> b) -> f a -> f b
 }
 
 instance Functor Maybe {
@@ -100,7 +100,7 @@ instance Functor Maybe {
 }
 
 class Functor f => Applicative (f : k -> Type) {
-  pure :: forall a. a -> f a
+  pure :: \ a. a -> f a
 }
 `
 	checkSource(t, source, nil)
@@ -116,7 +116,7 @@ func TestInstanceKindMatch(t *testing.T) {
 data Maybe a = Nothing | Just a
 
 class Functor (f : k -> Type) {
-  fmap :: forall a b. (a -> b) -> f a -> f b
+  fmap :: \ a b. (a -> b) -> f a -> f b
 }
 
 instance Functor Maybe {

@@ -7,7 +7,7 @@ import "github.com/cwd-k2/gicel/internal/types"
 // by the checker; as standalone values they resolve through builtinTypes.
 // thunk and force are handled as special forms and elaborate to Core nodes.
 var builtinTypes = map[string]types.Type{
-	// rec : forall (r : Row) a. (Computation r r a -> Computation r r a) -> Computation r r a
+	// rec : \ (r : Row) a. (Computation r r a -> Computation r r a) -> Computation r r a
 	// Computation-level fixpoint; requires pre = post.
 	"rec": types.MkForall("r", types.KRow{},
 		types.MkForall("a", types.KType{},
@@ -19,7 +19,7 @@ var builtinTypes = map[string]types.Type{
 				types.MkComp(types.Var("r"), types.Var("r"), types.Var("a")),
 			))),
 
-	// fix : forall a. (a -> a) -> a
+	// fix : \ a. (a -> a) -> a
 	// Value-level fixpoint combinator.
 	"fix": types.MkForall("a", types.KType{},
 		types.MkArrow(
@@ -27,7 +27,7 @@ var builtinTypes = map[string]types.Type{
 			types.Var("a"),
 		)),
 
-	// pure : forall a (r : Row). a -> Computation r r a
+	// pure : \ a (r : Row). a -> Computation r r a
 	"pure": types.MkForall("a", types.KType{},
 		types.MkForall("r", types.KRow{},
 			types.MkArrow(
@@ -35,7 +35,7 @@ var builtinTypes = map[string]types.Type{
 				types.MkComp(types.Var("r"), types.Var("r"), types.Var("a")),
 			))),
 
-	// bind : forall a b (r1 : Row) (r2 : Row) (r3 : Row).
+	// bind : \ a b (r1 : Row) (r2 : Row) (r3 : Row).
 	//   Computation r1 r2 a -> (a -> Computation r2 r3 b) -> Computation r1 r3 b
 	"bind": types.MkForall("a", types.KType{},
 		types.MkForall("b", types.KType{},

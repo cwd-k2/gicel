@@ -43,7 +43,7 @@ pythag := do {
 -- amb k = apply k to each choice, collect all results.
 -- This IS List >>= written as an explicit continuation.
 
-amb :: forall a b. List a -> (a -> List b) -> List b
+amb :: \a b. List a -> (a -> List b) -> List b
 amb := \choices -> \k ->
   foldr (\x -> \acc -> concat (k x) acc) [] choices
 
@@ -51,7 +51,7 @@ amb := \choices -> \k ->
 coins := [1, 2, 5, 10, 20, 50]
 
 -- All subsets, then filter with continuation k
-subsets :: forall a. List a -> List (List a)
+subsets :: \a. List a -> List (List a)
 subsets := fix (\self -> \xs -> case xs {
   Nil      -> [[]];
   Cons x t -> { ss := self t; concat ((\s -> Cons x s) <$> ss) ss }
@@ -66,28 +66,28 @@ coinResult := amb (subsets coins) (\s ->
 
 data NDFree a = NDPure a | NDChoice (NDFree a) (NDFree a) | NDFail
 
-returnND :: forall a. a -> NDFree a
+returnND :: \a. a -> NDFree a
 returnND := NDPure
 
-failND :: forall a. NDFree a
+failND :: \a. NDFree a
 failND := NDFail
 
 infixl 1 >>=
-(>>=) :: forall a b. NDFree a -> (a -> NDFree b) -> NDFree b
+(>>=) :: \a b. NDFree a -> (a -> NDFree b) -> NDFree b
 (>>=) := fix (\self -> \m -> \f -> case m {
   NDPure a     -> f a;
   NDChoice l r -> NDChoice (self l f) (self r f);
   NDFail       -> NDFail
 })
 
-runND :: forall a. NDFree a -> List a
+runND :: \a. NDFree a -> List a
 runND := fix (\self -> \m -> case m {
   NDPure a     -> [a];
   NDChoice l r -> concat (self l) (self r);
   NDFail       -> []
 })
 
-fromList :: forall a. List a -> NDFree a
+fromList :: \a. List a -> NDFree a
 fromList := fix (\self -> \xs -> case xs {
   Nil        -> NDFail;
   Cons x rest -> NDChoice (NDPure x) (self rest)

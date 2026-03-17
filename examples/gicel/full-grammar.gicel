@@ -53,7 +53,7 @@ instance Describe Bool {
 }
 
 -- [forall] — polymorphic function
-describeIt :: forall a. Describe a => a -> String
+describeIt :: \a. Describe a => a -> String
 describeIt := describe
 
 -- [do] — monadic computation with let bindings

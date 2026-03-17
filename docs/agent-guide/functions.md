@@ -3,16 +3,16 @@
 **Identity and combinators:**
 
 ```
-id    :: forall a. a -> a
-const :: forall a b. a -> b -> a
-flip  :: forall a b c. (a -> b -> c) -> b -> a -> c
+id    :: \a. a -> a
+const :: \a b. a -> b -> a
+flip  :: \a b c. (a -> b -> c) -> b -> a -> c
 ```
 
 **Composition:**
 
 ```
 infixr 9 .
-(.) :: forall b c a. (b -> c) -> (a -> b) -> a -> c
+(.) :: \b c a. (b -> c) -> (a -> b) -> a -> c
 ```
 
 **Boolean logic:**
@@ -26,22 +26,22 @@ not  :: Bool -> Bool
 **Eliminators:**
 
 ```
-maybe  :: forall a b. b -> (a -> b) -> Maybe a -> b
-result :: forall e a b. (e -> b) -> (a -> b) -> Result e a -> b
-bool   :: forall a. a -> a -> Bool -> a
+maybe  :: \a b. b -> (a -> b) -> Maybe a -> b
+result :: \e a b. (e -> b) -> (a -> b) -> Result e a -> b
+bool   :: \a. a -> a -> Bool -> a
 ```
 
 **Tuple / List basics:**
 
 ```
-fst :: forall a b. (a, b) -> a          snd :: forall a b. (a, b) -> b
-swap :: forall a b. (a, b) -> (b, a)    curry :: forall a b c. ((a, b) -> c) -> a -> b -> c
-uncurry :: forall a b c. (a -> b -> c) -> (a, b) -> c
+fst :: \a b. (a, b) -> a          snd :: \a b. (a, b) -> b
+swap :: \a b. (a, b) -> (b, a)    curry :: \a b c. ((a, b) -> c) -> a -> b -> c
+uncurry :: \a b c. (a -> b -> c) -> (a, b) -> c
 
-head :: forall a. List a -> Maybe a     tail :: forall a. List a -> Maybe (List a)
-null :: forall a. List a -> Bool        singleton :: forall a. a -> List a
-map  :: forall a b. (a -> b) -> List a -> List b
-filter :: forall a. (a -> Bool) -> List a -> List a
+head :: \a. List a -> Maybe a     tail :: \a. List a -> Maybe (List a)
+null :: \a. List a -> Bool        singleton :: \a. a -> List a
+map  :: \a b. (a -> b) -> List a -> List b
+filter :: \a. (a -> Bool) -> List a -> List a
 ```
 
 **Comparison:**
@@ -50,7 +50,7 @@ filter :: forall a. (a -> Bool) -> List a -> List a
 (==) (/=) :: Eq a => a -> a -> Bool       -- infixn 4
 (<) (>) (<=) (>=) :: Ord a => a -> a -> Bool  -- infixn 4
 min  max :: Ord a => a -> a -> a
-on :: forall a b c. (b -> b -> c) -> (a -> b) -> a -> a -> c
+on :: \a b c. (b -> b -> c) -> (a -> b) -> a -> a -> c
 comparing :: Ord b => (a -> b) -> a -> a -> Ordering
 equating  :: Eq b => (a -> b) -> a -> a -> Bool
 ```

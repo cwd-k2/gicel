@@ -1,6 +1,6 @@
 // Example: hkt — Higher-Kinded Types in GICEL.
 //
-// Demonstrates kind-polymorphic type classes, kind variables in forall
+// Demonstrates kind-polymorphic type classes, kind variables in \
 // binders, and poly-kinded instance resolution.
 package main
 
@@ -14,15 +14,15 @@ import (
 
 // The source defines a kind-polymorphic Functor class and uses it with Maybe.
 // Key features demonstrated:
-// - Kind sort (Kind) in forall binders: forall (k : Kind). ...
-// - Kind variable references in kind annotations: forall (f : k -> Type). ...
+// - Kind sort (Kind) in \ binders: \ (k : Kind). ...
+// - Kind variable references in kind annotations: \ (f : k -> Type). ...
 // - Implicit kind quantification in class declarations: class Functor (f : k -> Type)
 // - Kind unification during instance resolution
 const source = `
 data Maybe a = Nothing | Just a
 
 class Functor (f : k -> Type) {
-  fmap :: forall a b. (a -> b) -> f a -> f b
+  fmap :: \ a b. (a -> b) -> f a -> f b
 }
 
 instance Functor Maybe {
@@ -30,7 +30,7 @@ instance Functor Maybe {
 }
 
 -- Kind-polymorphic identity function
-id_k :: forall (k : Kind). forall (a : k). a -> a
+id_k :: \ (k : Kind). \ (a : k). a -> a
 id_k := \x -> x
 
 -- Use fmap: (Bool -> Bool) -> Maybe Bool -> Maybe Bool

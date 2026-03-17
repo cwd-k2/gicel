@@ -28,7 +28,7 @@ instance C2 Bool { m2 := \x -> True }
 instance C3 Bool { m3 := \x -> True }
 instance C4 Bool { m4 := \x -> True }
 instance C5 Bool { m5 := \x -> True }
-f :: forall a. C5 a => a -> Bool
+f :: \ a. C5 a => a -> Bool
 f := \x -> m1 x
 main := f True`
 	checkSource(t, source, nil)
@@ -63,7 +63,7 @@ func TestStressManyClasses(t *testing.T) {
 		sb.WriteString(fmt.Sprintf("instance C%d Bool { m%d := \\x -> True }\n", i, i))
 	}
 	// Function requiring all 10 constraints (curried style).
-	sb.WriteString("f :: forall a. ")
+	sb.WriteString("f :: \\ a. ")
 	for i := 0; i < 10; i++ {
 		sb.WriteString(fmt.Sprintf("C%d a => ", i))
 	}
@@ -94,7 +94,7 @@ class Eq a { eq :: a -> a -> Bool }
 class Show a { show :: a -> Bool }
 instance Eq Bool { eq := \x -> \y -> True }
 instance Show Bool { show := \x -> True }
-f :: forall a b. Eq a => Show b => a -> b -> Bool
+f :: \ a b. Eq a => Show b => a -> b -> Bool
 f := \x -> \y -> eq x x
 main := f True False`
 	checkSource(t, source, nil)
@@ -111,7 +111,7 @@ data Unit = Unit
 class Eq a { eq :: a -> a -> Bool }
 instance Eq Bool { eq := \x -> \y -> True }
 instance Eq Unit { eq := \x -> \y -> True }
-f :: forall a b. Eq a => Eq b => a -> b -> Bool
+f :: \ a b. Eq a => Eq b => a -> b -> Bool
 f := \x -> \y -> eq x x
 main := f True Unit`
 	checkSource(t, source, nil)
@@ -125,7 +125,7 @@ class Eq a { eq :: a -> a -> Bool }
 class Eq a => Ord a { compare :: a -> a -> Bool }
 instance Eq Bool { eq := \x -> \y -> True }
 instance Ord Bool { compare := \x -> \y -> True }
-f :: forall a. Eq a => Ord a => a -> a -> Bool
+f :: \ a. Eq a => Ord a => a -> a -> Bool
 f := \x -> \y -> compare x y
 main := f True False`
 	checkSource(t, source, nil)
@@ -139,7 +139,7 @@ class Eq a => Ord a { compare :: a -> a -> Bool }
 instance Eq Bool { eq := \x -> \y -> True }
 instance Ord Bool { compare := \x -> \y -> True }
 type EqOrd a = Eq a => Ord a => a -> Bool
-f :: forall a. EqOrd a
+f :: \ a. EqOrd a
 f := \x -> eq x x
 main := f True`
 	checkSource(t, source, nil)
@@ -152,7 +152,7 @@ class Eq a { eq :: a -> a -> Bool }
 class Show a { show :: a -> Bool }
 instance Eq Bool { eq := \x -> \y -> True }
 instance Show Bool { show := \x -> True }
-f :: forall a. Eq a => Show a => a -> Bool
+f :: \ a. Eq a => Show a => a -> Bool
 f := \x -> { r := eq x x; r }
 main := f True`
 	checkSource(t, source, nil)
@@ -187,13 +187,13 @@ main := f True`
 }
 
 func TestEdgeConstraintWithForall(t *testing.T) {
-	// forall a b. Eq a => Eq b => Pair a b -> Bool
+	// \ a b. Eq a => Eq b => Pair a b -> Bool
 	source := `data Bool = True | False
 data Pair a b = MkPair a b
 class Eq a { eq :: a -> a -> Bool }
 instance Eq Bool { eq := \x -> \y -> True }
 instance Eq a => Eq b => Eq (Pair a b) { eq := \x -> \y -> True }
-f :: forall a b. Eq a => Eq b => Pair a b -> Pair a b -> Bool
+f :: \ a b. Eq a => Eq b => Pair a b -> Pair a b -> Bool
 f := \x -> \y -> eq x y
 main := f (MkPair True True) (MkPair False False)`
 	checkSource(t, source, nil)
@@ -205,7 +205,7 @@ func TestEdgeMissingInstance(t *testing.T) {
 class Eq a { eq :: a -> a -> Bool }
 class Eq a => Ord a { compare :: a -> a -> Bool }
 instance Eq Bool { eq := \x -> \y -> True }
-f :: forall a. Eq a => Ord a => a -> Bool
+f :: \ a. Eq a => Ord a => a -> Bool
 f := \x -> eq x x
 main := f True`
 	checkSourceExpectCode(t, source, nil, errs.ErrNoInstance)
@@ -244,9 +244,9 @@ instance Ord Bool { compare := \x -> \y -> True }
 
 	cases := []string{
 		// Check mode: annotated binding.
-		"f :: forall a. %s a -> a -> Bool\nf := \\x -> \\y -> eq x y\nmain := f True False",
+		"f :: \\ a. %s a -> a -> Bool\nf := \\x -> \\y -> eq x y\nmain := f True False",
 		// Infer mode: unannotated binding calling eq and compare.
-		"f :: forall a. %s a -> Bool\nf := \\x -> compare x x\nmain := f True",
+		"f :: \\ a. %s a -> Bool\nf := \\x -> compare x x\nmain := f True",
 	}
 
 	constraints := []struct {

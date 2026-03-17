@@ -1,6 +1,6 @@
 ## 2. Language Overview
 
-### Keywords (11)
+### Keywords (10)
 
 | Keyword    | Purpose                           |
 | ---------- | --------------------------------- |
@@ -8,7 +8,6 @@
 | `do`       | Monadic do-block                  |
 | `data`     | Algebraic data type declaration   |
 | `type`     | Type alias declaration            |
-| `forall`   | Universal quantification          |
 | `infixl`   | Left-associative operator fixity  |
 | `infixr`   | Right-associative operator fixity |
 | `infixn`   | Non-associative operator fixity   |
@@ -40,8 +39,8 @@
 | `::`  | Type annotation                               |
 | `:=`  | Value definition                              |
 | `:`   | Kind annotation separator                     |
-| `.`   | Forall body separator (also compose operator) |
-| `\`   | Lambda introducer                             |
+| `.`   | Quantifier body separator (also compose operator) |
+| `\`   | Lambda / universal quantification                 |
 | `_`   | Wildcard pattern                              |
 | `=`   | Data constructor separator                    |
 | `@`   | Explicit type application                     |

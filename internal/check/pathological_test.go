@@ -381,14 +381,14 @@ f := \x -> x
 
 // (b') Symmetry with polymorphic types.
 func TestPropertyUnificationSymmetryPoly(t *testing.T) {
-	// Verify: forall c. Elem c -> Elem c works in both positions.
+	// Verify: \ c. Elem c -> Elem c works in both positions.
 	source := `
 data Unit = Unit
 data List a = Nil | Cons a (List a)
 type Elem (c : Type) :: Type = {
   Elem (List a) = a
 }
-f :: forall c. Elem c -> Elem c
+f :: \ c. Elem c -> Elem c
 f := \x -> x
 `
 	checkSource(t, source, nil)
@@ -486,7 +486,7 @@ g2 := \x -> x
 
 // (e) SubstMany = sequential Subst for independent variables.
 func TestPropertySubstManyEqualsSequential(t *testing.T) {
-	// Verify that SubstMany({a→Int, b→Bool}, forall . a -> b)
+	// Verify that SubstMany({a→Int, b→Bool}, \ . a -> b)
 	// produces the same result as Subst(Subst(a->b, "a", Int), "b", Bool).
 	intTy := &types.TyCon{Name: "Int"}
 	boolTy := &types.TyCon{Name: "Bool"}
@@ -587,7 +587,7 @@ func TestPathologicalSubstManyDependentVars(t *testing.T) {
 }
 
 // Verify that the type family reduction properly handles the case where
-// a TF application appears inside a forall body.
+// a TF application appears inside a \ body.
 func TestPathologicalTFInsideForall(t *testing.T) {
 	source := `
 data Unit = Unit
@@ -595,7 +595,7 @@ data List a = Nil | Cons a (List a)
 type Elem (c : Type) :: Type = {
   Elem (List a) = a
 }
-f :: forall a. a -> Elem (List a)
+f :: \ a. a -> Elem (List a)
 f := \x -> x
 `
 	checkSource(t, source, nil)
@@ -610,7 +610,7 @@ data List a = Nil | Cons a (List a)
 type Elem (c : Type) :: Type = {
   Elem (List a) = a
 }
-f :: forall c. Computation {} {} (Elem c) -> Computation {} {} (Elem c)
+f :: \ c. Computation {} {} (Elem c) -> Computation {} {} (Elem c)
 f := \x -> x
 `
 	checkSource(t, source, nil)

@@ -2,7 +2,7 @@
 
 ## Lexical Structure
 
-### Keywords (11)
+### Keywords (10)
 
 | Keyword    | Purpose                           |
 | ---------- | --------------------------------- |
@@ -10,7 +10,6 @@
 | `do`       | Monadic do-block                  |
 | `data`     | Algebraic data type declaration   |
 | `type`     | Type alias declaration            |
-| `forall`   | Universal quantification          |
 | `infixl`   | Left-associative operator fixity  |
 | `infixr`   | Right-associative operator fixity |
 | `infixn`   | Non-associative operator fixity   |
@@ -20,15 +19,15 @@
 
 ### Built-in Identifiers
 
-| Identifier   | Role                              | Status            |
-| ------------ | --------------------------------- | ----------------- |
-| `pure`       | Value → Computation (F)           | first-class fn    |
-| `bind`       | Monadic sequencing                | first-class fn    |
-| `thunk`      | Computation → suspended value (U) | term former       |
-| `force`      | Elimination of U                  | term former       |
-| `assumption` | Host-provided primitive marker    | declaration form  |
-| `rec`        | Recursive combinator (gated)      | first-class fn    |
-| `fix`        | Value-level fixpoint (gated)      | first-class fn    |
+| Identifier   | Role                              | Status           |
+| ------------ | --------------------------------- | ---------------- |
+| `pure`       | Value → Computation (F)           | first-class fn   |
+| `bind`       | Monadic sequencing                | first-class fn   |
+| `thunk`      | Computation → suspended value (U) | term former      |
+| `force`      | Elimination of U                  | term former      |
+| `assumption` | Host-provided primitive marker    | declaration form |
+| `rec`        | Recursive combinator (gated)      | first-class fn   |
+| `fix`        | Value-level fixpoint (gated)      | first-class fn   |
 
 ### Punctuation & Operators
 
@@ -40,8 +39,8 @@
 | `::`  | Type annotation                   |
 | `:=`  | Value definition / let-bind       |
 | `:`   | Kind annotation separator         |
-| `.`   | Forall body separator             |
-| `\`   | Lambda introducer                 |
+| `.`   | Quantifier body separator         |
+| `\`   | Lambda / universal quantification |
 | `_`   | Wildcard pattern                  |
 | `=`   | Data constructor separator        |
 | `@`   | Explicit type application         |
@@ -141,8 +140,8 @@ name :: TypeExpr
 Free type variables are implicitly universally quantified:
 
 ```
-f :: forall a. Eq a => a -> a -> Bool
-myLength :: List a -> Int              -- same as: forall a. List a -> Int
+f :: \a. Eq a => a -> a -> Bool
+myLength :: List a -> Int              -- same as: \a. List a -> Int
 ```
 
 ### Value Definition
@@ -170,7 +169,7 @@ Example:
 
 ```
 infixl 6 +
-(+) :: forall a. Num a => a -> a -> a
+(+) :: \a. Num a => a -> a -> a
 (+) := add
 ```
 
@@ -263,12 +262,12 @@ Examples:
 ```
 class Eq a { eq :: a -> a -> Bool }
 class Eq a => Ord a { compare :: a -> a -> Ordering }
-class Functor f { fmap :: forall a b. (a -> b) -> f a -> f b }
+class Functor f { fmap :: \a b. (a -> b) -> f a -> f b }
 
 -- Associated type in class
 class Container c {
   type Elem c :: Type;
-  cfold :: forall b. (Elem c -> b -> b) -> b -> c -> b
+  cfold :: \b. (Elem c -> b -> b) -> b -> c -> b
 }
 
 -- Functional dependency
@@ -503,21 +502,21 @@ Constraints are curried: each `C => ...` introduces one constraint. Multiple con
 ### Quantified Constraints
 
 ```
-(forall a. Eq a => Eq (f a)) => f Bool -> f Bool -> Bool
-(forall a. Eq a => Show a => Eq (f a)) => ...    -- multiple premises
-Show Bool => (forall a. Eq a => Eq (f a)) => ...  -- mixed with curried
+(\a. Eq a => Eq (f a)) => f Bool -> f Bool -> Bool
+(\a. Eq a => Show a => Eq (f a)) => ...    -- multiple premises
+Show Bool => (\a. Eq a => Eq (f a)) => ...  -- mixed with curried
 ```
 
-A quantified constraint `forall vars. context => head` asserts that, for any instantiation of `vars`, if the `context` constraints hold, then the `head` constraint holds. Evidence for a quantified constraint is a _function_ from context dictionaries to the head dictionary:
+A quantified constraint `\vars. context => head` asserts that, for any instantiation of `vars`, if the `context` constraints hold, then the `head` constraint holds. Evidence for a quantified constraint is a _function_ from context dictionaries to the head dictionary:
 
 ```
--- Evidence type for (forall a. Eq a => Eq (f a)):
--- forall a. Eq$Dict a -> Eq$Dict (f a)
+-- Evidence type for (\a. Eq a => Eq (f a)):
+-- \a. Eq$Dict a -> Eq$Dict (f a)
 ```
 
-At use sites, the quantified constraint is resolved by finding a matching global instance. For example, `instance Eq a => Eq (F a)` satisfies `forall a. Eq a => Eq (F a)`.
+At use sites, the quantified constraint is resolved by finding a matching global instance. For example, `instance Eq a => Eq (F a)` satisfies `\a. Eq a => Eq (F a)`.
 
-Within a function body, quantified evidence can be applied to produce dictionaries for specific types. If `f` has constraint `(forall a. Eq a => Eq (g a))`, then `eq (x :: g Bool) y` resolves `Eq (g Bool)` by applying the quantified evidence to `Bool` and the `Eq Bool` dictionary.
+Within a function body, quantified evidence can be applied to produce dictionaries for specific types. If `f` has constraint `(\a. Eq a => Eq (g a))`, then `eq (x :: g Bool) y` resolves `Eq (g Bool)` by applying the quantified evidence to `Bool` and the `Eq Bool` dictionary.
 
 ### Dict Reification
 
@@ -537,7 +536,7 @@ mkDict := MkDict           -- resolves Eq Bool evidence implicitly
 Pattern matching on `Dict` brings the evidence back into scope:
 
 ```
-withDict :: forall a. Dict (Eq a) -> a -> a -> Bool
+withDict :: \a. Dict (Eq a) -> a -> a -> Bool
 withDict := \d -> \x -> \y -> case d { MkDict -> eq x y }
 ```
 
@@ -554,11 +553,13 @@ Here `c` is the implicit evidence field and `a` is a regular field.
 ### Universal Quantification
 
 ```
-forall a. a -> a
-forall a b. a -> b -> a
-forall (r : Row). Computation r r a
-forall (f : Type -> Type). f a -> f b
+\a. a -> a
+\a b. a -> b -> a
+\(r : Row). Computation r r a
+\(f : Type -> Type). f a -> f b
 ```
+
+`\` serves dual purpose: lambda in expression context (`\x -> e`), and universal quantification in type context (`\a. T`). The separator distinguishes: `->` for lambda, `.` for quantification. The parser disambiguates by context.
 
 ### Row Type
 
@@ -612,8 +613,8 @@ DBState               -- DataKinds: user-defined promoted kind
 `Constraint` can be used in kind annotations for type parameters:
 
 ```
-forall (c : Constraint). Bool                    -- constraint-kinded param
-forall a (c : Constraint). a -> Bool             -- mixed kinds
+\(c : Constraint). Bool                    -- constraint-kinded param
+\a (c : Constraint). a -> Bool             -- mixed kinds
 class Constrained (c : Constraint) { ... }       -- in class declarations
 data Dict (c : Constraint) = MkDict c            -- in data declarations (Dict reification)
 ```
@@ -638,16 +639,16 @@ Resolution order in type positions: registered type constructor → type alias �
 ## Patterns
 
 ```
-x               -- variable binding
-_               -- wildcard
-42              -- integer literal pattern
-"hello"         -- string literal pattern
-'a'             -- rune literal pattern
-Con             -- nullary constructor
-Con x y         -- constructor with arguments
-(Con x y)       -- parenthesized pattern
-(a, b)          -- tuple pattern, desugars to { _1 = a, _2 = b }
-{ x = a, y = b }           -- record pattern (open by default)
+x                -- variable binding
+_                -- wildcard
+42               -- integer literal pattern
+"hello"          -- string literal pattern
+'a'              -- rune literal pattern
+Con              -- nullary constructor
+Con x y          -- constructor with arguments
+(Con x y)        -- parenthesized pattern
+(a, b)           -- tuple pattern, desugars to { _1 = a, _2 = b }
+{ x = a, y = b } -- record pattern (open by default)
 ```
 
 ### Literal Patterns
@@ -687,7 +688,7 @@ case m { Just (Just (Just True)) -> "deep"; _ -> "other" }
 
 | Level | Form        | Associativity |
 | ----- | ----------- | ------------- |
-| 0     | `forall`    | —             |
+| 0     | `\ ... .`   | —             |
 | 1     | `=>`        | right         |
 | 2     | `->`        | right         |
 | 3     | Application | left          |
@@ -768,9 +769,9 @@ Eq ──→ Ord
 Show
 Semigroup ──→ Monoid
 Functor ──→ Applicative ──→ Alternative
-                         ──→ Monad
+                        ──→ Monad
 Functor ─┐
-          ├──→ Traversable
+         ├──→ Traversable
 Foldable ┘
 IxMonad
 Packed

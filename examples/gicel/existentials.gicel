@@ -11,7 +11,7 @@
 -- `a` is universally quantified in the constructor but existentially
 -- bound when pattern matching -- the consumer doesn't know what `a` is.
 data Testable = {
-  MkTestable :: forall a. (a -> Bool) -> a -> Testable
+  MkTestable :: \a. (a -> Bool) -> a -> Testable
 }
 
 -- Construct existential values: the concrete type is hidden after wrapping
@@ -33,7 +33,7 @@ test3 := runTest unitTest     -- \u -> False
 -- The constructor requires Eq a, which is packed as evidence alongside
 -- the hidden values. Pattern matching recovers the Eq dictionary.
 data SomeEq = {
-  MkSomeEq :: forall a. Eq a => a -> a -> SomeEq
+  MkSomeEq :: \a. Eq a => a -> a -> SomeEq
 }
 
 -- Construct SomeEq values with different concrete types
@@ -50,11 +50,11 @@ test5 := checkEq eqMaybes    -- eq (Just False) Nothing = False
 -- Existential that hides a transformation pipeline.
 -- `a` is existential; only the output type `b` is visible.
 data Transform b = {
-  MkTransform :: forall a. (a -> b) -> a -> Transform b
+  MkTransform :: \a. (a -> b) -> a -> Transform b
 }
 
 -- Run the hidden transformation
-runTransform :: forall b. Transform b -> b
+runTransform :: \b. Transform b -> b
 runTransform := \t -> case t { MkTransform f x -> f x }
 
 -- Different transformations that all produce Bool

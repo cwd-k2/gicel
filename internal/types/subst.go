@@ -169,8 +169,8 @@ func Subst(t Type, varName string, replacement Type) Type {
 }
 
 // SubstKindInType substitutes a kind variable throughout all kind annotations
-// embedded in a type. Used when instantiating kind-polymorphic foralls
-// (e.g., forall (k : Kind). ... where k appears in kind positions).
+// embedded in a type. Used when instantiating kind-polymorphic quantifiers
+// (e.g., \ (k : Kind). ... where k appears in kind positions).
 func SubstKindInType(t Type, varName string, replacement Kind) Type {
 	switch ty := t.(type) {
 	case *TyForall:

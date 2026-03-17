@@ -59,7 +59,7 @@ class Semigroup a => Monoid a {
 
 ```
 class Functor f {
-  fmap :: forall a b. (a -> b) -> f a -> f b
+  fmap :: \a b. (a -> b) -> f a -> f b
 }
 ```
 
@@ -67,7 +67,7 @@ class Functor f {
 
 ```
 class Foldable t {
-  foldr :: forall a b. (a -> b -> b) -> b -> t a -> b
+  foldr :: \a b. (a -> b -> b) -> b -> t a -> b
 }
 ```
 
@@ -75,8 +75,8 @@ class Foldable t {
 
 ```
 class Functor f => Applicative f {
-  wrap :: forall a. a -> f a;
-  ap   :: forall a b. f (a -> b) -> f a -> f b
+  wrap :: \a. a -> f a;
+  ap   :: \a b. f (a -> b) -> f a -> f b
 }
 ```
 
@@ -84,7 +84,7 @@ class Functor f => Applicative f {
 
 ```
 class Functor t => Foldable t => Traversable t {
-  traverse :: forall f a b. Applicative f => (a -> f b) -> t a -> f (t b)
+  traverse :: \f a b. Applicative f => (a -> f b) -> t a -> f (t b)
 }
 ```
 
@@ -92,8 +92,8 @@ class Functor t => Foldable t => Traversable t {
 
 ```
 class IxMonad (m : Row -> Row -> Type -> Type) {
-  ixpure :: forall a (r : Row). a -> m r r a;
-  ixbind :: forall a b (r1 : Row) (r2 : Row) (r3 : Row).
+  ixpure :: \a (r : Row). a -> m r r a;
+  ixbind :: \a b (r1 : Row) (r2 : Row) (r3 : Row).
               m r1 r2 a -> (a -> m r2 r3 b) -> m r1 r3 b
 }
 ```
@@ -110,8 +110,8 @@ class Show a {
 
 ```
 class Applicative f => Alternative f {
-  none :: forall a. f a;
-  alt  :: forall a. f a -> f a -> f a
+  none :: \a. f a;
+  alt  :: \a. f a -> f a -> f a
 }
 ```
 
@@ -119,8 +119,8 @@ class Applicative f => Alternative f {
 
 ```
 class Monad (m : Type -> Type) {
-  mpure :: forall a. a -> m a;
-  mbind :: forall a b. m a -> (a -> m b) -> m b
+  mpure :: \a. a -> m a;
+  mbind :: \a b. m a -> (a -> m b) -> m b
 }
 ```
 

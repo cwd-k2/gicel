@@ -37,7 +37,7 @@ instance Warm a => Warm (Maybe a) {
 }
 
 -- A polymorphic function using the Warm constraint
-warmOrCold :: forall a. Warm a => a -> Bool
+warmOrCold :: \a. Warm a => a -> Bool
 warmOrCold := isWarm
 
 -- Test the custom class

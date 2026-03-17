@@ -175,7 +175,7 @@ countdown := fix (\self -> \n -> case n == 0 { True -> 0; False -> self (n - 1) 
 
 ### The dot is overloaded
 
-`.` is both the `forall` body separator and the compose operator (`infixr 9`). Context disambiguates.
+`.` is both the quantifier body separator (`\a. T`) and the compose operator (`infixr 9`). Context disambiguates.
 
 ### Naming collisions
 

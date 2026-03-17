@@ -34,7 +34,7 @@ type NextSeason (s : Season) :: Season = {
 data Tagged (s : Season) = MkTagged
 
 -- advance uses a recursive type family to compute the next season.
-advance :: forall (s : Season). Tagged s -> Tagged (NextSeason s)
+advance :: \(s : Season). Tagged s -> Tagged (NextSeason s)
 advance := \_ -> MkTagged
 
 -- Type-safe season progression: the types guarantee correct ordering.

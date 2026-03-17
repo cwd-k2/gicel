@@ -206,7 +206,7 @@ func (ch *Checker) check(expr syntax.Expr, expected types.Type) core.Core {
 
 	// If the expected type is a forall, introduce a TyLam and check the body
 	// against the quantified type. This implements the spec rule:
-	//   ⟦ e : forall a:K. T ⟧ = TyLam(a, K, ⟦e : T⟧)
+	//   ⟦ e : \ a:K. T ⟧ = TyLam(a, K, ⟦e : T⟧)
 	if f, ok := expected.(*types.TyForall); ok {
 		if _, isSort := f.Kind.(types.KSort); isSort {
 			// Kind-level quantifier: introduce a fresh kind skolem (KVar)

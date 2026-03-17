@@ -43,7 +43,7 @@ func TestDictReificationPolymorphic(t *testing.T) {
 class Eq a { eq :: a -> a -> Bool }
 instance Eq Bool { eq := \x -> \y -> True }
 data Dict (c : Constraint) = MkDict c
-withDict :: forall a. Dict (Eq a) -> a -> a -> Bool
+withDict :: \ a. Dict (Eq a) -> a -> a -> Bool
 withDict := \d -> \x -> \y -> case d { MkDict -> eq x y }
 main := withDict (MkDict :: Dict (Eq Bool)) True False`
 	checkSource(t, source, nil)

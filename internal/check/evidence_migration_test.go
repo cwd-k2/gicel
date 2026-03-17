@@ -18,7 +18,7 @@ func TestCheckTyEvidenceSingleConstraint(t *testing.T) {
 	source := `data Bool = True | False
 class Eq a { eq :: a -> a -> Bool }
 instance Eq Bool { eq := \x -> \y -> True }
-f :: forall a. Eq a => a -> a -> Bool
+f :: \ a. Eq a => a -> a -> Bool
 f := \x -> \y -> eq x y
 main := f True False`
 	prog := checkSource(t, source, nil)
@@ -40,7 +40,7 @@ class Eq a { eq :: a -> a -> Bool }
 class Eq a => Ord a { compare :: a -> a -> Bool }
 instance Eq Bool { eq := \x -> \y -> True }
 instance Ord Bool { compare := \x -> \y -> True }
-g :: forall a. Eq a => Ord a => a -> a -> Bool
+g :: \ a. Eq a => Ord a => a -> a -> Bool
 g := \x -> \y -> eq x y
 main := g True False`
 	prog := checkSource(t, source, nil)
@@ -164,7 +164,7 @@ class Eq a { eq :: a -> a -> Bool }
 class Eq a => Ord a { compare :: a -> a -> Bool }
 instance Eq Bool { eq := \x -> \y -> True }
 instance Ord Bool { compare := \x -> \y -> True }
-f :: forall a. Ord a => a -> a -> Bool
+f :: \ a. Ord a => a -> a -> Bool
 f := \x -> \y -> eq x y
 main := f True False`
 	prog := checkSource(t, source, nil)
@@ -188,7 +188,7 @@ func TestTyEvidenceZonkInChecker(t *testing.T) {
 	source := `data Bool = True | False
 class Eq a { eq :: a -> a -> Bool }
 instance Eq Bool { eq := \x -> \y -> True }
-f :: forall a. Eq a => a -> a -> Bool
+f :: \ a. Eq a => a -> a -> Bool
 f := \x -> \y -> eq x y`
 	checkSource(t, source, nil)
 }
@@ -197,7 +197,7 @@ func TestTyEvidenceInBindingType(t *testing.T) {
 	// After checking, the binding type for f should have TyForall → TyEvidence structure.
 	source := `data Bool = True | False
 class Eq a { eq :: a -> a -> Bool }
-f :: forall a. Eq a => a -> Bool
+f :: \ a. Eq a => a -> Bool
 f := \x -> True`
 	prog := checkSource(t, source, nil)
 	for _, b := range prog.Bindings {

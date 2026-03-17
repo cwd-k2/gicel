@@ -20,7 +20,7 @@ movedX := moved.#x
 
 -- Row-polymorphic function: accepts any record with an "x" field
 -- The `r` row variable absorbs all other fields.
-getX :: forall r. Record { x : Int | r } -> Int
+getX :: \r. Record { x : Int | r } -> Int
 getX := \r -> r.#x
 
 -- Works on records of different shapes
@@ -40,7 +40,7 @@ eqTest := eq (1, 2) (1, 2)
 cmpTest := compare (1, 2) (1, 3)
 
 -- Lambda pattern matching on tuples
-swap :: forall a b. (a, b) -> (b, a)
+swap :: \a b. (a, b) -> (b, a)
 swap := \(x, y) -> (y, x)
 
 swapped := swap (True, False)

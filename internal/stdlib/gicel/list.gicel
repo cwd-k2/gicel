@@ -1,124 +1,124 @@
 import Prelude
 
-_listFromSlice :: forall a. List a -> List a
+_listFromSlice :: \a. List a -> List a
 _listFromSlice := assumption
 
-_listToSlice :: forall a. List a -> List a
+_listToSlice :: \a. List a -> List a
 _listToSlice := assumption
 
-_listLength :: forall a. List a -> Int
+_listLength :: \a. List a -> Int
 _listLength := assumption
 
-_listConcat :: forall a. List a -> List a -> List a
+_listConcat :: \a. List a -> List a -> List a
 _listConcat := assumption
 
-fromSlice :: forall a. List a -> List a
+fromSlice :: \a. List a -> List a
 fromSlice := _listFromSlice
 
-toSlice :: forall a. List a -> List a
+toSlice :: \a. List a -> List a
 toSlice := _listToSlice
 
-length :: forall a. List a -> Int
+length :: \a. List a -> Int
 length := _listLength
 
-concat :: forall a. List a -> List a -> List a
+concat :: \a. List a -> List a -> List a
 concat := _listConcat
 
-_listFoldl :: forall a b. (b -> a -> b) -> b -> List a -> b
+_listFoldl :: \a b. (b -> a -> b) -> b -> List a -> b
 _listFoldl := assumption
 
-_listTake :: forall a. Int -> List a -> List a
+_listTake :: \a. Int -> List a -> List a
 _listTake := assumption
 
-_listDrop :: forall a. Int -> List a -> List a
+_listDrop :: \a. Int -> List a -> List a
 _listDrop := assumption
 
-_listIndex :: forall a. Int -> List a -> Maybe a
+_listIndex :: \a. Int -> List a -> Maybe a
 _listIndex := assumption
 
-_listReplicate :: forall a. Int -> a -> List a
+_listReplicate :: \a. Int -> a -> List a
 _listReplicate := assumption
 
-_listReverse :: forall a. List a -> List a
+_listReverse :: \a. List a -> List a
 _listReverse := assumption
 
-_listZip :: forall a b. List a -> List b -> List (a, b)
+_listZip :: \a b. List a -> List b -> List (a, b)
 _listZip := assumption
 
-_listUnzip :: forall a b. List (a, b) -> (List a, List b)
+_listUnzip :: \a b. List (a, b) -> (List a, List b)
 _listUnzip := assumption
 
-foldl :: forall a b. (b -> a -> b) -> b -> List a -> b
+foldl :: \a b. (b -> a -> b) -> b -> List a -> b
 foldl := _listFoldl
 
-take :: forall a. Int -> List a -> List a
+take :: \a. Int -> List a -> List a
 take := _listTake
 
-drop :: forall a. Int -> List a -> List a
+drop :: \a. Int -> List a -> List a
 drop := _listDrop
 
-index :: forall a. Int -> List a -> Maybe a
+index :: \a. Int -> List a -> Maybe a
 index := _listIndex
 
-replicate :: forall a. Int -> a -> List a
+replicate :: \a. Int -> a -> List a
 replicate := _listReplicate
 
-reverse :: forall a. List a -> List a
+reverse :: \a. List a -> List a
 reverse := _listReverse
 
-zip :: forall a b. List a -> List b -> List (a, b)
+zip :: \a b. List a -> List b -> List (a, b)
 zip := _listZip
 
-unzip :: forall a b. List (a, b) -> (List a, List b)
+unzip :: \a b. List (a, b) -> (List a, List b)
 unzip := _listUnzip
 
-_listDropWhile :: forall a. (a -> Bool) -> List a -> List a
+_listDropWhile :: \a. (a -> Bool) -> List a -> List a
 _listDropWhile := assumption
 
-_listSpan :: forall a. (a -> Bool) -> List a -> (List a, List a)
+_listSpan :: \a. (a -> Bool) -> List a -> (List a, List a)
 _listSpan := assumption
 
-_listSortBy :: forall a. (a -> a -> Ordering) -> List a -> List a
+_listSortBy :: \a. (a -> a -> Ordering) -> List a -> List a
 _listSortBy := assumption
 
-_listScanl :: forall a b. (b -> a -> b) -> b -> List a -> List b
+_listScanl :: \a b. (b -> a -> b) -> b -> List a -> List b
 _listScanl := assumption
 
-_listUnfoldr :: forall a b. (b -> Maybe (a, b)) -> b -> List a
+_listUnfoldr :: \a b. (b -> Maybe (a, b)) -> b -> List a
 _listUnfoldr := assumption
 
-_listIterateN :: forall a. Int -> (a -> a) -> a -> List a
+_listIterateN :: \a. Int -> (a -> a) -> a -> List a
 _listIterateN := assumption
 
-dropWhile :: forall a. (a -> Bool) -> List a -> List a
+dropWhile :: \a. (a -> Bool) -> List a -> List a
 dropWhile := _listDropWhile
 
-span :: forall a. (a -> Bool) -> List a -> (List a, List a)
+span :: \a. (a -> Bool) -> List a -> (List a, List a)
 span := _listSpan
 
-break :: forall a. (a -> Bool) -> List a -> (List a, List a)
+break :: \a. (a -> Bool) -> List a -> (List a, List a)
 break := \p -> span (not . p)
 
-sortBy :: forall a. (a -> a -> Ordering) -> List a -> List a
+sortBy :: \a. (a -> a -> Ordering) -> List a -> List a
 sortBy := _listSortBy
 
-sort :: forall a. Ord a => List a -> List a
+sort :: \a. Ord a => List a -> List a
 sort := sortBy compare
 
-scanl :: forall a b. (b -> a -> b) -> b -> List a -> List b
+scanl :: \a b. (b -> a -> b) -> b -> List a -> List b
 scanl := _listScanl
 
-unfoldr :: forall a b. (b -> Maybe (a, b)) -> b -> List a
+unfoldr :: \a b. (b -> Maybe (a, b)) -> b -> List a
 unfoldr := _listUnfoldr
 
-iterateN :: forall a. Int -> (a -> a) -> a -> List a
+iterateN :: \a. Int -> (a -> a) -> a -> List a
 iterateN := _listIterateN
 
-zipWith :: forall a b c. (a -> b -> c) -> List a -> List b -> List c
+zipWith :: \a b c. (a -> b -> c) -> List a -> List b -> List c
 zipWith := \f -> \xs -> \ys -> map (uncurry f) (zip xs ys)
 
-intercalate :: forall a. List a -> List (List a) -> List a
+intercalate :: \a. List a -> List (List a) -> List a
 intercalate := \sep -> \xss -> flatten (intersperse sep xss)
 
-nubBy :: forall a. (a -> a -> Bool) -> List a -> List a
+nubBy :: \a. (a -> a -> Bool) -> List a -> List a
 nubBy := \eq -> foldl (\acc -> \x -> case any (eq x) acc { True -> acc; False -> append acc (singleton x) }) Nil

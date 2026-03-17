@@ -33,12 +33,11 @@ const (
 	TokUnderscore // _
 	TokEq         // =
 
-	// Keywords (11)
+	// Keywords (10)
 	TokCase
 	TokDo
 	TokData
 	TokType
-	TokForall
 	TokInfixl
 	TokInfixr
 	TokInfixn

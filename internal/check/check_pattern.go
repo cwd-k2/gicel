@@ -83,7 +83,7 @@ type pendingCV struct {
 // classifying each variable as universal (meta) or existential (skolem).
 // Returns the body type after substitution and a map of skolem IDs.
 func (ch *Checker) instantiateConForalls(conTy types.Type) (types.Type, map[int]string) {
-	// Collect forall vars.
+	// Collect \ vars.
 	type fvar struct {
 		name string
 		kind types.Kind

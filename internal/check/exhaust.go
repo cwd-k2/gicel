@@ -101,7 +101,7 @@ func (ch *Checker) isGADT(scrutTy types.Type) bool {
 
 // constructorArgTypes returns the argument types for a non-GADT constructor,
 // refined by unifying the constructor's return type with the scrutinee type.
-// For example, Just :: forall a. a -> Maybe a with scrutinee Maybe (Maybe Int)
+// For example, Just :: \ a. a -> Maybe a with scrutinee Maybe (Maybe Int)
 // yields arg type Maybe Int (not a fresh meta).
 func (ch *Checker) constructorArgTypes(conName string, scrutTy types.Type) []types.Type {
 	info, ok := ch.conInfo[conName]

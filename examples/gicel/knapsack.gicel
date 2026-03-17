@@ -29,13 +29,13 @@ getOr := \def -> \i -> \xs -> maybe def id (index i xs)
 setAt := \i -> \v -> \xs ->
   concat (take i xs) (Cons v (drop (i + 1) xs))
 
-sumBy :: forall a. (a -> Int) -> List a -> Int
+sumBy :: \a. (a -> Int) -> List a -> Int
 sumBy := \f -> foldl (\acc -> \x -> acc + f x) 0
 
 -- ── Approach 1: Brute-force ────────────────────────────────
 
 -- All subsets of a list, via structural recursion
-subsets :: forall a. List a -> List (List a)
+subsets :: \a. List a -> List (List a)
 subsets := fix (\self -> \xs -> case xs {
   Nil      -> [[]];
   Cons x t -> { ss := self t; concat ((\s -> Cons x s) <$> ss) ss }

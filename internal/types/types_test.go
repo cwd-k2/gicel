@@ -234,9 +234,9 @@ func TestPretty(t *testing.T) {
 		{Var("a"), "a"},
 		{MkArrow(Con("Int"), Con("Bool")), "Int -> Bool"},
 		{MkArrow(MkArrow(Con("A"), Con("B")), Con("C")), "(A -> B) -> C"},
-		{MkForall("a", KType{}, MkArrow(Var("a"), Var("a"))), "forall a. a -> a"},
+		{MkForall("a", KType{}, MkArrow(Var("a"), Var("a"))), `\a. a -> a`},
 		{MkForall("a", KType{}, MkForall("b", KType{}, MkArrow(Var("a"), Var("b")))),
-			"forall a b. a -> b"},
+			`\a b. a -> b`},
 		{EmptyRow(), "{}"},
 		{ClosedRow(RowField{Label: "x", Type: Con("Int")}), "{ x : Int }"},
 	}

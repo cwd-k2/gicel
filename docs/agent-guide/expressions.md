@@ -137,7 +137,7 @@ bind comp (\x -> body)         -- explicit monadic bind
 
 | Level | Form        | Associativity |
 | ----- | ----------- | ------------- |
-| 0     | `forall`    | --            |
+| 0     | `\ ... .`   | --            |
 | 1     | `=>`        | right         |
 | 2     | `->`        | right         |
 | 3     | Application | left          |

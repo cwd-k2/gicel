@@ -1,10 +1,10 @@
 -- Stress test 15: Existential types
 -- Tests existential packing/unpacking, constraint use, and scope safety.
 
-data SomeEq = { MkSomeEq :: forall a. Eq a => a -> SomeEq }
-data SomeOrd = { MkSomeOrd :: forall a. Eq a => Ord a => a -> a -> SomeOrd }
-data Wrapper a = { MkWrapper :: forall b. (b -> a) -> b -> Wrapper a }
-data ExistsPair = { MkEP :: forall a b. Eq a => Eq b => a -> b -> ExistsPair }
+data SomeEq = { MkSomeEq :: \a. Eq a => a -> SomeEq }
+data SomeOrd = { MkSomeOrd :: \a. Eq a => Ord a => a -> a -> SomeOrd }
+data Wrapper a = { MkWrapper :: \b. (b -> a) -> b -> Wrapper a }
+data ExistsPair = { MkEP :: \a b. Eq a => Eq b => a -> b -> ExistsPair }
 
 -- Existential with Eq constraint: compare packed value with itself
 selfEq :: SomeEq -> Bool

@@ -6,7 +6,7 @@ data Color = Red | Green | Blue
 
 class Eq a { eq :: a -> a -> Bool }
 class Eq a => Ord a { cmp :: a -> a -> Ordering }
-class Functor f { fmap :: forall a b. (a -> b) -> f a -> f b }
+class Functor f { fmap :: \a b. (a -> b) -> f a -> f b }
 class Coercible a b { coerce :: a -> b }
 
 instance Eq Bool {
@@ -71,21 +71,21 @@ instance Coercible Color Bool {
 
 not := \b -> case b { True -> False; False -> True }
 
-genericEq :: forall a. Eq a => a -> a -> Bool
+genericEq :: \a. Eq a => a -> a -> Bool
 genericEq := \x -> \y -> eq x y
 
-liftMap :: forall f a b. Functor f => (a -> b) -> f a -> f b
+liftMap :: \f a b. Functor f => (a -> b) -> f a -> f b
 liftMap := \g -> \fa -> fmap g fa
 
-eqViaOrd :: forall a. Ord a => a -> a -> Bool
+eqViaOrd :: \a. Ord a => a -> a -> Bool
 eqViaOrd := \x -> \y -> case cmp x y { EQ -> True; _ -> False }
 
-convertAndCheck :: forall a b. Coercible a b => Eq b => a -> b -> Bool
+convertAndCheck :: \a b. Coercible a b => Eq b => a -> b -> Bool
 convertAndCheck := \x -> \expected -> eq (coerce x) expected
 
-readS :: forall (r : Row). () -> Computation { s : Int | r } { s : Int | r } Int
+readS :: \(r : Row). () -> Computation { s : Int | r } { s : Int | r } Int
 readS := assumption
-writeS :: forall (r : Row). Int -> Computation { s : Int | r } { s : Int | r } ()
+writeS :: \(r : Row). Int -> Computation { s : Int | r } { s : Int | r } ()
 writeS := assumption
 intAdd :: Int -> Int -> Int
 intAdd := assumption

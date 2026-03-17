@@ -34,7 +34,7 @@ instance (Eq a) => (Eq b) => Eq (Result a b) {
   }
 }
 
-neq :: forall a. Eq a => a -> a -> Bool
+neq :: \a. Eq a => a -> a -> Bool
 neq := \x -> \y -> case eq x y { True -> False; False -> True }
 
 eqMaybeBool :: Maybe Bool -> Maybe Bool -> Bool

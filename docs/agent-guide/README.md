@@ -29,7 +29,7 @@ Typical agent workflow:
 | File             | Content                                            |
 | ---------------- | -------------------------------------------------- |
 | [syntax.md]      | Keywords, punctuation, literals, comments          |
-| [types.md]       | Type system: ADT, GADT, forall, rows, kinds        |
+| [types.md]       | Type system: ADT, GADT, polymorphism, rows, kinds   |
 | [expressions.md] | Lambda, case, do, operators, special forms         |
 | [effects.md]     | Computation, pure/bind, CapEnv, thunk/force        |
 | [prelude.md]     | Prelude types, classes, instances                  |

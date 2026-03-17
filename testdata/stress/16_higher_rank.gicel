@@ -2,27 +2,27 @@
 -- Tests rank-2 polymorphic arguments and subsumption.
 
 -- Rank-2: argument must be truly polymorphic
-applyToBoth :: (forall a. a -> a) -> (Bool, ())
+applyToBoth :: (\a. a -> a) -> (Bool, ())
 applyToBoth := \f -> (f True, f ())
 
 -- Rank-2 with constraint propagation
-applyPolyId :: (forall a. a -> a) -> Bool
+applyPolyId :: (\a. a -> a) -> Bool
 applyPolyId := \f -> f True
 
 -- Multiple rank-2 uses
-dualApply :: (forall a. a -> a) -> (forall a. a -> a) -> (Bool, ())
+dualApply :: (\a. a -> a) -> (\a. a -> a) -> (Bool, ())
 dualApply := \f -> \g -> (f True, g ())
 
 -- Rank-2 in case branch
-caseWithPoly :: Bool -> (forall a. a -> a) -> Bool
+caseWithPoly :: Bool -> (\a. a -> a) -> Bool
 caseWithPoly := \b -> \f -> case b { True -> f True; False -> f False }
 
 -- Helper: polymorphic identity
-id :: forall a. a -> a
+id :: \a. a -> a
 id := \x -> x
 
 -- Compose with rank-2
-composeId :: (forall a. a -> a) -> (forall a. a -> a) -> (Bool, ())
+composeId :: (\a. a -> a) -> (\a. a -> a) -> (Bool, ())
 composeId := \f -> \g -> (f (g True), g (f ()))
 
 -- Subsumption: poly used at mono position

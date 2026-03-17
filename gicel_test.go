@@ -1485,7 +1485,7 @@ main := do {
 	}
 }
 
-// Forall with kinded binder: forall (r : Row). T
+// Forall with kinded binder: \ (r : Row). T
 func TestKindedForallBinder(t *testing.T) {
 	eng := gicel.NewEngine()
 	eng.RegisterType("Int", gicel.KindType())
@@ -1493,7 +1493,7 @@ func TestKindedForallBinder(t *testing.T) {
 		return gicel.ToValue(7), capEnv, nil
 	})
 	rt, err := eng.NewRuntime(`
-getVal :: forall (r : Row). () -> Computation r r Int
+getVal :: \(r : Row). () -> Computation r r Int
 getVal := assumption
 main := do { getVal () }
 `)
@@ -1730,7 +1730,7 @@ instance Eq Bool {
     False -> case y { True -> False; False -> True }
   }
 }
-f :: forall a. Eq a => a -> a -> Bool
+f :: \a. Eq a => a -> a -> Bool
 f := \x -> \y -> eq x y
 main := f True True
 `)
@@ -1760,7 +1760,7 @@ instance Eq Bool {
 instance Ord Bool {
   lt := \x -> \y -> False
 }
-useOrd :: forall a. Ord a => a -> a -> Bool
+useOrd :: \a. Ord a => a -> a -> Bool
 useOrd := \x -> \y -> eq x y
 main := useOrd True False
 `)
@@ -1783,7 +1783,7 @@ func TestTypeClassFunctor(t *testing.T) {
 	rt, err := eng.NewRuntime(`
 data Bool = True | False
 data Maybe a = Just a | Nothing
-class Functor f { fmap :: forall a b. (a -> b) -> f a -> f b }
+class Functor f { fmap :: \a b. (a -> b) -> f a -> f b }
 instance Functor Maybe {
   fmap := \g -> \mx -> case mx {
     Just x  -> Just (g x);
@@ -2412,8 +2412,8 @@ func TestTypeHelpers(t *testing.T) {
 
 	// ForallType constructs a quantified type.
 	forallTy := gicel.ForallType("a", gicel.ArrowType(gicel.VarType("a"), gicel.VarType("a")))
-	if got := gicel.TypePretty(forallTy); !strings.Contains(got, "forall") {
-		t.Errorf("expected forall in pretty, got %s", got)
+	if got := gicel.TypePretty(forallTy); !strings.Contains(got, `\`) {
+		t.Errorf(`expected \ in pretty, got %s`, got)
 	}
 
 	// CompType constructs a computation type.
@@ -2473,7 +2473,7 @@ func TestUnifySkolemSame(t *testing.T) {
 	// Indirect test: use a GADT constructor with existential that unifies skolem with itself
 	eng := gicel.NewEngine()
 	_, err := eng.Compile(`
-data SameTest = { MkSame :: forall a. a -> a -> SameTest }
+data SameTest = { MkSame :: \a. a -> a -> SameTest }
 useIt :: SameTest -> Bool
 useIt := \s -> case s { MkSame x y -> True }
 `)
@@ -2487,7 +2487,7 @@ useIt := \s -> case s { MkSame x y -> True }
 func TestSkolemEscapeDetected(t *testing.T) {
 	eng := gicel.NewEngine()
 	_, err := eng.Compile(`
-data Exists = { MkExists :: forall a. a -> Exists }
+data Exists = { MkExists :: \a. a -> Exists }
 escape :: Exists -> Bool
 escape := \e -> case e { MkExists x -> x }
 `)
@@ -2502,7 +2502,7 @@ escape := \e -> case e { MkExists x -> x }
 func TestSkolemNoEscape(t *testing.T) {
 	eng := gicel.NewEngine()
 	_, err := eng.Compile(`
-data Wrapper = { MkWrapper :: forall a. a -> Wrapper }
+data Wrapper = { MkWrapper :: \a. a -> Wrapper }
 safe :: Wrapper -> Bool
 safe := \w -> case w { MkWrapper _ -> True }
 `)
@@ -2514,7 +2514,7 @@ safe := \w -> case w { MkWrapper _ -> True }
 func TestSkolemEscapeInMeta(t *testing.T) {
 	eng := gicel.NewEngine()
 	_, err := eng.Compile(`
-data SomeVal = { MkSome :: forall a. a -> SomeVal }
+data SomeVal = { MkSome :: \a. a -> SomeVal }
 leaky := \s -> case s { MkSome x -> Just x }
 `)
 	if err == nil {
@@ -2527,7 +2527,7 @@ leaky := \s -> case s { MkSome x -> Just x }
 func TestExistentialBasic(t *testing.T) {
 	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`
-data SomeEq = { MkSomeEq :: forall a. Eq a => a -> SomeEq }
+data SomeEq = { MkSomeEq :: \a. Eq a => a -> SomeEq }
 useSomeEq :: SomeEq -> Bool
 useSomeEq := \s -> case s { MkSomeEq x -> eq x x }
 main := useSomeEq (MkSomeEq True)
@@ -2545,7 +2545,7 @@ main := useSomeEq (MkSomeEq True)
 func TestExistentialEscapeError(t *testing.T) {
 	eng := gicel.NewEngine()
 	_, err := eng.Compile(`
-data SomeEq = { MkSomeEq :: forall a. Eq a => a -> SomeEq }
+data SomeEq = { MkSomeEq :: \a. Eq a => a -> SomeEq }
 escape :: SomeEq -> Bool
 escape := \s -> case s { MkSomeEq x -> x }
 `)
@@ -2557,7 +2557,7 @@ escape := \s -> case s { MkSomeEq x -> x }
 func TestExistentialNoConstraint(t *testing.T) {
 	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`
-data ExistsF f = { MkExistsF :: forall a. f a -> ExistsF f }
+data ExistsF f = { MkExistsF :: \a. f a -> ExistsF f }
 useMaybe :: ExistsF Maybe -> Bool
 useMaybe := \e -> case e { MkExistsF _ -> True }
 main := useMaybe (MkExistsF (Just True))
@@ -2575,7 +2575,7 @@ main := useMaybe (MkExistsF (Just True))
 func TestExistentialMixed(t *testing.T) {
 	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`
-data Wrapper a = { MkWrapper :: forall b. (b -> a) -> b -> Wrapper a }
+data Wrapper a = { MkWrapper :: \b. (b -> a) -> b -> Wrapper a }
 useWrapper :: Wrapper Bool -> Bool
 useWrapper := \w -> case w { MkWrapper f x -> f x }
 main := useWrapper (MkWrapper (\x -> x) True)
@@ -2593,7 +2593,7 @@ main := useWrapper (MkWrapper (\x -> x) True)
 func TestExistentialMultiConstraint(t *testing.T) {
 	eng := gicel.NewEngine()
 	_, err := eng.Compile(`
-data ShowOrd = { MkShowOrd :: forall a. Eq a => Ord a => a -> a -> ShowOrd }
+data ShowOrd = { MkShowOrd :: \a. Eq a => Ord a => a -> a -> ShowOrd }
 use :: ShowOrd -> Ordering
 use := \s -> case s { MkShowOrd x y -> compare x y }
 `)
@@ -2607,7 +2607,7 @@ use := \s -> case s { MkShowOrd x y -> compare x y }
 func TestExistentialWithTypeClass(t *testing.T) {
 	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`
-data SomeEq = { MkSomeEq :: forall a. Eq a => a -> SomeEq }
+data SomeEq = { MkSomeEq :: \a. Eq a => a -> SomeEq }
 isSame :: SomeEq -> Bool
 isSame := \s -> case s { MkSomeEq x -> eq x x }
 main := isSame (MkSomeEq (Just True))
@@ -2627,7 +2627,7 @@ func TestExistentialWithGADT(t *testing.T) {
 	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`
 data Typed a = { MkBool :: Bool -> Typed Bool; MkUnit :: Typed () }
-data SomeTyped = { MkSome :: forall a. Typed a -> SomeTyped }
+data SomeTyped = { MkSome :: \a. Typed a -> SomeTyped }
 classify :: SomeTyped -> Bool
 classify := \s -> case s { MkSome t -> True }
 main := classify (MkSome (MkBool True))
@@ -2645,7 +2645,7 @@ main := classify (MkSome (MkBool True))
 func TestExistentialNestedCase(t *testing.T) {
 	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`
-data Wrap = { MkWrap :: forall a. Eq a => a -> Wrap }
+data Wrap = { MkWrap :: \a. Eq a => a -> Wrap }
 bothSame :: Wrap -> Wrap -> Bool
 bothSame := \w1 -> \w2 ->
   case w1 { MkWrap x -> case w2 { MkWrap y -> True } }
@@ -2666,7 +2666,7 @@ main := bothSame (MkWrap True) (MkWrap False)
 func TestSubsumptionInstantiate(t *testing.T) {
 	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`
-id :: forall a. a -> a
+id :: \a. a -> a
 id := \x -> x
 useBool :: (Bool -> Bool) -> Bool
 useBool := \f -> f True
@@ -2685,9 +2685,9 @@ main := useBool id
 func TestHigherRankBasic(t *testing.T) {
 	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`
-applyToTrue :: (forall a. a -> a) -> Bool
+applyToTrue :: (\a. a -> a) -> Bool
 applyToTrue := \f -> f True
-id :: forall a. a -> a
+id :: \a. a -> a
 id := \x -> x
 main := applyToTrue id
 `)
@@ -2705,9 +2705,9 @@ func TestHigherRankAnnotationRequired(t *testing.T) {
 	// Rank-2 types should require annotation on the parameter
 	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`
-apply :: (forall a. a -> a) -> (Bool, ())
+apply :: (\a. a -> a) -> (Bool, ())
 apply := \f -> (f True, f ())
-id :: forall a. a -> a
+id :: \a. a -> a
 id := \x -> x
 main := apply id
 `)
@@ -2729,9 +2729,9 @@ main := apply id
 func TestHigherRankPolymorphicArg(t *testing.T) {
 	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`
-runId :: (forall a. a -> a) -> (Bool, ())
+runId :: (\a. a -> a) -> (Bool, ())
 runId := \f -> (f True, f ())
-id :: forall a. a -> a
+id :: \a. a -> a
 id := \x -> x
 main := runId id
 `)
@@ -2801,7 +2801,7 @@ test := (wrap True :: Maybe Bool)
 func TestClassTraversable(t *testing.T) {
 	eng := gicel.NewEngine()
 	_, err := eng.Compile(`
-test :: forall f a b. Applicative f => (a -> f b) -> Maybe a -> f (Maybe b)
+test :: \f a b. Applicative f => (a -> f b) -> Maybe a -> f (Maybe b)
 test := traverse
 `)
 	if err != nil {
@@ -2964,7 +2964,7 @@ func TestOrdPair(t *testing.T) {
 func TestExistentialWithStdlib(t *testing.T) {
 	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`
-data SomeSemigroup = { MkSomeSG :: forall a. Semigroup a => a -> a -> SomeSemigroup }
+data SomeSemigroup = { MkSomeSG :: \a. Semigroup a => a -> a -> SomeSemigroup }
 combine :: SomeSemigroup -> Bool
 combine := \s -> case s { MkSomeSG x y -> case append x y { _ -> True } }
 main := combine (MkSomeSG EQ LT)
@@ -2982,14 +2982,33 @@ main := combine (MkSomeSG EQ LT)
 func TestFullPipeline(t *testing.T) {
 	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`
-data SomeEq = { MkSomeEq :: forall a. Eq a => a -> SomeEq }
+data SomeEq = { MkSomeEq :: \a. Eq a => a -> SomeEq }
 isSelf :: SomeEq -> Bool
 isSelf := \s -> case s { MkSomeEq x -> eq x x }
-applyId :: (forall a. a -> a) -> Bool
+applyId :: (\a. a -> a) -> Bool
 applyId := \f -> f True
-id :: forall a. a -> a
+id :: \a. a -> a
 id := \x -> x
 main := case isSelf (MkSomeEq True) { True -> applyId id; False -> False }
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := rt.RunWith(context.Background(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertConName(t, result.Value, "True")
+}
+
+func TestBackslashForallE2E(t *testing.T) {
+	eng := gicel.NewEngine()
+	rt, err := eng.NewRuntime(`
+id :: \a. a -> a
+id := \x -> x
+applyId :: (\a. a -> a) -> Bool
+applyId := \f -> f True
+main := applyId id
 `)
 	if err != nil {
 		t.Fatal(err)
@@ -3648,7 +3667,7 @@ func TestIxMonadClassExists(t *testing.T) {
 	// Verify IxMonad class is defined in prelude and usable in type annotations.
 	eng := gicel.NewEngine()
 	_, err := eng.NewRuntime(`
-myFn :: forall (m : Row -> Row -> Type -> Type). IxMonad m => forall a (r : Row). a -> m r r a
+myFn :: \(m : Row -> Row -> Type -> Type). IxMonad m => \a (r : Row). a -> m r r a
 myFn := ixpure
 main := True
 `)
@@ -3677,7 +3696,7 @@ func TestKindedClassParam(t *testing.T) {
 	eng := gicel.NewEngine()
 	_, err := eng.NewRuntime(`
 class MyClass (m : Row -> Row -> Type -> Type) {
-  myPure :: forall a (r : Row). a -> m r r a
+  myPure :: \a (r : Row). a -> m r r a
 }
 main := True
 `)
@@ -3690,7 +3709,7 @@ func TestKindedClassParamWithInstance(t *testing.T) {
 	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`
 class Wrap (f : Type -> Type) {
-  wrap :: forall a. a -> f a
+  wrap :: \a. a -> f a
 }
 instance Wrap Maybe {
   wrap := \x -> Just x
@@ -3942,7 +3961,7 @@ func TestIxMonadGenericFunction(t *testing.T) {
 	// A generic function using IxMonad constraint should work with Computation.
 	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`
-myReturn :: forall (m : Row -> Row -> Type -> Type). IxMonad m => forall a (r : Row). a -> m r r a
+myReturn :: \(m : Row -> Row -> Type -> Type). IxMonad m => \a (r : Row). a -> m r r a
 myReturn := ixpure
 main :: Computation {} {} Bool
 main := myReturn True
@@ -4150,7 +4169,7 @@ func TestGenericMonadicFunction(t *testing.T) {
 	eng := gicel.NewEngine()
 	eng.DeclareBinding("x", gicel.ConType("Int"))
 	rt, err := eng.NewRuntime(`
-myReturn :: forall (m : Row -> Row -> Type -> Type). IxMonad m => forall a (r : Row). a -> m r r a
+myReturn :: \(m : Row -> Row -> Type -> Type). IxMonad m => \a (r : Row). a -> m r r a
 myReturn := ixpure
 main :: Computation {} {} Int
 main := myReturn x
@@ -4327,7 +4346,7 @@ main := foldr add 0 (fmap (\x -> add x 10) xs)
 
 func TestLetGeneralizationConstrainedEq(t *testing.T) {
 	// same := \x -> \y -> eq x y  (no annotation)
-	// Should generalize to: forall a. Eq a => a -> a -> Bool
+	// Should generalize to: \ a. Eq a => a -> a -> Bool
 	// and work at both Int and Bool.
 	eng := gicel.NewEngine()
 	gicel.Num(eng) // provides Eq Int
@@ -4352,7 +4371,7 @@ main := (same 1 2, same True True)
 
 func TestLetGeneralizationConstrainedOrd(t *testing.T) {
 	// mymax := \x -> \y -> case compare x y { GT -> x; _ -> y }
-	// Should generalize to: forall a. Ord a => a -> a -> a
+	// Should generalize to: \ a. Ord a => a -> a -> a
 	eng := gicel.NewEngine()
 	gicel.Num(eng)
 	rt, err := eng.NewRuntime(`

@@ -67,16 +67,16 @@ Example:
 type Effect r a = Computation r r a
 ```
 
-### Polymorphism (forall)
+### Polymorphism (\)
 
 ```
-forall a. a -> a
-forall a b. a -> b -> a
-forall (r : Row). Computation r r a
-forall (f : Type -> Type). f a -> f b
+\a. a -> a
+\a b. a -> b -> a
+\(r : Row). Computation r r a
+\(f : Type -> Type). f a -> f b
 ```
 
-The `.` after `forall` separates the quantified variables from the body type. This is the same character as the compose operator; context disambiguates.
+`\` serves dual purpose: lambda in expression context (`\x -> e`), and universal quantification in type context (`\a. T`). The separator distinguishes: `->` for lambda, `.` for quantification. The parser disambiguates by context. The `.` is the same character as the compose operator; context disambiguates there as well.
 
 ### Constraints (=>)
 
@@ -90,7 +90,7 @@ Eq a => Ord a => a -> Bool
 ### Quantified Constraints
 
 ```
-(forall a. Eq a => Eq (f a)) => f Bool -> f Bool -> Bool
+(\a. Eq a => Eq (f a)) => f Bool -> f Bool -> Bool
 ```
 
 ### Kinds
@@ -131,14 +131,14 @@ data DB (s : DBState) = MkDB
 Type annotations are written on a separate line from the definition:
 
 ```
-f :: forall a. Eq a => a -> a -> Bool
+f :: \a. Eq a => a -> a -> Bool
 f := \x -> \y -> eq x y
 ```
 
-Free type variables in annotations are implicitly universally quantified (implicit `forall`):
+Free type variables in annotations are implicitly universally quantified (implicit `\`):
 
 ```
-myLength :: List a -> Int       -- equivalent to: forall a. List a -> Int
+myLength :: List a -> Int       -- equivalent to: \a. List a -> Int
 ```
 
 ### Type Annotation in Expression
@@ -173,7 +173,7 @@ Classes can declare associated types. The class body provides the kind signature
 -- Associated type in class
 class Container c {
   type Elem c :: Type;
-  cfold :: forall b. (Elem c -> b -> b) -> b -> c -> b
+  cfold :: \b. (Elem c -> b -> b) -> b -> c -> b
 }
 
 instance Container (List a) {

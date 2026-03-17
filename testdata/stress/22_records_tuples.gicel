@@ -11,7 +11,7 @@ getY := \r -> r.#y
 moved := { point | x = 10 }
 
 -- Row-polymorphic record functions
-getLabel :: forall r. Record { label : String | r } -> String
+getLabel :: \r. Record { label : String | r } -> String
 getLabel := \r -> r.#label
 
 named := { label = "hello", value = 42 }
@@ -41,7 +41,7 @@ cmpUnit := compare () ()
 cmpPair := compare (1, 2) (1, 3)
 
 -- Tuple pattern matching
-swap :: forall a b. (a, b) -> (b, a)
+swap :: \a b. (a, b) -> (b, a)
 swap := \p -> case p { (x, y) -> (y, x) }
 swapped := swap (True, False)
 

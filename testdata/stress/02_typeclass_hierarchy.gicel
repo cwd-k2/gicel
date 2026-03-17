@@ -40,19 +40,19 @@ instance Ord Ordering {
   }
 }
 
-useShow :: forall a. Eq a => a -> Bool
+useShow :: \a. Eq a => a -> Bool
 useShow := \x -> tag x
 
-useEq :: forall a. Ord a => a -> a -> Bool
+useEq :: \a. Ord a => a -> a -> Bool
 useEq := \x -> \y -> eq x y
 
-compareAndEq :: forall a. Ord a => a -> a -> (Ordering, Bool)
+compareAndEq :: \a. Ord a => a -> a -> (Ordering, Bool)
 compareAndEq := \x -> \y -> (compare x y, eq x y)
 
-showViaOrd :: forall a. Ord a => a -> Bool
+showViaOrd :: \a. Ord a => a -> Bool
 showViaOrd := \x -> tag x
 
-isEqOrdering :: forall a. Ord a => a -> a -> Bool
+isEqOrdering :: \a. Ord a => a -> a -> Bool
 isEqOrdering := \x -> \y -> case compare x y {
   EQ -> True;
   _  -> False

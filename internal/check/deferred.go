@@ -19,7 +19,7 @@ func (ch *Checker) resolveDeferredConstraints(expr core.Core) core.Core {
 // resolveDeferredConstraintsDeferrable resolves deferred constraints but
 // returns ambiguous plain-args constraints as residuals instead of forcing
 // them. Used in infer mode so let-generalization can lift residuals into
-// forall-qualified types.
+// \-qualified types.
 func (ch *Checker) resolveDeferredConstraintsDeferrable(expr core.Core) (core.Core, []deferredConstraint) {
 	return ch.resolveDeferred(expr, func(className string, zonkedArgs []types.Type) bool {
 		return hasMeta(zonkedArgs) && ch.isAmbiguousInstance(className, zonkedArgs)

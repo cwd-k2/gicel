@@ -1,72 +1,72 @@
 import Prelude
 
-_sliceEmpty :: forall a. Slice a
+_sliceEmpty :: \a. Slice a
 _sliceEmpty := assumption
 
-_sliceSingleton :: forall a. a -> Slice a
+_sliceSingleton :: \a. a -> Slice a
 _sliceSingleton := assumption
 
-_sliceCons :: forall a. a -> Slice a -> Slice a
+_sliceCons :: \a. a -> Slice a -> Slice a
 _sliceCons := assumption
 
-_sliceSnoc :: forall a. Slice a -> a -> Slice a
+_sliceSnoc :: \a. Slice a -> a -> Slice a
 _sliceSnoc := assumption
 
-_sliceLength :: forall a. Slice a -> Int
+_sliceLength :: \a. Slice a -> Int
 _sliceLength := assumption
 
-_sliceIndex :: forall a. Int -> Slice a -> Maybe a
+_sliceIndex :: \a. Int -> Slice a -> Maybe a
 _sliceIndex := assumption
 
-_sliceFromList :: forall a. List a -> Slice a
+_sliceFromList :: \a. List a -> Slice a
 _sliceFromList := assumption
 
-_sliceToList :: forall a. Slice a -> List a
+_sliceToList :: \a. Slice a -> List a
 _sliceToList := assumption
 
-_sliceAppend :: forall a. Slice a -> Slice a -> Slice a
+_sliceAppend :: \a. Slice a -> Slice a -> Slice a
 _sliceAppend := assumption
 
-_sliceFoldr :: forall a b. (a -> b -> b) -> b -> Slice a -> b
+_sliceFoldr :: \a b. (a -> b -> b) -> b -> Slice a -> b
 _sliceFoldr := assumption
 
-_sliceMap :: forall a b. (a -> b) -> Slice a -> Slice b
+_sliceMap :: \a b. (a -> b) -> Slice a -> Slice b
 _sliceMap := assumption
 
-_sliceFoldl :: forall a b. (b -> a -> b) -> b -> Slice a -> b
+_sliceFoldl :: \a b. (b -> a -> b) -> b -> Slice a -> b
 _sliceFoldl := assumption
 
-sliceEmpty :: forall a. Slice a
+sliceEmpty :: \a. Slice a
 sliceEmpty := _sliceEmpty
 
-sliceSingleton :: forall a. a -> Slice a
+sliceSingleton :: \a. a -> Slice a
 sliceSingleton := _sliceSingleton
 
-sliceCons :: forall a. a -> Slice a -> Slice a
+sliceCons :: \a. a -> Slice a -> Slice a
 sliceCons := _sliceCons
 
-sliceSnoc :: forall a. Slice a -> a -> Slice a
+sliceSnoc :: \a. Slice a -> a -> Slice a
 sliceSnoc := _sliceSnoc
 
-sliceLength :: forall a. Slice a -> Int
+sliceLength :: \a. Slice a -> Int
 sliceLength := _sliceLength
 
-sliceIndex :: forall a. Int -> Slice a -> Maybe a
+sliceIndex :: \a. Int -> Slice a -> Maybe a
 sliceIndex := _sliceIndex
 
-sliceFromList :: forall a. List a -> Slice a
+sliceFromList :: \a. List a -> Slice a
 sliceFromList := _sliceFromList
 
-sliceToList :: forall a. Slice a -> List a
+sliceToList :: \a. Slice a -> List a
 sliceToList := _sliceToList
 
-sliceAppend :: forall a. Slice a -> Slice a -> Slice a
+sliceAppend :: \a. Slice a -> Slice a -> Slice a
 sliceAppend := _sliceAppend
 
-sliceFoldr :: forall a b. (a -> b -> b) -> b -> Slice a -> b
+sliceFoldr :: \a b. (a -> b -> b) -> b -> Slice a -> b
 sliceFoldr := _sliceFoldr
 
-sliceFoldl :: forall a b. (b -> a -> b) -> b -> Slice a -> b
+sliceFoldl :: \a b. (b -> a -> b) -> b -> Slice a -> b
 sliceFoldl := _sliceFoldl
 
 instance Functor Slice  { fmap := _sliceMap }

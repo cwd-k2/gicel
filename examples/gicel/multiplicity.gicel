@@ -54,7 +54,7 @@ type LUB (m1 : Mult) (m2 : Mult) :: Mult = {
 
 -- Multiplicity annotations compose with row polymorphism.
 -- Here, 'use' works in any environment that has a linear handle:
-useOpen :: forall (r : Row). Computation { handle : Unit @Linear | r } { handle : Unit @Linear | r } Unit
+useOpen :: \(r : Row). Computation { handle : Unit @Linear | r } { handle : Unit @Linear | r } Unit
 useOpen := assumption
 
 -- Output: this example demonstrates type-level guarantees.

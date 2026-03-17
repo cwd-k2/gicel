@@ -318,7 +318,7 @@ data Bool = True | False
 data List a = Nil | Cons a (List a)
 data Unit = Unit
 
-id :: forall a. a -> a
+id :: \ a. a -> a
 id := \x -> x
 
 f :: Unit

@@ -27,7 +27,7 @@ px := point.#x
 moved := { point | x = 10 }
 
 -- Row-polymorphic function: works on any record with an "x" field
-getX :: forall r. Record { x : Int | r } -> Int
+getX :: \ r. Record { x : Int | r } -> Int
 getX := \r -> r.#x
 
 -- Works with different record shapes
@@ -47,7 +47,7 @@ eqTest := eq (1, 2) (1, 2)
 cmpTest := compare (1, 2) (1, 3)
 
 -- Pattern matching on records
-swap :: forall a b. (a, b) -> (b, a)
+swap :: \ a b. (a, b) -> (b, a)
 swap := \p -> case p { (x, y) -> (y, x) }
 
 -- Nested records

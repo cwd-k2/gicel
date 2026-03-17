@@ -259,7 +259,7 @@ main := g`
 func TestSortIntegrationCapabilityRowVar(t *testing.T) {
 	source := `data Bool = True | False
 data Unit = Unit
-h :: forall (r : Row). Computation { x : Int | r } { x : Int | r } Bool
+h :: \ (r : Row). Computation { x : Int | r } { x : Int | r } Bool
 h := do { pure True }
 main := h`
 	checkSource(t, source, nil)

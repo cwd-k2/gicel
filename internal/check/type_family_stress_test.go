@@ -184,7 +184,7 @@ class Container c {
 }
 
 -- Use a top-level assumption as the fallback for Nil.
-nilFallback :: forall a. a
+nilFallback :: \ a. a
 nilFallback := assumption
 
 instance Container (List a) {
@@ -209,7 +209,7 @@ data List a = Nil | Cons a (List a)
 data Pair a b = MkPair a b
 data Maybe a = Nothing | Just a
 
-emptyPair :: forall a b. Pair a b
+emptyPair :: \ a b. Pair a b
 emptyPair := assumption
 
 class Collection c {
@@ -251,7 +251,7 @@ k4 :: Key (Maybe Unit)
 k4 := MaybeKey Unit
 
 -- Pattern match on data family constructors.
-unwrapListKey :: forall a. Key (List a) -> a
+unwrapListKey :: \ a. Key (List a) -> a
 unwrapListKey := \k -> case k { ListKey x -> x }
 `
 	checkSource(t, source, nil)
@@ -266,7 +266,7 @@ data Pair a b = MkPair a b
 data Either a b = Left a | Right b
 data Maybe a = Nothing | Just a
 
-nilFallback :: forall a. a
+nilFallback :: \ a. a
 nilFallback := assumption
 
 class HasRepr c {

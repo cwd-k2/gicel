@@ -22,7 +22,7 @@ func Pretty(t Type) string {
 		return fmt.Sprintf("%s -> %s", from, Pretty(ty.To))
 	case *TyForall:
 		vars, body := collectForalls(ty)
-		return fmt.Sprintf("forall %s. %s", strings.Join(vars, " "), Pretty(body))
+		return fmt.Sprintf(`\%s. %s`, strings.Join(vars, " "), Pretty(body))
 	case *TyComp:
 		return fmt.Sprintf("Computation %s %s %s",
 			prettyAtom(ty.Pre), prettyAtom(ty.Post), prettyAtom(ty.Result))
@@ -149,7 +149,7 @@ func prettyQuantifiedConstraint(qc *QuantifiedConstraint) string {
 			vars = append(vars, fmt.Sprintf("(%s : %s)", v.Name, v.Kind))
 		}
 	}
-	result := "forall " + strings.Join(vars, " ") + ". "
+	result := `\` + strings.Join(vars, " ") + ". "
 	for _, c := range qc.Context {
 		result += prettyConstraintEntry(c) + " => "
 	}

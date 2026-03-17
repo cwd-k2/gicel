@@ -171,13 +171,13 @@ Classifies types and rows. The kind vocabulary is:
 Kind ::= 'Type'               -- kind of value types
        | 'Row'                -- kind of capability/record row descriptors
        | 'Constraint'         -- kind of type class predicates
-       | 'Kind'               -- sort of kinds (for kind-polymorphic forall)
+       | 'Kind'               -- sort of kinds (for kind-polymorphic \)
        | Kind '->' Kind       -- kind arrow
        | UserKind             -- promoted DataKinds (e.g., DBState)
-       | KindVar              -- kind variable (explicit, in forall binders)
+       | KindVar              -- kind variable (explicit, in \ binders)
 ```
 
-Kind variables are introduced with explicit annotation: `forall (k : Kind). ...`. Kind inference uses kind metavariables and unification (occurs check, substitution). Kind variables are never inferred — they must be explicitly bound.
+Kind variables are introduced with explicit annotation: `\(k : Kind). ...`. Kind inference uses kind metavariables and unification (occurs check, substitution). Kind variables are never inferred — they must be explicitly bound.
 
 ### 2.2.4 Computation Type
 
@@ -220,21 +220,23 @@ GADTs extend ADTs with refined return types, local type equalities in case branc
 Universal quantification over type variables, row variables, and kind variables:
 
 ```
-forall a. T              -- type polymorphism
-forall (r : Row). T      -- row polymorphism
-forall (k : Kind). T     -- kind polymorphism
+\a. T              -- type polymorphism
+\(r : Row). T      -- row polymorphism
+\(k : Kind). T     -- kind polymorphism
 ```
 
-Higher-rank polymorphism: `forall` may appear under arrows, enabling rank-N types. Higher-rank types require explicit annotations. The checker uses subsumption (DK bidirectional approach): skolemization for checking, instantiation for inference.
+`\` serves dual purpose: lambda in expression context (`\x -> e`), and universal quantification in type context (`\a. T`). The separator distinguishes the two: `->` for lambda, `.` for quantification. There is no ambiguity because the parser knows whether it is in type or expression context.
+
+Higher-rank polymorphism: `\` quantifiers may appear under arrows, enabling rank-N types. Higher-rank types require explicit annotations. The checker uses subsumption (DK bidirectional approach): skolemization for checking, instantiation for inference.
 
 ### 2.3.3 Host Assumption
 
 The sole source of effects. Host-provided operations are declared with `assumption`:
 
 ```
-dbOpen :: forall r. Computation { db : DB Closed | r }
-                                { db : DB Opened | r }
-                                ()
+dbOpen :: \r. Computation { db : DB Closed | r }
+                          { db : DB Opened | r }
+                          ()
 dbOpen := assumption
 ```
 
@@ -263,10 +265,12 @@ Type, row, and kind equivalence. The equality theory includes:
 ## 3.1 Keywords
 
 ```
-case  do  data  type  forall  infixl  infixr  infixn  class  instance  import
+case  do  data  type  infixl  infixr  infixn  class  instance  import
 ```
 
-11 keywords. Note that `pure`, `bind`, `thunk`, `force`, `assumption`, `rec`, and `fix` are **not** keywords — they are ordinary identifiers with built-in meaning. `pure`, `bind`, `rec`, and `fix` are first-class functions (can be partially applied and passed to higher-order functions); `thunk` and `force` are term formers (must be fully applied).
+10 keywords. Note that `pure`, `bind`, `thunk`, `force`, `assumption`, `rec`, and `fix` are **not** keywords — they are ordinary identifiers with built-in meaning. `pure`, `bind`, `rec`, and `fix` are first-class functions (can be partially applied and passed to higher-order functions); `thunk` and `force` are term formers (must be fully applied).
+
+`\` is used for both lambda (`\x -> e`) and universal quantification (`\a. T`). The separator distinguishes: `->` for lambda, `.` for quantification. The parser disambiguates by context (expression vs. type).
 
 `;` and newline are interchangeable as declaration/statement separators at the top level. Inside braces (`do`, `case`, GADT bodies), semicolons are required — newlines alone do not act as separators.
 
@@ -291,14 +295,14 @@ Op     ::= operator characters              -- +, -, *, /, ==, >>=, .
 | `=>`  | Constraint arrow                                        |
 | `\`   | Lambda                                                  |
 | `\|`  | Row extension / record update / case separator          |
-| `.`   | forall body separator / composition operator (infixr 9) |
+| `.`   | quantifier body separator / composition operator (infixr 9) |
 | `.#`  | Record projection                                       |
 | `@`   | Explicit type application                               |
 
 ## 3.4 Type Syntax
 
 ```
-Type      ::= 'forall' TyBinder+ '.' Type
+Type      ::= '\' TyBinder+ '.' Type
             | Constraint '=>' Type
             | Type '->' Type
             | TypeApp
@@ -324,7 +328,7 @@ Kind      ::= 'Type' | 'Row' | 'Constraint' | 'Kind'
 
 Precedence of type operators (loosest to tightest):
 
-1. `forall ... .`
+1. `\ ... .`
 2. `=>` (right-associative)
 3. `->` (right-associative)
 4. Type application (left-associative)
@@ -564,9 +568,9 @@ Produces:
 This enables precise capability tracking:
 
 ```
-dbOpen :: forall r. Computation { db : DB Closed | r }
-                                { db : DB Opened | r }
-                                ()
+dbOpen :: \r. Computation { db : DB Closed | r }
+                          { db : DB Opened | r }
+                          ()
 ```
 
 Promotion applies only to nullary constructors. Constructors with fields are not promoted.
@@ -575,10 +579,10 @@ In type position, names are resolved by: (1) check type constructors, (2) check 
 
 ## 4.4 Kind Polymorphism (HKT)
 
-Kind variables are introduced with explicit annotation in `forall` binders:
+Kind variables are introduced with explicit annotation in `\` binders:
 
 ```
-forall (k : Kind). forall (f : k -> Type). f a -> f a
+\(k : Kind). \(f : k -> Type). f a -> f a
 ```
 
 `Kind` is a distinguished sort — the kind of kinds. Kind variables range over all kinds.
@@ -650,24 +654,24 @@ r ~ { l : T | r }    -- rejected: r occurs in its own definition
 The `=>` token introduces constraints in type expressions:
 
 ```
-f :: forall a. Eq a => a -> a -> Bool
+f :: \a. Eq a => a -> a -> Bool
 ```
 
 Multiple constraints use curried form:
 
 ```
-g :: forall a b. Eq a => Ord b => a -> b -> Bool
+g :: \a b. Eq a => Ord b => a -> b -> Bool
 ```
 
 Constraints elaborate to implicit dictionary arguments via dictionary passing.
 
-## 5.4 Implicit forall
+## 5.4 Implicit Quantification
 
-Top-level type annotations with free type variables get an implicit outer `forall`:
+Top-level type annotations with free type variables get an implicit outer `\`:
 
 ```
 id :: a -> a
--- equivalent to: id :: forall a. a -> a
+-- equivalent to: id :: \a. a -> a
 ```
 
 ## 5.5 Pattern Matching Exhaustiveness
@@ -710,7 +714,7 @@ Type class parameters may be kind-polymorphic:
 
 ```
 class Functor (f : k -> Type) {
-  fmap :: forall a b. (a -> b) -> f a -> f b
+  fmap :: \a b. (a -> b) -> f a -> f b
 }
 ```
 
@@ -737,7 +741,7 @@ Type classes elaborate entirely to existing Core IR constructs. No new Core node
 class Eq a { eq :: a -> a -> Bool }
 -- elaborates to:
 data Eq$Dict a = Eq$MkDict (a -> a -> Bool)
-eq :: forall a. Eq$Dict a -> a -> a -> Bool
+eq :: \a. Eq$Dict a -> a -> a -> Bool
 ```
 
 A class with `n` methods and `m` superclasses produces a data type with one constructor of arity `m + n`. The first `m` fields are superclass dictionaries.
@@ -756,7 +760,7 @@ eq$Bool := Eq$MkDict (...)
 ```
 instance Eq a => Eq (Maybe a) { ... }
 -- elaborates to:
-eq$Maybe :: forall a. Eq$Dict a -> Eq$Dict (Maybe a)
+eq$Maybe :: \a. Eq$Dict a -> Eq$Dict (Maybe a)
 ```
 
 **Call Site → Dictionary Insertion:**
@@ -825,9 +829,9 @@ Eq ──→ Num   (in Std.Num)
 Constraints are value-level functions (dictionary arguments). They compose freely with `Computation`:
 
 ```
-f :: forall a. Eq a => a -> Computation {} {} Bool
+f :: \a. Eq a => a -> Computation {} {} Bool
 -- elaborates to:
-f :: forall a. Eq$Dict a -> a -> Computation {} {} Bool
+f :: \a. Eq$Dict a -> a -> Computation {} {} Bool
 ```
 
 Constraints do not affect the `pre`/`post` row structure.
@@ -866,13 +870,13 @@ GADT constructors may introduce type variables not appearing in the return type 
 
 ```
 data SomeEq = {
-  MkSomeEq :: forall a. Eq a => a -> SomeEq
+  MkSomeEq :: \a. Eq a => a -> SomeEq
 }
 ```
 
 When pattern matching on an existential constructor, the hidden type variable is introduced as a fresh skolem. Packed constraints become available in the branch body. The existential must not escape the branch scope.
 
-Existential variables must be explicitly quantified with `forall`. No first-class existential types outside of constructors.
+Existential variables must be explicitly quantified with `\`. No first-class existential types outside of constructors.
 
 ## 7.3 Elaboration
 
@@ -895,11 +899,11 @@ Record {}
 Record fields may have higher-rank types:
 
 ```
-r :: Record { apply : forall a. a -> a }
+r :: Record { apply : \a. a -> a }
 r := { apply = \x -> x }
 ```
 
-The expected type propagates into the record literal, so the lambda receives the `forall a. a -> a` annotation and type-checks at rank 2.
+The expected type propagates into the record literal, so the lambda receives the `\a. a -> a` annotation and type-checks at rank 2.
 
 Duplicate field labels in a record type are rejected at compile time (error E0210):
 
@@ -1033,14 +1037,14 @@ Capabilities are tracked in row-typed pre/post states:
 
 ```
 -- Opens a database (requires Closed, produces Opened)
-dbOpen :: forall r. Computation { db : DB Closed | r }
-                                { db : DB Opened | r }
-                                ()
+dbOpen :: \r. Computation { db : DB Closed | r }
+                          { db : DB Opened | r }
+                          ()
 
 -- Queries (requires Opened, preserves Opened)
-dbQuery :: forall r. String -> Computation { db : DB Opened | r }
-                                           { db : DB Opened | r }
-                                           (List String)
+dbQuery :: \r. String -> Computation { db : DB Opened | r }
+                                     { db : DB Opened | r }
+                                     (List String)
 
 -- Compose:
 program := do {
@@ -1060,11 +1064,11 @@ Effects are encoded as capability row patterns, not monad transformers:
 type Effect r a = Computation r r a     -- state-preserving computation
 
 -- Maybe as effect: fromMaybe uses the fail capability
-fromMaybe :: forall a r. Maybe a -> Computation { fail : () | r } { fail : () | r } a
+fromMaybe :: \a r. Maybe a -> Computation { fail : () | r } { fail : () | r } a
 
 -- State as effect: get/put use the state capability
-get :: forall s r. Computation { state : s | r } { state : s | r } s
-put :: forall s r. s -> Computation { state : s | r } { state : s | r } ()
+get :: \s r. Computation { state : s | r } { state : s | r } s
+put :: \s r. s -> Computation { state : s | r } { state : s | r } ()
 ```
 
 ---
@@ -1299,8 +1303,8 @@ data Result e a = Ok a | Err e
 
 type Effect r a = Computation r r a
 
-fst :: forall a b. (a, b) -> a
-snd :: forall a b. (a, b) -> b
+fst :: \a b. (a, b) -> a
+snd :: \a b. (a, b) -> b
 ```
 
 `()` (unit) is the empty record. `(a, b)` (tuple) is record sugar.
@@ -1368,7 +1372,7 @@ A class body may declare associated type families (kind signature only). Instanc
 ```
 class Container c {
   type Elem c :: Type;
-  cfold :: forall b. (Elem c -> b -> b) -> b -> c -> b
+  cfold :: \b. (Elem c -> b -> b) -> b -> c -> b
 }
 
 instance Container (List a) {
@@ -1451,7 +1455,7 @@ Nested patterns are supported: `Elem (List (Maybe a)) = Maybe a`.
 
 **Core IR**: Fully reduced at compile time. No `TyFamilyApp` survives into Core. No runtime representation.
 
-**Keyword count**: Remains 11. `type` is reused; `::` after parameters is the disambiguator.
+**Keyword count**: Remains 10. `type` is reused; `::` after parameters is the disambiguator.
 
 ## 17.2 Multiplicity Annotations
 

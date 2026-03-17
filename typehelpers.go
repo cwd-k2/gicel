@@ -38,12 +38,12 @@ func ThunkType(pre, post, result types.Type) types.Type {
 	return types.MkThunk(pre, post, result)
 }
 
-// ForallType creates a universally quantified type: forall var. body.
+// ForallType creates a universally quantified type: \ var. body.
 func ForallType(varName string, body types.Type) types.Type {
 	return types.MkForall(varName, types.KType{}, body)
 }
 
-// ForallRow creates a universally quantified type with Row kind: forall (r : Row). body.
+// ForallRow creates a universally quantified type with Row kind: \ (r : Row). body.
 func ForallRow(varName string, body types.Type) types.Type {
 	return types.MkForall(varName, types.KRow{}, body)
 }

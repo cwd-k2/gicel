@@ -93,8 +93,8 @@ eng.DeclareBinding("myInput", gicel.ConType("Int"))
 | `gicel.ArrowType(from, to)`                            | Function type: `from -> to`   |
 | `gicel.AppType(f, arg)`                                | Type application: `f a`       |
 | `gicel.CompType(pre, post, result)`                    | `Computation pre post result` |
-| `gicel.ForallType(var, body)`                          | `forall var. body`            |
-| `gicel.ForallRow(var, body)`                           | `forall (var : Row). body`    |
+| `gicel.ForallType(var, body)`                          | `\var. body`                  |
+| `gicel.ForallRow(var, body)`                           | `\(var : Row). body`          |
 | `gicel.EmptyRowType()`                                 | Empty row `{}`                |
 | `gicel.RecordType(fields ...RowField)`                 | Closed record type            |
 | `gicel.TupleType(elems ...Type)`                       | Tuple record type             |

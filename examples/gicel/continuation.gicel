@@ -67,7 +67,7 @@ ex5 := (\k -> [k 1, k 2, k 3]) (\x -> x * x)
 -- amb applies the continuation to each choice and flattens.
 -- This is the list-monad bind, seen as multi-shot continuation.
 
-amb :: forall a b. List a -> (a -> List b) -> List b
+amb :: \a b. List a -> (a -> List b) -> List b
 amb := \choices -> \k ->
   foldr (\x -> \acc -> concat (k x) acc) [] choices
 

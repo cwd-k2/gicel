@@ -1,6 +1,6 @@
 data Tree a = Leaf a | Branch (Tree a) (Tree a)
 
-class Functor f { fmap :: forall a b. (a -> b) -> f a -> f b }
+class Functor f { fmap :: \a b. (a -> b) -> f a -> f b }
 
 instance Functor Maybe {
   fmap := \g -> \mx -> case mx {
@@ -17,7 +17,7 @@ instance Functor Tree {
 }
 
 class Functor f => Applicative f {
-  wrap :: forall a. a -> f a
+  wrap :: \a. a -> f a
 }
 
 instance Applicative Maybe {
@@ -26,13 +26,13 @@ instance Applicative Maybe {
 
 not := \b -> case b { True -> False; False -> True }
 
-liftF :: forall f a b. Functor f => (a -> b) -> f a -> f b
+liftF :: \f a b. Functor f => (a -> b) -> f a -> f b
 liftF := \g -> \fa -> fmap g fa
 
-doubleMap :: forall f a b c. Functor f => (a -> b) -> (b -> c) -> f a -> f c
+doubleMap :: \f a b c. Functor f => (a -> b) -> (b -> c) -> f a -> f c
 doubleMap := \g -> \h -> \fa -> fmap h (fmap g fa)
 
-applyNot :: forall f. Functor f => f Bool -> f Bool
+applyNot :: \f. Functor f => f Bool -> f Bool
 applyNot := \fb -> fmap not fb
 
 treeOfBools := Branch (Leaf True) (Branch (Leaf False) (Leaf True))

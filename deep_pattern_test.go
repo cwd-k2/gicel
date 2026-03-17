@@ -18,7 +18,7 @@ import (
 // =============================================================================
 
 // ---------------------------------------------------------------------------
-// P1. Parser: Dot operator as composition (infixr 9) vs forall body separator
+// P1. Parser: Dot operator as composition (infixr 9) vs \ body separator
 // ---------------------------------------------------------------------------
 
 func TestDotAsCompositionOperator(t *testing.T) {
@@ -27,13 +27,13 @@ func TestDotAsCompositionOperator(t *testing.T) {
 	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`
 infixr 9 .
-(.) :: forall a b c. (b -> c) -> (a -> b) -> a -> c
+(.) :: \ a b c. (b -> c) -> (a -> b) -> a -> c
 (.) := \f -> \g -> \x -> f (g x)
 
 not :: Bool -> Bool
 not := \b -> case b { True -> False; False -> True }
 
-id :: forall a. a -> a
+id :: \ a. a -> a
 id := \x -> x
 
 main := (not . id) True
@@ -49,15 +49,15 @@ main := (not . id) True
 }
 
 func TestDotInForallDoesNotConflictWithComposition(t *testing.T) {
-	// `.` in forall type body separator vs `.` as operator: both should
+	// `.` in \ type body separator vs `.` as operator: both should
 	// coexist without ambiguity.
 	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`
 infixr 9 .
-(.) :: forall a b c. (b -> c) -> (a -> b) -> a -> c
+(.) :: \ a b c. (b -> c) -> (a -> b) -> a -> c
 (.) := \f -> \g -> \x -> f (g x)
 
-id :: forall a. a -> a
+id :: \ a. a -> a
 id := \x -> x
 
 main := (id . id) True
@@ -291,7 +291,7 @@ func TestHigherRankPolyIdFunction(t *testing.T) {
 	// A function that takes a polymorphic function and uses it at two types.
 	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`
-applyBoth :: (forall a. a -> a) -> Bool
+applyBoth :: (\ a. a -> a) -> Bool
 applyBoth := \f -> f True
 
 main := applyBoth (\x -> x)
@@ -310,7 +310,7 @@ func TestHigherRankRejection(t *testing.T) {
 	// A monomorphic function should NOT satisfy a higher-rank requirement.
 	eng := gicel.NewEngine()
 	_, err := eng.NewRuntime(`
-applyBoth :: (forall a. a -> a) -> Bool
+applyBoth :: (\a. a -> a) -> Bool
 applyBoth := \f -> f True
 
 not :: Bool -> Bool
@@ -318,9 +318,9 @@ not := \b -> case b { True -> False; False -> True }
 
 main := applyBoth not
 `)
-	// 'not' is Bool -> Bool, not forall a. a -> a
+	// 'not' is Bool -> Bool, not \ a. a -> a
 	if err == nil {
-		t.Fatal("expected compile error: Bool -> Bool should not satisfy forall a. a -> a")
+		t.Fatal("expected compile error: Bool -> Bool should not satisfy \\ a. a -> a")
 	}
 }
 
@@ -332,7 +332,7 @@ func TestRowUnifyEmptyOpenClosed(t *testing.T) {
 	// An open row { | r } should unify with a closed empty row {}.
 	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`
-f :: forall (r : Row). Record { | r } -> Bool
+f :: \(r : Row). Record { | r } -> Bool
 f := \_ -> True
 main := f {}
 `)
@@ -352,7 +352,7 @@ func TestRowUnifyFieldSubset(t *testing.T) {
 	eng.Use(gicel.Num)
 	rt, err := eng.NewRuntime(`
 import Std.Num
-getX :: forall r. Record { x : Int | r } -> Int
+getX :: \r. Record { x : Int | r } -> Int
 getX := \rec -> rec.#x
 main := getX { x = 42, y = 0 }
 `)
@@ -392,7 +392,7 @@ func TestConstraintResolutionChain(t *testing.T) {
 	// Using a superclass method (eq) through a subclass constraint (Ord).
 	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`
-useSuperFromSub :: forall a. Ord a => a -> a -> Bool
+useSuperFromSub :: \a. Ord a => a -> a -> Bool
 useSuperFromSub := \x -> \y -> eq x y
 
 main := useSuperFromSub True True
@@ -545,7 +545,7 @@ main := myLength (Cons True (Cons False (Cons True Nil)))
 		t.Errorf("expected 3, got %d", hv)
 	}
 
-	// Annotation version with implicit forall:
+	// Annotation version with implicit \:
 	eng2 := gicel.NewEngine()
 	eng2.EnableRecursion()
 	eng2.Use(gicel.Num)
@@ -558,7 +558,7 @@ myLength := fix (\self -> \xs -> case xs { Nil -> 0; Cons _ rest -> 1 + self res
 main := myLength (Cons True (Cons False (Cons True Nil)))
 `)
 	if err != nil {
-		t.Fatal("polymorphic annotation should work with implicit forall:", err)
+		t.Fatal("polymorphic annotation should work with implicit \\:", err)
 	}
 	result2, err := rt2.RunWith(context.Background(), nil)
 	if err != nil {
@@ -579,10 +579,10 @@ func TestNestedConstructorPatternMatch(t *testing.T) {
 	rt, err := eng.NewRuntime(`
 data Pair a b = MkPair a b
 
-fst :: forall a b. Pair a b -> a
+fst :: \a b. Pair a b -> a
 fst := \p -> case p { MkPair x _ -> x }
 
-snd :: forall a b. Pair a b -> b
+snd :: \a b. Pair a b -> b
 snd := \p -> case p { MkPair _ y -> y }
 
 main := fst (MkPair True False)
@@ -847,7 +847,7 @@ func TestFP_PolymorphicFunctionApplication(t *testing.T) {
 	// Polymorphic identity applied at different types should work.
 	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`
-id :: forall a. a -> a
+id :: \a. a -> a
 id := \x -> x
 
 main := case id True { True -> id (); False -> id () }
@@ -1139,7 +1139,7 @@ func TestTypeAliasWithParams(t *testing.T) {
 	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`
 type Pair a b = (a, b)
-mkPair :: forall a b. a -> b -> Pair a b
+mkPair :: \a b. a -> b -> Pair a b
 mkPair := \x -> \y -> (x, y)
 main := (mkPair True False).#_1
 `)
@@ -1450,7 +1450,7 @@ func TestExplicitTypeApplication(t *testing.T) {
 	eng.Use(gicel.Num)
 	rt, err := eng.NewRuntime(`
 import Std.Num
-id :: forall a. a -> a
+id :: \a. a -> a
 id := \x -> x
 main := id @Bool True
 `)
@@ -1468,7 +1468,7 @@ main := id @Bool True
 	eng2.Use(gicel.Num)
 	_, err = eng2.NewRuntime(`
 import Std.Num
-id :: forall a. a -> a
+id :: \a. a -> a
 id := \x -> x
 main := id @Bool 42
 `)
@@ -1482,7 +1482,7 @@ func TestExplicitTypeApplicationWrongType(t *testing.T) {
 	eng.Use(gicel.Num)
 	_, err := eng.NewRuntime(`
 import Std.Num
-id :: forall a. a -> a
+id :: \a. a -> a
 id := \x -> x
 main := id @Int True
 `)
@@ -1523,7 +1523,7 @@ func TestHigherRankRecordField(t *testing.T) {
 	eng.Use(gicel.Num)
 	rt, err := eng.NewRuntime(`
 import Std.Num
-r :: Record { apply : forall a. a -> a }
+r :: Record { apply : \a. a -> a }
 r := { apply = \x -> x }
 main := ((r.#apply) True, (r.#apply) 42)
 `)
