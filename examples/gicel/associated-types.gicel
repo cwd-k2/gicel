@@ -15,15 +15,15 @@ class Container c {
   cfold :: \b. (Elem c -> b -> b) -> b -> c -> b
 }
 
--- Instance for List: Elem (List a) = a.
+-- Instance for List: Elem (List a) =: a.
 instance Container (List a) {
-  type Elem (List a) = a;
+  type Elem (List a) =: a;
   cfold := foldr
 }
 
--- Instance for String: Elem String = Rune.
+-- Instance for String: Elem String =: Rune.
 instance Container String {
-  type Elem String = Rune;
+  type Elem String =: Rune;
   cfold := \f z s. foldr f z (toRunes s)
 }
 

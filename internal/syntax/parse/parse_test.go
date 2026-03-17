@@ -345,7 +345,7 @@ func TestParseOperatorValueDef(t *testing.T) {
 }
 
 func TestParseOperatorInModule(t *testing.T) {
-	src := `data Int = MkInt
+	src := `data Int := MkInt
 add :: Int -> Int -> Int
 add := \x y. x
 infixl 6 +
@@ -379,7 +379,7 @@ infixl 6 +
 }
 
 func TestParseDataDecl(t *testing.T) {
-	prog, es := parse("data Bool = True | False")
+	prog, es := parse("data Bool := True | False")
 	if es.HasErrors() {
 		t.Fatal(es.Format())
 	}
@@ -396,7 +396,7 @@ func TestParseDataDecl(t *testing.T) {
 }
 
 func TestParseTypeAlias(t *testing.T) {
-	prog, es := parse("type Effect r a = Computation r r a")
+	prog, es := parse("type Effect r a := Computation r r a")
 	if es.HasErrors() {
 		t.Fatal(es.Format())
 	}
@@ -954,7 +954,7 @@ func TestParseMultipleImports(t *testing.T) {
 }
 
 func TestParseImportBeforeDecl(t *testing.T) {
-	prog, es := parse("import Lib\ndata Bool = True | False\nmain := True")
+	prog, es := parse("import Lib\ndata Bool := True | False\nmain := True")
 	if es.HasErrors() {
 		t.Fatal(es.Format())
 	}
@@ -977,7 +977,7 @@ func TestAtDeclBoundaryImport(t *testing.T) {
 // --- GADT parser tests ---
 
 func TestParseGADTDecl(t *testing.T) {
-	prog, es := parse("data Expr a = { IntLit :: Int -> Expr Int; BoolLit :: Bool -> Expr Bool }")
+	prog, es := parse("data Expr a := { IntLit :: Int -> Expr Int; BoolLit :: Bool -> Expr Bool }")
 	if es.HasErrors() {
 		t.Fatal(es.Format())
 	}
@@ -1006,7 +1006,7 @@ func TestParseGADTDecl(t *testing.T) {
 }
 
 func TestParseGADTMixedArity(t *testing.T) {
-	prog, es := parse("data T a = { Nil :: T Unit; Cons :: a -> T a -> T a }")
+	prog, es := parse("data T a := { Nil :: T Unit; Cons :: a -> T a -> T a }")
 	if es.HasErrors() {
 		t.Fatal(es.Format())
 	}
@@ -1026,7 +1026,7 @@ func TestParseGADTMixedArity(t *testing.T) {
 
 func TestParseGADTvsADT(t *testing.T) {
 	// ADT form
-	adtProg, adtEs := parse("data Bool = True | False")
+	adtProg, adtEs := parse("data Bool := True | False")
 	if adtEs.HasErrors() {
 		t.Fatal(adtEs.Format())
 	}
@@ -1039,7 +1039,7 @@ func TestParseGADTvsADT(t *testing.T) {
 	}
 
 	// GADT form
-	gadtProg, gadtEs := parse("data Expr a = { Lit :: Int -> Expr Int }")
+	gadtProg, gadtEs := parse("data Expr a := { Lit :: Int -> Expr Int }")
 	if gadtEs.HasErrors() {
 		t.Fatal(gadtEs.Format())
 	}
@@ -1110,7 +1110,7 @@ func TestSemicolonMultiple(t *testing.T) {
 }
 
 func TestGADTConReturnType(t *testing.T) {
-	prog, es := parse("data Expr a = { IntLit :: Int -> Expr Int; Add :: Expr Int -> Expr Int -> Expr Int; IsZero :: Expr Int -> Expr Bool }")
+	prog, es := parse("data Expr a := { IntLit :: Int -> Expr Int; Add :: Expr Int -> Expr Int -> Expr Int; IsZero :: Expr Int -> Expr Bool }")
 	if es.HasErrors() {
 		t.Fatal(es.Format())
 	}
@@ -2083,10 +2083,10 @@ func TestParseAnnotationInParen(t *testing.T) {
 
 func TestParseTypeFamilyTrailingSemicolon(t *testing.T) {
 	source := `
-data Bool = True | False
-type IsTrue (b: Bool) :: Bool = {
-  IsTrue True = True;
-  IsTrue False = False;
+data Bool := True | False
+type IsTrue (b: Bool) :: Bool := {
+  IsTrue True =: True;
+  IsTrue False =: False;
 }
 `
 	prog, es := parse(source)
@@ -2111,7 +2111,7 @@ type IsTrue (b: Bool) :: Bool = {
 
 func TestParseTypeFamilyEmptyBlock(t *testing.T) {
 	source := `
-type Empty (a: Type) :: Type = {}
+type Empty (a: Type) :: Type := {}
 `
 	prog, es := parse(source)
 	if es.HasErrors() {
@@ -2162,11 +2162,11 @@ class HasUnit a {
 	}
 }
 
-// --- 4d: Multiple fundeps: | a -> b, c -> d ---
+// --- 4d: Multiple fundeps: | a =: b, c =: d ---
 
 func TestParseMultipleFunDeps(t *testing.T) {
 	source := `
-class Multi a b c d | a -> b, c -> d {
+class Multi a b c d | a =: b, c =: d {
   m :: a -> d
 }
 `
@@ -2182,10 +2182,10 @@ class Multi a b c d | a -> b, c -> d {
 		t.Fatalf("expected 2 fundeps, got %d", len(cls.FunDeps))
 	}
 	if cls.FunDeps[0].From != "a" || len(cls.FunDeps[0].To) != 1 || cls.FunDeps[0].To[0] != "b" {
-		t.Errorf("fundep 0: expected a -> b, got %s -> %v", cls.FunDeps[0].From, cls.FunDeps[0].To)
+		t.Errorf("fundep 0: expected a =: b, got %s =: %v", cls.FunDeps[0].From, cls.FunDeps[0].To)
 	}
 	if cls.FunDeps[1].From != "c" || len(cls.FunDeps[1].To) != 1 || cls.FunDeps[1].To[0] != "d" {
-		t.Errorf("fundep 1: expected c -> d, got %s -> %v", cls.FunDeps[1].From, cls.FunDeps[1].To)
+		t.Errorf("fundep 1: expected c =: d, got %s =: %v", cls.FunDeps[1].From, cls.FunDeps[1].To)
 	}
 }
 
@@ -2193,7 +2193,7 @@ class Multi a b c d | a -> b, c -> d {
 
 func TestParseFunDepMultipleTo(t *testing.T) {
 	source := `
-class Expand a b c | a -> b c {
+class Expand a b c | a =: b c {
   expand :: a -> b
 }
 `
@@ -2218,13 +2218,13 @@ class Expand a b c | a -> b c {
 
 func TestParseAssocDataMultipleConstructors(t *testing.T) {
 	source := `
-data Unit = Unit
+data Unit := Unit
 class Container a {
   data Entry a :: Type;
   empty :: a
 }
 instance Container Unit {
-  data Entry Unit = Singleton Unit | Empty;
+  data Entry Unit =: Singleton Unit | Empty;
   empty := Unit
 }
 `
@@ -2265,10 +2265,10 @@ instance Container Unit {
 
 func TestParseTypeFamilySemicolonSeparated(t *testing.T) {
 	// Equations explicitly separated by semicolons (required inside braces).
-	source := `data Bool = True | False
-type Not (b: Bool) :: Bool = {
-  Not True = False;
-  Not False = True
+	source := `data Bool := True | False
+type Not (b: Bool) :: Bool := {
+  Not True =: False;
+  Not False =: True
 }`
 	prog, es := parse(source)
 	if es.HasErrors() {
@@ -2287,10 +2287,10 @@ type Not (b: Bool) :: Bool = {
 
 func TestParseTypeFamilyWithInjectivity(t *testing.T) {
 	source := `
-data Unit = Unit
-data List a = Nil | Cons a (List a)
-type Elem (c: Type) :: (r: Type) | r -> c = {
-  Elem (List a) = a
+data Unit := Unit
+data List a := Nil | Cons a (List a)
+type Elem (c: Type) :: (r: Type) | r =: c := {
+  Elem (List a) =: a
 }
 `
 	prog, es := parse(source)
@@ -2306,7 +2306,7 @@ type Elem (c: Type) :: (r: Type) | r -> c = {
 				t.Fatalf("expected 1 dep, got %d", len(tf.Deps))
 			}
 			if tf.Deps[0].From != "r" || len(tf.Deps[0].To) != 1 || tf.Deps[0].To[0] != "c" {
-				t.Errorf("expected dep r -> c, got %s -> %v", tf.Deps[0].From, tf.Deps[0].To)
+				t.Errorf("expected dep r =: c, got %s =: %v", tf.Deps[0].From, tf.Deps[0].To)
 			}
 			return
 		}
@@ -2316,8 +2316,8 @@ type Elem (c: Type) :: (r: Type) | r -> c = {
 
 func TestParseZeroArityTypeFamily(t *testing.T) {
 	source := `
-type Const :: Type = {
-  Const = Int
+type Const :: Type := {
+  Const =: Int
 }
 `
 	prog, es := parse(source)
@@ -2341,13 +2341,13 @@ type Const :: Type = {
 func TestParseAssocDataNoFields(t *testing.T) {
 	// Nullary constructors in associated data family.
 	source := `
-data Unit = Unit
+data Unit := Unit
 class Tag a {
   data TagType a :: Type;
   tag :: a
 }
 instance Tag Unit {
-  data TagType Unit = UnitTag;
+  data TagType Unit =: UnitTag;
   tag := Unit
 }
 `

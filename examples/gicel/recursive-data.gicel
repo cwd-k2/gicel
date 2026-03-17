@@ -7,10 +7,10 @@
 -- Level: types
 
 -- Peano natural numbers: zero and successor
-data Nat = Z | S Nat
+data Nat := Z | S Nat
 
 -- Binary tree with values at leaves
-data Tree a = Leaf a | Branch (Tree a) (Tree a)
+data Tree a := Leaf a | Branch (Tree a) (Tree a)
 
 -- Construct some Nat values
 zero := Z

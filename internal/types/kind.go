@@ -21,7 +21,7 @@ type KRow struct{}
 type KConstraint struct{}
 
 // KData is the kind of promoted data types (DataKinds).
-// E.g., `data DBState = Opened | Closed` promotes to kind `DBState`.
+// E.g., `data DBState := Opened | Closed` promotes to kind `DBState`.
 type KData struct{ Name string }
 
 // KArrow is the kind of type constructors (K1 -> K2).

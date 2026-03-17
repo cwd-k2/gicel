@@ -7,7 +7,7 @@ import (
 // Verify type class instances can be defined for tuple/unit types.
 
 func TestInstanceEqUnit(t *testing.T) {
-	source := `data Bool = True | False
+	source := `data Bool := True | False
 class Eq a { eq :: a -> a -> Bool }
 instance Eq () { eq := \_ _. True }
 main := eq () ()`
@@ -15,7 +15,7 @@ main := eq () ()`
 }
 
 func TestInstanceEqPairTuple(t *testing.T) {
-	source := `data Bool = True | False
+	source := `data Bool := True | False
 class Eq a { eq :: a -> a -> Bool }
 instance Eq Bool { eq := \x y. True }
 instance Eq a => Eq b => Eq (a, b) {

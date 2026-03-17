@@ -16,7 +16,7 @@ import (
 // A utility module that defines a custom data type and helper functions.
 // The prelude (Bool, Maybe, etc.) is automatically available inside modules.
 const utilsSource = `
-data Pair a b = MkPair a b
+data Pair a b := MkPair a b
 
 mkPair :: \ a b. a -> b -> Pair a b
 mkPair := \a b. MkPair a b

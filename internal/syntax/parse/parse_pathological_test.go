@@ -38,9 +38,9 @@ func parseMustFail(t *testing.T, source string) string {
 // (a) Extremely long type family name (1000+ characters)
 func TestPathologicalLongTypeFamilyName(t *testing.T) {
 	name := strings.Repeat("A", 1024)
-	source := fmt.Sprintf(`data Unit = Unit
-type %s (a: Type) :: Type = {
-  %s a = Unit
+	source := fmt.Sprintf(`data Unit := Unit
+type %s (a: Type) :: Type := {
+  %s a =: Unit
 }`, name, name)
 	prog := parseMustSucceed(t, source)
 	// Verify the long name round-trips.
@@ -73,9 +73,9 @@ func TestPathological100PatternParams(t *testing.T) {
 		paramDecls.WriteString(fmt.Sprintf("(p%d: Type)", i))
 		eqPatterns.WriteString(fmt.Sprintf("p%d", i))
 	}
-	source := fmt.Sprintf(`data Unit = Unit
-type F %s :: Type = {
-  F %s = Unit
+	source := fmt.Sprintf(`data Unit := Unit
+type F %s :: Type := {
+  F %s =: Unit
 }`, paramDecls.String(), eqPatterns.String())
 	prog := parseMustSucceed(t, source)
 	for _, d := range prog.Decls {
@@ -100,9 +100,9 @@ func TestPathologicalDeeplyNestedRHS(t *testing.T) {
 	for i := 0; i < 50; i++ {
 		rhs = fmt.Sprintf("(Maybe %s)", rhs)
 	}
-	source := fmt.Sprintf(`data Maybe a = Nothing | Just a
-type F (a: Type) :: Type = {
-  F a = %s
+	source := fmt.Sprintf(`data Maybe a := Nothing | Just a
+type F (a: Type) :: Type := {
+  F a =: %s
 }`, rhs)
 	prog := parseMustSucceed(t, source)
 	found := false
@@ -121,7 +121,7 @@ type F (a: Type) :: Type = {
 
 // (d) Empty class body with fundeps
 func TestPathologicalEmptyClassBodyWithFunDeps(t *testing.T) {
-	source := `class C a b | a -> b {}`
+	source := `class C a b | a =: b {}`
 	prog := parseMustSucceed(t, source)
 	for _, d := range prog.Decls {
 		if cl, ok := d.(*DeclClass); ok && cl.Name == "C" {
@@ -139,9 +139,9 @@ func TestPathologicalEmptyClassBodyWithFunDeps(t *testing.T) {
 func TestPathologicalLowercaseEquationName(t *testing.T) {
 	// The equation parser calls expectUpper(), so a lowercase name
 	// will produce a parse error.
-	source := `data Unit = Unit
-type F (a: Type) :: Type = {
-  f a = Unit
+	source := `data Unit := Unit
+type F (a: Type) :: Type := {
+  f a =: Unit
 }`
 	errMsg := parseMustFail(t, source)
 	if !strings.Contains(errMsg, "uppercase") {
@@ -149,13 +149,13 @@ type F (a: Type) :: Type = {
 	}
 }
 
-// (f) Fundep with no "to" parameters: | a ->
+// (f) Fundep with no "to" parameters: | a =:
 // BUG FOUND: parseFunDepList does not validate that the "to" list is non-empty.
-// A fundep `| a -> {}` silently produces FunDep{From: "a", To: nil},
+// A fundep `| a =: {}` silently produces FunDep{From: "a", To: nil},
 // which is a fundep that determines nothing — semantically meaningless.
 // This test documents the current (buggy) behavior.
 func TestPathologicalFunDepNoToParams(t *testing.T) {
-	source := `class C a b | a -> {
+	source := `class C a b | a =: {
   m :: a -> b
 }`
 	// Current behavior: parses successfully with an empty "to" list.
@@ -201,13 +201,13 @@ func TestPathologicalAssocTypeSameNameAsClass(t *testing.T) {
 	}
 }
 
-// (h) Multiple pipe separators: class C a b | a -> b | b -> a {}
+// (h) Multiple pipe separators: class C a b | a =: b | b =: a {}
 func TestPathologicalMultipleFunDeps(t *testing.T) {
 	// The GICEL syntax uses comma-separated fundeps after a single pipe.
 	// The second | would not be recognized as starting new fundeps.
-	// Syntax: class C a b | a -> b, b -> a {}
+	// Syntax: class C a b | a =: b, b =: a {}
 	// Let's test the comma form.
-	source := `class C a b | a -> b, b -> a {}`
+	source := `class C a b | a =: b, b =: a {}`
 	prog := parseMustSucceed(t, source)
 	for _, d := range prog.Decls {
 		if cl, ok := d.(*DeclClass); ok && cl.Name == "C" {
@@ -218,10 +218,10 @@ func TestPathologicalMultipleFunDeps(t *testing.T) {
 	}
 }
 
-// Test the actual double-pipe case: class C a b | a -> b | b -> a {}
+// Test the actual double-pipe case: class C a b | a =: b | b =: a {}
 // The second | should cause confusion in the parser.
 func TestPathologicalDoublePipeFunDeps(t *testing.T) {
-	source := `class C a b | a -> b | b -> a {}`
+	source := `class C a b | a =: b | b =: a {}`
 	// This might parse but misinterpret the second |,
 	// or it might fail. Either way, it should not crash.
 	_, es := parse(source)
@@ -229,29 +229,29 @@ func TestPathologicalDoublePipeFunDeps(t *testing.T) {
 	_ = es
 }
 
-// (i) Type family equation with no RHS (just patterns, missing =)
+// (i) Type family equation with no RHS (just patterns, missing =:)
 func TestPathologicalEquationNoRHS(t *testing.T) {
-	source := `data Unit = Unit
-type F (a: Type) :: Type = {
+	source := `data Unit := Unit
+type F (a: Type) :: Type := {
   F Unit
 }`
 	errMsg := parseMustFail(t, source)
-	if !strings.Contains(errMsg, "=") && !strings.Contains(errMsg, "expect") {
-		t.Errorf("expected error about missing '=' or 'expect', got: %s", errMsg)
+	if !strings.Contains(errMsg, "=:") && !strings.Contains(errMsg, "expect") {
+		t.Errorf("expected error about missing '=:' or 'expect', got: %s", errMsg)
 	}
 }
 
 // (j) Instance with both assoc type and assoc data of same name
 // This is structurally odd but the parser processes them independently.
 func TestPathologicalAssocTypeAndDataSameName(t *testing.T) {
-	source := `data Unit = Unit
+	source := `data Unit := Unit
 class C a {
   type Elem a :: Type;
   data Elem a :: Type
 }
 instance C Unit {
-  type Elem Unit = Unit;
-  data Elem Unit = ElemCon
+  type Elem Unit =: Unit;
+  data Elem Unit =: ElemCon
 }`
 	// The parser should handle this without crashing.
 	// Whether or not it's semantically valid is the checker's business.
@@ -291,7 +291,7 @@ func TestPathologicalDeepParenNesting(t *testing.T) {
 func TestPathologicalManyDeclarations(t *testing.T) {
 	var b strings.Builder
 	for i := 0; i < 200; i++ {
-		b.WriteString(fmt.Sprintf("data T%d = C%d\n", i, i))
+		b.WriteString(fmt.Sprintf("data T%d := C%d\n", i, i))
 	}
 	prog := parseMustSucceed(t, b.String())
 	if len(prog.Decls) != 200 {
@@ -299,13 +299,13 @@ func TestPathologicalManyDeclarations(t *testing.T) {
 	}
 }
 
-// Equation with only uppercase name and no patterns and no = (bare)
+// Equation with only uppercase name and no patterns and no =: (bare)
 func TestPathologicalBareEquationName(t *testing.T) {
-	source := `data Unit = Unit
-type F :: Type = {
+	source := `data Unit := Unit
+type F :: Type := {
   F
 }`
-	// F alone with no = should hit the expect(TokEq) error path.
+	// F alone with no =: should hit the expect(TokEqColon) error path.
 	errMsg := parseMustFail(t, source)
 	_ = errMsg
 }

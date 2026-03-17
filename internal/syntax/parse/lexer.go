@@ -127,6 +127,10 @@ func (l *Lexer) scanToken() Token {
 			l.pos += 2
 			return l.tok(TokFatArrow, start)
 		}
+		if ch == '=' && l.peekAt(1) == ':' {
+			l.pos += 2
+			return l.tok(TokEqColon, start)
+		}
 		if ch == '=' && !isOperatorChar(l.peekAt(1)) {
 			l.advance()
 			return l.tok(TokEq, start)

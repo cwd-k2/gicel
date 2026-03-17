@@ -9,7 +9,7 @@ import "testing"
 func TestPolyKindedClassDecl(t *testing.T) {
 	// class Functor (f: k -> Type) with implicit kind variable k
 	source := `
-data Maybe a = Nothing | Just a
+data Maybe a := Nothing | Just a
 
 class Functor (f: k -> Type) {
   fmap :: \ a b. (a -> b) -> f a -> f b
@@ -25,8 +25,8 @@ instance Functor Maybe {
 func TestPolyKindedClassUseMethod(t *testing.T) {
 	// Use a poly-kinded class method
 	source := `
-data Bool = True | False
-data Maybe a = Nothing | Just a
+data Bool := True | False
+data Maybe a := Nothing | Just a
 
 class Functor (f: k -> Type) {
   fmap :: \ a b. (a -> b) -> f a -> f b
@@ -44,7 +44,7 @@ test := fmap (\x. True) (Just True)
 func TestMonoKindedClassStillWorks(t *testing.T) {
 	// Ensure existing mono-kinded classes still work (no regression)
 	source := `
-data Bool = True | False
+data Bool := True | False
 
 class Eq a {
   eq :: a -> a -> Bool
@@ -88,8 +88,8 @@ class BiMap (f: k -> j -> Type) {
 func TestPolyKindedClassWithSuperclass(t *testing.T) {
 	// Poly-kinded class with superclass constraint
 	source := `
-data Bool = True | False
-data Maybe a = Nothing | Just a
+data Bool := True | False
+data Maybe a := Nothing | Just a
 
 class Functor (f: k -> Type) {
   fmap :: \ a b. (a -> b) -> f a -> f b
@@ -113,7 +113,7 @@ class Functor f => Applicative (f: k -> Type) {
 func TestInstanceKindMatch(t *testing.T) {
 	// instance Functor Maybe — Maybe: Type -> Type, k unifies with Type
 	source := `
-data Maybe a = Nothing | Just a
+data Maybe a := Nothing | Just a
 
 class Functor (f: k -> Type) {
   fmap :: \ a b. (a -> b) -> f a -> f b

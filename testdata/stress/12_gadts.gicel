@@ -1,5 +1,5 @@
 -- GADTs: type-safe expression DSL
-data Expr a = {
+data Expr a := {
   LitBool :: Bool -> Expr Bool;
   Not     :: Expr Bool -> Expr Bool;
   And     :: Expr Bool -> Expr Bool -> Expr Bool

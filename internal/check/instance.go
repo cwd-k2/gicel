@@ -309,7 +309,7 @@ func (ch *Checker) processInstanceHeader(d *syntax.DeclInstance) *InstanceInfo {
 			coreDecl.Cons = append(coreDecl.Cons, core.ConDecl{Name: con.Name, Fields: fieldTypes, S: con.S})
 		}
 
-		// Add type family equation: Family patterns = MangledType patVars
+		// Add type family equation: Family patterns =: MangledType patVars
 		fam.Equations = append(fam.Equations, tfEquation{
 			Patterns: resolvedPats,
 			RHS:      mangledResultType,

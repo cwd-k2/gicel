@@ -24,7 +24,7 @@ type AssocDataDecl struct {
 
 // AssocDataDef is an associated data family instance within an instance body.
 //
-//	data Elem (List a) = ListElem a
+//	data Elem (List a) =: ListElem a
 type AssocDataDef struct {
 	Name     string
 	Patterns []TypeExpr

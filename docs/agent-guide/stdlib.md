@@ -185,7 +185,7 @@ Host provides `"io"` capability. Output accumulates as `[]string` in the final C
 Provides lazy list (stream) operations. Requires recursion (`fix`), loaded via `RegisterModuleRec`.
 
 ```
-data Stream a = LCons a (() -> Stream a) | LNil
+data Stream a := LCons a (() -> Stream a) | LNil
 ```
 
 | Name       | Type                                        | Description            |

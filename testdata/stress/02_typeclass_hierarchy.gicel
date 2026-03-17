@@ -1,4 +1,4 @@
-data Ordering = LT | EQ | GT
+data Ordering := LT | EQ | GT
 
 class Show a { tag :: a -> Bool }
 class Show a => Eq a { eq :: a -> a -> Bool }

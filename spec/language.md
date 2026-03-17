@@ -187,7 +187,7 @@ Computation: Row -> Row -> Type -> Type
 
 The sole computation classifier. First argument: pre-state (required capability environment). Second argument: post-state (resulting capability environment). Third argument: result type.
 
-The type alias `Effect r a = Computation r r a` denotes computations that preserve their capability state.
+The type alias `Effect r a := Computation r r a` denotes computations that preserve their capability state.
 
 ### 2.2.5 Thunk Type
 
@@ -299,7 +299,29 @@ Op     ::= operator characters              -- +, -, *, /, ==, >>=, .
 | `.#`  | Record projection                                                                   |
 | `@`   | Explicit type application                                                           |
 
-## 3.4 Type Syntax
+## 3.4 Symbol Design
+
+The language uses 9 relational symbols, each corresponding to a distinct judgment form:
+
+| Symbol | Name           | Judgment              | Usage                                        |
+| ------ | -------------- | --------------------- | -------------------------------------------- |
+| `::`   | classification | `Γ ⊢ e : A`          | type annotation, GADT constructor types      |
+| `:=`   | definition     | `Γ ⊢ x ≡ e`          | value/type/data definitions                  |
+| `:`    | attribution    | `l : T`               | record fields, kind annotations              |
+| `=:`   | rule           | `P ⟶ T`              | TF equations, associated types, fundeps      |
+| `->`   | implication    | `A ⊃ B`              | function types, case alternatives            |
+| `=>`   | premise        | `C ⊢ T`              | constraint qualification, superclass         |
+| `.`    | body           | `λx. e` / `∀a. T`    | lambda/forall body separator, composition    |
+| `<-`   | bind           | `x ← M`              | monadic bind in do-notation                  |
+| `\|`   | alternative    | `A ∨ B`              | constructors, row tail, record update        |
+
+`=` is intentionally absent from the language. In programming, `=` is notoriously overloaded across assignment, comparison, definition, and equation. GICEL splits its roles: `:=` for definitions, `=:` for rules.
+
+`:=` and `=:` are visual mirrors. The colon position indicates direction. `:=` points left — name receives value ("define this name as this value"). `=:` points right — pattern produces result ("this pattern rewrites to this result").
+
+`->` and `=:` both express "from X, produce Y" but differ in kind. `->` is type-level implication and value-level alternative: it _constructs_ a function type or selects a branch. `=:` is type-level computation: it _rewrites_ a type family application to its result, or declares a determination relation. The distinction is construction versus reduction.
+
+## 3.5 Type Syntax
 
 ```
 Type      ::= '\' TyBinder+ '.' Type
@@ -333,7 +355,7 @@ Precedence of type operators (loosest to tightest):
 3. `->` (right-associative)
 4. Type application (left-associative)
 
-## 3.5 Expression Syntax
+## 3.6 Expression Syntax
 
 ```
 Expr      ::= 'do' '{' Stmt+ '}'                           -- do block
@@ -365,7 +387,7 @@ ExprAtom  ::= Var | Con | Lit
             | '{' Expr '|' FieldBind (',' FieldBind)* '}'   -- record update
             | '{' Bind (';' Bind)* ';' Expr '}'              -- block expression
 
-FieldBind ::= LowerName '=' Expr
+FieldBind ::= LowerName ':' Expr
 
 Stmt      ::= Var '<-' Expr                                  -- bind
             | Var ':=' Expr                                   -- pure let-bind
@@ -386,7 +408,7 @@ Three operator section forms exist:
 
 All three forms produce ordinary values of function type and can be passed to higher-order functions.
 
-Disambiguation of `{`: `ident :=` → block expression, `ident =` → record literal, `expr |` → record update.
+Disambiguation of `{`: `ident :=` → block expression, `ident :` → record literal, `expr |` → record update.
 
 `Expr '@' TypeAtom` is explicit type application. It passes a type argument to a polymorphic binding or constructor:
 
@@ -398,7 +420,7 @@ eq @(Maybe Int) (Just 1) Nothing  -- instantiate eq at Maybe Int
 
 Works with any user-defined polymorphic binding, not just built-in forms. The `@` token must immediately follow the expression being applied (no intervening operator).
 
-## 3.6 Pattern Syntax
+## 3.7 Pattern Syntax
 
 ```
 Pattern   ::= Con PatArg*                                    -- constructor
@@ -415,7 +437,7 @@ Pattern   ::= Con PatArg*                                    -- constructor
 PatArg    ::= Var | '_' | Con | IntLit | StringLit | RuneLit
             | '(' Pattern ')'                                -- nested pattern (parenthesized)
 
-FieldPat  ::= LowerName '=' Pattern
+FieldPat  ::= LowerName ':' Pattern
 ```
 
 Constructor patterns can be nested. A nullary constructor appearing as an argument to another constructor needs no parentheses; a multi-argument constructor argument must be parenthesized (Haskell convention):
@@ -438,7 +460,7 @@ Literal types are open — the exhaustiveness checker cannot enumerate all value
 
 Record patterns are **open** — partial match is permitted. Unmentioned fields are ignored.
 
-## 3.7 Declaration Syntax
+## 3.8 Declaration Syntax
 
 ```
 Program   ::= Import* Decl*
@@ -450,21 +472,21 @@ Decl      ::= DeclBind | DeclData | DeclType | DeclFixity | DeclClass | DeclInst
 DeclBind  ::= Var '::' Type ';' Var ':=' Expr               -- annotated binding
             | Var ':=' Expr                                   -- unannotated binding
 
-DeclData  ::= 'data' ConName TyBinder* '=' ConDecl ('|' ConDecl)*       -- ADT
-            | 'data' ConName TyBinder* '=' '{' GADTCon (';' GADTCon)* '}'  -- GADT
+DeclData  ::= 'data' ConName TyBinder* ':=' ConDecl ('|' ConDecl)*       -- ADT
+            | 'data' ConName TyBinder* ':=' '{' GADTCon (';' GADTCon)* '}'  -- GADT
 
 ConDecl   ::= ConName TypeAtom*
 GADTCon   ::= ConName '::' Type
 
-DeclType  ::= 'type' ConName TyBinder* '=' Type              -- type alias
-            | 'type' ConName TyBinder* '::' ResultKind '=' '{' TFEq (';' TFEq)* '}'  -- type family
+DeclType  ::= 'type' ConName TyBinder* ':=' Type              -- type alias
+            | 'type' ConName TyBinder* '::' ResultKind ':=' '{' TFEq (';' TFEq)* '}'  -- type family
 
 ResultKind ::= KindExpr                                       -- non-injective
              | '(' TyVar '::' KindExpr ')' '|' DepList       -- injective
 
-DepList   ::= TyVar '->' TyVar+
+DepList   ::= TyVar '=:' TyVar+
 
-TFEq      ::= ConName TypePattern* '=' Type                   -- type family equation
+TFEq      ::= ConName TypePattern* '=:' Type                   -- type family equation
 
 DeclFixity ::= ('infixl' | 'infixr' | 'infixn') Int Var
 
@@ -473,15 +495,15 @@ ClassMember ::= VarName '::' Type                              -- method
               | 'type' ConName TyBinder* '::' ResultKind       -- associated type decl
               | 'data' ConName TyBinder* '::' KindExpr         -- associated data decl
 
-ClassFunDep ::= '|' TyVar '->' TyVar+ (',' TyVar '->' TyVar+)*
+ClassFunDep ::= '|' TyVar '=:' TyVar+ (',' TyVar '=:' TyVar+)*
 
 DeclInstance ::= 'instance' Constraint* ConName Type+ '{' InstMember (';' InstMember)* '}'
 InstMember ::= VarName ':=' Expr                               -- method
-             | 'type' ConName TypePattern* '=' Type            -- associated type def
-             | 'data' ConName TypePattern* '=' ConDecl ('|' ConDecl)*  -- associated data def
+             | 'type' ConName TypePattern* '=:' Type            -- associated type def
+             | 'data' ConName TypePattern* '=:' ConDecl ('|' ConDecl)*  -- associated data def
 ```
 
-## 3.8 Row Syntax
+## 3.9 Row Syntax
 
 ```
 RowExpr  ::= '{' '}'                                          -- empty row
@@ -492,7 +514,7 @@ RowField ::= Label ':' Type ('@' TypeAtom)?                   -- optional multip
 
 The optional `@Mult` suffix annotates a field with a multiplicity (`@Linear`, `@Affine`, or `@Unrestricted`). Without annotation, fields default to `@Unrestricted`.
 
-## 3.9 Operator Fixity
+## 3.10 Operator Fixity
 
 Built-in operators:
 
@@ -554,7 +576,7 @@ Eq         : Type -> Constraint
 Every `data` declaration automatically promotes its nullary constructors to the type level:
 
 ```
-data DBState = Opened | Closed
+data DBState := Opened | Closed
 ```
 
 Produces:
@@ -740,7 +762,7 @@ Type classes elaborate entirely to existing Core IR constructs. No new Core node
 ```
 class Eq a { eq :: a -> a -> Bool }
 -- elaborates to:
-data Eq$Dict a = Eq$MkDict (a -> a -> Bool)
+data Eq$Dict a := Eq$MkDict (a -> a -> Bool)
 eq :: \a. Eq$Dict a -> a -> a -> Bool
 ```
 
@@ -843,9 +865,9 @@ Constraints do not affect the `pre`/`post` row structure.
 ## 7.1 ADT Syntax
 
 ```
-data Maybe a = Just a | Nothing
-data List a = Cons a (List a) | Nil
-data Ordering = LT | EQ | GT
+data Maybe a := Just a | Nothing
+data List a := Cons a (List a) | Nil
+data Ordering := LT | EQ | GT
 ```
 
 ## 7.2 GADT Syntax
@@ -853,7 +875,7 @@ data Ordering = LT | EQ | GT
 GADTs use `= {` to distinguish from regular ADTs:
 
 ```
-data Expr a = {
+data Expr a := {
   BoolLit :: Bool -> Expr Bool;
   IntLit  :: Int -> Expr Int;
   If      :: Expr Bool -> Expr a -> Expr a -> Expr a
@@ -869,7 +891,7 @@ When pattern matching on a GADT constructor, the checker introduces local type e
 GADT constructors may introduce type variables not appearing in the return type — these are existentially quantified:
 
 ```
-data SomeEq = {
+data SomeEq := {
   MkSomeEq :: \a. Eq a => a -> SomeEq
 }
 ```
@@ -1061,7 +1083,7 @@ The post-state of each step must match the pre-state of the next — ensured by 
 Effects are encoded as capability row patterns, not monad transformers:
 
 ```
-type Effect r a = Computation r r a     -- state-preserving computation
+type Effect r a := Computation r r a     -- state-preserving computation
 
 -- Maybe as effect: fromMaybe uses the fail capability
 fromMaybe :: \a r. Maybe a -> Computation { fail: () | r } { fail: () | r } a
@@ -1295,13 +1317,13 @@ This is an internal refactoring with no user-visible changes. All programs type-
 ## 15.1 Prelude Types
 
 ```
-data Bool = True | False
-data Maybe a = Just a | Nothing
-data List a = Cons a (List a) | Nil
-data Ordering = LT | EQ | GT
-data Result e a = Ok a | Err e
+data Bool := True | False
+data Maybe a := Just a | Nothing
+data List a := Cons a (List a) | Nil
+data Ordering := LT | EQ | GT
+data Result e a := Ok a | Err e
 
-type Effect r a = Computation r r a
+type Effect r a := Computation r r a
 
 fst :: \a b. (a, b) -> a
 snd :: \a b. (a, b) -> b
@@ -1348,16 +1370,16 @@ Type families introduce type-level computation: functions from types to types, e
 A closed type family declares an ordered sequence of equations. Reduction proceeds top-to-bottom; the first matching equation wins.
 
 ```
-type Name TyBinder* :: ResultKind = { Equation (; Equation)* }
+type Name TyBinder* :: ResultKind := { Equation (; Equation)* }
 ```
 
 The `::` after parameters distinguishes type families from type aliases. Each equation repeats the family name.
 
 ```
-type Elem (c: Type) :: Type = {
-  Elem (List a) = a;
-  Elem (Slice a) = a;
-  Elem String = Rune
+type Elem (c: Type) :: Type := {
+  Elem (List a) =: a;
+  Elem (Slice a) =: a;
+  Elem String =: Rune
 }
 ```
 
@@ -1376,12 +1398,12 @@ class Container c {
 }
 
 instance Container (List a) {
-  type Elem (List a) = a;
+  type Elem (List a) =: a;
   cfold := foldr
 }
 
 instance Container String {
-  type Elem String = Rune;
+  type Elem String =: Rune;
   cfold := strFoldr
 }
 ```
@@ -1399,7 +1421,7 @@ class Collection c {
 }
 
 instance Collection IntSet {
-  data Elem IntSet = MkElem Int;
+  data Elem IntSet =: MkElem Int;
   insert := intSetInsert
 }
 ```
@@ -1411,25 +1433,25 @@ Data families are generative: `Elem IntSet` and `Elem CharSet` are distinct type
 Type class declarations may include functional dependencies after the class parameters, constraining instance resolution:
 
 ```
-class Convert a b | a -> b {
+class Convert a b | a =: b {
   convert :: a -> b
 }
 ```
 
-`| a -> b` means: knowing `a` uniquely determines `b`. Multiple dependencies are comma-separated: `| a -> b, b -> a`. The checker rejects instances that violate the declared dependencies.
+`| a =: b` means: knowing `a` uniquely determines `b`. Multiple dependencies are comma-separated: `| a =: b, b =: a`. The checker rejects instances that violate the declared dependencies.
 
 ### 17.1.5 Injectivity Annotation
 
 A type family may declare its result injective via a named result binder with functional dependency:
 
 ```
-type Effects (mode: AppMode) :: (r: Row) | r -> mode = {
-  Effects ReadOnly  = { get: () -> String };
-  Effects ReadWrite = { get: () -> String, put: String -> () }
+type Effects (mode: AppMode) :: (r: Row) | r =: mode := {
+  Effects ReadOnly  =: { get: () -> String };
+  Effects ReadWrite =: { get: () -> String, put: String -> () }
 }
 ```
 
-`| r -> mode` means the result uniquely determines the argument. Verified at declaration time by pairwise comparison: if two equations' right-hand sides unify, their left-hand sides must also unify. Many natural type families (e.g., `Elem` where both `List Rune` and `String` map to `Rune`) are not injective.
+`| r =: mode` means the result uniquely determines the argument. Verified at declaration time by pairwise comparison: if two equations' right-hand sides unify, their left-hand sides must also unify. Many natural type families (e.g., `Elem` where both `List Rune` and `String` map to `Rune`) are not injective.
 
 ### 17.1.6 Type-Level Pattern Matching
 
@@ -1475,7 +1497,7 @@ close :: Computation { h: Handle @Linear } {} ()
 Without annotation, fields are `@Unrestricted`. The multiplicity kind is:
 
 ```
-data Mult = Unrestricted | Affine | Linear
+data Mult := Unrestricted | Affine | Linear
 ```
 
 Multiplicity annotations are checked by the type system but do not affect runtime evaluation. They constrain how capabilities may be used: `@Linear` requires exactly-once consumption, `@Affine` allows at-most-once.
@@ -1483,12 +1505,12 @@ Multiplicity annotations are checked by the type system but do not affect runtim
 The `LUB` (least upper bound) of multiplicities at branch join points can be computed via a type family:
 
 ```
-type LUB (m1: Mult) (m2: Mult) :: Mult = {
-  LUB Linear _ = Linear;
-  LUB _ Linear = Linear;
-  LUB Affine _ = Affine;
-  LUB _ Affine = Affine;
-  LUB Unrestricted Unrestricted = Unrestricted
+type LUB (m1: Mult) (m2: Mult) :: Mult := {
+  LUB Linear _ =: Linear;
+  LUB _ Linear =: Linear;
+  LUB Affine _ =: Affine;
+  LUB _ Affine =: Affine;
+  LUB Unrestricted Unrestricted =: Unrestricted
 }
 ```
 

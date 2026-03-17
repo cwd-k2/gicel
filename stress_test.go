@@ -289,7 +289,7 @@ var stressPrograms = []stressProgram{
 		setup: func(e *gicel.Engine) {
 			e.NoPrelude()
 			err := e.RegisterModule("Lib", `
-data LibBool = LibTrue | LibFalse
+data LibBool := LibTrue | LibFalse
 libTrue := LibTrue
 libNot :: LibBool -> LibBool
 libNot := \b. case b { LibTrue -> LibFalse; LibFalse -> LibTrue }
@@ -813,11 +813,11 @@ func BenchmarkStressEval(b *testing.B) {
 func TestStressGeneratedLargeProgram(t *testing.T) {
 	// Generate a program with 100 data types, 100 functions, 50 class instances.
 	var source string
-	source += "data D0 = D0C0 | D0C1 | D0C2\n"
+	source += "data D0 := D0C0 | D0C1 | D0C2\n"
 
 	// Generate 50 additional data types
 	for i := 1; i <= 50; i++ {
-		source += fmt.Sprintf("data D%d a = D%dA a | D%dB\n", i, i, i)
+		source += fmt.Sprintf("data D%d a := D%dA a | D%dB\n", i, i, i)
 	}
 
 	// Generate Eq instances for D0
@@ -1709,7 +1709,7 @@ main := do {
 func TestStressExistentialWithMonadic(t *testing.T) {
 	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`
-data SomeEq = { MkSomeEq :: \ a. Eq a => a -> SomeEq }
+data SomeEq := { MkSomeEq :: \ a. Eq a => a -> SomeEq }
 
 testSelf :: SomeEq -> Bool
 testSelf := \s. case s { MkSomeEq x -> eq x x }
@@ -1801,7 +1801,7 @@ func TestStressGADTWithMonadic(t *testing.T) {
 	eng.EnableRecursion()
 
 	rt, err := eng.NewRuntime(`
-data Expr a = { LitBool :: Bool -> Expr Bool; Not :: Expr Bool -> Expr Bool }
+data Expr a := { LitBool :: Bool -> Expr Bool; Not :: Expr Bool -> Expr Bool }
 
 eval :: Expr Bool -> Bool
 eval := fix (\self e. case e {

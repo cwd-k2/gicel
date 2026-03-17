@@ -27,7 +27,7 @@ class Collection a {
 func TestDataFamilyParseInstanceDef(t *testing.T) {
 	// data family instance inside instance body
 	source := `
-data List a = Nil | Cons a (List a)
+data List a := Nil | Cons a (List a)
 
 class Collection a {
   data Elem a :: Type;
@@ -35,7 +35,7 @@ class Collection a {
 }
 
 instance Collection (List a) {
-  data Elem (List a) = ListElem a;
+  data Elem (List a) =: ListElem a;
   empty := Nil
 }
 `
@@ -47,8 +47,8 @@ instance Collection (List a) {
 func TestDataFamilyConstructorType(t *testing.T) {
 	// The mangled constructor should be usable as a value
 	source := `
-data List a = Nil | Cons a (List a)
-data Unit = Unit
+data List a := Nil | Cons a (List a)
+data Unit := Unit
 
 class Collection a {
   data Elem a :: Type;
@@ -56,7 +56,7 @@ class Collection a {
 }
 
 instance Collection (List a) {
-  data Elem (List a) = ListElem a;
+  data Elem (List a) =: ListElem a;
   empty := Nil
 }
 
@@ -69,8 +69,8 @@ x := ListElem Unit
 func TestDataFamilyMultipleInstances(t *testing.T) {
 	// Different instances define different constructors for the same family
 	source := `
-data List a = Nil | Cons a (List a)
-data Unit = Unit
+data List a := Nil | Cons a (List a)
+data Unit := Unit
 
 class Collection a {
   data Elem a :: Type;
@@ -78,12 +78,12 @@ class Collection a {
 }
 
 instance Collection (List a) {
-  data Elem (List a) = ListElem a;
+  data Elem (List a) =: ListElem a;
   empty := Nil
 }
 
 instance Collection Unit {
-  data Elem Unit = UnitElem;
+  data Elem Unit =: UnitElem;
   empty := Unit
 }
 
@@ -100,8 +100,8 @@ y := UnitElem
 
 func TestDataFamilyPatternMatch(t *testing.T) {
 	source := `
-data List a = Nil | Cons a (List a)
-data Unit = Unit
+data List a := Nil | Cons a (List a)
+data Unit := Unit
 
 class Collection a {
   data Elem a :: Type;
@@ -109,7 +109,7 @@ class Collection a {
 }
 
 instance Collection (List a) {
-  data Elem (List a) = ListElem a;
+  data Elem (List a) =: ListElem a;
   empty := Nil
 }
 
@@ -123,12 +123,12 @@ unwrap := \e. case e { ListElem x -> x }
 
 func TestDataFamilyNotDeclaredInClass(t *testing.T) {
 	source := `
-data Unit = Unit
+data Unit := Unit
 class Foo a {
   empty :: a
 }
 instance Foo Unit {
-  data Elem Unit = UnitElem;
+  data Elem Unit =: UnitElem;
   empty := Unit
 }
 `
@@ -137,13 +137,13 @@ instance Foo Unit {
 
 func TestDataFamilyArityMismatch(t *testing.T) {
 	source := `
-data Unit = Unit
+data Unit := Unit
 class Collection a {
   data Elem a :: Type;
   empty :: a
 }
 instance Collection Unit {
-  data Elem Unit Unit = Bad;
+  data Elem Unit Unit =: Bad;
   empty := Unit
 }
 `
@@ -158,8 +158,8 @@ func TestDataFamilyTypeReduction(t *testing.T) {
 		RegisteredTypes: map[string]types.Kind{"Int": types.KType{}},
 	}
 	source := `
-data List a = Nil | Cons a (List a)
-data Unit = Unit
+data List a := Nil | Cons a (List a)
+data Unit := Unit
 
 class Collection a {
   data Elem a :: Type;
@@ -167,7 +167,7 @@ class Collection a {
 }
 
 instance Collection (List a) {
-  data Elem (List a) = ListElem a;
+  data Elem (List a) =: ListElem a;
   empty := Nil
 }
 
@@ -184,7 +184,7 @@ id := \x. x
 
 func TestDataFamilyMultipleConstructors(t *testing.T) {
 	source := `
-data Unit = Unit
+data Unit := Unit
 
 class Container a {
   data Entry a :: Type;
@@ -192,7 +192,7 @@ class Container a {
 }
 
 instance Container Unit {
-  data Entry Unit = Singleton Unit | Empty;
+  data Entry Unit =: Singleton Unit | Empty;
   empty := Unit
 }
 
@@ -209,7 +209,7 @@ f := \e. case e {
 
 func TestDataFamilyExhaustiveness(t *testing.T) {
 	source := `
-data Unit = Unit
+data Unit := Unit
 
 class Container a {
   data Entry a :: Type;
@@ -217,7 +217,7 @@ class Container a {
 }
 
 instance Container Unit {
-  data Entry Unit = Singleton Unit | Empty;
+  data Entry Unit =: Singleton Unit | Empty;
   empty := Unit
 }
 

@@ -1,7 +1,7 @@
 -- GICEL Example: Functional Dependencies
 --
 -- Functional dependencies constrain multi-parameter type classes:
---   class C a b | a -> b
+--   class C a b | a =: b
 -- means "knowing a uniquely determines b." This improves type inference
 -- by allowing the compiler to deduce type parameters automatically.
 -- Level: types
@@ -9,7 +9,7 @@
 import Std.Num
 
 -- Convert class with fundep: the source type determines the target type.
-class Convert a b | a -> b {
+class Convert a b | a =: b {
   convert :: a -> b
 }
 
@@ -25,7 +25,7 @@ instance Convert (Maybe a) (List a) {
 
 -- Without the fundep, the compiler couldn't infer the return type
 -- of `convert True` — it would need an explicit annotation.
--- With | a -> b, knowing a = Bool determines b = Int.
+-- With | a =: b, knowing a = Bool determines b = Int.
 boolAsInt := convert True
 
 -- Similarly, knowing a = Maybe Int determines b = List Int.

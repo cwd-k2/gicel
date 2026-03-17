@@ -15,8 +15,8 @@ import (
 func TestQuantifiedConstraintBasic(t *testing.T) {
 	// Simplest case: a function with a quantified constraint parameter.
 	// (\ a. Eq a => Eq (F a)) provides evidence to resolve Eq (F Bool).
-	source := `data Bool = True | False
-data F a = MkF a
+	source := `data Bool := True | False
+data F a := MkF a
 class Eq a { eq :: a -> a -> Bool }
 instance Eq Bool { eq := \x y. True }
 f :: \ (g: Type -> Type). (\ a. Eq a => Eq (g a)) => g Bool -> g Bool -> Bool
@@ -28,8 +28,8 @@ main := f (MkF True) (MkF False)`
 
 func TestQuantifiedConstraintMultiplePremises(t *testing.T) {
 	// Quantified constraint with multiple premises.
-	source := `data Bool = True | False
-data F a = MkF a
+	source := `data Bool := True | False
+data F a := MkF a
 class Eq a { eq :: a -> a -> Bool }
 class Show a { show :: a -> Bool }
 instance Eq Bool { eq := \x y. True }
@@ -43,8 +43,8 @@ main := f (MkF True) (MkF False)`
 
 func TestQuantifiedConstraintWithOtherConstraints(t *testing.T) {
 	// Quantified constraint alongside regular constraints.
-	source := `data Bool = True | False
-data F a = MkF a
+	source := `data Bool := True | False
+data F a := MkF a
 class Eq a { eq :: a -> a -> Bool }
 class Show a { show :: a -> Bool }
 instance Eq Bool { eq := \x y. True }
@@ -58,8 +58,8 @@ main := f (MkF True) (MkF False)`
 
 func TestQuantifiedConstraintInProduct(t *testing.T) {
 	// Quantified constraint alongside another constraint.
-	source := `data Bool = True | False
-data F a = MkF a
+	source := `data Bool := True | False
+data F a := MkF a
 class Eq a { eq :: a -> a -> Bool }
 class Show a { show :: a -> Bool }
 instance Eq Bool { eq := \x y. True }
@@ -73,9 +73,9 @@ main := f (MkF True) (MkF False)`
 
 func TestQuantifiedConstraintNested(t *testing.T) {
 	// Two quantified constraints in scope.
-	source := `data Bool = True | False
-data F a = MkF a
-data G a = MkG a
+	source := `data Bool := True | False
+data F a := MkF a
+data G a := MkG a
 class Eq a { eq :: a -> a -> Bool }
 instance Eq Bool { eq := \x y. True }
 instance Eq a => Eq (F a) { eq := \x y. True }
@@ -88,9 +88,9 @@ main := f (MkF True) (MkG False)`
 
 func TestQuantifiedConstraintErrorMissingPremise(t *testing.T) {
 	// Quantified constraint premise can't be satisfied — should error.
-	source := `data Bool = True | False
-data MyType = MyType
-data F a = MkF a
+	source := `data Bool := True | False
+data MyType := MyType
+data F a := MkF a
 class Eq a { eq :: a -> a -> Bool }
 instance Eq Bool { eq := \x y. True }
 f :: \ (g: Type -> Type). (\ a. Eq a => Eq (g a)) => g MyType -> g MyType -> Bool
@@ -109,9 +109,9 @@ main := f (MkF MyType) (MkF MyType)`
 
 func TestStressQuantifiedConstraintDeepChain(t *testing.T) {
 	// Quantified constraint where premise itself requires another instance.
-	source := `data Bool = True | False
-data F a = MkF a
-data G a = MkG a
+	source := `data Bool := True | False
+data F a := MkF a
+data G a := MkG a
 class Eq a { eq :: a -> a -> Bool }
 instance Eq Bool { eq := \x y. True }
 instance Eq a => Eq (G a) { eq := \x y. True }
@@ -125,9 +125,9 @@ main := f (MkF (MkG True)) (MkF (MkG False))`
 func TestQuantifiedConstraintUsedInBody(t *testing.T) {
 	// The quantified evidence is used within the function body to resolve
 	// the constraint at a specific type.
-	source := `data Bool = True | False
-data Unit = Unit
-data F a = MkF a
+	source := `data Bool := True | False
+data Unit := Unit
+data F a := MkF a
 class Eq a { eq :: a -> a -> Bool }
 instance Eq Bool { eq := \x y. True }
 instance Eq Unit { eq := \x y. True }
@@ -140,8 +140,8 @@ main := f (MkF True) (MkF Unit)`
 
 func TestQuantifiedConstraintParseDisplay(t *testing.T) {
 	// Verify the constraint parses, resolves, and the checker doesn't crash.
-	source := `data Bool = True | False
-data F a = MkF a
+	source := `data Bool := True | False
+data F a := MkF a
 class Eq a { eq :: a -> a -> Bool }
 instance Eq Bool { eq := \x y. True }
 instance Eq a => Eq (F a) { eq := \x y. True }
@@ -155,8 +155,8 @@ main := f (MkF True)`
 
 func TestQuantifiedConstraintMixedWithCurried(t *testing.T) {
 	// Quantified constraint mixed with curried regular constraints.
-	source := `data Bool = True | False
-data F a = MkF a
+	source := `data Bool := True | False
+data F a := MkF a
 class Eq a { eq :: a -> a -> Bool }
 class Show a { show :: a -> Bool }
 instance Eq Bool { eq := \x y. True }
@@ -170,8 +170,8 @@ main := f (MkF True)`
 
 func TestQuantifiedConstraintMixed(t *testing.T) {
 	// Curried constraints mixing quantified and simple constraints.
-	source := `data Bool = True | False
-data F a = MkF a
+	source := `data Bool := True | False
+data F a := MkF a
 class Eq a { eq :: a -> a -> Bool }
 class Show a { show :: a -> Bool }
 instance Eq Bool { eq := \x y. True }

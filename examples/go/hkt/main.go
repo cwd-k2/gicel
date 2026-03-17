@@ -19,7 +19,7 @@ import (
 // - Implicit kind quantification in class declarations: class Functor (f: k -> Type)
 // - Kind unification during instance resolution
 const source = `
-data Maybe a = Nothing | Just a
+data Maybe a := Nothing | Just a
 
 class Functor (f: k -> Type) {
   fmap :: \ a b. (a -> b) -> f a -> f b

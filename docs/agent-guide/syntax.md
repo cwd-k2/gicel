@@ -42,7 +42,7 @@
 | `.`   | Lambda / quantifier body separator (also compose operator) |
 | `\`   | Lambda / universal quantification                          |
 | `_`   | Wildcard pattern                                           |
-| `=`   | Data constructor separator                                 |
+| `=:`  | TF equation / fundep / associated type/data definition     |
 | `@`   | Explicit type application                                  |
 | `\|`  | Constructor alternative / row tail                         |
 | `;`   | Declaration / statement separator                          |

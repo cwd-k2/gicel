@@ -5,11 +5,11 @@ The Prelude is automatically loaded unless `NoPrelude` is set on the Engine. Eve
 ### Data Types
 
 ```
-data Bool = True | False
-data Ordering = LT | EQ | GT
-data Result e a = Ok a | Err e
-data Maybe a = Just a | Nothing
-data List a = Cons a (List a) | Nil
+data Bool := True | False
+data Ordering := LT | EQ | GT
+data Result e a := Ok a | Err e
+data Maybe a := Just a | Nothing
+data List a := Cons a (List a) | Nil
 ```
 
 `()` is the unit type (empty record). `(a, b)` is the tuple type (sugar for `Record { _1: a, _2: b }`).
@@ -17,8 +17,8 @@ data List a = Cons a (List a) | Nil
 ### Type Aliases
 
 ```
-type Effect r a = Computation r r a
-type Lift (m: Type -> Type) (r1: Row) (r2: Row) a = m a
+type Effect r a := Computation r r a
+type Lift (m: Type -> Type) (r1: Row) (r2: Row) a := m a
 ```
 
 ### Type Classes

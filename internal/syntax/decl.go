@@ -22,8 +22,8 @@ type DeclValueDef struct {
 	S    span.Span
 }
 
-// DeclData is a data type declaration (data T a b = C1 ... | C2 ...).
-// If GADTCons is non-empty, this is a GADT declaration (data T a = { C :: Type }).
+// DeclData is a data type declaration (data T a b := C1 ... | C2 ...).
+// If GADTCons is non-empty, this is a GADT declaration (data T a := { C :: Type }).
 type DeclData struct {
 	Name     string
 	Params   []TyBinder
@@ -46,7 +46,7 @@ type DeclCon struct {
 	S      span.Span
 }
 
-// DeclTypeAlias is a type alias (type F a = T).
+// DeclTypeAlias is a type alias (type F a := T).
 type DeclTypeAlias struct {
 	Name   string
 	Params []TyBinder
@@ -76,7 +76,7 @@ type DeclClass struct {
 	Supers        []TypeExpr // superclass constraints
 	Name          string
 	TyParams      []TyBinder
-	FunDeps       []FunDep        // functional dependencies: | a -> b
+	FunDeps       []FunDep        // functional dependencies: | a =: b
 	Methods       []ClassMethod
 	AssocTypes    []AssocTypeDecl  // associated type declarations
 	AssocDataDecls []AssocDataDecl // associated data family declarations

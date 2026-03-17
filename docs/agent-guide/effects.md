@@ -8,7 +8,7 @@ The core abstraction is `Computation pre post a` -- an Atkey-style parameterized
 - Produces capability environment `post` (a row type) at the end
 - Returns a value of type `a`
 
-When `pre` and `post` are the same, the computation preserves its environment. The type alias `Effect r a = Computation r r a` is provided for this common case.
+When `pre` and `post` are the same, the computation preserves its environment. The type alias `Effect r a := Computation r r a` is provided for this common case.
 
 ### pure and bind
 

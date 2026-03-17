@@ -12,9 +12,9 @@
 import Std.Num
 
 -- A GADT for typed expressions.
--- The `= { ... }` syntax with full type signatures per constructor
+-- The `:= { ... }` syntax with full type signatures per constructor
 -- distinguishes GADTs from ordinary ADTs.
-data Expr a = {
+data Expr a := {
   LitBool :: Bool -> Expr Bool;
   LitInt  :: Int -> Expr Int;
   Not     :: Expr Bool -> Expr Bool;

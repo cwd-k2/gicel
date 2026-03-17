@@ -9,7 +9,7 @@ import Std.Num
 
 -- A type class for serialization with fundep: the format determines
 -- the wire type uniquely.
-class Serialize a b | a -> b {
+class Serialize a b | a =: b {
   encode :: a -> b;
   decode :: b -> a
 }
@@ -28,7 +28,7 @@ instance Serialize Bool Int {
 
 -- Without the fundep, `encode True` would be ambiguous: the checker
 -- wouldn't know whether the result is String or Int or anything else.
--- With | a -> b, knowing a = Bool determines b = Int.
+-- With | a =: b, knowing a = Bool determines b = Int.
 boolAsInt :: Int
 boolAsInt := encode True
 
@@ -38,7 +38,7 @@ intAsStr := encode 42
 
 -- A two-parameter class for container mapping with fundep.
 -- Knowing the source container determines the element type.
-class HasElem c e | c -> e {
+class HasElem c e | c =: e {
   getFirst :: c -> Maybe e
 }
 
@@ -50,7 +50,7 @@ instance HasElem (Maybe a) a {
   getFirst := \m. case m { Just x -> Just x; Nothing -> Nothing }
 }
 
--- The fundep c -> e means:
+-- The fundep c =: e means:
 -- getFirst (Cons 1 Nil) infers e = Int from c = List Int
 firstOfList :: Maybe Int
 firstOfList := getFirst (Cons 1 Nil)
@@ -60,7 +60,7 @@ firstOfMaybe :: Maybe Bool
 firstOfMaybe := getFirst (Just True)
 
 -- Bidirectional fundep: knowing either direction determines the other.
-class Iso a b | a -> b, b -> a {
+class Iso a b | a =: b, b =: a {
   forward :: a -> b;
   backward :: b -> a
 }

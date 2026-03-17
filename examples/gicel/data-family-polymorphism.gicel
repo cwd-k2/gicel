@@ -15,15 +15,15 @@ class Collection c {
 }
 
 -- Elem is a closed type family that extracts the element type.
-type Elem (c: Type) :: Type = {
-  Elem (List a) = a;
-  Elem (Maybe a) = a
+type Elem (c: Type) :: Type := {
+  Elem (List a) =: a;
+  Elem (Maybe a) =: a
 }
 
 -- Instance for List: keys are Int (positional index).
--- Key (List a) = ListIndex
+-- Key (List a) =: ListIndex
 instance Collection (List a) {
-  data Key (List a) = ListIndex Int;
+  data Key (List a) =: ListIndex Int;
   insert := \k xs. xs;
   lookup := \k xs. case xs { Cons x _ -> Just x; Nil -> Nothing }
 }
@@ -38,21 +38,21 @@ class Wrappable w {
 
 -- Int wraps to a tagged box.
 instance Wrappable Int {
-  data Wrapped Int = IntBox Int;
+  data Wrapped Int =: IntBox Int;
   wrap := \n. IntBox n;
   unwrap := \w. case w { IntBox n -> n }
 }
 
 -- Bool wraps to a bitflag.
 instance Wrappable Bool {
-  data Wrapped Bool = BoolBit Bool;
+  data Wrapped Bool =: BoolBit Bool;
   wrap := \b. BoolBit b;
   unwrap := \w. case w { BoolBit b -> b }
 }
 
 -- Maybe wraps to an optional box.
 instance Wrappable (Maybe a) {
-  data Wrapped (Maybe a) = OptBox (Maybe a);
+  data Wrapped (Maybe a) =: OptBox (Maybe a);
   wrap := \m. OptBox m;
   unwrap := \w. case w { OptBox m -> m }
 }

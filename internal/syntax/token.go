@@ -32,6 +32,7 @@ const (
 	TokBackslash  // \
 	TokUnderscore // _
 	TokEq         // =
+	TokEqColon    // =:
 
 	// Keywords (10)
 	TokCase
@@ -112,6 +113,8 @@ func (k TokenKind) String() string {
 		return "_"
 	case TokEq:
 		return "="
+	case TokEqColon:
+		return "=:"
 	case TokLower:
 		return "lower"
 	case TokUpper:

@@ -4,9 +4,9 @@ import "github.com/cwd-k2/gicel/internal/span"
 
 // DeclTypeFamily is a closed type family declaration.
 //
-//	type Elem (c: Type) :: Type = {
-//	  Elem (List a) = a;
-//	  Elem String   = Rune
+//	type Elem (c: Type) :: Type := {
+//	  Elem (List a) =: a;
+//	  Elem String   =: Rune
 //	}
 type DeclTypeFamily struct {
 	Name       string
@@ -20,7 +20,7 @@ type DeclTypeFamily struct {
 
 // TFEquation is a single equation in a type family declaration.
 //
-//	Elem (List a) = a
+//	Elem (List a) =: a
 type TFEquation struct {
 	Name     string     // repeated family name (validated against declaration)
 	Patterns []TypeExpr // left-hand side type patterns
@@ -30,7 +30,7 @@ type TFEquation struct {
 
 // FunDep is a functional dependency annotation: result -> determined params.
 //
-//	| r -> c      means the result r determines parameter c
+//	| r =: c      means the result r determines parameter c
 type FunDep struct {
 	From string   // result variable name
 	To   []string // determined parameter names
@@ -50,7 +50,7 @@ type AssocTypeDecl struct {
 
 // AssocTypeDef is an associated type definition within an instance body.
 //
-//	type Elem (List a) = a
+//	type Elem (List a) =: a
 type AssocTypeDef struct {
 	Name     string
 	Patterns []TypeExpr

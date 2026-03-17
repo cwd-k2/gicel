@@ -7,7 +7,7 @@
 -- Level: types
 
 -- A custom ADT to work with
-data Priority = Low | Medium | High
+data Priority := Low | Medium | High
 
 -- Base class: can convert to a Bool representation
 class Show' a {

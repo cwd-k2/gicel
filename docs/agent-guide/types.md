@@ -23,21 +23,21 @@
 ### Algebraic Data Types (ADT)
 
 ```
-data Name param* = Con field* (| Con field*)*
+data Name param* := Con field* (| Con field*)*
 ```
 
 Parameters can be bare type variables or kinded:
 
 ```
-data Maybe a = Just a | Nothing
-data List a = Cons a (List a) | Nil
-data Dict (c: Constraint) = MkDict c
+data Maybe a := Just a | Nothing
+data List a := Cons a (List a) | Nil
+data Dict (c: Constraint) := MkDict c
 ```
 
 ### GADTs
 
 ```
-data Name param* = {
+data Name param* := {
   Con :: TypeExpr;
   Con :: TypeExpr
 }
@@ -46,7 +46,7 @@ data Name param* = {
 Distinguished from ADT by `= {`. Each constructor has a full type signature:
 
 ```
-data Expr a = {
+data Expr a := {
   LitBool :: Bool -> Expr Bool;
   LitInt  :: Int -> Expr Int;
   Add     :: Expr Int -> Expr Int -> Expr Int
@@ -58,13 +58,13 @@ GADT pattern matching refines type variables in branches.
 ### Type Aliases
 
 ```
-type Name param* = TypeExpr
+type Name param* := TypeExpr
 ```
 
 Example:
 
 ```
-type Effect r a = Computation r r a
+type Effect r a := Computation r r a
 ```
 
 ### Polymorphism (\)
@@ -109,11 +109,11 @@ Eq a => a -> a -> Bool
 When a data type is declared, it is automatically promoted to a kind. Nullary constructors become types of that kind:
 
 ```
-data DBState = Opened | Closed
+data DBState := Opened | Closed
 -- DBState is now also a kind
 -- Opened: DBState, Closed: DBState at the type level
 
-data DB (s: DBState) = MkDB
+data DB (s: DBState) := MkDB
 -- DB Opened: Type, DB Closed: Type
 ```
 
@@ -153,13 +153,13 @@ Type families define type-level functions — computed types that reduce during 
 
 #### Standalone Type Family
 
-A closed type family is declared with `type Name params :: Kind = { equations }`. Equations are checked top-to-bottom; first match wins.
+A closed type family is declared with `type Name params :: Kind := { equations }`. Equations are checked top-to-bottom; first match wins.
 
 ```
 -- Standalone type family
-type Elem (c: Type) :: Type = {
-  Elem (List a) = a;
-  Elem String = Rune
+type Elem (c: Type) :: Type := {
+  Elem (List a) =: a;
+  Elem String =: Rune
 }
 ```
 
@@ -177,7 +177,7 @@ class Container c {
 }
 
 instance Container (List a) {
-  type Elem (List a) = a;
+  type Elem (List a) =: a;
   cfold := foldr
 }
 ```
@@ -197,7 +197,7 @@ class Collection c {
 
 -- Instance provides constructors
 instance Collection (List a) {
-  data Key (List a) = ListIndex Int;
+  data Key (List a) =: ListIndex Int;
   lookup := \k xs. case k {
     ListIndex i -> index xs i
   }
@@ -208,11 +208,11 @@ Each instance's `Key` is a distinct type: `Key (List a)` has constructor `ListIn
 
 #### Functional Dependencies
 
-Classes can declare functional dependencies that constrain instance resolution. The `| a -> b` notation after class parameters means: knowing `a` determines `b`.
+Classes can declare functional dependencies that constrain instance resolution. The `| a =: b` notation after class parameters means: knowing `a` determines `b`.
 
 ```
 -- Functional dependency
-class Convert a b | a -> b {
+class Convert a b | a =: b {
   convert :: a -> b
 }
 ```
@@ -233,12 +233,12 @@ Without annotation, fields are `@Unrestricted`. The `@Linear` annotation means t
 A type family can declare its result injective with a named result binder and functional dependency:
 
 ```
-type Effects (mode: AppMode) :: (r: Row) | r -> mode = {
-  Effects ReadOnly  = { get: () -> String };
-  Effects ReadWrite = { get: () -> String, put: String -> () }
+type Effects (mode: AppMode) :: (r: Row) | r =: mode := {
+  Effects ReadOnly  =: { get: () -> String };
+  Effects ReadWrite =: { get: () -> String, put: String -> () }
 }
 ```
 
-Here `| r -> mode` means: the result row uniquely determines the `mode` parameter. This enables the checker to infer `mode` from the result type.
+Here `| r =: mode` means: the result row uniquely determines the `mode` parameter. This enables the checker to infer `mode` from the result type.
 
 ---

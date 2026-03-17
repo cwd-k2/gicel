@@ -10,8 +10,8 @@
 -- computations without affecting runtime behavior.
 -- Level: types
 
-data Mult = Unrestricted | Affine | Linear
-data Unit = Unit
+data Mult := Unrestricted | Affine | Linear
+data Unit := Unit
 
 -- A resource that must be consumed exactly once.
 -- The @Linear annotation on handle tracks this at the type level.
@@ -39,12 +39,12 @@ multiUse :: Computation {} {} Unit
 multiUse := do { open; use; use; use; close }
 
 -- The LUB (least upper bound) of multiplicities is definable as a type family:
-type LUB (m1: Mult) (m2: Mult) :: Mult = {
-  LUB Linear _ = Linear;
-  LUB _ Linear = Linear;
-  LUB Affine _ = Affine;
-  LUB _ Affine = Affine;
-  LUB Unrestricted Unrestricted = Unrestricted
+type LUB (m1: Mult) (m2: Mult) :: Mult := {
+  LUB Linear _ =: Linear;
+  LUB _ Linear =: Linear;
+  LUB Affine _ =: Affine;
+  LUB _ Affine =: Affine;
+  LUB Unrestricted Unrestricted =: Unrestricted
 }
 
 -- Note: opening without closing is a type error:

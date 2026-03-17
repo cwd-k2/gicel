@@ -1,8 +1,8 @@
-data Bool = True | False
-data Result e a = Ok a | Err e
-data Maybe a = Just a | Nothing
-data List a = Cons a (List a) | Nil
-data Ordering = LT | EQ | GT
+data Bool := True | False
+data Result e a := Ok a | Err e
+data Maybe a := Just a | Nothing
+data List a := Cons a (List a) | Nil
+data Ordering := LT | EQ | GT
 
 class Eq a { eq :: a -> a -> Bool }
 class Eq a => Ord a { compare :: a -> a -> Ordering }
@@ -267,7 +267,7 @@ instance IxMonad List {
   ixbind := \xs f. foldr (\x acc. append (f x) acc) Nil xs
 }
 
-class Packed c e | c -> e {
+class Packed c e | c =: e {
   pack   :: List e -> c;
   unpack :: c -> List e
 }

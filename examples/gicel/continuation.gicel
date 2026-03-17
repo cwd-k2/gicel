@@ -88,7 +88,7 @@ sumPairs := amb (range 1 6) (\x.
 -- ── Pythagorean triples ────────────────────────────────────
 -- a² + b² = c², 1 ≤ a ≤ b ≤ c ≤ 10
 
-data Triple = MkTriple Int Int Int
+data Triple := MkTriple Int Int Int
 
 pythag := amb (range 1 10) (\a.
             amb (range a 10) (\b.

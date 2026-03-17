@@ -1,8 +1,8 @@
-type Eff r a = Computation r r a
+type Eff r a := Computation r r a
 
-data Ordering = LT | EQ | GT
-data Tree a = Leaf a | Branch (Tree a) (Tree a)
-data Color = Red | Green | Blue
+data Ordering := LT | EQ | GT
+data Tree a := Leaf a | Branch (Tree a) (Tree a)
+data Color := Red | Green | Blue
 
 class Eq a { eq :: a -> a -> Bool }
 class Eq a => Ord a { cmp :: a -> a -> Ordering }

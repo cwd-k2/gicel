@@ -14,8 +14,8 @@ import (
 
 func TestMultAnnotationParse(t *testing.T) {
 	source := `
-data Mult = Unrestricted | Affine | Linear
-data Unit = Unit
+data Mult := Unrestricted | Affine | Linear
+data Unit := Unit
 f :: { cap: Unit @Linear | r } -> Unit
 f := \x. Unit
 `
@@ -24,8 +24,8 @@ f := \x. Unit
 
 func TestMultAnnotationParseMultipleFields(t *testing.T) {
 	source := `
-data Mult = Unrestricted | Affine | Linear
-data Unit = Unit
+data Mult := Unrestricted | Affine | Linear
+data Unit := Unit
 f :: { a: Unit @Linear, b: Unit @Affine } -> Unit
 f := \x. Unit
 `
@@ -35,8 +35,8 @@ f := \x. Unit
 func TestMultAnnotationParseMixed(t *testing.T) {
 	// Some fields with @Mult, some without (nil = unrestricted)
 	source := `
-data Mult = Unrestricted | Affine | Linear
-data Unit = Unit
+data Mult := Unrestricted | Affine | Linear
+data Unit := Unit
 f :: { a: Unit @Linear, b: Unit } -> Unit
 f := \x. Unit
 `
@@ -48,8 +48,8 @@ f := \x. Unit
 func TestMultAnnotationResolves(t *testing.T) {
 	// Verify that @Linear on a field actually produces a RowField with Mult
 	source := `
-data Mult = Unrestricted | Affine | Linear
-data Unit = Unit
+data Mult := Unrestricted | Affine | Linear
+data Unit := Unit
 f :: { cap: Unit @Linear } -> { cap: Unit @Linear } -> Unit
 f := \x y. Unit
 `
@@ -60,8 +60,8 @@ f := \x y. Unit
 
 func TestMultAnnotationUnifyMatch(t *testing.T) {
 	source := `
-data Mult = Unrestricted | Affine | Linear
-data Unit = Unit
+data Mult := Unrestricted | Affine | Linear
+data Unit := Unit
 id :: { cap: Unit @Linear } -> { cap: Unit @Linear }
 id := \x. x
 `
@@ -70,8 +70,8 @@ id := \x. x
 
 func TestMultAnnotationUnifyMismatch(t *testing.T) {
 	source := `
-data Mult = Unrestricted | Affine | Linear
-data Unit = Unit
+data Mult := Unrestricted | Affine | Linear
+data Unit := Unit
 bad :: { cap: Unit @Linear } -> { cap: Unit @Affine }
 bad := \x. x
 `
@@ -82,8 +82,8 @@ bad := \x. x
 
 func TestMultAnnotationInComputation(t *testing.T) {
 	source := `
-data Mult = Unrestricted | Affine | Linear
-data Unit = Unit
+data Mult := Unrestricted | Affine | Linear
+data Unit := Unit
 use :: Computation { handle: Unit @Linear } {} Unit
 use := assumption
 `
@@ -94,8 +94,8 @@ use := assumption
 
 func TestMultInComputationPrePost(t *testing.T) {
 	source := `
-data Mult = Unrestricted | Affine | Linear
-data Unit = Unit
+data Mult := Unrestricted | Affine | Linear
+data Unit := Unit
 consume :: Computation { handle: Unit @Linear } {} Unit
 consume := assumption
 `
@@ -104,8 +104,8 @@ consume := assumption
 
 func TestMultPreserveInComputation(t *testing.T) {
 	source := `
-data Mult = Unrestricted | Affine | Linear
-data Unit = Unit
+data Mult := Unrestricted | Affine | Linear
+data Unit := Unit
 noop :: Computation { handle: Unit @Linear } { handle: Unit @Linear } Unit
 noop := assumption
 `
@@ -116,8 +116,8 @@ noop := assumption
 
 func TestMultDoOpenUseClose(t *testing.T) {
 	source := `
-data Mult = Unrestricted | Affine | Linear
-data Unit = Unit
+data Mult := Unrestricted | Affine | Linear
+data Unit := Unit
 open :: Computation {} { h: Unit @Linear } Unit
 open := assumption
 use :: Computation { h: Unit @Linear } { h: Unit @Linear } Unit
@@ -132,8 +132,8 @@ main := do { open; use; close }
 
 func TestMultDoBindResult(t *testing.T) {
 	source := `
-data Mult = Unrestricted | Affine | Linear
-data Unit = Unit
+data Mult := Unrestricted | Affine | Linear
+data Unit := Unit
 open :: Computation {} { h: Unit @Linear } Unit
 open := assumption
 read :: Computation { h: Unit @Linear } { h: Unit @Linear } Int
@@ -161,8 +161,8 @@ func TestMultLinearMustBeConsumedEventually(t *testing.T) {
 	// The overall type has @Linear in post — this is fine as a building block.
 	// But if the CALLER expects post = {}, unification will catch it.
 	source := `
-data Mult = Unrestricted | Affine | Linear
-data Unit = Unit
+data Mult := Unrestricted | Affine | Linear
+data Unit := Unit
 open :: Computation {} { h: Unit @Linear } Unit
 open := assumption
 main :: Computation {} {} Unit
@@ -177,13 +177,13 @@ main := do { open }
 
 func TestMultLUBTypeFamilyDefined(t *testing.T) {
 	source := `
-data Mult = Unrestricted | Affine | Linear
-type LUB (m1: Mult) (m2: Mult) :: Mult = {
-  LUB Linear _ = Linear;
-  LUB _ Linear = Linear;
-  LUB Affine _ = Affine;
-  LUB _ Affine = Affine;
-  LUB Unrestricted Unrestricted = Unrestricted
+data Mult := Unrestricted | Affine | Linear
+type LUB (m1: Mult) (m2: Mult) :: Mult := {
+  LUB Linear _ =: Linear;
+  LUB _ Linear =: Linear;
+  LUB Affine _ =: Affine;
+  LUB _ Affine =: Affine;
+  LUB Unrestricted Unrestricted =: Unrestricted
 }
 `
 	checkSource(t, source, nil)

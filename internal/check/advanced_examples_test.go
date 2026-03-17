@@ -23,29 +23,29 @@ func TestAdvancedTypeFamilyStress(t *testing.T) {
 	}
 	source := `
 -- Peano naturals as DataKinds.
-data Nat = Z | S Nat
+data Nat := Z | S Nat
 
 -- Type-level addition.
-type Add (a: Nat) (b: Nat) :: Nat = {
-  Add Z b = b;
-  Add (S a) b = S (Add a b)
+type Add (a: Nat) (b: Nat) :: Nat := {
+  Add Z b =: b;
+  Add (S a) b =: S (Add a b)
 }
 
 -- Phantom type indexed by Nat.
-data NatProxy (n: Nat) = MkProxy
+data NatProxy (n: Nat) := MkProxy
 
 -- Elem: container element extraction.
-data List a = Nil | Cons a (List a)
-data Maybe a = Nothing | Just a
+data List a := Nil | Cons a (List a)
+data Maybe a := Nothing | Just a
 
-type Elem (c: Type) :: Type = {
-  Elem (List a) = a;
-  Elem (Maybe a) = a
+type Elem (c: Type) :: Type := {
+  Elem (List a) =: a;
+  Elem (Maybe a) =: a
 }
 
 -- Wrap: type-level function.
-type Wrap (a: Type) :: Type = {
-  Wrap a = Maybe a
+type Wrap (a: Type) :: Type := {
+  Wrap a =: Maybe a
 }
 
 -- Nested reduction: Elem (List (Wrap Int)) reduces as:
@@ -54,16 +54,16 @@ nestedElem :: Elem (List (Wrap Int)) -> Maybe Int
 nestedElem := \x. x
 
 -- Season rotation: single-step NextSeason is fully reduced.
-data Season = Spring | Summer | Autumn | Winter
+data Season := Spring | Summer | Autumn | Winter
 
-type NextSeason (s: Season) :: Season = {
-  NextSeason Spring = Summer;
-  NextSeason Summer = Autumn;
-  NextSeason Autumn = Winter;
-  NextSeason Winter = Spring
+type NextSeason (s: Season) :: Season := {
+  NextSeason Spring =: Summer;
+  NextSeason Summer =: Autumn;
+  NextSeason Autumn =: Winter;
+  NextSeason Winter =: Spring
 }
 
-data Tagged (s: Season) = MkTagged
+data Tagged (s: Season) := MkTagged
 
 -- NextSeason reduces for concrete season values.
 nextProof :: Tagged (NextSeason Spring) -> Tagged Summer
@@ -94,9 +94,9 @@ func TestAdvancedDataFamilyPolymorphism(t *testing.T) {
 		},
 	}
 	source := `
-data Unit = Unit
-data Bool = True | False
-data Maybe a = Nothing | Just a
+data Unit := Unit
+data Bool := True | False
+data Maybe a := Nothing | Just a
 
 -- Wrappable class: each type wraps into a different runtime shape.
 class Wrappable w {
@@ -106,25 +106,25 @@ class Wrappable w {
 }
 
 instance Wrappable Int {
-  data Wrapped Int = IntBox Int;
+  data Wrapped Int =: IntBox Int;
   wrap := \n. IntBox n;
   unwrap := \w. case w { IntBox n -> n }
 }
 
 instance Wrappable Bool {
-  data Wrapped Bool = BoolBit Bool;
+  data Wrapped Bool =: BoolBit Bool;
   wrap := \b. BoolBit b;
   unwrap := \w. case w { BoolBit b -> b }
 }
 
 instance Wrappable Unit {
-  data Wrapped Unit = UnitBox;
+  data Wrapped Unit =: UnitBox;
   wrap := \_. UnitBox;
   unwrap := \_. Unit
 }
 
 instance Wrappable (Maybe a) {
-  data Wrapped (Maybe a) = OptBox (Maybe a);
+  data Wrapped (Maybe a) =: OptBox (Maybe a);
   wrap := \m. OptBox m;
   unwrap := \w. case w { OptBox m -> m }
 }
@@ -159,13 +159,13 @@ func TestAdvancedFunDepInference(t *testing.T) {
 		},
 	}
 	source := `
-data Unit = Unit
-data Bool = True | False
-data Maybe a = Nothing | Just a
-data List a = Nil | Cons a (List a)
+data Unit := Unit
+data Bool := True | False
+data Maybe a := Nothing | Just a
+data List a := Nil | Cons a (List a)
 
 -- Convert class with fundep: source type determines target.
-class Convert a b | a -> b {
+class Convert a b | a =: b {
   convert :: a -> b
 }
 
@@ -186,7 +186,7 @@ unitToBool :: Bool
 unitToBool := convert Unit
 
 -- HasElem class: container determines element type.
-class HasElem c e | c -> e {
+class HasElem c e | c =: e {
   getFirst :: c -> Maybe e
 }
 
@@ -207,7 +207,7 @@ firstOfMaybe :: Maybe Bool
 firstOfMaybe := getFirst (Just True)
 
 -- Bidirectional fundep.
-class Iso a b | a -> b, b -> a {
+class Iso a b | a =: b, b =: a {
   forward :: a -> b;
   backward :: b -> a
 }
@@ -233,13 +233,13 @@ bwd := backward 0
 func TestAdvancedTypeFamilyWithDataFamily(t *testing.T) {
 	// Combine closed type family with data family in the same program.
 	source := `
-data Unit = Unit
-data Bool = True | False
-data Maybe a = Nothing | Just a
+data Unit := Unit
+data Bool := True | False
+data Maybe a := Nothing | Just a
 
-type IsJust (m: Type) :: Bool = {
-  IsJust (Maybe a) = True;
-  IsJust _ = False
+type IsJust (m: Type) :: Bool := {
+  IsJust (Maybe a) =: True;
+  IsJust _ =: False
 }
 
 class Container c {
@@ -248,7 +248,7 @@ class Container c {
 }
 
 instance Container (Maybe a) {
-  data Elem (Maybe a) = MaybeElem a;
+  data Elem (Maybe a) =: MaybeElem a;
   cempty := Nothing
 }
 
@@ -257,7 +257,7 @@ v :: Elem (Maybe Unit)
 v := MaybeElem Unit
 
 -- IsJust reduces for a concrete type.
-data Phantom (b: Bool) = MkPhantom
+data Phantom (b: Bool) := MkPhantom
 proof :: Phantom (IsJust (Maybe Unit)) -> Phantom True
 proof := \x. x
 `
@@ -267,17 +267,17 @@ proof := \x. x
 func TestAdvancedFunDepWithTypeFamily(t *testing.T) {
 	// Fundep interacts with type family reduction.
 	source := `
-data Unit = Unit
-data Maybe a = Nothing | Just a
-data List a = Nil | Cons a (List a)
+data Unit := Unit
+data Maybe a := Nothing | Just a
+data List a := Nil | Cons a (List a)
 
-type Elem (c: Type) :: Type = {
-  Elem (List a) = a;
-  Elem (Maybe a) = a
+type Elem (c: Type) :: Type := {
+  Elem (List a) =: a;
+  Elem (Maybe a) =: a
 }
 
 -- Fundep class where one param is a type family application.
-class Extract c e | c -> e {
+class Extract c e | c =: e {
   extract :: c -> Maybe e
 }
 
@@ -295,15 +295,15 @@ result := extract (Cons Unit Nil)
 func TestAdvancedRecursiveTFWithPhantom(t *testing.T) {
 	// Recursive type family Dual for session types with concrete usage.
 	source := `
-data Session = Send Session | Recv Session | End
+data Session := Send Session | Recv Session | End
 
-type Dual (s: Session) :: Session = {
-  Dual (Send s) = Recv (Dual s);
-  Dual (Recv s) = Send (Dual s);
-  Dual End = End
+type Dual (s: Session) :: Session := {
+  Dual (Send s) =: Recv (Dual s);
+  Dual (Recv s) =: Send (Dual s);
+  Dual End =: End
 }
 
-data Chan (s: Session) = MkChan
+data Chan (s: Session) := MkChan
 
 -- Dual (Send End) = Recv (Dual End) = Recv End
 dualProof1 :: Chan (Dual (Send End)) -> Chan (Recv End)

@@ -4,8 +4,8 @@ class IxMonad (m: Row -> Row -> Type -> Type) {
               m r1 r2 a -> (a -> m r2 r3 b) -> m r1 r3 b
 }
 
-type Lift (m: Type -> Type) (r1: Row) (r2: Row) a = m a
-type Effect r a = Computation r r a
+type Lift (m: Type -> Type) (r1: Row) (r2: Row) a := m a
+type Effect r a := Computation r r a
 
 instance IxMonad Computation {
   ixpure := pure;

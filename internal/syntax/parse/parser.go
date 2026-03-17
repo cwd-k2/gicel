@@ -177,9 +177,9 @@ func (p *Parser) parseDataDecl() *DeclData {
 			params = append(params, TyBinder{Name: pName, S: pS})
 		}
 	}
-	p.expect(TokEq)
+	p.expect(TokColonEq)
 
-	// GADT mode: `= { ConName :: Type; ... }`
+	// GADT mode: `:= { ConName :: Type; ... }`
 	if p.peek().Kind == TokLBrace {
 		gadtCons := p.parseGADTCons()
 		return &DeclData{
@@ -258,7 +258,7 @@ func (p *Parser) parseTypeDecl() Decl {
 	}
 
 	// Type alias.
-	p.expect(TokEq)
+	p.expect(TokColonEq)
 	body := p.parseType()
 	return &DeclTypeAlias{
 		Name:   name,
@@ -298,7 +298,7 @@ func (p *Parser) parseTypeFamilyBody(name string, params []TyBinder, start span.
 	p.expect(TokColonColon)
 	resultKind, resultName, deps := p.parseResultKind()
 
-	p.expect(TokEq)
+	p.expect(TokColonEq)
 	equations := p.parseTypeFamilyEquations(name)
 
 	return &DeclTypeFamily{
@@ -355,10 +355,10 @@ func (p *Parser) parseTypeFamilyEquations(familyName string) []TFEquation {
 		eqName := p.expectUpper()
 		// Parse LHS type patterns.
 		var patterns []TypeExpr
-		for p.isTypeAtomStart() && p.peek().Kind != TokEq {
+		for p.isTypeAtomStart() && p.peek().Kind != TokEqColon {
 			patterns = append(patterns, p.parseTypeAtom())
 		}
-		p.expect(TokEq)
+		p.expect(TokEqColon)
 		rhs := p.parseType()
 		equations = append(equations, TFEquation{
 			Name:     eqName,
@@ -533,13 +533,13 @@ func (p *Parser) parseFunDepList() []FunDep {
 	var deps []FunDep
 	for {
 		from := p.expectLower()
-		p.expect(TokArrow)
+		p.expect(TokEqColon)
 		var to []string
 		for p.peek().Kind == TokLower {
 			to = append(to, p.expectLower())
 		}
 		if len(to) == 0 {
-			p.addError("functional dependency requires at least one determined parameter after '->'")
+			p.addError("functional dependency requires at least one determined parameter after '=:'")
 		}
 		deps = append(deps, FunDep{From: from, To: to})
 		if p.peek().Kind == TokComma {
@@ -754,10 +754,10 @@ func (p *Parser) parseAssocTypeDef() *AssocTypeDef {
 	p.expect(TokType)
 	name := p.expectUpper()
 	var patterns []TypeExpr
-	for p.isTypeAtomStart() && p.peek().Kind != TokEq {
+	for p.isTypeAtomStart() && p.peek().Kind != TokEqColon {
 		patterns = append(patterns, p.parseTypeAtom())
 	}
-	p.expect(TokEq)
+	p.expect(TokEqColon)
 	rhs := p.parseType()
 	return &AssocTypeDef{
 		Name:     name,
@@ -769,17 +769,17 @@ func (p *Parser) parseAssocTypeDef() *AssocTypeDef {
 
 // parseAssocDataDef parses an associated data family definition in an instance body:
 //
-//	data Name patterns = Con fields | Con fields
+//	data Name patterns =: Con fields | Con fields
 func (p *Parser) parseAssocDataDef() *AssocDataDef {
 	start := p.peek().S.Start
 	p.expect(TokData)
 	name := p.expectUpper()
 	// Parse type patterns (same as type family equations).
 	var patterns []TypeExpr
-	for p.isTypeAtomStart() && p.peek().Kind != TokEq {
+	for p.isTypeAtomStart() && p.peek().Kind != TokEqColon {
 		patterns = append(patterns, p.parseTypeAtom())
 	}
-	p.expect(TokEq)
+	p.expect(TokEqColon)
 	// Parse constructors: Con fields | Con fields | ...
 	var cons []DeclCon
 	for {

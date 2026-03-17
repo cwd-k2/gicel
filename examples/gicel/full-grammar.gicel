@@ -10,10 +10,10 @@ import Std.Num
 import Std.Str
 
 -- [data] — define an algebraic data type
-data Color = Red | Green | Blue
+data Color := Red | Green | Blue
 
 -- [type] — define a type alias
-type Pair a b = (a, b)
+type Pair a b := (a, b)
 
 -- [infixl] — left-associative operator at precedence 5
 infixl 5 <+>

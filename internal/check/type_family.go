@@ -130,7 +130,7 @@ const maxReductionDepth = 100
 
 // maxReductionTypeSize is the maximum allowed size (node count) of a type
 // produced by type family reduction. Without this bound, a family like
-// `type Grow a = Grow (Pair a a)` would produce a type with 2^k nodes after
+// `type Grow a := Grow (Pair a a)` would produce a type with 2^k nodes after
 // k reductions, causing exponential memory and time consumption even though
 // the fuel limit eventually fires. This bound ensures that reduction halts
 // as soon as the intermediate type becomes unreasonably large.
@@ -157,7 +157,7 @@ func (ch *Checker) reduceTyFamily(name string, args []types.Type, s span.Span) (
 		switch result {
 		case matchSuccess:
 			rhs := types.SubstMany(eq.RHS, subst)
-			// Guard against exponential type growth: e.g., `Grow a = Grow (Pair a a)`
+			// Guard against exponential type growth: e.g., `Grow a =: Grow (Pair a a)`
 			// doubles the type on each step. Without this check, 100 steps would
 			// produce a type with ~2^100 nodes, causing OOM/hang during Zonk.
 			if types.TypeSize(rhs, maxReductionTypeSize) > maxReductionTypeSize {

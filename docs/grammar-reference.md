@@ -42,7 +42,7 @@
 | `.`   | Lambda / quantifier body separator |
 | `\`   | Lambda / universal quantification  |
 | `_`   | Wildcard pattern                   |
-| `=`   | Data constructor separator         |
+| `=:`  | TF equation / fundep / assoc def   |
 | `@`   | Explicit type application          |
 | `\|`  | Constructor / row tail separator   |
 | `;`   | Declaration / statement separator  |
@@ -79,7 +79,7 @@ Single-quoted single character: `'a'`, `'\n'`. Same escape sequences as strings.
 ### Data Type (ADT)
 
 ```
-data Name param* = Con field* (| Con field*)*
+data Name param* := Con field* (| Con field*)*
 ```
 
 Parameters can be bare type variables or kinded: `(name: Kind)`.
@@ -87,29 +87,29 @@ Parameters can be bare type variables or kinded: `(name: Kind)`.
 Examples:
 
 ```
-data Bool = True | False
-data Maybe a = Just a | Nothing
-data Result e a = Ok a | Err e
-data List a = Cons a (List a) | Nil
-data Dict (c: Constraint) = MkDict c    -- Constraint-kinded param
-data Evidence (c: Constraint) a = MkEvidence c a
+data Bool := True | False
+data Maybe a := Just a | Nothing
+data Result e a := Ok a | Err e
+data List a := Cons a (List a) | Nil
+data Dict (c: Constraint) := MkDict c    -- Constraint-kinded param
+data Evidence (c: Constraint) a := MkEvidence c a
 ```
 
 ### Data Type (GADT)
 
 ```
-data Name param* = {
+data Name param* := {
   Con :: TypeExpr;
   Con :: TypeExpr
 }
 ```
 
-Distinguished from ADT by `= {`. Each constructor has a full type signature including return type.
+Distinguished from ADT by `:= {`. Each constructor has a full type signature including return type.
 
 Examples:
 
 ```
-data Expr a = {
+data Expr a := {
   LitBool :: Bool -> Expr Bool;
   LitInt  :: Int -> Expr Int;
   Not     :: Expr Bool -> Expr Bool;
@@ -122,13 +122,13 @@ GADT constructors enable type refinement in `case` branches: matching `LitBool` 
 ### Type Alias
 
 ```
-type Name param* = TypeExpr
+type Name param* := TypeExpr
 ```
 
 Example:
 
 ```
-type Effect r a = Computation r r a
+type Effect r a := Computation r r a
 ```
 
 ### Type Annotation
@@ -207,17 +207,17 @@ Import declarations must appear before all other declarations. All exported type
 
 ```
 TypeFamilyDecl
-  = 'type' UpperName TyBinder* '::' ResultKind '=' '{' Equation (';' Equation)* '}'
+  = 'type' UpperName TyBinder* '::' ResultKind ':=' '{' Equation (';' Equation)* '}'
 
 ResultKind
   = KindExpr
   | '(' LowerName ':' KindExpr ')' '|' DepList
 
 DepList
-  = LowerName '->' LowerName+
+  = LowerName '=:' LowerName+
 
 Equation
-  = UpperName TypePattern* '=' TypeExpr
+  = UpperName TypePattern* '=:' TypeExpr
 ```
 
 Distinguished from a type alias by `::` after the parameters. Equations are checked top-to-bottom; first match wins. Reduction is stuck (not skipped) when a match is indeterminate due to unsolved metavariables.
@@ -225,15 +225,15 @@ Distinguished from a type alias by `::` after the parameters. Equations are chec
 Examples:
 
 ```
-type Elem (c: Type) :: Type = {
-  Elem (List a) = a;
-  Elem String = Rune
+type Elem (c: Type) :: Type := {
+  Elem (List a) =: a;
+  Elem String =: Rune
 }
 
 -- Injective (named result with functional dependency)
-type Effects (mode: AppMode) :: (r: Row) | r -> mode = {
-  Effects ReadOnly  = { get: () -> String };
-  Effects ReadWrite = { get: () -> String, put: String -> () }
+type Effects (mode: AppMode) :: (r: Row) | r =: mode := {
+  Effects ReadOnly  =: { get: () -> String };
+  Effects ReadWrite =: { get: () -> String, put: String -> () }
 }
 ```
 
@@ -248,7 +248,7 @@ class [Constraint =>] ClassName param* [ClassFunDep] {
 }
 
 ClassFunDep (after class params, before '{')
-  = '|' LowerName '->' LowerName+ (',' LowerName '->' LowerName+)*
+  = '|' LowerName '=:' LowerName+ (',' LowerName '=:' LowerName+)*
 
 AssocTypeDecl (in class body)
   = 'type' UpperName TyBinder* '::' ResultKind
@@ -271,7 +271,7 @@ class Container c {
 }
 
 -- Functional dependency
-class Convert a b | a -> b {
+class Convert a b | a =: b {
   convert :: a -> b
 }
 
@@ -293,10 +293,10 @@ instance [Constraint =>] ClassName TypeArg* {
 }
 
 AssocTypeDef (in instance body)
-  = 'type' UpperName TypePattern* '=' TypeExpr
+  = 'type' UpperName TypePattern* '=:' TypeExpr
 
 AssocDataDef (in instance body)
-  = 'data' UpperName TypePattern* '=' ConDecl ('|' ConDecl)*
+  = 'data' UpperName TypePattern* '=:' ConDecl ('|' ConDecl)*
 ```
 
 Examples:
@@ -312,13 +312,13 @@ instance Eq a => Eq (Maybe a) {
 
 -- Associated type definition in instance
 instance Container (List a) {
-  type Elem (List a) = a;
+  type Elem (List a) =: a;
   cfold := foldr
 }
 
 -- Associated data family definition in instance
 instance Collection (List a) {
-  data Key (List a) = ListIndex Int;
+  data Key (List a) =: ListIndex Int;
   lookup := \k xs. case k {
     ListIndex i -> index xs i
   }
@@ -437,7 +437,6 @@ do {
 ### Infix Operators
 
 ```
-x `plus` y          -- backtick syntax
 x + y               -- operator syntax (if declared)
 ```
 
@@ -523,7 +522,7 @@ Within a function body, quantified evidence can be applied to produce dictionari
 Constraint-kinded type parameters in data declarations enable reification of class evidence as first-class values:
 
 ```
-data Dict (c: Constraint) = MkDict c
+data Dict (c: Constraint) := MkDict c
 ```
 
 The parameter `c` has kind `Constraint`. The constructor field `c` elaborates to an implicit evidence argument — the dictionary for the constraint. At construction, evidence is resolved automatically from the context:
@@ -545,7 +544,7 @@ The user writes `MkDict` with zero explicit pattern arguments; the evidence fiel
 Constraint-kinded parameters can coexist with regular parameters:
 
 ```
-data Evidence (c: Constraint) a = MkEvidence c a
+data Evidence (c: Constraint) a := MkEvidence c a
 ```
 
 Here `c` is the implicit evidence field and `a` is a regular field.
@@ -616,7 +615,7 @@ DBState               -- DataKinds: user-defined promoted kind
 \(c: Constraint). Bool                    -- constraint-kinded param
 \a (c: Constraint). a -> Bool             -- mixed kinds
 class Constrained (c: Constraint) { ... }       -- in class declarations
-data Dict (c: Constraint) = MkDict c            -- in data declarations (Dict reification)
+data Dict (c: Constraint) := MkDict c            -- in data declarations (Dict reification)
 ```
 
 ### DataKinds Promotion
@@ -624,11 +623,11 @@ data Dict (c: Constraint) = MkDict c            -- in data declarations (Dict re
 When a data type is declared, it is automatically promoted to a kind of the same name. Nullary constructors (those with no fields) are promoted to types of that kind. Constructors with fields are not promoted.
 
 ```
-data DBState = Opened | Closed
+data DBState := Opened | Closed
 -- DBState is now a kind
 -- Opened: DBState, Closed: DBState (type-level)
 
-data DB (s: DBState) = MkDB
+data DB (s: DBState) := MkDB
 -- DB Opened: Type, DB Closed: Type
 ```
 
@@ -730,11 +729,11 @@ The Prelude is auto-included unless `NoPrelude` is set. Full reference: [agent-g
 ### Data Types and Constructors
 
 ```
-data Bool = True | False
-data Ordering = LT | EQ | GT
-data Result e a = Ok a | Err e
-data Maybe a = Just a | Nothing
-data List a = Cons a (List a) | Nil
+data Bool := True | False
+data Ordering := LT | EQ | GT
+data Result e a := Ok a | Err e
+data Maybe a := Just a | Nothing
+data List a := Cons a (List a) | Nil
 ```
 
 `()` is the unit type (empty record). `(a, b)` is the tuple type (sugar for `Record { _1: a, _2: b }`).

@@ -1,9 +1,9 @@
-data Color = Red | Green | Blue | Yellow | Cyan | Magenta | White | Black
-data Shape = Circle | Square | Triangle | Pentagon | Hexagon | Octagon
-data Day = Mon | Tue | Wed | Thu | Fri | Sat | Sun
-data Suit = Spade | Heart | Diamond | Club
-data Prio = Low | Medium | High | Critical | Blocker
-data Dir = North | South | East | West | Up | Down
+data Color := Red | Green | Blue | Yellow | Cyan | Magenta | White | Black
+data Shape := Circle | Square | Triangle | Pentagon | Hexagon | Octagon
+data Day := Mon | Tue | Wed | Thu | Fri | Sat | Sun
+data Suit := Spade | Heart | Diamond | Club
+data Prio := Low | Medium | High | Critical | Blocker
+data Dir := North | South | East | West | Up | Down
 
 colorToDay :: Color -> Day
 colorToDay := \c. case c {

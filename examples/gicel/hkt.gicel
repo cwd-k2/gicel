@@ -6,7 +6,7 @@
 -- Level: types
 
 -- A binary tree type (Type -> Type)
-data Tree a = TLeaf a | TBranch (Tree a) (Tree a)
+data Tree a := TLeaf a | TBranch (Tree a) (Tree a)
 
 -- Custom Mappable class with explicit kind annotation
 -- (f: Type -> Type) specifies that f is a type constructor

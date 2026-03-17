@@ -6,7 +6,7 @@
 -- Level: types
 
 -- A custom ADT for demonstration
-data Season = Spring | Summer | Autumn | Winter
+data Season := Spring | Summer | Autumn | Winter
 
 -- A custom type class: "Warm" tells us if a value is considered warm
 class Warm a {

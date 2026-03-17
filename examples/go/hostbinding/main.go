@@ -15,7 +15,7 @@ import (
 )
 
 // The source references `n` — a host-provided variable of type Int.
-// It wraps the value in Just (from the prelude: data Maybe a = Just a | Nothing).
+// It wraps the value in Just (from the prelude: data Maybe a := Just a | Nothing).
 const source = `
 main := Just n
 `

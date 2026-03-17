@@ -1,6 +1,6 @@
 import Prelude
 
-data Stream a = LCons a (() -> Stream a) | LNil
+data Stream a := LCons a (() -> Stream a) | LNil
 
 headS :: \a. Stream a -> Maybe a
 headS := \s. case s { LNil -> Nothing; LCons x _ -> Just x }

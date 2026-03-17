@@ -23,7 +23,7 @@ func main() {
 	eng.NoPrelude()
 
 	rt, err := eng.NewRuntime(`
-data Color = Red | Green | Blue
+data Color := Red | Green | Blue
 
 swap :: Color -> Color
 swap := \c. case c { Red -> Blue; Blue -> Red; Green -> Green }
@@ -48,7 +48,7 @@ main := swap Red
 	// Your custom prelude replaces the default Bool/Maybe/List definitions.
 	eng2 := gicel.NewEngine()
 	eng2.SetPrelude(`
-data Bit = On | Off
+data Bit := On | Off
 
 flip :: Bit -> Bit
 flip := \b. case b { On -> Off; Off -> On }

@@ -444,10 +444,10 @@ main := eq (Just (Just True)) (Just Nothing)
 // ---------------------------------------------------------------------------
 
 func TestKindInferenceSimple(t *testing.T) {
-	// data Maybe a = Just a | Nothing  -- 'a' should get kind Type.
+	// data Maybe a := Just a | Nothing  -- 'a' should get kind Type.
 	eng := gicel.NewEngine()
 	_, err := eng.Compile(`
-data MyMaybe a = MyJust a | MyNothing
+data MyMaybe a := MyJust a | MyNothing
 main := MyJust True
 `)
 	if err != nil {
@@ -461,7 +461,7 @@ func TestKindMismatchInApplication(t *testing.T) {
 	// Previously FALSE_NEGATIVE — fixed in 923721f.
 	eng := gicel.NewEngine()
 	_, err := eng.Compile(`
-data F (a: Type -> Type) = MkF
+data F (a: Type -> Type) := MkF
 main := (MkF :: F Bool)
 `)
 	if err == nil {
@@ -494,7 +494,7 @@ func TestGADTRefinementDisjointBranches(t *testing.T) {
 	// matching on each should refine the types differently.
 	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`
-data Token a = { BoolTok :: Bool -> Token Bool; UnitTok :: Token () }
+data Token a := { BoolTok :: Bool -> Token Bool; UnitTok :: Token () }
 
 toBool :: Token Bool -> Bool
 toBool := \t. case t { BoolTok b -> b }
@@ -577,7 +577,7 @@ main := myLength (Cons True (Cons False (Cons True Nil)))
 func TestNestedConstructorPatternMatch(t *testing.T) {
 	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`
-data Pair a b = MkPair a b
+data Pair a b := MkPair a b
 
 fst :: \a b. Pair a b -> a
 fst := \p. case p { MkPair x _ -> x }
@@ -904,7 +904,7 @@ func TestFP_WildcardInCasePattern(t *testing.T) {
 	// Wildcard pattern in case should exhaust all remaining alternatives.
 	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`
-data Color = Red | Green | Blue
+data Color := Red | Green | Blue
 isRed := \c. case c { Red -> True; _ -> False }
 main := isRed Blue
 `)
@@ -971,7 +971,7 @@ func TestErrorReportsUnboundVarName(t *testing.T) {
 func TestErrorReportsNonExhaustiveConstructor(t *testing.T) {
 	eng := gicel.NewEngine()
 	_, err := eng.NewRuntime(`
-data Color = Red | Green | Blue
+data Color := Red | Green | Blue
 f := \c. case c { Red -> True }
 main := f Red
 `)
@@ -1120,7 +1120,7 @@ main := ([] :: List Bool)
 func TestTypeAliasInFunctionSig(t *testing.T) {
 	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`
-type Predicate a = a -> Bool
+type Predicate a := a -> Bool
 isTrue :: Predicate Bool
 isTrue := \b. b
 main := isTrue True
@@ -1138,7 +1138,7 @@ main := isTrue True
 func TestTypeAliasWithParams(t *testing.T) {
 	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`
-type Pair a b = (a, b)
+type Pair a b := (a, b)
 mkPair :: \a b. a -> b -> Pair a b
 mkPair := \x y. (x, y)
 main := (mkPair True False).#_1
@@ -1160,9 +1160,9 @@ main := (mkPair True False).#_1
 func TestDataKindsInGADTIndex(t *testing.T) {
 	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`
-data Phase = Building | Running
+data Phase := Building | Running
 
-data Builder (p: Phase) = MkBuilder
+data Builder (p: Phase) := MkBuilder
 
 start :: Builder Building
 start := MkBuilder
@@ -1185,8 +1185,8 @@ func TestDataKindsMismatch(t *testing.T) {
 	// Previously FALSE_NEGATIVE — fixed in 923721f.
 	eng := gicel.NewEngine()
 	_, err := eng.NewRuntime(`
-data Phase = Building | Running
-data Builder (p: Phase) = MkBuilder
+data Phase := Building | Running
+data Builder (p: Phase) := MkBuilder
 start :: Builder True
 start := MkBuilder
 main := start
@@ -1201,7 +1201,7 @@ main := start
 // ---------------------------------------------------------------------------
 
 func TestEffectTypeAlias(t *testing.T) {
-	// The prelude defines: type Effect r a = Computation r r a
+	// The prelude defines: type Effect r a := Computation r r a
 	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`
 myId :: Effect {} Bool
@@ -1272,20 +1272,20 @@ main := foo True
 // must not install the expander at all.
 func TestCyclicAliasExpansionTerminates(t *testing.T) {
 	eng := gicel.NewEngine()
-	// Direct cycle: type A = A — already caught by validateAliasGraph.
+	// Direct cycle: type A := A — already caught by validateAliasGraph.
 	_, err := eng.NewRuntime(`
-type A = A
+type A := A
 main := pure @A True
 `)
 	if err == nil {
 		t.Fatal("expected error for cyclic alias, got nil")
 	}
 
-	// Parametric cycle: type F a = F a — the expansion could loop even if
+	// Parametric cycle: type F a := F a — the expansion could loop even if
 	// the name-level cycle is detected.
 	eng2 := gicel.NewEngine()
 	_, err2 := eng2.NewRuntime(`
-type F a = F a
+type F a := F a
 main := pure @(F Int) True
 `)
 	if err2 == nil {
@@ -1299,17 +1299,17 @@ func TestAliasExpansionDepthLimit(t *testing.T) {
 	// Build a chain of aliases: T0 a = a, T1 a = T0 (T0 a), ..., TN a = T(N-1) (T(N-1) a)
 	// This grows exponentially in expansion depth.
 	src := `
-type T0 a = a
-type T1 a = T0 (T0 a)
-type T2 a = T1 (T1 a)
-type T3 a = T2 (T2 a)
-type T4 a = T3 (T3 a)
-type T5 a = T4 (T4 a)
-type T6 a = T5 (T5 a)
-type T7 a = T6 (T6 a)
-type T8 a = T7 (T7 a)
-type T9 a = T8 (T8 a)
-type T10 a = T9 (T9 a)
+type T0 a := a
+type T1 a := T0 (T0 a)
+type T2 a := T1 (T1 a)
+type T3 a := T2 (T2 a)
+type T4 a := T3 (T3 a)
+type T5 a := T4 (T4 a)
+type T6 a := T5 (T5 a)
+type T7 a := T6 (T6 a)
+type T8 a := T7 (T7 a)
+type T9 a := T8 (T8 a)
+type T10 a := T9 (T9 a)
 id :: T10 Bool -> T10 Bool
 id := \x. x
 main := id True
@@ -1354,7 +1354,7 @@ func TestParserKindExprDepthLimit(t *testing.T) {
 	for i := 0; i < 300; i++ {
 		kind = "(" + kind + ")"
 	}
-	src := fmt.Sprintf("data X (a: %s) = MkX\nmain := MkX", kind)
+	src := fmt.Sprintf("data X (a: %s) := MkX\nmain := MkX", kind)
 	_, err := eng.NewRuntime(src)
 	// Should get a parse error, not a stack overflow.
 	if err == nil {
@@ -1370,7 +1370,7 @@ func TestParserKindExprDepthLimit(t *testing.T) {
 func TestNestedPatternBareConstructor(t *testing.T) {
 	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`
-data Pair a b = MkPair a b
+data Pair a b := MkPair a b
 
 match := \p. case p { MkPair (Just x) Nothing -> x; _ -> False }
 main := match (MkPair (Just True) Nothing)

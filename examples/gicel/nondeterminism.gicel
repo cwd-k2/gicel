@@ -27,7 +27,7 @@ guard := \c. case c { True -> [()]; False -> [] }
 -- x <- [1,2,3] means "for each x in [1,2,3]".
 
 -- Pythagorean triples a² + b² = c² (a ≤ b ≤ c ≤ 10)
-data Triple = MkTriple Int Int Int
+data Triple := MkTriple Int Int Int
 
 pythag :: List Triple
 pythag := do {
@@ -64,7 +64,7 @@ coinResult := amb (subsets coins) (\s.
 -- ── Layer 3: Free monad ────────────────────────────────────
 -- The computation is a tree. The interpreter walks it.
 
-data NDFree a = NDPure a | NDChoice (NDFree a) (NDFree a) | NDFail
+data NDFree a := NDPure a | NDChoice (NDFree a) (NDFree a) | NDFail
 
 returnND :: \a. a -> NDFree a
 returnND := NDPure

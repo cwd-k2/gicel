@@ -575,7 +575,7 @@ func TestNoPrelude(t *testing.T) {
 	eng := gicel.NewEngine()
 	eng.NoPrelude()
 	rt, err := eng.NewRuntime(`
-data MyBool = MyTrue | MyFalse
+data MyBool := MyTrue | MyFalse
 main := MyTrue
 `)
 	if err != nil {
@@ -668,7 +668,7 @@ func TestStepLimit(t *testing.T) {
 	eng.NoPrelude()
 	// No recursion in source, just a program that completes in few steps.
 	rt, err := eng.NewRuntime(`
-data Unit = Unit
+data Unit := Unit
 main := Unit
 `)
 	if err != nil {
@@ -884,8 +884,8 @@ func TestContextTimeout(t *testing.T) {
 	eng.EnableRecursion()
 	eng.NoPrelude()
 	rt, err := eng.NewRuntime(`
-data Unit = Unit
-data Bool = True | False
+data Unit := Unit
+data Bool := True | False
 not := \b. case b { True -> False; False -> True }
 main := not (not (not True))
 `)
@@ -1270,8 +1270,8 @@ main := add a b
 func TestCyclicTypeAlias(t *testing.T) {
 	eng := gicel.NewEngine()
 	_, err := eng.NewRuntime(`
-type A = B
-type B = A
+type A := B
+type B := A
 main := True
 `)
 	if err == nil {
@@ -1537,11 +1537,11 @@ main := Ok True
 	}
 }
 
-// Type alias: type Effect r a = Computation r r a
+// Type alias: type Effect r a := Computation r r a
 func TestTypeAlias(t *testing.T) {
 	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`
-type Effect r a = Computation r r a
+type Effect r a := Computation r r a
 
 main :: Effect {} Bool
 main := pure True
@@ -1637,7 +1637,7 @@ func TestNoMainEntry(t *testing.T) {
 func TestExhaustiveLargeADT(t *testing.T) {
 	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`
-data Color = Red | Green | Blue | Yellow | Cyan | Magenta
+data Color := Red | Green | Blue | Yellow | Cyan | Magenta
 
 f := \c. case c {
   Red -> True;
@@ -1667,7 +1667,7 @@ main := f Red
 func TestNonExhaustiveLargeADT(t *testing.T) {
 	eng := gicel.NewEngine()
 	_, err := eng.NewRuntime(`
-data Color = Red | Green | Blue | Yellow | Cyan | Magenta
+data Color := Red | Green | Blue | Yellow | Cyan | Magenta
 
 f := \c. case c {
   Red -> True;
@@ -1695,7 +1695,7 @@ func TestTypeClassEqBool(t *testing.T) {
 	eng := gicel.NewEngine()
 	eng.NoPrelude()
 	rt, err := eng.NewRuntime(`
-data Bool = True | False
+data Bool := True | False
 class Eq a { eq :: a -> a -> Bool }
 instance Eq Bool {
   eq := \x y. case x {
@@ -1722,7 +1722,7 @@ func TestTypeClassPolymorphic(t *testing.T) {
 	eng := gicel.NewEngine()
 	eng.NoPrelude()
 	rt, err := eng.NewRuntime(`
-data Bool = True | False
+data Bool := True | False
 class Eq a { eq :: a -> a -> Bool }
 instance Eq Bool {
   eq := \x y. case x {
@@ -1751,7 +1751,7 @@ func TestTypeClassSuperclass(t *testing.T) {
 	eng := gicel.NewEngine()
 	eng.NoPrelude()
 	rt, err := eng.NewRuntime(`
-data Bool = True | False
+data Bool := True | False
 class Eq a { eq :: a -> a -> Bool }
 class Eq a => Ord a { lt :: a -> a -> Bool }
 instance Eq Bool {
@@ -1781,8 +1781,8 @@ func TestTypeClassFunctor(t *testing.T) {
 	eng := gicel.NewEngine()
 	eng.NoPrelude()
 	rt, err := eng.NewRuntime(`
-data Bool = True | False
-data Maybe a = Just a | Nothing
+data Bool := True | False
+data Maybe a := Just a | Nothing
 class Functor f { fmap :: \a b. (a -> b) -> f a -> f b }
 instance Functor Maybe {
   fmap := \g mx. case mx {
@@ -1817,7 +1817,7 @@ func TestTypeClassMultiParam(t *testing.T) {
 	eng := gicel.NewEngine()
 	eng.NoPrelude()
 	rt, err := eng.NewRuntime(`
-data Bool = True | False
+data Bool := True | False
 class Coercible a b { coerce :: a -> b }
 instance Coercible Bool Bool {
   coerce := \x. x
@@ -1848,8 +1848,8 @@ main := coerce True
 func TestDataKindsDBState(t *testing.T) {
 	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`
-data DBState = Opened | Closed
-data DB s = MkDB
+data DBState := Opened | Closed
+data DB s := MkDB
 
 open :: DB Closed -> DB Opened
 open := \_. MkDB
@@ -1879,7 +1879,7 @@ func TestDataKindsInRow(t *testing.T) {
 		return gicel.ToValue(42), ce, nil
 	})
 	rt, err := eng.NewRuntime(`
-data DBState = Opened | Closed
+data DBState := Opened | Closed
 
 readDB :: () -> Computation { db: Int } { db: Int } Int
 readDB := assumption
@@ -1903,7 +1903,7 @@ main := do { readDB () }
 func TestDataKindsBoolPromotion(t *testing.T) {
 	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`
-data Proxy s = MkProxy
+data Proxy s := MkProxy
 main := (MkProxy :: Proxy True)
 `)
 	if err != nil {
@@ -1925,7 +1925,7 @@ func TestGADTEvalExpr(t *testing.T) {
 	eng := gicel.NewEngine()
 	eng.EnableRecursion()
 	rt, err := eng.NewRuntime(`
-data Expr a = { LitBool :: Bool -> Expr Bool; Not :: Expr Bool -> Expr Bool }
+data Expr a := { LitBool :: Bool -> Expr Bool; Not :: Expr Bool -> Expr Bool }
 
 eval :: Expr Bool -> Bool
 eval := fix (\self e. case e {
@@ -1951,10 +1951,10 @@ main := eval (Not (LitBool True))
 func TestGADTWithDataKinds(t *testing.T) {
 	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`
-data DBState = Opened | Closed
-data DB s = MkDB
+data DBState := Opened | Closed
+data DB s := MkDB
 
-data Action s = { Open :: Action Opened; Close :: Action Closed }
+data Action s := { Open :: Action Opened; Close :: Action Closed }
 
 describe :: Action Opened -> DB Opened
 describe := \a. case a { Open -> MkDB }
@@ -1977,7 +1977,7 @@ main := describe Open
 func TestGADTNestedPattern(t *testing.T) {
 	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`
-data Expr a = { LitBool :: Bool -> Expr Bool; Not :: Expr Bool -> Expr Bool }
+data Expr a := { LitBool :: Bool -> Expr Bool; Not :: Expr Bool -> Expr Bool }
 
 -- Nested pattern: match on Not (LitBool _)
 isDoubleNeg :: Expr Bool -> Bool
@@ -2010,7 +2010,7 @@ func TestRegisterModule(t *testing.T) {
 	eng := gicel.NewEngine()
 	eng.NoPrelude()
 	err := eng.RegisterModule("Lib", `
-data Bool = True | False
+data Bool := True | False
 not :: Bool -> Bool
 not := \b. case b { True -> False; False -> True }
 `)
@@ -2023,7 +2023,7 @@ func TestImportModuleTypes(t *testing.T) {
 	eng := gicel.NewEngine()
 	eng.NoPrelude()
 	err := eng.RegisterModule("Lib", `
-data Bool = True | False
+data Bool := True | False
 not :: Bool -> Bool
 not := \b. case b { True -> False; False -> True }
 `)
@@ -2051,7 +2051,7 @@ func TestImportModuleInstances(t *testing.T) {
 	eng := gicel.NewEngine()
 	eng.NoPrelude()
 	err := eng.RegisterModule("EqLib", `
-data Bool = True | False
+data Bool := True | False
 class Eq a { eq :: a -> a -> Bool }
 instance Eq Bool { eq := \x y. True }
 `)
@@ -2079,7 +2079,7 @@ func TestRegisterModuleFile(t *testing.T) {
 	dir := t.TempDir()
 	path := dir + "/Lib.gicel"
 	if err := os.WriteFile(path, []byte(`
-data Color = Red | Blue
+data Color := Red | Blue
 `), 0644); err != nil {
 		t.Fatal(err)
 	}
@@ -2119,14 +2119,14 @@ func TestCircularImportError(t *testing.T) {
 	// Register module A that imports B.
 	err := eng.RegisterModule("A", `
 import B
-data Unit = Unit
+data Unit := Unit
 `)
 	// Should fail because B is not registered.
 	if err == nil {
 		// Now try registering B that imports A → circular.
 		err = eng.RegisterModule("B", `
 import A
-data Void = MkVoid
+data Void := MkVoid
 `)
 		if err == nil {
 			t.Error("expected circular import error")
@@ -2142,12 +2142,12 @@ func TestImportNameCollision(t *testing.T) {
 	eng := gicel.NewEngine()
 	eng.NoPrelude()
 	// Module A defines Bool.
-	err := eng.RegisterModule("A", `data Bool = True | False`)
+	err := eng.RegisterModule("A", `data Bool := True | False`)
 	if err != nil {
 		t.Fatal(err)
 	}
 	// Module B also defines Bool.
-	err = eng.RegisterModule("B", `data Bool = Yes | No`)
+	err = eng.RegisterModule("B", `data Bool := Yes | No`)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -2315,7 +2315,7 @@ func TestNoPreludeWithModules(t *testing.T) {
 	eng.NoPrelude()
 	// Without prelude, Bool is not defined — need to define it ourselves.
 	rt, err := eng.NewRuntime(`
-data MyBool = Yes | No
+data MyBool := Yes | No
 main := Yes
 `)
 	if err != nil {
@@ -2335,7 +2335,7 @@ func TestSetPreludeCustom(t *testing.T) {
 	// Custom prelude replaces default: only defines MyBool, no standard Bool.
 	eng := gicel.NewEngine()
 	eng.SetPrelude(`
-data MyBool = Yes | No
+data MyBool := Yes | No
 `)
 	rt, err := eng.NewRuntime(`main := Yes`)
 	if err != nil {
@@ -2355,7 +2355,7 @@ func TestSetPreludeCoreStillAvailable(t *testing.T) {
 	// Core definitions (IxMonad, Effect, then) available even with custom Prelude.
 	eng := gicel.NewEngine()
 	eng.SetPrelude(`
-data Bool = True | False
+data Bool := True | False
 `)
 	// Effect and then come from CoreSource, Bool from custom prelude.
 	rt, err := eng.NewRuntime(`
@@ -2378,7 +2378,7 @@ main := pure True
 func TestSetPreludeNoDefaultBool(t *testing.T) {
 	// Custom prelude that doesn't define Bool — standard Bool should not be available.
 	eng := gicel.NewEngine()
-	eng.SetPrelude(`data Color = Red | Blue`)
+	eng.SetPrelude(`data Color := Red | Blue`)
 	_, err := eng.NewRuntime(`main := True`)
 	if err == nil {
 		t.Error("expected compile error: True not defined with custom prelude")
@@ -2473,7 +2473,7 @@ func TestUnifySkolemSame(t *testing.T) {
 	// Indirect test: use a GADT constructor with existential that unifies skolem with itself
 	eng := gicel.NewEngine()
 	_, err := eng.Compile(`
-data SameTest = { MkSame :: \a. a -> a -> SameTest }
+data SameTest := { MkSame :: \a. a -> a -> SameTest }
 useIt :: SameTest -> Bool
 useIt := \s. case s { MkSame x y -> True }
 `)
@@ -2487,7 +2487,7 @@ useIt := \s. case s { MkSame x y -> True }
 func TestSkolemEscapeDetected(t *testing.T) {
 	eng := gicel.NewEngine()
 	_, err := eng.Compile(`
-data Exists = { MkExists :: \a. a -> Exists }
+data Exists := { MkExists :: \a. a -> Exists }
 escape :: Exists -> Bool
 escape := \e. case e { MkExists x -> x }
 `)
@@ -2502,7 +2502,7 @@ escape := \e. case e { MkExists x -> x }
 func TestSkolemNoEscape(t *testing.T) {
 	eng := gicel.NewEngine()
 	_, err := eng.Compile(`
-data Wrapper = { MkWrapper :: \a. a -> Wrapper }
+data Wrapper := { MkWrapper :: \a. a -> Wrapper }
 safe :: Wrapper -> Bool
 safe := \w. case w { MkWrapper _ -> True }
 `)
@@ -2514,7 +2514,7 @@ safe := \w. case w { MkWrapper _ -> True }
 func TestSkolemEscapeInMeta(t *testing.T) {
 	eng := gicel.NewEngine()
 	_, err := eng.Compile(`
-data SomeVal = { MkSome :: \a. a -> SomeVal }
+data SomeVal := { MkSome :: \a. a -> SomeVal }
 leaky := \s. case s { MkSome x -> Just x }
 `)
 	if err == nil {
@@ -2527,7 +2527,7 @@ leaky := \s. case s { MkSome x -> Just x }
 func TestExistentialBasic(t *testing.T) {
 	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`
-data SomeEq = { MkSomeEq :: \a. Eq a => a -> SomeEq }
+data SomeEq := { MkSomeEq :: \a. Eq a => a -> SomeEq }
 useSomeEq :: SomeEq -> Bool
 useSomeEq := \s. case s { MkSomeEq x -> eq x x }
 main := useSomeEq (MkSomeEq True)
@@ -2545,7 +2545,7 @@ main := useSomeEq (MkSomeEq True)
 func TestExistentialEscapeError(t *testing.T) {
 	eng := gicel.NewEngine()
 	_, err := eng.Compile(`
-data SomeEq = { MkSomeEq :: \a. Eq a => a -> SomeEq }
+data SomeEq := { MkSomeEq :: \a. Eq a => a -> SomeEq }
 escape :: SomeEq -> Bool
 escape := \s. case s { MkSomeEq x -> x }
 `)
@@ -2557,7 +2557,7 @@ escape := \s. case s { MkSomeEq x -> x }
 func TestExistentialNoConstraint(t *testing.T) {
 	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`
-data ExistsF f = { MkExistsF :: \a. f a -> ExistsF f }
+data ExistsF f := { MkExistsF :: \a. f a -> ExistsF f }
 useMaybe :: ExistsF Maybe -> Bool
 useMaybe := \e. case e { MkExistsF _ -> True }
 main := useMaybe (MkExistsF (Just True))
@@ -2575,7 +2575,7 @@ main := useMaybe (MkExistsF (Just True))
 func TestExistentialMixed(t *testing.T) {
 	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`
-data Wrapper a = { MkWrapper :: \b. (b -> a) -> b -> Wrapper a }
+data Wrapper a := { MkWrapper :: \b. (b -> a) -> b -> Wrapper a }
 useWrapper :: Wrapper Bool -> Bool
 useWrapper := \w. case w { MkWrapper f x -> f x }
 main := useWrapper (MkWrapper (\x. x) True)
@@ -2593,7 +2593,7 @@ main := useWrapper (MkWrapper (\x. x) True)
 func TestExistentialMultiConstraint(t *testing.T) {
 	eng := gicel.NewEngine()
 	_, err := eng.Compile(`
-data ShowOrd = { MkShowOrd :: \a. (Eq a, Ord a) => a -> a -> ShowOrd }
+data ShowOrd := { MkShowOrd :: \a. (Eq a, Ord a) => a -> a -> ShowOrd }
 use :: ShowOrd -> Ordering
 use := \s. case s { MkShowOrd x y -> compare x y }
 `)
@@ -2607,7 +2607,7 @@ use := \s. case s { MkShowOrd x y -> compare x y }
 func TestExistentialWithTypeClass(t *testing.T) {
 	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`
-data SomeEq = { MkSomeEq :: \a. Eq a => a -> SomeEq }
+data SomeEq := { MkSomeEq :: \a. Eq a => a -> SomeEq }
 isSame :: SomeEq -> Bool
 isSame := \s. case s { MkSomeEq x -> eq x x }
 main := isSame (MkSomeEq (Just True))
@@ -2626,8 +2626,8 @@ main := isSame (MkSomeEq (Just True))
 func TestExistentialWithGADT(t *testing.T) {
 	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`
-data Typed a = { MkBool :: Bool -> Typed Bool; MkUnit :: Typed () }
-data SomeTyped = { MkSome :: \a. Typed a -> SomeTyped }
+data Typed a := { MkBool :: Bool -> Typed Bool; MkUnit :: Typed () }
+data SomeTyped := { MkSome :: \a. Typed a -> SomeTyped }
 classify :: SomeTyped -> Bool
 classify := \s. case s { MkSome t -> True }
 main := classify (MkSome (MkBool True))
@@ -2645,7 +2645,7 @@ main := classify (MkSome (MkBool True))
 func TestExistentialNestedCase(t *testing.T) {
 	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`
-data Wrap = { MkWrap :: \a. Eq a => a -> Wrap }
+data Wrap := { MkWrap :: \a. Eq a => a -> Wrap }
 bothSame :: Wrap -> Wrap -> Bool
 bothSame := \w1 w2.
   case w1 { MkWrap x -> case w2 { MkWrap y -> True } }
@@ -2964,7 +2964,7 @@ func TestOrdPair(t *testing.T) {
 func TestExistentialWithStdlib(t *testing.T) {
 	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`
-data SomeSemigroup = { MkSomeSG :: \a. Semigroup a => a -> a -> SomeSemigroup }
+data SomeSemigroup := { MkSomeSG :: \a. Semigroup a => a -> a -> SomeSemigroup }
 combine :: SomeSemigroup -> Bool
 combine := \s. case s { MkSomeSG x y -> case append x y { _ -> True } }
 main := combine (MkSomeSG EQ LT)
@@ -2982,7 +2982,7 @@ main := combine (MkSomeSG EQ LT)
 func TestFullPipeline(t *testing.T) {
 	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(`
-data SomeEq = { MkSomeEq :: \a. Eq a => a -> SomeEq }
+data SomeEq := { MkSomeEq :: \a. Eq a => a -> SomeEq }
 isSelf :: SomeEq -> Bool
 isSelf := \s. case s { MkSomeEq x -> eq x x }
 applyId :: (\a. a -> a) -> Bool
@@ -3364,14 +3364,14 @@ func TestModuleAccumulation(t *testing.T) {
 	eng := gicel.NewEngine()
 	eng.NoPrelude()
 	err := eng.RegisterModule("A", `
-data Bool = True | False
+data Bool := True | False
 `)
 	if err != nil {
 		t.Fatal(err)
 	}
 	err = eng.RegisterModule("B", `
 import A
-data Pair a b = MkPair a b
+data Pair a b := MkPair a b
 `)
 	if err != nil {
 		t.Fatal(err)

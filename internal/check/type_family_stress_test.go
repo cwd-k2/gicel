@@ -21,10 +21,10 @@ import (
 // f :: Add (S (S (... Z ...))) Z -> ...
 func peanoSource(depth int) string {
 	var b strings.Builder
-	b.WriteString("data Nat = Z | S Nat\n")
-	b.WriteString("type Add (a: Nat) (b: Nat) :: Nat = {\n")
-	b.WriteString("  Add Z b = b;\n")
-	b.WriteString("  Add (S a) b = S (Add a b)\n")
+	b.WriteString("data Nat := Z | S Nat\n")
+	b.WriteString("type Add (a: Nat) (b: Nat) :: Nat := {\n")
+	b.WriteString("  Add Z b =: b;\n")
+	b.WriteString("  Add (S a) b =: S (Add a b)\n")
 	b.WriteString("}\n")
 
 	// Build S^depth applied to Z
@@ -34,7 +34,7 @@ func peanoSource(depth int) string {
 	}
 
 	// A phantom type indexed by Nat, to force reduction without needing value-level computation.
-	b.WriteString("data Phantom (n: Nat) = MkPhantom\n")
+	b.WriteString("data Phantom (n: Nat) := MkPhantom\n")
 	b.WriteString(fmt.Sprintf("f :: Phantom (Add %s Z) -> Phantom (Add %s Z)\n", nested, nested))
 	b.WriteString("f := \\x. x\n")
 
@@ -62,13 +62,13 @@ func TestStressDeepRecursiveTF_DepthExceedsLimit(t *testing.T) {
 	// Here we test a slightly more interesting variant: mutual recursion through
 	// a family that bounces between two families > 100 times.
 	source := `
-data Unit = Unit
-data Nat = Z | S Nat
-type Bounce (a: Type) :: Type = {
-  Bounce a = Trampoline a
+data Unit := Unit
+data Nat := Z | S Nat
+type Bounce (a: Type) :: Type := {
+  Bounce a =: Trampoline a
 }
-type Trampoline (a: Type) :: Type = {
-  Trampoline a = Bounce a
+type Trampoline (a: Type) :: Type := {
+  Trampoline a =: Bounce a
 }
 f :: Bounce Unit -> Unit
 f := \x. x
@@ -81,7 +81,7 @@ f := \x. x
 func TestStressManyEquations(t *testing.T) {
 	// Type family with 60 equations mapping numbered constructors to results.
 	var b strings.Builder
-	b.WriteString("data Tag =")
+	b.WriteString("data Tag :=")
 	for i := 0; i < 60; i++ {
 		if i > 0 {
 			b.WriteString(" |")
@@ -89,22 +89,22 @@ func TestStressManyEquations(t *testing.T) {
 		b.WriteString(fmt.Sprintf(" T%d", i))
 	}
 	b.WriteString("\n")
-	b.WriteString("data Result = R0 | R1\n")
-	b.WriteString("type Dispatch (t: Tag) :: Result = {\n")
+	b.WriteString("data Result := R0 | R1\n")
+	b.WriteString("type Dispatch (t: Tag) :: Result := {\n")
 	for i := 0; i < 60; i++ {
 		if i > 0 {
 			b.WriteString(";\n")
 		}
 		if i%2 == 0 {
-			b.WriteString(fmt.Sprintf("  Dispatch T%d = R0", i))
+			b.WriteString(fmt.Sprintf("  Dispatch T%d =: R0", i))
 		} else {
-			b.WriteString(fmt.Sprintf("  Dispatch T%d = R1", i))
+			b.WriteString(fmt.Sprintf("  Dispatch T%d =: R1", i))
 		}
 	}
 	b.WriteString("\n}\n")
 
 	// Verify specific dispatch results via phantom types.
-	b.WriteString("data Phantom (r: Result) = MkPhantom\n")
+	b.WriteString("data Phantom (r: Result) := MkPhantom\n")
 	b.WriteString("first :: Phantom (Dispatch T0) -> Phantom R0\n")
 	b.WriteString("first := \\x. x\n")
 	b.WriteString("last :: Phantom (Dispatch T59) -> Phantom R1\n")
@@ -119,20 +119,20 @@ func TestStressManyEquations(t *testing.T) {
 
 func TestStressNestedFamilyApplications(t *testing.T) {
 	source := `
-data Wrapper a = Wrap a
-data Unit = Unit
-data List a = Nil | Cons a (List a)
+data Wrapper a := Wrap a
+data Unit := Unit
+data List a := Nil | Cons a (List a)
 
-type Unwrap (w: Type) :: Type = {
-  Unwrap (Wrapper a) = a
+type Unwrap (w: Type) :: Type := {
+  Unwrap (Wrapper a) =: a
 }
 
-type Head (l: Type) :: Type = {
-  Head (List a) = a
+type Head (l: Type) :: Type := {
+  Head (List a) =: a
 }
 
-type Apply (f: Type) :: Type = {
-  Apply a = a
+type Apply (f: Type) :: Type := {
+  Apply a =: a
 }
 
 -- Nested: Unwrap (Wrapper (Head (List (Apply Unit)))) = Head (List Unit) = Unit
@@ -144,20 +144,20 @@ f := \x. x
 
 func TestStressTriplyNestedFamilies(t *testing.T) {
 	source := `
-data Unit = Unit
-data Box a = MkBox a
-data List a = Nil | Cons a (List a)
+data Unit := Unit
+data Box a := MkBox a
+data List a := Nil | Cons a (List a)
 
-type Unbox (b: Type) :: Type = {
-  Unbox (Box a) = a
+type Unbox (b: Type) :: Type := {
+  Unbox (Box a) =: a
 }
 
-type Elem (c: Type) :: Type = {
-  Elem (List a) = a
+type Elem (c: Type) :: Type := {
+  Elem (List a) =: a
 }
 
-type Id (a: Type) :: Type = {
-  Id a = a
+type Id (a: Type) :: Type := {
+  Id a =: a
 }
 
 -- Id(Elem(List(Unbox(Box Unit)))) = Id(Elem(List Unit)) = Id(Unit) = Unit
@@ -171,11 +171,11 @@ g := \x. x
 
 func TestStressTypeFamilyInClassContext(t *testing.T) {
 	source := `
-data Unit = Unit
-data List a = Nil | Cons a (List a)
+data Unit := Unit
+data List a := Nil | Cons a (List a)
 
-type Elem (c: Type) :: Type = {
-  Elem (List a) = a
+type Elem (c: Type) :: Type := {
+  Elem (List a) =: a
 }
 
 -- A class whose method return type is a type family application.
@@ -204,10 +204,10 @@ f := chead
 
 func TestStressMultipleDataFamilyInstances(t *testing.T) {
 	source := `
-data Unit = Unit
-data List a = Nil | Cons a (List a)
-data Pair a b = MkPair a b
-data Maybe a = Nothing | Just a
+data Unit := Unit
+data List a := Nil | Cons a (List a)
+data Pair a b := MkPair a b
+data Maybe a := Nothing | Just a
 
 emptyPair :: \ a b. Pair a b
 emptyPair := assumption
@@ -218,22 +218,22 @@ class Collection c {
 }
 
 instance Collection (List a) {
-  data Key (List a) = ListKey a;
+  data Key (List a) =: ListKey a;
   empty := Nil
 }
 
 instance Collection Unit {
-  data Key Unit = UnitKey;
+  data Key Unit =: UnitKey;
   empty := Unit
 }
 
 instance Collection (Pair a b) {
-  data Key (Pair a b) = PairKey a;
+  data Key (Pair a b) =: PairKey a;
   empty := emptyPair
 }
 
 instance Collection (Maybe a) {
-  data Key (Maybe a) = MaybeKey a;
+  data Key (Maybe a) =: MaybeKey a;
   empty := Nothing
 }
 
@@ -260,11 +260,11 @@ unwrapListKey := \k. case k { ListKey x -> x }
 func TestStressFiveDataFamilyInstances(t *testing.T) {
 	// 5 instances with unique constructors for exhaustive data family coverage.
 	source := `
-data Unit = Unit
-data List a = Nil | Cons a (List a)
-data Pair a b = MkPair a b
-data Either a b = Left a | Right b
-data Maybe a = Nothing | Just a
+data Unit := Unit
+data List a := Nil | Cons a (List a)
+data Pair a b := MkPair a b
+data Either a b := Left a | Right b
+data Maybe a := Nothing | Just a
 
 nilFallback :: \ a. a
 nilFallback := assumption
@@ -275,27 +275,27 @@ class HasRepr c {
 }
 
 instance HasRepr Unit {
-  data Repr Unit = ReprUnit;
+  data Repr Unit =: ReprUnit;
   toRepr := \_. ReprUnit
 }
 
 instance HasRepr (List a) {
-  data Repr (List a) = ReprList a;
+  data Repr (List a) =: ReprList a;
   toRepr := \xs. case xs { Cons x _ -> ReprList x; Nil -> nilFallback }
 }
 
 instance HasRepr (Pair a b) {
-  data Repr (Pair a b) = ReprPair a b;
+  data Repr (Pair a b) =: ReprPair a b;
   toRepr := \p. case p { MkPair a b -> ReprPair a b }
 }
 
 instance HasRepr (Either a b) {
-  data Repr (Either a b) = ReprLeft a | ReprRight b;
+  data Repr (Either a b) =: ReprLeft a | ReprRight b;
   toRepr := \e. case e { Left a -> ReprLeft a; Right b -> ReprRight b }
 }
 
 instance HasRepr (Maybe a) {
-  data Repr (Maybe a) = ReprJust a | ReprNothing;
+  data Repr (Maybe a) =: ReprJust a | ReprNothing;
   toRepr := \m. case m { Just x -> ReprJust x; Nothing -> ReprNothing }
 }
 
@@ -327,9 +327,9 @@ func TestBoundaryZeroArityTypeFamily(t *testing.T) {
 	// A type family with no parameters, acting like a type-level constant.
 	// This tests whether the parser and checker handle 0-parameter type families.
 	source := `
-data Unit = Unit
-type Const :: Type = {
-  Const = Unit
+data Unit := Unit
+type Const :: Type := {
+  Const =: Unit
 }
 f :: Const -> Unit
 f := \x. x
@@ -341,15 +341,15 @@ f := \x. x
 
 func TestBoundaryComplexNestedPattern(t *testing.T) {
 	source := `
-data Maybe a = Nothing | Just a
-data List a = Nil | Cons a (List a)
-data Unit = Unit
+data Maybe a := Nothing | Just a
+data List a := Nil | Cons a (List a)
+data Unit := Unit
 
-type DeepElem (c: Type) :: Type = {
-  DeepElem (Maybe (List a)) = a;
-  DeepElem (List (Maybe a)) = a;
-  DeepElem (Maybe a) = a;
-  DeepElem (List a) = a
+type DeepElem (c: Type) :: Type := {
+  DeepElem (Maybe (List a)) =: a;
+  DeepElem (List (Maybe a)) =: a;
+  DeepElem (Maybe a) =: a;
+  DeepElem (List a) =: a
 }
 
 f :: DeepElem (Maybe (List Unit)) -> Unit
@@ -366,9 +366,9 @@ g := \x. x
 func TestBoundaryFunDepAllDetermined(t *testing.T) {
 	// Every parameter is in a "from" or "to" position.
 	source := `
-data Unit = Unit
+data Unit := Unit
 
-class Iso a b | a -> b, b -> a {
+class Iso a b | a =: b, b =: a {
   to :: a -> b;
   from :: b -> a
 }
@@ -392,10 +392,10 @@ func TestBoundaryLubPostStatesZeroBranches(t *testing.T) {
 	// An empty case on an uninhabited type is unusual but should not crash.
 	// The checker may report non-exhaustive warning, so we just verify no panic.
 	source := `
-data Void = {
+data Void := {
   VoidCon :: Void
 }
-data Unit = Unit
+data Unit := Unit
 absurd :: Void -> Unit
 absurd := \v. case v { VoidCon -> Unit }
 `
@@ -406,7 +406,7 @@ absurd := \v. case v { VoidCon -> Unit }
 
 func TestBoundarySingleBranchCase(t *testing.T) {
 	source := `
-data Unit = MkUnit
+data Unit := MkUnit
 consume :: Computation { a: Unit } {} Unit
 consume := assumption
 f :: Unit -> Computation { a: Unit } {} Unit
@@ -422,8 +422,8 @@ f := \u. case u {
 func TestBoundaryIntersectCapRowsIdentical(t *testing.T) {
 	// Both branches have exactly the same post-state → intersection = same row.
 	source := `
-data Bool = True | False
-data Unit = Unit
+data Bool := True | False
+data Unit := Unit
 consumeA :: Computation { a: Unit, b: Unit } { b: Unit } Unit
 consumeA := assumption
 f :: Bool -> Computation { a: Unit, b: Unit } { b: Unit } Unit
@@ -442,8 +442,8 @@ func TestBoundaryIntersectCapRowsDisjoint(t *testing.T) {
 	// Branch False: post = { a: Unit }
 	// Intersection: post = {}
 	source := `
-data Bool = True | False
-data Unit = Unit
+data Bool := True | False
+data Unit := Unit
 consumeA :: Computation { a: Unit, b: Unit } { b: Unit } Unit
 consumeA := assumption
 consumeB :: Computation { a: Unit, b: Unit } { a: Unit } Unit
@@ -466,8 +466,8 @@ func TestBoundaryThreeWayIntersection(t *testing.T) {
 	// Alt 3: post = { a: Unit, c: Unit }
 	// Intersection: post = { c: Unit }
 	source := `
-data Three = One | Two | Three
-data Unit = Unit
+data Three := One | Two | Three
+data Unit := Unit
 noop :: Computation { a: Unit, b: Unit, c: Unit } { a: Unit, b: Unit, c: Unit } Unit
 noop := assumption
 consumeA :: Computation { a: Unit, b: Unit, c: Unit } { b: Unit, c: Unit } Unit
@@ -488,9 +488,9 @@ f := \t. case t {
 
 func TestBoundaryTypeFamilyAllWildcards(t *testing.T) {
 	source := `
-data Unit = Unit
-type Always (a: Type) :: Type = {
-  Always _ = Unit
+data Unit := Unit
+type Always (a: Type) :: Type := {
+  Always _ =: Unit
 }
 f :: Always Int -> Unit
 f := \x. x
@@ -505,12 +505,12 @@ f := \x. x
 
 func TestBoundaryRecursiveTFTerminatesAtDepth1(t *testing.T) {
 	source := `
-data Nat = Z | S Nat
-type Pred (n: Nat) :: Nat = {
-  Pred (S n) = n;
-  Pred Z = Z
+data Nat := Z | S Nat
+type Pred (n: Nat) :: Nat := {
+  Pred (S n) =: n;
+  Pred Z =: Z
 }
-data Phantom (n: Nat) = MkPhantom
+data Phantom (n: Nat) := MkPhantom
 f :: Phantom (Pred (S Z)) -> Phantom Z
 f := \x. x
 `
@@ -522,13 +522,13 @@ f := \x. x
 func TestBoundaryPatternVarReuseAcrossEquations(t *testing.T) {
 	// The variable 'a' appears in both equations but has different bindings.
 	source := `
-data Unit = Unit
-data Maybe a = Nothing | Just a
-data List a = Nil | Cons a (List a)
+data Unit := Unit
+data Maybe a := Nothing | Just a
+data List a := Nil | Cons a (List a)
 
-type Elem (c: Type) :: Type = {
-  Elem (Maybe a) = a;
-  Elem (List a) = a
+type Elem (c: Type) :: Type := {
+  Elem (Maybe a) =: a;
+  Elem (List a) =: a
 }
 
 f :: Elem (Maybe Unit) -> Unit
@@ -544,7 +544,7 @@ g := \x. x
 
 func TestBoundaryDataFamilyExhaustivenessMultiCon(t *testing.T) {
 	source := `
-data Unit = Unit
+data Unit := Unit
 
 class HasTag c {
   data Tag c :: Type;
@@ -552,7 +552,7 @@ class HasTag c {
 }
 
 instance HasTag Unit {
-  data Tag Unit = TagA | TagB | TagC;
+  data Tag Unit =: TagA | TagB | TagC;
   getTag := \_. TagA
 }
 
@@ -569,7 +569,7 @@ f := \t. case t {
 
 func TestBoundaryDataFamilyExhaustivenessIncomplete(t *testing.T) {
 	source := `
-data Unit = Unit
+data Unit := Unit
 
 class HasTag c {
   data Tag c :: Type;
@@ -577,7 +577,7 @@ class HasTag c {
 }
 
 instance HasTag Unit {
-  data Tag Unit = TagA | TagB | TagC;
+  data Tag Unit =: TagA | TagB | TagC;
   getTag := \_. TagA
 }
 
