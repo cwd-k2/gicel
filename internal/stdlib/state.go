@@ -29,5 +29,5 @@ func getImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applie
 
 func putImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
 	newCe := ce.Set("state", args[0])
-	return &eval.RecordVal{Fields: map[string]eval.Value{}}, newCe, nil
+	return unitVal, newCe, nil
 }

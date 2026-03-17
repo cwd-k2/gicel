@@ -18,22 +18,18 @@ var IO Pack = func(e Registrar) error {
 var ioSource = mustReadSource("io")
 
 func printImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
-	hv, ok := args[0].(*eval.HostVal)
-	if !ok {
-		return nil, ce, fmt.Errorf("print: expected String, got %T", args[0])
-	}
-	s, ok := hv.Inner.(string)
-	if !ok {
-		return nil, ce, fmt.Errorf("print: expected string, got %T", hv.Inner)
+	s, err := asString(args[0])
+	if err != nil {
+		return nil, ce, err
 	}
 	newCe := appendIO(ce, s)
-	return &eval.RecordVal{Fields: map[string]eval.Value{}}, newCe, nil
+	return unitVal, newCe, nil
 }
 
 func debugImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
 	s := fmt.Sprintf("%v", args[0])
 	newCe := appendIO(ce, s)
-	return &eval.RecordVal{Fields: map[string]eval.Value{}}, newCe, nil
+	return unitVal, newCe, nil
 }
 
 // appendIO appends a message to the "io" capability buffer.

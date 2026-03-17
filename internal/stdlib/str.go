@@ -86,10 +86,7 @@ func eqStrImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Appl
 	if err != nil {
 		return nil, ce, err
 	}
-	if a == b {
-		return &eval.ConVal{Con: "True"}, ce, nil
-	}
-	return &eval.ConVal{Con: "False"}, ce, nil
+	return boolVal(a == b), ce, nil
 }
 
 func cmpStrImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
@@ -101,14 +98,7 @@ func cmpStrImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.App
 	if err != nil {
 		return nil, ce, err
 	}
-	switch strings.Compare(a, b) {
-	case -1:
-		return &eval.ConVal{Con: "LT"}, ce, nil
-	case 1:
-		return &eval.ConVal{Con: "GT"}, ce, nil
-	default:
-		return &eval.ConVal{Con: "EQ"}, ce, nil
-	}
+	return ordVal(strings.Compare(a, b)), ce, nil
 }
 
 func appendStrImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
@@ -147,10 +137,7 @@ func eqRuneImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.App
 	if err != nil {
 		return nil, ce, err
 	}
-	if a == b {
-		return &eval.ConVal{Con: "True"}, ce, nil
-	}
-	return &eval.ConVal{Con: "False"}, ce, nil
+	return boolVal(a == b), ce, nil
 }
 
 func cmpRuneImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
@@ -164,11 +151,11 @@ func cmpRuneImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Ap
 	}
 	switch {
 	case a < b:
-		return &eval.ConVal{Con: "LT"}, ce, nil
+		return ordVal(-1), ce, nil
 	case a > b:
-		return &eval.ConVal{Con: "GT"}, ce, nil
+		return ordVal(1), ce, nil
 	default:
-		return &eval.ConVal{Con: "EQ"}, ce, nil
+		return ordVal(0), ce, nil
 	}
 }
 
@@ -277,10 +264,7 @@ func containsImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.A
 	if err != nil {
 		return nil, ce, err
 	}
-	if strings.Contains(haystack, needle) {
-		return &eval.ConVal{Con: "True"}, ce, nil
-	}
-	return &eval.ConVal{Con: "False"}, ce, nil
+	return boolVal(strings.Contains(haystack, needle)), ce, nil
 }
 
 func splitImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
@@ -296,11 +280,11 @@ func splitImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Ap
 	if err := eval.ChargeAlloc(ctx, int64(len(parts))*costConsNode+int64(len(s))*costPerByte); err != nil {
 		return nil, ce, err
 	}
-	var result eval.Value = &eval.ConVal{Con: "Nil"}
-	for i := len(parts) - 1; i >= 0; i-- {
-		result = &eval.ConVal{Con: "Cons", Args: []eval.Value{&eval.HostVal{Inner: parts[i]}, result}}
+	items := make([]eval.Value, len(parts))
+	for i, p := range parts {
+		items[i] = &eval.HostVal{Inner: p}
 	}
-	return result, ce, nil
+	return buildList(items), ce, nil
 }
 
 func joinImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
@@ -364,11 +348,11 @@ func toRunesImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, _ eval.
 	if err := eval.ChargeAlloc(ctx, int64(len(runes))*(4+costConsNode)); err != nil {
 		return nil, ce, err
 	}
-	var result eval.Value = &eval.ConVal{Con: "Nil"}
-	for i := len(runes) - 1; i >= 0; i-- {
-		result = &eval.ConVal{Con: "Cons", Args: []eval.Value{&eval.HostVal{Inner: runes[i]}, result}}
+	items := make([]eval.Value, len(runes))
+	for i, r := range runes {
+		items[i] = &eval.HostVal{Inner: r}
 	}
-	return result, ce, nil
+	return buildList(items), ce, nil
 }
 
 func fromRunesImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {

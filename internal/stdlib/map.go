@@ -439,10 +439,7 @@ func mapMemberImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, apply e
 	if err != nil {
 		return nil, ce, err
 	}
-	if found {
-		return &eval.ConVal{Con: "True"}, newCe, nil
-	}
-	return &eval.ConVal{Con: "False"}, newCe, nil
+	return boolVal(found), newCe, nil
 }
 
 // _mapUnionWith :: (v -> v -> v) -> Map k v -> Map k v -> Map k v

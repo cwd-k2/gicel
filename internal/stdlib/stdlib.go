@@ -45,3 +45,39 @@ func asInt64(v eval.Value, pack string) (int64, error) {
 	}
 	return n, nil
 }
+
+// asFloat64 extracts a float64 from a HostVal.
+func asFloat64(v eval.Value, pack string) (float64, error) {
+	hv, ok := v.(*eval.HostVal)
+	if !ok {
+		return 0, fmt.Errorf("stdlib/%s: expected HostVal, got %T", pack, v)
+	}
+	f, ok := hv.Inner.(float64)
+	if !ok {
+		return 0, fmt.Errorf("stdlib/%s: expected float64, got %T", pack, hv.Inner)
+	}
+	return f, nil
+}
+
+// boolVal constructs a Bool ConVal from a Go bool.
+func boolVal(b bool) *eval.ConVal {
+	if b {
+		return &eval.ConVal{Con: "True"}
+	}
+	return &eval.ConVal{Con: "False"}
+}
+
+// ordVal constructs an Ordering ConVal from a comparison result (-1, 0, 1).
+func ordVal(cmp int) *eval.ConVal {
+	switch {
+	case cmp < 0:
+		return &eval.ConVal{Con: "LT"}
+	case cmp > 0:
+		return &eval.ConVal{Con: "GT"}
+	default:
+		return &eval.ConVal{Con: "EQ"}
+	}
+}
+
+// unitVal is the unit value (empty record).
+var unitVal = &eval.RecordVal{Fields: map[string]eval.Value{}}

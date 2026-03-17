@@ -130,10 +130,7 @@ func eqIntImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Appl
 	if err != nil {
 		return nil, ce, err
 	}
-	if a == b {
-		return &eval.ConVal{Con: "True"}, ce, nil
-	}
-	return &eval.ConVal{Con: "False"}, ce, nil
+	return boolVal(a == b), ce, nil
 }
 
 func numShowIntImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
@@ -155,38 +152,28 @@ func cmpIntImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.App
 	}
 	switch {
 	case a < b:
-		return &eval.ConVal{Con: "LT"}, ce, nil
+		return ordVal(-1), ce, nil
 	case a > b:
-		return &eval.ConVal{Con: "GT"}, ce, nil
+		return ordVal(1), ce, nil
 	default:
-		return &eval.ConVal{Con: "EQ"}, ce, nil
+		return ordVal(0), ce, nil
 	}
 }
 
 // --- Double primitives ---
 
-func asFloat64(v eval.Value) (float64, error) {
-	hv, ok := v.(*eval.HostVal)
-	if !ok {
-		return 0, fmt.Errorf("stdlib/num: expected HostVal, got %T", v)
-	}
-	f, ok := hv.Inner.(float64)
-	if !ok {
-		return 0, fmt.Errorf("stdlib/num: expected float64, got %T", hv.Inner)
-	}
-	return f, nil
-}
+func asFloat64Num(v eval.Value) (float64, error) { return asFloat64(v, "num") }
 
 func floatResult(f float64, ce eval.CapEnv) (eval.Value, eval.CapEnv, error) {
 	return &eval.HostVal{Inner: f}, ce, nil
 }
 
 func addDoubleImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
-	a, err := asFloat64(args[0])
+	a, err := asFloat64Num(args[0])
 	if err != nil {
 		return nil, ce, err
 	}
-	b, err := asFloat64(args[1])
+	b, err := asFloat64Num(args[1])
 	if err != nil {
 		return nil, ce, err
 	}
@@ -194,11 +181,11 @@ func addDoubleImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.
 }
 
 func subDoubleImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
-	a, err := asFloat64(args[0])
+	a, err := asFloat64Num(args[0])
 	if err != nil {
 		return nil, ce, err
 	}
-	b, err := asFloat64(args[1])
+	b, err := asFloat64Num(args[1])
 	if err != nil {
 		return nil, ce, err
 	}
@@ -206,11 +193,11 @@ func subDoubleImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.
 }
 
 func mulDoubleImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
-	a, err := asFloat64(args[0])
+	a, err := asFloat64Num(args[0])
 	if err != nil {
 		return nil, ce, err
 	}
-	b, err := asFloat64(args[1])
+	b, err := asFloat64Num(args[1])
 	if err != nil {
 		return nil, ce, err
 	}
@@ -218,11 +205,11 @@ func mulDoubleImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.
 }
 
 func divDoubleImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
-	a, err := asFloat64(args[0])
+	a, err := asFloat64Num(args[0])
 	if err != nil {
 		return nil, ce, err
 	}
-	b, err := asFloat64(args[1])
+	b, err := asFloat64Num(args[1])
 	if err != nil {
 		return nil, ce, err
 	}
@@ -230,7 +217,7 @@ func divDoubleImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.
 }
 
 func negDoubleImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
-	a, err := asFloat64(args[0])
+	a, err := asFloat64Num(args[0])
 	if err != nil {
 		return nil, ce, err
 	}
@@ -238,41 +225,38 @@ func negDoubleImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.
 }
 
 func eqDoubleImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
-	a, err := asFloat64(args[0])
+	a, err := asFloat64Num(args[0])
 	if err != nil {
 		return nil, ce, err
 	}
-	b, err := asFloat64(args[1])
+	b, err := asFloat64Num(args[1])
 	if err != nil {
 		return nil, ce, err
 	}
-	if a == b {
-		return &eval.ConVal{Con: "True"}, ce, nil
-	}
-	return &eval.ConVal{Con: "False"}, ce, nil
+	return boolVal(a == b), ce, nil
 }
 
 func cmpDoubleImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
-	a, err := asFloat64(args[0])
+	a, err := asFloat64Num(args[0])
 	if err != nil {
 		return nil, ce, err
 	}
-	b, err := asFloat64(args[1])
+	b, err := asFloat64Num(args[1])
 	if err != nil {
 		return nil, ce, err
 	}
 	switch {
 	case a < b:
-		return &eval.ConVal{Con: "LT"}, ce, nil
+		return ordVal(-1), ce, nil
 	case a > b:
-		return &eval.ConVal{Con: "GT"}, ce, nil
+		return ordVal(1), ce, nil
 	default:
-		return &eval.ConVal{Con: "EQ"}, ce, nil
+		return ordVal(0), ce, nil
 	}
 }
 
 func showDoubleImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
-	f, err := asFloat64(args[0])
+	f, err := asFloat64Num(args[0])
 	if err != nil {
 		return nil, ce, err
 	}
@@ -290,7 +274,7 @@ func toDoubleImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.A
 }
 
 func roundImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
-	f, err := asFloat64(args[0])
+	f, err := asFloat64Num(args[0])
 	if err != nil {
 		return nil, ce, err
 	}
@@ -298,7 +282,7 @@ func roundImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Appl
 }
 
 func floorImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
-	f, err := asFloat64(args[0])
+	f, err := asFloat64Num(args[0])
 	if err != nil {
 		return nil, ce, err
 	}
@@ -306,7 +290,7 @@ func floorImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Appl
 }
 
 func ceilingImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
-	f, err := asFloat64(args[0])
+	f, err := asFloat64Num(args[0])
 	if err != nil {
 		return nil, ce, err
 	}
@@ -314,7 +298,7 @@ func ceilingImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Ap
 }
 
 func truncateImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
-	f, err := asFloat64(args[0])
+	f, err := asFloat64Num(args[0])
 	if err != nil {
 		return nil, ce, err
 	}

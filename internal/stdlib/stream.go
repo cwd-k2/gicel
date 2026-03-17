@@ -24,8 +24,7 @@ var streamSource = mustReadSource("stream")
 
 // forceTail calls the thunk `() -> Stream a` by applying it to Unit.
 func forceTail(t eval.Value, ce eval.CapEnv, apply eval.Applier) (eval.Value, eval.CapEnv, error) {
-	unit := &eval.RecordVal{Fields: map[string]eval.Value{}}
-	return apply(t, unit, ce)
+	return apply(t, unitVal, ce)
 }
 
 func takeSImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, apply eval.Applier) (eval.Value, eval.CapEnv, error) {

@@ -21,8 +21,6 @@ var Set Pack = func(e Registrar) error {
 
 var setSource = mustReadSource("set")
 
-var unitVal = &eval.RecordVal{Fields: map[string]eval.Value{}}
-
 // _setEmpty :: (k -> k -> Ordering) -> Set k
 func setEmptyImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
 	cmp := args[0]
