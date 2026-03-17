@@ -276,7 +276,7 @@ host bindings, custom capabilities, custom prelude, and more.
 
 ## Documentation
 
-- [Language Specification](spec/language.md) — formal spec (17 chapters)
+- [Language Specification](spec/language.md) — formal spec (18 chapters)
 - [Agent Guide](docs/agent-guide/) — complete language reference with Go API details
 - [Grammar Reference](docs/grammar-reference.md) — syntax at a glance
 

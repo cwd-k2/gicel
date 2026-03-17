@@ -84,7 +84,7 @@ All operators sorted by precedence (highest binds tightest):
 | ---- | ----- | ----- | -------------------- | ------- |
 | 9    | `.`   | right | function composition | Prelude |
 | 7    | `*`   | left  | multiplication       | Prelude |
-| 7    | `/`   | left  | integer division     | Prelude |
+| 7    | `/`   | left  | division (Div)       | Prelude |
 | 6    | `+`   | left  | addition             | Prelude |
 | 6    | `-`   | left  | subtraction          | Prelude |
 | 6    | `<>`  | right | semigroup append     | Prelude |

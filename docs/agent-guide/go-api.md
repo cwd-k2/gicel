@@ -13,6 +13,7 @@ result, err := gicel.RunSandbox(source, &gicel.SandboxConfig{
     Timeout:  5 * time.Second,     // default: 5s
     MaxSteps: 100_000,             // default: 100,000
     MaxDepth: 100,                 // default: 100
+    MaxAlloc: 10 * 1024 * 1024,   // default: 10 MiB
     Caps:     map[string]any{"state": gicel.ToValue(0), "io": gicel.ToValue(nil)},
     Bindings: map[string]gicel.Value{"input": gicel.ToValue("hello")},
 })
@@ -114,7 +115,7 @@ eng.DeclareBinding("myInput", gicel.ConType("Int"))
 | `eng.Use(gicel.Prelude)`                   | Load Prelude (Num, Str, List)    |
 | `eng.RegisterModule(name, src)`            | Register a custom module         |
 | `eng.NewRuntime(source)`                   | Compile to Runtime               |
-| `eng.Compile(source)` / `Parse(source)`    | Type-check or parse only         |
+| `eng.Compile(source)` / `Parse(source)`    | Type-check or parse-only (error) |
 
 ### Error Handling
 
@@ -127,18 +128,28 @@ if errors.As(err, &ce) {
     }
 }
 
-// Runtime errors
+// Runtime errors (with source location)
 var re *gicel.RuntimeError
-if errors.As(err, &re) { fmt.Println(re.Message) }
+if errors.As(err, &re) {
+    fmt.Printf("%d:%d: %s\n", re.Line, re.Col, re.Message)
+}
+
+// Limit errors
+var stepErr *gicel.StepLimitError
+var depthErr *gicel.DepthLimitError
+var allocErr *gicel.AllocLimitError
+if errors.As(err, &stepErr) { /* step limit exceeded */ }
+if errors.As(err, &depthErr) { /* depth limit exceeded */ }
+if errors.As(err, &allocErr) { /* allocErr.Used, allocErr.Limit */ }
 ```
 
 `Diagnostic`: `Code int`, `Phase string` ("lex"/"parse"/"check"), `Line int`, `Col int`, `Message string`.
 
-`RuntimeError`: `Message string`, `Span`. Covers: unbound variable, non-exhaustive match, division by zero, `fail`/`failWith`. Step/depth/alloc limit exceeded return distinct error types (check with `err.Error()` or `errors.As`).
+`RuntimeError`: `Message string`, `Line int`, `Col int` (1-based, populated by Runtime). Covers: unbound variable, non-exhaustive match, division by zero, `fail`/`failWith`. Step/depth/alloc limit exceeded return distinct error types: `StepLimitError`, `DepthLimitError`, `AllocLimitError` (match with `errors.As`).
 
 ### Hooks (per-execution via RunOptions)
 
-**TraceHook** fires on every eval step. Signature: `func(TraceEvent) error`. Fields: `Depth int`, `Node` (Core IR node, opaque), `Env` (lexical environment), `CapEnv`. Return non-nil error to abort.
+**TraceHook** fires on every eval step. Signature: `func(TraceEvent) error`. Fields: `Depth int`, `NodeKind string` (e.g. "Var", "App", "Lam"), `NodeDesc string` (human-readable), `CapEnv`. Return non-nil error to abort.
 
 **ExplainHook** fires at semantic boundaries. Signature: `func(ExplainStep)`. Fields: `Seq int`, `Depth int`, `Kind ExplainKind`, `Line int`, `Col int`, `Detail ExplainDetail`. Kinds: `ExplainBind`, `ExplainMatch`, `ExplainEffect`, `ExplainLabel`, `ExplainResult`.
 
@@ -149,4 +160,4 @@ rt.RunWith(ctx, &gicel.RunOptions{
 })
 ```
 
-**CheckTraceHook** fires during type checking. Set via `eng.SetCheckTraceHook(hook)`. Signature: `func(CheckTraceEvent)`. Fields: `Kind CheckTraceKind`, `Depth int`, `Message string`.
+**CheckTraceHook** fires during type checking. Set via `eng.SetCheckTraceHook(hook)`. Signature: `func(CheckTraceEvent)`. Fields: `Kind CheckTraceKind`, `Depth int`, `Message string`, `Line int`, `Col int` (1-based).

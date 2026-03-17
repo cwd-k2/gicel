@@ -6,9 +6,9 @@ Stdlib packs are loaded on the host side via `eng.Use(pack)` and imported in sou
 
 Prelude bundles what was previously Num, Str, and List into a single pack. Load with `eng.Use(gicel.Prelude)` and import with `import Prelude`. All types, instances, functions, and operators below become available with a single import.
 
-#### Num (integer arithmetic)
+#### Num (arithmetic)
 
-**Type class:**
+**Type classes:**
 
 ```
 class Eq a => Num a {
@@ -17,24 +17,36 @@ class Eq a => Num a {
   mul    :: a -> a -> a;
   negate :: a -> a
 }
+
+class Num a => Div a {
+  div :: a -> a -> a
+}
 ```
 
 **Instances:**
 
-| Instance        |
-| --------------- |
-| `Eq Int`        |
-| `Ord Int`       |
-| `Show Int`      |
-| `Num Int`       |
-| `Semigroup Int` |
-| `Monoid Int`    |
+| Instance           |
+| ------------------ |
+| `Eq Int`           |
+| `Ord Int`          |
+| `Show Int`         |
+| `Num Int`          |
+| `Div Int`          |
+| `Semigroup Int`    |
+| `Monoid Int`       |
+| `Eq Double`        |
+| `Ord Double`       |
+| `Show Double`      |
+| `Num Double`       |
+| `Div Double`       |
+| `Semigroup Double` |
+| `Monoid Double`    |
 
-**Functions:** `add`, `sub`, `mul`, `negate` (class methods), `div`, `mod`, `abs`, `sign`.
+**Functions:** `add`, `sub`, `mul`, `negate` (Num methods), `div` (Div method), `mod`, `abs`, `sign`, `toDouble`, `round`, `floor`, `ceiling`, `truncate`, `absDouble`, `signDouble`.
 
-**Operators:** `+` `-` (infixl 6), `*` `/` (infixl 7).
+**Operators:** `+` `-` (infixl 6), `*` `/` (infixl 7). `+`, `-`, `*` are `Num a => a -> a -> a`; `/` is `Div a => a -> a -> a`.
 
-Instances: `Eq/Ord/Show/Num/Semigroup/Monoid Int`. Integer literals require `import Prelude`. Negative numbers: `negate 5`. Division by zero is a runtime error.
+Instances: `Eq/Ord/Show/Num/Div/Semigroup/Monoid` for both `Int` and `Double`. Integer literals require `import Prelude`. Negative numbers: `negate 5`. Division by zero is a runtime error.
 
 #### Str (string and rune operations)
 

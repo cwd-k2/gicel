@@ -63,7 +63,11 @@
 
 ### Integer Literals
 
-Unsigned decimal integers: `[0-9]+`. Negative values via `negate`.
+Unsigned decimal integers: `[0-9]+`. Underscore separators allowed: `100_000`. Negative values via `negate`.
+
+### Double Literals
+
+Decimal point or exponent makes a numeric literal a Double: `3.14`, `1e10`, `1.05e+10`, `2_000.5e-3`. Underscore separators allowed in the integer part.
 
 ### String Literals
 
@@ -730,6 +734,7 @@ Inside braces (`do`, `case`, block expressions, GADT declarations), semicolons a
 | `Computation pre post a` | `Row → Row → Type → Type` | Effectful computation |
 | `Thunk pre post a`       | `Row → Row → Type → Type` | Suspended computation |
 | `Int`                    | `Type`                    | 64-bit integer        |
+| `Double`                 | `Type`                    | 64-bit floating point |
 | `String`                 | `Type`                    | Unicode string        |
 | `Rune`                   | `Type`                    | Unicode code point    |
 | `Slice a`                | `Type → Type`             | Contiguous array      |
@@ -777,12 +782,13 @@ infixr 1 <=<       -- Kleisli right-to-left
 infixr 0 $         -- low-precedence apply
 ```
 
-### Type Classes (15: 1 in Core, 14 in Prelude)
+### Type Classes (17: 1 in Core, 16 in Prelude)
 
 ```
 IxMonad                           (Core)
 
 Eq ──→ Ord
+Eq ──→ Num ──→ Div
 Show
 Semigroup ──→ Monoid
 Functor ──→ Applicative ──→ Alternative
@@ -799,6 +805,8 @@ FromList ──→ ToList
 | `IxMonad`     | `ixpure`, `ixbind` (Core)                                   |
 | `Eq`          | `eq :: a -> a -> Bool`                                      |
 | `Ord`         | `compare :: a -> a -> Ordering`                             |
+| `Num`         | `add`, `sub`, `mul`, `negate`                               |
+| `Div`         | `div :: a -> a -> a`                                        |
 | `Show`        | `show :: a -> String`                                       |
 | `Semigroup`   | `append :: a -> a -> a`                                     |
 | `Monoid`      | `empty :: a`                                                |

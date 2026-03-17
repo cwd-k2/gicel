@@ -8,8 +8,10 @@
 | `()`       | `Type`                 | Empty record / unit   | Built-in |
 | `Ordering` | `Type`                 | `LT \| EQ \| GT`      | Prelude  |
 | `Int`      | `Type`                 | 64-bit integer        | Built-in |
+| `Double`   | `Type`                 | 64-bit floating point | Built-in |
 | `String`   | `Type`                 | Unicode string        | Built-in |
 | `Rune`     | `Type`                 | Unicode code point    | Built-in |
+| `Slice`    | `Type -> Type`         | Contiguous array      | Built-in |
 | `Map`      | `Type -> Type -> Type` | Ordered immutable map | Data.Map |
 | `Set`      | `Type -> Type`         | Ordered immutable set | Data.Set |
 

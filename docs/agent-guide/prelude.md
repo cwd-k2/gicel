@@ -39,6 +39,25 @@ class Eq a => Ord a {
 }
 ```
 
+**Num**
+
+```
+class Eq a => Num a {
+  add    :: a -> a -> a;
+  sub    :: a -> a -> a;
+  mul    :: a -> a -> a;
+  negate :: a -> a
+}
+```
+
+**Div**
+
+```
+class Num a => Div a {
+  div :: a -> a -> a
+}
+```
+
 **Semigroup**
 
 ```
@@ -141,8 +160,10 @@ class Packed c e {
 | `Monad`       | `Maybe`, `List`                                                      |
 | `Eq`          | `Bool`, `()`, `Ordering`, `Maybe a`, `(a,b)`, `List a`, `Result e a` |
 | `Ord`         | `Bool`, `()`, `Ordering`, `Maybe a`, `(a,b)`, `List a`, `Result e a` |
-| `Semigroup`   | `()`, `Ordering`, `Maybe a`, `List a`                                |
-| `Monoid`      | `()`, `Ordering`, `Maybe a`, `List a`                                |
+| `Num`         | `Int`, `Double`                                                      |
+| `Div`         | `Int`, `Double`                                                      |
+| `Semigroup`   | `()`, `Ordering`, `Maybe a`, `List a`, `Int`, `Double`               |
+| `Monoid`      | `()`, `Ordering`, `Maybe a`, `List a`, `Int`, `Double`               |
 | `Show`        | `Bool`, `()`, `Ordering`                                             |
 | `Functor`     | `Maybe`, `List`, `Result e`                                          |
 | `Foldable`    | `Maybe`, `List`, `Result e`                                          |

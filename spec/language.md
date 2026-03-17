@@ -824,16 +824,18 @@ Foldable ┘
 IxMonad   (independent — indexed monadic interface)
 Packed    (independent — collection packing)
 
-Eq ──→ Num   (in Prelude)
+Eq ──→ Num ──→ Div   (in Prelude)
 ```
 
-15 type classes (1 in Core, 14 in Prelude):
+17 type classes (1 in Core, 16 in Prelude):
 
 | Class         | Parameters                       | Key Methods                                                 |
 | ------------- | -------------------------------- | ----------------------------------------------------------- |
 | `IxMonad`     | `m: Row -> Row -> Type -> Type`  | `ixpure`, `ixbind` (Core)                                   |
 | `Eq`          | `a`                              | `eq :: a -> a -> Bool`                                      |
 | `Ord`         | `a` (requires Eq)                | `compare :: a -> a -> Ordering`                             |
+| `Num`         | `a` (requires Eq)                | `add`, `sub`, `mul`, `negate`                               |
+| `Div`         | `a` (requires Num)               | `div :: a -> a -> a`                                        |
 | `Show`        | `a`                              | `show :: a -> String`                                       |
 | `Semigroup`   | `a`                              | `append :: a -> a -> a`                                     |
 | `Monoid`      | `a` (requires Semigroup)         | `empty :: a`                                                |
@@ -847,7 +849,7 @@ Eq ──→ Num   (in Prelude)
 | `FromList`    | `l` (assoc type: `Elem l`)       | `fromList :: List (Elem l) -> l`                            |
 | `ToList`      | `l` (requires FromList)          | `toList :: l -> List (Elem l)`                              |
 
-Numeric operations (`add`, `sub`, `mul`, `negate`, etc.) are provided as Prelude functions via host primitives, not as a type class.
+`Num` and `Div` are type classes with instances for both `Int` and `Double`. Arithmetic operators `+`, `-`, `*` dispatch through `Num`; `/` dispatches through `Div`.
 
 `Applicative.wrap` corresponds to Haskell's `pure` but uses a different name to avoid collision with the language built-in `pure`. `Monad.mpure` and `Monad.mbind` similarly avoid collision with the built-in `pure` and `bind`.
 
@@ -1231,7 +1233,7 @@ gicel run --module Util=lib/Util.gicel main.gicel
 The Prelude is split into two parts:
 
 - **Core** (not replaceable): language-essential definitions — `IxMonad` class, `Computation` instance, `Effect` alias, `then` combinator, `Lift` type alias
-- **Prelude** (replaceable): standard library types, classes, instances — `Bool`, `Maybe`, `List`, `Ordering`, 12 type classes (Eq through Packed), instances
+- **Prelude** (replaceable): standard library types, classes, instances — `Bool`, `Maybe`, `List`, `Ordering`, 16 type classes (Eq through ToList, including Num and Div), instances
 
 Core is auto-registered and auto-imported; the user cannot control it. Prelude requires explicit `Use(Prelude)` on the engine and `import Prelude` in source.
 
@@ -1392,7 +1394,7 @@ Each Go-side pack bundles type registration, module source, and primitive implem
 
 | Go Pack       | Module         | Provides                                                                |
 | ------------- | -------------- | ----------------------------------------------------------------------- |
-| `Prelude`     | `Prelude`      | Num/Str/List: arithmetic, string ops, list ops, 14 type classes, 5 ADTs |
+| `Prelude`     | `Prelude`      | Num/Str/List: arithmetic, string ops, list ops, 16 type classes, 5 ADTs |
 | `EffectFail`  | `Effect.Fail`  | `fail` capability, `fromMaybe`, `fromResult`                            |
 | `EffectState` | `Effect.State` | `get`/`put` capabilities                                                |
 | `EffectIO`    | `Effect.IO`    | `print`/`debug` via CapEnv buffer                                       |

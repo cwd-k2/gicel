@@ -33,7 +33,7 @@ bin/gicel run [flags] <file>.gicel
 | `--timeout <dur>`    | `5s`     | Execution timeout                                          |
 | `--max-steps <n>`    | `100000` | Step limit                                                 |
 | `--max-depth <n>`    | `100`    | Depth limit                                                |
-| `--max-alloc <n>`    | `100MiB` | Allocation byte limit                                      |
+| `--max-alloc <n>`    | `100 MiB`| Allocation byte limit                                      |
 | `--json`             | off      | Output result as JSON                                      |
 | `--explain`          | off      | Show semantic evaluation trace                             |
 | `--explain-all`      | off      | Trace stdlib internals (with `--explain`)                  |
