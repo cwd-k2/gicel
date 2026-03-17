@@ -356,8 +356,9 @@ func collectPatternVarKinds(patterns []types.Type, params []TFParam) map[string]
 }
 
 // collectVarKindsRec assigns kinds to pattern variables. A bare TyVar gets
-// the contextual kind; variables inside TyApp positions default to KType
-// (since they occupy the argument slot of a type-level application).
+// the contextual kind; variables inside TyApp positions get their kind
+// inferred from the application structure: the head has kind (argKind -> contextKind)
+// and the argument has kind argKind (defaulting to KType for the argument).
 func collectVarKindsRec(t types.Type, contextKind types.Kind, result map[string]types.Kind) {
 	switch ty := t.(type) {
 	case *types.TyVar:
@@ -367,8 +368,10 @@ func collectVarKindsRec(t types.Type, contextKind types.Kind, result map[string]
 			}
 		}
 	case *types.TyApp:
-		// The head of a TyApp has a higher kind; args default to KType.
-		collectVarKindsRec(ty.Fun, types.KType{}, result)
+		// In `F a` where the whole application has contextKind,
+		// F has kind (KType -> contextKind) and a has kind KType.
+		funKind := &types.KArrow{From: types.KType{}, To: contextKind}
+		collectVarKindsRec(ty.Fun, funKind, result)
 		collectVarKindsRec(ty.Arg, types.KType{}, result)
 	}
 }

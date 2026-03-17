@@ -244,12 +244,146 @@ func SubstKindInType(t Type, varName string, replacement Kind) Type {
 }
 
 // SubstMany applies multiple substitutions simultaneously.
+// Unlike sequential Subst calls, this performs a single pass:
+// all variables are replaced in one traversal, so substitution
+// values do not interfere with each other.
 func SubstMany(t Type, subs map[string]Type) Type {
-	result := t
-	for name, repl := range subs {
-		result = Subst(result, name, repl)
+	if len(subs) == 0 {
+		return t
 	}
-	return result
+	return substMany(t, subs)
+}
+
+func substMany(t Type, subs map[string]Type) Type {
+	switch ty := t.(type) {
+	case *TyVar:
+		if repl, ok := subs[ty.Name]; ok {
+			return repl
+		}
+		return ty
+	case *TyCon:
+		return ty
+	case *TyApp:
+		newFun := substMany(ty.Fun, subs)
+		newArg := substMany(ty.Arg, subs)
+		if newFun == ty.Fun && newArg == ty.Arg {
+			return ty
+		}
+		return &TyApp{Fun: newFun, Arg: newArg, S: ty.S}
+	case *TyArrow:
+		newFrom := substMany(ty.From, subs)
+		newTo := substMany(ty.To, subs)
+		if newFrom == ty.From && newTo == ty.To {
+			return ty
+		}
+		return &TyArrow{From: newFrom, To: newTo, S: ty.S}
+	case *TyForall:
+		// Remove shadowed variable from substitution.
+		if _, shadowed := subs[ty.Var]; shadowed {
+			reduced := make(map[string]Type, len(subs)-1)
+			for k, v := range subs {
+				if k != ty.Var {
+					reduced[k] = v
+				}
+			}
+			if len(reduced) == 0 {
+				return ty
+			}
+			// Capture avoidance: check if any replacement contains the bound variable.
+			for _, repl := range reduced {
+				if OccursIn(ty.Var, repl) {
+					fresh := freshName(ty.Var)
+					body := Subst(ty.Body, ty.Var, &TyVar{Name: fresh})
+					body = substMany(body, reduced)
+					return &TyForall{Var: fresh, Kind: ty.Kind, Body: body, S: ty.S}
+				}
+			}
+			newBody := substMany(ty.Body, reduced)
+			if newBody == ty.Body {
+				return ty
+			}
+			return &TyForall{Var: ty.Var, Kind: ty.Kind, Body: newBody, S: ty.S}
+		}
+		// Not shadowed: check capture avoidance.
+		for _, repl := range subs {
+			if OccursIn(ty.Var, repl) {
+				fresh := freshName(ty.Var)
+				body := Subst(ty.Body, ty.Var, &TyVar{Name: fresh})
+				body = substMany(body, subs)
+				return &TyForall{Var: fresh, Kind: ty.Kind, Body: body, S: ty.S}
+			}
+		}
+		newBody := substMany(ty.Body, subs)
+		if newBody == ty.Body {
+			return ty
+		}
+		return &TyForall{Var: ty.Var, Kind: ty.Kind, Body: newBody, S: ty.S}
+	case *TyComp:
+		newPre := substMany(ty.Pre, subs)
+		newPost := substMany(ty.Post, subs)
+		newResult := substMany(ty.Result, subs)
+		if newPre == ty.Pre && newPost == ty.Post && newResult == ty.Result {
+			return ty
+		}
+		return &TyComp{Pre: newPre, Post: newPost, Result: newResult, S: ty.S}
+	case *TyThunk:
+		newPre := substMany(ty.Pre, subs)
+		newPost := substMany(ty.Post, subs)
+		newResult := substMany(ty.Result, subs)
+		if newPre == ty.Pre && newPost == ty.Post && newResult == ty.Result {
+			return ty
+		}
+		return &TyThunk{Pre: newPre, Post: newPost, Result: newResult, S: ty.S}
+	case *TyEvidenceRow:
+		return substManyEvidenceRow(ty, subs)
+	case *TyEvidence:
+		newConstraints := substManyEvidenceRow(ty.Constraints, subs)
+		newBody := substMany(ty.Body, subs)
+		if newConstraints == ty.Constraints && newBody == ty.Body {
+			return ty
+		}
+		return &TyEvidence{Constraints: newConstraints, Body: newBody, S: ty.S}
+	case *TyFamilyApp:
+		changed := false
+		newArgs := make([]Type, len(ty.Args))
+		for i, a := range ty.Args {
+			newArgs[i] = substMany(a, subs)
+			if newArgs[i] != a {
+				changed = true
+			}
+		}
+		if !changed {
+			return ty
+		}
+		return &TyFamilyApp{Name: ty.Name, Args: newArgs, Kind: ty.Kind, S: ty.S}
+	default:
+		return ty
+	}
+}
+
+func substManyEvidenceRow(row *TyEvidenceRow, subs map[string]Type) *TyEvidenceRow {
+	if row == nil {
+		return nil
+	}
+	changed := false
+	newEntries := row.Entries.MapChildren(func(child Type) Type {
+		r := substMany(child, subs)
+		if r != child {
+			changed = true
+		}
+		return r
+	})
+	var newTail Type
+	if row.Tail != nil {
+		newTail = substMany(row.Tail, subs)
+		if newTail != row.Tail {
+			changed = true
+		}
+	}
+	if !changed {
+		return row
+	}
+	return &TyEvidenceRow{Entries: newEntries, Tail: newTail, S: row.S}
 }
 
 // substConstraintEntry substitutes within a single ConstraintEntry,

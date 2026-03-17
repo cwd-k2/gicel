@@ -538,6 +538,9 @@ func (p *Parser) parseFunDepList() []FunDep {
 		for p.peek().Kind == TokLower {
 			to = append(to, p.expectLower())
 		}
+		if len(to) == 0 {
+			p.addError("functional dependency requires at least one determined parameter after '->'")
+		}
 		deps = append(deps, FunDep{From: from, To: to})
 		if p.peek().Kind == TokComma {
 			p.advance()
