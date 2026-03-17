@@ -19,8 +19,8 @@ func NewLimit(steps, maxDepth int) *Limit {
 	return &Limit{remaining: steps, maxDepth: maxDepth}
 }
 
-// DefaultLimit returns a Limit with default budgets.
-func DefaultLimit() *Limit {
+// defaultLimit returns a Limit with default budgets (test helper).
+func defaultLimit() *Limit {
 	l := NewLimit(1_000_000, 1_000)
 	l.allocLimit = 10 * 1024 * 1024 // 10 MiB
 	return l

@@ -45,8 +45,11 @@ instance Num Int {
   negate := _negInt
 }
 
-div :: Int -> Int -> Int
-div := _divInt
+class Num a => Div a {
+  div :: a -> a -> a
+}
+
+instance Div Int { div := _divInt }
 
 mod :: Int -> Int -> Int
 mod := _modInt
@@ -87,6 +90,8 @@ instance Num Double {
 instance Semigroup Double { append := _addDouble }
 instance Monoid Double { empty := 0.0 }
 
+instance Div Double { div := _divDouble }
+
 _divDouble :: Double -> Double -> Double
 _divDouble := assumption
 
@@ -104,9 +109,6 @@ _ceiling := assumption
 
 _truncate :: Double -> Int
 _truncate := assumption
-
-divDouble :: Double -> Double -> Double
-divDouble := _divDouble
 
 toDouble :: Int -> Double
 toDouble := _toDouble
@@ -137,7 +139,7 @@ infixl 7 /
 (*) :: \a. Num a => a -> a -> a
 (*) := mul
 
-(/) :: Int -> Int -> Int
+(/) :: \a. Div a => a -> a -> a
 (/) := div
 
 abs :: Int -> Int
@@ -145,3 +147,9 @@ abs := \x. case _cmpInt x 0 { LT -> negate x; _ -> x }
 
 sign :: Int -> Int
 sign := \x. case _cmpInt x 0 { LT -> negate 1; EQ -> 0; GT -> 1 }
+
+absDouble :: Double -> Double
+absDouble := \x. case _cmpDouble x 0.0 { LT -> _negDouble x; _ -> x }
+
+signDouble :: Double -> Double
+signDouble := \x. case _cmpDouble x 0.0 { LT -> _negDouble 1.0; EQ -> 0.0; GT -> 1.0 }

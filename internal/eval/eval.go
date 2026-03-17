@@ -130,9 +130,7 @@ func (ev *Evaluator) evalStep(env *Env, capEnv CapEnv, expr core.Core) (EvalResu
 
 	// Trace hook.
 	if ev.trace != nil {
-		if err := ev.trace(TraceEvent{
-			Depth: ev.limit.Depth(), Node: expr, Env: env, CapEnv: capEnv,
-		}); err != nil {
+		if err := ev.trace(newTraceEvent(ev.limit.Depth(), expr, capEnv)); err != nil {
 			return EvalResult{}, err
 		}
 	}

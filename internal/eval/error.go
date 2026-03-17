@@ -9,7 +9,9 @@ import (
 // RuntimeError represents an error during evaluation.
 type RuntimeError struct {
 	Message string
-	Span    span.Span
+	Span    span.Span // internal: byte offsets
+	Line    int       // 1-based line number (populated by Runtime)
+	Col     int       // 1-based column number (populated by Runtime)
 }
 
 func (e *RuntimeError) Error() string {

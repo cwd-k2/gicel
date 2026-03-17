@@ -465,7 +465,10 @@ func compileErrorJSON(err error) map[string]any {
 func outputJSON(v any) {
 	enc := json.NewEncoder(os.Stdout)
 	enc.SetIndent("", "  ")
-	_ = enc.Encode(v) // write error to stdout is intentionally ignored
+	if err := enc.Encode(v); err != nil {
+		fmt.Fprintf(os.Stderr, "error: writing output: %v\n", err)
+		os.Exit(1)
+	}
 }
 
 // summarizeSteps produces a per-section breakdown of explain events.

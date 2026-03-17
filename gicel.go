@@ -119,6 +119,17 @@ type CheckTraceHook = check.CheckTraceHook
 // Use errors.As to match this type from RunWith errors.
 type RuntimeError = eval.RuntimeError
 
+// StepLimitError indicates the evaluation step limit was exceeded.
+// Use errors.As to distinguish step-limit exhaustion from other errors.
+type StepLimitError = eval.StepLimitError
+
+// DepthLimitError indicates the call depth limit was exceeded.
+type DepthLimitError = eval.DepthLimitError
+
+// AllocLimitError indicates the allocation byte limit was exceeded.
+// Used and Limit fields report the actual and allowed byte counts.
+type AllocLimitError = eval.AllocLimitError
+
 // NewCapEnv creates a new capability environment from a map.
 // The map is not copied; the caller must not modify it after this call.
 func NewCapEnv(caps map[string]any) CapEnv {

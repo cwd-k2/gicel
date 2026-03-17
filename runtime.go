@@ -2,6 +2,7 @@ package gicel
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/cwd-k2/gicel/internal/core"
@@ -9,6 +10,15 @@ import (
 	"github.com/cwd-k2/gicel/internal/span"
 	"github.com/cwd-k2/gicel/internal/types"
 )
+
+// annotateError populates Line/Col on RuntimeError from the Source.
+func (r *Runtime) annotateError(err error) error {
+	var re *eval.RuntimeError
+	if errors.As(err, &re) && r.source != nil && re.Span != (span.Span{}) {
+		re.Line, re.Col = r.source.Location(re.Span.Start)
+	}
+	return err
+}
 
 // Runtime is an immutable, compiled GICEL program.
 // It is goroutine-safe and can be executed concurrently.
@@ -95,9 +105,18 @@ func (r *Runtime) buildEnv(bindings map[string]Value) (*eval.Env, error) {
 	return env, nil
 }
 
+// runRequest groups per-execution parameters for the execute method.
+type runRequest struct {
+	caps      map[string]any
+	bindings  map[string]Value
+	entry     string
+	obs       *eval.ExplainObserver
+	traceHook eval.TraceHook
+}
+
 // execute is the unified execution core.
-func (r *Runtime) execute(ctx context.Context, caps map[string]any, bindings map[string]Value, entry string, obs *eval.ExplainObserver, traceHook eval.TraceHook) (eval.EvalResult, EvalStats, error) {
-	env, err := r.buildEnv(bindings)
+func (r *Runtime) execute(ctx context.Context, req *runRequest) (eval.EvalResult, EvalStats, error) {
+	env, err := r.buildEnv(req.bindings)
 	if err != nil {
 		return eval.EvalResult{}, EvalStats{}, err
 	}
@@ -107,13 +126,13 @@ func (r *Runtime) execute(ctx context.Context, caps map[string]any, bindings map
 		limit.SetAllocLimit(r.allocLimit)
 	}
 
-	ev := eval.NewEvaluator(ctx, r.prims, limit, traceHook, obs)
+	ev := eval.NewEvaluator(ctx, r.prims, limit, req.traceHook, req.obs)
 
 	// Module bindings (internal — suppressed in explain).
 	// All modules evaluated in registration order (preserves dependency ordering).
 	// Each binding is registered under both plain name and qualified key.
 	for _, me := range r.moduleEntries {
-		env, err = r.evalModuleBindings(ev, env, me.name, me.prog.Bindings, obs)
+		env, err = r.evalBindingsCore(ev, env, me.prog.Bindings, me.name, false, req.obs)
 		if err != nil {
 			return eval.EvalResult{}, EvalStats{}, err
 		}
@@ -136,26 +155,26 @@ func (r *Runtime) execute(ctx context.Context, caps map[string]any, bindings map
 	var entryExpr core.Core
 	var nonEntry []core.Binding
 	for _, b := range r.prog.Bindings {
-		if b.Name == entry {
+		if b.Name == req.entry {
 			entryExpr = b.Expr
 		} else {
 			nonEntry = append(nonEntry, b)
 		}
 	}
 
-	env, err = r.evalBindings(ev, env, nonEntry, true, obs)
+	env, err = r.evalBindingsCore(ev, env, nonEntry, "", true, req.obs)
 	if err != nil {
 		return eval.EvalResult{}, EvalStats{}, err
 	}
 
 	if entryExpr == nil {
-		return eval.EvalResult{}, EvalStats{}, fmt.Errorf("entry point %q not found", entry)
+		return eval.EvalResult{}, EvalStats{}, fmt.Errorf("entry point %q not found", req.entry)
 	}
 
-	if obs != nil {
-		obs.Section(entry)
+	if req.obs != nil {
+		req.obs.Section(req.entry)
 	}
-	capEnv := eval.NewCapEnv(caps)
+	capEnv := eval.NewCapEnv(req.caps)
 	result, err := ev.Eval(env, capEnv, entryExpr)
 	if err != nil {
 		return eval.EvalResult{}, EvalStats{}, err
@@ -164,27 +183,31 @@ func (r *Runtime) execute(ctx context.Context, caps map[string]any, bindings map
 	if err != nil {
 		return eval.EvalResult{}, EvalStats{}, err
 	}
-	if obs != nil {
-		obs.Result(eval.PrettyValue(result.Value))
+	if req.obs != nil {
+		req.obs.Result(eval.PrettyValue(result.Value))
 	}
 	return result, ev.Stats(), nil
 }
 
-// evalBindings evaluates a slice of bindings using forward-reference cells.
-// The provided Evaluator is shared with the caller so that resource limits
-// (steps, allocation, depth) are enforced cumulatively across all bindings.
-// When label is true, explain events mark each binding's evaluation boundary
-// and closures are treated as user-visible; otherwise they are internal.
-func (r *Runtime) evalBindings(ev *eval.Evaluator, env *eval.Env, bindings []core.Binding, label bool, obs *eval.ExplainObserver) (*eval.Env, error) {
+// evalBindingsCore evaluates a slice of bindings using forward-reference cells.
+// modulePrefix is "" for user bindings or "ModuleName" for module bindings.
+// When modulePrefix is non-empty, each binding is also registered under a
+// qualified key (module\x00name) for qualified import resolution.
+// When userVisible is true, explain events mark each binding's evaluation
+// boundary; otherwise closures are marked as internal.
+func (r *Runtime) evalBindingsCore(ev *eval.Evaluator, env *eval.Env, bindings []core.Binding, modulePrefix string, userVisible bool, obs *eval.ExplainObserver) (*eval.Env, error) {
 	bindings = core.SortBindings(bindings)
 	cells := make(map[string]*eval.IndirectVal, len(bindings))
 	for _, b := range bindings {
 		cell := &eval.IndirectVal{}
 		cells[b.Name] = cell
 		env = env.Extend(b.Name, cell)
+		if modulePrefix != "" {
+			env = env.Extend(modulePrefix+"\x00"+b.Name, cell)
+		}
 	}
 	for _, b := range bindings {
-		if label {
+		if userVisible {
 			obs.Section(b.Name)
 		}
 		result, err := ev.Eval(env, eval.NewCapEnv(nil), b.Expr)
@@ -194,36 +217,9 @@ func (r *Runtime) evalBindings(ev *eval.Evaluator, env *eval.Env, bindings []cor
 		v := result.Value
 		if clo, ok := v.(*eval.Closure); ok {
 			clo.Name = b.Name
-			if !label {
+			if !userVisible {
 				obs.MarkInternal(b.Name)
 			}
-		}
-		cells[b.Name].Ref = &v
-	}
-	return env, nil
-}
-
-// evalModuleBindings evaluates module bindings with dual registration:
-// each binding is registered under both its plain name and a qualified key
-// (module\x00name) to support qualified import resolution at runtime.
-func (r *Runtime) evalModuleBindings(ev *eval.Evaluator, env *eval.Env, moduleName string, bindings []core.Binding, obs *eval.ExplainObserver) (*eval.Env, error) {
-	bindings = core.SortBindings(bindings)
-	cells := make(map[string]*eval.IndirectVal, len(bindings))
-	for _, b := range bindings {
-		cell := &eval.IndirectVal{}
-		cells[b.Name] = cell
-		env = env.Extend(b.Name, cell)
-		env = env.Extend(moduleName+"\x00"+b.Name, cell)
-	}
-	for _, b := range bindings {
-		result, err := ev.Eval(env, eval.NewCapEnv(nil), b.Expr)
-		if err != nil {
-			return nil, fmt.Errorf("evaluating %s: %w", b.Name, err)
-		}
-		v := result.Value
-		if clo, ok := v.(*eval.Closure); ok {
-			clo.Name = b.Name
-			obs.MarkInternal(b.Name)
 		}
 		cells[b.Name].Ref = &v
 	}
@@ -247,9 +243,15 @@ func (r *Runtime) RunWith(ctx context.Context, opts *RunOptions) (*RunResult, er
 			obs.SetAll(true)
 		}
 	}
-	result, stats, err := r.execute(ctx, opts.Caps, opts.Bindings, entry, obs, opts.Trace)
+	result, stats, err := r.execute(ctx, &runRequest{
+		caps:      opts.Caps,
+		bindings:  opts.Bindings,
+		entry:     entry,
+		obs:       obs,
+		traceHook: opts.Trace,
+	})
 	if err != nil {
-		return nil, err
+		return nil, r.annotateError(err)
 	}
 	return &RunResult{Value: result.Value, CapEnv: result.CapEnv, Stats: stats}, nil
 }

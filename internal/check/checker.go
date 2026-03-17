@@ -63,7 +63,9 @@ type CheckTraceEvent struct {
 	Kind    CheckTraceKind
 	Depth   int
 	Message string
-	Span    span.Span
+	Span    span.Span // internal byte offsets (retained for internal use)
+	Line    int       // 1-based line number
+	Col     int       // 1-based column number
 }
 
 // CheckTraceHook receives trace events during type checking.
@@ -516,11 +518,14 @@ func (ch *Checker) addCodedError(code errs.Code, s span.Span, msg string) {
 
 func (ch *Checker) trace(kind CheckTraceKind, s span.Span, format string, args ...any) {
 	if ch.config.Trace != nil {
+		line, col := ch.source.Location(s.Start)
 		ch.config.Trace(CheckTraceEvent{
 			Kind:    kind,
 			Depth:   ch.depth,
 			Message: fmt.Sprintf(format, args...),
 			Span:    s,
+			Line:    line,
+			Col:     col,
 		})
 	}
 }

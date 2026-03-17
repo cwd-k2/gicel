@@ -1091,12 +1091,8 @@ main := True
 func TestParseOnly(t *testing.T) {
 	eng := gicel.NewEngine()
 	eng.Use(gicel.Prelude)
-	ast, err := eng.Parse(`main := True`)
-	if err != nil {
+	if err := eng.Parse(`main := True`); err != nil {
 		t.Fatal(err)
-	}
-	if ast == nil {
-		t.Error("expected non-nil AST from Parse")
 	}
 }
 
@@ -3439,15 +3435,11 @@ main := id T
 	}
 }
 
-func TestParseReturnsOpaque(t *testing.T) {
+func TestParseChecksSyntax(t *testing.T) {
 	eng := gicel.NewEngine()
 	eng.Use(gicel.Prelude)
-	parsed, err := eng.Parse(`main := True`)
-	if err != nil {
+	if err := eng.Parse(`main := True`); err != nil {
 		t.Fatal(err)
-	}
-	if parsed == nil {
-		t.Error("expected non-nil ParsedProgram")
 	}
 }
 

@@ -10,7 +10,7 @@ import (
 )
 
 func newTestEval() *Evaluator {
-	return NewEvaluator(context.Background(), NewPrimRegistry(), DefaultLimit(), nil, nil)
+	return NewEvaluator(context.Background(), NewPrimRegistry(), defaultLimit(), nil, nil)
 }
 
 func TestEvalVar(t *testing.T) {
@@ -119,7 +119,7 @@ func TestEvalPrimOp(t *testing.T) {
 	prims.Register("id", func(ctx context.Context, cap CapEnv, args []Value, _ Applier) (Value, CapEnv, error) {
 		return args[0], cap, nil
 	})
-	ev := NewEvaluator(context.Background(), prims, DefaultLimit(), nil, nil)
+	ev := NewEvaluator(context.Background(), prims, defaultLimit(), nil, nil)
 	term := &core.PrimOp{
 		Name: "id",
 		Args: []core.Core{&core.Con{Name: "Unit"}},
@@ -139,7 +139,7 @@ func TestEvalCapEnvThreading(t *testing.T) {
 	prims.Register("setFoo", func(ctx context.Context, cap CapEnv, args []Value, _ Applier) (Value, CapEnv, error) {
 		return &ConVal{Con: "Unit"}, cap.Set("foo", "bar"), nil
 	})
-	ev := NewEvaluator(context.Background(), prims, DefaultLimit(), nil, nil)
+	ev := NewEvaluator(context.Background(), prims, defaultLimit(), nil, nil)
 	// Bind(PrimOp("setFoo"), "_", Pure(Con("Unit")))
 	term := &core.Bind{
 		Comp: &core.PrimOp{Name: "setFoo"},
@@ -174,7 +174,7 @@ func TestStepLimit(t *testing.T) {
 func TestContextCancellation(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel() // cancel immediately
-	ev := NewEvaluator(ctx, NewPrimRegistry(), DefaultLimit(), nil, nil)
+	ev := NewEvaluator(ctx, NewPrimRegistry(), defaultLimit(), nil, nil)
 	_, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), &core.Con{Name: "Unit"})
 	if !errors.Is(err, context.Canceled) {
 		t.Errorf("expected context.Canceled, got %v", err)
@@ -184,15 +184,10 @@ func TestContextCancellation(t *testing.T) {
 func TestTraceHook(t *testing.T) {
 	var events []string
 	hook := func(e TraceEvent) error {
-		switch e.Node.(type) {
-		case *core.Con:
-			events = append(events, "Con")
-		case *core.Pure:
-			events = append(events, "Pure")
-		}
+		events = append(events, e.NodeKind)
 		return nil
 	}
-	ev := NewEvaluator(context.Background(), NewPrimRegistry(), DefaultLimit(), hook, nil)
+	ev := NewEvaluator(context.Background(), NewPrimRegistry(), defaultLimit(), hook, nil)
 	term := &core.Pure{Expr: &core.Con{Name: "Unit"}}
 	_, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), term)
 	if err != nil {
@@ -418,7 +413,7 @@ func TestBindForceEffectfulBody(t *testing.T) {
 	prims.Register("setFoo", func(ctx context.Context, cap CapEnv, args []Value, _ Applier) (Value, CapEnv, error) {
 		return &ConVal{Con: "Unit"}, cap.Set("foo", "done"), nil
 	})
-	ev := NewEvaluator(context.Background(), prims, DefaultLimit(), nil, nil)
+	ev := NewEvaluator(context.Background(), prims, defaultLimit(), nil, nil)
 	term := &core.Bind{
 		Comp: &core.Pure{Expr: &core.Con{Name: "Unit"}},
 		Var:  "_",
@@ -1165,7 +1160,7 @@ func TestEvalPrimValPartialApplication(t *testing.T) {
 		b := args[1].(*HostVal).Inner.(int64)
 		return &HostVal{Inner: a + b}, ce, nil
 	})
-	ev := NewEvaluator(context.Background(), prims, DefaultLimit(), nil, nil)
+	ev := NewEvaluator(context.Background(), prims, defaultLimit(), nil, nil)
 
 	// PrimOp with arity 2, applied to 0 args → PrimVal.
 	primOp := &core.PrimOp{Name: "add2", Arity: 2}
@@ -1216,7 +1211,7 @@ func TestEvalEffectfulPrimValDeferred(t *testing.T) {
 	prims.Register("eff0", func(_ context.Context, ce CapEnv, args []Value, _ Applier) (Value, CapEnv, error) {
 		return &ConVal{Con: "Done"}, ce.Set("effected", true), nil
 	})
-	ev := NewEvaluator(context.Background(), prims, DefaultLimit(), nil, nil)
+	ev := NewEvaluator(context.Background(), prims, defaultLimit(), nil, nil)
 
 	// Effectful PrimOp with arity=0: should produce a PrimVal (deferred).
 	term := &core.PrimOp{Name: "eff0", Arity: 0, Effectful: true}

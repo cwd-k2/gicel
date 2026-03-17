@@ -319,9 +319,6 @@ func injectCoreImport(ast *syntax.AstProgram) {
 	ast.Imports = append([]syntax.DeclImport{{ModuleName: "Core"}}, ast.Imports...)
 }
 
-// ParsedProgram is an opaque parsed program for inspection.
-type ParsedProgram struct{ prog *syntax.AstProgram }
-
 // CoreProgram is an opaque compiled Core IR for inspection.
 type CoreProgram struct{ prog *core.Program }
 
@@ -361,14 +358,12 @@ func (cr *CompileResult) CoreProgram() *CoreProgram {
 	return &CoreProgram{prog: cr.prog}
 }
 
-// Parse lexes and parses source code, returning an opaque parsed program.
-// Useful for tooling and editor integration.
-func (e *Engine) Parse(source string) (*ParsedProgram, error) {
-	ast, _, err := e.parseSource(source)
-	if err != nil {
-		return nil, err
-	}
-	return &ParsedProgram{prog: ast}, nil
+// Parse lexes and parses source code, checking for syntax errors.
+// Returns nil on success; the parsed AST is not exposed.
+// Use Compile for full type-checking and static information.
+func (e *Engine) Parse(source string) error {
+	_, _, err := e.parseSource(source)
+	return err
 }
 
 // Compile compiles and type-checks source code, returning all static
