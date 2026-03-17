@@ -281,19 +281,20 @@ instance Packed (List a) a {
   unpack := id
 }
 
-class FromList l e | l =: e {
-  fromList :: List e -> l
+class FromList l {
+  type Elem l :: Type;
+  fromList :: List (Elem l) -> l
 }
 
-class FromList l e => ToList l e | l =: e {
-  toList :: l -> List e
+class FromList l => ToList l {
+  toList :: l -> List (Elem l)
 }
 
-instance FromList (List a) a { fromList := id }
-instance ToList (List a) a { toList := id }
+instance FromList (List a) { type Elem (List a) =: a; fromList := id }
+instance ToList (List a) { toList := id }
 
-instance FromList (Maybe a) a { fromList := head }
-instance ToList (Maybe a) a {
+instance FromList (Maybe a) { type Elem (Maybe a) =: a; fromList := head }
+instance ToList (Maybe a) {
   toList := \m. case m { Nothing -> Nil; Just x -> Cons x Nil }
 }
 

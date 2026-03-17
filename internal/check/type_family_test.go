@@ -562,3 +562,131 @@ func TestTyFamilyAppZonk(t *testing.T) {
 		t.Errorf("expected arg to be Int after zonk, got %v", fa.Args[0])
 	}
 }
+
+// --- Check-mode App: associated type family return-context reduction ---
+
+func TestCheckAppAssocTypeFromReturnContext(t *testing.T) {
+	// Associated type Elem depends on class parameter c.
+	// fromList :: List (Elem c) -> c.
+	// When called as `fromList (Cons True Nil) :: List Bool`,
+	// the expected return type `List Bool` must solve ?c = List Bool
+	// BEFORE checking the argument, so that Elem (List Bool) reduces to Bool.
+	source := `
+data Bool := True | False
+data List a := Nil | Cons a (List a)
+
+class FromList c {
+  type Elem c :: Type;
+  fromList :: List (Elem c) -> c
+}
+
+instance FromList (List a) {
+  type Elem (List a) =: a;
+  fromList := \xs. xs
+}
+
+main :: List Bool
+main := fromList (Cons True Nil)
+`
+	checkSource(t, source, nil)
+}
+
+func TestCheckAppAssocTypeInfixFromReturnContext(t *testing.T) {
+	// Same scenario but using an infix operator.
+	source := `
+data Bool := True | False
+data List a := Nil | Cons a (List a)
+
+class Conv c {
+  type Elem c :: Type;
+  conv :: List (Elem c) -> c
+}
+
+instance Conv (List a) {
+  type Elem (List a) =: a;
+  conv := \xs. xs
+}
+
+infixr 0 <|
+(<|) :: \ a b. (a -> b) -> a -> b
+(<|) := \f x. f x
+
+main :: List Bool
+main := conv <| (Cons True Nil)
+`
+	checkSource(t, source, nil)
+}
+
+func TestCheckAppAssocTypeAnnotationStillWorks(t *testing.T) {
+	// Annotation-based workaround should still work alongside the fix.
+	source := `
+data Bool := True | False
+data List a := Nil | Cons a (List a)
+
+class FromList c {
+  type Elem c :: Type;
+  fromList :: List (Elem c) -> c
+}
+
+instance FromList (List a) {
+  type Elem (List a) =: a;
+  fromList := \xs. xs
+}
+
+main := (fromList (Cons True Nil)) :: List Bool
+`
+	checkSource(t, source, nil)
+}
+
+func TestCheckAppNoRegressionPlainFunction(t *testing.T) {
+	// Ensure plain function application still works correctly in check mode.
+	source := `
+data Bool := True | False
+data List a := Nil | Cons a (List a)
+
+id :: \ a. a -> a
+id := \x. x
+
+main :: List Bool
+main := id (Cons True Nil)
+`
+	checkSource(t, source, nil)
+}
+
+func TestCheckAppCBPVSpecialFormsFallback(t *testing.T) {
+	// CBPV special forms (pure, thunk, force) must still work through
+	// the infer + subsCheck path, not the new checkApp path.
+	source := `
+data Unit := Unit
+
+main :: Computation {} {} Unit
+main := pure Unit
+`
+	checkSource(t, source, nil)
+}
+
+func TestCheckAppAssocTypeNestedApp(t *testing.T) {
+	// Nested application where both inner and outer app benefit from
+	// return-context type propagation.
+	source := `
+data Bool := True | False
+data List a := Nil | Cons a (List a)
+
+class Convert c {
+  type Elem c :: Type;
+  convert :: Elem c -> c
+}
+
+instance Convert (List a) {
+  type Elem (List a) =: a;
+  convert := \x. Cons x Nil
+}
+
+wrap :: \ a. a -> a
+wrap := \x. x
+
+main :: List Bool
+main := wrap (convert True)
+`
+	checkSource(t, source, nil)
+}

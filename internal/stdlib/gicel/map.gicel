@@ -51,8 +51,8 @@ mapToList := _mapToList
 mapFromList :: \k v. Ord k => List (k, v) -> Map k v
 mapFromList := _mapFromList compare
 
-instance Ord k => FromList (Map k v) (k, v) { fromList := _mapFromList compare }
-instance Ord k => ToList (Map k v) (k, v) { toList := _mapToList }
+instance Ord k => FromList (Map k v) { type Elem (Map k v) =: (k, v); fromList := _mapFromList compare }
+instance Ord k => ToList (Map k v) { toList := _mapToList }
 
 foldlWithKey :: \k v b. (b -> k -> v -> b) -> b -> Map k v -> b
 foldlWithKey := _mapFoldlWithKey

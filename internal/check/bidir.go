@@ -255,6 +255,18 @@ func (ch *Checker) check(expr syntax.Expr, expected types.Type) core.Core {
 	case *syntax.ExprRecord:
 		return ch.checkRecord(e, expected)
 
+	case *syntax.ExprApp:
+		return ch.checkApp(e, expected)
+
+	case *syntax.ExprInfix:
+		return ch.checkInfix(e, expected)
+
+	case *syntax.ExprSection:
+		return ch.checkSection(e, expected)
+
+	case *syntax.ExprParen:
+		return ch.check(e.Inner, expected)
+
 	default:
 		// Subsumption: infer type, then check inferred ≤ expected.
 		inferredTy, coreExpr := ch.infer(expr)
@@ -405,6 +417,79 @@ func (ch *Checker) checkLam(e *syntax.ExprLam, expected types.Type) core.Core {
 	}
 	ch.ctx.Pop()
 	return &core.Lam{Param: paramName, ParamType: argTy, Body: bodyCore, S: e.S}
+}
+
+// checkApp handles function application in check mode.
+// Pre-unifies retTy with expected before checking the argument, so that
+// return-position metavariables are solved and type families in argTy can reduce.
+// Special forms (pure, thunk, force, bind) fall back to infer + subsCheck.
+func (ch *Checker) checkApp(e *syntax.ExprApp, expected types.Type) core.Core {
+	// Special forms: delegate to infer + subsCheck (they have dedicated CBPV logic).
+	if v, ok := e.Fun.(*syntax.ExprVar); ok {
+		switch v.Name {
+		case "pure", "thunk", "force":
+			inferredTy, coreExpr := ch.infer(e)
+			return ch.subsCheck(inferredTy, expected, coreExpr, e.S)
+		}
+	}
+	if inner, ok := e.Fun.(*syntax.ExprApp); ok {
+		if v, ok := inner.Fun.(*syntax.ExprVar); ok && v.Name == "bind" {
+			inferredTy, coreExpr := ch.infer(e)
+			return ch.subsCheck(inferredTy, expected, coreExpr, e.S)
+		}
+	}
+
+	// General case: infer function, decompose arrow, pre-unify return type.
+	funTy, funCore := ch.infer(e.Fun)
+	argTy, retTy := ch.matchArrow(funTy, e.S)
+
+	// Trial pre-unification: solve metas in retTy from expected.
+	// Rollback on failure (retTy may be forall/evidence, handled by subsCheck).
+	ch.tryUnify(retTy, expected)
+
+	argCore := ch.check(e.Arg, argTy)
+	appCore := &core.App{Fun: funCore, Arg: argCore, S: e.S}
+	return ch.subsCheck(retTy, expected, appCore, e.S)
+}
+
+// checkInfix handles infix expressions in check mode.
+// Pre-unifies the final return type with expected before checking arguments.
+func (ch *Checker) checkInfix(e *syntax.ExprInfix, expected types.Type) core.Core {
+	opTy, ok := ch.ctx.LookupVar(e.Op)
+	if !ok {
+		ch.addCodedError(errs.ErrUnboundVar, e.S, fmt.Sprintf("unbound operator: %s", e.Op))
+		return &core.Var{Name: e.Op, S: e.S}
+	}
+	opTy, opCore := ch.instantiate(opTy, &core.Var{Name: e.Op, S: e.S})
+	arg1Ty, ret1Ty := ch.matchArrow(opTy, e.S)
+	arg2Ty, ret2Ty := ch.matchArrow(ret1Ty, e.S)
+
+	// Trial pre-unification: solve metas in ret2Ty from expected.
+	ch.tryUnify(ret2Ty, expected)
+
+	arg1Core := ch.check(e.Left, arg1Ty)
+	arg2Core := ch.check(e.Right, arg2Ty)
+	infixCore := &core.App{
+		Fun: &core.App{Fun: opCore, Arg: arg1Core, S: e.S},
+		Arg: arg2Core,
+		S:   e.S,
+	}
+	return ch.subsCheck(ret2Ty, expected, infixCore, e.S)
+}
+
+// checkSection handles operator sections in check mode.
+// Desugars to a lambda and delegates to check (checkLam propagates expected).
+func (ch *Checker) checkSection(e *syntax.ExprSection, expected types.Type) core.Core {
+	param := "$sec"
+	var body syntax.Expr
+	paramVar := &syntax.ExprVar{Name: param, S: e.S}
+	if e.IsRight {
+		body = &syntax.ExprInfix{Left: paramVar, Op: e.Op, Right: e.Arg, S: e.S}
+	} else {
+		body = &syntax.ExprInfix{Left: e.Arg, Op: e.Op, Right: paramVar, S: e.S}
+	}
+	lam := &syntax.ExprLam{Params: []syntax.Pattern{&syntax.PatVar{Name: param, S: e.S}}, Body: body, S: e.S}
+	return ch.check(lam, expected)
 }
 
 func isStructuredPattern(p syntax.Pattern) bool {
