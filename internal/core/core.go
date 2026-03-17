@@ -13,9 +13,11 @@ type Core interface {
 }
 
 // Var — variable reference.
+// Module is non-empty for qualified imports (canonical module name, not alias).
 type Var struct {
-	Name string
-	S    span.Span
+	Name   string
+	Module string // "" = local/open, "Std.Num" = qualified import origin
+	S      span.Span
 }
 
 // Lam — lambda abstraction.
@@ -50,10 +52,12 @@ type TyLam struct {
 }
 
 // Con — constructor application (C e1 ... en).
+// Module is non-empty for qualified imports (canonical module name, not alias).
 type Con struct {
-	Name string
-	Args []Core
-	S    span.Span
+	Name   string
+	Module string // "" = local/open, "Std.Num" = qualified import origin
+	Args   []Core
+	S      span.Span
 }
 
 // Case — case analysis.

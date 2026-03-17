@@ -81,6 +81,21 @@ func (ch *Checker) infer(expr syntax.Expr) (types.Type, core.Core) {
 		}
 		return ch.instantiate(ty, coreExpr)
 
+	case *syntax.ExprQualVar:
+		ty, coreExpr, ok := ch.lookupQualVar(e)
+		if !ok {
+			return ty, coreExpr
+		}
+		ch.trace(TraceInfer, e.S, "infer: %s.%s ⇒ %s", e.Qualifier, e.Name, types.Pretty(ty))
+		return ch.instantiate(ty, coreExpr)
+
+	case *syntax.ExprQualCon:
+		ty, coreExpr, ok := ch.lookupQualCon(e)
+		if !ok {
+			return ty, coreExpr
+		}
+		return ch.instantiate(ty, coreExpr)
+
 	case *syntax.ExprApp:
 		// Optimization: fully applied pure/bind elaborate directly to Core nodes.
 		if v, ok := e.Fun.(*syntax.ExprVar); ok {
@@ -606,6 +621,38 @@ func (ch *Checker) lookupCon(e *syntax.ExprCon) (types.Type, core.Core, bool) {
 	return ty, &core.Con{Name: e.Name, S: e.S}, true
 }
 
+// lookupQualVar resolves a qualified variable reference (N.add) to its type and Core node.
+func (ch *Checker) lookupQualVar(e *syntax.ExprQualVar) (types.Type, core.Core, bool) {
+	qs, ok := ch.qualifiedScopes[e.Qualifier]
+	if !ok {
+		ch.addCodedError(errs.ErrUnboundVar, e.S, fmt.Sprintf("unknown qualifier: %s", e.Qualifier))
+		return &types.TyError{S: e.S}, &core.Var{Name: e.Name, S: e.S}, false
+	}
+	ty, ok := qs.exports.Values[e.Name]
+	if !ok {
+		ch.addCodedError(errs.ErrUnboundVar, e.S,
+			fmt.Sprintf("module %s does not export value: %s", qs.moduleName, e.Name))
+		return &types.TyError{S: e.S}, &core.Var{Name: e.Name, S: e.S}, false
+	}
+	return ty, &core.Var{Name: e.Name, Module: qs.moduleName, S: e.S}, true
+}
+
+// lookupQualCon resolves a qualified constructor reference (N.Just) to its type and Core node.
+func (ch *Checker) lookupQualCon(e *syntax.ExprQualCon) (types.Type, core.Core, bool) {
+	qs, ok := ch.qualifiedScopes[e.Qualifier]
+	if !ok {
+		ch.addCodedError(errs.ErrUnboundCon, e.S, fmt.Sprintf("unknown qualifier: %s", e.Qualifier))
+		return &types.TyError{S: e.S}, &core.Con{Name: e.Name, S: e.S}, false
+	}
+	ty, ok := qs.exports.ConTypes[e.Name]
+	if !ok {
+		ch.addCodedError(errs.ErrUnboundCon, e.S,
+			fmt.Sprintf("module %s does not export constructor: %s", qs.moduleName, e.Name))
+		return &types.TyError{S: e.S}, &core.Con{Name: e.Name, S: e.S}, false
+	}
+	return ty, &core.Con{Name: e.Name, Module: qs.moduleName, S: e.S}, true
+}
+
 // inferHead infers the type of an expression without instantiating outer foralls.
 // Used by ExprTyApp to preserve the forall for explicit type application (@).
 func (ch *Checker) inferHead(expr syntax.Expr) (types.Type, core.Core) {
@@ -615,6 +662,12 @@ func (ch *Checker) inferHead(expr syntax.Expr) (types.Type, core.Core) {
 		return ty, coreExpr
 	case *syntax.ExprCon:
 		ty, coreExpr, _ := ch.lookupCon(e)
+		return ty, coreExpr
+	case *syntax.ExprQualVar:
+		ty, coreExpr, _ := ch.lookupQualVar(e)
+		return ty, coreExpr
+	case *syntax.ExprQualCon:
+		ty, coreExpr, _ := ch.lookupQualCon(e)
 		return ty, coreExpr
 	case *syntax.ExprTyApp:
 		innerTy, innerCore := ch.inferHead(e.Expr)

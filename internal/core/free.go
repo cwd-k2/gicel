@@ -22,8 +22,9 @@ func unbind(bound map[string]int, name string) {
 func freeVarsRec(c Core, bound map[string]int, fv map[string]struct{}) {
 	switch n := c.(type) {
 	case *Var:
-		if bound[n.Name] == 0 {
-			fv[n.Name] = struct{}{}
+		key := varKey(n)
+		if bound[key] == 0 {
+			fv[key] = struct{}{}
 		}
 	case *Lam:
 		bind(bound, n.Param)
@@ -117,7 +118,7 @@ func AnnotateFreeVarsProgram(p *Program) {
 func annotateFV(c Core) map[string]struct{} {
 	switch n := c.(type) {
 	case *Var:
-		return map[string]struct{}{n.Name: {}}
+		return map[string]struct{}{varKey(n): {}}
 	case *Lam:
 		bodyFV := annotateFV(n.Body)
 		// Remove the param — it comes from application, not from captured env.
@@ -221,6 +222,20 @@ func setToSlice(s map[string]struct{}) []string {
 		result = append(result, k)
 	}
 	return result
+}
+
+// varKey returns a map key for a Var node. Qualified vars use "module\x00name"
+// to avoid collisions with local names.
+func varKey(v *Var) string {
+	if v.Module != "" {
+		return v.Module + "\x00" + v.Name
+	}
+	return v.Name
+}
+
+// VarKey returns the map key for a Var node (exported for use in evaluator).
+func VarKey(v *Var) string {
+	return varKey(v)
 }
 
 // FreeTypeVars returns type-level free variables in Core.

@@ -24,6 +24,27 @@ func (ch *Checker) resolveTypeExpr(texpr syntax.TypeExpr) types.Type {
 		// DataKinds: if the name is a promoted constructor, treat it as a TyCon
 		// (it will be kind-checked later; for now it's just a name in type position).
 		return &types.TyCon{Name: t.Name, S: t.S}
+	case *syntax.TyExprQualCon:
+		qs, ok := ch.qualifiedScopes[t.Qualifier]
+		if !ok {
+			ch.addCodedError(errs.ErrImport, t.S, fmt.Sprintf("unknown qualifier: %s", t.Qualifier))
+			return &types.TyError{S: t.S}
+		}
+		// Check qualified aliases
+		if info, ok := qs.exports.Aliases[t.Name]; ok && len(info.params) == 0 {
+			return info.body
+		}
+		// Check qualified type families
+		if fam, ok := qs.exports.TypeFamilies[t.Name]; ok && len(fam.Params) == 0 {
+			return &types.TyFamilyApp{Name: t.Name, Args: nil, Kind: fam.ResultKind, S: t.S}
+		}
+		// Check qualified types
+		if _, ok := qs.exports.Types[t.Name]; ok {
+			return &types.TyCon{Name: t.Name, S: t.S}
+		}
+		ch.addCodedError(errs.ErrImport, t.S,
+			fmt.Sprintf("module %s does not export type: %s", qs.moduleName, t.Name))
+		return &types.TyError{S: t.S}
 	case *syntax.TyExprApp:
 		fun := ch.resolveTypeExpr(t.Fun)
 		arg := ch.resolveTypeExpr(t.Arg)

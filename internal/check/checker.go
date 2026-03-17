@@ -91,6 +91,13 @@ type Checker struct {
 	deferred          []deferredConstraint
 	depth             int
 	resolveDepth      int // instance resolution recursion depth
+	qualifiedScopes   map[string]*qualifiedScope // alias → qualified module scope
+}
+
+// qualifiedScope holds a module's exports for qualified name resolution.
+type qualifiedScope struct {
+	moduleName string         // canonical module name
+	exports    *ModuleExports // the module's full exports
 }
 
 // DataTypeInfo carries constructor information for exhaustiveness.
@@ -149,6 +156,7 @@ func CheckModule(prog *syntax.AstProgram, source *span.Source, config *CheckConf
 		promotedCons:      make(map[string]types.Kind),
 		kindVars:          make(map[string]bool),
 		families:          make(map[string]*TypeFamilyInfo),
+		qualifiedScopes:   make(map[string]*qualifiedScope),
 	}
 	ch.unifier = NewUnifierShared(&ch.freshID)
 	ch.initContext()
@@ -166,51 +174,205 @@ func (ch *Checker) importModules(imports []syntax.DeclImport) {
 		}
 		return
 	}
+
+	seen := make(map[string]bool)       // module names already imported
+	aliases := make(map[string]string)   // alias → module name (for collision detection)
+
 	for _, imp := range imports {
+		// Duplicate import detection.
+		if seen[imp.ModuleName] {
+			ch.addCodedError(errs.ErrImport, imp.S,
+				fmt.Sprintf("duplicate import: %s", imp.ModuleName))
+			continue
+		}
+		seen[imp.ModuleName] = true
+
 		mod, ok := ch.config.ImportedModules[imp.ModuleName]
 		if !ok {
 			ch.addCodedError(errs.ErrImport, imp.S,
 				fmt.Sprintf("unknown module: %s", imp.ModuleName))
 			continue
 		}
-		// Merge module exports into checker state.
-		for name, kind := range mod.Types {
-			ch.config.RegisteredTypes[name] = kind
-		}
-		for name, ty := range mod.ConTypes {
-			ch.conTypes[name] = ty
-			ch.ctx.Push(&CtxVar{Name: name, Type: ty})
-		}
-		for name, info := range mod.ConInfo {
-			ch.conInfo[name] = info
-		}
-		for name, alias := range mod.Aliases {
-			ch.aliases[name] = alias
-		}
-		for name, cls := range mod.Classes {
-			ch.classes[name] = cls
-		}
-		for _, inst := range mod.Instances {
-			if ch.importedInstances[inst] {
+
+		switch {
+		case imp.Alias != "":
+			// Qualified import: import M as N
+			if prev, exists := aliases[imp.Alias]; exists {
+				ch.addCodedError(errs.ErrImport, imp.S,
+					fmt.Sprintf("alias %s already used for module %s", imp.Alias, prev))
 				continue
 			}
-			ch.instances = append(ch.instances, inst)
-			ch.instancesByClass[inst.ClassName] = append(ch.instancesByClass[inst.ClassName], inst)
-			ch.importedInstances[inst] = true
-		}
-		for name, ty := range mod.Values {
-			ch.ctx.Push(&CtxVar{Name: name, Type: ty})
-		}
-		for name, kind := range mod.PromotedKinds {
-			ch.promotedKinds[name] = kind
-		}
-		for name, kind := range mod.PromotedCons {
-			ch.promotedCons[name] = kind
-		}
-		for name, fam := range mod.TypeFamilies {
-			ch.families[name] = fam.Clone()
+			aliases[imp.Alias] = imp.ModuleName
+			ch.qualifiedScopes[imp.Alias] = &qualifiedScope{
+				moduleName: imp.ModuleName,
+				exports:    mod,
+			}
+			// Instances always imported (coherence requirement).
+			ch.importInstances(mod)
+
+		case imp.Names != nil:
+			// Selective import: import M (x, T(..), C(A,B))
+			ch.importSelective(mod, imp)
+
+		default:
+			// Open import: import M — merge all exports.
+			ch.importOpen(mod)
 		}
 	}
+}
+
+// importOpen merges all exports from a module into the checker state (open import).
+func (ch *Checker) importOpen(mod *ModuleExports) {
+	for name, kind := range mod.Types {
+		ch.config.RegisteredTypes[name] = kind
+	}
+	for name, ty := range mod.ConTypes {
+		ch.conTypes[name] = ty
+		ch.ctx.Push(&CtxVar{Name: name, Type: ty})
+	}
+	for name, info := range mod.ConInfo {
+		ch.conInfo[name] = info
+	}
+	for name, alias := range mod.Aliases {
+		ch.aliases[name] = alias
+	}
+	for name, cls := range mod.Classes {
+		ch.classes[name] = cls
+	}
+	ch.importInstances(mod)
+	for name, ty := range mod.Values {
+		ch.ctx.Push(&CtxVar{Name: name, Type: ty})
+	}
+	for name, kind := range mod.PromotedKinds {
+		ch.promotedKinds[name] = kind
+	}
+	for name, kind := range mod.PromotedCons {
+		ch.promotedCons[name] = kind
+	}
+	for name, fam := range mod.TypeFamilies {
+		ch.families[name] = fam.Clone()
+	}
+}
+
+// importInstances imports all instances from a module (for coherence).
+func (ch *Checker) importInstances(mod *ModuleExports) {
+	for _, inst := range mod.Instances {
+		if ch.importedInstances[inst] {
+			continue
+		}
+		ch.instances = append(ch.instances, inst)
+		ch.instancesByClass[inst.ClassName] = append(ch.instancesByClass[inst.ClassName], inst)
+		ch.importedInstances[inst] = true
+	}
+}
+
+// importSelective imports only the names specified in the import list.
+func (ch *Checker) importSelective(mod *ModuleExports, imp syntax.DeclImport) {
+	// Instances always imported regardless of selective list (coherence).
+	ch.importInstances(mod)
+
+	for _, in := range imp.Names {
+		name := in.Name
+		found := false
+
+		// Value binding (lowercase name or operator)
+		if ty, ok := mod.Values[name]; ok {
+			ch.ctx.Push(&CtxVar{Name: name, Type: ty})
+			found = true
+		}
+
+		// Type constructor
+		if kind, ok := mod.Types[name]; ok {
+			ch.config.RegisteredTypes[name] = kind
+			found = true
+
+			// Import constructors if HasSub
+			if in.HasSub {
+				ch.importTypeSubs(mod, name, in)
+			}
+		}
+
+		// Type alias
+		if alias, ok := mod.Aliases[name]; ok {
+			ch.aliases[name] = alias
+			found = true
+		}
+
+		// Class
+		if cls, ok := mod.Classes[name]; ok {
+			ch.classes[name] = cls
+			found = true
+
+			// Import class methods
+			if in.HasSub {
+				ch.importClassSubs(mod, cls, in)
+			} else if !in.HasSub {
+				// Bare class name: import all methods
+				for _, m := range cls.Methods {
+					if ty, ok := mod.Values[m.Name]; ok {
+						ch.ctx.Push(&CtxVar{Name: m.Name, Type: ty})
+					}
+				}
+			}
+		}
+
+		// Type family
+		if fam, ok := mod.TypeFamilies[name]; ok {
+			ch.families[name] = fam.Clone()
+			found = true
+		}
+
+		// Promoted kinds
+		if kind, ok := mod.PromotedKinds[name]; ok {
+			ch.promotedKinds[name] = kind
+			found = true
+		}
+		if kind, ok := mod.PromotedCons[name]; ok {
+			ch.promotedCons[name] = kind
+			found = true
+		}
+
+		if !found {
+			ch.addCodedError(errs.ErrImport, imp.S,
+				fmt.Sprintf("module %s does not export: %s", imp.ModuleName, name))
+		}
+	}
+}
+
+// importTypeSubs imports constructors for a type based on the import name spec.
+func (ch *Checker) importTypeSubs(mod *ModuleExports, typeName string, in syntax.ImportName) {
+	for conName, info := range mod.ConInfo {
+		if info.Name != typeName {
+			continue
+		}
+		if in.AllSubs || containsStr(in.SubList, conName) {
+			if ty, ok := mod.ConTypes[conName]; ok {
+				ch.conTypes[conName] = ty
+				ch.ctx.Push(&CtxVar{Name: conName, Type: ty})
+			}
+			ch.conInfo[conName] = info
+		}
+	}
+}
+
+// importClassSubs imports class methods based on the import name spec.
+func (ch *Checker) importClassSubs(mod *ModuleExports, cls *ClassInfo, in syntax.ImportName) {
+	for _, m := range cls.Methods {
+		if in.AllSubs || containsStr(in.SubList, m.Name) {
+			if ty, ok := mod.Values[m.Name]; ok {
+				ch.ctx.Push(&CtxVar{Name: m.Name, Type: ty})
+			}
+		}
+	}
+}
+
+func containsStr(ss []string, s string) bool {
+	for _, v := range ss {
+		if v == s {
+			return true
+		}
+	}
+	return false
 }
 
 // ExportModule captures the current checker state as a ModuleExports.

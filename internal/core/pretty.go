@@ -16,6 +16,9 @@ func prettyCore(c Core, indent int) string {
 	pad := strings.Repeat("  ", indent)
 	switch n := c.(type) {
 	case *Var:
+		if n.Module != "" {
+			return n.Module + "." + n.Name
+		}
 		return n.Name
 	case *Lam:
 		return fmt.Sprintf("\\%s -> %s", n.Param, prettyCore(n.Body, indent))
@@ -26,14 +29,18 @@ func prettyCore(c Core, indent int) string {
 	case *TyLam:
 		return fmt.Sprintf("/\\%s -> %s", n.TyParam, prettyCore(n.Body, indent))
 	case *Con:
+		conName := n.Name
+		if n.Module != "" {
+			conName = n.Module + "." + n.Name
+		}
 		if len(n.Args) == 0 {
-			return n.Name
+			return conName
 		}
 		args := make([]string, len(n.Args))
 		for i, a := range n.Args {
 			args[i] = prettyCore(a, indent)
 		}
-		return fmt.Sprintf("(%s %s)", n.Name, strings.Join(args, " "))
+		return fmt.Sprintf("(%s %s)", conName, strings.Join(args, " "))
 	case *Case:
 		var b strings.Builder
 		fmt.Fprintf(&b, "case %s of", prettyCore(n.Scrutinee, indent))
