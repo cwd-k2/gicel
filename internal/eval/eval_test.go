@@ -6,11 +6,18 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/cwd-k2/gicel/internal/budget"
 	"github.com/cwd-k2/gicel/internal/core"
 )
 
+func defaultBudget() *budget.Budget {
+	b := budget.New(context.Background(), 1_000_000, 1_000)
+	b.SetAllocLimit(10 * 1024 * 1024) // 10 MiB
+	return b
+}
+
 func newTestEval() *Evaluator {
-	return NewEvaluator(context.Background(), NewPrimRegistry(), defaultLimit(), nil, nil)
+	return NewEvaluator(defaultBudget(), NewPrimRegistry(), nil, nil)
 }
 
 func TestEvalVar(t *testing.T) {
@@ -119,7 +126,7 @@ func TestEvalPrimOp(t *testing.T) {
 	prims.Register("id", func(ctx context.Context, cap CapEnv, args []Value, _ Applier) (Value, CapEnv, error) {
 		return args[0], cap, nil
 	})
-	ev := NewEvaluator(context.Background(), prims, defaultLimit(), nil, nil)
+	ev := NewEvaluator(defaultBudget(), prims, nil, nil)
 	term := &core.PrimOp{
 		Name: "id",
 		Args: []core.Core{&core.Con{Name: "Unit"}},
@@ -139,7 +146,7 @@ func TestEvalCapEnvThreading(t *testing.T) {
 	prims.Register("setFoo", func(ctx context.Context, cap CapEnv, args []Value, _ Applier) (Value, CapEnv, error) {
 		return &ConVal{Con: "Unit"}, cap.Set("foo", "bar"), nil
 	})
-	ev := NewEvaluator(context.Background(), prims, defaultLimit(), nil, nil)
+	ev := NewEvaluator(defaultBudget(), prims, nil, nil)
 	// Bind(PrimOp("setFoo"), "_", Pure(Con("Unit")))
 	term := &core.Bind{
 		Comp: &core.PrimOp{Name: "setFoo"},
@@ -157,7 +164,7 @@ func TestEvalCapEnvThreading(t *testing.T) {
 }
 
 func TestStepLimit(t *testing.T) {
-	ev := NewEvaluator(context.Background(), NewPrimRegistry(), NewLimit(3, 100), nil, nil)
+	ev := NewEvaluator(budget.New(context.Background(), 3, 100), NewPrimRegistry(), nil, nil)
 	// A chain: App(App(Lam, Lam), Con) — will exceed 3 steps
 	term := &core.App{
 		Fun: &core.Lam{Param: "f",
@@ -166,7 +173,7 @@ func TestStepLimit(t *testing.T) {
 		Arg: &core.Lam{Param: "x", Body: &core.Var{Name: "x"}},
 	}
 	_, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), term)
-	if _, ok := err.(*StepLimitError); !ok {
+	if _, ok := err.(*budget.StepLimitError); !ok {
 		t.Errorf("expected StepLimitError, got %v", err)
 	}
 }
@@ -174,7 +181,7 @@ func TestStepLimit(t *testing.T) {
 func TestContextCancellation(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel() // cancel immediately
-	ev := NewEvaluator(ctx, NewPrimRegistry(), defaultLimit(), nil, nil)
+	ev := NewEvaluator(budget.New(ctx, 1_000_000, 1_000), NewPrimRegistry(), nil, nil)
 	_, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), &core.Con{Name: "Unit"})
 	if !errors.Is(err, context.Canceled) {
 		t.Errorf("expected context.Canceled, got %v", err)
@@ -187,7 +194,7 @@ func TestTraceHook(t *testing.T) {
 		events = append(events, e.NodeKind)
 		return nil
 	}
-	ev := NewEvaluator(context.Background(), NewPrimRegistry(), defaultLimit(), hook, nil)
+	ev := NewEvaluator(defaultBudget(), NewPrimRegistry(), hook, nil)
 	term := &core.Pure{Expr: &core.Con{Name: "Unit"}}
 	_, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), term)
 	if err != nil {
@@ -361,9 +368,9 @@ func TestEvalStats(t *testing.T) {
 
 func TestAllocLimit(t *testing.T) {
 	// A tight alloc limit should stop evaluation before producing large structures.
-	limit := NewLimit(1_000_000, 1_000)
-	limit.SetAllocLimit(100) // 100 bytes — enough for a few small values
-	ev := NewEvaluator(context.Background(), NewPrimRegistry(), limit, nil, nil)
+	b := budget.New(context.Background(), 1_000_000, 1_000)
+	b.SetAllocLimit(100) // 100 bytes — enough for a few small values
+	ev := NewEvaluator(b, NewPrimRegistry(), nil, nil)
 
 	// Build a 10-field record: costRecBase(56) + costRecFld(32)*10 = 376 bytes > 100
 	fields := make([]core.RecordField, 10)
@@ -377,7 +384,7 @@ func TestAllocLimit(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected AllocLimitError, got nil")
 	}
-	var allocErr *AllocLimitError
+	var allocErr *budget.AllocLimitError
 	if !errors.As(err, &allocErr) {
 		t.Fatalf("expected AllocLimitError, got %T: %v", err, err)
 	}
@@ -413,7 +420,7 @@ func TestBindForceEffectfulBody(t *testing.T) {
 	prims.Register("setFoo", func(ctx context.Context, cap CapEnv, args []Value, _ Applier) (Value, CapEnv, error) {
 		return &ConVal{Con: "Unit"}, cap.Set("foo", "done"), nil
 	})
-	ev := NewEvaluator(context.Background(), prims, defaultLimit(), nil, nil)
+	ev := NewEvaluator(defaultBudget(), prims, nil, nil)
 	term := &core.Bind{
 		Comp: &core.Pure{Expr: &core.Con{Name: "Unit"}},
 		Var:  "_",
@@ -571,25 +578,25 @@ func TestThunkCapEnvMarkShared(t *testing.T) {
 }
 
 func TestStepLimitBoundary(t *testing.T) {
-	// NewLimit(n, ...) allows exactly n eval steps.
-	ev := NewEvaluator(context.Background(), NewPrimRegistry(), NewLimit(2, 100), nil, nil)
+	// Budget with 2 steps allows exactly 2 eval steps.
+	ev := NewEvaluator(budget.New(context.Background(), 2, 100), NewPrimRegistry(), nil, nil)
 	_, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), &core.Lit{Value: int64(42)})
 	if err != nil {
-		t.Fatalf("NewLimit(2): first eval should succeed, got %v", err)
+		t.Fatalf("budget(2): first eval should succeed, got %v", err)
 	}
 	_, err = ev.Eval(EmptyEnv(), EmptyCapEnv(), &core.Lit{Value: int64(43)})
 	if err != nil {
-		t.Fatalf("NewLimit(2): second eval should succeed, got %v", err)
+		t.Fatalf("budget(2): second eval should succeed, got %v", err)
 	}
 	_, err = ev.Eval(EmptyEnv(), EmptyCapEnv(), &core.Lit{Value: int64(44)})
-	if _, ok := err.(*StepLimitError); !ok {
-		t.Errorf("NewLimit(2): third eval should fail with StepLimitError, got %v", err)
+	if _, ok := err.(*budget.StepLimitError); !ok {
+		t.Errorf("budget(2): third eval should fail with StepLimitError, got %v", err)
 	}
 }
 
 func TestDepthLimitBoundary(t *testing.T) {
 	// maxDepth=1: one level of function application should succeed.
-	ev := NewEvaluator(context.Background(), NewPrimRegistry(), NewLimit(1_000_000, 1), nil, nil)
+	ev := NewEvaluator(budget.New(context.Background(), 1_000_000, 1), NewPrimRegistry(), nil, nil)
 	term := &core.App{
 		Fun: &core.Lam{Param: "x", Body: &core.Var{Name: "x"}},
 		Arg: &core.Con{Name: "Unit"},
@@ -602,9 +609,9 @@ func TestDepthLimitBoundary(t *testing.T) {
 
 func TestAllocLimitBoundary(t *testing.T) {
 	// allocLimit = costConBase: exactly one ConVal allocation should succeed.
-	limit := NewLimit(1_000_000, 1_000)
-	limit.SetAllocLimit(int64(costConBase))
-	ev := NewEvaluator(context.Background(), NewPrimRegistry(), limit, nil, nil)
+	b := budget.New(context.Background(), 1_000_000, 1_000)
+	b.SetAllocLimit(int64(costConBase))
+	ev := NewEvaluator(b, NewPrimRegistry(), nil, nil)
 	_, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), &core.Con{Name: "Unit"})
 	if err != nil {
 		t.Fatalf("allocLimit=costConBase: one ConVal should succeed, got %v", err)
@@ -612,25 +619,25 @@ func TestAllocLimitBoundary(t *testing.T) {
 }
 
 func TestChargeAllocViaContext(t *testing.T) {
-	limit := NewLimit(1_000_000, 1_000)
-	limit.SetAllocLimit(100)
-	ctx := ContextWithLimit(context.Background(), limit)
+	b := budget.New(context.Background(), 1_000_000, 1_000)
+	b.SetAllocLimit(100)
+	ctx := budget.ContextWithBudget(context.Background(), b)
 
 	// Charging within budget should succeed.
-	if err := ChargeAlloc(ctx, 50); err != nil {
+	if err := budget.ChargeAlloc(ctx, 50); err != nil {
 		t.Fatalf("expected success, got %v", err)
 	}
-	if limit.Allocated() != 50 {
-		t.Fatalf("expected 50 allocated, got %d", limit.Allocated())
+	if b.Allocated() != 50 {
+		t.Fatalf("expected 50 allocated, got %d", b.Allocated())
 	}
 
 	// Charging over budget should fail.
-	if err := ChargeAlloc(ctx, 60); err == nil {
+	if err := budget.ChargeAlloc(ctx, 60); err == nil {
 		t.Fatal("expected AllocLimitError")
 	}
 
 	// No-limit context should always succeed.
-	if err := ChargeAlloc(context.Background(), 999); err != nil {
+	if err := budget.ChargeAlloc(context.Background(), 999); err != nil {
 		t.Fatalf("expected success without limit, got %v", err)
 	}
 }
@@ -640,7 +647,7 @@ func TestDepthLimitError(t *testing.T) {
 	// Depth only accumulates via Bind chains (not trampolined).
 	// Build: Bind(Pure(Unit), \_. Bind(Pure(Unit), \_. Pure(Unit)))
 	// = 2 nested Binds → depth 2.
-	ev := NewEvaluator(context.Background(), NewPrimRegistry(), NewLimit(1_000_000, 1), nil, nil)
+	ev := NewEvaluator(budget.New(context.Background(), 1_000_000, 1), NewPrimRegistry(), nil, nil)
 	term := &core.Bind{
 		Comp: &core.Pure{Expr: &core.Con{Name: "Unit"}},
 		Var:  "_",
@@ -654,7 +661,7 @@ func TestDepthLimitError(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected DepthLimitError for depth-2 Bind chain at maxDepth=1")
 	}
-	if _, ok := err.(*DepthLimitError); !ok {
+	if _, ok := err.(*budget.DepthLimitError); !ok {
 		t.Errorf("expected *DepthLimitError, got %T: %v", err, err)
 	}
 }
@@ -674,16 +681,16 @@ func TestDepthLimitMultiLevel(t *testing.T) {
 	}
 
 	// maxDepth=5: chain of 5 Binds should succeed.
-	ev := NewEvaluator(context.Background(), NewPrimRegistry(), NewLimit(1_000_000, 5), nil, nil)
+	ev := NewEvaluator(budget.New(context.Background(), 1_000_000, 5), NewPrimRegistry(), nil, nil)
 	_, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), buildBindChain(5))
 	if err != nil {
 		t.Fatalf("depth-5 Bind chain at maxDepth=5 should succeed, got: %v", err)
 	}
 
 	// Chain of 6 should fail.
-	ev2 := NewEvaluator(context.Background(), NewPrimRegistry(), NewLimit(1_000_000, 5), nil, nil)
+	ev2 := NewEvaluator(budget.New(context.Background(), 1_000_000, 5), NewPrimRegistry(), nil, nil)
 	_, err = ev2.Eval(EmptyEnv(), EmptyCapEnv(), buildBindChain(6))
-	if _, ok := err.(*DepthLimitError); !ok {
+	if _, ok := err.(*budget.DepthLimitError); !ok {
 		t.Errorf("depth-6 Bind chain at maxDepth=5 should fail with DepthLimitError, got %T: %v", err, err)
 	}
 }
@@ -702,7 +709,7 @@ func TestLetRecTCOFlat(t *testing.T) {
 		}
 	}
 
-	ev := NewEvaluator(context.Background(), NewPrimRegistry(), NewLimit(1_000_000, 5), nil, nil)
+	ev := NewEvaluator(budget.New(context.Background(), 1_000_000, 5), NewPrimRegistry(), nil, nil)
 	r, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), term)
 	if err != nil {
 		t.Fatalf("expected success for LetRec TCO, got: %v", err)
@@ -760,8 +767,7 @@ func TestLetRecNonLamBinding(t *testing.T) {
 func TestTraceHookAbort(t *testing.T) {
 	sentinel := errors.New("abort from hook")
 	hook := func(ev TraceEvent) error { return sentinel }
-	limit := NewLimit(1_000_000, 1_000)
-	evl := NewEvaluator(context.Background(), NewPrimRegistry(), limit, hook, nil)
+	evl := NewEvaluator(defaultBudget(), NewPrimRegistry(), hook, nil)
 	_, err := evl.Eval(EmptyEnv(), EmptyCapEnv(), &core.Lit{Value: int64(1)})
 	if !errors.Is(err, sentinel) {
 		t.Errorf("expected sentinel error from hook, got %v", err)
@@ -830,8 +836,7 @@ func TestTCOTailRecursionFlat(t *testing.T) {
 	const N = 100_000
 	ctx := context.Background()
 	prims := NewPrimRegistry()
-	limit := NewLimit(N*10, N*2)
-	ev := NewEvaluator(ctx, prims, limit, nil, nil)
+	ev := NewEvaluator(budget.New(ctx, N*10, N*2), prims, nil, nil)
 
 	zeroLit := &core.Lit{Value: int64(0)}
 	oneLit := &core.Lit{Value: int64(1)}
@@ -1160,7 +1165,7 @@ func TestEvalPrimValPartialApplication(t *testing.T) {
 		b := args[1].(*HostVal).Inner.(int64)
 		return &HostVal{Inner: a + b}, ce, nil
 	})
-	ev := NewEvaluator(context.Background(), prims, defaultLimit(), nil, nil)
+	ev := NewEvaluator(defaultBudget(), prims, nil, nil)
 
 	// PrimOp with arity 2, applied to 0 args → PrimVal.
 	primOp := &core.PrimOp{Name: "add2", Arity: 2}
@@ -1211,7 +1216,7 @@ func TestEvalEffectfulPrimValDeferred(t *testing.T) {
 	prims.Register("eff0", func(_ context.Context, ce CapEnv, args []Value, _ Applier) (Value, CapEnv, error) {
 		return &ConVal{Con: "Done"}, ce.Set("effected", true), nil
 	})
-	ev := NewEvaluator(context.Background(), prims, defaultLimit(), nil, nil)
+	ev := NewEvaluator(defaultBudget(), prims, nil, nil)
 
 	// Effectful PrimOp with arity=0: should produce a PrimVal (deferred).
 	term := &core.PrimOp{Name: "eff0", Arity: 0, Effectful: true}

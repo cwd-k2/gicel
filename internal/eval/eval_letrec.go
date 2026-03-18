@@ -64,7 +64,7 @@ func letRecGroupFV(e *core.LetRec) []string {
 // evalLetRec handles the LetRec case of evalStep: knot-tying for recursive
 // bindings with FV trimming and fixpoint optimization.
 func (ev *Evaluator) evalLetRec(env *Env, capEnv CapEnv, e *core.LetRec) (EvalResult, error) {
-	if err := ev.limit.Alloc(int64(costLetRec * len(e.Bindings))); err != nil {
+	if err := ev.budget.Alloc(int64(costLetRec * len(e.Bindings))); err != nil {
 		return EvalResult{}, err
 	}
 	closureBase := env
@@ -101,7 +101,7 @@ func (ev *Evaluator) evalLetRec(env *Env, capEnv CapEnv, e *core.LetRec) (EvalRe
 			}
 		}
 	}
-	if err := ev.limit.Enter(); err != nil {
+	if err := ev.budget.Enter(); err != nil {
 		return EvalResult{}, err
 	}
 	return EvalResult{Value: &bounceVal{

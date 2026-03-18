@@ -31,7 +31,7 @@ func (ev *Evaluator) ForceEffectful(r EvalResult, callSite span.Span) (EvalResul
 		if site.Start == 0 {
 			site = pv.S
 		}
-		ev.obs.Emit(ev.limit.Depth(), ExplainEffect, effectDetail(pv.Name, pv.Args, val, capForImpl, newCap), site)
+		ev.obs.Emit(ev.budget.Depth(), ExplainEffect, effectDetail(pv.Name, pv.Args, val, capForImpl, newCap), site)
 	}
 	return EvalResult{val, newCap}, nil
 }
@@ -49,7 +49,7 @@ func (ev *Evaluator) applyResolved(capEnv CapEnv, fn Value, arg Value, site *cor
 		return r, nil
 	}
 	for range b.leaveDepth {
-		ev.limit.Leave()
+		ev.budget.Leave()
 	}
 	if b.leaveObs {
 		result, err := ev.Eval(b.env, b.capEnv, b.expr)
@@ -81,7 +81,7 @@ func (ev *Evaluator) applier() Applier {
 func (ev *Evaluator) apply(capEnv CapEnv, fn Value, arg Value, site *core.App) (EvalResult, error) {
 	switch f := fn.(type) {
 	case *Closure:
-		if err := ev.limit.Enter(); err != nil {
+		if err := ev.budget.Enter(); err != nil {
 			return EvalResult{}, err
 		}
 		var leaveObs bool
@@ -92,7 +92,7 @@ func (ev *Evaluator) apply(capEnv CapEnv, fn Value, arg Value, site *core.App) (
 			} else if ev.obs.Active() {
 				detail := labelDetail(f.Name, "enter")
 				detail.Value = PrettyValue(arg)
-				ev.obs.Emit(ev.limit.Depth(), ExplainLabel, detail, site.S)
+				ev.obs.Emit(ev.budget.Depth(), ExplainLabel, detail, site.S)
 			}
 		}
 		bodyEnv := f.Env.Extend(f.Param, arg)
@@ -101,7 +101,7 @@ func (ev *Evaluator) apply(capEnv CapEnv, fn Value, arg Value, site *core.App) (
 			leaveDepth: 1, leaveObs: leaveObs,
 		}}, nil
 	case *ConVal:
-		if err := ev.limit.Alloc(int64(costConBase + costConArg*(len(f.Args)+1))); err != nil {
+		if err := ev.budget.Alloc(int64(costConBase + costConArg*(len(f.Args)+1))); err != nil {
 			return EvalResult{}, err
 		}
 		args := make([]Value, len(f.Args)+1)

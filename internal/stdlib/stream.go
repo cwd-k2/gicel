@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/cwd-k2/gicel/internal/budget"
 	"github.com/cwd-k2/gicel/internal/eval"
 )
 
@@ -51,7 +52,7 @@ func takeSImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, apply eva
 			return nil, ce, err
 		}
 	}
-	if err := eval.ChargeAlloc(ctx, int64(len(items))*costConsNode); err != nil {
+	if err := budget.ChargeAlloc(ctx, int64(len(items))*costConsNode); err != nil {
 		return nil, ce, err
 	}
 	return buildList(items), ce, nil

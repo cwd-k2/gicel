@@ -66,7 +66,7 @@ type IndirectVal struct {
 // It signals that evaluation should continue with a new (env, capEnv, expr)
 // without growing the Go call stack.
 //
-// leaveDepth records how many ev.limit.Leave() calls the trampoline must
+// leaveDepth records how many ev.budget.Leave() calls the trampoline must
 // make before the next evalStep — this unwinds the Enter() that the
 // bouncing frame performed (closure application, LetRec body, Force body).
 // leaveObs records whether ev.obs.LeaveInternal() is needed (closure
@@ -75,7 +75,7 @@ type bounceVal struct {
 	env        *Env
 	capEnv     CapEnv
 	expr       core.Core
-	leaveDepth int  // pending ev.limit.Leave() calls
+	leaveDepth int  // pending ev.budget.Leave() calls
 	leaveObs   bool // pending ev.obs.LeaveInternal()
 }
 

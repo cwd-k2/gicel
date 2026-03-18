@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/cwd-k2/gicel/internal/budget"
 	"github.com/cwd-k2/gicel/internal/eval"
 )
 
@@ -55,7 +56,7 @@ func mapInsertImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, apply
 	if err != nil {
 		return nil, ce, err
 	}
-	if err := eval.ChargeAlloc(ctx, costAVLNode); err != nil {
+	if err := budget.ChargeAlloc(ctx, costAVLNode); err != nil {
 		return nil, ce, err
 	}
 	newRoot, inserted, newCe, err := avlInsert(m.root, key, value, m.cmp, ce, apply)
@@ -93,7 +94,7 @@ func mapDeleteImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, apply
 	if err != nil {
 		return nil, ce, err
 	}
-	if err := eval.ChargeAlloc(ctx, costAVLNode); err != nil {
+	if err := budget.ChargeAlloc(ctx, costAVLNode); err != nil {
 		return nil, ce, err
 	}
 	newRoot, deleted, newCe, err := avlDelete(m.root, key, m.cmp, ce, apply)
@@ -122,7 +123,7 @@ func mapToListImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, _ eva
 	if err != nil {
 		return nil, ce, err
 	}
-	if err := eval.ChargeAlloc(ctx, int64(m.size)*(costTupleNode+costConsNode)); err != nil {
+	if err := budget.ChargeAlloc(ctx, int64(m.size)*(costTupleNode+costConsNode)); err != nil {
 		return nil, ce, err
 	}
 	return avlToConsList(m.root), ce, nil
@@ -153,7 +154,7 @@ func mapFromListImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, app
 		if !ok1 || !ok2 {
 			return nil, ce, fmt.Errorf("mapFromList: tuple must have _1 and _2")
 		}
-		if err := eval.ChargeAlloc(ctx, costAVLNode); err != nil {
+		if err := budget.ChargeAlloc(ctx, costAVLNode); err != nil {
 			return nil, ce, err
 		}
 		var inserted bool
@@ -242,7 +243,7 @@ func avlWalkMerge(ctx context.Context, n *avlNode, f eval.Value, result *mapVal,
 			return ce, err
 		}
 	}
-	if err := eval.ChargeAlloc(ctx, costAVLNode); err != nil {
+	if err := budget.ChargeAlloc(ctx, costAVLNode); err != nil {
 		return ce, err
 	}
 	var inserted bool

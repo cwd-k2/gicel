@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/cwd-k2/gicel/internal/core"
+	"github.com/cwd-k2/gicel/internal/budget"
 	"github.com/cwd-k2/gicel/internal/eval"
 )
 
@@ -119,7 +120,7 @@ func sliceConsImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, _ eva
 	if err != nil {
 		return nil, ce, err
 	}
-	if err := eval.ChargeAlloc(ctx, int64(len(s)+1)*costSlotSize); err != nil {
+	if err := budget.ChargeAlloc(ctx, int64(len(s)+1)*costSlotSize); err != nil {
 		return nil, ce, err
 	}
 	result := make([]eval.Value, len(s)+1)
@@ -133,7 +134,7 @@ func sliceSnocImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, _ eva
 	if err != nil {
 		return nil, ce, err
 	}
-	if err := eval.ChargeAlloc(ctx, int64(len(s)+1)*costSlotSize); err != nil {
+	if err := budget.ChargeAlloc(ctx, int64(len(s)+1)*costSlotSize); err != nil {
 		return nil, ce, err
 	}
 	result := make([]eval.Value, len(s)+1)
@@ -170,7 +171,7 @@ func sliceFromListImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, _
 	if !ok {
 		return nil, ce, fmt.Errorf("sliceFromList: expected List")
 	}
-	if err := eval.ChargeAlloc(ctx, int64(len(items))*2*costSlotSize); err != nil {
+	if err := budget.ChargeAlloc(ctx, int64(len(items))*2*costSlotSize); err != nil {
 		return nil, ce, err
 	}
 	result := make([]eval.Value, len(items))
@@ -183,7 +184,7 @@ func sliceToListImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, _ e
 	if err != nil {
 		return nil, ce, err
 	}
-	if err := eval.ChargeAlloc(ctx, int64(len(s))*costConsNode); err != nil {
+	if err := budget.ChargeAlloc(ctx, int64(len(s))*costConsNode); err != nil {
 		return nil, ce, err
 	}
 	return buildList(s), ce, nil
@@ -198,7 +199,7 @@ func sliceAppendImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, _ e
 	if err != nil {
 		return nil, ce, err
 	}
-	if err := eval.ChargeAlloc(ctx, int64(len(a)+len(b))*costSlotSize); err != nil {
+	if err := budget.ChargeAlloc(ctx, int64(len(a)+len(b))*costSlotSize); err != nil {
 		return nil, ce, err
 	}
 	result := make([]eval.Value, len(a)+len(b))
@@ -234,7 +235,7 @@ func sliceMapImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, apply 
 	if err != nil {
 		return nil, ce, err
 	}
-	if err := eval.ChargeAlloc(ctx, int64(len(s))*costSlotSize); err != nil {
+	if err := budget.ChargeAlloc(ctx, int64(len(s))*costSlotSize); err != nil {
 		return nil, ce, err
 	}
 	result := make([]eval.Value, len(s))

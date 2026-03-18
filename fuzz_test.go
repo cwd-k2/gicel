@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/cwd-k2/gicel"
+	"github.com/cwd-k2/gicel/internal/budget"
 	"github.com/cwd-k2/gicel/internal/check"
 	"github.com/cwd-k2/gicel/internal/core"
 	"github.com/cwd-k2/gicel/internal/errs"
@@ -216,9 +217,9 @@ func FuzzEvalLimits(f *testing.F) {
 			}
 		}
 
-		limit := eval.NewLimit(100_000, 200)
-		limit.SetAllocLimit(64 * 1024) // 64 KiB
-		ev := eval.NewEvaluator(context.Background(), eval.NewPrimRegistry(), limit, nil, nil)
+		b := budget.New(context.Background(), 100_000, 200)
+		b.SetAllocLimit(64 * 1024) // 64 KiB
+		ev := eval.NewEvaluator(b, eval.NewPrimRegistry(), nil, nil)
 		ev.Eval(eval.EmptyEnv(), eval.EmptyCapEnv(), term) // panics are the signal
 	})
 }

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/cwd-k2/gicel/internal/budget"
 	"github.com/cwd-k2/gicel/internal/eval"
 )
 
@@ -41,7 +42,7 @@ func toSliceImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, _ eval.
 	if !ok {
 		return nil, ce, fmt.Errorf("toSlice: expected List (Cons/Nil), got %T", v)
 	}
-	if err := eval.ChargeAlloc(ctx, int64(len(items))*costSlotSize); err != nil {
+	if err := budget.ChargeAlloc(ctx, int64(len(items))*costSlotSize); err != nil {
 		return nil, ce, err
 	}
 	anys := make([]any, len(items))
@@ -77,7 +78,7 @@ func concatImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, _ eval.A
 	if !ok {
 		return nil, ce, fmt.Errorf("concat: first argument is not a List")
 	}
-	if err := eval.ChargeAlloc(ctx, int64(len(xs))*costConsNode); err != nil {
+	if err := budget.ChargeAlloc(ctx, int64(len(xs))*costConsNode); err != nil {
 		return nil, ce, err
 	}
 	ys := args[1]
@@ -182,7 +183,7 @@ func takeImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, _ eval.App
 		prefix = append(prefix, con.Args[0])
 		v = con.Args[1]
 	}
-	if err := eval.ChargeAlloc(ctx, int64(len(prefix))*costConsNode); err != nil {
+	if err := budget.ChargeAlloc(ctx, int64(len(prefix))*costConsNode); err != nil {
 		return nil, ce, err
 	}
 	return buildList(prefix), ce, nil
@@ -247,7 +248,7 @@ func replicateImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, _ eva
 	if n <= 0 {
 		return &eval.ConVal{Con: "Nil"}, ce, nil
 	}
-	if err := eval.ChargeAlloc(ctx, n*costConsNode); err != nil {
+	if err := budget.ChargeAlloc(ctx, n*costConsNode); err != nil {
 		return nil, ce, err
 	}
 	elem := args[1]
@@ -276,7 +277,7 @@ func reverseImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, _ eval.
 		n++
 		v = con.Args[1]
 	}
-	if err := eval.ChargeAlloc(ctx, n*costConsNode); err != nil {
+	if err := budget.ChargeAlloc(ctx, n*costConsNode); err != nil {
 		return nil, ce, err
 	}
 	// Pass 2: build reversed list via foldl-cons.
@@ -313,7 +314,7 @@ func zipImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Appl
 		xs = xCon.Args[1]
 		ys = yCon.Args[1]
 	}
-	if err := eval.ChargeAlloc(ctx, int64(len(pairs))*(costTupleNode+costConsNode)); err != nil {
+	if err := budget.ChargeAlloc(ctx, int64(len(pairs))*(costTupleNode+costConsNode)); err != nil {
 		return nil, ce, err
 	}
 	return buildList(pairs), ce, nil
@@ -346,7 +347,7 @@ func unzipImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Ap
 		bs = append(bs, b)
 		v = con.Args[1]
 	}
-	if err := eval.ChargeAlloc(ctx, int64(len(as))*2*costConsNode); err != nil {
+	if err := budget.ChargeAlloc(ctx, int64(len(as))*2*costConsNode); err != nil {
 		return nil, ce, err
 	}
 	return &eval.RecordVal{Fields: map[string]eval.Value{"_1": buildList(as), "_2": buildList(bs)}}, ce, nil
@@ -423,7 +424,7 @@ func spanImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, apply eval
 		prefix = append(prefix, con.Args[0])
 		list = con.Args[1]
 	}
-	if err := eval.ChargeAlloc(ctx, int64(len(prefix))*costConsNode); err != nil {
+	if err := budget.ChargeAlloc(ctx, int64(len(prefix))*costConsNode); err != nil {
 		return nil, ce, err
 	}
 	return &eval.RecordVal{Fields: map[string]eval.Value{
@@ -442,7 +443,7 @@ func sortByImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, apply ev
 	if len(items) <= 1 {
 		return args[1], ce, nil
 	}
-	if err := eval.ChargeAlloc(ctx, int64(len(items))*costConsNode); err != nil {
+	if err := budget.ChargeAlloc(ctx, int64(len(items))*costConsNode); err != nil {
 		return nil, ce, err
 	}
 	sorted, newCe, err := mergeSort(items, cmp, ce, apply)
@@ -527,7 +528,7 @@ func scanlImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, apply eva
 		results = append(results, acc)
 		list = con.Args[1]
 	}
-	if err := eval.ChargeAlloc(ctx, int64(len(results))*costConsNode); err != nil {
+	if err := budget.ChargeAlloc(ctx, int64(len(results))*costConsNode); err != nil {
 		return nil, ce, err
 	}
 	return buildList(results), ce, nil
@@ -566,7 +567,7 @@ func unfoldrImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, apply e
 		items = append(items, a)
 		seed = b
 	}
-	if err := eval.ChargeAlloc(ctx, int64(len(items))*costConsNode); err != nil {
+	if err := budget.ChargeAlloc(ctx, int64(len(items))*costConsNode); err != nil {
 		return nil, ce, err
 	}
 	return buildList(items), ce, nil
@@ -583,7 +584,7 @@ func iterateNImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, apply 
 	if n <= 0 {
 		return &eval.ConVal{Con: "Nil"}, ce, nil
 	}
-	if err := eval.ChargeAlloc(ctx, n*costConsNode); err != nil {
+	if err := budget.ChargeAlloc(ctx, n*costConsNode); err != nil {
 		return nil, ce, err
 	}
 	items := make([]eval.Value, 0, n)

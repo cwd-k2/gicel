@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/cwd-k2/gicel/internal/budget"
 	"github.com/cwd-k2/gicel/internal/core"
 	"github.com/cwd-k2/gicel/internal/span"
 )
@@ -25,25 +26,25 @@ import (
 
 func TestProbeE_StepLimitZero(t *testing.T) {
 	// NewLimit(0, ...) means 0 remaining. First Step() should fail.
-	ev := NewEvaluator(context.Background(), NewPrimRegistry(), NewLimit(0, 100), nil, nil)
+	ev := NewEvaluator(budget.New(context.Background(), 0, 100), NewPrimRegistry(), nil, nil)
 	_, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), &core.Lit{Value: int64(42)})
-	if _, ok := err.(*StepLimitError); !ok {
+	if _, ok := err.(*budget.StepLimitError); !ok {
 		t.Errorf("expected StepLimitError with 0 steps, got %v", err)
 	}
 }
 
 func TestProbeE_StepLimitNegative(t *testing.T) {
 	// NewLimit(-1, ...) starts with negative remaining. Step() decrements.
-	ev := NewEvaluator(context.Background(), NewPrimRegistry(), NewLimit(-1, 100), nil, nil)
+	ev := NewEvaluator(budget.New(context.Background(), -1, 100), NewPrimRegistry(), nil, nil)
 	_, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), &core.Lit{Value: int64(42)})
-	if _, ok := err.(*StepLimitError); !ok {
+	if _, ok := err.(*budget.StepLimitError); !ok {
 		t.Errorf("expected StepLimitError with -1 steps, got %v", err)
 	}
 }
 
 func TestProbeE_DepthLimitZero(t *testing.T) {
 	// maxDepth=0: no Enter should be allowed (depth starts at 0, Enter increments to 1 > 0).
-	ev := NewEvaluator(context.Background(), NewPrimRegistry(), NewLimit(1_000_000, 0), nil, nil)
+	ev := NewEvaluator(budget.New(context.Background(), 1_000_000, 0), NewPrimRegistry(), nil, nil)
 	// A Bind requires Enter.
 	term := &core.Bind{
 		Comp: &core.Pure{Expr: &core.Lit{Value: int64(1)}},
@@ -51,21 +52,21 @@ func TestProbeE_DepthLimitZero(t *testing.T) {
 		Body: &core.Lit{Value: int64(2)},
 	}
 	_, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), term)
-	if _, ok := err.(*DepthLimitError); !ok {
+	if _, ok := err.(*budget.DepthLimitError); !ok {
 		t.Errorf("expected DepthLimitError with depth=0, got %v", err)
 	}
 }
 
 func TestProbeE_DepthLimitNegative(t *testing.T) {
 	// maxDepth=-1: every Enter should fail (depth 1 > -1).
-	ev := NewEvaluator(context.Background(), NewPrimRegistry(), NewLimit(1_000_000, -1), nil, nil)
+	ev := NewEvaluator(budget.New(context.Background(), 1_000_000, -1), NewPrimRegistry(), nil, nil)
 	term := &core.Bind{
 		Comp: &core.Pure{Expr: &core.Lit{Value: int64(1)}},
 		Var:  "_",
 		Body: &core.Lit{Value: int64(2)},
 	}
 	_, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), term)
-	if _, ok := err.(*DepthLimitError); !ok {
+	if _, ok := err.(*budget.DepthLimitError); !ok {
 		t.Errorf("expected DepthLimitError with depth=-1, got %v", err)
 	}
 }
@@ -76,9 +77,9 @@ func TestProbeE_AllocLimitNegative(t *testing.T) {
 	// Actually: l.allocated += bytes; if l.allocLimit > 0 && l.allocated > l.allocLimit
 	// With allocLimit=-1, the condition allocLimit > 0 is false, so it's disabled.
 	// BUG candidate: negative allocLimit disables the check via the > 0 guard.
-	limit := NewLimit(1_000_000, 1_000)
-	limit.SetAllocLimit(-1)
-	ev := NewEvaluator(context.Background(), NewPrimRegistry(), limit, nil, nil)
+	b := budget.New(context.Background(), 1_000_000, 1_000)
+	b.SetAllocLimit(-1)
+	ev := NewEvaluator(b, NewPrimRegistry(), nil, nil)
 	_, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), &core.Con{Name: "Unit"})
 	// This should succeed because negative allocLimit disables the check.
 	if err != nil {
@@ -88,9 +89,9 @@ func TestProbeE_AllocLimitNegative(t *testing.T) {
 
 func TestProbeE_AllocLimitExactBoundary(t *testing.T) {
 	// Set allocLimit to exactly costConBase. One Con should succeed, two should fail.
-	limit := NewLimit(1_000_000, 1_000)
-	limit.SetAllocLimit(int64(costConBase))
-	ev := NewEvaluator(context.Background(), NewPrimRegistry(), limit, nil, nil)
+	b := budget.New(context.Background(), 1_000_000, 1_000)
+	b.SetAllocLimit(int64(costConBase))
+	ev := NewEvaluator(b, NewPrimRegistry(), nil, nil)
 
 	// First allocation: exactly at limit.
 	_, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), &core.Con{Name: "A"})
@@ -749,37 +750,37 @@ func TestProbeE_ChargeAllocNoLimit(t *testing.T) {
 }
 
 func TestProbeE_ChargeAllocZeroBytes(t *testing.T) {
-	limit := NewLimit(1_000_000, 1_000)
-	limit.SetAllocLimit(100)
-	ctx := ContextWithLimit(context.Background(), limit)
-	err := ChargeAlloc(ctx, 0)
+	b := budget.New(context.Background(), 1_000_000, 1_000)
+	b.SetAllocLimit(100)
+	ctx := budget.ContextWithBudget(context.Background(), b)
+	err := budget.ChargeAlloc(ctx, 0)
 	if err != nil {
 		t.Fatalf("charging 0 bytes should succeed: %v", err)
 	}
-	if limit.Allocated() != 0 {
-		t.Errorf("expected 0 allocated, got %d", limit.Allocated())
+	if b.Allocated() != 0 {
+		t.Errorf("expected 0 allocated, got %d", b.Allocated())
 	}
 }
 
 func TestProbeE_ChargeAllocNegativeBytes(t *testing.T) {
 	// Charging negative bytes: the int64 addition would decrease allocated.
 	// This is an edge case - could underflow the counter.
-	limit := NewLimit(1_000_000, 1_000)
-	limit.SetAllocLimit(100)
-	ctx := ContextWithLimit(context.Background(), limit)
+	b := budget.New(context.Background(), 1_000_000, 1_000)
+	b.SetAllocLimit(100)
+	ctx := budget.ContextWithBudget(context.Background(), b)
 
 	// First charge some bytes.
-	_ = ChargeAlloc(ctx, 50)
+	_ = budget.ChargeAlloc(ctx, 50)
 	// Then charge negative. This would decrease allocated to 40.
-	err := ChargeAlloc(ctx, -10)
+	err := budget.ChargeAlloc(ctx, -10)
 	if err != nil {
 		t.Fatalf("negative charge should succeed (no underflow check): %v", err)
 	}
 	// NOTE: There is no guard against negative charges. This allows
 	// a malicious primitive to "reclaim" allocation budget. Not necessarily
 	// a bug since primitives are trusted code, but worth noting.
-	if limit.Allocated() != 40 {
-		t.Errorf("expected 40, got %d", limit.Allocated())
+	if b.Allocated() != 40 {
+		t.Errorf("expected 40, got %d", b.Allocated())
 	}
 }
 
@@ -1000,7 +1001,7 @@ func TestProbeE_CapEnvThreadingThroughConArgs(t *testing.T) {
 	prims.Register("markCap", func(_ context.Context, ce CapEnv, args []Value, _ Applier) (Value, CapEnv, error) {
 		return &HostVal{Inner: int64(1)}, ce.Set("marked", true), nil
 	})
-	ev := NewEvaluator(context.Background(), prims, defaultLimit(), nil, nil)
+	ev := NewEvaluator(defaultBudget(), prims, nil, nil)
 	term := &core.Con{
 		Name: "Pair",
 		Args: []core.Core{

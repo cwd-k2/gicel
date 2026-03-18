@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/cwd-k2/gicel/internal/budget"
 	"github.com/cwd-k2/gicel/internal/core"
 )
 
@@ -41,7 +42,7 @@ type EvalResult struct {
 type Evaluator struct {
 	ctx           context.Context
 	prims         *PrimRegistry
-	limit         *Limit
+	budget        *budget.Budget
 	trace         TraceHook
 	obs           *ExplainObserver // nil when explain is disabled
 	cachedApplier Applier          // reused across all primitive invocations
@@ -49,11 +50,11 @@ type Evaluator struct {
 }
 
 // NewEvaluator creates an Evaluator for a single execution.
-func NewEvaluator(ctx context.Context, prims *PrimRegistry, limit *Limit, trace TraceHook, obs *ExplainObserver) *Evaluator {
-	// Embed the Limit in the context so that stdlib primitives can charge
-	// Go-level allocations via ChargeAlloc(ctx, bytes).
-	ctx = ContextWithLimit(ctx, limit)
-	ev := &Evaluator{ctx: ctx, prims: prims, limit: limit, trace: trace, obs: obs}
+func NewEvaluator(b *budget.Budget, prims *PrimRegistry, trace TraceHook, obs *ExplainObserver) *Evaluator {
+	// Embed the Budget in the context so that stdlib primitives can charge
+	// Go-level allocations via budget.ChargeAlloc(ctx, bytes).
+	ctx := budget.ContextWithBudget(b.Context(), b)
+	ev := &Evaluator{ctx: ctx, prims: prims, budget: b, trace: trace, obs: obs}
 	ev.cachedApplier = func(fn Value, arg Value, capEnv CapEnv) (Value, CapEnv, error) {
 		r, err := ev.applyResolved(capEnv, fn, arg, &core.App{})
 		if err != nil {
@@ -66,7 +67,7 @@ func NewEvaluator(ctx context.Context, prims *PrimRegistry, limit *Limit, trace 
 
 // Stats returns the accumulated statistics.
 func (ev *Evaluator) Stats() EvalStats {
-	ev.stats.Allocated = ev.limit.Allocated()
+	ev.stats.Allocated = ev.budget.Allocated()
 	return ev.stats
 }
 
@@ -95,7 +96,7 @@ func (ev *Evaluator) Eval(env *Env, capEnv CapEnv, expr core.Core) (EvalResult, 
 		}
 		// Unwind depth from the frame that bounced (Enter was already called).
 		for range b.leaveDepth {
-			ev.limit.Leave()
+			ev.budget.Leave()
 		}
 		// Observer LeaveInternal is deferred until the continuation fully
 		// resolves, keeping suppression active during body evaluation.
@@ -109,27 +110,20 @@ func (ev *Evaluator) Eval(env *Env, capEnv CapEnv, expr core.Core) (EvalResult, 
 // evalStep performs one evaluation step. Tail positions return bounceVal
 // to be continued by the Eval trampoline.
 func (ev *Evaluator) evalStep(env *Env, capEnv CapEnv, expr core.Core) (EvalResult, error) {
-	// Check context cancellation.
-	select {
-	case <-ev.ctx.Done():
-		return EvalResult{}, ev.ctx.Err()
-	default:
-	}
-
-	// Check step limit.
-	if err := ev.limit.Step(); err != nil {
+	// Check step limit (also checks context cancellation).
+	if err := ev.budget.Step(); err != nil {
 		return EvalResult{}, err
 	}
 
 	// Update stats.
 	ev.stats.Steps++
-	if d := ev.limit.Depth(); d > ev.stats.MaxDepth {
+	if d := ev.budget.Depth(); d > ev.stats.MaxDepth {
 		ev.stats.MaxDepth = d
 	}
 
 	// Trace hook.
 	if ev.trace != nil {
-		if err := ev.trace(newTraceEvent(ev.limit.Depth(), expr, capEnv)); err != nil {
+		if err := ev.trace(newTraceEvent(ev.budget.Depth(), expr, capEnv)); err != nil {
 			return EvalResult{}, err
 		}
 	}
@@ -151,7 +145,7 @@ func (ev *Evaluator) evalStep(env *Env, capEnv CapEnv, expr core.Core) (EvalResu
 		return EvalResult{v, capEnv}, nil
 
 	case *core.Lam:
-		if err := ev.limit.Alloc(costClosure); err != nil {
+		if err := ev.budget.Alloc(costClosure); err != nil {
 			return EvalResult{}, err
 		}
 		closureEnv := env
@@ -172,7 +166,7 @@ func (ev *Evaluator) evalStep(env *Env, capEnv CapEnv, expr core.Core) (EvalResu
 		// Detect let-encoding: (\y. body) expr → emit bind event.
 		if ev.obs.Active() {
 			if lam, ok := e.Fun.(*core.Lam); ok && isUserVisible(lam.Param) {
-				ev.obs.Emit(ev.limit.Depth(), ExplainBind, bindDetail(lam.Param, PrettyValue(argR.Value), false), e.S)
+				ev.obs.Emit(ev.budget.Depth(), ExplainBind, bindDetail(lam.Param, PrettyValue(argR.Value), false), e.S)
 			}
 		}
 		return ev.apply(argR.CapEnv, funR.Value, argR.Value, e)
@@ -186,7 +180,7 @@ func (ev *Evaluator) evalStep(env *Env, capEnv CapEnv, expr core.Core) (EvalResu
 		return ev.Eval(env, capEnv, e.Body)
 
 	case *core.Con:
-		if err := ev.limit.Alloc(int64(costConBase + costConArg*len(e.Args))); err != nil {
+		if err := ev.budget.Alloc(int64(costConBase + costConArg*len(e.Args))); err != nil {
 			return EvalResult{}, err
 		}
 		args := make([]Value, len(e.Args))
@@ -210,7 +204,7 @@ func (ev *Evaluator) evalStep(env *Env, capEnv CapEnv, expr core.Core) (EvalResu
 			bindings := Match(scrutR.Value, alt.Pattern)
 			if bindings != nil {
 				if ev.obs.Active() && !isInternalPattern(alt.Pattern) {
-					ev.obs.Emit(ev.limit.Depth(), ExplainMatch, matchDetail(PrettyValue(scrutR.Value), formatPattern(alt.Pattern), bindings), e.S)
+					ev.obs.Emit(ev.budget.Depth(), ExplainMatch, matchDetail(PrettyValue(scrutR.Value), formatPattern(alt.Pattern), bindings), e.S)
 				}
 				altEnv := env.ExtendMany(bindings)
 				// Tail position: bounce instead of recursing.
@@ -239,14 +233,14 @@ func (ev *Evaluator) evalStep(env *Env, capEnv CapEnv, expr core.Core) (EvalResu
 			return EvalResult{}, err
 		}
 		if ev.obs.Active() && isUserVisible(e.Var) {
-			ev.obs.Emit(ev.limit.Depth(), ExplainBind, bindDetail(e.Var, PrettyValue(compR.Value), true), e.S)
+			ev.obs.Emit(ev.budget.Depth(), ExplainBind, bindDetail(e.Var, PrettyValue(compR.Value), true), e.S)
 		}
 		bodyEnv := env.Extend(e.Var, compR.Value)
-		if err := ev.limit.Enter(); err != nil {
+		if err := ev.budget.Enter(); err != nil {
 			return EvalResult{}, err
 		}
 		bodyR, err := ev.Eval(bodyEnv, compR.CapEnv, e.Body)
-		ev.limit.Leave()
+		ev.budget.Leave()
 		if err != nil {
 			return EvalResult{}, err
 		}
@@ -254,7 +248,7 @@ func (ev *Evaluator) evalStep(env *Env, capEnv CapEnv, expr core.Core) (EvalResu
 		return ev.ForceEffectful(bodyR, e.S)
 
 	case *core.Thunk:
-		if err := ev.limit.Alloc(costThunk); err != nil {
+		if err := ev.budget.Alloc(costThunk); err != nil {
 			return EvalResult{}, err
 		}
 		thunkEnv := env
@@ -276,7 +270,7 @@ func (ev *Evaluator) evalStep(env *Env, capEnv CapEnv, expr core.Core) (EvalResu
 				Span:    e.S,
 			}
 		}
-		if err := ev.limit.Enter(); err != nil {
+		if err := ev.budget.Enter(); err != nil {
 			return EvalResult{}, err
 		}
 		// Tail position: bounce instead of recursing.
@@ -318,7 +312,7 @@ func (ev *Evaluator) evalStep(env *Env, capEnv CapEnv, expr core.Core) (EvalResu
 		return EvalResult{val, newCap}, nil
 
 	case *core.RecordLit:
-		if err := ev.limit.Alloc(int64(costRecBase + costRecFld*len(e.Fields))); err != nil {
+		if err := ev.budget.Alloc(int64(costRecBase + costRecFld*len(e.Fields))); err != nil {
 			return EvalResult{}, err
 		}
 		fields := make(map[string]Value, len(e.Fields))
@@ -366,7 +360,7 @@ func (ev *Evaluator) evalStep(env *Env, capEnv CapEnv, expr core.Core) (EvalResu
 				Span:    e.S,
 			}
 		}
-		if err := ev.limit.Alloc(int64(costRecBase + costRecFld*len(rec.Fields))); err != nil {
+		if err := ev.budget.Alloc(int64(costRecBase + costRecFld*len(rec.Fields))); err != nil {
 			return EvalResult{}, err
 		}
 		// Copy all fields, then overwrite with updates.

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/cwd-k2/gicel/internal/budget"
 	"github.com/cwd-k2/gicel/internal/eval"
 )
 
@@ -34,7 +35,7 @@ func setInsertImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, apply
 	if err != nil {
 		return nil, ce, err
 	}
-	if err := eval.ChargeAlloc(ctx, costAVLNode); err != nil {
+	if err := budget.ChargeAlloc(ctx, costAVLNode); err != nil {
 		return nil, ce, err
 	}
 	newRoot, inserted, newCe, err := avlInsert(m.root, key, unitVal, m.cmp, ce, apply)
@@ -59,7 +60,7 @@ func setDeleteImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, apply
 	if err != nil {
 		return nil, ce, err
 	}
-	if err := eval.ChargeAlloc(ctx, costAVLNode); err != nil {
+	if err := budget.ChargeAlloc(ctx, costAVLNode); err != nil {
 		return nil, ce, err
 	}
 	newRoot, deleted, newCe, err := avlDelete(m.root, key, m.cmp, ce, apply)
@@ -83,7 +84,7 @@ func setToListImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, _ eva
 	if err != nil {
 		return nil, ce, err
 	}
-	if err := eval.ChargeAlloc(ctx, int64(m.size)*costConsNode); err != nil {
+	if err := budget.ChargeAlloc(ctx, int64(m.size)*costConsNode); err != nil {
 		return nil, ce, err
 	}
 	return avlKeysToConsList(m.root), ce, nil
@@ -121,7 +122,7 @@ func setFromListImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, app
 		if con.Con != "Cons" || len(con.Args) != 2 {
 			return nil, ce, fmt.Errorf("setFromList: malformed list")
 		}
-		if err := eval.ChargeAlloc(ctx, costAVLNode); err != nil {
+		if err := budget.ChargeAlloc(ctx, costAVLNode); err != nil {
 			return nil, ce, err
 		}
 		var err error

@@ -8,6 +8,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/cwd-k2/gicel/internal/core"
+	"github.com/cwd-k2/gicel/internal/budget"
 	"github.com/cwd-k2/gicel/internal/eval"
 )
 
@@ -81,7 +82,7 @@ func appendStrImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, _ eva
 	if err != nil {
 		return nil, ce, err
 	}
-	if err := eval.ChargeAlloc(ctx, int64(len(a)+len(b))*costPerByte); err != nil {
+	if err := budget.ChargeAlloc(ctx, int64(len(a)+len(b))*costPerByte); err != nil {
 		return nil, ce, err
 	}
 	return &eval.HostVal{Inner: a + b}, ce, nil
@@ -190,7 +191,7 @@ func substringImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, _ eva
 		return &eval.HostVal{Inner: ""}, ce, nil
 	}
 	result := s[startByte:endByte]
-	if err := eval.ChargeAlloc(ctx, int64(len(result))*costPerByte); err != nil {
+	if err := budget.ChargeAlloc(ctx, int64(len(result))*costPerByte); err != nil {
 		return nil, ce, err
 	}
 	return &eval.HostVal{Inner: result}, ce, nil
@@ -201,7 +202,7 @@ func toUpperImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, _ eval.
 	if err != nil {
 		return nil, ce, err
 	}
-	if err := eval.ChargeAlloc(ctx, int64(len(s))*costPerByte); err != nil {
+	if err := budget.ChargeAlloc(ctx, int64(len(s))*costPerByte); err != nil {
 		return nil, ce, err
 	}
 	return &eval.HostVal{Inner: strings.ToUpper(s)}, ce, nil
@@ -212,7 +213,7 @@ func toLowerImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, _ eval.
 	if err != nil {
 		return nil, ce, err
 	}
-	if err := eval.ChargeAlloc(ctx, int64(len(s))*costPerByte); err != nil {
+	if err := budget.ChargeAlloc(ctx, int64(len(s))*costPerByte); err != nil {
 		return nil, ce, err
 	}
 	return &eval.HostVal{Inner: strings.ToLower(s)}, ce, nil
@@ -248,7 +249,7 @@ func splitImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Ap
 		return nil, ce, err
 	}
 	parts := strings.Split(s, sep)
-	if err := eval.ChargeAlloc(ctx, int64(len(parts))*costConsNode+int64(len(s))*costPerByte); err != nil {
+	if err := budget.ChargeAlloc(ctx, int64(len(parts))*costConsNode+int64(len(s))*costPerByte); err != nil {
 		return nil, ce, err
 	}
 	items := make([]eval.Value, len(parts))
@@ -284,7 +285,7 @@ func joinImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, _ eval.App
 		v = con.Args[1]
 	}
 	result := strings.Join(strs, sep)
-	if err := eval.ChargeAlloc(ctx, int64(len(result))*costPerByte); err != nil {
+	if err := budget.ChargeAlloc(ctx, int64(len(result))*costPerByte); err != nil {
 		return nil, ce, err
 	}
 	return &eval.HostVal{Inner: result}, ce, nil
@@ -308,7 +309,7 @@ func toRunesImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, _ eval.
 		return nil, ce, err
 	}
 	runes := []rune(s)
-	if err := eval.ChargeAlloc(ctx, int64(len(runes))*(4+costConsNode)); err != nil {
+	if err := budget.ChargeAlloc(ctx, int64(len(runes))*(4+costConsNode)); err != nil {
 		return nil, ce, err
 	}
 	items := make([]eval.Value, len(runes))
@@ -332,7 +333,7 @@ func fromRunesImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, _ eva
 		runes[i] = r
 	}
 	result := string(runes)
-	if err := eval.ChargeAlloc(ctx, int64(len(result))*costPerByte); err != nil {
+	if err := budget.ChargeAlloc(ctx, int64(len(result))*costPerByte); err != nil {
 		return nil, ce, err
 	}
 	return &eval.HostVal{Inner: result}, ce, nil
