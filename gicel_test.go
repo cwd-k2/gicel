@@ -5756,3 +5756,56 @@ main := A.value + B.value
 		t.Errorf("expected 30, got %s", result.Value)
 	}
 }
+
+// === Qualified Constraint Tests ===
+
+func TestQualifiedConstraintSingle(t *testing.T) {
+	// P.Num a => ... should resolve the class via qualified scope.
+	eng := gicel.NewEngine()
+	if err := eng.Use(gicel.Prelude); err != nil {
+		t.Fatal(err)
+	}
+	runExpectHost(t, eng, `
+import Prelude as P
+f :: P.Num a => a -> a
+f := \x. P.add x x
+main := f 21
+`, int64(42))
+}
+
+func TestQualifiedConstraintTuple(t *testing.T) {
+	// (P.Eq a, P.Num a) => ... should resolve multiple qualified constraints.
+	eng := gicel.NewEngine()
+	if err := eng.Use(gicel.Prelude); err != nil {
+		t.Fatal(err)
+	}
+	runExpectCon(t, eng, `
+import Prelude as P
+f :: (P.Eq a, P.Num a) => a -> P.Bool
+f := \x. P.eq x (P.add x x)
+main := f 0
+`, "True")
+}
+
+func TestQualifiedConstraintUserClass(t *testing.T) {
+	// Qualified constraint on a user-defined class in another module.
+	eng := gicel.NewEngine()
+	if err := eng.Use(gicel.Prelude); err != nil {
+		t.Fatal(err)
+	}
+	err := eng.RegisterModule("MyLib", `
+import Prelude
+class MyClass a { myMethod :: a -> Int }
+instance MyClass Int { myMethod := \x. x + 1 }
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	runExpectHost(t, eng, `
+import Prelude
+import MyLib as M
+f :: M.MyClass a => a -> Int
+f := \x. M.myMethod x
+main := f 41
+`, int64(42))
+}
