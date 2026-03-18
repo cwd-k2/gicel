@@ -1,6 +1,8 @@
 package parse
 
 import (
+	"maps"
+
 	. "github.com/cwd-k2/gicel/internal/syntax" //nolint:revive // dot import for tightly-coupled subpackage
 
 	"github.com/cwd-k2/gicel/internal/errs"
@@ -32,10 +34,7 @@ type Parser struct {
 
 // NewParser creates a parser from a token stream.
 func NewParser(tokens []Token, errors *errs.Errors) *Parser {
-	maxSteps := len(tokens) * 4
-	if maxSteps < 100 {
-		maxSteps = 100
-	}
+	maxSteps := max(len(tokens)*4, 100)
 	return &Parser{
 		tokens:          tokens,
 		pos:             0,
@@ -48,9 +47,7 @@ func NewParser(tokens []Token, errors *errs.Errors) *Parser {
 
 // AddFixity merges host-supplied fixity declarations into the parser.
 func (p *Parser) AddFixity(fixity map[string]Fixity) {
-	for op, f := range fixity {
-		p.fixity[op] = f
-	}
+	maps.Copy(p.fixity, fixity)
 }
 
 // ParseProgram parses a complete program.

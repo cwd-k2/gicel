@@ -2,6 +2,7 @@ package check
 
 import (
 	"fmt"
+	"slices"
 
 	"github.com/cwd-k2/gicel/internal/core"
 	"github.com/cwd-k2/gicel/internal/errs"
@@ -100,12 +101,7 @@ func (ch *Checker) zonkAll(tys []types.Type) []types.Type {
 
 // hasMeta returns true if any type in the slice contains an unsolved TyMeta.
 func sliceHasMeta(tys []types.Type) bool {
-	for _, ty := range tys {
-		if typeHasMeta(ty) {
-			return true
-		}
-	}
-	return false
+	return slices.ContainsFunc(tys, typeHasMeta)
 }
 
 func typeHasMeta(ty types.Type) bool {
@@ -119,12 +115,8 @@ func typeHasMeta(ty types.Type) bool {
 	case *types.TyForall:
 		return typeHasMeta(t.Body)
 	case *types.TyEvidence:
-		if t.Constraints != nil {
-			for _, ch := range t.Constraints.Children() {
-				if typeHasMeta(ch) {
-					return true
-				}
-			}
+		if t.Constraints != nil && slices.ContainsFunc(t.Constraints.Children(), typeHasMeta) {
+			return true
 		}
 		return typeHasMeta(t.Body)
 	case *types.TyComp:
@@ -132,19 +124,9 @@ func typeHasMeta(ty types.Type) bool {
 	case *types.TyThunk:
 		return typeHasMeta(t.Pre) || typeHasMeta(t.Post) || typeHasMeta(t.Result)
 	case *types.TyEvidenceRow:
-		for _, ch := range t.Children() {
-			if typeHasMeta(ch) {
-				return true
-			}
-		}
-		return false
+		return slices.ContainsFunc(t.Children(), typeHasMeta)
 	case *types.TyFamilyApp:
-		for _, a := range t.Args {
-			if typeHasMeta(a) {
-				return true
-			}
-		}
-		return false
+		return slices.ContainsFunc(t.Args, typeHasMeta)
 	}
 	return false
 }

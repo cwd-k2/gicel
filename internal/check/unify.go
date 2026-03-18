@@ -2,6 +2,7 @@ package check
 
 import (
 	"fmt"
+	"maps"
 
 	"github.com/cwd-k2/gicel/internal/span"
 	"github.com/cwd-k2/gicel/internal/types"
@@ -126,9 +127,7 @@ type UnifierSnapshot struct {
 // Snapshot captures the current unifier state for later rollback.
 func (u *Unifier) Snapshot() UnifierSnapshot {
 	soln := make(map[int]types.Type, len(u.soln))
-	for k, v := range u.soln {
-		soln[k] = v
-	}
+	maps.Copy(soln, u.soln)
 	labels := make(map[int]map[string]struct{}, len(u.labels))
 	for k, v := range u.labels {
 		inner := make(map[string]struct{}, len(v))
@@ -138,9 +137,7 @@ func (u *Unifier) Snapshot() UnifierSnapshot {
 		labels[k] = inner
 	}
 	kindSoln := make(map[int]types.Kind, len(u.kindSoln))
-	for k, v := range u.kindSoln {
-		kindSoln[k] = v
-	}
+	maps.Copy(kindSoln, u.kindSoln)
 	// Snapshot stuck families: shallow-copy the map of slices.
 	stuckFamilies := make(map[int][]*stuckFamilyEntry, len(u.stuckFamilies))
 	for k, v := range u.stuckFamilies {
@@ -162,34 +159,26 @@ func (u *Unifier) Restore(snap UnifierSnapshot) {
 			delete(u.soln, k)
 		}
 	}
-	for k, v := range snap.soln {
-		u.soln[k] = v
-	}
+	maps.Copy(u.soln, snap.soln)
 	for k := range u.labels {
 		if _, existed := snap.labels[k]; !existed {
 			delete(u.labels, k)
 		}
 	}
-	for k, v := range snap.labels {
-		u.labels[k] = v
-	}
+	maps.Copy(u.labels, snap.labels)
 	for k := range u.kindSoln {
 		if _, existed := snap.kindSoln[k]; !existed {
 			delete(u.kindSoln, k)
 		}
 	}
-	for k, v := range snap.kindSoln {
-		u.kindSoln[k] = v
-	}
+	maps.Copy(u.kindSoln, snap.kindSoln)
 	// Restore stuck families.
 	for k := range u.stuckFamilies {
 		if _, existed := snap.stuckFamilies[k]; !existed {
 			delete(u.stuckFamilies, k)
 		}
 	}
-	for k, v := range snap.stuckFamilies {
-		u.stuckFamilies[k] = v
-	}
+	maps.Copy(u.stuckFamilies, snap.stuckFamilies)
 	// Truncate rework queue to snapshot length.
 	if snap.reworkLen < len(u.rework) {
 		u.rework = u.rework[:snap.reworkLen]
@@ -521,7 +510,7 @@ func (u *Unifier) unifyAppWithTriple(app types.Type, conName string, fields [3]t
 	if err := u.Unify(conHead, &types.TyCon{Name: conName}); err != nil {
 		return err
 	}
-	for i := 0; i < 3; i++ {
+	for i := range 3 {
 		if err := u.Unify(args[len(args)-3+i], fields[i]); err != nil {
 			return err
 		}

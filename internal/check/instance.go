@@ -469,10 +469,6 @@ func (ch *Checker) processAssocDataDef(add syntax.AssocDataDef, className string
 
 	dataInfo := &DataTypeInfo{Name: mangledName}
 	ch.dataTypeByName[mangledName] = dataInfo
-	coreDecl := core.DataDecl{Name: mangledName, S: add.S}
-	for _, pv := range patVars {
-		coreDecl.TyParams = append(coreDecl.TyParams, core.TyParam{Name: pv, Kind: types.KType{}})
-	}
 
 	// Register each constructor.
 	for _, con := range add.Cons {
@@ -499,7 +495,6 @@ func (ch *Checker) processAssocDataDef(add syntax.AssocDataDef, className string
 		ch.conModules[con.Name] = ch.currentModule
 		dataInfo.Constructors = append(dataInfo.Constructors, ConInfo{Name: con.Name, Arity: len(fieldTypes)})
 		ch.conInfo[con.Name] = dataInfo
-		coreDecl.Cons = append(coreDecl.Cons, core.ConDecl{Name: con.Name, Fields: fieldTypes, S: con.S})
 	}
 
 	// Add type family equation: Family patterns =: MangledType patVars

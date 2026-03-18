@@ -2,6 +2,7 @@ package check
 
 import (
 	"fmt"
+	"maps"
 	"strconv"
 	"strings"
 
@@ -201,12 +202,8 @@ func (ch *Checker) checkConPatternWith(conName, moduleName string, conTy types.T
 		argTy, restTy := ch.matchArrow(currentTy, s)
 		child := ch.checkPattern(argPat, argTy)
 		args = append(args, child.Pattern)
-		for k, v := range child.Bindings {
-			bindings[k] = v
-		}
-		for k, v := range child.SkolemIDs {
-			skolemIDs[k] = v
-		}
+		maps.Copy(bindings, child.Bindings)
+		maps.Copy(skolemIDs, child.SkolemIDs)
 		currentTy = restTy
 	}
 	// 6. Unify result type with scrutinee type.

@@ -2,6 +2,7 @@ package check
 
 import (
 	"fmt"
+	"maps"
 
 	"github.com/cwd-k2/gicel/internal/core"
 	"github.com/cwd-k2/gicel/internal/errs"
@@ -188,15 +189,15 @@ func (ch *Checker) ExportModule(prog *core.Program) *ModuleExports {
 		}
 	}
 	return &ModuleExports{
-		Types:         copyMap(ch.config.RegisteredTypes),
-		ConTypes:      copyMap(ch.conTypes),
+		Types:         maps.Clone(ch.config.RegisteredTypes),
+		ConTypes:      maps.Clone(ch.conTypes),
 		ConInfo:       ch.conInfo,
 		Aliases:       ch.aliases,
 		Classes:       ch.classes,
 		Instances:     ch.instances,
 		Values:        values,
-		PromotedKinds: copyMap(ch.promotedKinds),
-		PromotedCons:  copyMap(ch.promotedCons),
+		PromotedKinds: maps.Clone(ch.promotedKinds),
+		PromotedCons:  maps.Clone(ch.promotedCons),
 		TypeFamilies:  cloneFamilies(ch.families),
 		DataDecls:     prog.DataDecls,
 	}
@@ -233,14 +234,6 @@ func isOperatorName(name string) bool {
 		}
 	}
 	return true
-}
-
-func copyMap[V any](m map[string]V) map[string]V {
-	out := make(map[string]V, len(m))
-	for k, v := range m {
-		out[k] = v
-	}
-	return out
 }
 
 func (ch *Checker) initContext() {

@@ -607,7 +607,7 @@ const maxReworkIterations = 200
 // The reduction depth counter scopes globally across one rework session.
 func (ch *Checker) ProcessRework() {
 	ch.reductionDepth = 0
-	for iteration := 0; iteration < maxReworkIterations; iteration++ {
+	for range maxReworkIterations {
 		entries := ch.unifier.DrainRework()
 		if len(entries) == 0 {
 			return
