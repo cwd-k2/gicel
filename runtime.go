@@ -76,6 +76,7 @@ func (r *Runtime) initBuiltinEnv(gatedBuiltins map[string]bool) {
 		}
 	}
 
+	env.Flatten() // Pre-flatten so concurrent evaluators avoid lazy-write race.
 	r.builtinEnv = env
 }
 

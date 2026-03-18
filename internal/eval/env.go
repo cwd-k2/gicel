@@ -74,6 +74,13 @@ func (e *Env) Len() int {
 	return e.size
 }
 
+// Flatten eagerly materializes the flat cache. Use this on Env nodes
+// that will be shared across goroutines to avoid the lazy-write data race
+// in flatten().
+func (e *Env) Flatten() {
+	e.flat = e.flatten()
+}
+
 // TrimTo returns a new flat Env containing only the named variables.
 // Used to implement safe-for-space closure conversion.
 func (e *Env) TrimTo(names []string) *Env {
