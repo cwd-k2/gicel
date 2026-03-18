@@ -122,46 +122,6 @@ func classifyConstraints(a, b []types.ConstraintEntry, _ *Unifier) (
 	return
 }
 
-// zonkConstraintEntry zonks a single constraint entry, including any quantified sub-structure.
-func (u *Unifier) zonkConstraintEntry(e types.ConstraintEntry, changed *bool) types.ConstraintEntry {
-	args := make([]types.Type, len(e.Args))
-	for j, a := range e.Args {
-		args[j] = u.Zonk(a)
-		if args[j] != a {
-			*changed = true
-		}
-	}
-	result := types.ConstraintEntry{ClassName: e.ClassName, Args: args, S: e.S}
-	if e.ConstraintVar != nil {
-		newCV := u.Zonk(e.ConstraintVar)
-		if newCV != e.ConstraintVar {
-			*changed = true
-		}
-		result.ConstraintVar = newCV
-		// If zonked ConstraintVar is now concrete, decompose into ClassName + Args.
-		if result.ClassName == "" {
-			if cn, cArgs, ok := decomposeConstraintType(newCV); ok {
-				result.ClassName = cn
-				result.Args = cArgs
-			}
-		}
-	}
-	if e.Quantified != nil {
-		qc := u.zonkQuantifiedConstraint(e.Quantified, changed)
-		result.Quantified = qc
-	}
-	return result
-}
-
-func (u *Unifier) zonkQuantifiedConstraint(qc *types.QuantifiedConstraint, changed *bool) *types.QuantifiedConstraint {
-	ctx := make([]types.ConstraintEntry, len(qc.Context))
-	for i, c := range qc.Context {
-		ctx[i] = u.zonkConstraintEntry(c, changed)
-	}
-	head := u.zonkConstraintEntry(qc.Head, changed)
-	return &types.QuantifiedConstraint{Vars: qc.Vars, Context: ctx, Head: head}
-}
-
 // decomposeConstraintType decomposes a concrete constraint type (e.g., TyApp(TyCon("Eq"), TyCon("Bool")))
 // into its class name and type arguments. Returns ("Eq", [Bool], true) for the example above.
 func decomposeConstraintType(ty types.Type) (className string, args []types.Type, ok bool) {
@@ -230,30 +190,9 @@ func (u *Unifier) unifyEvCapRows(
 		}
 	}
 
-	switch {
-	case an.Tail == nil && bn.Tail == nil:
-		if len(onlyLeft) > 0 || len(onlyRight) > 0 {
-			return &UnifyError{Kind: UnifyRowMismatch, Detail: fmt.Sprintf("row mismatch: extra labels %v / %v", onlyLeft, onlyRight)}
-		}
-	case an.Tail != nil && bn.Tail == nil:
-		if len(onlyLeft) > 0 {
-			return &UnifyError{Kind: UnifyRowMismatch, Detail: fmt.Sprintf("extra labels in row: %v", onlyLeft)}
-		}
-		return u.solveEvCapTail(an.Tail, collectEvCapFields(bFieldsN, onlyRight), nil)
-	case an.Tail == nil && bn.Tail != nil:
-		if len(onlyRight) > 0 {
-			return &UnifyError{Kind: UnifyRowMismatch, Detail: fmt.Sprintf("extra labels in row: %v", onlyRight)}
-		}
-		return u.solveEvCapTail(bn.Tail, collectEvCapFields(aFieldsN, onlyLeft), nil)
-	default:
-		*u.freshID++
-		rFresh := &types.TyMeta{ID: *u.freshID, Kind: types.KRow{}}
-		if err := u.solveEvCapTail(an.Tail, collectEvCapFields(bFieldsN, onlyRight), rFresh); err != nil {
-			return err
-		}
-		return u.solveEvCapTail(bn.Tail, collectEvCapFields(aFieldsN, onlyLeft), rFresh)
-	}
-	return nil
+	onlyAEntries := &types.CapabilityEntries{Fields: collectEvCapFields(aFieldsN, onlyLeft)}
+	onlyBEntries := &types.CapabilityEntries{Fields: collectEvCapFields(bFieldsN, onlyRight)}
+	return u.resolveEvidenceTails(an.Tail, bn.Tail, onlyAEntries, onlyBEntries)
 }
 
 func (u *Unifier) registerEvCapLabels(fields []types.RowField, tail types.Type) {
@@ -273,22 +212,6 @@ func (u *Unifier) registerEvCapLabels(fields []types.RowField, tail types.Type) 
 		}
 		u.labels[m.ID] = labels
 	}
-}
-
-func (u *Unifier) solveEvCapTail(tail types.Type, fields []types.RowField, newTail types.Type) error {
-	if len(fields) == 0 && newTail != nil {
-		return u.Unify(tail, newTail)
-	}
-	var solution types.Type
-	if len(fields) == 0 && newTail == nil {
-		solution = types.EmptyRow()
-	} else {
-		solution = &types.TyEvidenceRow{
-			Entries: &types.CapabilityEntries{Fields: fields},
-			Tail:    newTail,
-		}
-	}
-	return u.Unify(tail, solution)
 }
 
 func collectEvCapFields(fields []types.RowField, labels []string) []types.RowField {
@@ -326,45 +249,55 @@ func (u *Unifier) unifyEvConRows(
 		}
 	}
 
+	onlyAEntries := &types.ConstraintEntries{Entries: onlyLeft}
+	onlyBEntries := &types.ConstraintEntries{Entries: onlyRight}
+	return u.resolveEvidenceTails(aN.Tail, bN.Tail, onlyAEntries, onlyBEntries)
+}
+
+// resolveEvidenceTails handles the 4-case tail resolution pattern shared by
+// capability and constraint row unification. The fiber kind for fresh metas
+// is derived from the entries' FiberKind().
+func (u *Unifier) resolveEvidenceTails(aTail, bTail types.Type, onlyA, onlyB types.EvidenceEntries) error {
 	switch {
-	case aN.Tail == nil && bN.Tail == nil:
-		if len(onlyLeft) > 0 || len(onlyRight) > 0 {
-			return &UnifyError{Kind: UnifyRowMismatch, Detail: fmt.Sprintf("constraint row mismatch: extra constraints left=%d right=%d",
-				len(onlyLeft), len(onlyRight))}
+	case aTail == nil && bTail == nil:
+		if onlyA.EntryCount() > 0 || onlyB.EntryCount() > 0 {
+			return &UnifyError{Kind: UnifyRowMismatch, Detail: fmt.Sprintf(
+				"evidence row mismatch: extra entries (left=%d, right=%d)", onlyA.EntryCount(), onlyB.EntryCount())}
 		}
-	case aN.Tail != nil && bN.Tail == nil:
-		if len(onlyLeft) > 0 {
-			return &UnifyError{Kind: UnifyRowMismatch, Detail: fmt.Sprintf("extra constraints in left row: %d", len(onlyLeft))}
+	case aTail != nil && bTail == nil:
+		if onlyA.EntryCount() > 0 {
+			return &UnifyError{Kind: UnifyRowMismatch, Detail: fmt.Sprintf(
+				"extra entries in evidence row: %d", onlyA.EntryCount())}
 		}
-		return u.solveEvConTail(aN.Tail, onlyRight, nil)
-	case aN.Tail == nil && bN.Tail != nil:
-		if len(onlyRight) > 0 {
-			return &UnifyError{Kind: UnifyRowMismatch, Detail: fmt.Sprintf("extra constraints in right row: %d", len(onlyRight))}
+		return u.solveEvidenceTail(aTail, onlyB, nil)
+	case aTail == nil && bTail != nil:
+		if onlyB.EntryCount() > 0 {
+			return &UnifyError{Kind: UnifyRowMismatch, Detail: fmt.Sprintf(
+				"extra entries in evidence row: %d", onlyB.EntryCount())}
 		}
-		return u.solveEvConTail(bN.Tail, onlyLeft, nil)
+		return u.solveEvidenceTail(bTail, onlyA, nil)
 	default:
 		*u.freshID++
-		cFresh := &types.TyMeta{ID: *u.freshID, Kind: types.KConstraint{}}
-		if err := u.solveEvConTail(aN.Tail, onlyRight, cFresh); err != nil {
+		rFresh := &types.TyMeta{ID: *u.freshID, Kind: onlyA.FiberKind()}
+		if err := u.solveEvidenceTail(aTail, onlyB, rFresh); err != nil {
 			return err
 		}
-		return u.solveEvConTail(bN.Tail, onlyLeft, cFresh)
+		return u.solveEvidenceTail(bTail, onlyA, rFresh)
 	}
 	return nil
 }
 
-func (u *Unifier) solveEvConTail(tail types.Type, entries []types.ConstraintEntry, newTail types.Type) error {
-	if len(entries) == 0 && newTail != nil {
+// solveEvidenceTail solves a row tail variable against a set of entries
+// and an optional new tail. Works for both capability and constraint fibers.
+func (u *Unifier) solveEvidenceTail(tail types.Type, entries types.EvidenceEntries, newTail types.Type) error {
+	if entries.EntryCount() == 0 && newTail != nil {
 		return u.Unify(tail, newTail)
 	}
 	var solution types.Type
-	if len(entries) == 0 && newTail == nil {
-		solution = types.EmptyConstraintRow()
+	if entries.EntryCount() == 0 && newTail == nil {
+		solution = &types.TyEvidenceRow{Entries: entries.Empty()}
 	} else {
-		solution = &types.TyEvidenceRow{
-			Entries: &types.ConstraintEntries{Entries: entries},
-			Tail:    newTail,
-		}
+		solution = &types.TyEvidenceRow{Entries: entries, Tail: newTail}
 	}
 	return u.Unify(tail, solution)
 }

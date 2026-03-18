@@ -19,6 +19,8 @@ type EvidenceEntries interface {
 	AllChildren() []Type
 	MapChildren(f func(Type) Type) EvidenceEntries
 	FiberKind() Kind
+	Empty() EvidenceEntries                                   // empty entries of the same fiber
+	ZonkEntries(zonk func(Type) Type) (EvidenceEntries, bool) // zonked entries, changed
 }
 
 // TyEvidenceRow is the unified row type for capability and constraint rows.
@@ -75,6 +77,28 @@ func (c *CapabilityEntries) MapChildren(f func(Type) Type) EvidenceEntries {
 }
 
 func (c *CapabilityEntries) FiberKind() Kind { return KRow{} }
+
+func (c *CapabilityEntries) Empty() EvidenceEntries { return &CapabilityEntries{} }
+
+func (c *CapabilityEntries) ZonkEntries(zonk func(Type) Type) (EvidenceEntries, bool) {
+	changed := false
+	fields := make([]RowField, len(c.Fields))
+	for i, f := range c.Fields {
+		zTy := zonk(f.Type)
+		var zMult Type
+		if f.Mult != nil {
+			zMult = zonk(f.Mult)
+			if zMult != f.Mult {
+				changed = true
+			}
+		}
+		fields[i] = RowField{Label: f.Label, Type: zTy, Mult: zMult, S: f.S}
+		if zTy != f.Type {
+			changed = true
+		}
+	}
+	return &CapabilityEntries{Fields: fields}, changed
+}
 
 // --- Constraint fiber ---
 
@@ -156,6 +180,59 @@ func mapConstraintEntry(e ConstraintEntry, f func(Type) Type) ConstraintEntry {
 }
 
 func (c *ConstraintEntries) FiberKind() Kind { return KConstraint{} }
+
+func (c *ConstraintEntries) Empty() EvidenceEntries { return &ConstraintEntries{} }
+
+func (c *ConstraintEntries) ZonkEntries(zonk func(Type) Type) (EvidenceEntries, bool) {
+	changed := false
+	ces := make([]ConstraintEntry, len(c.Entries))
+	for i, e := range c.Entries {
+		ces[i] = zonkConstraintEntryWith(e, zonk, &changed)
+	}
+	return &ConstraintEntries{Entries: ces}, changed
+}
+
+// zonkConstraintEntryWith zonks a single constraint entry using the provided
+// zonk function, including any quantified sub-structure and constraint
+// variable decomposition.
+func zonkConstraintEntryWith(e ConstraintEntry, zonk func(Type) Type, changed *bool) ConstraintEntry {
+	args := make([]Type, len(e.Args))
+	for j, a := range e.Args {
+		args[j] = zonk(a)
+		if args[j] != a {
+			*changed = true
+		}
+	}
+	result := ConstraintEntry{ClassName: e.ClassName, Args: args, S: e.S}
+	if e.ConstraintVar != nil {
+		newCV := zonk(e.ConstraintVar)
+		if newCV != e.ConstraintVar {
+			*changed = true
+		}
+		result.ConstraintVar = newCV
+		// If zonked ConstraintVar is now concrete, decompose into ClassName + Args.
+		if result.ClassName == "" {
+			head, tArgs := UnwindApp(newCV)
+			if con, ok := head.(*TyCon); ok {
+				result.ClassName = con.Name
+				result.Args = tArgs
+			}
+		}
+	}
+	if e.Quantified != nil {
+		result.Quantified = zonkQuantifiedConstraintWith(e.Quantified, zonk, changed)
+	}
+	return result
+}
+
+func zonkQuantifiedConstraintWith(qc *QuantifiedConstraint, zonk func(Type) Type, changed *bool) *QuantifiedConstraint {
+	ctx := make([]ConstraintEntry, len(qc.Context))
+	for i, c := range qc.Context {
+		ctx[i] = zonkConstraintEntryWith(c, zonk, changed)
+	}
+	head := zonkConstraintEntryWith(qc.Head, zonk, changed)
+	return &QuantifiedConstraint{Vars: qc.Vars, Context: ctx, Head: head}
+}
 
 // --- Evidence row builders ---
 

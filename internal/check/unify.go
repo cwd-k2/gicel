@@ -245,55 +245,18 @@ func (u *Unifier) Zonk(t types.Type) types.Type {
 		}
 		return &types.TyThunk{Pre: zPre, Post: zPost, Result: zResult, S: ty.S}
 	case *types.TyEvidenceRow:
-		switch entries := ty.Entries.(type) {
-		case *types.CapabilityEntries:
-			changed := false
-			fields := make([]types.RowField, len(entries.Fields))
-			for i, f := range entries.Fields {
-				zTy := u.Zonk(f.Type)
-				var zMult types.Type
-				if f.Mult != nil {
-					zMult = u.Zonk(f.Mult)
-					if zMult != f.Mult {
-						changed = true
-					}
-				}
-				fields[i] = types.RowField{Label: f.Label, Type: zTy, Mult: zMult, S: f.S}
-				if zTy != f.Type {
-					changed = true
-				}
+		newEntries, changed := ty.Entries.ZonkEntries(u.Zonk)
+		var tail types.Type
+		if ty.Tail != nil {
+			tail = u.Zonk(ty.Tail)
+			if tail != ty.Tail {
+				changed = true
 			}
-			var tail types.Type
-			if ty.Tail != nil {
-				tail = u.Zonk(ty.Tail)
-				if tail != ty.Tail {
-					changed = true
-				}
-			}
-			if !changed {
-				return ty
-			}
-			return &types.TyEvidenceRow{Entries: &types.CapabilityEntries{Fields: fields}, Tail: tail, S: ty.S}
-		case *types.ConstraintEntries:
-			changed := false
-			ces := make([]types.ConstraintEntry, len(entries.Entries))
-			for i, e := range entries.Entries {
-				ces[i] = u.zonkConstraintEntry(e, &changed)
-			}
-			var tail types.Type
-			if ty.Tail != nil {
-				tail = u.Zonk(ty.Tail)
-				if tail != ty.Tail {
-					changed = true
-				}
-			}
-			if !changed {
-				return ty
-			}
-			return &types.TyEvidenceRow{Entries: &types.ConstraintEntries{Entries: ces}, Tail: tail, S: ty.S}
-		default:
+		}
+		if !changed {
 			return ty
 		}
+		return &types.TyEvidenceRow{Entries: newEntries, Tail: tail, S: ty.S}
 	case *types.TyEvidence:
 		zConstraints := u.Zonk(ty.Constraints)
 		zBody := u.Zonk(ty.Body)
