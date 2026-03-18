@@ -1,3 +1,6 @@
+// Type family interaction tests — cross-feature combinations (HKT, records, do blocks, evidence).
+// Does NOT cover: reduction algorithm (type_family_reduction_test.go), pathological (type_family_pathological_test.go).
+
 package check
 
 import (

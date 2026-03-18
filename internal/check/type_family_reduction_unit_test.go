@@ -1,3 +1,6 @@
+// Type family reduction unit tests — matchTyPattern, collectPatternVars, mangling internals.
+// Does NOT cover: integration-level reduction (type_family_reduction_test.go).
+
 package check
 
 import (

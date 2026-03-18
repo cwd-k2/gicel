@@ -1,3 +1,6 @@
+// Type family pathological tests — edge cases, property tests, circular families, exponential growth.
+// Does NOT cover: reduction algorithm (type_family_reduction_test.go), interaction (type_family_interaction_test.go).
+
 package check
 
 import (

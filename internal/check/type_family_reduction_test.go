@@ -1,3 +1,6 @@
+// Type family reduction tests — reduceTyFamily algorithm, pattern matching, fuel, injectivity.
+// Does NOT cover: cross-feature interaction (type_family_interaction_test.go), pathological (type_family_pathological_test.go).
+
 package check
 
 import (

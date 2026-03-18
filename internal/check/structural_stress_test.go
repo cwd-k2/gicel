@@ -1,3 +1,6 @@
+// Structural stress tests — deep nesting, many bindings, wide rows, constraint chains.
+// Does NOT cover: type family stress (type_family_stress_test.go), evidence stress (evidence_stress_test.go).
+
 package check
 
 import (
