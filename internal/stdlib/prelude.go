@@ -1,24 +1,15 @@
 package stdlib
 
-import "strings"
-
 // CoreSource contains Computation-essential definitions: IxMonad class,
 // Computation instance, kind-lifting alias, effect alias, and the then combinator.
-// Always loaded as the first section of the Prelude module.
+// Compiled as the "Core" module by NewEngine() and auto-imported into all modules.
 var CoreSource = mustReadSource("core")
 
-// PreludeSource is the default prelude: standard data types, type classes, and instances.
+// PreludeSource is the standard prelude: data types, type classes, instances,
+// arithmetic, list operations, and string operations.
 var PreludeSource = mustReadSource("prelude")
 
-// stripImportPrelude removes a leading "import Prelude\n" line from module
-// source, used when merging standalone module sources into the Prelude.
-func stripImportPrelude(source string) string {
-	return strings.TrimPrefix(source, "import Prelude\n")
-}
-
-// Prelude provides the combined standard prelude: core computation types,
-// data types, type classes, arithmetic (Num), list operations, and string
-// operations — all registered as the single "Prelude" module.
+// Prelude registers primitives and compiles the Prelude module.
 var Prelude Pack = func(e Registrar) error {
 	// --- Num primitives (21) ---
 	e.RegisterPrim("_addInt", addIntImpl)
@@ -64,7 +55,7 @@ var Prelude Pack = func(e Registrar) error {
 	e.RegisterPrim("_listUnfoldr", unfoldrImpl)
 	e.RegisterPrim("_listIterateN", iterateNImpl)
 
-	// --- Str primitives (18, without _showInt — already registered by Num) ---
+	// --- Str primitives (18) ---
 	e.RegisterPrim("_eqStr", eqStrImpl)
 	e.RegisterPrim("_cmpStr", cmpStrImpl)
 	e.RegisterPrim("_appendStr", appendStrImpl)
@@ -87,11 +78,5 @@ var Prelude Pack = func(e Registrar) error {
 	// Fusion rule: packed roundtrip elimination.
 	e.RegisterRewriteRule(strPackedRoundtrip)
 
-	// Compile combined source: core → prelude → num → list → str.
-	combined := CoreSource + "\n" +
-		PreludeSource + "\n" +
-		stripImportPrelude(numSource) + "\n" +
-		stripImportPrelude(listSource) + "\n" +
-		stripImportPrelude(strSource)
-	return e.RegisterModule("Prelude", combined)
+	return e.RegisterModule("Prelude", PreludeSource)
 }

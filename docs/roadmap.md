@@ -21,11 +21,12 @@ Remaining:
 
 v0.10 implements: selective imports, qualified imports, `_` private names, CLI `--module`, module-qualified Core IR, GHC-style ambiguity detection, and clean stdlib names. Remaining:
 
-- Selective exports (`module M (x, T(..)) where ...`) — type-level privacy
-- Qualified patterns (`case x { Q.Con a -> ... }`)
-- Qualified parameterized type aliases and type families in type annotations
 - Prelude as ordinary module (currently built-in source)
 - Stdlib packs as importable modules
+- Qualified patterns (`case x { Q.Con a -> ... }`)
+- Qualified parameterized type aliases and type families in type annotations
+
+**Intentionally excluded:** Selective exports (`module M (x, T(..)) where ...`), `module` declaration syntax. Export control uses `_` prefix only. Rationale: GICEL is an embedding language — modules are managed by the Go host via `RegisterModule`/`--module`. The `_` prefix convention is sufficient at this scale; `module` syntax and selective exports add complexity without concrete use cases. Instance declarations are always exported with their types (Haskell model). Type-level privacy (`data _Foo`) is not needed — no internal helper types exist in Prelude/Stdlib; implementation is injected from Go.
 
 ---
 

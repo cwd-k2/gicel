@@ -542,3 +542,426 @@ intersperse := \sep xs. case xs {
 
 nub :: \a. Eq a => List a -> List a
 nub := foldr (\x acc. case elem x acc { True -> acc; False -> Cons x acc }) Nil
+
+-- ─── Num ─────────────────────────────────────────────────────────────────────
+
+_addInt :: Int -> Int -> Int
+_addInt := assumption
+
+_subInt :: Int -> Int -> Int
+_subInt := assumption
+
+_mulInt :: Int -> Int -> Int
+_mulInt := assumption
+
+_divInt :: Int -> Int -> Int
+_divInt := assumption
+
+_modInt :: Int -> Int -> Int
+_modInt := assumption
+
+_negInt :: Int -> Int
+_negInt := assumption
+
+_eqInt :: Int -> Int -> Bool
+_eqInt := assumption
+
+_cmpInt :: Int -> Int -> Ordering
+_cmpInt := assumption
+
+_showInt :: Int -> String
+_showInt := assumption
+
+instance Show Int { show := _showInt }
+instance Eq Int { eq := _eqInt }
+instance Ord Int { compare := _cmpInt }
+instance Semigroup Int { append := _addInt }
+instance Monoid Int { empty := 0 }
+
+class Eq a => Num a {
+  add    :: a -> a -> a;
+  sub    :: a -> a -> a;
+  mul    :: a -> a -> a;
+  negate :: a -> a
+}
+
+instance Num Int {
+  add := _addInt;
+  sub := _subInt;
+  mul := _mulInt;
+  negate := _negInt
+}
+
+class Num a => Div a {
+  div :: a -> a -> a
+}
+
+instance Div Int { div := _divInt }
+
+mod :: Int -> Int -> Int
+mod := _modInt
+
+_addDouble :: Double -> Double -> Double
+_addDouble := assumption
+
+_subDouble :: Double -> Double -> Double
+_subDouble := assumption
+
+_mulDouble :: Double -> Double -> Double
+_mulDouble := assumption
+
+_negDouble :: Double -> Double
+_negDouble := assumption
+
+_eqDouble :: Double -> Double -> Bool
+_eqDouble := assumption
+
+_cmpDouble :: Double -> Double -> Ordering
+_cmpDouble := assumption
+
+_showDouble :: Double -> String
+_showDouble := assumption
+
+instance Show Double { show := _showDouble }
+instance Eq Double { eq := _eqDouble }
+instance Ord Double { compare := _cmpDouble }
+
+instance Num Double {
+  add := _addDouble;
+  sub := _subDouble;
+  mul := _mulDouble;
+  negate := _negDouble
+}
+
+instance Semigroup Double { append := _addDouble }
+instance Monoid Double { empty := 0.0 }
+
+instance Div Double { div := _divDouble }
+
+_divDouble :: Double -> Double -> Double
+_divDouble := assumption
+
+_toDouble :: Int -> Double
+_toDouble := assumption
+
+_round :: Double -> Int
+_round := assumption
+
+_floor :: Double -> Int
+_floor := assumption
+
+_ceiling :: Double -> Int
+_ceiling := assumption
+
+_truncate :: Double -> Int
+_truncate := assumption
+
+toDouble :: Int -> Double
+toDouble := _toDouble
+
+round :: Double -> Int
+round := _round
+
+floor :: Double -> Int
+floor := _floor
+
+ceiling :: Double -> Int
+ceiling := _ceiling
+
+truncate :: Double -> Int
+truncate := _truncate
+
+infixl 6 +
+infixl 6 -
+infixl 7 *
+infixl 7 /
+
+(+) :: \a. Num a => a -> a -> a
+(+) := add
+
+(-) :: \a. Num a => a -> a -> a
+(-) := sub
+
+(*) :: \a. Num a => a -> a -> a
+(*) := mul
+
+(/) :: \a. Div a => a -> a -> a
+(/) := div
+
+abs :: Int -> Int
+abs := \x. case _cmpInt x 0 { LT -> negate x; _ -> x }
+
+sign :: Int -> Int
+sign := \x. case _cmpInt x 0 { LT -> negate 1; EQ -> 0; GT -> 1 }
+
+absDouble :: Double -> Double
+absDouble := \x. case _cmpDouble x 0.0 { LT -> _negDouble x; _ -> x }
+
+signDouble :: Double -> Double
+signDouble := \x. case _cmpDouble x 0.0 { LT -> _negDouble 1.0; EQ -> 0.0; GT -> 1.0 }
+
+-- ─── List operations ─────────────────────────────────────────────────────────
+
+_listFromSlice :: \a. List a -> List a
+_listFromSlice := assumption
+
+_listToSlice :: \a. List a -> List a
+_listToSlice := assumption
+
+_listLength :: \a. List a -> Int
+_listLength := assumption
+
+_listConcat :: \a. List a -> List a -> List a
+_listConcat := assumption
+
+fromSlice :: \a. List a -> List a
+fromSlice := _listFromSlice
+
+toSlice :: \a. List a -> List a
+toSlice := _listToSlice
+
+length :: \a. List a -> Int
+length := _listLength
+
+concat :: \a. List a -> List a -> List a
+concat := _listConcat
+
+_listFoldl :: \a b. (b -> a -> b) -> b -> List a -> b
+_listFoldl := assumption
+
+_listTake :: \a. Int -> List a -> List a
+_listTake := assumption
+
+_listDrop :: \a. Int -> List a -> List a
+_listDrop := assumption
+
+_listIndex :: \a. Int -> List a -> Maybe a
+_listIndex := assumption
+
+_listReplicate :: \a. Int -> a -> List a
+_listReplicate := assumption
+
+_listReverse :: \a. List a -> List a
+_listReverse := assumption
+
+_listZip :: \a b. List a -> List b -> List (a, b)
+_listZip := assumption
+
+_listUnzip :: \a b. List (a, b) -> (List a, List b)
+_listUnzip := assumption
+
+foldl :: \a b. (b -> a -> b) -> b -> List a -> b
+foldl := _listFoldl
+
+take :: \a. Int -> List a -> List a
+take := _listTake
+
+drop :: \a. Int -> List a -> List a
+drop := _listDrop
+
+index :: \a. Int -> List a -> Maybe a
+index := _listIndex
+
+replicate :: \a. Int -> a -> List a
+replicate := _listReplicate
+
+reverse :: \a. List a -> List a
+reverse := _listReverse
+
+zip :: \a b. List a -> List b -> List (a, b)
+zip := _listZip
+
+unzip :: \a b. List (a, b) -> (List a, List b)
+unzip := _listUnzip
+
+_listDropWhile :: \a. (a -> Bool) -> List a -> List a
+_listDropWhile := assumption
+
+_listSpan :: \a. (a -> Bool) -> List a -> (List a, List a)
+_listSpan := assumption
+
+_listSortBy :: \a. (a -> a -> Ordering) -> List a -> List a
+_listSortBy := assumption
+
+_listScanl :: \a b. (b -> a -> b) -> b -> List a -> List b
+_listScanl := assumption
+
+_listUnfoldr :: \a b. (b -> Maybe (a, b)) -> b -> List a
+_listUnfoldr := assumption
+
+_listIterateN :: \a. Int -> (a -> a) -> a -> List a
+_listIterateN := assumption
+
+dropWhile :: \a. (a -> Bool) -> List a -> List a
+dropWhile := _listDropWhile
+
+span :: \a. (a -> Bool) -> List a -> (List a, List a)
+span := _listSpan
+
+break :: \a. (a -> Bool) -> List a -> (List a, List a)
+break := \p. span (not . p)
+
+sortBy :: \a. (a -> a -> Ordering) -> List a -> List a
+sortBy := _listSortBy
+
+sort :: \a. Ord a => List a -> List a
+sort := sortBy compare
+
+scanl :: \a b. (b -> a -> b) -> b -> List a -> List b
+scanl := _listScanl
+
+unfoldr :: \a b. (b -> Maybe (a, b)) -> b -> List a
+unfoldr := _listUnfoldr
+
+iterateN :: \a. Int -> (a -> a) -> a -> List a
+iterateN := _listIterateN
+
+zipWith :: \a b c. (a -> b -> c) -> List a -> List b -> List c
+zipWith := \f xs ys. map (uncurry f) (zip xs ys)
+
+intercalate :: \a. List a -> List (List a) -> List a
+intercalate := \sep xss. flatten (intersperse sep xss)
+
+nubBy :: \a. (a -> a -> Bool) -> List a -> List a
+nubBy := \eq. foldl (\acc x. case any (eq x) acc { True -> acc; False -> append acc (singleton x) }) Nil
+
+-- ─── String operations ───────────────────────────────────────────────────────
+
+_eqStr :: String -> String -> Bool
+_eqStr := assumption
+
+_cmpStr :: String -> String -> Ordering
+_cmpStr := assumption
+
+_appendStr :: String -> String -> String
+_appendStr := assumption
+
+_emptyStr :: String
+_emptyStr := assumption
+
+_lengthStr :: String -> Int
+_lengthStr := assumption
+
+_eqRune :: Rune -> Rune -> Bool
+_eqRune := assumption
+
+_cmpRune :: Rune -> Rune -> Ordering
+_cmpRune := assumption
+
+instance Eq String { eq := _eqStr }
+instance Ord String { compare := _cmpStr }
+instance Semigroup String { append := _appendStr }
+instance Monoid String { empty := _emptyStr }
+instance Eq Rune { eq := _eqRune }
+instance Ord Rune { compare := _cmpRune }
+
+strlen :: String -> Int
+strlen := _lengthStr
+
+_charAt :: Int -> String -> Maybe Rune
+_charAt := assumption
+
+_substring :: Int -> Int -> String -> String
+_substring := assumption
+
+_toUpper :: String -> String
+_toUpper := assumption
+
+_toLower :: String -> String
+_toLower := assumption
+
+_trim :: String -> String
+_trim := assumption
+
+_contains :: String -> String -> Bool
+_contains := assumption
+
+_split :: String -> String -> List String
+_split := assumption
+
+_join :: String -> List String -> String
+_join := assumption
+
+_readInt :: String -> Maybe Int
+_readInt := assumption
+
+charAt :: Int -> String -> Maybe Rune
+charAt := _charAt
+
+substring :: Int -> Int -> String -> String
+substring := _substring
+
+toUpper :: String -> String
+toUpper := _toUpper
+
+toLower :: String -> String
+toLower := _toLower
+
+trim :: String -> String
+trim := _trim
+
+contains :: String -> String -> Bool
+contains := _contains
+
+split :: String -> String -> List String
+split := _split
+
+join :: String -> List String -> String
+join := _join
+
+showInt :: Int -> String
+showInt := show
+
+showBool :: Bool -> String
+showBool := \b. case b { True -> "True"; False -> "False" }
+
+readInt :: String -> Maybe Int
+readInt := _readInt
+
+_toRunes :: String -> List Rune
+_toRunes := assumption
+
+toRunes :: String -> List Rune
+toRunes := _toRunes
+
+_fromRunes :: List Rune -> String
+_fromRunes := assumption
+
+fromRunes :: List Rune -> String
+fromRunes := _fromRunes
+
+instance FromList String {
+  type Elem String =: Rune;
+  fromList := fromRunes
+}
+
+instance ToList String { toList := toRunes }
+
+instance Packed String Rune {
+  pack   := fromRunes;
+  unpack := toRunes
+}
+
+instance Show String { show := \s. append "\"" (append s "\"") }
+
+instance Show a => Show (Maybe a) {
+  show := \m. case m {
+    Nothing -> "Nothing";
+    Just a  -> append "Just " (show a)
+  }
+}
+
+instance Show a => Show (List a) {
+  show := \xs. append "[" (append (join ", " (fmap show xs)) "]")
+}
+
+instance (Show e, Show a) => Show (Result e a) {
+  show := \r. case r {
+    Err e -> append "Err " (show e);
+    Ok a  -> append "Ok " (show a)
+  }
+}
+
+instance (Show a, Show b) => Show (a, b) {
+  show := \p. append "(" (append (show (p.#_1)) (append ", " (append (show (p.#_2)) ")")))
+}

@@ -9,8 +9,6 @@ import (
 	"github.com/cwd-k2/gicel/internal/eval"
 )
 
-var numSource = mustReadSource("num")
-
 func asInt64Num(v eval.Value) (int64, error) { return asInt64(v, "num") }
 
 func intResult(n int64, ce eval.CapEnv) (eval.Value, eval.CapEnv, error) {

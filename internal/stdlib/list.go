@@ -7,8 +7,6 @@ import (
 	"github.com/cwd-k2/gicel/internal/eval"
 )
 
-var listSource = mustReadSource("list")
-
 // fromSliceImpl converts a HostVal([]any) to a ConVal chain (Cons/Nil).
 // If the input is already a ConVal chain, it passes through unchanged.
 func fromSliceImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {

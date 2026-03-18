@@ -24,8 +24,6 @@ func strPackedRoundtrip(c core.Core) core.Core {
 	return inner.Args[0]
 }
 
-var strSource = mustReadSource("str")
-
 func asString(v eval.Value) (string, error) {
 	hv, ok := v.(*eval.HostVal)
 	if !ok {
@@ -290,14 +288,6 @@ func joinImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, _ eval.App
 		return nil, ce, err
 	}
 	return &eval.HostVal{Inner: result}, ce, nil
-}
-
-func showIntImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
-	n, err := asInt64Str(args[0])
-	if err != nil {
-		return nil, ce, err
-	}
-	return &eval.HostVal{Inner: strconv.FormatInt(n, 10)}, ce, nil
 }
 
 func readIntImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
