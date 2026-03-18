@@ -345,8 +345,8 @@ func evidenceRowName(row *types.TyEvidenceRow) string {
 // using trial unification with fresh metavariables. The unifier state is saved
 // and restored so no side effects persist.
 func (ch *Checker) instancesOverlap(a, b *InstanceInfo) bool {
-	saved := ch.saveUnifierState()
-	defer ch.restoreUnifierState(saved)
+	saved := ch.saveState()
+	defer ch.restoreState(saved)
 
 	substA := ch.freshInstanceSubst(a)
 	substB := ch.freshInstanceSubst(b)

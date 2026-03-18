@@ -3,6 +3,7 @@ package check
 import (
 	"testing"
 
+	"github.com/cwd-k2/gicel/internal/check/unify"
 	"github.com/cwd-k2/gicel/internal/types"
 )
 
@@ -81,7 +82,7 @@ func TestCollectContextEvidence(t *testing.T) {
 	ch := &Checker{
 		ctx: NewContext(),
 	}
-	ch.unifier = NewUnifierShared(&ch.freshID)
+	ch.unifier = unify.NewUnifierShared(&ch.freshID)
 
 	ch.ctx.Push(&CtxEvidence{
 		ClassName: "Eq",
@@ -114,7 +115,7 @@ func TestClassifyEvidenceAllMatched(t *testing.T) {
 	ch := &Checker{
 		ctx: NewContext(),
 	}
-	ch.unifier = NewUnifierShared(&ch.freshID)
+	ch.unifier = unify.NewUnifierShared(&ch.freshID)
 
 	available := []availableEvidence{
 		{className: "Eq", args: []types.Type{types.Con("Int")}},
@@ -135,7 +136,7 @@ func TestClassifyEvidencePartial(t *testing.T) {
 	ch := &Checker{
 		ctx: NewContext(),
 	}
-	ch.unifier = NewUnifierShared(&ch.freshID)
+	ch.unifier = unify.NewUnifierShared(&ch.freshID)
 
 	available := []availableEvidence{
 		{className: "Eq", args: []types.Type{types.Con("Int")}},

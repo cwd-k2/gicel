@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"maps"
 
+	"github.com/cwd-k2/gicel/internal/check/unify"
 	"github.com/cwd-k2/gicel/internal/core"
 	"github.com/cwd-k2/gicel/internal/errs"
 	"github.com/cwd-k2/gicel/internal/span"
@@ -76,7 +77,8 @@ type CheckTraceHook func(CheckTraceEvent)
 // Checker holds mutable state during type checking.
 type Checker struct {
 	ctx               *Context
-	unifier           *Unifier
+	unifier           *unify.Unifier
+	stuckFamilies     stuckFamilyIndex
 	errors            *errs.Errors
 	source            *span.Source
 	freshID           int
@@ -173,7 +175,10 @@ func CheckModule(prog *syntax.AstProgram, source *span.Source, config *CheckConf
 		qualifiedScopes:   make(map[string]*qualifiedScope),
 		importedNames:     make(map[string]string),
 	}
-	ch.unifier = NewUnifierShared(&ch.freshID)
+	ch.unifier = unify.NewUnifierShared(&ch.freshID)
+	ch.unifier.OnSolve = func(metaID int) {
+		ch.stuckFamilies.reactivate(metaID)
+	}
 	ch.initContext()
 	ch.importModules(prog.Imports)
 	coreProgram := ch.checkDecls(prog.Decls)
@@ -293,24 +298,34 @@ func (ch *Checker) errorPair(s span.Span) (types.Type, core.Core) {
 	return &types.TyError{S: s}, &core.Var{Name: "<error>", S: s}
 }
 
-// saveUnifierState snapshots the unifier state for later rollback.
-func (ch *Checker) saveUnifierState() UnifierSnapshot {
-	return ch.unifier.Snapshot()
+// checkerSnapshot captures unifier and stuck family state for rollback.
+type checkerSnapshot struct {
+	unifier       unify.Snapshot
+	stuckFamilies stuckFamilySnapshot
 }
 
-// restoreUnifierState rolls back the unifier to a previously saved snapshot.
-func (ch *Checker) restoreUnifierState(snap UnifierSnapshot) {
-	ch.unifier.Restore(snap)
+// saveState snapshots the checker's unifier and stuck family state.
+func (ch *Checker) saveState() checkerSnapshot {
+	return checkerSnapshot{
+		unifier:       ch.unifier.Snapshot(),
+		stuckFamilies: ch.stuckFamilies.snapshot(),
+	}
+}
+
+// restoreState rolls back the checker to a previously saved snapshot.
+func (ch *Checker) restoreState(snap checkerSnapshot) {
+	ch.unifier.Restore(snap.unifier)
+	ch.stuckFamilies.restore(snap.stuckFamilies)
 }
 
 // withTrial runs fn in a trial unification scope. If fn returns false,
-// the unifier state is rolled back to the snapshot taken before fn was called.
+// the unifier and stuck family state is rolled back to the snapshot taken before fn was called.
 func (ch *Checker) withTrial(fn func() bool) bool {
-	saved := ch.saveUnifierState()
+	saved := ch.saveState()
 	if fn() {
 		return true
 	}
-	ch.restoreUnifierState(saved)
+	ch.restoreState(saved)
 	return false
 }
 

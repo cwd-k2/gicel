@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/cwd-k2/gicel/internal/check/unify"
 	"github.com/cwd-k2/gicel/internal/core"
 	"github.com/cwd-k2/gicel/internal/errs"
 	"github.com/cwd-k2/gicel/internal/span"
@@ -78,7 +79,7 @@ func (ch *Checker) constructorArgTypes(conName string, scrutTy types.Type) []typ
 	// Refine type variables by unifying the return type with the scrutinee.
 	// Only worth doing when the scrutinee has a known head type constructor.
 	if scrutTy != nil && headTyCon(ch.unifier.Zonk(scrutTy)) != "" {
-		tmp := NewUnifierShared(&ch.freshID)
+		tmp := unify.NewUnifierShared(&ch.freshID)
 		if tmp.Unify(ty, ch.unifier.Zonk(scrutTy)) == nil {
 			for i, a := range argTys {
 				if a != nil {
@@ -352,17 +353,17 @@ func (ch *Checker) checkExhaustive(scrutTy types.Type, alts []core.Alt, s span.S
 // canUnifyWith tests whether retTy can unify with scrutTy in a temporary
 // unifier. Used for GADT exhaustiveness to filter irrelevant constructors.
 func (ch *Checker) canUnifyWith(retTy, scrutTy types.Type) bool {
-	tmp := NewUnifierShared(&ch.freshID)
+	tmp := unify.NewUnifierShared(&ch.freshID)
 	retTy = ch.instantiateFresh(tmp, retTy)
 	return tmp.Unify(retTy, scrutTy) == nil
 }
 
-func (ch *Checker) instantiateFresh(u *Unifier, ty types.Type) types.Type {
+func (ch *Checker) instantiateFresh(u *unify.Unifier, ty types.Type) types.Type {
 	vars := make(map[string]*types.TyMeta)
 	return ch.substVarsWithMetas(u, ty, vars)
 }
 
-func (ch *Checker) substVarsWithMetas(u *Unifier, ty types.Type, vars map[string]*types.TyMeta) types.Type {
+func (ch *Checker) substVarsWithMetas(u *unify.Unifier, ty types.Type, vars map[string]*types.TyMeta) types.Type {
 	switch t := ty.(type) {
 	case *types.TyVar:
 		if m, ok := vars[t.Name]; ok {

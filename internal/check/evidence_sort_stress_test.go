@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/cwd-k2/gicel/internal/check/unify"
 	"github.com/cwd-k2/gicel/internal/types"
 )
 
@@ -13,7 +14,7 @@ import (
 
 func TestStressUnifyLargeCapRows(t *testing.T) {
 	const N = 100
-	u := NewUnifier()
+	u := unify.NewUnifier()
 
 	fields1 := make([]types.RowField, N)
 	fields2 := make([]types.RowField, N)
@@ -32,7 +33,7 @@ func TestStressUnifyLargeCapRows(t *testing.T) {
 
 func TestStressUnifyLargeConRows(t *testing.T) {
 	const N = 50
-	u := NewUnifier()
+	u := unify.NewUnifier()
 
 	entries1 := make([]types.ConstraintEntry, N)
 	entries2 := make([]types.ConstraintEntry, N)
@@ -54,7 +55,7 @@ func TestStressUnifyLargeConRows(t *testing.T) {
 // =============================================================================
 
 func TestStressOpenOpenDisjoint(t *testing.T) {
-	u := NewUnifier()
+	u := unify.NewUnifier()
 	m1 := &types.TyMeta{ID: 1000, Kind: types.KRow{}}
 	m2 := &types.TyMeta{ID: 1001, Kind: types.KRow{}}
 
@@ -87,7 +88,7 @@ func TestStressOpenOpenDisjoint(t *testing.T) {
 // =============================================================================
 
 func TestStressDeeplyNestedTails(t *testing.T) {
-	u := NewUnifier()
+	u := unify.NewUnifier()
 	const depth = 20
 	metas := make([]*types.TyMeta, depth)
 	for i := range depth {
@@ -124,7 +125,7 @@ func TestStressDeeplyNestedTails(t *testing.T) {
 // =============================================================================
 
 func TestStressFiberIsolation(t *testing.T) {
-	u := NewUnifier()
+	u := unify.NewUnifier()
 	cap := types.ClosedRow(types.RowField{Label: "x", Type: types.Con("Int")})
 	con := types.SingleConstraint("Eq", []types.Type{types.Con("Int")})
 
@@ -138,12 +139,12 @@ func TestStressFiberIsolation(t *testing.T) {
 // =============================================================================
 
 func TestStressZonkLargeRow(t *testing.T) {
-	u := NewUnifier()
+	u := unify.NewUnifier()
 	const N = 100
 	metas := make([]*types.TyMeta, N)
 	for i := range N {
 		metas[i] = &types.TyMeta{ID: 3000 + i, Kind: types.KType{}}
-		u.soln[3000+i] = types.Con(fmt.Sprintf("T%d", i))
+		u.InstallTempSolution(3000+i, types.Con(fmt.Sprintf("T%d", i)))
 	}
 
 	fields := make([]types.RowField, N)

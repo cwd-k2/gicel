@@ -3,6 +3,7 @@ package check
 import (
 	"testing"
 
+	"github.com/cwd-k2/gicel/internal/check/unify"
 	"github.com/cwd-k2/gicel/internal/errs"
 	"github.com/cwd-k2/gicel/internal/span"
 	"github.com/cwd-k2/gicel/internal/types"
@@ -33,7 +34,7 @@ func newTestChecker() *Checker {
 		families:          make(map[string]*TypeFamilyInfo),
 		freshID:           freshID,
 	}
-	ch.unifier = NewUnifierShared(&ch.freshID)
+	ch.unifier = unify.NewUnifierShared(&ch.freshID)
 	return ch
 }
 
@@ -814,7 +815,7 @@ func TestMatchTyPatternUnit_ZonksMeta(t *testing.T) {
 	ch := newTestChecker()
 	// Create a meta that has been solved.
 	meta := &types.TyMeta{ID: 42, Kind: types.KType{}}
-	ch.unifier.soln[42] = &types.TyCon{Name: "Bool"}
+	ch.unifier.InstallTempSolution(42, &types.TyCon{Name: "Bool"})
 
 	pat := &types.TyCon{Name: "Bool"}
 	subst := make(map[string]types.Type)
@@ -828,7 +829,7 @@ func TestMatchTyPatternUnit_ZonksMeta(t *testing.T) {
 func TestMatchTyPatternUnit_ZonksMetaToMismatch(t *testing.T) {
 	ch := newTestChecker()
 	meta := &types.TyMeta{ID: 42, Kind: types.KType{}}
-	ch.unifier.soln[42] = &types.TyCon{Name: "Int"}
+	ch.unifier.InstallTempSolution(42, &types.TyCon{Name: "Int"})
 
 	pat := &types.TyCon{Name: "Bool"}
 	subst := make(map[string]types.Type)

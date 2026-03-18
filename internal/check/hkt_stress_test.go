@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/cwd-k2/gicel/internal/check/unify"
 	"github.com/cwd-k2/gicel/internal/types"
 )
 
@@ -37,7 +38,7 @@ chain := id_k (id_k (id_k True))
 
 // TestStressKindUnificationLargeArrow — large kind arrow with variables
 func TestStressKindUnificationLargeArrow(t *testing.T) {
-	u := NewUnifier()
+	u := unify.NewUnifier()
 	// Build k1 -> k2 -> ... -> k20 -> Type with each ki as a KMeta
 	var metas []*types.KMeta
 	var k1 types.Kind = types.KType{}
@@ -64,7 +65,7 @@ func TestStressKindUnificationLargeArrow(t *testing.T) {
 
 // TestStressKindMetaChain — chain of kind meta solutions: ?k1 -> ?k2 -> ... -> ?k50
 func TestStressKindMetaChain(t *testing.T) {
-	u := NewUnifier()
+	u := unify.NewUnifier()
 	const n = 50
 	metas := make([]*types.KMeta, n)
 	for i := 0; i < n; i++ {

@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/cwd-k2/gicel/internal/check/unify"
 	"github.com/cwd-k2/gicel/internal/errs"
 	"github.com/cwd-k2/gicel/internal/types"
 )
@@ -451,9 +452,9 @@ func TestRowFieldMultSubst(t *testing.T) {
 }
 
 func TestRowFieldMultZonk(t *testing.T) {
-	u := NewUnifier()
+	u := unify.NewUnifier()
 	meta := &types.TyMeta{ID: 1, Kind: types.KType{}}
-	u.soln[1] = &types.TyCon{Name: "Affine"}
+	u.InstallTempSolution(1, &types.TyCon{Name: "Affine"})
 	row := types.ClosedRow(types.RowField{
 		Label: "cap",
 		Type:  &types.TyCon{Name: "Int"},
@@ -544,9 +545,9 @@ func TestTyFamilyAppEqual(t *testing.T) {
 }
 
 func TestTyFamilyAppZonk(t *testing.T) {
-	u := NewUnifier()
+	u := unify.NewUnifier()
 	meta := &types.TyMeta{ID: 1, Kind: types.KType{}}
-	u.soln[1] = &types.TyCon{Name: "Int"}
+	u.InstallTempSolution(1, &types.TyCon{Name: "Int"})
 	tf := &types.TyFamilyApp{
 		Name: "F",
 		Args: []types.Type{meta},

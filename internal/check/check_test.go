@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/cwd-k2/gicel/internal/check/unify"
 	"github.com/cwd-k2/gicel/internal/core"
 	"github.com/cwd-k2/gicel/internal/errs"
 	"github.com/cwd-k2/gicel/internal/span"
@@ -180,7 +181,7 @@ func TestCheckUnboundVar(t *testing.T) {
 }
 
 func TestUnifySimple(t *testing.T) {
-	u := NewUnifier()
+	u := unify.NewUnifier()
 	if err := u.Unify(types.Con("Int"), types.Con("Int")); err != nil {
 		t.Errorf("Int ~ Int should succeed: %v", err)
 	}
@@ -190,7 +191,7 @@ func TestUnifySimple(t *testing.T) {
 }
 
 func TestUnifyMeta(t *testing.T) {
-	u := NewUnifier()
+	u := unify.NewUnifier()
 	m := &types.TyMeta{ID: 1, Kind: types.KType{}}
 	if err := u.Unify(m, types.Con("Int")); err != nil {
 		t.Errorf("?1 ~ Int should succeed: %v", err)
@@ -205,7 +206,7 @@ func TestUnifyMeta(t *testing.T) {
 }
 
 func TestUnifyArrow(t *testing.T) {
-	u := NewUnifier()
+	u := unify.NewUnifier()
 	m := &types.TyMeta{ID: 1, Kind: types.KType{}}
 	a := types.MkArrow(types.Con("Int"), m)
 	b := types.MkArrow(types.Con("Int"), types.Con("Bool"))
@@ -218,7 +219,7 @@ func TestUnifyArrow(t *testing.T) {
 }
 
 func TestUnifyOccursCheck(t *testing.T) {
-	u := NewUnifier()
+	u := unify.NewUnifier()
 	m := &types.TyMeta{ID: 1, Kind: types.KType{}}
 	if err := u.Unify(m, types.MkArrow(m, types.Con("Int"))); err == nil {
 		t.Error("should fail: infinite type")
@@ -226,7 +227,7 @@ func TestUnifyOccursCheck(t *testing.T) {
 }
 
 func TestUnifyRow(t *testing.T) {
-	u := NewUnifier()
+	u := unify.NewUnifier()
 	r1 := types.ClosedRow(types.RowField{Label: "a", Type: types.Con("Int")})
 	r2 := types.ClosedRow(types.RowField{Label: "a", Type: types.Con("Int")})
 	if err := u.Unify(r1, r2); err != nil {
@@ -235,7 +236,7 @@ func TestUnifyRow(t *testing.T) {
 }
 
 func TestUnifyRowOpenOpen(t *testing.T) {
-	u := NewUnifier()
+	u := unify.NewUnifier()
 
 	// r1 = { a: Int, b: Bool | ?1 }
 	// r2 = { a: Int, c: Str  | ?2 }
@@ -310,7 +311,7 @@ func TestUnifyRowOpenOpen(t *testing.T) {
 
 func TestUnifyRowOpenOpenShared(t *testing.T) {
 	// Open-Open where both rows have the same labels → tails unify to same fresh.
-	u := NewUnifier()
+	u := unify.NewUnifier()
 
 	m1 := &types.TyMeta{ID: 200, Kind: types.KRow{}}
 	m2 := &types.TyMeta{ID: 201, Kind: types.KRow{}}
@@ -349,7 +350,7 @@ func TestUnifyRowOpenOpenShared(t *testing.T) {
 
 func TestUnifyRowOpenOpenDisjoint(t *testing.T) {
 	// Open-Open where rows have entirely different labels.
-	u := NewUnifier()
+	u := unify.NewUnifier()
 
 	m1 := &types.TyMeta{ID: 300, Kind: types.KRow{}}
 	m2 := &types.TyMeta{ID: 301, Kind: types.KRow{}}
@@ -392,7 +393,7 @@ func TestUnifyRowOpenOpenDisjoint(t *testing.T) {
 func TestNormalizeCompAppPrePostOrder(t *testing.T) {
 	// Computation pre post result as TyApp chain: ((Computation pre) post) result
 	// normalizeCompApp must preserve: Pre=pre, Post=post, Result=result.
-	u := NewUnifier()
+	u := unify.NewUnifier()
 	pre := types.Con("Pre")
 	post := types.Con("Post")
 	result := types.Con("Result")
@@ -423,7 +424,7 @@ func TestNormalizeCompAppPrePostOrder(t *testing.T) {
 }
 
 func TestNormalizeThunkAppPrePostOrder(t *testing.T) {
-	u := NewUnifier()
+	u := unify.NewUnifier()
 	pre := types.Con("Pre")
 	post := types.Con("Post")
 	result := types.Con("Result")
@@ -472,7 +473,7 @@ func TestUnifyRowOpenClosedExtraLabels(t *testing.T) {
 	// Open row { x: Int, y: Bool | ?tail } vs closed { x: Int }
 	// The open side has extra label y — tail can absorb nothing since closed.
 	// But the open row's tail should solve to {} (empty), and y is extra → error.
-	u := NewUnifier()
+	u := unify.NewUnifier()
 	m := &types.TyMeta{ID: 400, Kind: types.KRow{}}
 
 	r1 := types.OpenRow([]types.RowField{
@@ -490,7 +491,7 @@ func TestUnifyRowOpenClosedExtraLabels(t *testing.T) {
 func TestUnifyRowClosedOpenAbsorbExtra(t *testing.T) {
 	// Closed row { x: Int } vs open row { x: Int, y: Bool | ?tail }
 	// Reversed direction: same constraint.
-	u := NewUnifier()
+	u := unify.NewUnifier()
 	m := &types.TyMeta{ID: 500, Kind: types.KRow{}}
 
 	r1 := types.ClosedRow(types.RowField{Label: "x", Type: types.Con("Int")})
@@ -508,7 +509,7 @@ func TestUnifyRowClosedOpenAbsorbExtra(t *testing.T) {
 func TestUnifyRowOpenClosedSubset(t *testing.T) {
 	// Open row { x: Int | ?tail } vs closed { x: Int, y: Bool }
 	// Closed has extra y — tail absorbs { y: Bool }.
-	u := NewUnifier()
+	u := unify.NewUnifier()
 	m := &types.TyMeta{ID: 600, Kind: types.KRow{}}
 
 	r1 := types.OpenRow([]types.RowField{
@@ -814,26 +815,26 @@ main := \b. case b { _ -> 1; True -> 2 }`
 // --- Zonk optimization tests ---
 
 func TestZonkPathCompression(t *testing.T) {
-	u := NewUnifier()
+	u := unify.NewUnifier()
 	// Chain: m1 → m2 → Int
 	m1 := &types.TyMeta{ID: 1, Kind: types.KType{}}
 	m2 := &types.TyMeta{ID: 2, Kind: types.KType{}}
-	u.soln[1] = m2
-	u.soln[2] = types.Con("Int")
+	u.InstallTempSolution(1, m2)
+	u.InstallTempSolution(2, types.Con("Int"))
 
 	result := u.Zonk(m1)
 	if con, ok := result.(*types.TyCon); !ok || con.Name != "Int" {
 		t.Fatalf("expected Int, got %v", result)
 	}
-	// After path compression, soln[1] should point directly to Int.
-	direct := u.soln[1]
+	// After path compression, Solve(1) should point directly to Int.
+	direct := u.Solve(1)
 	if con, ok := direct.(*types.TyCon); !ok || con.Name != "Int" {
-		t.Errorf("path compression failed: soln[1] = %v, expected Int", direct)
+		t.Errorf("path compression failed: Solve(1) = %v, expected Int", direct)
 	}
 }
 
 func TestZonkNoAllocUnchanged(t *testing.T) {
-	u := NewUnifier()
+	u := unify.NewUnifier()
 	// A type with no metavariables should return the exact same pointer.
 	ty := types.MkArrow(types.Con("Int"), types.Con("Bool"))
 	result := u.Zonk(ty)
@@ -1230,9 +1231,9 @@ func TestErrorSpecialForm(t *testing.T) {
 }
 
 func TestErrorDuplicateLabel(t *testing.T) {
-	// Trigger UnifyDupLabel via the unifier's label context mechanism:
+	// Trigger unify.UnifyDupLabel via the unifier's label context mechanism:
 	// a row meta with label context {x} solved to a row containing x.
-	u := NewUnifier()
+	u := unify.NewUnifier()
 	m := &types.TyMeta{ID: 1, Kind: types.KRow{}}
 	// Register label context: the meta is the tail of a row with field "x".
 	u.RegisterLabelContext(m.ID, map[string]struct{}{"x": {}})
@@ -1242,18 +1243,18 @@ func TestErrorDuplicateLabel(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected duplicate label error, got nil")
 	}
-	ue, ok := err.(*UnifyError)
+	ue, ok := err.(*unify.UnifyError)
 	if !ok {
 		t.Fatalf("expected UnifyError, got %T: %v", err, err)
 	}
-	if ue.Kind != UnifyDupLabel {
-		t.Errorf("expected UnifyDupLabel, got %v: %s", ue.Kind, ue.Detail)
+	if ue.Kind != unify.UnifyDupLabel {
+		t.Errorf("expected unify.UnifyDupLabel, got %v: %s", ue.Kind, ue.Detail)
 	}
 }
 
 func TestErrorDuplicateLabelEvidenceRow(t *testing.T) {
 	// Same as TestErrorDuplicateLabel but for TyEvidenceRow (capability entries).
-	u := NewUnifier()
+	u := unify.NewUnifier()
 	m := &types.TyMeta{ID: 1, Kind: types.KRow{}}
 	u.RegisterLabelContext(m.ID, map[string]struct{}{"x": {}})
 	evRow := types.ClosedRow(types.RowField{Label: "x", Type: types.Con("Int")})
@@ -1261,12 +1262,12 @@ func TestErrorDuplicateLabelEvidenceRow(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected duplicate label error for evidence row, got nil")
 	}
-	ue, ok := err.(*UnifyError)
+	ue, ok := err.(*unify.UnifyError)
 	if !ok {
 		t.Fatalf("expected UnifyError, got %T: %v", err, err)
 	}
-	if ue.Kind != UnifyDupLabel {
-		t.Errorf("expected UnifyDupLabel, got %v: %s", ue.Kind, ue.Detail)
+	if ue.Kind != unify.UnifyDupLabel {
+		t.Errorf("expected unify.UnifyDupLabel, got %v: %s", ue.Kind, ue.Detail)
 	}
 }
 
@@ -1895,7 +1896,7 @@ func TestSpecializeRecordSkipsConstructor(t *testing.T) {
 }
 
 func BenchmarkZonkDeepChain(b *testing.B) {
-	u := NewUnifier()
+	u := unify.NewUnifier()
 	// Build a deep TyApp chain with no metavariables.
 	var ty types.Type = types.Con("Base")
 	for i := 0; i < 50; i++ {

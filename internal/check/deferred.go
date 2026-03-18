@@ -126,7 +126,7 @@ func (ch *Checker) isAmbiguousInstance(className string, args []types.Type) bool
 			continue
 		}
 		freshSubst := ch.freshInstanceSubst(inst)
-		saved := ch.saveUnifierState()
+		saved := ch.saveState()
 		ok := true
 		for i := range args {
 			instArg := types.SubstMany(inst.TypeArgs[i], freshSubst)
@@ -135,7 +135,7 @@ func (ch *Checker) isAmbiguousInstance(className string, args []types.Type) bool
 				break
 			}
 		}
-		ch.restoreUnifierState(saved)
+		ch.restoreState(saved)
 		if ok {
 			matchCount++
 			if matchCount > 1 {

@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/cwd-k2/gicel/internal/check/unify"
 	"github.com/cwd-k2/gicel/internal/core"
 	"github.com/cwd-k2/gicel/internal/errs"
 	"github.com/cwd-k2/gicel/internal/span"
@@ -15,18 +16,18 @@ import (
 // unifyErrorCode maps a UnifyError to the corresponding errs.Code.
 // Returns ErrTypeMismatch for non-UnifyError or general mismatch.
 func unifyErrorCode(err error) errs.Code {
-	ue, ok := err.(*UnifyError)
+	ue, ok := err.(*unify.UnifyError)
 	if !ok {
 		return errs.ErrTypeMismatch
 	}
 	switch ue.Kind {
-	case UnifyOccursCheck:
+	case unify.UnifyOccursCheck:
 		return errs.ErrOccursCheck
-	case UnifyDupLabel:
+	case unify.UnifyDupLabel:
 		return errs.ErrDuplicateLabel
-	case UnifyRowMismatch:
+	case unify.UnifyRowMismatch:
 		return errs.ErrRowMismatch
-	case UnifySkolemRigid:
+	case unify.UnifySkolemRigid:
 		return errs.ErrSkolemRigid
 	default:
 		return errs.ErrTypeMismatch

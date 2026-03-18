@@ -1,10 +1,9 @@
-package check
+package unify
 
 import (
 	"fmt"
 	"maps"
 
-	"github.com/cwd-k2/gicel/internal/span"
 	"github.com/cwd-k2/gicel/internal/types"
 )
 
@@ -33,31 +32,19 @@ type AliasExpander func(types.Type) types.Type
 // FamilyReducer is a callback for reducing type family applications during unification.
 type FamilyReducer func(types.Type) types.Type
 
-// stuckFamilyEntry records a type family application that could not reduce
-// because one or more arguments contain unsolved metavariables.
-// When those metas are solved, the entry is moved to the rework queue
-// for re-reduction.
-type stuckFamilyEntry struct {
-	familyName string
-	args       []types.Type
-	span       span.Span
-	resultMeta *types.TyMeta // placeholder substituted for the stuck app
-	blockingOn []int         // meta IDs that blocked reduction
-}
-
 // Unifier manages type unification.
 type Unifier struct {
-	soln          map[int]types.Type
-	labels        map[int]map[string]struct{}
-	kindSoln      map[int]types.Kind // kind metavariable solutions
-	freshID       *int
-	aliasExpander AliasExpander // optional; set by Checker after alias processing
-	familyReducer FamilyReducer // optional; set by Checker after type family processing
+	soln     map[int]types.Type
+	labels   map[int]map[string]struct{}
+	kindSoln map[int]types.Kind // kind metavariable solutions
+	freshID  *int
 
-	// Re-activation index: tracks stuck family applications by blocking meta ID.
-	// When solveMeta solves a meta, its entries move to the rework queue.
-	stuckFamilies map[int][]*stuckFamilyEntry
-	rework        []*stuckFamilyEntry
+	AliasExpander AliasExpander // optional; set by Checker after alias processing
+	FamilyReducer FamilyReducer // optional; set by Checker after type family processing
+
+	// OnSolve is called when a metavariable is solved.
+	// The checker uses this to re-activate stuck type family applications.
+	OnSolve func(metaID int)
 }
 
 // NewUnifier creates a Unifier with its own internal fresh ID counter.
@@ -114,18 +101,15 @@ func (u *Unifier) KindSolutions() map[int]types.Kind {
 	return u.kindSoln
 }
 
-// UnifierSnapshot captures solutions, label contexts, kind solutions,
-// and stuck family state for rollback.
-type UnifierSnapshot struct {
-	soln          map[int]types.Type
-	labels        map[int]map[string]struct{}
-	kindSoln      map[int]types.Kind
-	stuckFamilies map[int][]*stuckFamilyEntry
-	reworkLen     int
+// Snapshot captures solutions, label contexts, and kind solutions for rollback.
+type Snapshot struct {
+	soln     map[int]types.Type
+	labels   map[int]map[string]struct{}
+	kindSoln map[int]types.Kind
 }
 
 // Snapshot captures the current unifier state for later rollback.
-func (u *Unifier) Snapshot() UnifierSnapshot {
+func (u *Unifier) Snapshot() Snapshot {
 	soln := make(map[int]types.Type, len(u.soln))
 	maps.Copy(soln, u.soln)
 	labels := make(map[int]map[string]struct{}, len(u.labels))
@@ -138,22 +122,15 @@ func (u *Unifier) Snapshot() UnifierSnapshot {
 	}
 	kindSoln := make(map[int]types.Kind, len(u.kindSoln))
 	maps.Copy(kindSoln, u.kindSoln)
-	// Snapshot stuck families: shallow-copy the map of slices.
-	stuckFamilies := make(map[int][]*stuckFamilyEntry, len(u.stuckFamilies))
-	for k, v := range u.stuckFamilies {
-		stuckFamilies[k] = append([]*stuckFamilyEntry(nil), v...)
-	}
-	return UnifierSnapshot{
-		soln:          soln,
-		labels:        labels,
-		kindSoln:      kindSoln,
-		stuckFamilies: stuckFamilies,
-		reworkLen:     len(u.rework),
+	return Snapshot{
+		soln:     soln,
+		labels:   labels,
+		kindSoln: kindSoln,
 	}
 }
 
 // Restore rolls back the unifier to a previously saved snapshot.
-func (u *Unifier) Restore(snap UnifierSnapshot) {
+func (u *Unifier) Restore(snap Snapshot) {
 	for k := range u.soln {
 		if _, existed := snap.soln[k]; !existed {
 			delete(u.soln, k)
@@ -172,17 +149,6 @@ func (u *Unifier) Restore(snap UnifierSnapshot) {
 		}
 	}
 	maps.Copy(u.kindSoln, snap.kindSoln)
-	// Restore stuck families.
-	for k := range u.stuckFamilies {
-		if _, existed := snap.stuckFamilies[k]; !existed {
-			delete(u.stuckFamilies, k)
-		}
-	}
-	maps.Copy(u.stuckFamilies, snap.stuckFamilies)
-	// Truncate rework queue to snapshot length.
-	if snap.reworkLen < len(u.rework) {
-		u.rework = u.rework[:snap.reworkLen]
-	}
 }
 
 // RegisterLabelContext records the surrounding labels for a row metavariable.
@@ -285,11 +251,11 @@ func (u *Unifier) Zonk(t types.Type) types.Type {
 
 // normalize applies alias expansion and special type normalization.
 func (u *Unifier) normalize(t types.Type) types.Type {
-	if u.aliasExpander != nil {
-		t = u.aliasExpander(t)
+	if u.AliasExpander != nil {
+		t = u.AliasExpander(t)
 	}
-	if u.familyReducer != nil {
-		t = u.familyReducer(t)
+	if u.FamilyReducer != nil {
+		t = u.FamilyReducer(t)
 	}
 	return normalizeCompApp(t)
 }
@@ -487,44 +453,16 @@ func (u *Unifier) solveMeta(m *types.TyMeta, t types.Type) error {
 		}
 	}
 	u.soln[m.ID] = t
-	// Re-activation: move stuck families blocked on this meta to the rework queue.
-	if entries, ok := u.stuckFamilies[m.ID]; ok {
-		u.rework = append(u.rework, entries...)
-		delete(u.stuckFamilies, m.ID)
+	// Re-activation callback: notify the checker that a meta was solved.
+	if u.OnSolve != nil {
+		u.OnSolve(m.ID)
 	}
 	return nil
 }
 
-// RegisterStuckFamily records a type family application that is stuck on
-// unsolved metavariables. The entry is indexed by each blocking meta ID
-// so that solveMeta can re-activate it when any blocking meta is solved.
-func (u *Unifier) RegisterStuckFamily(entry *stuckFamilyEntry) {
-	if u.stuckFamilies == nil {
-		u.stuckFamilies = make(map[int][]*stuckFamilyEntry)
-	}
-	for _, metaID := range entry.blockingOn {
-		u.stuckFamilies[metaID] = append(u.stuckFamilies[metaID], entry)
-	}
-}
-
-// DrainRework removes and returns all pending rework entries.
-func (u *Unifier) DrainRework() []*stuckFamilyEntry {
-	if len(u.rework) == 0 {
-		return nil
-	}
-	entries := u.rework
-	u.rework = nil
-	return entries
-}
-
-// HasRework reports whether there are pending rework entries.
-func (u *Unifier) HasRework() bool {
-	return len(u.rework) > 0
-}
-
-// collectBlockingMetas collects all unsolved meta IDs in the given types,
+// CollectBlockingMetas collects all unsolved meta IDs in the given types,
 // using the current solution map to resolve already-solved metas.
-func (u *Unifier) collectBlockingMetas(tys []types.Type) []int {
+func (u *Unifier) CollectBlockingMetas(tys []types.Type) []int {
 	var ids []int
 	seen := make(map[int]bool)
 	for _, t := range tys {

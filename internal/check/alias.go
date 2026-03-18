@@ -127,7 +127,7 @@ func (ch *Checker) installAliasExpander() {
 	if len(ch.aliases) == 0 {
 		return
 	}
-	ch.unifier.aliasExpander = func(ty types.Type) types.Type {
+	ch.unifier.AliasExpander = func(ty types.Type) types.Type {
 		return ch.expandTypeAliases(ty)
 	}
 }

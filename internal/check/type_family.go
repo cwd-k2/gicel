@@ -60,6 +60,82 @@ func cloneFamilies(m map[string]*TypeFamilyInfo) map[string]*TypeFamilyInfo {
 	return out
 }
 
+// stuckFamilyEntry records a type family application that could not reduce
+// because one or more arguments contain unsolved metavariables.
+type stuckFamilyEntry struct {
+	familyName string
+	args       []types.Type
+	span       span.Span
+	resultMeta *types.TyMeta // placeholder substituted for the stuck app
+	blockingOn []int         // meta IDs that blocked reduction
+}
+
+// stuckFamilyIndex manages stuck type family applications and their
+// re-activation when blocking metavariables are solved.
+type stuckFamilyIndex struct {
+	entries map[int][]*stuckFamilyEntry
+	rework  []*stuckFamilyEntry
+}
+
+func (idx *stuckFamilyIndex) register(entry *stuckFamilyEntry) {
+	if idx.entries == nil {
+		idx.entries = make(map[int][]*stuckFamilyEntry)
+	}
+	for _, metaID := range entry.blockingOn {
+		idx.entries[metaID] = append(idx.entries[metaID], entry)
+	}
+}
+
+func (idx *stuckFamilyIndex) reactivate(metaID int) {
+	if entries, ok := idx.entries[metaID]; ok {
+		idx.rework = append(idx.rework, entries...)
+		delete(idx.entries, metaID)
+	}
+}
+
+func (idx *stuckFamilyIndex) drainRework() []*stuckFamilyEntry {
+	if len(idx.rework) == 0 {
+		return nil
+	}
+	entries := idx.rework
+	idx.rework = nil
+	return entries
+}
+
+func (idx *stuckFamilyIndex) hasRework() bool {
+	return len(idx.rework) > 0
+}
+
+type stuckFamilySnapshot struct {
+	entries   map[int][]*stuckFamilyEntry
+	reworkLen int
+}
+
+func (idx *stuckFamilyIndex) snapshot() stuckFamilySnapshot {
+	entriesCopy := make(map[int][]*stuckFamilyEntry, len(idx.entries))
+	for k, v := range idx.entries {
+		entriesCopy[k] = append([]*stuckFamilyEntry(nil), v...)
+	}
+	return stuckFamilySnapshot{
+		entries:   entriesCopy,
+		reworkLen: len(idx.rework),
+	}
+}
+
+func (idx *stuckFamilyIndex) restore(snap stuckFamilySnapshot) {
+	for k := range idx.entries {
+		if _, existed := snap.entries[k]; !existed {
+			delete(idx.entries, k)
+		}
+	}
+	for k, v := range snap.entries {
+		idx.entries[k] = v
+	}
+	if snap.reworkLen < len(idx.rework) {
+		idx.rework = idx.rework[:snap.reworkLen]
+	}
+}
+
 // matchResult classifies the outcome of type-level pattern matching.
 type matchResult int
 
@@ -399,8 +475,8 @@ func collectVarKindsRec(t types.Type, contextKind types.Kind, result map[string]
 // reduceFamilyInType reduces type family applications within a type.
 // Used by exhaustiveness checking to resolve data family instances.
 func (ch *Checker) reduceFamilyInType(t types.Type) types.Type {
-	if ch.unifier.familyReducer != nil {
-		return ch.unifier.familyReducer(t)
+	if ch.unifier.FamilyReducer != nil {
+		return ch.unifier.FamilyReducer(t)
 	}
 	return t
 }
@@ -440,7 +516,7 @@ func (ch *Checker) installFamilyReducer() {
 	if len(ch.families) == 0 {
 		return
 	}
-	ch.unifier.familyReducer = func(t types.Type) types.Type {
+	ch.unifier.FamilyReducer = func(t types.Type) types.Type {
 		ch.reductionDepth = 0 // reset per normalize() call
 		return ch.reduceFamilyApps(t)
 	}
@@ -601,11 +677,11 @@ func writeTypeKey(b *strings.Builder, t types.Type) {
 }
 
 // registerStuckFamily checks whether a stuck family application has unsolved
-// meta arguments and, if so, registers it in the unifier's re-activation index.
+// meta arguments and, if so, registers it in the checker's stuck family index.
 // Returns a fresh result meta that stands in for the family application,
 // or nil if the family is not blocked on metas (e.g., genuinely unmatched).
 func (ch *Checker) registerStuckFamily(name string, args []types.Type, resultKind types.Kind, s span.Span) *types.TyMeta {
-	blocking := ch.unifier.collectBlockingMetas(args)
+	blocking := ch.unifier.CollectBlockingMetas(args)
 	if len(blocking) == 0 {
 		// Not blocked on metas — the family is genuinely stuck (no matching equation).
 		return nil
@@ -618,7 +694,7 @@ func (ch *Checker) registerStuckFamily(name string, args []types.Type, resultKin
 		resultMeta: resultMeta,
 		blockingOn: blocking,
 	}
-	ch.unifier.RegisterStuckFamily(entry)
+	ch.stuckFamilies.register(entry)
 	return resultMeta
 }
 
@@ -633,7 +709,7 @@ const maxReworkIterations = 200
 func (ch *Checker) ProcessRework() {
 	ch.reductionDepth = 0
 	for range maxReworkIterations {
-		entries := ch.unifier.DrainRework()
+		entries := ch.stuckFamilies.drainRework()
 		if len(entries) == 0 {
 			return
 		}
@@ -657,7 +733,7 @@ func (ch *Checker) ProcessRework() {
 				continue
 			}
 			// Still stuck — re-register with updated blocking metas.
-			blocking := ch.unifier.collectBlockingMetas(zonked)
+			blocking := ch.unifier.CollectBlockingMetas(zonked)
 			if len(blocking) == 0 {
 				// No longer blocked on metas but still didn't reduce —
 				// genuinely unmatched. Leave the result meta unsolved.
@@ -665,7 +741,7 @@ func (ch *Checker) ProcessRework() {
 			}
 			entry.args = zonked
 			entry.blockingOn = blocking
-			ch.unifier.RegisterStuckFamily(entry)
+			ch.stuckFamilies.register(entry)
 		}
 	}
 }
