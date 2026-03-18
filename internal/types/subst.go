@@ -12,6 +12,12 @@ func freshName(base string) string {
 	return fmt.Sprintf("%s$%d", base, n)
 }
 
+// ResetFreshCounter resets the global fresh name counter to zero.
+// Use in tests to ensure deterministic type variable naming.
+func ResetFreshCounter() {
+	atomic.StoreInt64(&freshCounter, 0)
+}
+
 // Subst applies a substitution [varName := replacement] throughout a type.
 func Subst(t Type, varName string, replacement Type) Type {
 	switch ty := t.(type) {
