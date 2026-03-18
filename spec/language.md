@@ -1609,7 +1609,53 @@ The intersection of label sets determines the joined post-state. Labels present 
 
 ---
 
-# 18. Potential Extensions
+# 18. Session Fidelity
+
+## 18.1 Setup
+
+Session types are encoded via the Atkey indexed monad without special syntax. Protocol states are regular type constructors; `@Linear` annotations on channel labels enforce usage discipline.
+
+```
+data Send s := MkSend          -- send a value, continue as s
+data Recv s := MkRecv          -- receive a value, continue as s
+data End    := MkEnd            -- session complete
+
+type Dual (s: Type) :: Type := {
+  Dual (Send s) =: Recv (Dual s);
+  Dual (Recv s) =: Send (Dual s);
+  Dual End      =: End
+}
+
+send  :: \s. Computation { ch: Send s @Linear } { ch: s @Linear } T
+recv  :: \s. Computation { ch: Recv s @Linear } { ch: s @Linear } T
+close :: Computation { ch: End @Linear } {} ()
+```
+
+## 18.2 Session Fidelity Theorem
+
+**Theorem (GICEL Session Fidelity).** Let `e :: Computation pre post a` be well-typed, with `pre` containing `ch : S @Linear` for some protocol state `S`. Then:
+
+**(a) Protocol compliance.** Each operation on `ch` advances the protocol state according to the type family rules: `send` transforms `Send s` to `s`, `recv` transforms `Recv s` to `s`, and `close` requires `End`.
+
+**(b) Communication safety.** The type parameter of each send/recv operation matches the protocol specification. No send/recv is applied to an incompatible protocol state.
+
+**(c) Session completion.** If `ch` does not appear in `post`, then the session has reached `End` and been closed. No other terminal state is reachable under the protocol encoding.
+
+## 18.3 Proof Structure
+
+**(a)** follows from the soundness of row unification with type family reduction. Each bind step in the do-chain unifies the current step's post-state with the next step's pre-state. The type family rules for `Send`, `Recv`, and `End` deterministically govern the transitions.
+
+**(b)** follows from the parametric typing of `send` and `recv`. Type unification ensures that the type parameter of each operation matches the corresponding position in the protocol structure.
+
+**(c)** follows from the multiplicity enforcement (Phase 1–2). The `@Linear` annotation ensures that each same-type preservation occurs at most once; type-changing preservations (protocol transitions) are unrestricted. The `close` operation is the only primitive that consumes `ch` at `End`. Since `@Linear` capabilities cannot be silently dropped (row unification rejects post-states that lose annotated labels without consumption), a well-typed program that removes `ch` from its post-state must have executed `close`.
+
+## 18.4 Duality Involution
+
+**Property.** `Dual (Dual S)` reduces to `S` for all closed protocol states `S`.
+
+This follows from the type family equations by structural induction on `S`. Each constructor pair (`Send`/`Recv`) is symmetric under double application of `Dual`, and `Dual End = End`.
+
+# 19. Potential Extensions
 
 | Extension                | Classification   | Prerequisite             |
 | ------------------------ | ---------------- | ------------------------ |
