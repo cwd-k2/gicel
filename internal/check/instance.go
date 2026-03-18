@@ -42,36 +42,7 @@ func (ch *Checker) processInstanceHeader(d *syntax.DeclInstance) *InstanceInfo {
 		typeArgs = append(typeArgs, ch.resolveTypeExpr(ta))
 	}
 
-	// Auto-lift: if a type argument's kind doesn't match the class parameter kind
-	// but wrapping with Lift makes it match, do so automatically.
-	// e.g. instance IxMonad Maybe → instance IxMonad (Lift Maybe)
-	// For poly-kinded classes, use kind unification instead of structural equality.
-	for i := 0; i < len(typeArgs) && i < len(classInfo.TyParamKinds); i++ {
-		argKind := ch.kindOfType(typeArgs[i])
-		paramKind := classInfo.TyParamKinds[i]
-		if argKind == nil {
-			continue
-		}
-		// Try kind unification first (handles kind variables in paramKind).
-		if ch.withTrial(func() bool {
-			return ch.unifier.UnifyKinds(argKind, paramKind) == nil
-		}) {
-			continue
-		}
-		// Kind mismatch — check if Lift wrapping fixes it.
-		liftKind := ch.kindOfType(&types.TyCon{Name: "Lift"})
-		if liftKind != nil {
-			if ka, ok := liftKind.(*types.KArrow); ok && ka.From.Equal(argKind) {
-				lifted := &types.TyApp{Fun: &types.TyCon{Name: "Lift"}, Arg: typeArgs[i]}
-				liftedKind := ka.To
-				if ch.withTrial(func() bool {
-					return ch.unifier.UnifyKinds(liftedKind, paramKind) == nil
-				}) {
-					typeArgs[i] = lifted
-				}
-			}
-		}
-	}
+	ch.autoLiftTypeArgs(typeArgs, classInfo.TyParamKinds)
 
 	// Resolve context constraints.
 	var context []ConstraintInfo
@@ -124,38 +95,12 @@ func (ch *Checker) processInstanceHeader(d *syntax.DeclInstance) *InstanceInfo {
 	// Build dict binding name: ClassName$TypeName (simplified naming)
 	dictName := ch.instanceDictName(d.ClassName, typeArgs)
 
-	// Check for missing methods.
+	// Validate method set (missing / extra).
 	methodExprs := make(map[string]syntax.Expr)
 	for _, m := range d.Methods {
 		methodExprs[m.Name] = m.Expr
 	}
-	hasMissingMethod := false
-	for _, m := range classInfo.Methods {
-		if _, ok := methodExprs[m.Name]; !ok {
-			ch.addCodedError(errs.ErrMissingMethod, d.S,
-				fmt.Sprintf("instance %s: missing method %s", d.ClassName, m.Name))
-			hasMissingMethod = true
-		}
-	}
-	if hasMissingMethod {
-		return nil
-	}
-
-	// Extra method check: methods defined in instance but not declared in class.
-	classMethodSet := make(map[string]bool, len(classInfo.Methods))
-	for _, m := range classInfo.Methods {
-		classMethodSet[m.Name] = true
-	}
-	hasExtraMethod := false
-	for _, m := range d.Methods {
-		if !classMethodSet[m.Name] {
-			ch.addCodedError(errs.ErrBadInstance, d.S,
-				fmt.Sprintf("instance %s: extra method %s not declared in class",
-					d.ClassName, m.Name))
-			hasExtraMethod = true
-		}
-	}
-	if hasExtraMethod {
+	if !ch.validateInstanceMethods(d.ClassName, classInfo, d.Methods, methodExprs, d.S) {
 		return nil
 	}
 
@@ -563,4 +508,71 @@ func (ch *Checker) processAssocDataDef(add syntax.AssocDataDef, className string
 		RHS:      mangledResultType,
 		S:        add.S,
 	})
+}
+
+// autoLiftTypeArgs applies automatic Lift wrapping to type arguments whose kinds
+// don't match the expected class parameter kinds.
+// e.g. instance IxMonad Maybe → instance IxMonad (Lift Maybe)
+func (ch *Checker) autoLiftTypeArgs(typeArgs []types.Type, paramKinds []types.Kind) {
+	for i := 0; i < len(typeArgs) && i < len(paramKinds); i++ {
+		argKind := ch.kindOfType(typeArgs[i])
+		paramKind := paramKinds[i]
+		if argKind == nil {
+			continue
+		}
+		if ch.withTrial(func() bool {
+			return ch.unifier.UnifyKinds(argKind, paramKind) == nil
+		}) {
+			continue
+		}
+		liftKind := ch.kindOfType(&types.TyCon{Name: "Lift"})
+		if liftKind != nil {
+			if ka, ok := liftKind.(*types.KArrow); ok && ka.From.Equal(argKind) {
+				lifted := &types.TyApp{Fun: &types.TyCon{Name: "Lift"}, Arg: typeArgs[i]}
+				liftedKind := ka.To
+				if ch.withTrial(func() bool {
+					return ch.unifier.UnifyKinds(liftedKind, paramKind) == nil
+				}) {
+					typeArgs[i] = lifted
+				}
+			}
+		}
+	}
+}
+
+// validateInstanceMethods checks that the instance defines exactly the methods
+// declared in the class (no missing, no extra). Returns true if valid.
+func (ch *Checker) validateInstanceMethods(
+	className string,
+	classInfo *ClassInfo,
+	declMethods []syntax.InstMethod,
+	methodExprs map[string]syntax.Expr,
+	s span.Span,
+) bool {
+	hasMissing := false
+	for _, m := range classInfo.Methods {
+		if _, ok := methodExprs[m.Name]; !ok {
+			ch.addCodedError(errs.ErrMissingMethod, s,
+				fmt.Sprintf("instance %s: missing method %s", className, m.Name))
+			hasMissing = true
+		}
+	}
+	if hasMissing {
+		return false
+	}
+
+	classMethodSet := make(map[string]bool, len(classInfo.Methods))
+	for _, m := range classInfo.Methods {
+		classMethodSet[m.Name] = true
+	}
+	hasExtra := false
+	for _, m := range declMethods {
+		if !classMethodSet[m.Name] {
+			ch.addCodedError(errs.ErrBadInstance, s,
+				fmt.Sprintf("instance %s: extra method %s not declared in class",
+					className, m.Name))
+			hasExtra = true
+		}
+	}
+	return !hasExtra
 }

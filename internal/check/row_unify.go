@@ -140,7 +140,7 @@ func (u *Unifier) zonkConstraintEntry(e types.ConstraintEntry, changed *bool) ty
 		result.ConstraintVar = newCV
 		// If zonked ConstraintVar is now concrete, decompose into ClassName + Args.
 		if result.ClassName == "" {
-			if cn, cArgs, ok := DecomposeConstraintType(newCV); ok {
+			if cn, cArgs, ok := decomposeConstraintType(newCV); ok {
 				result.ClassName = cn
 				result.Args = cArgs
 			}
@@ -162,9 +162,9 @@ func (u *Unifier) zonkQuantifiedConstraint(qc *types.QuantifiedConstraint, chang
 	return &types.QuantifiedConstraint{Vars: qc.Vars, Context: ctx, Head: head}
 }
 
-// DecomposeConstraintType decomposes a concrete constraint type (e.g., TyApp(TyCon("Eq"), TyCon("Bool")))
+// decomposeConstraintType decomposes a concrete constraint type (e.g., TyApp(TyCon("Eq"), TyCon("Bool")))
 // into its class name and type arguments. Returns ("Eq", [Bool], true) for the example above.
-func DecomposeConstraintType(ty types.Type) (className string, args []types.Type, ok bool) {
+func decomposeConstraintType(ty types.Type) (className string, args []types.Type, ok bool) {
 	head, tArgs := types.UnwindApp(ty)
 	if con, isCon := head.(*types.TyCon); isCon {
 		return con.Name, tArgs, true

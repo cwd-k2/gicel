@@ -308,7 +308,7 @@ func (ch *Checker) checkWithEvidence(expr syntax.Expr, ev *types.TyEvidence) cor
 			args = entry.Args
 		} else if entry.ConstraintVar != nil && entry.ClassName == "" {
 			cv := ch.unifier.Zonk(entry.ConstraintVar)
-			if cn, cArgs, ok := DecomposeConstraintType(cv); ok {
+			if cn, cArgs, ok := decomposeConstraintType(cv); ok {
 				className = cn
 				args = cArgs
 				dictTy = ch.buildDictType(cn, cArgs)

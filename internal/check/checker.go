@@ -57,7 +57,6 @@ const (
 	TraceInfer
 	TraceCheck
 	TraceInstantiate
-	TraceRowUnify
 )
 
 // CheckTraceEvent describes one type checking decision.

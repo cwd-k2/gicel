@@ -106,7 +106,6 @@ const (
 	TraceInfer       = check.TraceInfer
 	TraceCheck       = check.TraceCheck
 	TraceInstantiate = check.TraceInstantiate
-	TraceRowUnify    = check.TraceRowUnify
 )
 
 // CheckTraceEvent describes one type checking decision.

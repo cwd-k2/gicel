@@ -1,6 +1,6 @@
 //go:build probe
 
-package gicel_test
+package probe_test
 
 import (
 	"context"
