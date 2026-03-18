@@ -360,60 +360,6 @@ func (ch *Checker) instancesOverlap(a, b *InstanceInfo) bool {
 	return true
 }
 
-// aliasParamKind returns the kind of the i-th parameter of a type alias.
-func (ch *Checker) aliasParamKind(aliasName string, i int) types.Kind {
-	info, ok := ch.aliases[aliasName]
-	if !ok || i >= len(info.paramKinds) {
-		return types.KType{}
-	}
-	return info.paramKinds[i]
-}
-
-// kindOfType returns the kind of a resolved type, or nil if unknown.
-func (ch *Checker) kindOfType(ty types.Type) types.Kind {
-	switch t := ty.(type) {
-	case *types.TyCon:
-		if k, ok := ch.config.RegisteredTypes[t.Name]; ok {
-			return k
-		}
-		// Type aliases: compute kind from parameter kinds.
-		if info, ok := ch.aliases[t.Name]; ok {
-			var kind types.Kind = types.KType{}
-			for i := len(info.params) - 1; i >= 0; i-- {
-				paramKind := ch.aliasParamKind(t.Name, i)
-				kind = &types.KArrow{From: paramKind, To: kind}
-			}
-			return kind
-		}
-		// Well-known built-in type constructors.
-		switch t.Name {
-		case "Computation", "Thunk":
-			return &types.KArrow{From: types.KRow{}, To: &types.KArrow{From: types.KRow{}, To: &types.KArrow{From: types.KType{}, To: types.KType{}}}}
-		}
-		if k, ok := ch.promotedCons[t.Name]; ok {
-			return k
-		}
-		return types.KType{}
-	case *types.TyApp:
-		funKind := ch.kindOfType(t.Fun)
-		if ka, ok := funKind.(*types.KArrow); ok {
-			return ka.To
-		}
-		return nil
-	case *types.TyMeta:
-		return t.Kind
-	case *types.TySkolem:
-		return t.Kind
-	case *types.TyVar:
-		if k, ok := ch.ctx.LookupTyVar(t.Name); ok {
-			return k
-		}
-		return types.KType{}
-	default:
-		return types.KType{}
-	}
-}
-
 // processAssocDataDef registers constructors for an associated data family definition
 // and creates the type family equation mapping the family to its mangled data type.
 func (ch *Checker) processAssocDataDef(add syntax.AssocDataDef, className string, instSpan span.Span) {

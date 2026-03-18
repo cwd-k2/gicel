@@ -550,22 +550,7 @@ func (p *Parser) parsePattern() Pattern {
 		}
 		inner := p.parsePattern()
 		if p.peek().Kind == TokComma {
-			// (p1, p2, ...) → tuple pattern (desugars to record pattern)
-			pats := []Pattern{inner}
-			for p.peek().Kind == TokComma {
-				p.advance()
-				pats = append(pats, p.parsePattern())
-			}
-			p.expect(TokRParen)
-			fields := make([]PatRecordField, len(pats))
-			for i, pat := range pats {
-				fields[i] = PatRecordField{
-					Label:   fmt.Sprintf("_%d", i+1),
-					Pattern: pat,
-					S:       pat.Span(),
-				}
-			}
-			return &PatRecord{Fields: fields, S: span.Span{Start: start, End: p.prevEnd()}}
+			return p.parseTuplePatternTail(start, inner)
 		}
 		p.expect(TokRParen)
 		return &PatParen{Inner: inner, S: span.Span{Start: start, End: p.prevEnd()}}
@@ -669,21 +654,7 @@ func (p *Parser) parsePatternAtom() Pattern {
 		inner := p.parsePattern()
 		// (p1, p2, ...) → tuple pattern
 		if p.peek().Kind == TokComma {
-			pats := []Pattern{inner}
-			for p.peek().Kind == TokComma {
-				p.advance()
-				pats = append(pats, p.parsePattern())
-			}
-			p.expect(TokRParen)
-			fields := make([]PatRecordField, len(pats))
-			for i, pat := range pats {
-				fields[i] = PatRecordField{
-					Label:   fmt.Sprintf("_%d", i+1),
-					Pattern: pat,
-					S:       pat.Span(),
-				}
-			}
-			return &PatRecord{Fields: fields, S: span.Span{Start: start, End: p.prevEnd()}}
+			return p.parseTuplePatternTail(start, inner)
 		}
 		p.expect(TokRParen)
 		return &PatParen{Inner: inner, S: span.Span{Start: start, End: p.prevEnd()}}
@@ -692,6 +663,26 @@ func (p *Parser) parsePatternAtom() Pattern {
 	default:
 		return nil
 	}
+}
+
+// parseTuplePatternTail parses the remaining comma-separated patterns after the first
+// element, closing the paren and returning a record pattern with _1, _2, ... labels.
+func (p *Parser) parseTuplePatternTail(start span.Pos, first Pattern) *PatRecord {
+	pats := []Pattern{first}
+	for p.peek().Kind == TokComma {
+		p.advance()
+		pats = append(pats, p.parsePattern())
+	}
+	p.expect(TokRParen)
+	fields := make([]PatRecordField, len(pats))
+	for i, pat := range pats {
+		fields[i] = PatRecordField{
+			Label:   fmt.Sprintf("_%d", i+1),
+			Pattern: pat,
+			S:       pat.Span(),
+		}
+	}
+	return &PatRecord{Fields: fields, S: span.Span{Start: start, End: p.prevEnd()}}
 }
 
 func (p *Parser) isPatternAtomStart() bool {

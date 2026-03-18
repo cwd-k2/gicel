@@ -491,28 +491,7 @@ func (p *Parser) parseClassDecl() *DeclClass {
 	}
 
 	firstName := p.expectUpper()
-	var firstArgs []TypeExpr
-	// Parse class params: either bare lowercase vars or kinded binders (v: Kind).
-	for p.peek().Kind == TokLower || (p.peek().Kind == TokLParen && p.isClassKindedBinder()) {
-		if p.peek().Kind == TokLParen {
-			// Kinded class param: (m: Kind)
-			lp := p.peek().S.Start
-			p.advance()
-			name := p.expectLower()
-			p.expect(TokColon)
-			kind := p.parseKindExpr()
-			p.expect(TokRParen)
-			firstArgs = append(firstArgs, &TyExprVar{
-				Name: name,
-				S:    span.Span{Start: lp, End: p.prevEnd()},
-				Kind: kind,
-			})
-		} else {
-			tok := p.peek()
-			p.advance()
-			firstArgs = append(firstArgs, &TyExprVar{Name: tok.Text, S: tok.S})
-		}
-	}
+	firstArgs := p.parseClassTyArgs()
 
 	if p.peek().Kind == TokFatArrow {
 		// What we parsed is a superclass constraint.
@@ -526,26 +505,7 @@ func (p *Parser) parseClassDecl() *DeclClass {
 		// Support multiple superclass constraints: Super1 a => Super2 a => ... => ClassName params
 		for {
 			nextName := p.expectUpper()
-			var nextArgs []TypeExpr
-			for p.peek().Kind == TokLower || (p.peek().Kind == TokLParen && p.isClassKindedBinder()) {
-				if p.peek().Kind == TokLParen {
-					lp := p.peek().S.Start
-					p.advance()
-					name := p.expectLower()
-					p.expect(TokColon)
-					kind := p.parseKindExpr()
-					p.expect(TokRParen)
-					nextArgs = append(nextArgs, &TyExprVar{
-						Name: name,
-						S:    span.Span{Start: lp, End: p.prevEnd()},
-						Kind: kind,
-					})
-				} else {
-					tok := p.peek()
-					p.advance()
-					nextArgs = append(nextArgs, &TyExprVar{Name: tok.Text, S: tok.S})
-				}
-			}
+			nextArgs := p.parseClassTyArgs()
 			if p.peek().Kind == TokFatArrow {
 				// Another superclass constraint.
 				var nextExpr TypeExpr = &TyExprCon{Name: nextName, S: span.Span{Start: start, End: p.prevEnd()}}
@@ -585,6 +545,32 @@ func (p *Parser) parseClassDecl() *DeclClass {
 		Methods: methods, AssocTypes: assocTypes, AssocDataDecls: assocDataDecls,
 		S: span.Span{Start: start, End: p.prevEnd()},
 	}
+}
+
+// parseClassTyArgs parses a sequence of class type arguments: bare lowercase vars or
+// kinded binders (v: Kind). Returns them as TyExprVar nodes.
+func (p *Parser) parseClassTyArgs() []TypeExpr {
+	var args []TypeExpr
+	for p.peek().Kind == TokLower || (p.peek().Kind == TokLParen && p.isClassKindedBinder()) {
+		if p.peek().Kind == TokLParen {
+			lp := p.peek().S.Start
+			p.advance()
+			name := p.expectLower()
+			p.expect(TokColon)
+			kind := p.parseKindExpr()
+			p.expect(TokRParen)
+			args = append(args, &TyExprVar{
+				Name: name,
+				S:    span.Span{Start: lp, End: p.prevEnd()},
+				Kind: kind,
+			})
+		} else {
+			tok := p.peek()
+			p.advance()
+			args = append(args, &TyExprVar{Name: tok.Text, S: tok.S})
+		}
+	}
+	return args
 }
 
 // parseClassFunDeps parses optional functional dependencies: | a -> b, c -> d

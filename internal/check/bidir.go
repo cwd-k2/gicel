@@ -158,19 +158,7 @@ func (ch *Checker) infer(expr syntax.Expr) (types.Type, core.Core) {
 		return ch.infer(e.Inner)
 
 	case *syntax.ExprSection:
-		// Desugar operator sections to lambda:
-		// (+ 1)  → \$x. $x + 1   (IsRight=true)
-		// (1 +)  → \$x. 1 + $x   (IsRight=false)
-		param := "$sec"
-		var body syntax.Expr
-		paramVar := &syntax.ExprVar{Name: param, S: e.S}
-		if e.IsRight {
-			body = &syntax.ExprInfix{Left: paramVar, Op: e.Op, Right: e.Arg, S: e.S}
-		} else {
-			body = &syntax.ExprInfix{Left: e.Arg, Op: e.Op, Right: paramVar, S: e.S}
-		}
-		lam := &syntax.ExprLam{Params: []syntax.Pattern{&syntax.PatVar{Name: param, S: e.S}}, Body: body, S: e.S}
-		return ch.infer(lam)
+		return ch.infer(desugarSection(e))
 
 	case *syntax.ExprLam:
 		// In infer mode, generate fresh metas for param types.
@@ -493,16 +481,23 @@ func (ch *Checker) checkInfix(e *syntax.ExprInfix, expected types.Type) core.Cor
 // checkSection handles operator sections in check mode.
 // Desugars to a lambda and delegates to check (checkLam propagates expected).
 func (ch *Checker) checkSection(e *syntax.ExprSection, expected types.Type) core.Core {
+	return ch.check(desugarSection(e), expected)
+}
+
+// desugarSection rewrites an operator section to a lambda expression:
+//
+//	(+ 1)  → \$sec. $sec + 1   (IsRight=true)
+//	(1 +)  → \$sec. 1 + $sec   (IsRight=false)
+func desugarSection(e *syntax.ExprSection) *syntax.ExprLam {
 	param := "$sec"
-	var body syntax.Expr
 	paramVar := &syntax.ExprVar{Name: param, S: e.S}
+	var body syntax.Expr
 	if e.IsRight {
 		body = &syntax.ExprInfix{Left: paramVar, Op: e.Op, Right: e.Arg, S: e.S}
 	} else {
 		body = &syntax.ExprInfix{Left: e.Arg, Op: e.Op, Right: paramVar, S: e.S}
 	}
-	lam := &syntax.ExprLam{Params: []syntax.Pattern{&syntax.PatVar{Name: param, S: e.S}}, Body: body, S: e.S}
-	return ch.check(lam, expected)
+	return &syntax.ExprLam{Params: []syntax.Pattern{&syntax.PatVar{Name: param, S: e.S}}, Body: body, S: e.S}
 }
 
 func isStructuredPattern(p syntax.Pattern) bool {

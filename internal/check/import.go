@@ -2,6 +2,7 @@ package check
 
 import (
 	"fmt"
+	"slices"
 
 	"github.com/cwd-k2/gicel/internal/errs"
 	"github.com/cwd-k2/gicel/internal/span"
@@ -228,7 +229,7 @@ func (ch *Checker) importSelective(mod *ModuleExports, imp syntax.DeclImport) {
 			// Import class methods
 			if in.HasSub {
 				ch.importClassSubs(mod, cls, in, imp.ModuleName)
-			} else if !in.HasSub {
+			} else {
 				// Bare class name: import all methods
 				for _, m := range cls.Methods {
 					if ty, ok := mod.Values[m.Name]; ok {
@@ -267,7 +268,7 @@ func (ch *Checker) importTypeSubs(mod *ModuleExports, typeName string, in syntax
 		if info.Name != typeName {
 			continue
 		}
-		if in.AllSubs || containsStr(in.SubList, conName) {
+		if in.AllSubs || slices.Contains(in.SubList, conName) {
 			if ty, ok := mod.ConTypes[conName]; ok {
 				ch.conTypes[conName] = ty
 				ch.ctx.Push(&CtxVar{Name: conName, Type: ty, Module: moduleName})
@@ -281,19 +282,10 @@ func (ch *Checker) importTypeSubs(mod *ModuleExports, typeName string, in syntax
 // importClassSubs imports class methods based on the import name spec.
 func (ch *Checker) importClassSubs(mod *ModuleExports, cls *ClassInfo, in syntax.ImportName, moduleName string) {
 	for _, m := range cls.Methods {
-		if in.AllSubs || containsStr(in.SubList, m.Name) {
+		if in.AllSubs || slices.Contains(in.SubList, m.Name) {
 			if ty, ok := mod.Values[m.Name]; ok {
 				ch.ctx.Push(&CtxVar{Name: m.Name, Type: ty, Module: moduleName})
 			}
 		}
 	}
-}
-
-func containsStr(ss []string, s string) bool {
-	for _, v := range ss {
-		if v == s {
-			return true
-		}
-	}
-	return false
 }
