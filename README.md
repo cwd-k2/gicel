@@ -58,10 +58,14 @@ globals. The harder you lock down, the more edge cases slip through.
 - **No side effects by default.** A GICEL computation is pure. It cannot
   touch the host's filesystem, memory, or goroutines. Effects like State
   or IO only become available when the host provides them, and the type
-  system enforces this boundary at compile time.
+  system enforces this boundary at compile time. Note: host-registered
+  primitives (`RegisterPrim`) are trusted code and are not subject to
+  these restrictions — they form part of the trusted computing base.
 - **Resource limits with clean termination.** Step count, call depth,
   allocation ceiling, and timeout. Execution halts cleanly — no killed
-  goroutines, no leaked state.
+  goroutines, no leaked state. Timeout bounds evaluation time;
+  compilation (parse/check/optimize) runs to completion before
+  the timeout clock starts.
 - **Go-native.** No CGo, no FFI. Runtimes are immutable and goroutine-safe.
   Embed it like any other Go library.
 

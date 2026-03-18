@@ -20,6 +20,8 @@ result, err := gicel.RunSandbox(source, &gicel.SandboxConfig{
 ```
 
 `SandboxConfig` fields are all optional. `nil` uses conservative defaults.
+`Timeout` bounds evaluation time; compilation (parse/check/optimize) runs
+to completion before the clock starts.
 
 `RunResult`: `Value` (result), `CapEnv` (final capabilities), `Stats` (EvalStats: `Steps int`, `MaxDepth int`, `Allocated int64`).
 
@@ -50,6 +52,12 @@ result, err := rt.RunWith(ctx, &gicel.RunOptions{Caps: caps, Bindings: bindings}
 | `gicel.DataSet`     | `Data.Set`     | Ordered immutable set                       |
 
 ### Custom Primitives (RegisterPrim)
+
+> **Trust boundary**: Custom primitives are part of the trusted computing
+> base. They run synchronously within the evaluator and are not subject
+> to forced cancellation. The evaluator checks `context.Context` only at
+> eval step boundaries — a primitive that blocks or ignores `ctx` cannot
+> be interrupted by timeout. Only register primitives from trusted code.
 
 ```go
 eng.RegisterPrim("greet", func(

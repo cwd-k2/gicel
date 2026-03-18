@@ -1,5 +1,23 @@
 # Changelog
 
+## v0.12.0 — 2026-03-19
+
+### Refactoring
+
+Checker restructuring: establish subpackage boundaries for each concern.
+
+- **`internal/budget` extraction** — unified resource limiter (`Budget`) tracks steps, depth, and allocation bytes across all pipeline phases. Replaces the previous `eval.Limit` type
+- **`check/exhaust` subpackage** — Maranget exhaustiveness checking extracted with `DataTypeInfo`/`ConInfo` types. Callback-based `Env` struct decouples from Checker state
+- **`check/family` subpackage** — type family reduction engine, stuck index, injectivity verification. `StuckIndex` exported for Checker snapshot/restore
+- **`check/env` subpackage** — shared environment type definitions (`AliasInfo`, `ClassInfo`, `InstanceInfo`, `ConstraintInfo`) extracted as canonical home
+- **`internal/engine` extraction** — Engine/Runtime/RunSandbox moved from root package. Root `gicel` package becomes a pure facade of type aliases and re-exports; external API unchanged
+
+### Documentation
+
+- **Trust boundary clarification** — README and agent guide now explicitly document that host-registered primitives (`RegisterPrim`) are trusted computing base code, and that `Timeout` bounds evaluation time only
+
+---
+
 ## v0.11.0 — 2026-03-18
 
 ### Language Features
