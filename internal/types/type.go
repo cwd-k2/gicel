@@ -107,10 +107,15 @@ type TyEvidence struct {
 }
 
 // TyMeta is a unification metavariable (created by the checker).
+// Level tracks the implication nesting depth at creation time.
+// Used for touchability: a meta at level k is touchable only when
+// the solver is operating at level k (OutsideIn).
+// Currently all metas are created at level 0.
 type TyMeta struct {
-	ID   int
-	Kind Kind
-	S    span.Span
+	ID    int
+	Kind  Kind
+	Level int // implication nesting depth (0 = top-level)
+	S     span.Span
 }
 
 // TySkolem is a rigid (skolem) type variable for existentials and higher-rank.

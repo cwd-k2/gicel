@@ -105,6 +105,7 @@ type Checker struct {
 	importedNames     map[string]string          // name → source module (for ambiguity detection)
 	strictTypeNames   bool                       // enabled after declaration processing
 	multSteps         []multStep                 // collected during elaborateStmtsChecked for multiplicity checking
+	level             int                        // implication nesting depth for touchability (0 = top-level)
 }
 
 // qualifiedScope holds a module's exports for qualified name resolution.
@@ -277,7 +278,7 @@ func (ch *Checker) fresh() int {
 
 func (ch *Checker) freshMeta(k types.Kind) *types.TyMeta {
 	id := ch.fresh()
-	return &types.TyMeta{ID: id, Kind: k}
+	return &types.TyMeta{ID: id, Kind: k, Level: ch.level}
 }
 
 func (ch *Checker) freshSkolem(name string, k types.Kind) *types.TySkolem {
