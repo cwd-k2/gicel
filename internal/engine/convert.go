@@ -1,4 +1,4 @@
-package gicel
+package engine
 
 import (
 	"fmt"
@@ -9,12 +9,12 @@ import (
 // ToValue wraps a Go value as a GICEL Value.
 // nil becomes unit (empty record), bool becomes True/False constructor,
 // and all other types are wrapped as HostVal.
-func ToValue(v any) Value {
+func ToValue(v any) eval.Value {
 	if v == nil {
 		return &eval.RecordVal{Fields: map[string]eval.Value{}}
 	}
 	switch x := v.(type) {
-	case Value:
+	case eval.Value:
 		return x
 	case bool:
 		if x {
@@ -27,8 +27,7 @@ func ToValue(v any) Value {
 }
 
 // FromBool extracts a bool from a Bool constructor value.
-// Returns false and ok=false if the value is not True or False.
-func FromBool(v Value) (bool, bool) {
+func FromBool(v eval.Value) (bool, bool) {
 	con, ok := v.(*eval.ConVal)
 	if !ok {
 		return false, false
@@ -43,8 +42,7 @@ func FromBool(v Value) (bool, bool) {
 }
 
 // FromHost extracts the inner Go value from a HostVal.
-// Returns nil and ok=false if the value is not a HostVal.
-func FromHost(v Value) (any, bool) {
+func FromHost(v eval.Value) (any, bool) {
 	hv, ok := v.(*eval.HostVal)
 	if !ok {
 		return nil, false
@@ -53,33 +51,31 @@ func FromHost(v Value) (any, bool) {
 }
 
 // FromCon extracts the constructor name and arguments from a ConVal.
-// Returns empty string and nil if the value is not a ConVal.
-func FromCon(v Value) (name string, args []Value, ok bool) {
+func FromCon(v eval.Value) (name string, args []eval.Value, ok bool) {
 	con, ok := v.(*eval.ConVal)
 	if !ok {
 		return "", nil, false
 	}
-	args = make([]Value, len(con.Args))
+	args = make([]eval.Value, len(con.Args))
 	copy(args, con.Args)
 	return con.Con, args, true
 }
 
 // ToList converts a Go slice to a GICEL List (ConVal chain).
-func ToList(items []any) Value {
-	var result Value = &eval.ConVal{Con: "Nil"}
+func ToList(items []any) eval.Value {
+	var result eval.Value = &eval.ConVal{Con: "Nil"}
 	for i := len(items) - 1; i >= 0; i-- {
-		item, ok := items[i].(Value)
+		item, ok := items[i].(eval.Value)
 		if !ok {
 			item = ToValue(items[i])
 		}
-		result = &eval.ConVal{Con: "Cons", Args: []Value{item, result}}
+		result = &eval.ConVal{Con: "Cons", Args: []eval.Value{item, result}}
 	}
 	return result
 }
 
 // FromList converts a GICEL List (ConVal chain) to a Go slice.
-// Returns nil and false if the value is not a valid List.
-func FromList(v Value) ([]any, bool) {
+func FromList(v eval.Value) ([]any, bool) {
 	var result []any
 	for {
 		con, ok := v.(*eval.ConVal)
@@ -102,13 +98,12 @@ func FromList(v Value) ([]any, bool) {
 }
 
 // FromRecord extracts the field map from a RecordVal.
-// Returns nil and ok=false if the value is not a RecordVal.
-func FromRecord(v Value) (map[string]Value, bool) {
+func FromRecord(v eval.Value) (map[string]eval.Value, bool) {
 	rv, ok := v.(*eval.RecordVal)
 	if !ok {
 		return nil, false
 	}
-	fields := make(map[string]Value, len(rv.Fields))
+	fields := make(map[string]eval.Value, len(rv.Fields))
 	for k, v := range rv.Fields {
 		fields[k] = v
 	}
@@ -116,7 +111,7 @@ func FromRecord(v Value) (map[string]Value, bool) {
 }
 
 // MustHost extracts the inner Go value from a HostVal, panicking if it is not one.
-func MustHost[T any](v Value) T {
+func MustHost[T any](v eval.Value) T {
 	hv, ok := v.(*eval.HostVal)
 	if !ok {
 		panic(fmt.Sprintf("gicel: expected HostVal, got %T", v))

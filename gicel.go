@@ -16,6 +16,7 @@ import (
 	"github.com/cwd-k2/gicel/internal/eval"
 	"github.com/cwd-k2/gicel/internal/reg"
 	"github.com/cwd-k2/gicel/internal/stdlib"
+	"github.com/cwd-k2/gicel/internal/types"
 )
 
 // ---- Engine / Runtime / Compile ----
@@ -156,6 +157,57 @@ type CheckTraceEvent = check.CheckTraceEvent
 
 // CheckTraceHook receives trace events during type checking.
 type CheckTraceHook = check.CheckTraceHook
+
+// ---- Type construction helpers ----
+
+// Type is the unified type representation used across the public API.
+type Type = types.Type
+
+// Kind classifies types and rows.
+type Kind = types.Kind
+
+// RowField is a single label:type pair in a row.
+type RowField = types.RowField
+
+// RowBuilder helps construct row types incrementally.
+type RowBuilder = engine.RowBuilder
+
+var (
+	ConType      = engine.ConType
+	ArrowType    = engine.ArrowType
+	CompType     = engine.CompType
+	ThunkType    = engine.ThunkType
+	ForallType   = engine.ForallType
+	ForallRow    = engine.ForallRow
+	VarType      = engine.VarType
+	AppType      = engine.AppType
+	NewRow       = engine.NewRow
+	KindType     = engine.KindType
+	KindRow      = engine.KindRow
+	KindArrow    = engine.KindArrow
+	EmptyRowType = engine.EmptyRowType
+	ForallKind   = engine.ForallKind
+	ClosedRowType = engine.ClosedRowType
+	RecordType   = engine.RecordType
+	TupleType    = engine.TupleType
+	TypeEqual    = engine.TypeEqual
+	TypePretty   = engine.TypePretty
+)
+
+// ---- Value conversion helpers ----
+
+var (
+	ToValue    = engine.ToValue
+	FromBool   = engine.FromBool
+	FromHost   = engine.FromHost
+	FromCon    = engine.FromCon
+	ToList     = engine.ToList
+	FromList   = engine.FromList
+	FromRecord = engine.FromRecord
+)
+
+// MustHost extracts the inner Go value from a HostVal, panicking if it is not one.
+func MustHost[T any](v Value) T { return engine.MustHost[T](v) }
 
 // ---- Utility functions ----
 
