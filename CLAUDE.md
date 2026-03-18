@@ -114,10 +114,10 @@ cd examples/cli/multi-module
 ## Test Directory Strategy
 
 ```
-*_test.go (root)              # integration tests — Engine/Runtime 経由の end-to-end
-internal/*/_test.go           # unit tests — パッケージ内部の関数・型を直接テスト
-tests/probe/                  # adversarial probe tests (build tag: probe)
-tests/stress/                 # stress tests — 大規模入力・リソース境界
+internal/engine/*_test.go        # integration tests — Engine/Runtime 経由の end-to-end
+internal/*/_test.go              # unit tests — パッケージ内部の関数・型を直接テスト
+tests/probe/                     # adversarial probe tests (build tag: probe)
+tests/stress/                    # stress tests — 大規模入力・リソース境界
 internal/check/probe_*_test.go   # checker probe tests (build tag: probe)
 internal/syntax/parse/probe_*_test.go  # parser probe tests (build tag: probe)
 ```
@@ -128,7 +128,7 @@ internal/syntax/parse/probe_*_test.go  # parser probe tests (build tag: probe)
 
 **配置ルール:**
 - パッケージ内部のロジックをテストする場合 → `internal/*/` に配置
-- Engine/Runtime 経由の統合テスト → root `*_test.go`
+- Engine/Runtime 経由の統合テスト → `internal/engine/` に配置
 - 敵対的入力・境界探索（probe） → `tests/probe/` または対象パッケージの `probe_*_test.go`（build tag 必須）
 - 負荷・大規模テスト（stress） → `tests/stress/`
 
