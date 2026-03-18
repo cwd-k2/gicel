@@ -1,5 +1,8 @@
 //go:build probe
 
+// Eval probe invariants tests — evaluator limits, trampoline, CapEnv COW, env chains, pattern matching, values.
+// Does NOT cover: eval unit tests (eval_test.go), capenv unit tests (capenv_test.go).
+
 package eval
 
 import (
