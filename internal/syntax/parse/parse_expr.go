@@ -40,10 +40,17 @@ func (p *Parser) parseInfix(minPrec int) Expr {
 // already-parsed left operand. This enables parseParen to detect
 // left operator sections between parseApp and infix continuation.
 func (p *Parser) continueInfix(left Expr, minPrec int) Expr {
+	prevNonePrec := -1 // precedence of last non-associative op, or -1
 	for p.isInfixOp() {
 		op := p.peek().Text
 		fix := p.lookupFixity(op)
 		if fix.Prec < minPrec {
+			break
+		}
+		// Non-associative operators cannot chain at the same precedence,
+		// even with a different operator. e.g. `1 == 2 /= 3` is an error.
+		if prevNonePrec >= 0 && fix.Prec == prevNonePrec {
+			p.addError("cannot mix non-associative operators of equal precedence")
 			break
 		}
 		p.advance()
@@ -55,6 +62,11 @@ func (p *Parser) continueInfix(left Expr, minPrec int) Expr {
 		left = &ExprInfix{
 			Left: left, Op: op, Right: right,
 			S: span.Span{Start: left.Span().Start, End: right.Span().End},
+		}
+		if fix.Assoc == AssocNone {
+			prevNonePrec = fix.Prec
+		} else {
+			prevNonePrec = -1
 		}
 	}
 	return left
