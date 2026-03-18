@@ -1175,7 +1175,7 @@ func TestProbeD_LexerNestedBlockComment(t *testing.T) {
 	}
 }
 
-// TestProbeD_LexerEmptyRune verifies `''` is handled (empty rune literal).
+// TestProbeD_LexerEmptyRune verifies `”` is handled (empty rune literal).
 func TestProbeD_LexerEmptyRune(t *testing.T) {
 	_, es := parse("main := ''")
 	if !es.HasErrors() {

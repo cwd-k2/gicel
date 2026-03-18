@@ -53,7 +53,7 @@ func (ch *Checker) validateAliasGraph() bool {
 		path = append(path, name)
 
 		info := ch.aliases[name]
-		refs := collectAliasRefs(info.body, ch.aliases)
+		refs := collectAliasRefs(info.Body, ch.aliases)
 		for _, ref := range refs {
 			if visit(ref) {
 				return true
@@ -77,14 +77,14 @@ func (ch *Checker) validateAliasGraph() bool {
 }
 
 // collectAliasRefs returns the names of all TyCon nodes in ty that are also alias names.
-func collectAliasRefs(ty types.Type, aliases map[string]*aliasInfo) []string {
+func collectAliasRefs(ty types.Type, aliases map[string]*AliasInfo) []string {
 	var refs []string
 	seen := make(map[string]bool)
 	collectAliasRefsRec(ty, aliases, seen, &refs)
 	return refs
 }
 
-func collectAliasRefsRec(ty types.Type, aliases map[string]*aliasInfo, seen map[string]bool, refs *[]string) {
+func collectAliasRefsRec(ty types.Type, aliases map[string]*AliasInfo, seen map[string]bool, refs *[]string) {
 	if ty == nil {
 		return
 	}
@@ -160,7 +160,7 @@ func (ch *Checker) expandTypeAliasesN(ty types.Type, depth int) types.Type {
 		return ty
 	}
 	info, ok := ch.aliases[con.Name]
-	if !ok || len(info.params) != len(args) {
+	if !ok || len(info.Params) != len(args) {
 		// Not a fully-applied alias. Check if partial application could be expanded
 		// by recursing into sub-expressions.
 		newFun := ch.expandTypeAliasesN(app.Fun, depth+1)
@@ -173,8 +173,8 @@ func (ch *Checker) expandTypeAliasesN(ty types.Type, depth int) types.Type {
 		return ch.expandTypeAliasesN(result, depth+1)
 	}
 	// Expand: substitute params with args in the alias body.
-	body := info.body
-	for i, p := range info.params {
+	body := info.Body
+	for i, p := range info.Params {
 		body = types.Subst(body, p, args[i])
 	}
 	// Recursively expand nested aliases.

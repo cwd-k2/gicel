@@ -390,7 +390,7 @@ func probeModuleExports(typeName string, cons []string) *ModuleExports {
 		Types:    map[string]types.Kind{typeName: types.KType{}},
 		ConTypes: conTypes,
 		ConInfo:  conInfo,
-		Aliases:  map[string]*aliasInfo{},
+		Aliases:  map[string]*AliasInfo{},
 		Classes:  map[string]*ClassInfo{},
 		Values:   map[string]types.Type{},
 		DataDecls: []core.DataDecl{
@@ -500,7 +500,7 @@ func TestProbeA_QualPattern_NestedQualPattern(t *testing.T) {
 			"Just":    info,
 			"Nothing": info,
 		},
-		Aliases: map[string]*aliasInfo{},
+		Aliases: map[string]*AliasInfo{},
 		Classes: map[string]*ClassInfo{},
 		Values:  map[string]types.Type{},
 		DataDecls: []core.DataDecl{
@@ -544,7 +544,7 @@ func TestProbeA_Ambiguity_TwoOpenImportsSameName(t *testing.T) {
 		Types:    map[string]types.Kind{},
 		ConTypes: map[string]types.Type{},
 		ConInfo:  map[string]*DataTypeInfo{},
-		Aliases:  map[string]*aliasInfo{},
+		Aliases:  map[string]*AliasInfo{},
 		Classes:  map[string]*ClassInfo{},
 		Values:   map[string]types.Type{"foo": types.Con("Int")},
 		DataDecls: []core.DataDecl{
@@ -559,7 +559,7 @@ func TestProbeA_Ambiguity_TwoOpenImportsSameName(t *testing.T) {
 		Types:    map[string]types.Kind{},
 		ConTypes: map[string]types.Type{},
 		ConInfo:  map[string]*DataTypeInfo{},
-		Aliases:  map[string]*aliasInfo{},
+		Aliases:  map[string]*AliasInfo{},
 		Classes:  map[string]*ClassInfo{},
 		Values:   map[string]types.Type{"foo": types.Con("String")},
 		DataDecls: []core.DataDecl{
@@ -615,7 +615,7 @@ func TestProbeA_Ambiguity_TwoOpenImportsSameConstructor(t *testing.T) {
 			Types:    map[string]types.Kind{typeName: types.KType{}},
 			ConTypes: map[string]types.Type{"MkVal": types.Con(typeName)},
 			ConInfo:  map[string]*DataTypeInfo{"MkVal": info},
-			Aliases:  map[string]*aliasInfo{},
+			Aliases:  map[string]*AliasInfo{},
 			Classes:  map[string]*ClassInfo{},
 			Values:   map[string]types.Type{},
 			DataDecls: []core.DataDecl{
@@ -653,7 +653,7 @@ func TestProbeA_Ambiguity_QualifiedDisambiguates(t *testing.T) {
 			Types:         map[string]types.Kind{},
 			ConTypes:      map[string]types.Type{},
 			ConInfo:       map[string]*DataTypeInfo{},
-			Aliases:       map[string]*aliasInfo{},
+			Aliases:       map[string]*AliasInfo{},
 			Classes:       map[string]*ClassInfo{},
 			Values:        map[string]types.Type{"foo": types.Con("Int")},
 			DataDecls:     nil,

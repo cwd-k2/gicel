@@ -23,7 +23,7 @@ func newTestChecker() *Checker {
 		config:            &CheckConfig{RegisteredTypes: make(map[string]types.Kind)},
 		conTypes:          make(map[string]types.Type),
 		conInfo:           make(map[string]*DataTypeInfo),
-		aliases:           make(map[string]*aliasInfo),
+		aliases:           make(map[string]*AliasInfo),
 		classes:           make(map[string]*ClassInfo),
 		instancesByClass:  make(map[string][]*InstanceInfo),
 		importedInstances: make(map[*InstanceInfo]bool),

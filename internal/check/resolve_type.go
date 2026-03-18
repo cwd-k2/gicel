@@ -14,8 +14,8 @@ func (ch *Checker) resolveTypeExpr(texpr syntax.TypeExpr) types.Type {
 	case *syntax.TyExprVar:
 		return &types.TyVar{Name: t.Name, S: t.S}
 	case *syntax.TyExprCon:
-		if info, ok := ch.aliases[t.Name]; ok && len(info.params) == 0 {
-			return info.body
+		if info, ok := ch.aliases[t.Name]; ok && len(info.Params) == 0 {
+			return info.Body
 		}
 		// Zero-arity type family: immediate TyFamilyApp.
 		if fam, ok := ch.families[t.Name]; ok && len(fam.Params) == 0 {
@@ -35,8 +35,8 @@ func (ch *Checker) resolveTypeExpr(texpr syntax.TypeExpr) types.Type {
 		}
 		// Check qualified aliases (zero-arity: expand inline; parameterized: inject into local scope for TyApp expansion)
 		if info, ok := qs.exports.Aliases[t.Name]; ok {
-			if len(info.params) == 0 {
-				return info.body
+			if len(info.Params) == 0 {
+				return info.Body
 			}
 			ch.aliases[t.Name] = info
 			return &types.TyCon{Name: t.Name, S: t.S}
@@ -236,9 +236,9 @@ func (ch *Checker) tryExpandApp(fun types.Type, arg types.Type, s span.Span) typ
 	result := &types.TyApp{Fun: fun, Arg: arg, S: s}
 	head, args := types.UnwindApp(result)
 	if con, ok := head.(*types.TyCon); ok {
-		if info, ok := ch.aliases[con.Name]; ok && len(info.params) == len(args) {
-			body := info.body
-			for i, p := range info.params {
+		if info, ok := ch.aliases[con.Name]; ok && len(info.Params) == len(args) {
+			body := info.Body
+			for i, p := range info.Params {
 				body = types.Subst(body, p, args[i])
 			}
 			return body
@@ -397,10 +397,10 @@ func (ch *Checker) isKnownTypeName(name string) bool {
 // aliasParamKind returns the kind of the i-th parameter of a type alias.
 func (ch *Checker) aliasParamKind(aliasName string, i int) types.Kind {
 	info, ok := ch.aliases[aliasName]
-	if !ok || i >= len(info.paramKinds) {
+	if !ok || i >= len(info.ParamKinds) {
 		return types.KType{}
 	}
-	return info.paramKinds[i]
+	return info.ParamKinds[i]
 }
 
 // kindOfType returns the kind of a resolved type, or nil if unknown.
@@ -413,16 +413,11 @@ func (ch *Checker) kindOfType(ty types.Type) types.Kind {
 		// Type aliases: compute kind from parameter kinds.
 		if info, ok := ch.aliases[t.Name]; ok {
 			var kind types.Kind = types.KType{}
-			for i := len(info.params) - 1; i >= 0; i-- {
+			for i := len(info.Params) - 1; i >= 0; i-- {
 				paramKind := ch.aliasParamKind(t.Name, i)
 				kind = &types.KArrow{From: paramKind, To: kind}
 			}
 			return kind
-		}
-		// Well-known built-in type constructors.
-		switch t.Name {
-		case "Computation", "Thunk":
-			return &types.KArrow{From: types.KRow{}, To: &types.KArrow{From: types.KRow{}, To: &types.KArrow{From: types.KType{}, To: types.KType{}}}}
 		}
 		if k, ok := ch.promotedCons[t.Name]; ok {
 			return k

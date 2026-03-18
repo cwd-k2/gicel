@@ -39,7 +39,7 @@ type ModuleExports struct {
 	Types         map[string]types.Kind      // registered type constructors
 	ConTypes      map[string]types.Type      // constructor → full type
 	ConInfo       map[string]*DataTypeInfo   // constructor → data type info
-	Aliases       map[string]*aliasInfo      // type aliases
+	Aliases       map[string]*AliasInfo      // type aliases
 	Classes       map[string]*ClassInfo      // class declarations
 	Instances     []*InstanceInfo            // instance declarations
 	Values        map[string]types.Type      // top-level value types
@@ -86,7 +86,7 @@ type Checker struct {
 	conTypes          map[string]types.Type
 	conInfo           map[string]*DataTypeInfo
 	dataTypeByName    map[string]*DataTypeInfo // type name → DataTypeInfo (reverse index)
-	aliases           map[string]*aliasInfo
+	aliases           map[string]*AliasInfo
 	classes           map[string]*ClassInfo
 	instances         []*InstanceInfo
 	instancesByClass  map[string][]*InstanceInfo
@@ -123,10 +123,11 @@ type ConInfo struct {
 	ReturnType types.Type // GADT: non-nil if constructor has refined return type
 }
 
-type aliasInfo struct {
-	params     []string
-	paramKinds []types.Kind
-	body       types.Type
+// AliasInfo holds the definition of a type alias: parameter names, their kinds, and the body.
+type AliasInfo struct {
+	Params     []string
+	ParamKinds []types.Kind
+	Body       types.Type
 }
 
 // deferredConstraint records a constraint to be resolved after type inference.
@@ -160,7 +161,7 @@ func CheckModule(prog *syntax.AstProgram, source *span.Source, config *CheckConf
 		conTypes:          make(map[string]types.Type),
 		conInfo:           make(map[string]*DataTypeInfo),
 		dataTypeByName:    make(map[string]*DataTypeInfo),
-		aliases:           make(map[string]*aliasInfo),
+		aliases:           make(map[string]*AliasInfo),
 		classes:           make(map[string]*ClassInfo),
 		instancesByClass:  make(map[string][]*InstanceInfo),
 		importedInstances: make(map[*InstanceInfo]bool),
