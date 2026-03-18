@@ -1,5 +1,8 @@
 //go:build probe
 
+// Integration-level type system probes: type classes, type families,
+// GADTs, modules, higher-rank types, cross-feature interactions,
+// crash resistance, computation types, records, and inference.
 package probe_test
 
 import (
@@ -21,12 +24,6 @@ func assertConName(t *testing.T, v gicel.Value, name string) {
 		t.Fatalf("expected %s, got %s", name, con.Con)
 	}
 }
-
-// =============================================================================
-// Probe E: Integration-level type system probes using the public Engine API.
-// Focus: end-to-end type checking edge cases, cross-feature interactions,
-// error recovery, and crash resistance in real programs.
-// =============================================================================
 
 // =====================================================================
 // 1. Type class resolution edge cases
