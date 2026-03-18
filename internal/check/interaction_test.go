@@ -5,8 +5,6 @@ import (
 	"testing"
 
 	"github.com/cwd-k2/gicel/internal/errs"
-	"github.com/cwd-k2/gicel/internal/span"
-	"github.com/cwd-k2/gicel/internal/syntax/parse"
 	"github.com/cwd-k2/gicel/internal/types"
 )
 
@@ -1603,29 +1601,4 @@ main :: Computation { cap: Unit } {} Unit
 main := step
 `
 	checkSource(t, source, nil)
-}
-
-// ================================================================
-// Helper: try compilation, return "" on success, error string on failure
-// ================================================================
-
-func checkSourceTryBoth(t *testing.T, source string, config *CheckConfig) string {
-	t.Helper()
-	src := span.NewSource("test", source)
-	l := parse.NewLexer(src)
-	tokens, lexErrs := l.Tokenize()
-	if lexErrs.HasErrors() {
-		t.Fatal("lex errors:", lexErrs.Format())
-	}
-	es := &errs.Errors{Source: src}
-	p := parse.NewParser(tokens, es)
-	ast := p.ParseProgram()
-	if es.HasErrors() {
-		t.Fatal("parse errors:", es.Format())
-	}
-	_, checkErrs := Check(ast, src, config)
-	if checkErrs.HasErrors() {
-		return checkErrs.Format()
-	}
-	return ""
 }

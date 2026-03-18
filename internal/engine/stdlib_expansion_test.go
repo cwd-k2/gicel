@@ -5,62 +5,12 @@ import (
 	"testing"
 
 	"github.com/cwd-k2/gicel/internal/eval"
-	"github.com/cwd-k2/gicel/internal/reg"
 	"github.com/cwd-k2/gicel/internal/stdlib"
 )
 
 // ---------------------------------------------------------------------------
 // Stdlib expansion tests — TDD for Prelude (Str, List) and Effect.IO additions.
 // ---------------------------------------------------------------------------
-
-// runWithPacks compiles source with given packs and evaluates "main".
-func runWithPacks(t *testing.T, source string, packs ...reg.Pack) eval.Value {
-	t.Helper()
-	eng := NewEngine()
-	for _, p := range packs {
-		if err := p(eng); err != nil {
-			t.Fatal(err)
-		}
-	}
-	rt, err := eng.NewRuntime(source)
-	if err != nil {
-		t.Fatal(err)
-	}
-	result, err := rt.RunWith(context.Background(), nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return result.Value
-}
-
-func assertHostString(t *testing.T, v eval.Value, expected string) {
-	t.Helper()
-	hv, ok := v.(*eval.HostVal)
-	if !ok {
-		t.Fatalf("expected HostVal(%q), got %T: %v", expected, v, v)
-	}
-	s, ok := hv.Inner.(string)
-	if !ok {
-		t.Fatalf("expected string, got %T: %v", hv.Inner, hv.Inner)
-	}
-	if s != expected {
-		t.Fatalf("expected %q, got %q", expected, s)
-	}
-}
-
-func assertHostBool(t *testing.T, v eval.Value, expected bool) {
-	t.Helper()
-	con, ok := v.(*eval.ConVal)
-	if !ok {
-		t.Fatalf("expected ConVal(True/False), got %T: %v", v, v)
-	}
-	if expected && con.Con != "True" {
-		t.Fatalf("expected True, got %s", con.Con)
-	}
-	if !expected && con.Con != "False" {
-		t.Fatalf("expected False, got %s", con.Con)
-	}
-}
 
 // ===========================================================================
 // Prelude — Str expansion

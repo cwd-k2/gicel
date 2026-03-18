@@ -3,7 +3,6 @@ package check
 import (
 	"testing"
 
-	"github.com/cwd-k2/gicel/internal/check/unify"
 	"github.com/cwd-k2/gicel/internal/errs"
 	"github.com/cwd-k2/gicel/internal/span"
 	"github.com/cwd-k2/gicel/internal/types"
@@ -14,29 +13,6 @@ import (
 // These test internal functions directly rather than
 // through full compilation, catching finer mutations.
 // ==========================================
-
-// helper: create a minimal Checker for unit tests.
-func newTestChecker() *Checker {
-	var freshID int
-	ch := &Checker{
-		ctx:               NewContext(),
-		errors:            &errs.Errors{Source: span.NewSource("test", "")},
-		config:            &CheckConfig{RegisteredTypes: make(map[string]types.Kind)},
-		conTypes:          make(map[string]types.Type),
-		conInfo:           make(map[string]*DataTypeInfo),
-		aliases:           make(map[string]*AliasInfo),
-		classes:           make(map[string]*ClassInfo),
-		instancesByClass:  make(map[string][]*InstanceInfo),
-		importedInstances: make(map[*InstanceInfo]bool),
-		promotedKinds:     make(map[string]types.Kind),
-		promotedCons:      make(map[string]types.Kind),
-		kindVars:          make(map[string]bool),
-		families:          make(map[string]*TypeFamilyInfo),
-		freshID:           freshID,
-	}
-	ch.unifier = unify.NewUnifierShared(&ch.freshID)
-	return ch
-}
 
 // -----------------------------------------------
 // matchTyPattern unit tests

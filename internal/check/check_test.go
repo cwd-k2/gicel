@@ -12,27 +12,6 @@ import (
 	"github.com/cwd-k2/gicel/internal/types"
 )
 
-func checkSource(t *testing.T, source string, config *CheckConfig) *core.Program {
-	t.Helper()
-	src := span.NewSource("test", source)
-	l := parse.NewLexer(src)
-	tokens, lexErrs := l.Tokenize()
-	if lexErrs.HasErrors() {
-		t.Fatal("lex errors:", lexErrs.Format())
-	}
-	es := &errs.Errors{Source: src}
-	p := parse.NewParser(tokens, es)
-	ast := p.ParseProgram()
-	if es.HasErrors() {
-		t.Fatal("parse errors:", es.Format())
-	}
-	prog, checkErrs := Check(ast, src, config)
-	if checkErrs.HasErrors() {
-		t.Fatal("check errors:", checkErrs.Format())
-	}
-	return prog
-}
-
 func TestCheckDataDecl(t *testing.T) {
 	prog := checkSource(t, "data Bool := True | False", nil)
 	if len(prog.DataDecls) != 1 {
@@ -535,29 +514,6 @@ func TestUnifyRowOpenClosedSubset(t *testing.T) {
 	}
 }
 
-// checkSourceExpectError parses and type-checks source, expecting at least one error.
-// Returns the formatted error string.
-func checkSourceExpectError(t *testing.T, source string, config *CheckConfig) string {
-	t.Helper()
-	src := span.NewSource("test", source)
-	l := parse.NewLexer(src)
-	tokens, lexErrs := l.Tokenize()
-	if lexErrs.HasErrors() {
-		t.Fatal("lex errors:", lexErrs.Format())
-	}
-	es := &errs.Errors{Source: src}
-	p := parse.NewParser(tokens, es)
-	ast := p.ParseProgram()
-	if es.HasErrors() {
-		t.Fatal("parse errors:", es.Format())
-	}
-	_, checkErrs := Check(ast, src, config)
-	if !checkErrs.HasErrors() {
-		t.Fatal("expected check errors, got none")
-	}
-	return checkErrs.Format()
-}
-
 func TestAliasCycleDirect(t *testing.T) {
 	errMsg := checkSourceExpectCode(t, `type A := A`, nil, errs.ErrCyclicAlias)
 	if !strings.Contains(errMsg, "A -> A") {
@@ -1047,39 +1003,6 @@ data Tag a := { TagBool :: Bool -> Tag Bool; TagUnit :: Unit -> Tag Unit }
 f :: Tag Void -> Void
 f := \t. case t { _ -> MkVoid }`
 	checkSource(t, source, nil)
-}
-
-// checkSourceExpectCode parses and type-checks source, expecting at least one error
-// with the given error code. Returns the formatted error string.
-func checkSourceExpectCode(t *testing.T, source string, config *CheckConfig, code errs.Code) string {
-	t.Helper()
-	src := span.NewSource("test", source)
-	l := parse.NewLexer(src)
-	tokens, lexErrs := l.Tokenize()
-	if lexErrs.HasErrors() {
-		t.Fatal("lex errors:", lexErrs.Format())
-	}
-	es := &errs.Errors{Source: src}
-	p := parse.NewParser(tokens, es)
-	ast := p.ParseProgram()
-	if es.HasErrors() {
-		t.Fatal("parse errors:", es.Format())
-	}
-	_, checkErrs := Check(ast, src, config)
-	if !checkErrs.HasErrors() {
-		t.Fatal("expected check errors, got none")
-	}
-	found := false
-	for _, e := range checkErrs.Errs {
-		if e.Code == code {
-			found = true
-			break
-		}
-	}
-	if !found {
-		t.Errorf("expected error code E%04d, got: %s", code, checkErrs.Format())
-	}
-	return checkErrs.Format()
 }
 
 func TestOverlappingInstances(t *testing.T) {

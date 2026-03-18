@@ -1254,37 +1254,6 @@ main := getX { x: True, y: True }
 	checkSource(t, source, nil)
 }
 
-// =====================================================================
-// Helpers
-// =====================================================================
-
-// checkSourceNoPanic compiles source and verifies no panic occurs.
-// Errors are acceptable; panics are not.
-func checkSourceNoPanic(t *testing.T, source string, config *CheckConfig) {
-	t.Helper()
-	defer func() {
-		if r := recover(); r != nil {
-			t.Fatalf("PANIC during type checking: %v", r)
-		}
-	}()
-	if config == nil {
-		config = &CheckConfig{}
-	}
-	src := span.NewSource("test", source)
-	l := parse.NewLexer(src)
-	tokens, lexErrs := l.Tokenize()
-	if lexErrs.HasErrors() {
-		return // lex error is fine, not a bug
-	}
-	es := &errs.Errors{Source: src}
-	p := parse.NewParser(tokens, es)
-	ast := p.ParseProgram()
-	if es.HasErrors() {
-		return // parse error is fine, not a bug
-	}
-	Check(ast, src, config)
-}
-
 // makeModuleConfig creates a CheckConfig with one pre-compiled module.
 func makeModuleConfig(t *testing.T, moduleName, moduleSource string) *CheckConfig {
 	t.Helper()

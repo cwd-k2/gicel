@@ -2006,19 +2006,6 @@ main := eqAndOrd True True
 	assertConName(t, result.Value, "True")
 }
 
-// helper for v0.5 tests
-func assertConName(t *testing.T, v eval.Value, name string) {
-	t.Helper()
-	con, ok := v.(*eval.ConVal)
-	if !ok {
-		t.Errorf("expected ConVal(%s), got %T: %s", name, v, v)
-		return
-	}
-	if name != "" && con.Con != name {
-		t.Errorf("expected %s, got %s", name, con.Con)
-	}
-}
-
 // ---------------------------------------------------------------------------
 // v0.6 Integration tests
 // ---------------------------------------------------------------------------
@@ -2707,32 +2694,6 @@ main := length (Cons True (Cons False Nil))
 	hv, ok := result.Value.(*eval.HostVal)
 	if !ok || hv.Inner != int64(2) {
 		t.Fatalf("expected 2, got %v", result.Value)
-	}
-}
-
-// assertList checks that a Value is a List with the given int64 elements.
-func assertList(t *testing.T, v eval.Value, expected []int64) {
-	t.Helper()
-	for i, want := range expected {
-		con, ok := v.(*eval.ConVal)
-		if !ok || con.Con != "Cons" {
-			t.Fatalf("element %d: expected Cons, got %v", i, v)
-		}
-		if len(con.Args) != 2 {
-			t.Fatalf("element %d: Cons has %d args, expected 2", i, len(con.Args))
-		}
-		hv, ok := con.Args[0].(*eval.HostVal)
-		if !ok {
-			t.Fatalf("element %d: expected HostVal, got %T", i, con.Args[0])
-		}
-		if hv.Inner != want {
-			t.Fatalf("element %d: expected %d, got %v", i, want, hv.Inner)
-		}
-		v = con.Args[1]
-	}
-	con, ok := v.(*eval.ConVal)
-	if !ok || con.Con != "Nil" {
-		t.Fatalf("expected Nil at end, got %v", v)
 	}
 }
 

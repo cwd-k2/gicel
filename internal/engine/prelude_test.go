@@ -1,39 +1,15 @@
 package engine
 
 import (
-	"context"
-	"strings"
 	"testing"
 
 	"github.com/cwd-k2/gicel/internal/eval"
-	"github.com/cwd-k2/gicel/internal/stdlib"
 )
 
 // ---------------------------------------------------------------------------
 // Prelude expansion tests — TDD: these tests define the expected behavior
 // for new Prelude functions. Written before the implementation.
 // ---------------------------------------------------------------------------
-
-// runPure compiles a source fragment (with Prelude) and evaluates "main".
-func runPure(t *testing.T, source string) eval.Value {
-	t.Helper()
-	eng := NewEngine()
-	if err := stdlib.Prelude(eng); err != nil {
-		t.Fatal(err)
-	}
-	if !strings.Contains(source, "import Prelude") {
-		source = "import Prelude\n" + source
-	}
-	rt, err := eng.NewRuntime(source)
-	if err != nil {
-		t.Fatal(err)
-	}
-	result, err := rt.RunWith(context.Background(), nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return result.Value
-}
 
 func assertConVal(t *testing.T, v eval.Value, name string) {
 	t.Helper()
@@ -43,21 +19,6 @@ func assertConVal(t *testing.T, v eval.Value, name string) {
 	}
 	if con.Con != name {
 		t.Fatalf("expected ConVal(%s), got ConVal(%s)", name, con.Con)
-	}
-}
-
-func assertHostInt(t *testing.T, v eval.Value, expected int64) {
-	t.Helper()
-	hv, ok := v.(*eval.HostVal)
-	if !ok {
-		t.Fatalf("expected HostVal(%d), got %T: %v", expected, v, v)
-	}
-	n, ok := hv.Inner.(int64)
-	if !ok {
-		t.Fatalf("expected int64, got %T: %v", hv.Inner, hv.Inner)
-	}
-	if n != expected {
-		t.Fatalf("expected %d, got %d", expected, n)
 	}
 }
 
