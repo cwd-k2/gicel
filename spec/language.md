@@ -934,6 +934,14 @@ r := { apply: \x. x }
 
 The expected type propagates into the record literal, so the lambda receives the `\a. a -> a` annotation and type-checks at rank 2.
 
+**Note:** In type annotations, always write `Record { ... }` explicitly. A bare `{ ... }` in type position is a capability row (used in `Computation` pre/post indices), not a `Record` type:
+
+```
+f :: Record { x: Int } -> Int   -- correct: Record type
+f :: { x: Int } -> Int          -- wrong: capability row, not Record
+g :: Computation { db: DB } {} ()  -- correct: capability rows
+```
+
 Duplicate field labels in a record type are rejected at compile time (error E0210):
 
 ```
