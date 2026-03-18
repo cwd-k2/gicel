@@ -6,132 +6,6 @@ import (
 	"github.com/cwd-k2/gicel/internal/types"
 )
 
-// Row unification
-
-func classifyFields(a, b []types.RowField) (shared, onlyA, onlyB []string) {
-	aMap := make(map[string]bool)
-	bMap := make(map[string]bool)
-	for _, f := range a {
-		aMap[f.Label] = true
-	}
-	for _, f := range b {
-		bMap[f.Label] = true
-	}
-	for _, f := range a {
-		if bMap[f.Label] {
-			shared = append(shared, f.Label)
-		} else {
-			onlyA = append(onlyA, f.Label)
-		}
-	}
-	for _, f := range b {
-		if !aMap[f.Label] {
-			onlyB = append(onlyB, f.Label)
-		}
-	}
-	return
-}
-
-func fieldType(fields []types.RowField, label string) types.Type {
-	for _, f := range fields {
-		if f.Label == label {
-			return f.Type
-		}
-	}
-	return nil
-}
-
-func fieldMult(fields []types.RowField, label string) types.Type {
-	for _, f := range fields {
-		if f.Label == label {
-			return f.Mult
-		}
-	}
-	return nil
-}
-
-type constraintMatch struct {
-	A, B types.ConstraintEntry
-}
-
-// constraintArgsEqual checks if two constraint entries have the same className
-// and structurally equal args. Uses types.Equal for semantic comparison
-// rather than Pretty-based string matching.
-func constraintArgsEqual(a, b types.ConstraintEntry) bool {
-	if a.ClassName != b.ClassName || len(a.Args) != len(b.Args) {
-		return false
-	}
-	for i := range a.Args {
-		if !types.Equal(a.Args[i], b.Args[i]) {
-			return false
-		}
-	}
-	return true
-}
-
-// classifyConstraints partitions constraint entries into shared (matched by className),
-// onlyA, and onlyB. For entries with the same className, we attempt greedy matching.
-func classifyConstraints(a, b []types.ConstraintEntry, _ *Unifier) (
-	shared []constraintMatch,
-	onlyA, onlyB []types.ConstraintEntry,
-) {
-	// Build index by className for b entries.
-	bByClass := make(map[string][]int)
-	for i, e := range b {
-		bByClass[e.ClassName] = append(bByClass[e.ClassName], i)
-	}
-	bUsed := make([]bool, len(b))
-
-	for _, ea := range a {
-		matched := false
-		candidates := bByClass[ea.ClassName]
-		// First pass: match by structural equality on args (precise).
-		for _, bi := range candidates {
-			if bUsed[bi] {
-				continue
-			}
-			eb := b[bi]
-			if constraintArgsEqual(ea, eb) {
-				shared = append(shared, constraintMatch{A: ea, B: eb})
-				bUsed[bi] = true
-				matched = true
-				break
-			}
-		}
-		if !matched {
-			// Fallback: positional match for same className (handles meta variables).
-			for _, bi := range candidates {
-				if bUsed[bi] {
-					continue
-				}
-				shared = append(shared, constraintMatch{A: ea, B: b[bi]})
-				bUsed[bi] = true
-				matched = true
-				break
-			}
-		}
-		if !matched {
-			onlyA = append(onlyA, ea)
-		}
-	}
-	for i, e := range b {
-		if !bUsed[i] {
-			onlyB = append(onlyB, e)
-		}
-	}
-	return
-}
-
-// decomposeConstraintType decomposes a concrete constraint type (e.g., TyApp(TyCon("Eq"), TyCon("Bool")))
-// into its class name and type arguments. Returns ("Eq", [Bool], true) for the example above.
-func decomposeConstraintType(ty types.Type) (className string, args []types.Type, ok bool) {
-	head, tArgs := types.UnwindApp(ty)
-	if con, isCon := head.(*types.TyCon); isCon {
-		return con.Name, tArgs, true
-	}
-	return "", nil, false
-}
-
 // Evidence row unification — dispatches to capability or constraint logic.
 func (u *Unifier) unifyEvidenceRows(r1, r2 *types.TyEvidenceRow) error {
 	switch a := r1.Entries.(type) {
@@ -172,17 +46,17 @@ func (u *Unifier) unifyEvCapRows(
 	u.registerEvCapLabels(aFieldsN, an.Tail)
 	u.registerEvCapLabels(bFieldsN, bn.Tail)
 
-	shared, onlyLeft, onlyRight := classifyFields(aFieldsN, bFieldsN)
+	shared, onlyLeft, onlyRight := types.ClassifyRowFields(aFieldsN, bFieldsN)
 
 	for _, label := range shared {
-		t1 := fieldType(aFieldsN, label)
-		t2 := fieldType(bFieldsN, label)
+		t1 := types.RowFieldType(aFieldsN, label)
+		t2 := types.RowFieldType(bFieldsN, label)
 		if err := u.Unify(t1, t2); err != nil {
 			return err
 		}
 		// Unify multiplicity annotations if both sides have them.
-		m1 := fieldMult(aFieldsN, label)
-		m2 := fieldMult(bFieldsN, label)
+		m1 := types.RowFieldMult(aFieldsN, label)
+		m2 := types.RowFieldMult(bFieldsN, label)
 		if m1 != nil && m2 != nil {
 			if err := u.Unify(m1, m2); err != nil {
 				return err
@@ -190,8 +64,8 @@ func (u *Unifier) unifyEvCapRows(
 		}
 	}
 
-	onlyAEntries := &types.CapabilityEntries{Fields: collectEvCapFields(aFieldsN, onlyLeft)}
-	onlyBEntries := &types.CapabilityEntries{Fields: collectEvCapFields(bFieldsN, onlyRight)}
+	onlyAEntries := &types.CapabilityEntries{Fields: types.CollectCapFields(aFieldsN, onlyLeft)}
+	onlyBEntries := &types.CapabilityEntries{Fields: types.CollectCapFields(bFieldsN, onlyRight)}
 	return u.resolveEvidenceTails(an.Tail, bn.Tail, onlyAEntries, onlyBEntries)
 }
 
@@ -214,20 +88,6 @@ func (u *Unifier) registerEvCapLabels(fields []types.RowField, tail types.Type) 
 	}
 }
 
-func collectEvCapFields(fields []types.RowField, labels []string) []types.RowField {
-	set := make(map[string]bool, len(labels))
-	for _, l := range labels {
-		set[l] = true
-	}
-	var result []types.RowField
-	for _, f := range fields {
-		if set[f.Label] {
-			result = append(result, f)
-		}
-	}
-	return result
-}
-
 func (u *Unifier) unifyEvConRows(
 	aEntries []types.ConstraintEntry, aTail types.Type,
 	bEntries []types.ConstraintEntry, bTail types.Type,
@@ -235,7 +95,7 @@ func (u *Unifier) unifyEvConRows(
 	aN := types.NormalizeConstraints(&types.TyEvidenceRow{Entries: &types.ConstraintEntries{Entries: aEntries}, Tail: aTail})
 	bN := types.NormalizeConstraints(&types.TyEvidenceRow{Entries: &types.ConstraintEntries{Entries: bEntries}, Tail: bTail})
 
-	shared, onlyLeft, onlyRight := classifyConstraints(aN.ConEntries(), bN.ConEntries(), u)
+	shared, onlyLeft, onlyRight := types.ClassifyConstraints(aN.ConEntries(), bN.ConEntries())
 
 	for _, m := range shared {
 		if len(m.A.Args) != len(m.B.Args) {

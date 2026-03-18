@@ -37,7 +37,7 @@ func (ch *Checker) collectContextEvidence() []availableEvidence {
 }
 
 // classifyEvidence partitions wanted constraints against available evidence.
-// Parallel to classifyFields in unifyRows.
+// Parallel to types.ClassifyRowFields.
 func (ch *Checker) classifyEvidence(
 	wanted []deferredConstraint,
 	available []availableEvidence,

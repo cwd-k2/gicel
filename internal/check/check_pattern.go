@@ -240,7 +240,7 @@ func (ch *Checker) isInaccessibleGADTBranch(conName string, scrutTy types.Type) 
 func (ch *Checker) resolvePendingCVs(pending []pendingCV, bindings map[string]types.Type) {
 	for _, pcv := range pending {
 		cv := ch.unifier.Zonk(pcv.constraintVar)
-		if cn, cArgs, ok := decomposeConstraintType(cv); ok {
+		if cn, cArgs, ok := types.DecomposeConstraintType(cv); ok {
 			dictTy := ch.buildDictType(cn, cArgs)
 			bindings[pcv.dictParam] = dictTy
 		}

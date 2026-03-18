@@ -424,3 +424,145 @@ func ExtendConstraint(r *TyEvidenceRow, e ConstraintEntry) *TyEvidenceRow {
 		S:       r.S,
 	}
 }
+
+// --- Row classification ---
+
+// ClassifyRowFields partitions two sets of row fields into shared labels,
+// labels only in a, and labels only in b.
+func ClassifyRowFields(a, b []RowField) (shared, onlyA, onlyB []string) {
+	aMap := make(map[string]bool)
+	bMap := make(map[string]bool)
+	for _, f := range a {
+		aMap[f.Label] = true
+	}
+	for _, f := range b {
+		bMap[f.Label] = true
+	}
+	for _, f := range a {
+		if bMap[f.Label] {
+			shared = append(shared, f.Label)
+		} else {
+			onlyA = append(onlyA, f.Label)
+		}
+	}
+	for _, f := range b {
+		if !aMap[f.Label] {
+			onlyB = append(onlyB, f.Label)
+		}
+	}
+	return
+}
+
+// RowFieldType returns the type of a row field with the given label, or nil.
+func RowFieldType(fields []RowField, label string) Type {
+	for _, f := range fields {
+		if f.Label == label {
+			return f.Type
+		}
+	}
+	return nil
+}
+
+// RowFieldMult returns the multiplicity of a row field with the given label, or nil.
+func RowFieldMult(fields []RowField, label string) Type {
+	for _, f := range fields {
+		if f.Label == label {
+			return f.Mult
+		}
+	}
+	return nil
+}
+
+// CollectCapFields returns the subset of fields whose labels appear in the labels list.
+func CollectCapFields(fields []RowField, labels []string) []RowField {
+	set := make(map[string]bool, len(labels))
+	for _, l := range labels {
+		set[l] = true
+	}
+	var result []RowField
+	for _, f := range fields {
+		if set[f.Label] {
+			result = append(result, f)
+		}
+	}
+	return result
+}
+
+// ConstraintMatch pairs two constraint entries that were matched during classification.
+type ConstraintMatch struct {
+	A, B ConstraintEntry
+}
+
+// ConstraintArgsEqual checks if two constraint entries have the same className
+// and structurally equal args.
+func ConstraintArgsEqual(a, b ConstraintEntry) bool {
+	if a.ClassName != b.ClassName || len(a.Args) != len(b.Args) {
+		return false
+	}
+	for i := range a.Args {
+		if !Equal(a.Args[i], b.Args[i]) {
+			return false
+		}
+	}
+	return true
+}
+
+// ClassifyConstraints partitions constraint entries into shared (matched by className),
+// onlyA, and onlyB. For entries with the same className, it attempts greedy matching:
+// first by structural equality on args, then by position.
+func ClassifyConstraints(a, b []ConstraintEntry) (
+	shared []ConstraintMatch,
+	onlyA, onlyB []ConstraintEntry,
+) {
+	bByClass := make(map[string][]int)
+	for i, e := range b {
+		bByClass[e.ClassName] = append(bByClass[e.ClassName], i)
+	}
+	bUsed := make([]bool, len(b))
+
+	for _, ea := range a {
+		matched := false
+		candidates := bByClass[ea.ClassName]
+		for _, bi := range candidates {
+			if bUsed[bi] {
+				continue
+			}
+			if ConstraintArgsEqual(ea, b[bi]) {
+				shared = append(shared, ConstraintMatch{A: ea, B: b[bi]})
+				bUsed[bi] = true
+				matched = true
+				break
+			}
+		}
+		if !matched {
+			for _, bi := range candidates {
+				if bUsed[bi] {
+					continue
+				}
+				shared = append(shared, ConstraintMatch{A: ea, B: b[bi]})
+				bUsed[bi] = true
+				matched = true
+				break
+			}
+		}
+		if !matched {
+			onlyA = append(onlyA, ea)
+		}
+	}
+	for i, e := range b {
+		if !bUsed[i] {
+			onlyB = append(onlyB, e)
+		}
+	}
+	return
+}
+
+// DecomposeConstraintType decomposes a concrete constraint type
+// (e.g., TyApp(TyCon("Eq"), TyCon("Bool"))) into its class name and type arguments.
+func DecomposeConstraintType(ty Type) (className string, args []Type, ok bool) {
+	head, tArgs := UnwindApp(ty)
+	if con, isCon := head.(*TyCon); isCon {
+		return con.Name, tArgs, true
+	}
+	return "", nil, false
+}

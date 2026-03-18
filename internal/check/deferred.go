@@ -63,7 +63,7 @@ func (ch *Checker) resolveDeferred(
 		} else if dc.constraintVar != nil {
 			// (B) Constraint variable: zonk and decompose into className + args.
 			cv := ch.unifier.Zonk(dc.constraintVar)
-			cn, cArgs, ok := decomposeConstraintType(cv)
+			cn, cArgs, ok := types.DecomposeConstraintType(cv)
 			if ok {
 				resolutions[dc.placeholder] = ch.resolveInstance(cn, cArgs, dc.s)
 			} else if dc.className != "" {
