@@ -1,27 +1,34 @@
 # GICEL Roadmap
 
-Current state: **v0.10.** All core features implemented; module system, type families, and structural refactoring complete. See `spec/language.md` for the complete specification and `CHANGELOG.md` for version history.
+Current state: **v0.11.** Session fidelity, multiplicity enforcement, checker architecture refactoring. See `CHANGELOG.md` for details, `spec/language.md` for the complete specification.
+
+---
+
+## OutsideIn(X) Extension Path
+
+The checker architecture now supports incremental migration toward OutsideIn(X). Current state is **L2** (re-activation index + rework queue). See `memory/domain/outsidein_x.md` for the full design document.
+
+| Level  | Status         | Description                                      |
+| ------ | -------------- | ------------------------------------------------ |
+| **L0** | done           | Ad-hoc family reduction in `normalize()`         |
+| **L1** | done (v0.10.1) | `stuckFamilyIndex` + meta-indexed re-activation  |
+| **L2** | done (v0.11)   | `ProcessRework` loop + `OnSolve` callback        |
+| **L3** | open           | Explicit constraint AST, worklist solver         |
+| **L4** | open           | Inert set, touchability, implication constraints |
+
+**Phase transition boundary: L2 → L3.** Below L2, DK-with-union-find character is preserved. L3 requires generation/solving separation — a fundamentally different architecture. No current programs require L3.
+
+**What L2 addresses**: multi-stage type family nesting, row families in Computation indices, cascading reductions.
+
+**What L3+ would add**: GADT given simplification of stuck families, cross-fiber evidence resolution, given equality propagation beyond DK scope, nested implication solving.
 
 ---
 
 ## Planned Work
 
-### Multiplicity Enforcement
+### Evidence Unification (Phase 5, deferred)
 
-`@Mult` annotations propagate through the full pipeline (parser → checker → unifier → row fields), but usage is not enforced. `@Linear` compiles but permits multiple uses.
-
-Remaining:
-
-- `checkMultiplicity` enforcement at bind sites (stub ready)
-- LUB type family for multiplicity join at branch points
-
-**Known difficulty**: enforcement requires counting usage within row unification simultaneously with pre/post state transition resolution. See [Double grading](#double-grading) below.
-
-### Module System
-
-v0.10 implements: selective imports, qualified imports, `_` private names, CLI `--module`, module-qualified Core IR, GHC-style ambiguity detection, clean stdlib names, qualified patterns, and qualified type annotations. Prelude source consolidated into a single file; stdlib packs are already importable modules via `--use` + `import`.
-
-**Intentionally excluded:** Selective exports (`module M (x, T(..)) where ...`), `module` declaration syntax. Export control uses `_` prefix only. Rationale: GICEL is an embedding language — modules are managed by the Go host via `RegisterModule`/`--module`. The `_` prefix convention is sufficient at this scale; `module` syntax and selective exports add complexity without concrete use cases. Instance declarations are always exported with their types (Haskell model). Type-level privacy (`data _Foo`) is not needed — no internal helper types exist in Prelude/Stdlib; implementation is injected from Go.
+Multiplicity polymorphism (quantifying over `@Mult` annotations) requires evidence fiber crossing during unification. Deferred until a concrete use case triggers it.
 
 ---
 
@@ -42,22 +49,15 @@ These are not bugs or missing features. They are consequences of GICEL's design 
 
 `Computation pre post a` is indexed by state transition (pre → post). Adding `@Mult` grading creates a second axis: how many times a capability can be used. The two axes interact inside row unification — the pre/post diff must account for both label presence and usage count.
 
-**Current state**: `@Mult` is structural only. No enforcement, so no interaction.
-**Triggers**: implementing `checkMultiplicity`. At that point, row unification must solve state-transition and usage constraints simultaneously — a problem not covered by existing graded monad literature (Orchard, Petricek et al.), which treats grading on a single axis.
+**Current state**: multiplicity enforcement counts same-type preservations at bind sites. Row unification uses LUB for heterogeneous joins.
+**Triggers**: multiplicity _polymorphism_ (quantifying over `@Mult`). At that point, row unification must solve state-transition and usage constraints simultaneously — a problem not covered by existing graded monad literature (Orchard, Petricek et al.), which treats grading on a single axis.
 
 ### Type family / row unification scheduling
 
 Type families can return `Row` values used in `Computation pre post a` indices. This creates a dependency: row unification needs the reduced result, but reduction may need unification to resolve meta-variables first.
 
-```
-f :: Computation (SessionDual r) r a
---              ^^^^^^^^^^^^^^^^
--- SessionDual r must reduce before unification can proceed,
--- but r is determined by unification.
-```
-
-**Current state**: reduce with fuel=100, leave stuck applications as `TyFamilyApp`, re-reduce after unification solves metas. This works for all current programs.
-**Triggers**: multi-stage type family nesting where reduction and unification form a longer cycle. Manifests as fuel exhaustion on a program that should type-check. No reports to date.
+**Current state**: L2 re-activation index handles this — stuck families are re-reduced when blocking metas are solved, with cascading support via `ProcessRework`.
+**Triggers**: programs requiring L3+ (GADT givens simplifying stuck families). No reports to date.
 
 ### Evidence fiber crossing
 
@@ -70,7 +70,12 @@ The evidence system separates fibers (`Type`, `Constraint`, `Row`). Type familie
 
 ## Potential Extensions (assessed, not planned)
 
-| Extension        | Classification   | Prerequisite      |
-| ---------------- | ---------------- | ----------------- |
-| Refinement Types | Phase transition | Separate analysis |
-| Dependent Types  | Full restructure | Far future        |
+| Extension        | Classification   | Prerequisite        |
+| ---------------- | ---------------- | ------------------- |
+| Type operators   | Syntax           | Parser (~140 lines) |
+| Refinement Types | Phase transition | Separate analysis   |
+| Dependent Types  | Full restructure | Far future          |
+
+### Type operators
+
+Infix aliases for types: `type (:>) a b := a b` enables `Send :> Recv :> End` instead of `Send (Recv End)`. Haskell `TypeOperators` の最小サブセット（型別名のみ）。Parser 変更のみ、型システムへの影響なし。Session type DSL の可読性向上が主な動機。

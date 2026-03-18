@@ -3,7 +3,7 @@
 **G**o's **I**ndexed **C**apability **E**ffect **L**ibrary /
 **G**ICEL's **I**ndexed **C**apability **E**ffect **L**anguage
 
-**v0.10** — [Changelog](CHANGELOG.md)
+**v0.11** — [Changelog](CHANGELOG.md)
 
 Embed a type-safe, sandboxed language in your Go application.
 GICEL compiles Haskell-like source into typed computations, runs them with
