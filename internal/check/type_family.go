@@ -445,6 +445,13 @@ func (ch *Checker) installFamilyReducer() {
 	}
 }
 
+// maxFamilyAppNodes is the total node budget for a single reduceFamilyApps
+// traversal. This prevents exponential blowup when a type family reduces to
+// a type that branches (e.g., Grow a =: Pair (Grow a) (Grow a)), where
+// independent structural recursion into each branch doubles the work at
+// every level.
+const maxFamilyAppNodes = 10000
+
 // reduceFamilyApps walks a type and reduces any TyFamilyApp nodes
 // or TyApp chains that form a saturated type family application.
 // It also recurses into type structure (TyApp, TyArrow, TyComp, etc.)
@@ -452,6 +459,15 @@ func (ch *Checker) installFamilyReducer() {
 // for exhaustiveness checking which calls reduceFamilyInType on the
 // full scrutinee type.
 func (ch *Checker) reduceFamilyApps(t types.Type) types.Type {
+	budget := maxFamilyAppNodes
+	return ch.reduceFamilyAppsN(t, &budget)
+}
+
+func (ch *Checker) reduceFamilyAppsN(t types.Type, budget *int) types.Type {
+	*budget--
+	if *budget <= 0 {
+		return t
+	}
 	// Bail out if we've exceeded the reduction depth (set by reduceTyFamily calls).
 	if ch.reductionDepth > maxReductionDepth {
 		return t
@@ -461,11 +477,11 @@ func (ch *Checker) reduceFamilyApps(t types.Type) types.Type {
 		// Recurse into arguments first.
 		args := make([]types.Type, len(tf.Args))
 		for i, a := range tf.Args {
-			args[i] = ch.reduceFamilyApps(a)
+			args[i] = ch.reduceFamilyAppsN(a, budget)
 		}
 		result, reduced := ch.reduceTyFamily(tf.Name, args, tf.S)
 		if reduced {
-			return ch.reduceFamilyApps(result)
+			return ch.reduceFamilyAppsN(result, budget)
 		}
 		// Not reduced — check if stuck on unsolved metas and register for re-activation.
 		if placeholder := ch.registerStuckFamily(tf.Name, args, tf.Kind, tf.S); placeholder != nil {
@@ -481,11 +497,11 @@ func (ch *Checker) reduceFamilyApps(t types.Type) types.Type {
 			if fam, ok := ch.families[con.Name]; ok && len(fam.Params) == len(args) {
 				// Recurse into arguments first.
 				for i, a := range args {
-					args[i] = ch.reduceFamilyApps(a)
+					args[i] = ch.reduceFamilyAppsN(a, budget)
 				}
 				result, reduced := ch.reduceTyFamily(con.Name, args, t.Span())
 				if reduced {
-					return ch.reduceFamilyApps(result)
+					return ch.reduceFamilyAppsN(result, budget)
 				}
 				// Not reduced — check if stuck on unsolved metas and register for re-activation.
 				if placeholder := ch.registerStuckFamily(con.Name, args, fam.ResultKind, t.Span()); placeholder != nil {
@@ -496,8 +512,8 @@ func (ch *Checker) reduceFamilyApps(t types.Type) types.Type {
 			}
 		}
 		// Not a type family application — recurse into Fun and Arg.
-		rFun := ch.reduceFamilyApps(app.Fun)
-		rArg := ch.reduceFamilyApps(app.Arg)
+		rFun := ch.reduceFamilyAppsN(app.Fun, budget)
+		rArg := ch.reduceFamilyAppsN(app.Arg, budget)
 		if rFun == app.Fun && rArg == app.Arg {
 			return t
 		}
@@ -506,40 +522,40 @@ func (ch *Checker) reduceFamilyApps(t types.Type) types.Type {
 	// Case 3: structural recursion into other type formers.
 	switch ty := t.(type) {
 	case *types.TyArrow:
-		rFrom := ch.reduceFamilyApps(ty.From)
-		rTo := ch.reduceFamilyApps(ty.To)
+		rFrom := ch.reduceFamilyAppsN(ty.From, budget)
+		rTo := ch.reduceFamilyAppsN(ty.To, budget)
 		if rFrom == ty.From && rTo == ty.To {
 			return t
 		}
 		return &types.TyArrow{From: rFrom, To: rTo, S: ty.S}
 	case *types.TyComp:
-		rPre := ch.reduceFamilyApps(ty.Pre)
-		rPost := ch.reduceFamilyApps(ty.Post)
-		rResult := ch.reduceFamilyApps(ty.Result)
+		rPre := ch.reduceFamilyAppsN(ty.Pre, budget)
+		rPost := ch.reduceFamilyAppsN(ty.Post, budget)
+		rResult := ch.reduceFamilyAppsN(ty.Result, budget)
 		if rPre == ty.Pre && rPost == ty.Post && rResult == ty.Result {
 			return t
 		}
 		return &types.TyComp{Pre: rPre, Post: rPost, Result: rResult, S: ty.S}
 	case *types.TyThunk:
-		rPre := ch.reduceFamilyApps(ty.Pre)
-		rPost := ch.reduceFamilyApps(ty.Post)
-		rResult := ch.reduceFamilyApps(ty.Result)
+		rPre := ch.reduceFamilyAppsN(ty.Pre, budget)
+		rPost := ch.reduceFamilyAppsN(ty.Post, budget)
+		rResult := ch.reduceFamilyAppsN(ty.Result, budget)
 		if rPre == ty.Pre && rPost == ty.Post && rResult == ty.Result {
 			return t
 		}
 		return &types.TyThunk{Pre: rPre, Post: rPost, Result: rResult, S: ty.S}
 	case *types.TyForall:
-		rBody := ch.reduceFamilyApps(ty.Body)
+		rBody := ch.reduceFamilyAppsN(ty.Body, budget)
 		if rBody == ty.Body {
 			return t
 		}
 		return &types.TyForall{Var: ty.Var, Kind: ty.Kind, Body: rBody, S: ty.S}
 	case *types.TyEvidence:
-		rBody := ch.reduceFamilyApps(ty.Body)
+		rBody := ch.reduceFamilyAppsN(ty.Body, budget)
 		// Recurse into constraint row as well.
 		var rConstraints *types.TyEvidenceRow
 		if ty.Constraints != nil {
-			rc := ch.reduceFamilyApps(ty.Constraints)
+			rc := ch.reduceFamilyAppsN(ty.Constraints, budget)
 			if ev, ok := rc.(*types.TyEvidenceRow); ok {
 				rConstraints = ev
 			} else {
@@ -554,7 +570,7 @@ func (ch *Checker) reduceFamilyApps(t types.Type) types.Type {
 		// Recurse into all type children via MapChildren.
 		changed := false
 		newEntries := ty.Entries.MapChildren(func(child types.Type) types.Type {
-			r := ch.reduceFamilyApps(child)
+			r := ch.reduceFamilyAppsN(child, budget)
 			if r != child {
 				changed = true
 			}
@@ -562,7 +578,7 @@ func (ch *Checker) reduceFamilyApps(t types.Type) types.Type {
 		})
 		var newTail types.Type
 		if ty.Tail != nil {
-			newTail = ch.reduceFamilyApps(ty.Tail)
+			newTail = ch.reduceFamilyAppsN(ty.Tail, budget)
 			if newTail != ty.Tail {
 				changed = true
 			}
