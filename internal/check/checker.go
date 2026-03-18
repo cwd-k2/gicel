@@ -5,6 +5,7 @@ import (
 	"maps"
 
 	"github.com/cwd-k2/gicel/internal/check/exhaust"
+	"github.com/cwd-k2/gicel/internal/check/family"
 	"github.com/cwd-k2/gicel/internal/check/unify"
 	"github.com/cwd-k2/gicel/internal/core"
 	"github.com/cwd-k2/gicel/internal/errs"
@@ -79,7 +80,7 @@ type CheckTraceHook func(CheckTraceEvent)
 type Checker struct {
 	ctx               *Context
 	unifier           *unify.Unifier
-	stuckFamilies     stuckFamilyIndex
+	stuckFamilies     family.StuckIndex
 	errors            *errs.Errors
 	source            *span.Source
 	freshID           int
@@ -170,7 +171,7 @@ func CheckModule(prog *syntax.AstProgram, source *span.Source, config *CheckConf
 	}
 	ch.unifier = unify.NewUnifierShared(&ch.freshID)
 	ch.unifier.OnSolve = func(metaID int) {
-		ch.stuckFamilies.reactivate(metaID)
+		ch.stuckFamilies.Reactivate(metaID)
 	}
 	ch.initContext()
 	ch.importModules(prog.Imports)
@@ -294,21 +295,21 @@ func (ch *Checker) errorPair(s span.Span) (types.Type, core.Core) {
 // checkerSnapshot captures unifier and stuck family state for rollback.
 type checkerSnapshot struct {
 	unifier       unify.Snapshot
-	stuckFamilies stuckFamilySnapshot
+	stuckFamilies family.StuckSnapshot
 }
 
 // saveState snapshots the checker's unifier and stuck family state.
 func (ch *Checker) saveState() checkerSnapshot {
 	return checkerSnapshot{
 		unifier:       ch.unifier.Snapshot(),
-		stuckFamilies: ch.stuckFamilies.snapshot(),
+		stuckFamilies: ch.stuckFamilies.Snapshot(),
 	}
 }
 
 // restoreState rolls back the checker to a previously saved snapshot.
 func (ch *Checker) restoreState(snap checkerSnapshot) {
 	ch.unifier.Restore(snap.unifier)
-	ch.stuckFamilies.restore(snap.stuckFamilies)
+	ch.stuckFamilies.Restore(snap.stuckFamilies)
 }
 
 // withTrial runs fn in a trial unification scope. If fn returns false,
