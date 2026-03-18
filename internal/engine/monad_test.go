@@ -1,11 +1,12 @@
-package gicel_test
+package engine
 
 import (
 	"context"
 	"strings"
 	"testing"
 
-	"github.com/cwd-k2/gicel"
+	"github.com/cwd-k2/gicel/internal/eval"
+	"github.com/cwd-k2/gicel/internal/stdlib"
 )
 
 // ---------------------------------------------------------------------------
@@ -14,8 +15,8 @@ import (
 
 func TestIxMonadClassExists(t *testing.T) {
 	// Verify IxMonad class is defined in prelude and usable in type annotations.
-	eng := gicel.NewEngine()
-	eng.Use(gicel.Prelude)
+	eng := NewEngine()
+	eng.Use(stdlib.Prelude)
 	_, err := eng.NewRuntime(`
 import Prelude
 myFn :: \(m: Row -> Row -> Type -> Type). IxMonad m => \a (r: Row). a -> m r r a
@@ -32,9 +33,9 @@ main := True
 // ---------------------------------------------------------------------------
 
 func TestIxMonadComputationIxpure(t *testing.T) {
-	eng := gicel.NewEngine()
-	eng.Use(gicel.Prelude)
-	eng.DeclareBinding("n", gicel.ConType("Int"))
+	eng := NewEngine()
+	eng.Use(stdlib.Prelude)
+	eng.DeclareBinding("n", ConType("Int"))
 	rt, err := eng.NewRuntime(`
 import Prelude
 main :: Computation {} {} Int
@@ -43,22 +44,22 @@ main := ixpure n
 	if err != nil {
 		t.Fatalf("ixpure should resolve via IxMonad Computation: %v", err)
 	}
-	result, err := rt.RunWith(context.Background(), &gicel.RunOptions{Bindings: map[string]gicel.Value{
-		"n": &gicel.HostVal{Inner: 42},
+	result, err := rt.RunWith(context.Background(), &RunOptions{Bindings: map[string]eval.Value{
+		"n": &eval.HostVal{Inner: 42},
 	}})
 	if err != nil {
 		t.Fatal(err)
 	}
-	hv, ok := result.Value.(*gicel.HostVal)
+	hv, ok := result.Value.(*eval.HostVal)
 	if !ok || hv.Inner != 42 {
 		t.Fatalf("expected 42, got %v", result.Value)
 	}
 }
 
 func TestIxMonadComputationIxbind(t *testing.T) {
-	eng := gicel.NewEngine()
-	eng.Use(gicel.Prelude)
-	eng.DeclareBinding("n", gicel.ConType("Int"))
+	eng := NewEngine()
+	eng.Use(stdlib.Prelude)
+	eng.DeclareBinding("n", ConType("Int"))
 	rt, err := eng.NewRuntime(`
 import Prelude
 main :: Computation {} {} Int
@@ -67,13 +68,13 @@ main := ixbind (ixpure n) (\x. ixpure x)
 	if err != nil {
 		t.Fatalf("ixbind should resolve via IxMonad Computation: %v", err)
 	}
-	result, err := rt.RunWith(context.Background(), &gicel.RunOptions{Bindings: map[string]gicel.Value{
-		"n": &gicel.HostVal{Inner: 99},
+	result, err := rt.RunWith(context.Background(), &RunOptions{Bindings: map[string]eval.Value{
+		"n": &eval.HostVal{Inner: 99},
 	}})
 	if err != nil {
 		t.Fatal(err)
 	}
-	hv, ok := result.Value.(*gicel.HostVal)
+	hv, ok := result.Value.(*eval.HostVal)
 	if !ok || hv.Inner != 99 {
 		t.Fatalf("expected 99, got %v", result.Value)
 	}
@@ -81,8 +82,8 @@ main := ixbind (ixpure n) (\x. ixpure x)
 
 func TestIxMonadGenericFunction(t *testing.T) {
 	// A generic function using IxMonad constraint should work with Computation.
-	eng := gicel.NewEngine()
-	eng.Use(gicel.Prelude)
+	eng := NewEngine()
+	eng.Use(stdlib.Prelude)
 	rt, err := eng.NewRuntime(`
 import Prelude
 myReturn :: \(m: Row -> Row -> Type -> Type). IxMonad m => \a (r: Row). a -> m r r a
@@ -97,7 +98,7 @@ main := myReturn True
 	if err != nil {
 		t.Fatal(err)
 	}
-	con, ok := result.Value.(*gicel.ConVal)
+	con, ok := result.Value.(*eval.ConVal)
 	if !ok || con.Con != "True" {
 		t.Fatalf("expected True, got %v", result.Value)
 	}
@@ -109,22 +110,22 @@ main := myReturn True
 
 func TestDoBlockComputationRegression(t *testing.T) {
 	// Existing do blocks with Computation should still use Core.Bind path.
-	eng := gicel.NewEngine()
-	eng.Use(gicel.Prelude)
-	eng.DeclareBinding("x", gicel.ConType("Int"))
+	eng := NewEngine()
+	eng.Use(stdlib.Prelude)
+	eng.DeclareBinding("x", ConType("Int"))
 	rt, err := eng.NewRuntime(`
 main := do { v <- pure x; pure v }
 `)
 	if err != nil {
 		t.Fatalf("Computation do block regression failed: %v", err)
 	}
-	result, err := rt.RunWith(context.Background(), &gicel.RunOptions{Bindings: map[string]gicel.Value{
-		"x": &gicel.HostVal{Inner: 42},
+	result, err := rt.RunWith(context.Background(), &RunOptions{Bindings: map[string]eval.Value{
+		"x": &eval.HostVal{Inner: 42},
 	}})
 	if err != nil {
 		t.Fatal(err)
 	}
-	hv, ok := result.Value.(*gicel.HostVal)
+	hv, ok := result.Value.(*eval.HostVal)
 	if !ok || hv.Inner != 42 {
 		t.Fatalf("expected 42, got %v", result.Value)
 	}
@@ -133,9 +134,9 @@ main := do { v <- pure x; pure v }
 func TestDoBlockComputationCoreBind(t *testing.T) {
 	// Verify Computation do blocks elaborate to Core.Bind (not class dispatch).
 	// Use Check() to inspect pre-optimization Core IR.
-	eng := gicel.NewEngine()
-	eng.Use(gicel.Prelude)
-	eng.DeclareBinding("x", gicel.ConType("Int"))
+	eng := NewEngine()
+	eng.Use(stdlib.Prelude)
+	eng.DeclareBinding("x", ConType("Int"))
 	cp, err := eng.Compile(`
 main := do { v <- pure x; pure v }
 `)
@@ -155,10 +156,10 @@ main := do { v <- pure x; pure v }
 
 func TestMaybeDoBlockPure(t *testing.T) {
 	// do { x <- Just 5; pure (add x 1) } :: Maybe Int → Just 6
-	eng := gicel.NewEngine()
-	eng.Use(gicel.Prelude)
-	eng.RegisterPrim("add", func(ctx context.Context, capEnv gicel.CapEnv, args []gicel.Value, _ gicel.Applier) (gicel.Value, gicel.CapEnv, error) {
-		return gicel.ToValue(gicel.MustHost[int64](args[0]) + gicel.MustHost[int64](args[1])), capEnv, nil
+	eng := NewEngine()
+	eng.Use(stdlib.Prelude)
+	eng.RegisterPrim("add", func(ctx context.Context, capEnv eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
+		return ToValue(MustHost[int64](args[0]) + MustHost[int64](args[1])), capEnv, nil
 	})
 	rt, err := eng.NewRuntime(`
 import Prelude
@@ -174,11 +175,11 @@ main := do { x <- Just 5; pure (add x 1) }
 	if err != nil {
 		t.Fatal(err)
 	}
-	con, ok := result.Value.(*gicel.ConVal)
+	con, ok := result.Value.(*eval.ConVal)
 	if !ok || con.Con != "Just" || len(con.Args) != 1 {
 		t.Fatalf("expected Just 6, got %v", result.Value)
 	}
-	hv, ok := con.Args[0].(*gicel.HostVal)
+	hv, ok := con.Args[0].(*eval.HostVal)
 	if !ok || hv.Inner != int64(6) {
 		t.Fatalf("expected Just 6, got Just %v", con.Args[0])
 	}
@@ -186,8 +187,8 @@ main := do { x <- Just 5; pure (add x 1) }
 
 func TestMaybeDoBlockNothing(t *testing.T) {
 	// do { x <- Just 5; Nothing; pure x } :: Maybe Int → Nothing
-	eng := gicel.NewEngine()
-	eng.Use(gicel.Prelude)
+	eng := NewEngine()
+	eng.Use(stdlib.Prelude)
 	rt, err := eng.NewRuntime(`
 import Prelude
 main :: Maybe Int
@@ -200,7 +201,7 @@ main := do { x <- Just 5; Nothing; pure x }
 	if err != nil {
 		t.Fatal(err)
 	}
-	con, ok := result.Value.(*gicel.ConVal)
+	con, ok := result.Value.(*eval.ConVal)
 	if !ok || con.Con != "Nothing" {
 		t.Fatalf("expected Nothing, got %v", result.Value)
 	}
@@ -208,8 +209,8 @@ main := do { x <- Just 5; Nothing; pure x }
 
 func TestMaybeDoBlockDirectReturn(t *testing.T) {
 	// Last expression not using pure — direct constructor.
-	eng := gicel.NewEngine()
-	eng.Use(gicel.Prelude)
+	eng := NewEngine()
+	eng.Use(stdlib.Prelude)
 	rt, err := eng.NewRuntime(`
 import Prelude
 main :: Maybe Int
@@ -222,11 +223,11 @@ main := do { x <- Just 5; Just x }
 	if err != nil {
 		t.Fatal(err)
 	}
-	con, ok := result.Value.(*gicel.ConVal)
+	con, ok := result.Value.(*eval.ConVal)
 	if !ok || con.Con != "Just" || len(con.Args) != 1 {
 		t.Fatalf("expected Just 5, got %v", result.Value)
 	}
-	hv, ok := con.Args[0].(*gicel.HostVal)
+	hv, ok := con.Args[0].(*eval.HostVal)
 	if !ok || hv.Inner != int64(5) {
 		t.Fatalf("expected Just 5, got Just %v", con.Args[0])
 	}
@@ -234,10 +235,10 @@ main := do { x <- Just 5; Just x }
 
 func TestListDoBlockCartesian(t *testing.T) {
 	// do { x <- [1,2]; y <- [10,20]; pure (add x y) } :: List Int → [11, 21, 12, 22]
-	eng := gicel.NewEngine()
-	eng.Use(gicel.Prelude)
-	eng.RegisterPrim("add", func(ctx context.Context, capEnv gicel.CapEnv, args []gicel.Value, _ gicel.Applier) (gicel.Value, gicel.CapEnv, error) {
-		return gicel.ToValue(gicel.MustHost[int64](args[0]) + gicel.MustHost[int64](args[1])), capEnv, nil
+	eng := NewEngine()
+	eng.Use(stdlib.Prelude)
+	eng.RegisterPrim("add", func(ctx context.Context, capEnv eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
+		return ToValue(MustHost[int64](args[0]) + MustHost[int64](args[1])), capEnv, nil
 	})
 	eng.EnableRecursion()
 	rt, err := eng.NewRuntime(`
@@ -258,13 +259,13 @@ main := do {
 	if err != nil {
 		t.Fatal(err)
 	}
-	got, ok := gicel.FromList(result.Value)
+	got, ok := FromList(result.Value)
 	if !ok || len(got) != 4 {
 		t.Fatalf("expected 4 elements, got %v", result.Value)
 	}
 	expected := []int64{11, 21, 12, 22}
 	for i, v := range got {
-		hv, ok := v.(*gicel.HostVal)
+		hv, ok := v.(*eval.HostVal)
 		if !ok || hv.Inner != expected[i] {
 			t.Fatalf("element %d: expected %d, got %v", i, expected[i], v)
 		}
@@ -273,8 +274,8 @@ main := do {
 
 func TestListDoFlatMap(t *testing.T) {
 	// flatMap: each element maps to multiple elements.
-	eng := gicel.NewEngine()
-	eng.Use(gicel.Prelude)
+	eng := NewEngine()
+	eng.Use(stdlib.Prelude)
 	eng.EnableRecursion()
 	rt, err := eng.NewRuntime(`
 import Prelude
@@ -291,7 +292,7 @@ main := do {
 	if err != nil {
 		t.Fatal(err)
 	}
-	got, ok := gicel.FromList(result.Value)
+	got, ok := FromList(result.Value)
 	if !ok {
 		t.Fatalf("expected list, got %v", result.Value)
 	}
@@ -300,7 +301,7 @@ main := do {
 		t.Fatalf("expected %d elements, got %d: %v", len(expected), len(got), result.Value)
 	}
 	for i, v := range got {
-		hv, ok := v.(*gicel.HostVal)
+		hv, ok := v.(*eval.HostVal)
 		if !ok || hv.Inner != expected[i] {
 			t.Fatalf("element %d: expected %d, got %v", i, expected[i], v)
 		}
@@ -312,10 +313,10 @@ main := do {
 // ---------------------------------------------------------------------------
 
 func TestThenCombinator(t *testing.T) {
-	eng := gicel.NewEngine()
-	eng.Use(gicel.Prelude)
-	eng.DeclareBinding("x", gicel.ConType("Int"))
-	eng.DeclareBinding("y", gicel.ConType("Int"))
+	eng := NewEngine()
+	eng.Use(stdlib.Prelude)
+	eng.DeclareBinding("x", ConType("Int"))
+	eng.DeclareBinding("y", ConType("Int"))
 	rt, err := eng.NewRuntime(`
 import Prelude
 main := then (pure x) (pure y)
@@ -323,14 +324,14 @@ main := then (pure x) (pure y)
 	if err != nil {
 		t.Fatalf("then combinator should compile: %v", err)
 	}
-	result, err := rt.RunWith(context.Background(), &gicel.RunOptions{Bindings: map[string]gicel.Value{
-		"x": gicel.ToValue(1),
-		"y": gicel.ToValue(2),
+	result, err := rt.RunWith(context.Background(), &RunOptions{Bindings: map[string]eval.Value{
+		"x": ToValue(1),
+		"y": ToValue(2),
 	}})
 	if err != nil {
 		t.Fatal(err)
 	}
-	hv, ok := result.Value.(*gicel.HostVal)
+	hv, ok := result.Value.(*eval.HostVal)
 	if !ok || hv.Inner != 2 {
 		t.Fatalf("expected 2 (from second computation), got %v", result.Value)
 	}
@@ -338,9 +339,9 @@ main := then (pure x) (pure y)
 
 func TestGenericMonadicFunction(t *testing.T) {
 	// A generic IxMonad function used with Computation via type annotation.
-	eng := gicel.NewEngine()
-	eng.Use(gicel.Prelude)
-	eng.DeclareBinding("x", gicel.ConType("Int"))
+	eng := NewEngine()
+	eng.Use(stdlib.Prelude)
+	eng.DeclareBinding("x", ConType("Int"))
 	rt, err := eng.NewRuntime(`
 import Prelude
 myReturn :: \(m: Row -> Row -> Type -> Type). IxMonad m => \a (r: Row). a -> m r r a
@@ -351,13 +352,13 @@ main := myReturn x
 	if err != nil {
 		t.Fatalf("generic monadic function should compile: %v", err)
 	}
-	result, err := rt.RunWith(context.Background(), &gicel.RunOptions{Bindings: map[string]gicel.Value{
-		"x": gicel.ToValue(99),
+	result, err := rt.RunWith(context.Background(), &RunOptions{Bindings: map[string]eval.Value{
+		"x": ToValue(99),
 	}})
 	if err != nil {
 		t.Fatal(err)
 	}
-	hv, ok := result.Value.(*gicel.HostVal)
+	hv, ok := result.Value.(*eval.HostVal)
 	if !ok || hv.Inner != 99 {
 		t.Fatalf("expected 99, got %v", result.Value)
 	}
@@ -365,10 +366,10 @@ main := myReturn x
 
 func TestMaybeDoChain(t *testing.T) {
 	// Chain multiple binds in a Maybe do block.
-	eng := gicel.NewEngine()
-	eng.Use(gicel.Prelude)
-	eng.RegisterPrim("add", func(ctx context.Context, capEnv gicel.CapEnv, args []gicel.Value, _ gicel.Applier) (gicel.Value, gicel.CapEnv, error) {
-		return gicel.ToValue(gicel.MustHost[int64](args[0]) + gicel.MustHost[int64](args[1])), capEnv, nil
+	eng := NewEngine()
+	eng.Use(stdlib.Prelude)
+	eng.RegisterPrim("add", func(ctx context.Context, capEnv eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
+		return ToValue(MustHost[int64](args[0]) + MustHost[int64](args[1])), capEnv, nil
 	})
 	rt, err := eng.NewRuntime(`
 import Prelude
@@ -389,11 +390,11 @@ main := do {
 	if err != nil {
 		t.Fatal(err)
 	}
-	con, ok := result.Value.(*gicel.ConVal)
+	con, ok := result.Value.(*eval.ConVal)
 	if !ok || con.Con != "Just" {
 		t.Fatalf("expected Just 6, got %v", result.Value)
 	}
-	hv, ok := con.Args[0].(*gicel.HostVal)
+	hv, ok := con.Args[0].(*eval.HostVal)
 	if !ok || hv.Inner != int64(6) {
 		t.Fatalf("expected Just 6, got Just %v", con.Args[0])
 	}
@@ -401,10 +402,10 @@ main := do {
 
 func TestMaybeDoEarlyExit(t *testing.T) {
 	// Nothing anywhere in the chain short-circuits.
-	eng := gicel.NewEngine()
-	eng.Use(gicel.Prelude)
-	eng.RegisterPrim("add", func(ctx context.Context, capEnv gicel.CapEnv, args []gicel.Value, _ gicel.Applier) (gicel.Value, gicel.CapEnv, error) {
-		return gicel.ToValue(gicel.MustHost[int64](args[0]) + gicel.MustHost[int64](args[1])), capEnv, nil
+	eng := NewEngine()
+	eng.Use(stdlib.Prelude)
+	eng.RegisterPrim("add", func(ctx context.Context, capEnv eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
+		return ToValue(MustHost[int64](args[0]) + MustHost[int64](args[1])), capEnv, nil
 	})
 	rt, err := eng.NewRuntime(`
 import Prelude
@@ -424,7 +425,7 @@ main := do {
 	if err != nil {
 		t.Fatal(err)
 	}
-	con, ok := result.Value.(*gicel.ConVal)
+	con, ok := result.Value.(*eval.ConVal)
 	if !ok || con.Con != "Nothing" {
 		t.Fatalf("expected Nothing, got %v", result.Value)
 	}
@@ -432,24 +433,24 @@ main := do {
 
 func TestComputationDoRegression(t *testing.T) {
 	// Ensure Computation do blocks still use Core.Bind (not class dispatch).
-	eng := gicel.NewEngine()
-	eng.Use(gicel.Prelude)
-	eng.DeclareBinding("x", gicel.ConType("Int"))
-	eng.DeclareBinding("y", gicel.ConType("Int"))
+	eng := NewEngine()
+	eng.Use(stdlib.Prelude)
+	eng.DeclareBinding("x", ConType("Int"))
+	eng.DeclareBinding("y", ConType("Int"))
 	rt, err := eng.NewRuntime(`
 main := do { a <- pure x; b <- pure y; pure a }
 `)
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := rt.RunWith(context.Background(), &gicel.RunOptions{Bindings: map[string]gicel.Value{
-		"x": gicel.ToValue(10),
-		"y": gicel.ToValue(20),
+	result, err := rt.RunWith(context.Background(), &RunOptions{Bindings: map[string]eval.Value{
+		"x": ToValue(10),
+		"y": ToValue(20),
 	}})
 	if err != nil {
 		t.Fatal(err)
 	}
-	hv, ok := result.Value.(*gicel.HostVal)
+	hv, ok := result.Value.(*eval.HostVal)
 	if !ok || hv.Inner != 10 {
 		t.Fatalf("expected 10, got %v", result.Value)
 	}
@@ -457,13 +458,13 @@ main := do { a <- pure x; b <- pure y; pure a }
 
 func TestListPipelineEndToEnd(t *testing.T) {
 	// fromSlice → fmap → foldr → toSlice full pipeline.
-	eng := gicel.NewEngine()
-	eng.Use(gicel.Prelude)
-	eng.RegisterPrim("add", func(ctx context.Context, capEnv gicel.CapEnv, args []gicel.Value, _ gicel.Applier) (gicel.Value, gicel.CapEnv, error) {
-		return gicel.ToValue(gicel.MustHost[int64](args[0]) + gicel.MustHost[int64](args[1])), capEnv, nil
+	eng := NewEngine()
+	eng.Use(stdlib.Prelude)
+	eng.RegisterPrim("add", func(ctx context.Context, capEnv eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
+		return ToValue(MustHost[int64](args[0]) + MustHost[int64](args[1])), capEnv, nil
 	})
 	eng.EnableRecursion()
-	eng.DeclareBinding("xs", gicel.AppType(gicel.ConType("List"), gicel.ConType("Int")))
+	eng.DeclareBinding("xs", AppType(ConType("List"), ConType("Int")))
 	rt, err := eng.NewRuntime(`
 import Prelude
 add :: Int -> Int -> Int
@@ -474,28 +475,28 @@ main := foldr add 0 (fmap (\x. add x 10) xs)
 		t.Fatal(err)
 	}
 	// xs = [1, 2, 3]
-	result, err := rt.RunWith(context.Background(), &gicel.RunOptions{Bindings: map[string]gicel.Value{
-		"xs": gicel.ToList([]any{int64(1), int64(2), int64(3)}),
+	result, err := rt.RunWith(context.Background(), &RunOptions{Bindings: map[string]eval.Value{
+		"xs": ToList([]any{int64(1), int64(2), int64(3)}),
 	}})
 	if err != nil {
 		t.Fatal(err)
 	}
 	// fmap (+10) [1,2,3] = [11,12,13], foldr add 0 = 36
-	hv, ok := result.Value.(*gicel.HostVal)
+	hv, ok := result.Value.(*eval.HostVal)
 	if !ok || hv.Inner != int64(36) {
 		t.Fatalf("expected 36, got %v", result.Value)
 	}
 }
 
 func TestEffectComposition(t *testing.T) {
-	eng := gicel.NewEngine()
-	if err := eng.Use(gicel.Prelude); err != nil {
+	eng := NewEngine()
+	if err := eng.Use(stdlib.Prelude); err != nil {
 		t.Fatal(err)
 	}
-	if err := eng.Use(gicel.EffectFail); err != nil {
+	if err := eng.Use(stdlib.Fail); err != nil {
 		t.Fatal(err)
 	}
-	if err := eng.Use(gicel.EffectState); err != nil {
+	if err := eng.Use(stdlib.State); err != nil {
 		t.Fatal(err)
 	}
 	rt, err := eng.NewRuntime(`
@@ -514,14 +515,14 @@ main := do {
 		t.Fatal(err)
 	}
 	caps := map[string]any{
-		"state": &gicel.HostVal{Inner: int64(0)},
-		"fail":  &gicel.RecordVal{Fields: map[string]gicel.Value{}},
+		"state": &eval.HostVal{Inner: int64(0)},
+		"fail":  &eval.RecordVal{Fields: map[string]eval.Value{}},
 	}
-	result, err := rt.RunWith(context.Background(), &gicel.RunOptions{Caps: caps})
+	result, err := rt.RunWith(context.Background(), &RunOptions{Caps: caps})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if hv := gicel.MustHost[int64](result.Value); hv != 15 {
+	if hv := MustHost[int64](result.Value); hv != 15 {
 		t.Errorf("expected 15, got %d", hv)
 	}
 }

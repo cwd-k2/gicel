@@ -1,29 +1,30 @@
-package gicel_test
+package engine
 
 import (
 	"context"
 	"fmt"
 
-	"github.com/cwd-k2/gicel"
+	"github.com/cwd-k2/gicel/internal/reg"
+	"github.com/cwd-k2/gicel/internal/stdlib"
 )
 
 func ExampleRunSandbox() {
-	result, err := gicel.RunSandbox(`
+	result, err := RunSandbox(`
 import Prelude
 main := 2 + 3
-`, &gicel.SandboxConfig{
-		Packs: []gicel.Pack{gicel.Prelude},
+`, &SandboxConfig{
+		Packs: []reg.Pack{stdlib.Prelude},
 	})
 	if err != nil {
 		panic(err)
 	}
-	fmt.Println(gicel.MustHost[int64](result.Value))
+	fmt.Println(MustHost[int64](result.Value))
 	// Output: 5
 }
 
 func ExampleEngine_NewRuntime() {
-	eng := gicel.NewEngine()
-	eng.Use(gicel.Prelude)
+	eng := NewEngine()
+	eng.Use(stdlib.Prelude)
 
 	rt, err := eng.NewRuntime(`
 		import Prelude
@@ -44,10 +45,10 @@ func ExampleEngine_NewRuntime() {
 }
 
 func ExampleCompileError_Diagnostics() {
-	eng := gicel.NewEngine()
+	eng := NewEngine()
 	_, err := eng.NewRuntime(`main := x`)
 	if err != nil {
-		ce := err.(*gicel.CompileError)
+		ce := err.(*CompileError)
 		for _, d := range ce.Diagnostics() {
 			fmt.Printf("%s:%d:%d: %s\n", d.Phase, d.Line, d.Col, d.Message)
 		}

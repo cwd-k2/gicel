@@ -1,4 +1,4 @@
-package gicel_test
+package engine
 
 import (
 	"context"
@@ -6,13 +6,14 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/cwd-k2/gicel"
+	"github.com/cwd-k2/gicel/internal/eval"
+	"github.com/cwd-k2/gicel/internal/stdlib"
 )
 
 // --- Module system integration tests ---
 
 func TestRegisterModule(t *testing.T) {
-	eng := gicel.NewEngine()
+	eng := NewEngine()
 	err := eng.RegisterModule("Lib", `
 data Bool := True | False
 not :: Bool -> Bool
@@ -24,7 +25,7 @@ not := \b. case b { True -> False; False -> True }
 }
 
 func TestImportModuleTypes(t *testing.T) {
-	eng := gicel.NewEngine()
+	eng := NewEngine()
 	err := eng.RegisterModule("Lib", `
 data Bool := True | False
 not :: Bool -> Bool
@@ -44,14 +45,14 @@ main := not True
 	if err != nil {
 		t.Fatal(err)
 	}
-	con, ok := result.Value.(*gicel.ConVal)
+	con, ok := result.Value.(*eval.ConVal)
 	if !ok || con.Con != "False" {
 		t.Errorf("expected False, got %s", result.Value)
 	}
 }
 
 func TestImportModuleInstances(t *testing.T) {
-	eng := gicel.NewEngine()
+	eng := NewEngine()
 	err := eng.RegisterModule("EqLib", `
 data Bool := True | False
 class Eq a { eq :: a -> a -> Bool }
@@ -71,7 +72,7 @@ main := eq True False
 	if err != nil {
 		t.Fatal(err)
 	}
-	con, ok := result.Value.(*gicel.ConVal)
+	con, ok := result.Value.(*eval.ConVal)
 	if !ok || con.Con != "True" {
 		t.Errorf("expected True, got %s", result.Value)
 	}
@@ -85,7 +86,7 @@ data Color := Red | Blue
 `), 0644); err != nil {
 		t.Fatal(err)
 	}
-	eng := gicel.NewEngine()
+	eng := NewEngine()
 	if err := eng.RegisterModuleFile(path); err != nil {
 		t.Fatal(err)
 	}
@@ -100,14 +101,14 @@ main := Red
 	if err != nil {
 		t.Fatal(err)
 	}
-	con, ok := result.Value.(*gicel.ConVal)
+	con, ok := result.Value.(*eval.ConVal)
 	if !ok || con.Con != "Red" {
 		t.Errorf("expected Red, got %s", result.Value)
 	}
 }
 
 func TestRegisterModuleFileMissing(t *testing.T) {
-	eng := gicel.NewEngine()
+	eng := NewEngine()
 	err := eng.RegisterModuleFile("/nonexistent/path/Foo.gicel")
 	if err == nil {
 		t.Error("expected error for missing file")
@@ -115,8 +116,8 @@ func TestRegisterModuleFileMissing(t *testing.T) {
 }
 
 func TestCircularImportError(t *testing.T) {
-	eng := gicel.NewEngine()
-	eng.Use(gicel.Prelude)
+	eng := NewEngine()
+	eng.Use(stdlib.Prelude)
 	// Register module A that imports B.
 	err := eng.RegisterModule("A", `
 import B
@@ -140,7 +141,7 @@ data Void := MkVoid
 }
 
 func TestImportNameCollision(t *testing.T) {
-	eng := gicel.NewEngine()
+	eng := NewEngine()
 	// Module A defines Bool.
 	err := eng.RegisterModule("A", `data Bool := True | False`)
 	if err != nil {
@@ -164,8 +165,8 @@ main := True
 }
 
 func TestPackModuleImport(t *testing.T) {
-	eng := gicel.NewEngine()
-	if err := eng.Use(gicel.Prelude); err != nil {
+	eng := NewEngine()
+	if err := eng.Use(stdlib.Prelude); err != nil {
 		t.Fatal(err)
 	}
 	rt, err := eng.NewRuntime(`
@@ -181,17 +182,17 @@ main := Just (v1 + v2)
 	if err != nil {
 		t.Fatal(err)
 	}
-	con, ok := result.Value.(*gicel.ConVal)
+	con, ok := result.Value.(*eval.ConVal)
 	if !ok || con.Con != "Just" {
 		t.Fatalf("expected Just, got %s", result.Value)
 	}
-	if hv := gicel.MustHost[int64](con.Args[0]); hv != 8 {
+	if hv := MustHost[int64](con.Args[0]); hv != 8 {
 		t.Errorf("expected 8, got %d", hv)
 	}
 }
 
 func TestModuleAccumulation(t *testing.T) {
-	eng := gicel.NewEngine()
+	eng := NewEngine()
 	err := eng.RegisterModule("A", `
 data Bool := True | False
 `)
@@ -217,14 +218,14 @@ main := MkPair True False
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, ok := result.Value.(*gicel.ConVal); !ok {
+	if _, ok := result.Value.(*eval.ConVal); !ok {
 		t.Fatalf("expected ConVal, got %T", result.Value)
 	}
 }
 
 func TestInvalidModuleSource(t *testing.T) {
-	eng := gicel.NewEngine()
-	eng.Use(gicel.Prelude)
+	eng := NewEngine()
+	eng.Use(stdlib.Prelude)
 	err := eng.RegisterModule("Bad", `this is not valid syntax @@@@`)
 	if err == nil {
 		t.Fatal("expected error for invalid module source")
@@ -234,7 +235,7 @@ func TestInvalidModuleSource(t *testing.T) {
 // --- Module System Extension: Selective & Qualified Imports ---
 
 func TestSelectiveImport(t *testing.T) {
-	eng := gicel.NewEngine()
+	eng := NewEngine()
 	err := eng.RegisterModule("Lib", `
 data Color := Red | Green | Blue
 red :: Color
@@ -257,14 +258,14 @@ main := red
 	if err != nil {
 		t.Fatal(err)
 	}
-	con, ok := result.Value.(*gicel.ConVal)
+	con, ok := result.Value.(*eval.ConVal)
 	if !ok || con.Con != "Red" {
 		t.Errorf("expected Red, got %s", result.Value)
 	}
 }
 
 func TestSelectiveImportRejectsUnlisted(t *testing.T) {
-	eng := gicel.NewEngine()
+	eng := NewEngine()
 	err := eng.RegisterModule("Lib", `
 data Color := Red | Green | Blue
 red :: Color
@@ -286,7 +287,7 @@ main := green
 }
 
 func TestQualifiedImport(t *testing.T) {
-	eng := gicel.NewEngine()
+	eng := NewEngine()
 	err := eng.RegisterModule("Lib", `
 data Color := Red | Green | Blue
 red :: Color
@@ -306,14 +307,14 @@ main := L.red
 	if err != nil {
 		t.Fatal(err)
 	}
-	con, ok := result.Value.(*gicel.ConVal)
+	con, ok := result.Value.(*eval.ConVal)
 	if !ok || con.Con != "Red" {
 		t.Errorf("expected Red, got %s", result.Value)
 	}
 }
 
 func TestQualifiedImportConstructor(t *testing.T) {
-	eng := gicel.NewEngine()
+	eng := NewEngine()
 	err := eng.RegisterModule("Lib", `
 data Color := Red | Green | Blue
 `)
@@ -331,14 +332,14 @@ main := L.Green
 	if err != nil {
 		t.Fatal(err)
 	}
-	con, ok := result.Value.(*gicel.ConVal)
+	con, ok := result.Value.(*eval.ConVal)
 	if !ok || con.Con != "Green" {
 		t.Errorf("expected Green, got %s", result.Value)
 	}
 }
 
 func TestQualifiedNotInUnqualifiedScope(t *testing.T) {
-	eng := gicel.NewEngine()
+	eng := NewEngine()
 	err := eng.RegisterModule("Lib", `
 data Color := Red | Green | Blue
 red :: Color
@@ -358,7 +359,7 @@ main := red
 }
 
 func TestDuplicateImportError(t *testing.T) {
-	eng := gicel.NewEngine()
+	eng := NewEngine()
 	err := eng.RegisterModule("Lib", `
 data Color := Red | Green | Blue
 `)
@@ -376,7 +377,7 @@ main := Red
 }
 
 func TestAliasCollisionError(t *testing.T) {
-	eng := gicel.NewEngine()
+	eng := NewEngine()
 	err := eng.RegisterModule("LibA", `
 data X := MkX
 `)
@@ -400,7 +401,7 @@ main := L.MkX
 }
 
 func TestSelectiveImportAllSubs(t *testing.T) {
-	eng := gicel.NewEngine()
+	eng := NewEngine()
 	err := eng.RegisterModule("Lib", `
 data Maybe a := Nothing | Just a
 `)
@@ -418,14 +419,14 @@ main := Just 42
 	if err != nil {
 		t.Fatal(err)
 	}
-	con, ok := result.Value.(*gicel.ConVal)
+	con, ok := result.Value.(*eval.ConVal)
 	if !ok || con.Con != "Just" {
 		t.Errorf("expected Just, got %s", result.Value)
 	}
 }
 
 func TestCoreSelectiveImportRejected(t *testing.T) {
-	eng := gicel.NewEngine()
+	eng := NewEngine()
 	_, err := eng.NewRuntime(`
 import Core (pure)
 main := pure 42
@@ -436,7 +437,7 @@ main := pure 42
 }
 
 func TestCoreQualifiedImportRejected(t *testing.T) {
-	eng := gicel.NewEngine()
+	eng := NewEngine()
 	_, err := eng.NewRuntime(`
 import Core as C
 main := C.pure 42
@@ -449,9 +450,9 @@ main := C.pure 42
 // --- Exhaustive Module System Extension Tests ---
 
 // Helper: register a standard set of test modules on an engine.
-func setupTestModules(t *testing.T, eng *gicel.Engine) {
+func setupTestModules(t *testing.T, eng *Engine) {
 	t.Helper()
-	if err := eng.Use(gicel.Prelude); err != nil {
+	if err := eng.Use(stdlib.Prelude); err != nil {
 		t.Fatal(err)
 	}
 	if err := eng.RegisterModule("Geometry", `
@@ -484,7 +485,7 @@ square := \x. x * x
 	}
 }
 
-func runExpectHost(t *testing.T, eng *gicel.Engine, source string, expected any) {
+func runExpectHost(t *testing.T, eng *Engine, source string, expected any) {
 	t.Helper()
 	rt, err := eng.NewRuntime(source)
 	if err != nil {
@@ -494,7 +495,7 @@ func runExpectHost(t *testing.T, eng *gicel.Engine, source string, expected any)
 	if err != nil {
 		t.Fatalf("runtime error: %v", err)
 	}
-	hv, ok := result.Value.(*gicel.HostVal)
+	hv, ok := result.Value.(*eval.HostVal)
 	if !ok {
 		t.Fatalf("expected HostVal, got %T: %s", result.Value, result.Value)
 	}
@@ -503,7 +504,7 @@ func runExpectHost(t *testing.T, eng *gicel.Engine, source string, expected any)
 	}
 }
 
-func runExpectCon(t *testing.T, eng *gicel.Engine, source string, expectedCon string) {
+func runExpectCon(t *testing.T, eng *Engine, source string, expectedCon string) {
 	t.Helper()
 	rt, err := eng.NewRuntime(source)
 	if err != nil {
@@ -513,7 +514,7 @@ func runExpectCon(t *testing.T, eng *gicel.Engine, source string, expectedCon st
 	if err != nil {
 		t.Fatalf("runtime error: %v", err)
 	}
-	con, ok := result.Value.(*gicel.ConVal)
+	con, ok := result.Value.(*eval.ConVal)
 	if !ok {
 		t.Fatalf("expected ConVal, got %T: %s", result.Value, result.Value)
 	}
@@ -522,7 +523,7 @@ func runExpectCon(t *testing.T, eng *gicel.Engine, source string, expectedCon st
 	}
 }
 
-func runExpectError(t *testing.T, eng *gicel.Engine, source string, wantSubstr string) {
+func runExpectError(t *testing.T, eng *Engine, source string, wantSubstr string) {
 	t.Helper()
 	_, err := eng.NewRuntime(source)
 	if err == nil {
@@ -536,7 +537,7 @@ func runExpectError(t *testing.T, eng *gicel.Engine, source string, wantSubstr s
 // === Open Import Tests ===
 
 func TestOpenImportAllNames(t *testing.T) {
-	eng := gicel.NewEngine()
+	eng := NewEngine()
 	setupTestModules(t, eng)
 	runExpectHost(t, eng, `
 import Geometry
@@ -545,7 +546,7 @@ main := getX (mkPoint 10 20)
 }
 
 func TestOpenImportAllConstructors(t *testing.T) {
-	eng := gicel.NewEngine()
+	eng := NewEngine()
 	setupTestModules(t, eng)
 	runExpectCon(t, eng, `
 import Color
@@ -556,7 +557,7 @@ main := Blue
 // === Selective Import Tests ===
 
 func TestSelectiveImportValue(t *testing.T) {
-	eng := gicel.NewEngine()
+	eng := NewEngine()
 	setupTestModules(t, eng)
 	runExpectHost(t, eng, `
 import Prelude
@@ -566,7 +567,7 @@ main := double 21
 }
 
 func TestSelectiveImportValueRejectsOther(t *testing.T) {
-	eng := gicel.NewEngine()
+	eng := NewEngine()
 	setupTestModules(t, eng)
 	runExpectError(t, eng, `
 import Prelude
@@ -576,7 +577,7 @@ main := square 5
 }
 
 func TestSelectiveImportTypeBare(t *testing.T) {
-	eng := gicel.NewEngine()
+	eng := NewEngine()
 	setupTestModules(t, eng)
 	// Import type without constructors — can use in annotation but not construct
 	runExpectError(t, eng, `
@@ -586,7 +587,7 @@ main := MkPoint 1 2
 }
 
 func TestSelectiveImportTypeWithAllSubs(t *testing.T) {
-	eng := gicel.NewEngine()
+	eng := NewEngine()
 	setupTestModules(t, eng)
 	runExpectCon(t, eng, `
 import Color (Color(..))
@@ -595,7 +596,7 @@ main := Green
 }
 
 func TestSelectiveImportTypeWithSpecificSubs(t *testing.T) {
-	eng := gicel.NewEngine()
+	eng := NewEngine()
 	setupTestModules(t, eng)
 	runExpectCon(t, eng, `
 import Color (Color(Red, Blue))
@@ -604,7 +605,7 @@ main := Red
 }
 
 func TestSelectiveImportTypeRejectsUnlistedSub(t *testing.T) {
-	eng := gicel.NewEngine()
+	eng := NewEngine()
 	setupTestModules(t, eng)
 	runExpectError(t, eng, `
 import Color (Color(Red))
@@ -613,8 +614,8 @@ main := Green
 }
 
 func TestSelectiveImportOperator(t *testing.T) {
-	eng := gicel.NewEngine()
-	if err := eng.Use(gicel.Prelude); err != nil {
+	eng := NewEngine()
+	if err := eng.Use(stdlib.Prelude); err != nil {
 		t.Fatal(err)
 	}
 	// Prelude exports (+) operator
@@ -625,7 +626,7 @@ main := 1 + 2
 }
 
 func TestSelectiveImportMultipleNames(t *testing.T) {
-	eng := gicel.NewEngine()
+	eng := NewEngine()
 	setupTestModules(t, eng)
 	runExpectHost(t, eng, `
 import Prelude
@@ -635,7 +636,7 @@ main := double 3 + square 4
 }
 
 func TestSelectiveImportNonExistentName(t *testing.T) {
-	eng := gicel.NewEngine()
+	eng := NewEngine()
 	setupTestModules(t, eng)
 	runExpectError(t, eng, `
 import MathLib (nonexistent)
@@ -646,7 +647,7 @@ main := 42
 // === Qualified Import Tests ===
 
 func TestQualifiedImportValue(t *testing.T) {
-	eng := gicel.NewEngine()
+	eng := NewEngine()
 	setupTestModules(t, eng)
 	runExpectHost(t, eng, `
 import Prelude
@@ -656,7 +657,7 @@ main := M.double 21
 }
 
 func TestQualifiedImportConstructor2(t *testing.T) {
-	eng := gicel.NewEngine()
+	eng := NewEngine()
 	setupTestModules(t, eng)
 	runExpectHost(t, eng, `
 import Geometry as G
@@ -665,7 +666,7 @@ main := G.getX (G.mkPoint 7 8)
 }
 
 func TestQualifiedImportConPattern(t *testing.T) {
-	eng := gicel.NewEngine()
+	eng := NewEngine()
 	setupTestModules(t, eng)
 	// Use qualified constructor in expressions
 	runExpectCon(t, eng, `
@@ -675,7 +676,7 @@ main := C.Red
 }
 
 func TestQualifiedDoesNotPolluteUnqualified(t *testing.T) {
-	eng := gicel.NewEngine()
+	eng := NewEngine()
 	setupTestModules(t, eng)
 	runExpectError(t, eng, `
 import MathLib as M
@@ -684,7 +685,7 @@ main := double 5
 }
 
 func TestQualifiedUnknownQualifier(t *testing.T) {
-	eng := gicel.NewEngine()
+	eng := NewEngine()
 	setupTestModules(t, eng)
 	runExpectError(t, eng, `
 import Prelude
@@ -693,7 +694,7 @@ main := X.something
 }
 
 func TestQualifiedNonExportedValue(t *testing.T) {
-	eng := gicel.NewEngine()
+	eng := NewEngine()
 	setupTestModules(t, eng)
 	runExpectError(t, eng, `
 import Prelude
@@ -703,7 +704,7 @@ main := M.cube 3
 }
 
 func TestQualifiedNonExportedConstructor(t *testing.T) {
-	eng := gicel.NewEngine()
+	eng := NewEngine()
 	setupTestModules(t, eng)
 	runExpectError(t, eng, `
 import Geometry as G
@@ -714,7 +715,7 @@ main := G.FakeConstructor
 // === Qualified Type in Type Annotations ===
 
 func TestQualifiedTypeInAnnotation(t *testing.T) {
-	eng := gicel.NewEngine()
+	eng := NewEngine()
 	setupTestModules(t, eng)
 	// Qualified type in annotation; use qualified functions (no qualified patterns yet)
 	runExpectHost(t, eng, `
@@ -728,7 +729,7 @@ main := extractX (G.mkPoint 99 0)
 // === Mixing Import Forms ===
 
 func TestMixedImportForms(t *testing.T) {
-	eng := gicel.NewEngine()
+	eng := NewEngine()
 	setupTestModules(t, eng)
 	runExpectHost(t, eng, `
 import Prelude
@@ -745,7 +746,7 @@ main := doubled
 // === Error Cases ===
 
 func TestDuplicateImportSameForm(t *testing.T) {
-	eng := gicel.NewEngine()
+	eng := NewEngine()
 	setupTestModules(t, eng)
 	runExpectError(t, eng, `
 import Geometry
@@ -755,7 +756,7 @@ main := mkPoint 1 2
 }
 
 func TestDuplicateImportDifferentForms(t *testing.T) {
-	eng := gicel.NewEngine()
+	eng := NewEngine()
 	setupTestModules(t, eng)
 	// Open then qualified: still a duplicate
 	runExpectError(t, eng, `
@@ -766,7 +767,7 @@ main := mkPoint 1 2
 }
 
 func TestAliasCollisionDifferentModules(t *testing.T) {
-	eng := gicel.NewEngine()
+	eng := NewEngine()
 	setupTestModules(t, eng)
 	runExpectError(t, eng, `
 import Geometry as M
@@ -776,7 +777,7 @@ main := M.double 5
 }
 
 func TestUnknownModuleImport(t *testing.T) {
-	eng := gicel.NewEngine()
+	eng := NewEngine()
 	runExpectError(t, eng, `
 import NonExistent
 main := 42
@@ -786,8 +787,8 @@ main := 42
 // === Instance Coherence ===
 
 func TestSelectiveImportAlwaysImportsInstances(t *testing.T) {
-	eng := gicel.NewEngine()
-	if err := eng.Use(gicel.Prelude); err != nil {
+	eng := NewEngine()
+	if err := eng.Use(stdlib.Prelude); err != nil {
 		t.Fatal(err)
 	}
 	err := eng.RegisterModule("EqLib", `
@@ -810,15 +811,15 @@ main := myEq MyTrue MyFalse
 	if err != nil {
 		t.Fatal(err)
 	}
-	con, ok := result.Value.(*gicel.ConVal)
+	con, ok := result.Value.(*eval.ConVal)
 	if !ok || con.Con != "MyTrue" {
 		t.Errorf("expected MyTrue (instance should be imported), got %s", result.Value)
 	}
 }
 
 func TestQualifiedImportAlwaysImportsInstances(t *testing.T) {
-	eng := gicel.NewEngine()
-	if err := eng.Use(gicel.Prelude); err != nil {
+	eng := NewEngine()
+	if err := eng.Use(stdlib.Prelude); err != nil {
 		t.Fatal(err)
 	}
 	err := eng.RegisterModule("EqLib", `
@@ -842,7 +843,7 @@ main := E.myEq E.MyTrue E.MyFalse
 	if err != nil {
 		t.Fatal(err)
 	}
-	con, ok := result.Value.(*gicel.ConVal)
+	con, ok := result.Value.(*eval.ConVal)
 	if !ok || con.Con != "MyTrue" {
 		t.Errorf("expected MyTrue (instance should be imported), got %s", result.Value)
 	}
@@ -851,8 +852,8 @@ main := E.myEq E.MyTrue E.MyFalse
 // === Adjacency Disambiguation ===
 
 func TestDotCompositionNotQualified(t *testing.T) {
-	eng := gicel.NewEngine()
-	if err := eng.Use(gicel.Prelude); err != nil {
+	eng := NewEngine()
+	if err := eng.Use(stdlib.Prelude); err != nil {
 		t.Fatal(err)
 	}
 	// N . f with spaces should be function composition, not qualified access
@@ -869,7 +870,7 @@ main := (f . g) 3
 // === Multi-Module End-to-End ===
 
 func TestMultiModuleEndToEnd(t *testing.T) {
-	eng := gicel.NewEngine()
+	eng := NewEngine()
 	setupTestModules(t, eng)
 	rt, err := eng.NewRuntime(`
 import Prelude
@@ -889,7 +890,7 @@ main := (getX point, colorName, doubled)
 		t.Fatal(err)
 	}
 	// Should be a record (tuple): { _1: 3, _2: "red", _3: 6 }
-	rec, ok := result.Value.(*gicel.RecordVal)
+	rec, ok := result.Value.(*eval.RecordVal)
 	if !ok {
 		t.Fatalf("expected RecordVal, got %T: %s", result.Value, result.Value)
 	}
@@ -897,21 +898,21 @@ main := (getX point, colorName, doubled)
 	if !ok {
 		t.Fatal("missing field _1")
 	}
-	if hv, ok := f1.(*gicel.HostVal); !ok || hv.Inner != int64(3) {
+	if hv, ok := f1.(*eval.HostVal); !ok || hv.Inner != int64(3) {
 		t.Errorf("_1: expected 3, got %s", f1)
 	}
 	f2, ok := rec.Fields["_2"]
 	if !ok {
 		t.Fatal("missing field _2")
 	}
-	if hv, ok := f2.(*gicel.HostVal); !ok || hv.Inner != "red" {
+	if hv, ok := f2.(*eval.HostVal); !ok || hv.Inner != "red" {
 		t.Errorf("_2: expected \"red\", got %s", f2)
 	}
 	f3, ok := rec.Fields["_3"]
 	if !ok {
 		t.Fatal("missing field _3")
 	}
-	if hv, ok := f3.(*gicel.HostVal); !ok || hv.Inner != int64(6) {
+	if hv, ok := f3.(*eval.HostVal); !ok || hv.Inner != int64(6) {
 		t.Errorf("_3: expected 6, got %s", f3)
 	}
 }
@@ -919,8 +920,8 @@ main := (getX point, colorName, doubled)
 // === Same-Name Disambiguation via Qualified Import ===
 
 func TestQualifiedDisambiguatesSameNames(t *testing.T) {
-	eng := gicel.NewEngine()
-	if err := eng.Use(gicel.Prelude); err != nil {
+	eng := NewEngine()
+	if err := eng.Use(stdlib.Prelude); err != nil {
 		t.Fatal(err)
 	}
 	// Two modules export "value", qualified import distinguishes them
@@ -953,7 +954,7 @@ main := A.value + B.value
 	if err != nil {
 		t.Fatal(err)
 	}
-	hv, ok := result.Value.(*gicel.HostVal)
+	hv, ok := result.Value.(*eval.HostVal)
 	if !ok || hv.Inner != int64(30) {
 		t.Errorf("expected 30, got %s", result.Value)
 	}
@@ -963,8 +964,8 @@ main := A.value + B.value
 
 func TestQualifiedConstraintSingle(t *testing.T) {
 	// P.Num a => ... should resolve the class via qualified scope.
-	eng := gicel.NewEngine()
-	if err := eng.Use(gicel.Prelude); err != nil {
+	eng := NewEngine()
+	if err := eng.Use(stdlib.Prelude); err != nil {
 		t.Fatal(err)
 	}
 	runExpectHost(t, eng, `
@@ -977,8 +978,8 @@ main := f 21
 
 func TestQualifiedConstraintTuple(t *testing.T) {
 	// (P.Eq a, P.Num a) => ... should resolve multiple qualified constraints.
-	eng := gicel.NewEngine()
-	if err := eng.Use(gicel.Prelude); err != nil {
+	eng := NewEngine()
+	if err := eng.Use(stdlib.Prelude); err != nil {
 		t.Fatal(err)
 	}
 	runExpectCon(t, eng, `
@@ -991,8 +992,8 @@ main := f 0
 
 func TestQualifiedConstraintUserClass(t *testing.T) {
 	// Qualified constraint on a user-defined class in another module.
-	eng := gicel.NewEngine()
-	if err := eng.Use(gicel.Prelude); err != nil {
+	eng := NewEngine()
+	if err := eng.Use(stdlib.Prelude); err != nil {
 		t.Fatal(err)
 	}
 	err := eng.RegisterModule("MyLib", `

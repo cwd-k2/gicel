@@ -1,10 +1,11 @@
-package gicel_test
+package engine
 
 import (
 	"context"
 	"testing"
 
-	"github.com/cwd-k2/gicel"
+	"github.com/cwd-k2/gicel/internal/eval"
+	"github.com/cwd-k2/gicel/internal/stdlib"
 )
 
 // ---------------------------------------------------------------------------
@@ -12,7 +13,7 @@ import (
 // ---------------------------------------------------------------------------
 
 func TestTypeClassEqBool(t *testing.T) {
-	eng := gicel.NewEngine()
+	eng := NewEngine()
 	rt, err := eng.NewRuntime(`
 data Bool := True | False
 class Eq a { eq :: a -> a -> Bool }
@@ -31,14 +32,14 @@ main := eq True False
 	if err != nil {
 		t.Fatal(err)
 	}
-	con, ok := result.Value.(*gicel.ConVal)
+	con, ok := result.Value.(*eval.ConVal)
 	if !ok || con.Con != "False" {
 		t.Errorf("expected False, got %s", result.Value)
 	}
 }
 
 func TestTypeClassPolymorphic(t *testing.T) {
-	eng := gicel.NewEngine()
+	eng := NewEngine()
 	rt, err := eng.NewRuntime(`
 data Bool := True | False
 class Eq a { eq :: a -> a -> Bool }
@@ -59,14 +60,14 @@ main := f True True
 	if err != nil {
 		t.Fatal(err)
 	}
-	con, ok := result.Value.(*gicel.ConVal)
+	con, ok := result.Value.(*eval.ConVal)
 	if !ok || con.Con != "True" {
 		t.Errorf("expected True, got %s", result.Value)
 	}
 }
 
 func TestTypeClassSuperclass(t *testing.T) {
-	eng := gicel.NewEngine()
+	eng := NewEngine()
 	rt, err := eng.NewRuntime(`
 data Bool := True | False
 class Eq a { eq :: a -> a -> Bool }
@@ -88,14 +89,14 @@ main := useOrd True False
 	if err != nil {
 		t.Fatal(err)
 	}
-	con, ok := result.Value.(*gicel.ConVal)
+	con, ok := result.Value.(*eval.ConVal)
 	if !ok || con.Con != "True" {
 		t.Errorf("expected True, got %s", result.Value)
 	}
 }
 
 func TestTypeClassFunctor(t *testing.T) {
-	eng := gicel.NewEngine()
+	eng := NewEngine()
 	rt, err := eng.NewRuntime(`
 data Bool := True | False
 data Maybe a := Just a | Nothing
@@ -116,21 +117,21 @@ main := fmap not (Just True)
 	if err != nil {
 		t.Fatal(err)
 	}
-	con, ok := result.Value.(*gicel.ConVal)
+	con, ok := result.Value.(*eval.ConVal)
 	if !ok || con.Con != "Just" {
 		t.Errorf("expected Just, got %s", result.Value)
 	}
 	if len(con.Args) != 1 {
 		t.Fatalf("expected 1 arg, got %d", len(con.Args))
 	}
-	inner, ok := con.Args[0].(*gicel.ConVal)
+	inner, ok := con.Args[0].(*eval.ConVal)
 	if !ok || inner.Con != "False" {
 		t.Errorf("expected False inside Just, got %s", con.Args[0])
 	}
 }
 
 func TestTypeClassMultiParam(t *testing.T) {
-	eng := gicel.NewEngine()
+	eng := NewEngine()
 	rt, err := eng.NewRuntime(`
 data Bool := True | False
 class Coercible a b { coerce :: a -> b }
@@ -146,7 +147,7 @@ main := coerce True
 	if err != nil {
 		t.Fatal(err)
 	}
-	con, ok := result.Value.(*gicel.ConVal)
+	con, ok := result.Value.(*eval.ConVal)
 	if !ok || con.Con != "True" {
 		t.Errorf("expected True, got %s", result.Value)
 	}
@@ -155,8 +156,8 @@ main := coerce True
 // --- Stdlib integration tests ---
 
 func TestStdlibEqOrd(t *testing.T) {
-	eng := gicel.NewEngine()
-	eng.Use(gicel.Prelude)
+	eng := NewEngine()
+	eng.Use(stdlib.Prelude)
 	rt, err := eng.NewRuntime(`
 import Prelude
 main := eq True True
@@ -168,15 +169,15 @@ main := eq True True
 	if err != nil {
 		t.Fatal(err)
 	}
-	con, ok := result.Value.(*gicel.ConVal)
+	con, ok := result.Value.(*eval.ConVal)
 	if !ok || con.Con != "True" {
 		t.Errorf("expected True, got %s", result.Value)
 	}
 }
 
 func TestStdlibFunctor(t *testing.T) {
-	eng := gicel.NewEngine()
-	eng.Use(gicel.Prelude)
+	eng := NewEngine()
+	eng.Use(stdlib.Prelude)
 	rt, err := eng.NewRuntime(`
 import Prelude
 not :: Bool -> Bool
@@ -191,19 +192,19 @@ main := fmap not (Just True)
 	if err != nil {
 		t.Fatal(err)
 	}
-	con, ok := result.Value.(*gicel.ConVal)
+	con, ok := result.Value.(*eval.ConVal)
 	if !ok || con.Con != "Just" {
 		t.Fatalf("expected Just, got %s", result.Value)
 	}
-	inner, ok := con.Args[0].(*gicel.ConVal)
+	inner, ok := con.Args[0].(*eval.ConVal)
 	if !ok || inner.Con != "False" {
 		t.Errorf("expected Just False, got Just %s", con.Args[0])
 	}
 }
 
 func TestStdlibFoldable(t *testing.T) {
-	eng := gicel.NewEngine()
-	eng.Use(gicel.Prelude)
+	eng := NewEngine()
+	eng.Use(stdlib.Prelude)
 	rt, err := eng.NewRuntime(`
 import Prelude
 main := foldr (\x _. x) False (Just True)
@@ -215,7 +216,7 @@ main := foldr (\x _. x) False (Just True)
 	if err != nil {
 		t.Fatal(err)
 	}
-	con, ok := result.Value.(*gicel.ConVal)
+	con, ok := result.Value.(*eval.ConVal)
 	if !ok || con.Con != "True" {
 		t.Errorf("expected True, got %s", result.Value)
 	}
@@ -224,8 +225,8 @@ main := foldr (\x _. x) False (Just True)
 func TestStdlibEqPair(t *testing.T) {
 	// NOTE: Eq (a, b) on tuples is not yet supported at runtime (evidence/record interaction).
 	// Test Eq on List as a multi-element container substitute.
-	eng := gicel.NewEngine()
-	eng.Use(gicel.Prelude)
+	eng := NewEngine()
+	eng.Use(stdlib.Prelude)
 	rt, err := eng.NewRuntime(`
 import Prelude
 main := eq (Cons True (Cons False Nil)) (Cons True (Cons False Nil))
@@ -237,7 +238,7 @@ main := eq (Cons True (Cons False Nil)) (Cons True (Cons False Nil))
 	if err != nil {
 		t.Fatal(err)
 	}
-	con, ok := result.Value.(*gicel.ConVal)
+	con, ok := result.Value.(*eval.ConVal)
 	if !ok || con.Con != "True" {
 		t.Errorf("expected True, got %s", result.Value)
 	}
@@ -246,8 +247,8 @@ main := eq (Cons True (Cons False Nil)) (Cons True (Cons False Nil))
 // --- Coercible integration tests ---
 
 func TestCoercibleMultiParam(t *testing.T) {
-	eng := gicel.NewEngine()
-	eng.Use(gicel.Prelude)
+	eng := NewEngine()
+	eng.Use(stdlib.Prelude)
 	rt, err := eng.NewRuntime(`
 import Prelude
 class Coercible a b { coerce :: a -> b }
@@ -263,15 +264,15 @@ main := coerce True
 	if err != nil {
 		t.Fatal(err)
 	}
-	rv, ok := result.Value.(*gicel.RecordVal)
+	rv, ok := result.Value.(*eval.RecordVal)
 	if !ok || len(rv.Fields) != 0 {
 		t.Errorf("expected (), got %s", result.Value)
 	}
 }
 
 func TestCoercibleUsage(t *testing.T) {
-	eng := gicel.NewEngine()
-	eng.Use(gicel.Prelude)
+	eng := NewEngine()
+	eng.Use(stdlib.Prelude)
 	rt, err := eng.NewRuntime(`
 import Prelude
 class Coercible a b { coerce :: a -> b }
@@ -288,7 +289,7 @@ main := coerce True
 	if err != nil {
 		t.Fatal(err)
 	}
-	con, ok := result.Value.(*gicel.ConVal)
+	con, ok := result.Value.(*eval.ConVal)
 	if !ok || con.Con != "True" {
 		t.Errorf("expected True, got %s", result.Value)
 	}
@@ -297,8 +298,8 @@ main := coerce True
 // --- Phase 4: Stdlib Expansion ---
 
 func TestClassSemigroup(t *testing.T) {
-	eng := gicel.NewEngine()
-	eng.Use(gicel.Prelude)
+	eng := NewEngine()
+	eng.Use(stdlib.Prelude)
 	rt, err := eng.NewRuntime(`
 import Prelude
 main := append () ()
@@ -310,15 +311,15 @@ main := append () ()
 	if err != nil {
 		t.Fatal(err)
 	}
-	rv, ok := result.Value.(*gicel.RecordVal)
+	rv, ok := result.Value.(*eval.RecordVal)
 	if !ok || len(rv.Fields) != 0 {
 		t.Errorf("expected (), got %s", result.Value)
 	}
 }
 
 func TestClassMonoid(t *testing.T) {
-	eng := gicel.NewEngine()
-	eng.Use(gicel.Prelude)
+	eng := NewEngine()
+	eng.Use(stdlib.Prelude)
 	rt, err := eng.NewRuntime(`
 import Prelude
 main := (empty :: Ordering)
@@ -334,8 +335,8 @@ main := (empty :: Ordering)
 }
 
 func TestClassApplicative(t *testing.T) {
-	eng := gicel.NewEngine()
-	eng.Use(gicel.Prelude)
+	eng := NewEngine()
+	eng.Use(stdlib.Prelude)
 	_, err := eng.Compile(`
 import Prelude
 test := (wrap True :: Maybe Bool)
@@ -346,8 +347,8 @@ test := (wrap True :: Maybe Bool)
 }
 
 func TestClassTraversable(t *testing.T) {
-	eng := gicel.NewEngine()
-	eng.Use(gicel.Prelude)
+	eng := NewEngine()
+	eng.Use(stdlib.Prelude)
 	_, err := eng.Compile(`
 import Prelude
 test :: \f a b. Applicative f => (a -> f b) -> Maybe a -> f (Maybe b)
@@ -359,8 +360,8 @@ test := traverse
 }
 
 func TestSemigroupUnit(t *testing.T) {
-	eng := gicel.NewEngine()
-	eng.Use(gicel.Prelude)
+	eng := NewEngine()
+	eng.Use(stdlib.Prelude)
 	rt, err := eng.NewRuntime(`
 import Prelude
 main := append () ()
@@ -372,15 +373,15 @@ main := append () ()
 	if err != nil {
 		t.Fatal(err)
 	}
-	rv, ok := result.Value.(*gicel.RecordVal)
+	rv, ok := result.Value.(*eval.RecordVal)
 	if !ok || len(rv.Fields) != 0 {
 		t.Errorf("expected (), got %s", result.Value)
 	}
 }
 
 func TestSemigroupOrdering(t *testing.T) {
-	eng := gicel.NewEngine()
-	eng.Use(gicel.Prelude)
+	eng := NewEngine()
+	eng.Use(stdlib.Prelude)
 	rt, err := eng.NewRuntime(`
 import Prelude
 test1 := append LT EQ
@@ -394,7 +395,7 @@ main := (test1, test2)
 	if err != nil {
 		t.Fatal(err)
 	}
-	rv, ok := result.Value.(*gicel.RecordVal)
+	rv, ok := result.Value.(*eval.RecordVal)
 	if !ok || len(rv.Fields) != 2 {
 		t.Fatalf("expected tuple, got %s", result.Value)
 	}
@@ -403,8 +404,8 @@ main := (test1, test2)
 }
 
 func TestMonoidUnit(t *testing.T) {
-	eng := gicel.NewEngine()
-	eng.Use(gicel.Prelude)
+	eng := NewEngine()
+	eng.Use(stdlib.Prelude)
 	rt, err := eng.NewRuntime(`
 import Prelude
 main := (empty :: ())
@@ -416,15 +417,15 @@ main := (empty :: ())
 	if err != nil {
 		t.Fatal(err)
 	}
-	rv, ok := result.Value.(*gicel.RecordVal)
+	rv, ok := result.Value.(*eval.RecordVal)
 	if !ok || len(rv.Fields) != 0 {
 		t.Errorf("expected (), got %s", result.Value)
 	}
 }
 
 func TestApplicativeMaybe(t *testing.T) {
-	eng := gicel.NewEngine()
-	eng.Use(gicel.Prelude)
+	eng := NewEngine()
+	eng.Use(stdlib.Prelude)
 	rt, err := eng.NewRuntime(`
 import Prelude
 wrapped := (wrap True :: Maybe Bool)
@@ -437,15 +438,15 @@ main := wrapped
 	if err != nil {
 		t.Fatal(err)
 	}
-	con, ok := result.Value.(*gicel.ConVal)
+	con, ok := result.Value.(*eval.ConVal)
 	if !ok || con.Con != "Just" {
 		t.Errorf("expected Just, got %s", result.Value)
 	}
 }
 
 func TestTraversableMaybe(t *testing.T) {
-	eng := gicel.NewEngine()
-	eng.Use(gicel.Prelude)
+	eng := NewEngine()
+	eng.Use(stdlib.Prelude)
 	rt, err := eng.NewRuntime(`
 import Prelude
 not :: Bool -> Bool
@@ -460,11 +461,11 @@ main := traverse (\x. Just (not x)) (Just True)
 		t.Fatal(err)
 	}
 	// traverse (\x. Just (not x)) (Just True) = Just (Just False)
-	outer, ok := result.Value.(*gicel.ConVal)
+	outer, ok := result.Value.(*eval.ConVal)
 	if !ok || outer.Con != "Just" {
 		t.Fatalf("expected Just, got %s", result.Value)
 	}
-	inner, ok := outer.Args[0].(*gicel.ConVal)
+	inner, ok := outer.Args[0].(*eval.ConVal)
 	if !ok || inner.Con != "Just" {
 		t.Fatalf("expected inner Just, got %s", outer.Args[0])
 	}
@@ -472,8 +473,8 @@ main := traverse (\x. Just (not x)) (Just True)
 }
 
 func TestOrdBool(t *testing.T) {
-	eng := gicel.NewEngine()
-	eng.Use(gicel.Prelude)
+	eng := NewEngine()
+	eng.Use(stdlib.Prelude)
 	rt, err := eng.NewRuntime(`
 import Prelude
 main := compare False True
@@ -489,8 +490,8 @@ main := compare False True
 }
 
 func TestOrdMaybe(t *testing.T) {
-	eng := gicel.NewEngine()
-	eng.Use(gicel.Prelude)
+	eng := NewEngine()
+	eng.Use(stdlib.Prelude)
 	rt, err := eng.NewRuntime(`
 import Prelude
 test1 := compare (Nothing :: Maybe Bool) (Just True)
@@ -504,7 +505,7 @@ main := (test1, test2)
 	if err != nil {
 		t.Fatal(err)
 	}
-	rv, ok := result.Value.(*gicel.RecordVal)
+	rv, ok := result.Value.(*eval.RecordVal)
 	if !ok || len(rv.Fields) != 2 {
 		t.Fatalf("expected tuple, got %s", result.Value)
 	}
@@ -515,8 +516,8 @@ main := (test1, test2)
 func TestOrdPair(t *testing.T) {
 	// NOTE: Ord (a, b) on tuples is not yet supported at runtime (evidence/record interaction).
 	// Test Ord on Maybe as a parameterized type substitute.
-	eng := gicel.NewEngine()
-	eng.Use(gicel.Prelude)
+	eng := NewEngine()
+	eng.Use(stdlib.Prelude)
 	rt, err := eng.NewRuntime(`
 import Prelude
 main := compare (Just False) (Just True)
@@ -535,8 +536,8 @@ main := compare (Just False) (Just True)
 // --- Phase 5: Cross-Feature Integration ---
 
 func TestExistentialWithStdlib(t *testing.T) {
-	eng := gicel.NewEngine()
-	eng.Use(gicel.Prelude)
+	eng := NewEngine()
+	eng.Use(stdlib.Prelude)
 	rt, err := eng.NewRuntime(`
 import Prelude
 data SomeSemigroup := { MkSomeSG :: \a. Semigroup a => a -> a -> SomeSemigroup }
@@ -558,8 +559,8 @@ func TestLetGeneralizationConstrainedEq(t *testing.T) {
 	// same := \x y. eq x y  (no annotation)
 	// Should generalize to: \ a. Eq a => a -> a -> Bool
 	// and work at both Int and Bool.
-	eng := gicel.NewEngine()
-	gicel.Prelude(eng) // provides Eq Int
+	eng := NewEngine()
+	stdlib.Prelude(eng) // provides Eq Int
 	rt, err := eng.NewRuntime(`
 import Prelude
 same := \x y. eq x y
@@ -573,7 +574,7 @@ main := (same 1 2, same True True)
 		t.Fatalf("constrained let-gen should run: %v", err)
 	}
 	// same 1 2 = False, same True True = True
-	rv, ok := result.Value.(*gicel.RecordVal)
+	rv, ok := result.Value.(*eval.RecordVal)
 	if !ok || len(rv.Fields) != 2 {
 		t.Fatalf("expected (False, True), got %v", result.Value)
 	}
@@ -582,8 +583,8 @@ main := (same 1 2, same True True)
 func TestLetGeneralizationConstrainedOrd(t *testing.T) {
 	// mymax := \x y. case compare x y { GT -> x; _ -> y }
 	// Should generalize to: \ a. Ord a => a -> a -> a
-	eng := gicel.NewEngine()
-	gicel.Prelude(eng)
+	eng := NewEngine()
+	stdlib.Prelude(eng)
 	rt, err := eng.NewRuntime(`
 import Prelude
 mymax := \x y. case compare x y { GT -> x; _ -> y }
@@ -596,7 +597,7 @@ main := (mymax 3 7, mymax True False)
 	if err != nil {
 		t.Fatalf("constrained let-gen Ord should run: %v", err)
 	}
-	rv, ok := result.Value.(*gicel.RecordVal)
+	rv, ok := result.Value.(*eval.RecordVal)
 	if !ok || len(rv.Fields) != 2 {
 		t.Fatalf("expected (7, True), got %v", result.Value)
 	}
@@ -604,8 +605,8 @@ main := (mymax 3 7, mymax True False)
 
 func TestStdlibClassHierarchy(t *testing.T) {
 	// Verify all 8 classes compile and instances work
-	eng := gicel.NewEngine()
-	eng.Use(gicel.Prelude)
+	eng := NewEngine()
+	eng.Use(stdlib.Prelude)
 	rt, err := eng.NewRuntime(`
 import Prelude
 testEq := eq True True
@@ -623,7 +624,7 @@ main := (testEq, (testOrd, (testSemigroup, (testMonoid, (testFunctor, testApplic
 	if err != nil {
 		t.Fatal(err)
 	}
-	rv, ok := result.Value.(*gicel.RecordVal)
+	rv, ok := result.Value.(*eval.RecordVal)
 	if !ok || len(rv.Fields) != 2 {
 		t.Fatalf("expected tuple, got %s", result.Value)
 	}

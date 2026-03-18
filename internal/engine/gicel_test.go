@@ -1,4 +1,4 @@
-package gicel_test
+package engine
 
 import (
 	"context"
@@ -8,12 +8,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cwd-k2/gicel"
+	"github.com/cwd-k2/gicel/internal/eval"
+	"github.com/cwd-k2/gicel/internal/reg"
+	"github.com/cwd-k2/gicel/internal/stdlib"
 )
 
 func TestIdentity(t *testing.T) {
-	eng := gicel.NewEngine()
-	eng.Use(gicel.Prelude)
+	eng := NewEngine()
+	eng.Use(stdlib.Prelude)
 	rt, err := eng.NewRuntime(`
 import Prelude
 id := \x. x
@@ -26,14 +28,14 @@ main := id True
 	if err != nil {
 		t.Fatal(err)
 	}
-	con, ok := result.Value.(*gicel.ConVal)
+	con, ok := result.Value.(*eval.ConVal)
 	if !ok || con.Con != "True" {
 		t.Errorf("expected True, got %s", result.Value)
 	}
 }
 
 func TestPure(t *testing.T) {
-	eng := gicel.NewEngine()
+	eng := NewEngine()
 	rt, err := eng.NewRuntime(`main := pure ()`)
 	if err != nil {
 		t.Fatal(err)
@@ -42,40 +44,40 @@ func TestPure(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	rv, ok := result.Value.(*gicel.RecordVal)
+	rv, ok := result.Value.(*eval.RecordVal)
 	if !ok || len(rv.Fields) != 0 {
 		t.Errorf("expected (), got %s", result.Value)
 	}
 }
 
 func TestHostBinding(t *testing.T) {
-	eng := gicel.NewEngine()
-	eng.Use(gicel.Prelude)
-	eng.RegisterType("Int", gicel.KindType())
-	eng.DeclareBinding("x", gicel.ConType("Int"))
+	eng := NewEngine()
+	eng.Use(stdlib.Prelude)
+	eng.RegisterType("Int", KindType())
+	eng.DeclareBinding("x", ConType("Int"))
 	rt, err := eng.NewRuntime(`main := x`)
 	if err != nil {
 		t.Fatal(err)
 	}
-	bindings := map[string]gicel.Value{
-		"x": &gicel.HostVal{Inner: 42},
+	bindings := map[string]eval.Value{
+		"x": &eval.HostVal{Inner: 42},
 	}
-	result, err := rt.RunWith(context.Background(), &gicel.RunOptions{Bindings: bindings})
+	result, err := rt.RunWith(context.Background(), &RunOptions{Bindings: bindings})
 	if err != nil {
 		t.Fatal(err)
 	}
-	hv, ok := result.Value.(*gicel.HostVal)
+	hv, ok := result.Value.(*eval.HostVal)
 	if !ok || hv.Inner != 42 {
 		t.Errorf("expected HostVal(42), got %s", result.Value)
 	}
 }
 
 func TestAssumption(t *testing.T) {
-	eng := gicel.NewEngine()
-	eng.Use(gicel.Prelude)
-	eng.DeclareAssumption("getUnit", gicel.ArrowType(gicel.ConType("Bool"), gicel.ConType("Bool")))
-	eng.RegisterPrim("getUnit", func(ctx context.Context, capEnv gicel.CapEnv, args []gicel.Value, _ gicel.Applier) (gicel.Value, gicel.CapEnv, error) {
-		return &gicel.ConVal{Con: "True"}, capEnv, nil
+	eng := NewEngine()
+	eng.Use(stdlib.Prelude)
+	eng.DeclareAssumption("getUnit", ArrowType(ConType("Bool"), ConType("Bool")))
+	eng.RegisterPrim("getUnit", func(ctx context.Context, capEnv eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
+		return &eval.ConVal{Con: "True"}, capEnv, nil
 	})
 	rt, err := eng.NewRuntime(`
 import Prelude
@@ -89,15 +91,15 @@ main := getUnit True
 	if err != nil {
 		t.Fatal(err)
 	}
-	con, ok := result.Value.(*gicel.ConVal)
+	con, ok := result.Value.(*eval.ConVal)
 	if !ok || con.Con != "True" {
 		t.Errorf("expected True, got %s", result.Value)
 	}
 }
 
 func TestEvalIntLit(t *testing.T) {
-	eng := gicel.NewEngine()
-	eng.Use(gicel.Prelude)
+	eng := NewEngine()
+	eng.Use(stdlib.Prelude)
 	rt, err := eng.NewRuntime(`main := 42`)
 	if err != nil {
 		t.Fatal(err)
@@ -106,7 +108,7 @@ func TestEvalIntLit(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	hv, ok := result.Value.(*gicel.HostVal)
+	hv, ok := result.Value.(*eval.HostVal)
 	if !ok {
 		t.Fatalf("expected HostVal, got %T", result.Value)
 	}
@@ -116,7 +118,7 @@ func TestEvalIntLit(t *testing.T) {
 }
 
 func TestEvalStrLit(t *testing.T) {
-	eng := gicel.NewEngine()
+	eng := NewEngine()
 	rt, err := eng.NewRuntime(`main := "hello"`)
 	if err != nil {
 		t.Fatal(err)
@@ -125,7 +127,7 @@ func TestEvalStrLit(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	hv, ok := result.Value.(*gicel.HostVal)
+	hv, ok := result.Value.(*eval.HostVal)
 	if !ok {
 		t.Fatalf("expected HostVal, got %T", result.Value)
 	}
@@ -135,10 +137,10 @@ func TestEvalStrLit(t *testing.T) {
 }
 
 func TestEngineUse(t *testing.T) {
-	eng := gicel.NewEngine()
-	eng.Use(gicel.Prelude)
+	eng := NewEngine()
+	eng.Use(stdlib.Prelude)
 	called := false
-	pack := gicel.Pack(func(r gicel.Registrar) error {
+	pack := reg.Pack(func(r reg.Registrar) error {
 		called = true
 		return nil
 	})
@@ -151,8 +153,8 @@ func TestEngineUse(t *testing.T) {
 }
 
 func TestNumAdd(t *testing.T) {
-	eng := gicel.NewEngine()
-	if err := eng.Use(gicel.Prelude); err != nil {
+	eng := NewEngine()
+	if err := eng.Use(stdlib.Prelude); err != nil {
 		t.Fatal(err)
 	}
 	rt, err := eng.NewRuntime(`
@@ -166,15 +168,15 @@ main := add 1 2
 	if err != nil {
 		t.Fatal(err)
 	}
-	hv := gicel.MustHost[int64](result.Value)
+	hv := MustHost[int64](result.Value)
 	if hv != 3 {
 		t.Errorf("expected 3, got %d", hv)
 	}
 }
 
 func TestNumOperators(t *testing.T) {
-	eng := gicel.NewEngine()
-	if err := eng.Use(gicel.Prelude); err != nil {
+	eng := NewEngine()
+	if err := eng.Use(stdlib.Prelude); err != nil {
 		t.Fatal(err)
 	}
 	rt, err := eng.NewRuntime(`
@@ -188,15 +190,15 @@ main := 1 + 2 * 3
 	if err != nil {
 		t.Fatal(err)
 	}
-	hv := gicel.MustHost[int64](result.Value)
+	hv := MustHost[int64](result.Value)
 	if hv != 7 {
 		t.Errorf("expected 7, got %d", hv)
 	}
 }
 
 func TestNumNegate(t *testing.T) {
-	eng := gicel.NewEngine()
-	if err := eng.Use(gicel.Prelude); err != nil {
+	eng := NewEngine()
+	if err := eng.Use(stdlib.Prelude); err != nil {
 		t.Fatal(err)
 	}
 	rt, err := eng.NewRuntime(`
@@ -210,15 +212,15 @@ main := negate 42
 	if err != nil {
 		t.Fatal(err)
 	}
-	hv := gicel.MustHost[int64](result.Value)
+	hv := MustHost[int64](result.Value)
 	if hv != -42 {
 		t.Errorf("expected -42, got %d", hv)
 	}
 }
 
 func TestNumEqInt(t *testing.T) {
-	eng := gicel.NewEngine()
-	if err := eng.Use(gicel.Prelude); err != nil {
+	eng := NewEngine()
+	if err := eng.Use(stdlib.Prelude); err != nil {
 		t.Fatal(err)
 	}
 	rt, err := eng.NewRuntime(`
@@ -232,15 +234,15 @@ main := eq 1 1
 	if err != nil {
 		t.Fatal(err)
 	}
-	b, ok := gicel.FromBool(result.Value)
+	b, ok := FromBool(result.Value)
 	if !ok || !b {
 		t.Errorf("expected True, got %s", result.Value)
 	}
 }
 
 func TestNumOrdInt(t *testing.T) {
-	eng := gicel.NewEngine()
-	if err := eng.Use(gicel.Prelude); err != nil {
+	eng := NewEngine()
+	if err := eng.Use(stdlib.Prelude); err != nil {
 		t.Fatal(err)
 	}
 	rt, err := eng.NewRuntime(`
@@ -254,15 +256,15 @@ main := compare 1 2
 	if err != nil {
 		t.Fatal(err)
 	}
-	con, ok := result.Value.(*gicel.ConVal)
+	con, ok := result.Value.(*eval.ConVal)
 	if !ok || con.Con != "LT" {
 		t.Errorf("expected LT, got %s", result.Value)
 	}
 }
 
 func TestNumDivMod(t *testing.T) {
-	eng := gicel.NewEngine()
-	if err := eng.Use(gicel.Prelude); err != nil {
+	eng := NewEngine()
+	if err := eng.Use(stdlib.Prelude); err != nil {
 		t.Fatal(err)
 	}
 	rt, err := eng.NewRuntime(`
@@ -276,15 +278,15 @@ main := div 7 3
 	if err != nil {
 		t.Fatal(err)
 	}
-	hv := gicel.MustHost[int64](result.Value)
+	hv := MustHost[int64](result.Value)
 	if hv != 2 {
 		t.Errorf("expected 2, got %d", hv)
 	}
 }
 
 func TestStrConcat(t *testing.T) {
-	eng := gicel.NewEngine()
-	if err := eng.Use(gicel.Prelude); err != nil {
+	eng := NewEngine()
+	if err := eng.Use(stdlib.Prelude); err != nil {
 		t.Fatal(err)
 	}
 	rt, err := eng.NewRuntime(`
@@ -298,15 +300,15 @@ main := append "hello" " world"
 	if err != nil {
 		t.Fatal(err)
 	}
-	hv := gicel.MustHost[string](result.Value)
+	hv := MustHost[string](result.Value)
 	if hv != "hello world" {
 		t.Errorf("expected 'hello world', got %s", hv)
 	}
 }
 
 func TestStrEq(t *testing.T) {
-	eng := gicel.NewEngine()
-	if err := eng.Use(gicel.Prelude); err != nil {
+	eng := NewEngine()
+	if err := eng.Use(stdlib.Prelude); err != nil {
 		t.Fatal(err)
 	}
 	rt, err := eng.NewRuntime(`
@@ -320,15 +322,15 @@ main := eq "abc" "abc"
 	if err != nil {
 		t.Fatal(err)
 	}
-	b, ok := gicel.FromBool(result.Value)
+	b, ok := FromBool(result.Value)
 	if !ok || !b {
 		t.Errorf("expected True, got %s", result.Value)
 	}
 }
 
 func TestStrOrd(t *testing.T) {
-	eng := gicel.NewEngine()
-	if err := eng.Use(gicel.Prelude); err != nil {
+	eng := NewEngine()
+	if err := eng.Use(stdlib.Prelude); err != nil {
 		t.Fatal(err)
 	}
 	rt, err := eng.NewRuntime(`
@@ -342,15 +344,15 @@ main := compare "a" "b"
 	if err != nil {
 		t.Fatal(err)
 	}
-	con, ok := result.Value.(*gicel.ConVal)
+	con, ok := result.Value.(*eval.ConVal)
 	if !ok || con.Con != "LT" {
 		t.Errorf("expected LT, got %s", result.Value)
 	}
 }
 
 func TestStrLength(t *testing.T) {
-	eng := gicel.NewEngine()
-	if err := eng.Use(gicel.Prelude); err != nil {
+	eng := NewEngine()
+	if err := eng.Use(stdlib.Prelude); err != nil {
 		t.Fatal(err)
 	}
 	rt, err := eng.NewRuntime(`
@@ -364,15 +366,15 @@ main := strlen "hello"
 	if err != nil {
 		t.Fatal(err)
 	}
-	hv := gicel.MustHost[int64](result.Value)
+	hv := MustHost[int64](result.Value)
 	if hv != 5 {
 		t.Errorf("expected 5, got %d", hv)
 	}
 }
 
 func TestRuneEq(t *testing.T) {
-	eng := gicel.NewEngine()
-	if err := eng.Use(gicel.Prelude); err != nil {
+	eng := NewEngine()
+	if err := eng.Use(stdlib.Prelude); err != nil {
 		t.Fatal(err)
 	}
 	rt, err := eng.NewRuntime(`
@@ -386,16 +388,16 @@ main := eq 'a' 'a'
 	if err != nil {
 		t.Fatal(err)
 	}
-	b, ok := gicel.FromBool(result.Value)
+	b, ok := FromBool(result.Value)
 	if !ok || !b {
 		t.Errorf("expected True, got %s", result.Value)
 	}
 }
 
 func TestFailAbort(t *testing.T) {
-	eng := gicel.NewEngine()
-	eng.Use(gicel.Prelude)
-	if err := eng.Use(gicel.EffectFail); err != nil {
+	eng := NewEngine()
+	eng.Use(stdlib.Prelude)
+	if err := eng.Use(stdlib.Fail); err != nil {
 		t.Fatal(err)
 	}
 	rt, err := eng.NewRuntime(`
@@ -405,17 +407,17 @@ main := do { fail; pure True }
 	if err != nil {
 		t.Fatal(err)
 	}
-	caps := map[string]any{"fail": &gicel.RecordVal{Fields: map[string]gicel.Value{}}}
-	_, err = rt.RunWith(context.Background(), &gicel.RunOptions{Caps: caps})
+	caps := map[string]any{"fail": &eval.RecordVal{Fields: map[string]eval.Value{}}}
+	_, err = rt.RunWith(context.Background(), &RunOptions{Caps: caps})
 	if err == nil {
 		t.Fatal("expected error from fail")
 	}
 }
 
 func TestFromMaybe(t *testing.T) {
-	eng := gicel.NewEngine()
-	eng.Use(gicel.Prelude)
-	if err := eng.Use(gicel.EffectFail); err != nil {
+	eng := NewEngine()
+	eng.Use(stdlib.Prelude)
+	if err := eng.Use(stdlib.Fail); err != nil {
 		t.Fatal(err)
 	}
 	rt, err := eng.NewRuntime(`
@@ -425,23 +427,23 @@ main := fromMaybe (Just True)
 	if err != nil {
 		t.Fatal(err)
 	}
-	caps := map[string]any{"fail": &gicel.RecordVal{Fields: map[string]gicel.Value{}}}
-	result, err := rt.RunWith(context.Background(), &gicel.RunOptions{Caps: caps})
+	caps := map[string]any{"fail": &eval.RecordVal{Fields: map[string]eval.Value{}}}
+	result, err := rt.RunWith(context.Background(), &RunOptions{Caps: caps})
 	if err != nil {
 		t.Fatal(err)
 	}
-	b, ok := gicel.FromBool(result.Value)
+	b, ok := FromBool(result.Value)
 	if !ok || !b {
 		t.Errorf("expected True, got %s", result.Value)
 	}
 }
 
 func TestStateGetPut(t *testing.T) {
-	eng := gicel.NewEngine()
-	if err := eng.Use(gicel.Prelude); err != nil {
+	eng := NewEngine()
+	if err := eng.Use(stdlib.Prelude); err != nil {
 		t.Fatal(err)
 	}
-	if err := eng.Use(gicel.EffectState); err != nil {
+	if err := eng.Use(stdlib.State); err != nil {
 		t.Fatal(err)
 	}
 	rt, err := eng.NewRuntime(`
@@ -452,23 +454,23 @@ main := do { put 42; get }
 	if err != nil {
 		t.Fatal(err)
 	}
-	caps := map[string]any{"state": &gicel.HostVal{Inner: int64(0)}}
-	result, err := rt.RunWith(context.Background(), &gicel.RunOptions{Caps: caps})
+	caps := map[string]any{"state": &eval.HostVal{Inner: int64(0)}}
+	result, err := rt.RunWith(context.Background(), &RunOptions{Caps: caps})
 	if err != nil {
 		t.Fatal(err)
 	}
-	hv := gicel.MustHost[int64](result.Value)
+	hv := MustHost[int64](result.Value)
 	if hv != 42 {
 		t.Errorf("expected 42, got %d", hv)
 	}
 }
 
 func TestStateThread(t *testing.T) {
-	eng := gicel.NewEngine()
-	if err := eng.Use(gicel.Prelude); err != nil {
+	eng := NewEngine()
+	if err := eng.Use(stdlib.Prelude); err != nil {
 		t.Fatal(err)
 	}
-	if err := eng.Use(gicel.EffectState); err != nil {
+	if err := eng.Use(stdlib.State); err != nil {
 		t.Fatal(err)
 	}
 	rt, err := eng.NewRuntime(`
@@ -479,21 +481,21 @@ main := do { n <- get; put (n + 1); get }
 	if err != nil {
 		t.Fatal(err)
 	}
-	caps := map[string]any{"state": &gicel.HostVal{Inner: int64(0)}}
-	result, err := rt.RunWith(context.Background(), &gicel.RunOptions{Caps: caps})
+	caps := map[string]any{"state": &eval.HostVal{Inner: int64(0)}}
+	result, err := rt.RunWith(context.Background(), &RunOptions{Caps: caps})
 	if err != nil {
 		t.Fatal(err)
 	}
-	hv := gicel.MustHost[int64](result.Value)
+	hv := MustHost[int64](result.Value)
 	if hv != 1 {
 		t.Errorf("expected 1, got %d", hv)
 	}
 }
 
 func TestFromResult(t *testing.T) {
-	eng := gicel.NewEngine()
-	eng.Use(gicel.Prelude)
-	if err := eng.Use(gicel.EffectFail); err != nil {
+	eng := NewEngine()
+	eng.Use(stdlib.Prelude)
+	if err := eng.Use(stdlib.Fail); err != nil {
 		t.Fatal(err)
 	}
 	rt, err := eng.NewRuntime(`
@@ -503,26 +505,26 @@ main := fromResult (Ok True)
 	if err != nil {
 		t.Fatal(err)
 	}
-	caps := map[string]any{"fail": &gicel.RecordVal{Fields: map[string]gicel.Value{}}}
-	result, err := rt.RunWith(context.Background(), &gicel.RunOptions{Caps: caps})
+	caps := map[string]any{"fail": &eval.RecordVal{Fields: map[string]eval.Value{}}}
+	result, err := rt.RunWith(context.Background(), &RunOptions{Caps: caps})
 	if err != nil {
 		t.Fatal(err)
 	}
-	b, ok := gicel.FromBool(result.Value)
+	b, ok := FromBool(result.Value)
 	if !ok || !b {
 		t.Errorf("expected True, got %s", result.Value)
 	}
 }
 
 func TestFailWithState(t *testing.T) {
-	eng := gicel.NewEngine()
-	if err := eng.Use(gicel.Prelude); err != nil {
+	eng := NewEngine()
+	if err := eng.Use(stdlib.Prelude); err != nil {
 		t.Fatal(err)
 	}
-	if err := eng.Use(gicel.EffectFail); err != nil {
+	if err := eng.Use(stdlib.Fail); err != nil {
 		t.Fatal(err)
 	}
-	if err := eng.Use(gicel.EffectState); err != nil {
+	if err := eng.Use(stdlib.State); err != nil {
 		t.Fatal(err)
 	}
 	rt, err := eng.NewRuntime(`
@@ -535,18 +537,18 @@ main := do { put 42; fail }
 		t.Fatal(err)
 	}
 	caps := map[string]any{
-		"state": &gicel.HostVal{Inner: int64(0)},
-		"fail":  &gicel.RecordVal{Fields: map[string]gicel.Value{}},
+		"state": &eval.HostVal{Inner: int64(0)},
+		"fail":  &eval.RecordVal{Fields: map[string]eval.Value{}},
 	}
-	_, err = rt.RunWith(context.Background(), &gicel.RunOptions{Caps: caps})
+	_, err = rt.RunWith(context.Background(), &RunOptions{Caps: caps})
 	if err == nil {
 		t.Fatal("expected error from fail")
 	}
 }
 
 func TestCaseExpression(t *testing.T) {
-	eng := gicel.NewEngine()
-	eng.Use(gicel.Prelude)
+	eng := NewEngine()
+	eng.Use(stdlib.Prelude)
 	rt, err := eng.NewRuntime(`
 import Prelude
 not := \b. case b { True -> False; False -> True }
@@ -559,14 +561,14 @@ main := not True
 	if err != nil {
 		t.Fatal(err)
 	}
-	con, ok := result.Value.(*gicel.ConVal)
+	con, ok := result.Value.(*eval.ConVal)
 	if !ok || con.Con != "False" {
 		t.Errorf("expected False, got %s", result.Value)
 	}
 }
 
 func TestDoBlock(t *testing.T) {
-	eng := gicel.NewEngine()
+	eng := NewEngine()
 	rt, err := eng.NewRuntime(`main := do { pure () }`)
 	if err != nil {
 		t.Fatal(err)
@@ -575,14 +577,14 @@ func TestDoBlock(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	rv, ok := result.Value.(*gicel.RecordVal)
+	rv, ok := result.Value.(*eval.RecordVal)
 	if !ok || len(rv.Fields) != 0 {
 		t.Errorf("expected (), got %s", result.Value)
 	}
 }
 
 func TestNoPrelude(t *testing.T) {
-	eng := gicel.NewEngine()
+	eng := NewEngine()
 	rt, err := eng.NewRuntime(`
 data MyBool := MyTrue | MyFalse
 main := MyTrue
@@ -594,27 +596,27 @@ main := MyTrue
 	if err != nil {
 		t.Fatal(err)
 	}
-	con, ok := result.Value.(*gicel.ConVal)
+	con, ok := result.Value.(*eval.ConVal)
 	if !ok || con.Con != "MyTrue" {
 		t.Errorf("expected MyTrue, got %s", result.Value)
 	}
 }
 
 func TestCompileError(t *testing.T) {
-	eng := gicel.NewEngine()
+	eng := NewEngine()
 	_, err := eng.NewRuntime(`main := undefined_thing`)
 	if err == nil {
 		t.Error("expected compile error")
 	}
-	_, ok := err.(*gicel.CompileError)
+	_, ok := err.(*CompileError)
 	if !ok {
 		t.Errorf("expected CompileError, got %T", err)
 	}
 }
 
 func TestMissingEntry(t *testing.T) {
-	eng := gicel.NewEngine()
-	eng.Use(gicel.Prelude)
+	eng := NewEngine()
+	eng.Use(stdlib.Prelude)
 	rt, err := eng.NewRuntime(`
 import Prelude
 x := True
@@ -629,8 +631,8 @@ x := True
 }
 
 func TestConstructorArgs(t *testing.T) {
-	eng := gicel.NewEngine()
-	eng.Use(gicel.Prelude)
+	eng := NewEngine()
+	eng.Use(stdlib.Prelude)
 	rt, err := eng.NewRuntime(`
 import Prelude
 main := Just True
@@ -642,22 +644,22 @@ main := Just True
 	if err != nil {
 		t.Fatal(err)
 	}
-	con, ok := result.Value.(*gicel.ConVal)
+	con, ok := result.Value.(*eval.ConVal)
 	if !ok || con.Con != "Just" {
 		t.Errorf("expected Just, got %s", result.Value)
 	}
 	if len(con.Args) != 1 {
 		t.Fatalf("expected 1 arg, got %d", len(con.Args))
 	}
-	inner, ok := con.Args[0].(*gicel.ConVal)
+	inner, ok := con.Args[0].(*eval.ConVal)
 	if !ok || inner.Con != "True" {
 		t.Errorf("expected True, got %s", con.Args[0])
 	}
 }
 
 func TestPairConstructor(t *testing.T) {
-	eng := gicel.NewEngine()
-	eng.Use(gicel.Prelude)
+	eng := NewEngine()
+	eng.Use(stdlib.Prelude)
 	rt, err := eng.NewRuntime(`
 import Prelude
 main := (True, False)
@@ -669,7 +671,7 @@ main := (True, False)
 	if err != nil {
 		t.Fatal(err)
 	}
-	rv, ok := result.Value.(*gicel.RecordVal)
+	rv, ok := result.Value.(*eval.RecordVal)
 	if !ok {
 		t.Errorf("expected RecordVal (tuple), got %T: %s", result.Value, result.Value)
 	}
@@ -679,7 +681,7 @@ main := (True, False)
 }
 
 func TestStepLimit(t *testing.T) {
-	eng := gicel.NewEngine()
+	eng := NewEngine()
 	eng.SetStepLimit(100)
 	eng.EnableRecursion()
 	// No recursion in source, just a program that completes in few steps.
@@ -700,8 +702,8 @@ main := Unit
 }
 
 func TestGoroutineSafety(t *testing.T) {
-	eng := gicel.NewEngine()
-	eng.Use(gicel.Prelude)
+	eng := NewEngine()
+	eng.Use(stdlib.Prelude)
 	rt, err := eng.NewRuntime(`
 import Prelude
 main := True
@@ -728,8 +730,8 @@ main := True
 // ---------------------------------------------------------------------------
 
 func TestMultiParamLambda(t *testing.T) {
-	eng := gicel.NewEngine()
-	eng.Use(gicel.Prelude)
+	eng := NewEngine()
+	eng.Use(stdlib.Prelude)
 	rt, err := eng.NewRuntime(`
 import Prelude
 konst := \x y. x
@@ -742,15 +744,15 @@ main := konst True False
 	if err != nil {
 		t.Fatal(err)
 	}
-	con, ok := result.Value.(*gicel.ConVal)
+	con, ok := result.Value.(*eval.ConVal)
 	if !ok || con.Con != "True" {
 		t.Errorf("expected True, got %s", result.Value)
 	}
 }
 
 func TestNestedCase(t *testing.T) {
-	eng := gicel.NewEngine()
-	eng.Use(gicel.Prelude)
+	eng := NewEngine()
+	eng.Use(stdlib.Prelude)
 	rt, err := eng.NewRuntime(`
 import Prelude
 bothTrue := \x y. case x { True -> case y { True -> True; False -> False }; False -> False }
@@ -763,15 +765,15 @@ main := bothTrue True True
 	if err != nil {
 		t.Fatal(err)
 	}
-	con, ok := result.Value.(*gicel.ConVal)
+	con, ok := result.Value.(*eval.ConVal)
 	if !ok || con.Con != "True" {
 		t.Errorf("expected True, got %s", result.Value)
 	}
 }
 
 func TestBlockExpression(t *testing.T) {
-	eng := gicel.NewEngine()
-	eng.Use(gicel.Prelude)
+	eng := NewEngine()
+	eng.Use(stdlib.Prelude)
 	// Block binding: { x := True; x } desugars to (\x. x) True.
 	// The body references the block binding variable.
 	rt, err := eng.NewRuntime(`
@@ -785,15 +787,15 @@ main := { x := True; x }
 	if err != nil {
 		t.Fatal(err)
 	}
-	con, ok := result.Value.(*gicel.ConVal)
+	con, ok := result.Value.(*eval.ConVal)
 	if !ok || con.Con != "True" {
 		t.Errorf("expected True, got %s", result.Value)
 	}
 }
 
 func TestBlockMultipleBindings(t *testing.T) {
-	eng := gicel.NewEngine()
-	eng.Use(gicel.Prelude)
+	eng := NewEngine()
+	eng.Use(stdlib.Prelude)
 	rt, err := eng.NewRuntime(`
 import Prelude
 main := { x := True; y := False; x }
@@ -805,7 +807,7 @@ main := { x := True; y := False; x }
 	if err != nil {
 		t.Fatal(err)
 	}
-	con, ok := result.Value.(*gicel.ConVal)
+	con, ok := result.Value.(*eval.ConVal)
 	if !ok || con.Con != "True" {
 		t.Errorf("expected True, got %s", result.Value)
 	}
@@ -816,8 +818,8 @@ main := { x := True; y := False; x }
 // ---------------------------------------------------------------------------
 
 func TestBindChain(t *testing.T) {
-	eng := gicel.NewEngine()
-	eng.Use(gicel.Prelude)
+	eng := NewEngine()
+	eng.Use(stdlib.Prelude)
 	rt, err := eng.NewRuntime(`
 import Prelude
 main := do { x <- pure True; pure x }
@@ -829,14 +831,14 @@ main := do { x <- pure True; pure x }
 	if err != nil {
 		t.Fatal(err)
 	}
-	con, ok := result.Value.(*gicel.ConVal)
+	con, ok := result.Value.(*eval.ConVal)
 	if !ok || con.Con != "True" {
 		t.Errorf("expected True, got %s", result.Value)
 	}
 }
 
 func TestThunkForce(t *testing.T) {
-	eng := gicel.NewEngine()
+	eng := NewEngine()
 	rt, err := eng.NewRuntime(`main := force (thunk (pure ()))`)
 	if err != nil {
 		t.Fatal(err)
@@ -845,7 +847,7 @@ func TestThunkForce(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	rv, ok := result.Value.(*gicel.RecordVal)
+	rv, ok := result.Value.(*eval.RecordVal)
 	if !ok || len(rv.Fields) != 0 {
 		t.Errorf("expected (), got %s", result.Value)
 	}
@@ -856,19 +858,19 @@ func TestThunkForce(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestTypeErrorUnboundVar(t *testing.T) {
-	eng := gicel.NewEngine()
+	eng := NewEngine()
 	_, err := eng.NewRuntime(`main := totally_undefined`)
 	if err == nil {
 		t.Fatal("expected compile error for unbound variable")
 	}
-	if _, ok := err.(*gicel.CompileError); !ok {
+	if _, ok := err.(*CompileError); !ok {
 		t.Errorf("expected CompileError, got %T", err)
 	}
 }
 
 func TestTypeErrorNonExhaustive(t *testing.T) {
-	eng := gicel.NewEngine()
-	eng.Use(gicel.Prelude)
+	eng := NewEngine()
+	eng.Use(stdlib.Prelude)
 	_, err := eng.NewRuntime(`
 import Prelude
 f := \x. case x { True -> () }
@@ -877,7 +879,7 @@ main := f True
 	if err == nil {
 		t.Fatal("expected compile error for non-exhaustive pattern")
 	}
-	ce, ok := err.(*gicel.CompileError)
+	ce, ok := err.(*CompileError)
 	if !ok {
 		t.Fatalf("expected CompileError, got %T", err)
 	}
@@ -887,8 +889,8 @@ main := f True
 }
 
 func TestTypeErrorMismatch(t *testing.T) {
-	eng := gicel.NewEngine()
-	eng.Use(gicel.Prelude)
+	eng := NewEngine()
+	eng.Use(stdlib.Prelude)
 	// Apply True (a Bool, not a function) to an argument.
 	_, err := eng.NewRuntime(`
 import Prelude
@@ -897,7 +899,7 @@ main := True ()
 	if err == nil {
 		t.Fatal("expected compile error for type mismatch")
 	}
-	if _, ok := err.(*gicel.CompileError); !ok {
+	if _, ok := err.(*CompileError); !ok {
 		t.Errorf("expected CompileError, got %T", err)
 	}
 }
@@ -907,7 +909,7 @@ main := True ()
 // ---------------------------------------------------------------------------
 
 func TestContextCancellation(t *testing.T) {
-	eng := gicel.NewEngine()
+	eng := NewEngine()
 	rt, err := eng.NewRuntime(`main := pure ()`)
 	if err != nil {
 		t.Fatal(err)
@@ -921,7 +923,7 @@ func TestContextCancellation(t *testing.T) {
 }
 
 func TestContextTimeout(t *testing.T) {
-	eng := gicel.NewEngine()
+	eng := NewEngine()
 	eng.SetStepLimit(1) // extremely low step limit
 	eng.EnableRecursion()
 	rt, err := eng.NewRuntime(`
@@ -946,31 +948,31 @@ main := not (not (not True))
 // ---------------------------------------------------------------------------
 
 func TestRuntimeReuse(t *testing.T) {
-	eng := gicel.NewEngine()
-	eng.Use(gicel.Prelude)
-	eng.RegisterType("Int", gicel.KindType())
-	eng.DeclareBinding("x", gicel.ConType("Int"))
+	eng := NewEngine()
+	eng.Use(stdlib.Prelude)
+	eng.RegisterType("Int", KindType())
+	eng.DeclareBinding("x", ConType("Int"))
 	rt, err := eng.NewRuntime(`main := x`)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	// First run with value 1.
-	r1, err := rt.RunWith(context.Background(), &gicel.RunOptions{Bindings: map[string]gicel.Value{"x": &gicel.HostVal{Inner: 1}}})
+	r1, err := rt.RunWith(context.Background(), &RunOptions{Bindings: map[string]eval.Value{"x": &eval.HostVal{Inner: 1}}})
 	if err != nil {
 		t.Fatal(err)
 	}
-	h1, ok := r1.Value.(*gicel.HostVal)
+	h1, ok := r1.Value.(*eval.HostVal)
 	if !ok || h1.Inner != 1 {
 		t.Errorf("first run: expected HostVal(1), got %s", r1.Value)
 	}
 
 	// Second run with value 2.
-	r2, err := rt.RunWith(context.Background(), &gicel.RunOptions{Bindings: map[string]gicel.Value{"x": &gicel.HostVal{Inner: 2}}})
+	r2, err := rt.RunWith(context.Background(), &RunOptions{Bindings: map[string]eval.Value{"x": &eval.HostVal{Inner: 2}}})
 	if err != nil {
 		t.Fatal(err)
 	}
-	h2, ok := r2.Value.(*gicel.HostVal)
+	h2, ok := r2.Value.(*eval.HostVal)
 	if !ok || h2.Inner != 2 {
 		t.Errorf("second run: expected HostVal(2), got %s", r2.Value)
 	}
@@ -979,11 +981,11 @@ func TestRuntimeReuse(t *testing.T) {
 // Regression: NewRuntime must snapshot the primitive registry.
 // Post-compilation RegisterPrim on the Engine must not affect existing Runtimes.
 func TestRuntimePrimRegistryIsolation(t *testing.T) {
-	eng := gicel.NewEngine()
-	eng.Use(gicel.Prelude)
-	eng.DeclareAssumption("f", gicel.ArrowType(gicel.ConType("Bool"), gicel.ConType("Bool")))
-	eng.RegisterPrim("f", func(_ context.Context, ce gicel.CapEnv, args []gicel.Value, _ gicel.Applier) (gicel.Value, gicel.CapEnv, error) {
-		return &gicel.ConVal{Con: "True"}, ce, nil
+	eng := NewEngine()
+	eng.Use(stdlib.Prelude)
+	eng.DeclareAssumption("f", ArrowType(ConType("Bool"), ConType("Bool")))
+	eng.RegisterPrim("f", func(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
+		return &eval.ConVal{Con: "True"}, ce, nil
 	})
 
 	rt, err := eng.NewRuntime("import Prelude\nf := assumption\nmain := f False")
@@ -992,8 +994,8 @@ func TestRuntimePrimRegistryIsolation(t *testing.T) {
 	}
 
 	// Overwrite "f" on the Engine after NewRuntime.
-	eng.RegisterPrim("f", func(_ context.Context, ce gicel.CapEnv, args []gicel.Value, _ gicel.Applier) (gicel.Value, gicel.CapEnv, error) {
-		return &gicel.ConVal{Con: "False"}, ce, nil
+	eng.RegisterPrim("f", func(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
+		return &eval.ConVal{Con: "False"}, ce, nil
 	})
 
 	result, err := rt.RunWith(context.Background(), nil)
@@ -1005,8 +1007,8 @@ func TestRuntimePrimRegistryIsolation(t *testing.T) {
 }
 
 func TestRuntimeConcurrent(t *testing.T) {
-	eng := gicel.NewEngine()
-	eng.Use(gicel.Prelude)
+	eng := NewEngine()
+	eng.Use(stdlib.Prelude)
 	rt, err := eng.NewRuntime(`
 import Prelude
 not := \b. case b { True -> False; False -> True }
@@ -1026,7 +1028,7 @@ main := not False
 				errs[idx] = err
 				return
 			}
-			con, ok := result.Value.(*gicel.ConVal)
+			con, ok := result.Value.(*eval.ConVal)
 			if !ok || con.Con != "True" {
 				errs[idx] = context.DeadlineExceeded // sentinel
 			}
@@ -1045,13 +1047,13 @@ main := not False
 // ---------------------------------------------------------------------------
 
 func TestDiagnostics(t *testing.T) {
-	eng := gicel.NewEngine()
-	eng.Use(gicel.Prelude)
+	eng := NewEngine()
+	eng.Use(stdlib.Prelude)
 	_, err := eng.NewRuntime(`main := undefined_xyz`)
 	if err == nil {
 		t.Fatal("expected compile error")
 	}
-	ce, ok := err.(*gicel.CompileError)
+	ce, ok := err.(*CompileError)
 	if !ok {
 		t.Fatalf("expected CompileError, got %T", err)
 	}
@@ -1072,8 +1074,8 @@ func TestDiagnostics(t *testing.T) {
 }
 
 func TestCheckOnly(t *testing.T) {
-	eng := gicel.NewEngine()
-	eng.Use(gicel.Prelude)
+	eng := NewEngine()
+	eng.Use(stdlib.Prelude)
 	prog, err := eng.Compile(`
 import Prelude
 main := True
@@ -1087,16 +1089,16 @@ main := True
 }
 
 func TestParseOnly(t *testing.T) {
-	eng := gicel.NewEngine()
-	eng.Use(gicel.Prelude)
+	eng := NewEngine()
+	eng.Use(stdlib.Prelude)
 	if err := eng.Parse(`main := True`); err != nil {
 		t.Fatal(err)
 	}
 }
 
 func TestPrettyProgram(t *testing.T) {
-	eng := gicel.NewEngine()
-	eng.Use(gicel.Prelude)
+	eng := NewEngine()
+	eng.Use(stdlib.Prelude)
 	rt, err := eng.NewRuntime(`
 import Prelude
 main := True
@@ -1111,8 +1113,8 @@ main := True
 }
 
 func TestRunWith(t *testing.T) {
-	eng := gicel.NewEngine()
-	eng.Use(gicel.Prelude)
+	eng := NewEngine()
+	eng.Use(stdlib.Prelude)
 	rt, err := eng.NewRuntime(`main := pure ()`)
 	if err != nil {
 		t.Fatal(err)
@@ -1121,7 +1123,7 @@ func TestRunWith(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	rv, ok := result.Value.(*gicel.RecordVal)
+	rv, ok := result.Value.(*eval.RecordVal)
 	if !ok || len(rv.Fields) != 0 {
 		t.Errorf("expected (), got %s", result.Value)
 	}
@@ -1132,7 +1134,7 @@ func TestRunWith(t *testing.T) {
 
 func TestValueConversion(t *testing.T) {
 	// HostVal wraps arbitrary Go values.
-	hv := &gicel.HostVal{Inner: "hello"}
+	hv := &eval.HostVal{Inner: "hello"}
 	if hv.Inner != "hello" {
 		t.Errorf("expected HostVal.Inner = hello, got %v", hv.Inner)
 	}
@@ -1141,13 +1143,13 @@ func TestValueConversion(t *testing.T) {
 	}
 
 	// ConVal represents constructors.
-	cv := &gicel.ConVal{Con: "True"}
+	cv := &eval.ConVal{Con: "True"}
 	if cv.String() != "True" {
 		t.Errorf("expected True, got %s", cv.String())
 	}
 
 	// ConVal with arguments.
-	cv2 := &gicel.ConVal{Con: "Just", Args: []gicel.Value{&gicel.ConVal{Con: "True"}}}
+	cv2 := &eval.ConVal{Con: "Just", Args: []eval.Value{&eval.ConVal{Con: "True"}}}
 	s := cv2.String()
 	if !strings.Contains(s, "Just") || !strings.Contains(s, "True") {
 		t.Errorf("expected (Just True), got %s", s)
@@ -1164,11 +1166,11 @@ func TestValueConversion(t *testing.T) {
 
 // :: type annotation in source — the spec-canonical way to type assumptions.
 func TestInSourceTypeAnnotation(t *testing.T) {
-	eng := gicel.NewEngine()
-	eng.Use(gicel.Prelude)
-	eng.RegisterType("Int", gicel.KindType())
-	eng.RegisterPrim("getVal", func(ctx context.Context, capEnv gicel.CapEnv, args []gicel.Value, _ gicel.Applier) (gicel.Value, gicel.CapEnv, error) {
-		return gicel.ToValue(99), capEnv, nil
+	eng := NewEngine()
+	eng.Use(stdlib.Prelude)
+	eng.RegisterType("Int", KindType())
+	eng.RegisterPrim("getVal", func(ctx context.Context, capEnv eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
+		return ToValue(99), capEnv, nil
 	})
 	rt, err := eng.NewRuntime(`
 import Prelude
@@ -1183,7 +1185,7 @@ main := do { x <- getVal (); pure x }
 	if err != nil {
 		t.Fatal("runtime error:", err)
 	}
-	v := gicel.MustHost[int](result.Value)
+	v := MustHost[int](result.Value)
 	if v != 99 {
 		t.Errorf("expected 99, got %d", v)
 	}
@@ -1191,7 +1193,7 @@ main := do { x <- getVal (); pure x }
 
 // Assumption without any type annotation must produce a compile error.
 func TestAssumptionNoType(t *testing.T) {
-	eng := gicel.NewEngine()
+	eng := NewEngine()
 	_, err := eng.NewRuntime(`
 noType := assumption
 main := noType ()
@@ -1199,7 +1201,7 @@ main := noType ()
 	if err == nil {
 		t.Fatal("expected compile error for assumption without type")
 	}
-	ce, ok := err.(*gicel.CompileError)
+	ce, ok := err.(*CompileError)
 	if !ok {
 		t.Fatalf("expected CompileError, got %T", err)
 	}
@@ -1210,8 +1212,8 @@ main := noType ()
 
 // _ <- in do blocks must work (was a parser bug: TokUnderscore != TokLower).
 func TestDoWildcardBind(t *testing.T) {
-	eng := gicel.NewEngine()
-	eng.Use(gicel.Prelude)
+	eng := NewEngine()
+	eng.Use(stdlib.Prelude)
 	rt, err := eng.NewRuntime(`
 import Prelude
 main := do {
@@ -1226,7 +1228,7 @@ main := do {
 	if err != nil {
 		t.Fatal(err)
 	}
-	con, ok := result.Value.(*gicel.ConVal)
+	con, ok := result.Value.(*eval.ConVal)
 	if !ok || con.Con != "False" {
 		t.Errorf("expected False, got %s", result.Value)
 	}
@@ -1234,18 +1236,18 @@ main := do {
 
 // CapEnv threading: mutations propagate through do-block bind chain.
 func TestCapEnvThreading(t *testing.T) {
-	eng := gicel.NewEngine()
-	eng.Use(gicel.Prelude)
-	eng.RegisterType("Int", gicel.KindType())
-	eng.RegisterPrim("inc", func(ctx context.Context, capEnv gicel.CapEnv, args []gicel.Value, _ gicel.Applier) (gicel.Value, gicel.CapEnv, error) {
+	eng := NewEngine()
+	eng.Use(stdlib.Prelude)
+	eng.RegisterType("Int", KindType())
+	eng.RegisterPrim("inc", func(ctx context.Context, capEnv eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
 		v, _ := capEnv.Get("n")
 		n, _ := v.(int)
-		return gicel.ToValue(nil), capEnv.Set("n", n+1), nil
+		return ToValue(nil), capEnv.Set("n", n+1), nil
 	})
-	eng.RegisterPrim("getN", func(ctx context.Context, capEnv gicel.CapEnv, args []gicel.Value, _ gicel.Applier) (gicel.Value, gicel.CapEnv, error) {
+	eng.RegisterPrim("getN", func(ctx context.Context, capEnv eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
 		v, _ := capEnv.Get("n")
 		n, _ := v.(int)
-		return gicel.ToValue(n), capEnv, nil
+		return ToValue(n), capEnv, nil
 	})
 	rt, err := eng.NewRuntime(`
 import Prelude
@@ -1258,11 +1260,11 @@ main := do { _ <- inc (); _ <- inc (); _ <- inc (); getN () }
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := rt.RunWith(context.Background(), &gicel.RunOptions{Caps: map[string]any{"n": 0}})
+	result, err := rt.RunWith(context.Background(), &RunOptions{Caps: map[string]any{"n": 0}})
 	if err != nil {
 		t.Fatal(err)
 	}
-	n := gicel.MustHost[int](result.Value)
+	n := MustHost[int](result.Value)
 	if n != 3 {
 		t.Errorf("expected 3, got %d", n)
 	}
@@ -1274,10 +1276,10 @@ main := do { _ <- inc (); _ <- inc (); _ <- inc (); getN () }
 
 // Missing runtime binding must produce a runtime error (not panic).
 func TestMissingRuntimeBinding(t *testing.T) {
-	eng := gicel.NewEngine()
-	eng.Use(gicel.Prelude)
-	eng.RegisterType("Int", gicel.KindType())
-	eng.DeclareBinding("x", gicel.ConType("Int"))
+	eng := NewEngine()
+	eng.Use(stdlib.Prelude)
+	eng.RegisterType("Int", KindType())
+	eng.DeclareBinding("x", ConType("Int"))
 	rt, err := eng.NewRuntime(`main := x`)
 	if err != nil {
 		t.Fatal(err)
@@ -1294,16 +1296,16 @@ func TestMissingRuntimeBinding(t *testing.T) {
 
 // PrimVal partial application: binary assumption applied to one arg, then another.
 func TestPrimPartialApplication(t *testing.T) {
-	eng := gicel.NewEngine()
-	eng.Use(gicel.Prelude)
-	eng.RegisterType("Int", gicel.KindType())
-	eng.RegisterPrim("add", func(ctx context.Context, capEnv gicel.CapEnv, args []gicel.Value, _ gicel.Applier) (gicel.Value, gicel.CapEnv, error) {
-		a := gicel.MustHost[int](args[0])
-		b := gicel.MustHost[int](args[1])
-		return gicel.ToValue(a + b), capEnv, nil
+	eng := NewEngine()
+	eng.Use(stdlib.Prelude)
+	eng.RegisterType("Int", KindType())
+	eng.RegisterPrim("add", func(ctx context.Context, capEnv eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
+		a := MustHost[int](args[0])
+		b := MustHost[int](args[1])
+		return ToValue(a + b), capEnv, nil
 	})
-	eng.DeclareBinding("a", gicel.ConType("Int"))
-	eng.DeclareBinding("b", gicel.ConType("Int"))
+	eng.DeclareBinding("a", ConType("Int"))
+	eng.DeclareBinding("b", ConType("Int"))
 	rt, err := eng.NewRuntime(`
 import Prelude
 add :: Int -> Int -> Int
@@ -1313,15 +1315,15 @@ main := add a b
 	if err != nil {
 		t.Fatal(err)
 	}
-	bindings := map[string]gicel.Value{
-		"a": gicel.ToValue(10),
-		"b": gicel.ToValue(32),
+	bindings := map[string]eval.Value{
+		"a": ToValue(10),
+		"b": ToValue(32),
 	}
-	result, err := rt.RunWith(context.Background(), &gicel.RunOptions{Bindings: bindings})
+	result, err := rt.RunWith(context.Background(), &RunOptions{Bindings: bindings})
 	if err != nil {
 		t.Fatal(err)
 	}
-	v := gicel.MustHost[int](result.Value)
+	v := MustHost[int](result.Value)
 	if v != 42 {
 		t.Errorf("expected 42, got %d", v)
 	}
@@ -1329,8 +1331,8 @@ main := add a b
 
 // Cyclic type alias must produce a compile error.
 func TestCyclicTypeAlias(t *testing.T) {
-	eng := gicel.NewEngine()
-	eng.Use(gicel.Prelude)
+	eng := NewEngine()
+	eng.Use(stdlib.Prelude)
 	_, err := eng.NewRuntime(`
 import Prelude
 type A := B
@@ -1347,8 +1349,8 @@ main := True
 
 // Non-exhaustive case on Maybe must name the missing constructor.
 func TestNonExhaustiveMaybe(t *testing.T) {
-	eng := gicel.NewEngine()
-	eng.Use(gicel.Prelude)
+	eng := NewEngine()
+	eng.Use(stdlib.Prelude)
 	_, err := eng.NewRuntime(`
 import Prelude
 f := \x. case x { Just y -> y }
@@ -1357,7 +1359,7 @@ main := f (Just True)
 	if err == nil {
 		t.Fatal("expected compile error for non-exhaustive case on Maybe")
 	}
-	ce := err.(*gicel.CompileError)
+	ce := err.(*CompileError)
 	if !strings.Contains(ce.Error(), "Nothing") {
 		t.Errorf("expected missing constructor 'Nothing', got: %s", ce.Error())
 	}
@@ -1365,13 +1367,13 @@ main := f (Just True)
 
 // ToValue and FromBool round-trip.
 func TestToValueFromBool(t *testing.T) {
-	v := gicel.ToValue(true)
-	b, ok := gicel.FromBool(v)
+	v := ToValue(true)
+	b, ok := FromBool(v)
 	if !ok || b != true {
 		t.Errorf("ToValue(true) -> FromBool failed")
 	}
-	v2 := gicel.ToValue(false)
-	b2, ok := gicel.FromBool(v2)
+	v2 := ToValue(false)
+	b2, ok := FromBool(v2)
 	if !ok || b2 != false {
 		t.Errorf("ToValue(false) -> FromBool failed")
 	}
@@ -1379,8 +1381,8 @@ func TestToValueFromBool(t *testing.T) {
 
 // ToValue(nil) produces ().
 func TestToValueNil(t *testing.T) {
-	v := gicel.ToValue(nil)
-	rv, ok := v.(*gicel.RecordVal)
+	v := ToValue(nil)
+	rv, ok := v.(*eval.RecordVal)
 	if !ok || len(rv.Fields) != 0 {
 		t.Errorf("ToValue(nil) should produce (), got %s", v)
 	}
@@ -1388,8 +1390,8 @@ func TestToValueNil(t *testing.T) {
 
 // FromHost on non-HostVal returns ok=false.
 func TestFromHostNonHost(t *testing.T) {
-	v := gicel.ToValue(true) // ConVal, not HostVal
-	_, ok := gicel.FromHost(v)
+	v := ToValue(true) // ConVal, not HostVal
+	_, ok := FromHost(v)
 	if ok {
 		t.Error("FromHost on ConVal should return ok=false")
 	}
@@ -1402,13 +1404,13 @@ func TestMustHostPanic(t *testing.T) {
 			t.Error("expected panic from MustHost on ConVal")
 		}
 	}()
-	gicel.MustHost[int](gicel.ToValue(true))
+	MustHost[int](ToValue(true))
 }
 
 func TestRuntimeErrorType(t *testing.T) {
-	eng := gicel.NewEngine()
-	eng.Use(gicel.Prelude)
-	eng.Use(gicel.EffectFail)
+	eng := NewEngine()
+	eng.Use(stdlib.Prelude)
+	eng.Use(stdlib.Fail)
 	rt, err := eng.NewRuntime(`
 import Effect.Fail
 main := do { _ <- fail; pure True }
@@ -1420,15 +1422,15 @@ main := do { _ <- fail; pure True }
 	if err == nil {
 		t.Fatal("expected runtime error from fail")
 	}
-	var rtErr *gicel.RuntimeError
+	var rtErr *eval.RuntimeError
 	if !errors.As(err, &rtErr) {
 		t.Errorf("expected RuntimeError, got %T: %v", err, err)
 	}
 }
 
 func TestFromRecord(t *testing.T) {
-	eng := gicel.NewEngine()
-	eng.Use(gicel.Prelude)
+	eng := NewEngine()
+	eng.Use(stdlib.Prelude)
 	rt, err := eng.NewRuntime(`
 import Prelude
 main := { x: 1, y: 2 }
@@ -1440,7 +1442,7 @@ main := { x: 1, y: 2 }
 	if err != nil {
 		t.Fatal(err)
 	}
-	fields, ok := gicel.FromRecord(result.Value)
+	fields, ok := FromRecord(result.Value)
 	if !ok {
 		t.Fatal("expected record value")
 	}
@@ -1453,33 +1455,33 @@ main := { x: 1, y: 2 }
 }
 
 func TestFromRecordNonRecord(t *testing.T) {
-	_, ok := gicel.FromRecord(gicel.ToValue(42))
+	_, ok := FromRecord(ToValue(42))
 	if ok {
 		t.Error("FromRecord on HostVal should return ok=false")
 	}
 }
 
 func TestRecordTypeHelper(t *testing.T) {
-	rty := gicel.RecordType(
-		gicel.RowField{Label: "x", Type: gicel.ConType("Int")},
-		gicel.RowField{Label: "y", Type: gicel.ConType("Int")},
+	rty := RecordType(
+		RowField{Label: "x", Type: ConType("Int")},
+		RowField{Label: "y", Type: ConType("Int")},
 	)
-	got := gicel.TypePretty(rty)
+	got := TypePretty(rty)
 	if !strings.Contains(got, "Record") {
 		t.Errorf("expected Record type, got %s", got)
 	}
 }
 
 func TestTupleTypeHelper(t *testing.T) {
-	tt := gicel.TupleType(gicel.ConType("Int"), gicel.ConType("Bool"))
-	got := gicel.TypePretty(tt)
+	tt := TupleType(ConType("Int"), ConType("Bool"))
+	got := TypePretty(tt)
 	if !strings.Contains(got, "Record") || !strings.Contains(got, "_1") {
 		t.Errorf("expected Record{_1, _2} type, got %s", got)
 	}
 }
 
 func TestNewCapEnvExported(t *testing.T) {
-	ce := gicel.NewCapEnv(map[string]any{"key": "val"})
+	ce := eval.NewCapEnv(map[string]any{"key": "val"})
 	v, ok := ce.Get("key")
 	if !ok {
 		t.Fatal("expected key in CapEnv")
@@ -1491,8 +1493,8 @@ func TestNewCapEnvExported(t *testing.T) {
 
 // Explicit bind syntax: bind comp (\x. body) elaborates to Core.Bind.
 func TestExplicitBind(t *testing.T) {
-	eng := gicel.NewEngine()
-	eng.Use(gicel.Prelude)
+	eng := NewEngine()
+	eng.Use(stdlib.Prelude)
 	rt, err := eng.NewRuntime(`
 import Prelude
 main := bind (pure True) (\x. pure x)
@@ -1504,7 +1506,7 @@ main := bind (pure True) (\x. pure x)
 	if err != nil {
 		t.Fatal(err)
 	}
-	con, ok := result.Value.(*gicel.ConVal)
+	con, ok := result.Value.(*eval.ConVal)
 	if !ok || con.Con != "True" {
 		t.Errorf("expected True, got %s", result.Value)
 	}
@@ -1515,7 +1517,7 @@ func TestSpecialFormStandalone(t *testing.T) {
 	// thunk and force are still special forms.
 	forms := []string{"thunk", "force"}
 	for _, name := range forms {
-		eng := gicel.NewEngine()
+		eng := NewEngine()
 		_, err := eng.NewRuntime("main := " + name)
 		if err == nil {
 			t.Errorf("expected compile error for standalone %s", name)
@@ -1523,7 +1525,7 @@ func TestSpecialFormStandalone(t *testing.T) {
 	}
 	// pure and bind are first-class functions — standalone use is valid.
 	for _, name := range []string{"pure", "bind"} {
-		eng := gicel.NewEngine()
+		eng := NewEngine()
 		_, err := eng.NewRuntime("main := " + name)
 		if err != nil {
 			t.Errorf("standalone %s should compile, got: %v", name, err)
@@ -1533,8 +1535,8 @@ func TestSpecialFormStandalone(t *testing.T) {
 
 // Thunk/force round-trip in do block.
 func TestThunkForceInDo(t *testing.T) {
-	eng := gicel.NewEngine()
-	eng.Use(gicel.Prelude)
+	eng := NewEngine()
+	eng.Use(stdlib.Prelude)
 	rt, err := eng.NewRuntime(`
 import Prelude
 main := do {
@@ -1549,7 +1551,7 @@ main := do {
 	if err != nil {
 		t.Fatal(err)
 	}
-	con, ok := result.Value.(*gicel.ConVal)
+	con, ok := result.Value.(*eval.ConVal)
 	if !ok || con.Con != "True" {
 		t.Errorf("expected True, got %s", result.Value)
 	}
@@ -1557,11 +1559,11 @@ main := do {
 
 // Forall with kinded binder: \ (r: Row). T
 func TestKindedForallBinder(t *testing.T) {
-	eng := gicel.NewEngine()
-	eng.Use(gicel.Prelude)
-	eng.RegisterType("Int", gicel.KindType())
-	eng.RegisterPrim("getVal", func(ctx context.Context, capEnv gicel.CapEnv, args []gicel.Value, _ gicel.Applier) (gicel.Value, gicel.CapEnv, error) {
-		return gicel.ToValue(7), capEnv, nil
+	eng := NewEngine()
+	eng.Use(stdlib.Prelude)
+	eng.RegisterType("Int", KindType())
+	eng.RegisterPrim("getVal", func(ctx context.Context, capEnv eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
+		return ToValue(7), capEnv, nil
 	})
 	rt, err := eng.NewRuntime(`
 import Prelude
@@ -1576,7 +1578,7 @@ main := do { getVal () }
 	if err != nil {
 		t.Fatal("runtime error:", err)
 	}
-	v := gicel.MustHost[int](result.Value)
+	v := MustHost[int](result.Value)
 	if v != 7 {
 		t.Errorf("expected 7, got %d", v)
 	}
@@ -1584,9 +1586,9 @@ main := do { getVal () }
 
 // Result type has 2 parameters: Result e a = Ok a | Err e
 func TestResult2Params(t *testing.T) {
-	eng := gicel.NewEngine()
-	eng.Use(gicel.Prelude)
-	eng.RegisterType("String", gicel.KindType())
+	eng := NewEngine()
+	eng.Use(stdlib.Prelude)
+	eng.RegisterType("String", KindType())
 	rt, err := eng.NewRuntime(`
 import Prelude
 main := Ok True
@@ -1598,14 +1600,14 @@ main := Ok True
 	if err != nil {
 		t.Fatal(err)
 	}
-	con, ok := result.Value.(*gicel.ConVal)
+	con, ok := result.Value.(*eval.ConVal)
 	if !ok || con.Con != "Ok" {
 		t.Errorf("expected Ok, got %s", result.Value)
 	}
 	if len(con.Args) != 1 {
 		t.Fatalf("expected 1 arg, got %d", len(con.Args))
 	}
-	inner, ok := con.Args[0].(*gicel.ConVal)
+	inner, ok := con.Args[0].(*eval.ConVal)
 	if !ok || inner.Con != "True" {
 		t.Errorf("expected True inside Ok, got %s", con.Args[0])
 	}
@@ -1613,8 +1615,8 @@ main := Ok True
 
 // Type alias: type Effect r a := Computation r r a
 func TestTypeAlias(t *testing.T) {
-	eng := gicel.NewEngine()
-	eng.Use(gicel.Prelude)
+	eng := NewEngine()
+	eng.Use(stdlib.Prelude)
 	rt, err := eng.NewRuntime(`
 import Prelude
 type Effect r a := Computation r r a
@@ -1629,7 +1631,7 @@ main := pure True
 	if err != nil {
 		t.Fatal(err)
 	}
-	con, ok := result.Value.(*gicel.ConVal)
+	con, ok := result.Value.(*eval.ConVal)
 	if !ok || con.Con != "True" {
 		t.Errorf("expected True, got %s", result.Value)
 	}
@@ -1637,8 +1639,8 @@ main := pure True
 
 // Prelude's Effect alias should work without user-defined alias.
 func TestPreludeEffectAlias(t *testing.T) {
-	eng := gicel.NewEngine()
-	eng.Use(gicel.Prelude)
+	eng := NewEngine()
+	eng.Use(stdlib.Prelude)
 	rt, err := eng.NewRuntime(`
 import Prelude
 main :: Effect {} Bool
@@ -1651,7 +1653,7 @@ main := pure True
 	if err != nil {
 		t.Fatal("runtime error:", err)
 	}
-	con, ok := result.Value.(*gicel.ConVal)
+	con, ok := result.Value.(*eval.ConVal)
 	if !ok || con.Con != "True" {
 		t.Errorf("expected True, got %s", result.Value)
 	}
@@ -1659,12 +1661,12 @@ main := pure True
 
 // Env flat map: deeply nested binds don't retain parent chains.
 func TestDeepBindEnvDoesNotLeak(t *testing.T) {
-	eng := gicel.NewEngine()
-	eng.Use(gicel.Prelude)
+	eng := NewEngine()
+	eng.Use(stdlib.Prelude)
 	eng.EnableRecursion()
-	eng.RegisterType("Int", gicel.KindType())
-	eng.RegisterPrim("mkInt", func(ctx context.Context, capEnv gicel.CapEnv, args []gicel.Value, _ gicel.Applier) (gicel.Value, gicel.CapEnv, error) {
-		return gicel.ToValue(0), capEnv, nil
+	eng.RegisterType("Int", KindType())
+	eng.RegisterPrim("mkInt", func(ctx context.Context, capEnv eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
+		return ToValue(0), capEnv, nil
 	})
 	// A chain of 100 nested binds. With linked-list Env, each
 	// closure would retain the entire chain. With flat Env, each
@@ -1694,7 +1696,7 @@ main := do {
 	if err != nil {
 		t.Fatal(err)
 	}
-	v := gicel.MustHost[int](result.Value)
+	v := MustHost[int](result.Value)
 	if v != 0 {
 		t.Errorf("expected 0, got %d", v)
 	}
@@ -1702,8 +1704,8 @@ main := do {
 
 // Empty program (no main) should produce a runtime error, not panic.
 func TestNoMainEntry(t *testing.T) {
-	eng := gicel.NewEngine()
-	eng.Use(gicel.Prelude)
+	eng := NewEngine()
+	eng.Use(stdlib.Prelude)
 	rt, err := eng.NewRuntime(`
 import Prelude
 helper := True
@@ -1719,8 +1721,8 @@ helper := True
 
 // Large case expression: exhaustiveness on 6-constructor ADT.
 func TestExhaustiveLargeADT(t *testing.T) {
-	eng := gicel.NewEngine()
-	eng.Use(gicel.Prelude)
+	eng := NewEngine()
+	eng.Use(stdlib.Prelude)
 	rt, err := eng.NewRuntime(`
 import Prelude
 data Color := Red | Green | Blue | Yellow | Cyan | Magenta
@@ -1743,7 +1745,7 @@ main := f Red
 	if err != nil {
 		t.Fatal(err)
 	}
-	con, ok := result.Value.(*gicel.ConVal)
+	con, ok := result.Value.(*eval.ConVal)
 	if !ok || con.Con != "True" {
 		t.Errorf("expected True, got %s", result.Value)
 	}
@@ -1751,8 +1753,8 @@ main := f Red
 
 // Non-exhaustive on large ADT names missing constructors.
 func TestNonExhaustiveLargeADT(t *testing.T) {
-	eng := gicel.NewEngine()
-	eng.Use(gicel.Prelude)
+	eng := NewEngine()
+	eng.Use(stdlib.Prelude)
 	_, err := eng.NewRuntime(`
 import Prelude
 data Color := Red | Green | Blue | Yellow | Cyan | Magenta
@@ -1777,8 +1779,8 @@ main := f Red
 
 func TestPreludeAsModule(t *testing.T) {
 	// Prelude is now loaded as an implicit module — Bool, (), etc. should be available.
-	eng := gicel.NewEngine()
-	eng.Use(gicel.Prelude)
+	eng := NewEngine()
+	eng.Use(stdlib.Prelude)
 	rt, err := eng.NewRuntime(`
 import Prelude
 main := True
@@ -1790,14 +1792,14 @@ main := True
 	if err != nil {
 		t.Fatal(err)
 	}
-	con, ok := result.Value.(*gicel.ConVal)
+	con, ok := result.Value.(*eval.ConVal)
 	if !ok || con.Con != "True" {
 		t.Errorf("expected True, got %s", result.Value)
 	}
 }
 
 func TestNoPreludeWithModules(t *testing.T) {
-	eng := gicel.NewEngine()
+	eng := NewEngine()
 	// Without prelude, Bool is not defined — need to define it ourselves.
 	rt, err := eng.NewRuntime(`
 data MyBool := Yes | No
@@ -1810,7 +1812,7 @@ main := Yes
 	if err != nil {
 		t.Fatal(err)
 	}
-	con, ok := result.Value.(*gicel.ConVal)
+	con, ok := result.Value.(*eval.ConVal)
 	if !ok || con.Con != "Yes" {
 		t.Errorf("expected Yes, got %s", result.Value)
 	}
@@ -1818,7 +1820,7 @@ main := Yes
 
 func TestSetPreludeCustom(t *testing.T) {
 	// Custom prelude replaces default: only defines MyBool, no standard Bool.
-	eng := gicel.NewEngine()
+	eng := NewEngine()
 	eng.RegisterModule("Prelude", `
 data MyBool := Yes | No
 `)
@@ -1830,7 +1832,7 @@ data MyBool := Yes | No
 	if err != nil {
 		t.Fatal(err)
 	}
-	con, ok := result.Value.(*gicel.ConVal)
+	con, ok := result.Value.(*eval.ConVal)
 	if !ok || con.Con != "Yes" {
 		t.Errorf("expected Yes, got %s", result.Value)
 	}
@@ -1838,7 +1840,7 @@ data MyBool := Yes | No
 
 func TestSetPreludeCoreStillAvailable(t *testing.T) {
 	// Core definitions (IxMonad, Effect, then) available even with custom Prelude.
-	eng := gicel.NewEngine()
+	eng := NewEngine()
 	eng.RegisterModule("Prelude", `
 data Bool := True | False
 `)
@@ -1855,7 +1857,7 @@ main := pure True
 	if err != nil {
 		t.Fatal(err)
 	}
-	con, ok := result.Value.(*gicel.ConVal)
+	con, ok := result.Value.(*eval.ConVal)
 	if !ok || con.Con != "True" {
 		t.Errorf("expected True, got %s", result.Value)
 	}
@@ -1863,7 +1865,7 @@ main := pure True
 
 func TestSetPreludeNoDefaultBool(t *testing.T) {
 	// Custom prelude that doesn't define Bool — standard Bool should not be available.
-	eng := gicel.NewEngine()
+	eng := NewEngine()
 	eng.RegisterModule("Prelude", `data Color := Red | Blue`)
 	_, err := eng.NewRuntime(`
 import Prelude
@@ -1876,73 +1878,73 @@ main := True
 
 func TestTypeHelpers(t *testing.T) {
 	// ConType constructs a type constructor.
-	intTy := gicel.ConType("Int")
-	if gicel.TypePretty(intTy) != "Int" {
-		t.Errorf("expected Int, got %s", gicel.TypePretty(intTy))
+	intTy := ConType("Int")
+	if TypePretty(intTy) != "Int" {
+		t.Errorf("expected Int, got %s", TypePretty(intTy))
 	}
 
 	// ArrowType constructs a function type.
-	arrTy := gicel.ArrowType(gicel.ConType("Bool"), gicel.ConType("Bool"))
-	if got := gicel.TypePretty(arrTy); got != "Bool -> Bool" {
+	arrTy := ArrowType(ConType("Bool"), ConType("Bool"))
+	if got := TypePretty(arrTy); got != "Bool -> Bool" {
 		t.Errorf("expected Bool -> Bool, got %s", got)
 	}
 
 	// EmptyRowType constructs an empty row.
-	row := gicel.EmptyRowType()
-	if gicel.TypePretty(row) != "{}" {
-		t.Errorf("expected {}, got %s", gicel.TypePretty(row))
+	row := EmptyRowType()
+	if TypePretty(row) != "{}" {
+		t.Errorf("expected {}, got %s", TypePretty(row))
 	}
 
 	// ClosedRowType constructs a row with fields.
-	row2 := gicel.ClosedRowType(gicel.RowField{Label: "x", Type: gicel.ConType("Int")})
-	if got := gicel.TypePretty(row2); !strings.Contains(got, "x") {
+	row2 := ClosedRowType(RowField{Label: "x", Type: ConType("Int")})
+	if got := TypePretty(row2); !strings.Contains(got, "x") {
 		t.Errorf("expected row with field x, got %s", got)
 	}
 
 	// ForallType constructs a quantified type.
-	forallTy := gicel.ForallType("a", gicel.ArrowType(gicel.VarType("a"), gicel.VarType("a")))
-	if got := gicel.TypePretty(forallTy); !strings.Contains(got, `\`) {
+	forallTy := ForallType("a", ArrowType(VarType("a"), VarType("a")))
+	if got := TypePretty(forallTy); !strings.Contains(got, `\`) {
 		t.Errorf(`expected \ in pretty, got %s`, got)
 	}
 
 	// CompType constructs a computation type.
-	compTy := gicel.CompType(gicel.EmptyRowType(), gicel.EmptyRowType(), gicel.ConType("Bool"))
-	if got := gicel.TypePretty(compTy); !strings.Contains(got, "Bool") {
+	compTy := CompType(EmptyRowType(), EmptyRowType(), ConType("Bool"))
+	if got := TypePretty(compTy); !strings.Contains(got, "Bool") {
 		t.Errorf("expected Bool in computation type, got %s", got)
 	}
 
 	// VarType constructs a type variable.
-	tv := gicel.VarType("a")
-	if gicel.TypePretty(tv) != "a" {
-		t.Errorf("expected a, got %s", gicel.TypePretty(tv))
+	tv := VarType("a")
+	if TypePretty(tv) != "a" {
+		t.Errorf("expected a, got %s", TypePretty(tv))
 	}
 
 	// Kind helpers.
-	k := gicel.KindType()
-	if !k.Equal(gicel.KindType()) {
+	k := KindType()
+	if !k.Equal(KindType()) {
 		t.Errorf("KType should equal KType")
 	}
-	kr := gicel.KindRow()
-	if kr.Equal(gicel.KindType()) {
+	kr := KindRow()
+	if kr.Equal(KindType()) {
 		t.Errorf("KRow should not equal KType")
 	}
-	ka := gicel.KindArrow(gicel.KindType(), gicel.KindType())
-	if !ka.Equal(gicel.KindArrow(gicel.KindType(), gicel.KindType())) {
+	ka := KindArrow(KindType(), KindType())
+	if !ka.Equal(KindArrow(KindType(), KindType())) {
 		t.Errorf("KArrow(Type,Type) should equal itself")
 	}
 
 	// TypeEqual
-	if !gicel.TypeEqual(gicel.ConType("Int"), gicel.ConType("Int")) {
+	if !TypeEqual(ConType("Int"), ConType("Int")) {
 		t.Errorf("Int should equal Int")
 	}
-	if gicel.TypeEqual(gicel.ConType("Int"), gicel.ConType("Bool")) {
+	if TypeEqual(ConType("Int"), ConType("Bool")) {
 		t.Errorf("Int should not equal Bool")
 	}
 }
 
 func TestFullPipeline(t *testing.T) {
-	eng := gicel.NewEngine()
-	eng.Use(gicel.Prelude)
+	eng := NewEngine()
+	eng.Use(stdlib.Prelude)
 	rt, err := eng.NewRuntime(`
 import Prelude
 data SomeEq := { MkSomeEq :: \a. Eq a => a -> SomeEq }
@@ -1965,8 +1967,8 @@ main := case isSelf (MkSomeEq True) { True -> applyId id; False -> False }
 }
 
 func TestBackslashForallE2E(t *testing.T) {
-	eng := gicel.NewEngine()
-	eng.Use(gicel.Prelude)
+	eng := NewEngine()
+	eng.Use(stdlib.Prelude)
 	rt, err := eng.NewRuntime(`
 import Prelude
 id :: \a. a -> a
@@ -1986,8 +1988,8 @@ main := applyId id
 }
 
 func TestConstraintTupleE2E(t *testing.T) {
-	eng := gicel.NewEngine()
-	eng.Use(gicel.Prelude)
+	eng := NewEngine()
+	eng.Use(stdlib.Prelude)
 	rt, err := eng.NewRuntime(`
 import Prelude
 eqAndOrd :: \a. (Eq a, Ord a) => a -> a -> Bool
@@ -2005,9 +2007,9 @@ main := eqAndOrd True True
 }
 
 // helper for v0.5 tests
-func assertConName(t *testing.T, v gicel.Value, name string) {
+func assertConName(t *testing.T, v eval.Value, name string) {
 	t.Helper()
-	con, ok := v.(*gicel.ConVal)
+	con, ok := v.(*eval.ConVal)
 	if !ok {
 		t.Errorf("expected ConVal(%s), got %T: %s", name, v, v)
 		return
@@ -2022,8 +2024,8 @@ func assertConName(t *testing.T, v gicel.Value, name string) {
 // ---------------------------------------------------------------------------
 
 func TestLiteralWithNumPack(t *testing.T) {
-	eng := gicel.NewEngine()
-	if err := eng.Use(gicel.Prelude); err != nil {
+	eng := NewEngine()
+	if err := eng.Use(stdlib.Prelude); err != nil {
 		t.Fatal(err)
 	}
 	rt, err := eng.NewRuntime(`
@@ -2037,16 +2039,16 @@ main := 1 + 2 * 3
 	if err != nil {
 		t.Fatal(err)
 	}
-	if hv := gicel.MustHost[int64](result.Value); hv != 7 {
+	if hv := MustHost[int64](result.Value); hv != 7 {
 		t.Errorf("expected 7, got %d", hv)
 	}
 }
 
 func TestCustomPack(t *testing.T) {
 	// A user-defined Pack that provides a custom constant.
-	customPack := gicel.Pack(func(r gicel.Registrar) error {
-		r.RegisterPrim("myConst", func(_ context.Context, ce gicel.CapEnv, args []gicel.Value, _ gicel.Applier) (gicel.Value, gicel.CapEnv, error) {
-			return &gicel.HostVal{Inner: int64(999)}, ce, nil
+	customPack := reg.Pack(func(r reg.Registrar) error {
+		r.RegisterPrim("myConst", func(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
+			return &eval.HostVal{Inner: int64(999)}, ce, nil
 		})
 		return r.RegisterModule("Custom", `
 import Prelude
@@ -2057,8 +2059,8 @@ myConst := assumption
 main := myConst
 `)
 	})
-	eng := gicel.NewEngine()
-	eng.Use(gicel.Prelude)
+	eng := NewEngine()
+	eng.Use(stdlib.Prelude)
 	if err := eng.Use(customPack); err != nil {
 		t.Fatal(err)
 	}
@@ -2074,22 +2076,22 @@ main := myConst
 	if err != nil {
 		t.Fatal(err)
 	}
-	if hv := gicel.MustHost[int64](result.Value); hv != 999 {
+	if hv := MustHost[int64](result.Value); hv != 999 {
 		t.Errorf("expected 999, got %d", hv)
 	}
 }
 
 func TestParseChecksSyntax(t *testing.T) {
-	eng := gicel.NewEngine()
-	eng.Use(gicel.Prelude)
+	eng := NewEngine()
+	eng.Use(stdlib.Prelude)
 	if err := eng.Parse(`main := True`); err != nil {
 		t.Fatal(err)
 	}
 }
 
 func TestCheckReturnsOpaque(t *testing.T) {
-	eng := gicel.NewEngine()
-	eng.Use(gicel.Prelude)
+	eng := NewEngine()
+	eng.Use(stdlib.Prelude)
 	core, err := eng.Compile(`
 import Prelude
 main := True
@@ -2106,8 +2108,8 @@ main := True
 }
 
 func TestProgramOpaque(t *testing.T) {
-	eng := gicel.NewEngine()
-	eng.Use(gicel.Prelude)
+	eng := NewEngine()
+	eng.Use(stdlib.Prelude)
 	rt, err := eng.NewRuntime(`
 import Prelude
 main := True
@@ -2130,8 +2132,8 @@ func TestSetDepthLimit(t *testing.T) {
 	// With TCO, tail-recursive loops keep depth flat (depth oscillates 0-1).
 	// The step limit is what prevents infinite tail recursion now.
 	// Verify that an infinite tail-recursive loop hits the step limit.
-	eng := gicel.NewEngine()
-	eng.Use(gicel.Prelude)
+	eng := NewEngine()
+	eng.Use(stdlib.Prelude)
 	eng.EnableRecursion()
 	eng.SetStepLimit(1000)
 	eng.SetDepthLimit(10000) // high enough to not interfere
@@ -2152,8 +2154,8 @@ main := loop ()
 }
 
 func TestEngineMultipleRuntimes(t *testing.T) {
-	eng := gicel.NewEngine()
-	eng.Use(gicel.Prelude)
+	eng := NewEngine()
+	eng.Use(stdlib.Prelude)
 	rt1, err := eng.NewRuntime(`
 import Prelude
 main := True
@@ -2176,19 +2178,19 @@ main := False
 	if err != nil {
 		t.Fatal(err)
 	}
-	if c, ok := r1.Value.(*gicel.ConVal); !ok || c.Con != "True" {
+	if c, ok := r1.Value.(*eval.ConVal); !ok || c.Con != "True" {
 		t.Errorf("rt1: expected True, got %v", r1.Value)
 	}
-	if c, ok := r2.Value.(*gicel.ConVal); !ok || c.Con != "False" {
+	if c, ok := r2.Value.(*eval.ConVal); !ok || c.Con != "False" {
 		t.Errorf("rt2: expected False, got %v", r2.Value)
 	}
 }
 
 func TestEngineMutationAfterRuntime(t *testing.T) {
-	eng := gicel.NewEngine()
-	eng.Use(gicel.Prelude)
-	eng.RegisterType("Int", gicel.KindType())
-	eng.DeclareBinding("x", gicel.ConType("Int"))
+	eng := NewEngine()
+	eng.Use(stdlib.Prelude)
+	eng.RegisterType("Int", KindType())
+	eng.DeclareBinding("x", ConType("Int"))
 	rt, err := eng.NewRuntime(`main := x`)
 	if err != nil {
 		t.Fatal(err)
@@ -2196,12 +2198,12 @@ func TestEngineMutationAfterRuntime(t *testing.T) {
 	// Mutate engine after runtime creation.
 	eng.SetStepLimit(1)
 	// Runtime should still work with original limits.
-	bindings := map[string]gicel.Value{"x": &gicel.HostVal{Inner: int64(99)}}
-	result, err := rt.RunWith(context.Background(), &gicel.RunOptions{Bindings: bindings})
+	bindings := map[string]eval.Value{"x": &eval.HostVal{Inner: int64(99)}}
+	result, err := rt.RunWith(context.Background(), &RunOptions{Bindings: bindings})
 	if err != nil {
 		t.Fatal(err)
 	}
-	hv, ok := result.Value.(*gicel.HostVal)
+	hv, ok := result.Value.(*eval.HostVal)
 	if !ok || hv.Inner != int64(99) {
 		t.Errorf("expected 99, got %v", result.Value)
 	}
@@ -2210,9 +2212,9 @@ func TestEngineMutationAfterRuntime(t *testing.T) {
 // --- Phase 7C: Effectful PrimOp Deferral ---
 
 func TestEffectfulDeferUntilBind(t *testing.T) {
-	eng := gicel.NewEngine()
-	eng.Use(gicel.Prelude)
-	if err := eng.Use(gicel.EffectState); err != nil {
+	eng := NewEngine()
+	eng.Use(stdlib.Prelude)
+	if err := eng.Use(stdlib.State); err != nil {
 		t.Fatal(err)
 	}
 	rt, err := eng.NewRuntime(`
@@ -2223,21 +2225,21 @@ main := do { s <- get; pure s }
 	if err != nil {
 		t.Fatal(err)
 	}
-	caps := map[string]any{"state": &gicel.HostVal{Inner: int64(42)}}
-	result, err := rt.RunWith(context.Background(), &gicel.RunOptions{Caps: caps})
+	caps := map[string]any{"state": &eval.HostVal{Inner: int64(42)}}
+	result, err := rt.RunWith(context.Background(), &RunOptions{Caps: caps})
 	if err != nil {
 		t.Fatal(err)
 	}
-	hv, ok := result.Value.(*gicel.HostVal)
+	hv, ok := result.Value.(*eval.HostVal)
 	if !ok || hv.Inner != int64(42) {
 		t.Errorf("expected 42, got %v", result.Value)
 	}
 }
 
 func TestEffectfulTopLevelForce(t *testing.T) {
-	eng := gicel.NewEngine()
-	eng.Use(gicel.Prelude)
-	if err := eng.Use(gicel.EffectState); err != nil {
+	eng := NewEngine()
+	eng.Use(stdlib.Prelude)
+	if err := eng.Use(stdlib.State); err != nil {
 		t.Fatal(err)
 	}
 	rt, err := eng.NewRuntime(`
@@ -2248,20 +2250,20 @@ main := get
 	if err != nil {
 		t.Fatal(err)
 	}
-	caps := map[string]any{"state": &gicel.HostVal{Inner: int64(7)}}
-	result, err := rt.RunWith(context.Background(), &gicel.RunOptions{Caps: caps})
+	caps := map[string]any{"state": &eval.HostVal{Inner: int64(7)}}
+	result, err := rt.RunWith(context.Background(), &RunOptions{Caps: caps})
 	if err != nil {
 		t.Fatal(err)
 	}
-	hv, ok := result.Value.(*gicel.HostVal)
+	hv, ok := result.Value.(*eval.HostVal)
 	if !ok || hv.Inner != int64(7) {
 		t.Errorf("expected 7, got %v", result.Value)
 	}
 }
 
 func TestNonEffectfulImmediate(t *testing.T) {
-	eng := gicel.NewEngine()
-	if err := eng.Use(gicel.Prelude); err != nil {
+	eng := NewEngine()
+	if err := eng.Use(stdlib.Prelude); err != nil {
 		t.Fatal(err)
 	}
 	rt, err := eng.NewRuntime(`
@@ -2275,7 +2277,7 @@ main := 1 + 2
 	if err != nil {
 		t.Fatal(err)
 	}
-	hv, ok := result.Value.(*gicel.HostVal)
+	hv, ok := result.Value.(*eval.HostVal)
 	if !ok || hv.Inner != int64(3) {
 		t.Errorf("expected 3, got %v", result.Value)
 	}
@@ -2284,7 +2286,7 @@ main := 1 + 2
 // --- Phase 7D: Error Path Tests ---
 
 func TestDepthLimitError(t *testing.T) {
-	eng := gicel.NewEngine()
+	eng := NewEngine()
 	eng.EnableRecursion()
 	eng.SetDepthLimit(5)
 	rt, err := eng.NewRuntime(`
@@ -2301,8 +2303,8 @@ main := deep ()
 }
 
 func TestPrimImplError(t *testing.T) {
-	eng := gicel.NewEngine()
-	if err := eng.Use(gicel.Prelude); err != nil {
+	eng := NewEngine()
+	if err := eng.Use(stdlib.Prelude); err != nil {
 		t.Fatal(err)
 	}
 	rt, err := eng.NewRuntime(`
@@ -2322,10 +2324,10 @@ main := div 1 0
 }
 
 func TestMissingBinding(t *testing.T) {
-	eng := gicel.NewEngine()
-	eng.Use(gicel.Prelude)
-	eng.RegisterType("Int", gicel.KindType())
-	eng.DeclareBinding("x", gicel.ConType("Int"))
+	eng := NewEngine()
+	eng.Use(stdlib.Prelude)
+	eng.RegisterType("Int", KindType())
+	eng.DeclareBinding("x", ConType("Int"))
 	rt, err := eng.NewRuntime(`main := x`)
 	if err != nil {
 		t.Fatal(err)
@@ -2341,8 +2343,8 @@ func TestMissingBinding(t *testing.T) {
 }
 
 func TestMissingEntryPoint(t *testing.T) {
-	eng := gicel.NewEngine()
-	eng.Use(gicel.Prelude)
+	eng := NewEngine()
+	eng.Use(stdlib.Prelude)
 	rt, err := eng.NewRuntime(`
 import Prelude
 foo := True
@@ -2364,8 +2366,8 @@ foo := True
 // ---------------------------------------------------------------------------
 
 func TestListFmap(t *testing.T) {
-	eng := gicel.NewEngine()
-	if err := eng.Use(gicel.Prelude); err != nil {
+	eng := NewEngine()
+	if err := eng.Use(stdlib.Prelude); err != nil {
 		t.Fatal(err)
 	}
 	rt, err := eng.NewRuntime(`
@@ -2384,8 +2386,8 @@ main := fmap (\x. add x 1) (Cons 1 (Cons 2 (Cons 3 Nil)))
 }
 
 func TestListFoldr(t *testing.T) {
-	eng := gicel.NewEngine()
-	if err := eng.Use(gicel.Prelude); err != nil {
+	eng := NewEngine()
+	if err := eng.Use(stdlib.Prelude); err != nil {
 		t.Fatal(err)
 	}
 	rt, err := eng.NewRuntime(`
@@ -2399,7 +2401,7 @@ main := foldr add 0 (Cons 1 (Cons 2 (Cons 3 Nil)))
 	if err != nil {
 		t.Fatal(err)
 	}
-	hv, ok := result.Value.(*gicel.HostVal)
+	hv, ok := result.Value.(*eval.HostVal)
 	if !ok {
 		t.Fatalf("expected HostVal, got %T", result.Value)
 	}
@@ -2409,8 +2411,8 @@ main := foldr add 0 (Cons 1 (Cons 2 (Cons 3 Nil)))
 }
 
 func TestListAppend(t *testing.T) {
-	eng := gicel.NewEngine()
-	if err := eng.Use(gicel.Prelude); err != nil {
+	eng := NewEngine()
+	if err := eng.Use(stdlib.Prelude); err != nil {
 		t.Fatal(err)
 	}
 	rt, err := eng.NewRuntime(`
@@ -2428,8 +2430,8 @@ main := append (Cons 1 (Cons 2 Nil)) (Cons 3 Nil)
 }
 
 func TestListEq(t *testing.T) {
-	eng := gicel.NewEngine()
-	if err := eng.Use(gicel.Prelude); err != nil {
+	eng := NewEngine()
+	if err := eng.Use(stdlib.Prelude); err != nil {
 		t.Fatal(err)
 	}
 	rt, err := eng.NewRuntime(`
@@ -2443,15 +2445,15 @@ main := eq (Cons 1 (Cons 2 Nil)) (Cons 1 (Cons 2 Nil))
 	if err != nil {
 		t.Fatal(err)
 	}
-	con, ok := result.Value.(*gicel.ConVal)
+	con, ok := result.Value.(*eval.ConVal)
 	if !ok || con.Con != "True" {
 		t.Fatalf("expected True, got %v", result.Value)
 	}
 }
 
 func TestListEqDifferent(t *testing.T) {
-	eng := gicel.NewEngine()
-	if err := eng.Use(gicel.Prelude); err != nil {
+	eng := NewEngine()
+	if err := eng.Use(stdlib.Prelude); err != nil {
 		t.Fatal(err)
 	}
 	rt, err := eng.NewRuntime(`
@@ -2465,15 +2467,15 @@ main := eq (Cons 1 Nil) (Cons 2 Nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	con, ok := result.Value.(*gicel.ConVal)
+	con, ok := result.Value.(*eval.ConVal)
 	if !ok || con.Con != "False" {
 		t.Fatalf("expected False, got %v", result.Value)
 	}
 }
 
 func TestListMonoidEmpty(t *testing.T) {
-	eng := gicel.NewEngine()
-	eng.Use(gicel.Prelude)
+	eng := NewEngine()
+	eng.Use(stdlib.Prelude)
 	rt, err := eng.NewRuntime(`
 import Prelude
 main := (empty :: List Bool)
@@ -2485,15 +2487,15 @@ main := (empty :: List Bool)
 	if err != nil {
 		t.Fatal(err)
 	}
-	con, ok := result.Value.(*gicel.ConVal)
+	con, ok := result.Value.(*eval.ConVal)
 	if !ok || con.Con != "Nil" {
 		t.Fatalf("expected Nil, got %v", result.Value)
 	}
 }
 
 func TestLiftAliasExpansion(t *testing.T) {
-	eng := gicel.NewEngine()
-	eng.Use(gicel.Prelude)
+	eng := NewEngine()
+	eng.Use(stdlib.Prelude)
 	_, err := eng.NewRuntime(`
 import Prelude
 test :: Lift Maybe {} {} Bool
@@ -2510,8 +2512,8 @@ main := True
 // ---------------------------------------------------------------------------
 
 func TestKindedClassParam(t *testing.T) {
-	eng := gicel.NewEngine()
-	eng.Use(gicel.Prelude)
+	eng := NewEngine()
+	eng.Use(stdlib.Prelude)
 	_, err := eng.NewRuntime(`
 import Prelude
 class MyClass (m: Row -> Row -> Type -> Type) {
@@ -2525,8 +2527,8 @@ main := True
 }
 
 func TestKindedClassParamWithInstance(t *testing.T) {
-	eng := gicel.NewEngine()
-	eng.Use(gicel.Prelude)
+	eng := NewEngine()
+	eng.Use(stdlib.Prelude)
 	rt, err := eng.NewRuntime(`
 import Prelude
 class Wrap (f: Type -> Type) {
@@ -2544,7 +2546,7 @@ main := wrap True
 	if err != nil {
 		t.Fatal(err)
 	}
-	con, ok := result.Value.(*gicel.ConVal)
+	con, ok := result.Value.(*eval.ConVal)
 	if !ok || con.Con != "Just" {
 		t.Fatalf("expected Just, got %v", result.Value)
 	}
@@ -2555,12 +2557,12 @@ main := wrap True
 // ---------------------------------------------------------------------------
 
 func TestToListFromList(t *testing.T) {
-	list := gicel.ToList([]any{
-		&gicel.HostVal{Inner: int64(1)},
-		&gicel.HostVal{Inner: int64(2)},
-		&gicel.HostVal{Inner: int64(3)},
+	list := ToList([]any{
+		&eval.HostVal{Inner: int64(1)},
+		&eval.HostVal{Inner: int64(2)},
+		&eval.HostVal{Inner: int64(3)},
 	})
-	items, ok := gicel.FromList(list)
+	items, ok := FromList(list)
 	if !ok {
 		t.Fatal("expected valid list")
 	}
@@ -2568,7 +2570,7 @@ func TestToListFromList(t *testing.T) {
 		t.Fatalf("expected 3 items, got %d", len(items))
 	}
 	for i, want := range []int64{1, 2, 3} {
-		hv := items[i].(*gicel.HostVal)
+		hv := items[i].(*eval.HostVal)
 		if hv.Inner != want {
 			t.Fatalf("element %d: expected %d, got %v", i, want, hv.Inner)
 		}
@@ -2576,26 +2578,26 @@ func TestToListFromList(t *testing.T) {
 }
 
 func TestToListEmpty(t *testing.T) {
-	list := gicel.ToList(nil)
-	con, ok := list.(*gicel.ConVal)
+	list := ToList(nil)
+	con, ok := list.(*eval.ConVal)
 	if !ok || con.Con != "Nil" {
 		t.Fatalf("expected Nil, got %v", list)
 	}
 }
 
 func TestFromListInvalid(t *testing.T) {
-	_, ok := gicel.FromList(&gicel.HostVal{Inner: 42})
+	_, ok := FromList(&eval.HostVal{Inner: 42})
 	if ok {
 		t.Fatal("expected false for non-list")
 	}
 }
 
 func TestToListWithBinding(t *testing.T) {
-	eng := gicel.NewEngine()
-	if err := eng.Use(gicel.Prelude); err != nil {
+	eng := NewEngine()
+	if err := eng.Use(stdlib.Prelude); err != nil {
 		t.Fatal(err)
 	}
-	eng.DeclareBinding("xs", gicel.AppType(gicel.ConType("List"), gicel.ConType("Int")))
+	eng.DeclareBinding("xs", AppType(ConType("List"), ConType("Int")))
 	rt, err := eng.NewRuntime(`
 import Prelude
 main := foldr add 0 xs
@@ -2603,18 +2605,18 @@ main := foldr add 0 xs
 	if err != nil {
 		t.Fatal(err)
 	}
-	bindings := map[string]gicel.Value{
-		"xs": gicel.ToList([]any{
-			&gicel.HostVal{Inner: int64(1)},
-			&gicel.HostVal{Inner: int64(2)},
-			&gicel.HostVal{Inner: int64(3)},
+	bindings := map[string]eval.Value{
+		"xs": ToList([]any{
+			&eval.HostVal{Inner: int64(1)},
+			&eval.HostVal{Inner: int64(2)},
+			&eval.HostVal{Inner: int64(3)},
 		}),
 	}
-	result, err := rt.RunWith(context.Background(), &gicel.RunOptions{Bindings: bindings})
+	result, err := rt.RunWith(context.Background(), &RunOptions{Bindings: bindings})
 	if err != nil {
 		t.Fatal(err)
 	}
-	hv, ok := result.Value.(*gicel.HostVal)
+	hv, ok := result.Value.(*eval.HostVal)
 	if !ok || hv.Inner != int64(6) {
 		t.Fatalf("expected 6, got %v", result.Value)
 	}
@@ -2625,8 +2627,8 @@ main := foldr add 0 xs
 // ---------------------------------------------------------------------------
 
 func TestListLiteralBasic(t *testing.T) {
-	eng := gicel.NewEngine()
-	if err := eng.Use(gicel.Prelude); err != nil {
+	eng := NewEngine()
+	if err := eng.Use(stdlib.Prelude); err != nil {
 		t.Fatal(err)
 	}
 	rt, err := eng.NewRuntime(`
@@ -2644,8 +2646,8 @@ main := [1, 2, 3]
 }
 
 func TestListLiteralEmpty(t *testing.T) {
-	eng := gicel.NewEngine()
-	eng.Use(gicel.Prelude)
+	eng := NewEngine()
+	eng.Use(stdlib.Prelude)
 	rt, err := eng.NewRuntime(`
 import Prelude
 main := ([] :: List Bool)
@@ -2657,15 +2659,15 @@ main := ([] :: List Bool)
 	if err != nil {
 		t.Fatal(err)
 	}
-	con, ok := result.Value.(*gicel.ConVal)
+	con, ok := result.Value.(*eval.ConVal)
 	if !ok || con.Con != "Nil" {
 		t.Fatalf("expected Nil, got %v", result.Value)
 	}
 }
 
 func TestListLiteralFmap(t *testing.T) {
-	eng := gicel.NewEngine()
-	if err := eng.Use(gicel.Prelude); err != nil {
+	eng := NewEngine()
+	if err := eng.Use(stdlib.Prelude); err != nil {
 		t.Fatal(err)
 	}
 	rt, err := eng.NewRuntime(`
@@ -2687,8 +2689,8 @@ main := fmap (\x. add x 10) [1, 2, 3]
 // ---------------------------------------------------------------------------
 
 func TestListStdlibLength(t *testing.T) {
-	eng := gicel.NewEngine()
-	if err := eng.Use(gicel.Prelude); err != nil {
+	eng := NewEngine()
+	if err := eng.Use(stdlib.Prelude); err != nil {
 		t.Fatal(err)
 	}
 	rt, err := eng.NewRuntime(`
@@ -2702,24 +2704,24 @@ main := length (Cons True (Cons False Nil))
 	if err != nil {
 		t.Fatal(err)
 	}
-	hv, ok := result.Value.(*gicel.HostVal)
+	hv, ok := result.Value.(*eval.HostVal)
 	if !ok || hv.Inner != int64(2) {
 		t.Fatalf("expected 2, got %v", result.Value)
 	}
 }
 
 // assertList checks that a Value is a List with the given int64 elements.
-func assertList(t *testing.T, v gicel.Value, expected []int64) {
+func assertList(t *testing.T, v eval.Value, expected []int64) {
 	t.Helper()
 	for i, want := range expected {
-		con, ok := v.(*gicel.ConVal)
+		con, ok := v.(*eval.ConVal)
 		if !ok || con.Con != "Cons" {
 			t.Fatalf("element %d: expected Cons, got %v", i, v)
 		}
 		if len(con.Args) != 2 {
 			t.Fatalf("element %d: Cons has %d args, expected 2", i, len(con.Args))
 		}
-		hv, ok := con.Args[0].(*gicel.HostVal)
+		hv, ok := con.Args[0].(*eval.HostVal)
 		if !ok {
 			t.Fatalf("element %d: expected HostVal, got %T", i, con.Args[0])
 		}
@@ -2728,7 +2730,7 @@ func assertList(t *testing.T, v gicel.Value, expected []int64) {
 		}
 		v = con.Args[1]
 	}
-	con, ok := v.(*gicel.ConVal)
+	con, ok := v.(*eval.ConVal)
 	if !ok || con.Con != "Nil" {
 		t.Fatalf("expected Nil at end, got %v", v)
 	}
@@ -2737,23 +2739,23 @@ func assertList(t *testing.T, v gicel.Value, expected []int64) {
 // --- Regression tests for defensive-copy and isolation fixes ---
 
 func TestFromConDefensiveCopy(t *testing.T) {
-	v := &gicel.ConVal{Con: "Pair", Args: []gicel.Value{gicel.ToValue(1), gicel.ToValue(2)}}
-	_, args, ok := gicel.FromCon(v)
+	v := &eval.ConVal{Con: "Pair", Args: []eval.Value{ToValue(1), ToValue(2)}}
+	_, args, ok := FromCon(v)
 	if !ok {
 		t.Fatal("expected ConVal")
 	}
 	// Mutate the returned slice.
-	args[0] = gicel.ToValue(999)
+	args[0] = ToValue(999)
 	// Original must be unchanged.
-	_, orig, _ := gicel.FromCon(v)
-	if gicel.MustHost[int](orig[0]) != 1 {
+	_, orig, _ := FromCon(v)
+	if MustHost[int](orig[0]) != 1 {
 		t.Error("FromCon returned slice aliases internal Args — mutation leaked")
 	}
 }
 
 func TestFromRecordDefensiveCopy(t *testing.T) {
-	eng := gicel.NewEngine()
-	eng.Use(gicel.Prelude)
+	eng := NewEngine()
+	eng.Use(stdlib.Prelude)
 	rt, err := eng.NewRuntime("import Prelude\nmain := { a: 1, b: 2 }")
 	if err != nil {
 		t.Fatal(err)
@@ -2762,21 +2764,21 @@ func TestFromRecordDefensiveCopy(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	fields, ok := gicel.FromRecord(result.Value)
+	fields, ok := FromRecord(result.Value)
 	if !ok {
 		t.Fatal("expected record value")
 	}
 	// Mutate the returned map.
-	fields["injected"] = gicel.ToValue(999)
+	fields["injected"] = ToValue(999)
 	// Re-extract — original must not contain the injected key.
-	fields2, _ := gicel.FromRecord(result.Value)
+	fields2, _ := FromRecord(result.Value)
 	if _, found := fields2["injected"]; found {
 		t.Error("FromRecord returned map aliases internal Fields — mutation leaked")
 	}
 }
 
 func TestTypeFamilyIsolationAcrossCompilations(t *testing.T) {
-	eng := gicel.NewEngine()
+	eng := NewEngine()
 	// Register a module with a class + associated type.
 	err := eng.RegisterModule("TFLib", `
 data Bool := True | False
@@ -2806,7 +2808,7 @@ main := convert True
 	if err != nil {
 		t.Fatal(err)
 	}
-	con1, ok := r1.Value.(*gicel.ConVal)
+	con1, ok := r1.Value.(*eval.ConVal)
 	if !ok || con1.Con != "Succ" {
 		t.Fatalf("first compilation: expected Succ, got %s", r1.Value)
 	}
@@ -2828,49 +2830,13 @@ main := convert Zero
 	if err != nil {
 		t.Fatal(err)
 	}
-	con2, ok := r2.Value.(*gicel.ConVal)
+	con2, ok := r2.Value.(*eval.ConVal)
 	if !ok || con2.Con != "False" {
 		t.Fatalf("second compilation: expected False, got %s", r2.Value)
 	}
 }
 
-// ---------------------------------------------------------------------------
-// Example API
-// ---------------------------------------------------------------------------
-
-func TestExamplesReturnsNonEmpty(t *testing.T) {
-	names := gicel.Examples()
-	if len(names) == 0 {
-		t.Fatal("Examples() should return at least one example")
-	}
-	// Names should be sorted.
-	for i := 1; i < len(names); i++ {
-		if names[i] < names[i-1] {
-			t.Errorf("Examples() not sorted: %s before %s", names[i-1], names[i])
-		}
-	}
-}
-
-func TestExampleReturnsSource(t *testing.T) {
-	for _, name := range gicel.Examples() {
-		src := gicel.Example(name)
-		if src == "" {
-			t.Errorf("Example(%q) returned empty string", name)
-		}
-	}
-}
-
-func TestExampleNotFound(t *testing.T) {
-	if gicel.Example("nonexistent-example-xyz") != "" {
-		t.Error("Example(nonexistent) should return empty string")
-	}
-}
-
-func TestExampleRejectsPathSeparators(t *testing.T) {
-	if gicel.Example("../cmd/gicel/main") != "" {
-		t.Error("Example should reject path with /")
-	}
-	if gicel.Example("..\\cmd") != "" {
-		t.Error("Example should reject path with \\")
-	}
-}
+// NOTE: Example API tests (TestExamplesReturnsNonEmpty, TestExampleReturnsSource,
+// TestExampleNotFound, TestExampleRejectsPathSeparators) remain in the root
+// package since they test gicel.Examples/gicel.Example which use embed.FS
+// relative to the root module directory.

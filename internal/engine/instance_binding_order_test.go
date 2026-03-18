@@ -1,10 +1,11 @@
-package gicel_test
+package engine
 
 import (
 	"context"
 	"testing"
 
-	"github.com/cwd-k2/gicel"
+	"github.com/cwd-k2/gicel/internal/eval"
+	"github.com/cwd-k2/gicel/internal/stdlib"
 )
 
 // TestInstanceMethodReferencesRegularBinding verifies that an instance
@@ -13,8 +14,8 @@ import (
 //   - Phase 7.5 (type-level: annotated bindings visible to instance methods)
 //   - SortBindings (runtime: dependency-ordered evaluation)
 func TestInstanceMethodReferencesRegularBinding(t *testing.T) {
-	eng := gicel.NewEngine()
-	eng.Use(gicel.Prelude)
+	eng := NewEngine()
+	eng.Use(stdlib.Prelude)
 	rt, err := eng.NewRuntime(`
 import Prelude
 class Wrap f { wrap :: \ a. a -> f a }
@@ -33,7 +34,7 @@ main := wrap True
 	if err != nil {
 		t.Fatalf("runtime: %v", err)
 	}
-	con, ok := r.Value.(*gicel.ConVal)
+	con, ok := r.Value.(*eval.ConVal)
 	if !ok || con.Con != "Just" {
 		t.Fatalf("expected Just True, got %v", r.Value)
 	}
@@ -42,8 +43,8 @@ main := wrap True
 // TestInstanceMethodReferencesChain verifies a chain:
 // assumption -> helper -> instance method -> user code.
 func TestInstanceMethodReferencesChain(t *testing.T) {
-	eng := gicel.NewEngine()
-	_ = gicel.Prelude(eng)
+	eng := NewEngine()
+	_ = stdlib.Prelude(eng)
 	rt, err := eng.NewRuntime(`
 import Prelude
 
@@ -63,7 +64,7 @@ main := scale 3 10
 	if err != nil {
 		t.Fatalf("runtime: %v", err)
 	}
-	hv, ok := r.Value.(*gicel.HostVal)
+	hv, ok := r.Value.(*eval.HostVal)
 	if !ok {
 		t.Fatalf("expected HostVal, got %T", r.Value)
 	}

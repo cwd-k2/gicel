@@ -1,10 +1,11 @@
-package gicel_test
+package engine
 
 import (
 	"context"
 	"testing"
 
-	"github.com/cwd-k2/gicel"
+	"github.com/cwd-k2/gicel/internal/eval"
+	"github.com/cwd-k2/gicel/internal/stdlib"
 )
 
 // ---------------------------------------------------------------------------
@@ -12,7 +13,7 @@ import (
 // ---------------------------------------------------------------------------
 
 func TestDataKindsDBState(t *testing.T) {
-	eng := gicel.NewEngine()
+	eng := NewEngine()
 	rt, err := eng.NewRuntime(`
 data DBState := Opened | Closed
 data DB s := MkDB
@@ -32,18 +33,18 @@ main := close (open (MkDB :: DB Closed))
 	if err != nil {
 		t.Fatal(err)
 	}
-	con, ok := result.Value.(*gicel.ConVal)
+	con, ok := result.Value.(*eval.ConVal)
 	if !ok || con.Con != "MkDB" {
 		t.Errorf("expected MkDB, got %s", result.Value)
 	}
 }
 
 func TestDataKindsInRow(t *testing.T) {
-	eng := gicel.NewEngine()
-	eng.Use(gicel.Prelude)
-	eng.RegisterType("Int", gicel.KindType())
-	eng.RegisterPrim("readDB", func(ctx context.Context, ce gicel.CapEnv, args []gicel.Value, _ gicel.Applier) (gicel.Value, gicel.CapEnv, error) {
-		return gicel.ToValue(42), ce, nil
+	eng := NewEngine()
+	eng.Use(stdlib.Prelude)
+	eng.RegisterType("Int", KindType())
+	eng.RegisterPrim("readDB", func(ctx context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
+		return ToValue(42), ce, nil
 	})
 	rt, err := eng.NewRuntime(`
 import Prelude
@@ -58,19 +59,19 @@ main := do { readDB () }
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := rt.RunWith(context.Background(), &gicel.RunOptions{Caps: map[string]any{"db": 0}})
+	result, err := rt.RunWith(context.Background(), &RunOptions{Caps: map[string]any{"db": 0}})
 	if err != nil {
 		t.Fatal(err)
 	}
-	v := gicel.MustHost[int](result.Value)
+	v := MustHost[int](result.Value)
 	if v != 42 {
 		t.Errorf("expected 42, got %d", v)
 	}
 }
 
 func TestDataKindsBoolPromotion(t *testing.T) {
-	eng := gicel.NewEngine()
-	eng.Use(gicel.Prelude)
+	eng := NewEngine()
+	eng.Use(stdlib.Prelude)
 	rt, err := eng.NewRuntime(`
 import Prelude
 data Proxy s := MkProxy
@@ -83,7 +84,7 @@ main := (MkProxy :: Proxy True)
 	if err != nil {
 		t.Fatal(err)
 	}
-	con, ok := result.Value.(*gicel.ConVal)
+	con, ok := result.Value.(*eval.ConVal)
 	if !ok || con.Con != "MkProxy" {
 		t.Errorf("expected MkProxy, got %s", result.Value)
 	}
@@ -92,8 +93,8 @@ main := (MkProxy :: Proxy True)
 // --- GADT integration tests ---
 
 func TestGADTEvalExpr(t *testing.T) {
-	eng := gicel.NewEngine()
-	eng.Use(gicel.Prelude)
+	eng := NewEngine()
+	eng.Use(stdlib.Prelude)
 	eng.EnableRecursion()
 	rt, err := eng.NewRuntime(`
 import Prelude
@@ -114,14 +115,14 @@ main := eval (Not (LitBool True))
 	if err != nil {
 		t.Fatal(err)
 	}
-	con, ok := result.Value.(*gicel.ConVal)
+	con, ok := result.Value.(*eval.ConVal)
 	if !ok || con.Con != "False" {
 		t.Errorf("expected False, got %s", result.Value)
 	}
 }
 
 func TestGADTWithDataKinds(t *testing.T) {
-	eng := gicel.NewEngine()
+	eng := NewEngine()
 	rt, err := eng.NewRuntime(`
 data DBState := Opened | Closed
 data DB s := MkDB
@@ -140,15 +141,15 @@ main := describe Open
 	if err != nil {
 		t.Fatal(err)
 	}
-	con, ok := result.Value.(*gicel.ConVal)
+	con, ok := result.Value.(*eval.ConVal)
 	if !ok || con.Con != "MkDB" {
 		t.Errorf("expected MkDB, got %s", result.Value)
 	}
 }
 
 func TestGADTNestedPattern(t *testing.T) {
-	eng := gicel.NewEngine()
-	eng.Use(gicel.Prelude)
+	eng := NewEngine()
+	eng.Use(stdlib.Prelude)
 	rt, err := eng.NewRuntime(`
 import Prelude
 data Expr a := { LitBool :: Bool -> Expr Bool; Not :: Expr Bool -> Expr Bool }
@@ -172,7 +173,7 @@ main := isDoubleNeg (Not (Not (LitBool True)))
 	if err != nil {
 		t.Fatal(err)
 	}
-	con, ok := result.Value.(*gicel.ConVal)
+	con, ok := result.Value.(*eval.ConVal)
 	if !ok || con.Con != "True" {
 		t.Errorf("expected True, got %s", result.Value)
 	}

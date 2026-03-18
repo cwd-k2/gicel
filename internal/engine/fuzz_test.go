@@ -1,4 +1,4 @@
-package gicel_test
+package engine
 
 import (
 	"context"
@@ -7,7 +7,6 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/cwd-k2/gicel"
 	"github.com/cwd-k2/gicel/internal/budget"
 	"github.com/cwd-k2/gicel/internal/check"
 	"github.com/cwd-k2/gicel/internal/core"
@@ -78,7 +77,7 @@ func FuzzCheck(f *testing.F) {
 	f.Add([]byte("f :: Int -> Int; f := \\x. x; main := f 42"))
 
 	f.Fuzz(func(t *testing.T, src []byte) {
-		eng := gicel.NewEngine()
+		eng := NewEngine()
 		eng.Compile(string(src)) // panics are the signal; compile/type errors are expected
 	})
 }
@@ -119,7 +118,7 @@ func FuzzEval(f *testing.F) {
 	f.Add([]byte("data Pair a b := MkPair a b; main := MkPair True False"))
 
 	f.Fuzz(func(t *testing.T, src []byte) {
-		_, err := gicel.RunSandbox(string(src), &gicel.SandboxConfig{
+		_, err := RunSandbox(string(src), &SandboxConfig{
 			MaxSteps: 10_000,
 			MaxDepth: 50,
 			MaxAlloc: 1024 * 1024, // 1 MiB

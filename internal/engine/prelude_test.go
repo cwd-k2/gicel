@@ -1,11 +1,12 @@
-package gicel_test
+package engine
 
 import (
 	"context"
 	"strings"
 	"testing"
 
-	"github.com/cwd-k2/gicel"
+	"github.com/cwd-k2/gicel/internal/eval"
+	"github.com/cwd-k2/gicel/internal/stdlib"
 )
 
 // ---------------------------------------------------------------------------
@@ -14,10 +15,10 @@ import (
 // ---------------------------------------------------------------------------
 
 // runPure compiles a source fragment (with Prelude) and evaluates "main".
-func runPure(t *testing.T, source string) gicel.Value {
+func runPure(t *testing.T, source string) eval.Value {
 	t.Helper()
-	eng := gicel.NewEngine()
-	if err := gicel.Prelude(eng); err != nil {
+	eng := NewEngine()
+	if err := stdlib.Prelude(eng); err != nil {
 		t.Fatal(err)
 	}
 	if !strings.Contains(source, "import Prelude") {
@@ -34,9 +35,9 @@ func runPure(t *testing.T, source string) gicel.Value {
 	return result.Value
 }
 
-func assertConVal(t *testing.T, v gicel.Value, name string) {
+func assertConVal(t *testing.T, v eval.Value, name string) {
 	t.Helper()
-	con, ok := v.(*gicel.ConVal)
+	con, ok := v.(*eval.ConVal)
 	if !ok {
 		t.Fatalf("expected ConVal(%s), got %T: %v", name, v, v)
 	}
@@ -45,9 +46,9 @@ func assertConVal(t *testing.T, v gicel.Value, name string) {
 	}
 }
 
-func assertHostInt(t *testing.T, v gicel.Value, expected int64) {
+func assertHostInt(t *testing.T, v eval.Value, expected int64) {
 	t.Helper()
-	hv, ok := v.(*gicel.HostVal)
+	hv, ok := v.(*eval.HostVal)
 	if !ok {
 		t.Fatalf("expected HostVal(%d), got %T: %v", expected, v, v)
 	}
@@ -200,7 +201,7 @@ func TestPreludeSnd(t *testing.T) {
 func TestPreludeHead(t *testing.T) {
 	v := runPure(t, `main := head (Cons True Nil)`)
 	assertConVal(t, v, "Just")
-	con := v.(*gicel.ConVal)
+	con := v.(*eval.ConVal)
 	assertConVal(t, con.Args[0], "True")
 }
 
@@ -236,7 +237,7 @@ func TestPreludeNullNonEmpty(t *testing.T) {
 func TestPreludeMap(t *testing.T) {
 	v := runPure(t, `main := map not (Cons True (Cons False Nil))`)
 	assertConVal(t, v, "Cons")
-	con := v.(*gicel.ConVal)
+	con := v.(*eval.ConVal)
 	assertConVal(t, con.Args[0], "False") // not True
 }
 
@@ -247,7 +248,7 @@ func TestPreludeFilter(t *testing.T) {
 	// filter not [True, False, True] → not True = False (drop), not False = True (keep), not True = False (drop) → [False]
 	v := runPure(t, `main := filter not (Cons True (Cons False (Cons True Nil)))`)
 	assertConVal(t, v, "Cons")
-	con := v.(*gicel.ConVal)
+	con := v.(*eval.ConVal)
 	assertConVal(t, con.Args[0], "False")
 	assertConVal(t, con.Args[1], "Nil")
 }
@@ -265,7 +266,7 @@ main := filter always (Cons True (Cons False Nil))
 func TestPreludeSingleton(t *testing.T) {
 	v := runPure(t, `main := singleton True`)
 	assertConVal(t, v, "Cons")
-	con := v.(*gicel.ConVal)
+	con := v.(*eval.ConVal)
 	assertConVal(t, con.Args[0], "True")
 	assertConVal(t, con.Args[1], "Nil")
 }
@@ -372,7 +373,7 @@ main := f True
 func TestApplicativeList(t *testing.T) {
 	// wrap 42 = [42]
 	v := runPure(t, "import Prelude\nmain := wrap 42 :: List Int")
-	con := v.(*gicel.ConVal)
+	con := v.(*eval.ConVal)
 	if con.Con != "Cons" {
 		t.Fatalf("expected Cons, got %s", con.Con)
 	}
@@ -383,12 +384,12 @@ func TestApplicativeList(t *testing.T) {
 func TestApplicativeListAp(t *testing.T) {
 	// ap [not] [True, False] = [False, True]
 	v := runPure(t, `main := ap (Cons not Nil) (Cons True (Cons False Nil))`)
-	con := v.(*gicel.ConVal)
+	con := v.(*eval.ConVal)
 	if con.Con != "Cons" {
 		t.Fatalf("expected Cons, got %s", con.Con)
 	}
 	assertConVal(t, con.Args[0], "False")
-	con2 := con.Args[1].(*gicel.ConVal)
+	con2 := con.Args[1].(*eval.ConVal)
 	assertConVal(t, con2.Args[0], "True")
 	assertConVal(t, con2.Args[1], "Nil")
 }
@@ -415,7 +416,7 @@ func TestOrdResultErrLtOk(t *testing.T) {
 
 func TestFunctorResult(t *testing.T) {
 	v := runPure(t, `main := fmap not (Ok True)`)
-	con := v.(*gicel.ConVal)
+	con := v.(*eval.ConVal)
 	if con.Con != "Ok" {
 		t.Fatalf("expected Ok, got %s", con.Con)
 	}
@@ -429,7 +430,7 @@ func TestFunctorResultErr(t *testing.T) {
 
 func TestFoldableResult(t *testing.T) {
 	v := runPure(t, `main := foldr (\x _. Just x) Nothing (Ok True)`)
-	con := v.(*gicel.ConVal)
+	con := v.(*eval.ConVal)
 	if con.Con != "Just" {
 		t.Fatalf("expected Just, got %s", con.Con)
 	}
@@ -484,7 +485,7 @@ func TestPipeChain(t *testing.T) {
 
 func TestFmapOp(t *testing.T) {
 	v := runPure(t, `main := not <$> Just True`)
-	con := v.(*gicel.ConVal)
+	con := v.(*eval.ConVal)
 	if con.Con != "Just" {
 		t.Fatalf("expected Just, got %s", con.Con)
 	}
@@ -493,7 +494,7 @@ func TestFmapOp(t *testing.T) {
 
 func TestFlippedFmapOp(t *testing.T) {
 	v := runPure(t, `main := Just True <&> not`)
-	con := v.(*gicel.ConVal)
+	con := v.(*eval.ConVal)
 	if con.Con != "Just" {
 		t.Fatalf("expected Just, got %s", con.Con)
 	}
@@ -502,7 +503,7 @@ func TestFlippedFmapOp(t *testing.T) {
 
 func TestApOp(t *testing.T) {
 	v := runPure(t, `main := Just not <*> Just True`)
-	con := v.(*gicel.ConVal)
+	con := v.(*eval.ConVal)
 	if con.Con != "Just" {
 		t.Fatalf("expected Just, got %s", con.Con)
 	}
@@ -511,7 +512,7 @@ func TestApOp(t *testing.T) {
 
 func TestSequenceRight(t *testing.T) {
 	v := runPure(t, `main := Just True *> Just False`)
-	con := v.(*gicel.ConVal)
+	con := v.(*eval.ConVal)
 	if con.Con != "Just" {
 		t.Fatalf("expected Just, got %s", con.Con)
 	}
@@ -520,7 +521,7 @@ func TestSequenceRight(t *testing.T) {
 
 func TestSequenceLeft(t *testing.T) {
 	v := runPure(t, `main := Just True <* Just False`)
-	con := v.(*gicel.ConVal)
+	con := v.(*eval.ConVal)
 	if con.Con != "Just" {
 		t.Fatalf("expected Just, got %s", con.Con)
 	}
@@ -529,7 +530,7 @@ func TestSequenceLeft(t *testing.T) {
 
 func TestReverseBind(t *testing.T) {
 	v := runPure(t, `main := (\x. Just (not x)) =<< Just True`)
-	con := v.(*gicel.ConVal)
+	con := v.(*eval.ConVal)
 	if con.Con != "Just" {
 		t.Fatalf("expected Just, got %s", con.Con)
 	}
@@ -541,7 +542,7 @@ func TestKleisliLR(t *testing.T) {
 f := (\x. Just (not x)) >=> (\y. Just (not y))
 main := f True
 `)
-	con := v.(*gicel.ConVal)
+	con := v.(*eval.ConVal)
 	if con.Con != "Just" {
 		t.Fatalf("expected Just, got %s", con.Con)
 	}
@@ -629,7 +630,7 @@ func TestUncurry(t *testing.T) {
 
 func TestMjoin(t *testing.T) {
 	v := runPure(t, `main := mjoin (Just (Just True))`)
-	con := v.(*gicel.ConVal)
+	con := v.(*eval.ConVal)
 	if con.Con != "Just" {
 		t.Fatalf("expected Just, got %s", con.Con)
 	}
@@ -643,7 +644,7 @@ func TestMjoinNothing(t *testing.T) {
 
 func TestVoid(t *testing.T) {
 	v := runPure(t, `main := void (Just True)`)
-	con := v.(*gicel.ConVal)
+	con := v.(*eval.ConVal)
 	if con.Con != "Just" {
 		t.Fatalf("expected Just, got %s", con.Con)
 	}
@@ -651,7 +652,7 @@ func TestVoid(t *testing.T) {
 
 func TestLiftA2(t *testing.T) {
 	v := runPure(t, `main := liftA2 const (Just True) (Just False)`)
-	con := v.(*gicel.ConVal)
+	con := v.(*eval.ConVal)
 	if con.Con != "Just" {
 		t.Fatalf("expected Just, got %s", con.Con)
 	}
@@ -661,7 +662,7 @@ func TestLiftA2(t *testing.T) {
 func TestFoldMap(t *testing.T) {
 	// foldMap singleton [1,2,3] = [1,2,3] (Monoid for List is append)
 	v := runPure(t, "import Prelude\nmain := foldMap singleton (Cons 1 (Cons 2 Nil))")
-	con := v.(*gicel.ConVal)
+	con := v.(*eval.ConVal)
 	if con.Con != "Cons" {
 		t.Fatalf("expected Cons, got %s", con.Con)
 	}
@@ -671,7 +672,7 @@ func TestFoldMap(t *testing.T) {
 func TestToList(t *testing.T) {
 	// toList (Just True) = [True] via Foldable Maybe
 	v := runPure(t, `main := toList (Just True)`)
-	con := v.(*gicel.ConVal)
+	con := v.(*eval.ConVal)
 	if con.Con != "Cons" {
 		t.Fatalf("expected Cons, got %s", con.Con)
 	}
@@ -690,7 +691,7 @@ func TestToListNothing(t *testing.T) {
 
 func TestFind(t *testing.T) {
 	v := runPure(t, `main := find not (Cons True (Cons False Nil))`)
-	con := v.(*gicel.ConVal)
+	con := v.(*eval.ConVal)
 	if con.Con != "Just" {
 		t.Fatalf("expected Just, got %s", con.Con)
 	}
@@ -754,7 +755,7 @@ func TestOrFalse(t *testing.T) {
 
 func TestLookup(t *testing.T) {
 	v := runPure(t, "import Prelude\nmain := lookup 2 (Cons (1, True) (Cons (2, False) Nil))")
-	con := v.(*gicel.ConVal)
+	con := v.(*eval.ConVal)
 	if con.Con != "Just" {
 		t.Fatalf("expected Just, got %s", con.Con)
 	}
@@ -769,9 +770,9 @@ func TestLookupMissing(t *testing.T) {
 func TestConcatMap(t *testing.T) {
 	// concatMap (\x. Cons x (Cons x Nil)) [True] = [True, True]
 	v := runPure(t, `main := concatMap (\x. Cons x (Cons x Nil)) (Cons True Nil)`)
-	con := v.(*gicel.ConVal)
+	con := v.(*eval.ConVal)
 	assertConVal(t, con.Args[0], "True")
-	con2 := con.Args[1].(*gicel.ConVal)
+	con2 := con.Args[1].(*eval.ConVal)
 	assertConVal(t, con2.Args[0], "True")
 	assertConVal(t, con2.Args[1], "Nil")
 }
@@ -787,9 +788,9 @@ func TestFlatten(t *testing.T) {
 
 func TestCatMaybes(t *testing.T) {
 	v := runPure(t, `main := catMaybes (Cons (Just True) (Cons Nothing (Cons (Just False) Nil)))`)
-	con := v.(*gicel.ConVal)
+	con := v.(*eval.ConVal)
 	assertConVal(t, con.Args[0], "True")
-	con2 := con.Args[1].(*gicel.ConVal)
+	con2 := con.Args[1].(*eval.ConVal)
 	assertConVal(t, con2.Args[0], "False")
 	assertConVal(t, con2.Args[1], "Nil")
 }
@@ -797,9 +798,9 @@ func TestCatMaybes(t *testing.T) {
 func TestMapMaybe(t *testing.T) {
 	// mapMaybe (\x. case x { True -> Just False; False -> Nothing }) [True, False, True]
 	v := runPure(t, `main := mapMaybe (\x. case x { True -> Just False; False -> Nothing }) (Cons True (Cons False (Cons True Nil)))`)
-	con := v.(*gicel.ConVal)
+	con := v.(*eval.ConVal)
 	assertConVal(t, con.Args[0], "False")
-	con2 := con.Args[1].(*gicel.ConVal)
+	con2 := con.Args[1].(*eval.ConVal)
 	assertConVal(t, con2.Args[0], "False")
 	assertConVal(t, con2.Args[1], "Nil")
 }
@@ -809,16 +810,16 @@ func TestPartition(t *testing.T) {
 	// partition not [T,F,T] → falses=[T,T], trues=[F]... wait, not True = False, not False = True
 	// partition predicate splits: True-branch (predicate holds) = [False], False-branch = [True, True]
 	// fst = True-branch = [False]
-	con := v.(*gicel.ConVal)
+	con := v.(*eval.ConVal)
 	assertConVal(t, con.Args[0], "False")
 	assertConVal(t, con.Args[1], "Nil")
 }
 
 func TestTakeWhile(t *testing.T) {
 	v := runPure(t, `main := takeWhile not (Cons False (Cons False (Cons True Nil)))`)
-	con := v.(*gicel.ConVal)
+	con := v.(*eval.ConVal)
 	assertConVal(t, con.Args[0], "False")
-	con2 := con.Args[1].(*gicel.ConVal)
+	con2 := con.Args[1].(*eval.ConVal)
 	assertConVal(t, con2.Args[0], "False")
 	assertConVal(t, con2.Args[1], "Nil")
 }
@@ -878,7 +879,7 @@ func TestFunctorResultWithConstraint(t *testing.T) {
 	// produced a Closure due to instance duplication from transitive imports.
 	v := runPure(t, `import Prelude
 main := fmap (\x. x + 1) (Ok 5)`)
-	con := v.(*gicel.ConVal)
+	con := v.(*eval.ConVal)
 	if con.Con != "Ok" {
 		t.Fatalf("expected Ok, got %s", con.Con)
 	}
@@ -932,7 +933,7 @@ func TestAlternativeMaybeNone(t *testing.T) {
 
 func TestAlternativeMaybeAltJust(t *testing.T) {
 	v := runPure(t, `main := alt (Just True) (Just False)`)
-	con := v.(*gicel.ConVal)
+	con := v.(*eval.ConVal)
 	if con.Con != "Just" {
 		t.Fatalf("expected Just, got %s", con.Con)
 	}
@@ -941,7 +942,7 @@ func TestAlternativeMaybeAltJust(t *testing.T) {
 
 func TestAlternativeMaybeAltNothing(t *testing.T) {
 	v := runPure(t, `main := alt Nothing (Just False)`)
-	con := v.(*gicel.ConVal)
+	con := v.(*eval.ConVal)
 	if con.Con != "Just" {
 		t.Fatalf("expected Just, got %s", con.Con)
 	}
@@ -955,7 +956,7 @@ func TestAlternativeListNone(t *testing.T) {
 
 func TestAlternativeOperator(t *testing.T) {
 	v := runPure(t, `main := Nothing <|> Just True`)
-	con := v.(*gicel.ConVal)
+	con := v.(*eval.ConVal)
 	if con.Con != "Just" {
 		t.Fatalf("expected Just, got %s", con.Con)
 	}
@@ -963,7 +964,7 @@ func TestAlternativeOperator(t *testing.T) {
 
 func TestGuardTrue(t *testing.T) {
 	v := runPure(t, `main := guard True :: Maybe ()`)
-	con := v.(*gicel.ConVal)
+	con := v.(*eval.ConVal)
 	if con.Con != "Just" {
 		t.Fatalf("expected Just, got %s", con.Con)
 	}
@@ -976,11 +977,11 @@ func TestGuardFalse(t *testing.T) {
 
 // --- helpers ---
 
-func listToSliceTest(t *testing.T, v gicel.Value) []gicel.Value {
+func listToSliceTest(t *testing.T, v eval.Value) []eval.Value {
 	t.Helper()
-	var result []gicel.Value
+	var result []eval.Value
 	for {
-		con, ok := v.(*gicel.ConVal)
+		con, ok := v.(*eval.ConVal)
 		if !ok {
 			t.Fatalf("expected ConVal, got %T", v)
 		}

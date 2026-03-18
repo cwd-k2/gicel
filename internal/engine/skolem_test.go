@@ -1,18 +1,19 @@
-package gicel_test
+package engine
 
 import (
 	"context"
 	"strings"
 	"testing"
 
-	"github.com/cwd-k2/gicel"
+	"github.com/cwd-k2/gicel/internal/eval"
+	"github.com/cwd-k2/gicel/internal/stdlib"
 )
 
 // --- Phase 1: Skolem Infrastructure ---
 
 func TestUnifySkolemRigid(t *testing.T) {
-	eng := gicel.NewEngine()
-	eng.Use(gicel.Prelude)
+	eng := NewEngine()
+	eng.Use(stdlib.Prelude)
 	_, err := eng.Compile(`
 import Prelude
 not :: Bool -> Bool
@@ -26,8 +27,8 @@ main := not True
 
 func TestUnifySkolemSame(t *testing.T) {
 	// Indirect test: use a GADT constructor with existential that unifies skolem with itself
-	eng := gicel.NewEngine()
-	eng.Use(gicel.Prelude)
+	eng := NewEngine()
+	eng.Use(stdlib.Prelude)
 	_, err := eng.Compile(`
 import Prelude
 data SameTest := { MkSame :: \a. a -> a -> SameTest }
@@ -42,8 +43,8 @@ useIt := \s. case s { MkSame x y -> True }
 // --- Phase 1B: Skolem Escape Check ---
 
 func TestSkolemEscapeDetected(t *testing.T) {
-	eng := gicel.NewEngine()
-	eng.Use(gicel.Prelude)
+	eng := NewEngine()
+	eng.Use(stdlib.Prelude)
 	_, err := eng.Compile(`
 import Prelude
 data Exists := { MkExists :: \a. a -> Exists }
@@ -59,8 +60,8 @@ escape := \e. case e { MkExists x -> x }
 }
 
 func TestSkolemNoEscape(t *testing.T) {
-	eng := gicel.NewEngine()
-	eng.Use(gicel.Prelude)
+	eng := NewEngine()
+	eng.Use(stdlib.Prelude)
 	_, err := eng.Compile(`
 import Prelude
 data Wrapper := { MkWrapper :: \a. a -> Wrapper }
@@ -73,8 +74,8 @@ safe := \w. case w { MkWrapper _ -> True }
 }
 
 func TestSkolemEscapeInMeta(t *testing.T) {
-	eng := gicel.NewEngine()
-	eng.Use(gicel.Prelude)
+	eng := NewEngine()
+	eng.Use(stdlib.Prelude)
 	_, err := eng.Compile(`
 import Prelude
 data SomeVal := { MkSome :: \a. a -> SomeVal }
@@ -88,8 +89,8 @@ leaky := \s. case s { MkSome x -> Just x }
 // --- Phase 2: Existential Types ---
 
 func TestExistentialBasic(t *testing.T) {
-	eng := gicel.NewEngine()
-	eng.Use(gicel.Prelude)
+	eng := NewEngine()
+	eng.Use(stdlib.Prelude)
 	rt, err := eng.NewRuntime(`
 import Prelude
 data SomeEq := { MkSomeEq :: \a. Eq a => a -> SomeEq }
@@ -108,8 +109,8 @@ main := useSomeEq (MkSomeEq True)
 }
 
 func TestExistentialEscapeError(t *testing.T) {
-	eng := gicel.NewEngine()
-	eng.Use(gicel.Prelude)
+	eng := NewEngine()
+	eng.Use(stdlib.Prelude)
 	_, err := eng.Compile(`
 import Prelude
 data SomeEq := { MkSomeEq :: \a. Eq a => a -> SomeEq }
@@ -122,8 +123,8 @@ escape := \s. case s { MkSomeEq x -> x }
 }
 
 func TestExistentialNoConstraint(t *testing.T) {
-	eng := gicel.NewEngine()
-	eng.Use(gicel.Prelude)
+	eng := NewEngine()
+	eng.Use(stdlib.Prelude)
 	rt, err := eng.NewRuntime(`
 import Prelude
 data ExistsF f := { MkExistsF :: \a. f a -> ExistsF f }
@@ -142,8 +143,8 @@ main := useMaybe (MkExistsF (Just True))
 }
 
 func TestExistentialMixed(t *testing.T) {
-	eng := gicel.NewEngine()
-	eng.Use(gicel.Prelude)
+	eng := NewEngine()
+	eng.Use(stdlib.Prelude)
 	rt, err := eng.NewRuntime(`
 import Prelude
 data Wrapper a := { MkWrapper :: \b. (b -> a) -> b -> Wrapper a }
@@ -162,8 +163,8 @@ main := useWrapper (MkWrapper (\x. x) True)
 }
 
 func TestExistentialMultiConstraint(t *testing.T) {
-	eng := gicel.NewEngine()
-	eng.Use(gicel.Prelude)
+	eng := NewEngine()
+	eng.Use(stdlib.Prelude)
 	_, err := eng.Compile(`
 import Prelude
 data ShowOrd := { MkShowOrd :: \a. (Eq a, Ord a) => a -> a -> ShowOrd }
@@ -178,8 +179,8 @@ use := \s. case s { MkShowOrd x y -> compare x y }
 // --- Phase 2D: Existential Integration ---
 
 func TestExistentialWithTypeClass(t *testing.T) {
-	eng := gicel.NewEngine()
-	eng.Use(gicel.Prelude)
+	eng := NewEngine()
+	eng.Use(stdlib.Prelude)
 	rt, err := eng.NewRuntime(`
 import Prelude
 data SomeEq := { MkSomeEq :: \a. Eq a => a -> SomeEq }
@@ -199,8 +200,8 @@ main := isSame (MkSomeEq (Just True))
 }
 
 func TestExistentialWithGADT(t *testing.T) {
-	eng := gicel.NewEngine()
-	eng.Use(gicel.Prelude)
+	eng := NewEngine()
+	eng.Use(stdlib.Prelude)
 	rt, err := eng.NewRuntime(`
 import Prelude
 data Typed a := { MkBool :: Bool -> Typed Bool; MkUnit :: Typed () }
@@ -220,8 +221,8 @@ main := classify (MkSome (MkBool True))
 }
 
 func TestExistentialNestedCase(t *testing.T) {
-	eng := gicel.NewEngine()
-	eng.Use(gicel.Prelude)
+	eng := NewEngine()
+	eng.Use(stdlib.Prelude)
 	rt, err := eng.NewRuntime(`
 import Prelude
 data Wrap := { MkWrap :: \a. Eq a => a -> Wrap }
@@ -243,8 +244,8 @@ main := bothSame (MkWrap True) (MkWrap False)
 // --- Phase 3: Higher-Rank Polymorphism ---
 
 func TestSubsumptionInstantiate(t *testing.T) {
-	eng := gicel.NewEngine()
-	eng.Use(gicel.Prelude)
+	eng := NewEngine()
+	eng.Use(stdlib.Prelude)
 	rt, err := eng.NewRuntime(`
 import Prelude
 id :: \a. a -> a
@@ -264,8 +265,8 @@ main := useBool id
 }
 
 func TestHigherRankBasic(t *testing.T) {
-	eng := gicel.NewEngine()
-	eng.Use(gicel.Prelude)
+	eng := NewEngine()
+	eng.Use(stdlib.Prelude)
 	rt, err := eng.NewRuntime(`
 import Prelude
 applyToTrue :: (\a. a -> a) -> Bool
@@ -286,8 +287,8 @@ main := applyToTrue id
 
 func TestHigherRankAnnotationRequired(t *testing.T) {
 	// Rank-2 types should require annotation on the parameter
-	eng := gicel.NewEngine()
-	eng.Use(gicel.Prelude)
+	eng := NewEngine()
+	eng.Use(stdlib.Prelude)
 	rt, err := eng.NewRuntime(`
 import Prelude
 apply :: (\a. a -> a) -> (Bool, ())
@@ -303,7 +304,7 @@ main := apply id
 	if err != nil {
 		t.Fatal(err)
 	}
-	rv, ok := result.Value.(*gicel.RecordVal)
+	rv, ok := result.Value.(*eval.RecordVal)
 	if !ok || len(rv.Fields) != 2 {
 		t.Errorf("expected tuple (Bool, ()), got %s", result.Value)
 	}
@@ -312,8 +313,8 @@ main := apply id
 // --- Phase 3F: Higher-Rank Integration ---
 
 func TestHigherRankPolymorphicArg(t *testing.T) {
-	eng := gicel.NewEngine()
-	eng.Use(gicel.Prelude)
+	eng := NewEngine()
+	eng.Use(stdlib.Prelude)
 	rt, err := eng.NewRuntime(`
 import Prelude
 runId :: (\a. a -> a) -> (Bool, ())
@@ -329,12 +330,12 @@ main := runId id
 	if err != nil {
 		t.Fatal(err)
 	}
-	rv, ok := result.Value.(*gicel.RecordVal)
+	rv, ok := result.Value.(*eval.RecordVal)
 	if !ok || len(rv.Fields) != 2 {
 		t.Errorf("expected tuple (Bool, ()), got %s", result.Value)
 	}
 	assertConName(t, rv.Fields["_1"], "True")
-	unitField, ok := rv.Fields["_2"].(*gicel.RecordVal)
+	unitField, ok := rv.Fields["_2"].(*eval.RecordVal)
 	if !ok || len(unitField.Fields) != 0 {
 		t.Errorf("expected () in _2, got %s", rv.Fields["_2"])
 	}

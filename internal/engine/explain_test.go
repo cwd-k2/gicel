@@ -1,21 +1,23 @@
-package gicel_test
+package engine
 
 import (
 	"context"
 	"encoding/json"
 	"testing"
 
-	"github.com/cwd-k2/gicel"
+	"github.com/cwd-k2/gicel/internal/check"
+	"github.com/cwd-k2/gicel/internal/eval"
+	"github.com/cwd-k2/gicel/internal/stdlib"
 )
 
 // ── Explain: line numbers (#4) ──
 
 func TestExplainStepHasLineNumbers(t *testing.T) {
-	eng := gicel.NewEngine()
-	eng.Use(gicel.Prelude)
-	_ = eng.Use(gicel.EffectState)
+	eng := NewEngine()
+	eng.Use(stdlib.Prelude)
+	_ = eng.Use(stdlib.State)
 
-	var steps []gicel.ExplainStep
+	var steps []eval.ExplainStep
 
 	// Lines:
 	// 1: import Effect.State
@@ -27,17 +29,17 @@ func TestExplainStepHasLineNumbers(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = rt.RunWith(context.Background(), &gicel.RunOptions{
-		Explain: func(s gicel.ExplainStep) { steps = append(steps, s) },
+	_, err = rt.RunWith(context.Background(), &RunOptions{
+		Explain: func(s eval.ExplainStep) { steps = append(steps, s) },
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	// Filter to effect events (put, get) — these should have line numbers.
-	var effects []gicel.ExplainStep
+	var effects []eval.ExplainStep
 	for _, s := range steps {
-		if s.Kind == gicel.ExplainEffect {
+		if s.Kind == eval.ExplainEffect {
 			effects = append(effects, s)
 		}
 	}
@@ -53,33 +55,33 @@ func TestExplainStepHasLineNumbers(t *testing.T) {
 }
 
 func TestExplainLineNumbersForBindAndMatch(t *testing.T) {
-	eng := gicel.NewEngine()
-	eng.Use(gicel.Prelude)
+	eng := NewEngine()
+	eng.Use(stdlib.Prelude)
 
 	// Use an opaque binding so the optimizer cannot eliminate the bind.
-	eng.DeclareBinding("getBool", gicel.CompType(
-		gicel.EmptyRowType(), gicel.EmptyRowType(), gicel.ConType("Bool"),
+	eng.DeclareBinding("getBool", CompType(
+		EmptyRowType(), EmptyRowType(), ConType("Bool"),
 	))
 
-	var steps []gicel.ExplainStep
+	var steps []eval.ExplainStep
 	rt, err := eng.NewRuntime("import Prelude\nmain := do {\n  x <- getBool;\n  case x {\n    True -> pure x;\n    False -> pure x\n  }\n}")
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = rt.RunWith(context.Background(), &gicel.RunOptions{
-		Bindings: map[string]gicel.Value{"getBool": &gicel.ConVal{Con: "True"}},
-		Explain:  func(s gicel.ExplainStep) { steps = append(steps, s) },
+	_, err = rt.RunWith(context.Background(), &RunOptions{
+		Bindings: map[string]eval.Value{"getBool": &eval.ConVal{Con: "True"}},
+		Explain:  func(s eval.ExplainStep) { steps = append(steps, s) },
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	var binds, matches []gicel.ExplainStep
+	var binds, matches []eval.ExplainStep
 	for _, s := range steps {
 		switch s.Kind {
-		case gicel.ExplainBind:
+		case eval.ExplainBind:
 			binds = append(binds, s)
-		case gicel.ExplainMatch:
+		case eval.ExplainMatch:
 			matches = append(matches, s)
 		}
 	}
@@ -102,17 +104,17 @@ func TestExplainLineNumbersForBindAndMatch(t *testing.T) {
 // ── Explain: JSON output (#6) ──
 
 func TestExplainStepJSON(t *testing.T) {
-	eng := gicel.NewEngine()
-	eng.Use(gicel.Prelude)
-	_ = eng.Use(gicel.EffectState)
+	eng := NewEngine()
+	eng.Use(stdlib.Prelude)
+	_ = eng.Use(stdlib.State)
 
-	var steps []gicel.ExplainStep
+	var steps []eval.ExplainStep
 	rt, err := eng.NewRuntime("import Effect.State\nmain := do {\n  _ <- put 42;\n  get\n}")
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = rt.RunWith(context.Background(), &gicel.RunOptions{
-		Explain: func(s gicel.ExplainStep) { steps = append(steps, s) },
+	_, err = rt.RunWith(context.Background(), &RunOptions{
+		Explain: func(s eval.ExplainStep) { steps = append(steps, s) },
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -137,11 +139,11 @@ func TestExplainStepJSON(t *testing.T) {
 // ── Explain: function call boundaries (#5) and stdlib suppression (#7) ──
 
 func TestExplainFunctionBoundaries(t *testing.T) {
-	eng := gicel.NewEngine()
-	_ = eng.Use(gicel.Prelude)
-	_ = eng.Use(gicel.EffectState)
+	eng := NewEngine()
+	_ = eng.Use(stdlib.Prelude)
+	_ = eng.Use(stdlib.State)
 
-	var steps []gicel.ExplainStep
+	var steps []eval.ExplainStep
 	rt, err := eng.NewRuntime(`
 import Prelude
 import Effect.State
@@ -161,8 +163,8 @@ main := do {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = rt.RunWith(context.Background(), &gicel.RunOptions{
-		Explain: func(s gicel.ExplainStep) { steps = append(steps, s) },
+	_, err = rt.RunWith(context.Background(), &RunOptions{
+		Explain: func(s eval.ExplainStep) { steps = append(steps, s) },
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -171,7 +173,7 @@ main := do {
 	// Count "enter" label events for the user-defined "step" function.
 	enterCount := 0
 	for _, s := range steps {
-		if s.Kind == gicel.ExplainLabel && s.Detail.LabelKind == "enter" && s.Detail.Name == "step" {
+		if s.Kind == eval.ExplainLabel && s.Detail.LabelKind == "enter" && s.Detail.Name == "step" {
 			enterCount++
 		}
 	}
@@ -181,11 +183,11 @@ main := do {
 }
 
 func TestExplainStdlibSuppression(t *testing.T) {
-	eng := gicel.NewEngine()
-	_ = eng.Use(gicel.Prelude)
-	_ = eng.Use(gicel.EffectState)
+	eng := NewEngine()
+	_ = eng.Use(stdlib.Prelude)
+	_ = eng.Use(stdlib.State)
 
-	var steps []gicel.ExplainStep
+	var steps []eval.ExplainStep
 	rt, err := eng.NewRuntime(`
 import Prelude
 import Effect.State
@@ -199,8 +201,8 @@ main := do {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = rt.RunWith(context.Background(), &gicel.RunOptions{
-		Explain: func(s gicel.ExplainStep) { steps = append(steps, s) },
+	_, err = rt.RunWith(context.Background(), &RunOptions{
+		Explain: func(s eval.ExplainStep) { steps = append(steps, s) },
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -209,14 +211,14 @@ main := do {
 	// When stdlib suppression is active, modify's internal get/s/put
 	// should NOT appear. Only the user-level effects should be visible.
 	for _, s := range steps {
-		if s.Kind == gicel.ExplainBind && s.Detail.Var == "s" && s.Detail.Value == "0" {
+		if s.Kind == eval.ExplainBind && s.Detail.Var == "s" && s.Detail.Value == "0" {
 			t.Errorf("stdlib internal bind 's ← 0' should be suppressed")
 		}
 	}
 }
 
 func TestExplainKindNegativeJSON(t *testing.T) {
-	step := gicel.ExplainStep{Kind: gicel.ExplainKind(-1)}
+	step := eval.ExplainStep{Kind: eval.ExplainKind(-1)}
 	data, err := json.Marshal(step)
 	if err != nil {
 		t.Fatalf("should not error: %v", err)
@@ -231,8 +233,8 @@ func TestExplainKindNegativeJSON(t *testing.T) {
 }
 
 func TestTraceHookViaRunWith(t *testing.T) {
-	eng := gicel.NewEngine()
-	eng.Use(gicel.Prelude)
+	eng := NewEngine()
+	eng.Use(stdlib.Prelude)
 	rt, err := eng.NewRuntime(`
 import Prelude
 main := True
@@ -240,9 +242,9 @@ main := True
 	if err != nil {
 		t.Fatal(err)
 	}
-	var events []gicel.TraceEvent
-	_, err = rt.RunWith(context.Background(), &gicel.RunOptions{
-		Trace: func(e gicel.TraceEvent) error {
+	var events []eval.TraceEvent
+	_, err = rt.RunWith(context.Background(), &RunOptions{
+		Trace: func(e eval.TraceEvent) error {
 			events = append(events, e)
 			return nil
 		},
@@ -256,9 +258,9 @@ main := True
 }
 
 func TestSetCheckTraceHookPublicAPI(t *testing.T) {
-	eng := gicel.NewEngine()
-	var events []gicel.CheckTraceEvent
-	eng.SetCheckTraceHook(func(e gicel.CheckTraceEvent) {
+	eng := NewEngine()
+	var events []check.CheckTraceEvent
+	eng.SetCheckTraceHook(func(e check.CheckTraceEvent) {
 		events = append(events, e)
 	})
 	_, err := eng.Compile(`
