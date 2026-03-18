@@ -111,60 +111,69 @@ cd examples/cli/multi-module
 # → (3, "red", 6)
 ```
 
-## Test Directory Strategy
+## Test Strategy
+
+### Directory layout
 
 ```
-internal/engine/*_test.go        # integration tests — Engine/Runtime 経由の end-to-end
 internal/*/_test.go              # unit tests — パッケージ内部の関数・型を直接テスト
+internal/engine/*_test.go        # integration tests — Engine/Runtime 経由の end-to-end
 tests/probe/                     # adversarial probe tests (build tag: probe)
 tests/stress/                    # stress tests — 大規模入力・リソース境界
-internal/check/*_probe_test.go   # checker probe tests (build tag: probe)
-internal/syntax/parse/*_probe_test.go  # parser probe tests (build tag: probe)
 ```
 
-**Build tags:**
-- `probe` テストは `//go:build probe` 付き。`go test ./...` では実行されない。`go test -tags probe ./...` で明示実行。
-- `stress` テストはタグなし。`go test ./tests/stress/` で実行。
+パッケージ内 probe: `internal/check/*_probe_test.go`, `internal/syntax/parse/*_probe_test.go`, `internal/eval/*_probe_test.go`
 
-**配置ルール:**
-- パッケージ内部のロジックをテストする場合 → `internal/*/` に配置
-- Engine/Runtime 経由の統合テスト → `internal/engine/` に配置
-- 敵対的入力・境界探索（probe） → `tests/probe/` または対象パッケージの `*_probe_test.go`（build tag 必須）
-- 負荷・大規模テスト（stress） → `tests/stress/`
+### Build tags
 
-## Test Naming Convention
+- `probe`: `//go:build probe` 付き。`go test ./...` では実行されない。`go test -tags probe ./...` で明示実行。
+- `stress`: タグなし。`go test ./tests/stress/` で実行。
 
-Pattern: `<feature>[_probe][_<topic>][_<tier>]_test.go`
+### File naming
 
-左から右にスコープが狭まる:
-- **feature** (必須): テスト対象 (`evidence`, `type_family`, `unify`, `hkt`, ...)
-- **probe** (optional): adversarial boundary testing (`//go:build probe`)
-- **topic** (optional): feature 内の焦点 (`_resolve`, `_reduction`, `_kind`, ...)
-- **tier** (optional): テスト手法 (`_stress`, `_unit`, `_pathological`, `_interaction`)
+実装・テストとも同じ規則に従う:
+
+```
+<feature>[_<topic>]*[_NNNN][_probe].go      — 実装
+<feature>[_<topic>]*[_NNNN][_probe]_test.go  — テスト
+```
+
+| Position | Role | Notes |
+|----------|------|-------|
+| `<feature>` | 主ドメイン (必須) | `evidence`, `type_family`, `eval`, `lexer`, ... |
+| `[_<topic>]*` | スコープ絞り込み (0個以上) | `_resolve`, `_reduction`, `_unit`, `_stress`, ... |
+| `[_NNNN]` | 連番 (optional) | 500行超で分割が必要なとき: `_0001`, `_0002`, ... |
+| `[_probe]` | ビルド修飾子 (optional) | `_test` と常に隣接。`//go:build probe` 付き |
+
+**テストファイル名は対応する実装ファイル名に近接させる。**
+`evidence.go` → `evidence_test.go`, `evidence_resolve_test.go`, `evidence_probe_test.go`
+
+**500行を超えるファイルは分割を検討する。** 連番 `_NNNN` は内容による分割名が見つからないときの最終手段。
 
 例:
 ```
-evidence_test.go               — evidence 標準テスト
-evidence_probe_test.go         — evidence adversarial (probe tag)
-evidence_resolve_test.go       — evidence 解決ロジック
-evidence_sort_stress_test.go   — evidence sort stress
-type_family_reduction_unit_test.go — TF reduction algorithm unit
+evidence_test.go                    — evidence.go の標準テスト
+evidence_resolve_test.go            — resolve.go のテスト (evidence feature)
+evidence_sort_stress_test.go        — evidence sort のストレステスト
+evidence_probe_test.go              — evidence adversarial (probe tag)
+type_family_reduction_unit_test.go  — type_family.go の reduction algorithm unit
 ```
 
-**テストの追加先:**
-1. `ls <feature>_*` で関連ファイルを確認
-2. 該当ファイルが無ければ `<feature>_test.go` を作成 (header comment 必須)
-3. Adversarial → `<feature>_probe[_<topic>]_test.go` (probe tag)
-4. Unit (unexported) → `<feature>_<topic>_unit_test.go`
-5. Stress → `<feature>[_<topic>]_stress_test.go`
+**tests/probe/ ディレクトリ**: 全ファイルが probe なので `_probe` 不要。feature 名のみ。
 
-**tests/probe/ ディレクトリ**: 全ファイルが probe なので `_probe` marker 不要。feature 名のみ。
+### File header (必須)
 
-**File header** (必須):
 ```go
 // <Feature> [probe] tests — <scope>.
 // Does NOT cover: <related files>.
 ```
+
+### テスト追加先の決定
+
+1. `ls <feature>*_test.go` で関連ファイルを確認
+2. 該当ファイルが無ければ `<feature>_test.go` を作成
+3. Adversarial → `<feature>[_<topic>]*_probe_test.go` (probe tag 必須)
+4. 500行超 → topic による分割、または `_NNNN` 連番
 
 ## Rules
 
