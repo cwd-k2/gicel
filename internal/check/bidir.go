@@ -587,6 +587,16 @@ func (ch *Checker) checkCaseAlts(scrutTy, resultTy types.Type, scrutCore core.Co
 
 func (ch *Checker) matchArrow(ty types.Type, s span.Span) (types.Type, types.Type) {
 	ty = ch.unifier.Zonk(ty)
+	// Peel foralls: a higher-rank return type (e.g., from mkId :: () -> \a. a -> a)
+	// must be instantiated before arrow decomposition.
+	for {
+		if f, ok := ty.(*types.TyForall); ok {
+			meta := ch.freshMeta(f.Kind)
+			ty = types.Subst(f.Body, f.Var, meta)
+		} else {
+			break
+		}
+	}
 	if arr, ok := ty.(*types.TyArrow); ok {
 		return arr.From, arr.To
 	}

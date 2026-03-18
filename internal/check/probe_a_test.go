@@ -764,13 +764,8 @@ main := applied False
 }
 
 // TestProbeA_HigherRank_ReturnPolyFnDirect — direct application of a
-// higher-rank-returning function. This exercises the matchArrow path.
-// BUG: high — Same as TestProbeA_HigherRank_ReturnPolyFn. Direct
-// application of a function returning `\ a. a -> a` fails because
-// matchArrow does not instantiate the forall returned by infer.
-// The inferred type from `mkId True` is `\ a. a -> a` (forall), and
-// the subsequent application `(mkId True) False` tries to decompose
-// this forall as an arrow type, which fails.
+// higher-rank-returning function. matchArrow now instantiates foralls
+// before arrow decomposition, so this succeeds.
 func TestProbeA_HigherRank_ReturnPolyFnDirect(t *testing.T) {
 	source := `
 data Bool := True | False
@@ -780,12 +775,7 @@ mkId := \b. \x. x
 
 main := (mkId True) False
 `
-	// BUG: high — This should succeed but produces E0204:
-	// "expected function type, got \a. a -> a"
-	errMsg := checkSourceExpectError(t, source, nil)
-	if !strings.Contains(errMsg, "function type") {
-		t.Logf("Error (known bug — matchArrow vs forall): %s", errMsg)
-	}
+	checkSource(t, source, nil)
 }
 
 // =====================================================================

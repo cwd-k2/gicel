@@ -70,6 +70,7 @@ func (p *Parser) isInfixOp() bool {
 func (p *Parser) parseApp() Expr {
 	f := p.parseAtom()
 	if f == nil {
+		p.addError("expected expression")
 		return &ExprVar{Name: "<error>", S: span.Span{Start: span.Pos(p.pos), End: span.Pos(p.pos)}}
 	}
 	for (p.isAtomStart() || p.peek().Kind == TokAt) && !p.atDeclBoundary() {
