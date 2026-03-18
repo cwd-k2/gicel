@@ -197,8 +197,14 @@ func (u *Unifier) unifyEvCapRows(
 	bFields []types.RowField, bTail types.Type,
 ) error {
 	// Normalize field order.
-	an := types.NormalizeRow(&types.TyEvidenceRow{Entries: &types.CapabilityEntries{Fields: aFields}, Tail: aTail})
-	bn := types.NormalizeRow(&types.TyEvidenceRow{Entries: &types.CapabilityEntries{Fields: bFields}, Tail: bTail})
+	an, err := types.NormalizeRow(&types.TyEvidenceRow{Entries: &types.CapabilityEntries{Fields: aFields}, Tail: aTail})
+	if err != nil {
+		return &UnifyError{Kind: UnifyMismatch, Detail: err.Error()}
+	}
+	bn, err := types.NormalizeRow(&types.TyEvidenceRow{Entries: &types.CapabilityEntries{Fields: bFields}, Tail: bTail})
+	if err != nil {
+		return &UnifyError{Kind: UnifyMismatch, Detail: err.Error()}
+	}
 	aFieldsN := an.CapFields()
 	bFieldsN := bn.CapFields()
 

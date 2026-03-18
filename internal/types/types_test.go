@@ -55,24 +55,25 @@ func TestRowNormalize(t *testing.T) {
 		{Label: "a", Type: Con("A")},
 		{Label: "b", Type: Con("B")},
 	}}}
-	n := NormalizeRow(r)
+	n, err := NormalizeRow(r)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 	fields := n.CapFields()
 	if fields[0].Label != "a" || fields[1].Label != "b" || fields[2].Label != "c" {
 		t.Error("normalization should sort by label")
 	}
 }
 
-func TestRowNormalizePanicsOnDuplicate(t *testing.T) {
-	defer func() {
-		if r := recover(); r == nil {
-			t.Error("expected panic on duplicate label")
-		}
-	}()
+func TestRowNormalizeErrorsOnDuplicate(t *testing.T) {
 	r := &TyEvidenceRow{Entries: &CapabilityEntries{Fields: []RowField{
 		{Label: "a", Type: Con("A")},
 		{Label: "a", Type: Con("B")},
 	}}}
-	NormalizeRow(r)
+	_, err := NormalizeRow(r)
+	if err == nil {
+		t.Error("expected error on duplicate label")
+	}
 }
 
 // --- Equality ---

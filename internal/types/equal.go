@@ -87,8 +87,11 @@ func equalAlpha(a, b Type, bindings []alphaBinding) bool {
 			if !ok {
 				return false
 			}
-			an := NormalizeRow(&TyEvidenceRow{Entries: aEntries, Tail: at.Tail})
-			bn := NormalizeRow(&TyEvidenceRow{Entries: bEntries, Tail: bt.Tail})
+			an, errA := NormalizeRow(&TyEvidenceRow{Entries: aEntries, Tail: at.Tail})
+			bn, errB := NormalizeRow(&TyEvidenceRow{Entries: bEntries, Tail: bt.Tail})
+			if errA != nil || errB != nil {
+				return false
+			}
 			aFields := an.CapFields()
 			bFields := bn.CapFields()
 			if len(aFields) != len(bFields) {

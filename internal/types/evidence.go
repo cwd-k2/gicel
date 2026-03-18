@@ -165,13 +165,15 @@ func EmptyRow() *TyEvidenceRow {
 }
 
 // ClosedRow creates a closed capability evidence row from fields.
+// Panics on duplicate labels — callers must provide unique labels.
 func ClosedRow(fields ...RowField) *TyEvidenceRow {
-	return NormalizeRow(&TyEvidenceRow{Entries: &CapabilityEntries{Fields: fields}})
+	return mustNormalizeRow(&TyEvidenceRow{Entries: &CapabilityEntries{Fields: fields}})
 }
 
 // OpenRow creates an open capability evidence row with a tail.
+// Panics on duplicate labels — callers must provide unique labels.
 func OpenRow(fields []RowField, tail Type) *TyEvidenceRow {
-	return NormalizeRow(&TyEvidenceRow{Entries: &CapabilityEntries{Fields: fields}, Tail: tail})
+	return mustNormalizeRow(&TyEvidenceRow{Entries: &CapabilityEntries{Fields: fields}, Tail: tail})
 }
 
 // EmptyConstraintRow creates an empty closed constraint evidence row.
@@ -189,10 +191,11 @@ func SingleConstraint(className string, args []Type) *TyEvidenceRow {
 }
 
 // NormalizeRow sorts capability fields in an evidence row.
-func NormalizeRow(r *TyEvidenceRow) *TyEvidenceRow {
+// Returns an error if duplicate labels are detected.
+func NormalizeRow(r *TyEvidenceRow) (*TyEvidenceRow, error) {
 	cap, ok := r.Entries.(*CapabilityEntries)
 	if !ok || len(cap.Fields) <= 1 {
-		return r
+		return r, nil
 	}
 	sorted := make([]RowField, len(cap.Fields))
 	copy(sorted, cap.Fields)
@@ -201,14 +204,26 @@ func NormalizeRow(r *TyEvidenceRow) *TyEvidenceRow {
 	})
 	for i := 1; i < len(sorted); i++ {
 		if sorted[i].Label == sorted[i-1].Label {
-			panic(fmt.Sprintf("duplicate label in evidence row: %s", sorted[i].Label))
+			return nil, fmt.Errorf("duplicate label in evidence row: %s", sorted[i].Label)
 		}
 	}
 	return &TyEvidenceRow{
 		Entries: &CapabilityEntries{Fields: sorted},
 		Tail:    r.Tail,
 		S:       r.S,
+	}, nil
+}
+
+// mustNormalizeRow calls NormalizeRow and panics on error.
+// Used by convenience builders (ClosedRow, OpenRow) that construct
+// rows from known-good data. Any panic here is caught by RunSandbox's
+// top-level recover.
+func mustNormalizeRow(r *TyEvidenceRow) *TyEvidenceRow {
+	result, err := NormalizeRow(r)
+	if err != nil {
+		panic(err.Error())
 	}
+	return result
 }
 
 // IsCapabilityRow returns true if this evidence row uses the capability fiber.

@@ -2,6 +2,7 @@ package gicel
 
 import (
 	"context"
+	"fmt"
 	"time"
 )
 
@@ -27,7 +28,19 @@ type SandboxConfig struct {
 
 // RunSandbox compiles and executes a GICEL program in a single call
 // with conservative resource limits. Designed for AI agent use cases.
-func RunSandbox(source string, cfg *SandboxConfig) (*RunResult, error) {
+//
+// A top-level recover guards both compilation and execution so that
+// unexpected panics (e.g. in type-checking) are returned as errors
+// rather than crashing the host process.
+func RunSandbox(source string, cfg *SandboxConfig) (result *RunResult, err error) {
+	// Guard the entire compile+execute path against unexpected panics.
+	defer func() {
+		if r := recover(); r != nil {
+			result = nil
+			err = fmt.Errorf("gicel: internal panic: %v", r)
+		}
+	}()
+
 	if cfg == nil {
 		cfg = &SandboxConfig{}
 	}
