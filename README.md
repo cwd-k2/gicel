@@ -3,6 +3,8 @@
 **G**o's **I**ndexed **C**apability **E**ffect **L**ibrary /
 **G**ICEL's **I**ndexed **C**apability **E**ffect **L**anguage
 
+**v0.10** — [Changelog](CHANGELOG.md)
+
 Embed a type-safe, sandboxed language in your Go application.
 GICEL compiles Haskell-like source into typed computations, runs them with
 explicitly granted capabilities, and returns results — all in pure Go.
@@ -57,8 +59,9 @@ globals. The harder you lock down, the more edge cases slip through.
   touch the host's filesystem, memory, or goroutines. Effects like State
   or IO only become available when the host provides them, and the type
   system enforces this boundary at compile time.
-- **Resource limits with clean termination.** Step count, memory ceiling,
-  and timeout. Execution halts cleanly — no killed goroutines, no leaked state.
+- **Resource limits with clean termination.** Step count, call depth,
+  allocation ceiling, and timeout. Execution halts cleanly — no killed
+  goroutines, no leaked state.
 - **Go-native.** No CGo, no FFI. Runtimes are immutable and goroutine-safe.
   Embed it like any other Go library.
 
@@ -254,31 +257,51 @@ host bindings, custom capabilities, custom prelude, and more.
 
 ## Features
 
-- **Small, learnable syntax** — 10 keywords. ADTs, pattern matching, type classes, do-notation
-- **Errors caught before execution** — full type inference with bidirectional checking. Missing capabilities are compile-time errors, not runtime surprises
-- **Expressive when you need it** — higher-rank polymorphism, higher-kinded types, kind inference
-- **Records & tuples** — structured data with row polymorphism
-- **Module system** — open, selective, and qualified imports for name control
-- **Prelude + 7 optional packs** — Prelude bundles Num, Str, List; effect and data packs opt in to what you need
+### Type System
+
+- **Full type inference** — bidirectional checking (DK algorithm) with ordered contexts
+- **Higher-rank polymorphism** — `\a. a -> a` as first-class values
+- **Higher-kinded types** — `Functor`, `Monad`, kind inference
+- **Type classes** — single and multi-parameter, superclasses, functional dependencies
+- **Type families** — closed type families, associated types, data families, recursive reduction
+- **Row polymorphism** — extensible records and capability environments
+- **GADTs** — refined return types in constructors
+
+### Language
+
+- **10 keywords** — `case do data type infixl infixr infixn class instance import` + `as` (contextual)
+- **ADTs & pattern matching** — constructor, literal, wildcard, record patterns with exhaustiveness and redundancy checking
+- **Do-notation** — monadic sequencing with `<-` bind
+- **Records & tuples** — `{ x: 1, y: 2 }`, `(a, b, c)` with row polymorphism
+- **Module system** — open, selective (`import M (x, T(..))`), and qualified (`import M as N`) imports
+
+### Sandbox Guarantees
+
+- **Termination** — step limit, call depth limit, allocation limit, context timeout
+- **Isolation** — capabilities absent until granted; type system enforces at compile time
+- **Determinism** — same source + same capabilities = same result
+- **Clean errors** — structured diagnostics with source locations and error codes
+
+### Runtime
+
+- **Allocation tracking** — all Go-level allocations (closures, constructors, records, AVL nodes) count against `MaxAlloc`
+- **Core IR optimizer** — beta reduction, case-of-known-constructor, bind-pure elimination, registered fusion rules
+- **Evaluation trace** — `--explain` for semantic step-by-step trace; `--explain-all` includes stdlib internals
 
 ## Stdlib Packs
 
 | Pack          | Module         | Contents                                                  |
 | ------------- | -------------- | --------------------------------------------------------- |
 | `Prelude`     | `Prelude`      | Num, Str, List — arithmetic, string ops, list operations  |
-| `EffectFail`  | `Effect.Fail`  | Fail effect capability                                    |
-| `EffectState` | `Effect.State` | `get`/`put` state capabilities                            |
+| `EffectFail`  | `Effect.Fail`  | Fail effect — `failWith`, `fromMaybe`, `fromResult`       |
+| `EffectState` | `Effect.State` | `get`/`put`/`modify` state capabilities                   |
 | `EffectIO`    | `Effect.IO`    | `print`/`debug` via CapEnv buffer                         |
 | `DataStream`  | `Data.Stream`  | Lazy list: `LCons`/`LNil`, `head`, `tail`, `take`         |
 | `DataSlice`   | `Data.Slice`   | Contiguous array: O(1) length/index, `Functor`/`Foldable` |
-| `DataMap`     | `Data.Map`     | Ordered immutable map (AVL), `Ord`-keyed                  |
+| `DataMap`     | `Data.Map`     | Ordered immutable map (persistent AVL), `Ord`-keyed       |
 | `DataSet`     | `Data.Set`     | Ordered immutable set, backed by `Map`                    |
 
-## Documentation
-
-- [Language Specification](spec/language.md) — formal spec (18 chapters)
-- [Agent Guide](docs/agent-guide/) — complete language reference with Go API details
-- [Grammar Reference](docs/grammar-reference.md) — syntax at a glance
+15 type classes: `Eq`, `Ord`, `Show`, `Semigroup`, `Monoid`, `Functor`, `Foldable`, `Applicative`, `Alternative`, `Monad`, `Traversable`, `Packed`, `FromList`, `ToList`, `Div`.
 
 ## Import Forms
 
@@ -292,6 +315,13 @@ Selective imports control which names enter scope. Qualified imports keep all
 names behind a prefix, preventing collisions between modules. See
 [`examples/cli/multi-module/`](examples/cli/multi-module/) for a working
 multi-file project.
+
+## Documentation
+
+- [Language Specification](spec/language.md) — formal spec (18 chapters)
+- [Agent Guide](docs/agent-guide/) — complete language reference with Go API details
+- [Grammar Reference](docs/grammar-reference.md) — syntax at a glance
+- [Changelog](CHANGELOG.md) — version history
 
 ## Examples
 

@@ -1,6 +1,6 @@
 # GICEL Roadmap
 
-Current state: **v0.8.** All core features implemented. See `spec/language.md` for the complete specification.
+Current state: **v0.10.** All core features implemented; module system, type families, and structural refactoring complete. See `spec/language.md` for the complete specification and `CHANGELOG.md` for version history.
 
 ---
 
@@ -19,10 +19,11 @@ Remaining:
 
 ### Module System
 
-Selective imports, qualified imports, `_` private names, CLI `--module`, module-qualified Core IR, GHC-style ambiguity detection, and clean stdlib names are implemented. Remaining:
+v0.10 implements: selective imports, qualified imports, `_` private names, CLI `--module`, module-qualified Core IR, GHC-style ambiguity detection, and clean stdlib names. Remaining:
 
 - Selective exports (`module M (x, T(..)) where ...`) — type-level privacy
 - Qualified patterns (`case x { Q.Con a -> ... }`)
+- Qualified parameterized type aliases and type families in type annotations
 - Prelude as ordinary module (currently built-in source)
 - Stdlib packs as importable modules
 
