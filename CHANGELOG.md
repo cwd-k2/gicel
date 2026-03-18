@@ -1,5 +1,35 @@
 # Changelog
 
+## v0.10.1 — 2026-03-18
+
+### Language Features
+
+- **Qualified constructor patterns** — `case x { Q.Con a -> ... }` with adjacency-based dot disambiguation, mirroring expression-level qualified names
+
+### Type Inference
+
+- **Type family re-activation** — stuck type family applications (blocked on unsolved metas) are now re-reduced when their blocking metas are solved, addressing the type family / row unification scheduling problem. ~190 lines, additive (OutsideIn(X) L1+L2)
+
+### Fixes
+
+- **`NormalizeRow` panic → error return** — duplicate labels during type checking no longer crash the host process; `RunSandbox` now wraps the entire compile+execute path in a top-level recover
+- **`flatten()` data race** — `Env.Flatten()` pre-materializes the builtin environment at Runtime construction, eliminating a benign data race when sharing a Runtime across goroutines
+- **`ResetFreshCounter`** — test determinism for type variable naming
+
+### Refactoring
+
+- **Prelude source consolidation** — `num.gicel`, `list.gicel`, `str.gicel` merged into `prelude.gicel`; Go-side string concatenation and `stripImportPrelude` removed. Core remains a separate auto-injected module
+- **API parameter reduction** — `buildMethodSelector` (7→6 via `dictLayout` struct), `evalBindingsCore` (6→5 via derived `userVisible`)
+- **Dead code removal** — unused `showIntImpl` in str.go
+- **Selective exports excluded** from spec — `_` prefix is sufficient for GICEL's embedding-focused design
+
+### Tests
+
+- Regression tests for qualified constraints (`P.Num a =>`, tuple constraints, user-defined classes)
+- Unit tests for `eval/env.go` (Extend, Lookup, ExtendMany, Flatten, TrimTo, shadowing) and `eval/capenv.go` (Get, Set, Delete, Labels, COW semantics)
+
+---
+
 ## v0.10.0 — 2026-03-18
 
 ### Language Features
