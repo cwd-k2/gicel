@@ -92,47 +92,16 @@ func genVarName(i int) string {
 
 // collectUnsolvedMetas walks one or more types and collects all TyMeta nodes.
 func collectUnsolvedMetas(tys ...types.Type) []metaInfo {
-	var result []metaInfo
 	seen := make(map[int]bool)
-	var walk func(types.Type)
-	walk = func(t types.Type) {
-		switch ty := t.(type) {
-		case *types.TyMeta:
-			if !seen[ty.ID] {
-				seen[ty.ID] = true
-				result = append(result, metaInfo{id: ty.ID, kind: ty.Kind})
-			}
-		case *types.TyApp:
-			walk(ty.Fun)
-			walk(ty.Arg)
-		case *types.TyArrow:
-			walk(ty.From)
-			walk(ty.To)
-		case *types.TyForall:
-			walk(ty.Body)
-		case *types.TyEvidence:
-			if ty.Constraints != nil {
-				for _, ch := range ty.Constraints.Children() {
-					walk(ch)
-				}
-			}
-			walk(ty.Body)
-		case *types.TyCBPV:
-			walk(ty.Pre)
-			walk(ty.Post)
-			walk(ty.Result)
-		case *types.TyFamilyApp:
-			for _, a := range ty.Args {
-				walk(a)
-			}
-		case *types.TyEvidenceRow:
-			for _, ch := range ty.Children() {
-				walk(ch)
-			}
-		}
-	}
+	var result []metaInfo
 	for _, ty := range tys {
-		walk(ty)
+		result = append(result, types.CollectTypes(ty, func(t types.Type) (metaInfo, bool) {
+			if m, ok := t.(*types.TyMeta); ok && !seen[m.ID] {
+				seen[m.ID] = true
+				return metaInfo{id: m.ID, kind: m.Kind}, true
+			}
+			return metaInfo{}, false
+		})...)
 	}
 	return result
 }

@@ -526,67 +526,9 @@ func (ch *Checker) reduceFamilyAppsN(t types.Type, cache map[string]types.Type) 
 		return &types.TyApp{Fun: rFun, Arg: rArg, S: app.S}
 	}
 	// Case 3: structural recursion into other type formers (no caching needed).
-	switch ty := t.(type) {
-	case *types.TyArrow:
-		rFrom := ch.reduceFamilyAppsN(ty.From, cache)
-		rTo := ch.reduceFamilyAppsN(ty.To, cache)
-		if rFrom == ty.From && rTo == ty.To {
-			return t
-		}
-		return &types.TyArrow{From: rFrom, To: rTo, S: ty.S}
-	case *types.TyCBPV:
-		rPre := ch.reduceFamilyAppsN(ty.Pre, cache)
-		rPost := ch.reduceFamilyAppsN(ty.Post, cache)
-		rResult := ch.reduceFamilyAppsN(ty.Result, cache)
-		if rPre == ty.Pre && rPost == ty.Post && rResult == ty.Result {
-			return t
-		}
-		return &types.TyCBPV{Tag: ty.Tag, Pre: rPre, Post: rPost, Result: rResult, S: ty.S}
-	case *types.TyForall:
-		rBody := ch.reduceFamilyAppsN(ty.Body, cache)
-		if rBody == ty.Body {
-			return t
-		}
-		return &types.TyForall{Var: ty.Var, Kind: ty.Kind, Body: rBody, S: ty.S}
-	case *types.TyEvidence:
-		rBody := ch.reduceFamilyAppsN(ty.Body, cache)
-		// Recurse into constraint row as well.
-		var rConstraints *types.TyEvidenceRow
-		if ty.Constraints != nil {
-			rc := ch.reduceFamilyAppsN(ty.Constraints, cache)
-			if ev, ok := rc.(*types.TyEvidenceRow); ok {
-				rConstraints = ev
-			} else {
-				rConstraints = ty.Constraints
-			}
-		}
-		if rBody == ty.Body && rConstraints == ty.Constraints {
-			return t
-		}
-		return &types.TyEvidence{Constraints: rConstraints, Body: rBody, S: ty.S}
-	case *types.TyEvidenceRow:
-		// Recurse into all type children via MapChildren.
-		changed := false
-		newEntries := ty.Entries.MapChildren(func(child types.Type) types.Type {
-			r := ch.reduceFamilyAppsN(child, cache)
-			if r != child {
-				changed = true
-			}
-			return r
-		})
-		var newTail types.Type
-		if ty.Tail != nil {
-			newTail = ch.reduceFamilyAppsN(ty.Tail, cache)
-			if newTail != ty.Tail {
-				changed = true
-			}
-		}
-		if !changed {
-			return t
-		}
-		return &types.TyEvidenceRow{Entries: newEntries, Tail: newTail, S: ty.S}
-	}
-	return t
+	return types.MapType(t, func(child types.Type) types.Type {
+		return ch.reduceFamilyAppsN(child, cache)
+	})
 }
 
 // familyAppKey produces a structural cache key for a type family application.

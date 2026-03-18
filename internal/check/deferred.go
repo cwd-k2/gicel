@@ -105,28 +105,10 @@ func sliceHasMeta(tys []types.Type) bool {
 }
 
 func typeHasMeta(ty types.Type) bool {
-	switch t := ty.(type) {
-	case *types.TyMeta:
-		return true
-	case *types.TyApp:
-		return typeHasMeta(t.Fun) || typeHasMeta(t.Arg)
-	case *types.TyArrow:
-		return typeHasMeta(t.From) || typeHasMeta(t.To)
-	case *types.TyForall:
-		return typeHasMeta(t.Body)
-	case *types.TyEvidence:
-		if t.Constraints != nil && slices.ContainsFunc(t.Constraints.Children(), typeHasMeta) {
-			return true
-		}
-		return typeHasMeta(t.Body)
-	case *types.TyCBPV:
-		return typeHasMeta(t.Pre) || typeHasMeta(t.Post) || typeHasMeta(t.Result)
-	case *types.TyEvidenceRow:
-		return slices.ContainsFunc(t.Children(), typeHasMeta)
-	case *types.TyFamilyApp:
-		return slices.ContainsFunc(t.Args, typeHasMeta)
-	}
-	return false
+	return types.AnyType(ty, func(t types.Type) bool {
+		_, ok := t.(*types.TyMeta)
+		return ok
+	})
 }
 
 // isAmbiguousInstance checks whether a class constraint with the given args
