@@ -2,6 +2,7 @@ package check
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/cwd-k2/gicel/internal/errs"
 	"github.com/cwd-k2/gicel/internal/span"
@@ -445,29 +446,22 @@ func (ch *Checker) installFamilyReducer() {
 	}
 }
 
-// maxFamilyAppNodes is the total node budget for a single reduceFamilyApps
-// traversal. This prevents exponential blowup when a type family reduces to
-// a type that branches (e.g., Grow a =: Pair (Grow a) (Grow a)), where
-// independent structural recursion into each branch doubles the work at
-// every level.
-const maxFamilyAppNodes = 10000
-
 // reduceFamilyApps walks a type and reduces any TyFamilyApp nodes
 // or TyApp chains that form a saturated type family application.
 // It also recurses into type structure (TyApp, TyArrow, TyComp, etc.)
 // so that nested family applications are reduced — this is important
 // for exhaustiveness checking which calls reduceFamilyInType on the
 // full scrutinee type.
+//
+// A per-call memoization cache converts exponential re-computation
+// (e.g., Grow a =: Pair (Grow a) (Grow a)) into DAG-shared linear work.
+// Stuck applications are not cached because they produce unique placeholder metas.
 func (ch *Checker) reduceFamilyApps(t types.Type) types.Type {
-	budget := maxFamilyAppNodes
-	return ch.reduceFamilyAppsN(t, &budget)
+	cache := make(map[string]types.Type)
+	return ch.reduceFamilyAppsN(t, cache)
 }
 
-func (ch *Checker) reduceFamilyAppsN(t types.Type, budget *int) types.Type {
-	*budget--
-	if *budget <= 0 {
-		return t
-	}
+func (ch *Checker) reduceFamilyAppsN(t types.Type, cache map[string]types.Type) types.Type {
 	// Bail out if we've exceeded the reduction depth (set by reduceTyFamily calls).
 	if ch.reductionDepth > maxReductionDepth {
 		return t
@@ -477,13 +471,19 @@ func (ch *Checker) reduceFamilyAppsN(t types.Type, budget *int) types.Type {
 		// Recurse into arguments first.
 		args := make([]types.Type, len(tf.Args))
 		for i, a := range tf.Args {
-			args[i] = ch.reduceFamilyAppsN(a, budget)
+			args[i] = ch.reduceFamilyAppsN(a, cache)
+		}
+		key := familyAppKey(tf.Name, args)
+		if cached, ok := cache[key]; ok {
+			return cached
 		}
 		result, reduced := ch.reduceTyFamily(tf.Name, args, tf.S)
 		if reduced {
-			return ch.reduceFamilyAppsN(result, budget)
+			r := ch.reduceFamilyAppsN(result, cache)
+			cache[key] = r
+			return r
 		}
-		// Not reduced — check if stuck on unsolved metas and register for re-activation.
+		// Stuck — don't cache (placeholder meta is unique per registration).
 		if placeholder := ch.registerStuckFamily(tf.Name, args, tf.Kind, tf.S); placeholder != nil {
 			return placeholder
 		}
@@ -497,13 +497,19 @@ func (ch *Checker) reduceFamilyAppsN(t types.Type, budget *int) types.Type {
 			if fam, ok := ch.families[con.Name]; ok && len(fam.Params) == len(args) {
 				// Recurse into arguments first.
 				for i, a := range args {
-					args[i] = ch.reduceFamilyAppsN(a, budget)
+					args[i] = ch.reduceFamilyAppsN(a, cache)
+				}
+				key := familyAppKey(con.Name, args)
+				if cached, ok := cache[key]; ok {
+					return cached
 				}
 				result, reduced := ch.reduceTyFamily(con.Name, args, t.Span())
 				if reduced {
-					return ch.reduceFamilyAppsN(result, budget)
+					r := ch.reduceFamilyAppsN(result, cache)
+					cache[key] = r
+					return r
 				}
-				// Not reduced — check if stuck on unsolved metas and register for re-activation.
+				// Stuck — don't cache.
 				if placeholder := ch.registerStuckFamily(con.Name, args, fam.ResultKind, t.Span()); placeholder != nil {
 					return placeholder
 				}
@@ -512,50 +518,50 @@ func (ch *Checker) reduceFamilyAppsN(t types.Type, budget *int) types.Type {
 			}
 		}
 		// Not a type family application — recurse into Fun and Arg.
-		rFun := ch.reduceFamilyAppsN(app.Fun, budget)
-		rArg := ch.reduceFamilyAppsN(app.Arg, budget)
+		rFun := ch.reduceFamilyAppsN(app.Fun, cache)
+		rArg := ch.reduceFamilyAppsN(app.Arg, cache)
 		if rFun == app.Fun && rArg == app.Arg {
 			return t
 		}
 		return &types.TyApp{Fun: rFun, Arg: rArg, S: app.S}
 	}
-	// Case 3: structural recursion into other type formers.
+	// Case 3: structural recursion into other type formers (no caching needed).
 	switch ty := t.(type) {
 	case *types.TyArrow:
-		rFrom := ch.reduceFamilyAppsN(ty.From, budget)
-		rTo := ch.reduceFamilyAppsN(ty.To, budget)
+		rFrom := ch.reduceFamilyAppsN(ty.From, cache)
+		rTo := ch.reduceFamilyAppsN(ty.To, cache)
 		if rFrom == ty.From && rTo == ty.To {
 			return t
 		}
 		return &types.TyArrow{From: rFrom, To: rTo, S: ty.S}
 	case *types.TyComp:
-		rPre := ch.reduceFamilyAppsN(ty.Pre, budget)
-		rPost := ch.reduceFamilyAppsN(ty.Post, budget)
-		rResult := ch.reduceFamilyAppsN(ty.Result, budget)
+		rPre := ch.reduceFamilyAppsN(ty.Pre, cache)
+		rPost := ch.reduceFamilyAppsN(ty.Post, cache)
+		rResult := ch.reduceFamilyAppsN(ty.Result, cache)
 		if rPre == ty.Pre && rPost == ty.Post && rResult == ty.Result {
 			return t
 		}
 		return &types.TyComp{Pre: rPre, Post: rPost, Result: rResult, S: ty.S}
 	case *types.TyThunk:
-		rPre := ch.reduceFamilyAppsN(ty.Pre, budget)
-		rPost := ch.reduceFamilyAppsN(ty.Post, budget)
-		rResult := ch.reduceFamilyAppsN(ty.Result, budget)
+		rPre := ch.reduceFamilyAppsN(ty.Pre, cache)
+		rPost := ch.reduceFamilyAppsN(ty.Post, cache)
+		rResult := ch.reduceFamilyAppsN(ty.Result, cache)
 		if rPre == ty.Pre && rPost == ty.Post && rResult == ty.Result {
 			return t
 		}
 		return &types.TyThunk{Pre: rPre, Post: rPost, Result: rResult, S: ty.S}
 	case *types.TyForall:
-		rBody := ch.reduceFamilyAppsN(ty.Body, budget)
+		rBody := ch.reduceFamilyAppsN(ty.Body, cache)
 		if rBody == ty.Body {
 			return t
 		}
 		return &types.TyForall{Var: ty.Var, Kind: ty.Kind, Body: rBody, S: ty.S}
 	case *types.TyEvidence:
-		rBody := ch.reduceFamilyAppsN(ty.Body, budget)
+		rBody := ch.reduceFamilyAppsN(ty.Body, cache)
 		// Recurse into constraint row as well.
 		var rConstraints *types.TyEvidenceRow
 		if ty.Constraints != nil {
-			rc := ch.reduceFamilyAppsN(ty.Constraints, budget)
+			rc := ch.reduceFamilyAppsN(ty.Constraints, cache)
 			if ev, ok := rc.(*types.TyEvidenceRow); ok {
 				rConstraints = ev
 			} else {
@@ -570,7 +576,7 @@ func (ch *Checker) reduceFamilyAppsN(t types.Type, budget *int) types.Type {
 		// Recurse into all type children via MapChildren.
 		changed := false
 		newEntries := ty.Entries.MapChildren(func(child types.Type) types.Type {
-			r := ch.reduceFamilyAppsN(child, budget)
+			r := ch.reduceFamilyAppsN(child, cache)
 			if r != child {
 				changed = true
 			}
@@ -578,7 +584,7 @@ func (ch *Checker) reduceFamilyAppsN(t types.Type, budget *int) types.Type {
 		})
 		var newTail types.Type
 		if ty.Tail != nil {
-			newTail = ch.reduceFamilyAppsN(ty.Tail, budget)
+			newTail = ch.reduceFamilyAppsN(ty.Tail, cache)
 			if newTail != ty.Tail {
 				changed = true
 			}
@@ -589,6 +595,79 @@ func (ch *Checker) reduceFamilyAppsN(t types.Type, budget *int) types.Type {
 		return &types.TyEvidenceRow{Entries: newEntries, Tail: newTail, S: ty.S}
 	}
 	return t
+}
+
+// familyAppKey produces a structural cache key for a type family application.
+// Unlike types.Pretty (which is display-oriented), this generates a canonical
+// representation that uniquely identifies the type structure. Within a single
+// reduceFamilyApps call, meta variables are stable (not solved mid-traversal),
+// so ?ID references remain consistent.
+func familyAppKey(name string, args []types.Type) string {
+	var b strings.Builder
+	b.WriteString(name)
+	for _, a := range args {
+		b.WriteByte(' ')
+		writeTypeKey(&b, a)
+	}
+	return b.String()
+}
+
+func writeTypeKey(b *strings.Builder, t types.Type) {
+	switch ty := t.(type) {
+	case *types.TyCon:
+		b.WriteString(ty.Name)
+	case *types.TyVar:
+		b.WriteByte('\'')
+		b.WriteString(ty.Name)
+	case *types.TyMeta:
+		fmt.Fprintf(b, "?%d", ty.ID)
+	case *types.TyApp:
+		b.WriteByte('(')
+		writeTypeKey(b, ty.Fun)
+		b.WriteByte(' ')
+		writeTypeKey(b, ty.Arg)
+		b.WriteByte(')')
+	case *types.TyArrow:
+		b.WriteByte('(')
+		writeTypeKey(b, ty.From)
+		b.WriteString("->")
+		writeTypeKey(b, ty.To)
+		b.WriteByte(')')
+	case *types.TyComp:
+		b.WriteString("{C ")
+		writeTypeKey(b, ty.Pre)
+		b.WriteByte(' ')
+		writeTypeKey(b, ty.Post)
+		b.WriteByte(' ')
+		writeTypeKey(b, ty.Result)
+		b.WriteByte('}')
+	case *types.TyThunk:
+		b.WriteString("{T ")
+		writeTypeKey(b, ty.Pre)
+		b.WriteByte(' ')
+		writeTypeKey(b, ty.Post)
+		b.WriteByte(' ')
+		writeTypeKey(b, ty.Result)
+		b.WriteByte('}')
+	case *types.TyForall:
+		b.WriteString("{V ")
+		b.WriteString(ty.Var)
+		b.WriteByte(' ')
+		writeTypeKey(b, ty.Body)
+		b.WriteByte('}')
+	case *types.TyFamilyApp:
+		b.WriteByte('[')
+		b.WriteString(ty.Name)
+		for _, a := range ty.Args {
+			b.WriteByte(' ')
+			writeTypeKey(b, a)
+		}
+		b.WriteByte(']')
+	case *types.TySkolem:
+		fmt.Fprintf(b, "#%d", ty.ID)
+	default:
+		fmt.Fprintf(b, "<%s>", types.Pretty(t))
+	}
 }
 
 // registerStuckFamily checks whether a stuck family application has unsolved
