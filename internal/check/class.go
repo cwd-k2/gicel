@@ -257,15 +257,22 @@ func (ch *Checker) processClassDecl(d *syntax.DeclClass, prog *core.Program) {
 	prog.DataDecls = append(prog.DataDecls, coreDecl)
 
 	// Generate selector bindings for each method.
+	dict := dictLayout{resultType: resultType, fieldTypes: allFieldTypes}
 	for i, m := range methods {
-		ch.buildMethodSelector(info, m, i, resultType, allFieldTypes, prog, d.S)
+		ch.buildMethodSelector(info, m, i, dict, prog, d.S)
 	}
+}
+
+// dictLayout groups the dictionary type representation for buildMethodSelector.
+type dictLayout struct {
+	resultType types.Type   // D a b c ...
+	fieldTypes []types.Type // superclass dicts ++ method types
 }
 
 // buildMethodSelector generates a selector binding for a single class method.
 // The selector pattern-matches on the dictionary constructor to extract the method
 // at position fieldIdx (supers count + method index within methods).
-func (ch *Checker) buildMethodSelector(cls *ClassInfo, m MethodInfo, methodIdx int, resultType types.Type, allFieldTypes []types.Type, prog *core.Program, s span.Span) {
+func (ch *Checker) buildMethodSelector(cls *ClassInfo, m MethodInfo, methodIdx int, dict dictLayout, prog *core.Program, s span.Span) {
 	fieldIdx := len(cls.Supers) + methodIdx
 
 	tyParamVars := make([]types.Type, len(cls.TyParams))
@@ -286,7 +293,7 @@ func (ch *Checker) buildMethodSelector(cls *ClassInfo, m MethodInfo, methodIdx i
 	selName := fmt.Sprintf("%s_%s_%d", prefixSel, m.Name, ch.fresh())
 	var patArgs []core.Pattern
 	var resultExpr core.Core
-	for j := 0; j < len(allFieldTypes); j++ {
+	for j := 0; j < len(dict.fieldTypes); j++ {
 		argName := fmt.Sprintf("$f_%d", j)
 		patArgs = append(patArgs, &core.PVar{Name: argName})
 		if j == fieldIdx {
@@ -305,7 +312,7 @@ func (ch *Checker) buildMethodSelector(cls *ClassInfo, m MethodInfo, methodIdx i
 	}
 
 	var selectorBody core.Core = &core.Lam{
-		Param: selName, ParamType: resultType, Body: caseExpr, S: s,
+		Param: selName, ParamType: dict.resultType, Body: caseExpr, S: s,
 	}
 
 	for j := len(cls.TyParams) - 1; j >= 0; j-- {

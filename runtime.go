@@ -121,7 +121,7 @@ func (r *Runtime) execute(ctx context.Context, req *runRequest) (eval.EvalResult
 	// Each binding is registered under qualified key only (Module\x00Name).
 	// Core IR Var nodes carry Module, so the evaluator resolves via core.VarKey.
 	for _, me := range r.moduleEntries {
-		env, err = r.evalBindingsCore(ev, env, me.prog.Bindings, me.name, false, req.obs)
+		env, err = r.evalBindingsCore(ev, env, me.prog.Bindings, me.name, req.obs)
 		if err != nil {
 			return eval.EvalResult{}, EvalStats{}, err
 		}
@@ -138,7 +138,7 @@ func (r *Runtime) execute(ctx context.Context, req *runRequest) (eval.EvalResult
 		}
 	}
 
-	env, err = r.evalBindingsCore(ev, env, nonEntry, "", true, req.obs)
+	env, err = r.evalBindingsCore(ev, env, nonEntry, "", req.obs)
 	if err != nil {
 		return eval.EvalResult{}, EvalStats{}, err
 	}
@@ -168,10 +168,9 @@ func (r *Runtime) execute(ctx context.Context, req *runRequest) (eval.EvalResult
 // evalBindingsCore evaluates a slice of bindings using forward-reference cells.
 // modulePrefix is "" for user bindings or "ModuleName" for module bindings.
 // Module bindings are registered under a qualified key only (module\x00name).
-// User bindings (modulePrefix="") are registered under plain name.
-// When userVisible is true, explain events mark each binding's evaluation
-// boundary; otherwise closures are marked as internal.
-func (r *Runtime) evalBindingsCore(ev *eval.Evaluator, env *eval.Env, bindings []core.Binding, modulePrefix string, userVisible bool, obs *eval.ExplainObserver) (*eval.Env, error) {
+// User bindings (modulePrefix="") are registered under plain name and are
+// visible in explain traces; module bindings are marked internal.
+func (r *Runtime) evalBindingsCore(ev *eval.Evaluator, env *eval.Env, bindings []core.Binding, modulePrefix string, obs *eval.ExplainObserver) (*eval.Env, error) {
 	bindings = core.SortBindings(bindings)
 	cells := make(map[string]*eval.IndirectVal, len(bindings))
 	for _, b := range bindings {
@@ -185,6 +184,7 @@ func (r *Runtime) evalBindingsCore(ev *eval.Evaluator, env *eval.Env, bindings [
 			env = env.Extend(b.Name, cell)
 		}
 	}
+	userVisible := modulePrefix == ""
 	for _, b := range bindings {
 		if userVisible {
 			obs.Section(b.Name)
