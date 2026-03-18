@@ -105,7 +105,7 @@ CLI flags:
 | `--max-steps`   | `100000` | Step limit (run only)                                                    |
 | `--max-depth`   | `100`    | Depth limit (run only)                                                   |
 | `--max-alloc`   | `100MiB` | Allocation byte limit (run only)                                         |
-| `--json`        | `false`  | Output result as JSON (run only)                                         |
+| `--json`        | `false`  | Output result as JSON (run, check)                                       |
 | `--explain`     | `false`  | Show semantic evaluation trace (run only)                                |
 | `--explain-all` | `false`  | Trace stdlib internals too (with --explain)                              |
 | `--verbose`     | `false`  | Show source context in explain trace (run only)                          |

@@ -19,7 +19,7 @@ Remaining:
 
 ### Module System
 
-Selective imports, qualified imports, `_` private names, and CLI `--module` are implemented. Remaining:
+Selective imports, qualified imports, `_` private names, CLI `--module`, module-qualified Core IR, GHC-style ambiguity detection, and clean stdlib names are implemented. Remaining:
 
 - Selective exports (`module M (x, T(..)) where ...`) — type-level privacy
 - Qualified patterns (`case x { Q.Con a -> ... }`)

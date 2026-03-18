@@ -1251,6 +1251,18 @@ publicFn := \x. _helper x
 
 Type names (uppercase) cannot start with `_`, so type-level privacy requires selective exports (a future direction).
 
+## 12.5 Ambiguity Detection
+
+When two open or selective imports bring the same name into scope from different modules, the compiler reports an ambiguity error. The user must use qualified or selective import to disambiguate.
+
+```
+import Data.Map    -- exports: empty, insert, delete, size, member, ...
+import Data.Set    -- also exports: insert, delete, size, member, ...
+-- ERROR: ambiguous name "insert": imported from both Data.Map and Data.Set
+```
+
+Re-exported names are not ambiguous. If module A imports module B, A's exports include B's names. When a user imports both A and another module that also imports B, the shared names from B do not conflict — they originate from the same source.
+
 ---
 
 # 13. Host Boundary
