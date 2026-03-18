@@ -467,6 +467,10 @@ func (ch *Checker) reduceFamilyApps(t types.Type) types.Type {
 		if reduced {
 			return ch.reduceFamilyApps(result)
 		}
+		// Not reduced — check if stuck on unsolved metas and register for re-activation.
+		if placeholder := ch.registerStuckFamily(tf.Name, args, tf.Kind, tf.S); placeholder != nil {
+			return placeholder
+		}
 		return &types.TyFamilyApp{Name: tf.Name, Args: args, Kind: tf.Kind, S: tf.S}
 	}
 	// Case 2: TyApp chain with TyCon head that is a known type family.
@@ -482,6 +486,10 @@ func (ch *Checker) reduceFamilyApps(t types.Type) types.Type {
 				result, reduced := ch.reduceTyFamily(con.Name, args, t.Span())
 				if reduced {
 					return ch.reduceFamilyApps(result)
+				}
+				// Not reduced — check if stuck on unsolved metas and register for re-activation.
+				if placeholder := ch.registerStuckFamily(con.Name, args, fam.ResultKind, t.Span()); placeholder != nil {
+					return placeholder
 				}
 				// Not reduced — rewrite to TyFamilyApp for cleaner types.
 				return &types.TyFamilyApp{Name: con.Name, Args: args, Kind: fam.ResultKind, S: t.Span()}
@@ -565,4 +573,74 @@ func (ch *Checker) reduceFamilyApps(t types.Type) types.Type {
 		return &types.TyEvidenceRow{Entries: newEntries, Tail: newTail, S: ty.S}
 	}
 	return t
+}
+
+// registerStuckFamily checks whether a stuck family application has unsolved
+// meta arguments and, if so, registers it in the unifier's re-activation index.
+// Returns a fresh result meta that stands in for the family application,
+// or nil if the family is not blocked on metas (e.g., genuinely unmatched).
+func (ch *Checker) registerStuckFamily(name string, args []types.Type, resultKind types.Kind, s span.Span) *types.TyMeta {
+	blocking := ch.unifier.collectBlockingMetas(args)
+	if len(blocking) == 0 {
+		// Not blocked on metas — the family is genuinely stuck (no matching equation).
+		return nil
+	}
+	resultMeta := ch.freshMeta(resultKind)
+	entry := &stuckFamilyEntry{
+		familyName: name,
+		args:       args,
+		span:       s,
+		resultMeta: resultMeta,
+		blockingOn: blocking,
+	}
+	ch.unifier.RegisterStuckFamily(entry)
+	return resultMeta
+}
+
+// maxReworkIterations bounds the number of rework processing iterations
+// to prevent runaway loops from cascading re-activations.
+const maxReworkIterations = 200
+
+// ProcessRework attempts to reduce stuck type family applications that were
+// unblocked by recent meta solutions. On success, the result meta is unified
+// with the reduced type. Entries that remain stuck are re-registered.
+// The reduction depth counter scopes globally across one rework session.
+func (ch *Checker) ProcessRework() {
+	ch.reductionDepth = 0
+	for iteration := 0; iteration < maxReworkIterations; iteration++ {
+		entries := ch.unifier.DrainRework()
+		if len(entries) == 0 {
+			return
+		}
+		// Deduplicate: an entry may appear in multiple meta buckets.
+		seen := make(map[*stuckFamilyEntry]bool, len(entries))
+		for _, entry := range entries {
+			if seen[entry] {
+				continue
+			}
+			seen[entry] = true
+			// Zonk arguments to incorporate newly solved metas.
+			zonked := make([]types.Type, len(entry.args))
+			for i, a := range entry.args {
+				zonked[i] = ch.unifier.Zonk(a)
+			}
+			result, reduced := ch.reduceTyFamily(entry.familyName, zonked, entry.span)
+			if reduced {
+				// Unify the result meta with the reduced type.
+				// This may solve further metas, triggering more rework.
+				_ = ch.unifier.Unify(entry.resultMeta, result)
+				continue
+			}
+			// Still stuck — re-register with updated blocking metas.
+			blocking := ch.unifier.collectBlockingMetas(zonked)
+			if len(blocking) == 0 {
+				// No longer blocked on metas but still didn't reduce —
+				// genuinely unmatched. Leave the result meta unsolved.
+				continue
+			}
+			entry.args = zonked
+			entry.blockingOn = blocking
+			ch.unifier.RegisterStuckFamily(entry)
+		}
+	}
 }

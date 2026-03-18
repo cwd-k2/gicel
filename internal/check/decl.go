@@ -395,6 +395,10 @@ func (ch *Checker) processValueDef(d *syntax.DeclValueDef, annotations map[strin
 		ty, coreExpr = ch.infer(d.Expr)
 	}
 
+	// Process stuck type family re-activations: metas solved during
+	// type checking may have unblocked previously stuck family applications.
+	ch.ProcessRework()
+
 	// Resolve deferred constraints now that metas are solved.
 	// For unannotated bindings, defer constraints on unsolved metas
 	// so they can be lifted into qualified types by generalization.
