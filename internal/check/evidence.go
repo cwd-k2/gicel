@@ -5,22 +5,12 @@ import (
 	"github.com/cwd-k2/gicel/internal/types"
 )
 
-// evidenceSource indicates where available evidence comes from.
-type evidenceSource int
-
-const (
-	evidenceContext    evidenceSource = iota // from CtxEvidence in context
-	evidenceSuperclass                       // extracted from superclass dict
-	evidenceGlobal                           // from global instance
-)
-
 // availableEvidence represents a single piece of type class evidence
 // available for constraint resolution.
 type availableEvidence struct {
 	className string
 	args      []types.Type
 	dictExpr  core.Core
-	source    evidenceSource
 }
 
 // resolvedEvidence is a matched constraint with its dictionary expression.
@@ -39,7 +29,6 @@ func (ch *Checker) collectContextEvidence() []availableEvidence {
 				className: e.ClassName,
 				args:      e.Args,
 				dictExpr:  &core.Var{Name: e.DictName}, // dict params are local (lambda-bound)
-				source:    evidenceContext,
 			})
 		}
 		return true

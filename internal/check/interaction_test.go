@@ -1326,12 +1326,12 @@ test := \xs. extract xs
 }
 
 // ----------------------------------------------------------------
-// 4k. containsMeta missing TyFamilyApp case
+// 4k. typeHasMeta missing TyFamilyApp case
 // ----------------------------------------------------------------
 
 func TestInteractionBugContainsMetaTyFamilyApp(t *testing.T) {
 	// This tests a subtle interaction: when a constraint argument
-	// contains a TyFamilyApp with a meta inside, containsMeta should
+	// contains a TyFamilyApp with a meta inside, typeHasMeta should
 	// detect the meta so the constraint can be deferred properly.
 	// Without the fix, the constraint would be resolved prematurely.
 	source := `
@@ -1477,19 +1477,19 @@ test := \x. show (eq x True)
 // ================================================================
 
 // ----------------------------------------------------------------
-// 5a. containsMeta: TyFamilyApp case
+// 5a. typeHasMeta: TyFamilyApp case
 // ----------------------------------------------------------------
 
 func TestInteractionContainsMetaTyFamilyApp(t *testing.T) {
-	// A TyFamilyApp with a TyMeta inside should be detected by containsMeta.
+	// A TyFamilyApp with a TyMeta inside should be detected by typeHasMeta.
 	meta := &types.TyMeta{ID: 999, Kind: types.KType{}}
 	tfApp := &types.TyFamilyApp{
 		Name: "Elem",
 		Args: []types.Type{meta},
 		Kind: types.KType{},
 	}
-	if !containsMeta(tfApp) {
-		t.Error("containsMeta should detect TyMeta inside TyFamilyApp")
+	if !typeHasMeta(tfApp) {
+		t.Error("typeHasMeta should detect TyMeta inside TyFamilyApp")
 	}
 }
 
@@ -1500,8 +1500,8 @@ func TestInteractionContainsMetaTyFamilyAppNoMeta(t *testing.T) {
 		Args: []types.Type{&types.TyCon{Name: "Int"}},
 		Kind: types.KType{},
 	}
-	if containsMeta(tfApp) {
-		t.Error("containsMeta should not detect meta in TyFamilyApp with only TyCon args")
+	if typeHasMeta(tfApp) {
+		t.Error("typeHasMeta should not detect meta in TyFamilyApp with only TyCon args")
 	}
 }
 
@@ -1518,13 +1518,13 @@ func TestInteractionContainsMetaTyFamilyAppNestedMeta(t *testing.T) {
 		},
 		Kind: types.KType{},
 	}
-	if !containsMeta(tfApp) {
-		t.Error("containsMeta should detect TyMeta nested inside TyFamilyApp arg")
+	if !typeHasMeta(tfApp) {
+		t.Error("typeHasMeta should detect TyMeta nested inside TyFamilyApp arg")
 	}
 }
 
 // ----------------------------------------------------------------
-// 5b. containsMeta: TyThunk case
+// 5b. typeHasMeta: TyThunk case
 // ----------------------------------------------------------------
 
 func TestInteractionContainsMetaTyThunk(t *testing.T) {
@@ -1534,8 +1534,8 @@ func TestInteractionContainsMetaTyThunk(t *testing.T) {
 		Post:   types.ClosedRow(),
 		Result: meta,
 	}
-	if !containsMeta(thunk) {
-		t.Error("containsMeta should detect TyMeta inside TyThunk.Result")
+	if !typeHasMeta(thunk) {
+		t.Error("typeHasMeta should detect TyMeta inside TyThunk.Result")
 	}
 }
 
@@ -1546,8 +1546,8 @@ func TestInteractionContainsMetaTyThunkPre(t *testing.T) {
 		Post:   types.ClosedRow(),
 		Result: &types.TyCon{Name: "Unit"},
 	}
-	if !containsMeta(thunk) {
-		t.Error("containsMeta should detect TyMeta inside TyThunk.Pre")
+	if !typeHasMeta(thunk) {
+		t.Error("typeHasMeta should detect TyMeta inside TyThunk.Pre")
 	}
 }
 

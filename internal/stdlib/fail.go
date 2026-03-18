@@ -15,5 +15,9 @@ var Fail Pack = func(e Registrar) error {
 var failSource = mustReadSource("fail")
 
 func failImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
-	return nil, ce, &eval.RuntimeError{Message: "fail"}
+	msg := "fail"
+	if len(args) > 0 && args[0] != nil {
+		msg = "fail: " + eval.PrettyValue(args[0])
+	}
+	return nil, ce, &eval.RuntimeError{Message: msg}
 }

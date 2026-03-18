@@ -68,6 +68,18 @@ func (u *Unifier) Solve(id int) types.Type {
 	return u.soln[id]
 }
 
+// InstallTempSolution registers a temporary solution for a metavariable.
+// The caller must call RemoveTempSolution when done. Used by let-generalization
+// to substitute metas with type variables for Zonk, then clean up.
+func (u *Unifier) InstallTempSolution(id int, ty types.Type) {
+	u.soln[id] = ty
+}
+
+// RemoveTempSolution removes a previously installed temporary solution.
+func (u *Unifier) RemoveTempSolution(id int) {
+	delete(u.soln, id)
+}
+
 // Solutions returns the current solution map for introspection (e.g., skolem escape check).
 func (u *Unifier) Solutions() map[int]types.Type {
 	return u.soln

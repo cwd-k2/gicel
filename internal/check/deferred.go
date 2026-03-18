@@ -22,7 +22,7 @@ func (ch *Checker) resolveDeferredConstraints(expr core.Core) core.Core {
 // \-qualified types.
 func (ch *Checker) resolveDeferredConstraintsDeferrable(expr core.Core) (core.Core, []deferredConstraint) {
 	return ch.resolveDeferred(expr, func(className string, zonkedArgs []types.Type) bool {
-		return hasMeta(zonkedArgs) && ch.isAmbiguousInstance(className, zonkedArgs)
+		return sliceHasMeta(zonkedArgs) && ch.isAmbiguousInstance(className, zonkedArgs)
 	})
 }
 
@@ -99,48 +99,48 @@ func (ch *Checker) zonkAll(tys []types.Type) []types.Type {
 }
 
 // hasMeta returns true if any type in the slice contains an unsolved TyMeta.
-func hasMeta(tys []types.Type) bool {
+func sliceHasMeta(tys []types.Type) bool {
 	for _, ty := range tys {
-		if containsMeta(ty) {
+		if typeHasMeta(ty) {
 			return true
 		}
 	}
 	return false
 }
 
-func containsMeta(ty types.Type) bool {
+func typeHasMeta(ty types.Type) bool {
 	switch t := ty.(type) {
 	case *types.TyMeta:
 		return true
 	case *types.TyApp:
-		return containsMeta(t.Fun) || containsMeta(t.Arg)
+		return typeHasMeta(t.Fun) || typeHasMeta(t.Arg)
 	case *types.TyArrow:
-		return containsMeta(t.From) || containsMeta(t.To)
+		return typeHasMeta(t.From) || typeHasMeta(t.To)
 	case *types.TyForall:
-		return containsMeta(t.Body)
+		return typeHasMeta(t.Body)
 	case *types.TyEvidence:
 		if t.Constraints != nil {
 			for _, ch := range t.Constraints.Children() {
-				if containsMeta(ch) {
+				if typeHasMeta(ch) {
 					return true
 				}
 			}
 		}
-		return containsMeta(t.Body)
+		return typeHasMeta(t.Body)
 	case *types.TyComp:
-		return containsMeta(t.Pre) || containsMeta(t.Post) || containsMeta(t.Result)
+		return typeHasMeta(t.Pre) || typeHasMeta(t.Post) || typeHasMeta(t.Result)
 	case *types.TyThunk:
-		return containsMeta(t.Pre) || containsMeta(t.Post) || containsMeta(t.Result)
+		return typeHasMeta(t.Pre) || typeHasMeta(t.Post) || typeHasMeta(t.Result)
 	case *types.TyEvidenceRow:
 		for _, ch := range t.Children() {
-			if containsMeta(ch) {
+			if typeHasMeta(ch) {
 				return true
 			}
 		}
 		return false
 	case *types.TyFamilyApp:
 		for _, a := range t.Args {
-			if containsMeta(a) {
+			if typeHasMeta(a) {
 				return true
 			}
 		}

@@ -367,7 +367,6 @@ func (ch *Checker) subsCheck(inferred, expected types.Type, expr core.Core, s sp
 
 	// Inferred { C1, C2 } => A ≤ B  →  defer all constraints, check A ≤ B
 	if ev, ok := inferred.(*types.TyEvidence); ok {
-		groupID := ch.fresh()
 		for _, entry := range ev.Constraints.ConEntries() {
 			placeholder := fmt.Sprintf("%s_%d", prefixDictDefer, ch.fresh())
 			ch.deferred = append(ch.deferred, deferredConstraint{
@@ -375,7 +374,6 @@ func (ch *Checker) subsCheck(inferred, expected types.Type, expr core.Core, s sp
 				className:     entry.ClassName,
 				args:          entry.Args,
 				s:             s,
-				group:         groupID,
 				quantified:    entry.Quantified,
 				constraintVar: entry.ConstraintVar,
 			})
@@ -708,7 +706,6 @@ func (ch *Checker) instantiate(ty types.Type, expr core.Core) (types.Type, core.
 			continue
 		}
 		if ev, ok := ty.(*types.TyEvidence); ok {
-			groupID := ch.fresh()
 			for _, entry := range ev.Constraints.ConEntries() {
 				placeholder := fmt.Sprintf("%s_%d", prefixDictDefer, ch.fresh())
 				ch.deferred = append(ch.deferred, deferredConstraint{
@@ -716,7 +713,6 @@ func (ch *Checker) instantiate(ty types.Type, expr core.Core) (types.Type, core.
 					className:     entry.ClassName,
 					args:          entry.Args,
 					s:             expr.Span(),
-					group:         groupID,
 					quantified:    entry.Quantified,
 					constraintVar: entry.ConstraintVar,
 				})
@@ -742,122 +738,6 @@ func (ch *Checker) patternName(p syntax.Pattern) string {
 	}
 }
 
-// inferPure handles the special form 'pure <expr>'.
-// pure e: Computation r r a, elaborated to Core.Pure.
-func (ch *Checker) inferPure(e *syntax.ExprApp) (types.Type, core.Core) {
-	argTy, argCore := ch.infer(e.Arg)
-	r := ch.freshMeta(types.KRow{})
-	resultTy := types.MkComp(r, r, argTy)
-	ch.trace(TraceInfer, e.S, "pure: %s ⇒ %s", types.Pretty(argTy), types.Pretty(resultTy))
-	return resultTy, &core.Pure{Expr: argCore, S: e.S}
-}
-
-// inferBind handles the special form 'bind <comp> <cont>'.
-// bind c (\x. e) : Computation r1 r3 b, elaborated to Core.Bind.
-func (ch *Checker) inferBind(compExpr, contExpr syntax.Expr, s span.Span) (types.Type, core.Core) {
-	compTy, compCore := ch.infer(compExpr)
-
-	r1 := ch.freshMeta(types.KRow{})
-	r2 := ch.freshMeta(types.KRow{})
-	a := ch.freshMeta(types.KType{})
-	if err := ch.unifier.Unify(compTy, types.MkComp(r1, r2, a)); err != nil {
-		ch.addSemanticUnifyError(errs.ErrBadComputation, err, compExpr.Span(), fmt.Sprintf("bind: first argument must be a computation, got %s", types.Pretty(compTy)))
-		return ch.errorPair(s)
-	}
-
-	r3 := ch.freshMeta(types.KRow{})
-	b := ch.freshMeta(types.KType{})
-
-	var bindVar string
-	var bodyCore core.Core
-
-	if lam, ok := contExpr.(*syntax.ExprLam); ok && len(lam.Params) >= 1 {
-		bindVar = ch.patternName(lam.Params[0])
-		ch.ctx.Push(&CtxVar{Name: bindVar, Type: ch.unifier.Zonk(a)})
-		bodyTy := types.MkComp(ch.unifier.Zonk(r2), r3, b)
-		if len(lam.Params) == 1 {
-			bodyCore = ch.check(lam.Body, bodyTy)
-		} else {
-			rest := &syntax.ExprLam{Params: lam.Params[1:], Body: lam.Body, S: lam.S}
-			bodyCore = ch.check(rest, bodyTy)
-		}
-		ch.ctx.Pop()
-	} else {
-		bindVar = fmt.Sprintf("%s_%d", prefixBind, ch.fresh())
-		contExpected := types.MkArrow(ch.unifier.Zonk(a), types.MkComp(ch.unifier.Zonk(r2), r3, b))
-		contCore := ch.check(contExpr, contExpected)
-		bodyCore = &core.App{
-			Fun: contCore,
-			Arg: &core.Var{Name: bindVar, S: s},
-			S:   s,
-		}
-	}
-
-	resultTy := types.MkComp(ch.unifier.Zonk(r1), ch.unifier.Zonk(r3), ch.unifier.Zonk(b))
-	ch.trace(TraceInfer, s, "bind: ⇒ %s", types.Pretty(resultTy))
-	return resultTy, &core.Bind{Comp: compCore, Var: bindVar, Body: bodyCore, S: s}
-}
-
-// cbpvTriple extracts (pre, post, result) from a computation or thunk type.
-// Returns nil fields if the type is neither.
-func cbpvTriple(ty types.Type) (pre, post, result types.Type) {
-	switch t := ty.(type) {
-	case *types.TyComp:
-		return t.Pre, t.Post, t.Result
-	case *types.TyThunk:
-		return t.Pre, t.Post, t.Result
-	}
-	return nil, nil, nil
-}
-
-// inferDualForm infers the CBPV dual: thunk (Comp→Thunk) or force (Thunk→Comp).
-func (ch *Checker) inferDualForm(
-	e *syntax.ExprApp, label string,
-	mkExpected func(pre, post, result types.Type) types.Type,
-	mkResult func(pre, post, result types.Type) types.Type,
-	mkCore func(argCore core.Core) core.Core,
-) (types.Type, core.Core) {
-	argTy, argCore := ch.infer(e.Arg)
-	argTy = ch.unifier.Zonk(argTy)
-
-	// Fast path: direct triple extraction.
-	if pre, post, result := cbpvTriple(argTy); pre != nil {
-		resultTy := mkResult(pre, post, result)
-		ch.trace(TraceInfer, e.S, "%s: %s ⇒ %s", label, types.Pretty(argTy), types.Pretty(resultTy))
-		return resultTy, mkCore(argCore)
-	}
-
-	// Fallback: unify with a fresh triple.
-	pre := ch.freshMeta(types.KRow{})
-	post := ch.freshMeta(types.KRow{})
-	result := ch.freshMeta(types.KType{})
-	expected := mkExpected(pre, post, result)
-	if err := ch.unifier.Unify(argTy, expected); err != nil {
-		ch.addSemanticUnifyError(errs.ErrBadThunk, err, e.S,
-			fmt.Sprintf("%s requires a %s argument, got %s", label, types.Pretty(expected), types.Pretty(argTy)))
-		return &types.TyError{S: e.S}, mkCore(argCore)
-	}
-	resultTy := mkResult(ch.unifier.Zonk(pre), ch.unifier.Zonk(post), ch.unifier.Zonk(result))
-	ch.trace(TraceInfer, e.S, "%s: %s ⇒ %s", label, types.Pretty(argTy), types.Pretty(resultTy))
-	return resultTy, mkCore(argCore)
-}
-
-func (ch *Checker) inferThunk(e *syntax.ExprApp) (types.Type, core.Core) {
-	return ch.inferDualForm(e, "thunk",
-		func(p, q, r types.Type) types.Type { return types.MkComp(p, q, r) },
-		func(p, q, r types.Type) types.Type { return types.MkThunk(p, q, r) },
-		func(c core.Core) core.Core { return &core.Thunk{Comp: c, S: e.S} },
-	)
-}
-
-func (ch *Checker) inferForce(e *syntax.ExprApp) (types.Type, core.Core) {
-	return ch.inferDualForm(e, "force",
-		func(p, q, r types.Type) types.Type { return types.MkThunk(p, q, r) },
-		func(p, q, r types.Type) types.Type { return types.MkComp(p, q, r) },
-		func(c core.Core) core.Core { return &core.Force{Expr: c, S: e.S} },
-	)
-}
-
 // inferList handles list literal [e1, e2, ...] by desugaring to Cons/Nil chain.
 func (ch *Checker) inferList(e *syntax.ExprList) (types.Type, core.Core) {
 	elemTy := ch.freshMeta(types.KType{})
@@ -881,119 +761,4 @@ func (ch *Checker) inferList(e *syntax.ExprList) (types.Type, core.Core) {
 	}
 
 	return ch.unifier.Zonk(listTy), result
-}
-
-// lubPostStates computes the join of multiple post-states from case branches.
-// Strategy: intersect labels present in all branches. Labels present in only
-// some branches are dropped (capability was consumed in those branches).
-// For shared labels, types and multiplicities are unified.
-func (ch *Checker) lubPostStates(posts []types.Type, s span.Span) types.Type {
-	if len(posts) == 0 {
-		return ch.freshMeta(types.KRow{})
-	}
-	if len(posts) == 1 {
-		return posts[0]
-	}
-
-	// Zonk all post-states to resolve metas.
-	zonked := make([]types.Type, len(posts))
-	for i, p := range posts {
-		zonked[i] = ch.unifier.Zonk(p)
-	}
-
-	// Try to extract capability rows from each post-state.
-	rows := make([]*types.TyEvidenceRow, 0, len(zonked))
-	for _, z := range zonked {
-		if ev, ok := z.(*types.TyEvidenceRow); ok {
-			rows = append(rows, ev)
-		}
-	}
-
-	// If all posts resolved to capability rows, compute intersection.
-	if len(rows) == len(zonked) {
-		return ch.intersectCapRows(rows, s)
-	}
-
-	// Fallback: unify all posts (v0 behavior).
-	result := zonked[0]
-	for i := 1; i < len(zonked); i++ {
-		if err := ch.unifier.Unify(result, zonked[i]); err != nil {
-			ch.addCodedError(errs.ErrTypeMismatch, s,
-				fmt.Sprintf("divergent post-states in case branches: %s vs %s",
-					types.Pretty(result), types.Pretty(zonked[i])))
-		}
-	}
-	return result
-}
-
-// intersectCapRows computes the intersection of capability rows.
-// Labels present in ALL rows are kept; labels present in only some are dropped.
-// For shared labels, field types and multiplicities are unified.
-func (ch *Checker) intersectCapRows(rows []*types.TyEvidenceRow, s span.Span) types.Type {
-	if len(rows) == 0 {
-		return types.ClosedRow()
-	}
-
-	// Count label occurrences across all rows.
-	labelCount := make(map[string]int)
-	for _, r := range rows {
-		for _, f := range r.CapFields() {
-			labelCount[f.Label]++
-		}
-	}
-
-	// Shared labels: present in ALL rows.
-	n := len(rows)
-	var sharedFields []types.RowField
-	firstRow := rows[0]
-	for _, f := range firstRow.CapFields() {
-		if labelCount[f.Label] == n {
-			// This label is in all branches — keep it.
-			// Unify the type and mult from all branches.
-			resultField := types.RowField{Label: f.Label, Type: f.Type, Mult: f.Mult, S: f.S}
-			for _, otherRow := range rows[1:] {
-				for _, of := range otherRow.CapFields() {
-					if of.Label == f.Label {
-						if err := ch.unifier.Unify(resultField.Type, of.Type); err != nil {
-							ch.addCodedError(errs.ErrTypeMismatch, s,
-								fmt.Sprintf("divergent capability type for %s: %s vs %s",
-									f.Label, types.Pretty(resultField.Type), types.Pretty(of.Type)))
-						}
-						if resultField.Mult != nil && of.Mult != nil {
-							if err := ch.unifier.Unify(resultField.Mult, of.Mult); err != nil {
-								ch.addCodedError(errs.ErrTypeMismatch, s,
-									fmt.Sprintf("divergent multiplicity for %s", f.Label))
-							}
-						}
-						break
-					}
-				}
-			}
-			sharedFields = append(sharedFields, resultField)
-		}
-	}
-
-	// Handle tail: if all rows have the same tail variable, preserve it.
-	var tail types.Type
-	if firstRow.Tail != nil {
-		allSameTail := true
-		for _, r := range rows[1:] {
-			if r.Tail == nil {
-				allSameTail = false
-				break
-			}
-			if err := ch.unifier.Unify(firstRow.Tail, r.Tail); err != nil {
-				allSameTail = false
-				break
-			}
-		}
-		if allSameTail {
-			tail = firstRow.Tail
-		}
-	}
-
-	if tail != nil {
-		return types.OpenRow(sharedFields, tail)
-	}
-	return types.ClosedRow(sharedFields...)
 }

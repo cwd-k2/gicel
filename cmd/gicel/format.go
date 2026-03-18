@@ -1,6 +1,8 @@
 package main
 
 import (
+	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -292,4 +294,137 @@ func fmtBindings(bindings map[string]string) string {
 		parts[i] = k + " = " + bindings[k]
 	}
 	return strings.Join(parts, ", ")
+}
+
+func compileErrorJSON(err error) map[string]any {
+	out := map[string]any{"ok": false, "phase": "compile", "error": err.Error()}
+	var ce *gicel.CompileError
+	if errors.As(err, &ce) {
+		diags := ce.Diagnostics()
+		jdiags := make([]map[string]any, len(diags))
+		for i, d := range diags {
+			jdiags[i] = map[string]any{
+				"code":    fmt.Sprintf("E%04d", d.Code),
+				"phase":   d.Phase,
+				"line":    d.Line,
+				"col":     d.Col,
+				"message": d.Message,
+			}
+		}
+		out["diagnostics"] = jdiags
+	}
+	return out
+}
+
+func outputJSON(v any) {
+	enc := json.NewEncoder(os.Stdout)
+	enc.SetIndent("", "  ")
+	if err := enc.Encode(v); err != nil {
+		fmt.Fprintf(os.Stderr, "error: writing output: %v\n", err)
+		os.Exit(1)
+	}
+}
+
+// summarizeSteps produces a per-section breakdown of explain events.
+func summarizeSteps(steps []gicel.ExplainStep) any {
+	type sectionSummary struct {
+		binds, effects, matches int
+		ops                     []string
+		result                  string
+	}
+
+	var sections []map[string]any
+	var current *sectionSummary
+	var currentName string
+	opSet := map[string]bool{}
+
+	flush := func() {
+		if current == nil {
+			return
+		}
+		if current.binds+current.effects+current.matches == 0 && current.result == "" {
+			return
+		}
+		entry := map[string]any{
+			"section": currentName,
+			"binds":   current.binds,
+			"effects": current.effects,
+			"matches": current.matches,
+			"ops":     current.ops,
+		}
+		if current.result != "" {
+			entry["result"] = current.result
+		}
+		sections = append(sections, entry)
+	}
+
+	for _, s := range steps {
+		switch s.Kind {
+		case gicel.ExplainLabel:
+			if s.Detail.LabelKind == "section" {
+				flush()
+				currentName = s.Detail.Name
+				current = &sectionSummary{}
+				opSet = map[string]bool{}
+			}
+		case gicel.ExplainBind:
+			if current != nil {
+				current.binds++
+			}
+		case gicel.ExplainEffect:
+			if current != nil {
+				current.effects++
+				if op := s.Detail.Op; op != "" && !opSet[op] {
+					opSet[op] = true
+					current.ops = append(current.ops, op)
+				}
+			}
+		case gicel.ExplainMatch:
+			if current != nil {
+				current.matches++
+			}
+		case gicel.ExplainResult:
+			if current != nil {
+				current.result = s.Detail.Value
+			}
+		}
+	}
+	flush()
+	return sections
+}
+
+// formatCapEnv serializes a CapEnv as a map of pretty-printed values.
+func formatCapEnv(ce gicel.CapEnv) map[string]any {
+	labels := ce.Labels()
+	if len(labels) == 0 {
+		return nil
+	}
+	m := make(map[string]any, len(labels))
+	for _, l := range labels {
+		v, _ := ce.Get(l)
+		if val, ok := v.(gicel.Value); ok {
+			m[l] = gicel.PrettyValue(val)
+		} else {
+			m[l] = fmt.Sprintf("%v", v)
+		}
+	}
+	return m
+}
+
+func formatValue(v gicel.Value) any {
+	switch val := v.(type) {
+	case *gicel.HostVal:
+		return val.Inner
+	case *gicel.ConVal:
+		if len(val.Args) == 0 {
+			return val.Con
+		}
+		args := make([]any, len(val.Args))
+		for i, a := range val.Args {
+			args[i] = formatValue(a)
+		}
+		return map[string]any{"con": val.Con, "args": args}
+	default:
+		return gicel.PrettyValue(v)
+	}
 }

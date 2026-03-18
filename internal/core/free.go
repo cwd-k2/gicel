@@ -238,6 +238,12 @@ func VarKey(v *Var) string {
 	return varKey(v)
 }
 
+// QualifiedKey builds a qualified environment key from module and name.
+// This is the canonical constructor for the "module\x00name" key format.
+func QualifiedKey(module, name string) string {
+	return module + "\x00" + name
+}
+
 // FreeTypeVars returns type-level free variables in Core.
 func FreeTypeVars(c Core) map[string]struct{} {
 	fv := make(map[string]struct{})

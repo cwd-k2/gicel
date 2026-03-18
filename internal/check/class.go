@@ -7,6 +7,7 @@ import (
 
 	"github.com/cwd-k2/gicel/internal/core"
 	"github.com/cwd-k2/gicel/internal/errs"
+	"github.com/cwd-k2/gicel/internal/span"
 	"github.com/cwd-k2/gicel/internal/syntax"
 	"github.com/cwd-k2/gicel/internal/types"
 )
@@ -257,64 +258,69 @@ func (ch *Checker) processClassDecl(d *syntax.DeclClass, prog *core.Program) {
 
 	// Generate selector bindings for each method.
 	for i, m := range methods {
-		fieldIdx := len(supers) + i
-
-		tyParamVars := make([]types.Type, len(tyParams))
-		for j, p := range tyParams {
-			tyParamVars[j] = &types.TyVar{Name: p}
-		}
-		entry := types.ConstraintEntry{ClassName: d.Name, Args: tyParamVars, S: d.S}
-		var selectorTy types.Type = types.MkEvidence([]types.ConstraintEntry{entry}, m.Type)
-		for j := len(tyParams) - 1; j >= 0; j-- {
-			selectorTy = types.MkForall(tyParams[j], tyParamKinds[j], selectorTy)
-		}
-		// Wrap kind parameters as outermost foralls.
-		for j := len(kindParams) - 1; j >= 0; j-- {
-			selectorTy = types.MkForall(kindParams[j], types.KSort{}, selectorTy)
-		}
-
-		ch.ctx.Push(&CtxVar{Name: m.Name, Type: selectorTy, Module: ch.currentModule})
-
-		selName := fmt.Sprintf("%s_%s_%d", prefixSel, m.Name, ch.fresh())
-		var patArgs []core.Pattern
-		var resultExpr core.Core
-		for j := 0; j < len(allFieldTypes); j++ {
-			argName := fmt.Sprintf("$f_%d", j)
-			patArgs = append(patArgs, &core.PVar{Name: argName})
-			if j == fieldIdx {
-				resultExpr = &core.Var{Name: argName, S: d.S}
-			}
-		}
-
-		caseExpr := &core.Case{
-			Scrutinee: &core.Var{Name: selName, S: d.S},
-			Alts: []core.Alt{{
-				Pattern: &core.PCon{Con: dn, Args: patArgs, S: d.S},
-				Body:    resultExpr,
-				S:       d.S,
-			}},
-			S: d.S,
-		}
-
-		var selectorBody core.Core = &core.Lam{
-			Param: selName, ParamType: resultType, Body: caseExpr, S: d.S,
-		}
-
-		for j := len(tyParams) - 1; j >= 0; j-- {
-			selectorBody = &core.TyLam{TyParam: tyParams[j], Kind: tyParamKinds[j], Body: selectorBody, S: d.S}
-		}
-		// Wrap kind parameters as outermost TyLams.
-		for j := len(kindParams) - 1; j >= 0; j-- {
-			selectorBody = &core.TyLam{TyParam: kindParams[j], Kind: types.KSort{}, Body: selectorBody, S: d.S}
-		}
-
-		prog.Bindings = append(prog.Bindings, core.Binding{
-			Name: m.Name,
-			Type: selectorTy,
-			Expr: selectorBody,
-			S:    d.S,
-		})
+		ch.buildMethodSelector(info, m, i, resultType, allFieldTypes, prog, d.S)
 	}
+}
+
+// buildMethodSelector generates a selector binding for a single class method.
+// The selector pattern-matches on the dictionary constructor to extract the method
+// at position fieldIdx (supers count + method index within methods).
+func (ch *Checker) buildMethodSelector(cls *ClassInfo, m MethodInfo, methodIdx int, resultType types.Type, allFieldTypes []types.Type, prog *core.Program, s span.Span) {
+	fieldIdx := len(cls.Supers) + methodIdx
+
+	tyParamVars := make([]types.Type, len(cls.TyParams))
+	for j, p := range cls.TyParams {
+		tyParamVars[j] = &types.TyVar{Name: p}
+	}
+	entry := types.ConstraintEntry{ClassName: cls.Name, Args: tyParamVars, S: s}
+	var selectorTy types.Type = types.MkEvidence([]types.ConstraintEntry{entry}, m.Type)
+	for j := len(cls.TyParams) - 1; j >= 0; j-- {
+		selectorTy = types.MkForall(cls.TyParams[j], cls.TyParamKinds[j], selectorTy)
+	}
+	for j := len(cls.KindParams) - 1; j >= 0; j-- {
+		selectorTy = types.MkForall(cls.KindParams[j], types.KSort{}, selectorTy)
+	}
+
+	ch.ctx.Push(&CtxVar{Name: m.Name, Type: selectorTy, Module: ch.currentModule})
+
+	selName := fmt.Sprintf("%s_%s_%d", prefixSel, m.Name, ch.fresh())
+	var patArgs []core.Pattern
+	var resultExpr core.Core
+	for j := 0; j < len(allFieldTypes); j++ {
+		argName := fmt.Sprintf("$f_%d", j)
+		patArgs = append(patArgs, &core.PVar{Name: argName})
+		if j == fieldIdx {
+			resultExpr = &core.Var{Name: argName, S: s}
+		}
+	}
+
+	caseExpr := &core.Case{
+		Scrutinee: &core.Var{Name: selName, S: s},
+		Alts: []core.Alt{{
+			Pattern: &core.PCon{Con: cls.DictName, Args: patArgs, S: s},
+			Body:    resultExpr,
+			S:       s,
+		}},
+		S: s,
+	}
+
+	var selectorBody core.Core = &core.Lam{
+		Param: selName, ParamType: resultType, Body: caseExpr, S: s,
+	}
+
+	for j := len(cls.TyParams) - 1; j >= 0; j-- {
+		selectorBody = &core.TyLam{TyParam: cls.TyParams[j], Kind: cls.TyParamKinds[j], Body: selectorBody, S: s}
+	}
+	for j := len(cls.KindParams) - 1; j >= 0; j-- {
+		selectorBody = &core.TyLam{TyParam: cls.KindParams[j], Kind: types.KSort{}, Body: selectorBody, S: s}
+	}
+
+	prog.Bindings = append(prog.Bindings, core.Binding{
+		Name: m.Name,
+		Type: selectorTy,
+		Expr: selectorBody,
+		S:    s,
+	})
 }
 
 // buildDictType constructs the dictionary type for a class applied to arguments.

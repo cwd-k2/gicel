@@ -228,96 +228,7 @@ func (ch *Checker) processInstanceHeader(d *syntax.DeclInstance) *InstanceInfo {
 	// Process associated data family definitions: register constructors
 	// and create type family equations mapping the family to its mangled data type.
 	for _, add := range d.AssocDataDefs {
-		fam, ok := ch.families[add.Name]
-		if !ok {
-			ch.addCodedError(errs.ErrBadInstance, d.S,
-				fmt.Sprintf("instance %s: associated data %s not declared in class %s",
-					d.ClassName, add.Name, d.ClassName))
-			continue
-		}
-		if !fam.IsAssoc || fam.ClassName != d.ClassName {
-			ch.addCodedError(errs.ErrBadInstance, d.S,
-				fmt.Sprintf("instance %s: %s is not an associated data of class %s",
-					d.ClassName, add.Name, d.ClassName))
-			continue
-		}
-		if len(add.Patterns) != len(fam.Params) {
-			ch.addCodedError(errs.ErrTypeFamilyEquation, add.S,
-				fmt.Sprintf("associated data %s expects %d argument(s), got %d",
-					add.Name, len(fam.Params), len(add.Patterns)))
-			continue
-		}
-
-		// Resolve patterns.
-		resolvedPats := make([]types.Type, len(add.Patterns))
-		for i, pat := range add.Patterns {
-			resolvedPats[i] = ch.resolveTypeExpr(pat)
-		}
-
-		// Build the mangled data type name: FamilyName$Pattern1$Pattern2
-		mangledName := ch.mangledDataFamilyName(add.Name, resolvedPats)
-
-		// Register the mangled data type as a type constructor.
-		ch.config.RegisteredTypes[mangledName] = types.KType{}
-
-		// Build result type for the mangled data type.
-		var mangledResultType types.Type = &types.TyCon{Name: mangledName, S: add.S}
-
-		// Collect free vars from patterns (they become type params of the mangled data type).
-		patVars := collectPatternVars(resolvedPats)
-
-		// For each pattern var, wrap the mangled result type with a type application.
-		for _, pv := range patVars {
-			mangledResultType = &types.TyApp{
-				Fun: mangledResultType,
-				Arg: &types.TyVar{Name: pv, S: add.S},
-				S:   add.S,
-			}
-			// Update the registered kind to accept this parameter.
-			existingKind := ch.config.RegisteredTypes[mangledName]
-			ch.config.RegisteredTypes[mangledName] = &types.KArrow{From: types.KType{}, To: existingKind}
-		}
-
-		dataInfo := &DataTypeInfo{Name: mangledName}
-		coreDecl := core.DataDecl{Name: mangledName, S: add.S}
-		for _, pv := range patVars {
-			coreDecl.TyParams = append(coreDecl.TyParams, core.TyParam{Name: pv, Kind: types.KType{}})
-		}
-
-		// Register each constructor.
-		for _, con := range add.Cons {
-			var conType types.Type = mangledResultType
-			var fieldTypes []types.Type
-			for i := len(con.Fields) - 1; i >= 0; i-- {
-				fieldTy := ch.resolveTypeExpr(con.Fields[i])
-				fieldTypes = append([]types.Type{fieldTy}, fieldTypes...)
-				conType = types.MkArrow(fieldTy, conType)
-			}
-			// Wrap in forall for pattern vars.
-			for i := len(patVars) - 1; i >= 0; i-- {
-				conType = types.MkForall(patVars[i], types.KType{}, conType)
-			}
-			// Guard against constructor name collision with existing constructors.
-			if existing, dup := ch.conTypes[con.Name]; dup {
-				ch.addCodedError(errs.ErrDuplicateDecl, con.S,
-					fmt.Sprintf("data family instance %s: constructor %s conflicts with existing constructor (type: %s)",
-						add.Name, con.Name, types.Pretty(existing)))
-				continue
-			}
-			ch.conTypes[con.Name] = conType
-			ch.ctx.Push(&CtxVar{Name: con.Name, Type: conType, Module: ch.currentModule})
-			ch.conModules[con.Name] = ch.currentModule
-			dataInfo.Constructors = append(dataInfo.Constructors, ConInfo{Name: con.Name, Arity: len(fieldTypes)})
-			ch.conInfo[con.Name] = dataInfo
-			coreDecl.Cons = append(coreDecl.Cons, core.ConDecl{Name: con.Name, Fields: fieldTypes, S: con.S})
-		}
-
-		// Add type family equation: Family patterns =: MangledType patVars
-		fam.Equations = append(fam.Equations, tfEquation{
-			Patterns: resolvedPats,
-			RHS:      mangledResultType,
-			S:        add.S,
-		})
+		ch.processAssocDataDef(add, d.ClassName, d.S)
 	}
 
 	ch.instances = append(ch.instances, inst)
@@ -556,4 +467,100 @@ func (ch *Checker) kindOfType(ty types.Type) types.Kind {
 	default:
 		return types.KType{}
 	}
+}
+
+// processAssocDataDef registers constructors for an associated data family definition
+// and creates the type family equation mapping the family to its mangled data type.
+func (ch *Checker) processAssocDataDef(add syntax.AssocDataDef, className string, instSpan span.Span) {
+	fam, ok := ch.families[add.Name]
+	if !ok {
+		ch.addCodedError(errs.ErrBadInstance, instSpan,
+			fmt.Sprintf("instance %s: associated data %s not declared in class %s",
+				className, add.Name, className))
+		return
+	}
+	if !fam.IsAssoc || fam.ClassName != className {
+		ch.addCodedError(errs.ErrBadInstance, instSpan,
+			fmt.Sprintf("instance %s: %s is not an associated data of class %s",
+				className, add.Name, className))
+		return
+	}
+	if len(add.Patterns) != len(fam.Params) {
+		ch.addCodedError(errs.ErrTypeFamilyEquation, add.S,
+			fmt.Sprintf("associated data %s expects %d argument(s), got %d",
+				add.Name, len(fam.Params), len(add.Patterns)))
+		return
+	}
+
+	// Resolve patterns.
+	resolvedPats := make([]types.Type, len(add.Patterns))
+	for i, pat := range add.Patterns {
+		resolvedPats[i] = ch.resolveTypeExpr(pat)
+	}
+
+	// Build the mangled data type name: FamilyName$Pattern1$Pattern2
+	mangledName := ch.mangledDataFamilyName(add.Name, resolvedPats)
+
+	// Register the mangled data type as a type constructor.
+	ch.config.RegisteredTypes[mangledName] = types.KType{}
+
+	// Build result type for the mangled data type.
+	var mangledResultType types.Type = &types.TyCon{Name: mangledName, S: add.S}
+
+	// Collect free vars from patterns (they become type params of the mangled data type).
+	patVars := collectPatternVars(resolvedPats)
+
+	// For each pattern var, wrap the mangled result type with a type application.
+	for _, pv := range patVars {
+		mangledResultType = &types.TyApp{
+			Fun: mangledResultType,
+			Arg: &types.TyVar{Name: pv, S: add.S},
+			S:   add.S,
+		}
+		// Update the registered kind to accept this parameter.
+		existingKind := ch.config.RegisteredTypes[mangledName]
+		ch.config.RegisteredTypes[mangledName] = &types.KArrow{From: types.KType{}, To: existingKind}
+	}
+
+	dataInfo := &DataTypeInfo{Name: mangledName}
+	ch.dataTypeByName[mangledName] = dataInfo
+	coreDecl := core.DataDecl{Name: mangledName, S: add.S}
+	for _, pv := range patVars {
+		coreDecl.TyParams = append(coreDecl.TyParams, core.TyParam{Name: pv, Kind: types.KType{}})
+	}
+
+	// Register each constructor.
+	for _, con := range add.Cons {
+		var conType types.Type = mangledResultType
+		var fieldTypes []types.Type
+		for i := len(con.Fields) - 1; i >= 0; i-- {
+			fieldTy := ch.resolveTypeExpr(con.Fields[i])
+			fieldTypes = append([]types.Type{fieldTy}, fieldTypes...)
+			conType = types.MkArrow(fieldTy, conType)
+		}
+		// Wrap in forall for pattern vars.
+		for i := len(patVars) - 1; i >= 0; i-- {
+			conType = types.MkForall(patVars[i], types.KType{}, conType)
+		}
+		// Guard against constructor name collision with existing constructors.
+		if existing, dup := ch.conTypes[con.Name]; dup {
+			ch.addCodedError(errs.ErrDuplicateDecl, con.S,
+				fmt.Sprintf("data family instance %s: constructor %s conflicts with existing constructor (type: %s)",
+					add.Name, con.Name, types.Pretty(existing)))
+			continue
+		}
+		ch.conTypes[con.Name] = conType
+		ch.ctx.Push(&CtxVar{Name: con.Name, Type: conType, Module: ch.currentModule})
+		ch.conModules[con.Name] = ch.currentModule
+		dataInfo.Constructors = append(dataInfo.Constructors, ConInfo{Name: con.Name, Arity: len(fieldTypes)})
+		ch.conInfo[con.Name] = dataInfo
+		coreDecl.Cons = append(coreDecl.Cons, core.ConDecl{Name: con.Name, Fields: fieldTypes, S: con.S})
+	}
+
+	// Add type family equation: Family patterns =: MangledType patVars
+	fam.Equations = append(fam.Equations, tfEquation{
+		Patterns: resolvedPats,
+		RHS:      mangledResultType,
+		S:        add.S,
+	})
 }

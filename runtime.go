@@ -64,7 +64,7 @@ func (r *Runtime) initBuiltinEnv(gatedBuiltins map[string]bool) {
 		for _, d := range me.prog.DataDecls {
 			for _, con := range d.Cons {
 				cv := &eval.ConVal{Con: con.Name}
-				env = env.Extend(me.name+"\x00"+con.Name, cv)
+				env = env.Extend(core.QualifiedKey(me.name, con.Name), cv)
 			}
 		}
 	}
@@ -178,7 +178,7 @@ func (r *Runtime) evalBindingsCore(ev *eval.Evaluator, env *eval.Env, bindings [
 		cells[b.Name] = cell
 		if modulePrefix != "" {
 			// Module bindings: qualified key only. Core IR references carry Module.
-			env = env.Extend(modulePrefix+"\x00"+b.Name, cell)
+			env = env.Extend(core.QualifiedKey(modulePrefix, b.Name), cell)
 		} else {
 			// User bindings: plain name.
 			env = env.Extend(b.Name, cell)

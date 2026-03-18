@@ -74,22 +74,6 @@ func TestContextEvidencePopRestoresScope(t *testing.T) {
 }
 
 // =============================================================================
-// DeferredConstraint group field
-// =============================================================================
-
-func TestDeferredConstraintGroupField(t *testing.T) {
-	dc := deferredConstraint{
-		placeholder: "$dict_1",
-		className:   "Eq",
-		args:        []types.Type{types.Con("Int")},
-		group:       42,
-	}
-	if dc.group != 42 {
-		t.Errorf("expected group 42, got %d", dc.group)
-	}
-}
-
-// =============================================================================
 // collectContextEvidence / classifyEvidence
 // =============================================================================
 

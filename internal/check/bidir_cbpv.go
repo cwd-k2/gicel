@@ -1,0 +1,127 @@
+package check
+
+import (
+	"fmt"
+
+	"github.com/cwd-k2/gicel/internal/core"
+	"github.com/cwd-k2/gicel/internal/errs"
+	"github.com/cwd-k2/gicel/internal/span"
+	"github.com/cwd-k2/gicel/internal/syntax"
+	"github.com/cwd-k2/gicel/internal/types"
+)
+
+// inferPure handles the special form 'pure <expr>'.
+// pure e: Computation r r a, elaborated to Core.Pure.
+func (ch *Checker) inferPure(e *syntax.ExprApp) (types.Type, core.Core) {
+	argTy, argCore := ch.infer(e.Arg)
+	r := ch.freshMeta(types.KRow{})
+	resultTy := types.MkComp(r, r, argTy)
+	ch.trace(TraceInfer, e.S, "pure: %s ⇒ %s", types.Pretty(argTy), types.Pretty(resultTy))
+	return resultTy, &core.Pure{Expr: argCore, S: e.S}
+}
+
+// inferBind handles the special form 'bind <comp> <cont>'.
+// bind c (\x. e) : Computation r1 r3 b, elaborated to Core.Bind.
+func (ch *Checker) inferBind(compExpr, contExpr syntax.Expr, s span.Span) (types.Type, core.Core) {
+	compTy, compCore := ch.infer(compExpr)
+
+	r1 := ch.freshMeta(types.KRow{})
+	r2 := ch.freshMeta(types.KRow{})
+	a := ch.freshMeta(types.KType{})
+	if err := ch.unifier.Unify(compTy, types.MkComp(r1, r2, a)); err != nil {
+		ch.addSemanticUnifyError(errs.ErrBadComputation, err, compExpr.Span(), fmt.Sprintf("bind: first argument must be a computation, got %s", types.Pretty(compTy)))
+		return ch.errorPair(s)
+	}
+
+	r3 := ch.freshMeta(types.KRow{})
+	b := ch.freshMeta(types.KType{})
+
+	var bindVar string
+	var bodyCore core.Core
+
+	if lam, ok := contExpr.(*syntax.ExprLam); ok && len(lam.Params) >= 1 {
+		bindVar = ch.patternName(lam.Params[0])
+		ch.ctx.Push(&CtxVar{Name: bindVar, Type: ch.unifier.Zonk(a)})
+		bodyTy := types.MkComp(ch.unifier.Zonk(r2), r3, b)
+		if len(lam.Params) == 1 {
+			bodyCore = ch.check(lam.Body, bodyTy)
+		} else {
+			rest := &syntax.ExprLam{Params: lam.Params[1:], Body: lam.Body, S: lam.S}
+			bodyCore = ch.check(rest, bodyTy)
+		}
+		ch.ctx.Pop()
+	} else {
+		bindVar = fmt.Sprintf("%s_%d", prefixBind, ch.fresh())
+		contExpected := types.MkArrow(ch.unifier.Zonk(a), types.MkComp(ch.unifier.Zonk(r2), r3, b))
+		contCore := ch.check(contExpr, contExpected)
+		bodyCore = &core.App{
+			Fun: contCore,
+			Arg: &core.Var{Name: bindVar, S: s},
+			S:   s,
+		}
+	}
+
+	resultTy := types.MkComp(ch.unifier.Zonk(r1), ch.unifier.Zonk(r3), ch.unifier.Zonk(b))
+	ch.trace(TraceInfer, s, "bind: ⇒ %s", types.Pretty(resultTy))
+	return resultTy, &core.Bind{Comp: compCore, Var: bindVar, Body: bodyCore, S: s}
+}
+
+// cbpvTriple extracts (pre, post, result) from a computation or thunk type.
+// Returns nil fields if the type is neither.
+func cbpvTriple(ty types.Type) (pre, post, result types.Type) {
+	switch t := ty.(type) {
+	case *types.TyComp:
+		return t.Pre, t.Post, t.Result
+	case *types.TyThunk:
+		return t.Pre, t.Post, t.Result
+	}
+	return nil, nil, nil
+}
+
+// inferDualForm infers the CBPV dual: thunk (Comp→Thunk) or force (Thunk→Comp).
+func (ch *Checker) inferDualForm(
+	e *syntax.ExprApp, label string,
+	mkExpected func(pre, post, result types.Type) types.Type,
+	mkResult func(pre, post, result types.Type) types.Type,
+	mkCore func(argCore core.Core) core.Core,
+) (types.Type, core.Core) {
+	argTy, argCore := ch.infer(e.Arg)
+	argTy = ch.unifier.Zonk(argTy)
+
+	// Fast path: direct triple extraction.
+	if pre, post, result := cbpvTriple(argTy); pre != nil {
+		resultTy := mkResult(pre, post, result)
+		ch.trace(TraceInfer, e.S, "%s: %s ⇒ %s", label, types.Pretty(argTy), types.Pretty(resultTy))
+		return resultTy, mkCore(argCore)
+	}
+
+	// Fallback: unify with a fresh triple.
+	pre := ch.freshMeta(types.KRow{})
+	post := ch.freshMeta(types.KRow{})
+	result := ch.freshMeta(types.KType{})
+	expected := mkExpected(pre, post, result)
+	if err := ch.unifier.Unify(argTy, expected); err != nil {
+		ch.addSemanticUnifyError(errs.ErrBadThunk, err, e.S,
+			fmt.Sprintf("%s requires a %s argument, got %s", label, types.Pretty(expected), types.Pretty(argTy)))
+		return &types.TyError{S: e.S}, mkCore(argCore)
+	}
+	resultTy := mkResult(ch.unifier.Zonk(pre), ch.unifier.Zonk(post), ch.unifier.Zonk(result))
+	ch.trace(TraceInfer, e.S, "%s: %s ⇒ %s", label, types.Pretty(argTy), types.Pretty(resultTy))
+	return resultTy, mkCore(argCore)
+}
+
+func (ch *Checker) inferThunk(e *syntax.ExprApp) (types.Type, core.Core) {
+	return ch.inferDualForm(e, "thunk",
+		func(p, q, r types.Type) types.Type { return types.MkComp(p, q, r) },
+		func(p, q, r types.Type) types.Type { return types.MkThunk(p, q, r) },
+		func(c core.Core) core.Core { return &core.Thunk{Comp: c, S: e.S} },
+	)
+}
+
+func (ch *Checker) inferForce(e *syntax.ExprApp) (types.Type, core.Core) {
+	return ch.inferDualForm(e, "force",
+		func(p, q, r types.Type) types.Type { return types.MkThunk(p, q, r) },
+		func(p, q, r types.Type) types.Type { return types.MkComp(p, q, r) },
+		func(c core.Core) core.Core { return &core.Force{Expr: c, S: e.S} },
+	)
+}
