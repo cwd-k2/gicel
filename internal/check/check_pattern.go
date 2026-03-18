@@ -7,6 +7,7 @@ import (
 
 	"github.com/cwd-k2/gicel/internal/core"
 	"github.com/cwd-k2/gicel/internal/errs"
+	"github.com/cwd-k2/gicel/internal/span"
 	"github.com/cwd-k2/gicel/internal/syntax"
 	"github.com/cwd-k2/gicel/internal/types"
 )
@@ -30,6 +31,8 @@ func (ch *Checker) checkPattern(pat syntax.Pattern, scrutTy types.Type) patternR
 		return patternResult{Pattern: &core.PWild{S: p.S}}
 	case *syntax.PatCon:
 		return ch.checkConPattern(p, scrutTy)
+	case *syntax.PatQualCon:
+		return ch.checkQualConPattern(p, scrutTy)
 	case *syntax.PatRecord:
 		return ch.checkRecordPattern(p, scrutTy)
 	case *syntax.PatParen:
@@ -131,6 +134,26 @@ func (ch *Checker) checkConPattern(p *syntax.PatCon, scrutTy types.Type) pattern
 		ch.addCodedError(errs.ErrUnboundCon, p.S, fmt.Sprintf("unknown constructor in pattern: %s", p.Con))
 		return patternResult{Pattern: &core.PWild{S: p.S}}
 	}
+	return ch.checkConPatternWith(p.Con, "", conTy, p.Args, scrutTy, p.S)
+}
+
+func (ch *Checker) checkQualConPattern(p *syntax.PatQualCon, scrutTy types.Type) patternResult {
+	qs, ok := ch.qualifiedScopes[p.Qualifier]
+	if !ok {
+		ch.addCodedError(errs.ErrUnboundCon, p.S, fmt.Sprintf("unknown qualifier: %s", p.Qualifier))
+		return patternResult{Pattern: &core.PWild{S: p.S}}
+	}
+	conTy, ok := qs.exports.ConTypes[p.Con]
+	if !ok {
+		ch.addCodedError(errs.ErrUnboundCon, p.S,
+			fmt.Sprintf("module %s does not export constructor: %s", qs.moduleName, p.Con))
+		return patternResult{Pattern: &core.PWild{S: p.S}}
+	}
+	return ch.checkConPatternWith(p.Con, qs.moduleName, conTy, p.Args, scrutTy, p.S)
+}
+
+// checkConPatternWith is the shared implementation for unqualified and qualified constructor patterns.
+func (ch *Checker) checkConPatternWith(conName, moduleName string, conTy types.Type, patArgs []syntax.Pattern, scrutTy types.Type, s span.Span) patternResult {
 	conTy = ch.unifier.Zonk(conTy)
 	var args []core.Pattern
 	bindings := make(map[string]types.Type)
@@ -150,12 +173,12 @@ func (ch *Checker) checkConPattern(p *syntax.PatCon, scrutTy types.Type) pattern
 						constraintVar: entry.ConstraintVar,
 						dictParam:     dictParam,
 					})
-					args = append(args, &core.PVar{Name: dictParam, S: p.S})
+					args = append(args, &core.PVar{Name: dictParam, S: s})
 				} else {
 					dictParam := fmt.Sprintf("%s_%s_%d", prefixDict, entry.ClassName, ch.fresh())
 					dictTy := ch.buildDictType(entry.ClassName, entry.Args)
 					bindings[dictParam] = dictTy
-					args = append(args, &core.PVar{Name: dictParam, S: p.S})
+					args = append(args, &core.PVar{Name: dictParam, S: s})
 				}
 			}
 			currentTy = ev.Body
@@ -166,7 +189,7 @@ func (ch *Checker) checkConPattern(p *syntax.PatCon, scrutTy types.Type) pattern
 
 	mkResult := func() patternResult {
 		return patternResult{
-			Pattern:     &core.PCon{Con: p.Con, Args: args, S: p.S},
+			Pattern:     &core.PCon{Con: conName, Module: moduleName, Args: args, S: s},
 			Bindings:    bindings,
 			SkolemIDs:   skolemIDs,
 			HasEvidence: len(pendingCVs) > 0,
@@ -174,8 +197,8 @@ func (ch *Checker) checkConPattern(p *syntax.PatCon, scrutTy types.Type) pattern
 	}
 
 	// 5. Peel arrow arguments matching user-supplied pattern args.
-	for _, argPat := range p.Args {
-		argTy, restTy := ch.matchArrow(currentTy, p.S)
+	for _, argPat := range patArgs {
+		argTy, restTy := ch.matchArrow(currentTy, s)
 		child := ch.checkPattern(argPat, argTy)
 		args = append(args, child.Pattern)
 		for k, v := range child.Bindings {
@@ -187,11 +210,11 @@ func (ch *Checker) checkConPattern(p *syntax.PatCon, scrutTy types.Type) pattern
 		currentTy = restTy
 	}
 	// 6. Unify result type with scrutinee type.
-	if ch.isInaccessibleGADTBranch(p.Con, scrutTy) {
+	if ch.isInaccessibleGADTBranch(conName, scrutTy) {
 		return mkResult()
 	}
 	if err := ch.unifier.Unify(currentTy, scrutTy); err != nil {
-		ch.addUnifyError(err, p.S, "constructor type mismatch")
+		ch.addUnifyError(err, s, "constructor type mismatch")
 		return mkResult()
 	}
 	// 7. Resolve pending constraint variable entries now that metas are solved.

@@ -31,10 +31,12 @@ type PWild struct {
 }
 
 // PCon — constructor pattern (C p1 ... pn).
+// Module is non-empty for qualified patterns (Q.Con).
 type PCon struct {
-	Con  string
-	Args []Pattern
-	S    span.Span
+	Con    string
+	Module string
+	Args   []Pattern
+	S      span.Span
 }
 
 // PRecord — record pattern { l1: p1, ..., ln: pn }.

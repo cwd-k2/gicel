@@ -570,22 +570,27 @@ func (p *Parser) parseConPattern() Pattern {
 	start := p.peek().S.Start
 	tok := p.peek()
 	name := p.expectUpper()
-	// Detect qualified constructor in pattern: Q.Con — not yet supported.
+	// Qualified constructor pattern: Q.Con — adjacency-disambiguated.
+	qualifier := ""
 	if p.peek().Kind == TokDot && tokensAdjacent(tok, p.peek()) {
 		if p.pos+1 < len(p.tokens) && p.tokens[p.pos+1].Kind == TokUpper && tokensAdjacent(p.peek(), p.tokens[p.pos+1]) {
-			p.addError("qualified constructors in patterns are not supported; use open or selective import")
+			qualifier = name
 			p.advance() // skip .
-			p.advance() // skip Upper
+			name = p.expectUpper()
 		}
 	}
 	var args []Pattern
 	for p.isPatternAtomStart() {
 		args = append(args, p.parsePatternAtom())
 	}
-	if len(args) == 0 {
-		return &PatCon{Con: name, S: span.Span{Start: start, End: p.prevEnd()}}
+	s := span.Span{Start: start, End: p.prevEnd()}
+	if qualifier != "" {
+		return &PatQualCon{Qualifier: qualifier, Con: name, Args: args, S: s}
 	}
-	return &PatCon{Con: name, Args: args, S: span.Span{Start: start, End: p.prevEnd()}}
+	if len(args) == 0 {
+		return &PatCon{Con: name, S: s}
+	}
+	return &PatCon{Con: name, Args: args, S: s}
 }
 
 func (p *Parser) parseRecordPattern() Pattern {
@@ -625,8 +630,18 @@ func (p *Parser) parsePatternAtom() Pattern {
 		return &PatWild{S: tok.S}
 	case TokUpper:
 		// Bare constructor as pattern atom (0-arg constructor in nested position).
+		// May be qualified: Q.Con
 		tok := p.peek()
 		p.advance()
+		if p.peek().Kind == TokDot && tokensAdjacent(tok, p.peek()) {
+			if p.pos+1 < len(p.tokens) && p.tokens[p.pos+1].Kind == TokUpper && tokensAdjacent(p.peek(), p.tokens[p.pos+1]) {
+				qualifier := tok.Text
+				p.advance() // skip .
+				conTok := p.peek()
+				p.advance() // consume Upper
+				return &PatQualCon{Qualifier: qualifier, Con: conTok.Text, S: span.Span{Start: tok.S.Start, End: conTok.S.End}}
+			}
+		}
 		return &PatCon{Con: tok.Text, S: tok.S}
 	case TokIntLit, TokDoubleLit, TokStrLit, TokRuneLit:
 		return p.parseLitPattern()
