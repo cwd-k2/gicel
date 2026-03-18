@@ -112,9 +112,7 @@ f := \b. case b {
 	checkSource(t, source, nil)
 }
 
-// --- Divergent post with LUB join (target behavior) ---
-// This test is for the FUTURE when lubPostStates is fully connected.
-// For now, it documents the desired behavior.
+// --- Divergent post with LUB join ---
 
 func TestDivergentPostWithLUBJoin(t *testing.T) {
 	// Branch True:  post = { b: Unit }  (a consumed)
@@ -131,6 +129,82 @@ f :: Bool -> Computation { a: Unit, b: Unit } {} Unit
 f := \b. case b {
   True -> consumeA;
   False -> consumeB
+}
+`
+	checkSource(t, source, nil)
+}
+
+// --- Branch join with heterogeneous multiplicities via LUB ---
+
+func TestDivergentPostLUBHeterogeneousMult(t *testing.T) {
+	// Branch True:  post = { h: Unit @Linear }
+	// Branch False: post = { h: Unit @Affine }
+	// LUB(Linear, Affine) = Linear → joined post has h @Linear.
+	source := `
+data Mult := Unrestricted | Affine | Linear
+type LUB (m1: Mult) (m2: Mult) :: Mult := {
+  LUB Linear _ =: Linear;
+  LUB _ Linear =: Linear;
+  LUB Affine _ =: Affine;
+  LUB _ Affine =: Affine;
+  LUB Unrestricted Unrestricted =: Unrestricted
+}
+data Bool := True | False
+data Unit := Unit
+makeLinear :: Computation { h: Unit @Affine } { h: Unit @Linear } Unit
+makeLinear := assumption
+noop :: Computation { h: Unit @Affine } { h: Unit @Affine } Unit
+noop := assumption
+f :: Bool -> Computation { h: Unit @Affine } { h: Unit @Linear } Unit
+f := \b. case b {
+  True -> makeLinear;
+  False -> noop
+}
+`
+	checkSource(t, source, nil)
+}
+
+func TestDivergentPostLUBSymmetric(t *testing.T) {
+	// LUB(Affine, Linear) = Linear (symmetric with above).
+	source := `
+data Mult := Unrestricted | Affine | Linear
+type LUB (m1: Mult) (m2: Mult) :: Mult := {
+  LUB Linear _ =: Linear;
+  LUB _ Linear =: Linear;
+  LUB Affine _ =: Affine;
+  LUB _ Affine =: Affine;
+  LUB Unrestricted Unrestricted =: Unrestricted
+}
+data Bool := True | False
+data Unit := Unit
+makeAffine :: Computation { h: Unit @Unrestricted } { h: Unit @Affine } Unit
+makeAffine := assumption
+makeLinear :: Computation { h: Unit @Unrestricted } { h: Unit @Linear } Unit
+makeLinear := assumption
+f :: Bool -> Computation { h: Unit @Unrestricted } { h: Unit @Linear } Unit
+f := \b. case b {
+  True -> makeAffine;
+  False -> makeLinear
+}
+`
+	checkSource(t, source, nil)
+}
+
+func TestDivergentPostOneSidedMult(t *testing.T) {
+	// One branch has @Linear, other has no annotation.
+	// Result takes the annotation (more restrictive).
+	source := `
+data Mult := Unrestricted | Affine | Linear
+data Bool := True | False
+data Unit := Unit
+makeLinear :: Computation { h: Unit } { h: Unit @Linear } Unit
+makeLinear := assumption
+noop :: Computation { h: Unit } { h: Unit } Unit
+noop := assumption
+f :: Bool -> Computation { h: Unit } { h: Unit @Linear } Unit
+f := \b. case b {
+  True -> makeLinear;
+  False -> noop
 }
 `
 	checkSource(t, source, nil)

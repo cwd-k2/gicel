@@ -53,7 +53,8 @@ func (ch *Checker) lubPostStates(posts []types.Type, s span.Span) types.Type {
 
 // intersectCapRows computes the intersection of capability rows.
 // Labels present in ALL rows are kept; labels present in only some are dropped.
-// For shared labels, field types and multiplicities are unified.
+// For shared labels, field types are unified and multiplicities are joined
+// via LUB (if the LUB type family is defined) or unified as fallback.
 func (ch *Checker) intersectCapRows(rows []*types.TyEvidenceRow, s span.Span) types.Type {
 	if len(rows) == 0 {
 		return types.ClosedRow()
@@ -74,7 +75,7 @@ func (ch *Checker) intersectCapRows(rows []*types.TyEvidenceRow, s span.Span) ty
 	for _, f := range firstRow.CapFields() {
 		if labelCount[f.Label] == n {
 			// This label is in all branches — keep it.
-			// Unify the type and mult from all branches.
+			// Unify the type; join multiplicities via LUB.
 			resultField := types.RowField{Label: f.Label, Type: f.Type, Mult: f.Mult, S: f.S}
 			for _, otherRow := range rows[1:] {
 				for _, of := range otherRow.CapFields() {
@@ -84,12 +85,7 @@ func (ch *Checker) intersectCapRows(rows []*types.TyEvidenceRow, s span.Span) ty
 								fmt.Sprintf("divergent capability type for %s: %s vs %s",
 									f.Label, types.Pretty(resultField.Type), types.Pretty(of.Type)))
 						}
-						if resultField.Mult != nil && of.Mult != nil {
-							if err := ch.unifier.Unify(resultField.Mult, of.Mult); err != nil {
-								ch.addCodedError(errs.ErrTypeMismatch, s,
-									fmt.Sprintf("divergent multiplicity for %s", f.Label))
-							}
-						}
+						ch.joinMult(&resultField, of.Mult, s)
 						break
 					}
 				}
@@ -121,4 +117,36 @@ func (ch *Checker) intersectCapRows(rows []*types.TyEvidenceRow, s span.Span) ty
 		return types.OpenRow(sharedFields, tail)
 	}
 	return types.ClosedRow(sharedFields...)
+}
+
+// joinMult joins a result field's multiplicity with another branch's multiplicity.
+// Uses the LUB type family when available; falls back to unification.
+func (ch *Checker) joinMult(result *types.RowField, other types.Type, s span.Span) {
+	m1 := result.Mult
+	m2 := other
+
+	if m1 == nil && m2 == nil {
+		return
+	}
+
+	// One side annotated, other unrestricted → take the annotation (more restrictive).
+	if m1 == nil && m2 != nil {
+		result.Mult = m2
+		return
+	}
+	if m1 != nil && m2 == nil {
+		return // keep m1
+	}
+
+	// Both annotated: try LUB type family, fall back to unification.
+	lubResult, ok := ch.reduceTyFamily("LUB", []types.Type{m1, m2}, s)
+	if ok {
+		result.Mult = lubResult
+		return
+	}
+	if err := ch.unifier.Unify(m1, m2); err != nil {
+		ch.addCodedError(errs.ErrTypeMismatch, s,
+			fmt.Sprintf("divergent multiplicity for %s: %s vs %s",
+				result.Label, types.Pretty(m1), types.Pretty(m2)))
+	}
 }
