@@ -1,0 +1,102 @@
+-- GICEL Example: Session Types
+--
+-- Binary session types encoded via Atkey indexed monads.
+-- Protocol compliance is verified by the type checker:
+-- well-typed programs follow the protocol.
+-- Level: types + effects
+
+import Prelude
+
+-- === Multiplicity infrastructure ===
+
+data Mult := Unrestricted | Affine | Linear
+
+type LUB (m1: Mult) (m2: Mult) :: Mult := {
+  LUB Linear _ =: Linear;
+  LUB _ Linear =: Linear;
+  LUB Affine _ =: Affine;
+  LUB _ Affine =: Affine;
+  LUB Unrestricted Unrestricted =: Unrestricted
+}
+
+-- === Protocol structure ===
+--
+-- Protocol states are regular type constructors.
+-- Send s: "send a value, then continue as s"
+-- Recv s: "receive a value, then continue as s"
+-- End:    "session complete"
+
+data Send s := MkSend
+data Recv s := MkRecv
+data End := MkEnd
+
+-- === Duality ===
+--
+-- The fundamental involution: Dual (Dual s) ~ s.
+-- If one endpoint follows protocol s, the other follows Dual s.
+
+type Dual (s: Type) :: Type := {
+  Dual (Send s) =: Recv (Dual s);
+  Dual (Recv s) =: Send (Dual s);
+  Dual End      =: End
+}
+
+-- === Session operations ===
+--
+-- Each operation transforms the channel's protocol state.
+-- @Linear ensures the channel is not duplicated or leaked.
+-- Type-changing preservation does not count against multiplicity,
+-- so multi-step protocols are valid under @Linear.
+
+send :: \s. Computation { ch: Send s @Linear } { ch: s @Linear } Int
+send := assumption
+
+recv :: \s. Computation { ch: Recv s @Linear } { ch: s @Linear } Int
+recv := assumption
+
+close :: Computation { ch: End @Linear } {} ()
+close := assumption
+
+-- === Example: ping-pong protocol ===
+--
+-- Protocol: Send (Recv End)
+--   1. Send a value
+--   2. Receive a response
+--   3. Close the session
+
+pingPong :: Computation { ch: Send (Recv End) @Linear } {} Int
+pingPong := do {
+  send;
+  response <- recv;
+  close;
+  pure response
+}
+
+-- === Dual protocol ===
+--
+-- The dual of Send (Recv End) is Recv (Send End).
+-- A responder follows the dual protocol.
+
+responder :: Computation { ch: Recv (Send End) @Linear } {} Int
+responder := do {
+  request <- recv;
+  send;
+  close;
+  pure request
+}
+
+-- === Multi-step protocol ===
+--
+-- Send (Send (Recv End)): send twice, receive once, close.
+
+multiStep :: Computation { ch: Send (Send (Recv End)) @Linear } {} Int
+multiStep := do {
+  send;
+  send;
+  result <- recv;
+  close;
+  pure result
+}
+
+-- The value-level main shows protocol values.
+main := (MkSend, MkRecv, MkEnd)
