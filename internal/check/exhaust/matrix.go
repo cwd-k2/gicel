@@ -1,4 +1,4 @@
-package check
+package exhaust
 
 import (
 	"fmt"
@@ -9,7 +9,9 @@ import (
 	"github.com/cwd-k2/gicel/internal/types"
 )
 
-// ---- Pattern representation ----
+// --- Pattern representation ---
+//
+// Reference: Luc Maranget, "Warnings for Pattern Matching" (JFP 2007).
 
 // pat is the internal pattern representation for the algorithm.
 type pat interface{ patTag() }
@@ -30,6 +32,12 @@ func (pLit) patTag()    {}
 
 type patVec []pat
 type patMatrix []patVec
+
+// conSig is a constructor's name and arity.
+type conSig struct {
+	name  string
+	arity int
+}
 
 // ---- Convert core.Pattern → pat ----
 
@@ -56,13 +64,6 @@ func coreToPat(p core.Pattern) pat {
 	default:
 		return pWild{}
 	}
-}
-
-// ---- Signature (complete set of constructors) ----
-
-type conSig struct {
-	name  string
-	arity int
 }
 
 // ---- Specialize S(c, P) ----

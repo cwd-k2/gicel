@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"maps"
 
+	"github.com/cwd-k2/gicel/internal/check/exhaust"
 	"github.com/cwd-k2/gicel/internal/check/unify"
 	"github.com/cwd-k2/gicel/internal/core"
 	"github.com/cwd-k2/gicel/internal/errs"
@@ -114,18 +115,9 @@ type qualifiedScope struct {
 	exports    *ModuleExports // the module's full exports
 }
 
-// DataTypeInfo carries constructor information for exhaustiveness.
-type DataTypeInfo struct {
-	Name         string
-	Constructors []ConInfo
-}
-
-// ConInfo is a constructor's name, arity, and optional GADT return type.
-type ConInfo struct {
-	Name       string
-	Arity      int
-	ReturnType types.Type // GADT: non-nil if constructor has refined return type
-}
+// DataTypeInfo and ConInfo are defined in the exhaust subpackage.
+type DataTypeInfo = exhaust.DataTypeInfo
+type ConInfo = exhaust.ConInfo
 
 // AliasInfo holds the definition of a type alias: parameter names, their kinds, and the body.
 type AliasInfo struct {
