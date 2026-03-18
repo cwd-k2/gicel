@@ -271,8 +271,10 @@ func (e *Engine) checkCircularDeps(name string, deps []string) error {
 
 func (e *Engine) makeCheckConfig() *check.CheckConfig {
 	imported := make(map[string]*check.ModuleExports, len(e.modules))
+	deps := make(map[string][]string, len(e.modules))
 	for name, mod := range e.modules {
 		imported[name] = mod.exports
+		deps[name] = mod.deps
 	}
 	return &check.CheckConfig{
 		RegisteredTypes: maps.Clone(e.registeredTys),
@@ -281,6 +283,7 @@ func (e *Engine) makeCheckConfig() *check.CheckConfig {
 		GatedBuiltins:   maps.Clone(e.gatedBuiltins),
 		Trace:           e.checkTraceHook,
 		ImportedModules: imported,
+		ModuleDeps:      deps,
 		StrictTypeNames: true,
 	}
 }

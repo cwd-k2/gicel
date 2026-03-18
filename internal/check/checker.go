@@ -28,8 +28,9 @@ type CheckConfig struct {
 	GatedBuiltins   map[string]bool
 	Trace           CheckTraceHook
 	ImportedModules map[string]*ModuleExports
-	StrictTypeNames bool   // when true, reject unregistered type constructor names
-	CurrentModule   string // module being compiled ("" = user main source)
+	ModuleDeps      map[string][]string // module → direct dependencies
+	StrictTypeNames bool                // when true, reject unregistered type constructor names
+	CurrentModule   string              // module being compiled ("" = user main source)
 }
 
 // ModuleExports carries the type-level information exported by a compiled module.
@@ -98,6 +99,7 @@ type Checker struct {
 	depth             int
 	resolveDepth      int                        // instance resolution recursion depth
 	qualifiedScopes   map[string]*qualifiedScope // alias → qualified module scope
+	importedNames     map[string]string          // name → source module (for ambiguity detection)
 	strictTypeNames   bool                       // enabled after declaration processing
 }
 
@@ -166,6 +168,7 @@ func CheckModule(prog *syntax.AstProgram, source *span.Source, config *CheckConf
 		kindVars:          make(map[string]bool),
 		families:          make(map[string]*TypeFamilyInfo),
 		qualifiedScopes:   make(map[string]*qualifiedScope),
+		importedNames:     make(map[string]string),
 	}
 	ch.unifier = NewUnifierShared(&ch.freshID)
 	ch.initContext()
@@ -232,17 +235,152 @@ func (ch *Checker) importModules(imports []syntax.DeclImport) {
 
 		default:
 			// Open import: import M — merge all exports.
-			ch.importOpen(mod, imp.ModuleName)
+			ch.importOpen(mod, imp.ModuleName, imp.S)
 		}
 	}
 }
 
+// checkAmbiguousName reports an error if name is already imported from a different module.
+// Returns true if the name is ambiguous and should be skipped.
+// Names from Core are exempt (Core is implicit and its names are re-exported by dependent modules).
+// Compiler-generated names ($-prefixed) are also exempt (internal to elaboration).
+func (ch *Checker) checkAmbiguousName(name, moduleName string, s span.Span) bool {
+	if isPrivateName(name) {
+		return false // compiler-generated or private, skip
+	}
+	prev, exists := ch.importedNames[name]
+	if !exists {
+		ch.importedNames[name] = moduleName
+		return false
+	}
+	if prev == moduleName {
+		return false // same module, no conflict
+	}
+	// If both modules define this name themselves (not re-exported), it's a true ambiguity.
+	// If one or both re-export it from a shared dependency, it's the same name — no conflict.
+	prevOwns := ch.moduleOwnsName(prev, name)
+	curOwns := ch.moduleOwnsName(moduleName, name)
+	if !prevOwns || !curOwns {
+		// At least one side is a re-export — no true conflict.
+		ch.importedNames[name] = moduleName
+		return false
+	}
+	ch.addCodedError(errs.ErrImport, s,
+		fmt.Sprintf("ambiguous name %q: imported from both %s and %s (use qualified import to disambiguate)", name, prev, moduleName))
+	return true
+}
+
+// isTransitiveDep checks if module `a` transitively imports module `b`.
+func (ch *Checker) isTransitiveDep(a, b string) bool {
+	if ch.config.ModuleDeps == nil {
+		return false
+	}
+	visited := make(map[string]bool)
+	var walk func(modName string) bool
+	walk = func(modName string) bool {
+		if modName == b {
+			return true
+		}
+		if visited[modName] {
+			return false
+		}
+		visited[modName] = true
+		for _, dep := range ch.config.ModuleDeps[modName] {
+			if walk(dep) {
+				return true
+			}
+		}
+		return false
+	}
+	for _, dep := range ch.config.ModuleDeps[a] {
+		if walk(dep) {
+			return true
+		}
+	}
+	return false
+}
+
+// shareCommonDep checks if modules a and b share a common transitive dependency.
+func (ch *Checker) shareCommonDep(a, b string) bool {
+	if ch.config.ModuleDeps == nil {
+		return false
+	}
+	// Collect all transitive deps of a.
+	aDeps := make(map[string]bool)
+	var collect func(mod string)
+	collect = func(mod string) {
+		if aDeps[mod] {
+			return
+		}
+		aDeps[mod] = true
+		for _, dep := range ch.config.ModuleDeps[mod] {
+			collect(dep)
+		}
+	}
+	collect(a)
+	// Check if any transitive dep of b is in aDeps.
+	var check func(mod string) bool
+	visited := make(map[string]bool)
+	check = func(mod string) bool {
+		if aDeps[mod] {
+			return true
+		}
+		if visited[mod] {
+			return false
+		}
+		visited[mod] = true
+		for _, dep := range ch.config.ModuleDeps[mod] {
+			if check(dep) {
+				return true
+			}
+		}
+		return false
+	}
+	return check(b)
+}
+
+// moduleOwnsName checks if a module defines name in its own source (not re-exported).
+// A module "owns" a name if it appears in the module's DataDecls (constructors),
+// or in its Values but NOT in any of its direct dependency's Values.
+func (ch *Checker) moduleOwnsName(moduleName, name string) bool {
+	mod, ok := ch.config.ImportedModules[moduleName]
+	if !ok {
+		return false
+	}
+	// Check DataDecl constructors.
+	for _, dd := range mod.DataDecls {
+		if dd.Name == name {
+			return true
+		}
+		for _, con := range dd.Cons {
+			if con.Name == name {
+				return true
+			}
+		}
+	}
+	// Check if name is in Values but not in any direct dep's Values.
+	if _, inValues := mod.Values[name]; inValues {
+		for _, dep := range ch.config.ModuleDeps[moduleName] {
+			if depMod, ok := ch.config.ImportedModules[dep]; ok {
+				if _, inDep := depMod.Values[name]; inDep {
+					return false // inherited from dependency
+				}
+			}
+		}
+		return true // defined in this module
+	}
+	return false
+}
+
 // importOpen merges all exports from a module into the checker state (open import).
-func (ch *Checker) importOpen(mod *ModuleExports, moduleName string) {
+func (ch *Checker) importOpen(mod *ModuleExports, moduleName string, s span.Span) {
 	for name, kind := range mod.Types {
 		ch.config.RegisteredTypes[name] = kind
 	}
 	for name, ty := range mod.ConTypes {
+		if ch.checkAmbiguousName(name, moduleName, s) {
+			continue
+		}
 		ch.conTypes[name] = ty
 		ch.ctx.Push(&CtxVar{Name: name, Type: ty, Module: moduleName})
 		ch.conModules[name] = moduleName
@@ -258,6 +396,9 @@ func (ch *Checker) importOpen(mod *ModuleExports, moduleName string) {
 	}
 	ch.importInstances(mod)
 	for name, ty := range mod.Values {
+		if ch.checkAmbiguousName(name, moduleName, s) {
+			continue
+		}
 		ch.ctx.Push(&CtxVar{Name: name, Type: ty, Module: moduleName})
 	}
 	for name, kind := range mod.PromotedKinds {
@@ -294,7 +435,9 @@ func (ch *Checker) importSelective(mod *ModuleExports, imp syntax.DeclImport) {
 
 		// Value binding (lowercase name or operator)
 		if ty, ok := mod.Values[name]; ok {
-			ch.ctx.Push(&CtxVar{Name: name, Type: ty, Module: imp.ModuleName})
+			if !ch.checkAmbiguousName(name, imp.ModuleName, imp.S) {
+				ch.ctx.Push(&CtxVar{Name: name, Type: ty, Module: imp.ModuleName})
+			}
 			found = true
 		}
 
@@ -418,7 +561,8 @@ func (ch *Checker) ExportModule(prog *core.Program) *ModuleExports {
 }
 
 // isPrivateName reports whether a name is module-private.
-// Private: '_' prefix (user convention) or compiler-generated ($d, $dict, $pat, $bind, $sel prefixes).
+// Private: '_' prefix (user convention) or compiler-generated identifier containing '$'.
+// Operator names (e.g., <$>, $, +>) are never private even if they contain '$'.
 func isPrivateName(name string) bool {
 	if len(name) == 0 {
 		return false
@@ -426,12 +570,27 @@ func isPrivateName(name string) bool {
 	if name[0] == '_' {
 		return true
 	}
-	if name[0] == '$' && len(name) > 1 {
-		// Compiler-generated names start with $d, $dict, $pat, $bind, $sel.
-		// User-defined operator "$" is len==1 and not matched here.
-		return true
+	// Compiler-generated names contain '$' in identifier context.
+	// Operators (all non-alphanumeric) are exempt.
+	if isOperatorName(name) {
+		return false
+	}
+	for i := 0; i < len(name); i++ {
+		if name[i] == '$' {
+			return true
+		}
 	}
 	return false
+}
+
+// isOperatorName returns true if the name is an operator (all symbol characters).
+func isOperatorName(name string) bool {
+	for _, r := range name {
+		if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == '_' {
+			return false
+		}
+	}
+	return true
 }
 
 func copyMap[V any](m map[string]V) map[string]V {
