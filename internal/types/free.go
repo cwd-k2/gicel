@@ -28,11 +28,7 @@ func freeVarsRec(t Type, bound map[string]bool, fv map[string]struct{}) {
 		}
 		newBound[ty.Var] = true
 		freeVarsRec(ty.Body, newBound, fv)
-	case *TyComp:
-		freeVarsRec(ty.Pre, bound, fv)
-		freeVarsRec(ty.Post, bound, fv)
-		freeVarsRec(ty.Result, bound, fv)
-	case *TyThunk:
+	case *TyCBPV:
 		freeVarsRec(ty.Pre, bound, fv)
 		freeVarsRec(ty.Post, bound, fv)
 		freeVarsRec(ty.Result, bound, fv)

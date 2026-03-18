@@ -23,12 +23,13 @@ func Pretty(t Type) string {
 	case *TyForall:
 		vars, body := collectForalls(ty)
 		return fmt.Sprintf(`\%s. %s`, strings.Join(vars, " "), Pretty(body))
-	case *TyComp:
-		return fmt.Sprintf("Computation %s %s %s",
-			prettyAtom(ty.Pre), prettyAtom(ty.Post), prettyAtom(ty.Result))
-	case *TyThunk:
-		return fmt.Sprintf("Thunk %s %s %s",
-			prettyAtom(ty.Pre), prettyAtom(ty.Post), prettyAtom(ty.Result))
+	case *TyCBPV:
+		name := "Computation"
+		if ty.Tag == TagThunk {
+			name = "Thunk"
+		}
+		return fmt.Sprintf("%s %s %s %s",
+			name, prettyAtom(ty.Pre), prettyAtom(ty.Post), prettyAtom(ty.Result))
 	case *TyEvidenceRow:
 		return prettyEvidenceRow(ty)
 	case *TyEvidence:

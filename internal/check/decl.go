@@ -323,8 +323,8 @@ func isComputationType(ty types.Type) bool {
 			ty = t.To
 		case *types.TyEvidence:
 			ty = t.Body
-		case *types.TyComp:
-			return true
+		case *types.TyCBPV:
+			return t.Tag == types.TagComp
 		default:
 			return false
 		}

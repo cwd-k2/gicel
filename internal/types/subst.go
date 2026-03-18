@@ -63,23 +63,14 @@ func Subst(t Type, varName string, replacement Type) Type {
 		}
 		return &TyForall{Var: ty.Var, Kind: ty.Kind, Body: newBody, S: ty.S}
 
-	case *TyComp:
+	case *TyCBPV:
 		newPre := Subst(ty.Pre, varName, replacement)
 		newPost := Subst(ty.Post, varName, replacement)
 		newResult := Subst(ty.Result, varName, replacement)
 		if newPre == ty.Pre && newPost == ty.Post && newResult == ty.Result {
 			return ty
 		}
-		return &TyComp{Pre: newPre, Post: newPost, Result: newResult, S: ty.S}
-
-	case *TyThunk:
-		newPre := Subst(ty.Pre, varName, replacement)
-		newPost := Subst(ty.Post, varName, replacement)
-		newResult := Subst(ty.Result, varName, replacement)
-		if newPre == ty.Pre && newPost == ty.Post && newResult == ty.Result {
-			return ty
-		}
-		return &TyThunk{Pre: newPre, Post: newPost, Result: newResult, S: ty.S}
+		return &TyCBPV{Tag: ty.Tag, Pre: newPre, Post: newPost, Result: newResult, S: ty.S}
 
 	case *TyEvidence:
 		newConstraints := Subst(ty.Constraints, varName, replacement)
@@ -200,22 +191,14 @@ func SubstKindInType(t Type, varName string, replacement Kind) Type {
 			return ty
 		}
 		return &TyArrow{From: newFrom, To: newTo, S: ty.S}
-	case *TyComp:
+	case *TyCBPV:
 		newPre := SubstKindInType(ty.Pre, varName, replacement)
 		newPost := SubstKindInType(ty.Post, varName, replacement)
 		newResult := SubstKindInType(ty.Result, varName, replacement)
 		if newPre == ty.Pre && newPost == ty.Post && newResult == ty.Result {
 			return ty
 		}
-		return &TyComp{Pre: newPre, Post: newPost, Result: newResult, S: ty.S}
-	case *TyThunk:
-		newPre := SubstKindInType(ty.Pre, varName, replacement)
-		newPost := SubstKindInType(ty.Post, varName, replacement)
-		newResult := SubstKindInType(ty.Result, varName, replacement)
-		if newPre == ty.Pre && newPost == ty.Post && newResult == ty.Result {
-			return ty
-		}
-		return &TyThunk{Pre: newPre, Post: newPost, Result: newResult, S: ty.S}
+		return &TyCBPV{Tag: ty.Tag, Pre: newPre, Post: newPost, Result: newResult, S: ty.S}
 	case *TyMeta:
 		newKind := KindSubst(ty.Kind, varName, replacement)
 		if newKind == ty.Kind {
@@ -324,22 +307,14 @@ func substMany(t Type, subs map[string]Type) Type {
 			return ty
 		}
 		return &TyForall{Var: ty.Var, Kind: ty.Kind, Body: newBody, S: ty.S}
-	case *TyComp:
+	case *TyCBPV:
 		newPre := substMany(ty.Pre, subs)
 		newPost := substMany(ty.Post, subs)
 		newResult := substMany(ty.Result, subs)
 		if newPre == ty.Pre && newPost == ty.Post && newResult == ty.Result {
 			return ty
 		}
-		return &TyComp{Pre: newPre, Post: newPost, Result: newResult, S: ty.S}
-	case *TyThunk:
-		newPre := substMany(ty.Pre, subs)
-		newPost := substMany(ty.Post, subs)
-		newResult := substMany(ty.Result, subs)
-		if newPre == ty.Pre && newPost == ty.Post && newResult == ty.Result {
-			return ty
-		}
-		return &TyThunk{Pre: newPre, Post: newPost, Result: newResult, S: ty.S}
+		return &TyCBPV{Tag: ty.Tag, Pre: newPre, Post: newPost, Result: newResult, S: ty.S}
 	case *TyEvidenceRow:
 		return substManyEvidenceRow(ty, subs)
 	case *TyEvidence:

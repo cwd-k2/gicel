@@ -448,7 +448,7 @@ func (ch *Checker) installFamilyReducer() {
 
 // reduceFamilyApps walks a type and reduces any TyFamilyApp nodes
 // or TyApp chains that form a saturated type family application.
-// It also recurses into type structure (TyApp, TyArrow, TyComp, etc.)
+// It also recurses into type structure (TyApp, TyArrow, TyCBPV, etc.)
 // so that nested family applications are reduced — this is important
 // for exhaustiveness checking which calls reduceFamilyInType on the
 // full scrutinee type.
@@ -534,22 +534,14 @@ func (ch *Checker) reduceFamilyAppsN(t types.Type, cache map[string]types.Type) 
 			return t
 		}
 		return &types.TyArrow{From: rFrom, To: rTo, S: ty.S}
-	case *types.TyComp:
+	case *types.TyCBPV:
 		rPre := ch.reduceFamilyAppsN(ty.Pre, cache)
 		rPost := ch.reduceFamilyAppsN(ty.Post, cache)
 		rResult := ch.reduceFamilyAppsN(ty.Result, cache)
 		if rPre == ty.Pre && rPost == ty.Post && rResult == ty.Result {
 			return t
 		}
-		return &types.TyComp{Pre: rPre, Post: rPost, Result: rResult, S: ty.S}
-	case *types.TyThunk:
-		rPre := ch.reduceFamilyAppsN(ty.Pre, cache)
-		rPost := ch.reduceFamilyAppsN(ty.Post, cache)
-		rResult := ch.reduceFamilyAppsN(ty.Result, cache)
-		if rPre == ty.Pre && rPost == ty.Post && rResult == ty.Result {
-			return t
-		}
-		return &types.TyThunk{Pre: rPre, Post: rPost, Result: rResult, S: ty.S}
+		return &types.TyCBPV{Tag: ty.Tag, Pre: rPre, Post: rPost, Result: rResult, S: ty.S}
 	case *types.TyForall:
 		rBody := ch.reduceFamilyAppsN(ty.Body, cache)
 		if rBody == ty.Body {
@@ -633,16 +625,12 @@ func writeTypeKey(b *strings.Builder, t types.Type) {
 		b.WriteString("->")
 		writeTypeKey(b, ty.To)
 		b.WriteByte(')')
-	case *types.TyComp:
-		b.WriteString("{C ")
-		writeTypeKey(b, ty.Pre)
-		b.WriteByte(' ')
-		writeTypeKey(b, ty.Post)
-		b.WriteByte(' ')
-		writeTypeKey(b, ty.Result)
-		b.WriteByte('}')
-	case *types.TyThunk:
-		b.WriteString("{T ")
+	case *types.TyCBPV:
+		if ty.Tag == types.TagComp {
+			b.WriteString("{C ")
+		} else {
+			b.WriteString("{T ")
+		}
 		writeTypeKey(b, ty.Pre)
 		b.WriteByte(' ')
 		writeTypeKey(b, ty.Post)

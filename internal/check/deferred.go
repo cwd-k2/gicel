@@ -119,9 +119,7 @@ func typeHasMeta(ty types.Type) bool {
 			return true
 		}
 		return typeHasMeta(t.Body)
-	case *types.TyComp:
-		return typeHasMeta(t.Pre) || typeHasMeta(t.Post) || typeHasMeta(t.Result)
-	case *types.TyThunk:
+	case *types.TyCBPV:
 		return typeHasMeta(t.Pre) || typeHasMeta(t.Post) || typeHasMeta(t.Result)
 	case *types.TyEvidenceRow:
 		return slices.ContainsFunc(t.Children(), typeHasMeta)

@@ -216,7 +216,7 @@ func (ch *Checker) decomposeQuantifiedConstraint(ty types.Type) *types.Quantifie
 }
 
 // tryExpandApp recognizes fully-saturated Computation and Thunk applications
-// and produces the dedicated TyComp/TyThunk nodes, and expands type aliases.
+// and produces the dedicated TyCBPV nodes, and expands type aliases.
 func (ch *Checker) tryExpandApp(fun types.Type, arg types.Type, s span.Span) types.Type {
 	// Computation pre post result: TyApp(TyApp(TyApp(TyCon("Computation"), pre), post), result)
 	if app2, ok := fun.(*types.TyApp); ok {
@@ -224,9 +224,9 @@ func (ch *Checker) tryExpandApp(fun types.Type, arg types.Type, s span.Span) typ
 			if con, ok := app1.Fun.(*types.TyCon); ok {
 				switch con.Name {
 				case "Computation":
-					return &types.TyComp{Pre: app1.Arg, Post: app2.Arg, Result: arg, S: s}
+					return &types.TyCBPV{Tag: types.TagComp, Pre: app1.Arg, Post: app2.Arg, Result: arg, S: s}
 				case "Thunk":
-					return &types.TyThunk{Pre: app1.Arg, Post: app2.Arg, Result: arg, S: s}
+					return &types.TyCBPV{Tag: types.TagThunk, Pre: app1.Arg, Post: app2.Arg, Result: arg, S: s}
 				}
 			}
 		}
@@ -360,7 +360,7 @@ func isModuleDefinedType(exports *ModuleExports, name string) bool {
 }
 
 // builtinTypeNames are type constructor names that are intrinsic to the checker
-// (used in TyComp/TyThunk expansion) but not registered in RegisteredTypes.
+// (used in TyCBPV expansion) but not registered in RegisteredTypes.
 var builtinTypeNames = map[string]bool{
 	"Computation": true,
 	"Thunk":       true,

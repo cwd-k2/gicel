@@ -409,14 +409,14 @@ func TestNormalizeCompAppPrePostOrder(t *testing.T) {
 		Arg: result,
 	}
 
-	// Unify with a TyComp — the normalize path converts the TyApp chain.
-	comp := &types.TyComp{Pre: pre, Post: post, Result: result}
+	// Unify with a TyCBPV — the normalize path converts the TyApp chain.
+	comp := types.MkComp(pre, post, result)
 	if err := u.Unify(appChain, comp); err != nil {
 		t.Fatalf("should unify: %v", err)
 	}
 
 	// Now test with distinct pre/post — swapping should fail.
-	comp2 := &types.TyComp{Pre: post, Post: pre, Result: result}
+	comp2 := types.MkComp(post, pre, result)
 	if err := u.Unify(appChain, comp2); err == nil {
 		t.Fatal("should fail when pre and post are swapped")
 	}
@@ -439,12 +439,12 @@ func TestNormalizeThunkAppPrePostOrder(t *testing.T) {
 		Arg: result,
 	}
 
-	thunk := &types.TyThunk{Pre: pre, Post: post, Result: result}
+	thunk := types.MkThunk(pre, post, result)
 	if err := u.Unify(appChain, thunk); err != nil {
 		t.Fatalf("should unify: %v", err)
 	}
 
-	thunk2 := &types.TyThunk{Pre: post, Post: pre, Result: result}
+	thunk2 := types.MkThunk(post, pre, result)
 	if err := u.Unify(appChain, thunk2); err == nil {
 		t.Fatal("should fail when pre and post are swapped")
 	}
@@ -1315,11 +1315,11 @@ main := \x. x`
 
 func TestQuantifyFreeVarsKindInference(t *testing.T) {
 	// Row variable in Computation pre/post should be quantified as KRow.
-	compTy := &types.TyComp{
-		Pre:    &types.TyVar{Name: "r"},
-		Post:   &types.TyVar{Name: "r"},
-		Result: types.Con("Int"),
-	}
+	compTy := types.MkComp(
+		&types.TyVar{Name: "r"},
+		&types.TyVar{Name: "r"},
+		types.Con("Int"),
+	)
 	arrowTy := &types.TyArrow{From: &types.TyVar{Name: "a"}, To: compTy}
 	result := quantifyFreeVars(arrowTy)
 
@@ -1503,30 +1503,30 @@ func TestColumnHeadCons(t *testing.T) {
 // --- inferFreeVarKinds: additional coverage ---
 
 func TestInferFreeVarKindsThunk(t *testing.T) {
-	// Variable in TyThunk pre/post should get KRow.
+	// Variable in TyCBPV (Thunk) pre/post should get KRow.
 	fv := map[string]struct{}{"r": {}, "a": {}}
-	thunkTy := &types.TyThunk{
-		Pre:    &types.TyVar{Name: "r"},
-		Post:   &types.TyVar{Name: "r"},
-		Result: &types.TyVar{Name: "a"},
-	}
+	thunkTy := types.MkThunk(
+		&types.TyVar{Name: "r"},
+		&types.TyVar{Name: "r"},
+		&types.TyVar{Name: "a"},
+	)
 	kinds := inferFreeVarKinds(thunkTy, fv)
 	if _, ok := kinds["r"].(types.KRow); !ok {
-		t.Errorf("'r' in TyThunk pre/post should be KRow, got %v", kinds["r"])
+		t.Errorf("'r' in TyCBPV (Thunk) pre/post should be KRow, got %v", kinds["r"])
 	}
 	if _, ok := kinds["a"].(types.KType); !ok {
-		t.Errorf("'a' in TyThunk result should be KType, got %v", kinds["a"])
+		t.Errorf("'a' in TyCBPV (Thunk) result should be KType, got %v", kinds["a"])
 	}
 }
 
 func TestInferFreeVarKindsBothPositions(t *testing.T) {
 	// Variable appearing in both row and type positions should get KRow.
 	fv := map[string]struct{}{"x": {}}
-	ty := &types.TyComp{
-		Pre:    &types.TyVar{Name: "x"}, // row position → KRow
-		Post:   &types.TyVar{Name: "x"},
-		Result: &types.TyVar{Name: "x"}, // type position → KType, but KRow wins
-	}
+	ty := types.MkComp(
+		&types.TyVar{Name: "x"}, // row position → KRow
+		&types.TyVar{Name: "x"},
+		&types.TyVar{Name: "x"}, // type position → KType, but KRow wins
+	)
 	kinds := inferFreeVarKinds(ty, fv)
 	if _, ok := kinds["x"].(types.KRow); !ok {
 		t.Errorf("'x' in both row and type positions should be KRow, got %v", kinds["x"])

@@ -7,13 +7,13 @@ var (
 )
 
 // MkComp creates a Computation type.
-func MkComp(pre, post, result Type) *TyComp {
-	return &TyComp{Pre: pre, Post: post, Result: result}
+func MkComp(pre, post, result Type) *TyCBPV {
+	return &TyCBPV{Tag: TagComp, Pre: pre, Post: post, Result: result}
 }
 
 // MkThunk creates a Thunk type.
-func MkThunk(pre, post, result Type) *TyThunk {
-	return &TyThunk{Pre: pre, Post: post, Result: result}
+func MkThunk(pre, post, result Type) *TyCBPV {
+	return &TyCBPV{Tag: TagThunk, Pre: pre, Post: post, Result: result}
 }
 
 // MkArrow creates a function type.

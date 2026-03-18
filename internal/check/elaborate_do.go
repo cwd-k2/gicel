@@ -104,7 +104,7 @@ func (ch *Checker) elaborateStmts(stmts []syntax.Stmt, s span.Span) (types.Type,
 // elaborateStmtsChecked elaborates a do block against a known Computation type.
 // This threads the pre/post state through the bind chain, unlike elaborateStmts
 // which infers fresh metas for pre/post.
-func (ch *Checker) elaborateStmtsChecked(stmts []syntax.Stmt, comp *types.TyComp, s span.Span) core.Core {
+func (ch *Checker) elaborateStmtsChecked(stmts []syntax.Stmt, comp *types.TyCBPV, s span.Span) core.Core {
 	if len(stmts) == 1 {
 		switch st := stmts[0].(type) {
 		case *syntax.StmtExpr:
@@ -124,7 +124,7 @@ func (ch *Checker) elaborateStmtsChecked(stmts []syntax.Stmt, comp *types.TyComp
 		// c: Computation pre mid a — infer, but pre must match comp.Pre
 		compTy, compCore := ch.infer(st.Comp)
 		compTy = ch.unifier.Zonk(compTy)
-		if inferredComp, ok := compTy.(*types.TyComp); ok {
+		if inferredComp, ok := compTy.(*types.TyCBPV); ok {
 			// Record step for multiplicity analysis.
 			ch.multSteps = append(ch.multSteps, multStep{pre: inferredComp.Pre, post: inferredComp.Post, s: st.S})
 			// Unify inferred pre with expected pre.
@@ -136,17 +136,17 @@ func (ch *Checker) elaborateStmtsChecked(stmts []syntax.Stmt, comp *types.TyComp
 			resultTy := inferredComp.Result
 			ch.ctx.Push(&CtxVar{Name: st.Var, Type: resultTy})
 			// Rest: Computation mid post result — mid from inferred post, post/result from expected.
-			restComp := &types.TyComp{Pre: inferredComp.Post, Post: comp.Post, Result: comp.Result, S: comp.S}
+			restComp := &types.TyCBPV{Tag: types.TagComp, Pre: inferredComp.Post, Post: comp.Post, Result: comp.Result, S: comp.S}
 			restCore := ch.elaborateStmtsChecked(stmts[1:], restComp, s)
 			ch.ctx.Pop()
 			return &core.Bind{Comp: compCore, Var: st.Var, Body: restCore, S: st.S}
 		}
-		// Fallback: infer didn't give TyComp, extract result and continue.
+		// Fallback: infer didn't give TyCBPV, extract result and continue.
 		resultTy := ch.extractCompResult(compTy, st.S)
 		ch.ctx.Push(&CtxVar{Name: st.Var, Type: resultTy})
 		restTy, restCore := ch.elaborateStmts(stmts[1:], s)
 		ch.ctx.Pop()
-		// Best-effort: infer didn't produce TyComp, so pre/post threading
+		// Best-effort: infer didn't produce TyCBPV, so pre/post threading
 		// is unavailable. Unifying the inferred rest type with the expected
 		// computation type is advisory — failure means the do block types
 		// are already inconsistent and errors will surface elsewhere.
@@ -169,7 +169,7 @@ func (ch *Checker) elaborateStmtsChecked(stmts []syntax.Stmt, comp *types.TyComp
 		// c; rest
 		compTy, compCore := ch.infer(st.Expr)
 		compTy = ch.unifier.Zonk(compTy)
-		if inferredComp, ok := compTy.(*types.TyComp); ok {
+		if inferredComp, ok := compTy.(*types.TyCBPV); ok {
 			// Record step for multiplicity analysis.
 			ch.multSteps = append(ch.multSteps, multStep{pre: inferredComp.Pre, post: inferredComp.Post, s: st.S})
 			if err := ch.unifier.Unify(inferredComp.Pre, comp.Pre); err != nil {
@@ -177,12 +177,12 @@ func (ch *Checker) elaborateStmtsChecked(stmts []syntax.Stmt, comp *types.TyComp
 					"do statement: pre-state mismatch: expected %s, got %s",
 					types.Pretty(comp.Pre), types.Pretty(inferredComp.Pre)))
 			}
-			restComp := &types.TyComp{Pre: inferredComp.Post, Post: comp.Post, Result: comp.Result, S: comp.S}
+			restComp := &types.TyCBPV{Tag: types.TagComp, Pre: inferredComp.Post, Post: comp.Post, Result: comp.Result, S: comp.S}
 			restCore := ch.elaborateStmtsChecked(stmts[1:], restComp, s)
 			return &core.Bind{Comp: compCore, Var: "_", Body: restCore, S: st.S}
 		}
 		restTy, restCore := ch.elaborateStmts(stmts[1:], s)
-		// Best-effort: infer didn't produce TyComp, so pre/post threading
+		// Best-effort: infer didn't produce TyCBPV, so pre/post threading
 		// is unavailable. Unifying the inferred rest type with the expected
 		// computation type is advisory — failure means the do block types
 		// are already inconsistent and errors will surface elsewhere.
@@ -206,7 +206,7 @@ func (ch *Checker) checkDo(e *syntax.ExprDo, expected types.Type) core.Core {
 	expected = ch.unifier.Zonk(expected)
 
 	// Fast path: Computation types use Core.Bind with expected pre/post threading.
-	if comp, ok := expected.(*types.TyComp); ok {
+	if comp, ok := expected.(*types.TyCBPV); ok && comp.Tag == types.TagComp {
 		saved := ch.multSteps
 		ch.multSteps = nil
 		result := ch.elaborateStmtsChecked(e.Stmts, comp, e.S)
@@ -405,7 +405,7 @@ type multStep struct {
 // same-type preservation events (steps where the label appears in both pre
 // and post with structurally equal types). Type-changing preservations
 // (protocol state transitions) and consumption events do not count.
-func (ch *Checker) checkMultiplicity(comp *types.TyComp, s span.Span) {
+func (ch *Checker) checkMultiplicity(comp *types.TyCBPV, s span.Span) {
 	steps := ch.multSteps
 	if len(steps) == 0 {
 		return
@@ -503,7 +503,7 @@ func multLimit(mult types.Type) int {
 
 func (ch *Checker) extractCompResult(ty types.Type, s span.Span) types.Type {
 	ty = ch.unifier.Zonk(ty)
-	if comp, ok := ty.(*types.TyComp); ok {
+	if comp, ok := ty.(*types.TyCBPV); ok {
 		return comp.Result
 	}
 	// Try to unify with a fresh Computation.

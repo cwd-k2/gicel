@@ -58,18 +58,9 @@ func equalAlpha(a, b Type, bindings []alphaBinding) bool {
 		newBindings := append(bindings, alphaBinding{at.Var, bt.Var})
 		return equalAlpha(at.Body, bt.Body, newBindings)
 
-	case *TyComp:
-		bt, ok := b.(*TyComp)
-		if !ok {
-			return false
-		}
-		return equalAlpha(at.Pre, bt.Pre, bindings) &&
-			equalAlpha(at.Post, bt.Post, bindings) &&
-			equalAlpha(at.Result, bt.Result, bindings)
-
-	case *TyThunk:
-		bt, ok := b.(*TyThunk)
-		if !ok {
+	case *TyCBPV:
+		bt, ok := b.(*TyCBPV)
+		if !ok || at.Tag != bt.Tag {
 			return false
 		}
 		return equalAlpha(at.Pre, bt.Pre, bindings) &&

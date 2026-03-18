@@ -902,15 +902,15 @@ func TestProbeD_Unify_SkolemVsMeta(t *testing.T) {
 	}
 }
 
-// TestProbeD_Unify_TyCompCrossCase — unifying TyComp with an equivalent
+// TestProbeD_Unify_TyCompCrossCase — unifying TyCBPV (Computation) with an equivalent
 // TyApp chain should succeed through the cross-case unification path.
 func TestProbeD_Unify_TyCompCrossCase(t *testing.T) {
 	u := NewUnifier()
-	comp := &types.TyComp{
-		Pre:    types.EmptyRow(),
-		Post:   types.EmptyRow(),
-		Result: types.Con("Int"),
-	}
+	comp := types.MkComp(
+		types.EmptyRow(),
+		types.EmptyRow(),
+		types.Con("Int"),
+	)
 	// Build: TyApp(TyApp(TyApp(TyCon("Computation"), emptyRow), emptyRow), Int)
 	appChain := &types.TyApp{
 		Fun: &types.TyApp{
@@ -923,7 +923,7 @@ func TestProbeD_Unify_TyCompCrossCase(t *testing.T) {
 		Arg: types.Con("Int"),
 	}
 	if err := u.Unify(comp, appChain); err != nil {
-		t.Fatalf("TyComp should unify with equivalent TyApp chain: %v", err)
+		t.Fatalf("TyCBPV (Computation) should unify with equivalent TyApp chain: %v", err)
 	}
 }
 

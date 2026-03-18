@@ -228,22 +228,14 @@ func (u *Unifier) Zonk(t types.Type) types.Type {
 			return ty
 		}
 		return &types.TyForall{Var: ty.Var, Kind: ty.Kind, Body: zBody, S: ty.S}
-	case *types.TyComp:
+	case *types.TyCBPV:
 		zPre := u.Zonk(ty.Pre)
 		zPost := u.Zonk(ty.Post)
 		zResult := u.Zonk(ty.Result)
 		if zPre == ty.Pre && zPost == ty.Post && zResult == ty.Result {
 			return ty
 		}
-		return &types.TyComp{Pre: zPre, Post: zPost, Result: zResult, S: ty.S}
-	case *types.TyThunk:
-		zPre := u.Zonk(ty.Pre)
-		zPost := u.Zonk(ty.Post)
-		zResult := u.Zonk(ty.Result)
-		if zPre == ty.Pre && zPost == ty.Post && zResult == ty.Result {
-			return ty
-		}
-		return &types.TyThunk{Pre: zPre, Post: zPost, Result: zResult, S: ty.S}
+		return &types.TyCBPV{Tag: ty.Tag, Pre: zPre, Post: zPost, Result: zResult, S: ty.S}
 	case *types.TyEvidenceRow:
 		newEntries, changed := ty.Entries.ZonkEntries(u.Zonk)
 		var tail types.Type
@@ -304,7 +296,7 @@ func (u *Unifier) normalize(t types.Type) types.Type {
 
 // normalizeCompApp converts fully-applied TyApp chains to their special type
 // representations. e.g. TyApp(TyApp(TyApp(TyCon("Computation"), pre), post), result)
-// becomes TyComp{pre, post, result}. This arises when a class type parameter
+// becomes TyCBPV{TagComp, pre, post, result}. This arises when a class type parameter
 // (m: Row -> Row -> Type -> Type) is substituted with Computation.
 func normalizeCompApp(t types.Type) types.Type {
 	app1, ok := t.(*types.TyApp)
@@ -325,9 +317,9 @@ func normalizeCompApp(t types.Type) types.Type {
 	}
 	switch con.Name {
 	case "Computation":
-		return &types.TyComp{Pre: app3.Arg, Post: app2.Arg, Result: app1.Arg, S: t.Span()}
+		return &types.TyCBPV{Tag: types.TagComp, Pre: app3.Arg, Post: app2.Arg, Result: app1.Arg, S: t.Span()}
 	case "Thunk":
-		return &types.TyThunk{Pre: app3.Arg, Post: app2.Arg, Result: app1.Arg, S: t.Span()}
+		return &types.TyCBPV{Tag: types.TagThunk, Pre: app3.Arg, Post: app2.Arg, Result: app1.Arg, S: t.Span()}
 	}
 	return t
 }
@@ -391,21 +383,22 @@ func (u *Unifier) Unify(a, b types.Type) error {
 			}
 			return u.Unify(at.Arg, bt.Arg)
 		}
-		// Cross-case: decompose TyApp spine directly against TyComp/TyThunk
+		// Cross-case: decompose TyApp spine directly against TyCBPV
 		// to avoid the normalize cycle (normalizeCompApp ↔ compToApp).
-		if comp, ok := b.(*types.TyComp); ok {
-			return u.unifyAppWithTriple(a, "Computation", [3]types.Type{comp.Pre, comp.Post, comp.Result})
-		}
-		if thk, ok := b.(*types.TyThunk); ok {
-			return u.unifyAppWithTriple(a, "Thunk", [3]types.Type{thk.Pre, thk.Post, thk.Result})
+		if cbpv, ok := b.(*types.TyCBPV); ok {
+			name := "Computation"
+			if cbpv.Tag == types.TagThunk {
+				name = "Thunk"
+			}
+			return u.unifyAppWithTriple(a, name, [3]types.Type{cbpv.Pre, cbpv.Post, cbpv.Result})
 		}
 	case *types.TyForall:
 		if bt, ok := b.(*types.TyForall); ok {
 			// Unify bodies with bound variables treated as equal.
 			return u.Unify(at.Body, types.Subst(bt.Body, bt.Var, &types.TyVar{Name: at.Var}))
 		}
-	case *types.TyComp:
-		if bt, ok := b.(*types.TyComp); ok {
+	case *types.TyCBPV:
+		if bt, ok := b.(*types.TyCBPV); ok && at.Tag == bt.Tag {
 			if err := u.Unify(at.Pre, bt.Pre); err != nil {
 				return err
 			}
@@ -415,20 +408,11 @@ func (u *Unifier) Unify(a, b types.Type) error {
 			return u.Unify(at.Result, bt.Result)
 		}
 		if _, ok := b.(*types.TyApp); ok {
-			return u.unifyAppWithTriple(b, "Computation", [3]types.Type{at.Pre, at.Post, at.Result})
-		}
-	case *types.TyThunk:
-		if bt, ok := b.(*types.TyThunk); ok {
-			if err := u.Unify(at.Pre, bt.Pre); err != nil {
-				return err
+			name := "Computation"
+			if at.Tag == types.TagThunk {
+				name = "Thunk"
 			}
-			if err := u.Unify(at.Post, bt.Post); err != nil {
-				return err
-			}
-			return u.Unify(at.Result, bt.Result)
-		}
-		if _, ok := b.(*types.TyApp); ok {
-			return u.unifyAppWithTriple(b, "Thunk", [3]types.Type{at.Pre, at.Post, at.Result})
+			return u.unifyAppWithTriple(b, name, [3]types.Type{at.Pre, at.Post, at.Result})
 		}
 	case *types.TyEvidenceRow:
 		if bt, ok := b.(*types.TyEvidenceRow); ok {
@@ -457,8 +441,8 @@ func (u *Unifier) Unify(a, b types.Type) error {
 
 // unifyAppWithTriple decomposes a TyApp chain and unifies its spine against
 // a named type constructor with 3 fields (Computation or Thunk).
-// This avoids the normalize cycle: normalizeCompApp converts TyApp→TyComp,
-// while compToApp converts TyComp→TyApp, causing infinite recursion.
+// This avoids the normalize cycle: normalizeCompApp converts TyApp→TyCBPV,
+// while compToApp converts TyCBPV→TyApp, causing infinite recursion.
 // Instead, we decompose the TyApp into (head, args) and unify each component directly.
 func (u *Unifier) unifyAppWithTriple(app types.Type, conName string, fields [3]types.Type) error {
 	head, args := types.UnwindApp(app)

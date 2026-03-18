@@ -524,9 +524,12 @@ func (ch *Checker) checkCase(e *syntax.ExprCase, expected types.Type) core.Core 
 }
 
 func (ch *Checker) checkCaseAlts(scrutTy, resultTy types.Type, scrutCore core.Core, e *syntax.ExprCase) core.Core {
-	// Divergent post-states: when result is TyComp, each branch gets a
+	// Divergent post-states: when result is TyCBPV (Computation), each branch gets a
 	// fresh post-state meta. After all branches, post-states are joined.
-	comp, isComp := ch.unifier.Zonk(resultTy).(*types.TyComp)
+	comp, isComp := ch.unifier.Zonk(resultTy).(*types.TyCBPV)
+	if isComp && comp.Tag != types.TagComp {
+		isComp = false
+	}
 	var branchPosts []types.Type
 
 	var alts []core.Alt
@@ -542,12 +545,12 @@ func (ch *Checker) checkCaseAlts(scrutTy, resultTy types.Type, scrutCore core.Co
 		}
 
 		// Per-branch expected type: same resultTy for non-Comp,
-		// or TyComp with fresh post-state meta for Comp.
+		// or TyCBPV with fresh post-state meta for Comp.
 		branchExpected := resultTy
 		if isComp {
 			freshPost := ch.freshMeta(types.KRow{})
-			branchExpected = &types.TyComp{
-				Pre: comp.Pre, Post: freshPost, Result: comp.Result, S: comp.S,
+			branchExpected = &types.TyCBPV{
+				Tag: types.TagComp, Pre: comp.Pre, Post: freshPost, Result: comp.Result, S: comp.S,
 			}
 			branchPosts = append(branchPosts, freshPost)
 		}

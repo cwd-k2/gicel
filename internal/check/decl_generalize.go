@@ -117,11 +117,7 @@ func collectUnsolvedMetas(tys ...types.Type) []metaInfo {
 				}
 			}
 			walk(ty.Body)
-		case *types.TyComp:
-			walk(ty.Pre)
-			walk(ty.Post)
-			walk(ty.Result)
-		case *types.TyThunk:
+		case *types.TyCBPV:
 			walk(ty.Pre)
 			walk(ty.Post)
 			walk(ty.Result)
@@ -144,8 +140,8 @@ func collectUnsolvedMetas(tys ...types.Type) []metaInfo {
 // quantifyFreeVars wraps free type variables in implicit forall quantifiers.
 // This implements Haskell-style implicit universal quantification for type annotations:
 // `f :: List a -> Int` is treated as `f :: \ a. List a -> Int`.
-// Kind inference: variables appearing in row positions (TyComp.Pre/Post,
-// TyThunk.Pre/Post, TyEvidenceRow.Tail) are quantified as KRow; all others as KType.
+// Kind inference: variables appearing in row positions (TyCBPV.Pre/Post,
+// TyEvidenceRow.Tail) are quantified as KRow; all others as KType.
 func quantifyFreeVars(ty types.Type) types.Type {
 	fv := types.FreeVars(ty)
 	if len(fv) == 0 {
@@ -225,11 +221,7 @@ func inferFreeVarKinds(ty types.Type, fv map[string]struct{}) map[string]types.K
 			walkAsType(tt.To)
 		case *types.TyForall:
 			walkAsType(tt.Body)
-		case *types.TyComp:
-			walkAsRow(tt.Pre)
-			walkAsRow(tt.Post)
-			walkAsType(tt.Result)
-		case *types.TyThunk:
+		case *types.TyCBPV:
 			walkAsRow(tt.Pre)
 			walkAsRow(tt.Post)
 			walkAsType(tt.Result)

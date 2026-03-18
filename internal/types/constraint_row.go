@@ -29,10 +29,12 @@ func structuralKey(t Type) string {
 		return "Arrow(" + structuralKey(v.From) + "," + structuralKey(v.To) + ")"
 	case *TyForall:
 		return "Forall(" + v.Var + "," + structuralKey(v.Body) + ")"
-	case *TyComp:
-		return "Comp(" + structuralKey(v.Pre) + "," + structuralKey(v.Post) + "," + structuralKey(v.Result) + ")"
-	case *TyThunk:
-		return "Thunk(" + structuralKey(v.Pre) + "," + structuralKey(v.Post) + "," + structuralKey(v.Result) + ")"
+	case *TyCBPV:
+		tag := "Comp"
+		if v.Tag == TagThunk {
+			tag = "Thunk"
+		}
+		return tag + "(" + structuralKey(v.Pre) + "," + structuralKey(v.Post) + "," + structuralKey(v.Result) + ")"
 	case *TyMeta:
 		return fmt.Sprintf("Meta(%d)", v.ID)
 	case *TySkolem:

@@ -69,10 +69,7 @@ func (ch *Checker) inferBind(compExpr, contExpr syntax.Expr, s span.Span) (types
 // cbpvTriple extracts (pre, post, result) from a computation or thunk type.
 // Returns nil fields if the type is neither.
 func cbpvTriple(ty types.Type) (pre, post, result types.Type) {
-	switch t := ty.(type) {
-	case *types.TyComp:
-		return t.Pre, t.Post, t.Result
-	case *types.TyThunk:
+	if t, ok := ty.(*types.TyCBPV); ok {
 		return t.Pre, t.Post, t.Result
 	}
 	return nil, nil, nil

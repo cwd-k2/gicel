@@ -43,20 +43,19 @@ type TyForall struct {
 	S    span.Span
 }
 
-// TyComp is a Computation pre post a type.
-type TyComp struct {
-	Pre    Type
-	Post   Type
-	Result Type
-	S      span.Span
-}
+// CBPVTag distinguishes Computation and Thunk types.
+type CBPVTag int
 
-// TyThunk is a Thunk pre post a type.
-type TyThunk struct {
-	Pre    Type
-	Post   Type
-	Result Type
-	S      span.Span
+const (
+	TagComp  CBPVTag = iota // Computation pre post a
+	TagThunk                // Thunk pre post a
+)
+
+// TyCBPV is a CBPV computation or thunk type: Computation pre post a / Thunk pre post a.
+type TyCBPV struct {
+	Tag               CBPVTag
+	Pre, Post, Result Type
+	S                 span.Span
 }
 
 // RowField is a single label:type pair in a row, with optional multiplicity.
@@ -135,8 +134,7 @@ func (*TyCon) typeNode()      {}
 func (*TyApp) typeNode()      {}
 func (*TyArrow) typeNode()    {}
 func (*TyForall) typeNode()   {}
-func (*TyComp) typeNode()     {}
-func (*TyThunk) typeNode()    {}
+func (*TyCBPV) typeNode()     {}
 func (*TyEvidence) typeNode() {}
 func (*TySkolem) typeNode()   {}
 func (*TyMeta) typeNode()     {}
@@ -149,8 +147,7 @@ func (t *TyCon) Span() span.Span      { return t.S }
 func (t *TyApp) Span() span.Span      { return t.S }
 func (t *TyArrow) Span() span.Span    { return t.S }
 func (t *TyForall) Span() span.Span   { return t.S }
-func (t *TyComp) Span() span.Span     { return t.S }
-func (t *TyThunk) Span() span.Span    { return t.S }
+func (t *TyCBPV) Span() span.Span     { return t.S }
 func (t *TyEvidence) Span() span.Span { return t.S }
 func (t *TySkolem) Span() span.Span   { return t.S }
 func (t *TyMeta) Span() span.Span     { return t.S }
@@ -163,8 +160,7 @@ func (t *TyCon) Children() []Type      { return nil }
 func (t *TyApp) Children() []Type      { return []Type{t.Fun, t.Arg} }
 func (t *TyArrow) Children() []Type    { return []Type{t.From, t.To} }
 func (t *TyForall) Children() []Type   { return []Type{t.Body} }
-func (t *TyComp) Children() []Type     { return []Type{t.Pre, t.Post, t.Result} }
-func (t *TyThunk) Children() []Type    { return []Type{t.Pre, t.Post, t.Result} }
+func (t *TyCBPV) Children() []Type     { return []Type{t.Pre, t.Post, t.Result} }
 func (t *TyEvidence) Children() []Type { return []Type{t.Constraints, t.Body} }
 func (t *TySkolem) Children() []Type   { return nil }
 func (t *TyMeta) Children() []Type     { return nil }

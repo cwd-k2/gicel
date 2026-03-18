@@ -100,15 +100,11 @@ func TestSubstForallNoCapture(t *testing.T) {
 }
 
 func TestSubstComp(t *testing.T) {
-	ty := &TyComp{
-		Pre:    &TyVar{Name: "r1"},
-		Post:   &TyVar{Name: "r2"},
-		Result: &TyVar{Name: "a"},
-	}
+	ty := MkComp(&TyVar{Name: "r1"}, &TyVar{Name: "r2"}, &TyVar{Name: "a"})
 	result := Subst(ty, "a", &TyCon{Name: "Int"})
-	comp, ok := result.(*TyComp)
+	comp, ok := result.(*TyCBPV)
 	if !ok {
-		t.Fatalf("expected TyComp, got %T", result)
+		t.Fatalf("expected TyCBPV, got %T", result)
 	}
 	if con, ok := comp.Result.(*TyCon); !ok || con.Name != "Int" {
 		t.Error("Result should be Int")

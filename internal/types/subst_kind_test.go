@@ -88,13 +88,9 @@ func TestSubstKindInTypeNoChange(t *testing.T) {
 
 func TestSubstKindInTypeComp(t *testing.T) {
 	// Comp with a meta whose kind contains k
-	ty := &TyComp{
-		Pre:    &TyMeta{ID: 1, Kind: KVar{Name: "k"}},
-		Post:   &TyMeta{ID: 2, Kind: KVar{Name: "k"}},
-		Result: Con("Int"),
-	}
+	ty := MkComp(&TyMeta{ID: 1, Kind: KVar{Name: "k"}}, &TyMeta{ID: 2, Kind: KVar{Name: "k"}}, Con("Int"))
 	result := SubstKindInType(ty, "k", KRow{})
-	comp := result.(*TyComp)
+	comp := result.(*TyCBPV)
 	if !comp.Pre.(*TyMeta).Kind.Equal(KRow{}) {
 		t.Errorf("Pre meta kind should be Row, got %s", comp.Pre.(*TyMeta).Kind)
 	}
@@ -104,13 +100,9 @@ func TestSubstKindInTypeComp(t *testing.T) {
 }
 
 func TestSubstKindInTypeThunk(t *testing.T) {
-	ty := &TyThunk{
-		Pre:    &TyMeta{ID: 1, Kind: KVar{Name: "k"}},
-		Post:   Con("Unit"),
-		Result: Con("Int"),
-	}
+	ty := MkThunk(&TyMeta{ID: 1, Kind: KVar{Name: "k"}}, Con("Unit"), Con("Int"))
 	result := SubstKindInType(ty, "k", KType{})
-	thunk := result.(*TyThunk)
+	thunk := result.(*TyCBPV)
 	if !thunk.Pre.(*TyMeta).Kind.Equal(KType{}) {
 		t.Errorf("Pre meta kind should be Type, got %s", thunk.Pre.(*TyMeta).Kind)
 	}

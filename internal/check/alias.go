@@ -102,11 +102,7 @@ func collectAliasRefsRec(ty types.Type, aliases map[string]*AliasInfo, seen map[
 		collectAliasRefsRec(t.To, aliases, seen, refs)
 	case *types.TyForall:
 		collectAliasRefsRec(t.Body, aliases, seen, refs)
-	case *types.TyComp:
-		collectAliasRefsRec(t.Pre, aliases, seen, refs)
-		collectAliasRefsRec(t.Post, aliases, seen, refs)
-		collectAliasRefsRec(t.Result, aliases, seen, refs)
-	case *types.TyThunk:
+	case *types.TyCBPV:
 		collectAliasRefsRec(t.Pre, aliases, seen, refs)
 		collectAliasRefsRec(t.Post, aliases, seen, refs)
 		collectAliasRefsRec(t.Result, aliases, seen, refs)

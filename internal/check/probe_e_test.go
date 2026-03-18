@@ -190,15 +190,15 @@ func TestProbeE_Unify_ForallBodyMismatch(t *testing.T) {
 	}
 }
 
-// TestProbeE_Unify_CompVsTyApp — TyComp should unify with a TyApp chain
+// TestProbeE_Unify_CompVsTyApp — TyCBPV (Computation) should unify with a TyApp chain
 // representing Computation pre post result.
 func TestProbeE_Unify_CompVsTyApp(t *testing.T) {
 	u := NewUnifier()
-	comp := &types.TyComp{
-		Pre:    types.EmptyRow(),
-		Post:   types.EmptyRow(),
-		Result: types.Con("Int"),
-	}
+	comp := types.MkComp(
+		types.EmptyRow(),
+		types.EmptyRow(),
+		types.Con("Int"),
+	)
 	// Build TyApp chain: Computation {} {} Int
 	app := &types.TyApp{
 		Fun: &types.TyApp{
@@ -211,18 +211,18 @@ func TestProbeE_Unify_CompVsTyApp(t *testing.T) {
 		Arg: types.Con("Int"),
 	}
 	if err := u.Unify(comp, app); err != nil {
-		t.Errorf("TyComp should unify with equivalent TyApp chain: %v", err)
+		t.Errorf("TyCBPV (Computation) should unify with equivalent TyApp chain: %v", err)
 	}
 }
 
 // TestProbeE_Unify_ThunkVsTyApp — same as above but for Thunk.
 func TestProbeE_Unify_ThunkVsTyApp(t *testing.T) {
 	u := NewUnifier()
-	thunk := &types.TyThunk{
-		Pre:    types.EmptyRow(),
-		Post:   types.EmptyRow(),
-		Result: types.Con("Int"),
-	}
+	thunk := types.MkThunk(
+		types.EmptyRow(),
+		types.EmptyRow(),
+		types.Con("Int"),
+	)
 	app := &types.TyApp{
 		Fun: &types.TyApp{
 			Fun: &types.TyApp{
@@ -234,7 +234,7 @@ func TestProbeE_Unify_ThunkVsTyApp(t *testing.T) {
 		Arg: types.Con("Int"),
 	}
 	if err := u.Unify(thunk, app); err != nil {
-		t.Errorf("TyThunk should unify with equivalent TyApp chain: %v", err)
+		t.Errorf("TyCBPV (Thunk) should unify with equivalent TyApp chain: %v", err)
 	}
 }
 
