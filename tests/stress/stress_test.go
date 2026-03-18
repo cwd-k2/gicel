@@ -1,4 +1,4 @@
-package gicel_test
+package stress_test
 
 import (
 	"context"
@@ -19,7 +19,7 @@ import (
 
 func loadStressProgram(t testing.TB, name string) string {
 	t.Helper()
-	data, err := os.ReadFile(filepath.Join("testdata", "stress", name))
+	data, err := os.ReadFile(filepath.Join("..", "..", "testdata", "stress", name))
 	if err != nil {
 		t.Fatalf("failed to load stress program %s: %v", name, err)
 	}
@@ -849,7 +849,7 @@ func TestStressMemory(t *testing.T) {
 
 	// Compile and run all stress programs
 	for _, sp := range stressPrograms {
-		data, err := os.ReadFile(filepath.Join("testdata", "stress", sp.file))
+		data, err := os.ReadFile(filepath.Join("..", "..", "testdata", "stress", sp.file))
 		if err != nil {
 			continue // skip missing files in memory test
 		}

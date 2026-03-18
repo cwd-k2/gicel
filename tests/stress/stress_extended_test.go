@@ -1,4 +1,4 @@
-package gicel_test
+package stress_test
 
 import (
 	"context"
@@ -57,7 +57,7 @@ func TestStressDeepRightAssocInfix(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	assertConVal(t, result.Value, "True")
+	assertCon(t, result.Value, "True")
 }
 
 // TestStressDeepDoBlock — 100 bind statements in a single do-block.
@@ -76,7 +76,7 @@ func TestStressDeepDoBlock(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	assertConVal(t, result.Value, "True")
+	assertCon(t, result.Value, "True")
 }
 
 // TestStressLargeRecordLiteral — record literal with 30 fields.
@@ -324,8 +324,8 @@ func TestStressClosureFVTrimming(t *testing.T) {
 	if !ok || len(rv.Fields) != 2 {
 		t.Fatalf("expected tuple, got %s", result.Value)
 	}
-	assertConVal(t, rv.Fields["_1"], "True")
-	assertConVal(t, rv.Fields["_2"], "True")
+	assertCon(t, rv.Fields["_1"], "True")
+	assertCon(t, rv.Fields["_2"], "True")
 }
 
 // TestStressRecursiveListFoldl — foldl over a 200-element list.
@@ -383,7 +383,7 @@ func TestStressDeepThunkForceChain(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	assertConVal(t, result.Value, "True")
+	assertCon(t, result.Value, "True")
 }
 
 // =============================================================================
@@ -575,7 +575,7 @@ func TestStressConcurrentSandbox(t *testing.T) {
 		if i%2 != 0 {
 			expected = "False"
 		}
-		assertConVal(t, results[i].Value, expected)
+		assertCon(t, results[i].Value, expected)
 	}
 }
 
@@ -621,8 +621,8 @@ func TestStressMultiEntryIndependentLimits(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	assertConVal(t, r1.Value, "True")
-	assertConVal(t, r2.Value, "False")
+	assertCon(t, r1.Value, "True")
+	assertCon(t, r2.Value, "False")
 }
 
 // =============================================================================
@@ -642,7 +642,7 @@ main := id (id (id (id (id True))))
 	if err != nil {
 		t.Fatal(err)
 	}
-	assertConVal(t, result.Value, "True")
+	assertCon(t, result.Value, "True")
 	usedSteps := result.Stats.Steps
 
 	// Exact steps — should succeed.
@@ -653,7 +653,7 @@ main := id (id (id (id (id True))))
 	if err != nil {
 		t.Fatalf("should succeed with exact steps (%d): %v", usedSteps, err)
 	}
-	assertConVal(t, result.Value, "True")
+	assertCon(t, result.Value, "True")
 
 	// One step fewer — should fail.
 	_, err = gicel.RunSandbox(source, &gicel.SandboxConfig{
@@ -848,6 +848,6 @@ func TestStressRepeatedRuntimeExecution(t *testing.T) {
 		if err != nil {
 			t.Fatalf("iteration %d: %v", i, err)
 		}
-		assertConVal(t, result.Value, "True")
+		assertCon(t, result.Value, "True")
 	}
 }

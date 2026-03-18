@@ -1,4 +1,4 @@
-package gicel_test
+package stress_test
 
 import (
 	"context"
@@ -47,7 +47,7 @@ main := (not . id) True
 	if err != nil {
 		t.Fatal(err)
 	}
-	assertConName(t, result.Value, "False")
+	assertCon(t, result.Value, "False")
 }
 
 func TestDotInForallDoesNotConflictWithComposition(t *testing.T) {
@@ -73,7 +73,7 @@ main := (id . id) True
 	if err != nil {
 		t.Fatal(err)
 	}
-	assertConName(t, result.Value, "True")
+	assertCon(t, result.Value, "True")
 }
 
 // ---------------------------------------------------------------------------
@@ -169,7 +169,7 @@ main := do { x <- pure True; y <- pure False; pure x }
 	if err != nil {
 		t.Fatal(err)
 	}
-	assertConName(t, result.Value, "True")
+	assertCon(t, result.Value, "True")
 }
 
 func TestNewlineInDoBlock(t *testing.T) {
@@ -209,7 +209,7 @@ main := f True
 	if err != nil {
 		t.Fatal(err)
 	}
-	assertConName(t, result.Value, "False")
+	assertCon(t, result.Value, "False")
 }
 
 func TestNewlineInCaseAlts(t *testing.T) {
@@ -253,7 +253,7 @@ main := konst3 True False True
 	if err != nil {
 		t.Fatal(err)
 	}
-	assertConName(t, result.Value, "True")
+	assertCon(t, result.Value, "True")
 }
 
 // ---------------------------------------------------------------------------
@@ -276,7 +276,7 @@ main := { x := True; x }
 	if err != nil {
 		t.Fatal(err)
 	}
-	assertConName(t, result.Value, "True")
+	assertCon(t, result.Value, "True")
 }
 
 func TestEmptyRecordAndUnit(t *testing.T) {
@@ -323,7 +323,7 @@ main := applyBoth (\x. x)
 	if err != nil {
 		t.Fatal(err)
 	}
-	assertConName(t, result.Value, "True")
+	assertCon(t, result.Value, "True")
 }
 
 func TestHigherRankRejection(t *testing.T) {
@@ -367,7 +367,7 @@ main := f {}
 	if err != nil {
 		t.Fatal(err)
 	}
-	assertConName(t, result.Value, "True")
+	assertCon(t, result.Value, "True")
 }
 
 func TestRowUnifyFieldSubset(t *testing.T) {
@@ -430,7 +430,7 @@ main := useSuperFromSub True True
 	if err != nil {
 		t.Fatal(err)
 	}
-	assertConName(t, result.Value, "True")
+	assertCon(t, result.Value, "True")
 }
 
 func TestPolymorphicInstanceResolution(t *testing.T) {
@@ -448,7 +448,7 @@ main := eq (Just True) (Just True)
 	if err != nil {
 		t.Fatal(err)
 	}
-	assertConName(t, result.Value, "True")
+	assertCon(t, result.Value, "True")
 }
 
 func TestPolymorphicInstanceResolutionNeg(t *testing.T) {
@@ -466,7 +466,7 @@ main := eq (Just (Just True)) (Just Nothing)
 	if err != nil {
 		t.Fatal(err)
 	}
-	assertConName(t, result.Value, "False")
+	assertCon(t, result.Value, "False")
 }
 
 // ---------------------------------------------------------------------------
@@ -544,7 +544,7 @@ main := toBool (BoolTok True)
 	if err != nil {
 		t.Fatal(err)
 	}
-	assertConName(t, result.Value, "True")
+	assertCon(t, result.Value, "True")
 }
 
 // ---------------------------------------------------------------------------
@@ -632,7 +632,7 @@ main := fst (MkPair True False)
 	if err != nil {
 		t.Fatal(err)
 	}
-	assertConName(t, result.Value, "True")
+	assertCon(t, result.Value, "True")
 }
 
 func TestDoubleNestedPatternMatch(t *testing.T) {
@@ -654,7 +654,7 @@ main := isJustTrue (Just True)
 	if err != nil {
 		t.Fatal(err)
 	}
-	assertConName(t, result.Value, "True")
+	assertCon(t, result.Value, "True")
 }
 
 // ---------------------------------------------------------------------------
@@ -770,7 +770,7 @@ main := myFst (True, False)
 	if err != nil {
 		t.Fatal(err)
 	}
-	assertConName(t, result.Value, "True")
+	assertCon(t, result.Value, "True")
 
 	// Direct lambda pattern version:
 	eng2 := gicel.NewEngine()
@@ -787,7 +787,7 @@ main := myFst (True, False)
 	if err != nil {
 		t.Fatal(err)
 	}
-	assertConName(t, result2.Value, "True")
+	assertCon(t, result2.Value, "True")
 }
 
 // ---------------------------------------------------------------------------
@@ -813,7 +813,7 @@ main := do {
 	if err != nil {
 		t.Fatal(err)
 	}
-	assertConName(t, result.Value, "True")
+	assertCon(t, result.Value, "True")
 }
 
 func TestForceNonThunkError(t *testing.T) {
@@ -948,7 +948,7 @@ main := getX { x: True }
 	if err != nil {
 		t.Fatal(err)
 	}
-	assertConName(t, result.Value, "True")
+	assertCon(t, result.Value, "True")
 
 	// Direct lambda pattern version:
 	eng2 := gicel.NewEngine()
@@ -965,7 +965,7 @@ main := getX { x: True }
 	if err != nil {
 		t.Fatal(err)
 	}
-	assertConName(t, result2.Value, "True")
+	assertCon(t, result2.Value, "True")
 }
 
 func TestFP_WildcardInCasePattern(t *testing.T) {
@@ -985,7 +985,7 @@ main := isRed Blue
 	if err != nil {
 		t.Fatal(err)
 	}
-	assertConName(t, result.Value, "False")
+	assertCon(t, result.Value, "False")
 }
 
 func TestFP_NestedTuplePattern(t *testing.T) {
@@ -1007,7 +1007,7 @@ main := f (True, (False, True))
 	if err != nil {
 		t.Fatal(err)
 	}
-	assertConName(t, result.Value, "False")
+	assertCon(t, result.Value, "False")
 
 	// Direct nested tuple pattern version:
 	eng2 := gicel.NewEngine()
@@ -1024,7 +1024,7 @@ main := f (True, (False, True))
 	if err != nil {
 		t.Fatal(err)
 	}
-	assertConName(t, result2.Value, "False")
+	assertCon(t, result2.Value, "False")
 }
 
 // ---------------------------------------------------------------------------
@@ -1134,7 +1134,7 @@ main := (True :: Bool)
 	if err != nil {
 		t.Fatal(err)
 	}
-	assertConName(t, result.Value, "True")
+	assertCon(t, result.Value, "True")
 }
 
 func TestInlineTypeAnnotationMismatch(t *testing.T) {
@@ -1216,7 +1216,7 @@ main := isTrue True
 	if err != nil {
 		t.Fatal(err)
 	}
-	assertConName(t, result.Value, "True")
+	assertCon(t, result.Value, "True")
 }
 
 func TestTypeAliasWithParams(t *testing.T) {
@@ -1236,7 +1236,7 @@ main := (mkPair True False).#_1
 	if err != nil {
 		t.Fatal(err)
 	}
-	assertConName(t, result.Value, "True")
+	assertCon(t, result.Value, "True")
 }
 
 // ---------------------------------------------------------------------------
@@ -1262,7 +1262,7 @@ main := start
 	if err != nil {
 		t.Fatal(err)
 	}
-	assertConName(t, result.Value, "MkBuilder")
+	assertCon(t, result.Value, "MkBuilder")
 }
 
 func TestDataKindsMismatch(t *testing.T) {
@@ -1305,7 +1305,7 @@ main := myId
 	if err != nil {
 		t.Fatal(err)
 	}
-	assertConName(t, result.Value, "True")
+	assertCon(t, result.Value, "True")
 }
 
 // ---------------------------------------------------------------------------
@@ -1330,7 +1330,7 @@ main := do {
 	if err != nil {
 		t.Fatal(err)
 	}
-	assertConName(t, result.Value, "True")
+	assertCon(t, result.Value, "True")
 }
 
 // =============================================================================
@@ -1484,7 +1484,7 @@ main := match (MkPair (Just True) Nothing)
 	if err != nil {
 		t.Fatal(err)
 	}
-	assertConName(t, result.Value, "True")
+	assertCon(t, result.Value, "True")
 }
 
 func TestNestedPatternParenthesized(t *testing.T) {
@@ -1504,9 +1504,9 @@ main := (isJustTrue (Just True), isJustTrue (Just False), isJustTrue Nothing)
 	}
 	// Verify: (True, False, False) — positive AND negative cases
 	rv := result.Value.(*gicel.RecordVal)
-	assertConName(t, rv.Fields["_1"], "True")
-	assertConName(t, rv.Fields["_2"], "False")
-	assertConName(t, rv.Fields["_3"], "False")
+	assertCon(t, rv.Fields["_1"], "True")
+	assertCon(t, rv.Fields["_2"], "False")
+	assertCon(t, rv.Fields["_3"], "False")
 }
 
 func TestNestedPatternExhaustiveness(t *testing.T) {
@@ -1543,9 +1543,9 @@ main := (f (Just (Just (Just True))), f (Just (Just (Just False))), f (Just (Jus
 		t.Fatal(err)
 	}
 	rv := result.Value.(*gicel.RecordVal)
-	assertConName(t, rv.Fields["_1"], "True")
-	assertConName(t, rv.Fields["_2"], "False")
-	assertConName(t, rv.Fields["_3"], "False")
+	assertCon(t, rv.Fields["_1"], "True")
+	assertCon(t, rv.Fields["_2"], "False")
+	assertCon(t, rv.Fields["_3"], "False")
 }
 
 // ---------------------------------------------------------------------------
@@ -1569,7 +1569,7 @@ main := id @Bool True
 	if err != nil {
 		t.Fatal(err)
 	}
-	assertConName(t, result.Value, "True")
+	assertCon(t, result.Value, "True")
 
 	// Negative: @Bool constrains, so Int argument must fail.
 	eng2 := gicel.NewEngine()
@@ -1621,7 +1621,7 @@ main := Just @Bool True
 	if con.Con != "Just" || len(con.Args) != 1 {
 		t.Fatalf("expected Just with 1 arg, got %s", result.Value)
 	}
-	assertConName(t, con.Args[0], "True")
+	assertCon(t, con.Args[0], "True")
 }
 
 // ---------------------------------------------------------------------------
@@ -1646,7 +1646,7 @@ main := ((r.#apply) True, (r.#apply) 42)
 	}
 	// Verify polymorphic use: (True, 42) — field used at Bool AND Int.
 	rv := result.Value.(*gicel.RecordVal)
-	assertConName(t, rv.Fields["_1"], "True")
+	assertCon(t, rv.Fields["_1"], "True")
 	v := gicel.MustHost[int64](rv.Fields["_2"])
 	if v != 42 {
 		t.Errorf("expected 42, got %d", v)
@@ -1787,7 +1787,7 @@ main := f (Just 0)
 	if err != nil {
 		t.Fatal(err)
 	}
-	assertConName(t, result.Value, "True")
+	assertCon(t, result.Value, "True")
 }
 
 func TestLiteralPatternRune(t *testing.T) {
@@ -1810,5 +1810,3 @@ main := classify 'a'
 		t.Errorf("expected \"vowel\", got %q (rune pattern match failed)", s)
 	}
 }
-
-// assertConName is defined in gicel_test.go — reused here.
