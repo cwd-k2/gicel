@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"maps"
 
+	"github.com/cwd-k2/gicel/internal/check/env"
 	"github.com/cwd-k2/gicel/internal/check/exhaust"
 	"github.com/cwd-k2/gicel/internal/check/family"
 	"github.com/cwd-k2/gicel/internal/check/unify"
@@ -120,12 +121,14 @@ type qualifiedScope struct {
 type DataTypeInfo = exhaust.DataTypeInfo
 type ConInfo = exhaust.ConInfo
 
-// AliasInfo holds the definition of a type alias: parameter names, their kinds, and the body.
-type AliasInfo struct {
-	Params     []string
-	ParamKinds []types.Kind
-	Body       types.Type
-}
+// AliasInfo, ClassInfo, InstanceInfo and related types are defined in the env subpackage.
+type AliasInfo = env.AliasInfo
+type ClassInfo = env.ClassInfo
+type ClassFunDep = env.ClassFunDep
+type SuperInfo = env.SuperInfo
+type MethodInfo = env.MethodInfo
+type InstanceInfo = env.InstanceInfo
+type ConstraintInfo = env.ConstraintInfo
 
 // deferredConstraint records a constraint to be resolved after type inference.
 type deferredConstraint struct {

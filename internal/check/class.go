@@ -40,37 +40,6 @@ func classFromDict(name string) string { return strings.TrimSuffix(name, "$Dict"
 func isDictName(name string) bool { return strings.HasSuffix(name, "$Dict") }
 
 // ClassInfo stores elaborated class information.
-type ClassInfo struct {
-	Name         string
-	TyParams     []string
-	TyParamKinds []types.Kind
-	KindParams   []string      // implicit kind variables (e.g., "k" in f: k -> Type)
-	Supers       []SuperInfo   // superclass constraints
-	Methods      []MethodInfo  // method signatures
-	DictName     string        // e.g. "Eq$Dict" — used as both type and constructor name
-	AssocTypes   []string      // associated type family names
-	FunDeps      []ClassFunDep // functional dependencies: | a =: b
-}
-
-// ClassFunDep is an elaborated functional dependency on a class.
-// From params determine To params: | a =: b means knowing a determines b.
-type ClassFunDep struct {
-	From []int // indices into TyParams
-	To   []int // indices into TyParams
-}
-
-// SuperInfo describes a superclass constraint.
-type SuperInfo struct {
-	ClassName string
-	Args      []types.Type
-}
-
-// MethodInfo describes a class method.
-type MethodInfo struct {
-	Name string
-	Type types.Type // the method type (with the class type params free)
-}
-
 // processClassDecl elaborates a class declaration into:
 // 1. A DataDecl for the dictionary type
 // 2. Selector bindings for each method
