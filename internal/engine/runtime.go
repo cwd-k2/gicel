@@ -1,23 +1,41 @@
-package gicel
+package engine
 
 import (
 	"context"
 	"errors"
 	"fmt"
 
+	"github.com/cwd-k2/gicel/internal/budget"
 	"github.com/cwd-k2/gicel/internal/core"
 	"github.com/cwd-k2/gicel/internal/eval"
 	"github.com/cwd-k2/gicel/internal/span"
 	"github.com/cwd-k2/gicel/internal/types"
 )
 
-// annotateError populates Line/Col on RuntimeError from the Source.
-func (r *Runtime) annotateError(err error) error {
-	var re *eval.RuntimeError
-	if errors.As(err, &re) && r.source != nil && re.Span != (span.Span{}) {
-		re.Line, re.Col = r.source.Location(re.Span.Start)
-	}
-	return err
+// ExplainDepth controls how deeply the explain trace instruments evaluation.
+type ExplainDepth int
+
+const (
+	// ExplainUser traces user code only; stdlib internals are suppressed.
+	ExplainUser ExplainDepth = iota
+	// ExplainAll traces all code including stdlib internals.
+	ExplainAll
+)
+
+// RunOptions configures a single execution.
+type RunOptions struct {
+	// Entry is the top-level binding to evaluate (default: "main").
+	Entry string
+	// Caps provides initial capability values.
+	Caps map[string]any
+	// Bindings provides host-injected value bindings.
+	Bindings map[string]eval.Value
+	// Explain receives semantic evaluation events. Nil disables explain.
+	Explain eval.ExplainHook
+	// ExplainDepth controls stdlib suppression (default: ExplainUser).
+	ExplainDepth ExplainDepth
+	// Trace receives low-level evaluation step events. Nil disables trace.
+	Trace eval.TraceHook
 }
 
 // Runtime is an immutable, compiled GICEL program.
@@ -34,7 +52,6 @@ type Runtime struct {
 	builtinEnv    *eval.Env     // pre-built pure/bind/force/fix/rec closures
 }
 
-// moduleEntry pairs a module name with its compiled program.
 type moduleEntry struct {
 	name string
 	prog *core.Program
@@ -47,19 +64,24 @@ func (r *Runtime) Program() *CoreProgram {
 
 // RunResult holds the result of an execution.
 type RunResult struct {
-	Value  Value
-	CapEnv CapEnv
-	Stats  EvalStats
+	Value  eval.Value
+	CapEnv eval.CapEnv
+	Stats  eval.EvalStats
+}
+
+// annotateError populates Line/Col on RuntimeError from the Source.
+func (r *Runtime) annotateError(err error) error {
+	var re *eval.RuntimeError
+	if errors.As(err, &re) && r.source != nil && re.Span != (span.Span{}) {
+		re.Line, re.Col = r.source.Location(re.Span.Start)
+	}
+	return err
 }
 
 // initBuiltinEnv constructs the immutable base environment with builtins and constructors.
-// Called once at NewRuntime time; the result is shared across all executions.
 func (r *Runtime) initBuiltinEnv(gatedBuiltins map[string]bool) {
 	env := eval.BuiltinEnv(gatedBuiltins["fix"], gatedBuiltins["rec"])
 
-	// Constructors from modules: qualified key only (Module\x00Name).
-	// Core IR Var/Con nodes carry the Module field, so the evaluator
-	// looks up the qualified key directly via core.VarKey.
 	for _, me := range r.moduleEntries {
 		for _, d := range me.prog.DataDecls {
 			for _, con := range d.Cons {
@@ -69,19 +91,18 @@ func (r *Runtime) initBuiltinEnv(gatedBuiltins map[string]bool) {
 		}
 	}
 
-	// Constructors from main program (no module prefix).
 	for _, d := range r.prog.DataDecls {
 		for _, con := range d.Cons {
 			env = env.Extend(con.Name, &eval.ConVal{Con: con.Name})
 		}
 	}
 
-	env.Flatten() // Pre-flatten so concurrent evaluators avoid lazy-write race.
+	env.Flatten()
 	r.builtinEnv = env
 }
 
 // buildEnv extends the pre-built builtin environment with user-provided bindings.
-func (r *Runtime) buildEnv(bindings map[string]Value) (*eval.Env, error) {
+func (r *Runtime) buildEnv(bindings map[string]eval.Value) (*eval.Env, error) {
 	env := r.builtinEnv
 	for name := range r.bindings {
 		v, ok := bindings[name]
@@ -93,41 +114,35 @@ func (r *Runtime) buildEnv(bindings map[string]Value) (*eval.Env, error) {
 	return env, nil
 }
 
-// runRequest groups per-execution parameters for the execute method.
 type runRequest struct {
 	caps      map[string]any
-	bindings  map[string]Value
+	bindings  map[string]eval.Value
 	entry     string
 	obs       *eval.ExplainObserver
 	traceHook eval.TraceHook
 }
 
 // execute is the unified execution core.
-func (r *Runtime) execute(ctx context.Context, req *runRequest) (eval.EvalResult, EvalStats, error) {
+func (r *Runtime) execute(ctx context.Context, req *runRequest) (eval.EvalResult, eval.EvalStats, error) {
 	env, err := r.buildEnv(req.bindings)
 	if err != nil {
-		return eval.EvalResult{}, EvalStats{}, err
+		return eval.EvalResult{}, eval.EvalStats{}, err
 	}
 
-	limit := eval.NewLimit(r.stepLimit, r.depthLimit)
+	b := budget.New(ctx, r.stepLimit, r.depthLimit)
 	if r.allocLimit > 0 {
-		limit.SetAllocLimit(r.allocLimit)
+		b.SetAllocLimit(r.allocLimit)
 	}
 
-	ev := eval.NewEvaluator(ctx, r.prims, limit, req.traceHook, req.obs)
+	ev := eval.NewEvaluator(b, r.prims, req.traceHook, req.obs)
 
-	// Module bindings (internal — suppressed in explain).
-	// All modules evaluated in registration order (preserves dependency ordering).
-	// Each binding is registered under qualified key only (Module\x00Name).
-	// Core IR Var nodes carry Module, so the evaluator resolves via core.VarKey.
 	for _, me := range r.moduleEntries {
 		env, err = r.evalBindingsCore(ev, env, me.prog.Bindings, me.name, req.obs)
 		if err != nil {
-			return eval.EvalResult{}, EvalStats{}, err
+			return eval.EvalResult{}, eval.EvalStats{}, err
 		}
 	}
 
-	// User bindings.
 	var entryExpr core.Core
 	var nonEntry []core.Binding
 	for _, b := range r.prog.Bindings {
@@ -140,11 +155,11 @@ func (r *Runtime) execute(ctx context.Context, req *runRequest) (eval.EvalResult
 
 	env, err = r.evalBindingsCore(ev, env, nonEntry, "", req.obs)
 	if err != nil {
-		return eval.EvalResult{}, EvalStats{}, err
+		return eval.EvalResult{}, eval.EvalStats{}, err
 	}
 
 	if entryExpr == nil {
-		return eval.EvalResult{}, EvalStats{}, fmt.Errorf("entry point %q not found", req.entry)
+		return eval.EvalResult{}, eval.EvalStats{}, fmt.Errorf("entry point %q not found", req.entry)
 	}
 
 	if req.obs != nil {
@@ -153,11 +168,11 @@ func (r *Runtime) execute(ctx context.Context, req *runRequest) (eval.EvalResult
 	capEnv := eval.NewCapEnv(req.caps)
 	result, err := ev.Eval(env, capEnv, entryExpr)
 	if err != nil {
-		return eval.EvalResult{}, EvalStats{}, err
+		return eval.EvalResult{}, eval.EvalStats{}, err
 	}
 	result, err = ev.ForceEffectful(result, span.Span{})
 	if err != nil {
-		return eval.EvalResult{}, EvalStats{}, err
+		return eval.EvalResult{}, eval.EvalStats{}, err
 	}
 	if req.obs != nil {
 		req.obs.Result(eval.PrettyValue(result.Value))
@@ -166,10 +181,6 @@ func (r *Runtime) execute(ctx context.Context, req *runRequest) (eval.EvalResult
 }
 
 // evalBindingsCore evaluates a slice of bindings using forward-reference cells.
-// modulePrefix is "" for user bindings or "ModuleName" for module bindings.
-// Module bindings are registered under a qualified key only (module\x00name).
-// User bindings (modulePrefix="") are registered under plain name and are
-// visible in explain traces; module bindings are marked internal.
 func (r *Runtime) evalBindingsCore(ev *eval.Evaluator, env *eval.Env, bindings []core.Binding, modulePrefix string, obs *eval.ExplainObserver) (*eval.Env, error) {
 	bindings = core.SortBindings(bindings)
 	cells := make(map[string]*eval.IndirectVal, len(bindings))
@@ -177,10 +188,8 @@ func (r *Runtime) evalBindingsCore(ev *eval.Evaluator, env *eval.Env, bindings [
 		cell := &eval.IndirectVal{}
 		cells[b.Name] = cell
 		if modulePrefix != "" {
-			// Module bindings: qualified key only. Core IR references carry Module.
 			env = env.Extend(core.QualifiedKey(modulePrefix, b.Name), cell)
 		} else {
-			// User bindings: plain name.
 			env = env.Extend(b.Name, cell)
 		}
 	}
@@ -206,7 +215,6 @@ func (r *Runtime) evalBindingsCore(ev *eval.Evaluator, env *eval.Env, bindings [
 }
 
 // RunWith executes the program with the given options.
-// A nil opts is equivalent to &RunOptions{} (entry "main", no hooks).
 func (r *Runtime) RunWith(ctx context.Context, opts *RunOptions) (*RunResult, error) {
 	if opts == nil {
 		opts = &RunOptions{}

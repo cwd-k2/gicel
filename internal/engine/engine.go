@@ -1,4 +1,4 @@
-package gicel
+package engine
 
 import (
 	"fmt"
@@ -72,27 +72,17 @@ func NewEngine() *Engine {
 	return e
 }
 
-// Registrar is the interface for registering primitives and modules.
-// *Engine satisfies this interface.
-type Registrar = reg.Registrar
-
-// Pack configures a Registrar with a coherent set of types, primitives, and modules.
-type Pack = reg.Pack
-
 // Use applies a Pack to the Engine.
-func (e *Engine) Use(p Pack) error {
+func (e *Engine) Use(p reg.Pack) error {
 	return p(e)
 }
 
 // DeclareBinding registers a host-provided value binding at compile time.
-// The name becomes available in GICEL source as a variable of the given type.
-// The actual value must be provided at runtime via RunWith.
 func (e *Engine) DeclareBinding(name string, ty types.Type) {
 	e.bindings[name] = ty
 }
 
 // DeclareAssumption registers a primitive operation type.
-// The source code must declare `name := assumption`.
 func (e *Engine) DeclareAssumption(name string, ty types.Type) {
 	e.assumptions[name] = ty
 }
@@ -103,13 +93,12 @@ func (e *Engine) RegisterType(name string, kind types.Kind) {
 }
 
 // RegisterPrim registers a primitive implementation for an assumption.
-func (e *Engine) RegisterPrim(name string, impl PrimImpl) {
+func (e *Engine) RegisterPrim(name string, impl eval.PrimImpl) {
 	e.prims.Register(name, impl)
 }
 
 // EnableRecursion enables the rec and fix built-in identifiers for all
-// subsequent compilations on this engine. Use RegisterModuleRec instead
-// when recursion should be scoped to a single module (stdlib packs).
+// subsequent compilations on this engine.
 func (e *Engine) EnableRecursion() {
 	e.gatedBuiltins["rec"] = true
 	e.gatedBuiltins["fix"] = true
@@ -121,19 +110,13 @@ func (e *Engine) RegisterRewriteRule(rule reg.RewriteRule) {
 }
 
 // RegisterModuleRec compiles a module with fix/rec enabled, scoped to
-// this single compilation. The type-checker gate is saved and restored,
-// so subsequent compilations are not affected. The runtime environment
-// is permanently extended with fix/rec to support evaluation of the
-// compiled module — this is safe because user code without type-level
-// access to fix/rec cannot produce Core IR that references them.
+// this single compilation.
 func (e *Engine) RegisterModuleRec(name, source string) error {
 	saved := maps.Clone(e.gatedBuiltins)
 	e.gatedBuiltins["rec"] = true
 	e.gatedBuiltins["fix"] = true
 	err := e.RegisterModule(name, source)
-	// Restore type-checker gate — subsequent user code cannot reference fix/rec.
 	e.gatedBuiltins = saved
-	// Only extend runtime with fix/rec if the module compiled successfully.
 	if err == nil {
 		e.runtimeRecursion = true
 	}
@@ -151,7 +134,6 @@ func (e *Engine) SetDepthLimit(n int) {
 }
 
 // SetAllocLimit sets the maximum cumulative allocation in bytes.
-// Zero disables allocation tracking.
 func (e *Engine) SetAllocLimit(bytes int64) {
 	e.allocLimit = bytes
 }
@@ -162,7 +144,6 @@ func (e *Engine) SetCheckTraceHook(hook check.CheckTraceHook) {
 }
 
 // RegisterModuleFile reads a .gicel file and registers it as a module.
-// The module name is derived from the filename (without extension).
 func (e *Engine) RegisterModuleFile(path string) error {
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -173,16 +154,13 @@ func (e *Engine) RegisterModuleFile(path string) error {
 }
 
 // RegisterModule compiles a module and makes it available for import.
-// Circular dependencies are detected and rejected.
 func (e *Engine) RegisterModule(name, source string) error {
-	// Validate module name.
 	if name == "" {
 		return fmt.Errorf("module name must not be empty")
 	}
 	if strings.ContainsAny(name, "\x00/\\") {
 		return fmt.Errorf("module name contains invalid character: %q", name)
 	}
-	// Reject duplicate registration.
 	if _, exists := e.modules[name]; exists {
 		return fmt.Errorf("module %s already registered", name)
 	}
@@ -191,27 +169,24 @@ func (e *Engine) RegisterModule(name, source string) error {
 	l := parse.NewLexer(src)
 	tokens, lexErrs := l.Tokenize()
 	if lexErrs.HasErrors() {
-		return &CompileError{errors: lexErrs}
+		return &CompileError{Errors: lexErrs}
 	}
 	parseErrs := &errs.Errors{Source: src}
 	p := parse.NewParser(tokens, parseErrs)
 	ast := p.ParseProgram()
 	if parseErrs.HasErrors() {
-		return &CompileError{errors: parseErrs}
+		return &CompileError{Errors: parseErrs}
 	}
 
-	// Inject implicit Core import for non-Core modules.
 	if name != "Core" && e.modules["Core"] != nil {
 		injectCoreImport(ast)
 	}
 
-	// Collect dependencies.
 	var deps []string
 	for _, imp := range ast.Imports {
 		deps = append(deps, imp.ModuleName)
 	}
 
-	// Circular dependency detection.
 	if err := e.checkCircularDeps(name, deps); err != nil {
 		return err
 	}
@@ -220,10 +195,9 @@ func (e *Engine) RegisterModule(name, source string) error {
 	config.CurrentModule = name
 	prog, exports, checkErrs := check.CheckModule(ast, src, config)
 	if checkErrs.HasErrors() {
-		return &CompileError{errors: checkErrs}
+		return &CompileError{Errors: checkErrs}
 	}
 
-	// Collect fixity declarations from the module AST.
 	modFixity := make(map[string]parse.Fixity)
 	for _, d := range ast.Decls {
 		if fix, ok := d.(*syntax.DeclFixity); ok {
@@ -294,26 +268,23 @@ func (e *Engine) parseSource(source string) (*syntax.AstProgram, *span.Source, e
 	l := parse.NewLexer(src)
 	tokens, lexErrs := l.Tokenize()
 	if lexErrs.HasErrors() {
-		return nil, nil, &CompileError{errors: lexErrs}
+		return nil, nil, &CompileError{Errors: lexErrs}
 	}
 	parseErrs := &errs.Errors{Source: src}
 	p := parse.NewParser(tokens, parseErrs)
-	// Seed parser with fixity declarations from registered modules (in registration order).
 	for _, name := range e.moduleOrder {
 		p.AddFixity(e.modules[name].fixity)
 	}
 	ast := p.ParseProgram()
 	if parseErrs.HasErrors() {
-		return nil, nil, &CompileError{errors: parseErrs}
+		return nil, nil, &CompileError{Errors: parseErrs}
 	}
-	// Inject implicit Core import.
 	if e.modules["Core"] != nil {
 		injectCoreImport(ast)
 	}
 	return ast, src, nil
 }
 
-// injectCoreImport adds an implicit "import Core" if not already present.
 func injectCoreImport(ast *syntax.AstProgram) {
 	for _, imp := range ast.Imports {
 		if imp.ModuleName == "Core" {
@@ -329,8 +300,7 @@ type CoreProgram struct{ prog *core.Program }
 // Pretty returns a human-readable representation of the Core IR.
 func (c *CoreProgram) Pretty() string { return core.PrettyProgram(c.prog) }
 
-// CompileResult holds all static information produced by compilation:
-// Core IR, inferred types, and binding names.
+// CompileResult holds all static information produced by compilation.
 type CompileResult struct {
 	prog   *core.Program
 	values map[string]types.Type
@@ -363,16 +333,12 @@ func (cr *CompileResult) CoreProgram() *CoreProgram {
 }
 
 // Parse lexes and parses source code, checking for syntax errors.
-// Returns nil on success; the parsed AST is not exposed.
-// Use Compile for full type-checking and static information.
 func (e *Engine) Parse(source string) error {
 	_, _, err := e.parseSource(source)
 	return err
 }
 
-// Compile compiles and type-checks source code, returning all static
-// information: Core IR, inferred types, and source mapping.
-// Use this for tooling, LSP integration, and agent APIs.
+// Compile compiles and type-checks source code, returning all static information.
 func (e *Engine) Compile(source string) (*CompileResult, error) {
 	ast, src, err := e.parseSource(source)
 	if err != nil {
@@ -380,7 +346,7 @@ func (e *Engine) Compile(source string) (*CompileResult, error) {
 	}
 	prog, exports, checkErrs := check.CheckModule(ast, src, e.makeCheckConfig())
 	if checkErrs.HasErrors() {
-		return nil, &CompileError{errors: checkErrs}
+		return nil, &CompileError{Errors: checkErrs}
 	}
 	return &CompileResult{prog: prog, values: exports.Values}, nil
 }
@@ -392,19 +358,14 @@ func (e *Engine) NewRuntime(source string) (*Runtime, error) {
 		return nil, err
 	}
 
-	// Type check.
 	prog, checkErrs := check.Check(ast, src, e.makeCheckConfig())
 	if checkErrs.HasErrors() {
-		return nil, &CompileError{errors: checkErrs}
+		return nil, &CompileError{Errors: checkErrs}
 	}
 
-	// Optimize Core IR: algebraic simplifications + fusion.
 	opt.OptimizeProgram(prog, e.rewriteRules)
-
-	// Annotate free variables for safe-for-space closure conversion.
 	core.AnnotateFreeVarsProgram(prog)
 
-	// Collect module entries in registration order for deterministic evaluation.
 	entries := make([]moduleEntry, 0, len(e.moduleOrder))
 	for _, name := range e.moduleOrder {
 		entries = append(entries, moduleEntry{name: name, prog: e.modules[name].prog})

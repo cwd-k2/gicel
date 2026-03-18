@@ -10,10 +10,67 @@
 package gicel
 
 import (
+	"github.com/cwd-k2/gicel/internal/budget"
 	"github.com/cwd-k2/gicel/internal/check"
+	"github.com/cwd-k2/gicel/internal/engine"
 	"github.com/cwd-k2/gicel/internal/eval"
+	"github.com/cwd-k2/gicel/internal/reg"
 	"github.com/cwd-k2/gicel/internal/stdlib"
 )
+
+// ---- Engine / Runtime / Compile ----
+
+// Engine configures and compiles GICEL programs.
+type Engine = engine.Engine
+
+// Runtime is an immutable, compiled GICEL program.
+type Runtime = engine.Runtime
+
+// CompileResult holds all static information produced by compilation.
+type CompileResult = engine.CompileResult
+
+// CoreProgram is an opaque compiled Core IR for inspection.
+type CoreProgram = engine.CoreProgram
+
+// RunResult holds the result of an execution.
+type RunResult = engine.RunResult
+
+// RunOptions configures a single execution.
+type RunOptions = engine.RunOptions
+
+// ExplainDepth controls how deeply the explain trace instruments evaluation.
+type ExplainDepth = engine.ExplainDepth
+
+// ExplainDepth constants.
+const (
+	ExplainUser = engine.ExplainUser
+	ExplainAll  = engine.ExplainAll
+)
+
+// SandboxConfig configures a sandboxed execution.
+type SandboxConfig = engine.SandboxConfig
+
+// CompileError wraps compilation errors.
+type CompileError = engine.CompileError
+
+// Diagnostic is a single structured error from compilation.
+type Diagnostic = engine.Diagnostic
+
+// NewEngine creates a new Engine with default limits.
+var NewEngine = engine.NewEngine
+
+// RunSandbox compiles and executes a GICEL program in a single call.
+var RunSandbox = engine.RunSandbox
+
+// ---- Registration ----
+
+// Registrar is the interface for registering primitives and modules.
+type Registrar = reg.Registrar
+
+// Pack configures a Registrar with a coherent set of types, primitives, and modules.
+type Pack = reg.Pack
+
+// ---- Runtime values ----
 
 // Value is a runtime value produced by evaluation.
 type Value = eval.Value
@@ -66,40 +123,26 @@ const (
 // ExplainDetail carries kind-specific structured data for explain events.
 type ExplainDetail = eval.ExplainDetail
 
-// PrettyValue formats a runtime value in source-level terms.
-func PrettyValue(v Value) string { return eval.PrettyValue(v) }
+// RuntimeError represents an error during evaluation.
+type RuntimeError = eval.RuntimeError
 
-// ExplainDepth controls how deeply the explain trace instruments evaluation.
-type ExplainDepth int
+// ---- Resource limit errors ----
 
-const (
-	// ExplainUser traces user code only; stdlib internals are suppressed.
-	ExplainUser ExplainDepth = iota
-	// ExplainAll traces all code including stdlib internals.
-	ExplainAll
-)
+// StepLimitError indicates the evaluation step limit was exceeded.
+type StepLimitError = budget.StepLimitError
 
-// RunOptions configures a single execution. Per-execution concerns
-// (explain, trace, entry point) live here, not on the Runtime.
-type RunOptions struct {
-	// Entry is the top-level binding to evaluate (default: "main").
-	Entry string
-	// Caps provides initial capability values.
-	Caps map[string]any
-	// Bindings provides host-injected value bindings.
-	Bindings map[string]Value
-	// Explain receives semantic evaluation events. Nil disables explain.
-	Explain ExplainHook
-	// ExplainDepth controls stdlib suppression (default: ExplainUser).
-	ExplainDepth ExplainDepth
-	// Trace receives low-level evaluation step events. Nil disables trace.
-	Trace TraceHook
-}
+// DepthLimitError indicates the call depth limit was exceeded.
+type DepthLimitError = budget.DepthLimitError
+
+// AllocLimitError indicates the allocation byte limit was exceeded.
+type AllocLimitError = budget.AllocLimitError
+
+// ---- Type checking trace ----
 
 // CheckTraceKind classifies type checking trace events.
 type CheckTraceKind = check.CheckTraceKind
 
-// CheckTraceKind constants for filtering trace events.
+// CheckTraceKind constants.
 const (
 	TraceUnify       = check.TraceUnify
 	TraceSolveMeta   = check.TraceSolveMeta
@@ -114,31 +157,19 @@ type CheckTraceEvent = check.CheckTraceEvent
 // CheckTraceHook receives trace events during type checking.
 type CheckTraceHook = check.CheckTraceHook
 
-// RuntimeError represents an error during evaluation.
-// Use errors.As to match this type from RunWith errors.
-type RuntimeError = eval.RuntimeError
+// ---- Utility functions ----
 
-// StepLimitError indicates the evaluation step limit was exceeded.
-// Use errors.As to distinguish step-limit exhaustion from other errors.
-type StepLimitError = eval.StepLimitError
-
-// DepthLimitError indicates the call depth limit was exceeded.
-type DepthLimitError = eval.DepthLimitError
-
-// AllocLimitError indicates the allocation byte limit was exceeded.
-// Used and Limit fields report the actual and allowed byte counts.
-type AllocLimitError = eval.AllocLimitError
+// PrettyValue formats a runtime value in source-level terms.
+func PrettyValue(v Value) string { return eval.PrettyValue(v) }
 
 // NewCapEnv creates a new capability environment from a map.
-// The map is not copied; the caller must not modify it after this call.
 func NewCapEnv(caps map[string]any) CapEnv {
 	return eval.NewCapEnv(caps)
 }
 
-// Stdlib re-exports — users import only the root package.
+// ---- Stdlib re-exports ----
 
-// Prelude provides the combined standard prelude: core computation types,
-// data types, type classes, arithmetic, list operations, and string operations.
+// Prelude provides the combined standard prelude.
 var Prelude Pack = stdlib.Prelude
 
 // EffectFail provides the fail effect capability.
@@ -150,13 +181,13 @@ var EffectState Pack = stdlib.State
 // EffectIO provides print/debug capabilities using CapEnv buffer.
 var EffectIO Pack = stdlib.IO
 
-// DataStream provides lazy list operations: LCons/LNil, headS, tailS, takeS, dropS.
+// DataStream provides lazy list operations.
 var DataStream Pack = stdlib.Stream
 
-// DataSlice provides contiguous array operations: O(1) length/index, Functor/Foldable.
+// DataSlice provides contiguous array operations.
 var DataSlice Pack = stdlib.Slice
 
-// DataMap provides immutable ordered map backed by AVL tree, keyed by Ord.
+// DataMap provides immutable ordered map backed by AVL tree.
 var DataMap Pack = stdlib.Map
 
 // DataSet provides immutable ordered set backed by Map k ().

@@ -1,4 +1,4 @@
-package gicel
+package engine
 
 import "github.com/cwd-k2/gicel/internal/errs"
 
@@ -14,18 +14,18 @@ type Diagnostic struct {
 // CompileError wraps compilation errors (lex, parse, or type check).
 // Use Error() for a formatted message or Diagnostics() for structured access.
 type CompileError struct {
-	errors *errs.Errors
+	Errors *errs.Errors
 }
 
 func (e *CompileError) Error() string {
-	return e.errors.Format()
+	return e.Errors.Format()
 }
 
 // Diagnostics returns structured diagnostics for programmatic access.
 func (e *CompileError) Diagnostics() []Diagnostic {
-	diags := make([]Diagnostic, len(e.errors.Errs))
-	for i, err := range e.errors.Errs {
-		line, col := e.errors.Source.Location(err.Span.Start)
+	diags := make([]Diagnostic, len(e.Errors.Errs))
+	for i, err := range e.Errors.Errs {
+		line, col := e.Errors.Source.Location(err.Span.Start)
 		diags[i] = Diagnostic{
 			Code:    int(err.Code),
 			Phase:   err.Phase.String(),

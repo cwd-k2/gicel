@@ -1,9 +1,12 @@
-package gicel
+package engine
 
 import (
 	"context"
 	"fmt"
 	"time"
+
+	"github.com/cwd-k2/gicel/internal/eval"
+	"github.com/cwd-k2/gicel/internal/reg"
 )
 
 // Sandbox defaults — intentionally more conservative than Engine defaults.
@@ -14,26 +17,20 @@ const (
 )
 
 // SandboxConfig configures a sandboxed execution.
-// All fields are optional; nil config uses conservative defaults.
 type SandboxConfig struct {
-	Packs    []Pack           // stdlib packs to load (default: none)
-	Entry    string           // entry point binding (default: "main")
-	Timeout  time.Duration    // execution timeout (default: 5s)
-	MaxSteps int              // step limit (default: 100_000)
-	MaxDepth int              // depth limit (default: 100)
-	MaxAlloc int64            // allocation byte limit (default: 10 MiB)
-	Caps     map[string]any   // initial capability environment (nil for empty)
-	Bindings map[string]Value // host-provided value bindings (nil for none)
+	Packs    []reg.Pack           // stdlib packs to load (default: none)
+	Entry    string               // entry point binding (default: "main")
+	Timeout  time.Duration        // execution timeout (default: 5s)
+	MaxSteps int                  // step limit (default: 100_000)
+	MaxDepth int                  // depth limit (default: 100)
+	MaxAlloc int64                // allocation byte limit (default: 10 MiB)
+	Caps     map[string]any       // initial capability environment (nil for empty)
+	Bindings map[string]eval.Value // host-provided value bindings (nil for none)
 }
 
 // RunSandbox compiles and executes a GICEL program in a single call
-// with conservative resource limits. Designed for AI agent use cases.
-//
-// A top-level recover guards both compilation and execution so that
-// unexpected panics (e.g. in type-checking) are returned as errors
-// rather than crashing the host process.
+// with conservative resource limits.
 func RunSandbox(source string, cfg *SandboxConfig) (result *RunResult, err error) {
-	// Guard the entire compile+execute path against unexpected panics.
 	defer func() {
 		if r := recover(); r != nil {
 			result = nil
@@ -77,8 +74,6 @@ func RunSandbox(source string, cfg *SandboxConfig) (result *RunResult, err error
 		}
 	}
 
-	// Start the timeout clock before compilation so that compile + execute
-	// total is bounded by the configured timeout.
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
