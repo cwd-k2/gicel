@@ -59,6 +59,7 @@ const (
 	ErrTypeFamilyEquation  Code = 281 // invalid type family equation
 	ErrInjectivity         Code = 282 // type family injectivity violation
 	ErrTypeFamilyReduction Code = 283 // type family reduction error
+	ErrMultiplicity        Code = 290 // multiplicity constraint violation
 )
 
 // Phase indicates which compiler stage produced the error.

@@ -189,6 +189,154 @@ type LUB (m1: Mult) (m2: Mult) :: Mult := {
 	checkSource(t, source, nil)
 }
 
+// --- Multiplicity enforcement: same-type preservation counting ---
+
+func TestMultEnforcementLinearUsedTwice(t *testing.T) {
+	// @Linear label preserved (same type) twice → rejected.
+	source := `
+data Mult := Unrestricted | Affine | Linear
+data Unit := Unit
+use :: Computation { h: Unit @Linear } { h: Unit @Linear } Unit
+use := assumption
+close :: Computation { h: Unit @Linear } {} Unit
+close := assumption
+bad :: Computation { h: Unit @Linear } {} Unit
+bad := do { use; use; close }
+`
+	checkSourceExpectError(t, source, nil)
+}
+
+func TestMultEnforcementLinearSingleUse(t *testing.T) {
+	// @Linear label preserved once then consumed → accepted.
+	source := `
+data Mult := Unrestricted | Affine | Linear
+data Unit := Unit
+use :: Computation { h: Unit @Linear } { h: Unit @Linear } Unit
+use := assumption
+close :: Computation { h: Unit @Linear } {} Unit
+close := assumption
+good :: Computation { h: Unit @Linear } {} Unit
+good := do { use; close }
+`
+	checkSource(t, source, nil)
+}
+
+func TestMultEnforcementLinearConsumeOnly(t *testing.T) {
+	// @Linear label consumed directly (no preservation) → accepted.
+	source := `
+data Mult := Unrestricted | Affine | Linear
+data Unit := Unit
+close :: Computation { h: Unit @Linear } {} Unit
+close := assumption
+good :: Computation { h: Unit @Linear } {} Unit
+good := do { close }
+`
+	checkSource(t, source, nil)
+}
+
+func TestMultEnforcementOpenUseTwiceClose(t *testing.T) {
+	// @Linear label produced mid-chain, preserved twice → rejected.
+	source := `
+data Mult := Unrestricted | Affine | Linear
+data Unit := Unit
+open :: Computation {} { h: Unit @Linear } Unit
+open := assumption
+use :: Computation { h: Unit @Linear } { h: Unit @Linear } Unit
+use := assumption
+close :: Computation { h: Unit @Linear } {} Unit
+close := assumption
+main :: Computation {} {} Unit
+main := do { open; use; use; close }
+`
+	checkSourceExpectError(t, source, nil)
+}
+
+func TestMultEnforcementUnrestrictedAllowsMultiple(t *testing.T) {
+	// @Unrestricted allows unlimited same-type preservations.
+	source := `
+data Mult := Unrestricted | Affine | Linear
+data Unit := Unit
+use :: Computation { h: Unit @Unrestricted } { h: Unit @Unrestricted } Unit
+use := assumption
+close :: Computation { h: Unit @Unrestricted } {} Unit
+close := assumption
+f :: Computation { h: Unit @Unrestricted } {} Unit
+f := do { use; use; use; close }
+`
+	checkSource(t, source, nil)
+}
+
+func TestMultEnforcementTypeChangingPreservation(t *testing.T) {
+	// Type-changing preservation (protocol state transition) does not count.
+	source := `
+data Mult := Unrestricted | Affine | Linear
+data Unit := Unit
+data S := A | B | C
+step1 :: Computation { ch: A @Linear } { ch: B @Linear } Unit
+step1 := assumption
+step2 :: Computation { ch: B @Linear } { ch: C @Linear } Unit
+step2 := assumption
+close :: Computation { ch: C @Linear } {} Unit
+close := assumption
+f :: Computation { ch: A @Linear } {} Unit
+f := do { step1; step2; close }
+`
+	checkSource(t, source, nil)
+}
+
+func TestMultEnforcementAffineUsedTwice(t *testing.T) {
+	// @Affine label preserved twice → rejected (same limit as @Linear).
+	source := `
+data Mult := Unrestricted | Affine | Linear
+data Unit := Unit
+use :: Computation { h: Unit @Affine } { h: Unit @Affine } Unit
+use := assumption
+close :: Computation { h: Unit @Affine } {} Unit
+close := assumption
+bad :: Computation { h: Unit @Affine } {} Unit
+bad := do { use; use; close }
+`
+	checkSourceExpectError(t, source, nil)
+}
+
+func TestMultEnforcementNoAnnotationNoRestriction(t *testing.T) {
+	// Labels without @Mult are unrestricted — no enforcement.
+	source := `
+data Mult := Unrestricted | Affine | Linear
+data Unit := Unit
+use :: Computation { h: Unit } { h: Unit } Unit
+use := assumption
+close :: Computation { h: Unit } {} Unit
+close := assumption
+f :: Computation { h: Unit } {} Unit
+f := do { use; use; use; close }
+`
+	checkSource(t, source, nil)
+}
+
+func TestMultEnforcementBindPreservation(t *testing.T) {
+	// Bind steps also count for multiplicity.
+	source := `
+data Mult := Unrestricted | Affine | Linear
+data Unit := Unit
+read :: Computation { h: Unit @Linear } { h: Unit @Linear } Int
+read := assumption
+close :: Computation { h: Unit @Linear } {} Unit
+close := assumption
+bad :: Computation { h: Unit @Linear } {} Int
+bad := do {
+  x <- read;
+  y <- read;
+  close;
+  pure (x + y)
+}
+`
+	config := &CheckConfig{
+		RegisteredTypes: map[string]types.Kind{"Int": types.KType{}},
+	}
+	checkSourceExpectError(t, source, config)
+}
+
 // --- Pretty printing ---
 
 func TestMultAnnotationPretty(t *testing.T) {

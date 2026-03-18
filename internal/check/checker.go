@@ -102,6 +102,7 @@ type Checker struct {
 	qualifiedScopes   map[string]*qualifiedScope // alias → qualified module scope
 	importedNames     map[string]string          // name → source module (for ambiguity detection)
 	strictTypeNames   bool                       // enabled after declaration processing
+	multSteps         []multStep                 // collected during elaborateStmtsChecked for multiplicity checking
 }
 
 // qualifiedScope holds a module's exports for qualified name resolution.
