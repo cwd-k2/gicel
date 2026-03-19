@@ -278,6 +278,9 @@ func formatPatternDepth(p core.Pattern, depth int) string {
 	case *core.PWild:
 		return "_"
 	case *core.PCon:
+		if elems, ok := collectListPattern(pat, depth); ok {
+			return "[" + strings.Join(elems, ", ") + "]"
+		}
 		if len(pat.Args) == 0 {
 			return pat.Con
 		}
@@ -306,6 +309,8 @@ func formatPatternDepth(p core.Pattern, depth int) string {
 			parts[i] = f.Label + " = " + formatPatternDepth(f.Pattern, depth+1)
 		}
 		return "{ " + strings.Join(parts, ", ") + " }"
+	case *core.PLit:
+		return prettyHost(pat.Value)
 	}
 	return "?"
 }
@@ -319,6 +324,30 @@ func isInternalPattern(p core.Pattern) bool {
 		return isCompilerGenerated(pat.Name)
 	}
 	return false
+}
+
+// collectListPattern extracts a Cons/Nil pattern chain into formatted elements.
+func collectListPattern(p *core.PCon, depth int) ([]string, bool) {
+	if p.Con != "Cons" && p.Con != "Nil" {
+		return nil, false
+	}
+	var elems []string
+	cur := core.Pattern(p)
+	for {
+		c, ok := cur.(*core.PCon)
+		if !ok {
+			return nil, false
+		}
+		if c.Con == "Nil" && len(c.Args) == 0 {
+			return elems, true
+		}
+		if c.Con == "Cons" && len(c.Args) == 2 {
+			elems = append(elems, formatPatternDepth(c.Args[0], depth+1))
+			cur = c.Args[1]
+			continue
+		}
+		return nil, false
+	}
 }
 
 func isTuplePattern(p *core.PRecord) bool {
