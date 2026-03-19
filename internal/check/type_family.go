@@ -112,17 +112,22 @@ func (ch *Checker) processTypeFamily(d *syntax.DeclTypeFamily) {
 	ch.reg.families[d.Name] = info
 }
 
-// familyEnv creates a family.ReduceEnv with the current Checker state.
+// familyEnv returns the cached family.ReduceEnv, constructing it on first use.
+// Caching is safe because all fields are references to Checker state (pointers,
+// maps, or method values), so mutations are visible through the cached object.
 func (ch *Checker) familyEnv() *family.ReduceEnv {
-	return &family.ReduceEnv{
-		Families:        ch.reg.families,
-		Budget:          ch.budget,
-		Unifier:         ch.unifier,
-		FreshMeta:       ch.freshMeta,
-		AddError:        ch.addCodedError,
-		TryUnify:        ch.tryUnify,
-		RegisterStuckFn: ch.registerStuckViaInert,
+	if ch.cachedFamilyEnv == nil {
+		ch.cachedFamilyEnv = &family.ReduceEnv{
+			Families:        ch.reg.families,
+			Budget:          ch.budget,
+			Unifier:         ch.unifier,
+			FreshMeta:       ch.freshMeta,
+			AddError:        ch.addCodedError,
+			TryUnify:        ch.tryUnify,
+			RegisterStuckFn: ch.registerStuckViaInert,
+		}
 	}
+	return ch.cachedFamilyEnv
 }
 
 // installFamilyReducer sets the family reducer callback in the unifier.

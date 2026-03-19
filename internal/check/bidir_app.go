@@ -120,7 +120,7 @@ func (ch *Checker) checkSection(e *syntax.ExprSection, expected types.Type) core
 //	(+ 1)  → \$sec. $sec + 1   (IsRight=true)
 //	(1 +)  → \$sec. 1 + $sec   (IsRight=false)
 func desugarSection(e *syntax.ExprSection) *syntax.ExprLam {
-	param := "$sec"
+	param := prefixSec
 	paramVar := &syntax.ExprVar{Name: param, S: e.S}
 	var body syntax.Expr
 	if e.IsRight {

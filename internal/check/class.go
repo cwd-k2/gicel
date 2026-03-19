@@ -263,7 +263,7 @@ func (ch *Checker) buildMethodSelector(cls *ClassInfo, m MethodInfo, methodIdx i
 	var patArgs []core.Pattern
 	var resultExpr core.Core
 	for j := 0; j < len(dict.fieldTypes); j++ {
-		argName := fmt.Sprintf("$f_%d", j)
+		argName := fmt.Sprintf("%s_%d", prefixField, j)
 		patArgs = append(patArgs, &core.PVar{Name: argName})
 		if j == fieldIdx {
 			resultExpr = &core.Var{Name: argName, S: s}

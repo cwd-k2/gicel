@@ -107,7 +107,7 @@ func (p *declPipeline) collectAnnotations() {
 func (p *declPipeline) checkAssumptions() {
 	for _, d := range p.decls {
 		if def, ok := d.(*syntax.DeclValueDef); ok {
-			if v, ok := def.Expr.(*syntax.ExprVar); ok && v.Name == "assumption" {
+			if isAssumptionDef(def) {
 				p.ch.processValueDef(def, p.annotations, p.prog)
 			}
 		}
@@ -121,7 +121,7 @@ func (p *declPipeline) checkAssumptions() {
 func (p *declPipeline) preregisterBindings() {
 	for _, d := range p.decls {
 		if def, ok := d.(*syntax.DeclValueDef); ok {
-			if v, ok := def.Expr.(*syntax.ExprVar); ok && v.Name == "assumption" {
+			if isAssumptionDef(def) {
 				continue
 			}
 			if annTy, hasAnn := p.annotations[def.Name]; hasAnn {
@@ -142,12 +142,19 @@ func (p *declPipeline) checkInstances() {
 func (p *declPipeline) checkValues() {
 	for _, d := range p.decls {
 		if def, ok := d.(*syntax.DeclValueDef); ok {
-			if v, ok := def.Expr.(*syntax.ExprVar); ok && v.Name == "assumption" {
+			if isAssumptionDef(def) {
 				continue
 			}
 			p.ch.processValueDef(def, p.annotations, p.prog)
 		}
 	}
+}
+
+// isAssumptionDef reports whether a value definition is an assumption declaration
+// (i.e., its body is the bare identifier "assumption").
+func isAssumptionDef(def *syntax.DeclValueDef) bool {
+	v, ok := def.Expr.(*syntax.ExprVar)
+	return ok && v.Name == "assumption"
 }
 
 func (ch *Checker) processTypeAlias(d *syntax.DeclTypeAlias) {
@@ -168,7 +175,7 @@ func (ch *Checker) processValueDef(d *syntax.DeclValueDef, annotations map[strin
 	annTy, hasAnn := annotations[d.Name]
 
 	// Check if it's an assumption.
-	if v, ok := d.Expr.(*syntax.ExprVar); ok && v.Name == "assumption" {
+	if isAssumptionDef(d) {
 		// Try AST annotation first, then config assumptions.
 		aTy := annTy
 		if !hasAnn {
