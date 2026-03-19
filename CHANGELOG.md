@@ -2,19 +2,48 @@
 
 ## v0.12.0 — 2026-03-19
 
+### Type System
+
+- **OutsideIn(X) L3** — deferred constraint batch replaced with worklist + inert set architecture. Kicked-out constraints get priority re-processing via `OnSolve` callback. Eliminates quadratic re-scanning of the constraint queue
+- **CBPV discipline (E0291)** — non-entry top-level bindings with bare `Computation` type are rejected. Entry point (default `main`) is exempt. Enforces the CBPV invariant that top-level bindings are values; computations must be wrapped with `thunk`
+- **Quantified constraint resolution fix** — context-evidence search now performs full structural matching (arity + head-arg unification + context compatibility), matching the same precision as global instance search
+
+### Performance
+
+- **Undo-log trail** — Unifier snapshot/restore replaced map-copy with an append-only trail. `Snapshot()` returns a trail position; `Restore()` replays undo entries in reverse. Eliminates O(n) map cloning per trial unification
+- **Deque worklist** — two-buffer deque (front stack + back queue with read cursor) replaces slice-based FIFO. Kicked-out constraints go to front for priority processing. All operations amortized O(1)
+- **Ambiguity cache** — per-`solveWanteds` cache prevents redundant `isAmbiguousInstance` checks on the same constraint key
+- **Precomputed SortBindings** — module bindings are topologically sorted once at `RegisterModule` time and stored in `compiledModule.sortedBindings`, eliminating per-execution re-sorting
+- **Precomputed import maps** — import scope insertion consolidated into shared helpers, reducing repeated map construction
+
+### Parser
+
+- **Class head assertion guard** — unchecked `*TyExprVar` type assertions in `parseClassDecl` replaced with defensive checks. Malformed class heads like `class Foo (Maybe a)` now produce a parser error instead of panicking
+
 ### Refactoring
 
-Checker restructuring: establish subpackage boundaries for each concern.
+Checker restructuring: establish subpackage boundaries, then consolidate constraint solver architecture.
 
 - **`internal/budget` extraction** — unified resource limiter (`Budget`) tracks steps, depth, and allocation bytes across all pipeline phases. Replaces the previous `eval.Limit` type
 - **`check/exhaust` subpackage** — Maranget exhaustiveness checking extracted with `DataTypeInfo`/`ConInfo` types. Callback-based `Env` struct decouples from Checker state
-- **`check/family` subpackage** — type family reduction engine, stuck index, injectivity verification. `StuckIndex` exported for Checker snapshot/restore
+- **`check/family` subpackage** — type family reduction engine and injectivity verification extracted. `ReduceEnv` uses callback injection for solver integration
 - **`check/env` subpackage** — shared environment type definitions (`AliasInfo`, `ClassInfo`, `InstanceInfo`, `ConstraintInfo`) extracted as canonical home
 - **`internal/engine` extraction** — Engine/Runtime/RunSandbox moved from root package. Root `gicel` package becomes a pure facade of type aliases and re-exports; external API unchanged
+- **Legacy StuckIndex removal** — `StuckIndex`, `ProcessRework`, and `maxReworkIterations` removed. Inert set with `CtFunEq` constraints is the single mechanism for stuck type family re-activation
+- **Injective type key serialization** — `typeNameForMangling` (lossy, head-only) replaced with `WriteTypeKey` (structural, collision-free) in data family mangling
+- **`DefaultEntryPoint` constant** — scattered `"main"` literals consolidated into `engine.DefaultEntryPoint` (re-exported as `gicel.DefaultEntryPoint`)
+- **Tuple label unification** — all tuple label sites consolidated to `types.TupleLabel`
+- **Type key totality** — `WriteTypeKey` panics on unhandled variant instead of falling back to `Pretty`
+- **Budget clamping** — negative allocation limits clamped to zero
+- **Module boundary hardening** — `SortBindings` precomputation, strict module export filtering
+- **File reorganization** — test files renamed to feature convention across `check/`, `engine/`, `eval/`, `parse/`
 
 ### Documentation
 
 - **Trust boundary clarification** — README and agent guide now explicitly document that host-registered primitives (`RegisterPrim`) are trusted computing base code, and that `Timeout` bounds evaluation time only
+- **CLAUDE.md** — unified to English; stdlib pack name → module name mapping table; package-name-as-feature test naming rule
+- **Roadmap** — documented fundep improvement as intentional bound; design conventions for tuple labels and compiler-generated names
+- **Integer overflow** — specified as Go `int64` wrapping semantics
 
 ---
 
