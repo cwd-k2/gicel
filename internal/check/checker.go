@@ -43,17 +43,18 @@ type CheckConfig struct {
 
 // ModuleExports carries the type-level information exported by a compiled module.
 type ModuleExports struct {
-	Types           map[string]types.Kind      // registered type constructors
-	ConTypes        map[string]types.Type      // constructor → full type
-	ConstructorInfo map[string]*DataTypeInfo   // constructor → data type info
-	Aliases         map[string]*AliasInfo      // type aliases
-	Classes         map[string]*ClassInfo      // class declarations
-	Instances       []*InstanceInfo            // instance declarations
-	Values          map[string]types.Type      // top-level value types
-	PromotedKinds   map[string]types.Kind      // DataKinds promotions
-	PromotedCons    map[string]types.Kind      // promoted constructors
-	TypeFamilies    map[string]*TypeFamilyInfo // type family declarations
-	DataDecls       []core.DataDecl            // for evaluator constructor registration
+	Types              map[string]types.Kind      // registered type constructors
+	ConTypes           map[string]types.Type      // constructor → full type
+	ConstructorInfo    map[string]*DataTypeInfo   // constructor → data type info
+	ConstructorsByType map[string][]string        // type name → constructor names (precomputed index)
+	Aliases            map[string]*AliasInfo      // type aliases
+	Classes            map[string]*ClassInfo      // class declarations
+	Instances          []*InstanceInfo            // instance declarations
+	Values             map[string]types.Type      // top-level value types
+	PromotedKinds      map[string]types.Kind      // DataKinds promotions
+	PromotedCons       map[string]types.Kind      // promoted constructors
+	TypeFamilies       map[string]*TypeFamilyInfo // type family declarations
+	DataDecls          []core.DataDecl            // for evaluator constructor registration
 }
 
 // CheckTraceKind classifies trace events.
@@ -103,6 +104,7 @@ type checkerScope struct {
 	currentModule   string                     // module being compiled ("" = user main source)
 	qualifiedScopes map[string]*qualifiedScope // alias → qualified module scope
 	importedNames   map[string]string          // name → source module (for ambiguity detection)
+	ownedNamesCache map[string]map[string]bool // module → owned names (lazy, for ambiguity checks)
 }
 
 // Checker holds mutable state during type checking.
@@ -257,18 +259,24 @@ func (ch *Checker) ExportModule(prog *core.Program) *ModuleExports {
 			values[b.Name] = b.Type
 		}
 	}
+	// Build precomputed constructor-by-type index.
+	consByType := make(map[string][]string, len(ch.reg.conInfo))
+	for conName, info := range ch.reg.conInfo {
+		consByType[info.Name] = append(consByType[info.Name], conName)
+	}
 	return &ModuleExports{
-		Types:           maps.Clone(ch.config.RegisteredTypes),
-		ConTypes:        maps.Clone(ch.reg.conTypes),
-		ConstructorInfo: ch.reg.conInfo,
-		Aliases:         ch.reg.aliases,
-		Classes:         ch.reg.classes,
-		Instances:       ch.reg.instances,
-		Values:          values,
-		PromotedKinds:   maps.Clone(ch.reg.promotedKinds),
-		PromotedCons:    maps.Clone(ch.reg.promotedCons),
-		TypeFamilies:    cloneFamilies(ch.reg.families),
-		DataDecls:       prog.DataDecls,
+		Types:              maps.Clone(ch.config.RegisteredTypes),
+		ConTypes:           maps.Clone(ch.reg.conTypes),
+		ConstructorInfo:    ch.reg.conInfo,
+		ConstructorsByType: consByType,
+		Aliases:            ch.reg.aliases,
+		Classes:            ch.reg.classes,
+		Instances:          ch.reg.instances,
+		Values:             values,
+		PromotedKinds:      maps.Clone(ch.reg.promotedKinds),
+		PromotedCons:       maps.Clone(ch.reg.promotedCons),
+		TypeFamilies:       cloneFamilies(ch.reg.families),
+		DataDecls:          prog.DataDecls,
 	}
 }
 

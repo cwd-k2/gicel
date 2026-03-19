@@ -2,7 +2,6 @@ package check
 
 import (
 	"fmt"
-	"slices"
 
 	"github.com/cwd-k2/gicel/internal/errs"
 	"github.com/cwd-k2/gicel/internal/span"
@@ -105,34 +104,49 @@ func (ch *Checker) checkAmbiguousName(name, moduleName string, s span.Span) bool
 // moduleOwnsName checks if a module defines name in its own source (not re-exported).
 // A module "owns" a name if it appears in the module's DataDecls (constructors),
 // or in its Values but NOT in any of its direct dependency's Values.
+// Results are cached per module for amortized O(1) lookups.
 func (ch *Checker) moduleOwnsName(moduleName, name string) bool {
+	owned := ch.moduleOwnedNames(moduleName)
+	return owned[name]
+}
+
+// moduleOwnedNames returns the set of names that a module defines itself
+// (not re-exported from dependencies). Lazily computed and cached.
+func (ch *Checker) moduleOwnedNames(moduleName string) map[string]bool {
+	if ch.scope.ownedNamesCache == nil {
+		ch.scope.ownedNamesCache = make(map[string]map[string]bool)
+	}
+	if cached, ok := ch.scope.ownedNamesCache[moduleName]; ok {
+		return cached
+	}
 	mod, ok := ch.config.ImportedModules[moduleName]
 	if !ok {
-		return false
+		return nil
 	}
-	// Check DataDecl constructors.
+	owned := make(map[string]bool)
+	// DataDecl type names and constructor names.
 	for _, dd := range mod.DataDecls {
-		if dd.Name == name {
-			return true
-		}
+		owned[dd.Name] = true
 		for _, con := range dd.Cons {
-			if con.Name == name {
-				return true
+			owned[con.Name] = true
+		}
+	}
+	// Values not in any direct dependency.
+	depValues := make(map[string]bool)
+	for _, dep := range ch.config.ModuleDeps[moduleName] {
+		if depMod, ok := ch.config.ImportedModules[dep]; ok {
+			for name := range depMod.Values {
+				depValues[name] = true
 			}
 		}
 	}
-	// Check if name is in Values but not in any direct dep's Values.
-	if _, inValues := mod.Values[name]; inValues {
-		for _, dep := range ch.config.ModuleDeps[moduleName] {
-			if depMod, ok := ch.config.ImportedModules[dep]; ok {
-				if _, inDep := depMod.Values[name]; inDep {
-					return false // inherited from dependency
-				}
-			}
+	for name := range mod.Values {
+		if !depValues[name] {
+			owned[name] = true
 		}
-		return true // defined in this module
 	}
-	return false
+	ch.scope.ownedNamesCache[moduleName] = owned
+	return owned
 }
 
 // importOpen merges all exports from a module into the checker state (open import).
@@ -272,12 +286,23 @@ func (ch *Checker) importSelective(mod *ModuleExports, imp syntax.DeclImport) {
 
 // importTypeSubs imports constructors for a type based on the import name spec.
 func (ch *Checker) importTypeSubs(mod *ModuleExports, typeName string, in syntax.ImportName, moduleName string, s span.Span) {
-	for conName, info := range mod.ConstructorInfo {
-		if info.Name != typeName {
-			continue
+	cons := mod.ConstructorsByType[typeName]
+	if len(cons) == 0 {
+		return
+	}
+	// For selective sublists, build a set for O(1) lookup.
+	var subSet map[string]bool
+	if !in.AllSubs && len(in.SubList) > 0 {
+		subSet = make(map[string]bool, len(in.SubList))
+		for _, name := range in.SubList {
+			subSet[name] = true
 		}
-		if in.AllSubs || slices.Contains(in.SubList, conName) {
-			ch.reg.conInfo[conName] = info
+	}
+	for _, conName := range cons {
+		if in.AllSubs || subSet[conName] {
+			if info, ok := mod.ConstructorInfo[conName]; ok {
+				ch.reg.conInfo[conName] = info
+			}
 			if ty, ok := mod.ConTypes[conName]; ok {
 				ch.importConstructor(conName, ty, moduleName, s)
 			}
@@ -287,8 +312,16 @@ func (ch *Checker) importTypeSubs(mod *ModuleExports, typeName string, in syntax
 
 // importClassSubs imports class methods based on the import name spec.
 func (ch *Checker) importClassSubs(mod *ModuleExports, cls *ClassInfo, in syntax.ImportName, moduleName string, s span.Span) {
+	// For selective sublists, build a set for O(1) lookup.
+	var subSet map[string]bool
+	if !in.AllSubs && len(in.SubList) > 0 {
+		subSet = make(map[string]bool, len(in.SubList))
+		for _, name := range in.SubList {
+			subSet[name] = true
+		}
+	}
 	for _, m := range cls.Methods {
-		if in.AllSubs || slices.Contains(in.SubList, m.Name) {
+		if in.AllSubs || subSet[m.Name] {
 			if ty, ok := mod.Values[m.Name]; ok {
 				ch.importValue(m.Name, ty, moduleName, s)
 			}
