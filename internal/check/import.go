@@ -7,6 +7,7 @@ import (
 	"github.com/cwd-k2/gicel/internal/errs"
 	"github.com/cwd-k2/gicel/internal/span"
 	"github.com/cwd-k2/gicel/internal/syntax"
+	"github.com/cwd-k2/gicel/internal/types"
 )
 
 // importModules injects exported declarations from imported modules into the checker state.
@@ -140,12 +141,7 @@ func (ch *Checker) importOpen(mod *ModuleExports, moduleName string, s span.Span
 		ch.config.RegisteredTypes[name] = kind
 	}
 	for name, ty := range mod.ConTypes {
-		if ch.checkAmbiguousName(name, moduleName, s) {
-			continue
-		}
-		ch.reg.conTypes[name] = ty
-		ch.ctx.Push(&CtxVar{Name: name, Type: ty, Module: moduleName})
-		ch.reg.conModules[name] = moduleName
+		ch.importConstructor(name, ty, moduleName, s)
 	}
 	for name, info := range mod.ConstructorInfo {
 		ch.reg.conInfo[name] = info
@@ -159,10 +155,7 @@ func (ch *Checker) importOpen(mod *ModuleExports, moduleName string, s span.Span
 	}
 	ch.importInstances(mod)
 	for name, ty := range mod.Values {
-		if ch.checkAmbiguousName(name, moduleName, s) {
-			continue
-		}
-		ch.ctx.Push(&CtxVar{Name: name, Type: ty, Module: moduleName})
+		ch.importValue(name, ty, moduleName, s)
 	}
 	for name, kind := range mod.PromotedKinds {
 		ch.reg.promotedKinds[name] = kind
@@ -187,6 +180,23 @@ func (ch *Checker) importInstances(mod *ModuleExports) {
 	}
 }
 
+// importValue pushes a value binding into scope with ambiguity checking.
+func (ch *Checker) importValue(name string, ty types.Type, moduleName string, s span.Span) {
+	if !ch.checkAmbiguousName(name, moduleName, s) {
+		ch.ctx.Push(&CtxVar{Name: name, Type: ty, Module: moduleName})
+	}
+}
+
+// importConstructor pushes a data constructor into scope with ambiguity
+// checking and constructor-module bookkeeping.
+func (ch *Checker) importConstructor(conName string, ty types.Type, moduleName string, s span.Span) {
+	if !ch.checkAmbiguousName(conName, moduleName, s) {
+		ch.reg.conTypes[conName] = ty
+		ch.ctx.Push(&CtxVar{Name: conName, Type: ty, Module: moduleName})
+		ch.reg.conModules[conName] = moduleName
+	}
+}
+
 // importSelective imports only the names specified in the import list.
 func (ch *Checker) importSelective(mod *ModuleExports, imp syntax.DeclImport) {
 	// Instances always imported regardless of selective list (coherence).
@@ -198,9 +208,7 @@ func (ch *Checker) importSelective(mod *ModuleExports, imp syntax.DeclImport) {
 
 		// Value binding (lowercase name or operator)
 		if ty, ok := mod.Values[name]; ok {
-			if !ch.checkAmbiguousName(name, imp.ModuleName, imp.S) {
-				ch.ctx.Push(&CtxVar{Name: name, Type: ty, Module: imp.ModuleName})
-			}
+			ch.importValue(name, ty, imp.ModuleName, imp.S)
 			found = true
 		}
 
@@ -233,9 +241,7 @@ func (ch *Checker) importSelective(mod *ModuleExports, imp syntax.DeclImport) {
 				// Bare class name: import all methods
 				for _, m := range cls.Methods {
 					if ty, ok := mod.Values[m.Name]; ok {
-						if !ch.checkAmbiguousName(m.Name, imp.ModuleName, imp.S) {
-							ch.ctx.Push(&CtxVar{Name: m.Name, Type: ty, Module: imp.ModuleName})
-						}
+						ch.importValue(m.Name, ty, imp.ModuleName, imp.S)
 					}
 				}
 			}
@@ -273,11 +279,7 @@ func (ch *Checker) importTypeSubs(mod *ModuleExports, typeName string, in syntax
 		if in.AllSubs || slices.Contains(in.SubList, conName) {
 			ch.reg.conInfo[conName] = info
 			if ty, ok := mod.ConTypes[conName]; ok {
-				if !ch.checkAmbiguousName(conName, moduleName, s) {
-					ch.reg.conTypes[conName] = ty
-					ch.ctx.Push(&CtxVar{Name: conName, Type: ty, Module: moduleName})
-					ch.reg.conModules[conName] = moduleName
-				}
+				ch.importConstructor(conName, ty, moduleName, s)
 			}
 		}
 	}
@@ -288,9 +290,7 @@ func (ch *Checker) importClassSubs(mod *ModuleExports, cls *ClassInfo, in syntax
 	for _, m := range cls.Methods {
 		if in.AllSubs || slices.Contains(in.SubList, m.Name) {
 			if ty, ok := mod.Values[m.Name]; ok {
-				if !ch.checkAmbiguousName(m.Name, moduleName, s) {
-					ch.ctx.Push(&CtxVar{Name: m.Name, Type: ty, Module: moduleName})
-				}
+				ch.importValue(m.Name, ty, moduleName, s)
 			}
 		}
 	}
