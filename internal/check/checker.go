@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"maps"
 
+	"github.com/cwd-k2/gicel/internal/budget"
 	"github.com/cwd-k2/gicel/internal/check/env"
 	"github.com/cwd-k2/gicel/internal/check/exhaust"
 	"github.com/cwd-k2/gicel/internal/check/family"
@@ -110,6 +111,7 @@ type Checker struct {
 	ctx           *Context
 	unifier       *unify.Unifier
 	stuckFamilies family.StuckIndex
+	budget        *budget.Budget
 	errors        *errs.Errors
 	source        *span.Source
 	config        *CheckConfig
@@ -125,27 +127,22 @@ type Checker struct {
 	deferred []deferredConstraint
 
 	// Recursion/depth guards.
-	depth          int // inference recursion depth
-	resolveDepth   int // instance resolution recursion depth
-	reductionDepth int // type family reduction depth
-	workBudget     int // type family reduction work budget (node visits)
-	level          int // implication nesting depth for touchability (0 = top-level)
+	depth        int // inference recursion depth
+	resolveDepth int // instance resolution recursion depth
+	level        int // implication nesting depth for touchability (0 = top-level)
 
 	// Phase state.
 	strictTypeNames bool // enabled after declaration processing
 	cancelled       bool // set when context is cancelled
 }
 
-// checkCancelled checks the config context for cancellation.
+// checkCancelled checks the budget context for cancellation.
 // Returns true if cancelled, recording a terminal error.
 func (ch *Checker) checkCancelled() bool {
 	if ch.cancelled {
 		return true
 	}
-	ctx := ch.config.Context
-	if ctx == nil {
-		return false
-	}
+	ctx := ch.budget.Context()
 	select {
 	case <-ctx.Done():
 		ch.cancelled = true
@@ -200,8 +197,13 @@ func CheckModule(prog *syntax.AstProgram, source *span.Source, config *CheckConf
 	if config == nil {
 		config = &CheckConfig{}
 	}
+	ctx := config.Context
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	ch := &Checker{
 		ctx:    NewContext(),
+		budget: budget.New(ctx, family.MaxReductionWork, 0),
 		errors: &errs.Errors{Source: source},
 		source: source,
 		config: config,

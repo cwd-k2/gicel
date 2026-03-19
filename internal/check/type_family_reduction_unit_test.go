@@ -6,6 +6,7 @@ package check
 import (
 	"testing"
 
+	"github.com/cwd-k2/gicel/internal/check/family"
 	"github.com/cwd-k2/gicel/internal/errs"
 	"github.com/cwd-k2/gicel/internal/span"
 	"github.com/cwd-k2/gicel/internal/types"
@@ -317,7 +318,7 @@ func TestReduceTyFamilyUnit_FallsThrough(t *testing.T) {
 	}
 }
 
-func TestReduceTyFamilyUnit_DepthLimit(t *testing.T) {
+func TestReduceTyFamilyUnit_StepLimit(t *testing.T) {
 	ch := newTestChecker()
 	ch.reg.families["Loop"] = &TypeFamilyInfo{
 		Name:       "Loop",
@@ -327,15 +328,16 @@ func TestReduceTyFamilyUnit_DepthLimit(t *testing.T) {
 			{Patterns: []types.Type{&types.TyVar{Name: "a"}}, RHS: &types.TyFamilyApp{Name: "Loop", Args: []types.Type{&types.TyVar{Name: "a"}}}},
 		},
 	}
-	// Manually loop to hit the depth limit.
-	ch.reductionDepth = maxReductionDepth
+	// Exhaust the step budget so the next Step() exceeds the limit.
+	for range family.MaxReductionWork {
+		_ = ch.budget.Step()
+	}
 	_, ok := ch.reduceTyFamily("Loop", []types.Type{&types.TyCon{Name: "Unit"}}, span.Span{})
 	if ok {
-		t.Fatal("expected false when depth limit exceeded")
+		t.Fatal("expected false when step limit exceeded")
 	}
-	// Check error was added.
 	if !ch.errors.HasErrors() {
-		t.Fatal("expected error for depth limit")
+		t.Fatal("expected error for step limit")
 	}
 }
 

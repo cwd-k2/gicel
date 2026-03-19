@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/cwd-k2/gicel/internal/budget"
 	"github.com/cwd-k2/gicel/internal/check/unify"
 	"github.com/cwd-k2/gicel/internal/errs"
 	"github.com/cwd-k2/gicel/internal/span"
@@ -12,14 +13,13 @@ import (
 
 // ReduceEnv provides the checker capabilities needed for type family operations.
 type ReduceEnv struct {
-	Families       map[string]*TypeFamilyInfo
-	ReductionDepth *int
-	WorkBudget     *int
-	Unifier        *unify.Unifier
-	Stuck          *StuckIndex
-	FreshMeta      func(k types.Kind) *types.TyMeta
-	AddError       func(code errs.Code, s span.Span, msg string)
-	TryUnify       func(a, b types.Type) bool
+	Families  map[string]*TypeFamilyInfo
+	Budget    *budget.Budget
+	Unifier   *unify.Unifier
+	Stuck     *StuckIndex
+	FreshMeta func(k types.Kind) *types.TyMeta
+	AddError  func(code errs.Code, s span.Span, msg string)
+	TryUnify  func(a, b types.Type) bool
 }
 
 // MaxReductionDepth is the fuel limit for type family reduction.
@@ -29,31 +29,28 @@ const MaxReductionDepth = 100
 // produced by type family reduction.
 const maxReductionTypeSize = 10000
 
-// maxReductionWork is the total node-visit budget for a single reduction pass.
-// It prevents exponential blowup from families like Grow a = Pair (Grow a) (Grow a)
-// where each successful reduction doubles future work.
-const maxReductionWork = 50000
+// MaxReductionWork is the step budget for a single reduction pass.
+// Prevents exponential blowup from families like Grow a = Pair (Grow a) (Grow a).
+const MaxReductionWork = 50000
 
 // maxReworkIterations bounds the number of rework processing iterations
 // to prevent runaway loops from cascading re-activations.
 const maxReworkIterations = 200
 
-// ReduceAll resets the reduction depth and work budget, then reduces all
-// type family applications in a type.
+// ReduceAll resets the budget counters and reduces all type family
+// applications in a type.
 // Intended to be installed as the unifier's FamilyReducer callback.
 func (e *ReduceEnv) ReduceAll(t types.Type) types.Type {
-	*e.ReductionDepth = 0
-	*e.WorkBudget = maxReductionWork
+	e.Budget.ResetCounters()
 	return e.reduceFamilyApps(t)
 }
 
 // ReduceTyFamily attempts to reduce a saturated type family application.
 // Returns (result, true) on success, or (nil, false) if stuck/no match.
 func (e *ReduceEnv) ReduceTyFamily(name string, args []types.Type, s span.Span) (types.Type, bool) {
-	*e.ReductionDepth++
-	if *e.ReductionDepth > MaxReductionDepth {
+	if err := e.Budget.Step(); err != nil {
 		e.AddError(errs.ErrTypeFamilyReduction, s,
-			fmt.Sprintf("type family %s: reduction depth limit exceeded (possible infinite recursion)", name))
+			fmt.Sprintf("type family %s: reduction limit exceeded (possible infinite recursion or exponential growth)", name))
 		return nil, false
 	}
 	fam, ok := e.Families[name]
@@ -153,13 +150,9 @@ func (e *ReduceEnv) reduceFamilyApps(t types.Type) types.Type {
 }
 
 func (e *ReduceEnv) reduceFamilyAppsN(t types.Type, cache map[string]types.Type) types.Type {
-	if *e.ReductionDepth > MaxReductionDepth {
+	if err := e.Budget.Step(); err != nil {
 		return t
 	}
-	if *e.WorkBudget <= 0 {
-		return t
-	}
-	*e.WorkBudget--
 	// Case 1: explicit TyFamilyApp.
 	if tf, ok := t.(*types.TyFamilyApp); ok {
 		args := make([]types.Type, len(tf.Args))
@@ -241,8 +234,7 @@ func (e *ReduceEnv) registerStuckFamily(name string, args []types.Type, resultKi
 // unblocked by recent meta solutions. On success, the result meta is unified
 // with the reduced type. Entries that remain stuck are re-registered.
 func (e *ReduceEnv) ProcessRework() {
-	*e.ReductionDepth = 0
-	*e.WorkBudget = maxReductionWork
+	e.Budget.ResetCounters()
 	for range maxReworkIterations {
 		entries := e.Stuck.drainRework()
 		if len(entries) == 0 {

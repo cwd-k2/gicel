@@ -126,14 +126,13 @@ func (ch *Checker) processTypeFamily(d *syntax.DeclTypeFamily) {
 // familyEnv creates a family.ReduceEnv with the current Checker state.
 func (ch *Checker) familyEnv() *family.ReduceEnv {
 	return &family.ReduceEnv{
-		Families:       ch.reg.families,
-		ReductionDepth: &ch.reductionDepth,
-		WorkBudget:     &ch.workBudget,
-		Unifier:        ch.unifier,
-		Stuck:          &ch.stuckFamilies,
-		FreshMeta:      ch.freshMeta,
-		AddError:       ch.addCodedError,
-		TryUnify:       ch.tryUnify,
+		Families:  ch.reg.families,
+		Budget:    ch.budget,
+		Unifier:   ch.unifier,
+		Stuck:     &ch.stuckFamilies,
+		FreshMeta: ch.freshMeta,
+		AddError:  ch.addCodedError,
+		TryUnify:  ch.tryUnify,
 	}
 }
 

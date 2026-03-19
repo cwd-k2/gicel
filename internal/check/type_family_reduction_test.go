@@ -1248,8 +1248,8 @@ f :: Loop Unit -> Unit
 f := \x. x
 `
 	msg := checkSourceExpectCode(t, source, nil, errs.ErrTypeFamilyReduction)
-	if !strings.Contains(msg, "reduction depth limit") {
-		t.Errorf("expected 'reduction depth limit' in error message, got: %s", msg)
+	if !strings.Contains(msg, "reduction limit exceeded") {
+		t.Errorf("expected 'reduction limit exceeded' in error message, got: %s", msg)
 	}
 	if !strings.Contains(msg, "Loop") {
 		t.Errorf("expected 'Loop' in error message, got: %s", msg)

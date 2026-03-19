@@ -3,8 +3,11 @@
 package check
 
 import (
+	"context"
 	"testing"
 
+	"github.com/cwd-k2/gicel/internal/budget"
+	"github.com/cwd-k2/gicel/internal/check/family"
 	"github.com/cwd-k2/gicel/internal/check/unify"
 	"github.com/cwd-k2/gicel/internal/core"
 	"github.com/cwd-k2/gicel/internal/errs"
@@ -162,6 +165,7 @@ func newTestChecker() *Checker {
 		},
 		freshID: freshID,
 	}
+	ch.budget = budget.New(context.Background(), family.MaxReductionWork, 0)
 	ch.unifier = unify.NewUnifierShared(&ch.freshID)
 	return ch
 }

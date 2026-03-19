@@ -76,6 +76,14 @@ func (b *Budget) Alloc(bytes int64) error {
 	return nil
 }
 
+// ResetCounters zeroes the step and depth counters, keeping limits and context
+// unchanged. Used to start a fresh phase (e.g. a new type family reduction
+// pass) within the same budget instance.
+func (b *Budget) ResetCounters() {
+	b.steps = 0
+	b.depth = 0
+}
+
 // --- Read accessors ---
 
 // Steps returns the number of steps consumed so far.
