@@ -92,6 +92,8 @@ func freeVarsRec(c Core, bound map[string]int, fv map[string]struct{}, depth int
 		for _, f := range n.Updates {
 			freeVarsRec(f.Value, bound, fv, depth+1)
 		}
+	default:
+		panic(fmt.Sprintf("freeVarsRec: unhandled Core node %T", c))
 	}
 }
 

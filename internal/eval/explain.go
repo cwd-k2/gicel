@@ -190,7 +190,7 @@ func prettyValueDepth(v Value, depth int) string {
 		}
 		return val.Con + " " + strings.Join(args, " ")
 	case *RecordVal:
-		if isTuple(val) {
+		if IsTuple(val) {
 			return prettyTupleDepth(val, depth)
 		}
 		return prettyRecordDepth(val, depth)
@@ -224,8 +224,8 @@ func prettyHost(v any) string {
 	}
 }
 
-// isTuple checks if a RecordVal is tuple sugar (fields _1, _2, ..., _n).
-func isTuple(r *RecordVal) bool {
+// IsTuple checks if a RecordVal is tuple sugar (fields _1, _2, ..., _n).
+func IsTuple(r *RecordVal) bool {
 	n := len(r.Fields)
 	if n == 0 {
 		return true // () is the unit tuple
@@ -328,7 +328,7 @@ func isInternalPattern(p core.Pattern) bool {
 
 // collectListPattern extracts a Cons/Nil pattern chain into formatted elements.
 func collectListPattern(p *core.PCon, depth int) ([]string, bool) {
-	if p.Con != "Cons" && p.Con != "Nil" {
+	if p.Con != ListCons && p.Con != ListNil {
 		return nil, false
 	}
 	var elems []string
@@ -338,10 +338,10 @@ func collectListPattern(p *core.PCon, depth int) ([]string, bool) {
 		if !ok {
 			return nil, false
 		}
-		if c.Con == "Nil" && len(c.Args) == 0 {
+		if c.Con == ListNil && len(c.Args) == 0 {
 			return elems, true
 		}
-		if c.Con == "Cons" && len(c.Args) == 2 {
+		if c.Con == ListCons && len(c.Args) == 2 {
 			elems = append(elems, formatPatternDepth(c.Args[0], depth+1))
 			cur = c.Args[1]
 			continue

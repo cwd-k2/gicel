@@ -7,7 +7,6 @@ import (
 	"io"
 	"os"
 	"sort"
-	"strconv"
 	"strings"
 
 	"github.com/cwd-k2/gicel"
@@ -417,8 +416,12 @@ func formatValue(v gicel.Value) any {
 	case *gicel.HostVal:
 		return val.Inner
 	case *gicel.ConVal:
-		if elems, ok := collectJSONList(val); ok {
-			return elems
+		if elems, ok := gicel.CollectList(val); ok {
+			result := make([]any, len(elems))
+			for i, e := range elems {
+				result[i] = formatValue(e)
+			}
+			return result
 		}
 		if len(val.Args) == 0 {
 			return val.Con
@@ -429,8 +432,8 @@ func formatValue(v gicel.Value) any {
 		}
 		return map[string]any{"con": val.Con, "args": args}
 	case *gicel.RecordVal:
-		if elems, ok := formatJSONTuple(val); ok {
-			return elems
+		if gicel.IsTuple(val) {
+			return formatJSONTuple(val)
 		}
 		return formatJSONRecord(val)
 	default:
@@ -438,21 +441,14 @@ func formatValue(v gicel.Value) any {
 	}
 }
 
-// formatJSONTuple converts a tuple RecordVal (fields _1, _2, ..., _n) to a JSON array.
-func formatJSONTuple(r *gicel.RecordVal) ([]any, bool) {
+// formatJSONTuple converts a tuple RecordVal to a JSON array.
+func formatJSONTuple(r *gicel.RecordVal) []any {
 	n := len(r.Fields)
-	if n == 0 {
-		return []any{}, true
-	}
 	elems := make([]any, n)
 	for i := range n {
-		v, ok := r.Fields["_"+strconv.Itoa(i+1)]
-		if !ok {
-			return nil, false
-		}
-		elems[i] = formatValue(v)
+		elems[i] = formatValue(r.Fields[gicel.TupleLabel(i+1)])
 	}
-	return elems, true
+	return elems
 }
 
 // formatJSONRecord converts a RecordVal to a JSON object with recursively formatted fields.
@@ -462,28 +458,4 @@ func formatJSONRecord(r *gicel.RecordVal) map[string]any {
 		m[k] = formatValue(v)
 	}
 	return m
-}
-
-// collectJSONList extracts a Cons/Nil chain into a slice for JSON array output.
-func collectJSONList(v *gicel.ConVal) ([]any, bool) {
-	if v.Con != "Cons" && v.Con != "Nil" {
-		return nil, false
-	}
-	elems := make([]any, 0)
-	cur := gicel.Value(v)
-	for {
-		c, ok := cur.(*gicel.ConVal)
-		if !ok {
-			return nil, false
-		}
-		if c.Con == "Nil" && len(c.Args) == 0 {
-			return elems, true
-		}
-		if c.Con == "Cons" && len(c.Args) == 2 {
-			elems = append(elems, formatValue(c.Args[0]))
-			cur = c.Args[1]
-			continue
-		}
-		return nil, false
-	}
 }

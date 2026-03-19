@@ -217,6 +217,16 @@ func MustHost[T any](v Value) T { return engine.MustHost[T](v) }
 // PrettyValue formats a runtime value in source-level terms.
 func PrettyValue(v Value) string { return eval.PrettyValue(v) }
 
+// CollectList extracts a Cons/Nil chain into a slice of element values.
+// Returns (nil, false) if v is not a well-formed list.
+func CollectList(v *ConVal) ([]Value, bool) { return eval.CollectList(v) }
+
+// IsTuple reports whether a RecordVal encodes a tuple (fields _1, _2, ..., _n).
+func IsTuple(r *RecordVal) bool { return eval.IsTuple(r) }
+
+// TupleLabel returns the canonical field label for a 1-based tuple position.
+func TupleLabel(pos int) string { return types.TupleLabel(pos) }
+
 // NewCapEnv creates a new capability environment from a map.
 func NewCapEnv(caps map[string]any) CapEnv {
 	return eval.NewCapEnv(caps)

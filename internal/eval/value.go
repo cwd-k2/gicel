@@ -112,30 +112,50 @@ func (v *ConVal) String() string {
 	return fmt.Sprintf("(%s %s)", v.Con, strings.Join(args, " "))
 }
 
-// collectListElems formats a Cons/Nil chain as [e1, e2, ...],
-// using fmtElem to render each element.
-// Returns ("", false) if v is not a well-formed list.
-func collectListElems(v *ConVal, fmtElem func(Value) string) (string, bool) {
-	if v.Con != "Cons" && v.Con != "Nil" {
-		return "", false
+// List constructor names (Prelude convention).
+const (
+	ListCons = "Cons"
+	ListNil  = "Nil"
+)
+
+// CollectList extracts a Cons/Nil chain into a slice of element values.
+// Returns (nil, false) if v is not a well-formed list.
+func CollectList(v *ConVal) ([]Value, bool) {
+	if v.Con != ListCons && v.Con != ListNil {
+		return nil, false
 	}
-	var elems []string
+	var elems []Value
 	cur := Value(v)
 	for {
 		c, ok := cur.(*ConVal)
 		if !ok {
-			return "", false
+			return nil, false
 		}
-		if c.Con == "Nil" && len(c.Args) == 0 {
-			return "[" + strings.Join(elems, ", ") + "]", true
+		if c.Con == ListNil && len(c.Args) == 0 {
+			return elems, true
 		}
-		if c.Con == "Cons" && len(c.Args) == 2 {
-			elems = append(elems, fmtElem(c.Args[0]))
+		if c.Con == ListCons && len(c.Args) == 2 {
+			elems = append(elems, c.Args[0])
 			cur = c.Args[1]
 			continue
 		}
+		return nil, false
+	}
+}
+
+// collectListElems formats a Cons/Nil chain as [e1, e2, ...],
+// using fmtElem to render each element.
+// Returns ("", false) if v is not a well-formed list.
+func collectListElems(v *ConVal, fmtElem func(Value) string) (string, bool) {
+	elems, ok := CollectList(v)
+	if !ok {
 		return "", false
 	}
+	parts := make([]string, len(elems))
+	for i, e := range elems {
+		parts[i] = fmtElem(e)
+	}
+	return "[" + strings.Join(parts, ", ") + "]", true
 }
 
 func (v *ThunkVal) String() string {

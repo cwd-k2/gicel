@@ -50,7 +50,7 @@ func BuiltinEnv(enableFix, enableRec bool) *Env {
 	return env
 }
 
-// fixBody returns the Fix node shared by fix and rec builtins.
+// fixBody returns a Fix node for the fix/rec builtin closures.
 // fix f = the fixpoint of f, i.e. x where x = \arg. (f x) arg.
 func fixBody() *core.Fix {
 	return &core.Fix{
