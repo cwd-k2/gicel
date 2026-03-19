@@ -235,7 +235,7 @@ func (r *Runtime) RunWith(ctx context.Context, opts *RunOptions) (*RunResult, er
 	}
 	entry := opts.Entry
 	if entry == "" {
-		entry = DefaultEntryPoint
+		entry = r.entryName
 	}
 	var obs *eval.ExplainObserver
 	if opts.Explain != nil {

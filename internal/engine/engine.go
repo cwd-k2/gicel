@@ -360,6 +360,10 @@ func (e *Engine) Compile(ctx context.Context, source string) (*CompileResult, er
 	}
 	cfg := e.makeCheckConfig()
 	cfg.Context = ctx
+	cfg.EntryPoint = e.entryPoint
+	if cfg.EntryPoint == "" {
+		cfg.EntryPoint = DefaultEntryPoint
+	}
 	prog, exports, checkErrs := check.CheckModule(ast, src, cfg)
 	if checkErrs.HasErrors() {
 		return nil, &CompileError{Errors: checkErrs}

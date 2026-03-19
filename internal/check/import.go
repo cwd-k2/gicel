@@ -87,12 +87,23 @@ func (ch *Checker) checkAmbiguousName(name, moduleName string, s span.Span) bool
 	if prev == moduleName {
 		return false // same module, no conflict
 	}
-	// If both modules define this name themselves (not re-exported), it's a true ambiguity.
-	// If one or both re-export it from a shared dependency, it's the same name — no conflict.
+	// Both modules provide this name: check ownership and provenance.
+	// Ambiguity is suppressed when both sides re-export from a shared
+	// dependency, or when one side re-exports from the other (dependency chain).
 	prevOwns := ch.moduleOwnsName(prev, name)
 	curOwns := ch.moduleOwnsName(moduleName, name)
-	if !prevOwns || !curOwns {
-		// At least one side is a re-export — no true conflict.
+	if !prevOwns && !curOwns {
+		// Both are re-exports — assumed from a shared dependency.
+		ch.scope.importedNames[name] = moduleName
+		return false
+	}
+	if prevOwns && !curOwns && ch.moduleDependsOn(moduleName, prev) {
+		// cur re-exports from prev via dependency chain.
+		ch.scope.importedNames[name] = moduleName
+		return false
+	}
+	if curOwns && !prevOwns && ch.moduleDependsOn(prev, moduleName) {
+		// prev re-exports from cur via dependency chain.
 		ch.scope.importedNames[name] = moduleName
 		return false
 	}
@@ -118,7 +129,15 @@ func (ch *Checker) checkAmbiguousTypeName(name, moduleName string, s span.Span) 
 	}
 	prevOwns := ch.moduleOwnsTypeName(prev, name)
 	curOwns := ch.moduleOwnsTypeName(moduleName, name)
-	if !prevOwns || !curOwns {
+	if !prevOwns && !curOwns {
+		ch.scope.importedTypeNames[name] = moduleName
+		return false
+	}
+	if prevOwns && !curOwns && ch.moduleDependsOn(moduleName, prev) {
+		ch.scope.importedTypeNames[name] = moduleName
+		return false
+	}
+	if curOwns && !prevOwns && ch.moduleDependsOn(prev, moduleName) {
 		ch.scope.importedTypeNames[name] = moduleName
 		return false
 	}
@@ -131,6 +150,25 @@ func (ch *Checker) checkAmbiguousTypeName(name, moduleName string, s span.Span) 
 func (ch *Checker) moduleOwnsTypeName(moduleName, name string) bool {
 	owned := ch.moduleOwnedTypeNames(moduleName)
 	return owned[name]
+}
+
+// moduleDependsOn reports whether module a transitively depends on module b.
+func (ch *Checker) moduleDependsOn(a, b string) bool {
+	visited := make(map[string]bool)
+	var walk func(string) bool
+	walk = func(mod string) bool {
+		if visited[mod] {
+			return false
+		}
+		visited[mod] = true
+		for _, dep := range ch.config.ModuleDeps[mod] {
+			if dep == b || walk(dep) {
+				return true
+			}
+		}
+		return false
+	}
+	return walk(a)
 }
 
 // moduleOwnedTypeNames returns the set of type-level names that a module defines
