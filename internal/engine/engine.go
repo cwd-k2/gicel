@@ -166,21 +166,9 @@ func (e *Engine) RegisterModule(name, source string) error {
 		return fmt.Errorf("module %s already registered", name)
 	}
 
-	src := span.NewSource(name, source)
-	l := parse.NewLexer(src)
-	tokens, lexErrs := l.Tokenize()
-	if lexErrs.HasErrors() {
-		return &CompileError{Errors: lexErrs}
-	}
-	parseErrs := &errs.Errors{Source: src}
-	p := parse.NewParser(tokens, parseErrs)
-	ast := p.ParseProgram()
-	if parseErrs.HasErrors() {
-		return &CompileError{Errors: parseErrs}
-	}
-
-	if name != "Core" && e.modules["Core"] != nil {
-		injectCoreImport(ast)
+	ast, src, err := e.lexAndParse(name, source, name != "Core" && e.modules["Core"] != nil)
+	if err != nil {
+		return err
 	}
 
 	var deps []string
@@ -206,6 +194,7 @@ func (e *Engine) RegisterModule(name, source string) error {
 		}
 	}
 
+	opt.OptimizeProgram(prog, e.rewriteRules)
 	core.AnnotateFreeVarsProgram(prog)
 
 	e.modules[name] = &compiledModule{
@@ -263,9 +252,11 @@ func (e *Engine) makeCheckConfig() *check.CheckConfig {
 	}
 }
 
-// parseSource lexes and parses source, adding implicit Core import if needed.
-func (e *Engine) parseSource(source string) (*syntax.AstProgram, *span.Source, error) {
-	src := span.NewSource("<input>", source)
+// lexAndParse is the shared lex/parse pipeline for both module registration
+// and main-source compilation. It always injects fixity from all registered
+// modules so that operator precedence is consistent regardless of entry path.
+func (e *Engine) lexAndParse(sourceName, source string, injectCore bool) (*syntax.AstProgram, *span.Source, error) {
+	src := span.NewSource(sourceName, source)
 	l := parse.NewLexer(src)
 	tokens, lexErrs := l.Tokenize()
 	if lexErrs.HasErrors() {
@@ -280,10 +271,15 @@ func (e *Engine) parseSource(source string) (*syntax.AstProgram, *span.Source, e
 	if parseErrs.HasErrors() {
 		return nil, nil, &CompileError{Errors: parseErrs}
 	}
-	if e.modules["Core"] != nil {
+	if injectCore {
 		injectCoreImport(ast)
 	}
 	return ast, src, nil
+}
+
+// parseSource lexes and parses main-source input.
+func (e *Engine) parseSource(source string) (*syntax.AstProgram, *span.Source, error) {
+	return e.lexAndParse("<input>", source, e.modules["Core"] != nil)
 }
 
 func injectCoreImport(ast *syntax.AstProgram) {
