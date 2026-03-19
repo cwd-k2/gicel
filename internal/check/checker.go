@@ -187,13 +187,25 @@ type deferredConstraint struct {
 }
 
 // Check type-checks a surface AST program and produces Core IR.
+// Unlike CheckModule, this does not construct module exports, avoiding
+// the cost of cloning registries when exports are not needed.
 func Check(prog *syntax.AstProgram, source *span.Source, config *CheckConfig) (*core.Program, *errs.Errors) {
-	coreProg, _, errors := CheckModule(prog, source, config)
-	return coreProg, errors
+	ch := newChecker(prog, source, config)
+	coreProgram := ch.checkDecls(prog.Decls)
+	return coreProgram, ch.errors
 }
 
 // CheckModule type-checks a program and returns both Core IR and module exports.
 func CheckModule(prog *syntax.AstProgram, source *span.Source, config *CheckConfig) (*core.Program, *ModuleExports, *errs.Errors) {
+	ch := newChecker(prog, source, config)
+	coreProgram := ch.checkDecls(prog.Decls)
+	exports := ch.ExportModule(coreProgram)
+	return coreProgram, exports, ch.errors
+}
+
+// newChecker initializes a Checker, imports modules, and returns it
+// ready for checkDecls. Shared by Check and CheckModule.
+func newChecker(prog *syntax.AstProgram, source *span.Source, config *CheckConfig) *Checker {
 	if config == nil {
 		config = &CheckConfig{}
 	}
@@ -233,9 +245,7 @@ func CheckModule(prog *syntax.AstProgram, source *span.Source, config *CheckConf
 	}
 	ch.initContext()
 	ch.importModules(prog.Imports)
-	coreProgram := ch.checkDecls(prog.Decls)
-	exports := ch.ExportModule(coreProgram)
-	return coreProgram, exports, ch.errors
+	return ch
 }
 
 // ExportModule captures the current checker state as a ModuleExports.

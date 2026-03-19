@@ -1,6 +1,10 @@
 package types
 
-import "github.com/cwd-k2/gicel/internal/span"
+import (
+	"slices"
+
+	"github.com/cwd-k2/gicel/internal/span"
+)
 
 // Type is the unified representation for value types, computation types, and row types.
 type Type interface {
@@ -199,9 +203,10 @@ func UnwindApp(ty Type) (Type, []Type) {
 	for {
 		app, ok := ty.(*TyApp)
 		if !ok {
+			slices.Reverse(args)
 			return ty, args
 		}
-		args = append([]Type{app.Arg}, args...)
+		args = append(args, app.Arg)
 		ty = app.Fun
 	}
 }

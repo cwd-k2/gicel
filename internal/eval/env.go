@@ -56,7 +56,14 @@ func (e *Env) Lookup(name string) (Value, bool) {
 		v, ok := e.flat[name]
 		return v, ok
 	}
-	// Walk chain.
+	// Flatten if the chain exceeds the threshold. After this, e.flat
+	// is populated and all subsequent lookups on this Env are O(1).
+	if e.size > flatThreshold {
+		m := e.flatten()
+		v, ok := m[name]
+		return v, ok
+	}
+	// Walk chain (short environments only).
 	for cur := e; cur != nil; cur = cur.parent {
 		if cur.flat != nil {
 			v, ok := cur.flat[name]

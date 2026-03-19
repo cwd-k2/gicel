@@ -9,14 +9,16 @@ import (
 )
 
 // Optimize applies algebraic simplifications and registered rewrite rules.
-// Runs a fixed number of bottom-up passes. Each pass applies all rules
-// at every node. Multiple passes handle cases where one transformation
-// creates opportunities for another at a higher tree level.
+// Runs up to maxPasses bottom-up passes, stopping early when a pass
+// makes no changes (fixed-point detection).
 func Optimize(c core.Core, rules []func(core.Core) core.Core) core.Core {
-	rewrite := makeRewriter(rules)
 	const maxPasses = 4
 	for range maxPasses {
-		c = core.Transform(c, rewrite)
+		rw := &rewriter{rules: rules}
+		c = core.Transform(c, rw.apply)
+		if !rw.changed {
+			break
+		}
 	}
 	return c
 }
@@ -28,23 +30,31 @@ func OptimizeProgram(prog *core.Program, rules []func(core.Core) core.Core) {
 	}
 }
 
-// makeRewriter builds the bottom-up rewrite function that applies
-// algebraic simplifications followed by registered fusion rules.
-func makeRewriter(rules []func(core.Core) core.Core) func(core.Core) core.Core {
-	return func(c core.Core) core.Core {
-		// Phase 1: algebraic simplifications (always active).
-		c = betaReduce(c)
-		c = caseOfKnownCtor(c)
-		c = bindPureElim(c)
-		c = forceThunkElim(c)
-		c = recordProjKnown(c)
-		c = recordUpdateChain(c)
-		// Phase 4: registered fusion rules.
-		for _, rule := range rules {
-			c = rule(c)
-		}
-		return c
+// rewriter tracks whether any transformation fired during a pass.
+type rewriter struct {
+	rules   []func(core.Core) core.Core
+	changed bool
+}
+
+// apply runs algebraic simplifications and registered fusion rules on a
+// single node, setting changed if any rule fires.
+func (rw *rewriter) apply(c core.Core) core.Core {
+	orig := c
+	// Phase 1: algebraic simplifications (always active).
+	c = betaReduce(c)
+	c = caseOfKnownCtor(c)
+	c = bindPureElim(c)
+	c = forceThunkElim(c)
+	c = recordProjKnown(c)
+	c = recordUpdateChain(c)
+	// Phase 4: registered fusion rules.
+	for _, rule := range rw.rules {
+		c = rule(c)
 	}
+	if c != orig {
+		rw.changed = true
+	}
+	return c
 }
 
 // R2: App (Lam x body) arg  →  body[x := arg]
