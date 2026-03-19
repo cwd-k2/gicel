@@ -16,14 +16,12 @@ type ReduceEnv struct {
 	Families  map[string]*TypeFamilyInfo
 	Budget    *budget.Budget
 	Unifier   *unify.Unifier
-	Stuck     *StuckIndex
 	FreshMeta func(k types.Kind) *types.TyMeta
 	AddError  func(code errs.Code, s span.Span, msg string)
 	TryUnify  func(a, b types.Type) bool
 
-	// RegisterStuckFn, when non-nil, overrides the default StuckIndex
-	// registration. Used by the worklist solver to create CtFunEq constraints
-	// instead of StuckIndex entries.
+	// RegisterStuckFn, when non-nil, registers a stuck type family
+	// application as a solver constraint for later re-activation.
 	RegisterStuckFn func(name string, args []types.Type, resultKind types.Kind, s span.Span) *types.TyMeta
 }
 
@@ -34,10 +32,6 @@ const maxReductionTypeSize = 10000
 // MaxReductionWork is the step budget for a single reduction pass.
 // Prevents exponential blowup from families like Grow a = Pair (Grow a) (Grow a).
 const MaxReductionWork = 50000
-
-// maxReworkIterations bounds the number of rework processing iterations
-// to prevent runaway loops from cascading re-activations.
-const maxReworkIterations = 200
 
 // ReduceAll resets the budget counters and reduces all type family
 // applications in a type.
@@ -213,63 +207,14 @@ func (e *ReduceEnv) reduceFamilyAppsN(t types.Type, cache map[string]types.Type)
 	})
 }
 
-// registerStuckFamily checks whether a stuck family application has unsolved
-// meta arguments and, if so, registers it in the stuck family index (or
-// delegates to RegisterStuckFn when the worklist solver is active).
+// registerStuckFamily delegates to RegisterStuckFn when set.
+// When nil (standalone usage without a solver), stuck applications
+// are not tracked and the original TyFamilyApp is preserved as-is.
 func (e *ReduceEnv) registerStuckFamily(name string, args []types.Type, resultKind types.Kind, s span.Span) *types.TyMeta {
 	if e.RegisterStuckFn != nil {
 		return e.RegisterStuckFn(name, args, resultKind, s)
 	}
-	blocking := e.Unifier.CollectBlockingMetas(args)
-	if len(blocking) == 0 {
-		return nil
-	}
-	resultMeta := e.FreshMeta(resultKind)
-	entry := &stuckEntry{
-		familyName: name,
-		args:       args,
-		span:       s,
-		resultMeta: resultMeta,
-		blockingOn: blocking,
-	}
-	e.Stuck.register(entry)
-	return resultMeta
-}
-
-// ProcessRework attempts to reduce stuck type family applications that were
-// unblocked by recent meta solutions. On success, the result meta is unified
-// with the reduced type. Entries that remain stuck are re-registered.
-func (e *ReduceEnv) ProcessRework() {
-	e.Budget.ResetCounters()
-	for range maxReworkIterations {
-		entries := e.Stuck.drainRework()
-		if len(entries) == 0 {
-			return
-		}
-		seen := make(map[*stuckEntry]bool, len(entries))
-		for _, entry := range entries {
-			if seen[entry] {
-				continue
-			}
-			seen[entry] = true
-			zonked := make([]types.Type, len(entry.args))
-			for i, a := range entry.args {
-				zonked[i] = e.Unifier.Zonk(a)
-			}
-			result, reduced := e.ReduceTyFamily(entry.familyName, zonked, entry.span)
-			if reduced {
-				_ = e.Unifier.Unify(entry.resultMeta, result)
-				continue
-			}
-			blocking := e.Unifier.CollectBlockingMetas(zonked)
-			if len(blocking) == 0 {
-				continue
-			}
-			entry.args = zonked
-			entry.blockingOn = blocking
-			e.Stuck.register(entry)
-		}
-	}
+	return nil
 }
 
 // familyAppKey produces a structural cache key for a type family application.

@@ -2,6 +2,7 @@ package check
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/cwd-k2/gicel/internal/check/family"
 	"github.com/cwd-k2/gicel/internal/errs"
@@ -18,15 +19,6 @@ type TFParam = family.TFParam
 type tfDep = family.TFDep
 type tfEquation = family.TFEquation
 
-// matchResult aliases for test backward compatibility.
-type matchResult = family.MatchResult
-
-const (
-	matchSuccess       = family.MatchSuccess
-	matchFail          = family.MatchFail
-	matchIndeterminate = family.MatchIndeterminate
-)
-
 // cloneFamilies delegates to the family subpackage.
 var cloneFamilies = family.CloneFamilies
 
@@ -39,12 +31,12 @@ func (ch *Checker) verifyInjectivity(info *TypeFamilyInfo) {
 }
 
 // matchTyPatterns delegates to the family subpackage.
-func (ch *Checker) matchTyPatterns(patterns, args []types.Type) (map[string]types.Type, matchResult) {
+func (ch *Checker) matchTyPatterns(patterns, args []types.Type) (map[string]types.Type, family.MatchResult) {
 	return ch.familyEnv().MatchTyPatterns(patterns, args)
 }
 
 // matchTyPattern delegates to the family subpackage.
-func (ch *Checker) matchTyPattern(pat, arg types.Type, subst map[string]types.Type) matchResult {
+func (ch *Checker) matchTyPattern(pat, arg types.Type, subst map[string]types.Type) family.MatchResult {
 	return ch.familyEnv().MatchTyPattern(pat, arg, subst)
 }
 
@@ -156,12 +148,8 @@ func (ch *Checker) reduceTyFamily(name string, args []types.Type, s span.Span) (
 	return ch.familyEnv().ReduceTyFamily(name, args, s)
 }
 
-// ProcessRework is a no-op: stuck family equations are in the inert set
-// and are kicked out automatically via OnSolve when blocking metas are solved.
-func (ch *Checker) ProcessRework() {}
-
 // registerStuckViaInert registers a stuck type family application as a
-// CtFunEq constraint in the inert set instead of the legacy StuckIndex.
+// CtFunEq constraint in the inert set for later re-activation via OnSolve.
 func (ch *Checker) registerStuckViaInert(name string, args []types.Type, resultKind types.Kind, s span.Span) *types.TyMeta {
 	blocking := ch.unifier.CollectBlockingMetas(args)
 	if len(blocking) == 0 {
@@ -180,25 +168,15 @@ func (ch *Checker) registerStuckViaInert(name string, args []types.Type, resultK
 }
 
 // mangledDataFamilyName produces a mangled name for a data family instance.
+// Uses WriteTypeKey for each pattern to guarantee injectivity: distinct
+// pattern lists always produce distinct mangled names.
 func (ch *Checker) mangledDataFamilyName(familyName string, patterns []types.Type) string {
-	name := fmt.Sprintf("%s$$%d", familyName, len(patterns))
+	var b strings.Builder
+	b.WriteString(familyName)
+	fmt.Fprintf(&b, "$$%d", len(patterns))
 	for _, p := range patterns {
-		name += "$" + typeNameForMangling(p)
+		b.WriteByte('$')
+		types.WriteTypeKey(&b, p)
 	}
-	return name
-}
-
-// typeNameForMangling extracts a short name from a type for mangling purposes.
-func typeNameForMangling(t types.Type) string {
-	switch ty := t.(type) {
-	case *types.TyCon:
-		return ty.Name
-	case *types.TyApp:
-		head, _ := types.UnwindApp(t)
-		return typeNameForMangling(head)
-	case *types.TyVar:
-		return ty.Name
-	default:
-		return "X"
-	}
+	return b.String()
 }

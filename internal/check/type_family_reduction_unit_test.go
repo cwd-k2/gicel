@@ -28,8 +28,8 @@ func TestMatchTyPatternUnit_TyVarBinds(t *testing.T) {
 	arg := &types.TyCon{Name: "Int"}
 	subst := make(map[string]types.Type)
 	result := ch.matchTyPattern(pat, arg, subst)
-	if result != matchSuccess {
-		t.Fatalf("expected matchSuccess, got %d", result)
+	if result != family.MatchSuccess {
+		t.Fatalf("expected family.MatchSuccess, got %d", result)
 	}
 	if subst["a"] == nil {
 		t.Fatal("expected 'a' bound in subst")
@@ -45,8 +45,8 @@ func TestMatchTyPatternUnit_WildcardDoesNotBind(t *testing.T) {
 	arg := &types.TyCon{Name: "Int"}
 	subst := make(map[string]types.Type)
 	result := ch.matchTyPattern(pat, arg, subst)
-	if result != matchSuccess {
-		t.Fatalf("expected matchSuccess, got %d", result)
+	if result != family.MatchSuccess {
+		t.Fatalf("expected family.MatchSuccess, got %d", result)
 	}
 	if _, ok := subst["_"]; ok {
 		t.Error("wildcard '_' should not be bound in subst")
@@ -59,8 +59,8 @@ func TestMatchTyPatternUnit_TyConExactMatch(t *testing.T) {
 	arg := &types.TyCon{Name: "Int"}
 	subst := make(map[string]types.Type)
 	result := ch.matchTyPattern(pat, arg, subst)
-	if result != matchSuccess {
-		t.Fatalf("expected matchSuccess, got %d", result)
+	if result != family.MatchSuccess {
+		t.Fatalf("expected family.MatchSuccess, got %d", result)
 	}
 }
 
@@ -70,8 +70,8 @@ func TestMatchTyPatternUnit_TyConMismatch(t *testing.T) {
 	arg := &types.TyCon{Name: "Bool"}
 	subst := make(map[string]types.Type)
 	result := ch.matchTyPattern(pat, arg, subst)
-	if result != matchFail {
-		t.Fatalf("expected matchFail, got %d", result)
+	if result != family.MatchFail {
+		t.Fatalf("expected family.MatchFail, got %d", result)
 	}
 }
 
@@ -81,8 +81,8 @@ func TestMatchTyPatternUnit_TyConVsMeta(t *testing.T) {
 	arg := &types.TyMeta{ID: 1, Kind: types.KType{}}
 	subst := make(map[string]types.Type)
 	result := ch.matchTyPattern(pat, arg, subst)
-	if result != matchIndeterminate {
-		t.Fatalf("expected matchIndeterminate, got %d", result)
+	if result != family.MatchIndeterminate {
+		t.Fatalf("expected family.MatchIndeterminate, got %d", result)
 	}
 }
 
@@ -92,8 +92,8 @@ func TestMatchTyPatternUnit_TyAppVsMeta(t *testing.T) {
 	arg := &types.TyMeta{ID: 1, Kind: types.KType{}}
 	subst := make(map[string]types.Type)
 	result := ch.matchTyPattern(pat, arg, subst)
-	if result != matchIndeterminate {
-		t.Fatalf("expected matchIndeterminate, got %d", result)
+	if result != family.MatchIndeterminate {
+		t.Fatalf("expected family.MatchIndeterminate, got %d", result)
 	}
 }
 
@@ -103,8 +103,8 @@ func TestMatchTyPatternUnit_TyAppDecompose(t *testing.T) {
 	arg := &types.TyApp{Fun: &types.TyCon{Name: "List"}, Arg: &types.TyCon{Name: "Int"}}
 	subst := make(map[string]types.Type)
 	result := ch.matchTyPattern(pat, arg, subst)
-	if result != matchSuccess {
-		t.Fatalf("expected matchSuccess, got %d", result)
+	if result != family.MatchSuccess {
+		t.Fatalf("expected family.MatchSuccess, got %d", result)
 	}
 	if con, ok := subst["a"].(*types.TyCon); !ok || con.Name != "Int" {
 		t.Errorf("expected a = Int, got %v", subst["a"])
@@ -117,8 +117,8 @@ func TestMatchTyPatternUnit_TyAppHeadMismatch(t *testing.T) {
 	arg := &types.TyApp{Fun: &types.TyCon{Name: "Maybe"}, Arg: &types.TyCon{Name: "Int"}}
 	subst := make(map[string]types.Type)
 	result := ch.matchTyPattern(pat, arg, subst)
-	if result != matchFail {
-		t.Fatalf("expected matchFail, got %d", result)
+	if result != family.MatchFail {
+		t.Fatalf("expected family.MatchFail, got %d", result)
 	}
 }
 
@@ -131,8 +131,8 @@ func TestMatchTyPatternUnit_ConsistencyCheckRejects(t *testing.T) {
 	}
 	arg := &types.TyCon{Name: "Bool"} // inconsistent with existing binding
 	result := ch.matchTyPattern(pat, arg, subst)
-	if result != matchFail {
-		t.Fatalf("expected matchFail for inconsistent binding, got %d", result)
+	if result != family.MatchFail {
+		t.Fatalf("expected family.MatchFail for inconsistent binding, got %d", result)
 	}
 }
 
@@ -144,8 +144,8 @@ func TestMatchTyPatternUnit_ConsistencyCheckAccepts(t *testing.T) {
 	}
 	arg := &types.TyCon{Name: "Int"} // consistent with existing binding
 	result := ch.matchTyPattern(pat, arg, subst)
-	if result != matchSuccess {
-		t.Fatalf("expected matchSuccess for consistent binding, got %d", result)
+	if result != family.MatchSuccess {
+		t.Fatalf("expected family.MatchSuccess for consistent binding, got %d", result)
 	}
 }
 
@@ -156,8 +156,8 @@ func TestMatchTyPatternUnit_TyAppVsTyCon(t *testing.T) {
 	arg := &types.TyCon{Name: "Int"}
 	subst := make(map[string]types.Type)
 	result := ch.matchTyPattern(pat, arg, subst)
-	if result != matchFail {
-		t.Fatalf("expected matchFail, got %d", result)
+	if result != family.MatchFail {
+		t.Fatalf("expected family.MatchFail, got %d", result)
 	}
 }
 
@@ -168,8 +168,8 @@ func TestMatchTyPatternUnit_UnsupportedPatternForm(t *testing.T) {
 	arg := &types.TyCon{Name: "Int"}
 	subst := make(map[string]types.Type)
 	result := ch.matchTyPattern(pat, arg, subst)
-	if result != matchFail {
-		t.Fatalf("expected matchFail for unsupported pattern, got %d", result)
+	if result != family.MatchFail {
+		t.Fatalf("expected family.MatchFail for unsupported pattern, got %d", result)
 	}
 }
 
@@ -188,8 +188,8 @@ func TestMatchTyPatternsUnit_AllMatch(t *testing.T) {
 		&types.TyCon{Name: "Int"},
 	}
 	subst, result := ch.matchTyPatterns(patterns, args)
-	if result != matchSuccess {
-		t.Fatalf("expected matchSuccess, got %d", result)
+	if result != family.MatchSuccess {
+		t.Fatalf("expected family.MatchSuccess, got %d", result)
 	}
 	if subst["a"] == nil {
 		t.Fatal("expected 'a' bound")
@@ -207,8 +207,8 @@ func TestMatchTyPatternsUnit_FirstFails(t *testing.T) {
 		&types.TyCon{Name: "Int"},
 	}
 	_, result := ch.matchTyPatterns(patterns, args)
-	if result != matchFail {
-		t.Fatalf("expected matchFail, got %d", result)
+	if result != family.MatchFail {
+		t.Fatalf("expected family.MatchFail, got %d", result)
 	}
 }
 
@@ -223,8 +223,8 @@ func TestMatchTyPatternsUnit_SecondFails(t *testing.T) {
 		&types.TyCon{Name: "Bool"}, // mismatch in second position
 	}
 	_, result := ch.matchTyPatterns(patterns, args)
-	if result != matchFail {
-		t.Fatalf("expected matchFail, got %d", result)
+	if result != family.MatchFail {
+		t.Fatalf("expected family.MatchFail, got %d", result)
 	}
 }
 
@@ -239,8 +239,8 @@ func TestMatchTyPatternsUnit_IndeterminateStopsEarly(t *testing.T) {
 		&types.TyCon{Name: "Int"},
 	}
 	_, result := ch.matchTyPatterns(patterns, args)
-	if result != matchIndeterminate {
-		t.Fatalf("expected matchIndeterminate, got %d", result)
+	if result != family.MatchIndeterminate {
+		t.Fatalf("expected family.MatchIndeterminate, got %d", result)
 	}
 }
 
@@ -442,39 +442,6 @@ func TestCollectPatternVarsUnit_NestedInTyApp(t *testing.T) {
 }
 
 // -----------------------------------------------
-// typeNameForMangling unit tests
-// -----------------------------------------------
-
-func TestTypeNameForMangling_TyCon(t *testing.T) {
-	name := typeNameForMangling(&types.TyCon{Name: "List"})
-	if name != "List" {
-		t.Errorf("expected 'List', got %q", name)
-	}
-}
-
-func TestTypeNameForMangling_TyApp(t *testing.T) {
-	ty := &types.TyApp{Fun: &types.TyCon{Name: "List"}, Arg: &types.TyCon{Name: "Int"}}
-	name := typeNameForMangling(ty)
-	if name != "List" {
-		t.Errorf("expected 'List' (head of TyApp), got %q", name)
-	}
-}
-
-func TestTypeNameForMangling_TyVar(t *testing.T) {
-	name := typeNameForMangling(&types.TyVar{Name: "a"})
-	if name != "a" {
-		t.Errorf("expected 'a', got %q", name)
-	}
-}
-
-func TestTypeNameForMangling_Unknown(t *testing.T) {
-	name := typeNameForMangling(&types.TyArrow{From: &types.TyCon{Name: "Int"}, To: &types.TyCon{Name: "Bool"}})
-	if name != "X" {
-		t.Errorf("expected 'X' for unknown type form, got %q", name)
-	}
-}
-
-// -----------------------------------------------
 // mangledDataFamilyName unit tests
 // -----------------------------------------------
 
@@ -483,9 +450,9 @@ func TestMangledDataFamilyNameUnit_Simple(t *testing.T) {
 	name := ch.mangledDataFamilyName("Elem", []types.Type{
 		&types.TyApp{Fun: &types.TyCon{Name: "List"}, Arg: &types.TyVar{Name: "a"}},
 	})
-	// mangledDataFamilyName: "Elem" + "$$1" + "$" + typeNameForMangling(TyApp{List, a}) = "Elem$$1$List"
-	if name != "Elem$$1$List" {
-		t.Errorf("expected 'Elem$$1$List', got %q", name)
+	// WriteTypeKey(TyApp{List, TyVar{a}}) = "(List 'a)"
+	if name != "Elem$$1$(List 'a)" {
+		t.Errorf("expected %q, got %q", "Elem$$1$(List 'a)", name)
 	}
 }
 
@@ -495,7 +462,7 @@ func TestMangledDataFamilyNameUnit_Multiple(t *testing.T) {
 		&types.TyCon{Name: "Int"},
 		&types.TyCon{Name: "Bool"},
 	})
-	// "F" + "$$2" + "$Int" + "$Bool" = "F$$2$Int$Bool"
+	// WriteTypeKey(TyCon) = Name
 	if name != "F$$2$Int$Bool" {
 		t.Errorf("expected 'F$$2$Int$Bool', got %q", name)
 	}
@@ -756,25 +723,25 @@ func TestVerifyInjectivityUnit_DistinctRHSesNoViolation(t *testing.T) {
 // -----------------------------------------------
 
 func TestMatchResultConstants(t *testing.T) {
-	// Ensure matchSuccess, matchFail, matchIndeterminate are distinct.
-	if matchSuccess == matchFail {
-		t.Error("matchSuccess and matchFail should be distinct")
+	// Ensure family.MatchSuccess, family.MatchFail, family.MatchIndeterminate are distinct.
+	if family.MatchSuccess == family.MatchFail {
+		t.Error("family.MatchSuccess and family.MatchFail should be distinct")
 	}
-	if matchSuccess == matchIndeterminate {
-		t.Error("matchSuccess and matchIndeterminate should be distinct")
+	if family.MatchSuccess == family.MatchIndeterminate {
+		t.Error("family.MatchSuccess and family.MatchIndeterminate should be distinct")
 	}
-	if matchFail == matchIndeterminate {
-		t.Error("matchFail and matchIndeterminate should be distinct")
+	if family.MatchFail == family.MatchIndeterminate {
+		t.Error("family.MatchFail and family.MatchIndeterminate should be distinct")
 	}
 	// Verify specific values (iota ordering).
-	if matchSuccess != 0 {
-		t.Errorf("expected matchSuccess = 0, got %d", matchSuccess)
+	if family.MatchSuccess != 0 {
+		t.Errorf("expected family.MatchSuccess = 0, got %d", family.MatchSuccess)
 	}
-	if matchFail != 1 {
-		t.Errorf("expected matchFail = 1, got %d", matchFail)
+	if family.MatchFail != 1 {
+		t.Errorf("expected family.MatchFail = 1, got %d", family.MatchFail)
 	}
-	if matchIndeterminate != 2 {
-		t.Errorf("expected matchIndeterminate = 2, got %d", matchIndeterminate)
+	if family.MatchIndeterminate != 2 {
+		t.Errorf("expected family.MatchIndeterminate = 2, got %d", family.MatchIndeterminate)
 	}
 }
 
@@ -792,8 +759,8 @@ func TestMatchTyPatternUnit_ZonksMeta(t *testing.T) {
 	subst := make(map[string]types.Type)
 	result := ch.matchTyPattern(pat, meta, subst)
 	// After zonking, meta resolves to Bool, which matches the pattern.
-	if result != matchSuccess {
-		t.Fatalf("expected matchSuccess after zonking, got %d", result)
+	if result != family.MatchSuccess {
+		t.Fatalf("expected family.MatchSuccess after zonking, got %d", result)
 	}
 }
 
@@ -806,7 +773,7 @@ func TestMatchTyPatternUnit_ZonksMetaToMismatch(t *testing.T) {
 	subst := make(map[string]types.Type)
 	result := ch.matchTyPattern(pat, meta, subst)
 	// After zonking, meta resolves to Int, which doesn't match Bool.
-	if result != matchFail {
-		t.Fatalf("expected matchFail after zonking to wrong type, got %d", result)
+	if result != family.MatchFail {
+		t.Fatalf("expected family.MatchFail after zonking to wrong type, got %d", result)
 	}
 }
