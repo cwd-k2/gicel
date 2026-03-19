@@ -51,7 +51,7 @@ type InstanceInfo struct {
 	TypeArgs     []types.Type     // concrete type arguments
 	Context      []ConstraintInfo // instance context constraints
 	Methods      map[string]syntax.Expr
-	DictBindName string // e.g. "Eq$Bool" or "Eq$Maybe"
+	DictBindName string // e.g. "Eq$Bool" or "Eq$(Maybe 'a)"
 	Module       string // source module that defined this instance
 	S            span.Span
 }

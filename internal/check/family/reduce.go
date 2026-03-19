@@ -269,61 +269,7 @@ func familyAppKey(name string, args []types.Type) string {
 	b.WriteString(name)
 	for _, a := range args {
 		b.WriteByte(' ')
-		writeTypeKey(&b, a)
+		types.WriteTypeKey(&b, a)
 	}
 	return b.String()
-}
-
-func writeTypeKey(b *strings.Builder, t types.Type) {
-	switch ty := t.(type) {
-	case *types.TyCon:
-		b.WriteString(ty.Name)
-	case *types.TyVar:
-		b.WriteByte('\'')
-		b.WriteString(ty.Name)
-	case *types.TyMeta:
-		fmt.Fprintf(b, "?%d", ty.ID)
-	case *types.TyApp:
-		b.WriteByte('(')
-		writeTypeKey(b, ty.Fun)
-		b.WriteByte(' ')
-		writeTypeKey(b, ty.Arg)
-		b.WriteByte(')')
-	case *types.TyArrow:
-		b.WriteByte('(')
-		writeTypeKey(b, ty.From)
-		b.WriteString("->")
-		writeTypeKey(b, ty.To)
-		b.WriteByte(')')
-	case *types.TyCBPV:
-		if ty.Tag == types.TagComp {
-			b.WriteString("{C ")
-		} else {
-			b.WriteString("{T ")
-		}
-		writeTypeKey(b, ty.Pre)
-		b.WriteByte(' ')
-		writeTypeKey(b, ty.Post)
-		b.WriteByte(' ')
-		writeTypeKey(b, ty.Result)
-		b.WriteByte('}')
-	case *types.TyForall:
-		b.WriteString("{V ")
-		b.WriteString(ty.Var)
-		b.WriteByte(' ')
-		writeTypeKey(b, ty.Body)
-		b.WriteByte('}')
-	case *types.TyFamilyApp:
-		b.WriteByte('[')
-		b.WriteString(ty.Name)
-		for _, a := range ty.Args {
-			b.WriteByte(' ')
-			writeTypeKey(b, a)
-		}
-		b.WriteByte(']')
-	case *types.TySkolem:
-		fmt.Fprintf(b, "#%d", ty.ID)
-	default:
-		fmt.Fprintf(b, "<%s>", types.Pretty(t))
-	}
 }

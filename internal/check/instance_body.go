@@ -105,70 +105,16 @@ func (ch *Checker) processInstanceBody(inst *InstanceInfo, prog *core.Program) {
 }
 
 // instanceDictName generates a dictionary binding name for an instance.
+// Uses types.TypeKey for collision-free structural encoding of type arguments.
 func (ch *Checker) instanceDictName(className string, typeArgs []types.Type) string {
 	if len(typeArgs) == 0 {
 		return className + "$"
 	}
 	var parts []string
 	for _, ta := range typeArgs {
-		parts = append(parts, typeNameForDict(ta))
+		parts = append(parts, types.TypeKey(ta))
 	}
 	return className + "$" + strings.Join(parts, "$")
-}
-
-// typeNameForDict recursively constructs a name component from a type,
-// including concrete type constructor arguments (e.g., Lift Maybe → "Lift$Maybe")
-// but omitting type variables (parametric instances share one dictionary function).
-func typeNameForDict(ty types.Type) string {
-	head, args := types.UnwindApp(ty)
-	var parts []string
-	switch h := head.(type) {
-	case *types.TyCon:
-		parts = append(parts, h.Name)
-	case *types.TyVar, *types.TySkolem, *types.TyMeta:
-		// Type variables are omitted from dict names.
-	case *types.TyEvidenceRow:
-		// Encode row structure into the name to distinguish e.g. {} from {_1, _2}.
-		parts = append(parts, evidenceRowName(h))
-	default:
-		parts = append(parts, "?")
-	}
-	for _, a := range args {
-		if sub := typeNameForDict(a); sub != "" {
-			parts = append(parts, sub)
-		}
-	}
-	if len(parts) == 0 {
-		return ""
-	}
-	return strings.Join(parts, "$")
-}
-
-// evidenceRowName produces a stable name component for an evidence row.
-// Empty row → "R0", row with labels → "R2$_1$_2", etc.
-func evidenceRowName(row *types.TyEvidenceRow) string {
-	switch entries := row.Entries.(type) {
-	case *types.CapabilityEntries:
-		if len(entries.Fields) == 0 {
-			return "R0"
-		}
-		parts := []string{fmt.Sprintf("R%d", len(entries.Fields))}
-		for _, f := range entries.Fields {
-			parts = append(parts, f.Label)
-		}
-		return strings.Join(parts, "$")
-	case *types.ConstraintEntries:
-		if len(entries.Entries) == 0 {
-			return "C0"
-		}
-		parts := []string{fmt.Sprintf("C%d", len(entries.Entries))}
-		for _, e := range entries.Entries {
-			parts = append(parts, e.ClassName)
-		}
-		return strings.Join(parts, "$")
-	default:
-		return "?"
-	}
 }
 
 // processAssocDataDef registers constructors for an associated data family definition

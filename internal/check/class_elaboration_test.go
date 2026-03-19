@@ -128,7 +128,7 @@ instance Eq a => Eq (Maybe a) { eq := \x y. True }`
 	prog := checkSource(t, source, nil)
 	found := false
 	for _, b := range prog.Bindings {
-		if b.Name == "Eq$Maybe" {
+		if b.Name == "Eq$(Maybe 'a)" {
 			found = true
 			// Should be a lambda (dict function) since it has context.
 			if _, ok := b.Expr.(*core.Lam); !ok {
@@ -137,6 +137,6 @@ instance Eq a => Eq (Maybe a) { eq := \x y. True }`
 		}
 	}
 	if !found {
-		t.Error("expected 'Eq$Maybe' dictionary function binding")
+		t.Error("expected 'Eq$(Maybe 'a)' dictionary function binding")
 	}
 }
