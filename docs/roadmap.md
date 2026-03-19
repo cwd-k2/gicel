@@ -6,47 +6,146 @@ Current state: **v0.12.** Session fidelity, multiplicity enforcement, checker/pa
 
 ## OutsideIn(X) Extension Path
 
-The checker architecture now supports incremental migration toward OutsideIn(X). Current state is **L2** (re-activation index + rework queue). See `memory/domain/outsidein_x.md` for the full design document.
+The checker architecture now supports incremental migration toward OutsideIn(X). Current state is **L3** (worklist + inert set). See `memory/domain/outsidein_x.md` for the full design document.
 
-| Level  | Status         | Description                                      |
-| ------ | -------------- | ------------------------------------------------ |
-| **L0** | done           | Ad-hoc family reduction in `normalize()`         |
-| **L1** | done (v0.10.1) | `stuckFamilyIndex` + meta-indexed re-activation  |
-| **L2** | done (v0.11)   | `ProcessRework` loop + `OnSolve` callback        |
-| **L3** | done (v0.12)   | Worklist + inert set, constraint AST             |
-| **L4** | open           | Touchability, implication constraints             |
+| Level  | Status         | Description                                     |
+| ------ | -------------- | ----------------------------------------------- |
+| **L0** | done           | Ad-hoc family reduction in `normalize()`        |
+| **L1** | done (v0.10.1) | `stuckFamilyIndex` + meta-indexed re-activation |
+| **L2** | done (v0.11)   | `ProcessRework` loop + `OnSolve` callback       |
+| **L3** | done (v0.12)   | Worklist + inert set, constraint AST            |
+| **L4** | open           | Touchability, implication constraints           |
 
-**What L4 would add**: touchability (meta level enforcement), implication constraints (local assumptions), GADT given simplification of stuck families.
+**What L4 would add**: touchability (meta level enforcement), implication constraints (local assumptions), GADT given simplification of stuck families. Also required for row-level type family stuck constraint management (see v0.14).
 
 ---
 
-## Planned Work
+## Release Plan
 
-### Solver Data Structure Optimization
+### v0.13 — Foundation Hardening
+
+既存の planned work を先行して安定化する。後続の型システム拡張の前提条件。
+
+#### Solver Data Structure Optimization
 
 The L3 worklist + inert set solver is architecturally correct but uses naive container implementations. Identified hotspots (`docs/reviews/2026-03-19-performance-rereview.md`):
 
-| Item | Issue | Fix | Priority |
-|------|-------|-----|----------|
-| `SortBindings` per execution | `evalBindingsCore` calls `core.SortBindings` every `RunWith`; Runtime is immutable | Precompute in `NewRuntime`, store sorted result | High |
-| `PushFront` full copy | `append(cts, w.items...)` copies entire worklist on every kickout | Head-index deque or ring buffer | Medium |
-| `removeClass`/`removeFunEq` linear scan | Linear search + slice splice on each KickOut | Pointer identity set or swap-remove | Medium |
-| `constraintKey` allocation | `strings.Builder` per constraint in hot path | Lazy key on CtClass, compute-once | Low |
-| `isAmbiguousInstance` repeated trial | No memoization for same (class, args) | Per-solve-pass cache | Low |
+| Item                                    | Issue                                                                              | Fix                                             | Priority |
+| --------------------------------------- | ---------------------------------------------------------------------------------- | ----------------------------------------------- | -------- |
+| `SortBindings` per execution            | `evalBindingsCore` calls `core.SortBindings` every `RunWith`; Runtime is immutable | Precompute in `NewRuntime`, store sorted result | High     |
+| `PushFront` full copy                   | `append(cts, w.items...)` copies entire worklist on every kickout                  | Head-index deque or ring buffer                 | Medium   |
+| `removeClass`/`removeFunEq` linear scan | Linear search + slice splice on each KickOut                                       | Pointer identity set or swap-remove             | Medium   |
+| `constraintKey` allocation              | `strings.Builder` per constraint in hot path                                       | Lazy key on CtClass, compute-once               | Low      |
+| `isAmbiguousInstance` repeated trial    | No memoization for same (class, args)                                              | Per-solve-pass cache                            | Low      |
 
-### Module Boundary Hardening
+**動機**: v0.14 で Merge 型族が stuck `CtFunEq` を大量に生む。solver の性能がボトルネックになる前に最適化する。
+
+#### Module Boundary Hardening
 
 Identified in `docs/reviews/2026-03-19-full-codebase-review.md`:
 
-| Item | Issue | Priority |
-|------|-------|----------|
-| Type-level import collision | `importOpen` writes Types/Classes/Aliases/Families without `checkAmbiguousName` | High |
-| Private export leak | `ExportModule` filters `_` prefix for Values only; types/classes/aliases leak | High |
-| Re-export model inconsistency | Values = local-only; types = accumulated (includes imports) | Medium |
+| Item                          | Issue                                                                           | Priority |
+| ----------------------------- | ------------------------------------------------------------------------------- | -------- |
+| Type-level import collision   | `importOpen` writes Types/Classes/Aliases/Families without `checkAmbiguousName` | High     |
+| Private export leak           | `ExportModule` filters `_` prefix for Values only; types/classes/aliases leak   | High     |
+| Re-export model inconsistency | Values = local-only; types = accumulated (includes imports)                     | Medium   |
 
-### Evidence Unification (Phase 5, deferred)
+#### Type Operators
 
-Multiplicity polymorphism (quantifying over `@Mult` annotations) requires evidence fiber crossing during unification. Deferred until a concrete use case triggers it.
+Infix aliases for types: `type (:>) a b := a b` enables `Send :> Recv :> End` instead of `Send (Recv End)`. Parser 変更のみ、型システムへの影響なし。
+
+Session type DSL と後続の SMC 型レベル行操作 (`pre₁ :><: pre₂`) の可読性向上が動機。
+
+---
+
+### v0.14 — Row-Level Type Families + OutsideIn(X) L4
+
+**二つの拡張を同時に進める。** Row-level type families は L4 の touchability/given simplification と共依存関係にある。
+
+#### OutsideIn(X) L4
+
+Touchability (meta level enforcement), implication constraints (local assumptions), GADT given simplification of stuck families.
+
+**SMC との接続**: Merge 型族が open row tail を含むと stuck `CtFunEq` が発生する。L4 の touchability は「この meta はどのスコープで解決可能か」を追跡し、不必要な re-activation を防ぐ。GADT パターンマッチで供給される given が stuck Merge を simplify する場面も L4 が必要。
+
+#### Row-Level Type Families (SMC Phase 1)
+
+型族パターンマッチに行構造を追加し、行の合併・分解を型レベルで公開する。
+
+```
+type Merge (r1: Row) (r2: Row) :: Row    -- 二つの非交和行を結合
+type Without (l: Type) (r: Row) :: Row   -- ラベル除去
+type Lookup (l: Type) (r: Row) :: Type   -- ラベル検索
+```
+
+`Merge` の簡約は既存の `classifyFields` (shared/onlyA/onlyB 分類) を型族として露出したもの。重複ラベルは型エラー。open row tail の場合は stuck (`CtFunEq` として worklist に入り、L4 の re-activation で解消)。
+
+**実装箇所**: `internal/check/family/reduce.go` の `MatchTyPattern()` に `TyEvidenceRow` パターンを追加。既存の行単一化アルゴリズムをそのまま利用。
+
+**解消される boundary**: "Row operations not exposed at type level" — `bind` のみ通り `><` が通らなかった根本原因が解消される。
+
+---
+
+### v0.15 — Parallel Composition + Dagger (SMC Phase 2-3)
+
+v0.14 の型レベル行操作の上に、Free SMC の残り二つの合成操作を構築する。
+
+#### Parallel Composition (SMC Phase 2)
+
+```
+infixr 3 ><
+(><) :: Computation pre₁ post₁ a -> Computation pre₂ post₂ b
+     -> Computation (Merge pre₁ pre₂) (Merge post₁ post₂) (a, b)
+```
+
+ホスト提供プリミティブ。実行時動作: 能力環境を分割し、両計算を独立実行し、結果環境を合成。型検査は `Merge` 型族で行の結合を検証。
+
+**実装箇所**: `PrimOp` 登録 + `Merge` 型族の組み込み簡約。型検査器の変更は v0.14 に含まれる。
+
+#### Dagger (SMC Phase 3)
+
+```
+type Gate pre post := Computation pre post ()
+dag :: Gate pre post -> Gate post pre
+```
+
+pre/post を交換する。対合律 `dag (dag f) = f` は構造的に成立 (二重交換)。反変則 `dag (f ; g) = dag g ; dag f` はホスト実装が保証。
+
+**実装箇所**: `PrimOp` 登録。型レベルでは pre/post の交換のみ — 型検査器への変更は不要 (関数の型が既に正しい)。
+
+#### Theoretical status after v0.15
+
+| 概念     | v0.12 (現在)                        | v0.15 (到達点)                             |
+| -------- | ----------------------------------- | ------------------------------------------ |
+| 基底構造 | Atkey indexed monad (Prof のモナド) | Free †-SMC                                 |
+| 逐次合成 | `bind` (do ブロック)                | `;` — 不変                                 |
+| 並列合成 | なし                                | `><` (Merge 型族)                          |
+| 反転     | なし                                | `dag` (pre/post 交換)                      |
+| ワイヤ束 | 行型 (Row)                          | 行型 — 不変                                |
+| 射型     | `Computation pre post a`            | 同左 (= `pre ⊸ {_r: Cl a \| post}` の糖衣) |
+
+**構文の変更はゼロ。** `do` ブロック = 逐次、ユーザ定義演算子 `><` = 並列、関数 `dag` = 反転。パーサ変更不要。意味論の拡張のみ。
+
+---
+
+### v0.16 — Multiplicity Generalization (SMC Phase 4 + Evidence Phase 5)
+
+既存の Evidence Phase 5 (multiplicity polymorphism) と SMC Phase 4 (semiring generalization) を統合する。**実質的に同一の作業。**
+
+`@Linear`/`@Affine`/`@Unrestricted` のハードコード (`elaborate_do_mult.go` の `multLimit`) を型クラスベースの半環に一般化:
+
+```
+class UsageSemiring (s: Type) {
+  zero :: s; one :: s; plus :: s -> s -> s; mult :: s -> s -> s
+}
+```
+
+既存の `{0, 1, ω}` 半環はデフォルトインスタンスとして保存。量子リソース追跡 (確率半環) や量的型理論 (QTT) 接続が可能になる。
+
+**解消される boundaries**:
+
+- "Double grading" — 半環の形式化により State × Usage の積圏構造が明示化。Triple grading (State × Usage × Probability) への拡張経路が開く。
+- "Evidence fiber crossing" — `@Mult` が型レベルパラメータになることで fiber 間の相互作用が形式的に扱われる。
 
 ---
 
@@ -56,6 +155,15 @@ Multiplicity polymorphism (quantifying over `@Mult` annotations) requires eviden
 | ------------------------------------------- | ----------------------------------------------- | --------------------------------------------------------- |
 | `Row` as built-in kind vs structured-index  | Built-in kind; DataKinds reduces pressure       | Need for non-capability indexing                          |
 | Algebraic effects/handlers vs indexed monad | Indexed monad (Atkey); type families compensate | Evidence that handlers better serve the AI agent use case |
+| Tensor product kind (`QType`)               | Not present; rows cover all current use cases   | Quantum entanglement or other non-separable state         |
+
+### Tensor product kind
+
+v0.15 は行の合併 (可分結合) を提供するが、量子もつれ (不可分結合) には真のテンソル積 `A ⊗ B` が必要。これは `QType` カインドの導入を意味し、行型との共存設計が分岐点になる。v0.14-15 は行型のみで完結し、テンソル積カインドの導入判断を遅延できる。
+
+行型ラベルはアドレス可能 (射影可能) だが、テンソル積は不可分 (射影不可能)。古典的能力管理には行型、量子もつれにはテンソル積、という使い分けが自然。両者はカインドレベルで分離される。
+
+理論的背景: `memory/domain/` の 6 文書 (categorical_quantum_mechanics, quantum_pl_type_systems, tensor_products_type_theory, qtt_quantum_resources, polynomial_functors, optics_quantum) を参照。
 
 ---
 
@@ -117,7 +225,7 @@ The exhaustiveness checker's witness formatting (`exhaust/matrix.go`) uses best-
 
 ## Known Theoretical Boundaries
 
-These are not bugs or missing features. They are consequences of GICEL's design coordinate (Atkey indexed monad × row polymorphism × CBPV × Go embedding) that existing literature does not address. Each is currently handled by a practical workaround; the notes below record when the workaround would break.
+These are not bugs or missing features. They are consequences of GICEL's design coordinate (Atkey indexed monad × row polymorphism × CBPV × Go embedding) that existing literature does not address. Each is currently handled by a practical workaround; the notes below record when the workaround would break and which release addresses it.
 
 ### Double grading
 
@@ -125,13 +233,23 @@ These are not bugs or missing features. They are consequences of GICEL's design 
 
 **Current state**: multiplicity enforcement counts same-type preservations at bind sites. Row unification uses LUB for heterogeneous joins.
 **Triggers**: multiplicity _polymorphism_ (quantifying over `@Mult`). At that point, row unification must solve state-transition and usage constraints simultaneously — a problem not covered by existing graded monad literature (Orchard, Petricek et al.), which treats grading on a single axis.
+**Addressed by**: v0.16 (semiring generalization formalizes the product category State × Usage).
 
 ### Type family / row unification scheduling
 
 Type families can return `Row` values used in `Computation pre post a` indices. This creates a dependency: row unification needs the reduced result, but reduction may need unification to resolve meta-variables first.
 
 **Current state**: L2 re-activation index handles this — stuck families are re-reduced when blocking metas are solved, with cascading support via `ProcessRework`.
-**Triggers**: programs requiring L3+ (GADT givens simplifying stuck families). No reports to date.
+**Triggers**: programs requiring L4+ (GADT givens simplifying stuck families, touchability for Merge on open rows). Merge type family (v0.14) will generate stuck `CtFunEq` constraints requiring L4 infrastructure.
+**Addressed by**: v0.14 (L4 touchability + row-level type families, co-developed).
+
+### Row operations not exposed at type level
+
+Row merging, splitting, and label lookup are internal to the unifier (`unifyEvCapRows`) but not available as type-level expressions. This blocks parallel composition (`><`) — its type requires `Merge r1 r2`, which is a type-level _construction_, not unification. Sequential composition (`bind`) succeeds because it only requires _unification_ of shared indices (post₁ = pre₂).
+
+**Current state**: row operations are unifier-internal. Type families cannot pattern-match on row structure.
+**Triggers**: parallel composition, dagger, any combinator whose type requires row-level computation (not just row-level unification).
+**Addressed by**: v0.14 (row-level type families expose Merge/Without/Lookup).
 
 ### Evidence fiber crossing
 
@@ -139,17 +257,14 @@ The evidence system separates fibers (`Type`, `Constraint`, `Row`). Type familie
 
 **Current state**: the single-pass reduce → unify pipeline handles current cases because family results are fully reduced before entering unification.
 **Triggers**: a family whose result is another family application in a different fiber (e.g., a `Row → Constraint` family whose result enters evidence resolution). Would require interleaved reduction across fibers.
+**Addressed by**: v0.16 (multiplicity generalization requires @Mult to cross the Type/Row fiber boundary).
 
 ---
 
-## Potential Extensions (assessed, not planned)
+## Far Future (assessed, not planned)
 
-| Extension        | Classification   | Prerequisite        |
-| ---------------- | ---------------- | ------------------- |
-| Type operators   | Syntax           | Parser (~140 lines) |
-| Refinement Types | Phase transition | Separate analysis   |
-| Dependent Types  | Full restructure | Far future          |
-
-### Type operators
-
-Infix aliases for types: `type (:>) a b := a b` enables `Send :> Recv :> End` instead of `Send (Recv End)`. Haskell `TypeOperators` の最小サブセット（型別名のみ）。Parser 変更のみ、型システムへの影響なし。Session type DSL の可読性向上が主な動機。
+| Extension                     | Classification   | Prerequisite             |
+| ----------------------------- | ---------------- | ------------------------ |
+| Tensor product kind (`QType`) | Type system      | v0.15 + quantum use case |
+| Refinement types              | Phase transition | Separate analysis        |
+| Dependent types               | Full restructure | Far future               |
