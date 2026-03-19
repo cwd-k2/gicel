@@ -1,0 +1,330 @@
+package check
+
+import (
+	"fmt"
+	"strings"
+
+	"github.com/cwd-k2/gicel/internal/core"
+	"github.com/cwd-k2/gicel/internal/errs"
+	"github.com/cwd-k2/gicel/internal/span"
+	"github.com/cwd-k2/gicel/internal/syntax"
+	"github.com/cwd-k2/gicel/internal/types"
+)
+
+// processInstanceBody type-checks instance method implementations and generates the dictionary binding.
+func (ch *Checker) processInstanceBody(inst *InstanceInfo, prog *core.Program) {
+	classInfo := ch.reg.classes[inst.ClassName]
+
+	// Build substitution: class type params -> instance type args.
+	subst := make(map[string]types.Type)
+	for i, p := range classInfo.TyParams {
+		if i < len(inst.TypeArgs) {
+			subst[p] = inst.TypeArgs[i]
+		}
+	}
+
+	// Push instance context dict params into scope BEFORE checking methods.
+	type ctxParam struct {
+		name string
+		ty   types.Type
+	}
+	var ctxParams []ctxParam
+	for _, ctx := range inst.Context {
+		paramName := fmt.Sprintf("%s_%s_%d", prefixDict, ctx.ClassName, ch.fresh())
+		paramTy := ch.buildDictType(ctx.ClassName, ctx.Args)
+		ctxParams = append(ctxParams, ctxParam{name: paramName, ty: paramTy})
+		ch.ctx.Push(&CtxVar{Name: paramName, Type: paramTy})
+	}
+
+	// Build the dictionary constructor arguments.
+	var dictArgs []core.Core
+	var dictArgTypes []types.Type
+
+	// Superclass dictionaries.
+	for _, sup := range classInfo.Supers {
+		superArgs := make([]types.Type, len(sup.Args))
+		for j, a := range sup.Args {
+			superArgs[j] = types.SubstMany(a, subst)
+		}
+		superDictExpr := ch.resolveInstance(sup.ClassName, superArgs, inst.S)
+		dictArgs = append(dictArgs, superDictExpr)
+		dictArgTypes = append(dictArgTypes, ch.buildDictType(sup.ClassName, superArgs))
+	}
+
+	// Method implementations.
+	for _, m := range classInfo.Methods {
+		methExpr, ok := inst.Methods[m.Name]
+		if !ok {
+			continue
+		}
+		expectedTy := types.SubstMany(m.Type, subst)
+		methCore := ch.check(methExpr, expectedTy)
+		methCore = ch.resolveDeferredConstraints(methCore)
+		dictArgs = append(dictArgs, methCore)
+		dictArgTypes = append(dictArgTypes, expectedTy)
+	}
+
+	// Pop context dict params.
+	for range inst.Context {
+		ch.ctx.Pop()
+	}
+
+	// Build the dictionary value: DictCon @types... arg1 arg2 ...
+	// The dict constructor comes from the module that defined the class.
+	dictConMod := ch.reg.conModules[classInfo.DictName]
+	var dictExpr core.Core = &core.Con{Name: classInfo.DictName, Module: dictConMod, S: inst.S}
+	for _, ta := range inst.TypeArgs {
+		dictExpr = &core.TyApp{Expr: dictExpr, TyArg: ta, S: inst.S}
+	}
+	for _, arg := range dictArgs {
+		dictExpr = &core.App{Fun: dictExpr, Arg: arg, S: inst.S}
+	}
+
+	// Build dictionary type: DictTy TypeArg1 TypeArg2 ...
+	dictTy := ch.buildDictType(inst.ClassName, inst.TypeArgs)
+
+	// If instance has context, wrap in lambda(s) for each context constraint.
+	if len(inst.Context) > 0 {
+		for i := len(ctxParams) - 1; i >= 0; i-- {
+			dictExpr = &core.Lam{
+				Param: ctxParams[i].name, ParamType: ctxParams[i].ty,
+				Body: dictExpr, S: inst.S,
+			}
+			dictTy = types.MkArrow(ctxParams[i].ty, dictTy)
+		}
+	}
+
+	// Register binding.
+	ch.ctx.Push(&CtxVar{Name: inst.DictBindName, Type: dictTy, Module: ch.scope.currentModule})
+	prog.Bindings = append(prog.Bindings, core.Binding{
+		Name: inst.DictBindName,
+		Type: dictTy,
+		Expr: dictExpr,
+		S:    inst.S,
+	})
+}
+
+// instanceDictName generates a dictionary binding name for an instance.
+func (ch *Checker) instanceDictName(className string, typeArgs []types.Type) string {
+	if len(typeArgs) == 0 {
+		return className + "$"
+	}
+	var parts []string
+	for _, ta := range typeArgs {
+		parts = append(parts, typeNameForDict(ta))
+	}
+	return className + "$" + strings.Join(parts, "$")
+}
+
+// typeNameForDict recursively constructs a name component from a type,
+// including concrete type constructor arguments (e.g., Lift Maybe → "Lift$Maybe")
+// but omitting type variables (parametric instances share one dictionary function).
+func typeNameForDict(ty types.Type) string {
+	head, args := types.UnwindApp(ty)
+	var parts []string
+	switch h := head.(type) {
+	case *types.TyCon:
+		parts = append(parts, h.Name)
+	case *types.TyVar, *types.TySkolem, *types.TyMeta:
+		// Type variables are omitted from dict names.
+	case *types.TyEvidenceRow:
+		// Encode row structure into the name to distinguish e.g. {} from {_1, _2}.
+		parts = append(parts, evidenceRowName(h))
+	default:
+		parts = append(parts, "?")
+	}
+	for _, a := range args {
+		if sub := typeNameForDict(a); sub != "" {
+			parts = append(parts, sub)
+		}
+	}
+	if len(parts) == 0 {
+		return ""
+	}
+	return strings.Join(parts, "$")
+}
+
+// evidenceRowName produces a stable name component for an evidence row.
+// Empty row → "R0", row with labels → "R2$_1$_2", etc.
+func evidenceRowName(row *types.TyEvidenceRow) string {
+	switch entries := row.Entries.(type) {
+	case *types.CapabilityEntries:
+		if len(entries.Fields) == 0 {
+			return "R0"
+		}
+		parts := []string{fmt.Sprintf("R%d", len(entries.Fields))}
+		for _, f := range entries.Fields {
+			parts = append(parts, f.Label)
+		}
+		return strings.Join(parts, "$")
+	case *types.ConstraintEntries:
+		if len(entries.Entries) == 0 {
+			return "C0"
+		}
+		parts := []string{fmt.Sprintf("C%d", len(entries.Entries))}
+		for _, e := range entries.Entries {
+			parts = append(parts, e.ClassName)
+		}
+		return strings.Join(parts, "$")
+	default:
+		return "?"
+	}
+}
+
+// processAssocDataDef registers constructors for an associated data family definition
+// and creates the type family equation mapping the family to its mangled data type.
+func (ch *Checker) processAssocDataDef(add syntax.AssocDataDef, className string, instSpan span.Span) {
+	fam, ok := ch.reg.families[add.Name]
+	if !ok {
+		ch.addCodedError(errs.ErrBadInstance, instSpan,
+			fmt.Sprintf("instance %s: associated data %s not declared in class %s",
+				className, add.Name, className))
+		return
+	}
+	if !fam.IsAssoc || fam.ClassName != className {
+		ch.addCodedError(errs.ErrBadInstance, instSpan,
+			fmt.Sprintf("instance %s: %s is not an associated data of class %s",
+				className, add.Name, className))
+		return
+	}
+	if len(add.Patterns) != len(fam.Params) {
+		ch.addCodedError(errs.ErrTypeFamilyEquation, add.S,
+			fmt.Sprintf("associated data %s expects %d argument(s), got %d",
+				add.Name, len(fam.Params), len(add.Patterns)))
+		return
+	}
+
+	// Resolve patterns.
+	resolvedPats := make([]types.Type, len(add.Patterns))
+	for i, pat := range add.Patterns {
+		resolvedPats[i] = ch.resolveTypeExpr(pat)
+	}
+
+	// Build the mangled data type name: FamilyName$Pattern1$Pattern2
+	mangledName := ch.mangledDataFamilyName(add.Name, resolvedPats)
+
+	// Register the mangled data type as a type constructor.
+	ch.config.RegisteredTypes[mangledName] = types.KType{}
+
+	// Build result type for the mangled data type.
+	var mangledResultType types.Type = &types.TyCon{Name: mangledName, S: add.S}
+
+	// Collect free vars from patterns (they become type params of the mangled data type).
+	patVars := collectPatternVars(resolvedPats)
+
+	// For each pattern var, wrap the mangled result type with a type application.
+	for _, pv := range patVars {
+		mangledResultType = &types.TyApp{
+			Fun: mangledResultType,
+			Arg: &types.TyVar{Name: pv, S: add.S},
+			S:   add.S,
+		}
+		// Update the registered kind to accept this parameter.
+		existingKind := ch.config.RegisteredTypes[mangledName]
+		ch.config.RegisteredTypes[mangledName] = &types.KArrow{From: types.KType{}, To: existingKind}
+	}
+
+	dataInfo := &DataTypeInfo{Name: mangledName}
+	ch.reg.dataTypeByName[mangledName] = dataInfo
+
+	// Register each constructor.
+	for _, con := range add.Cons {
+		var conType types.Type = mangledResultType
+		var fieldTypes []types.Type
+		for i := len(con.Fields) - 1; i >= 0; i-- {
+			fieldTy := ch.resolveTypeExpr(con.Fields[i])
+			fieldTypes = append([]types.Type{fieldTy}, fieldTypes...)
+			conType = types.MkArrow(fieldTy, conType)
+		}
+		// Wrap in forall for pattern vars.
+		for i := len(patVars) - 1; i >= 0; i-- {
+			conType = types.MkForall(patVars[i], types.KType{}, conType)
+		}
+		// Guard against constructor name collision with existing constructors.
+		if existing, dup := ch.reg.conTypes[con.Name]; dup {
+			ch.addCodedError(errs.ErrDuplicateDecl, con.S,
+				fmt.Sprintf("data family instance %s: constructor %s conflicts with existing constructor (type: %s)",
+					add.Name, con.Name, types.Pretty(existing)))
+			continue
+		}
+		ch.reg.conTypes[con.Name] = conType
+		ch.ctx.Push(&CtxVar{Name: con.Name, Type: conType, Module: ch.scope.currentModule})
+		ch.reg.conModules[con.Name] = ch.scope.currentModule
+		dataInfo.Constructors = append(dataInfo.Constructors, ConstructorInfo{Name: con.Name, Arity: len(fieldTypes)})
+		ch.reg.conInfo[con.Name] = dataInfo
+	}
+
+	// Add type family equation: Family patterns =: MangledType patVars
+	fam.Equations = append(fam.Equations, tfEquation{
+		Patterns: resolvedPats,
+		RHS:      mangledResultType,
+		S:        add.S,
+	})
+}
+
+// autoLiftTypeArgs applies automatic Lift wrapping to type arguments whose kinds
+// don't match the expected class parameter kinds.
+// e.g. instance IxMonad Maybe → instance IxMonad (Lift Maybe)
+func (ch *Checker) autoLiftTypeArgs(typeArgs []types.Type, paramKinds []types.Kind) {
+	for i := 0; i < len(typeArgs) && i < len(paramKinds); i++ {
+		argKind := ch.kindOfType(typeArgs[i])
+		paramKind := paramKinds[i]
+		if argKind == nil {
+			continue
+		}
+		if ch.withTrial(func() bool {
+			return ch.unifier.UnifyKinds(argKind, paramKind) == nil
+		}) {
+			continue
+		}
+		liftKind := ch.kindOfType(&types.TyCon{Name: "Lift"})
+		if liftKind != nil {
+			if ka, ok := liftKind.(*types.KArrow); ok && ka.From.Equal(argKind) {
+				lifted := &types.TyApp{Fun: &types.TyCon{Name: "Lift"}, Arg: typeArgs[i]}
+				liftedKind := ka.To
+				if ch.withTrial(func() bool {
+					return ch.unifier.UnifyKinds(liftedKind, paramKind) == nil
+				}) {
+					typeArgs[i] = lifted
+				}
+			}
+		}
+	}
+}
+
+// validateInstanceMethods checks that the instance defines exactly the methods
+// declared in the class (no missing, no extra). Returns true if valid.
+func (ch *Checker) validateInstanceMethods(
+	className string,
+	classInfo *ClassInfo,
+	declMethods []syntax.InstMethod,
+	methodExprs map[string]syntax.Expr,
+	s span.Span,
+) bool {
+	hasMissing := false
+	for _, m := range classInfo.Methods {
+		if _, ok := methodExprs[m.Name]; !ok {
+			ch.addCodedError(errs.ErrMissingMethod, s,
+				fmt.Sprintf("instance %s: missing method %s", className, m.Name))
+			hasMissing = true
+		}
+	}
+	if hasMissing {
+		return false
+	}
+
+	classMethodSet := make(map[string]bool, len(classInfo.Methods))
+	for _, m := range classInfo.Methods {
+		classMethodSet[m.Name] = true
+	}
+	hasExtra := false
+	for _, m := range declMethods {
+		if !classMethodSet[m.Name] {
+			ch.addCodedError(errs.ErrBadInstance, s,
+				fmt.Sprintf("instance %s: extra method %s not declared in class",
+					className, m.Name))
+			hasExtra = true
+		}
+	}
+	return !hasExtra
+}
