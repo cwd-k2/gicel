@@ -82,7 +82,7 @@ Structural refactoring for next-version extensibility:
 - **Functional dependencies** on multi-parameter type classes (`| a =: b`)
 - **Divergent post-states** — case branches may consume different capabilities; post-states are joined by intersection
 - **Data families** — associated data type instances with automatic constructor mangling
-- **Multiplicity annotations** — `@Mult` syntax on row types (structural foundation; enforcement not yet active)
+- **Multiplicity annotations** — `@Mult` syntax on row types (structural foundation; enforcement added in v0.11.0)
 - **Constraint tuple syntax** — `(Eq a, Ord a) => T` in class/instance declarations and type annotations
 - **Literal patterns** — Int, String, Rune, Double in case expressions
 - **Explicit type application** — `f @Int` syntax

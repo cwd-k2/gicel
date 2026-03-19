@@ -753,8 +753,8 @@ func BenchmarkStressCompile(b *testing.B) {
 	for _, sp := range stressPrograms {
 		b.Run(sp.name, func(b *testing.B) {
 			source := loadStressProgram(b, sp.file)
-			// Build a template engine to capture setup cost outside the loop.
-			// Each iteration clones the setup to measure only compilation.
+			// Build a template engine to verify compilability before benchmarking.
+			// Each iteration creates a fresh engine to measure full compilation cost.
 			tmpl := gicel.NewEngine()
 			tmpl.Use(gicel.Prelude)
 			sp.setup(tmpl)

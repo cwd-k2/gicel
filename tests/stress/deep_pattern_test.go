@@ -552,16 +552,12 @@ main := toBool (BoolTok True)
 // ---------------------------------------------------------------------------
 
 func TestLetRecFix(t *testing.T) {
-	// FALSE_POSITIVE: A polymorphic annotation `List a -> Int` does not unify
-	// with a concrete application `List Bool -> Int`. The checker treats `a` in
-	// the annotation as rigid (skolem) rather than instantiating it.
-	//
-	// Workaround: omit the type annotation and let the checker infer.
+	// Both inferred and annotated polymorphic recursion work correctly.
 	eng := gicel.NewEngine()
 	eng.EnableRecursion()
 	eng.Use(gicel.Prelude)
 
-	// First, demonstrate the workaround works (no annotation):
+	// Inferred version (no annotation):
 	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 
@@ -570,7 +566,7 @@ myLength := fix (\self xs. case xs { Nil -> 0; Cons _ rest -> 1 + self rest })
 main := myLength (Cons True (Cons False (Cons True Nil)))
 `)
 	if err != nil {
-		t.Fatal("workaround (no annotation) should succeed:", err)
+		t.Fatal("inferred version should succeed:", err)
 	}
 	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
@@ -581,7 +577,7 @@ main := myLength (Cons True (Cons False (Cons True Nil)))
 		t.Errorf("expected 3, got %d", hv)
 	}
 
-	// Annotation version with implicit \:
+	// Annotated version with implicit forall:
 	eng2 := gicel.NewEngine()
 	eng2.EnableRecursion()
 	eng2.Use(gicel.Prelude)
@@ -594,7 +590,7 @@ myLength := fix (\self xs. case xs { Nil -> 0; Cons _ rest -> 1 + self rest })
 main := myLength (Cons True (Cons False (Cons True Nil)))
 `)
 	if err != nil {
-		t.Fatal("polymorphic annotation should work with implicit \\:", err)
+		t.Fatal("annotated version should work:", err)
 	}
 	result2, err := rt2.RunWith(context.Background(), nil)
 	if err != nil {
@@ -753,18 +749,18 @@ main := t.#_1 + t.#_2 + t.#_3
 
 func TestTuplePatternMatch(t *testing.T) {
 	// Tuple patterns in lambda position are desugared to case expressions
-	// via isStructuredPattern. Previously DESIGN_GAP — fixed in 3782967.
+	// via isStructuredPattern. Both case and direct lambda forms work.
 	eng := gicel.NewEngine()
 	eng.Use(gicel.Prelude)
 
-	// Demonstrate the workaround using case:
+	// Case destructure form:
 	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 myFst := \p. case p { (a, b) -> a }
 main := myFst (True, False)
 `)
 	if err != nil {
-		t.Fatal("workaround (case destructure) should succeed:", err)
+		t.Fatal("case destructure should succeed:", err)
 	}
 	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
@@ -772,7 +768,7 @@ main := myFst (True, False)
 	}
 	assertCon(t, result.Value, "True")
 
-	// Direct lambda pattern version:
+	// Direct lambda pattern form:
 	eng2 := gicel.NewEngine()
 	eng2.Use(gicel.Prelude)
 	rt2, err := eng2.NewRuntime(context.Background(), `
@@ -931,18 +927,18 @@ main := case id True { True -> id (); False -> id () }
 
 func TestFP_LambdaWithRecordPattern(t *testing.T) {
 	// Record patterns in lambda position are desugared to case expressions.
-	// Previously DESIGN_GAP — fixed in 3782967.
+	// Both case and direct lambda forms work.
 	eng := gicel.NewEngine()
 	eng.Use(gicel.Prelude)
 
-	// Workaround using case:
+	// Case destructure form:
 	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 getX := \r. case r { { x: v } -> v }
 main := getX { x: True }
 `)
 	if err != nil {
-		t.Fatal("workaround (case destructure) should succeed:", err)
+		t.Fatal("case destructure should succeed:", err)
 	}
 	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
@@ -950,7 +946,7 @@ main := getX { x: True }
 	}
 	assertCon(t, result.Value, "True")
 
-	// Direct lambda pattern version:
+	// Direct lambda pattern form:
 	eng2 := gicel.NewEngine()
 	eng2.Use(gicel.Prelude)
 	rt2, err := eng2.NewRuntime(context.Background(), `
@@ -990,18 +986,18 @@ main := isRed Blue
 
 func TestFP_NestedTuplePattern(t *testing.T) {
 	// Nested tuple patterns in lambda position are desugared to case expressions.
-	// Previously DESIGN_GAP — fixed in 3782967.
+	// Both case and direct lambda forms work.
 	eng := gicel.NewEngine()
 	eng.Use(gicel.Prelude)
 
-	// Workaround using case:
+	// Case destructure form:
 	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 f := \p. case p { (a, inner) -> case inner { (b, c) -> b } }
 main := f (True, (False, True))
 `)
 	if err != nil {
-		t.Fatal("workaround (nested case destructure) should succeed:", err)
+		t.Fatal("case destructure should succeed:", err)
 	}
 	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
@@ -1009,7 +1005,7 @@ main := f (True, (False, True))
 	}
 	assertCon(t, result.Value, "False")
 
-	// Direct nested tuple pattern version:
+	// Direct nested tuple pattern form:
 	eng2 := gicel.NewEngine()
 	eng2.Use(gicel.Prelude)
 	rt2, err := eng2.NewRuntime(context.Background(), `
