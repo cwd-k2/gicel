@@ -6,6 +6,20 @@ import (
 	"github.com/cwd-k2/gicel/internal/core"
 )
 
+// peelTyLam strips type abstractions from a Core node.
+// LetRec bindings produced by polymorphic fix desugaring wrap the Lam
+// in one or more TyLam layers; since types are erased at runtime,
+// we simply unwrap to reach the underlying Lam.
+func peelTyLam(c core.Core) core.Core {
+	for {
+		if tl, ok := c.(*core.TyLam); ok {
+			c = tl.Body
+			continue
+		}
+		return c
+	}
+}
+
 // isFixpointBody detects the fix/rec pattern in a LetRec binding:
 //
 //	name = \arg. (f name) arg
@@ -13,7 +27,7 @@ import (
 // Returns the inner application (f name) so it can be evaluated once
 // and inlined into the closure, avoiding redundant re-evaluation.
 func isFixpointBody(b core.Binding) (inner core.Core, ok bool) {
-	lam, isLam := b.Expr.(*core.Lam)
+	lam, isLam := peelTyLam(b.Expr).(*core.Lam)
 	if !isLam {
 		return nil, false
 	}
@@ -44,7 +58,7 @@ func letRecGroupFV(e *core.LetRec) []string {
 	var hasAnnotation bool
 	fvSet := make(map[string]struct{})
 	for _, b := range e.Bindings {
-		if lam, ok := b.Expr.(*core.Lam); ok && lam.FV != nil {
+		if lam, ok := peelTyLam(b.Expr).(*core.Lam); ok && lam.FV != nil {
 			hasAnnotation = true
 			for _, v := range lam.FV {
 				fvSet[v] = struct{}{}
@@ -75,7 +89,7 @@ func (ev *Evaluator) evalLetRec(env *Env, capEnv CapEnv, e *core.LetRec) (EvalRe
 	bodyEnv := env
 	closures := make([]*Closure, len(e.Bindings))
 	for i, b := range e.Bindings {
-		lam, ok := b.Expr.(*core.Lam)
+		lam, ok := peelTyLam(b.Expr).(*core.Lam)
 		if !ok {
 			return EvalResult{}, &RuntimeError{
 				Message: fmt.Sprintf("letrec binding %s is not a lambda", b.Name),

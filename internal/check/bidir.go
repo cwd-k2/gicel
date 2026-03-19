@@ -228,6 +228,18 @@ func (ch *Checker) check(expr syntax.Expr, expected types.Type) core.Core {
 
 	expected = ch.unifier.Zonk(expected)
 
+	// Polymorphic fix/rec: intercept before forall peeling so self
+	// gets the full expected type, enabling polymorphic recursion.
+	if app, ok := expr.(*syntax.ExprApp); ok {
+		if v, ok := app.Fun.(*syntax.ExprVar); ok && (v.Name == "fix" || v.Name == "rec") {
+			if ch.config.GatedBuiltins != nil && ch.config.GatedBuiltins[v.Name] {
+				if lam := unwrapLam(app.Arg); lam != nil {
+					return ch.checkFix(app, lam, expected)
+				}
+			}
+		}
+	}
+
 	// If the expected type is a forall, introduce a TyLam and check the body
 	// against the quantified type. This implements the spec rule:
 	//   ⟦ e : \ a:K. T ⟧ = TyLam(a, K, ⟦e: T⟧)
