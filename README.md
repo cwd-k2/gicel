@@ -124,7 +124,7 @@ func main() {
     eng.Use(gicel.Prelude)      // grant Prelude (Num, Str, List)
     eng.Use(gicel.EffectState)  // grant Effect.State
 
-    rt, err := eng.NewRuntime(`
+    rt, err := eng.NewRuntime(context.Background(), `
         import Prelude
         import Effect.State
 

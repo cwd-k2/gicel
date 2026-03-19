@@ -329,14 +329,17 @@ func (cr *CompileResult) CoreProgram() *CoreProgram {
 	return &CoreProgram{prog: cr.prog}
 }
 
-// Parse lexes and parses source code, checking for syntax errors.
+// Parse lexes and parses source code, checking for syntax errors only.
+// Does not type-check or optimize. Use Compile for static analysis
+// or NewRuntime for execution.
 func (e *Engine) Parse(source string) error {
 	_, _, err := e.parseSource(source)
 	return err
 }
 
-// Compile compiles and type-checks source code, returning all static information.
-// Pass context.Background() when cancellation is not needed.
+// Compile type-checks source code, returning exports and Core IR for
+// static inspection. Unlike NewRuntime, it does not optimize or assemble
+// a runtime. Pass context.Background() when cancellation is not needed.
 func (e *Engine) Compile(ctx context.Context, source string) (*CompileResult, error) {
 	ast, src, err := e.parseSource(source)
 	if err != nil {

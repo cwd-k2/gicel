@@ -169,7 +169,7 @@ const (
 func (ch *Checker) extractIxMethod(monadHead types.Type, methodIdx int, s span.Span) core.Core {
 	classInfo := ch.reg.classes["IxMonad"]
 	if classInfo == nil {
-		ch.errors.Add(&errs.Error{Code: errs.ErrNoInstance, Span: s, Message: "IxMonad class not available (missing Prelude?)"})
+		ch.addCodedError(errs.ErrNoInstance, s, "IxMonad class not available (missing Prelude?)")
 		return &core.Var{Name: "<error>", S: s}
 	}
 	liftedMonad := &types.TyApp{Fun: &types.TyCon{Name: "Lift"}, Arg: monadHead}

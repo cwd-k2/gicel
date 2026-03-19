@@ -107,7 +107,11 @@ eng.DeclareBinding("myInput", gicel.ConType("Int"))
 | `gicel.TupleType(elems ...Type)`                       | Tuple record type             |
 | `gicel.KindType()`, `KindRow()`, `KindArrow(from, to)` | Kind constructors             |
 
-**RowBuilder:** `gicel.NewRow().And("state", gicel.ConType("Int")).Closed()` or `.Open("r")`
+**Preferred usage:**
+
+- `RecordType(fields...)` for closed record types (most common)
+- `NewRow().And(...).Closed()` / `.Open("r")` for incremental or open-row construction
+- `EmptyRowType()` and `ClosedRowType(fields...)` are lower-level row helpers — prefer `RecordType` when constructing record types
 
 ### Engine Configuration
 
