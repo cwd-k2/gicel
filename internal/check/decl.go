@@ -226,6 +226,16 @@ func (ch *Checker) processValueDef(d *syntax.DeclValueDef, annotations map[strin
 		ty, coreExpr = ch.generalizeConstrained(ty, coreExpr, unresolvedConstraints)
 	}
 
+	// Reject bare Computation types in non-entry top-level bindings.
+	// In CBPV, top-level bindings should be values; computations must be
+	// wrapped with 'thunk' to suspend them.
+	if ch.config.EntryPoint != "" && d.Name != ch.config.EntryPoint && isBareComputationType(ty) {
+		ch.addCodedError(errs.ErrEffectfulBinding, d.S,
+			fmt.Sprintf("top-level binding %s has bare Computation type; "+
+				"wrap with 'thunk' to suspend, or make it a function parameter",
+				d.Name))
+	}
+
 	ch.ctx.Push(&CtxVar{Name: d.Name, Type: ty, Module: ch.scope.currentModule})
 	prog.Bindings = append(prog.Bindings, core.Binding{
 		Name: d.Name,

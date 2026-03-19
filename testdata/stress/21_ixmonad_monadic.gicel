@@ -129,19 +129,7 @@ listFoldrTest := foldr (\x _. x) False (Cons True (Cons False Nil))
 -- Cross-monad patterns
 -- ======================================================================
 
--- 17. Maybe value used in Computation do
-maybeInComp :: Computation {} {} Bool
-maybeInComp := do {
-  v <- pure (Just True);
-  pure (case v { Just x -> x; Nothing -> False })
-}
-
--- 18. List value used in Computation do
-listInComp :: Computation {} {} Bool
-listInComp := do {
-  v <- pure (Cons True (Cons False Nil));
-  pure (foldr (\x _. x) False v)
-}
+-- 17-18. (removed: bare Computation bindings inlined into main)
 
 -- ======================================================================
 -- Type class hierarchy with IxMonad
@@ -225,12 +213,7 @@ semigroupInFmap := fmap (\x. append x EQ) (Just LT)
 -- ======================================================================
 
 -- 33. ixpure via Computation annotation
-ixpureComp :: Computation {} {} Bool
-ixpureComp := ixpure True
-
--- 34. ixbind via Computation annotation
-ixbindComp :: Computation {} {} Bool
-ixbindComp := ixbind (ixpure True) (\x. ixpure x)
+-- 33-34. (inlined into main — bare Computation not allowed at non-entry top level)
 
 -- ======================================================================
 -- Combine everything in main
@@ -270,6 +253,6 @@ main := (maybeChain,
   (deepPairEq,
   (resultOkTest,
   (semigroupInFmap,
-  (ixpureComp,
-  ixbindComp
+  ((ixpure True :: Computation {} {} Bool),
+  (ixbind (ixpure True) (\x. ixpure x) :: Computation {} {} Bool)
   )))))))))))))))))))))))))))))))))))

@@ -49,38 +49,46 @@ addShipping := \fee. do {
 
 -- Full pipeline: process an order
 -- Base price: 50, Quantity: 3, Discount: 10%, Tax: 20%, Shipping: 15
-processOrder := do {
-  _ <- initPrice 50;         -- state = 50
+processOrder :: Thunk { state: Int } { state: Int } Int
+processOrder := thunk (do {
+  _ <- initPrice 50;           -- state = 50
   _ <- applyQuantity 3;      -- state = 150
   _ <- applyDiscount 10;     -- state = 150 - 15 = 135
   _ <- addTax 20;            -- state = 135 + 27 = 162
   _ <- addShipping 15;       -- state = 162 + 15 = 177
   get
-}
+})
 
 -- Second order: premium item
 -- Base: 200, Qty: 1, Discount: 25%, Tax: 10%, Shipping: 0
-premiumOrder := do {
-  _ <- initPrice 200;        -- state = 200
+premiumOrder :: Thunk { state: Int } { state: Int } Int
+premiumOrder := thunk (do {
+  _ <- initPrice 200;          -- state = 200
   _ <- applyQuantity 1;      -- state = 200
   _ <- applyDiscount 25;     -- state = 200 - 50 = 150
   _ <- addTax 10;            -- state = 150 + 15 = 165
   _ <- addShipping 0;        -- state = 165
   get
-}
+})
 
 -- Iterative accumulation: apply a series of additions to state
 -- Simulate a running total from deposits
-ledger := do {
-  _ <- put 1000;             -- opening balance
+ledger :: Thunk { state: Int } { state: Int } Int
+ledger := thunk (do {
+  _ <- put 1000;               -- opening balance
   _ <- modify (+ 250);       -- deposit  (equivalent to \b -> b + 250)
   _ <- modify (\b. b - 100);   -- withdrawal
   _ <- modify (+ 500);       -- deposit
   _ <- modify (\b. b - 75);    -- withdrawal
   _ <- modify (+ 300);       -- deposit
   get
-}
+})
 -- 1000 + 250 - 100 + 500 - 75 + 300 = 1875
 
 -- Output: (177, 165, 1875)
-main := (processOrder, premiumOrder, ledger)
+main := do {
+  p <- force processOrder;
+  q <- force premiumOrder;
+  l <- force ledger;
+  pure (p, q, l)
+}

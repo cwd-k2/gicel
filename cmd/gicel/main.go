@@ -363,6 +363,7 @@ func cmdRun(args []string) int {
 	eng.SetStepLimit(*maxSteps)
 	eng.SetDepthLimit(*maxDepth)
 	eng.SetAllocLimit(*maxAlloc)
+	eng.SetEntryPoint(*entry)
 
 	rt, err := eng.NewRuntime(context.Background(), string(source))
 	if err != nil {

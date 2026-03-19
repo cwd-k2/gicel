@@ -214,6 +214,28 @@ func isComputationType(ty types.Type) bool {
 	}
 }
 
+// isBareComputationType checks whether a type is a bare Computation
+// after stripping outer foralls and qualified constraints.
+// Unlike isComputationType, this does NOT strip arrows:
+//
+//	Int -> Computation {} {} a  → false (function type, a value)
+//	\ a. Computation a a Int    → true  (bare Computation)
+//	Thunk {} {} a               → false (Thunk is a value)
+func isBareComputationType(ty types.Type) bool {
+	for {
+		switch t := ty.(type) {
+		case *types.TyForall:
+			ty = t.Body
+		case *types.TyEvidence:
+			ty = t.Body
+		case *types.TyCBPV:
+			return t.Tag == types.TagComp
+		default:
+			return false
+		}
+	}
+}
+
 // typeArity counts the number of arrow arguments in a type,
 // stripping outer foralls. E.g. \ a. A -> B -> C has arity 2.
 func typeArity(ty types.Type) int {

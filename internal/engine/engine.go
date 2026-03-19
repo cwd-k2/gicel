@@ -37,6 +37,7 @@ type Engine struct {
 	moduleOrder      []string // insertion order for deterministic iteration
 	runtimeRecursion bool     // set by RegisterModuleRec; ensures fix/rec in eval env
 	rewriteRules     []reg.RewriteRule
+	entryPoint       string // entry point name for bare Computation check (default "main")
 }
 
 type compiledModule struct {
@@ -142,6 +143,12 @@ func (e *Engine) SetAllocLimit(bytes int64) {
 // SetCheckTraceHook sets the type checking trace hook.
 func (e *Engine) SetCheckTraceHook(hook check.CheckTraceHook) {
 	e.checkTraceHook = hook
+}
+
+// SetEntryPoint sets the entry point name for bare Computation checking.
+// Non-entry top-level bindings with bare Computation type are rejected.
+func (e *Engine) SetEntryPoint(name string) {
+	e.entryPoint = name
 }
 
 // RegisterModuleFile reads a .gicel file and registers it as a module.
@@ -365,6 +372,10 @@ func (e *Engine) NewRuntime(ctx context.Context, source string) (*Runtime, error
 
 	cfg := e.makeCheckConfig()
 	cfg.Context = ctx
+	cfg.EntryPoint = e.entryPoint
+	if cfg.EntryPoint == "" {
+		cfg.EntryPoint = "main"
+	}
 	prog, checkErrs := check.Check(ast, src, cfg)
 	if checkErrs.HasErrors() {
 		return nil, &CompileError{Errors: checkErrs}

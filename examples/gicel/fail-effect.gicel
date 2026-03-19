@@ -13,41 +13,41 @@ import Effect.Fail
 
 -- fromMaybe with Just: extracts the value
 -- Output: 42
-extractJust := do {
+extractJust := thunk (do {
   x <- fromMaybe (Just 42);
   pure x
-}
+})
 
 -- fromResult with Ok: extracts the value
 -- Output: 100
-extractOk := do {
+extractOk := thunk (do {
   x <- fromResult (Ok 100);
   pure x
-}
+})
 
 -- Chaining successful extractions
 -- Output: 30
-chainSuccess := do {
+chainSuccess := thunk (do {
   x <- fromMaybe (Just 10);
   y <- fromMaybe (Just 20);
   pure (x + y)
-}
+})
 
 -- fromResult chaining
 -- Output: 15
-chainResults := do {
+chainResults := thunk (do {
   a <- fromResult (Ok 5);
   b <- fromResult (Ok 10);
   pure (a + b)
-}
+})
 
 -- Mix fromMaybe and fromResult
 -- Output: 50
-mixed := do {
+mixed := thunk (do {
   x <- fromMaybe (Just 30);
   y <- fromResult (Ok 20);
   pure (x + y)
-}
+})
 
 -- Pure fallback: use `case` to handle Nothing without failing
 -- This avoids the fail effect entirely
@@ -60,4 +60,11 @@ safeResult := safeLookup (Just 99)     -- 99
 safeDefault := safeLookup Nothing      -- 0
 
 -- Output: (42, 100, 30, 15, 50, 99, 0)
-main := (extractJust, extractOk, chainSuccess, chainResults, mixed, safeResult, safeDefault)
+main := do {
+  ej <- force extractJust;
+  eo <- force extractOk;
+  cs <- force chainSuccess;
+  cr <- force chainResults;
+  mx <- force mixed;
+  pure (ej, eo, cs, cr, mx, safeResult, safeDefault)
+}

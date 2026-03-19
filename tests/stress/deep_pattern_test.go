@@ -1290,9 +1290,8 @@ func TestEffectTypeAlias(t *testing.T) {
 	eng.Use(gicel.Prelude)
 	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
-myId :: Effect {} Bool
-myId := pure True
-main := myId
+main :: Effect {} Bool
+main := pure True
 `)
 	if err != nil {
 		t.Fatal(err)

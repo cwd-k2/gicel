@@ -99,8 +99,8 @@ stateful := \delta. do {
   readS ()
 }
 
-pipeline :: Eff { s: Int } (Int, Bool)
-pipeline := do {
+pipeline :: Thunk { s: Int } { s: Int } (Int, Bool)
+pipeline := thunk (do {
   r1 <- stateful seed;
   r2 <- stateful r1;
   t := thunk (stateful r2);
@@ -123,6 +123,6 @@ pipeline := do {
     False -> False
   };
   pure (r3, result)
-}
+})
 
-main := pipeline
+main := force pipeline

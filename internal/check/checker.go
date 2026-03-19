@@ -39,6 +39,7 @@ type CheckConfig struct {
 	ModuleDeps      map[string][]string // module → direct dependencies
 	StrictTypeNames bool                // when true, reject unregistered type constructor names
 	CurrentModule   string              // module being compiled ("" = user main source)
+	EntryPoint      string              // non-empty enables bare Computation check; that name is exempt
 }
 
 // ModuleExports carries the type-level information exported by a compiled module.

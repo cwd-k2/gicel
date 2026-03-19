@@ -1779,13 +1779,13 @@ listResult :: List Int
 listResult := do { x <- Cons 1 (Cons 2 Nil); y <- Cons 10 Nil; pure (add x y) }
 
 -- Computation monad
-compResult := do {
+compResult := thunk (do {
   m <- pure maybeResult;
   l <- pure listResult;
   pure (m, l)
-}
+})
 
-main := compResult
+main := force compResult
 `)
 	if err != nil {
 		t.Fatal(err)
@@ -1841,12 +1841,12 @@ maybeEval := do {
 }
 
 -- Use GADT eval result in Computation
-compEval := do {
+compEval := thunk (do {
   x <- pure (eval (Not (Not (LitBool False))));
   pure x
-}
+})
 
-main := (maybeEval, compEval)
+main := do { e <- force compEval; pure (maybeEval, e) }
 `)
 	if err != nil {
 		t.Fatal(err)

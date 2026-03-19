@@ -60,6 +60,7 @@ const (
 	ErrInjectivity         Code = 282 // type family injectivity violation
 	ErrTypeFamilyReduction Code = 283 // type family reduction error
 	ErrMultiplicity        Code = 290 // multiplicity constraint violation
+	ErrEffectfulBinding    Code = 291 // bare Computation type in non-entry top-level binding
 	ErrCancelled           Code = 299 // compilation cancelled (context deadline/cancellation)
 )
 
