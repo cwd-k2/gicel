@@ -109,7 +109,7 @@ func peRunWithExplain(t *testing.T, source string, packs ...gicel.Pack) (gicel.V
 // ---------------------------------------------------------------------------
 
 func TestProbeE_Eval_StepLimitZeroViaEngine(t *testing.T) {
-	// Step limit of 0 via Engine.SetStepLimit: should immediately fail.
+	// Step limit of 0 disables the limit. Eval should succeed.
 	eng := gicel.NewEngine()
 	eng.SetStepLimit(0)
 	rt, err := eng.NewRuntime(context.Background(), `main := 42`)
@@ -117,11 +117,8 @@ func TestProbeE_Eval_StepLimitZeroViaEngine(t *testing.T) {
 		t.Fatal(err)
 	}
 	_, err = rt.RunWith(context.Background(), nil)
-	if err == nil {
-		t.Fatal("expected step limit error with 0 steps")
-	}
-	if !strings.Contains(err.Error(), "step limit") {
-		t.Fatalf("expected step limit error, got: %v", err)
+	if err != nil {
+		t.Fatalf("step limit 0 (disabled) should succeed, got: %v", err)
 	}
 }
 
@@ -182,7 +179,7 @@ main := Cons 1 Nil
 }
 
 func TestProbeE_Eval_NegativeStepLimit(t *testing.T) {
-	// Negative step limit: Limit.remaining starts negative, Step() decrements further.
+	// Negative step limit is clamped to zero (disabled) by budget.New.
 	eng := gicel.NewEngine()
 	eng.SetStepLimit(-1)
 	rt, err := eng.NewRuntime(context.Background(), `main := 42`)
@@ -190,8 +187,8 @@ func TestProbeE_Eval_NegativeStepLimit(t *testing.T) {
 		t.Fatal(err)
 	}
 	_, err = rt.RunWith(context.Background(), nil)
-	if err == nil {
-		t.Fatal("expected error with negative step limit")
+	if err != nil {
+		t.Fatalf("negative step limit (clamped to 0, disabled) should succeed, got: %v", err)
 	}
 }
 
@@ -212,10 +209,8 @@ main := do { pure 42 }
 }
 
 func TestProbeE_Eval_NegativeAllocLimitDisablesCheck(t *testing.T) {
-	// BUG ANALYSIS: Limit.Alloc has guard: if l.allocLimit > 0 && l.allocated > l.allocLimit
-	// Negative allocLimit fails the > 0 check, so it effectively disables the limit.
-	// This means Engine.SetAllocLimit(-1) is silently equivalent to "no limit".
-	// Not necessarily wrong (sandbox normalizes), but could be surprising for direct Engine users.
+	// Negative allocLimit is clamped to zero (disabled) by SetAllocLimit.
+	// This is documented behavior: zero disables, negative is treated as zero.
 	eng := gicel.NewEngine()
 	eng.Use(gicel.Prelude)
 	eng.SetAllocLimit(-1) // Should disable, not cause alloc errors
