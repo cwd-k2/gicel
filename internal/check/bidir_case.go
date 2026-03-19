@@ -3,8 +3,10 @@ package check
 import (
 	"fmt"
 
+	"github.com/cwd-k2/gicel/internal/core"
 	"github.com/cwd-k2/gicel/internal/errs"
 	"github.com/cwd-k2/gicel/internal/span"
+	"github.com/cwd-k2/gicel/internal/syntax"
 	"github.com/cwd-k2/gicel/internal/types"
 )
 
@@ -149,4 +151,86 @@ func (ch *Checker) joinMult(result *types.RowField, other types.Type, s span.Spa
 			fmt.Sprintf("divergent multiplicity for %s: %s vs %s",
 				result.Label, types.Pretty(m1), types.Pretty(m2)))
 	}
+}
+
+func isStructuredPattern(p syntax.Pattern) bool {
+	switch pat := p.(type) {
+	case *syntax.PatVar, *syntax.PatWild:
+		return false
+	case *syntax.PatParen:
+		return isStructuredPattern(pat.Inner)
+	default:
+		return true
+	}
+}
+
+func (ch *Checker) inferCase(e *syntax.ExprCase) (types.Type, core.Core) {
+	scrutTy, scrutCore := ch.infer(e.Scrutinee)
+	resultTy := ch.freshMeta(types.KType{})
+	caseCore := ch.checkCaseAlts(scrutTy, resultTy, scrutCore, e)
+	return ch.unifier.Zonk(resultTy), caseCore
+}
+
+func (ch *Checker) checkCase(e *syntax.ExprCase, expected types.Type) core.Core {
+	scrutTy, scrutCore := ch.infer(e.Scrutinee)
+	return ch.checkCaseAlts(scrutTy, expected, scrutCore, e)
+}
+
+func (ch *Checker) checkCaseAlts(scrutTy, resultTy types.Type, scrutCore core.Core, e *syntax.ExprCase) core.Core {
+	// Divergent post-states: when result is TyCBPV (Computation), each branch gets a
+	// fresh post-state meta. After all branches, post-states are joined.
+	comp, isComp := ch.unifier.Zonk(resultTy).(*types.TyCBPV)
+	if isComp && comp.Tag != types.TagComp {
+		isComp = false
+	}
+	var branchPosts []types.Type
+
+	var alts []core.Alt
+	for _, alt := range e.Alts {
+		pr := ch.checkPattern(alt.Pattern, scrutTy)
+		for name, ty := range pr.Bindings {
+			ch.ctx.Push(&CtxVar{Name: name, Type: ty})
+		}
+		needsLocalResolve := len(pr.SkolemIDs) > 0 || pr.HasEvidence
+
+		// Per-branch expected type: same resultTy for non-Comp,
+		// or TyCBPV with fresh post-state meta for Comp.
+		branchExpected := resultTy
+		if isComp {
+			freshPost := ch.freshMeta(types.KRow{})
+			branchExpected = &types.TyCBPV{
+				Tag: types.TagComp, Pre: comp.Pre, Post: freshPost, Result: comp.Result, S: comp.S,
+			}
+			branchPosts = append(branchPosts, freshPost)
+		}
+
+		var bodyCore core.Core
+		if needsLocalResolve {
+			bodyCore = ch.withDeferredScope(func() core.Core {
+				return ch.check(alt.Body, branchExpected)
+			})
+		} else {
+			bodyCore = ch.check(alt.Body, branchExpected)
+		}
+		for range pr.Bindings {
+			ch.ctx.Pop()
+		}
+		if len(pr.SkolemIDs) > 0 {
+			ch.checkSkolemEscape(ch.unifier.Zonk(resultTy), pr.SkolemIDs, alt.Body.Span())
+		}
+		alts = append(alts, core.Alt{Pattern: pr.Pattern, Body: bodyCore, S: alt.S})
+	}
+
+	// Join divergent post-states.
+	if isComp && len(branchPosts) > 0 {
+		joinedPost := ch.lubPostStates(branchPosts, e.S)
+		if err := ch.unifier.Unify(comp.Post, joinedPost); err != nil {
+			ch.addUnifyError(err, e.S, fmt.Sprintf(
+				"cannot unify case post-state: expected %s, got %s",
+				types.Pretty(comp.Post), types.Pretty(joinedPost)))
+		}
+	}
+
+	ch.checkExhaustive(scrutTy, alts, e.S)
+	return &core.Case{Scrutinee: scrutCore, Alts: alts, S: e.S}
 }
