@@ -1,10 +1,6 @@
 package engine
 
-import (
-	"fmt"
-
-	"github.com/cwd-k2/gicel/internal/types"
-)
+import "github.com/cwd-k2/gicel/internal/types"
 
 // Type is the unified type representation used across the public API.
 type Type = types.Type
@@ -127,7 +123,7 @@ func RecordType(fields ...types.RowField) types.Type {
 func TupleType(elems ...types.Type) types.Type {
 	fields := make([]types.RowField, len(elems))
 	for i, t := range elems {
-		fields[i] = types.RowField{Label: fmt.Sprintf("_%d", i+1), Type: t}
+		fields[i] = types.RowField{Label: types.TupleLabel(i + 1), Type: t}
 	}
 	return RecordType(fields...)
 }

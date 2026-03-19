@@ -211,6 +211,7 @@ func prettyHost(v any) string {
 }
 
 // isTuple checks if a RecordVal is tuple sugar (fields _1, _2, ..., _n).
+// Tuple label convention: see types.TupleLabel.
 func isTuple(r *RecordVal) bool {
 	n := len(r.Fields)
 	if n == 0 {
