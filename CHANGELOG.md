@@ -18,6 +18,14 @@
 
 ---
 
+## v0.12.2 — 2026-03-20
+
+### CLI
+
+- **`docs` topic listing** — `gicel docs` now shows a categorized topic listing (mirroring `gicel example`) instead of dumping the full README. Full overview available via `gicel docs about`
+
+---
+
 ## v0.12.0 — 2026-03-19
 
 ### Type System
