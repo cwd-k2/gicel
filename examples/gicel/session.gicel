@@ -1,8 +1,11 @@
--- GICEL Example: Session Types
+-- GICEL Example: Session Types (check-only)
 --
 -- Binary session types encoded via Atkey indexed monads.
 -- Protocol compliance is verified by the type checker:
 -- well-typed programs follow the protocol.
+--
+-- Usage: bin/gicel check examples/gicel/session.gicel
+-- (send/recv/close are host primitives — use examples/go/session for runtime)
 -- Level: types + effects
 
 import Prelude
@@ -98,5 +101,5 @@ multiStep := do {
   pure result
 }
 
--- The value-level main shows protocol values.
-main := (MkSend, MkRecv, MkEnd)
+-- No main: this example is check-only (session primitives require Go host).
+-- Run `bin/gicel check examples/gicel/session.gicel` to verify protocol compliance.
