@@ -3,9 +3,11 @@ package check
 import (
 	"fmt"
 	"slices"
+	"strings"
 
 	"github.com/cwd-k2/gicel/internal/core"
 	"github.com/cwd-k2/gicel/internal/errs"
+	"github.com/cwd-k2/gicel/internal/span"
 	"github.com/cwd-k2/gicel/internal/types"
 )
 
@@ -55,6 +57,13 @@ func (ch *Checker) resolveDeferred(
 	resolutions := make(map[string]core.Core)
 	var residuals []deferredConstraint
 
+	// Cache: identical constraints (same class + zonked args) share one
+	// resolveInstance call. This avoids redundant context scans, trial
+	// unifications, and snapshot copies that dominate cost on long
+	// operator chains (e.g., 1 + 1 + ... + 1 produces n identical
+	// Num Int constraints).
+	instanceCache := make(map[string]core.Core)
+
 	for _, dc := range ch.deferred {
 		if dc.quantified != nil {
 			// (A) Quantified constraint: resolve by finding matching evidence.
@@ -65,10 +74,10 @@ func (ch *Checker) resolveDeferred(
 			cv := ch.unifier.Zonk(dc.constraintVar)
 			cn, cArgs, ok := types.DecomposeConstraintType(cv)
 			if ok {
-				resolutions[dc.placeholder] = ch.resolveInstance(cn, cArgs, dc.s)
+				resolutions[dc.placeholder] = ch.resolveInstanceCached(instanceCache, cn, cArgs, dc.s)
 			} else if dc.className != "" {
 				zonkedArgs := ch.zonkAll(dc.args)
-				resolutions[dc.placeholder] = ch.resolveInstance(dc.className, zonkedArgs, dc.s)
+				resolutions[dc.placeholder] = ch.resolveInstanceCached(instanceCache, dc.className, zonkedArgs, dc.s)
 			} else {
 				ch.addCodedError(errs.ErrNoInstance, dc.s,
 					fmt.Sprintf("cannot resolve constraint variable %s", types.Pretty(cv)))
@@ -81,13 +90,44 @@ func (ch *Checker) resolveDeferred(
 				dc.args = zonkedArgs
 				residuals = append(residuals, dc)
 			} else {
-				resolutions[dc.placeholder] = ch.resolveInstance(dc.className, zonkedArgs, dc.s)
+				resolutions[dc.placeholder] = ch.resolveInstanceCached(instanceCache, dc.className, zonkedArgs, dc.s)
 			}
 		}
 	}
 
 	ch.deferred = ch.deferred[:0]
 	return ch.substitutePlaceholders(expr, resolutions), residuals
+}
+
+// resolveInstanceCached resolves an instance constraint, returning a cached
+// result when an identical (className, args) combination has already been
+// resolved within the same resolveDeferred pass.
+//
+// The cache key is built from the canonical TypeKey of each zonked argument,
+// which is injective and deterministic. Caching is safe because instance
+// resolution is deterministic for fully-zonked ground types: the same class
+// and type arguments always select the same instance and produce the same
+// dictionary expression.
+func (ch *Checker) resolveInstanceCached(cache map[string]core.Core, className string, args []types.Type, s span.Span) core.Core {
+	key := constraintCacheKey(className, args)
+	if cached, ok := cache[key]; ok {
+		return cached
+	}
+	resolved := ch.resolveInstance(className, args, s)
+	cache[key] = resolved
+	return resolved
+}
+
+// constraintCacheKey builds a canonical key for a class constraint.
+// The key is injective: distinct (className, args) pairs produce distinct keys.
+func constraintCacheKey(className string, args []types.Type) string {
+	var b strings.Builder
+	b.WriteString(className)
+	for _, a := range args {
+		b.WriteByte(' ')
+		types.WriteTypeKey(&b, a)
+	}
+	return b.String()
 }
 
 // zonkAll applies Zonk to each type in the slice.

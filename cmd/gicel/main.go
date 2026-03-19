@@ -344,6 +344,10 @@ func cmdRun(args []string) int {
 		fmt.Fprintln(os.Stderr, "error: --max-alloc must be a positive integer")
 		return 1
 	}
+	if *timeout <= 0 {
+		fmt.Fprintln(os.Stderr, "error: --timeout must be a positive duration (e.g., 1s, 5m)")
+		return 1
+	}
 
 	// Validate --entry: reject explicitly empty entry point.
 	if *entry == "" {
