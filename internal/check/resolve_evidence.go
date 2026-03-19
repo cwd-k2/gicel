@@ -114,15 +114,52 @@ func (ch *Checker) resolveQuantifiedConstraint(qc *types.QuantifiedConstraint, s
 	}
 
 	// Also search context for quantified evidence variables.
+	// Full structural match: class name, arity, head args (via trial unification),
+	// and context compatibility — same verification as the global instance path above.
 	var qcResult core.Core
 	ch.ctx.Scan(func(entry CtxEntry) bool {
-		if e, ok := entry.(*CtxEvidence); ok && e.Quantified != nil {
-			if e.Quantified.Head.ClassName == qc.Head.ClassName {
-				qcResult = &core.Var{Name: e.DictName, S: s} // dict params are local (lambda-bound)
+		e, ok := entry.(*CtxEvidence)
+		if !ok || e.Quantified == nil {
+			return true
+		}
+		eq := e.Quantified
+		if eq.Head.ClassName != qc.Head.ClassName {
+			return true
+		}
+		if len(eq.Head.Args) != len(qc.Head.Args) {
+			return true
+		}
+		// Fresh metas for both sides' quantified variables.
+		wantedSubst := make(map[string]types.Type, len(qc.Vars))
+		for _, v := range qc.Vars {
+			wantedSubst[v.Name] = ch.freshMeta(v.Kind)
+		}
+		evidenceSubst := make(map[string]types.Type, len(eq.Vars))
+		for _, v := range eq.Vars {
+			evidenceSubst[v.Name] = ch.freshMeta(v.Kind)
+		}
+		if !ch.withTrial(func() bool {
+			for i := range qc.Head.Args {
+				wantedArg := types.SubstMany(qc.Head.Args[i], wantedSubst)
+				evidenceArg := types.SubstMany(eq.Head.Args[i], evidenceSubst)
+				if err := ch.unifier.Unify(wantedArg, evidenceArg); err != nil {
+					return false
+				}
+			}
+			if len(eq.Context) != len(qc.Context) {
 				return false
 			}
+			for i, ec := range eq.Context {
+				if ec.ClassName != qc.Context[i].ClassName {
+					return false
+				}
+			}
+			return true
+		}) {
+			return true
 		}
-		return true
+		qcResult = &core.Var{Name: e.DictName, S: s}
+		return false
 	})
 	if qcResult != nil {
 		return qcResult
