@@ -1,5 +1,7 @@
 package core
 
+import "fmt"
+
 // Walk visits every Core node in depth-first order.
 // The visitor returns false to stop traversal.
 func Walk(c Core, visit func(Core) bool) {
@@ -58,6 +60,8 @@ func Walk(c Core, visit func(Core) bool) {
 		for _, f := range n.Updates {
 			Walk(f.Value, visit)
 		}
+	default:
+		panic(fmt.Sprintf("Walk: unhandled Core node %T", c))
 	}
 }
 
@@ -123,6 +127,6 @@ func Transform(c Core, f func(Core) Core) Core {
 		}
 		return f(&RecordUpdate{Record: Transform(n.Record, f), Updates: updates, S: n.S})
 	default:
-		return f(c)
+		panic(fmt.Sprintf("Transform: unhandled Core node %T", c))
 	}
 }

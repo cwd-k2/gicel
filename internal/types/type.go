@@ -55,6 +55,13 @@ const (
 	TagThunk                // Thunk pre post a
 )
 
+// TyConComputation and TyConThunk are the canonical type constructor names
+// for the two CBPV type formers, used in TyCBPV expansion and normalization.
+const (
+	TyConComputation = "Computation"
+	TyConThunk       = "Thunk"
+)
+
 // TyCBPV is a CBPV computation or thunk type: Computation pre post a / Thunk pre post a.
 type TyCBPV struct {
 	Tag               CBPVTag

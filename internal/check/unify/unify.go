@@ -326,9 +326,9 @@ func normalizeCompApp(t types.Type) types.Type {
 		return t
 	}
 	switch con.Name {
-	case "Computation":
+	case types.TyConComputation:
 		return &types.TyCBPV{Tag: types.TagComp, Pre: app3.Arg, Post: app2.Arg, Result: app1.Arg, S: t.Span()}
-	case "Thunk":
+	case types.TyConThunk:
 		return &types.TyCBPV{Tag: types.TagThunk, Pre: app3.Arg, Post: app2.Arg, Result: app1.Arg, S: t.Span()}
 	}
 	return t
@@ -396,9 +396,9 @@ func (u *Unifier) Unify(a, b types.Type) error {
 		// Cross-case: decompose TyApp spine directly against TyCBPV
 		// to avoid the normalize cycle (normalizeCompApp ↔ compToApp).
 		if cbpv, ok := b.(*types.TyCBPV); ok {
-			name := "Computation"
+			name := types.TyConComputation
 			if cbpv.Tag == types.TagThunk {
-				name = "Thunk"
+				name = types.TyConThunk
 			}
 			return u.unifyAppWithTriple(a, name, [3]types.Type{cbpv.Pre, cbpv.Post, cbpv.Result})
 		}
@@ -418,9 +418,9 @@ func (u *Unifier) Unify(a, b types.Type) error {
 			return u.Unify(at.Result, bt.Result)
 		}
 		if _, ok := b.(*types.TyApp); ok {
-			name := "Computation"
+			name := types.TyConComputation
 			if at.Tag == types.TagThunk {
-				name = "Thunk"
+				name = types.TyConThunk
 			}
 			return u.unifyAppWithTriple(b, name, [3]types.Type{at.Pre, at.Post, at.Result})
 		}

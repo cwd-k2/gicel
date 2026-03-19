@@ -41,6 +41,7 @@ func (ch *Checker) checkPattern(pat syntax.Pattern, scrutTy types.Type) patternR
 	case *syntax.PatLit:
 		return ch.checkLitPattern(p, scrutTy)
 	default:
+		ch.addCodedError(errs.ErrTypeMismatch, pat.Span(), fmt.Sprintf("unsupported pattern form: %T", pat))
 		return patternResult{Pattern: &core.PWild{S: pat.Span()}}
 	}
 }

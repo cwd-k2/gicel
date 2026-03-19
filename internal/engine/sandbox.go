@@ -11,9 +11,10 @@ import (
 
 // Sandbox defaults — intentionally more conservative than Engine defaults.
 const (
-	sandboxDefaultSteps = 100_000
-	sandboxDefaultDepth = 100
-	sandboxDefaultAlloc = 10 * 1024 * 1024 // 10 MiB
+	sandboxDefaultTimeout = 5 * time.Second
+	sandboxDefaultSteps   = 100_000
+	sandboxDefaultDepth   = 100
+	sandboxDefaultAlloc   = 10 * 1024 * 1024 // 10 MiB
 )
 
 // SandboxConfig configures a sandboxed execution.
@@ -48,7 +49,7 @@ func RunSandbox(source string, cfg *SandboxConfig) (result *RunResult, err error
 	}
 	timeout := cfg.Timeout
 	if timeout == 0 {
-		timeout = 5 * time.Second
+		timeout = sandboxDefaultTimeout
 	}
 	maxSteps := cfg.MaxSteps
 	if maxSteps <= 0 {

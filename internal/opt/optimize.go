@@ -8,10 +8,10 @@ import (
 	"github.com/cwd-k2/gicel/internal/core"
 )
 
-// Optimize applies algebraic simplifications and registered rewrite rules.
+// optimize applies algebraic simplifications and registered rewrite rules.
 // Runs up to maxPasses bottom-up passes, stopping early when a pass
 // makes no changes (fixed-point detection).
-func Optimize(c core.Core, rules []func(core.Core) core.Core) core.Core {
+func optimize(c core.Core, rules []func(core.Core) core.Core) core.Core {
 	const maxPasses = 4
 	for range maxPasses {
 		rw := &rewriter{rules: rules}
@@ -26,7 +26,7 @@ func Optimize(c core.Core, rules []func(core.Core) core.Core) core.Core {
 // OptimizeProgram optimizes all bindings in a program.
 func OptimizeProgram(prog *core.Program, rules []func(core.Core) core.Core) {
 	for i, b := range prog.Bindings {
-		prog.Bindings[i].Expr = Optimize(b.Expr, rules)
+		prog.Bindings[i].Expr = optimize(b.Expr, rules)
 	}
 }
 

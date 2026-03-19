@@ -24,9 +24,9 @@ func Pretty(t Type) string {
 		vars, body := collectForalls(ty)
 		return fmt.Sprintf(`\%s. %s`, strings.Join(vars, " "), Pretty(body))
 	case *TyCBPV:
-		name := "Computation"
+		name := TyConComputation
 		if ty.Tag == TagThunk {
-			name = "Thunk"
+			name = TyConThunk
 		}
 		return fmt.Sprintf("%s %s %s %s",
 			name, prettyAtom(ty.Pre), prettyAtom(ty.Post), prettyAtom(ty.Result))

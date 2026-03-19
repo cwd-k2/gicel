@@ -1,6 +1,10 @@
 package core
 
-import "github.com/cwd-k2/gicel/internal/types"
+import (
+	"fmt"
+
+	"github.com/cwd-k2/gicel/internal/types"
+)
 
 // FreeVars returns term-level free variables in a Core expression.
 func FreeVars(c Core) map[string]struct{} {
@@ -196,7 +200,7 @@ func annotateFV(c Core) map[string]struct{} {
 		}
 		return result
 	default:
-		return nil
+		panic(fmt.Sprintf("annotateFV: unhandled Core node %T", c))
 	}
 }
 
@@ -244,8 +248,8 @@ func QualifiedKey(module, name string) string {
 	return module + "\x00" + name
 }
 
-// FreeTypeVars returns type-level free variables in Core.
-func FreeTypeVars(c Core) map[string]struct{} {
+// freeTypeVars returns type-level free variables in Core.
+func freeTypeVars(c Core) map[string]struct{} {
 	fv := make(map[string]struct{})
 	Walk(c, func(n Core) bool {
 		switch node := n.(type) {

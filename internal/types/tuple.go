@@ -8,9 +8,9 @@ func TupleLabel(pos int) string {
 	return "_" + strconv.Itoa(pos)
 }
 
-// IsTupleLabels reports whether labels form a valid tuple encoding:
+// isTupleLabels reports whether labels form a valid tuple encoding:
 // ["_1", "_2", ..., "_n"] in order, with no gaps.
-func IsTupleLabels(labels []string) bool {
+func isTupleLabels(labels []string) bool {
 	for i, l := range labels {
 		if l != TupleLabel(i+1) {
 			return false

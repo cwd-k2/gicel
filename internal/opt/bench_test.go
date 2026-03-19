@@ -48,7 +48,7 @@ func BenchmarkOptimizeNoopSmall(b *testing.B) {
 	tree := buildDeepTree(50)
 	b.ResetTimer()
 	for b.Loop() {
-		Optimize(tree, nil)
+		optimize(tree, nil)
 	}
 }
 
@@ -57,7 +57,7 @@ func BenchmarkOptimizeNoopLarge(b *testing.B) {
 	tree := buildDeepTree(500)
 	b.ResetTimer()
 	for b.Loop() {
-		Optimize(tree, nil)
+		optimize(tree, nil)
 	}
 }
 
@@ -66,7 +66,7 @@ func BenchmarkOptimizeBetaHeavy(b *testing.B) {
 	tree := buildBetaChain(20)
 	b.ResetTimer()
 	for b.Loop() {
-		Optimize(tree, nil)
+		optimize(tree, nil)
 	}
 }
 
@@ -78,6 +78,6 @@ func BenchmarkOptimizeRewriteRules(b *testing.B) {
 	rules := []func(core.Core) core.Core{noop, noop, noop}
 	b.ResetTimer()
 	for b.Loop() {
-		Optimize(tree, rules)
+		optimize(tree, rules)
 	}
 }

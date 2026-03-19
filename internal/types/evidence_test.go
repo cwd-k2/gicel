@@ -178,11 +178,11 @@ func TestLabels(t *testing.T) {
 
 func TestHasLabel(t *testing.T) {
 	r := ClosedRow(RowField{Label: "x", Type: Con("Int")})
-	if !HasLabel(r, "x") {
-		t.Error("expected HasLabel(x) = true")
+	if !hasLabel(r, "x") {
+		t.Error("expected hasLabel(x) = true")
 	}
-	if HasLabel(r, "y") {
-		t.Error("expected HasLabel(y) = false")
+	if hasLabel(r, "y") {
+		t.Error("expected hasLabel(y) = false")
 	}
 }
 

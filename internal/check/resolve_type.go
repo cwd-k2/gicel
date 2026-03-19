@@ -147,7 +147,8 @@ func (ch *Checker) resolveTypeExpr(texpr syntax.TypeExpr) types.Type {
 	case *syntax.TyExprParen:
 		return ch.resolveTypeExpr(t.Inner)
 	default:
-		return &types.TyError{}
+		ch.addCodedError(errs.ErrTypeMismatch, texpr.Span(), fmt.Sprintf("unsupported type expression: %T", texpr))
+		return &types.TyError{S: texpr.Span()}
 	}
 }
 
@@ -223,9 +224,9 @@ func (ch *Checker) tryExpandApp(fun types.Type, arg types.Type, s span.Span) typ
 		if app1, ok := app2.Fun.(*types.TyApp); ok {
 			if con, ok := app1.Fun.(*types.TyCon); ok {
 				switch con.Name {
-				case "Computation":
+				case types.TyConComputation:
 					return &types.TyCBPV{Tag: types.TagComp, Pre: app1.Arg, Post: app2.Arg, Result: arg, S: s}
-				case "Thunk":
+				case types.TyConThunk:
 					return &types.TyCBPV{Tag: types.TagThunk, Pre: app1.Arg, Post: app2.Arg, Result: arg, S: s}
 				}
 			}

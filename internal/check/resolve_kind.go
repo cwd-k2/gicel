@@ -33,6 +33,7 @@ func (ch *Checker) resolveKindExpr(k syntax.KindExpr) types.Kind {
 	case *syntax.KindExprSort:
 		return types.KSort{}
 	default:
+		ch.addCodedError(errs.ErrKindMismatch, k.Span(), fmt.Sprintf("unsupported kind expression: %T", k))
 		return types.KType{}
 	}
 }
@@ -120,8 +121,8 @@ func isModuleDefinedType(exports *ModuleExports, name string) bool {
 // builtinTypeNames are type constructor names that are intrinsic to the checker
 // (used in TyCBPV expansion) but not registered in RegisteredTypes.
 var builtinTypeNames = map[string]bool{
-	"Computation": true,
-	"Thunk":       true,
+	types.TyConComputation: true,
+	types.TyConThunk:       true,
 }
 
 // isKnownTypeName returns true if name refers to a known type: registered type,
