@@ -53,12 +53,34 @@ Capability environments are row types that describe what effects are available:
 A function requiring state:
 
 ```
-counter :: Computation { state: Int } { state: Int } Int
-counter := do {
+increment := \(). do {
   n <- get;
   put (n + 1);
   pure n
 }
+```
+
+A `Computation` is an action awaiting execution — it cannot be a bare top-level binding (only the entry point `main` is exempt). To name a standalone computation, suspend it with `thunk` and `force` it at the call site:
+
+```
+counter :: Thunk { state: Int } { state: Int } Int
+counter := thunk do {
+  n <- get;
+  put (n + 1);
+  pure n
+}
+
+main := do {
+  result <- force counter;
+  pure result
+}
+```
+
+This restriction applies only to `Computation`. Value-typed monads (`List`, `Maybe`, etc.) support `do`-notation and can be bound at the top level without `thunk`:
+
+```
+pairs :: List (Int, Int)
+pairs := do { x <- [1,2,3]; y <- [10,20]; pure (x, y) }
 ```
 
 CapEnv is copy-on-write: effects thread through Computation indices. `put` does not mutate; it produces a new CapEnv.

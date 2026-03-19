@@ -70,7 +70,7 @@ The language has two modes of expression.
 
 **Values** are pure, inert data: integers, strings, functions, data constructors, records. They are classified by types and evaluated without side effects.
 
-**Computations** are typed transitions over capability environments. They may read, modify, or consume capabilities provided by the host. They are classified by the `Computation` type, which tracks the required and resulting capability state.
+**Computations** are typed transitions over capability environments. They may read, modify, or consume capabilities provided by the host. They are classified by the `Computation` type, which tracks the required and resulting capability state. A computation, once constructed, is an action awaiting execution — it is not inert data.
 
 This split follows Call-By-Push-Value (Levy 1999). The two directions of the adjunction are:
 
@@ -79,6 +79,26 @@ This split follows Call-By-Push-Value (Levy 1999). The two directions of the adj
 - **force**: resumes a suspended computation — elimination of thunks
 
 `bind` provides computation sequencing.
+
+**Top-level binding rule.** Because a computation is not a value, a non-entry top-level binding cannot have bare `Computation` type (error E0291). The designated entry point (default `main`) is exempt — it is the single site where the host triggers execution. All other top-level computations must be either suspended with `thunk` or deferred behind a lambda:
+
+```
+-- OK: thunk suspends the computation as a value
+helper := thunk do { ... }
+
+-- OK: lambda is a value; the body runs when called
+step := \x. do { ... }
+
+-- ERROR (E0291): bare Computation at top level
+helper := do { ... }
+```
+
+This rule does not apply to value-typed monads. `List`, `Maybe`, and other types that happen to support `do`-notation via `IxMonad` are values, not computations — they can be bound freely at the top level:
+
+```
+-- OK: List is a value type
+triples := do { x <- range 1 10; ... }
+```
 
 ### 2.1.2 pure / bind
 
@@ -144,6 +164,24 @@ force (thunk c) = c                 -- thunk/force cancellation
 ```
 
 Semantics: `thunk` does not evaluate its argument — it captures the computation as a value. `force` triggers evaluation. Thunks are not memoized: forcing the same thunk multiple times executes the computation each time.
+
+**When to use `thunk`.** A `Computation` is an action, not a piece of data — it cannot sit at the top level as a bare binding (see §2.1.1). To define a named computation that runs later, suspend it with `thunk` and `force` it at the call site:
+
+```
+helper :: Thunk { state: Int } { state: Int } Int
+helper := thunk do {
+  n <- get;
+  put (n + 1);
+  get
+}
+
+main := do {
+  result <- force helper;
+  pure result
+}
+```
+
+`thunk do { ... }` is the idiomatic form — the parser accepts `do { ... }` as a direct argument to `thunk` without parentheses.
 
 `thunk` and `force` are **term formers** (like `\` or `case`), not functions. They cannot be partially applied. They elaborate to `Core.Thunk` and `Core.Force` respectively.
 
