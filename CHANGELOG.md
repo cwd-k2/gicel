@@ -1,5 +1,14 @@
 # Changelog
 
+## v0.12.1 — 2026-03-20
+
+### Examples
+
+- **`thunk (do {` → `thunk do {`** — all examples now use the parenthesis-free `thunk do { ... }` form instead of `thunk (do { ... })`. Applies to `do-notation.gicel`, `fail-effect.gicel`, `state-effect.gicel`, `state-machine.gicel`, `thunk-force.gicel`
+- **Inline single-use computation in `full-grammar.gicel`** — the `computation` binding (thunk + force) replaced with a direct `main := do { ... }`
+
+---
+
 ## v0.12.0 — 2026-03-19
 
 ### Type System

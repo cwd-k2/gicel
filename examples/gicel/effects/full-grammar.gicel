@@ -56,7 +56,9 @@ describeIt :: \a. Describe a => a -> String
 describeIt := describe
 
 -- [do] — monadic computation with let bindings
-computation := thunk (do {
+-- Output: (True, ("green", "true"), 12)
+-- All 10 keywords used: case, do, data, type, infixl, infixr, infixn, class, instance, import
+main := do {
   a <- pure (2 <+> 3);            -- 2 + 3 + 1 = 6
   b <- pure (2 <**> 3 <**> 1);   -- 2 * (3 * 1) = 6 (right-assoc)
   isEq := a === b;               -- 6 === 6 = True
@@ -64,8 +66,4 @@ computation := thunk (do {
   boolName := describeIt True;
   pair := (colorName, boolName) :: Pair String String;
   pure (isEq, pair, a + b)
-})
-
--- Output: (True, ("green", "true"), 12)
--- All 11 keywords used: case, do, data, type, forall, infixl, infixr, infixn, class, instance, import
-main := force computation
+}

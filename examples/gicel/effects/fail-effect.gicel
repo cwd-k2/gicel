@@ -11,42 +11,37 @@ import Prelude
 import Effect.Fail
 
 -- fromMaybe with Just: extracts the value
--- Output: 42
-extractJust := thunk (do {
+extractJust := thunk do {
   x <- fromMaybe (Just 42);
   pure x
-})
+}
 
 -- fromResult with Ok: extracts the value
--- Output: 100
-extractOk := thunk (do {
+extractOk := thunk do {
   x <- fromResult (Ok 100);
   pure x
-})
+}
 
 -- Chaining successful extractions
--- Output: 30
-chainSuccess := thunk (do {
+chainSuccess := thunk do {
   x <- fromMaybe (Just 10);
   y <- fromMaybe (Just 20);
   pure (x + y)
-})
+}
 
 -- fromResult chaining
--- Output: 15
-chainResults := thunk (do {
+chainResults := thunk do {
   a <- fromResult (Ok 5);
   b <- fromResult (Ok 10);
   pure (a + b)
-})
+}
 
 -- Mix fromMaybe and fromResult
--- Output: 50
-mixed := thunk (do {
+mixed := thunk do {
   x <- fromMaybe (Just 30);
   y <- fromResult (Ok 20);
   pure (x + y)
-})
+}
 
 -- Pure fallback: use `case` to handle Nothing without failing
 -- This avoids the fail effect entirely

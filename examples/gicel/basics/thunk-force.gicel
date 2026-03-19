@@ -8,49 +8,49 @@
 import Prelude
 
 -- Basic: create a thunk and force it
-basic := thunk (do {
+basic := thunk do {
   t := thunk (pure 42);
   x <- force t;
   pure x
-})
+}
 
 -- Thunks as first-class values: store two, force one based on a condition
 choose := \flag thenBranch elseBranch.
   case flag { True -> thenBranch; False -> elseBranch }
 
-branching := thunk (do {
+branching := thunk do {
   tA := thunk (pure 100);
   tB := thunk (pure 200);
   -- Choose which thunk to force
   selected := choose True tA tB;
   x <- force selected;
   pure x
-})
+}
 
-branchFalse := thunk (do {
+branchFalse := thunk do {
   tA := thunk (pure 100);
   tB := thunk (pure 200);
   selected := choose False tA tB;
   x <- force selected;
   pure x
-})
+}
 
 -- Thunks capturing bindings from outer scope
-capturing := thunk (do {
+capturing := thunk do {
   a <- pure 10;
   b <- pure 20;
   t := thunk (pure (a + b));
   result <- force t;
   pure result
-})
+}
 
 -- Nested thunking: thunk of a thunk
-nestedThunk := thunk (do {
+nestedThunk := thunk do {
   inner := thunk (pure 99);
   outer := thunk (force inner);
   x <- force outer;
   pure x
-})
+}
 
 -- Output: (42, 100, 200, 30, 99)
 main := do {
