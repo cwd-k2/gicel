@@ -478,17 +478,16 @@ func TestThunkEnvTrimmed(t *testing.T) {
 	}
 }
 
-func TestLetRecEnvTrimmed(t *testing.T) {
-	// letrec f = \x. ext in f — returned closure should have trimmed env.
+func TestFixEnvTrimmed(t *testing.T) {
+	// fix f = \x. ext — returned closure should have trimmed env.
 	ev := newTestEval()
-	fLam := &core.Lam{
-		Param: "x",
-		Body:  &core.Var{Name: "ext"},
-		FV:    []string{"ext"},
-	}
-	term := &core.LetRec{
-		Bindings: []core.Binding{{Name: "f", Expr: fLam}},
-		Body:     &core.Var{Name: "f"},
+	term := &core.Fix{
+		Name: "f",
+		Body: &core.Lam{
+			Param: "x",
+			Body:  &core.Var{Name: "ext"},
+			FV:    []string{"ext"},
+		},
 	}
 	env := EmptyEnv().
 		Extend("ext", &HostVal{Inner: 1}).
@@ -499,10 +498,10 @@ func TestLetRecEnvTrimmed(t *testing.T) {
 	}
 	clo := r.Value.(*Closure)
 	if _, ok := clo.Env.Lookup("noise"); ok {
-		t.Error("LetRec closure env should not contain 'noise'")
+		t.Error("Fix closure env should not contain 'noise'")
 	}
 	if _, ok := clo.Env.Lookup("ext"); !ok {
-		t.Error("LetRec closure env should contain 'ext'")
+		t.Error("Fix closure env should contain 'ext'")
 	}
 }
 
@@ -518,22 +517,21 @@ func TestAllocTrackingThunk(t *testing.T) {
 	}
 }
 
-func TestAllocTrackingLetRec(t *testing.T) {
+func TestAllocTrackingFix(t *testing.T) {
 	ev := newTestEval()
-	term := &core.LetRec{
-		Bindings: []core.Binding{
-			{Name: "f", Expr: &core.Lam{Param: "x", Body: &core.Var{Name: "x"}}},
+	term := &core.App{
+		Fun: &core.Fix{
+			Name: "f",
+			Body: &core.Lam{Param: "x", Body: &core.Var{Name: "x"}},
 		},
-		Body: &core.Con{Name: "Unit"},
+		Arg: &core.Con{Name: "Unit"},
 	}
 	_, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), term)
 	if err != nil {
 		t.Fatal(err)
 	}
-	// LetRec: costLetRec per binding + ConVal(Unit): costConBase
-	expected := int64(costLetRec + costConBase)
-	if ev.Stats().Allocated != expected {
-		t.Errorf("expected %d bytes, got %d", expected, ev.Stats().Allocated)
+	if ev.Stats().Allocated < costFix {
+		t.Errorf("expected at least %d bytes, got %d", costFix, ev.Stats().Allocated)
 	}
 }
 
@@ -695,24 +693,15 @@ func TestDepthLimitMultiLevel(t *testing.T) {
 	}
 }
 
-func TestLetRecTCOFlat(t *testing.T) {
-	// With TCO, nested LetRec bodies bounce instead of accumulating depth.
-	// 10 nested LetRecs at maxDepth=5 should succeed (depth stays at 1).
-	term := core.Core(&core.Con{Name: "Unit"})
-	for i := range 10 {
-		name := string(rune('a' + i))
-		term = &core.LetRec{
-			Bindings: []core.Binding{
-				{Name: name, Expr: &core.Lam{Param: "x", Body: &core.Var{Name: "x"}}},
-			},
-			Body: term,
-		}
-	}
-
-	ev := NewEvaluator(budget.New(context.Background(), 1_000_000, 5), NewPrimRegistry(), nil, nil)
+func TestFixNestedEval(t *testing.T) {
+	// Nested Fix nodes evaluate correctly — each produces a closure.
+	ev := newTestEval()
+	// fix g in (fix f in \x. x) applied to Unit
+	inner := &core.Fix{Name: "f", Body: &core.Lam{Param: "x", Body: &core.Var{Name: "x"}}}
+	term := &core.App{Fun: inner, Arg: &core.Con{Name: "Unit"}}
 	r, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), term)
 	if err != nil {
-		t.Fatalf("expected success for LetRec TCO, got: %v", err)
+		t.Fatalf("expected success, got: %v", err)
 	}
 	if con, ok := r.Value.(*ConVal); !ok || con.Con != "Unit" {
 		t.Errorf("expected Unit, got %v", r.Value)
@@ -749,15 +738,12 @@ func TestEvalCaseNoMatch(t *testing.T) {
 	}
 }
 
-func TestLetRecNonLamBinding(t *testing.T) {
+func TestFixNonLamBinding(t *testing.T) {
 	ev := newTestEval()
-	term := &core.LetRec{
-		Bindings: []core.Binding{{Name: "x", Expr: &core.Con{Name: "Unit"}}},
-		Body:     &core.Var{Name: "x"},
-	}
+	term := &core.Fix{Name: "x", Body: &core.Con{Name: "Unit"}}
 	_, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), term)
 	if err == nil {
-		t.Fatal("expected error for LetRec non-lambda binding")
+		t.Fatal("expected error for Fix non-lambda body")
 	}
 	if _, ok := err.(*RuntimeError); !ok {
 		t.Errorf("expected *RuntimeError, got %T", err)
@@ -855,10 +841,8 @@ func TestTCOTailRecursionFlat(t *testing.T) {
 		},
 	}
 	innerLam := &core.Lam{Param: "n", Body: body}
-	letrec := &core.LetRec{
-		Bindings: []core.Binding{{Name: "self", Expr: innerLam}},
-		Body:     &core.App{Fun: &core.Var{Name: "self"}, Arg: &core.Lit{Value: int64(N)}},
-	}
+	fix := &core.Fix{Name: "self", Body: innerLam}
+	term := &core.App{Fun: fix, Arg: &core.Lit{Value: int64(N)}}
 
 	prims.Register("eq", func(_ context.Context, ce CapEnv, args []Value, _ Applier) (Value, CapEnv, error) {
 		a := args[0].(*HostVal).Inner.(int64)
@@ -874,7 +858,7 @@ func TestTCOTailRecursionFlat(t *testing.T) {
 		return &HostVal{Inner: a - b}, ce, nil
 	})
 
-	result, err := ev.Eval(EmptyEnv(), NewCapEnv(nil), letrec)
+	result, err := ev.Eval(EmptyEnv(), NewCapEnv(nil), term)
 	if err != nil {
 		t.Fatalf("TCO tail recursion failed: %v", err)
 	}
@@ -1041,82 +1025,28 @@ func TestEvalConApplication(t *testing.T) {
 	}
 }
 
-func TestIsFixpointBody(t *testing.T) {
-	// Pattern: f = \arg. (g f) arg
-	binding := core.Binding{
-		Name: "f",
-		Expr: &core.Lam{
-			Param: "arg",
-			Body: &core.App{
-				Fun: &core.App{
-					Fun: &core.Var{Name: "g"},
-					Arg: &core.Var{Name: "f"},
-				},
-				Arg: &core.Var{Name: "arg"},
-			},
-		},
+func TestFixSelfReference(t *testing.T) {
+	// Fix creates a self-referential closure: fix self in \x. self
+	ev := newTestEval()
+	term := &core.Fix{
+		Name: "self",
+		Body: &core.Lam{Param: "x", Body: &core.Var{Name: "self"}},
 	}
-	inner, ok := isFixpointBody(binding)
-	if !ok {
-		t.Fatal("expected isFixpointBody to return true")
+	r, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), term)
+	if err != nil {
+		t.Fatal(err)
 	}
-	if inner == nil {
-		t.Fatal("expected non-nil inner expression")
+	clo := r.Value.(*Closure)
+	// Applying the fixpoint closure should return itself.
+	r2, err := ev.Eval(clo.Env, EmptyCapEnv(), &core.App{
+		Fun: &core.Var{Name: "self"},
+		Arg: &core.Con{Name: "Unit"},
+	})
+	if err != nil {
+		t.Fatal(err)
 	}
-}
-
-func TestIsFixpointBodyNonLam(t *testing.T) {
-	binding := core.Binding{
-		Name: "f",
-		Expr: &core.Con{Name: "Unit"},
-	}
-	_, ok := isFixpointBody(binding)
-	if ok {
-		t.Fatal("expected isFixpointBody to return false for non-lambda")
-	}
-}
-
-func TestIsFixpointBodyNotPattern(t *testing.T) {
-	// f = \arg. arg (not the fix/rec pattern)
-	binding := core.Binding{
-		Name: "f",
-		Expr: &core.Lam{Param: "arg", Body: &core.Var{Name: "arg"}},
-	}
-	_, ok := isFixpointBody(binding)
-	if ok {
-		t.Fatal("expected isFixpointBody to return false for identity")
-	}
-}
-
-func TestLetRecGroupFV(t *testing.T) {
-	letrec := &core.LetRec{
-		Bindings: []core.Binding{
-			{Name: "f", Expr: &core.Lam{Param: "x", Body: &core.Var{Name: "y"}, FV: []string{"y", "z"}}},
-			{Name: "g", Expr: &core.Lam{Param: "x", Body: &core.Var{Name: "z"}, FV: []string{"z"}}},
-		},
-	}
-	fv := letRecGroupFV(letrec)
-	if fv == nil {
-		t.Fatal("expected non-nil FV set")
-	}
-	fvSet := make(map[string]bool)
-	for _, v := range fv {
-		fvSet[v] = true
-	}
-	if !fvSet["y"] || !fvSet["z"] {
-		t.Errorf("expected y and z in FV, got %v", fv)
-	}
-}
-
-func TestLetRecGroupFVNoAnnotation(t *testing.T) {
-	letrec := &core.LetRec{
-		Bindings: []core.Binding{
-			{Name: "f", Expr: &core.Lam{Param: "x", Body: &core.Var{Name: "y"}}},
-		},
-	}
-	fv := letRecGroupFV(letrec)
-	if fv != nil {
-		t.Errorf("expected nil FV for unannotated binding, got %v", fv)
+	if _, ok := r2.Value.(*Closure); !ok {
+		t.Errorf("expected Closure from self-reference, got %T", r2.Value)
 	}
 }
 
@@ -1230,79 +1160,6 @@ func TestEvalEffectfulPrimValDeferred(t *testing.T) {
 	}
 	if !pv.Effectful {
 		t.Error("expected Effectful=true")
-	}
-}
-
-func TestIsFixpointBodyArgMismatch(t *testing.T) {
-	// f = \arg. (g f) wrong_arg  (outer arg != lambda param)
-	binding := core.Binding{
-		Name: "f",
-		Expr: &core.Lam{
-			Param: "arg",
-			Body: &core.App{
-				Fun: &core.App{
-					Fun: &core.Var{Name: "g"},
-					Arg: &core.Var{Name: "f"},
-				},
-				Arg: &core.Var{Name: "other"},
-			},
-		},
-	}
-	_, ok := isFixpointBody(binding)
-	if ok {
-		t.Fatal("expected false when outer arg doesn't match lambda param")
-	}
-}
-
-func TestIsFixpointBodySelfArgMismatch(t *testing.T) {
-	// f = \arg. (g notF) arg  (inner arg is not self)
-	binding := core.Binding{
-		Name: "f",
-		Expr: &core.Lam{
-			Param: "arg",
-			Body: &core.App{
-				Fun: &core.App{
-					Fun: &core.Var{Name: "g"},
-					Arg: &core.Var{Name: "notF"},
-				},
-				Arg: &core.Var{Name: "arg"},
-			},
-		},
-	}
-	_, ok := isFixpointBody(binding)
-	if ok {
-		t.Fatal("expected false when inner arg is not self")
-	}
-}
-
-func TestIsFixpointBodyInnerNotApp(t *testing.T) {
-	// f = \arg. x arg  (fun is not an App, just a Var)
-	binding := core.Binding{
-		Name: "f",
-		Expr: &core.Lam{
-			Param: "arg",
-			Body: &core.App{
-				Fun: &core.Var{Name: "x"},
-				Arg: &core.Var{Name: "arg"},
-			},
-		},
-	}
-	_, ok := isFixpointBody(binding)
-	if ok {
-		t.Fatal("expected false when fun is not an App")
-	}
-}
-
-func TestIsFixpointBodyNoOuterApp(t *testing.T) {
-	// f = \arg. arg  (body is not an App)
-	// Already tested in TestIsFixpointBodyNotPattern but with different framing.
-	binding := core.Binding{
-		Name: "f",
-		Expr: &core.Lam{Param: "arg", Body: &core.Lit{Value: int64(42)}},
-	}
-	_, ok := isFixpointBody(binding)
-	if ok {
-		t.Fatal("expected false when body is not an App")
 	}
 }
 

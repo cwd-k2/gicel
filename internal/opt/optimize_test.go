@@ -375,21 +375,22 @@ func TestSubst_LamShadowing(t *testing.T) {
 	}
 }
 
-func TestSubst_LetRecShadowing(t *testing.T) {
-	// (\x. letrec x = lit 1 in x) y  →  letrec x = lit 1 in x
-	inner := &core.LetRec{
-		Bindings: []core.Binding{{Name: "x", Expr: lit(int64(1))}},
-		Body:     v("x"),
-	}
+func TestSubst_FixShadowing(t *testing.T) {
+	// (\x. fix x in \y. x) y  →  fix x in \y. x
+	inner := &core.Fix{Name: "x", Body: lam("y", v("x"))}
 	input := app(lam("x", inner), v("y"))
 	result := optimize(input, nil)
-	// The letrec shadows x, so the body must remain v("x"), not v("y").
-	lr, ok := result.(*core.LetRec)
+	// The fix shadows x, so the body must remain unchanged.
+	fx, ok := result.(*core.Fix)
 	if !ok {
-		t.Fatalf("LetRec shadowing: expected LetRec, got %T", result)
+		t.Fatalf("Fix shadowing: expected Fix, got %T", result)
 	}
-	if !coreEq(lr.Body, v("x")) {
-		t.Fatalf("LetRec shadowing: body should be x, got %v", lr.Body)
+	lm, ok := fx.Body.(*core.Lam)
+	if !ok {
+		t.Fatalf("Fix shadowing: expected Lam body, got %T", fx.Body)
+	}
+	if !coreEq(lm.Body, v("x")) {
+		t.Fatalf("Fix shadowing: inner body should be x, got %v", lm.Body)
 	}
 }
 
@@ -454,13 +455,10 @@ func TestSubst_LamCaptureAvoidance(t *testing.T) {
 	}
 }
 
-func TestSubst_LetRecCaptureAvoidance(t *testing.T) {
-	// letrec f = Var "x" in (App (Var "f") (Var "x"))
-	// subst "x" (Var "f") — "f" is free in replacement and bound by letrec
-	expr := &core.LetRec{
-		Bindings: []core.Binding{{Name: "f", Expr: v("x")}},
-		Body:     app(v("f"), v("x")),
-	}
+func TestSubst_FixCaptureAvoidance(t *testing.T) {
+	// fix f in (App (Var "f") (Var "x"))
+	// subst "x" (Var "f") — "f" is free in replacement and bound by fix
+	expr := &core.Fix{Name: "f", Body: lam("z", app(v("f"), v("x")))}
 	replacement := v("f")
 	// Verify capturedBy detects the conflict.
 	if !capturedBy("f", replacement) {
@@ -469,7 +467,7 @@ func TestSubst_LetRecCaptureAvoidance(t *testing.T) {
 	result := subst(expr, "x", replacement)
 	// Guard should bail out — result should be the exact same pointer.
 	if result != expr {
-		t.Fatalf("LetRec capture: expected same pointer (bail out), got different object")
+		t.Fatalf("Fix capture: expected same pointer (bail out), got different object")
 	}
 }
 

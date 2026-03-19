@@ -6,7 +6,7 @@ import (
 )
 
 // Core is a term in the core intermediate representation.
-// 17 formers: Var, Lam, App, TyApp, TyLam, Con, Case, LetRec, Pure, Bind, Thunk, Force, PrimOp, Lit, RecordLit, RecordProj, RecordUpdate.
+// 17 formers: Var, Lam, App, TyApp, TyLam, Con, Case, Fix, Pure, Bind, Thunk, Force, PrimOp, Lit, RecordLit, RecordProj, RecordUpdate.
 type Core interface {
 	coreNode()
 	Span() span.Span
@@ -67,11 +67,14 @@ type Case struct {
 	S         span.Span
 }
 
-// LetRec — mutually recursive bindings.
-type LetRec struct {
-	Bindings []Binding
-	Body     Core
-	S        span.Span
+// Fix — fixed-point combinator.
+// Name is bound in Body. Evaluation peels type erasure (TyLam),
+// expects a Lam at the core, and ties the knot so that Name
+// refers to the resulting closure itself.
+type Fix struct {
+	Name string
+	Body Core
+	S    span.Span
 }
 
 // Pure — computation introduction (pure e).
@@ -152,7 +155,7 @@ func (*TyApp) coreNode()        {}
 func (*TyLam) coreNode()        {}
 func (*Con) coreNode()          {}
 func (*Case) coreNode()         {}
-func (*LetRec) coreNode()       {}
+func (*Fix) coreNode()          {}
 func (*Pure) coreNode()         {}
 func (*Bind) coreNode()         {}
 func (*Thunk) coreNode()        {}
@@ -171,7 +174,7 @@ func (c *TyApp) Span() span.Span        { return c.S }
 func (c *TyLam) Span() span.Span        { return c.S }
 func (c *Con) Span() span.Span          { return c.S }
 func (c *Case) Span() span.Span         { return c.S }
-func (c *LetRec) Span() span.Span       { return c.S }
+func (c *Fix) Span() span.Span          { return c.S }
 func (c *Pure) Span() span.Span         { return c.S }
 func (c *Bind) Span() span.Span         { return c.S }
 func (c *Thunk) Span() span.Span        { return c.S }

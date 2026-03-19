@@ -210,24 +210,14 @@ func subst(expr core.Core, name string, replacement core.Core) core.Core {
 			}
 		}
 		return &core.Case{Scrutinee: subst(n.Scrutinee, name, replacement), Alts: alts, S: n.S}
-	case *core.LetRec:
-		for _, b := range n.Bindings {
-			if b.Name == name {
-				return n // shadowed by letrec binding
-			}
+	case *core.Fix:
+		if n.Name == name {
+			return n // shadowed by fix binding
 		}
-		// Guard: if replacement contains a free variable that would be
-		// captured by a letrec binder, bail out to preserve correctness.
-		for _, b := range n.Bindings {
-			if capturedBy(b.Name, replacement) {
-				return n
-			}
+		if capturedBy(n.Name, replacement) {
+			return n
 		}
-		bindings := make([]core.Binding, len(n.Bindings))
-		for i, b := range n.Bindings {
-			bindings[i] = core.Binding{Name: b.Name, Type: b.Type, Expr: subst(b.Expr, name, replacement), S: b.S}
-		}
-		return &core.LetRec{Bindings: bindings, Body: subst(n.Body, name, replacement), S: n.S}
+		return &core.Fix{Name: n.Name, Body: subst(n.Body, name, replacement), S: n.S}
 	case *core.Pure:
 		return &core.Pure{Expr: subst(n.Expr, name, replacement), S: n.S}
 	case *core.Bind:

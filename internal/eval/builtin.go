@@ -37,30 +37,27 @@ func BuiltinEnv(enableFix, enableRec bool) *Env {
 	if enableFix {
 		env = env.Extend("fix", &Closure{
 			Env: EmptyEnv(), Param: "_f",
-			Body: fixpointBody(),
+			Body: fixBody(),
 		})
 	}
 	if enableRec {
 		env = env.Extend("rec", &Closure{
 			Env: EmptyEnv(), Param: "_f",
-			Body: fixpointBody(),
+			Body: fixBody(),
 		})
 	}
 
 	return env
 }
 
-// fixpointBody returns the LetRec body shared by fix and rec.
-// letrec x = \arg. (f x) arg in x
-func fixpointBody() *core.LetRec {
-	return &core.LetRec{
-		Bindings: []core.Binding{{
-			Name: "_x",
-			Expr: &core.Lam{Param: "_arg", Body: &core.App{
-				Fun: &core.App{Fun: &core.Var{Name: "_f"}, Arg: &core.Var{Name: "_x"}},
-				Arg: &core.Var{Name: "_arg"},
-			}},
+// fixBody returns the Fix node shared by fix and rec builtins.
+// fix f = the fixpoint of f, i.e. x where x = \arg. (f x) arg.
+func fixBody() *core.Fix {
+	return &core.Fix{
+		Name: "_x",
+		Body: &core.Lam{Param: "_arg", Body: &core.App{
+			Fun: &core.App{Fun: &core.Var{Name: "_f"}, Arg: &core.Var{Name: "_x"}},
+			Arg: &core.Var{Name: "_arg"},
 		}},
-		Body: &core.Var{Name: "_x"},
 	}
 }

@@ -68,7 +68,7 @@ type IndirectVal struct {
 //
 // leaveDepth records how many ev.budget.Leave() calls the trampoline must
 // make before the next evalStep — this unwinds the Enter() that the
-// bouncing frame performed (closure application, LetRec body, Force body).
+// bouncing frame performed (closure application, Force body).
 // leaveObs records whether ev.obs.LeaveInternal() is needed (closure
 // application of an internal-named function).
 type bounceVal struct {

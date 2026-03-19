@@ -36,10 +36,7 @@ func walkRec(c Core, visit func(Core) bool, depth int) {
 		for _, alt := range n.Alts {
 			walkRec(alt.Body, visit, depth+1)
 		}
-	case *LetRec:
-		for _, b := range n.Bindings {
-			walkRec(b.Expr, visit, depth+1)
-		}
+	case *Fix:
 		walkRec(n.Body, visit, depth+1)
 	case *Pure:
 		walkRec(n.Expr, visit, depth+1)
@@ -104,12 +101,8 @@ func transformRec(c Core, f func(Core) Core, depth int) Core {
 			alts[i] = Alt{Pattern: alt.Pattern, Body: transformRec(alt.Body, f, depth+1), S: alt.S}
 		}
 		return f(&Case{Scrutinee: transformRec(n.Scrutinee, f, depth+1), Alts: alts, S: n.S})
-	case *LetRec:
-		bindings := make([]Binding, len(n.Bindings))
-		for i, b := range n.Bindings {
-			bindings[i] = Binding{Name: b.Name, Type: b.Type, Expr: transformRec(b.Expr, f, depth+1), S: b.S}
-		}
-		return f(&LetRec{Bindings: bindings, Body: transformRec(n.Body, f, depth+1), S: n.S})
+	case *Fix:
+		return f(&Fix{Name: n.Name, Body: transformRec(n.Body, f, depth+1), S: n.S})
 	case *Pure:
 		return f(&Pure{Expr: transformRec(n.Expr, f, depth+1), S: n.S})
 	case *Bind:

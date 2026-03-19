@@ -20,9 +20,9 @@ func fixArgLam(e syntax.Expr) *syntax.ExprLam {
 	}
 }
 
-// checkFix desugars `fix (\self args... . body)` into a LetRec:
+// checkFix elaborates `fix (\self args... . body)` into a Fix node:
 //
-//	letrec self = \args... . body in self
+//	Fix { self, \args... . body }
 //
 // By giving self the full expected type (including forall), each
 // reference to self in body triggers instantiation with fresh metas,
@@ -50,11 +50,9 @@ func (ch *Checker) checkFix(e *syntax.ExprApp, lam *syntax.ExprLam, expected typ
 
 	ch.ctx.Pop()
 
-	return &core.LetRec{
-		Bindings: []core.Binding{{
-			Name: selfName, Type: expected, Expr: bodyCore, S: e.S,
-		}},
-		Body: &core.Var{Name: selfName, S: e.S},
+	return &core.Fix{
+		Name: selfName,
+		Body: bodyCore,
 		S:    e.S,
 	}
 }

@@ -60,17 +60,10 @@ func freeVarsRec(c Core, bound map[string]int, fv map[string]struct{}, depth int
 				unbind(bound, name)
 			}
 		}
-	case *LetRec:
-		for _, b := range n.Bindings {
-			bind(bound, b.Name)
-		}
-		for _, b := range n.Bindings {
-			freeVarsRec(b.Expr, bound, fv, depth+1)
-		}
+	case *Fix:
+		bind(bound, n.Name)
 		freeVarsRec(n.Body, bound, fv, depth+1)
-		for _, b := range n.Bindings {
-			unbind(bound, b.Name)
-		}
+		unbind(bound, n.Name)
 	case *Pure:
 		freeVarsRec(n.Expr, bound, fv, depth+1)
 	case *Bind:
@@ -120,7 +113,7 @@ func AnnotateFreeVarsProgram(p *Program) {
 // Returns the set of free variables in the expression.
 // Unlike FreeVars/freeVarsRec, this does NOT propagate Lam params into bound —
 // outer Lam params are free from an inner closure's perspective (they are captured).
-// Only LetRec names, Case alt bindings, and Bind vars are propagated as bound,
+// Only Fix names, Case alt bindings, and Bind vars are propagated as bound,
 // since they are resolved within the same scope.
 func annotateFV(c Core, depth int) map[string]struct{} {
 	if depth > maxTraversalDepth {
@@ -158,16 +151,10 @@ func annotateFV(c Core, depth int) map[string]struct{} {
 			result = mergeFV(result, altFV)
 		}
 		return result
-	case *LetRec:
-		// LetRec names are mutually visible — remove them from the result.
-		var result map[string]struct{}
-		for _, b := range n.Bindings {
-			result = mergeFV(result, annotateFV(b.Expr, depth+1))
-		}
-		result = mergeFV(result, annotateFV(n.Body, depth+1))
-		for _, b := range n.Bindings {
-			delete(result, b.Name)
-		}
+	case *Fix:
+		// Fix name is visible in Body — remove it from the result.
+		result := annotateFV(n.Body, depth+1)
+		delete(result, n.Name)
 		return result
 	case *Pure:
 		return annotateFV(n.Expr, depth+1)

@@ -29,7 +29,7 @@ const (
 	costThunk   = 24               // ThunkVal struct
 	costRecBase = 56               // RecordVal struct + map header
 	costRecFld  = 32               // per field in map[string]Value
-	costLetRec  = costClosure + 40 // Closure + Env node per binding
+	costFix     = costClosure + 40 // Closure + Env node for fix binding
 )
 
 // EvalResult is the result of evaluation.
@@ -74,7 +74,7 @@ func (ev *Evaluator) Stats() EvalStats {
 // Eval evaluates a Core expression using a trampoline loop for TCO.
 // Tail-position expressions return a bounceVal instead of recursing,
 // keeping the Go stack flat for deep recursion. Bounce sites include
-// case alt bodies, closure application, LetRec bodies, and Force.
+// case alt bodies, closure application, and Force.
 func (ev *Evaluator) Eval(env *Env, capEnv CapEnv, expr core.Core) (EvalResult, error) {
 	if err := ev.budget.Nest(); err != nil {
 		return EvalResult{}, err
@@ -221,8 +221,8 @@ func (ev *Evaluator) evalStep(env *Env, capEnv CapEnv, expr core.Core) (EvalResu
 			Span:    e.S,
 		}
 
-	case *core.LetRec:
-		return ev.evalLetRec(env, capEnv, e)
+	case *core.Fix:
+		return ev.evalFix(env, capEnv, e)
 
 	case *core.Pure:
 		return ev.Eval(env, capEnv, e.Expr)

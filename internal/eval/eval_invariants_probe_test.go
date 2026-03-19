@@ -170,25 +170,19 @@ func TestProbeE_BounceValNeverEscapes(t *testing.T) {
 	}
 }
 
-func TestProbeE_BounceValFromLetRec(t *testing.T) {
-	// LetRec bounces its body. Verify it resolves.
+func TestProbeE_FixEval(t *testing.T) {
+	// Fix produces a self-referential closure.
 	ev := newTestEval()
-	term := &core.LetRec{
-		Bindings: []core.Binding{
-			{Name: "f", Expr: &core.Lam{Param: "x", Body: &core.Var{Name: "x"}}},
-		},
-		Body: &core.Lit{Value: int64(99)},
+	term := &core.Fix{
+		Name: "f",
+		Body: &core.Lam{Param: "x", Body: &core.Var{Name: "x"}},
 	}
 	r, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), term)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, ok := r.Value.(*bounceVal); ok {
-		t.Fatal("bounceVal escaped from LetRec")
-	}
-	hv, ok := r.Value.(*HostVal)
-	if !ok || hv.Inner != int64(99) {
-		t.Errorf("expected 99, got %v", r.Value)
+	if _, ok := r.Value.(*Closure); !ok {
+		t.Errorf("expected Closure from Fix, got %T", r.Value)
 	}
 }
 
@@ -811,21 +805,17 @@ func TestProbeE_EvalNilCore(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 13. LetRec with fixpoint optimization edge cases
+// 13. Fix node
 // ---------------------------------------------------------------------------
 
-func TestProbeE_LetRecSingleNonFixpoint(t *testing.T) {
-	// LetRec with a single binding that doesn't match fixpoint pattern.
+func TestProbeE_FixApply(t *testing.T) {
+	// Fix produces identity closure; applying it returns the argument.
 	ev := newTestEval()
-	term := &core.LetRec{
-		Bindings: []core.Binding{
-			{Name: "f", Expr: &core.Lam{Param: "x", Body: &core.Var{Name: "x"}}},
-		},
-		Body: &core.App{
-			Fun: &core.Var{Name: "f"},
-			Arg: &core.Lit{Value: int64(42)},
-		},
+	fix := &core.Fix{
+		Name: "f",
+		Body: &core.Lam{Param: "x", Body: &core.Var{Name: "x"}},
 	}
+	term := &core.App{Fun: fix, Arg: &core.Lit{Value: int64(42)}}
 	r, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), term)
 	if err != nil {
 		t.Fatal(err)
@@ -833,29 +823,6 @@ func TestProbeE_LetRecSingleNonFixpoint(t *testing.T) {
 	hv, ok := r.Value.(*HostVal)
 	if !ok || hv.Inner != int64(42) {
 		t.Errorf("expected 42, got %v", r.Value)
-	}
-}
-
-func TestProbeE_LetRecMultipleBindings(t *testing.T) {
-	// LetRec with multiple mutual bindings.
-	ev := newTestEval()
-	term := &core.LetRec{
-		Bindings: []core.Binding{
-			{Name: "f", Expr: &core.Lam{Param: "x", Body: &core.Var{Name: "x"}}},
-			{Name: "g", Expr: &core.Lam{Param: "y", Body: &core.Var{Name: "y"}}},
-		},
-		Body: &core.App{
-			Fun: &core.Var{Name: "g"},
-			Arg: &core.Lit{Value: int64(99)},
-		},
-	}
-	r, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), term)
-	if err != nil {
-		t.Fatal(err)
-	}
-	hv, ok := r.Value.(*HostVal)
-	if !ok || hv.Inner != int64(99) {
-		t.Errorf("expected 99, got %v", r.Value)
 	}
 }
 

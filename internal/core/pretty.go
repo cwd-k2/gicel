@@ -48,14 +48,8 @@ func prettyCore(c Core, indent int) string {
 			fmt.Fprintf(&b, "\n%s  %s -> %s", pad, prettyPattern(alt.Pattern), prettyCore(alt.Body, indent+1))
 		}
 		return b.String()
-	case *LetRec:
-		var b strings.Builder
-		b.WriteString("letrec")
-		for _, bind := range n.Bindings {
-			fmt.Fprintf(&b, "\n%s  %s = %s", pad, bind.Name, prettyCore(bind.Expr, indent+1))
-		}
-		fmt.Fprintf(&b, "\n%sin %s", pad, prettyCore(n.Body, indent))
-		return b.String()
+	case *Fix:
+		return fmt.Sprintf("fix %s in %s", n.Name, prettyCore(n.Body, indent+1))
 	case *Pure:
 		return fmt.Sprintf("(pure %s)", prettyCore(n.Expr, indent))
 	case *Bind:

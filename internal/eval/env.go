@@ -7,7 +7,7 @@ package eval
 // walks the chain. When the chain exceeds flatThreshold, the chain is
 // flattened into a cached map for amortized O(1) lookup.
 //
-// LetRec knot-tying works because Closure captures an *Env pointer;
+// Fix knot-tying works because Closure captures an *Env pointer;
 // parent-chain nodes share structure just like flat-map Envs did.
 type Env struct {
 	parent *Env
@@ -18,7 +18,7 @@ type Env struct {
 }
 
 // flatThreshold controls when the chain is flattened into a map.
-// Chosen to balance LetRec large-binding scenarios vs small-scope overhead.
+// Chosen to balance recursive binding scenarios vs small-scope overhead.
 const flatThreshold = 32
 
 // EmptyEnv creates an empty environment.
