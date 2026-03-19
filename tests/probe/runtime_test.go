@@ -721,8 +721,8 @@ main := do { _ <- pure (); pure 42 }
 func TestProbeD_Do_NestedDoBlocks(t *testing.T) {
 	v, err := pdRun(t, `
 import Prelude
-inner := do { pure 10 }
-main := do { x <- inner; pure (x + 5) }
+inner := thunk (do { pure 10 })
+main := do { x <- force inner; pure (x + 5) }
 `, gicel.Prelude)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)

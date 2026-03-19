@@ -176,8 +176,8 @@ type DualDual (s: Type) :: Type := { DualDual s =: Dual (Dual s) }
 id :: \s. Computation { ch: s @Linear } { ch: s @Linear } ()
 id := assumption
 
-test :: Computation { ch: DualDual (Send (Recv End)) @Linear } { ch: Send (Recv End) @Linear } ()
-test := do { id }
+main :: Computation { ch: DualDual (Send (Recv End)) @Linear } { ch: Send (Recv End) @Linear } ()
+main := do { id }
 `)
 	if errs != "" {
 		t.Fatalf("Dual involution failed: %s", errs)
