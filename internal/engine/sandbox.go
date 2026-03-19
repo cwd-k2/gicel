@@ -18,13 +18,13 @@ const (
 
 // SandboxConfig configures a sandboxed execution.
 type SandboxConfig struct {
-	Packs    []reg.Pack           // stdlib packs to load (default: none)
-	Entry    string               // entry point binding (default: "main")
-	Timeout  time.Duration        // execution timeout (default: 5s)
-	MaxSteps int                  // step limit (default: 100_000)
-	MaxDepth int                  // depth limit (default: 100)
-	MaxAlloc int64                // allocation byte limit (default: 10 MiB)
-	Caps     map[string]any       // initial capability environment (nil for empty)
+	Packs    []reg.Pack            // stdlib packs to load (default: none)
+	Entry    string                // entry point binding (default: "main")
+	Timeout  time.Duration         // execution timeout (default: 5s)
+	MaxSteps int                   // step limit (default: 100_000)
+	MaxDepth int                   // depth limit (default: 100)
+	MaxAlloc int64                 // allocation byte limit (default: 10 MiB)
+	Caps     map[string]any        // initial capability environment (nil for empty)
 	Bindings map[string]eval.Value // host-provided value bindings (nil for none)
 }
 
@@ -77,7 +77,7 @@ func RunSandbox(source string, cfg *SandboxConfig) (result *RunResult, err error
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
-	rt, err := eng.NewRuntime(source)
+	rt, err := eng.NewRuntime(ctx, source)
 	if err != nil {
 		return nil, err
 	}

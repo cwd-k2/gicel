@@ -34,7 +34,7 @@ func main() {
 		return gicel.ToValue(nil), capEnv, nil // nil converts to () via ToValue
 	})
 
-	rt, err := eng.NewRuntime(source)
+	rt, err := eng.NewRuntime(context.Background(), source)
 	if err != nil {
 		log.Fatal("compile error: ", err)
 	}

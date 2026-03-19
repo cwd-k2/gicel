@@ -31,7 +31,7 @@ func peRun(t *testing.T, source string, packs ...gicel.Pack) (gicel.Value, error
 			t.Fatal(err)
 		}
 	}
-	rt, err := eng.NewRuntime(source)
+	rt, err := eng.NewRuntime(context.Background(), source)
 	if err != nil {
 		return nil, err
 	}
@@ -50,7 +50,7 @@ func peRunWithCaps(t *testing.T, source string, caps map[string]any, packs ...gi
 			t.Fatal(err)
 		}
 	}
-	rt, err := eng.NewRuntime(source)
+	rt, err := eng.NewRuntime(context.Background(), source)
 	if err != nil {
 		return nil, err
 	}
@@ -68,7 +68,7 @@ func peRunWithLimits(t *testing.T, source string, steps, depth int, alloc int64,
 			t.Fatal(err)
 		}
 	}
-	rt, err := eng.NewRuntime(source)
+	rt, err := eng.NewRuntime(context.Background(), source)
 	if err != nil {
 		return nil, err
 	}
@@ -87,7 +87,7 @@ func peRunWithExplain(t *testing.T, source string, packs ...gicel.Pack) (gicel.V
 			t.Fatal(err)
 		}
 	}
-	rt, err := eng.NewRuntime(source)
+	rt, err := eng.NewRuntime(context.Background(), source)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -112,7 +112,7 @@ func TestProbeE_Eval_StepLimitZeroViaEngine(t *testing.T) {
 	// Step limit of 0 via Engine.SetStepLimit: should immediately fail.
 	eng := gicel.NewEngine()
 	eng.SetStepLimit(0)
-	rt, err := eng.NewRuntime(`main := 42`)
+	rt, err := eng.NewRuntime(context.Background(), `main := 42`)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -130,7 +130,7 @@ func TestProbeE_Eval_DepthLimitZeroViaEngine(t *testing.T) {
 	// Must not panic regardless of outcome.
 	eng := gicel.NewEngine()
 	eng.SetDepthLimit(0)
-	rt, err := eng.NewRuntime(`main := do { pure 42 }`)
+	rt, err := eng.NewRuntime(context.Background(), `main := do { pure 42 }`)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -144,7 +144,7 @@ func TestProbeE_Eval_AllocLimitZeroViaEngine(t *testing.T) {
 	eng := gicel.NewEngine()
 	eng.Use(gicel.Prelude)
 	eng.SetAllocLimit(0) // Should disable, not crash
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 main := Cons 1 (Cons 2 Nil)
 `)
@@ -165,7 +165,7 @@ func TestProbeE_Eval_AllocLimitOneByteViaEngine(t *testing.T) {
 	eng := gicel.NewEngine()
 	eng.Use(gicel.Prelude)
 	eng.SetAllocLimit(1)
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 main := Cons 1 Nil
 `)
@@ -185,7 +185,7 @@ func TestProbeE_Eval_NegativeStepLimit(t *testing.T) {
 	// Negative step limit: Limit.remaining starts negative, Step() decrements further.
 	eng := gicel.NewEngine()
 	eng.SetStepLimit(-1)
-	rt, err := eng.NewRuntime(`main := 42`)
+	rt, err := eng.NewRuntime(context.Background(), `main := 42`)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -200,7 +200,7 @@ func TestProbeE_Eval_NegativeDepthLimit(t *testing.T) {
 	eng := gicel.NewEngine()
 	eng.Use(gicel.Prelude)
 	eng.SetDepthLimit(-1)
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 main := do { pure 42 }
 `)
@@ -219,7 +219,7 @@ func TestProbeE_Eval_NegativeAllocLimitDisablesCheck(t *testing.T) {
 	eng := gicel.NewEngine()
 	eng.Use(gicel.Prelude)
 	eng.SetAllocLimit(-1) // Should disable, not cause alloc errors
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 main := True
 `)
@@ -333,7 +333,7 @@ func TestProbeE_Eval_DepthLimitTriggersOnRecursion(t *testing.T) {
 	eng.SetStepLimit(100000)
 	eng.SetDepthLimit(5)
 	eng.SetAllocLimit(10 * 1024 * 1024)
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 loop := fix (\self n. case n == 0 { True -> 0; False -> self (n + negate 1) })
 main := loop 100
@@ -581,7 +581,7 @@ func TestProbeE_Eval_ExplainStateEffect(t *testing.T) {
 	eng := gicel.NewEngine()
 	eng.Use(gicel.Prelude)
 	eng.Use(gicel.EffectState)
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 import Effect.State
 main := do { put 42; get }
@@ -624,7 +624,7 @@ main := do { put 42; get }
 func TestProbeE_Eval_ConcurrentRuntimeExecutions(t *testing.T) {
 	eng := gicel.NewEngine()
 	eng.Use(gicel.Prelude)
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 main := 1 + 2
 `)
@@ -662,7 +662,7 @@ func TestProbeE_Eval_ConcurrentRuntimeWithState(t *testing.T) {
 	eng := gicel.NewEngine()
 	eng.Use(gicel.Prelude)
 	eng.Use(gicel.EffectState)
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 import Effect.State
 main := do { n <- get; put (n + 1); get }
@@ -979,7 +979,7 @@ func TestProbeE_Eval_ToListEmpty(t *testing.T) {
 func TestProbeE_Eval_ContextCancelledBeforeRun(t *testing.T) {
 	eng := gicel.NewEngine()
 	eng.Use(gicel.Prelude)
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 main := 1 + 2
 `)
@@ -1000,7 +1000,7 @@ main := 1 + 2
 func TestProbeE_Eval_ContextDeadlineExceeded(t *testing.T) {
 	eng := gicel.NewEngine()
 	eng.Use(gicel.Prelude)
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 loop :: Int -> Int
 loop := \n. loop (n + 1)
@@ -1090,7 +1090,7 @@ func TestProbeE_Eval_FixWithRecursionEnabled(t *testing.T) {
 	eng := gicel.NewEngine()
 	eng.Use(gicel.Prelude)
 	eng.EnableRecursion()
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 countdown := fix (\self n. case n == 0 { True -> 0; False -> self (n + negate 1) })
 main := countdown 10

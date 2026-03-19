@@ -428,7 +428,7 @@ func TestIOPrint(t *testing.T) {
 	if err := stdlib.IO(eng); err != nil {
 		t.Fatal(err)
 	}
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 import Effect.IO
 main := do { print "hello" }
@@ -628,7 +628,7 @@ func TestIODebug(t *testing.T) {
 	if err := stdlib.IO(eng); err != nil {
 		t.Fatal(err)
 	}
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 import Effect.IO
 main := do { debug 42 }

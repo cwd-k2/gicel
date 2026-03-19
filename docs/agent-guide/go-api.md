@@ -33,7 +33,7 @@ eng.Use(gicel.Prelude)
 eng.Use(gicel.EffectState)
 eng.SetStepLimit(500_000)
 
-rt, err := eng.NewRuntime(source)
+rt, err := eng.NewRuntime(ctx, source)
 result, err := rt.RunWith(ctx, &gicel.RunOptions{Caps: caps, Bindings: bindings})
 // result.Value, result.CapEnv, result.Stats
 ```
@@ -111,19 +111,19 @@ eng.DeclareBinding("myInput", gicel.ConType("Int"))
 
 ### Engine Configuration
 
-| Method                                     | Description                      |
-| ------------------------------------------ | -------------------------------- |
-| `eng.Use(pack)`                            | Apply a stdlib pack              |
-| `eng.RegisterPrim(name, impl)`             | Register a primitive             |
-| `eng.RegisterType(name, kind)`             | Register an opaque host type     |
-| `eng.DeclareBinding(name, ty)`             | Declare a host-provided variable |
-| `eng.EnableRecursion()`                    | Enable `rec` and `fix` built-ins |
-| `eng.SetStepLimit(n)` / `SetDepthLimit(n)` | Resource limits                  |
-| `eng.SetAllocLimit(bytes)`                 | Allocation limit (0 = disabled)  |
-| `eng.Use(gicel.Prelude)`                   | Load Prelude (Num, Str, List)    |
-| `eng.RegisterModule(name, src)`            | Register a custom module         |
-| `eng.NewRuntime(source)`                   | Compile to Runtime               |
-| `eng.Compile(source)` / `Parse(source)`    | Type-check or parse-only (error) |
+| Method                                       | Description                      |
+| -------------------------------------------- | -------------------------------- |
+| `eng.Use(pack)`                              | Apply a stdlib pack              |
+| `eng.RegisterPrim(name, impl)`               | Register a primitive             |
+| `eng.RegisterType(name, kind)`               | Register an opaque host type     |
+| `eng.DeclareBinding(name, ty)`               | Declare a host-provided variable |
+| `eng.EnableRecursion()`                      | Enable `rec` and `fix` built-ins |
+| `eng.SetStepLimit(n)` / `SetDepthLimit(n)`   | Resource limits                  |
+| `eng.SetAllocLimit(bytes)`                   | Allocation limit (0 = disabled)  |
+| `eng.Use(gicel.Prelude)`                     | Load Prelude (Num, Str, List)    |
+| `eng.RegisterModule(name, src)`              | Register a custom module         |
+| `eng.NewRuntime(ctx, source)`                | Compile to Runtime               |
+| `eng.Compile(ctx, source)` / `Parse(source)` | Type-check or parse-only (error) |
 
 ### Error Handling
 

@@ -4,6 +4,7 @@
 package probe_test
 
 import (
+	"context"
 	"strings"
 	"testing"
 
@@ -118,7 +119,7 @@ func TestProbeC_Pattern_NonExhaustive_CompileError(t *testing.T) {
 	// Non-exhaustive pattern is caught at compile time by the checker.
 	eng := gicel.NewEngine()
 	eng.Use(gicel.Prelude)
-	_, err := eng.NewRuntime(`
+	_, err := eng.NewRuntime(context.Background(), `
 import Prelude
 f := \x. case x { True -> 1 }
 main := f False
@@ -136,7 +137,7 @@ func TestProbeC_Pattern_NonExhaustive_CaughtAtCompile(t *testing.T) {
 	// Verify that case on Int without a wildcard is rejected at compile time.
 	eng := gicel.NewEngine()
 	eng.Use(gicel.Prelude)
-	_, err := eng.NewRuntime(`
+	_, err := eng.NewRuntime(context.Background(), `
 import Prelude
 f := \x. case x { 0 -> "zero"; 1 -> "one" }
 main := f 99

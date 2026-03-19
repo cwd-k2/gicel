@@ -25,7 +25,7 @@ func TestExplainStepHasLineNumbers(t *testing.T) {
 	// 3:   _ <- put 42;
 	// 4:   get
 	// 5: }
-	rt, err := eng.NewRuntime("import Effect.State\nmain := do {\n  _ <- put 42;\n  get\n}")
+	rt, err := eng.NewRuntime(context.Background(), "import Effect.State\nmain := do {\n  _ <- put 42;\n  get\n}")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -64,7 +64,7 @@ func TestExplainLineNumbersForBindAndMatch(t *testing.T) {
 	))
 
 	var steps []eval.ExplainStep
-	rt, err := eng.NewRuntime("import Prelude\nmain := do {\n  x <- getBool;\n  case x {\n    True -> pure x;\n    False -> pure x\n  }\n}")
+	rt, err := eng.NewRuntime(context.Background(), "import Prelude\nmain := do {\n  x <- getBool;\n  case x {\n    True -> pure x;\n    False -> pure x\n  }\n}")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -109,7 +109,7 @@ func TestExplainStepJSON(t *testing.T) {
 	_ = eng.Use(stdlib.State)
 
 	var steps []eval.ExplainStep
-	rt, err := eng.NewRuntime("import Effect.State\nmain := do {\n  _ <- put 42;\n  get\n}")
+	rt, err := eng.NewRuntime(context.Background(), "import Effect.State\nmain := do {\n  _ <- put 42;\n  get\n}")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -144,7 +144,7 @@ func TestExplainFunctionBoundaries(t *testing.T) {
 	_ = eng.Use(stdlib.State)
 
 	var steps []eval.ExplainStep
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 import Effect.State
 
@@ -188,7 +188,7 @@ func TestExplainStdlibSuppression(t *testing.T) {
 	_ = eng.Use(stdlib.State)
 
 	var steps []eval.ExplainStep
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 import Effect.State
 
@@ -235,7 +235,7 @@ func TestExplainKindNegativeJSON(t *testing.T) {
 func TestTraceHookViaRunWith(t *testing.T) {
 	eng := NewEngine()
 	eng.Use(stdlib.Prelude)
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 main := True
 `)
@@ -263,7 +263,7 @@ func TestSetCheckTraceHookPublicAPI(t *testing.T) {
 	eng.SetCheckTraceHook(func(e check.CheckTraceEvent) {
 		events = append(events, e)
 	})
-	_, err := eng.Compile(`
+	_, err := eng.Compile(context.Background(), `
 data MyBool := T | F
 id := \x. x
 main := id T

@@ -53,7 +53,7 @@ func main() {
 		return result, newCapEnv, nil
 	})
 
-	rt, err := eng.NewRuntime(source)
+	rt, err := eng.NewRuntime(context.Background(), source)
 	if err != nil {
 		log.Fatal("compile error: ", err)
 	}

@@ -16,7 +16,7 @@ import (
 func TestInstanceMethodReferencesRegularBinding(t *testing.T) {
 	eng := NewEngine()
 	eng.Use(stdlib.Prelude)
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 class Wrap f { wrap :: \ a. a -> f a }
 
@@ -45,7 +45,7 @@ main := wrap True
 func TestInstanceMethodReferencesChain(t *testing.T) {
 	eng := NewEngine()
 	_ = stdlib.Prelude(eng)
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 
 class Scale a { scale :: Int -> a -> a }

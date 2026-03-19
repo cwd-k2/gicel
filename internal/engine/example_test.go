@@ -26,7 +26,7 @@ func ExampleEngine_NewRuntime() {
 	eng := NewEngine()
 	eng.Use(stdlib.Prelude)
 
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 		import Prelude
 		not := \b. case b { True -> False; False -> True }
 		main := not False
@@ -46,7 +46,7 @@ func ExampleEngine_NewRuntime() {
 
 func ExampleCompileError_Diagnostics() {
 	eng := NewEngine()
-	_, err := eng.NewRuntime(`main := x`)
+	_, err := eng.NewRuntime(context.Background(), `main := x`)
 	if err != nil {
 		ce := err.(*CompileError)
 		for _, d := range ce.Diagnostics() {

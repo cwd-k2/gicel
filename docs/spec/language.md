@@ -1318,7 +1318,7 @@ A stdlib pack is `func(Registrar) error` — it bundles `RegisterType` + `Regist
 ## 13.3 Runtime Compilation
 
 ```go
-rt, err := eng.NewRuntime(source)
+rt, err := eng.NewRuntime(ctx, source)
 ```
 
 ## 13.4 Execution

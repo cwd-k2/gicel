@@ -34,7 +34,7 @@ not := \b. case b { True -> False; False -> True }
 	if err != nil {
 		t.Fatal(err)
 	}
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 import Lib
 main := not True
 `)
@@ -61,7 +61,7 @@ instance Eq Bool { eq := \x y. True }
 	if err != nil {
 		t.Fatal(err)
 	}
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 import EqLib
 main := eq True False
 `)
@@ -90,7 +90,7 @@ data Color := Red | Blue
 	if err := eng.RegisterModuleFile(path); err != nil {
 		t.Fatal(err)
 	}
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 import Lib
 main := Red
 `)
@@ -154,7 +154,7 @@ func TestImportNameCollision(t *testing.T) {
 	}
 	// Importing both should succeed at parse time but may produce
 	// ambiguity at type check time. At minimum, the program should not panic.
-	_, err = eng.NewRuntime(`
+	_, err = eng.NewRuntime(context.Background(), `
 import A
 import B
 main := True
@@ -169,7 +169,7 @@ func TestPackModuleImport(t *testing.T) {
 	if err := eng.Use(stdlib.Prelude); err != nil {
 		t.Fatal(err)
 	}
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 v1 := 1 + 2
 v2 := strlen "hello"
@@ -206,7 +206,7 @@ data Pair a b := MkPair a b
 	if err != nil {
 		t.Fatal(err)
 	}
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 import A
 import B
 main := MkPair True False
@@ -247,7 +247,7 @@ green := Green
 		t.Fatal(err)
 	}
 	// Selective: only import Red and red
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 import Lib (red, Color(Red))
 main := red
 `)
@@ -277,7 +277,7 @@ green := Green
 		t.Fatal(err)
 	}
 	// Selective import doesn't include 'green'
-	_, err = eng.NewRuntime(`
+	_, err = eng.NewRuntime(context.Background(), `
 import Lib (red)
 main := green
 `)
@@ -296,7 +296,7 @@ red := Red
 	if err != nil {
 		t.Fatal(err)
 	}
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 import Lib as L
 main := L.red
 `)
@@ -321,7 +321,7 @@ data Color := Red | Green | Blue
 	if err != nil {
 		t.Fatal(err)
 	}
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 import Lib as L
 main := L.Green
 `)
@@ -349,7 +349,7 @@ red := Red
 		t.Fatal(err)
 	}
 	// Qualified import should NOT bring names into unqualified scope
-	_, err = eng.NewRuntime(`
+	_, err = eng.NewRuntime(context.Background(), `
 import Lib as L
 main := red
 `)
@@ -366,7 +366,7 @@ data Color := Red | Green | Blue
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = eng.NewRuntime(`
+	_, err = eng.NewRuntime(context.Background(), `
 import Lib
 import Lib
 main := Red
@@ -390,7 +390,7 @@ data Y := MkY
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = eng.NewRuntime(`
+	_, err = eng.NewRuntime(context.Background(), `
 import LibA as L
 import LibB as L
 main := L.MkX
@@ -408,7 +408,7 @@ data Maybe a := Nothing | Just a
 	if err != nil {
 		t.Fatal(err)
 	}
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 import Lib (Maybe(..))
 main := Just 42
 `)
@@ -427,7 +427,7 @@ main := Just 42
 
 func TestCoreSelectiveImportRejected(t *testing.T) {
 	eng := NewEngine()
-	_, err := eng.NewRuntime(`
+	_, err := eng.NewRuntime(context.Background(), `
 import Core (pure)
 main := pure 42
 `)
@@ -438,7 +438,7 @@ main := pure 42
 
 func TestCoreQualifiedImportRejected(t *testing.T) {
 	eng := NewEngine()
-	_, err := eng.NewRuntime(`
+	_, err := eng.NewRuntime(context.Background(), `
 import Core as C
 main := C.pure 42
 `)
@@ -487,7 +487,7 @@ square := \x. x * x
 
 func runExpectHost(t *testing.T, eng *Engine, source string, expected any) {
 	t.Helper()
-	rt, err := eng.NewRuntime(source)
+	rt, err := eng.NewRuntime(context.Background(), source)
 	if err != nil {
 		t.Fatalf("compile error: %v", err)
 	}
@@ -506,7 +506,7 @@ func runExpectHost(t *testing.T, eng *Engine, source string, expected any) {
 
 func runExpectCon(t *testing.T, eng *Engine, source string, expectedCon string) {
 	t.Helper()
-	rt, err := eng.NewRuntime(source)
+	rt, err := eng.NewRuntime(context.Background(), source)
 	if err != nil {
 		t.Fatalf("compile error: %v", err)
 	}
@@ -525,7 +525,7 @@ func runExpectCon(t *testing.T, eng *Engine, source string, expectedCon string) 
 
 func runExpectError(t *testing.T, eng *Engine, source string, wantSubstr string) {
 	t.Helper()
-	_, err := eng.NewRuntime(source)
+	_, err := eng.NewRuntime(context.Background(), source)
 	if err == nil {
 		t.Fatal("expected compile error, got nil")
 	}
@@ -800,7 +800,7 @@ instance MyEq MyBool { myEq := \_ _. MyTrue }
 		t.Fatal(err)
 	}
 	// Selective import of class + type, instances should be implicitly imported
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 import EqLib (MyEq(..), MyBool(..))
 main := myEq MyTrue MyFalse
 `)
@@ -832,7 +832,7 @@ instance MyEq MyBool { myEq := \_ _. MyTrue }
 	}
 	// Qualified import: instances are still available for constraint resolution
 	// (even though names need qualification)
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 import EqLib as E
 main := E.myEq E.MyTrue E.MyFalse
 `)
@@ -872,7 +872,7 @@ main := (f . g) 3
 func TestMultiModuleEndToEnd(t *testing.T) {
 	eng := NewEngine()
 	setupTestModules(t, eng)
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 import Geometry
 import Color (Color(..), name)
@@ -941,7 +941,7 @@ value := 20
 	if err != nil {
 		t.Fatal(err)
 	}
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 import ModA as A
 import ModB as B

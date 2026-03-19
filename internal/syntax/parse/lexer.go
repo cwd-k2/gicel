@@ -4,7 +4,7 @@ import (
 	"unicode"
 	"unicode/utf8"
 
-	. "github.com/cwd-k2/gicel/internal/syntax" //nolint:revive // dot import for tightly-coupled subpackage
+	syn "github.com/cwd-k2/gicel/internal/syntax"
 
 	"github.com/cwd-k2/gicel/internal/errs"
 	"github.com/cwd-k2/gicel/internal/span"
@@ -28,19 +28,19 @@ func NewLexer(source *span.Source) *Lexer {
 }
 
 // Tokenize scans the entire source and returns the token stream.
-func (l *Lexer) Tokenize() ([]Token, *errs.Errors) {
-	var tokens []Token
+func (l *Lexer) Tokenize() ([]syn.Token, *errs.Errors) {
+	var tokens []syn.Token
 	for {
 		tok := l.next()
 		tokens = append(tokens, tok)
-		if tok.Kind == TokEOF {
+		if tok.Kind == syn.TokEOF {
 			break
 		}
 	}
 	return tokens, l.errors
 }
 
-func (l *Lexer) next() Token {
+func (l *Lexer) next() syn.Token {
 	l.skipWhitespaceAndComments()
 	nlBefore := l.sawNewline
 	l.sawNewline = false
@@ -49,10 +49,10 @@ func (l *Lexer) next() Token {
 	return tok
 }
 
-func (l *Lexer) scanToken() Token {
+func (l *Lexer) scanToken() syn.Token {
 	for {
 		if l.pos >= len(l.source.Text) {
-			return Token{Kind: TokEOF, S: span.Span{Start: span.Pos(l.pos), End: span.Pos(l.pos)}}
+			return syn.Token{Kind: syn.TokEOF, S: span.Span{Start: span.Pos(l.pos), End: span.Pos(l.pos)}}
 		}
 
 		start := l.pos
@@ -62,86 +62,86 @@ func (l *Lexer) scanToken() Token {
 		switch ch {
 		case '(':
 			l.advance()
-			return l.tok(TokLParen, start)
+			return l.tok(syn.TokLParen, start)
 		case ')':
 			l.advance()
-			return l.tok(TokRParen, start)
+			return l.tok(syn.TokRParen, start)
 		case '{':
 			l.advance()
-			return l.tok(TokLBrace, start)
+			return l.tok(syn.TokLBrace, start)
 		case '}':
 			l.advance()
-			return l.tok(TokRBrace, start)
+			return l.tok(syn.TokRBrace, start)
 		case '[':
 			l.advance()
-			return l.tok(TokLBracket, start)
+			return l.tok(syn.TokLBracket, start)
 		case ']':
 			l.advance()
-			return l.tok(TokRBracket, start)
+			return l.tok(syn.TokRBracket, start)
 		case ',':
 			l.advance()
-			return l.tok(TokComma, start)
+			return l.tok(syn.TokComma, start)
 		case ';':
 			l.advance()
-			return l.tok(TokSemicolon, start)
+			return l.tok(syn.TokSemicolon, start)
 		}
 
 		// Multi-char punctuation & operators
 		if ch == '-' && l.peekAt(1) == '>' {
 			l.pos += 2
-			return l.tok(TokArrow, start)
+			return l.tok(syn.TokArrow, start)
 		}
 		if ch == '<' && l.peekAt(1) == '-' {
 			l.pos += 2
-			return l.tok(TokLArrow, start)
+			return l.tok(syn.TokLArrow, start)
 		}
 		if ch == ':' && l.peekAt(1) == ':' {
 			l.pos += 2
-			return l.tok(TokColonColon, start)
+			return l.tok(syn.TokColonColon, start)
 		}
 		if ch == ':' && l.peekAt(1) == '=' {
 			l.pos += 2
-			return l.tok(TokColonEq, start)
+			return l.tok(syn.TokColonEq, start)
 		}
 		if ch == ':' {
 			l.advance()
-			return l.tok(TokColon, start)
+			return l.tok(syn.TokColon, start)
 		}
 		if ch == '.' {
 			if l.peekAt(1) == '#' && !isOperatorChar(l.peekAt(2)) {
 				l.pos += 2
-				return l.tok(TokDotHash, start)
+				return l.tok(syn.TokDotHash, start)
 			}
 			l.advance()
-			return l.tok(TokDot, start)
+			return l.tok(syn.TokDot, start)
 		}
 		if ch == '\\' {
 			l.advance()
-			return l.tok(TokBackslash, start)
+			return l.tok(syn.TokBackslash, start)
 		}
 		if ch == '@' {
 			l.advance()
-			return l.tok(TokAt, start)
+			return l.tok(syn.TokAt, start)
 		}
 		if ch == '=' && l.peekAt(1) == '>' {
 			l.pos += 2
-			return l.tok(TokFatArrow, start)
+			return l.tok(syn.TokFatArrow, start)
 		}
 		if ch == '=' && l.peekAt(1) == ':' {
 			l.pos += 2
-			return l.tok(TokEqColon, start)
+			return l.tok(syn.TokEqColon, start)
 		}
 		if ch == '=' && !isOperatorChar(l.peekAt(1)) {
 			l.advance()
-			return l.tok(TokEq, start)
+			return l.tok(syn.TokEq, start)
 		}
 		if ch == '|' && !isOperatorChar(l.peekAt(1)) {
 			l.advance()
-			return l.tok(TokPipe, start)
+			return l.tok(syn.TokPipe, start)
 		}
 		if ch == '_' && !isIdentCont(l.peekAt(1)) {
 			l.advance()
-			return l.tok(TokUnderscore, start)
+			return l.tok(syn.TokUnderscore, start)
 		}
 
 		// String literal
@@ -186,9 +186,9 @@ func (l *Lexer) scanToken() Token {
 				}
 			}
 			if isDouble {
-				return l.tok(TokDoubleLit, start)
+				return l.tok(syn.TokDoubleLit, start)
 			}
-			return l.tok(TokIntLit, start)
+			return l.tok(syn.TokIntLit, start)
 		}
 
 		// Lower identifier or keyword
@@ -203,9 +203,9 @@ func (l *Lexer) scanToken() Token {
 			}
 			text := l.source.Text[start:l.pos]
 			if kind, ok := keywords[text]; ok {
-				return Token{Kind: kind, Text: text, S: span.Span{Start: span.Pos(start), End: span.Pos(l.pos)}}
+				return syn.Token{Kind: kind, Text: text, S: span.Span{Start: span.Pos(start), End: span.Pos(l.pos)}}
 			}
-			return Token{Kind: TokLower, Text: text, S: span.Span{Start: span.Pos(start), End: span.Pos(l.pos)}}
+			return syn.Token{Kind: syn.TokLower, Text: text, S: span.Span{Start: span.Pos(start), End: span.Pos(l.pos)}}
 		}
 
 		// Upper identifier
@@ -219,7 +219,7 @@ func (l *Lexer) scanToken() Token {
 				l.pos += size
 			}
 			text := l.source.Text[start:l.pos]
-			return Token{Kind: TokUpper, Text: text, S: span.Span{Start: span.Pos(start), End: span.Pos(l.pos)}}
+			return syn.Token{Kind: syn.TokUpper, Text: text, S: span.Span{Start: span.Pos(start), End: span.Pos(l.pos)}}
 		}
 
 		// Operator
@@ -231,7 +231,7 @@ func (l *Lexer) scanToken() Token {
 				}
 				l.pos += size
 			}
-			return l.tok(TokOp, start)
+			return l.tok(syn.TokOp, start)
 		}
 
 		// Unknown character — skip and retry (loop instead of recursion to prevent stack overflow).
@@ -320,15 +320,15 @@ func (l *Lexer) advance() {
 	}
 }
 
-func (l *Lexer) tok(kind TokenKind, start int) Token {
-	return Token{
+func (l *Lexer) tok(kind syn.TokenKind, start int) syn.Token {
+	return syn.Token{
 		Kind: kind,
 		Text: l.source.Text[start:l.pos],
 		S:    span.Span{Start: span.Pos(start), End: span.Pos(l.pos)},
 	}
 }
 
-func (l *Lexer) scanString() Token {
+func (l *Lexer) scanString() syn.Token {
 	start := l.pos
 	l.pos++ // skip opening '"'
 	var buf []byte
@@ -336,8 +336,8 @@ func (l *Lexer) scanString() Token {
 		ch := l.source.Text[l.pos]
 		if ch == '"' {
 			l.pos++
-			return Token{
-				Kind: TokStrLit,
+			return syn.Token{
+				Kind: syn.TokStrLit,
 				Text: string(buf),
 				S:    span.Span{Start: span.Pos(start), End: span.Pos(l.pos)},
 			}
@@ -387,14 +387,14 @@ func (l *Lexer) scanString() Token {
 		Span:    span.Span{Start: span.Pos(start), End: span.Pos(l.pos)},
 		Message: "unterminated string literal",
 	})
-	return Token{
-		Kind: TokStrLit,
+	return syn.Token{
+		Kind: syn.TokStrLit,
 		Text: string(buf),
 		S:    span.Span{Start: span.Pos(start), End: span.Pos(l.pos)},
 	}
 }
 
-func (l *Lexer) scanRune(start int) Token {
+func (l *Lexer) scanRune(start int) syn.Token {
 	l.pos++ // skip opening '\''
 	if l.pos >= len(l.source.Text) || l.source.Text[l.pos] == '\'' {
 		l.errors.Add(&errs.Error{
@@ -406,8 +406,8 @@ func (l *Lexer) scanRune(start int) Token {
 		if l.pos < len(l.source.Text) && l.source.Text[l.pos] == '\'' {
 			l.pos++
 		}
-		return Token{
-			Kind: TokRuneLit,
+		return syn.Token{
+			Kind: syn.TokRuneLit,
 			Text: "\x00",
 			S:    span.Span{Start: span.Pos(start), End: span.Pos(l.pos)},
 		}
@@ -423,7 +423,7 @@ func (l *Lexer) scanRune(start int) Token {
 				Span:    span.Span{Start: span.Pos(start), End: span.Pos(l.pos)},
 				Message: "unterminated rune literal",
 			})
-			return Token{Kind: TokRuneLit, Text: "\x00", S: span.Span{Start: span.Pos(start), End: span.Pos(l.pos)}}
+			return syn.Token{Kind: syn.TokRuneLit, Text: "\x00", S: span.Span{Start: span.Pos(start), End: span.Pos(l.pos)}}
 		}
 		esc := l.source.Text[l.pos]
 		l.pos++
@@ -466,24 +466,24 @@ func (l *Lexer) scanRune(start int) Token {
 	} else {
 		l.pos++ // skip closing '\''
 	}
-	return Token{
-		Kind: TokRuneLit,
+	return syn.Token{
+		Kind: syn.TokRuneLit,
 		Text: string(r),
 		S:    span.Span{Start: span.Pos(start), End: span.Pos(l.pos)},
 	}
 }
 
-var keywords = map[string]TokenKind{
-	"case":     TokCase,
-	"do":       TokDo,
-	"data":     TokData,
-	"type":     TokType,
-	"infixl":   TokInfixl,
-	"infixr":   TokInfixr,
-	"infixn":   TokInfixn,
-	"class":    TokClass,
-	"instance": TokInstance,
-	"import":   TokImport,
+var keywords = map[string]syn.TokenKind{
+	"case":     syn.TokCase,
+	"do":       syn.TokDo,
+	"data":     syn.TokData,
+	"type":     syn.TokType,
+	"infixl":   syn.TokInfixl,
+	"infixr":   syn.TokInfixr,
+	"infixn":   syn.TokInfixn,
+	"class":    syn.TokClass,
+	"instance": syn.TokInstance,
+	"import":   syn.TokImport,
 }
 
 func isLowerStart(r rune) bool {

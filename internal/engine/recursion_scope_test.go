@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"context"
 	"strings"
 	"testing"
 
@@ -20,7 +21,7 @@ func TestEnableRecursionScopedToModule(t *testing.T) {
 	}
 
 	// User code should NOT have access to fix.
-	_, err := eng.NewRuntime(`
+	_, err := eng.NewRuntime(context.Background(), `
 import Prelude
 main := fix (\self x. x) True
 `)
@@ -43,7 +44,7 @@ func TestEnableRecursionWorksInModule(t *testing.T) {
 	if err := eng.Use(stdlib.Stream); err != nil {
 		t.Fatal(err)
 	}
-	_, err := eng.NewRuntime(`
+	_, err := eng.NewRuntime(context.Background(), `
 import Prelude
 import Data.Stream
 main := toList (fromList (Cons True Nil) :: Stream Bool)
@@ -60,7 +61,7 @@ func TestExplicitEnableRecursionStillWorks(t *testing.T) {
 	eng.Use(stdlib.Prelude)
 	eng.EnableRecursion()
 
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 main := fix (\self x. x) True
 `)

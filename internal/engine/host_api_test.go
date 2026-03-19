@@ -19,7 +19,7 @@ func TestHostBinding(t *testing.T) {
 	eng.Use(stdlib.Prelude)
 	eng.RegisterType("Int", KindType())
 	eng.DeclareBinding("x", ConType("Int"))
-	rt, err := eng.NewRuntime(`main := x`)
+	rt, err := eng.NewRuntime(context.Background(), `main := x`)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -54,7 +54,7 @@ func TestEngineUse(t *testing.T) {
 
 func TestNoPrelude(t *testing.T) {
 	eng := NewEngine()
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 data MyBool := MyTrue | MyFalse
 main := MyTrue
 `)
@@ -73,7 +73,7 @@ main := MyTrue
 
 func TestCompileError(t *testing.T) {
 	eng := NewEngine()
-	_, err := eng.NewRuntime(`main := undefined_thing`)
+	_, err := eng.NewRuntime(context.Background(), `main := undefined_thing`)
 	if err == nil {
 		t.Error("expected compile error")
 	}
@@ -86,7 +86,7 @@ func TestCompileError(t *testing.T) {
 func TestMissingEntry(t *testing.T) {
 	eng := NewEngine()
 	eng.Use(stdlib.Prelude)
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 x := True
 `)
@@ -104,7 +104,7 @@ func TestStepLimit(t *testing.T) {
 	eng.SetStepLimit(100)
 	eng.EnableRecursion()
 	// No recursion in source, just a program that completes in few steps.
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 data Unit := Unit
 main := Unit
 `)
@@ -123,7 +123,7 @@ main := Unit
 func TestGoroutineSafety(t *testing.T) {
 	eng := NewEngine()
 	eng.Use(stdlib.Prelude)
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 main := True
 `)
@@ -149,7 +149,7 @@ func TestRuntimeReuse(t *testing.T) {
 	eng.Use(stdlib.Prelude)
 	eng.RegisterType("Int", KindType())
 	eng.DeclareBinding("x", ConType("Int"))
-	rt, err := eng.NewRuntime(`main := x`)
+	rt, err := eng.NewRuntime(context.Background(), `main := x`)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -185,7 +185,7 @@ func TestRuntimePrimRegistryIsolation(t *testing.T) {
 		return &eval.ConVal{Con: "True"}, ce, nil
 	})
 
-	rt, err := eng.NewRuntime("import Prelude\nf := assumption\nmain := f False")
+	rt, err := eng.NewRuntime(context.Background(), "import Prelude\nf := assumption\nmain := f False")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -206,7 +206,7 @@ func TestRuntimePrimRegistryIsolation(t *testing.T) {
 func TestRuntimeConcurrent(t *testing.T) {
 	eng := NewEngine()
 	eng.Use(stdlib.Prelude)
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 not := \b. case b { True -> False; False -> True }
 main := not False
@@ -242,7 +242,7 @@ main := not False
 func TestDiagnostics(t *testing.T) {
 	eng := NewEngine()
 	eng.Use(stdlib.Prelude)
-	_, err := eng.NewRuntime(`main := undefined_xyz`)
+	_, err := eng.NewRuntime(context.Background(), `main := undefined_xyz`)
 	if err == nil {
 		t.Fatal("expected compile error")
 	}
@@ -269,7 +269,7 @@ func TestDiagnostics(t *testing.T) {
 func TestCheckOnly(t *testing.T) {
 	eng := NewEngine()
 	eng.Use(stdlib.Prelude)
-	prog, err := eng.Compile(`
+	prog, err := eng.Compile(context.Background(), `
 import Prelude
 main := True
 `)
@@ -292,7 +292,7 @@ func TestParseOnly(t *testing.T) {
 func TestPrettyProgram(t *testing.T) {
 	eng := NewEngine()
 	eng.Use(stdlib.Prelude)
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 main := True
 `)
@@ -308,7 +308,7 @@ main := True
 func TestRunWith(t *testing.T) {
 	eng := NewEngine()
 	eng.Use(stdlib.Prelude)
-	rt, err := eng.NewRuntime(`main := pure ()`)
+	rt, err := eng.NewRuntime(context.Background(), `main := pure ()`)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -328,7 +328,7 @@ func TestRunWith(t *testing.T) {
 // Assumption without any type annotation must produce a compile error.
 func TestAssumptionNoType(t *testing.T) {
 	eng := NewEngine()
-	_, err := eng.NewRuntime(`
+	_, err := eng.NewRuntime(context.Background(), `
 noType := assumption
 main := noType ()
 `)
@@ -350,7 +350,7 @@ func TestMissingRuntimeBinding(t *testing.T) {
 	eng.Use(stdlib.Prelude)
 	eng.RegisterType("Int", KindType())
 	eng.DeclareBinding("x", ConType("Int"))
-	rt, err := eng.NewRuntime(`main := x`)
+	rt, err := eng.NewRuntime(context.Background(), `main := x`)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -376,7 +376,7 @@ func TestPrimPartialApplication(t *testing.T) {
 	})
 	eng.DeclareBinding("a", ConType("Int"))
 	eng.DeclareBinding("b", ConType("Int"))
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 add :: Int -> Int -> Int
 add := assumption
@@ -403,7 +403,7 @@ main := add a b
 func TestCyclicTypeAlias(t *testing.T) {
 	eng := NewEngine()
 	eng.Use(stdlib.Prelude)
-	_, err := eng.NewRuntime(`
+	_, err := eng.NewRuntime(context.Background(), `
 import Prelude
 type A := B
 type B := A
@@ -420,14 +420,14 @@ main := True
 func TestEngineMultipleRuntimes(t *testing.T) {
 	eng := NewEngine()
 	eng.Use(stdlib.Prelude)
-	rt1, err := eng.NewRuntime(`
+	rt1, err := eng.NewRuntime(context.Background(), `
 import Prelude
 main := True
 `)
 	if err != nil {
 		t.Fatal(err)
 	}
-	rt2, err := eng.NewRuntime(`
+	rt2, err := eng.NewRuntime(context.Background(), `
 import Prelude
 main := False
 `)
@@ -455,7 +455,7 @@ func TestEngineMutationAfterRuntime(t *testing.T) {
 	eng.Use(stdlib.Prelude)
 	eng.RegisterType("Int", KindType())
 	eng.DeclareBinding("x", ConType("Int"))
-	rt, err := eng.NewRuntime(`main := x`)
+	rt, err := eng.NewRuntime(context.Background(), `main := x`)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -493,7 +493,7 @@ main := myConst
 	if err := eng.Use(customPack); err != nil {
 		t.Fatal(err)
 	}
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 import Custom
 main := myConst
@@ -519,7 +519,7 @@ func TestSetDepthLimit(t *testing.T) {
 	eng.EnableRecursion()
 	eng.SetStepLimit(1000)
 	eng.SetDepthLimit(10000) // high enough to not interfere
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 loop := fix (\self x. self x)
 main := loop ()
 `)

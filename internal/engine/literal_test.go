@@ -14,7 +14,7 @@ import (
 func TestEvalIntLit(t *testing.T) {
 	eng := NewEngine()
 	eng.Use(stdlib.Prelude)
-	rt, err := eng.NewRuntime(`main := 42`)
+	rt, err := eng.NewRuntime(context.Background(), `main := 42`)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -33,7 +33,7 @@ func TestEvalIntLit(t *testing.T) {
 
 func TestEvalStrLit(t *testing.T) {
 	eng := NewEngine()
-	rt, err := eng.NewRuntime(`main := "hello"`)
+	rt, err := eng.NewRuntime(context.Background(), `main := "hello"`)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -55,7 +55,7 @@ func TestNumAdd(t *testing.T) {
 	if err := eng.Use(stdlib.Prelude); err != nil {
 		t.Fatal(err)
 	}
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 main := add 1 2
 `)
@@ -77,7 +77,7 @@ func TestNumOperators(t *testing.T) {
 	if err := eng.Use(stdlib.Prelude); err != nil {
 		t.Fatal(err)
 	}
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 main := 1 + 2 * 3
 `)
@@ -99,7 +99,7 @@ func TestNumNegate(t *testing.T) {
 	if err := eng.Use(stdlib.Prelude); err != nil {
 		t.Fatal(err)
 	}
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 main := negate 42
 `)
@@ -121,7 +121,7 @@ func TestNumEqInt(t *testing.T) {
 	if err := eng.Use(stdlib.Prelude); err != nil {
 		t.Fatal(err)
 	}
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 main := eq 1 1
 `)
@@ -143,7 +143,7 @@ func TestNumOrdInt(t *testing.T) {
 	if err := eng.Use(stdlib.Prelude); err != nil {
 		t.Fatal(err)
 	}
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 main := compare 1 2
 `)
@@ -165,7 +165,7 @@ func TestNumDivMod(t *testing.T) {
 	if err := eng.Use(stdlib.Prelude); err != nil {
 		t.Fatal(err)
 	}
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 main := div 7 3
 `)
@@ -187,7 +187,7 @@ func TestStrConcat(t *testing.T) {
 	if err := eng.Use(stdlib.Prelude); err != nil {
 		t.Fatal(err)
 	}
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 main := append "hello" " world"
 `)
@@ -209,7 +209,7 @@ func TestStrEq(t *testing.T) {
 	if err := eng.Use(stdlib.Prelude); err != nil {
 		t.Fatal(err)
 	}
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 main := eq "abc" "abc"
 `)
@@ -231,7 +231,7 @@ func TestStrOrd(t *testing.T) {
 	if err := eng.Use(stdlib.Prelude); err != nil {
 		t.Fatal(err)
 	}
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 main := compare "a" "b"
 `)
@@ -253,7 +253,7 @@ func TestStrLength(t *testing.T) {
 	if err := eng.Use(stdlib.Prelude); err != nil {
 		t.Fatal(err)
 	}
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 main := strlen "hello"
 `)
@@ -275,7 +275,7 @@ func TestRuneEq(t *testing.T) {
 	if err := eng.Use(stdlib.Prelude); err != nil {
 		t.Fatal(err)
 	}
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 main := eq 'a' 'a'
 `)
@@ -297,7 +297,7 @@ func TestLiteralWithNumPack(t *testing.T) {
 	if err := eng.Use(stdlib.Prelude); err != nil {
 		t.Fatal(err)
 	}
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 main := 1 + 2 * 3
 `)
@@ -318,7 +318,7 @@ func TestListLiteralBasic(t *testing.T) {
 	if err := eng.Use(stdlib.Prelude); err != nil {
 		t.Fatal(err)
 	}
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 main := [1, 2, 3]
 `)
@@ -335,7 +335,7 @@ main := [1, 2, 3]
 func TestListLiteralEmpty(t *testing.T) {
 	eng := NewEngine()
 	eng.Use(stdlib.Prelude)
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 main := ([] :: List Bool)
 `)
@@ -357,7 +357,7 @@ func TestListLiteralFmap(t *testing.T) {
 	if err := eng.Use(stdlib.Prelude); err != nil {
 		t.Fatal(err)
 	}
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 main := fmap (\x. add x 10) [1, 2, 3]
 `)

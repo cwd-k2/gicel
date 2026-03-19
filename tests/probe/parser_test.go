@@ -28,7 +28,7 @@ func peParserCompile(t *testing.T, source string, packs ...gicel.Pack) (*gicel.R
 			t.Fatal(err)
 		}
 	}
-	return eng.NewRuntime(source)
+	return eng.NewRuntime(context.Background(), source)
 }
 
 func peParserRun(t *testing.T, source string, packs ...gicel.Pack) (gicel.Value, error) {

@@ -17,7 +17,7 @@ func TestFailAbort(t *testing.T) {
 	if err := eng.Use(stdlib.Fail); err != nil {
 		t.Fatal(err)
 	}
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 import Effect.Fail
 main := do { fail; pure True }
 `)
@@ -37,7 +37,7 @@ func TestFromMaybe(t *testing.T) {
 	if err := eng.Use(stdlib.Fail); err != nil {
 		t.Fatal(err)
 	}
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 import Effect.Fail
 main := fromMaybe (Just True)
 `)
@@ -63,7 +63,7 @@ func TestStateGetPut(t *testing.T) {
 	if err := eng.Use(stdlib.State); err != nil {
 		t.Fatal(err)
 	}
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 import Effect.State
 main := do { put 42; get }
@@ -90,7 +90,7 @@ func TestStateThread(t *testing.T) {
 	if err := eng.Use(stdlib.State); err != nil {
 		t.Fatal(err)
 	}
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 import Effect.State
 main := do { n <- get; put (n + 1); get }
@@ -115,7 +115,7 @@ func TestFromResult(t *testing.T) {
 	if err := eng.Use(stdlib.Fail); err != nil {
 		t.Fatal(err)
 	}
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 import Effect.Fail
 main := fromResult (Ok True)
 `)
@@ -144,7 +144,7 @@ func TestFailWithState(t *testing.T) {
 	if err := eng.Use(stdlib.State); err != nil {
 		t.Fatal(err)
 	}
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 import Effect.Fail
 import Effect.State
@@ -171,7 +171,7 @@ func TestInSourceTypeAnnotation(t *testing.T) {
 	eng.RegisterPrim("getVal", func(ctx context.Context, capEnv eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
 		return ToValue(99), capEnv, nil
 	})
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 getVal :: () -> Computation {} {} Int
 getVal := assumption
@@ -198,7 +198,7 @@ func TestKindedForallBinder(t *testing.T) {
 	eng.RegisterPrim("getVal", func(ctx context.Context, capEnv eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
 		return ToValue(7), capEnv, nil
 	})
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 getVal :: \(r: Row). () -> Computation r r Int
 getVal := assumption
@@ -222,7 +222,7 @@ func TestResult2Params(t *testing.T) {
 	eng := NewEngine()
 	eng.Use(stdlib.Prelude)
 	eng.RegisterType("String", KindType())
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 main := Ok True
 `)
@@ -250,7 +250,7 @@ main := Ok True
 func TestTypeAlias(t *testing.T) {
 	eng := NewEngine()
 	eng.Use(stdlib.Prelude)
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 type Effect r a := Computation r r a
 
@@ -274,7 +274,7 @@ main := pure True
 func TestPreludeEffectAlias(t *testing.T) {
 	eng := NewEngine()
 	eng.Use(stdlib.Prelude)
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 main :: Effect {} Bool
 main := pure True
@@ -304,7 +304,7 @@ func TestDeepBindEnvDoesNotLeak(t *testing.T) {
 	// A chain of 100 nested binds. With linked-list Env, each
 	// closure would retain the entire chain. With flat Env, each
 	// only holds its own bindings map.
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 mkInt :: () -> Computation {} {} Int
 mkInt := assumption
@@ -338,7 +338,7 @@ main := do {
 func TestFullPipeline(t *testing.T) {
 	eng := NewEngine()
 	eng.Use(stdlib.Prelude)
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 data SomeEq := { MkSomeEq :: \a. Eq a => a -> SomeEq }
 isSelf :: SomeEq -> Bool
@@ -362,7 +362,7 @@ main := case isSelf (MkSomeEq True) { True -> applyId id; False -> False }
 func TestBackslashForallE2E(t *testing.T) {
 	eng := NewEngine()
 	eng.Use(stdlib.Prelude)
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 id :: \a. a -> a
 id := \x. x
@@ -383,7 +383,7 @@ main := applyId id
 func TestConstraintTupleE2E(t *testing.T) {
 	eng := NewEngine()
 	eng.Use(stdlib.Prelude)
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 eqAndOrd :: \a. (Eq a, Ord a) => a -> a -> Bool
 eqAndOrd := \x y. case eq x y { True -> True; False -> case compare x y { EQ -> True; _ -> False } }
@@ -404,7 +404,7 @@ func TestListFmap(t *testing.T) {
 	if err := eng.Use(stdlib.Prelude); err != nil {
 		t.Fatal(err)
 	}
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 main := fmap (\x. add x 1) (Cons 1 (Cons 2 (Cons 3 Nil)))
 `)
@@ -424,7 +424,7 @@ func TestListFoldr(t *testing.T) {
 	if err := eng.Use(stdlib.Prelude); err != nil {
 		t.Fatal(err)
 	}
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 main := foldr add 0 (Cons 1 (Cons 2 (Cons 3 Nil)))
 `)
@@ -449,7 +449,7 @@ func TestListAppend(t *testing.T) {
 	if err := eng.Use(stdlib.Prelude); err != nil {
 		t.Fatal(err)
 	}
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 main := append (Cons 1 (Cons 2 Nil)) (Cons 3 Nil)
 `)
@@ -468,7 +468,7 @@ func TestListEq(t *testing.T) {
 	if err := eng.Use(stdlib.Prelude); err != nil {
 		t.Fatal(err)
 	}
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 main := eq (Cons 1 (Cons 2 Nil)) (Cons 1 (Cons 2 Nil))
 `)
@@ -490,7 +490,7 @@ func TestListEqDifferent(t *testing.T) {
 	if err := eng.Use(stdlib.Prelude); err != nil {
 		t.Fatal(err)
 	}
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 main := eq (Cons 1 Nil) (Cons 2 Nil)
 `)
@@ -510,7 +510,7 @@ main := eq (Cons 1 Nil) (Cons 2 Nil)
 func TestListMonoidEmpty(t *testing.T) {
 	eng := NewEngine()
 	eng.Use(stdlib.Prelude)
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 main := (empty :: List Bool)
 `)
@@ -530,7 +530,7 @@ main := (empty :: List Bool)
 func TestLiftAliasExpansion(t *testing.T) {
 	eng := NewEngine()
 	eng.Use(stdlib.Prelude)
-	_, err := eng.NewRuntime(`
+	_, err := eng.NewRuntime(context.Background(), `
 import Prelude
 test :: Lift Maybe {} {} Bool
 test := Just True
@@ -544,7 +544,7 @@ main := True
 func TestKindedClassParam(t *testing.T) {
 	eng := NewEngine()
 	eng.Use(stdlib.Prelude)
-	_, err := eng.NewRuntime(`
+	_, err := eng.NewRuntime(context.Background(), `
 import Prelude
 class MyClass (m: Row -> Row -> Type -> Type) {
   myPure :: \a (r: Row). a -> m r r a
@@ -559,7 +559,7 @@ main := True
 func TestKindedClassParamWithInstance(t *testing.T) {
 	eng := NewEngine()
 	eng.Use(stdlib.Prelude)
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 class Wrap (f: Type -> Type) {
   wrap :: \a. a -> f a
@@ -624,7 +624,7 @@ func TestToListWithBinding(t *testing.T) {
 		t.Fatal(err)
 	}
 	eng.DeclareBinding("xs", AppType(ConType("List"), ConType("Int")))
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 main := foldr add 0 xs
 `)
@@ -653,7 +653,7 @@ func TestListStdlibLength(t *testing.T) {
 	if err := eng.Use(stdlib.Prelude); err != nil {
 		t.Fatal(err)
 	}
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 main := length (Cons True (Cons False Nil))
 `)
@@ -686,7 +686,7 @@ class Convert a {
 		t.Fatal(err)
 	}
 	// First compilation: instance Convert Bool.
-	rt1, err := eng.NewRuntime(`
+	rt1, err := eng.NewRuntime(context.Background(), `
 import TFLib
 instance Convert Bool {
   type Target Bool =: Nat;
@@ -708,7 +708,7 @@ main := convert True
 	// Second compilation: same import, different instance.
 	// If isolation is broken, the first compilation's equations
 	// would have leaked into the module metadata.
-	rt2, err := eng.NewRuntime(`
+	rt2, err := eng.NewRuntime(context.Background(), `
 import TFLib
 instance Convert Nat {
   type Target Nat =: Bool;

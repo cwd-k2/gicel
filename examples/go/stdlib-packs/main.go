@@ -59,7 +59,7 @@ main := foldl (+) 0 [1, 2, 3]
 func run(ctx context.Context, label string, setup func(*gicel.Engine), source string, inspect func(gicel.Value)) {
 	eng := gicel.NewEngine()
 	setup(eng)
-	rt, err := eng.NewRuntime(source)
+	rt, err := eng.NewRuntime(context.Background(), source)
 	if err != nil {
 		log.Fatalf("%s compile error: %v", label, err)
 	}
@@ -76,7 +76,7 @@ func runFail(ctx context.Context) {
 	eng.Use(gicel.Prelude)
 	eng.Use(gicel.EffectFail)
 
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 import Effect.Fail
 main := do { _ <- failWith (); pure True }
@@ -103,7 +103,7 @@ func runState(ctx context.Context) {
 	eng.Use(gicel.Prelude)
 	eng.Use(gicel.EffectState)
 
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 import Effect.State
 main := do {
@@ -133,7 +133,7 @@ func runIO(ctx context.Context) {
 	eng.Use(gicel.Prelude)
 	eng.Use(gicel.EffectIO)
 
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 import Effect.IO
 main := do {

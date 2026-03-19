@@ -23,7 +23,7 @@ func probeRun(t *testing.T, source string, packs ...gicel.Pack) (gicel.Value, er
 			t.Fatal(err)
 		}
 	}
-	rt, err := eng.NewRuntime(source)
+	rt, err := eng.NewRuntime(context.Background(), source)
 	if err != nil {
 		return nil, err
 	}
@@ -96,7 +96,7 @@ func pdRun(t *testing.T, source string, packs ...gicel.Pack) (gicel.Value, error
 			t.Fatal(err)
 		}
 	}
-	rt, err := eng.NewRuntime(source)
+	rt, err := eng.NewRuntime(context.Background(), source)
 	if err != nil {
 		return nil, err
 	}
@@ -116,7 +116,7 @@ func pdRunWithCaps(t *testing.T, source string, caps map[string]any, packs ...gi
 			t.Fatal(err)
 		}
 	}
-	rt, err := eng.NewRuntime(source)
+	rt, err := eng.NewRuntime(context.Background(), source)
 	if err != nil {
 		return nil, err
 	}
@@ -139,7 +139,7 @@ func pdRunWithLimits(t *testing.T, source string, steps, depth int, alloc int64,
 			t.Fatal(err)
 		}
 	}
-	rt, err := eng.NewRuntime(source)
+	rt, err := eng.NewRuntime(context.Background(), source)
 	if err != nil {
 		return nil, err
 	}

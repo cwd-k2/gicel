@@ -222,7 +222,7 @@ main := countdown 500
 	if err := eng.Use(gicel.Prelude); err != nil {
 		t.Fatal(err)
 	}
-	rt, err := eng.NewRuntime(source)
+	rt, err := eng.NewRuntime(context.Background(), source)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -256,7 +256,7 @@ func TestStressCapEnvMultiEffectDeep(t *testing.T) {
 	}
 	sb.WriteString("  v <- get;\n  pure v\n}\n")
 
-	rt, err := eng.NewRuntime(sb.String())
+	rt, err := eng.NewRuntime(context.Background(), sb.String())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -345,7 +345,7 @@ main := foldl (\acc x. acc + x) 0 (mkRange 1 201)
 	if err := eng.Use(gicel.Prelude); err != nil {
 		t.Fatal(err)
 	}
-	rt, err := eng.NewRuntime(source)
+	rt, err := eng.NewRuntime(context.Background(), source)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -399,7 +399,7 @@ func TestStressConcurrentRunWith(t *testing.T) {
 	eng.DeclareBinding("x", gicel.ConType("Int"))
 	eng.SetStepLimit(10_000_000)
 
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 double :: Int -> Int
 double := \n. n + n
@@ -451,7 +451,7 @@ func TestStressConcurrentRunWithCaps(t *testing.T) {
 	}
 	eng.SetStepLimit(10_000_000)
 
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 import Effect.State
 main := do {
@@ -515,7 +515,7 @@ val0 := MkT0
 		}
 	}
 
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 import M9
 main := val9
 `)
@@ -590,7 +590,7 @@ myNot := \b. case b { Yes -> No; No -> Yes }
 	if err != nil {
 		t.Fatal(err)
 	}
-	rt, err := eng.NewRuntime("import Prelude\nmain := myNot Yes\n")
+	rt, err := eng.NewRuntime(context.Background(), "import Prelude\nmain := myNot Yes\n")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -609,7 +609,7 @@ func TestStressMultiEntryIndependentLimits(t *testing.T) {
 	eng := gicel.NewEngine()
 	eng.Use(gicel.Prelude)
 	eng.SetStepLimit(100_000)
-	rt, err := eng.NewRuntime("import Prelude\na := True\nb := False\n")
+	rt, err := eng.NewRuntime(context.Background(), "import Prelude\na := True\nb := False\n")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -689,7 +689,7 @@ func TestStressDepthLimitWithThunkForce(t *testing.T) {
 	// Succeeds with generous depth.
 	eng.SetStepLimit(100_000)
 	eng.SetDepthLimit(100)
-	rt, err := eng.NewRuntime(sb.String())
+	rt, err := eng.NewRuntime(context.Background(), sb.String())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -722,7 +722,7 @@ main := loop True
 	eng.EnableRecursion()
 	eng.SetStepLimit(1_000_000_000)
 	eng.SetDepthLimit(1_000_000)
-	rt, err := eng.NewRuntime(source)
+	rt, err := eng.NewRuntime(context.Background(), source)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -760,7 +760,7 @@ main := build 10000 { a: 0, b: 0, c: 0, d: 0, e: 0 }
 		t.Fatal(err)
 	}
 
-	rt, err := eng.NewRuntime(source)
+	rt, err := eng.NewRuntime(context.Background(), source)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -791,7 +791,7 @@ main := case True { True -> longBranch 10000; False -> 42 }
 		t.Fatal(err)
 	}
 
-	rt, err := eng.NewRuntime(source)
+	rt, err := eng.NewRuntime(context.Background(), source)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -839,7 +839,7 @@ func TestStressConcurrentSandboxDifferentLimits(t *testing.T) {
 func TestStressRepeatedRuntimeExecution(t *testing.T) {
 	eng := gicel.NewEngine()
 	eng.Use(gicel.Prelude)
-	rt, err := eng.NewRuntime("import Prelude\nmain := True\n")
+	rt, err := eng.NewRuntime(context.Background(), "import Prelude\nmain := True\n")
 	if err != nil {
 		t.Fatal(err)
 	}

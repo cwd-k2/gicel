@@ -15,7 +15,7 @@ func TestPreludeAsModule(t *testing.T) {
 	// Prelude is now loaded as an implicit module — Bool, (), etc. should be available.
 	eng := NewEngine()
 	eng.Use(stdlib.Prelude)
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 main := True
 `)
@@ -35,7 +35,7 @@ main := True
 func TestNoPreludeWithModules(t *testing.T) {
 	eng := NewEngine()
 	// Without prelude, Bool is not defined — need to define it ourselves.
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 data MyBool := Yes | No
 main := Yes
 `)
@@ -58,7 +58,7 @@ func TestSetPreludeCustom(t *testing.T) {
 	eng.RegisterModule("Prelude", `
 data MyBool := Yes | No
 `)
-	rt, err := eng.NewRuntime("import Prelude\nmain := Yes")
+	rt, err := eng.NewRuntime(context.Background(), "import Prelude\nmain := Yes")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -79,7 +79,7 @@ func TestSetPreludeCoreStillAvailable(t *testing.T) {
 data Bool := True | False
 `)
 	// Effect and then come from CoreSource, Bool from custom prelude.
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 main :: Effect {} Bool
 main := pure True
@@ -101,7 +101,7 @@ func TestSetPreludeNoDefaultBool(t *testing.T) {
 	// Custom prelude that doesn't define Bool — standard Bool should not be available.
 	eng := NewEngine()
 	eng.RegisterModule("Prelude", `data Color := Red | Blue`)
-	_, err := eng.NewRuntime(`
+	_, err := eng.NewRuntime(context.Background(), `
 import Prelude
 main := True
 `)

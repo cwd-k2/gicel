@@ -3,6 +3,7 @@
 package probe_test
 
 import (
+	"context"
 	"strings"
 	"testing"
 
@@ -55,7 +56,7 @@ func sessionCheck(t *testing.T, source string) string {
 	if err := gicel.Prelude(eng); err != nil {
 		t.Fatal(err)
 	}
-	_, err := eng.NewRuntime(full)
+	_, err := eng.NewRuntime(context.Background(), full)
 	if err != nil {
 		return err.Error()
 	}

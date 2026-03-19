@@ -28,7 +28,7 @@ func main() {
 	// Declare `xs` as a List of Int.
 	eng.DeclareBinding("xs", gicel.AppType(gicel.ConType("List"), gicel.ConType("Int")))
 
-	rt, err := eng.NewRuntime(source)
+	rt, err := eng.NewRuntime(context.Background(), source)
 	if err != nil {
 		log.Fatal("compile error: ", err)
 	}

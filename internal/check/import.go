@@ -211,7 +211,7 @@ func (ch *Checker) importSelective(mod *ModuleExports, imp syntax.DeclImport) {
 
 			// Import constructors if HasSub
 			if in.HasSub {
-				ch.importTypeSubs(mod, name, in, imp.ModuleName)
+				ch.importTypeSubs(mod, name, in, imp.ModuleName, imp.S)
 			}
 		}
 
@@ -228,12 +228,14 @@ func (ch *Checker) importSelective(mod *ModuleExports, imp syntax.DeclImport) {
 
 			// Import class methods
 			if in.HasSub {
-				ch.importClassSubs(mod, cls, in, imp.ModuleName)
+				ch.importClassSubs(mod, cls, in, imp.ModuleName, imp.S)
 			} else {
 				// Bare class name: import all methods
 				for _, m := range cls.Methods {
 					if ty, ok := mod.Values[m.Name]; ok {
-						ch.ctx.Push(&CtxVar{Name: m.Name, Type: ty, Module: imp.ModuleName})
+						if !ch.checkAmbiguousName(m.Name, imp.ModuleName, imp.S) {
+							ch.ctx.Push(&CtxVar{Name: m.Name, Type: ty, Module: imp.ModuleName})
+						}
 					}
 				}
 			}
@@ -263,28 +265,32 @@ func (ch *Checker) importSelective(mod *ModuleExports, imp syntax.DeclImport) {
 }
 
 // importTypeSubs imports constructors for a type based on the import name spec.
-func (ch *Checker) importTypeSubs(mod *ModuleExports, typeName string, in syntax.ImportName, moduleName string) {
+func (ch *Checker) importTypeSubs(mod *ModuleExports, typeName string, in syntax.ImportName, moduleName string, s span.Span) {
 	for conName, info := range mod.ConstructorInfo {
 		if info.Name != typeName {
 			continue
 		}
 		if in.AllSubs || slices.Contains(in.SubList, conName) {
-			if ty, ok := mod.ConTypes[conName]; ok {
-				ch.reg.conTypes[conName] = ty
-				ch.ctx.Push(&CtxVar{Name: conName, Type: ty, Module: moduleName})
-				ch.reg.conModules[conName] = moduleName
-			}
 			ch.reg.conInfo[conName] = info
+			if ty, ok := mod.ConTypes[conName]; ok {
+				if !ch.checkAmbiguousName(conName, moduleName, s) {
+					ch.reg.conTypes[conName] = ty
+					ch.ctx.Push(&CtxVar{Name: conName, Type: ty, Module: moduleName})
+					ch.reg.conModules[conName] = moduleName
+				}
+			}
 		}
 	}
 }
 
 // importClassSubs imports class methods based on the import name spec.
-func (ch *Checker) importClassSubs(mod *ModuleExports, cls *ClassInfo, in syntax.ImportName, moduleName string) {
+func (ch *Checker) importClassSubs(mod *ModuleExports, cls *ClassInfo, in syntax.ImportName, moduleName string, s span.Span) {
 	for _, m := range cls.Methods {
 		if in.AllSubs || slices.Contains(in.SubList, m.Name) {
 			if ty, ok := mod.Values[m.Name]; ok {
-				ch.ctx.Push(&CtxVar{Name: m.Name, Type: ty, Module: moduleName})
+				if !ch.checkAmbiguousName(m.Name, moduleName, s) {
+					ch.ctx.Push(&CtxVar{Name: m.Name, Type: ty, Module: moduleName})
+				}
 			}
 		}
 	}

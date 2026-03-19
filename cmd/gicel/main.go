@@ -340,7 +340,7 @@ func cmdRun(args []string) int {
 	eng.SetDepthLimit(*maxDepth)
 	eng.SetAllocLimit(*maxAlloc)
 
-	rt, err := eng.NewRuntime(string(source))
+	rt, err := eng.NewRuntime(context.Background(), string(source))
 	if err != nil {
 		return handleCompileError(err, *jsonOut)
 	}
@@ -421,7 +421,7 @@ func cmdCheck(args []string) int {
 		return 1
 	}
 
-	cr, err := eng.Compile(string(source))
+	cr, err := eng.Compile(context.Background(), string(source))
 	if err != nil {
 		return handleCompileError(err, *jsonOut)
 	}

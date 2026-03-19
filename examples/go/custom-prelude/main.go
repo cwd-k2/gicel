@@ -22,7 +22,7 @@ func main() {
 	// own data types.
 	eng := gicel.NewEngine()
 
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 data Color := Red | Green | Blue
 
 swap :: Color -> Color
@@ -57,7 +57,7 @@ flip := \b. case b { On -> Off; Off -> On }
 		log.Fatal("register prelude error: ", err)
 	}
 
-	rt2, err := eng2.NewRuntime(`
+	rt2, err := eng2.NewRuntime(context.Background(), `
 import Prelude
 main := flip (flip Off)
 `)

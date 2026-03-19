@@ -88,7 +88,11 @@ func (p *Parser) ParseType() syn.TypeExpr {
 }
 
 // Declaration parsing is in parse_decl.go.
-// Expression and pattern parsing is in parse_expr.go.
+// Expression parsing is in parse_expr.go.
+// Pattern parsing is in parse_pattern.go.
+// Type parsing is in parse_type.go.
+// Import parsing is in parse_import.go.
+// Class/instance parsing is in parse_class.go.
 
 // --- Helpers ---
 

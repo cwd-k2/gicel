@@ -1,6 +1,7 @@
 package check
 
 import (
+	"context"
 	"fmt"
 	"maps"
 
@@ -27,6 +28,7 @@ const (
 
 // CheckConfig provides environment for type checking.
 type CheckConfig struct {
+	Context         context.Context // cancellation context (nil = no cancellation)
 	RegisteredTypes map[string]types.Kind
 	Assumptions     map[string]types.Type
 	Bindings        map[string]types.Type
@@ -130,6 +132,31 @@ type Checker struct {
 
 	// Phase state.
 	strictTypeNames bool // enabled after declaration processing
+	cancelled       bool // set when context is cancelled
+}
+
+// checkCancelled checks the config context for cancellation.
+// Returns true if cancelled, recording a terminal error.
+func (ch *Checker) checkCancelled() bool {
+	if ch.cancelled {
+		return true
+	}
+	ctx := ch.config.Context
+	if ctx == nil {
+		return false
+	}
+	select {
+	case <-ctx.Done():
+		ch.cancelled = true
+		ch.errors.Add(&errs.Error{
+			Code:    errs.ErrCancelled,
+			Phase:   errs.PhaseCheck,
+			Message: fmt.Sprintf("type checking cancelled: %v", ctx.Err()),
+		})
+		return true
+	default:
+		return false
+	}
 }
 
 // qualifiedScope holds a module's exports for qualified name resolution.

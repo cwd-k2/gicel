@@ -14,7 +14,7 @@ import (
 func TestUnifySkolemRigid(t *testing.T) {
 	eng := NewEngine()
 	eng.Use(stdlib.Prelude)
-	_, err := eng.Compile(`
+	_, err := eng.Compile(context.Background(), `
 import Prelude
 not :: Bool -> Bool
 not := \x. x
@@ -29,7 +29,7 @@ func TestUnifySkolemSame(t *testing.T) {
 	// Indirect test: use a GADT constructor with existential that unifies skolem with itself
 	eng := NewEngine()
 	eng.Use(stdlib.Prelude)
-	_, err := eng.Compile(`
+	_, err := eng.Compile(context.Background(), `
 import Prelude
 data SameTest := { MkSame :: \a. a -> a -> SameTest }
 useIt :: SameTest -> Bool
@@ -45,7 +45,7 @@ useIt := \s. case s { MkSame x y -> True }
 func TestSkolemEscapeDetected(t *testing.T) {
 	eng := NewEngine()
 	eng.Use(stdlib.Prelude)
-	_, err := eng.Compile(`
+	_, err := eng.Compile(context.Background(), `
 import Prelude
 data Exists := { MkExists :: \a. a -> Exists }
 escape :: Exists -> Bool
@@ -62,7 +62,7 @@ escape := \e. case e { MkExists x -> x }
 func TestSkolemNoEscape(t *testing.T) {
 	eng := NewEngine()
 	eng.Use(stdlib.Prelude)
-	_, err := eng.Compile(`
+	_, err := eng.Compile(context.Background(), `
 import Prelude
 data Wrapper := { MkWrapper :: \a. a -> Wrapper }
 safe :: Wrapper -> Bool
@@ -76,7 +76,7 @@ safe := \w. case w { MkWrapper _ -> True }
 func TestSkolemEscapeInMeta(t *testing.T) {
 	eng := NewEngine()
 	eng.Use(stdlib.Prelude)
-	_, err := eng.Compile(`
+	_, err := eng.Compile(context.Background(), `
 import Prelude
 data SomeVal := { MkSome :: \a. a -> SomeVal }
 leaky := \s. case s { MkSome x -> Just x }
@@ -91,7 +91,7 @@ leaky := \s. case s { MkSome x -> Just x }
 func TestExistentialBasic(t *testing.T) {
 	eng := NewEngine()
 	eng.Use(stdlib.Prelude)
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 data SomeEq := { MkSomeEq :: \a. Eq a => a -> SomeEq }
 useSomeEq :: SomeEq -> Bool
@@ -111,7 +111,7 @@ main := useSomeEq (MkSomeEq True)
 func TestExistentialEscapeError(t *testing.T) {
 	eng := NewEngine()
 	eng.Use(stdlib.Prelude)
-	_, err := eng.Compile(`
+	_, err := eng.Compile(context.Background(), `
 import Prelude
 data SomeEq := { MkSomeEq :: \a. Eq a => a -> SomeEq }
 escape :: SomeEq -> Bool
@@ -125,7 +125,7 @@ escape := \s. case s { MkSomeEq x -> x }
 func TestExistentialNoConstraint(t *testing.T) {
 	eng := NewEngine()
 	eng.Use(stdlib.Prelude)
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 data ExistsF f := { MkExistsF :: \a. f a -> ExistsF f }
 useMaybe :: ExistsF Maybe -> Bool
@@ -145,7 +145,7 @@ main := useMaybe (MkExistsF (Just True))
 func TestExistentialMixed(t *testing.T) {
 	eng := NewEngine()
 	eng.Use(stdlib.Prelude)
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 data Wrapper a := { MkWrapper :: \b. (b -> a) -> b -> Wrapper a }
 useWrapper :: Wrapper Bool -> Bool
@@ -165,7 +165,7 @@ main := useWrapper (MkWrapper (\x. x) True)
 func TestExistentialMultiConstraint(t *testing.T) {
 	eng := NewEngine()
 	eng.Use(stdlib.Prelude)
-	_, err := eng.Compile(`
+	_, err := eng.Compile(context.Background(), `
 import Prelude
 data ShowOrd := { MkShowOrd :: \a. (Eq a, Ord a) => a -> a -> ShowOrd }
 use :: ShowOrd -> Ordering
@@ -181,7 +181,7 @@ use := \s. case s { MkShowOrd x y -> compare x y }
 func TestExistentialWithTypeClass(t *testing.T) {
 	eng := NewEngine()
 	eng.Use(stdlib.Prelude)
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 data SomeEq := { MkSomeEq :: \a. Eq a => a -> SomeEq }
 isSame :: SomeEq -> Bool
@@ -202,7 +202,7 @@ main := isSame (MkSomeEq (Just True))
 func TestExistentialWithGADT(t *testing.T) {
 	eng := NewEngine()
 	eng.Use(stdlib.Prelude)
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 data Typed a := { MkBool :: Bool -> Typed Bool; MkUnit :: Typed () }
 data SomeTyped := { MkSome :: \a. Typed a -> SomeTyped }
@@ -223,7 +223,7 @@ main := classify (MkSome (MkBool True))
 func TestExistentialNestedCase(t *testing.T) {
 	eng := NewEngine()
 	eng.Use(stdlib.Prelude)
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 data Wrap := { MkWrap :: \a. Eq a => a -> Wrap }
 bothSame :: Wrap -> Wrap -> Bool
@@ -246,7 +246,7 @@ main := bothSame (MkWrap True) (MkWrap False)
 func TestSubsumptionInstantiate(t *testing.T) {
 	eng := NewEngine()
 	eng.Use(stdlib.Prelude)
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 id :: \a. a -> a
 id := \x. x
@@ -267,7 +267,7 @@ main := useBool id
 func TestHigherRankBasic(t *testing.T) {
 	eng := NewEngine()
 	eng.Use(stdlib.Prelude)
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 applyToTrue :: (\a. a -> a) -> Bool
 applyToTrue := \f. f True
@@ -289,7 +289,7 @@ func TestHigherRankAnnotationRequired(t *testing.T) {
 	// Rank-2 types should require annotation on the parameter
 	eng := NewEngine()
 	eng.Use(stdlib.Prelude)
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 apply :: (\a. a -> a) -> (Bool, ())
 apply := \f. (f True, f ())
@@ -315,7 +315,7 @@ main := apply id
 func TestHigherRankPolymorphicArg(t *testing.T) {
 	eng := NewEngine()
 	eng.Use(stdlib.Prelude)
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 runId :: (\a. a -> a) -> (Bool, ())
 runId := \f. (f True, f ())

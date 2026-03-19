@@ -98,7 +98,7 @@ func main() {
 		log.Fatal("Math module: ", err)
 	}
 
-	rt, err := eng.NewRuntime(mainSource)
+	rt, err := eng.NewRuntime(context.Background(), mainSource)
 	if err != nil {
 		log.Fatal("compile error: ", err)
 	}

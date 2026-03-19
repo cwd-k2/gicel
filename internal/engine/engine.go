@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"context"
 	"fmt"
 	"maps"
 	"os"
@@ -339,12 +340,15 @@ func (e *Engine) Parse(source string) error {
 }
 
 // Compile compiles and type-checks source code, returning all static information.
-func (e *Engine) Compile(source string) (*CompileResult, error) {
+// Pass context.Background() when cancellation is not needed.
+func (e *Engine) Compile(ctx context.Context, source string) (*CompileResult, error) {
 	ast, src, err := e.parseSource(source)
 	if err != nil {
 		return nil, err
 	}
-	prog, exports, checkErrs := check.CheckModule(ast, src, e.makeCheckConfig())
+	cfg := e.makeCheckConfig()
+	cfg.Context = ctx
+	prog, exports, checkErrs := check.CheckModule(ast, src, cfg)
 	if checkErrs.HasErrors() {
 		return nil, &CompileError{Errors: checkErrs}
 	}
@@ -352,13 +356,17 @@ func (e *Engine) Compile(source string) (*CompileResult, error) {
 }
 
 // NewRuntime compiles source code into an immutable, goroutine-safe Runtime.
-func (e *Engine) NewRuntime(source string) (*Runtime, error) {
+// The context bounds compilation time (type checking in particular);
+// pass context.Background() when cancellation is not needed.
+func (e *Engine) NewRuntime(ctx context.Context, source string) (*Runtime, error) {
 	ast, src, err := e.parseSource(source)
 	if err != nil {
 		return nil, err
 	}
 
-	prog, checkErrs := check.Check(ast, src, e.makeCheckConfig())
+	cfg := e.makeCheckConfig()
+	cfg.Context = ctx
+	prog, checkErrs := check.Check(ast, src, cfg)
 	if checkErrs.HasErrors() {
 		return nil, &CompileError{Errors: checkErrs}
 	}

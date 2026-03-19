@@ -66,7 +66,7 @@ func main() {
 		return gicel.ToValue(nil), capEnv, nil
 	})
 
-	rt, err := eng.NewRuntime(source)
+	rt, err := eng.NewRuntime(context.Background(), source)
 	if err != nil {
 		log.Fatal("compile error: ", err)
 	}

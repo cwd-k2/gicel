@@ -133,7 +133,7 @@ func TestProbeC_Limits_DepthLimit1(t *testing.T) {
 	eng := gicel.NewEngine()
 	eng.Use(gicel.Prelude)
 	eng.SetDepthLimit(1)
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 main := id 42
 `)

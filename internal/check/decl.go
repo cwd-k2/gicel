@@ -9,118 +9,145 @@ import (
 	"github.com/cwd-k2/gicel/internal/types"
 )
 
+// declPipeline coordinates the multi-phase declaration checking process.
+// Cross-phase state (annotations, instance headers) lives here rather than
+// as loose locals, making the data flow between phases explicit.
+type declPipeline struct {
+	ch          *Checker
+	decls       []syntax.Decl
+	prog        *core.Program
+	annotations map[string]types.Type
+	instances   []*InstanceInfo
+}
+
 func (ch *Checker) checkDecls(decls []syntax.Decl) *core.Program {
-	prog := &core.Program{}
+	p := &declPipeline{ch: ch, decls: decls, prog: &core.Program{}}
+	return p.run()
+}
 
-	// 1. Process data declarations (register constructors first).
-	for _, d := range decls {
+func (p *declPipeline) run() *core.Program {
+	p.registerTypes()
+	p.registerClasses()
+	if p.ch.checkCancelled() {
+		return p.prog
+	}
+	p.collectAnnotations()
+	p.checkAssumptions()
+	p.preregisterBindings()
+	if p.ch.checkCancelled() {
+		return p.prog
+	}
+	p.checkInstances()
+	p.checkValues()
+	return p.prog
+}
+
+// registerTypes handles phases 1–3.5: data decls, type aliases, type families,
+// cyclic alias detection, and alias expander installation.
+func (p *declPipeline) registerTypes() {
+	for _, d := range p.decls {
 		if data, ok := d.(*syntax.DeclData); ok {
-			ch.processDataDecl(data, prog)
+			p.ch.processDataDecl(data, p.prog)
 		}
 	}
-
-	// 2. Process type aliases.
-	for _, d := range decls {
+	for _, d := range p.decls {
 		if alias, ok := d.(*syntax.DeclTypeAlias); ok {
-			ch.processTypeAlias(alias)
+			p.ch.processTypeAlias(alias)
 		}
 	}
-
-	// 2.5. Process type family declarations.
-	for _, d := range decls {
+	for _, d := range p.decls {
 		if tf, ok := d.(*syntax.DeclTypeFamily); ok {
-			ch.processTypeFamily(tf)
+			p.ch.processTypeFamily(tf)
 		}
 	}
-
-	// 3. Detect cyclic aliases.
-	hasCyclicAlias := ch.validateAliasGraph()
-
-	// 3.5. Install alias expander in unifier for transparent alias handling.
-	// Skip installation if cyclic aliases were found to prevent infinite expansion.
+	hasCyclicAlias := p.ch.validateAliasGraph()
 	if !hasCyclicAlias {
-		ch.installAliasExpander()
+		p.ch.installAliasExpander()
 	}
+}
 
-	// 4. Process class declarations (generates dict types + selectors).
-	for _, d := range decls {
+// registerClasses handles phases 4–5.6: class declarations, instance headers,
+// type family reducer installation, and strict type name activation.
+func (p *declPipeline) registerClasses() {
+	for _, d := range p.decls {
 		if cls, ok := d.(*syntax.DeclClass); ok {
-			ch.processClassDecl(cls, prog)
+			p.ch.processClassDecl(cls, p.prog)
 		}
 	}
-
-	// 5. Process instance headers (validates, registers).
-	var instanceDecls []*InstanceInfo
-	for _, d := range decls {
+	for _, d := range p.decls {
 		if inst, ok := d.(*syntax.DeclInstance); ok {
-			info := ch.processInstanceHeader(inst)
+			info := p.ch.processInstanceHeader(inst)
 			if info != nil {
-				instanceDecls = append(instanceDecls, info)
+				p.instances = append(p.instances, info)
 			}
 		}
 	}
-
-	// 5.5. Install type family reducer in unifier.
-	// Placed after class (phase 4) and instance headers (phase 5) because
-	// associated type families are registered in class processing and their
-	// equations are collected from instances.
-	ch.installFamilyReducer()
-
-	// 5.6. Enable strict type name validation now that all declarations are registered.
-	if ch.config.StrictTypeNames {
-		ch.strictTypeNames = true
+	// Placed after class and instance headers because associated type families
+	// are registered in class processing and equations are collected from instances.
+	p.ch.installFamilyReducer()
+	if p.ch.config.StrictTypeNames {
+		p.ch.strictTypeNames = true
 	}
+}
 
-	// 6. Collect type annotations.
-	// Free type variables are implicitly universally quantified (implicit forall).
-	annotations := make(map[string]types.Type)
-	for _, d := range decls {
+// collectAnnotations resolves type annotations (phase 6).
+// Free type variables are implicitly universally quantified.
+func (p *declPipeline) collectAnnotations() {
+	p.annotations = make(map[string]types.Type)
+	for _, d := range p.decls {
 		if ann, ok := d.(*syntax.DeclTypeAnn); ok {
-			ty := ch.resolveTypeExpr(ann.Type)
-			annotations[ann.Name] = quantifyFreeVars(ty)
+			ty := p.ch.resolveTypeExpr(ann.Type)
+			p.annotations[ann.Name] = quantifyFreeVars(ty)
 		}
 	}
+}
 
-	// 7. Process assumption declarations first (needed by instance bodies).
-	for _, d := range decls {
+// checkAssumptions processes assumption declarations (phase 7).
+// These must be checked before instance bodies that may reference them.
+func (p *declPipeline) checkAssumptions() {
+	for _, d := range p.decls {
 		if def, ok := d.(*syntax.DeclValueDef); ok {
 			if v, ok := def.Expr.(*syntax.ExprVar); ok && v.Name == "assumption" {
-				ch.processValueDef(def, annotations, prog)
+				p.ch.processValueDef(def, p.annotations, p.prog)
 			}
 		}
 	}
+}
 
-	// 7.5. Pre-register annotated non-assumption bindings into the context.
-	// Only the type is registered; bodies are checked in phase 9.
-	// This allows instance methods (phase 8) to reference these bindings,
-	// matching the open-scope semantics of Wadler & Blott type classes.
-	for _, d := range decls {
+// preregisterBindings pre-registers annotated non-assumption bindings (phase 7.5).
+// Only the type is registered; bodies are checked in checkValues.
+// This allows instance methods to reference these bindings, matching
+// the open-scope semantics of Wadler & Blott type classes.
+func (p *declPipeline) preregisterBindings() {
+	for _, d := range p.decls {
 		if def, ok := d.(*syntax.DeclValueDef); ok {
 			if v, ok := def.Expr.(*syntax.ExprVar); ok && v.Name == "assumption" {
 				continue
 			}
-			if annTy, hasAnn := annotations[def.Name]; hasAnn {
-				ch.ctx.Push(&CtxVar{Name: def.Name, Type: annTy, Module: ch.scope.currentModule})
+			if annTy, hasAnn := p.annotations[def.Name]; hasAnn {
+				p.ch.ctx.Push(&CtxVar{Name: def.Name, Type: annTy, Module: p.ch.scope.currentModule})
 			}
 		}
 	}
+}
 
-	// 8. Process instance bodies (type-checks methods, generates dict bindings).
-	for _, inst := range instanceDecls {
-		ch.processInstanceBody(inst, prog)
+// checkInstances type-checks instance bodies and generates dict bindings (phase 8).
+func (p *declPipeline) checkInstances() {
+	for _, inst := range p.instances {
+		p.ch.processInstanceBody(inst, p.prog)
 	}
+}
 
-	// 9. Process remaining value definitions (non-assumption).
-	for _, d := range decls {
+// checkValues processes remaining (non-assumption) value definitions (phase 9).
+func (p *declPipeline) checkValues() {
+	for _, d := range p.decls {
 		if def, ok := d.(*syntax.DeclValueDef); ok {
 			if v, ok := def.Expr.(*syntax.ExprVar); ok && v.Name == "assumption" {
-				continue // already processed
+				continue
 			}
-			ch.processValueDef(def, annotations, prog)
+			p.ch.processValueDef(def, p.annotations, p.prog)
 		}
 	}
-
-	return prog
 }
 
 func (ch *Checker) processTypeAlias(d *syntax.DeclTypeAlias) {
@@ -135,6 +162,9 @@ func (ch *Checker) processTypeAlias(d *syntax.DeclTypeAlias) {
 }
 
 func (ch *Checker) processValueDef(d *syntax.DeclValueDef, annotations map[string]types.Type, prog *core.Program) {
+	if ch.checkCancelled() {
+		return
+	}
 	annTy, hasAnn := annotations[d.Name]
 
 	// Check if it's an assumption.

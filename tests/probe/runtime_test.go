@@ -31,7 +31,7 @@ func TestProbeC_Edge_EntryReturnsUnit(t *testing.T) {
 
 func TestProbeC_Edge_CustomEntryPoint(t *testing.T) {
 	eng := gicel.NewEngine()
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 myMain := 42
 `)
 	if err != nil {
@@ -46,7 +46,7 @@ myMain := 42
 
 func TestProbeC_Edge_MissingEntryPoint(t *testing.T) {
 	eng := gicel.NewEngine()
-	rt, err := eng.NewRuntime(`x := 42`)
+	rt, err := eng.NewRuntime(context.Background(), `x := 42`)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -61,7 +61,7 @@ func TestProbeC_Edge_MissingEntryPoint(t *testing.T) {
 
 func TestProbeC_Edge_CustomEntryMissing(t *testing.T) {
 	eng := gicel.NewEngine()
-	rt, err := eng.NewRuntime(`main := 42`)
+	rt, err := eng.NewRuntime(context.Background(), `main := 42`)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -84,7 +84,7 @@ func TestProbeC_Edge_SandboxCustomEntry(t *testing.T) {
 func TestProbeC_Edge_MultipleBindings(t *testing.T) {
 	eng := gicel.NewEngine()
 	eng.Use(gicel.Prelude)
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 x := 1
 y := 2
@@ -104,7 +104,7 @@ func TestProbeC_Edge_HostBindingMissing(t *testing.T) {
 	// Declare a binding but don't provide it at runtime.
 	eng := gicel.NewEngine()
 	eng.DeclareBinding("hostVal", gicel.ConType("Int"))
-	rt, err := eng.NewRuntime(`main := hostVal`)
+	rt, err := eng.NewRuntime(context.Background(), `main := hostVal`)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -129,7 +129,7 @@ func TestProbeC_Edge_NestedDoBlocks(t *testing.T) {
 	eng := gicel.NewEngine()
 	eng.Use(gicel.Prelude)
 	eng.Use(gicel.EffectState)
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 import Effect.State
 inner := do { put 10; get }
@@ -202,7 +202,7 @@ main := fst p + snd p
 
 func TestProbeC_Error_CompileErrorHasPosition(t *testing.T) {
 	eng := gicel.NewEngine()
-	_, err := eng.NewRuntime(`main := undefined_variable`)
+	_, err := eng.NewRuntime(context.Background(), `main := undefined_variable`)
 	if err == nil {
 		t.Fatal("expected compile error")
 	}
@@ -225,7 +225,7 @@ func TestProbeC_Error_CompileErrorHasPosition(t *testing.T) {
 func TestProbeC_Error_CompileErrorPhase(t *testing.T) {
 	eng := gicel.NewEngine()
 	// Parse error: invalid syntax.
-	_, err := eng.NewRuntime(`main := @@@`)
+	_, err := eng.NewRuntime(context.Background(), `main := @@@`)
 	if err == nil {
 		t.Fatal("expected compile error")
 	}
@@ -249,7 +249,7 @@ func TestProbeC_Error_CompileErrorNonExhaustiveHasInfo(t *testing.T) {
 	// Verify the error message mentions 'non-exhaustive'.
 	eng := gicel.NewEngine()
 	eng.Use(gicel.Prelude)
-	_, err := eng.NewRuntime(`
+	_, err := eng.NewRuntime(context.Background(), `
 import Prelude
 f := \x. case x { 0 -> "zero"; 1 -> "one" }
 main := f 99
@@ -285,7 +285,7 @@ func TestProbeC_Error_StepLimitErrorMessage(t *testing.T) {
 	eng.Use(gicel.Prelude)
 	eng.SetStepLimit(10)
 	eng.EnableRecursion()
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 loop :: Int -> Int
 loop := \n. loop (n + 1)
@@ -310,7 +310,7 @@ func TestProbeC_Error_DepthLimitErrorMessage(t *testing.T) {
 	eng.EnableRecursion()
 	eng.SetDepthLimit(5)
 	eng.SetStepLimit(1_000_000)
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 deep := fix (\self x. self x)
 main := deep ()
 `)
@@ -337,7 +337,7 @@ func TestProbeC_Error_TailRecursionDoesNotGrowDepth(t *testing.T) {
 	eng.SetDepthLimit(5)
 	eng.SetStepLimit(100)
 	eng.EnableRecursion()
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 loop :: Int -> Int
 loop := \n. loop (n + 1)
@@ -381,7 +381,7 @@ func TestProbeC_Error_ForceNonThunk(t *testing.T) {
 	// Constructing a scenario where force is applied to non-thunk at runtime
 	// requires bypassing the type checker. We can at least verify the error format
 	// by testing that the checker catches it (compile-time).
-	_, err := eng.NewRuntime(`
+	_, err := eng.NewRuntime(context.Background(), `
 import Prelude
 main := force 42
 `)
@@ -399,7 +399,7 @@ main := force 42
 func TestProbeC_Concurrency_MultipleRuns(t *testing.T) {
 	eng := gicel.NewEngine()
 	eng.Use(gicel.Prelude)
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 main := 1 + 2
 `)
@@ -600,7 +600,7 @@ func TestProbeC_Regression_ContextCancellation(t *testing.T) {
 	eng := gicel.NewEngine()
 	eng.Use(gicel.Prelude)
 	eng.EnableRecursion()
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 loop :: Int -> Int
 loop := \n. loop (n + 1)
@@ -624,7 +624,7 @@ main := loop 0
 func TestProbeD_RuntimeReuse_Sequential(t *testing.T) {
 	eng := gicel.NewEngine()
 	eng.Use(gicel.Prelude)
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 main := 1 + 2
 `)
@@ -643,7 +643,7 @@ main := 1 + 2
 func TestProbeD_RuntimeReuse_Concurrent(t *testing.T) {
 	eng := gicel.NewEngine()
 	eng.Use(gicel.Prelude)
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 main := 1 + 2
 `)
@@ -682,11 +682,11 @@ main := 1 + 2
 func TestProbeD_Engine_MultipleRuntimes(t *testing.T) {
 	eng := gicel.NewEngine()
 	eng.Use(gicel.Prelude)
-	rt1, err := eng.NewRuntime("import Prelude\nmain := 10")
+	rt1, err := eng.NewRuntime(context.Background(), "import Prelude\nmain := 10")
 	if err != nil {
 		t.Fatal(err)
 	}
-	rt2, err := eng.NewRuntime("import Prelude\nmain := 20")
+	rt2, err := eng.NewRuntime(context.Background(), "import Prelude\nmain := 20")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -840,7 +840,7 @@ main := { inner: { val: 42 } }.#inner.#val
 func TestProbeD_ContextCancellation(t *testing.T) {
 	eng := gicel.NewEngine()
 	eng.Use(gicel.Prelude)
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 main := foldl (\acc x. acc + x) 0 (replicate 100000 1)
 `)
@@ -907,7 +907,7 @@ func TestProbeD_IO_PrintCollects(t *testing.T) {
 	eng := gicel.NewEngine()
 	eng.Use(gicel.Prelude)
 	eng.Use(gicel.EffectIO)
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 import Effect.IO
 main := do { print "hello"; print "world"; pure () }

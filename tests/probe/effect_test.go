@@ -29,7 +29,7 @@ func TestProbeC_CapEnv_StateWithoutCap(t *testing.T) {
 	eng := gicel.NewEngine()
 	eng.Use(gicel.Prelude)
 	eng.Use(gicel.EffectState)
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 import Effect.State
 main := do { get }
@@ -48,7 +48,7 @@ func TestProbeC_CapEnv_FailWithoutCap(t *testing.T) {
 	eng := gicel.NewEngine()
 	eng.Use(gicel.Prelude)
 	eng.Use(gicel.EffectFail)
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 import Effect.Fail
 main := do { fail }
 `)
@@ -66,7 +66,7 @@ func TestProbeC_CapEnv_StatePutGet(t *testing.T) {
 	eng := gicel.NewEngine()
 	eng.Use(gicel.Prelude)
 	eng.Use(gicel.EffectState)
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 import Effect.State
 main := do { put 99; get }
@@ -87,7 +87,7 @@ func TestProbeC_CapEnv_CapEnvIsolation(t *testing.T) {
 	eng := gicel.NewEngine()
 	eng.Use(gicel.Prelude)
 	eng.Use(gicel.EffectState)
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 import Effect.State
 main := do { n <- get; put (n + 1); get }

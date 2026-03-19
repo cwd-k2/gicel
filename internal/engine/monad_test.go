@@ -17,7 +17,7 @@ func TestIxMonadClassExists(t *testing.T) {
 	// Verify IxMonad class is defined in prelude and usable in type annotations.
 	eng := NewEngine()
 	eng.Use(stdlib.Prelude)
-	_, err := eng.NewRuntime(`
+	_, err := eng.NewRuntime(context.Background(), `
 import Prelude
 myFn :: \(m: Row -> Row -> Type -> Type). IxMonad m => \a (r: Row). a -> m r r a
 myFn := ixpure
@@ -36,7 +36,7 @@ func TestIxMonadComputationIxpure(t *testing.T) {
 	eng := NewEngine()
 	eng.Use(stdlib.Prelude)
 	eng.DeclareBinding("n", ConType("Int"))
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 main :: Computation {} {} Int
 main := ixpure n
@@ -60,7 +60,7 @@ func TestIxMonadComputationIxbind(t *testing.T) {
 	eng := NewEngine()
 	eng.Use(stdlib.Prelude)
 	eng.DeclareBinding("n", ConType("Int"))
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 main :: Computation {} {} Int
 main := ixbind (ixpure n) (\x. ixpure x)
@@ -84,7 +84,7 @@ func TestIxMonadGenericFunction(t *testing.T) {
 	// A generic function using IxMonad constraint should work with Computation.
 	eng := NewEngine()
 	eng.Use(stdlib.Prelude)
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 myReturn :: \(m: Row -> Row -> Type -> Type). IxMonad m => \a (r: Row). a -> m r r a
 myReturn := ixpure
@@ -113,7 +113,7 @@ func TestDoBlockComputationRegression(t *testing.T) {
 	eng := NewEngine()
 	eng.Use(stdlib.Prelude)
 	eng.DeclareBinding("x", ConType("Int"))
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 main := do { v <- pure x; pure v }
 `)
 	if err != nil {
@@ -137,7 +137,7 @@ func TestDoBlockComputationCoreBind(t *testing.T) {
 	eng := NewEngine()
 	eng.Use(stdlib.Prelude)
 	eng.DeclareBinding("x", ConType("Int"))
-	cp, err := eng.Compile(`
+	cp, err := eng.Compile(context.Background(), `
 main := do { v <- pure x; pure v }
 `)
 	if err != nil {
@@ -161,7 +161,7 @@ func TestMaybeDoBlockPure(t *testing.T) {
 	eng.RegisterPrim("add", func(ctx context.Context, capEnv eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
 		return ToValue(MustHost[int64](args[0]) + MustHost[int64](args[1])), capEnv, nil
 	})
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 add :: Int -> Int -> Int
 add := assumption
@@ -189,7 +189,7 @@ func TestMaybeDoBlockNothing(t *testing.T) {
 	// do { x <- Just 5; Nothing; pure x } :: Maybe Int → Nothing
 	eng := NewEngine()
 	eng.Use(stdlib.Prelude)
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 main :: Maybe Int
 main := do { x <- Just 5; Nothing; pure x }
@@ -211,7 +211,7 @@ func TestMaybeDoBlockDirectReturn(t *testing.T) {
 	// Last expression not using pure — direct constructor.
 	eng := NewEngine()
 	eng.Use(stdlib.Prelude)
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 main :: Maybe Int
 main := do { x <- Just 5; Just x }
@@ -241,7 +241,7 @@ func TestListDoBlockCartesian(t *testing.T) {
 		return ToValue(MustHost[int64](args[0]) + MustHost[int64](args[1])), capEnv, nil
 	})
 	eng.EnableRecursion()
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 add :: Int -> Int -> Int
 add := assumption
@@ -277,7 +277,7 @@ func TestListDoFlatMap(t *testing.T) {
 	eng := NewEngine()
 	eng.Use(stdlib.Prelude)
 	eng.EnableRecursion()
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 main :: List Int
 main := do {
@@ -317,7 +317,7 @@ func TestThenCombinator(t *testing.T) {
 	eng.Use(stdlib.Prelude)
 	eng.DeclareBinding("x", ConType("Int"))
 	eng.DeclareBinding("y", ConType("Int"))
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 main := then (pure x) (pure y)
 `)
@@ -342,7 +342,7 @@ func TestGenericMonadicFunction(t *testing.T) {
 	eng := NewEngine()
 	eng.Use(stdlib.Prelude)
 	eng.DeclareBinding("x", ConType("Int"))
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 myReturn :: \(m: Row -> Row -> Type -> Type). IxMonad m => \a (r: Row). a -> m r r a
 myReturn := ixpure
@@ -371,7 +371,7 @@ func TestMaybeDoChain(t *testing.T) {
 	eng.RegisterPrim("add", func(ctx context.Context, capEnv eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
 		return ToValue(MustHost[int64](args[0]) + MustHost[int64](args[1])), capEnv, nil
 	})
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 add :: Int -> Int -> Int
 add := assumption
@@ -407,7 +407,7 @@ func TestMaybeDoEarlyExit(t *testing.T) {
 	eng.RegisterPrim("add", func(ctx context.Context, capEnv eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
 		return ToValue(MustHost[int64](args[0]) + MustHost[int64](args[1])), capEnv, nil
 	})
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 add :: Int -> Int -> Int
 add := assumption
@@ -437,7 +437,7 @@ func TestComputationDoRegression(t *testing.T) {
 	eng.Use(stdlib.Prelude)
 	eng.DeclareBinding("x", ConType("Int"))
 	eng.DeclareBinding("y", ConType("Int"))
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 main := do { a <- pure x; b <- pure y; pure a }
 `)
 	if err != nil {
@@ -465,7 +465,7 @@ func TestListPipelineEndToEnd(t *testing.T) {
 	})
 	eng.EnableRecursion()
 	eng.DeclareBinding("xs", AppType(ConType("List"), ConType("Int")))
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 add :: Int -> Int -> Int
 add := assumption
@@ -499,7 +499,7 @@ func TestEffectComposition(t *testing.T) {
 	if err := eng.Use(stdlib.State); err != nil {
 		t.Fatal(err)
 	}
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 import Effect.Fail
 import Effect.State

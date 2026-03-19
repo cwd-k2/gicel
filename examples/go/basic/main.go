@@ -31,7 +31,7 @@ func main() {
 
 	// 2. Compile the source into an immutable, goroutine-safe Runtime.
 	//    This performs lexing, parsing, type-checking, and elaboration to Core IR.
-	rt, err := eng.NewRuntime(source)
+	rt, err := eng.NewRuntime(context.Background(), source)
 	if err != nil {
 		log.Fatal("compile error: ", err)
 	}

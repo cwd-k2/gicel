@@ -34,7 +34,7 @@ func assertConName(t *testing.T, v gicel.Value, name string) {
 // time or deterministically choose one. No panic.
 func TestProbeE_TC_OverlappingInstancesRejectOrChoose(t *testing.T) {
 	eng := gicel.NewEngine()
-	_, err := eng.Compile(`
+	_, err := eng.Compile(context.Background(), `
 data Bool := True | False
 class C a { method :: a -> Bool }
 instance C Bool { method := \x. x }
@@ -50,7 +50,7 @@ main := method True
 // an instance with no methods should compile and run.
 func TestProbeE_TC_EmptyClassInstanceCompile(t *testing.T) {
 	eng := gicel.NewEngine()
-	_, err := eng.Compile(`
+	_, err := eng.Compile(context.Background(), `
 data Bool := True | False
 class Phantom a {}
 instance Phantom Bool {}
@@ -65,7 +65,7 @@ main := True
 // grandparent class through a 3-level hierarchy.
 func TestProbeE_TC_SuperclassTransitiveResolution(t *testing.T) {
 	eng := gicel.NewEngine()
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 data Bool := True | False
 class A a { ma :: a -> Bool }
 class A a => B a { mb :: a -> Bool }
@@ -94,7 +94,7 @@ main := f True
 // itself (infinite resolution loop) should hit the depth limit.
 func TestProbeE_TC_InstanceResolutionDepthLimit(t *testing.T) {
 	eng := gicel.NewEngine()
-	_, err := eng.Compile(`
+	_, err := eng.Compile(context.Background(), `
 data Bool := True | False
 class C a { method :: a -> Bool }
 -- An instance that requires itself as a context: C a => C a
@@ -112,7 +112,7 @@ main := method True
 // with ambiguity.
 func TestProbeE_TC_MultiParamClassResolution(t *testing.T) {
 	eng := gicel.NewEngine()
-	_, err := eng.Compile(`
+	_, err := eng.Compile(context.Background(), `
 data Bool := True | False
 class Convert a b { convert :: a -> b }
 instance Convert Bool Bool { convert := \x. x }
@@ -137,7 +137,7 @@ main := f True
 // should not cause infinite loop.
 func TestProbeE_TF_RecursiveFamilyHitsFuelLimit(t *testing.T) {
 	eng := gicel.NewEngine()
-	_, err := eng.Compile(`
+	_, err := eng.Compile(context.Background(), `
 data Nat := Z | S Nat
 
 type Loop (n: Type) :: Type := {
@@ -160,7 +160,7 @@ main := (Z :: Loop Z)
 // and be usable in type annotations.
 func TestProbeE_TF_ReducibleFamily(t *testing.T) {
 	eng := gicel.NewEngine()
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 data Bool := True | False
 data Nat := Z | S Nat
 
@@ -189,7 +189,7 @@ main := val
 func TestProbeE_TF_FamilyWithDataKinds(t *testing.T) {
 	eng := gicel.NewEngine()
 	eng.Use(gicel.Prelude)
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 data Color := Red | Green | Blue
 
@@ -225,7 +225,7 @@ main := val
 // of a case branch should be rejected.
 func TestProbeE_GADT_ExistentialEscapeError(t *testing.T) {
 	eng := gicel.NewEngine()
-	_, err := eng.Compile(`
+	_, err := eng.Compile(context.Background(), `
 data Bool := True | False
 data Exists := { MkExists :: \a. a -> Exists }
 
@@ -243,7 +243,7 @@ bad := \e. case e { MkExists x -> x }
 func TestProbeE_GADT_ValidExistential(t *testing.T) {
 	eng := gicel.NewEngine()
 	eng.Use(gicel.Prelude)
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 data Exists := { MkExists :: \a. Show a => a -> Exists }
 
@@ -273,7 +273,7 @@ main := showExists (MkExists True)
 func TestProbeE_GADT_NestedExistentialWithClass(t *testing.T) {
 	eng := gicel.NewEngine()
 	eng.Use(gicel.Prelude)
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 data SomeEq := { MkSomeEq :: \a. Eq a => a -> a -> SomeEq }
 
@@ -302,7 +302,7 @@ func TestProbeE_Module_AmbiguousNameFromTwoOpenImports(t *testing.T) {
 	eng := gicel.NewEngine()
 	eng.RegisterModule("A", `data Bool := True | False`)
 	eng.RegisterModule("B", `data Bool := Yes | No`)
-	_, err := eng.Compile(`
+	_, err := eng.Compile(context.Background(), `
 import A
 import B
 main := True
@@ -327,7 +327,7 @@ import Prelude
 val :: Int
 val := 20
 `)
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 import ModA as A
 import ModB as B
@@ -354,7 +354,7 @@ main := A.val + B.val
 func TestProbeE_Module_SelectiveImportOfNonexistentName(t *testing.T) {
 	eng := gicel.NewEngine()
 	eng.RegisterModule("Lib", `data Color := Red | Blue`)
-	_, err := eng.Compile(`
+	_, err := eng.Compile(context.Background(), `
 import Lib (nonexistent)
 main := 42
 `)
@@ -404,7 +404,7 @@ class MyEq a { myEq :: a -> a -> Bool }
 import ClassDef
 instance MyEq Bool { myEq := \x y. True }
 `)
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 import ClassDef
 import InstanceDef
 main := myEq True False
@@ -427,7 +427,7 @@ main := myEq True False
 // be accepted.
 func TestProbeE_HigherRank_RankNAnnotation(t *testing.T) {
 	eng := gicel.NewEngine()
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 data Bool := True | False
 
 -- Rank-2: f takes a polymorphic function
@@ -450,7 +450,7 @@ main := apply (\x. x) True
 // a monomorphic one is expected (subsumption).
 func TestProbeE_HigherRank_Subsumption(t *testing.T) {
 	eng := gicel.NewEngine()
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 data Bool := True | False
 
 f :: (Bool -> Bool) -> Bool
@@ -481,7 +481,7 @@ main := f id
 func TestProbeE_Cross_TypeFamilyWithClass(t *testing.T) {
 	eng := gicel.NewEngine()
 	eng.Use(gicel.Prelude)
-	_, err := eng.Compile(`
+	_, err := eng.Compile(context.Background(), `
 import Prelude
 data List a := Nil | Cons a (List a)
 
@@ -502,7 +502,7 @@ instance Container (List a) {
 // constructor types.
 func TestProbeE_Cross_GADTWithTypeFamily(t *testing.T) {
 	eng := gicel.NewEngine()
-	_, err := eng.Compile(`
+	_, err := eng.Compile(context.Background(), `
 data Bool := True | False
 data Nat := Z | S Nat
 
@@ -525,7 +525,7 @@ main := ProofZ
 func TestProbeE_Cross_LetGenWithMultipleConstraints(t *testing.T) {
 	eng := gicel.NewEngine()
 	eng.Use(gicel.Prelude)
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 -- eqAndShow should generalize to: \ a. (Eq a, Show a) => a -> a -> String
 eqAndShow := \x y. case eq x y { True -> show x; False -> show y }
@@ -555,7 +555,7 @@ main := eqAndShow 1 2
 // should produce a clean error.
 func TestProbeE_Crash_ApplyNonFunctionType(t *testing.T) {
 	eng := gicel.NewEngine()
-	_, err := eng.Compile(`
+	_, err := eng.Compile(context.Background(), `
 data Bool := True | False
 main := True True
 `)
@@ -568,7 +568,7 @@ main := True True
 // produce a clean error.
 func TestProbeE_Crash_UndefinedVariable(t *testing.T) {
 	eng := gicel.NewEngine()
-	_, err := eng.Compile(`
+	_, err := eng.Compile(context.Background(), `
 main := undefinedVar
 `)
 	if err == nil {
@@ -583,7 +583,7 @@ main := undefinedVar
 // with an expression should fail cleanly.
 func TestProbeE_Crash_DoBlockEndingWithBind(t *testing.T) {
 	eng := gicel.NewEngine()
-	_, err := eng.Compile(`
+	_, err := eng.Compile(context.Background(), `
 main := do { x <- pure (); }
 `)
 	// Might succeed (trailing semicolons) or error. No panic.
@@ -598,7 +598,7 @@ func TestProbeE_Crash_VeryLongIdentifier(t *testing.T) {
 	source := long + " := 42\nmain := " + long
 	eng.Use(gicel.Prelude)
 	// Should either compile or produce a clean error
-	_, err := eng.Compile("import Prelude\n" + source)
+	_, err := eng.Compile(context.Background(), "import Prelude\n"+source)
 	_ = err
 }
 
@@ -629,14 +629,14 @@ func TestProbeE_Crash_ManyTopLevelBindings(t *testing.T) {
 		b.WriteByte('\n')
 	}
 	b.WriteString("main := val_a_0\n")
-	_, err := eng.Compile(b.String())
+	_, err := eng.Compile(context.Background(), b.String())
 	_ = err // Just checking no panic
 }
 
 // TestProbeE_Crash_EmptySource — empty source should not panic.
 func TestProbeE_Crash_EmptySource(t *testing.T) {
 	eng := gicel.NewEngine()
-	_, err := eng.Compile("")
+	_, err := eng.Compile(context.Background(), "")
 	// Should produce "no main binding" or similar error, not panic
 	_ = err
 }
@@ -644,7 +644,7 @@ func TestProbeE_Crash_EmptySource(t *testing.T) {
 // TestProbeE_Crash_OnlyComments — source with only comments should not panic.
 func TestProbeE_Crash_OnlyComments(t *testing.T) {
 	eng := gicel.NewEngine()
-	_, err := eng.Compile("-- just a comment\n-- another comment\n")
+	_, err := eng.Compile(context.Background(), "-- just a comment\n-- another comment\n")
 	_ = err
 }
 
@@ -667,7 +667,7 @@ func TestProbeE_Crash_DataDeclWithManyConstructors(t *testing.T) {
 		}
 	}
 	b.WriteString("\nmain := C0\n")
-	_, err := eng.Compile(b.String())
+	_, err := eng.Compile(context.Background(), b.String())
 	if err != nil {
 		t.Logf("NOTICE: many constructors error: %v", err)
 	}
@@ -680,7 +680,7 @@ func TestProbeE_Crash_DataDeclWithManyConstructors(t *testing.T) {
 // TestProbeE_Comp_PureUnit — pure () should type-check and run.
 func TestProbeE_Comp_PureUnit(t *testing.T) {
 	eng := gicel.NewEngine()
-	rt, err := eng.NewRuntime(`main := pure ()`)
+	rt, err := eng.NewRuntime(context.Background(), `main := pure ()`)
 	if err != nil {
 		t.Fatalf("pure () should compile: %v", err)
 	}
@@ -698,7 +698,7 @@ func TestProbeE_Comp_PureUnit(t *testing.T) {
 func TestProbeE_Comp_BindChain(t *testing.T) {
 	eng := gicel.NewEngine()
 	eng.Use(gicel.Prelude)
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 main := do {
   x <- pure 1;
@@ -728,7 +728,7 @@ main := do {
 // positions.
 func TestProbeE_Record_EmptyRecordType(t *testing.T) {
 	eng := gicel.NewEngine()
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 f :: () -> ()
 f := \x. x
 main := f ()
@@ -750,7 +750,7 @@ main := f ()
 func TestProbeE_Record_NestedRecords(t *testing.T) {
 	eng := gicel.NewEngine()
 	eng.Use(gicel.Prelude)
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 main := { outer: { inner: 42 } }
 `)
@@ -787,7 +787,7 @@ main := { outer: { inner: 42 } }
 func TestProbeE_Record_TupleWithManyElements(t *testing.T) {
 	eng := gicel.NewEngine()
 	eng.Use(gicel.Prelude)
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 main := (1, 2, 3, 4, 5, 6, 7, 8)
 `)
@@ -815,7 +815,7 @@ main := (1, 2, 3, 4, 5, 6, 7, 8)
 func TestProbeE_Infer_LetPolymorphism(t *testing.T) {
 	eng := gicel.NewEngine()
 	eng.Use(gicel.Prelude)
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 id := \x. x
 -- id should be usable at both Bool and Int
@@ -840,7 +840,7 @@ main := (id True, id 42)
 func TestProbeE_Infer_ConstrainedLetGen(t *testing.T) {
 	eng := gicel.NewEngine()
 	eng.Use(gicel.Prelude)
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 same := \x y. eq x y
 -- same should work at both Int and Bool

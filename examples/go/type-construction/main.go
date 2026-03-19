@@ -55,7 +55,7 @@ func main() {
 
 	// The source uses wrapJust (declared from Go) and origin (bound from Go).
 	// wrapJust := assumption is not needed in source — DeclareAssumption handles it.
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 
 wrapJust := assumption

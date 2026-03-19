@@ -23,7 +23,7 @@ data Color := Red | Blue | Green
 	if err != nil {
 		t.Fatal(err)
 	}
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 import Lib
 main := Red
 `)
@@ -48,7 +48,7 @@ double := \x. x + x
 	if err != nil {
 		t.Fatal(err)
 	}
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 import Lib
 main := double 21
@@ -75,7 +75,7 @@ public := _internal
 		t.Fatal(err)
 	}
 	// Accessing public should work.
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 import Lib
 main := public
 `)
@@ -99,7 +99,7 @@ _secret := True
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = eng.NewRuntime(`
+	_, err = eng.NewRuntime(context.Background(), `
 import Lib
 main := _secret
 `)
@@ -117,7 +117,7 @@ data Unit := Unit
 	if err != nil {
 		t.Fatal(err)
 	}
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 import Lib
 main := Unit
 `)
@@ -151,7 +151,7 @@ valB := valA + 20
 	if err != nil {
 		t.Fatal(err)
 	}
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 import B
 main := valB

@@ -15,7 +15,7 @@ import (
 func TestIdentity(t *testing.T) {
 	eng := NewEngine()
 	eng.Use(stdlib.Prelude)
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 id := \x. x
 main := id True
@@ -35,7 +35,7 @@ main := id True
 
 func TestPure(t *testing.T) {
 	eng := NewEngine()
-	rt, err := eng.NewRuntime(`main := pure ()`)
+	rt, err := eng.NewRuntime(context.Background(), `main := pure ()`)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -56,7 +56,7 @@ func TestAssumption(t *testing.T) {
 	eng.RegisterPrim("getUnit", func(ctx context.Context, capEnv eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
 		return &eval.ConVal{Con: "True"}, capEnv, nil
 	})
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 getUnit := assumption
 main := getUnit True
@@ -77,7 +77,7 @@ main := getUnit True
 func TestCaseExpression(t *testing.T) {
 	eng := NewEngine()
 	eng.Use(stdlib.Prelude)
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 not := \b. case b { True -> False; False -> True }
 main := not True
@@ -97,7 +97,7 @@ main := not True
 
 func TestDoBlock(t *testing.T) {
 	eng := NewEngine()
-	rt, err := eng.NewRuntime(`main := do { pure () }`)
+	rt, err := eng.NewRuntime(context.Background(), `main := do { pure () }`)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -114,7 +114,7 @@ func TestDoBlock(t *testing.T) {
 func TestMultiParamLambda(t *testing.T) {
 	eng := NewEngine()
 	eng.Use(stdlib.Prelude)
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 konst := \x y. x
 main := konst True False
@@ -135,7 +135,7 @@ main := konst True False
 func TestNestedCase(t *testing.T) {
 	eng := NewEngine()
 	eng.Use(stdlib.Prelude)
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 bothTrue := \x y. case x { True -> case y { True -> True; False -> False }; False -> False }
 main := bothTrue True True
@@ -158,7 +158,7 @@ func TestBlockExpression(t *testing.T) {
 	eng.Use(stdlib.Prelude)
 	// Block binding: { x := True; x } desugars to (\x. x) True.
 	// The body references the block binding variable.
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 main := { x := True; x }
 `)
@@ -178,7 +178,7 @@ main := { x := True; x }
 func TestBlockMultipleBindings(t *testing.T) {
 	eng := NewEngine()
 	eng.Use(stdlib.Prelude)
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 main := { x := True; y := False; x }
 `)
@@ -198,7 +198,7 @@ main := { x := True; y := False; x }
 func TestBindChain(t *testing.T) {
 	eng := NewEngine()
 	eng.Use(stdlib.Prelude)
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 main := do { x <- pure True; pure x }
 `)
@@ -217,7 +217,7 @@ main := do { x <- pure True; pure x }
 
 func TestThunkForce(t *testing.T) {
 	eng := NewEngine()
-	rt, err := eng.NewRuntime(`main := force (thunk (pure ()))`)
+	rt, err := eng.NewRuntime(context.Background(), `main := force (thunk (pure ()))`)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -235,7 +235,7 @@ func TestThunkForce(t *testing.T) {
 func TestExplicitBind(t *testing.T) {
 	eng := NewEngine()
 	eng.Use(stdlib.Prelude)
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 main := bind (pure True) (\x. pure x)
 `)
@@ -258,7 +258,7 @@ func TestSpecialFormStandalone(t *testing.T) {
 	forms := []string{"thunk", "force"}
 	for _, name := range forms {
 		eng := NewEngine()
-		_, err := eng.NewRuntime("main := " + name)
+		_, err := eng.NewRuntime(context.Background(), "main := "+name)
 		if err == nil {
 			t.Errorf("expected compile error for standalone %s", name)
 		}
@@ -266,7 +266,7 @@ func TestSpecialFormStandalone(t *testing.T) {
 	// pure and bind are first-class functions — standalone use is valid.
 	for _, name := range []string{"pure", "bind"} {
 		eng := NewEngine()
-		_, err := eng.NewRuntime("main := " + name)
+		_, err := eng.NewRuntime(context.Background(), "main := "+name)
 		if err != nil {
 			t.Errorf("standalone %s should compile, got: %v", name, err)
 		}
@@ -277,7 +277,7 @@ func TestSpecialFormStandalone(t *testing.T) {
 func TestThunkForceInDo(t *testing.T) {
 	eng := NewEngine()
 	eng.Use(stdlib.Prelude)
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 main := do {
   t := thunk (pure True);
@@ -300,7 +300,7 @@ main := do {
 func TestConstructorArgs(t *testing.T) {
 	eng := NewEngine()
 	eng.Use(stdlib.Prelude)
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 main := Just True
 `)
@@ -327,7 +327,7 @@ main := Just True
 func TestPairConstructor(t *testing.T) {
 	eng := NewEngine()
 	eng.Use(stdlib.Prelude)
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 main := (True, False)
 `)
@@ -351,7 +351,7 @@ main := (True, False)
 func TestNoMainEntry(t *testing.T) {
 	eng := NewEngine()
 	eng.Use(stdlib.Prelude)
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 helper := True
 `)
@@ -368,7 +368,7 @@ helper := True
 func TestExhaustiveLargeADT(t *testing.T) {
 	eng := NewEngine()
 	eng.Use(stdlib.Prelude)
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 data Color := Red | Green | Blue | Yellow | Cyan | Magenta
 
@@ -400,7 +400,7 @@ main := f Red
 func TestNonExhaustiveLargeADT(t *testing.T) {
 	eng := NewEngine()
 	eng.Use(stdlib.Prelude)
-	_, err := eng.NewRuntime(`
+	_, err := eng.NewRuntime(context.Background(), `
 import Prelude
 data Color := Red | Green | Blue | Yellow | Cyan | Magenta
 
@@ -426,7 +426,7 @@ main := f Red
 func TestDoWildcardBind(t *testing.T) {
 	eng := NewEngine()
 	eng.Use(stdlib.Prelude)
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 main := do {
   _ <- pure True;
@@ -461,7 +461,7 @@ func TestCapEnvThreading(t *testing.T) {
 		n, _ := v.(int)
 		return ToValue(n), capEnv, nil
 	})
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 inc :: () -> Computation {} {} ()
 inc := assumption
@@ -492,7 +492,7 @@ func TestEffectfulDeferUntilBind(t *testing.T) {
 	if err := eng.Use(stdlib.State); err != nil {
 		t.Fatal(err)
 	}
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 import Effect.State
 main :: Computation { state: Int | r } { state: Int | r } Int
 main := do { s <- get; pure s }
@@ -517,7 +517,7 @@ func TestEffectfulTopLevelForce(t *testing.T) {
 	if err := eng.Use(stdlib.State); err != nil {
 		t.Fatal(err)
 	}
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 import Effect.State
 main :: Computation { state: Int | r } { state: Int | r } Int
 main := get
@@ -541,7 +541,7 @@ func TestNonEffectfulImmediate(t *testing.T) {
 	if err := eng.Use(stdlib.Prelude); err != nil {
 		t.Fatal(err)
 	}
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 main := 1 + 2
 `)

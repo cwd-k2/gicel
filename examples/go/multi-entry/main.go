@@ -39,7 +39,7 @@ func main() {
 	eng.Use(gicel.Prelude)
 
 	// Compile once.
-	rt, err := eng.NewRuntime(source)
+	rt, err := eng.NewRuntime(context.Background(), source)
 	if err != nil {
 		log.Fatal("compile error: ", err)
 	}

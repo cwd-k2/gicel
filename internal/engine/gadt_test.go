@@ -14,7 +14,7 @@ import (
 
 func TestDataKindsDBState(t *testing.T) {
 	eng := NewEngine()
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 data DBState := Opened | Closed
 data DB s := MkDB
 
@@ -46,7 +46,7 @@ func TestDataKindsInRow(t *testing.T) {
 	eng.RegisterPrim("readDB", func(ctx context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
 		return ToValue(42), ce, nil
 	})
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 data DBState := Opened | Closed
 
@@ -72,7 +72,7 @@ main := do { readDB () }
 func TestDataKindsBoolPromotion(t *testing.T) {
 	eng := NewEngine()
 	eng.Use(stdlib.Prelude)
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 data Proxy s := MkProxy
 main := (MkProxy :: Proxy True)
@@ -96,7 +96,7 @@ func TestGADTEvalExpr(t *testing.T) {
 	eng := NewEngine()
 	eng.Use(stdlib.Prelude)
 	eng.EnableRecursion()
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 data Expr a := { LitBool :: Bool -> Expr Bool; Not :: Expr Bool -> Expr Bool }
 
@@ -123,7 +123,7 @@ main := eval (Not (LitBool True))
 
 func TestGADTWithDataKinds(t *testing.T) {
 	eng := NewEngine()
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 data DBState := Opened | Closed
 data DB s := MkDB
 
@@ -150,7 +150,7 @@ main := describe Open
 func TestGADTNestedPattern(t *testing.T) {
 	eng := NewEngine()
 	eng.Use(stdlib.Prelude)
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 data Expr a := { LitBool :: Bool -> Expr Bool; Not :: Expr Bool -> Expr Bool }
 

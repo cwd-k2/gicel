@@ -83,7 +83,7 @@ func TestRuntimeErrorType(t *testing.T) {
 	eng := NewEngine()
 	eng.Use(stdlib.Prelude)
 	eng.Use(stdlib.Fail)
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 import Effect.Fail
 main := do { _ <- fail; pure True }
 `)
@@ -103,7 +103,7 @@ main := do { _ <- fail; pure True }
 func TestFromRecord(t *testing.T) {
 	eng := NewEngine()
 	eng.Use(stdlib.Prelude)
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 main := { x: 1, y: 2 }
 `)
@@ -181,7 +181,7 @@ func TestFromConDefensiveCopy(t *testing.T) {
 func TestFromRecordDefensiveCopy(t *testing.T) {
 	eng := NewEngine()
 	eng.Use(stdlib.Prelude)
-	rt, err := eng.NewRuntime("import Prelude\nmain := { a: 1, b: 2 }")
+	rt, err := eng.NewRuntime(context.Background(), "import Prelude\nmain := { a: 1, b: 2 }")
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -14,7 +14,7 @@ import (
 
 func TestTypeErrorUnboundVar(t *testing.T) {
 	eng := NewEngine()
-	_, err := eng.NewRuntime(`main := totally_undefined`)
+	_, err := eng.NewRuntime(context.Background(), `main := totally_undefined`)
 	if err == nil {
 		t.Fatal("expected compile error for unbound variable")
 	}
@@ -26,7 +26,7 @@ func TestTypeErrorUnboundVar(t *testing.T) {
 func TestTypeErrorNonExhaustive(t *testing.T) {
 	eng := NewEngine()
 	eng.Use(stdlib.Prelude)
-	_, err := eng.NewRuntime(`
+	_, err := eng.NewRuntime(context.Background(), `
 import Prelude
 f := \x. case x { True -> () }
 main := f True
@@ -47,7 +47,7 @@ func TestTypeErrorMismatch(t *testing.T) {
 	eng := NewEngine()
 	eng.Use(stdlib.Prelude)
 	// Apply True (a Bool, not a function) to an argument.
-	_, err := eng.NewRuntime(`
+	_, err := eng.NewRuntime(context.Background(), `
 import Prelude
 main := True ()
 `)
@@ -61,7 +61,7 @@ main := True ()
 
 func TestContextCancellation(t *testing.T) {
 	eng := NewEngine()
-	rt, err := eng.NewRuntime(`main := pure ()`)
+	rt, err := eng.NewRuntime(context.Background(), `main := pure ()`)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -77,7 +77,7 @@ func TestContextTimeout(t *testing.T) {
 	eng := NewEngine()
 	eng.SetStepLimit(1) // extremely low step limit
 	eng.EnableRecursion()
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 data Unit := Unit
 data Bool := True | False
 not := \b. case b { True -> False; False -> True }
@@ -98,7 +98,7 @@ func TestDepthLimitError(t *testing.T) {
 	eng := NewEngine()
 	eng.EnableRecursion()
 	eng.SetDepthLimit(5)
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 deep := fix (\self x. self x)
 main := deep ()
 `)
@@ -116,7 +116,7 @@ func TestPrimImplError(t *testing.T) {
 	if err := eng.Use(stdlib.Prelude); err != nil {
 		t.Fatal(err)
 	}
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 main := div 1 0
 `)
@@ -137,7 +137,7 @@ func TestMissingBinding(t *testing.T) {
 	eng.Use(stdlib.Prelude)
 	eng.RegisterType("Int", KindType())
 	eng.DeclareBinding("x", ConType("Int"))
-	rt, err := eng.NewRuntime(`main := x`)
+	rt, err := eng.NewRuntime(context.Background(), `main := x`)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -154,7 +154,7 @@ func TestMissingBinding(t *testing.T) {
 func TestMissingEntryPoint(t *testing.T) {
 	eng := NewEngine()
 	eng.Use(stdlib.Prelude)
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 foo := True
 `)
@@ -174,7 +174,7 @@ foo := True
 func TestNonExhaustiveMaybe(t *testing.T) {
 	eng := NewEngine()
 	eng.Use(stdlib.Prelude)
-	_, err := eng.NewRuntime(`
+	_, err := eng.NewRuntime(context.Background(), `
 import Prelude
 f := \x. case x { Just y -> y }
 main := f (Just True)
@@ -199,7 +199,7 @@ func TestParseChecksSyntax(t *testing.T) {
 func TestCheckReturnsOpaque(t *testing.T) {
 	eng := NewEngine()
 	eng.Use(stdlib.Prelude)
-	core, err := eng.Compile(`
+	core, err := eng.Compile(context.Background(), `
 import Prelude
 main := True
 `)
@@ -217,7 +217,7 @@ main := True
 func TestProgramOpaque(t *testing.T) {
 	eng := NewEngine()
 	eng.Use(stdlib.Prelude)
-	rt, err := eng.NewRuntime(`
+	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 main := True
 `)

@@ -18,7 +18,7 @@ func main() {
 	eng := gicel.NewEngine()
 
 	// Intentionally broken source: undefined variable.
-	_, err := eng.NewRuntime(`main := undefinedVar`)
+	_, err := eng.NewRuntime(context.Background(), `main := undefinedVar`)
 	if err != nil {
 		var ce *gicel.CompileError
 		if errors.As(err, &ce) {
@@ -38,7 +38,7 @@ func main() {
 	eng2.Use(gicel.Prelude)
 	eng2.SetStepLimit(500) // low enough to catch the infinite loop
 
-	rt, err := eng2.NewRuntime(`
+	rt, err := eng2.NewRuntime(context.Background(), `
 import Prelude
 
 loop :: Bool -> Bool
@@ -57,7 +57,7 @@ main := loop True
 	// --- Part 3: Successful run for contrast ---
 	eng3 := gicel.NewEngine()
 	eng3.Use(gicel.Prelude)
-	rt, err = eng3.NewRuntime(`import Prelude; main := not False`)
+	rt, err = eng3.NewRuntime(context.Background(), `import Prelude; main := not False`)
 	if err != nil {
 		log.Fatal(err)
 	}

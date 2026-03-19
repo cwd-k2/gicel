@@ -34,7 +34,7 @@ func main() {
 	eng.SetStepLimit(500)
 	eng.SetDepthLimit(10_000) // high enough to not interfere
 
-	rt, err := eng.NewRuntime(loopSource)
+	rt, err := eng.NewRuntime(context.Background(), loopSource)
 	if err != nil {
 		log.Fatal("compile error: ", err)
 	}
@@ -50,7 +50,7 @@ func main() {
 	eng2.SetStepLimit(1_000_000) // high enough to not interfere
 	eng2.SetDepthLimit(10)
 
-	rt2, err := eng2.NewRuntime(loopSource)
+	rt2, err := eng2.NewRuntime(context.Background(), loopSource)
 	if err != nil {
 		log.Fatal("compile error: ", err)
 	}
@@ -65,7 +65,7 @@ func main() {
 	eng3.SetStepLimit(1_000_000)
 	eng3.SetDepthLimit(1_000)
 
-	rt3, err := eng3.NewRuntime(`
+	rt3, err := eng3.NewRuntime(context.Background(), `
 import Prelude
 
 main := 1 + 2 + 3

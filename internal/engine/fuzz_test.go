@@ -78,7 +78,7 @@ func FuzzCheck(f *testing.F) {
 
 	f.Fuzz(func(t *testing.T, src []byte) {
 		eng := NewEngine()
-		eng.Compile(string(src)) // panics are the signal; compile/type errors are expected
+		eng.Compile(context.Background(), string(src)) // panics are the signal; compile/type errors are expected
 	})
 }
 

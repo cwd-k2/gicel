@@ -49,7 +49,7 @@ func main() {
 	}
 
 	// Compile the main program that imports Utils.
-	rt, err := eng.NewRuntime(mainSource)
+	rt, err := eng.NewRuntime(context.Background(), mainSource)
 	if err != nil {
 		log.Fatal("compile error: ", err)
 	}

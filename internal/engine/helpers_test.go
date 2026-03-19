@@ -21,7 +21,7 @@ func runWithPacks(t *testing.T, source string, packs ...reg.Pack) eval.Value {
 			t.Fatal(err)
 		}
 	}
-	rt, err := eng.NewRuntime(source)
+	rt, err := eng.NewRuntime(context.Background(), source)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -42,7 +42,7 @@ func runPure(t *testing.T, source string) eval.Value {
 	if !strings.Contains(source, "import Prelude") {
 		source = "import Prelude\n" + source
 	}
-	rt, err := eng.NewRuntime(source)
+	rt, err := eng.NewRuntime(context.Background(), source)
 	if err != nil {
 		t.Fatal(err)
 	}

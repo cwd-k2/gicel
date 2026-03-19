@@ -134,7 +134,7 @@ eng := gicel.NewEngine()
 eng.Use(gicel.Prelude)
 eng.Use(gicel.EffectState)
 
-rt, err := eng.NewRuntime(source)
+rt, err := eng.NewRuntime(ctx, source)
 result, err := rt.RunWith(ctx, nil)
 ```
 
