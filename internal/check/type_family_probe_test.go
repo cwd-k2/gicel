@@ -289,14 +289,8 @@ main := f True
 	checkSource(t, source, nil)
 }
 
-// TestProbeD_StuckFamily_ReactivationOnMetaSolve — registering a stuck
-// family, then reactivating the blocking meta, should move it to the rework queue.
-// NOTE: stuckFamilyIndex/stuckFamilyEntry were moved to internal/check/family
-// as unexported types (StuckIndex with unexported stuckEntry). This test
-// cannot be written from the check package; it belongs in family_test.go.
-func TestProbeD_StuckFamily_ReactivationOnMetaSolve(t *testing.T) {
-	t.Skip("stuckFamilyIndex/stuckFamilyEntry are unexported in family package — test needs migration to internal/check/family/")
-}
+// TestProbeD_StuckFamily_ReactivationOnMetaSolve was migrated to
+// internal/check/family/stuck_test.go where it can access unexported types.
 
 // =====================================================================
 // From probe_e: Type family edge cases
@@ -342,16 +336,10 @@ main := (Z :: Loop Z)
 }
 
 // TestProbeE_TypeFamily_ExponentialGrowth — a type family that produces
-// exponentially growing types should be caught by the size limit.
-// BUG: high — This test triggers an infinite loop / exponential blowup in
-// reduceFamilyApps. The family `Grow a =: Pair (Grow a) (Grow a)` causes
-// each reduction step to double the type, and reduceFamilyApps recurses
-// into the result. Although reduceTyFamily has a maxReductionTypeSize check,
-// the structural traversal in reduceFamilyApps expands both branches of
-// Pair (Grow a) (Grow a) independently, leading to exponential time/space
-// consumption before the size limit fires. The reductionDepth counter
-// increments per successful reduction, but the branching factor means
-// 2^k family reductions occur at depth k.
+// exponentially growing types should be caught by the size or depth limit.
+// The family `Grow a =: Pair (Grow a) (Grow a)` doubles the type per
+// reduction step. The checker's reduction depth and type size limits
+// catch this before it becomes pathological.
 func TestProbeE_TypeFamily_ExponentialGrowth(t *testing.T) {
 	source := `
 data Unit := Unit
