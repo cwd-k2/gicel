@@ -207,6 +207,100 @@ expect_ok "deep nesting (200 parens)" \
 
 echo ""
 
+# === List Patterns & Pretty Print ===
+echo "List patterns & pretty print:"
+
+expect_output "list pattern [x, y]" "7" \
+  "$GICEL" run -e 'import Prelude; f := \xs. case xs { [x, y] -> x + y; _ -> 0 }; main := f [3, 4]'
+
+expect_output "list pattern []" '"empty"' \
+  "$GICEL" run -e 'import Prelude; f := \xs. case xs { [] -> "empty"; _ -> "other" }; main := f ([] :: List Int)'
+
+expect_output "list pattern nested" '"match"' \
+  "$GICEL" run -e 'import Prelude; f := \xs. case xs { [[1], [2, 3]] -> "match"; _ -> "no" }; main := f [[1], [2, 3]]'
+
+expect_output "list pattern with constructor" "99" \
+  "$GICEL" run -e 'import Prelude; f := \xs. case xs { [Just x, Nothing] -> x; _ -> 0 }; main := f [Just 99, Nothing]'
+
+expect_output "list pattern literal" '"yes"' \
+  "$GICEL" run -e 'import Prelude; f := \xs. case xs { [1, 2, 3] -> "yes"; _ -> "no" }; main := f [1, 2, 3]'
+
+expect_output "mixing Cons and []" "42" \
+  "$GICEL" run -e 'import Prelude; f := \xs. case xs { Cons x [] -> x; _ -> 0 }; main := f [42]'
+
+expect_output "pretty list" "[1, 2, 3]" \
+  "$GICEL" run -e 'import Prelude; main := [1, 2, 3]'
+
+expect_output "pretty nested list" "[[1, 2], [3]]" \
+  "$GICEL" run -e 'import Prelude; main := [[1, 2], [3]]'
+
+expect_output "pretty empty list" "[]" \
+  "$GICEL" run -e 'import Prelude; main := ([] :: List Int)'
+
+expect_output "JSON list array" '"value": [' \
+  "$GICEL" run --json -e 'import Prelude; main := [1, 2, 3]'
+
+expect_output "JSON empty list" '"value": []' \
+  "$GICEL" run --json -e 'import Prelude; main := ([] :: List Int)'
+
+echo ""
+
+# === Malformed Inputs ===
+echo "Malformed inputs:"
+
+expect_error_contains "operator +.+" "expected expression" \
+  "$GICEL" check -e 'import Prelude; main := 1 +.+ 2'
+
+expect_error_contains "operator =:= (reserved :=)" "reserved symbol" \
+  "$GICEL" check -e 'import Prelude; infixl 5 =:=; (=:=) :: Int -> Int -> Int; (=:=) := \x y. x; main := 0'
+
+expect_error_contains "reserved ->" "expected declaration" \
+  "$GICEL" check -e 'import Prelude; main := 1 -> 2'
+
+expect_error_contains "reserved <-" "expected declaration" \
+  "$GICEL" check -e 'import Prelude; main := 1 <- 2'
+
+expect_error_contains "1a1 (digit-ident boundary)" "unbound variable" \
+  "$GICEL" check -e 'main := 1a1'
+
+expect_error_contains '123abc (digit-ident run)' "unbound variable" \
+  "$GICEL" check -e 'main := 123abc'
+
+expect_error_contains 'unterminated string' "unterminated" \
+  "$GICEL" check -e 'main := "hello'
+
+expect_error_contains 'unterminated rune' "unterminated" \
+  "$GICEL" check -e "main := 'a"
+
+expect_error_contains "huge integer literal" "invalid integer literal" \
+  "$GICEL" check -e 'main := 99999999999999999999999999999999999999999'
+
+expect_error_contains "unclosed list pattern" "expected ]" \
+  "$GICEL" check -e 'import Prelude; f := \xs. case xs { [x, y -> x }; main := 0'
+
+expect_error_contains "list pattern trailing comma" "expected pattern" \
+  "$GICEL" check -e 'import Prelude; f := \xs. case xs { [x,] -> x; _ -> 0 }; main := 0'
+
+expect_error_contains "double comma in list" "expected expression" \
+  "$GICEL" check -e 'import Prelude; main := [1,,2]'
+
+expect_error_contains "list type mismatch" "type mismatch" \
+  "$GICEL" check -e 'import Prelude; f :: List Int -> Int; f := \xs. case xs { ["hello"] -> 0; _ -> 1 }; main := 0'
+
+expect_error_contains "list pattern on non-list" "type mismatch" \
+  "$GICEL" check -e 'import Prelude; f :: Int -> Int; f := \x. case x { [a] -> a; _ -> 0 }; main := 0'
+
+expect_error_contains "special chars @#$" "expected declaration" \
+  "$GICEL" check -e '@#$%'
+
+expect_ok "1000 semicolons" \
+  "$GICEL" check -e "$(printf ';%.0s' $(seq 1 1000))"
+
+expect_ok "semicolons around decls" \
+  "$GICEL" run -e ';;;import Prelude;;;;main := 1 + 2;;;;'
+
+echo ""
+
 # === Summary ===
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo "  Passed: $PASS"
