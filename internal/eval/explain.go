@@ -8,6 +8,7 @@ import (
 
 	"github.com/cwd-k2/gicel/internal/core"
 	"github.com/cwd-k2/gicel/internal/span"
+	"github.com/cwd-k2/gicel/internal/types"
 )
 
 // ExplainKind classifies semantic evaluation events.
@@ -211,14 +212,13 @@ func prettyHost(v any) string {
 }
 
 // isTuple checks if a RecordVal is tuple sugar (fields _1, _2, ..., _n).
-// Tuple label convention: see types.TupleLabel.
 func isTuple(r *RecordVal) bool {
 	n := len(r.Fields)
 	if n == 0 {
 		return true // () is the unit tuple
 	}
 	for i := 1; i <= n; i++ {
-		if _, ok := r.Fields["_"+strconv.Itoa(i)]; !ok {
+		if _, ok := r.Fields[types.TupleLabel(i)]; !ok {
 			return false
 		}
 	}
@@ -232,7 +232,7 @@ func prettyTuple(r *RecordVal) string {
 	}
 	parts := make([]string, n)
 	for i := range n {
-		parts[i] = PrettyValue(r.Fields["_"+strconv.Itoa(i+1)])
+		parts[i] = PrettyValue(r.Fields[types.TupleLabel(i+1)])
 	}
 	return "(" + strings.Join(parts, ", ") + ")"
 }
@@ -304,7 +304,7 @@ func isInternalPattern(p core.Pattern) bool {
 
 func isTuplePattern(p *core.PRecord) bool {
 	for i, f := range p.Fields {
-		if f.Label != "_"+strconv.Itoa(i+1) {
+		if f.Label != types.TupleLabel(i+1) {
 			return false
 		}
 	}

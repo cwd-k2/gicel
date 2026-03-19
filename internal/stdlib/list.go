@@ -6,6 +6,7 @@ import (
 
 	"github.com/cwd-k2/gicel/internal/budget"
 	"github.com/cwd-k2/gicel/internal/eval"
+	"github.com/cwd-k2/gicel/internal/types"
 )
 
 // fromSliceImpl converts a HostVal([]any) to a ConVal chain (Cons/Nil).
@@ -310,7 +311,7 @@ func zipImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Appl
 		if xCon.Con != "Cons" || len(xCon.Args) != 2 || yCon.Con != "Cons" || len(yCon.Args) != 2 {
 			return nil, ce, fmt.Errorf("zip: malformed list")
 		}
-		pairs = append(pairs, &eval.RecordVal{Fields: map[string]eval.Value{"_1": xCon.Args[0], "_2": yCon.Args[0]}})
+		pairs = append(pairs, &eval.RecordVal{Fields: map[string]eval.Value{types.TupleLabel(1): xCon.Args[0], types.TupleLabel(2): yCon.Args[0]}})
 		xs = xCon.Args[1]
 		ys = yCon.Args[1]
 	}
@@ -338,8 +339,8 @@ func unzipImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Ap
 		if !ok {
 			return nil, ce, fmt.Errorf("unzip: expected tuple")
 		}
-		a, ok1 := rec.Fields["_1"]
-		b, ok2 := rec.Fields["_2"]
+		a, ok1 := rec.Fields[types.TupleLabel(1)]
+		b, ok2 := rec.Fields[types.TupleLabel(2)]
 		if !ok1 || !ok2 {
 			return nil, ce, fmt.Errorf("unzip: expected tuple with _1 and _2")
 		}
@@ -350,7 +351,7 @@ func unzipImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Ap
 	if err := budget.ChargeAlloc(ctx, int64(len(as))*2*costConsNode); err != nil {
 		return nil, ce, err
 	}
-	return &eval.RecordVal{Fields: map[string]eval.Value{"_1": buildList(as), "_2": buildList(bs)}}, ce, nil
+	return &eval.RecordVal{Fields: map[string]eval.Value{types.TupleLabel(1): buildList(as), types.TupleLabel(2): buildList(bs)}}, ce, nil
 }
 
 // buildList creates a ConVal Cons/Nil chain from a slice.
@@ -428,8 +429,8 @@ func spanImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, apply eval
 		return nil, ce, err
 	}
 	return &eval.RecordVal{Fields: map[string]eval.Value{
-		"_1": buildList(prefix),
-		"_2": list,
+		types.TupleLabel(1): buildList(prefix),
+		types.TupleLabel(2): list,
 	}}, ce, nil
 }
 
@@ -559,8 +560,8 @@ func unfoldrImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, apply e
 		if !ok {
 			return nil, ce, fmt.Errorf("unfoldr: expected tuple, got %T", con.Args[0])
 		}
-		a, ok1 := pair.Fields["_1"]
-		b, ok2 := pair.Fields["_2"]
+		a, ok1 := pair.Fields[types.TupleLabel(1)]
+		b, ok2 := pair.Fields[types.TupleLabel(2)]
 		if !ok1 || !ok2 {
 			return nil, ce, fmt.Errorf("unfoldr: expected tuple with _1 and _2")
 		}

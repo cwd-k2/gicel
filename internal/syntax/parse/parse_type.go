@@ -1,11 +1,10 @@
 package parse
 
 import (
-	"fmt"
-
 	syn "github.com/cwd-k2/gicel/internal/syntax"
 
 	"github.com/cwd-k2/gicel/internal/span"
+	gtypes "github.com/cwd-k2/gicel/internal/types"
 )
 
 func (p *Parser) parseType() syn.TypeExpr {
@@ -211,7 +210,7 @@ func (p *Parser) parseTypeAtom() syn.TypeExpr {
 			fields := make([]syn.TyRowField, len(types))
 			for i, t := range types {
 				fields[i] = syn.TyRowField{
-					Label: fmt.Sprintf("_%d", i+1),
+					Label: gtypes.TupleLabel(i + 1),
 					Type:  t,
 					S:     t.Span(),
 				}
@@ -299,7 +298,7 @@ func desugarConstraintTuple(t syn.TypeExpr) []syn.TypeExpr {
 	// Verify tuple field labels: _1, _2, ...
 	constraints := make([]syn.TypeExpr, len(row.Fields))
 	for i, f := range row.Fields {
-		if f.Label != fmt.Sprintf("_%d", i+1) {
+		if f.Label != gtypes.TupleLabel(i + 1) {
 			return nil
 		}
 		constraints[i] = f.Type

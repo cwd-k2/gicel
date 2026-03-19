@@ -1,11 +1,10 @@
 package parse
 
 import (
-	"fmt"
-
 	syn "github.com/cwd-k2/gicel/internal/syntax"
 
 	"github.com/cwd-k2/gicel/internal/span"
+	"github.com/cwd-k2/gicel/internal/types"
 )
 
 // --- Expressions ---
@@ -258,7 +257,7 @@ func (p *Parser) parseParen() syn.Expr {
 		fields := make([]syn.RecordField, len(elems))
 		for i, el := range elems {
 			fields[i] = syn.RecordField{
-				Label: fmt.Sprintf("_%d", i+1),
+				Label: types.TupleLabel(i + 1),
 				Value: el,
 				S:     el.Span(),
 			}

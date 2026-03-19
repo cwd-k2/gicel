@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/cwd-k2/gicel/internal/eval"
+	"github.com/cwd-k2/gicel/internal/types"
 )
 
 // Persistent AVL tree used by both Map and Set.
@@ -218,7 +219,7 @@ func avlConsRight(n *avlNode, acc *eval.Value) {
 		return
 	}
 	avlConsRight(n.right, acc)
-	pair := &eval.RecordVal{Fields: map[string]eval.Value{"_1": n.key, "_2": n.value}}
+	pair := &eval.RecordVal{Fields: map[string]eval.Value{types.TupleLabel(1): n.key, types.TupleLabel(2): n.value}}
 	*acc = &eval.ConVal{Con: "Cons", Args: []eval.Value{pair, *acc}}
 	avlConsRight(n.left, acc)
 }

@@ -1,11 +1,10 @@
 package parse
 
 import (
-	"fmt"
-
 	syn "github.com/cwd-k2/gicel/internal/syntax"
 
 	"github.com/cwd-k2/gicel/internal/span"
+	"github.com/cwd-k2/gicel/internal/types"
 )
 
 // --- Patterns ---
@@ -165,7 +164,7 @@ func (p *Parser) parseTuplePatternTail(start span.Pos, first syn.Pattern) *syn.P
 	fields := make([]syn.PatRecordField, len(pats))
 	for i, pat := range pats {
 		fields[i] = syn.PatRecordField{
-			Label:   fmt.Sprintf("_%d", i+1),
+			Label:   types.TupleLabel(i + 1),
 			Pattern: pat,
 			S:       pat.Span(),
 		}
