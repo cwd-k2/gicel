@@ -169,7 +169,7 @@ func (ch *Checker) checkConPatternWith(conName, moduleName string, conTy types.T
 		if ev, ok := currentTy.(*types.TyEvidence); ok {
 			for _, entry := range ev.Constraints.ConEntries() {
 				if entry.ConstraintVar != nil && entry.ClassName == "" {
-					dictParam := fmt.Sprintf("%s_%d", prefixDictCV, ch.fresh())
+					dictParam := fmt.Sprintf("%s_%d", prefixDictConstraintVar, ch.fresh())
 					pendingCVs = append(pendingCVs, pendingCV{
 						constraintVar: entry.ConstraintVar,
 						dictParam:     dictParam,

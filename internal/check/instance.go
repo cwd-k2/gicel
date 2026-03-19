@@ -422,7 +422,7 @@ func (ch *Checker) processAssocDataDef(add syntax.AssocDataDef, className string
 		ch.reg.conTypes[con.Name] = conType
 		ch.ctx.Push(&CtxVar{Name: con.Name, Type: conType, Module: ch.scope.currentModule})
 		ch.reg.conModules[con.Name] = ch.scope.currentModule
-		dataInfo.Constructors = append(dataInfo.Constructors, ConInfo{Name: con.Name, Arity: len(fieldTypes)})
+		dataInfo.Constructors = append(dataInfo.Constructors, ConstructorInfo{Name: con.Name, Arity: len(fieldTypes)})
 		ch.reg.conInfo[con.Name] = dataInfo
 	}
 

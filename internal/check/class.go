@@ -214,7 +214,7 @@ func (ch *Checker) processClassDecl(d *syntax.DeclClass, prog *core.Program) {
 	ch.reg.conModules[dn] = ch.scope.currentModule
 
 	dataInfo := &DataTypeInfo{Name: dn}
-	dataInfo.Constructors = append(dataInfo.Constructors, ConInfo{Name: dn, Arity: len(allFieldTypes)})
+	dataInfo.Constructors = append(dataInfo.Constructors, ConstructorInfo{Name: dn, Arity: len(allFieldTypes)})
 	ch.reg.conInfo[dn] = dataInfo
 
 	// Core DataDecl.

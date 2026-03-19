@@ -17,12 +17,12 @@ import (
 
 // Generated name prefixes for internal variables.
 const (
-	prefixDict      = "$d"    // dictionary parameters
-	prefixDictCV    = "$d_cv" // constraint-variable dictionary parameters
-	prefixDictDefer = "$dict" // deferred dictionary placeholders
-	prefixPat       = "$pat"  // desugared structured pattern variables
-	prefixBind      = "$bind" // anonymous bind variables
-	prefixSel       = "$sel"  // class method selectors
+	prefixDict              = "$d"    // dictionary parameters (class instance evidence)
+	prefixDictConstraintVar = "$d_cv" // constraint-variable dictionary parameters
+	prefixDictDefer         = "$dict" // deferred dictionary placeholders
+	prefixPat               = "$pat"  // desugared structured pattern variables
+	prefixBind              = "$bind" // anonymous bind variables
+	prefixSel               = "$sel"  // class method selectors
 )
 
 // CheckConfig provides environment for type checking.
@@ -40,17 +40,17 @@ type CheckConfig struct {
 
 // ModuleExports carries the type-level information exported by a compiled module.
 type ModuleExports struct {
-	Types         map[string]types.Kind      // registered type constructors
-	ConTypes      map[string]types.Type      // constructor → full type
-	ConInfo       map[string]*DataTypeInfo   // constructor → data type info
-	Aliases       map[string]*AliasInfo      // type aliases
-	Classes       map[string]*ClassInfo      // class declarations
-	Instances     []*InstanceInfo            // instance declarations
-	Values        map[string]types.Type      // top-level value types
-	PromotedKinds map[string]types.Kind      // DataKinds promotions
-	PromotedCons  map[string]types.Kind      // promoted constructors
-	TypeFamilies  map[string]*TypeFamilyInfo // type family declarations
-	DataDecls     []core.DataDecl            // for evaluator constructor registration
+	Types           map[string]types.Kind      // registered type constructors
+	ConTypes        map[string]types.Type      // constructor → full type
+	ConstructorInfo map[string]*DataTypeInfo   // constructor → data type info
+	Aliases         map[string]*AliasInfo      // type aliases
+	Classes         map[string]*ClassInfo      // class declarations
+	Instances       []*InstanceInfo            // instance declarations
+	Values          map[string]types.Type      // top-level value types
+	PromotedKinds   map[string]types.Kind      // DataKinds promotions
+	PromotedCons    map[string]types.Kind      // promoted constructors
+	TypeFamilies    map[string]*TypeFamilyInfo // type family declarations
+	DataDecls       []core.DataDecl            // for evaluator constructor registration
 }
 
 // CheckTraceKind classifies trace events.
@@ -138,9 +138,9 @@ type qualifiedScope struct {
 	exports    *ModuleExports // the module's full exports
 }
 
-// DataTypeInfo and ConInfo are defined in the exhaust subpackage.
+// DataTypeInfo and ConstructorInfo are defined in the exhaust subpackage.
 type DataTypeInfo = exhaust.DataTypeInfo
-type ConInfo = exhaust.ConInfo
+type ConstructorInfo = exhaust.ConstructorInfo
 
 // AliasInfo, ClassInfo, InstanceInfo and related types are defined in the env subpackage.
 type AliasInfo = env.AliasInfo
@@ -218,17 +218,17 @@ func (ch *Checker) ExportModule(prog *core.Program) *ModuleExports {
 		}
 	}
 	return &ModuleExports{
-		Types:         maps.Clone(ch.config.RegisteredTypes),
-		ConTypes:      maps.Clone(ch.reg.conTypes),
-		ConInfo:       ch.reg.conInfo,
-		Aliases:       ch.reg.aliases,
-		Classes:       ch.reg.classes,
-		Instances:     ch.reg.instances,
-		Values:        values,
-		PromotedKinds: maps.Clone(ch.reg.promotedKinds),
-		PromotedCons:  maps.Clone(ch.reg.promotedCons),
-		TypeFamilies:  cloneFamilies(ch.reg.families),
-		DataDecls:     prog.DataDecls,
+		Types:           maps.Clone(ch.config.RegisteredTypes),
+		ConTypes:        maps.Clone(ch.reg.conTypes),
+		ConstructorInfo: ch.reg.conInfo,
+		Aliases:         ch.reg.aliases,
+		Classes:         ch.reg.classes,
+		Instances:       ch.reg.instances,
+		Values:          values,
+		PromotedKinds:   maps.Clone(ch.reg.promotedKinds),
+		PromotedCons:    maps.Clone(ch.reg.promotedCons),
+		TypeFamilies:    cloneFamilies(ch.reg.families),
+		DataDecls:       prog.DataDecls,
 	}
 }
 

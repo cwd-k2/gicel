@@ -185,7 +185,7 @@ func (ch *Checker) processDataDecl(d *syntax.DeclData, prog *core.Program) {
 		ch.reg.conTypes[con.Name] = conType
 		ch.ctx.Push(&CtxVar{Name: con.Name, Type: conType, Module: ch.scope.currentModule})
 		ch.reg.conModules[con.Name] = ch.scope.currentModule
-		dataInfo.Constructors = append(dataInfo.Constructors, ConInfo{Name: con.Name, Arity: len(fieldTypes)})
+		dataInfo.Constructors = append(dataInfo.Constructors, ConstructorInfo{Name: con.Name, Arity: len(fieldTypes)})
 		ch.reg.conInfo[con.Name] = dataInfo
 		coreDecl.Cons = append(coreDecl.Cons, core.ConDecl{Name: con.Name, Fields: fieldTypes, S: con.S})
 	}
@@ -235,7 +235,7 @@ func (ch *Checker) processGADTCon(gcon syntax.GADTConDecl, dataParams []syntax.T
 	ch.reg.conTypes[gcon.Name] = conTy
 	ch.ctx.Push(&CtxVar{Name: gcon.Name, Type: conTy, Module: ch.scope.currentModule})
 	ch.reg.conModules[gcon.Name] = ch.scope.currentModule
-	dataInfo.Constructors = append(dataInfo.Constructors, ConInfo{
+	dataInfo.Constructors = append(dataInfo.Constructors, ConstructorInfo{
 		Name:       gcon.Name,
 		Arity:      len(fieldTypes),
 		ReturnType: retTy,

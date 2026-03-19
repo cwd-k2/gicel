@@ -147,7 +147,7 @@ func (ch *Checker) importOpen(mod *ModuleExports, moduleName string, s span.Span
 		ch.ctx.Push(&CtxVar{Name: name, Type: ty, Module: moduleName})
 		ch.reg.conModules[name] = moduleName
 	}
-	for name, info := range mod.ConInfo {
+	for name, info := range mod.ConstructorInfo {
 		ch.reg.conInfo[name] = info
 		ch.reg.dataTypeByName[info.Name] = info
 	}
@@ -264,7 +264,7 @@ func (ch *Checker) importSelective(mod *ModuleExports, imp syntax.DeclImport) {
 
 // importTypeSubs imports constructors for a type based on the import name spec.
 func (ch *Checker) importTypeSubs(mod *ModuleExports, typeName string, in syntax.ImportName, moduleName string) {
-	for conName, info := range mod.ConInfo {
+	for conName, info := range mod.ConstructorInfo {
 		if info.Name != typeName {
 			continue
 		}
