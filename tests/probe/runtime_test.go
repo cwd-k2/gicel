@@ -132,8 +132,8 @@ func TestProbeC_Edge_NestedDoBlocks(t *testing.T) {
 	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 import Effect.State
-inner := do { put 10; get }
-main := do { put 0; inner }
+inner := thunk (do { put 10; get })
+main := do { put 0; force inner }
 `)
 	if err != nil {
 		t.Fatal(err)
