@@ -76,6 +76,11 @@ func (ev *Evaluator) Stats() EvalStats {
 // keeping the Go stack flat for deep recursion. Bounce sites include
 // case alt bodies, closure application, LetRec bodies, and Force.
 func (ev *Evaluator) Eval(env *Env, capEnv CapEnv, expr core.Core) (EvalResult, error) {
+	if err := ev.budget.Nest(); err != nil {
+		return EvalResult{}, err
+	}
+	defer ev.budget.Unnest()
+
 	var pendingLeaveObs int // accumulated LeaveInternal calls to fire on resolution
 	for {
 		r, err := ev.evalStep(env, capEnv, expr)

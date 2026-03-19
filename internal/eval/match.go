@@ -2,9 +2,19 @@ package eval
 
 import "github.com/cwd-k2/gicel/internal/core"
 
+// maxMatchDepth is the maximum recursion depth for pattern matching.
+const maxMatchDepth = 256
+
 // Match attempts to match a value against a pattern.
 // Returns the bindings on success, or nil on failure.
 func Match(val Value, pat core.Pattern) map[string]Value {
+	return matchDepth(val, pat, 0)
+}
+
+func matchDepth(val Value, pat core.Pattern, depth int) map[string]Value {
+	if depth > maxMatchDepth {
+		return nil
+	}
 	switch p := pat.(type) {
 	case *core.PVar:
 		return map[string]Value{p.Name: val}
@@ -17,7 +27,7 @@ func Match(val Value, pat core.Pattern) map[string]Value {
 		}
 		bindings := map[string]Value{}
 		for i, arg := range p.Args {
-			sub := Match(cv.Args[i], arg)
+			sub := matchDepth(cv.Args[i], arg, depth+1)
 			if sub == nil {
 				return nil
 			}
@@ -37,7 +47,7 @@ func Match(val Value, pat core.Pattern) map[string]Value {
 			if !ok {
 				return nil
 			}
-			sub := Match(fv, f.Pattern)
+			sub := matchDepth(fv, f.Pattern, depth+1)
 			if sub == nil {
 				return nil
 			}

@@ -156,9 +156,19 @@ func (o *ExplainObserver) LeaveInternal() { o.suppress-- }
 // SetAll disables suppression (ExplainAll mode).
 func (o *ExplainObserver) SetAll(v bool) { o.all = v }
 
+// maxPrettyDepth is the maximum recursion depth for PrettyValue.
+const maxPrettyDepth = 256
+
 // PrettyValue formats a runtime value in source-level terms.
 // No "HostVal(...)", no "{ _1: ..., _2: ... }" — uses tuples and bare values.
 func PrettyValue(v Value) string {
+	return prettyValueDepth(v, 0)
+}
+
+func prettyValueDepth(v Value, depth int) string {
+	if depth > maxPrettyDepth {
+		return "..."
+	}
 	switch val := v.(type) {
 	case *HostVal:
 		return prettyHost(val.Inner)
@@ -168,7 +178,7 @@ func PrettyValue(v Value) string {
 		}
 		args := make([]string, len(val.Args))
 		for i, a := range val.Args {
-			s := PrettyValue(a)
+			s := prettyValueDepth(a, depth+1)
 			// Parenthesize constructor arguments that contain spaces.
 			if strings.Contains(s, " ") {
 				s = "(" + s + ")"
@@ -178,9 +188,9 @@ func PrettyValue(v Value) string {
 		return val.Con + " " + strings.Join(args, " ")
 	case *RecordVal:
 		if isTuple(val) {
-			return prettyTuple(val)
+			return prettyTupleDepth(val, depth)
 		}
-		return prettyRecord(val)
+		return prettyRecordDepth(val, depth)
 	case *Closure:
 		return "<function>"
 	case *ThunkVal:
@@ -191,7 +201,7 @@ func PrettyValue(v Value) string {
 		if val.Ref == nil {
 			return "<uninitialized>"
 		}
-		return PrettyValue(*val.Ref)
+		return prettyValueDepth(*val.Ref, depth+1)
 	default:
 		return fmt.Sprintf("%v", v)
 	}
@@ -225,19 +235,19 @@ func isTuple(r *RecordVal) bool {
 	return true
 }
 
-func prettyTuple(r *RecordVal) string {
+func prettyTupleDepth(r *RecordVal, depth int) string {
 	n := len(r.Fields)
 	if n == 0 {
 		return "()"
 	}
 	parts := make([]string, n)
 	for i := range n {
-		parts[i] = PrettyValue(r.Fields[types.TupleLabel(i+1)])
+		parts[i] = prettyValueDepth(r.Fields[types.TupleLabel(i+1)], depth+1)
 	}
 	return "(" + strings.Join(parts, ", ") + ")"
 }
 
-func prettyRecord(r *RecordVal) string {
+func prettyRecordDepth(r *RecordVal, depth int) string {
 	keys := make([]string, 0, len(r.Fields))
 	for k := range r.Fields {
 		keys = append(keys, k)
@@ -245,13 +255,20 @@ func prettyRecord(r *RecordVal) string {
 	sort.Strings(keys)
 	parts := make([]string, len(keys))
 	for i, k := range keys {
-		parts[i] = k + ": " + PrettyValue(r.Fields[k])
+		parts[i] = k + ": " + prettyValueDepth(r.Fields[k], depth+1)
 	}
 	return "{ " + strings.Join(parts, ", ") + " }"
 }
 
-// FormatPattern renders a Core pattern in source-level terms.
+// formatPattern renders a Core pattern in source-level terms.
 func formatPattern(p core.Pattern) string {
+	return formatPatternDepth(p, 0)
+}
+
+func formatPatternDepth(p core.Pattern, depth int) string {
+	if depth > maxPrettyDepth {
+		return "..."
+	}
 	switch pat := p.(type) {
 	case *core.PVar:
 		return pat.Name
@@ -263,7 +280,7 @@ func formatPattern(p core.Pattern) string {
 		}
 		args := make([]string, len(pat.Args))
 		for i, a := range pat.Args {
-			s := formatPattern(a)
+			s := formatPatternDepth(a, depth+1)
 			if strings.Contains(s, " ") {
 				s = "(" + s + ")"
 			}
@@ -274,17 +291,16 @@ func formatPattern(p core.Pattern) string {
 		if len(pat.Fields) == 0 {
 			return "()"
 		}
-		// Check for tuple pattern.
 		if isTuplePattern(pat) {
 			parts := make([]string, len(pat.Fields))
 			for i, f := range pat.Fields {
-				parts[i] = formatPattern(f.Pattern)
+				parts[i] = formatPatternDepth(f.Pattern, depth+1)
 			}
 			return "(" + strings.Join(parts, ", ") + ")"
 		}
 		parts := make([]string, len(pat.Fields))
 		for i, f := range pat.Fields {
-			parts[i] = f.Label + " = " + formatPattern(f.Pattern)
+			parts[i] = f.Label + " = " + formatPatternDepth(f.Pattern, depth+1)
 		}
 		return "{ " + strings.Join(parts, ", ") + " }"
 	}

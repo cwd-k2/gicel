@@ -95,11 +95,18 @@ func MapType(t Type, f func(Type) Type) Type {
 // AnyType returns true if pred holds for t or any descendant.
 // Short-circuits on the first true result.
 func AnyType(t Type, pred func(Type) bool) bool {
+	return anyTypeDepth(t, pred, 0)
+}
+
+func anyTypeDepth(t Type, pred func(Type) bool, depth int) bool {
+	if depth > maxTraversalDepth {
+		return false
+	}
 	if pred(t) {
 		return true
 	}
 	for _, ch := range t.Children() {
-		if AnyType(ch, pred) {
+		if anyTypeDepth(ch, pred, depth+1) {
 			return true
 		}
 	}
@@ -111,15 +118,18 @@ func AnyType(t Type, pred func(Type) bool) bool {
 // the result. The traversal is depth-first, pre-order.
 func CollectTypes[T any](t Type, f func(Type) (T, bool)) []T {
 	var result []T
-	collectTypesRec(t, f, &result)
+	collectTypesRec(t, f, &result, 0)
 	return result
 }
 
-func collectTypesRec[T any](t Type, f func(Type) (T, bool), result *[]T) {
+func collectTypesRec[T any](t Type, f func(Type) (T, bool), result *[]T, depth int) {
+	if depth > maxTraversalDepth {
+		return
+	}
 	if v, ok := f(t); ok {
 		*result = append(*result, v)
 	}
 	for _, ch := range t.Children() {
-		collectTypesRec(ch, f, result)
+		collectTypesRec(ch, f, result, depth+1)
 	}
 }

@@ -5,6 +5,13 @@ import "fmt"
 // Walk visits every Core node in depth-first order.
 // The visitor returns false to stop traversal.
 func Walk(c Core, visit func(Core) bool) {
+	walkRec(c, visit, 0)
+}
+
+func walkRec(c Core, visit func(Core) bool, depth int) {
+	if depth > maxTraversalDepth {
+		return
+	}
 	if !visit(c) {
 		return
 	}
@@ -12,53 +19,53 @@ func Walk(c Core, visit func(Core) bool) {
 	case *Var:
 		// leaf
 	case *Lam:
-		Walk(n.Body, visit)
+		walkRec(n.Body, visit, depth+1)
 	case *App:
-		Walk(n.Fun, visit)
-		Walk(n.Arg, visit)
+		walkRec(n.Fun, visit, depth+1)
+		walkRec(n.Arg, visit, depth+1)
 	case *TyApp:
-		Walk(n.Expr, visit)
+		walkRec(n.Expr, visit, depth+1)
 	case *TyLam:
-		Walk(n.Body, visit)
+		walkRec(n.Body, visit, depth+1)
 	case *Con:
 		for _, arg := range n.Args {
-			Walk(arg, visit)
+			walkRec(arg, visit, depth+1)
 		}
 	case *Case:
-		Walk(n.Scrutinee, visit)
+		walkRec(n.Scrutinee, visit, depth+1)
 		for _, alt := range n.Alts {
-			Walk(alt.Body, visit)
+			walkRec(alt.Body, visit, depth+1)
 		}
 	case *LetRec:
 		for _, b := range n.Bindings {
-			Walk(b.Expr, visit)
+			walkRec(b.Expr, visit, depth+1)
 		}
-		Walk(n.Body, visit)
+		walkRec(n.Body, visit, depth+1)
 	case *Pure:
-		Walk(n.Expr, visit)
+		walkRec(n.Expr, visit, depth+1)
 	case *Bind:
-		Walk(n.Comp, visit)
-		Walk(n.Body, visit)
+		walkRec(n.Comp, visit, depth+1)
+		walkRec(n.Body, visit, depth+1)
 	case *Thunk:
-		Walk(n.Comp, visit)
+		walkRec(n.Comp, visit, depth+1)
 	case *Force:
-		Walk(n.Expr, visit)
+		walkRec(n.Expr, visit, depth+1)
 	case *PrimOp:
 		for _, arg := range n.Args {
-			Walk(arg, visit)
+			walkRec(arg, visit, depth+1)
 		}
 	case *Lit:
 		// leaf
 	case *RecordLit:
 		for _, f := range n.Fields {
-			Walk(f.Value, visit)
+			walkRec(f.Value, visit, depth+1)
 		}
 	case *RecordProj:
-		Walk(n.Record, visit)
+		walkRec(n.Record, visit, depth+1)
 	case *RecordUpdate:
-		Walk(n.Record, visit)
+		walkRec(n.Record, visit, depth+1)
 		for _, f := range n.Updates {
-			Walk(f.Value, visit)
+			walkRec(f.Value, visit, depth+1)
 		}
 	default:
 		panic(fmt.Sprintf("Walk: unhandled Core node %T", c))
@@ -67,47 +74,54 @@ func Walk(c Core, visit func(Core) bool) {
 
 // Transform applies a function to every Core node bottom-up.
 func Transform(c Core, f func(Core) Core) Core {
+	return transformRec(c, f, 0)
+}
+
+func transformRec(c Core, f func(Core) Core, depth int) Core {
+	if depth > maxTraversalDepth {
+		return c
+	}
 	switch n := c.(type) {
 	case *Var:
 		return f(n)
 	case *Lam:
-		return f(&Lam{Param: n.Param, ParamType: n.ParamType, Body: Transform(n.Body, f), S: n.S})
+		return f(&Lam{Param: n.Param, ParamType: n.ParamType, Body: transformRec(n.Body, f, depth+1), S: n.S})
 	case *App:
-		return f(&App{Fun: Transform(n.Fun, f), Arg: Transform(n.Arg, f), S: n.S})
+		return f(&App{Fun: transformRec(n.Fun, f, depth+1), Arg: transformRec(n.Arg, f, depth+1), S: n.S})
 	case *TyApp:
-		return f(&TyApp{Expr: Transform(n.Expr, f), TyArg: n.TyArg, S: n.S})
+		return f(&TyApp{Expr: transformRec(n.Expr, f, depth+1), TyArg: n.TyArg, S: n.S})
 	case *TyLam:
-		return f(&TyLam{TyParam: n.TyParam, Kind: n.Kind, Body: Transform(n.Body, f), S: n.S})
+		return f(&TyLam{TyParam: n.TyParam, Kind: n.Kind, Body: transformRec(n.Body, f, depth+1), S: n.S})
 	case *Con:
 		args := make([]Core, len(n.Args))
 		for i, a := range n.Args {
-			args[i] = Transform(a, f)
+			args[i] = transformRec(a, f, depth+1)
 		}
 		return f(&Con{Name: n.Name, Args: args, S: n.S})
 	case *Case:
 		alts := make([]Alt, len(n.Alts))
 		for i, alt := range n.Alts {
-			alts[i] = Alt{Pattern: alt.Pattern, Body: Transform(alt.Body, f), S: alt.S}
+			alts[i] = Alt{Pattern: alt.Pattern, Body: transformRec(alt.Body, f, depth+1), S: alt.S}
 		}
-		return f(&Case{Scrutinee: Transform(n.Scrutinee, f), Alts: alts, S: n.S})
+		return f(&Case{Scrutinee: transformRec(n.Scrutinee, f, depth+1), Alts: alts, S: n.S})
 	case *LetRec:
 		bindings := make([]Binding, len(n.Bindings))
 		for i, b := range n.Bindings {
-			bindings[i] = Binding{Name: b.Name, Type: b.Type, Expr: Transform(b.Expr, f), S: b.S}
+			bindings[i] = Binding{Name: b.Name, Type: b.Type, Expr: transformRec(b.Expr, f, depth+1), S: b.S}
 		}
-		return f(&LetRec{Bindings: bindings, Body: Transform(n.Body, f), S: n.S})
+		return f(&LetRec{Bindings: bindings, Body: transformRec(n.Body, f, depth+1), S: n.S})
 	case *Pure:
-		return f(&Pure{Expr: Transform(n.Expr, f), S: n.S})
+		return f(&Pure{Expr: transformRec(n.Expr, f, depth+1), S: n.S})
 	case *Bind:
-		return f(&Bind{Comp: Transform(n.Comp, f), Var: n.Var, Body: Transform(n.Body, f), S: n.S})
+		return f(&Bind{Comp: transformRec(n.Comp, f, depth+1), Var: n.Var, Body: transformRec(n.Body, f, depth+1), S: n.S})
 	case *Thunk:
-		return f(&Thunk{Comp: Transform(n.Comp, f), S: n.S})
+		return f(&Thunk{Comp: transformRec(n.Comp, f, depth+1), S: n.S})
 	case *Force:
-		return f(&Force{Expr: Transform(n.Expr, f), S: n.S})
+		return f(&Force{Expr: transformRec(n.Expr, f, depth+1), S: n.S})
 	case *PrimOp:
 		args := make([]Core, len(n.Args))
 		for i, a := range n.Args {
-			args[i] = Transform(a, f)
+			args[i] = transformRec(a, f, depth+1)
 		}
 		return f(&PrimOp{Name: n.Name, Arity: n.Arity, Effectful: n.Effectful, Args: args, S: n.S})
 	case *Lit:
@@ -115,17 +129,17 @@ func Transform(c Core, f func(Core) Core) Core {
 	case *RecordLit:
 		fields := make([]RecordField, len(n.Fields))
 		for i, fld := range n.Fields {
-			fields[i] = RecordField{Label: fld.Label, Value: Transform(fld.Value, f)}
+			fields[i] = RecordField{Label: fld.Label, Value: transformRec(fld.Value, f, depth+1)}
 		}
 		return f(&RecordLit{Fields: fields, S: n.S})
 	case *RecordProj:
-		return f(&RecordProj{Record: Transform(n.Record, f), Label: n.Label, S: n.S})
+		return f(&RecordProj{Record: transformRec(n.Record, f, depth+1), Label: n.Label, S: n.S})
 	case *RecordUpdate:
 		updates := make([]RecordField, len(n.Updates))
 		for i, fld := range n.Updates {
-			updates[i] = RecordField{Label: fld.Label, Value: Transform(fld.Value, f)}
+			updates[i] = RecordField{Label: fld.Label, Value: transformRec(fld.Value, f, depth+1)}
 		}
-		return f(&RecordUpdate{Record: Transform(n.Record, f), Updates: updates, S: n.S})
+		return f(&RecordUpdate{Record: transformRec(n.Record, f, depth+1), Updates: updates, S: n.S})
 	default:
 		panic(fmt.Sprintf("Transform: unhandled Core node %T", c))
 	}

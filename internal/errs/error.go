@@ -53,6 +53,7 @@ const (
 	ErrSkolemRigid         Code = 241 // cannot unify rigid (skolem) type variable
 	ErrKindMismatch        Code = 250 // kind mismatch in type application
 	ErrResolutionDepth     Code = 260 // instance resolution depth limit exceeded
+	ErrNestingLimit        Code = 261 // structural nesting depth limit exceeded
 	ErrAliasExpansion      Code = 270 // alias expansion depth limit exceeded
 	ErrDuplicateDecl       Code = 280 // duplicate type-level declaration
 	ErrTypeFamilyEquation  Code = 281 // invalid type family equation

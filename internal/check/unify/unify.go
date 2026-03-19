@@ -3,6 +3,7 @@ package unify
 import (
 	"fmt"
 
+	"github.com/cwd-k2/gicel/internal/budget"
 	"github.com/cwd-k2/gicel/internal/types"
 )
 
@@ -68,6 +69,9 @@ type Unifier struct {
 	// OnSolve is called when a metavariable is solved.
 	// The checker uses this to re-activate stuck type family applications.
 	OnSolve func(metaID int)
+
+	// Budget tracks structural nesting depth. If nil, nesting is unbounded.
+	Budget *budget.Budget
 }
 
 // NewUnifier creates a Unifier with its own internal fresh ID counter.
@@ -206,6 +210,12 @@ func (u *Unifier) RegisterLabelContext(id int, labels map[string]struct{}) {
 //   - Structural identity: if all children are unchanged (pointer-equal),
 //     the original node is returned (avoids allocation).
 func (u *Unifier) Zonk(t types.Type) types.Type {
+	if u.Budget != nil {
+		if err := u.Budget.Nest(); err != nil {
+			return t // bail out, preserving the unzonked type
+		}
+		defer u.Budget.Unnest()
+	}
 	switch ty := t.(type) {
 	case *types.TyMeta:
 		soln, ok := u.soln[ty.ID]
@@ -336,6 +346,12 @@ func normalizeCompApp(t types.Type) types.Type {
 
 // Unify solves the constraint a ~ b.
 func (u *Unifier) Unify(a, b types.Type) error {
+	if u.Budget != nil {
+		if err := u.Budget.Nest(); err != nil {
+			return err
+		}
+		defer u.Budget.Unnest()
+	}
 	a = u.Zonk(a)
 	b = u.Zonk(b)
 

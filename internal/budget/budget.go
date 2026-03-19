@@ -15,13 +15,15 @@ import (
 // Budget tracks resource consumption. It is not goroutine-safe;
 // each pipeline execution should use its own instance.
 type Budget struct {
-	ctx      context.Context
-	steps    int
-	max      int
-	depth    int
-	maxDepth int
-	alloc    int64
-	maxAlloc int64
+	ctx        context.Context
+	steps      int
+	max        int
+	depth      int
+	maxDepth   int
+	nesting    int
+	maxNesting int
+	alloc      int64
+	maxAlloc   int64
 }
 
 // New creates a Budget with the given step and depth limits.
@@ -36,6 +38,17 @@ func New(ctx context.Context, maxSteps, maxDepth int) *Budget {
 		maxDepth = 0
 	}
 	return &Budget{ctx: ctx, max: maxSteps, maxDepth: maxDepth}
+}
+
+// SetNestingLimit sets the structural nesting depth limit. This bounds the
+// Go call stack depth when evaluating nested expressions, unifying nested
+// types, or traversing nested Core/Value structures. Zero disables the check.
+// Negative values are treated as zero (disabled).
+func (b *Budget) SetNestingLimit(n int) {
+	if n < 0 {
+		n = 0
+	}
+	b.maxNesting = n
 }
 
 // SetAllocLimit sets the allocation byte limit. Zero disables the check.
@@ -75,6 +88,23 @@ func (b *Budget) Enter() error {
 // Leave decrements nesting depth.
 func (b *Budget) Leave() {
 	b.depth--
+}
+
+// Nest increments structural nesting depth. Returns an error if the
+// nesting limit is exceeded. Unlike Enter/Leave which track logical call
+// depth (Bind, Closure, Force), Nest/Unnest track structural expression
+// nesting to bound Go call stack usage in non-tail recursive evaluation.
+func (b *Budget) Nest() error {
+	b.nesting++
+	if b.maxNesting > 0 && b.nesting > b.maxNesting {
+		return &NestingLimitError{}
+	}
+	return nil
+}
+
+// Unnest decrements structural nesting depth.
+func (b *Budget) Unnest() {
+	b.nesting--
 }
 
 // Alloc records a heap allocation. Returns an error if the cumulative
@@ -125,6 +155,12 @@ func (b *Budget) Max() int { return b.max }
 // MaxDepth returns the configured depth limit.
 func (b *Budget) MaxDepth() int { return b.maxDepth }
 
+// Nesting returns the current structural nesting depth.
+func (b *Budget) Nesting() int { return b.nesting }
+
+// MaxNesting returns the configured nesting limit.
+func (b *Budget) MaxNesting() int { return b.maxNesting }
+
 // MaxAlloc returns the configured allocation limit.
 func (b *Budget) MaxAlloc() int64 { return b.maxAlloc }
 
@@ -142,6 +178,11 @@ func (e *StepLimitError) Error() string { return "step limit exceeded" }
 type DepthLimitError struct{}
 
 func (e *DepthLimitError) Error() string { return "depth limit exceeded" }
+
+// NestingLimitError indicates the structural nesting limit was exceeded.
+type NestingLimitError struct{}
+
+func (e *NestingLimitError) Error() string { return "nesting limit exceeded" }
 
 // AllocLimitError indicates the allocation limit was exceeded.
 type AllocLimitError struct {

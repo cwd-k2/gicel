@@ -24,8 +24,9 @@ func TestStressDeepLeftAssocInfix(t *testing.T) {
 		sb.WriteString(" + 1")
 	}
 	result, err := gicel.RunSandbox(sb.String(), &gicel.SandboxConfig{
-		Packs:    []gicel.Pack{gicel.Prelude},
-		MaxSteps: 500_000,
+		Packs:      []gicel.Pack{gicel.Prelude},
+		MaxSteps:   500_000,
+		MaxNesting: 1024,
 	})
 	if err != nil {
 		t.Fatal(err)

@@ -186,5 +186,6 @@ func newTestChecker() *Checker {
 	}
 	ch.budget = budget.New(context.Background(), family.MaxReductionWork, 0)
 	ch.unifier = unify.NewUnifierShared(&ch.freshID)
+	ch.unifier.Budget = ch.budget
 	return ch
 }

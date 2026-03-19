@@ -57,6 +57,11 @@ func (ch *Checker) addSemanticUnifyError(semanticCode errs.Code, err error, s sp
 func (ch *Checker) infer(expr syntax.Expr) (types.Type, core.Core) {
 	ch.depth++
 	defer func() { ch.depth-- }()
+	if err := ch.budget.Nest(); err != nil {
+		ch.addCodedError(errs.ErrNestingLimit, expr.Span(), err.Error())
+		return &types.TyError{S: expr.Span()}, &core.Lit{Value: nil, S: expr.Span()}
+	}
+	defer ch.budget.Unnest()
 
 	switch e := expr.(type) {
 	case *syntax.ExprVar:
@@ -215,6 +220,11 @@ func (ch *Checker) infer(expr syntax.Expr) (types.Type, core.Core) {
 func (ch *Checker) check(expr syntax.Expr, expected types.Type) core.Core {
 	ch.depth++
 	defer func() { ch.depth-- }()
+	if err := ch.budget.Nest(); err != nil {
+		ch.addCodedError(errs.ErrNestingLimit, expr.Span(), err.Error())
+		return &core.Lit{Value: nil, S: expr.Span()}
+	}
+	defer ch.budget.Unnest()
 
 	expected = ch.unifier.Zonk(expected)
 

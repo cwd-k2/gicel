@@ -35,6 +35,7 @@ type Engine struct {
 	gatedBuiltins    map[string]bool
 	stepLimit        int
 	depthLimit       int
+	nestingLimit     int
 	allocLimit       int64
 	checkTraceHook   check.CheckTraceHook
 	modules          map[string]*compiledModule
@@ -138,6 +139,11 @@ func (e *Engine) SetStepLimit(n int) {
 // SetDepthLimit sets the maximum call depth.
 func (e *Engine) SetDepthLimit(n int) {
 	e.depthLimit = n
+}
+
+// SetNestingLimit sets the maximum structural nesting depth.
+func (e *Engine) SetNestingLimit(n int) {
+	e.nestingLimit = n
 }
 
 // SetAllocLimit sets the maximum cumulative allocation in bytes.
@@ -262,6 +268,7 @@ func (e *Engine) makeCheckConfig() *check.CheckConfig {
 		ImportedModules: imported,
 		ModuleDeps:      deps,
 		StrictTypeNames: true,
+		NestingLimit:    e.nestingLimit,
 	}
 }
 
@@ -419,6 +426,7 @@ func (e *Engine) NewRuntime(ctx context.Context, source string) (*Runtime, error
 		prims:              e.prims.Clone(),
 		stepLimit:          e.stepLimit,
 		depthLimit:         e.depthLimit,
+		nestingLimit:       e.nestingLimit,
 		allocLimit:         e.allocLimit,
 		source:             src,
 		bindings:           maps.Clone(e.bindings),

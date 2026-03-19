@@ -41,6 +41,7 @@ type CheckConfig struct {
 	StrictTypeNames bool                // when true, reject unregistered type constructor names
 	CurrentModule   string              // module being compiled ("" = user main source)
 	EntryPoint      string              // non-empty enables bare Computation check; that name is exempt
+	NestingLimit    int                 // structural nesting depth limit (0 = disabled)
 }
 
 // ModuleExports carries the type-level information exported by a compiled module.
@@ -215,7 +216,13 @@ func newChecker(prog *syntax.AstProgram, source *span.Source, config *CheckConfi
 	}
 	ch := &Checker{
 		ctx:    NewContext(),
-		budget: budget.New(ctx, family.MaxReductionWork, 0),
+		budget: func() *budget.Budget {
+			b := budget.New(ctx, family.MaxReductionWork, 0)
+			if config.NestingLimit > 0 {
+				b.SetNestingLimit(config.NestingLimit)
+			}
+			return b
+		}(),
 		errors: &errs.Errors{Source: source},
 		source: source,
 		config: config,
@@ -241,6 +248,7 @@ func newChecker(prog *syntax.AstProgram, source *span.Source, config *CheckConfi
 		},
 	}
 	ch.unifier = unify.NewUnifierShared(&ch.freshID)
+	ch.unifier.Budget = ch.budget
 	ch.unifier.OnSolve = func(metaID int) {
 		kicked := ch.inertSet.KickOut(metaID)
 		ch.worklist.PushFront(kicked...)

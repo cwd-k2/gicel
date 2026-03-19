@@ -20,6 +20,13 @@ func ResetFreshCounter() {
 
 // Subst applies a substitution [varName := replacement] throughout a type.
 func Subst(t Type, varName string, replacement Type) Type {
+	return substDepth(t, varName, replacement, 0)
+}
+
+func substDepth(t Type, varName string, replacement Type, depth int) Type {
+	if depth > maxTraversalDepth {
+		return t
+	}
 	switch ty := t.(type) {
 	case *TyVar:
 		if ty.Name == varName {
@@ -31,16 +38,16 @@ func Subst(t Type, varName string, replacement Type) Type {
 		return ty
 
 	case *TyApp:
-		newFun := Subst(ty.Fun, varName, replacement)
-		newArg := Subst(ty.Arg, varName, replacement)
+		newFun := substDepth(ty.Fun, varName, replacement, depth+1)
+		newArg := substDepth(ty.Arg, varName, replacement, depth+1)
 		if newFun == ty.Fun && newArg == ty.Arg {
 			return ty
 		}
 		return &TyApp{Fun: newFun, Arg: newArg, S: ty.S}
 
 	case *TyArrow:
-		newFrom := Subst(ty.From, varName, replacement)
-		newTo := Subst(ty.To, varName, replacement)
+		newFrom := substDepth(ty.From, varName, replacement, depth+1)
+		newTo := substDepth(ty.To, varName, replacement, depth+1)
 		if newFrom == ty.From && newTo == ty.To {
 			return ty
 		}
@@ -53,28 +60,28 @@ func Subst(t Type, varName string, replacement Type) Type {
 		// Capture avoidance.
 		if OccursIn(ty.Var, replacement) {
 			fresh := freshName(ty.Var)
-			body := Subst(ty.Body, ty.Var, &TyVar{Name: fresh})
-			body = Subst(body, varName, replacement)
+			body := substDepth(ty.Body, ty.Var, &TyVar{Name: fresh}, depth+1)
+			body = substDepth(body, varName, replacement, depth+1)
 			return &TyForall{Var: fresh, Kind: ty.Kind, Body: body, S: ty.S}
 		}
-		newBody := Subst(ty.Body, varName, replacement)
+		newBody := substDepth(ty.Body, varName, replacement, depth+1)
 		if newBody == ty.Body {
 			return ty
 		}
 		return &TyForall{Var: ty.Var, Kind: ty.Kind, Body: newBody, S: ty.S}
 
 	case *TyCBPV:
-		newPre := Subst(ty.Pre, varName, replacement)
-		newPost := Subst(ty.Post, varName, replacement)
-		newResult := Subst(ty.Result, varName, replacement)
+		newPre := substDepth(ty.Pre, varName, replacement, depth+1)
+		newPost := substDepth(ty.Post, varName, replacement, depth+1)
+		newResult := substDepth(ty.Result, varName, replacement, depth+1)
 		if newPre == ty.Pre && newPost == ty.Post && newResult == ty.Result {
 			return ty
 		}
 		return &TyCBPV{Tag: ty.Tag, Pre: newPre, Post: newPost, Result: newResult, S: ty.S}
 
 	case *TyEvidence:
-		newConstraints := Subst(ty.Constraints, varName, replacement)
-		newBody := Subst(ty.Body, varName, replacement)
+		newConstraints := substDepth(ty.Constraints, varName, replacement, depth+1)
+		newBody := substDepth(ty.Body, varName, replacement, depth+1)
 		if newConstraints == ty.Constraints && newBody == ty.Body {
 			return ty
 		}
@@ -94,13 +101,13 @@ func Subst(t Type, varName string, replacement Type) Type {
 			changed := false
 			fields := make([]RowField, len(entries.Fields))
 			for i, f := range entries.Fields {
-				newT := Subst(f.Type, varName, replacement)
+				newT := substDepth(f.Type, varName, replacement, depth+1)
 				if newT != f.Type {
 					changed = true
 				}
 				var newMult Type
 				if f.Mult != nil {
-					newMult = Subst(f.Mult, varName, replacement)
+					newMult = substDepth(f.Mult, varName, replacement, depth+1)
 					if newMult != f.Mult {
 						changed = true
 					}
@@ -109,7 +116,7 @@ func Subst(t Type, varName string, replacement Type) Type {
 			}
 			var newTail Type
 			if ty.Tail != nil {
-				newTail = Subst(ty.Tail, varName, replacement)
+				newTail = substDepth(ty.Tail, varName, replacement, depth+1)
 				if newTail != ty.Tail {
 					changed = true
 				}
@@ -122,11 +129,11 @@ func Subst(t Type, varName string, replacement Type) Type {
 			changed := false
 			ces := make([]ConstraintEntry, len(entries.Entries))
 			for i, e := range entries.Entries {
-				ces[i] = substConstraintEntry(e, varName, replacement, &changed)
+				ces[i] = substConstraintEntry(e, varName, replacement, &changed, depth+1)
 			}
 			var newTail Type
 			if ty.Tail != nil {
-				newTail = Subst(ty.Tail, varName, replacement)
+				newTail = substDepth(ty.Tail, varName, replacement, depth+1)
 				if newTail != ty.Tail {
 					changed = true
 				}
@@ -143,7 +150,7 @@ func Subst(t Type, varName string, replacement Type) Type {
 		changed := false
 		args := make([]Type, len(ty.Args))
 		for i, a := range ty.Args {
-			newA := Subst(a, varName, replacement)
+			newA := substDepth(a, varName, replacement, depth+1)
 			if newA != a {
 				changed = true
 			}
@@ -169,32 +176,39 @@ func Subst(t Type, varName string, replacement Type) Type {
 // embedded in a type. Used when instantiating kind-polymorphic quantifiers
 // (e.g., \ (k: Kind). ... where k appears in kind positions).
 func SubstKindInType(t Type, varName string, replacement Kind) Type {
+	return substKindInTypeDepth(t, varName, replacement, 0)
+}
+
+func substKindInTypeDepth(t Type, varName string, replacement Kind, depth int) Type {
+	if depth > maxTraversalDepth {
+		return t
+	}
 	switch ty := t.(type) {
 	case *TyForall:
 		newKind := KindSubst(ty.Kind, varName, replacement)
-		newBody := SubstKindInType(ty.Body, varName, replacement)
+		newBody := substKindInTypeDepth(ty.Body, varName, replacement, depth+1)
 		if newKind == ty.Kind && newBody == ty.Body {
 			return ty
 		}
 		return &TyForall{Var: ty.Var, Kind: newKind, Body: newBody, S: ty.S}
 	case *TyApp:
-		newFun := SubstKindInType(ty.Fun, varName, replacement)
-		newArg := SubstKindInType(ty.Arg, varName, replacement)
+		newFun := substKindInTypeDepth(ty.Fun, varName, replacement, depth+1)
+		newArg := substKindInTypeDepth(ty.Arg, varName, replacement, depth+1)
 		if newFun == ty.Fun && newArg == ty.Arg {
 			return ty
 		}
 		return &TyApp{Fun: newFun, Arg: newArg, S: ty.S}
 	case *TyArrow:
-		newFrom := SubstKindInType(ty.From, varName, replacement)
-		newTo := SubstKindInType(ty.To, varName, replacement)
+		newFrom := substKindInTypeDepth(ty.From, varName, replacement, depth+1)
+		newTo := substKindInTypeDepth(ty.To, varName, replacement, depth+1)
 		if newFrom == ty.From && newTo == ty.To {
 			return ty
 		}
 		return &TyArrow{From: newFrom, To: newTo, S: ty.S}
 	case *TyCBPV:
-		newPre := SubstKindInType(ty.Pre, varName, replacement)
-		newPost := SubstKindInType(ty.Post, varName, replacement)
-		newResult := SubstKindInType(ty.Result, varName, replacement)
+		newPre := substKindInTypeDepth(ty.Pre, varName, replacement, depth+1)
+		newPost := substKindInTypeDepth(ty.Post, varName, replacement, depth+1)
+		newResult := substKindInTypeDepth(ty.Result, varName, replacement, depth+1)
 		if newPre == ty.Pre && newPost == ty.Post && newResult == ty.Result {
 			return ty
 		}
@@ -215,7 +229,7 @@ func SubstKindInType(t Type, varName string, replacement Kind) Type {
 		changed := false
 		args := make([]Type, len(ty.Args))
 		for i, a := range ty.Args {
-			newA := SubstKindInType(a, varName, replacement)
+			newA := substKindInTypeDepth(a, varName, replacement, depth+1)
 			if newA != a {
 				changed = true
 			}
@@ -240,10 +254,13 @@ func SubstMany(t Type, subs map[string]Type) Type {
 	if len(subs) == 0 {
 		return t
 	}
-	return substMany(t, subs)
+	return substMany(t, subs, 0)
 }
 
-func substMany(t Type, subs map[string]Type) Type {
+func substMany(t Type, subs map[string]Type, depth int) Type {
+	if depth > maxTraversalDepth {
+		return t
+	}
 	switch ty := t.(type) {
 	case *TyVar:
 		if repl, ok := subs[ty.Name]; ok {
@@ -253,15 +270,15 @@ func substMany(t Type, subs map[string]Type) Type {
 	case *TyCon:
 		return ty
 	case *TyApp:
-		newFun := substMany(ty.Fun, subs)
-		newArg := substMany(ty.Arg, subs)
+		newFun := substMany(ty.Fun, subs, depth+1)
+		newArg := substMany(ty.Arg, subs, depth+1)
 		if newFun == ty.Fun && newArg == ty.Arg {
 			return ty
 		}
 		return &TyApp{Fun: newFun, Arg: newArg, S: ty.S}
 	case *TyArrow:
-		newFrom := substMany(ty.From, subs)
-		newTo := substMany(ty.To, subs)
+		newFrom := substMany(ty.From, subs, depth+1)
+		newTo := substMany(ty.To, subs, depth+1)
 		if newFrom == ty.From && newTo == ty.To {
 			return ty
 		}
@@ -282,12 +299,12 @@ func substMany(t Type, subs map[string]Type) Type {
 			for _, repl := range reduced {
 				if OccursIn(ty.Var, repl) {
 					fresh := freshName(ty.Var)
-					body := Subst(ty.Body, ty.Var, &TyVar{Name: fresh})
-					body = substMany(body, reduced)
+					body := substDepth(ty.Body, ty.Var, &TyVar{Name: fresh}, depth+1)
+					body = substMany(body, reduced, depth+1)
 					return &TyForall{Var: fresh, Kind: ty.Kind, Body: body, S: ty.S}
 				}
 			}
-			newBody := substMany(ty.Body, reduced)
+			newBody := substMany(ty.Body, reduced, depth+1)
 			if newBody == ty.Body {
 				return ty
 			}
@@ -297,29 +314,29 @@ func substMany(t Type, subs map[string]Type) Type {
 		for _, repl := range subs {
 			if OccursIn(ty.Var, repl) {
 				fresh := freshName(ty.Var)
-				body := Subst(ty.Body, ty.Var, &TyVar{Name: fresh})
-				body = substMany(body, subs)
+				body := substDepth(ty.Body, ty.Var, &TyVar{Name: fresh}, depth+1)
+				body = substMany(body, subs, depth+1)
 				return &TyForall{Var: fresh, Kind: ty.Kind, Body: body, S: ty.S}
 			}
 		}
-		newBody := substMany(ty.Body, subs)
+		newBody := substMany(ty.Body, subs, depth+1)
 		if newBody == ty.Body {
 			return ty
 		}
 		return &TyForall{Var: ty.Var, Kind: ty.Kind, Body: newBody, S: ty.S}
 	case *TyCBPV:
-		newPre := substMany(ty.Pre, subs)
-		newPost := substMany(ty.Post, subs)
-		newResult := substMany(ty.Result, subs)
+		newPre := substMany(ty.Pre, subs, depth+1)
+		newPost := substMany(ty.Post, subs, depth+1)
+		newResult := substMany(ty.Result, subs, depth+1)
 		if newPre == ty.Pre && newPost == ty.Post && newResult == ty.Result {
 			return ty
 		}
 		return &TyCBPV{Tag: ty.Tag, Pre: newPre, Post: newPost, Result: newResult, S: ty.S}
 	case *TyEvidenceRow:
-		return substManyEvidenceRow(ty, subs)
+		return substManyEvidenceRow(ty, subs, depth+1)
 	case *TyEvidence:
-		newConstraints := substManyEvidenceRow(ty.Constraints, subs)
-		newBody := substMany(ty.Body, subs)
+		newConstraints := substManyEvidenceRow(ty.Constraints, subs, depth+1)
+		newBody := substMany(ty.Body, subs, depth+1)
 		if newConstraints == ty.Constraints && newBody == ty.Body {
 			return ty
 		}
@@ -328,7 +345,7 @@ func substMany(t Type, subs map[string]Type) Type {
 		changed := false
 		newArgs := make([]Type, len(ty.Args))
 		for i, a := range ty.Args {
-			newArgs[i] = substMany(a, subs)
+			newArgs[i] = substMany(a, subs, depth+1)
 			if newArgs[i] != a {
 				changed = true
 			}
@@ -342,13 +359,16 @@ func substMany(t Type, subs map[string]Type) Type {
 	}
 }
 
-func substManyEvidenceRow(row *TyEvidenceRow, subs map[string]Type) *TyEvidenceRow {
+func substManyEvidenceRow(row *TyEvidenceRow, subs map[string]Type, depth int) *TyEvidenceRow {
 	if row == nil {
 		return nil
 	}
+	if depth > maxTraversalDepth {
+		return row
+	}
 	changed := false
 	newEntries := row.Entries.MapChildren(func(child Type) Type {
-		r := substMany(child, subs)
+		r := substMany(child, subs, depth+1)
 		if r != child {
 			changed = true
 		}
@@ -356,7 +376,7 @@ func substManyEvidenceRow(row *TyEvidenceRow, subs map[string]Type) *TyEvidenceR
 	})
 	var newTail Type
 	if row.Tail != nil {
-		newTail = substMany(row.Tail, subs)
+		newTail = substMany(row.Tail, subs, depth+1)
 		if newTail != row.Tail {
 			changed = true
 		}
@@ -369,10 +389,13 @@ func substManyEvidenceRow(row *TyEvidenceRow, subs map[string]Type) *TyEvidenceR
 
 // substConstraintEntry substitutes within a single ConstraintEntry,
 // handling the Quantified field with proper variable shadowing.
-func substConstraintEntry(e ConstraintEntry, varName string, replacement Type, changed *bool) ConstraintEntry {
+func substConstraintEntry(e ConstraintEntry, varName string, replacement Type, changed *bool, depth int) ConstraintEntry {
+	if depth > maxTraversalDepth {
+		return e
+	}
 	args := make([]Type, len(e.Args))
 	for j, a := range e.Args {
-		newA := Subst(a, varName, replacement)
+		newA := substDepth(a, varName, replacement, depth+1)
 		if newA != a {
 			*changed = true
 		}
@@ -380,7 +403,7 @@ func substConstraintEntry(e ConstraintEntry, varName string, replacement Type, c
 	}
 	result := ConstraintEntry{ClassName: e.ClassName, Args: args, S: e.S}
 	if e.ConstraintVar != nil {
-		newCV := Subst(e.ConstraintVar, varName, replacement)
+		newCV := substDepth(e.ConstraintVar, varName, replacement, depth+1)
 		if newCV != e.ConstraintVar {
 			*changed = true
 		}
@@ -394,13 +417,16 @@ func substConstraintEntry(e ConstraintEntry, varName string, replacement Type, c
 				return result
 			}
 		}
-		newQC := substQuantifiedConstraint(e.Quantified, varName, replacement, changed)
+		newQC := substQuantifiedConstraint(e.Quantified, varName, replacement, changed, depth+1)
 		result.Quantified = newQC
 	}
 	return result
 }
 
-func substQuantifiedConstraint(qc *QuantifiedConstraint, varName string, replacement Type, changed *bool) *QuantifiedConstraint {
+func substQuantifiedConstraint(qc *QuantifiedConstraint, varName string, replacement Type, changed *bool, depth int) *QuantifiedConstraint {
+	if depth > maxTraversalDepth {
+		return qc
+	}
 	// Capture avoidance: check if any bound var appears free in replacement.
 	vars := make([]ForallBinder, len(qc.Vars))
 	copy(vars, qc.Vars)
@@ -414,34 +440,37 @@ func substQuantifiedConstraint(qc *QuantifiedConstraint, varName string, replace
 	}
 	ctx := make([]ConstraintEntry, len(qc.Context))
 	for i, c := range qc.Context {
-		ctx[i] = substConstraintEntry(c, varName, replacement, changed)
+		ctx[i] = substConstraintEntry(c, varName, replacement, changed, depth+1)
 	}
-	head := substConstraintEntry(qc.Head, varName, replacement, changed)
+	head := substConstraintEntry(qc.Head, varName, replacement, changed, depth+1)
 	// Also apply renames from capture avoidance.
 	for i, orig := range qc.Vars {
 		if vars[i].Name != orig.Name {
 			for j := range ctx {
-				ctx[j] = renameInConstraintEntry(ctx[j], orig.Name, vars[i].Name)
+				ctx[j] = renameInConstraintEntry(ctx[j], orig.Name, vars[i].Name, depth+1)
 			}
-			head = renameInConstraintEntry(head, orig.Name, vars[i].Name)
+			head = renameInConstraintEntry(head, orig.Name, vars[i].Name, depth+1)
 		}
 	}
 	return &QuantifiedConstraint{Vars: vars, Context: ctx, Head: head}
 }
 
-func renameInConstraintEntry(e ConstraintEntry, oldName, newName string) ConstraintEntry {
+func renameInConstraintEntry(e ConstraintEntry, oldName, newName string, depth int) ConstraintEntry {
+	if depth > maxTraversalDepth {
+		return e
+	}
 	replacement := &TyVar{Name: newName}
 	changed := false
 	args := make([]Type, len(e.Args))
 	for j, a := range e.Args {
-		args[j] = Subst(a, oldName, replacement)
+		args[j] = substDepth(a, oldName, replacement, depth+1)
 		if args[j] != a {
 			changed = true
 		}
 	}
 	result := ConstraintEntry{ClassName: e.ClassName, Args: args, S: e.S}
 	if e.ConstraintVar != nil {
-		newCV := Subst(e.ConstraintVar, oldName, replacement)
+		newCV := substDepth(e.ConstraintVar, oldName, replacement, depth+1)
 		if newCV != e.ConstraintVar {
 			changed = true
 		}
@@ -459,9 +488,9 @@ func renameInConstraintEntry(e ConstraintEntry, oldName, newName string) Constra
 		if !shadowed {
 			ctx := make([]ConstraintEntry, len(e.Quantified.Context))
 			for i, c := range e.Quantified.Context {
-				ctx[i] = renameInConstraintEntry(c, oldName, newName)
+				ctx[i] = renameInConstraintEntry(c, oldName, newName, depth+1)
 			}
-			head := renameInConstraintEntry(e.Quantified.Head, oldName, newName)
+			head := renameInConstraintEntry(e.Quantified.Head, oldName, newName, depth+1)
 			result.Quantified = &QuantifiedConstraint{Vars: e.Quantified.Vars, Context: ctx, Head: head}
 			changed = true
 		} else {

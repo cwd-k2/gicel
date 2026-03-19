@@ -63,9 +63,10 @@ Flags (run, check):
 Flags (run only):
   --entry <name>   Entry point binding (default: main)
   --timeout <dur>  Execution timeout (default: 5s)
-  --max-steps <n>  Step limit (default: 100000)
-  --max-depth <n>  Depth limit (default: 100)
-  --max-alloc <n>  Allocation byte limit (default: 100 MiB)
+  --max-steps <n>    Step limit (default: 100000)
+  --max-depth <n>    Depth limit (default: 100)
+  --max-nesting <n>  Structural nesting depth limit (default: 512)
+  --max-alloc <n>    Allocation byte limit (default: 100 MiB)
   --json           Output result as JSON
   --explain        Show semantic evaluation trace
   --explain-all    Trace stdlib internals (with --explain)
@@ -323,6 +324,7 @@ func cmdRun(args []string) int {
 	timeout := fs.Duration("timeout", 5*time.Second, "execution timeout")
 	maxSteps := fs.Int("max-steps", 100000, "step limit")
 	maxDepth := fs.Int("max-depth", 100, "depth limit")
+	maxNesting := fs.Int("max-nesting", 512, "structural nesting depth limit")
 	maxAlloc := fs.Int64("max-alloc", 100*1024*1024, "allocation byte limit (default: 100 MiB)")
 	jsonOut := fs.Bool("json", false, "output as JSON")
 	explain := fs.Bool("explain", false, "show semantic evaluation trace")
@@ -341,6 +343,10 @@ func cmdRun(args []string) int {
 	}
 	if *maxDepth <= 0 {
 		fmt.Fprintln(os.Stderr, "error: --max-depth must be a positive integer")
+		return 1
+	}
+	if *maxNesting <= 0 {
+		fmt.Fprintln(os.Stderr, "error: --max-nesting must be a positive integer")
 		return 1
 	}
 	if *maxAlloc <= 0 {
@@ -365,6 +371,7 @@ func cmdRun(args []string) int {
 	}
 	eng.SetStepLimit(*maxSteps)
 	eng.SetDepthLimit(*maxDepth)
+	eng.SetNestingLimit(*maxNesting)
 	eng.SetAllocLimit(*maxAlloc)
 	eng.SetEntryPoint(*entry)
 

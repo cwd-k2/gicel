@@ -10,7 +10,7 @@ import (
 func FreeVars(c Core) map[string]struct{} {
 	fv := make(map[string]struct{})
 	bound := make(map[string]int)
-	freeVarsRec(c, bound, fv)
+	freeVarsRec(c, bound, fv, 0)
 	return fv
 }
 
@@ -23,7 +23,10 @@ func unbind(bound map[string]int, name string) {
 	}
 }
 
-func freeVarsRec(c Core, bound map[string]int, fv map[string]struct{}) {
+func freeVarsRec(c Core, bound map[string]int, fv map[string]struct{}, depth int) {
+	if depth > maxTraversalDepth {
+		return
+	}
 	switch n := c.(type) {
 	case *Var:
 		key := varKey(n)
@@ -32,27 +35,27 @@ func freeVarsRec(c Core, bound map[string]int, fv map[string]struct{}) {
 		}
 	case *Lam:
 		bind(bound, n.Param)
-		freeVarsRec(n.Body, bound, fv)
+		freeVarsRec(n.Body, bound, fv, depth+1)
 		unbind(bound, n.Param)
 	case *App:
-		freeVarsRec(n.Fun, bound, fv)
-		freeVarsRec(n.Arg, bound, fv)
+		freeVarsRec(n.Fun, bound, fv, depth+1)
+		freeVarsRec(n.Arg, bound, fv, depth+1)
 	case *TyApp:
-		freeVarsRec(n.Expr, bound, fv)
+		freeVarsRec(n.Expr, bound, fv, depth+1)
 	case *TyLam:
-		freeVarsRec(n.Body, bound, fv)
+		freeVarsRec(n.Body, bound, fv, depth+1)
 	case *Con:
 		for _, arg := range n.Args {
-			freeVarsRec(arg, bound, fv)
+			freeVarsRec(arg, bound, fv, depth+1)
 		}
 	case *Case:
-		freeVarsRec(n.Scrutinee, bound, fv)
+		freeVarsRec(n.Scrutinee, bound, fv, depth+1)
 		for _, alt := range n.Alts {
 			names := alt.Pattern.Bindings()
 			for _, name := range names {
 				bind(bound, name)
 			}
-			freeVarsRec(alt.Body, bound, fv)
+			freeVarsRec(alt.Body, bound, fv, depth+1)
 			for _, name := range names {
 				unbind(bound, name)
 			}
@@ -62,39 +65,39 @@ func freeVarsRec(c Core, bound map[string]int, fv map[string]struct{}) {
 			bind(bound, b.Name)
 		}
 		for _, b := range n.Bindings {
-			freeVarsRec(b.Expr, bound, fv)
+			freeVarsRec(b.Expr, bound, fv, depth+1)
 		}
-		freeVarsRec(n.Body, bound, fv)
+		freeVarsRec(n.Body, bound, fv, depth+1)
 		for _, b := range n.Bindings {
 			unbind(bound, b.Name)
 		}
 	case *Pure:
-		freeVarsRec(n.Expr, bound, fv)
+		freeVarsRec(n.Expr, bound, fv, depth+1)
 	case *Bind:
-		freeVarsRec(n.Comp, bound, fv)
+		freeVarsRec(n.Comp, bound, fv, depth+1)
 		bind(bound, n.Var)
-		freeVarsRec(n.Body, bound, fv)
+		freeVarsRec(n.Body, bound, fv, depth+1)
 		unbind(bound, n.Var)
 	case *Thunk:
-		freeVarsRec(n.Comp, bound, fv)
+		freeVarsRec(n.Comp, bound, fv, depth+1)
 	case *Force:
-		freeVarsRec(n.Expr, bound, fv)
+		freeVarsRec(n.Expr, bound, fv, depth+1)
 	case *PrimOp:
 		for _, arg := range n.Args {
-			freeVarsRec(arg, bound, fv)
+			freeVarsRec(arg, bound, fv, depth+1)
 		}
 	case *Lit:
 		// leaf — no free variables
 	case *RecordLit:
 		for _, f := range n.Fields {
-			freeVarsRec(f.Value, bound, fv)
+			freeVarsRec(f.Value, bound, fv, depth+1)
 		}
 	case *RecordProj:
-		freeVarsRec(n.Record, bound, fv)
+		freeVarsRec(n.Record, bound, fv, depth+1)
 	case *RecordUpdate:
-		freeVarsRec(n.Record, bound, fv)
+		freeVarsRec(n.Record, bound, fv, depth+1)
 		for _, f := range n.Updates {
-			freeVarsRec(f.Value, bound, fv)
+			freeVarsRec(f.Value, bound, fv, depth+1)
 		}
 	}
 }
@@ -103,7 +106,7 @@ func freeVarsRec(c Core, bound map[string]int, fv map[string]struct{}) {
 // bottom-up pass (O(n)). For each Lam, FV = free vars of body ∖ {param}.
 // For each Thunk, FV = free vars of comp.
 func AnnotateFreeVars(c Core) {
-	annotateFV(c)
+	annotateFV(c, 0)
 }
 
 // AnnotateFreeVarsProgram annotates all bindings in a Program.
@@ -119,32 +122,35 @@ func AnnotateFreeVarsProgram(p *Program) {
 // outer Lam params are free from an inner closure's perspective (they are captured).
 // Only LetRec names, Case alt bindings, and Bind vars are propagated as bound,
 // since they are resolved within the same scope.
-func annotateFV(c Core) map[string]struct{} {
+func annotateFV(c Core, depth int) map[string]struct{} {
+	if depth > maxTraversalDepth {
+		return nil
+	}
 	switch n := c.(type) {
 	case *Var:
 		return map[string]struct{}{varKey(n): {}}
 	case *Lam:
-		bodyFV := annotateFV(n.Body)
+		bodyFV := annotateFV(n.Body, depth+1)
 		// Remove the param — it comes from application, not from captured env.
 		delete(bodyFV, n.Param)
 		n.FV = setToSlice(bodyFV)
 		return bodyFV
 	case *App:
-		return mergeFV(annotateFV(n.Fun), annotateFV(n.Arg))
+		return mergeFV(annotateFV(n.Fun, depth+1), annotateFV(n.Arg, depth+1))
 	case *TyApp:
-		return annotateFV(n.Expr)
+		return annotateFV(n.Expr, depth+1)
 	case *TyLam:
-		return annotateFV(n.Body)
+		return annotateFV(n.Body, depth+1)
 	case *Con:
 		var result map[string]struct{}
 		for _, arg := range n.Args {
-			result = mergeFV(result, annotateFV(arg))
+			result = mergeFV(result, annotateFV(arg, depth+1))
 		}
 		return result
 	case *Case:
-		result := annotateFV(n.Scrutinee)
+		result := annotateFV(n.Scrutinee, depth+1)
 		for _, alt := range n.Alts {
-			altFV := annotateFV(alt.Body)
+			altFV := annotateFV(alt.Body, depth+1)
 			// Remove pattern-bound vars — they are local to each alt.
 			for _, name := range alt.Pattern.Bindings() {
 				delete(altFV, name)
@@ -156,31 +162,31 @@ func annotateFV(c Core) map[string]struct{} {
 		// LetRec names are mutually visible — remove them from the result.
 		var result map[string]struct{}
 		for _, b := range n.Bindings {
-			result = mergeFV(result, annotateFV(b.Expr))
+			result = mergeFV(result, annotateFV(b.Expr, depth+1))
 		}
-		result = mergeFV(result, annotateFV(n.Body))
+		result = mergeFV(result, annotateFV(n.Body, depth+1))
 		for _, b := range n.Bindings {
 			delete(result, b.Name)
 		}
 		return result
 	case *Pure:
-		return annotateFV(n.Expr)
+		return annotateFV(n.Expr, depth+1)
 	case *Bind:
-		compFV := annotateFV(n.Comp)
-		bodyFV := annotateFV(n.Body)
+		compFV := annotateFV(n.Comp, depth+1)
+		bodyFV := annotateFV(n.Body, depth+1)
 		// Bind var is local to the body.
 		delete(bodyFV, n.Var)
 		return mergeFV(compFV, bodyFV)
 	case *Thunk:
-		compFV := annotateFV(n.Comp)
+		compFV := annotateFV(n.Comp, depth+1)
 		n.FV = setToSlice(compFV)
 		return compFV
 	case *Force:
-		return annotateFV(n.Expr)
+		return annotateFV(n.Expr, depth+1)
 	case *PrimOp:
 		var result map[string]struct{}
 		for _, arg := range n.Args {
-			result = mergeFV(result, annotateFV(arg))
+			result = mergeFV(result, annotateFV(arg, depth+1))
 		}
 		return result
 	case *Lit:
@@ -188,15 +194,15 @@ func annotateFV(c Core) map[string]struct{} {
 	case *RecordLit:
 		var result map[string]struct{}
 		for _, f := range n.Fields {
-			result = mergeFV(result, annotateFV(f.Value))
+			result = mergeFV(result, annotateFV(f.Value, depth+1))
 		}
 		return result
 	case *RecordProj:
-		return annotateFV(n.Record)
+		return annotateFV(n.Record, depth+1)
 	case *RecordUpdate:
-		result := annotateFV(n.Record)
+		result := annotateFV(n.Record, depth+1)
 		for _, f := range n.Updates {
-			result = mergeFV(result, annotateFV(f.Value))
+			result = mergeFV(result, annotateFV(f.Value, depth+1))
 		}
 		return result
 	default:
