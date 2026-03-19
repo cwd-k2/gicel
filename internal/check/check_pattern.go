@@ -40,6 +40,8 @@ func (ch *Checker) checkPattern(pat syntax.Pattern, scrutTy types.Type) patternR
 		return ch.checkPattern(p.Inner, scrutTy)
 	case *syntax.PatLit:
 		return ch.checkLitPattern(p, scrutTy)
+	case *syntax.PatList:
+		return ch.checkPattern(desugarListPattern(p), scrutTy)
 	default:
 		ch.addCodedError(errs.ErrTypeMismatch, pat.Span(), fmt.Sprintf("unsupported pattern form: %T", pat))
 		return patternResult{Pattern: &core.PWild{S: pat.Span()}}
@@ -235,6 +237,19 @@ func (ch *Checker) isInaccessibleGADTBranch(conName string, scrutTy types.Type) 
 		}
 	}
 	return false
+}
+
+// desugarListPattern rewrites [p1, p2, p3] to Cons p1 (Cons p2 (Cons p3 Nil)).
+func desugarListPattern(p *syntax.PatList) syntax.Pattern {
+	var result syntax.Pattern = &syntax.PatCon{Con: "Nil", S: p.S}
+	for i := len(p.Elems) - 1; i >= 0; i-- {
+		result = &syntax.PatCon{
+			Con:  "Cons",
+			Args: []syntax.Pattern{p.Elems[i], result},
+			S:    p.S,
+		}
+	}
+	return result
 }
 
 // resolvePendingCVs resolves deferred constraint variable entries after metas are solved.

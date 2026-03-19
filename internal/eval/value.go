@@ -99,6 +99,9 @@ func (v *Closure) String() string {
 }
 
 func (v *ConVal) String() string {
+	if s, ok := stringList(v); ok {
+		return s
+	}
 	if len(v.Args) == 0 {
 		return v.Con
 	}
@@ -107,6 +110,29 @@ func (v *ConVal) String() string {
 		args[i] = a.String()
 	}
 	return fmt.Sprintf("(%s %s)", v.Con, strings.Join(args, " "))
+}
+
+func stringList(v *ConVal) (string, bool) {
+	if v.Con != "Cons" && v.Con != "Nil" {
+		return "", false
+	}
+	var elems []string
+	cur := Value(v)
+	for {
+		c, ok := cur.(*ConVal)
+		if !ok {
+			return "", false
+		}
+		if c.Con == "Nil" && len(c.Args) == 0 {
+			return "[" + strings.Join(elems, ", ") + "]", true
+		}
+		if c.Con == "Cons" && len(c.Args) == 2 {
+			elems = append(elems, c.Args[0].String())
+			cur = c.Args[1]
+			continue
+		}
+		return "", false
+	}
 }
 
 func (v *ThunkVal) String() string {

@@ -43,6 +43,8 @@ func (p *Parser) parsePattern() syn.Pattern {
 		return &syn.PatParen{Inner: inner, S: span.Span{Start: start, End: p.prevEnd()}}
 	case syn.TokLBrace:
 		return p.parseRecordPattern()
+	case syn.TokLBracket:
+		return p.parseListPattern()
 	default:
 		p.addError("expected pattern")
 		tok := p.peek()
@@ -147,6 +149,8 @@ func (p *Parser) parsePatternAtom() syn.Pattern {
 		return &syn.PatParen{Inner: inner, S: span.Span{Start: start, End: p.prevEnd()}}
 	case syn.TokLBrace:
 		return p.parseRecordPattern()
+	case syn.TokLBracket:
+		return p.parseListPattern()
 	default:
 		return nil
 	}
@@ -177,7 +181,22 @@ func (p *Parser) isPatternAtomStart() bool {
 		return false
 	}
 	k := p.peek().Kind
-	return k == syn.TokLower || k == syn.TokUnderscore || k == syn.TokLParen || k == syn.TokUpper || k == syn.TokIntLit || k == syn.TokDoubleLit || k == syn.TokStrLit || k == syn.TokRuneLit || k == syn.TokLBrace
+	return k == syn.TokLower || k == syn.TokUnderscore || k == syn.TokLParen || k == syn.TokUpper || k == syn.TokIntLit || k == syn.TokDoubleLit || k == syn.TokStrLit || k == syn.TokRuneLit || k == syn.TokLBrace || k == syn.TokLBracket
+}
+
+func (p *Parser) parseListPattern() syn.Pattern {
+	start := p.peek().S.Start
+	p.expect(syn.TokLBracket)
+	var elems []syn.Pattern
+	if p.peek().Kind != syn.TokRBracket {
+		elems = append(elems, p.parsePattern())
+		for p.peek().Kind == syn.TokComma {
+			p.advance()
+			elems = append(elems, p.parsePattern())
+		}
+	}
+	p.expect(syn.TokRBracket)
+	return &syn.PatList{Elems: elems, S: span.Span{Start: start, End: p.prevEnd()}}
 }
 
 func (p *Parser) parseLitPattern() syn.Pattern {

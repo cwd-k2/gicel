@@ -290,6 +290,13 @@ type PatRecordField struct {
 	S       span.Span
 }
 
+// PatList is a list literal pattern: [p1, p2, p3]
+// Desugared to Cons p1 (Cons p2 (Cons p3 Nil)) during type checking.
+type PatList struct {
+	Elems []Pattern
+	S     span.Span
+}
+
 // LitKind identifies the type of a literal pattern.
 type LitKind int
 
@@ -314,6 +321,7 @@ func (*PatQualCon) patternNode() {}
 func (*PatParen) patternNode()   {}
 func (*PatRecord) patternNode()  {}
 func (*PatLit) patternNode()     {}
+func (*PatList) patternNode()    {}
 
 func (p *PatVar) Span() span.Span     { return p.S }
 func (p *PatWild) Span() span.Span    { return p.S }
@@ -322,3 +330,4 @@ func (p *PatQualCon) Span() span.Span { return p.S }
 func (p *PatRecord) Span() span.Span  { return p.S }
 func (p *PatParen) Span() span.Span   { return p.S }
 func (p *PatLit) Span() span.Span     { return p.S }
+func (p *PatList) Span() span.Span    { return p.S }
