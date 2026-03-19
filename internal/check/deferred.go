@@ -69,8 +69,15 @@ func typeHasMeta(ty types.Type) bool {
 
 // isAmbiguousInstance checks whether a class constraint with the given args
 // could match more than one instance. All trial unifications are rolled back
-// to avoid committing any solutions.
+// to avoid committing any solutions. Results are cached per-solveWanteds scope.
 func (ch *Checker) isAmbiguousInstance(className string, args []types.Type) bool {
+	key := constraintKey(className, args)
+	if ch.ambiguityCache != nil {
+		if cached, ok := ch.ambiguityCache[key]; ok {
+			return cached
+		}
+	}
+
 	matchCount := 0
 	seen := make(map[*InstanceInfo]bool)
 	for _, inst := range ch.reg.instancesByClass[className] {
@@ -95,11 +102,17 @@ func (ch *Checker) isAmbiguousInstance(className string, args []types.Type) bool
 		if ok {
 			matchCount++
 			if matchCount > 1 {
-				return true
+				break
 			}
 		}
 	}
-	return false
+
+	result := matchCount > 1
+	if ch.ambiguityCache == nil {
+		ch.ambiguityCache = make(map[string]bool)
+	}
+	ch.ambiguityCache[key] = result
+	return result
 }
 
 // substitutePlaceholders replaces Var nodes matching placeholders via core.Transform.

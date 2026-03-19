@@ -20,6 +20,7 @@ func (ch *Checker) solveWanteds(
 	resolutions := make(map[string]core.Core)
 	var residuals []*CtClass
 	ch.inertSet.Reset()
+	ch.ambiguityCache = nil // lazily allocated; zero-cost when shouldDefer is nil
 
 	for {
 		ct, ok := ch.worklist.Pop()

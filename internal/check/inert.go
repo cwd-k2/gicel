@@ -97,23 +97,30 @@ func (is *InertSet) indexMetas(ct Ct, metaIDs []int) {
 	}
 }
 
-// removeClass removes a specific CtClass from the classMap.
+// removeClass removes a specific CtClass from the classMap using swap-remove.
+// Order within a bucket is not significant (membership-only invariant).
 func (is *InertSet) removeClass(ct *CtClass) {
 	cts := is.classMap[ct.ClassName]
 	for i, c := range cts {
 		if c == ct {
-			is.classMap[ct.ClassName] = append(cts[:i], cts[i+1:]...)
+			last := len(cts) - 1
+			cts[i] = cts[last]
+			cts[last] = nil
+			is.classMap[ct.ClassName] = cts[:last]
 			return
 		}
 	}
 }
 
-// removeFunEq removes a specific CtFunEq from the funEqs map.
+// removeFunEq removes a specific CtFunEq from the funEqs map using swap-remove.
 func (is *InertSet) removeFunEq(ct *CtFunEq) {
 	cts := is.funEqs[ct.FamilyName]
 	for i, c := range cts {
 		if c == ct {
-			is.funEqs[ct.FamilyName] = append(cts[:i], cts[i+1:]...)
+			last := len(cts) - 1
+			cts[i] = cts[last]
+			cts[last] = nil
+			is.funEqs[ct.FamilyName] = cts[:last]
 			return
 		}
 	}

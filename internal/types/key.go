@@ -2,6 +2,7 @@ package types
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 )
 
@@ -34,7 +35,9 @@ func WriteTypeKey(b *strings.Builder, t Type) {
 		b.WriteByte('\'')
 		b.WriteString(ty.Name)
 	case *TyMeta:
-		fmt.Fprintf(b, "?%d", ty.ID)
+		b.WriteByte('?')
+		var buf [20]byte
+		b.Write(strconv.AppendInt(buf[:0], int64(ty.ID), 10))
 	case *TyApp:
 		b.WriteByte('(')
 		WriteTypeKey(b, ty.Fun)
@@ -74,7 +77,9 @@ func WriteTypeKey(b *strings.Builder, t Type) {
 		}
 		b.WriteByte(']')
 	case *TySkolem:
-		fmt.Fprintf(b, "#%d", ty.ID)
+		b.WriteByte('#')
+		var buf [20]byte
+		b.Write(strconv.AppendInt(buf[:0], int64(ty.ID), 10))
 	case *TyEvidence:
 		b.WriteString("{E ")
 		WriteTypeKey(b, ty.Constraints)

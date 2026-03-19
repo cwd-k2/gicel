@@ -127,8 +127,9 @@ type Checker struct {
 	scope checkerScope
 
 	// Constraint solver state.
-	worklist Worklist
-	inertSet InertSet
+	worklist       Worklist
+	inertSet       InertSet
+	ambiguityCache map[string]bool // per-solveWanteds cache; lazily allocated
 
 	// Recursion/depth guards.
 	depth        int // inference recursion depth
@@ -439,11 +440,11 @@ func (ch *Checker) withTrial(fn func() bool) bool {
 // Constraints accumulated inside fn are resolved immediately, then
 // any remaining constraints are merged back into the outer scope.
 func (ch *Checker) withDeferredScope(fn func() core.Core) core.Core {
-	savedItems := ch.worklist.items
-	ch.worklist.items = nil
+	saved := ch.worklist.Drain()
 	result := fn()
 	result = ch.resolveDeferredConstraints(result)
-	ch.worklist.items = append(savedItems, ch.worklist.items...)
+	residual := ch.worklist.Drain()
+	ch.worklist.Load(append(saved, residual...))
 	return result
 }
 
