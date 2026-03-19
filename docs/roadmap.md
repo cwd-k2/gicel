@@ -24,43 +24,98 @@ The checker architecture now supports incremental migration toward OutsideIn(X).
 
 ### v0.13 — Foundation Hardening
 
-既存の planned work を先行して安定化する。後続の型システム拡張の前提条件。
+既存基盤を安定化し、後続の型システム拡張（v0.14 Row-Level TF、v0.15 SMC）の前提条件を整える。
 
-#### Solver Data Structure Optimization
+#### Solver & Performance Optimization
 
-The L3 worklist + inert set solver is architecturally correct but uses naive container implementations. Identified hotspots (`docs/reviews/2026-03-19-performance-rereview.md`):
+L3 worklist + inert set solver は構造的に正しいが、ナイーブなコンテナ実装がボトルネック候補。隣接するデータ構造の性能問題も含めて対処する。
 
-| Item                                    | Issue                                                                              | Fix                                             | Priority |
-| --------------------------------------- | ---------------------------------------------------------------------------------- | ----------------------------------------------- | -------- |
-| `SortBindings` per execution            | `evalBindingsCore` calls `core.SortBindings` every `RunWith`; Runtime is immutable | Precompute in `NewRuntime`, store sorted result | High     |
-| `PushFront` full copy                   | `append(cts, w.items...)` copies entire worklist on every kickout                  | Head-index deque or ring buffer                 | Medium   |
-| `removeClass`/`removeFunEq` linear scan | Linear search + slice splice on each KickOut                                       | Pointer identity set or swap-remove             | Medium   |
-| `constraintKey` allocation              | `strings.Builder` per constraint in hot path                                       | Lazy key on CtClass, compute-once               | Low      |
-| `isAmbiguousInstance` repeated trial    | No memoization for same (class, args)                                              | Per-solve-pass cache                            | Low      |
+| Item                                    | Issue                                                                | Fix                                           | Priority |
+| --------------------------------------- | -------------------------------------------------------------------- | --------------------------------------------- | -------- |
+| `SortBindings` per execution            | `evalBindingsCore` が毎回 `core.SortBindings` を呼ぶ; Runtime は不変 | `NewRuntime` で事前計算、ソート済み結果を保持 | High     |
+| `Env.Lookup` no flattening              | 深い環境で O(depth) 探索; 設計コメントは flatten を約束              | 深度閾値で flatten をトリガー                 | High     |
+| `UnwindApp` O(n²)                       | prepend ベースの引数収集が毎回反転                                   | reverse 収集→一度だけ反転                     | High     |
+| `PushFront` full copy                   | `append(cts, w.items...)` が kickout 毎にワークリスト全体をコピー    | Head-index deque or ring buffer               | Medium   |
+| `removeClass`/`removeFunEq` linear scan | 各 KickOut で線形探索 + スライススプライス                           | Pointer identity set or swap-remove           | Medium   |
+| `constraintKey` allocation              | ホットパスで制約毎に `strings.Builder`                               | CtClass 上の lazy key、一度だけ計算           | Low      |
+| `isAmbiguousInstance` repeated trial    | 同一 (class, args) のメモ化なし                                      | Per-solve-pass cache                          | Low      |
 
 **動機**: v0.14 で Merge 型族が stuck `CtFunEq` を大量に生む。solver の性能がボトルネックになる前に最適化する。
 
 #### Module Boundary Hardening
 
-Identified in `docs/reviews/2026-03-19-full-codebase-review.md`:
+| Item                          | Issue                                                                                 | Priority |
+| ----------------------------- | ------------------------------------------------------------------------------------- | -------- |
+| Type-level import collision   | `importOpen` が Types/Classes/Aliases/Families を `checkAmbiguousName` なしで書き込む | High     |
+| Private export leak           | `ExportModule` が `_` prefix を Values のみフィルタ; types/classes/aliases がリーク   | High     |
+| Re-export model inconsistency | Values = local-only; types = accumulated (imports を含む)                             | Medium   |
 
-| Item                          | Issue                                                                           | Priority |
-| ----------------------------- | ------------------------------------------------------------------------------- | -------- |
-| Type-level import collision   | `importOpen` writes Types/Classes/Aliases/Families without `checkAmbiguousName` | High     |
-| Private export leak           | `ExportModule` filters `_` prefix for Values only; types/classes/aliases leak   | High     |
-| Re-export model inconsistency | Values = local-only; types = accumulated (includes imports)                     | Medium   |
+#### Parser & Diagnostics Hardening
 
-#### Type Operators
+パーサ基盤レビュー (2026-03-19) で特定された改善項目。v0.14 以降の言語拡張（row-level TF の型エラー、`><` の型不整合診断）に先立ち、フロントエンド品質を底上げする。
 
-Infix aliases for types: `type (:>) a b := a b` enables `Send :> Recv :> End` instead of `Send (Recv End)`. Parser 変更のみ、型システムへの影響なし。
+**v0.13 scope:**
 
-Session type DSL と後続の SMC 型レベル行操作 (`pre₁ :><: pre₂`) の可読性向上が動機。
+| Item                        | Issue                                               | Fix                                                                           | Priority |
+| --------------------------- | --------------------------------------------------- | ----------------------------------------------------------------------------- | -------- |
+| Syntax error specialization | E0100 一つに全構文エラーが集約                      | E0101–E0110 に分化 (unclosed delimiter, unexpected token, missing body, etc.) | High     |
+| Expression-level recovery   | `case { + -> * }` で 20+ エラー cascade             | `ErrorExpr` ノード返却による phrase-level recovery                            | High     |
+| Newline separator bugs      | `do`, class, instance body で改行区切りがエラー     | 共通 separator helper に統合                                                  | Medium   |
+| `->` / `<-` lexer guard     | `->>`, `<->` が予約記号を含むのにトークン分割される | `=:=` 修正 (2026-03-20) と同じガード追加                                      | Low      |
+| `main :=` silent acceptance | body なしバインディングがエラーなし                 | 明示エラー「バインディング本体が必要」                                        | Low      |
+
+**Post-v0.13 diagnostics roadmap** (独立して段階的に実施可能):
+
+| Phase | 内容                                                      | 工数 |
+| ----- | --------------------------------------------------------- | ---- |
+| B     | "Did you mean?" suggestion (Damerau-Levenshtein distance) | 中   |
+| C     | Secondary span 充実 — 型エラーの期待型出所を hint 付加    | 中   |
+| D     | 構造化 JSON 診断出力 (LSP `Diagnostic` 互換)              | 中   |
+| E     | 内部用語のユーザー語彙翻訳 (skolem, occurs check 等)      | 低   |
+
+#### Type-Level Syntax
+
+二つの独立した拡張で型式の可読性を向上する。どちらもパーサ変更のみ — Core IR・型チェッカーへの影響なし。
+
+**Type Operators** — infix type aliases:
+
+```gicel
+type (:>) a b := a b
+-- Send :> Recv :> End = Send (Recv (End))
+```
+
+Session type DSL と後続の SMC 型レベル行操作の可読性向上が動機。
+
+**Type Application Operator (`-<`)** — 組み込み右結合型適用:
+
+```gicel
+Map String -< List -< Maybe -< Int
+= Map String (List (Maybe Int))
+
+-- juxtaposition > -< > ->
+String -> Map String -< List -< Int
+= String -> (Map String (List Int))
+```
+
+`->` と視覚的対を成す（Haskell arrow notation の `-<` = arrow application が先行例）。
+
+#### `do` Elaboration Consolidation
+
+`inferDo` / `elaborateStmtsChecked` / `elaborateDoMonadic` / `elaborateDoMult` の 4 実装が文処理を重複している。共通 elaboration コアに統合し、意味修正の 4 箇所同時修正を解消する。
+
+v0.14 で L4 implication constraints が checker を大幅に変更する前に実施。SMC 拡張（v0.15 `><` / `dag`）で elaboration に新しい文形式が加わる場合も、統合済みなら 1 箇所の変更で済む。
 
 ---
 
 ### v0.14 — Row-Level Type Families + OutsideIn(X) L4
 
 **二つの拡張を同時に進める。** Row-level type families は L4 の touchability/given simplification と共依存関係にある。
+
+#### Type Family Reduction Hardening
+
+`reduceFamilyAppsN` が指数的に分岐する既知のバグ（`Grow a = Pair (Grow a) (Grow a)` 等）を修正する。`MaxReductionWork` がステップ数のみ制限し分岐数を制限しない。`Merge` 型族が open row tail で再帰的に展開される場面でこのパターンが直撃するため、Row-Level TF の前提条件。
+
+**修正方針**: 共有ベースの簡約（同一 TyApp を一度だけ簡約しメモ化）、または分岐数の明示的制限。
 
 #### OutsideIn(X) L4
 
@@ -263,8 +318,11 @@ The evidence system separates fibers (`Type`, `Constraint`, `Row`). Type familie
 
 ## Far Future (assessed, not planned)
 
-| Extension                     | Classification   | Prerequisite             |
-| ----------------------------- | ---------------- | ------------------------ |
-| Tensor product kind (`QType`) | Type system      | v0.15 + quantum use case |
-| Refinement types              | Phase transition | Separate analysis        |
-| Dependent types               | Full restructure | Far future               |
+| Extension                                                          | Classification   | Prerequisite             |
+| ------------------------------------------------------------------ | ---------------- | ------------------------ |
+| Tensor product kind (`QType`)                                      | Type system      | v0.15 + quantum use case |
+| Optimizer Phase 2–3 (selective inline + case-of-case)              | Optimization     | Benchmark-driven demand  |
+| Tuple `Eq`/`Ord` runtime support                                   | Stdlib           | User demand              |
+| Diagnostics Phase B–E (suggestion, secondary span, JSON, 用語翻訳) | DX               | Incremental, post-v0.13  |
+| Refinement types                                                   | Phase transition | Separate analysis        |
+| Dependent types                                                    | Full restructure | Far future               |
