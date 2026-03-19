@@ -515,13 +515,15 @@ func TestPropertySubstManyEqualsSequential(t *testing.T) {
 }
 
 // (e') SubstMany with overlapping variables: verify SubstMany({a→b, b→Int})
-// applies all substitutions "simultaneously" (no cascading).
+// applies all substitutions simultaneously (no cascading).
 func TestPropertySubstManySimultaneous(t *testing.T) {
-	// SubstMany should be a simultaneous substitution, meaning:
-	// SubstMany(a -> b, {a→b, b→Int}) should give b -> Int, not Int -> Int.
-	// However, the current implementation is sequential (applies one at a time),
-	// so SubstMany(a -> b, {a→b, b→Int}) might give Int -> Int depending
-	// on iteration order. This test documents the actual behavior.
+	// SubstMany is a true simultaneous substitution: the TyVar case returns
+	// the replacement as-is without recursing into it. For {a→b, b→Int}
+	// applied to (a -> b):
+	//   - a is looked up → b (returned without further substitution)
+	//   - b is looked up → Int
+	//   - Result: b -> Int (not Int -> Int)
+	// This is deterministic and correct for all substitution maps.
 	aVar := &types.TyVar{Name: "a"}
 	bVar := &types.TyVar{Name: "b"}
 	intTy := &types.TyCon{Name: "Int"}
@@ -533,16 +535,10 @@ func TestPropertySubstManySimultaneous(t *testing.T) {
 	}
 	result := types.SubstMany(original, subs)
 
-	// SubstMany iterates over a Go map, so iteration order is non-deterministic.
-	// For dependent substitutions like {a→b, b→Int}:
-	// - If a is substituted first: a→b gives (b -> b), then b→Int gives (Int -> Int)
-	// - If b is substituted first: b→Int gives (a -> Int), then a→b gives (b -> Int)
-	// Both outcomes have been observed in test runs. This is a LATENT BUG:
-	// SubstMany is non-deterministic for dependent substitutions.
-	// It works correctly because TF pattern matching only produces
-	// independent substitutions (each pattern variable is distinct).
 	pretty := types.Pretty(result)
-	t.Logf("SubstMany({a→b, b→Int}, a -> b) = %s (non-deterministic for dependent subs)", pretty)
+	if pretty != "b -> Int" {
+		t.Errorf("expected b -> Int, got %s", pretty)
+	}
 
 	// Verify no panic on re-application.
 	_ = types.SubstMany(result, subs)
@@ -559,13 +555,11 @@ func TestPropertySubstManyIdentity(t *testing.T) {
 
 // --- Additional pathological tests discovered during investigation ---
 
-// SubstMany is sequential, not simultaneous. This is fine for TF pattern matching
-// (which always produces independent substitutions), but could be surprising
-// if someone passes dependent substitutions. Document the behavior.
+// SubstMany is simultaneous: replacements are returned as-is without
+// recursing into them, so dependent variables within replacements are
+// not expanded. This matches the formal definition of simultaneous
+// substitution [a↦List b, b↦Int](a -> b) = List b -> Int.
 func TestPathologicalSubstManyDependentVars(t *testing.T) {
-	// {a → List b, b → Int} applied to (a -> b)
-	// Sequential: a -> b ==[a→List b]==> List b -> b ==[b→Int]==> List Int -> Int
-	// Simultaneous would give: List b -> Int (different!)
 	aVar := &types.TyVar{Name: "a"}
 	bVar := &types.TyVar{Name: "b"}
 	intTy := &types.TyCon{Name: "Int"}
@@ -577,15 +571,10 @@ func TestPathologicalSubstManyDependentVars(t *testing.T) {
 		"b": intTy,
 	})
 	pretty := types.Pretty(result)
-	t.Logf("SubstMany({a→List b, b→Int}, a -> b) = %s", pretty)
 
-	// Due to map iteration order, the result may be either:
-	// - "List Int -> Int" (if a is substituted first)
-	// - "List b -> Int"   (if b is substituted first)
-	// Both are valid for sequential substitution. The important thing
-	// is that TF pattern matching never produces such dependent substitutions.
-	if !strings.Contains(pretty, "Int") {
-		t.Error("expected Int somewhere in the result")
+	// Simultaneous: a → List b (as-is), b → Int. Result: List b -> Int.
+	if pretty != "List b -> Int" {
+		t.Errorf("expected List b -> Int, got %s", pretty)
 	}
 }
 

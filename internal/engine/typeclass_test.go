@@ -223,13 +223,11 @@ main := foldr (\x _. x) False (Just True)
 }
 
 func TestStdlibEqPair(t *testing.T) {
-	// NOTE: Eq (a, b) on tuples is not yet supported at runtime (evidence/record interaction).
-	// Test Eq on List as a multi-element container substitute.
 	eng := NewEngine()
 	eng.Use(stdlib.Prelude)
 	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
-main := eq (Cons True (Cons False Nil)) (Cons True (Cons False Nil))
+main := eq (True, False) (True, False)
 `)
 	if err != nil {
 		t.Fatal(err)
@@ -514,13 +512,11 @@ main := (test1, test2)
 }
 
 func TestOrdPair(t *testing.T) {
-	// NOTE: Ord (a, b) on tuples is not yet supported at runtime (evidence/record interaction).
-	// Test Ord on Maybe as a parameterized type substitute.
 	eng := NewEngine()
 	eng.Use(stdlib.Prelude)
 	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
-main := compare (Just False) (Just True)
+main := compare (False, False) (True, True)
 `)
 	if err != nil {
 		t.Fatal(err)
@@ -529,7 +525,7 @@ main := compare (Just False) (Just True)
 	if err != nil {
 		t.Fatal(err)
 	}
-	// compare (Just False) (Just True) = LT
+	// compare (False, False) (True, True) = LT (lexicographic)
 	assertConName(t, result.Value, "LT")
 }
 
