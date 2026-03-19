@@ -120,8 +120,8 @@ func TestClassifyEvidenceAllMatched(t *testing.T) {
 	available := []availableEvidence{
 		{className: "Eq", args: []types.Type{types.Con("Int")}},
 	}
-	wanted := []deferredConstraint{
-		{placeholder: "$dict_1", className: "Eq", args: []types.Type{types.Con("Int")}},
+	wanted := []*CtClass{
+		{Placeholder: "$dict_1", ClassName: "Eq", Args: []types.Type{types.Con("Int")}},
 	}
 	matched, unmatched := ch.classifyEvidence(wanted, available)
 	if len(matched) != 1 {
@@ -141,9 +141,9 @@ func TestClassifyEvidencePartial(t *testing.T) {
 	available := []availableEvidence{
 		{className: "Eq", args: []types.Type{types.Con("Int")}},
 	}
-	wanted := []deferredConstraint{
-		{placeholder: "$dict_1", className: "Eq", args: []types.Type{types.Con("Int")}},
-		{placeholder: "$dict_2", className: "Ord", args: []types.Type{types.Con("Int")}},
+	wanted := []*CtClass{
+		{Placeholder: "$dict_1", ClassName: "Eq", Args: []types.Type{types.Con("Int")}},
+		{Placeholder: "$dict_2", ClassName: "Ord", Args: []types.Type{types.Con("Int")}},
 	}
 	matched, unmatched := ch.classifyEvidence(wanted, available)
 	if len(matched) != 1 {
@@ -152,8 +152,8 @@ func TestClassifyEvidencePartial(t *testing.T) {
 	if len(unmatched) != 1 {
 		t.Fatalf("expected 1 unmatched, got %d", len(unmatched))
 	}
-	if unmatched[0].className != "Ord" {
-		t.Errorf("expected unmatched Ord, got %s", unmatched[0].className)
+	if unmatched[0].ClassName != "Ord" {
+		t.Errorf("expected unmatched Ord, got %s", unmatched[0].ClassName)
 	}
 }
 

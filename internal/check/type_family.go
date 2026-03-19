@@ -123,13 +123,13 @@ func (ch *Checker) processTypeFamily(d *syntax.DeclTypeFamily) {
 // familyEnv creates a family.ReduceEnv with the current Checker state.
 func (ch *Checker) familyEnv() *family.ReduceEnv {
 	return &family.ReduceEnv{
-		Families:  ch.reg.families,
-		Budget:    ch.budget,
-		Unifier:   ch.unifier,
-		Stuck:     &ch.stuckFamilies,
-		FreshMeta: ch.freshMeta,
-		AddError:  ch.addCodedError,
-		TryUnify:  ch.tryUnify,
+		Families:        ch.reg.families,
+		Budget:          ch.budget,
+		Unifier:         ch.unifier,
+		FreshMeta:       ch.freshMeta,
+		AddError:        ch.addCodedError,
+		TryUnify:        ch.tryUnify,
+		RegisterStuckFn: ch.registerStuckViaInert,
 	}
 }
 
@@ -156,9 +156,27 @@ func (ch *Checker) reduceTyFamily(name string, args []types.Type, s span.Span) (
 	return ch.familyEnv().ReduceTyFamily(name, args, s)
 }
 
-// ProcessRework delegates to the family subpackage.
-func (ch *Checker) ProcessRework() {
-	ch.familyEnv().ProcessRework()
+// ProcessRework is a no-op: stuck family equations are in the inert set
+// and are kicked out automatically via OnSolve when blocking metas are solved.
+func (ch *Checker) ProcessRework() {}
+
+// registerStuckViaInert registers a stuck type family application as a
+// CtFunEq constraint in the inert set instead of the legacy StuckIndex.
+func (ch *Checker) registerStuckViaInert(name string, args []types.Type, resultKind types.Kind, s span.Span) *types.TyMeta {
+	blocking := ch.unifier.CollectBlockingMetas(args)
+	if len(blocking) == 0 {
+		return nil
+	}
+	resultMeta := ch.freshMeta(resultKind)
+	ct := &CtFunEq{
+		FamilyName: name,
+		Args:       args,
+		ResultMeta: resultMeta,
+		BlockingOn: blocking,
+		S:          s,
+	}
+	ch.inertSet.InsertFunEq(ct)
+	return resultMeta
 }
 
 // mangledDataFamilyName produces a mangled name for a data family instance.

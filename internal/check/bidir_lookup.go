@@ -143,14 +143,7 @@ func (ch *Checker) instantiate(ty types.Type, expr core.Core) (types.Type, core.
 		if ev, ok := ty.(*types.TyEvidence); ok {
 			for _, entry := range ev.Constraints.ConEntries() {
 				placeholder := fmt.Sprintf("%s_%d", prefixDictDefer, ch.fresh())
-				ch.deferred = append(ch.deferred, deferredConstraint{
-					placeholder:   placeholder,
-					className:     entry.ClassName,
-					args:          entry.Args,
-					s:             expr.Span(),
-					quantified:    entry.Quantified,
-					constraintVar: entry.ConstraintVar,
-				})
+				ch.emitClassConstraint(placeholder, entry.ClassName, entry.Args, expr.Span(), entry.Quantified, entry.ConstraintVar)
 				expr = &core.App{Fun: expr, Arg: &core.Var{Name: placeholder, S: expr.Span()}, S: expr.Span()}
 			}
 			ty = ev.Body

@@ -144,6 +144,25 @@ func checkSourceNoPanic(t *testing.T, source string, config *CheckConfig) {
 	Check(ast, src, config)
 }
 
+// setupCheckerWithPrelude creates a Checker with minimal Num/Eq/Show instances
+// registered, sufficient for solver unit tests.
+func setupCheckerWithPrelude(t *testing.T) *Checker {
+	t.Helper()
+	ch := newTestChecker()
+	// Register ground instances: Num Int, Eq Int, Eq Bool, Show Int.
+	instances := []*InstanceInfo{
+		{ClassName: "Num", TypeArgs: []types.Type{&types.TyCon{Name: "Int"}}, DictBindName: "Num$Int"},
+		{ClassName: "Eq", TypeArgs: []types.Type{&types.TyCon{Name: "Int"}}, DictBindName: "Eq$Int"},
+		{ClassName: "Eq", TypeArgs: []types.Type{&types.TyCon{Name: "Bool"}}, DictBindName: "Eq$Bool"},
+		{ClassName: "Show", TypeArgs: []types.Type{&types.TyCon{Name: "Int"}}, DictBindName: "Show$Int"},
+	}
+	for _, inst := range instances {
+		ch.reg.instances = append(ch.reg.instances, inst)
+		ch.reg.instancesByClass[inst.ClassName] = append(ch.reg.instancesByClass[inst.ClassName], inst)
+	}
+	return ch
+}
+
 // newTestChecker creates a minimal Checker for unit tests.
 func newTestChecker() *Checker {
 	var freshID int

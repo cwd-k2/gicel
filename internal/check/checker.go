@@ -110,14 +110,13 @@ type checkerScope struct {
 // Checker holds mutable state during type checking.
 type Checker struct {
 	// Services.
-	ctx           *Context
-	unifier       *unify.Unifier
-	stuckFamilies family.StuckIndex
-	budget        *budget.Budget
-	errors        *errs.Errors
-	source        *span.Source
-	config        *CheckConfig
-	freshID       int
+	ctx     *Context
+	unifier *unify.Unifier
+	budget  *budget.Budget
+	errors  *errs.Errors
+	source  *span.Source
+	config  *CheckConfig
+	freshID int
 
 	// Semantic registries.
 	reg checkerRegistry
@@ -125,8 +124,9 @@ type Checker struct {
 	// Name resolution scope.
 	scope checkerScope
 
-	// Inference accumulator.
-	deferred []deferredConstraint
+	// Constraint solver state.
+	worklist Worklist
+	inertSet InertSet
 
 	// Recursion/depth guards.
 	depth        int // inference recursion depth
@@ -177,16 +177,6 @@ type SuperInfo = env.SuperInfo
 type MethodInfo = env.MethodInfo
 type InstanceInfo = env.InstanceInfo
 type ConstraintInfo = env.ConstraintInfo
-
-// deferredConstraint records a constraint to be resolved after type inference.
-type deferredConstraint struct {
-	placeholder   string
-	className     string
-	args          []types.Type
-	s             span.Span
-	quantified    *types.QuantifiedConstraint // non-nil for quantified constraints
-	constraintVar types.Type                  // non-nil for constraint variable entries (Dict reification)
-}
 
 // Check type-checks a surface AST program and produces Core IR.
 // Unlike CheckModule, this does not construct module exports, avoiding
@@ -243,7 +233,8 @@ func newChecker(prog *syntax.AstProgram, source *span.Source, config *CheckConfi
 	}
 	ch.unifier = unify.NewUnifierShared(&ch.freshID)
 	ch.unifier.OnSolve = func(metaID int) {
-		ch.stuckFamilies.Reactivate(metaID)
+		kicked := ch.inertSet.KickOut(metaID)
+		ch.worklist.PushFront(kicked...)
 	}
 	ch.initContext()
 	ch.importModules(prog.Imports)
@@ -368,24 +359,21 @@ func (ch *Checker) errorPair(s span.Span) (types.Type, core.Core) {
 	return &types.TyError{S: s}, &core.Var{Name: "<error>", S: s}
 }
 
-// checkerSnapshot captures unifier and stuck family state for rollback.
+// checkerSnapshot captures unifier state for rollback.
 type checkerSnapshot struct {
-	unifier       unify.Snapshot
-	stuckFamilies family.StuckSnapshot
+	unifier unify.Snapshot
 }
 
-// saveState snapshots the checker's unifier and stuck family state.
+// saveState snapshots the checker's unifier state.
 func (ch *Checker) saveState() checkerSnapshot {
 	return checkerSnapshot{
-		unifier:       ch.unifier.Snapshot(),
-		stuckFamilies: ch.stuckFamilies.Snapshot(),
+		unifier: ch.unifier.Snapshot(),
 	}
 }
 
 // restoreState rolls back the checker to a previously saved snapshot.
 func (ch *Checker) restoreState(snap checkerSnapshot) {
 	ch.unifier.Restore(snap.unifier)
-	ch.stuckFamilies.Restore(snap.stuckFamilies)
 }
 
 // withTrial runs fn in a trial unification scope. If fn returns false,
@@ -399,15 +387,15 @@ func (ch *Checker) withTrial(fn func() bool) bool {
 	return false
 }
 
-// withDeferredScope runs fn in an isolated deferred constraint scope.
+// withDeferredScope runs fn in an isolated constraint scope.
 // Constraints accumulated inside fn are resolved immediately, then
 // any remaining constraints are merged back into the outer scope.
 func (ch *Checker) withDeferredScope(fn func() core.Core) core.Core {
-	saved := ch.deferred
-	ch.deferred = nil
+	savedItems := ch.worklist.items
+	ch.worklist.items = nil
 	result := fn()
 	result = ch.resolveDeferredConstraints(result)
-	ch.deferred = append(saved, ch.deferred...)
+	ch.worklist.items = append(savedItems, ch.worklist.items...)
 	return result
 }
 

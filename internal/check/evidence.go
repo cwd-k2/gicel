@@ -39,9 +39,9 @@ func (ch *Checker) collectContextEvidence() []availableEvidence {
 // classifyEvidence partitions wanted constraints against available evidence.
 // Parallel to types.ClassifyRowFields.
 func (ch *Checker) classifyEvidence(
-	wanted []deferredConstraint,
+	wanted []*CtClass,
 	available []availableEvidence,
-) (matched []resolvedEvidence, unmatched []deferredConstraint) {
+) (matched []resolvedEvidence, unmatched []*CtClass) {
 	// Build index by className.
 	availByClass := make(map[string][]int)
 	for i, a := range available {
@@ -51,18 +51,18 @@ func (ch *Checker) classifyEvidence(
 
 	for _, w := range wanted {
 		found := false
-		for _, ai := range availByClass[w.className] {
+		for _, ai := range availByClass[w.ClassName] {
 			if availUsed[ai] {
 				continue
 			}
 			a := available[ai]
-			if len(a.args) != len(w.args) {
+			if len(a.args) != len(w.Args) {
 				continue
 			}
 			// Try to match by unifying args (trial unification with rollback).
 			if !ch.withTrial(func() bool {
-				for j := range w.args {
-					wArg := ch.unifier.Zonk(w.args[j])
+				for j := range w.Args {
+					wArg := ch.unifier.Zonk(w.Args[j])
 					aArg := ch.unifier.Zonk(a.args[j])
 					if err := ch.unifier.Unify(wArg, aArg); err != nil {
 						return false
@@ -73,7 +73,7 @@ func (ch *Checker) classifyEvidence(
 				continue
 			}
 			matched = append(matched, resolvedEvidence{
-				placeholder: w.placeholder,
+				placeholder: w.Placeholder,
 				dictExpr:    a.dictExpr,
 			})
 			availUsed[ai] = true

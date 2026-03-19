@@ -358,14 +358,7 @@ func (ch *Checker) subsCheck(inferred, expected types.Type, expr core.Core, s sp
 	if ev, ok := inferred.(*types.TyEvidence); ok {
 		for _, entry := range ev.Constraints.ConEntries() {
 			placeholder := fmt.Sprintf("%s_%d", prefixDictDefer, ch.fresh())
-			ch.deferred = append(ch.deferred, deferredConstraint{
-				placeholder:   placeholder,
-				className:     entry.ClassName,
-				args:          entry.Args,
-				s:             s,
-				quantified:    entry.Quantified,
-				constraintVar: entry.ConstraintVar,
-			})
+			ch.emitClassConstraint(placeholder, entry.ClassName, entry.Args, s, entry.Quantified, entry.ConstraintVar)
 			expr = &core.App{Fun: expr, Arg: &core.Var{Name: placeholder, S: s}, S: s}
 		}
 		return ch.subsCheck(ev.Body, expected, expr, s)

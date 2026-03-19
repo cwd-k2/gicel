@@ -20,6 +20,11 @@ type ReduceEnv struct {
 	FreshMeta func(k types.Kind) *types.TyMeta
 	AddError  func(code errs.Code, s span.Span, msg string)
 	TryUnify  func(a, b types.Type) bool
+
+	// RegisterStuckFn, when non-nil, overrides the default StuckIndex
+	// registration. Used by the worklist solver to create CtFunEq constraints
+	// instead of StuckIndex entries.
+	RegisterStuckFn func(name string, args []types.Type, resultKind types.Kind, s span.Span) *types.TyMeta
 }
 
 // maxReductionTypeSize is the maximum allowed size (node count) of a type
@@ -209,8 +214,12 @@ func (e *ReduceEnv) reduceFamilyAppsN(t types.Type, cache map[string]types.Type)
 }
 
 // registerStuckFamily checks whether a stuck family application has unsolved
-// meta arguments and, if so, registers it in the stuck family index.
+// meta arguments and, if so, registers it in the stuck family index (or
+// delegates to RegisterStuckFn when the worklist solver is active).
 func (e *ReduceEnv) registerStuckFamily(name string, args []types.Type, resultKind types.Kind, s span.Span) *types.TyMeta {
+	if e.RegisterStuckFn != nil {
+		return e.RegisterStuckFn(name, args, resultKind, s)
+	}
 	blocking := e.Unifier.CollectBlockingMetas(args)
 	if len(blocking) == 0 {
 		return nil

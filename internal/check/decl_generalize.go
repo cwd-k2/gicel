@@ -15,11 +15,11 @@ import (
 // Example: \x. x + x  with unresolved Num ?a
 //
 //	→ \ a. Num a => a -> a  with Core: \dict x. ...
-func (ch *Checker) generalizeConstrained(ty types.Type, expr core.Core, unresolved []deferredConstraint) (types.Type, core.Core) {
+func (ch *Checker) generalizeConstrained(ty types.Type, expr core.Core, unresolved []*CtClass) (types.Type, core.Core) {
 	metas := collectUnsolvedMetas(ty)
 	// Also collect metas from unresolved constraint args.
 	for _, uc := range unresolved {
-		metas = append(metas, collectUnsolvedMetas(uc.args...)...)
+		metas = append(metas, collectUnsolvedMetas(uc.Args...)...)
 	}
 	if len(metas) == 0 && len(unresolved) == 0 {
 		return ty, expr
@@ -49,17 +49,17 @@ func (ch *Checker) generalizeConstrained(ty types.Type, expr core.Core, unresolv
 	// Wrap unresolved constraints into the type and Core expression.
 	// Each constraint becomes a dict parameter (lambda in Core, TyEvidence in type).
 	for _, uc := range unresolved {
-		zonkedArgs := make([]types.Type, len(uc.args))
-		for i, a := range uc.args {
+		zonkedArgs := make([]types.Type, len(uc.Args))
+		for i, a := range uc.Args {
 			zonkedArgs[i] = ch.unifier.Zonk(a)
 		}
 		// Wrap Core: \placeholder. expr (placeholder becomes the dict param)
-		expr = &core.Lam{Param: uc.placeholder, Body: expr, S: uc.s}
+		expr = &core.Lam{Param: uc.Placeholder, Body: expr, S: uc.S}
 		// Wrap type: ClassName args => ty
 		ty = &types.TyEvidence{
-			Constraints: types.SingleConstraint(uc.className, zonkedArgs),
+			Constraints: types.SingleConstraint(uc.ClassName, zonkedArgs),
 			Body:        ty,
-			S:           uc.s,
+			S:           uc.S,
 		}
 	}
 
