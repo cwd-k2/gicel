@@ -13,7 +13,7 @@ Key properties for agents:
 
 ## How to use this guide
 
-Use `gicel docs <topic>` to query a specific chapter. Topics use dot-separated names for subcategories (e.g., `gicel docs features.records`). Use `gicel example` to browse example programs.
+Use `gicel docs` to list available topics, then `gicel docs <topic>` to read one. Topics use dot-separated names for subcategories (e.g., `gicel docs features.records`). Use `gicel example` to browse example programs.
 
 Typical agent workflow:
 

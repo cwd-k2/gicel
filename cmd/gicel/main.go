@@ -4,8 +4,8 @@
 //
 //	gicel run     [flags] <file>   compile and execute
 //	gicel check   [flags] <file>   type-check only
-//	gicel docs    [topic]          show language reference
-//	gicel example [name]           show example programs
+//	gicel docs    [topic]          list topics or show topic
+//	gicel example [name]           list examples or show source
 package main
 
 import (
@@ -51,8 +51,8 @@ func printUsage() {
 Commands:
   run      Compile and execute a GICEL program
   check    Type-check a GICEL program
-  docs     Show language reference (docs <topic> for details)
-  example  Show example programs (example <name> for source)
+  docs     List topics, or show a topic (docs <topic>)
+  example  List examples, or show source (example <name>)
 
 Flags (run, check):
   --use <packs>    Packs: prelude,fail,state,io,stream,slice,map,set (default: all)
@@ -192,8 +192,8 @@ func exampleDesc(source string) string {
 	if i := strings.Index(source, "\n"); i >= 0 {
 		source = source[:i]
 	}
-	if strings.HasPrefix(source, prefix) {
-		return strings.TrimPrefix(source, prefix)
+	if title, ok := strings.CutPrefix(source, prefix); ok {
+		return title
 	}
 	return ""
 }
@@ -215,8 +215,7 @@ var allPackOrder = []string{"prelude", "fail", "state", "io", "stream", "slice",
 
 func setupEngine(use string) (*gicel.Engine, error) {
 	eng := gicel.NewEngine()
-	names := strings.Split(strings.ToLower(use), ",")
-	for _, name := range names {
+	for name := range strings.SplitSeq(strings.ToLower(use), ",") {
 		name = strings.TrimSpace(name)
 		if name == "" {
 			continue

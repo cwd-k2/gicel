@@ -214,12 +214,13 @@ $ gicel run --explain program.gicel
 42
 ```
 
-Reference docs are also queryable by topic:
+Reference docs are queryable by topic:
 
 ```sh
-gicel docs stdlib       # available types and functions
-gicel docs patterns     # idiomatic patterns and pitfalls
-gicel docs syntax       # language syntax reference
+gicel docs                    # list available topics
+gicel docs about              # language overview and quick start
+gicel docs features.effects   # effect system guide
+gicel docs stdlib.prelude     # prelude reference
 ```
 
 ## Extend with Go

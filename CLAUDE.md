@@ -65,8 +65,10 @@ Shares `--use`, `--module`, `--recursion`, `-e`, `--json` with `run`.
 ### docs / example — reference & examples
 
 ```sh
-bin/gicel docs [topic]        # show language reference
-bin/gicel example [name]      # show example programs
+bin/gicel docs                # list topics
+bin/gicel docs [topic]        # show topic (e.g., docs about, docs features.effects)
+bin/gicel example             # list examples
+bin/gicel example [name]      # show example source
 ```
 
 ### Workflow examples
