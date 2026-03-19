@@ -88,11 +88,11 @@ func (l *Lexer) scanToken() syn.Token {
 		}
 
 		// Multi-char punctuation & operators
-		if ch == '-' && l.peekAt(1) == '>' {
+		if ch == '-' && l.peekAt(1) == '>' && !isOperatorChar(l.peekAt(2)) {
 			l.pos += 2
 			return l.tok(syn.TokArrow, start)
 		}
-		if ch == '<' && l.peekAt(1) == '-' {
+		if ch == '<' && l.peekAt(1) == '-' && !isOperatorChar(l.peekAt(2)) {
 			l.pos += 2
 			return l.tok(syn.TokLArrow, start)
 		}
@@ -101,6 +101,24 @@ func (l *Lexer) scanToken() syn.Token {
 			return l.tok(syn.TokColonColon, start)
 		}
 		if ch == ':' && l.peekAt(1) == '=' {
+			if isOperatorChar(l.peekAt(2)) {
+				l.pos += 2
+				for l.pos < len(l.source.Text) {
+					r, size := utf8.DecodeRuneInString(l.source.Text[l.pos:])
+					if !isOperatorChar(r) && r != ':' {
+						break
+					}
+					l.pos += size
+				}
+				text := l.source.Text[start:l.pos]
+				l.errors.Add(&errs.Error{
+					Code:    errs.ErrReservedInOp,
+					Phase:   errs.PhaseLex,
+					Span:    span.Span{Start: span.Pos(start), End: span.Pos(l.pos)},
+					Message: fmt.Sprintf("operator %q contains reserved symbol :=", text),
+				})
+				return l.tok(syn.TokOp, start)
+			}
 			l.pos += 2
 			return l.tok(syn.TokColonEq, start)
 		}
