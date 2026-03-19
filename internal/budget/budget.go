@@ -32,7 +32,11 @@ func New(ctx context.Context, maxSteps, maxDepth int) *Budget {
 }
 
 // SetAllocLimit sets the allocation byte limit. Zero disables the check.
+// Negative values are treated as zero (disabled).
 func (b *Budget) SetAllocLimit(bytes int64) {
+	if bytes < 0 {
+		bytes = 0
+	}
 	b.maxAlloc = bytes
 }
 

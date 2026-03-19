@@ -75,18 +75,16 @@ func TestProbeE_DepthLimitNegative(t *testing.T) {
 }
 
 func TestProbeE_AllocLimitNegative(t *testing.T) {
-	// allocLimit=-1: any allocation should fail (0 + anything > -1 is false for positive alloc,
-	// but allocated starts at 0 and allocLimit is -1, so 0 > -1 ... wait, that would be true).
-	// Actually: l.allocated += bytes; if l.allocLimit > 0 && l.allocated > l.allocLimit
-	// With allocLimit=-1, the condition allocLimit > 0 is false, so it's disabled.
-	// BUG candidate: negative allocLimit disables the check via the > 0 guard.
+	// Negative allocLimit is clamped to zero (disabled) by SetAllocLimit.
 	b := budget.New(context.Background(), 1_000_000, 1_000)
 	b.SetAllocLimit(-1)
+	if b.MaxAlloc() != 0 {
+		t.Fatalf("expected negative allocLimit to be clamped to 0, got %d", b.MaxAlloc())
+	}
 	ev := NewEvaluator(b, NewPrimRegistry(), nil, nil)
 	_, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), &core.Con{Name: "Unit"})
-	// This should succeed because negative allocLimit disables the check.
 	if err != nil {
-		t.Fatalf("negative allocLimit should disable check, got: %v", err)
+		t.Fatalf("allocLimit=0 (disabled) should allow allocation, got: %v", err)
 	}
 }
 
