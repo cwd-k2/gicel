@@ -26,8 +26,15 @@ type Budget struct {
 
 // New creates a Budget with the given step and depth limits.
 // ctx is checked on each Step call for external cancellation.
-// A zero limit disables that dimension.
+// A zero limit disables that dimension. Negative values are
+// clamped to zero (disabled).
 func New(ctx context.Context, maxSteps, maxDepth int) *Budget {
+	if maxSteps < 0 {
+		maxSteps = 0
+	}
+	if maxDepth < 0 {
+		maxDepth = 0
+	}
 	return &Budget{ctx: ctx, max: maxSteps, maxDepth: maxDepth}
 }
 

@@ -28,49 +28,56 @@ import (
 // ---------------------------------------------------------------------------
 
 func TestProbeE_StepLimitZero(t *testing.T) {
-	// NewLimit(0, ...) means 0 remaining. First Step() should fail.
+	// maxSteps=0 disables the step limit. Eval should succeed.
 	ev := NewEvaluator(budget.New(context.Background(), 0, 100), NewPrimRegistry(), nil, nil)
 	_, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), &core.Lit{Value: int64(42)})
-	if _, ok := err.(*budget.StepLimitError); !ok {
-		t.Errorf("expected StepLimitError with 0 steps, got %v", err)
+	if err != nil {
+		t.Errorf("maxSteps=0 (disabled) should succeed, got %v", err)
 	}
 }
 
 func TestProbeE_StepLimitNegative(t *testing.T) {
-	// NewLimit(-1, ...) starts with negative remaining. Step() decrements.
-	ev := NewEvaluator(budget.New(context.Background(), -1, 100), NewPrimRegistry(), nil, nil)
+	// Negative maxSteps is clamped to zero (disabled) by budget.New.
+	b := budget.New(context.Background(), -1, 100)
+	if b.Max() != 0 {
+		t.Fatalf("expected negative maxSteps to be clamped to 0, got %d", b.Max())
+	}
+	ev := NewEvaluator(b, NewPrimRegistry(), nil, nil)
 	_, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), &core.Lit{Value: int64(42)})
-	if _, ok := err.(*budget.StepLimitError); !ok {
-		t.Errorf("expected StepLimitError with -1 steps, got %v", err)
+	if err != nil {
+		t.Errorf("maxSteps=0 (disabled) should succeed, got %v", err)
 	}
 }
 
 func TestProbeE_DepthLimitZero(t *testing.T) {
-	// maxDepth=0: no Enter should be allowed (depth starts at 0, Enter increments to 1 > 0).
+	// maxDepth=0 disables the depth limit. Eval should succeed.
 	ev := NewEvaluator(budget.New(context.Background(), 1_000_000, 0), NewPrimRegistry(), nil, nil)
-	// A Bind requires Enter.
 	term := &core.Bind{
 		Comp: &core.Pure{Expr: &core.Lit{Value: int64(1)}},
 		Var:  "_",
 		Body: &core.Lit{Value: int64(2)},
 	}
 	_, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), term)
-	if _, ok := err.(*budget.DepthLimitError); !ok {
-		t.Errorf("expected DepthLimitError with depth=0, got %v", err)
+	if err != nil {
+		t.Errorf("maxDepth=0 (disabled) should succeed, got %v", err)
 	}
 }
 
 func TestProbeE_DepthLimitNegative(t *testing.T) {
-	// maxDepth=-1: every Enter should fail (depth 1 > -1).
-	ev := NewEvaluator(budget.New(context.Background(), 1_000_000, -1), NewPrimRegistry(), nil, nil)
+	// Negative maxDepth is clamped to zero (disabled) by budget.New.
+	b := budget.New(context.Background(), 1_000_000, -1)
+	if b.MaxDepth() != 0 {
+		t.Fatalf("expected negative maxDepth to be clamped to 0, got %d", b.MaxDepth())
+	}
+	ev := NewEvaluator(b, NewPrimRegistry(), nil, nil)
 	term := &core.Bind{
 		Comp: &core.Pure{Expr: &core.Lit{Value: int64(1)}},
 		Var:  "_",
 		Body: &core.Lit{Value: int64(2)},
 	}
 	_, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), term)
-	if _, ok := err.(*budget.DepthLimitError); !ok {
-		t.Errorf("expected DepthLimitError with depth=-1, got %v", err)
+	if err != nil {
+		t.Errorf("maxDepth=0 (disabled) should succeed, got %v", err)
 	}
 }
 
@@ -105,7 +112,7 @@ func TestProbeE_AllocLimitExactBoundary(t *testing.T) {
 	if err == nil {
 		t.Fatal("second Con should exceed alloc limit")
 	}
-	var allocErr *AllocLimitError
+	var allocErr *budget.AllocLimitError
 	if !errors.As(err, &allocErr) {
 		t.Fatalf("expected AllocLimitError, got %T: %v", err, err)
 	}
@@ -113,9 +120,9 @@ func TestProbeE_AllocLimitExactBoundary(t *testing.T) {
 
 func TestProbeE_AllocLimitOverflowSafe(t *testing.T) {
 	// Very large allocations shouldn't cause int64 overflow issues.
-	limit := NewLimit(1_000_000, 1_000)
-	limit.SetAllocLimit(100)
-	ev := NewEvaluator(context.Background(), NewPrimRegistry(), limit, nil, nil)
+	b := budget.New(context.Background(), 1_000_000, 1_000)
+	b.SetAllocLimit(100)
+	ev := NewEvaluator(b, NewPrimRegistry(), nil, nil)
 
 	// Try to allocate a huge record. The alloc check should fire before overflow.
 	fields := make([]core.RecordField, 1000)
@@ -744,7 +751,7 @@ func TestProbeE_ExplainObserverDeepSuppression(t *testing.T) {
 
 func TestProbeE_ChargeAllocNoLimit(t *testing.T) {
 	// Context without limit should always succeed.
-	err := ChargeAlloc(context.Background(), 999999999)
+	err := budget.ChargeAlloc(context.Background(), 999999999)
 	if err != nil {
 		t.Fatalf("expected success without limit, got %v", err)
 	}
@@ -912,7 +919,7 @@ func TestProbeE_PrimRegistryCloneIsolation(t *testing.T) {
 func TestProbeE_BindDepthUnwind(t *testing.T) {
 	// After a Bind, depth should return to the pre-Bind level.
 	ev := newTestEval()
-	depthBefore := ev.limit.Depth()
+	depthBefore := ev.budget.Depth()
 	term := &core.Bind{
 		Comp: &core.Pure{Expr: &core.Lit{Value: int64(1)}},
 		Var:  "_",
@@ -922,7 +929,7 @@ func TestProbeE_BindDepthUnwind(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	depthAfter := ev.limit.Depth()
+	depthAfter := ev.budget.Depth()
 	if depthAfter != depthBefore {
 		t.Errorf("depth should be restored after Bind: before=%d, after=%d", depthBefore, depthAfter)
 	}
@@ -931,7 +938,7 @@ func TestProbeE_BindDepthUnwind(t *testing.T) {
 func TestProbeE_ForceDepthUnwind(t *testing.T) {
 	// After Force, depth should return to pre-Force level.
 	ev := newTestEval()
-	depthBefore := ev.limit.Depth()
+	depthBefore := ev.budget.Depth()
 	term := &core.Force{
 		Expr: &core.Thunk{Comp: &core.Pure{Expr: &core.Lit{Value: int64(1)}}},
 	}
@@ -939,7 +946,7 @@ func TestProbeE_ForceDepthUnwind(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	depthAfter := ev.limit.Depth()
+	depthAfter := ev.budget.Depth()
 	if depthAfter != depthBefore {
 		t.Errorf("depth should be restored after Force: before=%d, after=%d", depthBefore, depthAfter)
 	}
