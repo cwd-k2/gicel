@@ -416,6 +416,9 @@ func formatValue(v gicel.Value) any {
 	case *gicel.HostVal:
 		return val.Inner
 	case *gicel.ConVal:
+		if elems, ok := collectJSONList(val); ok {
+			return elems
+		}
 		if len(val.Args) == 0 {
 			return val.Con
 		}
@@ -426,5 +429,29 @@ func formatValue(v gicel.Value) any {
 		return map[string]any{"con": val.Con, "args": args}
 	default:
 		return gicel.PrettyValue(v)
+	}
+}
+
+// collectJSONList extracts a Cons/Nil chain into a slice for JSON array output.
+func collectJSONList(v *gicel.ConVal) ([]any, bool) {
+	if v.Con != "Cons" && v.Con != "Nil" {
+		return nil, false
+	}
+	elems := make([]any, 0)
+	cur := gicel.Value(v)
+	for {
+		c, ok := cur.(*gicel.ConVal)
+		if !ok {
+			return nil, false
+		}
+		if c.Con == "Nil" && len(c.Args) == 0 {
+			return elems, true
+		}
+		if c.Con == "Cons" && len(c.Args) == 2 {
+			elems = append(elems, formatValue(c.Args[0]))
+			cur = c.Args[1]
+			continue
+		}
+		return nil, false
 	}
 }
