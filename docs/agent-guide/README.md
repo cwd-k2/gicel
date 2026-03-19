@@ -2,7 +2,7 @@
 
 ## What is GICEL?
 
-GICEL is a typed, pure functional language embedded in Go. It exists so that AI agents can **write and execute programs in a sandboxed environment** — the host defines what capabilities are available, the agent writes GICEL source, and the host compiles and runs it safely with resource limits (step count, call depth, allocation, timeout).
+GICEL is a typed, pure functional language embedded in Go. It exists so that AI agents can **write and execute programs in a sandboxed environment** -- the host defines what capabilities are available, the agent writes GICEL source, and the host compiles and runs it safely with resource limits (step count, call depth, allocation, timeout).
 
 Key properties for agents:
 
@@ -13,30 +13,52 @@ Key properties for agents:
 
 ## How to use this guide
 
-Use `gicel docs <topic>` to query a specific chapter. Start with `syntax` for the language, `stdlib` for available operations, `patterns` for idiomatic code, or `go-api` for embedding in Go. Use `gicel example` to browse example programs.
+Use `gicel docs <topic>` to query a specific chapter. Topics use dot-separated names for subcategories (e.g., `gicel docs features.records`). Use `gicel example` to browse example programs.
 
 Typical agent workflow:
 
-1. `gicel example` — browse example programs to learn patterns
-2. `gicel docs stdlib` — check what operations are available
+1. `gicel example` -- browse example programs to learn patterns
+2. `gicel docs stdlib.packs` -- check what operations are available
 3. Write a `.gicel` file with a `main` binding
-4. `gicel check program.gicel` — validate types
-5. `gicel run program.gicel` — execute and read the result
-6. `gicel run --json program.gicel` — machine-readable output
+4. `gicel check program.gicel` -- validate types
+5. `gicel run program.gicel` -- execute and read the result
+6. `gicel run --json program.gicel` -- machine-readable output
 
-## Chapters
+## Topics
 
-| File             | Content                                           |
-| ---------------- | ------------------------------------------------- |
-| [syntax.md]      | Keywords, punctuation, literals, comments         |
-| [types.md]       | Type system: ADT, GADT, polymorphism, rows, kinds |
-| [expressions.md] | Lambda, case, do, operators, special forms        |
-| [effects.md]     | Computation, pure/bind, CapEnv, thunk/force       |
-| [prelude.md]     | Prelude types, classes, instances                 |
-| [functions.md]   | Prelude functions + operator reference            |
-| [stdlib.md]      | Prelude, Effect._, Data._ packs                   |
-| [patterns.md]    | Common patterns + pitfalls                        |
-| [go-api.md]      | Go integration: sandbox, lifecycle, errors        |
+### Language Basics
+
+| Topic         | Content                                    |
+| ------------- | ------------------------------------------ |
+| `syntax`      | Keywords, punctuation, literals, comments  |
+| `expressions` | Lambda, case, do, operators, special forms |
+| `patterns`    | Common patterns and pitfalls               |
+
+### Features
+
+| Topic                    | Content                                              |
+| ------------------------ | ---------------------------------------------------- |
+| `features.records`       | Record literals, projection, update, tuples, rows    |
+| `features.adt`           | Data types, constructors, GADTs, pattern matching    |
+| `features.type-classes`  | Classes, instances, superclasses, class hierarchy    |
+| `features.type-families` | Closed TF, associated types, data families, fundeps  |
+| `features.effects`       | Computation, pure/bind, CapEnv, thunk/force          |
+| `features.modules`       | Import forms, qualified names, private `_` prefix    |
+| `features.session-types` | Session types, multiplicity, @Linear/@Affine, Dual   |
+
+### Standard Library
+
+| Topic              | Content                              |
+| ------------------ | ------------------------------------ |
+| `stdlib.prelude`   | Prelude types, classes, instances    |
+| `stdlib.functions` | Prelude functions + operator table   |
+| `stdlib.packs`     | Prelude, Effect.*, Data.* pack guide |
+
+### Host Integration
+
+| Topic    | Content                               |
+| -------- | ------------------------------------- |
+| `go-api` | Go integration: sandbox, lifecycle, errors |
 
 ---
 
@@ -86,7 +108,7 @@ gicel run --use prelude,state program.gicel
 # Custom entry point, limits, JSON output
 gicel run --entry myFunc --timeout 10s --max-steps 500000 --json program.gicel
 
-# Semantic evaluation trace — shows effects, binds, and pattern matches
+# Semantic evaluation trace -- shows effects, binds, and pattern matches
 gicel run --explain program.gicel
 
 # Verbose trace with source context
@@ -98,7 +120,7 @@ CLI flags:
 | Flag            | Default  | Description                                                              |
 | --------------- | -------- | ------------------------------------------------------------------------ |
 | `--use`         | `all`    | Comma-separated packs: prelude, fail, state, io, stream, slice, map, set |
-| `--module`      | —        | Register user module: `Name=path` (repeatable, run & check)              |
+| `--module`      | --       | Register user module: `Name=path` (repeatable, run & check)              |
 | `--recursion`   |          | Enable recursive definitions (run, check)                                |
 | `--entry`       | `main`   | Entry point binding name                                                 |
 | `--timeout`     | `5s`     | Execution timeout (run only)                                             |
@@ -110,7 +132,7 @@ CLI flags:
 | `--explain-all` | `false`  | Trace stdlib internals too (with --explain)                              |
 | `--verbose`     | `false`  | Show source context in explain trace (run only)                          |
 | `--no-color`    | `false`  | Disable color output; also respects `NO_COLOR` env var                   |
-| `-e <source>`   | —        | Evaluate source string directly (run, check)                             |
+| `-e <source>`   | --       | Evaluate source string directly (run, check)                             |
 
 **Go API (Sandbox):**
 

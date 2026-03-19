@@ -1,0 +1,46 @@
+-- GICEL Example: Pure Bool Logic
+--
+-- Defines basic boolean operators using only the Prelude's Bool type
+-- (True, False). Demonstrates pattern matching and function composition.
+-- Note: `not` is already in the Prelude; we redefine it as `myNot` for
+-- educational purposes.
+
+import Prelude
+
+-- Boolean negation via pattern matching
+myNot :: Bool -> Bool
+myNot := \b. case b { True -> False; False -> True }
+
+-- Logical AND: short-circuit style via pattern matching
+myAnd :: Bool -> Bool -> Bool
+myAnd := \a b. case a { True -> b; False -> False }
+
+-- Logical OR
+myOr :: Bool -> Bool -> Bool
+myOr := \a b. case a { True -> True; False -> b }
+
+-- Exclusive OR: True when exactly one argument is True
+myXor :: Bool -> Bool -> Bool
+myXor := \a b. case a {
+  True  -> myNot b;
+  False -> b
+}
+
+-- Material implication: False only when True -> False
+myImplies :: Bool -> Bool -> Bool
+myImplies := \a b. case a { True -> b; False -> True }
+
+-- Compose operations: (not False) AND True = True AND True = True
+test1 := myAnd (myNot False) True
+
+-- Implication: True -> False = False
+test2 := myImplies True False
+
+-- XOR: True XOR True = False
+test3 := myXor True True
+
+-- OR composed with NOT: (not True) OR False = False OR False = False
+test4 := myOr (myNot True) False
+
+-- Output: (True, False, False, False)
+main := (test1, test2, test3, test4)

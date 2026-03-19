@@ -1,0 +1,69 @@
+-- GICEL Example: Fail Effect
+--
+-- Std.Fail provides fromMaybe and fromResult for extracting values
+-- from Maybe and Result types within a Computation.
+--   fromMaybe  :: Maybe a   -> Computation {fail:()|r} {fail:()|r} a
+--   fromResult :: Result e a -> Computation {fail:e|r}  {fail:e|r}  a
+-- If the value is Nothing or Err, the computation fails (runtime error).
+-- If the value is Just or Ok, the inner value is extracted and returned.
+
+import Prelude
+import Effect.Fail
+
+-- fromMaybe with Just: extracts the value
+-- Output: 42
+extractJust := thunk (do {
+  x <- fromMaybe (Just 42);
+  pure x
+})
+
+-- fromResult with Ok: extracts the value
+-- Output: 100
+extractOk := thunk (do {
+  x <- fromResult (Ok 100);
+  pure x
+})
+
+-- Chaining successful extractions
+-- Output: 30
+chainSuccess := thunk (do {
+  x <- fromMaybe (Just 10);
+  y <- fromMaybe (Just 20);
+  pure (x + y)
+})
+
+-- fromResult chaining
+-- Output: 15
+chainResults := thunk (do {
+  a <- fromResult (Ok 5);
+  b <- fromResult (Ok 10);
+  pure (a + b)
+})
+
+-- Mix fromMaybe and fromResult
+-- Output: 50
+mixed := thunk (do {
+  x <- fromMaybe (Just 30);
+  y <- fromResult (Ok 20);
+  pure (x + y)
+})
+
+-- Pure fallback: use `case` to handle Nothing without failing
+-- This avoids the fail effect entirely
+safeLookup := \m. case m {
+  Nothing -> 0;
+  Just x  -> x
+}
+
+safeResult := safeLookup (Just 99)     -- 99
+safeDefault := safeLookup Nothing      -- 0
+
+-- Output: (42, 100, 30, 15, 50, 99, 0)
+main := do {
+  ej <- force extractJust;
+  eo <- force extractOk;
+  cs <- force chainSuccess;
+  cr <- force chainResults;
+  mx <- force mixed;
+  pure (ej, eo, cs, cr, mx, safeResult, safeDefault)
+}

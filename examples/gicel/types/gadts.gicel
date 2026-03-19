@@ -1,0 +1,95 @@
+-- GICEL Example: GADTs (Generalized Algebraic Data Types)
+--
+-- Defines a type-safe expression DSL using GADT syntax. Each constructor
+-- constrains the return type's type parameter, so pattern matching
+-- refines the type variable. This ensures type safety at the DSL level.
+--
+-- Note: recursive functions require EnableRecursion (not available in
+-- standalone CLI mode), so we demonstrate type refinement via shallow
+-- pattern matching on GADT constructors.
+
+import Prelude
+
+-- A GADT for typed expressions.
+-- The `:= { ... }` syntax with full type signatures per constructor
+-- distinguishes GADTs from ordinary ADTs.
+data Expr a := {
+  LitBool :: Bool -> Expr Bool;
+  LitInt  :: Int -> Expr Int;
+  Not     :: Expr Bool -> Expr Bool;
+  Add     :: Expr Int -> Expr Int -> Expr Int;
+  If      :: Expr Bool -> Expr a -> Expr a -> Expr a
+}
+
+-- Extract a Bool from a literal Bool expression.
+-- Pattern matching on LitBool refines `a ~ Bool`, so the type checker
+-- knows `b :: Bool` inside the branch.
+getBool :: Expr Bool -> Maybe Bool
+getBool := \e. case e {
+  LitBool b -> Just b;
+  _         -> Nothing
+}
+
+-- Extract an Int from a literal Int expression.
+-- Pattern matching on LitInt refines `a ~ Int`.
+getInt :: Expr Int -> Maybe Int
+getInt := \e. case e {
+  LitInt n -> Just n;
+  _        -> Nothing
+}
+
+-- Check if an expression is a literal (works for any Expr a).
+-- LitBool and LitInt are both valid patterns regardless of `a`'s
+-- concrete type, but the GADT ensures the match is exhaustive.
+isLiteral :: Expr a -> Bool
+isLiteral := \e. case e {
+  LitBool _ -> True;
+  LitInt _  -> True;
+  _         -> False
+}
+
+-- Evaluate Not on a literal: one level deep, no recursion
+evalNot :: Expr Bool -> Maybe Bool
+evalNot := \e. case e {
+  Not inner -> case inner {
+    LitBool b -> Just (not b);
+    _         -> Nothing
+  };
+  LitBool b -> Just b;
+  _         -> Nothing
+}
+
+-- Evaluate Add on two literals: one level deep, no recursion
+evalAdd :: Expr Int -> Maybe Int
+evalAdd := \e. case e {
+  Add x y -> case x {
+    LitInt a -> case y {
+      LitInt b -> Just (a + b);
+      _        -> Nothing
+    };
+    _        -> Nothing
+  };
+  LitInt n -> Just n;
+  _        -> Nothing
+}
+
+-- Build some expressions
+boolLit := LitBool True
+intLit := LitInt 42
+notExpr := Not (LitBool False)
+addExpr := Add (LitInt 10) (LitInt 32)
+
+-- Type refinement tests
+test1 := getBool (LitBool True)           -- Just True
+test2 := getInt (LitInt 42)              -- Just 42
+test3 := isLiteral (LitBool True)        -- True
+test4 := isLiteral (Not (LitBool True))  -- False
+
+-- Shallow evaluation tests
+test5 := evalNot notExpr                 -- Just True  (not False)
+test6 := evalNot (LitBool False)         -- Just False (literal)
+test7 := evalAdd addExpr                 -- Just 42    (10 + 32)
+test8 := evalAdd (LitInt 7)             -- Just 7     (literal)
+
+-- Output: (Just True, Just 42, True, False, Just True, Just False, Just 42, Just 7)
+main := (test1, test2, test3, test4, test5, test6, test7, test8)

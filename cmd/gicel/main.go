@@ -103,49 +103,34 @@ func cmdExample(args []string) int {
 			fmt.Fprintln(os.Stderr, "no examples available")
 			return 1
 		}
-		// Group examples by level for progressive learning.
+		// Group examples by directory prefix (dot-separated category).
 		type entry struct {
 			name, desc string
 		}
 		groups := map[string][]entry{}
-		var ungrouped []entry
+		var groupOrder []string
 		for _, name := range examples {
 			src := gicel.Example(name)
 			desc := exampleDesc(src)
-			level := exampleLevel(src)
+			category := ""
+			if i := strings.LastIndex(name, "."); i >= 0 {
+				category = name[:i]
+			}
 			e := entry{name, desc}
-			if level != "" {
-				groups[level] = append(groups[level], e)
-			} else {
-				ungrouped = append(ungrouped, e)
+			if _, seen := groups[category]; !seen {
+				groupOrder = append(groupOrder, category)
 			}
+			groups[category] = append(groups[category], e)
 		}
-
-		levelOrder := []struct{ key, label string }{
-			{"basics", "Basics"},
-			{"types", "Type System"},
-			{"effects", "Effects & Applications"},
-		}
-		for _, lv := range levelOrder {
-			entries := groups[lv.key]
-			if len(entries) == 0 {
-				continue
+		for _, cat := range groupOrder {
+			label := cat
+			if label == "" {
+				label = "Other"
 			}
-			fmt.Printf("%s:\n", lv.label)
-			for _, e := range entries {
+			fmt.Printf("%s:\n", label)
+			for _, e := range groups[cat] {
 				if e.desc != "" {
-					fmt.Printf("  %-26s %s\n", e.name, e.desc)
-				} else {
-					fmt.Printf("  %s\n", e.name)
-				}
-			}
-			fmt.Println()
-		}
-		if len(ungrouped) > 0 {
-			fmt.Println("Other:")
-			for _, e := range ungrouped {
-				if e.desc != "" {
-					fmt.Printf("  %-26s %s\n", e.name, e.desc)
+					fmt.Printf("  %-30s %s\n", e.name, e.desc)
 				} else {
 					fmt.Printf("  %s\n", e.name)
 				}
@@ -176,20 +161,6 @@ func exampleDesc(source string) string {
 	}
 	if strings.HasPrefix(source, prefix) {
 		return strings.TrimPrefix(source, prefix)
-	}
-	return ""
-}
-
-// exampleLevel extracts the level from "-- Level: <level>".
-func exampleLevel(source string) string {
-	const prefix = "-- Level: "
-	for _, line := range strings.SplitN(source, "\n", 20) {
-		if strings.HasPrefix(line, prefix) {
-			return strings.TrimSpace(strings.TrimPrefix(line, prefix))
-		}
-		if line == "" {
-			break // stop at end of header block
-		}
 	}
 	return ""
 }

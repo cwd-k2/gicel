@@ -1,0 +1,69 @@
+-- GICEL Example: Existential Types
+--
+-- Existential types hide the concrete type, exposing only an interface.
+-- In GICEL, existentials are encoded via GADT syntax: the constructor's
+-- type signature uses `forall` to introduce type variables that do not
+-- appear in the data type's parameters, making them existentially
+-- quantified when pattern matching.
+
+import Prelude
+
+-- A simple existential: wraps a value with a predicate that can test it.
+-- `a` is universally quantified in the constructor but existentially
+-- bound when pattern matching -- the consumer doesn't know what `a` is.
+data Testable := {
+  MkTestable :: \a. (a -> Bool) -> a -> Testable
+}
+
+-- Construct existential values: the concrete type is hidden after wrapping
+boolTest := MkTestable not True
+maybeTest := MkTestable (\m. case m { Just _ -> True; Nothing -> False }) (Just False)
+unitTest := MkTestable (const False) ()
+
+-- Run the predicate on the hidden value.
+-- Pattern matching on MkTestable brings the existential `a` into scope,
+-- along with `f :: a -> Bool` and `x :: a`.
+runTest :: Testable -> Bool
+runTest := \t. case t { MkTestable f x -> f x }
+
+test1 := runTest boolTest     -- not True = False
+test2 := runTest maybeTest    -- Just _ -> True
+test3 := runTest unitTest     -- \u -> False
+
+-- Existential with an Eq constraint.
+-- The constructor requires Eq a, which is packed as evidence alongside
+-- the hidden values. Pattern matching recovers the Eq dictionary.
+data SomeEq := {
+  MkSomeEq :: \a. Eq a => a -> a -> SomeEq
+}
+
+-- Construct SomeEq values with different concrete types
+eqBools := MkSomeEq True True
+eqMaybes := MkSomeEq (Just False) Nothing
+
+-- Compare the hidden pair using the existential Eq evidence
+checkEq :: SomeEq -> Bool
+checkEq := \s. case s { MkSomeEq x y -> eq x y }
+
+test4 := checkEq eqBools     -- eq True True = True
+test5 := checkEq eqMaybes    -- eq (Just False) Nothing = False
+
+-- Existential that hides a transformation pipeline.
+-- `a` is existential; only the output type `b` is visible.
+data Transform b := {
+  MkTransform :: \a. (a -> b) -> a -> Transform b
+}
+
+-- Run the hidden transformation
+runTransform :: \b. Transform b -> b
+runTransform := \t. case t { MkTransform f x -> f x }
+
+-- Different transformations that all produce Bool
+t1 := MkTransform not False
+t2 := MkTransform (\m. case m { Just _ -> True; Nothing -> False }) Nothing
+
+test6 := runTransform t1      -- not False = True
+test7 := runTransform t2      -- Nothing -> False
+
+-- Output: (False, True, False, True, False, True, False)
+main := (test1, test2, test3, test4, test5, test6, test7)

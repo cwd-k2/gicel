@@ -2,36 +2,50 @@ package gicel
 
 import (
 	"embed"
+	"io/fs"
 	"sort"
 	"strings"
 )
 
-//go:embed examples/gicel/*.gicel
+//go:embed examples/gicel
 var exampleFS embed.FS
 
 const exampleDir = "examples/gicel"
 
 // Examples returns the list of available GICEL example names.
+// Subdirectory structure is flattened with "." separators:
+// examples/gicel/basics/hello.gicel → "basics.hello"
 func Examples() []string {
-	entries, err := exampleFS.ReadDir(exampleDir)
-	if err != nil {
-		return nil
-	}
 	var names []string
-	for _, e := range entries {
-		names = append(names, strings.TrimSuffix(e.Name(), ".gicel"))
-	}
+	fs.WalkDir(exampleFS, exampleDir, func(p string, d fs.DirEntry, err error) error {
+		if err != nil || d.IsDir() {
+			return nil
+		}
+		if !strings.HasSuffix(d.Name(), ".gicel") {
+			return nil
+		}
+		rel, _ := strings.CutPrefix(p, exampleDir+"/")
+		name := strings.TrimSuffix(rel, ".gicel")
+		name = strings.ReplaceAll(name, "/", ".")
+		names = append(names, name)
+		return nil
+	})
 	sort.Strings(names)
 	return names
 }
 
 // Example returns the source code of the named GICEL example.
+// Dot-separated names resolve to subdirectory paths:
+// "basics.hello" → examples/gicel/basics/hello.gicel
 // Returns empty string if the example is not found.
 func Example(name string) string {
-	if strings.ContainsAny(name, "/\\") {
+	// Convert dot-separated name to file path.
+	filePath := strings.ReplaceAll(name, ".", "/") + ".gicel"
+	// Reject path traversal.
+	if strings.Contains(filePath, "..") {
 		return ""
 	}
-	data, err := exampleFS.ReadFile(exampleDir + "/" + name + ".gicel")
+	data, err := exampleFS.ReadFile(exampleDir + "/" + filePath)
 	if err != nil {
 		return ""
 	}

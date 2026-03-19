@@ -1,0 +1,93 @@
+-- GICEL Example: State Machine
+--
+-- Model a typed workflow using state effects.
+-- Scenario: a multi-step order processing pipeline.
+--   Step 1: Initialize with a base price
+--   Step 2: Apply quantity multiplier
+--   Step 3: Apply a discount
+--   Step 4: Add tax
+--   Step 5: Add shipping
+-- Each step reads the current total, transforms it, and writes it back.
+
+import Prelude
+import Effect.State
+
+-- Helper: integer percentage (amount * percent / 100)
+pct := \amount percent. amount * percent / 100
+
+-- Step functions: each reads state, computes, updates state
+
+-- Set the base unit price
+initPrice := \unitPrice. put unitPrice
+
+-- Multiply by quantity
+applyQuantity := \qty. do {
+  price <- get;
+  put (price * qty)
+}
+
+-- Apply a percentage discount
+applyDiscount := \percent. do {
+  total <- get;
+  discount := pct total percent;
+  put (total - discount)
+}
+
+-- Add tax as a percentage
+addTax := \percent. do {
+  total <- get;
+  tax := pct total percent;
+  put (total + tax)
+}
+
+-- Add a flat shipping fee
+addShipping := \fee. do {
+  total <- get;
+  put (total + fee)
+}
+
+-- Full pipeline: process an order
+-- Base price: 50, Quantity: 3, Discount: 10%, Tax: 20%, Shipping: 15
+processOrder :: Thunk { state: Int } { state: Int } Int
+processOrder := thunk (do {
+  _ <- initPrice 50;           -- state = 50
+  _ <- applyQuantity 3;      -- state = 150
+  _ <- applyDiscount 10;     -- state = 150 - 15 = 135
+  _ <- addTax 20;            -- state = 135 + 27 = 162
+  _ <- addShipping 15;       -- state = 162 + 15 = 177
+  get
+})
+
+-- Second order: premium item
+-- Base: 200, Qty: 1, Discount: 25%, Tax: 10%, Shipping: 0
+premiumOrder :: Thunk { state: Int } { state: Int } Int
+premiumOrder := thunk (do {
+  _ <- initPrice 200;          -- state = 200
+  _ <- applyQuantity 1;      -- state = 200
+  _ <- applyDiscount 25;     -- state = 200 - 50 = 150
+  _ <- addTax 10;            -- state = 150 + 15 = 165
+  _ <- addShipping 0;        -- state = 165
+  get
+})
+
+-- Iterative accumulation: apply a series of additions to state
+-- Simulate a running total from deposits
+ledger :: Thunk { state: Int } { state: Int } Int
+ledger := thunk (do {
+  _ <- put 1000;               -- opening balance
+  _ <- modify (+ 250);       -- deposit  (equivalent to \b -> b + 250)
+  _ <- modify (\b. b - 100);   -- withdrawal
+  _ <- modify (+ 500);       -- deposit
+  _ <- modify (\b. b - 75);    -- withdrawal
+  _ <- modify (+ 300);       -- deposit
+  get
+})
+-- 1000 + 250 - 100 + 500 - 75 + 300 = 1875
+
+-- Output: (177, 165, 1875)
+main := do {
+  p <- force processOrder;
+  q <- force premiumOrder;
+  l <- force ledger;
+  pure (p, q, l)
+}

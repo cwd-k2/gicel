@@ -1,0 +1,71 @@
+-- GICEL Example: Full Grammar Exercise
+--
+-- This program exercises all 11 keywords in one file:
+--   case, do, data, type, forall, infixl, infixr, infixn,
+--   class, instance, import
+
+import Prelude
+
+-- [import] — bring in stdlib
+
+-- [data] — define an algebraic data type
+data Color := Red | Green | Blue
+
+-- [type] — define a type alias
+type Pair a b := (a, b)
+
+-- [infixl] — left-associative operator at precedence 5
+infixl 5 <+>
+(<+>) :: Int -> Int -> Int
+(<+>) := \x y. x + y + 1
+
+-- [infixr] — right-associative operator at precedence 8
+infixr 8 <**>
+(<**>) :: Int -> Int -> Int
+(<**>) := (*)
+
+-- [infixn] — non-associative operator at precedence 4
+infixn 4 ===
+(===) :: Int -> Int -> Bool
+(===) := eq
+
+-- [class] — define a type class
+class Describe a {
+  describe :: a -> String
+}
+
+-- [instance] — implement the class for Color
+instance Describe Color {
+  describe := \c. case c {
+    Red   -> "red";
+    Green -> "green";
+    Blue  -> "blue"
+  }
+}
+
+-- [instance] — implement for Bool (from prelude)
+instance Describe Bool {
+  describe := \b. case b {
+    True  -> "true";
+    False -> "false"
+  }
+}
+
+-- [forall] — polymorphic function
+describeIt :: \a. Describe a => a -> String
+describeIt := describe
+
+-- [do] — monadic computation with let bindings
+computation := thunk (do {
+  a <- pure (2 <+> 3);            -- 2 + 3 + 1 = 6
+  b <- pure (2 <**> 3 <**> 1);   -- 2 * (3 * 1) = 6 (right-assoc)
+  isEq := a === b;               -- 6 === 6 = True
+  colorName := describe Green;    -- "green"
+  boolName := describeIt True;
+  pair := (colorName, boolName) :: Pair String String;
+  pure (isEq, pair, a + b)
+})
+
+-- Output: (True, ("green", "true"), 12)
+-- All 11 keywords used: case, do, data, type, forall, infixl, infixr, infixn, class, instance, import
+main := force computation

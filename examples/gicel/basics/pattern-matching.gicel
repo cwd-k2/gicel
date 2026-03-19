@@ -1,0 +1,71 @@
+-- GICEL Example: Pattern Matching
+--
+-- Demonstrates nested constructor patterns and literal patterns.
+
+import Prelude
+
+-- Nested constructor patterns: match inside Maybe without nesting case
+describe :: Maybe Bool -> String
+describe := \m. case m {
+  Just True  -> "yes";
+  Just False -> "no";
+  Nothing    -> "empty"
+}
+
+-- Deep nesting: three levels of Maybe
+deepUnwrap :: Maybe (Maybe (Maybe Bool)) -> String
+deepUnwrap := \m. case m {
+  Just (Just (Just True))  -> "deeply true";
+  Just (Just (Just False)) -> "deeply false";
+  Just (Just Nothing)      -> "two levels";
+  Just Nothing             -> "one level";
+  Nothing                  -> "none"
+}
+
+-- Bare nullary constructor as pattern argument
+data Wrapped a := Wrap a
+
+isWrappedNothing :: Wrapped (Maybe Int) -> Bool
+isWrappedNothing := \w. case w {
+  Wrap Nothing  -> True;
+  Wrap (Just _) -> False
+}
+
+-- List patterns with nested constructors
+firstJust :: List (Maybe Int) -> Maybe Int
+firstJust := \xs. case xs {
+  Cons (Just n) _ -> Just n;
+  Cons Nothing rest -> firstJust rest;
+  Nil -> Nothing
+}
+
+-- Integer literal patterns
+classify :: Int -> String
+classify := \n. case n {
+  0 -> "zero";
+  1 -> "one";
+  2 -> "two";
+  _ -> "many"
+}
+
+-- String literal patterns
+greet :: String -> String
+greet := \name. case name {
+  "Alice" -> "Hello, Alice!";
+  "Bob"   -> "Hey, Bob!";
+  _       -> "Hi, " <> name <> "!"
+}
+
+-- Literal patterns in a pipeline
+test1 := describe (Just True)           -- "yes"
+test2 := describe Nothing               -- "empty"
+test3 := deepUnwrap (Just (Just (Just True)))  -- "deeply true"
+test4 := deepUnwrap (Just Nothing)      -- "one level"
+test5 := isWrappedNothing (Wrap Nothing)       -- True
+test6 := classify 0                     -- "zero"
+test7 := classify 42                    -- "many"
+test8 := greet "Alice"                  -- "Hello, Alice!"
+test9 := greet "Charlie"               -- "Hi, Charlie!"
+
+-- Output: ("yes", "empty", "deeply true", "one level", True, "zero", "many", "Hello, Alice!", "Hi, Charlie!")
+main := (test1, test2, test3, test4, test5, test6, test7, test8, test9)
