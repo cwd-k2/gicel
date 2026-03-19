@@ -6,14 +6,8 @@ import (
 	"github.com/cwd-k2/gicel/internal/types"
 )
 
-// ==========================================
-// Advanced GICEL Example Validation
-// ==========================================
-//
-// These tests validate the core logic of the GICEL examples
-// without requiring the full runtime (import Prelude etc).
-// Each test is a self-contained GICEL program checked through
-// the type checker.
+// Type family fundep tests — type families, data families, and functional dependencies in combination.
+// Does NOT cover: type family reduction (type_family_reduction_test.go), data family basics (data_family_test.go).
 
 // --- 3a: Type family stress: nested families, recursive reduction, type-level computation ---
 
