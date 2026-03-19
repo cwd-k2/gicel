@@ -182,3 +182,4 @@ type_family_reduction_unit_test.go  — type_family.go の reduction algorithm u
 - Format Go with `goimports`, docs with `prettier`.
 - Commit per logical group or phase completion.
 - Do not run test agents in background (memory exhaustion incident, 2024-03-14).
+- **一つのことには一つのやり方。** 同じ操作・同じパターンに複数の実装経路を作らない。共通ロジックが複数箇所に現れたら、代表となるヘルパーに統合する。分岐が必要なのは意味論的に異なる場合だけ。コードベースの divergence は設計意図を曖昧にし、変更コストを増幅する。
