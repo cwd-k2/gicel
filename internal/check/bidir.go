@@ -233,7 +233,7 @@ func (ch *Checker) check(expr syntax.Expr, expected types.Type) core.Core {
 	if app, ok := expr.(*syntax.ExprApp); ok {
 		if v, ok := app.Fun.(*syntax.ExprVar); ok && (v.Name == "fix" || v.Name == "rec") {
 			if ch.config.GatedBuiltins != nil && ch.config.GatedBuiltins[v.Name] {
-				if lam := unwrapLam(app.Arg); lam != nil {
+				if lam := fixArgLam(app.Arg); lam != nil {
 					return ch.checkFix(app, lam, expected)
 				}
 			}

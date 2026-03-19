@@ -99,7 +99,7 @@ func (v *Closure) String() string {
 }
 
 func (v *ConVal) String() string {
-	if s, ok := stringList(v); ok {
+	if s, ok := collectListElems(v, Value.String); ok {
 		return s
 	}
 	if len(v.Args) == 0 {
@@ -112,7 +112,10 @@ func (v *ConVal) String() string {
 	return fmt.Sprintf("(%s %s)", v.Con, strings.Join(args, " "))
 }
 
-func stringList(v *ConVal) (string, bool) {
+// collectListElems formats a Cons/Nil chain as [e1, e2, ...],
+// using fmtElem to render each element.
+// Returns ("", false) if v is not a well-formed list.
+func collectListElems(v *ConVal, fmtElem func(Value) string) (string, bool) {
 	if v.Con != "Cons" && v.Con != "Nil" {
 		return "", false
 	}
@@ -127,7 +130,7 @@ func stringList(v *ConVal) (string, bool) {
 			return "[" + strings.Join(elems, ", ") + "]", true
 		}
 		if c.Con == "Cons" && len(c.Args) == 2 {
-			elems = append(elems, c.Args[0].String())
+			elems = append(elems, fmtElem(c.Args[0]))
 			cur = c.Args[1]
 			continue
 		}

@@ -6,8 +6,8 @@ import (
 	"github.com/cwd-k2/gicel/internal/types"
 )
 
-// unwrapLam extracts an ExprLam from an expression, peeling ExprParen.
-func unwrapLam(e syntax.Expr) *syntax.ExprLam {
+// fixArgLam extracts an ExprLam from a fix/rec argument, peeling ExprParen.
+func fixArgLam(e syntax.Expr) *syntax.ExprLam {
 	for {
 		switch x := e.(type) {
 		case *syntax.ExprLam:

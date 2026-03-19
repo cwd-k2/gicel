@@ -173,7 +173,7 @@ func prettyValueDepth(v Value, depth int) string {
 	case *HostVal:
 		return prettyHost(val.Inner)
 	case *ConVal:
-		if s, ok := prettyList(val, depth); ok {
+		if s, ok := collectListElems(val, func(v Value) string { return prettyValueDepth(v, depth+1) }); ok {
 			return s
 		}
 		if len(val.Args) == 0 {
@@ -207,31 +207,6 @@ func prettyValueDepth(v Value, depth int) string {
 		return prettyValueDepth(*val.Ref, depth+1)
 	default:
 		return fmt.Sprintf("%v", v)
-	}
-}
-
-// prettyList formats a Cons/Nil chain as [e1, e2, ...].
-// Returns ("", false) if v is not a well-formed list.
-func prettyList(v *ConVal, depth int) (string, bool) {
-	if v.Con != "Cons" && v.Con != "Nil" {
-		return "", false
-	}
-	var elems []string
-	cur := Value(v)
-	for {
-		c, ok := cur.(*ConVal)
-		if !ok {
-			return "", false
-		}
-		if c.Con == "Nil" && len(c.Args) == 0 {
-			return "[" + strings.Join(elems, ", ") + "]", true
-		}
-		if c.Con == "Cons" && len(c.Args) == 2 {
-			elems = append(elems, prettyValueDepth(c.Args[0], depth+1))
-			cur = c.Args[1]
-			continue
-		}
-		return "", false
 	}
 }
 
