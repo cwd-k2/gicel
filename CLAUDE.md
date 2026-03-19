@@ -9,6 +9,7 @@ go build -o bin/gicel ./cmd/gicel/     # build CLI binary to bin/
 go run ./examples/go/<name>/           # run Go example (no binary)
 goimports -w .                         # format Go
 prettier --write docs/                 # format docs
+./scripts/smoke-test.sh                # CLI smoke test (build + 29 cases)
 ```
 
 **Build output goes to `bin/` only.** Never `go build ./some/pkg` without `-o bin/...` — it dumps a binary in the working directory.
