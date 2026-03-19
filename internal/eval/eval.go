@@ -7,6 +7,7 @@ import (
 
 	"github.com/cwd-k2/gicel/internal/budget"
 	"github.com/cwd-k2/gicel/internal/core"
+	"github.com/cwd-k2/gicel/internal/span"
 )
 
 // isCompilerGenerated reports whether a name was introduced by the compiler
@@ -23,10 +24,10 @@ func isUserVisible(name string) bool {
 
 // Allocation cost estimates (bytes per value type).
 const (
-	costClosure = 40               // Closure struct
+	costClosure = 48               // Closure struct (incl. Source pointer)
 	costConBase = 32               // ConVal struct
 	costConArg  = 16               // per arg in []Value
-	costThunk   = 24               // ThunkVal struct
+	costThunk   = 32               // ThunkVal struct (incl. Source pointer)
 	costRecBase = 56               // RecordVal struct + map header
 	costRecFld  = 32               // per field in map[string]Value
 	costFix     = costClosure + 40 // Closure + Env node for fix binding
@@ -45,16 +46,18 @@ type Evaluator struct {
 	budget        *budget.Budget
 	trace         TraceHook
 	obs           *ExplainObserver // nil when explain is disabled
+	source        *span.Source     // current source context for error attribution
 	cachedApplier Applier          // reused across all primitive invocations
 	stats         EvalStats
 }
 
 // NewEvaluator creates an Evaluator for a single execution.
-func NewEvaluator(b *budget.Budget, prims *PrimRegistry, trace TraceHook, obs *ExplainObserver) *Evaluator {
+// source is the initial source context (typically the main program source).
+func NewEvaluator(b *budget.Budget, prims *PrimRegistry, trace TraceHook, obs *ExplainObserver, source *span.Source) *Evaluator {
 	// Embed the Budget in the context so that stdlib primitives can charge
 	// Go-level allocations via budget.ChargeAlloc(ctx, bytes).
 	ctx := budget.ContextWithBudget(b.Context(), b)
-	ev := &Evaluator{ctx: ctx, prims: prims, budget: b, trace: trace, obs: obs}
+	ev := &Evaluator{ctx: ctx, prims: prims, budget: b, trace: trace, obs: obs, source: source}
 	ev.cachedApplier = func(fn Value, arg Value, capEnv CapEnv) (Value, CapEnv, error) {
 		r, err := ev.applyResolved(capEnv, fn, arg, &core.App{})
 		if err != nil {
@@ -63,6 +66,15 @@ func NewEvaluator(b *budget.Budget, prims *PrimRegistry, trace TraceHook, obs *E
 		return r.Value, r.CapEnv, nil
 	}
 	return ev
+}
+
+// SetSource updates the current source context on both the evaluator and the observer.
+// Called by the Runtime when switching between module and main source contexts.
+func (ev *Evaluator) SetSource(src *span.Source) {
+	ev.source = src
+	if ev.obs != nil {
+		ev.obs.SetSource(src)
+	}
 }
 
 // Stats returns the accumulated statistics.
@@ -75,11 +87,18 @@ func (ev *Evaluator) Stats() EvalStats {
 // Tail-position expressions return a bounceVal instead of recursing,
 // keeping the Go stack flat for deep recursion. Bounce sites include
 // case alt bodies, closure application, and Force.
+//
+// Source context is saved on entry and restored on return, so nested
+// Eval calls (subexpressions) cannot leak source changes to the caller.
 func (ev *Evaluator) Eval(env *Env, capEnv CapEnv, expr core.Core) (EvalResult, error) {
 	if err := ev.budget.Nest(); err != nil {
 		return EvalResult{}, err
 	}
-	defer ev.budget.Unnest()
+	savedSource := ev.source
+	defer func() {
+		ev.budget.Unnest()
+		ev.SetSource(savedSource)
+	}()
 
 	var pendingLeaveObs int // accumulated LeaveInternal calls to fire on resolution
 	for {
@@ -107,6 +126,10 @@ func (ev *Evaluator) Eval(env *Env, capEnv CapEnv, expr core.Core) (EvalResult, 
 		// resolves, keeping suppression active during body evaluation.
 		if b.leaveObs {
 			pendingLeaveObs++
+		}
+		// Follow source context through the bounce chain.
+		if b.source != nil {
+			ev.SetSource(b.source)
 		}
 		env, capEnv, expr = b.env, b.capEnv, b.expr
 	}
@@ -138,12 +161,12 @@ func (ev *Evaluator) evalStep(env *Env, capEnv CapEnv, expr core.Core) (EvalResu
 		key := core.VarKey(e)
 		v, ok := env.Lookup(key)
 		if !ok {
-			return EvalResult{}, &RuntimeError{Message: fmt.Sprintf("unbound variable: %s", e.Name), Span: e.S}
+			return EvalResult{}, &RuntimeError{Message: fmt.Sprintf("unbound variable: %s", e.Name), Span: e.S, Source: ev.source}
 		}
 		// Dereference forward-reference cells (used for mutually-recursive top-level bindings).
 		if ind, ok := v.(*IndirectVal); ok {
 			if ind.Ref == nil {
-				return EvalResult{}, &RuntimeError{Message: fmt.Sprintf("uninitialized forward reference: %s", e.Name), Span: e.S}
+				return EvalResult{}, &RuntimeError{Message: fmt.Sprintf("uninitialized forward reference: %s", e.Name), Span: e.S, Source: ev.source}
 			}
 			return EvalResult{*ind.Ref, capEnv}, nil
 		}
@@ -157,7 +180,7 @@ func (ev *Evaluator) evalStep(env *Env, capEnv CapEnv, expr core.Core) (EvalResu
 		if e.FV != nil {
 			closureEnv = env.TrimTo(e.FV)
 		}
-		return EvalResult{&Closure{Env: closureEnv, Param: e.Param, Body: e.Body}, capEnv}, nil
+		return EvalResult{&Closure{Env: closureEnv, Param: e.Param, Body: e.Body, Source: ev.source}, capEnv}, nil
 
 	case *core.App:
 		funR, err := ev.Eval(env, capEnv, e.Fun)
@@ -219,6 +242,7 @@ func (ev *Evaluator) evalStep(env *Env, capEnv CapEnv, expr core.Core) (EvalResu
 		return EvalResult{}, &RuntimeError{
 			Message: fmt.Sprintf("non-exhaustive pattern match on %s", scrutR.Value),
 			Span:    e.S,
+			Source:  ev.source,
 		}
 
 	case *core.Fix:
@@ -261,7 +285,7 @@ func (ev *Evaluator) evalStep(env *Env, capEnv CapEnv, expr core.Core) (EvalResu
 			thunkEnv = env.TrimTo(e.FV)
 		}
 		// Mark capEnv as shared since ThunkVal captures it.
-		return EvalResult{&ThunkVal{Env: thunkEnv, Comp: e.Comp}, capEnv.MarkShared()}, nil
+		return EvalResult{&ThunkVal{Env: thunkEnv, Comp: e.Comp, Source: ev.source}, capEnv.MarkShared()}, nil
 
 	case *core.Force:
 		exprR, err := ev.Eval(env, capEnv, e.Expr)
@@ -273,6 +297,7 @@ func (ev *Evaluator) evalStep(env *Env, capEnv CapEnv, expr core.Core) (EvalResu
 			return EvalResult{}, &RuntimeError{
 				Message: fmt.Sprintf("force applied to non-thunk: %s", exprR.Value),
 				Span:    e.S,
+				Source:  ev.source,
 			}
 		}
 		if err := ev.budget.Enter(); err != nil {
@@ -281,7 +306,7 @@ func (ev *Evaluator) evalStep(env *Env, capEnv CapEnv, expr core.Core) (EvalResu
 		// Tail position: bounce instead of recursing.
 		return EvalResult{Value: &bounceVal{
 			env: thunk.Env, capEnv: exprR.CapEnv, expr: thunk.Comp,
-			leaveDepth: 1,
+			leaveDepth: 1, source: thunk.Source,
 		}}, nil
 
 	case *core.Lit:
@@ -308,6 +333,7 @@ func (ev *Evaluator) evalStep(env *Env, capEnv CapEnv, expr core.Core) (EvalResu
 			return EvalResult{}, &RuntimeError{
 				Message: fmt.Sprintf("missing primitive: %s", e.Name),
 				Span:    e.S,
+				Source:  ev.source,
 			}
 		}
 		val, newCap, err := callPrim(ev.ctx, impl, ce, args, ev.applier())
@@ -342,6 +368,7 @@ func (ev *Evaluator) evalStep(env *Env, capEnv CapEnv, expr core.Core) (EvalResu
 			return EvalResult{}, &RuntimeError{
 				Message: fmt.Sprintf("projection on non-record: %s", recR.Value),
 				Span:    e.S,
+				Source:  ev.source,
 			}
 		}
 		v, ok := rec.Fields[e.Label]
@@ -349,6 +376,7 @@ func (ev *Evaluator) evalStep(env *Env, capEnv CapEnv, expr core.Core) (EvalResu
 			return EvalResult{}, &RuntimeError{
 				Message: fmt.Sprintf("record has no field: %s", e.Label),
 				Span:    e.S,
+				Source:  ev.source,
 			}
 		}
 		return EvalResult{v, recR.CapEnv}, nil
@@ -363,6 +391,7 @@ func (ev *Evaluator) evalStep(env *Env, capEnv CapEnv, expr core.Core) (EvalResu
 			return EvalResult{}, &RuntimeError{
 				Message: fmt.Sprintf("update on non-record: %s", recR.Value),
 				Span:    e.S,
+				Source:  ev.source,
 			}
 		}
 		if err := ev.budget.Alloc(int64(costRecBase + costRecFld*len(rec.Fields))); err != nil {
@@ -387,6 +416,7 @@ func (ev *Evaluator) evalStep(env *Env, capEnv CapEnv, expr core.Core) (EvalResu
 	default:
 		return EvalResult{}, &RuntimeError{
 			Message: fmt.Sprintf("unknown Core node: %T", expr),
+			Source:  ev.source,
 		}
 	}
 }

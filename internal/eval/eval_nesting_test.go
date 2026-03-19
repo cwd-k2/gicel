@@ -42,7 +42,7 @@ func nestingBudget(maxNesting int) *budget.Budget {
 func TestNestingLimit_DeepApp(t *testing.T) {
 	// Nesting limit of 50 should reject depth-200 nested App.
 	b := nestingBudget(50)
-	ev := NewEvaluator(b, NewPrimRegistry(), nil, nil)
+	ev := NewEvaluator(b, NewPrimRegistry(), nil, nil, nil)
 	_, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), deepApp(200))
 	if err == nil {
 		t.Fatal("expected NestingLimitError for deeply nested App")
@@ -55,7 +55,7 @@ func TestNestingLimit_DeepApp(t *testing.T) {
 func TestNestingLimit_DeepAppWithinLimit(t *testing.T) {
 	// Nesting limit of 50 should allow depth-30 nested App.
 	b := nestingBudget(50)
-	ev := NewEvaluator(b, NewPrimRegistry(), nil, nil)
+	ev := NewEvaluator(b, NewPrimRegistry(), nil, nil, nil)
 	r, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), deepApp(30))
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -69,7 +69,7 @@ func TestNestingLimit_DeepAppWithinLimit(t *testing.T) {
 func TestNestingLimit_DeepCon(t *testing.T) {
 	// Deeply nested constructor arguments should also be caught.
 	b := nestingBudget(50)
-	ev := NewEvaluator(b, NewPrimRegistry(), nil, nil)
+	ev := NewEvaluator(b, NewPrimRegistry(), nil, nil, nil)
 	_, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), deepCon(200))
 	if err == nil {
 		t.Fatal("expected NestingLimitError for deeply nested Con")
@@ -82,7 +82,7 @@ func TestNestingLimit_DeepCon(t *testing.T) {
 func TestNestingLimit_Disabled(t *testing.T) {
 	// maxNesting=0 means disabled — deep nesting should succeed.
 	b := nestingBudget(0)
-	ev := NewEvaluator(b, NewPrimRegistry(), nil, nil)
+	ev := NewEvaluator(b, NewPrimRegistry(), nil, nil, nil)
 	r, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), deepApp(500))
 	if err != nil {
 		t.Fatalf("unexpected error with disabled nesting limit: %v", err)

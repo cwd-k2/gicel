@@ -25,12 +25,13 @@ const (
 // ExplainStep is a single semantic event during evaluation.
 // Detail carries all event data; consumers format as needed.
 type ExplainStep struct {
-	Seq    int           `json:"seq"`
-	Depth  int           `json:"depth"`
-	Kind   ExplainKind   `json:"kind"`
-	Line   int           `json:"line,omitempty"`
-	Col    int           `json:"col,omitempty"`
-	Detail ExplainDetail `json:"detail,omitempty"`
+	Seq        int           `json:"seq"`
+	Depth      int           `json:"depth"`
+	Kind       ExplainKind   `json:"kind"`
+	SourceName string        `json:"source,omitempty"`
+	Line       int           `json:"line,omitempty"`
+	Col        int           `json:"col,omitempty"`
+	Detail     ExplainDetail `json:"detail,omitempty"`
 }
 
 // ExplainDetail carries kind-specific structured data.
@@ -108,6 +109,7 @@ func (o *ExplainObserver) Emit(depth int, kind ExplainKind, detail ExplainDetail
 	o.seq++
 	step := ExplainStep{Seq: o.seq, Depth: depth, Kind: kind, Detail: detail}
 	if o.source != nil && s.Start > 0 && int(s.Start) < len(o.source.Text) {
+		step.SourceName = o.source.Name
 		step.Line, step.Col = o.source.Location(s.Start)
 	}
 	o.hook(step)
@@ -152,6 +154,15 @@ func (o *ExplainObserver) EnterInternal() { o.suppress++ }
 
 // LeaveInternal decrements the suppression counter.
 func (o *ExplainObserver) LeaveInternal() { o.suppress-- }
+
+// SetSource updates the current source context.
+// Called by the evaluator when crossing module boundaries.
+// Safe to call on a nil observer.
+func (o *ExplainObserver) SetSource(src *span.Source) {
+	if o != nil {
+		o.source = src
+	}
+}
 
 // SetAll disables suppression (ExplainAll mode).
 func (o *ExplainObserver) SetAll(v bool) { o.all = v }

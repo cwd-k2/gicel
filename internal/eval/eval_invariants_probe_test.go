@@ -29,7 +29,7 @@ import (
 
 func TestProbeE_StepLimitZero(t *testing.T) {
 	// maxSteps=0 disables the step limit. Eval should succeed.
-	ev := NewEvaluator(budget.New(context.Background(), 0, 100), NewPrimRegistry(), nil, nil)
+	ev := NewEvaluator(budget.New(context.Background(), 0, 100), NewPrimRegistry(), nil, nil, nil)
 	_, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), &core.Lit{Value: int64(42)})
 	if err != nil {
 		t.Errorf("maxSteps=0 (disabled) should succeed, got %v", err)
@@ -42,7 +42,7 @@ func TestProbeE_StepLimitNegative(t *testing.T) {
 	if b.Max() != 0 {
 		t.Fatalf("expected negative maxSteps to be clamped to 0, got %d", b.Max())
 	}
-	ev := NewEvaluator(b, NewPrimRegistry(), nil, nil)
+	ev := NewEvaluator(b, NewPrimRegistry(), nil, nil, nil)
 	_, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), &core.Lit{Value: int64(42)})
 	if err != nil {
 		t.Errorf("maxSteps=0 (disabled) should succeed, got %v", err)
@@ -51,7 +51,7 @@ func TestProbeE_StepLimitNegative(t *testing.T) {
 
 func TestProbeE_DepthLimitZero(t *testing.T) {
 	// maxDepth=0 disables the depth limit. Eval should succeed.
-	ev := NewEvaluator(budget.New(context.Background(), 1_000_000, 0), NewPrimRegistry(), nil, nil)
+	ev := NewEvaluator(budget.New(context.Background(), 1_000_000, 0), NewPrimRegistry(), nil, nil, nil)
 	term := &core.Bind{
 		Comp: &core.Pure{Expr: &core.Lit{Value: int64(1)}},
 		Var:  "_",
@@ -69,7 +69,7 @@ func TestProbeE_DepthLimitNegative(t *testing.T) {
 	if b.MaxDepth() != 0 {
 		t.Fatalf("expected negative maxDepth to be clamped to 0, got %d", b.MaxDepth())
 	}
-	ev := NewEvaluator(b, NewPrimRegistry(), nil, nil)
+	ev := NewEvaluator(b, NewPrimRegistry(), nil, nil, nil)
 	term := &core.Bind{
 		Comp: &core.Pure{Expr: &core.Lit{Value: int64(1)}},
 		Var:  "_",
@@ -88,7 +88,7 @@ func TestProbeE_AllocLimitNegative(t *testing.T) {
 	if b.MaxAlloc() != 0 {
 		t.Fatalf("expected negative allocLimit to be clamped to 0, got %d", b.MaxAlloc())
 	}
-	ev := NewEvaluator(b, NewPrimRegistry(), nil, nil)
+	ev := NewEvaluator(b, NewPrimRegistry(), nil, nil, nil)
 	_, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), &core.Con{Name: "Unit"})
 	if err != nil {
 		t.Fatalf("allocLimit=0 (disabled) should allow allocation, got: %v", err)
@@ -99,7 +99,7 @@ func TestProbeE_AllocLimitExactBoundary(t *testing.T) {
 	// Set allocLimit to exactly costConBase. One Con should succeed, two should fail.
 	b := budget.New(context.Background(), 1_000_000, 1_000)
 	b.SetAllocLimit(int64(costConBase))
-	ev := NewEvaluator(b, NewPrimRegistry(), nil, nil)
+	ev := NewEvaluator(b, NewPrimRegistry(), nil, nil, nil)
 
 	// First allocation: exactly at limit.
 	_, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), &core.Con{Name: "A"})
@@ -122,7 +122,7 @@ func TestProbeE_AllocLimitOverflowSafe(t *testing.T) {
 	// Very large allocations shouldn't cause int64 overflow issues.
 	b := budget.New(context.Background(), 1_000_000, 1_000)
 	b.SetAllocLimit(100)
-	ev := NewEvaluator(b, NewPrimRegistry(), nil, nil)
+	ev := NewEvaluator(b, NewPrimRegistry(), nil, nil, nil)
 
 	// Try to allocate a huge record. The alloc check should fire before overflow.
 	fields := make([]core.RecordField, 1000)
@@ -530,7 +530,7 @@ func TestProbeE_CallPrimPanicRecovery(t *testing.T) {
 	panicImpl := func(_ context.Context, ce CapEnv, args []Value, _ Applier) (Value, CapEnv, error) {
 		panic("intentional panic in prim")
 	}
-	val, newCap, err := callPrim(context.Background(), panicImpl, EmptyCapEnv(), nil, nil)
+	val, newCap, err := callPrim(context.Background(), panicImpl, EmptyCapEnv(), nil, nil, nil)
 	if err == nil {
 		t.Fatal("expected error from panicking prim")
 	}
@@ -547,7 +547,7 @@ func TestProbeE_CallPrimNilReturn(t *testing.T) {
 	nilImpl := func(_ context.Context, ce CapEnv, args []Value, _ Applier) (Value, CapEnv, error) {
 		return nil, ce, nil
 	}
-	_, _, err := callPrim(context.Background(), nilImpl, EmptyCapEnv(), nil, nil)
+	_, _, err := callPrim(context.Background(), nilImpl, EmptyCapEnv(), nil, nil, nil)
 	if err == nil {
 		t.Fatal("expected error from nil return")
 	}
@@ -976,7 +976,7 @@ func TestProbeE_CapEnvThreadingThroughConArgs(t *testing.T) {
 	prims.Register("markCap", func(_ context.Context, ce CapEnv, args []Value, _ Applier) (Value, CapEnv, error) {
 		return &HostVal{Inner: int64(1)}, ce.Set("marked", true), nil
 	})
-	ev := NewEvaluator(defaultBudget(), prims, nil, nil)
+	ev := NewEvaluator(defaultBudget(), prims, nil, nil, nil)
 	term := &core.Con{
 		Name: "Pair",
 		Args: []core.Core{

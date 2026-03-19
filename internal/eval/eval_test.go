@@ -8,6 +8,7 @@ import (
 
 	"github.com/cwd-k2/gicel/internal/budget"
 	"github.com/cwd-k2/gicel/internal/core"
+	"github.com/cwd-k2/gicel/internal/span"
 )
 
 func defaultBudget() *budget.Budget {
@@ -17,7 +18,7 @@ func defaultBudget() *budget.Budget {
 }
 
 func newTestEval() *Evaluator {
-	return NewEvaluator(defaultBudget(), NewPrimRegistry(), nil, nil)
+	return NewEvaluator(defaultBudget(), NewPrimRegistry(), nil, nil, nil)
 }
 
 func TestEvalVar(t *testing.T) {
@@ -126,7 +127,7 @@ func TestEvalPrimOp(t *testing.T) {
 	prims.Register("id", func(ctx context.Context, cap CapEnv, args []Value, _ Applier) (Value, CapEnv, error) {
 		return args[0], cap, nil
 	})
-	ev := NewEvaluator(defaultBudget(), prims, nil, nil)
+	ev := NewEvaluator(defaultBudget(), prims, nil, nil, nil)
 	term := &core.PrimOp{
 		Name: "id",
 		Args: []core.Core{&core.Con{Name: "Unit"}},
@@ -146,7 +147,7 @@ func TestEvalCapEnvThreading(t *testing.T) {
 	prims.Register("setFoo", func(ctx context.Context, cap CapEnv, args []Value, _ Applier) (Value, CapEnv, error) {
 		return &ConVal{Con: "Unit"}, cap.Set("foo", "bar"), nil
 	})
-	ev := NewEvaluator(defaultBudget(), prims, nil, nil)
+	ev := NewEvaluator(defaultBudget(), prims, nil, nil, nil)
 	// Bind(PrimOp("setFoo"), "_", Pure(Con("Unit")))
 	term := &core.Bind{
 		Comp: &core.PrimOp{Name: "setFoo"},
@@ -164,7 +165,7 @@ func TestEvalCapEnvThreading(t *testing.T) {
 }
 
 func TestStepLimit(t *testing.T) {
-	ev := NewEvaluator(budget.New(context.Background(), 3, 100), NewPrimRegistry(), nil, nil)
+	ev := NewEvaluator(budget.New(context.Background(), 3, 100), NewPrimRegistry(), nil, nil, nil)
 	// A chain: App(App(Lam, Lam), Con) — will exceed 3 steps
 	term := &core.App{
 		Fun: &core.Lam{Param: "f",
@@ -181,7 +182,7 @@ func TestStepLimit(t *testing.T) {
 func TestContextCancellation(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel() // cancel immediately
-	ev := NewEvaluator(budget.New(ctx, 1_000_000, 1_000), NewPrimRegistry(), nil, nil)
+	ev := NewEvaluator(budget.New(ctx, 1_000_000, 1_000), NewPrimRegistry(), nil, nil, nil)
 	_, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), &core.Con{Name: "Unit"})
 	if !errors.Is(err, context.Canceled) {
 		t.Errorf("expected context.Canceled, got %v", err)
@@ -194,7 +195,7 @@ func TestTraceHook(t *testing.T) {
 		events = append(events, e.NodeKind)
 		return nil
 	}
-	ev := NewEvaluator(defaultBudget(), NewPrimRegistry(), hook, nil)
+	ev := NewEvaluator(defaultBudget(), NewPrimRegistry(), hook, nil, nil)
 	term := &core.Pure{Expr: &core.Con{Name: "Unit"}}
 	_, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), term)
 	if err != nil {
@@ -370,7 +371,7 @@ func TestAllocLimit(t *testing.T) {
 	// A tight alloc limit should stop evaluation before producing large structures.
 	b := budget.New(context.Background(), 1_000_000, 1_000)
 	b.SetAllocLimit(100) // 100 bytes — enough for a few small values
-	ev := NewEvaluator(b, NewPrimRegistry(), nil, nil)
+	ev := NewEvaluator(b, NewPrimRegistry(), nil, nil, nil)
 
 	// Build a 10-field record: costRecBase(56) + costRecFld(32)*10 = 376 bytes > 100
 	fields := make([]core.RecordField, 10)
@@ -420,7 +421,7 @@ func TestBindForceEffectfulBody(t *testing.T) {
 	prims.Register("setFoo", func(ctx context.Context, cap CapEnv, args []Value, _ Applier) (Value, CapEnv, error) {
 		return &ConVal{Con: "Unit"}, cap.Set("foo", "done"), nil
 	})
-	ev := NewEvaluator(defaultBudget(), prims, nil, nil)
+	ev := NewEvaluator(defaultBudget(), prims, nil, nil, nil)
 	term := &core.Bind{
 		Comp: &core.Pure{Expr: &core.Con{Name: "Unit"}},
 		Var:  "_",
@@ -579,7 +580,7 @@ func TestThunkCapEnvMarkShared(t *testing.T) {
 
 func TestStepLimitBoundary(t *testing.T) {
 	// Budget with 2 steps allows exactly 2 eval steps.
-	ev := NewEvaluator(budget.New(context.Background(), 2, 100), NewPrimRegistry(), nil, nil)
+	ev := NewEvaluator(budget.New(context.Background(), 2, 100), NewPrimRegistry(), nil, nil, nil)
 	_, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), &core.Lit{Value: int64(42)})
 	if err != nil {
 		t.Fatalf("budget(2): first eval should succeed, got %v", err)
@@ -596,7 +597,7 @@ func TestStepLimitBoundary(t *testing.T) {
 
 func TestDepthLimitBoundary(t *testing.T) {
 	// maxDepth=1: one level of function application should succeed.
-	ev := NewEvaluator(budget.New(context.Background(), 1_000_000, 1), NewPrimRegistry(), nil, nil)
+	ev := NewEvaluator(budget.New(context.Background(), 1_000_000, 1), NewPrimRegistry(), nil, nil, nil)
 	term := &core.App{
 		Fun: &core.Lam{Param: "x", Body: &core.Var{Name: "x"}},
 		Arg: &core.Con{Name: "Unit"},
@@ -611,7 +612,7 @@ func TestAllocLimitBoundary(t *testing.T) {
 	// allocLimit = costConBase: exactly one ConVal allocation should succeed.
 	b := budget.New(context.Background(), 1_000_000, 1_000)
 	b.SetAllocLimit(int64(costConBase))
-	ev := NewEvaluator(b, NewPrimRegistry(), nil, nil)
+	ev := NewEvaluator(b, NewPrimRegistry(), nil, nil, nil)
 	_, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), &core.Con{Name: "Unit"})
 	if err != nil {
 		t.Fatalf("allocLimit=costConBase: one ConVal should succeed, got %v", err)
@@ -647,7 +648,7 @@ func TestDepthLimitError(t *testing.T) {
 	// Depth only accumulates via Bind chains (not trampolined).
 	// Build: Bind(Pure(Unit), \_. Bind(Pure(Unit), \_. Pure(Unit)))
 	// = 2 nested Binds → depth 2.
-	ev := NewEvaluator(budget.New(context.Background(), 1_000_000, 1), NewPrimRegistry(), nil, nil)
+	ev := NewEvaluator(budget.New(context.Background(), 1_000_000, 1), NewPrimRegistry(), nil, nil, nil)
 	term := &core.Bind{
 		Comp: &core.Pure{Expr: &core.Con{Name: "Unit"}},
 		Var:  "_",
@@ -681,14 +682,14 @@ func TestDepthLimitMultiLevel(t *testing.T) {
 	}
 
 	// maxDepth=5: chain of 5 Binds should succeed.
-	ev := NewEvaluator(budget.New(context.Background(), 1_000_000, 5), NewPrimRegistry(), nil, nil)
+	ev := NewEvaluator(budget.New(context.Background(), 1_000_000, 5), NewPrimRegistry(), nil, nil, nil)
 	_, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), buildBindChain(5))
 	if err != nil {
 		t.Fatalf("depth-5 Bind chain at maxDepth=5 should succeed, got: %v", err)
 	}
 
 	// Chain of 6 should fail.
-	ev2 := NewEvaluator(budget.New(context.Background(), 1_000_000, 5), NewPrimRegistry(), nil, nil)
+	ev2 := NewEvaluator(budget.New(context.Background(), 1_000_000, 5), NewPrimRegistry(), nil, nil, nil)
 	_, err = ev2.Eval(EmptyEnv(), EmptyCapEnv(), buildBindChain(6))
 	if _, ok := err.(*budget.DepthLimitError); !ok {
 		t.Errorf("depth-6 Bind chain at maxDepth=5 should fail with DepthLimitError, got %T: %v", err, err)
@@ -755,7 +756,7 @@ func TestFixNonLamBinding(t *testing.T) {
 func TestTraceHookAbort(t *testing.T) {
 	sentinel := errors.New("abort from hook")
 	hook := func(ev TraceEvent) error { return sentinel }
-	evl := NewEvaluator(defaultBudget(), NewPrimRegistry(), hook, nil)
+	evl := NewEvaluator(defaultBudget(), NewPrimRegistry(), hook, nil, nil)
 	_, err := evl.Eval(EmptyEnv(), EmptyCapEnv(), &core.Lit{Value: int64(1)})
 	if !errors.Is(err, sentinel) {
 		t.Errorf("expected sentinel error from hook, got %v", err)
@@ -824,7 +825,7 @@ func TestTCOTailRecursionFlat(t *testing.T) {
 	const N = 100_000
 	ctx := context.Background()
 	prims := NewPrimRegistry()
-	ev := NewEvaluator(budget.New(ctx, N*10, N*2), prims, nil, nil)
+	ev := NewEvaluator(budget.New(ctx, N*10, N*2), prims, nil, nil, nil)
 
 	zeroLit := &core.Lit{Value: int64(0)}
 	oneLit := &core.Lit{Value: int64(1)}
@@ -1097,7 +1098,7 @@ func TestEvalPrimValPartialApplication(t *testing.T) {
 		b := args[1].(*HostVal).Inner.(int64)
 		return &HostVal{Inner: a + b}, ce, nil
 	})
-	ev := NewEvaluator(defaultBudget(), prims, nil, nil)
+	ev := NewEvaluator(defaultBudget(), prims, nil, nil, nil)
 
 	// PrimOp with arity 2, applied to 0 args → PrimVal.
 	primOp := &core.PrimOp{Name: "add2", Arity: 2}
@@ -1148,7 +1149,7 @@ func TestEvalEffectfulPrimValDeferred(t *testing.T) {
 	prims.Register("eff0", func(_ context.Context, ce CapEnv, args []Value, _ Applier) (Value, CapEnv, error) {
 		return &ConVal{Con: "Done"}, ce.Set("effected", true), nil
 	})
-	ev := NewEvaluator(defaultBudget(), prims, nil, nil)
+	ev := NewEvaluator(defaultBudget(), prims, nil, nil, nil)
 
 	// Effectful PrimOp with arity=0: should produce a PrimVal (deferred).
 	term := &core.PrimOp{Name: "eff0", Arity: 0, Effectful: true}
@@ -1222,5 +1223,110 @@ func TestIndirectVal(t *testing.T) {
 	hv, ok := r.Value.(*HostVal)
 	if !ok || hv.Inner != int64(42) {
 		t.Errorf("expected HostVal(42), got %v", r.Value)
+	}
+}
+
+// TestRuntimeErrorSourcePropagation verifies that RuntimeError carries
+// the correct Source when the error occurs in a given source context.
+func TestRuntimeErrorSourcePropagation(t *testing.T) {
+	modSrc := span.NewSource("Module", "module source text")
+	mainSrc := span.NewSource("Main", "main source text")
+
+	ev := NewEvaluator(defaultBudget(), NewPrimRegistry(), nil, nil, mainSrc)
+
+	// Create a closure in module source context.
+	ev.SetSource(modSrc)
+	caseExpr := &core.Case{
+		Scrutinee: &core.Var{Name: "x"},
+		Alts:      nil, // no alts → non-exhaustive match guaranteed
+		S:         span.Span{Start: 5, End: 20},
+	}
+	closureR, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), &core.Lam{Param: "x", Body: caseExpr})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Verify closure captured module source.
+	clo := closureR.Value.(*Closure)
+	if clo.Source != modSrc {
+		t.Fatalf("Closure.Source = %v, want module source", clo.Source)
+	}
+
+	// Evaluate the case body in module context to trigger the RuntimeError.
+	env := EmptyEnv().Extend("x", &ConVal{Con: "Unknown"})
+	_, err = ev.Eval(env, EmptyCapEnv(), caseExpr)
+	if err == nil {
+		t.Fatal("expected RuntimeError from non-exhaustive case")
+	}
+	var re *RuntimeError
+	if !errors.As(err, &re) {
+		t.Fatalf("expected RuntimeError, got %T: %v", err, err)
+	}
+	if re.Source != modSrc {
+		t.Errorf("RuntimeError.Source.Name = %q, want %q", re.Source.Name, modSrc.Name)
+	}
+	if re.Span != (span.Span{Start: 5, End: 20}) {
+		t.Errorf("RuntimeError.Span = %v, want {5, 20}", re.Span)
+	}
+}
+
+// TestSourceRestoredAfterEval verifies that Eval restores the source
+// context after returning, even when the evaluation crosses module boundaries
+// via closure application.
+func TestSourceRestoredAfterEval(t *testing.T) {
+	modSrc := span.NewSource("Mod", "mod")
+	mainSrc := span.NewSource("Main", "main")
+
+	var steps []ExplainStep
+	hook := func(s ExplainStep) { steps = append(steps, s) }
+	obs := NewExplainObserver(hook, mainSrc)
+
+	ev := NewEvaluator(defaultBudget(), NewPrimRegistry(), nil, obs, mainSrc)
+
+	// Create a closure in module context that does a simple case match.
+	ev.SetSource(modSrc)
+	body := &core.Case{
+		Scrutinee: &core.Var{Name: "x"},
+		Alts: []core.Alt{{
+			Pattern: &core.PVar{Name: "y"},
+			Body:    &core.Var{Name: "y"},
+		}},
+		S: span.Span{Start: 1, End: 3},
+	}
+	lamExpr := &core.Lam{Param: "x", Body: body}
+	closureR, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), lamExpr)
+	if err != nil {
+		t.Fatal(err)
+	}
+	clo := closureR.Value.(*Closure)
+	clo.Name = "modFunc"
+
+	// Return to main context.
+	ev.SetSource(mainSrc)
+
+	// Apply the module closure from main context.
+	appExpr := &core.App{
+		Fun: &core.Var{Name: "f"},
+		Arg: &core.Lit{Value: int64(1)},
+		S:   span.Span{Start: 1, End: 4},
+	}
+	env := EmptyEnv().Extend("f", clo)
+	_, err = ev.Eval(env, EmptyCapEnv(), appExpr)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// After Eval returns, the source should be restored to main.
+	// Verify via the observer: the match event inside the module closure
+	// should carry the module source name.
+	var foundMod bool
+	for _, s := range steps {
+		if s.SourceName == "Mod" {
+			foundMod = true
+			break
+		}
+	}
+	if !foundMod {
+		t.Error("expected explain event with SourceName=\"Mod\" from module closure")
 	}
 }

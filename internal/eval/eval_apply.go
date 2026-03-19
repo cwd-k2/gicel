@@ -18,7 +18,7 @@ func (ev *Evaluator) ForceEffectful(r EvalResult, callSite span.Span) (EvalResul
 	}
 	impl, ok := ev.prims.Lookup(pv.Name)
 	if !ok {
-		return EvalResult{}, &RuntimeError{Message: fmt.Sprintf("missing primitive: %s", pv.Name)}
+		return EvalResult{}, &RuntimeError{Message: fmt.Sprintf("missing primitive: %s", pv.Name), Source: ev.source}
 	}
 	// Mark shared unconditionally: external code may mutate, so protect the original.
 	capForImpl := r.CapEnv.MarkShared()
@@ -50,6 +50,10 @@ func (ev *Evaluator) applyResolved(capEnv CapEnv, fn Value, arg Value, site *cor
 	}
 	for range b.leaveDepth {
 		ev.budget.Leave()
+	}
+	// Switch source context before entering the bounced body.
+	if b.source != nil {
+		ev.SetSource(b.source)
 	}
 	if b.leaveObs {
 		result, err := ev.Eval(b.env, b.capEnv, b.expr)
@@ -98,7 +102,7 @@ func (ev *Evaluator) apply(capEnv CapEnv, fn Value, arg Value, site *core.App) (
 		bodyEnv := f.Env.Extend(f.Param, arg)
 		return EvalResult{Value: &bounceVal{
 			env: bodyEnv, capEnv: capEnv, expr: f.Body,
-			leaveDepth: 1, leaveObs: leaveObs,
+			leaveDepth: 1, leaveObs: leaveObs, source: f.Source,
 		}}, nil
 	case *ConVal:
 		if err := ev.budget.Alloc(int64(costConBase + costConArg*(len(f.Args)+1))); err != nil {
@@ -123,6 +127,7 @@ func (ev *Evaluator) apply(capEnv CapEnv, fn Value, arg Value, site *core.App) (
 			return EvalResult{}, &RuntimeError{
 				Message: fmt.Sprintf("missing primitive: %s", f.Name),
 				Span:    site.S,
+				Source:  ev.source,
 			}
 		}
 		val, newCap, err := callPrim(ev.ctx, impl, capEnv, args, ev.applier())
@@ -134,6 +139,7 @@ func (ev *Evaluator) apply(capEnv CapEnv, fn Value, arg Value, site *core.App) (
 		return EvalResult{}, &RuntimeError{
 			Message: fmt.Sprintf("application of non-function: %s", fn),
 			Span:    site.S,
+			Source:  ev.source,
 		}
 	}
 }

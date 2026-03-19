@@ -1012,3 +1012,55 @@ f := \x. M.myMethod x
 main := f 41
 `, int64(42))
 }
+
+// TestModuleExplainSourceName verifies that explain trace events
+// from module code carry the correct SourceName when ExplainAll is enabled.
+// Module closures are marked internal (suppressed by default), so ExplainAll
+// is required to observe events from inside module function bodies.
+func TestModuleExplainSourceName(t *testing.T) {
+	eng := NewEngine()
+	eng.Use(stdlib.Prelude)
+	err := eng.RegisterModule("Logic", `
+import Prelude
+data Answer := Yes | No
+decide :: Answer -> Int
+decide := \a. case a { Yes -> 1; No -> 0 }
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rt, err := eng.NewRuntime(context.Background(), `
+import Logic
+main := decide Yes
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var steps []eval.ExplainStep
+	_, err = rt.RunWith(context.Background(), &RunOptions{
+		Explain:      func(s eval.ExplainStep) { steps = append(steps, s) },
+		ExplainDepth: ExplainAll,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// The case match inside decide's body should carry SourceName "Logic".
+	var foundLogicMatch bool
+	for _, s := range steps {
+		if s.SourceName == "Logic" && s.Kind == eval.ExplainMatch {
+			foundLogicMatch = true
+			break
+		}
+	}
+	if !foundLogicMatch {
+		names := make(map[string]int)
+		for _, s := range steps {
+			if s.SourceName != "" {
+				names[s.SourceName]++
+			}
+		}
+		t.Errorf("no ExplainMatch with SourceName=\"Logic\"; source names seen: %v", names)
+	}
+}

@@ -22,10 +22,11 @@ type HostVal struct {
 
 // Closure is a function value capturing its definition environment.
 type Closure struct {
-	Env   *Env
-	Param string
-	Body  core.Core
-	Name  string // top-level binding name; "" for anonymous lambdas
+	Env    *Env
+	Param  string
+	Body   core.Core
+	Name   string       // top-level binding name; "" for anonymous lambdas
+	Source *span.Source  // source where the closure was created
 }
 
 // ConVal is a fully-applied constructor value.
@@ -36,8 +37,9 @@ type ConVal struct {
 
 // ThunkVal is a suspended computation captured by `thunk`.
 type ThunkVal struct {
-	Env  *Env
-	Comp core.Core
+	Env    *Env
+	Comp   core.Core
+	Source *span.Source // source where the thunk was created
 }
 
 // PrimVal is a partially or fully applied primitive operation.
@@ -75,8 +77,9 @@ type bounceVal struct {
 	env        *Env
 	capEnv     CapEnv
 	expr       core.Core
-	leaveDepth int  // pending ev.budget.Leave() calls
-	leaveObs   bool // pending ev.obs.LeaveInternal()
+	leaveDepth int          // pending ev.budget.Leave() calls
+	leaveObs   bool         // pending ev.obs.LeaveInternal()
+	source     *span.Source // source context for the continuation (nil = no change)
 }
 
 func (*HostVal) valueNode()     {}

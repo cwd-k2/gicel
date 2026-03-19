@@ -33,13 +33,14 @@ func (ev *Evaluator) evalFix(env *Env, capEnv CapEnv, e *core.Fix) (EvalResult, 
 		return EvalResult{}, &RuntimeError{
 			Message: fmt.Sprintf("fix binding %s is not a lambda", e.Name),
 			Span:    e.S,
+			Source:  ev.source,
 		}
 	}
 	closureBase := env
 	if lam.FV != nil {
 		closureBase = env.TrimTo(lam.FV)
 	}
-	clo := &Closure{Env: nil, Param: lam.Param, Body: lam.Body}
+	clo := &Closure{Env: nil, Param: lam.Param, Body: lam.Body, Source: ev.source}
 	clo.Env = closureBase.Extend(e.Name, clo)
 	return EvalResult{clo, capEnv}, nil
 }

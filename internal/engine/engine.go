@@ -50,7 +50,8 @@ type compiledModule struct {
 	exports        *check.ModuleExports
 	deps           []string
 	fixity         map[string]parse.Fixity
-	sortedBindings []core.Binding // pre-sorted for evalBindingsCore
+	sortedBindings []core.Binding  // pre-sorted for evalBindingsCore
+	source         *span.Source    // source text for error attribution
 }
 
 // NewEngine creates a new Engine with default limits.
@@ -221,6 +222,7 @@ func (e *Engine) RegisterModule(name, source string) error {
 		deps:           deps,
 		fixity:         modFixity,
 		sortedBindings: core.SortBindings(prog.Bindings),
+		source:         src,
 	}
 	e.moduleOrder = append(e.moduleOrder, name)
 	return nil
@@ -408,6 +410,7 @@ func (e *Engine) NewRuntime(ctx context.Context, source string) (*Runtime, error
 			name:           name,
 			prog:           mod.prog,
 			sortedBindings: mod.sortedBindings,
+			source:         mod.source,
 		})
 	}
 

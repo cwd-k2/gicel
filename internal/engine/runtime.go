@@ -59,7 +59,8 @@ type Runtime struct {
 type moduleEntry struct {
 	name           string
 	prog           *core.Program
-	sortedBindings []core.Binding // pre-sorted bindings for evaluation
+	sortedBindings []core.Binding  // pre-sorted bindings for evaluation
+	source         *span.Source    // source text for error attribution
 }
 
 // Program returns the compiled Core IR for debugging/inspection.
@@ -75,10 +76,18 @@ type RunResult struct {
 }
 
 // annotateError populates Line/Col on RuntimeError from the Source.
+// If the error carries its own Source (from the evaluator's source context),
+// that takes precedence over the Runtime's main source.
 func (r *Runtime) annotateError(err error) error {
 	var re *eval.RuntimeError
-	if errors.As(err, &re) && r.source != nil && re.Span != (span.Span{}) {
-		re.Line, re.Col = r.source.Location(re.Span.Start)
+	if errors.As(err, &re) && re.Span != (span.Span{}) {
+		src := re.Source
+		if src == nil {
+			src = r.source
+		}
+		if src != nil {
+			re.Line, re.Col = src.Location(re.Span.Start)
+		}
 	}
 	return err
 }
@@ -142,14 +151,16 @@ func (r *Runtime) execute(ctx context.Context, req *runRequest) (eval.EvalResult
 		b.SetAllocLimit(r.allocLimit)
 	}
 
-	ev := eval.NewEvaluator(b, r.prims, req.traceHook, req.obs)
+	ev := eval.NewEvaluator(b, r.prims, req.traceHook, req.obs, r.source)
 
 	for _, me := range r.moduleEntries {
+		ev.SetSource(me.source)
 		env, err = r.evalBindingsCore(ev, env, me.sortedBindings, me.name, req.obs)
 		if err != nil {
 			return eval.EvalResult{}, eval.EvalStats{}, err
 		}
 	}
+	ev.SetSource(r.source)
 
 	var entryExpr core.Core
 	var nonEntry []core.Binding
