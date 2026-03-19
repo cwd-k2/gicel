@@ -50,7 +50,7 @@ func (ch *Checker) processClassDecl(d *syntax.DeclClass, prog *core.Program) {
 	// e.g., class Functor (f: k -> Type) → kindParams = ["k"]
 	var kindParams []string
 	for _, p := range d.TyParams {
-		collectKindVars(p.Kind, ch.kindVars, &kindParams)
+		collectKindVars(p.Kind, ch.reg.kindVars, &kindParams)
 	}
 
 	// Collect type parameters with their kinds (kind vars now in scope).
@@ -89,7 +89,7 @@ func (ch *Checker) processClassDecl(d *syntax.DeclClass, prog *core.Program) {
 		for _, fd := range atd.Deps {
 			deps = append(deps, tfDep{From: fd.From, To: fd.To})
 		}
-		ch.families[atd.Name] = &TypeFamilyInfo{
+		ch.reg.families[atd.Name] = &TypeFamilyInfo{
 			Name:       atd.Name,
 			Params:     atParams,
 			ResultKind: resultKind,
@@ -110,7 +110,7 @@ func (ch *Checker) processClassDecl(d *syntax.DeclClass, prog *core.Program) {
 			dfParams = append(dfParams, TFParam{Name: p.Name, Kind: ch.resolveKindExpr(p.Kind)})
 		}
 		resultKind := ch.resolveKindExpr(add.ResultKind)
-		ch.families[add.Name] = &TypeFamilyInfo{
+		ch.reg.families[add.Name] = &TypeFamilyInfo{
 			Name:       add.Name,
 			Params:     dfParams,
 			ResultKind: resultKind,
@@ -136,7 +136,7 @@ func (ch *Checker) processClassDecl(d *syntax.DeclClass, prog *core.Program) {
 
 	// Clean up kind variable scope.
 	for _, kv := range kindParams {
-		delete(ch.kindVars, kv)
+		delete(ch.reg.kindVars, kv)
 	}
 
 	// Elaborate functional dependencies: convert param names to indices.
@@ -177,7 +177,7 @@ func (ch *Checker) processClassDecl(d *syntax.DeclClass, prog *core.Program) {
 		AssocTypes:   assocTypeNames,
 		FunDeps:      funDeps,
 	}
-	ch.classes[d.Name] = info
+	ch.reg.classes[d.Name] = info
 
 	// Build dictionary data declaration.
 	allFieldTypes := append(superFieldTypes, methodFieldTypes...)
@@ -209,13 +209,13 @@ func (ch *Checker) processClassDecl(d *syntax.DeclClass, prog *core.Program) {
 	}
 
 	// Register constructor.
-	ch.conTypes[dn] = conType
-	ch.ctx.Push(&CtxVar{Name: dn, Type: conType, Module: ch.currentModule})
-	ch.conModules[dn] = ch.currentModule
+	ch.reg.conTypes[dn] = conType
+	ch.ctx.Push(&CtxVar{Name: dn, Type: conType, Module: ch.scope.currentModule})
+	ch.reg.conModules[dn] = ch.scope.currentModule
 
 	dataInfo := &DataTypeInfo{Name: dn}
 	dataInfo.Constructors = append(dataInfo.Constructors, ConInfo{Name: dn, Arity: len(allFieldTypes)})
-	ch.conInfo[dn] = dataInfo
+	ch.reg.conInfo[dn] = dataInfo
 
 	// Core DataDecl.
 	coreDecl := core.DataDecl{Name: dn, S: d.S}
@@ -257,7 +257,7 @@ func (ch *Checker) buildMethodSelector(cls *ClassInfo, m MethodInfo, methodIdx i
 		selectorTy = types.MkForall(cls.KindParams[j], types.KSort{}, selectorTy)
 	}
 
-	ch.ctx.Push(&CtxVar{Name: m.Name, Type: selectorTy, Module: ch.currentModule})
+	ch.ctx.Push(&CtxVar{Name: m.Name, Type: selectorTy, Module: ch.scope.currentModule})
 
 	selName := fmt.Sprintf("%s_%s_%d", prefixSel, m.Name, ch.fresh())
 	var patArgs []core.Pattern

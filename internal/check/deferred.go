@@ -117,7 +117,7 @@ func typeHasMeta(ty types.Type) bool {
 func (ch *Checker) isAmbiguousInstance(className string, args []types.Type) bool {
 	matchCount := 0
 	seen := make(map[*InstanceInfo]bool)
-	for _, inst := range ch.instancesByClass[className] {
+	for _, inst := range ch.reg.instancesByClass[className] {
 		if seen[inst] {
 			continue
 		}

@@ -100,7 +100,7 @@ func (ch *Checker) checkDecls(decls []syntax.Decl) *core.Program {
 				continue
 			}
 			if annTy, hasAnn := annotations[def.Name]; hasAnn {
-				ch.ctx.Push(&CtxVar{Name: def.Name, Type: annTy, Module: ch.currentModule})
+				ch.ctx.Push(&CtxVar{Name: def.Name, Type: annTy, Module: ch.scope.currentModule})
 			}
 		}
 	}
@@ -138,7 +138,7 @@ func (ch *Checker) processDataDecl(d *syntax.DeclData, prog *core.Program) {
 	ch.config.RegisteredTypes[d.Name] = kind
 
 	dataInfo := &DataTypeInfo{Name: d.Name}
-	ch.dataTypeByName[d.Name] = dataInfo
+	ch.reg.dataTypeByName[d.Name] = dataInfo
 
 	// Build result type: T a b c ...
 	var resultType types.Type = &types.TyCon{Name: d.Name, S: d.S}
@@ -182,11 +182,11 @@ func (ch *Checker) processDataDecl(d *syntax.DeclData, prog *core.Program) {
 			conType = types.MkForall(d.Params[i].Name, paramKinds[i], conType)
 		}
 
-		ch.conTypes[con.Name] = conType
-		ch.ctx.Push(&CtxVar{Name: con.Name, Type: conType, Module: ch.currentModule})
-		ch.conModules[con.Name] = ch.currentModule
+		ch.reg.conTypes[con.Name] = conType
+		ch.ctx.Push(&CtxVar{Name: con.Name, Type: conType, Module: ch.scope.currentModule})
+		ch.reg.conModules[con.Name] = ch.scope.currentModule
 		dataInfo.Constructors = append(dataInfo.Constructors, ConInfo{Name: con.Name, Arity: len(fieldTypes)})
-		ch.conInfo[con.Name] = dataInfo
+		ch.reg.conInfo[con.Name] = dataInfo
 		coreDecl.Cons = append(coreDecl.Cons, core.ConDecl{Name: con.Name, Fields: fieldTypes, S: con.S})
 	}
 
@@ -199,16 +199,16 @@ func (ch *Checker) processDataDecl(d *syntax.DeclData, prog *core.Program) {
 
 	// DataKinds: promote nullary constructors to type level.
 	dataKind := types.KData{Name: d.Name}
-	ch.promotedKinds[d.Name] = dataKind
+	ch.reg.promotedKinds[d.Name] = dataKind
 	for _, con := range d.Cons {
 		if len(con.Fields) == 0 {
-			ch.promotedCons[con.Name] = dataKind
+			ch.reg.promotedCons[con.Name] = dataKind
 		}
 	}
 	for _, gcon := range d.GADTCons {
 		fieldTypes, _ := decomposeConSig(ch.resolveTypeExpr(gcon.Type))
 		if len(fieldTypes) == 0 {
-			ch.promotedCons[gcon.Name] = dataKind
+			ch.reg.promotedCons[gcon.Name] = dataKind
 		}
 	}
 }
@@ -232,15 +232,15 @@ func (ch *Checker) processGADTCon(gcon syntax.GADTConDecl, dataParams []syntax.T
 
 	fieldTypes, retTy := decomposeConSig(conTy)
 
-	ch.conTypes[gcon.Name] = conTy
-	ch.ctx.Push(&CtxVar{Name: gcon.Name, Type: conTy, Module: ch.currentModule})
-	ch.conModules[gcon.Name] = ch.currentModule
+	ch.reg.conTypes[gcon.Name] = conTy
+	ch.ctx.Push(&CtxVar{Name: gcon.Name, Type: conTy, Module: ch.scope.currentModule})
+	ch.reg.conModules[gcon.Name] = ch.scope.currentModule
 	dataInfo.Constructors = append(dataInfo.Constructors, ConInfo{
 		Name:       gcon.Name,
 		Arity:      len(fieldTypes),
 		ReturnType: retTy,
 	})
-	ch.conInfo[gcon.Name] = dataInfo
+	ch.reg.conInfo[gcon.Name] = dataInfo
 	coreDecl.Cons = append(coreDecl.Cons, core.ConDecl{
 		Name:       gcon.Name,
 		Fields:     fieldTypes,
@@ -354,7 +354,7 @@ func (ch *Checker) processTypeAlias(d *syntax.DeclTypeAlias) {
 		paramKinds = append(paramKinds, ch.resolveKindExpr(p.Kind))
 	}
 	body := ch.resolveTypeExpr(d.Body)
-	ch.aliases[d.Name] = &AliasInfo{Params: params, ParamKinds: paramKinds, Body: body}
+	ch.reg.aliases[d.Name] = &AliasInfo{Params: params, ParamKinds: paramKinds, Body: body}
 }
 
 func (ch *Checker) processValueDef(d *syntax.DeclValueDef, annotations map[string]types.Type, prog *core.Program) {
@@ -376,7 +376,7 @@ func (ch *Checker) processValueDef(d *syntax.DeclValueDef, annotations map[strin
 		// Note: assumptions without a corresponding RegisterPrim are caught at
 		// runtime with "missing primitive" error. Compile-time validation is not
 		// feasible because stdlib modules use RegisterPrim (not DeclareAssumption).
-		ch.ctx.Push(&CtxVar{Name: d.Name, Type: aTy, Module: ch.currentModule})
+		ch.ctx.Push(&CtxVar{Name: d.Name, Type: aTy, Module: ch.scope.currentModule})
 		prog.Bindings = append(prog.Bindings, core.Binding{
 			Name: d.Name,
 			Type: aTy,
@@ -419,7 +419,7 @@ func (ch *Checker) processValueDef(d *syntax.DeclValueDef, annotations map[strin
 		ty, coreExpr = ch.generalizeConstrained(ty, coreExpr, unresolvedConstraints)
 	}
 
-	ch.ctx.Push(&CtxVar{Name: d.Name, Type: ty, Module: ch.currentModule})
+	ch.ctx.Push(&CtxVar{Name: d.Name, Type: ty, Module: ch.scope.currentModule})
 	prog.Bindings = append(prog.Bindings, core.Binding{
 		Name: d.Name,
 		Type: ty,

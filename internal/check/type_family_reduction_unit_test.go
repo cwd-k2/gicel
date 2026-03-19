@@ -260,7 +260,7 @@ func TestReduceTyFamilyUnit_UnknownFamily(t *testing.T) {
 
 func TestReduceTyFamilyUnit_EmptyEquations(t *testing.T) {
 	ch := newTestChecker()
-	ch.families["F"] = &TypeFamilyInfo{
+	ch.reg.families["F"] = &TypeFamilyInfo{
 		Name:       "F",
 		Params:     []TFParam{{Name: "a", Kind: types.KType{}}},
 		ResultKind: types.KType{},
@@ -277,7 +277,7 @@ func TestReduceTyFamilyUnit_EmptyEquations(t *testing.T) {
 
 func TestReduceTyFamilyUnit_MatchFirstEquation(t *testing.T) {
 	ch := newTestChecker()
-	ch.families["F"] = &TypeFamilyInfo{
+	ch.reg.families["F"] = &TypeFamilyInfo{
 		Name:       "F",
 		Params:     []TFParam{{Name: "a", Kind: types.KType{}}},
 		ResultKind: types.KType{},
@@ -298,7 +298,7 @@ func TestReduceTyFamilyUnit_MatchFirstEquation(t *testing.T) {
 
 func TestReduceTyFamilyUnit_FallsThrough(t *testing.T) {
 	ch := newTestChecker()
-	ch.families["F"] = &TypeFamilyInfo{
+	ch.reg.families["F"] = &TypeFamilyInfo{
 		Name:       "F",
 		Params:     []TFParam{{Name: "a", Kind: types.KType{}}},
 		ResultKind: types.KType{},
@@ -319,7 +319,7 @@ func TestReduceTyFamilyUnit_FallsThrough(t *testing.T) {
 
 func TestReduceTyFamilyUnit_DepthLimit(t *testing.T) {
 	ch := newTestChecker()
-	ch.families["Loop"] = &TypeFamilyInfo{
+	ch.reg.families["Loop"] = &TypeFamilyInfo{
 		Name:       "Loop",
 		Params:     []TFParam{{Name: "a", Kind: types.KType{}}},
 		ResultKind: types.KType{},
@@ -341,7 +341,7 @@ func TestReduceTyFamilyUnit_DepthLimit(t *testing.T) {
 
 func TestReduceTyFamilyUnit_SubstApplied(t *testing.T) {
 	ch := newTestChecker()
-	ch.families["Id"] = &TypeFamilyInfo{
+	ch.reg.families["Id"] = &TypeFamilyInfo{
 		Name:       "Id",
 		Params:     []TFParam{{Name: "a", Kind: types.KType{}}},
 		ResultKind: types.KType{},
@@ -364,7 +364,7 @@ func TestReduceTyFamilyUnit_IndeterminateStopsBeforeLater(t *testing.T) {
 	// Equation 1: F Bool = Int (concrete pattern)
 	// Equation 2: F a = Bool (variable pattern, catches all)
 	// Argument: unsolved meta -> equation 1 is indeterminate, should NOT try equation 2.
-	ch.families["F"] = &TypeFamilyInfo{
+	ch.reg.families["F"] = &TypeFamilyInfo{
 		Name:       "F",
 		Params:     []TFParam{{Name: "a", Kind: types.KType{}}},
 		ResultKind: types.KType{},

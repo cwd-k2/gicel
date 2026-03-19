@@ -10,8 +10,8 @@ import (
 	"github.com/cwd-k2/gicel/internal/types"
 )
 
-// Env provides the checker capabilities needed for type family operations.
-type Env struct {
+// ReduceEnv provides the checker capabilities needed for type family operations.
+type ReduceEnv struct {
 	Families       map[string]*TypeFamilyInfo
 	ReductionDepth *int
 	Unifier        *unify.Unifier
@@ -34,14 +34,14 @@ const maxReworkIterations = 200
 
 // ReduceAll resets the reduction depth and reduces all type family applications in a type.
 // Intended to be installed as the unifier's FamilyReducer callback.
-func (e *Env) ReduceAll(t types.Type) types.Type {
+func (e *ReduceEnv) ReduceAll(t types.Type) types.Type {
 	*e.ReductionDepth = 0
 	return e.reduceFamilyApps(t)
 }
 
 // ReduceTyFamily attempts to reduce a saturated type family application.
 // Returns (result, true) on success, or (nil, false) if stuck/no match.
-func (e *Env) ReduceTyFamily(name string, args []types.Type, s span.Span) (types.Type, bool) {
+func (e *ReduceEnv) ReduceTyFamily(name string, args []types.Type, s span.Span) (types.Type, bool) {
 	*e.ReductionDepth++
 	if *e.ReductionDepth > MaxReductionDepth {
 		e.AddError(errs.ErrTypeFamilyReduction, s,
@@ -73,7 +73,7 @@ func (e *Env) ReduceTyFamily(name string, args []types.Type, s span.Span) (types
 }
 
 // MatchTyPatterns attempts to match type patterns against arguments.
-func (e *Env) MatchTyPatterns(patterns, args []types.Type) (map[string]types.Type, MatchResult) {
+func (e *ReduceEnv) MatchTyPatterns(patterns, args []types.Type) (map[string]types.Type, MatchResult) {
 	if len(patterns) != len(args) {
 		return nil, MatchFail
 	}
@@ -88,7 +88,7 @@ func (e *Env) MatchTyPatterns(patterns, args []types.Type) (map[string]types.Typ
 }
 
 // MatchTyPattern matches a single type pattern against an argument.
-func (e *Env) MatchTyPattern(pat, arg types.Type, subst map[string]types.Type) MatchResult {
+func (e *ReduceEnv) MatchTyPattern(pat, arg types.Type, subst map[string]types.Type) MatchResult {
 	arg = e.Unifier.Zonk(arg)
 
 	switch p := pat.(type) {
@@ -139,12 +139,12 @@ func (e *Env) MatchTyPattern(pat, arg types.Type, subst map[string]types.Type) M
 
 // reduceFamilyApps walks a type and reduces any TyFamilyApp nodes
 // or TyApp chains that form a saturated type family application.
-func (e *Env) reduceFamilyApps(t types.Type) types.Type {
+func (e *ReduceEnv) reduceFamilyApps(t types.Type) types.Type {
 	cache := make(map[string]types.Type)
 	return e.reduceFamilyAppsN(t, cache)
 }
 
-func (e *Env) reduceFamilyAppsN(t types.Type, cache map[string]types.Type) types.Type {
+func (e *ReduceEnv) reduceFamilyAppsN(t types.Type, cache map[string]types.Type) types.Type {
 	if *e.ReductionDepth > MaxReductionDepth {
 		return t
 	}
@@ -208,7 +208,7 @@ func (e *Env) reduceFamilyAppsN(t types.Type, cache map[string]types.Type) types
 
 // registerStuckFamily checks whether a stuck family application has unsolved
 // meta arguments and, if so, registers it in the stuck family index.
-func (e *Env) registerStuckFamily(name string, args []types.Type, resultKind types.Kind, s span.Span) *types.TyMeta {
+func (e *ReduceEnv) registerStuckFamily(name string, args []types.Type, resultKind types.Kind, s span.Span) *types.TyMeta {
 	blocking := e.Unifier.CollectBlockingMetas(args)
 	if len(blocking) == 0 {
 		return nil
@@ -228,7 +228,7 @@ func (e *Env) registerStuckFamily(name string, args []types.Type, resultKind typ
 // ProcessRework attempts to reduce stuck type family applications that were
 // unblocked by recent meta solutions. On success, the result meta is unified
 // with the reduced type. Entries that remain stuck are re-registered.
-func (e *Env) ProcessRework() {
+func (e *ReduceEnv) ProcessRework() {
 	*e.ReductionDepth = 0
 	for range maxReworkIterations {
 		entries := e.Stuck.drainRework()

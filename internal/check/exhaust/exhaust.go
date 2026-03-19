@@ -11,8 +11,8 @@ import (
 	"github.com/cwd-k2/gicel/internal/types"
 )
 
-// Env provides the checker capabilities needed for exhaustiveness analysis.
-type Env struct {
+// CheckEnv provides the checker capabilities needed for exhaustiveness analysis.
+type CheckEnv struct {
 	DataTypes    map[string]*DataTypeInfo // type name → data type info
 	ConInfoMap   map[string]*DataTypeInfo // constructor name → owning data type
 	ConTypes     map[string]types.Type    // constructor name → full type scheme
@@ -23,18 +23,18 @@ type Env struct {
 	AddError     func(code errs.Code, s span.Span, msg string)
 }
 
-func (e *Env) fresh() int {
+func (e *CheckEnv) fresh() int {
 	*e.FreshID++
 	return *e.FreshID
 }
 
-func (e *Env) lookupDataType(tyName string) *DataTypeInfo {
+func (e *CheckEnv) lookupDataType(tyName string) *DataTypeInfo {
 	return e.DataTypes[tyName]
 }
 
 // isGADT returns true if any constructor of the scrutinee's data type
 // has a refined return type (i.e., is a GADT constructor).
-func (e *Env) isGADT(scrutTy types.Type) bool {
+func (e *CheckEnv) isGADT(scrutTy types.Type) bool {
 	tyName := headTyCon(scrutTy)
 	if tyName == "" {
 		return false
@@ -55,7 +55,7 @@ func (e *Env) isGADT(scrutTy types.Type) bool {
 // refined by unifying the constructor's return type with the scrutinee type.
 // For example, Just :: \ a. a -> Maybe a with scrutinee Maybe (Maybe Int)
 // yields arg type Maybe Int (not a fresh meta).
-func (e *Env) constructorArgTypes(conName string, scrutTy types.Type) []types.Type {
+func (e *CheckEnv) constructorArgTypes(conName string, scrutTy types.Type) []types.Type {
 	info := e.ConInfoMap[conName]
 	if info == nil {
 		return nil
@@ -101,7 +101,7 @@ func (e *Env) constructorArgTypes(conName string, scrutTy types.Type) []types.Ty
 
 // instantiateForExhaust strips foralls and evidence qualifiers by substituting
 // fresh metas. Used to extract constructor argument types for exhaustiveness.
-func (e *Env) instantiateForExhaust(ty types.Type) types.Type {
+func (e *CheckEnv) instantiateForExhaust(ty types.Type) types.Type {
 	for {
 		switch t := ty.(type) {
 		case *types.TyForall:
@@ -118,7 +118,7 @@ func (e *Env) instantiateForExhaust(ty types.Type) types.Type {
 // subPatternTypes returns argument types for specialization into sub-patterns.
 // For non-GADT types, returns actual argument types from the constructor signature.
 // For GADT types (or unknown), returns nil types to avoid expensive canUnifyWith calls.
-func (e *Env) subPatternTypes(conName string, scrutTy types.Type, arity int, restTys []types.Type) []types.Type {
+func (e *CheckEnv) subPatternTypes(conName string, scrutTy types.Type, arity int, restTys []types.Type) []types.Type {
 	if scrutTy != nil && !e.isGADT(scrutTy) {
 		argTys := e.constructorArgTypes(conName, scrutTy)
 		if argTys != nil {
@@ -131,7 +131,7 @@ func (e *Env) subPatternTypes(conName string, scrutTy types.Type, arity int, res
 
 // constructorSigs returns the signature for a type, filtering by GADT
 // applicability. Returns nil if the type is not a known ADT.
-func (e *Env) constructorSigs(scrutTy types.Type) []conSig {
+func (e *CheckEnv) constructorSigs(scrutTy types.Type) []conSig {
 	tyName := headTyCon(scrutTy)
 	if tyName == "" {
 		return nil
@@ -156,11 +156,11 @@ const maxExhaustDepth = 32
 
 // isUseful returns true if the given pattern vector is useful w.r.t.
 // the pattern matrix, along with a witness pattern for error reporting.
-func (e *Env) isUseful(mx patMatrix, q patVec, scrutTys []types.Type) (bool, pat) {
+func (e *CheckEnv) isUseful(mx patMatrix, q patVec, scrutTys []types.Type) (bool, pat) {
 	return e.isUsefulAt(mx, q, scrutTys, 0)
 }
 
-func (e *Env) isUsefulAt(mx patMatrix, q patVec, scrutTys []types.Type, depth int) (bool, pat) {
+func (e *CheckEnv) isUsefulAt(mx patMatrix, q patVec, scrutTys []types.Type, depth int) (bool, pat) {
 	if depth > maxExhaustDepth {
 		return false, nil // conservative: assume covered
 	}
@@ -237,7 +237,7 @@ func (e *Env) isUsefulAt(mx patMatrix, q patVec, scrutTys []types.Type, depth in
 // Invariant: constructors and literals do not mix in column 0 for well-typed
 // programs (Int/String/Rune have no constructors; ADTs have no literals).
 // The branches below rely on this mutual exclusion.
-func (e *Env) isUsefulWildcard(mx patMatrix, q patVec, ty types.Type, restTys []types.Type, depth int) (bool, pat) {
+func (e *CheckEnv) isUsefulWildcard(mx patMatrix, q patVec, ty types.Type, restTys []types.Type, depth int) (bool, pat) {
 	headCons := columnHeadCons(mx)
 	headLits := columnHeadLits(mx)
 
@@ -297,7 +297,7 @@ func (e *Env) isUsefulWildcard(mx patMatrix, q patVec, ty types.Type, restTys []
 
 // CheckExhaustive verifies that a set of case alternatives covers every
 // constructor of the scrutinee's data type and reports redundant patterns.
-func (e *Env) CheckExhaustive(scrutTy types.Type, alts []core.Alt, s span.Span) {
+func (e *CheckEnv) CheckExhaustive(scrutTy types.Type, alts []core.Alt, s span.Span) {
 	scrutTy = e.Unifier.Zonk(scrutTy)
 	// Reduce type family applications in the scrutinee type so that
 	// data family instances are resolved to their mangled concrete types.

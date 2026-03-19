@@ -77,16 +77,9 @@ type CheckTraceEvent struct {
 // CheckTraceHook receives trace events during type checking.
 type CheckTraceHook func(CheckTraceEvent)
 
-// Checker holds mutable state during type checking.
-type Checker struct {
-	ctx               *Context
-	unifier           *unify.Unifier
-	stuckFamilies     family.StuckIndex
-	errors            *errs.Errors
-	source            *span.Source
-	freshID           int
-	config            *CheckConfig
-	currentModule     string            // module being compiled ("" = user main source)
+// checkerRegistry holds semantic registries populated during declaration
+// processing and read during type checking.
+type checkerRegistry struct {
 	conModules        map[string]string // constructor name → source module name
 	conTypes          map[string]types.Type
 	conInfo           map[string]*DataTypeInfo
@@ -98,17 +91,45 @@ type Checker struct {
 	importedInstances map[*InstanceInfo]bool
 	promotedKinds     map[string]types.Kind      // DataKinds: data name → KData
 	promotedCons      map[string]types.Kind      // DataKinds: nullary con → KData
-	kindVars          map[string]bool            // HKT: kind variables in scope (from \ (k: Kind))
+	kindVars          map[string]bool            // HKT: kind variables in scope
 	families          map[string]*TypeFamilyInfo // type family declarations
-	reductionDepth    int                        // current type family reduction depth
-	deferred          []deferredConstraint
-	depth             int
-	resolveDepth      int                        // instance resolution recursion depth
-	qualifiedScopes   map[string]*qualifiedScope // alias → qualified module scope
-	importedNames     map[string]string          // name → source module (for ambiguity detection)
-	strictTypeNames   bool                       // enabled after declaration processing
-	multSteps         []multStep                 // collected during elaborateStmtsChecked for multiplicity checking
-	level             int                        // implication nesting depth for touchability (0 = top-level)
+}
+
+// checkerScope holds name resolution and module scoping state.
+type checkerScope struct {
+	currentModule   string                     // module being compiled ("" = user main source)
+	qualifiedScopes map[string]*qualifiedScope // alias → qualified module scope
+	importedNames   map[string]string          // name → source module (for ambiguity detection)
+}
+
+// Checker holds mutable state during type checking.
+type Checker struct {
+	// Services.
+	ctx           *Context
+	unifier       *unify.Unifier
+	stuckFamilies family.StuckIndex
+	errors        *errs.Errors
+	source        *span.Source
+	config        *CheckConfig
+	freshID       int
+
+	// Semantic registries.
+	reg checkerRegistry
+
+	// Name resolution scope.
+	scope checkerScope
+
+	// Inference accumulator.
+	deferred []deferredConstraint
+
+	// Recursion/depth guards.
+	depth          int // inference recursion depth
+	resolveDepth   int // instance resolution recursion depth
+	reductionDepth int // type family reduction depth
+	level          int // implication nesting depth for touchability (0 = top-level)
+
+	// Phase state.
+	strictTypeNames bool // enabled after declaration processing
 }
 
 // qualifiedScope holds a module's exports for qualified name resolution.
@@ -152,25 +173,29 @@ func CheckModule(prog *syntax.AstProgram, source *span.Source, config *CheckConf
 		config = &CheckConfig{}
 	}
 	ch := &Checker{
-		ctx:               NewContext(),
-		errors:            &errs.Errors{Source: source},
-		source:            source,
-		config:            config,
-		currentModule:     config.CurrentModule,
-		conModules:        make(map[string]string),
-		conTypes:          make(map[string]types.Type),
-		conInfo:           make(map[string]*DataTypeInfo),
-		dataTypeByName:    make(map[string]*DataTypeInfo),
-		aliases:           make(map[string]*AliasInfo),
-		classes:           make(map[string]*ClassInfo),
-		instancesByClass:  make(map[string][]*InstanceInfo),
-		importedInstances: make(map[*InstanceInfo]bool),
-		promotedKinds:     make(map[string]types.Kind),
-		promotedCons:      make(map[string]types.Kind),
-		kindVars:          make(map[string]bool),
-		families:          make(map[string]*TypeFamilyInfo),
-		qualifiedScopes:   make(map[string]*qualifiedScope),
-		importedNames:     make(map[string]string),
+		ctx:    NewContext(),
+		errors: &errs.Errors{Source: source},
+		source: source,
+		config: config,
+		reg: checkerRegistry{
+			conModules:        make(map[string]string),
+			conTypes:          make(map[string]types.Type),
+			conInfo:           make(map[string]*DataTypeInfo),
+			dataTypeByName:    make(map[string]*DataTypeInfo),
+			aliases:           make(map[string]*AliasInfo),
+			classes:           make(map[string]*ClassInfo),
+			instancesByClass:  make(map[string][]*InstanceInfo),
+			importedInstances: make(map[*InstanceInfo]bool),
+			promotedKinds:     make(map[string]types.Kind),
+			promotedCons:      make(map[string]types.Kind),
+			kindVars:          make(map[string]bool),
+			families:          make(map[string]*TypeFamilyInfo),
+		},
+		scope: checkerScope{
+			currentModule:   config.CurrentModule,
+			qualifiedScopes: make(map[string]*qualifiedScope),
+			importedNames:   make(map[string]string),
+		},
 	}
 	ch.unifier = unify.NewUnifierShared(&ch.freshID)
 	ch.unifier.OnSolve = func(metaID int) {
@@ -194,15 +219,15 @@ func (ch *Checker) ExportModule(prog *core.Program) *ModuleExports {
 	}
 	return &ModuleExports{
 		Types:         maps.Clone(ch.config.RegisteredTypes),
-		ConTypes:      maps.Clone(ch.conTypes),
-		ConInfo:       ch.conInfo,
-		Aliases:       ch.aliases,
-		Classes:       ch.classes,
-		Instances:     ch.instances,
+		ConTypes:      maps.Clone(ch.reg.conTypes),
+		ConInfo:       ch.reg.conInfo,
+		Aliases:       ch.reg.aliases,
+		Classes:       ch.reg.classes,
+		Instances:     ch.reg.instances,
 		Values:        values,
-		PromotedKinds: maps.Clone(ch.promotedKinds),
-		PromotedCons:  maps.Clone(ch.promotedCons),
-		TypeFamilies:  cloneFamilies(ch.families),
+		PromotedKinds: maps.Clone(ch.reg.promotedKinds),
+		PromotedCons:  maps.Clone(ch.reg.promotedCons),
+		TypeFamilies:  cloneFamilies(ch.reg.families),
 		DataDecls:     prog.DataDecls,
 	}
 }

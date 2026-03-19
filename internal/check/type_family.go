@@ -54,12 +54,12 @@ func (ch *Checker) matchTyPattern(pat, arg types.Type, subst map[string]types.Ty
 // processTypeFamily kind-checks and registers a type family declaration.
 func (ch *Checker) processTypeFamily(d *syntax.DeclTypeFamily) {
 	// Check for duplicate.
-	if _, dup := ch.families[d.Name]; dup {
+	if _, dup := ch.reg.families[d.Name]; dup {
 		ch.addCodedError(errs.ErrDuplicateDecl, d.S,
 			fmt.Sprintf("duplicate type family: %s", d.Name))
 		return
 	}
-	if _, dup := ch.aliases[d.Name]; dup {
+	if _, dup := ch.reg.aliases[d.Name]; dup {
 		ch.addCodedError(errs.ErrDuplicateDecl, d.S,
 			fmt.Sprintf("type family %s conflicts with type alias of the same name", d.Name))
 		return
@@ -120,13 +120,13 @@ func (ch *Checker) processTypeFamily(d *syntax.DeclTypeFamily) {
 		ch.familyEnv().VerifyInjectivity(info)
 	}
 
-	ch.families[d.Name] = info
+	ch.reg.families[d.Name] = info
 }
 
-// familyEnv creates a family.Env with the current Checker state.
-func (ch *Checker) familyEnv() *family.Env {
-	return &family.Env{
-		Families:       ch.families,
+// familyEnv creates a family.ReduceEnv with the current Checker state.
+func (ch *Checker) familyEnv() *family.ReduceEnv {
+	return &family.ReduceEnv{
+		Families:       ch.reg.families,
 		ReductionDepth: &ch.reductionDepth,
 		Unifier:        ch.unifier,
 		Stuck:          &ch.stuckFamilies,
@@ -138,7 +138,7 @@ func (ch *Checker) familyEnv() *family.Env {
 
 // installFamilyReducer sets the family reducer callback in the unifier.
 func (ch *Checker) installFamilyReducer() {
-	if len(ch.families) == 0 {
+	if len(ch.reg.families) == 0 {
 		return
 	}
 	env := ch.familyEnv()

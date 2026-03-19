@@ -53,7 +53,7 @@ func (ch *Checker) importModules(imports []syntax.DeclImport) {
 				continue
 			}
 			aliases[imp.Alias] = imp.ModuleName
-			ch.qualifiedScopes[imp.Alias] = &qualifiedScope{
+			ch.scope.qualifiedScopes[imp.Alias] = &qualifiedScope{
 				moduleName: imp.ModuleName,
 				exports:    mod,
 			}
@@ -79,9 +79,9 @@ func (ch *Checker) checkAmbiguousName(name, moduleName string, s span.Span) bool
 	if isPrivateName(name) {
 		return false // compiler-generated or private, skip
 	}
-	prev, exists := ch.importedNames[name]
+	prev, exists := ch.scope.importedNames[name]
 	if !exists {
-		ch.importedNames[name] = moduleName
+		ch.scope.importedNames[name] = moduleName
 		return false
 	}
 	if prev == moduleName {
@@ -93,7 +93,7 @@ func (ch *Checker) checkAmbiguousName(name, moduleName string, s span.Span) bool
 	curOwns := ch.moduleOwnsName(moduleName, name)
 	if !prevOwns || !curOwns {
 		// At least one side is a re-export — no true conflict.
-		ch.importedNames[name] = moduleName
+		ch.scope.importedNames[name] = moduleName
 		return false
 	}
 	ch.addCodedError(errs.ErrImport, s,
@@ -143,19 +143,19 @@ func (ch *Checker) importOpen(mod *ModuleExports, moduleName string, s span.Span
 		if ch.checkAmbiguousName(name, moduleName, s) {
 			continue
 		}
-		ch.conTypes[name] = ty
+		ch.reg.conTypes[name] = ty
 		ch.ctx.Push(&CtxVar{Name: name, Type: ty, Module: moduleName})
-		ch.conModules[name] = moduleName
+		ch.reg.conModules[name] = moduleName
 	}
 	for name, info := range mod.ConInfo {
-		ch.conInfo[name] = info
-		ch.dataTypeByName[info.Name] = info
+		ch.reg.conInfo[name] = info
+		ch.reg.dataTypeByName[info.Name] = info
 	}
 	for name, alias := range mod.Aliases {
-		ch.aliases[name] = alias
+		ch.reg.aliases[name] = alias
 	}
 	for name, cls := range mod.Classes {
-		ch.classes[name] = cls
+		ch.reg.classes[name] = cls
 	}
 	ch.importInstances(mod)
 	for name, ty := range mod.Values {
@@ -165,25 +165,25 @@ func (ch *Checker) importOpen(mod *ModuleExports, moduleName string, s span.Span
 		ch.ctx.Push(&CtxVar{Name: name, Type: ty, Module: moduleName})
 	}
 	for name, kind := range mod.PromotedKinds {
-		ch.promotedKinds[name] = kind
+		ch.reg.promotedKinds[name] = kind
 	}
 	for name, kind := range mod.PromotedCons {
-		ch.promotedCons[name] = kind
+		ch.reg.promotedCons[name] = kind
 	}
 	for name, fam := range mod.TypeFamilies {
-		ch.families[name] = fam.Clone()
+		ch.reg.families[name] = fam.Clone()
 	}
 }
 
 // importInstances imports all instances from a module (for coherence).
 func (ch *Checker) importInstances(mod *ModuleExports) {
 	for _, inst := range mod.Instances {
-		if ch.importedInstances[inst] {
+		if ch.reg.importedInstances[inst] {
 			continue
 		}
-		ch.instances = append(ch.instances, inst)
-		ch.instancesByClass[inst.ClassName] = append(ch.instancesByClass[inst.ClassName], inst)
-		ch.importedInstances[inst] = true
+		ch.reg.instances = append(ch.reg.instances, inst)
+		ch.reg.instancesByClass[inst.ClassName] = append(ch.reg.instancesByClass[inst.ClassName], inst)
+		ch.reg.importedInstances[inst] = true
 	}
 }
 
@@ -217,13 +217,13 @@ func (ch *Checker) importSelective(mod *ModuleExports, imp syntax.DeclImport) {
 
 		// Type alias
 		if alias, ok := mod.Aliases[name]; ok {
-			ch.aliases[name] = alias
+			ch.reg.aliases[name] = alias
 			found = true
 		}
 
 		// Class
 		if cls, ok := mod.Classes[name]; ok {
-			ch.classes[name] = cls
+			ch.reg.classes[name] = cls
 			found = true
 
 			// Import class methods
@@ -241,17 +241,17 @@ func (ch *Checker) importSelective(mod *ModuleExports, imp syntax.DeclImport) {
 
 		// Type family
 		if fam, ok := mod.TypeFamilies[name]; ok {
-			ch.families[name] = fam.Clone()
+			ch.reg.families[name] = fam.Clone()
 			found = true
 		}
 
 		// Promoted kinds
 		if kind, ok := mod.PromotedKinds[name]; ok {
-			ch.promotedKinds[name] = kind
+			ch.reg.promotedKinds[name] = kind
 			found = true
 		}
 		if kind, ok := mod.PromotedCons[name]; ok {
-			ch.promotedCons[name] = kind
+			ch.reg.promotedCons[name] = kind
 			found = true
 		}
 
@@ -270,11 +270,11 @@ func (ch *Checker) importTypeSubs(mod *ModuleExports, typeName string, in syntax
 		}
 		if in.AllSubs || slices.Contains(in.SubList, conName) {
 			if ty, ok := mod.ConTypes[conName]; ok {
-				ch.conTypes[conName] = ty
+				ch.reg.conTypes[conName] = ty
 				ch.ctx.Push(&CtxVar{Name: conName, Type: ty, Module: moduleName})
-				ch.conModules[conName] = moduleName
+				ch.reg.conModules[conName] = moduleName
 			}
-			ch.conInfo[conName] = info
+			ch.reg.conInfo[conName] = info
 		}
 	}
 }

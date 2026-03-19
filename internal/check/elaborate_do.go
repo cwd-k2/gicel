@@ -104,7 +104,8 @@ func (ch *Checker) elaborateStmts(stmts []syntax.Stmt, s span.Span) (types.Type,
 // elaborateStmtsChecked elaborates a do block against a known Computation type.
 // This threads the pre/post state through the bind chain, unlike elaborateStmts
 // which infers fresh metas for pre/post.
-func (ch *Checker) elaborateStmtsChecked(stmts []syntax.Stmt, comp *types.TyCBPV, s span.Span) core.Core {
+// steps accumulates pre/post pairs for multiplicity analysis.
+func (ch *Checker) elaborateStmtsChecked(stmts []syntax.Stmt, comp *types.TyCBPV, s span.Span, steps *[]multStep) core.Core {
 	if len(stmts) == 1 {
 		switch st := stmts[0].(type) {
 		case *syntax.StmtExpr:
@@ -126,7 +127,7 @@ func (ch *Checker) elaborateStmtsChecked(stmts []syntax.Stmt, comp *types.TyCBPV
 		compTy = ch.unifier.Zonk(compTy)
 		if inferredComp, ok := compTy.(*types.TyCBPV); ok {
 			// Record step for multiplicity analysis.
-			ch.multSteps = append(ch.multSteps, multStep{pre: inferredComp.Pre, post: inferredComp.Post, s: st.S})
+			*steps = append(*steps, multStep{pre: inferredComp.Pre, post: inferredComp.Post, s: st.S})
 			// Unify inferred pre with expected pre.
 			if err := ch.unifier.Unify(inferredComp.Pre, comp.Pre); err != nil {
 				ch.addUnifyError(err, st.S, fmt.Sprintf(
@@ -137,7 +138,7 @@ func (ch *Checker) elaborateStmtsChecked(stmts []syntax.Stmt, comp *types.TyCBPV
 			ch.ctx.Push(&CtxVar{Name: st.Var, Type: resultTy})
 			// Rest: Computation mid post result — mid from inferred post, post/result from expected.
 			restComp := &types.TyCBPV{Tag: types.TagComp, Pre: inferredComp.Post, Post: comp.Post, Result: comp.Result, S: comp.S}
-			restCore := ch.elaborateStmtsChecked(stmts[1:], restComp, s)
+			restCore := ch.elaborateStmtsChecked(stmts[1:], restComp, s, steps)
 			ch.ctx.Pop()
 			return &core.Bind{Comp: compCore, Var: st.Var, Body: restCore, S: st.S}
 		}
@@ -157,7 +158,7 @@ func (ch *Checker) elaborateStmtsChecked(stmts []syntax.Stmt, comp *types.TyCBPV
 		// x := e; rest
 		bindTy, bindCore := ch.infer(st.Expr)
 		ch.ctx.Push(&CtxVar{Name: st.Var, Type: bindTy})
-		restCore := ch.elaborateStmtsChecked(stmts[1:], comp, s)
+		restCore := ch.elaborateStmtsChecked(stmts[1:], comp, s, steps)
 		ch.ctx.Pop()
 		return &core.App{
 			Fun: &core.Lam{Param: st.Var, Body: restCore, S: st.S},
@@ -171,14 +172,14 @@ func (ch *Checker) elaborateStmtsChecked(stmts []syntax.Stmt, comp *types.TyCBPV
 		compTy = ch.unifier.Zonk(compTy)
 		if inferredComp, ok := compTy.(*types.TyCBPV); ok {
 			// Record step for multiplicity analysis.
-			ch.multSteps = append(ch.multSteps, multStep{pre: inferredComp.Pre, post: inferredComp.Post, s: st.S})
+			*steps = append(*steps, multStep{pre: inferredComp.Pre, post: inferredComp.Post, s: st.S})
 			if err := ch.unifier.Unify(inferredComp.Pre, comp.Pre); err != nil {
 				ch.addUnifyError(err, st.S, fmt.Sprintf(
 					"do statement: pre-state mismatch: expected %s, got %s",
 					types.Pretty(comp.Pre), types.Pretty(inferredComp.Pre)))
 			}
 			restComp := &types.TyCBPV{Tag: types.TagComp, Pre: inferredComp.Post, Post: comp.Post, Result: comp.Result, S: comp.S}
-			restCore := ch.elaborateStmtsChecked(stmts[1:], restComp, s)
+			restCore := ch.elaborateStmtsChecked(stmts[1:], restComp, s, steps)
 			return &core.Bind{Comp: compCore, Var: "_", Body: restCore, S: st.S}
 		}
 		restTy, restCore := ch.elaborateStmts(stmts[1:], s)
@@ -207,11 +208,9 @@ func (ch *Checker) checkDo(e *syntax.ExprDo, expected types.Type) core.Core {
 
 	// Fast path: Computation types use Core.Bind with expected pre/post threading.
 	if comp, ok := expected.(*types.TyCBPV); ok && comp.Tag == types.TagComp {
-		saved := ch.multSteps
-		ch.multSteps = nil
-		result := ch.elaborateStmtsChecked(e.Stmts, comp, e.S)
-		ch.checkMultiplicity(comp, e.S)
-		ch.multSteps = saved
+		var steps []multStep
+		result := ch.elaborateStmtsChecked(e.Stmts, comp, e.S, &steps)
+		ch.checkMultiplicity(comp, steps, e.S)
 		return result
 	}
 	switch expected.(type) {
@@ -364,7 +363,7 @@ const (
 // extractIxMethod resolves the IxMonad (Lift monadHead) dictionary and
 // extracts the method at the given index via pattern matching.
 func (ch *Checker) extractIxMethod(monadHead types.Type, methodIdx int, s span.Span) core.Core {
-	classInfo := ch.classes["IxMonad"]
+	classInfo := ch.reg.classes["IxMonad"]
 	if classInfo == nil {
 		ch.errors.Add(&errs.Error{Code: errs.ErrNoInstance, Span: s, Message: "IxMonad class not available (missing Prelude?)"})
 		return &core.Var{Name: "<error>", S: s}
@@ -405,8 +404,7 @@ type multStep struct {
 // same-type preservation events (steps where the label appears in both pre
 // and post with structurally equal types). Type-changing preservations
 // (protocol state transitions) and consumption events do not count.
-func (ch *Checker) checkMultiplicity(comp *types.TyCBPV, s span.Span) {
-	steps := ch.multSteps
+func (ch *Checker) checkMultiplicity(comp *types.TyCBPV, steps []multStep, s span.Span) {
 	if len(steps) == 0 {
 		return
 	}

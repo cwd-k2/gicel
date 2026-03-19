@@ -627,18 +627,18 @@ func (ch *Checker) lookupCon(e *syntax.ExprCon) (types.Type, core.Core, bool) {
 	if e.Name == "<error>" {
 		return &types.TyError{S: e.S}, &core.Con{Name: e.Name, S: e.S}, false
 	}
-	ty, ok := ch.conTypes[e.Name]
+	ty, ok := ch.reg.conTypes[e.Name]
 	if !ok {
 		ch.addCodedError(errs.ErrUnboundCon, e.S, fmt.Sprintf("unknown constructor: %s", e.Name))
 		return &types.TyError{S: e.S}, &core.Con{Name: e.Name, S: e.S}, false
 	}
-	mod := ch.conModules[e.Name] // "" if from current module or builtin
+	mod := ch.reg.conModules[e.Name] // "" if from current module or builtin
 	return ty, &core.Con{Name: e.Name, Module: mod, S: e.S}, true
 }
 
 // lookupQualVar resolves a qualified variable reference (N.add) to its type and Core node.
 func (ch *Checker) lookupQualVar(e *syntax.ExprQualVar) (types.Type, core.Core, bool) {
-	qs, ok := ch.qualifiedScopes[e.Qualifier]
+	qs, ok := ch.scope.qualifiedScopes[e.Qualifier]
 	if !ok {
 		ch.addCodedError(errs.ErrUnboundVar, e.S, fmt.Sprintf("unknown qualifier: %s", e.Qualifier))
 		return &types.TyError{S: e.S}, &core.Var{Name: e.Name, S: e.S}, false
@@ -654,7 +654,7 @@ func (ch *Checker) lookupQualVar(e *syntax.ExprQualVar) (types.Type, core.Core, 
 
 // lookupQualCon resolves a qualified constructor reference (N.Just) to its type and Core node.
 func (ch *Checker) lookupQualCon(e *syntax.ExprQualCon) (types.Type, core.Core, bool) {
-	qs, ok := ch.qualifiedScopes[e.Qualifier]
+	qs, ok := ch.scope.qualifiedScopes[e.Qualifier]
 	if !ok {
 		ch.addCodedError(errs.ErrUnboundCon, e.S, fmt.Sprintf("unknown qualifier: %s", e.Qualifier))
 		return &types.TyError{S: e.S}, &core.Con{Name: e.Name, S: e.S}, false
@@ -753,8 +753,8 @@ func (ch *Checker) inferList(e *syntax.ExprList) (types.Type, core.Core) {
 	listTy := &types.TyApp{Fun: &types.TyCon{Name: "List"}, Arg: elemTy}
 
 	// Build from the end: Nil, then Cons e_n (Cons e_{n-1} ...)
-	nilMod := ch.conModules["Nil"]
-	consMod := ch.conModules["Cons"]
+	nilMod := ch.reg.conModules["Nil"]
+	consMod := ch.reg.conModules["Cons"]
 	var result core.Core = &core.Con{Name: "Nil", Module: nilMod, S: e.S}
 	for i := len(e.Elems) - 1; i >= 0; i-- {
 		elemCore := ch.check(e.Elems[i], elemTy)

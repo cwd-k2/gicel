@@ -11,7 +11,7 @@ import (
 // injectivity annotation by pairwise equation comparison.
 // For every pair of equations, if the RHSes can unify,
 // the corresponding LHS patterns must also unify.
-func (e *Env) VerifyInjectivity(info *TypeFamilyInfo) {
+func (e *ReduceEnv) VerifyInjectivity(info *TypeFamilyInfo) {
 	for i := 0; i < len(info.Equations); i++ {
 		for j := i + 1; j < len(info.Equations); j++ {
 			eqI := info.Equations[i]
@@ -41,7 +41,7 @@ func (e *Env) VerifyInjectivity(info *TypeFamilyInfo) {
 }
 
 // instantiatePatVars replaces free TyVars (pattern variables) with fresh metas.
-func (e *Env) instantiatePatVars(ty types.Type, patterns []types.Type, params []TFParam) types.Type {
+func (e *ReduceEnv) instantiatePatVars(ty types.Type, patterns []types.Type, params []TFParam) types.Type {
 	varKinds := collectPatternVarKinds(patterns, params)
 	for _, v := range CollectPatternVars(patterns) {
 		kind := varKinds[v]
@@ -51,7 +51,7 @@ func (e *Env) instantiatePatVars(ty types.Type, patterns []types.Type, params []
 }
 
 // instantiatePatVarsList replaces free TyVars in each pattern with fresh metas.
-func (e *Env) instantiatePatVarsList(patterns []types.Type, params []TFParam) []types.Type {
+func (e *ReduceEnv) instantiatePatVarsList(patterns []types.Type, params []TFParam) []types.Type {
 	vars := CollectPatternVars(patterns)
 	varKinds := collectPatternVarKinds(patterns, params)
 	result := make([]types.Type, len(patterns))

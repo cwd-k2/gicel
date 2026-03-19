@@ -13,7 +13,7 @@ import (
 
 // processInstanceHeader validates and registers an instance.
 func (ch *Checker) processInstanceHeader(d *syntax.DeclInstance) *InstanceInfo {
-	classInfo, ok := ch.classes[d.ClassName]
+	classInfo, ok := ch.reg.classes[d.ClassName]
 	if !ok {
 		ch.addCodedError(errs.ErrBadClass, d.S, fmt.Sprintf("unknown class: %s", d.ClassName))
 		return nil
@@ -47,7 +47,7 @@ func (ch *Checker) processInstanceHeader(d *syntax.DeclInstance) *InstanceInfo {
 
 	// Context well-formedness: each constraint in the instance context must reference a known class.
 	for _, ctx := range context {
-		if _, ok := ch.classes[ctx.ClassName]; !ok {
+		if _, ok := ch.reg.classes[ctx.ClassName]; !ok {
 			ch.addCodedError(errs.ErrBadInstance, d.S,
 				fmt.Sprintf("instance %s: context references unknown class %s",
 					d.ClassName, ctx.ClassName))
@@ -93,17 +93,17 @@ func (ch *Checker) processInstanceHeader(d *syntax.DeclInstance) *InstanceInfo {
 		Context:      context,
 		Methods:      methodExprs,
 		DictBindName: dictName,
-		Module:       ch.currentModule,
+		Module:       ch.scope.currentModule,
 		S:            d.S,
 	}
 
 	// Overlap check: verify no existing local instance for this class matches the same types.
 	// Imported instances are excluded: user source is allowed to shadow module instances.
-	for _, existing := range ch.instancesByClass[d.ClassName] {
+	for _, existing := range ch.reg.instancesByClass[d.ClassName] {
 		if existing == inst {
 			continue // same pointer (re-exported via module)
 		}
-		if ch.importedInstances[existing] {
+		if ch.reg.importedInstances[existing] {
 			continue // imported from a module; shadowing is allowed
 		}
 		if len(existing.TypeArgs) != len(typeArgs) {
@@ -120,7 +120,7 @@ func (ch *Checker) processInstanceHeader(d *syntax.DeclInstance) *InstanceInfo {
 	// Process associated type definitions: convert to equations and append
 	// to the corresponding TypeFamilyInfo registered during class processing.
 	for _, atd := range d.AssocTypeDefs {
-		fam, ok := ch.families[atd.Name]
+		fam, ok := ch.reg.families[atd.Name]
 		if !ok {
 			ch.addCodedError(errs.ErrBadInstance, d.S,
 				fmt.Sprintf("instance %s: associated type %s not declared in class %s",
@@ -159,14 +159,14 @@ func (ch *Checker) processInstanceHeader(d *syntax.DeclInstance) *InstanceInfo {
 		ch.processAssocDataDef(add, d.ClassName, d.S)
 	}
 
-	ch.instances = append(ch.instances, inst)
-	ch.instancesByClass[inst.ClassName] = append(ch.instancesByClass[inst.ClassName], inst)
+	ch.reg.instances = append(ch.reg.instances, inst)
+	ch.reg.instancesByClass[inst.ClassName] = append(ch.reg.instancesByClass[inst.ClassName], inst)
 	return inst
 }
 
 // processInstanceBody type-checks instance method implementations and generates the dictionary binding.
 func (ch *Checker) processInstanceBody(inst *InstanceInfo, prog *core.Program) {
-	classInfo := ch.classes[inst.ClassName]
+	classInfo := ch.reg.classes[inst.ClassName]
 
 	// Build substitution: class type params -> instance type args.
 	subst := make(map[string]types.Type)
@@ -224,7 +224,7 @@ func (ch *Checker) processInstanceBody(inst *InstanceInfo, prog *core.Program) {
 
 	// Build the dictionary value: DictCon @types... arg1 arg2 ...
 	// The dict constructor comes from the module that defined the class.
-	dictConMod := ch.conModules[classInfo.DictName]
+	dictConMod := ch.reg.conModules[classInfo.DictName]
 	var dictExpr core.Core = &core.Con{Name: classInfo.DictName, Module: dictConMod, S: inst.S}
 	for _, ta := range inst.TypeArgs {
 		dictExpr = &core.TyApp{Expr: dictExpr, TyArg: ta, S: inst.S}
@@ -248,7 +248,7 @@ func (ch *Checker) processInstanceBody(inst *InstanceInfo, prog *core.Program) {
 	}
 
 	// Register binding.
-	ch.ctx.Push(&CtxVar{Name: inst.DictBindName, Type: dictTy, Module: ch.currentModule})
+	ch.ctx.Push(&CtxVar{Name: inst.DictBindName, Type: dictTy, Module: ch.scope.currentModule})
 	prog.Bindings = append(prog.Bindings, core.Binding{
 		Name: inst.DictBindName,
 		Type: dictTy,
@@ -346,7 +346,7 @@ func (ch *Checker) instancesOverlap(a, b *InstanceInfo) bool {
 // processAssocDataDef registers constructors for an associated data family definition
 // and creates the type family equation mapping the family to its mangled data type.
 func (ch *Checker) processAssocDataDef(add syntax.AssocDataDef, className string, instSpan span.Span) {
-	fam, ok := ch.families[add.Name]
+	fam, ok := ch.reg.families[add.Name]
 	if !ok {
 		ch.addCodedError(errs.ErrBadInstance, instSpan,
 			fmt.Sprintf("instance %s: associated data %s not declared in class %s",
@@ -397,7 +397,7 @@ func (ch *Checker) processAssocDataDef(add syntax.AssocDataDef, className string
 	}
 
 	dataInfo := &DataTypeInfo{Name: mangledName}
-	ch.dataTypeByName[mangledName] = dataInfo
+	ch.reg.dataTypeByName[mangledName] = dataInfo
 
 	// Register each constructor.
 	for _, con := range add.Cons {
@@ -413,17 +413,17 @@ func (ch *Checker) processAssocDataDef(add syntax.AssocDataDef, className string
 			conType = types.MkForall(patVars[i], types.KType{}, conType)
 		}
 		// Guard against constructor name collision with existing constructors.
-		if existing, dup := ch.conTypes[con.Name]; dup {
+		if existing, dup := ch.reg.conTypes[con.Name]; dup {
 			ch.addCodedError(errs.ErrDuplicateDecl, con.S,
 				fmt.Sprintf("data family instance %s: constructor %s conflicts with existing constructor (type: %s)",
 					add.Name, con.Name, types.Pretty(existing)))
 			continue
 		}
-		ch.conTypes[con.Name] = conType
-		ch.ctx.Push(&CtxVar{Name: con.Name, Type: conType, Module: ch.currentModule})
-		ch.conModules[con.Name] = ch.currentModule
+		ch.reg.conTypes[con.Name] = conType
+		ch.ctx.Push(&CtxVar{Name: con.Name, Type: conType, Module: ch.scope.currentModule})
+		ch.reg.conModules[con.Name] = ch.scope.currentModule
 		dataInfo.Constructors = append(dataInfo.Constructors, ConInfo{Name: con.Name, Arity: len(fieldTypes)})
-		ch.conInfo[con.Name] = dataInfo
+		ch.reg.conInfo[con.Name] = dataInfo
 	}
 
 	// Add type family equation: Family patterns =: MangledType patVars

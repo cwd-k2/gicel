@@ -145,20 +145,22 @@ func checkSourceNoPanic(t *testing.T, source string, config *CheckConfig) {
 func newTestChecker() *Checker {
 	var freshID int
 	ch := &Checker{
-		ctx:               NewContext(),
-		errors:            &errs.Errors{Source: span.NewSource("test", "")},
-		config:            &CheckConfig{RegisteredTypes: make(map[string]types.Kind)},
-		conTypes:          make(map[string]types.Type),
-		conInfo:           make(map[string]*DataTypeInfo),
-		aliases:           make(map[string]*AliasInfo),
-		classes:           make(map[string]*ClassInfo),
-		instancesByClass:  make(map[string][]*InstanceInfo),
-		importedInstances: make(map[*InstanceInfo]bool),
-		promotedKinds:     make(map[string]types.Kind),
-		promotedCons:      make(map[string]types.Kind),
-		kindVars:          make(map[string]bool),
-		families:          make(map[string]*TypeFamilyInfo),
-		freshID:           freshID,
+		ctx:    NewContext(),
+		errors: &errs.Errors{Source: span.NewSource("test", "")},
+		config: &CheckConfig{RegisteredTypes: make(map[string]types.Kind)},
+		reg: checkerRegistry{
+			conTypes:          make(map[string]types.Type),
+			conInfo:           make(map[string]*DataTypeInfo),
+			aliases:           make(map[string]*AliasInfo),
+			classes:           make(map[string]*ClassInfo),
+			instancesByClass:  make(map[string][]*InstanceInfo),
+			importedInstances: make(map[*InstanceInfo]bool),
+			promotedKinds:     make(map[string]types.Kind),
+			promotedCons:      make(map[string]types.Kind),
+			kindVars:          make(map[string]bool),
+			families:          make(map[string]*TypeFamilyInfo),
+		},
+		freshID: freshID,
 	}
 	ch.unifier = unify.NewUnifierShared(&ch.freshID)
 	return ch

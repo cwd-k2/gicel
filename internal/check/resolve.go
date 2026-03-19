@@ -96,7 +96,7 @@ func (ch *Checker) resolveInstance(className string, args []types.Type, s span.S
 	ch.applyFunDepImprovement(className, args)
 
 	// 2. Search global instances (indexed by class name).
-	for _, inst := range ch.instancesByClass[className] {
+	for _, inst := range ch.reg.instancesByClass[className] {
 		if len(inst.TypeArgs) != len(args) {
 			continue
 		}
@@ -183,7 +183,7 @@ func (sd *superDictSearch) chain(dictExpr core.Core, dictTyName string, dictTyAr
 	}
 	sd.visited[parentClass] = true
 
-	classInfo, ok := sd.ch.classes[parentClass]
+	classInfo, ok := sd.ch.reg.classes[parentClass]
 	if !ok {
 		return nil
 	}
@@ -291,7 +291,7 @@ func (ch *Checker) resolveQuantifiedConstraint(qc *types.QuantifiedConstraint, s
 	// right type: `\ a. C1$Dict a -> C2$Dict (F a)`.
 	//
 	// Search global instances for a match on the head.
-	for _, inst := range ch.instancesByClass[qc.Head.ClassName] {
+	for _, inst := range ch.reg.instancesByClass[qc.Head.ClassName] {
 		if len(inst.TypeArgs) != len(qc.Head.Args) {
 			continue
 		}
@@ -379,7 +379,7 @@ func (ch *Checker) freshInstanceSubst(inst *InstanceInfo) map[string]types.Type 
 // For each fundep a -> b in the class, if the "from" args are determined (no metas),
 // search instances whose "from" positions match, and unify the "to" positions.
 func (ch *Checker) applyFunDepImprovement(className string, args []types.Type) {
-	classInfo, ok := ch.classes[className]
+	classInfo, ok := ch.reg.classes[className]
 	if !ok || len(classInfo.FunDeps) == 0 {
 		return
 	}
@@ -401,7 +401,7 @@ func (ch *Checker) applyFunDepImprovement(className string, args []types.Type) {
 			continue
 		}
 		// Search instances: if "from" positions match, unify "to" positions.
-		for _, inst := range ch.instancesByClass[className] {
+		for _, inst := range ch.reg.instancesByClass[className] {
 			if len(inst.TypeArgs) != len(args) {
 				continue
 			}

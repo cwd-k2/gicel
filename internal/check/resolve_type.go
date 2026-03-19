@@ -14,11 +14,11 @@ func (ch *Checker) resolveTypeExpr(texpr syntax.TypeExpr) types.Type {
 	case *syntax.TyExprVar:
 		return &types.TyVar{Name: t.Name, S: t.S}
 	case *syntax.TyExprCon:
-		if info, ok := ch.aliases[t.Name]; ok && len(info.Params) == 0 {
+		if info, ok := ch.reg.aliases[t.Name]; ok && len(info.Params) == 0 {
 			return info.Body
 		}
 		// Zero-arity type family: immediate TyFamilyApp.
-		if fam, ok := ch.families[t.Name]; ok && len(fam.Params) == 0 {
+		if fam, ok := ch.reg.families[t.Name]; ok && len(fam.Params) == 0 {
 			return &types.TyFamilyApp{Name: t.Name, Args: nil, Kind: fam.ResultKind, S: t.S}
 		}
 		// Validate that the type constructor is known when strict mode is active.
@@ -28,7 +28,7 @@ func (ch *Checker) resolveTypeExpr(texpr syntax.TypeExpr) types.Type {
 		}
 		return &types.TyCon{Name: t.Name, S: t.S}
 	case *syntax.TyExprQualCon:
-		qs, ok := ch.qualifiedScopes[t.Qualifier]
+		qs, ok := ch.scope.qualifiedScopes[t.Qualifier]
 		if !ok {
 			ch.addCodedError(errs.ErrImport, t.S, fmt.Sprintf("unknown qualifier: %s", t.Qualifier))
 			return &types.TyError{S: t.S}
@@ -38,7 +38,7 @@ func (ch *Checker) resolveTypeExpr(texpr syntax.TypeExpr) types.Type {
 			if len(info.Params) == 0 {
 				return info.Body
 			}
-			ch.aliases[t.Name] = info
+			ch.reg.aliases[t.Name] = info
 			return &types.TyCon{Name: t.Name, S: t.S}
 		}
 		// Check qualified type families (zero-arity: immediate; parameterized: inject for TyApp expansion)
@@ -46,7 +46,7 @@ func (ch *Checker) resolveTypeExpr(texpr syntax.TypeExpr) types.Type {
 			if len(fam.Params) == 0 {
 				return &types.TyFamilyApp{Name: t.Name, Args: nil, Kind: fam.ResultKind, S: t.S}
 			}
-			ch.families[t.Name] = fam.Clone()
+			ch.reg.families[t.Name] = fam.Clone()
 			return &types.TyCon{Name: t.Name, S: t.S}
 		}
 		// Check qualified types — only types defined by this module's data declarations,
@@ -86,7 +86,7 @@ func (ch *Checker) resolveTypeExpr(texpr syntax.TypeExpr) types.Type {
 		var kindVarNames []string
 		for _, b := range t.Binders {
 			if _, ok := b.Kind.(*syntax.KindExprSort); ok {
-				ch.kindVars[b.Name] = true
+				ch.reg.kindVars[b.Name] = true
 				kindVarNames = append(kindVarNames, b.Name)
 			}
 		}
@@ -96,7 +96,7 @@ func (ch *Checker) resolveTypeExpr(texpr syntax.TypeExpr) types.Type {
 			ty = &types.TyForall{Var: t.Binders[i].Name, Kind: kind, Body: ty, S: t.S}
 		}
 		for _, name := range kindVarNames {
-			delete(ch.kindVars, name)
+			delete(ch.reg.kindVars, name)
 		}
 		return ty
 	case *syntax.TyExprRow:
@@ -236,7 +236,7 @@ func (ch *Checker) tryExpandApp(fun types.Type, arg types.Type, s span.Span) typ
 	result := &types.TyApp{Fun: fun, Arg: arg, S: s}
 	head, args := types.UnwindApp(result)
 	if con, ok := head.(*types.TyCon); ok {
-		if info, ok := ch.aliases[con.Name]; ok && len(info.Params) == len(args) {
+		if info, ok := ch.reg.aliases[con.Name]; ok && len(info.Params) == len(args) {
 			body := info.Body
 			for i, p := range info.Params {
 				body = types.Subst(body, p, args[i])
@@ -244,7 +244,7 @@ func (ch *Checker) tryExpandApp(fun types.Type, arg types.Type, s span.Span) typ
 			return body
 		}
 		// Type family: saturated application → TyFamilyApp.
-		if fam, ok := ch.families[con.Name]; ok && len(fam.Params) == len(args) {
+		if fam, ok := ch.reg.families[con.Name]; ok && len(fam.Params) == len(args) {
 			return &types.TyFamilyApp{Name: con.Name, Args: args, Kind: fam.ResultKind, S: s}
 		}
 	}
@@ -265,10 +265,10 @@ func (ch *Checker) resolveKindExpr(k syntax.KindExpr) types.Kind {
 	case *syntax.KindExprArrow:
 		return &types.KArrow{From: ch.resolveKindExpr(ke.From), To: ch.resolveKindExpr(ke.To)}
 	case *syntax.KindExprName:
-		if ch.kindVars[ke.Name] {
+		if ch.reg.kindVars[ke.Name] {
 			return types.KVar{Name: ke.Name}
 		}
-		if pk, ok := ch.promotedKinds[ke.Name]; ok {
+		if pk, ok := ch.reg.promotedKinds[ke.Name]; ok {
 			return pk
 		}
 		return types.KType{}
@@ -323,8 +323,8 @@ func (ch *Checker) hasDeterministicKind(ty types.Type) bool {
 	switch t := ty.(type) {
 	case *types.TyCon:
 		_, inReg := ch.config.RegisteredTypes[t.Name]
-		_, inProm := ch.promotedCons[t.Name]
-		_, isAlias := ch.aliases[t.Name]
+		_, inProm := ch.reg.promotedCons[t.Name]
+		_, isAlias := ch.reg.aliases[t.Name]
 		return inReg || inProm || isAlias
 	case *types.TyApp:
 		// Recurse on the head to check if it's deterministic.
@@ -376,19 +376,19 @@ func (ch *Checker) isKnownTypeName(name string) bool {
 	if _, ok := ch.config.RegisteredTypes[name]; ok {
 		return true
 	}
-	if _, ok := ch.aliases[name]; ok {
+	if _, ok := ch.reg.aliases[name]; ok {
 		return true
 	}
-	if _, ok := ch.families[name]; ok {
+	if _, ok := ch.reg.families[name]; ok {
 		return true
 	}
-	if _, ok := ch.classes[name]; ok {
+	if _, ok := ch.reg.classes[name]; ok {
 		return true
 	}
-	if _, ok := ch.promotedKinds[name]; ok {
+	if _, ok := ch.reg.promotedKinds[name]; ok {
 		return true
 	}
-	if _, ok := ch.promotedCons[name]; ok {
+	if _, ok := ch.reg.promotedCons[name]; ok {
 		return true
 	}
 	return false
@@ -396,7 +396,7 @@ func (ch *Checker) isKnownTypeName(name string) bool {
 
 // aliasParamKind returns the kind of the i-th parameter of a type alias.
 func (ch *Checker) aliasParamKind(aliasName string, i int) types.Kind {
-	info, ok := ch.aliases[aliasName]
+	info, ok := ch.reg.aliases[aliasName]
 	if !ok || i >= len(info.ParamKinds) {
 		return types.KType{}
 	}
@@ -411,7 +411,7 @@ func (ch *Checker) kindOfType(ty types.Type) types.Kind {
 			return k
 		}
 		// Type aliases: compute kind from parameter kinds.
-		if info, ok := ch.aliases[t.Name]; ok {
+		if info, ok := ch.reg.aliases[t.Name]; ok {
 			var kind types.Kind = types.KType{}
 			for i := len(info.Params) - 1; i >= 0; i-- {
 				paramKind := ch.aliasParamKind(t.Name, i)
@@ -419,7 +419,7 @@ func (ch *Checker) kindOfType(ty types.Type) types.Kind {
 			}
 			return kind
 		}
-		if k, ok := ch.promotedCons[t.Name]; ok {
+		if k, ok := ch.reg.promotedCons[t.Name]; ok {
 			return k
 		}
 		return types.KType{}
