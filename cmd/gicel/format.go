@@ -394,7 +394,7 @@ func summarizeSteps(steps []gicel.ExplainStep) any {
 	return sections
 }
 
-// formatCapEnv serializes a CapEnv as a map of pretty-printed values.
+// formatCapEnv serializes a CapEnv as a map of structured values.
 func formatCapEnv(ce gicel.CapEnv) map[string]any {
 	labels := ce.Labels()
 	if len(labels) == 0 {
@@ -404,7 +404,7 @@ func formatCapEnv(ce gicel.CapEnv) map[string]any {
 	for _, l := range labels {
 		v, _ := ce.Get(l)
 		if val, ok := v.(gicel.Value); ok {
-			m[l] = gicel.PrettyValue(val)
+			m[l] = formatValue(val)
 		} else {
 			m[l] = fmt.Sprintf("%v", v)
 		}

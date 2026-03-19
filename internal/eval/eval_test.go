@@ -530,8 +530,10 @@ func TestAllocTrackingFix(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if ev.Stats().Allocated < costFix {
-		t.Errorf("expected at least %d bytes, got %d", costFix, ev.Stats().Allocated)
+	// Fix: costFix (closure + env node) + Con(Unit): costConBase
+	expected := int64(costFix + costConBase)
+	if ev.Stats().Allocated != expected {
+		t.Errorf("expected %d bytes, got %d", expected, ev.Stats().Allocated)
 	}
 }
 
