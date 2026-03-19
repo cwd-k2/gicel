@@ -540,10 +540,6 @@ func (ch *Checker) checkCaseAlts(scrutTy, resultTy types.Type, scrutCore core.Co
 			ch.ctx.Push(&CtxVar{Name: name, Type: ty})
 		}
 		needsLocalResolve := len(pr.SkolemIDs) > 0 || pr.HasEvidence
-		savedDeferred := ch.deferred
-		if needsLocalResolve {
-			ch.deferred = nil
-		}
 
 		// Per-branch expected type: same resultTy for non-Comp,
 		// or TyCBPV with fresh post-state meta for Comp.
@@ -556,10 +552,13 @@ func (ch *Checker) checkCaseAlts(scrutTy, resultTy types.Type, scrutCore core.Co
 			branchPosts = append(branchPosts, freshPost)
 		}
 
-		bodyCore := ch.check(alt.Body, branchExpected)
+		var bodyCore core.Core
 		if needsLocalResolve {
-			bodyCore = ch.resolveDeferredConstraints(bodyCore)
-			ch.deferred = append(savedDeferred, ch.deferred...)
+			bodyCore = ch.withDeferredScope(func() core.Core {
+				return ch.check(alt.Body, branchExpected)
+			})
+		} else {
+			bodyCore = ch.check(alt.Body, branchExpected)
 		}
 		for range pr.Bindings {
 			ch.ctx.Pop()

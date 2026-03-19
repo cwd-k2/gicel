@@ -3,47 +3,47 @@ package parse
 import (
 	"fmt"
 
-	. "github.com/cwd-k2/gicel/internal/syntax" //nolint:revive // dot import for tightly-coupled subpackage
+	syn "github.com/cwd-k2/gicel/internal/syntax"
 
 	"github.com/cwd-k2/gicel/internal/span"
 )
 
-func (p *Parser) parseType() TypeExpr {
+func (p *Parser) parseType() syn.TypeExpr {
 	if !p.enterRecurse() {
-		return &TyExprCon{Name: "<error>", S: span.Span{Start: span.Pos(p.pos), End: span.Pos(p.pos)}}
+		return &syn.TyExprCon{Name: "<error>", S: span.Span{Start: span.Pos(p.pos), End: span.Pos(p.pos)}}
 	}
 	defer p.leaveRecurse()
 	return p.parseTypeArrow()
 }
 
-func (p *Parser) parseTypeArrow() TypeExpr {
-	if p.peek().Kind == TokBackslash {
+func (p *Parser) parseTypeArrow() syn.TypeExpr {
+	if p.peek().Kind == syn.TokBackslash {
 		return p.parseForallType()
 	}
 	left := p.parseTypeApp()
-	if p.peek().Kind == TokFatArrow {
+	if p.peek().Kind == syn.TokFatArrow {
 		p.advance()
 		body := p.parseTypeArrow() // right-associative
 		// (C1, C2, ...) => T  desugars to  C1 => C2 => ... => T
 		if constraints := desugarConstraintTuple(left); constraints != nil {
 			result := body
 			for i := len(constraints) - 1; i >= 0; i-- {
-				result = &TyExprQual{
+				result = &syn.TyExprQual{
 					Constraint: constraints[i], Body: result,
 					S: span.Span{Start: constraints[i].Span().Start, End: result.Span().End},
 				}
 			}
 			return result
 		}
-		return &TyExprQual{
+		return &syn.TyExprQual{
 			Constraint: left, Body: body,
 			S: span.Span{Start: left.Span().Start, End: body.Span().End},
 		}
 	}
-	if p.peek().Kind == TokArrow {
+	if p.peek().Kind == syn.TokArrow {
 		p.advance()
 		right := p.parseTypeArrow() // right-associative
-		return &TyExprArrow{
+		return &syn.TyExprArrow{
 			From: left, To: right,
 			S: span.Span{Start: left.Span().Start, End: right.Span().End},
 		}
@@ -51,46 +51,46 @@ func (p *Parser) parseTypeArrow() TypeExpr {
 	return left
 }
 
-func (p *Parser) parseForallType() TypeExpr {
+func (p *Parser) parseForallType() syn.TypeExpr {
 	start := p.peek().S.Start
-	p.expect(TokBackslash)
-	var binders []TyBinder
-	for p.peek().Kind == TokLower || p.peek().Kind == TokLParen {
-		if p.peek().Kind == TokLParen {
+	p.expect(syn.TokBackslash)
+	var binders []syn.TyBinder
+	for p.peek().Kind == syn.TokLower || p.peek().Kind == syn.TokLParen {
+		if p.peek().Kind == syn.TokLParen {
 			// Kinded binder: (v: Kind)
 			lp := p.peek().S.Start
 			p.advance()
 			name := p.expectLower()
-			p.expect(TokColon)
+			p.expect(syn.TokColon)
 			kind := p.parseKindExpr()
-			p.expect(TokRParen)
-			binders = append(binders, TyBinder{
+			p.expect(syn.TokRParen)
+			binders = append(binders, syn.TyBinder{
 				Name: name,
 				Kind: kind,
 				S:    span.Span{Start: lp, End: p.prevEnd()},
 			})
 		} else {
 			// Bare type variable (kind inferred)
-			b := TyBinder{Name: p.peek().Text, S: p.peek().S}
+			b := syn.TyBinder{Name: p.peek().Text, S: p.peek().S}
 			p.advance()
 			binders = append(binders, b)
 		}
 	}
-	p.expect(TokDot)
+	p.expect(syn.TokDot)
 	body := p.parseType()
-	return &TyExprForall{
+	return &syn.TyExprForall{
 		Binders: binders, Body: body,
 		S: span.Span{Start: start, End: p.prevEnd()},
 	}
 }
 
 // parseKindExpr parses a kind expression: Type, Row, or K1 -> K2.
-func (p *Parser) parseKindExpr() KindExpr {
+func (p *Parser) parseKindExpr() syn.KindExpr {
 	left := p.parseKindAtom()
-	if p.peek().Kind == TokArrow {
+	if p.peek().Kind == syn.TokArrow {
 		p.advance()
 		right := p.parseKindExpr() // right-associative
-		return &KindExprArrow{
+		return &syn.KindExprArrow{
 			From: left, To: right,
 			S: span.Span{Start: left.Span().Start, End: right.Span().End},
 		}
@@ -99,57 +99,57 @@ func (p *Parser) parseKindExpr() KindExpr {
 }
 
 // parseKindAtom parses an atomic kind: Type, Row, Constraint, user-defined kind, or (K).
-func (p *Parser) parseKindAtom() KindExpr {
+func (p *Parser) parseKindAtom() syn.KindExpr {
 	switch {
-	case p.peek().Kind == TokUpper && p.peek().Text == "Type":
+	case p.peek().Kind == syn.TokUpper && p.peek().Text == "Type":
 		tok := p.peek()
 		p.advance()
-		return &KindExprType{S: tok.S}
-	case p.peek().Kind == TokUpper && p.peek().Text == "Row":
+		return &syn.KindExprType{S: tok.S}
+	case p.peek().Kind == syn.TokUpper && p.peek().Text == "Row":
 		tok := p.peek()
 		p.advance()
-		return &KindExprRow{S: tok.S}
-	case p.peek().Kind == TokUpper && p.peek().Text == "Constraint":
+		return &syn.KindExprRow{S: tok.S}
+	case p.peek().Kind == syn.TokUpper && p.peek().Text == "Constraint":
 		tok := p.peek()
 		p.advance()
-		return &KindExprConstraint{S: tok.S}
-	case p.peek().Kind == TokUpper && p.peek().Text == "Kind":
+		return &syn.KindExprConstraint{S: tok.S}
+	case p.peek().Kind == syn.TokUpper && p.peek().Text == "Kind":
 		tok := p.peek()
 		p.advance()
-		return &KindExprSort{S: tok.S}
-	case p.peek().Kind == TokUpper:
+		return &syn.KindExprSort{S: tok.S}
+	case p.peek().Kind == syn.TokUpper:
 		// DataKinds: user-defined kind name (e.g., DBState, Bool)
 		tok := p.peek()
 		p.advance()
-		return &KindExprName{Name: tok.Text, S: tok.S}
-	case p.peek().Kind == TokLower:
+		return &syn.KindExprName{Name: tok.Text, S: tok.S}
+	case p.peek().Kind == syn.TokLower:
 		// Kind variable reference (e.g., k in "\ (k: Kind). k -> Type")
 		tok := p.peek()
 		p.advance()
-		return &KindExprName{Name: tok.Text, S: tok.S}
-	case p.peek().Kind == TokLParen:
+		return &syn.KindExprName{Name: tok.Text, S: tok.S}
+	case p.peek().Kind == syn.TokLParen:
 		if !p.enterRecurse() {
 			tok := p.peek()
-			return &KindExprType{S: tok.S}
+			return &syn.KindExprType{S: tok.S}
 		}
 		p.advance()
 		k := p.parseKindExpr()
-		p.expect(TokRParen)
+		p.expect(syn.TokRParen)
 		p.leaveRecurse()
 		return k
 	default:
 		p.addError("expected kind (Type, Row, or K -> K)")
 		tok := p.peek()
 		p.advance()
-		return &KindExprType{S: tok.S}
+		return &syn.KindExprType{S: tok.S}
 	}
 }
 
-func (p *Parser) parseTypeApp() TypeExpr {
+func (p *Parser) parseTypeApp() syn.TypeExpr {
 	f := p.parseTypeAtom()
 	for p.isTypeAtomStart() {
 		arg := p.parseTypeAtom()
-		f = &TyExprApp{
+		f = &syn.TyExprApp{
 			Fun: f, Arg: arg,
 			S: span.Span{Start: f.Span().Start, End: arg.Span().End},
 		}
@@ -157,147 +157,147 @@ func (p *Parser) parseTypeApp() TypeExpr {
 	return f
 }
 
-func (p *Parser) parseTypeAtom() TypeExpr {
+func (p *Parser) parseTypeAtom() syn.TypeExpr {
 	switch p.peek().Kind {
-	case TokUnderscore:
+	case syn.TokUnderscore:
 		// Wildcard type pattern: _ (used in type family equations)
 		tok := p.peek()
 		p.advance()
-		return &TyExprVar{Name: "_", S: tok.S}
-	case TokLower:
+		return &syn.TyExprVar{Name: "_", S: tok.S}
+	case syn.TokLower:
 		tok := p.peek()
 		p.advance()
-		return &TyExprVar{Name: tok.Text, S: tok.S}
-	case TokUpper:
+		return &syn.TyExprVar{Name: tok.Text, S: tok.S}
+	case syn.TokUpper:
 		tok := p.peek()
 		p.advance()
-		// Qualified type: Upper.Upper (adjacent, no whitespace) → TyExprQualCon
-		if p.peek().Kind == TokDot && tokensAdjacent(tok, p.peek()) {
+		// Qualified type: Upper.Upper (adjacent, no whitespace) → syn.TyExprQualCon
+		if p.peek().Kind == syn.TokDot && tokensAdjacent(tok, p.peek()) {
 			dotTok := p.peek()
 			if p.pos+1 < len(p.tokens) {
 				nextTok := p.tokens[p.pos+1]
-				if tokensAdjacent(dotTok, nextTok) && nextTok.Kind == TokUpper {
+				if tokensAdjacent(dotTok, nextTok) && nextTok.Kind == syn.TokUpper {
 					p.advance() // consume .
 					p.advance() // consume Upper
-					return &TyExprQualCon{Qualifier: tok.Text, Name: nextTok.Text,
+					return &syn.TyExprQualCon{Qualifier: tok.Text, Name: nextTok.Text,
 						S: span.Span{Start: tok.S.Start, End: nextTok.S.End}}
 				}
 			}
 		}
-		return &TyExprCon{Name: tok.Text, S: tok.S}
-	case TokLParen:
+		return &syn.TyExprCon{Name: tok.Text, S: tok.S}
+	case syn.TokLParen:
 		start := p.peek().S.Start
 		p.advance()
 		// () → unit type: Record {}
-		if p.peek().Kind == TokRParen {
+		if p.peek().Kind == syn.TokRParen {
 			p.advance()
 			s := span.Span{Start: start, End: p.prevEnd()}
-			return &TyExprApp{
-				Fun: &TyExprCon{Name: "Record", S: s},
-				Arg: &TyExprRow{S: s},
+			return &syn.TyExprApp{
+				Fun: &syn.TyExprCon{Name: "Record", S: s},
+				Arg: &syn.TyExprRow{S: s},
 				S:   s,
 			}
 		}
 		ty := p.parseType()
-		if p.peek().Kind == TokComma {
+		if p.peek().Kind == syn.TokComma {
 			// (T1, T2, ...) → tuple type: Record { _1: T1, _2: T2, ... }
-			types := []TypeExpr{ty}
-			for p.peek().Kind == TokComma {
+			types := []syn.TypeExpr{ty}
+			for p.peek().Kind == syn.TokComma {
 				p.advance()
 				types = append(types, p.parseType())
 			}
-			p.expect(TokRParen)
+			p.expect(syn.TokRParen)
 			s := span.Span{Start: start, End: p.prevEnd()}
-			fields := make([]TyRowField, len(types))
+			fields := make([]syn.TyRowField, len(types))
 			for i, t := range types {
-				fields[i] = TyRowField{
+				fields[i] = syn.TyRowField{
 					Label: fmt.Sprintf("_%d", i+1),
 					Type:  t,
 					S:     t.Span(),
 				}
 			}
-			return &TyExprApp{
-				Fun: &TyExprCon{Name: "Record", S: s},
-				Arg: &TyExprRow{Fields: fields, S: s},
+			return &syn.TyExprApp{
+				Fun: &syn.TyExprCon{Name: "Record", S: s},
+				Arg: &syn.TyExprRow{Fields: fields, S: s},
 				S:   s,
 			}
 		}
-		p.expect(TokRParen)
-		return &TyExprParen{Inner: ty, S: span.Span{Start: start, End: p.prevEnd()}}
-	case TokLBrace:
+		p.expect(syn.TokRParen)
+		return &syn.TyExprParen{Inner: ty, S: span.Span{Start: start, End: p.prevEnd()}}
+	case syn.TokLBrace:
 		return p.parseRowType()
 	default:
 		p.addError("expected type")
 		tok := p.peek()
 		p.advance()
-		return &TyExprCon{Name: "<error>", S: tok.S}
+		return &syn.TyExprCon{Name: "<error>", S: tok.S}
 	}
 }
 
-func (p *Parser) parseRowType() TypeExpr {
+func (p *Parser) parseRowType() syn.TypeExpr {
 	start := p.peek().S.Start
-	p.expect(TokLBrace)
-	if p.peek().Kind == TokRBrace {
+	p.expect(syn.TokLBrace)
+	if p.peek().Kind == syn.TokRBrace {
 		p.advance()
-		return &TyExprRow{S: span.Span{Start: start, End: p.prevEnd()}}
+		return &syn.TyExprRow{S: span.Span{Start: start, End: p.prevEnd()}}
 	}
-	var fields []TyRowField
-	var tail *TyExprVar
+	var fields []syn.TyRowField
+	var tail *syn.TyExprVar
 
 	for {
-		if p.peek().Kind == TokPipe {
+		if p.peek().Kind == syn.TokPipe {
 			p.advance()
-			if p.peek().Kind == TokLower {
+			if p.peek().Kind == syn.TokLower {
 				tok := p.peek()
-				tail = &TyExprVar{Name: tok.Text, S: tok.S}
+				tail = &syn.TyExprVar{Name: tok.Text, S: tok.S}
 				p.advance()
 			}
 			break
 		}
-		if p.peek().Kind == TokRBrace || p.peek().Kind == TokEOF {
+		if p.peek().Kind == syn.TokRBrace || p.peek().Kind == syn.TokEOF {
 			break
 		}
 		label := p.expectLower()
-		p.expect(TokColon)
+		p.expect(syn.TokColon)
 		ty := p.parseType()
-		var mult TypeExpr
-		if p.peek().Kind == TokAt {
+		var mult syn.TypeExpr
+		if p.peek().Kind == syn.TokAt {
 			p.advance()
 			mult = p.parseTypeAtom()
 		}
-		fields = append(fields, TyRowField{
+		fields = append(fields, syn.TyRowField{
 			Label: label, Type: ty, Mult: mult,
 			S: span.Span{Start: span.Pos(p.pos), End: p.prevEnd()},
 		})
-		if p.peek().Kind == TokComma {
+		if p.peek().Kind == syn.TokComma {
 			p.advance()
 		}
 	}
-	p.expect(TokRBrace)
-	return &TyExprRow{
+	p.expect(syn.TokRBrace)
+	return &syn.TyExprRow{
 		Fields: fields, Tail: tail,
 		S: span.Span{Start: start, End: p.prevEnd()},
 	}
 }
 
 // desugarConstraintTuple detects a tuple type used as a constraint group.
-// (C1, C2, ...) parses as TyExprApp(Record, TyExprRow{_1: C1, _2: C2, ...}).
+// (C1, C2, ...) parses as syn.TyExprApp(Record, syn.TyExprRow{_1: C1, _2: C2, ...}).
 // Returns the constraint types if the pattern matches, nil otherwise.
-func desugarConstraintTuple(t TypeExpr) []TypeExpr {
-	app, ok := t.(*TyExprApp)
+func desugarConstraintTuple(t syn.TypeExpr) []syn.TypeExpr {
+	app, ok := t.(*syn.TyExprApp)
 	if !ok {
 		return nil
 	}
-	con, ok := app.Fun.(*TyExprCon)
+	con, ok := app.Fun.(*syn.TyExprCon)
 	if !ok || con.Name != "Record" {
 		return nil
 	}
-	row, ok := app.Arg.(*TyExprRow)
+	row, ok := app.Arg.(*syn.TyExprRow)
 	if !ok || len(row.Fields) < 2 || row.Tail != nil {
 		return nil
 	}
 	// Verify tuple field labels: _1, _2, ...
-	constraints := make([]TypeExpr, len(row.Fields))
+	constraints := make([]syn.TypeExpr, len(row.Fields))
 	for i, f := range row.Fields {
 		if f.Label != fmt.Sprintf("_%d", i+1) {
 			return nil

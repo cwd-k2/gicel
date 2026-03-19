@@ -351,6 +351,18 @@ func (ch *Checker) withTrial(fn func() bool) bool {
 	return false
 }
 
+// withDeferredScope runs fn in an isolated deferred constraint scope.
+// Constraints accumulated inside fn are resolved immediately, then
+// any remaining constraints are merged back into the outer scope.
+func (ch *Checker) withDeferredScope(fn func() core.Core) core.Core {
+	saved := ch.deferred
+	ch.deferred = nil
+	result := fn()
+	result = ch.resolveDeferredConstraints(result)
+	ch.deferred = append(saved, ch.deferred...)
+	return result
+}
+
 // tryUnify attempts to unify a and b, rolling back on failure.
 func (ch *Checker) tryUnify(a, b types.Type) bool {
 	return ch.withTrial(func() bool {

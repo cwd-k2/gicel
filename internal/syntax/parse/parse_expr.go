@@ -3,27 +3,27 @@ package parse
 import (
 	"fmt"
 
-	. "github.com/cwd-k2/gicel/internal/syntax" //nolint:revive // dot import for tightly-coupled subpackage
+	syn "github.com/cwd-k2/gicel/internal/syntax"
 
 	"github.com/cwd-k2/gicel/internal/span"
 )
 
 // --- Expressions ---
 
-func (p *Parser) parseExpr() Expr {
+func (p *Parser) parseExpr() syn.Expr {
 	if !p.enterRecurse() {
-		return &ExprVar{Name: "<error>", S: span.Span{Start: span.Pos(p.pos), End: span.Pos(p.pos)}}
+		return &syn.ExprVar{Name: "<error>", S: span.Span{Start: span.Pos(p.pos), End: span.Pos(p.pos)}}
 	}
 	defer p.leaveRecurse()
 	return p.parseAnnotation()
 }
 
-func (p *Parser) parseAnnotation() Expr {
+func (p *Parser) parseAnnotation() syn.Expr {
 	e := p.parseInfix(0)
-	if p.peek().Kind == TokColonColon {
+	if p.peek().Kind == syn.TokColonColon {
 		p.advance()
 		ty := p.parseType()
-		return &ExprAnn{
+		return &syn.ExprAnn{
 			Expr: e, AnnType: ty,
 			S: span.Span{Start: e.Span().Start, End: p.prevEnd()},
 		}
@@ -31,7 +31,7 @@ func (p *Parser) parseAnnotation() Expr {
 	return e
 }
 
-func (p *Parser) parseInfix(minPrec int) Expr {
+func (p *Parser) parseInfix(minPrec int) syn.Expr {
 	left := p.parseApp()
 	return p.continueInfix(left, minPrec)
 }
@@ -39,7 +39,7 @@ func (p *Parser) parseInfix(minPrec int) Expr {
 // continueInfix parses the infix portion of an expression, given an
 // already-parsed left operand. This enables parseParen to detect
 // left operator sections between parseApp and infix continuation.
-func (p *Parser) continueInfix(left Expr, minPrec int) Expr {
+func (p *Parser) continueInfix(left syn.Expr, minPrec int) syn.Expr {
 	prevNonePrec := -1 // precedence of last non-associative op, or -1
 	for p.isInfixOp() {
 		op := p.peek().Text
@@ -55,15 +55,15 @@ func (p *Parser) continueInfix(left Expr, minPrec int) Expr {
 		}
 		p.advance()
 		nextMin := fix.Prec + 1
-		if fix.Assoc == AssocRight {
+		if fix.Assoc == syn.AssocRight {
 			nextMin = fix.Prec
 		}
 		right := p.parseInfix(nextMin)
-		left = &ExprInfix{
+		left = &syn.ExprInfix{
 			Left: left, Op: op, Right: right,
 			S: span.Span{Start: left.Span().Start, End: right.Span().End},
 		}
-		if fix.Assoc == AssocNone {
+		if fix.Assoc == syn.AssocNone {
 			prevNonePrec = fix.Prec
 		} else {
 			prevNonePrec = -1
@@ -73,29 +73,29 @@ func (p *Parser) continueInfix(left Expr, minPrec int) Expr {
 }
 
 // isInfixOp returns true if the current token can act as an infix operator.
-// TokDot (.) is treated as an operator in expression context.
+// syn.TokDot (.) is treated as an operator in expression context.
 func (p *Parser) isInfixOp() bool {
 	k := p.peek().Kind
-	return k == TokOp || k == TokDot
+	return k == syn.TokOp || k == syn.TokDot
 }
 
-func (p *Parser) parseApp() Expr {
+func (p *Parser) parseApp() syn.Expr {
 	f := p.parseAtom()
 	if f == nil {
 		p.addError("expected expression")
-		return &ExprVar{Name: "<error>", S: span.Span{Start: span.Pos(p.pos), End: span.Pos(p.pos)}}
+		return &syn.ExprVar{Name: "<error>", S: span.Span{Start: span.Pos(p.pos), End: span.Pos(p.pos)}}
 	}
-	for (p.isAtomStart() || p.peek().Kind == TokAt) && !p.atDeclBoundary() {
-		if p.peek().Kind == TokAt {
+	for (p.isAtomStart() || p.peek().Kind == syn.TokAt) && !p.atDeclBoundary() {
+		if p.peek().Kind == syn.TokAt {
 			p.advance()
 			ty := p.parseTypeAtom()
-			f = &ExprTyApp{
+			f = &syn.ExprTyApp{
 				Expr: f, TyArg: ty,
 				S: span.Span{Start: f.Span().Start, End: p.prevEnd()},
 			}
 		} else {
 			arg := p.parseAtom()
-			f = &ExprApp{
+			f = &syn.ExprApp{
 				Fun: f, Arg: arg,
 				S: span.Span{Start: f.Span().Start, End: arg.Span().End},
 			}
@@ -104,46 +104,46 @@ func (p *Parser) parseApp() Expr {
 	return f
 }
 
-func (p *Parser) parseAtom() Expr {
-	var e Expr
+func (p *Parser) parseAtom() syn.Expr {
+	var e syn.Expr
 	switch p.peek().Kind {
-	case TokLower:
+	case syn.TokLower:
 		tok := p.peek()
 		p.advance()
-		e = &ExprVar{Name: tok.Text, S: tok.S}
-	case TokUpper:
+		e = &syn.ExprVar{Name: tok.Text, S: tok.S}
+	case syn.TokUpper:
 		tok := p.peek()
 		p.advance()
-		// Qualified name: Upper.lower → ExprQualVar, Upper.Upper → ExprQualCon
+		// Qualified name: Upper.lower → syn.ExprQualVar, Upper.Upper → syn.ExprQualCon
 		// Requires all three tokens to be adjacent (no whitespace).
 		if e2 := p.tryQualifiedExpr(tok); e2 != nil {
 			e = e2
 		} else {
-			e = &ExprCon{Name: tok.Text, S: tok.S}
+			e = &syn.ExprCon{Name: tok.Text, S: tok.S}
 		}
-	case TokLParen:
+	case syn.TokLParen:
 		e = p.parseParen()
-	case TokBackslash:
+	case syn.TokBackslash:
 		e = p.parseLambda()
-	case TokCase:
+	case syn.TokCase:
 		e = p.parseCase()
-	case TokDo:
+	case syn.TokDo:
 		e = p.parseDo()
-	case TokLBrace:
+	case syn.TokLBrace:
 		e = p.parseBlock()
-	case TokIntLit:
+	case syn.TokIntLit:
 		tok := p.peek()
 		p.advance()
-		e = &ExprIntLit{Value: tok.Text, S: tok.S}
-	case TokDoubleLit:
+		e = &syn.ExprIntLit{Value: tok.Text, S: tok.S}
+	case syn.TokDoubleLit:
 		tok := p.peek()
 		p.advance()
-		e = &ExprDoubleLit{Value: tok.Text, S: tok.S}
-	case TokStrLit:
+		e = &syn.ExprDoubleLit{Value: tok.Text, S: tok.S}
+	case syn.TokStrLit:
 		tok := p.peek()
 		p.advance()
-		e = &ExprStrLit{Value: tok.Text, S: tok.S}
-	case TokRuneLit:
+		e = &syn.ExprStrLit{Value: tok.Text, S: tok.S}
+	case syn.TokRuneLit:
 		tok := p.peek()
 		p.advance()
 		runes := []rune(tok.Text)
@@ -151,57 +151,57 @@ func (p *Parser) parseAtom() Expr {
 		if len(runes) > 0 {
 			r = runes[0]
 		}
-		e = &ExprRuneLit{Value: r, S: tok.S}
-	case TokLBracket:
+		e = &syn.ExprRuneLit{Value: r, S: tok.S}
+	case syn.TokLBracket:
 		e = p.parseListLit()
 	default:
 		return nil
 	}
 	// Chain record projections: r.#x.#y → Project(Project(r, "x"), "y")
-	for p.peek().Kind == TokDotHash {
+	for p.peek().Kind == syn.TokDotHash {
 		p.advance()
 		label := p.expectLower()
-		e = &ExprProject{Record: e, Label: label, S: span.Span{Start: e.Span().Start, End: p.prevEnd()}}
+		e = &syn.ExprProject{Record: e, Label: label, S: span.Span{Start: e.Span().Start, End: p.prevEnd()}}
 	}
 	return e
 }
 
-func (p *Parser) parseParen() Expr {
+func (p *Parser) parseParen() syn.Expr {
 	if !p.enterRecurse() {
-		return &ExprVar{Name: "<error>", S: span.Span{Start: span.Pos(p.pos), End: span.Pos(p.pos)}}
+		return &syn.ExprVar{Name: "<error>", S: span.Span{Start: span.Pos(p.pos), End: span.Pos(p.pos)}}
 	}
 	defer p.leaveRecurse()
 	start := p.peek().S.Start
-	p.expect(TokLParen)
+	p.expect(syn.TokLParen)
 
 	// () → unit (empty record)
-	if p.peek().Kind == TokRParen {
+	if p.peek().Kind == syn.TokRParen {
 		p.advance()
-		return &ExprRecord{S: span.Span{Start: start, End: p.prevEnd()}}
+		return &syn.ExprRecord{S: span.Span{Start: start, End: p.prevEnd()}}
 	}
 
 	// (op) → operator as value reference
 	// (op expr) → right section: \x -> x op expr
-	if p.peek().Kind == TokOp || p.peek().Kind == TokDot {
+	if p.peek().Kind == syn.TokOp || p.peek().Kind == syn.TokDot {
 		opTok := p.peek()
 		opName := opTok.Text
-		if opTok.Kind == TokDot {
+		if opTok.Kind == syn.TokDot {
 			opName = "."
 		}
 		// Check for (op) — operator as value
-		if p.pos+1 < len(p.tokens) && p.tokens[p.pos+1].Kind == TokRParen {
+		if p.pos+1 < len(p.tokens) && p.tokens[p.pos+1].Kind == syn.TokRParen {
 			p.advance()
 			p.advance()
-			return &ExprVar{Name: opName, S: span.Span{Start: start, End: p.prevEnd()}}
+			return &syn.ExprVar{Name: opName, S: span.Span{Start: start, End: p.prevEnd()}}
 		}
 		// Try right section: (op expr)
 		saved := p.pos
 		savedErrLen := p.errors.Len()
 		p.advance() // skip op
 		arg := p.parseExpr()
-		if p.peek().Kind == TokRParen {
+		if p.peek().Kind == syn.TokRParen {
 			p.advance()
-			return &ExprSection{
+			return &syn.ExprSection{
 				Op: opName, Arg: arg, IsRight: true,
 				S: span.Span{Start: start, End: p.prevEnd()},
 			}
@@ -215,19 +215,19 @@ func (p *Parser) parseParen() Expr {
 	// so we can detect left sections like (1 +).
 	firstApp := p.parseApp()
 	if firstApp == nil {
-		firstApp = &ExprVar{Name: "<error>", S: span.Span{Start: span.Pos(p.pos), End: span.Pos(p.pos)}}
+		firstApp = &syn.ExprVar{Name: "<error>", S: span.Span{Start: span.Pos(p.pos), End: span.Pos(p.pos)}}
 	}
 
 	// (e op) → left section: \x -> e op x
-	if p.isInfixOp() && p.pos+1 < len(p.tokens) && p.tokens[p.pos+1].Kind == TokRParen {
+	if p.isInfixOp() && p.pos+1 < len(p.tokens) && p.tokens[p.pos+1].Kind == syn.TokRParen {
 		opTok := p.peek()
 		opName := opTok.Text
-		if opTok.Kind == TokDot {
+		if opTok.Kind == syn.TokDot {
 			opName = "."
 		}
 		p.advance() // skip op
 		p.advance() // skip )
-		return &ExprSection{
+		return &syn.ExprSection{
 			Op: opName, Arg: firstApp, IsRight: false,
 			S: span.Span{Start: start, End: p.prevEnd()},
 		}
@@ -235,126 +235,126 @@ func (p *Parser) parseParen() Expr {
 
 	// Continue with infix + annotation parsing.
 	e := p.continueInfix(firstApp, 0)
-	if p.peek().Kind == TokColonColon {
+	if p.peek().Kind == syn.TokColonColon {
 		p.advance()
 		ty := p.parseType()
-		e = &ExprAnn{Expr: e, AnnType: ty, S: span.Span{Start: e.Span().Start, End: p.prevEnd()}}
+		e = &syn.ExprAnn{Expr: e, AnnType: ty, S: span.Span{Start: e.Span().Start, End: p.prevEnd()}}
 	}
 
 	// (e) → grouping
-	if p.peek().Kind == TokRParen {
+	if p.peek().Kind == syn.TokRParen {
 		p.advance()
-		return &ExprParen{Inner: e, S: span.Span{Start: start, End: p.prevEnd()}}
+		return &syn.ExprParen{Inner: e, S: span.Span{Start: start, End: p.prevEnd()}}
 	}
 
 	// (e1, e2, ...) → tuple (desugars to record with _1, _2, ...)
-	if p.peek().Kind == TokComma {
-		elems := []Expr{e}
-		for p.peek().Kind == TokComma {
+	if p.peek().Kind == syn.TokComma {
+		elems := []syn.Expr{e}
+		for p.peek().Kind == syn.TokComma {
 			p.advance()
 			elems = append(elems, p.parseExpr())
 		}
-		p.expect(TokRParen)
-		fields := make([]RecordField, len(elems))
+		p.expect(syn.TokRParen)
+		fields := make([]syn.RecordField, len(elems))
 		for i, el := range elems {
-			fields[i] = RecordField{
+			fields[i] = syn.RecordField{
 				Label: fmt.Sprintf("_%d", i+1),
 				Value: el,
 				S:     el.Span(),
 			}
 		}
-		return &ExprRecord{Fields: fields, S: span.Span{Start: start, End: p.prevEnd()}}
+		return &syn.ExprRecord{Fields: fields, S: span.Span{Start: start, End: p.prevEnd()}}
 	}
 
-	p.expect(TokRParen)
-	return &ExprParen{Inner: e, S: span.Span{Start: start, End: p.prevEnd()}}
+	p.expect(syn.TokRParen)
+	return &syn.ExprParen{Inner: e, S: span.Span{Start: start, End: p.prevEnd()}}
 }
 
-func (p *Parser) parseLambda() Expr {
+func (p *Parser) parseLambda() syn.Expr {
 	start := p.peek().S.Start
-	p.expect(TokBackslash)
-	var params []Pattern
+	p.expect(syn.TokBackslash)
+	var params []syn.Pattern
 	for p.isPatternAtomStart() {
 		params = append(params, p.parsePatternAtom())
 	}
-	p.expect(TokDot)
+	p.expect(syn.TokDot)
 	body := p.parseExpr()
-	return &ExprLam{
+	return &syn.ExprLam{
 		Params: params, Body: body,
 		S: span.Span{Start: start, End: p.prevEnd()},
 	}
 }
 
-func (p *Parser) parseCase() Expr {
+func (p *Parser) parseCase() syn.Expr {
 	start := p.peek().S.Start
-	p.expect(TokCase)
+	p.expect(syn.TokCase)
 	p.noBraceAtom = true
 	scrut := p.parseExpr()
 	p.noBraceAtom = false
-	p.expect(TokLBrace)
-	var alts []AstAlt
-	for p.peek().Kind != TokRBrace && p.peek().Kind != TokEOF {
+	p.expect(syn.TokLBrace)
+	var alts []syn.AstAlt
+	for p.peek().Kind != syn.TokRBrace && p.peek().Kind != syn.TokEOF {
 		before := p.pos
 		alt := p.parseAlt()
 		alts = append(alts, alt)
-		if p.peek().Kind == TokSemicolon {
+		if p.peek().Kind == syn.TokSemicolon {
 			p.advance()
 		} else if p.pos == before {
 			p.addError("unexpected token in case expression")
 			p.advance()
 		}
 	}
-	p.expect(TokRBrace)
-	return &ExprCase{
+	p.expect(syn.TokRBrace)
+	return &syn.ExprCase{
 		Scrutinee: scrut, Alts: alts,
 		S: span.Span{Start: start, End: p.prevEnd()},
 	}
 }
 
-func (p *Parser) parseAlt() AstAlt {
+func (p *Parser) parseAlt() syn.AstAlt {
 	start := p.peek().S.Start
 	pat := p.parsePattern()
-	p.expect(TokArrow)
+	p.expect(syn.TokArrow)
 	body := p.parseExpr()
-	return AstAlt{
+	return syn.AstAlt{
 		Pattern: pat, Body: body,
 		S: span.Span{Start: start, End: p.prevEnd()},
 	}
 }
 
-func (p *Parser) parseDo() Expr {
+func (p *Parser) parseDo() syn.Expr {
 	start := p.peek().S.Start
-	p.expect(TokDo)
-	p.expect(TokLBrace)
-	var stmts []Stmt
-	for p.peek().Kind != TokRBrace && p.peek().Kind != TokEOF {
+	p.expect(syn.TokDo)
+	p.expect(syn.TokLBrace)
+	var stmts []syn.Stmt
+	for p.peek().Kind != syn.TokRBrace && p.peek().Kind != syn.TokEOF {
 		before := p.pos
 		stmt := p.parseStmt()
 		stmts = append(stmts, stmt)
-		if p.peek().Kind == TokSemicolon {
+		if p.peek().Kind == syn.TokSemicolon {
 			p.advance()
 		} else if p.pos == before {
 			p.addError("unexpected token in do-block")
 			p.advance()
 		}
 	}
-	p.expect(TokRBrace)
-	return &ExprDo{
+	p.expect(syn.TokRBrace)
+	return &syn.ExprDo{
 		Stmts: stmts,
 		S:     span.Span{Start: start, End: p.prevEnd()},
 	}
 }
 
-func (p *Parser) parseStmt() Stmt {
+func (p *Parser) parseStmt() syn.Stmt {
 	start := p.peek().S.Start
 	// Try: _ <- expr (wildcard bind)
-	if p.peek().Kind == TokUnderscore {
+	if p.peek().Kind == syn.TokUnderscore {
 		saved := p.pos
 		p.advance()
-		if p.peek().Kind == TokLArrow {
+		if p.peek().Kind == syn.TokLArrow {
 			p.advance()
 			comp := p.parseExpr()
-			return &StmtBind{
+			return &syn.StmtBind{
 				Var: "_", Comp: comp,
 				S: span.Span{Start: start, End: p.prevEnd()},
 			}
@@ -363,22 +363,22 @@ func (p *Parser) parseStmt() Stmt {
 		p.pos = saved
 	}
 	// Try: name <- expr  or  name := expr
-	if p.peek().Kind == TokLower {
+	if p.peek().Kind == syn.TokLower {
 		name := p.peek().Text
 		saved := p.pos
 		p.advance()
-		if p.peek().Kind == TokLArrow {
+		if p.peek().Kind == syn.TokLArrow {
 			p.advance()
 			comp := p.parseExpr()
-			return &StmtBind{
+			return &syn.StmtBind{
 				Var: name, Comp: comp,
 				S: span.Span{Start: start, End: p.prevEnd()},
 			}
 		}
-		if p.peek().Kind == TokColonEq {
+		if p.peek().Kind == syn.TokColonEq {
 			p.advance()
 			expr := p.parseExpr()
-			return &StmtPureBind{
+			return &syn.StmtPureBind{
 				Var: name, Expr: expr,
 				S: span.Span{Start: start, End: p.prevEnd()},
 			}
@@ -387,33 +387,33 @@ func (p *Parser) parseStmt() Stmt {
 		p.pos = saved
 	}
 	expr := p.parseExpr()
-	return &StmtExpr{
+	return &syn.StmtExpr{
 		Expr: expr,
 		S:    span.Span{Start: start, End: p.prevEnd()},
 	}
 }
 
-func (p *Parser) parseBlock() Expr {
+func (p *Parser) parseBlock() syn.Expr {
 	start := p.peek().S.Start
-	p.expect(TokLBrace)
+	p.expect(syn.TokLBrace)
 
 	// {} → empty record
-	if p.peek().Kind == TokRBrace {
+	if p.peek().Kind == syn.TokRBrace {
 		p.advance()
-		return &ExprRecord{S: span.Span{Start: start, End: p.prevEnd()}}
+		return &syn.ExprRecord{S: span.Span{Start: start, End: p.prevEnd()}}
 	}
 
 	// Disambiguate: record literal vs record update vs block.
 	// Peek at first name followed by = (record) vs := (block).
-	if p.peek().Kind == TokLower {
+	if p.peek().Kind == syn.TokLower {
 		saved := p.pos
 		p.advance() // skip name
 		switch p.peek().Kind {
-		case TokColon:
+		case syn.TokColon:
 			// name: ... → record literal
 			p.pos = saved
 			return p.parseRecordLiteral(start)
-		case TokPipe:
+		case syn.TokPipe:
 			// name | ... → record update (name is the record expression)
 			p.pos = saved
 			return p.parseRecordUpdate(start)
@@ -430,7 +430,7 @@ func (p *Parser) parseBlock() Expr {
 	savedForUpdate := p.pos
 	savedErrLen := p.errors.Len()
 	firstExpr := p.parseExpr()
-	if p.peek().Kind == TokPipe {
+	if p.peek().Kind == syn.TokPipe {
 		p.advance() // skip |
 		return p.parseRecordUpdateFields(start, firstExpr)
 	}
@@ -439,19 +439,19 @@ func (p *Parser) parseBlock() Expr {
 	p.errors.Truncate(savedErrLen)
 
 	// Block expression with bindings.
-	var binds []AstBind
-	for p.peek().Kind == TokLower {
+	var binds []syn.AstBind
+	for p.peek().Kind == syn.TokLower {
 		saved := p.pos
 		name := p.peek().Text
 		p.advance()
-		if p.peek().Kind == TokColonEq {
+		if p.peek().Kind == syn.TokColonEq {
 			p.advance()
 			expr := p.parseExpr()
-			binds = append(binds, AstBind{
+			binds = append(binds, syn.AstBind{
 				Var: name, Expr: expr,
 				S: span.Span{Start: span.Pos(saved), End: p.prevEnd()},
 			})
-			if p.peek().Kind == TokSemicolon {
+			if p.peek().Kind == syn.TokSemicolon {
 				p.advance()
 			}
 		} else {
@@ -462,267 +462,77 @@ func (p *Parser) parseBlock() Expr {
 	}
 
 	body := p.parseExpr()
-	p.expect(TokRBrace)
-	return &ExprBlock{
+	p.expect(syn.TokRBrace)
+	return &syn.ExprBlock{
 		Binds: binds, Body: body,
 		S: span.Span{Start: start, End: p.prevEnd()},
 	}
 }
 
-func (p *Parser) parseRecordLiteral(start span.Pos) Expr {
-	var fields []RecordField
-	for p.peek().Kind != TokRBrace && p.peek().Kind != TokEOF {
+func (p *Parser) parseRecordLiteral(start span.Pos) syn.Expr {
+	var fields []syn.RecordField
+	for p.peek().Kind != syn.TokRBrace && p.peek().Kind != syn.TokEOF {
 		fStart := p.peek().S.Start
 		label := p.expectLower()
-		p.expect(TokColon)
+		p.expect(syn.TokColon)
 		value := p.parseExpr()
-		fields = append(fields, RecordField{
+		fields = append(fields, syn.RecordField{
 			Label: label, Value: value,
 			S: span.Span{Start: fStart, End: p.prevEnd()},
 		})
-		if p.peek().Kind == TokComma {
+		if p.peek().Kind == syn.TokComma {
 			p.advance()
 		} else {
 			break
 		}
 	}
-	p.expect(TokRBrace)
-	return &ExprRecord{Fields: fields, S: span.Span{Start: start, End: p.prevEnd()}}
+	p.expect(syn.TokRBrace)
+	return &syn.ExprRecord{Fields: fields, S: span.Span{Start: start, End: p.prevEnd()}}
 }
 
-func (p *Parser) parseRecordUpdate(start span.Pos) Expr {
+func (p *Parser) parseRecordUpdate(start span.Pos) syn.Expr {
 	record := p.parseExpr()
-	p.expect(TokPipe)
+	p.expect(syn.TokPipe)
 	return p.parseRecordUpdateFields(start, record)
 }
 
-func (p *Parser) parseRecordUpdateFields(start span.Pos, record Expr) Expr {
-	var updates []RecordField
-	for p.peek().Kind != TokRBrace && p.peek().Kind != TokEOF {
+func (p *Parser) parseRecordUpdateFields(start span.Pos, record syn.Expr) syn.Expr {
+	var updates []syn.RecordField
+	for p.peek().Kind != syn.TokRBrace && p.peek().Kind != syn.TokEOF {
 		fStart := p.peek().S.Start
 		label := p.expectLower()
-		p.expect(TokColon)
+		p.expect(syn.TokColon)
 		value := p.parseExpr()
-		updates = append(updates, RecordField{
+		updates = append(updates, syn.RecordField{
 			Label: label, Value: value,
 			S: span.Span{Start: fStart, End: p.prevEnd()},
 		})
-		if p.peek().Kind == TokComma {
+		if p.peek().Kind == syn.TokComma {
 			p.advance()
 		} else {
 			break
 		}
 	}
-	p.expect(TokRBrace)
-	return &ExprRecordUpdate{
+	p.expect(syn.TokRBrace)
+	return &syn.ExprRecordUpdate{
 		Record: record, Updates: updates,
 		S: span.Span{Start: start, End: p.prevEnd()},
 	}
 }
 
-// --- Patterns ---
-
-func (p *Parser) parsePattern() Pattern {
-	if !p.enterRecurse() {
-		return &PatWild{S: span.Span{Start: span.Pos(p.pos), End: span.Pos(p.pos)}}
-	}
-	defer p.leaveRecurse()
-	switch p.peek().Kind {
-	case TokUpper:
-		return p.parseConPattern()
-	case TokLower:
-		tok := p.peek()
-		p.advance()
-		return &PatVar{Name: tok.Text, S: tok.S}
-	case TokUnderscore:
-		tok := p.peek()
-		p.advance()
-		return &PatWild{S: tok.S}
-	case TokIntLit, TokDoubleLit, TokStrLit, TokRuneLit:
-		return p.parseLitPattern()
-	case TokLParen:
-		start := p.peek().S.Start
-		p.advance()
-		// () → unit pattern (empty record pattern)
-		if p.peek().Kind == TokRParen {
-			p.advance()
-			return &PatRecord{S: span.Span{Start: start, End: p.prevEnd()}}
-		}
-		inner := p.parsePattern()
-		if p.peek().Kind == TokComma {
-			return p.parseTuplePatternTail(start, inner)
-		}
-		p.expect(TokRParen)
-		return &PatParen{Inner: inner, S: span.Span{Start: start, End: p.prevEnd()}}
-	case TokLBrace:
-		return p.parseRecordPattern()
-	default:
-		p.addError("expected pattern")
-		tok := p.peek()
-		p.advance()
-		return &PatWild{S: tok.S}
-	}
-}
-
-func (p *Parser) parseConPattern() Pattern {
+func (p *Parser) parseListLit() syn.Expr {
 	start := p.peek().S.Start
-	tok := p.peek()
-	name := p.expectUpper()
-	// Qualified constructor pattern: Q.Con — adjacency-disambiguated.
-	qualifier := ""
-	if p.peek().Kind == TokDot && tokensAdjacent(tok, p.peek()) {
-		if p.pos+1 < len(p.tokens) && p.tokens[p.pos+1].Kind == TokUpper && tokensAdjacent(p.peek(), p.tokens[p.pos+1]) {
-			qualifier = name
-			p.advance() // skip .
-			name = p.expectUpper()
-		}
-	}
-	var args []Pattern
-	for p.isPatternAtomStart() {
-		args = append(args, p.parsePatternAtom())
-	}
-	s := span.Span{Start: start, End: p.prevEnd()}
-	if qualifier != "" {
-		return &PatQualCon{Qualifier: qualifier, Con: name, Args: args, S: s}
-	}
-	if len(args) == 0 {
-		return &PatCon{Con: name, S: s}
-	}
-	return &PatCon{Con: name, Args: args, S: s}
-}
-
-func (p *Parser) parseRecordPattern() Pattern {
-	start := p.peek().S.Start
-	p.expect(TokLBrace)
-	var fields []PatRecordField
-	if p.peek().Kind != TokRBrace {
-		for {
-			fStart := p.peek().S.Start
-			label := p.expectLower()
-			p.expect(TokColon)
-			pat := p.parsePattern()
-			fields = append(fields, PatRecordField{
-				Label: label, Pattern: pat,
-				S: span.Span{Start: fStart, End: p.prevEnd()},
-			})
-			if p.peek().Kind == TokComma {
-				p.advance()
-			} else {
-				break
-			}
-		}
-	}
-	p.expect(TokRBrace)
-	return &PatRecord{Fields: fields, S: span.Span{Start: start, End: p.prevEnd()}}
-}
-
-func (p *Parser) parsePatternAtom() Pattern {
-	switch p.peek().Kind {
-	case TokLower:
-		tok := p.peek()
-		p.advance()
-		return &PatVar{Name: tok.Text, S: tok.S}
-	case TokUnderscore:
-		tok := p.peek()
-		p.advance()
-		return &PatWild{S: tok.S}
-	case TokUpper:
-		// Bare constructor as pattern atom (0-arg constructor in nested position).
-		// May be qualified: Q.Con
-		tok := p.peek()
-		p.advance()
-		if p.peek().Kind == TokDot && tokensAdjacent(tok, p.peek()) {
-			if p.pos+1 < len(p.tokens) && p.tokens[p.pos+1].Kind == TokUpper && tokensAdjacent(p.peek(), p.tokens[p.pos+1]) {
-				qualifier := tok.Text
-				p.advance() // skip .
-				conTok := p.peek()
-				p.advance() // consume Upper
-				return &PatQualCon{Qualifier: qualifier, Con: conTok.Text, S: span.Span{Start: tok.S.Start, End: conTok.S.End}}
-			}
-		}
-		return &PatCon{Con: tok.Text, S: tok.S}
-	case TokIntLit, TokDoubleLit, TokStrLit, TokRuneLit:
-		return p.parseLitPattern()
-	case TokLParen:
-		start := p.peek().S.Start
-		p.advance()
-		// () → unit pattern
-		if p.peek().Kind == TokRParen {
-			p.advance()
-			return &PatRecord{S: span.Span{Start: start, End: p.prevEnd()}}
-		}
-		inner := p.parsePattern()
-		// (p1, p2, ...) → tuple pattern
-		if p.peek().Kind == TokComma {
-			return p.parseTuplePatternTail(start, inner)
-		}
-		p.expect(TokRParen)
-		return &PatParen{Inner: inner, S: span.Span{Start: start, End: p.prevEnd()}}
-	case TokLBrace:
-		return p.parseRecordPattern()
-	default:
-		return nil
-	}
-}
-
-// parseTuplePatternTail parses the remaining comma-separated patterns after the first
-// element, closing the paren and returning a record pattern with _1, _2, ... labels.
-func (p *Parser) parseTuplePatternTail(start span.Pos, first Pattern) *PatRecord {
-	pats := []Pattern{first}
-	for p.peek().Kind == TokComma {
-		p.advance()
-		pats = append(pats, p.parsePattern())
-	}
-	p.expect(TokRParen)
-	fields := make([]PatRecordField, len(pats))
-	for i, pat := range pats {
-		fields[i] = PatRecordField{
-			Label:   fmt.Sprintf("_%d", i+1),
-			Pattern: pat,
-			S:       pat.Span(),
-		}
-	}
-	return &PatRecord{Fields: fields, S: span.Span{Start: start, End: p.prevEnd()}}
-}
-
-func (p *Parser) isPatternAtomStart() bool {
-	if p.atDeclBoundary() {
-		return false
-	}
-	k := p.peek().Kind
-	return k == TokLower || k == TokUnderscore || k == TokLParen || k == TokUpper || k == TokIntLit || k == TokDoubleLit || k == TokStrLit || k == TokRuneLit || k == TokLBrace
-}
-
-func (p *Parser) parseLitPattern() Pattern {
-	tok := p.peek()
-	p.advance()
-	var kind LitKind
-	switch tok.Kind {
-	case TokIntLit:
-		kind = LitInt
-	case TokDoubleLit:
-		kind = LitDouble
-	case TokStrLit:
-		kind = LitString
-	case TokRuneLit:
-		kind = LitRune
-	}
-	return &PatLit{Value: tok.Text, Kind: kind, S: tok.S}
-}
-
-func (p *Parser) parseListLit() Expr {
-	start := p.peek().S.Start
-	p.expect(TokLBracket)
-	var elems []Expr
-	if p.peek().Kind != TokRBracket {
+	p.expect(syn.TokLBracket)
+	var elems []syn.Expr
+	if p.peek().Kind != syn.TokRBracket {
 		elems = append(elems, p.parseExpr())
-		for p.peek().Kind == TokComma {
+		for p.peek().Kind == syn.TokComma {
 			p.advance()
 			elems = append(elems, p.parseExpr())
 		}
 	}
-	p.expect(TokRBracket)
-	return &ExprList{
+	p.expect(syn.TokRBracket)
+	return &syn.ExprList{
 		Elems: elems,
 		S:     span.Span{Start: start, End: p.prevEnd()},
 	}
@@ -732,8 +542,8 @@ func (p *Parser) parseListLit() Expr {
 // Upper.lower or Upper.Upper where all tokens are adjacent (no whitespace).
 // The Upper token has already been consumed and is passed as prevTok.
 // Returns nil if no qualified name is formed.
-func (p *Parser) tryQualifiedExpr(prevTok Token) Expr {
-	if p.peek().Kind != TokDot {
+func (p *Parser) tryQualifiedExpr(prevTok syn.Token) syn.Expr {
+	if p.peek().Kind != syn.TokDot {
 		return nil
 	}
 	dotTok := p.peek()
@@ -748,15 +558,15 @@ func (p *Parser) tryQualifiedExpr(prevTok Token) Expr {
 		return nil
 	}
 	switch nextTok.Kind {
-	case TokLower:
+	case syn.TokLower:
 		p.advance() // consume .
 		p.advance() // consume lower
-		return &ExprQualVar{Qualifier: prevTok.Text, Name: nextTok.Text,
+		return &syn.ExprQualVar{Qualifier: prevTok.Text, Name: nextTok.Text,
 			S: span.Span{Start: prevTok.S.Start, End: nextTok.S.End}}
-	case TokUpper:
+	case syn.TokUpper:
 		p.advance() // consume .
 		p.advance() // consume Upper
-		return &ExprQualCon{Qualifier: prevTok.Text, Name: nextTok.Text,
+		return &syn.ExprQualCon{Qualifier: prevTok.Text, Name: nextTok.Text,
 			S: span.Span{Start: prevTok.S.Start, End: nextTok.S.End}}
 	default:
 		return nil
@@ -768,8 +578,8 @@ func (p *Parser) isAtomStart() bool {
 		return false
 	}
 	k := p.peek().Kind
-	if p.noBraceAtom && k == TokLBrace {
+	if p.noBraceAtom && k == syn.TokLBrace {
 		return false
 	}
-	return k == TokLower || k == TokUpper || k == TokLParen || k == TokBackslash || k == TokLBrace || k == TokCase || k == TokDo || k == TokIntLit || k == TokDoubleLit || k == TokStrLit || k == TokRuneLit || k == TokLBracket
+	return k == syn.TokLower || k == syn.TokUpper || k == syn.TokLParen || k == syn.TokBackslash || k == syn.TokLBrace || k == syn.TokCase || k == syn.TokDo || k == syn.TokIntLit || k == syn.TokDoubleLit || k == syn.TokStrLit || k == syn.TokRuneLit || k == syn.TokLBracket
 }

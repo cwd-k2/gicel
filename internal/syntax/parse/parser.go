@@ -3,7 +3,7 @@ package parse
 import (
 	"maps"
 
-	. "github.com/cwd-k2/gicel/internal/syntax" //nolint:revive // dot import for tightly-coupled subpackage
+	syn "github.com/cwd-k2/gicel/internal/syntax"
 
 	"github.com/cwd-k2/gicel/internal/errs"
 	"github.com/cwd-k2/gicel/internal/span"
@@ -11,13 +11,13 @@ import (
 
 // Fixity holds operator precedence and associativity.
 type Fixity struct {
-	Assoc Assoc
+	Assoc syn.Assoc
 	Prec  int
 }
 
 // Parser is a Pratt parser for the surface language.
 type Parser struct {
-	tokens      []Token
+	tokens      []syn.Token
 	pos         int
 	fixity      map[string]Fixity
 	errors      *errs.Errors
@@ -33,7 +33,7 @@ type Parser struct {
 }
 
 // NewParser creates a parser from a token stream.
-func NewParser(tokens []Token, errors *errs.Errors) *Parser {
+func NewParser(tokens []syn.Token, errors *errs.Errors) *Parser {
 	maxSteps := max(len(tokens)*4, 100)
 	return &Parser{
 		tokens:          tokens,
@@ -51,7 +51,7 @@ func (p *Parser) AddFixity(fixity map[string]Fixity) {
 }
 
 // ParseProgram parses a complete program.
-func (p *Parser) ParseProgram() *AstProgram {
+func (p *Parser) ParseProgram() *syn.AstProgram {
 	// First pass: collect fixity declarations.
 	p.collectFixity()
 	p.pos = 0
@@ -59,31 +59,31 @@ func (p *Parser) ParseProgram() *AstProgram {
 	p.halted = false
 
 	// Parse imports first.
-	var imports []DeclImport
+	var imports []syn.DeclImport
 	p.skipSemicolons()
-	for p.peek().Kind == TokImport {
+	for p.peek().Kind == syn.TokImport {
 		imports = append(imports, p.parseImportDecl())
 		p.skipSemicolons()
 	}
 
-	var decls []Decl
-	for p.peek().Kind != TokEOF {
+	var decls []syn.Decl
+	for p.peek().Kind != syn.TokEOF {
 		d := p.parseDecl()
 		if d != nil {
 			decls = append(decls, d)
 		}
 		p.skipSemicolons()
 	}
-	return &AstProgram{Imports: imports, Decls: decls}
+	return &syn.AstProgram{Imports: imports, Decls: decls}
 }
 
 // ParseExpr parses a single expression.
-func (p *Parser) ParseExpr() Expr {
+func (p *Parser) ParseExpr() syn.Expr {
 	return p.parseExpr()
 }
 
 // ParseType parses a type expression.
-func (p *Parser) ParseType() TypeExpr {
+func (p *Parser) ParseType() syn.TypeExpr {
 	return p.parseType()
 }
 
@@ -93,35 +93,35 @@ func (p *Parser) ParseType() TypeExpr {
 // --- Helpers ---
 
 func (p *Parser) skipSemicolons() {
-	for p.peek().Kind == TokSemicolon {
+	for p.peek().Kind == syn.TokSemicolon {
 		p.advance()
 	}
 }
 
-func (p *Parser) peek() Token {
+func (p *Parser) peek() syn.Token {
 	if p.halted || p.pos >= len(p.tokens) {
-		return Token{Kind: TokEOF}
+		return syn.Token{Kind: syn.TokEOF}
 	}
 	return p.tokens[p.pos]
 }
 
-func (p *Parser) advance() Token {
+func (p *Parser) advance() syn.Token {
 	if p.halted {
-		return Token{Kind: TokEOF}
+		return syn.Token{Kind: syn.TokEOF}
 	}
 	p.steps++
 	if p.steps > p.maxSteps {
 		p.halt("parser step limit exceeded")
-		return Token{Kind: TokEOF}
+		return syn.Token{Kind: syn.TokEOF}
 	}
 	tok := p.peek()
 	if p.pos < len(p.tokens) {
 		p.pos++
 	}
 	switch tok.Kind {
-	case TokLParen, TokLBrace, TokLBracket:
+	case syn.TokLParen, syn.TokLBrace, syn.TokLBracket:
 		p.depth++
-	case TokRParen, TokRBrace, TokRBracket:
+	case syn.TokRParen, syn.TokRBrace, syn.TokRBracket:
 		if p.depth > 0 {
 			p.depth--
 		}
@@ -153,11 +153,11 @@ func (p *Parser) halt(msg string) {
 	}
 }
 
-func (p *Parser) expect(kind TokenKind) Token {
+func (p *Parser) expect(kind syn.TokenKind) syn.Token {
 	tok := p.peek()
 	if tok.Kind != kind {
 		p.addError("expected " + kind.String())
-		if tok.Kind != TokEOF {
+		if tok.Kind != syn.TokEOF {
 			p.advance() // skip unexpected token to prevent parser stalling
 		}
 		return tok
@@ -167,7 +167,7 @@ func (p *Parser) expect(kind TokenKind) Token {
 
 func (p *Parser) expectUpper() string {
 	tok := p.peek()
-	if tok.Kind != TokUpper {
+	if tok.Kind != syn.TokUpper {
 		p.addError("expected uppercase identifier")
 		return "<error>"
 	}
@@ -177,7 +177,7 @@ func (p *Parser) expectUpper() string {
 
 func (p *Parser) expectLower() string {
 	tok := p.peek()
-	if tok.Kind != TokLower {
+	if tok.Kind != syn.TokLower {
 		p.addError("expected identifier")
 		return "<error>"
 	}
@@ -204,9 +204,9 @@ func (p *Parser) atDeclBoundary() bool {
 		return false
 	}
 	switch tok.Kind {
-	case TokLower, TokUpper, TokData, TokType, TokInfixl, TokInfixr, TokInfixn, TokClass, TokInstance, TokImport:
+	case syn.TokLower, syn.TokUpper, syn.TokData, syn.TokType, syn.TokInfixl, syn.TokInfixr, syn.TokInfixn, syn.TokClass, syn.TokInstance, syn.TokImport:
 		return true
-	case TokLParen:
+	case syn.TokLParen:
 		// (op) declaration pattern
 		return p.isOperatorDeclStart()
 	}
@@ -218,18 +218,18 @@ func (p *Parser) isTypeAtomStart() bool {
 		return false
 	}
 	k := p.peek().Kind
-	return k == TokLower || k == TokUpper || k == TokLParen || k == TokLBrace || k == TokUnderscore
+	return k == syn.TokLower || k == syn.TokUpper || k == syn.TokLParen || k == syn.TokLBrace || k == syn.TokUnderscore
 }
 
 func (p *Parser) lookupFixity(op string) Fixity {
 	if f, ok := p.fixity[op]; ok {
 		return f
 	}
-	return Fixity{Assoc: AssocLeft, Prec: 9} // default
+	return Fixity{Assoc: syn.AssocLeft, Prec: 9} // default
 }
 
 // tokensAdjacent checks if two tokens have no whitespace between them.
-func tokensAdjacent(a, b Token) bool {
+func tokensAdjacent(a, b syn.Token) bool {
 	return a.S.End == b.S.Start
 }
 
