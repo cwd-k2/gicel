@@ -84,6 +84,7 @@ func (u *Unifier) registerEvCapLabels(fields []types.RowField, tail types.Type) 
 				labels[l] = struct{}{}
 			}
 		}
+		u.trailLabelWrite(m.ID)
 		u.labels[m.ID] = labels
 	}
 }

@@ -63,6 +63,7 @@ func (u *Unifier) solveKindMeta(m *types.KMeta, k types.Kind) error {
 	if u.kindOccursIn(m.ID, k) {
 		return &UnifyError{Kind: UnifyOccursCheck, Detail: fmt.Sprintf("infinite kind: ?k%d occurs in %s", m.ID, k)}
 	}
+	u.trailKindWrite(m.ID)
 	u.kindSoln[m.ID] = k
 	return nil
 }
@@ -89,6 +90,7 @@ func (u *Unifier) ZonkKind(k types.Kind) types.Kind {
 		}
 		result := u.ZonkKind(soln)
 		if result != soln {
+			u.trailKindWrite(kk.ID)
 			u.kindSoln[kk.ID] = result // path compression
 		}
 		return result

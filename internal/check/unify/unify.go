@@ -2,7 +2,6 @@ package unify
 
 import (
 	"fmt"
-	"maps"
 
 	"github.com/cwd-k2/gicel/internal/types"
 )
@@ -32,12 +31,36 @@ type AliasExpander func(types.Type) types.Type
 // FamilyReducer is a callback for reducing type family applications during unification.
 type FamilyReducer func(types.Type) types.Type
 
+// trailTag discriminates the three maps that a trail entry can target.
+type trailTag byte
+
+const (
+	trailSoln     trailTag = iota // soln map
+	trailLabel                    // labels map
+	trailKindSoln                 // kindSoln map
+)
+
+// trailEntry records a single map mutation for undo-log rollback.
+// On Restore, entries are replayed in reverse order, restoring the
+// pre-mutation value (or deleting the key if it did not exist).
+type trailEntry struct {
+	tag     trailTag
+	id      int
+	existed bool
+	oldType types.Type             // valid when tag == trailSoln
+	oldLbl  map[string]struct{}    // valid when tag == trailLabel
+	oldKind types.Kind             // valid when tag == trailKindSoln
+}
+
 // Unifier manages type unification.
 type Unifier struct {
 	soln     map[int]types.Type
 	labels   map[int]map[string]struct{}
 	kindSoln map[int]types.Kind // kind metavariable solutions
 	freshID  *int
+
+	// Undo trail for O(1) snapshot / O(k) restore.
+	trail []trailEntry
 
 	AliasExpander AliasExpander // optional; set by Checker after alias processing
 	FamilyReducer FamilyReducer // optional; set by Checker after type family processing
@@ -77,6 +100,7 @@ func (u *Unifier) Solve(id int) types.Type {
 // InstallTempSolution registers a temporary solution for a metavariable.
 // The caller must call RemoveTempSolution when done. Used by let-generalization
 // to substitute metas with type variables for Zonk, then clean up.
+// NOT trailed: callers manage the lifecycle manually outside trial scopes.
 func (u *Unifier) InstallTempSolution(id int, ty types.Type) {
 	u.soln[id] = ty
 }
@@ -101,58 +125,77 @@ func (u *Unifier) KindSolutions() map[int]types.Kind {
 	return u.kindSoln
 }
 
-// Snapshot captures solutions, label contexts, and kind solutions for rollback.
+// ---------------------------------------------------------------------------
+// Trail-based snapshot / restore
+// ---------------------------------------------------------------------------
+
+// Snapshot records the current trail position for later rollback.
+// O(1) — no map copying.
 type Snapshot struct {
-	soln     map[int]types.Type
-	labels   map[int]map[string]struct{}
-	kindSoln map[int]types.Kind
+	pos int
 }
 
 // Snapshot captures the current unifier state for later rollback.
 func (u *Unifier) Snapshot() Snapshot {
-	soln := make(map[int]types.Type, len(u.soln))
-	maps.Copy(soln, u.soln)
-	labels := make(map[int]map[string]struct{}, len(u.labels))
-	for k, v := range u.labels {
-		inner := make(map[string]struct{}, len(v))
-		for label := range v {
-			inner[label] = struct{}{}
-		}
-		labels[k] = inner
-	}
-	kindSoln := make(map[int]types.Kind, len(u.kindSoln))
-	maps.Copy(kindSoln, u.kindSoln)
-	return Snapshot{
-		soln:     soln,
-		labels:   labels,
-		kindSoln: kindSoln,
-	}
+	return Snapshot{pos: len(u.trail)}
 }
 
-// Restore rolls back the unifier to a previously saved snapshot.
+// Restore rolls back the unifier to a previously saved snapshot by replaying
+// the trail in reverse. O(k) where k = number of mutations since snapshot.
 func (u *Unifier) Restore(snap Snapshot) {
-	for k := range u.soln {
-		if _, existed := snap.soln[k]; !existed {
-			delete(u.soln, k)
+	for i := len(u.trail) - 1; i >= snap.pos; i-- {
+		e := &u.trail[i]
+		switch e.tag {
+		case trailSoln:
+			if e.existed {
+				u.soln[e.id] = e.oldType
+			} else {
+				delete(u.soln, e.id)
+			}
+		case trailLabel:
+			if e.existed {
+				u.labels[e.id] = e.oldLbl
+			} else {
+				delete(u.labels, e.id)
+			}
+		case trailKindSoln:
+			if e.existed {
+				u.kindSoln[e.id] = e.oldKind
+			} else {
+				delete(u.kindSoln, e.id)
+			}
 		}
 	}
-	maps.Copy(u.soln, snap.soln)
-	for k := range u.labels {
-		if _, existed := snap.labels[k]; !existed {
-			delete(u.labels, k)
-		}
-	}
-	maps.Copy(u.labels, snap.labels)
-	for k := range u.kindSoln {
-		if _, existed := snap.kindSoln[k]; !existed {
-			delete(u.kindSoln, k)
-		}
-	}
-	maps.Copy(u.kindSoln, snap.kindSoln)
+	u.trail = u.trail[:snap.pos]
+}
+
+// trailSolnWrite records the current soln[id] value before mutation.
+func (u *Unifier) trailSolnWrite(id int) {
+	old, existed := u.soln[id]
+	u.trail = append(u.trail, trailEntry{
+		tag: trailSoln, id: id, existed: existed, oldType: old,
+	})
+}
+
+// trailLabelWrite records the current labels[id] value before mutation.
+func (u *Unifier) trailLabelWrite(id int) {
+	old, existed := u.labels[id]
+	u.trail = append(u.trail, trailEntry{
+		tag: trailLabel, id: id, existed: existed, oldLbl: old,
+	})
+}
+
+// trailKindWrite records the current kindSoln[id] value before mutation.
+func (u *Unifier) trailKindWrite(id int) {
+	old, existed := u.kindSoln[id]
+	u.trail = append(u.trail, trailEntry{
+		tag: trailKindSoln, id: id, existed: existed, oldKind: old,
+	})
 }
 
 // RegisterLabelContext records the surrounding labels for a row metavariable.
 func (u *Unifier) RegisterLabelContext(id int, labels map[string]struct{}) {
+	u.trailLabelWrite(id)
 	u.labels[id] = labels
 }
 
@@ -171,6 +214,7 @@ func (u *Unifier) Zonk(t types.Type) types.Type {
 		}
 		result := u.Zonk(soln)
 		if result != soln {
+			u.trailSolnWrite(ty.ID)
 			u.soln[ty.ID] = result // path compression
 		}
 		return result
@@ -452,6 +496,7 @@ func (u *Unifier) solveMeta(m *types.TyMeta, t types.Type) error {
 			}
 		}
 	}
+	u.trailSolnWrite(m.ID)
 	u.soln[m.ID] = t
 	// Re-activation callback: notify the checker that a meta was solved.
 	if u.OnSolve != nil {
