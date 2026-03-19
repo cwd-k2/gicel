@@ -13,18 +13,36 @@ The checker architecture now supports incremental migration toward OutsideIn(X).
 | **L0** | done           | Ad-hoc family reduction in `normalize()`         |
 | **L1** | done (v0.10.1) | `stuckFamilyIndex` + meta-indexed re-activation  |
 | **L2** | done (v0.11)   | `ProcessRework` loop + `OnSolve` callback        |
-| **L3** | open           | Explicit constraint AST, worklist solver         |
-| **L4** | open           | Inert set, touchability, implication constraints |
+| **L3** | done (v0.12)   | Worklist + inert set, constraint AST             |
+| **L4** | open           | Touchability, implication constraints             |
 
-**Phase transition boundary: L2 → L3.** Below L2, DK-with-union-find character is preserved. L3 requires generation/solving separation — a fundamentally different architecture. No current programs require L3.
-
-**What L2 addresses**: multi-stage type family nesting, row families in Computation indices, cascading reductions.
-
-**What L3+ would add**: GADT given simplification of stuck families, cross-fiber evidence resolution, given equality propagation beyond DK scope, nested implication solving.
+**What L4 would add**: touchability (meta level enforcement), implication constraints (local assumptions), GADT given simplification of stuck families.
 
 ---
 
 ## Planned Work
+
+### Solver Data Structure Optimization
+
+The L3 worklist + inert set solver is architecturally correct but uses naive container implementations. Identified hotspots (`docs/reviews/2026-03-19-performance-rereview.md`):
+
+| Item | Issue | Fix | Priority |
+|------|-------|-----|----------|
+| `SortBindings` per execution | `evalBindingsCore` calls `core.SortBindings` every `RunWith`; Runtime is immutable | Precompute in `NewRuntime`, store sorted result | High |
+| `PushFront` full copy | `append(cts, w.items...)` copies entire worklist on every kickout | Head-index deque or ring buffer | Medium |
+| `removeClass`/`removeFunEq` linear scan | Linear search + slice splice on each KickOut | Pointer identity set or swap-remove | Medium |
+| `constraintKey` allocation | `strings.Builder` per constraint in hot path | Lazy key on CtClass, compute-once | Low |
+| `isAmbiguousInstance` repeated trial | No memoization for same (class, args) | Per-solve-pass cache | Low |
+
+### Module Boundary Hardening
+
+Identified in `docs/reviews/2026-03-19-full-codebase-review.md`:
+
+| Item | Issue | Priority |
+|------|-------|----------|
+| Type-level import collision | `importOpen` writes Types/Classes/Aliases/Families without `checkAmbiguousName` | High |
+| Private export leak | `ExportModule` filters `_` prefix for Values only; types/classes/aliases leak | High |
+| Re-export model inconsistency | Values = local-only; types = accumulated (includes imports) | Medium |
 
 ### Evidence Unification (Phase 5, deferred)
 
@@ -42,6 +60,24 @@ Multiplicity polymorphism (quantifying over `@Mult` annotations) requires eviden
 ---
 
 ## Intentional Capability Bounds
+
+### Non-entry top-level bindings must be values (CBPV discipline)
+
+Non-entry top-level bindings with bare `Computation` type are rejected (E0291). `thunk` で包んで `Thunk` 型（値）にする必要がある。エントリーポイント（デフォルト `main`）のみ免除。
+
+```gicel
+helper := thunk (do { x <- get; pure x })  -- Thunk = 値
+main := do { h <- force helper; pure h }    -- entry point は bare Computation OK
+```
+
+**Thunk + 数値リテラルの注意**: `thunk` で包んだ `Num` リテラルを含む computation は、let-generalization で状態型が多相になる。`force` 時に `Num` 辞書パラメータが `main` に伝搬し、`main` が関数として評価される。明示的な型注釈で回避:
+
+```gicel
+counter :: Thunk { state: Int } { state: Int } Int
+counter := thunk (do { _ <- put 0; _ <- modify (+ 1); get })
+```
+
+**適用範囲**: `NewRuntime`（実行用コンパイル）のみ。`Compile`（check-only）と `RegisterModule`（モジュール）では無効。`CheckConfig.EntryPoint` / CLI `--entry` で制御。
 
 ### Fundep improvement is advisory
 

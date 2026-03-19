@@ -41,20 +41,24 @@ type RunOptions struct {
 // Runtime is an immutable, compiled GICEL program.
 // It is goroutine-safe and can be executed concurrently.
 type Runtime struct {
-	prog          *core.Program
-	prims         *eval.PrimRegistry
-	stepLimit     int
-	depthLimit    int
-	allocLimit    int64
-	source        *span.Source
-	bindings      map[string]types.Type
-	moduleEntries []moduleEntry // ALL module programs in registration order
-	builtinEnv    *eval.Env     // pre-built pure/bind/force/fix/rec closures
+	prog               *core.Program
+	prims              *eval.PrimRegistry
+	stepLimit          int
+	depthLimit         int
+	allocLimit         int64
+	source             *span.Source
+	bindings           map[string]types.Type
+	moduleEntries      []moduleEntry  // ALL module programs in registration order
+	builtinEnv         *eval.Env      // pre-built pure/bind/force/fix/rec closures
+	sortedMainBindings []core.Binding // all main bindings, topologically pre-sorted
+	entryName          string         // default entry point name
+	entryExpr          core.Core      // default entry point expression (nil if not found)
 }
 
 type moduleEntry struct {
-	name string
-	prog *core.Program
+	name           string
+	prog           *core.Program
+	sortedBindings []core.Binding // pre-sorted bindings for evaluation
 }
 
 // Program returns the compiled Core IR for debugging/inspection.
@@ -137,7 +141,7 @@ func (r *Runtime) execute(ctx context.Context, req *runRequest) (eval.EvalResult
 	ev := eval.NewEvaluator(b, r.prims, req.traceHook, req.obs)
 
 	for _, me := range r.moduleEntries {
-		env, err = r.evalBindingsCore(ev, env, me.prog.Bindings, me.name, req.obs)
+		env, err = r.evalBindingsCore(ev, env, me.sortedBindings, me.name, req.obs)
 		if err != nil {
 			return eval.EvalResult{}, eval.EvalStats{}, err
 		}
@@ -145,11 +149,21 @@ func (r *Runtime) execute(ctx context.Context, req *runRequest) (eval.EvalResult
 
 	var entryExpr core.Core
 	var nonEntry []core.Binding
-	for _, b := range r.prog.Bindings {
-		if b.Name == req.entry {
-			entryExpr = b.Expr
-		} else {
-			nonEntry = append(nonEntry, b)
+	if req.entry == r.entryName && r.entryExpr != nil {
+		entryExpr = r.entryExpr
+		nonEntry = make([]core.Binding, 0, len(r.sortedMainBindings)-1)
+		for _, b := range r.sortedMainBindings {
+			if b.Name != r.entryName {
+				nonEntry = append(nonEntry, b)
+			}
+		}
+	} else {
+		for _, b := range r.sortedMainBindings {
+			if b.Name == req.entry {
+				entryExpr = b.Expr
+			} else {
+				nonEntry = append(nonEntry, b)
+			}
 		}
 	}
 
@@ -180,9 +194,9 @@ func (r *Runtime) execute(ctx context.Context, req *runRequest) (eval.EvalResult
 	return result, ev.Stats(), nil
 }
 
-// evalBindingsCore evaluates a slice of bindings using forward-reference cells.
+// evalBindingsCore evaluates a slice of pre-sorted bindings using forward-reference cells.
+// Callers must pass bindings in dependency order (via core.SortBindings).
 func (r *Runtime) evalBindingsCore(ev *eval.Evaluator, env *eval.Env, bindings []core.Binding, modulePrefix string, obs *eval.ExplainObserver) (*eval.Env, error) {
-	bindings = core.SortBindings(bindings)
 	cells := make(map[string]*eval.IndirectVal, len(bindings))
 	for _, b := range bindings {
 		cell := &eval.IndirectVal{}

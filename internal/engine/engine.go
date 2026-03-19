@@ -41,10 +41,11 @@ type Engine struct {
 }
 
 type compiledModule struct {
-	prog    *core.Program
-	exports *check.ModuleExports
-	deps    []string
-	fixity  map[string]parse.Fixity
+	prog           *core.Program
+	exports        *check.ModuleExports
+	deps           []string
+	fixity         map[string]parse.Fixity
+	sortedBindings []core.Binding // pre-sorted for evalBindingsCore
 }
 
 // NewEngine creates a new Engine with default limits.
@@ -205,10 +206,11 @@ func (e *Engine) RegisterModule(name, source string) error {
 	core.AnnotateFreeVarsProgram(prog)
 
 	e.modules[name] = &compiledModule{
-		prog:    prog,
-		exports: exports,
-		deps:    deps,
-		fixity:  modFixity,
+		prog:           prog,
+		exports:        exports,
+		deps:           deps,
+		fixity:         modFixity,
+		sortedBindings: core.SortBindings(prog.Bindings),
 	}
 	e.moduleOrder = append(e.moduleOrder, name)
 	return nil
@@ -386,18 +388,36 @@ func (e *Engine) NewRuntime(ctx context.Context, source string) (*Runtime, error
 
 	entries := make([]moduleEntry, 0, len(e.moduleOrder))
 	for _, name := range e.moduleOrder {
-		entries = append(entries, moduleEntry{name: name, prog: e.modules[name].prog})
+		mod := e.modules[name]
+		entries = append(entries, moduleEntry{
+			name:           name,
+			prog:           mod.prog,
+			sortedBindings: mod.sortedBindings,
+		})
+	}
+
+	entryName := cfg.EntryPoint
+	sortedMain := core.SortBindings(prog.Bindings)
+	var entryExpr core.Core
+	for _, b := range sortedMain {
+		if b.Name == entryName {
+			entryExpr = b.Expr
+			break
+		}
 	}
 
 	rt := &Runtime{
-		prog:          prog,
-		prims:         e.prims.Clone(),
-		stepLimit:     e.stepLimit,
-		depthLimit:    e.depthLimit,
-		allocLimit:    e.allocLimit,
-		source:        src,
-		bindings:      maps.Clone(e.bindings),
-		moduleEntries: entries,
+		prog:               prog,
+		prims:              e.prims.Clone(),
+		stepLimit:          e.stepLimit,
+		depthLimit:         e.depthLimit,
+		allocLimit:         e.allocLimit,
+		source:             src,
+		bindings:           maps.Clone(e.bindings),
+		moduleEntries:      entries,
+		sortedMainBindings: sortedMain,
+		entryName:          entryName,
+		entryExpr:          entryExpr,
 	}
 	runtimeGates := maps.Clone(e.gatedBuiltins)
 	if e.runtimeRecursion {

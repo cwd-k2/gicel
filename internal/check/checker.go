@@ -3,7 +3,6 @@ package check
 import (
 	"context"
 	"fmt"
-	"maps"
 
 	"github.com/cwd-k2/gicel/internal/budget"
 	"github.com/cwd-k2/gicel/internal/check/env"
@@ -102,10 +101,12 @@ type checkerRegistry struct {
 
 // checkerScope holds name resolution and module scoping state.
 type checkerScope struct {
-	currentModule   string                     // module being compiled ("" = user main source)
-	qualifiedScopes map[string]*qualifiedScope // alias → qualified module scope
-	importedNames   map[string]string          // name → source module (for ambiguity detection)
-	ownedNamesCache map[string]map[string]bool // module → owned names (lazy, for ambiguity checks)
+	currentModule       string                     // module being compiled ("" = user main source)
+	qualifiedScopes     map[string]*qualifiedScope // alias → qualified module scope
+	importedNames       map[string]string          // name → source module (value namespace ambiguity)
+	importedTypeNames   map[string]string          // name → source module (type namespace ambiguity)
+	ownedNamesCache     map[string]map[string]bool // module → owned names (lazy, for value ambiguity)
+	ownedTypeNamesCache map[string]map[string]bool // module → owned type names (lazy, for type ambiguity)
 }
 
 // Checker holds mutable state during type checking.
@@ -227,9 +228,10 @@ func newChecker(prog *syntax.AstProgram, source *span.Source, config *CheckConfi
 			families:          make(map[string]*TypeFamilyInfo),
 		},
 		scope: checkerScope{
-			currentModule:   config.CurrentModule,
-			qualifiedScopes: make(map[string]*qualifiedScope),
-			importedNames:   make(map[string]string),
+			currentModule:     config.CurrentModule,
+			qualifiedScopes:   make(map[string]*qualifiedScope),
+			importedNames:     make(map[string]string),
+			importedTypeNames: make(map[string]string),
 		},
 	}
 	ch.unifier = unify.NewUnifierShared(&ch.freshID)
@@ -244,6 +246,7 @@ func newChecker(prog *syntax.AstProgram, source *span.Source, config *CheckConfi
 
 // ExportModule captures the current checker state as a ModuleExports.
 // Names starting with '_' are private and excluded from exports.
+// Instances are never filtered (coherence requirement).
 func (ch *Checker) ExportModule(prog *core.Program) *ModuleExports {
 	values := make(map[string]types.Type)
 	for _, b := range prog.Bindings {
@@ -251,25 +254,69 @@ func (ch *Checker) ExportModule(prog *core.Program) *ModuleExports {
 			values[b.Name] = b.Type
 		}
 	}
-	// Build precomputed constructor-by-type index.
-	consByType := make(map[string][]string, len(ch.reg.conInfo))
-	for conName, info := range ch.reg.conInfo {
+
+	// Filter constructors: exclude private constructors and constructors of private types.
+	filteredConInfo := filterPrivateConstructors(ch.reg.conInfo, ch.reg.conInfo)
+	filteredConTypes := filterPrivateConstructors(ch.reg.conTypes, ch.reg.conInfo)
+
+	// Build precomputed constructor-by-type index from filtered data.
+	consByType := make(map[string][]string, len(filteredConInfo))
+	for conName, info := range filteredConInfo {
 		consByType[info.Name] = append(consByType[info.Name], conName)
 	}
+
 	return &ModuleExports{
-		Types:              maps.Clone(ch.config.RegisteredTypes),
-		ConTypes:           maps.Clone(ch.reg.conTypes),
-		ConstructorInfo:    ch.reg.conInfo,
+		Types:              filterPrivateMap(ch.config.RegisteredTypes),
+		ConTypes:           filteredConTypes,
+		ConstructorInfo:    filteredConInfo,
 		ConstructorsByType: consByType,
-		Aliases:            ch.reg.aliases,
-		Classes:            ch.reg.classes,
+		Aliases:            filterPrivateMap(ch.reg.aliases),
+		Classes:            filterPrivateMap(ch.reg.classes),
 		Instances:          ch.reg.instances,
 		Values:             values,
-		PromotedKinds:      maps.Clone(ch.reg.promotedKinds),
-		PromotedCons:       maps.Clone(ch.reg.promotedCons),
-		TypeFamilies:       cloneFamilies(ch.reg.families),
-		DataDecls:          prog.DataDecls,
+		PromotedKinds:      filterPrivateMap(ch.reg.promotedKinds),
+		PromotedCons:       filterPrivateMap(ch.reg.promotedCons),
+		TypeFamilies:       filterPrivateMap(cloneFamilies(ch.reg.families)),
+		DataDecls:          filterPrivateDataDecls(prog.DataDecls),
 	}
+}
+
+// filterPrivateMap returns a new map with private-named keys removed.
+func filterPrivateMap[V any](m map[string]V) map[string]V {
+	result := make(map[string]V, len(m))
+	for k, v := range m {
+		if !isPrivateName(k) {
+			result[k] = v
+		}
+	}
+	return result
+}
+
+// filterPrivateConstructors returns a new map with constructors removed
+// that are private or belong to a private type.
+func filterPrivateConstructors[V any](m map[string]V, conInfo map[string]*DataTypeInfo) map[string]V {
+	result := make(map[string]V, len(m))
+	for name, v := range m {
+		if isPrivateName(name) {
+			continue
+		}
+		if info, ok := conInfo[name]; ok && isPrivateName(info.Name) {
+			continue
+		}
+		result[name] = v
+	}
+	return result
+}
+
+// filterPrivateDataDecls returns a copy of decls with private data declarations removed.
+func filterPrivateDataDecls(decls []core.DataDecl) []core.DataDecl {
+	result := make([]core.DataDecl, 0, len(decls))
+	for _, d := range decls {
+		if !isPrivateName(d.Name) {
+			result = append(result, d)
+		}
+	}
+	return result
 }
 
 // isPrivateName reports whether a name is module-private.

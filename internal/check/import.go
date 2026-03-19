@@ -101,6 +101,90 @@ func (ch *Checker) checkAmbiguousName(name, moduleName string, s span.Span) bool
 	return true
 }
 
+// checkAmbiguousTypeName reports an error if a type-level name is already imported
+// from a different module. Returns true if the name is ambiguous and should be skipped.
+// Logic mirrors checkAmbiguousName but operates on the type namespace.
+func (ch *Checker) checkAmbiguousTypeName(name, moduleName string, s span.Span) bool {
+	if isPrivateName(name) {
+		return false
+	}
+	prev, exists := ch.scope.importedTypeNames[name]
+	if !exists {
+		ch.scope.importedTypeNames[name] = moduleName
+		return false
+	}
+	if prev == moduleName {
+		return false
+	}
+	prevOwns := ch.moduleOwnsTypeName(prev, name)
+	curOwns := ch.moduleOwnsTypeName(moduleName, name)
+	if !prevOwns || !curOwns {
+		ch.scope.importedTypeNames[name] = moduleName
+		return false
+	}
+	ch.addCodedError(errs.ErrImport, s,
+		fmt.Sprintf("ambiguous type name %q: imported from both %s and %s (use qualified import to disambiguate)", name, prev, moduleName))
+	return true
+}
+
+// moduleOwnsTypeName checks if a module defines a type-level name in its own source.
+func (ch *Checker) moduleOwnsTypeName(moduleName, name string) bool {
+	owned := ch.moduleOwnedTypeNames(moduleName)
+	return owned[name]
+}
+
+// moduleOwnedTypeNames returns the set of type-level names that a module defines
+// itself (not re-exported from dependencies). Lazily computed and cached.
+func (ch *Checker) moduleOwnedTypeNames(moduleName string) map[string]bool {
+	if ch.scope.ownedTypeNamesCache == nil {
+		ch.scope.ownedTypeNamesCache = make(map[string]map[string]bool)
+	}
+	if cached, ok := ch.scope.ownedTypeNamesCache[moduleName]; ok {
+		return cached
+	}
+	mod, ok := ch.config.ImportedModules[moduleName]
+	if !ok {
+		return nil
+	}
+	owned := make(map[string]bool)
+	// DataDecl type names are always module-owned.
+	for _, dd := range mod.DataDecls {
+		owned[dd.Name] = true
+	}
+	// Aliases, Classes, TypeFamilies not in any direct dependency.
+	depTypes := make(map[string]bool)
+	for _, dep := range ch.config.ModuleDeps[moduleName] {
+		if depMod, ok := ch.config.ImportedModules[dep]; ok {
+			for name := range depMod.Aliases {
+				depTypes[name] = true
+			}
+			for name := range depMod.Classes {
+				depTypes[name] = true
+			}
+			for name := range depMod.TypeFamilies {
+				depTypes[name] = true
+			}
+		}
+	}
+	for name := range mod.Aliases {
+		if !depTypes[name] {
+			owned[name] = true
+		}
+	}
+	for name := range mod.Classes {
+		if !depTypes[name] {
+			owned[name] = true
+		}
+	}
+	for name := range mod.TypeFamilies {
+		if !depTypes[name] {
+			owned[name] = true
+		}
+	}
+	ch.scope.ownedTypeNamesCache[moduleName] = owned
+	return owned
+}
+
 // moduleOwnsName checks if a module defines name in its own source (not re-exported).
 // A module "owns" a name if it appears in the module's DataDecls (constructors),
 // or in its Values but NOT in any of its direct dependency's Values.
@@ -152,7 +236,9 @@ func (ch *Checker) moduleOwnedNames(moduleName string) map[string]bool {
 // importOpen merges all exports from a module into the checker state (open import).
 func (ch *Checker) importOpen(mod *ModuleExports, moduleName string, s span.Span) {
 	for name, kind := range mod.Types {
-		ch.config.RegisteredTypes[name] = kind
+		if !ch.checkAmbiguousTypeName(name, moduleName, s) {
+			ch.config.RegisteredTypes[name] = kind
+		}
 	}
 	for name, ty := range mod.ConTypes {
 		ch.importConstructor(name, ty, moduleName, s)
@@ -162,23 +248,33 @@ func (ch *Checker) importOpen(mod *ModuleExports, moduleName string, s span.Span
 		ch.reg.dataTypeByName[info.Name] = info
 	}
 	for name, alias := range mod.Aliases {
-		ch.reg.aliases[name] = alias
+		if !ch.checkAmbiguousTypeName(name, moduleName, s) {
+			ch.reg.aliases[name] = alias
+		}
 	}
 	for name, cls := range mod.Classes {
-		ch.reg.classes[name] = cls
+		if !ch.checkAmbiguousTypeName(name, moduleName, s) {
+			ch.reg.classes[name] = cls
+		}
 	}
 	ch.importInstances(mod)
 	for name, ty := range mod.Values {
 		ch.importValue(name, ty, moduleName, s)
 	}
 	for name, kind := range mod.PromotedKinds {
-		ch.reg.promotedKinds[name] = kind
+		if !ch.checkAmbiguousTypeName(name, moduleName, s) {
+			ch.reg.promotedKinds[name] = kind
+		}
 	}
 	for name, kind := range mod.PromotedCons {
-		ch.reg.promotedCons[name] = kind
+		if !ch.checkAmbiguousTypeName(name, moduleName, s) {
+			ch.reg.promotedCons[name] = kind
+		}
 	}
 	for name, fam := range mod.TypeFamilies {
-		ch.reg.families[name] = fam.Clone()
+		if !ch.checkAmbiguousTypeName(name, moduleName, s) {
+			ch.reg.families[name] = fam.Clone()
+		}
 	}
 }
 
@@ -228,7 +324,9 @@ func (ch *Checker) importSelective(mod *ModuleExports, imp syntax.DeclImport) {
 
 		// Type constructor
 		if kind, ok := mod.Types[name]; ok {
-			ch.config.RegisteredTypes[name] = kind
+			if !ch.checkAmbiguousTypeName(name, imp.ModuleName, imp.S) {
+				ch.config.RegisteredTypes[name] = kind
+			}
 			found = true
 
 			// Import constructors if HasSub
@@ -239,13 +337,17 @@ func (ch *Checker) importSelective(mod *ModuleExports, imp syntax.DeclImport) {
 
 		// Type alias
 		if alias, ok := mod.Aliases[name]; ok {
-			ch.reg.aliases[name] = alias
+			if !ch.checkAmbiguousTypeName(name, imp.ModuleName, imp.S) {
+				ch.reg.aliases[name] = alias
+			}
 			found = true
 		}
 
 		// Class
 		if cls, ok := mod.Classes[name]; ok {
-			ch.reg.classes[name] = cls
+			if !ch.checkAmbiguousTypeName(name, imp.ModuleName, imp.S) {
+				ch.reg.classes[name] = cls
+			}
 			found = true
 
 			// Import class methods
@@ -263,17 +365,23 @@ func (ch *Checker) importSelective(mod *ModuleExports, imp syntax.DeclImport) {
 
 		// Type family
 		if fam, ok := mod.TypeFamilies[name]; ok {
-			ch.reg.families[name] = fam.Clone()
+			if !ch.checkAmbiguousTypeName(name, imp.ModuleName, imp.S) {
+				ch.reg.families[name] = fam.Clone()
+			}
 			found = true
 		}
 
 		// Promoted kinds
 		if kind, ok := mod.PromotedKinds[name]; ok {
-			ch.reg.promotedKinds[name] = kind
+			if !ch.checkAmbiguousTypeName(name, imp.ModuleName, imp.S) {
+				ch.reg.promotedKinds[name] = kind
+			}
 			found = true
 		}
 		if kind, ok := mod.PromotedCons[name]; ok {
-			ch.reg.promotedCons[name] = kind
+			if !ch.checkAmbiguousTypeName(name, imp.ModuleName, imp.S) {
+				ch.reg.promotedCons[name] = kind
+			}
 			found = true
 		}
 
