@@ -3,11 +3,24 @@ package engine
 import (
 	"context"
 	"fmt"
+	"runtime"
 	"time"
 
 	"github.com/cwd-k2/gicel/internal/eval"
 	"github.com/cwd-k2/gicel/internal/reg"
 )
+
+// InternalPanicError wraps a recovered panic with its stack trace.
+// Error() returns a short message for API consumers; Stack contains
+// the full goroutine trace for diagnostics.
+type InternalPanicError struct {
+	Value any
+	Stack []byte
+}
+
+func (e *InternalPanicError) Error() string {
+	return fmt.Sprintf("gicel: internal panic: %v", e.Value)
+}
 
 // Sandbox defaults — intentionally more conservative than Engine defaults.
 const (
@@ -37,7 +50,9 @@ func RunSandbox(source string, cfg *SandboxConfig) (result *RunResult, err error
 	defer func() {
 		if r := recover(); r != nil {
 			result = nil
-			err = fmt.Errorf("gicel: internal panic: %v", r)
+			buf := make([]byte, 4096)
+			n := runtime.Stack(buf, false)
+			err = &InternalPanicError{Value: r, Stack: buf[:n]}
 		}
 	}()
 

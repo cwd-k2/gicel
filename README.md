@@ -63,9 +63,8 @@ globals. The harder you lock down, the more edge cases slip through.
   these restrictions — they form part of the trusted computing base.
 - **Resource limits with clean termination.** Step count, call depth,
   allocation ceiling, and timeout. Execution halts cleanly — no killed
-  goroutines, no leaked state. Timeout bounds evaluation time;
-  compilation (parse/check/optimize) runs to completion before
-  the timeout clock starts.
+  goroutines, no leaked state. Timeout covers the entire pipeline
+  including compilation (parse/check/optimize) and evaluation.
 - **Go-native.** No CGo, no FFI. Runtimes are immutable and goroutine-safe.
   Embed it like any other Go library.
 

@@ -170,18 +170,18 @@ func (es *Errors) Format() string {
 }
 
 func (es *Errors) formatOne(b *strings.Builder, e *Error) {
-	line, col := es.Source.Location(e.Span.Start)
-	// error[E0001]: message
-	//  --> file.gicel:1:5
 	fmt.Fprintf(b, "error[E%04d]: %s\n", e.Code, e.Message)
-	fmt.Fprintf(b, " --> %s:%d:%d\n", es.Source.Name, line, col)
-
-	// Source line with underline
-	es.renderSpan(b, e.Span)
+	if e.Span != (span.Span{}) {
+		line, col := es.Source.Location(e.Span.Start)
+		fmt.Fprintf(b, " --> %s:%d:%d\n", es.Source.Name, line, col)
+		es.renderSpan(b, e.Span)
+	}
 
 	for _, h := range e.Hints {
-		hLine, hCol := es.Source.Location(h.Span.Start)
-		fmt.Fprintf(b, " --> %s:%d:%d\n", es.Source.Name, hLine, hCol)
+		if h.Span != (span.Span{}) {
+			hLine, hCol := es.Source.Location(h.Span.Start)
+			fmt.Fprintf(b, " --> %s:%d:%d\n", es.Source.Name, hLine, hCol)
+		}
 		fmt.Fprintf(b, "   = hint: %s\n", h.Message)
 	}
 }

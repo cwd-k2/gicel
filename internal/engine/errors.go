@@ -1,6 +1,9 @@
 package engine
 
-import "github.com/cwd-k2/gicel/internal/errs"
+import (
+	"github.com/cwd-k2/gicel/internal/errs"
+	"github.com/cwd-k2/gicel/internal/span"
+)
 
 // Diagnostic is a single structured error from compilation.
 type Diagnostic struct {
@@ -22,17 +25,19 @@ func (e *CompileError) Error() string {
 }
 
 // Diagnostics returns structured diagnostics for programmatic access.
+// Errors without source location (e.g. context cancellation) have Line=0, Col=0.
 func (e *CompileError) Diagnostics() []Diagnostic {
 	diags := make([]Diagnostic, len(e.Errors.Errs))
 	for i, err := range e.Errors.Errs {
-		line, col := e.Errors.Source.Location(err.Span.Start)
-		diags[i] = Diagnostic{
+		d := Diagnostic{
 			Code:    int(err.Code),
 			Phase:   err.Phase.String(),
-			Line:    line,
-			Col:     col,
 			Message: err.Message,
 		}
+		if err.Span != (span.Span{}) {
+			d.Line, d.Col = e.Errors.Source.Location(err.Span.Start)
+		}
+		diags[i] = d
 	}
 	return diags
 }
