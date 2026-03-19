@@ -109,7 +109,7 @@ type Hint struct {
 }
 
 // MaxErrors is the maximum number of errors collected before truncation.
-const MaxErrors = 100
+const MaxErrors = 50
 
 // Errors collects multiple diagnostics for a single source.
 type Errors struct {
@@ -126,6 +126,10 @@ func (es *Errors) Add(e *Error) {
 	}
 	es.Errs = append(es.Errs, e)
 }
+
+// Capped reports whether the error cap has been reached.
+// When true, subsequent Add calls are silently dropped.
+func (es *Errors) Capped() bool { return len(es.Errs) >= MaxErrors }
 
 // Len returns the current number of collected errors.
 func (es *Errors) Len() int { return len(es.Errs) }

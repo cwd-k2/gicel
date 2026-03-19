@@ -331,6 +331,26 @@ func cmdRun(args []string) int {
 		return 1
 	}
 
+	// Validate resource limit flags.
+	if *maxSteps <= 0 {
+		fmt.Fprintln(os.Stderr, "error: --max-steps must be a positive integer")
+		return 1
+	}
+	if *maxDepth <= 0 {
+		fmt.Fprintln(os.Stderr, "error: --max-depth must be a positive integer")
+		return 1
+	}
+	if *maxAlloc <= 0 {
+		fmt.Fprintln(os.Stderr, "error: --max-alloc must be a positive integer")
+		return 1
+	}
+
+	// Validate --entry: reject explicitly empty entry point.
+	if *entry == "" {
+		fmt.Fprintln(os.Stderr, "error: --entry must not be empty")
+		return 1
+	}
+
 	source, eng, err := prepareEngine(fs, *use, *recursion, *expr, modules)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)

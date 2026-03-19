@@ -85,7 +85,7 @@ func (p *Parser) parseApp() syn.Expr {
 		p.addError("expected expression")
 		return &syn.ExprVar{Name: "<error>", S: span.Span{Start: span.Pos(p.pos), End: span.Pos(p.pos)}}
 	}
-	for (p.isAtomStart() || p.peek().Kind == syn.TokAt) && !p.atDeclBoundary() {
+	for (p.isAtomStart() || p.peek().Kind == syn.TokAt) && !p.atStmtBoundary() {
 		if p.peek().Kind == syn.TokAt {
 			p.advance()
 			ty := p.parseTypeAtom()
@@ -292,6 +292,9 @@ func (p *Parser) parseCase() syn.Expr {
 	scrut := p.parseExpr()
 	p.noBraceAtom = false
 	p.expect(syn.TokLBrace)
+
+	savedBoundary := p.stmtBoundaryDepth
+	p.stmtBoundaryDepth = p.depth
 	var alts []syn.AstAlt
 	for p.peek().Kind != syn.TokRBrace && p.peek().Kind != syn.TokEOF {
 		before := p.pos
@@ -299,11 +302,14 @@ func (p *Parser) parseCase() syn.Expr {
 		alts = append(alts, alt)
 		if p.peek().Kind == syn.TokSemicolon {
 			p.advance()
+		} else if p.peek().NewlineBefore || p.peek().Kind == syn.TokRBrace {
+			// newline or closing brace — implicit separator
 		} else if p.pos == before {
 			p.addError("unexpected token in case expression")
 			p.advance()
 		}
 	}
+	p.stmtBoundaryDepth = savedBoundary
 	p.expect(syn.TokRBrace)
 	return &syn.ExprCase{
 		Scrutinee: scrut, Alts: alts,
@@ -326,6 +332,9 @@ func (p *Parser) parseDo() syn.Expr {
 	start := p.peek().S.Start
 	p.expect(syn.TokDo)
 	p.expect(syn.TokLBrace)
+
+	savedBoundary := p.stmtBoundaryDepth
+	p.stmtBoundaryDepth = p.depth
 	var stmts []syn.Stmt
 	for p.peek().Kind != syn.TokRBrace && p.peek().Kind != syn.TokEOF {
 		before := p.pos
@@ -333,11 +342,14 @@ func (p *Parser) parseDo() syn.Expr {
 		stmts = append(stmts, stmt)
 		if p.peek().Kind == syn.TokSemicolon {
 			p.advance()
+		} else if p.peek().NewlineBefore || p.peek().Kind == syn.TokRBrace {
+			// newline or closing brace — implicit separator
 		} else if p.pos == before {
 			p.addError("unexpected token in do-block")
 			p.advance()
 		}
 	}
+	p.stmtBoundaryDepth = savedBoundary
 	p.expect(syn.TokRBrace)
 	return &syn.ExprDo{
 		Stmts: stmts,
@@ -574,7 +586,7 @@ func (p *Parser) tryQualifiedExpr(prevTok syn.Token) syn.Expr {
 }
 
 func (p *Parser) isAtomStart() bool {
-	if p.atDeclBoundary() {
+	if p.atStmtBoundary() {
 		return false
 	}
 	k := p.peek().Kind

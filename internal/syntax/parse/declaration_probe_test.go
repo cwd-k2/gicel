@@ -309,41 +309,26 @@ func TestProbeD_NewlineTopLevel(t *testing.T) {
 }
 
 // TestProbeD_NewlineInClassBody verifies newlines as separators in class bodies.
-// BUG: low — same root cause as do-block newline issue. After parsing `f :: a -> a`,
-// the type parser's parseTypeArrow sees `g` as a type atom (TyExprVar), so the method
-// type becomes `a -> a -> g` instead of `a -> a`. The second method `g` is partially
-// consumed. Recovery succeeds (2 methods parsed) but with a spurious error.
 func TestProbeD_NewlineInClassBody(t *testing.T) {
 	source := "class MyC a {\n  f :: a -> a\n  g :: a -> a\n}"
-	prog, es := parse(source)
-	if es.HasErrors() {
-		// BUG: low — class body newline separation produces errors
-		t.Logf("BUG: low — class body newline separation produces errors: %s", es.Format())
-	}
-	if prog != nil {
-		for _, d := range prog.Decls {
-			if cl, ok := d.(*DeclClass); ok {
-				t.Logf("class %s has %d methods", cl.Name, len(cl.Methods))
+	prog := parseMustSucceed(t, source)
+	for _, d := range prog.Decls {
+		if cl, ok := d.(*DeclClass); ok {
+			if len(cl.Methods) != 2 {
+				t.Errorf("expected 2 methods, got %d", len(cl.Methods))
 			}
 		}
 	}
 }
 
 // TestProbeD_NewlineInInstanceBody verifies newlines as separators in instance bodies.
-// BUG: low — same root cause as do-block/class newline issue. After parsing `f := \x. x`,
-// the expression parser sees `g` on the next line as a continuation atom and tries to
-// apply it. Recovery succeeds but with spurious errors.
 func TestProbeD_NewlineInInstanceBody(t *testing.T) {
 	source := "instance MyC Int {\n  f := \\x. x\n  g := \\x. x\n}"
-	prog, es := parse(source)
-	if es.HasErrors() {
-		// BUG: low — instance body newline separation produces errors
-		t.Logf("BUG: low — instance body newline separation produces errors: %s", es.Format())
-	}
-	if prog != nil {
-		for _, d := range prog.Decls {
-			if inst, ok := d.(*DeclInstance); ok {
-				t.Logf("instance has %d methods", len(inst.Methods))
+	prog := parseMustSucceed(t, source)
+	for _, d := range prog.Decls {
+		if inst, ok := d.(*DeclInstance); ok {
+			if len(inst.Methods) != 2 {
+				t.Errorf("expected 2 methods, got %d", len(inst.Methods))
 			}
 		}
 	}
@@ -482,18 +467,13 @@ func TestProbeD_GADTMultipleSemicolon(t *testing.T) {
 }
 
 // TestProbeD_GADTMultipleNewline verifies GADT constructors separated by newlines.
-// BUG: low — same newline-as-separator issue.
 func TestProbeD_GADTMultipleNewline(t *testing.T) {
 	source := "data T := {\n  A :: Int -> T\n  B :: T\n}"
-	prog, es := parse(source)
-	if es.HasErrors() {
-		// BUG: low — GADT newline separation produces errors
-		t.Logf("BUG: low — GADT newline separation produces errors: %s", es.Format())
-	}
-	if prog != nil {
-		for _, d := range prog.Decls {
-			if dd, ok := d.(*DeclData); ok && dd.Name == "T" {
-				t.Logf("GADT with newlines: %d constructors parsed", len(dd.GADTCons))
+	prog := parseMustSucceed(t, source)
+	for _, d := range prog.Decls {
+		if dd, ok := d.(*DeclData); ok && dd.Name == "T" {
+			if len(dd.GADTCons) != 2 {
+				t.Errorf("expected 2 GADT constructors, got %d", len(dd.GADTCons))
 			}
 		}
 	}
@@ -986,7 +966,7 @@ func TestProbeE_DeclBoundarySemicolon(t *testing.T) {
 }
 
 // TestProbeE_DeclBoundaryInNestedContext verifies semicolons separate case alts
-// inside braces (newlines alone are not separators inside braces).
+// inside braces.
 func TestProbeE_DeclBoundaryInNestedContext(t *testing.T) {
 	source := `main := case x {
   Nothing -> 0;

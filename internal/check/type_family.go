@@ -128,6 +128,7 @@ func (ch *Checker) familyEnv() *family.ReduceEnv {
 	return &family.ReduceEnv{
 		Families:       ch.reg.families,
 		ReductionDepth: &ch.reductionDepth,
+		WorkBudget:     &ch.workBudget,
 		Unifier:        ch.unifier,
 		Stuck:          &ch.stuckFamilies,
 		FreshMeta:      ch.freshMeta,

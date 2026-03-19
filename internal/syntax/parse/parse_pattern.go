@@ -174,7 +174,7 @@ func (p *Parser) parseTuplePatternTail(start span.Pos, first syn.Pattern) *syn.P
 }
 
 func (p *Parser) isPatternAtomStart() bool {
-	if p.atDeclBoundary() {
+	if p.atStmtBoundary() {
 		return false
 	}
 	k := p.peek().Kind

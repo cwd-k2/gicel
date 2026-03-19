@@ -128,6 +128,7 @@ type Checker struct {
 	depth          int // inference recursion depth
 	resolveDepth   int // instance resolution recursion depth
 	reductionDepth int // type family reduction depth
+	workBudget     int // type family reduction work budget (node visits)
 	level          int // implication nesting depth for touchability (0 = top-level)
 
 	// Phase state.

@@ -214,18 +214,21 @@ func TestProbeB_CaseWithSemicolonAlts(t *testing.T) {
 }
 
 // TestProbeB_MultipleCaseAltsNewline checks case alts separated by newlines inside braces.
-// Per spec: "Inside braces (do, case, GADT bodies), semicolons are required."
-// Newlines alone do NOT separate case alternatives. Semicolons are mandatory.
+// Newlines and semicolons are interchangeable as separators at all levels.
 func TestProbeB_MultipleCaseAltsNewline(t *testing.T) {
-	// This SHOULD fail because newlines alone don't separate alts inside braces.
-	errMsg := parseMustFail(t, "main := case x {\n  True -> 1\n  False -> 0\n}")
-	_ = errMsg
-	// But with semicolons, it works:
-	prog := parseMustSucceed(t, "main := case x {\n  True -> 1;\n  False -> 0\n}")
+	// Newlines separate case alternatives:
+	prog := parseMustSucceed(t, "main := case x {\n  True -> 1\n  False -> 0\n}")
 	d := prog.Decls[0].(*DeclValueDef)
 	c := d.Expr.(*ExprCase)
 	if len(c.Alts) != 2 {
-		t.Errorf("expected 2 alts with semicolons, got %d", len(c.Alts))
+		t.Errorf("expected 2 alts with newlines, got %d", len(c.Alts))
+	}
+	// Semicolons also work:
+	prog2 := parseMustSucceed(t, "main := case x {\n  True -> 1;\n  False -> 0\n}")
+	d2 := prog2.Decls[0].(*DeclValueDef)
+	c2 := d2.Expr.(*ExprCase)
+	if len(c2.Alts) != 2 {
+		t.Errorf("expected 2 alts with semicolons, got %d", len(c2.Alts))
 	}
 }
 

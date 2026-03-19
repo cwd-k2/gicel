@@ -60,20 +60,16 @@ func TestProbeB_SemicolonInBraces(t *testing.T) {
 // ===== From probe_d =====
 
 // TestProbeD_NewlineInDoBlock verifies newlines as statement separators in do-blocks.
-// BUG: medium — newlines inside do-blocks are not treated as semicolons.
 func TestProbeD_NewlineInDoBlock(t *testing.T) {
 	source := "main := do {\n  x <- pure 1\n  y <- pure 2\n  pure x\n}"
-	prog, es := parse(source)
-	if es.HasErrors() {
-		// BUG: medium — newline-separated do-block statements produce errors
-		t.Logf("BUG: medium — do-block newline separation produces errors: %s", es.Format())
+	prog := parseMustSucceed(t, source)
+	d := prog.Decls[0].(*DeclValueDef)
+	doExpr, ok := d.Expr.(*ExprDo)
+	if !ok {
+		t.Fatalf("expected ExprDo, got %T", d.Expr)
 	}
-	if prog != nil && len(prog.Decls) > 0 {
-		d := prog.Decls[0].(*DeclValueDef)
-		doExpr, ok := d.Expr.(*ExprDo)
-		if ok {
-			t.Logf("do-block parsed %d statements", len(doExpr.Stmts))
-		}
+	if len(doExpr.Stmts) != 3 {
+		t.Errorf("expected 3 stmts, got %d", len(doExpr.Stmts))
 	}
 }
 

@@ -5,6 +5,7 @@ import (
 
 	syn "github.com/cwd-k2/gicel/internal/syntax"
 
+	"github.com/cwd-k2/gicel/internal/errs"
 	"github.com/cwd-k2/gicel/internal/span"
 )
 
@@ -107,6 +108,9 @@ func (p *Parser) parseDataDecl() *syn.DeclData {
 // Format: { ConName :: Type ; ConName :: Type ; ... }
 func (p *Parser) parseGADTCons() []syn.GADTConDecl {
 	p.expect(syn.TokLBrace)
+
+	savedBoundary := p.stmtBoundaryDepth
+	p.stmtBoundaryDepth = p.depth
 	var cons []syn.GADTConDecl
 	for p.peek().Kind != syn.TokRBrace && p.peek().Kind != syn.TokEOF {
 		before := p.pos
@@ -121,11 +125,14 @@ func (p *Parser) parseGADTCons() []syn.GADTConDecl {
 		})
 		if p.peek().Kind == syn.TokSemicolon {
 			p.advance()
+		} else if p.peek().NewlineBefore || p.peek().Kind == syn.TokRBrace {
+			// newline or closing brace — implicit separator
 		} else if p.pos == before {
 			p.addError("unexpected token in GADT declaration")
 			p.advance()
 		}
 	}
+	p.stmtBoundaryDepth = savedBoundary
 	p.expect(syn.TokRBrace)
 	return cons
 }
@@ -134,7 +141,7 @@ func (p *Parser) parseConDecl() syn.DeclCon {
 	start := p.peek().S.Start
 	name := p.expectUpper()
 	var fields []syn.TypeExpr
-	for p.isTypeAtomStart() && !p.atDeclBoundary() {
+	for p.isTypeAtomStart() && !p.atStmtBoundary() {
 		fields = append(fields, p.parseTypeAtom())
 	}
 	return syn.DeclCon{Name: name, Fields: fields, S: span.Span{Start: start, End: p.prevEnd()}}
@@ -246,6 +253,9 @@ func (p *Parser) isInjectiveResult() bool {
 // parseTypeFamilyEquations parses the equation block { Name Pat* = RHS; ... }.
 func (p *Parser) parseTypeFamilyEquations(familyName string) []syn.TFEquation {
 	p.expect(syn.TokLBrace)
+
+	savedBoundary := p.stmtBoundaryDepth
+	p.stmtBoundaryDepth = p.depth
 	var equations []syn.TFEquation
 	for p.peek().Kind != syn.TokRBrace && p.peek().Kind != syn.TokEOF {
 		before := p.pos
@@ -266,11 +276,14 @@ func (p *Parser) parseTypeFamilyEquations(familyName string) []syn.TFEquation {
 		})
 		if p.peek().Kind == syn.TokSemicolon {
 			p.advance()
+		} else if p.peek().NewlineBefore || p.peek().Kind == syn.TokRBrace {
+			// newline or closing brace — implicit separator
 		} else if p.pos == before {
 			p.addError("unexpected token in type family declaration")
 			p.advance()
 		}
 	}
+	p.stmtBoundaryDepth = savedBoundary
 	p.expect(syn.TokRBrace)
 	return equations
 }
@@ -362,7 +375,16 @@ func (p *Parser) parseNamedDecl() syn.Decl {
 		}
 	case syn.TokColonEq:
 		// Value definition: f := e
-		p.advance()
+		eqTok := p.advance()
+		if p.atStmtBoundary() || p.peek().Kind == syn.TokEOF || p.peek().Kind == syn.TokSemicolon {
+			p.errors.Add(&errs.Error{
+				Code:    errs.ErrParseSyntax,
+				Phase:   errs.PhaseParse,
+				Span:    eqTok.S,
+				Message: "expected expression after :=",
+			})
+			return nil
+		}
 		expr := p.parseExpr()
 		return &syn.DeclValueDef{
 			Name: name, Expr: expr,

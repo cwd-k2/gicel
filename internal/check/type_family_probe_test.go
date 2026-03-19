@@ -353,7 +353,21 @@ main := (Z :: Loop Z)
 // increments per successful reduction, but the branching factor means
 // 2^k family reductions occur at depth k.
 func TestProbeE_TypeFamily_ExponentialGrowth(t *testing.T) {
-	t.Skip("KNOWN BUG: hangs due to exponential blowup in reduceFamilyApps — see BUG comment")
+	source := `
+data Unit := Unit
+data Pair a b := MkPair a b
+
+type Grow (a: Type) :: Type := {
+  Grow a =: Pair (Grow a) (Grow a)
+}
+
+f :: Grow Unit -> Unit
+f := \x. x
+`
+	errMsg := checkSourceExpectError(t, source, nil)
+	if !strings.Contains(errMsg, "reduction") && !strings.Contains(errMsg, "depth limit") && !strings.Contains(errMsg, "too large") {
+		t.Logf("NOTICE: exponential growth error: %s", errMsg)
+	}
 }
 
 // TestProbeE_TypeFamily_InjectivityViolation — two equations with the same RHS

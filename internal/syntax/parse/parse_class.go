@@ -165,6 +165,9 @@ func (p *Parser) parseFunDepList() []syn.FunDep {
 
 func (p *Parser) parseClassBody() ([]syn.ClassMethod, []syn.AssocTypeDecl, []syn.AssocDataDecl) {
 	p.expect(syn.TokLBrace)
+
+	savedBoundary := p.stmtBoundaryDepth
+	p.stmtBoundaryDepth = p.depth
 	var methods []syn.ClassMethod
 	var assocTypes []syn.AssocTypeDecl
 	var assocDataDecls []syn.AssocDataDecl
@@ -189,11 +192,14 @@ func (p *Parser) parseClassBody() ([]syn.ClassMethod, []syn.AssocTypeDecl, []syn
 		}
 		if p.peek().Kind == syn.TokSemicolon {
 			p.advance()
+		} else if p.peek().NewlineBefore || p.peek().Kind == syn.TokRBrace {
+			// newline or closing brace — implicit separator
 		} else if p.pos == before {
 			p.addError("unexpected token in class declaration")
 			p.advance()
 		}
 	}
+	p.stmtBoundaryDepth = savedBoundary
 	p.expect(syn.TokRBrace)
 	return methods, assocTypes, assocDataDecls
 }
@@ -275,7 +281,7 @@ func (p *Parser) parseInstanceDecl() *syn.DeclInstance {
 		p.advance()
 
 		var firstArgs []syn.TypeExpr
-		for p.isTypeAtomStart() && p.peek().Kind != syn.TokLBrace && !p.atDeclBoundary() {
+		for p.isTypeAtomStart() && p.peek().Kind != syn.TokLBrace && !p.atStmtBoundary() {
 			firstArgs = append(firstArgs, p.parseTypeAtom())
 		}
 
@@ -302,7 +308,7 @@ func (p *Parser) parseInstanceDecl() *syn.DeclInstance {
 	// Fallback: parse remaining class name + args
 	className := p.expectUpper()
 	var typeArgs []syn.TypeExpr
-	for p.isTypeAtomStart() && p.peek().Kind != syn.TokLBrace && !p.atDeclBoundary() {
+	for p.isTypeAtomStart() && p.peek().Kind != syn.TokLBrace && !p.atStmtBoundary() {
 		typeArgs = append(typeArgs, p.parseTypeAtom())
 	}
 	methods, assocTypeDefs, assocDataDefs := p.parseInstBody()
@@ -315,6 +321,9 @@ func (p *Parser) parseInstanceDecl() *syn.DeclInstance {
 
 func (p *Parser) parseInstBody() ([]syn.InstMethod, []syn.AssocTypeDef, []syn.AssocDataDef) {
 	p.expect(syn.TokLBrace)
+
+	savedBoundary := p.stmtBoundaryDepth
+	p.stmtBoundaryDepth = p.depth
 	var methods []syn.InstMethod
 	var assocTypeDefs []syn.AssocTypeDef
 	var assocDataDefs []syn.AssocDataDef
@@ -350,6 +359,7 @@ func (p *Parser) parseInstBody() ([]syn.InstMethod, []syn.AssocTypeDef, []syn.As
 			p.advance()
 		}
 	}
+	p.stmtBoundaryDepth = savedBoundary
 	p.expect(syn.TokRBrace)
 	return methods, assocTypeDefs, assocDataDefs
 }

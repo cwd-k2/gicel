@@ -24,6 +24,12 @@ type Parser struct {
 	depth       int  // paren/brace nesting depth
 	noBraceAtom bool // when true, { is not an atom start (inside case scrutinee)
 
+	// stmtBoundaryDepth enables newline-as-separator inside brace-delimited
+	// bodies (do-blocks, class/instance bodies, GADT constructors, case alts).
+	// When > 0 and p.depth == stmtBoundaryDepth, a token with NewlineBefore
+	// acts as a statement boundary, preventing greedy expression consumption.
+	stmtBoundaryDepth int
+
 	// Safety harness: prevent resource exhaustion on malformed input.
 	recurseDepth    int // current recursion depth
 	maxRecurseDepth int // limit (default 256)
@@ -68,9 +74,18 @@ func (p *Parser) ParseProgram() *syn.AstProgram {
 
 	var decls []syn.Decl
 	for p.peek().Kind != syn.TokEOF {
+		before := p.pos
 		d := p.parseDecl()
 		if d != nil {
 			decls = append(decls, d)
+		} else {
+			// Failed declaration: synchronize to the next declaration boundary
+			// so that one malformed declaration doesn't swallow subsequent valid ones.
+			p.syncToNextDecl()
+		}
+		if p.pos == before {
+			// Safety: ensure progress even if syncToNextDecl didn't advance.
+			p.advance()
 		}
 		p.skipSemicolons()
 	}
@@ -217,12 +232,44 @@ func (p *Parser) atDeclBoundary() bool {
 	return false
 }
 
-func (p *Parser) isTypeAtomStart() bool {
+// atStmtBoundary returns true if the next token is at a statement boundary:
+// either at the top level (atDeclBoundary), or inside a brace-delimited body
+// at the matching depth where a newline acts as an implicit separator.
+func (p *Parser) atStmtBoundary() bool {
 	if p.atDeclBoundary() {
+		return true
+	}
+	return p.stmtBoundaryDepth > 0 && p.depth == p.stmtBoundaryDepth && p.peek().NewlineBefore
+}
+
+func (p *Parser) isTypeAtomStart() bool {
+	if p.atStmtBoundary() {
 		return false
 	}
 	k := p.peek().Kind
 	return k == syn.TokLower || k == syn.TokUpper || k == syn.TokLParen || k == syn.TokLBrace || k == syn.TokUnderscore
+}
+
+// syncToNextDecl advances the parser to the next token that could start a
+// declaration at the top level. Used for error recovery after a failed
+// declaration parse, so that one malformed declaration doesn't swallow
+// subsequent valid ones.
+func (p *Parser) syncToNextDecl() {
+	for p.peek().Kind != syn.TokEOF {
+		tok := p.peek()
+		if tok.NewlineBefore {
+			switch tok.Kind {
+			case syn.TokLower, syn.TokUpper, syn.TokData, syn.TokType,
+				syn.TokInfixl, syn.TokInfixr, syn.TokInfixn,
+				syn.TokClass, syn.TokInstance, syn.TokImport, syn.TokLParen:
+				return
+			}
+		}
+		if tok.Kind == syn.TokSemicolon {
+			return
+		}
+		p.advance()
+	}
 }
 
 func (p *Parser) lookupFixity(op string) Fixity {
