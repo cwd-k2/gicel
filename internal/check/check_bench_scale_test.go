@@ -1,5 +1,5 @@
 // Scaling benchmarks — instance resolution, type family reduction, deep do chains.
-// Does NOT cover: basic check benchmarks (bench_test.go), unify benchmarks (unify/).
+// Does NOT cover: basic check benchmarks (check_bench_test.go), unify benchmarks (unify/).
 
 package check
 

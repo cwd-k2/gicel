@@ -1,5 +1,5 @@
 // Evaluator benchmarks — env lookup, curried application, closure chains.
-// Does NOT cover: env extend (eval_test.go), full pipeline (engine/bench_test.go).
+// Does NOT cover: env extend (eval_test.go), full pipeline (engine/engine_bench_test.go).
 
 package eval
 
