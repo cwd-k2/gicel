@@ -53,6 +53,30 @@ Functional dependency improvement (`| a =: b`) is best-effort: when the `from` p
 
 **Implementation**: `resolve.go:277–283` — `_ = ch.unifier.Unify(args[toIdx], instArg)`.
 
+### Compiler-generated names use `$` convention
+
+Compiler-generated identifiers (dictionary constructors, instance bindings, internal binders) contain `$` in their names. The evaluator's explain mode uses `strings.Contains(name, "$")` to distinguish user-visible bindings from compiler internals.
+
+**Rationale**: the lexer rejects `$` in user identifiers, so collision with source names is prevented at the grammar level. An explicit AST/Core flag for generatedness would be structurally cleaner but is unnecessary given the lexer guarantee.
+
+**Invariant**: `$` must remain prohibited in user identifiers. If this changes, explain-mode filtering must switch to explicit metadata.
+
+**Implementation**: `eval.go` `isCompilerGenerated()`.
+
+### Tuples are encoded as records with `_1`, `_2`, ... labels
+
+Tuples `(a, b, c)` are desugared to `Record { _1: a, _2: b, _3: c }` by the parser. Multiple subsystems detect tuple-shaped records by checking for sequential `_N` labels: parser (constraint tuple desugaring), evaluator (pretty-printing), stdlib (zip/unzip/splitAt).
+
+**Canonical definition**: `types.TupleLabel(pos)`.
+
+**Rationale**: first-class tuple types would add language complexity for marginal benefit. Record encoding is sufficient and composes with the existing row type system.
+
+**Invariant**: all tuple construction and detection must use the `_N` convention. If the encoding changes, all consumers must be updated together.
+
+### Exhaustiveness witness reconstruction is best-effort
+
+The exhaustiveness checker's witness formatting (`exhaust/matrix.go`) uses best-effort shape recovery and sorts record fields for stable rendering. This is acceptable because witnesses are used only for error reporting, not for semantic decisions.
+
 ---
 
 ## Known Theoretical Boundaries
