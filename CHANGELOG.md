@@ -2,10 +2,19 @@
 
 ## v0.12.1 — 2026-03-20
 
+### Core
+
+- **`Suspended r a` type alias** — `Suspended r a := Thunk r r a` added to Core module, mirroring `Effect r a := Computation r r a` for state-preserving suspended computations
+
 ### Examples
 
 - **`thunk (do {` → `thunk do {`** — all examples now use the parenthesis-free `thunk do { ... }` form instead of `thunk (do { ... })`. Applies to `do-notation.gicel`, `fail-effect.gicel`, `state-effect.gicel`, `state-machine.gicel`, `thunk-force.gicel`
 - **Inline single-use computation in `full-grammar.gicel`** — the `computation` binding (thunk + force) replaced with a direct `main := do { ... }`
+
+### Documentation
+
+- **Computation top-level restriction** — spec §2.1.1 and §2.1.3 now explain that bare `Computation` cannot appear at the top level (E0291), when `thunk` is needed, and that value-typed monads are unaffected
+- **Agent guide fix** — incorrect bare `do`-block example in effects.md replaced with `thunk do` pattern
 
 ---
 

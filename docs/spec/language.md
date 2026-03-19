@@ -235,6 +235,8 @@ Thunk: Row -> Row -> Type -> Type
 
 The type of suspended computations. `Thunk pre post a` is a value that, when forced, behaves as `Computation pre post a`.
 
+The type alias `Suspended r a := Thunk r r a` denotes suspended computations that preserve their capability state, mirroring `Effect` for `Computation`.
+
 ### 2.2.6 Record Type
 
 ```
@@ -1137,6 +1139,7 @@ Effects are encoded as capability row patterns, not monad transformers:
 
 ```
 type Effect r a := Computation r r a     -- state-preserving computation
+type Suspended r a := Thunk r r a        -- state-preserving suspension
 
 -- Maybe as effect: fromMaybe uses the fail capability
 fromMaybe :: \a r. Maybe a -> Computation { fail: () | r } { fail: () | r } a
@@ -1278,7 +1281,7 @@ gicel run --module Util=lib/Util.gicel main.gicel
 
 The Prelude is split into two parts:
 
-- **Core** (not replaceable): language-essential definitions — `IxMonad` class, `Computation` instance, `Effect` alias, `then` combinator, `Lift` type alias
+- **Core** (not replaceable): language-essential definitions — `IxMonad` class, `Computation` instance, `Effect` alias, `Suspended` alias, `then` combinator, `Lift` type alias
 - **Prelude** (replaceable): standard library types, classes, instances — `Bool`, `Maybe`, `List`, `Ordering`, 16 type classes (Eq through ToList, including Num and Div), instances
 
 Core is auto-registered and auto-imported; the user cannot control it. Prelude requires explicit `Use(Prelude)` on the engine and `import Prelude` in source.

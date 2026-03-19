@@ -6,6 +6,7 @@ class IxMonad (m: Row -> Row -> Type -> Type) {
 
 type Lift (m: Type -> Type) (r1: Row) (r2: Row) a := m a
 type Effect r a := Computation r r a
+type Suspended r a := Thunk r r a
 
 instance IxMonad Computation {
   ixpure := pure;

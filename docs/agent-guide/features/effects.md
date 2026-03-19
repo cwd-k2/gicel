@@ -63,7 +63,7 @@ increment := \(). do {
 A `Computation` is an action awaiting execution — it cannot be a bare top-level binding (only the entry point `main` is exempt). To name a standalone computation, suspend it with `thunk` and `force` it at the call site:
 
 ```
-counter :: Thunk { state: Int } { state: Int } Int
+counter :: Suspended { state: Int } Int
 counter := thunk do {
   n <- get;
   put (n + 1);
@@ -98,6 +98,8 @@ thunk :: Computation pre post a -> Thunk pre post a
 ```
 force :: Thunk pre post a -> Computation pre post a
 ```
+
+The type alias `Suspended r a := Thunk r r a` mirrors `Effect` for suspended computations that preserve their capability state.
 
 ### then
 

@@ -18,6 +18,7 @@ data List a := Cons a (List a) | Nil
 
 ```
 type Effect r a := Computation r r a
+type Suspended r a := Thunk r r a
 type Lift (m: Type -> Type) (r1: Row) (r2: Row) a := m a
 ```
 
