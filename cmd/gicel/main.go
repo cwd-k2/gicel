@@ -316,7 +316,7 @@ func cmdRun(args []string) int {
 	recursion := fs.Bool("recursion", false, "enable recursive definitions (fix/rec)")
 	var modules moduleFlags
 	fs.Var(&modules, "module", "register module: Name=path (repeatable)")
-	entry := fs.String("entry", "main", "entry point binding")
+	entry := fs.String("entry", gicel.DefaultEntryPoint, "entry point binding")
 	timeout := fs.Duration("timeout", 5*time.Second, "execution timeout")
 	maxSteps := fs.Int("max-steps", 100000, "step limit")
 	maxDepth := fs.Int("max-depth", 100, "depth limit")

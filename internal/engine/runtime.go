@@ -24,7 +24,7 @@ const (
 
 // RunOptions configures a single execution.
 type RunOptions struct {
-	// Entry is the top-level binding to evaluate (default: "main").
+	// Entry is the top-level binding to evaluate (default: DefaultEntryPoint).
 	Entry string
 	// Caps provides initial capability values.
 	Caps map[string]any
@@ -235,7 +235,7 @@ func (r *Runtime) RunWith(ctx context.Context, opts *RunOptions) (*RunResult, er
 	}
 	entry := opts.Entry
 	if entry == "" {
-		entry = "main"
+		entry = DefaultEntryPoint
 	}
 	var obs *eval.ExplainObserver
 	if opts.Explain != nil {

@@ -42,6 +42,9 @@ type RunOptions = engine.RunOptions
 // ExplainDepth controls how deeply the explain trace instruments evaluation.
 type ExplainDepth = engine.ExplainDepth
 
+// DefaultEntryPoint is the default entry point binding name.
+const DefaultEntryPoint = engine.DefaultEntryPoint
+
 // ExplainDepth constants.
 const (
 	ExplainUser = engine.ExplainUser

@@ -19,7 +19,7 @@ const (
 // SandboxConfig configures a sandboxed execution.
 type SandboxConfig struct {
 	Packs    []reg.Pack            // stdlib packs to load (default: none)
-	Entry    string                // entry point binding (default: "main")
+	Entry    string                // entry point binding (default: DefaultEntryPoint)
 	Timeout  time.Duration         // execution timeout (default: 5s)
 	MaxSteps int                   // step limit (default: 100_000)
 	MaxDepth int                   // depth limit (default: 100)
@@ -44,7 +44,7 @@ func RunSandbox(source string, cfg *SandboxConfig) (result *RunResult, err error
 
 	entry := cfg.Entry
 	if entry == "" {
-		entry = "main"
+		entry = DefaultEntryPoint
 	}
 	timeout := cfg.Timeout
 	if timeout == 0 {

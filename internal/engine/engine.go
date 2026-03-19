@@ -21,6 +21,10 @@ import (
 	"github.com/cwd-k2/gicel/internal/types"
 )
 
+// DefaultEntryPoint is the default name of the top-level binding that serves
+// as the program's entry point when no explicit name is provided.
+const DefaultEntryPoint = "main"
+
 // Engine configures and compiles GICEL programs.
 // It is mutable and must not be shared across goroutines.
 type Engine struct {
@@ -37,7 +41,7 @@ type Engine struct {
 	moduleOrder      []string // insertion order for deterministic iteration
 	runtimeRecursion bool     // set by RegisterModuleRec; ensures fix/rec in eval env
 	rewriteRules     []reg.RewriteRule
-	entryPoint       string // entry point name for bare Computation check (default "main")
+	entryPoint       string // entry point name for bare Computation check (default DefaultEntryPoint)
 }
 
 type compiledModule struct {
@@ -376,7 +380,7 @@ func (e *Engine) NewRuntime(ctx context.Context, source string) (*Runtime, error
 	cfg.Context = ctx
 	cfg.EntryPoint = e.entryPoint
 	if cfg.EntryPoint == "" {
-		cfg.EntryPoint = "main"
+		cfg.EntryPoint = DefaultEntryPoint
 	}
 	prog, checkErrs := check.Check(ast, src, cfg)
 	if checkErrs.HasErrors() {
