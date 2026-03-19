@@ -77,7 +77,11 @@ func (p *Parser) parseClassDecl() *syn.DeclClass {
 			// This is the actual class name.
 			var params []syn.TyBinder
 			for _, arg := range nextArgs {
-				v := arg.(*syn.TyExprVar)
+				v, ok := arg.(*syn.TyExprVar)
+				if !ok {
+					p.addError("class type parameter must be a type variable")
+					continue
+				}
 				params = append(params, syn.TyBinder{Name: v.Name, Kind: v.Kind, S: v.S})
 			}
 			funDeps := p.parseClassFunDeps()
@@ -93,7 +97,11 @@ func (p *Parser) parseClassDecl() *syn.DeclClass {
 	// No =>, so firstName is the class name, firstArgs are params.
 	var params []syn.TyBinder
 	for _, arg := range firstArgs {
-		v := arg.(*syn.TyExprVar)
+		v, ok := arg.(*syn.TyExprVar)
+		if !ok {
+			p.addError("class type parameter must be a type variable")
+			continue
+		}
 		params = append(params, syn.TyBinder{Name: v.Name, Kind: v.Kind, S: v.S})
 	}
 	funDeps := p.parseClassFunDeps()
