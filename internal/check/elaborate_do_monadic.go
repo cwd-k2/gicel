@@ -64,25 +64,20 @@ func (ch *Checker) extractMonadHead(ty types.Type) types.Type {
 // The monad head is used to resolve the IxMonad (Lift m) instance.
 func (ch *Checker) elaborateDoMonadic(stmts []syntax.Stmt, monadHead types.Type, expected types.Type, s span.Span) core.Core {
 	if len(stmts) == 1 {
-		switch st := stmts[0].(type) {
-		case *syntax.StmtExpr:
-			// Intercept `pure val` / `ixpure val` at the end of a monadic do block.
-			if pureVal := extractPureArg(st.Expr); pureVal != nil {
-				_, args := types.UnwindApp(expected)
-				if len(args) > 0 {
-					resultTy := args[len(args)-1]
-					valCore := ch.check(pureVal, resultTy)
-					return ch.mkIxPure(monadHead, valCore, s)
-				}
-			}
-			return ch.check(st.Expr, expected)
-		case *syntax.StmtBind:
-			ch.addCodedError(errs.ErrBadDoEnding, st.S, "do block must end with an expression")
-			return &core.Var{Name: "<error>", S: st.S}
-		case *syntax.StmtPureBind:
-			ch.addCodedError(errs.ErrBadDoEnding, st.S, "do block must end with an expression")
-			return &core.Var{Name: "<error>", S: st.S}
+		if ch.rejectDoEnding(stmts[0]) {
+			return &core.Var{Name: "<error>", S: stmts[0].Span()}
 		}
+		st := stmts[0].(*syntax.StmtExpr)
+		// Intercept `pure val` / `ixpure val` at the end of a monadic do block.
+		if pureVal := extractPureArg(st.Expr); pureVal != nil {
+			_, args := types.UnwindApp(expected)
+			if len(args) > 0 {
+				resultTy := args[len(args)-1]
+				valCore := ch.check(pureVal, resultTy)
+				return ch.mkIxPure(monadHead, valCore, s)
+			}
+		}
+		return ch.check(st.Expr, expected)
 	}
 
 	switch st := stmts[0].(type) {
@@ -120,15 +115,9 @@ func (ch *Checker) elaborateDoMonadic(stmts []syntax.Stmt, monadHead types.Type,
 
 	case *syntax.StmtPureBind:
 		// x := e; rest  →  (\x. rest) e
-		bindTy, bindCore := ch.infer(st.Expr)
-		ch.ctx.Push(&CtxVar{Name: st.Var, Type: bindTy})
-		restCore := ch.elaborateDoMonadic(stmts[1:], monadHead, expected, s)
-		ch.ctx.Pop()
-		return &core.App{
-			Fun: &core.Lam{Param: st.Var, Body: restCore, S: st.S},
-			Arg: bindCore,
-			S:   st.S,
-		}
+		return ch.elaboratePureBind(st, func() core.Core {
+			return ch.elaborateDoMonadic(stmts[1:], monadHead, expected, s)
+		})
 	}
 
 	return &core.Var{Name: "<error>", S: s}

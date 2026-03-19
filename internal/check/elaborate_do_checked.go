@@ -16,16 +16,11 @@ import (
 // steps accumulates pre/post pairs for multiplicity analysis.
 func (ch *Checker) elaborateStmtsChecked(stmts []syntax.Stmt, comp *types.TyCBPV, s span.Span, steps *[]multStep) core.Core {
 	if len(stmts) == 1 {
-		switch st := stmts[0].(type) {
-		case *syntax.StmtExpr:
+		if st, ok := stmts[0].(*syntax.StmtExpr); ok {
 			return ch.check(st.Expr, comp)
-		case *syntax.StmtBind:
-			ch.addCodedError(errs.ErrBadDoEnding, st.S, "do block must end with an expression")
-			return &core.Var{Name: "<error>", S: st.S}
-		case *syntax.StmtPureBind:
-			ch.addCodedError(errs.ErrBadDoEnding, st.S, "do block must end with an expression")
-			return &core.Var{Name: "<error>", S: st.S}
 		}
+		ch.rejectDoEnding(stmts[0])
+		return &core.Var{Name: "<error>", S: stmts[0].Span()}
 	}
 
 	switch st := stmts[0].(type) {
@@ -65,15 +60,9 @@ func (ch *Checker) elaborateStmtsChecked(stmts []syntax.Stmt, comp *types.TyCBPV
 
 	case *syntax.StmtPureBind:
 		// x := e; rest
-		bindTy, bindCore := ch.infer(st.Expr)
-		ch.ctx.Push(&CtxVar{Name: st.Var, Type: bindTy})
-		restCore := ch.elaborateStmtsChecked(stmts[1:], comp, s, steps)
-		ch.ctx.Pop()
-		return &core.App{
-			Fun: &core.Lam{Param: st.Var, Body: restCore, S: st.S},
-			Arg: bindCore,
-			S:   st.S,
-		}
+		return ch.elaboratePureBind(st, func() core.Core {
+			return ch.elaborateStmtsChecked(stmts[1:], comp, s, steps)
+		})
 
 	case *syntax.StmtExpr:
 		// c; rest

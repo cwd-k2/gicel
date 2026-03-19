@@ -11,10 +11,35 @@ import (
 )
 
 // Do elaboration files:
-//   elaborate_do.go          — inference path (inferDo, elaborateStmts, extractCompResult)
+//   elaborate_do.go          — shared helpers + inference path (inferDo, elaborateStmts, extractCompResult)
 //   elaborate_do_checked.go  — CBPV checked path (elaborateStmtsChecked, pre/post threading)
 //   elaborate_do_monadic.go  — IxMonad class dispatch path (checkDo, elaborateDoMonadic)
 //   elaborate_do_mult.go     — multiplicity enforcement (checkMultiplicity)
+
+// rejectDoEnding reports ErrBadDoEnding if the last statement is a binding.
+// Returns true if the statement was rejected.
+func (ch *Checker) rejectDoEnding(st syntax.Stmt) bool {
+	switch st.(type) {
+	case *syntax.StmtBind, *syntax.StmtPureBind:
+		ch.addCodedError(errs.ErrBadDoEnding, st.Span(), "do block must end with an expression")
+		return true
+	}
+	return false
+}
+
+// elaboratePureBind desugars x := e into App(Lam(x, rest), e).
+// The binding is in scope for the duration of the rest callback.
+func (ch *Checker) elaboratePureBind(st *syntax.StmtPureBind, rest func() core.Core) core.Core {
+	bindTy, bindCore := ch.infer(st.Expr)
+	ch.ctx.Push(&CtxVar{Name: st.Var, Type: bindTy})
+	restCore := rest()
+	ch.ctx.Pop()
+	return &core.App{
+		Fun: &core.Lam{Param: st.Var, Body: restCore, S: st.S},
+		Arg: bindCore,
+		S:   st.S,
+	}
+}
 
 func (ch *Checker) inferBlock(e *syntax.ExprBlock) (types.Type, core.Core) {
 	// Desugar: { x := e1; body } → App(Lam(x, body), e1)
@@ -60,17 +85,11 @@ func (ch *Checker) inferDo(e *syntax.ExprDo) (types.Type, core.Core) {
 
 func (ch *Checker) elaborateStmts(stmts []syntax.Stmt, s span.Span) (types.Type, core.Core) {
 	if len(stmts) == 1 {
-		// Last statement: must be an expression.
-		switch st := stmts[0].(type) {
-		case *syntax.StmtExpr:
+		if st, ok := stmts[0].(*syntax.StmtExpr); ok {
 			return ch.infer(st.Expr)
-		case *syntax.StmtBind:
-			ch.addCodedError(errs.ErrBadDoEnding, st.S, "do block must end with an expression")
-			return ch.errorPair(st.S)
-		case *syntax.StmtPureBind:
-			ch.addCodedError(errs.ErrBadDoEnding, st.S, "do block must end with an expression")
-			return ch.errorPair(st.S)
 		}
+		ch.rejectDoEnding(stmts[0])
+		return ch.errorPair(stmts[0].Span())
 	}
 
 	switch st := stmts[0].(type) {
@@ -85,15 +104,13 @@ func (ch *Checker) elaborateStmts(stmts []syntax.Stmt, s span.Span) (types.Type,
 
 	case *syntax.StmtPureBind:
 		// x := e; rest  →  App(Lam(x, rest), e)
-		bindTy, bindCore := ch.infer(st.Expr)
-		ch.ctx.Push(&CtxVar{Name: st.Var, Type: bindTy})
-		restTy, restCore := ch.elaborateStmts(stmts[1:], s)
-		ch.ctx.Pop()
-		return restTy, &core.App{
-			Fun: &core.Lam{Param: st.Var, Body: restCore, S: st.S},
-			Arg: bindCore,
-			S:   st.S,
-		}
+		var restTy types.Type
+		c := ch.elaboratePureBind(st, func() core.Core {
+			var rc core.Core
+			restTy, rc = ch.elaborateStmts(stmts[1:], s)
+			return rc
+		})
+		return restTy, c
 
 	case *syntax.StmtExpr:
 		// c; rest  →  Bind(c, "_", rest)
