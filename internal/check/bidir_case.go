@@ -105,7 +105,7 @@ func (ch *Checker) intersectCapRows(rows []*types.TyEvidenceRow, s span.Span) ty
 				allSameTail = false
 				break
 			}
-			if err := ch.unifier.Unify(firstRow.Tail, r.Tail); err != nil {
+			if !ch.tryUnify(firstRow.Tail, r.Tail) {
 				allSameTail = false
 				break
 			}

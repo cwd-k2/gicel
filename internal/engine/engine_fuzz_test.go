@@ -152,7 +152,11 @@ func FuzzAnnotateFreeVars(f *testing.F) {
 		// Use recover to handle known checker panics on edge-case input.
 		var prog *core.Program
 		func() {
-			defer func() { recover() }()
+			defer func() {
+			if r := recover(); r != nil {
+				t.Logf("checker panic on fuzz input (expected for edge cases): %v", r)
+			}
+		}()
 			var checkErrs *errs.Errors
 			prog, checkErrs = check.Check(ast, source, nil)
 			if checkErrs.HasErrors() {

@@ -136,6 +136,10 @@ func (ch *Checker) processCtFunEq(ct *CtFunEq) {
 	zonked := ch.zonkAll(ct.Args)
 	result, reduced := ch.reduceTyFamily(ct.FamilyName, zonked, ct.S)
 	if reduced {
+		// Unification failure here means the reduced result conflicts with an
+		// earlier reduction of the same family application. This is prevented
+		// by type family overlap checks; if it occurs, the unsolved meta will
+		// produce a downstream type mismatch error.
 		_ = ch.unifier.Unify(ct.ResultMeta, result)
 		return
 	}

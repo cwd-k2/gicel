@@ -175,6 +175,7 @@ func (ch *Checker) infer(expr syntax.Expr) (types.Type, core.Core) {
 		val, err := strconv.ParseInt(strings.ReplaceAll(e.Value, "_", ""), 10, 64)
 		if err != nil {
 			ch.addCodedError(errs.ErrTypeMismatch, e.S, fmt.Sprintf("invalid integer literal: %s", e.Value))
+			return ch.errorPair(e.S)
 		}
 		return ch.mkType("Int"), &core.Lit{Value: val, S: e.S}
 
@@ -185,6 +186,7 @@ func (ch *Checker) infer(expr syntax.Expr) (types.Type, core.Core) {
 		val, err := strconv.ParseFloat(strings.ReplaceAll(e.Value, "_", ""), 64)
 		if err != nil {
 			ch.addCodedError(errs.ErrTypeMismatch, e.S, fmt.Sprintf("invalid double literal: %s", e.Value))
+			return ch.errorPair(e.S)
 		}
 		return ch.mkType("Double"), &core.Lit{Value: val, S: e.S}
 

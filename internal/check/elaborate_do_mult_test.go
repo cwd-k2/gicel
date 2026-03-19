@@ -3,6 +3,7 @@ package check
 import (
 	"testing"
 
+	"github.com/cwd-k2/gicel/internal/errs"
 	"github.com/cwd-k2/gicel/internal/types"
 )
 
@@ -203,7 +204,7 @@ close := assumption
 bad :: Computation { h: Unit @Linear } {} Unit
 bad := do { use; use; close }
 `
-	checkSourceExpectError(t, source, nil)
+	checkSourceExpectCode(t, source, nil, errs.ErrMultiplicity)
 }
 
 func TestMultEnforcementLinearSingleUse(t *testing.T) {
