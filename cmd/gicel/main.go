@@ -75,12 +75,45 @@ Flags (run only):
 
 func cmdDocs(args []string) int {
 	if len(args) == 0 {
-		content := gicel.Doc("index")
-		if content == "" {
+		topics := gicel.DocTopics()
+		if len(topics) == 0 {
 			fmt.Fprintln(os.Stderr, "no documentation available")
 			return 1
 		}
-		fmt.Print(content)
+		// Group topics by category prefix (dot-separated).
+		type entry struct {
+			name, desc string
+		}
+		groups := map[string][]entry{}
+		var groupOrder []string
+		for _, name := range topics {
+			desc := gicel.DocDesc(name)
+			category := ""
+			if i := strings.LastIndex(name, "."); i >= 0 {
+				category = name[:i]
+			}
+			e := entry{name, desc}
+			if _, seen := groups[category]; !seen {
+				groupOrder = append(groupOrder, category)
+			}
+			groups[category] = append(groups[category], e)
+		}
+		for _, cat := range groupOrder {
+			label := cat
+			if label == "" {
+				label = "general"
+			}
+			fmt.Printf("%s:\n", label)
+			for _, e := range groups[cat] {
+				if e.desc != "" {
+					fmt.Printf("  %-30s %s\n", e.name, e.desc)
+				} else {
+					fmt.Printf("  %s\n", e.name)
+				}
+			}
+			fmt.Println()
+		}
+		fmt.Println("Run 'gicel docs <topic>' for details.")
 		return 0
 	}
 	topic := args[0]

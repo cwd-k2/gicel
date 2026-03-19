@@ -1,4 +1,4 @@
-### Functions
+## Prelude Functions
 
 **Identity and combinators:**
 
