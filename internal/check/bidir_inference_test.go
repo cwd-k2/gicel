@@ -1,5 +1,5 @@
-// Inference tests — data declarations, identity, application, literals, type aliases, host bindings.
-// Does NOT cover: unification (unify_test.go), exhaustiveness (exhaustiveness_test.go), errors (error_test.go).
+// Bidir inference tests — data declarations, identity, application, literals, type aliases, host bindings.
+// Does NOT cover: unification (unify_test.go), exhaustiveness (exhaustiveness_test.go), errors (checker_error_test.go).
 
 package check
 

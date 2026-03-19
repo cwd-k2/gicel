@@ -1,5 +1,5 @@
-// Integration tests — full pipeline, e2e features, stdlib effects, list operations, type families.
-// Does NOT cover: literals (literal_test.go), host API (host_api_test.go), sandbox (sandbox_test.go).
+// Engine integration tests — full pipeline, e2e features, stdlib effects, list operations, type families.
+// Does NOT cover: literals (engine_literal_test.go), host API (engine_host_api_test.go), sandbox (sandbox_test.go).
 
 package engine
 

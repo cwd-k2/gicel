@@ -1,4 +1,4 @@
-// Error tests — unbound var/con, bad application/computation/thunk, skolem escape/rigid, duplicate labels.
+// Checker error tests — unbound var/con, bad application/computation/thunk, skolem escape/rigid, duplicate labels.
 // Does NOT cover: type family errors (type_family_test.go), instance errors (instance_test.go).
 
 package check

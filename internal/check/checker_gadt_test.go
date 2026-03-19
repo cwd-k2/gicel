@@ -1,5 +1,5 @@
-// GADT tests — ConType registration, pattern refinement, multi-branch, exhaustiveness filtering.
-// Does NOT cover: general exhaustiveness (exhaustiveness_test.go), DataKinds (datakinds_test.go).
+// Checker GADT tests — ConType registration, pattern refinement, multi-branch, exhaustiveness filtering.
+// Does NOT cover: general exhaustiveness (exhaustiveness_test.go), DataKinds (resolve_kind_datakinds_test.go).
 
 package check
 

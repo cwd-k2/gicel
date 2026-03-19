@@ -1,5 +1,5 @@
 // Computation tests — pure/thunk/force, do blocks, bind chains, case, constructors, effectful deferral.
-// Does NOT cover: literals (literal_test.go), host API (host_api_test.go).
+// Does NOT cover: literals (engine_literal_test.go), host API (engine_host_api_test.go).
 
 package engine
 

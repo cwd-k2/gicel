@@ -1,5 +1,5 @@
-// Host API tests — Engine config, diagnostics, runtime reuse, multiple runtimes, packs.
-// Does NOT cover: value conversion (value_conversion_test.go), boundary errors (boundary_test.go).
+// Engine host API tests — Engine config, diagnostics, runtime reuse, multiple runtimes, packs.
+// Does NOT cover: value conversion (convert_test.go), boundary errors (engine_boundary_test.go).
 
 package engine
 

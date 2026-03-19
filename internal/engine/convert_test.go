@@ -1,5 +1,5 @@
 // Value conversion tests — ToValue, FromHost, MustHost, FromRecord, FromCon, type helpers.
-// Does NOT cover: runtime behavior (host_api_test.go), boundary errors (boundary_test.go).
+// Does NOT cover: runtime behavior (engine_host_api_test.go), boundary errors (engine_boundary_test.go).
 
 package engine
 

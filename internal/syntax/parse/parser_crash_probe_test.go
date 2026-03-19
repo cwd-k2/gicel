@@ -1,6 +1,6 @@
 //go:build probe
 
-// Crash resistance probe tests: deep nesting, long inputs, error recovery, step limits.
+// Parser crash probe tests — deep nesting, long inputs, error recovery, step limits.
 package parse
 
 import (

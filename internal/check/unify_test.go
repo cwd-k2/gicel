@@ -1,5 +1,5 @@
 // Unify tests — unification (simple, meta, arrow, occurs, row), normalize, zonk.
-// Does NOT cover: type family reduction (type_family_reduction_test.go), errors (error_test.go).
+// Does NOT cover: type family reduction (type_family_reduction_test.go), errors (checker_error_test.go).
 
 package check
 
