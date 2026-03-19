@@ -526,3 +526,64 @@ main := do {
 		t.Errorf("expected 15, got %d", hv)
 	}
 }
+
+// ---------------------------------------------------------------------------
+// pure resolution in >>= context (non-do, non-Computation monad)
+// ---------------------------------------------------------------------------
+
+func TestMaybePureInBindOperator(t *testing.T) {
+	// pure inside >>= continuation should resolve via IxMonad, not Computation.
+	eng := NewEngine()
+	eng.Use(stdlib.Prelude)
+	rt, err := eng.NewRuntime(context.Background(), `
+import Prelude
+main :: Maybe Int
+main := Just 5 >>= \x. pure x
+`)
+	if err != nil {
+		t.Fatalf("pure in >>= context should resolve via class dispatch: %v", err)
+	}
+	result, err := rt.RunWith(context.Background(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	con, ok := result.Value.(*eval.ConVal)
+	if !ok || con.Con != "Just" || len(con.Args) != 1 {
+		t.Fatalf("expected Just 5, got %v", result.Value)
+	}
+	hv, ok := con.Args[0].(*eval.HostVal)
+	if !ok || hv.Inner != int64(5) {
+		t.Fatalf("expected Just 5, got Just %v", con.Args[0])
+	}
+}
+
+func TestMaybePureInBindOperatorWithTransform(t *testing.T) {
+	// pure (f x) inside >>= continuation.
+	eng := NewEngine()
+	eng.Use(stdlib.Prelude)
+	eng.RegisterPrim("double", func(ctx context.Context, capEnv eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
+		return ToValue(MustHost[int64](args[0]) * 2), capEnv, nil
+	})
+	rt, err := eng.NewRuntime(context.Background(), `
+import Prelude
+double :: Int -> Int
+double := assumption
+main :: Maybe Int
+main := Just 3 >>= \x. pure (double x)
+`)
+	if err != nil {
+		t.Fatalf("pure with transform in >>= context should work: %v", err)
+	}
+	result, err := rt.RunWith(context.Background(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	con, ok := result.Value.(*eval.ConVal)
+	if !ok || con.Con != "Just" || len(con.Args) != 1 {
+		t.Fatalf("expected Just 6, got %v", result.Value)
+	}
+	hv, ok := con.Args[0].(*eval.HostVal)
+	if !ok || hv.Inner != int64(6) {
+		t.Fatalf("expected Just 6, got Just %v", con.Args[0])
+	}
+}

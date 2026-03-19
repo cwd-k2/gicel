@@ -10,6 +10,35 @@ import (
 	"github.com/cwd-k2/gicel/internal/types"
 )
 
+// checkPure handles 'pure <expr>' in check mode.
+// When expected type is Computation, delegates to the infer path (Core.Pure).
+// When expected type is a non-Computation monad (e.g. Maybe), uses IxMonad
+// class dispatch to resolve ixpure — same logic as do-block elaboration.
+func (ch *Checker) checkPure(e *syntax.ExprApp, expected types.Type) core.Core {
+	expected = ch.unifier.Zonk(expected)
+
+	// Fast path: Computation type → existing infer + subsCheck.
+	if comp, ok := expected.(*types.TyCBPV); ok && comp.Tag == types.TagComp {
+		inferredTy, coreExpr := ch.infer(e)
+		return ch.subsCheck(inferredTy, expected, coreExpr, e.S)
+	}
+
+	// Class dispatch: extract monad head, resolve IxMonad, use mkIxPure.
+	monadHead := ch.extractMonadHead(expected)
+	if monadHead != nil {
+		_, args := types.UnwindApp(expected)
+		if len(args) > 0 {
+			resultTy := args[len(args)-1]
+			valCore := ch.check(e.Arg, resultTy)
+			return ch.mkIxPure(monadHead, valCore, e.S)
+		}
+	}
+
+	// Fallback: infer + subsCheck (metavar, error, etc.)
+	inferredTy, coreExpr := ch.infer(e)
+	return ch.subsCheck(inferredTy, expected, coreExpr, e.S)
+}
+
 // inferPure handles the special form 'pure <expr>'.
 // pure e: Computation r r a, elaborated to Core.Pure.
 func (ch *Checker) inferPure(e *syntax.ExprApp) (types.Type, core.Core) {

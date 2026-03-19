@@ -59,7 +59,9 @@ func (ch *Checker) checkApp(e *syntax.ExprApp, expected types.Type) core.Core {
 	// Special forms: delegate to infer + subsCheck (they have dedicated CBPV logic).
 	if v, ok := e.Fun.(*syntax.ExprVar); ok {
 		switch v.Name {
-		case "pure", "thunk", "force":
+		case "pure":
+			return ch.checkPure(e, expected)
+		case "thunk", "force":
 			inferredTy, coreExpr := ch.infer(e)
 			return ch.subsCheck(inferredTy, expected, coreExpr, e.S)
 		}
