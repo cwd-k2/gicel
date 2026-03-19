@@ -38,10 +38,29 @@ Checker restructuring: establish subpackage boundaries, then consolidate constra
 - **Module boundary hardening** — `SortBindings` precomputation, strict module export filtering
 - **File reorganization** — test files renamed to feature convention across `check/`, `engine/`, `eval/`, `parse/`
 
+### Fixes
+
+- **Import ambiguity provenance** — re-export check now verifies dependency chain instead of assuming any re-export suppresses ambiguity. `import B` (re-exporting A.x) + `import C` (native x) is correctly flagged
+- **RunWith entry point default** — `RunWith(ctx, nil)` now uses the compile-time entry point (`Runtime.entryName`) instead of hardcoded "main"
+- **Compile bare Computation check** — `Compile()` now enforces E0291 consistently with `NewRuntime()`, preventing "check passes but run fails" asymmetry
+- **Class head parse guard** — unchecked type assertions in `parseClassDecl` now emit errors instead of panicking on malformed class heads
+- **Quantified constraint context search** — full structural matching (arity + head-arg unification) instead of class-name-only match
+- **Literal parse error sentinel** — invalid integer/double literals now produce `TyError` sentinel instead of zero-valued Core nodes
+- **Unifier probe safety** — `bidir_case.go` tail comparison uses `tryUnify` (trial scope) instead of committed unification
+
+### Safety & Sustainability
+
+- **Panic defaults on sealed switches** — `core.Walk`, `core.Transform`, `core.annotateFV` panic on unhandled Core variants. `check_pattern`, `resolve_type`, `resolve_kind` emit errors for unknown AST forms. Prevents silent degradation when new variants are added
+- **File splits** — `types/evidence.go` (569→327+248), `stdlib/list.go` (605→272+341)
+- **Dead code removal** — `ErrUnterminatedStr`, `collectContextEvidence`/`classifyEvidence`, dead exports unexported
+- **Named constants** — `TyConComputation`/`TyConThunk`, `DefaultEntryPoint`, `sandboxDefaultTimeout`, `prefixSec`/`prefixField`
+
 ### Documentation
 
 - **Trust boundary clarification** — README and agent guide now explicitly document that host-registered primitives (`RegisterPrim`) are trusted computing base code, and that `Timeout` bounds evaluation time only
 - **CLAUDE.md** — unified to English; stdlib pack name → module name mapping table; package-name-as-feature test naming rule
+- **Agent guide restructured** — hierarchical directory structure with dot-separated topic names (`features.records`, `stdlib.prelude`); 6 new feature docs added
+- **Examples restructured** — `basics/`, `types/`, `effects/` subdirectories; directory-based CLI grouping
 - **Roadmap** — documented fundep improvement as intentional bound; design conventions for tuple labels and compiler-generated names
 - **Integer overflow** — specified as Go `int64` wrapping semantics
 
