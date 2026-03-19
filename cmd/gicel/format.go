@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/cwd-k2/gicel"
@@ -427,9 +428,40 @@ func formatValue(v gicel.Value) any {
 			args[i] = formatValue(a)
 		}
 		return map[string]any{"con": val.Con, "args": args}
+	case *gicel.RecordVal:
+		if elems, ok := formatJSONTuple(val); ok {
+			return elems
+		}
+		return formatJSONRecord(val)
 	default:
 		return gicel.PrettyValue(v)
 	}
+}
+
+// formatJSONTuple converts a tuple RecordVal (fields _1, _2, ..., _n) to a JSON array.
+func formatJSONTuple(r *gicel.RecordVal) ([]any, bool) {
+	n := len(r.Fields)
+	if n == 0 {
+		return []any{}, true
+	}
+	elems := make([]any, n)
+	for i := range n {
+		v, ok := r.Fields["_"+strconv.Itoa(i+1)]
+		if !ok {
+			return nil, false
+		}
+		elems[i] = formatValue(v)
+	}
+	return elems, true
+}
+
+// formatJSONRecord converts a RecordVal to a JSON object with recursively formatted fields.
+func formatJSONRecord(r *gicel.RecordVal) map[string]any {
+	m := make(map[string]any, len(r.Fields))
+	for k, v := range r.Fields {
+		m[k] = formatValue(v)
+	}
+	return m
 }
 
 // collectJSONList extracts a Cons/Nil chain into a slice for JSON array output.
