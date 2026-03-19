@@ -183,3 +183,4 @@ type_family_reduction_unit_test.go  — type_family.go の reduction algorithm u
 - Commit per logical group or phase completion.
 - Do not run test agents in background (memory exhaustion incident, 2024-03-14).
 - **一つのことには一つのやり方。** 同じ操作・同じパターンに複数の実装経路を作らない。共通ロジックが複数箇所に現れたら、代表となるヘルパーに統合する。分岐が必要なのは意味論的に異なる場合だけ。コードベースの divergence は設計意図を曖昧にし、変更コストを増幅する。
+- **ハックもワークアラウンドも入れない。理論に従う。** 表示用 API（`Pretty`, `String`）を identity や cache key に流用しない。名前規約やテキスト形状から意味を推定するヒューリスティックを作らない。構造的なデータで意味を表現し、文字列エンコーディングが必要なら単射性を保証する canonical serializer を一つだけ用意する。妥協が必要な場合は、暗黙に劣化させるのではなく、制約と理由を文書化して明示的に境界を引く。
