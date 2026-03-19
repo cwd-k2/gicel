@@ -393,8 +393,8 @@ main := size (empty :: Set Int)
 // ===================================================================
 
 func TestProbeD_Num_IntOverflowAdd(t *testing.T) {
-	// max int64 + 1 should silently wrap (Go int64 behavior).
-	// BUG candidate: no overflow detection.
+	// Int arithmetic wraps on overflow (Go int64 two's-complement semantics).
+	// This is specified behavior, not a bug.
 	v, err := pdRun(t, `
 import Prelude
 main := 9223372036854775807 + 1
@@ -404,9 +404,6 @@ main := 9223372036854775807 + 1
 	}
 	// Go wraps int64: max + 1 = min
 	pdAssertInt(t, v, math.MinInt64)
-	// BUG: low - integer overflow wraps silently; no runtime error for
-	// arithmetic overflow. This is Go-native behavior but may be unexpected
-	// for a safe sandbox language.
 }
 
 func TestProbeD_Num_IntOverflowMul(t *testing.T) {

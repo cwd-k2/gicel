@@ -46,7 +46,7 @@ class Num a => Div a {
 
 **Operators:** `+` `-` (infixl 6), `*` `/` (infixl 7). `+`, `-`, `*` are `Num a => a -> a -> a`; `/` is `Div a => a -> a -> a`.
 
-Instances: `Eq/Ord/Show/Num/Div/Semigroup/Monoid` for both `Int` and `Double`. Integer literals require `import Prelude`. Negative numbers: `negate 5`. Division by zero is a runtime error.
+Instances: `Eq/Ord/Show/Num/Div/Semigroup/Monoid` for both `Int` and `Double`. Integer literals require `import Prelude`. Negative numbers: `negate 5`. Division by zero is a runtime error. Integer overflow wraps silently (Go `int64` two's-complement semantics).
 
 #### Str (string and rune operations)
 

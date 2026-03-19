@@ -849,7 +849,7 @@ Eq ──→ Num ──→ Div   (in Prelude)
 | `FromList`    | `l` (assoc type: `Elem l`)       | `fromList :: List (Elem l) -> l`                            |
 | `ToList`      | `l` (requires FromList)          | `toList :: l -> List (Elem l)`                              |
 
-`Num` and `Div` are type classes with instances for both `Int` and `Double`. Arithmetic operators `+`, `-`, `*` dispatch through `Num`; `/` dispatches through `Div`.
+`Num` and `Div` are type classes with instances for both `Int` and `Double`. Arithmetic operators `+`, `-`, `*` dispatch through `Num`; `/` dispatches through `Div`. Integer overflow wraps silently using Go's `int64` two's-complement semantics. Division by zero is a runtime error.
 
 `Applicative.wrap` corresponds to Haskell's `pure` but uses a different name to avoid collision with the language built-in `pure`. `Monad.mpure` and `Monad.mbind` similarly avoid collision with the built-in `pure` and `bind`.
 
