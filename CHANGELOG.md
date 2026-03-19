@@ -28,7 +28,7 @@ Checker restructuring: establish subpackage boundaries for each concern.
 
 ### Type System
 
-- **Session fidelity theorem** — formal proof in `spec/language.md` Chapter 18: protocol compliance, communication safety, session completion. 12 probe tests in `tests/probe/`
+- **Session fidelity theorem** — formal proof in `docs/spec/language.md` Chapter 18: protocol compliance, communication safety, session completion. 12 probe tests in `tests/probe/`
 - **TyMeta levels** — metavariables carry implication nesting depth (`Level` field), preparing for OutsideIn(X) touchability
 
 ### Refactoring

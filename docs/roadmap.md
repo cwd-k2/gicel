@@ -1,6 +1,6 @@
 # GICEL Roadmap
 
-Current state: **v0.11.** Session fidelity, multiplicity enforcement, checker architecture refactoring. See `CHANGELOG.md` for details, `spec/language.md` for the complete specification.
+Current state: **v0.12.** Session fidelity, multiplicity enforcement, checker/parser architecture reorganization. See `CHANGELOG.md` for details, `docs/spec/language.md` for the complete specification.
 
 ---
 

@@ -322,7 +322,7 @@ multi-file project.
 
 ## Documentation
 
-- [Language Specification](spec/language.md) — formal spec (18 chapters)
+- [Language Specification](docs/spec/language.md) — formal spec (18 chapters)
 - [Agent Guide](docs/agent-guide/) — complete language reference with Go API details
 - [Grammar Reference](docs/grammar-reference.md) — syntax at a glance
 - [Changelog](CHANGELOG.md) — version history
