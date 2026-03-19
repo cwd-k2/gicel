@@ -242,6 +242,28 @@ func (p *Parser) atStmtBoundary() bool {
 	return p.stmtBoundaryDepth > 0 && p.depth == p.stmtBoundaryDepth && p.peek().NewlineBefore
 }
 
+// parseBody runs a brace-delimited body loop with consistent separator
+// handling and stagnation recovery.  The parse callback is invoked for each
+// item; context is used in the stagnation error message.
+func (p *Parser) parseBody(context string, parse func()) {
+	savedBoundary := p.stmtBoundaryDepth
+	p.stmtBoundaryDepth = p.depth
+	for p.peek().Kind != syn.TokRBrace && p.peek().Kind != syn.TokEOF {
+		before := p.pos
+		parse()
+		if p.peek().Kind == syn.TokSemicolon {
+			p.advance()
+		} else if p.peek().NewlineBefore || p.peek().Kind == syn.TokRBrace {
+			// newline or closing brace — implicit separator
+		} else if p.pos == before {
+			p.addError("unexpected token in " + context)
+			p.advance()
+		}
+	}
+	p.stmtBoundaryDepth = savedBoundary
+	p.expect(syn.TokRBrace)
+}
+
 func (p *Parser) isTypeAtomStart() bool {
 	if p.atStmtBoundary() {
 		return false

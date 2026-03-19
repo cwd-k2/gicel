@@ -165,14 +165,10 @@ func (p *Parser) parseFunDepList() []syn.FunDep {
 
 func (p *Parser) parseClassBody() ([]syn.ClassMethod, []syn.AssocTypeDecl, []syn.AssocDataDecl) {
 	p.expect(syn.TokLBrace)
-
-	savedBoundary := p.stmtBoundaryDepth
-	p.stmtBoundaryDepth = p.depth
 	var methods []syn.ClassMethod
 	var assocTypes []syn.AssocTypeDecl
 	var assocDataDecls []syn.AssocDataDecl
-	for p.peek().Kind != syn.TokRBrace && p.peek().Kind != syn.TokEOF {
-		before := p.pos
+	p.parseBody("class declaration", func() {
 		if p.peek().Kind == syn.TokType {
 			atd := p.parseAssocTypeDecl()
 			if atd != nil {
@@ -190,17 +186,7 @@ func (p *Parser) parseClassBody() ([]syn.ClassMethod, []syn.AssocTypeDecl, []syn
 			ty := p.parseType()
 			methods = append(methods, syn.ClassMethod{Name: name, Type: ty, S: span.Span{Start: mStart, End: p.prevEnd()}})
 		}
-		if p.peek().Kind == syn.TokSemicolon {
-			p.advance()
-		} else if p.peek().NewlineBefore || p.peek().Kind == syn.TokRBrace {
-			// newline or closing brace — implicit separator
-		} else if p.pos == before {
-			p.addError("unexpected token in class declaration")
-			p.advance()
-		}
-	}
-	p.stmtBoundaryDepth = savedBoundary
-	p.expect(syn.TokRBrace)
+	})
 	return methods, assocTypes, assocDataDecls
 }
 
@@ -321,26 +307,17 @@ func (p *Parser) parseInstanceDecl() *syn.DeclInstance {
 
 func (p *Parser) parseInstBody() ([]syn.InstMethod, []syn.AssocTypeDef, []syn.AssocDataDef) {
 	p.expect(syn.TokLBrace)
-
-	savedBoundary := p.stmtBoundaryDepth
-	p.stmtBoundaryDepth = p.depth
 	var methods []syn.InstMethod
 	var assocTypeDefs []syn.AssocTypeDef
 	var assocDataDefs []syn.AssocDataDef
-	for p.peek().Kind != syn.TokRBrace && p.peek().Kind != syn.TokEOF {
+	p.parseBody("instance declaration", func() {
 		mStart := p.peek().S.Start
 		if p.peek().Kind == syn.TokData {
-			// Associated data family definition: data Name patterns = Con ... | Con ...
 			add := p.parseAssocDataDef()
 			if add != nil {
 				assocDataDefs = append(assocDataDefs, *add)
 			}
-			if p.peek().Kind == syn.TokSemicolon {
-				p.advance()
-			}
-			continue
 		} else if p.peek().Kind == syn.TokType {
-			// Associated type definition: type Name patterns = syn.TypeExpr
 			atd := p.parseAssocTypeDef()
 			if atd != nil {
 				assocTypeDefs = append(assocTypeDefs, *atd)
@@ -350,17 +327,8 @@ func (p *Parser) parseInstBody() ([]syn.InstMethod, []syn.AssocTypeDef, []syn.As
 			p.expect(syn.TokColonEq)
 			expr := p.parseExpr()
 			methods = append(methods, syn.InstMethod{Name: name, Expr: expr, S: span.Span{Start: mStart, End: p.prevEnd()}})
-		} else {
-			p.addError("expected method name or 'type' in instance declaration")
-			p.advance()
-			continue
 		}
-		if p.peek().Kind == syn.TokSemicolon {
-			p.advance()
-		}
-	}
-	p.stmtBoundaryDepth = savedBoundary
-	p.expect(syn.TokRBrace)
+	})
 	return methods, assocTypeDefs, assocDataDefs
 }
 

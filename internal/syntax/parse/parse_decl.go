@@ -108,12 +108,8 @@ func (p *Parser) parseDataDecl() *syn.DeclData {
 // Format: { ConName :: Type ; ConName :: Type ; ... }
 func (p *Parser) parseGADTCons() []syn.GADTConDecl {
 	p.expect(syn.TokLBrace)
-
-	savedBoundary := p.stmtBoundaryDepth
-	p.stmtBoundaryDepth = p.depth
 	var cons []syn.GADTConDecl
-	for p.peek().Kind != syn.TokRBrace && p.peek().Kind != syn.TokEOF {
-		before := p.pos
+	p.parseBody("GADT declaration", func() {
 		cStart := p.peek().S.Start
 		cName := p.expectUpper()
 		p.expect(syn.TokColonColon)
@@ -123,17 +119,7 @@ func (p *Parser) parseGADTCons() []syn.GADTConDecl {
 			Type: cType,
 			S:    span.Span{Start: cStart, End: p.prevEnd()},
 		})
-		if p.peek().Kind == syn.TokSemicolon {
-			p.advance()
-		} else if p.peek().NewlineBefore || p.peek().Kind == syn.TokRBrace {
-			// newline or closing brace — implicit separator
-		} else if p.pos == before {
-			p.addError("unexpected token in GADT declaration")
-			p.advance()
-		}
-	}
-	p.stmtBoundaryDepth = savedBoundary
-	p.expect(syn.TokRBrace)
+	})
 	return cons
 }
 
@@ -253,15 +239,10 @@ func (p *Parser) isInjectiveResult() bool {
 // parseTypeFamilyEquations parses the equation block { Name Pat* = RHS; ... }.
 func (p *Parser) parseTypeFamilyEquations(familyName string) []syn.TFEquation {
 	p.expect(syn.TokLBrace)
-
-	savedBoundary := p.stmtBoundaryDepth
-	p.stmtBoundaryDepth = p.depth
 	var equations []syn.TFEquation
-	for p.peek().Kind != syn.TokRBrace && p.peek().Kind != syn.TokEOF {
-		before := p.pos
+	p.parseBody("type family declaration", func() {
 		eqStart := p.peek().S.Start
 		eqName := p.expectUpper()
-		// Parse LHS type patterns.
 		var patterns []syn.TypeExpr
 		for p.isTypeAtomStart() && p.peek().Kind != syn.TokEqColon {
 			patterns = append(patterns, p.parseTypeAtom())
@@ -274,17 +255,7 @@ func (p *Parser) parseTypeFamilyEquations(familyName string) []syn.TFEquation {
 			RHS:      rhs,
 			S:        span.Span{Start: eqStart, End: p.prevEnd()},
 		})
-		if p.peek().Kind == syn.TokSemicolon {
-			p.advance()
-		} else if p.peek().NewlineBefore || p.peek().Kind == syn.TokRBrace {
-			// newline or closing brace — implicit separator
-		} else if p.pos == before {
-			p.addError("unexpected token in type family declaration")
-			p.advance()
-		}
-	}
-	p.stmtBoundaryDepth = savedBoundary
-	p.expect(syn.TokRBrace)
+	})
 	return equations
 }
 

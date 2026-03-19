@@ -292,25 +292,10 @@ func (p *Parser) parseCase() syn.Expr {
 	scrut := p.parseExpr()
 	p.noBraceAtom = false
 	p.expect(syn.TokLBrace)
-
-	savedBoundary := p.stmtBoundaryDepth
-	p.stmtBoundaryDepth = p.depth
 	var alts []syn.AstAlt
-	for p.peek().Kind != syn.TokRBrace && p.peek().Kind != syn.TokEOF {
-		before := p.pos
-		alt := p.parseAlt()
-		alts = append(alts, alt)
-		if p.peek().Kind == syn.TokSemicolon {
-			p.advance()
-		} else if p.peek().NewlineBefore || p.peek().Kind == syn.TokRBrace {
-			// newline or closing brace — implicit separator
-		} else if p.pos == before {
-			p.addError("unexpected token in case expression")
-			p.advance()
-		}
-	}
-	p.stmtBoundaryDepth = savedBoundary
-	p.expect(syn.TokRBrace)
+	p.parseBody("case expression", func() {
+		alts = append(alts, p.parseAlt())
+	})
 	return &syn.ExprCase{
 		Scrutinee: scrut, Alts: alts,
 		S: span.Span{Start: start, End: p.prevEnd()},
@@ -332,25 +317,10 @@ func (p *Parser) parseDo() syn.Expr {
 	start := p.peek().S.Start
 	p.expect(syn.TokDo)
 	p.expect(syn.TokLBrace)
-
-	savedBoundary := p.stmtBoundaryDepth
-	p.stmtBoundaryDepth = p.depth
 	var stmts []syn.Stmt
-	for p.peek().Kind != syn.TokRBrace && p.peek().Kind != syn.TokEOF {
-		before := p.pos
-		stmt := p.parseStmt()
-		stmts = append(stmts, stmt)
-		if p.peek().Kind == syn.TokSemicolon {
-			p.advance()
-		} else if p.peek().NewlineBefore || p.peek().Kind == syn.TokRBrace {
-			// newline or closing brace — implicit separator
-		} else if p.pos == before {
-			p.addError("unexpected token in do-block")
-			p.advance()
-		}
-	}
-	p.stmtBoundaryDepth = savedBoundary
-	p.expect(syn.TokRBrace)
+	p.parseBody("do-block", func() {
+		stmts = append(stmts, p.parseStmt())
+	})
 	return &syn.ExprDo{
 		Stmts: stmts,
 		S:     span.Span{Start: start, End: p.prevEnd()},
