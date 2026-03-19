@@ -41,6 +41,20 @@ Multiplicity polymorphism (quantifying over `@Mult` annotations) requires eviden
 
 ---
 
+## Intentional Capability Bounds
+
+### Fundep improvement is advisory
+
+Functional dependency improvement (`| a =: b`) is best-effort: when the `from` position matches an instance, the checker attempts to unify the `to` position with the instance type. If unification fails (e.g., the type is already constrained), the improvement is silently skipped.
+
+**Rationale**: a hard error would reject valid programs where the fundep simply provides no additional information — the type may already be determined by annotation or direct instance resolution.
+
+**Regression test**: `TestRegressionFundepBestEffort` and `TestRegressionFundepImprovementFromMeta` in `internal/check/regression_test.go`.
+
+**Implementation**: `resolve.go:277–283` — `_ = ch.unifier.Unify(args[toIdx], instArg)`.
+
+---
+
 ## Known Theoretical Boundaries
 
 These are not bugs or missing features. They are consequences of GICEL's design coordinate (Atkey indexed monad × row polymorphism × CBPV × Go embedding) that existing literature does not address. Each is currently handled by a practical workaround; the notes below record when the workaround would break.
