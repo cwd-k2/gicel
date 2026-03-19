@@ -33,9 +33,6 @@ var cloneFamilies = family.CloneFamilies
 // collectPatternVars delegates to the family subpackage.
 var collectPatternVars = family.CollectPatternVars
 
-// maxReductionDepth re-exports the constant for test backward compatibility.
-const maxReductionDepth = family.MaxReductionDepth
-
 // verifyInjectivity delegates to the family subpackage.
 func (ch *Checker) verifyInjectivity(info *TypeFamilyInfo) {
 	ch.familyEnv().VerifyInjectivity(info)

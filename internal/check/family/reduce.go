@@ -22,9 +22,6 @@ type ReduceEnv struct {
 	TryUnify  func(a, b types.Type) bool
 }
 
-// MaxReductionDepth is the fuel limit for type family reduction.
-const MaxReductionDepth = 100
-
 // maxReductionTypeSize is the maximum allowed size (node count) of a type
 // produced by type family reduction.
 const maxReductionTypeSize = 10000

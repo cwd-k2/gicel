@@ -779,16 +779,6 @@ func TestMatchResultConstants(t *testing.T) {
 }
 
 // -----------------------------------------------
-// maxReductionDepth constant
-// -----------------------------------------------
-
-func TestMaxReductionDepthValue(t *testing.T) {
-	if maxReductionDepth != 100 {
-		t.Errorf("expected maxReductionDepth = 100, got %d", maxReductionDepth)
-	}
-}
-
-// -----------------------------------------------
 // matchTyPattern: zonking solves meta before matching
 // -----------------------------------------------
 
