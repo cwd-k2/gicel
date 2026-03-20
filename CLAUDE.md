@@ -1,5 +1,14 @@
 # GICEL
 
+## Rules
+
+- Build output goes to `bin/` (gitignored).
+- Format Go with `goimports`, docs with `prettier`.
+- Commit per logical group or phase completion.
+- Do not run test agents in background (memory exhaustion incident, 2024-03-14).
+- **One way for one thing.** Do not create multiple implementation paths for the same operation or pattern. When common logic appears in multiple places, consolidate into a single representative helper. Branching is justified only when the semantics genuinely differ. Codebase divergence obscures design intent and amplifies the cost of change.
+- **No hacks, no workarounds. Follow theory.** Do not repurpose display APIs (`Pretty`, `String`) for identity or cache keys. Do not build heuristics that infer meaning from naming conventions or text shapes. Express meaning through structural data; when string encoding is needed, provide exactly one canonical serializer with guaranteed injectivity. When compromise is necessary, do not silently degrade — document the constraints and reasons, and draw the boundary explicitly.
+
 ## Commands
 
 ```sh
@@ -9,7 +18,7 @@ go build -o bin/gicel ./cmd/gicel/     # build CLI binary to bin/
 go run ./examples/go/<name>/           # run Go example (no binary)
 goimports -w .                         # format Go
 prettier --write docs/                 # format docs
-./scripts/smoke-test.sh                # CLI smoke test (build + 57 cases)
+./scripts/smoke-test.sh                # CLI smoke test
 ```
 
 **Build output goes to `bin/` only.** Never `go build ./some/pkg` without `-o bin/...` — it dumps a binary in the working directory.
@@ -26,7 +35,7 @@ bin/gicel run [flags] <file>.gicel
 
 | Flag                 | Default   | Description                                      |
 | -------------------- | --------- | ------------------------------------------------ |
-| `--packs <packs>`      | `all`     | Stdlib packs (see table below)                   |
+| `--packs <packs>`    | `all`     | Stdlib packs (see table below)                   |
 | `--module Name=path` | —         | Register user module (repeatable, order matters) |
 | `--recursion`        | off       | Enable `fix`/`rec`                               |
 | `-e <source>`        | —         | Evaluate source string directly                  |
@@ -34,6 +43,7 @@ bin/gicel run [flags] <file>.gicel
 | `--timeout <dur>`    | `5s`      | Execution timeout                                |
 | `--max-steps <n>`    | `100000`  | Step limit                                       |
 | `--max-depth <n>`    | `100`     | Depth limit                                      |
+| `--max-nesting <n>`  | `512`     | Structural nesting depth limit                   |
 | `--max-alloc <n>`    | `100 MiB` | Allocation byte limit                            |
 | `--json`             | off       | Output result as JSON                            |
 | `--explain`          | off       | Show semantic evaluation trace                   |
@@ -92,14 +102,6 @@ bin/gicel run \
   --module Color=lib/Color.gicel \
   main.gicel
 
-# Check multi-file project
-bin/gicel check \
-  --module Geometry=lib/Geometry.gicel \
-  main.gicel
-
-# Custom entry point and limits
-bin/gicel run --entry myMain --max-steps 500000 --timeout 10s program.gicel
-
 # JSON output (for tooling / AI agent integration)
 bin/gicel run --json program.gicel
 bin/gicel check --json program.gicel
@@ -113,18 +115,6 @@ bin/gicel run -e 'import Prelude; main := 1 + 2'
 
 # Read from stdin (- as filename)
 echo 'import Prelude; main := 1 + 2' | bin/gicel run -
-```
-
-### Multi-module example
-
-```sh
-cd examples/cli/multi-module
-../../../bin/gicel run \
-  --module Geometry=Geometry.gicel \
-  --module Color=Color.gicel \
-  --module MathLib=MathLib.gicel \
-  main.gicel
-# → (3, "red", 6)
 ```
 
 ## Test Strategy
@@ -161,6 +151,7 @@ go test -tags probe ./tests/probe                # integration probes
 ```
 
 Probes **must** be run before release and after changes to:
+
 - parser recovery logic
 - type checker unification/subsumption/evidence
 - instance resolution or type family reduction
@@ -191,18 +182,6 @@ Both implementation and test files follow the same pattern:
 
 **Consider splitting files over 500 lines.** Sequence numbers `_NNNN` are a last resort when no content-based split name exists.
 
-Examples:
-
-```
-evidence_test.go                    — standard tests for evidence.go
-evidence_resolve_test.go            — tests for resolve.go (evidence feature)
-evidence_sort_stress_test.go        — evidence sort stress test
-evidence_probe_test.go              — evidence adversarial (probe tag)
-type_family_reduction_unit_test.go  — reduction algorithm unit tests for type_family.go
-```
-
-**tests/probe/ directory**: all files are probes, so `_probe` suffix is unnecessary. Feature name only.
-
 ### File header
 
 New test files should include the following header:
@@ -218,12 +197,3 @@ New test files should include the following header:
 2. If none found, create `<feature>_test.go`
 3. Adversarial tests → `<feature>[_<topic>]*_probe_test.go` (probe tag required)
 4. Over 500 lines → split by topic, or use `_NNNN` sequence numbers
-
-## Rules
-
-- Build output goes to `bin/` (gitignored).
-- Format Go with `goimports`, docs with `prettier`.
-- Commit per logical group or phase completion.
-- Do not run test agents in background (memory exhaustion incident, 2024-03-14).
-- **One way for one thing.** Do not create multiple implementation paths for the same operation or pattern. When common logic appears in multiple places, consolidate into a single representative helper. Branching is justified only when the semantics genuinely differ. Codebase divergence obscures design intent and amplifies the cost of change.
-- **No hacks, no workarounds. Follow theory.** Do not repurpose display APIs (`Pretty`, `String`) for identity or cache keys. Do not build heuristics that infer meaning from naming conventions or text shapes. Express meaning through structural data; when string encoding is needed, provide exactly one canonical serializer with guaranteed injectivity. When compromise is necessary, do not silently degrade — document the constraints and reasons, and draw the boundary explicitly.

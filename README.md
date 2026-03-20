@@ -294,16 +294,16 @@ host bindings, custom capabilities, custom prelude, and more.
 
 ## Stdlib Packs
 
-| Pack          | Module         | Contents                                                  |
-| ------------- | -------------- | --------------------------------------------------------- |
-| `Prelude`     | `Prelude`      | Num, Str, List — arithmetic, string ops, list operations  |
-| `EffectFail`  | `Effect.Fail`  | Fail effect — `failWith`, `fromMaybe`, `fromResult`       |
-| `EffectState` | `Effect.State` | `get`/`put`/`modify` state capabilities                   |
-| `EffectIO`    | `Effect.IO`    | `print`/`debug` via CapEnv buffer                         |
-| `DataStream`  | `Data.Stream`  | Lazy list: `LCons`/`LNil`, `head`, `tail`, `take`         |
-| `DataSlice`   | `Data.Slice`   | Contiguous array: O(1) length/index, `Functor`/`Foldable` |
-| `DataMap`     | `Data.Map`     | Ordered immutable map (persistent AVL), `Ord`-keyed       |
-| `DataSet`     | `Data.Set`     | Ordered immutable set, backed by `Map`                    |
+| Pack          | Module         | Contents                                                   |
+| ------------- | -------------- | ---------------------------------------------------------- |
+| `Prelude`     | `Prelude`      | Num, Str, List — arithmetic, string ops, list operations   |
+| `EffectFail`  | `Effect.Fail`  | Fail effect — `failWith`, `fromMaybe`, `fromResult`        |
+| `EffectState` | `Effect.State` | `get`/`put`/`modify` state capabilities                    |
+| `EffectIO`    | `Effect.IO`    | `print`/`debug` via CapEnv buffer                          |
+| `DataStream`  | `Data.Stream`  | Lazy list: `LCons`/`LNil`, `head`, `tail`, `take`          |
+| `DataSlice`   | `Data.Slice`   | Contiguous array: O(1) length/index, `Functor`/`Foldable`  |
+| `DataMap`     | `Data.Map`     | Ordered map (AVL): CRUD, fold, keys, values, filter, union |
+| `DataSet`     | `Data.Set`     | Ordered set: CRUD, union, intersection, difference         |
 
 15 type classes: `Eq`, `Ord`, `Show`, `Semigroup`, `Monoid`, `Functor`, `Foldable`, `Applicative`, `Alternative`, `Monad`, `Traversable`, `Packed`, `FromList`, `ToList`, `Div`.
 
