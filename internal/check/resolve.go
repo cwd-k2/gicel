@@ -40,9 +40,9 @@ func (ch *Checker) extractDictField(classInfo *ClassInfo, dictExpr core.Core, fi
 // resolveInstance finds a dictionary expression for a given class constraint.
 // Returns a Core expression that evaluates to the dictionary value.
 func (ch *Checker) resolveInstance(className string, args []types.Type, s span.Span) core.Core {
-	ch.solver.resolveDepth++
-	defer func() { ch.solver.resolveDepth-- }()
-	if ch.solver.resolveDepth > maxResolveDepth {
+	ok, exit := ch.solver.EnterResolve()
+	defer exit()
+	if !ok {
 		ch.addCodedError(errs.ErrResolutionDepth, s,
 			fmt.Sprintf("instance resolution depth limit exceeded for %s %s (possible infinite loop in instance contexts)",
 				className, ch.prettyTypeArgs(args)))

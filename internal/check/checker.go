@@ -122,6 +122,54 @@ type Solver struct {
 	level          int             // implication nesting depth for touchability (0 = top-level)
 }
 
+// Reactivate kicks out constraints blocked on the given meta and
+// re-enqueues them for priority processing.
+func (s *Solver) Reactivate(metaID int) {
+	kicked := s.inertSet.KickOut(metaID)
+	s.worklist.PushFront(kicked...)
+}
+
+// Emit pushes a constraint to the worklist for processing.
+func (s *Solver) Emit(ct Ct) {
+	s.worklist.Push(ct)
+}
+
+// Level returns the current implication nesting depth for touchability.
+func (s *Solver) Level() int {
+	return s.level
+}
+
+// EnterResolve increments the resolution depth and returns whether the
+// limit is exceeded. The caller must defer the returned exit function.
+func (s *Solver) EnterResolve() (ok bool, exit func()) {
+	s.resolveDepth++
+	exit = func() { s.resolveDepth-- }
+	return s.resolveDepth <= maxResolveDepth, exit
+}
+
+// RegisterStuckFunEq inserts a stuck type family equation into the inert
+// set for later re-activation when blocking metas are solved.
+func (s *Solver) RegisterStuckFunEq(ct *CtFunEq) {
+	s.inertSet.InsertFunEq(ct)
+}
+
+// LookupAmbiguity checks the per-solve ambiguity cache.
+func (s *Solver) LookupAmbiguity(key string) (result bool, found bool) {
+	if s.ambiguityCache == nil {
+		return false, false
+	}
+	result, found = s.ambiguityCache[key]
+	return
+}
+
+// CacheAmbiguity stores an ambiguity result in the per-solve cache.
+func (s *Solver) CacheAmbiguity(key string, result bool) {
+	if s.ambiguityCache == nil {
+		s.ambiguityCache = make(map[string]bool)
+	}
+	s.ambiguityCache[key] = result
+}
+
 // Checker holds mutable state during type checking.
 type Checker struct {
 	// Services.
@@ -264,8 +312,7 @@ func newChecker(prog *syntax.AstProgram, source *span.Source, config *CheckConfi
 	ch.unifier = unify.NewUnifierShared(&ch.freshID)
 	ch.unifier.Budget = ch.budget
 	ch.unifier.OnSolve = func(metaID int) {
-		kicked := ch.solver.inertSet.KickOut(metaID)
-		ch.solver.worklist.PushFront(kicked...)
+		ch.solver.Reactivate(metaID)
 	}
 	ch.initContext()
 	ch.importModules(prog.Imports)
@@ -302,7 +349,7 @@ func (ch *Checker) fresh() int {
 
 func (ch *Checker) freshMeta(k types.Kind) *types.TyMeta {
 	id := ch.fresh()
-	return &types.TyMeta{ID: id, Kind: k, Level: ch.solver.level}
+	return &types.TyMeta{ID: id, Kind: k, Level: ch.solver.Level()}
 }
 
 func (ch *Checker) freshSkolem(name string, k types.Kind) *types.TySkolem {

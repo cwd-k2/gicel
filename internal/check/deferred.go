@@ -16,7 +16,7 @@ func (ch *Checker) emitClassConstraint(
 	quantified *types.QuantifiedConstraint,
 	constraintVar types.Type,
 ) {
-	ch.solver.worklist.Push(&CtClass{
+	ch.solver.Emit(&CtClass{
 		Placeholder:   placeholder,
 		ClassName:     className,
 		Args:          args,
@@ -72,10 +72,8 @@ func typeHasMeta(ty types.Type) bool {
 // to avoid committing any solutions. Results are cached per-solveWanteds scope.
 func (ch *Checker) isAmbiguousInstance(className string, args []types.Type) bool {
 	key := constraintKey(className, args)
-	if ch.solver.ambiguityCache != nil {
-		if cached, ok := ch.solver.ambiguityCache[key]; ok {
-			return cached
-		}
+	if cached, found := ch.solver.LookupAmbiguity(key); found {
+		return cached
 	}
 
 	matchCount := 0
@@ -108,10 +106,7 @@ func (ch *Checker) isAmbiguousInstance(className string, args []types.Type) bool
 	}
 
 	result := matchCount > 1
-	if ch.solver.ambiguityCache == nil {
-		ch.solver.ambiguityCache = make(map[string]bool)
-	}
-	ch.solver.ambiguityCache[key] = result
+	ch.solver.CacheAmbiguity(key, result)
 	return result
 }
 
