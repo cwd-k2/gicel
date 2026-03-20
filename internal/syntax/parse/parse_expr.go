@@ -308,7 +308,17 @@ func (p *Parser) parseCase() syn.Expr {
 func (p *Parser) parseAlt() syn.AstAlt {
 	start := p.peek().S.Start
 	pat := p.parsePattern()
-	p.expect(syn.TokArrow)
+	if p.peek().Kind != syn.TokArrow {
+		// Missing ->: report and recover to next alt boundary.
+		p.addErrorCode(errs.ErrUnexpectedToken, "expected -> in case alternative")
+		p.syncToStmtBoundary()
+		return syn.AstAlt{
+			Pattern: pat,
+			Body:    &syn.ExprError{S: span.Span{Start: span.Pos(p.pos), End: span.Pos(p.pos)}},
+			S:       span.Span{Start: start, End: p.prevEnd()},
+		}
+	}
+	p.advance() // consume ->
 	body := p.parseExpr()
 	return syn.AstAlt{
 		Pattern: pat, Body: body,

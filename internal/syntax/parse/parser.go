@@ -262,7 +262,11 @@ func (p *Parser) parseBody(context string, parse func()) {
 			// newline or closing brace — implicit separator
 		} else if p.pos == before {
 			p.addErrorCode(errs.ErrUnexpectedToken, "unexpected token in "+context)
-			p.advance()
+			p.syncToStmtBoundary()
+			if p.pos == before {
+				// syncToStmtBoundary did not advance — force progress.
+				p.advance()
+			}
 		}
 	}
 	p.stmtBoundaryDepth = savedBoundary
@@ -275,6 +279,25 @@ func (p *Parser) isTypeAtomStart() bool {
 	}
 	k := p.peek().Kind
 	return k == syn.TokLower || k == syn.TokUpper || k == syn.TokLParen || k == syn.TokLBrace || k == syn.TokUnderscore
+}
+
+// syncToStmtBoundary advances to the next statement boundary within a
+// brace-delimited body. Used for expression-level recovery in do-blocks,
+// case alts, and similar constructs so that one broken statement/alt
+// doesn't swallow subsequent valid ones.
+func (p *Parser) syncToStmtBoundary() {
+	for p.peek().Kind != syn.TokEOF {
+		if p.peek().Kind == syn.TokSemicolon {
+			return
+		}
+		if p.peek().Kind == syn.TokRBrace {
+			return
+		}
+		if p.stmtBoundaryDepth > 0 && p.depth == p.stmtBoundaryDepth && p.peek().NewlineBefore {
+			return
+		}
+		p.advance()
+	}
 }
 
 // syncToNextDecl advances the parser to the next token that could start a
