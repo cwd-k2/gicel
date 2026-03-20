@@ -394,7 +394,7 @@ func cmdRun(args []string) int {
 				explainSteps = append(explainSteps, step)
 			}
 		} else {
-			formatter = newExplainFormatter(os.Stderr, useColor(*noColor), *verbose, string(source))
+			formatter = newExplainFormatter(os.Stderr, useColor(*noColor), *verbose, string(source), "<input>")
 			opts.Explain = formatter.Emit
 		}
 		if *explainAll {
@@ -407,8 +407,17 @@ func cmdRun(args []string) int {
 
 	result, err := rt.RunWith(ctx, opts)
 	if err != nil {
+		// Flush explain trace before error output so partial traces are visible.
+		if formatter != nil {
+			formatter.Flush()
+		}
 		if *jsonOut {
-			outputJSON(runtimeErrorJSON(err))
+			errJSON := runtimeErrorJSON(err)
+			if *explain && len(explainSteps) > 0 {
+				errJSON["explain"] = explainSteps
+				errJSON["summary"] = summarizeSteps(explainSteps)
+			}
+			outputJSON(errJSON)
 		} else {
 			var re *gicel.RuntimeError
 			if errors.As(err, &re) {
