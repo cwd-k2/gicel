@@ -315,6 +315,15 @@ func handleCompileError(err error, jsonOut bool) int {
 	return 1
 }
 
+func preflightError(msg string, jsonOut bool) int {
+	if jsonOut {
+		outputJSON(map[string]any{"ok": false, "phase": "preflight", "error": msg})
+	} else {
+		fmt.Fprintf(os.Stderr, "error: %s\n", msg)
+	}
+	return 1
+}
+
 func cmdRun(args []string) int {
 	fs := flag.NewFlagSet("run", flag.ContinueOnError)
 	use := fs.String("use", "all", "comma-separated stdlib packs")
@@ -339,36 +348,29 @@ func cmdRun(args []string) int {
 
 	// Validate resource limit flags.
 	if *maxSteps <= 0 {
-		fmt.Fprintln(os.Stderr, "error: --max-steps must be a positive integer")
-		return 1
+		return preflightError("--max-steps must be a positive integer", *jsonOut)
 	}
 	if *maxDepth <= 0 {
-		fmt.Fprintln(os.Stderr, "error: --max-depth must be a positive integer")
-		return 1
+		return preflightError("--max-depth must be a positive integer", *jsonOut)
 	}
 	if *maxNesting <= 0 {
-		fmt.Fprintln(os.Stderr, "error: --max-nesting must be a positive integer")
-		return 1
+		return preflightError("--max-nesting must be a positive integer", *jsonOut)
 	}
 	if *maxAlloc <= 0 {
-		fmt.Fprintln(os.Stderr, "error: --max-alloc must be a positive integer")
-		return 1
+		return preflightError("--max-alloc must be a positive integer", *jsonOut)
 	}
 	if *timeout <= 0 {
-		fmt.Fprintln(os.Stderr, "error: --timeout must be a positive duration (e.g., 1s, 5m)")
-		return 1
+		return preflightError("--timeout must be a positive duration (e.g., 1s, 5m)", *jsonOut)
 	}
 
 	// Validate --entry: reject explicitly empty entry point.
 	if *entry == "" {
-		fmt.Fprintln(os.Stderr, "error: --entry must not be empty")
-		return 1
+		return preflightError("--entry must not be empty", *jsonOut)
 	}
 
 	source, eng, err := prepareEngine(fs, *use, *recursion, *expr, modules)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "error: %v\n", err)
-		return 1
+		return preflightError(err.Error(), *jsonOut)
 	}
 	eng.SetStepLimit(*maxSteps)
 	eng.SetDepthLimit(*maxDepth)
