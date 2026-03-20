@@ -401,7 +401,6 @@ Precedence of type operators (loosest to tightest):
 Expr      ::= 'do' '{' Stmt+ '}'                           -- do block
             | '\' Pattern+ '.' Expr                         -- lambda (multi-parameter)
             | 'case' Expr '{' Branch (';' Branch)* '}'     -- case analysis
-            | 'thunk' Expr                                  -- suspend computation
             | ExprInfix
 
 ExprInfix ::= ExprInfix Op ExprApp                          -- operator application
@@ -426,6 +425,8 @@ ExprAtom  ::= Var | Con | Lit
             | '{' FieldBind (',' FieldBind)* '}'             -- record literal
             | '{' Expr '|' FieldBind (',' FieldBind)* '}'   -- record update
             | '{' Bind (';' Bind)* ';' Expr '}'              -- block expression
+            | '[' Expr (',' Expr)* ']'                        -- list literal
+            | '[' ']'                                         -- empty list
 
 FieldBind ::= LowerName ':' Expr
 
@@ -439,6 +440,10 @@ Lit       ::= IntLit | StringLit | RuneLit
 ```
 
 `.#` binds at atom level (tighter than function application).
+
+`[e1, e2, ...]` desugars to `Cons e1 (Cons e2 (... Nil))` via the `FromList` class. `[]` is `Nil`.
+
+**Special-form identifiers.** `thunk`, `pure`, and `force` are _not_ reserved keywords. They are ordinary identifiers that the type checker recognizes and elaborates to their corresponding Core IR formers (`Thunk`, `Pure`, `Force`) when they appear as the function in an application. Outside of application position, they produce an informative error.
 
 Three operator section forms exist:
 
@@ -560,35 +565,36 @@ The optional `@Mult` suffix annotates a field with a multiplicity (`@Linear`, `@
 
 Built-in operators:
 
-| Operator | Fixity | Precedence | Meaning               |
-| -------- | ------ | ---------- | --------------------- |
-| `.`      | infixr | 9          | Function composition  |
-| `*`      | infixl | 7          | Multiplication        |
-| `/`      | infixl | 7          | Division              |
-| `+`      | infixl | 6          | Addition              |
-| `-`      | infixl | 6          | Subtraction           |
-| `<>`     | infixr | 6          | Append (Semigroup)    |
-| `<$>`    | infixl | 4          | Functor map           |
-| `<*>`    | infixl | 4          | Applicative apply     |
-| `*>`     | infixl | 4          | Applicative sequence  |
-| `<*`     | infixl | 4          | Applicative discard   |
-| `==`     | infixn | 4          | Equality              |
-| `/=`     | infixn | 4          | Inequality            |
-| `<`      | infixn | 4          | Less than             |
-| `>`      | infixn | 4          | Greater than          |
-| `<=`     | infixn | 4          | Less or equal         |
-| `>=`     | infixn | 4          | Greater or equal      |
-| `&&`     | infixr | 3          | Boolean AND           |
-| `<\|>`   | infixl | 3          | Alternative choice    |
-| `\|\|`   | infixr | 2          | Boolean OR            |
-| `>>=`    | infixl | 1          | Monad bind            |
-| `>>`     | infixl | 1          | Monad sequence        |
-| `<&>`    | infixl | 1          | Flipped Functor map   |
-| `&`      | infixl | 1          | Reverse application   |
-| `=<<`    | infixr | 1          | Flipped Monad bind    |
-| `>=>`    | infixr | 1          | Kleisli left-to-right |
-| `<=<`    | infixr | 1          | Kleisli right-to-left |
-| `$`      | infixr | 0          | Low-precedence apply  |
+| Operator | Fixity | Precedence | Meaning                |
+| -------- | ------ | ---------- | ---------------------- |
+| `.`      | infixr | 9          | Function composition   |
+| `*`      | infixl | 7          | Multiplication         |
+| `/`      | infixl | 7          | Division               |
+| `+`      | infixl | 6          | Addition               |
+| `-`      | infixl | 6          | Subtraction            |
+| `<>`     | infixr | 6          | Append (Semigroup)     |
+| `<$>`    | infixl | 4          | Functor map            |
+| `<*>`    | infixl | 4          | Applicative apply      |
+| `*>`     | infixl | 4          | Applicative sequence   |
+| `<*`     | infixl | 4          | Applicative discard    |
+| `==`     | infixn | 4          | Equality               |
+| `/=`     | infixn | 4          | Inequality             |
+| `<`      | infixn | 4          | Less than              |
+| `>`      | infixn | 4          | Greater than           |
+| `<=`     | infixn | 4          | Less or equal          |
+| `>=`     | infixn | 4          | Greater or equal       |
+| `&&`     | infixr | 3          | Boolean AND            |
+| `<\|>`   | infixl | 3          | Alternative choice     |
+| `\|\|`   | infixr | 2          | Boolean OR             |
+| `<+`     | infixr | 5          | Cons (prepend to list) |
+| `>>=`    | infixl | 1          | Monad bind             |
+| `>>`     | infixl | 1          | Monad sequence         |
+| `<&>`    | infixl | 1          | Flipped Functor map    |
+| `&`      | infixl | 1          | Reverse application    |
+| `=<<`    | infixr | 1          | Flipped Monad bind     |
+| `>=>`    | infixr | 1          | Kleisli left-to-right  |
+| `<=<`    | infixr | 1          | Kleisli right-to-left  |
+| `$`      | infixr | 0          | Low-precedence apply   |
 
 ---
 
@@ -1164,7 +1170,7 @@ The Core intermediate representation has **17 formers**:
 | `TyApp`        | Polymorphism | Type application               |
 | `Con`          | Data         | Constructor application        |
 | `Case`         | Data         | Pattern matching               |
-| `LetRec`       | Binding      | Recursive let binding          |
+| `Fix`          | Binding      | Fixed-point combinator         |
 | `Pure`         | Computation  | Lift value to computation (F)  |
 | `Bind`         | Computation  | Sequence computations          |
 | `Thunk`        | Computation  | Suspend computation (U)        |
@@ -1187,13 +1193,16 @@ Strict call-by-value (CBV) evaluation with an environment-based evaluator.
 
 ## 11.2 Runtime Values
 
-| Value       | Description                                        |
-| ----------- | -------------------------------------------------- |
-| `HostVal`   | Opaque Go values (`int64`, `string`, `rune`, etc.) |
-| `Closure`   | Functions with captured environment                |
-| `ConVal`    | Constructor applications                           |
-| `ThunkVal`  | Suspended computations                             |
-| `RecordVal` | Record values (`map[string]Value`)                 |
+| Value         | Description                                                                      |
+| ------------- | -------------------------------------------------------------------------------- |
+| `HostVal`     | Opaque Go values (`int64`, `string`, `rune`, etc.)                               |
+| `Closure`     | Functions with captured environment                                              |
+| `ConVal`      | Constructor applications                                                         |
+| `ThunkVal`    | Suspended computations                                                           |
+| `PrimVal`     | Partially or fully applied primitive operations (curried until arity is reached) |
+| `RecordVal`   | Record values (`map[string]Value`)                                               |
+| `IndirectVal` | Forward-reference cell for mutually-recursive top-level bindings                 |
+| `bounceVal`   | Internal trampoline value for TCO (not user-observable)                          |
 
 ## 11.3 Defense-in-Depth Limits
 
@@ -1503,7 +1512,7 @@ type Elem (c: Type) :: Type := {
 
 **Reduction semantics**: For each equation, the checker attempts to match the arguments against the left-hand side patterns. On success, the result is the substituted right-hand side. On failure, the next equation is tried. On **indeterminate** match (unsolved metavariables), reduction is **stuck** — further equations are not tried. This prevents premature commitment when a metavariable may later unify with an earlier equation's pattern.
 
-**Confluence**: guaranteed by ordered, first-match semantics. **Termination**: Non-recursive type families reduce in one step per application. Recursive type families use a fuel limit (default: 100 reductions per type expression) and a type size bound (10000 nodes) to prevent exponential growth.
+**Confluence**: guaranteed by ordered, first-match semantics. **Termination**: Non-recursive type families reduce in one step per application. Recursive type families use a shared step budget (default: 50,000 steps per compile session) and a type size bound (10,000 nodes per expression) to prevent exponential growth.
 
 ### 17.1.2 Associated Types
 
