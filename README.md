@@ -3,7 +3,7 @@
 **G**o's **I**ndexed **C**apability **E**ffect **L**ibrary /
 **G**ICEL's **I**ndexed **C**apability **E**ffect **L**anguage
 
-**v0.13** — [Changelog](CHANGELOG.md)
+**v0.14** — [Changelog](CHANGELOG.md)
 
 Embed a type-safe, sandboxed language in your Go application.
 GICEL compiles Haskell-like source into typed computations, runs them with
@@ -36,37 +36,21 @@ No blacklist. No restricted mode. Capabilities are absent until granted.
 ## Why GICEL?
 
 When you run untrusted code inside Go — from an AI agent, a user script,
-or a plugin — existing approaches force trade-offs:
-
-| Approach            | Trade-off                                             |
-| ------------------- | ----------------------------------------------------- |
-| Lua / JS embed      | Dynamically typed; capabilities leak via global state |
-| Wasm sandbox        | Heavy runtime; complex FFI boundary with Go           |
-| Template engine     | Safe, but limited expressiveness                      |
-| Go subset interpret | Powerful, but attack surface equals Go itself         |
-
-All of these share a fundamental problem: they try to **restrict a permissive
-environment** — blacklisting dangerous APIs, blocking syscalls, filtering
-globals. The harder you lock down, the more edge cases slip through.
+or a plugin — existing approaches try to **restrict a permissive environment**:
+blacklisting APIs, blocking syscalls, filtering globals. The harder you lock
+down, the more edge cases slip through.
 
 **GICEL inverts the model.**
 
 - **Nothing exists until you grant it.** Programs run in an empty capability
-  environment. No IO, no state, no network — not restricted, simply absent.
-  The host explicitly opts in to each capability via Packs. This is a
-  whitelist, not a blacklist.
-- **No side effects by default.** A GICEL computation is pure. It cannot
-  touch the host's filesystem, memory, or goroutines. Effects like State
-  or IO only become available when the host provides them, and the type
-  system enforces this boundary at compile time. Note: host-registered
-  primitives (`RegisterPrim`) are trusted code and are not subject to
-  these restrictions — they form part of the trusted computing base.
+  environment. The host explicitly opts in to each capability via Packs.
+- **Type-checked isolation.** Effects like State or IO only become available
+  when the host provides them, and the type system enforces this boundary
+  at compile time.
 - **Resource limits with clean termination.** Step count, call depth,
-  allocation ceiling, and timeout. Execution halts cleanly — no killed
-  goroutines, no leaked state. `RunSandbox` applies timeout to the
+  allocation ceiling, and timeout. `RunSandbox` applies timeout to the
   entire pipeline including compilation and evaluation.
 - **Go-native.** No CGo, no FFI. Runtimes are immutable and goroutine-safe.
-  Embed it like any other Go library.
 
 ## Install
 
@@ -89,70 +73,28 @@ gicel run hello.gicel              # compile and execute
 gicel check program.gicel          # type-check only
 gicel run -e 'import Prelude; main := 1 + 2'  # inline eval
 gicel run --explain program.gicel  # semantic evaluation trace
-gicel run --json program.gicel     # machine-readable output
-
-# Multi-file projects
-gicel run --module Util=lib/Util.gicel main.gicel
+gicel run --json program.gicel     # structured output for tooling
 ```
 
 ### Go Library
 
-Three-tier lifecycle for production use:
-
-```
-Engine   (mutable)     — register types, capabilities, packs
-  ↓ NewRuntime(source)
-Runtime  (immutable)   — goroutine-safe, reuse across requests
-  ↓ RunWith(ctx, opts)
-result   (per-call)    — value + execution stats
-```
+Three-tier lifecycle — compile once, run many:
 
 ```go
-package main
+eng := gicel.NewEngine()
+eng.Use(gicel.Prelude)      // grant Prelude
+eng.Use(gicel.EffectState)  // grant Effect.State
 
-import (
-    "context"
-    "fmt"
-    "log"
+rt, err := eng.NewRuntime(context.Background(), source)
+// rt is immutable and goroutine-safe
 
-    "github.com/cwd-k2/gicel"
-)
-
-func main() {
-    eng := gicel.NewEngine()
-    eng.Use(gicel.Prelude)      // grant Prelude (Num, Str, List)
-    eng.Use(gicel.EffectState)  // grant Effect.State
-
-    rt, err := eng.NewRuntime(context.Background(), `
-        import Prelude
-        import Effect.State
-
-        main := do {
-            _ <- put 10;
-            _ <- modify (\n. n * 2);
-            get
-        }
-    `)
-    if err != nil {
-        log.Fatal(err)
-    }
-
-    // Safe to call from multiple goroutines
-    result, err := rt.RunWith(context.Background(), nil)
-    if err != nil {
-        log.Fatal(err)
-    }
-
-    fmt.Println(gicel.MustHost[int64](result.Value)) // 20
-}
+result, err := rt.RunWith(context.Background(), nil)
+fmt.Println(gicel.MustHost[int64](result.Value)) // 20
 ```
 
-## AI Agent Sandbox
+### AI Agent Sandbox
 
-LLM generates code → GICEL compiles and type-checks → sandbox executes →
-only the result comes back. The agent never touches the host environment.
-
-Single-call API — no Engine/Runtime lifecycle management needed:
+Single-call API with conservative defaults:
 
 ```go
 result, err := gicel.RunSandbox(agentCode, &gicel.SandboxConfig{
@@ -161,177 +103,102 @@ result, err := gicel.RunSandbox(agentCode, &gicel.SandboxConfig{
     MaxSteps: 50_000,
     MaxAlloc: 10 * 1024 * 1024, // 10 MiB
 })
-// result.Value, result.Stats.Steps, result.Stats.Allocated
 ```
 
-### Self-contained feedback loop
-
-Docs, examples, type checker, and execution trace are all in the binary.
-No external resources, no API calls — an agent can learn, write, check,
-and debug without leaving the CLI:
+Docs, examples, type checker, and evaluation trace are all in the binary —
+an agent can learn, write, check, and debug without external resources:
 
 ```sh
-# 1. Learn — browse available examples
-$ gicel example
-Basics:
-  hello           Hello World
-  lists           List Operations
-  ...
-Effects & Applications:
-  state-machine   State Machine
-  data-pipeline   Data Pipeline
-  ...
-
-# 2. Study — read an example
-$ gicel example effects.state-effect
-import Prelude
-import Effect.State
-...
-
-# 3. Write and check — catch errors before execution
-$ cat program.gicel
-import Prelude
-main := do { _ <- put 42; get }
-
-$ gicel check program.gicel
-error[E0201]: unbound variable: put
- --> program.gicel:2:19
-   |
- 2 | main := do { _ <- put 42; get }
-   |                   ^^^
-
-# 4. Fix — grant the State capability, run with trace
-$ cat program.gicel
-import Prelude
-import Effect.State
-main := do { _ <- put 42; get }
-
-$ gicel run --explain program.gicel
-── main ────────────────────────────────────────────────
-  0  :  3  effect │ put 42  [state: _ → 42]
-  0  :  3  effect │ get ⇒ 42
-42
-```
-
-Reference docs are queryable by topic:
-
-```sh
-gicel docs                    # list available topics
-gicel docs about              # language overview and quick start
-gicel docs features.effects   # effect system guide
-gicel docs stdlib.prelude     # prelude reference
+gicel docs                        # browse reference topics
+gicel example effects.state-effect  # read example source
+gicel check --json program.gicel  # structured error diagnostics
+gicel run --explain program.gicel # semantic step trace
 ```
 
 ## Extend with Go
 
-The whitelist model means nothing exists by default — and it means you can
-grant anything. Expose your own Go functions as capabilities:
+Expose your own Go functions as host capabilities:
 
 ```go
 eng.RegisterPrim("fetchPrice",
-    func(ctx context.Context, capEnv gicel.CapEnv, args []gicel.Value, _ gicel.Applier) (gicel.Value, gicel.CapEnv, error) {
-        itemID := gicel.MustHost[string](args[0])
-        price, err := db.GetPrice(ctx, itemID) // your Go code
-        if err != nil {
-            return nil, capEnv, err
-        }
-        return gicel.ToValue(price), capEnv, nil
+    func(ctx context.Context, ce gicel.CapEnv, args []gicel.Value, _ gicel.Applier) (gicel.Value, gicel.CapEnv, error) {
+        price, err := db.GetPrice(ctx, gicel.MustHost[string](args[0]))
+        if err != nil { return nil, ce, err }
+        return gicel.ToValue(price), ce, nil
     })
 ```
 
-GICEL source declares the type with `assumption` — a placeholder that says
-"this function exists, with this type, but the implementation lives on the
-host side":
+GICEL source declares the type; the host provides the implementation:
 
 ```gicel
-fetchPrice :: \(r: Row). String -> Effect { db: () | r } Int
+fetchPrice :: String -> Effect { db: () | r } Int
 fetchPrice := assumption
 
 main := fetchPrice "item-42"
 ```
 
-`Effect { db: () | r } Int` means: this function requires a `db` capability.
-If you compose it with other effectful functions, the type system ensures all
-required capabilities are present — your custom effects get the same
-compile-time guarantees as the built-in ones.
+The type `Effect { db: () | r } Int` means: requires a `db` capability.
+Compose it with other effectful functions — the type system ensures all
+required capabilities are present. Custom effects get the same compile-time
+guarantees as built-in ones.
 
-Register types, bindings, and primitives — GICEL programs can only use what
-you explicitly provide. See [`examples/go/`](examples/go/) for full patterns:
-host bindings, custom capabilities, custom prelude, and more.
+See [`examples/go/`](examples/go/) for full patterns.
 
 ## Features
 
+### Sandbox
+
+- **Capability isolation** — nothing exists until granted; enforced at compile time
+- **Resource limits** — step count, call depth, allocation ceiling, timeout
+- **Determinism** — same source + same capabilities = same result
+- **Structured diagnostics** — error codes, source locations, hints in JSON
+
 ### Type System
 
-- **Full type inference** — bidirectional checking (DK algorithm) with ordered contexts
-- **Higher-rank polymorphism** — `\a. a -> a` as first-class values
-- **Higher-kinded types** — `Functor`, `Monad`, kind inference
-- **Type classes** — single and multi-parameter, superclasses, functional dependencies
-- **Type families** — closed type families, associated types, data families, recursive reduction
-- **Row polymorphism** — extensible records and capability environments
-- **GADTs** — refined return types in constructors
+- Full type inference with higher-rank polymorphism
+- Type classes with superclasses, functional dependencies, associated types
+- Type families — closed, associated, data families with recursive reduction
+- Row polymorphism — extensible records and capability environments
+- GADTs with refined return types
 
 ### Language
 
-- **10 keywords** — `case do data type infixl infixr infixn class instance import` + `as` (contextual)
-- **ADTs & pattern matching** — constructor, literal, wildcard, record patterns with exhaustiveness and redundancy checking
-- **Do-notation** — monadic sequencing with `<-` bind
-- **Records & tuples** — `{ x: 1, y: 2 }`, `(a, b, c)` with row polymorphism
-- **Module system** — open, selective (`import M (x, T(..))`), and qualified (`import M as N`) imports
-
-### Sandbox Guarantees
-
-- **Termination** — step limit, call depth limit, allocation limit, context timeout
-- **Isolation** — capabilities absent until granted; type system enforces at compile time
-- **Determinism** — same source + same capabilities = same result
-- **Clean errors** — structured diagnostics with source locations and error codes
+- 10 keywords: `case do data type infixl infixr infixn class instance import`
+- ADTs with exhaustive pattern matching
+- Do-notation for monadic sequencing
+- Records, tuples, module system (open, selective, qualified imports)
 
 ### Runtime
 
-- **Allocation tracking** — all Go-level allocations (closures, constructors, records, AVL nodes) count against `MaxAlloc`
-- **Core IR optimizer** — beta reduction, case-of-known-constructor, bind-pure elimination, registered fusion rules
-- **Evaluation trace** — `--explain` for semantic step-by-step trace; `--explain-all` includes stdlib internals
+- Allocation tracking against `MaxAlloc`
+- Core IR optimizer with registered fusion rules
+- `--explain` semantic trace; `--explain-all` with stdlib dim distinction
 
 ## Stdlib Packs
 
-| Pack          | Module         | Contents                                                   |
-| ------------- | -------------- | ---------------------------------------------------------- |
-| `Prelude`     | `Prelude`      | Num, Str, List — arithmetic, string ops, list operations   |
-| `EffectFail`  | `Effect.Fail`  | Fail effect — `failWith`, `fromMaybe`, `fromResult`        |
-| `EffectState` | `Effect.State` | `get`/`put`/`modify` state capabilities                    |
-| `EffectIO`    | `Effect.IO`    | `print`/`debug` via CapEnv buffer                          |
-| `DataStream`  | `Data.Stream`  | Lazy list: `LCons`/`LNil`, `head`, `tail`, `take`          |
-| `DataSlice`   | `Data.Slice`   | Contiguous array: O(1) length/index, `Functor`/`Foldable`  |
-| `DataMap`     | `Data.Map`     | Ordered map (AVL): CRUD, fold, keys, values, filter, union |
-| `DataSet`     | `Data.Set`     | Ordered set: CRUD, union, intersection, difference         |
-
-15 type classes: `Eq`, `Ord`, `Show`, `Semigroup`, `Monoid`, `Functor`, `Foldable`, `Applicative`, `Alternative`, `Monad`, `Traversable`, `Packed`, `FromList`, `ToList`, `Div`.
-
-## Import Forms
-
-```gicel
-import Prelude                          -- open: all names unqualified
-import Prelude (map, Maybe(..))         -- selective: listed names only
-import Data.Map as M                    -- qualified: M.lookup, M.insert
-```
-
-Selective imports control which names enter scope. Qualified imports keep all
-names behind a prefix, preventing collisions between modules. See
-[`examples/cli/multi-module/`](examples/cli/multi-module/) for a working
-multi-file project.
+| Pack          | Module         | Highlights                                   |
+| ------------- | -------------- | -------------------------------------------- |
+| `Prelude`     | `Prelude`      | Num, Str, List, 15 type classes              |
+| `EffectFail`  | `Effect.Fail`  | `fail`, `failWith`, `fromMaybe`              |
+| `EffectState` | `Effect.State` | `get`, `put`, `modify`                       |
+| `EffectIO`    | `Effect.IO`    | `print`, `debug` (CapEnv buffer, not stdout) |
+| `DataStream`  | `Data.Stream`  | Lazy streams with `Foldable`                 |
+| `DataSlice`   | `Data.Slice`   | O(1) index/length arrays                     |
+| `DataMap`     | `Data.Map`     | Ordered map: CRUD, fold, filter, union       |
+| `DataSet`     | `Data.Set`     | Ordered set: CRUD, union, intersection       |
 
 ## Documentation
 
 - [Language Specification](docs/spec/language.md) — formal spec (18 chapters)
-- [Agent Guide](docs/agent-guide/) — complete language reference with Go API details
+- [Agent Guide](docs/agent-guide/) — complete reference with Go API details
 - [Grammar Reference](docs/grammar-reference.md) — syntax at a glance
-- [Changelog](CHANGELOG.md) — version history
+- [Changelog](CHANGELOG.md)
 
 ## Examples
 
-- [`examples/gicel/`](examples/gicel/) — GICEL programs: ADTs, type classes, HKT, records, effects, ...
-- [`examples/go/`](examples/go/) — Go embedding: lifecycle, capabilities, sandbox, multi-module, ...
-- [`examples/cli/multi-module/`](examples/cli/multi-module/) — CLI multi-file project with selective + qualified imports
+- [`examples/gicel/`](examples/gicel/) — GICEL programs: ADTs, effects, type classes, records, ...
+- [`examples/go/`](examples/go/) — Go embedding: lifecycle, capabilities, sandbox, ...
+- [`examples/cli/multi-module/`](examples/cli/multi-module/) — CLI multi-file project
 
 ## Editor Support
 
