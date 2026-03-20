@@ -84,6 +84,7 @@ func TestRuntimeErrorType(t *testing.T) {
 	eng.Use(stdlib.Prelude)
 	eng.Use(stdlib.Fail)
 	rt, err := eng.NewRuntime(context.Background(), `
+import Prelude
 import Effect.Fail
 main := do { _ <- fail; pure True }
 `)

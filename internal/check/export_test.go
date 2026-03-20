@@ -51,12 +51,12 @@ func setupExportChecker() *Checker {
 		{ClassName: "PubClass", TypeArgs: []types.Type{types.Con("Int")}, DictBindName: "PubClass$Int"},
 	}
 	ch.reg.promotedKinds = map[string]types.Kind{
-		"PubKind":  types.KType{},
-		"_PriKind": types.KType{},
+		"Public":   types.KType{}, // promoted from data Public
+		"_Private": types.KType{}, // promoted from data _Private
 	}
 	ch.reg.promotedCons = map[string]types.Kind{
-		"PubCon":  types.KType{},
-		"_PriCon": types.KType{},
+		"MkPublic": types.KType{}, // promoted from constructor MkPublic (parent: Public)
+		"_Hidden":  types.KType{}, // promoted from constructor _Hidden (parent: _Private)
 	}
 	ch.reg.families = map[string]*TypeFamilyInfo{
 		"PubFam":  {Name: "PubFam", ResultKind: types.KType{}},
@@ -90,8 +90,9 @@ func TestExport_PrivateTypeExcluded(t *testing.T) {
 	if _, ok := exports.Types["Public"]; !ok {
 		t.Error("Public type should be exported")
 	}
-	if _, ok := exports.Types["Int"]; !ok {
-		t.Error("Int type should be exported")
+	// Int is a builtin type, not defined by this module — should NOT be exported.
+	if _, ok := exports.Types["Int"]; ok {
+		t.Error("Int (builtin) should not be exported by a user module")
 	}
 }
 
@@ -206,17 +207,17 @@ func TestExport_PrivatePromotionsExcluded(t *testing.T) {
 	ch := setupExportChecker()
 	exports := ch.ExportModule(makeExportProgram())
 
-	if _, ok := exports.PromotedKinds["_PriKind"]; ok {
-		t.Error("_PriKind should not be exported")
+	if _, ok := exports.PromotedKinds["_Private"]; ok {
+		t.Error("_Private promoted kind should not be exported")
 	}
-	if _, ok := exports.PromotedKinds["PubKind"]; !ok {
-		t.Error("PubKind should be exported")
+	if _, ok := exports.PromotedKinds["Public"]; !ok {
+		t.Error("Public promoted kind should be exported")
 	}
-	if _, ok := exports.PromotedCons["_PriCon"]; ok {
-		t.Error("_PriCon should not be exported")
+	if _, ok := exports.PromotedCons["_Hidden"]; ok {
+		t.Error("_Hidden promoted cons should not be exported")
 	}
-	if _, ok := exports.PromotedCons["PubCon"]; !ok {
-		t.Error("PubCon should be exported")
+	if _, ok := exports.PromotedCons["MkPublic"]; !ok {
+		t.Error("MkPublic promoted cons should be exported")
 	}
 }
 

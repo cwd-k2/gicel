@@ -6,6 +6,8 @@ import (
 )
 
 // ExportModule captures the current checker state as a ModuleExports.
+// Only names defined by this module are exported; inherited types from
+// imported modules are excluded (no transitive re-export).
 // Names starting with '_' are private and excluded from exports.
 // Instances are never filtered (coherence requirement).
 func (ch *Checker) ExportModule(prog *core.Program) *ModuleExports {
@@ -16,30 +18,96 @@ func (ch *Checker) ExportModule(prog *core.Program) *ModuleExports {
 		}
 	}
 
-	// Filter constructors: exclude private constructors and constructors of private types.
-	filteredConInfo := filterPrivateConstructors(ch.reg.conInfo, ch.reg.conInfo)
-	filteredConTypes := filterPrivateConstructors(ch.reg.conTypes, ch.reg.conInfo)
+	// Owned data type names — the primary ownership signal.
+	ownedDataNames := make(map[string]bool)
+	for _, dd := range prog.DataDecls {
+		if !isPrivateName(dd.Name) {
+			ownedDataNames[dd.Name] = true
+		}
+	}
 
-	// Build precomputed constructor-by-type index from filtered data.
+	// Types: only kind entries for data types defined by this module.
+	ownedTypes := make(map[string]types.Kind, len(ownedDataNames))
+	for name := range ownedDataNames {
+		if kind, ok := ch.config.RegisteredTypes[name]; ok {
+			ownedTypes[name] = kind
+		}
+	}
+
+	// Constructors: only from owned data types.
+	filteredConInfo := make(map[string]*DataTypeInfo)
+	for name, info := range ch.reg.conInfo {
+		if ownedDataNames[info.Name] && !isPrivateName(name) {
+			filteredConInfo[name] = info
+		}
+	}
+	filteredConTypes := make(map[string]types.Type)
+	for name := range filteredConInfo {
+		if ty, ok := ch.reg.conTypes[name]; ok {
+			filteredConTypes[name] = ty
+		}
+	}
 	consByType := make(map[string][]string, len(filteredConInfo))
 	for conName, info := range filteredConInfo {
 		consByType[info.Name] = append(consByType[info.Name], conName)
 	}
 
+	// Collect names imported from other modules to distinguish locally-defined
+	// aliases, classes, and type families from inherited ones.
+	impAliases := make(map[string]bool)
+	impClasses := make(map[string]bool)
+	for _, mod := range ch.config.ImportedModules {
+		for n := range mod.Aliases {
+			impAliases[n] = true
+		}
+		for n := range mod.Classes {
+			impClasses[n] = true
+		}
+	}
+
+	// Promoted kinds/cons: only from owned data types.
+	ownedPromKinds := make(map[string]types.Kind)
+	for name, kind := range ch.reg.promotedKinds {
+		if ownedDataNames[name] {
+			ownedPromKinds[name] = kind
+		}
+	}
+	ownedPromCons := make(map[string]types.Kind)
+	for name, kind := range ch.reg.promotedCons {
+		if info, ok := ch.reg.conInfo[name]; ok && ownedDataNames[info.Name] && !isPrivateName(name) {
+			ownedPromCons[name] = kind
+		}
+	}
+
 	return &ModuleExports{
-		Types:              filterPrivateMap(ch.config.RegisteredTypes),
+		Types:              ownedTypes,
 		ConTypes:           filteredConTypes,
 		ConstructorInfo:    filteredConInfo,
 		ConstructorsByType: consByType,
-		Aliases:            filterPrivateMap(ch.reg.aliases),
-		Classes:            filterPrivateMap(ch.reg.classes),
+		Aliases:            filterOwnedMap(ch.reg.aliases, impAliases),
+		Classes:            filterOwnedMap(ch.reg.classes, impClasses),
 		Instances:          ch.reg.instances,
 		Values:             values,
-		PromotedKinds:      filterPrivateMap(ch.reg.promotedKinds),
-		PromotedCons:       filterPrivateMap(ch.reg.promotedCons),
+		PromotedKinds:      ownedPromKinds,
+		PromotedCons:       ownedPromCons,
+		// TypeFamilies are exported in full (like Instances) because they
+		// accumulate associated type instances from multiple modules.
+		// Filtering by ownership would lose instances added to imported families.
 		TypeFamilies:       filterPrivateMap(cloneFamilies(ch.reg.families)),
 		DataDecls:          filterPrivateDataDecls(prog.DataDecls),
 	}
+}
+
+// filterOwnedMap returns a new map excluding private names and names
+// present in the imported set (i.e. inherited from other modules).
+func filterOwnedMap[V any](m map[string]V, imported map[string]bool) map[string]V {
+	result := make(map[string]V, len(m))
+	for k, v := range m {
+		if !isPrivateName(k) && !imported[k] {
+			result[k] = v
+		}
+	}
+	return result
 }
 
 // filterPrivateMap returns a new map with private-named keys removed.
@@ -49,22 +117,6 @@ func filterPrivateMap[V any](m map[string]V) map[string]V {
 		if !isPrivateName(k) {
 			result[k] = v
 		}
-	}
-	return result
-}
-
-// filterPrivateConstructors returns a new map with constructors removed
-// that are private or belong to a private type.
-func filterPrivateConstructors[V any](m map[string]V, conInfo map[string]*DataTypeInfo) map[string]V {
-	result := make(map[string]V, len(m))
-	for name, v := range m {
-		if isPrivateName(name) {
-			continue
-		}
-		if info, ok := conInfo[name]; ok && isPrivateName(info.Name) {
-			continue
-		}
-		result[name] = v
 	}
 	return result
 }

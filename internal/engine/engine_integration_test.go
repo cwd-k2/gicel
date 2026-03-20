@@ -18,6 +18,7 @@ func TestFailAbort(t *testing.T) {
 		t.Fatal(err)
 	}
 	rt, err := eng.NewRuntime(context.Background(), `
+import Prelude
 import Effect.Fail
 main := do { fail; pure True }
 `)
@@ -38,6 +39,7 @@ func TestFromMaybe(t *testing.T) {
 		t.Fatal(err)
 	}
 	rt, err := eng.NewRuntime(context.Background(), `
+import Prelude
 import Effect.Fail
 main := fromMaybe (Just True)
 `)
@@ -116,6 +118,7 @@ func TestFromResult(t *testing.T) {
 		t.Fatal(err)
 	}
 	rt, err := eng.NewRuntime(context.Background(), `
+import Prelude
 import Effect.Fail
 main := fromResult (Ok True)
 `)
