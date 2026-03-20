@@ -168,14 +168,19 @@ func (p *Parser) leaveRecurse() {
 func (p *Parser) halt(msg string) {
 	if !p.halted {
 		p.halted = true
-		p.addError(msg)
+		p.addErrorCode(errs.ErrParserLimit, msg)
 	}
 }
 
 func (p *Parser) expect(kind syn.TokenKind) syn.Token {
 	tok := p.peek()
 	if tok.Kind != kind {
-		p.addError("expected " + kind.String())
+		code := errs.ErrUnexpectedToken
+		switch kind {
+		case syn.TokRParen, syn.TokRBrace, syn.TokRBracket:
+			code = errs.ErrUnclosedDelim
+		}
+		p.addErrorCode(code, "expected "+kind.String())
 		if tok.Kind != syn.TokEOF {
 			p.advance() // skip unexpected token to prevent parser stalling
 		}
@@ -187,7 +192,7 @@ func (p *Parser) expect(kind syn.TokenKind) syn.Token {
 func (p *Parser) expectUpper() string {
 	tok := p.peek()
 	if tok.Kind != syn.TokUpper {
-		p.addError("expected uppercase identifier")
+		p.addErrorCode(errs.ErrUnexpectedToken, "expected uppercase identifier")
 		return "<error>"
 	}
 	p.advance()
@@ -197,7 +202,7 @@ func (p *Parser) expectUpper() string {
 func (p *Parser) expectLower() string {
 	tok := p.peek()
 	if tok.Kind != syn.TokLower {
-		p.addError("expected identifier")
+		p.addErrorCode(errs.ErrUnexpectedToken, "expected identifier")
 		return "<error>"
 	}
 	p.advance()
@@ -256,7 +261,7 @@ func (p *Parser) parseBody(context string, parse func()) {
 		} else if p.peek().NewlineBefore || p.peek().Kind == syn.TokRBrace {
 			// newline or closing brace — implicit separator
 		} else if p.pos == before {
-			p.addError("unexpected token in " + context)
+			p.addErrorCode(errs.ErrUnexpectedToken, "unexpected token in "+context)
 			p.advance()
 		}
 	}
@@ -307,9 +312,13 @@ func tokensAdjacent(a, b syn.Token) bool {
 }
 
 func (p *Parser) addError(msg string) {
+	p.addErrorCode(errs.ErrParseSyntax, msg)
+}
+
+func (p *Parser) addErrorCode(code errs.Code, msg string) {
 	tok := p.peek()
 	p.errors.Add(&errs.Error{
-		Code:    errs.ErrParseSyntax,
+		Code:    code,
 		Phase:   errs.PhaseParse,
 		Span:    tok.S,
 		Message: msg,

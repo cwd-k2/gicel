@@ -3,6 +3,7 @@ package parse
 import (
 	syn "github.com/cwd-k2/gicel/internal/syntax"
 
+	"github.com/cwd-k2/gicel/internal/errs"
 	"github.com/cwd-k2/gicel/internal/span"
 )
 
@@ -79,7 +80,7 @@ func (p *Parser) parseClassDecl() *syn.DeclClass {
 			for _, arg := range nextArgs {
 				v, ok := arg.(*syn.TyExprVar)
 				if !ok {
-					p.addError("class type parameter must be a type variable")
+					p.addErrorCode(errs.ErrClassSyntax, "class type parameter must be a type variable")
 					continue
 				}
 				params = append(params, syn.TyBinder{Name: v.Name, Kind: v.Kind, S: v.S})
@@ -99,7 +100,7 @@ func (p *Parser) parseClassDecl() *syn.DeclClass {
 	for _, arg := range firstArgs {
 		v, ok := arg.(*syn.TyExprVar)
 		if !ok {
-			p.addError("class type parameter must be a type variable")
+			p.addErrorCode(errs.ErrClassSyntax, "class type parameter must be a type variable")
 			continue
 		}
 		params = append(params, syn.TyBinder{Name: v.Name, Kind: v.Kind, S: v.S})
@@ -159,7 +160,7 @@ func (p *Parser) parseFunDepList() []syn.FunDep {
 			to = append(to, p.expectLower())
 		}
 		if len(to) == 0 {
-			p.addError("functional dependency requires at least one determined parameter after '=:'")
+			p.addErrorCode(errs.ErrClassSyntax, "functional dependency requires at least one determined parameter after '=:'")
 		}
 		deps = append(deps, syn.FunDep{From: from, To: to})
 		if p.peek().Kind == syn.TokComma {

@@ -3,6 +3,7 @@ package parse
 import (
 	syn "github.com/cwd-k2/gicel/internal/syntax"
 
+	"github.com/cwd-k2/gicel/internal/errs"
 	"github.com/cwd-k2/gicel/internal/span"
 	"github.com/cwd-k2/gicel/internal/types"
 )
@@ -11,7 +12,7 @@ import (
 
 func (p *Parser) parseExpr() syn.Expr {
 	if !p.enterRecurse() {
-		return &syn.ExprVar{Name: "<error>", S: span.Span{Start: span.Pos(p.pos), End: span.Pos(p.pos)}}
+		return &syn.ExprError{S: span.Span{Start: span.Pos(p.pos), End: span.Pos(p.pos)}}
 	}
 	defer p.leaveRecurse()
 	return p.parseAnnotation()
@@ -49,7 +50,7 @@ func (p *Parser) continueInfix(left syn.Expr, minPrec int) syn.Expr {
 		// Non-associative operators cannot chain at the same precedence,
 		// even with a different operator. e.g. `1 == 2 /= 3` is an error.
 		if prevNonePrec >= 0 && fix.Prec == prevNonePrec {
-			p.addError("cannot mix non-associative operators of equal precedence")
+			p.addErrorCode(errs.ErrInvalidOperator, "cannot mix non-associative operators of equal precedence")
 			break
 		}
 		p.advance()
@@ -81,8 +82,8 @@ func (p *Parser) isInfixOp() bool {
 func (p *Parser) parseApp() syn.Expr {
 	f := p.parseAtom()
 	if f == nil {
-		p.addError("expected expression")
-		return &syn.ExprVar{Name: "<error>", S: span.Span{Start: span.Pos(p.pos), End: span.Pos(p.pos)}}
+		p.addErrorCode(errs.ErrMissingBody, "expected expression")
+		return &syn.ExprError{S: span.Span{Start: span.Pos(p.pos), End: span.Pos(p.pos)}}
 	}
 	for (p.isAtomStart() || p.peek().Kind == syn.TokAt) && !p.atStmtBoundary() {
 		if p.peek().Kind == syn.TokAt {
@@ -167,7 +168,7 @@ func (p *Parser) parseAtom() syn.Expr {
 
 func (p *Parser) parseParen() syn.Expr {
 	if !p.enterRecurse() {
-		return &syn.ExprVar{Name: "<error>", S: span.Span{Start: span.Pos(p.pos), End: span.Pos(p.pos)}}
+		return &syn.ExprError{S: span.Span{Start: span.Pos(p.pos), End: span.Pos(p.pos)}}
 	}
 	defer p.leaveRecurse()
 	start := p.peek().S.Start
@@ -214,7 +215,7 @@ func (p *Parser) parseParen() syn.Expr {
 	// so we can detect left sections like (1 +).
 	firstApp := p.parseApp()
 	if firstApp == nil {
-		firstApp = &syn.ExprVar{Name: "<error>", S: span.Span{Start: span.Pos(p.pos), End: span.Pos(p.pos)}}
+		firstApp = &syn.ExprError{S: span.Span{Start: span.Pos(p.pos), End: span.Pos(p.pos)}}
 	}
 
 	// (e op) → left section: \x -> e op x

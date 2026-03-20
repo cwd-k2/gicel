@@ -149,6 +149,12 @@ type ExprSection struct {
 	S       span.Span
 }
 
+// ExprError represents a parse error placeholder.
+// The checker should skip type checking and return an error type/core immediately.
+type ExprError struct {
+	S span.Span
+}
+
 func (*ExprVar) exprNode()          {}
 func (*ExprCon) exprNode()          {}
 func (*ExprQualVar) exprNode()      {}
@@ -171,6 +177,7 @@ func (*ExprRecord) exprNode()       {}
 func (*ExprRecordUpdate) exprNode() {}
 func (*ExprProject) exprNode()      {}
 func (*ExprSection) exprNode()      {}
+func (*ExprError) exprNode()        {}
 
 func (e *ExprVar) Span() span.Span          { return e.S }
 func (e *ExprCon) Span() span.Span          { return e.S }
@@ -194,6 +201,7 @@ func (e *ExprRecord) Span() span.Span       { return e.S }
 func (e *ExprRecordUpdate) Span() span.Span { return e.S }
 func (e *ExprProject) Span() span.Span      { return e.S }
 func (e *ExprSection) Span() span.Span      { return e.S }
+func (e *ExprError) Span() span.Span        { return e.S }
 
 // ---- Statements (in do blocks) ----
 

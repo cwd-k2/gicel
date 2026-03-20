@@ -24,24 +24,29 @@ func (ch *Checker) checkDo(e *syntax.ExprDo, expected types.Type) core.Core {
 	// Fast path: Computation types use Core.Bind with expected pre/post threading.
 	if comp, ok := expected.(*types.TyCBPV); ok && comp.Tag == types.TagComp {
 		var steps []multStep
-		result := ch.elaborateStmtsChecked(e.Stmts, comp, e.S, &steps)
+		d := &doElaborator{ch: ch, mode: doModeChecked, comp: comp, steps: &steps}
+		_, result := d.elaborate(e.Stmts, e.S)
 		ch.checkMultiplicity(comp, steps, e.S)
 		return result
 	}
 	switch expected.(type) {
 	case *types.TyMeta, *types.TyError:
-		inferredTy, coreExpr := ch.elaborateStmts(e.Stmts, e.S)
+		d := &doElaborator{ch: ch, mode: doModeInfer}
+		inferredTy, coreExpr := d.elaborate(e.Stmts, e.S)
 		return ch.subsCheck(inferredTy, expected, coreExpr, e.S)
 	}
 
 	// Class dispatch: extract monad head and elaborate with dictionary.
 	monadHead := ch.extractMonadHead(expected)
 	if monadHead != nil {
-		return ch.elaborateDoMonadic(e.Stmts, monadHead, expected, e.S)
+		d := &doElaborator{ch: ch, mode: doModeMonadic, monadHead: monadHead, expected: expected}
+		_, result := d.elaborate(e.Stmts, e.S)
+		return result
 	}
 
 	// Fallback: try Computation inference.
-	inferredTy, coreExpr := ch.elaborateStmts(e.Stmts, e.S)
+	d := &doElaborator{ch: ch, mode: doModeInfer}
+	inferredTy, coreExpr := d.elaborate(e.Stmts, e.S)
 	return ch.subsCheck(inferredTy, expected, coreExpr, e.S)
 }
 
@@ -58,69 +63,6 @@ func (ch *Checker) extractMonadHead(ty types.Type) types.Type {
 		return result
 	}
 	return nil
-}
-
-// elaborateDoMonadic elaborates a do block using IxMonad class dispatch.
-// The monad head is used to resolve the IxMonad (Lift m) instance.
-func (ch *Checker) elaborateDoMonadic(stmts []syntax.Stmt, monadHead types.Type, expected types.Type, s span.Span) core.Core {
-	if len(stmts) == 1 {
-		if ch.rejectDoEnding(stmts[0]) {
-			return &core.Var{Name: "<error>", S: stmts[0].Span()}
-		}
-		st := stmts[0].(*syntax.StmtExpr)
-		// Intercept `pure val` / `ixpure val` at the end of a monadic do block.
-		if pureVal := extractPureArg(st.Expr); pureVal != nil {
-			_, args := types.UnwindApp(expected)
-			if len(args) > 0 {
-				resultTy := args[len(args)-1]
-				valCore := ch.check(pureVal, resultTy)
-				return ch.mkIxPure(monadHead, valCore, s)
-			}
-		}
-		return ch.check(st.Expr, expected)
-	}
-
-	switch st := stmts[0].(type) {
-	case *syntax.StmtBind:
-		// x <- comp; rest  →  ixbind comp (\x. rest)
-		// Intercept `x <- pure val` / `x <- ixpure val`.
-		var compCore core.Core
-		var resultTy types.Type
-		if pureVal := extractPureArg(st.Comp); pureVal != nil {
-			rty, vc := ch.infer(pureVal)
-			compCore = ch.mkIxPure(monadHead, vc, st.S)
-			resultTy = rty
-		} else {
-			compTy, cc := ch.infer(st.Comp)
-			compCore = cc
-			resultTy = ch.extractMonadResult(compTy, monadHead, st.S)
-		}
-		ch.ctx.Push(&CtxVar{Name: st.Var, Type: resultTy})
-		restCore := ch.elaborateDoMonadic(stmts[1:], monadHead, expected, s)
-		ch.ctx.Pop()
-		return ch.mkIxBind(monadHead, compCore, st.Var, restCore, st.S)
-
-	case *syntax.StmtExpr:
-		// comp; rest  →  ixbind comp (\_. rest)
-		var compCore core.Core
-		if pureVal := extractPureArg(st.Expr); pureVal != nil {
-			_, vc := ch.infer(pureVal)
-			compCore = ch.mkIxPure(monadHead, vc, st.S)
-		} else {
-			_, cc := ch.infer(st.Expr)
-			compCore = cc
-		}
-		restCore := ch.elaborateDoMonadic(stmts[1:], monadHead, expected, s)
-		return ch.mkIxBind(monadHead, compCore, "_", restCore, st.S)
-
-	case *syntax.StmtPureBind:
-		// x := e; rest  →  (\x. rest) e
-		return ch.elaboratePureBind(st, func() core.Core {
-			return ch.elaborateDoMonadic(stmts[1:], monadHead, expected, s)
-		})
-	}
-
-	return &core.Var{Name: "<error>", S: s}
 }
 
 // extractMonadResult extracts the result type from a monadic type given the monad head.

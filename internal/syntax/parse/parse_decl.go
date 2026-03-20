@@ -44,7 +44,7 @@ func (p *Parser) parseDecl() syn.Decl {
 	case p.peek().Kind == syn.TokLower:
 		return p.parseNamedDecl()
 	default:
-		p.addError("expected declaration")
+		p.addErrorCode(errs.ErrUnexpectedToken, "expected declaration")
 		p.advance()
 		return nil
 	}
@@ -287,7 +287,7 @@ func (p *Parser) parseFixityDecl() *syn.DeclFixity {
 		op = "."
 		p.advance()
 	} else {
-		p.addError("expected operator in fixity declaration")
+		p.addErrorCode(errs.ErrFixitySyntax, "expected operator in fixity declaration")
 		return nil
 	}
 	return &syn.DeclFixity{
@@ -325,7 +325,7 @@ func (p *Parser) parseOperatorDecl() syn.Decl {
 		expr := p.parseExpr()
 		return &syn.DeclValueDef{Name: op.Text, Expr: expr, S: span.Span{Start: start.S.Start, End: p.prevEnd()}}
 	default:
-		p.addError("expected :: or := after operator name")
+		p.addErrorCode(errs.ErrInvalidOperator, "expected :: or := after operator name")
 		return nil
 	}
 }
@@ -349,7 +349,7 @@ func (p *Parser) parseNamedDecl() syn.Decl {
 		eqTok := p.advance()
 		if p.atStmtBoundary() || p.peek().Kind == syn.TokEOF || p.peek().Kind == syn.TokSemicolon {
 			p.errors.Add(&errs.Error{
-				Code:    errs.ErrParseSyntax,
+				Code:    errs.ErrMissingBody,
 				Phase:   errs.PhaseParse,
 				Span:    eqTok.S,
 				Message: "expected expression after :=",
@@ -362,7 +362,7 @@ func (p *Parser) parseNamedDecl() syn.Decl {
 			S: span.Span{Start: start, End: p.prevEnd()},
 		}
 	default:
-		p.addError("expected :: or := after name")
+		p.addErrorCode(errs.ErrUnexpectedToken, "expected :: or := after name")
 		return nil
 	}
 }

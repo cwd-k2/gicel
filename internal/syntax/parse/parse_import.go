@@ -3,6 +3,7 @@ package parse
 import (
 	syn "github.com/cwd-k2/gicel/internal/syntax"
 
+	"github.com/cwd-k2/gicel/internal/errs"
 	"github.com/cwd-k2/gicel/internal/span"
 )
 
@@ -74,7 +75,7 @@ func (p *Parser) parseImportName() syn.ImportName {
 			opName = "."
 			p.advance()
 		} else {
-			p.addError("expected operator in import list")
+			p.addErrorCode(errs.ErrImportSyntax, "expected operator in import list")
 			// Skip to closing paren for error recovery.
 			for p.peek().Kind != syn.TokRParen && p.peek().Kind != syn.TokEOF {
 				p.advance()
@@ -94,7 +95,7 @@ func (p *Parser) parseImportName() syn.ImportName {
 
 	// Reject unexpected tokens early with recovery.
 	if p.peek().Kind != syn.TokUpper {
-		p.addError("expected name in import list")
+		p.addErrorCode(errs.ErrImportSyntax, "expected name in import list")
 		// Skip to next comma or closing paren.
 		for p.peek().Kind != syn.TokComma && p.peek().Kind != syn.TokRParen && p.peek().Kind != syn.TokEOF {
 			p.advance()
@@ -125,7 +126,7 @@ func (p *Parser) parseImportName() syn.ImportName {
 					sub = p.peek().Text
 					p.advance()
 				} else {
-					p.addError("expected name in import sub-list")
+					p.addErrorCode(errs.ErrImportSyntax, "expected name in import sub-list")
 					break
 				}
 				in.SubList = append(in.SubList, sub)

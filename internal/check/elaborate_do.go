@@ -11,10 +11,262 @@ import (
 )
 
 // Do elaboration files:
-//   elaborate_do.go          — shared helpers + inference path (inferDo, elaborateStmts, extractCompResult)
-//   elaborate_do_checked.go  — CBPV checked path (elaborateStmtsChecked, pre/post threading)
-//   elaborate_do_monadic.go  — IxMonad class dispatch path (checkDo, elaborateDoMonadic)
+//   elaborate_do.go          — doElaborator, shared helpers, unified elaboration loop
+//   elaborate_do_monadic.go  — checkDo dispatch, IxMonad helpers (extractMonadHead, mkIxBind, etc.)
 //   elaborate_do_mult.go     — multiplicity enforcement (checkMultiplicity)
+
+// --- doElaborator: unified do-block elaboration ---
+
+// doMode selects which elaboration strategy a doElaborator uses.
+type doMode int
+
+const (
+	doModeInfer   doMode = iota // fresh metas for pre/post; returns inferred type
+	doModeChecked               // threads known pre/post from TyCBPV; records multSteps
+	doModeMonadic               // IxMonad class dispatch via dictionary
+)
+
+// doElaborator parameterizes the differences between the three do elaboration paths.
+// The statement dispatch loop (StmtBind/StmtPureBind/StmtExpr) is shared; mode-specific
+// behavior is confined to bind construction, type extraction, and base-case handling.
+type doElaborator struct {
+	ch   *Checker
+	mode doMode
+
+	// checked mode: threading state and multiplicity recording.
+	comp  *types.TyCBPV
+	steps *[]multStep
+
+	// monadic mode: IxMonad dispatch parameters.
+	monadHead types.Type
+	expected  types.Type
+}
+
+// errPair returns a mode-appropriate error pair.
+func (d *doElaborator) errPair(s span.Span) (types.Type, core.Core) {
+	errCore := &core.Var{Name: "<error>", S: s}
+	switch d.mode {
+	case doModeChecked:
+		return d.comp, errCore
+	case doModeMonadic:
+		return d.expected, errCore
+	default:
+		return &types.TyError{S: s}, errCore
+	}
+}
+
+// elaborate processes a do-block statement sequence.
+// All three modes share the same structural loop; differences are in
+// base-case handling and bind construction.
+func (d *doElaborator) elaborate(stmts []syntax.Stmt, s span.Span) (types.Type, core.Core) {
+	ch := d.ch
+
+	// Base case: single statement must be an expression.
+	if len(stmts) == 1 {
+		if ch.rejectDoEnding(stmts[0]) {
+			return d.errPair(stmts[0].Span())
+		}
+		st := stmts[0].(*syntax.StmtExpr)
+		return d.elaborateBase(st.Expr, st.S)
+	}
+
+	// Recursive case: dispatch on first statement.
+	switch st := stmts[0].(type) {
+	case *syntax.StmtBind:
+		return d.elaborateBind(st.Var, st.Comp, stmts[1:], st.S, s)
+
+	case *syntax.StmtPureBind:
+		var restTy types.Type
+		c := ch.elaboratePureBind(st, func() core.Core {
+			var rc core.Core
+			restTy, rc = d.elaborate(stmts[1:], s)
+			return rc
+		})
+		return restTy, c
+
+	case *syntax.StmtExpr:
+		return d.elaborateExprStmt(st.Expr, stmts[1:], st.S, s)
+
+	default:
+		ch.addCodedError(errs.ErrBadComputation, s, "unexpected statement in do block")
+		return d.errPair(s)
+	}
+}
+
+// elaborateBase handles the last expression in a do block.
+func (d *doElaborator) elaborateBase(expr syntax.Expr, s span.Span) (types.Type, core.Core) {
+	ch := d.ch
+	switch d.mode {
+	case doModeInfer:
+		return ch.infer(expr)
+	case doModeChecked:
+		return d.comp, ch.check(expr, d.comp)
+	case doModeMonadic:
+		// Intercept `pure val` / `ixpure val` at the end of a monadic do block.
+		if pureVal := extractPureArg(expr); pureVal != nil {
+			_, args := types.UnwindApp(d.expected)
+			if len(args) > 0 {
+				resultTy := args[len(args)-1]
+				valCore := ch.check(pureVal, resultTy)
+				return d.expected, ch.mkIxPure(d.monadHead, valCore, s)
+			}
+		}
+		return d.expected, ch.check(expr, d.expected)
+	}
+	return d.errPair(s)
+}
+
+// elaborateBind handles x <- comp; rest.
+func (d *doElaborator) elaborateBind(varName string, comp syntax.Expr, rest []syntax.Stmt, stmtS, doS span.Span) (types.Type, core.Core) {
+	switch d.mode {
+	case doModeInfer:
+		return d.inferBind(varName, comp, rest, stmtS, doS)
+	case doModeChecked:
+		return d.checkedBind(varName, comp, rest, stmtS, doS, "do bind")
+	case doModeMonadic:
+		return d.monadicBind(varName, comp, rest, stmtS, doS)
+	}
+	return d.errPair(stmtS)
+}
+
+// elaborateExprStmt handles comp; rest (expression statement, no binding variable).
+func (d *doElaborator) elaborateExprStmt(expr syntax.Expr, rest []syntax.Stmt, stmtS, doS span.Span) (types.Type, core.Core) {
+	switch d.mode {
+	case doModeInfer:
+		return d.inferExprStmt(expr, rest, stmtS, doS)
+	case doModeChecked:
+		return d.checkedBind("_", expr, rest, stmtS, doS, "do statement")
+	case doModeMonadic:
+		return d.monadicExprStmt(expr, rest, stmtS, doS)
+	}
+	return d.errPair(stmtS)
+}
+
+// --- Infer mode ---
+
+func (d *doElaborator) inferBind(varName string, comp syntax.Expr, rest []syntax.Stmt, stmtS, doS span.Span) (types.Type, core.Core) {
+	ch := d.ch
+	compTy, compCore := ch.infer(comp)
+	resultTy := ch.extractCompResult(compTy, stmtS)
+	ch.ctx.Push(&CtxVar{Name: varName, Type: resultTy})
+	restTy, restCore := d.elaborate(rest, doS)
+	ch.ctx.Pop()
+	return restTy, &core.Bind{Comp: compCore, Var: varName, Body: restCore, S: stmtS}
+}
+
+func (d *doElaborator) inferExprStmt(expr syntax.Expr, rest []syntax.Stmt, stmtS, doS span.Span) (types.Type, core.Core) {
+	ch := d.ch
+	_, compCore := ch.infer(expr)
+	restTy, restCore := d.elaborate(rest, doS)
+	return restTy, &core.Bind{Comp: compCore, Var: "_", Body: restCore, S: stmtS}
+}
+
+// --- Checked mode ---
+
+func (d *doElaborator) checkedBind(varName string, comp syntax.Expr, rest []syntax.Stmt, stmtS, doS span.Span, errLabel string) (types.Type, core.Core) {
+	ch := d.ch
+	isBind := varName != "_"
+
+	compTy, compCore := ch.infer(comp)
+	compTy = ch.unifier.Zonk(compTy)
+
+	if inferredComp, ok := compTy.(*types.TyCBPV); ok {
+		// Record step for multiplicity analysis.
+		*d.steps = append(*d.steps, multStep{pre: inferredComp.Pre, post: inferredComp.Post, s: stmtS})
+		// Unify inferred pre with expected pre.
+		if err := ch.unifier.Unify(inferredComp.Pre, d.comp.Pre); err != nil {
+			ch.addUnifyError(err, stmtS, fmt.Sprintf(
+				"%s: pre-state mismatch: expected %s, got %s",
+				errLabel, types.Pretty(d.comp.Pre), types.Pretty(inferredComp.Pre)))
+		}
+
+		if isBind {
+			ch.ctx.Push(&CtxVar{Name: varName, Type: inferredComp.Result})
+		}
+
+		// Rest: Computation mid post result — mid from inferred post, post/result from expected.
+		restComp := &types.TyCBPV{Tag: types.TagComp, Pre: inferredComp.Post, Post: d.comp.Post, Result: d.comp.Result, S: d.comp.S}
+		savedComp := d.comp
+		d.comp = restComp
+		_, restCore := d.elaborate(rest, doS)
+		d.comp = savedComp
+
+		if isBind {
+			ch.ctx.Pop()
+		}
+		return d.comp, &core.Bind{Comp: compCore, Var: varName, Body: restCore, S: stmtS}
+	}
+
+	// Fallback: infer didn't give TyCBPV, extract result and continue with infer mode.
+	if isBind {
+		resultTy := ch.extractCompResult(compTy, stmtS)
+		ch.ctx.Push(&CtxVar{Name: varName, Type: resultTy})
+	}
+	fallback := &doElaborator{ch: ch, mode: doModeInfer}
+	restTy, restCore := fallback.elaborate(rest, doS)
+	if isBind {
+		ch.ctx.Pop()
+	}
+	// Best-effort: pre/post threading is unavailable. Unifying the inferred rest type
+	// with the expected computation type is advisory.
+	_ = ch.unifier.Unify(restTy, d.comp)
+	return d.comp, &core.Bind{Comp: compCore, Var: varName, Body: restCore, S: stmtS}
+}
+
+// --- Monadic mode ---
+
+func (d *doElaborator) monadicBind(varName string, comp syntax.Expr, rest []syntax.Stmt, stmtS, doS span.Span) (types.Type, core.Core) {
+	ch := d.ch
+
+	var compCore core.Core
+	var resultTy types.Type
+
+	// Intercept `x <- pure val` / `x <- ixpure val`.
+	if pureVal := extractPureArg(comp); pureVal != nil {
+		rty, vc := ch.infer(pureVal)
+		compCore = ch.mkIxPure(d.monadHead, vc, stmtS)
+		resultTy = rty
+	} else {
+		compTy, cc := ch.infer(comp)
+		compCore = cc
+		resultTy = ch.extractMonadResult(compTy, d.monadHead, stmtS)
+	}
+
+	ch.ctx.Push(&CtxVar{Name: varName, Type: resultTy})
+	_, restCore := d.elaborate(rest, doS)
+	ch.ctx.Pop()
+	return d.expected, ch.mkIxBind(d.monadHead, compCore, varName, restCore, stmtS)
+}
+
+func (d *doElaborator) monadicExprStmt(expr syntax.Expr, rest []syntax.Stmt, stmtS, doS span.Span) (types.Type, core.Core) {
+	ch := d.ch
+
+	var compCore core.Core
+	// Intercept `pure val` / `ixpure val`.
+	if pureVal := extractPureArg(expr); pureVal != nil {
+		_, vc := ch.infer(pureVal)
+		compCore = ch.mkIxPure(d.monadHead, vc, stmtS)
+	} else {
+		_, cc := ch.infer(expr)
+		compCore = cc
+	}
+
+	_, restCore := d.elaborate(rest, doS)
+	return d.expected, ch.mkIxBind(d.monadHead, compCore, "_", restCore, stmtS)
+}
+
+// --- Entry points ---
+
+func (ch *Checker) inferDo(e *syntax.ExprDo) (types.Type, core.Core) {
+	if len(e.Stmts) == 0 {
+		ch.addCodedError(errs.ErrEmptyDo, e.S, "empty do block")
+		return ch.errorPair(e.S)
+	}
+	d := &doElaborator{ch: ch, mode: doModeInfer}
+	return d.elaborate(e.Stmts, e.S)
+}
+
+// --- Shared helpers ---
 
 // rejectDoEnding reports ErrBadDoEnding if the last statement is a binding.
 // Returns true if the statement was rejected.
@@ -73,55 +325,6 @@ func (ch *Checker) inferBlock(e *syntax.ExprBlock) (types.Type, core.Core) {
 	}
 
 	return resultTy, result
-}
-
-func (ch *Checker) inferDo(e *syntax.ExprDo) (types.Type, core.Core) {
-	if len(e.Stmts) == 0 {
-		ch.addCodedError(errs.ErrEmptyDo, e.S, "empty do block")
-		return ch.errorPair(e.S)
-	}
-	return ch.elaborateStmts(e.Stmts, e.S)
-}
-
-func (ch *Checker) elaborateStmts(stmts []syntax.Stmt, s span.Span) (types.Type, core.Core) {
-	if len(stmts) == 1 {
-		if st, ok := stmts[0].(*syntax.StmtExpr); ok {
-			return ch.infer(st.Expr)
-		}
-		ch.rejectDoEnding(stmts[0])
-		return ch.errorPair(stmts[0].Span())
-	}
-
-	switch st := stmts[0].(type) {
-	case *syntax.StmtBind:
-		// x <- c; rest  →  Bind(c, x, rest)
-		compTy, compCore := ch.infer(st.Comp)
-		resultTy := ch.extractCompResult(compTy, st.S)
-		ch.ctx.Push(&CtxVar{Name: st.Var, Type: resultTy})
-		restTy, restCore := ch.elaborateStmts(stmts[1:], s)
-		ch.ctx.Pop()
-		return restTy, &core.Bind{Comp: compCore, Var: st.Var, Body: restCore, S: st.S}
-
-	case *syntax.StmtPureBind:
-		// x := e; rest  →  App(Lam(x, rest), e)
-		var restTy types.Type
-		c := ch.elaboratePureBind(st, func() core.Core {
-			var rc core.Core
-			restTy, rc = ch.elaborateStmts(stmts[1:], s)
-			return rc
-		})
-		return restTy, c
-
-	case *syntax.StmtExpr:
-		// c; rest  →  Bind(c, "_", rest)
-		_, compCore := ch.infer(st.Expr)
-		restTy, restCore := ch.elaborateStmts(stmts[1:], s)
-		return restTy, &core.Bind{Comp: compCore, Var: "_", Body: restCore, S: st.S}
-
-	default:
-		ch.addCodedError(errs.ErrBadComputation, s, "unexpected statement in do block")
-		return ch.errorPair(s)
-	}
 }
 
 func (ch *Checker) extractCompResult(ty types.Type, s span.Span) types.Type {

@@ -22,7 +22,17 @@ const (
 
 // Parse errors (E0100–E0199)
 const (
-	ErrParseSyntax Code = 100 // general syntax error
+	ErrParseSyntax      Code = 100 // general syntax error (fallback)
+	ErrUnexpectedToken  Code = 101 // unexpected token
+	ErrUnclosedDelim    Code = 102 // unclosed delimiter (paren/brace/bracket)
+	ErrMissingBody      Code = 103 // missing expression body
+	ErrInvalidOperator  Code = 104 // invalid operator in declaration
+	ErrExpectedType     Code = 105 // expected type expression
+	ErrInvalidPattern   Code = 106 // invalid pattern
+	ErrImportSyntax     Code = 107 // import syntax error
+	ErrClassSyntax      Code = 108 // class/instance syntax error
+	ErrFixitySyntax     Code = 109 // fixity declaration error
+	ErrParserLimit      Code = 110 // recursion/step limit in parser
 )
 
 // Type check errors (E0200–E0299)

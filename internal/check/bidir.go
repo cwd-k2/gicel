@@ -210,6 +210,9 @@ func (ch *Checker) infer(expr syntax.Expr) (types.Type, core.Core) {
 	case *syntax.ExprProject:
 		return ch.inferProject(e)
 
+	case *syntax.ExprError:
+		return ch.errorPair(e.S)
+
 	default:
 		ch.addCodedError(errs.ErrTypeMismatch, expr.Span(), "cannot infer type of expression")
 		return ch.errorPair(expr.Span())

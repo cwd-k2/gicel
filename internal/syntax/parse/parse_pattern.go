@@ -3,6 +3,7 @@ package parse
 import (
 	syn "github.com/cwd-k2/gicel/internal/syntax"
 
+	"github.com/cwd-k2/gicel/internal/errs"
 	"github.com/cwd-k2/gicel/internal/span"
 	"github.com/cwd-k2/gicel/internal/types"
 )
@@ -46,7 +47,7 @@ func (p *Parser) parsePattern() syn.Pattern {
 	case syn.TokLBracket:
 		return p.parseListPattern()
 	default:
-		p.addError("expected pattern")
+		p.addErrorCode(errs.ErrInvalidPattern, "expected pattern")
 		tok := p.peek()
 		p.advance()
 		return &syn.PatWild{S: tok.S}

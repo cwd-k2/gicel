@@ -3,6 +3,7 @@ package parse
 import (
 	syn "github.com/cwd-k2/gicel/internal/syntax"
 
+	"github.com/cwd-k2/gicel/internal/errs"
 	"github.com/cwd-k2/gicel/internal/span"
 	gtypes "github.com/cwd-k2/gicel/internal/types"
 )
@@ -137,7 +138,7 @@ func (p *Parser) parseKindAtom() syn.KindExpr {
 		p.leaveRecurse()
 		return k
 	default:
-		p.addError("expected kind (Type, Row, or K -> K)")
+		p.addErrorCode(errs.ErrExpectedType, "expected kind (Type, Row, or K -> K)")
 		tok := p.peek()
 		p.advance()
 		return &syn.KindExprType{S: tok.S}
@@ -226,7 +227,7 @@ func (p *Parser) parseTypeAtom() syn.TypeExpr {
 	case syn.TokLBrace:
 		return p.parseRowType()
 	default:
-		p.addError("expected type")
+		p.addErrorCode(errs.ErrExpectedType, "expected type")
 		tok := p.peek()
 		p.advance()
 		return &syn.TyExprCon{Name: "<error>", S: tok.S}
