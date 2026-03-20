@@ -13,7 +13,7 @@ import (
 func TestSolverSingleConstraint(t *testing.T) {
 	ch := setupCheckerWithPrelude(t)
 
-	ch.worklist.Push(&CtClass{
+	ch.solver.worklist.Push(&CtClass{
 		Placeholder: "$dict_1",
 		ClassName:   "Num",
 		Args:        []types.Type{&types.TyCon{Name: "Int"}},
@@ -38,7 +38,7 @@ func TestSolverDuplicateConstraints(t *testing.T) {
 	ch := setupCheckerWithPrelude(t)
 
 	for i := range 5 {
-		ch.worklist.Push(&CtClass{
+		ch.solver.worklist.Push(&CtClass{
 			Placeholder: placeholderName(i),
 			ClassName:   "Num",
 			Args:        []types.Type{&types.TyCon{Name: "Int"}},
@@ -67,7 +67,7 @@ func TestSolverDeferrable(t *testing.T) {
 	ch := setupCheckerWithPrelude(t)
 
 	meta := ch.freshMeta(types.KType{})
-	ch.worklist.Push(&CtClass{
+	ch.solver.worklist.Push(&CtClass{
 		Placeholder: "$dict_1",
 		ClassName:   "Num",
 		Args:        []types.Type{meta},
@@ -94,13 +94,13 @@ func TestSolverMixedConstraints(t *testing.T) {
 
 	meta := ch.freshMeta(types.KType{})
 	// Resolved: Eq Int
-	ch.worklist.Push(&CtClass{
+	ch.solver.worklist.Push(&CtClass{
 		Placeholder: "$dict_1",
 		ClassName:   "Eq",
 		Args:        []types.Type{&types.TyCon{Name: "Int"}},
 	})
 	// Deferred: Num ?meta
-	ch.worklist.Push(&CtClass{
+	ch.solver.worklist.Push(&CtClass{
 		Placeholder: "$dict_2",
 		ClassName:   "Num",
 		Args:        []types.Type{meta},

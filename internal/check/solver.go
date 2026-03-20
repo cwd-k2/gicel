@@ -19,11 +19,11 @@ func (ch *Checker) solveWanteds(
 ) (map[string]core.Core, []*CtClass) {
 	resolutions := make(map[string]core.Core)
 	var residuals []*CtClass
-	ch.inertSet.Reset()
-	ch.ambiguityCache = nil // lazily allocated; zero-cost when shouldDefer is nil
+	ch.solver.inertSet.Reset()
+	ch.solver.ambiguityCache = nil // lazily allocated; zero-cost when shouldDefer is nil
 
 	for {
-		ct, ok := ch.worklist.Pop()
+		ct, ok := ch.solver.worklist.Pop()
 		if !ok {
 			break
 		}
@@ -36,7 +36,7 @@ func (ch *Checker) solveWanteds(
 	}
 
 	// Collect remaining class constraints from inert set as residuals.
-	for _, ct := range ch.inertSet.CollectClassResiduals() {
+	for _, ct := range ch.solver.inertSet.CollectClassResiduals() {
 		if shouldDefer != nil {
 			zonkedArgs := ch.zonkAll(ct.Args)
 			if shouldDefer(ct.ClassName, zonkedArgs) {
@@ -51,7 +51,7 @@ func (ch *Checker) solveWanteds(
 		}
 	}
 
-	ch.inertSet.Reset()
+	ch.solver.inertSet.Reset()
 	return resolutions, residuals
 }
 
@@ -92,7 +92,7 @@ func (ch *Checker) processCtClass(
 	key := constraintKey(ct.ClassName, ct.Args)
 
 	// Check if the inert set already has an identical resolved constraint.
-	if cachedPlaceholder := ch.inertSet.LookupResolution(key); cachedPlaceholder != "" {
+	if cachedPlaceholder := ch.solver.inertSet.LookupResolution(key); cachedPlaceholder != "" {
 		if cachedExpr, ok := resolutions[cachedPlaceholder]; ok {
 			resolutions[ct.Placeholder] = cachedExpr
 			return
@@ -116,7 +116,7 @@ func (ch *Checker) processCtClass(
 func (ch *Checker) resolveCtClassKeyed(ct *CtClass, key string, resolutions map[string]core.Core) {
 	resolved := ch.resolveInstance(ct.ClassName, ct.Args, ct.S)
 	resolutions[ct.Placeholder] = resolved
-	ch.inertSet.InsertClass(ct, key)
+	ch.solver.inertSet.InsertClass(ct, key)
 }
 
 // constraintKey builds a canonical key for a class constraint.
@@ -147,6 +147,6 @@ func (ch *Checker) processCtFunEq(ct *CtFunEq) {
 	ct.Args = zonked
 	ct.BlockingOn = collectMetaIDs(zonked)
 	if len(ct.BlockingOn) > 0 {
-		ch.inertSet.InsertFunEq(ct)
+		ch.solver.inertSet.InsertFunEq(ct)
 	}
 }

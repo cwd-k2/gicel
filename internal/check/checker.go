@@ -112,6 +112,17 @@ type checkerScope struct {
 	ownedTypeNamesCache map[string]map[string]bool // module → owned type names (lazy, for type ambiguity)
 }
 
+// solverState holds mutable state for the constraint solver.
+// Grouped to make solver ownership explicit and to prepare for
+// row-level type family extensions (v0.14).
+type solverState struct {
+	worklist       Worklist
+	inertSet       InertSet
+	ambiguityCache map[string]bool // per-solveWanteds cache; lazily allocated
+	resolveDepth   int             // instance resolution recursion depth
+	level          int             // implication nesting depth for touchability (0 = top-level)
+}
+
 // Checker holds mutable state during type checking.
 type Checker struct {
 	// Services.
@@ -123,21 +134,17 @@ type Checker struct {
 	config  *CheckConfig
 	freshID int
 
-	// Semantic registries.
+	// Semantic registries (populated in declaration phases, then read-only).
 	reg checkerRegistry
 
-	// Name resolution scope.
+	// Name resolution and module scoping.
 	scope checkerScope
 
 	// Constraint solver state.
-	worklist       Worklist
-	inertSet       InertSet
-	ambiguityCache map[string]bool // per-solveWanteds cache; lazily allocated
+	solver solverState
 
-	// Recursion/depth guards.
-	depth        int // inference recursion depth
-	resolveDepth int // instance resolution recursion depth
-	level        int // implication nesting depth for touchability (0 = top-level)
+	// Inference recursion depth (for trace events).
+	depth int
 
 	// Phase state.
 	strictTypeNames bool // enabled after declaration processing
@@ -250,8 +257,8 @@ func newChecker(prog *syntax.AstProgram, source *span.Source, config *CheckConfi
 	ch.unifier = unify.NewUnifierShared(&ch.freshID)
 	ch.unifier.Budget = ch.budget
 	ch.unifier.OnSolve = func(metaID int) {
-		kicked := ch.inertSet.KickOut(metaID)
-		ch.worklist.PushFront(kicked...)
+		kicked := ch.solver.inertSet.KickOut(metaID)
+		ch.solver.worklist.PushFront(kicked...)
 	}
 	ch.initContext()
 	ch.importModules(prog.Imports)
@@ -292,7 +299,7 @@ func (ch *Checker) fresh() int {
 
 func (ch *Checker) freshMeta(k types.Kind) *types.TyMeta {
 	id := ch.fresh()
-	return &types.TyMeta{ID: id, Kind: k, Level: ch.level}
+	return &types.TyMeta{ID: id, Kind: k, Level: ch.solver.level}
 }
 
 func (ch *Checker) freshSkolem(name string, k types.Kind) *types.TySkolem {
@@ -345,11 +352,11 @@ func (ch *Checker) withTrial(fn func() bool) bool {
 // Constraints accumulated inside fn are resolved immediately, then
 // any remaining constraints are merged back into the outer scope.
 func (ch *Checker) withDeferredScope(fn func() core.Core) core.Core {
-	saved := ch.worklist.Drain()
+	saved := ch.solver.worklist.Drain()
 	result := fn()
 	result = ch.resolveDeferredConstraints(result)
-	residual := ch.worklist.Drain()
-	ch.worklist.Load(append(saved, residual...))
+	residual := ch.solver.worklist.Drain()
+	ch.solver.worklist.Load(append(saved, residual...))
 	return result
 }
 
