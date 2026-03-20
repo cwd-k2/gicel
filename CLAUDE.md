@@ -149,6 +149,24 @@ In-package probes: `internal/compiler/check/*_probe_test.go`, `internal/compiler
 - `probe`: requires `//go:build probe`. Not run by `go test ./...`. Run explicitly with `go test -tags probe ./...`.
 - `stress`: no tag. Run with `go test ./tests/stress/`.
 
+### Probe test execution policy
+
+Probe tests (`//go:build probe`) exercise adversarial corner cases and crash reproduction. Intentionally excluded from `go test ./...` to keep the default test suite fast.
+
+```sh
+go test -tags probe ./...                        # all probes
+go test -tags probe ./internal/compiler/check    # check probes only
+go test -tags probe ./internal/compiler/parse    # parse probes only
+go test -tags probe ./tests/probe                # integration probes
+```
+
+Probes **must** be run before release and after changes to:
+- parser recovery logic
+- type checker unification/subsumption/evidence
+- instance resolution or type family reduction
+- evaluator limits and error paths
+- sandbox/runtime boundary
+
 ### File naming
 
 Both implementation and test files follow the same pattern:
