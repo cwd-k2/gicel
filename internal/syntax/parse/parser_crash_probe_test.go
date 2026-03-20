@@ -26,11 +26,20 @@ func TestProbeB_MismatchedParens(t *testing.T) {
 }
 
 // TestProbeB_UnexpectedEOFInExpr checks unexpected EOF after := in a value definition.
-// BUG: medium - "main :=" with no expression body parses without error.
+// Fixed: parse_decl.go detects missing body and reports ErrMissingBody.
 func TestProbeB_UnexpectedEOFInExpr(t *testing.T) {
 	_, es := parse("main :=")
 	if !es.HasErrors() {
-		t.Log("BUG CONFIRMED: 'main :=' (no expression body) accepted without error")
+		t.Fatal("expected error for 'main :=' with no expression body")
+	}
+	found := false
+	for _, e := range es.Errs {
+		if e.Code == errs.ErrMissingBody {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("expected ErrMissingBody (E0103), got: %s", es.Format())
 	}
 }
 
@@ -429,9 +438,9 @@ good2 := 99`
 		}
 	}
 	t.Logf("recovered %d good declarations out of 5 total, errors: %s", goodCount, es.Format())
-	// BUG: medium — only 1 of 2 valid decls recovered (good2 is swallowed by error recovery)
+	// Fixed: error recovery now recovers both good and good2.
 	if goodCount < 2 {
-		t.Logf("BUG: medium — error recovery swallowed valid declaration 'good2'")
+		t.Errorf("expected 2 good declarations recovered, got %d", goodCount)
 	}
 }
 
@@ -446,9 +455,9 @@ func TestProbeD_ErrorRecoveryCascade(t *testing.T) {
 	// Count how many errors were produced. Excessive cascading is a quality concern.
 	count := es.Len()
 	t.Logf("cascade test: %d errors produced", count)
-	if count > 20 {
-		// BUG: medium — error cascade produces excessive diagnostics
-		t.Logf("BUG: medium — error cascade produced %d errors, excessive for 1 broken expression", count)
+	// Fixed: syncToStmtBoundary limits cascade. Threshold lowered from 20 to 10.
+	if count > 10 {
+		t.Errorf("error cascade produced %d errors, expected ≤10 for 1 broken expression", count)
 	}
 }
 
