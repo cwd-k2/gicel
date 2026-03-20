@@ -1,5 +1,57 @@
 # Changelog
 
+## v0.14.0 — 2026-03-21
+
+### Architecture
+
+- **Layered directory structure** — `internal/` restructured into `lang/`, `infra/`, `compiler/`, `runtime/`, `host/`, `app/` layers with explicit dependency direction
+- **Checker service extraction** — `Session`, `Registry`, `Scope`, `Solver` as named types with method-based mutation contracts. All Registry writes go through named methods (`RegisterTypeKind`, `RegisterAlias`, `ImportInstance`, etc.)
+- **Parser guard extraction** — safety harness (step/depth limits, halt flag) separated into `parserGuard` struct
+- **Engine compile path unification** — shared `postCheck` helper; `compileModule` now accepts `context.Context` for cancellable module compilation
+
+### Type Checker
+
+- **TypeFamilies export boundary** — modules only export locally defined or locally enriched type families (not purely inherited ones)
+
+### Stdlib
+
+- **Data.Map expansion** — `keys`, `values`, `mapValues`, `filterWithKey`
+- **Data.Set expansion** — `union`, `intersection`, `difference`
+
+### CLI
+
+- **`--use` → `--packs`** — flag renamed to convey "restrict to these packs"; `--use` kept as silent alias
+- **Runtime error source locations** — text output shows `line:col:` prefix; JSON includes `line`, `col`, `message` fields
+- **Preflight JSON errors** — bad flags and setup errors respect `--json` with `"phase": "preflight"`
+- **Compile-error JSON hints** — `Diagnostic.Hints` field with secondary annotations
+- **JSON allocation stats** — `"allocated"` field in success stats
+- **Explain failure path** — `--explain` trace flushed on runtime errors (text and JSON)
+- **Explain module names** — `--verbose` shows `[SourceName]` on module transitions
+- **Explain internal distinction** — `--explain-all` dims stdlib steps in color mode
+
+### Engine
+
+- **RunSandbox enhancements** — `SandboxConfig.Context` for parent context propagation; `Explain` and `ExplainDepth` fields for trace hooks. Timeout now covers pack application + compilation + evaluation
+- **`SetCompileContext`** — public method to bound module compilation with a context
+
+### Documentation
+
+- **README streamlined** — 346 → 212 lines; restructured around sandbox/PoC/embedding selling points
+- **Agent guide** — minimal example fixed (`main := ()`), `--max-nesting` added to flag tables, `-e` semicolon note, `--explain-all` behavior note, Effect.IO behavior clarification, Map/Set qualified import tips, host API migration path, trust boundary section, observability hooks table
+- **Operator docs fix** — `¦¦` → `||`, `<¦>` → `<|>` in functions.md
+- **Stale `Std.*` references** — 6 example files updated to current module names
+- **CLAUDE.md** — Rules moved to top, `--max-nesting` in flag table, probe test execution policy
+- **Roadmap restructured** — split into `direction.md` (project principles), `language.md` (type system roadmap), `library.md` (stdlib/tooling roadmap). Version numbers removed; items ordered by dependency
+
+### Testing
+
+- **Parser/budget benchmarks** — `parse_bench_test.go` (5 benchmarks), `budget_bench_test.go` (5 benchmarks)
+- **Stress harness split** — monolithic `stress_test.go` split into 6 domain files (types, typeclass, effect, stdlib, grammar, helpers)
+- **Boundary test structured assertions** — `strings.Contains` replaced with `Diagnostic.Code` checks
+- **Smoke test expansion** — JSON contract tests for runtime errors, preflight errors, allocation stats
+
+---
+
 ## v0.13.0 — 2026-03-20
 
 ### Core IR
