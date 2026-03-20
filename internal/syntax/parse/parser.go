@@ -299,6 +299,23 @@ func (p *Parser) syncToNextDecl() {
 	}
 }
 
+// speculate runs fn as a tentative parse. If fn returns true, the
+// parse succeeds and all side effects (position, depth, errors) are
+// kept. If fn returns false, position, depth, and errors are rolled
+// back to the state before the call.
+func (p *Parser) speculate(fn func() bool) bool {
+	savedPos := p.pos
+	savedDepth := p.depth
+	savedErrLen := p.errors.Len()
+	if fn() {
+		return true
+	}
+	p.pos = savedPos
+	p.depth = savedDepth
+	p.errors.Truncate(savedErrLen)
+	return false
+}
+
 func (p *Parser) lookupFixity(op string) Fixity {
 	if f, ok := p.fixity[op]; ok {
 		return f

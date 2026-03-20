@@ -195,20 +195,23 @@ func (p *Parser) parseParen() syn.Expr {
 			return &syn.ExprVar{Name: opName, S: span.Span{Start: start, End: p.prevEnd()}}
 		}
 		// Try right section: (op expr)
-		saved := p.pos
-		savedErrLen := p.errors.Len()
-		p.advance() // skip op
-		arg := p.parseExpr()
-		if p.peek().Kind == syn.TokRParen {
+		var section syn.Expr
+		p.speculate(func() bool {
+			p.advance() // skip op
+			arg := p.parseExpr()
+			if p.peek().Kind != syn.TokRParen {
+				return false
+			}
 			p.advance()
-			return &syn.ExprSection{
+			section = &syn.ExprSection{
 				Op: opName, Arg: arg, IsRight: true,
 				S: span.Span{Start: start, End: p.prevEnd()},
 			}
+			return true
+		})
+		if section != nil {
+			return section
 		}
-		// Not a section — backtrack.
-		p.pos = saved
-		p.errors.Truncate(savedErrLen)
 	}
 
 	// Parse the first sub-expression without infix operators,
@@ -409,16 +412,19 @@ func (p *Parser) parseBlock() syn.Expr {
 	// We need to detect this by trying to parse an expression, then checking for |.
 	// For simplicity, handle the case where the record is a single variable or expression.
 	// Attempt: if after parsing the first expression we see |, it's a record update.
-	savedForUpdate := p.pos
-	savedErrLen := p.errors.Len()
-	firstExpr := p.parseExpr()
-	if p.peek().Kind == syn.TokPipe {
+	var updateExpr syn.Expr
+	p.speculate(func() bool {
+		firstExpr := p.parseExpr()
+		if p.peek().Kind != syn.TokPipe {
+			return false
+		}
 		p.advance() // skip |
-		return p.parseRecordUpdateFields(start, firstExpr)
+		updateExpr = p.parseRecordUpdateFields(start, firstExpr)
+		return true
+	})
+	if updateExpr != nil {
+		return updateExpr
 	}
-	// Not a record update — restore and discard phantom errors.
-	p.pos = savedForUpdate
-	p.errors.Truncate(savedErrLen)
 
 	// Block expression with bindings.
 	var binds []syn.AstBind

@@ -250,19 +250,18 @@ func (p *Parser) parseInstanceDecl() *syn.DeclInstance {
 	for {
 		// Parenthesized constraint(s): (Eq a) => or (Eq a, Ord a) => ...
 		if p.peek().Kind == syn.TokLParen {
-			saved := p.pos
-			savedDepth := p.depth
-			savedErrLen := p.errors.Len()
-			ty := p.parseTypeAtom() // parses (Eq a) or (Eq a, Ord a) as tuple
-			if p.peek().Kind == syn.TokFatArrow {
+			matched := p.speculate(func() bool {
+				ty := p.parseTypeAtom() // parses (Eq a) or (Eq a, Ord a) as tuple
+				if p.peek().Kind != syn.TokFatArrow {
+					return false
+				}
 				context = append(context, decomposeTupleConstraint(ty)...)
 				p.advance() // consume =>
+				return true
+			})
+			if matched {
 				continue
 			}
-			// Not a constraint — backtrack and discard phantom errors.
-			p.pos = saved
-			p.depth = savedDepth
-			p.errors.Truncate(savedErrLen)
 			break
 		}
 
