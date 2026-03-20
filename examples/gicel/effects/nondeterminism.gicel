@@ -1,9 +1,8 @@
 -- GICEL Example: Nondeterministic Search
 --
--- Three layers of the same idea:
---   1. List do-notation — the simplest way (IxMonad List)
---   2. Multi-shot continuations — how it works under the hood
---   3. Free monad — reified computation as a data structure
+-- Two layers of the same idea, both using do notation:
+--   1. List do — the simplest way (built-in IxMonad List)
+--   2. Free monad do — reified computation as a data structure
 -- Requires: --recursion (for Free monad and range)
 -- Run: gicel run --recursion nondeterminism.gicel
 
@@ -15,13 +14,11 @@ range :: Int -> Int -> List Int
 range := fix (\self lo hi.
   case lo > hi { True -> []; False -> Cons lo (self (lo + 1) hi) })
 
--- Concrete guard for List do-notation.
--- The Prelude also provides `guard :: Alternative f => Bool -> f ()`.
 guard :: Bool -> List ()
 guard := \c. case c { True -> [()]; False -> [] }
 
 -- ── Layer 1: List do-notation ──────────────────────────────
--- The type annotation :: List T steers do to the List monad.
+-- The type annotation :: List T steers do to the List IxMonad.
 -- x <- [1,2,3] means "for each x in [1,2,3]".
 
 -- Pythagorean triples a² + b² = c² (a ≤ b ≤ c ≤ 10)
@@ -32,52 +29,37 @@ pythag := do {
   a <- range 1 10;
   b <- range a 10;
   c <- range b 10;
-  _ <- guard (eq (a * a + b * b) (c * c));
+  guard (eq (a * a + b * b) (c * c));
   pure (MkTriple a b c)
 }
 -- [MkTriple 3 4 5, MkTriple 6 8 10]
 
--- ── Layer 2: Multi-shot continuations ──────────────────────
--- amb k = apply k to each choice, collect all results.
--- This IS List >>= written as an explicit continuation.
+-- Find (x, y) with x + y = 7, x and y in [1..6]
+sumPairs :: List (Int, Int)
+sumPairs := do {
+  x <- range 1 6;
+  y <- range 1 6;
+  guard (eq (x + y) 7);
+  pure (x, y)
+}
+-- [(1,6),(2,5),(3,4),(4,3),(5,2),(6,1)]
 
-amb :: \a b. List a -> (a -> List b) -> List b
-amb := \choices k.
-  foldr (\x acc. concat (k x) acc) [] choices
-
--- Coin problem: subset of {1,2,5,10,20,50} summing to 28
-coins := [1, 2, 5, 10, 20, 50]
-
--- All subsets, then filter with continuation k
-subsets :: \a. List a -> List (List a)
-subsets := fix (\self xs. case xs {
-  Nil      -> [[]];
-  Cons x t -> { ss := self t; concat ((\s. Cons x s) <$> ss) ss }
-})
-
-coinResult := amb (subsets coins) (\s.
-  amb (guard (eq (foldl (+) 0 s) 28)) (\_. [s]))
--- [[1,2,5,20]]
-
--- ── Layer 3: Free monad ────────────────────────────────────
+-- ── Layer 2: Free monad do-notation ────────────────────────
 -- The computation is a tree. The interpreter walks it.
+-- NDFree gets an IxMonad instance, so do notation works directly.
 
 data NDFree a := NDPure a | NDChoice (NDFree a) (NDFree a) | NDFail
 
-returnND :: \a. a -> NDFree a
-returnND := NDPure
+instance IxMonad NDFree {
+  ixpure := NDPure;
+  ixbind := fix (\self m f. case m {
+    NDPure a     -> f a;
+    NDChoice l r -> NDChoice (self l f) (self r f);
+    NDFail       -> NDFail
+  })
+}
 
-failND :: \a. NDFree a
-failND := NDFail
-
-infixl 1 >>=
-(>>=) :: \a b. NDFree a -> (a -> NDFree b) -> NDFree b
-(>>=) := fix (\self m f. case m {
-  NDPure a     -> f a;
-  NDChoice l r -> NDChoice (self l f) (self r f);
-  NDFail       -> NDFail
-})
-
+-- Interpreter: collect all results into a list.
 runND :: \a. NDFree a -> List a
 runND := fix (\self m. case m {
   NDPure a     -> [a];
@@ -85,16 +67,18 @@ runND := fix (\self m. case m {
   NDFail       -> []
 })
 
+-- Lift a list into NDFree (each element becomes a choice branch).
 fromList :: \a. List a -> NDFree a
 fromList := fix (\self xs. case xs {
   Nil        -> NDFail;
   Cons x rest -> NDChoice (NDPure x) (self rest)
 })
 
+-- Guard: fail unless condition holds.
 guardND :: Bool -> NDFree ()
-guardND := \c. case c { True -> returnND (); False -> failND }
+guardND := \c. case c { True -> NDPure (); False -> NDFail }
 
--- N-Queens (N=4): place queens so none attack each other
+-- N-Queens (N=4): place queens so none attack each other.
 safe :: Int -> List Int -> Int -> Bool
 safe := fix (\self col qs d. case qs {
   Nil -> True;
@@ -104,21 +88,22 @@ safe := fix (\self col qs d. case qs {
     False -> self col rest (d + 1) }}
 })
 
+-- do notation on NDFree: fromList provides choices, guardND prunes.
 nqueens :: Int -> List Int -> NDFree (List Int)
 nqueens := fix (\self n placed.
   case eq (length placed) n {
-    True  -> returnND (reverse placed);
-    False ->
-      fromList (range 0 (n - 1)) >>= \col.
-      guardND (safe col placed 1) >>= \_.
+    True  -> pure (reverse placed);
+    False -> do {
+      col <- fromList (range 0 (n - 1));
+      guardND (safe col placed 1);
       self n (Cons col placed)
+    }
   })
 
 queens4 := runND (nqueens 4 [])
 -- [[1,3,0,2], [2,0,3,1]]
 
--- ── Results ────────────────────────────────────────────────
+-- ── Results ──────────────────────────────────────────────────
 
--- Output: ([Triple 3 4 5, Triple 6 8 10], [[1,2,5,20]],
---          [[1,3,0,2],[2,0,3,1]])
-main := (pythag, coinResult, queens4)
+-- Output: ([MkTriple 3 4 5, MkTriple 6 8 10], 6 pairs, [[1,3,0,2],[2,0,3,1]])
+main := (pythag, sumPairs, queens4)

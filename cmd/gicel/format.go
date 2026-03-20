@@ -43,17 +43,20 @@ const (
 // when followed by at least one child event, suppressing noise from pure
 // value bindings that produce no trace.
 type explainFormatter struct {
-	w            io.Writer
-	color        bool
-	verbose      bool
-	sourceLines  []string
-	pendingLabel *gicel.ExplainStep
-	hadEvent     bool // child event seen since last section header
-	prevIsEnter  bool // previous event was an enter (suppress separator)
+	w               io.Writer
+	color           bool
+	verbose         bool
+	sourceLines     []string
+	mainSource      string // main source name (for internal/user distinction)
+	lastSourceName  string // last seen source name (for module transitions)
+	currentInternal bool   // true when current step is from internal source
+	pendingLabel    *gicel.ExplainStep
+	hadEvent        bool // child event seen since last section header
+	prevIsEnter     bool // previous event was an enter (suppress separator)
 }
 
-func newExplainFormatter(w io.Writer, color, verbose bool, source string) *explainFormatter {
-	f := &explainFormatter{w: w, color: color, verbose: verbose}
+func newExplainFormatter(w io.Writer, color, verbose bool, source, mainSource string) *explainFormatter {
+	f := &explainFormatter{w: w, color: color, verbose: verbose, mainSource: mainSource}
 	if verbose {
 		f.sourceLines = strings.Split(source, "\n")
 	}
@@ -75,10 +78,26 @@ func useColor(noColorFlag bool) bool {
 	return fi.Mode()&os.ModeCharDevice != 0
 }
 
+// isInternal reports whether a step originates from stdlib/internal source.
+func (f *explainFormatter) isInternal(step gicel.ExplainStep) bool {
+	return step.SourceName != "" && step.SourceName != f.mainSource
+}
+
 // Emit processes a single ExplainStep using structured Detail data.
 func (f *explainFormatter) Emit(step gicel.ExplainStep) {
 	if step.Kind == gicel.ExplainResult {
 		return
+	}
+
+	// Track internal/user source distinction.
+	f.currentInternal = f.isInternal(step)
+
+	// In verbose mode, show module transitions.
+	if f.verbose && step.SourceName != "" && step.SourceName != f.lastSourceName {
+		f.lastSourceName = step.SourceName
+		label := "[" + step.SourceName + "]"
+		pad := strings.Repeat(" ", fmtPrefixLen-2) + "│ "
+		fmt.Fprintln(f.w, f.styled(cDim, pad+label))
 	}
 
 	// Buffer section labels; discard empty ones.
@@ -233,10 +252,19 @@ func (f *explainFormatter) writeLine(depth, line int, kind, kindColor, content s
 	sep := "│"
 
 	if f.color {
-		d = cDim + d + cReset
-		l = cDim + l + cReset
-		k = kindColor + k + cReset
-		sep = cDim + sep + cReset
+		if f.currentInternal {
+			// Dim entire line for internal/stdlib steps.
+			d = cDim + d + cReset
+			l = cDim + l + cReset
+			k = cDim + k + cReset
+			sep = cDim + sep + cReset
+			content = cDim + content + cReset
+		} else {
+			d = cDim + d + cReset
+			l = cDim + l + cReset
+			k = kindColor + k + cReset
+			sep = cDim + sep + cReset
+		}
 	}
 
 	fmt.Fprintf(f.w, " %s  %s  %s %s %s\n", d, l, k, sep, content)
@@ -296,6 +324,19 @@ func fmtBindings(bindings map[string]string) string {
 	return strings.Join(parts, ", ")
 }
 
+func runtimeErrorJSON(err error) map[string]any {
+	out := map[string]any{"ok": false, "phase": "eval", "error": err.Error()}
+	var re *gicel.RuntimeError
+	if errors.As(err, &re) {
+		out["message"] = re.Message
+		if re.Line > 0 {
+			out["line"] = re.Line
+			out["col"] = re.Col
+		}
+	}
+	return out
+}
+
 func compileErrorJSON(err error) map[string]any {
 	out := map[string]any{"ok": false, "phase": "compile", "error": err.Error()}
 	var ce *gicel.CompileError
@@ -303,13 +344,25 @@ func compileErrorJSON(err error) map[string]any {
 		diags := ce.Diagnostics()
 		jdiags := make([]map[string]any, len(diags))
 		for i, d := range diags {
-			jdiags[i] = map[string]any{
+			jd := map[string]any{
 				"code":    fmt.Sprintf("E%04d", d.Code),
 				"phase":   d.Phase,
 				"line":    d.Line,
 				"col":     d.Col,
 				"message": d.Message,
 			}
+			if len(d.Hints) > 0 {
+				jhints := make([]map[string]any, len(d.Hints))
+				for j, h := range d.Hints {
+					jhints[j] = map[string]any{
+						"line":    h.Line,
+						"col":     h.Col,
+						"message": h.Message,
+					}
+				}
+				jd["hints"] = jhints
+			}
+			jdiags[i] = jd
 		}
 		out["diagnostics"] = jdiags
 	}

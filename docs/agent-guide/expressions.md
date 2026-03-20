@@ -72,7 +72,7 @@ Desugars to `(\x. (\y. body) e2) e1`.
 do {
   x <- computation;            -- monadic bind
   y := pure_expr;              -- pure let-bind
-  _ <- side_effect;            -- discard result
+  side_effect;                 -- bare expression (result discarded)
   pure result                  -- final expression (must be a Computation)
 }
 ```

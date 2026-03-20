@@ -1,73 +1,117 @@
--- GICEL Example: Indexed Monad Patterns
+-- GICEL Example: IxMonad and Free Monads
 --
--- GICEL provides Functor, Applicative, Foldable, and IxMonad instances
--- for Maybe and List. This file demonstrates each pattern.
+-- Custom IxMonad instances for monadic DSLs with do notation.
+-- Two styles of Free monad:
+--   1. Direct embedding — effect constructors in the monad type
+--   2. Generic Free f — factors out the effect functor via Functor f
+-- Requires: --recursion (ixbind and interpreters use fix)
+-- Run: gicel run --recursion examples/gicel/types/ixmonad.gicel
 
 import Prelude
 
--- Functor: fmap applies a function inside a context
-fmapMaybe := fmap (+ 1) (Just 10)    -- equivalent to \x -> x + 1
--- Output: Just 11
+-- ── 1. Free Monad (direct embedding) ────────────────────────
+-- Effect commands are embedded directly as constructors.
+-- No Functor constraint needed — each effect type is self-contained.
+-- This is the simplest way to build a monadic DSL.
 
-fmapNothing := fmap (+ 1) Nothing
--- Output: Nothing
+data KV a := KVDone a
+           | KVGet String (Int -> KV a)
+           | KVPut String Int (KV a)
 
-fmapList := fmap (* 2) [1, 2, 3]
--- Output: [2, 4, 6]
+instance IxMonad KV {
+  ixpure := KVDone;
+  ixbind := fix (\self ma g. case ma {
+    KVDone a           -> g a;
+    KVGet key k        -> KVGet key (\v. self (k v) g);
+    KVPut key val next -> KVPut key val (self next g)
+  })
+}
 
--- Applicative Maybe: wrap lifts a value, ap applies a wrapped function
-wrapped := wrap 42 :: Maybe Int
--- Output: Just 42
+-- Smart constructors lift individual commands into KV.
+kvGet :: String -> KV Int
+kvGet := \key. KVGet key KVDone
 
-applied := ap (Just (+ 100)) (Just 5)
--- Output: Just 105
+kvPut :: String -> Int -> KV ()
+kvPut := \key val. KVPut key val (KVDone ())
 
-apNothing := ap Nothing (Just 5)
--- Output: Nothing
+-- do notation over the key-value DSL.
+kvProgram :: KV Int
+kvProgram := do {
+  x <- kvGet "a";
+  kvPut "b" (x + 1);
+  y <- kvGet "b";
+  pure (x + y)
+}
 
-apNothingArg := ap (Just (+ 1)) Nothing
--- Output: Nothing
+-- Pure interpreter: "a" always returns 10, "b" is mutable.
+runKV :: \a. KV a -> Int -> a
+runKV := fix (\self prog bVal. case prog {
+  KVDone a           -> a;
+  KVGet key k        -> case eq key "a" {
+    True  -> self (k 10) bVal;
+    False -> self (k bVal) bVal
+  };
+  KVPut _ v next -> self next v
+})
 
--- Foldable: foldr collapses a structure
-sumMaybe := foldr (+) 0 (Just 10)
--- Output: 10
+-- kvGet "a" = 10, kvPut "b" 11, kvGet "b" = 11, result = 10 + 11
+test1 := runKV kvProgram 0  -- 21
 
-sumNothing := foldr (+) 0 Nothing
--- Output: 0
+-- ── 2. Free Monad (generic) ─────────────────────────────────
+-- The classic encoding: Free f a factors out the effect functor f.
+-- Requires Functor f to thread bind through the effect layer.
 
-sumList := foldr (+) 0 [1, 2, 3]
--- Output: 6
+data Free (f: Type -> Type) a := Done a | Step (f (Free f a))
 
--- Semigroup on List: (<>) joins two lists
-concatLists := [1, 2] <> [3, 4]
--- Output: [1, 2, 3, 4]
+instance Functor f => IxMonad (Free f) {
+  ixpure := Done;
+  ixbind := fix (\self ma g. case ma {
+    Done a  -> g a;
+    Step fa -> Step (fmap (\m. self m g) fa)
+  })
+}
 
--- Monoid on List: empty is Nil
-emptyList := empty :: List Int
--- Output: Nil
+-- A counter DSL: increment and read the current count.
+data CounterF next := Inc next | GetCount (Int -> next)
 
--- Semigroup on Ordering: (<>) is "first non-EQ wins"
-ordAppend := EQ <> GT          -- GT (EQ is neutral)
-ordAppend2 := LT <> GT         -- LT (first non-EQ wins)
+instance Functor CounterF {
+  fmap := \g cmd. case cmd {
+    Inc next   -> Inc (g next);
+    GetCount f -> GetCount (\n. g (f n))
+  }
+}
 
--- Monoid on Ordering: EQ is the identity
-ordEmpty := empty :: Ordering   -- EQ
+-- Smart constructors.
+inc :: Free CounterF ()
+inc := Step (Inc (Done ()))
 
--- maybe: the eliminator for Maybe
-fromJust := maybe 0 (+ 1) (Just 41)
--- Output: 42
+getCount :: Free CounterF Int
+getCount := Step (GetCount Done)
 
-fromNone := maybe 0 (+ 1) Nothing
--- Output: 0
+-- do notation over the counter DSL.
+counterProgram :: Free CounterF Int
+counterProgram := do {
+  inc;
+  inc;
+  inc;
+  n <- getCount;
+  pure (n * 100)
+}
 
--- Traversable Maybe with Applicative Maybe:
--- traverse wraps Just values, passes Nothing through
-traverseJust := traverse (Just . (+ 1)) (Just 10)
--- Output: Just (Just 11)
+-- Interpreter: fold the Free structure with a running count.
+runCounter :: \a. Free CounterF a -> Int -> a
+runCounter := fix (\self prog count. case prog {
+  Done a  -> a;
+  Step fa -> case fa {
+    Inc next   -> self next (count + 1);
+    GetCount k -> self (k count) count
+  }
+})
 
-traverseNone := traverse (Just . (+ 1)) (Nothing :: Maybe Int)
--- Output: Just Nothing
+-- inc 3 times, getCount = 3, result = 3 * 100
+test2 := runCounter counterProgram 0  -- 300
 
--- Gather results as a tuple
--- Output: (Just 11, Nothing, [2, 4, 6], Just 42, Just 105, 6, 42, 0, Just (Just 11), Just Nothing)
-main := (fmapMaybe, fmapNothing, fmapList, wrapped, applied, sumList, fromJust, fromNone, traverseJust, traverseNone)
+-- ── Results ──────────────────────────────────────────────────
+
+-- Output: (21, 300)
+main := (test1, test2)

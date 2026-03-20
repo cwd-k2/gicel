@@ -3,7 +3,7 @@
 **G**o's **I**ndexed **C**apability **E**ffect **L**ibrary /
 **G**ICEL's **I**ndexed **C**apability **E**ffect **L**anguage
 
-**v0.11** — [Changelog](CHANGELOG.md)
+**v0.13** — [Changelog](CHANGELOG.md)
 
 Embed a type-safe, sandboxed language in your Go application.
 GICEL compiles Haskell-like source into typed computations, runs them with
@@ -19,14 +19,14 @@ main := do { _ <- put 42; get }
 The source imports `Effect.State` — but the host decides whether that module exists:
 
 ```sh
-$ gicel run --use prelude program.gicel         # host grants only Prelude
+$ gicel run --packs prelude program.gicel         # host grants only Prelude
 error[E0230]: unknown module: Effect.State
  --> program.gicel:2:1
    |
  2 | import Effect.State
    | ^^^^^^^^^^^^^^^^^^^
 
-$ gicel run --use prelude,state program.gicel   # host grants State too
+$ gicel run --packs prelude,state program.gicel   # host grants State too
 42
 ```
 
@@ -63,8 +63,8 @@ globals. The harder you lock down, the more edge cases slip through.
   these restrictions — they form part of the trusted computing base.
 - **Resource limits with clean termination.** Step count, call depth,
   allocation ceiling, and timeout. Execution halts cleanly — no killed
-  goroutines, no leaked state. Timeout covers the entire pipeline
-  including compilation (parse/check/optimize) and evaluation.
+  goroutines, no leaked state. `RunSandbox` applies timeout to the
+  entire pipeline including compilation and evaluation.
 - **Go-native.** No CGo, no FFI. Runtimes are immutable and goroutine-safe.
   Embed it like any other Go library.
 
@@ -183,7 +183,7 @@ Effects & Applications:
   ...
 
 # 2. Study — read an example
-$ gicel example state-effect
+$ gicel example effects.state-effect
 import Prelude
 import Effect.State
 ...
@@ -294,16 +294,16 @@ host bindings, custom capabilities, custom prelude, and more.
 
 ## Stdlib Packs
 
-| Pack          | Module         | Contents                                                  |
-| ------------- | -------------- | --------------------------------------------------------- |
-| `Prelude`     | `Prelude`      | Num, Str, List — arithmetic, string ops, list operations  |
-| `EffectFail`  | `Effect.Fail`  | Fail effect — `failWith`, `fromMaybe`, `fromResult`       |
-| `EffectState` | `Effect.State` | `get`/`put`/`modify` state capabilities                   |
-| `EffectIO`    | `Effect.IO`    | `print`/`debug` via CapEnv buffer                         |
-| `DataStream`  | `Data.Stream`  | Lazy list: `LCons`/`LNil`, `head`, `tail`, `take`         |
-| `DataSlice`   | `Data.Slice`   | Contiguous array: O(1) length/index, `Functor`/`Foldable` |
-| `DataMap`     | `Data.Map`     | Ordered immutable map (persistent AVL), `Ord`-keyed       |
-| `DataSet`     | `Data.Set`     | Ordered immutable set, backed by `Map`                    |
+| Pack          | Module         | Contents                                                   |
+| ------------- | -------------- | ---------------------------------------------------------- |
+| `Prelude`     | `Prelude`      | Num, Str, List — arithmetic, string ops, list operations   |
+| `EffectFail`  | `Effect.Fail`  | Fail effect — `failWith`, `fromMaybe`, `fromResult`        |
+| `EffectState` | `Effect.State` | `get`/`put`/`modify` state capabilities                    |
+| `EffectIO`    | `Effect.IO`    | `print`/`debug` via CapEnv buffer                          |
+| `DataStream`  | `Data.Stream`  | Lazy list: `LCons`/`LNil`, `head`, `tail`, `take`          |
+| `DataSlice`   | `Data.Slice`   | Contiguous array: O(1) length/index, `Functor`/`Foldable`  |
+| `DataMap`     | `Data.Map`     | Ordered map (AVL): CRUD, fold, keys, values, filter, union |
+| `DataSet`     | `Data.Set`     | Ordered set: CRUD, union, intersection, difference         |
 
 15 type classes: `Eq`, `Ord`, `Show`, `Semigroup`, `Monoid`, `Functor`, `Foldable`, `Applicative`, `Alternative`, `Monad`, `Traversable`, `Packed`, `FromList`, `ToList`, `Div`.
 

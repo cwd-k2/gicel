@@ -10,6 +10,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -55,7 +56,7 @@ Commands:
   example  List examples, or show source (example <name>)
 
 Flags (run, check):
-  --use <packs>    Packs: prelude,fail,state,io,stream,slice,map,set (default: all)
+  --packs <list>   Packs: prelude,fail,state,io,stream,slice,map,set (default: all)
   --module Name=path  Register a user module (repeatable)
   --recursion      Enable recursive definitions (fix/rec)
   -e <source>      Evaluate source string directly
@@ -314,9 +315,19 @@ func handleCompileError(err error, jsonOut bool) int {
 	return 1
 }
 
+func preflightError(msg string, jsonOut bool) int {
+	if jsonOut {
+		outputJSON(map[string]any{"ok": false, "phase": "preflight", "error": msg})
+	} else {
+		fmt.Fprintf(os.Stderr, "error: %s\n", msg)
+	}
+	return 1
+}
+
 func cmdRun(args []string) int {
 	fs := flag.NewFlagSet("run", flag.ContinueOnError)
-	use := fs.String("use", "all", "comma-separated stdlib packs")
+	packs := fs.String("packs", "all", "comma-separated stdlib packs")
+	fs.StringVar(packs, "use", "all", "alias for --packs")
 	recursion := fs.Bool("recursion", false, "enable recursive definitions (fix/rec)")
 	var modules moduleFlags
 	fs.Var(&modules, "module", "register module: Name=path (repeatable)")
@@ -338,36 +349,29 @@ func cmdRun(args []string) int {
 
 	// Validate resource limit flags.
 	if *maxSteps <= 0 {
-		fmt.Fprintln(os.Stderr, "error: --max-steps must be a positive integer")
-		return 1
+		return preflightError("--max-steps must be a positive integer", *jsonOut)
 	}
 	if *maxDepth <= 0 {
-		fmt.Fprintln(os.Stderr, "error: --max-depth must be a positive integer")
-		return 1
+		return preflightError("--max-depth must be a positive integer", *jsonOut)
 	}
 	if *maxNesting <= 0 {
-		fmt.Fprintln(os.Stderr, "error: --max-nesting must be a positive integer")
-		return 1
+		return preflightError("--max-nesting must be a positive integer", *jsonOut)
 	}
 	if *maxAlloc <= 0 {
-		fmt.Fprintln(os.Stderr, "error: --max-alloc must be a positive integer")
-		return 1
+		return preflightError("--max-alloc must be a positive integer", *jsonOut)
 	}
 	if *timeout <= 0 {
-		fmt.Fprintln(os.Stderr, "error: --timeout must be a positive duration (e.g., 1s, 5m)")
-		return 1
+		return preflightError("--timeout must be a positive duration (e.g., 1s, 5m)", *jsonOut)
 	}
 
 	// Validate --entry: reject explicitly empty entry point.
 	if *entry == "" {
-		fmt.Fprintln(os.Stderr, "error: --entry must not be empty")
-		return 1
+		return preflightError("--entry must not be empty", *jsonOut)
 	}
 
-	source, eng, err := prepareEngine(fs, *use, *recursion, *expr, modules)
+	source, eng, err := prepareEngine(fs, *packs, *recursion, *expr, modules)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "error: %v\n", err)
-		return 1
+		return preflightError(err.Error(), *jsonOut)
 	}
 	eng.SetStepLimit(*maxSteps)
 	eng.SetDepthLimit(*maxDepth)
@@ -390,7 +394,7 @@ func cmdRun(args []string) int {
 				explainSteps = append(explainSteps, step)
 			}
 		} else {
-			formatter = newExplainFormatter(os.Stderr, useColor(*noColor), *verbose, string(source))
+			formatter = newExplainFormatter(os.Stderr, useColor(*noColor), *verbose, string(source), "<input>")
 			opts.Explain = formatter.Emit
 		}
 		if *explainAll {
@@ -403,10 +407,28 @@ func cmdRun(args []string) int {
 
 	result, err := rt.RunWith(ctx, opts)
 	if err != nil {
+		// Flush explain trace before error output so partial traces are visible.
+		if formatter != nil {
+			formatter.Flush()
+		}
 		if *jsonOut {
-			outputJSON(map[string]any{"ok": false, "error": err.Error(), "phase": "eval"})
+			errJSON := runtimeErrorJSON(err)
+			if *explain && len(explainSteps) > 0 {
+				errJSON["explain"] = explainSteps
+				errJSON["summary"] = summarizeSteps(explainSteps)
+			}
+			outputJSON(errJSON)
 		} else {
-			fmt.Fprintf(os.Stderr, "runtime error: %v\n", err)
+			var re *gicel.RuntimeError
+			if errors.As(err, &re) {
+				if re.Line > 0 {
+					fmt.Fprintf(os.Stderr, "%d:%d: runtime error: %s\n", re.Line, re.Col, re.Message)
+				} else {
+					fmt.Fprintf(os.Stderr, "runtime error: %s\n", re.Message)
+				}
+			} else {
+				fmt.Fprintf(os.Stderr, "runtime error: %v\n", err)
+			}
 		}
 		return 1
 	}
@@ -420,8 +442,9 @@ func cmdRun(args []string) int {
 			"ok":    true,
 			"value": formatValue(result.Value),
 			"stats": map[string]any{
-				"steps":    result.Stats.Steps,
-				"maxDepth": result.Stats.MaxDepth,
+				"steps":     result.Stats.Steps,
+				"maxDepth":  result.Stats.MaxDepth,
+				"allocated": result.Stats.Allocated,
 			},
 		}
 		if caps := formatCapEnv(result.CapEnv); len(caps) > 0 {
@@ -440,7 +463,8 @@ func cmdRun(args []string) int {
 
 func cmdCheck(args []string) int {
 	fs := flag.NewFlagSet("check", flag.ContinueOnError)
-	use := fs.String("use", "all", "comma-separated stdlib packs")
+	packs := fs.String("packs", "all", "comma-separated stdlib packs")
+	fs.StringVar(packs, "use", "all", "alias for --packs")
 	recursion := fs.Bool("recursion", false, "enable recursive definitions (fix/rec)")
 	var modules moduleFlags
 	fs.Var(&modules, "module", "register module: Name=path (repeatable)")
@@ -450,7 +474,7 @@ func cmdCheck(args []string) int {
 		return 1
 	}
 
-	source, eng, err := prepareEngine(fs, *use, *recursion, *expr, modules)
+	source, eng, err := prepareEngine(fs, *packs, *recursion, *expr, modules)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		return 1

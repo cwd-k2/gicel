@@ -79,7 +79,7 @@ func runFail(ctx context.Context) {
 	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 import Effect.Fail
-main := do { _ <- failWith (); pure True }
+main := do { failWith (); pure True }
 `)
 	if err != nil {
 		log.Fatal("Fail compile error: ", err)
@@ -137,7 +137,7 @@ func runIO(ctx context.Context) {
 import Prelude
 import Effect.IO
 main := do {
-  _ <- print "line 1";
+  print "line 1";
   print "line 2"
 }
 `)

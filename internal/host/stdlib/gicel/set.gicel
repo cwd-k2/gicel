@@ -1,0 +1,62 @@
+import Prelude
+
+_setEmpty :: \k. (k -> k -> Ordering) -> Set k
+_setEmpty := assumption
+
+_setInsert :: \k. (k -> k -> Ordering) -> k -> Set k -> Set k
+_setInsert := assumption
+
+_setMember :: \k. (k -> k -> Ordering) -> k -> Set k -> Bool
+_setMember := assumption
+
+_setDelete :: \k. (k -> k -> Ordering) -> k -> Set k -> Set k
+_setDelete := assumption
+
+_setSize :: \k. Set k -> Int
+_setSize := assumption
+
+_setToList :: \k. Set k -> List k
+_setToList := assumption
+
+_setFromList :: \k. (k -> k -> Ordering) -> List k -> Set k
+_setFromList := assumption
+
+_setUnion :: \k. (k -> k -> Ordering) -> Set k -> Set k -> Set k
+_setUnion := assumption
+
+_setIntersection :: \k. (k -> k -> Ordering) -> Set k -> Set k -> Set k
+_setIntersection := assumption
+
+_setDifference :: \k. (k -> k -> Ordering) -> Set k -> Set k -> Set k
+_setDifference := assumption
+
+empty :: \k. Ord k => Set k
+empty := _setEmpty compare
+
+insert :: \k. Ord k => k -> Set k -> Set k
+insert := _setInsert compare
+
+member :: \k. Ord k => k -> Set k -> Bool
+member := _setMember compare
+
+delete :: \k. Ord k => k -> Set k -> Set k
+delete := _setDelete compare
+
+size :: \k. Set k -> Int
+size := _setSize
+
+instance Ord k => FromList (Set k) {
+  type Elem (Set k) =: k;
+  fromList := _setFromList compare
+}
+
+instance Ord k => ToList (Set k) { toList := _setToList }
+
+union :: \k. Ord k => Set k -> Set k -> Set k
+union := _setUnion compare
+
+intersection :: \k. Ord k => Set k -> Set k -> Set k
+intersection := _setIntersection compare
+
+difference :: \k. Ord k => Set k -> Set k -> Set k
+difference := _setDifference compare

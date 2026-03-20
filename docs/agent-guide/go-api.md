@@ -20,8 +20,7 @@ result, err := gicel.RunSandbox(source, &gicel.SandboxConfig{
 ```
 
 `SandboxConfig` fields are all optional. `nil` uses conservative defaults.
-`Timeout` bounds evaluation time; compilation (parse/check/optimize) runs
-to completion before the clock starts.
+RunSandbox applies timeout to the entire pipeline (pack application, compilation, evaluation). For the Engine API, the context passed to NewRuntime bounds main compilation and evaluation; module compilation uses the Engine's compile context (set via SetCompileContext).
 
 `RunResult`: `Value` (result), `CapEnv` (final capabilities), `Stats` (EvalStats: `Steps int`, `MaxDepth int`, `Allocated int64`).
 
@@ -173,3 +172,33 @@ rt.RunWith(ctx, &gicel.RunOptions{
 ```
 
 **CheckTraceHook** fires during type checking. Set via `eng.SetCheckTraceHook(hook)`. Signature: `func(CheckTraceEvent)`. Fields: `Kind CheckTraceKind`, `Depth int`, `Message string`, `Line int`, `Col int` (1-based).
+
+### Migration Path: RunSandbox → Engine/Runtime
+
+`RunSandbox` is ideal for one-shot evaluation with default limits. Move to the `Engine`/`Runtime` API when you need:
+
+- **Compile-once, run-many**: `NewRuntime` returns an immutable `Runtime` that can be executed concurrently with `RunWith`.
+- **Custom observability**: `RunOptions.Explain` and `RunOptions.Trace` provide semantic and low-level hooks.
+- **Fine-grained configuration**: register custom types, primitives, and rewrite rules via the `Engine` API.
+
+### Observability Hooks
+
+| Hook                       | Scope         | Use case                                          |
+| -------------------------- | ------------- | ------------------------------------------------- |
+| `RunOptions.Explain`       | Evaluation    | Semantic trace: binds, effects, matches, sections |
+| `RunOptions.Trace`         | Evaluation    | Low-level step-by-step evaluation events          |
+| `Engine.SetCheckTraceHook` | Type checking | Constraint solving and inference trace            |
+
+### Trust Boundary
+
+GICEL programs run in a restricted sandbox. The **trusted computing base (TCB)** includes:
+
+- Go host code (your application)
+- Registered primitives (`RegisterPrim`) -- these execute as Go functions with full access
+- Pack implementations (stdlib)
+
+The sandbox guarantees do **not** extend to `RegisterPrim` implementations. A blocking or panicking primitive can violate timeout guarantees. Review custom primitives for:
+
+- Bounded execution time
+- No uncontrolled side effects
+- Correct `CapEnv` handling

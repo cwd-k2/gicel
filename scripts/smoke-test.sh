@@ -141,7 +141,7 @@ expect_error_contains "type error" "type mismatch" \
   "$GICEL" check -e 'import Prelude; main := "hello" + 1'
 
 expect_error_contains "unknown pack" "unknown pack" \
-  "$GICEL" run --use bogus -e 'main := 1'
+  "$GICEL" run --packs bogus -e 'main := 1'
 
 expect_error_contains "missing file" "no such file" \
   "$GICEL" run --module Foo=nonexistent.gicel -e 'main := 1'
@@ -242,6 +242,20 @@ expect_output "JSON list array" '"value": [' \
 
 expect_output "JSON empty list" '"value": []' \
   "$GICEL" run --json -e 'import Prelude; main := ([] :: List Int)'
+
+echo ""
+
+# === JSON Contract ===
+echo "JSON contract:"
+
+expect_error_contains "JSON runtime error has message" '"message":' \
+  "$GICEL" run --json -e 'import Prelude; import Effect.Fail; main := fail'
+
+expect_error_contains "JSON preflight error phase" '"phase": "preflight"' \
+  "$GICEL" run --json --max-steps -1 -e 'main := 1'
+
+expect_output "JSON success has allocated" '"allocated":' \
+  "$GICEL" run --json -e 'import Prelude; main := 42'
 
 echo ""
 

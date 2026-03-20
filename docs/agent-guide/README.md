@@ -36,15 +36,15 @@ Typical agent workflow:
 
 ### Features
 
-| Topic                    | Content                                              |
-| ------------------------ | ---------------------------------------------------- |
-| `features.records`       | Record literals, projection, update, tuples, rows    |
-| `features.adt`           | Data types, constructors, GADTs, pattern matching    |
-| `features.type-classes`  | Classes, instances, superclasses, class hierarchy    |
-| `features.type-families` | Closed TF, associated types, data families, fundeps  |
-| `features.effects`       | Computation, pure/bind, CapEnv, thunk/force          |
-| `features.modules`       | Import forms, qualified names, private `_` prefix    |
-| `features.session-types` | Session types, multiplicity, @Linear/@Affine, Dual   |
+| Topic                    | Content                                             |
+| ------------------------ | --------------------------------------------------- |
+| `features.records`       | Record literals, projection, update, tuples, rows   |
+| `features.adt`           | Data types, constructors, GADTs, pattern matching   |
+| `features.type-classes`  | Classes, instances, superclasses, class hierarchy   |
+| `features.type-families` | Closed TF, associated types, data families, fundeps |
+| `features.effects`       | Computation, pure/bind, CapEnv, thunk/force         |
+| `features.modules`       | Import forms, qualified names, private `_` prefix   |
+| `features.session-types` | Session types, multiplicity, @Linear/@Affine, Dual  |
 
 ### Standard Library
 
@@ -52,12 +52,12 @@ Typical agent workflow:
 | ------------------ | ------------------------------------ |
 | `stdlib.prelude`   | Prelude types, classes, instances    |
 | `stdlib.functions` | Prelude functions + operator table   |
-| `stdlib.packs`     | Prelude, Effect.*, Data.* pack guide |
+| `stdlib.packs`     | Prelude, Effect._, Data._ pack guide |
 
 ### Host Integration
 
-| Topic    | Content                               |
-| -------- | ------------------------------------- |
+| Topic    | Content                                    |
+| -------- | ------------------------------------------ |
 | `go-api` | Go integration: sandbox, lifecycle, errors |
 
 ---
@@ -67,10 +67,10 @@ Typical agent workflow:
 ### Minimal Program
 
 ```
-main := True
+main := ()
 ```
 
-This defines a binding `main` whose value is `True` (a Bool constructor from the Prelude).
+This defines a binding `main` whose value is `()` (the unit value). No imports required.
 
 ### With Arithmetic (requires Prelude)
 
@@ -103,7 +103,7 @@ gicel run program.gicel
 gicel check program.gicel
 
 # Select specific packs
-gicel run --use prelude,state program.gicel
+gicel run --packs prelude,state program.gicel
 
 # Custom entry point, limits, JSON output
 gicel run --entry myFunc --timeout 10s --max-steps 500000 --json program.gicel
@@ -119,13 +119,14 @@ CLI flags:
 
 | Flag            | Default  | Description                                                              |
 | --------------- | -------- | ------------------------------------------------------------------------ |
-| `--use`         | `all`    | Comma-separated packs: prelude, fail, state, io, stream, slice, map, set |
+| `--packs`       | `all`    | Comma-separated packs: prelude, fail, state, io, stream, slice, map, set |
 | `--module`      | --       | Register user module: `Name=path` (repeatable, run & check)              |
 | `--recursion`   |          | Enable recursive definitions (run, check)                                |
 | `--entry`       | `main`   | Entry point binding name                                                 |
 | `--timeout`     | `5s`     | Execution timeout (run only)                                             |
 | `--max-steps`   | `100000` | Step limit (run only)                                                    |
 | `--max-depth`   | `100`    | Depth limit (run only)                                                   |
+| `--max-nesting` | `512`    | Structural nesting depth limit                                           |
 | `--max-alloc`   | `100MiB` | Allocation byte limit (run only)                                         |
 | `--json`        | `false`  | Output result as JSON (run, check)                                       |
 | `--explain`     | `false`  | Show semantic evaluation trace (run only)                                |
@@ -133,6 +134,11 @@ CLI flags:
 | `--verbose`     | `false`  | Show source context in explain trace (run only)                          |
 | `--no-color`    | `false`  | Disable color output; also respects `NO_COLOR` env var                   |
 | `-e <source>`   | --       | Evaluate source string directly (run, check)                             |
+
+**Inline source (`-e`):** Semicolons and newlines are interchangeable separators.
+Use `;` when writing inline: `gicel run -e 'import Prelude; main := 1 + 2'`.
+
+**`--explain-all`** is only effective when `--explain` is also set.
 
 **Go API (Sandbox):**
 

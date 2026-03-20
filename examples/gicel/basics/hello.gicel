@@ -1,8 +1,7 @@
 -- GICEL Example: Hello World
 --
--- The simplest GICEL program. Imports Std.Num for integers and Std.Str
--- for strings, defines a greeting and computes 6 * 7, then returns both
--- as a tuple.
+-- The simplest GICEL program. Imports Prelude for integers and strings,
+-- defines a greeting and computes 6 * 7, then returns both as a tuple.
 
 import Prelude
 

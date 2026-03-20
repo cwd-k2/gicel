@@ -1,99 +1,92 @@
--- GICEL Example: Continuation Passing Style
+-- GICEL Example: Continuation Monad
 --
--- The continuation monad Cont r a ≅ (a → r) → r is just
--- higher-order functions — no special runtime support needed.
--- Demonstrates CPS transform, callCC for early exit, and
--- multi-shot continuations for nondeterministic search.
--- Requires: --recursion (for range generation)
--- Run: gicel run --recursion continuation.gicel
+-- The continuation monad Cont r a wraps a CPS function (a -> r) -> r.
+-- With a custom IxMonad instance, do notation threads continuations
+-- automatically. Demonstrates CPS pipelines, control flow manipulation,
+-- and early exit via abort.
+-- Run: gicel run continuation.gicel
 
 import Prelude
 
--- ── Continuation Monad ─────────────────────────────────────
--- All operations are plain λ-terms.
+-- ── Continuation Monad ───────────────────────────────────────
 
-returnC := \a k. k a               -- lift a value
-runC    := \m. m id                     -- extract via identity
+data Cont r a := MkCont ((a -> r) -> r)
 
--- callCC: capture the current continuation.
--- (exit a) discards the rest and jumps straight to k.
-callCC := \f k. f (\a _. k a) k
+runCont :: \r a. Cont r a -> (a -> r) -> r
+runCont := \c. case c { MkCont f -> f }
 
--- (>>=): thread continuations left-to-right
-infixl 1 >>=
-(>>=) := \m f k. m (\a. f a k)
+instance IxMonad (Cont r) {
+  ixpure := \a. MkCont (\k. k a);
+  ixbind := \ma f. MkCont (\k. runCont ma (\a. runCont (f a) k))
+}
 
--- ── Basics ─────────────────────────────────────────────────
+-- ── CPS pipeline with do notation ────────────────────────────
+-- Each <- passes its value through the continuation chain.
+-- The final continuation (supplied by runCont) controls the result.
 
--- return 5 >>= \x -> return (x * 2)
-ex1 := runC (
-  returnC 5 >>= \x.
-  returnC (x * 2))
--- 10
+sumCont :: Cont Int Int
+sumCont := do {
+  x <- MkCont (\k. k 10);
+  y <- MkCont (\k. k 20);
+  z <- MkCont (\k. k 30);
+  pure (x + y + z)
+}
 
--- ── callCC: early exit ─────────────────────────────────────
+ex1 := runCont sumCont id           -- 60
+ex2 := runCont sumCont (\n. n * 2)  -- 120 (double the final result)
 
--- exit 42 fires; x + 1 is never reached
-ex2 := runC (
-  callCC (\exit.
-    exit 42 >>= \x.
-    returnC (x + 1))
-  >>= \v. returnC v)
--- 42
+-- ── Control flow: abort and multi-shot ───────────────────────
+-- abort ignores the continuation entirely — an early exit.
+abort :: \r a. r -> Cont r a
+abort := \v. MkCont (\_. v)
 
--- Without exit: normal flow
-ex3 := runC (
-  callCC (\_. returnC 10)
-  >>= \x. returnC (x + 1))
--- 11
+earlyExit :: Cont Int Int
+earlyExit := do {
+  x <- MkCont (\k. k 5);
+  abort 42;              -- discards the rest
+  pure (x + 999)         -- never reached
+}
 
--- ── CPS pipeline ───────────────────────────────────────────
+ex3 := runCont earlyExit id    -- 42
+
+-- Conditional abort: exit early if the value is negative.
+clampPositive :: Cont Int Int
+clampPositive := do {
+  x <- MkCont (\k. k (negate 3));
+  case x < 0 { True -> abort 0; False -> pure x }
+}
+
+ex4 := runCont clampPositive id  -- 0 (negative → clamped)
+
+-- Multi-shot continuations: calling the continuation multiple times
+-- branches the computation. doubled passes 10 to k, then doubles
+-- the *result* of k.
+doubled :: Cont Int Int
+doubled := MkCont (\k. 2 * k 10)
+
+ex5 := runCont doubled id       -- 20
+ex6 := runCont doubled (+ 5)    -- 30 = 2 * (10 + 5)
+
+-- ── CPS arithmetic ───────────────────────────────────────────
+-- Classic CPS-transformed functions: the result goes to k, not the caller.
 
 addCPS := \x y k. k (x + y)
 mulCPS := \x y k. k (x * y)
 
--- (3 + 4) * 2 = 14, threaded through continuations
-ex4 := addCPS 3 4 (\s. mulCPS s 2 id)
+-- (3 + 4) * 2 = 14
+ex7 := addCPS 3 4 (\s. mulCPS s 2 id)
 
--- ── Multi-shot continuations ───────────────────────────────
--- A continuation is a function — calling it twice branches.
+-- ── Composing continuations ──────────────────────────────────
+-- do notation makes CPS composition readable.
 
-ex5 := (\k. [k 1, k 2, k 3]) (\x. x * x)
--- [1, 4, 9]
+pipeline :: Cont Int Int
+pipeline := do {
+  a <- MkCont (\k. k 3 + k 7);  -- k called twice: 3 and 7
+  pure (a * 10)
+}
 
--- ── Nondeterministic search via amb ────────────────────────
--- amb applies the continuation to each choice and flattens.
--- This is the list-monad bind, seen as multi-shot continuation.
+-- k 3 = 30, k 7 = 70, result = 30 + 70
+ex8 := runCont pipeline id  -- 100
 
-amb :: \a b. List a -> (a -> List b) -> List b
-amb := \choices k.
-  foldr (\x acc. concat (k x) acc) [] choices
-
-guard :: Bool -> List ()
-guard := \cond. case cond { True -> [()]; False -> [] }
-
-range :: Int -> Int -> List Int
-range := fix (\self lo hi.
-  case lo > hi { True -> []; False -> Cons lo (self (lo + 1) hi) })
-
--- Find (x, y) with x + y = 7, searching [1..6] × [1..6]
-sumPairs := amb (range 1 6) (\x.
-              amb (range 1 6) (\y.
-                amb (guard (eq (x + y) 7)) (\_.
-                  [(x, y)])))
--- [(1,6),(2,5),(3,4),(4,3),(5,2),(6,1)]
-
--- ── Pythagorean triples ────────────────────────────────────
--- a² + b² = c², 1 ≤ a ≤ b ≤ c ≤ 10
-
-data Triple := MkTriple Int Int Int
-
-pythag := amb (range 1 10) (\a.
-            amb (range a 10) (\b.
-              amb (range b 10) (\c.
-                amb (guard (eq (a * a + b * b) (c * c))) (\_.
-                  [MkTriple a b c]))))
--- [MkTriple 3 4 5, MkTriple 6 8 10]
-
--- Output: (10, 42, 11, 14, [1,4,9], 6 pairs, 2 triples)
-main := (ex1, ex2, ex3, ex4, ex5, sumPairs, pythag)
+-- Output: (60, 120, 42, 0, 20, 30, 14, 100)
+main := (ex1, ex2, ex3, ex4, ex5, ex6, ex7, ex8)

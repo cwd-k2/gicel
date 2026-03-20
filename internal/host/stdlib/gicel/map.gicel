@@ -1,0 +1,86 @@
+import Prelude
+
+_mapEmpty :: \k v. (k -> k -> Ordering) -> Map k v
+_mapEmpty := assumption
+
+_mapInsert :: \k v. (k -> k -> Ordering) -> k -> v -> Map k v -> Map k v
+_mapInsert := assumption
+
+_mapLookup :: \k v. (k -> k -> Ordering) -> k -> Map k v -> Maybe v
+_mapLookup := assumption
+
+_mapDelete :: \k v. (k -> k -> Ordering) -> k -> Map k v -> Map k v
+_mapDelete := assumption
+
+_mapSize :: \k v. Map k v -> Int
+_mapSize := assumption
+
+_mapToList :: \k v. Map k v -> List (k, v)
+_mapToList := assumption
+
+_mapFromList :: \k v. (k -> k -> Ordering) -> List (k, v) -> Map k v
+_mapFromList := assumption
+
+_mapFoldlWithKey :: \k v b. (b -> k -> v -> b) -> b -> Map k v -> b
+_mapFoldlWithKey := assumption
+
+_mapMember :: \k v. (k -> k -> Ordering) -> k -> Map k v -> Bool
+_mapMember := assumption
+
+_mapUnionWith :: \k v. (v -> v -> v) -> Map k v -> Map k v -> Map k v
+_mapUnionWith := assumption
+
+_mapKeys :: \k v. Map k v -> List k
+_mapKeys := assumption
+
+_mapValues :: \k v. Map k v -> List v
+_mapValues := assumption
+
+_mapMapValues :: \k v w. (v -> w) -> Map k v -> Map k w
+_mapMapValues := assumption
+
+_mapFilterWithKey :: \k v. (k -> v -> Bool) -> Map k v -> Map k v
+_mapFilterWithKey := assumption
+
+empty :: \k v. Ord k => Map k v
+empty := _mapEmpty compare
+
+insert :: \k v. Ord k => k -> v -> Map k v -> Map k v
+insert := _mapInsert compare
+
+lookup :: \k v. Ord k => k -> Map k v -> Maybe v
+lookup := _mapLookup compare
+
+delete :: \k v. Ord k => k -> Map k v -> Map k v
+delete := _mapDelete compare
+
+size :: \k v. Map k v -> Int
+size := _mapSize
+
+instance Ord k => FromList (Map k v) {
+  type Elem (Map k v) =: (k, v);
+  fromList := _mapFromList compare
+}
+
+instance Ord k => ToList (Map k v) { toList := _mapToList }
+
+foldlWithKey :: \k v b. (b -> k -> v -> b) -> b -> Map k v -> b
+foldlWithKey := _mapFoldlWithKey
+
+member :: \k v. Ord k => k -> Map k v -> Bool
+member := _mapMember compare
+
+unionWith :: \k v. (v -> v -> v) -> Map k v -> Map k v -> Map k v
+unionWith := _mapUnionWith
+
+keys :: \k v. Map k v -> List k
+keys := _mapKeys
+
+values :: \k v. Map k v -> List v
+values := _mapValues
+
+mapValues :: \k v w. (v -> w) -> Map k v -> Map k w
+mapValues := _mapMapValues
+
+filterWithKey :: \k v. (k -> v -> Bool) -> Map k v -> Map k v
+filterWithKey := _mapFilterWithKey

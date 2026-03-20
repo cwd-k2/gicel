@@ -1,11 +1,11 @@
 -- GICEL Example: String Operations
 --
--- Import Std.Str for String and Rune types and operations.
+-- Import Prelude for String and Rune types and operations.
 -- Demonstrates: literals, charAt, substring, case conversion,
 -- contains, split, join, append, eq, compare, showInt, readInt.
 --
 -- String length uses `strlen` (not `length`) to avoid collision
--- with Std.List's `length`.
+-- with Prelude's `length`.
 
 import Prelude
 

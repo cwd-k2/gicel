@@ -9,7 +9,7 @@ import Effect.IO
 -- Side effects: prints "hello, world!" and debug "done" to the io buffer.
 -- Return value: ()
 main := do {
-  _ <- print "hello, ";
-  _ <- print ("world" <> "!");
+  print "hello, ";
+  print ("world" <> "!");
   debug "done"
 }

@@ -109,23 +109,30 @@ Provides an ordered immutable map backed by an AVL tree. All key-parameterized o
 
 **Functions:**
 
-| Name           | Type                                                   | Description                          |
-| -------------- | ------------------------------------------------------ | ------------------------------------ |
-| `empty`        | `\k v. Ord k => Map k v`                               | Empty map                            |
-| `insert`       | `\k v. Ord k => k -> v -> Map k v -> Map k v`          | Insert or overwrite a key-value pair |
-| `lookup`       | `\k v. Ord k => k -> Map k v -> Maybe v`               | Lookup by key                        |
-| `delete`       | `\k v. Ord k => k -> Map k v -> Map k v`               | Remove a key                         |
-| `size`         | `\k v. Map k v -> Int`                                 | Number of entries                    |
-| `toList`       | `\k v. Map k v -> List (k, v)`                         | In-order key-value pairs             |
-| `fromList`     | `\k v. Ord k => List (k, v) -> Map k v`                | Build map from pairs                 |
-| `member`       | `\k v. Ord k => k -> Map k v -> Bool`                  | Key membership test                  |
-| `foldlWithKey` | `\k v b. (b -> k -> v -> b) -> b -> Map k v -> b`      | Left fold with key and value         |
-| `unionWith`    | `\k v. (v -> v -> v) -> Map k v -> Map k v -> Map k v` | Union, combining duplicates with f   |
+| Name            | Type                                                   | Description                          |
+| --------------- | ------------------------------------------------------ | ------------------------------------ |
+| `empty`         | `\k v. Ord k => Map k v`                               | Empty map                            |
+| `insert`        | `\k v. Ord k => k -> v -> Map k v -> Map k v`          | Insert or overwrite a key-value pair |
+| `lookup`        | `\k v. Ord k => k -> Map k v -> Maybe v`               | Lookup by key                        |
+| `delete`        | `\k v. Ord k => k -> Map k v -> Map k v`               | Remove a key                         |
+| `size`          | `\k v. Map k v -> Int`                                 | Number of entries                    |
+| `toList`        | `\k v. Map k v -> List (k, v)`                         | In-order key-value pairs             |
+| `fromList`      | `\k v. Ord k => List (k, v) -> Map k v`                | Build map from pairs                 |
+| `member`        | `\k v. Ord k => k -> Map k v -> Bool`                  | Key membership test                  |
+| `foldlWithKey`  | `\k v b. (b -> k -> v -> b) -> b -> Map k v -> b`      | Left fold with key and value         |
+| `unionWith`     | `\k v. (v -> v -> v) -> Map k v -> Map k v -> Map k v` | Union, combining duplicates with f   |
+| `keys`          | `\k v. Map k v -> List k`                              | All keys in sorted order             |
+| `values`        | `\k v. Map k v -> List v`                              | All values in key order              |
+| `mapValues`     | `\k v w. (v -> w) -> Map k v -> Map k w`               | Apply function to each value         |
+| `filterWithKey` | `\k v. (k -> v -> Bool) -> Map k v -> Map k v`         | Keep entries where predicate is true |
 
 **Notes:**
 
 - Maps are persistent (immutable). Insert/delete return new maps.
 - `toList` returns pairs sorted by key.
+
+> **Tip:** `Data.Map` exports `insert`, `member`, `delete`, `size` which overlap with `Data.Set`.
+> Use qualified imports when both are needed: `import Data.Map as Map`, `import Data.Set as Set`.
 
 ### Data.Set
 
@@ -133,20 +140,26 @@ Provides an ordered immutable set backed by a Map. Load with `eng.Use(gicel.Data
 
 **Functions:**
 
-| Name       | Type                               | Description         |
-| ---------- | ---------------------------------- | ------------------- |
-| `empty`    | `\k. Ord k => Set k`               | Empty set           |
-| `insert`   | `\k. Ord k => k -> Set k -> Set k` | Insert an element   |
-| `member`   | `\k. Ord k => k -> Set k -> Bool`  | Membership test     |
-| `delete`   | `\k. Ord k => k -> Set k -> Set k` | Remove an element   |
-| `size`     | `\k. Set k -> Int`                 | Number of elements  |
-| `toList`   | `\k. Set k -> List k`              | Sorted element list |
-| `fromList` | `\k. Ord k => List k -> Set k`     | Build set from list |
+| Name           | Type                                   | Description            |
+| -------------- | -------------------------------------- | ---------------------- |
+| `empty`        | `\k. Ord k => Set k`                   | Empty set              |
+| `insert`       | `\k. Ord k => k -> Set k -> Set k`     | Insert an element      |
+| `member`       | `\k. Ord k => k -> Set k -> Bool`      | Membership test        |
+| `delete`       | `\k. Ord k => k -> Set k -> Set k`     | Remove an element      |
+| `size`         | `\k. Set k -> Int`                     | Number of elements     |
+| `toList`       | `\k. Set k -> List k`                  | Sorted element list    |
+| `fromList`     | `\k. Ord k => List k -> Set k`         | Build set from list    |
+| `union`        | `\k. Ord k => Set k -> Set k -> Set k` | Set union              |
+| `intersection` | `\k. Ord k => Set k -> Set k -> Set k` | Set intersection       |
+| `difference`   | `\k. Ord k => Set k -> Set k -> Set k` | Set difference (A - B) |
 
 **Notes:**
 
 - Sets are persistent (immutable). Insert/delete return new sets.
 - `toList` returns elements in sorted order.
+
+> **Tip:** `Data.Set` exports `insert`, `member`, `delete`, `size` which overlap with `Data.Map`.
+> Use qualified imports when both are needed: `import Data.Map as Map`, `import Data.Set as Set`.
 
 ### Effect.State
 
@@ -189,6 +202,10 @@ Provides print/debug capabilities via the `io` capability. Load with `eng.Use(gi
 | `debug` | `\a. a -> Computation { io: () \| r } { io: () \| r } ()`  | Append debug representation to IO buffer |
 
 Host provides `"io"` capability. Output accumulates as `[]string` in the final CapEnv.
+
+> **Note:** `print` and `debug` do not write to stdout or stderr. They are pure operations
+> that append strings to the `io` capability buffer. The host retrieves accumulated output
+> from `result.CapEnv` after execution.
 
 ### Data.Stream
 
