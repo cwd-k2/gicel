@@ -24,7 +24,7 @@ GICEL の成熟方針と立ち位置。
 - docs/example/help の整合
 - runtime failure の調査性
 - JSON 契約の一貫性
-- multi-module / host API の friction 削減
+- host API の friction 削減（multi-module は Go embedding 文脈で評価。CLI multi-module convenience は主用途外）
 
 ### 3. 中核の価値を外周が隠していないか
 
@@ -46,7 +46,7 @@ GICEL の成熟方針と立ち位置。
 | 順位 | 領域           | 対象                                                       |
 | ---- | -------------- | ---------------------------------------------------------- |
 | 1    | 収束性         | diagnostics, explain, JSON 契約, docs 整合                 |
-| 2    | 埋め込み運用性 | RunSandbox 契約, host API, security boundary, multi-module |
+| 2    | 埋め込み運用性 | RunSandbox 契約, host API, security boundary               |
 | 3    | framing        | README, examples, docs 露出順, 比較対象との位置づけ        |
 | 4    | 高度機能の成熟 | sessions, type families, evidence/checker 拡張             |
 
