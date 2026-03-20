@@ -89,10 +89,9 @@ runs indefinitely.
 
 - Type family reduction has a fuel limit (~100 steps).
 - Parser has recursion depth (256) and step limits.
-- ~~In practice, no current input has been found that hangs the type checker.~~
-  **Invalidated**: See V6 — instance method bodies with polymorphic functions
-  can trigger exponential blowup in the constraint solver. Confirmed
-  reproducible on commit `e8b2cd7` (2026-03-21).
+- In practice, no current input has been found that hangs the type checker.
+  (V6 was originally attributed to the constraint solver but turned out to
+  be a parser-level hang; see V6.)
 
 ### Impact
 
@@ -201,7 +200,7 @@ with scope trimming or environment management.
 
 ---
 
-## V6: Type Checker Exponential Blowup in Instance Method Bodies
+## V6: Parser Hang on Multiline Instance Method Body
 
 **Severity**: MEDIUM
 **Status**: Open — confirmed reproducible (2026-03-21)
@@ -209,18 +208,18 @@ with scope trimming or environment management.
 
 ### Description
 
-When a type class instance method body combines (1) a polymorphic function
-from another class (e.g., `map`/`fmap`), (2) a function whose argument type
-involves the instance's type constructor, and (3) the instance head's type
-variable, the constraint solver enters exponential blowup and the type
-checker does not terminate.
+The parser hangs when an instance method body contains a multiline
+function application (constructor or function applied to arguments on
+continuation lines). The type checker is never reached.
 
 ### Symptoms
 
 - CPU usage: ~98% (single core, busy loop)
 - Memory usage: stable at ~7 MB (no leak; computation is stack-bound)
 - Process does not terminate — no output, no error, no timeout
-- Affects both `check` and `run` (type checking occurs before evaluation)
+- Affects both `check` and `run` (parse is the first pipeline stage)
+- `SIGQUIT` goroutine dump confirms hang in `parseInstBody.func1` →
+  `parseBody` (parser.go:310), not in the type checker
 
 ### Full Reproduction
 
@@ -272,7 +271,7 @@ allRights := fix (\self z. case goRight z {
   Just z' -> Cons z' (self z')
 })
 
--- ★ THIS INSTANCE HANGS THE TYPE CHECKER ★
+-- ★ THIS INSTANCE HANGS THE PARSER ★
 instance Comonad Zipper {
   extract := \z. case z { MkZipper _ c _ -> c };
   extend := \f z. MkZipper
@@ -288,99 +287,149 @@ main := 0
 
 ```sh
 bin/gicel check --recursion v6_repro.gicel    # hangs
-bin/gicel run --recursion v6_repro.gicel      # hangs (timeout does NOT cover type checking)
+bin/gicel run --recursion v6_repro.gicel      # hangs
 ```
 
 **Step 3** — Observe: process consumes ~98% CPU, ~7 MB RAM, produces no
 output. Must be killed with `kill` or Ctrl-C.
 
-### Trigger Conditions
-
-All three conditions must hold simultaneously:
-
-1. **Instance method body** — the expression is inside an `instance` block
-   (standalone bindings with the same body and an explicit type annotation
-   are checked successfully)
-2. **Polymorphic function call** — the body invokes a polymorphic function
-   from another class (e.g., `map :: \a b. (a -> b) -> List a -> List b`)
-3. **Instance type constructor in the argument** — the argument to the
-   polymorphic function involves the type being instanced (e.g.,
-   `allLefts z :: List (Zipper a)`, where `Zipper` is the instance head)
-
-Removing any one of these conditions eliminates the hang:
-
-| Variant                                 | Hangs? | Why                                    |
-| --------------------------------------- | ------ | -------------------------------------- |
-| Inline `extend` in instance (original)  | **Yes**| All three conditions met               |
-| `extend := _extendZ` (external helper)  | No     | Condition 1 removed (body is trivial)  |
-| Dummy `extend` without `map`            | No     | Condition 2 removed                    |
-| `Env`/`Store` instances with `map`      | No     | Condition 3 removed (no recursive type)|
-
-### Root Cause (Hypothesis)
-
-Inside the instance body, the solver must unify:
-
-1. `w ~ Zipper` (instance head)
-2. `map`'s polymorphism: `\a b. (a -> b) -> List a -> List b`
-3. `f :: Zipper a -> b` (from `extend`'s method signature)
-4. `allLefts z :: List (Zipper a)` (return type involves the instance constructor)
-
-The combination of instance context unification (`w ~ Zipper`) with
-the polymorphic `map` invocation forces the DK ordered context to
-explore constraint combinations that grow exponentially. The solver
-lacks a mechanism to cut off or memoize these intermediate unification
-states.
-
-The blowup is CPU-bound (not memory-bound) because the solver
-backtracks through constraint alternatives on the stack without
-materializing intermediate structures on the heap.
-
-### Workaround
-
-Extract the method body into a standalone helper with an explicit type
-annotation. The annotation precludes the combinatorial explosion by
-providing the solver with a closed signature:
+**Step 4** — Verify it is not a type-checker issue. Putting the same body
+on one line passes:
 
 ```gicel
-_extendZ :: \a b. (Zipper a -> b) -> Zipper a -> Zipper b
-_extendZ := \f z. MkZipper (map f (allLefts z)) (f z) (map f (allRights z))
-
 instance Comonad Zipper {
   extract := \z. case z { MkZipper _ c _ -> c };
-  extend := _extendZ   -- OK: no inline inference needed
+  extend := \f z. MkZipper (map f (allLefts z)) (f z) (map f (allRights z))
 }
 ```
 
-This workaround is applied in `examples/gicel/patterns/comonad.gicel`.
+```sh
+bin/gicel check --recursion v6_oneline.gicel   # ok (instant)
+bin/gicel run --recursion v6_oneline.gicel     # ok (runs correctly)
+```
+
+### Trigger Condition
+
+A multiline function application **inside an instance method body**
+where continuation lines start with `(` after a newline:
+
+```gicel
+  extend := \f z. MkZipper      -- ← expression continues below
+    (map f (allLefts z))         -- ← newline + `(` = hang trigger
+    (f z)
+    (map f (allRights z))
+```
+
+The parser treats the newline as a statement separator (`;` and newline
+are interchangeable in GICEL). This causes the expression to be truncated
+at `MkZipper`, leaving `(map f (allLefts z))` as an orphaned token
+sequence. The `parseBody` recovery loop in `parser.go:308` then fails
+to make progress, producing an infinite loop.
+
+### Root Cause
+
+`parseBody` (parser.go:305) loops while the next token is not `}` or
+EOF. For each iteration, the `parseInstBody` callback handles:
+
+- `TokData` → associated data
+- `TokType` → associated type
+- `TokLower` → method (name `:=` expr)
+
+When the callback encounters `(` (from the continuation line), none of
+these branches match. The callback returns without advancing. `parseBody`
+then checks for stagnation (`p.pos == before`), calls
+`syncToStmtBoundary()`, but `syncToStmtBoundary` apparently fails to
+advance past the parenthesized expression, creating the infinite loop.
+
+**Key files**:
+- `internal/compiler/parse/parse_class.go:316-341` — `parseInstBody`
+- `internal/compiler/parse/parser.go:305-326` — `parseBody`
+- Stagnation recovery logic in `syncToStmtBoundary`
+
+### Why Single-Line Works
+
+When the entire expression is on one line (`MkZipper (map f ...) (f z) ...`),
+no newline occurs between the constructor and its arguments. The expression
+parser consumes all arguments as part of function application, and the
+result is a single method definition. No orphaned tokens are created.
 
 ### Impact
 
-- **Sandbox**: A malicious source can hang the type checker indefinitely.
-  Combined with V2 (no `check` timeout), this is a DoS vector for hosts
-  that expose compilation as a service. Note: `run --timeout` does NOT
-  mitigate this because the timeout covers evaluation, not type checking.
-- **Usability**: Users writing non-trivial type class instances may hit
-  unexplained hangs. The workaround (extract to helper) is not obvious.
+- **Sandbox**: A malicious multiline source can hang the parser
+  indefinitely. The `run --timeout` flag does NOT cover parsing.
+  Combined with V2 (no `check` timeout), this is a DoS vector.
+- **Usability**: Users writing multiline instance methods see unexplained
+  hangs with no error message. The workaround (single-line or helper
+  function) is not obvious.
+
+### Workaround
+
+Either put the expression on a single line:
+
+```gicel
+instance Comonad Zipper {
+  extract := \z. case z { MkZipper _ c _ -> c };
+  extend := \f z. MkZipper (map f (allLefts z)) (f z) (map f (allRights z))
+}
+```
+
+Or extract to a helper with a type annotation:
+
+```gicel
+_extendZ :: \a b. (Zipper a -> b) -> Zipper a -> Zipper b
+_extendZ := \f z. MkZipper
+  (map f (allLefts z))
+  (f z)
+  (map f (allRights z))
+
+instance Comonad Zipper {
+  extract := \z. case z { MkZipper _ c _ -> c };
+  extend := _extendZ
+}
+```
+
+Note: the helper works because top-level bindings use different newline
+handling than instance method bodies.
 
 ### Fix Options
 
-1. **Timeout for the solver** (immediate): Add a step/fuel limit to the
-   constraint solver's unification loop, analogous to the type family
-   reduction fuel (~100). Emit a diagnostic when the limit is reached.
+1. **Fix stagnation recovery** (immediate): Ensure `syncToStmtBoundary`
+   always advances at least one token when the current token is `(`. The
+   `parseBody` stagnation check already has a fallback `p.advance()` at
+   line 320, but it is not being reached.
 
-2. **Memoize unification subproblems** (medium-term): Cache intermediate
-   unification results in the DK context to prevent re-exploration of
-   equivalent constraint states.
+2. **Allow continuation lines in instance bodies** (proper fix): Modify
+   the instance body parser to recognize that `(` after an expression on
+   the previous line is a continuation (application argument), not a new
+   statement. This likely requires adjusting `stmtBoundaryDepth` or the
+   `atStmtBoundary()` logic for instance bodies.
 
-3. **Instance method signature propagation** (targeted): When checking
-   an instance method body, push the method's class-declared signature
-   (with the instance head substituted) into the checking context before
-   descending into the body. This gives the solver the same guidance that
-   an explicit type annotation provides, eliminating the need for the
-   workaround.
+3. **Parser timeout** (defense-in-depth): Add a step limit to `parseBody`
+   to prevent infinite loops from any cause.
 
-**Recommendation**: Option 1 + 3. The timeout prevents DoS; signature
-propagation eliminates the root cause for this specific pattern.
+**Recommendation**: Option 2 + 3. Fix the continuation handling to match
+user expectations; add the step limit as defense against future regressions.
+
+### Investigation History
+
+Originally diagnosed as a type-checker constraint solver blowup. SIGQUIT
+goroutine stack dump (2026-03-21) revealed the actual hang is in the
+parser. Confirmed by showing that a single-line equivalent of the same
+expression compiles and runs correctly. Debug counters injected into
+`check`, `infer`, `subsCheck`, `instantiate`, and `resolveInstance`
+showed all counters frozen at Prelude-processing levels (~1320 check
+calls), proving the user code's type checking was never reached.
+
+### Earlier Misdiagnosis
+
+The solver step limit added to `solveWanteds` (100K steps) does not
+help because the solver is never invoked — the hang precedes it. The
+initial hypothesis about DK ordered context + polymorphic function
+unification was incorrect; it described what *would* happen if the
+parser produced an AST, but the parser never completes.
+
+These points described what *would* happen if the parser produced an
+AST, but the parser never completes. Retained for reference only.
 
 ---
 

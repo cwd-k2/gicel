@@ -395,3 +395,55 @@ func TestProbeE_UnterminatedString(t *testing.T) {
 		t.Fatalf("expected 'unterminated', got: %v", err)
 	}
 }
+
+// ===================================================================
+// V6: Parser hang on multiline instance method body
+// ===================================================================
+
+// TestProbeE_V6_MultilineInstanceMethod confirms that a multiline
+// function application in an instance method body does not hang the
+// parser. Before the fix, newline + `(` caused parseBody to loop
+// infinitely because the stagnation check was shadowed by the
+// implicit-separator branch.
+func TestProbeE_V6_MultilineInstanceMethod(t *testing.T) {
+	src := `
+import Prelude
+
+class Functor w => Comonad w {
+  extract :: \a. w a -> a;
+  extend  :: \a b. (w a -> b) -> w a -> w b
+}
+
+data Z a := MkZ (List a) a (List a)
+
+instance Functor Z {
+  fmap := \f z. case z { MkZ ls c rs -> MkZ (map f ls) (f c) (map f rs) }
+}
+
+instance Comonad Z {
+  extract := \z. case z { MkZ _ c _ -> c };
+  extend := \f z. MkZ
+    (map f Nil)
+    (f z)
+    (map f Nil)
+}
+
+main := 0
+`
+	start := time.Now()
+	_, err := probeSandbox(src, &gicel.SandboxConfig{
+		Packs: []gicel.Pack{gicel.Prelude},
+	})
+	elapsed := time.Since(start)
+
+	// Must terminate quickly — the old bug caused an infinite loop.
+	if elapsed > 3*time.Second {
+		t.Fatalf("parser appears to hang: took %v", elapsed)
+	}
+
+	// Currently produces parse errors (multiline continuation not yet
+	// supported in instance bodies). An error is acceptable; a hang is not.
+	if err == nil {
+		t.Log("multiline instance method parsed successfully (continuation support may have been added)")
+	}
+}

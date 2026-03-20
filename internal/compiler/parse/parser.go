@@ -308,17 +308,21 @@ func (p *Parser) parseBody(context string, openSpan span.Span, parse func()) {
 	for p.peek().Kind != syn.TokRBrace && p.peek().Kind != syn.TokEOF {
 		before := p.pos
 		parse()
-		if p.peek().Kind == syn.TokSemicolon {
-			p.advance()
-		} else if p.peek().NewlineBefore || p.peek().Kind == syn.TokRBrace {
-			// newline or closing brace — implicit separator
-		} else if p.pos == before {
+		if p.pos == before {
+			// Stagnation: callback consumed nothing. Error-recover before
+			// checking separators to prevent infinite loops (V6: a newline
+			// token with NewlineBefore would otherwise be treated as an
+			// implicit separator, masking the stagnation).
 			p.addErrorCode(diagnostic.ErrUnexpectedToken, "unexpected token in "+context)
 			p.syncToStmtBoundary()
 			if p.pos == before {
 				// syncToStmtBoundary did not advance — force progress.
 				p.advance()
 			}
+		} else if p.peek().Kind == syn.TokSemicolon {
+			p.advance()
+		} else if p.peek().NewlineBefore || p.peek().Kind == syn.TokRBrace {
+			// newline or closing brace — implicit separator
 		}
 	}
 	p.stmtBoundaryDepth = savedBoundary
