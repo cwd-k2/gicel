@@ -142,7 +142,7 @@ func (ch *Checker) checkConPattern(p *syntax.PatCon, scrutTy types.Type) pattern
 }
 
 func (ch *Checker) checkQualConPattern(p *syntax.PatQualCon, scrutTy types.Type) patternResult {
-	qs, ok := ch.scope.qualifiedScopes[p.Qualifier]
+	qs, ok := ch.scope.LookupQualified(p.Qualifier)
 	if !ok {
 		ch.addCodedError(errs.ErrUnboundCon, p.S, fmt.Sprintf("unknown qualifier: %s", p.Qualifier))
 		return patternResult{Pattern: &core.PWild{S: p.S}}

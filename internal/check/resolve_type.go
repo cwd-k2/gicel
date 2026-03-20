@@ -28,7 +28,7 @@ func (ch *Checker) resolveTypeExpr(texpr syntax.TypeExpr) types.Type {
 		}
 		return &types.TyCon{Name: t.Name, S: t.S}
 	case *syntax.TyExprQualCon:
-		qs, ok := ch.scope.qualifiedScopes[t.Qualifier]
+		qs, ok := ch.scope.LookupQualified(t.Qualifier)
 		if !ok {
 			ch.addCodedError(errs.ErrImport, t.S, fmt.Sprintf("unknown qualifier: %s", t.Qualifier))
 			return &types.TyError{S: t.S}

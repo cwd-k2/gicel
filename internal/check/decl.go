@@ -125,7 +125,7 @@ func (p *declPipeline) preregisterBindings() {
 				continue
 			}
 			if annTy, hasAnn := p.annotations[def.Name]; hasAnn {
-				p.ch.ctx.Push(&CtxVar{Name: def.Name, Type: annTy, Module: p.ch.scope.currentModule})
+				p.ch.ctx.Push(&CtxVar{Name: def.Name, Type: annTy, Module: p.ch.scope.CurrentModule()})
 			}
 		}
 	}
@@ -190,7 +190,7 @@ func (ch *Checker) processValueDef(d *syntax.DeclValueDef, annotations map[strin
 		// Note: assumptions without a corresponding RegisterPrim are caught at
 		// runtime with "missing primitive" error. Compile-time validation is not
 		// feasible because stdlib modules use RegisterPrim (not DeclareAssumption).
-		ch.ctx.Push(&CtxVar{Name: d.Name, Type: aTy, Module: ch.scope.currentModule})
+		ch.ctx.Push(&CtxVar{Name: d.Name, Type: aTy, Module: ch.scope.CurrentModule()})
 		prog.Bindings = append(prog.Bindings, core.Binding{
 			Name: d.Name,
 			Type: aTy,
@@ -239,7 +239,7 @@ func (ch *Checker) processValueDef(d *syntax.DeclValueDef, annotations map[strin
 				d.Name))
 	}
 
-	ch.ctx.Push(&CtxVar{Name: d.Name, Type: ty, Module: ch.scope.currentModule})
+	ch.ctx.Push(&CtxVar{Name: d.Name, Type: ty, Module: ch.scope.CurrentModule()})
 	prog.Bindings = append(prog.Bindings, core.Binding{
 		Name: d.Name,
 		Type: ty,

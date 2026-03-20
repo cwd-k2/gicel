@@ -129,6 +129,17 @@ type Scope struct {
 	ownedTypeNamesCache map[string]map[string]bool // module → owned type names (lazy, for type ambiguity)
 }
 
+// CurrentModule returns the name of the module being compiled.
+func (s *Scope) CurrentModule() string {
+	return s.currentModule
+}
+
+// LookupQualified returns the qualified scope for the given alias.
+func (s *Scope) LookupQualified(alias string) (*qualifiedScope, bool) {
+	qs, ok := s.qualifiedScopes[alias]
+	return qs, ok
+}
+
 // Solver holds mutable state for the constraint solver.
 type Solver struct {
 	worklist       Worklist

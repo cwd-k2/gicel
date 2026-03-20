@@ -90,7 +90,7 @@ func (ch *Checker) processInstanceHeader(d *syntax.DeclInstance) *InstanceInfo {
 		Context:      context,
 		Methods:      methodExprs,
 		DictBindName: dictName,
-		Module:       ch.scope.currentModule,
+		Module:       ch.scope.CurrentModule(),
 		S:            d.S,
 	}
 

@@ -95,7 +95,7 @@ func (ch *Checker) processInstanceBody(inst *InstanceInfo, prog *core.Program) {
 	}
 
 	// Register binding.
-	ch.ctx.Push(&CtxVar{Name: inst.DictBindName, Type: dictTy, Module: ch.scope.currentModule})
+	ch.ctx.Push(&CtxVar{Name: inst.DictBindName, Type: dictTy, Module: ch.scope.CurrentModule()})
 	prog.Bindings = append(prog.Bindings, core.Binding{
 		Name: inst.DictBindName,
 		Type: dictTy,
@@ -193,9 +193,9 @@ func (ch *Checker) processAssocDataDef(add syntax.AssocDataDef, className string
 					add.Name, con.Name, types.Pretty(existing)))
 			continue
 		}
-		ch.ctx.Push(&CtxVar{Name: con.Name, Type: conType, Module: ch.scope.currentModule})
+		ch.ctx.Push(&CtxVar{Name: con.Name, Type: conType, Module: ch.scope.CurrentModule()})
 		dataInfo.Constructors = append(dataInfo.Constructors, ConstructorInfo{Name: con.Name, Arity: len(fieldTypes)})
-		ch.reg.RegisterConstructor(con.Name, conType, ch.scope.currentModule, dataInfo)
+		ch.reg.RegisterConstructor(con.Name, conType, ch.scope.CurrentModule(), dataInfo)
 	}
 
 	// Add type family equation: Family patterns =: MangledType patVars

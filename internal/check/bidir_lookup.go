@@ -64,7 +64,7 @@ func (ch *Checker) lookupCon(e *syntax.ExprCon) (types.Type, core.Core, bool) {
 
 // lookupQualVar resolves a qualified variable reference (N.add) to its type and Core node.
 func (ch *Checker) lookupQualVar(e *syntax.ExprQualVar) (types.Type, core.Core, bool) {
-	qs, ok := ch.scope.qualifiedScopes[e.Qualifier]
+	qs, ok := ch.scope.LookupQualified(e.Qualifier)
 	if !ok {
 		ch.addCodedError(errs.ErrUnboundVar, e.S, fmt.Sprintf("unknown qualifier: %s", e.Qualifier))
 		return &types.TyError{S: e.S}, &core.Var{Name: e.Name, S: e.S}, false
@@ -80,7 +80,7 @@ func (ch *Checker) lookupQualVar(e *syntax.ExprQualVar) (types.Type, core.Core, 
 
 // lookupQualCon resolves a qualified constructor reference (N.Just) to its type and Core node.
 func (ch *Checker) lookupQualCon(e *syntax.ExprQualCon) (types.Type, core.Core, bool) {
-	qs, ok := ch.scope.qualifiedScopes[e.Qualifier]
+	qs, ok := ch.scope.LookupQualified(e.Qualifier)
 	if !ok {
 		ch.addCodedError(errs.ErrUnboundCon, e.S, fmt.Sprintf("unknown qualifier: %s", e.Qualifier))
 		return &types.TyError{S: e.S}, &core.Con{Name: e.Name, S: e.S}, false

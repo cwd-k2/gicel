@@ -209,10 +209,10 @@ func (ch *Checker) processClassDecl(d *syntax.DeclClass, prog *core.Program) {
 	}
 
 	// Register constructor.
-	ch.ctx.Push(&CtxVar{Name: dn, Type: conType, Module: ch.scope.currentModule})
+	ch.ctx.Push(&CtxVar{Name: dn, Type: conType, Module: ch.scope.CurrentModule()})
 	dataInfo := &DataTypeInfo{Name: dn}
 	dataInfo.Constructors = append(dataInfo.Constructors, ConstructorInfo{Name: dn, Arity: len(allFieldTypes)})
-	ch.reg.RegisterConstructor(dn, conType, ch.scope.currentModule, dataInfo)
+	ch.reg.RegisterConstructor(dn, conType, ch.scope.CurrentModule(), dataInfo)
 
 	// Core DataDecl.
 	coreDecl := core.DataDecl{Name: dn, S: d.S}
@@ -254,7 +254,7 @@ func (ch *Checker) buildMethodSelector(cls *ClassInfo, m MethodInfo, methodIdx i
 		selectorTy = types.MkForall(cls.KindParams[j], types.KSort{}, selectorTy)
 	}
 
-	ch.ctx.Push(&CtxVar{Name: m.Name, Type: selectorTy, Module: ch.scope.currentModule})
+	ch.ctx.Push(&CtxVar{Name: m.Name, Type: selectorTy, Module: ch.scope.CurrentModule()})
 
 	selName := fmt.Sprintf("%s_%s_%d", prefixSel, m.Name, ch.fresh())
 	var patArgs []core.Pattern
