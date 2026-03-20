@@ -1,5 +1,47 @@
 # Changelog
 
+## v0.13.0 — 2026-03-20
+
+### Core IR
+
+- **Fix node** — dedicated `core.Fix` replaces `LetRec` desugaring for recursive bindings. Self-referential closure creation is now a single node (`evalFix`), eliminating the two-pass `IndirectVal` patching overhead. Polymorphic recursion is naturally supported via TyLam peeling
+- **List literal patterns** — `[x, y, z]` surface syntax desugared to `Cons`/`Nil` patterns during parsing. Pattern matching, exhaustiveness checking, and explain trace all support the new form
+
+### Evaluator
+
+- **Multi-module source attribution** — `Closure`, `ThunkVal`, and `bounceVal` now capture their originating `*span.Source`. The evaluator tracks source context through the trampoline (save/restore in `Eval`, propagation via `bounceVal.source`), ensuring `RuntimeError` and `ExplainStep` carry the correct source for line/column resolution across module boundaries
+- **Structural nesting depth guard** — `budget.Budget` enforces a nesting limit (default 256) on structurally recursive value construction, preventing Go stack overflow from deeply nested Core IR trees
+
+### Engine
+
+- **Caps/Bindings defensive copy** — `RunWith` shallow-copies `Caps` and `Bindings` maps on entry, fulfilling the goroutine-safety contract without relying on caller discipline
+- **Spanless diagnostic fix** — errors without source location (e.g. context cancellation) report `Line=0, Col=0` instead of the misleading `1:1`. The human-readable formatter omits the location line entirely
+- **Sandbox panic stack trace** — `InternalPanicError` captures the goroutine stack via `runtime.Stack`, preserving diagnostic information while maintaining the same `Error()` message
+
+### Module System
+
+- **Owned-only exports** — `ExportModule` restricts `Types`, constructors, aliases, classes, and promoted kinds/cons to declarations defined by the module itself. Inherited names from imported modules are no longer transitively re-exported, eliminating ghost dependencies. `TypeFamilies` and `Instances` remain fully exported (they accumulate instances across modules)
+
+### CLI
+
+- **JSON output improvements** — `List` values serialized as JSON arrays; `Record` and `Tuple` as objects/arrays. `--json` output is now structurally faithful to GICEL values
+- **Explain trace improvements** — `PLit` and list patterns rendered in source-level syntax. `ExplainStep` includes `SourceName` field for multi-module traces
+
+### Lexer
+
+- **Operator boundary guards** — `->`, `<-`, and `:=` reserved symbols inside operators now produce a diagnostic instead of silently splitting tokens. Fixes `=:=`, `->>`, `<->` handling
+
+### Documentation
+
+- **README timeout correction** — sandbox timeout description updated to reflect the actual behavior (timeout covers the entire pipeline including compilation)
+
+### Testing
+
+- **CLI smoke test suite** — 57-case `scripts/smoke-test.sh` covering normal operation, error handling, resource limits, adversarial inputs, list patterns, and malformed inputs
+- **Malformed input stress tests** — `tests/stress/stress_malformed_test.go` with 294+ lines of adversarial parser inputs
+
+---
+
 ## v0.12.1 — 2026-03-20
 
 ### Core
