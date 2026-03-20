@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/cwd-k2/gicel/internal/host/stdlib"
+	"github.com/cwd-k2/gicel/internal/infra/diagnostic"
 )
 
 func TestTypeErrorUnboundVar(t *testing.T) {
@@ -38,9 +39,7 @@ main := f True
 	if !ok {
 		t.Fatalf("expected CompileError, got %T", err)
 	}
-	if !strings.Contains(ce.Error(), "non-exhaustive") {
-		t.Errorf("expected non-exhaustive in error message, got: %s", ce.Error())
-	}
+	assertDiagnosticCode(t, ce, diagnostic.ErrNonExhaustive)
 }
 
 func TestTypeErrorMismatch(t *testing.T) {
@@ -127,6 +126,7 @@ main := div 1 0
 	if err == nil {
 		t.Fatal("expected error for division by zero")
 	}
+	// PrimImpl errors are plain errors (not *eval.RuntimeError), so check the message.
 	if !strings.Contains(err.Error(), "division by zero") {
 		t.Fatalf("expected division by zero error, got: %v", err)
 	}
@@ -183,8 +183,18 @@ main := f (Just True)
 		t.Fatal("expected compile error for non-exhaustive case on Maybe")
 	}
 	ce := err.(*CompileError)
-	if !strings.Contains(ce.Error(), "Nothing") {
-		t.Errorf("expected missing constructor 'Nothing', got: %s", ce.Error())
+	assertDiagnosticCode(t, ce, diagnostic.ErrNonExhaustive)
+	// Also verify the diagnostic names the missing constructor.
+	diags := ce.Diagnostics()
+	found := false
+	for _, d := range diags {
+		if strings.Contains(d.Message, "Nothing") {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Errorf("expected diagnostic mentioning 'Nothing', got: %v", diags)
 	}
 }
 
@@ -231,4 +241,18 @@ main := True
 	if prog.Pretty() == "" {
 		t.Error("expected non-empty Pretty output from Runtime.Program()")
 	}
+}
+
+// --- Assertion helpers ---
+
+// assertDiagnosticCode checks that a CompileError contains at least one
+// diagnostic with the given error code.
+func assertDiagnosticCode(t *testing.T, ce *CompileError, code diagnostic.Code) {
+	t.Helper()
+	for _, d := range ce.Diagnostics() {
+		if d.Code == int(code) {
+			return
+		}
+	}
+	t.Errorf("expected diagnostic code %d, got diagnostics: %v", code, ce.Diagnostics())
 }
