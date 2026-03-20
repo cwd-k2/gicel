@@ -183,6 +183,7 @@ func newTestChecker() *Checker {
 			kindVars:          make(map[string]bool),
 			families:          make(map[string]*TypeFamilyInfo),
 		},
+		solver:  &Solver{},
 		freshID: freshID,
 	}
 	ch.budget = budget.New(context.Background(), family.MaxReductionWork, 0)

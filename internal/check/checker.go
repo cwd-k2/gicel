@@ -113,10 +113,8 @@ type Scope struct {
 	ownedTypeNamesCache map[string]map[string]bool // module → owned type names (lazy, for type ambiguity)
 }
 
-// solverState holds mutable state for the constraint solver.
-// Grouped to make solver ownership explicit and to prepare for
-// row-level type family extensions (v0.14).
-type solverState struct {
+// Solver holds mutable state for the constraint solver.
+type Solver struct {
 	worklist       Worklist
 	inertSet       InertSet
 	ambiguityCache map[string]bool // per-solveWanteds cache; lazily allocated
@@ -142,7 +140,7 @@ type Checker struct {
 	scope *Scope
 
 	// Constraint solver state.
-	solver solverState
+	solver *Solver
 
 	// Inference recursion depth (for trace events).
 	depth int
@@ -261,6 +259,7 @@ func newChecker(prog *syntax.AstProgram, source *span.Source, config *CheckConfi
 			importedNames:     make(map[string]string),
 			importedTypeNames: make(map[string]string),
 		},
+		solver: &Solver{},
 	}
 	ch.unifier = unify.NewUnifierShared(&ch.freshID)
 	ch.unifier.Budget = ch.budget
