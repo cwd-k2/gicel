@@ -36,21 +36,21 @@ func unifyErrorCode(err error) errs.Code {
 
 // addUnifyError maps a unification error to the appropriate structured error code.
 // Used at general type-mismatch sites where the UnifyError kind IS the primary diagnosis.
-func (ch *Checker) addUnifyError(err error, s span.Span, ctx string) {
-	ch.addCodedError(unifyErrorCode(err), s, ctx+": "+err.Error())
+func (s *Session) addUnifyError(err error, sp span.Span, ctx string) {
+	s.addCodedError(unifyErrorCode(err), sp, ctx+": "+err.Error())
 }
 
 // addSemanticUnifyError reports a unification failure with a semantic error code.
 // For simple mismatches, the semantic code and message are used as-is.
 // For specific failures (occurs check, skolem rigidity, etc.), the underlying
 // unification error overrides the semantic code — it reveals the root cause.
-func (ch *Checker) addSemanticUnifyError(semanticCode errs.Code, err error, s span.Span, ctx string) {
+func (s *Session) addSemanticUnifyError(semanticCode errs.Code, err error, sp span.Span, ctx string) {
 	code := unifyErrorCode(err)
 	if code == errs.ErrTypeMismatch {
-		ch.addCodedError(semanticCode, s, ctx)
+		s.addCodedError(semanticCode, sp, ctx)
 		return
 	}
-	ch.addCodedError(code, s, ctx+": "+err.Error())
+	s.addCodedError(code, sp, ctx+": "+err.Error())
 }
 
 // infer produces a type for an expression and a Core IR node.

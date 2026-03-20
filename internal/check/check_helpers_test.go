@@ -164,11 +164,12 @@ func setupCheckerWithPrelude(t *testing.T) *Checker {
 
 // newTestChecker creates a minimal Checker for unit tests.
 func newTestChecker() *Checker {
-	var freshID int
 	ch := &Checker{
-		ctx:    NewContext(),
-		errors: &errs.Errors{Source: span.NewSource("test", "")},
-		config: &CheckConfig{},
+		Session: &Session{
+			ctx:    NewContext(),
+			errors: &errs.Errors{Source: span.NewSource("test", "")},
+			config: &CheckConfig{},
+		},
 		reg: &Registry{
 			typeKinds:         make(map[string]types.Kind),
 			conTypes:          make(map[string]types.Type),
@@ -182,8 +183,7 @@ func newTestChecker() *Checker {
 			kindVars:          make(map[string]bool),
 			families:          make(map[string]*TypeFamilyInfo),
 		},
-		solver:  &Solver{},
-		freshID: freshID,
+		solver: &Solver{},
 	}
 	ch.budget = budget.New(context.Background(), family.MaxReductionWork, 0)
 	ch.unifier = unify.NewUnifierShared(&ch.freshID)

@@ -87,11 +87,11 @@ type CheckTraceHook func(CheckTraceEvent)
 // Registry holds semantic registries populated during declaration
 // processing and read during type checking.
 type Registry struct {
-	typeKinds         map[string]types.Kind      // registered type constructor kinds (absorbed from config)
-	conModules        map[string]string           // constructor name → source module name
+	typeKinds         map[string]types.Kind // registered type constructor kinds (absorbed from config)
+	conModules        map[string]string     // constructor name → source module name
 	conTypes          map[string]types.Type
 	conInfo           map[string]*DataTypeInfo
-	dataTypeByName    map[string]*DataTypeInfo    // type name → DataTypeInfo (reverse index)
+	dataTypeByName    map[string]*DataTypeInfo // type name → DataTypeInfo (reverse index)
 	aliases           map[string]*AliasInfo
 	classes           map[string]*ClassInfo
 	instances         []*InstanceInfo
@@ -99,8 +99,8 @@ type Registry struct {
 	importedInstances map[*InstanceInfo]bool
 	promotedKinds     map[string]types.Kind      // DataKinds: data name → KData
 	promotedCons      map[string]types.Kind      // DataKinds: nullary con → KData
-	kindVars          map[string]bool             // HKT: kind variables in scope
-	families          map[string]*TypeFamilyInfo  // type family declarations
+	kindVars          map[string]bool            // HKT: kind variables in scope
+	families          map[string]*TypeFamilyInfo // type family declarations
 }
 
 // RegisterConstructor records a constructor's type, owning module, and
@@ -197,16 +197,23 @@ func (s *Solver) CacheAmbiguity(key string, result bool) {
 	s.ambiguityCache[key] = result
 }
 
+// Session holds cross-cutting infrastructure shared by all check services.
+type Session struct {
+	ctx             *Context
+	unifier         *unify.Unifier
+	budget          *budget.Budget
+	errors          *errs.Errors
+	source          *span.Source
+	config          *CheckConfig
+	freshID         int
+	depth           int
+	strictTypeNames bool // enabled after declaration processing
+	cancelled       bool // set when context is cancelled
+}
+
 // Checker holds mutable state during type checking.
 type Checker struct {
-	// Services.
-	ctx     *Context
-	unifier *unify.Unifier
-	budget  *budget.Budget
-	errors  *errs.Errors
-	source  *span.Source
-	config  *CheckConfig
-	freshID int
+	*Session
 
 	// Semantic registries (populated in declaration phases, then read-only).
 	reg *Registry
@@ -217,28 +224,21 @@ type Checker struct {
 	// Constraint solver state.
 	solver *Solver
 
-	// Inference recursion depth (for trace events).
-	depth int
-
-	// Phase state.
-	strictTypeNames bool // enabled after declaration processing
-	cancelled       bool // set when context is cancelled
-
 	// Cached family reduction environment (lazy, constructed on first use).
 	cachedFamilyEnv *family.ReduceEnv
 }
 
 // checkCancelled checks the budget context for cancellation.
 // Returns true if cancelled, recording a terminal error.
-func (ch *Checker) checkCancelled() bool {
-	if ch.cancelled {
+func (s *Session) checkCancelled() bool {
+	if s.cancelled {
 		return true
 	}
-	ctx := ch.budget.Context()
+	ctx := s.budget.Context()
 	select {
 	case <-ctx.Done():
-		ch.cancelled = true
-		ch.errors.Add(&errs.Error{
+		s.cancelled = true
+		s.errors.Add(&errs.Error{
 			Code:    errs.ErrCancelled,
 			Phase:   errs.PhaseCheck,
 			Message: fmt.Sprintf("type checking cancelled: %v", ctx.Err()),
@@ -296,17 +296,19 @@ func newChecker(prog *syntax.AstProgram, source *span.Source, config *CheckConfi
 		ctx = context.Background()
 	}
 	ch := &Checker{
-		ctx:    NewContext(),
-		budget: func() *budget.Budget {
-			b := budget.New(ctx, family.MaxReductionWork, 0)
-			if config.NestingLimit > 0 {
-				b.SetNestingLimit(config.NestingLimit)
-			}
-			return b
-		}(),
-		errors: &errs.Errors{Source: source},
-		source: source,
-		config: config,
+		Session: &Session{
+			ctx: NewContext(),
+			budget: func() *budget.Budget {
+				b := budget.New(ctx, family.MaxReductionWork, 0)
+				if config.NestingLimit > 0 {
+					b.SetNestingLimit(config.NestingLimit)
+				}
+				return b
+			}(),
+			errors: &errs.Errors{Source: source},
+			source: source,
+			config: config,
+		},
 		reg: func() *Registry {
 			r := &Registry{
 				typeKinds:         make(map[string]types.Kind),
@@ -369,9 +371,9 @@ func (ch *Checker) initContext() {
 	ch.reg.typeKinds["Record"] = &types.KArrow{From: types.KRow{}, To: types.KType{}}
 }
 
-func (ch *Checker) fresh() int {
-	ch.freshID++
-	return ch.freshID
+func (s *Session) fresh() int {
+	s.freshID++
+	return s.freshID
 }
 
 func (ch *Checker) freshMeta(k types.Kind) *types.TyMeta {
@@ -379,22 +381,22 @@ func (ch *Checker) freshMeta(k types.Kind) *types.TyMeta {
 	return &types.TyMeta{ID: id, Kind: k, Level: ch.solver.Level()}
 }
 
-func (ch *Checker) freshSkolem(name string, k types.Kind) *types.TySkolem {
-	id := ch.fresh()
+func (s *Session) freshSkolem(name string, k types.Kind) *types.TySkolem {
+	id := s.fresh()
 	return &types.TySkolem{ID: id, Name: name, Kind: k}
 }
 
-func (ch *Checker) freshKindMeta() *types.KMeta {
-	id := ch.fresh()
+func (s *Session) freshKindMeta() *types.KMeta {
+	id := s.fresh()
 	return &types.KMeta{ID: id}
 }
 
-func (ch *Checker) mkType(name string) types.Type {
+func (s *Session) mkType(name string) types.Type {
 	return &types.TyCon{Name: name}
 }
 
-func (ch *Checker) errorPair(s span.Span) (types.Type, core.Core) {
-	return &types.TyError{S: s}, &core.Var{Name: "<error>", S: s}
+func (s *Session) errorPair(sp span.Span) (types.Type, core.Core) {
+	return &types.TyError{S: sp}, &core.Var{Name: "<error>", S: sp}
 }
 
 // checkerSnapshot captures unifier state for rollback.
@@ -402,26 +404,26 @@ type checkerSnapshot struct {
 	unifier unify.Snapshot
 }
 
-// saveState snapshots the checker's unifier state.
-func (ch *Checker) saveState() checkerSnapshot {
+// saveState snapshots the session's unifier state.
+func (s *Session) saveState() checkerSnapshot {
 	return checkerSnapshot{
-		unifier: ch.unifier.Snapshot(),
+		unifier: s.unifier.Snapshot(),
 	}
 }
 
-// restoreState rolls back the checker to a previously saved snapshot.
-func (ch *Checker) restoreState(snap checkerSnapshot) {
-	ch.unifier.Restore(snap.unifier)
+// restoreState rolls back the session to a previously saved snapshot.
+func (s *Session) restoreState(snap checkerSnapshot) {
+	s.unifier.Restore(snap.unifier)
 }
 
 // withTrial runs fn in a trial unification scope. If fn returns false,
 // the unifier and stuck family state is rolled back to the snapshot taken before fn was called.
-func (ch *Checker) withTrial(fn func() bool) bool {
-	saved := ch.saveState()
+func (s *Session) withTrial(fn func() bool) bool {
+	saved := s.saveState()
 	if fn() {
 		return true
 	}
-	ch.restoreState(saved)
+	s.restoreState(saved)
 	return false
 }
 
@@ -438,29 +440,29 @@ func (ch *Checker) withDeferredScope(fn func() core.Core) core.Core {
 }
 
 // tryUnify attempts to unify a and b, rolling back on failure.
-func (ch *Checker) tryUnify(a, b types.Type) bool {
-	return ch.withTrial(func() bool {
-		return ch.unifier.Unify(a, b) == nil
+func (s *Session) tryUnify(a, b types.Type) bool {
+	return s.withTrial(func() bool {
+		return s.unifier.Unify(a, b) == nil
 	})
 }
 
-func (ch *Checker) addCodedError(code errs.Code, s span.Span, msg string) {
-	ch.errors.Add(&errs.Error{
+func (s *Session) addCodedError(code errs.Code, sp span.Span, msg string) {
+	s.errors.Add(&errs.Error{
 		Code:    code,
 		Phase:   errs.PhaseCheck,
-		Span:    s,
+		Span:    sp,
 		Message: msg,
 	})
 }
 
-func (ch *Checker) trace(kind CheckTraceKind, s span.Span, format string, args ...any) {
-	if ch.config.Trace != nil {
-		line, col := ch.source.Location(s.Start)
-		ch.config.Trace(CheckTraceEvent{
+func (s *Session) trace(kind CheckTraceKind, sp span.Span, format string, args ...any) {
+	if s.config.Trace != nil {
+		line, col := s.source.Location(sp.Start)
+		s.config.Trace(CheckTraceEvent{
 			Kind:    kind,
-			Depth:   ch.depth,
+			Depth:   s.depth,
 			Message: fmt.Sprintf(format, args...),
-			Span:    s,
+			Span:    sp,
 			Line:    line,
 			Col:     col,
 		})
