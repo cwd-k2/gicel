@@ -245,6 +245,20 @@ expect_output "JSON empty list" '"value": []' \
 
 echo ""
 
+# === JSON Contract ===
+echo "JSON contract:"
+
+expect_error_contains "JSON runtime error has message" '"message":' \
+  "$GICEL" run --json -e 'import Prelude; import Effect.Fail; main := fail'
+
+expect_error_contains "JSON preflight error phase" '"phase": "preflight"' \
+  "$GICEL" run --json --max-steps -1 -e 'main := 1'
+
+expect_output "JSON success has allocated" '"allocated":' \
+  "$GICEL" run --json -e 'import Prelude; main := 42'
+
+echo ""
+
 # === Malformed Inputs ===
 echo "Malformed inputs:"
 
