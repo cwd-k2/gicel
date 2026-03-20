@@ -12,6 +12,14 @@ type Diagnostic struct {
 	Line    int
 	Col     int
 	Message string
+	Hints   []DiagnosticHint // secondary annotations (may be nil)
+}
+
+// DiagnosticHint is a secondary annotation on a compilation diagnostic.
+type DiagnosticHint struct {
+	Line    int
+	Col     int
+	Message string
 }
 
 // CompileError wraps compilation errors (lex, parse, or type check).
@@ -36,6 +44,16 @@ func (e *CompileError) Diagnostics() []Diagnostic {
 		}
 		if err.Span != (span.Span{}) {
 			d.Line, d.Col = e.Errors.Source.Location(err.Span.Start)
+		}
+		if len(err.Hints) > 0 {
+			d.Hints = make([]DiagnosticHint, len(err.Hints))
+			for j, h := range err.Hints {
+				dh := DiagnosticHint{Message: h.Message}
+				if h.Span != (span.Span{}) {
+					dh.Line, dh.Col = e.Errors.Source.Location(h.Span.Start)
+				}
+				d.Hints[j] = dh
+			}
 		}
 		diags[i] = d
 	}

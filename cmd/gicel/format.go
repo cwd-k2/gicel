@@ -344,13 +344,25 @@ func compileErrorJSON(err error) map[string]any {
 		diags := ce.Diagnostics()
 		jdiags := make([]map[string]any, len(diags))
 		for i, d := range diags {
-			jdiags[i] = map[string]any{
+			jd := map[string]any{
 				"code":    fmt.Sprintf("E%04d", d.Code),
 				"phase":   d.Phase,
 				"line":    d.Line,
 				"col":     d.Col,
 				"message": d.Message,
 			}
+			if len(d.Hints) > 0 {
+				jhints := make([]map[string]any, len(d.Hints))
+				for j, h := range d.Hints {
+					jhints[j] = map[string]any{
+						"line":    h.Line,
+						"col":     h.Col,
+						"message": h.Message,
+					}
+				}
+				jd["hints"] = jhints
+			}
+			jdiags[i] = jd
 		}
 		out["diagnostics"] = jdiags
 	}

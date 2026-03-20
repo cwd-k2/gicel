@@ -60,6 +60,9 @@ type CompileError = engine.CompileError
 // Diagnostic is a single structured error from compilation.
 type Diagnostic = engine.Diagnostic
 
+// DiagnosticHint is a secondary annotation on a compilation diagnostic.
+type DiagnosticHint = engine.DiagnosticHint
+
 // NewEngine creates a new Engine with default limits.
 var NewEngine = engine.NewEngine
 
