@@ -24,11 +24,12 @@ func (e *InternalPanicError) Error() string {
 
 // Sandbox defaults — intentionally more conservative than Engine defaults.
 const (
-	sandboxDefaultTimeout = 5 * time.Second
-	sandboxDefaultSteps   = 100_000
-	sandboxDefaultDepth   = 100
-	sandboxDefaultNesting = 256
-	sandboxDefaultAlloc   = 10 * 1024 * 1024 // 10 MiB
+	sandboxDefaultTimeout       = 5 * time.Second
+	sandboxDefaultSteps         = 100_000
+	sandboxDefaultDepth         = 100
+	sandboxDefaultNesting       = 256
+	sandboxDefaultAlloc         = 10 * 1024 * 1024 // 10 MiB
+	sandboxDefaultMaxSourceSize = 10 * 1024 * 1024 // 10 MiB
 )
 
 // SandboxConfig configures a sandboxed execution.
@@ -39,8 +40,9 @@ type SandboxConfig struct {
 	MaxSteps   int                   // step limit (default: 100_000)
 	MaxDepth   int                   // depth limit (default: 100)
 	MaxNesting int                   // structural nesting limit (default: 256)
-	MaxAlloc   int64                 // allocation byte limit (default: 10 MiB)
-	Caps       map[string]any        // initial capability environment (nil for empty)
+	MaxAlloc      int64                 // allocation byte limit (default: 10 MiB)
+	MaxSourceSize int                   // maximum source size in bytes (default: 10 MiB)
+	Caps          map[string]any        // initial capability environment (nil for empty)
 	Bindings   map[string]eval.Value // host-provided value bindings (nil for none)
 
 	// Context is the parent context for cancellation propagation.
@@ -70,6 +72,14 @@ func RunSandbox(source string, cfg *SandboxConfig) (result *RunResult, err error
 
 	if cfg == nil {
 		cfg = &SandboxConfig{}
+	}
+
+	maxSourceSize := cfg.MaxSourceSize
+	if maxSourceSize <= 0 {
+		maxSourceSize = sandboxDefaultMaxSourceSize
+	}
+	if len(source) > maxSourceSize {
+		return nil, fmt.Errorf("source size %d bytes exceeds maximum %d bytes", len(source), maxSourceSize)
 	}
 
 	entry := cfg.Entry

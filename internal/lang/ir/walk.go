@@ -21,8 +21,10 @@ func walkRec(c Core, visit func(Core) bool, depth int) {
 	case *Lam:
 		walkRec(n.Body, visit, depth+1)
 	case *App:
-		walkRec(n.Fun, visit, depth+1)
-		walkRec(n.Arg, visit, depth+1)
+		// Flatten left-spine of App to avoid stack overflow on deeply
+		// left-associative operator chains. visit(c) was already called
+		// above, so pass skipRoot=true.
+		walkLeftSpine(n, visit, depth, true)
 	case *TyApp:
 		walkRec(n.Expr, visit, depth+1)
 	case *TyLam:
@@ -69,6 +71,55 @@ func walkRec(c Core, visit func(Core) bool, depth int) {
 	}
 }
 
+// walkLeftSpine iteratively descends the left spine of App nodes (and
+// transparent wrappers TyApp/TyLam), visiting right-side children
+// recursively. This prevents Go stack overflow on deeply left-nested
+// operator chains while preserving the depth budget for non-spine nodes.
+func walkLeftSpine(app *App, visit func(Core) bool, depth int, skipRoot bool) {
+	// Collect right-side children during spine descent; visit them after.
+	type rightChild struct {
+		node  Core
+		depth int
+	}
+	var rights []rightChild
+
+	cur := Core(app)
+	first := true
+	for {
+		switch n := cur.(type) {
+		case *App:
+			if !(first && skipRoot) {
+				if !visit(n) {
+					return
+				}
+			}
+			first = false
+			rights = append(rights, rightChild{n.Arg, depth + 1})
+			cur = n.Fun
+			continue
+		case *TyApp:
+			if !visit(n) {
+				return
+			}
+			cur = n.Expr
+			continue
+		case *TyLam:
+			if !visit(n) {
+				return
+			}
+			cur = n.Body
+			continue
+		default:
+			walkRec(n, visit, depth+1)
+		}
+		break
+	}
+
+	for i := len(rights) - 1; i >= 0; i-- {
+		walkRec(rights[i].node, visit, rights[i].depth)
+	}
+}
+
 // Transform applies a function to every Core node bottom-up.
 func Transform(c Core, f func(Core) Core) Core {
 	return transformRec(c, f, 0)
@@ -76,6 +127,10 @@ func Transform(c Core, f func(Core) Core) Core {
 
 func transformRec(c Core, f func(Core) Core, depth int) Core {
 	if depth > maxTraversalDepth {
+		// For left-spine App chains, use iterative descent.
+		if _, ok := c.(*App); ok {
+			return transformLeftSpine(c, f, depth)
+		}
 		return c
 	}
 	switch n := c.(type) {
@@ -84,7 +139,7 @@ func transformRec(c Core, f func(Core) Core, depth int) Core {
 	case *Lam:
 		return f(&Lam{Param: n.Param, ParamType: n.ParamType, Body: transformRec(n.Body, f, depth+1), S: n.S})
 	case *App:
-		return f(&App{Fun: transformRec(n.Fun, f, depth+1), Arg: transformRec(n.Arg, f, depth+1), S: n.S})
+		return transformLeftSpine(c, f, depth)
 	case *TyApp:
 		return f(&TyApp{Expr: transformRec(n.Expr, f, depth+1), TyArg: n.TyArg, S: n.S})
 	case *TyLam:
@@ -136,4 +191,56 @@ func transformRec(c Core, f func(Core) Core, depth int) Core {
 	default:
 		panic(fmt.Sprintf("Transform: unhandled Core node %T", c))
 	}
+}
+
+// transformLeftSpine iteratively processes the left spine of App nodes
+// (including TyApp/TyLam wrappers), applying f bottom-up. This allows
+// Transform to handle arbitrarily deep left-associative operator chains
+// without exceeding the Go call stack.
+func transformLeftSpine(c Core, f func(Core) Core, baseDepth int) Core {
+	type spineNode struct {
+		app *App    // original App node (for span)
+		arg Core    // right child (already transformed or pending)
+	}
+	var spine []spineNode
+
+	// Phase 1: unwind the left spine, transforming right children.
+	cur := c
+	for {
+		switch n := cur.(type) {
+		case *App:
+			arg := transformRec(n.Arg, f, baseDepth+1)
+			spine = append(spine, spineNode{app: n, arg: arg})
+			cur = n.Fun
+			continue
+		case *TyApp:
+			inner := transformLeftSpineOrRec(n.Expr, f, baseDepth)
+			cur = f(&TyApp{Expr: inner, TyArg: n.TyArg, S: n.S})
+			goto rebuild
+		case *TyLam:
+			inner := transformLeftSpineOrRec(n.Body, f, baseDepth)
+			cur = f(&TyLam{TyParam: n.TyParam, Kind: n.Kind, Body: inner, S: n.S})
+			goto rebuild
+		default:
+			cur = transformRec(n, f, baseDepth+1)
+			goto rebuild
+		}
+	}
+
+rebuild:
+	// Phase 2: rebuild the spine from the root outward.
+	for i := len(spine) - 1; i >= 0; i-- {
+		sn := spine[i]
+		cur = f(&App{Fun: cur, Arg: sn.arg, S: sn.app.S})
+	}
+	return cur
+}
+
+// transformLeftSpineOrRec continues with left-spine processing if the
+// node is an App, otherwise falls back to regular recursion.
+func transformLeftSpineOrRec(c Core, f func(Core) Core, depth int) Core {
+	if _, ok := c.(*App); ok {
+		return transformLeftSpine(c, f, depth)
+	}
+	return transformRec(c, f, depth+1)
 }

@@ -1,0 +1,220 @@
+-- Comonad patterns in GICEL
+--
+-- Three comonads with increasing structure:
+--   1. Env   — value with environment (coeffect: context dependency)
+--   2. Store — position + accessor   (foundation of Lens)
+--   3. Zipper — focus in a structure  (extend = local rule propagation)
+--
+-- Requires: --recursion (Zipper uses fix for allLefts/allRights)
+-- Run: bin/gicel run --recursion examples/gicel/patterns/comonad.gicel
+
+import Prelude
+
+-- ── Comonad class ────────────────────────────────────────────
+--
+-- Dual of Monad:
+--   Monad:   (=<<) :: (a -> m b) -> m a -> m b   "value から effect を生む"
+--   Comonad: extend :: (w a -> b) -> w a -> w b   "context から value を取る"
+
+class Functor w => Comonad w {
+  extract :: \a. w a -> a;
+  extend  :: \a b. (w a -> b) -> w a -> w b
+}
+
+-- duplicate: extend id — 各位置に「そこから見た全体」を配置
+duplicate :: \(w: Type -> Type) a. Comonad w => w a -> w (w a)
+duplicate := extend id
+
+-- ── 1. Env Comonad ───────────────────────────────────────────
+--
+-- 値に環境を付与する。Reader の双対。
+-- Reader: 環境から値を「生む」 (e -> a)
+-- Env:    環境を値と「持つ」   (e, a)
+--
+-- Coeffect: 「この計算には環境 e が必要」
+
+data Env e a := MkEnv e a
+
+getEnv :: \e a. Env e a -> e
+getEnv := \ea. case ea { MkEnv e _ -> e }
+
+instance Functor (Env e) {
+  fmap := \f ea. case ea { MkEnv e a -> MkEnv e (f a) }
+}
+
+instance Comonad (Env e) {
+  extract := \ea. case ea { MkEnv _ a -> a };
+  -- extend: 環境は保持、値は f(環境+値) で置き換え
+  extend  := \f ea. case ea { MkEnv e _ -> MkEnv e (f ea) }
+}
+
+-- 使用例: 設定を付帯して計算
+greet :: Env String String -> String
+greet := \ea. append (getEnv ea) (append " " (extract ea))
+
+env1 := MkEnv "Hello" "world"
+env2 := extend greet env1
+-- = MkEnv "Hello" (greet (MkEnv "Hello" "world"))
+-- = MkEnv "Hello" "Hello world"
+
+test_env := extract env2  -- "Hello world"
+
+-- ── 2. Store Comonad ─────────────────────────────────────────
+--
+-- 「任意の位置を読む関数」+「現在の焦点位置」。
+-- extract = 焦点の値を読む
+-- extend  = すべての位置で f を評価
+--
+-- これが Lens の基盤:
+--   Lens s a ≅ s -> Store a s
+--   (構造 s の中の焦点 a を取り出し、別の a で書き戻せる)
+
+data Store s a := MkStore (s -> a) s
+
+pos :: \s a. Store s a -> s
+pos := \st. case st { MkStore _ s -> s }
+
+peek :: \s a. s -> Store s a -> a
+peek := \s st. case st { MkStore f _ -> f s }
+
+instance Functor (Store s) {
+  fmap := \f st. case st { MkStore g s -> MkStore (f . g) s }
+}
+
+instance Comonad (Store s) {
+  extract := \st. case st { MkStore f s -> f s };
+  -- extend: 各位置 s' に対して f(Store focused at s') を計算
+  extend  := \f st. case st { MkStore g s -> MkStore (\s'. f (MkStore g s')) s }
+}
+
+-- 使用例: 1D 配列を Store で表現
+-- 配列 [0, 10, 20, 30, 40, ...], 焦点 = position 3
+arr := MkStore (\i. i * 10) 3
+
+test_extract := extract arr   -- 30 (焦点の値)
+test_peek    := peek 4 arr    -- 40 (別の位置を覗く)
+
+-- extend: 「自分 + 右隣」を各位置で計算
+sumRight :: Store Int Int -> Int
+sumRight := \st. extract st + peek (pos st + 1) st
+
+arr2 := extend sumRight arr
+test_extend := extract arr2   -- 30 + 40 = 70
+
+-- ── 3. Zipper Comonad ────────────────────────────────────────
+--
+-- 1D 構造に「焦点」を持つ。extend の真価が最も現れる:
+-- 「局所ルールをすべての位置に一斉適用する」
+--
+-- MkZipper [左(近→遠)] 焦点 [右(近→遠)]
+-- 例: [1, 2, |3|, 4, 5] = MkZipper [2,1] 3 [4,5]
+
+data Zipper a := MkZipper (List a) a (List a)
+
+focus :: \a. Zipper a -> a
+focus := \z. case z { MkZipper _ c _ -> c }
+
+-- 焦点を左右にシフト
+goLeft :: \a. Zipper a -> Maybe (Zipper a)
+goLeft := \z. case z { MkZipper ls c rs -> case ls {
+  Nil -> Nothing;
+  Cons l rest -> Just (MkZipper rest l (Cons c rs))
+}}
+
+goRight :: \a. Zipper a -> Maybe (Zipper a)
+goRight := \z. case z { MkZipper ls c rs -> case rs {
+  Nil -> Nothing;
+  Cons r rest -> Just (MkZipper (Cons c ls) r rest)
+}}
+
+-- 全左/右シフトを収集 (extend の実装に必要)
+allLefts :: \a. Zipper a -> List (Zipper a)
+allLefts := fix (\self z. case goLeft z {
+  Nothing -> Nil;
+  Just z' -> Cons z' (self z')
+})
+
+allRights :: \a. Zipper a -> List (Zipper a)
+allRights := fix (\self z. case goRight z {
+  Nothing -> Nil;
+  Just z' -> Cons z' (self z')
+})
+
+instance Functor Zipper {
+  fmap := \f z. case z {
+    MkZipper ls c rs -> MkZipper (map f ls) (f c) (map f rs)
+  }
+}
+
+-- NOTE: instance 内部に直接書くと型チェッカが指数的ブローアップ。
+-- instance context での w~Zipper 統一 + map の多相性 + allLefts の
+-- 制約解決が組合せ爆発する。ヘルパーを外に出して型注釈で誘導する。
+_extendZ :: \a b. (Zipper a -> b) -> Zipper a -> Zipper b
+_extendZ := \f z. MkZipper (map f (allLefts z)) (f z) (map f (allRights z))
+
+instance Comonad Zipper {
+  extract := \z. case z { MkZipper _ c _ -> c };
+  extend := _extendZ
+}
+
+-- ── Zipper ヘルパー ──────────────────────────────────────────
+
+leftVal :: \a. a -> Zipper a -> a
+leftVal := \def z. case z { MkZipper ls _ _ -> case ls {
+  Nil -> def; Cons l _ -> l
+}}
+
+rightVal :: \a. a -> Zipper a -> a
+rightVal := \def z. case z { MkZipper _ _ rs -> case rs {
+  Nil -> def; Cons r _ -> r
+}}
+
+zipperToList :: \a. Zipper a -> List a
+zipperToList := \z. case z {
+  MkZipper ls c rs -> append (reverse ls) (Cons c rs)
+}
+
+-- ── 使用例: 1D 平滑化 ───────────────────────────────────────
+--
+-- [1, 2, |3|, 4, 5] の各位置で「左 + 自分 + 右」を計算
+-- extend sumNeighbors: 局所ルール → 大域変換
+
+sumNeighbors :: Zipper Int -> Int
+sumNeighbors := \z. leftVal 0 z + extract z + rightVal 0 z
+
+z1 := MkZipper (Cons 2 (Cons 1 Nil)) 3 (Cons 4 (Cons 5 Nil))
+-- [1, 2, |3|, 4, 5]
+
+smoothed := extend sumNeighbors z1
+-- 位置0: 0+1+2 = 3
+-- 位置1: 1+2+3 = 6
+-- 位置2: 2+3+4 = 9  ← 焦点
+-- 位置3: 3+4+5 = 12
+-- 位置4: 4+5+0 = 9
+
+test_focus := extract smoothed          -- 9
+test_all   := zipperToList smoothed     -- [3, 6, 9, 12, 9]
+
+-- ── 使用例: 離散微分 ─────────────────────────────────────────
+--
+-- 同じ構造、別のルール: 「右隣 − 自分」= 前進差分
+-- extend で別の局所ルール → 別の大域変換
+
+diff :: Zipper Int -> Int
+diff := \z. rightVal (extract z) z - extract z
+
+edges := extend diff z1
+-- 位置0: 2-1 = 1
+-- 位置1: 3-2 = 1
+-- 位置2: 4-3 = 1  ← 焦点
+-- 位置3: 5-4 = 1
+-- 位置4: 5-5 = 0  (右端: default=self)
+
+test_diff := zipperToList edges  -- [1, 1, 1, 1, 0]
+
+-- ── 出力 ─────────────────────────────────────────────────────
+
+main := ( (test_env, (test_extract, test_peek))
+        , ((test_extend, test_focus), (test_all, test_diff))
+        )
+-- Expected: (("Hello world", (30, 40)), ((70, 9), ([3, 6, 9, 12, 9], [1, 1, 1, 1, 0])))

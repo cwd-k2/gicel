@@ -470,8 +470,13 @@ func cmdCheck(args []string) int {
 	fs.Var(&modules, "module", "register module: Name=path (repeatable)")
 	jsonOut := fs.Bool("json", false, "output as JSON")
 	expr := fs.String("e", "", "evaluate source string directly")
+	timeout := fs.Duration("timeout", 5*time.Second, "compilation timeout")
 	if err := fs.Parse(args); err != nil {
 		return 1
+	}
+
+	if *timeout <= 0 {
+		return preflightError("--timeout must be a positive duration (e.g., 1s, 5m)", *jsonOut)
 	}
 
 	source, eng, err := prepareEngine(fs, *packs, *recursion, *expr, modules)
@@ -480,7 +485,10 @@ func cmdCheck(args []string) int {
 		return 1
 	}
 
-	cr, err := eng.Compile(context.Background(), string(source))
+	ctx, cancel := context.WithTimeout(context.Background(), *timeout)
+	defer cancel()
+
+	cr, err := eng.Compile(ctx, string(source))
 	if err != nil {
 		return handleCompileError(err, *jsonOut)
 	}

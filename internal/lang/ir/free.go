@@ -38,8 +38,10 @@ func freeVarsRec(c Core, bound map[string]int, fv map[string]struct{}, depth int
 		freeVarsRec(n.Body, bound, fv, depth+1)
 		unbind(bound, n.Param)
 	case *App:
-		freeVarsRec(n.Fun, bound, fv, depth+1)
-		freeVarsRec(n.Arg, bound, fv, depth+1)
+		// Flatten left-spine of App to avoid stack overflow on deeply
+		// left-associative operator chains.
+		freeVarsLeftSpine(n, bound, fv, depth)
+		return
 	case *TyApp:
 		freeVarsRec(n.Expr, bound, fv, depth+1)
 	case *TyLam:
@@ -97,6 +99,39 @@ func freeVarsRec(c Core, bound map[string]int, fv map[string]struct{}, depth int
 	}
 }
 
+// freeVarsLeftSpine iteratively descends the left spine of App nodes
+// (and transparent TyApp/TyLam wrappers), collecting free variables from
+// right-side children. Prevents Go stack overflow on deeply left-nested
+// operator chains.
+func freeVarsLeftSpine(app *App, bound map[string]int, fv map[string]struct{}, depth int) {
+	type rightChild struct {
+		node Core
+	}
+	var rights []rightChild
+
+	cur := Core(app)
+	for {
+		switch n := cur.(type) {
+		case *App:
+			rights = append(rights, rightChild{n.Arg})
+			cur = n.Fun
+			continue
+		case *TyApp:
+			cur = n.Expr
+			continue
+		case *TyLam:
+			cur = n.Body
+			continue
+		default:
+			freeVarsRec(n, bound, fv, depth+1)
+		}
+		break
+	}
+	for i := len(rights) - 1; i >= 0; i-- {
+		freeVarsRec(rights[i].node, bound, fv, depth+1)
+	}
+}
+
 // AnnotateFreeVars populates FV fields on Lam and Thunk nodes in a single
 // bottom-up pass (O(n)). For each Lam, FV = free vars of body ∖ {param}.
 // For each Thunk, FV = free vars of comp.
@@ -111,27 +146,82 @@ func AnnotateFreeVarsProgram(p *Program) {
 	}
 }
 
+// fvOverflowKey is a sentinel key placed in the FV map to indicate that
+// the computation was truncated by the depth limit. Any Lam/Thunk whose
+// body FV contains this key will have FV = nil, disabling environment
+// trimming at runtime. Safe (retains more than necessary) but prevents
+// $dict_N variable losses on deeply nested operator chains.
+const fvOverflowKey = "\x00<overflow>"
+
+func fvOverflowSet() map[string]struct{} {
+	return map[string]struct{}{fvOverflowKey: {}}
+}
+
+func isFVOverflow(m map[string]struct{}) bool {
+	_, ok := m[fvOverflowKey]
+	return ok
+}
+
+// annotateFVLeftSpine iteratively descends the left spine of App nodes
+// for the annotateFV pass, merging free variable sets from right children.
+func annotateFVLeftSpine(app *App, depth int) map[string]struct{} {
+	var rights []Core
+
+	cur := Core(app)
+	for {
+		switch n := cur.(type) {
+		case *App:
+			rights = append(rights, n.Arg)
+			cur = n.Fun
+			continue
+		case *TyApp:
+			cur = n.Expr
+			continue
+		case *TyLam:
+			cur = n.Body
+			continue
+		default:
+			// Reached spine root.
+		}
+		break
+	}
+
+	result := annotateFV(cur, depth+1)
+	for i := len(rights) - 1; i >= 0; i-- {
+		result = mergeFV(result, annotateFV(rights[i], depth+1))
+	}
+	return result
+}
+
 // annotateFV computes free variables bottom-up, annotating Lam and Thunk nodes.
 // Returns the set of free variables in the expression.
 // Unlike FreeVars/freeVarsRec, this does NOT propagate Lam params into bound —
 // outer Lam params are free from an inner closure's perspective (they are captured).
 // Only Fix names, Case alt bindings, and Bind vars are propagated as bound,
 // since they are resolved within the same scope.
+//
+// When the depth limit is reached, returns fvOverflow (a sentinel) instead of
+// nil, so that ancestor Lam/Thunk nodes detect the truncation and disable
+// environment trimming rather than silently losing deep free variables.
 func annotateFV(c Core, depth int) map[string]struct{} {
 	if depth > maxTraversalDepth {
-		return nil
+		return fvOverflowSet()
 	}
 	switch n := c.(type) {
 	case *Var:
 		return map[string]struct{}{varKey(n): {}}
 	case *Lam:
 		bodyFV := annotateFV(n.Body, depth+1)
+		if isFVOverflow(bodyFV) {
+			n.FV = nil // disable env trimming — deep subtree FV unknown
+			return fvOverflowSet()
+		}
 		// Remove the param — it comes from application, not from captured env.
 		delete(bodyFV, n.Param)
 		n.FV = setToSlice(bodyFV)
 		return bodyFV
 	case *App:
-		return mergeFV(annotateFV(n.Fun, depth+1), annotateFV(n.Arg, depth+1))
+		return annotateFVLeftSpine(n, depth)
 	case *TyApp:
 		return annotateFV(n.Expr, depth+1)
 	case *TyLam:
@@ -168,6 +258,10 @@ func annotateFV(c Core, depth int) map[string]struct{} {
 		return mergeFV(compFV, bodyFV)
 	case *Thunk:
 		compFV := annotateFV(n.Comp, depth+1)
+		if isFVOverflow(compFV) {
+			n.FV = nil // disable env trimming — deep subtree FV unknown
+			return fvOverflowSet()
+		}
 		n.FV = setToSlice(compFV)
 		return compFV
 	case *Force:
@@ -200,6 +294,9 @@ func annotateFV(c Core, depth int) map[string]struct{} {
 }
 
 func mergeFV(a, b map[string]struct{}) map[string]struct{} {
+	if isFVOverflow(a) || isFVOverflow(b) {
+		return fvOverflowSet()
+	}
 	if len(a) == 0 {
 		return b
 	}

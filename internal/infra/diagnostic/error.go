@@ -70,6 +70,7 @@ const (
 	ErrTypeFamilyEquation  Code = 281 // invalid type family equation
 	ErrInjectivity         Code = 282 // type family injectivity violation
 	ErrTypeFamilyReduction Code = 283 // type family reduction error
+	ErrSolverLimit         Code = 284 // constraint solver step limit exceeded
 	ErrMultiplicity        Code = 290 // multiplicity constraint violation
 	ErrEffectfulBinding    Code = 291 // bare Computation type in non-entry top-level binding
 	ErrCancelled           Code = 299 // compilation cancelled (context deadline/cancellation)

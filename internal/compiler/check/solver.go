@@ -9,6 +9,11 @@ import (
 	"github.com/cwd-k2/gicel/internal/lang/types"
 )
 
+// maxSolverSteps is the upper bound on constraint solver iterations.
+// Prevents unbounded work from pathological programs (e.g., exponential
+// instance resolution in complex type class bodies).
+const maxSolverSteps = 100_000
+
 // solveWanteds processes all constraints in the worklist, producing
 // a placeholder → Core resolution map and residual constraints.
 //
@@ -22,9 +27,19 @@ func (ch *Checker) solveWanteds(
 	ch.solver.inertSet.Reset()
 	ch.solver.ambiguityCache = nil // lazily allocated; zero-cost when shouldDefer is nil
 
+	steps := 0
 	for {
 		ct, ok := ch.solver.worklist.Pop()
 		if !ok {
+			break
+		}
+		steps++
+		if steps > maxSolverSteps {
+			ch.addCodedError(diagnostic.ErrSolverLimit, ct.ctSpan(),
+				"constraint solver step limit exceeded (possible infinite loop or exponential blowup)")
+			break
+		}
+		if ch.checkCancelled() {
 			break
 		}
 		switch c := ct.(type) {

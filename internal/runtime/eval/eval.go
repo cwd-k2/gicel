@@ -310,6 +310,11 @@ func (ev *Evaluator) evalStep(env *Env, capEnv CapEnv, expr ir.Core) (EvalResult
 		}}, nil
 
 	case *ir.Lit:
+		if s, ok := e.Value.(string); ok && len(s) > 0 {
+			if err := ev.budget.Alloc(int64(len(s))); err != nil {
+				return EvalResult{}, err
+			}
+		}
 		return EvalResult{&HostVal{Inner: e.Value}, capEnv}, nil
 
 	case *ir.PrimOp:
