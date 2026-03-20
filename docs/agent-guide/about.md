@@ -14,10 +14,10 @@ Key properties for agents:
 ### Minimal Program
 
 ```
-main := True
+main := ()
 ```
 
-This defines a binding `main` whose value is `True` (a Bool constructor from the Prelude).
+This defines a binding `main` whose value is `()` (the unit value). No imports required.
 
 ### With Arithmetic (requires Prelude)
 
@@ -73,6 +73,7 @@ CLI flags:
 | `--timeout`     | `5s`     | Execution timeout (run only)                                             |
 | `--max-steps`   | `100000` | Step limit (run only)                                                    |
 | `--max-depth`   | `100`    | Depth limit (run only)                                                   |
+| `--max-nesting` | `512`    | Structural nesting depth limit                                           |
 | `--max-alloc`   | `100MiB` | Allocation byte limit (run only)                                         |
 | `--json`        | `false`  | Output result as JSON (run, check)                                       |
 | `--explain`     | `false`  | Show semantic evaluation trace (run only)                                |
@@ -80,6 +81,11 @@ CLI flags:
 | `--verbose`     | `false`  | Show source context in explain trace (run only)                          |
 | `--no-color`    | `false`  | Disable color output; also respects `NO_COLOR` env var                   |
 | `-e <source>`   | --       | Evaluate source string directly (run, check)                             |
+
+**Inline source (`-e`):** Semicolons and newlines are interchangeable separators.
+Use `;` when writing inline: `gicel run -e 'import Prelude; main := 1 + 2'`.
+
+**`--explain-all`** is only effective when `--explain` is also set.
 
 **Go API (Sandbox):**
 

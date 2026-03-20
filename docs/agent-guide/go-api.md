@@ -20,8 +20,7 @@ result, err := gicel.RunSandbox(source, &gicel.SandboxConfig{
 ```
 
 `SandboxConfig` fields are all optional. `nil` uses conservative defaults.
-`Timeout` bounds evaluation time; compilation (parse/check/optimize) runs
-to completion before the clock starts.
+RunSandbox applies timeout to the entire pipeline (pack application, compilation, evaluation). For the Engine API, the context passed to NewRuntime bounds main compilation and evaluation; module compilation uses the Engine's compile context (set via SetCompileContext).
 
 `RunResult`: `Value` (result), `CapEnv` (final capabilities), `Stats` (EvalStats: `Steps int`, `MaxDepth int`, `Allocated int64`).
 
