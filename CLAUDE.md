@@ -9,7 +9,7 @@ go build -o bin/gicel ./cmd/gicel/     # build CLI binary to bin/
 go run ./examples/go/<name>/           # run Go example (no binary)
 goimports -w .                         # format Go
 prettier --write docs/                 # format docs
-./scripts/smoke-test.sh                # CLI smoke test (build + 29 cases)
+./scripts/smoke-test.sh                # CLI smoke test (build + 57 cases)
 ```
 
 **Build output goes to `bin/` only.** Never `go build ./some/pkg` without `-o bin/...` — it dumps a binary in the working directory.
@@ -132,13 +132,17 @@ cd examples/cli/multi-module
 ### Directory layout
 
 ```
-internal/*/_test.go              # unit tests — test internal functions/types directly
-internal/engine/*_test.go        # integration tests — end-to-end via Engine/Runtime
-tests/probe/                     # adversarial probe tests (build tag: probe)
-tests/stress/                    # stress tests — large inputs, resource boundaries
+internal/lang/                         # language definition (syntax, types, ir)
+internal/infra/                        # compiler infrastructure (span, budget, diagnostic)
+internal/compiler/                     # source → Core IR (parse, check, optimize)
+internal/runtime/                      # Core IR execution (eval)
+internal/host/                         # Go integration (registry, stdlib)
+internal/app/                          # orchestration (engine)
+tests/probe/                           # adversarial probe tests (build tag: probe)
+tests/stress/                          # stress tests — large inputs, resource boundaries
 ```
 
-In-package probes: `internal/check/*_probe_test.go`, `internal/syntax/parse/*_probe_test.go`, `internal/eval/*_probe_test.go`
+In-package probes: `internal/compiler/check/*_probe_test.go`, `internal/compiler/parse/*_probe_test.go`, `internal/runtime/eval/*_probe_test.go`
 
 ### Build tags
 
@@ -165,7 +169,7 @@ Both implementation and test files follow the same pattern:
 `evidence.go` → `evidence_test.go`, `evidence_resolve_test.go`, `evidence_probe_test.go`
 
 **Test-only files with no corresponding implementation (bench, helpers, fuzz, etc.) use the package name as the feature.**
-`internal/check/bench_test.go` → `internal/check/check_bench_test.go`
+`internal/compiler/check/bench_test.go` → `internal/compiler/check/check_bench_test.go`
 
 **Consider splitting files over 500 lines.** Sequence numbers `_NNNN` are a last resort when no content-based split name exists.
 

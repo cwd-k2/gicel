@@ -1,0 +1,566 @@
+package unify
+
+import (
+	"fmt"
+
+	"github.com/cwd-k2/gicel/internal/infra/budget"
+	"github.com/cwd-k2/gicel/internal/lang/types"
+)
+
+// UnifyErrorKind classifies unification failures for structured error reporting.
+type UnifyErrorKind int
+
+const (
+	UnifyMismatch    UnifyErrorKind = iota // general type mismatch
+	UnifyOccursCheck                       // infinite type (occurs check)
+	UnifyDupLabel                          // duplicate label in row
+	UnifyRowMismatch                       // row structure mismatch (extra labels, closed row)
+	UnifySkolemRigid                       // rigid/skolem variable cannot be unified
+)
+
+// UnifyError is a structured error returned by the unifier.
+type UnifyError struct {
+	Kind   UnifyErrorKind
+	Detail string
+}
+
+func (e *UnifyError) Error() string { return e.Detail }
+
+// AliasExpander is a callback for expanding type aliases during unification.
+type AliasExpander func(types.Type) types.Type
+
+// FamilyReducer is a callback for reducing type family applications during unification.
+type FamilyReducer func(types.Type) types.Type
+
+// trailTag discriminates the three maps that a trail entry can target.
+type trailTag byte
+
+const (
+	trailSoln     trailTag = iota // soln map
+	trailLabel                    // labels map
+	trailKindSoln                 // kindSoln map
+)
+
+// trailEntry records a single map mutation for undo-log rollback.
+// On Restore, entries are replayed in reverse order, restoring the
+// pre-mutation value (or deleting the key if it did not exist).
+type trailEntry struct {
+	tag     trailTag
+	id      int
+	existed bool
+	oldType types.Type          // valid when tag == trailSoln
+	oldLbl  map[string]struct{} // valid when tag == trailLabel
+	oldKind types.Kind          // valid when tag == trailKindSoln
+}
+
+// Unifier manages type unification.
+type Unifier struct {
+	soln     map[int]types.Type
+	labels   map[int]map[string]struct{}
+	kindSoln map[int]types.Kind // kind metavariable solutions
+	freshID  *int
+
+	// Undo trail for O(1) snapshot / O(k) restore.
+	trail []trailEntry
+
+	AliasExpander AliasExpander // optional; set by Checker after alias processing
+	FamilyReducer FamilyReducer // optional; set by Checker after type family processing
+
+	// OnSolve is called when a metavariable is solved.
+	// The checker uses this to re-activate stuck type family applications.
+	OnSolve func(metaID int)
+
+	// Budget tracks structural nesting depth. If nil, nesting is unbounded.
+	Budget *budget.Budget
+}
+
+// NewUnifier creates a Unifier with its own internal fresh ID counter.
+func NewUnifier() *Unifier {
+	id := 0
+	return &Unifier{
+		soln:     make(map[int]types.Type),
+		labels:   make(map[int]map[string]struct{}),
+		kindSoln: make(map[int]types.Kind),
+		freshID:  &id,
+	}
+}
+
+// NewUnifierShared creates a Unifier that shares a fresh ID counter
+// with the calling Checker, ensuring no ID collisions.
+func NewUnifierShared(freshID *int) *Unifier {
+	return &Unifier{
+		soln:     make(map[int]types.Type),
+		labels:   make(map[int]map[string]struct{}),
+		kindSoln: make(map[int]types.Kind),
+		freshID:  freshID,
+	}
+}
+
+// Solve returns the current solution for a metavariable.
+func (u *Unifier) Solve(id int) types.Type {
+	return u.soln[id]
+}
+
+// InstallTempSolution registers a temporary solution for a metavariable.
+// The caller must call RemoveTempSolution when done. Used by let-generalization
+// to substitute metas with type variables for Zonk, then clean up.
+// NOT trailed: callers manage the lifecycle manually outside trial scopes.
+func (u *Unifier) InstallTempSolution(id int, ty types.Type) {
+	u.soln[id] = ty
+}
+
+// RemoveTempSolution removes a previously installed temporary solution.
+func (u *Unifier) RemoveTempSolution(id int) {
+	delete(u.soln, id)
+}
+
+// Solutions returns the current solution map for introspection (e.g., skolem escape check).
+func (u *Unifier) Solutions() map[int]types.Type {
+	return u.soln
+}
+
+// Labels returns the label context map for save/restore during trial unification.
+func (u *Unifier) Labels() map[int]map[string]struct{} {
+	return u.labels
+}
+
+// KindSolutions returns the kind solution map for save/restore during trial unification.
+func (u *Unifier) KindSolutions() map[int]types.Kind {
+	return u.kindSoln
+}
+
+// ---------------------------------------------------------------------------
+// Trail-based snapshot / restore
+// ---------------------------------------------------------------------------
+
+// Snapshot records the current trail position for later rollback.
+// O(1) — no map copying.
+type Snapshot struct {
+	pos int
+}
+
+// Snapshot captures the current unifier state for later rollback.
+func (u *Unifier) Snapshot() Snapshot {
+	return Snapshot{pos: len(u.trail)}
+}
+
+// Restore rolls back the unifier to a previously saved snapshot by replaying
+// the trail in reverse. O(k) where k = number of mutations since snapshot.
+func (u *Unifier) Restore(snap Snapshot) {
+	for i := len(u.trail) - 1; i >= snap.pos; i-- {
+		e := &u.trail[i]
+		switch e.tag {
+		case trailSoln:
+			if e.existed {
+				u.soln[e.id] = e.oldType
+			} else {
+				delete(u.soln, e.id)
+			}
+		case trailLabel:
+			if e.existed {
+				u.labels[e.id] = e.oldLbl
+			} else {
+				delete(u.labels, e.id)
+			}
+		case trailKindSoln:
+			if e.existed {
+				u.kindSoln[e.id] = e.oldKind
+			} else {
+				delete(u.kindSoln, e.id)
+			}
+		}
+	}
+	u.trail = u.trail[:snap.pos]
+}
+
+// trailSolnWrite records the current soln[id] value before mutation.
+func (u *Unifier) trailSolnWrite(id int) {
+	old, existed := u.soln[id]
+	u.trail = append(u.trail, trailEntry{
+		tag: trailSoln, id: id, existed: existed, oldType: old,
+	})
+}
+
+// trailLabelWrite records the current labels[id] value before mutation.
+func (u *Unifier) trailLabelWrite(id int) {
+	old, existed := u.labels[id]
+	u.trail = append(u.trail, trailEntry{
+		tag: trailLabel, id: id, existed: existed, oldLbl: old,
+	})
+}
+
+// trailKindWrite records the current kindSoln[id] value before mutation.
+func (u *Unifier) trailKindWrite(id int) {
+	old, existed := u.kindSoln[id]
+	u.trail = append(u.trail, trailEntry{
+		tag: trailKindSoln, id: id, existed: existed, oldKind: old,
+	})
+}
+
+// RegisterLabelContext records the surrounding labels for a row metavariable.
+func (u *Unifier) RegisterLabelContext(id int, labels map[string]struct{}) {
+	u.trailLabelWrite(id)
+	u.labels[id] = labels
+}
+
+// Zonk replaces all solved metavariables in a type.
+// Optimizations:
+//   - Path compression: meta chains (m1 → m2 → Int) are compressed so
+//     soln[m1] points directly to the final answer.
+//   - Structural identity: if all children are unchanged (pointer-equal),
+//     the original node is returned (avoids allocation).
+func (u *Unifier) Zonk(t types.Type) types.Type {
+	if u.Budget != nil {
+		if err := u.Budget.Nest(); err != nil {
+			return t // bail out, preserving the unzonked type
+		}
+		defer u.Budget.Unnest()
+	}
+	switch ty := t.(type) {
+	case *types.TyMeta:
+		soln, ok := u.soln[ty.ID]
+		if !ok {
+			return ty
+		}
+		result := u.Zonk(soln)
+		if result != soln {
+			u.trailSolnWrite(ty.ID)
+			u.soln[ty.ID] = result // path compression
+		}
+		return result
+	case *types.TyApp:
+		zFun := u.Zonk(ty.Fun)
+		zArg := u.Zonk(ty.Arg)
+		if zFun == ty.Fun && zArg == ty.Arg {
+			return ty
+		}
+		return &types.TyApp{Fun: zFun, Arg: zArg, S: ty.S}
+	case *types.TyArrow:
+		zFrom := u.Zonk(ty.From)
+		zTo := u.Zonk(ty.To)
+		if zFrom == ty.From && zTo == ty.To {
+			return ty
+		}
+		return &types.TyArrow{From: zFrom, To: zTo, S: ty.S}
+	case *types.TyForall:
+		zBody := u.Zonk(ty.Body)
+		if zBody == ty.Body {
+			return ty
+		}
+		return &types.TyForall{Var: ty.Var, Kind: ty.Kind, Body: zBody, S: ty.S}
+	case *types.TyCBPV:
+		zPre := u.Zonk(ty.Pre)
+		zPost := u.Zonk(ty.Post)
+		zResult := u.Zonk(ty.Result)
+		if zPre == ty.Pre && zPost == ty.Post && zResult == ty.Result {
+			return ty
+		}
+		return &types.TyCBPV{Tag: ty.Tag, Pre: zPre, Post: zPost, Result: zResult, S: ty.S}
+	case *types.TyEvidenceRow:
+		newEntries, changed := ty.Entries.ZonkEntries(u.Zonk)
+		var tail types.Type
+		if ty.Tail != nil {
+			tail = u.Zonk(ty.Tail)
+			if tail != ty.Tail {
+				changed = true
+			}
+		}
+		if !changed {
+			return ty
+		}
+		return &types.TyEvidenceRow{Entries: newEntries, Tail: tail, S: ty.S}
+	case *types.TyEvidence:
+		zConstraints := u.Zonk(ty.Constraints)
+		zBody := u.Zonk(ty.Body)
+		if zConstraints == ty.Constraints && zBody == ty.Body {
+			return ty
+		}
+		cr, ok := zConstraints.(*types.TyEvidenceRow)
+		if !ok {
+			// Zonk produced a non-evidence-row (e.g., solved meta);
+			// preserve original constraints to avoid nil dereference.
+			return &types.TyEvidence{Constraints: ty.Constraints, Body: zBody, S: ty.S}
+		}
+		return &types.TyEvidence{Constraints: cr, Body: zBody, S: ty.S}
+	case *types.TyFamilyApp:
+		changed := false
+		args := make([]types.Type, len(ty.Args))
+		for i, a := range ty.Args {
+			zA := u.Zonk(a)
+			args[i] = zA
+			if zA != a {
+				changed = true
+			}
+		}
+		if !changed {
+			return ty
+		}
+		return &types.TyFamilyApp{Name: ty.Name, Args: args, Kind: ty.Kind, S: ty.S}
+	case *types.TySkolem:
+		return ty
+	default:
+		return t
+	}
+}
+
+// normalize applies alias expansion and special type normalization.
+func (u *Unifier) normalize(t types.Type) types.Type {
+	if u.AliasExpander != nil {
+		t = u.AliasExpander(t)
+	}
+	if u.FamilyReducer != nil {
+		t = u.FamilyReducer(t)
+	}
+	return normalizeCompApp(t)
+}
+
+// normalizeCompApp converts fully-applied TyApp chains to their special type
+// representations. e.g. TyApp(TyApp(TyApp(TyCon("Computation"), pre), post), result)
+// becomes TyCBPV{TagComp, pre, post, result}. This arises when a class type parameter
+// (m: Row -> Row -> Type -> Type) is substituted with Computation.
+func normalizeCompApp(t types.Type) types.Type {
+	app1, ok := t.(*types.TyApp)
+	if !ok {
+		return t
+	}
+	app2, ok := app1.Fun.(*types.TyApp)
+	if !ok {
+		return t
+	}
+	app3, ok := app2.Fun.(*types.TyApp)
+	if !ok {
+		return t
+	}
+	con, ok := app3.Fun.(*types.TyCon)
+	if !ok {
+		return t
+	}
+	switch con.Name {
+	case types.TyConComputation:
+		return &types.TyCBPV{Tag: types.TagComp, Pre: app3.Arg, Post: app2.Arg, Result: app1.Arg, S: t.Span()}
+	case types.TyConThunk:
+		return &types.TyCBPV{Tag: types.TagThunk, Pre: app3.Arg, Post: app2.Arg, Result: app1.Arg, S: t.Span()}
+	}
+	return t
+}
+
+// Unify solves the constraint a ~ b.
+func (u *Unifier) Unify(a, b types.Type) error {
+	if u.Budget != nil {
+		if err := u.Budget.Nest(); err != nil {
+			return err
+		}
+		defer u.Budget.Unnest()
+	}
+	a = u.Zonk(a)
+	b = u.Zonk(b)
+
+	// Normalize special type applications and expand aliases.
+	a = u.normalize(a)
+	b = u.normalize(b)
+
+	// Error types unify with anything.
+	if _, ok := a.(*types.TyError); ok {
+		return nil
+	}
+	if _, ok := b.(*types.TyError); ok {
+		return nil
+	}
+
+	// Metavariable solving.
+	if am, ok := a.(*types.TyMeta); ok {
+		return u.solveMeta(am, b)
+	}
+	if bm, ok := b.(*types.TyMeta); ok {
+		return u.solveMeta(bm, a)
+	}
+
+	// Skolem: rigid type variables cannot be unified with anything except themselves.
+	if as, ok := a.(*types.TySkolem); ok {
+		if bs, ok := b.(*types.TySkolem); ok && as.ID == bs.ID {
+			return nil
+		}
+		return &UnifyError{Kind: UnifySkolemRigid, Detail: fmt.Sprintf("cannot unify rigid type variable #%s with %s", as.Name, types.Pretty(b))}
+	}
+	if bs, ok := b.(*types.TySkolem); ok {
+		return &UnifyError{Kind: UnifySkolemRigid, Detail: fmt.Sprintf("cannot unify %s with rigid type variable #%s", types.Pretty(a), bs.Name)}
+	}
+
+	switch at := a.(type) {
+	case *types.TyVar:
+		if bt, ok := b.(*types.TyVar); ok && at.Name == bt.Name {
+			return nil
+		}
+	case *types.TyCon:
+		if bt, ok := b.(*types.TyCon); ok && at.Name == bt.Name {
+			return nil
+		}
+	case *types.TyArrow:
+		if bt, ok := b.(*types.TyArrow); ok {
+			if err := u.Unify(at.From, bt.From); err != nil {
+				return err
+			}
+			return u.Unify(at.To, bt.To)
+		}
+	case *types.TyApp:
+		if bt, ok := b.(*types.TyApp); ok {
+			if err := u.Unify(at.Fun, bt.Fun); err != nil {
+				return err
+			}
+			return u.Unify(at.Arg, bt.Arg)
+		}
+		// Cross-case: decompose TyApp spine directly against TyCBPV
+		// to avoid the normalize cycle (normalizeCompApp ↔ compToApp).
+		if cbpv, ok := b.(*types.TyCBPV); ok {
+			name := types.TyConComputation
+			if cbpv.Tag == types.TagThunk {
+				name = types.TyConThunk
+			}
+			return u.unifyAppWithTriple(a, name, [3]types.Type{cbpv.Pre, cbpv.Post, cbpv.Result})
+		}
+	case *types.TyForall:
+		if bt, ok := b.(*types.TyForall); ok {
+			// Unify bodies with bound variables treated as equal.
+			return u.Unify(at.Body, types.Subst(bt.Body, bt.Var, &types.TyVar{Name: at.Var}))
+		}
+	case *types.TyCBPV:
+		if bt, ok := b.(*types.TyCBPV); ok && at.Tag == bt.Tag {
+			if err := u.Unify(at.Pre, bt.Pre); err != nil {
+				return err
+			}
+			if err := u.Unify(at.Post, bt.Post); err != nil {
+				return err
+			}
+			return u.Unify(at.Result, bt.Result)
+		}
+		if _, ok := b.(*types.TyApp); ok {
+			name := types.TyConComputation
+			if at.Tag == types.TagThunk {
+				name = types.TyConThunk
+			}
+			return u.unifyAppWithTriple(b, name, [3]types.Type{at.Pre, at.Post, at.Result})
+		}
+	case *types.TyEvidenceRow:
+		if bt, ok := b.(*types.TyEvidenceRow); ok {
+			return u.unifyEvidenceRows(at, bt)
+		}
+	case *types.TyEvidence:
+		if bt, ok := b.(*types.TyEvidence); ok {
+			if err := u.Unify(at.Constraints, bt.Constraints); err != nil {
+				return err
+			}
+			return u.Unify(at.Body, bt.Body)
+		}
+	case *types.TyFamilyApp:
+		if bt, ok := b.(*types.TyFamilyApp); ok && at.Name == bt.Name && len(at.Args) == len(bt.Args) {
+			for i := range at.Args {
+				if err := u.Unify(at.Args[i], bt.Args[i]); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}
+
+	return &UnifyError{Kind: UnifyMismatch, Detail: fmt.Sprintf("type mismatch: %s vs %s", types.Pretty(a), types.Pretty(b))}
+}
+
+// unifyAppWithTriple decomposes a TyApp chain and unifies its spine against
+// a named type constructor with 3 fields (Computation or Thunk).
+// This avoids the normalize cycle: normalizeCompApp converts TyApp→TyCBPV,
+// while compToApp converts TyCBPV→TyApp, causing infinite recursion.
+// Instead, we decompose the TyApp into (head, args) and unify each component directly.
+func (u *Unifier) unifyAppWithTriple(app types.Type, conName string, fields [3]types.Type) error {
+	head, args := types.UnwindApp(app)
+	if len(args) < 3 {
+		return &UnifyError{Kind: UnifyMismatch, Detail: fmt.Sprintf("type mismatch: %s vs %s ...", types.Pretty(app), conName)}
+	}
+	// Reconstruct head with excess leading args (handles len(args) > 3).
+	conHead := head
+	for _, arg := range args[:len(args)-3] {
+		conHead = &types.TyApp{Fun: conHead, Arg: arg}
+	}
+	if err := u.Unify(conHead, &types.TyCon{Name: conName}); err != nil {
+		return err
+	}
+	for i := range 3 {
+		if err := u.Unify(args[len(args)-3+i], fields[i]); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (u *Unifier) solveMeta(m *types.TyMeta, t types.Type) error {
+	if tm, ok := t.(*types.TyMeta); ok && tm.ID == m.ID {
+		return nil
+	}
+	// Occurs check.
+	if u.occursIn(m.ID, t) {
+		return &UnifyError{Kind: UnifyOccursCheck, Detail: fmt.Sprintf("infinite type: ?%d occurs in %s", m.ID, types.Pretty(t))}
+	}
+	// Label uniqueness: if this meta has a label context, verify the
+	// solution doesn't introduce duplicate labels (spec §8, §6.3).
+	if ctx, ok := u.labels[m.ID]; ok {
+		if ev, ok := t.(*types.TyEvidenceRow); ok {
+			if cap, ok := ev.Entries.(*types.CapabilityEntries); ok {
+				for _, f := range cap.Fields {
+					if _, dup := ctx[f.Label]; dup {
+						return &UnifyError{Kind: UnifyDupLabel, Detail: fmt.Sprintf("duplicate label %q in row", f.Label)}
+					}
+				}
+			}
+		}
+	}
+	u.trailSolnWrite(m.ID)
+	u.soln[m.ID] = t
+	// Re-activation callback: notify the checker that a meta was solved.
+	if u.OnSolve != nil {
+		u.OnSolve(m.ID)
+	}
+	return nil
+}
+
+// CollectBlockingMetas collects all unsolved meta IDs in the given types,
+// using the current solution map to resolve already-solved metas.
+func (u *Unifier) CollectBlockingMetas(tys []types.Type) []int {
+	var ids []int
+	seen := make(map[int]bool)
+	for _, t := range tys {
+		u.collectMetaIDsRec(u.Zonk(t), seen, &ids)
+	}
+	return ids
+}
+
+func (u *Unifier) collectMetaIDsRec(t types.Type, seen map[int]bool, ids *[]int) {
+	switch ty := t.(type) {
+	case *types.TyMeta:
+		if !seen[ty.ID] {
+			seen[ty.ID] = true
+			*ids = append(*ids, ty.ID)
+		}
+	default:
+		for _, ch := range t.Children() {
+			u.collectMetaIDsRec(u.Zonk(ch), seen, ids)
+		}
+	}
+}
+
+// occursIn uses Children() for generic traversal, unlike Zonk which uses
+// manual recursion for identity-preserving path compression.
+func (u *Unifier) occursIn(id int, t types.Type) bool {
+	t = u.Zonk(t)
+	switch ty := t.(type) {
+	case *types.TyMeta:
+		return ty.ID == id
+	case *types.TySkolem:
+		return false // skolem IDs are in a different namespace
+	default:
+		for _, ch := range t.Children() {
+			if u.occursIn(id, ch) {
+				return true
+			}
+		}
+		return false
+	}
+}

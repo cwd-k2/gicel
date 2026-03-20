@@ -10,13 +10,13 @@
 package gicel
 
 import (
-	"github.com/cwd-k2/gicel/internal/budget"
-	"github.com/cwd-k2/gicel/internal/check"
-	"github.com/cwd-k2/gicel/internal/engine"
-	"github.com/cwd-k2/gicel/internal/eval"
-	"github.com/cwd-k2/gicel/internal/reg"
-	"github.com/cwd-k2/gicel/internal/stdlib"
-	"github.com/cwd-k2/gicel/internal/types"
+	"github.com/cwd-k2/gicel/internal/app/engine"
+	"github.com/cwd-k2/gicel/internal/compiler/check"
+	"github.com/cwd-k2/gicel/internal/host/registry"
+	"github.com/cwd-k2/gicel/internal/host/stdlib"
+	"github.com/cwd-k2/gicel/internal/infra/budget"
+	"github.com/cwd-k2/gicel/internal/lang/types"
+	"github.com/cwd-k2/gicel/internal/runtime/eval"
 )
 
 // ---- Engine / Runtime / Compile ----
@@ -69,10 +69,10 @@ var RunSandbox = engine.RunSandbox
 // ---- Registration ----
 
 // Registrar is the interface for registering primitives and modules.
-type Registrar = reg.Registrar
+type Registrar = registry.Registrar
 
 // Pack configures a Registrar with a coherent set of types, primitives, and modules.
-type Pack = reg.Pack
+type Pack = registry.Pack
 
 // ---- Runtime values ----
 
@@ -176,25 +176,25 @@ type RowField = types.RowField
 type RowBuilder = engine.RowBuilder
 
 var (
-	ConType      = engine.ConType
-	ArrowType    = engine.ArrowType
-	CompType     = engine.CompType
-	ThunkType    = engine.ThunkType
-	ForallType   = engine.ForallType
-	ForallRow    = engine.ForallRow
-	VarType      = engine.VarType
-	AppType      = engine.AppType
-	NewRow       = engine.NewRow
-	KindType     = engine.KindType
-	KindRow      = engine.KindRow
-	KindArrow    = engine.KindArrow
-	EmptyRowType = engine.EmptyRowType
-	ForallKind   = engine.ForallKind
+	ConType       = engine.ConType
+	ArrowType     = engine.ArrowType
+	CompType      = engine.CompType
+	ThunkType     = engine.ThunkType
+	ForallType    = engine.ForallType
+	ForallRow     = engine.ForallRow
+	VarType       = engine.VarType
+	AppType       = engine.AppType
+	NewRow        = engine.NewRow
+	KindType      = engine.KindType
+	KindRow       = engine.KindRow
+	KindArrow     = engine.KindArrow
+	EmptyRowType  = engine.EmptyRowType
+	ForallKind    = engine.ForallKind
 	ClosedRowType = engine.ClosedRowType
-	RecordType   = engine.RecordType
-	TupleType    = engine.TupleType
-	TypeEqual    = engine.TypeEqual
-	TypePretty   = engine.TypePretty
+	RecordType    = engine.RecordType
+	TupleType     = engine.TupleType
+	TypeEqual     = engine.TypeEqual
+	TypePretty    = engine.TypePretty
 )
 
 // ---- Value conversion helpers ----
