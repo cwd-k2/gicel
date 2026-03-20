@@ -189,6 +189,26 @@ func (p *Parser) expect(kind syn.TokenKind) syn.Token {
 	return p.advance()
 }
 
+// expectClosing expects a closing delimiter and attaches a hint pointing
+// to the opening delimiter's span when the closing delimiter is missing.
+func (p *Parser) expectClosing(kind syn.TokenKind, openSpan span.Span) syn.Token {
+	tok := p.peek()
+	if tok.Kind == kind {
+		return p.advance()
+	}
+	p.errors.Add(&errs.Error{
+		Code:    errs.ErrUnclosedDelim,
+		Phase:   errs.PhaseParse,
+		Span:    tok.S,
+		Message: "expected " + kind.String(),
+		Hints:   []errs.Hint{{Span: openSpan, Message: "opening delimiter here"}},
+	})
+	if tok.Kind != syn.TokEOF {
+		p.advance()
+	}
+	return tok
+}
+
 func (p *Parser) expectUpper() string {
 	tok := p.peek()
 	if tok.Kind != syn.TokUpper {
@@ -248,9 +268,11 @@ func (p *Parser) atStmtBoundary() bool {
 }
 
 // parseBody runs a brace-delimited body loop with consistent separator
-// handling and stagnation recovery.  The parse callback is invoked for each
-// item; context is used in the stagnation error message.
-func (p *Parser) parseBody(context string, parse func()) {
+// handling and stagnation recovery. The opening brace must already be
+// consumed; openSpan points to it for diagnostic hints. The parse
+// callback is invoked for each item; context is used in stagnation
+// error messages.
+func (p *Parser) parseBody(context string, openSpan span.Span, parse func()) {
 	savedBoundary := p.stmtBoundaryDepth
 	p.stmtBoundaryDepth = p.depth
 	for p.peek().Kind != syn.TokRBrace && p.peek().Kind != syn.TokEOF {
@@ -270,7 +292,7 @@ func (p *Parser) parseBody(context string, parse func()) {
 		}
 	}
 	p.stmtBoundaryDepth = savedBoundary
-	p.expect(syn.TokRBrace)
+	p.expectClosing(syn.TokRBrace, openSpan)
 }
 
 func (p *Parser) isTypeAtomStart() bool {

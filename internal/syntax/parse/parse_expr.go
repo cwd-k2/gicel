@@ -172,7 +172,7 @@ func (p *Parser) parseParen() syn.Expr {
 	}
 	defer p.leaveRecurse()
 	start := p.peek().S.Start
-	p.expect(syn.TokLParen)
+	openTok := p.expect(syn.TokLParen)
 
 	// () → unit (empty record)
 	if p.peek().Kind == syn.TokRParen {
@@ -257,7 +257,7 @@ func (p *Parser) parseParen() syn.Expr {
 			p.advance()
 			elems = append(elems, p.parseExpr())
 		}
-		p.expect(syn.TokRParen)
+		p.expectClosing(syn.TokRParen, openTok.S)
 		fields := make([]syn.RecordField, len(elems))
 		for i, el := range elems {
 			fields[i] = syn.RecordField{
@@ -269,7 +269,7 @@ func (p *Parser) parseParen() syn.Expr {
 		return &syn.ExprRecord{Fields: fields, S: span.Span{Start: start, End: p.prevEnd()}}
 	}
 
-	p.expect(syn.TokRParen)
+	p.expectClosing(syn.TokRParen, openTok.S)
 	return &syn.ExprParen{Inner: e, S: span.Span{Start: start, End: p.prevEnd()}}
 }
 
@@ -294,9 +294,9 @@ func (p *Parser) parseCase() syn.Expr {
 	p.noBraceAtom = true
 	scrut := p.parseExpr()
 	p.noBraceAtom = false
-	p.expect(syn.TokLBrace)
+	openTok := p.expect(syn.TokLBrace)
 	var alts []syn.AstAlt
-	p.parseBody("case expression", func() {
+	p.parseBody("case expression", openTok.S, func() {
 		alts = append(alts, p.parseAlt())
 	})
 	return &syn.ExprCase{

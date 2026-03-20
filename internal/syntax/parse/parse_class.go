@@ -173,11 +173,11 @@ func (p *Parser) parseFunDepList() []syn.FunDep {
 }
 
 func (p *Parser) parseClassBody() ([]syn.ClassMethod, []syn.AssocTypeDecl, []syn.AssocDataDecl) {
-	p.expect(syn.TokLBrace)
+	openTok := p.expect(syn.TokLBrace)
 	var methods []syn.ClassMethod
 	var assocTypes []syn.AssocTypeDecl
 	var assocDataDecls []syn.AssocDataDecl
-	p.parseBody("class declaration", func() {
+	p.parseBody("class declaration", openTok.S, func() {
 		if p.peek().Kind == syn.TokType {
 			atd := p.parseAssocTypeDecl()
 			if atd != nil {
@@ -314,11 +314,11 @@ func (p *Parser) parseInstanceDecl() *syn.DeclInstance {
 }
 
 func (p *Parser) parseInstBody() ([]syn.InstMethod, []syn.AssocTypeDef, []syn.AssocDataDef) {
-	p.expect(syn.TokLBrace)
+	openTok := p.expect(syn.TokLBrace)
 	var methods []syn.InstMethod
 	var assocTypeDefs []syn.AssocTypeDef
 	var assocDataDefs []syn.AssocDataDef
-	p.parseBody("instance declaration", func() {
+	p.parseBody("instance declaration", openTok.S, func() {
 		mStart := p.peek().S.Start
 		if p.peek().Kind == syn.TokData {
 			add := p.parseAssocDataDef()

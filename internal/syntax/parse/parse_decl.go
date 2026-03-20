@@ -107,9 +107,9 @@ func (p *Parser) parseDataDecl() *syn.DeclData {
 // parseGADTCons parses GADT constructor declarations inside braces.
 // Format: { ConName :: Type ; ConName :: Type ; ... }
 func (p *Parser) parseGADTCons() []syn.GADTConDecl {
-	p.expect(syn.TokLBrace)
+	openTok := p.expect(syn.TokLBrace)
 	var cons []syn.GADTConDecl
-	p.parseBody("GADT declaration", func() {
+	p.parseBody("GADT declaration", openTok.S, func() {
 		cStart := p.peek().S.Start
 		cName := p.expectUpper()
 		p.expect(syn.TokColonColon)
@@ -238,9 +238,9 @@ func (p *Parser) isInjectiveResult() bool {
 
 // parseTypeFamilyEquations parses the equation block { Name Pat* = RHS; ... }.
 func (p *Parser) parseTypeFamilyEquations(familyName string) []syn.TFEquation {
-	p.expect(syn.TokLBrace)
+	openTok := p.expect(syn.TokLBrace)
 	var equations []syn.TFEquation
-	p.parseBody("type family declaration", func() {
+	p.parseBody("type family declaration", openTok.S, func() {
 		eqStart := p.peek().S.Start
 		eqName := p.expectUpper()
 		var patterns []syn.TypeExpr

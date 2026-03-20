@@ -13,9 +13,9 @@ import (
 func (p *Parser) parseDo() syn.Expr {
 	start := p.peek().S.Start
 	p.expect(syn.TokDo)
-	p.expect(syn.TokLBrace)
+	openTok := p.expect(syn.TokLBrace)
 	var stmts []syn.Stmt
-	p.parseBody("do-block", func() {
+	p.parseBody("do-block", openTok.S, func() {
 		stmts = append(stmts, p.parseStmt())
 	})
 	return &syn.ExprDo{
@@ -74,7 +74,7 @@ func (p *Parser) parseStmt() syn.Stmt {
 
 func (p *Parser) parseBlock() syn.Expr {
 	start := p.peek().S.Start
-	p.expect(syn.TokLBrace)
+	openTok := p.expect(syn.TokLBrace)
 
 	// {} → empty record
 	if p.peek().Kind == syn.TokRBrace {
@@ -91,11 +91,11 @@ func (p *Parser) parseBlock() syn.Expr {
 		case syn.TokColon:
 			// name: ... → record literal
 			p.pos = saved
-			return p.parseRecordLiteral(start)
+			return p.parseRecordLiteral(start, openTok.S)
 		case syn.TokPipe:
 			// name | ... → record update (name is the record expression)
 			p.pos = saved
-			return p.parseRecordUpdate(start)
+			return p.parseRecordUpdate(start, openTok.S)
 		default:
 			// Could be: name := ... (block), or name as expression (record update with complex expr)
 			p.pos = saved
@@ -113,7 +113,7 @@ func (p *Parser) parseBlock() syn.Expr {
 			return false
 		}
 		p.advance() // skip |
-		updateExpr = p.parseRecordUpdateFields(start, firstExpr)
+		updateExpr = p.parseRecordUpdateFields(start, openTok.S, firstExpr)
 		return true
 	})
 	if updateExpr != nil {
@@ -144,14 +144,14 @@ func (p *Parser) parseBlock() syn.Expr {
 	}
 
 	body := p.parseExpr()
-	p.expect(syn.TokRBrace)
+	p.expectClosing(syn.TokRBrace, openTok.S)
 	return &syn.ExprBlock{
 		Binds: binds, Body: body,
 		S: span.Span{Start: start, End: p.prevEnd()},
 	}
 }
 
-func (p *Parser) parseRecordLiteral(start span.Pos) syn.Expr {
+func (p *Parser) parseRecordLiteral(start span.Pos, openSpan span.Span) syn.Expr {
 	var fields []syn.RecordField
 	for p.peek().Kind != syn.TokRBrace && p.peek().Kind != syn.TokEOF {
 		fStart := p.peek().S.Start
@@ -168,17 +168,17 @@ func (p *Parser) parseRecordLiteral(start span.Pos) syn.Expr {
 			break
 		}
 	}
-	p.expect(syn.TokRBrace)
+	p.expectClosing(syn.TokRBrace, openSpan)
 	return &syn.ExprRecord{Fields: fields, S: span.Span{Start: start, End: p.prevEnd()}}
 }
 
-func (p *Parser) parseRecordUpdate(start span.Pos) syn.Expr {
+func (p *Parser) parseRecordUpdate(start span.Pos, openSpan span.Span) syn.Expr {
 	record := p.parseExpr()
 	p.expect(syn.TokPipe)
-	return p.parseRecordUpdateFields(start, record)
+	return p.parseRecordUpdateFields(start, openSpan, record)
 }
 
-func (p *Parser) parseRecordUpdateFields(start span.Pos, record syn.Expr) syn.Expr {
+func (p *Parser) parseRecordUpdateFields(start span.Pos, openSpan span.Span, record syn.Expr) syn.Expr {
 	var updates []syn.RecordField
 	for p.peek().Kind != syn.TokRBrace && p.peek().Kind != syn.TokEOF {
 		fStart := p.peek().S.Start
@@ -195,7 +195,7 @@ func (p *Parser) parseRecordUpdateFields(start span.Pos, record syn.Expr) syn.Ex
 			break
 		}
 	}
-	p.expect(syn.TokRBrace)
+	p.expectClosing(syn.TokRBrace, openSpan)
 	return &syn.ExprRecordUpdate{
 		Record: record, Updates: updates,
 		S: span.Span{Start: start, End: p.prevEnd()},
@@ -204,7 +204,7 @@ func (p *Parser) parseRecordUpdateFields(start span.Pos, record syn.Expr) syn.Ex
 
 func (p *Parser) parseListLit() syn.Expr {
 	start := p.peek().S.Start
-	p.expect(syn.TokLBracket)
+	openTok := p.expect(syn.TokLBracket)
 	var elems []syn.Expr
 	if p.peek().Kind != syn.TokRBracket {
 		elems = append(elems, p.parseExpr())
@@ -213,7 +213,7 @@ func (p *Parser) parseListLit() syn.Expr {
 			elems = append(elems, p.parseExpr())
 		}
 	}
-	p.expect(syn.TokRBracket)
+	p.expectClosing(syn.TokRBracket, openTok.S)
 	return &syn.ExprList{
 		Elems: elems,
 		S:     span.Span{Start: start, End: p.prevEnd()},
