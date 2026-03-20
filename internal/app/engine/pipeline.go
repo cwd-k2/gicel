@@ -7,6 +7,7 @@ import (
 	"github.com/cwd-k2/gicel/internal/compiler/check"
 	"github.com/cwd-k2/gicel/internal/compiler/optimize"
 	"github.com/cwd-k2/gicel/internal/compiler/parse"
+	"github.com/cwd-k2/gicel/internal/host/registry"
 	"github.com/cwd-k2/gicel/internal/infra/diagnostic"
 	"github.com/cwd-k2/gicel/internal/infra/span"
 	"github.com/cwd-k2/gicel/internal/lang/ir"
@@ -68,7 +69,8 @@ func makeCheckConfig(host *HostEnv, store *ModuleStore, limits *Limits) *check.C
 
 // compileModule runs the full compilation pipeline for a single module:
 // lex → parse → dep check → type check → optimize → annotate.
-func compileModule(name, source string, host *HostEnv, store *ModuleStore, limits *Limits) (*compiledModule, error) {
+// See compileMain for the main-source counterpart.
+func compileModule(ctx context.Context, name, source string, host *HostEnv, store *ModuleStore, limits *Limits) (*compiledModule, error) {
 	ast, src, err := lexAndParse(name, source, store, name != "Core" && store.Has("Core"))
 	if err != nil {
 		return nil, err
@@ -83,6 +85,7 @@ func compileModule(name, source string, host *HostEnv, store *ModuleStore, limit
 	}
 
 	config := makeCheckConfig(host, store, limits)
+	config.Context = ctx
 	config.CurrentModule = name
 	prog, exports, checkErrs := check.CheckModule(ast, src, config)
 	if checkErrs.HasErrors() {
@@ -96,8 +99,7 @@ func compileModule(name, source string, host *HostEnv, store *ModuleStore, limit
 		}
 	}
 
-	optimize.OptimizeProgram(prog, host.rewriteRules)
-	ir.AnnotateFreeVarsProgram(prog)
+	postCheck(prog, host.rewriteRules)
 
 	return &compiledModule{
 		prog:           prog,
@@ -109,7 +111,14 @@ func compileModule(name, source string, host *HostEnv, store *ModuleStore, limit
 	}, nil
 }
 
+// postCheck applies the shared post-type-checking pipeline: optimize and annotate free vars.
+func postCheck(prog *ir.Program, rules []registry.RewriteRule) {
+	optimize.OptimizeProgram(prog, rules)
+	ir.AnnotateFreeVarsProgram(prog)
+}
+
 // compileMain compiles the main source: lex → parse → type check → optimize → annotate.
+// See compileModule for the module counterpart.
 func compileMain(ctx context.Context, source string, host *HostEnv, store *ModuleStore, limits *Limits) (*ir.Program, *span.Source, error) {
 	ast, src, err := lexAndParse("<input>", source, store, store.Has("Core"))
 	if err != nil {
@@ -127,8 +136,7 @@ func compileMain(ctx context.Context, source string, host *HostEnv, store *Modul
 		return nil, nil, &CompileError{Errors: checkErrs}
 	}
 
-	optimize.OptimizeProgram(prog, host.rewriteRules)
-	ir.AnnotateFreeVarsProgram(prog)
+	postCheck(prog, host.rewriteRules)
 
 	return prog, src, nil
 }

@@ -45,7 +45,8 @@ type SandboxConfig struct {
 }
 
 // RunSandbox compiles and executes a GICEL program in a single call
-// with conservative resource limits.
+// with conservative resource limits. The timeout covers the entire
+// pipeline: pack application, main source compilation, and evaluation.
 func RunSandbox(source string, cfg *SandboxConfig) (result *RunResult, err error) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -85,7 +86,11 @@ func RunSandbox(source string, cfg *SandboxConfig) (result *RunResult, err error
 		maxAlloc = sandboxDefaultAlloc
 	}
 
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
 	eng := NewEngine()
+	eng.compileCtx = ctx
 	eng.SetStepLimit(maxSteps)
 	eng.SetDepthLimit(maxDepth)
 	eng.SetNestingLimit(maxNesting)
@@ -96,9 +101,6 @@ func RunSandbox(source string, cfg *SandboxConfig) (result *RunResult, err error
 			return nil, err
 		}
 	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
-	defer cancel()
 
 	rt, err := eng.NewRuntime(ctx, source)
 	if err != nil {

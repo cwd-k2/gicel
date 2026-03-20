@@ -23,16 +23,18 @@ const DefaultEntryPoint = "main"
 // Engine configures and compiles GICEL programs.
 // It is mutable and must not be shared across goroutines.
 type Engine struct {
-	host   HostEnv
-	store  ModuleStore
-	limits Limits
+	host       HostEnv
+	store      ModuleStore
+	limits     Limits
+	compileCtx context.Context // module compilation context (default: Background)
 }
 
 // NewEngine creates a new Engine with default limits.
 func NewEngine() *Engine {
 	e := &Engine{
-		host:  newHostEnv(),
-		store: newModuleStore(),
+		host:       newHostEnv(),
+		store:      newModuleStore(),
+		compileCtx: context.Background(),
 		limits: Limits{
 			stepLimit:  1_000_000,
 			depthLimit: 1_000,
@@ -117,6 +119,11 @@ func (e *Engine) SetCheckTraceHook(hook check.CheckTraceHook) {
 // Non-entry top-level bindings with bare Computation type are rejected.
 func (e *Engine) SetEntryPoint(name string) { e.limits.entryPoint = name }
 
+// SetCompileContext sets the context used for module compilation.
+// This allows callers to impose a timeout or cancellation on
+// RegisterModule / RegisterModuleRec calls.
+func (e *Engine) SetCompileContext(ctx context.Context) { e.compileCtx = ctx }
+
 // RegisterModuleFile reads a .gicel file and registers it as a module.
 func (e *Engine) RegisterModuleFile(path string) error {
 	data, err := os.ReadFile(path)
@@ -138,7 +145,7 @@ func (e *Engine) RegisterModule(name, source string) error {
 	if e.store.Has(name) {
 		return fmt.Errorf("module %s already registered", name)
 	}
-	mod, err := compileModule(name, source, &e.host, &e.store, &e.limits)
+	mod, err := compileModule(e.compileCtx, name, source, &e.host, &e.store, &e.limits)
 	if err != nil {
 		return err
 	}
