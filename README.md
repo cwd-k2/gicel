@@ -3,7 +3,7 @@
 **G**o's **I**ndexed **C**apability **E**ffect **L**ibrary /
 **G**ICEL's **I**ndexed **C**apability **E**ffect **L**anguage
 
-**v0.11** — [Changelog](CHANGELOG.md)
+**v0.13** — [Changelog](CHANGELOG.md)
 
 Embed a type-safe, sandboxed language in your Go application.
 GICEL compiles Haskell-like source into typed computations, runs them with
@@ -63,8 +63,8 @@ globals. The harder you lock down, the more edge cases slip through.
   these restrictions — they form part of the trusted computing base.
 - **Resource limits with clean termination.** Step count, call depth,
   allocation ceiling, and timeout. Execution halts cleanly — no killed
-  goroutines, no leaked state. Timeout covers the entire pipeline
-  including compilation (parse/check/optimize) and evaluation.
+  goroutines, no leaked state. `RunSandbox` applies timeout to the
+  entire pipeline including compilation and evaluation.
 - **Go-native.** No CGo, no FFI. Runtimes are immutable and goroutine-safe.
   Embed it like any other Go library.
 
@@ -183,7 +183,7 @@ Effects & Applications:
   ...
 
 # 2. Study — read an example
-$ gicel example state-effect
+$ gicel example effects.state-effect
 import Prelude
 import Effect.State
 ...
