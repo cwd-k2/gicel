@@ -42,6 +42,17 @@ type SandboxConfig struct {
 	MaxAlloc   int64                 // allocation byte limit (default: 10 MiB)
 	Caps       map[string]any        // initial capability environment (nil for empty)
 	Bindings   map[string]eval.Value // host-provided value bindings (nil for none)
+
+	// Context is the parent context for cancellation propagation.
+	// When non-nil, the timeout derives from this context (WithTimeout).
+	// When nil, context.Background() is used.
+	Context context.Context
+
+	// Explain receives semantic evaluation events. Nil disables explain.
+	Explain eval.ExplainHook
+
+	// ExplainDepth controls stdlib suppression (default: ExplainUser).
+	ExplainDepth ExplainDepth
 }
 
 // RunSandbox compiles and executes a GICEL program in a single call
@@ -86,7 +97,11 @@ func RunSandbox(source string, cfg *SandboxConfig) (result *RunResult, err error
 		maxAlloc = sandboxDefaultAlloc
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	parent := cfg.Context
+	if parent == nil {
+		parent = context.Background()
+	}
+	ctx, cancel := context.WithTimeout(parent, timeout)
 	defer cancel()
 
 	eng := NewEngine()
@@ -108,8 +123,10 @@ func RunSandbox(source string, cfg *SandboxConfig) (result *RunResult, err error
 	}
 
 	return rt.RunWith(ctx, &RunOptions{
-		Entry:    entry,
-		Caps:     cfg.Caps,
-		Bindings: cfg.Bindings,
+		Entry:        entry,
+		Caps:         cfg.Caps,
+		Bindings:     cfg.Bindings,
+		Explain:      cfg.Explain,
+		ExplainDepth: cfg.ExplainDepth,
 	})
 }
