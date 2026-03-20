@@ -296,6 +296,19 @@ func fmtBindings(bindings map[string]string) string {
 	return strings.Join(parts, ", ")
 }
 
+func runtimeErrorJSON(err error) map[string]any {
+	out := map[string]any{"ok": false, "phase": "eval", "error": err.Error()}
+	var re *gicel.RuntimeError
+	if errors.As(err, &re) {
+		out["message"] = re.Message
+		if re.Line > 0 {
+			out["line"] = re.Line
+			out["col"] = re.Col
+		}
+	}
+	return out
+}
+
 func compileErrorJSON(err error) map[string]any {
 	out := map[string]any{"ok": false, "phase": "compile", "error": err.Error()}
 	var ce *gicel.CompileError
