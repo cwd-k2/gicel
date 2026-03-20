@@ -29,8 +29,8 @@ incCounter :: () -> Computation {} {} ()
 incCounter := assumption
 
 main := do {
-  _ <- incCounter ();
-  _ <- incCounter ();
+  incCounter ();
+  incCounter ();
   getCounter ()
 }
 `

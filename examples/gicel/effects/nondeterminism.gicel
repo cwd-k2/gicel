@@ -32,7 +32,7 @@ pythag := do {
   a <- range 1 10;
   b <- range a 10;
   c <- range b 10;
-  _ <- guard (eq (a * a + b * b) (c * c));
+  guard (eq (a * a + b * b) (c * c));
   pure (MkTriple a b c)
 }
 -- [MkTriple 3 4 5, MkTriple 6 8 10]

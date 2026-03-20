@@ -25,7 +25,7 @@ These are built-in -- always available without import. Note how `bind` composes 
 ```
 do {
   x <- getState;               -- bind: extract value from Computation
-  _ <- putState (x + 1);       -- bind: sequence, discard result
+  putState (x + 1);            -- bare expression: sequence, discard result
   y := x + 1;                  -- let: pure binding (no effect)
   pure y                       -- return result
 }

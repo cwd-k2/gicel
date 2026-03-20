@@ -235,7 +235,7 @@ main := do { h <- force helper; pure h }    -- entry point は bare Computation 
 
 ```gicel
 counter :: Thunk { state: Int } { state: Int } Int
-counter := thunk (do { _ <- put 0; _ <- modify (+ 1); get })
+counter := thunk (do { put 0; modify (+ 1); get })
 ```
 
 **適用範囲**: `NewRuntime`（実行用コンパイル）のみ。`Compile`（check-only）と `RegisterModule`（モジュール）では無効。`CheckConfig.EntryPoint` / CLI `--entry` で制御。

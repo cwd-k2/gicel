@@ -11,44 +11,44 @@ import Effect.State
 -- Basic: put an initial value, read it back
 basic :: Thunk { state: Int } { state: Int } Int
 basic := thunk do {
-  _ <- put 42;
+  put 42;
   get
 }
 
 -- Modify: increment state three times
 counter :: Thunk { state: Int } { state: Int } Int
 counter := thunk do {
-  _ <- put 0;
-  _ <- modify (+ 1);
-  _ <- modify (+ 1);
-  _ <- modify (+ 1);
+  put 0;
+  modify (+ 1);
+  modify (+ 1);
+  modify (+ 1);
   get
 }
 
 -- Accumulate: read-modify-write cycle (start 5, square it)
 accumulate :: Thunk { state: Int } { state: Int } Int
 accumulate := thunk do {
-  _ <- put 5;
+  put 5;
   n <- get;
-  _ <- put (n * n);
+  put (n * n);
   get
 }
 
 -- Read and compute (start 12, square it)
 readAndCompute :: Thunk { state: Int } { state: Int } Int
 readAndCompute := thunk do {
-  _ <- put 12;
+  put 12;
   x <- get;
-  _ <- put (x * x);
+  put (x * x);
   get
 }
 
 -- Multi-step pipeline (start 2, *5 = 10, *10 = 100)
 pipeline :: Thunk { state: Int } { state: Int } Int
 pipeline := thunk do {
-  _ <- put 2;
-  _ <- modify (* 5);
-  _ <- modify (* 10);
+  put 2;
+  modify (* 5);
+  modify (* 10);
   get
 }
 
