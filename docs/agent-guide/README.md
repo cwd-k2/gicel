@@ -103,7 +103,7 @@ gicel run program.gicel
 gicel check program.gicel
 
 # Select specific packs
-gicel run --use prelude,state program.gicel
+gicel run --packs prelude,state program.gicel
 
 # Custom entry point, limits, JSON output
 gicel run --entry myFunc --timeout 10s --max-steps 500000 --json program.gicel
@@ -119,7 +119,7 @@ CLI flags:
 
 | Flag            | Default  | Description                                                              |
 | --------------- | -------- | ------------------------------------------------------------------------ |
-| `--use`         | `all`    | Comma-separated packs: prelude, fail, state, io, stream, slice, map, set |
+| `--packs`       | `all`    | Comma-separated packs: prelude, fail, state, io, stream, slice, map, set |
 | `--module`      | --       | Register user module: `Name=path` (repeatable, run & check)              |
 | `--recursion`   |          | Enable recursive definitions (run, check)                                |
 | `--entry`       | `main`   | Entry point binding name                                                 |

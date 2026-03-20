@@ -26,7 +26,7 @@ bin/gicel run [flags] <file>.gicel
 
 | Flag                 | Default   | Description                                      |
 | -------------------- | --------- | ------------------------------------------------ |
-| `--use <packs>`      | `all`     | Stdlib packs (see table below)                   |
+| `--packs <packs>`      | `all`     | Stdlib packs (see table below)                   |
 | `--module Name=path` | —         | Register user module (repeatable, order matters) |
 | `--recursion`        | off       | Enable `fix`/`rec`                               |
 | `-e <source>`        | —         | Evaluate source string directly                  |
@@ -60,7 +60,7 @@ bin/gicel run [flags] <file>.gicel
 bin/gicel check [flags] <file>.gicel
 ```
 
-Shares `--use`, `--module`, `--recursion`, `-e`, `--json` with `run`.
+Shares `--packs`, `--module`, `--recursion`, `-e`, `--json` with `run`.
 
 ### docs / example — reference & examples
 
@@ -81,7 +81,7 @@ bin/gicel run hello.gicel
 bin/gicel check hello.gicel
 
 # With specific stdlib packs (skip unused packs for faster compile)
-bin/gicel run --use prelude,state program.gicel
+bin/gicel run --packs prelude,state program.gicel
 
 # Recursive definitions (fix/rec)
 bin/gicel run --recursion recursive.gicel

@@ -56,7 +56,7 @@ Commands:
   example  List examples, or show source (example <name>)
 
 Flags (run, check):
-  --use <packs>    Packs: prelude,fail,state,io,stream,slice,map,set (default: all)
+  --packs <list>   Packs: prelude,fail,state,io,stream,slice,map,set (default: all)
   --module Name=path  Register a user module (repeatable)
   --recursion      Enable recursive definitions (fix/rec)
   -e <source>      Evaluate source string directly
@@ -326,7 +326,8 @@ func preflightError(msg string, jsonOut bool) int {
 
 func cmdRun(args []string) int {
 	fs := flag.NewFlagSet("run", flag.ContinueOnError)
-	use := fs.String("use", "all", "comma-separated stdlib packs")
+	packs := fs.String("packs", "all", "comma-separated stdlib packs")
+	fs.StringVar(packs, "use", "all", "alias for --packs")
 	recursion := fs.Bool("recursion", false, "enable recursive definitions (fix/rec)")
 	var modules moduleFlags
 	fs.Var(&modules, "module", "register module: Name=path (repeatable)")
@@ -368,7 +369,7 @@ func cmdRun(args []string) int {
 		return preflightError("--entry must not be empty", *jsonOut)
 	}
 
-	source, eng, err := prepareEngine(fs, *use, *recursion, *expr, modules)
+	source, eng, err := prepareEngine(fs, *packs, *recursion, *expr, modules)
 	if err != nil {
 		return preflightError(err.Error(), *jsonOut)
 	}
@@ -453,7 +454,8 @@ func cmdRun(args []string) int {
 
 func cmdCheck(args []string) int {
 	fs := flag.NewFlagSet("check", flag.ContinueOnError)
-	use := fs.String("use", "all", "comma-separated stdlib packs")
+	packs := fs.String("packs", "all", "comma-separated stdlib packs")
+	fs.StringVar(packs, "use", "all", "alias for --packs")
 	recursion := fs.Bool("recursion", false, "enable recursive definitions (fix/rec)")
 	var modules moduleFlags
 	fs.Var(&modules, "module", "register module: Name=path (repeatable)")
@@ -463,7 +465,7 @@ func cmdCheck(args []string) int {
 		return 1
 	}
 
-	source, eng, err := prepareEngine(fs, *use, *recursion, *expr, modules)
+	source, eng, err := prepareEngine(fs, *packs, *recursion, *expr, modules)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		return 1

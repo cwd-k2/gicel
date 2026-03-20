@@ -141,7 +141,7 @@ expect_error_contains "type error" "type mismatch" \
   "$GICEL" check -e 'import Prelude; main := "hello" + 1'
 
 expect_error_contains "unknown pack" "unknown pack" \
-  "$GICEL" run --use bogus -e 'main := 1'
+  "$GICEL" run --packs bogus -e 'main := 1'
 
 expect_error_contains "missing file" "no such file" \
   "$GICEL" run --module Foo=nonexistent.gicel -e 'main := 1'

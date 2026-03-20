@@ -19,14 +19,14 @@ main := do { _ <- put 42; get }
 The source imports `Effect.State` — but the host decides whether that module exists:
 
 ```sh
-$ gicel run --use prelude program.gicel         # host grants only Prelude
+$ gicel run --packs prelude program.gicel         # host grants only Prelude
 error[E0230]: unknown module: Effect.State
  --> program.gicel:2:1
    |
  2 | import Effect.State
    | ^^^^^^^^^^^^^^^^^^^
 
-$ gicel run --use prelude,state program.gicel   # host grants State too
+$ gicel run --packs prelude,state program.gicel   # host grants State too
 42
 ```
 
