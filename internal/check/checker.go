@@ -121,6 +121,12 @@ func (r *Registry) RegisterInstance(inst *InstanceInfo) {
 
 // Scope holds name resolution and module scoping state.
 type Scope struct {
+	// Dependencies (wired during assembly).
+	session *Session
+	reg     *Registry
+	config  *CheckConfig
+
+	// Own state.
 	currentModule       string                     // module being compiled ("" = user main source)
 	qualifiedScopes     map[string]*qualifiedScope // alias → qualified module scope
 	importedNames       map[string]string          // name → source module (value namespace ambiguity)
@@ -295,42 +301,47 @@ func newChecker(prog *syntax.AstProgram, source *span.Source, config *CheckConfi
 	if ctx == nil {
 		ctx = context.Background()
 	}
-	ch := &Checker{
-		Session: &Session{
-			ctx: NewContext(),
-			budget: func() *budget.Budget {
-				b := budget.New(ctx, family.MaxReductionWork, 0)
-				if config.NestingLimit > 0 {
-					b.SetNestingLimit(config.NestingLimit)
-				}
-				return b
-			}(),
-			errors: &errs.Errors{Source: source},
-			source: source,
-			config: config,
-		},
-		reg: func() *Registry {
-			r := &Registry{
-				typeKinds:         make(map[string]types.Kind),
-				conModules:        make(map[string]string),
-				conTypes:          make(map[string]types.Type),
-				conInfo:           make(map[string]*DataTypeInfo),
-				dataTypeByName:    make(map[string]*DataTypeInfo),
-				aliases:           make(map[string]*AliasInfo),
-				classes:           make(map[string]*ClassInfo),
-				instancesByClass:  make(map[string][]*InstanceInfo),
-				importedInstances: make(map[*InstanceInfo]bool),
-				promotedKinds:     make(map[string]types.Kind),
-				promotedCons:      make(map[string]types.Kind),
-				kindVars:          make(map[string]bool),
-				families:          make(map[string]*TypeFamilyInfo),
+	session := &Session{
+		ctx: NewContext(),
+		budget: func() *budget.Budget {
+			b := budget.New(ctx, family.MaxReductionWork, 0)
+			if config.NestingLimit > 0 {
+				b.SetNestingLimit(config.NestingLimit)
 			}
-			for name, kind := range config.RegisteredTypes {
-				r.typeKinds[name] = kind
-			}
-			return r
+			return b
 		}(),
+		errors: &errs.Errors{Source: source},
+		source: source,
+		config: config,
+	}
+	reg := func() *Registry {
+		r := &Registry{
+			typeKinds:         make(map[string]types.Kind),
+			conModules:        make(map[string]string),
+			conTypes:          make(map[string]types.Type),
+			conInfo:           make(map[string]*DataTypeInfo),
+			dataTypeByName:    make(map[string]*DataTypeInfo),
+			aliases:           make(map[string]*AliasInfo),
+			classes:           make(map[string]*ClassInfo),
+			instancesByClass:  make(map[string][]*InstanceInfo),
+			importedInstances: make(map[*InstanceInfo]bool),
+			promotedKinds:     make(map[string]types.Kind),
+			promotedCons:      make(map[string]types.Kind),
+			kindVars:          make(map[string]bool),
+			families:          make(map[string]*TypeFamilyInfo),
+		}
+		for name, kind := range config.RegisteredTypes {
+			r.typeKinds[name] = kind
+		}
+		return r
+	}()
+	ch := &Checker{
+		Session: session,
+		reg:     reg,
 		scope: &Scope{
+			session:           session,
+			reg:               reg,
+			config:            config,
 			currentModule:     config.CurrentModule,
 			qualifiedScopes:   make(map[string]*qualifiedScope),
 			importedNames:     make(map[string]string),
@@ -344,7 +355,7 @@ func newChecker(prog *syntax.AstProgram, source *span.Source, config *CheckConfi
 		ch.solver.Reactivate(metaID)
 	}
 	ch.initContext()
-	ch.importModules(prog.Imports)
+	ch.scope.ImportModules(prog.Imports)
 	return ch
 }
 
