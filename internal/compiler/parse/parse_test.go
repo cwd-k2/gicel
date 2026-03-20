@@ -1649,7 +1649,7 @@ func TestParseStepLimitExceeded(t *testing.T) {
 	es := &diagnostic.Errors{Source: src}
 	p := NewParser(tokens, es)
 	// Override maxSteps to something very small.
-	p.maxSteps = 2 // will trigger almost immediately
+	p.guard.maxSteps = 2 // will trigger almost immediately
 	_ = p.ParseProgram()
 	if !es.HasErrors() {
 		t.Fatal("expected step limit error")
@@ -1665,8 +1665,8 @@ func TestParseMaxStepsFloor(t *testing.T) {
 	es := &diagnostic.Errors{Source: src}
 	p := NewParser(tokens, es)
 	// Verify the floor is applied: maxSteps should be >= 100.
-	if p.maxSteps < 100 {
-		t.Errorf("maxSteps should be at least 100 for short input, got %d", p.maxSteps)
+	if p.guard.maxSteps < 100 {
+		t.Errorf("maxSteps should be at least 100 for short input, got %d", p.guard.maxSteps)
 	}
 	_ = p.ParseProgram()
 	if es.HasErrors() {
@@ -1916,7 +1916,7 @@ func TestParseStepsResetBetweenPasses(t *testing.T) {
 	// Set maxSteps to just enough for one pass but not two.
 	// collectFixity scans all tokens (~advance per token).
 	// If steps aren't reset, the second pass would exceed the limit.
-	p.maxSteps = len(tokens) + 5
+	p.guard.maxSteps = len(tokens) + 5
 	_ = p.ParseProgram()
 	if es.HasErrors() {
 		t.Fatalf("valid program should parse when steps are properly reset: %s", es.Format())

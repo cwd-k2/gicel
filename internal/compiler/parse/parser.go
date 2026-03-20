@@ -15,6 +15,43 @@ type Fixity struct {
 	Prec  int
 }
 
+// parserGuard tracks resource consumption to prevent runaway parsing.
+// Separated from parsing logic to make the safety boundary identifiable.
+type parserGuard struct {
+	recurseDepth    int // current recursion depth
+	maxRecurseDepth int // limit (default 256)
+	steps           int // advance() call count
+	maxSteps        int // limit (default len(tokens) * 4)
+	halted          bool
+}
+
+func (g *parserGuard) isHalted() bool { return g.halted }
+
+func (g *parserGuard) countStep() bool {
+	if g.halted {
+		return false
+	}
+	g.steps++
+	return g.steps <= g.maxSteps
+}
+
+func (g *parserGuard) enterRecurse() bool {
+	if g.halted {
+		return false
+	}
+	g.recurseDepth++
+	return g.recurseDepth <= g.maxRecurseDepth
+}
+
+func (g *parserGuard) leaveRecurse() {
+	g.recurseDepth--
+}
+
+func (g *parserGuard) reset() {
+	g.steps = 0
+	g.halted = false
+}
+
 // Parser is a Pratt parser for the surface language.
 type Parser struct {
 	tokens      []syn.Token
@@ -30,24 +67,21 @@ type Parser struct {
 	// acts as a statement boundary, preventing greedy expression consumption.
 	stmtBoundaryDepth int
 
-	// Safety harness: prevent resource exhaustion on malformed input.
-	recurseDepth    int // current recursion depth
-	maxRecurseDepth int // limit (default 256)
-	steps           int // advance() call count
-	maxSteps        int // limit (default len(tokens) * 4)
-	halted          bool
+	guard parserGuard // resource safety harness
 }
 
 // NewParser creates a parser from a token stream.
 func NewParser(tokens []syn.Token, errors *diagnostic.Errors) *Parser {
 	maxSteps := max(len(tokens)*4, 100)
 	return &Parser{
-		tokens:          tokens,
-		pos:             0,
-		fixity:          make(map[string]Fixity),
-		errors:          errors,
-		maxRecurseDepth: 256,
-		maxSteps:        maxSteps,
+		tokens: tokens,
+		pos:    0,
+		fixity: make(map[string]Fixity),
+		errors: errors,
+		guard: parserGuard{
+			maxRecurseDepth: 256,
+			maxSteps:        maxSteps,
+		},
 	}
 }
 
@@ -61,8 +95,7 @@ func (p *Parser) ParseProgram() *syn.AstProgram {
 	// First pass: collect fixity declarations.
 	p.collectFixity()
 	p.pos = 0
-	p.steps = 0
-	p.halted = false
+	p.guard.reset()
 
 	// Parse imports first.
 	var imports []syn.DeclImport
@@ -118,18 +151,17 @@ func (p *Parser) skipSemicolons() {
 }
 
 func (p *Parser) peek() syn.Token {
-	if p.halted || p.pos >= len(p.tokens) {
+	if p.guard.isHalted() || p.pos >= len(p.tokens) {
 		return syn.Token{Kind: syn.TokEOF}
 	}
 	return p.tokens[p.pos]
 }
 
 func (p *Parser) advance() syn.Token {
-	if p.halted {
+	if p.guard.isHalted() {
 		return syn.Token{Kind: syn.TokEOF}
 	}
-	p.steps++
-	if p.steps > p.maxSteps {
+	if !p.guard.countStep() {
 		p.halt("parser step limit exceeded")
 		return syn.Token{Kind: syn.TokEOF}
 	}
@@ -150,24 +182,22 @@ func (p *Parser) advance() syn.Token {
 
 // enterRecurse increments recursion depth and returns false if limit exceeded.
 func (p *Parser) enterRecurse() bool {
-	if p.halted {
-		return false
-	}
-	p.recurseDepth++
-	if p.recurseDepth > p.maxRecurseDepth {
-		p.halt("parser recursion depth limit exceeded")
+	if !p.guard.enterRecurse() {
+		if !p.guard.halted {
+			p.halt("parser recursion depth limit exceeded")
+		}
 		return false
 	}
 	return true
 }
 
 func (p *Parser) leaveRecurse() {
-	p.recurseDepth--
+	p.guard.leaveRecurse()
 }
 
 func (p *Parser) halt(msg string) {
-	if !p.halted {
-		p.halted = true
+	if !p.guard.halted {
+		p.guard.halted = true
 		p.addErrorCode(diagnostic.ErrParserLimit, msg)
 	}
 }
