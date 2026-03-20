@@ -43,12 +43,12 @@ GICEL の成熟方針と立ち位置。
 
 ## 優先順位
 
-| 順位 | 領域           | 対象                                                       |
-| ---- | -------------- | ---------------------------------------------------------- |
-| 1    | 収束性         | diagnostics, explain, JSON 契約, docs 整合                 |
-| 2    | 埋め込み運用性 | RunSandbox 契約, host API, security boundary               |
-| 3    | framing        | README, examples, docs 露出順, 比較対象との位置づけ        |
-| 4    | 高度機能の成熟 | sessions, type families, evidence/checker 拡張             |
+| 順位 | 領域           | 対象                                                |
+| ---- | -------------- | --------------------------------------------------- |
+| 1    | 収束性         | diagnostics, explain, JSON 契約, docs 整合          |
+| 2    | 埋め込み運用性 | RunSandbox 契約, host API, security boundary        |
+| 3    | framing        | README, examples, docs 露出順, 比較対象との位置づけ |
+| 4    | 高度機能の成熟 | sessions, type families, evidence/checker 拡張      |
 
 ## 判断原則
 
