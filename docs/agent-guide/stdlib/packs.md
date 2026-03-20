@@ -127,6 +127,9 @@ Provides an ordered immutable map backed by an AVL tree. All key-parameterized o
 - Maps are persistent (immutable). Insert/delete return new maps.
 - `toList` returns pairs sorted by key.
 
+> **Tip:** `Data.Map` exports `insert`, `member`, `delete`, `size` which overlap with `Data.Set`.
+> Use qualified imports when both are needed: `import Data.Map as Map`, `import Data.Set as Set`.
+
 ### Data.Set
 
 Provides an ordered immutable set backed by a Map. Load with `eng.Use(gicel.DataSet)` and import with `import Data.Set`.
@@ -147,6 +150,9 @@ Provides an ordered immutable set backed by a Map. Load with `eng.Use(gicel.Data
 
 - Sets are persistent (immutable). Insert/delete return new sets.
 - `toList` returns elements in sorted order.
+
+> **Tip:** `Data.Set` exports `insert`, `member`, `delete`, `size` which overlap with `Data.Map`.
+> Use qualified imports when both are needed: `import Data.Map as Map`, `import Data.Set as Set`.
 
 ### Effect.State
 
@@ -189,6 +195,10 @@ Provides print/debug capabilities via the `io` capability. Load with `eng.Use(gi
 | `debug` | `\a. a -> Computation { io: () \| r } { io: () \| r } ()`  | Append debug representation to IO buffer |
 
 Host provides `"io"` capability. Output accumulates as `[]string` in the final CapEnv.
+
+> **Note:** `print` and `debug` do not write to stdout or stderr. They are pure operations
+> that append strings to the `io` capability buffer. The host retrieves accumulated output
+> from `result.CapEnv` after execution.
 
 ### Data.Stream
 

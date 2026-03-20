@@ -9,6 +9,8 @@ Key properties for agents:
 - **Resource-bounded.** Step limits, depth limits, and allocation limits prevent runaway programs.
 - **Deterministic.** Same source + same bindings = same result. No implicit state.
 
+The type system supports advanced features -- type classes, type families, session types -- but none of them are required. Simple programs use only basic types and functions. When you need stronger safety guarantees (e.g., ensuring a protocol is followed or resources are used linearly), the type system and the sandbox capability model work together to enforce them.
+
 ## Quick Start
 
 ### Minimal Program
