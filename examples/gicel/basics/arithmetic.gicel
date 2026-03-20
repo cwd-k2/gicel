@@ -1,6 +1,6 @@
 -- GICEL Example: Arithmetic Operations
 --
--- Import Std.Num for Int type and all arithmetic operators.
+-- Import Prelude for Int type and all arithmetic operators.
 -- Demonstrates: +, -, *, div (/), mod, negate, abs, eq, compare.
 
 import Prelude

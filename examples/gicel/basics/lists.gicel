@@ -1,14 +1,14 @@
 -- GICEL Example: List Operations
 --
 -- Lists can be written as [1, 2, 3] (desugars to Cons/Nil).
--- Import Std.List for higher-order list operations.
+-- Import Prelude for higher-order list operations.
 
 import Prelude
 
 -- Building lists with list literals
 nums := [1, 2, 3, 4, 5]
 
--- Count elements with length (from Std.List)
+-- Count elements with length (from Prelude)
 len := length nums                              -- 5
 
 -- (<$>): transform each element (operator form of fmap)

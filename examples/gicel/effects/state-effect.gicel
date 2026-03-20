@@ -1,6 +1,6 @@
 -- GICEL Example: State Effect
 --
--- Std.State provides get, put, and modify for stateful computations.
+-- Effect.State provides get, put, and modify for stateful computations.
 -- The state is threaded through the capability environment.
 -- Always `put` an initial value before `get` — the CLI starts with
 -- no state capability.
