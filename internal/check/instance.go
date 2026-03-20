@@ -156,8 +156,7 @@ func (ch *Checker) processInstanceHeader(d *syntax.DeclInstance) *InstanceInfo {
 		ch.processAssocDataDef(add, d.ClassName, d.S)
 	}
 
-	ch.reg.instances = append(ch.reg.instances, inst)
-	ch.reg.instancesByClass[inst.ClassName] = append(ch.reg.instancesByClass[inst.ClassName], inst)
+	ch.reg.RegisterInstance(inst)
 	return inst
 }
 

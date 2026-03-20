@@ -209,13 +209,10 @@ func (ch *Checker) processClassDecl(d *syntax.DeclClass, prog *core.Program) {
 	}
 
 	// Register constructor.
-	ch.reg.conTypes[dn] = conType
 	ch.ctx.Push(&CtxVar{Name: dn, Type: conType, Module: ch.scope.currentModule})
-	ch.reg.conModules[dn] = ch.scope.currentModule
-
 	dataInfo := &DataTypeInfo{Name: dn}
 	dataInfo.Constructors = append(dataInfo.Constructors, ConstructorInfo{Name: dn, Arity: len(allFieldTypes)})
-	ch.reg.conInfo[dn] = dataInfo
+	ch.reg.RegisterConstructor(dn, conType, ch.scope.currentModule, dataInfo)
 
 	// Core DataDecl.
 	coreDecl := core.DataDecl{Name: dn, S: d.S}

@@ -157,8 +157,7 @@ func setupCheckerWithPrelude(t *testing.T) *Checker {
 		{ClassName: "Show", TypeArgs: []types.Type{&types.TyCon{Name: "Int"}}, DictBindName: "Show$Int"},
 	}
 	for _, inst := range instances {
-		ch.reg.instances = append(ch.reg.instances, inst)
-		ch.reg.instancesByClass[inst.ClassName] = append(ch.reg.instancesByClass[inst.ClassName], inst)
+		ch.reg.RegisterInstance(inst)
 	}
 	return ch
 }

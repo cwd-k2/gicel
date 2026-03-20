@@ -103,6 +103,22 @@ type Registry struct {
 	families          map[string]*TypeFamilyInfo  // type family declarations
 }
 
+// RegisterConstructor records a constructor's type, owning module, and
+// parent data type info. This is the single point of registration for
+// the conTypes / conModules / conInfo triple.
+func (r *Registry) RegisterConstructor(name string, ty types.Type, module string, info *DataTypeInfo) {
+	r.conTypes[name] = ty
+	r.conModules[name] = module
+	r.conInfo[name] = info
+}
+
+// RegisterInstance appends an instance to the global list and the
+// per-class index.
+func (r *Registry) RegisterInstance(inst *InstanceInfo) {
+	r.instances = append(r.instances, inst)
+	r.instancesByClass[inst.ClassName] = append(r.instancesByClass[inst.ClassName], inst)
+}
+
 // Scope holds name resolution and module scoping state.
 type Scope struct {
 	currentModule       string                     // module being compiled ("" = user main source)
