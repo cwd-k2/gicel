@@ -103,8 +103,8 @@ type Registry struct {
 	families          map[string]*TypeFamilyInfo  // type family declarations
 }
 
-// checkerScope holds name resolution and module scoping state.
-type checkerScope struct {
+// Scope holds name resolution and module scoping state.
+type Scope struct {
 	currentModule       string                     // module being compiled ("" = user main source)
 	qualifiedScopes     map[string]*qualifiedScope // alias → qualified module scope
 	importedNames       map[string]string          // name → source module (value namespace ambiguity)
@@ -139,7 +139,7 @@ type Checker struct {
 	reg *Registry
 
 	// Name resolution and module scoping.
-	scope checkerScope
+	scope *Scope
 
 	// Constraint solver state.
 	solver solverState
@@ -255,7 +255,7 @@ func newChecker(prog *syntax.AstProgram, source *span.Source, config *CheckConfi
 			}
 			return r
 		}(),
-		scope: checkerScope{
+		scope: &Scope{
 			currentModule:     config.CurrentModule,
 			qualifiedScopes:   make(map[string]*qualifiedScope),
 			importedNames:     make(map[string]string),
