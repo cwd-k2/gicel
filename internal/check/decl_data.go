@@ -18,7 +18,7 @@ func (ch *Checker) processDataDecl(d *syntax.DeclData, prog *core.Program) {
 	for i := len(d.Params) - 1; i >= 0; i-- {
 		kind = &types.KArrow{From: paramKinds[i], To: kind}
 	}
-	ch.config.RegisteredTypes[d.Name] = kind
+	ch.reg.typeKinds[d.Name] = kind
 
 	dataInfo := &DataTypeInfo{Name: d.Name}
 	ch.reg.dataTypeByName[d.Name] = dataInfo

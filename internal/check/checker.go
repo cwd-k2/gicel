@@ -84,13 +84,14 @@ type CheckTraceEvent struct {
 // CheckTraceHook receives trace events during type checking.
 type CheckTraceHook func(CheckTraceEvent)
 
-// checkerRegistry holds semantic registries populated during declaration
+// Registry holds semantic registries populated during declaration
 // processing and read during type checking.
-type checkerRegistry struct {
-	conModules        map[string]string // constructor name → source module name
+type Registry struct {
+	typeKinds         map[string]types.Kind      // registered type constructor kinds (absorbed from config)
+	conModules        map[string]string           // constructor name → source module name
 	conTypes          map[string]types.Type
 	conInfo           map[string]*DataTypeInfo
-	dataTypeByName    map[string]*DataTypeInfo // type name → DataTypeInfo (reverse index)
+	dataTypeByName    map[string]*DataTypeInfo    // type name → DataTypeInfo (reverse index)
 	aliases           map[string]*AliasInfo
 	classes           map[string]*ClassInfo
 	instances         []*InstanceInfo
@@ -98,8 +99,8 @@ type checkerRegistry struct {
 	importedInstances map[*InstanceInfo]bool
 	promotedKinds     map[string]types.Kind      // DataKinds: data name → KData
 	promotedCons      map[string]types.Kind      // DataKinds: nullary con → KData
-	kindVars          map[string]bool            // HKT: kind variables in scope
-	families          map[string]*TypeFamilyInfo // type family declarations
+	kindVars          map[string]bool             // HKT: kind variables in scope
+	families          map[string]*TypeFamilyInfo  // type family declarations
 }
 
 // checkerScope holds name resolution and module scoping state.
@@ -135,7 +136,7 @@ type Checker struct {
 	freshID int
 
 	// Semantic registries (populated in declaration phases, then read-only).
-	reg checkerRegistry
+	reg *Registry
 
 	// Name resolution and module scoping.
 	scope checkerScope
@@ -233,20 +234,27 @@ func newChecker(prog *syntax.AstProgram, source *span.Source, config *CheckConfi
 		errors: &errs.Errors{Source: source},
 		source: source,
 		config: config,
-		reg: checkerRegistry{
-			conModules:        make(map[string]string),
-			conTypes:          make(map[string]types.Type),
-			conInfo:           make(map[string]*DataTypeInfo),
-			dataTypeByName:    make(map[string]*DataTypeInfo),
-			aliases:           make(map[string]*AliasInfo),
-			classes:           make(map[string]*ClassInfo),
-			instancesByClass:  make(map[string][]*InstanceInfo),
-			importedInstances: make(map[*InstanceInfo]bool),
-			promotedKinds:     make(map[string]types.Kind),
-			promotedCons:      make(map[string]types.Kind),
-			kindVars:          make(map[string]bool),
-			families:          make(map[string]*TypeFamilyInfo),
-		},
+		reg: func() *Registry {
+			r := &Registry{
+				typeKinds:         make(map[string]types.Kind),
+				conModules:        make(map[string]string),
+				conTypes:          make(map[string]types.Type),
+				conInfo:           make(map[string]*DataTypeInfo),
+				dataTypeByName:    make(map[string]*DataTypeInfo),
+				aliases:           make(map[string]*AliasInfo),
+				classes:           make(map[string]*ClassInfo),
+				instancesByClass:  make(map[string][]*InstanceInfo),
+				importedInstances: make(map[*InstanceInfo]bool),
+				promotedKinds:     make(map[string]types.Kind),
+				promotedCons:      make(map[string]types.Kind),
+				kindVars:          make(map[string]bool),
+				families:          make(map[string]*TypeFamilyInfo),
+			}
+			for name, kind := range config.RegisteredTypes {
+				r.typeKinds[name] = kind
+			}
+			return r
+		}(),
 		scope: checkerScope{
 			currentModule:     config.CurrentModule,
 			qualifiedScopes:   make(map[string]*qualifiedScope),
@@ -284,12 +292,8 @@ func (ch *Checker) initContext() {
 	for name, ty := range ch.config.Assumptions {
 		ch.ctx.Push(&CtxVar{Name: name, Type: ty})
 	}
-	// Registered opaque types.
-	if ch.config.RegisteredTypes == nil {
-		ch.config.RegisteredTypes = make(map[string]types.Kind)
-	}
 	// Built-in type constructors.
-	ch.config.RegisteredTypes["Record"] = &types.KArrow{From: types.KRow{}, To: types.KType{}}
+	ch.reg.typeKinds["Record"] = &types.KArrow{From: types.KRow{}, To: types.KType{}}
 }
 
 func (ch *Checker) fresh() int {

@@ -122,7 +122,7 @@ func (ch *Checker) processClassDecl(d *syntax.DeclClass, prog *core.Program) {
 		for i := len(dfParams) - 1; i >= 0; i-- {
 			dfKind = &types.KArrow{From: dfParams[i].Kind, To: dfKind}
 		}
-		ch.config.RegisteredTypes[add.Name] = dfKind
+		ch.reg.typeKinds[add.Name] = dfKind
 	}
 
 	// Process method signatures (after associated types/data families are registered).
@@ -187,7 +187,7 @@ func (ch *Checker) processClassDecl(d *syntax.DeclClass, prog *core.Program) {
 	for i := len(tyParamKinds) - 1; i >= 0; i-- {
 		dictKind = &types.KArrow{From: tyParamKinds[i], To: dictKind}
 	}
-	ch.config.RegisteredTypes[dn] = dictKind
+	ch.reg.typeKinds[dn] = dictKind
 
 	// Build result type: DictTy a b c ...
 	var resultType types.Type = &types.TyCon{Name: dn, S: d.S}

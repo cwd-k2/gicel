@@ -275,7 +275,7 @@ func (ch *Checker) moduleOwnedNames(moduleName string) map[string]bool {
 func (ch *Checker) importOpen(mod *ModuleExports, moduleName string, s span.Span) {
 	for name, kind := range mod.Types {
 		if !ch.checkAmbiguousTypeName(name, moduleName, s) {
-			ch.config.RegisteredTypes[name] = kind
+			ch.reg.typeKinds[name] = kind
 		}
 	}
 	for name, ty := range mod.ConTypes {
@@ -363,7 +363,7 @@ func (ch *Checker) importSelective(mod *ModuleExports, imp syntax.DeclImport) {
 		// Type constructor
 		if kind, ok := mod.Types[name]; ok {
 			if !ch.checkAmbiguousTypeName(name, imp.ModuleName, imp.S) {
-				ch.config.RegisteredTypes[name] = kind
+				ch.reg.typeKinds[name] = kind
 			}
 			found = true
 

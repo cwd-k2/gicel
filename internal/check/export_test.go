@@ -16,7 +16,7 @@ import (
 // or compiler-generated '$').
 func setupExportChecker() *Checker {
 	ch := newTestChecker()
-	ch.config.RegisteredTypes = map[string]types.Kind{
+	ch.reg.typeKinds = map[string]types.Kind{
 		"Int":      types.KType{},
 		"Public":   types.KType{},
 		"_Private": types.KType{},

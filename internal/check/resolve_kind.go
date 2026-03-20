@@ -81,7 +81,7 @@ func (ch *Checker) checkTypeAppKind(fun, arg types.Type, s span.Span) {
 func (ch *Checker) hasDeterministicKind(ty types.Type) bool {
 	switch t := ty.(type) {
 	case *types.TyCon:
-		_, inReg := ch.config.RegisteredTypes[t.Name]
+		_, inReg := ch.reg.typeKinds[t.Name]
 		_, inProm := ch.reg.promotedCons[t.Name]
 		_, isAlias := ch.reg.aliases[t.Name]
 		return inReg || inProm || isAlias
@@ -132,7 +132,7 @@ func (ch *Checker) isKnownTypeName(name string) bool {
 	if builtinTypeNames[name] {
 		return true
 	}
-	if _, ok := ch.config.RegisteredTypes[name]; ok {
+	if _, ok := ch.reg.typeKinds[name]; ok {
 		return true
 	}
 	if _, ok := ch.reg.aliases[name]; ok {
@@ -166,7 +166,7 @@ func (ch *Checker) aliasParamKind(aliasName string, i int) types.Kind {
 func (ch *Checker) kindOfType(ty types.Type) types.Kind {
 	switch t := ty.(type) {
 	case *types.TyCon:
-		if k, ok := ch.config.RegisteredTypes[t.Name]; ok {
+		if k, ok := ch.reg.typeKinds[t.Name]; ok {
 			return k
 		}
 		// Type aliases: compute kind from parameter kinds.

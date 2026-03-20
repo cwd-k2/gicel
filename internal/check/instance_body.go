@@ -150,7 +150,7 @@ func (ch *Checker) processAssocDataDef(add syntax.AssocDataDef, className string
 	mangledName := ch.mangledDataFamilyName(add.Name, resolvedPats)
 
 	// Register the mangled data type as a type constructor.
-	ch.config.RegisteredTypes[mangledName] = types.KType{}
+	ch.reg.typeKinds[mangledName] = types.KType{}
 
 	// Build result type for the mangled data type.
 	var mangledResultType types.Type = &types.TyCon{Name: mangledName, S: add.S}
@@ -166,8 +166,8 @@ func (ch *Checker) processAssocDataDef(add syntax.AssocDataDef, className string
 			S:   add.S,
 		}
 		// Update the registered kind to accept this parameter.
-		existingKind := ch.config.RegisteredTypes[mangledName]
-		ch.config.RegisteredTypes[mangledName] = &types.KArrow{From: types.KType{}, To: existingKind}
+		existingKind := ch.reg.typeKinds[mangledName]
+		ch.reg.typeKinds[mangledName] = &types.KArrow{From: types.KType{}, To: existingKind}
 	}
 
 	dataInfo := &DataTypeInfo{Name: mangledName}

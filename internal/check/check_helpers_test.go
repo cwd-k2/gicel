@@ -169,8 +169,9 @@ func newTestChecker() *Checker {
 	ch := &Checker{
 		ctx:    NewContext(),
 		errors: &errs.Errors{Source: span.NewSource("test", "")},
-		config: &CheckConfig{RegisteredTypes: make(map[string]types.Kind)},
-		reg: checkerRegistry{
+		config: &CheckConfig{},
+		reg: &Registry{
+			typeKinds:         make(map[string]types.Kind),
 			conTypes:          make(map[string]types.Type),
 			conInfo:           make(map[string]*DataTypeInfo),
 			aliases:           make(map[string]*AliasInfo),

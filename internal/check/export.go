@@ -29,7 +29,7 @@ func (ch *Checker) ExportModule(prog *core.Program) *ModuleExports {
 	// Types: only kind entries for data types defined by this module.
 	ownedTypes := make(map[string]types.Kind, len(ownedDataNames))
 	for name := range ownedDataNames {
-		if kind, ok := ch.config.RegisteredTypes[name]; ok {
+		if kind, ok := ch.reg.typeKinds[name]; ok {
 			ownedTypes[name] = kind
 		}
 	}
