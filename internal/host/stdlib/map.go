@@ -22,6 +22,10 @@ var Map Pack = func(e Registrar) error {
 	e.RegisterPrim("_mapFoldlWithKey", mapFoldlWithKeyImpl)
 	e.RegisterPrim("_mapMember", mapMemberImpl)
 	e.RegisterPrim("_mapUnionWith", mapUnionWithImpl)
+	e.RegisterPrim("_mapKeys", mapKeysImpl)
+	e.RegisterPrim("_mapValues", mapValuesImpl)
+	e.RegisterPrim("_mapMapValues", mapMapValuesImpl)
+	e.RegisterPrim("_mapFilterWithKey", mapFilterWithKeyImpl)
 	return e.RegisterModule("Data.Map", mapSource)
 }
 
@@ -256,4 +260,64 @@ func avlWalkMerge(ctx context.Context, n *avlNode, f eval.Value, result *mapVal,
 		result.size++
 	}
 	return avlWalkMerge(ctx, n.right, f, result, ce, apply)
+}
+
+// _mapKeys :: Map k v -> List k
+func mapKeysImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
+	m, err := asMapVal(args[0])
+	if err != nil {
+		return nil, ce, err
+	}
+	if err := budget.ChargeAlloc(ctx, int64(m.size)*costConsNode); err != nil {
+		return nil, ce, err
+	}
+	return avlKeysToConsList(m.root), ce, nil
+}
+
+// _mapValues :: Map k v -> List v
+func mapValuesImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
+	m, err := asMapVal(args[0])
+	if err != nil {
+		return nil, ce, err
+	}
+	if err := budget.ChargeAlloc(ctx, int64(m.size)*costConsNode); err != nil {
+		return nil, ce, err
+	}
+	return avlValsToConsList(m.root), ce, nil
+}
+
+// _mapMapValues :: (v -> w) -> Map k v -> Map k w
+func mapMapValuesImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, apply eval.Applier) (eval.Value, eval.CapEnv, error) {
+	f := args[0]
+	m, err := asMapVal(args[1])
+	if err != nil {
+		return nil, ce, err
+	}
+	if err := budget.ChargeAlloc(ctx, int64(m.size)*costAVLNode); err != nil {
+		return nil, ce, err
+	}
+	newRoot, newCe, err := avlMapValues(m.root, f, ce, apply)
+	if err != nil {
+		return nil, ce, err
+	}
+	return &eval.HostVal{Inner: &mapVal{root: newRoot, cmp: m.cmp, size: m.size}}, newCe, nil
+}
+
+// _mapFilterWithKey :: (k -> v -> Bool) -> Map k v -> Map k v
+func mapFilterWithKeyImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, apply eval.Applier) (eval.Value, eval.CapEnv, error) {
+	pred := args[0]
+	m, err := asMapVal(args[1])
+	if err != nil {
+		return nil, ce, err
+	}
+	if err := budget.ChargeAlloc(ctx, int64(m.size)*costAVLNode); err != nil {
+		return nil, ce, err
+	}
+	var newRoot *avlNode
+	var newSize int
+	newCe, err := avlFilterWithKey(m.root, pred, m.cmp, &newRoot, &newSize, ce, apply)
+	if err != nil {
+		return nil, ce, err
+	}
+	return &eval.HostVal{Inner: &mapVal{root: newRoot, cmp: m.cmp, size: newSize}}, newCe, nil
 }

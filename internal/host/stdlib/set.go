@@ -17,6 +17,9 @@ var Set Pack = func(e Registrar) error {
 	e.RegisterPrim("_setSize", setSizeImpl)
 	e.RegisterPrim("_setToList", setToListImpl)
 	e.RegisterPrim("_setFromList", setFromListImpl)
+	e.RegisterPrim("_setUnion", setUnionImpl)
+	e.RegisterPrim("_setIntersection", setIntersectionImpl)
+	e.RegisterPrim("_setDifference", setDifferenceImpl)
 	return e.RegisterModule("Data.Set", setSource)
 }
 
@@ -90,22 +93,6 @@ func setToListImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, _ eva
 	return avlKeysToConsList(m.root), ce, nil
 }
 
-// avlKeysToConsList builds an in-order ConVal list of keys from the AVL tree.
-func avlKeysToConsList(n *avlNode) eval.Value {
-	var acc eval.Value = &eval.ConVal{Con: "Nil"}
-	avlKeysConsRight(n, &acc)
-	return acc
-}
-
-func avlKeysConsRight(n *avlNode, acc *eval.Value) {
-	if n == nil {
-		return
-	}
-	avlKeysConsRight(n.right, acc)
-	*acc = &eval.ConVal{Con: "Cons", Args: []eval.Value{n.key, *acc}}
-	avlKeysConsRight(n.left, acc)
-}
-
 // _setFromList :: (k -> k -> Ordering) -> List k -> Set k
 func setFromListImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, apply eval.Applier) (eval.Value, eval.CapEnv, error) {
 	cmp := args[0]
@@ -137,4 +124,145 @@ func setFromListImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, app
 		list = con.Args[1]
 	}
 	return &eval.HostVal{Inner: m}, ce, nil
+}
+
+// _setUnion :: (k -> k -> Ordering) -> Set k -> Set k -> Set k
+func setUnionImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, apply eval.Applier) (eval.Value, eval.CapEnv, error) {
+	s1, err := asMapVal(args[1])
+	if err != nil {
+		return nil, ce, err
+	}
+	s2, err := asMapVal(args[2])
+	if err != nil {
+		return nil, ce, err
+	}
+	// Walk s2 and insert each key into s1 (prefer-left semantics, but values are unit).
+	result := &mapVal{root: s1.root, cmp: s1.cmp, size: s1.size}
+	ce, err = avlWalkInsertSet(ctx, s2.root, result, ce, apply)
+	if err != nil {
+		return nil, ce, err
+	}
+	return &eval.HostVal{Inner: result}, ce, nil
+}
+
+// avlWalkInsertSet walks source tree and inserts each key with unitVal into dst.
+func avlWalkInsertSet(ctx context.Context, n *avlNode, dst *mapVal, ce eval.CapEnv, apply eval.Applier) (eval.CapEnv, error) {
+	if n == nil {
+		return ce, nil
+	}
+	var err error
+	ce, err = avlWalkInsertSet(ctx, n.left, dst, ce, apply)
+	if err != nil {
+		return ce, err
+	}
+	if err := budget.ChargeAlloc(ctx, costAVLNode); err != nil {
+		return ce, err
+	}
+	var inserted bool
+	dst.root, inserted, ce, err = avlInsert(dst.root, n.key, unitVal, dst.cmp, ce, apply)
+	if err != nil {
+		return ce, err
+	}
+	if inserted {
+		dst.size++
+	}
+	return avlWalkInsertSet(ctx, n.right, dst, ce, apply)
+}
+
+// _setIntersection :: (k -> k -> Ordering) -> Set k -> Set k -> Set k
+func setIntersectionImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, apply eval.Applier) (eval.Value, eval.CapEnv, error) {
+	s1, err := asMapVal(args[1])
+	if err != nil {
+		return nil, ce, err
+	}
+	s2, err := asMapVal(args[2])
+	if err != nil {
+		return nil, ce, err
+	}
+	result := &mapVal{root: nil, cmp: s1.cmp, size: 0}
+	ce, err = avlWalkIntersect(ctx, s1.root, s2, result, ce, apply)
+	if err != nil {
+		return nil, ce, err
+	}
+	return &eval.HostVal{Inner: result}, ce, nil
+}
+
+// avlWalkIntersect walks s1 and keeps only keys present in s2.
+func avlWalkIntersect(ctx context.Context, n *avlNode, s2 *mapVal, result *mapVal, ce eval.CapEnv, apply eval.Applier) (eval.CapEnv, error) {
+	if n == nil {
+		return ce, nil
+	}
+	var err error
+	ce, err = avlWalkIntersect(ctx, n.left, s2, result, ce, apply)
+	if err != nil {
+		return ce, err
+	}
+	_, found, newCe, err := avlLookup(s2.root, n.key, s2.cmp, ce, apply)
+	if err != nil {
+		return ce, err
+	}
+	ce = newCe
+	if found {
+		if err := budget.ChargeAlloc(ctx, costAVLNode); err != nil {
+			return ce, err
+		}
+		var inserted bool
+		result.root, inserted, ce, err = avlInsert(result.root, n.key, unitVal, result.cmp, ce, apply)
+		if err != nil {
+			return ce, err
+		}
+		if inserted {
+			result.size++
+		}
+	}
+	return avlWalkIntersect(ctx, n.right, s2, result, ce, apply)
+}
+
+// _setDifference :: (k -> k -> Ordering) -> Set k -> Set k -> Set k
+func setDifferenceImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, apply eval.Applier) (eval.Value, eval.CapEnv, error) {
+	s1, err := asMapVal(args[1])
+	if err != nil {
+		return nil, ce, err
+	}
+	s2, err := asMapVal(args[2])
+	if err != nil {
+		return nil, ce, err
+	}
+	result := &mapVal{root: nil, cmp: s1.cmp, size: 0}
+	ce, err = avlWalkDifference(ctx, s1.root, s2, result, ce, apply)
+	if err != nil {
+		return nil, ce, err
+	}
+	return &eval.HostVal{Inner: result}, ce, nil
+}
+
+// avlWalkDifference walks s1 and keeps only keys NOT present in s2.
+func avlWalkDifference(ctx context.Context, n *avlNode, s2 *mapVal, result *mapVal, ce eval.CapEnv, apply eval.Applier) (eval.CapEnv, error) {
+	if n == nil {
+		return ce, nil
+	}
+	var err error
+	ce, err = avlWalkDifference(ctx, n.left, s2, result, ce, apply)
+	if err != nil {
+		return ce, err
+	}
+	_, found, newCe, err := avlLookup(s2.root, n.key, s2.cmp, ce, apply)
+	if err != nil {
+		return ce, err
+	}
+	ce = newCe
+	if !found {
+		if err := budget.ChargeAlloc(ctx, costAVLNode); err != nil {
+			return ce, err
+		}
+		var inserted bool
+		result.root, inserted, ce, err = avlInsert(result.root, n.key, unitVal, result.cmp, ce, apply)
+		if err != nil {
+			return ce, err
+		}
+		if inserted {
+			result.size++
+		}
+	}
+	return avlWalkDifference(ctx, n.right, s2, result, ce, apply)
 }

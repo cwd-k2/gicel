@@ -21,6 +21,15 @@ _setToList := assumption
 _setFromList :: \k. (k -> k -> Ordering) -> List k -> Set k
 _setFromList := assumption
 
+_setUnion :: \k. (k -> k -> Ordering) -> Set k -> Set k -> Set k
+_setUnion := assumption
+
+_setIntersection :: \k. (k -> k -> Ordering) -> Set k -> Set k -> Set k
+_setIntersection := assumption
+
+_setDifference :: \k. (k -> k -> Ordering) -> Set k -> Set k -> Set k
+_setDifference := assumption
+
 empty :: \k. Ord k => Set k
 empty := _setEmpty compare
 
@@ -42,3 +51,12 @@ instance Ord k => FromList (Set k) {
 }
 
 instance Ord k => ToList (Set k) { toList := _setToList }
+
+union :: \k. Ord k => Set k -> Set k -> Set k
+union := _setUnion compare
+
+intersection :: \k. Ord k => Set k -> Set k -> Set k
+intersection := _setIntersection compare
+
+difference :: \k. Ord k => Set k -> Set k -> Set k
+difference := _setDifference compare

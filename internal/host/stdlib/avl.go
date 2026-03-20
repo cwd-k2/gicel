@@ -224,6 +224,98 @@ func avlConsRight(n *avlNode, acc *eval.Value) {
 	avlConsRight(n.left, acc)
 }
 
+// avlKeysToConsList builds an in-order ConVal list of keys from the AVL tree.
+func avlKeysToConsList(n *avlNode) eval.Value {
+	var acc eval.Value = &eval.ConVal{Con: "Nil"}
+	avlKeysConsRight(n, &acc)
+	return acc
+}
+
+func avlKeysConsRight(n *avlNode, acc *eval.Value) {
+	if n == nil {
+		return
+	}
+	avlKeysConsRight(n.right, acc)
+	*acc = &eval.ConVal{Con: "Cons", Args: []eval.Value{n.key, *acc}}
+	avlKeysConsRight(n.left, acc)
+}
+
+// avlValsToConsList builds an in-order ConVal list of values from the AVL tree.
+func avlValsToConsList(n *avlNode) eval.Value {
+	var acc eval.Value = &eval.ConVal{Con: "Nil"}
+	avlValsConsRight(n, &acc)
+	return acc
+}
+
+func avlValsConsRight(n *avlNode, acc *eval.Value) {
+	if n == nil {
+		return
+	}
+	avlValsConsRight(n.right, acc)
+	*acc = &eval.ConVal{Con: "Cons", Args: []eval.Value{n.value, *acc}}
+	avlValsConsRight(n.left, acc)
+}
+
+// avlMapValues applies f to every value in the tree via Applier, returning
+// a new tree with the same structure and keys but transformed values.
+func avlMapValues(n *avlNode, f eval.Value, ce eval.CapEnv, apply eval.Applier) (*avlNode, eval.CapEnv, error) {
+	if n == nil {
+		return nil, ce, nil
+	}
+	var err error
+	var left, right *avlNode
+	left, ce, err = avlMapValues(n.left, f, ce, apply)
+	if err != nil {
+		return nil, ce, err
+	}
+	var newVal eval.Value
+	newVal, ce, err = apply(f, n.value, ce)
+	if err != nil {
+		return nil, ce, err
+	}
+	right, ce, err = avlMapValues(n.right, f, ce, apply)
+	if err != nil {
+		return nil, ce, err
+	}
+	return &avlNode{key: n.key, value: newVal, left: left, right: right, height: n.height}, ce, nil
+}
+
+// avlFilterWithKey walks the tree in-order and applies a predicate (k -> v -> Bool)
+// to each entry via Applier. Entries where the predicate returns True are collected;
+// others are discarded. Builds a fresh tree from kept entries.
+func avlFilterWithKey(n *avlNode, pred eval.Value, cmp eval.Value, root **avlNode, size *int, ce eval.CapEnv, apply eval.Applier) (eval.CapEnv, error) {
+	if n == nil {
+		return ce, nil
+	}
+	var err error
+	ce, err = avlFilterWithKey(n.left, pred, cmp, root, size, ce, apply)
+	if err != nil {
+		return ce, err
+	}
+	// Apply predicate: pred k v
+	var partial eval.Value
+	partial, ce, err = apply(pred, n.key, ce)
+	if err != nil {
+		return ce, err
+	}
+	var result eval.Value
+	result, ce, err = apply(partial, n.value, ce)
+	if err != nil {
+		return ce, err
+	}
+	if con, ok := result.(*eval.ConVal); ok && con.Con == "True" {
+		var inserted bool
+		*root, inserted, ce, err = avlInsert(*root, n.key, n.value, cmp, ce, apply)
+		if err != nil {
+			return ce, err
+		}
+		if inserted {
+			*size++
+		}
+	}
+	return avlFilterWithKey(n.right, pred, cmp, root, size, ce, apply)
+}
+
 func avlFoldlWithKey(n *avlNode, f, acc eval.Value, ce eval.CapEnv, apply eval.Applier) (eval.Value, eval.CapEnv, error) {
 	if n == nil {
 		return acc, ce, nil
