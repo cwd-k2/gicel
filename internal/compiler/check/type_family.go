@@ -19,9 +19,6 @@ type TFParam = family.TFParam
 type tfDep = family.TFDep
 type tfEquation = family.TFEquation
 
-// cloneFamilies delegates to the family subpackage.
-var cloneFamilies = family.CloneFamilies
-
 // collectPatternVars delegates to the family subpackage.
 var collectPatternVars = family.CollectPatternVars
 

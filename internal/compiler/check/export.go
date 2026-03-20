@@ -56,12 +56,18 @@ func (ch *Checker) ExportModule(prog *ir.Program) *ModuleExports {
 	// aliases, classes, and type families from inherited ones.
 	impAliases := make(map[string]bool)
 	impClasses := make(map[string]bool)
+	impFamilyEqCount := make(map[string]int) // name → max equation count from imports
 	for _, mod := range ch.config.ImportedModules {
 		for n := range mod.Aliases {
 			impAliases[n] = true
 		}
 		for n := range mod.Classes {
 			impClasses[n] = true
+		}
+		for n, fam := range mod.TypeFamilies {
+			if cnt := len(fam.Equations); cnt > impFamilyEqCount[n] {
+				impFamilyEqCount[n] = cnt
+			}
 		}
 	}
 
@@ -90,10 +96,10 @@ func (ch *Checker) ExportModule(prog *ir.Program) *ModuleExports {
 		Values:             values,
 		PromotedKinds:      ownedPromKinds,
 		PromotedCons:       ownedPromCons,
-		// TypeFamilies are exported in full (like Instances) because they
-		// accumulate associated type instances from multiple modules.
-		// Filtering by ownership would lose instances added to imported families.
-		TypeFamilies: filterPrivateMap(cloneFamilies(ch.reg.families)),
+		// TypeFamilies: export locally defined families and imported families
+		// that were enriched with new equations by this module (e.g. associated
+		// type instances). Purely inherited families are excluded.
+		TypeFamilies: filterOwnedOrEnrichedFamilies(ch.reg.families, impFamilyEqCount),
 		DataDecls:    filterPrivateDataDecls(prog.DataDecls),
 	}
 }
@@ -110,13 +116,25 @@ func filterOwnedMap[V any](m map[string]V, imported map[string]bool) map[string]
 	return result
 }
 
-// filterPrivateMap returns a new map with private-named keys removed.
-func filterPrivateMap[V any](m map[string]V) map[string]V {
-	result := make(map[string]V, len(m))
-	for k, v := range m {
-		if !isPrivateName(k) {
-			result[k] = v
+// filterOwnedOrEnrichedFamilies returns families that are either locally defined
+// (not present in any import) or locally enriched (have more equations than the
+// imported version, indicating this module added associated type instances).
+// Purely inherited families are excluded. Private names are always excluded.
+func filterOwnedOrEnrichedFamilies(families map[string]*TypeFamilyInfo, impEqCount map[string]int) map[string]*TypeFamilyInfo {
+	result := make(map[string]*TypeFamilyInfo, len(families))
+	for name, fam := range families {
+		if isPrivateName(name) {
+			continue
 		}
+		importedCount, imported := impEqCount[name]
+		if !imported {
+			// Locally defined: always export.
+			result[name] = fam.Clone()
+		} else if len(fam.Equations) > importedCount {
+			// Imported but locally enriched: export with new equations.
+			result[name] = fam.Clone()
+		}
+		// Otherwise: purely inherited, skip.
 	}
 	return result
 }
