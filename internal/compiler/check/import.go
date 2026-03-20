@@ -275,24 +275,24 @@ func (sc *Scope) moduleOwnedNames(moduleName string) map[string]bool {
 func (sc *Scope) importOpen(mod *ModuleExports, moduleName string, s span.Span) {
 	for name, kind := range mod.Types {
 		if !sc.checkAmbiguousTypeName(name, moduleName, s) {
-			sc.reg.typeKinds[name] = kind
+			sc.reg.RegisterTypeKind(name, kind)
 		}
 	}
 	for name, ty := range mod.ConTypes {
 		sc.importConstructor(name, ty, moduleName, s)
 	}
 	for name, info := range mod.ConstructorInfo {
-		sc.reg.conInfo[name] = info
-		sc.reg.dataTypeByName[info.Name] = info
+		sc.reg.SetConInfo(name, info)
+		sc.reg.RegisterDataType(info.Name, info)
 	}
 	for name, alias := range mod.Aliases {
 		if !sc.checkAmbiguousTypeName(name, moduleName, s) {
-			sc.reg.aliases[name] = alias
+			sc.reg.RegisterAlias(name, alias)
 		}
 	}
 	for name, cls := range mod.Classes {
 		if !sc.checkAmbiguousTypeName(name, moduleName, s) {
-			sc.reg.classes[name] = cls
+			sc.reg.RegisterClass(name, cls)
 		}
 	}
 	sc.importInstances(mod)
@@ -301,17 +301,17 @@ func (sc *Scope) importOpen(mod *ModuleExports, moduleName string, s span.Span) 
 	}
 	for name, kind := range mod.PromotedKinds {
 		if !sc.checkAmbiguousTypeName(name, moduleName, s) {
-			sc.reg.promotedKinds[name] = kind
+			sc.reg.RegisterPromotedKind(name, kind)
 		}
 	}
 	for name, kind := range mod.PromotedCons {
 		if !sc.checkAmbiguousTypeName(name, moduleName, s) {
-			sc.reg.promotedCons[name] = kind
+			sc.reg.RegisterPromotedCon(name, kind)
 		}
 	}
 	for name, fam := range mod.TypeFamilies {
 		if !sc.checkAmbiguousTypeName(name, moduleName, s) {
-			sc.reg.families[name] = fam.Clone()
+			sc.reg.RegisterFamily(name, fam.Clone())
 		}
 	}
 }
@@ -319,12 +319,7 @@ func (sc *Scope) importOpen(mod *ModuleExports, moduleName string, s span.Span) 
 // importInstances imports all instances from a module (for coherence).
 func (sc *Scope) importInstances(mod *ModuleExports) {
 	for _, inst := range mod.Instances {
-		if sc.reg.importedInstances[inst] {
-			continue
-		}
-		sc.reg.instances = append(sc.reg.instances, inst)
-		sc.reg.instancesByClass[inst.ClassName] = append(sc.reg.instancesByClass[inst.ClassName], inst)
-		sc.reg.importedInstances[inst] = true
+		sc.reg.ImportInstance(inst)
 	}
 }
 
@@ -339,9 +334,8 @@ func (sc *Scope) importValue(name string, ty types.Type, moduleName string, s sp
 // checking and constructor-module bookkeeping.
 func (sc *Scope) importConstructor(conName string, ty types.Type, moduleName string, s span.Span) {
 	if !sc.checkAmbiguousName(conName, moduleName, s) {
-		sc.reg.conTypes[conName] = ty
+		sc.reg.SetConBinding(conName, ty, moduleName)
 		sc.session.ctx.Push(&CtxVar{Name: conName, Type: ty, Module: moduleName})
-		sc.reg.conModules[conName] = moduleName
 	}
 }
 
@@ -363,7 +357,7 @@ func (sc *Scope) importSelective(mod *ModuleExports, imp syntax.DeclImport) {
 		// Type constructor
 		if kind, ok := mod.Types[name]; ok {
 			if !sc.checkAmbiguousTypeName(name, imp.ModuleName, imp.S) {
-				sc.reg.typeKinds[name] = kind
+				sc.reg.RegisterTypeKind(name, kind)
 			}
 			found = true
 
@@ -376,7 +370,7 @@ func (sc *Scope) importSelective(mod *ModuleExports, imp syntax.DeclImport) {
 		// Type alias
 		if alias, ok := mod.Aliases[name]; ok {
 			if !sc.checkAmbiguousTypeName(name, imp.ModuleName, imp.S) {
-				sc.reg.aliases[name] = alias
+				sc.reg.RegisterAlias(name, alias)
 			}
 			found = true
 		}
@@ -384,7 +378,7 @@ func (sc *Scope) importSelective(mod *ModuleExports, imp syntax.DeclImport) {
 		// Class
 		if cls, ok := mod.Classes[name]; ok {
 			if !sc.checkAmbiguousTypeName(name, imp.ModuleName, imp.S) {
-				sc.reg.classes[name] = cls
+				sc.reg.RegisterClass(name, cls)
 			}
 			found = true
 
@@ -404,7 +398,7 @@ func (sc *Scope) importSelective(mod *ModuleExports, imp syntax.DeclImport) {
 		// Type family
 		if fam, ok := mod.TypeFamilies[name]; ok {
 			if !sc.checkAmbiguousTypeName(name, imp.ModuleName, imp.S) {
-				sc.reg.families[name] = fam.Clone()
+				sc.reg.RegisterFamily(name, fam.Clone())
 			}
 			found = true
 		}
@@ -412,13 +406,13 @@ func (sc *Scope) importSelective(mod *ModuleExports, imp syntax.DeclImport) {
 		// Promoted kinds
 		if kind, ok := mod.PromotedKinds[name]; ok {
 			if !sc.checkAmbiguousTypeName(name, imp.ModuleName, imp.S) {
-				sc.reg.promotedKinds[name] = kind
+				sc.reg.RegisterPromotedKind(name, kind)
 			}
 			found = true
 		}
 		if kind, ok := mod.PromotedCons[name]; ok {
 			if !sc.checkAmbiguousTypeName(name, imp.ModuleName, imp.S) {
-				sc.reg.promotedCons[name] = kind
+				sc.reg.RegisterPromotedCon(name, kind)
 			}
 			found = true
 		}
@@ -447,7 +441,7 @@ func (sc *Scope) importTypeSubs(mod *ModuleExports, typeName string, in syntax.I
 	for _, conName := range cons {
 		if in.AllSubs || subSet[conName] {
 			if info, ok := mod.ConstructorInfo[conName]; ok {
-				sc.reg.conInfo[conName] = info
+				sc.reg.SetConInfo(conName, info)
 			}
 			if ty, ok := mod.ConTypes[conName]; ok {
 				sc.importConstructor(conName, ty, moduleName, s)

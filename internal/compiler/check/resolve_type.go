@@ -38,7 +38,7 @@ func (ch *Checker) resolveTypeExpr(texpr syntax.TypeExpr) types.Type {
 			if len(info.Params) == 0 {
 				return info.Body
 			}
-			ch.reg.aliases[t.Name] = info
+			ch.reg.RegisterAlias(t.Name, info)
 			return &types.TyCon{Name: t.Name, S: t.S}
 		}
 		// Check qualified type families (zero-arity: immediate; parameterized: inject for TyApp expansion)
@@ -46,7 +46,7 @@ func (ch *Checker) resolveTypeExpr(texpr syntax.TypeExpr) types.Type {
 			if len(fam.Params) == 0 {
 				return &types.TyFamilyApp{Name: t.Name, Args: nil, Kind: fam.ResultKind, S: t.S}
 			}
-			ch.reg.families[t.Name] = fam.Clone()
+			ch.reg.RegisterFamily(t.Name, fam.Clone())
 			return &types.TyCon{Name: t.Name, S: t.S}
 		}
 		// Check qualified types — only types defined by this module's data declarations,
@@ -86,7 +86,7 @@ func (ch *Checker) resolveTypeExpr(texpr syntax.TypeExpr) types.Type {
 		var kindVarNames []string
 		for _, b := range t.Binders {
 			if _, ok := b.Kind.(*syntax.KindExprSort); ok {
-				ch.reg.kindVars[b.Name] = true
+				ch.reg.SetKindVar(b.Name)
 				kindVarNames = append(kindVarNames, b.Name)
 			}
 		}
@@ -96,7 +96,7 @@ func (ch *Checker) resolveTypeExpr(texpr syntax.TypeExpr) types.Type {
 			ty = &types.TyForall{Var: t.Binders[i].Name, Kind: kind, Body: ty, S: t.S}
 		}
 		for _, name := range kindVarNames {
-			delete(ch.reg.kindVars, name)
+			ch.reg.UnsetKindVar(name)
 		}
 		return ty
 	case *syntax.TyExprRow:

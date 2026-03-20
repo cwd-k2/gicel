@@ -18,10 +18,10 @@ func (ch *Checker) processDataDecl(d *syntax.DeclData, prog *ir.Program) {
 	for i := len(d.Params) - 1; i >= 0; i-- {
 		kind = &types.KArrow{From: paramKinds[i], To: kind}
 	}
-	ch.reg.typeKinds[d.Name] = kind
+	ch.reg.RegisterTypeKind(d.Name, kind)
 
 	dataInfo := &DataTypeInfo{Name: d.Name}
-	ch.reg.dataTypeByName[d.Name] = dataInfo
+	ch.reg.RegisterDataType(d.Name, dataInfo)
 
 	// Build result type: T a b c ...
 	var resultType types.Type = &types.TyCon{Name: d.Name, S: d.S}
@@ -80,16 +80,16 @@ func (ch *Checker) processDataDecl(d *syntax.DeclData, prog *ir.Program) {
 
 	// DataKinds: promote nullary constructors to type level.
 	dataKind := types.KData{Name: d.Name}
-	ch.reg.promotedKinds[d.Name] = dataKind
+	ch.reg.RegisterPromotedKind(d.Name, dataKind)
 	for _, con := range d.Cons {
 		if len(con.Fields) == 0 {
-			ch.reg.promotedCons[con.Name] = dataKind
+			ch.reg.RegisterPromotedCon(con.Name, dataKind)
 		}
 	}
 	for _, gcon := range d.GADTCons {
 		fieldTypes, _ := decomposeConSig(ch.resolveTypeExpr(gcon.Type))
 		if len(fieldTypes) == 0 {
-			ch.reg.promotedCons[gcon.Name] = dataKind
+			ch.reg.RegisterPromotedCon(gcon.Name, dataKind)
 		}
 	}
 }

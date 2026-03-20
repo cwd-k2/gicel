@@ -165,7 +165,7 @@ func (ch *Checker) processTypeAlias(d *syntax.DeclTypeAlias) {
 		paramKinds = append(paramKinds, ch.resolveKindExpr(p.Kind))
 	}
 	body := ch.resolveTypeExpr(d.Body)
-	ch.reg.aliases[d.Name] = &AliasInfo{Params: params, ParamKinds: paramKinds, Body: body}
+	ch.reg.RegisterAlias(d.Name, &AliasInfo{Params: params, ParamKinds: paramKinds, Body: body})
 }
 
 func (ch *Checker) processValueDef(d *syntax.DeclValueDef, annotations map[string]types.Type, prog *ir.Program) {

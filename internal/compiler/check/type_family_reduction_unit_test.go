@@ -261,12 +261,12 @@ func TestReduceTyFamilyUnit_UnknownFamily(t *testing.T) {
 
 func TestReduceTyFamilyUnit_EmptyEquations(t *testing.T) {
 	ch := newTestChecker()
-	ch.reg.families["F"] = &TypeFamilyInfo{
+	ch.reg.RegisterFamily("F", &TypeFamilyInfo{
 		Name:       "F",
 		Params:     []TFParam{{Name: "a", Kind: types.KType{}}},
 		ResultKind: types.KType{},
 		Equations:  nil,
-	}
+	})
 	result, ok := ch.reduceTyFamily("F", []types.Type{&types.TyCon{Name: "Int"}}, span.Span{})
 	if ok {
 		t.Fatal("expected false for empty equations")
@@ -278,7 +278,7 @@ func TestReduceTyFamilyUnit_EmptyEquations(t *testing.T) {
 
 func TestReduceTyFamilyUnit_MatchFirstEquation(t *testing.T) {
 	ch := newTestChecker()
-	ch.reg.families["F"] = &TypeFamilyInfo{
+	ch.reg.RegisterFamily("F", &TypeFamilyInfo{
 		Name:       "F",
 		Params:     []TFParam{{Name: "a", Kind: types.KType{}}},
 		ResultKind: types.KType{},
@@ -286,7 +286,7 @@ func TestReduceTyFamilyUnit_MatchFirstEquation(t *testing.T) {
 			{Patterns: []types.Type{&types.TyCon{Name: "Int"}}, RHS: &types.TyCon{Name: "Bool"}},
 			{Patterns: []types.Type{&types.TyVar{Name: "a"}}, RHS: &types.TyCon{Name: "Unit"}},
 		},
-	}
+	})
 	result, ok := ch.reduceTyFamily("F", []types.Type{&types.TyCon{Name: "Int"}}, span.Span{})
 	if !ok {
 		t.Fatal("expected successful reduction")
@@ -299,7 +299,7 @@ func TestReduceTyFamilyUnit_MatchFirstEquation(t *testing.T) {
 
 func TestReduceTyFamilyUnit_FallsThrough(t *testing.T) {
 	ch := newTestChecker()
-	ch.reg.families["F"] = &TypeFamilyInfo{
+	ch.reg.RegisterFamily("F", &TypeFamilyInfo{
 		Name:       "F",
 		Params:     []TFParam{{Name: "a", Kind: types.KType{}}},
 		ResultKind: types.KType{},
@@ -307,7 +307,7 @@ func TestReduceTyFamilyUnit_FallsThrough(t *testing.T) {
 			{Patterns: []types.Type{&types.TyCon{Name: "Int"}}, RHS: &types.TyCon{Name: "Bool"}},
 			{Patterns: []types.Type{&types.TyVar{Name: "a"}}, RHS: &types.TyCon{Name: "Unit"}},
 		},
-	}
+	})
 	result, ok := ch.reduceTyFamily("F", []types.Type{&types.TyCon{Name: "String"}}, span.Span{})
 	if !ok {
 		t.Fatal("expected successful reduction via fallthrough")
@@ -320,14 +320,14 @@ func TestReduceTyFamilyUnit_FallsThrough(t *testing.T) {
 
 func TestReduceTyFamilyUnit_StepLimit(t *testing.T) {
 	ch := newTestChecker()
-	ch.reg.families["Loop"] = &TypeFamilyInfo{
+	ch.reg.RegisterFamily("Loop", &TypeFamilyInfo{
 		Name:       "Loop",
 		Params:     []TFParam{{Name: "a", Kind: types.KType{}}},
 		ResultKind: types.KType{},
 		Equations: []tfEquation{
 			{Patterns: []types.Type{&types.TyVar{Name: "a"}}, RHS: &types.TyFamilyApp{Name: "Loop", Args: []types.Type{&types.TyVar{Name: "a"}}}},
 		},
-	}
+	})
 	// Exhaust the step budget so the next Step() exceeds the limit.
 	for range family.MaxReductionWork {
 		_ = ch.budget.Step()
@@ -343,14 +343,14 @@ func TestReduceTyFamilyUnit_StepLimit(t *testing.T) {
 
 func TestReduceTyFamilyUnit_SubstApplied(t *testing.T) {
 	ch := newTestChecker()
-	ch.reg.families["Id"] = &TypeFamilyInfo{
+	ch.reg.RegisterFamily("Id", &TypeFamilyInfo{
 		Name:       "Id",
 		Params:     []TFParam{{Name: "a", Kind: types.KType{}}},
 		ResultKind: types.KType{},
 		Equations: []tfEquation{
 			{Patterns: []types.Type{&types.TyVar{Name: "a"}}, RHS: &types.TyVar{Name: "a"}},
 		},
-	}
+	})
 	result, ok := ch.reduceTyFamily("Id", []types.Type{&types.TyCon{Name: "Int"}}, span.Span{})
 	if !ok {
 		t.Fatal("expected successful reduction")
@@ -366,7 +366,7 @@ func TestReduceTyFamilyUnit_IndeterminateStopsBeforeLater(t *testing.T) {
 	// Equation 1: F Bool = Int (concrete pattern)
 	// Equation 2: F a = Bool (variable pattern, catches all)
 	// Argument: unsolved meta -> equation 1 is indeterminate, should NOT try equation 2.
-	ch.reg.families["F"] = &TypeFamilyInfo{
+	ch.reg.RegisterFamily("F", &TypeFamilyInfo{
 		Name:       "F",
 		Params:     []TFParam{{Name: "a", Kind: types.KType{}}},
 		ResultKind: types.KType{},
@@ -374,7 +374,7 @@ func TestReduceTyFamilyUnit_IndeterminateStopsBeforeLater(t *testing.T) {
 			{Patterns: []types.Type{&types.TyCon{Name: "Bool"}}, RHS: &types.TyCon{Name: "Int"}},
 			{Patterns: []types.Type{&types.TyVar{Name: "a"}}, RHS: &types.TyCon{Name: "Bool"}},
 		},
-	}
+	})
 	meta := &types.TyMeta{ID: 99, Kind: types.KType{}}
 	result, ok := ch.reduceTyFamily("F", []types.Type{meta}, span.Span{})
 	if ok {

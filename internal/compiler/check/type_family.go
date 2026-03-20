@@ -109,7 +109,7 @@ func (ch *Checker) processTypeFamily(d *syntax.DeclTypeFamily) {
 		ch.familyEnv().VerifyInjectivity(info)
 	}
 
-	ch.reg.families[d.Name] = info
+	ch.reg.RegisterFamily(d.Name, info)
 }
 
 // familyEnv returns the cached family.ReduceEnv, constructing it on first use.

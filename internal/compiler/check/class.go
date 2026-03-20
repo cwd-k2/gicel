@@ -89,7 +89,7 @@ func (ch *Checker) processClassDecl(d *syntax.DeclClass, prog *ir.Program) {
 		for _, fd := range atd.Deps {
 			deps = append(deps, tfDep{From: fd.From, To: fd.To})
 		}
-		ch.reg.families[atd.Name] = &TypeFamilyInfo{
+		ch.reg.RegisterFamily(atd.Name, &TypeFamilyInfo{
 			Name:       atd.Name,
 			Params:     atParams,
 			ResultKind: resultKind,
@@ -97,7 +97,7 @@ func (ch *Checker) processClassDecl(d *syntax.DeclClass, prog *ir.Program) {
 			Deps:       deps,
 			IsAssoc:    true,
 			ClassName:  d.Name,
-		}
+		})
 	}
 
 	// Process associated data family declarations.
@@ -110,19 +110,19 @@ func (ch *Checker) processClassDecl(d *syntax.DeclClass, prog *ir.Program) {
 			dfParams = append(dfParams, TFParam{Name: p.Name, Kind: ch.resolveKindExpr(p.Kind)})
 		}
 		resultKind := ch.resolveKindExpr(add.ResultKind)
-		ch.reg.families[add.Name] = &TypeFamilyInfo{
+		ch.reg.RegisterFamily(add.Name, &TypeFamilyInfo{
 			Name:       add.Name,
 			Params:     dfParams,
 			ResultKind: resultKind,
 			IsAssoc:    true,
 			ClassName:  d.Name,
-		}
+		})
 		// Register the data family name as a type constructor.
 		var dfKind types.Kind = resultKind
 		for i := len(dfParams) - 1; i >= 0; i-- {
 			dfKind = &types.KArrow{From: dfParams[i].Kind, To: dfKind}
 		}
-		ch.reg.typeKinds[add.Name] = dfKind
+		ch.reg.RegisterTypeKind(add.Name, dfKind)
 	}
 
 	// Process method signatures (after associated types/data families are registered).
@@ -136,7 +136,7 @@ func (ch *Checker) processClassDecl(d *syntax.DeclClass, prog *ir.Program) {
 
 	// Clean up kind variable scope.
 	for _, kv := range kindParams {
-		delete(ch.reg.kindVars, kv)
+		ch.reg.UnsetKindVar(kv)
 	}
 
 	// Elaborate functional dependencies: convert param names to indices.
@@ -177,7 +177,7 @@ func (ch *Checker) processClassDecl(d *syntax.DeclClass, prog *ir.Program) {
 		AssocTypes:   assocTypeNames,
 		FunDeps:      funDeps,
 	}
-	ch.reg.classes[d.Name] = info
+	ch.reg.RegisterClass(d.Name, info)
 
 	// Build dictionary data declaration.
 	allFieldTypes := append(superFieldTypes, methodFieldTypes...)
@@ -187,7 +187,7 @@ func (ch *Checker) processClassDecl(d *syntax.DeclClass, prog *ir.Program) {
 	for i := len(tyParamKinds) - 1; i >= 0; i-- {
 		dictKind = &types.KArrow{From: tyParamKinds[i], To: dictKind}
 	}
-	ch.reg.typeKinds[dn] = dictKind
+	ch.reg.RegisterTypeKind(dn, dictKind)
 
 	// Build result type: DictTy a b c ...
 	var resultType types.Type = &types.TyCon{Name: dn, S: d.S}

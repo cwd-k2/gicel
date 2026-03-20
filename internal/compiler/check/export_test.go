@@ -254,8 +254,8 @@ func TestExport_ConstructorsByTypeConsistent(t *testing.T) {
 // should be filtered as private.
 func TestExport_CompilerGeneratedFiltered(t *testing.T) {
 	ch := setupExportChecker()
-	ch.reg.aliases["$internal"] = &AliasInfo{Body: types.Con("Int")}
-	ch.reg.classes["Eq$Dict"] = &ClassInfo{Name: "Eq$Dict"}
+	ch.reg.RegisterAlias("$internal", &AliasInfo{Body: types.Con("Int")})
+	ch.reg.RegisterClass("Eq$Dict", &ClassInfo{Name: "Eq$Dict"})
 
 	exports := ch.ExportModule(makeExportProgram())
 
