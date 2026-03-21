@@ -197,16 +197,9 @@ func (ch *Checker) desugarDoToMonad(stmts []syntax.Stmt, s span.Span) syntax.Exp
 		case *syntax.StmtBind:
 			return st.Comp
 		case *syntax.StmtPureBind:
-			rest := ch.desugarDoToMonad(stmts[1:], s)
-			return &syntax.ExprApp{
-				Fun: &syntax.ExprLam{
-					Params: []syntax.Pattern{&syntax.PatVar{Name: st.Var, S: st.S}},
-					Body:   rest,
-					S:      st.S,
-				},
-				Arg: st.Expr,
-				S:   st.S,
-			}
+			// let x = e as the last statement — just return e (the binding
+			// has no continuation to use x in).
+			return st.Expr
 		}
 		return &syntax.ExprError{S: s}
 	}

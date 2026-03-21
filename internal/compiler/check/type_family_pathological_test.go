@@ -42,7 +42,8 @@ type F (a: Type) :: Type := {
 }
 
 // (b) Circular type family references: A uses B and B uses A.
-// Should hit depth limit.
+// Cycle detected via sentinel memoization; families remain stuck (unreduced),
+// producing a type mismatch (E0200) when F Unit is compared against Unit.
 func TestPathologicalCircularTypeFamilies(t *testing.T) {
 	source := `
 data Unit := Unit
@@ -55,7 +56,7 @@ type G (a: Type) :: Type := {
 f :: F Unit -> Unit
 f := \x. x
 `
-	checkSourceExpectCode(t, source, nil, diagnostic.ErrTypeFamilyReduction)
+	checkSourceExpectCode(t, source, nil, diagnostic.ErrTypeMismatch)
 }
 
 // (c) Type family applied in its own equation RHS in a decreasing way.

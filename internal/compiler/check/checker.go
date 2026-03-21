@@ -28,6 +28,13 @@ const (
 	prefixField             = "$f"    // method selector field extraction parameters
 )
 
+// Default compiler limits. Authoritative values; CheckConfig fields
+// override when non-zero.
+const (
+	defaultMaxSolverSteps  = 100_000
+	defaultMaxResolveDepth = 64
+)
+
 // CheckConfig provides environment for type checking.
 type CheckConfig struct {
 	Context         context.Context // cancellation context (nil = no cancellation)
@@ -372,17 +379,17 @@ func newChecker(prog *syntax.AstProgram, source *span.Source, config *CheckConfi
 			}
 			maxTF := config.MaxTFSteps
 			if maxTF <= 0 {
-				maxTF = 50_000 // default: family.MaxReductionWork
+				maxTF = family.MaxReductionWork
 			}
 			b.SetTFStepLimit(maxTF)
 			maxSolver := config.MaxSolverSteps
 			if maxSolver <= 0 {
-				maxSolver = 100_000 // default: maxSolverSteps
+				maxSolver = defaultMaxSolverSteps
 			}
 			b.SetSolverStepLimit(maxSolver)
 			maxResolve := config.MaxResolveDepth
 			if maxResolve <= 0 {
-				maxResolve = 64 // default: maxResolveDepth
+				maxResolve = defaultMaxResolveDepth
 			}
 			b.SetResolveDepthLimit(maxResolve)
 			return b

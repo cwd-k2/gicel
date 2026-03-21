@@ -297,9 +297,10 @@ func (p *Parser) parseLambda() syn.Expr {
 func (p *Parser) parseCase() syn.Expr {
 	start := p.peek().S.Start
 	p.expect(syn.TokCase)
+	savedNoBrace := p.noBraceAtom
 	p.noBraceAtom = true
 	scrut := p.parseExpr()
-	p.noBraceAtom = false
+	p.noBraceAtom = savedNoBrace
 	openTok := p.expect(syn.TokLBrace)
 	var alts []syn.AstAlt
 	p.parseBody("case expression", openTok.S, func() {

@@ -50,6 +50,7 @@ func (g *parserGuard) leaveRecurse() {
 
 func (g *parserGuard) reset() {
 	g.steps = 0
+	g.recurseDepth = 0
 	g.halted = false
 }
 
@@ -336,8 +337,23 @@ func (p *Parser) atStmtBoundary() bool {
 // callback is invoked for each item; context is used in stagnation
 // error messages.
 func (p *Parser) parseBody(bodyCtx string, openSpan span.Span, parse func()) {
+	p.parseBodyOpts(bodyCtx, openSpan, false, parse)
+}
+
+// parseMethodBody is parseBody with methodBodyMode enabled — continuation
+// lines (newline + `(`, etc.) are not treated as statement boundaries.
+func (p *Parser) parseMethodBody(bodyCtx string, openSpan span.Span, parse func()) {
+	p.parseBodyOpts(bodyCtx, openSpan, true, parse)
+}
+
+func (p *Parser) parseBodyOpts(bodyCtx string, openSpan span.Span, methodBody bool, parse func()) {
 	savedBoundary := p.stmtBoundaryDepth
 	p.stmtBoundaryDepth = p.depth
+	savedMethodMode := p.methodBodyMode
+	if methodBody {
+		p.methodBodyMode = true
+	}
+	defer func() { p.methodBodyMode = savedMethodMode }()
 	// Iteration limit: at most 2× the total token count. Any well-formed
 	// body terminates far below this; the limit catches pathological
 	// stagnation that advance() alone cannot prevent (e.g. V6 pattern).

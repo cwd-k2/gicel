@@ -17,7 +17,7 @@ func (p *Parser) parseClassDecl() *syn.DeclClass {
 	var supers []syn.TypeExpr
 
 	// Tuple-style superclass constraints: class (C1 a, C2 b) => ClassName params { ... }
-	if p.peek().Kind == syn.TokLParen && !p.isClassKindedBinder() {
+	if p.peek().Kind == syn.TokLParen && !p.isKindedBinder() {
 		p.advance() // consume (
 		for {
 			conStart := p.peek().S.Start
@@ -118,7 +118,7 @@ func (p *Parser) parseClassDecl() *syn.DeclClass {
 // kinded binders (v: Kind). Returns them as syn.TyExprVar nodes.
 func (p *Parser) parseClassTyArgs() []syn.TypeExpr {
 	var args []syn.TypeExpr
-	for p.peek().Kind == syn.TokLower || (p.peek().Kind == syn.TokLParen && p.isClassKindedBinder()) {
+	for p.peek().Kind == syn.TokLower || (p.peek().Kind == syn.TokLParen && p.isKindedBinder()) {
 		if p.peek().Kind == syn.TokLParen {
 			lp := p.peek().S.Start
 			p.advance()
@@ -177,10 +177,7 @@ func (p *Parser) parseClassBody() ([]syn.ClassMethod, []syn.AssocTypeDecl, []syn
 	var methods []syn.ClassMethod
 	var assocTypes []syn.AssocTypeDecl
 	var assocDataDecls []syn.AssocDataDecl
-	savedMode := p.methodBodyMode
-	p.methodBodyMode = true
-	defer func() { p.methodBodyMode = savedMode }()
-	p.parseBody("class declaration", openTok.S, func() {
+	p.parseMethodBody("class declaration", openTok.S, func() {
 		if p.peek().Kind == syn.TokType {
 			atd := p.parseAssocTypeDecl()
 			if atd != nil {
@@ -321,10 +318,7 @@ func (p *Parser) parseInstBody() ([]syn.InstMethod, []syn.AssocTypeDef, []syn.As
 	var methods []syn.InstMethod
 	var assocTypeDefs []syn.AssocTypeDef
 	var assocDataDefs []syn.AssocDataDef
-	savedMode := p.methodBodyMode
-	p.methodBodyMode = true
-	defer func() { p.methodBodyMode = savedMode }()
-	p.parseBody("instance declaration", openTok.S, func() {
+	p.parseMethodBody("instance declaration", openTok.S, func() {
 		mStart := p.peek().S.Start
 		if p.peek().Kind == syn.TokData {
 			add := p.parseAssocDataDef()

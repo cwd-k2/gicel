@@ -343,10 +343,10 @@ f := id (id (id (id (id (id (id (id (id (id Unit)))))))))
 // --- 8. headTyConWithFamilies Recursive Reduction ---
 
 // TestSecurityHeadTyConWithFamiliesDepth verifies that
-// headTyConWithFamilies respects the fuel limit via reduceTyFamily.
+// headTyConWithFamilies terminates on circular type families.
+// Cycle detected via sentinel memoization; the family remains stuck,
+// producing a type mismatch (E0200) when Loop Unit is compared against Unit.
 func TestSecurityHeadTyConWithFamiliesDepth(t *testing.T) {
-	// A type family that reduces to another family application endlessly.
-	// headTyConWithFamilies calls reduceTyFamily, which has fuel.
 	source := `
 data Unit := Unit
 type Loop (a: Type) :: Type := {
@@ -356,7 +356,7 @@ f :: Loop Unit -> Unit
 f := \x. x
 `
 	start := time.Now()
-	checkSourceExpectCode(t, source, nil, diagnostic.ErrTypeFamilyReduction)
+	checkSourceExpectCode(t, source, nil, diagnostic.ErrTypeMismatch)
 	elapsed := time.Since(start)
 	if elapsed > 5*time.Second {
 		t.Errorf("headTyConWithFamilies infinite loop took %v", elapsed)

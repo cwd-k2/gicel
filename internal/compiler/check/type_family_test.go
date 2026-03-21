@@ -309,6 +309,8 @@ type Dual (s: Session) :: Session := {
 }
 
 func TestRecursiveTypeFamilyFuelExhaustion(t *testing.T) {
+	// Cycle detected via sentinel memoization; the family remains stuck (unreduced),
+	// producing a type mismatch (E0200) when Loop Unit is compared against Unit.
 	source := `
 data Unit := Unit
 type Loop (a: Type) :: Type := {
@@ -317,7 +319,7 @@ type Loop (a: Type) :: Type := {
 f :: Loop Unit -> Unit
 f := \x. x
 `
-	checkSourceExpectCode(t, source, nil, diagnostic.ErrTypeFamilyReduction)
+	checkSourceExpectCode(t, source, nil, diagnostic.ErrTypeMismatch)
 }
 
 // --- Functional dependencies ---

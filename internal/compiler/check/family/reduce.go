@@ -161,6 +161,14 @@ func (e *ReduceEnv) reduceFamilyAppsN(t types.Type, cache map[string]types.Type)
 		}
 		result, reduced := e.ReduceTyFamily(tf.Name, args, tf.S)
 		if reduced {
+			// Plant sentinel BEFORE recursing into the RHS. If the same
+			// family application appears during reduction of its own RHS
+			// (e.g. Grow a = Pair (Grow a) (Grow a)), the sentinel is
+			// returned instead of re-entering, breaking the exponential
+			// blowup. The sentinel is the unreduced TyFamilyApp — a stuck
+			// application, which is the correct semantics for a cycle.
+			stuck := &types.TyFamilyApp{Name: tf.Name, Args: args, Kind: tf.Kind, S: tf.S}
+			cache[key] = stuck
 			r := e.reduceFamilyAppsN(result, cache)
 			cache[key] = r
 			return r
@@ -184,6 +192,8 @@ func (e *ReduceEnv) reduceFamilyAppsN(t types.Type, cache map[string]types.Type)
 				}
 				result, reduced := e.ReduceTyFamily(con.Name, args, t.Span())
 				if reduced {
+					stuck := &types.TyFamilyApp{Name: con.Name, Args: args, Kind: fam.ResultKind, S: t.Span()}
+					cache[key] = stuck
 					r := e.reduceFamilyAppsN(result, cache)
 					cache[key] = r
 					return r

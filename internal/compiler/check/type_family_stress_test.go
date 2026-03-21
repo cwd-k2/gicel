@@ -54,13 +54,9 @@ func TestStressDeepRecursiveTF_Depth50(t *testing.T) {
 }
 
 func TestStressDeepRecursiveTF_DepthExceedsLimit(t *testing.T) {
-	// The Peano Add family wraps results in S(...), which is not a family application,
-	// so reduceFamilyApps doesn't recurse into it within a single normalize() call.
-	// To truly exhaust the depth-100 fuel limit, we need a family whose RHS is itself
-	// a saturated family application at the top level: F x = F x (infinite loop).
-	// TestRecursiveTypeFamilyFuelExhaustion already covers this exact case.
-	// Here we test a slightly more interesting variant: mutual recursion through
-	// a family that bounces between two families > 100 times.
+	// Mutually recursive families: Bounce a =: Trampoline a, Trampoline a =: Bounce a.
+	// Cycle detected via sentinel memoization; the families remain stuck (unreduced),
+	// producing a type mismatch (E0200) when Bounce Unit is compared against Unit.
 	source := `
 data Unit := Unit
 data Nat := Z | S Nat
@@ -73,7 +69,7 @@ type Trampoline (a: Type) :: Type := {
 f :: Bounce Unit -> Unit
 f := \x. x
 `
-	checkSourceExpectCode(t, source, nil, diagnostic.ErrTypeFamilyReduction)
+	checkSourceExpectCode(t, source, nil, diagnostic.ErrTypeMismatch)
 }
 
 // --- 1b: Many equations ---

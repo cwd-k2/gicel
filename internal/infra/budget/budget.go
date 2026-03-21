@@ -95,13 +95,21 @@ func (b *Budget) SetResolveDepthLimit(n int) {
 	b.maxResolveDepth = n
 }
 
-// Step records one unit of work. Returns an error if the step limit is
-// exceeded or the context has been cancelled.
-func (b *Budget) Step() error {
+// checkCtx returns the context error if cancelled (non-blocking).
+func (b *Budget) checkCtx() error {
 	select {
 	case <-b.ctx.Done():
 		return b.ctx.Err()
 	default:
+		return nil
+	}
+}
+
+// Step records one unit of work. Returns an error if the step limit is
+// exceeded or the context has been cancelled.
+func (b *Budget) Step() error {
+	if err := b.checkCtx(); err != nil {
+		return err
 	}
 	b.steps++
 	if b.max > 0 && b.steps > b.max {
@@ -155,10 +163,8 @@ func (b *Budget) Alloc(bytes int64) error {
 // TFStep records one type family reduction step. Returns an error if the
 // TF step limit is exceeded or the context has been cancelled.
 func (b *Budget) TFStep() error {
-	select {
-	case <-b.ctx.Done():
-		return b.ctx.Err()
-	default:
+	if err := b.checkCtx(); err != nil {
+		return err
 	}
 	b.tfSteps++
 	if b.maxTFSteps > 0 && b.tfSteps > b.maxTFSteps {
@@ -175,10 +181,8 @@ func (b *Budget) ResetTFSteps() {
 // SolverStep records one constraint solver iteration. Returns an error
 // if the solver step limit is exceeded or the context has been cancelled.
 func (b *Budget) SolverStep() error {
-	select {
-	case <-b.ctx.Done():
-		return b.ctx.Err()
-	default:
+	if err := b.checkCtx(); err != nil {
+		return err
 	}
 	b.solverSteps++
 	if b.maxSolverSteps > 0 && b.solverSteps > b.maxSolverSteps {

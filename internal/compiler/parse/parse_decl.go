@@ -54,28 +54,7 @@ func (p *Parser) parseDataDecl() *syn.DeclData {
 	start := p.peek().S.Start
 	p.expect(syn.TokData)
 	name := p.expectUpper()
-	var params []syn.TyBinder
-	for p.peek().Kind == syn.TokLower || p.peek().Kind == syn.TokLParen {
-		if p.peek().Kind == syn.TokLParen {
-			// Kinded param: (name: Kind)
-			lp := p.peek().S.Start
-			p.advance()
-			pName := p.expectLower()
-			p.expect(syn.TokColon)
-			kind := p.parseKindExpr()
-			p.expect(syn.TokRParen)
-			params = append(params, syn.TyBinder{
-				Name: pName,
-				Kind: kind,
-				S:    span.Span{Start: lp, End: p.prevEnd()},
-			})
-		} else {
-			pName := p.peek().Text
-			pS := p.peek().S
-			p.advance()
-			params = append(params, syn.TyBinder{Name: pName, S: pS})
-		}
-	}
+	params := p.parseTyBinderList()
 	p.expect(syn.TokColonEq)
 
 	// GADT mode: `:= { ConName :: Type; ... }`
@@ -162,7 +141,7 @@ func (p *Parser) parseTypeDecl() syn.Decl {
 // parseTyBinderList parses a sequence of type binders: bare or kinded.
 func (p *Parser) parseTyBinderList() []syn.TyBinder {
 	var params []syn.TyBinder
-	for p.peek().Kind == syn.TokLower || (p.peek().Kind == syn.TokLParen && p.isClassKindedBinder()) {
+	for p.peek().Kind == syn.TokLower || (p.peek().Kind == syn.TokLParen && p.isKindedBinder()) {
 		if p.peek().Kind == syn.TokLParen {
 			lp := p.peek().S.Start
 			p.advance()
@@ -397,8 +376,8 @@ func (p *Parser) isFixityKeyword() bool {
 	return k == syn.TokInfixl || k == syn.TokInfixr || k == syn.TokInfixn
 }
 
-// isClassKindedBinder checks if the next tokens form (name: Kind) pattern.
-func (p *Parser) isClassKindedBinder() bool {
+// isKindedBinder checks if the next tokens form (name: Kind) pattern.
+func (p *Parser) isKindedBinder() bool {
 	if p.pos+2 >= len(p.tokens) {
 		return false
 	}

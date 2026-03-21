@@ -76,7 +76,10 @@ type Unifier struct {
 	Budget *budget.Budget
 
 	// FlexSkolems allows skolem variables to be solved like metas.
-	// Used for GADT accessibility testing (canUnifyWith).
+	// Used for GADT accessibility testing (canUnifyWith). INVARIANT:
+	// must only be set on a FRESH trial unifier, never on the shared
+	// checker unifier — the flex path skips the occurs check, which
+	// is safe only when the types being unified are freshly instantiated.
 	FlexSkolems bool
 }
 

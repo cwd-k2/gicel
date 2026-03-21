@@ -729,10 +729,12 @@ type Loop (a: Type) :: Type := {
 f :: Loop Unit -> Unit
 f := \x. x
 `
-	errMsg := checkSourceExpectCode(t, source, nil, diagnostic.ErrTypeFamilyReduction)
+	// Cycle is detected via sentinel memoization; the family remains stuck (unreduced),
+	// producing a type mismatch (E0200) when Loop Unit is compared against Unit.
+	errMsg := checkSourceExpectCode(t, source, nil, diagnostic.ErrTypeMismatch)
 	// The error message should include the family name "Loop".
 	if !strings.Contains(errMsg, "Loop") {
-		t.Errorf("expected family name 'Loop' in depth error, got: %s", errMsg)
+		t.Errorf("expected family name 'Loop' in type mismatch error, got: %s", errMsg)
 	}
 }
 

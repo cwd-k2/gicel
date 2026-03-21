@@ -48,7 +48,8 @@ f := \x. x
 	checkSource(t, source, config)
 }
 
-// If the fuel counter doesn't increment, infinite recursion won't be caught.
+// Circular self-reference: cycle detected via sentinel memoization.
+// The family remains stuck (unreduced), producing a type mismatch (E0200).
 func TestReduceTyFamily_FuelCounterIncrements(t *testing.T) {
 	source := `
 data Unit := Unit
@@ -58,8 +59,8 @@ type Loop (a: Type) :: Type := {
 f :: Loop Unit -> Unit
 f := \x. x
 `
-	// Must produce ErrTypeFamilyReduction, not hang.
-	checkSourceExpectCode(t, source, nil, diagnostic.ErrTypeFamilyReduction)
+	// Must produce ErrTypeMismatch (stuck Loop Unit vs Unit), not hang.
+	checkSourceExpectCode(t, source, nil, diagnostic.ErrTypeMismatch)
 }
 
 // Empty type family — no equations, always stuck.
@@ -1247,9 +1248,11 @@ type Loop (a: Type) :: Type := {
 f :: Loop Unit -> Unit
 f := \x. x
 `
-	msg := checkSourceExpectCode(t, source, nil, diagnostic.ErrTypeFamilyReduction)
-	if !strings.Contains(msg, "reduction limit exceeded") {
-		t.Errorf("expected 'reduction limit exceeded' in error message, got: %s", msg)
+	// Cycle detected via sentinel memoization; the family remains stuck,
+	// producing a type mismatch when Loop Unit is compared against Unit.
+	msg := checkSourceExpectCode(t, source, nil, diagnostic.ErrTypeMismatch)
+	if !strings.Contains(msg, "type mismatch") {
+		t.Errorf("expected 'type mismatch' in error message, got: %s", msg)
 	}
 	if !strings.Contains(msg, "Loop") {
 		t.Errorf("expected 'Loop' in error message, got: %s", msg)
