@@ -10,7 +10,6 @@ import (
 	"github.com/cwd-k2/gicel/internal/compiler/parse"
 	"github.com/cwd-k2/gicel/internal/infra/diagnostic"
 	"github.com/cwd-k2/gicel/internal/infra/span"
-	"github.com/cwd-k2/gicel/internal/lang/ir"
 	"github.com/cwd-k2/gicel/internal/lang/types"
 )
 
@@ -36,9 +35,9 @@ func probeModuleExports(typeName string, cons []string) *ModuleExports {
 		conTypes[c] = types.Con(typeName)
 		conInfo[c] = info
 	}
-	conDecls := make([]ir.ConDecl, len(cons))
-	for i, c := range cons {
-		conDecls[i] = ir.ConDecl{Name: c}
+	ownedNames := map[string]bool{typeName: true}
+	for _, c := range cons {
+		ownedNames[c] = true
 	}
 	return &ModuleExports{
 		Types:           map[string]types.Kind{typeName: types.KType{}},
@@ -47,16 +46,12 @@ func probeModuleExports(typeName string, cons []string) *ModuleExports {
 		Aliases:         map[string]*AliasInfo{},
 		Classes:         map[string]*ClassInfo{},
 		Values:          map[string]types.Type{},
-		DataDecls: []ir.DataDecl{
-			{
-				Name: typeName,
-				Cons: conDecls,
-			},
-		},
-		PromotedKinds: map[string]types.Kind{},
-		PromotedCons:  map[string]types.Kind{},
-		TypeFamilies:  map[string]*TypeFamilyInfo{},
-		Instances:     nil,
+		OwnedTypeNames:  map[string]bool{typeName: true},
+		OwnedNames:      ownedNames,
+		PromotedKinds:   map[string]types.Kind{},
+		PromotedCons:    map[string]types.Kind{},
+		TypeFamilies:    map[string]*TypeFamilyInfo{},
+		Instances:       nil,
 	}
 }
 
@@ -186,23 +181,15 @@ func TestProbeA_QualPattern_NestedQualPattern(t *testing.T) {
 			"Just":    info,
 			"Nothing": info,
 		},
-		Aliases: map[string]*AliasInfo{},
-		Classes: map[string]*ClassInfo{},
-		Values:  map[string]types.Type{},
-		DataDecls: []ir.DataDecl{
-			{
-				Name:     "Maybe",
-				TyParams: []ir.TyParam{{Name: "a", Kind: types.KType{}}},
-				Cons: []ir.ConDecl{
-					{Name: "Just", Fields: []types.Type{&types.TyVar{Name: "a"}}},
-					{Name: "Nothing"},
-				},
-			},
-		},
-		PromotedKinds: map[string]types.Kind{},
-		PromotedCons:  map[string]types.Kind{},
-		TypeFamilies:  map[string]*TypeFamilyInfo{},
-		Instances:     nil,
+		Aliases:        map[string]*AliasInfo{},
+		Classes:        map[string]*ClassInfo{},
+		Values:         map[string]types.Type{},
+		OwnedTypeNames: map[string]bool{"Maybe": true},
+		OwnedNames:     map[string]bool{"Maybe": true, "Just": true, "Nothing": true},
+		PromotedKinds:  map[string]types.Kind{},
+		PromotedCons:   map[string]types.Kind{},
+		TypeFamilies:   map[string]*TypeFamilyInfo{},
+		Instances:      nil,
 	}
 	config := &CheckConfig{
 		ImportedModules: map[string]*ModuleExports{"MaybeLib": modExports},
@@ -233,13 +220,12 @@ func TestProbeA_Ambiguity_TwoOpenImportsSameName(t *testing.T) {
 		Aliases:         map[string]*AliasInfo{},
 		Classes:         map[string]*ClassInfo{},
 		Values:          map[string]types.Type{"foo": types.Con("Int")},
-		DataDecls: []ir.DataDecl{
-			{Name: "FakeA", Cons: []ir.ConDecl{}},
-		},
-		PromotedKinds: map[string]types.Kind{},
-		PromotedCons:  map[string]types.Kind{},
-		TypeFamilies:  map[string]*TypeFamilyInfo{},
-		Instances:     nil,
+		OwnedTypeNames:  map[string]bool{"FakeA": true},
+		OwnedNames:      map[string]bool{"FakeA": true},
+		PromotedKinds:   map[string]types.Kind{},
+		PromotedCons:    map[string]types.Kind{},
+		TypeFamilies:    map[string]*TypeFamilyInfo{},
+		Instances:       nil,
 	}
 	modB := &ModuleExports{
 		Types:           map[string]types.Kind{},
@@ -248,13 +234,12 @@ func TestProbeA_Ambiguity_TwoOpenImportsSameName(t *testing.T) {
 		Aliases:         map[string]*AliasInfo{},
 		Classes:         map[string]*ClassInfo{},
 		Values:          map[string]types.Type{"foo": types.Con("String")},
-		DataDecls: []ir.DataDecl{
-			{Name: "FakeB", Cons: []ir.ConDecl{}},
-		},
-		PromotedKinds: map[string]types.Kind{},
-		PromotedCons:  map[string]types.Kind{},
-		TypeFamilies:  map[string]*TypeFamilyInfo{},
-		Instances:     nil,
+		OwnedTypeNames:  map[string]bool{"FakeB": true},
+		OwnedNames:      map[string]bool{"FakeB": true},
+		PromotedKinds:   map[string]types.Kind{},
+		PromotedCons:    map[string]types.Kind{},
+		TypeFamilies:    map[string]*TypeFamilyInfo{},
+		Instances:       nil,
 	}
 	config := &CheckConfig{
 		RegisteredTypes: map[string]types.Kind{
@@ -280,15 +265,15 @@ main := foo
 // BUG: medium — Constructor ambiguity is not detected when two modules
 // export constructors with the same name via open import. The
 // checkAmbiguousName function is called for ConTypes during importOpen,
-// but the moduleOwnsName check looks for constructors in DataDecls.
-// If DataDecls are populated (which they should be for real modules),
+// but the moduleOwnsName check looks for constructors in OwnedNames.
+// If OwnedNames are populated (which they should be for real modules),
 // the ambiguity IS detected. However, this test reveals that constructor
 // names pushed to the context via CtxVar are silently overwritten when
 // the second import pushes the same name — the last import wins.
 // The ambiguity detection relies on moduleOwnsName, which correctly
-// identifies ownership when DataDecls are present. With DataDecls, this
-// test passes. The root issue is that incomplete ModuleExports (missing
-// DataDecls) bypass the ownership check.
+// identifies ownership when OwnedNames are present. With OwnedNames,
+// this test passes. The root issue is that incomplete ModuleExports
+// (missing OwnedNames) bypass the ownership check.
 func TestProbeA_Ambiguity_TwoOpenImportsSameConstructor(t *testing.T) {
 	makeModWithCon := func(typeName string) *ModuleExports {
 		info := &DataTypeInfo{
@@ -304,13 +289,12 @@ func TestProbeA_Ambiguity_TwoOpenImportsSameConstructor(t *testing.T) {
 			Aliases:         map[string]*AliasInfo{},
 			Classes:         map[string]*ClassInfo{},
 			Values:          map[string]types.Type{},
-			DataDecls: []ir.DataDecl{
-				{Name: typeName, Cons: []ir.ConDecl{{Name: "MkVal"}}},
-			},
-			PromotedKinds: map[string]types.Kind{},
-			PromotedCons:  map[string]types.Kind{},
-			TypeFamilies:  map[string]*TypeFamilyInfo{},
-			Instances:     nil,
+			OwnedTypeNames:  map[string]bool{typeName: true},
+			OwnedNames:      map[string]bool{typeName: true, "MkVal": true},
+			PromotedKinds:   map[string]types.Kind{},
+			PromotedCons:    map[string]types.Kind{},
+			TypeFamilies:    map[string]*TypeFamilyInfo{},
+			Instances:       nil,
 		}
 	}
 	config := &CheckConfig{
@@ -342,7 +326,8 @@ func TestProbeA_Ambiguity_QualifiedDisambiguates(t *testing.T) {
 			Aliases:         map[string]*AliasInfo{},
 			Classes:         map[string]*ClassInfo{},
 			Values:          map[string]types.Type{"foo": types.Con("Int")},
-			DataDecls:       nil,
+			OwnedTypeNames:  nil,
+			OwnedNames:      nil,
 			PromotedKinds:   map[string]types.Kind{},
 			PromotedCons:    map[string]types.Kind{},
 			TypeFamilies:    map[string]*TypeFamilyInfo{},
@@ -380,7 +365,8 @@ func TestProbeD_Module_QualifiedVarLookup(t *testing.T) {
 		Aliases:         map[string]*AliasInfo{},
 		Classes:         map[string]*ClassInfo{},
 		Values:          map[string]types.Type{"add": types.MkArrow(types.Con("Int"), types.MkArrow(types.Con("Int"), types.Con("Int")))},
-		DataDecls:       nil,
+		OwnedTypeNames:  nil,
+		OwnedNames:      nil,
 		PromotedKinds:   map[string]types.Kind{},
 		PromotedCons:    map[string]types.Kind{},
 		TypeFamilies:    map[string]*TypeFamilyInfo{},
@@ -441,7 +427,8 @@ func TestProbeD_Module_QualifiedShadowLocal(t *testing.T) {
 		Aliases:         map[string]*AliasInfo{},
 		Classes:         map[string]*ClassInfo{},
 		Values:          map[string]types.Type{"val": types.Con("Int")},
-		DataDecls:       nil,
+		OwnedTypeNames:  nil,
+		OwnedNames:      nil,
 		PromotedKinds:   map[string]types.Kind{},
 		PromotedCons:    map[string]types.Kind{},
 		TypeFamilies:    map[string]*TypeFamilyInfo{},

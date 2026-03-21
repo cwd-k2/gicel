@@ -99,8 +99,9 @@ func (ch *Checker) ExportModule(prog *ir.Program) *ModuleExports {
 		// TypeFamilies: export locally defined families and imported families
 		// that were enriched with new equations by this module (e.g. associated
 		// type instances). Purely inherited families are excluded.
-		TypeFamilies: filterOwnedOrEnrichedFamilies(ch.reg.families, impFamilyEqCount),
-		DataDecls:    filterPrivateDataDecls(prog.DataDecls),
+		TypeFamilies:   filterOwnedOrEnrichedFamilies(ch.reg.families, impFamilyEqCount),
+		OwnedTypeNames: ownedDataNames,
+		OwnedNames:     ownedAllNames(ownedDataNames, prog),
 	}
 }
 
@@ -139,15 +140,21 @@ func filterOwnedOrEnrichedFamilies(families map[string]*TypeFamilyInfo, impEqCou
 	return result
 }
 
-// filterPrivateDataDecls returns a copy of decls with private data declarations removed.
-func filterPrivateDataDecls(decls []ir.DataDecl) []ir.DataDecl {
-	result := make([]ir.DataDecl, 0, len(decls))
-	for _, d := range decls {
-		if !isPrivateName(d.Name) {
-			result = append(result, d)
+// ownedAllNames computes the union of owned data type names and constructor names.
+func ownedAllNames(ownedDataNames map[string]bool, prog *ir.Program) map[string]bool {
+	owned := make(map[string]bool, len(ownedDataNames)*2)
+	for name := range ownedDataNames {
+		owned[name] = true
+	}
+	for _, dd := range prog.DataDecls {
+		if !ownedDataNames[dd.Name] {
+			continue
+		}
+		for _, con := range dd.Cons {
+			owned[con.Name] = true
 		}
 	}
-	return result
+	return owned
 }
 
 // isPrivateName reports whether a name is module-private.

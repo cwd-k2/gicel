@@ -152,25 +152,36 @@ func TestExport_InstancesNotFiltered(t *testing.T) {
 	}
 }
 
-// TestExport_PrivateDataDeclExcluded — DataDecls for private types should
-// not be exported.
-func TestExport_PrivateDataDeclExcluded(t *testing.T) {
+// TestExport_PrivateOwnedTypeNamesExcluded — OwnedTypeNames should not include private types.
+func TestExport_PrivateOwnedTypeNamesExcluded(t *testing.T) {
 	ch := setupExportChecker()
 	exports := ch.ExportModule(makeExportProgram())
 
-	for _, dd := range exports.DataDecls {
-		if dd.Name == "_Private" {
-			t.Error("_Private DataDecl should not be exported")
-		}
+	if exports.OwnedTypeNames["_Private"] {
+		t.Error("_Private should not be in OwnedTypeNames")
 	}
-	found := false
-	for _, dd := range exports.DataDecls {
-		if dd.Name == "Public" {
-			found = true
-		}
+	if !exports.OwnedTypeNames["Public"] {
+		t.Error("Public should be in OwnedTypeNames")
 	}
-	if !found {
-		t.Error("Public DataDecl should be exported")
+}
+
+// TestExport_OwnedNamesIncludesConstructors — OwnedNames should include
+// type names and constructor names (excluding private).
+func TestExport_OwnedNamesIncludesConstructors(t *testing.T) {
+	ch := setupExportChecker()
+	exports := ch.ExportModule(makeExportProgram())
+
+	if !exports.OwnedNames["Public"] {
+		t.Error("Public should be in OwnedNames")
+	}
+	if !exports.OwnedNames["MkPublic"] {
+		t.Error("MkPublic should be in OwnedNames")
+	}
+	if exports.OwnedNames["_Private"] {
+		t.Error("_Private should not be in OwnedNames")
+	}
+	if exports.OwnedNames["MkP"] {
+		t.Error("MkP (constructor of _Private) should not be in OwnedNames")
 	}
 }
 

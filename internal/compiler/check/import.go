@@ -2,6 +2,7 @@ package check
 
 import (
 	"fmt"
+	"maps"
 
 	"github.com/cwd-k2/gicel/internal/infra/diagnostic"
 	"github.com/cwd-k2/gicel/internal/infra/span"
@@ -185,10 +186,8 @@ func (sc *Scope) moduleOwnedTypeNames(moduleName string) map[string]bool {
 		return nil
 	}
 	owned := make(map[string]bool)
-	// DataDecl type names are always module-owned.
-	for _, dd := range mod.DataDecls {
-		owned[dd.Name] = true
-	}
+	// Precomputed owned type names from module exports.
+	maps.Copy(owned, mod.OwnedTypeNames)
 	// Aliases, Classes, TypeFamilies not in any direct dependency.
 	depTypes := make(map[string]bool)
 	for _, dep := range sc.config.ModuleDeps[moduleName] {
@@ -224,8 +223,8 @@ func (sc *Scope) moduleOwnedTypeNames(moduleName string) map[string]bool {
 }
 
 // moduleOwnsName checks if a module defines name in its own source (not re-exported).
-// A module "owns" a name if it appears in the module's DataDecls (constructors),
-// or in its Values but NOT in any of its direct dependency's Values.
+// A module "owns" a name if it appears in the module's OwnedNames (type + constructor
+// names), or in its Values but NOT in any of its direct dependency's Values.
 // Results are cached per module for amortized O(1) lookups.
 func (sc *Scope) moduleOwnsName(moduleName, name string) bool {
 	owned := sc.moduleOwnedNames(moduleName)
@@ -246,13 +245,8 @@ func (sc *Scope) moduleOwnedNames(moduleName string) map[string]bool {
 		return nil
 	}
 	owned := make(map[string]bool)
-	// DataDecl type names and constructor names.
-	for _, dd := range mod.DataDecls {
-		owned[dd.Name] = true
-		for _, con := range dd.Cons {
-			owned[con.Name] = true
-		}
-	}
+	// Precomputed owned type names and constructor names from module exports.
+	maps.Copy(owned, mod.OwnedNames)
 	// Values not in any direct dependency.
 	depValues := make(map[string]bool)
 	for _, dep := range sc.config.ModuleDeps[moduleName] {

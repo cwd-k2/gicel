@@ -105,10 +105,8 @@ func (ch *Checker) hasDeterministicKind(ty types.Type) bool {
 // (via data declarations or class declarations), as opposed to being inherited
 // from built-in types or open imports.
 func isModuleDefinedType(exports *ModuleExports, name string) bool {
-	for _, dd := range exports.DataDecls {
-		if dd.Name == name {
-			return true
-		}
+	if exports.OwnedTypeNames[name] {
+		return true
 	}
 	// Classes are already checked separately, but class-defined types
 	// (dict types) might appear in Types.

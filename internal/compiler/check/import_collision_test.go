@@ -9,7 +9,6 @@ import (
 
 	"github.com/cwd-k2/gicel/internal/compiler/check/family"
 	"github.com/cwd-k2/gicel/internal/infra/diagnostic"
-	"github.com/cwd-k2/gicel/internal/lang/ir"
 	"github.com/cwd-k2/gicel/internal/lang/types"
 )
 
@@ -28,9 +27,9 @@ func mkTypeModule(typeName string, cons []string) *ModuleExports {
 		conTypes[c] = types.Con(typeName)
 		conInfo[c] = info
 	}
-	conDecls := make([]ir.ConDecl, len(cons))
-	for i, c := range cons {
-		conDecls[i] = ir.ConDecl{Name: c}
+	ownedNames := map[string]bool{typeName: true}
+	for _, c := range cons {
+		ownedNames[c] = true
 	}
 	return &ModuleExports{
 		Types:              map[string]types.Kind{typeName: types.KType{}},
@@ -40,7 +39,8 @@ func mkTypeModule(typeName string, cons []string) *ModuleExports {
 		Aliases:            map[string]*AliasInfo{},
 		Classes:            map[string]*ClassInfo{},
 		Values:             map[string]types.Type{},
-		DataDecls:          []ir.DataDecl{{Name: typeName, Cons: conDecls}},
+		OwnedTypeNames:     map[string]bool{typeName: true},
+		OwnedNames:         ownedNames,
 		PromotedKinds:      map[string]types.Kind{},
 		PromotedCons:       map[string]types.Kind{},
 		TypeFamilies:       map[string]*TypeFamilyInfo{},
@@ -64,7 +64,8 @@ func mkClassModule(className string, methodName string) *ModuleExports {
 		Aliases:            map[string]*AliasInfo{},
 		Classes:            map[string]*ClassInfo{className: cls},
 		Values:             map[string]types.Type{methodName: types.Con("Int")},
-		DataDecls:          []ir.DataDecl{},
+		OwnedTypeNames:     map[string]bool{},
+		OwnedNames:         map[string]bool{},
 		PromotedKinds:      map[string]types.Kind{},
 		PromotedCons:       map[string]types.Kind{},
 		TypeFamilies:       map[string]*TypeFamilyInfo{},
@@ -82,7 +83,8 @@ func mkFamilyModule(famName string) *ModuleExports {
 		Aliases:            map[string]*AliasInfo{},
 		Classes:            map[string]*ClassInfo{},
 		Values:             map[string]types.Type{},
-		DataDecls:          []ir.DataDecl{},
+		OwnedTypeNames:     map[string]bool{},
+		OwnedNames:         map[string]bool{},
 		PromotedKinds:      map[string]types.Kind{},
 		PromotedCons:       map[string]types.Kind{},
 		TypeFamilies: map[string]*TypeFamilyInfo{
@@ -122,9 +124,11 @@ main := 42
 // named "MyClass". Open-importing both should trigger an ambiguity error.
 func TestCollision_TwoOpenImportsSameClass(t *testing.T) {
 	modA := mkClassModule("MyClass", "methodA")
-	modA.DataDecls = []ir.DataDecl{{Name: "DummyA"}} // ensure ownership
+	modA.OwnedTypeNames = map[string]bool{"DummyA": true} // ensure ownership
+	modA.OwnedNames = map[string]bool{"DummyA": true}
 	modB := mkClassModule("MyClass", "methodB")
-	modB.DataDecls = []ir.DataDecl{{Name: "DummyB"}}
+	modB.OwnedTypeNames = map[string]bool{"DummyB": true}
+	modB.OwnedNames = map[string]bool{"DummyB": true}
 	config := &CheckConfig{
 		RegisteredTypes: map[string]types.Kind{"Int": types.KType{}},
 		ImportedModules: map[string]*ModuleExports{"ModA": modA, "ModB": modB},
@@ -146,9 +150,11 @@ main := 42
 // family named "F". Open-importing both should trigger an ambiguity error.
 func TestCollision_TwoOpenImportsSameFamily(t *testing.T) {
 	modA := mkFamilyModule("F")
-	modA.DataDecls = []ir.DataDecl{{Name: "DummyA"}}
+	modA.OwnedTypeNames = map[string]bool{"DummyA": true}
+	modA.OwnedNames = map[string]bool{"DummyA": true}
 	modB := mkFamilyModule("F")
-	modB.DataDecls = []ir.DataDecl{{Name: "DummyB"}}
+	modB.OwnedTypeNames = map[string]bool{"DummyB": true}
+	modB.OwnedNames = map[string]bool{"DummyB": true}
 	config := &CheckConfig{
 		RegisteredTypes: map[string]types.Kind{"Int": types.KType{}},
 		ImportedModules: map[string]*ModuleExports{"ModA": modA, "ModB": modB},
@@ -193,7 +199,7 @@ main := f A.Red
 // from shared dependency C. This is NOT a conflict (diamond import).
 func TestCollision_DiamondReexportType(t *testing.T) {
 	modC := mkTypeModule("Color", []string{"Red", "Blue"})
-	// ModA re-exports from C (Color is NOT in ModA's DataDecls).
+	// ModA re-exports from C (Color is NOT in ModA's OwnedTypeNames).
 	modA := &ModuleExports{
 		Types:              map[string]types.Kind{"Color": types.KType{}},
 		ConTypes:           map[string]types.Type{"Red": types.Con("Color")},
@@ -202,7 +208,8 @@ func TestCollision_DiamondReexportType(t *testing.T) {
 		Aliases:            map[string]*AliasInfo{},
 		Classes:            map[string]*ClassInfo{},
 		Values:             map[string]types.Type{"helperA": types.Con("Int")},
-		DataDecls:          []ir.DataDecl{{Name: "ModAOwn"}}, // ModA owns different types
+		OwnedTypeNames:     map[string]bool{"ModAOwn": true}, // ModA owns different types
+		OwnedNames:         map[string]bool{"ModAOwn": true},
 		PromotedKinds:      map[string]types.Kind{},
 		PromotedCons:       map[string]types.Kind{},
 		TypeFamilies:       map[string]*TypeFamilyInfo{},
@@ -216,7 +223,8 @@ func TestCollision_DiamondReexportType(t *testing.T) {
 		Aliases:            map[string]*AliasInfo{},
 		Classes:            map[string]*ClassInfo{},
 		Values:             map[string]types.Type{"helperB": types.Con("Int")},
-		DataDecls:          []ir.DataDecl{{Name: "ModBOwn"}},
+		OwnedTypeNames:     map[string]bool{"ModBOwn": true},
+		OwnedNames:         map[string]bool{"ModBOwn": true},
 		PromotedKinds:      map[string]types.Kind{},
 		PromotedCons:       map[string]types.Kind{},
 		TypeFamilies:       map[string]*TypeFamilyInfo{},

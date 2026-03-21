@@ -67,7 +67,8 @@ type ModuleExports struct {
 	PromotedKinds      map[string]types.Kind      // DataKinds promotions
 	PromotedCons       map[string]types.Kind      // promoted constructors
 	TypeFamilies       map[string]*TypeFamilyInfo // type family declarations
-	DataDecls          []ir.DataDecl              // for evaluator constructor registration
+	OwnedTypeNames     map[string]bool            // data type names defined by this module
+	OwnedNames         map[string]bool            // type names + constructor names defined by this module
 }
 
 // CheckTraceKind classifies trace events.
@@ -397,20 +398,27 @@ type checkerSnapshot struct {
 	unifier unify.Snapshot
 }
 
-// saveState snapshots the session's unifier state.
+// saveState snapshots the session's unifier state (meta solutions, labels,
+// kind solutions, skolem solutions). Constraint state (inert set, worklist),
+// context, and errors are NOT captured.
 func (s *Session) saveState() checkerSnapshot {
 	return checkerSnapshot{
 		unifier: s.unifier.Snapshot(),
 	}
 }
 
-// restoreState rolls back the session to a previously saved snapshot.
+// restoreState rolls back the unifier to a previously saved snapshot.
+// Only meta solutions, labels, kind solutions, and skolem solutions are
+// restored. Constraint state, context, and errors are not affected.
 func (s *Session) restoreState(snap checkerSnapshot) {
 	s.unifier.Restore(snap.unifier)
 }
 
 // withTrial runs fn in a trial unification scope. If fn returns false,
-// the unifier and stuck family state is rolled back to the snapshot taken before fn was called.
+// the unifier state (meta solutions, labels, kind solutions, skolem
+// solutions) is rolled back to the snapshot taken before fn was called.
+// Constraint state (inert set, worklist), context, and errors are NOT
+// rolled back — trials test unifiability, not constraint satisfiability.
 func (s *Session) withTrial(fn func() bool) bool {
 	saved := s.saveState()
 	if fn() {
