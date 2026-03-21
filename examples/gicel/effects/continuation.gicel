@@ -1,7 +1,7 @@
 -- GICEL Example: Continuation Monad
 --
 -- The continuation monad Cont r a wraps a CPS function (a -> r) -> r.
--- With a custom IxMonad instance, do notation threads continuations
+-- With a Monad instance, do notation threads continuations
 -- automatically. Demonstrates CPS pipelines, control flow manipulation,
 -- and early exit via abort.
 -- Run: gicel run continuation.gicel
@@ -15,9 +15,9 @@ data Cont r a := MkCont ((a -> r) -> r)
 runCont :: \r a. Cont r a -> (a -> r) -> r
 runCont := \c. case c { MkCont f -> f }
 
-instance IxMonad (Cont r) {
-  ixpure := \a. MkCont (\k. k a);
-  ixbind := \ma f. MkCont (\k. runCont ma (\a. runCont (f a) k))
+instance Monad (Cont r) {
+  mpure := \a. MkCont (\k. k a);
+  mbind := \ma f. MkCont (\k. runCont ma (\a. runCont (f a) k))
 }
 
 -- ── CPS pipeline with do notation ────────────────────────────
@@ -53,7 +53,7 @@ ex3 := runCont earlyExit id    -- 42
 clampPositive :: Cont Int Int
 clampPositive := do {
   x <- MkCont (\k. k (negate 3));
-  case x < 0 { True -> abort 0; False -> pure x }
+  case x < 0 { True -> abort 0; False -> mpure x }
 }
 
 ex4 := runCont clampPositive id  -- 0 (negative → clamped)

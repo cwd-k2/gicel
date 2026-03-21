@@ -1,10 +1,10 @@
--- GICEL Example: IxMonad and Free Monads
+-- GICEL Example: Free Monads
 --
--- Custom IxMonad instances for monadic DSLs with do notation.
+-- Custom Monad instances for monadic DSLs with do notation.
 -- Two styles of Free monad:
 --   1. Direct embedding — effect constructors in the monad type
 --   2. Generic Free f — factors out the effect functor via Functor f
--- Requires: --recursion (ixbind and interpreters use fix)
+-- Requires: --recursion (mbind and interpreters use fix)
 -- Run: gicel run --recursion examples/gicel/types/ixmonad.gicel
 
 import Prelude
@@ -12,15 +12,15 @@ import Prelude
 -- ── 1. Free Monad (direct embedding) ────────────────────────
 -- Effect commands are embedded directly as constructors.
 -- No Functor constraint needed — each effect type is self-contained.
--- This is the simplest way to build a monadic DSL.
+-- This is the simplest way to build a monadic DSL via the Monad class.
 
 data KV a := KVDone a
            | KVGet String (Int -> KV a)
            | KVPut String Int (KV a)
 
-instance IxMonad KV {
-  ixpure := KVDone;
-  ixbind := fix (\self ma g. case ma {
+instance Monad KV {
+  mpure := KVDone;
+  mbind := fix (\self ma g. case ma {
     KVDone a           -> g a;
     KVGet key k        -> KVGet key (\v. self (k v) g);
     KVPut key val next -> KVPut key val (self next g)
@@ -63,9 +63,9 @@ test1 := runKV kvProgram 0  -- 21
 
 data Free (f: Type -> Type) a := Done a | Step (f (Free f a))
 
-instance Functor f => IxMonad (Free f) {
-  ixpure := Done;
-  ixbind := fix (\self ma g. case ma {
+instance Functor f => Monad (Free f) {
+  mpure := Done;
+  mbind := fix (\self ma g. case ma {
     Done a  -> g a;
     Step fa -> Step (fmap (\m. self m g) fa)
   })

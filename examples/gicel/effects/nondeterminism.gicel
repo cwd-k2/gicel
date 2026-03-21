@@ -46,13 +46,13 @@ sumPairs := do {
 
 -- ── Layer 2: Free monad do-notation ────────────────────────
 -- The computation is a tree. The interpreter walks it.
--- NDFree gets an IxMonad instance, so do notation works directly.
+-- NDFree gets a Monad instance, so do notation works directly.
 
 data NDFree a := NDPure a | NDChoice (NDFree a) (NDFree a) | NDFail
 
-instance IxMonad NDFree {
-  ixpure := NDPure;
-  ixbind := fix (\self m f. case m {
+instance Monad NDFree {
+  mpure := NDPure;
+  mbind := fix (\self m f. case m {
     NDPure a     -> f a;
     NDChoice l r -> NDChoice (self l f) (self r f);
     NDFail       -> NDFail
@@ -92,7 +92,7 @@ safe := fix (\self col qs d. case qs {
 nqueens :: Int -> List Int -> NDFree (List Int)
 nqueens := fix (\self n placed.
   case eq (length placed) n {
-    True  -> pure (reverse placed);
+    True  -> mpure (reverse placed);
     False -> do {
       col <- fromList (range 0 (n - 1));
       guardND (safe col placed 1);

@@ -1,7 +1,7 @@
 -- MaybeT monad transformer in GICEL
 --
 -- MaybeT m a ≅ m (Maybe a) — layers Maybe failure over an existing monad.
--- Demonstrates: HKT, monad transformer pattern, do-notation interop.
+-- Demonstrates: HKT, monad transformer pattern, do-notation via Monad class.
 --
 -- Run: bin/gicel run examples/gicel/patterns/maybet.gicel
 
@@ -14,10 +14,10 @@ data MaybeT (m: Type -> Type) a := MkMaybeT (m (Maybe a))
 runMaybeT :: \(m: Type -> Type) a. MaybeT m a -> m (Maybe a)
 runMaybeT := \mt. case mt { MkMaybeT ma -> ma }
 
--- IxMonad instance: bind threads Maybe failure through the base monad
-instance Monad m => IxMonad (MaybeT m) {
-  ixpure := \a. MkMaybeT (mpure (Just a));
-  ixbind := \ma f. MkMaybeT (mbind (runMaybeT ma) (\opt. case opt {
+-- Monad instance: bind threads Maybe failure through the base monad
+instance Monad m => Monad (MaybeT m) {
+  mpure := \a. MkMaybeT (mpure (Just a));
+  mbind := \ma f. MkMaybeT (mbind (runMaybeT ma) (\opt. case opt {
     Nothing -> mpure Nothing;
     Just a  -> runMaybeT (f a)
   }))
