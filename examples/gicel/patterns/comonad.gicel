@@ -146,15 +146,9 @@ instance Functor Zipper {
   }
 }
 
--- NOTE: instance 内部に直接書くと型チェッカが指数的ブローアップ。
--- instance context での w~Zipper 統一 + map の多相性 + allLefts の
--- 制約解決が組合せ爆発する。ヘルパーを外に出して型注釈で誘導する。
-_extendZ :: \a b. (Zipper a -> b) -> Zipper a -> Zipper b
-_extendZ := \f z. MkZipper (map f (allLefts z)) (f z) (map f (allRights z))
-
 instance Comonad Zipper {
   extract := \z. case z { MkZipper _ c _ -> c };
-  extend := _extendZ
+  extend := \f z. MkZipper (map f (allLefts z)) (f z) (map f (allRights z))
 }
 
 -- ── Zipper ヘルパー ──────────────────────────────────────────

@@ -1,0 +1,82 @@
+-- Cofree comonad in GICEL
+--
+-- Cofree f a = the dual of Free f a:
+--   Free  f a = Pure a | Free (f (Free f a))    — builds up effects
+--   Cofree f a = Cofree a (f (Cofree f a))       — annotates with context
+--
+-- Cofree List a = rose tree: each node has a value and a list of children.
+--
+-- Requires: --recursion (Functor instance uses fix via fmap)
+-- Run: bin/gicel run --recursion examples/gicel/patterns/cofree.gicel
+
+import Prelude
+
+-- ── Cofree ───────────────────────────────────────────────────
+--
+-- A value `a` paired with a functor-full of recursive subtrees.
+-- When f = List, this is a rose tree.
+-- When f = Maybe, this is a non-empty list.
+-- When f = ((,) e), this is an infinite stream with annotations.
+
+data Cofree (f: Type -> Type) a := MkCofree a (f (Cofree f a))
+
+cofreeHead :: \(f: Type -> Type) a. Cofree f a -> a
+cofreeHead := \c. case c { MkCofree a _ -> a }
+
+cofreeTail :: \(f: Type -> Type) a. Cofree f a -> f (Cofree f a)
+cofreeTail := \c. case c { MkCofree _ t -> t }
+
+-- Functor: map over every annotation in the tree
+instance Functor f => Functor (Cofree f) {
+  fmap := \g c. case c { MkCofree a t -> MkCofree (g a) (fmap (fmap g) t) }
+}
+
+-- ── Rose tree = Cofree List ──────────────────────────────────
+
+leaf :: \a. a -> Cofree List a
+leaf := \x. MkCofree x Nil
+
+branch :: \a. a -> List (Cofree List a) -> Cofree List a
+branch := \x children. MkCofree x children
+
+-- Count children at the root
+childCount :: \a. Cofree List a -> Int
+childCount := \t. length (cofreeTail t)
+
+-- Collect root values of immediate children
+childValues :: \a. Cofree List a -> List a
+childValues := \t. map cofreeHead (cofreeTail t)
+
+-- ── Example tree ─────────────────────────────────────────────
+--       1
+--      / \
+--     2   3
+--    /
+--   4
+
+tree1 := branch 1 (Cons (branch 2 (Cons (leaf 4) Nil)) (Cons (leaf 3) Nil))
+
+test_root     := cofreeHead tree1              -- 1
+test_children := childCount tree1              -- 2
+test_values   := childValues tree1             -- [2, 3]
+test_fmap     := cofreeHead (fmap (\x. x * 10) tree1)  -- 10
+test_deep     := childValues (fmap (\x. x + 100) tree1) -- [102, 103]
+
+-- ── Non-empty list = Cofree Maybe ────────────────────────────
+
+nel1 :: \a. a -> Cofree Maybe a
+nel1 := \x. MkCofree x Nothing
+
+nelCons :: \a. a -> Cofree Maybe a -> Cofree Maybe a
+nelCons := \x rest. MkCofree x (Just rest)
+
+nelHead :: \a. Cofree Maybe a -> a
+nelHead := cofreeHead
+
+myNel := nelCons 1 (nelCons 2 (nel1 3))
+test_nel := nelHead myNel  -- 1
+
+-- ── Output ───────────────────────────────────────────────────
+
+main := ((test_root, test_children, test_values), (test_fmap, test_deep, test_nel))
+-- Expected: ((1, 2, [2, 3]), (10, [102, 103], 1))

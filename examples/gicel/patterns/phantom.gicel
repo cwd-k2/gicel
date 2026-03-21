@@ -1,0 +1,77 @@
+-- Phantom types in GICEL
+--
+-- Type-safe state machine using phantom type parameters.
+-- The type parameter tracks the door's state (Locked/Unlocked) at the
+-- type level — invalid transitions are compile-time errors.
+--
+-- Run: bin/gicel run examples/gicel/patterns/phantom.gicel
+
+import Prelude
+
+-- ── State tokens (used only at the type level) ───────────────
+
+data Locked := Locked
+data Unlocked := Unlocked
+
+-- ── Door with phantom state ──────────────────────────────────
+
+data Door (state: Type) := MkDoor String
+
+doorName :: \s. Door s -> String
+doorName := \d. case d { MkDoor name -> name }
+
+-- State transitions: each changes the phantom parameter
+
+lock :: Door Unlocked -> Door Locked
+lock := \d. case d { MkDoor name -> MkDoor name }
+
+unlock :: Door Locked -> Door Unlocked
+unlock := \d. case d { MkDoor name -> MkDoor name }
+
+-- Only unlocked doors can be opened
+open_ :: Door Unlocked -> String
+open_ := \d. append "Opened: " (doorName d)
+
+-- ── Usage ────────────────────────────────────────────────────
+
+front := MkDoor "Front" :: Door Locked
+
+test_name   := doorName front            -- "Front"
+test_open   := open_ (unlock front)      -- "Opened: Front"
+test_relock := doorName (lock (unlock front))  -- "Front"
+
+-- This would be a compile-time error (uncomment to verify):
+-- test_bad := open_ front  -- Error: Door Locked vs Door Unlocked
+
+-- ── Token with phantom ───────────────────────────────────────
+-- Another phantom pattern: type-safe tokens
+
+data ReadOnly := ReadOnly
+data ReadWrite := ReadWrite
+
+data Token (perm: Type) := MkToken Int
+
+tokenId :: \p. Token p -> Int
+tokenId := \t. case t { MkToken i -> i }
+
+-- Upgrade: ReadOnly → ReadWrite requires explicit promotion
+promote :: Token ReadOnly -> Token ReadWrite
+promote := \t. case t { MkToken i -> MkToken i }
+
+readToken :: \p. Token p -> String
+readToken := \t. append "read:" (show (tokenId t))
+
+writeToken :: Token ReadWrite -> String
+writeToken := \t. append "write:" (show (tokenId t))
+
+roToken := MkToken 42 :: Token ReadOnly
+rwToken := promote roToken
+
+test_read  := readToken roToken     -- "read:42" (any permission can read)
+test_write := writeToken rwToken    -- "write:42" (only ReadWrite can write)
+-- test_bad2 := writeToken roToken  -- Error: ReadOnly vs ReadWrite
+
+-- ── Output ───────────────────────────────────────────────────
+
+main := ((test_name, test_open, test_relock), (test_read, test_write))
+-- Expected: (("Front", "Opened: Front", "Front"), ("read:42", "write:42"))

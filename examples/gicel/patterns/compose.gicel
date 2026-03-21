@@ -1,0 +1,54 @@
+-- Functor composition in GICEL
+--
+-- Compose f g a ≅ f (g a) — nesting of two functors is a functor.
+-- Demonstrates: HKT, multi-parameter constraints, functor laws.
+--
+-- Run: bin/gicel run examples/gicel/patterns/compose.gicel
+
+import Prelude
+
+-- ── Compose ──────────────────────────────────────────────────
+
+data Compose (f: Type -> Type) (g: Type -> Type) a := MkCompose (f (g a))
+
+getCompose :: \(f: Type -> Type) (g: Type -> Type) a. Compose f g a -> f (g a)
+getCompose := \c. case c { MkCompose fga -> fga }
+
+-- fmap for Compose = fmap the outer, then fmap the inner
+instance (Functor f, Functor g) => Functor (Compose f g) {
+  fmap := \h c. case c { MkCompose fga -> MkCompose (fmap (fmap h) fga) }
+}
+
+-- ── Identity functor ─────────────────────────────────────────
+
+data Id a := MkId a
+
+runId :: \a. Id a -> a
+runId := \i. case i { MkId a -> a }
+
+instance Functor Id {
+  fmap := \f i. case i { MkId a -> MkId (f a) }
+}
+
+-- ── Examples ─────────────────────────────────────────────────
+
+-- Compose Maybe List: Maybe (List a)
+test1 := MkCompose (Just (Cons 1 (Cons 2 (Cons 3 Nil)))) :: Compose Maybe List Int
+test1_mapped := getCompose (fmap (\x. x * 10) test1) -- Just [10,20,30]
+
+-- Compose List Maybe: List (Maybe a)
+test2 := MkCompose (Cons (Just 1) (Cons Nothing (Cons (Just 3) Nil))) :: Compose List Maybe Int
+test2_mapped := getCompose (fmap (\x. x + 100) test2) -- [Just 101, Nothing, Just 103]
+
+-- Compose Id Maybe: Id (Maybe a) — trivial wrapping
+test3 := MkCompose (MkId (Just "hello")) :: Compose Id Maybe String
+test3_mapped := runId (getCompose (fmap toUpper test3)) -- Just "HELLO"
+
+-- Double composition: Compose Maybe (Compose List Maybe) a
+test4 := MkCompose (Just (MkCompose (Cons (Just 1) (Cons (Just 2) Nil))))
+test4_mapped := getCompose (fmap (\x. x * 2) test4)
+
+-- ── Output ───────────────────────────────────────────────────
+
+main := (test1_mapped, (test2_mapped, test3_mapped))
+-- Expected: (Just ([10, 20, 30]), ([Just 101, Nothing, Just 103], Just "HELLO"))

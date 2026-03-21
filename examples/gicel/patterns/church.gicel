@@ -1,0 +1,63 @@
+-- Church encoding in GICEL
+--
+-- Church numerals: natural numbers encoded as higher-order functions.
+-- Demonstrates rank-2 polymorphism and higher-order function composition.
+--
+-- Run: bin/gicel run examples/gicel/patterns/church.gicel
+
+import Prelude
+
+-- ── Church numerals ──────────────────────────────────────────
+--
+-- A Church numeral n is a function that applies f to x exactly n times.
+-- The wrapper data type is needed to give a nominal type in GICEL
+-- (no type aliases).
+
+data Church := MkChurch (\a. (a -> a) -> a -> a)
+
+runChurch :: \a. Church -> (a -> a) -> a -> a
+runChurch := \n f x. case n { MkChurch g -> g f x }
+
+-- ── Constructors ─────────────────────────────────────────────
+
+zero  := MkChurch (\_ x. x)
+one   := MkChurch (\f x. f x)
+two   := MkChurch (\f x. f (f x))
+three := MkChurch (\f x. f (f (f x)))
+
+-- ── Arithmetic ───────────────────────────────────────────────
+
+succ_ :: Church -> Church
+succ_ := \n. MkChurch (\f x. f (runChurch n f x))
+
+add_ :: Church -> Church -> Church
+add_ := \m n. MkChurch (\f x. runChurch m f (runChurch n f x))
+
+mul_ :: Church -> Church -> Church
+mul_ := \m n. MkChurch (\f. runChurch m (runChurch n f))
+
+-- ── Conversion ───────────────────────────────────────────────
+
+toInt :: Church -> Int
+toInt := \n. runChurch n (\x. x + 1) 0
+
+toBool :: Church -> Bool
+toBool := \n. runChurch n (\_.True) False
+
+toList :: \a. a -> Church -> List a
+toList := \elem n. runChurch n (\xs. Cons elem xs) Nil
+
+-- ── Tests ────────────────────────────────────────────────────
+
+four  := succ_ three
+five  := add_ two three
+six   := mul_ two three
+eight := mul_ two four
+
+test_basic := (toInt zero, toInt one, toInt two, toInt three)  -- (0,1,2,3)
+test_arith := (toInt four, toInt five, toInt six, toInt eight) -- (4,5,6,8)
+test_bool  := (toBool zero, toBool one)                        -- (False, True)
+test_list  := toList "x" three                                 -- ["x","x","x"]
+
+main := (test_basic, (test_arith, (test_bool, test_list)))
+-- Expected: ((0, 1, 2, 3), ((4, 5, 6, 8), ((False, True), ["x", "x", "x"])))

@@ -1,0 +1,58 @@
+-- MaybeT monad transformer in GICEL
+--
+-- MaybeT m a ≅ m (Maybe a) — layers Maybe failure over an existing monad.
+-- Demonstrates: HKT, monad transformer pattern, do-notation interop.
+--
+-- Run: bin/gicel run examples/gicel/patterns/maybet.gicel
+
+import Prelude
+
+-- ── MaybeT ───────────────────────────────────────────────────
+
+data MaybeT (m: Type -> Type) a := MkMaybeT (m (Maybe a))
+
+runMaybeT :: \(m: Type -> Type) a. MaybeT m a -> m (Maybe a)
+runMaybeT := \mt. case mt { MkMaybeT ma -> ma }
+
+-- IxMonad instance: bind threads Maybe failure through the base monad
+instance Monad m => IxMonad (MaybeT m) {
+  ixpure := \a. MkMaybeT (mpure (Just a));
+  ixbind := \ma f. MkMaybeT (mbind (runMaybeT ma) (\opt. case opt {
+    Nothing -> mpure Nothing;
+    Just a  -> runMaybeT (f a)
+  }))
+}
+
+-- Lift a failure into MaybeT
+failT :: \(m: Type -> Type) a. Monad m => MaybeT m a
+failT := MkMaybeT (mpure Nothing)
+
+-- ── Safe division: Maybe failure over Maybe ──────────────────
+
+safeDivM :: Int -> Int -> MaybeT Maybe Int
+safeDivM := \x y. case eq y 0 {
+  True  -> failT;
+  False -> MkMaybeT (Just (Just (x / y)))
+}
+
+-- 10 / 2 = 5, then 5 / 0 → Nothing (short-circuits)
+test_fail := runMaybeT (do { a <- safeDivM 10 2; b <- safeDivM a 0; pure (a + b) })
+-- Just Nothing
+
+-- 10 / 2 = 5, then 5 / 1 = 5, result = 10
+test_ok := runMaybeT (do { a <- safeDivM 10 2; b <- safeDivM a 1; pure (a + b) })
+-- Just (Just 10)
+
+-- Chain of three: 100 / 10 / 5 / 1 = 2
+test_chain := runMaybeT (do {
+  a <- safeDivM 100 10;
+  b <- safeDivM a 5;
+  c <- safeDivM b 1;
+  pure c
+})
+-- Just (Just 2)
+
+-- ── Output ───────────────────────────────────────────────────
+
+main := (test_fail, test_ok, test_chain)
+-- Expected: (Just Nothing, Just (Just 10), Just (Just 2))
