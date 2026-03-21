@@ -12,6 +12,7 @@
 ### Type Checker — Bug Fix
 
 - **Class method ambiguity bypass fixed** — when two modules export the same class name, methods of the ambiguous class are now blocked in both `importOpen` (via `ambiguousClassMethods` exclusion set) and `importSelective` (via ambiguity gate on method import block). Previously, orphaned method values remained in scope without a registered class
+- **`ownedAllNames` private constructor leak fixed** — private constructors (`_`-prefixed, `$`-containing) of public types are now excluded from `OwnedNames`
 
 ### Type Checker — Documentation
 
