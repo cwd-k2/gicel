@@ -69,13 +69,13 @@ func (ch *Checker) lookupQualVar(e *syntax.ExprQualVar) (types.Type, ir.Core, bo
 		ch.addCodedError(diagnostic.ErrUnboundVar, e.S, fmt.Sprintf("unknown qualifier: %s", e.Qualifier))
 		return &types.TyError{S: e.S}, &ir.Var{Name: e.Name, S: e.S}, false
 	}
-	ty, ok := qs.exports.Values[e.Name]
+	ty, ok := qs.Exports.Values[e.Name]
 	if !ok {
 		ch.addCodedError(diagnostic.ErrUnboundVar, e.S,
-			fmt.Sprintf("module %s does not export value: %s", qs.moduleName, e.Name))
+			fmt.Sprintf("module %s does not export value: %s", qs.ModuleName, e.Name))
 		return &types.TyError{S: e.S}, &ir.Var{Name: e.Name, S: e.S}, false
 	}
-	return ty, &ir.Var{Name: e.Name, Module: qs.moduleName, S: e.S}, true
+	return ty, &ir.Var{Name: e.Name, Module: qs.ModuleName, S: e.S}, true
 }
 
 // lookupQualCon resolves a qualified constructor reference (N.Just) to its type and Core node.
@@ -85,13 +85,13 @@ func (ch *Checker) lookupQualCon(e *syntax.ExprQualCon) (types.Type, ir.Core, bo
 		ch.addCodedError(diagnostic.ErrUnboundCon, e.S, fmt.Sprintf("unknown qualifier: %s", e.Qualifier))
 		return &types.TyError{S: e.S}, &ir.Con{Name: e.Name, S: e.S}, false
 	}
-	ty, ok := qs.exports.ConTypes[e.Name]
+	ty, ok := qs.Exports.ConTypes[e.Name]
 	if !ok {
 		ch.addCodedError(diagnostic.ErrUnboundCon, e.S,
-			fmt.Sprintf("module %s does not export constructor: %s", qs.moduleName, e.Name))
+			fmt.Sprintf("module %s does not export constructor: %s", qs.ModuleName, e.Name))
 		return &types.TyError{S: e.S}, &ir.Con{Name: e.Name, S: e.S}, false
 	}
-	return ty, &ir.Con{Name: e.Name, Module: qs.moduleName, S: e.S}, true
+	return ty, &ir.Con{Name: e.Name, Module: qs.ModuleName, S: e.S}, true
 }
 
 // inferHead infers the type of an expression without instantiating outer foralls.

@@ -148,13 +148,13 @@ func (ch *Checker) checkQualConPattern(p *syntax.PatQualCon, scrutTy types.Type)
 		ch.addCodedError(diagnostic.ErrUnboundCon, p.S, fmt.Sprintf("unknown qualifier: %s", p.Qualifier))
 		return patternResult{Pattern: &ir.PWild{S: p.S}}
 	}
-	conTy, ok := qs.exports.ConTypes[p.Con]
+	conTy, ok := qs.Exports.ConTypes[p.Con]
 	if !ok {
 		ch.addCodedError(diagnostic.ErrUnboundCon, p.S,
-			fmt.Sprintf("module %s does not export constructor: %s", qs.moduleName, p.Con))
+			fmt.Sprintf("module %s does not export constructor: %s", qs.ModuleName, p.Con))
 		return patternResult{Pattern: &ir.PWild{S: p.S}}
 	}
-	return ch.checkConPatternWith(p.Con, qs.moduleName, conTy, p.Args, scrutTy, p.S)
+	return ch.checkConPatternWith(p.Con, qs.ModuleName, conTy, p.Args, scrutTy, p.S)
 }
 
 // checkConPatternWith is the shared implementation for unqualified and qualified constructor patterns.

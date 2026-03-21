@@ -7,6 +7,7 @@ import (
 	"github.com/cwd-k2/gicel/internal/compiler/check/env"
 	"github.com/cwd-k2/gicel/internal/compiler/check/exhaust"
 	"github.com/cwd-k2/gicel/internal/compiler/check/family"
+	"github.com/cwd-k2/gicel/internal/compiler/check/modscope"
 	"github.com/cwd-k2/gicel/internal/compiler/check/unify"
 	"github.com/cwd-k2/gicel/internal/infra/budget"
 	"github.com/cwd-k2/gicel/internal/infra/diagnostic"
@@ -84,18 +85,8 @@ type CheckTraceHook func(CheckTraceEvent)
 
 // Scope holds name resolution and module scoping state.
 type Scope struct {
-	// Dependencies (wired during assembly).
-	session *Session
-	reg     *Registry
-	config  *CheckConfig
-
-	// Own state.
-	currentModule       string                     // module being compiled ("" = user main source)
-	qualifiedScopes     map[string]*qualifiedScope // alias → qualified module scope
-	importedNames       map[string]string          // name → source module (value namespace ambiguity)
-	importedTypeNames   map[string]string          // name → source module (type namespace ambiguity)
-	ownedNamesCache     map[string]map[string]bool // module → owned names (lazy, for value ambiguity)
-	ownedTypeNamesCache map[string]map[string]bool // module → owned type names (lazy, for type ambiguity)
+	currentModule   string                              // module being compiled ("" = user main source)
+	qualifiedScopes map[string]*modscope.QualifiedScope // alias → qualified module scope
 
 	// Qualified name injections: aliases and families resolved from qualified
 	// references (e.g., M.Alias) are cached here instead of mutating the Registry.
@@ -109,7 +100,7 @@ func (s *Scope) CurrentModule() string {
 }
 
 // LookupQualified returns the qualified scope for the given alias.
-func (s *Scope) LookupQualified(alias string) (*qualifiedScope, bool) {
+func (s *Scope) LookupQualified(alias string) (*modscope.QualifiedScope, bool) {
 	qs, ok := s.qualifiedScopes[alias]
 	return qs, ok
 }
@@ -238,12 +229,6 @@ func (s *Session) checkCancelled() bool {
 	}
 }
 
-// qualifiedScope holds a module's exports for qualified name resolution.
-type qualifiedScope struct {
-	moduleName string         // canonical module name
-	exports    *ModuleExports // the module's full exports
-}
-
 // DataTypeInfo and ConstructorInfo are defined in the exhaust subpackage.
 type DataTypeInfo = exhaust.DataTypeInfo
 type ConstructorInfo = exhaust.ConstructorInfo
@@ -338,13 +323,7 @@ func newChecker(prog *syntax.AstProgram, source *span.Source, config *CheckConfi
 		Session: session,
 		reg:     reg,
 		scope: &Scope{
-			session:           session,
-			reg:               reg,
-			config:            config,
-			currentModule:     config.CurrentModule,
-			qualifiedScopes:   make(map[string]*qualifiedScope),
-			importedNames:     make(map[string]string),
-			importedTypeNames: make(map[string]string),
+			currentModule: config.CurrentModule,
 		},
 		solver: &Solver{},
 	}
@@ -354,7 +333,27 @@ func newChecker(prog *syntax.AstProgram, source *span.Source, config *CheckConfi
 		ch.solver.Reactivate(metaID)
 	}
 	ch.initContext()
-	ch.scope.ImportModules(prog.Imports)
+	imp := modscope.NewImporter(modscope.ImportEnv{
+		RegisterTypeKind:     ch.reg.RegisterTypeKind,
+		RegisterAlias:        ch.reg.RegisterAlias,
+		RegisterClass:        ch.reg.RegisterClass,
+		RegisterFamily:       ch.reg.RegisterFamily,
+		RegisterDataType:     ch.reg.RegisterDataType,
+		RegisterPromotedKind: ch.reg.RegisterPromotedKind,
+		RegisterPromotedCon:  ch.reg.RegisterPromotedCon,
+		SetConBinding:        ch.reg.SetConBinding,
+		SetConInfo:           ch.reg.SetConInfo,
+		ImportInstance:        ch.reg.ImportInstance,
+		AddError:             ch.addCodedError,
+		PushVar: func(name string, ty types.Type, module string) {
+			ch.ctx.Push(&CtxVar{Name: name, Type: ty, Module: module})
+		},
+	})
+	ch.scope.qualifiedScopes = imp.Import(
+		prog.Imports,
+		config.ImportedModules,
+		config.ModuleDeps,
+	)
 	return ch
 }
 
