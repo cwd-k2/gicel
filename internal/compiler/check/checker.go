@@ -54,22 +54,9 @@ type CheckConfig struct {
 	MaxResolveDepth int                 // instance resolution depth limit (0 = default 64)
 }
 
-// ModuleExports carries the type-level information exported by a compiled module.
-type ModuleExports struct {
-	Types              map[string]types.Kind      // registered type constructors
-	ConTypes           map[string]types.Type      // constructor → full type
-	ConstructorInfo    map[string]*DataTypeInfo   // constructor → data type info
-	ConstructorsByType map[string][]string        // type name → constructor names (precomputed index)
-	Aliases            map[string]*AliasInfo      // type aliases
-	Classes            map[string]*ClassInfo      // class declarations
-	Instances          []*InstanceInfo            // instance declarations
-	Values             map[string]types.Type      // top-level value types
-	PromotedKinds      map[string]types.Kind      // DataKinds promotions
-	PromotedCons       map[string]types.Kind      // promoted constructors
-	TypeFamilies       map[string]*TypeFamilyInfo // type family declarations
-	OwnedTypeNames     map[string]bool            // data type names defined by this module
-	OwnedNames         map[string]bool            // type names + constructor names defined by this module
-}
+// ModuleExports is the type-level information exported by a compiled module.
+// Canonical definition lives in env/module_exports.go.
+type ModuleExports = env.ModuleExports
 
 // CheckTraceKind classifies trace events.
 type CheckTraceKind int
