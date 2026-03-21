@@ -172,6 +172,62 @@ main := 42
 	}
 }
 
+// TestCollision_AmbiguousClassBlocksMethods_Open — when two modules export
+// the same class name via open import, the class methods must also be blocked.
+// Previously, methods bypassed the class-level ambiguity gate and remained
+// in scope as orphaned values.
+func TestCollision_AmbiguousClassBlocksMethods_Open(t *testing.T) {
+	modA := mkClassModule("Show", "showA")
+	modA.OwnedTypeNames = map[string]bool{"DummyA": true}
+	modA.OwnedNames = map[string]bool{"DummyA": true}
+	modB := mkClassModule("Show", "showB")
+	modB.OwnedTypeNames = map[string]bool{"DummyB": true}
+	modB.OwnedNames = map[string]bool{"DummyB": true}
+	config := &CheckConfig{
+		RegisteredTypes: map[string]types.Kind{"Int": types.KType{}},
+		ImportedModules: map[string]*ModuleExports{"ModA": modA, "ModB": modB},
+		ModuleDeps:      map[string][]string{"ModA": nil, "ModB": nil},
+	}
+	// showB is a method of the ambiguous class Show from ModB.
+	// It should not be importable as a standalone value.
+	source := `
+import ModA
+import ModB
+
+main := showB
+`
+	errMsg := checkSourceExpectError(t, source, config)
+	if !strings.Contains(errMsg, "showB") {
+		t.Errorf("expected error about showB (orphaned method of ambiguous class), got: %s", errMsg)
+	}
+}
+
+// TestCollision_AmbiguousClassBlocksMethods_Selective — when a class name
+// collides via selective import, methods of the second class must be blocked.
+func TestCollision_AmbiguousClassBlocksMethods_Selective(t *testing.T) {
+	modA := mkClassModule("Show", "showA")
+	modA.OwnedTypeNames = map[string]bool{"DummyA": true}
+	modA.OwnedNames = map[string]bool{"DummyA": true}
+	modB := mkClassModule("Show", "showB")
+	modB.OwnedTypeNames = map[string]bool{"DummyB": true}
+	modB.OwnedNames = map[string]bool{"DummyB": true}
+	config := &CheckConfig{
+		RegisteredTypes: map[string]types.Kind{"Int": types.KType{}},
+		ImportedModules: map[string]*ModuleExports{"ModA": modA, "ModB": modB},
+		ModuleDeps:      map[string][]string{"ModA": nil, "ModB": nil},
+	}
+	source := `
+import ModA (Show)
+import ModB (Show)
+
+main := showB
+`
+	errMsg := checkSourceExpectError(t, source, config)
+	if !strings.Contains(errMsg, "showB") {
+		t.Errorf("expected error about showB (orphaned method of ambiguous class), got: %s", errMsg)
+	}
+}
+
 // TestCollision_QualifiedDisambiguatesType — qualified import should
 // not trigger ambiguity even if both modules export the same type name.
 func TestCollision_QualifiedDisambiguatesType(t *testing.T) {

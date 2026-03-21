@@ -349,13 +349,28 @@ func (imp *Importer) importOpen(mod *env.ModuleExports, moduleName string, s spa
 			imp.env.RegisterAlias(name, alias)
 		}
 	}
+	// Collect method names from ambiguous classes so they can be excluded
+	// from the Values loop below. Methods of an ambiguous class must not
+	// be imported — they would be orphaned (usable as values without a
+	// registered class).
+	var ambiguousClassMethods map[string]bool
 	for name, cls := range mod.Classes {
 		if !imp.checkAmbiguousTypeName(name, moduleName, s) {
 			imp.env.RegisterClass(name, cls)
+		} else {
+			if ambiguousClassMethods == nil {
+				ambiguousClassMethods = make(map[string]bool)
+			}
+			for _, m := range cls.Methods {
+				ambiguousClassMethods[m.Name] = true
+			}
 		}
 	}
 	imp.importInstances(mod)
 	for name, ty := range mod.Values {
+		if ambiguousClassMethods[name] {
+			continue
+		}
 		imp.importValue(name, ty, moduleName, s)
 	}
 	for name, kind := range mod.PromotedKinds {
@@ -436,19 +451,24 @@ func (imp *Importer) importSelective(mod *env.ModuleExports, decl syntax.DeclImp
 
 		// Class
 		if cls, ok := mod.Classes[name]; ok {
-			if !imp.checkAmbiguousTypeName(name, decl.ModuleName, decl.S) {
+			ambiguous := imp.checkAmbiguousTypeName(name, decl.ModuleName, decl.S)
+			if !ambiguous {
 				imp.env.RegisterClass(name, cls)
 			}
 			found = true
 
-			// Import class methods
-			if in.HasSub {
-				imp.importClassSubs(mod, cls, in, decl.ModuleName, decl.S)
-			} else {
-				// Bare class name: import all methods
-				for _, m := range cls.Methods {
-					if ty, ok := mod.Values[m.Name]; ok {
-						imp.importValue(m.Name, ty, decl.ModuleName, decl.S)
+			// Import class methods only if the class itself is not ambiguous.
+			// An ambiguous class is not registered, so its methods must not
+			// be imported — they would be orphaned values without a class.
+			if !ambiguous {
+				if in.HasSub {
+					imp.importClassSubs(mod, cls, in, decl.ModuleName, decl.S)
+				} else {
+					// Bare class name: import all methods
+					for _, m := range cls.Methods {
+						if ty, ok := mod.Values[m.Name]; ok {
+							imp.importValue(m.Name, ty, decl.ModuleName, decl.S)
+						}
 					}
 				}
 			}
