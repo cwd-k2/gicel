@@ -1,7 +1,7 @@
 -- GICEL Example: Nondeterministic Search
 --
 -- Two layers of the same idea, both using do notation:
---   1. List do — the simplest way (built-in IxMonad List)
+--   1. List do — the simplest way (via Monad List instance)
 --   2. Free monad do — reified computation as a data structure
 -- Requires: --recursion (for Free monad and range)
 -- Run: gicel run --recursion nondeterminism.gicel

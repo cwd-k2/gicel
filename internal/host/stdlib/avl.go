@@ -3,7 +3,7 @@ package stdlib
 import (
 	"fmt"
 
-	"github.com/cwd-k2/gicel/internal/lang/types"
+	"github.com/cwd-k2/gicel/internal/lang/syntax"
 	"github.com/cwd-k2/gicel/internal/runtime/eval"
 )
 
@@ -219,7 +219,7 @@ func avlConsRight(n *avlNode, acc *eval.Value) {
 		return
 	}
 	avlConsRight(n.right, acc)
-	pair := &eval.RecordVal{Fields: map[string]eval.Value{types.TupleLabel(1): n.key, types.TupleLabel(2): n.value}}
+	pair := &eval.RecordVal{Fields: map[string]eval.Value{syntax.TupleLabel(1): n.key, syntax.TupleLabel(2): n.value}}
 	*acc = &eval.ConVal{Con: "Cons", Args: []eval.Value{pair, *acc}}
 	avlConsRight(n.left, acc)
 }

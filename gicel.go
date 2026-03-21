@@ -15,6 +15,7 @@ import (
 	"github.com/cwd-k2/gicel/internal/host/registry"
 	"github.com/cwd-k2/gicel/internal/host/stdlib"
 	"github.com/cwd-k2/gicel/internal/infra/budget"
+	"github.com/cwd-k2/gicel/internal/lang/syntax"
 	"github.com/cwd-k2/gicel/internal/lang/types"
 	"github.com/cwd-k2/gicel/internal/runtime/eval"
 )
@@ -228,7 +229,7 @@ func CollectList(v *ConVal) ([]Value, bool) { return eval.CollectList(v) }
 func IsTuple(r *RecordVal) bool { return eval.IsTuple(r) }
 
 // TupleLabel returns the canonical field label for a 1-based tuple position.
-func TupleLabel(pos int) string { return types.TupleLabel(pos) }
+func TupleLabel(pos int) string { return syntax.TupleLabel(pos) }
 
 // NewCapEnv creates a new capability environment from a map.
 func NewCapEnv(caps map[string]any) CapEnv {

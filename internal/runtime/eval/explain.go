@@ -8,7 +8,7 @@ import (
 
 	"github.com/cwd-k2/gicel/internal/infra/span"
 	"github.com/cwd-k2/gicel/internal/lang/ir"
-	"github.com/cwd-k2/gicel/internal/lang/types"
+	"github.com/cwd-k2/gicel/internal/lang/syntax"
 )
 
 // ExplainKind classifies semantic evaluation events.
@@ -242,7 +242,7 @@ func IsTuple(r *RecordVal) bool {
 		return true // () is the unit tuple
 	}
 	for i := 1; i <= n; i++ {
-		if _, ok := r.Fields[types.TupleLabel(i)]; !ok {
+		if _, ok := r.Fields[syntax.TupleLabel(i)]; !ok {
 			return false
 		}
 	}
@@ -256,7 +256,7 @@ func prettyTupleDepth(r *RecordVal, depth int) string {
 	}
 	parts := make([]string, n)
 	for i := range n {
-		parts[i] = prettyValueDepth(r.Fields[types.TupleLabel(i+1)], depth+1)
+		parts[i] = prettyValueDepth(r.Fields[syntax.TupleLabel(i+1)], depth+1)
 	}
 	return "(" + strings.Join(parts, ", ") + ")"
 }
@@ -352,7 +352,7 @@ func collectListPattern(p *ir.PCon, depth int) ([]string, bool) {
 
 func isTuplePattern(p *ir.PRecord) bool {
 	for i, f := range p.Fields {
-		if f.Label != types.TupleLabel(i+1) {
+		if f.Label != syntax.TupleLabel(i+1) {
 			return false
 		}
 	}

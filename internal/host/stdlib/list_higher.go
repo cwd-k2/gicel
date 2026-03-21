@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"github.com/cwd-k2/gicel/internal/infra/budget"
-	"github.com/cwd-k2/gicel/internal/lang/types"
+	"github.com/cwd-k2/gicel/internal/lang/syntax"
 	"github.com/cwd-k2/gicel/internal/runtime/eval"
 )
 
@@ -174,8 +174,8 @@ func spanImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, apply eval
 		return nil, ce, err
 	}
 	return &eval.RecordVal{Fields: map[string]eval.Value{
-		types.TupleLabel(1): buildList(prefix),
-		types.TupleLabel(2): list,
+		syntax.TupleLabel(1): buildList(prefix),
+		syntax.TupleLabel(2): list,
 	}}, ce, nil
 }
 
@@ -229,7 +229,7 @@ func zipImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Appl
 		if xCon.Con != "Cons" || len(xCon.Args) != 2 || yCon.Con != "Cons" || len(yCon.Args) != 2 {
 			return nil, ce, fmt.Errorf("zip: malformed list")
 		}
-		pairs = append(pairs, &eval.RecordVal{Fields: map[string]eval.Value{types.TupleLabel(1): xCon.Args[0], types.TupleLabel(2): yCon.Args[0]}})
+		pairs = append(pairs, &eval.RecordVal{Fields: map[string]eval.Value{syntax.TupleLabel(1): xCon.Args[0], syntax.TupleLabel(2): yCon.Args[0]}})
 		xs = xCon.Args[1]
 		ys = yCon.Args[1]
 	}
@@ -257,8 +257,8 @@ func unzipImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Ap
 		if !ok {
 			return nil, ce, fmt.Errorf("unzip: expected tuple")
 		}
-		a, ok1 := rec.Fields[types.TupleLabel(1)]
-		b, ok2 := rec.Fields[types.TupleLabel(2)]
+		a, ok1 := rec.Fields[syntax.TupleLabel(1)]
+		b, ok2 := rec.Fields[syntax.TupleLabel(2)]
 		if !ok1 || !ok2 {
 			return nil, ce, fmt.Errorf("unzip: expected tuple with _1 and _2")
 		}
@@ -269,7 +269,7 @@ func unzipImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Ap
 	if err := budget.ChargeAlloc(ctx, int64(len(as))*2*costConsNode); err != nil {
 		return nil, ce, err
 	}
-	return &eval.RecordVal{Fields: map[string]eval.Value{types.TupleLabel(1): buildList(as), types.TupleLabel(2): buildList(bs)}}, ce, nil
+	return &eval.RecordVal{Fields: map[string]eval.Value{syntax.TupleLabel(1): buildList(as), syntax.TupleLabel(2): buildList(bs)}}, ce, nil
 }
 
 // unfoldrImpl builds a list by repeatedly applying f to a seed until Nothing.
@@ -297,8 +297,8 @@ func unfoldrImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, apply e
 		if !ok {
 			return nil, ce, fmt.Errorf("unfoldr: expected tuple, got %T", con.Args[0])
 		}
-		a, ok1 := pair.Fields[types.TupleLabel(1)]
-		b, ok2 := pair.Fields[types.TupleLabel(2)]
+		a, ok1 := pair.Fields[syntax.TupleLabel(1)]
+		b, ok2 := pair.Fields[syntax.TupleLabel(2)]
 		if !ok1 || !ok2 {
 			return nil, ce, fmt.Errorf("unfoldr: expected tuple with _1 and _2")
 		}
