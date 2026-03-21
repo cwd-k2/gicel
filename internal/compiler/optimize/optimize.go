@@ -187,7 +187,7 @@ func subst(expr ir.Core, name string, replacement ir.Core) ir.Core {
 		if capturedBy(n.Param, replacement) {
 			return n // would capture — bail out to preserve correctness
 		}
-		return &ir.Lam{Param: n.Param, ParamType: n.ParamType, Body: subst(n.Body, name, replacement), FV: n.FV, S: n.S}
+		return &ir.Lam{Param: n.Param, ParamType: n.ParamType, Body: subst(n.Body, name, replacement), FV: n.FV, Generated: n.Generated, S: n.S}
 	case *ir.App:
 		return &ir.App{Fun: subst(n.Fun, name, replacement), Arg: subst(n.Arg, name, replacement), S: n.S}
 	case *ir.TyApp:
@@ -206,7 +206,7 @@ func subst(expr ir.Core, name string, replacement ir.Core) ir.Core {
 			if binds(alt.Pattern, name) {
 				alts[i] = alt
 			} else {
-				alts[i] = ir.Alt{Pattern: alt.Pattern, Body: subst(alt.Body, name, replacement), S: alt.S}
+				alts[i] = ir.Alt{Pattern: alt.Pattern, Body: subst(alt.Body, name, replacement), Generated: alt.Generated, S: alt.S}
 			}
 		}
 		return &ir.Case{Scrutinee: subst(n.Scrutinee, name, replacement), Alts: alts, S: n.S}
@@ -223,12 +223,12 @@ func subst(expr ir.Core, name string, replacement ir.Core) ir.Core {
 	case *ir.Bind:
 		comp := subst(n.Comp, name, replacement)
 		if n.Var == name {
-			return &ir.Bind{Comp: comp, Var: n.Var, Body: n.Body, S: n.S}
+			return &ir.Bind{Comp: comp, Var: n.Var, Body: n.Body, Generated: n.Generated, S: n.S}
 		}
 		if capturedBy(n.Var, replacement) {
-			return &ir.Bind{Comp: comp, Var: n.Var, Body: n.Body, S: n.S}
+			return &ir.Bind{Comp: comp, Var: n.Var, Body: n.Body, Generated: n.Generated, S: n.S}
 		}
-		return &ir.Bind{Comp: comp, Var: n.Var, Body: subst(n.Body, name, replacement), S: n.S}
+		return &ir.Bind{Comp: comp, Var: n.Var, Body: subst(n.Body, name, replacement), Generated: n.Generated, S: n.S}
 	case *ir.Thunk:
 		return &ir.Thunk{Comp: subst(n.Comp, name, replacement), FV: n.FV, S: n.S}
 	case *ir.Force:

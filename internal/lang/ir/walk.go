@@ -137,7 +137,7 @@ func transformRec(c Core, f func(Core) Core, depth int) Core {
 	case *Var:
 		return f(n)
 	case *Lam:
-		return f(&Lam{Param: n.Param, ParamType: n.ParamType, Body: transformRec(n.Body, f, depth+1), S: n.S})
+		return f(&Lam{Param: n.Param, ParamType: n.ParamType, Body: transformRec(n.Body, f, depth+1), FV: n.FV, Generated: n.Generated, S: n.S})
 	case *App:
 		return transformLeftSpine(c, f, depth)
 	case *TyApp:
@@ -153,7 +153,7 @@ func transformRec(c Core, f func(Core) Core, depth int) Core {
 	case *Case:
 		alts := make([]Alt, len(n.Alts))
 		for i, alt := range n.Alts {
-			alts[i] = Alt{Pattern: alt.Pattern, Body: transformRec(alt.Body, f, depth+1), S: alt.S}
+			alts[i] = Alt{Pattern: alt.Pattern, Body: transformRec(alt.Body, f, depth+1), Generated: alt.Generated, S: alt.S}
 		}
 		return f(&Case{Scrutinee: transformRec(n.Scrutinee, f, depth+1), Alts: alts, S: n.S})
 	case *Fix:
@@ -161,7 +161,7 @@ func transformRec(c Core, f func(Core) Core, depth int) Core {
 	case *Pure:
 		return f(&Pure{Expr: transformRec(n.Expr, f, depth+1), S: n.S})
 	case *Bind:
-		return f(&Bind{Comp: transformRec(n.Comp, f, depth+1), Var: n.Var, Body: transformRec(n.Body, f, depth+1), S: n.S})
+		return f(&Bind{Comp: transformRec(n.Comp, f, depth+1), Var: n.Var, Body: transformRec(n.Body, f, depth+1), Generated: n.Generated, S: n.S})
 	case *Thunk:
 		return f(&Thunk{Comp: transformRec(n.Comp, f, depth+1), S: n.S})
 	case *Force:
