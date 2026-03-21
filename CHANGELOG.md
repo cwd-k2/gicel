@@ -1,5 +1,26 @@
 # Changelog
 
+## v0.15.3 — 2026-03-22
+
+### Type Checker — Import/Export Separation
+
+- **`modscope` subpackage** — 15 import functions (464 lines) extracted from `Scope` methods to `modscope.Importer` with callback-based `ImportEnv`, following the `exhaust.CheckEnv` / `family.ReduceEnv` pattern. `Scope` reduced from 12 fields to 4 (session/reg/config references removed)
+- **`ModuleExports` moved to `env/`** — pure data type relocated to `env/module_exports.go`; `checker.go` retains a type alias for compatibility
+- **Registry encapsulation completed** — 7 iteration accessors added (`AllConInfo`, `AllAliases`, `AllClasses`, `AllInstances`, `AllPromotedKinds`, `AllPromotedCons`, `AllFamilies`); `export.go` migrated to zero direct field references
+- **`isPrivateName`/`isOperatorName` consolidated** — moved to `env/names.go` (exported); duplicate definitions in `export.go` and `modscope/import.go` removed
+
+### Type Checker — Bug Fix
+
+- **Class method ambiguity bypass fixed** — when two modules export the same class name, methods of the ambiguous class are now blocked in both `importOpen` (via `ambiguousClassMethods` exclusion set) and `importSelective` (via ambiguity gate on method import block). Previously, orphaned method values remained in scope without a registered class
+
+### Type Checker — Documentation
+
+- `checkAmbiguousName` doc corrected: removed inaccurate Core exemption claim, "$-prefixed" → "$-containing", added `_`-prefix mention
+- `Import` doc expanded to describe callback side effects
+- `OwnedNames` comment precision: "type names" → "data type names"
+
+---
+
 ## v0.15.2 — 2026-03-22
 
 ### Type Checker — Structure
