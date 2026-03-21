@@ -40,12 +40,12 @@ func (ch *Checker) matchTyPattern(pat, arg types.Type, subst map[string]types.Ty
 // processTypeFamily kind-checks and registers a type family declaration.
 func (ch *Checker) processTypeFamily(d *syntax.DeclTypeFamily) {
 	// Check for duplicate.
-	if _, dup := ch.reg.families[d.Name]; dup {
+	if _, dup := ch.reg.LookupFamily(d.Name); dup {
 		ch.addCodedError(diagnostic.ErrDuplicateDecl, d.S,
 			fmt.Sprintf("duplicate type family: %s", d.Name))
 		return
 	}
-	if _, dup := ch.reg.aliases[d.Name]; dup {
+	if _, dup := ch.reg.LookupAlias(d.Name); dup {
 		ch.addCodedError(diagnostic.ErrDuplicateDecl, d.S,
 			fmt.Sprintf("type family %s conflicts with type alias of the same name", d.Name))
 		return

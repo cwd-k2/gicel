@@ -113,7 +113,7 @@ func (ch *Checker) resolveInstance(className string, args []types.Type, s span.S
 	ch.applyFunDepImprovement(className, args)
 
 	// 2. Search global instances (indexed by class name).
-	for _, inst := range ch.reg.instancesByClass[className] {
+	for _, inst := range ch.reg.InstancesForClass(className) {
 		if len(inst.TypeArgs) != len(args) {
 			continue
 		}
@@ -184,7 +184,7 @@ func (ch *Checker) extractSuperDict(v *CtxVar, targetClass string, targetArgs []
 	if !ok {
 		return nil
 	}
-	if _, isDict := ch.reg.dictToClass[con.Name]; !isDict {
+	if _, isDict := ch.reg.ClassFromDict(con.Name); !isDict {
 		return nil
 	}
 	search := &superDictSearch{
@@ -197,13 +197,13 @@ func (ch *Checker) extractSuperDict(v *CtxVar, targetClass string, targetArgs []
 // chain recursively searches the superclass hierarchy for the target class,
 // building chained Case extractions along the path.
 func (sd *superDictSearch) chain(dictExpr ir.Core, dictTyName string, dictTyArgs []types.Type) ir.Core {
-	parentClass := sd.ch.reg.dictToClass[dictTyName]
+	parentClass, _ := sd.ch.reg.ClassFromDict(dictTyName)
 	if sd.visited[parentClass] {
 		return nil
 	}
 	sd.visited[parentClass] = true
 
-	classInfo, ok := sd.ch.reg.classes[parentClass]
+	classInfo, ok := sd.ch.reg.LookupClass(parentClass)
 	if !ok {
 		return nil
 	}
@@ -251,7 +251,7 @@ func (sd *superDictSearch) chain(dictExpr ir.Core, dictTyName string, dictTyArgs
 // For each fundep a -> b in the class, if the "from" args are determined (no metas),
 // search instances whose "from" positions match, and unify the "to" positions.
 func (ch *Checker) applyFunDepImprovement(className string, args []types.Type) {
-	classInfo, ok := ch.reg.classes[className]
+	classInfo, ok := ch.reg.LookupClass(className)
 	if !ok || len(classInfo.FunDeps) == 0 {
 		return
 	}
@@ -273,7 +273,7 @@ func (ch *Checker) applyFunDepImprovement(className string, args []types.Type) {
 			continue
 		}
 		// Search instances: if "from" positions match, unify "to" positions.
-		for _, inst := range ch.reg.instancesByClass[className] {
+		for _, inst := range ch.reg.InstancesForClass(className) {
 			if len(inst.TypeArgs) != len(args) {
 				continue
 			}

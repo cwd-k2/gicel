@@ -12,7 +12,7 @@ import (
 // Returns the instance info and a map of unevaluated method expressions.
 // The method map is consumed by processInstanceBody; it is not stored in InstanceInfo.
 func (ch *Checker) processInstanceHeader(d *syntax.DeclInstance) (*InstanceInfo, map[string]syntax.Expr) {
-	classInfo, ok := ch.reg.classes[d.ClassName]
+	classInfo, ok := ch.reg.LookupClass(d.ClassName)
 	if !ok {
 		ch.addCodedError(diagnostic.ErrBadClass, d.S, fmt.Sprintf("unknown class: %s", d.ClassName))
 		return nil, nil
@@ -46,7 +46,7 @@ func (ch *Checker) processInstanceHeader(d *syntax.DeclInstance) (*InstanceInfo,
 
 	// Context well-formedness: each constraint in the instance context must reference a known class.
 	for _, ctx := range context {
-		if _, ok := ch.reg.classes[ctx.ClassName]; !ok {
+		if _, ok := ch.reg.LookupClass(ctx.ClassName); !ok {
 			ch.addCodedError(diagnostic.ErrBadInstance, d.S,
 				fmt.Sprintf("instance %s: context references unknown class %s",
 					d.ClassName, ctx.ClassName))
@@ -97,11 +97,11 @@ func (ch *Checker) processInstanceHeader(d *syntax.DeclInstance) (*InstanceInfo,
 
 	// Overlap check: verify no existing local instance for this class matches the same types.
 	// Imported instances are excluded: user source is allowed to shadow module instances.
-	for _, existing := range ch.reg.instancesByClass[d.ClassName] {
+	for _, existing := range ch.reg.InstancesForClass(d.ClassName) {
 		if existing == inst {
 			continue // same pointer (re-exported via module)
 		}
-		if ch.reg.importedInstances[existing] {
+		if ch.reg.IsImportedInstance(existing) {
 			continue // imported from a module; shadowing is allowed
 		}
 		if len(existing.TypeArgs) != len(typeArgs) {
@@ -118,7 +118,7 @@ func (ch *Checker) processInstanceHeader(d *syntax.DeclInstance) (*InstanceInfo,
 	// Process associated type definitions: convert to equations and append
 	// to the corresponding TypeFamilyInfo registered during class processing.
 	for _, atd := range d.AssocTypeDefs {
-		fam, ok := ch.reg.families[atd.Name]
+		fam, ok := ch.reg.LookupFamily(atd.Name)
 		if !ok {
 			ch.addCodedError(diagnostic.ErrBadInstance, d.S,
 				fmt.Sprintf("instance %s: associated type %s not declared in class %s",

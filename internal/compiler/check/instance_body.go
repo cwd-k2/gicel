@@ -13,7 +13,7 @@ import (
 
 // processInstanceBody type-checks instance method implementations and generates the dictionary binding.
 func (ch *Checker) processInstanceBody(inst *InstanceInfo, methods map[string]syntax.Expr, prog *ir.Program) {
-	classInfo := ch.reg.classes[inst.ClassName]
+	classInfo, _ := ch.reg.LookupClass(inst.ClassName)
 
 	// Build substitution: class type params -> instance type args.
 	subst := make(map[string]types.Type)
@@ -71,7 +71,7 @@ func (ch *Checker) processInstanceBody(inst *InstanceInfo, methods map[string]sy
 
 	// Build the dictionary value: DictCon @types... arg1 arg2 ...
 	// The dict constructor comes from the module that defined the class.
-	dictConMod := ch.reg.conModules[classInfo.DictName]
+	dictConMod, _ := ch.reg.LookupConModule(classInfo.DictName)
 	var dictExpr ir.Core = &ir.Con{Name: classInfo.DictName, Module: dictConMod, S: inst.S}
 	for _, ta := range inst.TypeArgs {
 		dictExpr = &ir.TyApp{Expr: dictExpr, TyArg: ta, S: inst.S}
@@ -120,7 +120,7 @@ func (ch *Checker) instanceDictName(className string, typeArgs []types.Type) str
 // processAssocDataDef registers constructors for an associated data family definition
 // and creates the type family equation mapping the family to its mangled data type.
 func (ch *Checker) processAssocDataDef(add syntax.AssocDataDef, className string, instSpan span.Span) {
-	fam, ok := ch.reg.families[add.Name]
+	fam, ok := ch.reg.LookupFamily(add.Name)
 	if !ok {
 		ch.addCodedError(diagnostic.ErrBadInstance, instSpan,
 			fmt.Sprintf("instance %s: associated data %s not declared in class %s",
@@ -166,7 +166,7 @@ func (ch *Checker) processAssocDataDef(add syntax.AssocDataDef, className string
 			S:   add.S,
 		}
 		// Update the registered kind to accept this parameter.
-		existingKind := ch.reg.typeKinds[mangledName]
+		existingKind, _ := ch.reg.LookupTypeKind(mangledName)
 		ch.reg.RegisterTypeKind(mangledName, &types.KArrow{From: types.KType{}, To: existingKind})
 	}
 
@@ -187,7 +187,7 @@ func (ch *Checker) processAssocDataDef(add syntax.AssocDataDef, className string
 			conType = types.MkForall(patVars[i], types.KType{}, conType)
 		}
 		// Guard against constructor name collision with existing constructors.
-		if existing, dup := ch.reg.conTypes[con.Name]; dup {
+		if existing, dup := ch.reg.LookupConType(con.Name); dup {
 			ch.addCodedError(diagnostic.ErrDuplicateDecl, con.S,
 				fmt.Sprintf("data family instance %s: constructor %s conflicts with existing constructor (type: %s)",
 					add.Name, con.Name, types.Pretty(existing)))

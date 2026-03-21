@@ -108,3 +108,98 @@ func (r *Registry) SetConBinding(name string, ty types.Type, module string) {
 func (r *Registry) SetConInfo(name string, info *DataTypeInfo) {
 	r.conInfo[name] = info
 }
+
+// ---- Read accessors ----
+
+// LookupConType returns the full type scheme for a constructor.
+func (r *Registry) LookupConType(name string) (types.Type, bool) {
+	ty, ok := r.conTypes[name]
+	return ty, ok
+}
+
+// LookupConInfo returns the owning DataTypeInfo for a constructor.
+func (r *Registry) LookupConInfo(name string) (*DataTypeInfo, bool) {
+	info, ok := r.conInfo[name]
+	return info, ok
+}
+
+// LookupConModule returns the source module for a constructor.
+func (r *Registry) LookupConModule(name string) (string, bool) {
+	mod, ok := r.conModules[name]
+	return mod, ok
+}
+
+// LookupAlias returns the AliasInfo for a type alias.
+func (r *Registry) LookupAlias(name string) (*AliasInfo, bool) {
+	info, ok := r.aliases[name]
+	return info, ok
+}
+
+// LookupClass returns the ClassInfo for a type class.
+func (r *Registry) LookupClass(name string) (*ClassInfo, bool) {
+	info, ok := r.classes[name]
+	return info, ok
+}
+
+// LookupFamily returns the TypeFamilyInfo for a type family.
+func (r *Registry) LookupFamily(name string) (*TypeFamilyInfo, bool) {
+	info, ok := r.families[name]
+	return info, ok
+}
+
+// LookupTypeKind returns the kind of a registered type constructor.
+func (r *Registry) LookupTypeKind(name string) (types.Kind, bool) {
+	k, ok := r.typeKinds[name]
+	return k, ok
+}
+
+// LookupDataType returns the DataTypeInfo for a data type name.
+func (r *Registry) LookupDataType(name string) (*DataTypeInfo, bool) {
+	info, ok := r.dataTypeByName[name]
+	return info, ok
+}
+
+// ClassFromDict returns the class name for a given dict type name.
+func (r *Registry) ClassFromDict(dictName string) (string, bool) {
+	name, ok := r.dictToClass[dictName]
+	return name, ok
+}
+
+// InstancesForClass returns all instances registered for a class.
+func (r *Registry) InstancesForClass(className string) []*InstanceInfo {
+	return r.instancesByClass[className]
+}
+
+// IsKindVar reports whether a name is currently a kind variable in scope.
+func (r *Registry) IsKindVar(name string) bool {
+	return r.kindVars[name]
+}
+
+// HasPromotedKind reports whether a DataKinds promoted kind exists.
+func (r *Registry) HasPromotedKind(name string) bool {
+	_, ok := r.promotedKinds[name]
+	return ok
+}
+
+// LookupPromotedKind returns the kind for a DataKinds promoted data name.
+func (r *Registry) LookupPromotedKind(name string) (types.Kind, bool) {
+	k, ok := r.promotedKinds[name]
+	return k, ok
+}
+
+// HasPromotedCon reports whether a DataKinds promoted constructor exists.
+func (r *Registry) HasPromotedCon(name string) bool {
+	_, ok := r.promotedCons[name]
+	return ok
+}
+
+// LookupPromotedCon returns the kind for a DataKinds promoted constructor.
+func (r *Registry) LookupPromotedCon(name string) (types.Kind, bool) {
+	k, ok := r.promotedCons[name]
+	return k, ok
+}
+
+// IsImportedInstance reports whether an instance was imported (for dedup).
+func (r *Registry) IsImportedInstance(inst *InstanceInfo) bool {
+	return r.importedInstances[inst]
+}

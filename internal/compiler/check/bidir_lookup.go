@@ -53,12 +53,12 @@ func (ch *Checker) lookupCon(e *syntax.ExprCon) (types.Type, ir.Core, bool) {
 	if e.Name == "<error>" {
 		return &types.TyError{S: e.S}, &ir.Con{Name: e.Name, S: e.S}, false
 	}
-	ty, ok := ch.reg.conTypes[e.Name]
+	ty, ok := ch.reg.LookupConType(e.Name)
 	if !ok {
 		ch.addCodedError(diagnostic.ErrUnboundCon, e.S, fmt.Sprintf("unknown constructor: %s", e.Name))
 		return &types.TyError{S: e.S}, &ir.Con{Name: e.Name, S: e.S}, false
 	}
-	mod := ch.reg.conModules[e.Name] // "" if from current module or builtin
+	mod, _ := ch.reg.LookupConModule(e.Name)
 	return ty, &ir.Con{Name: e.Name, Module: mod, S: e.S}, true
 }
 
@@ -172,8 +172,8 @@ func (ch *Checker) inferList(e *syntax.ExprList) (types.Type, ir.Core) {
 	listTy := &types.TyApp{Fun: &types.TyCon{Name: "List"}, Arg: elemTy}
 
 	// Build from the end: Nil, then Cons e_n (Cons e_{n-1} ...)
-	nilMod := ch.reg.conModules["Nil"]
-	consMod := ch.reg.conModules["Cons"]
+	nilMod, _ := ch.reg.LookupConModule("Nil")
+	consMod, _ := ch.reg.LookupConModule("Cons")
 	var result ir.Core = &ir.Con{Name: "Nil", Module: nilMod, S: e.S}
 	for i := len(e.Elems) - 1; i >= 0; i-- {
 		elemCore := ch.check(e.Elems[i], elemTy)

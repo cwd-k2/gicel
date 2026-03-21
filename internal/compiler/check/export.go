@@ -29,7 +29,7 @@ func (ch *Checker) ExportModule(prog *ir.Program) *ModuleExports {
 	// Types: only kind entries for data types defined by this module.
 	ownedTypes := make(map[string]types.Kind, len(ownedDataNames))
 	for name := range ownedDataNames {
-		if kind, ok := ch.reg.typeKinds[name]; ok {
+		if kind, ok := ch.reg.LookupTypeKind(name); ok {
 			ownedTypes[name] = kind
 		}
 	}
@@ -43,7 +43,7 @@ func (ch *Checker) ExportModule(prog *ir.Program) *ModuleExports {
 	}
 	filteredConTypes := make(map[string]types.Type)
 	for name := range filteredConInfo {
-		if ty, ok := ch.reg.conTypes[name]; ok {
+		if ty, ok := ch.reg.LookupConType(name); ok {
 			filteredConTypes[name] = ty
 		}
 	}
@@ -80,7 +80,7 @@ func (ch *Checker) ExportModule(prog *ir.Program) *ModuleExports {
 	}
 	ownedPromCons := make(map[string]types.Kind)
 	for name, kind := range ch.reg.promotedCons {
-		if info, ok := ch.reg.conInfo[name]; ok && ownedDataNames[info.Name] && !isPrivateName(name) {
+		if info, ok := ch.reg.LookupConInfo(name); ok && ownedDataNames[info.Name] && !isPrivateName(name) {
 			ownedPromCons[name] = kind
 		}
 	}

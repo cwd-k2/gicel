@@ -134,7 +134,7 @@ func (ch *Checker) instantiateConForalls(conTy types.Type) (types.Type, map[int]
 }
 
 func (ch *Checker) checkConPattern(p *syntax.PatCon, scrutTy types.Type) patternResult {
-	conTy, ok := ch.reg.conTypes[p.Con]
+	conTy, ok := ch.reg.LookupConType(p.Con)
 	if !ok {
 		ch.addCodedError(diagnostic.ErrUnboundCon, p.S, fmt.Sprintf("unknown constructor in pattern: %s", p.Con))
 		return patternResult{Pattern: &ir.PWild{S: p.S}}
@@ -233,7 +233,7 @@ func (ch *Checker) checkConPatternWith(conName, moduleName string, conTy types.T
 // isInaccessibleGADTBranch returns true if the constructor's return type
 // cannot unify with the scrutinee, making the branch inaccessible.
 func (ch *Checker) isInaccessibleGADTBranch(conName string, scrutTy types.Type) bool {
-	info := ch.reg.conInfo[conName]
+	info, _ := ch.reg.LookupConInfo(conName)
 	if info == nil {
 		return false
 	}

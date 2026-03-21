@@ -74,7 +74,7 @@ func (ch *Checker) isAmbiguousInstance(className string, args []types.Type) bool
 
 	matchCount := 0
 	seen := make(map[*InstanceInfo]bool)
-	for _, inst := range ch.reg.instancesByClass[className] {
+	for _, inst := range ch.reg.InstancesForClass(className) {
 		if seen[inst] {
 			continue
 		}

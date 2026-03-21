@@ -468,7 +468,7 @@ func (s *Session) withProbe(fn func() bool) bool {
 // (populated during declaration phases), then in Scope's injected aliases
 // (populated from qualified references).
 func (ch *Checker) lookupAlias(name string) (*AliasInfo, bool) {
-	if info, ok := ch.reg.aliases[name]; ok {
+	if info, ok := ch.reg.LookupAlias(name); ok {
 		return info, true
 	}
 	if ch.scope != nil && ch.scope.injectedAliases != nil {
@@ -482,7 +482,7 @@ func (ch *Checker) lookupAlias(name string) (*AliasInfo, bool) {
 // lookupFamily searches for a type family by name: first in the Registry,
 // then in Scope's injected families.
 func (ch *Checker) lookupFamily(name string) (*TypeFamilyInfo, bool) {
-	if info, ok := ch.reg.families[name]; ok {
+	if info, ok := ch.reg.LookupFamily(name); ok {
 		return info, true
 	}
 	if ch.scope != nil && ch.scope.injectedFamilies != nil {

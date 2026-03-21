@@ -23,10 +23,10 @@ func (ch *Checker) resolveKindExpr(k syntax.KindExpr) types.Kind {
 	case *syntax.KindExprArrow:
 		return &types.KArrow{From: ch.resolveKindExpr(ke.From), To: ch.resolveKindExpr(ke.To)}
 	case *syntax.KindExprName:
-		if ch.reg.kindVars[ke.Name] {
+		if ch.reg.IsKindVar(ke.Name) {
 			return types.KVar{Name: ke.Name}
 		}
-		if pk, ok := ch.reg.promotedKinds[ke.Name]; ok {
+		if pk, ok := ch.reg.LookupPromotedKind(ke.Name); ok {
 			return pk
 		}
 		return types.KType{}
@@ -81,9 +81,9 @@ func (ch *Checker) checkTypeAppKind(fun, arg types.Type, s span.Span) {
 func (ch *Checker) hasDeterministicKind(ty types.Type) bool {
 	switch t := ty.(type) {
 	case *types.TyCon:
-		_, inReg := ch.reg.typeKinds[t.Name]
-		_, inProm := ch.reg.promotedCons[t.Name]
-		_, isAlias := ch.reg.aliases[t.Name]
+		_, inReg := ch.reg.LookupTypeKind(t.Name)
+		inProm := ch.reg.HasPromotedCon(t.Name)
+		_, isAlias := ch.lookupAlias(t.Name)
 		return inReg || inProm || isAlias
 	case *types.TyApp:
 		// Recurse on the head to check if it's deterministic.
@@ -130,22 +130,22 @@ func (ch *Checker) isKnownTypeName(name string) bool {
 	if builtinTypeNames[name] {
 		return true
 	}
-	if _, ok := ch.reg.typeKinds[name]; ok {
+	if _, ok := ch.reg.LookupTypeKind(name); ok {
 		return true
 	}
-	if _, ok := ch.reg.aliases[name]; ok {
+	if _, ok := ch.lookupAlias(name); ok {
 		return true
 	}
-	if _, ok := ch.reg.families[name]; ok {
+	if _, ok := ch.lookupFamily(name); ok {
 		return true
 	}
-	if _, ok := ch.reg.classes[name]; ok {
+	if _, ok := ch.reg.LookupClass(name); ok {
 		return true
 	}
-	if _, ok := ch.reg.promotedKinds[name]; ok {
+	if ch.reg.HasPromotedKind(name) {
 		return true
 	}
-	if _, ok := ch.reg.promotedCons[name]; ok {
+	if ch.reg.HasPromotedCon(name) {
 		return true
 	}
 	return false
@@ -153,7 +153,7 @@ func (ch *Checker) isKnownTypeName(name string) bool {
 
 // aliasParamKind returns the kind of the i-th parameter of a type alias.
 func (ch *Checker) aliasParamKind(aliasName string, i int) types.Kind {
-	info, ok := ch.reg.aliases[aliasName]
+	info, ok := ch.lookupAlias(aliasName)
 	if !ok || i >= len(info.ParamKinds) {
 		return types.KType{}
 	}
@@ -164,11 +164,11 @@ func (ch *Checker) aliasParamKind(aliasName string, i int) types.Kind {
 func (ch *Checker) kindOfType(ty types.Type) types.Kind {
 	switch t := ty.(type) {
 	case *types.TyCon:
-		if k, ok := ch.reg.typeKinds[t.Name]; ok {
+		if k, ok := ch.reg.LookupTypeKind(t.Name); ok {
 			return k
 		}
 		// Type aliases: compute kind from parameter kinds.
-		if info, ok := ch.reg.aliases[t.Name]; ok {
+		if info, ok := ch.lookupAlias(t.Name); ok {
 			var kind types.Kind = types.KType{}
 			for i := len(info.Params) - 1; i >= 0; i-- {
 				paramKind := ch.aliasParamKind(t.Name, i)
@@ -176,7 +176,7 @@ func (ch *Checker) kindOfType(ty types.Type) types.Kind {
 			}
 			return kind
 		}
-		if k, ok := ch.reg.promotedCons[t.Name]; ok {
+		if k, ok := ch.reg.LookupPromotedCon(t.Name); ok {
 			return k
 		}
 		return types.KType{}

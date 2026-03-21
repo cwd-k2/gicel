@@ -52,7 +52,7 @@ func (ch *Checker) validateAliasGraph() bool {
 		colors[name] = gray
 		path = append(path, name)
 
-		info := ch.reg.aliases[name]
+		info, _ := ch.reg.LookupAlias(name)
 		refs := collectAliasRefs(info.Body, ch.reg.aliases)
 		for _, ref := range refs {
 			if visit(ref) {

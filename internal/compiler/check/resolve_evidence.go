@@ -73,7 +73,7 @@ func (ch *Checker) resolveQuantifiedConstraint(qc *types.QuantifiedConstraint, s
 	// right type: `\ a. C1$Dict a -> C2$Dict (F a)`.
 	//
 	// Search global instances for a match on the head.
-	for _, inst := range ch.reg.instancesByClass[qc.Head.ClassName] {
+	for _, inst := range ch.reg.InstancesForClass(qc.Head.ClassName) {
 		if len(inst.TypeArgs) != len(qc.Head.Args) {
 			continue
 		}

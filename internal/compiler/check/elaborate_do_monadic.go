@@ -127,7 +127,7 @@ const (
 // resolvable instance for the bare type constructor head of monadHead.
 // Only tries direct resolution (no Lift wrapping) to avoid the V8 Lift bug.
 func (ch *Checker) hasDirectIxMonadInstance(monadHead types.Type, s span.Span) bool {
-	if ch.reg.classes["IxMonad"] == nil {
+	if _, ok := ch.reg.LookupClass("IxMonad"); !ok {
 		return false
 	}
 	head, _ := types.UnwindApp(monadHead)
@@ -138,7 +138,7 @@ func (ch *Checker) hasDirectIxMonadInstance(monadHead types.Type, s span.Span) b
 // hasMonadInstance checks whether the Monad class has a resolvable instance
 // for the given monadHead, without emitting errors.
 func (ch *Checker) hasMonadInstance(monadHead types.Type, s span.Span) bool {
-	if ch.reg.classes["Monad"] == nil {
+	if _, ok := ch.reg.LookupClass("Monad"); !ok {
 		return false
 	}
 	_, ok := ch.tryResolveInstance("Monad", []types.Type{monadHead}, s)
@@ -152,7 +152,7 @@ func (ch *Checker) hasMonadInstance(monadHead types.Type, s span.Span) bool {
 //
 // Falls through to an error if neither succeeds.
 func (ch *Checker) extractIxMethod(monadHead types.Type, methodIdx int, s span.Span) ir.Core {
-	classInfo := ch.reg.classes["IxMonad"]
+	classInfo, _ := ch.reg.LookupClass("IxMonad")
 	if classInfo == nil {
 		ch.addCodedError(diagnostic.ErrNoInstance, s, "IxMonad class not available (missing Prelude?)")
 		return &ir.Var{Name: "<error>", S: s}
