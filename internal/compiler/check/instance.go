@@ -9,11 +9,13 @@ import (
 )
 
 // processInstanceHeader validates and registers an instance.
-func (ch *Checker) processInstanceHeader(d *syntax.DeclInstance) *InstanceInfo {
+// Returns the instance info and a map of unevaluated method expressions.
+// The method map is consumed by processInstanceBody; it is not stored in InstanceInfo.
+func (ch *Checker) processInstanceHeader(d *syntax.DeclInstance) (*InstanceInfo, map[string]syntax.Expr) {
 	classInfo, ok := ch.reg.classes[d.ClassName]
 	if !ok {
 		ch.addCodedError(diagnostic.ErrBadClass, d.S, fmt.Sprintf("unknown class: %s", d.ClassName))
-		return nil
+		return nil, nil
 	}
 
 	// Resolve type arguments.
@@ -39,7 +41,7 @@ func (ch *Checker) processInstanceHeader(d *syntax.DeclInstance) *InstanceInfo {
 		ch.addCodedError(diagnostic.ErrBadInstance, d.S,
 			fmt.Sprintf("instance %s: expected %d type argument(s), got %d",
 				d.ClassName, len(classInfo.TyParams), len(typeArgs)))
-		return nil
+		return nil, nil
 	}
 
 	// Context well-formedness: each constraint in the instance context must reference a known class.
@@ -48,7 +50,7 @@ func (ch *Checker) processInstanceHeader(d *syntax.DeclInstance) *InstanceInfo {
 			ch.addCodedError(diagnostic.ErrBadInstance, d.S,
 				fmt.Sprintf("instance %s: context references unknown class %s",
 					d.ClassName, ctx.ClassName))
-			return nil
+			return nil, nil
 		}
 	}
 
@@ -67,7 +69,7 @@ func (ch *Checker) processInstanceHeader(d *syntax.DeclInstance) *InstanceInfo {
 				ch.addCodedError(diagnostic.ErrBadInstance, d.S,
 					fmt.Sprintf("instance %s: self-referential context (instance requires itself)",
 						d.ClassName))
-				return nil
+				return nil, nil
 			}
 		}
 	}
@@ -81,14 +83,13 @@ func (ch *Checker) processInstanceHeader(d *syntax.DeclInstance) *InstanceInfo {
 		methodExprs[m.Name] = m.Expr
 	}
 	if !ch.validateInstanceMethods(d.ClassName, classInfo, d.Methods, methodExprs, d.S) {
-		return nil
+		return nil, nil
 	}
 
 	inst := &InstanceInfo{
 		ClassName:    d.ClassName,
 		TypeArgs:     typeArgs,
 		Context:      context,
-		Methods:      methodExprs,
 		DictBindName: dictName,
 		Module:       ch.scope.CurrentModule(),
 		S:            d.S,
@@ -110,7 +111,7 @@ func (ch *Checker) processInstanceHeader(d *syntax.DeclInstance) *InstanceInfo {
 			ch.addCodedError(diagnostic.ErrOverlap, d.S,
 				fmt.Sprintf("overlapping instances for class %s: %s and %s",
 					d.ClassName, existing.DictBindName, dictName))
-			return nil
+			return nil, nil
 		}
 	}
 
@@ -157,7 +158,7 @@ func (ch *Checker) processInstanceHeader(d *syntax.DeclInstance) *InstanceInfo {
 	}
 
 	ch.reg.RegisterInstance(inst)
-	return inst
+	return inst, methodExprs
 }
 
 // instancesOverlap checks if two instances can match the same type arguments

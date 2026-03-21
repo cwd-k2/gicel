@@ -13,11 +13,12 @@ import (
 // Cross-phase state (annotations, instance headers) lives here rather than
 // as loose locals, making the data flow between phases explicit.
 type declPipeline struct {
-	ch          *Checker
-	decls       []syntax.Decl
-	prog        *ir.Program
-	annotations map[string]types.Type
-	instances   []*InstanceInfo
+	ch           *Checker
+	decls        []syntax.Decl
+	prog         *ir.Program
+	annotations  map[string]types.Type
+	instances    []*InstanceInfo
+	methodBodies map[*InstanceInfo]map[string]syntax.Expr // instance → unevaluated method exprs (pipeline-local)
 }
 
 func (ch *Checker) checkDecls(decls []syntax.Decl) *ir.Program {
@@ -74,11 +75,13 @@ func (p *declPipeline) registerClasses() {
 			p.ch.processClassDecl(cls, p.prog)
 		}
 	}
+	p.methodBodies = make(map[*InstanceInfo]map[string]syntax.Expr)
 	for _, d := range p.decls {
 		if inst, ok := d.(*syntax.DeclInstance); ok {
-			info := p.ch.processInstanceHeader(inst)
+			info, methods := p.ch.processInstanceHeader(inst)
 			if info != nil {
 				p.instances = append(p.instances, info)
+				p.methodBodies[info] = methods
 			}
 		}
 	}
@@ -134,7 +137,7 @@ func (p *declPipeline) preregisterBindings() {
 // checkInstances type-checks instance bodies and generates dict bindings (phase 8).
 func (p *declPipeline) checkInstances() {
 	for _, inst := range p.instances {
-		p.ch.processInstanceBody(inst, p.prog)
+		p.ch.processInstanceBody(inst, p.methodBodies[inst], p.prog)
 	}
 }
 

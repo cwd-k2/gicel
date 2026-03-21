@@ -12,7 +12,7 @@ import (
 )
 
 // processInstanceBody type-checks instance method implementations and generates the dictionary binding.
-func (ch *Checker) processInstanceBody(inst *InstanceInfo, prog *ir.Program) {
+func (ch *Checker) processInstanceBody(inst *InstanceInfo, methods map[string]syntax.Expr, prog *ir.Program) {
 	classInfo := ch.reg.classes[inst.ClassName]
 
 	// Build substitution: class type params -> instance type args.
@@ -53,7 +53,7 @@ func (ch *Checker) processInstanceBody(inst *InstanceInfo, prog *ir.Program) {
 
 	// Method implementations.
 	for _, m := range classInfo.Methods {
-		methExpr, ok := inst.Methods[m.Name]
+		methExpr, ok := methods[m.Name]
 		if !ok {
 			continue
 		}

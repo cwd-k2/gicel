@@ -2,7 +2,6 @@ package env
 
 import (
 	"github.com/cwd-k2/gicel/internal/infra/span"
-	"github.com/cwd-k2/gicel/internal/lang/syntax"
 	"github.com/cwd-k2/gicel/internal/lang/types"
 )
 
@@ -50,9 +49,8 @@ type InstanceInfo struct {
 	ClassName    string
 	TypeArgs     []types.Type     // concrete type arguments
 	Context      []ConstraintInfo // instance context constraints
-	Methods      map[string]syntax.Expr
-	DictBindName string // e.g. "Eq$Bool" or "Eq$(Maybe 'a)"
-	Module       string // source module that defined this instance
+	DictBindName string           // e.g. "Eq$Bool" or "Eq$(Maybe 'a)"
+	Module       string           // source module that defined this instance
 	S            span.Span
 }
 
