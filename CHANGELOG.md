@@ -1,5 +1,20 @@
 # Changelog
 
+## v0.15.1 — 2026-03-22
+
+### Parser
+
+- **speculate step budget fix** — `speculate()` now restores `guard.steps` on rollback; speculative parse failures no longer permanently consume step budget
+- **progressGuard** — new loop guard type enforcing iteration limits and stagnation recovery, applied to 8 unbounded parser loops (infix chains, application chains, type application chains, instance/class constraints, row types, record literals/updates)
+
+### Type Checker
+
+- **ModuleExports ownership model** — `DataDecls []ir.DataDecl` replaced with precomputed `OwnedTypeNames`/`OwnedNames` maps; ownership checks are now O(1) instead of O(n) linear scans
+- **withTrial comment correction** — documented that only unifier state is rolled back (not inert set or worklist)
+- **declPipeline phase reference** — phase dependency overview added to pipeline coordinator
+
+---
+
 ## v0.15.0 — 2026-03-22
 
 ### Architecture
