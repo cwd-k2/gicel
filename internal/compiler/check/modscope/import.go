@@ -25,7 +25,7 @@ type ImportEnv struct {
 	RegisterPromotedCon  func(string, types.Kind)
 	SetConBinding        func(string, types.Type, string)
 	SetConInfo           func(string, *exhaust.DataTypeInfo)
-	ImportInstance        func(*env.InstanceInfo)
+	ImportInstance       func(*env.InstanceInfo)
 
 	// Error reporting.
 	AddError func(diagnostic.Code, span.Span, string)
@@ -66,8 +66,9 @@ func NewImporter(e ImportEnv) *Importer {
 	}
 }
 
-// Import processes import declarations and returns the qualified scope map.
-// The returned map is used by the checker for qualified name resolution.
+// Import processes import declarations, registering exported bindings through
+// the ImportEnv callbacks (types, values, instances, etc.) and returning the
+// qualified scope map for qualified name resolution.
 func (imp *Importer) Import(
 	imports []syntax.DeclImport,
 	modules map[string]*env.ModuleExports,
@@ -83,7 +84,7 @@ func (imp *Importer) Import(
 		return imp.qualifiedScopes
 	}
 
-	seen := make(map[string]bool)     // module names already imported
+	seen := make(map[string]bool)      // module names already imported
 	aliases := make(map[string]string) // alias → module name (for collision detection)
 
 	for _, decl := range imports {
@@ -139,10 +140,9 @@ func (imp *Importer) Import(
 
 // checkAmbiguousName reports an error if name is already imported from a different module.
 // Returns true if the name is ambiguous and should be skipped.
-// Names from Core are exempt (Core is implicit and its names are re-exported by dependent modules).
-// Compiler-generated names ($-prefixed) are also exempt (internal to elaboration).
+// Private names (_-prefixed) and compiler-generated names ($-containing) are exempt.
 func (imp *Importer) checkAmbiguousName(name, moduleName string, s span.Span) bool {
-	if isPrivateName(name) {
+	if env.IsPrivateName(name) {
 		return false // compiler-generated or private, skip
 	}
 	prev, exists := imp.importedNames[name]
@@ -182,7 +182,7 @@ func (imp *Importer) checkAmbiguousName(name, moduleName string, s span.Span) bo
 // from a different module. Returns true if the name is ambiguous and should be skipped.
 // Logic mirrors checkAmbiguousName but operates on the type namespace.
 func (imp *Importer) checkAmbiguousTypeName(name, moduleName string, s span.Span) bool {
-	if isPrivateName(name) {
+	if env.IsPrivateName(name) {
 		return false
 	}
 	prev, exists := imp.importedTypeNames[name]
@@ -526,37 +526,4 @@ func (imp *Importer) importClassSubs(mod *env.ModuleExports, cls *env.ClassInfo,
 			}
 		}
 	}
-}
-
-// isPrivateName reports whether a name is module-private.
-// Private: '_' prefix (user convention) or compiler-generated identifier containing '$'.
-// Operator names (e.g., <$>, $, +>) are never private even if they contain '$'.
-func isPrivateName(name string) bool {
-	if len(name) == 0 {
-		return false
-	}
-	if name[0] == '_' {
-		return true
-	}
-	// Compiler-generated names contain '$' in identifier context.
-	// Operators (all non-alphanumeric) are exempt.
-	if isOperatorName(name) {
-		return false
-	}
-	for i := 0; i < len(name); i++ {
-		if name[i] == '$' {
-			return true
-		}
-	}
-	return false
-}
-
-// isOperatorName returns true if the name is an operator (all symbol characters).
-func isOperatorName(name string) bool {
-	for _, r := range name {
-		if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == '_' {
-			return false
-		}
-	}
-	return true
 }

@@ -343,7 +343,7 @@ func newChecker(prog *syntax.AstProgram, source *span.Source, config *CheckConfi
 		RegisterPromotedCon:  ch.reg.RegisterPromotedCon,
 		SetConBinding:        ch.reg.SetConBinding,
 		SetConInfo:           ch.reg.SetConInfo,
-		ImportInstance:        ch.reg.ImportInstance,
+		ImportInstance:       ch.reg.ImportInstance,
 		AddError:             ch.addCodedError,
 		PushVar: func(name string, ty types.Type, module string) {
 			ch.ctx.Push(&CtxVar{Name: name, Type: ty, Module: module})

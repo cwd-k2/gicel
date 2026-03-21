@@ -1,6 +1,7 @@
 package check
 
 import (
+	"github.com/cwd-k2/gicel/internal/compiler/check/env"
 	"github.com/cwd-k2/gicel/internal/lang/ir"
 	"github.com/cwd-k2/gicel/internal/lang/types"
 )
@@ -13,7 +14,7 @@ import (
 func (ch *Checker) ExportModule(prog *ir.Program) *ModuleExports {
 	values := make(map[string]types.Type)
 	for _, b := range prog.Bindings {
-		if !isPrivateName(b.Name) {
+		if !env.IsPrivateName(b.Name) {
 			values[b.Name] = b.Type
 		}
 	}
@@ -21,7 +22,7 @@ func (ch *Checker) ExportModule(prog *ir.Program) *ModuleExports {
 	// Owned data type names — the primary ownership signal.
 	ownedDataNames := make(map[string]bool)
 	for _, dd := range prog.DataDecls {
-		if !isPrivateName(dd.Name) {
+		if !env.IsPrivateName(dd.Name) {
 			ownedDataNames[dd.Name] = true
 		}
 	}
@@ -37,7 +38,7 @@ func (ch *Checker) ExportModule(prog *ir.Program) *ModuleExports {
 	// Constructors: only from owned data types.
 	filteredConInfo := make(map[string]*DataTypeInfo)
 	for name, info := range ch.reg.conInfo {
-		if ownedDataNames[info.Name] && !isPrivateName(name) {
+		if ownedDataNames[info.Name] && !env.IsPrivateName(name) {
 			filteredConInfo[name] = info
 		}
 	}
@@ -80,7 +81,7 @@ func (ch *Checker) ExportModule(prog *ir.Program) *ModuleExports {
 	}
 	ownedPromCons := make(map[string]types.Kind)
 	for name, kind := range ch.reg.promotedCons {
-		if info, ok := ch.reg.LookupConInfo(name); ok && ownedDataNames[info.Name] && !isPrivateName(name) {
+		if info, ok := ch.reg.LookupConInfo(name); ok && ownedDataNames[info.Name] && !env.IsPrivateName(name) {
 			ownedPromCons[name] = kind
 		}
 	}
@@ -110,7 +111,7 @@ func (ch *Checker) ExportModule(prog *ir.Program) *ModuleExports {
 func filterOwnedMap[V any](m map[string]V, imported map[string]bool) map[string]V {
 	result := make(map[string]V, len(m))
 	for k, v := range m {
-		if !isPrivateName(k) && !imported[k] {
+		if !env.IsPrivateName(k) && !imported[k] {
 			result[k] = v
 		}
 	}
@@ -124,7 +125,7 @@ func filterOwnedMap[V any](m map[string]V, imported map[string]bool) map[string]
 func filterOwnedOrEnrichedFamilies(families map[string]*TypeFamilyInfo, impEqCount map[string]int) map[string]*TypeFamilyInfo {
 	result := make(map[string]*TypeFamilyInfo, len(families))
 	for name, fam := range families {
-		if isPrivateName(name) {
+		if env.IsPrivateName(name) {
 			continue
 		}
 		importedCount, imported := impEqCount[name]
@@ -155,37 +156,4 @@ func ownedAllNames(ownedDataNames map[string]bool, prog *ir.Program) map[string]
 		}
 	}
 	return owned
-}
-
-// isPrivateName reports whether a name is module-private.
-// Private: '_' prefix (user convention) or compiler-generated identifier containing '$'.
-// Operator names (e.g., <$>, $, +>) are never private even if they contain '$'.
-func isPrivateName(name string) bool {
-	if len(name) == 0 {
-		return false
-	}
-	if name[0] == '_' {
-		return true
-	}
-	// Compiler-generated names contain '$' in identifier context.
-	// Operators (all non-alphanumeric) are exempt.
-	if isOperatorName(name) {
-		return false
-	}
-	for i := 0; i < len(name); i++ {
-		if name[i] == '$' {
-			return true
-		}
-	}
-	return false
-}
-
-// isOperatorName returns true if the name is an operator (all symbol characters).
-func isOperatorName(name string) bool {
-	for _, r := range name {
-		if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == '_' {
-			return false
-		}
-	}
-	return true
 }

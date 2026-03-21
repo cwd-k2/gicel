@@ -13,13 +13,13 @@ import (
 
 // ReduceEnv provides the checker capabilities needed for type family operations.
 type ReduceEnv struct {
-	Families     map[string]*TypeFamilyInfo        // primary map (Registry)
+	Families     map[string]*TypeFamilyInfo                // primary map (Registry)
 	LookupFamily func(name string) (*TypeFamilyInfo, bool) // fallback lookup (includes Scope injections)
 	Budget       *budget.CheckBudget
-	Unifier   *unify.Unifier
-	FreshMeta func(k types.Kind) *types.TyMeta
-	AddError  func(code diagnostic.Code, s span.Span, msg string)
-	TryUnify  func(a, b types.Type) bool
+	Unifier      *unify.Unifier
+	FreshMeta    func(k types.Kind) *types.TyMeta
+	AddError     func(code diagnostic.Code, s span.Span, msg string)
+	TryUnify     func(a, b types.Type) bool
 
 	// RegisterStuckFn, when non-nil, registers a stuck type family
 	// application as a solver constraint for later re-activation.
