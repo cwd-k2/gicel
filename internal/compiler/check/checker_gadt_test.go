@@ -109,3 +109,44 @@ f :: Tag Void -> Void
 f := \t. case t { _ -> MkVoid }`
 	checkSource(t, source, nil)
 }
+
+func TestGADTEvalPolyRecursive(t *testing.T) {
+	// V7: Polymorphic recursive GADT evaluator with fix.
+	// Verifies that a multi-branch GADT with mixed return types
+	// and recursive calls type-checks under polymorphic fix.
+	source := `data Expr a := { LitI :: Int -> Expr Int; LitB :: Bool -> Expr Bool; Add :: Expr Int -> Expr Int -> Expr Int }
+eval :: \a. Expr a -> a
+eval := fix (\self e. case e { LitI n -> n; LitB b -> b; Add x y -> self x + self y })
+main := eval (Add (LitI 10) (LitI 32))`
+	config := &CheckConfig{
+		RegisteredTypes: map[string]types.Kind{
+			"Int":  types.KType{},
+			"Bool": types.KType{},
+		},
+		GatedBuiltins: map[string]bool{"fix": true, "rec": true},
+		Assumptions: map[string]types.Type{
+			"+": types.MkArrow(
+				&types.TyCon{Name: "Int"},
+				types.MkArrow(
+					&types.TyCon{Name: "Int"},
+					&types.TyCon{Name: "Int"},
+				),
+			),
+		},
+	}
+	prog := checkSource(t, source, config)
+	// Verify main binding exists and has type Int.
+	found := false
+	for _, b := range prog.Bindings {
+		if b.Name == "main" {
+			found = true
+			pretty := types.Pretty(b.Type)
+			if !strings.Contains(pretty, "Int") {
+				t.Errorf("expected main :: Int, got %s", pretty)
+			}
+		}
+	}
+	if !found {
+		t.Error("expected binding 'main'")
+	}
+}

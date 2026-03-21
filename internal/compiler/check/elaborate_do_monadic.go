@@ -130,16 +130,31 @@ func (ch *Checker) hasMonadInstance(monadHead types.Type, s span.Span) bool {
 	return true
 }
 
-// extractIxMethod resolves the IxMonad (Lift monadHead) dictionary and
-// extracts the method at the given index via pattern matching.
+// extractIxMethod resolves an IxMonad dictionary for monadHead and extracts
+// the method at methodIdx. Resolution order:
+//  1. Direct: IxMonad monadHead (user-defined IxMonad instance)
+//  2. Lifted: IxMonad (Lift monadHead) (standard path for Computation-like types)
+//
+// Falls through to an error if neither succeeds.
 func (ch *Checker) extractIxMethod(monadHead types.Type, methodIdx int, s span.Span) ir.Core {
 	classInfo := ch.reg.classes["IxMonad"]
 	if classInfo == nil {
 		ch.addCodedError(diagnostic.ErrNoInstance, s, "IxMonad class not available (missing Prelude?)")
 		return &ir.Var{Name: "<error>", S: s}
 	}
+
+	// 1. Try direct IxMonad instance.
+	saved := ch.errors.Len()
+	dict := ch.resolveInstance("IxMonad", []types.Type{monadHead}, s)
+	if ch.errors.Len() == saved {
+		fieldIdx := len(classInfo.Supers) + methodIdx
+		return ch.extractDictField(classInfo, dict, fieldIdx, "ixm", s)
+	}
+	ch.errors.Truncate(saved)
+
+	// 2. Try Lift-wrapped IxMonad.
 	liftedMonad := &types.TyApp{Fun: &types.TyCon{Name: "Lift"}, Arg: monadHead}
-	dict := ch.resolveInstance("IxMonad", []types.Type{liftedMonad}, s)
+	dict = ch.resolveInstance("IxMonad", []types.Type{liftedMonad}, s)
 	fieldIdx := len(classInfo.Supers) + methodIdx
 	return ch.extractDictField(classInfo, dict, fieldIdx, "ixm", s)
 }

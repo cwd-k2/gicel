@@ -61,3 +61,71 @@ func TestNestingLimitNegativeClamped(t *testing.T) {
 		t.Fatalf("expected maxNesting=0 after negative input, got %d", b.MaxNesting())
 	}
 }
+
+func TestBudgetCompilerDimensions(t *testing.T) {
+	b := New(context.Background(), 0, 0)
+
+	// --- TF step limit ---
+	b.SetTFStepLimit(3)
+	for i := 0; i < 3; i++ {
+		if err := b.TFStep(); err != nil {
+			t.Fatalf("TFStep() #%d: unexpected error: %v", i+1, err)
+		}
+	}
+	err := b.TFStep()
+	if err == nil {
+		t.Fatal("expected TFStepLimitError after exceeding limit")
+	}
+	if _, ok := err.(*TFStepLimitError); !ok {
+		t.Fatalf("expected *TFStepLimitError, got %T: %v", err, err)
+	}
+
+	// ResetTFSteps should allow new steps.
+	b.ResetTFSteps()
+	if err := b.TFStep(); err != nil {
+		t.Fatalf("TFStep() after reset: unexpected error: %v", err)
+	}
+
+	// --- Solver step limit ---
+	b.SetSolverStepLimit(2)
+	for i := 0; i < 2; i++ {
+		if err := b.SolverStep(); err != nil {
+			t.Fatalf("SolverStep() #%d: unexpected error: %v", i+1, err)
+		}
+	}
+	err = b.SolverStep()
+	if err == nil {
+		t.Fatal("expected SolverStepLimitError after exceeding limit")
+	}
+	if _, ok := err.(*SolverStepLimitError); !ok {
+		t.Fatalf("expected *SolverStepLimitError, got %T: %v", err, err)
+	}
+
+	// ResetSolverSteps should allow new steps.
+	b.ResetSolverSteps()
+	if err := b.SolverStep(); err != nil {
+		t.Fatalf("SolverStep() after reset: unexpected error: %v", err)
+	}
+
+	// --- Resolve depth limit ---
+	b.SetResolveDepthLimit(2)
+	for i := 0; i < 2; i++ {
+		if err := b.EnterResolve(); err != nil {
+			t.Fatalf("EnterResolve() #%d: unexpected error: %v", i+1, err)
+		}
+	}
+	err = b.EnterResolve()
+	if err == nil {
+		t.Fatal("expected ResolveDepthLimitError after exceeding limit")
+	}
+	if _, ok := err.(*ResolveDepthLimitError); !ok {
+		t.Fatalf("expected *ResolveDepthLimitError, got %T: %v", err, err)
+	}
+
+	// LeaveResolve + re-enter should succeed.
+	b.LeaveResolve()
+	b.LeaveResolve()
+	if err := b.EnterResolve(); err != nil {
+		t.Fatalf("EnterResolve() after leave: unexpected error: %v", err)
+	}
+}

@@ -530,3 +530,30 @@ func TestProbeE_CaseAltStall(t *testing.T) {
 		t.Error("expected error for garbage in case alts")
 	}
 }
+
+// TestProbeNestedCaseInParen verifies that a case expression whose
+// scrutinee is itself a parenthesized case parses correctly (V10 fix).
+func TestProbeNestedCaseInParen(t *testing.T) {
+	source := `main := case (case Just True { Just b -> b; Nothing -> False }) { True -> "yes"; False -> "no" }`
+	prog := parseMustSucceed(t, source)
+	d := prog.Decls[0].(*DeclValueDef)
+	outer, ok := d.Expr.(*ExprCase)
+	if !ok {
+		t.Fatalf("expected outer ExprCase, got %T", d.Expr)
+	}
+	// The scrutinee should be a parenthesized case expression.
+	paren, ok := outer.Scrutinee.(*ExprParen)
+	if !ok {
+		t.Fatalf("expected ExprParen as scrutinee, got %T", outer.Scrutinee)
+	}
+	inner, ok := paren.Inner.(*ExprCase)
+	if !ok {
+		t.Fatalf("expected inner ExprCase inside parens, got %T", paren.Inner)
+	}
+	if len(inner.Alts) != 2 {
+		t.Errorf("expected 2 inner case alts, got %d", len(inner.Alts))
+	}
+	if len(outer.Alts) != 2 {
+		t.Errorf("expected 2 outer case alts, got %d", len(outer.Alts))
+	}
+}

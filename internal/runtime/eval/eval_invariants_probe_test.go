@@ -530,7 +530,7 @@ func TestProbeE_CallPrimPanicRecovery(t *testing.T) {
 	panicImpl := func(_ context.Context, ce CapEnv, args []Value, _ Applier) (Value, CapEnv, error) {
 		panic("intentional panic in prim")
 	}
-	val, newCap, err := callPrim(context.Background(), panicImpl, EmptyCapEnv(), nil, nil, nil)
+	val, newCap, err := callPrim(context.Background(), panicImpl, EmptyCapEnv(), nil, nil)
 	if err == nil {
 		t.Fatal("expected error from panicking prim")
 	}
@@ -547,7 +547,7 @@ func TestProbeE_CallPrimNilReturn(t *testing.T) {
 	nilImpl := func(_ context.Context, ce CapEnv, args []Value, _ Applier) (Value, CapEnv, error) {
 		return nil, ce, nil
 	}
-	_, _, err := callPrim(context.Background(), nilImpl, EmptyCapEnv(), nil, nil, nil)
+	_, _, err := callPrim(context.Background(), nilImpl, EmptyCapEnv(), nil, nil)
 	if err == nil {
 		t.Fatal("expected error from nil return")
 	}
@@ -858,16 +858,16 @@ func TestProbeE_IndirectValChain(t *testing.T) {
 
 func TestProbeE_PrimRegistryCloneIsolation(t *testing.T) {
 	reg := NewPrimRegistry()
-	registry.Register("original", func(_ context.Context, ce CapEnv, _ []Value, _ Applier) (Value, CapEnv, error) {
+	reg.Register("original", func(_ context.Context, ce CapEnv, _ []Value, _ Applier) (Value, CapEnv, error) {
 		return &HostVal{Inner: "original"}, ce, nil
 	})
-	clone := registry.Clone()
+	clone := reg.Clone()
 	// Add to clone.
 	clone.Register("cloned", func(_ context.Context, ce CapEnv, _ []Value, _ Applier) (Value, CapEnv, error) {
 		return &HostVal{Inner: "cloned"}, ce, nil
 	})
 	// Original should not have "cloned".
-	if _, ok := registry.Lookup("cloned"); ok {
+	if _, ok := reg.Lookup("cloned"); ok {
 		t.Error("Clone mutation leaked to original")
 	}
 	// Clone should have both.

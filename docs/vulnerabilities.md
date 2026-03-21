@@ -67,58 +67,48 @@ helper function.
 
 ---
 
-## V8: `do` Notation Runtime Error with User-Defined IxMonad (a ≠ b)
+## V8: `do` Notation with User-Defined Monads
 
 **Severity**: MEDIUM
-**Status**: Open — marked Fixed but still reproducible (2026-03-21)
+**Status**: Fixed for `Monad` instances; residual kind-mismatch issue with direct `IxMonad` instances on `Type -> Type` monads
 
 ### Description
 
-When a user-defined monad uses `do` notation and the bind produces type
-`m a` but the continuation returns `m b` where `a ≠ b`, a runtime
-non-exhaustive pattern match error occurs. Same code works with explicit
-`mbind`.
+`do` notation for user-defined `Type -> Type` monads previously always
+dispatched through `IxMonad (Lift m)`, which failed for types without a
+compatible IxMonad instance.
 
-### Reproduction
+### Fix
+
+`do` notation now desugars to `mbind`/`mpure` when a `Monad` instance
+is available. This is the correct path for `Type -> Type` monads:
 
 ```gicel
 import Prelude
 
 data Reader e a := MkReader (e -> a)
-
 runReader :: \e a. Reader e a -> e -> a
 runReader := \r env. case r { MkReader f -> f env }
-
 ask :: \e. Reader e e
 ask := MkReader (\e. e)
 
-instance IxMonad (Reader e) {
-  ixpure := \a. MkReader (\_. a);
-  ixbind := \ma f. MkReader (\env. runReader (f (runReader ma env)) env)
+instance Monad (Reader e) {
+  mpure := \a. MkReader (\_. a);
+  mbind := \ma f. MkReader (\env. runReader (f (runReader ma env)) env)
 }
 
--- OK:  a = b = Int
-prog_ok :: Reader Int Int
-prog_ok := do { x <- ask; pure (x + 1) }
-
--- FAIL: a = Int, b = String
-prog_bad :: Reader Int String
-prog_bad := do { x <- ask; pure (show x) }
-
-main := runReader prog_bad 42
--- runtime error: non-exhaustive pattern match on HostVal(42)
+prog :: Reader Int String
+prog := do { x <- ask; pure (append "port=" (show x)) }
+main := runReader prog 8080  -- "port=8080" ✓
 ```
 
-### Root Cause (Hypothesis)
+### Residual: IxMonad kind mismatch
 
-`do` notation dispatches through `IxMonad (Lift (Reader e))`. The `Lift`
-wrapper's elaboration may incorrectly reuse the bind result type for
-the continuation's parameter, causing the evaluator to encounter a raw
-`HostVal` where it expects a `ConVal (MkReader ...)`.
-
-### Workaround
-
-Use explicit `mbind`/`mpure` instead of `do` notation when `a ≠ b`.
+Providing `instance IxMonad (Reader e)` directly is a kind error:
+`IxMonad` requires `m :: Row -> Row -> Type -> Type`, but `Reader e`
+has kind `Type -> Type`. The checker does not reject this at instance
+declaration time (lenient kind checking), leading to runtime failures
+when `a ≠ b` in bind. Use `Monad` for `Type -> Type` monads.
 
 ---
 
@@ -164,16 +154,17 @@ on a function returning a tuple.
 
 The following issues were fixed and are retained as historical reference:
 
-| ID  | Description                                          | Fix                         |
-| --- | ---------------------------------------------------- | --------------------------- |
-| V1  | String literal allocation limit bypass               | commit `7197306`            |
-| V2  | `check` command has no timeout                       | commit `7197306`            |
-| V3  | No input size validation                             | commit `7197306`            |
-| V5  | Evidence dictionary scope loss on long operator chains | commit `7197306`          |
-| V6  | Parser hang on multiline instance body (infinite loop) | commit `56427c2`          |
-| V7  | GADT type refinement lost in polymorphic recursion   | commit `56427c2`            |
-| V10 | Nested `case` brace ambiguity                        | commit `56427c2`            |
-| V11 | Stale "no recursion in CLI" comments in examples     | commit `56427c2`            |
+| ID  | Description                                            | Fix              |
+| --- | ------------------------------------------------------ | ---------------- |
+| V1  | String literal allocation limit bypass                 | commit `7197306` |
+| V2  | `check` command has no timeout                         | commit `7197306` |
+| V3  | No input size validation                               | commit `7197306` |
+| V5  | Evidence dictionary scope loss on long operator chains | commit `7197306` |
+| V6  | Parser hang on multiline instance body (infinite loop) | commit `56427c2` |
+| V7  | GADT type refinement lost in polymorphic recursion     | commit `8f9306a` |
+| V8  | `do` notation Monad dispatch for `Type -> Type` monads | commit `8f9306a` |
+| V10 | Nested `case` brace ambiguity                          | commit `8f9306a` |
+| V11 | Stale "no recursion in CLI" comments in examples       | commit `8f9306a` |
 
 ---
 
@@ -182,23 +173,25 @@ The following issues were fixed and are retained as historical reference:
 The following defenses were confirmed as fully operational across 115+
 adversarial test cases:
 
-| Defense Layer              | Mechanism                    | Tests       |
-| -------------------------- | ---------------------------- | ----------- |
-| Parser recursion limit     | `maxRecurseDepth = 256`      | 500-deep () |
-| Parser step limit          | `tokens × 4`                 | 10K ops     |
-| Parser body iteration limit | `parseBody` max iterations  | V6 defense  |
-| Step limit                 | `budget.Step()`              | fix loops   |
-| Depth limit                | `budget.Enter()/Leave()`     | do-blocks   |
-| Nesting limit              | `budget.Nest()/Unnest()`     | deep App    |
-| Alloc limit (runtime)      | `budget.Alloc()`             | Cons, <>    |
-| Timeout                    | `context.WithTimeout`        | last resort |
-| Panic recovery             | `defer recover()` in sandbox | always      |
-| Type family fuel           | reduction counter            | Loop TF     |
-| Pattern exhaustiveness     | compile-time checker         | missing C   |
-| Overlap detection          | instance resolver            | C a vs Int  |
-| Integer literal validation | lexer                        | huge int    |
-| Duplicate import detection | scope checker                | 20× import  |
-| Error truncation           | diagnostic formatter         | 5K errors   |
-| Value sharing              | DAG evaluation (not tree)    | 2^20 tree   |
-| Solver step limit          | `maxSolverSteps = 100_000`   | constraint  |
-| Input size limit           | `MaxSourceSize`              | V1/V3       |
+| Defense Layer               | Mechanism                    | Tests       |
+| --------------------------- | ---------------------------- | ----------- |
+| Parser recursion limit      | `maxRecurseDepth = 256`      | 500-deep () |
+| Parser step limit           | `tokens × 4`                 | 10K ops     |
+| Parser body iteration limit | `parseBody` max iterations   | V6 defense  |
+| Step limit                  | `budget.Step()`              | fix loops   |
+| Depth limit                 | `budget.Enter()/Leave()`     | do-blocks   |
+| Nesting limit               | `budget.Nest()/Unnest()`     | deep App    |
+| Alloc limit (runtime)       | `budget.Alloc()`             | Cons, <>    |
+| Timeout                     | `context.WithTimeout`        | last resort |
+| Panic recovery              | `defer recover()` in sandbox | always      |
+| Type family fuel            | reduction counter            | Loop TF     |
+| Pattern exhaustiveness      | compile-time checker         | missing C   |
+| Overlap detection           | instance resolver            | C a vs Int  |
+| Integer literal validation  | lexer                        | huge int    |
+| Duplicate import detection  | scope checker                | 20× import  |
+| Error truncation            | diagnostic formatter         | 5K errors   |
+| Value sharing               | DAG evaluation (not tree)    | 2^20 tree   |
+| Solver step limit           | `Budget.SolverStep()`        | constraint  |
+| TF reduction limit          | `Budget.TFStep()`            | Loop TF     |
+| Resolve depth limit         | `Budget.EnterResolve()`      | deep inst.  |
+| Input size limit            | `MaxSourceSize`              | V1/V3       |

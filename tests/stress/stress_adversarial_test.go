@@ -625,6 +625,71 @@ func TestAdversarial_ManyTypeErrors(t *testing.T) {
 	}
 }
 
+// ===========================================================================
+// V8: User-defined Monad do notation
+// ===========================================================================
+
+// TestV8_MonadDoNotation verifies do-notation works with a user-defined
+// Monad instance (Reader monad) where the bind type parameters a and b differ.
+func TestV8_MonadDoNotation(t *testing.T) {
+	src := `
+import Prelude
+data Reader e a := MkReader (e -> a)
+runReader :: \e a. Reader e a -> e -> a
+runReader := \r env. case r { MkReader f -> f env }
+ask :: \e. Reader e e
+ask := MkReader (\e. e)
+instance Monad (Reader e) {
+  mpure := \a. MkReader (\_. a);
+  mbind := \ma f. MkReader (\env. runReader (f (runReader ma env)) env)
+}
+main := runReader (do { x <- ask; pure (append "port=" (show x)) } :: Reader Int String) 8080
+`
+	result, err := gicel.RunSandbox(src, &gicel.SandboxConfig{
+		Packs:    []gicel.Pack{gicel.Prelude},
+		MaxSteps: 500_000,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := gicel.MustHost[string](result.Value)
+	if !strings.Contains(got, "port=8080") {
+		t.Errorf("expected result containing %q, got %q", "port=8080", got)
+	}
+}
+
+// ===========================================================================
+// V9: fix ConVal error message
+// ===========================================================================
+
+// TestV9_FixConValErrorMessage verifies that applying fix to a constructor
+// body produces a clear error message mentioning "requires a lambda body".
+func TestV9_FixConValErrorMessage(t *testing.T) {
+	src := `
+import Prelude
+data Pair := MkPair Int Int
+getFirst :: Pair -> Int
+getFirst := \p. case p { MkPair a _ -> a }
+main := getFirst (fix (\self. MkPair 1 2))
+`
+	eng := gicel.NewEngine()
+	eng.Use(gicel.Prelude)
+	eng.EnableRecursion()
+	eng.SetStepLimit(100_000)
+
+	rt, err := eng.NewRuntime(context.Background(), src)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = rt.RunWith(context.Background(), nil)
+	if err == nil {
+		t.Fatal("expected runtime error from fix applied to constructor body")
+	}
+	if !strings.Contains(err.Error(), "requires a lambda body") {
+		t.Errorf("expected error containing %q, got: %v", "requires a lambda body", err)
+	}
+}
+
 // TestAdversarial_DeepMaybeNesting confirms 200-deep Maybe value works.
 func TestAdversarial_DeepMaybeNesting(t *testing.T) {
 	var sb strings.Builder

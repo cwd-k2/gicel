@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+	"time"
 
 	. "github.com/cwd-k2/gicel/internal/lang/syntax" //nolint:revive // dot import for tightly-coupled subpackage
 
@@ -309,4 +310,34 @@ type F :: Type := {
 	// F alone with no =: should hit the expect(TokEqColon) error path.
 	errMsg := parseMustFail(t, source)
 	_ = errMsg
+}
+
+// TestParseBodyIterationLimit verifies that a very long instance body
+// that would have previously caused an infinite loop (V6 pattern)
+// terminates with an error rather than hanging.
+func TestParseBodyIterationLimit(t *testing.T) {
+	// Construct an instance with a very long body of malformed method definitions.
+	// This exercises the parseBody iteration limit guard.
+	var b strings.Builder
+	b.WriteString("data Unit := Unit\n")
+	b.WriteString("class C a { m :: a -> a }\n")
+	b.WriteString("instance C Unit {\n")
+	for i := 0; i < 5000; i++ {
+		// Each line is a malformed method: lowercase name followed by garbage.
+		// The parser will attempt to parse each, fail, and recover.
+		b.WriteString(fmt.Sprintf("  x%d @@@ ~~~\n", i))
+	}
+	b.WriteString("}\n")
+
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		_, _ = parse(b.String())
+	}()
+	select {
+	case <-done:
+		// Terminated — success regardless of parse errors.
+	case <-time.After(10 * time.Second):
+		t.Fatal("parseBody iteration limit did not prevent hang within 10s")
+	}
 }
