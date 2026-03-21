@@ -9,20 +9,16 @@ import (
 )
 
 // emitClassConstraint records a class constraint by pushing it to the worklist.
-func (ch *Checker) emitClassConstraint(
-	placeholder, className string,
-	args []types.Type,
-	s span.Span,
-	quantified *types.QuantifiedConstraint,
-	constraintVar types.Type,
-) {
+// The entry carries the constraint's class, args, and optional quantifier/variable;
+// placeholder is the deferred dictionary name and s is the source span for errors.
+func (ch *Checker) emitClassConstraint(placeholder string, entry types.ConstraintEntry, s span.Span) {
 	ch.solver.Emit(&CtClass{
 		Placeholder:   placeholder,
-		ClassName:     className,
-		Args:          args,
+		ClassName:     entry.ClassName,
+		Args:          entry.Args,
 		S:             s,
-		Quantified:    quantified,
-		ConstraintVar: constraintVar,
+		Quantified:    entry.Quantified,
+		ConstraintVar: entry.ConstraintVar,
 	})
 }
 

@@ -54,7 +54,7 @@ func (ch *Checker) generalizeConstrained(ty types.Type, expr ir.Core, unresolved
 			zonkedArgs[i] = ch.unifier.Zonk(a)
 		}
 		// Wrap Core: \placeholder. expr (placeholder becomes the dict param)
-		expr = &ir.Lam{Param: uc.Placeholder, Body: expr, S: uc.S}
+		expr = &ir.Lam{Param: uc.Placeholder, Body: expr, Generated: true, S: uc.S}
 		// Wrap type: ClassName args => ty
 		ty = &types.TyEvidence{
 			Constraints: types.SingleConstraint(uc.ClassName, zonkedArgs),

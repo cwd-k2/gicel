@@ -35,10 +35,14 @@ func (ch *Checker) checkLam(e *syntax.ExprLam, expected types.Type) ir.Core {
 		ch.ctx.Push(&CtxVar{Name: freshName, Type: argTy})
 		bodyCore := ch.check(caseExpr, retTy)
 		ch.ctx.Pop()
-		return &ir.Lam{Param: freshName, ParamType: argTy, Body: bodyCore, S: e.S}
+		return &ir.Lam{Param: freshName, ParamType: argTy, Body: bodyCore, Generated: true, S: e.S}
 	}
 
 	paramName := ch.patternName(e.Params[0])
+	generated := false
+	if pv, ok := e.Params[0].(*syntax.PatVar); ok {
+		generated = pv.Generated
+	}
 	ch.ctx.Push(&CtxVar{Name: paramName, Type: argTy})
 	var bodyCore ir.Core
 	if len(e.Params) == 1 {
@@ -48,7 +52,7 @@ func (ch *Checker) checkLam(e *syntax.ExprLam, expected types.Type) ir.Core {
 		bodyCore = ch.check(rest, retTy)
 	}
 	ch.ctx.Pop()
-	return &ir.Lam{Param: paramName, ParamType: argTy, Body: bodyCore, S: e.S}
+	return &ir.Lam{Param: paramName, ParamType: argTy, Body: bodyCore, Generated: generated, S: e.S}
 }
 
 // checkApp handles function application in check mode.
@@ -130,5 +134,5 @@ func desugarSection(e *syntax.ExprSection) *syntax.ExprLam {
 	} else {
 		body = &syntax.ExprInfix{Left: e.Arg, Op: e.Op, Right: paramVar, S: e.S}
 	}
-	return &syntax.ExprLam{Params: []syntax.Pattern{&syntax.PatVar{Name: param, S: e.S}}, Body: body, S: e.S}
+	return &syntax.ExprLam{Params: []syntax.Pattern{&syntax.PatVar{Name: param, Generated: true, S: e.S}}, Body: body, S: e.S}
 }

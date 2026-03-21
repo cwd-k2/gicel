@@ -7,9 +7,10 @@ import (
 
 // Alt is a case alternative: pattern -> body.
 type Alt struct {
-	Pattern Pattern
-	Body    Core
-	S       span.Span
+	Pattern   Pattern
+	Body      Core
+	Generated bool // true when the entire alt is compiler-generated (dict extraction, method selector)
+	S         span.Span
 }
 
 // Pattern in Core IR.

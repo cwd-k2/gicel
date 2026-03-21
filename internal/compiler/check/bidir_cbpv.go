@@ -92,7 +92,7 @@ func (ch *Checker) inferBind(compExpr, contExpr syntax.Expr, s span.Span) (types
 
 	resultTy := types.MkComp(ch.unifier.Zonk(r1), ch.unifier.Zonk(r3), ch.unifier.Zonk(b))
 	ch.trace(TraceInfer, s, "bind: ⇒ %s", types.Pretty(resultTy))
-	return resultTy, &ir.Bind{Comp: compCore, Var: bindVar, Body: bodyCore, S: s}
+	return resultTy, &ir.Bind{Comp: compCore, Var: bindVar, Body: bodyCore, Generated: true, S: s}
 }
 
 // cbpvTriple extracts (pre, post, result) from a computation or thunk type.

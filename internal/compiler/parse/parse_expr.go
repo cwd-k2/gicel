@@ -5,7 +5,6 @@ import (
 
 	"github.com/cwd-k2/gicel/internal/infra/diagnostic"
 	"github.com/cwd-k2/gicel/internal/infra/span"
-	"github.com/cwd-k2/gicel/internal/lang/types"
 )
 
 // --- Expressions ---
@@ -267,7 +266,7 @@ func (p *Parser) parseParen() syn.Expr {
 		fields := make([]syn.RecordField, len(elems))
 		for i, el := range elems {
 			fields[i] = syn.RecordField{
-				Label: types.TupleLabel(i + 1),
+				Label: syn.TupleLabel(i + 1),
 				Value: el,
 				S:     el.Span(),
 			}

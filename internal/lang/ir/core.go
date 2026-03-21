@@ -26,6 +26,7 @@ type Lam struct {
 	ParamType types.Type
 	Body      Core
 	FV        []string // Free variables (populated by AnnotateFreeVars)
+	Generated bool     // true when introduced by the compiler (dict params, pattern desugar, sections)
 	S         span.Span
 }
 
@@ -85,10 +86,11 @@ type Pure struct {
 
 // Bind — computation sequencing (bind c (\x. e)).
 type Bind struct {
-	Comp Core
-	Var  string
-	Body Core
-	S    span.Span
+	Comp      Core
+	Var       string
+	Body      Core
+	Generated bool // true when Var is compiler-introduced (anonymous bind)
+	S         span.Span
 }
 
 // Thunk — suspend computation (thunk c).

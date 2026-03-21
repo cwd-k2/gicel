@@ -3,24 +3,11 @@ package eval
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	"github.com/cwd-k2/gicel/internal/infra/budget"
 	"github.com/cwd-k2/gicel/internal/infra/span"
 	"github.com/cwd-k2/gicel/internal/lang/ir"
 )
-
-// isCompilerGenerated reports whether a name was introduced by the compiler
-// during elaboration (type class dictionaries, desugaring artifacts).
-func isCompilerGenerated(name string) bool {
-	return strings.Contains(name, "$")
-}
-
-// isUserVisible reports whether a binding name originated from user source.
-// Compiler-generated names and explicit discards are excluded.
-func isUserVisible(name string) bool {
-	return name != "_" && !isCompilerGenerated(name)
-}
 
 // Allocation cost estimates (bytes per value type).
 const (
@@ -193,7 +180,7 @@ func (ev *Evaluator) evalStep(env *Env, capEnv CapEnv, expr ir.Core) (EvalResult
 		}
 		// Detect let-encoding: (\y. body) expr → emit bind event.
 		if ev.obs.Active() {
-			if lam, ok := e.Fun.(*ir.Lam); ok && isUserVisible(lam.Param) {
+			if lam, ok := e.Fun.(*ir.Lam); ok && !lam.Generated && lam.Param != "_" {
 				ev.obs.Emit(ev.budget.Depth(), ExplainBind, bindDetail(lam.Param, PrettyValue(argR.Value), false), e.S)
 			}
 		}
@@ -231,7 +218,7 @@ func (ev *Evaluator) evalStep(env *Env, capEnv CapEnv, expr ir.Core) (EvalResult
 		for _, alt := range e.Alts {
 			bindings := Match(scrutR.Value, alt.Pattern)
 			if bindings != nil {
-				if ev.obs.Active() && !isInternalPattern(alt.Pattern) {
+				if ev.obs.Active() && !alt.Generated {
 					ev.obs.Emit(ev.budget.Depth(), ExplainMatch, matchDetail(PrettyValue(scrutR.Value), formatPattern(alt.Pattern), bindings), e.S)
 				}
 				altEnv := env.ExtendMany(bindings)
@@ -261,7 +248,7 @@ func (ev *Evaluator) evalStep(env *Env, capEnv CapEnv, expr ir.Core) (EvalResult
 		if err != nil {
 			return EvalResult{}, err
 		}
-		if ev.obs.Active() && isUserVisible(e.Var) {
+		if ev.obs.Active() && !e.Generated && e.Var != "_" {
 			ev.obs.Emit(ev.budget.Depth(), ExplainBind, bindDetail(e.Var, PrettyValue(compR.Value), true), e.S)
 		}
 		bodyEnv := env.Extend(e.Var, compR.Value)

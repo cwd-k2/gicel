@@ -1,11 +1,12 @@
 package types
 
-import "strconv"
+import "github.com/cwd-k2/gicel/internal/lang/syntax"
 
-// TupleLabel returns the canonical field label for a 1-based tuple position.
-// Position 1 → "_1", position 2 → "_2", etc.
+// TupleLabel delegates to syntax.TupleLabel, the single authoritative
+// encoding of tuple position labels. Re-exported here for convenience
+// since most callers already import types.
 func TupleLabel(pos int) string {
-	return "_" + strconv.Itoa(pos)
+	return syntax.TupleLabel(pos)
 }
 
 // isTupleLabels reports whether labels form a valid tuple encoding:

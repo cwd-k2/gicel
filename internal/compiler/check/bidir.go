@@ -354,7 +354,7 @@ func (ch *Checker) checkWithEvidence(expr syntax.Expr, ev *types.TyEvidence) ir.
 		ch.ctx.Pop()
 	}
 	for i := len(dicts) - 1; i >= 0; i-- {
-		bodyCore = &ir.Lam{Param: dicts[i].param, ParamType: dicts[i].ty, Body: bodyCore, S: expr.Span()}
+		bodyCore = &ir.Lam{Param: dicts[i].param, ParamType: dicts[i].ty, Body: bodyCore, Generated: true, S: expr.Span()}
 	}
 	return bodyCore
 }
@@ -385,7 +385,7 @@ func (ch *Checker) subsCheck(inferred, expected types.Type, expr ir.Core, s span
 	if ev, ok := inferred.(*types.TyEvidence); ok {
 		for _, entry := range ev.Constraints.ConEntries() {
 			placeholder := fmt.Sprintf("%s_%d", prefixDictDefer, ch.fresh())
-			ch.emitClassConstraint(placeholder, entry.ClassName, entry.Args, s, entry.Quantified, entry.ConstraintVar)
+			ch.emitClassConstraint(placeholder, entry, s)
 			expr = &ir.App{Fun: expr, Arg: &ir.Var{Name: placeholder, S: s}, S: s}
 		}
 		return ch.subsCheck(ev.Body, expected, expr, s)

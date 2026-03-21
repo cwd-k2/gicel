@@ -326,17 +326,6 @@ func formatPatternDepth(p ir.Pattern, depth int) string {
 	return "?"
 }
 
-// isInternalPattern reports whether a pattern involves compiler-generated names.
-func isInternalPattern(p ir.Pattern) bool {
-	switch pat := p.(type) {
-	case *ir.PCon:
-		return isCompilerGenerated(pat.Con)
-	case *ir.PVar:
-		return isCompilerGenerated(pat.Name)
-	}
-	return false
-}
-
 // collectListPattern extracts a Cons/Nil pattern chain into formatted elements.
 func collectListPattern(p *ir.PCon, depth int) ([]string, bool) {
 	if p.Con != ListCons && p.Con != ListNil {

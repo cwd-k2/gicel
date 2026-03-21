@@ -259,8 +259,9 @@ type Pattern interface {
 }
 
 type PatVar struct {
-	Name string
-	S    span.Span
+	Name      string
+	Generated bool // true when introduced by compiler desugar (e.g. section parameters)
+	S         span.Span
 }
 
 type PatWild struct {

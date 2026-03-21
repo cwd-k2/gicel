@@ -29,12 +29,26 @@ func (ch *Checker) extractDictField(classInfo *ClassInfo, dictExpr ir.Core, fiel
 	return &ir.Case{
 		Scrutinee: dictExpr,
 		Alts: []ir.Alt{{
-			Pattern: &ir.PCon{Con: classInfo.DictName, Args: patArgs, S: s},
-			Body:    fieldExpr,
-			S:       s,
+			Pattern:   &ir.PCon{Con: classInfo.DictName, Args: patArgs, S: s},
+			Body:      fieldExpr,
+			Generated: true,
+			S:         s,
 		}},
 		S: s,
 	}
+}
+
+// tryResolveInstance attempts instance resolution without emitting errors.
+// Returns the dictionary expression and true on success, or nil and false if
+// resolution fails. Any errors produced during the attempt are discarded.
+func (ch *Checker) tryResolveInstance(className string, args []types.Type, s span.Span) (ir.Core, bool) {
+	saved := ch.errors.Len()
+	dict := ch.resolveInstance(className, args, s)
+	if ch.errors.Len() > saved {
+		ch.errors.Truncate(saved)
+		return nil, false
+	}
+	return dict, true
 }
 
 // resolveInstance finds a dictionary expression for a given class constraint.

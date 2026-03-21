@@ -88,7 +88,7 @@ func (ch *Checker) processInstanceBody(inst *InstanceInfo, prog *ir.Program) {
 		for i := len(ctxParams) - 1; i >= 0; i-- {
 			dictExpr = &ir.Lam{
 				Param: ctxParams[i].name, ParamType: ctxParams[i].ty,
-				Body: dictExpr, S: inst.S,
+				Body: dictExpr, Generated: true, S: inst.S,
 			}
 			dictTy = types.MkArrow(ctxParams[i].ty, dictTy)
 		}

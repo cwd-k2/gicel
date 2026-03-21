@@ -5,7 +5,6 @@ import (
 
 	"github.com/cwd-k2/gicel/internal/infra/diagnostic"
 	"github.com/cwd-k2/gicel/internal/infra/span"
-	"github.com/cwd-k2/gicel/internal/lang/types"
 )
 
 // --- Patterns ---
@@ -169,7 +168,7 @@ func (p *Parser) parseTuplePatternTail(start span.Pos, first syn.Pattern) *syn.P
 	fields := make([]syn.PatRecordField, len(pats))
 	for i, pat := range pats {
 		fields[i] = syn.PatRecordField{
-			Label:   types.TupleLabel(i + 1),
+			Label:   syn.TupleLabel(i + 1),
 			Pattern: pat,
 			S:       pat.Span(),
 		}

@@ -127,34 +127,22 @@ const (
 // resolvable instance for the bare type constructor head of monadHead.
 // Only tries direct resolution (no Lift wrapping) to avoid the V8 Lift bug.
 func (ch *Checker) hasDirectIxMonadInstance(monadHead types.Type, s span.Span) bool {
-	classInfo := ch.reg.classes["IxMonad"]
-	if classInfo == nil {
+	if ch.reg.classes["IxMonad"] == nil {
 		return false
 	}
 	head, _ := types.UnwindApp(monadHead)
-	saved := ch.errors.Len()
-	ch.resolveInstance("IxMonad", []types.Type{head}, s)
-	if ch.errors.Len() > saved {
-		ch.errors.Truncate(saved)
-		return false
-	}
-	return true
+	_, ok := ch.tryResolveInstance("IxMonad", []types.Type{head}, s)
+	return ok
 }
 
 // hasMonadInstance checks whether the Monad class has a resolvable instance
 // for the given monadHead, without emitting errors.
 func (ch *Checker) hasMonadInstance(monadHead types.Type, s span.Span) bool {
-	classInfo := ch.reg.classes["Monad"]
-	if classInfo == nil {
+	if ch.reg.classes["Monad"] == nil {
 		return false
 	}
-	saved := ch.errors.Len()
-	ch.resolveInstance("Monad", []types.Type{monadHead}, s)
-	if ch.errors.Len() > saved {
-		ch.errors.Truncate(saved)
-		return false
-	}
-	return true
+	_, ok := ch.tryResolveInstance("Monad", []types.Type{monadHead}, s)
+	return ok
 }
 
 // extractIxMethod resolves an IxMonad dictionary for monadHead and extracts
@@ -171,17 +159,14 @@ func (ch *Checker) extractIxMethod(monadHead types.Type, methodIdx int, s span.S
 	}
 
 	// 1. Try direct IxMonad instance.
-	saved := ch.errors.Len()
-	dict := ch.resolveInstance("IxMonad", []types.Type{monadHead}, s)
-	if ch.errors.Len() == saved {
+	if dict, ok := ch.tryResolveInstance("IxMonad", []types.Type{monadHead}, s); ok {
 		fieldIdx := len(classInfo.Supers) + methodIdx
 		return ch.extractDictField(classInfo, dict, fieldIdx, "ixm", s)
 	}
-	ch.errors.Truncate(saved)
 
 	// 2. Try Lift-wrapped IxMonad.
 	liftedMonad := &types.TyApp{Fun: &types.TyCon{Name: "Lift"}, Arg: monadHead}
-	dict = ch.resolveInstance("IxMonad", []types.Type{liftedMonad}, s)
+	dict := ch.resolveInstance("IxMonad", []types.Type{liftedMonad}, s)
 	fieldIdx := len(classInfo.Supers) + methodIdx
 	return ch.extractDictField(classInfo, dict, fieldIdx, "ixm", s)
 }

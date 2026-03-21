@@ -270,15 +270,16 @@ func (ch *Checker) buildMethodSelector(cls *ClassInfo, m MethodInfo, methodIdx i
 	caseExpr := &ir.Case{
 		Scrutinee: &ir.Var{Name: selName, S: s},
 		Alts: []ir.Alt{{
-			Pattern: &ir.PCon{Con: cls.DictName, Args: patArgs, S: s},
-			Body:    resultExpr,
-			S:       s,
+			Pattern:   &ir.PCon{Con: cls.DictName, Args: patArgs, S: s},
+			Body:      resultExpr,
+			Generated: true,
+			S:         s,
 		}},
 		S: s,
 	}
 
 	var selectorBody ir.Core = &ir.Lam{
-		Param: selName, ParamType: dict.resultType, Body: caseExpr, S: s,
+		Param: selName, ParamType: dict.resultType, Body: caseExpr, Generated: true, S: s,
 	}
 
 	for j := len(cls.TyParams) - 1; j >= 0; j-- {

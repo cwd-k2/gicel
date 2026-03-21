@@ -143,7 +143,7 @@ func (ch *Checker) instantiate(ty types.Type, expr ir.Core) (types.Type, ir.Core
 		if ev, ok := ty.(*types.TyEvidence); ok {
 			for _, entry := range ev.Constraints.ConEntries() {
 				placeholder := fmt.Sprintf("%s_%d", prefixDictDefer, ch.fresh())
-				ch.emitClassConstraint(placeholder, entry.ClassName, entry.Args, expr.Span(), entry.Quantified, entry.ConstraintVar)
+				ch.emitClassConstraint(placeholder, entry, expr.Span())
 				expr = &ir.App{Fun: expr, Arg: &ir.Var{Name: placeholder, S: expr.Span()}, S: expr.Span()}
 			}
 			ty = ev.Body
