@@ -14,11 +14,11 @@ func (ch *Checker) resolveTypeExpr(texpr syntax.TypeExpr) types.Type {
 	case *syntax.TyExprVar:
 		return &types.TyVar{Name: t.Name, S: t.S}
 	case *syntax.TyExprCon:
-		if info, ok := ch.reg.aliases[t.Name]; ok && len(info.Params) == 0 {
+		if info, ok := ch.lookupAlias(t.Name); ok && len(info.Params) == 0 {
 			return info.Body
 		}
 		// Zero-arity type family: immediate TyFamilyApp.
-		if fam, ok := ch.reg.families[t.Name]; ok && len(fam.Params) == 0 {
+		if fam, ok := ch.lookupFamily(t.Name); ok && len(fam.Params) == 0 {
 			return &types.TyFamilyApp{Name: t.Name, Args: nil, Kind: fam.ResultKind, S: t.S}
 		}
 		// Validate that the type constructor is known when strict mode is active.
@@ -33,20 +33,20 @@ func (ch *Checker) resolveTypeExpr(texpr syntax.TypeExpr) types.Type {
 			ch.addCodedError(diagnostic.ErrImport, t.S, fmt.Sprintf("unknown qualifier: %s", t.Qualifier))
 			return &types.TyError{S: t.S}
 		}
-		// Check qualified aliases (zero-arity: expand inline; parameterized: inject into local scope for TyApp expansion)
+		// Check qualified aliases (zero-arity: expand inline; parameterized: inject into Scope for TyApp expansion)
 		if info, ok := qs.exports.Aliases[t.Name]; ok {
 			if len(info.Params) == 0 {
 				return info.Body
 			}
-			ch.reg.RegisterAlias(t.Name, info)
+			ch.scope.InjectAlias(t.Name, info)
 			return &types.TyCon{Name: t.Name, S: t.S}
 		}
-		// Check qualified type families (zero-arity: immediate; parameterized: inject for TyApp expansion)
+		// Check qualified type families (zero-arity: immediate; parameterized: inject into Scope for TyApp expansion)
 		if fam, ok := qs.exports.TypeFamilies[t.Name]; ok {
 			if len(fam.Params) == 0 {
 				return &types.TyFamilyApp{Name: t.Name, Args: nil, Kind: fam.ResultKind, S: t.S}
 			}
-			ch.reg.RegisterFamily(t.Name, fam.Clone())
+			ch.scope.InjectFamily(t.Name, fam.Clone())
 			return &types.TyCon{Name: t.Name, S: t.S}
 		}
 		// Check qualified types — only types defined by this module's data declarations,
@@ -237,7 +237,7 @@ func (ch *Checker) tryExpandApp(fun types.Type, arg types.Type, s span.Span) typ
 	result := &types.TyApp{Fun: fun, Arg: arg, S: s}
 	head, args := types.UnwindApp(result)
 	if con, ok := head.(*types.TyCon); ok {
-		if info, ok := ch.reg.aliases[con.Name]; ok && len(info.Params) == len(args) {
+		if info, ok := ch.lookupAlias(con.Name); ok && len(info.Params) == len(args) {
 			body := info.Body
 			for i, p := range info.Params {
 				body = types.Subst(body, p, args[i])
@@ -245,7 +245,7 @@ func (ch *Checker) tryExpandApp(fun types.Type, arg types.Type, s span.Span) typ
 			return body
 		}
 		// Type family: saturated application → TyFamilyApp.
-		if fam, ok := ch.reg.families[con.Name]; ok && len(fam.Params) == len(args) {
+		if fam, ok := ch.lookupFamily(con.Name); ok && len(fam.Params) == len(args) {
 			return &types.TyFamilyApp{Name: con.Name, Args: args, Kind: fam.ResultKind, S: s}
 		}
 	}

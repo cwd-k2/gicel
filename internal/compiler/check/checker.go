@@ -109,6 +109,11 @@ type Scope struct {
 	importedTypeNames   map[string]string          // name → source module (type namespace ambiguity)
 	ownedNamesCache     map[string]map[string]bool // module → owned names (lazy, for value ambiguity)
 	ownedTypeNamesCache map[string]map[string]bool // module → owned type names (lazy, for type ambiguity)
+
+	// Qualified name injections: aliases and families resolved from qualified
+	// references (e.g., M.Alias) are cached here instead of mutating the Registry.
+	injectedAliases  map[string]*AliasInfo
+	injectedFamilies map[string]*TypeFamilyInfo
 }
 
 // CurrentModule returns the name of the module being compiled.
@@ -120,6 +125,24 @@ func (s *Scope) CurrentModule() string {
 func (s *Scope) LookupQualified(alias string) (*qualifiedScope, bool) {
 	qs, ok := s.qualifiedScopes[alias]
 	return qs, ok
+}
+
+// InjectAlias caches a qualified alias in the scope's local map,
+// avoiding mutation of the shared Registry.
+func (s *Scope) InjectAlias(name string, info *AliasInfo) {
+	if s.injectedAliases == nil {
+		s.injectedAliases = make(map[string]*AliasInfo)
+	}
+	s.injectedAliases[name] = info
+}
+
+// InjectFamily caches a qualified type family in the scope's local map,
+// avoiding mutation of the shared Registry.
+func (s *Scope) InjectFamily(name string, info *TypeFamilyInfo) {
+	if s.injectedFamilies == nil {
+		s.injectedFamilies = make(map[string]*TypeFamilyInfo)
+	}
+	s.injectedFamilies[name] = info
 }
 
 // Solver holds mutable state for the constraint solver.
@@ -439,6 +462,35 @@ func (s *Session) withProbe(fn func() bool) bool {
 	result := fn()
 	s.restoreState(saved)
 	return result
+}
+
+// lookupAlias searches for a type alias by name: first in the Registry
+// (populated during declaration phases), then in Scope's injected aliases
+// (populated from qualified references).
+func (ch *Checker) lookupAlias(name string) (*AliasInfo, bool) {
+	if info, ok := ch.reg.aliases[name]; ok {
+		return info, true
+	}
+	if ch.scope != nil && ch.scope.injectedAliases != nil {
+		if info, ok := ch.scope.injectedAliases[name]; ok {
+			return info, true
+		}
+	}
+	return nil, false
+}
+
+// lookupFamily searches for a type family by name: first in the Registry,
+// then in Scope's injected families.
+func (ch *Checker) lookupFamily(name string) (*TypeFamilyInfo, bool) {
+	if info, ok := ch.reg.families[name]; ok {
+		return info, true
+	}
+	if ch.scope != nil && ch.scope.injectedFamilies != nil {
+		if info, ok := ch.scope.injectedFamilies[name]; ok {
+			return info, true
+		}
+	}
+	return nil, false
 }
 
 // withDeferredScope runs fn in an isolated constraint scope.

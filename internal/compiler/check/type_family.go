@@ -116,6 +116,7 @@ func (ch *Checker) familyEnv() *family.ReduceEnv {
 	if ch.cachedFamilyEnv == nil {
 		ch.cachedFamilyEnv = &family.ReduceEnv{
 			Families:        ch.reg.families,
+			LookupFamily:    ch.lookupFamily,
 			Budget:          ch.budget,
 			Unifier:         ch.unifier,
 			FreshMeta:       ch.freshMeta,

@@ -155,7 +155,7 @@ func (ch *Checker) expandTypeAliasesN(ty types.Type, depth int) types.Type {
 	if !ok {
 		return ty
 	}
-	info, ok := ch.reg.aliases[con.Name]
+	info, ok := ch.lookupAlias(con.Name)
 	if !ok || len(info.Params) != len(args) {
 		// Not a fully-applied alias. Check if partial application could be expanded
 		// by recursing into sub-expressions.

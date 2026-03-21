@@ -13,8 +13,9 @@ import (
 
 // ReduceEnv provides the checker capabilities needed for type family operations.
 type ReduceEnv struct {
-	Families  map[string]*TypeFamilyInfo
-	Budget    *budget.CheckBudget
+	Families     map[string]*TypeFamilyInfo        // primary map (Registry)
+	LookupFamily func(name string) (*TypeFamilyInfo, bool) // fallback lookup (includes Scope injections)
+	Budget       *budget.CheckBudget
 	Unifier   *unify.Unifier
 	FreshMeta func(k types.Kind) *types.TyMeta
 	AddError  func(code diagnostic.Code, s span.Span, msg string)
@@ -23,6 +24,16 @@ type ReduceEnv struct {
 	// RegisterStuckFn, when non-nil, registers a stuck type family
 	// application as a solver constraint for later re-activation.
 	RegisterStuckFn func(name string, args []types.Type, resultKind types.Kind, s span.Span) *types.TyMeta
+}
+
+// lookupFamily returns the TypeFamilyInfo for name. Prefers LookupFamily
+// callback if set (includes Scope injections), otherwise falls back to Families map.
+func (e *ReduceEnv) lookupFamily(name string) (*TypeFamilyInfo, bool) {
+	if e.LookupFamily != nil {
+		return e.LookupFamily(name)
+	}
+	fam, ok := e.Families[name]
+	return fam, ok
 }
 
 // maxReductionTypeSize is the maximum allowed size (node count) of a type
@@ -49,7 +60,7 @@ func (e *ReduceEnv) ReduceTyFamily(name string, args []types.Type, s span.Span) 
 			fmt.Sprintf("type family %s: reduction limit exceeded (possible infinite recursion or exponential growth)", name))
 		return nil, false
 	}
-	fam, ok := e.Families[name]
+	fam, ok := e.lookupFamily(name)
 	if !ok {
 		return nil, false
 	}
@@ -182,7 +193,7 @@ func (e *ReduceEnv) reduceFamilyAppsN(t types.Type, cache map[string]types.Type)
 	if app, ok := t.(*types.TyApp); ok {
 		head, args := types.UnwindApp(t)
 		if con, ok := head.(*types.TyCon); ok {
-			if fam, ok := e.Families[con.Name]; ok && len(fam.Params) == len(args) {
+			if fam, ok := e.lookupFamily(con.Name); ok && len(fam.Params) == len(args) {
 				for i, a := range args {
 					args[i] = e.reduceFamilyAppsN(a, cache)
 				}
