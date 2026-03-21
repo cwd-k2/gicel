@@ -152,3 +152,19 @@ func TestCheckBudgetNesting(t *testing.T) {
 		t.Fatalf("expected nesting=2 after two Unnest, got %d", b.Nesting())
 	}
 }
+
+func TestCheckBudgetContextCancellation(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	b := NewCheck(ctx)
+	b.SetTFStepLimit(1000)
+	b.SetSolverStepLimit(1000)
+
+	if err := b.TFStep(); err == nil {
+		t.Fatal("expected context error from TFStep after cancel")
+	}
+	if err := b.SolverStep(); err == nil {
+		t.Fatal("expected context error from SolverStep after cancel")
+	}
+}
