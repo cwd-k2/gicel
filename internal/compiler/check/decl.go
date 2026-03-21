@@ -12,6 +12,17 @@ import (
 // declPipeline coordinates the multi-phase declaration checking process.
 // Cross-phase state (annotations, instance headers) lives here rather than
 // as loose locals, making the data flow between phases explicit.
+//
+// Phase 1-3.5: registerTypes — data, aliases, families, cycle detection
+// Phase 4-5.6: registerClasses — classes, instance headers, family reducers
+// Phase 6:     collectAnnotations — type annotations (implicit forall)
+// Phase 7:     checkAssumptions — host-provided assumptions
+// Phase 7.5:   preregisterBindings — forward-declare annotated binding types
+// Phase 8:     checkInstances — instance body elaboration + dict generation
+// Phase 9:     checkValues — remaining value definitions
+//
+// Phases 1-5.6 must complete before 6+. Phase 7.5 depends on 4-5.6.
+// Phase 8 depends on 7.5 (open-scope instance resolution).
 type declPipeline struct {
 	ch           *Checker
 	decls        []syntax.Decl
