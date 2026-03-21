@@ -185,7 +185,7 @@ func newTestChecker() *Checker {
 		},
 		solver: &Solver{},
 	}
-	ch.budget = budget.New(context.Background(), 0, 0)
+	ch.budget = budget.NewCheck(context.Background())
 	ch.budget.SetTFStepLimit(family.MaxReductionWork)
 	ch.budget.SetSolverStepLimit(100_000)
 	ch.budget.SetResolveDepthLimit(64)

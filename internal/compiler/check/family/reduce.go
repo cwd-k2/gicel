@@ -14,7 +14,7 @@ import (
 // ReduceEnv provides the checker capabilities needed for type family operations.
 type ReduceEnv struct {
 	Families  map[string]*TypeFamilyInfo
-	Budget    *budget.Budget
+	Budget    *budget.CheckBudget
 	Unifier   *unify.Unifier
 	FreshMeta func(k types.Kind) *types.TyMeta
 	AddError  func(code diagnostic.Code, s span.Span, msg string)

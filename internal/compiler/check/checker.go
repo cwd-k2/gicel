@@ -173,7 +173,7 @@ func (s *Solver) CacheAmbiguity(key string, result bool) {
 type Session struct {
 	ctx             *Context
 	unifier         *unify.Unifier
-	budget          *budget.Budget
+	budget          *budget.CheckBudget
 	errors          *diagnostic.Errors
 	source          *span.Source
 	config          *CheckConfig
@@ -269,8 +269,8 @@ func newChecker(prog *syntax.AstProgram, source *span.Source, config *CheckConfi
 	}
 	session := &Session{
 		ctx: NewContext(),
-		budget: func() *budget.Budget {
-			b := budget.New(ctx, 0, 0) // eval steps/depth not used during checking
+		budget: func() *budget.CheckBudget {
+			b := budget.NewCheck(ctx)
 			if config.NestingLimit > 0 {
 				b.SetNestingLimit(config.NestingLimit)
 			}

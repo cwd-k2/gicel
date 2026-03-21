@@ -73,7 +73,7 @@ type Unifier struct {
 	OnSolve func(metaID int)
 
 	// Budget tracks structural nesting depth. If nil, nesting is unbounded.
-	Budget *budget.Budget
+	Budget *budget.CheckBudget
 
 	// FlexSkolems allows skolem variables to be solved like metas.
 	// Used for GADT accessibility testing (canUnifyWith). INVARIANT:

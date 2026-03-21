@@ -1,4 +1,4 @@
-// Budget tests — nesting limit.
+// Budget tests — nesting limit (runtime) and compiler dimensions (CheckBudget).
 // Does NOT cover: step, depth, alloc limits (tested via eval integration tests).
 package budget
 
@@ -62,8 +62,8 @@ func TestNestingLimitNegativeClamped(t *testing.T) {
 	}
 }
 
-func TestBudgetCompilerDimensions(t *testing.T) {
-	b := New(context.Background(), 0, 0)
+func TestCheckBudgetCompilerDimensions(t *testing.T) {
+	b := NewCheck(context.Background())
 
 	// --- TF step limit ---
 	b.SetTFStepLimit(3)
@@ -127,5 +127,28 @@ func TestBudgetCompilerDimensions(t *testing.T) {
 	b.LeaveResolve()
 	if err := b.EnterResolve(); err != nil {
 		t.Fatalf("EnterResolve() after leave: unexpected error: %v", err)
+	}
+}
+
+func TestCheckBudgetNesting(t *testing.T) {
+	b := NewCheck(context.Background())
+	b.SetNestingLimit(3)
+
+	for i := 0; i < 3; i++ {
+		if err := b.Nest(); err != nil {
+			t.Fatalf("Nest() #%d: unexpected error: %v", i+1, err)
+		}
+	}
+	err := b.Nest()
+	if err == nil {
+		t.Fatal("expected NestingLimitError")
+	}
+	if _, ok := err.(*NestingLimitError); !ok {
+		t.Fatalf("expected *NestingLimitError, got %T: %v", err, err)
+	}
+	b.Unnest()
+	b.Unnest()
+	if b.Nesting() != 2 {
+		t.Fatalf("expected nesting=2 after two Unnest, got %d", b.Nesting())
 	}
 }

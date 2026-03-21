@@ -1,10 +1,11 @@
-// Package budget provides a unified resource limiter for all phases of the
-// GICEL pipeline: parsing, type checking, optimization, and evaluation.
+// Package budget provides resource limiters for the GICEL pipeline.
 //
-// A single Budget tracks step count, nesting depth, and allocation bytes.
-// It also carries a [context.Context] for external cancellation (e.g. timeout).
-// The same Budget instance can be shared across phases so that compilation
-// and execution draw from one resource pool.
+// [Budget] tracks runtime dimensions: step count, call depth, structural
+// nesting, and allocation bytes. [CheckBudget] tracks compiler dimensions:
+// structural nesting, type family reduction, constraint solving, and
+// instance resolution. The two types draw from independent resource pools.
+//
+// Both carry a [context.Context] for external cancellation (e.g. timeout).
 package budget
 
 import (
@@ -12,8 +13,8 @@ import (
 	"fmt"
 )
 
-// Budget tracks resource consumption. It is not goroutine-safe;
-// each pipeline execution should use its own instance.
+// Budget tracks runtime resource consumption. It is not goroutine-safe;
+// each execution should use its own instance.
 type Budget struct {
 	ctx        context.Context
 	steps      int
@@ -24,14 +25,6 @@ type Budget struct {
 	maxNesting int
 	alloc      int64
 	maxAlloc   int64
-
-	// Compiler dimensions — type checking resource limits.
-	tfSteps         int
-	maxTFSteps      int
-	solverSteps     int
-	maxSolverSteps  int
-	resolveDepth    int
-	maxResolveDepth int
 }
 
 // New creates a Budget with the given step and depth limits.
@@ -49,8 +42,8 @@ func New(ctx context.Context, maxSteps, maxDepth int) *Budget {
 }
 
 // SetNestingLimit sets the structural nesting depth limit. This bounds the
-// Go call stack depth when evaluating nested expressions, unifying nested
-// types, or traversing nested Core/Value structures. Zero disables the check.
+// Go call stack depth when evaluating nested expressions or traversing
+// nested Core/Value structures. Zero disables the check.
 // Negative values are treated as zero (disabled).
 func (b *Budget) SetNestingLimit(n int) {
 	if n < 0 {
@@ -66,33 +59,6 @@ func (b *Budget) SetAllocLimit(bytes int64) {
 		bytes = 0
 	}
 	b.maxAlloc = bytes
-}
-
-// SetTFStepLimit sets the type family reduction step limit.
-// Zero disables the check. Negative values are treated as zero.
-func (b *Budget) SetTFStepLimit(n int) {
-	if n < 0 {
-		n = 0
-	}
-	b.maxTFSteps = n
-}
-
-// SetSolverStepLimit sets the constraint solver step limit.
-// Zero disables the check. Negative values are treated as zero.
-func (b *Budget) SetSolverStepLimit(n int) {
-	if n < 0 {
-		n = 0
-	}
-	b.maxSolverSteps = n
-}
-
-// SetResolveDepthLimit sets the instance resolution depth limit.
-// Zero disables the check. Negative values are treated as zero.
-func (b *Budget) SetResolveDepthLimit(n int) {
-	if n < 0 {
-		n = 0
-	}
-	b.maxResolveDepth = n
 }
 
 // checkCtx returns the context error if cancelled (non-blocking).
@@ -160,57 +126,6 @@ func (b *Budget) Alloc(bytes int64) error {
 	return nil
 }
 
-// TFStep records one type family reduction step. Returns an error if the
-// TF step limit is exceeded or the context has been cancelled.
-func (b *Budget) TFStep() error {
-	if err := b.checkCtx(); err != nil {
-		return err
-	}
-	b.tfSteps++
-	if b.maxTFSteps > 0 && b.tfSteps > b.maxTFSteps {
-		return &TFStepLimitError{}
-	}
-	return nil
-}
-
-// ResetTFSteps zeroes the TF step counter for a fresh reduction pass.
-func (b *Budget) ResetTFSteps() {
-	b.tfSteps = 0
-}
-
-// SolverStep records one constraint solver iteration. Returns an error
-// if the solver step limit is exceeded or the context has been cancelled.
-func (b *Budget) SolverStep() error {
-	if err := b.checkCtx(); err != nil {
-		return err
-	}
-	b.solverSteps++
-	if b.maxSolverSteps > 0 && b.solverSteps > b.maxSolverSteps {
-		return &SolverStepLimitError{}
-	}
-	return nil
-}
-
-// ResetSolverSteps zeroes the solver step counter.
-func (b *Budget) ResetSolverSteps() {
-	b.solverSteps = 0
-}
-
-// EnterResolve increments instance resolution depth. Returns an error
-// if the depth limit is exceeded.
-func (b *Budget) EnterResolve() error {
-	b.resolveDepth++
-	if b.maxResolveDepth > 0 && b.resolveDepth > b.maxResolveDepth {
-		return &ResolveDepthLimitError{}
-	}
-	return nil
-}
-
-// LeaveResolve decrements instance resolution depth.
-func (b *Budget) LeaveResolve() {
-	b.resolveDepth--
-}
-
 // --- Read accessors ---
 
 // Steps returns the number of steps consumed so far.
@@ -249,24 +164,6 @@ func (b *Budget) MaxNesting() int { return b.maxNesting }
 
 // MaxAlloc returns the configured allocation limit.
 func (b *Budget) MaxAlloc() int64 { return b.maxAlloc }
-
-// TFSteps returns the number of TF reduction steps consumed so far.
-func (b *Budget) TFSteps() int { return b.tfSteps }
-
-// MaxTFSteps returns the configured TF step limit.
-func (b *Budget) MaxTFSteps() int { return b.maxTFSteps }
-
-// SolverSteps returns the number of solver steps consumed so far.
-func (b *Budget) SolverSteps() int { return b.solverSteps }
-
-// MaxSolverSteps returns the configured solver step limit.
-func (b *Budget) MaxSolverSteps() int { return b.maxSolverSteps }
-
-// ResolveDepth returns the current instance resolution depth.
-func (b *Budget) ResolveDepth() int { return b.resolveDepth }
-
-// MaxResolveDepth returns the configured resolve depth limit.
-func (b *Budget) MaxResolveDepth() int { return b.maxResolveDepth }
 
 // Context returns the associated context.
 func (b *Budget) Context() context.Context { return b.ctx }
