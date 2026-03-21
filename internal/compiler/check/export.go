@@ -152,7 +152,9 @@ func ownedAllNames(ownedDataNames map[string]bool, prog *ir.Program) map[string]
 			continue
 		}
 		for _, con := range dd.Cons {
-			owned[con.Name] = true
+			if !env.IsPrivateName(con.Name) {
+				owned[con.Name] = true
+			}
 		}
 	}
 	return owned
