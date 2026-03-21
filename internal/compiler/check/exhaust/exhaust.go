@@ -16,16 +16,11 @@ type CheckEnv struct {
 	DataTypes    map[string]*DataTypeInfo // type name → data type info
 	ConInfoMap   map[string]*DataTypeInfo // constructor name → owning data type
 	ConTypes     map[string]types.Type    // constructor name → full type scheme
-	FreshID      *int                     // shared fresh ID counter
+	Fresh        func() int               // fresh ID generator (delegates to Session.fresh)
 	Unifier      *unify.Unifier           // main unifier (for Zonk)
 	ReduceFamily func(types.Type) types.Type
 	CanUnifyWith func(retTy, scrutTy types.Type) bool
 	AddError     func(code diagnostic.Code, s span.Span, msg string)
-}
-
-func (e *CheckEnv) fresh() int {
-	*e.FreshID++
-	return *e.FreshID
 }
 
 func (e *CheckEnv) lookupDataType(tyName string) *DataTypeInfo {
@@ -87,7 +82,7 @@ func (e *CheckEnv) constructorArgTypes(conName string, scrutTy types.Type) []typ
 	// Refine type variables by unifying the return type with the scrutinee.
 	// Only worth doing when the scrutinee has a known head type constructor.
 	if scrutTy != nil && headTyCon(e.Unifier.Zonk(scrutTy)) != "" {
-		tmp := unify.NewUnifierShared(e.FreshID)
+		tmp := unify.NewUnifier()
 		if tmp.Unify(ty, e.Unifier.Zonk(scrutTy)) == nil {
 			for i, a := range argTys {
 				if a != nil {
@@ -105,7 +100,7 @@ func (e *CheckEnv) instantiateForExhaust(ty types.Type) types.Type {
 	for {
 		switch t := ty.(type) {
 		case *types.TyForall:
-			m := &types.TyMeta{ID: e.fresh(), Kind: t.Kind}
+			m := &types.TyMeta{ID: e.Fresh(), Kind: t.Kind}
 			ty = types.Subst(t.Body, t.Var, m)
 		case *types.TyEvidence:
 			ty = t.Body

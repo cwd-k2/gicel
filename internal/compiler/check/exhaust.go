@@ -14,7 +14,7 @@ func (ch *Checker) checkExhaustive(scrutTy types.Type, alts []ir.Alt, s span.Spa
 		DataTypes:    ch.reg.dataTypeByName,
 		ConInfoMap:   ch.reg.conInfo,
 		ConTypes:     ch.reg.conTypes,
-		FreshID:      &ch.freshID,
+		Fresh:        ch.fresh,
 		Unifier:      ch.unifier,
 		ReduceFamily: ch.reduceFamilyInType,
 		CanUnifyWith: ch.canUnifyWith,
