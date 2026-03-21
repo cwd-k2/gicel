@@ -32,7 +32,6 @@ func collectKindVars(k syntax.KindExpr, kindVars map[string]bool, params *[]stri
 // dictName returns the dictionary type/constructor name for a class.
 func dictName(className string) string { return className + "$Dict" }
 
-
 // ClassInfo stores elaborated class information.
 // processClassDecl elaborates a class declaration into:
 // 1. A DataDecl for the dictionary type

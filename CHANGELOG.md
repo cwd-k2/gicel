@@ -1,5 +1,23 @@
 # Changelog
 
+## v0.15.0 — 2026-03-22
+
+### Architecture
+
+- **Budget layer split** — `Budget` (runtime: steps, depth, nesting, alloc) and `CheckBudget` (compiler: tfSteps, solverSteps, resolveDepth) are now separate types. The compiler/runtime boundary is enforced at the type level
+- **Registry extraction** — `Registry` struct and its 15 methods moved from `checker.go` to `registry.go`. Dict-to-class reverse map (`dictToClass`) replaces `isDictName`/`classFromDict` string heuristic
+- **env → syntax forward reference eliminated** — `InstanceInfo.Methods` (unevaluated `syntax.Expr`) moved to a pipeline-local map, removing the `syntax` import from `check/env/types.go`
+- **parse → types layer violation fixed** — `TupleLabel` canonical definition placed in `syntax`; parser no longer imports `lang/types`. All callers migrated to `syntax.TupleLabel`, removing `types.TupleLabel` delegation wrapper
+- **Structural provenance flags** — `ir.Lam.Generated`, `ir.Bind.Generated`, `ir.Alt.Generated` replace the `isCompilerGenerated` string heuristic. Compiler sets flags at elaboration; evaluator reads them directly
+- **tryResolveInstance** — centralizes the error-save/truncate probe pattern for instance resolution without emitting errors
+
+### Examples
+
+- **5 GICEL examples fixed** — continuation, nondeterminism, maybet, free-monad (renamed from ixmonad), session: corrected Monad/IxMonad usage and bare Computation wrapping
+- **All 45 GICEL examples pass** — 44 run + 1 check-only (session types)
+
+---
+
 ## v0.14.0 — 2026-03-21
 
 ### Architecture

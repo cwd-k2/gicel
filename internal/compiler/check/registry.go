@@ -12,7 +12,7 @@ type Registry struct {
 	dataTypeByName    map[string]*DataTypeInfo // type name → DataTypeInfo (reverse index)
 	aliases           map[string]*AliasInfo
 	classes           map[string]*ClassInfo
-	dictToClass       map[string]string            // dict type name → class name (reverse of ClassInfo.DictName)
+	dictToClass       map[string]string // dict type name → class name (reverse of ClassInfo.DictName)
 	instances         []*InstanceInfo
 	instancesByClass  map[string][]*InstanceInfo
 	importedInstances map[*InstanceInfo]bool

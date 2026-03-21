@@ -195,7 +195,6 @@ func (e *AllocLimitError) Error() string {
 	return fmt.Sprintf("allocation limit exceeded: %d bytes used, %d bytes allowed", e.Used, e.Limit)
 }
 
-
 // --- Context helpers ---
 
 // budgetKey is the context key for embedding *Budget.
