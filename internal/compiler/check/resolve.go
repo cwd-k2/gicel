@@ -177,7 +177,10 @@ func (ch *Checker) extractSuperDict(v *CtxVar, targetClass string, targetArgs []
 	ty := ch.unifier.Zonk(v.Type)
 	head, tyArgs := types.UnwindApp(ty)
 	con, ok := head.(*types.TyCon)
-	if !ok || !isDictName(con.Name) {
+	if !ok {
+		return nil
+	}
+	if _, isDict := ch.reg.dictToClass[con.Name]; !isDict {
 		return nil
 	}
 	search := &superDictSearch{
@@ -190,7 +193,7 @@ func (ch *Checker) extractSuperDict(v *CtxVar, targetClass string, targetArgs []
 // chain recursively searches the superclass hierarchy for the target class,
 // building chained Case extractions along the path.
 func (sd *superDictSearch) chain(dictExpr ir.Core, dictTyName string, dictTyArgs []types.Type) ir.Core {
-	parentClass := classFromDict(dictTyName)
+	parentClass := sd.ch.reg.dictToClass[dictTyName]
 	if sd.visited[parentClass] {
 		return nil
 	}
@@ -287,13 +290,12 @@ func (ch *Checker) applyFunDepImprovement(className string, args []types.Type) {
 						continue
 					}
 					instArg := ch.unifier.Zonk(types.SubstMany(inst.TypeArgs[toIdx], freshSubst))
-					// Fundep improvement is best-effort: if the "to" position
-					// cannot be unified (e.g., already constrained to a different
-					// type), we silently skip. This is intentional — fundep
-					// improvement is advisory, not mandatory. A hard error here
-					// would reject valid programs where the fundep simply provides
-					// no additional information.
-					_ = ch.unifier.Unify(args[toIdx], instArg)
+					// Advisory unification: fundep improvement is best-effort.
+					// If the "to" position is already constrained to a different
+					// type, the unification fails silently. This is correct — fundep
+					// improvement refines type information when possible but must
+					// not reject programs where it provides no additional info.
+					_ = ch.unifier.Unify(args[toIdx], instArg) //nolint:errcheck // advisory
 				}
 				break // first matching instance wins
 			}

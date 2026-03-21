@@ -1,3 +1,5 @@
+// Sandbox tests — RunSandbox API, panic recovery, resource limits.
+// Does NOT cover: engine_test.go (Engine/Runtime lifecycle), engine_computation_test.go (eval semantics).
 package engine
 
 import (

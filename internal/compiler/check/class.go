@@ -2,7 +2,6 @@ package check
 
 import (
 	"fmt"
-	"strings"
 	"unicode"
 
 	"github.com/cwd-k2/gicel/internal/infra/diagnostic"
@@ -33,11 +32,6 @@ func collectKindVars(k syntax.KindExpr, kindVars map[string]bool, params *[]stri
 // dictName returns the dictionary type/constructor name for a class.
 func dictName(className string) string { return className + "$Dict" }
 
-// classFromDict recovers the class name from a dictionary name.
-func classFromDict(name string) string { return strings.TrimSuffix(name, "$Dict") }
-
-// isDictName reports whether name is a dictionary type/constructor name.
-func isDictName(name string) bool { return strings.HasSuffix(name, "$Dict") }
 
 // ClassInfo stores elaborated class information.
 // processClassDecl elaborates a class declaration into:

@@ -304,6 +304,7 @@ func newChecker(prog *syntax.AstProgram, source *span.Source, config *CheckConfi
 			dataTypeByName:    make(map[string]*DataTypeInfo),
 			aliases:           make(map[string]*AliasInfo),
 			classes:           make(map[string]*ClassInfo),
+			dictToClass:       make(map[string]string),
 			instancesByClass:  make(map[string][]*InstanceInfo),
 			importedInstances: make(map[*InstanceInfo]bool),
 			promotedKinds:     make(map[string]types.Kind),

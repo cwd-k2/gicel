@@ -12,6 +12,7 @@ type Registry struct {
 	dataTypeByName    map[string]*DataTypeInfo // type name → DataTypeInfo (reverse index)
 	aliases           map[string]*AliasInfo
 	classes           map[string]*ClassInfo
+	dictToClass       map[string]string            // dict type name → class name (reverse of ClassInfo.DictName)
 	instances         []*InstanceInfo
 	instancesByClass  map[string][]*InstanceInfo
 	importedInstances map[*InstanceInfo]bool
@@ -47,9 +48,12 @@ func (r *Registry) RegisterAlias(name string, info *AliasInfo) {
 	r.aliases[name] = info
 }
 
-// RegisterClass records a class declaration.
+// RegisterClass records a class declaration and its dict-to-class reverse mapping.
 func (r *Registry) RegisterClass(name string, info *ClassInfo) {
 	r.classes[name] = info
+	if info.DictName != "" {
+		r.dictToClass[info.DictName] = name
+	}
 }
 
 // RegisterFamily records a type family declaration.

@@ -207,9 +207,10 @@ func (d *doElaborator) checkedBind(varName string, comp syntax.Expr, rest []synt
 	if isBind {
 		ch.ctx.Pop()
 	}
-	// Best-effort: pre/post threading is unavailable. Unifying the inferred rest type
-	// with the expected computation type is advisory.
-	_ = ch.unifier.Unify(restTy, d.comp)
+	// Advisory unification: pre/post threading is unavailable in infer-fallback.
+	// Failure here is expected when the do-block mixes monadic and pure branches;
+	// the downstream subsumption check will report the actual type mismatch.
+	_ = ch.unifier.Unify(restTy, d.comp) //nolint:errcheck // advisory
 	return d.comp, &ir.Bind{Comp: compCore, Var: varName, Body: restCore, S: stmtS}
 }
 

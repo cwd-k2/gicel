@@ -195,20 +195,6 @@ func (e *AllocLimitError) Error() string {
 	return fmt.Sprintf("allocation limit exceeded: %d bytes used, %d bytes allowed", e.Used, e.Limit)
 }
 
-// TFStepLimitError indicates the type family reduction step limit was exceeded.
-type TFStepLimitError struct{}
-
-func (e *TFStepLimitError) Error() string { return "type family reduction step limit exceeded" }
-
-// SolverStepLimitError indicates the constraint solver step limit was exceeded.
-type SolverStepLimitError struct{}
-
-func (e *SolverStepLimitError) Error() string { return "constraint solver step limit exceeded" }
-
-// ResolveDepthLimitError indicates the instance resolution depth limit was exceeded.
-type ResolveDepthLimitError struct{}
-
-func (e *ResolveDepthLimitError) Error() string { return "instance resolution depth limit exceeded" }
 
 // --- Context helpers ---
 
