@@ -205,3 +205,43 @@ func (r *Registry) LookupPromotedCon(name string) (types.Kind, bool) {
 func (r *Registry) IsImportedInstance(inst *InstanceInfo) bool {
 	return r.importedInstances[inst]
 }
+
+// ---- Iteration accessors (read-only views) ----
+//
+// These return the underlying maps directly. Callers must not mutate them.
+// Used by ExportModule to filter and project registry contents.
+
+// AllConInfo returns the constructor → DataTypeInfo map.
+func (r *Registry) AllConInfo() map[string]*DataTypeInfo {
+	return r.conInfo
+}
+
+// AllAliases returns the alias name → AliasInfo map.
+func (r *Registry) AllAliases() map[string]*AliasInfo {
+	return r.aliases
+}
+
+// AllClasses returns the class name → ClassInfo map.
+func (r *Registry) AllClasses() map[string]*ClassInfo {
+	return r.classes
+}
+
+// AllInstances returns the ordered slice of all registered instances.
+func (r *Registry) AllInstances() []*InstanceInfo {
+	return r.instances
+}
+
+// AllPromotedKinds returns the promoted data name → kind map.
+func (r *Registry) AllPromotedKinds() map[string]types.Kind {
+	return r.promotedKinds
+}
+
+// AllPromotedCons returns the promoted constructor → kind map.
+func (r *Registry) AllPromotedCons() map[string]types.Kind {
+	return r.promotedCons
+}
+
+// AllFamilies returns the type family name → TypeFamilyInfo map.
+func (r *Registry) AllFamilies() map[string]*TypeFamilyInfo {
+	return r.families
+}

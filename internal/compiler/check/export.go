@@ -37,7 +37,7 @@ func (ch *Checker) ExportModule(prog *ir.Program) *ModuleExports {
 
 	// Constructors: only from owned data types.
 	filteredConInfo := make(map[string]*DataTypeInfo)
-	for name, info := range ch.reg.conInfo {
+	for name, info := range ch.reg.AllConInfo() {
 		if ownedDataNames[info.Name] && !env.IsPrivateName(name) {
 			filteredConInfo[name] = info
 		}
@@ -74,13 +74,13 @@ func (ch *Checker) ExportModule(prog *ir.Program) *ModuleExports {
 
 	// Promoted kinds/cons: only from owned data types.
 	ownedPromKinds := make(map[string]types.Kind)
-	for name, kind := range ch.reg.promotedKinds {
+	for name, kind := range ch.reg.AllPromotedKinds() {
 		if ownedDataNames[name] {
 			ownedPromKinds[name] = kind
 		}
 	}
 	ownedPromCons := make(map[string]types.Kind)
-	for name, kind := range ch.reg.promotedCons {
+	for name, kind := range ch.reg.AllPromotedCons() {
 		if info, ok := ch.reg.LookupConInfo(name); ok && ownedDataNames[info.Name] && !env.IsPrivateName(name) {
 			ownedPromCons[name] = kind
 		}
@@ -91,16 +91,16 @@ func (ch *Checker) ExportModule(prog *ir.Program) *ModuleExports {
 		ConTypes:           filteredConTypes,
 		ConstructorInfo:    filteredConInfo,
 		ConstructorsByType: consByType,
-		Aliases:            filterOwnedMap(ch.reg.aliases, impAliases),
-		Classes:            filterOwnedMap(ch.reg.classes, impClasses),
-		Instances:          ch.reg.instances,
+		Aliases:            filterOwnedMap(ch.reg.AllAliases(), impAliases),
+		Classes:            filterOwnedMap(ch.reg.AllClasses(), impClasses),
+		Instances:          ch.reg.AllInstances(),
 		Values:             values,
 		PromotedKinds:      ownedPromKinds,
 		PromotedCons:       ownedPromCons,
 		// TypeFamilies: export locally defined families and imported families
 		// that were enriched with new equations by this module (e.g. associated
 		// type instances). Purely inherited families are excluded.
-		TypeFamilies:   filterOwnedOrEnrichedFamilies(ch.reg.families, impFamilyEqCount),
+		TypeFamilies:   filterOwnedOrEnrichedFamilies(ch.reg.AllFamilies(), impFamilyEqCount),
 		OwnedTypeNames: ownedDataNames,
 		OwnedNames:     ownedAllNames(ownedDataNames, prog),
 	}
