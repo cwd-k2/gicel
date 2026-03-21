@@ -1,5 +1,33 @@
 # Changelog
 
+## v0.15.2 — 2026-03-22
+
+### Type Checker — Structure
+
+- **tryResolveInstance worklist isolation** — `tryResolveInstance` now saves and restores the solver worklist around resolution attempts; orphan constraints from failed `emitClassConstraint` calls no longer leak into subsequent `solveWanteds` cycles
+- **withProbe/withTrial separation** — new `withProbe` always rolls back unifier solutions regardless of outcome; `withTrial` retains commit-on-success semantics. Two call sites in `resolveQuantifiedConstraint` migrated to `withProbe` (pure unifiability tests that discard solutions)
+- **checkWithEvidence Push/Pop hardening** — replaced fragile `len(dicts)*2` literal with a `pushed` counter that tracks each `ctx.Push` call, ensuring Pop count stays correct if Push structure changes
+- **exhaust.CheckEnv callback** — `FreshID *int` raw pointer replaced with `Fresh func() int` callback, confining `freshID` mutation to `Session`
+
+### Type Checker — Boundaries
+
+- **qualified name injection** — `resolveTypeExpr` no longer mutates Registry when encountering qualified type references (`M.Alias`, `M.Family`); injections are cached in `Scope.injectedAliases`/`injectedFamilies` instead. Registry writes are now confined to declaration processing phases
+- **Registry read accessors** — 16 read methods added (`LookupConType`, `LookupClass`, `InstancesForClass`, `ClassFromDict`, `IsKindVar`, etc.); all single-key map lookups across 14 files migrated to method calls. Internal representation is now encapsulated
+- **Checker-level lookupAlias/lookupFamily** — unified lookup that searches both Registry (declaration phases) and Scope injections (qualified references), with nil-safe fallback for test Checkers
+
+### Type Checker — Contracts
+
+- **solver.level reservation** — documented as reserved for OutsideIn(X) L4 touchability; code assuming `level == 0` flagged for future review
+- **resolveInstance recursion contract** — depth limit (budget.EnterResolve, default 64), no cycle detection, and meta solution accumulation semantics documented
+- **Registry phase annotations** — `RegisterAlias` (phase 2), `RegisterFamily` (phase 3) annotated; qualified names use Scope injection instead
+- **withTrial/withProbe scope contracts** — documented MUST NOT constraints (emit constraints, push/pop context, mutate inert set)
+
+### Cleanup
+
+- **evidence.go removed** — empty file (package declaration only)
+
+---
+
 ## v0.15.1 — 2026-03-22
 
 ### Parser
