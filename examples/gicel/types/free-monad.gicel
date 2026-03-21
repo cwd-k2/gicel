@@ -5,7 +5,7 @@
 --   1. Direct embedding — effect constructors in the monad type
 --   2. Generic Free f — factors out the effect functor via Functor f
 -- Requires: --recursion (mbind and interpreters use fix)
--- Run: gicel run --recursion examples/gicel/types/ixmonad.gicel
+-- Run: gicel run --recursion examples/gicel/types/free-monad.gicel
 
 import Prelude
 
