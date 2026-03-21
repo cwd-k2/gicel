@@ -40,14 +40,18 @@ func (ch *Checker) extractDictField(classInfo *ClassInfo, dictExpr ir.Core, fiel
 
 // tryResolveInstance attempts instance resolution without emitting errors.
 // Returns the dictionary expression and true on success, or nil and false if
-// resolution fails. Any errors produced during the attempt are discarded.
+// resolution fails. Any errors and worklist side effects produced during the
+// attempt are discarded on failure.
 func (ch *Checker) tryResolveInstance(className string, args []types.Type, s span.Span) (ir.Core, bool) {
-	saved := ch.errors.Len()
+	savedErrs := ch.errors.Len()
+	savedWorklist := ch.solver.worklist.Drain()
 	dict := ch.resolveInstance(className, args, s)
-	if ch.errors.Len() > saved {
-		ch.errors.Truncate(saved)
+	if ch.errors.Len() > savedErrs {
+		ch.errors.Truncate(savedErrs)
+		ch.solver.worklist.Load(savedWorklist) // restore, discard orphans
 		return nil, false
 	}
+	ch.solver.worklist.Load(append(savedWorklist, ch.solver.worklist.Drain()...))
 	return dict, true
 }
 
