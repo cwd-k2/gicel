@@ -146,7 +146,11 @@ func (p *Parser) parseKindAtom() syn.KindExpr {
 
 func (p *Parser) parseTypeApp() syn.TypeExpr {
 	f := p.parseTypeAtom()
+	pg := p.newProgressGuard("type application chain")
 	for p.isTypeAtomStart() {
+		if !pg.Begin() {
+			break
+		}
 		arg := p.parseTypeAtom()
 		f = &syn.TyExprApp{
 			Fun: f, Arg: arg,
@@ -243,7 +247,11 @@ func (p *Parser) parseRowType() syn.TypeExpr {
 	var fields []syn.TyRowField
 	var tail *syn.TyExprVar
 
+	pg := p.newProgressGuard("row type")
 	for {
+		if !pg.Begin() {
+			break
+		}
 		if p.peek().Kind == syn.TokPipe {
 			p.advance()
 			if p.peek().Kind == syn.TokLower {

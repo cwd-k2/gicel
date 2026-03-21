@@ -54,6 +54,62 @@ func (g *parserGuard) reset() {
 	g.halted = false
 }
 
+// progressGuard enforces iteration limits on parser loops that are not
+// bounded by explicit token types (e.g. comma-separated lists with break).
+// It detects stagnation (no position change) and forces recovery.
+type progressGuard struct {
+	parser  *Parser
+	context string
+	maxIter int
+	iter    int
+	before  int
+}
+
+// newProgressGuard creates a progress guard for the named loop context.
+// maxIter defaults to max(len(tokens)*2, 100).
+func (p *Parser) newProgressGuard(context string) progressGuard {
+	return progressGuard{
+		parser:  p,
+		context: context,
+		maxIter: max(len(p.tokens)*2, 100),
+	}
+}
+
+// Begin must be called at the top of each loop iteration. It returns false
+// if the loop should terminate (iteration limit, cancellation, or halt).
+func (pg *progressGuard) Begin() bool {
+	pg.iter++
+	if pg.iter > pg.maxIter {
+		pg.parser.halt("iteration limit exceeded in " + pg.context)
+		return false
+	}
+	select {
+	case <-pg.parser.ctx.Done():
+		pg.parser.halt("parser cancelled: " + pg.parser.ctx.Err().Error())
+	default:
+	}
+	if pg.parser.guard.isHalted() {
+		return false
+	}
+	pg.before = pg.parser.pos
+	return true
+}
+
+// DidProgress returns true if the parser position advanced since Begin().
+func (pg *progressGuard) DidProgress() bool {
+	return pg.parser.pos != pg.before
+}
+
+// RecoverStagnation emits an error and forces progress when the parser
+// has not advanced during the current iteration.
+func (pg *progressGuard) RecoverStagnation() {
+	pg.parser.addErrorCode(diagnostic.ErrUnexpectedToken, "unexpected token in "+pg.context)
+	pg.parser.syncToStmtBoundary()
+	if pg.parser.pos == pg.before {
+		pg.parser.advance()
+	}
+}
+
 // Parser is a Pratt parser for the surface language.
 type Parser struct {
 	ctx         context.Context // external cancellation (nil-safe)
@@ -354,39 +410,14 @@ func (p *Parser) parseBodyOpts(bodyCtx string, openSpan span.Span, methodBody bo
 		p.methodBodyMode = true
 	}
 	defer func() { p.methodBodyMode = savedMethodMode }()
-	// Iteration limit: at most 2× the total token count. Any well-formed
-	// body terminates far below this; the limit catches pathological
-	// stagnation that advance() alone cannot prevent (e.g. V6 pattern).
-	maxIter := max(len(p.tokens)*2, 100)
-	iter := 0
+	pg := p.newProgressGuard(bodyCtx)
 	for p.peek().Kind != syn.TokRBrace && p.peek().Kind != syn.TokEOF {
-		iter++
-		if iter > maxIter {
-			p.halt("parseBody iteration limit exceeded in " + bodyCtx)
+		if !pg.Begin() {
 			break
 		}
-		// Context cancellation check (non-blocking).
-		select {
-		case <-p.ctx.Done():
-			p.halt("parser cancelled: " + p.ctx.Err().Error())
-		default:
-		}
-		if p.guard.isHalted() {
-			break
-		}
-		before := p.pos
 		parse()
-		if p.pos == before {
-			// Stagnation: callback consumed nothing. Error-recover before
-			// checking separators to prevent infinite loops (V6: a newline
-			// token with NewlineBefore would otherwise be treated as an
-			// implicit separator, masking the stagnation).
-			p.addErrorCode(diagnostic.ErrUnexpectedToken, "unexpected token in "+bodyCtx)
-			p.syncToStmtBoundary()
-			if p.pos == before {
-				// syncToStmtBoundary did not advance — force progress.
-				p.advance()
-			}
+		if !pg.DidProgress() {
+			pg.RecoverStagnation()
 		} else if p.peek().Kind == syn.TokSemicolon {
 			p.advance()
 		} else if p.peek().NewlineBefore || p.peek().Kind == syn.TokRBrace {
@@ -454,12 +485,14 @@ func (p *Parser) speculate(fn func() bool) bool {
 	savedPos := p.pos
 	savedDepth := p.depth
 	savedErrLen := p.errors.Len()
+	savedSteps := p.guard.steps
 	if fn() {
 		return true
 	}
 	p.pos = savedPos
 	p.depth = savedDepth
 	p.errors.Truncate(savedErrLen)
+	p.guard.steps = savedSteps
 	return false
 }
 

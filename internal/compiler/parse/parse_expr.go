@@ -39,8 +39,12 @@ func (p *Parser) parseInfix(minPrec int) syn.Expr {
 // already-parsed left operand. This enables parseParen to detect
 // left operator sections between parseApp and infix continuation.
 func (p *Parser) continueInfix(left syn.Expr, minPrec int) syn.Expr {
+	pg := p.newProgressGuard("infix chain")
 	prevNonePrec := -1 // precedence of last non-associative op, or -1
 	for p.isInfixOp() {
+		if !pg.Begin() {
+			break
+		}
 		op := p.peek().Text
 		fix := p.lookupFixity(op)
 		if fix.Prec < minPrec {
@@ -84,7 +88,11 @@ func (p *Parser) parseApp() syn.Expr {
 		p.addErrorCode(diagnostic.ErrMissingBody, "expected expression")
 		return &syn.ExprError{S: span.Span{Start: span.Pos(p.pos), End: span.Pos(p.pos)}}
 	}
+	pg := p.newProgressGuard("application chain")
 	for (p.isAtomStart() || p.peek().Kind == syn.TokAt) && !p.atStmtBoundary() {
+		if !pg.Begin() {
+			break
+		}
 		if p.peek().Kind == syn.TokAt {
 			p.advance()
 			ty := p.parseTypeAtom()

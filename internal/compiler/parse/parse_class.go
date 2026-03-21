@@ -62,7 +62,11 @@ func (p *Parser) parseClassDecl() *syn.DeclClass {
 		p.advance() // consume =>
 
 		// Support multiple superclass constraints: Super1 a => Super2 a => ... => ClassName params
+		pgSuper := p.newProgressGuard("superclass chain")
 		for {
+			if !pgSuper.Begin() {
+				break
+			}
 			nextName := p.expectUpper()
 			nextArgs := p.parseClassTyArgs()
 			if p.peek().Kind == syn.TokFatArrow {
@@ -247,7 +251,11 @@ func (p *Parser) parseInstanceDecl() *syn.DeclInstance {
 	var context []syn.TypeExpr
 
 	// Loop: accumulate constraints until we find the actual class head.
+	pg := p.newProgressGuard("instance constraints")
 	for {
+		if !pg.Begin() {
+			break
+		}
 		// Parenthesized constraint(s): (Eq a) => or (Eq a, Ord a) => ...
 		if p.peek().Kind == syn.TokLParen {
 			matched := p.speculate(func() bool {

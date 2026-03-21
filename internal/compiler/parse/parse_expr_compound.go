@@ -153,7 +153,11 @@ func (p *Parser) parseBlock() syn.Expr {
 
 func (p *Parser) parseRecordLiteral(start span.Pos, openSpan span.Span) syn.Expr {
 	var fields []syn.RecordField
+	pg := p.newProgressGuard("record literal")
 	for p.peek().Kind != syn.TokRBrace && p.peek().Kind != syn.TokEOF {
+		if !pg.Begin() {
+			break
+		}
 		fStart := p.peek().S.Start
 		label := p.expectLower()
 		p.expect(syn.TokColon)
@@ -180,7 +184,11 @@ func (p *Parser) parseRecordUpdate(start span.Pos, openSpan span.Span) syn.Expr 
 
 func (p *Parser) parseRecordUpdateFields(start span.Pos, openSpan span.Span, record syn.Expr) syn.Expr {
 	var updates []syn.RecordField
+	pg := p.newProgressGuard("record update")
 	for p.peek().Kind != syn.TokRBrace && p.peek().Kind != syn.TokEOF {
+		if !pg.Begin() {
+			break
+		}
 		fStart := p.peek().S.Start
 		label := p.expectLower()
 		p.expect(syn.TokColon)
