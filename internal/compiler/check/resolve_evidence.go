@@ -87,7 +87,7 @@ func (ch *Checker) resolveQuantifiedConstraint(qc *types.QuantifiedConstraint, s
 		// Also create fresh metas for the instance's own free vars.
 		instSubst := ch.freshInstanceSubst(inst)
 
-		if !ch.withTrial(func() bool {
+		if !ch.withProbe(func() bool {
 			for i := range qc.Head.Args {
 				headArg := types.SubstMany(qc.Head.Args[i], freshSubst)
 				instArg := types.SubstMany(inst.TypeArgs[i], instSubst)
@@ -110,6 +110,7 @@ func (ch *Checker) resolveQuantifiedConstraint(qc *types.QuantifiedConstraint, s
 		}
 
 		// The instance dict binding has the right type.
+		// Solutions are not needed — only the binding name matters.
 		return &ir.Var{Name: inst.DictBindName, Module: inst.Module, S: s}
 	}
 
@@ -138,7 +139,7 @@ func (ch *Checker) resolveQuantifiedConstraint(qc *types.QuantifiedConstraint, s
 		for _, v := range eq.Vars {
 			evidenceSubst[v.Name] = ch.freshMeta(v.Kind)
 		}
-		if !ch.withTrial(func() bool {
+		if !ch.withProbe(func() bool {
 			for i := range qc.Head.Args {
 				wantedArg := types.SubstMany(qc.Head.Args[i], wantedSubst)
 				evidenceArg := types.SubstMany(eq.Head.Args[i], evidenceSubst)
@@ -158,6 +159,7 @@ func (ch *Checker) resolveQuantifiedConstraint(qc *types.QuantifiedConstraint, s
 		}) {
 			return true
 		}
+		// Solutions are not needed — only the binding name matters.
 		qcResult = &ir.Var{Name: e.DictName, S: s}
 		return false
 	})

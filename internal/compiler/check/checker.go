@@ -417,8 +417,10 @@ func (s *Session) restoreState(snap checkerSnapshot) {
 // withTrial runs fn in a trial unification scope. If fn returns false,
 // the unifier state (meta solutions, labels, kind solutions, skolem
 // solutions) is rolled back to the snapshot taken before fn was called.
+// On success, solutions committed inside fn are preserved.
 // Constraint state (inert set, worklist), context, and errors are NOT
 // rolled back — trials test unifiability, not constraint satisfiability.
+// MUST NOT: emit constraints, push/pop context, mutate inert set.
 func (s *Session) withTrial(fn func() bool) bool {
 	saved := s.saveState()
 	if fn() {
@@ -426,6 +428,17 @@ func (s *Session) withTrial(fn func() bool) bool {
 	}
 	s.restoreState(saved)
 	return false
+}
+
+// withProbe runs fn in a probe scope. Unifier solutions are ALWAYS
+// rolled back regardless of fn's return value. Use for pure
+// unifiability tests where the answer matters but the solutions don't.
+// MUST NOT: emit constraints, push/pop context, mutate inert set.
+func (s *Session) withProbe(fn func() bool) bool {
+	saved := s.saveState()
+	result := fn()
+	s.restoreState(saved)
+	return result
 }
 
 // withDeferredScope runs fn in an isolated constraint scope.
