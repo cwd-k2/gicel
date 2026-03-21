@@ -314,6 +314,7 @@ func (ch *Checker) checkWithEvidence(expr syntax.Expr, ev *types.TyEvidence) ir.
 		ty    types.Type
 	}
 	dicts := make([]dictInfo, len(ev.Constraints.ConEntries()))
+	pushed := 0
 	for i, entry := range ev.Constraints.ConEntries() {
 		var dictTy types.Type
 		var className string
@@ -340,6 +341,7 @@ func (ch *Checker) checkWithEvidence(expr syntax.Expr, ev *types.TyEvidence) ir.
 		dictParam := fmt.Sprintf("%s_%s_%d", prefixDict, className, ch.fresh())
 		dicts[i] = dictInfo{param: dictParam, ty: dictTy}
 		ch.ctx.Push(&CtxVar{Name: dictParam, Type: dictTy})
+		pushed++
 		ch.ctx.Push(&CtxEvidence{
 			ClassName:  className,
 			Args:       args,
@@ -347,10 +349,11 @@ func (ch *Checker) checkWithEvidence(expr syntax.Expr, ev *types.TyEvidence) ir.
 			DictType:   dictTy,
 			Quantified: entry.Quantified,
 		})
+		pushed++
 	}
 	bodyCore := ch.check(expr, ev.Body)
 	bodyCore = ch.resolveDeferredConstraints(bodyCore)
-	for i := 0; i < len(dicts)*2; i++ {
+	for range pushed {
 		ch.ctx.Pop()
 	}
 	for i := len(dicts) - 1; i >= 0; i-- {
