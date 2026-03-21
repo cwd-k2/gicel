@@ -4,6 +4,7 @@
 package check
 
 import (
+	"context"
 	"testing"
 
 	"github.com/cwd-k2/gicel/internal/compiler/check/unify"
@@ -28,7 +29,7 @@ main := eq True False`
 		l := parse.NewLexer(src)
 		tokens, _ := l.Tokenize()
 		es := &diagnostic.Errors{Source: src}
-		p := parse.NewParser(tokens, es)
+		p := parse.NewParser(context.Background(), tokens, es)
 		ast := p.ParseProgram()
 		Check(ast, src, nil)
 	}

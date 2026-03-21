@@ -367,8 +367,9 @@ main := x
 	if err == nil {
 		t.Fatal("expected error from infinite type family")
 	}
-	if !strings.Contains(err.Error(), "reduction limit") {
-		t.Fatalf("expected 'reduction limit' in error, got: %v", err)
+	errMsg := err.Error()
+	if !strings.Contains(errMsg, "reduction limit") && !strings.Contains(errMsg, "result type too large") {
+		t.Fatalf("expected type family reduction error, got: %v", err)
 	}
 }
 

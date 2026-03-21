@@ -11,7 +11,7 @@
 ## V1: String Literal Allocation Limit Bypass
 
 **Severity**: HIGH
-**Status**: Open
+**Status**: Fixed (commit `7197306`)
 **Reproduction**: `tests/stress/stress_adversarial_test.go` — `TestAdversarial_StringLiteral_BypassAllocLimit`
 
 ### Description
@@ -39,6 +39,7 @@ Eval (case *ir.Lit)         → wraps in HostVal{Inner: ...}   ← NO BUDGET
 ```
 
 **Files involved**:
+
 - `internal/compiler/parse/lexer.go:369-433` — string scanning
 - `internal/runtime/eval/eval.go:312-313` — `ir.Lit` case (zero alloc charge)
 - `internal/infra/budget/budget.go:112-118` — `Alloc()` (never called for literals)
@@ -74,7 +75,7 @@ resource usage.
 ## V2: `check` Command Has No Timeout
 
 **Severity**: MEDIUM
-**Status**: Open
+**Status**: Fixed (commit `7197306`)
 **Reproduction**: `bin/gicel check --help` — no `--timeout` flag listed
 
 ### Description
@@ -109,7 +110,7 @@ Add `--timeout` to the `check` subcommand, mirroring `run`. Apply
 ## V3: No Input Size Validation
 
 **Severity**: LOW–MEDIUM
-**Status**: Open
+**Status**: Fixed (commit `7197306`)
 
 ### Description
 
@@ -171,7 +172,7 @@ streamed, so memory usage remains proportional to evaluation, not output.
 ## V5: Evidence Dictionary Scope Loss on Long Operator Chains
 
 **Severity**: MEDIUM
-**Status**: Open
+**Status**: Fixed (commit `7197306`)
 **Reproduction**: `tests/stress/stress_adversarial_test.go` — `TestAdversarial_LongOperatorChain_EvidenceLimit`
 
 ### Description
@@ -200,10 +201,94 @@ with scope trimming or environment management.
 
 ---
 
+## V7: GADT Type Refinement Lost in Polymorphic Recursive Functions
+
+**Severity**: MEDIUM (functional limitation)
+**Status**: Fixed
+**Commit**: `e8b2cd7` (v0.14)
+
+### Description
+
+GADT pattern matching does not refine the return type variable inside
+a polymorphic recursive function. The type checker rejects the canonical
+GADT use case — a type-safe expression evaluator:
+
+```gicel
+data Expr a := {
+  LitI :: Int -> Expr Int;
+  LitB :: Bool -> Expr Bool;
+  Add  :: Expr Int -> Expr Int -> Expr Int;
+  If_  :: Expr Bool -> Expr a -> Expr a -> Expr a
+}
+
+-- This is rejected:
+eval :: \a. Expr a -> a
+eval := \e. case e {
+  LitI n -> n;           -- Error: expected #a, got Int
+  LitB b -> b;           -- Error: expected #a, got Bool
+  Add x y -> eval x + eval y;   -- Error: expected Expr #a, got Expr Int
+  If_ c t f -> case eval c { True -> eval t; False -> eval f }
+}
+```
+
+Errors: `cannot unify Int with rigid type variable #a` (and similar for
+`Bool`). The checker does not refine `#a ~ Int` when matching on `LitI`,
+nor `#a ~ Bool` when matching on `LitB`.
+
+### Shallow Pattern Matching Works
+
+Non-recursive functions with a concrete return type do work:
+
+```gicel
+getInt :: Expr Int -> Maybe Int
+getInt := \e. case e { LitInt n -> Just n; _ -> Nothing }
+-- OK: #a is already Int from the argument type
+```
+
+The existing `examples/gicel/types/gadts.gicel` demonstrates this
+shallow-match pattern.
+
+### Impact
+
+GADT type refinement is the primary mechanism for embedding type-safe
+DSLs. Without recursive eval, GADTs are limited to shallow destructors
+— a significant loss of expressive power. This blocks the canonical
+use cases:
+
+- Type-safe expression evaluator
+- Typed printf / format strings
+- Type-safe protocol state machines with recursive processing
+- Singleton-style proofs
+
+### Root Cause (Hypothesis)
+
+When the checker introduces a skolem for the `\a` in `eval :: \a. Expr a -> a`
+and then checks the `case` branches, the GADT constructor's type equality
+(e.g., `LitI :: Int -> Expr Int` implies `a ~ Int`) must be recorded as a
+local type refinement for the branch body. Either:
+
+1. The case-branch checker does not extract type equalities from GADT
+   constructor return types, or
+2. The equalities are extracted but not propagated into the skolem's
+   unification scope.
+
+OutsideIn(X) handles this via "given" equalities local to each branch.
+The DK bidirectional system may need explicit local-equality support to
+implement this correctly.
+
+### Fix Direction
+
+Implement local given equalities in GADT case branches. When a GADT
+constructor `C :: ... -> T τ₁ ... τₙ` is matched against a scrutinee of
+type `T α₁ ... αₙ`, emit local equalities `αᵢ ~ τᵢ` that are available
+only within that branch's checking scope.
+
+---
+
 ## V6: Parser Hang on Multiline Instance Method Body
 
 **Severity**: MEDIUM
-**Status**: Open — confirmed reproducible (2026-03-21)
+**Status**: Fixed (commit `56427c2`, defense strengthened with parseBody iteration limit + context propagation)
 **Commit**: `e8b2cd7` (v0.14)
 
 ### Description
@@ -342,6 +427,7 @@ then checks for stagnation (`p.pos == before`), calls
 advance past the parenthesized expression, creating the infinite loop.
 
 **Key files**:
+
 - `internal/compiler/parse/parse_class.go:316-341` — `parseInstBody`
 - `internal/compiler/parse/parser.go:305-326` — `parseBody`
 - Stagnation recovery logic in `syncToStmtBoundary`
@@ -425,11 +511,225 @@ calls), proving the user code's type checking was never reached.
 The solver step limit added to `solveWanteds` (100K steps) does not
 help because the solver is never invoked — the hang precedes it. The
 initial hypothesis about DK ordered context + polymorphic function
-unification was incorrect; it described what *would* happen if the
+unification was incorrect; it described what _would_ happen if the
 parser produced an AST, but the parser never completes.
 
-These points described what *would* happen if the parser produced an
+These points described what _would_ happen if the parser produced an
 AST, but the parser never completes. Retained for reference only.
+
+---
+
+## V8: `do` Notation Runtime Error with User-Defined IxMonad
+
+**Severity**: MEDIUM
+**Status**: Fixed (Monad dispatch fallback in do-notation elaboration)
+**Commit**: `e8b2cd7` (v0.14)
+
+### Description
+
+When a user-defined monad has both a `Monad` and `IxMonad` instance, using
+`do` notation (which dispatches via `IxMonad` + `Lift`) produces a runtime
+non-exhaustive pattern match error, even though the same computation works
+correctly with explicit `mbind` calls.
+
+### Reproduction
+
+```gicel
+import Prelude
+
+data Reader e a := MkReader (e -> a)
+
+runReader :: \e a. Reader e a -> e -> a
+runReader := \r env. case r { MkReader f -> f env }
+
+ask :: \e. Reader e e
+ask := MkReader (\e. e)
+
+instance Monad (Reader e) {
+  mpure := \a. MkReader (\_. a);
+  mbind := \ma f. MkReader (\env. runReader (f (runReader ma env)) env)
+}
+
+instance IxMonad (Reader e) {
+  ixpure := \a. MkReader (\_. a);
+  ixbind := \ma f. MkReader (\env. runReader (f (runReader ma env)) env)
+}
+
+-- This WORKS:
+prog_ok := mbind ask (\x. mpure (append "port=" (show x)))
+
+-- This FAILS at runtime:
+prog_bad :: Reader Int String
+prog_bad := do { x <- ask; pure (append "port=" (show x)) }
+
+main := runReader prog_ok 8080   -- "port=8080" ✓
+-- main := runReader prog_bad 8080  -- runtime error: non-exhaustive pattern match
+```
+
+Error: `runtime error: non-exhaustive pattern match on HostVal(8080)`
+
+### Trigger Condition
+
+The do-block's bind produces a value of type `m a`, then the continuation
+produces `m b` where **`a ≠ b`**. When `a = b`, everything works:
+
+```gicel
+-- OK:  Reader Int Int  (bind returns Int, continuation returns Int)
+prog_ok :: Reader Int Int
+prog_ok := do { x <- ask; pure (x + 1) }
+
+-- FAIL: Reader Int String  (bind returns Int, continuation returns String)
+prog_bad :: Reader Int String
+prog_bad := do { x <- ask; pure (show x) }
+```
+
+### Root Cause (Hypothesis)
+
+`do` notation dispatches through `IxMonad (Lift (Reader e))`. The `Lift`
+wrapper's elaboration may incorrectly reuse the bind result type for
+the continuation's parameter, causing the evaluator to encounter a
+raw `HostVal` (the environment `Int`) where it expects a `ConVal
+(MkReader ...)` after the type changes from `a` to `b` in the bind.
+
+### Impact
+
+Users who define custom monads and want to use `do` notation must fall back
+to explicit `mbind`/`mpure` chains, negating the ergonomic benefit of
+do-notation.
+
+---
+
+## V9: `fix` Cannot Produce Data Constructor Values
+
+**Severity**: LOW–MEDIUM
+**Status**: Documented (CBV structural limitation; error message improved)
+**Commit**: `e8b2cd7` (v0.14)
+
+### Description
+
+`fix` works correctly when the fixed-point body is a function (lambda),
+but fails at runtime when the body returns a data constructor application.
+
+### Reproduction
+
+```gicel
+import Prelude
+
+data EvenOdd := MkEO (Int -> Bool) (Int -> Bool)
+
+getEven :: EvenOdd -> Int -> Bool
+getEven := \eo. case eo { MkEO e _ -> e }
+
+getOdd :: EvenOdd -> Int -> Bool
+getOdd := \eo. case eo { MkEO _ o -> o }
+
+-- Mutual recursion via product-of-functions fixpoint — FAILS:
+eo := fix (\self. MkEO
+  (\n. case eq n 0 { True -> True;  False -> getOdd self (n - 1) })
+  (\n. case eq n 0 { True -> False; False -> getEven self (n - 1) }))
+
+main := getEven eo 4
+```
+
+Error: `runtime error: non-exhaustive pattern match on Closure(_arg, ...)`
+
+The `case self { MkEO e _ -> e }` inside `getEven` receives a `Closure`
+(the unevaluated fixpoint thunk) instead of a `ConVal (MkEO ...)`.
+
+### Workaround
+
+Encode mutual recursion as a single recursive function with a flag or
+use `fix` on a function that returns a tuple:
+
+```gicel
+-- Works: fix on a function
+isEven := fix (\self n. case eq n 0 { True -> True; False -> not (self (n - 1)) })
+```
+
+### Root Cause
+
+In strict (CBV) evaluation, `fix f = f (fix f)` diverges when `f`'s
+result is not a function. GICEL's `fix` uses a recursive closure
+mechanism that expects the body to be a lambda — when the body is a
+constructor application, the closure is passed as `self` without being
+forced, so pattern matching encounters a `Closure` instead of a `ConVal`.
+
+---
+
+## V10: Nested `case` Brace Ambiguity
+
+**Severity**: LOW
+**Status**: Fixed (noBraceAtom reset in parseParen)
+**Commit**: `e8b2cd7` (v0.14)
+
+### Description
+
+When a `case` expression appears inside parentheses followed by another
+`case`, the parser misinterprets the closing `}` of the inner case:
+
+```gicel
+-- This FAILS to parse:
+test := case (case Just True { Just b -> b; Nothing -> False }) { True -> "yes"; False -> "no" }
+```
+
+Error: `expected }` at the `->` after `True` in the outer case.
+
+### Workaround
+
+Extract the inner case to a separate binding:
+
+```gicel
+inner := case Just True { Just b -> b; Nothing -> False }
+test := case inner { True -> "yes"; False -> "no" }
+```
+
+### Root Cause
+
+The parser's brace-matching does not correctly track that `}` closes
+the inner `case` when the `case` is inside parentheses. The `) {` token
+sequence (closing paren of the scrutinee, opening brace of the outer case)
+likely confuses the parser's statement-boundary or brace-depth tracking.
+
+### Impact
+
+Low severity — easily worked around and relatively uncommon in practice.
+Does not cause hangs or incorrect behavior, only a parse error.
+
+---
+
+## V11: Stale "No Recursion in CLI" Comments in Examples
+
+**Severity**: LOW (documentation / usability)
+**Status**: Fixed (examples updated with --recursion examples and V7 note)
+**Commit**: `e8b2cd7` (v0.14)
+
+### Description
+
+Two example files contain comments stating recursive functions are "not
+available in standalone CLI mode", but `--recursion` has been available
+in the CLI since at least v0.14:
+
+- `examples/gicel/types/gadts.gicel` line 7–9: claims recursive functions
+  require EnableRecursion "not available in standalone CLI mode", then
+  avoids defining a recursive `eval`. The real reason `eval` can't be
+  written is V7 (GADT type refinement), not CLI unavailability.
+
+- `examples/gicel/types/recursive-data.gicel` line 5–6: same claim,
+  resulting in an example that only demonstrates shallow pattern matching
+  on `Nat` and `Tree`, without `toInt`, `depth`, or any recursive function.
+
+### Impact
+
+Users reading these examples are misled about CLI capabilities and miss
+the opportunity to learn recursive patterns. The comments mask V7 (the
+real limitation for GADTs) and make recursion seem less accessible than
+it is.
+
+### Fix
+
+Update both files: remove the stale CLI claims, add `--recursion`
+examples where possible (e.g., `toInt` for `Nat`, `depth` for `Tree`),
+and explicitly note V7 as the reason GADT `eval` cannot be written.
 
 ---
 
@@ -438,20 +738,20 @@ AST, but the parser never completes. Retained for reference only.
 The following defenses were confirmed as fully operational across 115+
 adversarial test cases:
 
-| Defense Layer              | Mechanism                    | Tests      |
-| -------------------------- | ---------------------------- | ---------- |
+| Defense Layer              | Mechanism                    | Tests       |
+| -------------------------- | ---------------------------- | ----------- |
 | Parser recursion limit     | `maxRecurseDepth = 256`      | 500-deep () |
-| Parser step limit          | `tokens × 4`                 | 10K ops    |
-| Step limit                 | `budget.Step()`              | fix loops  |
-| Depth limit                | `budget.Enter()/Leave()`     | do-blocks  |
-| Nesting limit              | `budget.Nest()/Unnest()`     | deep App   |
-| Alloc limit (runtime)      | `budget.Alloc()`             | Cons, <>   |
-| Timeout                    | `context.WithTimeout`        | last resort|
-| Panic recovery             | `defer recover()` in sandbox | always     |
-| Type family fuel           | reduction counter             | Loop TF    |
-| Pattern exhaustiveness     | compile-time checker          | missing C  |
-| Overlap detection          | instance resolver             | C a vs Int |
-| Integer literal validation | lexer                         | huge int   |
-| Duplicate import detection | scope checker                 | 20× import |
-| Error truncation           | diagnostic formatter          | 5K errors  |
-| Value sharing              | DAG evaluation (not tree)     | 2^20 tree  |
+| Parser step limit          | `tokens × 4`                 | 10K ops     |
+| Step limit                 | `budget.Step()`              | fix loops   |
+| Depth limit                | `budget.Enter()/Leave()`     | do-blocks   |
+| Nesting limit              | `budget.Nest()/Unnest()`     | deep App    |
+| Alloc limit (runtime)      | `budget.Alloc()`             | Cons, <>    |
+| Timeout                    | `context.WithTimeout`        | last resort |
+| Panic recovery             | `defer recover()` in sandbox | always      |
+| Type family fuel           | reduction counter            | Loop TF     |
+| Pattern exhaustiveness     | compile-time checker         | missing C   |
+| Overlap detection          | instance resolver            | C a vs Int  |
+| Integer literal validation | lexer                        | huge int    |
+| Duplicate import detection | scope checker                | 20× import  |
+| Error truncation           | diagnostic formatter         | 5K errors   |
+| Value sharing              | DAG evaluation (not tree)    | 2^20 tree   |

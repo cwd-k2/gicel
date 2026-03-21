@@ -4,6 +4,7 @@
 package check
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"testing"
@@ -20,7 +21,7 @@ func benchCheck(b *testing.B, source string) {
 	l := parse.NewLexer(src)
 	tokens, _ := l.Tokenize()
 	es := &diagnostic.Errors{Source: src}
-	p := parse.NewParser(tokens, es)
+	p := parse.NewParser(context.Background(), tokens, es)
 	ast := p.ParseProgram()
 	_, checkErrs := Check(ast, src, nil)
 	if checkErrs.HasErrors() {

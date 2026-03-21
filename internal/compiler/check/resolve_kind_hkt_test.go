@@ -1,6 +1,7 @@
 package check
 
 import (
+	"context"
 	"testing"
 
 	"github.com/cwd-k2/gicel/internal/compiler/parse"
@@ -91,7 +92,7 @@ func parseKindPoly(t *testing.T, source string) {
 		t.Fatal("lex errors:", lexErrs.Format())
 	}
 	es := &diagnostic.Errors{Source: src}
-	p := parse.NewParser(tokens, es)
+	p := parse.NewParser(context.Background(), tokens, es)
 	_ = p.ParseProgram()
 	if es.HasErrors() {
 		t.Fatal("parse errors:", es.Format())

@@ -42,6 +42,9 @@ type CheckConfig struct {
 	CurrentModule   string              // module being compiled ("" = user main source)
 	EntryPoint      string              // non-empty enables bare Computation check; that name is exempt
 	NestingLimit    int                 // structural nesting depth limit (0 = disabled)
+	MaxTFSteps      int                 // type family reduction step limit (0 = default 50000)
+	MaxSolverSteps  int                 // constraint solver step limit (0 = default 100000)
+	MaxResolveDepth int                 // instance resolution depth limit (0 = default 64)
 }
 
 // ModuleExports carries the type-level information exported by a compiled module.
@@ -219,7 +222,6 @@ type Solver struct {
 	worklist       Worklist
 	inertSet       InertSet
 	ambiguityCache map[string]bool // per-solveWanteds cache; lazily allocated
-	resolveDepth   int             // instance resolution recursion depth
 	level          int             // implication nesting depth for touchability (0 = top-level)
 }
 
@@ -238,14 +240,6 @@ func (s *Solver) Emit(ct Ct) {
 // Level returns the current implication nesting depth for touchability.
 func (s *Solver) Level() int {
 	return s.level
-}
-
-// EnterResolve increments the resolution depth and returns whether the
-// limit is exceeded. The caller must defer the returned exit function.
-func (s *Solver) EnterResolve() (ok bool, exit func()) {
-	s.resolveDepth++
-	exit = func() { s.resolveDepth-- }
-	return s.resolveDepth <= maxResolveDepth, exit
 }
 
 // RegisterStuckFunEq inserts a stuck type family equation into the inert
@@ -372,10 +366,25 @@ func newChecker(prog *syntax.AstProgram, source *span.Source, config *CheckConfi
 	session := &Session{
 		ctx: NewContext(),
 		budget: func() *budget.Budget {
-			b := budget.New(ctx, family.MaxReductionWork, 0)
+			b := budget.New(ctx, 0, 0) // eval steps/depth not used during checking
 			if config.NestingLimit > 0 {
 				b.SetNestingLimit(config.NestingLimit)
 			}
+			maxTF := config.MaxTFSteps
+			if maxTF <= 0 {
+				maxTF = 50_000 // default: family.MaxReductionWork
+			}
+			b.SetTFStepLimit(maxTF)
+			maxSolver := config.MaxSolverSteps
+			if maxSolver <= 0 {
+				maxSolver = 100_000 // default: maxSolverSteps
+			}
+			b.SetSolverStepLimit(maxSolver)
+			maxResolve := config.MaxResolveDepth
+			if maxResolve <= 0 {
+				maxResolve = 64 // default: maxResolveDepth
+			}
+			b.SetResolveDepthLimit(maxResolve)
 			return b
 		}(),
 		errors: &diagnostic.Errors{Source: source},

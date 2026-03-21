@@ -24,6 +24,14 @@ type Budget struct {
 	maxNesting int
 	alloc      int64
 	maxAlloc   int64
+
+	// Compiler dimensions — type checking resource limits.
+	tfSteps         int
+	maxTFSteps      int
+	solverSteps     int
+	maxSolverSteps  int
+	resolveDepth    int
+	maxResolveDepth int
 }
 
 // New creates a Budget with the given step and depth limits.
@@ -58,6 +66,33 @@ func (b *Budget) SetAllocLimit(bytes int64) {
 		bytes = 0
 	}
 	b.maxAlloc = bytes
+}
+
+// SetTFStepLimit sets the type family reduction step limit.
+// Zero disables the check. Negative values are treated as zero.
+func (b *Budget) SetTFStepLimit(n int) {
+	if n < 0 {
+		n = 0
+	}
+	b.maxTFSteps = n
+}
+
+// SetSolverStepLimit sets the constraint solver step limit.
+// Zero disables the check. Negative values are treated as zero.
+func (b *Budget) SetSolverStepLimit(n int) {
+	if n < 0 {
+		n = 0
+	}
+	b.maxSolverSteps = n
+}
+
+// SetResolveDepthLimit sets the instance resolution depth limit.
+// Zero disables the check. Negative values are treated as zero.
+func (b *Budget) SetResolveDepthLimit(n int) {
+	if n < 0 {
+		n = 0
+	}
+	b.maxResolveDepth = n
 }
 
 // Step records one unit of work. Returns an error if the step limit is
@@ -117,12 +152,59 @@ func (b *Budget) Alloc(bytes int64) error {
 	return nil
 }
 
-// ResetCounters zeroes the step and depth counters, keeping limits and context
-// unchanged. Used to start a fresh phase (e.g. a new type family reduction
-// pass) within the same budget instance.
-func (b *Budget) ResetCounters() {
-	b.steps = 0
-	b.depth = 0
+// TFStep records one type family reduction step. Returns an error if the
+// TF step limit is exceeded or the context has been cancelled.
+func (b *Budget) TFStep() error {
+	select {
+	case <-b.ctx.Done():
+		return b.ctx.Err()
+	default:
+	}
+	b.tfSteps++
+	if b.maxTFSteps > 0 && b.tfSteps > b.maxTFSteps {
+		return &TFStepLimitError{}
+	}
+	return nil
+}
+
+// ResetTFSteps zeroes the TF step counter for a fresh reduction pass.
+func (b *Budget) ResetTFSteps() {
+	b.tfSteps = 0
+}
+
+// SolverStep records one constraint solver iteration. Returns an error
+// if the solver step limit is exceeded or the context has been cancelled.
+func (b *Budget) SolverStep() error {
+	select {
+	case <-b.ctx.Done():
+		return b.ctx.Err()
+	default:
+	}
+	b.solverSteps++
+	if b.maxSolverSteps > 0 && b.solverSteps > b.maxSolverSteps {
+		return &SolverStepLimitError{}
+	}
+	return nil
+}
+
+// ResetSolverSteps zeroes the solver step counter.
+func (b *Budget) ResetSolverSteps() {
+	b.solverSteps = 0
+}
+
+// EnterResolve increments instance resolution depth. Returns an error
+// if the depth limit is exceeded.
+func (b *Budget) EnterResolve() error {
+	b.resolveDepth++
+	if b.maxResolveDepth > 0 && b.resolveDepth > b.maxResolveDepth {
+		return &ResolveDepthLimitError{}
+	}
+	return nil
+}
+
+// LeaveResolve decrements instance resolution depth.
+func (b *Budget) LeaveResolve() {
+	b.resolveDepth--
 }
 
 // --- Read accessors ---
@@ -164,6 +246,24 @@ func (b *Budget) MaxNesting() int { return b.maxNesting }
 // MaxAlloc returns the configured allocation limit.
 func (b *Budget) MaxAlloc() int64 { return b.maxAlloc }
 
+// TFSteps returns the number of TF reduction steps consumed so far.
+func (b *Budget) TFSteps() int { return b.tfSteps }
+
+// MaxTFSteps returns the configured TF step limit.
+func (b *Budget) MaxTFSteps() int { return b.maxTFSteps }
+
+// SolverSteps returns the number of solver steps consumed so far.
+func (b *Budget) SolverSteps() int { return b.solverSteps }
+
+// MaxSolverSteps returns the configured solver step limit.
+func (b *Budget) MaxSolverSteps() int { return b.maxSolverSteps }
+
+// ResolveDepth returns the current instance resolution depth.
+func (b *Budget) ResolveDepth() int { return b.resolveDepth }
+
+// MaxResolveDepth returns the configured resolve depth limit.
+func (b *Budget) MaxResolveDepth() int { return b.maxResolveDepth }
+
 // Context returns the associated context.
 func (b *Budget) Context() context.Context { return b.ctx }
 
@@ -193,6 +293,21 @@ type AllocLimitError struct {
 func (e *AllocLimitError) Error() string {
 	return fmt.Sprintf("allocation limit exceeded: %d bytes used, %d bytes allowed", e.Used, e.Limit)
 }
+
+// TFStepLimitError indicates the type family reduction step limit was exceeded.
+type TFStepLimitError struct{}
+
+func (e *TFStepLimitError) Error() string { return "type family reduction step limit exceeded" }
+
+// SolverStepLimitError indicates the constraint solver step limit was exceeded.
+type SolverStepLimitError struct{}
+
+func (e *SolverStepLimitError) Error() string { return "constraint solver step limit exceeded" }
+
+// ResolveDepthLimitError indicates the instance resolution depth limit was exceeded.
+type ResolveDepthLimitError struct{}
+
+func (e *ResolveDepthLimitError) Error() string { return "instance resolution depth limit exceeded" }
 
 // --- Context helpers ---
 

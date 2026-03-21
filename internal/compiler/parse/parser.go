@@ -1,6 +1,7 @@
 package parse
 
 import (
+	"context"
 	"maps"
 
 	syn "github.com/cwd-k2/gicel/internal/lang/syntax"
@@ -54,6 +55,7 @@ func (g *parserGuard) reset() {
 
 // Parser is a Pratt parser for the surface language.
 type Parser struct {
+	ctx         context.Context // external cancellation (nil-safe)
 	tokens      []syn.Token
 	pos         int
 	fixity      map[string]Fixity
@@ -70,10 +72,15 @@ type Parser struct {
 	guard parserGuard // resource safety harness
 }
 
-// NewParser creates a parser from a token stream.
-func NewParser(tokens []syn.Token, errors *diagnostic.Errors) *Parser {
+// NewParser creates a parser from a token stream. ctx enables external
+// cancellation; pass context.Background() when cancellation is not needed.
+func NewParser(ctx context.Context, tokens []syn.Token, errors *diagnostic.Errors) *Parser {
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	maxSteps := max(len(tokens)*4, 100)
 	return &Parser{
+		ctx:    ctx,
 		tokens: tokens,
 		pos:    0,
 		fixity: make(map[string]Fixity),
@@ -302,10 +309,29 @@ func (p *Parser) atStmtBoundary() bool {
 // consumed; openSpan points to it for diagnostic hints. The parse
 // callback is invoked for each item; context is used in stagnation
 // error messages.
-func (p *Parser) parseBody(context string, openSpan span.Span, parse func()) {
+func (p *Parser) parseBody(bodyCtx string, openSpan span.Span, parse func()) {
 	savedBoundary := p.stmtBoundaryDepth
 	p.stmtBoundaryDepth = p.depth
+	// Iteration limit: at most 2× the total token count. Any well-formed
+	// body terminates far below this; the limit catches pathological
+	// stagnation that advance() alone cannot prevent (e.g. V6 pattern).
+	maxIter := max(len(p.tokens)*2, 100)
+	iter := 0
 	for p.peek().Kind != syn.TokRBrace && p.peek().Kind != syn.TokEOF {
+		iter++
+		if iter > maxIter {
+			p.halt("parseBody iteration limit exceeded in " + bodyCtx)
+			break
+		}
+		// Context cancellation check (non-blocking).
+		select {
+		case <-p.ctx.Done():
+			p.halt("parser cancelled: " + p.ctx.Err().Error())
+		default:
+		}
+		if p.guard.isHalted() {
+			break
+		}
 		before := p.pos
 		parse()
 		if p.pos == before {
@@ -313,7 +339,7 @@ func (p *Parser) parseBody(context string, openSpan span.Span, parse func()) {
 			// checking separators to prevent infinite loops (V6: a newline
 			// token with NewlineBefore would otherwise be treated as an
 			// implicit separator, masking the stagnation).
-			p.addErrorCode(diagnostic.ErrUnexpectedToken, "unexpected token in "+context)
+			p.addErrorCode(diagnostic.ErrUnexpectedToken, "unexpected token in "+bodyCtx)
 			p.syncToStmtBoundary()
 			if p.pos == before {
 				// syncToStmtBoundary did not advance — force progress.

@@ -63,7 +63,7 @@ func FuzzParser(f *testing.F) {
 			return // expected: invalid tokens
 		}
 		es := &diagnostic.Errors{Source: source}
-		p := parse.NewParser(tokens, es)
+		p := parse.NewParser(context.Background(), tokens, es)
 		p.ParseProgram() // panics are the signal
 	})
 }
@@ -100,7 +100,7 @@ func FuzzCheckBare(f *testing.F) {
 			return
 		}
 		es := &diagnostic.Errors{Source: source}
-		p := parse.NewParser(tokens, es)
+		p := parse.NewParser(context.Background(), tokens, es)
 		ast := p.ParseProgram()
 		if es.HasErrors() {
 			return
@@ -144,7 +144,7 @@ func FuzzAnnotateFreeVars(f *testing.F) {
 			return
 		}
 		es := &diagnostic.Errors{Source: source}
-		p := parse.NewParser(tokens, es)
+		p := parse.NewParser(context.Background(), tokens, es)
 		ast := p.ParseProgram()
 		if es.HasErrors() {
 			return

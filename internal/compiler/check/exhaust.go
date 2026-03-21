@@ -27,6 +27,9 @@ func (ch *Checker) checkExhaustive(scrutTy types.Type, alts []ir.Alt, s span.Spa
 // unifier. Used for GADT exhaustiveness to filter irrelevant constructors.
 func (ch *Checker) canUnifyWith(retTy, scrutTy types.Type) bool {
 	tmp := unify.NewUnifierShared(&ch.freshID)
+	// GADT branches refine skolems via given equalities, so allow
+	// skolems to unify with arbitrary types for accessibility testing.
+	tmp.FlexSkolems = true
 	retTy = ch.instantiateFresh(tmp, retTy)
 	return tmp.Unify(retTy, scrutTy) == nil
 }

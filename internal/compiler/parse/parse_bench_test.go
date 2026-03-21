@@ -4,6 +4,7 @@
 package parse
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"testing"
@@ -31,7 +32,7 @@ func benchParse(b *testing.B, source string) {
 	b.ResetTimer()
 	for range b.N {
 		es := &diagnostic.Errors{Source: src}
-		p := NewParser(tokens, es)
+		p := NewParser(context.Background(), tokens, es)
 		_ = p.ParseProgram()
 	}
 }

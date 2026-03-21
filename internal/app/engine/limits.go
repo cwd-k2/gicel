@@ -10,4 +10,9 @@ type Limits struct {
 	allocLimit     int64
 	entryPoint     string
 	checkTraceHook check.CheckTraceHook
+
+	// Compiler limits (type checking).
+	maxTFSteps      int
+	maxSolverSteps  int
+	maxResolveDepth int
 }

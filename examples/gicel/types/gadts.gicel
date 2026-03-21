@@ -4,9 +4,10 @@
 -- constrains the return type's type parameter, so pattern matching
 -- refines the type variable. This ensures type safety at the DSL level.
 --
--- Note: recursive functions require EnableRecursion (not available in
--- standalone CLI mode), so we demonstrate type refinement via shallow
--- pattern matching on GADT constructors.
+-- Note: A fully polymorphic recursive evaluator (eval :: \a. Expr a -> a)
+-- requires GADT type refinement (local given equalities), which is not
+-- yet implemented (V7). Shallow pattern matching on GADT constructors
+-- works correctly — the examples below demonstrate this.
 
 import Prelude
 

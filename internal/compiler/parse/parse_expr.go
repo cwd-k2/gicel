@@ -171,6 +171,12 @@ func (p *Parser) parseParen() syn.Expr {
 		return &syn.ExprError{S: span.Span{Start: span.Pos(p.pos), End: span.Pos(p.pos)}}
 	}
 	defer p.leaveRecurse()
+	// Inside parens, braces are always valid atom starts — a case expression
+	// like (case x { ... }) must see { as starting alts, not as an outer
+	// case's opening brace. Save and reset noBraceAtom (V10 fix).
+	savedNoBrace := p.noBraceAtom
+	p.noBraceAtom = false
+	defer func() { p.noBraceAtom = savedNoBrace }()
 	start := p.peek().S.Start
 	openTok := p.expect(syn.TokLParen)
 

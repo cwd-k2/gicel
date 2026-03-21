@@ -4,6 +4,7 @@
 package check
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"testing"
@@ -654,7 +655,7 @@ func parse_and_check(t *testing.T, source string, config *CheckConfig) (*diagnos
 		return lexErrs, nil
 	}
 	es := &diagnostic.Errors{Source: src}
-	p := parse.NewParser(tokens, es)
+	p := parse.NewParser(context.Background(), tokens, es)
 	ast := p.ParseProgram()
 	if es.HasErrors() {
 		return es, nil

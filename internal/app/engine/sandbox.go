@@ -34,16 +34,19 @@ const (
 
 // SandboxConfig configures a sandboxed execution.
 type SandboxConfig struct {
-	Packs      []registry.Pack       // stdlib packs to load (default: none)
-	Entry      string                // entry point binding (default: DefaultEntryPoint)
-	Timeout    time.Duration         // execution timeout (default: 5s)
-	MaxSteps   int                   // step limit (default: 100_000)
-	MaxDepth   int                   // depth limit (default: 100)
-	MaxNesting int                   // structural nesting limit (default: 256)
-	MaxAlloc      int64                 // allocation byte limit (default: 10 MiB)
-	MaxSourceSize int                   // maximum source size in bytes (default: 10 MiB)
-	Caps          map[string]any        // initial capability environment (nil for empty)
-	Bindings   map[string]eval.Value // host-provided value bindings (nil for none)
+	Packs           []registry.Pack       // stdlib packs to load (default: none)
+	Entry           string                // entry point binding (default: DefaultEntryPoint)
+	Timeout         time.Duration         // execution timeout (default: 5s)
+	MaxSteps        int                   // step limit (default: 100_000)
+	MaxDepth        int                   // depth limit (default: 100)
+	MaxNesting      int                   // structural nesting limit (default: 256)
+	MaxAlloc        int64                 // allocation byte limit (default: 10 MiB)
+	MaxSourceSize   int                   // maximum source size in bytes (default: 10 MiB)
+	MaxTFSteps      int                   // type family reduction step limit (default: 50_000)
+	MaxSolverSteps  int                   // constraint solver step limit (default: 100_000)
+	MaxResolveDepth int                   // instance resolution depth limit (default: 64)
+	Caps            map[string]any        // initial capability environment (nil for empty)
+	Bindings        map[string]eval.Value // host-provided value bindings (nil for none)
 
 	// Context is the parent context for cancellation propagation.
 	// When non-nil, the timeout derives from this context (WithTimeout).
@@ -120,6 +123,15 @@ func RunSandbox(source string, cfg *SandboxConfig) (result *RunResult, err error
 	eng.SetDepthLimit(maxDepth)
 	eng.SetNestingLimit(maxNesting)
 	eng.SetAllocLimit(maxAlloc)
+	if cfg.MaxTFSteps > 0 {
+		eng.SetMaxTFSteps(cfg.MaxTFSteps)
+	}
+	if cfg.MaxSolverSteps > 0 {
+		eng.SetMaxSolverSteps(cfg.MaxSolverSteps)
+	}
+	if cfg.MaxResolveDepth > 0 {
+		eng.SetMaxResolveDepth(cfg.MaxResolveDepth)
+	}
 
 	for _, p := range cfg.Packs {
 		if err := p(eng); err != nil {

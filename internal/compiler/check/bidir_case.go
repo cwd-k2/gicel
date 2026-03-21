@@ -215,10 +215,16 @@ func (ch *Checker) checkCaseAlts(scrutTy, resultTy types.Type, scrutCore ir.Core
 		for range pr.Bindings {
 			ch.ctx.Pop()
 		}
-		if len(pr.SkolemIDs) > 0 {
+		if len(pr.SkolemIDs) > 0 && len(pr.GivenEqs) == 0 {
 			ch.checkSkolemEscape(ch.unifier.Zonk(resultTy), pr.SkolemIDs, alt.Body.Span())
 		}
 		alts = append(alts, ir.Alt{Pattern: pr.Pattern, Body: bodyCore, S: alt.S})
+
+		// Remove GADT given equalities scoped to this branch.
+		// Meta solutions from the branch body are intentionally preserved.
+		for skolemID := range pr.GivenEqs {
+			ch.unifier.RemoveGivenEq(skolemID)
+		}
 	}
 
 	// Join divergent post-states.

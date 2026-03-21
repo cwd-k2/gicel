@@ -328,9 +328,9 @@ func TestReduceTyFamilyUnit_StepLimit(t *testing.T) {
 			{Patterns: []types.Type{&types.TyVar{Name: "a"}}, RHS: &types.TyFamilyApp{Name: "Loop", Args: []types.Type{&types.TyVar{Name: "a"}}}},
 		},
 	})
-	// Exhaust the step budget so the next Step() exceeds the limit.
+	// Exhaust the TF step budget so the next TFStep() exceeds the limit.
 	for range family.MaxReductionWork {
-		_ = ch.budget.Step()
+		_ = ch.budget.TFStep()
 	}
 	_, ok := ch.reduceTyFamily("Loop", []types.Type{&types.TyCon{Name: "Unit"}}, span.Span{})
 	if ok {

@@ -10,7 +10,7 @@ import (
 	"github.com/cwd-k2/gicel/internal/lang/types"
 )
 
-const maxResolveDepth = 64
+// maxResolveDepth default is set via Budget.SetResolveDepthLimit in newChecker.
 
 // extractDictField builds a Case expression that extracts the field at fieldIdx
 // from a class dictionary constructor. prefix is used for generated variable names.
@@ -40,14 +40,13 @@ func (ch *Checker) extractDictField(classInfo *ClassInfo, dictExpr ir.Core, fiel
 // resolveInstance finds a dictionary expression for a given class constraint.
 // Returns a Core expression that evaluates to the dictionary value.
 func (ch *Checker) resolveInstance(className string, args []types.Type, s span.Span) ir.Core {
-	ok, exit := ch.solver.EnterResolve()
-	defer exit()
-	if !ok {
+	if err := ch.budget.EnterResolve(); err != nil {
 		ch.addCodedError(diagnostic.ErrResolutionDepth, s,
 			fmt.Sprintf("instance resolution depth limit exceeded for %s %s (possible infinite loop in instance contexts)",
 				className, ch.prettyTypeArgs(args)))
 		return &ir.Var{Name: "<resolution-depth>", S: s}
 	}
+	defer ch.budget.LeaveResolve()
 
 	// 1. Search context for dictionary variables (from Eq a => parameters).
 	var ctxResult ir.Core

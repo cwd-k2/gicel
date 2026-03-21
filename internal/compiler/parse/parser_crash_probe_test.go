@@ -4,6 +4,7 @@
 package parse
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"testing"
@@ -121,7 +122,7 @@ func TestProbeB_DeepNestedParens200(t *testing.T) {
 		t.Fatal("lex error:", lexErrs.Format())
 	}
 	es := &diagnostic.Errors{Source: src}
-	p := NewParser(tokens, es)
+	p := NewParser(context.Background(), tokens, es)
 	_ = p.ParseProgram()
 	// No panic = success. Errors are acceptable.
 }
@@ -361,7 +362,7 @@ func TestProbeD_DeeplyNestedParens(t *testing.T) {
 	l := NewLexer(src)
 	tokens, _ := l.Tokenize()
 	es := &diagnostic.Errors{Source: src}
-	p := NewParser(tokens, es)
+	p := NewParser(context.Background(), tokens, es)
 	prog := p.ParseProgram()
 	// Must not panic. Errors are expected (recursion limit).
 	if prog == nil {
@@ -389,7 +390,7 @@ func TestProbeD_DeeplyNestedBraces(t *testing.T) {
 	l := NewLexer(src)
 	tokens, _ := l.Tokenize()
 	es := &diagnostic.Errors{Source: src}
-	p := NewParser(tokens, es)
+	p := NewParser(context.Background(), tokens, es)
 	prog := p.ParseProgram()
 	if prog == nil {
 		t.Fatal("ParseProgram returned nil")
@@ -567,7 +568,7 @@ func TestProbeD_StepLimitHalt(t *testing.T) {
 	l := NewLexer(src)
 	tokens, _ := l.Tokenize()
 	es := &diagnostic.Errors{Source: src}
-	p := NewParser(tokens, es)
+	p := NewParser(context.Background(), tokens, es)
 	prog := p.ParseProgram()
 	if prog == nil {
 		t.Fatal("ParseProgram returned nil")
@@ -594,7 +595,7 @@ func TestProbeD_RecursionLimitOnNestedTypes(t *testing.T) {
 	l := NewLexer(src)
 	tokens, _ := l.Tokenize()
 	es := &diagnostic.Errors{Source: src}
-	p := NewParser(tokens, es)
+	p := NewParser(context.Background(), tokens, es)
 	prog := p.ParseProgram()
 	if prog == nil {
 		t.Fatal("ParseProgram returned nil")
@@ -811,7 +812,7 @@ func TestProbeE_CrashDeepNestedParens(t *testing.T) {
 	l := NewLexer(src)
 	tokens, _ := l.Tokenize()
 	es := &diagnostic.Errors{Source: src}
-	p := NewParser(tokens, es)
+	p := NewParser(context.Background(), tokens, es)
 	_ = p.ParseProgram()
 	// No panic = success.
 }
@@ -944,7 +945,7 @@ func TestProbeE_HaltedParserReturnsEOF(t *testing.T) {
 	l := NewLexer(src)
 	tokens, _ := l.Tokenize()
 	es := &diagnostic.Errors{Source: src}
-	p := NewParser(tokens, es)
+	p := NewParser(context.Background(), tokens, es)
 	_ = p.ParseProgram()
 	// Should have halted (step or recursion limit).
 	if !es.HasErrors() {

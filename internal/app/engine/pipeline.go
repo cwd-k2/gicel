@@ -17,7 +17,7 @@ import (
 // lexAndParse is the shared lex/parse pipeline for both module registration
 // and main-source compilation. It always injects fixity from all registered
 // modules so that operator precedence is consistent regardless of entry path.
-func lexAndParse(sourceName, source string, store *ModuleStore, injectCore bool) (*syntax.AstProgram, *span.Source, error) {
+func lexAndParse(ctx context.Context, sourceName, source string, store *ModuleStore, injectCore bool) (*syntax.AstProgram, *span.Source, error) {
 	src := span.NewSource(sourceName, source)
 	l := parse.NewLexer(src)
 	tokens, lexErrs := l.Tokenize()
@@ -25,7 +25,7 @@ func lexAndParse(sourceName, source string, store *ModuleStore, injectCore bool)
 		return nil, nil, &CompileError{Errors: lexErrs}
 	}
 	parseErrs := &diagnostic.Errors{Source: src}
-	p := parse.NewParser(tokens, parseErrs)
+	p := parse.NewParser(ctx, tokens, parseErrs)
 	store.CollectFixity(p)
 	ast := p.ParseProgram()
 	if parseErrs.HasErrors() {
@@ -64,6 +64,9 @@ func makeCheckConfig(host *HostEnv, store *ModuleStore, limits *Limits) *check.C
 		ModuleDeps:      deps,
 		StrictTypeNames: true,
 		NestingLimit:    limits.nestingLimit,
+		MaxTFSteps:      limits.maxTFSteps,
+		MaxSolverSteps:  limits.maxSolverSteps,
+		MaxResolveDepth: limits.maxResolveDepth,
 	}
 }
 
@@ -71,7 +74,7 @@ func makeCheckConfig(host *HostEnv, store *ModuleStore, limits *Limits) *check.C
 // lex → parse → dep check → type check → optimize → annotate.
 // See compileMain for the main-source counterpart.
 func compileModule(ctx context.Context, name, source string, host *HostEnv, store *ModuleStore, limits *Limits) (*compiledModule, error) {
-	ast, src, err := lexAndParse(name, source, store, name != "Core" && store.Has("Core"))
+	ast, src, err := lexAndParse(ctx, name, source, store, name != "Core" && store.Has("Core"))
 	if err != nil {
 		return nil, err
 	}
@@ -120,7 +123,7 @@ func postCheck(prog *ir.Program, rules []registry.RewriteRule) {
 // compileMain compiles the main source: lex → parse → type check → optimize → annotate.
 // See compileModule for the module counterpart.
 func compileMain(ctx context.Context, source string, host *HostEnv, store *ModuleStore, limits *Limits) (*ir.Program, *span.Source, error) {
-	ast, src, err := lexAndParse("<input>", source, store, store.Has("Core"))
+	ast, src, err := lexAndParse(ctx, "<input>", source, store, store.Has("Core"))
 	if err != nil {
 		return nil, nil, err
 	}

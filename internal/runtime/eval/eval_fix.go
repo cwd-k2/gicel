@@ -31,9 +31,14 @@ func (ev *Evaluator) evalFix(env *Env, capEnv CapEnv, e *ir.Fix) (EvalResult, er
 	lam, ok := peelTyLam(e.Body).(*ir.Lam)
 	if !ok {
 		return EvalResult{}, &RuntimeError{
-			Message: fmt.Sprintf("fix binding %s is not a lambda", e.Name),
-			Span:    e.S,
-			Source:  ev.source,
+			Message: fmt.Sprintf(
+				"fix binding %s requires a lambda body (got %T); "+
+					"in CBV evaluation, fix creates a self-referential closure "+
+					"and cannot produce data constructor values directly — "+
+					"wrap the body in a lambda or use thunk/force",
+				e.Name, peelTyLam(e.Body)),
+			Span:   e.S,
+			Source: ev.source,
 		}
 	}
 	closureBase := env

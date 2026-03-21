@@ -199,8 +199,8 @@ func transformRec(c Core, f func(Core) Core, depth int) Core {
 // without exceeding the Go call stack.
 func transformLeftSpine(c Core, f func(Core) Core, baseDepth int) Core {
 	type spineNode struct {
-		app *App    // original App node (for span)
-		arg Core    // right child (already transformed or pending)
+		app *App // original App node (for span)
+		arg Core // right child (already transformed or pending)
 	}
 	var spine []spineNode
 

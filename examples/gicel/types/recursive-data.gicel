@@ -1,9 +1,8 @@
 -- GICEL Example: Recursive Data Types
 --
 -- Defines recursive types (Nat and Tree) and demonstrates constructing
--- values and pattern matching on their structure. Since recursive
--- functions require EnableRecursion (not available in standalone CLI),
--- we focus on construction and shallow matching.
+-- values, pattern matching, and recursive functions.
+-- Run with: bin/gicel run --recursion examples/gicel/types/recursive-data.gicel
 
 import Prelude
 
@@ -27,6 +26,10 @@ isZero := \n. case n { Z -> True; S _ -> False }
 pred :: Nat -> Maybe Nat
 pred := \n. case n { Z -> Nothing; S m -> Just m }
 
+-- Convert Nat to Int (recursive, requires --recursion)
+toInt :: Nat -> Int
+toInt := fix (\self n. case n { Z -> 0; S m -> 1 + self m })
+
 -- Construct some trees
 leaf1 := Leaf True
 leaf2 := Leaf False
@@ -45,6 +48,20 @@ leafValue := \t. case t { Leaf x -> Just x; Branch _ _ -> Nothing }
 leftChild :: Tree a -> Maybe (Tree a)
 leftChild := \t. case t { Leaf _ -> Nothing; Branch l _ -> Just l }
 
+-- Count the depth of a tree (recursive, requires --recursion)
+depth :: Tree a -> Int
+depth := fix (\self t. case t {
+  Leaf _ -> 0;
+  Branch l r -> 1 + max (self l) (self r)
+})
+
+-- Count the number of leaves (recursive, requires --recursion)
+size :: Tree a -> Int
+size := fix (\self t. case t {
+  Leaf _ -> 1;
+  Branch l r -> self l + self r
+})
+
 -- Tests
 test1 := isZero zero         -- True
 test2 := isZero three        -- False
@@ -53,6 +70,9 @@ test4 := isLeaf leaf1        -- True
 test5 := isLeaf bigTree      -- False
 test6 := leafValue leaf1     -- Just True
 test7 := leafValue smallTree -- Nothing
+test8 := toInt three         -- 3
+test9 := depth bigTree       -- 2
+test10 := size bigTree       -- 3
 
--- Output: (True, False, True, True, False, Just True, Nothing)
-main := (test1, test2, isLeaf (Leaf Z), test4, test5, test6, test7)
+-- Output: (True, False, True, True, False, Just True, Nothing, 3, 2, 3)
+main := (test1, test2, isLeaf (Leaf Z), test4, test5, test6, test7, test8, test9, test10)

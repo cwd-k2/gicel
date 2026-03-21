@@ -39,6 +39,14 @@ func (ch *Checker) checkDo(e *syntax.ExprDo, expected types.Type) ir.Core {
 	// Class dispatch: extract monad head and elaborate with dictionary.
 	monadHead := ch.extractMonadHead(expected)
 	if monadHead != nil {
+		// If the type has a Monad instance, desugar do-block into explicit
+		// mbind/mpure calls and type-check through the normal pipeline.
+		// This avoids the Lift-based IxMonad dispatch, which requires an
+		// IxMonad (Lift m) instance that may not exist (V8 fix).
+		if ch.hasMonadInstance(monadHead, e.S) {
+			desugared := ch.desugarDoToMonad(e.Stmts, e.S)
+			return ch.check(desugared, expected)
+		}
 		d := &doElaborator{ch: ch, mode: doModeMonadic, monadHead: monadHead, expected: expected}
 		_, result := d.elaborate(e.Stmts, e.S)
 		return result
@@ -106,6 +114,22 @@ const (
 	ixMethodBind = 1 // ixbind
 )
 
+// hasMonadInstance checks whether the Monad class has a resolvable instance
+// for the given monadHead, without emitting errors.
+func (ch *Checker) hasMonadInstance(monadHead types.Type, s span.Span) bool {
+	classInfo := ch.reg.classes["Monad"]
+	if classInfo == nil {
+		return false
+	}
+	saved := ch.errors.Len()
+	ch.resolveInstance("Monad", []types.Type{monadHead}, s)
+	if ch.errors.Len() > saved {
+		ch.errors.Truncate(saved)
+		return false
+	}
+	return true
+}
+
 // extractIxMethod resolves the IxMonad (Lift monadHead) dictionary and
 // extracts the method at the given index via pattern matching.
 func (ch *Checker) extractIxMethod(monadHead types.Type, methodIdx int, s span.Span) ir.Core {
@@ -120,13 +144,107 @@ func (ch *Checker) extractIxMethod(monadHead types.Type, methodIdx int, s span.S
 	return ch.extractDictField(classInfo, dict, fieldIdx, "ixm", s)
 }
 
-// mkIxPure generates Core for monadic pure using the IxMonad dictionary.
+// rewritePureToMpure rewrites `pure expr` or `ixpure expr` to `mpure expr`
+// at the AST level. The `pure` builtin is linked to IxMonad; for Monad
+// dispatch we need `mpure` instead. Non-pure expressions are returned as-is.
+func rewritePureToMpure(expr syntax.Expr) syntax.Expr {
+	if app, ok := expr.(*syntax.ExprApp); ok {
+		if v, ok := app.Fun.(*syntax.ExprVar); ok {
+			if v.Name == "pure" || v.Name == "ixpure" {
+				return &syntax.ExprApp{
+					Fun: &syntax.ExprVar{Name: "mpure", S: v.S},
+					Arg: app.Arg,
+					S:   app.S,
+				}
+			}
+		}
+	}
+	return expr
+}
+
+// desugarDoToMonad desugars a do-block into explicit mbind/mpure calls.
+// do { x <- a; b }  →  mbind a (\x. b)
+// do { a; b }        →  mbind a (\_ . b)
+// do { a }           →  a
+// do { x <- a }      →  a   (bind with no rest is just the computation)
+func (ch *Checker) desugarDoToMonad(stmts []syntax.Stmt, s span.Span) syntax.Expr {
+	if len(stmts) == 0 {
+		return &syntax.ExprError{S: s}
+	}
+	if len(stmts) == 1 {
+		switch st := stmts[0].(type) {
+		case *syntax.StmtExpr:
+			return rewritePureToMpure(st.Expr)
+		case *syntax.StmtBind:
+			return st.Comp
+		case *syntax.StmtPureBind:
+			rest := ch.desugarDoToMonad(stmts[1:], s)
+			return &syntax.ExprApp{
+				Fun: &syntax.ExprLam{
+					Params: []syntax.Pattern{&syntax.PatVar{Name: st.Var, S: st.S}},
+					Body:   rest,
+					S:      st.S,
+				},
+				Arg: st.Expr,
+				S:   st.S,
+			}
+		}
+		return &syntax.ExprError{S: s}
+	}
+	rest := ch.desugarDoToMonad(stmts[1:], s)
+	switch st := stmts[0].(type) {
+	case *syntax.StmtBind:
+		// mbind comp (\x. rest)
+		return &syntax.ExprApp{
+			Fun: &syntax.ExprApp{
+				Fun: &syntax.ExprVar{Name: "mbind", S: st.S},
+				Arg: st.Comp,
+				S:   st.S,
+			},
+			Arg: &syntax.ExprLam{
+				Params: []syntax.Pattern{&syntax.PatVar{Name: st.Var, S: st.S}},
+				Body:   rest,
+				S:      st.S,
+			},
+			S: st.S,
+		}
+	case *syntax.StmtExpr:
+		// mbind comp (\_ . rest)
+		return &syntax.ExprApp{
+			Fun: &syntax.ExprApp{
+				Fun: &syntax.ExprVar{Name: "mbind", S: st.S},
+				Arg: st.Expr,
+				S:   st.S,
+			},
+			Arg: &syntax.ExprLam{
+				Params: []syntax.Pattern{&syntax.PatWild{S: st.S}},
+				Body:   rest,
+				S:      st.S,
+			},
+			S: st.S,
+		}
+	case *syntax.StmtPureBind:
+		// (\x. rest) val
+		return &syntax.ExprApp{
+			Fun: &syntax.ExprLam{
+				Params: []syntax.Pattern{&syntax.PatVar{Name: st.Var, S: st.S}},
+				Body:   rest,
+				S:      st.S,
+			},
+			Arg: st.Expr,
+			S:   st.S,
+		}
+	}
+	return &syntax.ExprError{S: s}
+}
+
+// mkIxPure generates Core for monadic pure using the IxMonad or Monad dictionary.
 func (ch *Checker) mkIxPure(monadHead types.Type, val ir.Core, s span.Span) ir.Core {
 	selector := ch.extractIxMethod(monadHead, ixMethodPure, s)
 	return &ir.App{Fun: selector, Arg: val, S: s}
 }
 
-// mkIxBind generates Core for a monadic bind using the IxMonad dictionary.
+// mkIxBind generates Core for a monadic bind using the IxMonad or Monad dictionary.
 func (ch *Checker) mkIxBind(monadHead types.Type, comp ir.Core, varName string, body ir.Core, s span.Span) ir.Core {
 	selector := ch.extractIxMethod(monadHead, ixMethodBind, s)
 	return &ir.App{

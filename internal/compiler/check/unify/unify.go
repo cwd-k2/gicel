@@ -36,9 +36,10 @@ type FamilyReducer func(types.Type) types.Type
 type trailTag byte
 
 const (
-	trailSoln     trailTag = iota // soln map
-	trailLabel                    // labels map
-	trailKindSoln                 // kindSoln map
+	trailSoln       trailTag = iota // soln map
+	trailLabel                      // labels map
+	trailKindSoln                   // kindSoln map
+	trailSkolemSoln                 // skolemSoln map
 )
 
 // trailEntry records a single map mutation for undo-log rollback.
@@ -55,10 +56,11 @@ type trailEntry struct {
 
 // Unifier manages type unification.
 type Unifier struct {
-	soln     map[int]types.Type
-	labels   map[int]map[string]struct{}
-	kindSoln map[int]types.Kind // kind metavariable solutions
-	freshID  *int
+	soln       map[int]types.Type
+	labels     map[int]map[string]struct{}
+	kindSoln   map[int]types.Kind // kind metavariable solutions
+	skolemSoln map[int]types.Type // GADT given equalities: skolem → type
+	freshID    *int
 
 	// Undo trail for O(1) snapshot / O(k) restore.
 	trail []trailEntry
@@ -72,6 +74,10 @@ type Unifier struct {
 
 	// Budget tracks structural nesting depth. If nil, nesting is unbounded.
 	Budget *budget.Budget
+
+	// FlexSkolems allows skolem variables to be solved like metas.
+	// Used for GADT accessibility testing (canUnifyWith).
+	FlexSkolems bool
 }
 
 // NewUnifier creates a Unifier with its own internal fresh ID counter.
@@ -168,6 +174,12 @@ func (u *Unifier) Restore(snap Snapshot) {
 			} else {
 				delete(u.kindSoln, e.id)
 			}
+		case trailSkolemSoln:
+			if e.existed {
+				u.skolemSoln[e.id] = e.oldType
+			} else {
+				delete(u.skolemSoln, e.id)
+			}
 		}
 	}
 	u.trail = u.trail[:snap.pos]
@@ -195,6 +207,36 @@ func (u *Unifier) trailKindWrite(id int) {
 	u.trail = append(u.trail, trailEntry{
 		tag: trailKindSoln, id: id, existed: existed, oldKind: old,
 	})
+}
+
+// trailSkolemWrite records the current skolemSoln[id] value before mutation.
+func (u *Unifier) trailSkolemWrite(id int) {
+	if u.skolemSoln == nil {
+		u.skolemSoln = make(map[int]types.Type)
+	}
+	old, existed := u.skolemSoln[id]
+	u.trail = append(u.trail, trailEntry{
+		tag: trailSkolemSoln, id: id, existed: existed, oldType: old,
+	})
+}
+
+// InstallGivenEq records a GADT given equality: the skolem with the given ID
+// is locally equal to ty within the current scope. Use Snapshot/Restore to
+// limit the lifetime of given equalities to a single case branch.
+func (u *Unifier) InstallGivenEq(skolemID int, ty types.Type) {
+	u.trailSkolemWrite(skolemID)
+	if u.skolemSoln == nil {
+		u.skolemSoln = make(map[int]types.Type)
+	}
+	u.skolemSoln[skolemID] = ty
+}
+
+// RemoveGivenEq removes a given equality for the specified skolem.
+// Used to scope given equalities to individual GADT case branches.
+func (u *Unifier) RemoveGivenEq(skolemID int) {
+	if u.skolemSoln != nil {
+		delete(u.skolemSoln, skolemID)
+	}
 }
 
 // RegisterLabelContext records the surrounding labels for a row metavariable.
@@ -297,6 +339,11 @@ func (u *Unifier) Zonk(t types.Type) types.Type {
 		}
 		return &types.TyFamilyApp{Name: ty.Name, Args: args, Kind: ty.Kind, S: ty.S}
 	case *types.TySkolem:
+		if u.skolemSoln != nil {
+			if soln, ok := u.skolemSoln[ty.ID]; ok {
+				return u.Zonk(soln)
+			}
+		}
 		return ty
 	default:
 		return t
@@ -375,14 +422,40 @@ func (u *Unifier) Unify(a, b types.Type) error {
 		return u.solveMeta(bm, a)
 	}
 
-	// Skolem: rigid type variables cannot be unified with anything except themselves.
+	// Skolem: check given equalities (GADT refinement) before rigid check.
 	if as, ok := a.(*types.TySkolem); ok {
+		if u.skolemSoln != nil {
+			if soln, ok := u.skolemSoln[as.ID]; ok {
+				return u.Unify(soln, b)
+			}
+		}
 		if bs, ok := b.(*types.TySkolem); ok && as.ID == bs.ID {
+			return nil
+		}
+		if u.FlexSkolems {
+			u.trailSkolemWrite(as.ID)
+			if u.skolemSoln == nil {
+				u.skolemSoln = make(map[int]types.Type)
+			}
+			u.skolemSoln[as.ID] = b
 			return nil
 		}
 		return &UnifyError{Kind: UnifySkolemRigid, Detail: fmt.Sprintf("cannot unify rigid type variable #%s with %s", as.Name, types.Pretty(b))}
 	}
 	if bs, ok := b.(*types.TySkolem); ok {
+		if u.skolemSoln != nil {
+			if soln, ok := u.skolemSoln[bs.ID]; ok {
+				return u.Unify(a, soln)
+			}
+		}
+		if u.FlexSkolems {
+			u.trailSkolemWrite(bs.ID)
+			if u.skolemSoln == nil {
+				u.skolemSoln = make(map[int]types.Type)
+			}
+			u.skolemSoln[bs.ID] = a
+			return nil
+		}
 		return &UnifyError{Kind: UnifySkolemRigid, Detail: fmt.Sprintf("cannot unify %s with rigid type variable #%s", types.Pretty(a), bs.Name)}
 	}
 

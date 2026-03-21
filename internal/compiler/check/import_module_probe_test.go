@@ -3,6 +3,7 @@
 package check
 
 import (
+	"context"
 	"strings"
 	"testing"
 
@@ -69,7 +70,7 @@ func makeModuleConfig(t *testing.T, moduleName, moduleSource string) *CheckConfi
 		t.Fatalf("lex errors in module %s: %s", moduleName, lexErrs.Format())
 	}
 	es := &diagnostic.Errors{Source: src}
-	p := parse.NewParser(tokens, es)
+	p := parse.NewParser(context.Background(), tokens, es)
 	ast := p.ParseProgram()
 	if es.HasErrors() {
 		t.Fatalf("parse errors in module %s: %s", moduleName, es.Format())

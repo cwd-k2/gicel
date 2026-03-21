@@ -1,6 +1,7 @@
 package parse
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"testing"
@@ -281,7 +282,7 @@ func TestPathologicalDeepParenNesting(t *testing.T) {
 		t.Fatal("lex errors:", lexErrs.Format())
 	}
 	es := &diagnostic.Errors{Source: src}
-	p := NewParser(tokens, es)
+	p := NewParser(context.Background(), tokens, es)
 	// This should not stack overflow — the parser has a recurseDepth guard.
 	_ = p.ParseProgram()
 	// We just care that there's no panic; errors are acceptable.

@@ -1,6 +1,7 @@
 package check
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"testing"
@@ -173,7 +174,7 @@ main := f True`
 		t.Fatal("lex errors:", lexErrs.Format())
 	}
 	es := &diagnostic.Errors{Source: src}
-	p := parse.NewParser(tokens, es)
+	p := parse.NewParser(context.Background(), tokens, es)
 	ast := p.ParseProgram()
 	if es.HasErrors() {
 		// Parse error is also acceptable — depends on parser's type resolution.

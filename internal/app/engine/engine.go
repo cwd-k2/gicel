@@ -115,6 +115,15 @@ func (e *Engine) SetCheckTraceHook(hook check.CheckTraceHook) {
 	e.limits.checkTraceHook = hook
 }
 
+// SetMaxTFSteps sets the type family reduction step limit.
+func (e *Engine) SetMaxTFSteps(n int) { e.limits.maxTFSteps = n }
+
+// SetMaxSolverSteps sets the constraint solver step limit.
+func (e *Engine) SetMaxSolverSteps(n int) { e.limits.maxSolverSteps = n }
+
+// SetMaxResolveDepth sets the instance resolution depth limit.
+func (e *Engine) SetMaxResolveDepth(n int) { e.limits.maxResolveDepth = n }
+
 // SetEntryPoint sets the entry point name for bare Computation checking.
 // Non-entry top-level bindings with bare Computation type are rejected.
 func (e *Engine) SetEntryPoint(name string) { e.limits.entryPoint = name }
@@ -195,7 +204,7 @@ func (cr *CompileResult) CoreProgram() *CoreProgram {
 // Does not type-check or optimize. Use Compile for static analysis
 // or NewRuntime for execution.
 func (e *Engine) Parse(source string) error {
-	_, _, err := lexAndParse("<input>", source, &e.store, e.store.Has("Core"))
+	_, _, err := lexAndParse(e.compileCtx, "<input>", source, &e.store, e.store.Has("Core"))
 	return err
 }
 
@@ -203,7 +212,7 @@ func (e *Engine) Parse(source string) error {
 // static inspection. Unlike NewRuntime, it does not optimize or assemble
 // a runtime. Pass context.Background() when cancellation is not needed.
 func (e *Engine) Compile(ctx context.Context, source string) (*CompileResult, error) {
-	ast, src, err := lexAndParse("<input>", source, &e.store, e.store.Has("Core"))
+	ast, src, err := lexAndParse(ctx, "<input>", source, &e.store, e.store.Has("Core"))
 	if err != nil {
 		return nil, err
 	}

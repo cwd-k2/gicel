@@ -26,7 +26,7 @@ func checkSource(t *testing.T, source string, config *CheckConfig) *ir.Program {
 		t.Fatal("lex errors:", lexErrs.Format())
 	}
 	es := &diagnostic.Errors{Source: src}
-	p := parse.NewParser(tokens, es)
+	p := parse.NewParser(context.Background(), tokens, es)
 	ast := p.ParseProgram()
 	if es.HasErrors() {
 		t.Fatal("parse errors:", es.Format())
@@ -49,7 +49,7 @@ func checkSourceExpectError(t *testing.T, source string, config *CheckConfig) st
 		t.Fatal("lex errors:", lexErrs.Format())
 	}
 	es := &diagnostic.Errors{Source: src}
-	p := parse.NewParser(tokens, es)
+	p := parse.NewParser(context.Background(), tokens, es)
 	ast := p.ParseProgram()
 	if es.HasErrors() {
 		t.Fatal("parse errors:", es.Format())
@@ -72,7 +72,7 @@ func checkSourceExpectCode(t *testing.T, source string, config *CheckConfig, cod
 		t.Fatal("lex errors:", lexErrs.Format())
 	}
 	es := &diagnostic.Errors{Source: src}
-	p := parse.NewParser(tokens, es)
+	p := parse.NewParser(context.Background(), tokens, es)
 	ast := p.ParseProgram()
 	if es.HasErrors() {
 		t.Fatal("parse errors:", es.Format())
@@ -105,7 +105,7 @@ func checkSourceTryBoth(t *testing.T, source string, config *CheckConfig) string
 		t.Fatal("lex errors:", lexErrs.Format())
 	}
 	es := &diagnostic.Errors{Source: src}
-	p := parse.NewParser(tokens, es)
+	p := parse.NewParser(context.Background(), tokens, es)
 	ast := p.ParseProgram()
 	if es.HasErrors() {
 		t.Fatal("parse errors:", es.Format())
@@ -136,7 +136,7 @@ func checkSourceNoPanic(t *testing.T, source string, config *CheckConfig) {
 		return // lex error is fine, not a bug
 	}
 	es := &diagnostic.Errors{Source: src}
-	p := parse.NewParser(tokens, es)
+	p := parse.NewParser(context.Background(), tokens, es)
 	ast := p.ParseProgram()
 	if es.HasErrors() {
 		return // parse error is fine, not a bug
@@ -185,7 +185,10 @@ func newTestChecker() *Checker {
 		},
 		solver: &Solver{},
 	}
-	ch.budget = budget.New(context.Background(), family.MaxReductionWork, 0)
+	ch.budget = budget.New(context.Background(), 0, 0)
+	ch.budget.SetTFStepLimit(family.MaxReductionWork)
+	ch.budget.SetSolverStepLimit(100_000)
+	ch.budget.SetResolveDepthLimit(64)
 	ch.unifier = unify.NewUnifierShared(&ch.freshID)
 	ch.unifier.Budget = ch.budget
 	return ch

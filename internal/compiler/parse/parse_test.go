@@ -1,6 +1,7 @@
 package parse
 
 import (
+	"context"
 	"testing"
 
 	. "github.com/cwd-k2/gicel/internal/lang/syntax" //nolint:revive // dot import for tightly-coupled subpackage
@@ -24,7 +25,7 @@ func parse(input string) (*AstProgram, *diagnostic.Errors) {
 		return nil, lexErrs
 	}
 	es := &diagnostic.Errors{Source: src}
-	p := NewParser(tokens, es)
+	p := NewParser(context.Background(), tokens, es)
 	prog := p.ParseProgram()
 	return prog, es
 }
@@ -446,7 +447,7 @@ func TestParseFunctionApplication(t *testing.T) {
 	l := NewLexer(src)
 	tokens, _ := l.Tokenize()
 	es := &diagnostic.Errors{Source: src}
-	p := NewParser(tokens, es)
+	p := NewParser(context.Background(), tokens, es)
 	expr := p.ParseExpr()
 	// Should be App(App(f, x), y)
 	app, ok := expr.(*ExprApp)
@@ -1647,7 +1648,7 @@ func TestParseStepLimitExceeded(t *testing.T) {
 	l := NewLexer(src)
 	tokens, _ := l.Tokenize()
 	es := &diagnostic.Errors{Source: src}
-	p := NewParser(tokens, es)
+	p := NewParser(context.Background(), tokens, es)
 	// Override maxSteps to something very small.
 	p.guard.maxSteps = 2 // will trigger almost immediately
 	_ = p.ParseProgram()
@@ -1663,7 +1664,7 @@ func TestParseMaxStepsFloor(t *testing.T) {
 	l := NewLexer(src)
 	tokens, _ := l.Tokenize()
 	es := &diagnostic.Errors{Source: src}
-	p := NewParser(tokens, es)
+	p := NewParser(context.Background(), tokens, es)
 	// Verify the floor is applied: maxSteps should be >= 100.
 	if p.guard.maxSteps < 100 {
 		t.Errorf("maxSteps should be at least 100 for short input, got %d", p.guard.maxSteps)
@@ -1912,7 +1913,7 @@ func TestParseStepsResetBetweenPasses(t *testing.T) {
 	l := NewLexer(src)
 	tokens, _ := l.Tokenize()
 	es := &diagnostic.Errors{Source: src}
-	p := NewParser(tokens, es)
+	p := NewParser(context.Background(), tokens, es)
 	// Set maxSteps to just enough for one pass but not two.
 	// collectFixity scans all tokens (~advance per token).
 	// If steps aren't reset, the second pass would exceed the limit.

@@ -18,6 +18,7 @@ type patternResult struct {
 	Pattern     ir.Pattern
 	Bindings    map[string]types.Type
 	SkolemIDs   map[int]string
+	GivenEqs    map[int]types.Type // GADT given equalities: skolem ID → type
 	HasEvidence bool
 }
 
@@ -191,11 +192,14 @@ func (ch *Checker) checkConPatternWith(conName, moduleName string, conTy types.T
 		}
 	}
 
+	var givenEqs map[int]types.Type
+
 	mkResult := func() patternResult {
 		return patternResult{
 			Pattern:     &ir.PCon{Con: conName, Module: moduleName, Args: args, S: s},
 			Bindings:    bindings,
 			SkolemIDs:   skolemIDs,
+			GivenEqs:    givenEqs,
 			HasEvidence: len(pendingCVs) > 0,
 		}
 	}
@@ -209,9 +213,13 @@ func (ch *Checker) checkConPatternWith(conName, moduleName string, conTy types.T
 		maps.Copy(skolemIDs, child.SkolemIDs)
 		currentTy = restTy
 	}
-	// 6. Unify result type with scrutinee type.
+	// 6. Extract GADT given equalities and unify result type with scrutinee.
 	if ch.isInaccessibleGADTBranch(conName, scrutTy) {
 		return mkResult()
+	}
+	givenEqs = extractGivenEqs(ch.unifier.Zonk(currentTy), ch.unifier.Zonk(scrutTy))
+	for skolemID, ty := range givenEqs {
+		ch.unifier.InstallGivenEq(skolemID, ty)
 	}
 	if err := ch.unifier.Unify(currentTy, scrutTy); err != nil {
 		ch.addUnifyError(err, s, "constructor type mismatch")
@@ -247,6 +255,37 @@ func desugarListPattern(p *syntax.PatList) syntax.Pattern {
 			Con:  "Cons",
 			Args: []syntax.Pattern{p.Elems[i], result},
 			S:    p.S,
+		}
+	}
+	return result
+}
+
+// extractGivenEqs compares a GADT constructor's return type with the
+// scrutinee type and extracts given equalities. When the scrutinee has a
+// skolem at a position where the constructor has a concrete type, the
+// pair (skolemID → concreteType) is recorded as a given equality.
+func extractGivenEqs(conRetTy, scrutTy types.Type) map[int]types.Type {
+	_, conArgs := types.UnwindApp(conRetTy)
+	_, scrutArgs := types.UnwindApp(scrutTy)
+	if len(conArgs) != len(scrutArgs) {
+		return nil
+	}
+	var result map[int]types.Type
+	for i, scrutArg := range scrutArgs {
+		conArg := conArgs[i]
+		if sk, ok := scrutArg.(*types.TySkolem); ok {
+			// The scrutinee arg is a skolem; the constructor arg refines it
+			// (unless the constructor arg is also a skolem or a meta — no refinement).
+			if _, isMeta := conArg.(*types.TyMeta); isMeta {
+				continue
+			}
+			if sk2, ok2 := conArg.(*types.TySkolem); ok2 && sk2.ID == sk.ID {
+				continue
+			}
+			if result == nil {
+				result = make(map[int]types.Type)
+			}
+			result[sk.ID] = conArg
 		}
 	}
 	return result

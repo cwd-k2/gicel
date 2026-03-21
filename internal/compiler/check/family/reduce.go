@@ -29,22 +29,22 @@ type ReduceEnv struct {
 // produced by type family reduction.
 const maxReductionTypeSize = 10000
 
-// MaxReductionWork is the step budget for a single reduction pass.
-// Prevents exponential blowup from families like Grow a = Pair (Grow a) (Grow a).
+// MaxReductionWork is the default step budget for a single reduction pass.
+// Exported for test configuration; runtime limit is set via Budget.SetTFStepLimit.
 const MaxReductionWork = 50000
 
-// ReduceAll resets the budget counters and reduces all type family
+// ReduceAll resets the TF step counter and reduces all type family
 // applications in a type.
 // Intended to be installed as the unifier's FamilyReducer callback.
 func (e *ReduceEnv) ReduceAll(t types.Type) types.Type {
-	e.Budget.ResetCounters()
+	e.Budget.ResetTFSteps()
 	return e.reduceFamilyApps(t)
 }
 
 // ReduceTyFamily attempts to reduce a saturated type family application.
 // Returns (result, true) on success, or (nil, false) if stuck/no match.
 func (e *ReduceEnv) ReduceTyFamily(name string, args []types.Type, s span.Span) (types.Type, bool) {
-	if err := e.Budget.Step(); err != nil {
+	if err := e.Budget.TFStep(); err != nil {
 		e.AddError(diagnostic.ErrTypeFamilyReduction, s,
 			fmt.Sprintf("type family %s: reduction limit exceeded (possible infinite recursion or exponential growth)", name))
 		return nil, false
@@ -146,7 +146,7 @@ func (e *ReduceEnv) reduceFamilyApps(t types.Type) types.Type {
 }
 
 func (e *ReduceEnv) reduceFamilyAppsN(t types.Type, cache map[string]types.Type) types.Type {
-	if err := e.Budget.Step(); err != nil {
+	if err := e.Budget.TFStep(); err != nil {
 		return t
 	}
 	// Case 1: explicit TyFamilyApp.
