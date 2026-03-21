@@ -2,6 +2,7 @@ package check
 
 import (
 	"fmt"
+	"maps"
 
 	"github.com/cwd-k2/gicel/internal/infra/diagnostic"
 	"github.com/cwd-k2/gicel/internal/infra/span"
@@ -215,8 +216,12 @@ func (ch *Checker) checkCaseAlts(scrutTy, resultTy types.Type, scrutCore ir.Core
 		for range pr.Bindings {
 			ch.ctx.Pop()
 		}
-		if len(pr.SkolemIDs) > 0 && len(pr.GivenEqs) == 0 {
-			ch.checkSkolemEscape(ch.unifier.Zonk(resultTy), pr.SkolemIDs, alt.Body.Span())
+		if len(pr.SkolemIDs) > 0 {
+			escapable := maps.Clone(pr.SkolemIDs)
+			for _, ty := range pr.GivenEqs {
+				removeSkolemIDsFrom(escapable, ty)
+			}
+			ch.checkSkolemEscape(ch.unifier.Zonk(resultTy), escapable, alt.Body.Span())
 		}
 		alts = append(alts, ir.Alt{Pattern: pr.Pattern, Body: bodyCore, S: alt.S})
 

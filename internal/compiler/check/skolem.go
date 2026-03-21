@@ -40,6 +40,20 @@ func (ch *Checker) checkSkolemEscape(ty types.Type, skolemIDs map[int]string, s 
 	}
 }
 
+// removeSkolemIDsFrom removes any skolem IDs found in ty from the ids map.
+// Used to exclude GADT-refined skolems from escape checking: constructor
+// skolems that appear in GivenEqs values are part of the refinement and
+// may legitimately appear in the result type.
+func removeSkolemIDsFrom(ids map[int]string, ty types.Type) {
+	if sk, ok := ty.(*types.TySkolem); ok {
+		delete(ids, sk.ID)
+		return
+	}
+	for _, child := range ty.Children() {
+		removeSkolemIDsFrom(ids, child)
+	}
+}
+
 // checkSkolemEscapeInSolutions checks that a skolem does not appear in
 // solutions for metas created before the given scope boundary (preID).
 // Metas created after the skolem are in its scope and may reference it.

@@ -47,12 +47,17 @@ func (ch *Checker) checkDo(e *syntax.ExprDo, expected types.Type) ir.Core {
 			desugared := ch.desugarDoToMonad(e.Stmts, e.S)
 			return ch.check(desugared, expected)
 		}
-		// No Monad instance. The IxMonad Lift dispatch path has a known
-		// elaboration bug for a ≠ b (V8). Emit a clear error instead of
-		// producing broken runtime code.
+		// No Monad instance. Try direct IxMonad dispatch (without Lift
+		// wrapping, which has a known elaboration bug for a ≠ b — V8).
+		if ch.hasDirectIxMonadInstance(monadHead, e.S) {
+			head, _ := types.UnwindApp(monadHead)
+			d := &doElaborator{ch: ch, mode: doModeMonadic, monadHead: head, expected: expected}
+			_, result := d.elaborate(e.Stmts, e.S)
+			return result
+		}
 		ch.addCodedError(diagnostic.ErrNoInstance, e.S,
-			fmt.Sprintf("do notation for %s requires a Monad instance; provide instance Monad (%s) { mpure := ...; mbind := ... }",
-				types.Pretty(expected), types.Pretty(monadHead)))
+			fmt.Sprintf("do notation for %s requires a Monad or IxMonad instance",
+				types.Pretty(expected)))
 		return &ir.Var{Name: "<error>", S: e.S}
 	}
 
@@ -117,6 +122,24 @@ const (
 	ixMethodPure = 0 // ixpure
 	ixMethodBind = 1 // ixbind
 )
+
+// hasDirectIxMonadInstance checks whether the IxMonad class has a direct
+// resolvable instance for the bare type constructor head of monadHead.
+// Only tries direct resolution (no Lift wrapping) to avoid the V8 Lift bug.
+func (ch *Checker) hasDirectIxMonadInstance(monadHead types.Type, s span.Span) bool {
+	classInfo := ch.reg.classes["IxMonad"]
+	if classInfo == nil {
+		return false
+	}
+	head, _ := types.UnwindApp(monadHead)
+	saved := ch.errors.Len()
+	ch.resolveInstance("IxMonad", []types.Type{head}, s)
+	if ch.errors.Len() > saved {
+		ch.errors.Truncate(saved)
+		return false
+	}
+	return true
+}
 
 // hasMonadInstance checks whether the Monad class has a resolvable instance
 // for the given monadHead, without emitting errors.
@@ -210,7 +233,7 @@ func (ch *Checker) desugarDoToMonad(stmts []syntax.Stmt, s span.Span) syntax.Exp
 		return &syntax.ExprApp{
 			Fun: &syntax.ExprApp{
 				Fun: &syntax.ExprVar{Name: "mbind", S: st.S},
-				Arg: st.Comp,
+				Arg: rewritePureToMpure(st.Comp),
 				S:   st.S,
 			},
 			Arg: &syntax.ExprLam{
@@ -225,7 +248,7 @@ func (ch *Checker) desugarDoToMonad(stmts []syntax.Stmt, s span.Span) syntax.Exp
 		return &syntax.ExprApp{
 			Fun: &syntax.ExprApp{
 				Fun: &syntax.ExprVar{Name: "mbind", S: st.S},
-				Arg: st.Expr,
+				Arg: rewritePureToMpure(st.Expr),
 				S:   st.S,
 			},
 			Arg: &syntax.ExprLam{

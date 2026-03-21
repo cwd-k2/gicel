@@ -150,3 +150,32 @@ main := eval (Add (LitI 10) (LitI 32))`
 		t.Error("expected binding 'main'")
 	}
 }
+
+func TestGADTExistentialEscapeWithGivenEq(t *testing.T) {
+	// GADT constructor with both refinement (a → Unit) and existential (b).
+	// The existential escapes into the result type via a discarding lambda.
+	// Before fix: GivenEqs presence disabled escape check entirely.
+	source := `
+data Unit := Unit
+data Box a := {
+  MkBox :: \b. b -> Box Unit
+}
+bad :: \a. Box a -> Unit
+bad := \w. (\x. Unit) (case w { MkBox val -> val })
+`
+	checkSourceExpectCode(t, source, nil, diagnostic.ErrSkolemEscape)
+}
+
+func TestGADTSafeExistentialsInGivenEq(t *testing.T) {
+	// GADT constructor where existentials appear in the given eq values.
+	// These are safe — they're part of the GADT refinement.
+	source := `
+data Pair a b := MkPair a b
+data Expr a := {
+  PairLit :: \b c. b -> c -> Expr (Pair b c)
+}
+f :: \a. Expr a -> a
+f := \e. case e { PairLit x y -> MkPair x y }
+`
+	checkSource(t, source, nil)
+}
