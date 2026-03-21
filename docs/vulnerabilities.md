@@ -28,90 +28,6 @@ exponentially larger than the source.
 
 ---
 
-## V6: Multiline Expressions Not Supported in Instance Method Bodies
-
-**Severity**: LOW–MEDIUM
-**Status**: Partially fixed — hang prevented (commit `56427c2`), but multiline still produces parse errors
-
-### Description
-
-Instance method bodies do not support multiline function application.
-Continuation lines after a newline are treated as new statements rather
-than arguments to the previous expression. Originally caused an infinite
-parser loop (fixed); now produces parse errors.
-
-### Example
-
-```gicel
--- Parse error: continuation lines treated as separate statements
-instance Comonad Zipper {
-  extend := \f z. MkZipper
-    (map f (allLefts z))     -- ← parse error here
-    (f z)
-    (map f (allRights z))
-}
-
--- Works: same expression on one line
-instance Comonad Zipper {
-  extend := \f z. MkZipper (map f (allLefts z)) (f z) (map f (allRights z))
-}
-```
-
-Note: top-level bindings handle multiline expressions correctly. Only
-instance (and class) method bodies are affected.
-
-### Workaround
-
-Write instance method bodies on a single line, or extract to a top-level
-helper function.
-
----
-
-## V8: `do` Notation with User-Defined Monads
-
-**Severity**: MEDIUM
-**Status**: Fixed for `Monad` instances; residual kind-mismatch issue with direct `IxMonad` instances on `Type -> Type` monads
-
-### Description
-
-`do` notation for user-defined `Type -> Type` monads previously always
-dispatched through `IxMonad (Lift m)`, which failed for types without a
-compatible IxMonad instance.
-
-### Fix
-
-`do` notation now desugars to `mbind`/`mpure` when a `Monad` instance
-is available. This is the correct path for `Type -> Type` monads:
-
-```gicel
-import Prelude
-
-data Reader e a := MkReader (e -> a)
-runReader :: \e a. Reader e a -> e -> a
-runReader := \r env. case r { MkReader f -> f env }
-ask :: \e. Reader e e
-ask := MkReader (\e. e)
-
-instance Monad (Reader e) {
-  mpure := \a. MkReader (\_. a);
-  mbind := \ma f. MkReader (\env. runReader (f (runReader ma env)) env)
-}
-
-prog :: Reader Int String
-prog := do { x <- ask; pure (append "port=" (show x)) }
-main := runReader prog 8080  -- "port=8080" ✓
-```
-
-### Residual: IxMonad kind mismatch
-
-Providing `instance IxMonad (Reader e)` directly is a kind error:
-`IxMonad` requires `m :: Row -> Row -> Type -> Type`, but `Reader e`
-has kind `Type -> Type`. The checker does not reject this at instance
-declaration time (lenient kind checking), leading to runtime failures
-when `a ≠ b` in bind. Use `Monad` for `Type -> Type` monads.
-
----
-
 ## V9: `fix` Cannot Produce Data Constructor Values
 
 **Severity**: LOW–MEDIUM
@@ -154,17 +70,17 @@ on a function returning a tuple.
 
 The following issues were fixed and are retained as historical reference:
 
-| ID  | Description                                            | Fix              |
-| --- | ------------------------------------------------------ | ---------------- |
-| V1  | String literal allocation limit bypass                 | commit `7197306` |
-| V2  | `check` command has no timeout                         | commit `7197306` |
-| V3  | No input size validation                               | commit `7197306` |
-| V5  | Evidence dictionary scope loss on long operator chains | commit `7197306` |
-| V6  | Parser hang on multiline instance body (infinite loop) | commit `56427c2` |
-| V7  | GADT type refinement lost in polymorphic recursion     | commit `8f9306a` |
-| V8  | `do` notation Monad dispatch for `Type -> Type` monads | commit `8f9306a` |
-| V10 | Nested `case` brace ambiguity                          | commit `8f9306a` |
-| V11 | Stale "no recursion in CLI" comments in examples       | commit `8f9306a` |
+| ID  | Description                                                | Fix                        |
+| --- | ---------------------------------------------------------- | -------------------------- |
+| V1  | String literal allocation limit bypass                     | commit `7197306`           |
+| V2  | `check` command has no timeout                             | commit `7197306`           |
+| V3  | No input size validation                                   | commit `7197306`           |
+| V5  | Evidence dictionary scope loss on long operator chains     | commit `7197306`           |
+| V6  | Parser hang + multiline instance body parsing              | commits `56427c2`, current |
+| V7  | GADT type refinement lost in polymorphic recursion         | commit `8f9306a`           |
+| V8  | `do` notation: Monad dispatch + IxMonad-only compile error | commit `8f9306a`, current  |
+| V10 | Nested `case` brace ambiguity                              | commit `8f9306a`           |
+| V11 | Stale "no recursion in CLI" comments in examples           | commit `8f9306a`           |
 
 ---
 

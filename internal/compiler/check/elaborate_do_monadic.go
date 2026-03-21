@@ -47,9 +47,13 @@ func (ch *Checker) checkDo(e *syntax.ExprDo, expected types.Type) ir.Core {
 			desugared := ch.desugarDoToMonad(e.Stmts, e.S)
 			return ch.check(desugared, expected)
 		}
-		d := &doElaborator{ch: ch, mode: doModeMonadic, monadHead: monadHead, expected: expected}
-		_, result := d.elaborate(e.Stmts, e.S)
-		return result
+		// No Monad instance. The IxMonad Lift dispatch path has a known
+		// elaboration bug for a ≠ b (V8). Emit a clear error instead of
+		// producing broken runtime code.
+		ch.addCodedError(diagnostic.ErrNoInstance, e.S,
+			fmt.Sprintf("do notation for %s requires a Monad instance; provide instance Monad (%s) { mpure := ...; mbind := ... }",
+				types.Pretty(expected), types.Pretty(monadHead)))
+		return &ir.Var{Name: "<error>", S: e.S}
 	}
 
 	// Fallback: try Computation inference.

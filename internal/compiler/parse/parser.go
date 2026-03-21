@@ -69,6 +69,12 @@ type Parser struct {
 	// acts as a statement boundary, preventing greedy expression consumption.
 	stmtBoundaryDepth int
 
+	// methodBodyMode refines statement boundary detection for instance/class
+	// method bodies: a newline is only a boundary when followed by a method
+	// declaration start (lower + := or lower + ::) or associated type/data.
+	// This allows multiline function applications as method bodies (V6 fix).
+	methodBodyMode bool
+
 	guard parserGuard // resource safety harness
 }
 
@@ -301,7 +307,27 @@ func (p *Parser) atStmtBoundary() bool {
 	if p.atDeclBoundary() {
 		return true
 	}
-	return p.stmtBoundaryDepth > 0 && p.depth == p.stmtBoundaryDepth && p.peek().NewlineBefore
+	if p.stmtBoundaryDepth <= 0 || p.depth != p.stmtBoundaryDepth || !p.peek().NewlineBefore {
+		return false
+	}
+	if !p.methodBodyMode {
+		return true
+	}
+	// In method body mode (V6 fix): only treat a newline as a boundary when
+	// the next token clearly starts a new declaration, not a continuation line.
+	switch p.peek().Kind {
+	case syn.TokData, syn.TokType:
+		return true
+	case syn.TokLower:
+		// 2-token lookahead: lower followed by := or :: starts a new method.
+		if p.pos+1 < len(p.tokens) {
+			next := p.tokens[p.pos+1].Kind
+			return next == syn.TokColonEq || next == syn.TokColonColon
+		}
+		return false
+	default:
+		return false
+	}
 }
 
 // parseBody runs a brace-delimited body loop with consistent separator

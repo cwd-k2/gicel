@@ -177,6 +177,9 @@ func (p *Parser) parseClassBody() ([]syn.ClassMethod, []syn.AssocTypeDecl, []syn
 	var methods []syn.ClassMethod
 	var assocTypes []syn.AssocTypeDecl
 	var assocDataDecls []syn.AssocDataDecl
+	savedMode := p.methodBodyMode
+	p.methodBodyMode = true
+	defer func() { p.methodBodyMode = savedMode }()
 	p.parseBody("class declaration", openTok.S, func() {
 		if p.peek().Kind == syn.TokType {
 			atd := p.parseAssocTypeDecl()
@@ -318,6 +321,9 @@ func (p *Parser) parseInstBody() ([]syn.InstMethod, []syn.AssocTypeDef, []syn.As
 	var methods []syn.InstMethod
 	var assocTypeDefs []syn.AssocTypeDef
 	var assocDataDefs []syn.AssocDataDef
+	savedMode := p.methodBodyMode
+	p.methodBodyMode = true
+	defer func() { p.methodBodyMode = savedMode }()
 	p.parseBody("instance declaration", openTok.S, func() {
 		mStart := p.peek().S.Start
 		if p.peek().Kind == syn.TokData {
