@@ -44,6 +44,7 @@ func (r *Registry) RegisterTypeKind(name string, kind types.Kind) {
 }
 
 // RegisterAlias records a type alias.
+// Phase: 2 (alias processing). Qualified names use Scope.InjectAlias instead.
 func (r *Registry) RegisterAlias(name string, info *AliasInfo) {
 	r.aliases[name] = info
 }
@@ -57,6 +58,7 @@ func (r *Registry) RegisterClass(name string, info *ClassInfo) {
 }
 
 // RegisterFamily records a type family declaration.
+// Phase: 3 (type family processing). Qualified names use Scope.InjectFamily instead.
 func (r *Registry) RegisterFamily(name string, info *TypeFamilyInfo) {
 	r.families[name] = info
 }

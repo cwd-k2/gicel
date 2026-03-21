@@ -150,7 +150,13 @@ type Solver struct {
 	worklist       Worklist
 	inertSet       InertSet
 	ambiguityCache map[string]bool // per-solveWanteds cache; lazily allocated
-	level          int             // implication nesting depth for touchability (0 = top-level)
+
+	// level tracks implication nesting depth for OutsideIn(X) touchability.
+	// Currently always 0 (top-level). Reserved for L4 (implication constraints):
+	// when enabled, metas at level > solver.level become untouchable, preventing
+	// local metas from leaking into outer scopes. Code assuming level == 0 will
+	// need review when implication nesting is activated.
+	level int
 }
 
 // Reactivate kicks out constraints blocked on the given meta and

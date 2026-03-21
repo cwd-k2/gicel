@@ -57,6 +57,14 @@ func (ch *Checker) tryResolveInstance(className string, args []types.Type, s spa
 
 // resolveInstance finds a dictionary expression for a given class constraint.
 // Returns a Core expression that evaluates to the dictionary value.
+//
+// Recursion and state contracts:
+//   - Depth limited by budget.EnterResolve (default 64).
+//   - No cycle detection: identical constraints in the call stack are stopped
+//     only by depth exhaustion.
+//   - Meta solutions accumulate in the shared unifier across recursive calls
+//     (no rollback). Instance head unification in the loop body uses withTrial,
+//     but context resolution (recursive resolveInstance) commits permanently.
 func (ch *Checker) resolveInstance(className string, args []types.Type, s span.Span) ir.Core {
 	if err := ch.budget.EnterResolve(); err != nil {
 		ch.addCodedError(diagnostic.ErrResolutionDepth, s,
