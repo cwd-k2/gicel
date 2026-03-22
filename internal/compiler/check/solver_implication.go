@@ -15,9 +15,9 @@ func (ch *Checker) processCtImplication(ct *CtImplication, outerResolutions map[
 	savedWorklist := ch.solver.worklist.Drain()
 
 	// Build local skolem ID set before entering inner scope.
-	skolemIDs := make(map[int]bool, len(ct.Skolems))
+	localSkolems := make(map[int]bool, len(ct.Skolems))
 	for _, sk := range ct.Skolems {
-		skolemIDs[sk.ID] = true
+		localSkolems[sk.ID] = true
 	}
 
 	// SolverLevel is set immediately here (unlike bidir_case.go which defers
@@ -42,7 +42,7 @@ func (ch *Checker) processCtImplication(ct *CtImplication, outerResolutions map[
 		for _, arg := range zonkedArgs {
 			if types.AnyType(arg, func(ty types.Type) bool {
 				sk, ok := ty.(*types.TySkolem)
-				return ok && skolemIDs[sk.ID]
+				return ok && localSkolems[sk.ID]
 			}) {
 				return true
 			}
@@ -58,7 +58,7 @@ func (ch *Checker) processCtImplication(ct *CtImplication, outerResolutions map[
 	// inner-level metas are stuck (error); others float to outer scope.
 	var floatable []Ct
 	for _, r := range innerResiduals {
-		if constraintMentionsLocal(ch, r, skolemIDs, ch.solver.level) {
+		if constraintMentionsLocal(ch, r, localSkolems, ch.solver.level) {
 			ch.addCodedError(diagnostic.ErrNoInstance, r.S,
 				fmt.Sprintf("cannot resolve %s (mentions GADT-local type variables)",
 					constraintKey(r.ClassName, ch.zonkAll(r.Args))))

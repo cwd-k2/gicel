@@ -227,13 +227,13 @@ func (ch *Checker) checkCaseAlts(scrutTy, resultTy types.Type, scrutCore ir.Core
 
 			// Partition residuals: constraints mentioning local skolems
 			// or inner-level metas are stuck (error); others float to outer scope.
-			skSet := make(map[int]bool, len(pr.SkolemIDs))
+			localSkolems := make(map[int]bool, len(pr.SkolemIDs))
 			for id := range pr.SkolemIDs {
-				skSet[id] = true
+				localSkolems[id] = true
 			}
 			var floatable []Ct
 			for _, r := range residuals {
-				if constraintMentionsLocal(ch, r, skSet, ch.solver.level) {
+				if constraintMentionsLocal(ch, r, localSkolems, ch.solver.level) {
 					ch.addCodedError(diagnostic.ErrNoInstance, r.S,
 						fmt.Sprintf("cannot resolve %s (mentions GADT-local type variables)",
 							constraintKey(r.ClassName, ch.zonkAll(r.Args))))
