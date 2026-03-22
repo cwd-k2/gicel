@@ -240,7 +240,7 @@ f := \x. x
 func TestProbeD_TF_RecursiveFamilyFuelExhausted(t *testing.T) {
 	source := `
 data Nat := { Z: (); S: Nat; }
-data Phantom (n: Nat) := MkPhantom
+data Phantom := \(n: Nat). { MkPhantom: Phantom n; }
 
 type Loop (a: Nat) :: Nat := {
   Loop a =: Loop (S a)

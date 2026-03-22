@@ -34,7 +34,7 @@ func peanoSource(depth int) string {
 	}
 
 	// A phantom type indexed by Nat, to force reduction without needing value-level computation.
-	b.WriteString("data Phantom (n: Nat) := MkPhantom\n")
+	b.WriteString("data Phantom := \\(n: Nat). { MkPhantom: Phantom n; }\n")
 	b.WriteString(fmt.Sprintf("f :: Phantom (Add %s Z) -> Phantom (Add %s Z)\n", nested, nested))
 	b.WriteString("f := \\x. x\n")
 
@@ -100,7 +100,7 @@ func TestStressManyEquations(t *testing.T) {
 	b.WriteString("\n}\n")
 
 	// Verify specific dispatch results via phantom types.
-	b.WriteString("data Phantom (r: Result) := MkPhantom\n")
+	b.WriteString("data Phantom := \\(r: Result). { MkPhantom: Phantom r; }\n")
 	b.WriteString("first :: Phantom (Dispatch T0) -> Phantom R0\n")
 	b.WriteString("first := \\x. x\n")
 	b.WriteString("last :: Phantom (Dispatch T59) -> Phantom R1\n")
@@ -506,7 +506,7 @@ type Pred (n: Nat) :: Nat := {
   Pred (S n) =: n;
   Pred Z =: Z
 }
-data Phantom (n: Nat) := MkPhantom
+data Phantom := \\(n: Nat). { MkPhantom: Phantom n; }
 f :: Phantom (Pred (S Z)) -> Phantom Z
 f := \x. x
 `

@@ -215,7 +215,7 @@ main := f True`
 func TestEdgeConstraintInstanceContext(t *testing.T) {
 	// Instance with multiple context constraints (curried style).
 	source := `data Bool := { True: Bool; False: Bool; }
-data Triple a b c := MkTriple a b c
+data Triple := \a b c. { MkTriple: a -> b -> c -> Triple a b c; }
 data Eq := \a. { eq: a -> a -> Bool }
 impl Eq Bool := { eq := \x y. True }
 impl Eq a => Eq b => Eq c => Eq (Triple a b c) := { eq := \x y. True }

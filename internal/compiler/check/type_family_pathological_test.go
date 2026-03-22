@@ -199,7 +199,7 @@ func TestPathologicalDataFamilyMangledNameCollision(t *testing.T) {
 	// to prevent collision, or the checker should detect the conflict.
 	source := `
 data Unit := { Unit: Unit; }
-data Wrap a := MkWrap a
+data Wrap := \a. { MkWrap: a -> Wrap a; }
 
 data C1 := \a. {
   data Key a :: Type;
@@ -289,7 +289,7 @@ data Nat := { Z: (); S: Nat; }
 type AddTen (n: Nat) :: Nat := {
   AddTen n =: S (S (S (S (S (S (S (S (S (S n)))))))))
 }
-data Phantom (n: Nat) := MkPhantom
+data Phantom := \(n: Nat). { MkPhantom: Phantom n; }
 f :: Phantom (AddTen Z) -> Phantom (S (S (S (S (S (S (S (S (S (S Z))))))))))
 f := \x. x
 `
@@ -347,7 +347,7 @@ type Add (a: Nat) (b: Nat) :: Nat := {
   Add Z b =: b;
   Add (S a) b =: S (Add a b)
 }
-data Phantom (n: Nat) := MkPhantom
+data Phantom := \(n: Nat). { MkPhantom: Phantom n; }
 
 -- Add (S (S Z)) (S Z) = S (S (S Z))
 -- Reducing again: S (S (S Z)) has no TF app at the top → same result.

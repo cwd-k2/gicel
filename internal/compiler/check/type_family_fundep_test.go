@@ -28,7 +28,7 @@ type Add (a: Nat) (b: Nat) :: Nat := {
 }
 
 -- Phantom type indexed by Nat.
-data NatProxy (n: Nat) := MkProxy
+data NatProxy := \(n: Nat). { MkProxy: NatProxy n; }
 
 -- Elem: container element extraction.
 data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
@@ -59,7 +59,7 @@ type NextSeason (s: Season) :: Season := {
   NextSeason Winter =: Spring
 }
 
-data Tagged (s: Season) := MkTagged
+data Tagged := \(s: Season). { MkTagged: Tagged s; }
 
 -- NextSeason reduces for concrete season values.
 nextProof :: Tagged (NextSeason Spring) -> Tagged Summer
@@ -253,7 +253,7 @@ v :: Elem (Maybe Unit)
 v := MaybeElem Unit
 
 -- IsJust reduces for a concrete type.
-data Phantom (b: Bool) := MkPhantom
+data Phantom := \(b: Bool). { MkPhantom: Phantom b; }
 proof :: Phantom (IsJust (Maybe Unit)) -> Phantom True
 proof := \x. x
 `
@@ -299,7 +299,7 @@ type Dual (s: Session) :: Session := {
   Dual End =: End
 }
 
-data Chan (s: Session) := MkChan
+data Chan := \(s: Session). { MkChan: Chan s; }
 
 -- Dual (Send End) = Recv (Dual End) = Recv End
 dualProof1 :: Chan (Dual (Send End)) -> Chan (Recv End)
