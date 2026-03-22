@@ -10,7 +10,6 @@ import (
 // into the inert set or producing Core evidence terms.
 type Ct interface {
 	ctMarker()
-	ctPlaceholder() string
 	ctSpan() span.Span
 }
 
@@ -44,9 +43,8 @@ type CtFunEq struct {
 	S          span.Span
 }
 
-func (*CtFunEq) ctMarker()               {}
-func (c *CtFunEq) ctPlaceholder() string { return "" }
-func (c *CtFunEq) ctSpan() span.Span     { return c.S }
+func (*CtFunEq) ctMarker()            {}
+func (c *CtFunEq) ctSpan() span.Span { return c.S }
 
 // CtImplication represents an implication constraint for GADT branches
 // and other scoped constraint-solving contexts. It bundles:
@@ -60,9 +58,8 @@ type CtImplication struct {
 	S        span.Span
 }
 
-func (*CtImplication) ctMarker()               {}
-func (c *CtImplication) ctPlaceholder() string { return "" }
-func (c *CtImplication) ctSpan() span.Span     { return c.S }
+func (*CtImplication) ctMarker()            {}
+func (c *CtImplication) ctSpan() span.Span { return c.S }
 
 // collectMetaIDs collects all TyMeta IDs from a slice of types.
 // Used by the inert set to build the meta-to-constraint index.

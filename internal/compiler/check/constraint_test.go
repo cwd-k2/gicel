@@ -200,8 +200,9 @@ func TestCtInterfaceCompliance(t *testing.T) {
 	s := span.Span{Start: 0, End: 10}
 	var ct Ct
 
-	ct = &CtClass{Placeholder: "p1", ClassName: "Eq", S: s}
-	if ct.ctPlaceholder() != "p1" {
+	cc := &CtClass{Placeholder: "p1", ClassName: "Eq", S: s}
+	ct = cc
+	if cc.ctPlaceholder() != "p1" {
 		t.Fatal("CtClass placeholder mismatch")
 	}
 	if ct.ctSpan() != s {
@@ -209,11 +210,13 @@ func TestCtInterfaceCompliance(t *testing.T) {
 	}
 
 	ct = &CtFunEq{FamilyName: "F", S: s}
-	if ct.ctPlaceholder() != "" {
-		t.Fatal("CtFunEq should have empty placeholder")
-	}
 	if ct.ctSpan() != s {
 		t.Fatal("CtFunEq span mismatch")
+	}
+
+	ct = &CtImplication{S: s}
+	if ct.ctSpan() != s {
+		t.Fatal("CtImplication span mismatch")
 	}
 }
 
