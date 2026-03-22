@@ -191,7 +191,7 @@ func TestProbeA_CrashResist_LargeDataType(t *testing.T) {
 			sb.WriteString(";\n")
 		}
 		if i%2 == 0 {
-			sb.WriteString(fmt.Sprintf("  C%d -> True", i))
+			sb.WriteString(fmt.Sprintf("  C%d=> True", i))
 		} else {
 			sb.WriteString(fmt.Sprintf("  C%d -> False", i))
 		}
@@ -210,7 +210,7 @@ data Exists := { MkExists: \ a. a -> Exists }
 
 -- Trying to return the existentially-bound value should fail.
 bad :: Exists -> Bool
-bad := \e. case e { MkExists x -> x }
+bad := \e. case e { MkExists x => x }
 `
 	checkSourceExpectError(t, source, nil)
 }

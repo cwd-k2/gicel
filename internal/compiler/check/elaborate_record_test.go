@@ -92,14 +92,14 @@ main := f { x: 42, y: 0 }`
 // =============================================================================
 
 func TestRecordPatternSimple(t *testing.T) {
-	source := `f := \r. case r { { x: a } -> a }
+	source := `f := \r. case r { { x: a } => a }
 main := f { x: 42 }`
 	checkSource(t, source, nil)
 }
 
 func TestRecordPatternMultiField(t *testing.T) {
 	source := `data Bool := { True: (); False: (); }
-f := \r. case r { { x: a, y: b } -> a }
+f := \r. case r { { x: a, y: b } => a }
 main := f { x: 42, y: True }`
 	checkSource(t, source, nil)
 }
@@ -130,7 +130,7 @@ func TestRecordUpdateDuplicateLabel(t *testing.T) {
 
 func TestRecordPatternDuplicateLabel(t *testing.T) {
 	// Duplicate labels in a record pattern should be rejected.
-	source := `f := \r. case r { { x: a, x: b } -> a }
+	source := `f := \r. case r { { x: a, x: b } => a }
 main := f { x: 42 }`
 	checkSourceExpectCode(t, source, nil, diagnostic.ErrDuplicateLabel)
 }

@@ -19,7 +19,7 @@ func TestCheckUnboundVar(t *testing.T) {
 
 func TestErrorUnboundCon(t *testing.T) {
 	source := `data Bool := { True: (); False: (); }
-main := case True { Foo -> True; _ => False }`
+main := case True { Foo=> True; _ => False }`
 	checkSourceExpectCode(t, source, nil, diagnostic.ErrUnboundCon)
 }
 
@@ -120,7 +120,7 @@ func TestErrorSkolemEscape(t *testing.T) {
 	// Existential type variable escapes via GADT pattern match:
 	// MkExists packs an existential 'a'; extracting it leaks 'a' into the result.
 	source := `data Exists := { MkExists: \ a. a -> Exists }
-bad := \e. case e { MkExists x -> x }`
+bad := \e. case e { MkExists x => x }`
 	checkSourceExpectCode(t, source, nil, diagnostic.ErrSkolemEscape)
 }
 

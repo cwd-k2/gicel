@@ -32,7 +32,7 @@ data Eq := \a. { eq: a -> a -> Bool }
 impl Eq Bool := { eq := \x y. True }
 data Dict (c: Constraint) := MkDict c
 useDict :: Dict (Eq Bool) -> Bool -> Bool -> Bool
-useDict := \d x y. case d { MkDict -> eq x y }
+useDict := \d x y. case d { MkDict => eq x y }
 main := useDict MkDict True False`
 	checkSource(t, source, nil)
 }
@@ -44,7 +44,7 @@ data Eq := \a. { eq: a -> a -> Bool }
 impl Eq Bool := { eq := \x y. True }
 data Dict (c: Constraint) := MkDict c
 withDict :: \ a. Dict (Eq a) -> a -> a -> Bool
-withDict := \d x y. case d { MkDict -> eq x y }
+withDict := \d x y. case d { MkDict => eq x y }
 main := withDict (MkDict :: Dict (Eq Bool)) True False`
 	checkSource(t, source, nil)
 }
@@ -59,9 +59,9 @@ impl Eq Bool := { eq := \x y. True }
 impl Show Bool := { show := \x. MkUnit }
 data Dict (c: Constraint) := MkDict c
 useEq :: Dict (Eq Bool) -> Bool -> Bool -> Bool
-useEq := \d x y. case d { MkDict -> eq x y }
+useEq := \d x y. case d { MkDict => eq x y }
 useShow :: Dict (Show Bool) -> Bool -> Unit
-useShow := \d x. case d { MkDict -> show x }`
+useShow := \d x. case d { MkDict => show x }`
 	checkSource(t, source, nil)
 }
 
@@ -74,7 +74,7 @@ impl Eq Bool := { eq := \x y. True }
 impl Ord Bool := { compare := \x y. True }
 data Dict (c: Constraint) := MkDict c
 useOrd :: Dict (Ord Bool) -> Bool -> Bool -> Bool
-useOrd := \d x y. case d { MkDict -> eq x y }`
+useOrd := \d x y. case d { MkDict => eq x y }`
 	checkSource(t, source, nil)
 }
 
@@ -137,7 +137,7 @@ impl Eq Bool := { eq := \x y. True }
 impl Show Bool := { show := \x. MkUnit }
 data Dict (c: Constraint) := MkDict c
 chain :: Dict (Eq Bool) -> Dict (Show Bool) -> Bool -> Unit
-chain := \d1 d2 x. case d1 { MkDict -> case d2 { MkDict -> show x } }`
+chain := \d1 d2 x. case d1 { MkDict => case d2 { MkDict => show x } }`
 	checkSource(t, source, nil)
 }
 
@@ -147,6 +147,6 @@ func TestDictReificationInferredType(t *testing.T) {
 data Eq := \a. { eq: a -> a -> Bool }
 impl Eq Bool := { eq := \x y. True }
 data Dict (c: Constraint) := MkDict c
-useInferred := case (MkDict :: Dict (Eq Bool)) { MkDict -> eq True False }`
+useInferred := case (MkDict :: Dict (Eq Bool)) { MkDict => eq True False }`
 	checkSource(t, source, nil)
 }

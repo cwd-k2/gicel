@@ -32,7 +32,7 @@ import (
 func TestProbeA_RowUnify_EmptyRows(t *testing.T) {
 	// Use Record {} or () in type position for empty record.
 	source := `
-f: () -> ()
+f: () => ()
 f := \x. x
 
 main := f {}
@@ -162,10 +162,10 @@ f := \x. { x: f x }
 }
 
 // TestProbeA_EmptyRecordUnifiesWithEmptyRecord — edge case: check that
-// () -> () is valid (unit type).
+// () => () is valid (unit type).
 func TestProbeA_EmptyRecordUnifiesWithEmptyRecord(t *testing.T) {
 	source := `
-f: () -> ()
+f: () => ()
 f := \x. x
 
 main := f {}
@@ -217,7 +217,7 @@ func TestProbeA_RowUnify_RecordPatternExtraFields(t *testing.T) {
 	source := `
 data Bool := { True: (); False: (); }
 
-f := \r. case r { { x: a } -> a }
+f := \r. case r { { x: a } => a }
 main := f { x: True, y: 42 }
 `
 	config := &CheckConfig{

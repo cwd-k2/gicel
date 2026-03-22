@@ -33,21 +33,21 @@ main := \b. case b { _ => True }`
 
 func TestExhaustiveVarPattern(t *testing.T) {
 	source := `data Bool := { True: (); False: (); }
-main := \b. case b { x -> x }`
+main := \b. case b { x => x }`
 	checkSource(t, source, nil)
 }
 
 func TestExhaustiveNestedComplete(t *testing.T) {
 	source := `data Maybe := \a. { Just: a; Nothing: (); }
 data Bool := { True: (); False: (); }
-main := \m. case m { Just (Just _) -> 1; Just (Nothing) -> 2; Nothing => 3 }`
+main := \m. case m { Just (Just _) => 1; Just (Nothing) => 2; Nothing => 3 }`
 	checkSource(t, source, nil)
 }
 
 func TestExhaustiveNestedIncomplete(t *testing.T) {
 	source := `data Maybe := \a. { Just: a; Nothing: (); }
 data Bool := { True: (); False: (); }
-main := \m. case m { Just (Just _) -> 1; Nothing => 3 }`
+main := \m. case m { Just (Just _) => 1; Nothing => 3 }`
 	errMsg := checkSourceExpectCode(t, source, nil, diagnostic.ErrNonExhaustive)
 	if !strings.Contains(errMsg, "Nothing") && !strings.Contains(errMsg, "Just") {
 		t.Errorf("expected mention of missing pattern, got: %s", errMsg)
@@ -65,27 +65,27 @@ main := \b. case b { _ => 1; True => 2 }`
 func TestExhaustiveRecordPatterns(t *testing.T) {
 	// Record patterns should be handled by the exhaustiveness checker.
 	source := `data Bool := { True: (); False: (); }
-main := \r. case r { { x: True, y: _ } -> 1; { x: False, y: _ } -> 2 }`
+main := \r. case r { { x: True, y: _ } => 1; { x: False, y: _ } => 2 }`
 	checkSource(t, source, nil)
 }
 
 func TestExhaustiveWildcardOnly(t *testing.T) {
 	// A single wildcard always covers all cases.
-	source := `data Color := Red | Green | Blue
+	source := `data Color := { Red: (); Green: (); Blue: (); }
 main := \c. case c { _ => 1 }`
 	checkSource(t, source, nil)
 }
 
 func TestExhaustiveMultiConComplete(t *testing.T) {
 	// Three-constructor type fully covered.
-	source := `data Tri := A | B | C
+	source := `data Tri := { A: (); B: (); C: (); }
 main := \t. case t { A => 1; B => 2; C => 3 }`
 	checkSource(t, source, nil)
 }
 
 func TestExhaustiveMultiConIncomplete(t *testing.T) {
 	// Missing constructor C should be reported.
-	source := `data Tri := A | B | C
+	source := `data Tri := { A: (); B: (); C: (); }
 main := \t. case t { A => 1; B => 2 }`
 	errMsg := checkSourceExpectCode(t, source, nil, diagnostic.ErrNonExhaustive)
 	if !strings.Contains(errMsg, "C") {
@@ -104,8 +104,8 @@ func TestExhaustiveGADTFiltering(t *testing.T) {
 	// GADT: only constructors applicable to the scrutinee type should be required.
 	source := `data Bool := { True: (); False: (); }
 data Unit := { Unit: (); }
-data Tag a := { TagBool: Tag Bool; TagUnit: Tag Unit }
+data Tag := \a. { TagBool: Tag Bool; TagUnit: Tag Unit }
 f :: Tag Bool -> Bool
-f := \t. case t { TagBool -> True }`
+f := \t. case t { TagBool => True }`
 	checkSource(t, source, nil)
 }

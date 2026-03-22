@@ -59,7 +59,7 @@ main := f (1, 2)`
 }
 
 func TestUnitAnnotated(t *testing.T) {
-	source := `f :: () -> Int
+	source := `f :: () => Int
 f := \u. 42
 main := f ()`
 	checkSource(t, source, nil)
@@ -71,13 +71,13 @@ main := f ()`
 
 func TestTuplePatternPair(t *testing.T) {
 	source := `data Bool := { True: (); False: (); }
-f := \p. case p { (a, b) -> a }
+f := \p. case p { (a, b) => a }
 main := f (42, True)`
 	checkSource(t, source, nil)
 }
 
 func TestTuplePatternUnit(t *testing.T) {
-	source := `f := \u. case u { () -> 42 }
+	source := `f := \u. case u { () => 42 }
 main := f ()`
 	checkSource(t, source, nil)
 }

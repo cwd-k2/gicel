@@ -25,7 +25,7 @@ data Exists := { MkExists: \a. a -> Exists }
 
 -- This should fail: the existential 'a' escapes through the return type
 leak :: Exists -> Bool
-leak := \e. case e { MkExists x -> x }
+leak := \e. case e { MkExists x => x }
 `
 	errMsg := checkSourceExpectError(t, source, nil)
 	if !strings.Contains(errMsg, "mismatch") && !strings.Contains(errMsg, "escape") && !strings.Contains(errMsg, "skolem") {
@@ -41,7 +41,7 @@ data Bool := { True: (); False: (); }
 data Expr a := { LitBool: Bool -> Expr Bool }
 
 eval: Expr Bool -> Bool
-eval := \e. case e { LitBool b -> b }
+eval := \e. case e { LitBool b => b }
 
 main := eval (LitBool True)
 `
@@ -58,7 +58,7 @@ data Nat := { Z: (); S: Nat; }
 data Tag a := { TagBool: Tag Bool; TagNat: Tag Nat }
 
 describe: Tag Bool -> Bool
-describe := \t. case t { TagBool -> True }
+describe := \t. case t { TagBool => True }
 
 main := describe TagBool
 `

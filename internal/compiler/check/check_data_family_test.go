@@ -114,7 +114,7 @@ impl Collection (List a) := {
 }
 
 unwrap: \ a. Elem (List a) -> a
-unwrap := \e. case e { ListElem x -> x }
+unwrap := \e. case e { ListElem x => x }
 `
 	checkSource(t, source, nil)
 }
