@@ -433,7 +433,10 @@ func (p *Parser) isTypeAtomStart() bool {
 		return false
 	}
 	k := p.peek().Kind
-	return k == syn.TokLower || k == syn.TokUpper || k == syn.TokLParen || k == syn.TokLBrace || k == syn.TokUnderscore
+	if p.noBraceAtom && k == syn.TokLBrace {
+		return false
+	}
+	return k == syn.TokLower || k == syn.TokUpper || k == syn.TokLParen || k == syn.TokLBrace || k == syn.TokUnderscore || k == syn.TokCase
 }
 
 // syncToStmtBoundary advances to the next statement boundary within a

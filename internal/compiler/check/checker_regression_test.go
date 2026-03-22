@@ -235,7 +235,7 @@ func TestRegressionFundepBestEffort(t *testing.T) {
 	source := `
 data Unit := { Unit: (); }
 data List := \a. { Nil: (); Cons: (a, List a); }
-data Elem := \c e | c =: e. {
+data Elem := \c e. {
   extract: c -> e
 }
 impl Elem (List a) a := {
@@ -254,7 +254,7 @@ func TestRegressionFundepImprovementFromMeta(t *testing.T) {
 	source := `
 data Unit := { Unit: (); }
 data List := \a. { Nil: (); Cons: (a, List a); }
-data Collection := \c e | c =: e. {
+data Collection := \c e. {
   empty: c
 }
 impl Collection (List a) a := {

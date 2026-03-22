@@ -268,6 +268,22 @@ func (p *Parser) parseTypeFamilyLegacy(name string, start span.Pos) *syn.DeclTyp
 
 	p.expect(syn.TokColonEq)
 
+	// If body doesn't start with {, it's a plain type alias with params, not a type family.
+	if p.peek().Kind != syn.TokLBrace {
+		inner := p.parseType()
+		var body syn.TypeExpr = inner
+		if len(params) > 0 {
+			body = &syn.TyExprForall{Binders: params, Body: inner, S: span.Span{Start: start, End: p.prevEnd()}}
+		}
+		_ = resultName
+		return &syn.DeclTypeAlias{
+			Name:    name,
+			KindAnn: kindAnn,
+			Body:    body,
+			S:       span.Span{Start: start, End: p.prevEnd()},
+		}
+	}
+
 	// Parse equations: { Name Pats =: RHS; ... }
 	openTok := p.expect(syn.TokLBrace)
 	var alts []syn.TyAlt
@@ -430,7 +446,12 @@ func (p *Parser) parseImplDecl() *syn.DeclImpl {
 		p.advance() // consume ::
 	}
 
+	// Parse type annotation, preventing { from being consumed as a row type.
+	// This ensures "impl Eq Bool { ... }" parses Eq Bool as annotation, not Eq Bool { ... }.
+	savedNoBrace := p.noBraceAtom
+	p.noBraceAtom = true
 	ann := p.parseType()
+	p.noBraceAtom = savedNoBrace
 
 	// Accept both := (new) and direct { (legacy instance format).
 	if p.peek().Kind == syn.TokColonEq {
