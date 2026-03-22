@@ -1,3 +1,10 @@
+// Package engine orchestrates compilation and execution of GICEL programs.
+//
+// Files are grouped by responsibility:
+//
+//   - Orchestration: engine.go, pipeline.go, modstore.go
+//   - Execution:     runtime.go, sandbox.go, limits.go
+//   - Host bridge:   hostenv.go, convert.go, typehelpers.go, errors.go
 package engine
 
 import (
