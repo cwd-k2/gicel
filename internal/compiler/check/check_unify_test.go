@@ -283,7 +283,7 @@ func TestNormalizeThunkAppPrePostOrder(t *testing.T) {
 
 func TestPatternConArityTooMany(t *testing.T) {
 	// Just takes one arg, pattern supplies two → should error.
-	source := `data Maybe a := Nothing | Just a
+	source := `data Maybe := \a. { Nothing: (); Just: a; }
 f :: Maybe Int -> Int
 f := \x. case x { Nothing => 0; Just a b -> a }
 main := f (Just 42)`
@@ -292,7 +292,7 @@ main := f (Just 42)`
 
 func TestPatternConArityTooFew(t *testing.T) {
 	// Pair takes two args, pattern supplies one → should error.
-	source := `data Pair a b := MkPair a b
+	source := `data Pair := \a b. { MkPair: (a, b); }
 f :: Pair Int Int -> Int
 f := \x. case x { MkPair a -> a }
 main := f (MkPair 1 2)`

@@ -67,7 +67,7 @@ func TestDoMonadMidStatementPureRewrite(t *testing.T) {
 	// Before fix: mid-statement `pure 42` was not rewritten to `mpure 42`,
 	// causing a type mismatch (Computation vs Maybe).
 	source := `
-data Maybe a := Just a | Nothing
+data Maybe := \a. { Just: a; Nothing: (); }
 class Monad (m: Type -> Type) {
   mpure :: \a. a -> m a;
   mbind :: \a b. m a -> (a -> m b) -> m b
@@ -89,7 +89,7 @@ func TestDoMonadBindPureRewrite(t *testing.T) {
 	// do { x <- pure 42; mpure x } :: Maybe Int
 	// Before fix: `pure 42` in StmtBind was not rewritten to `mpure 42`.
 	source := `
-data Maybe a := Just a | Nothing
+data Maybe := \a. { Just: a; Nothing: (); }
 class Monad (m: Type -> Type) {
   mpure :: \a. a -> m a;
   mbind :: \a b. m a -> (a -> m b) -> m b

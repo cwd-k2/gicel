@@ -64,7 +64,7 @@ main := f True False`
 func TestEvidenceResolveContextual(t *testing.T) {
 	// Instance with context: Eq a => Eq (Maybe a).
 	source := `data Bool := { True: (); False: (); }
-data Maybe a := Just a | Nothing
+data Maybe := \a. { Just: a; Nothing: (); }
 class Eq a { eq :: a -> a -> Bool }
 instance Eq Bool { eq := \x y. True }
 instance Eq a => Eq (Maybe a) { eq := \x y. True }
@@ -88,7 +88,7 @@ main := f True`
 func TestEvidenceResolveNested(t *testing.T) {
 	// Nested evidence: using a method inside an instance method.
 	source := `data Bool := { True: (); False: (); }
-data Pair a b := MkPair a b
+data Pair := \a b. { MkPair: (a, b); }
 class Eq a { eq :: a -> a -> Bool }
 instance Eq Bool { eq := \x y. True }
 instance Eq a => Eq b => Eq (Pair a b) { eq := \x y. True }
@@ -116,7 +116,7 @@ func TestEvidenceResolveStressMultiInstance(t *testing.T) {
 	// Multiple instances for the same class.
 	source := `data Bool := { True: (); False: (); }
 data Unit := { Unit: (); }
-data Maybe a := Just a | Nothing
+data Maybe := \a. { Just: a; Nothing: (); }
 class Eq a { eq :: a -> a -> Bool }
 instance Eq Bool { eq := \x y. True }
 instance Eq Unit { eq := \x y. True }

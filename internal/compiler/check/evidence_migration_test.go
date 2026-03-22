@@ -136,7 +136,7 @@ func TestInstanceContextMigration(t *testing.T) {
 	// Instance with context: Eq a => Eq (Maybe a).
 	// After migration this should still work.
 	source := `data Bool := { True: (); False: (); }
-data Maybe a := Just a | Nothing
+data Maybe := \a. { Just: a; Nothing: (); }
 class Eq a { eq :: a -> a -> Bool }
 instance Eq Bool { eq := \x y. True }
 instance Eq a => Eq (Maybe a) { eq := \x y. True }

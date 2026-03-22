@@ -21,7 +21,7 @@ import (
 func TestProbeA_HigherRank_PolyFnAsArg(t *testing.T) {
 	source := `
 data Bool := { True: (); False: (); }
-data Maybe a := Nothing | Just a
+data Maybe := \a. { Nothing: (); Just: a; }
 
 id :: \ a. a -> a
 id := \x. x
@@ -39,7 +39,7 @@ main := apply id
 func TestProbeA_HigherRank_PolyFnUsedAtTwoTypes(t *testing.T) {
 	source := `
 data Bool := { True: (); False: (); }
-data Maybe a := Nothing | Just a
+data Maybe := \a. { Nothing: (); Just: a; }
 
 applyBoth :: (\ a. a -> a) -> (Bool, Maybe Bool)
 applyBoth := \f. (f True, f (Just False))

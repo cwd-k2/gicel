@@ -115,9 +115,9 @@ func TestStressManyEquations(t *testing.T) {
 
 func TestStressNestedFamilyApplications(t *testing.T) {
 	source := `
-data Wrapper a := Wrap a
+data Wrapper := \a. { Wrap: a; }
 data Unit := { Unit: (); }
-data List a := Nil | Cons a (List a)
+data List := \a. { Nil: (); Cons: (a, List a); }
 
 type Unwrap (w: Type) :: Type := {
   Unwrap (Wrapper a) =: a
@@ -142,7 +142,7 @@ func TestStressTriplyNestedFamilies(t *testing.T) {
 	source := `
 data Unit := { Unit: (); }
 data Box a := MkBox a
-data List a := Nil | Cons a (List a)
+data List := \a. { Nil: (); Cons: (a, List a); }
 
 type Unbox (b: Type) :: Type := {
   Unbox (Box a) =: a
@@ -168,7 +168,7 @@ g := \x. x
 func TestStressTypeFamilyInClassContext(t *testing.T) {
 	source := `
 data Unit := { Unit: (); }
-data List a := Nil | Cons a (List a)
+data List := \a. { Nil: (); Cons: (a, List a); }
 
 type Elem (c: Type) :: Type := {
   Elem (List a) =: a
@@ -201,9 +201,9 @@ f := chead
 func TestStressMultipleDataFamilyInstances(t *testing.T) {
 	source := `
 data Unit := { Unit: (); }
-data List a := Nil | Cons a (List a)
-data Pair a b := MkPair a b
-data Maybe a := Nothing | Just a
+data List := \a. { Nil: (); Cons: (a, List a); }
+data Pair := \a b. { MkPair: (a, b); }
+data Maybe := \a. { Nothing: (); Just: a; }
 
 emptyPair :: \ a b. Pair a b
 emptyPair := assumption
@@ -257,10 +257,10 @@ func TestStressFiveDataFamilyInstances(t *testing.T) {
 	// 5 instances with unique constructors for exhaustive data family coverage.
 	source := `
 data Unit := { Unit: (); }
-data List a := Nil | Cons a (List a)
-data Pair a b := MkPair a b
+data List := \a. { Nil: (); Cons: (a, List a); }
+data Pair := \a b. { MkPair: (a, b); }
 data Either a b := Left a | Right b
-data Maybe a := Nothing | Just a
+data Maybe := \a. { Nothing: (); Just: a; }
 
 nilFallback :: \ a. a
 nilFallback := assumption
@@ -337,8 +337,8 @@ f := \x. x
 
 func TestBoundaryComplexNestedPattern(t *testing.T) {
 	source := `
-data Maybe a := Nothing | Just a
-data List a := Nil | Cons a (List a)
+data Maybe := \a. { Nothing: (); Just: a; }
+data List := \a. { Nil: (); Cons: (a, List a); }
 data Unit := { Unit: (); }
 
 type DeepElem (c: Type) :: Type := {
@@ -519,8 +519,8 @@ func TestBoundaryPatternVarReuseAcrossEquations(t *testing.T) {
 	// The variable 'a' appears in both equations but has different bindings.
 	source := `
 data Unit := { Unit: (); }
-data Maybe a := Nothing | Just a
-data List a := Nil | Cons a (List a)
+data Maybe := \a. { Nothing: (); Just: a; }
+data List := \a. { Nil: (); Cons: (a, List a); }
 
 type Elem (c: Type) :: Type := {
   Elem (Maybe a) =: a;

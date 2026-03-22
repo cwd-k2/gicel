@@ -29,8 +29,8 @@ type Add (a: Nat) (b: Nat) :: Nat := {
 data NatProxy (n: Nat) := MkProxy
 
 -- Elem: container element extraction.
-data List a := Nil | Cons a (List a)
-data Maybe a := Nothing | Just a
+data List := \a. { Nil: (); Cons: (a, List a); }
+data Maybe := \a. { Nothing: (); Just: a; }
 
 type Elem (c: Type) :: Type := {
   Elem (List a) =: a;
@@ -90,7 +90,7 @@ func TestAdvancedDataFamilyPolymorphism(t *testing.T) {
 	source := `
 data Unit := { Unit: (); }
 data Bool := { True: (); False: (); }
-data Maybe a := Nothing | Just a
+data Maybe := \a. { Nothing: (); Just: a; }
 
 -- Wrappable class: each type wraps into a different runtime shape.
 class Wrappable w {
@@ -155,8 +155,8 @@ func TestAdvancedFunDepInference(t *testing.T) {
 	source := `
 data Unit := { Unit: (); }
 data Bool := { True: (); False: (); }
-data Maybe a := Nothing | Just a
-data List a := Nil | Cons a (List a)
+data Maybe := \a. { Nothing: (); Just: a; }
+data List := \a. { Nil: (); Cons: (a, List a); }
 
 -- Convert class with fundep: source type determines target.
 class Convert a b | a =: b {
@@ -229,7 +229,7 @@ func TestAdvancedTypeFamilyWithDataFamily(t *testing.T) {
 	source := `
 data Unit := { Unit: (); }
 data Bool := { True: (); False: (); }
-data Maybe a := Nothing | Just a
+data Maybe := \a. { Nothing: (); Just: a; }
 
 type IsJust (m: Type) :: Bool := {
   IsJust (Maybe a) =: True;
@@ -262,8 +262,8 @@ func TestAdvancedFunDepWithTypeFamily(t *testing.T) {
 	// Fundep interacts with type family reduction.
 	source := `
 data Unit := { Unit: (); }
-data Maybe a := Nothing | Just a
-data List a := Nil | Cons a (List a)
+data Maybe := \a. { Nothing: (); Just: a; }
+data List := \a. { Nil: (); Cons: (a, List a); }
 
 type Elem (c: Type) :: Type := {
   Elem (List a) =: a;

@@ -78,8 +78,8 @@ func TestStressContextualInstanceChain(t *testing.T) {
 	// Nested contextual instances: Eq a => Eq (F a), Eq a => Eq (G a).
 	// Resolve Eq (F (G Bool)).
 	source := `data Bool := { True: (); False: (); }
-data F a := MkF a
-data G a := MkG a
+data F := \a. { MkF: a; }
+data G := \a. { MkG: a; }
 class Eq a { eq :: a -> a -> Bool }
 instance Eq Bool { eq := \x y. True }
 instance Eq a => Eq (F a) { eq := \x y. True }
@@ -190,7 +190,7 @@ main := f True`
 func TestEdgeConstraintWithForall(t *testing.T) {
 	// \ a b. (Eq a, Eq b) => Pair a b -> Bool
 	source := `data Bool := { True: (); False: (); }
-data Pair a b := MkPair a b
+data Pair := \a b. { MkPair: (a, b); }
 class Eq a { eq :: a -> a -> Bool }
 instance Eq Bool { eq := \x y. True }
 instance Eq a => Eq b => Eq (Pair a b) { eq := \x y. True }

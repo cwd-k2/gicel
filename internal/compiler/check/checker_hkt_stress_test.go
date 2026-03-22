@@ -150,7 +150,7 @@ func TestStressPolyKindedClassManyInstances(t *testing.T) {
 func TestStressKindPolyClassWithContext(t *testing.T) {
 	source := `
 data Bool := { True: (); False: (); }
-data Maybe a := Nothing | Just a
+data Maybe := \a. { Nothing: (); Just: a; }
 
 class Eq a {
   eq :: a -> a -> Bool

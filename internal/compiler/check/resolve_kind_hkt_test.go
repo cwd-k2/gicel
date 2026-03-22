@@ -69,7 +69,7 @@ func TestKindPolyInstantiationArrow(t *testing.T) {
 	// Kind-polymorphic function applied to a function-kinded type.
 	source := `
 data Bool := { True: (); False: (); }
-data Maybe a := Nothing | Just a
+data Maybe := \a. { Nothing: (); Just: a; }
 
 id_k :: \ (k: Kind). \ (a: k). a -> a
 id_k := \x. x

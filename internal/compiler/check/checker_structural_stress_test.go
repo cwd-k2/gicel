@@ -40,7 +40,7 @@ main := applyApplyId applyId
 func TestStressHigherRankNested(t *testing.T) {
 	source := `
 data Bool := { True: (); False: (); }
-data Maybe a := Nothing | Just a
+data Maybe := \a. { Nothing: (); Just: a; }
 
 apply :: (\ a. a -> a) -> Bool -> Bool
 apply := \f x. f x
@@ -105,7 +105,7 @@ func TestStressDeepNestedLambdas(t *testing.T) {
 func TestStressRowHKTInteraction(t *testing.T) {
 	source := `
 data Bool := { True: (); False: (); }
-data Maybe a := Nothing | Just a
+data Maybe := \a. { Nothing: (); Just: a; }
 
 class Functor (f: Type -> Type) {
   fmap :: \ a b. (a -> b) -> f a -> f b
@@ -177,7 +177,7 @@ main := bothCheck True False
 func TestStressDeepSuperclassWithHKT(t *testing.T) {
 	source := `
 data Bool := { True: (); False: (); }
-data Maybe a := Nothing | Just a
+data Maybe := \a. { Nothing: (); Just: a; }
 
 class C1 a { m1 :: a -> Bool }
 class C1 a => C2 a { m2 :: a -> Bool }

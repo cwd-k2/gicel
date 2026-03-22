@@ -38,14 +38,14 @@ main := \b. case b { x -> x }`
 }
 
 func TestExhaustiveNestedComplete(t *testing.T) {
-	source := `data Maybe a := Just a | Nothing
+	source := `data Maybe := \a. { Just: a; Nothing: (); }
 data Bool := { True: (); False: (); }
 main := \m. case m { Just (Just _) -> 1; Just (Nothing) -> 2; Nothing => 3 }`
 	checkSource(t, source, nil)
 }
 
 func TestExhaustiveNestedIncomplete(t *testing.T) {
-	source := `data Maybe a := Just a | Nothing
+	source := `data Maybe := \a. { Just: a; Nothing: (); }
 data Bool := { True: (); False: (); }
 main := \m. case m { Just (Just _) -> 1; Nothing => 3 }`
 	errMsg := checkSourceExpectCode(t, source, nil, diagnostic.ErrNonExhaustive)

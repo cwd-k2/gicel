@@ -64,7 +64,7 @@ f := \x. x
 func TestPathologicalDecreasingRecursion(t *testing.T) {
 	source := `
 data Unit := { Unit: (); }
-data List a := Nil | Cons a (List a)
+data List := \a. { Nil: (); Cons: (a, List a); }
 type F (a: Type) :: Type := {
   F (List a) =: F a;
   F a =: a
@@ -82,7 +82,7 @@ f := \x. x
 func TestPathologicalDataFamilyPhantomParam(t *testing.T) {
 	source := `
 data Unit := { Unit: (); }
-data List a := Nil | Cons a (List a)
+data List := \a. { Nil: (); Cons: (a, List a); }
 
 class Container c {
   data Phantom c :: Type;
@@ -170,7 +170,7 @@ type G (a: Type) :: Type := {
 func TestPathologicalAssocTypeWrongClass(t *testing.T) {
 	source := `
 data Unit := { Unit: (); }
-data List a := Nil | Cons a (List a)
+data List := \a. { Nil: (); Cons: (a, List a); }
 
 class Container c {
   type Elem c :: Type;
@@ -240,7 +240,7 @@ instance C2 Unit {
 func TestPathologicalDeepDataFamilyExhaustiveness(t *testing.T) {
 	source := `
 data Unit := { Unit: (); }
-data Maybe a := Nothing | Just a
+data Maybe := \a. { Nothing: (); Just: a; }
 
 class HasRepr c {
   data Repr c :: Type;
@@ -271,7 +271,7 @@ f := \x. case x {
 func TestPathologicalExponentialGrowth(t *testing.T) {
 	source := `
 data Unit := { Unit: (); }
-data Pair a b := MkPair a b
+data Pair := \a b. { MkPair: (a, b); }
 type Grow (a: Type) :: Type := {
   Grow a =: Grow (Pair a a)
 }
@@ -305,8 +305,8 @@ f := \x. x
 func TestPropertyReductionIdempotence(t *testing.T) {
 	source := `
 data Unit := { Unit: (); }
-data List a := Nil | Cons a (List a)
-data Maybe a := Nothing | Just a
+data List := \a. { Nil: (); Cons: (a, List a); }
+data Maybe := \a. { Nothing: (); Just: a; }
 
 type Elem (c: Type) :: Type := {
   Elem (List a) =: a;
@@ -363,7 +363,7 @@ func TestPropertyUnificationSymmetry(t *testing.T) {
 	// Test 1: TF application on left vs right.
 	source1 := `
 data Unit := { Unit: (); }
-data List a := Nil | Cons a (List a)
+data List := \a. { Nil: (); Cons: (a, List a); }
 type Elem (c: Type) :: Type := {
   Elem (List a) =: a
 }
@@ -372,7 +372,7 @@ f := \x. x
 `
 	source2 := `
 data Unit := { Unit: (); }
-data List a := Nil | Cons a (List a)
+data List := \a. { Nil: (); Cons: (a, List a); }
 type Elem (c: Type) :: Type := {
   Elem (List a) =: a
 }
@@ -389,7 +389,7 @@ func TestPropertyUnificationSymmetryPoly(t *testing.T) {
 	// Verify: \ c. Elem c -> Elem c works in both positions.
 	source := `
 data Unit := { Unit: (); }
-data List a := Nil | Cons a (List a)
+data List := \a. { Nil: (); Cons: (a, List a); }
 type Elem (c: Type) :: Type := {
   Elem (List a) =: a
 }
@@ -464,8 +464,8 @@ f := \t. case t {
 func TestPropertyMatchTyPatternDeterminism(t *testing.T) {
 	source := `
 data Unit := { Unit: (); }
-data List a := Nil | Cons a (List a)
-data Maybe a := Nothing | Just a
+data List := \a. { Nil: (); Cons: (a, List a); }
+data Maybe := \a. { Nothing: (); Just: a; }
 
 type Elem (c: Type) :: Type := {
   Elem (List a) =: a;
@@ -585,7 +585,7 @@ func TestPathologicalSubstManyDependentVars(t *testing.T) {
 func TestPathologicalTFInsideForall(t *testing.T) {
 	source := `
 data Unit := { Unit: (); }
-data List a := Nil | Cons a (List a)
+data List := \a. { Nil: (); Cons: (a, List a); }
 type Elem (c: Type) :: Type := {
   Elem (List a) =: a
 }
@@ -600,7 +600,7 @@ f := \x. x
 func TestPathologicalStuckTFInComputation(t *testing.T) {
 	source := `
 data Unit := { Unit: (); }
-data List a := Nil | Cons a (List a)
+data List := \a. { Nil: (); Cons: (a, List a); }
 type Elem (c: Type) :: Type := {
   Elem (List a) =: a
 }
@@ -615,7 +615,7 @@ f := \x. x
 func TestPathologicalRepeatedPatternVar(t *testing.T) {
 	source := `
 data Unit := { Unit: (); }
-data Pair a b := MkPair a b
+data Pair := \a b. { MkPair: (a, b); }
 type Same (a: Type) (b: Type) :: Type := {
   Same a a =: Unit
 }
@@ -632,7 +632,7 @@ func TestPathologicalRepeatedPatternVarFail(t *testing.T) {
 	source := `
 data Unit := { Unit: (); }
 data Bool := { True: (); False: (); }
-data Pair a b := MkPair a b
+data Pair := \a b. { MkPair: (a, b); }
 type Same (a: Type) (b: Type) :: Type := {
   Same a a =: Unit
 }

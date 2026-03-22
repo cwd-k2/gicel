@@ -55,9 +55,9 @@ main := (MkProxy :: Proxy A)`
 }
 
 func TestPromoteSkipsFieldedConstructors(t *testing.T) {
-	// data Maybe a := Just a | Nothing → only Nothing is promoted, Just is not
+	// data Maybe := \a. { Just: a; Nothing: (); } → only Nothing is promoted, Just is not
 	source := `data Bool := { True: (); False: (); }
-data Maybe a := Just a | Nothing
+data Maybe := \a. { Just: a; Nothing: (); }
 data Proxy s := MkProxy
 main := (MkProxy :: Proxy Nothing)`
 	checkSource(t, source, nil)

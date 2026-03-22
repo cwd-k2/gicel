@@ -185,8 +185,8 @@ h := \x. x
 // this test would fail.
 func TestMatchTyPattern_TyAppDecomposition(t *testing.T) {
 	source := `
-data List a := Nil | Cons a (List a)
-data Maybe a := Nothing | Just a
+data List := \a. { Nil: (); Cons: (a, List a); }
+data Maybe := \a. { Nothing: (); Just: a; }
 data Unit := { Unit: (); }
 type Elem (c: Type) :: Type := {
   Elem (List a) =: a;
@@ -362,7 +362,7 @@ func TestFunDepImprovement_MetaFromDoesNotFire(t *testing.T) {
 	// The program should still compile via normal instance resolution.
 	source := `
 data Unit := { Unit: (); }
-data List a := Nil | Cons a (List a)
+data List := \a. { Nil: (); Cons: (a, List a); }
 class Collection c e | c =: e {
   empty :: c
 }
@@ -379,7 +379,7 @@ main := empty
 func TestFunDepImprovement_FirstMatchWins(t *testing.T) {
 	source := `
 data Unit := { Unit: (); }
-data List a := Nil | Cons a (List a)
+data List := \a. { Nil: (); Cons: (a, List a); }
 class Elem c e | c =: e {
   extract :: c -> e
 }
@@ -520,7 +520,7 @@ type Dual (s: Session) :: Session := {
 func TestReduceFamilyApps_NonFamilyHeadUntouched(t *testing.T) {
 	// List is not a type family; applying List to a type should not trigger reduction.
 	source := `
-data List a := Nil | Cons a (List a)
+data List := \a. { Nil: (); Cons: (a, List a); }
 data Unit := { Unit: (); }
 f :: List Unit => List Unit
 f := \x. x
@@ -531,7 +531,7 @@ f := \x. x
 // TyApp chain that forms saturated family application should reduce.
 func TestReduceFamilyApps_SaturatedFamilyApp(t *testing.T) {
 	source := `
-data List a := Nil | Cons a (List a)
+data List := \a. { Nil: (); Cons: (a, List a); }
 data Unit := { Unit: (); }
 type Elem (c: Type) :: Type := {
   Elem (List a) =: a
@@ -574,7 +574,7 @@ func TestReduceFamilyApps_InnerReductionViaUnifier(t *testing.T) {
 	source := `
 data Unit := { Unit: (); }
 data Bool := { True: (); False: (); }
-data List a := Nil | Cons a (List a)
+data List := \a. { Nil: (); Cons: (a, List a); }
 type Elem (c: Type) :: Type := {
   Elem (List a) =: a
 }
@@ -592,7 +592,7 @@ g := \x. x
 // Type family in function argument position.
 func TestReduceFamilyApps_InArgPosition(t *testing.T) {
 	source := `
-data List a := Nil | Cons a (List a)
+data List := \a. { Nil: (); Cons: (a, List a); }
 data Unit := { Unit: (); }
 type Elem (c: Type) :: Type := {
   Elem (List a) =: a
@@ -606,7 +606,7 @@ f := \x. x
 // Type family in both argument and result positions.
 func TestReduceFamilyApps_BothPositions(t *testing.T) {
 	source := `
-data List a := Nil | Cons a (List a)
+data List := \a. { Nil: (); Cons: (a, List a); }
 data Unit := { Unit: (); }
 type Elem (c: Type) :: Type := {
   Elem (List a) =: a
@@ -624,9 +624,9 @@ f := \x. x
 // Different patterns should produce different mangled names (no collisions).
 func TestMangledDataFamilyName_NoCollisions(t *testing.T) {
 	source := `
-data List a := Nil | Cons a (List a)
+data List := \a. { Nil: (); Cons: (a, List a); }
 data Unit := { Unit: (); }
-data Maybe a := Nothing | Just a
+data Maybe := \a. { Nothing: (); Just: a; }
 
 class Container c {
   data Elem c :: Type;
@@ -682,7 +682,7 @@ x := UnitElem
 func TestVerifyInjectivity_ViolationCaught(t *testing.T) {
 	source := `
 data Unit := { Unit: (); }
-data List a := Nil | Cons a (List a)
+data List := \a. { Nil: (); Cons: (a, List a); }
 type Elem (c: Type) :: (r: Type) | r =: c := {
   Elem (List a) =: a;
   Elem Unit =: Unit
@@ -696,7 +696,7 @@ func TestVerifyInjectivity_DistinctRHSes(t *testing.T) {
 	source := `
 data Unit := { Unit: (); }
 data Bool := { True: (); False: (); }
-data List a := Nil | Cons a (List a)
+data List := \a. { Nil: (); Cons: (a, List a); }
 type Tag (c: Type) :: (r: Type) | r =: c := {
   Tag Unit =: Bool;
   Tag Bool =: Unit
@@ -906,7 +906,7 @@ f := \r. r
 
 func TestTypeFamilyPosition_InArgument(t *testing.T) {
 	source := `
-data List a := Nil | Cons a (List a)
+data List := \a. { Nil: (); Cons: (a, List a); }
 data Unit := { Unit: (); }
 type Elem (c: Type) :: Type := {
   Elem (List a) =: a
@@ -919,7 +919,7 @@ wrap := \x. x
 
 func TestTypeFamilyPosition_InResult(t *testing.T) {
 	source := `
-data List a := Nil | Cons a (List a)
+data List := \a. { Nil: (); Cons: (a, List a); }
 data Unit := { Unit: (); }
 type Elem (c: Type) :: Type := {
   Elem (List a) =: a
@@ -932,7 +932,7 @@ unwrap := \x. x
 
 func TestTypeFamilyPosition_InBothPositions(t *testing.T) {
 	source := `
-data List a := Nil | Cons a (List a)
+data List := \a. { Nil: (); Cons: (a, List a); }
 data Unit := { Unit: (); }
 type Elem (c: Type) :: Type := {
   Elem (List a) =: a
@@ -950,7 +950,7 @@ id := \x. x
 // Two stuck TyFamilyApps with same name and args should unify.
 func TestTyFamilyAppUnify_SameStuck(t *testing.T) {
 	source := `
-data List a := Nil | Cons a (List a)
+data List := \a. { Nil: (); Cons: (a, List a); }
 type Elem (c: Type) :: Type := {
   Elem (List a) =: a
 }
@@ -963,7 +963,7 @@ f := \x. x
 // Two stuck TyFamilyApps with different args should NOT unify.
 func TestTyFamilyAppUnify_DifferentArgsStuck(t *testing.T) {
 	source := `
-data List a := Nil | Cons a (List a)
+data List := \a. { Nil: (); Cons: (a, List a); }
 type Elem (c: Type) :: Type := {
   Elem (List a) =: a
 }
@@ -993,8 +993,8 @@ type F (a: Bool) :: Bool := {
 // Pattern with nested variables.
 func TestCollectPatternVars_NestedVars(t *testing.T) {
 	source := `
-data List a := Nil | Cons a (List a)
-data Maybe a := Nothing | Just a
+data List := \a. { Nil: (); Cons: (a, List a); }
+data Maybe := \a. { Nothing: (); Just: a; }
 data Unit := { Unit: (); }
 type F (c: Type) :: Type := {
   F (List a) =: a;
@@ -1142,7 +1142,7 @@ type Or (a: Bool) (b: Bool) :: Bool := {
 func TestMatchTyPatterns_ConsistencyTyApp(t *testing.T) {
 	// F (List a) (List a) = a: both patterns must bind 'a' to the same type.
 	source := `
-data List a := Nil | Cons a (List a)
+data List := \a. { Nil: (); Cons: (a, List a); }
 data Unit := { Unit: (); }
 type F (a: Type) (b: Type) :: Type := {
   F (List a) (List a) =: a
@@ -1159,7 +1159,7 @@ func TestMatchTyPatterns_InconsistencyFails(t *testing.T) {
 	// F (List a) (List a) = a: both patterns share 'a'.
 	// F (List Unit) (List Bool) should NOT match because Unit != Bool.
 	source := `
-data List a := Nil | Cons a (List a)
+data List := \a. { Nil: (); Cons: (a, List a); }
 data Unit := { Unit: (); }
 data Bool := { True: (); False: (); }
 type F (a: Type) (b: Type) :: Type := {
@@ -1180,7 +1180,7 @@ f := \x. x
 func TestTypeFamilyCoexistsWithAlias(t *testing.T) {
 	source := `
 data Unit := { Unit: (); }
-data List a := Nil | Cons a (List a)
+data List := \a. { Nil: (); Cons: (a, List a); }
 type Id a := a
 type Elem (c: Type) :: Type := {
   Elem (List a) =: a
@@ -1262,7 +1262,7 @@ f := \x. x
 func TestInjectivityViolation_ErrorMessage(t *testing.T) {
 	source := `
 data Unit := { Unit: (); }
-data List a := Nil | Cons a (List a)
+data List := \a. { Nil: (); Cons: (a, List a); }
 type F (c: Type) :: (r: Type) | r =: c := {
   F (List a) =: a;
   F Unit =: Unit

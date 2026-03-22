@@ -82,7 +82,7 @@ main := eq Unit Unit
 func TestProbeA_Evidence_MissingInstanceForNestedType(t *testing.T) {
 	source := `
 data Bool := { True: (); False: (); }
-data Maybe a := Nothing | Just a
+data Maybe := \a. { Nothing: (); Just: a; }
 
 class Eq a { eq :: a -> a -> Bool }
 instance Eq a => Eq (Maybe a) { eq := \x y. True }
@@ -227,7 +227,7 @@ func TestProbeD_Evidence_EmptyCapabilityRowUnify(t *testing.T) {
 func TestProbeD_Constraint_MissingInstance(t *testing.T) {
 	source := `
 data Bool := { True: (); False: (); }
-data Pair a b := MkPair a b
+data Pair := \a b. { MkPair: (a, b); }
 
 class Eq a { eq :: a -> a -> Bool }
 instance Eq Bool { eq := \x y. True }
@@ -339,7 +339,7 @@ data Bool := { True: (); False: (); }
 class Eq a { eq :: a -> a -> Bool }
 instance Eq Bool { eq := \x y. True }
 
-data Pair a b := MkPair a b
+data Pair := \a b. { MkPair: (a, b); }
 
 -- Two Eq constraints on different types
 f :: \a b. (Eq a, Eq b) => a -> b -> Bool

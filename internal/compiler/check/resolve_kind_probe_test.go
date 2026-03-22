@@ -166,7 +166,7 @@ func TestProbeE_KindUnify_KConstraintVsKType(t *testing.T) {
 func TestProbeE_HKT_KindPolymorphicClass(t *testing.T) {
 	source := `
 data Bool := { True: (); False: (); }
-data Maybe a := Nothing | Just a
+data Maybe := \a. { Nothing: (); Just: a; }
 
 class Functor (f: k -> Type) {
   fmap :: \ a b. (a -> b) -> f a -> f b

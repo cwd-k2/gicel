@@ -42,7 +42,7 @@ main := f True False`
 
 func TestResolveContextualInstance(t *testing.T) {
 	source := `data Bool := { True: (); False: (); }
-data Maybe a := Just a | Nothing
+data Maybe := \a. { Just: a; Nothing: (); }
 class Eq a { eq :: a -> a -> Bool }
 instance Eq Bool { eq := \x y. True }
 instance Eq a => Eq (Maybe a) { eq := \x y. True }
@@ -115,7 +115,7 @@ instance Eq Bool Bool { eq := \x y. True }`
 func TestInstanceUnknownContextClass(t *testing.T) {
 	// Instance context references a class that doesn't exist → ErrBadInstance.
 	source := `data Bool := { True: (); False: (); }
-data Maybe a := Nothing | Just a
+data Maybe := \a. { Nothing: (); Just: a; }
 class Eq a { eq :: a -> a -> Bool }
 instance Phantom a => Eq (Maybe a) { eq := \_ _. True }`
 	checkSourceExpectCode(t, source, nil, diagnostic.ErrBadInstance)
@@ -140,7 +140,7 @@ instance Eq Bool { eq := \x y. True; notAMethod := \x. x }`
 func TestInstanceValidContextClass(t *testing.T) {
 	// Valid instance with known context class should succeed.
 	source := `data Bool := { True: (); False: (); }
-data Maybe a := Nothing | Just a
+data Maybe := \a. { Nothing: (); Just: a; }
 class Eq a { eq :: a -> a -> Bool }
 instance Eq Bool { eq := \x y. case x { True => y; False => case y { True => False; False => True } } }
 instance Eq a => Eq (Maybe a) {
@@ -155,7 +155,7 @@ instance Eq a => Eq (Maybe a) {
 func TestParametricOverlappingInstances(t *testing.T) {
 	// instance Eq (Maybe a) overlaps with instance Eq (Maybe Bool).
 	source := `data Bool := { True: (); False: (); }
-data Maybe a := Nothing | Just a
+data Maybe := \a. { Nothing: (); Just: a; }
 class Eq a { eq :: a -> a -> Bool }
 instance Eq a => Eq (Maybe a) {
   eq := \x y. case x {
@@ -172,7 +172,7 @@ instance Eq (Maybe Bool) {
 func TestSelfCycleCompoundType(t *testing.T) {
 	// instance Eq (Maybe a) => Eq (Maybe a) is a self-cycle with compound types.
 	source := `data Bool := { True: (); False: (); }
-data Maybe a := Nothing | Just a
+data Maybe := \a. { Nothing: (); Just: a; }
 class Eq a { eq :: a -> a -> Bool }
 instance Eq (Maybe a) => Eq (Maybe a) { eq := \x y. True }`
 	checkSourceExpectCode(t, source, nil, diagnostic.ErrBadInstance)

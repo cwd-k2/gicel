@@ -162,7 +162,7 @@ main := useA True
 func TestProbeE_TypeClass_InstanceWithExtraContext(t *testing.T) {
 	source := `
 data Bool := { True: (); False: (); }
-data Maybe a := Nothing | Just a
+data Maybe := \a. { Nothing: (); Just: a; }
 class Eq a { eq :: a -> a -> Bool }
 instance Eq Bool { eq := \x y. True }
 instance Eq a => Eq (Maybe a) {
