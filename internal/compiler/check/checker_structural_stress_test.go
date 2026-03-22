@@ -136,7 +136,7 @@ func TestStressExhaustiveGADTManyCons(t *testing.T) {
 		} else {
 			sb.WriteString("  ")
 		}
-		sb.WriteString(fmt.Sprintf("Con%d: Bool", i))
+		sb.WriteString(fmt.Sprintf("Con%d: Bool -> Expr Bool", i))
 	}
 	sb.WriteString("\n}\n\n")
 	// Match all 10 constructors, branches separated by ;

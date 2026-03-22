@@ -58,7 +58,14 @@ func (ch *Checker) processDataDecl(d *syntax.DeclData, prog *ir.Program) {
 		//
 		// The checker peels arrows to extract field types; the last type is the return.
 		conType := fieldTy
-		fieldTypes, _ := decomposeConSig(fieldTy)
+		fieldTypes, retTy := decomposeConSig(fieldTy)
+
+		// Detect GADT: if the constructor's return type differs from the
+		// generic result type (T a b c ...), this is a refined return type.
+		var gadtReturnType types.Type
+		if !types.Equal(retTy, resultType) {
+			gadtReturnType = retTy
+		}
 
 		// Wrap in forall for type params.
 		for i := len(parts.Params) - 1; i >= 0; i-- {
@@ -66,9 +73,9 @@ func (ch *Checker) processDataDecl(d *syntax.DeclData, prog *ir.Program) {
 		}
 
 		ch.ctx.Push(&CtxVar{Name: conName, Type: conType, Module: ch.scope.CurrentModule()})
-		dataInfo.Constructors = append(dataInfo.Constructors, ConstructorInfo{Name: conName, Arity: len(fieldTypes)})
+		dataInfo.Constructors = append(dataInfo.Constructors, ConstructorInfo{Name: conName, Arity: len(fieldTypes), ReturnType: gadtReturnType})
 		ch.reg.RegisterConstructor(conName, conType, ch.scope.CurrentModule(), dataInfo)
-		coreDecl.Cons = append(coreDecl.Cons, ir.ConDecl{Name: conName, Fields: fieldTypes, S: field.S})
+		coreDecl.Cons = append(coreDecl.Cons, ir.ConDecl{Name: conName, Fields: fieldTypes, ReturnType: gadtReturnType, S: field.S})
 	}
 
 	prog.DataDecls = append(prog.DataDecls, coreDecl)

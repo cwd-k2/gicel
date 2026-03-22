@@ -30,10 +30,10 @@ f := \b. case b {
 
 func TestDivergentPostSingleBranch(t *testing.T) {
 	source := `
-data Unit := { MkUnit: (); }
+data Unit := { MkUnit: Unit; }
 consume :: Computation { a: Unit } {} Unit
 consume := assumption
-f :: Unit => Computation { a: Unit } {} Unit
+f :: Unit -> Computation { a: Unit } {} Unit
 f := \u. case u {
   MkUnit => consume
 }
