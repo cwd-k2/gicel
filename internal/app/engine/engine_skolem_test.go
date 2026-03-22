@@ -228,7 +228,7 @@ import Prelude
 data Wrap := { MkWrap: \a. Eq a => a -> Wrap }
 bothSame :: Wrap -> Wrap -> Bool
 bothSame := \w1 w2.
-  case w1 { MkWrap x -> case w2 { MkWrap y -> True } }
+  case w1 { MkWrap x => case w2 { MkWrap y => True } }
 main := bothSame (MkWrap True) (MkWrap False)
 `)
 	if err != nil {

@@ -538,7 +538,7 @@ func TestExistentialWithStdlib(t *testing.T) {
 import Prelude
 data SomeSemigroup := { MkSomeSG: \a. Semigroup a => a -> a -> SomeSemigroup }
 combine :: SomeSemigroup -> Bool
-combine := \s. case s { MkSomeSG x y -> case append x y { _ => True } }
+combine := \s. case s { MkSomeSG x y => case append x y { _ => True } }
 main := combine (MkSomeSG EQ LT)
 `)
 	if err != nil {

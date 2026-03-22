@@ -456,7 +456,7 @@ func setupTestModules(t *testing.T, eng *Engine) {
 		t.Fatal(err)
 	}
 	if err := eng.RegisterModule("Geometry", `
-data Point := MkPoint Int Int
+data Point := { MkPoint: Int -> Int -> Point; }
 mkPoint :: Int -> Int -> Point
 mkPoint := \x y. MkPoint x y
 getX :: Point -> Int
