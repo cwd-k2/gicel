@@ -1527,7 +1527,7 @@ func TestNestedPatternDeepNesting(t *testing.T) {
 	eng.Use(gicel.Prelude)
 	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
-f := \x. case x { Just (Just (Just True)) -> True; _ => False }
+f := \x. case x { Just (Just (Just True)) => True; _ => False }
 main := (f (Just (Just (Just True))), f (Just (Just (Just False))), f (Just (Just Nothing)))
 `)
 	if err != nil {
@@ -1709,7 +1709,7 @@ func TestLiteralPatternInt(t *testing.T) {
 	eng.Use(gicel.Prelude)
 	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
-describe := \n. case n { 0 -> "zero"; 1 -> "one"; _ => "other" }
+describe := \n. case n { 0 => "zero"; 1 => "one"; _ => "other" }
 main := describe 1
 `)
 	if err != nil {
@@ -1730,7 +1730,7 @@ func TestLiteralPatternString(t *testing.T) {
 	eng.Use(gicel.Prelude)
 	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
-greet := \name. case name { "Alice" -> "Hello Alice"; _ => "Hello stranger" }
+greet := \name. case name { "Alice" => "Hello Alice"; _ => "Hello stranger" }
 main := greet "Alice"
 `)
 	if err != nil {
@@ -1751,7 +1751,7 @@ func TestLiteralPatternFallthrough(t *testing.T) {
 	eng.Use(gicel.Prelude)
 	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
-fib := \n. case n { 0 -> 0; 1 -> 1; _ => 99 }
+fib := \n. case n { 0 => 0; 1 => 1; _ => 99 }
 main := fib 5
 `)
 	if err != nil {
@@ -1772,7 +1772,7 @@ func TestLiteralPatternInNestedCase(t *testing.T) {
 	eng.Use(gicel.Prelude)
 	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
-f := \m. case m { Just n => case n { 0 -> True; _ => False }; Nothing => False }
+f := \m. case m { Just n => case n { 0 => True; _ => False }; Nothing => False }
 main := f (Just 0)
 `)
 	if err != nil {
@@ -1790,7 +1790,7 @@ func TestLiteralPatternRune(t *testing.T) {
 	eng.Use(gicel.Prelude)
 	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
-classify := \c. case c { 'a' -> "vowel"; 'e' -> "vowel"; _ => "other" }
+classify := \c. case c { 'a' => "vowel"; 'e' => "vowel"; _ => "other" }
 main := classify 'a'
 `)
 	if err != nil {
