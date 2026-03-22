@@ -127,6 +127,10 @@ func (s *Scope) InjectFamily(name string, info *TypeFamilyInfo) {
 }
 
 // Solver holds mutable state for the constraint solver.
+//
+// Access to level and worklist should go through the methods below rather
+// than direct field access. This ensures invariants (level non-negative,
+// worklist save/restore matching) are maintained at API boundaries.
 type Solver struct {
 	worklist       Worklist
 	inertSet       InertSet
@@ -139,6 +143,19 @@ type Solver struct {
 	// touchability enforcement: metas with Level < SolverLevel are untouchable.
 	level int
 }
+
+// EnterScope increments the solver level. Call ExitScope when leaving.
+func (s *Solver) EnterScope() { s.level++ }
+
+// ExitScope decrements the solver level.
+func (s *Solver) ExitScope() { s.level-- }
+
+// SaveWorklist drains the current worklist and returns its contents.
+// The caller must eventually call RestoreWorklist to put constraints back.
+func (s *Solver) SaveWorklist() []Ct { return s.worklist.Drain() }
+
+// RestoreWorklist replaces the worklist contents.
+func (s *Solver) RestoreWorklist(cts []Ct) { s.worklist.Load(cts) }
 
 // Reactivate kicks out constraints blocked on the given meta and
 // re-enqueues them for priority processing.

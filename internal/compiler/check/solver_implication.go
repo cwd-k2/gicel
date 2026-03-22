@@ -18,7 +18,7 @@ import (
 // pre-collected Wanteds (no DK interleaving), so SolverLevel is set
 // immediately. Retained as infrastructure for future constraint kinds.
 func (ch *Checker) processCtImplication(ct *CtImplication, outerResolutions map[string]ir.Core) {
-	savedWorklist := ch.solver.worklist.Drain()
+	savedWorklist := ch.solver.SaveWorklist()
 
 	// Build local skolem ID set before entering inner scope.
 	localSkolems := make(map[int]bool, len(ct.Skolems))
@@ -29,29 +29,29 @@ func (ch *Checker) processCtImplication(ct *CtImplication, outerResolutions map[
 	// SolverLevel is set immediately here (unlike bidir_case.go which defers
 	// it until after body check). This is safe because CtImplication carries
 	// pre-collected Wanteds — no DK eager unification occurs inside.
-	ch.solver.level++
+	ch.solver.EnterScope()
 	savedSolverLevel := ch.unifier.SolverLevel
-	ch.unifier.SolverLevel = ch.solver.level
+	ch.unifier.SolverLevel = ch.solver.Level()
 
 	for skolemID, ty := range ct.GivenEqs {
 		ch.unifier.InstallGivenEq(skolemID, ty)
 	}
 
-	ch.solver.worklist.Load(ct.Wanteds)
+	ch.solver.RestoreWorklist(ct.Wanteds)
 
 	innerResolutions, innerResiduals := ch.solveWanteds(localShouldDefer())
 	for k, v := range innerResolutions {
 		outerResolutions[k] = v
 	}
 
-	floatable := ch.partitionResiduals(innerResiduals, localSkolems, ch.solver.level)
+	floatable := ch.partitionResiduals(innerResiduals, localSkolems, ch.solver.Level())
 
 	for skolemID := range ct.GivenEqs {
 		ch.unifier.RemoveGivenEq(skolemID)
 	}
-	ch.solver.level--
+	ch.solver.ExitScope()
 	ch.unifier.SolverLevel = savedSolverLevel
-	ch.solver.worklist.Load(append(savedWorklist, floatable...))
+	ch.solver.RestoreWorklist(append(savedWorklist, floatable...))
 }
 
 // checkWithLocalScope checks expr against expected inside an implication scope.
@@ -69,15 +69,17 @@ func (ch *Checker) processCtImplication(ct *CtImplication, outerResolutions map[
 // A full separation of unification and solving (OutsideIn-style) would
 // eliminate this gap but conflicts with DK interleaving.
 func (ch *Checker) checkWithLocalScope(expr syntax.Expr, expected types.Type, skolemIDs map[int]string) ir.Core {
-	savedWorklist := ch.solver.worklist.Drain()
+	savedWorklist := ch.solver.SaveWorklist()
 
-	ch.solver.level++
+	ch.solver.EnterScope()
 
 	bodyCore := ch.check(expr, expected)
 
 	// Enable touchability for constraint solving only.
+	// Deferred until after body check — DK eager unification during check
+	// must be free to solve outer metas (e.g. case result type).
 	savedSolverLevel := ch.unifier.SolverLevel
-	ch.unifier.SolverLevel = ch.solver.level
+	ch.unifier.SolverLevel = ch.solver.Level()
 
 	// Defer constraints with unsolved metas or local skolems — these
 	// cannot be resolved at the inner level (instance resolution via
@@ -90,11 +92,11 @@ func (ch *Checker) checkWithLocalScope(expr syntax.Expr, expected types.Type, sk
 	resolutions, residuals := ch.solveWanteds(localShouldDefer())
 	bodyCore = ch.substitutePlaceholders(bodyCore, resolutions)
 
-	floatable := ch.partitionResiduals(residuals, localSkolems, ch.solver.level)
+	floatable := ch.partitionResiduals(residuals, localSkolems, ch.solver.Level())
 
 	ch.unifier.SolverLevel = savedSolverLevel
-	ch.solver.level--
-	ch.solver.worklist.Load(append(savedWorklist, floatable...))
+	ch.solver.ExitScope()
+	ch.solver.RestoreWorklist(append(savedWorklist, floatable...))
 	return bodyCore
 }
 

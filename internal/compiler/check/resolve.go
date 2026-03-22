@@ -44,14 +44,14 @@ func (ch *Checker) extractDictField(classInfo *ClassInfo, dictExpr ir.Core, fiel
 // attempt are discarded on failure.
 func (ch *Checker) tryResolveInstance(className string, args []types.Type, s span.Span) (ir.Core, bool) {
 	savedErrs := ch.errors.Len()
-	savedWorklist := ch.solver.worklist.Drain()
+	savedWorklist := ch.solver.SaveWorklist()
 	dict := ch.resolveInstance(className, args, s)
 	if ch.errors.Len() > savedErrs {
 		ch.errors.Truncate(savedErrs)
-		ch.solver.worklist.Load(savedWorklist) // restore, discard orphans
+		ch.solver.RestoreWorklist(savedWorklist) // restore, discard orphans
 		return nil, false
 	}
-	ch.solver.worklist.Load(append(savedWorklist, ch.solver.worklist.Drain()...))
+	ch.solver.RestoreWorklist(append(savedWorklist, ch.solver.SaveWorklist()...))
 	return dict, true
 }
 
