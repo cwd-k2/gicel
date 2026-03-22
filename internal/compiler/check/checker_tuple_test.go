@@ -59,7 +59,7 @@ main := f (1, 2)`
 }
 
 func TestUnitAnnotated(t *testing.T) {
-	source := `f :: () => Int
+	source := `f :: () -> Int
 f := \u. 42
 main := f ()`
 	checkSource(t, source, nil)

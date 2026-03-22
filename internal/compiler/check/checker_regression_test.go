@@ -117,7 +117,7 @@ data Unit := { Unit: Unit; }
 type Elem (c: Type) :: Type := {
   Elem (List a) =: a
 }
-f :: (Elem (List Unit) -> Unit) -> Unit => Unit
+f :: (Elem (List Unit) -> Unit) -> Unit -> Unit
 f := \g x. g x
 `
 	checkSource(t, source, nil)
