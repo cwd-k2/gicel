@@ -256,7 +256,7 @@ impl HasRepr Unit := {
 f :: Maybe (Repr Unit) -> Unit
 f := \x. case x {
   Nothing => Unit;
-  Just r -> case r {
+  Just r => case r {
     ReprA => Unit;
     ReprB => Unit;
     ReprC => Unit

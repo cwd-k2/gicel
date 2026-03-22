@@ -1152,8 +1152,8 @@ impl Container Bool := {
 
 test :: Elem Bool -> Bool
 test := \e. case e {
-  BoolElem b -> b;
-  EmptyElem -> False
+  BoolElem b => b;
+  EmptyElem => False
 }
 `
 	checkSource(t, source, nil)
@@ -1177,7 +1177,7 @@ impl Container Bool := {
 
 test :: Elem Bool -> Bool
 test := \e. case e {
-  BoolElem b -> b
+  BoolElem b => b
 }
 `
 	checkSourceExpectCode(t, source, nil, diagnostic.ErrNonExhaustive)
