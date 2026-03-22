@@ -58,13 +58,20 @@ func (ch *Checker) tryResolveInstance(className string, args []types.Type, s spa
 // resolveInstance finds a dictionary expression for a given class constraint.
 // Returns a Core expression that evaluates to the dictionary value.
 //
+// Resolution proceeds through phases in order (see resolve_instance.go):
+//  1. Context search — exact dictionary variable match
+//  2. Superclass extraction — transitive superclass chain
+//  3. Quantified evidence — instantiate quantified context entries
+//  4. Fundep improvement — refine type arguments via functional dependencies
+//  5. Global instance search — match against registered instances
+//
 // Recursion and state contracts:
 //   - Depth limited by budget.EnterResolve (default 64).
 //   - No cycle detection: identical constraints in the call stack are stopped
 //     only by depth exhaustion.
 //   - Meta solutions accumulate in the shared unifier across recursive calls
-//     (no rollback). Instance head unification in the loop body uses withTrial,
-//     but context resolution (recursive resolveInstance) commits permanently.
+//     (no rollback). Instance head unification uses withTrial, but context
+//     resolution (recursive resolveInstance) commits permanently.
 func (ch *Checker) resolveInstance(className string, args []types.Type, s span.Span) ir.Core {
 	if err := ch.budget.EnterResolve(); err != nil {
 		ch.addCodedError(diagnostic.ErrResolutionDepth, s,
@@ -74,79 +81,18 @@ func (ch *Checker) resolveInstance(className string, args []types.Type, s span.S
 	}
 	defer ch.budget.LeaveResolve()
 
-	// 1. Search context for dictionary variables (from Eq a => parameters).
-	var ctxResult ir.Core
-	ch.ctx.Scan(func(entry CtxEntry) bool {
-		if v, ok := entry.(*CtxVar); ok && ch.matchesDictVar(v, className, args) {
-			ctxResult = &ir.Var{Name: v.Name, Module: v.Module, S: s}
-			return false
-		}
-		return true
-	})
-	if ctxResult != nil {
-		return ctxResult
+	if dict := ch.resolveFromContext(className, args, s); dict != nil {
+		return dict
 	}
-
-	// 1.5. Search context for superclass dictionaries.
-	ch.ctx.Scan(func(entry CtxEntry) bool {
-		if v, ok := entry.(*CtxVar); ok {
-			if expr := ch.extractSuperDict(v, className, args, s); expr != nil {
-				ctxResult = expr
-				return false
-			}
-		}
-		return true
-	})
-	if ctxResult != nil {
-		return ctxResult
+	if dict := ch.resolveFromSuperclasses(className, args, s); dict != nil {
+		return dict
 	}
-
-	// 1.6. Search context for quantified evidence that can produce the needed dictionary.
-	ch.ctx.Scan(func(entry CtxEntry) bool {
-		if e, ok := entry.(*CtxEvidence); ok && e.Quantified != nil {
-			if expr := ch.applyQuantifiedEvidence(e, className, args, s); expr != nil {
-				ctxResult = expr
-				return false
-			}
-		}
-		return true
-	})
-	if ctxResult != nil {
-		return ctxResult
+	if dict := ch.resolveFromQuantifiedEvidence(className, args, s); dict != nil {
+		return dict
 	}
-
-	// 1.7. Apply functional dependency improvement before instance search.
-	// If the class has fundeps and some "from" args are determined,
-	// search instances to unify "to" positions.
 	ch.applyFunDepImprovement(className, args)
-
-	// 2. Search global instances (indexed by class name).
-	for _, inst := range ch.reg.InstancesForClass(className) {
-		if len(inst.TypeArgs) != len(args) {
-			continue
-		}
-		freshSubst := ch.freshInstanceSubst(inst)
-		if !ch.withTrial(func() bool {
-			for i := range args {
-				instArg := types.SubstMany(inst.TypeArgs[i], freshSubst)
-				if err := ch.unifier.Unify(instArg, args[i]); err != nil {
-					return false
-				}
-			}
-			return true
-		}) {
-			continue
-		}
-		var dictExpr ir.Core = &ir.Var{Name: inst.DictBindName, Module: inst.Module, S: s}
-		for _, ctx := range inst.Context {
-			ctxArgs := make([]types.Type, len(ctx.Args))
-			for j, a := range ctx.Args {
-				ctxArgs[j] = ch.unifier.Zonk(types.SubstMany(a, freshSubst))
-			}
-			ctxDict := ch.resolveInstance(ctx.ClassName, ctxArgs, s)
-			dictExpr = &ir.App{Fun: dictExpr, Arg: ctxDict, S: s}
-		}
-		return dictExpr
+	if dict := ch.resolveFromGlobalInstances(className, args, s); dict != nil {
+		return dict
 	}
 
 	ch.addCodedError(diagnostic.ErrNoInstance, s,
