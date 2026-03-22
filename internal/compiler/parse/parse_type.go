@@ -267,10 +267,14 @@ func (p *Parser) parseRowType() syn.TypeExpr {
 		if p.peek().Kind == syn.TokRBrace || p.peek().Kind == syn.TokEOF {
 			break
 		}
-		// Associated type declaration: type Name :: Kind;
-		if p.peek().Kind == syn.TokType {
-			p.advance() // consume 'type'
+		// Associated type/data declaration: type Name :: Kind; or data Name :: Kind;
+		if p.peek().Kind == syn.TokType || p.peek().Kind == syn.TokData {
+			p.advance() // consume 'type' or 'data'
 			tName := p.expectUpper()
+			// Consume optional params (legacy: data Elem a :: Type)
+			for p.peek().Kind == syn.TokLower {
+				p.advance()
+			}
 			p.expect(syn.TokColonColon)
 			tKind := p.parseKindExpr()
 			typeDecls = append(typeDecls, syn.TyRowTypeDecl{
