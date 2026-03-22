@@ -16,6 +16,7 @@ const (
 	UnifyDupLabel                          // duplicate label in row
 	UnifyRowMismatch                       // row structure mismatch (extra labels, closed row)
 	UnifySkolemRigid                       // rigid/skolem variable cannot be unified
+	UnifyUntouchable                       // meta is untouchable at current solver level
 )
 
 // UnifyError is a structured error returned by the unifier.
@@ -75,6 +76,11 @@ type Unifier struct {
 	// Budget tracks structural nesting depth. If nil, nesting is unbounded.
 	Budget *budget.CheckBudget
 
+	// SolverLevel is the current implication nesting depth for touchability.
+	// -1 means disabled (legacy/trial mode). >= 0 enables touchability:
+	// metas with Level < SolverLevel are untouchable.
+	SolverLevel int
+
 	// FlexSkolems allows skolem variables to be solved like metas.
 	// Used for GADT accessibility testing (canUnifyWith). INVARIANT:
 	// must only be set on a FRESH trial unifier, never on the shared
@@ -87,10 +93,11 @@ type Unifier struct {
 func NewUnifier() *Unifier {
 	id := 0
 	return &Unifier{
-		soln:     make(map[int]types.Type),
-		labels:   make(map[int]map[string]struct{}),
-		kindSoln: make(map[int]types.Kind),
-		freshID:  &id,
+		soln:        make(map[int]types.Type),
+		labels:      make(map[int]map[string]struct{}),
+		kindSoln:    make(map[int]types.Kind),
+		freshID:     &id,
+		SolverLevel: -1,
 	}
 }
 
@@ -98,10 +105,11 @@ func NewUnifier() *Unifier {
 // with the calling Checker, ensuring no ID collisions.
 func NewUnifierShared(freshID *int) *Unifier {
 	return &Unifier{
-		soln:     make(map[int]types.Type),
-		labels:   make(map[int]map[string]struct{}),
-		kindSoln: make(map[int]types.Kind),
-		freshID:  freshID,
+		soln:        make(map[int]types.Type),
+		labels:      make(map[int]map[string]struct{}),
+		kindSoln:    make(map[int]types.Kind),
+		freshID:     freshID,
+		SolverLevel: -1,
 	}
 }
 
@@ -570,6 +578,14 @@ func (u *Unifier) unifyAppWithTriple(app types.Type, conName string, fields [3]t
 func (u *Unifier) solveMeta(m *types.TyMeta, t types.Type) error {
 	if tm, ok := t.(*types.TyMeta); ok && tm.ID == m.ID {
 		return nil
+	}
+	// Touchability: a meta created at an outer level cannot be solved
+	// from within an implication (inner level).
+	if u.SolverLevel >= 0 && m.Level < u.SolverLevel {
+		return &UnifyError{
+			Kind:   UnifyUntouchable,
+			Detail: fmt.Sprintf("untouchable meta ?%d (level %d) at solver level %d", m.ID, m.Level, u.SolverLevel),
+		}
 	}
 	// Occurs check.
 	if u.occursIn(m.ID, t) {

@@ -29,6 +29,8 @@ func unifyErrorCode(err error) diagnostic.Code {
 		return diagnostic.ErrRowMismatch
 	case unify.UnifySkolemRigid:
 		return diagnostic.ErrSkolemRigid
+	case unify.UnifyUntouchable:
+		return diagnostic.ErrUntouchable
 	default:
 		return diagnostic.ErrTypeMismatch
 	}

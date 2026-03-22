@@ -62,6 +62,7 @@ const (
 	ErrImport              Code = 230 // module import error
 	ErrSkolemEscape        Code = 240 // existential type variable escapes scope
 	ErrSkolemRigid         Code = 241 // cannot unify rigid (skolem) type variable
+	ErrUntouchable         Code = 242 // meta is untouchable at current solver level
 	ErrKindMismatch        Code = 250 // kind mismatch in type application
 	ErrResolutionDepth     Code = 260 // instance resolution depth limit exceeded
 	ErrNestingLimit        Code = 261 // structural nesting depth limit exceeded
