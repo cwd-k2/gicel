@@ -207,35 +207,7 @@ func (ch *Checker) checkCaseAlts(scrutTy, resultTy types.Type, scrutCore ir.Core
 
 		var bodyCore ir.Core
 		if needsLocalResolve {
-			savedWorklist := ch.solver.worklist.Drain()
-
-			// Increment solver level so new metas are created at inner level.
-			// SolverLevel is NOT set here — DK eager unification during body
-			// check must be free to solve outer metas (e.g. result type).
-			// Touchability enforcement is deferred to constraint solving below.
-			ch.solver.level++
-
-			bodyCore = ch.check(alt.Body, branchExpected)
-
-			// Enable touchability for constraint solving.
-			savedSolverLevel := ch.unifier.SolverLevel
-			ch.unifier.SolverLevel = ch.solver.level
-
-			// Solve inner constraints (givens already installed by checkConPatternWith).
-			resolutions, residuals := ch.solveWanteds(nil)
-			bodyCore = ch.substitutePlaceholders(bodyCore, resolutions)
-
-			// Partition residuals: stuck constraints (local skolems / inner metas)
-			// produce errors; others float to the outer scope.
-			localSkolems := make(map[int]bool, len(pr.SkolemIDs))
-			for id := range pr.SkolemIDs {
-				localSkolems[id] = true
-			}
-			floatable := ch.partitionResiduals(residuals, localSkolems, ch.solver.level)
-
-			ch.unifier.SolverLevel = savedSolverLevel
-			ch.solver.level--
-			ch.solver.worklist.Load(append(savedWorklist, floatable...))
+			bodyCore = ch.checkWithLocalScope(alt.Body, branchExpected, pr.SkolemIDs)
 		} else {
 			bodyCore = ch.check(alt.Body, branchExpected)
 		}

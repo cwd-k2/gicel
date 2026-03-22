@@ -5,6 +5,7 @@ import (
 
 	"github.com/cwd-k2/gicel/internal/infra/diagnostic"
 	"github.com/cwd-k2/gicel/internal/lang/ir"
+	"github.com/cwd-k2/gicel/internal/lang/syntax"
 	"github.com/cwd-k2/gicel/internal/lang/types"
 )
 
@@ -62,6 +63,39 @@ func (ch *Checker) processCtImplication(ct *CtImplication, outerResolutions map[
 	ch.solver.level--
 	ch.unifier.SolverLevel = savedSolverLevel
 	ch.solver.worklist.Load(append(savedWorklist, floatable...))
+}
+
+// checkWithLocalScope checks expr against expected inside an implication scope.
+// Increments solver.level so new metas are at inner level, then solves
+// constraints with touchability enforced. Residuals are partitioned: stuck
+// constraints produce errors, floatable ones are merged into the outer worklist.
+//
+// SolverLevel is deferred until after body check — DK eager unification
+// during check must be free to solve outer metas (e.g. case result type).
+func (ch *Checker) checkWithLocalScope(expr syntax.Expr, expected types.Type, skolemIDs map[int]string) ir.Core {
+	savedWorklist := ch.solver.worklist.Drain()
+
+	ch.solver.level++
+
+	bodyCore := ch.check(expr, expected)
+
+	// Enable touchability for constraint solving only.
+	savedSolverLevel := ch.unifier.SolverLevel
+	ch.unifier.SolverLevel = ch.solver.level
+
+	resolutions, residuals := ch.solveWanteds(nil)
+	bodyCore = ch.substitutePlaceholders(bodyCore, resolutions)
+
+	localSkolems := make(map[int]bool, len(skolemIDs))
+	for id := range skolemIDs {
+		localSkolems[id] = true
+	}
+	floatable := ch.partitionResiduals(residuals, localSkolems, ch.solver.level)
+
+	ch.unifier.SolverLevel = savedSolverLevel
+	ch.solver.level--
+	ch.solver.worklist.Load(append(savedWorklist, floatable...))
+	return bodyCore
 }
 
 // partitionResiduals splits residual constraints into floatable (promoted
