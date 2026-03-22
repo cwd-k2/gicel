@@ -110,8 +110,10 @@ func (ch *Checker) processCtClass(
 		}
 	}
 
-	// Check defer predicate for branch C (plain constraints only).
-	if ct.Quantified == nil && ct.ConstraintVar == nil && shouldDefer != nil {
+	// Check defer predicate for non-quantified constraints.
+	// Applies to both plain (Branch C) and normalized ConstraintVar (Branch B)
+	// constraints — both have ClassName/Args populated at this point.
+	if ct.Quantified == nil && shouldDefer != nil {
 		if shouldDefer(ct.ClassName, ct.Args) {
 			*residuals = append(*residuals, ct)
 			return

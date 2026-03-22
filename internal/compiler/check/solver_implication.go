@@ -12,6 +12,11 @@ import (
 // processCtImplication solves an implication constraint: enter inner level,
 // install given equalities, solve inner wanteds, then partition residuals
 // into floatable (promoted to outer) and stuck (local skolem/meta → error).
+//
+// Currently unused in production — GADT branches use checkWithLocalScope
+// which handles DK body checking inline. This function processes
+// pre-collected Wanteds (no DK interleaving), so SolverLevel is set
+// immediately. Retained as infrastructure for future constraint kinds.
 func (ch *Checker) processCtImplication(ct *CtImplication, outerResolutions map[string]ir.Core) {
 	savedWorklist := ch.solver.worklist.Drain()
 
@@ -56,6 +61,13 @@ func (ch *Checker) processCtImplication(ct *CtImplication, outerResolutions map[
 //
 // SolverLevel is deferred until after body check — DK eager unification
 // during check must be free to solve outer metas (e.g. case result type).
+//
+// Known limitation: if check() triggers constraint solving internally
+// (e.g. via checkWithEvidence → resolveDeferredConstraints), that solving
+// runs before SolverLevel is raised. This is acceptable because such
+// constraints are scoped to the evidence body, not the GADT result type.
+// A full separation of unification and solving (OutsideIn-style) would
+// eliminate this gap but conflicts with DK interleaving.
 func (ch *Checker) checkWithLocalScope(expr syntax.Expr, expected types.Type, skolemIDs map[int]string) ir.Core {
 	savedWorklist := ch.solver.worklist.Drain()
 
