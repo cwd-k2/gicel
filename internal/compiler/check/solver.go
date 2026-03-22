@@ -41,6 +41,8 @@ func (ch *Checker) solveWanteds(
 			ch.processCtClass(c, resolutions, &residuals, shouldDefer)
 		case *CtFunEq:
 			ch.processCtFunEq(c)
+		case *CtImplication:
+			ch.processCtImplication(c, resolutions)
 		}
 	}
 

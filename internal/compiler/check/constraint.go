@@ -48,6 +48,22 @@ func (*CtFunEq) ctMarker()               {}
 func (c *CtFunEq) ctPlaceholder() string { return "" }
 func (c *CtFunEq) ctSpan() span.Span     { return c.S }
 
+// CtImplication represents an implication constraint for GADT branches
+// and other scoped constraint-solving contexts. It bundles:
+//   - Skolems: GADT existential variables introduced by the pattern
+//   - GivenEqs: local equalities (skolemID → refinement type)
+//   - Wanteds: constraints to solve at the inner implication level
+type CtImplication struct {
+	Skolems  []*types.TySkolem // GADT existential vars
+	GivenEqs map[int]types.Type
+	Wanteds  []Ct
+	S        span.Span
+}
+
+func (*CtImplication) ctMarker()               {}
+func (c *CtImplication) ctPlaceholder() string { return "" }
+func (c *CtImplication) ctSpan() span.Span     { return c.S }
+
 // collectMetaIDs collects all TyMeta IDs from a slice of types.
 // Used by the inert set to build the meta-to-constraint index.
 func collectMetaIDs(tys []types.Type) []int {
