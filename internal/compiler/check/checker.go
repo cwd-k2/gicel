@@ -130,10 +130,10 @@ type Solver struct {
 	ambiguityCache map[string]bool // per-solveWanteds cache; lazily allocated
 
 	// level tracks implication nesting depth for OutsideIn(X) touchability.
-	// Currently always 0 (top-level). Reserved for L4 (implication constraints):
-	// when enabled, metas at level > solver.level become untouchable, preventing
-	// local metas from leaking into outer scopes. Code assuming level == 0 will
-	// need review when implication nesting is activated.
+	// Incremented on entry to GADT branches (bidir_case.go) and higher-rank
+	// forall scopes (bidir.go). freshMeta uses this to stamp metas with
+	// their birth level. The companion field unifier.SolverLevel controls
+	// touchability enforcement: metas with Level < SolverLevel are untouchable.
 	level int
 }
 
@@ -328,7 +328,7 @@ func newChecker(prog *syntax.AstProgram, source *span.Source, config *CheckConfi
 		solver: &Solver{},
 	}
 	ch.unifier = unify.NewUnifierShared(&ch.freshID)
-	ch.unifier.SolverLevel = 0 // enable touchability system-wide
+	ch.unifier.SolverLevel = 0 // baseline: raised during implication scopes
 	ch.unifier.Budget = ch.budget
 	ch.unifier.OnSolve = func(metaID int) {
 		ch.solver.Reactivate(metaID)
@@ -416,7 +416,8 @@ type checkerSnapshot struct {
 
 // saveState snapshots the session's unifier state (meta solutions, labels,
 // kind solutions, skolem solutions). Constraint state (inert set, worklist),
-// context, and errors are NOT captured.
+// context, errors, and SolverLevel are NOT captured. SolverLevel is managed
+// separately by withTrial/withProbe.
 func (s *Session) saveState() checkerSnapshot {
 	return checkerSnapshot{
 		unifier: s.unifier.Snapshot(),

@@ -20,6 +20,9 @@ func (ch *Checker) processCtImplication(ct *CtImplication, outerResolutions map[
 		skolemIDs[sk.ID] = true
 	}
 
+	// SolverLevel is set immediately here (unlike bidir_case.go which defers
+	// it until after body check). This is safe because CtImplication carries
+	// pre-collected Wanteds — no DK eager unification occurs inside.
 	ch.solver.level++
 	savedSolverLevel := ch.unifier.SolverLevel
 	ch.unifier.SolverLevel = ch.solver.level
