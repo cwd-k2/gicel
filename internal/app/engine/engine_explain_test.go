@@ -264,7 +264,7 @@ func TestSetCheckTraceHookPublicAPI(t *testing.T) {
 		events = append(events, e)
 	})
 	_, err := eng.Compile(context.Background(), `
-data MyBool := T | F
+data MyBool := { T: MyBool; F: MyBool; }
 id := \x. x
 main := id T
 `)

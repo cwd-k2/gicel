@@ -54,9 +54,9 @@ type Id (a: Type) :: Type := { Id a =: a }
 main := (1 :: Id Int) + 2`},
 	{name: "ADT pattern match", source: `
 import Prelude
-data Color := Red | Green | Blue
+data Color := { Red: Color; Green: Color; Blue: Color; }
 name :: Color -> String
-name := \c. case c { Red -> "red"; Green -> "green"; Blue -> "blue" }
+name := \c. case c { Red => "red"; Green => "green"; Blue => "blue" }
 main := name Red`},
 	{name: "record", source: `
 import Prelude

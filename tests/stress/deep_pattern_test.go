@@ -970,8 +970,8 @@ func TestFP_WildcardInCasePattern(t *testing.T) {
 	eng.Use(gicel.Prelude)
 	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
-data Color := Red | Green | Blue
-isRed := \c. case c { Red -> True; _ => False }
+data Color := { Red: Color; Green: Color; Blue: Color; }
+isRed := \c. case c { Red => True; _ => False }
 main := isRed Blue
 `)
 	if err != nil {
@@ -1043,8 +1043,8 @@ func TestErrorReportsNonExhaustiveConstructor(t *testing.T) {
 	eng.Use(gicel.Prelude)
 	_, err := eng.NewRuntime(context.Background(), `
 import Prelude
-data Color := Red | Green | Blue
-f := \c. case c { Red -> True }
+data Color := { Red: Color; Green: Color; Blue: Color; }
+f := \c. case c { Red => True }
 main := f Red
 `)
 	if err == nil {

@@ -87,7 +87,7 @@ func FuzzCheck(f *testing.F) {
 // Catches nil-guard omissions (e.g. missing IxMonad class).
 func FuzzCheckBare(f *testing.F) {
 	f.Add([]byte("id := \\x. x; main := id True"))
-	f.Add([]byte("data T := A | B; main := A"))
+	f.Add([]byte("data T := { A: T; B: T; }; main := A"))
 	f.Add([]byte("do { x <- pure True; pure x }"))
 	f.Add([]byte("class Foo a { bar :: a -> a }"))
 	f.Add([]byte(""))

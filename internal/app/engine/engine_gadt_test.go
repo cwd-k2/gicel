@@ -15,13 +15,13 @@ import (
 func TestDataKindsDBState(t *testing.T) {
 	eng := NewEngine()
 	rt, err := eng.NewRuntime(context.Background(), `
-data DBState := Opened | Closed
+data DBState := { Opened: DBState; Closed: DBState; }
 data DB s := MkDB
 
-open: DB Closed -> DB Opened
+open: DB Closed => DB Opened
 open := \_. MkDB
 
-close: DB Opened -> DB Closed
+close: DB Opened => DB Closed
 close := \_. MkDB
 
 main := close (open (MkDB :: DB Closed))
@@ -48,7 +48,7 @@ func TestDataKindsInRow(t *testing.T) {
 	})
 	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
-data DBState := Opened | Closed
+data DBState := { Opened: DBState; Closed: DBState; }
 
 readDB: () -> Computation { db: Int } { db: Int } Int
 readDB := assumption
@@ -124,12 +124,12 @@ main := eval (Not (LitBool True))
 func TestGADTWithDataKinds(t *testing.T) {
 	eng := NewEngine()
 	rt, err := eng.NewRuntime(context.Background(), `
-data DBState := Opened | Closed
+data DBState := { Opened: DBState; Closed: DBState; }
 data DB s := MkDB
 
 data Action s := { Open: Action Opened; Close: Action Closed }
 
-describe: Action Opened -> DB Opened
+describe: Action Opened => DB Opened
 describe := \a. case a { Open -> MkDB }
 
 main := describe Open

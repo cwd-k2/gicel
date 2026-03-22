@@ -678,7 +678,7 @@ func TestTypeFamilyIsolationAcrossCompilations(t *testing.T) {
 	// Register a module with a class + associated type.
 	err := eng.RegisterModule("TFLib", `
 data Bool := { True: Bool; False: Bool; }
-data Nat := Zero | Succ Nat
+data Nat := { Zero: Nat; Succ: Nat -> Nat; }
 
 data Convert := \a. {
   type Target a :: Type;
@@ -715,7 +715,7 @@ main := convert True
 import TFLib
 impl Convert Nat := {
   type Target Nat =: Bool;
-  convert := \n. case n { Zero -> False; Succ _ => True }
+  convert := \n. case n { Zero => False; Succ _ => True }
 }
 main := convert Zero
 `)

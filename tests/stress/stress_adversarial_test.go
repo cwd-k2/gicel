@@ -398,8 +398,8 @@ main := myMethod 42
 func TestAdversarial_NonExhaustivePattern(t *testing.T) {
 	src := `
 import Prelude
-data Color := Red | Green | Blue
-incomplete := \c. case c { Red -> 1; Green -> 2 }
+data Color := { Red: Color; Green: Color; Blue: Color; }
+incomplete := \c. case c { Red => 1; Green => 2 }
 main := incomplete Blue
 `
 	_, err := gicel.RunSandbox(src, &gicel.SandboxConfig{

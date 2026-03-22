@@ -586,7 +586,7 @@ func TestStressCustomPrelude(t *testing.T) {
 	err := eng.RegisterModule("Prelude", `
 data MyBool := Yes | No
 myNot :: MyBool -> MyBool
-myNot := \b. case b { Yes -> No; No -> Yes }
+myNot := \b. case b { Yes => No; No => Yes }
 `)
 	if err != nil {
 		t.Fatal(err)

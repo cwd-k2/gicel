@@ -100,7 +100,7 @@ main := pure True
 func TestSetPreludeNoDefaultBool(t *testing.T) {
 	// Custom prelude that doesn't define Bool — standard Bool should not be available.
 	eng := NewEngine()
-	eng.RegisterModule("Prelude", `data Color := Red | Blue`)
+	eng.RegisterModule("Prelude", `data Color := { Red: Color; Blue: Color; }`)
 	_, err := eng.NewRuntime(context.Background(), `
 import Prelude
 main := True

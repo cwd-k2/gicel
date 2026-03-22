@@ -61,7 +61,7 @@ func BenchmarkEngineCompileLarge(b *testing.B) {
 // ---------------------------------------------------------------------------
 
 func BenchmarkEngineNewRuntimeNoModules(b *testing.B) {
-	source := `data MyBool := MyTrue | MyFalse
+	source := `data MyBool := { MyTrue: MyBool; MyFalse: MyBool; }
 main := MyTrue
 `
 	for b.Loop() {

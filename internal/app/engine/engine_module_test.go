@@ -82,7 +82,7 @@ func TestRegisterModuleFile(t *testing.T) {
 	dir := t.TempDir()
 	path := dir + "/Lib.gicel"
 	if err := os.WriteFile(path, []byte(`
-data Color := Red | Blue
+data Color := { Red: Color; Blue: Color; }
 `), 0644); err != nil {
 		t.Fatal(err)
 	}
@@ -148,7 +148,7 @@ func TestImportNameCollision(t *testing.T) {
 		t.Fatal(err)
 	}
 	// Module B also defines Bool.
-	err = eng.RegisterModule("B", `data Bool := Yes | No`)
+	err = eng.RegisterModule("B", `data Bool := { Yes: Bool; No: Bool; }`)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -237,7 +237,7 @@ func TestInvalidModuleSource(t *testing.T) {
 func TestSelectiveImport(t *testing.T) {
 	eng := NewEngine()
 	err := eng.RegisterModule("Lib", `
-data Color := Red | Green | Blue
+data Color := { Red: Color; Green: Color; Blue: Color; }
 red :: Color
 red := Red
 green :: Color
@@ -267,7 +267,7 @@ main := red
 func TestSelectiveImportRejectsUnlisted(t *testing.T) {
 	eng := NewEngine()
 	err := eng.RegisterModule("Lib", `
-data Color := Red | Green | Blue
+data Color := { Red: Color; Green: Color; Blue: Color; }
 red :: Color
 red := Red
 green :: Color
@@ -289,7 +289,7 @@ main := green
 func TestQualifiedImport(t *testing.T) {
 	eng := NewEngine()
 	err := eng.RegisterModule("Lib", `
-data Color := Red | Green | Blue
+data Color := { Red: Color; Green: Color; Blue: Color; }
 red :: Color
 red := Red
 `)
@@ -316,7 +316,7 @@ main := L.red
 func TestQualifiedImportConstructor(t *testing.T) {
 	eng := NewEngine()
 	err := eng.RegisterModule("Lib", `
-data Color := Red | Green | Blue
+data Color := { Red: Color; Green: Color; Blue: Color; }
 `)
 	if err != nil {
 		t.Fatal(err)
@@ -341,7 +341,7 @@ main := L.Green
 func TestQualifiedNotInUnqualifiedScope(t *testing.T) {
 	eng := NewEngine()
 	err := eng.RegisterModule("Lib", `
-data Color := Red | Green | Blue
+data Color := { Red: Color; Green: Color; Blue: Color; }
 red :: Color
 red := Red
 `)
@@ -361,7 +361,7 @@ main := red
 func TestDuplicateImportError(t *testing.T) {
 	eng := NewEngine()
 	err := eng.RegisterModule("Lib", `
-data Color := Red | Green | Blue
+data Color := { Red: Color; Green: Color; Blue: Color; }
 `)
 	if err != nil {
 		t.Fatal(err)
@@ -468,9 +468,9 @@ getY := \p. case p { MkPoint _ y -> y }
 	}
 	if err := eng.RegisterModule("Color", `
 import Prelude
-data Color := Red | Green | Blue
+data Color := { Red: Color; Green: Color; Blue: Color; }
 name :: Color -> String
-name := \c. case c { Red -> "red"; Green -> "green"; Blue -> "blue" }
+name := \c. case c { Red => "red"; Green => "green"; Blue => "blue" }
 `); err != nil {
 		t.Fatal(err)
 	}
@@ -792,7 +792,7 @@ func TestSelectiveImportAlwaysImportsInstances(t *testing.T) {
 		t.Fatal(err)
 	}
 	err := eng.RegisterModule("EqLib", `
-data MyBool := MyTrue | MyFalse
+data MyBool := { MyTrue: MyBool; MyFalse: MyBool; }
 data MyEq := \a. { myEq: a -> a -> MyBool }
 impl MyEq MyBool := { myEq := \_ _. MyTrue }
 `)
@@ -823,7 +823,7 @@ func TestQualifiedImportAlwaysImportsInstances(t *testing.T) {
 		t.Fatal(err)
 	}
 	err := eng.RegisterModule("EqLib", `
-data MyBool := MyTrue | MyFalse
+data MyBool := { MyTrue: MyBool; MyFalse: MyBool; }
 data MyEq := \a. { myEq: a -> a -> MyBool }
 impl MyEq MyBool := { myEq := \_ _. MyTrue }
 `)
@@ -1024,7 +1024,7 @@ func TestModuleExplainSourceName(t *testing.T) {
 import Prelude
 data Answer := Yes | No
 decide :: Answer -> Int
-decide := \a. case a { Yes -> 1; No -> 0 }
+decide := \a. case a { Yes => 1; No => 0 }
 `)
 	if err != nil {
 		t.Fatal(err)

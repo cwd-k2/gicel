@@ -55,7 +55,7 @@ func TestEngineUse(t *testing.T) {
 func TestNoPrelude(t *testing.T) {
 	eng := NewEngine()
 	rt, err := eng.NewRuntime(context.Background(), `
-data MyBool := MyTrue | MyFalse
+data MyBool := { MyTrue: MyBool; MyFalse: MyBool; }
 main := MyTrue
 `)
 	if err != nil {
