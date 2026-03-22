@@ -206,7 +206,7 @@ func (ch *Checker) processTypeFamilyFromAlias(d *syntax.DeclTypeAlias) {
 	for _, alt := range caseExpr.Alts {
 		// Extract patterns from the alt pattern.
 		// Single pattern: the pattern itself becomes the equation's patterns.
-		patterns := extractTFPatterns(alt.Pattern)
+		patterns := extractTFPatterns(alt.Pattern, len(params))
 		equations = append(equations, legacyTFEquation{
 			Name:     d.Name,
 			Patterns: patterns,
@@ -227,13 +227,26 @@ func (ch *Checker) processTypeFamilyFromAlias(d *syntax.DeclTypeAlias) {
 
 // extractTFPatterns extracts type family equation patterns from a case alternative pattern.
 // For single-param families, returns [pattern].
-// For multi-param (TyExprApp chain), unwinds the application.
-func extractTFPatterns(pat syntax.TypeExpr) []syntax.TypeExpr {
-	// Check for application chain: f a b → [f, a, b] → skip head, return [a, b]
-	// But in type family case, the pattern is already without the family name.
-	// e.g., "List a" in "case c { List a => a }" is TyExprApp(TyExprCon("List"), TyExprVar("a"))
-	// This should be a single pattern [List a].
-	return []syntax.TypeExpr{pat}
+// For multi-param (synthesized application chain from legacy parser), unwinds into individual patterns.
+func extractTFPatterns(pat syntax.TypeExpr, numParams int) []syntax.TypeExpr {
+	if numParams <= 1 {
+		return []syntax.TypeExpr{pat}
+	}
+	// Multi-param: unwrap application chain.
+	// The legacy parser builds: App(App(pat1, pat2), pat3) for [pat1, pat2, pat3].
+	// Unwinding gives us the individual patterns.
+	var result []syntax.TypeExpr
+	t := pat
+	for {
+		if app, ok := t.(*syntax.TyExprApp); ok {
+			result = append([]syntax.TypeExpr{app.Arg}, result...)
+			t = app.Fun
+		} else {
+			result = append([]syntax.TypeExpr{t}, result...)
+			break
+		}
+	}
+	return result
 }
 
 func (ch *Checker) processValueDef(d *syntax.DeclValueDef, annotations map[string]types.Type, prog *ir.Program) {
