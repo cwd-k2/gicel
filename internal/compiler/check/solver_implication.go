@@ -34,23 +34,7 @@ func (ch *Checker) processCtImplication(ct *CtImplication, outerResolutions map[
 
 	ch.solver.worklist.Load(ct.Wanteds)
 
-	// Defer constraints that mention local skolems or unsolved metas —
-	// these cannot be resolved at the inner level and need partitioning.
-	shouldDefer := func(_ string, zonkedArgs []types.Type) bool {
-		if sliceHasMeta(zonkedArgs) {
-			return true
-		}
-		for _, arg := range zonkedArgs {
-			if types.AnyType(arg, func(ty types.Type) bool {
-				sk, ok := ty.(*types.TySkolem)
-				return ok && localSkolems[sk.ID]
-			}) {
-				return true
-			}
-		}
-		return false
-	}
-	innerResolutions, innerResiduals := ch.solveWanteds(shouldDefer)
+	innerResolutions, innerResiduals := ch.solveWanteds(localShouldDefer())
 	for k, v := range innerResolutions {
 		outerResolutions[k] = v
 	}
@@ -83,19 +67,36 @@ func (ch *Checker) checkWithLocalScope(expr syntax.Expr, expected types.Type, sk
 	savedSolverLevel := ch.unifier.SolverLevel
 	ch.unifier.SolverLevel = ch.solver.level
 
-	resolutions, residuals := ch.solveWanteds(nil)
-	bodyCore = ch.substitutePlaceholders(bodyCore, resolutions)
-
+	// Defer constraints with unsolved metas or local skolems — these
+	// cannot be resolved at the inner level (instance resolution via
+	// withTrial would bypass touchability). Deferred constraints are
+	// partitioned below: local ones produce errors, others float out.
 	localSkolems := make(map[int]bool, len(skolemIDs))
 	for id := range skolemIDs {
 		localSkolems[id] = true
 	}
+	resolutions, residuals := ch.solveWanteds(localShouldDefer())
+	bodyCore = ch.substitutePlaceholders(bodyCore, resolutions)
+
 	floatable := ch.partitionResiduals(residuals, localSkolems, ch.solver.level)
 
 	ch.unifier.SolverLevel = savedSolverLevel
 	ch.solver.level--
 	ch.solver.worklist.Load(append(savedWorklist, floatable...))
 	return bodyCore
+}
+
+// localShouldDefer returns a shouldDefer predicate that defers constraints
+// whose args contain unsolved metas. Used by processCtImplication and
+// checkWithLocalScope to prevent inner-level resolution of constraints
+// that belong to the outer scope. Constraints with local skolems are NOT
+// deferred — they may be resolvable via given evidence from the GADT
+// pattern. Unresolvable local-skolem constraints become residuals and
+// are caught by partitionResiduals.
+func localShouldDefer() func(string, []types.Type) bool {
+	return func(_ string, zonkedArgs []types.Type) bool {
+		return sliceHasMeta(zonkedArgs)
+	}
 }
 
 // partitionResiduals splits residual constraints into floatable (promoted

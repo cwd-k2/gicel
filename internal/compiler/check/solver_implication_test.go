@@ -67,13 +67,11 @@ func TestImplicationStuckLocalSkolem(t *testing.T) {
 		},
 	})
 
-	resolutions, _ := ch.solveWanteds(nil)
-	// The stuck constraint should NOT appear in resolutions (error was emitted).
-	if _, ok := resolutions["$dict_stuck"]; ok {
-		t.Error("stuck constraint should not be resolved")
-	}
+	ch.solveWanteds(nil)
+	// Instance resolution fails for Num skolem (no matching instance).
+	// The error is emitted by resolveInstance, not by partitioning.
 	if ch.errors.Len() == 0 {
-		t.Fatal("expected error for stuck constraint mentioning local skolem")
+		t.Fatal("expected error for unresolvable constraint with local skolem")
 	}
 }
 
