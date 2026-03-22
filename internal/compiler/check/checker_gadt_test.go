@@ -81,7 +81,7 @@ func TestGADTExhaustiveRelevant(t *testing.T) {
 data Unit := { Unit: (); }
 data Tag a := { TagBool: Bool -> Tag Bool; TagUnit: Unit => Tag Unit }
 f :: Tag Bool -> Bool
-f := \t. case t { TagBool b -> b }`
+f := \t. case t { TagBool b => b }`
 	checkSource(t, source, nil)
 }
 

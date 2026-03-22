@@ -209,12 +209,12 @@ data Bool := { True: (); False: (); }
 
 data Wrapper := \a. {
   data Wrap a :: Type;
-  unwrap: Wrap a -> a
+  unwrap: Wrap a => a
 }
 
 impl Wrapper Bool := {
   data Wrap Bool =: WrapBool Bool;
-  unwrap := \w. case w { WrapBool b -> b }
+  unwrap := \w. case w { WrapBool b => b }
 }
 
 test: Wrap Bool -> Bool
@@ -234,12 +234,12 @@ data Bool := { True: (); False: (); }
 
 data Wrapper := \a. {
   data Wrap a :: Type;
-  unwrap: Wrap a -> a
+  unwrap: Wrap a => a
 }
 
 impl Wrapper Bool := {
   data Wrap Bool =: WrapBool Bool;
-  unwrap := \w. case w { WrapBool b -> b }
+  unwrap := \w. case w { WrapBool b => b }
 }
 
 test: Wrap Bool -> Bool
@@ -267,7 +267,7 @@ impl Container (Maybe a) := {
 }
 
 test: \ a. Elem (Maybe a) -> a
-test := \e. case e { MaybeElem x -> x }
+test := \e. case e { MaybeElem x => x }
 `
 	checkSource(t, source, nil)
 }
