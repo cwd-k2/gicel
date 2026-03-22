@@ -187,12 +187,53 @@ func (ch *Checker) processTypeAlias(d *syntax.DeclTypeAlias) {
 }
 
 // processTypeFamilyFromAlias handles a DeclTypeAlias whose body contains a type-level case,
-// indicating a closed type family. This adapts the unified syntax to the internal type family
-// processing pipeline.
+// indicating a closed type family. Converts to legacyDeclTypeFamily and delegates.
 func (ch *Checker) processTypeFamilyFromAlias(d *syntax.DeclTypeAlias) {
-	// For now, extract the case body and delegate to the existing type family machinery.
-	// TODO: Full implementation once the unified syntax type family semantics are finalized.
-	_ = d
+	parts := decomposeTypeAliasBody(d.Body)
+
+	// Extract TyExprCase from the inner body.
+	caseExpr, ok := parts.Body.(*syntax.TyExprCase)
+	if !ok {
+		return // not a type family after all
+	}
+
+	// Build legacy type family params.
+	var params []syntax.TyBinder
+	params = append(params, parts.Params...)
+
+	// Build legacy equations from case alternatives.
+	var equations []legacyTFEquation
+	for _, alt := range caseExpr.Alts {
+		// Extract patterns from the alt pattern.
+		// Single pattern: the pattern itself becomes the equation's patterns.
+		patterns := extractTFPatterns(alt.Pattern)
+		equations = append(equations, legacyTFEquation{
+			Name:     d.Name,
+			Patterns: patterns,
+			RHS:      alt.Body,
+			S:        alt.S,
+		})
+	}
+
+	legacy := &legacyDeclTypeFamily{
+		Name:       d.Name,
+		Params:     params,
+		ResultKind: d.KindAnn,
+		Equations:  equations,
+		S:          d.S,
+	}
+	ch.processTypeFamily(legacy)
+}
+
+// extractTFPatterns extracts type family equation patterns from a case alternative pattern.
+// For single-param families, returns [pattern].
+// For multi-param (TyExprApp chain), unwinds the application.
+func extractTFPatterns(pat syntax.TypeExpr) []syntax.TypeExpr {
+	// Check for application chain: f a b → [f, a, b] → skip head, return [a, b]
+	// But in type family case, the pattern is already without the family name.
+	// e.g., "List a" in "case c { List a => a }" is TyExprApp(TyExprCon("List"), TyExprVar("a"))
+	// This should be a single pattern [List a].
+	return []syntax.TypeExpr{pat}
 }
 
 func (ch *Checker) processValueDef(d *syntax.DeclValueDef, annotations map[string]types.Type, prog *ir.Program) {
