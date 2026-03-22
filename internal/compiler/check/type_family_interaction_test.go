@@ -283,11 +283,11 @@ func TestInteractionFundepSuperclass(t *testing.T) {
 data Unit := { Unit: Unit; }
 data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
 
-data Elem := \c e | c =: e. {
+data Elem := \c e. {
   extract: c -> e
 }
 
-data Elem := \c e => Foldable c e | c =: e. {
+data Foldable := \c e. Elem c e => {
   cfold: \ b. (e -> b -> b) -> b -> c -> b
 }
 
@@ -308,7 +308,7 @@ func TestInteractionFundepSuperclassUse(t *testing.T) {
 data Unit := { Unit: Unit; }
 data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
 
-data Elem := \c e | c =: e. {
+data Elem := \c e. {
   extract: c -> e
 }
 
@@ -1314,7 +1314,7 @@ type Id (a: Type) :: Type := {
   Id a =: a
 }
 
-data Elem := \c e | c =: e. {
+data Elem := \c e. {
   extract: c -> e
 }
 

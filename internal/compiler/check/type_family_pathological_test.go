@@ -105,12 +105,12 @@ func TestPathological100Instances(t *testing.T) {
 	var b strings.Builder
 	// Generate 100 distinct types.
 	for i := 0; i < 100; i++ {
-		b.WriteString(fmt.Sprintf("data T%d := C%d\n", i, i))
+		b.WriteString(fmt.Sprintf("data T%d := { C%d: T%d; }\n", i, i, i))
 	}
 	b.WriteString("data Bool := { True: Bool; False: Bool; }\n")
-	b.WriteString("class Eq a { eq :: a -> a -> Bool }\n")
+	b.WriteString("data Eq := \\a. { eq: a -> a -> Bool }\n")
 	for i := 0; i < 100; i++ {
-		b.WriteString(fmt.Sprintf("instance Eq T%d { eq := \\x y. True }\n", i))
+		b.WriteString(fmt.Sprintf("impl Eq T%d { eq := \\x y. True }\n", i))
 	}
 	checkSource(t, b.String(), nil)
 }

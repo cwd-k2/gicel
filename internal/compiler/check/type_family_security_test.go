@@ -397,14 +397,14 @@ func TestSecurityParserLongEquationBlock(t *testing.T) {
 	const N = 100
 	var sb strings.Builder
 
-	sb.WriteString("data Tag := ")
+	sb.WriteString("data Tag := { ")
 	for i := 0; i < N; i++ {
 		if i > 0 {
-			sb.WriteString(" | ")
+			sb.WriteString("; ")
 		}
-		sb.WriteString(tagName(i))
+		sb.WriteString(tagName(i) + ": Tag")
 	}
-	sb.WriteString("\n")
+	sb.WriteString("; }\n")
 
 	sb.WriteString("type F (a: Tag) :: Tag := {\n")
 	for i := 0; i < N; i++ {
