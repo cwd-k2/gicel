@@ -459,12 +459,11 @@ Structural consequence:
    instance resolution decomposition.
 
 2. Strengthen parser progress as a first-class invariant.
-   `progressGuard` applied to 8 unbounded loops. **Remaining**: model and
-   context-sensitive loops still use ad-hoc guards.
+   `progressGuard` applied to all unbounded loops. **Complete.**
 
 3. Make parser speculation explicitly transactional or explicitly constrained.
-   Step budget rollback in `speculate` is done. **Remaining**: `guard.halted`
-   permanence during speculation; mode flags not rolled back.
+   `speculate` saves/restores all mutable state; bounded loops have explicit
+   terminators. **Complete.**
 
 4. Separate semantic exports from runtime module metadata.
    `DataDecls` replaced with `OwnedTypeNames`/`OwnedNames`. **Remaining**:
