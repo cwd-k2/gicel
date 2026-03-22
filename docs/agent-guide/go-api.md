@@ -93,24 +93,24 @@ eng.DeclareBinding("myInput", gicel.ConType("Int"))
 
 ### Type Construction Helpers
 
-| Function                                               | Description                   |
-| ------------------------------------------------------ | ----------------------------- |
-| `gicel.ConType(name)`                                  | Type constructor: `"Int"`     |
-| `gicel.ArrowType(from, to)`                            | Function type: `from -> to`   |
-| `gicel.AppType(f, arg)`                                | Type application: `f a`       |
-| `gicel.CompType(pre, post, result)`                    | `Computation pre post result` |
-| `gicel.ForallType(var, body)`                          | `\var. body`                  |
-| `gicel.ForallRow(var, body)`                           | `\(var: Row). body`           |
-| `gicel.EmptyRowType()`                                 | Empty row `{}`                |
-| `gicel.RecordType(fields ...RowField)`                 | Closed record type            |
-| `gicel.TupleType(elems ...Type)`                       | Tuple record type             |
-| `gicel.KindType()`, `KindRow()`, `KindArrow(from, to)` | Kind constructors             |
+| Function                                  | Description                   |
+| ----------------------------------------- | ----------------------------- |
+| `gicel.ConType(name)`                     | Type constructor: `"Int"`     |
+| `gicel.ArrowType(from, to)`               | Function type: `from -> to`   |
+| `gicel.AppType(f, arg)`                   | Type application: `f a`       |
+| `gicel.CompType(pre, post, result)`       | `Computation pre post result` |
+| `gicel.ForallType(var, body)`             | `\var. body`                  |
+| `gicel.ForallRow(var, body)`              | `\(var: Row). body`           |
+| `gicel.EmptyRowType()`                    | Empty row `{}`                |
+| `gicel.RecordType(fields ...RowField)`    | Closed record type            |
+| `gicel.TupleType(elems ...Type)`          | Tuple record type             |
+| `gicel.KindType()`, `KindArrow(from, to)` | Kind constructors             |
 
 **Preferred usage:**
 
 - `RecordType(fields...)` for closed record types (most common)
 - `NewRow().And(...).Closed()` / `.Open("r")` for incremental or open-row construction
-- `EmptyRowType()` and `ClosedRowType(fields...)` are lower-level row helpers — prefer `RecordType` when constructing record types
+- `EmptyRowType()` is a lower-level row helper — prefer `RecordType` or `NewRow()` builder when constructing record types
 
 ### Engine Configuration
 
@@ -171,8 +171,6 @@ rt.RunWith(ctx, &gicel.RunOptions{
 })
 ```
 
-**CheckTraceHook** fires during type checking. Set via `eng.SetCheckTraceHook(hook)`. Signature: `func(CheckTraceEvent)`. Fields: `Kind CheckTraceKind`, `Depth int`, `Message string`, `Line int`, `Col int` (1-based).
-
 ### Migration Path: RunSandbox → Engine/Runtime
 
 `RunSandbox` is ideal for one-shot evaluation with default limits. Move to the `Engine`/`Runtime` API when you need:
@@ -183,11 +181,10 @@ rt.RunWith(ctx, &gicel.RunOptions{
 
 ### Observability Hooks
 
-| Hook                       | Scope         | Use case                                          |
-| -------------------------- | ------------- | ------------------------------------------------- |
-| `RunOptions.Explain`       | Evaluation    | Semantic trace: binds, effects, matches, sections |
-| `RunOptions.Trace`         | Evaluation    | Low-level step-by-step evaluation events          |
-| `Engine.SetCheckTraceHook` | Type checking | Constraint solving and inference trace            |
+| Hook                 | Scope      | Use case                                          |
+| -------------------- | ---------- | ------------------------------------------------- |
+| `RunOptions.Explain` | Evaluation | Semantic trace: binds, effects, matches, sections |
+| `RunOptions.Trace`   | Evaluation | Low-level step-by-step evaluation events          |
 
 ### Trust Boundary
 

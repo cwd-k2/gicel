@@ -15,6 +15,7 @@ import (
 	"github.com/cwd-k2/gicel/internal/host/stdlib"
 	"github.com/cwd-k2/gicel/internal/infra/budget"
 	"github.com/cwd-k2/gicel/internal/lang/syntax"
+	"github.com/cwd-k2/gicel/internal/lang/types"
 	"github.com/cwd-k2/gicel/internal/runtime/eval"
 )
 
@@ -129,6 +130,10 @@ type DepthLimitError = budget.DepthLimitError
 type AllocLimitError = budget.AllocLimitError
 
 // ---- Type construction helpers ----
+
+// RowField is a single label:type pair in a row.
+// Used with RecordType to construct closed record types.
+type RowField = types.RowField
 
 var (
 	ConType      = engine.ConType
