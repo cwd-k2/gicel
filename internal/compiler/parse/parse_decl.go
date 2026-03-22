@@ -238,7 +238,69 @@ func (p *Parser) parseTypeDecl() *syn.DeclTypeAlias {
 	}
 
 	p.expect(syn.TokColonEq)
+
+	// Zero-arity type family: type Const :: Type := { Const =: Unit }
+	// Detect by checking if { follows := and contains =: (equation separator).
+	if p.peek().Kind == syn.TokLBrace && p.looksLikeTypeFamilyBody() {
+		return p.parseTypeFamilyLegacy0(name, kindAnn, start)
+	}
+
 	body := p.parseType()
+
+	return &syn.DeclTypeAlias{
+		Name:    name,
+		KindAnn: kindAnn,
+		Body:    body,
+		S:       span.Span{Start: start, End: p.prevEnd()},
+	}
+}
+
+// looksLikeTypeFamilyBody peeks ahead to see if { ... =: ... } pattern exists.
+func (p *Parser) looksLikeTypeFamilyBody() bool {
+	// Scan ahead from current { looking for =: before }
+	for i := p.pos + 1; i < len(p.tokens); i++ {
+		if p.tokens[i].Kind == syn.TokRBrace {
+			return false
+		}
+		if p.tokens[i].Kind == syn.TokEqColon {
+			return true
+		}
+	}
+	return false
+}
+
+// parseTypeFamilyLegacy0 parses a zero-arity type family (no params).
+func (p *Parser) parseTypeFamilyLegacy0(name string, kindAnn syn.KindExpr, start span.Pos) *syn.DeclTypeAlias {
+	openTok := p.expect(syn.TokLBrace)
+	var alts []syn.TyAlt
+	p.parseBody("type family declaration", openTok.S, func() {
+		eqStart := p.peek().S.Start
+		_ = p.expectUpper() // family name
+		var patterns []syn.TypeExpr
+		for p.isTypeAtomStart() && p.peek().Kind != syn.TokEqColon {
+			patterns = append(patterns, p.parseTypeAtom())
+		}
+		p.expect(syn.TokEqColon)
+		rhs := p.parseType()
+		var pat syn.TypeExpr
+		if len(patterns) == 1 {
+			pat = patterns[0]
+		} else if len(patterns) > 1 {
+			pat = patterns[0]
+			for _, extra := range patterns[1:] {
+				pat = &syn.TyExprApp{Fun: pat, Arg: extra, S: span.Span{Start: eqStart, End: p.prevEnd()}}
+			}
+		}
+		if pat != nil {
+			alts = append(alts, syn.TyAlt{Pattern: pat, Body: rhs, S: span.Span{Start: eqStart, End: p.prevEnd()}})
+		}
+	})
+
+	var body syn.TypeExpr
+	if len(alts) > 0 {
+		scrutinee := &syn.TyExprCon{Name: "_", S: span.Span{Start: start, End: start}}
+		body = &syn.TyExprCase{Scrutinee: scrutinee, Alts: alts, S: span.Span{Start: start, End: p.prevEnd()}}
+	}
 
 	return &syn.DeclTypeAlias{
 		Name:    name,
