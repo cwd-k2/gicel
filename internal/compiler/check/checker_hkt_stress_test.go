@@ -28,7 +28,7 @@ func TestStressKindPolyIdentityChain(t *testing.T) {
 	source := `
 data Bool := { True: (); False: (); }
 
-id_k: \ (k: Kind). \ (a: k). a -> a
+id_k :: \ (k: Kind). \ (a: k). a -> a
 id_k := \x. x
 
 chain := id_k (id_k (id_k True))

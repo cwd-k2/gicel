@@ -57,7 +57,7 @@ func TestKindPolyInstantiation(t *testing.T) {
 	source := `
 data Bool := { True: (); False: (); }
 
-id_k: \ (k: Kind). \ (a: k). a -> a
+id_k :: \ (k: Kind). \ (a: k). a -> a
 id_k := \x. x
 
 use := id_k True
@@ -71,7 +71,7 @@ func TestKindPolyInstantiationArrow(t *testing.T) {
 data Bool := { True: (); False: (); }
 data Maybe := \a. { Nothing: (); Just: a; }
 
-id_k: \ (k: Kind). \ (a: k). a -> a
+id_k :: \ (k: Kind). \ (a: k). a -> a
 id_k := \x. x
 
 use_maybe := id_k (Just True)
