@@ -533,7 +533,7 @@ import Prelude
 data Token a := { BoolTok: Bool -> Token Bool; UnitTok: Token () }
 
 toBool :: Token Bool -> Bool
-toBool := \t. case t { BoolTok b -> b }
+toBool := \t. case t { BoolTok b => b }
 
 main := toBool (BoolTok True)
 `)
@@ -561,7 +561,7 @@ func TestLetRecFix(t *testing.T) {
 	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 
-myLength := fix (\self xs. case xs { Nil => 0; Cons _ rest -> 1 + self rest })
+myLength := fix (\self xs. case xs { Nil => 0; Cons _ rest => 1 + self rest })
 
 main := myLength (Cons True (Cons False (Cons True Nil)))
 `)
@@ -585,7 +585,7 @@ main := myLength (Cons True (Cons False (Cons True Nil)))
 import Prelude
 
 myLength :: List a -> Int
-myLength := fix (\self xs. case xs { Nil => 0; Cons _ rest -> 1 + self rest })
+myLength := fix (\self xs. case xs { Nil => 0; Cons _ rest => 1 + self rest })
 
 main := myLength (Cons True (Cons False (Cons True Nil)))
 `)
@@ -617,7 +617,7 @@ fst :: \a b. Pair a b -> a
 fst := \p. case p { MkPair x _ => x }
 
 snd :: \a b. Pair a b -> b
-snd := \p. case p { MkPair _ y -> y }
+snd := \p. case p { MkPair _ y => y }
 
 main := fst (MkPair True False)
 `)
@@ -638,7 +638,7 @@ func TestDoubleNestedPatternMatch(t *testing.T) {
 import Prelude
 isJustTrue :: Maybe Bool -> Bool
 isJustTrue := \m. case m {
-  Just b -> case b { True => True; False => False };
+  Just b => case b { True => True; False => False };
   Nothing => False
 }
 main := isJustTrue (Just True)
@@ -934,7 +934,7 @@ func TestFP_LambdaWithRecordPattern(t *testing.T) {
 	// Case destructure form:
 	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
-getX := \r. case r { { x: v } -> v }
+getX := \r. case r { { x: v } => v }
 main := getX { x: True }
 `)
 	if err != nil {
@@ -993,7 +993,7 @@ func TestFP_NestedTuplePattern(t *testing.T) {
 	// Case destructure form:
 	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
-f := \p. case p { (a, inner) -> case inner { (b, c) -> b } }
+f := \p. case p { (a, inner) => case inner { (b, c) => b } }
 main := f (True, (False, True))
 `)
 	if err != nil {
@@ -1242,7 +1242,7 @@ main := (mkPair True False).#_1
 func TestDataKindsInGADTIndex(t *testing.T) {
 	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(context.Background(), `
-data Phase := Building | Running
+data Phase := { Building: Phase; Running: Phase; }
 
 data Builder (p: Phase) := MkBuilder
 
@@ -1269,7 +1269,7 @@ func TestDataKindsMismatch(t *testing.T) {
 	eng.Use(gicel.Prelude)
 	_, err := eng.NewRuntime(context.Background(), `
 import Prelude
-data Phase := Building | Running
+data Phase := { Building: Phase; Running: Phase; }
 data Builder (p: Phase) := MkBuilder
 start :: Builder True
 start := MkBuilder

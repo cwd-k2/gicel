@@ -584,7 +584,7 @@ func TestStressConcurrentSandbox(t *testing.T) {
 func TestStressCustomPrelude(t *testing.T) {
 	eng := gicel.NewEngine()
 	err := eng.RegisterModule("Prelude", `
-data MyBool := Yes | No
+data MyBool := { Yes: MyBool; No: MyBool; }
 myNot :: MyBool -> MyBool
 myNot := \b. case b { Yes => No; No => Yes }
 `)
