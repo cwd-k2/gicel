@@ -77,7 +77,7 @@ data Unit := { Unit: Unit; }
 type Id (a: Type) :: Type := {
   Id a =: a
 }
-f :: Id Unit => Unit
+f :: Id Unit -> Unit
 f := \x. x
 `
 	checkSource(t, source, nil)
@@ -224,7 +224,7 @@ func TestTypeAliasStillWorks(t *testing.T) {
 	source := `
 data Unit := { Unit: Unit; }
 type Id := \a. a
-f :: Id Unit => Unit
+f :: Id Unit -> Unit
 f := \x. x
 `
 	checkSource(t, source, nil)
@@ -316,7 +316,7 @@ data Unit := { Unit: Unit; }
 type Loop (a: Type) :: Type := {
   Loop a =: Loop a
 }
-f :: Loop Unit => Unit
+f :: Loop Unit -> Unit
 f := \x. x
 `
 	checkSourceExpectCode(t, source, nil, diagnostic.ErrTypeMismatch)

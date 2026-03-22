@@ -56,7 +56,7 @@ data Unit := { Unit: Unit; }
 type Loop (a: Type) :: Type := {
   Loop a =: Loop a
 }
-f :: Loop Unit => Unit
+f :: Loop Unit -> Unit
 f := \x. x
 `
 	// Must produce ErrTypeMismatch (stuck Loop Unit vs Unit), not hang.
@@ -83,7 +83,7 @@ data Unit := { Unit: Unit; }
 type F (a: Type) :: Type := {
   F Unit =: Unit
 }
-f :: F Unit => Unit
+f :: F Unit -> Unit
 f := \x. x
 `
 	checkSource(t, source, nil)
@@ -114,7 +114,7 @@ type F (a: Type) :: Type := {
   F a =: Bool;
   F Unit =: Int
 }
-f :: F Unit => Bool
+f :: F Unit -> Bool
 f := \x. x
 `
 	config := &CheckConfig{
@@ -135,7 +135,7 @@ type F (a: Type) :: Type := {
 }
 g :: F Bool -> Int
 g := \x. x
-h :: F Unit => Bool
+h :: F Unit -> Bool
 h := \x. x
 `
 	config := &CheckConfig{
@@ -173,7 +173,7 @@ type F (a: Type) (b: Type) :: Type := {
   F a a =: Unit;
   F a b =: Bool
 }
-g :: F Unit Unit => Unit
+g :: F Unit Unit -> Unit
 g := \x. x
 h :: F Unit Bool -> Bool
 h := \x. x
@@ -386,7 +386,7 @@ data Elem := \c e | c =: e. {
 impl Elem (List a) a := {
   extract := \xs. case xs { Cons x rest => x; Nil => extract Nil }
 }
-f :: List Unit => Unit
+f :: List Unit -> Unit
 f := \xs. extract xs
 `
 	checkSource(t, source, nil)
@@ -491,7 +491,7 @@ type F (a: Type) :: Type := {
   F Unit =: Bool;
   F Bool =: Unit
 }
-f :: F Unit => Bool
+f :: F Unit -> Bool
 f := \x. x
 g :: F Bool -> Unit
 g := \x. x
@@ -522,7 +522,7 @@ func TestReduceFamilyApps_NonFamilyHeadUntouched(t *testing.T) {
 	source := `
 data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
 data Unit := { Unit: Unit; }
-f :: List Unit => List Unit
+f :: List Unit -> List Unit
 f := \x. x
 `
 	checkSource(t, source, nil)
@@ -583,7 +583,7 @@ type Id (a: Type) :: Type := {
 }
 f :: Elem (List Unit) -> Unit
 f := \x. x
-g :: Id Unit => Unit
+g :: Id Unit -> Unit
 g := \x. x
 `
 	checkSource(t, source, nil)
@@ -726,7 +726,7 @@ data Unit := { Unit: Unit; }
 type F (a: Type) :: (r: Type) | r =: a := {
   F a =: a
 }
-f :: F Unit => Unit
+f :: F Unit -> Unit
 f := \x. x
 `
 	checkSource(t, source, nil)
@@ -1025,7 +1025,7 @@ impl Container Unit := {
   empty := Unit
 }
 
-f :: Entry Unit => Unit
+f :: Entry Unit -> Unit
 f := \e. case e {
   Singleton x => x
 }
@@ -1048,7 +1048,7 @@ impl Container Unit := {
   empty := Unit
 }
 
-f :: Entry Unit => Unit
+f :: Entry Unit -> Unit
 f := \e. case e {
   Singleton x => x;
   Empty => Unit
@@ -1185,7 +1185,7 @@ type Id := \a. a
 type Elem (c: Type) :: Type := {
   Elem (List a) =: a
 }
-f :: Id Unit => Elem (List Unit)
+f :: Id Unit -> Elem (List Unit)
 f := \x. x
 `
 	checkSource(t, source, nil)
@@ -1245,7 +1245,7 @@ data Unit := { Unit: Unit; }
 type Loop (a: Type) :: Type := {
   Loop a =: Loop a
 }
-f :: Loop Unit => Unit
+f :: Loop Unit -> Unit
 f := \x. x
 `
 	// Cycle detected via sentinel memoization; the family remains stuck,

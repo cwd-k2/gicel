@@ -53,7 +53,7 @@ type F (a: Type) :: Type := {
 type G (a: Type) :: Type := {
   G a =: F a
 }
-f :: F Unit => Unit
+f :: F Unit -> Unit
 f := \x. x
 `
 	checkSourceExpectCode(t, source, nil, diagnostic.ErrTypeMismatch)
@@ -72,7 +72,7 @@ type F (a: Type) :: Type := {
 f :: F (List (List Unit)) -> Unit
 f := \x. x
 `
-	// F (List (List Unit)) -> F (List Unit) -> F Unit => Unit
+	// F (List (List Unit)) -> F (List Unit) -> F Unit -> Unit
 	// Three reduction steps, well within the 100 fuel limit.
 	checkSource(t, source, nil)
 }
@@ -275,7 +275,7 @@ data Pair := \a b. { MkPair: a -> b -> Pair a b; }
 type Grow (a: Type) :: Type := {
   Grow a =: Grow (Pair a a)
 }
-f :: Grow Unit => Unit
+f :: Grow Unit -> Unit
 f := \x. x
 `
 	checkSourceExpectCode(t, source, nil, diagnostic.ErrTypeFamilyReduction)
@@ -324,7 +324,7 @@ type Id (a: Type) :: Type := {
 	}{
 		{"Elem_List", "f :: Elem (List Unit) -> Unit\nf := \\x. x"},
 		{"Elem_Maybe", "g :: Elem (Maybe Unit) -> Unit\ng := \\x. x"},
-		{"Id_Unit", "h :: Id Unit => Unit\nh := \\x. x"},
+		{"Id_Unit", "h :: Id Unit -> Unit\nh := \\x. x"},
 		{"Id_List", "i :: Id (List Unit) -> List Unit\ni := \\x. x"},
 	}
 	for _, tc := range testCases {
@@ -619,7 +619,7 @@ data Pair := \a b. { MkPair: a -> b -> Pair a b; }
 type Same (a: Type) (b: Type) :: Type := {
   Same a a =: Unit
 }
-f :: Same Unit Unit => Unit
+f :: Same Unit Unit -> Unit
 f := \x. x
 `
 	// Same Unit Unit: pattern a matches Unit (first param), then a must also

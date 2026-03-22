@@ -196,7 +196,7 @@ impl Container Unit := {
   empty := Unit
 }
 
-f :: Entry Unit => Unit
+f :: Entry Unit -> Unit
 f := \e. case e {
   Singleton x => x;
   Empty => Unit
@@ -221,7 +221,7 @@ impl Container Unit := {
   empty := Unit
 }
 
-f :: Entry Unit => Unit
+f :: Entry Unit -> Unit
 f := \e. case e {
   Singleton x => x
 }

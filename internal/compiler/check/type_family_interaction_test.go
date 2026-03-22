@@ -66,7 +66,7 @@ type Elem (c: Type) :: Type := {
   Elem (List a) =: a
 }
 
-first :: List Unit => Elem (List Unit)
+first :: List Unit -> Elem (List Unit)
 first := \xs. case xs { Cons x rest => x; Nil => Unit }
 `
 	checkSource(t, source, nil)
@@ -190,7 +190,7 @@ map := assumption
 toUnit :: Unit => Bool
 toUnit := \x. True
 
-test :: List Unit => List Bool
+test :: List Unit -> List Bool
 test := \xs. map toUnit xs
 `
 	checkSource(t, source, nil)
@@ -648,7 +648,7 @@ data Unit := { Unit: Unit; }
 type Id (a: Type) :: Type := {
   Id a =: a
 }
-f :: Id Unit Unit => Unit
+f :: Id Unit Unit -> Unit
 f := \x. x
 `
 	// Id takes 1 arg, but is applied to 2. This should produce an error.
@@ -726,7 +726,7 @@ data Unit := { Unit: Unit; }
 type Loop (a: Type) :: Type := {
   Loop a =: Loop a
 }
-f :: Loop Unit => Unit
+f :: Loop Unit -> Unit
 f := \x. x
 `
 	// Cycle is detected via sentinel memoization; the family remains stuck (unreduced),
@@ -1322,7 +1322,7 @@ impl Elem (List a) a := {
   extract := \xs. case xs { Cons x rest => x; Nil => extract Nil }
 }
 
-test :: List Unit => Id Unit
+test :: List Unit -> Id Unit
 test := \xs. extract xs
 `
 	checkSource(t, source, nil)

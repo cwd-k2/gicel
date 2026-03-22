@@ -117,7 +117,7 @@ type Grow (a: Type) :: Type := {
   Grow a =: Grow (Pair a a)
 }
 
-f :: Grow Unit => Unit
+f :: Grow Unit -> Unit
 f := \x. x
 `
 	checkSourceExpectError(t, source, nil)
@@ -149,7 +149,7 @@ impl Container Unit := {
 testList :: Elem (List Bool) -> Bool
 testList := \x. x
 
-testUnit :: Elem Unit => Unit
+testUnit :: Elem Unit -> Unit
 testUnit := \x. x
 `
 	checkSource(t, source, nil)
@@ -281,7 +281,7 @@ type Fst (a: Type) (b: Type) :: Type := {
   Fst a b =: a
 }
 
-f :: Fst Bool Unit => Bool
+f :: Fst Bool Unit -> Bool
 f := \x. x
 
 main := f True
@@ -349,7 +349,7 @@ type Grow (a: Type) :: Type := {
   Grow a =: Pair (Grow a) (Grow a)
 }
 
-f :: Grow Unit => Unit
+f :: Grow Unit -> Unit
 f := \x. x
 `
 	errMsg := checkSourceExpectError(t, source, nil)

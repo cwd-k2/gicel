@@ -66,7 +66,7 @@ type Bounce (a: Type) :: Type := {
 type Trampoline (a: Type) :: Type := {
   Trampoline a =: Bounce a
 }
-f :: Bounce Unit => Unit
+f :: Bounce Unit -> Unit
 f := \x. x
 `
 	checkSourceExpectCode(t, source, nil, diagnostic.ErrTypeMismatch)
@@ -190,7 +190,7 @@ impl Container (List a) := {
   }
 }
 
-f :: List Unit => Elem (List Unit)
+f :: List Unit -> Elem (List Unit)
 f := chead
 `
 	checkSource(t, source, nil)
@@ -553,7 +553,7 @@ impl HasTag Unit := {
 }
 
 -- Must match all three constructors.
-f :: Tag Unit => Unit
+f :: Tag Unit -> Unit
 f := \t. case t {
   TagA => Unit;
   TagB => Unit;
@@ -578,7 +578,7 @@ impl HasTag Unit := {
 }
 
 -- Missing TagC → non-exhaustive.
-f :: Tag Unit => Unit
+f :: Tag Unit -> Unit
 f := \t. case t {
   TagA => Unit;
   TagB => Unit

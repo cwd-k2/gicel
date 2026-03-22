@@ -67,7 +67,7 @@ func TestPromotedInTypeSignature(t *testing.T) {
 	// DB Opened => DB Closed should kind-check
 	source := `data DBState := { Opened: (); Closed: (); }
 data DB := \s. { MkDB: (); }
-close :: DB Opened => DB Closed
+close :: DB Opened -> DB Closed
 close := \_. MkDB
 main := close MkDB`
 	checkSource(t, source, nil)

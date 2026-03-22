@@ -32,7 +32,7 @@ data Unit := { Unit: Unit; }
 type Grow (a: Type) :: Type := {
   Grow a =: Grow (Pair a a)
 }
-f :: Grow Unit => Unit
+f :: Grow Unit -> Unit
 f := \x. x
 `
 	start := time.Now()
@@ -55,7 +55,7 @@ data Unit := { Unit: Unit; }
 type GrowList (a: Type) :: Type := {
   GrowList a =: Cons Unit (GrowList a)
 }
-f :: GrowList Unit => Unit
+f :: GrowList Unit -> Unit
 f := \x. x
 `
 	start := time.Now()
@@ -77,7 +77,7 @@ data Wrapper := \a. { Wrap: a -> Wrapper a; }
 type Ping (a: Type) :: Type := {
   Ping a =: Ping (Wrapper a)
 }
-f :: Ping Unit => Unit
+f :: Ping Unit -> Unit
 f := \x. x
 `
 	start := time.Now()
@@ -352,7 +352,7 @@ data Unit := { Unit: Unit; }
 type Loop (a: Type) :: Type := {
   Loop a =: Loop a
 }
-f :: Loop Unit => Unit
+f :: Loop Unit -> Unit
 f := \x. x
 `
 	start := time.Now()
@@ -448,7 +448,7 @@ data Unit := { Unit: Unit; }
 type Explode (a: Type) :: Type := {
   Explode a =: Explode (Pair a a)
 }
-f :: Explode Unit => Unit
+f :: Explode Unit -> Unit
 f := \x. x
 `
 	start := time.Now()

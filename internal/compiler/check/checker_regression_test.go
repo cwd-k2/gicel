@@ -215,7 +215,7 @@ data Unit := { Unit: Unit; }
 type Grow (a: Type) :: Type := {
   Grow a =: Grow (Pair a a)
 }
-f :: Grow Unit => Unit
+f :: Grow Unit -> Unit
 f := \x. x
 `
 	checkSourceExpectCode(t, source, nil, diagnostic.ErrTypeFamilyReduction)
@@ -241,7 +241,7 @@ data Elem := \c e. {
 impl Elem (List a) a := {
   extract := \xs. case xs { Cons x rest => x; Nil => extract Nil }
 }
-f :: List Unit => Unit
+f :: List Unit -> Unit
 f := \xs. extract xs
 `
 	checkSource(t, source, nil)
