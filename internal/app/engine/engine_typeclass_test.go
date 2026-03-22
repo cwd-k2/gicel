@@ -99,7 +99,7 @@ func TestTypeClassFunctor(t *testing.T) {
 	eng := NewEngine()
 	rt, err := eng.NewRuntime(context.Background(), `
 data Bool := { True: Bool; False: Bool; }
-data Maybe a := Just a | Nothing
+data Maybe := \a. { Just: a -> Maybe a; Nothing: Maybe a; }
 data Functor := \f. { fmap: \a b. (a -> b) -> f a -> f b }
 impl Functor Maybe := {
   fmap := \g mx. case mx {

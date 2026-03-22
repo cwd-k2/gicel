@@ -474,12 +474,12 @@ main := eq (Just (Just True)) (Just Nothing)
 // ---------------------------------------------------------------------------
 
 func TestKindInferenceSimple(t *testing.T) {
-	// data Maybe a := Just a | Nothing  -- 'a' should get kind Type.
+	// data Maybe := \a. { Just: a -> Maybe a; Nothing: Maybe a; }  -- 'a' should get kind Type.
 	eng := gicel.NewEngine()
 	eng.Use(gicel.Prelude)
 	_, err := eng.Compile(context.Background(), `
 import Prelude
-data MyMaybe a := MyJust a | MyNothing
+data MyMaybe := \a. { MyJust: a -> MyMaybe a; MyNothing: MyMaybe a; }
 main := MyJust True
 `)
 	if err != nil {

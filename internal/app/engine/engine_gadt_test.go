@@ -16,7 +16,7 @@ func TestDataKindsDBState(t *testing.T) {
 	eng := NewEngine()
 	rt, err := eng.NewRuntime(context.Background(), `
 data DBState := { Opened: DBState; Closed: DBState; }
-data DB s := MkDB
+data DB := \s. { MkDB: DB s; }
 
 open: DB Closed => DB Opened
 open := \_. MkDB
@@ -74,7 +74,7 @@ func TestDataKindsBoolPromotion(t *testing.T) {
 	eng.Use(stdlib.Prelude)
 	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
-data Proxy s := MkProxy
+data Proxy := \s. { MkProxy: Proxy s; }
 main := (MkProxy :: Proxy True)
 `)
 	if err != nil {
@@ -125,7 +125,7 @@ func TestGADTWithDataKinds(t *testing.T) {
 	eng := NewEngine()
 	rt, err := eng.NewRuntime(context.Background(), `
 data DBState := { Opened: DBState; Closed: DBState; }
-data DB s := MkDB
+data DB := \s. { MkDB: DB s; }
 
 data Action s := { Open: Action Opened; Close: Action Closed }
 

@@ -634,9 +634,9 @@ func TestAdversarial_ManyTypeErrors(t *testing.T) {
 func TestV8_MonadDoNotation(t *testing.T) {
 	src := `
 import Prelude
-data Reader e a := MkReader (e -> a)
+data Reader := \e a. { MkReader: (e -> a) -> Reader e a; }
 runReader :: \e a. Reader e a -> e -> a
-runReader := \r env. case r { MkReader f -> f env }
+runReader := \r env. case r { MkReader f => f env }
 ask :: \e. Reader e e
 ask := MkReader (\e. e)
 impl Monad (Reader e) := {
