@@ -121,9 +121,25 @@ func (p *Parser) parseBlock() syn.Expr {
 	}
 
 	// Block expression with bindings.
+	// Handles: name := expr; (value binding)
+	//          type Name Pats =: RHS; (associated type definition, inside impl body)
+	//          data Name Pats =: Cons; (associated data definition, inside impl body)
 	var binds []syn.AstBind
-	for p.peek().Kind == syn.TokLower {
+	for p.peek().Kind == syn.TokLower || p.peek().Kind == syn.TokType || p.peek().Kind == syn.TokData {
 		saved := p.pos
+
+		// Skip type/data keywords for associated definitions (consume as block items).
+		if p.peek().Kind == syn.TokType || p.peek().Kind == syn.TokData {
+			p.advance()                                                                    // consume type/data
+			for p.peek().Kind != syn.TokSemicolon && p.peek().Kind != syn.TokRBrace && p.peek().Kind != syn.TokEOF {
+				p.advance() // skip associated definition body
+			}
+			if p.peek().Kind == syn.TokSemicolon {
+				p.advance()
+			}
+			continue
+		}
+
 		name := p.peek().Text
 		p.advance()
 		if p.peek().Kind == syn.TokColonEq {
