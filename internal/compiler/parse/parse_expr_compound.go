@@ -143,6 +143,14 @@ func (p *Parser) parseBlock() syn.Expr {
 		}
 	}
 
+	// If we have bindings and the next token is }, treat as binding-only block (impl body).
+	if len(binds) > 0 && p.peek().Kind == syn.TokRBrace {
+		p.advance() // consume }
+		return &syn.ExprBlock{
+			Binds: binds,
+			S:     span.Span{Start: start, End: p.prevEnd()},
+		}
+	}
 	body := p.parseExpr()
 	p.expectClosing(syn.TokRBrace, openTok.S)
 	return &syn.ExprBlock{

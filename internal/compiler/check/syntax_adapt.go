@@ -354,19 +354,29 @@ func unwindTypeApp(t syntax.TypeExpr) (string, []syntax.TypeExpr) {
 }
 
 // extractImplMethods extracts method definitions from an impl body expression.
-// The body is expected to be a record expression: { m1 := e1; m2 := e2; ... }
+// Supports both ExprRecord ({ label: value; ... }) and ExprBlock ({ name := expr; ... }).
 func extractImplMethods(body syntax.Expr) []legacyInstMethod {
-	rec, ok := body.(*syntax.ExprRecord)
-	if !ok {
-		return nil
+	switch b := body.(type) {
+	case *syntax.ExprRecord:
+		var methods []legacyInstMethod
+		for _, f := range b.Fields {
+			methods = append(methods, legacyInstMethod{
+				Name: f.Label,
+				Expr: f.Value,
+				S:    f.S,
+			})
+		}
+		return methods
+	case *syntax.ExprBlock:
+		var methods []legacyInstMethod
+		for _, bind := range b.Binds {
+			methods = append(methods, legacyInstMethod{
+				Name: bind.Var,
+				Expr: bind.Expr,
+				S:    bind.S,
+			})
+		}
+		return methods
 	}
-	var methods []legacyInstMethod
-	for _, f := range rec.Fields {
-		methods = append(methods, legacyInstMethod{
-			Name: f.Label,
-			Expr: f.Value,
-			S:    f.S,
-		})
-	}
-	return methods
+	return nil
 }
