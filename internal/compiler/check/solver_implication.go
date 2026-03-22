@@ -54,18 +54,7 @@ func (ch *Checker) processCtImplication(ct *CtImplication, outerResolutions map[
 		outerResolutions[k] = v
 	}
 
-	// Partition residuals: constraints mentioning local skolems or
-	// inner-level metas are stuck (error); others float to outer scope.
-	var floatable []Ct
-	for _, r := range innerResiduals {
-		if constraintMentionsLocal(ch, r, localSkolems, ch.solver.level) {
-			ch.addCodedError(diagnostic.ErrNoInstance, r.S,
-				fmt.Sprintf("cannot resolve %s (mentions GADT-local type variables)",
-					constraintKey(r.ClassName, ch.zonkAll(r.Args))))
-		} else {
-			floatable = append(floatable, r)
-		}
-	}
+	floatable := ch.partitionResiduals(innerResiduals, localSkolems, ch.solver.level)
 
 	for skolemID := range ct.GivenEqs {
 		ch.unifier.RemoveGivenEq(skolemID)
@@ -73,6 +62,23 @@ func (ch *Checker) processCtImplication(ct *CtImplication, outerResolutions map[
 	ch.solver.level--
 	ch.unifier.SolverLevel = savedSolverLevel
 	ch.solver.worklist.Load(append(savedWorklist, floatable...))
+}
+
+// partitionResiduals splits residual constraints into floatable (promoted
+// to the outer scope) and stuck (mentions local skolems or inner-level
+// metas → error). Stuck constraints are reported as ErrNoInstance.
+func (ch *Checker) partitionResiduals(residuals []*CtClass, localSkolems map[int]bool, level int) []Ct {
+	var floatable []Ct
+	for _, r := range residuals {
+		if constraintMentionsLocal(ch, r, localSkolems, level) {
+			ch.addCodedError(diagnostic.ErrNoInstance, r.S,
+				fmt.Sprintf("cannot resolve %s (mentions GADT-local type variables)",
+					constraintKey(r.ClassName, ch.zonkAll(r.Args))))
+		} else {
+			floatable = append(floatable, r)
+		}
+	}
+	return floatable
 }
 
 // constraintMentionsLocal returns true if the constraint's type arguments
