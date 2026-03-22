@@ -123,7 +123,7 @@ data Eq := \a. { eq: a -> a -> Bool }
 impl Eq Bool := { eq := \x y. True }
 data Evidence (c: Constraint) a := MkEvidence c a
 useEvidence :: Evidence (Eq Bool) Bool -> Bool
-useEvidence := \e. case e { MkEvidence x -> eq x True }`
+useEvidence := \e. case e { MkEvidence x => eq x True }`
 	checkSource(t, source, nil)
 }
 

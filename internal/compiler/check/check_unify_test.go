@@ -285,7 +285,7 @@ func TestPatternConArityTooMany(t *testing.T) {
 	// Just takes one arg, pattern supplies two → should error.
 	source := `data Maybe := \a. { Nothing: (); Just: a; }
 f :: Maybe Int -> Int
-f := \x. case x { Nothing => 0; Just a b -> a }
+f := \x. case x { Nothing => 0; Just a b => a }
 main := f (Just 42)`
 	checkSourceExpectError(t, source, nil)
 }
