@@ -134,7 +134,7 @@ data Unit := { Unit: Unit; }
 data Convert := \a b | a =: b. {
   convert: a -> b
 }
-f :: Unit => Unit
+f :: Unit -> Unit
 f := convert
 `
 	// Using `convert` without an instance should produce a resolution error,
@@ -376,7 +376,7 @@ data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
 type Elem (c: Type) :: Type := {
   Elem (List a) =: a
 }
-f :: Unit => Elem (List Unit)
+f :: Unit -> Elem (List Unit)
 f := \x. x
 `
 	// Both should succeed: Elem (List Unit) = Unit in either direction.

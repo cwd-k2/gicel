@@ -164,7 +164,7 @@ func TestEdgeEmptyParensNotTuple(t *testing.T) {
 	// () => Bool -> Bool parses but should fail at check time
 	// because Record {} is not a constraint.
 	source := `data Bool := { True: Bool; False: Bool; }
-f :: () => Bool -> Bool
+f :: () -> Bool -> Bool
 f := \x. x
 main := f True`
 	src := span.NewSource("test", source)

@@ -374,7 +374,7 @@ impl Iso Unit Unit := {
   from := \x. x
 }
 
-f :: Unit => Unit
+f :: Unit -> Unit
 f := to
 `
 	checkSource(t, source, nil)

@@ -18,10 +18,10 @@ func TestDataKindsDBState(t *testing.T) {
 data DBState := { Opened: DBState; Closed: DBState; }
 data DB := \s. { MkDB: DB s; }
 
-open :: DB Closed => DB Opened
+open :: DB Closed -> DB Opened
 open := \_. MkDB
 
-close :: DB Opened => DB Closed
+close :: DB Opened -> DB Closed
 close := \_. MkDB
 
 main := close (open (MkDB :: DB Closed))
@@ -129,7 +129,7 @@ data DB := \s. { MkDB: DB s; }
 
 data Action s := { Open: Action Opened; Close: Action Closed }
 
-describe :: Action Opened => DB Opened
+describe :: Action Opened -> DB Opened
 describe := \a. case a { Open -> MkDB }
 
 main := describe Open

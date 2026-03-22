@@ -187,7 +187,7 @@ type Elem (c: Type) :: Type := {
 map :: \ a b. (a -> b) -> List a -> List b
 map := assumption
 
-toUnit :: Unit => Bool
+toUnit :: Unit -> Bool
 toUnit := \x. True
 
 test :: List Unit -> List Bool
@@ -534,7 +534,7 @@ type Elem (c: Type) :: Type := {
   Elem (List a) =: a
 }
 
-applyToUnit :: (Unit => Unit) -> Unit
+applyToUnit :: (Unit -> Unit) -> Unit
 applyToUnit := \f. f Unit
 
 test :: Unit
@@ -1377,7 +1377,7 @@ type Elem (c: Type) :: Type := {
 apply :: \ a b. (a -> b) -> a -> b
 apply := \f x. f x
 
-test :: Unit => Unit
+test :: Unit -> Unit
 test := \x. apply (\y. y) x
 `
 	checkSource(t, source, nil)

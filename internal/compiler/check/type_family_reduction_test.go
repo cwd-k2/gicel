@@ -597,7 +597,7 @@ data Unit := { Unit: Unit; }
 type Elem (c: Type) :: Type := {
   Elem (List a) =: a
 }
-f :: Unit => Elem (List Unit)
+f :: Unit -> Elem (List Unit)
 f := \x. x
 `
 	checkSource(t, source, nil)
@@ -924,7 +924,7 @@ data Unit := { Unit: Unit; }
 type Elem (c: Type) :: Type := {
   Elem (List a) =: a
 }
-unwrap :: Unit => Elem (List Unit)
+unwrap :: Unit -> Elem (List Unit)
 unwrap := \x. x
 `
 	checkSource(t, source, nil)
