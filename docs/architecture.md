@@ -83,50 +83,50 @@ infra/span   ──→ (isolated)
 
 ### infra — shared infrastructure
 
-| Package | Responsibility |
-| --- | --- |
-| `infra/span` | Source positions and spans |
-| `infra/diagnostic` | Structured compiler diagnostics |
-| `infra/budget` | Step, depth, and allocation limits |
+| Package            | Responsibility                     |
+| ------------------ | ---------------------------------- |
+| `infra/span`       | Source positions and spans         |
+| `infra/diagnostic` | Structured compiler diagnostics    |
+| `infra/budget`     | Step, depth, and allocation limits |
 
 ### lang — language definition
 
-| Package | Responsibility |
-| --- | --- |
+| Package       | Responsibility                                          |
+| ------------- | ------------------------------------------------------- |
 | `lang/syntax` | AST node types, token definitions, source-level helpers |
-| `lang/types` | Type, Kind, row types, evidence representation |
-| `lang/ir` | Core IR (17 formers), program structure, walkers |
+| `lang/types`  | Type, Kind, row types, evidence representation          |
+| `lang/ir`     | Core IR (17 formers), program structure, walkers        |
 
 ### compiler — source to Core IR
 
-| Package | Responsibility |
-| --- | --- |
-| `compiler/parse` | Pratt-parser from source to AST |
-| `compiler/check` | Bidirectional type checking, OutsideIn(X) constraint solving, elaboration to Core IR |
-| `compiler/check/unify` | Type unification, meta-variable solving |
-| `compiler/check/family` | Type family reduction |
-| `compiler/check/exhaust` | Pattern exhaustiveness checking (Maranget) |
-| `compiler/check/env` | Module export types: aliases, classes, instances, type families |
-| `compiler/check/modscope` | Module import resolution, qualified name scoping |
-| `compiler/optimize` | Core IR simplification and fusion |
+| Package                   | Responsibility                                                                       |
+| ------------------------- | ------------------------------------------------------------------------------------ |
+| `compiler/parse`          | Pratt-parser from source to AST                                                      |
+| `compiler/check`          | Bidirectional type checking, OutsideIn(X) constraint solving, elaboration to Core IR |
+| `compiler/check/unify`    | Type unification, meta-variable solving                                              |
+| `compiler/check/family`   | Type family reduction                                                                |
+| `compiler/check/exhaust`  | Pattern exhaustiveness checking (Maranget)                                           |
+| `compiler/check/env`      | Module export types: aliases, classes, instances, type families                      |
+| `compiler/check/modscope` | Module import resolution, qualified name scoping                                     |
+| `compiler/optimize`       | Core IR simplification and fusion                                                    |
 
 ### runtime — Core IR execution
 
-| Package | Responsibility |
-| --- | --- |
+| Package        | Responsibility                           |
+| -------------- | ---------------------------------------- |
 | `runtime/eval` | Trampoline-based call-by-value evaluator |
 
 ### host — Go integration
 
-| Package | Responsibility |
-| --- | --- |
-| `host/registry` | Registration interface (`Registrar`, `Pack`) |
-| `host/stdlib` | Standard library packs (Prelude, Effects, Collections) |
+| Package         | Responsibility                                         |
+| --------------- | ------------------------------------------------------ |
+| `host/registry` | Registration interface (`Registrar`, `Pack`)           |
+| `host/stdlib`   | Standard library packs (Prelude, Effects, Collections) |
 
 ### app — orchestration
 
-| Package | Responsibility |
-| --- | --- |
+| Package      | Responsibility                                  |
+| ------------ | ----------------------------------------------- |
 | `app/engine` | Compilation pipeline, runtime assembly, sandbox |
 
 ## Invariants

@@ -550,4 +550,3 @@ The next quality win is not primarily more features. It is reducing the
 structural blast radius of the two highest-risk subsystems: `check` and
 `parser`, so that correctness is easier to preserve and severe regressions are
 harder to reintroduce.
-
