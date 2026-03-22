@@ -177,6 +177,10 @@ func (l *Lexer) scanToken() syn.Token {
 			l.advance()
 			return l.tok(syn.TokPipe, start)
 		}
+		if ch == '~' && !isOperatorChar(l.peekAt(1)) {
+			l.advance()
+			return l.tok(syn.TokTilde, start)
+		}
 		if ch == '_' && !isIdentCont(l.peekAt(1)) {
 			l.advance()
 			return l.tok(syn.TokUnderscore, start)
@@ -512,16 +516,15 @@ func (l *Lexer) scanRune(start int) syn.Token {
 }
 
 var keywords = map[string]syn.TokenKind{
-	"case":     syn.TokCase,
-	"do":       syn.TokDo,
-	"data":     syn.TokData,
-	"type":     syn.TokType,
-	"infixl":   syn.TokInfixl,
-	"infixr":   syn.TokInfixr,
-	"infixn":   syn.TokInfixn,
-	"class":    syn.TokClass,
-	"instance": syn.TokInstance,
-	"import":   syn.TokImport,
+	"case":   syn.TokCase,
+	"do":     syn.TokDo,
+	"data":   syn.TokData,
+	"type":   syn.TokType,
+	"infixl": syn.TokInfixl,
+	"infixr": syn.TokInfixr,
+	"infixn": syn.TokInfixn,
+	"impl":   syn.TokImpl,
+	"import": syn.TokImport,
 }
 
 func isLowerStart(r rune) bool {

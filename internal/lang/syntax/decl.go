@@ -8,50 +8,74 @@ type Decl interface {
 	Span() span.Span
 }
 
-// DeclTypeAnn is a type annotation (f :: T).
+// DeclTypeAnn is a type annotation (name :: Type).
 type DeclTypeAnn struct {
 	Name string
 	Type TypeExpr
 	S    span.Span
 }
 
-// DeclValueDef is a value definition (f := e).
+// DeclValueDef is a value definition (name := expr).
 type DeclValueDef struct {
 	Name string
 	Expr Expr
 	S    span.Span
 }
 
-// DeclData is a data type declaration (data T a b := C1 ... | C2 ...).
-// If GADTCons is non-empty, this is a GADT declaration (data T a := { C :: Type }).
+// DeclData is a nominal type declaration.
+//
+// Unified syntax: data Name [:: Kind] := Body;
+// Body is a type expression: \params. [constraints =>] { fields/constructors }.
+// The checker decomposes Body into parameters, constraints, and fields.
+//
+// Examples:
+//
+//	data Maybe := \a. { Nothing: (); Just: a; };
+//	data Eq := \a. { eq: a -> a -> Bool; neq: a -> a -> Bool := \x y. not (eq x y); };
+//	data Ord := \a. Eq a => { compare: a -> a -> Ordering; };
+//	data Collection := \(c: Type). { type Elem :: Type; empty: c; insert: Elem c -> c -> c; };
 type DeclData struct {
-	Name     string
-	Params   []TyBinder
-	Cons     []DeclCon     // ADT constructors
-	GADTCons []GADTConDecl // GADT constructors (mutually exclusive with Cons)
-	S        span.Span
+	Name    string
+	KindAnn KindExpr // optional :: Kind annotation (nil if omitted)
+	Body    TypeExpr // \params. [constraints =>] { fields }
+	S       span.Span
 }
 
-// GADTConDecl is a GADT constructor with a full type signature.
-type GADTConDecl struct {
-	Name string
-	Type TypeExpr // full type: arg1 -> arg2 -> ... -> T args
-	S    span.Span
-}
-
-// DeclCon is a single data constructor.
-type DeclCon struct {
-	Name   string
-	Fields []TypeExpr
-	S      span.Span
-}
-
-// DeclTypeAlias is a type alias (type F a := T).
+// DeclTypeAlias is a structural type declaration.
+//
+// Unified syntax: type Name [:: Kind] := Body;
+// Body is a type expression: \params. type-expr.
+// For closed type families, the body contains a case expression.
+//
+// Examples:
+//
+//	type Pair := \a b. { fst: a; snd: b; };
+//	type Dual :: Type -> Type := \s. case s { Send s => Recv (Dual s); ... };
 type DeclTypeAlias struct {
-	Name   string
-	Params []TyBinder
-	Body   TypeExpr
-	S      span.Span
+	Name    string
+	KindAnn KindExpr // optional :: Kind annotation (nil if omitted)
+	Body    TypeExpr // \params. type-expr (or case for type families)
+	S       span.Span
+}
+
+// DeclImpl is an axiom registration (evidence for a data type).
+//
+// Unified syntax:
+//
+//	impl name :: Type := expr;    -- named (exported, solver-visible)
+//	impl Type := expr;            -- unnamed (exported, solver-visible)
+//	impl _name :: Type := expr;   -- private (solver-invisible)
+//
+// Examples:
+//
+//	impl eqBool :: Eq Bool := { eq := \x y. True; };
+//	impl Monad Maybe := { pure := \x. Just x; bind := ...; };
+//	impl Collection (List a) := { type Elem := a; empty := Nil; insert := Cons; };
+type DeclImpl struct {
+	Name string   // "" for unnamed impl, "_"-prefix for private
+	Ann  TypeExpr // type being implemented (e.g., Eq Bool, \a. Equal a a)
+	Body Expr     // implementation expression
+	S    span.Span
 }
 
 // DeclFixity is a fixity declaration (infixl N op).
@@ -70,43 +94,6 @@ const (
 	AssocRight
 	AssocNone
 )
-
-// DeclClass is a type class declaration (class Super => ClassName params | deps { methods }).
-type DeclClass struct {
-	Supers         []TypeExpr // superclass constraints
-	Name           string
-	TyParams       []TyBinder
-	FunDeps        []FunDep // functional dependencies: | a =: b
-	Methods        []ClassMethod
-	AssocTypes     []AssocTypeDecl // associated type declarations
-	AssocDataDecls []AssocDataDecl // associated data family declarations
-	S              span.Span
-}
-
-// ClassMethod is a method signature in a class declaration.
-type ClassMethod struct {
-	Name string
-	Type TypeExpr
-	S    span.Span
-}
-
-// DeclInstance is a type class instance (instance Context => ClassName types { methods }).
-type DeclInstance struct {
-	Context       []TypeExpr // instance constraints
-	ClassName     string
-	TypeArgs      []TypeExpr
-	Methods       []InstMethod
-	AssocTypeDefs []AssocTypeDef // associated type definitions
-	AssocDataDefs []AssocDataDef // associated data family definitions
-	S             span.Span
-}
-
-// InstMethod is a method definition in an instance declaration.
-type InstMethod struct {
-	Name string
-	Expr Expr
-	S    span.Span
-}
 
 // ImportName identifies a single name in a selective import list.
 type ImportName struct {
@@ -138,16 +125,14 @@ func (*DeclTypeAnn) declNode()   {}
 func (*DeclValueDef) declNode()  {}
 func (*DeclData) declNode()      {}
 func (*DeclTypeAlias) declNode() {}
+func (*DeclImpl) declNode()      {}
 func (*DeclFixity) declNode()    {}
-func (*DeclClass) declNode()     {}
-func (*DeclInstance) declNode()  {}
 func (*DeclImport) declNode()    {}
 
 func (d *DeclTypeAnn) Span() span.Span   { return d.S }
 func (d *DeclValueDef) Span() span.Span  { return d.S }
 func (d *DeclData) Span() span.Span      { return d.S }
 func (d *DeclTypeAlias) Span() span.Span { return d.S }
+func (d *DeclImpl) Span() span.Span      { return d.S }
 func (d *DeclFixity) Span() span.Span    { return d.S }
-func (d *DeclClass) Span() span.Span     { return d.S }
-func (d *DeclInstance) Span() span.Span  { return d.S }
 func (d *DeclImport) Span() span.Span    { return d.S }

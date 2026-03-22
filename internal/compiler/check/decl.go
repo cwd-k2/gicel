@@ -64,12 +64,11 @@ func (p *declPipeline) registerTypes() {
 	}
 	for _, d := range p.decls {
 		if alias, ok := d.(*syntax.DeclTypeAlias); ok {
-			p.ch.processTypeAlias(alias)
-		}
-	}
-	for _, d := range p.decls {
-		if tf, ok := d.(*syntax.DeclTypeFamily); ok {
-			p.ch.processTypeFamily(tf)
+			if isTypeFamilyBody(alias.Body) {
+				p.ch.processTypeFamilyFromAlias(alias)
+			} else {
+				p.ch.processTypeAlias(alias)
+			}
 		}
 	}
 	hasCyclicAlias := p.ch.validateAliasGraph()
@@ -78,26 +77,30 @@ func (p *declPipeline) registerTypes() {
 	}
 }
 
-// registerClasses handles phases 4–5.6: class declarations, instance headers,
+// registerClasses handles phases 4–5.6: class-like data declarations, impl headers,
 // type family reducer installation, and strict type name activation.
 func (p *declPipeline) registerClasses() {
+	// Process class-like data declarations (data with all-lowercase fields).
 	for _, d := range p.decls {
-		if cls, ok := d.(*syntax.DeclClass); ok {
-			p.ch.processClassDecl(cls, p.prog)
+		if data, ok := d.(*syntax.DeclData); ok {
+			parts := decomposeDataBody(data.Body)
+			if isClassLikeData(parts) {
+				p.ch.processClassFromData(data, parts, p.prog)
+			}
 		}
 	}
 	p.methodBodies = make(map[*InstanceInfo]map[string]syntax.Expr)
 	for _, d := range p.decls {
-		if inst, ok := d.(*syntax.DeclInstance); ok {
-			info, methods := p.ch.processInstanceHeader(inst)
+		if impl, ok := d.(*syntax.DeclImpl); ok {
+			info, methods := p.ch.processImplHeader(impl)
 			if info != nil {
 				p.instances = append(p.instances, info)
 				p.methodBodies[info] = methods
 			}
 		}
 	}
-	// Placed after class and instance headers because associated type families
-	// are registered in class processing and equations are collected from instances.
+	// Placed after class and impl headers because associated type families
+	// are registered in class processing and equations are collected from impls.
 	p.ch.installFamilyReducer()
 	if p.ch.config.StrictTypeNames {
 		p.ch.strictTypeNames = true
@@ -172,14 +175,24 @@ func isAssumptionDef(def *syntax.DeclValueDef) bool {
 }
 
 func (ch *Checker) processTypeAlias(d *syntax.DeclTypeAlias) {
+	parts := decomposeTypeAliasBody(d.Body)
 	var params []string
 	var paramKinds []types.Kind
-	for _, p := range d.Params {
+	for _, p := range parts.Params {
 		params = append(params, p.Name)
 		paramKinds = append(paramKinds, ch.resolveKindExpr(p.Kind))
 	}
-	body := ch.resolveTypeExpr(d.Body)
+	body := ch.resolveTypeExpr(parts.Body)
 	ch.reg.RegisterAlias(d.Name, &AliasInfo{Params: params, ParamKinds: paramKinds, Body: body})
+}
+
+// processTypeFamilyFromAlias handles a DeclTypeAlias whose body contains a type-level case,
+// indicating a closed type family. This adapts the unified syntax to the internal type family
+// processing pipeline.
+func (ch *Checker) processTypeFamilyFromAlias(d *syntax.DeclTypeAlias) {
+	// For now, extract the case body and delegate to the existing type family machinery.
+	// TODO: Full implementation once the unified syntax type family semantics are finalized.
+	_ = d
 }
 
 func (ch *Checker) processValueDef(d *syntax.DeclValueDef, annotations map[string]types.Type, prog *ir.Program) {

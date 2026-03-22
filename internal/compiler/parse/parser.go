@@ -348,7 +348,7 @@ func (p *Parser) atDeclBoundary() bool {
 		return false
 	}
 	switch tok.Kind {
-	case syn.TokLower, syn.TokUpper, syn.TokData, syn.TokType, syn.TokInfixl, syn.TokInfixr, syn.TokInfixn, syn.TokClass, syn.TokInstance, syn.TokImport:
+	case syn.TokLower, syn.TokUpper, syn.TokData, syn.TokType, syn.TokInfixl, syn.TokInfixr, syn.TokInfixn, syn.TokImpl, syn.TokImport:
 		return true
 	case syn.TokLParen:
 		// (op) declaration pattern
@@ -466,7 +466,7 @@ func (p *Parser) syncToNextDecl() {
 			switch tok.Kind {
 			case syn.TokLower, syn.TokUpper, syn.TokData, syn.TokType,
 				syn.TokInfixl, syn.TokInfixr, syn.TokInfixn,
-				syn.TokClass, syn.TokInstance, syn.TokImport, syn.TokLParen:
+				syn.TokImpl, syn.TokImport, syn.TokLParen:
 				return
 			}
 		}

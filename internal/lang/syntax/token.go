@@ -32,9 +32,10 @@ const (
 	TokBackslash  // \
 	TokUnderscore // _
 	TokEq         // =
-	TokEqColon    // =:
+	TokEqColon    // =: (deprecated, will be removed)
+	TokTilde      // ~
 
-	// Keywords (10)
+	// Keywords (9)
 	TokCase
 	TokDo
 	TokData
@@ -42,8 +43,7 @@ const (
 	TokInfixl
 	TokInfixr
 	TokInfixn
-	TokClass
-	TokInstance
+	TokImpl
 	TokImport
 
 	// Identifiers
@@ -116,6 +116,8 @@ func (k TokenKind) String() string {
 		return "="
 	case TokEqColon:
 		return "=:"
+	case TokTilde:
+		return "~"
 	case TokLower:
 		return "lower"
 	case TokUpper:

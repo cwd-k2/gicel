@@ -1,37 +1,10 @@
 package syntax
 
-import "github.com/cwd-k2/gicel/internal/infra/span"
-
-// DeclDataFamily is a standalone data family declaration (future use).
+// This file previously held DeclDataFamily, AssocDataDecl, and AssocDataDef.
+// In unified syntax, all of these are absorbed:
+//   - Associated data declarations → TyRowTypeDecl in data body rows
+//   - Associated data definitions → ImplField (IsType=true) in impl body
+//   - Standalone data families → data declarations with case bodies
 //
-//	data family Collection a :: Type
-type DeclDataFamily struct {
-	Name       string
-	Params     []TyBinder
-	ResultKind KindExpr
-	S          span.Span
-}
-
-// AssocDataDecl is an associated data family declaration within a class body.
-//
-//	data Elem c :: Type
-type AssocDataDecl struct {
-	Name       string
-	Params     []TyBinder
-	ResultKind KindExpr
-	S          span.Span
-}
-
-// AssocDataDef is an associated data family instance within an instance body.
-//
-//	data Elem (List a) =: ListElem a
-type AssocDataDef struct {
-	Name     string
-	Patterns []TypeExpr
-	Cons     []DeclCon
-	S        span.Span
-}
-
-func (*DeclDataFamily) declNode() {}
-
-func (d *DeclDataFamily) Span() span.Span { return d.S }
+// This file is kept as a placeholder during the migration.
+// It will be removed once all references are updated.
