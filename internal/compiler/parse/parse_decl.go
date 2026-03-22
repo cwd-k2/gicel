@@ -351,7 +351,7 @@ func (p *Parser) parseTypeFamilyLegacy(name string, start span.Pos) *syn.DeclTyp
 	var alts []syn.TyAlt
 	p.parseBody("type family declaration", openTok.S, func() {
 		eqStart := p.peek().S.Start
-		_ = p.expectUpper() // family name (repeated, skip)
+		eqName := p.expectUpper() // family name (validated in checker)
 		var patterns []syn.TypeExpr
 		for p.isTypeAtomStart() && p.peek().Kind != syn.TokEqColon {
 			patterns = append(patterns, p.parseTypeAtom())
@@ -371,9 +371,11 @@ func (p *Parser) parseTypeFamilyLegacy(name string, start span.Pos) *syn.DeclTyp
 			}
 		}
 		alts = append(alts, syn.TyAlt{
-			Pattern: pat,
-			Body:    rhs,
-			S:       span.Span{Start: eqStart, End: p.prevEnd()},
+			EqName:      eqName,
+			RawPatCount: len(patterns),
+			Pattern:     pat,
+			Body:        rhs,
+			S:           span.Span{Start: eqStart, End: p.prevEnd()},
 		})
 	})
 

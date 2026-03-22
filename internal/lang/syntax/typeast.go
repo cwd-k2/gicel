@@ -76,9 +76,11 @@ type TyExprCase struct {
 
 // TyAlt is a single alternative in a type-level case.
 type TyAlt struct {
-	Pattern TypeExpr // type pattern (e.g., Send s, List a)
-	Body    TypeExpr // result type
-	S       span.Span
+	EqName     string   // equation name (from legacy format, for validation)
+	RawPatCount int     // number of patterns before synthesis (for arity validation)
+	Pattern    TypeExpr // type pattern (e.g., Send s, List a)
+	Body       TypeExpr // result type
+	S          span.Span
 }
 
 // TyExprQual is a qualified type: Constraint => Body.
