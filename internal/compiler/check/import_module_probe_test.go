@@ -46,12 +46,14 @@ func probeModuleExports(typeName string, cons []string) *ModuleExports {
 		Aliases:         map[string]*AliasInfo{},
 		Classes:         map[string]*ClassInfo{},
 		Values:          map[string]types.Type{},
-		OwnedTypeNames:  map[string]bool{typeName: true},
-		OwnedNames:      ownedNames,
 		PromotedKinds:   map[string]types.Kind{},
 		PromotedCons:    map[string]types.Kind{},
 		TypeFamilies:    map[string]*TypeFamilyInfo{},
-		Instances:       nil,
+		ModuleOwnership: ModuleOwnership{
+			OwnedTypeNames:     map[string]bool{typeName: true},
+			OwnedNames:         ownedNames,
+			ConstructorsByType: map[string][]string{typeName: cons},
+		},
 	}
 }
 
@@ -181,15 +183,16 @@ func TestProbeA_QualPattern_NestedQualPattern(t *testing.T) {
 			"Just":    info,
 			"Nothing": info,
 		},
-		Aliases:        map[string]*AliasInfo{},
-		Classes:        map[string]*ClassInfo{},
-		Values:         map[string]types.Type{},
-		OwnedTypeNames: map[string]bool{"Maybe": true},
-		OwnedNames:     map[string]bool{"Maybe": true, "Just": true, "Nothing": true},
-		PromotedKinds:  map[string]types.Kind{},
-		PromotedCons:   map[string]types.Kind{},
-		TypeFamilies:   map[string]*TypeFamilyInfo{},
-		Instances:      nil,
+		Aliases:       map[string]*AliasInfo{},
+		Classes:       map[string]*ClassInfo{},
+		Values:        map[string]types.Type{},
+		PromotedKinds: map[string]types.Kind{},
+		PromotedCons:  map[string]types.Kind{},
+		TypeFamilies:  map[string]*TypeFamilyInfo{},
+		ModuleOwnership: ModuleOwnership{
+			OwnedTypeNames: map[string]bool{"Maybe": true},
+			OwnedNames:     map[string]bool{"Maybe": true, "Just": true, "Nothing": true},
+		},
 	}
 	config := &CheckConfig{
 		ImportedModules: map[string]*ModuleExports{"MaybeLib": modExports},
@@ -219,13 +222,14 @@ func TestProbeA_Ambiguity_TwoOpenImportsSameName(t *testing.T) {
 		ConstructorInfo: map[string]*DataTypeInfo{},
 		Aliases:         map[string]*AliasInfo{},
 		Classes:         map[string]*ClassInfo{},
-		Values:          map[string]types.Type{"foo": types.Con("Int")},
-		OwnedTypeNames:  map[string]bool{"FakeA": true},
-		OwnedNames:      map[string]bool{"FakeA": true},
-		PromotedKinds:   map[string]types.Kind{},
-		PromotedCons:    map[string]types.Kind{},
-		TypeFamilies:    map[string]*TypeFamilyInfo{},
-		Instances:       nil,
+		Values:        map[string]types.Type{"foo": types.Con("Int")},
+		PromotedKinds: map[string]types.Kind{},
+		PromotedCons:  map[string]types.Kind{},
+		TypeFamilies:  map[string]*TypeFamilyInfo{},
+		ModuleOwnership: ModuleOwnership{
+			OwnedTypeNames: map[string]bool{"FakeA": true},
+			OwnedNames:     map[string]bool{"FakeA": true},
+		},
 	}
 	modB := &ModuleExports{
 		Types:           map[string]types.Kind{},
@@ -234,12 +238,13 @@ func TestProbeA_Ambiguity_TwoOpenImportsSameName(t *testing.T) {
 		Aliases:         map[string]*AliasInfo{},
 		Classes:         map[string]*ClassInfo{},
 		Values:          map[string]types.Type{"foo": types.Con("String")},
-		OwnedTypeNames:  map[string]bool{"FakeB": true},
-		OwnedNames:      map[string]bool{"FakeB": true},
 		PromotedKinds:   map[string]types.Kind{},
 		PromotedCons:    map[string]types.Kind{},
 		TypeFamilies:    map[string]*TypeFamilyInfo{},
-		Instances:       nil,
+		ModuleOwnership: ModuleOwnership{
+			OwnedTypeNames: map[string]bool{"FakeB": true},
+			OwnedNames:     map[string]bool{"FakeB": true},
+		},
 	}
 	config := &CheckConfig{
 		RegisteredTypes: map[string]types.Kind{
@@ -288,13 +293,14 @@ func TestProbeA_Ambiguity_TwoOpenImportsSameConstructor(t *testing.T) {
 			ConstructorInfo: map[string]*DataTypeInfo{"MkVal": info},
 			Aliases:         map[string]*AliasInfo{},
 			Classes:         map[string]*ClassInfo{},
-			Values:          map[string]types.Type{},
-			OwnedTypeNames:  map[string]bool{typeName: true},
-			OwnedNames:      map[string]bool{typeName: true, "MkVal": true},
-			PromotedKinds:   map[string]types.Kind{},
-			PromotedCons:    map[string]types.Kind{},
-			TypeFamilies:    map[string]*TypeFamilyInfo{},
-			Instances:       nil,
+			Values:        map[string]types.Type{},
+			PromotedKinds: map[string]types.Kind{},
+			PromotedCons:  map[string]types.Kind{},
+			TypeFamilies:  map[string]*TypeFamilyInfo{},
+			ModuleOwnership: ModuleOwnership{
+				OwnedTypeNames: map[string]bool{typeName: true},
+				OwnedNames:     map[string]bool{typeName: true, "MkVal": true},
+			},
 		}
 	}
 	config := &CheckConfig{
@@ -326,12 +332,9 @@ func TestProbeA_Ambiguity_QualifiedDisambiguates(t *testing.T) {
 			Aliases:         map[string]*AliasInfo{},
 			Classes:         map[string]*ClassInfo{},
 			Values:          map[string]types.Type{"foo": types.Con("Int")},
-			OwnedTypeNames:  nil,
-			OwnedNames:      nil,
 			PromotedKinds:   map[string]types.Kind{},
 			PromotedCons:    map[string]types.Kind{},
 			TypeFamilies:    map[string]*TypeFamilyInfo{},
-			Instances:       nil,
 		}
 	}
 	config := &CheckConfig{
@@ -365,12 +368,9 @@ func TestProbeD_Module_QualifiedVarLookup(t *testing.T) {
 		Aliases:         map[string]*AliasInfo{},
 		Classes:         map[string]*ClassInfo{},
 		Values:          map[string]types.Type{"add": types.MkArrow(types.Con("Int"), types.MkArrow(types.Con("Int"), types.Con("Int")))},
-		OwnedTypeNames:  nil,
-		OwnedNames:      nil,
 		PromotedKinds:   map[string]types.Kind{},
 		PromotedCons:    map[string]types.Kind{},
 		TypeFamilies:    map[string]*TypeFamilyInfo{},
-		Instances:       nil,
 	}
 	config := &CheckConfig{
 		RegisteredTypes: map[string]types.Kind{"Int": types.KType{}},
@@ -427,12 +427,9 @@ func TestProbeD_Module_QualifiedShadowLocal(t *testing.T) {
 		Aliases:         map[string]*AliasInfo{},
 		Classes:         map[string]*ClassInfo{},
 		Values:          map[string]types.Type{"val": types.Con("Int")},
-		OwnedTypeNames:  nil,
-		OwnedNames:      nil,
 		PromotedKinds:   map[string]types.Kind{},
 		PromotedCons:    map[string]types.Kind{},
 		TypeFamilies:    map[string]*TypeFamilyInfo{},
-		Instances:       nil,
 	}
 	config := &CheckConfig{
 		RegisteredTypes: map[string]types.Kind{"Int": types.KType{}, "Bool": types.KType{}},

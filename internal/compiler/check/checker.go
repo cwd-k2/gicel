@@ -59,6 +59,9 @@ type CheckConfig struct {
 // Canonical definition lives in env/module_exports.go.
 type ModuleExports = env.ModuleExports
 
+// ModuleOwnership carries ownership signals (which names a module defines).
+type ModuleOwnership = env.ModuleOwnership
+
 // CheckTraceKind classifies trace events.
 type CheckTraceKind int
 

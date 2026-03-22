@@ -87,22 +87,24 @@ func (ch *Checker) ExportModule(prog *ir.Program) *ModuleExports {
 	}
 
 	return &ModuleExports{
-		Types:              ownedTypes,
-		ConTypes:           filteredConTypes,
-		ConstructorInfo:    filteredConInfo,
-		ConstructorsByType: consByType,
-		Aliases:            filterOwnedMap(ch.reg.AllAliases(), impAliases),
-		Classes:            filterOwnedMap(ch.reg.AllClasses(), impClasses),
-		Instances:          ch.reg.AllInstances(),
-		Values:             values,
-		PromotedKinds:      ownedPromKinds,
-		PromotedCons:       ownedPromCons,
+		Types:           ownedTypes,
+		ConTypes:        filteredConTypes,
+		ConstructorInfo: filteredConInfo,
+		Aliases:         filterOwnedMap(ch.reg.AllAliases(), impAliases),
+		Classes:         filterOwnedMap(ch.reg.AllClasses(), impClasses),
+		Instances:       ch.reg.AllInstances(),
+		Values:          values,
+		PromotedKinds:   ownedPromKinds,
+		PromotedCons:    ownedPromCons,
 		// TypeFamilies: export locally defined families and imported families
 		// that were enriched with new equations by this module (e.g. associated
 		// type instances). Purely inherited families are excluded.
-		TypeFamilies:   filterOwnedOrEnrichedFamilies(ch.reg.AllFamilies(), impFamilyEqCount),
-		OwnedTypeNames: ownedDataNames,
-		OwnedNames:     ownedAllNames(ownedDataNames, prog),
+		TypeFamilies: filterOwnedOrEnrichedFamilies(ch.reg.AllFamilies(), impFamilyEqCount),
+		ModuleOwnership: env.ModuleOwnership{
+			OwnedTypeNames:     ownedDataNames,
+			OwnedNames:         ownedAllNames(ownedDataNames, prog),
+			ConstructorsByType: consByType,
+		},
 	}
 }
 

@@ -32,19 +32,20 @@ func mkTypeModule(typeName string, cons []string) *ModuleExports {
 		ownedNames[c] = true
 	}
 	return &ModuleExports{
-		Types:              map[string]types.Kind{typeName: types.KType{}},
-		ConTypes:           conTypes,
-		ConstructorInfo:    conInfo,
-		ConstructorsByType: map[string][]string{typeName: cons},
-		Aliases:            map[string]*AliasInfo{},
-		Classes:            map[string]*ClassInfo{},
-		Values:             map[string]types.Type{},
-		OwnedTypeNames:     map[string]bool{typeName: true},
-		OwnedNames:         ownedNames,
-		PromotedKinds:      map[string]types.Kind{},
-		PromotedCons:       map[string]types.Kind{},
-		TypeFamilies:       map[string]*TypeFamilyInfo{},
-		Instances:          nil,
+		Types:           map[string]types.Kind{typeName: types.KType{}},
+		ConTypes:        conTypes,
+		ConstructorInfo: conInfo,
+		Aliases:         map[string]*AliasInfo{},
+		Classes:         map[string]*ClassInfo{},
+		Values:          map[string]types.Type{},
+		PromotedKinds:   map[string]types.Kind{},
+		PromotedCons:    map[string]types.Kind{},
+		TypeFamilies:    map[string]*TypeFamilyInfo{},
+		ModuleOwnership: ModuleOwnership{
+			OwnedTypeNames:     map[string]bool{typeName: true},
+			OwnedNames:         ownedNames,
+			ConstructorsByType: map[string][]string{typeName: cons},
+		},
 	}
 }
 
@@ -57,36 +58,29 @@ func mkClassModule(className string, methodName string) *ModuleExports {
 		Methods:      []MethodInfo{{Name: methodName}},
 	}
 	return &ModuleExports{
-		Types:              map[string]types.Kind{},
-		ConTypes:           map[string]types.Type{},
-		ConstructorInfo:    map[string]*DataTypeInfo{},
-		ConstructorsByType: map[string][]string{},
-		Aliases:            map[string]*AliasInfo{},
-		Classes:            map[string]*ClassInfo{className: cls},
-		Values:             map[string]types.Type{methodName: types.Con("Int")},
-		OwnedTypeNames:     map[string]bool{},
-		OwnedNames:         map[string]bool{},
-		PromotedKinds:      map[string]types.Kind{},
-		PromotedCons:       map[string]types.Kind{},
-		TypeFamilies:       map[string]*TypeFamilyInfo{},
-		Instances:          nil,
+		Types:           map[string]types.Kind{},
+		ConTypes:        map[string]types.Type{},
+		ConstructorInfo: map[string]*DataTypeInfo{},
+		Aliases:         map[string]*AliasInfo{},
+		Classes:         map[string]*ClassInfo{className: cls},
+		Values:          map[string]types.Type{methodName: types.Con("Int")},
+		PromotedKinds:   map[string]types.Kind{},
+		PromotedCons:    map[string]types.Kind{},
+		TypeFamilies:    map[string]*TypeFamilyInfo{},
 	}
 }
 
 // mkFamilyModule creates a ModuleExports that defines a type family.
 func mkFamilyModule(famName string) *ModuleExports {
 	return &ModuleExports{
-		Types:              map[string]types.Kind{},
-		ConTypes:           map[string]types.Type{},
-		ConstructorInfo:    map[string]*DataTypeInfo{},
-		ConstructorsByType: map[string][]string{},
-		Aliases:            map[string]*AliasInfo{},
-		Classes:            map[string]*ClassInfo{},
-		Values:             map[string]types.Type{},
-		OwnedTypeNames:     map[string]bool{},
-		OwnedNames:         map[string]bool{},
-		PromotedKinds:      map[string]types.Kind{},
-		PromotedCons:       map[string]types.Kind{},
+		Types:           map[string]types.Kind{},
+		ConTypes:        map[string]types.Type{},
+		ConstructorInfo: map[string]*DataTypeInfo{},
+		Aliases:         map[string]*AliasInfo{},
+		Classes:         map[string]*ClassInfo{},
+		Values:          map[string]types.Type{},
+		PromotedKinds:   map[string]types.Kind{},
+		PromotedCons:    map[string]types.Kind{},
 		TypeFamilies: map[string]*TypeFamilyInfo{
 			famName: {
 				Name:       famName,
@@ -94,7 +88,6 @@ func mkFamilyModule(famName string) *ModuleExports {
 				ResultKind: types.KType{},
 			},
 		},
-		Instances: nil,
 	}
 }
 
@@ -257,34 +250,36 @@ func TestCollision_DiamondReexportType(t *testing.T) {
 	modC := mkTypeModule("Color", []string{"Red", "Blue"})
 	// ModA re-exports from C (Color is NOT in ModA's OwnedTypeNames).
 	modA := &ModuleExports{
-		Types:              map[string]types.Kind{"Color": types.KType{}},
-		ConTypes:           map[string]types.Type{"Red": types.Con("Color")},
-		ConstructorInfo:    modC.ConstructorInfo,
-		ConstructorsByType: map[string][]string{"Color": {"Red", "Blue"}},
-		Aliases:            map[string]*AliasInfo{},
-		Classes:            map[string]*ClassInfo{},
-		Values:             map[string]types.Type{"helperA": types.Con("Int")},
-		OwnedTypeNames:     map[string]bool{"ModAOwn": true}, // ModA owns different types
-		OwnedNames:         map[string]bool{"ModAOwn": true},
-		PromotedKinds:      map[string]types.Kind{},
-		PromotedCons:       map[string]types.Kind{},
-		TypeFamilies:       map[string]*TypeFamilyInfo{},
-		Instances:          nil,
+		Types:           map[string]types.Kind{"Color": types.KType{}},
+		ConTypes:        map[string]types.Type{"Red": types.Con("Color")},
+		ConstructorInfo: modC.ConstructorInfo,
+		Aliases:         map[string]*AliasInfo{},
+		Classes:         map[string]*ClassInfo{},
+		Values:          map[string]types.Type{"helperA": types.Con("Int")},
+		PromotedKinds:   map[string]types.Kind{},
+		PromotedCons:    map[string]types.Kind{},
+		TypeFamilies:    map[string]*TypeFamilyInfo{},
+		ModuleOwnership: ModuleOwnership{
+			OwnedTypeNames:     map[string]bool{"ModAOwn": true},
+			OwnedNames:         map[string]bool{"ModAOwn": true},
+			ConstructorsByType: map[string][]string{"Color": {"Red", "Blue"}},
+		},
 	}
 	modB := &ModuleExports{
-		Types:              map[string]types.Kind{"Color": types.KType{}},
-		ConTypes:           map[string]types.Type{"Blue": types.Con("Color")},
-		ConstructorInfo:    modC.ConstructorInfo,
-		ConstructorsByType: map[string][]string{"Color": {"Red", "Blue"}},
-		Aliases:            map[string]*AliasInfo{},
-		Classes:            map[string]*ClassInfo{},
-		Values:             map[string]types.Type{"helperB": types.Con("Int")},
-		OwnedTypeNames:     map[string]bool{"ModBOwn": true},
-		OwnedNames:         map[string]bool{"ModBOwn": true},
-		PromotedKinds:      map[string]types.Kind{},
-		PromotedCons:       map[string]types.Kind{},
-		TypeFamilies:       map[string]*TypeFamilyInfo{},
-		Instances:          nil,
+		Types:           map[string]types.Kind{"Color": types.KType{}},
+		ConTypes:        map[string]types.Type{"Blue": types.Con("Color")},
+		ConstructorInfo: modC.ConstructorInfo,
+		Aliases:         map[string]*AliasInfo{},
+		Classes:         map[string]*ClassInfo{},
+		Values:          map[string]types.Type{"helperB": types.Con("Int")},
+		PromotedKinds:   map[string]types.Kind{},
+		PromotedCons:    map[string]types.Kind{},
+		TypeFamilies:    map[string]*TypeFamilyInfo{},
+		ModuleOwnership: ModuleOwnership{
+			OwnedTypeNames:     map[string]bool{"ModBOwn": true},
+			OwnedNames:         map[string]bool{"ModBOwn": true},
+			ConstructorsByType: map[string][]string{"Color": {"Red", "Blue"}},
+		},
 	}
 	config := &CheckConfig{
 		RegisteredTypes: map[string]types.Kind{"Int": types.KType{}},
