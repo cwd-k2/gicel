@@ -72,6 +72,9 @@ func migrateFile(src string) string {
 }
 
 var (
+	// type Name params := Body → type Name := \params. Body
+	typeAliasRe = regexp.MustCompile(`(?m)^(\s*)type\s+(\w+)\s+([a-z][\w\s]*?)\s*:=\s*`)
+
 	// class Name params { → data Name := \params. {
 	classRe = regexp.MustCompile(`(?m)^(\s*)class\s+(\w+)\s+(.+?)\s*\{`)
 	// class (Super) => Name params { → data Name := \params. Super => {
@@ -80,11 +83,24 @@ var (
 	classCtxNoPRe = regexp.MustCompile(`(?m)^(\s*)class\s+(\w+\s+\w+)\s*=>\s*(\w+)\s+(.+?)\s*\{`)
 	// instance [Ctx =>] Name types { → impl [Ctx =>] Name types := {
 	instanceRe = regexp.MustCompile(`(?m)^(\s*)instance\s+(.+?)\s*\{`)
-	// method :: Type (inside braces, indented) → method: Type
-	methodRe = regexp.MustCompile(`(?m)^(\s+)(\w+)\s+::\s+`)
+	// method :: Type (inside braces, indented or after {/;) → method: Type
+	methodRe   = regexp.MustCompile(`(?m)^(\s+)(\w+)\s+::\s+`)
+	methodReIn = regexp.MustCompile(`([{;])\s*(\w+)\s+::\s+`)
 )
 
 func migrateGICELSource(src string) string {
+	// type Name params := Body → type Name := \params. Body
+	src = typeAliasRe.ReplaceAllStringFunc(src, func(m string) string {
+		groups := typeAliasRe.FindStringSubmatch(m)
+		indent, name, params := groups[1], groups[2], strings.TrimSpace(groups[3])
+		// Don't convert type families (they have :: before :=)
+		// or types that already use \
+		if strings.Contains(params, "::") || strings.Contains(params, "\\") {
+			return m
+		}
+		return fmt.Sprintf("%stype %s := \\%s. ", indent, name, params)
+	})
+
 	// Order matters: context forms before simple class.
 
 	// class (Ctx) => Name params {  →  data Name := \params. Ctx => {
@@ -129,6 +145,11 @@ func migrateGICELSource(src string) string {
 	// Only convert "  name :: Type" (indented, lowercase name) to "  name: Type"
 	// Don't touch "name :: Type" at start of line (top-level annotation).
 	src = methodRe.ReplaceAllString(src, "${1}${2}: ")
+	// Also handle inline: "{ name :: Type }" or "; name :: Type"
+	src = methodReIn.ReplaceAllStringFunc(src, func(m string) string {
+		groups := methodReIn.FindStringSubmatch(m)
+		return groups[1] + " " + groups[2] + ": "
+	})
 
 	return src
 }

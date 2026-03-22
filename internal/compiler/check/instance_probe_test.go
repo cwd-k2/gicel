@@ -46,7 +46,7 @@ func TestProbeD_InstanceDepth_NearLimit(t *testing.T) {
 func TestProbeD_InstanceDepth_SelfRecursiveSameType(t *testing.T) {
 	source := `
 data Bool := { True: (); False: (); }
-data C := \a. { m :: a -> Bool }
+data C := \a. { m: a -> Bool }
 impl C a => C a := { m := \x. True }
 main := m True
 `
@@ -73,7 +73,7 @@ main := True
 func TestProbeE_TypeClass_OverlappingInstancesError(t *testing.T) {
 	source := `
 data Bool := { True: (); False: (); }
-data C := \a. { method :: a -> Bool }
+data C := \a. { method: a -> Bool }
 impl C Bool := { method := \x. x }
 impl C Bool := { method := \x. True }
 main := method True
@@ -90,7 +90,7 @@ main := method True
 func TestProbeE_TypeClass_MissingMethodError(t *testing.T) {
 	source := `
 data Bool := { True: (); False: (); }
-data C := \a. { method1 :: a -> Bool; method2 :: a -> a }
+data C := \a. { method1: a -> Bool; method2: a -> a }
 impl C Bool := { method1 := \x. x }
 main := method1 True
 `
@@ -105,8 +105,8 @@ main := method1 True
 func TestProbeE_TypeClass_SuperclassWithoutInstance(t *testing.T) {
 	source := `
 data Bool := { True: (); False: (); }
-data Eq := \a. { eq :: a -> a -> Bool }
-data Ord := \a. Eq a => { lt :: a -> a -> Bool }
+data Eq := \a. { eq: a -> a -> Bool }
+data Ord := \a. Eq a => { lt: a -> a -> Bool }
 
 -- Ord Bool instance without Eq Bool instance
 impl Ord Bool := { lt := \x y. True }
@@ -123,7 +123,7 @@ main := lt True False
 func TestProbeE_TypeClass_AmbiguousConstraintDefaulting(t *testing.T) {
 	source := `
 data Bool := { True: (); False: (); }
-data C := \a. { method :: a -> Bool }
+data C := \a. { method: a -> Bool }
 impl C Bool := { method := \x. x }
 
 -- f takes no arguments that could determine the type variable
@@ -140,9 +140,9 @@ main := f True
 func TestProbeE_TypeClass_DeepSuperclassChain(t *testing.T) {
 	source := `
 data Bool := { True: (); False: (); }
-data A := \a. { methodA :: a -> Bool }
-data B := \a. A a => { methodB :: a -> Bool }
-data C := \a. B a => { methodC :: a -> Bool }
+data A := \a. { methodA: a -> Bool }
+data B := \a. A a => { methodB: a -> Bool }
+data C := \a. B a => { methodC: a -> Bool }
 
 impl A Bool := { methodA := \x. True }
 impl B Bool := { methodB := \x. True }
@@ -163,7 +163,7 @@ func TestProbeE_TypeClass_InstanceWithExtraContext(t *testing.T) {
 	source := `
 data Bool := { True: (); False: (); }
 data Maybe := \a. { Nothing: (); Just: a; }
-data Eq := \a. { eq :: a -> a -> Bool }
+data Eq := \a. { eq: a -> a -> Bool }
 impl Eq Bool := { eq := \x y. True }
 impl Eq a => Eq (Maybe a) := {
   eq := \mx my. case mx {
@@ -183,7 +183,7 @@ func TestProbeA_TypeClassMethodAmbiguity(t *testing.T) {
 data Bool := { True: (); False: (); }
 data Unit := { Unit: (); }
 
-data Show := \a. { show :: a -> a }
+data Show := \a. { show: a -> a }
 impl Show Bool := { show := \x. x }
 impl Show Unit := { show := \x. x }
 

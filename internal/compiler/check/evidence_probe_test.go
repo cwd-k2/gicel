@@ -27,8 +27,8 @@ func TestProbeA_Evidence_DiamondSuperclass(t *testing.T) {
 	source := `
 data Bool := { True: (); False: (); }
 
-data Eq := \a. { eq :: a -> a -> Bool }
-data Ord := \a. Eq a => { compare :: a -> a -> Bool }
+data Eq := \a. { eq: a -> a -> Bool }
+data Ord := \a. Eq a => { compare: a -> a -> Bool }
 
 impl Eq Bool := { eq := \x y. True }
 impl Ord Bool := { compare := \x y. True }
@@ -48,8 +48,8 @@ func TestProbeA_Evidence_DiamondSuperclassBothMethods(t *testing.T) {
 	source := `
 data Bool := { True: (); False: (); }
 
-data Eq := \a. { eq :: a -> a -> Bool }
-data Ord := \a. Eq a => { compare :: a -> a -> Bool }
+data Eq := \a. { eq: a -> a -> Bool }
+data Ord := \a. Eq a => { compare: a -> a -> Bool }
 
 impl Eq Bool := { eq := \x y. True }
 impl Ord Bool := { compare := \x y. True }
@@ -69,7 +69,7 @@ func TestProbeA_Evidence_MissingInstanceError(t *testing.T) {
 data Bool := { True: (); False: (); }
 data Unit := { Unit: (); }
 
-data Eq := \a. { eq :: a -> a -> Bool }
+data Eq := \a. { eq: a -> a -> Bool }
 
 -- No Eq instance for Unit. Using eq on Unit should fail.
 main := eq Unit Unit
@@ -84,7 +84,7 @@ func TestProbeA_Evidence_MissingInstanceForNestedType(t *testing.T) {
 data Bool := { True: (); False: (); }
 data Maybe := \a. { Nothing: (); Just: a; }
 
-data Eq := \a. { eq :: a -> a -> Bool }
+data Eq := \a. { eq: a -> a -> Bool }
 impl Eq a => Eq (Maybe a) := { eq := \x y. True }
 
 -- No Eq Bool instance — resolution for Eq (Maybe Bool) should fail.
@@ -99,9 +99,9 @@ func TestProbeA_Evidence_ThreeDeepSuperclass(t *testing.T) {
 	source := `
 data Bool := { True: (); False: (); }
 
-data C1 := \a. { m1 :: a -> Bool }
-data C2 := \a. C1 a => { m2 :: a -> Bool }
-data C3 := \a. C2 a => { m3 :: a -> Bool }
+data C1 := \a. { m1: a -> Bool }
+data C2 := \a. C1 a => { m2: a -> Bool }
+data C3 := \a. C2 a => { m3: a -> Bool }
 
 impl C1 Bool := { m1 := \x. True }
 impl C2 Bool := { m2 := \x. True }
@@ -123,7 +123,7 @@ func TestProbeA_Evidence_MultipleConstraintsSameClass(t *testing.T) {
 data Bool := { True: (); False: (); }
 data Unit := { Unit: (); }
 
-data Eq := \a. { eq :: a -> a -> Bool }
+data Eq := \a. { eq: a -> a -> Bool }
 impl Eq Bool := { eq := \x y. True }
 impl Eq Unit := { eq := \x y. True }
 
@@ -140,7 +140,7 @@ main := f True Unit
 func TestProbeA_Evidence_OverlappingInstancesSameType(t *testing.T) {
 	source := `
 data Bool := { True: (); False: (); }
-data Eq := \a. { eq :: a -> a -> Bool }
+data Eq := \a. { eq: a -> a -> Bool }
 impl Eq Bool := { eq := \x y. True }
 impl Eq Bool := { eq := \x y. False }
 main := eq True False
@@ -192,8 +192,8 @@ func TestProbeD_Evidence_NestedEvidenceType(t *testing.T) {
 	source := `
 data Bool := { True: (); False: (); }
 
-data Eq := \a. { eq :: a -> a -> Bool }
-data Ord := \a. Eq a => { compare :: a -> a -> Bool }
+data Eq := \a. { eq: a -> a -> Bool }
+data Ord := \a. Eq a => { compare: a -> a -> Bool }
 
 impl Eq Bool := { eq := \x y. True }
 impl Ord Bool := { compare := \x y. True }
@@ -229,7 +229,7 @@ func TestProbeD_Constraint_MissingInstance(t *testing.T) {
 data Bool := { True: (); False: (); }
 data Pair := \a b. { MkPair: (a, b); }
 
-data Eq := \a. { eq :: a -> a -> Bool }
+data Eq := \a. { eq: a -> a -> Bool }
 impl Eq Bool := { eq := \x y. True }
 
 -- No Eq instance for Pair.
@@ -243,7 +243,7 @@ main := eq (MkPair True False) (MkPair False True)
 func TestProbeD_Constraint_OverlappingInstances(t *testing.T) {
 	source := `
 data Bool := { True: (); False: (); }
-data Show := \a. { show :: a -> a }
+data Show := \a. { show: a -> a }
 impl Show Bool := { show := \x. x }
 impl Show Bool := { show := \x. True }
 main := show False
@@ -257,9 +257,9 @@ func TestProbeD_Constraint_SuperclassResolutionChain(t *testing.T) {
 	source := `
 data Bool := { True: (); False: (); }
 
-data C1 := \a. { m1 :: a -> Bool }
-data C2 := \a. C1 a => { m2 :: a -> Bool }
-data C3 := \a. C2 a => { m3 :: a -> Bool }
+data C1 := \a. { m1: a -> Bool }
+data C2 := \a. C1 a => { m2: a -> Bool }
+data C3 := \a. C2 a => { m3: a -> Bool }
 
 impl C1 Bool := { m1 := \x. True }
 impl C2 Bool := { m2 := \x. True }
@@ -280,7 +280,7 @@ func TestProbeD_Constraint_MultiParamClass(t *testing.T) {
 data Bool := { True: (); False: (); }
 data Unit := { Unit: (); }
 
-data Convert := \a b | a =: b. { convert :: a -> b }
+data Convert := \a b | a =: b. { convert: a -> b }
 impl Convert Bool Unit := { convert := \x. Unit }
 
 main := convert True
@@ -336,7 +336,7 @@ func TestProbeE_Evidence_ConstraintRowWithMetaArgs(t *testing.T) {
 func TestProbeE_Evidence_MultipleConstraintsSameClass(t *testing.T) {
 	source := `
 data Bool := { True: (); False: (); }
-data Eq := \a. { eq :: a -> a -> Bool }
+data Eq := \a. { eq: a -> a -> Bool }
 impl Eq Bool := { eq := \x y. True }
 
 data Pair := \a b. { MkPair: (a, b); }

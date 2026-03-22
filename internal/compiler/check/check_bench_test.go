@@ -18,7 +18,7 @@ func BenchmarkInstanceResolve100(b *testing.B) {
 	// Build source with many instances to benchmark resolution.
 	source := `data Bool := { True: (); False: (); }
 data Unit := { Unit: (); }
-data Eq := \a. { eq :: a -> a -> Bool }
+data Eq := \a. { eq: a -> a -> Bool }
 impl Eq Bool := { eq := \x y. True }
 impl Eq Unit := { eq := \x y. True }
 main := eq True False`

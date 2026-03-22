@@ -85,7 +85,7 @@ func TestProbeD_Skolem_MetaSolvedToSkolemInRow(t *testing.T) {
 func TestProbeD_Skolem_EscapeInExistential(t *testing.T) {
 	source := `
 data Bool := { True: (); False: (); }
-data Exists := { MkExists :: \ a. a -> Exists }
+data Exists := { MkExists: \ a. a -> Exists }
 
 -- Trying to return the existentially-bound value should fail.
 bad :: Exists -> Bool

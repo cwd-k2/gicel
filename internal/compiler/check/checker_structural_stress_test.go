@@ -157,12 +157,12 @@ func TestStressConstraintAliasInContext(t *testing.T) {
 	source := `
 data Bool := { True: (); False: (); }
 
-data Eq := \a. { eq :: a -> a -> Bool }
-data Ord := \a. Eq a => { compare :: a -> a -> Bool }
+data Eq := \a. { eq: a -> a -> Bool }
+data Ord := \a. Eq a => { compare: a -> a -> Bool }
 impl Eq Bool := { eq := \x y. True }
 impl Ord Bool := { compare := \x y. True }
 
-type EqOrd a := (Eq a, Ord a) => a -> a -> Bool
+type EqOrd := \a. (Eq a, Ord a) => a -> a -> Bool
 
 -- Use the alias.
 bothCheck :: \ a. EqOrd a
@@ -179,10 +179,10 @@ func TestStressDeepSuperclassWithHKT(t *testing.T) {
 data Bool := { True: (); False: (); }
 data Maybe := \a. { Nothing: (); Just: a; }
 
-data C1 := \a. { m1 :: a -> Bool }
-data C2 := \a. C1 a => { m2 :: a -> Bool }
-data C3 := \a. C2 a => { m3 :: a -> Bool }
-data C4 := \a. C3 a => { m4 :: a -> Bool }
+data C1 := \a. { m1: a -> Bool }
+data C2 := \a. C1 a => { m2: a -> Bool }
+data C3 := \a. C2 a => { m3: a -> Bool }
+data C4 := \a. C3 a => { m4: a -> Bool }
 
 impl C1 Bool := { m1 := \x. True }
 impl C2 Bool := { m2 := \x. True }

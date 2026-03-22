@@ -111,7 +111,7 @@ impl Phantom Bool := { foo := \x. x }`
 
 func TestErrorMissingMethod(t *testing.T) {
 	source := `data Bool := { True: (); False: (); }
-data Eq := \a. { eq :: a -> a -> Bool }
+data Eq := \a. { eq: a -> a -> Bool }
 impl Eq Bool := {}`
 	checkSourceExpectCode(t, source, nil, diagnostic.ErrMissingMethod)
 }
@@ -119,7 +119,7 @@ impl Eq Bool := {}`
 func TestErrorSkolemEscape(t *testing.T) {
 	// Existential type variable escapes via GADT pattern match:
 	// MkExists packs an existential 'a'; extracting it leaks 'a' into the result.
-	source := `data Exists := { MkExists :: \ a. a -> Exists }
+	source := `data Exists := { MkExists: \ a. a -> Exists }
 bad := \e. case e { MkExists x -> x }`
 	checkSourceExpectCode(t, source, nil, diagnostic.ErrSkolemEscape)
 }

@@ -434,7 +434,7 @@ type F (a: Bool) :: Bool := {
 func TestProcessTypeFamily_ConflictsWithAlias(t *testing.T) {
 	source := `
 data Unit := { Unit: (); }
-type F a := a
+type F := \a. a
 type F (a: Type) :: Type := {
   F a =: a
 }
@@ -1181,7 +1181,7 @@ func TestTypeFamilyCoexistsWithAlias(t *testing.T) {
 	source := `
 data Unit := { Unit: (); }
 data List := \a. { Nil: (); Cons: (a, List a); }
-type Id a := a
+type Id := \a. a
 type Elem (c: Type) :: Type := {
   Elem (List a) =: a
 }

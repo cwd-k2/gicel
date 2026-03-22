@@ -104,7 +104,7 @@ func TestExhaustiveGADTFiltering(t *testing.T) {
 	// GADT: only constructors applicable to the scrutinee type should be required.
 	source := `data Bool := { True: (); False: (); }
 data Unit := { Unit: (); }
-data Tag a := { TagBool :: Tag Bool; TagUnit :: Tag Unit }
+data Tag a := { TagBool: Tag Bool; TagUnit: Tag Unit }
 f :: Tag Bool -> Bool
 f := \t. case t { TagBool -> True }`
 	checkSource(t, source, nil)

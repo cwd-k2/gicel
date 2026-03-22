@@ -14,7 +14,7 @@ import (
 
 func TestResolveMissingInstanceError(t *testing.T) {
 	source := `data Bool := { True: (); False: (); }
-data Eq := \a. { eq :: a -> a -> Bool }
+data Eq := \a. { eq: a -> a -> Bool }
 f :: \ a. Eq a => a -> a -> Bool
 f := \x y. eq x y
 main := f True False`
@@ -23,7 +23,7 @@ main := f True False`
 
 func TestResolveSimpleInstance(t *testing.T) {
 	source := `data Bool := { True: (); False: (); }
-data Eq := \a. { eq :: a -> a -> Bool }
+data Eq := \a. { eq: a -> a -> Bool }
 impl Eq Bool := { eq := \x y. True }
 f :: \ a. Eq a => a -> a -> Bool
 f := \x y. eq x y
@@ -43,7 +43,7 @@ main := f True False`
 func TestResolveContextualInstance(t *testing.T) {
 	source := `data Bool := { True: (); False: (); }
 data Maybe := \a. { Just: a; Nothing: (); }
-data Eq := \a. { eq :: a -> a -> Bool }
+data Eq := \a. { eq: a -> a -> Bool }
 impl Eq Bool := { eq := \x y. True }
 impl Eq a => Eq (Maybe a) := { eq := \x y. True }
 f :: \ a. Eq a => a -> a -> Bool
@@ -66,8 +66,8 @@ main := f (Just True) (Just False)`
 func TestInstanceIndexLookup(t *testing.T) {
 	// Register 10 classes each with 10 instances, then resolve specific one.
 	source := `data Bool := { True: (); False: (); }
-data Eq := \a. { eq :: a -> a -> Bool }
-data Show := \a. { show :: a -> Bool }
+data Eq := \a. { eq: a -> a -> Bool }
+data Show := \a. { show: a -> Bool }
 impl Eq Bool := { eq := \x y. True }
 impl Show Bool := { show := \x. True }
 main := eq True False`
@@ -86,7 +86,7 @@ main := eq True False`
 func TestOverlappingInstances(t *testing.T) {
 	// Two instances of Eq for the same type should trigger ErrOverlap.
 	source := `data Bool := { True: (); False: (); }
-data Eq := \a. { eq :: a -> a -> Bool }
+data Eq := \a. { eq: a -> a -> Bool }
 impl Eq Bool := { eq := \x y. case x { True => y; False => case y { True => False; False => True } } }
 impl Eq Bool := { eq := \x y. True }
 main := eq True False`
@@ -97,7 +97,7 @@ func TestNonOverlappingInstances(t *testing.T) {
 	// Instances for different types should not overlap.
 	source := `data Bool := { True: (); False: (); }
 data Unit := { Unit: (); }
-data Eq := \a. { eq :: a -> a -> Bool }
+data Eq := \a. { eq: a -> a -> Bool }
 impl Eq Bool := { eq := \x y. case x { True => y; False => case y { True => False; False => True } } }
 impl Eq Unit := { eq := \_ _. True }
 main := eq True False`
@@ -107,7 +107,7 @@ main := eq True False`
 func TestInstanceArityMismatch(t *testing.T) {
 	// Class Eq has 1 type param, instance provides 2 → ErrBadInstance.
 	source := `data Bool := { True: (); False: (); }
-data Eq := \a. { eq :: a -> a -> Bool }
+data Eq := \a. { eq: a -> a -> Bool }
 impl Eq Bool Bool := { eq := \x y. True }`
 	checkSourceExpectCode(t, source, nil, diagnostic.ErrBadInstance)
 }
@@ -116,7 +116,7 @@ func TestInstanceUnknownContextClass(t *testing.T) {
 	// Instance context references a class that doesn't exist → ErrBadInstance.
 	source := `data Bool := { True: (); False: (); }
 data Maybe := \a. { Nothing: (); Just: a; }
-data Eq := \a. { eq :: a -> a -> Bool }
+data Eq := \a. { eq: a -> a -> Bool }
 impl Phantom a => Eq (Maybe a) := { eq := \_ _. True }`
 	checkSourceExpectCode(t, source, nil, diagnostic.ErrBadInstance)
 }
@@ -124,7 +124,7 @@ impl Phantom a => Eq (Maybe a) := { eq := \_ _. True }`
 func TestInstanceSelfCycle(t *testing.T) {
 	// Instance context requires itself → ErrBadInstance.
 	source := `data Bool := { True: (); False: (); }
-data Eq := \a. { eq :: a -> a -> Bool }
+data Eq := \a. { eq: a -> a -> Bool }
 impl Eq a => Eq a := { eq := \x y. True }`
 	checkSourceExpectCode(t, source, nil, diagnostic.ErrBadInstance)
 }
@@ -132,7 +132,7 @@ impl Eq a => Eq a := { eq := \x y. True }`
 func TestInstanceExtraMethod(t *testing.T) {
 	// Instance defines a method not declared in the class → ErrBadInstance.
 	source := `data Bool := { True: (); False: (); }
-data Eq := \a. { eq :: a -> a -> Bool }
+data Eq := \a. { eq: a -> a -> Bool }
 impl Eq Bool := { eq := \x y. True; notAMethod := \x. x }`
 	checkSourceExpectCode(t, source, nil, diagnostic.ErrBadInstance)
 }
@@ -141,7 +141,7 @@ func TestInstanceValidContextClass(t *testing.T) {
 	// Valid instance with known context class should succeed.
 	source := `data Bool := { True: (); False: (); }
 data Maybe := \a. { Nothing: (); Just: a; }
-data Eq := \a. { eq :: a -> a -> Bool }
+data Eq := \a. { eq: a -> a -> Bool }
 impl Eq Bool := { eq := \x y. case x { True => y; False => case y { True => False; False => True } } }
 impl Eq a => Eq (Maybe a) := {
   eq := \x y. case x {
@@ -156,7 +156,7 @@ func TestParametricOverlappingInstances(t *testing.T) {
 	// instance Eq (Maybe a) overlaps with instance Eq (Maybe Bool).
 	source := `data Bool := { True: (); False: (); }
 data Maybe := \a. { Nothing: (); Just: a; }
-data Eq := \a. { eq :: a -> a -> Bool }
+data Eq := \a. { eq: a -> a -> Bool }
 impl Eq a => Eq (Maybe a) := {
   eq := \x y. case x {
     Nothing => case y { Nothing => True; Just _ => False };
@@ -173,7 +173,7 @@ func TestSelfCycleCompoundType(t *testing.T) {
 	// instance Eq (Maybe a) => Eq (Maybe a) is a self-cycle with compound types.
 	source := `data Bool := { True: (); False: (); }
 data Maybe := \a. { Nothing: (); Just: a; }
-data Eq := \a. { eq :: a -> a -> Bool }
+data Eq := \a. { eq: a -> a -> Bool }
 impl Eq (Maybe a) => Eq (Maybe a) := { eq := \x y. True }`
 	checkSourceExpectCode(t, source, nil, diagnostic.ErrBadInstance)
 }
@@ -182,7 +182,7 @@ func TestOverlapBlocksRegistration(t *testing.T) {
 	// Overlapping instance should NOT be registered — resolution should fail
 	// with "no instance" rather than silently picking one.
 	source := `data Bool := { True: (); False: (); }
-data Eq := \a. { eq :: a -> a -> Bool }
+data Eq := \a. { eq: a -> a -> Bool }
 impl Eq Bool := { eq := \x y. case x { True => y; False => case y { True => False; False => True } } }
 impl Eq Bool := { eq := \x y. True }
 main := eq True False`
@@ -194,7 +194,7 @@ main := eq True False`
 func TestSelfCycleBlocksRegistration(t *testing.T) {
 	// Self-cycle should not be registered — no cascading errors from resolution.
 	source := `data Bool := { True: (); False: (); }
-data Eq := \a. { eq :: a -> a -> Bool }
+data Eq := \a. { eq: a -> a -> Bool }
 impl Eq a => Eq a := { eq := \x y. True }`
 	checkSourceExpectCode(t, source, nil, diagnostic.ErrBadInstance)
 }

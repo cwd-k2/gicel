@@ -223,7 +223,7 @@ main := length (map (\x. x) (Cons Unit Nil))
 func TestTypeAliasStillWorks(t *testing.T) {
 	source := `
 data Unit := { Unit: (); }
-type Id a := a
+type Id := \a. a
 f :: Id Unit => Unit
 f := \x. x
 `

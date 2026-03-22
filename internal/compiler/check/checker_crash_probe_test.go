@@ -206,7 +206,7 @@ func TestProbeA_CrashResist_LargeDataType(t *testing.T) {
 func TestProbeA_SkolemEscapeInCase(t *testing.T) {
 	source := `
 data Bool := { True: (); False: (); }
-data Exists := { MkExists :: \ a. a -> Exists }
+data Exists := { MkExists: \ a. a -> Exists }
 
 -- Trying to return the existentially-bound value should fail.
 bad :: Exists -> Bool
@@ -323,9 +323,9 @@ main := f True True True
 func TestProbeE_Crash_LargeConstraintContext(t *testing.T) {
 	source := `
 data Bool := { True: (); False: (); }
-data C1 := \a. { m1 :: a -> Bool }
-data C2 := \a. { m2 :: a -> Bool }
-data C3 := \a. { m3 :: a -> Bool }
+data C1 := \a. { m1: a -> Bool }
+data C2 := \a. { m2: a -> Bool }
+data C3 := \a. { m3: a -> Bool }
 impl C1 Bool := { m1 := \x. x }
 impl C2 Bool := { m2 := \x. x }
 impl C3 Bool := { m3 := \x. x }

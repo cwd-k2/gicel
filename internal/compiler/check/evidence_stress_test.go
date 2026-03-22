@@ -19,11 +19,11 @@ func TestStressDeepSuperclassChain(t *testing.T) {
 	// Chain of 5 superclasses: C5 => C4 => C3 => C2 => C1.
 	// Using C1's method with only C5 in scope requires traversing 4 levels.
 	source := `data Bool := { True: (); False: (); }
-data C1 := \a. { m1 :: a -> Bool }
-data C2 := \a. C1 a => { m2 :: a -> Bool }
-data C3 := \a. C2 a => { m3 :: a -> Bool }
-data C4 := \a. C3 a => { m4 :: a -> Bool }
-data C5 := \a. C4 a => { m5 :: a -> Bool }
+data C1 := \a. { m1: a -> Bool }
+data C2 := \a. C1 a => { m2: a -> Bool }
+data C3 := \a. C2 a => { m3: a -> Bool }
+data C4 := \a. C3 a => { m4: a -> Bool }
+data C5 := \a. C4 a => { m5: a -> Bool }
 impl C1 Bool := { m1 := \x. True }
 impl C2 Bool := { m2 := \x. True }
 impl C3 Bool := { m3 := \x. True }
@@ -80,7 +80,7 @@ func TestStressContextualInstanceChain(t *testing.T) {
 	source := `data Bool := { True: (); False: (); }
 data F := \a. { MkF: a; }
 data G := \a. { MkG: a; }
-data Eq := \a. { eq :: a -> a -> Bool }
+data Eq := \a. { eq: a -> a -> Bool }
 impl Eq Bool := { eq := \x y. True }
 impl Eq a => Eq (F a) := { eq := \x y. True }
 impl Eq a => Eq (G a) := { eq := \x y. True }
@@ -91,8 +91,8 @@ main := eq (MkF (MkG True)) (MkF (MkG False))`
 func TestStressMultiParamConstraints(t *testing.T) {
 	// Curried constraints with different type variables.
 	source := `data Bool := { True: (); False: (); }
-data Eq := \a. { eq :: a -> a -> Bool }
-data Show := \a. { show :: a -> Bool }
+data Eq := \a. { eq: a -> a -> Bool }
+data Show := \a. { show: a -> Bool }
 impl Eq Bool := { eq := \x y. True }
 impl Show Bool := { show := \x. True }
 f :: \ a b. (Eq a, Show b) => a -> b -> Bool
@@ -109,7 +109,7 @@ func TestEdgeSameClassDifferentArgs(t *testing.T) {
 	// Two Eq constraints with different type args.
 	source := `data Bool := { True: (); False: (); }
 data Unit := { Unit: (); }
-data Eq := \a. { eq :: a -> a -> Bool }
+data Eq := \a. { eq: a -> a -> Bool }
 impl Eq Bool := { eq := \x y. True }
 impl Eq Unit := { eq := \x y. True }
 f :: \ a b. (Eq a, Eq b) => a -> b -> Bool
@@ -122,8 +122,8 @@ func TestEdgeConstraintSuperclass(t *testing.T) {
 	// (Eq a, Ord a) where Ord a => Eq a — curried constraints with redundancy.
 	// Both constraints should be available; superclass makes Eq doubly available.
 	source := `data Bool := { True: (); False: (); }
-data Eq := \a. { eq :: a -> a -> Bool }
-data Ord := \a. Eq a => { compare :: a -> a -> Bool }
+data Eq := \a. { eq: a -> a -> Bool }
+data Ord := \a. Eq a => { compare: a -> a -> Bool }
 impl Eq Bool := { eq := \x y. True }
 impl Ord Bool := { compare := \x y. True }
 f :: \ a. (Eq a, Ord a) => a -> a -> Bool
@@ -135,11 +135,11 @@ main := f True False`
 func TestEdgeNestedConstraintAlias(t *testing.T) {
 	// Constraint alias used in a curried constraints.
 	source := `data Bool := { True: (); False: (); }
-data Eq := \a. { eq :: a -> a -> Bool }
-data Ord := \a. Eq a => { compare :: a -> a -> Bool }
+data Eq := \a. { eq: a -> a -> Bool }
+data Ord := \a. Eq a => { compare: a -> a -> Bool }
 impl Eq Bool := { eq := \x y. True }
 impl Ord Bool := { compare := \x y. True }
-type EqOrd a := (Eq a, Ord a) => a -> Bool
+type EqOrd := \a. (Eq a, Ord a) => a -> Bool
 f :: \ a. EqOrd a
 f := \x. eq x x
 main := f True`
@@ -149,8 +149,8 @@ main := f True`
 func TestEdgeConstraintInLet(t *testing.T) {
 	// Curried constraints in a block-scoped binding.
 	source := `data Bool := { True: (); False: (); }
-data Eq := \a. { eq :: a -> a -> Bool }
-data Show := \a. { show :: a -> Bool }
+data Eq := \a. { eq: a -> a -> Bool }
+data Show := \a. { show: a -> Bool }
 impl Eq Bool := { eq := \x y. True }
 impl Show Bool := { show := \x. True }
 f :: \ a. (Eq a, Show a) => a -> Bool
@@ -191,7 +191,7 @@ func TestEdgeConstraintWithForall(t *testing.T) {
 	// \ a b. (Eq a, Eq b) => Pair a b -> Bool
 	source := `data Bool := { True: (); False: (); }
 data Pair := \a b. { MkPair: (a, b); }
-data Eq := \a. { eq :: a -> a -> Bool }
+data Eq := \a. { eq: a -> a -> Bool }
 impl Eq Bool := { eq := \x y. True }
 impl Eq a => Eq b => Eq (Pair a b) := { eq := \x y. True }
 f :: \ a b. (Eq a, Eq b) => Pair a b -> Pair a b -> Bool
@@ -203,8 +203,8 @@ main := f (MkPair True True) (MkPair False False)`
 func TestEdgeMissingInstance(t *testing.T) {
 	// (Eq a, Ord a) but no Ord instance — should error.
 	source := `data Bool := { True: (); False: (); }
-data Eq := \a. { eq :: a -> a -> Bool }
-data Ord := \a. Eq a => { compare :: a -> a -> Bool }
+data Eq := \a. { eq: a -> a -> Bool }
+data Ord := \a. Eq a => { compare: a -> a -> Bool }
 impl Eq Bool := { eq := \x y. True }
 f :: \ a. (Eq a, Ord a) => a -> Bool
 f := \x. eq x x
@@ -216,7 +216,7 @@ func TestEdgeConstraintInstanceContext(t *testing.T) {
 	// Instance with multiple context constraints (curried style).
 	source := `data Bool := { True: (); False: (); }
 data Triple a b c := MkTriple a b c
-data Eq := \a. { eq :: a -> a -> Bool }
+data Eq := \a. { eq: a -> a -> Bool }
 impl Eq Bool := { eq := \x y. True }
 impl Eq a => Eq b => Eq c => Eq (Triple a b c) := { eq := \x y. True }
 main := eq (MkTriple True True True) (MkTriple False False False)`
@@ -231,14 +231,14 @@ func TestRegressionCurriedConstraints(t *testing.T) {
 	// (Eq a, Ord a) => T must behave identically to Eq a => Ord a => T
 	// in all aspects: check mode, subsCheck, instantiate.
 	templateProd := `data Bool := { True: (); False: (); }
-data Eq := \a. { eq :: a -> a -> Bool }
-data Ord := \a. Eq a => { compare :: a -> a -> Bool }
+data Eq := \a. { eq: a -> a -> Bool }
+data Ord := \a. Eq a => { compare: a -> a -> Bool }
 impl Eq Bool := { eq := \x y. True }
 impl Ord Bool := { compare := \x y. True }
 %s`
 	templateCurr := `data Bool := { True: (); False: (); }
-data Eq := \a. { eq :: a -> a -> Bool }
-data Ord := \a. Eq a => { compare :: a -> a -> Bool }
+data Eq := \a. { eq: a -> a -> Bool }
+data Ord := \a. Eq a => { compare: a -> a -> Bool }
 impl Eq Bool := { eq := \x y. True }
 impl Ord Bool := { compare := \x y. True }
 %s`

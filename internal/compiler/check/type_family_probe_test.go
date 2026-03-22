@@ -403,10 +403,10 @@ main := Z
 func TestProbeE_Interaction_GADTWithTypeClass(t *testing.T) {
 	source := `
 data Bool := { True: (); False: (); }
-data Eq := \a. { eq :: a -> a -> Bool }
+data Eq := \a. { eq: a -> a -> Bool }
 impl Eq Bool := { eq := \x y. True }
 
-data SomeEq := { MkSomeEq :: \a. Eq a => a -> a -> SomeEq }
+data SomeEq := { MkSomeEq: \a. Eq a => a -> a -> SomeEq }
 
 test: SomeEq -> Bool
 test := \s. case s { MkSomeEq x y -> eq x y }
@@ -427,7 +427,7 @@ type IsZero (n: Type) :: Type := {
   IsZero Z =: Bool
 }
 
-data Show := \a. { show :: a -> Bool }
+data Show := \a. { show: a -> Bool }
 impl Show Bool := { show := \x. x }
 
 -- Use IsZero Z (which reduces to Bool) in a context requiring Show
@@ -441,7 +441,7 @@ main := show (True :: IsZero Z)
 func TestProbeE_Interaction_ConstrainedLetGen(t *testing.T) {
 	source := `
 data Bool := { True: (); False: (); }
-data Eq := \a. { eq :: a -> a -> Bool }
+data Eq := \a. { eq: a -> a -> Bool }
 impl Eq Bool := { eq := \x y. True }
 
 -- same should be generalized to: \ a. Eq a => a -> a -> Bool
