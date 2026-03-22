@@ -1,5 +1,27 @@
 # Changelog
 
+## v0.15.4 — 2026-03-23
+
+### Type Checker — OutsideIn(X) L4: Touchability
+
+Level-based touchability for type inference. No surface syntax changes; internal precision improvement for GADT branches and higher-rank forall scopes.
+
+- **Touchability guard** — `Unifier.SolverLevel` field controls meta touchability: metas with `Level < SolverLevel` are untouchable. `UnifyUntouchable` error kind + `ErrUntouchable` diagnostic code added
+- **GADT branches** — `checkCaseAlts` migrated from `withDeferredScope` to level-based inline solving via `checkWithLocalScope`. `solver.level` incremented before body check (inner-level metas); `SolverLevel` raised only during constraint solving (preserving DK eager unification). Residuals partitioned into floatable (outer scope) and stuck (error)
+- **Higher-rank forall** — `solver.level` tracking added around forall body checking. `checkSkolemEscapeInSolutions` retained as belt-and-suspenders safety net
+- **CtImplication type** — implication constraint for solver-dispatched scoping (future infrastructure; not yet emitted in production)
+- **`withTrial`/`withProbe` exemption** — touchability disabled in trial/probe scopes (solutions not committed / always rolled back)
+- **ConstraintVar shouldDefer** — normalized ConstraintVar constraints now subject to `shouldDefer` in local scopes, closing a protocol hole where instance resolution could bypass touchability
+
+### Type Checker — Structure
+
+- **`withDeferredScope` removed** — replaced by level-based `checkWithLocalScope`
+- **`partitionResiduals` extracted** — single implementation for stuck/floatable residual classification
+- **`ctPlaceholder` removed from `Ct` interface** — was semantically meaningful only for `CtClass`; `CtFunEq`/`CtImplication` returned empty string. Interface reduced to `ctMarker` + `ctSpan`
+- **`localShouldDefer` helper** — shared deferral predicate for implication scopes (defers unsolved-meta constraints to prevent inner-scope resolution)
+
+---
+
 ## v0.15.3 — 2026-03-22
 
 ### Type Checker — Import/Export Separation
