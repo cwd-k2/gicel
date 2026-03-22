@@ -143,7 +143,17 @@ func (p *Parser) parseBlock() syn.Expr {
 			var tdBody syn.TypeExpr
 			if p.peek().Kind == syn.TokEqColon {
 				p.advance()
+				// For data family defs, the RHS may contain | separated constructors.
+				// Consume the first type, then skip any | separated rest.
 				tdBody = p.parseType()
+				for p.peek().Kind == syn.TokPipe {
+					p.advance() // skip |
+					// Consume the next constructor declaration
+					for p.peek().Kind != syn.TokPipe && p.peek().Kind != syn.TokSemicolon &&
+						p.peek().Kind != syn.TokRBrace && p.peek().Kind != syn.TokEOF {
+						p.advance()
+					}
+				}
 			}
 			_ = tdPats // patterns stored in the ImplField for later use
 			_ = isType

@@ -85,7 +85,7 @@ func TestStressManyEquations(t *testing.T) {
 		b.WriteString(fmt.Sprintf(" T%d", i))
 	}
 	b.WriteString("\n")
-	b.WriteString("data Result := R0 | R1\n")
+	b.WriteString("data Result := { R0: Result; R1: Result; }\n")
 	b.WriteString("type Dispatch (t: Tag) :: Result := {\n")
 	for i := 0; i < 60; i++ {
 		if i > 0 {
@@ -462,7 +462,7 @@ func TestBoundaryThreeWayIntersection(t *testing.T) {
 	// Alt 3: post = { a: Unit, c: Unit }
 	// Intersection: post = { c: Unit }
 	source := `
-data Three := One | Two | Three
+data Three := { One: Three; Two: Three; Three: Three; }
 data Unit := { Unit: Unit; }
 noop :: Computation { a: Unit, b: Unit, c: Unit } { a: Unit, b: Unit, c: Unit } Unit
 noop := assumption

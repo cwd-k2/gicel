@@ -439,7 +439,7 @@ func TestPropertyIntersectCapRowsCommutativity3Way(t *testing.T) {
 	// Three branches consuming different caps.
 	// The intersection should be {c: Unit} regardless of branch order.
 	source := `
-data Three := One | Two | Three
+data Three := { One: Three; Two: Three; Three: Three; }
 data Unit := { Unit: Unit; }
 consumeAB :: Computation { a: Unit, b: Unit, c: Unit } { c: Unit } Unit
 consumeAB := assumption

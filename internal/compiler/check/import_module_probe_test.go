@@ -463,7 +463,7 @@ main := True
 `
 	// Register a module, then try to selectively import a nonexistent name
 	config := makeModuleConfig(t, "Lib", `
-data Color := Red | Blue
+data Color := { Red: Color; Blue: Color; }
 `)
 	errSource := `
 import Lib (nonexistent)

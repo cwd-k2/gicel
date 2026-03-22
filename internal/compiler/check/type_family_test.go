@@ -132,7 +132,7 @@ f := \x. x
 
 func TestConstraintFamily(t *testing.T) {
 	source := `
-data Serialization := JSON | Binary
+data Serialization := { JSON: Serialization; Binary: Serialization; }
 data Show := \a. {
   show: a -> a
 }

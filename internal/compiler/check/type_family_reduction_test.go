@@ -282,7 +282,7 @@ f := \b. case b {
 // Three-way branch: label must be in ALL three branches to survive.
 func TestIntersectCapRows_ThreeWayBranch(t *testing.T) {
 	source := `
-data Color := Red | Green | Blue
+data Color := { Red: Color; Green: Color; Blue: Color; }
 data Unit := { Unit: Unit; }
 consumeA :: Computation { a: Unit, b: Unit, c: Unit } { b: Unit, c: Unit } Unit
 consumeA := assumption
@@ -845,7 +845,7 @@ main := do {
 
 func TestConstraintFamily_ReducesToClass(t *testing.T) {
 	source := `
-data Serialization := JSON | Binary
+data Serialization := { JSON: Serialization; Binary: Serialization; }
 data Show := \a. {
   show: a -> a
 }

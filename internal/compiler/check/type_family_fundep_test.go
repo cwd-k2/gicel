@@ -50,7 +50,7 @@ nestedElem :: Elem (List (Wrap Int)) -> Maybe Int
 nestedElem := \x. x
 
 -- Season rotation: single-step NextSeason is fully reduced.
-data Season := Spring | Summer | Autumn | Winter
+data Season := { Spring: Season; Summer: Season; Autumn: Season; Winter: Season; }
 
 type NextSeason (s: Season) :: Season := {
   NextSeason Spring =: Summer;
