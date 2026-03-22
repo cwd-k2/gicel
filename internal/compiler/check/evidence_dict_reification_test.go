@@ -52,7 +52,7 @@ main := withDict (MkDict :: Dict (Eq Bool)) True False`
 func TestDictReificationMultipleConstraints(t *testing.T) {
 	// Two Dict values with different constraints used together.
 	source := `data Bool := { True: Bool; False: Bool; }
-data Unit := { MkUnit: (); }
+data Unit := { MkUnit: Unit; }
 data Eq := \a. { eq: a -> a -> Bool }
 data Show := \a. { show: a -> Unit }
 impl Eq Bool := { eq := \x y. True }
@@ -104,7 +104,7 @@ wrapDict := \d. MkPair d True`
 func TestDictReificationErrorNoInstance(t *testing.T) {
 	// Using Dict with a constraint for which no instance exists should fail.
 	source := `data Bool := { True: Bool; False: Bool; }
-data Nat := { Zero: (); Succ: Nat; }
+data Nat := { Zero: Nat; Succ: Nat -> Nat; }
 data Eq := \a. { eq: a -> a -> Bool }
 impl Eq Bool := { eq := \x y. True }
 data Dict (c: Constraint) := MkDict c
@@ -130,7 +130,7 @@ useEvidence := \e. case e { MkEvidence x => eq x True }`
 func TestDictReificationStressChain(t *testing.T) {
 	// Chain of Dict pattern matches.
 	source := `data Bool := { True: Bool; False: Bool; }
-data Unit := { MkUnit: (); }
+data Unit := { MkUnit: Unit; }
 data Eq := \a. { eq: a -> a -> Bool }
 data Show := \a. { show: a -> Unit }
 impl Eq Bool := { eq := \x y. True }

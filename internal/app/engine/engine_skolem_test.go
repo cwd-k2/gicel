@@ -33,7 +33,7 @@ func TestUnifySkolemSame(t *testing.T) {
 import Prelude
 data SameTest := { MkSame: \a. a -> a -> SameTest }
 useIt :: SameTest -> Bool
-useIt := \s. case s { MkSame x y -> True }
+useIt := \s. case s { MkSame x y => True }
 `)
 	if err != nil {
 		t.Fatal("existential pattern match should pass:", err)
@@ -49,7 +49,7 @@ func TestSkolemEscapeDetected(t *testing.T) {
 import Prelude
 data Exists := { MkExists: \a. a -> Exists }
 escape :: Exists -> Bool
-escape := \e. case e { MkExists x -> x }
+escape := \e. case e { MkExists x => x }
 `)
 	if err == nil {
 		t.Fatal("expected escape error, got nil")
@@ -79,7 +79,7 @@ func TestSkolemEscapeInMeta(t *testing.T) {
 	_, err := eng.Compile(context.Background(), `
 import Prelude
 data SomeVal := { MkSome: \a. a -> SomeVal }
-leaky := \s. case s { MkSome x -> Just x }
+leaky := \s. case s { MkSome x => Just x }
 `)
 	if err == nil {
 		t.Fatal("expected escape error for Just x where x is existential")
@@ -95,7 +95,7 @@ func TestExistentialBasic(t *testing.T) {
 import Prelude
 data SomeEq := { MkSomeEq: \a. Eq a => a -> SomeEq }
 useSomeEq :: SomeEq -> Bool
-useSomeEq := \s. case s { MkSomeEq x -> eq x x }
+useSomeEq := \s. case s { MkSomeEq x => eq x x }
 main := useSomeEq (MkSomeEq True)
 `)
 	if err != nil {
@@ -115,7 +115,7 @@ func TestExistentialEscapeError(t *testing.T) {
 import Prelude
 data SomeEq := { MkSomeEq: \a. Eq a => a -> SomeEq }
 escape :: SomeEq -> Bool
-escape := \s. case s { MkSomeEq x -> x }
+escape := \s. case s { MkSomeEq x => x }
 `)
 	if err == nil {
 		t.Fatal("expected type error for escaping existential")
@@ -149,7 +149,7 @@ func TestExistentialMixed(t *testing.T) {
 import Prelude
 data Wrapper a := { MkWrapper: \b. (b -> a) -> b -> Wrapper a }
 useWrapper :: Wrapper Bool -> Bool
-useWrapper := \w. case w { MkWrapper f x -> f x }
+useWrapper := \w. case w { MkWrapper f x => f x }
 main := useWrapper (MkWrapper (\x. x) True)
 `)
 	if err != nil {
@@ -169,7 +169,7 @@ func TestExistentialMultiConstraint(t *testing.T) {
 import Prelude
 data ShowOrd := { MkShowOrd: \a. (Eq a, Ord a) => a -> a -> ShowOrd }
 use :: ShowOrd -> Ordering
-use := \s. case s { MkShowOrd x y -> compare x y }
+use := \s. case s { MkShowOrd x y => compare x y }
 `)
 	if err != nil {
 		t.Fatal(err)
@@ -185,7 +185,7 @@ func TestExistentialWithTypeClass(t *testing.T) {
 import Prelude
 data SomeEq := { MkSomeEq: \a. Eq a => a -> SomeEq }
 isSame :: SomeEq -> Bool
-isSame := \s. case s { MkSomeEq x -> eq x x }
+isSame := \s. case s { MkSomeEq x => eq x x }
 main := isSame (MkSomeEq (Just True))
 `)
 	if err != nil {
@@ -207,7 +207,7 @@ import Prelude
 data Typed a := { MkBool: Bool -> Typed Bool; MkUnit: Typed () }
 data SomeTyped := { MkSome: \a. Typed a -> SomeTyped }
 classify :: SomeTyped -> Bool
-classify := \s. case s { MkSome t -> True }
+classify := \s. case s { MkSome t => True }
 main := classify (MkSome (MkBool True))
 `)
 	if err != nil {

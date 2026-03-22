@@ -17,7 +17,7 @@ func TestListPatternExact(t *testing.T) {
 	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 
-f := \xs. case xs { [x, y] -> x + y; _ => 0 }
+f := \xs. case xs { [x, y] => x + y; _ => 0 }
 
 main := f [3, 4]
 `)
@@ -40,7 +40,7 @@ func TestListPatternEmpty(t *testing.T) {
 	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 
-f := \xs. case xs { [] -> "empty"; _ => "nonempty" }
+f := \xs. case xs { [] => "empty"; _ => "nonempty" }
 
 main := f ([] :: List Int)
 `)
@@ -129,7 +129,7 @@ func TestListPatternInAtom(t *testing.T) {
 	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 
-f := \pair. case pair { (xs, n) -> case xs { [x] -> x + n; _ => n } }
+f := \pair. case pair { (xs, n) => case xs { [x] => x + n; _ => n } }
 
 main := f ([10], 5)
 `)

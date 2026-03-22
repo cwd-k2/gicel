@@ -25,9 +25,9 @@ data Expr a := {
 
 renderExpr :: \a. Expr a -> String
 renderExpr := fix (\self expr. case expr {
-  IntLit n     -> showInt n;
-  BoolLit b    -> case b { True => "t"; False => "f" };
-  AddInt lhs rhs -> self lhs <> "+" <> self rhs
+  IntLit n     => showInt n;
+  BoolLit b    => case b { True => "t"; False => "f" };
+  AddInt lhs rhs => self lhs <> "+" <> self rhs
 })
 
 main := renderExpr (AddInt (IntLit 1) (IntLit 2))

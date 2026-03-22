@@ -36,7 +36,7 @@ func TestNoPreludeWithModules(t *testing.T) {
 	eng := NewEngine()
 	// Without prelude, Bool is not defined — need to define it ourselves.
 	rt, err := eng.NewRuntime(context.Background(), `
-data MyBool := Yes | No
+data MyBool := { Yes: MyBool; No: MyBool; }
 main := Yes
 `)
 	if err != nil {
@@ -56,7 +56,7 @@ func TestSetPreludeCustom(t *testing.T) {
 	// Custom prelude replaces default: only defines MyBool, no standard Bool.
 	eng := NewEngine()
 	eng.RegisterModule("Prelude", `
-data MyBool := Yes | No
+data MyBool := { Yes: MyBool; No: MyBool; }
 `)
 	rt, err := eng.NewRuntime(context.Background(), "import Prelude\nmain := Yes")
 	if err != nil {

@@ -345,7 +345,7 @@ func TestFullPipeline(t *testing.T) {
 import Prelude
 data SomeEq := { MkSomeEq: \a. Eq a => a -> SomeEq }
 isSelf :: SomeEq -> Bool
-isSelf := \s. case s { MkSomeEq x -> eq x x }
+isSelf := \s. case s { MkSomeEq x => eq x x }
 applyId :: (\a. a -> a) -> Bool
 applyId := \f. f True
 id :: \a. a -> a

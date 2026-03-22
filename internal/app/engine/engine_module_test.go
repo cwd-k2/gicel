@@ -462,7 +462,7 @@ mkPoint := \x y. MkPoint x y
 getX :: Point -> Int
 getX := \p. case p { MkPoint x _ => x }
 getY :: Point -> Int
-getY := \p. case p { MkPoint _ y -> y }
+getY := \p. case p { MkPoint _ y => y }
 `); err != nil {
 		t.Fatal(err)
 	}
@@ -1022,7 +1022,7 @@ func TestModuleExplainSourceName(t *testing.T) {
 	eng.Use(stdlib.Prelude)
 	err := eng.RegisterModule("Logic", `
 import Prelude
-data Answer := Yes | No
+data Answer := { Yes: Answer; No: Answer; }
 decide :: Answer -> Int
 decide := \a. case a { Yes => 1; No => 0 }
 `)

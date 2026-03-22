@@ -36,7 +36,7 @@ import Prelude
 import Effect.State
 main := thunk (do { put 0; x <- get; pure (x + 1) })`,
 		packs: []stdlib.Pack{stdlib.State}},
-	{name: "type annotation", source: `import Prelude; f: Int -> Int; f := \x. x + 1; main := f 5`},
+	{name: "type annotation", source: `import Prelude; f :: Int -> Int; f := \x. x + 1; main := f 5`},
 	{name: "higher order", source: `import Prelude; apply := \f. \x. f x; main := apply (\x. x + 1) 5`},
 	{name: "class constraint", source: `
 import Prelude
@@ -65,7 +65,7 @@ main := { x: 1, y: True }`},
 	{name: "composition", source: `import Prelude; main := ((\x. x + 1) . (\x. x * 2)) 3`},
 	{name: "check only ADT", source: `
 import Prelude
-data Protocol := Done
+data Protocol := { Done: Protocol; }
 main := Done`, checkOnly: true},
 }
 

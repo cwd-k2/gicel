@@ -102,8 +102,8 @@ data Expr a := { LitBool: Bool -> Expr Bool; Not: Expr Bool -> Expr Bool }
 
 eval :: Expr Bool -> Bool
 eval := fix (\self e. case e {
-  LitBool b -> b;
-  Not inner -> case self inner { True => False; False => True }
+  LitBool b => b;
+  Not inner => case self inner { True => False; False => True }
 })
 
 main := eval (Not (LitBool True))
@@ -130,7 +130,7 @@ data DB := \s. { MkDB: DB s; }
 data Action s := { Open: Action Opened; Close: Action Closed }
 
 describe :: Action Opened -> DB Opened
-describe := \a. case a { Open -> MkDB }
+describe := \a. case a { Open => MkDB }
 
 main := describe Open
 `)
@@ -157,7 +157,7 @@ data Expr a := { LitBool: Bool -> Expr Bool; Not: Expr Bool -> Expr Bool }
 -- Nested pattern: match on Not (LitBool _)
 isDoubleNeg :: Expr Bool -> Bool
 isDoubleNeg := \e. case e {
-  Not inner -> case inner {
+  Not inner => case inner {
     Not _ => True;
     LitBool _ => False
   };
