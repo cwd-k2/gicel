@@ -328,6 +328,7 @@ func newChecker(prog *syntax.AstProgram, source *span.Source, config *CheckConfi
 		solver: &Solver{},
 	}
 	ch.unifier = unify.NewUnifierShared(&ch.freshID)
+	ch.unifier.SolverLevel = 0 // enable touchability system-wide
 	ch.unifier.Budget = ch.budget
 	ch.unifier.OnSolve = func(metaID int) {
 		ch.solver.Reactivate(metaID)
@@ -438,7 +439,11 @@ func (s *Session) restoreState(snap checkerSnapshot) {
 // MUST NOT: emit constraints, push/pop context, mutate inert set.
 func (s *Session) withTrial(fn func() bool) bool {
 	saved := s.saveState()
-	if fn() {
+	savedLevel := s.unifier.SolverLevel
+	s.unifier.SolverLevel = -1 // disable touchability in trial scope
+	result := fn()
+	s.unifier.SolverLevel = savedLevel
+	if result {
 		return true
 	}
 	s.restoreState(saved)
@@ -451,7 +456,10 @@ func (s *Session) withTrial(fn func() bool) bool {
 // MUST NOT: emit constraints, push/pop context, mutate inert set.
 func (s *Session) withProbe(fn func() bool) bool {
 	saved := s.saveState()
+	savedLevel := s.unifier.SolverLevel
+	s.unifier.SolverLevel = -1 // disable touchability in probe scope
 	result := fn()
+	s.unifier.SolverLevel = savedLevel
 	s.restoreState(saved)
 	return result
 }

@@ -91,6 +91,9 @@ func genVarName(i int) string {
 }
 
 // collectUnsolvedMetas walks one or more types and collects all TyMeta nodes.
+// NOTE: currently all metas eligible for generalization are at level 0
+// (top-level). If nested let-generalization is added, this should filter
+// by meta.Level <= solver.level to avoid generalizing inner-level metas.
 func collectUnsolvedMetas(tys ...types.Type) []metaInfo {
 	seen := make(map[int]bool)
 	var result []metaInfo
