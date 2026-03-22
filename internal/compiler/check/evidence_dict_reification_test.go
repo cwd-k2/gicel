@@ -95,7 +95,7 @@ func TestDictReificationNested(t *testing.T) {
 data Eq := \a. { eq: a -> a -> Bool }
 impl Eq Bool := { eq := \x y. True }
 data Dict (c: Constraint) := MkDict c
-data Pair := \a b. { MkPair: (a, b); }
+data Pair := \a b. { MkPair: a -> b; }
 wrapDict :: Dict (Eq Bool) -> Pair (Dict (Eq Bool)) Bool
 wrapDict := \d. MkPair d True`
 	checkSource(t, source, nil)

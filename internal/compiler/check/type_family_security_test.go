@@ -27,7 +27,7 @@ func TestSecurityTypeFamilyDoublingRHS(t *testing.T) {
 	// This doubles the type size on each reduction step.
 	// After 100 steps, the type would be 2^100 nodes — but fuel stops it.
 	source := `
-data Pair := \a b. { MkPair: (a, b); }
+data Pair := \a b. { MkPair: a -> b; }
 data Unit := { Unit: (); }
 type Grow (a: Type) :: Type := {
   Grow a =: Grow (Pair a a)
@@ -50,7 +50,7 @@ f := \x. x
 // because the RHS type Cons Unit (GrowList ...) doesn't reduce to Unit.
 func TestSecurityTypeFamilyLinearGrowth(t *testing.T) {
 	source := `
-data List := \a. { Nil: (); Cons: (a, List a); }
+data List := \a. { Nil: (); Cons: a -> List a; }
 data Unit := { Unit: (); }
 type GrowList (a: Type) :: Type := {
   GrowList a =: Cons Unit (GrowList a)
@@ -322,7 +322,7 @@ func TestPerformanceSnapshotCost(t *testing.T) {
 	// A program that creates many metavariables through polymorphic usage.
 	source := `
 data Bool := { True: (); False: (); }
-data List := \a. { Nil: (); Cons: (a, List a); }
+data List := \a. { Nil: (); Cons: a -> List a; }
 data Unit := { Unit: (); }
 
 id :: \ a. a -> a
@@ -443,7 +443,7 @@ func TestSecurityExponentialTypeGrowth(t *testing.T) {
 	//
 	// Let's test the worst case: a single family that explicitly doubles.
 	source := `
-data Pair := \a b. { MkPair: (a, b); }
+data Pair := \a b. { MkPair: a -> b; }
 data Unit := { Unit: (); }
 type Explode (a: Type) :: Type := {
   Explode a =: Explode (Pair a a)

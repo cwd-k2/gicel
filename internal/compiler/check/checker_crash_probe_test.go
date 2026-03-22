@@ -282,7 +282,7 @@ main := f True
 func TestProbeE_Crash_PolymorphicRecursionWithoutAnnotation(t *testing.T) {
 	source := `
 data Bool := { True: (); False: (); }
-data List := \a. { Nil: (); Cons: (a, List a); }
+data List := \a. { Nil: (); Cons: a -> List a; }
 -- Without a type annotation, this would require polymorphic recursion
 -- which is undecidable. The checker should either reject it or handle it
 -- with the fuel limit.

@@ -170,7 +170,7 @@ func TestGADTSafeExistentialsInGivenEq(t *testing.T) {
 	// GADT constructor where existentials appear in the given eq values.
 	// These are safe — they're part of the GADT refinement.
 	source := `
-data Pair := \a b. { MkPair: (a, b); }
+data Pair := \a b. { MkPair: a -> b; }
 data Expr a := {
   PairLit: \b c. b -> c -> Expr (Pair b c)
 }

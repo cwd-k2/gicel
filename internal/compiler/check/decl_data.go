@@ -49,15 +49,19 @@ func (ch *Checker) processDataDecl(d *syntax.DeclData, prog *ir.Program) {
 		conName := field.Label
 		fieldTy := ch.resolveTypeExpr(field.Type)
 
-		// Build constructor type: field type → result type.
-		// For nullary constructors (type = ()), the constructor type is just the result type.
+		// Build constructor type from field type.
+		// Arrow chain: Cons: a -> List a  →  constructor type = a -> List a -> List a (appending result)
+		// Nullary: Nil: ()  →  constructor type = List a
+		// Single field: Just: a  →  constructor type = a -> Maybe a
 		var conType types.Type
 		var fieldTypes []types.Type
 		if isUnitType(fieldTy) {
+			// Nullary constructor
 			conType = resultType
 		} else {
-			conType = types.MkArrow(fieldTy, resultType)
-			fieldTypes = []types.Type{fieldTy}
+			// Decompose arrow chain into individual fields.
+			// a -> b -> c  becomes fields [a, b] with result c replaced by our resultType.
+			conType, fieldTypes = decomposeArrowFields(fieldTy, resultType)
 		}
 
 		// Wrap in forall for type params.
@@ -82,6 +86,36 @@ func (ch *Checker) processDataDecl(d *syntax.DeclData, prog *ir.Program) {
 			ch.reg.RegisterPromotedCon(field.Label, dataKind)
 		}
 	}
+}
+
+// decomposeArrowFields takes a field type and the expected result type.
+// If the field type is an arrow chain (a -> b -> c), the last type in the chain
+// is replaced by resultType, and the intermediate types become constructor fields.
+// If the field type is NOT an arrow, it's a single-field constructor.
+//
+//	a -> List a  + resultType=List a  →  conType = a -> List a -> List a, fields = [a, List a]
+//	a            + resultType=Maybe a →  conType = a -> Maybe a, fields = [a]
+func decomposeArrowFields(fieldTy types.Type, resultType types.Type) (conType types.Type, fieldTypes []types.Type) {
+	// Collect arrow chain fields.
+	ty := fieldTy
+	for {
+		if arr, ok := ty.(*types.TyArrow); ok {
+			fieldTypes = append(fieldTypes, arr.From)
+			ty = arr.To
+		} else {
+			// Last element: this is either the "return type" (to be replaced)
+			// or a single field. For constructors, we always append resultType.
+			fieldTypes = append(fieldTypes, ty)
+			break
+		}
+	}
+
+	// Build constructor type: field1 -> field2 -> ... -> resultType
+	conType = resultType
+	for i := len(fieldTypes) - 1; i >= 0; i-- {
+		conType = types.MkArrow(fieldTypes[i], conType)
+	}
+	return conType, fieldTypes
 }
 
 // isUnitType checks if a type is the unit type: Record {} or ().

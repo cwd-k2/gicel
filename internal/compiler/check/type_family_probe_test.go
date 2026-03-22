@@ -45,7 +45,7 @@ func TestProbeA_TF_FamilyReturningRowUsedInRecord(t *testing.T) {
 	source := `
 data Bool := { True: (); False: (); }
 data Unit := { Unit: (); }
-data List := \a. { Nil: (); Cons: (a, List a); }
+data List := \a. { Nil: (); Cons: a -> List a; }
 
 type Elem (c: Type) :: Type := {
   Elem (List a) =: a;
@@ -68,7 +68,7 @@ func TestProbeA_TF_NestedFamilyApplication(t *testing.T) {
 	source := `
 data Unit := { Unit: (); }
 data Bool := { True: (); False: (); }
-data List := \a. { Nil: (); Cons: (a, List a); }
+data List := \a. { Nil: (); Cons: a -> List a; }
 
 type Wrap (a: Type) :: Type := {
   Wrap a =: List a
@@ -92,7 +92,7 @@ func TestProbeA_TF_FamilyInFunctionArg(t *testing.T) {
 	source := `
 data Unit := { Unit: (); }
 data Bool := { True: (); False: (); }
-data List := \a. { Nil: (); Cons: (a, List a); }
+data List := \a. { Nil: (); Cons: a -> List a; }
 
 type Elem (c: Type) :: Type := {
   Elem (List a) =: a
@@ -111,7 +111,7 @@ main := g True False
 func TestProbeA_TF_RecursiveFamilyExponentialGrowth(t *testing.T) {
 	source := `
 data Unit := { Unit: (); }
-data Pair := \a b. { MkPair: (a, b); }
+data Pair := \a b. { MkPair: a -> b; }
 
 type Grow (a: Type) :: Type := {
   Grow a =: Grow (Pair a a)
@@ -129,7 +129,7 @@ func TestProbeA_TF_AssociatedTypeMultipleInstances(t *testing.T) {
 	source := `
 data Unit := { Unit: (); }
 data Bool := { True: (); False: (); }
-data List := \a. { Nil: (); Cons: (a, List a); }
+data List := \a. { Nil: (); Cons: a -> List a; }
 
 data Container := \c. {
   type Elem c :: Type;
@@ -165,7 +165,7 @@ data Bool := { True: (); False: (); }
 type OnlyList (c: Type) :: Type := {
   OnlyList (List a) =: a
 }
-data List := \a. { Nil: (); Cons: (a, List a); }
+data List := \a. { Nil: (); Cons: a -> List a; }
 
 -- OnlyList Bool: no equation matches. Stuck family -> type mismatch.
 f :: OnlyList Bool -> Unit
@@ -215,7 +215,7 @@ func TestProbeD_TF_StuckOnUnsolvedMeta(t *testing.T) {
 	source := `
 data Unit := { Unit: (); }
 data Bool := { True: (); False: (); }
-data List := \a. { Nil: (); Cons: (a, List a); }
+data List := \a. { Nil: (); Cons: a -> List a; }
 
 type Elem (c: Type) :: Type := {
   Elem (List a) =: a
@@ -343,7 +343,7 @@ main := (Z :: Loop Z)
 func TestProbeE_TypeFamily_ExponentialGrowth(t *testing.T) {
 	source := `
 data Unit := { Unit: (); }
-data Pair := \a b. { MkPair: (a, b); }
+data Pair := \a b. { MkPair: a -> b; }
 
 type Grow (a: Type) :: Type := {
   Grow a =: Pair (Grow a) (Grow a)

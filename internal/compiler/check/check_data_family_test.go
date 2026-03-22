@@ -27,7 +27,7 @@ data Collection := \a. {
 func TestDataFamilyParseInstanceDef(t *testing.T) {
 	// data family instance inside instance body
 	source := `
-data List := \a. { Nil: (); Cons: (a, List a); }
+data List := \a. { Nil: (); Cons: a -> List a; }
 
 data Collection := \a. {
   data Elem a :: Type;
@@ -47,7 +47,7 @@ impl Collection (List a) := {
 func TestDataFamilyConstructorType(t *testing.T) {
 	// The mangled constructor should be usable as a value
 	source := `
-data List := \a. { Nil: (); Cons: (a, List a); }
+data List := \a. { Nil: (); Cons: a -> List a; }
 data Unit := { Unit: (); }
 
 data Collection := \a. {
@@ -69,7 +69,7 @@ x := ListElem Unit
 func TestDataFamilyMultipleInstances(t *testing.T) {
 	// Different instances define different constructors for the same family
 	source := `
-data List := \a. { Nil: (); Cons: (a, List a); }
+data List := \a. { Nil: (); Cons: a -> List a; }
 data Unit := { Unit: (); }
 
 data Collection := \a. {
@@ -100,7 +100,7 @@ y := UnitElem
 
 func TestDataFamilyPatternMatch(t *testing.T) {
 	source := `
-data List := \a. { Nil: (); Cons: (a, List a); }
+data List := \a. { Nil: (); Cons: a -> List a; }
 data Unit := { Unit: (); }
 
 data Collection := \a. {
@@ -158,7 +158,7 @@ func TestDataFamilyTypeReduction(t *testing.T) {
 		RegisteredTypes: map[string]types.Kind{"Int": types.KType{}},
 	}
 	source := `
-data List := \a. { Nil: (); Cons: (a, List a); }
+data List := \a. { Nil: (); Cons: a -> List a; }
 data Unit := { Unit: (); }
 
 data Collection := \a. {

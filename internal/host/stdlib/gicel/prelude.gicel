@@ -1,7 +1,7 @@
 data Bool := { True: (); False: (); }
 data Result := \e a. { Ok: a; Err: e; }
 data Maybe := \a. { Just: a; Nothing: (); }
-data List := \a. { Cons: (a, List a); Nil: (); }
+data List := \a. { Cons: a -> List a; Nil: (); }
 data Ordering := { LT: (); EQ: (); GT: (); }
 
 data Eq := \a. { eq: a -> a -> Bool }

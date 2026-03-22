@@ -292,7 +292,7 @@ main := f (Just 42)`
 
 func TestPatternConArityTooFew(t *testing.T) {
 	// Pair takes two args, pattern supplies one → should error.
-	source := `data Pair := \a b. { MkPair: (a, b); }
+	source := `data Pair := \a b. { MkPair: a -> b; }
 f :: Pair Int Int -> Int
 f := \x. case x { MkPair a => a }
 main := f (MkPair 1 2)`

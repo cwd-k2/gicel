@@ -88,7 +88,7 @@ main := f True`
 func TestEvidenceResolveNested(t *testing.T) {
 	// Nested evidence: using a method inside an instance method.
 	source := `data Bool := { True: (); False: (); }
-data Pair := \a b. { MkPair: (a, b); }
+data Pair := \a b. { MkPair: a -> b; }
 data Eq := \a. { eq: a -> a -> Bool }
 impl Eq Bool := { eq := \x y. True }
 impl Eq a => Eq b => Eq (Pair a b) := { eq := \x y. True }

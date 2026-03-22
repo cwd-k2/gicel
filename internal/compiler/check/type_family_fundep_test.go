@@ -31,7 +31,7 @@ type Add (a: Nat) (b: Nat) :: Nat := {
 data NatProxy (n: Nat) := MkProxy
 
 -- Elem: container element extraction.
-data List := \a. { Nil: (); Cons: (a, List a); }
+data List := \a. { Nil: (); Cons: a -> List a; }
 data Maybe := \a. { Nothing: (); Just: a; }
 
 type Elem (c: Type) :: Type := {
@@ -158,7 +158,7 @@ func TestAdvancedFunDepInference(t *testing.T) {
 data Unit := { Unit: (); }
 data Bool := { True: (); False: (); }
 data Maybe := \a. { Nothing: (); Just: a; }
-data List := \a. { Nil: (); Cons: (a, List a); }
+data List := \a. { Nil: (); Cons: a -> List a; }
 
 -- Convert class with fundep: source type determines target.
 data Convert := \a b | a =: b. {
@@ -265,7 +265,7 @@ func TestAdvancedFunDepWithTypeFamily(t *testing.T) {
 	source := `
 data Unit := { Unit: (); }
 data Maybe := \a. { Nothing: (); Just: a; }
-data List := \a. { Nil: (); Cons: (a, List a); }
+data List := \a. { Nil: (); Cons: a -> List a; }
 
 type Elem (c: Type) :: Type := {
   Elem (List a) =: a;

@@ -190,7 +190,7 @@ main := f True`
 func TestEdgeConstraintWithForall(t *testing.T) {
 	// \ a b. (Eq a, Eq b) => Pair a b -> Bool
 	source := `data Bool := { True: (); False: (); }
-data Pair := \a b. { MkPair: (a, b); }
+data Pair := \a b. { MkPair: a -> b; }
 data Eq := \a. { eq: a -> a -> Bool }
 impl Eq Bool := { eq := \x y. True }
 impl Eq a => Eq b => Eq (Pair a b) := { eq := \x y. True }
