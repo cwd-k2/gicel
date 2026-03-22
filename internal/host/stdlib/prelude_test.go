@@ -7,8 +7,8 @@ import (
 
 func TestCoreSourceContainsEssentials(t *testing.T) {
 	for _, want := range []string{
-		"class IxMonad",
-		"instance IxMonad Computation",
+		"data IxMonad",
+		"impl IxMonad Computation",
 		"type Lift",
 		"type Effect",
 		"then :=",
@@ -25,9 +25,8 @@ func TestCoreSourceDoesNotContainPrelude(t *testing.T) {
 		"data Maybe",
 		"data List",
 		"data Ordering",
-		"class Eq a",
-		"Ord a {",
-		"class Functor",
+		"data Eq",
+		"data Functor",
 	} {
 		if strings.Contains(CoreSource, unwanted) {
 			t.Errorf("CoreSource should not contain %q", unwanted)
@@ -41,9 +40,8 @@ func TestPreludeSourceContainsStdlib(t *testing.T) {
 		"data Maybe",
 		"data List",
 		"data Ordering",
-		"class Eq a",
-		"Ord a {",
-		"class Functor",
+		"data Eq",
+		"data Functor",
 		"id :=",
 		"fst :=",
 		"snd :=",
@@ -56,8 +54,8 @@ func TestPreludeSourceContainsStdlib(t *testing.T) {
 
 func TestPreludeSourceDoesNotContainCore(t *testing.T) {
 	for _, unwanted := range []string{
-		"class IxMonad",
-		"instance IxMonad Computation",
+		"data IxMonad",
+		"impl IxMonad Computation",
 		"type Lift",
 		"type Effect",
 	} {

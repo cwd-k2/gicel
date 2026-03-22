@@ -150,8 +150,8 @@ func TestMalformedListSyntax(t *testing.T) {
 		{"trailing comma in pattern", "import Prelude; f := \\xs. case xs { [x,] -> x; _ => 0 }; main := 0", "expected pattern"},
 		{"double comma in literal", "import Prelude; main := [1,,2]", "expected expression"},
 		{"semicolon in list", "import Prelude; main := [1; 2; 3]", "expected ]"},
-		{"list type mismatch", `import Prelude; f :: List Int -> Int; f := \xs. case xs { ["hello"] -> 0; _ => 1 }; main := 0`, "type mismatch"},
-		{"list pattern on non-list", `import Prelude; f :: Int -> Int; f := \x. case x { [a] -> a; _ => 0 }; main := 0`, "type mismatch"},
+		{"list type mismatch", `import Prelude; f: List Int -> Int; f := \xs. case xs { ["hello"] -> 0; _ => 1 }; main := 0`, "type mismatch"},
+		{"list pattern on non-list", `import Prelude; f: Int -> Int; f := \x. case x { [a] -> a; _ => 0 }; main := 0`, "type mismatch"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

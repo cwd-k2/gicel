@@ -377,9 +377,9 @@ main := x
 func TestAdversarial_OverlappingInstances(t *testing.T) {
 	src := `
 import Prelude
-class MyClass a { myMethod :: a -> Int }
-instance MyClass Int { myMethod := \x. x }
-instance MyClass a { myMethod := \x. 0 }
+data MyClass := \a. { myMethod: a -> Int }
+impl MyClass Int := { myMethod := \x. x }
+impl MyClass a := { myMethod := \x. 0 }
 main := myMethod 42
 `
 	_, err := gicel.RunSandbox(src, &gicel.SandboxConfig{
@@ -441,21 +441,21 @@ func TestAdversarial_DeepPolymorphicChain(t *testing.T) {
 func TestAdversarial_SuperclassChain(t *testing.T) {
 	src := `
 import Prelude
-class A a { methodA :: a -> Int }
-class A a => B a { methodB :: a -> Int }
-class B a => C a { methodC :: a -> Int }
-class C a => D a { methodD :: a -> Int }
-class D a => E a { methodE :: a -> Int }
-class E a => F a { methodF :: a -> Int }
-class F a => G a { methodG :: a -> Int }
+data A := \a. { methodA: a -> Int }
+data B := \a. A a => { methodB: a -> Int }
+data C := \a. B a => { methodC: a -> Int }
+data D := \a. C a => { methodD: a -> Int }
+data E := \a. D a => { methodE: a -> Int }
+data F := \a. E a => { methodF: a -> Int }
+data G := \a. F a => { methodG: a -> Int }
 
-instance A Int { methodA := \x. x }
-instance B Int { methodB := \x. x + 1 }
-instance C Int { methodC := \x. x + 2 }
-instance D Int { methodD := \x. x + 3 }
-instance E Int { methodE := \x. x + 4 }
-instance F Int { methodF := \x. x + 5 }
-instance G Int { methodG := \x. x + 6 }
+impl A Int := { methodA := \x. x }
+impl B Int := { methodB := \x. x + 1 }
+impl C Int := { methodC := \x. x + 2 }
+impl D Int := { methodD := \x. x + 3 }
+impl E Int := { methodE := \x. x + 4 }
+impl F Int := { methodF := \x. x + 5 }
+impl G Int := { methodG := \x. x + 6 }
 
 main := methodG 42
 `
@@ -639,7 +639,7 @@ runReader :: \e a. Reader e a -> e -> a
 runReader := \r env. case r { MkReader f -> f env }
 ask :: \e. Reader e e
 ask := MkReader (\e. e)
-instance Monad (Reader e) {
+impl Monad (Reader e) := {
   mpure := \a. MkReader (\_. a);
   mbind := \ma f. MkReader (\env. runReader (f (runReader ma env)) env)
 }
