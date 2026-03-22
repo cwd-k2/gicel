@@ -87,7 +87,7 @@ func BenchmarkEngineNewRuntimePrelude(b *testing.B) {
 func BenchmarkEngineNewRuntimeWithModules(b *testing.B) {
 	modTemplate := `data M%dBool := M%dTrue | M%dFalse
 _m%dNot :: M%dBool -> M%dBool
-_m%dNot := \x. case x { M%dTrue -> M%dFalse; M%dFalse -> M%dTrue }
+_m%dNot := \x. case x { M%dTrue => M%dFalse; M%dFalse => M%dTrue }
 `
 	mainSource := "import Prelude\nimport M1\nimport M2\nimport M3\nmain := True\n"
 	for b.Loop() {

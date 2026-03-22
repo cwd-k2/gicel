@@ -64,7 +64,7 @@ func TestExplainLineNumbersForBindAndMatch(t *testing.T) {
 	))
 
 	var steps []eval.ExplainStep
-	rt, err := eng.NewRuntime(context.Background(), "import Prelude\nmain := do {\n  x <- getBool;\n  case x {\n    True -> pure x;\n    False -> pure x\n  }\n}")
+	rt, err := eng.NewRuntime(context.Background(), "import Prelude\nmain := do {\n  x <- getBool;\n  case x {\n    True => pure x;\n    False => pure x\n  }\n}")
 	if err != nil {
 		t.Fatal(err)
 	}

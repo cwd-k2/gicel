@@ -18,10 +18,10 @@ func TestDataKindsDBState(t *testing.T) {
 data DBState := Opened | Closed
 data DB s := MkDB
 
-open :: DB Closed -> DB Opened
+open: DB Closed -> DB Opened
 open := \_. MkDB
 
-close :: DB Opened -> DB Closed
+close: DB Opened -> DB Closed
 close := \_. MkDB
 
 main := close (open (MkDB :: DB Closed))
@@ -50,10 +50,10 @@ func TestDataKindsInRow(t *testing.T) {
 import Prelude
 data DBState := Opened | Closed
 
-readDB :: () -> Computation { db: Int } { db: Int } Int
+readDB: () -> Computation { db: Int } { db: Int } Int
 readDB := assumption
 
-main :: Computation { db: Int } { db: Int } Int
+main: Computation { db: Int } { db: Int } Int
 main := do { readDB () }
 `)
 	if err != nil {
@@ -98,12 +98,12 @@ func TestGADTEvalExpr(t *testing.T) {
 	eng.EnableRecursion()
 	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
-data Expr a := { LitBool :: Bool -> Expr Bool; Not :: Expr Bool -> Expr Bool }
+data Expr a := { LitBool: Bool -> Expr Bool; Not: Expr Bool -> Expr Bool }
 
-eval :: Expr Bool -> Bool
+eval: Expr Bool -> Bool
 eval := fix (\self e. case e {
   LitBool b -> b;
-  Not inner -> case self inner { True -> False; False -> True }
+  Not inner -> case self inner { True => False; False => True }
 })
 
 main := eval (Not (LitBool True))
@@ -127,9 +127,9 @@ func TestGADTWithDataKinds(t *testing.T) {
 data DBState := Opened | Closed
 data DB s := MkDB
 
-data Action s := { Open :: Action Opened; Close :: Action Closed }
+data Action s := { Open: Action Opened; Close: Action Closed }
 
-describe :: Action Opened -> DB Opened
+describe: Action Opened -> DB Opened
 describe := \a. case a { Open -> MkDB }
 
 main := describe Open
@@ -152,16 +152,16 @@ func TestGADTNestedPattern(t *testing.T) {
 	eng.Use(stdlib.Prelude)
 	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
-data Expr a := { LitBool :: Bool -> Expr Bool; Not :: Expr Bool -> Expr Bool }
+data Expr a := { LitBool: Bool -> Expr Bool; Not: Expr Bool -> Expr Bool }
 
 -- Nested pattern: match on Not (LitBool _)
 isDoubleNeg :: Expr Bool -> Bool
 isDoubleNeg := \e. case e {
   Not inner -> case inner {
-    Not _ -> True;
-    LitBool _ -> False
+    Not _ => True;
+    LitBool _ => False
   };
-  LitBool _ -> False
+  LitBool _ => False
 }
 
 main := isDoubleNeg (Not (Not (LitBool True)))

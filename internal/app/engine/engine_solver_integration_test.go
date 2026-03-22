@@ -30,13 +30,13 @@ var solverTestCases = []solverTestCase{
 	{name: "polymorphic", source: `import Prelude; id := \x. x; main := id (id 1)`},
 	{name: "pair", source: `import Prelude; main := (1, True)`},
 	{name: "list", source: `import Prelude; main := [1, 2, 3]`},
-	{name: "case", source: `import Prelude; main := case True { True -> 1; False -> 0 }`},
+	{name: "case", source: `import Prelude; main := case True { True => 1; False => 0 }`},
 	{name: "do notation", source: `
 import Prelude
 import Effect.State
 main := thunk (do { put 0; x <- get; pure (x + 1) })`,
 		packs: []stdlib.Pack{stdlib.State}},
-	{name: "type annotation", source: `import Prelude; f :: Int -> Int; f := \x. x + 1; main := f 5`},
+	{name: "type annotation", source: `import Prelude; f: Int -> Int; f := \x. x + 1; main := f 5`},
 	{name: "higher order", source: `import Prelude; apply := \f. \x. f x; main := apply (\x. x + 1) 5`},
 	{name: "class constraint", source: `
 import Prelude
@@ -46,7 +46,7 @@ main := double 5`},
 	{name: "nested constraints", source: `
 import Prelude
 f :: (Eq a, Show a) => a -> String
-f := \x. case x == x { True -> show x; False -> "no" }
+f := \x. case x == x { True => show x; False => "no" }
 main := f 42`},
 	{name: "type family basic", source: `
 import Prelude

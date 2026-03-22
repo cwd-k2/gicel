@@ -73,7 +73,7 @@ func FuzzParser(f *testing.F) {
 func FuzzCheck(f *testing.F) {
 	addSeedCorpus(f)
 	f.Add([]byte("id :: \\ a. a -> a; id := \\x. x; main := id True"))
-	f.Add([]byte("data Maybe a := Nothing | Just a; main := Just True"))
+	f.Add([]byte("data Maybe := \a. { Nothing: Maybe a; Just: a -> Maybe a; }; main := Just True"))
 	f.Add([]byte("f :: Int -> Int; f := \\x. x; main := f 42"))
 
 	f.Fuzz(func(t *testing.T, src []byte) {
@@ -115,7 +115,7 @@ func FuzzEval(f *testing.F) {
 	addSeedCorpus(f)
 	f.Add([]byte("main := True"))
 	f.Add([]byte("id := \\x. x; main := id True"))
-	f.Add([]byte("data Pair a b := MkPair a b; main := MkPair True False"))
+	f.Add([]byte("data Pair := \a b. { MkPair: a -> b -> Pair a b; }; main := MkPair True False"))
 
 	f.Fuzz(func(t *testing.T, src []byte) {
 		_, err := RunSandbox(string(src), &SandboxConfig{

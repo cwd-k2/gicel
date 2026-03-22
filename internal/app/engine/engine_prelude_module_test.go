@@ -76,7 +76,7 @@ func TestSetPreludeCoreStillAvailable(t *testing.T) {
 	// Core definitions (IxMonad, Effect, then) available even with custom Prelude.
 	eng := NewEngine()
 	eng.RegisterModule("Prelude", `
-data Bool := True | False
+data Bool := { True: Bool; False: Bool; }
 `)
 	// Effect and then come from CoreSource, Bool from custom prelude.
 	rt, err := eng.NewRuntime(context.Background(), `

@@ -15,9 +15,9 @@ import (
 func TestRegisterModule(t *testing.T) {
 	eng := NewEngine()
 	err := eng.RegisterModule("Lib", `
-data Bool := True | False
+data Bool := { True: Bool; False: Bool; }
 not :: Bool -> Bool
-not := \b. case b { True -> False; False -> True }
+not := \b. case b { True => False; False => True }
 `)
 	if err != nil {
 		t.Fatal(err)
@@ -27,9 +27,9 @@ not := \b. case b { True -> False; False -> True }
 func TestImportModuleTypes(t *testing.T) {
 	eng := NewEngine()
 	err := eng.RegisterModule("Lib", `
-data Bool := True | False
+data Bool := { True: Bool; False: Bool; }
 not :: Bool -> Bool
-not := \b. case b { True -> False; False -> True }
+not := \b. case b { True => False; False => True }
 `)
 	if err != nil {
 		t.Fatal(err)
@@ -54,9 +54,9 @@ main := not True
 func TestImportModuleInstances(t *testing.T) {
 	eng := NewEngine()
 	err := eng.RegisterModule("EqLib", `
-data Bool := True | False
-class Eq a { eq :: a -> a -> Bool }
-instance Eq Bool { eq := \x y. True }
+data Bool := { True: Bool; False: Bool; }
+data Eq := \a. { eq: a -> a -> Bool }
+impl Eq Bool := { eq := \x y. True }
 `)
 	if err != nil {
 		t.Fatal(err)
@@ -121,7 +121,7 @@ func TestCircularImportError(t *testing.T) {
 	// Register module A that imports B.
 	err := eng.RegisterModule("A", `
 import B
-data Unit := Unit
+data Unit := { Unit: Unit; }
 `)
 	// Should fail because B is not registered.
 	if err == nil {
@@ -143,7 +143,7 @@ data Void := MkVoid
 func TestImportNameCollision(t *testing.T) {
 	eng := NewEngine()
 	// Module A defines Bool.
-	err := eng.RegisterModule("A", `data Bool := True | False`)
+	err := eng.RegisterModule("A", `data Bool := { True: Bool; False: Bool; }`)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -194,14 +194,14 @@ main := Just (v1 + v2)
 func TestModuleAccumulation(t *testing.T) {
 	eng := NewEngine()
 	err := eng.RegisterModule("A", `
-data Bool := True | False
+data Bool := { True: Bool; False: Bool; }
 `)
 	if err != nil {
 		t.Fatal(err)
 	}
 	err = eng.RegisterModule("B", `
 import A
-data Pair a b := MkPair a b
+data Pair := \a b. { MkPair: a -> b -> Pair a b; }
 `)
 	if err != nil {
 		t.Fatal(err)
@@ -403,7 +403,7 @@ main := L.MkX
 func TestSelectiveImportAllSubs(t *testing.T) {
 	eng := NewEngine()
 	err := eng.RegisterModule("Lib", `
-data Maybe a := Nothing | Just a
+data Maybe := \a. { Nothing: Maybe a; Just: a -> Maybe a; }
 `)
 	if err != nil {
 		t.Fatal(err)
@@ -460,7 +460,7 @@ data Point := MkPoint Int Int
 mkPoint :: Int -> Int -> Point
 mkPoint := \x y. MkPoint x y
 getX :: Point -> Int
-getX := \p. case p { MkPoint x _ -> x }
+getX := \p. case p { MkPoint x _ => x }
 getY :: Point -> Int
 getY := \p. case p { MkPoint _ y -> y }
 `); err != nil {
@@ -793,8 +793,8 @@ func TestSelectiveImportAlwaysImportsInstances(t *testing.T) {
 	}
 	err := eng.RegisterModule("EqLib", `
 data MyBool := MyTrue | MyFalse
-class MyEq a { myEq :: a -> a -> MyBool }
-instance MyEq MyBool { myEq := \_ _. MyTrue }
+data MyEq := \a. { myEq: a -> a -> MyBool }
+impl MyEq MyBool := { myEq := \_ _. MyTrue }
 `)
 	if err != nil {
 		t.Fatal(err)
@@ -824,8 +824,8 @@ func TestQualifiedImportAlwaysImportsInstances(t *testing.T) {
 	}
 	err := eng.RegisterModule("EqLib", `
 data MyBool := MyTrue | MyFalse
-class MyEq a { myEq :: a -> a -> MyBool }
-instance MyEq MyBool { myEq := \_ _. MyTrue }
+data MyEq := \a. { myEq: a -> a -> MyBool }
+impl MyEq MyBool := { myEq := \_ _. MyTrue }
 `)
 	if err != nil {
 		t.Fatal(err)
@@ -998,8 +998,8 @@ func TestQualifiedConstraintUserClass(t *testing.T) {
 	}
 	err := eng.RegisterModule("MyLib", `
 import Prelude
-class MyClass a { myMethod :: a -> Int }
-instance MyClass Int { myMethod := \x. x + 1 }
+data MyClass := \a. { myMethod: a -> Int }
+impl MyClass Int := { myMethod := \x. x + 1 }
 `)
 	if err != nil {
 		t.Fatal(err)

@@ -105,7 +105,7 @@ func TestStepLimit(t *testing.T) {
 	eng.EnableRecursion()
 	// No recursion in source, just a program that completes in few steps.
 	rt, err := eng.NewRuntime(context.Background(), `
-data Unit := Unit
+data Unit := { Unit: Unit; }
 main := Unit
 `)
 	if err != nil {
@@ -208,7 +208,7 @@ func TestRuntimeConcurrent(t *testing.T) {
 	eng.Use(stdlib.Prelude)
 	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
-not := \b. case b { True -> False; False -> True }
+not := \b. case b { True => False; False => True }
 main := not False
 `)
 	if err != nil {
@@ -482,7 +482,7 @@ func TestCustomPack(t *testing.T) {
 		return r.RegisterModule("Custom", `
 import Prelude
 
-myConst :: Int
+myConst: Int
 myConst := assumption
 
 main := myConst

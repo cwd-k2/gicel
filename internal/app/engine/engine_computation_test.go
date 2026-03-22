@@ -79,7 +79,7 @@ func TestCaseExpression(t *testing.T) {
 	eng.Use(stdlib.Prelude)
 	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
-not := \b. case b { True -> False; False -> True }
+not := \b. case b { True => False; False => True }
 main := not True
 `)
 	if err != nil {
@@ -137,7 +137,7 @@ func TestNestedCase(t *testing.T) {
 	eng.Use(stdlib.Prelude)
 	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
-bothTrue := \x y. case x { True -> case y { True -> True; False -> False }; False -> False }
+bothTrue := \x y. case x { True => case y { True => True; False => False }; False => False }
 main := bothTrue True True
 `)
 	if err != nil {

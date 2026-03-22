@@ -15,12 +15,12 @@ import (
 func TestTypeClassEqBool(t *testing.T) {
 	eng := NewEngine()
 	rt, err := eng.NewRuntime(context.Background(), `
-data Bool := True | False
-class Eq a { eq :: a -> a -> Bool }
-instance Eq Bool {
+data Bool := { True: Bool; False: Bool; }
+data Eq := \a. { eq: a -> a -> Bool }
+impl Eq Bool := {
   eq := \x y. case x {
-    True  -> case y { True -> True;  False -> False };
-    False -> case y { True -> False; False -> True }
+    True  -> case y { True => True;  False => False };
+    False => case y { True => False; False => True }
   }
 }
 main := eq True False
@@ -41,12 +41,12 @@ main := eq True False
 func TestTypeClassPolymorphic(t *testing.T) {
 	eng := NewEngine()
 	rt, err := eng.NewRuntime(context.Background(), `
-data Bool := True | False
-class Eq a { eq :: a -> a -> Bool }
-instance Eq Bool {
+data Bool := { True: Bool; False: Bool; }
+data Eq := \a. { eq: a -> a -> Bool }
+impl Eq Bool := {
   eq := \x y. case x {
-    True  -> case y { True -> True;  False -> False };
-    False -> case y { True -> False; False -> True }
+    True  -> case y { True => True;  False => False };
+    False => case y { True => False; False => True }
   }
 }
 f :: \a. Eq a => a -> a -> Bool
@@ -69,13 +69,13 @@ main := f True True
 func TestTypeClassSuperclass(t *testing.T) {
 	eng := NewEngine()
 	rt, err := eng.NewRuntime(context.Background(), `
-data Bool := True | False
-class Eq a { eq :: a -> a -> Bool }
-class Eq a => Ord a { lt :: a -> a -> Bool }
-instance Eq Bool {
+data Bool := { True: Bool; False: Bool; }
+data Eq := \a. { eq: a -> a -> Bool }
+data Ord := \a. Eq a => { lt: a -> a -> Bool }
+impl Eq Bool := {
   eq := \x y. True
 }
-instance Ord Bool {
+impl Ord Bool := {
   lt := \x y. False
 }
 useOrd :: \a. Ord a => a -> a -> Bool
@@ -98,16 +98,16 @@ main := useOrd True False
 func TestTypeClassFunctor(t *testing.T) {
 	eng := NewEngine()
 	rt, err := eng.NewRuntime(context.Background(), `
-data Bool := True | False
+data Bool := { True: Bool; False: Bool; }
 data Maybe a := Just a | Nothing
-class Functor f { fmap :: \a b. (a -> b) -> f a -> f b }
-instance Functor Maybe {
+data Functor := \f. { fmap: \a b. (a -> b) -> f a -> f b }
+impl Functor Maybe := {
   fmap := \g mx. case mx {
     Just x  -> Just (g x);
-    Nothing -> Nothing
+    Nothing => Nothing
   }
 }
-not := \b. case b { True -> False; False -> True }
+not := \b. case b { True => False; False => True }
 main := fmap not (Just True)
 `)
 	if err != nil {
@@ -133,9 +133,9 @@ main := fmap not (Just True)
 func TestTypeClassMultiParam(t *testing.T) {
 	eng := NewEngine()
 	rt, err := eng.NewRuntime(context.Background(), `
-data Bool := True | False
-class Coercible a b { coerce :: a -> b }
-instance Coercible Bool Bool {
+data Bool := { True: Bool; False: Bool; }
+data Coercible := \a b. { coerce: a -> b }
+impl Coercible Bool Bool := {
   coerce := \x. x
 }
 main := coerce True
@@ -181,7 +181,7 @@ func TestStdlibFunctor(t *testing.T) {
 	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 not :: Bool -> Bool
-not := \b. case b { True -> False; False -> True }
+not := \b. case b { True => False; False => True }
 
 main := fmap not (Just True)
 `)
@@ -249,9 +249,9 @@ func TestCoercibleMultiParam(t *testing.T) {
 	eng.Use(stdlib.Prelude)
 	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
-class Coercible a b { coerce :: a -> b }
+data Coercible := \a b. { coerce: a -> b }
 
-instance Coercible Bool () { coerce := \_. () }
+impl Coercible Bool () := { coerce := \_. () }
 
 main := coerce True
 `)
@@ -273,11 +273,11 @@ func TestCoercibleUsage(t *testing.T) {
 	eng.Use(stdlib.Prelude)
 	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
-class Coercible a b { coerce :: a -> b }
+data Coercible := \a b. { coerce: a -> b }
 
-instance Coercible Bool Bool { coerce := \x. x }
+impl Coercible Bool Bool := { coerce := \x. x }
 
-main :: Bool
+main: Bool
 main := coerce True
 `)
 	if err != nil {
@@ -448,7 +448,7 @@ func TestTraversableMaybe(t *testing.T) {
 	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 not :: Bool -> Bool
-not := \b. case b { True -> False; False -> True }
+not := \b. case b { True => False; False => True }
 main := traverse (\x. Just (not x)) (Just True)
 `)
 	if err != nil {
@@ -536,9 +536,9 @@ func TestExistentialWithStdlib(t *testing.T) {
 	eng.Use(stdlib.Prelude)
 	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
-data SomeSemigroup := { MkSomeSG :: \a. Semigroup a => a -> a -> SomeSemigroup }
+data SomeSemigroup := { MkSomeSG: \a. Semigroup a => a -> a -> SomeSemigroup }
 combine :: SomeSemigroup -> Bool
-combine := \s. case s { MkSomeSG x y -> case append x y { _ -> True } }
+combine := \s. case s { MkSomeSG x y -> case append x y { _ => True } }
 main := combine (MkSomeSG EQ LT)
 `)
 	if err != nil {
@@ -577,13 +577,13 @@ main := (same 1 2, same True True)
 }
 
 func TestLetGeneralizationConstrainedOrd(t *testing.T) {
-	// mymax := \x y. case compare x y { GT -> x; _ -> y }
+	// mymax := \x y. case compare x y { GT => x; _ => y }
 	// Should generalize to: \ a. Ord a => a -> a -> a
 	eng := NewEngine()
 	stdlib.Prelude(eng)
 	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
-mymax := \x y. case compare x y { GT -> x; _ -> y }
+mymax := \x y. case compare x y { GT => x; _ => y }
 main := (mymax 3 7, mymax True False)
 `)
 	if err != nil {
