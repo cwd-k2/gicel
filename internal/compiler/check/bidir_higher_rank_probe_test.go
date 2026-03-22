@@ -26,7 +26,7 @@ data Maybe := \a. { Nothing: Maybe a; Just: a -> Maybe a; }
 id :: \ a. a -> a
 id := \x. x
 
-apply: (\ a. a -> a) -> Bool
+apply :: (\ a. a -> a) -> Bool
 apply := \f. f True
 
 main := apply id
@@ -41,7 +41,7 @@ func TestProbeA_HigherRank_PolyFnUsedAtTwoTypes(t *testing.T) {
 data Bool := { True: Bool; False: Bool; }
 data Maybe := \a. { Nothing: Maybe a; Just: a -> Maybe a; }
 
-applyBoth: (\ a. a -> a) -> (Bool, Maybe Bool)
+applyBoth :: (\ a. a -> a) -> (Bool, Maybe Bool)
 applyBoth := \f. (f True, f (Just False))
 
 main := applyBoth (\x. x)
@@ -55,7 +55,7 @@ func TestProbeA_HigherRank_WrongRankError(t *testing.T) {
 	source := `
 data Bool := { True: Bool; False: Bool; }
 
-apply: (\ a. a -> a) -> Bool
+apply :: (\ a. a -> a) -> Bool
 apply := \f. f True
 
 -- notId is Bool -> Bool, not \ a. a -> a.
@@ -119,13 +119,13 @@ data Bool := { True: Bool; False: Bool; }
 id :: \ a. a -> a
 id := \x. x
 
-applyId: (\ a. a -> a) -> Bool
+applyId :: (\ a. a -> a) -> Bool
 applyId := \f. f True
 
-applyApplyId: ((\ a. a -> a) -> Bool) -> Bool
+applyApplyId :: ((\ a. a -> a) -> Bool) -> Bool
 applyApplyId := \g. g id
 
-applyApplyApplyId: (((\ a. a -> a) -> Bool) -> Bool) -> Bool
+applyApplyApplyId :: (((\ a. a -> a) -> Bool) -> Bool) -> Bool
 applyApplyApplyId := \h. h applyId
 
 main := applyApplyApplyId applyApplyId

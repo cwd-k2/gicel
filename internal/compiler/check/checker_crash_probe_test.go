@@ -123,7 +123,7 @@ data Bool := { True: Bool; False: Bool; }
 f :: ((\ a. a -> a) -> Bool) -> Bool
 f := \g. g (\x. x)
 
-g: (\ a. a -> a) -> Bool
+g :: (\ a. a -> a) -> Bool
 g := \h. h True
 
 main := f g

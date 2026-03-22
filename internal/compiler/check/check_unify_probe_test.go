@@ -32,7 +32,7 @@ import (
 func TestProbeA_RowUnify_EmptyRows(t *testing.T) {
 	// Use Record {} or () in type position for empty record.
 	source := `
-f: () => ()
+f :: () => ()
 f := \x. x
 
 main := f {}
@@ -165,7 +165,7 @@ f := \x. { x: f x }
 // () => () is valid (unit type).
 func TestProbeA_EmptyRecordUnifiesWithEmptyRecord(t *testing.T) {
 	source := `
-f: () => ()
+f :: () => ()
 f := \x. x
 
 main := f {}
