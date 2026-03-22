@@ -148,7 +148,13 @@ type Solver struct {
 func (s *Solver) EnterScope() { s.level++ }
 
 // ExitScope decrements the solver level.
-func (s *Solver) ExitScope() { s.level-- }
+// Panics if level would go negative (unpaired EnterScope/ExitScope).
+func (s *Solver) ExitScope() {
+	if s.level <= 0 {
+		panic("internal: Solver.ExitScope called at level 0 (unpaired EnterScope/ExitScope)")
+	}
+	s.level--
+}
 
 // SaveWorklist drains the current worklist and returns its contents.
 // The caller must eventually call RestoreWorklist to put constraints back.
