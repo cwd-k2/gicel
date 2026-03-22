@@ -207,9 +207,44 @@ func (ch *Checker) checkCaseAlts(scrutTy, resultTy types.Type, scrutCore ir.Core
 
 		var bodyCore ir.Core
 		if needsLocalResolve {
-			bodyCore = ch.withDeferredScope(func() ir.Core {
-				return ch.check(alt.Body, branchExpected)
-			})
+			savedWorklist := ch.solver.worklist.Drain()
+
+			// Increment solver level so new metas are created at inner level.
+			// SolverLevel is NOT set here — DK eager unification during body
+			// check must be free to solve outer metas (e.g. result type).
+			// Touchability enforcement is deferred to constraint solving below.
+			ch.solver.level++
+
+			bodyCore = ch.check(alt.Body, branchExpected)
+
+			// Enable touchability for constraint solving.
+			savedSolverLevel := ch.unifier.SolverLevel
+			ch.unifier.SolverLevel = ch.solver.level
+
+			// Solve inner constraints (givens already installed by checkConPatternWith).
+			resolutions, residuals := ch.solveWanteds(nil)
+			bodyCore = ch.substitutePlaceholders(bodyCore, resolutions)
+
+			// Partition residuals: constraints mentioning local skolems
+			// or inner-level metas are stuck (error); others float to outer scope.
+			skSet := make(map[int]bool, len(pr.SkolemIDs))
+			for id := range pr.SkolemIDs {
+				skSet[id] = true
+			}
+			var floatable []Ct
+			for _, r := range residuals {
+				if constraintMentionsLocal(ch, r, skSet, ch.solver.level) {
+					ch.addCodedError(diagnostic.ErrNoInstance, r.S,
+						fmt.Sprintf("cannot resolve %s (mentions GADT-local type variables)",
+							constraintKey(r.ClassName, ch.zonkAll(r.Args))))
+				} else {
+					floatable = append(floatable, r)
+				}
+			}
+
+			ch.unifier.SolverLevel = savedSolverLevel
+			ch.solver.level--
+			ch.solver.worklist.Load(append(savedWorklist, floatable...))
 		} else {
 			bodyCore = ch.check(alt.Body, branchExpected)
 		}

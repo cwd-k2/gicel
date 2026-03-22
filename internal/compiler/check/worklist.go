@@ -70,7 +70,7 @@ func (w *Worklist) Reset() {
 }
 
 // Drain returns all pending items in FIFO order and clears the worklist.
-// Used by withDeferredScope to save/restore constraint scopes.
+// Used to save/restore constraint scopes around implication boundaries.
 func (w *Worklist) Drain() []Ct {
 	n := w.Len()
 	if n == 0 {
@@ -89,7 +89,7 @@ func (w *Worklist) Drain() []Ct {
 }
 
 // Load replaces the worklist contents with the given items.
-// Used by withDeferredScope to restore a saved scope.
+// Used to restore a saved constraint scope after implication solving.
 func (w *Worklist) Load(cts []Ct) {
 	clear(w.front)
 	w.front = w.front[:0]

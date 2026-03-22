@@ -485,18 +485,6 @@ func (ch *Checker) lookupFamily(name string) (*TypeFamilyInfo, bool) {
 	return nil, false
 }
 
-// withDeferredScope runs fn in an isolated constraint scope.
-// Constraints accumulated inside fn are resolved immediately, then
-// any remaining constraints are merged back into the outer scope.
-func (ch *Checker) withDeferredScope(fn func() ir.Core) ir.Core {
-	saved := ch.solver.worklist.Drain()
-	result := fn()
-	result = ch.resolveDeferredConstraints(result)
-	residual := ch.solver.worklist.Drain()
-	ch.solver.worklist.Load(append(saved, residual...))
-	return result
-}
-
 // tryUnify attempts to unify a and b, rolling back on failure.
 func (s *Session) tryUnify(a, b types.Type) bool {
 	return s.withTrial(func() bool {
