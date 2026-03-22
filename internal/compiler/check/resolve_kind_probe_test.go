@@ -176,7 +176,7 @@ impl Functor Maybe := {
   fmap := \g mx. case mx { Nothing => Nothing; Just x => Just (g x) }
 }
 
-myNot: Bool -> Bool
+myNot :: Bool -> Bool
 myNot := \b. case b { True => False; False => True }
 
 main := fmap myNot (Just True)

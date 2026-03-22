@@ -23,7 +23,7 @@ func TestProbeA_HigherRank_PolyFnAsArg(t *testing.T) {
 data Bool := { True: (); False: (); }
 data Maybe := \a. { Nothing: (); Just: a; }
 
-id: \ a. a -> a
+id :: \ a. a -> a
 id := \x. x
 
 apply: (\ a. a -> a) -> Bool
@@ -83,7 +83,7 @@ func TestProbeA_HigherRank_ReturnPolyFn(t *testing.T) {
 	source := `
 data Bool := { True: (); False: (); }
 
-mkId: Bool -> (\ a. a -> a)
+mkId :: Bool -> (\ a. a -> a)
 mkId := \b. \x. x
 
 -- Workaround: bind the result to a name with annotation.
@@ -102,7 +102,7 @@ func TestProbeA_HigherRank_ReturnPolyFnDirect(t *testing.T) {
 	source := `
 data Bool := { True: (); False: (); }
 
-mkId: Bool -> (\ a. a -> a)
+mkId :: Bool -> (\ a. a -> a)
 mkId := \b. \x. x
 
 main := (mkId True) False
@@ -116,7 +116,7 @@ func TestProbeA_HigherRank_FourLevels(t *testing.T) {
 	source := `
 data Bool := { True: (); False: (); }
 
-id: \ a. a -> a
+id :: \ a. a -> a
 id := \x. x
 
 applyId: (\ a. a -> a) -> Bool

@@ -54,7 +54,7 @@ data Ord := \a. Eq a => { compare: a -> a -> Bool }
 impl Eq Bool := { eq := \x y. True }
 impl Ord Bool := { compare := \x y. True }
 
-f: \ a. Ord a => a -> a -> (Bool, Bool)
+f :: \ a. Ord a => a -> a -> (Bool, Bool)
 f := \x y. (eq x y, compare x y)
 
 main := f True False
@@ -127,7 +127,7 @@ data Eq := \a. { eq: a -> a -> Bool }
 impl Eq Bool := { eq := \x y. True }
 impl Eq Unit := { eq := \x y. True }
 
-f: \ a b. (Eq a, Eq b) => a -> b -> (Bool, Bool)
+f :: \ a b. (Eq a, Eq b) => a -> b -> (Bool, Bool)
 f := \x y. (eq x x, eq y y)
 
 main := f True Unit
@@ -265,7 +265,7 @@ impl C1 Bool := { m1 := \x. True }
 impl C2 Bool := { m2 := \x. True }
 impl C3 Bool := { m3 := \x. True }
 
-f: \ a. C3 a => a -> Bool
+f :: \ a. C3 a => a -> Bool
 f := \x. m1 x
 
 main := f True

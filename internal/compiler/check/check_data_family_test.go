@@ -60,7 +60,7 @@ impl Collection (List a) := {
   empty := Nil
 }
 
-x: Elem (List Unit)
+x :: Elem (List Unit)
 x := ListElem Unit
 `
 	checkSource(t, source, nil)
@@ -87,10 +87,10 @@ impl Collection Unit := {
   empty := Unit
 }
 
-x: Elem (List Unit)
+x :: Elem (List Unit)
 x := ListElem Unit
 
-y: Elem Unit
+y :: Elem Unit
 y := UnitElem
 `
 	checkSource(t, source, nil)
@@ -113,7 +113,7 @@ impl Collection (List a) := {
   empty := Nil
 }
 
-unwrap: \ a. Elem (List a) -> a
+unwrap :: \ a. Elem (List a) -> a
 unwrap := \e. case e { ListElem x => x }
 `
 	checkSource(t, source, nil)
@@ -171,10 +171,10 @@ impl Collection (List a) := {
   empty := Nil
 }
 
-wrap: \ a. a -> Elem (List a)
+wrap :: \ a. a -> Elem (List a)
 wrap := \x. ListElem x
 
-id: Elem (List Int) -> Elem (List Int)
+id :: Elem (List Int) -> Elem (List Int)
 id := \x. x
 `
 	checkSource(t, source, config)
@@ -196,7 +196,7 @@ impl Container Unit := {
   empty := Unit
 }
 
-f: Entry Unit => Unit
+f :: Entry Unit => Unit
 f := \e. case e {
   Singleton x -> x;
   Empty -> Unit
@@ -221,7 +221,7 @@ impl Container Unit := {
   empty := Unit
 }
 
-f: Entry Unit => Unit
+f :: Entry Unit => Unit
 f := \e. case e {
   Singleton x -> x
 }

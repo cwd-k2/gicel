@@ -247,10 +247,10 @@ impl Container (List a) := {
   cfold := foldr
 }
 
-foldr: \ a b. (a -> b -> b) -> b -> List a -> b
+foldr :: \ a b. (a -> b -> b) -> b -> List a -> b
 foldr := assumption
 
-f: Elem (List Unit) -> Unit
+f :: Elem (List Unit) -> Unit
 f := \x. x
 `
 	checkSource(t, source, nil)
@@ -277,13 +277,13 @@ impl Container (Pair a b) := {
   clength := pairLength
 }
 
-listLength: \ a. List a -> Int
+listLength :: \ a. List a -> Int
 listLength := assumption
 
-pairLength: \ a b. Pair a b -> Int
+pairLength :: \ a b. Pair a b -> Int
 pairLength := assumption
 
-f: Elem (List Unit) -> Unit
+f :: Elem (List Unit) -> Unit
 f := \x. x
 g :: Elem (Pair Unit Unit) -> Unit
 g := \x. x
@@ -591,7 +591,7 @@ impl FromList (List a) := {
   fromList := \xs. xs
 }
 
-main: List Bool
+main :: List Bool
 main := fromList (Cons True Nil)
 `
 	checkSource(t, source, nil)
@@ -617,7 +617,7 @@ infixr 0 <|
 (<|) :: \ a b. (a -> b) -> a -> b
 (<|) := \f x. f x
 
-main: List Bool
+main :: List Bool
 main := conv <| (Cons True Nil)
 `
 	checkSource(t, source, nil)
@@ -650,10 +650,10 @@ func TestCheckAppNoRegressionPlainFunction(t *testing.T) {
 data Bool := { True: (); False: (); }
 data List := \a. { Nil: (); Cons: (a, List a); }
 
-id: \ a. a -> a
+id :: \ a. a -> a
 id := \x. x
 
-main: List Bool
+main :: List Bool
 main := id (Cons True Nil)
 `
 	checkSource(t, source, nil)
@@ -665,7 +665,7 @@ func TestCheckAppCBPVSpecialFormsFallback(t *testing.T) {
 	source := `
 data Unit := { Unit: (); }
 
-main: Computation {} {} Unit
+main :: Computation {} {} Unit
 main := pure Unit
 `
 	checkSource(t, source, nil)
@@ -688,10 +688,10 @@ impl Convert (List a) := {
   convert := \x. Cons x Nil
 }
 
-wrap: \ a. a -> a
+wrap :: \ a. a -> a
 wrap := \x. x
 
-main: List Bool
+main :: List Bool
 main := wrap (convert True)
 `
 	checkSource(t, source, nil)

@@ -127,17 +127,17 @@ impl Wrappable (Maybe a) := {
 boxedInt :: Wrapped Int
 boxedInt := IntBox 42
 
-boxedBool: Wrapped Bool
+boxedBool :: Wrapped Bool
 boxedBool := BoolBit True
 
-boxedUnit: Wrapped Unit
+boxedUnit :: Wrapped Unit
 boxedUnit := UnitBox
 
 -- Pattern matching on data family types.
 isIntBox :: Wrapped Int -> Int
 isIntBox := \w. case w { IntBox n -> n }
 
-isBoolBit: Wrapped Bool -> Bool
+isBoolBit :: Wrapped Bool -> Bool
 isBoolBit := \w. case w { BoolBit b -> b }
 `
 	checkSource(t, source, config)

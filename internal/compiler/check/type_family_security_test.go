@@ -325,10 +325,10 @@ data Bool := { True: (); False: (); }
 data List := \a. { Nil: (); Cons: (a, List a); }
 data Unit := { Unit: (); }
 
-id: \ a. a -> a
+id :: \ a. a -> a
 id := \x. x
 
-f: Unit
+f :: Unit
 f := id (id (id (id (id (id (id (id (id (id Unit)))))))))
 `
 	start := time.Now()

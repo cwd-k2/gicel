@@ -43,7 +43,7 @@ main := f {}
 // TestProbeA_RowUnify_SingleField — single-field record round-trip.
 func TestProbeA_RowUnify_SingleField(t *testing.T) {
 	source := `
-f: Record { x: Int } -> Record { x: Int }
+f :: Record { x: Int } -> Record { x: Int }
 f := \r. r
 
 main := f { x: 42 }
@@ -84,7 +84,7 @@ func TestProbeA_RowUnify_OrderInsensitivity(t *testing.T) {
 	source := `
 data Bool := { True: (); False: (); }
 
-f: Record { a: Bool, b: Int } -> Bool
+f :: Record { a: Bool, b: Int } -> Bool
 f := \r. r.#a
 
 -- Construct with b first, a second — should still unify.
@@ -114,7 +114,7 @@ func TestProbeA_RowUnify_ExtraFieldVsClosedRow(t *testing.T) {
 	source := `
 data Bool := { True: (); False: (); }
 
-f: Record { x: Bool } -> Bool
+f :: Record { x: Bool } -> Bool
 f := \r. r.#x
 
 -- Extra field y should cause a row mismatch error.

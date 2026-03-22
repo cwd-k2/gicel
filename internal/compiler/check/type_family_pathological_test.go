@@ -94,7 +94,7 @@ impl Container (List a) := {
   empty := Nil
 }
 
-x: Phantom (List Unit)
+x :: Phantom (List Unit)
 x := PhantomList
 `
 	checkSource(t, source, nil)
@@ -472,14 +472,14 @@ type Elem (c: Type) :: Type := {
   Elem (Maybe a) =: a
 }
 
-f1: Elem (List Unit) -> Unit
+f1 :: Elem (List Unit) -> Unit
 f1 := \x. x
 f2 :: Elem (List Unit) -> Unit
 f2 := \x. x
 f3 :: Elem (List Unit) -> Unit
 f3 := \x. x
 
-g1: Elem (Maybe Unit) -> Unit
+g1 :: Elem (Maybe Unit) -> Unit
 g1 := \x. x
 g2 :: Elem (Maybe Unit) -> Unit
 g2 := \x. x

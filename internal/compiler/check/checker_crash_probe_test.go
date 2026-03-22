@@ -137,7 +137,7 @@ func TestProbeA_CrashResist_ManyTypeApps(t *testing.T) {
 	source := `
 data Bool := { True: (); False: (); }
 
-id: \ a. a -> a
+id :: \ a. a -> a
 id := \x. x
 
 -- Explicit type application.
@@ -296,7 +296,7 @@ main := Nil
 // that hasn't been registered should produce a clean error.
 func TestProbeE_Crash_TypeAnnotationWithUnregisteredType(t *testing.T) {
 	source := `
-f: FakeType -> FakeType
+f :: FakeType -> FakeType
 f := \x. x
 main := f
 `
@@ -330,7 +330,7 @@ impl C1 Bool := { m1 := \x. x }
 impl C2 Bool := { m2 := \x. x }
 impl C3 Bool := { m3 := \x. x }
 
-f: \a. (C1 a, C2 a, C3 a) => a -> Bool
+f :: \a. (C1 a, C2 a, C3 a) => a -> Bool
 f := \x. m1 x
 
 main := f True

@@ -143,7 +143,7 @@ func TestProbeA_QualPattern_ValidQualPattern(t *testing.T) {
 import MyMod as M
 data Bool := { True: (); False: (); }
 
-f: M.Color -> Bool
+f :: M.Color -> Bool
 f := \x. case x { M.Red => True; M.Blue => False }
 
 main := f M.Red
@@ -201,7 +201,7 @@ func TestProbeA_QualPattern_NestedQualPattern(t *testing.T) {
 import MaybeLib as ML
 data Bool := { True: (); False: (); }
 
-f: ML.Maybe Bool -> Bool
+f :: ML.Maybe Bool -> Bool
 f := \x. case x { ML.Just b -> b; ML.Nothing => False }
 
 main := f (ML.Just True)
@@ -394,7 +394,7 @@ func TestProbeD_Module_QualifiedConLookup(t *testing.T) {
 import Colors as C
 data Bool := { True: (); False: (); }
 
-f: C.Color -> Bool
+f :: C.Color -> Bool
 f := \x. case x { C.Red => True; C.Blue => False }
 
 main := f C.Red

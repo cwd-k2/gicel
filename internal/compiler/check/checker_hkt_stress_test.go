@@ -17,7 +17,7 @@ import (
 func TestStressDeepKindNesting(t *testing.T) {
 	// \ (k: Kind). \ (j: Kind). \ (f: k -> j -> Type). Int
 	source := `
-f: \ (k: Kind). \ (j: Kind). \ (f: k -> j -> Type). Int -> Int
+f :: \ (k: Kind). \ (j: Kind). \ (f: k -> j -> Type). Int -> Int
 f := \x. x
 `
 	checkSource(t, source, nil)

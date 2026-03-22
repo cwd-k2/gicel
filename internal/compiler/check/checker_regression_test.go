@@ -195,7 +195,7 @@ impl Container (Wrapper a) := {
   data Elem (Wrapper a) =: WrapElem a
 }
 
-x: Elem (Wrapper Unit)
+x :: Elem (Wrapper Unit)
 x := WrapElem Unit
 `
 	checkSource(t, source, nil)

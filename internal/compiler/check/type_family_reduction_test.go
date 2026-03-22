@@ -643,7 +643,7 @@ impl Container (Maybe a) := {
   empty := Nothing
 }
 
-x: Elem (List Unit)
+x :: Elem (List Unit)
 x := ListElem Unit
 y :: Elem (Maybe Unit)
 y := MaybeElem Unit
@@ -666,7 +666,7 @@ impl Container Unit := {
   empty := Unit
 }
 
-x: Elem Unit
+x :: Elem Unit
 x := UnitElem
 `
 	checkSource(t, source, nil)
@@ -1025,7 +1025,7 @@ impl Container Unit := {
   empty := Unit
 }
 
-f: Entry Unit => Unit
+f :: Entry Unit => Unit
 f := \e. case e {
   Singleton x -> x
 }
@@ -1048,7 +1048,7 @@ impl Container Unit := {
   empty := Unit
 }
 
-f: Entry Unit => Unit
+f :: Entry Unit => Unit
 f := \e. case e {
   Singleton x -> x;
   Empty -> Unit

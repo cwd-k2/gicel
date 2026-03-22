@@ -190,7 +190,7 @@ impl Container (List a) := {
   }
 }
 
-f: List Unit => Elem (List Unit)
+f :: List Unit => Elem (List Unit)
 f := chead
 `
 	checkSource(t, source, nil)
@@ -205,7 +205,7 @@ data List := \a. { Nil: (); Cons: (a, List a); }
 data Pair := \a b. { MkPair: (a, b); }
 data Maybe := \a. { Nothing: (); Just: a; }
 
-emptyPair: \ a b. Pair a b
+emptyPair :: \ a b. Pair a b
 emptyPair := assumption
 
 data Collection := \c. {
@@ -237,13 +237,13 @@ impl Collection (Maybe a) := {
 k1 :: Key (List Unit)
 k1 := ListKey Unit
 
-k2: Key Unit
+k2 :: Key Unit
 k2 := UnitKey
 
-k3: Key (Pair Unit Unit)
+k3 :: Key (Pair Unit Unit)
 k3 := PairKey Unit
 
-k4: Key (Maybe Unit)
+k4 :: Key (Maybe Unit)
 k4 := MaybeKey Unit
 
 -- Pattern match on data family constructors.
@@ -262,7 +262,7 @@ data Pair := \a b. { MkPair: (a, b); }
 data Either a b := Left a | Right b
 data Maybe := \a. { Nothing: (); Just: a; }
 
-nilFallback: \ a. a
+nilFallback :: \ a. a
 nilFallback := assumption
 
 data HasRepr := \c. {
@@ -295,16 +295,16 @@ impl HasRepr (Maybe a) := {
   toRepr := \m. case m { Just x => ReprJust x; Nothing => ReprNothing }
 }
 
-x1: Repr Unit
+x1 :: Repr Unit
 x1 := ReprUnit
 
-x2: Repr (List Unit)
+x2 :: Repr (List Unit)
 x2 := ReprList Unit
 
-x3: Repr (Pair Unit Unit)
+x3 :: Repr (Pair Unit Unit)
 x3 := ReprPair Unit Unit
 
-x4: Repr (Maybe Unit)
+x4 :: Repr (Maybe Unit)
 x4 := case (toRepr (Just Unit)) {
   ReprJust x => ReprJust x;
   ReprNothing => ReprNothing
@@ -348,10 +348,10 @@ type DeepElem (c: Type) :: Type := {
   DeepElem (List a) =: a
 }
 
-f: DeepElem (Maybe (List Unit)) -> Unit
+f :: DeepElem (Maybe (List Unit)) -> Unit
 f := \x. x
 
-g: DeepElem (List (Maybe Unit)) -> Unit
+g :: DeepElem (List (Maybe Unit)) -> Unit
 g := \x. x
 `
 	checkSource(t, source, nil)
@@ -374,7 +374,7 @@ impl Iso Unit Unit := {
   from := \x. x
 }
 
-f: Unit => Unit
+f :: Unit => Unit
 f := to
 `
 	checkSource(t, source, nil)
@@ -527,10 +527,10 @@ type Elem (c: Type) :: Type := {
   Elem (List a) =: a
 }
 
-f: Elem (Maybe Unit) -> Unit
+f :: Elem (Maybe Unit) -> Unit
 f := \x. x
 
-g: Elem (List Unit) -> Unit
+g :: Elem (List Unit) -> Unit
 g := \x. x
 `
 	checkSource(t, source, nil)

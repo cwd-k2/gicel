@@ -66,7 +66,7 @@ type Elem (c: Type) :: Type := {
   Elem (List a) =: a
 }
 
-first: List Unit => Elem (List Unit)
+first :: List Unit => Elem (List Unit)
 first := \xs. case xs { Cons x rest => x; Nil => Unit }
 `
 	checkSource(t, source, nil)
@@ -99,7 +99,7 @@ impl Functor Maybe := {
   fmap := \g mx. case mx { Nothing => Nothing; Just x => Just (g x) }
 }
 
-test: Elem (List Unit) -> Unit
+test :: Elem (List Unit) -> Unit
 test := \x. x
 `
 	checkSource(t, source, nil)
@@ -121,10 +121,10 @@ type Elem (c: Type) :: Type := {
   Elem (List a) =: a
 }
 
-f: Elem (List Unit) -> Unit
+f :: Elem (List Unit) -> Unit
 f := \x. x
 
-g: Record { value: Unit } -> Unit
+g :: Record { value: Unit } -> Unit
 g := \r. r.#value
 `
 	checkSource(t, source, nil)
@@ -141,7 +141,7 @@ type Elem (c: Type) :: Type := {
   Elem (List a) =: a
 }
 
-mkRecord: Elem (List Unit) -> Record { value: Unit }
+mkRecord :: Elem (List Unit) -> Record { value: Unit }
 mkRecord := \x. { value: x }
 `
 	checkSource(t, source, nil)
@@ -164,10 +164,10 @@ type Elem (c: Type) :: Type := {
   Elem (List a) =: a
 }
 
-id: \ a. a -> a
+id :: \ a. a -> a
 id := \x. x
 
-apply: Elem (List Unit) -> Unit
+apply :: Elem (List Unit) -> Unit
 apply := \x. id x
 `
 	checkSource(t, source, nil)
@@ -184,13 +184,13 @@ type Elem (c: Type) :: Type := {
   Elem (List a) =: a
 }
 
-map: \ a b. (a -> b) -> List a -> List b
+map :: \ a b. (a -> b) -> List a -> List b
 map := assumption
 
-toUnit: Unit => Bool
+toUnit :: Unit => Bool
 toUnit := \x. True
 
-test: List Unit => List Bool
+test :: List Unit => List Bool
 test := \xs. map toUnit xs
 `
 	checkSource(t, source, nil)
@@ -217,7 +217,7 @@ impl Wrapper Bool := {
   unwrap := \w. case w { WrapBool b => b }
 }
 
-test: Wrap Bool -> Bool
+test :: Wrap Bool -> Bool
 test := \w. case w {
   WrapBool True => True;
   WrapBool False => False
@@ -242,7 +242,7 @@ impl Wrapper Bool := {
   unwrap := \w. case w { WrapBool b => b }
 }
 
-test: Wrap Bool -> Bool
+test :: Wrap Bool -> Bool
 test := \w. case w {
   WrapBool True => True
 }
@@ -266,7 +266,7 @@ impl Container (Maybe a) := {
   empty := Nothing
 }
 
-test: \ a. Elem (Maybe a) -> a
+test :: \ a. Elem (Maybe a) -> a
 test := \e. case e { MaybeElem x => x }
 `
 	checkSource(t, source, nil)
@@ -316,7 +316,7 @@ impl Elem (List a) a := {
   extract := \xs. case xs { Cons x rest => x; Nil => extract Nil }
 }
 
-headOrDefault: \ a. a -> List a -> a
+headOrDefault :: \ a. a -> List a -> a
 headOrDefault := \def xs. case xs { Nil => def; Cons x rest => extract (Cons x rest) }
 `
 	checkSource(t, source, nil)
@@ -336,10 +336,10 @@ type Elem (c: Type) :: Type := {
   Elem (List a) =: a
 }
 
-step: Computation {} {} (Elem (List Unit))
+step :: Computation {} {} (Elem (List Unit))
 step := assumption
 
-main: Computation {} {} Unit
+main :: Computation {} {} Unit
 main := do { x <- step; pure x }
 `
 	checkSource(t, source, nil)
@@ -355,16 +355,16 @@ type Elem (c: Type) :: Type := {
   Elem (List a) =: a
 }
 
-open: Computation {} { handle: Unit } Unit
+open :: Computation {} { handle: Unit } Unit
 open := assumption
 
-read: Computation { handle: Unit } { handle: Unit } (Elem (List Unit))
+read :: Computation { handle: Unit } { handle: Unit } (Elem (List Unit))
 read := assumption
 
-close: Computation { handle: Unit } {} Unit
+close :: Computation { handle: Unit } {} Unit
 close := assumption
 
-main: Computation {} {} Unit
+main :: Computation {} {} Unit
 main := do { open; x <- read; close }
 `
 	checkSource(t, source, nil)
@@ -425,7 +425,7 @@ type Nullable (c: Type) :: Type := {
   Nullable (List a) =: Maybe a
 }
 
-f: Elem (List Unit) -> Nullable (List Unit)
+f :: Elem (List Unit) -> Nullable (List Unit)
 f := \x. Just x
 `
 	checkSource(t, source, nil)
@@ -447,7 +447,7 @@ type Second (c: Type) :: Type := {
   Second (Pair a b) =: b
 }
 
-swap: Elem (Pair Unit Unit) -> Second (Pair Unit Unit) -> Pair Unit Unit
+swap :: Elem (Pair Unit Unit) -> Second (Pair Unit Unit) -> Pair Unit Unit
 swap := \x y. MkPair x y
 `
 	checkSource(t, source, nil)
@@ -468,7 +468,7 @@ type Id (a: Type) :: Type := {
   Id a =: a
 }
 
-f: Id (Elem (List Unit)) -> Unit
+f :: Id (Elem (List Unit)) -> Unit
 f := \x. x
 `
 	checkSource(t, source, nil)
@@ -491,10 +491,10 @@ type Elem (c: Type) :: Type := {
   Elem (List a) =: a
 }
 
-id: \ a. a -> a
+id :: \ a. a -> a
 id := \x. x
 
-test: Int -> Int
+test :: Int -> Int
 test := \n. id @(Elem (List Int)) n
 `
 	config := &CheckConfig{
@@ -512,7 +512,7 @@ type Id (a: Type) :: Type := {
   Id a =: a
 }
 
-id: \ a. a -> a
+id :: \ a. a -> a
 id := \x. x
 
 test := id @(Id Unit) Unit
@@ -537,7 +537,7 @@ type Elem (c: Type) :: Type := {
 applyToUnit: (Unit => Unit) -> Unit
 applyToUnit := \f. f Unit
 
-test: Unit
+test :: Unit
 test := applyToUnit (\x. x)
 `
 	checkSource(t, source, nil)
@@ -557,10 +557,10 @@ type Elem (c: Type) :: Type := {
   Elem (List a) =: a
 }
 
-length: \ a. List a -> Int
+length :: \ a. List a -> Int
 length := assumption
 
-main: Int
+main :: Int
 main := length (Cons Unit Nil)
 `
 	config := &CheckConfig{
@@ -583,10 +583,10 @@ type Elem (c: Type) :: Type := {
   Elem (List a) =: a
 }
 
-delayed: Thunk {} {} (Elem (List Unit))
+delayed :: Thunk {} {} (Elem (List Unit))
 delayed := thunk (pure Unit)
 
-run: Computation {} {} Unit
+run :: Computation {} {} Unit
 run := force delayed
 `
 	checkSource(t, source, nil)
@@ -602,10 +602,10 @@ type Elem (c: Type) :: Type := {
   Elem (List a) =: a
 }
 
-mkThunk: Thunk { cap: Unit } { cap: Unit } (Elem (List Unit))
+mkThunk :: Thunk { cap: Unit } { cap: Unit } (Elem (List Unit))
 mkThunk := assumption
 
-run: Computation { cap: Unit } { cap: Unit } (Elem (List Unit))
+run :: Computation { cap: Unit } { cap: Unit } (Elem (List Unit))
 run := force mkThunk
 `
 	checkSource(t, source, nil)
@@ -627,7 +627,7 @@ type Elem (c: Type) :: Type := {
   Elem (List a) =: a
 }
 
-test: Elem (List Bool) -> Bool
+test :: Elem (List Bool) -> Bool
 test := \x. case x { True => False; False => True }
 `
 	checkSource(t, source, nil)
@@ -788,7 +788,7 @@ impl Eq Bool := {
   eq := \x y. True
 }
 
-test: List Bool -> Bool
+test :: List Bool -> Bool
 test := \xs. case xs {
   Cons x rest => eq x True;
   Nil => False
@@ -845,7 +845,7 @@ impl Convertible Bool Unit := {
   convert := \b. BoolResult Unit
 }
 
-test: Result Bool
+test :: Result Bool
 test := convert True
 `
 	checkSource(t, source, nil)
@@ -879,10 +879,10 @@ impl Container (Maybe a) := {
   size := \xs. 0
 }
 
-testList: Elem (List Bool) -> Bool
+testList :: Elem (List Bool) -> Bool
 testList := \x. x
 
-testMaybe: Elem (Maybe Unit) -> Unit
+testMaybe :: Elem (Maybe Unit) -> Unit
 testMaybe := \x. x
 `
 	config := &CheckConfig{
@@ -905,7 +905,7 @@ type Elem (c: Type) :: Type := {
   Elem (List a) =: a
 }
 
-identity: \ c. Elem c -> Elem c
+identity :: \ c. Elem c -> Elem c
 identity := \x. x
 `
 	checkSource(t, source, nil)
@@ -943,10 +943,10 @@ type Elem (c: Type) :: Type := {
   Elem (List a) =: a
 }
 
-wrap: Elem (List Unit) -> Unit
+wrap :: Elem (List Unit) -> Unit
 wrap := \x. x
 
-main: Unit
+main :: Unit
 main := { x := Unit; wrap x }
 `
 	checkSource(t, source, nil)
@@ -967,7 +967,7 @@ type Elem (c: Type) :: Type := {
   Elem (List a) =: a
 }
 
-mkPair: Elem (List Unit) -> Elem (List Unit) -> Pair Unit Unit
+mkPair :: Elem (List Unit) -> Elem (List Unit) -> Pair Unit Unit
 mkPair := \x y. MkPair x y
 `
 	checkSource(t, source, nil)
@@ -996,7 +996,7 @@ impl Functor Maybe := {
   fmap := \g mx. case mx { Nothing => Nothing; Just x => Just (g x) }
 }
 
-test: Always (Maybe Unit) -> Unit
+test :: Always (Maybe Unit) -> Unit
 test := \x. x
 `
 	checkSource(t, source, nil)
@@ -1017,10 +1017,10 @@ type Elem (c: Type) :: Type := {
   Elem (List a) =: a
 }
 
-readHandle: Computation { handle: Unit @Linear } { handle: Unit @Linear } (Elem (List Unit))
+readHandle :: Computation { handle: Unit @Linear } { handle: Unit @Linear } (Elem (List Unit))
 readHandle := assumption
 
-main: Computation { handle: Unit @Linear } { handle: Unit @Linear } Unit
+main :: Computation { handle: Unit @Linear } { handle: Unit @Linear } Unit
 main := do { x <- readHandle; pure x }
 `
 	checkSource(t, source, nil)
@@ -1055,7 +1055,7 @@ impl Eq Bool := {
   eq := \x y. True
 }
 
-test: Eq (Elem (List Bool)) => Elem (List Bool) -> Bool
+test :: Eq (Elem (List Bool)) => Elem (List Bool) -> Bool
 test := \x. eq x True
 `
 	checkSource(t, source, nil)
@@ -1076,10 +1076,10 @@ type Elem (c: Type) :: Type := {
   Elem (List a) =: a
 }
 
-step: Computation { handle: Elem (List Unit) } { handle: Elem (List Unit) } Unit
+step :: Computation { handle: Elem (List Unit) } { handle: Elem (List Unit) } Unit
 step := assumption
 
-main: Computation { handle: Unit } { handle: Unit } Unit
+main :: Computation { handle: Unit } { handle: Unit } Unit
 main := step
 `
 	checkSource(t, source, nil)
@@ -1150,7 +1150,7 @@ impl Container Bool := {
   empty := True
 }
 
-test: Elem Bool -> Bool
+test :: Elem Bool -> Bool
 test := \e. case e {
   BoolElem b -> b;
   EmptyElem -> False
@@ -1175,7 +1175,7 @@ impl Container Bool := {
   empty := True
 }
 
-test: Elem Bool -> Bool
+test :: Elem Bool -> Bool
 test := \e. case e {
   BoolElem b -> b
 }
@@ -1207,7 +1207,7 @@ impl Eq Bool := {
   eq := \x y. True
 }
 
-test: Bool -> Bool
+test :: Bool -> Bool
 test := \x. eq x True
 `
 	checkSource(t, source, nil)
@@ -1228,10 +1228,10 @@ type Elem (c: Type) :: Type := {
   Elem (List a) =: a
 }
 
-id: \ a. a -> a
+id :: \ a. a -> a
 id := \x. x
 
-test: Unit
+test :: Unit
 test := id Unit
 `
 	checkSource(t, source, nil)
@@ -1265,10 +1265,10 @@ impl Container (Maybe a) := {
   empty := Nothing
 }
 
-testList: Elem (List Unit) -> Unit
+testList :: Elem (List Unit) -> Unit
 testList := \x. x
 
-testMaybe: Elem (Maybe Unit) -> Unit
+testMaybe :: Elem (Maybe Unit) -> Unit
 testMaybe := \x. x
 `
 	checkSource(t, source, nil)
@@ -1287,10 +1287,10 @@ type Elem (c: Type) :: Type := {
   Elem (List a) =: a
 }
 
-id: \ a. a -> a
+id :: \ a. a -> a
 id := \x. x
 
-test: Int -> Int
+test :: Int -> Int
 test := \n. id @(Elem (List Int)) n
 `
 	config := &CheckConfig{
@@ -1322,7 +1322,7 @@ impl Elem (List a) a := {
   extract := \xs. case xs { Cons x rest => x; Nil => extract Nil }
 }
 
-test: List Unit => Id Unit
+test :: List Unit => Id Unit
 test := \xs. extract xs
 `
 	checkSource(t, source, nil)
@@ -1354,7 +1354,7 @@ impl Eq Bool := {
   eq := \x y. True
 }
 
-test: Bool -> Bool -> Bool
+test :: Bool -> Bool -> Bool
 test := \x y. eq x y
 `
 	checkSource(t, source, nil)
@@ -1374,10 +1374,10 @@ type Elem (c: Type) :: Type := {
   Elem (List a) =: a
 }
 
-apply: \ a b. (a -> b) -> a -> b
+apply :: \ a b. (a -> b) -> a -> b
 apply := \f x. f x
 
-test: Unit => Unit
+test :: Unit => Unit
 test := \x. apply (\y. y) x
 `
 	checkSource(t, source, nil)
@@ -1434,10 +1434,10 @@ impl Container Bool := {
   empty := True
 }
 
-id: \ a. a -> a
+id :: \ a. a -> a
 id := \x. x
 
-test: Elem Bool
+test :: Elem Bool
 test := id (Tag True)
 `
 	checkSource(t, source, nil)
@@ -1469,7 +1469,7 @@ impl Show Bool := {
   show := \x. x
 }
 
-test: Bool -> Bool
+test :: Bool -> Bool
 test := \x. show (eq x True)
 `
 	checkSource(t, source, nil)
@@ -1578,7 +1578,7 @@ impl Eq Unit := {
   eq := \x y. True
 }
 
-testConstrainedBody: Elem (List Unit) -> Elem (List Unit) -> Bool
+testConstrainedBody :: Elem (List Unit) -> Elem (List Unit) -> Bool
 testConstrainedBody := \x y. eq x y
 `
 	checkSource(t, source, nil)
@@ -1599,10 +1599,10 @@ type Elem (c: Type) :: Type := {
   Elem (List a) =: a
 }
 
-step: Computation { cap: Elem (List Unit) } {} Unit
+step :: Computation { cap: Elem (List Unit) } {} Unit
 step := assumption
 
-main: Computation { cap: Unit } {} Unit
+main :: Computation { cap: Unit } {} Unit
 main := step
 `
 	checkSource(t, source, nil)

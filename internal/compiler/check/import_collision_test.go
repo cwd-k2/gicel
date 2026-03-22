@@ -236,7 +236,7 @@ import ModA as A
 import ModB as B
 data Bool := { True: (); False: (); }
 
-f: A.Color -> Bool
+f :: A.Color -> Bool
 f := \x. case x { A.Red => True }
 
 main := f A.Red

@@ -40,7 +40,7 @@ func TestProbeE_GADT_IndexRefinement(t *testing.T) {
 data Bool := { True: (); False: (); }
 data Expr a := { LitBool: Bool -> Expr Bool }
 
-eval: Expr Bool -> Bool
+eval :: Expr Bool -> Bool
 eval := \e. case e { LitBool b => b }
 
 main := eval (LitBool True)
@@ -57,7 +57,7 @@ data Nat := { Z: (); S: Nat; }
 
 data Tag a := { TagBool: Tag Bool; TagNat: Tag Nat }
 
-describe: Tag Bool -> Bool
+describe :: Tag Bool -> Bool
 describe := \t. case t { TagBool => True }
 
 main := describe TagBool
