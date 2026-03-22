@@ -258,23 +258,115 @@ type legacyInstanceDecl struct {
 // processClassFromData processes a class-like data declaration by converting it
 // to the legacy class processing pipeline.
 func (ch *Checker) processClassFromData(d *syntax.DeclData, parts dataBodyParts, prog *ir.Program) {
-	// Convert parts → legacy class decl and delegate to processClassDecl-equivalent logic.
-	// For now, this is a stub — full implementation requires threading through the
-	// existing class processing code.
-	// TODO: Implement full class-from-data processing.
-	_ = d
-	_ = parts
-	_ = prog
+	// Build legacy method list from row fields.
+	var methods []legacyClassMethod
+	for _, f := range parts.Fields {
+		methods = append(methods, legacyClassMethod{
+			Name: f.Label,
+			Type: f.Type,
+			S:    f.S,
+		})
+	}
+
+	// Build legacy associated type declarations from row type decls.
+	var assocTypes []legacyAssocTypeDecl
+	for _, td := range parts.TypeDecls {
+		assocTypes = append(assocTypes, legacyAssocTypeDecl{
+			Name:       td.Name,
+			ResultKind: td.KindAnn,
+			S:          td.S,
+		})
+	}
+
+	legacy := &legacyDeclClass{
+		Name:       d.Name,
+		TyParams:   parts.Params,
+		Supers:     parts.Supers,
+		Methods:    methods,
+		AssocTypes: assocTypes,
+		S:          d.S,
+	}
+	ch.processClassDecl(legacy, prog)
 }
 
 // processImplHeader processes an impl declaration header, converting it to
 // the instance processing pipeline.
 func (ch *Checker) processImplHeader(impl *syntax.DeclImpl) (*InstanceInfo, map[string]syntax.Expr) {
-	// TODO: Implement full impl header processing.
-	// This needs to:
-	// 1. Resolve the type annotation to determine class name and type args
-	// 2. Register the instance in the registry
-	// 3. Collect method expressions from the body
-	_ = impl
-	return nil, nil
+	// Decompose the type annotation into class name and type args.
+	// impl Eq Bool := { ... }  →  Ann = TyExprApp(TyExprCon("Eq"), TyExprCon("Bool"))
+	// impl Monad Maybe := { ... }  →  Ann = TyExprApp(TyExprCon("Monad"), TyExprCon("Maybe"))
+
+	// Peel off context constraints: impl (Eq a) => Ord a := { ... }
+	ann := impl.Ann
+	var context []syntax.TypeExpr
+	for {
+		if qual, ok := ann.(*syntax.TyExprQual); ok {
+			context = append(context, desugarConstraints(qual.Constraint)...)
+			ann = qual.Body
+		} else {
+			break
+		}
+	}
+
+	// Unwind application to get class name and type args.
+	className, typeArgs := unwindTypeApp(ann)
+	if className == "" {
+		return nil, nil
+	}
+
+	// Collect method expressions from the body (record expression).
+	methods := extractImplMethods(impl.Body)
+
+	legacy := &legacyDeclInstance{
+		Context:   context,
+		ClassName: className,
+		TypeArgs:  typeArgs,
+		Methods:   methods,
+		S:         impl.S,
+	}
+	return ch.processInstanceHeaderLegacy(legacy)
+}
+
+// unwindTypeApp decomposes a type expression into a head name and arguments.
+//
+//	Eq Bool → ("Eq", [Bool])
+//	Monad (List a) → ("Monad", [List a])
+//	Eq → ("Eq", [])
+func unwindTypeApp(t syntax.TypeExpr) (string, []syntax.TypeExpr) {
+	var args []syntax.TypeExpr
+	for {
+		if app, ok := t.(*syntax.TyExprApp); ok {
+			args = append([]syntax.TypeExpr{app.Arg}, args...)
+			t = app.Fun
+		} else if paren, ok := t.(*syntax.TyExprParen); ok {
+			t = paren.Inner
+		} else {
+			break
+		}
+	}
+	switch head := t.(type) {
+	case *syntax.TyExprCon:
+		return head.Name, args
+	case *syntax.TyExprQualCon:
+		return head.Qualifier + "." + head.Name, args
+	}
+	return "", nil
+}
+
+// extractImplMethods extracts method definitions from an impl body expression.
+// The body is expected to be a record expression: { m1 := e1; m2 := e2; ... }
+func extractImplMethods(body syntax.Expr) []legacyInstMethod {
+	rec, ok := body.(*syntax.ExprRecord)
+	if !ok {
+		return nil
+	}
+	var methods []legacyInstMethod
+	for _, f := range rec.Fields {
+		methods = append(methods, legacyInstMethod{
+			Name: f.Label,
+			Expr: f.Value,
+			S:    f.S,
+		})
+	}
+	return methods
 }
