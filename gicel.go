@@ -11,12 +11,10 @@ package gicel
 
 import (
 	"github.com/cwd-k2/gicel/internal/app/engine"
-	"github.com/cwd-k2/gicel/internal/compiler/check"
 	"github.com/cwd-k2/gicel/internal/host/registry"
 	"github.com/cwd-k2/gicel/internal/host/stdlib"
 	"github.com/cwd-k2/gicel/internal/infra/budget"
 	"github.com/cwd-k2/gicel/internal/lang/syntax"
-	"github.com/cwd-k2/gicel/internal/lang/types"
 	"github.com/cwd-k2/gicel/internal/runtime/eval"
 )
 
@@ -27,12 +25,6 @@ type Engine = engine.Engine
 
 // Runtime is an immutable, compiled GICEL program.
 type Runtime = engine.Runtime
-
-// CompileResult holds all static information produced by compilation.
-type CompileResult = engine.CompileResult
-
-// CoreProgram is an opaque compiled Core IR for inspection.
-type CoreProgram = engine.CoreProgram
 
 // RunResult holds the result of an execution.
 type RunResult = engine.RunResult
@@ -57,12 +49,6 @@ type SandboxConfig = engine.SandboxConfig
 
 // CompileError wraps compilation errors.
 type CompileError = engine.CompileError
-
-// Diagnostic is a single structured error from compilation.
-type Diagnostic = engine.Diagnostic
-
-// DiagnosticHint is a secondary annotation on a compilation diagnostic.
-type DiagnosticHint = engine.DiagnosticHint
 
 // NewEngine creates a new Engine with default limits.
 var NewEngine = engine.NewEngine
@@ -128,9 +114,6 @@ const (
 	ExplainResult = eval.ExplainResult
 )
 
-// ExplainDetail carries kind-specific structured data for explain events.
-type ExplainDetail = eval.ExplainDetail
-
 // RuntimeError represents an error during evaluation.
 type RuntimeError = eval.RuntimeError
 
@@ -145,60 +128,23 @@ type DepthLimitError = budget.DepthLimitError
 // AllocLimitError indicates the allocation byte limit was exceeded.
 type AllocLimitError = budget.AllocLimitError
 
-// ---- Type checking trace ----
-
-// CheckTraceKind classifies type checking trace events.
-type CheckTraceKind = check.CheckTraceKind
-
-// CheckTraceKind constants.
-const (
-	TraceUnify       = check.TraceUnify
-	TraceSolveMeta   = check.TraceSolveMeta
-	TraceInfer       = check.TraceInfer
-	TraceCheck       = check.TraceCheck
-	TraceInstantiate = check.TraceInstantiate
-)
-
-// CheckTraceEvent describes one type checking decision.
-type CheckTraceEvent = check.CheckTraceEvent
-
-// CheckTraceHook receives trace events during type checking.
-type CheckTraceHook = check.CheckTraceHook
-
 // ---- Type construction helpers ----
 
-// Type is the unified type representation used across the public API.
-type Type = types.Type
-
-// Kind classifies types and rows.
-type Kind = types.Kind
-
-// RowField is a single label:type pair in a row.
-type RowField = types.RowField
-
-// RowBuilder helps construct row types incrementally.
-type RowBuilder = engine.RowBuilder
-
 var (
-	ConType       = engine.ConType
-	ArrowType     = engine.ArrowType
-	CompType      = engine.CompType
-	ThunkType     = engine.ThunkType
-	ForallType    = engine.ForallType
-	ForallRow     = engine.ForallRow
-	VarType       = engine.VarType
-	AppType       = engine.AppType
-	NewRow        = engine.NewRow
-	KindType      = engine.KindType
-	KindRow       = engine.KindRow
-	KindArrow     = engine.KindArrow
-	EmptyRowType  = engine.EmptyRowType
-	ForallKind    = engine.ForallKind
-	ClosedRowType = engine.ClosedRowType
-	RecordType    = engine.RecordType
-	TupleType     = engine.TupleType
-	TypeEqual     = engine.TypeEqual
-	TypePretty    = engine.TypePretty
+	ConType      = engine.ConType
+	ArrowType    = engine.ArrowType
+	CompType     = engine.CompType
+	ForallType   = engine.ForallType
+	ForallRow    = engine.ForallRow
+	VarType      = engine.VarType
+	AppType      = engine.AppType
+	NewRow       = engine.NewRow
+	KindType     = engine.KindType
+	KindArrow    = engine.KindArrow
+	EmptyRowType = engine.EmptyRowType
+	RecordType   = engine.RecordType
+	TupleType    = engine.TupleType
+	TypePretty   = engine.TypePretty
 )
 
 // ---- Value conversion helpers ----
@@ -230,11 +176,6 @@ func IsTuple(r *RecordVal) bool { return eval.IsTuple(r) }
 
 // TupleLabel returns the canonical field label for a 1-based tuple position.
 func TupleLabel(pos int) string { return syntax.TupleLabel(pos) }
-
-// NewCapEnv creates a new capability environment from a map.
-func NewCapEnv(caps map[string]any) CapEnv {
-	return eval.NewCapEnv(caps)
-}
 
 // ---- Stdlib re-exports ----
 
