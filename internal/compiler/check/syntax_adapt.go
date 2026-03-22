@@ -269,10 +269,13 @@ func (ch *Checker) processClassFromData(d *syntax.DeclData, parts dataBodyParts,
 	}
 
 	// Build legacy associated type declarations from row type decls.
+	// In unified syntax, associated types don't repeat class params.
+	// Add the class params to make them compatible with the legacy format.
 	var assocTypes []legacyAssocTypeDecl
 	for _, td := range parts.TypeDecls {
 		assocTypes = append(assocTypes, legacyAssocTypeDecl{
 			Name:       td.Name,
+			Params:     parts.Params, // inherit class params
 			ResultKind: td.KindAnn,
 			S:          td.S,
 		})
@@ -314,15 +317,30 @@ func (ch *Checker) processImplHeader(impl *syntax.DeclImpl) (*InstanceInfo, map[
 		return nil, nil
 	}
 
-	// Collect method expressions from the body (record expression).
-	methods := extractImplMethods(impl.Body)
+	// Extract methods and associated type definitions from the body.
+	bodyParts := extractImplBody(impl.Body)
+
+	// Build legacy associated type definitions with patterns from type args.
+	var assocTypeDefs []legacyAssocTypeDef
+	for _, td := range bodyParts.TypeDefs {
+		// The legacy format expects patterns: type Elem (List a) =: a
+		// We have the RHS and the instance type args. Build patterns from type args.
+		atd := legacyAssocTypeDef{
+			Name:     td.Name,
+			Patterns: typeArgs, // use instance type args as patterns
+			RHS:      td.RHS,
+			S:        td.S,
+		}
+		assocTypeDefs = append(assocTypeDefs, atd)
+	}
 
 	legacy := &legacyDeclInstance{
-		Context:   context,
-		ClassName: className,
-		TypeArgs:  typeArgs,
-		Methods:   methods,
-		S:         impl.S,
+		Context:       context,
+		ClassName:     className,
+		TypeArgs:      typeArgs,
+		Methods:       bodyParts.Methods,
+		AssocTypeDefs: assocTypeDefs,
+		S:             impl.S,
 	}
 	return ch.processInstanceHeaderLegacy(legacy)
 }
@@ -353,30 +371,42 @@ func unwindTypeApp(t syntax.TypeExpr) (string, []syntax.TypeExpr) {
 	return "", nil
 }
 
-// extractImplMethods extracts method definitions from an impl body expression.
-// Supports both ExprRecord ({ label: value; ... }) and ExprBlock ({ name := expr; ... }).
-func extractImplMethods(body syntax.Expr) []legacyInstMethod {
+// implBodyParts holds decomposed impl body contents.
+type implBodyParts struct {
+	Methods  []legacyInstMethod
+	TypeDefs []legacyAssocTypeDef
+}
+
+// extractImplBody extracts method definitions and associated type definitions
+// from an impl body expression.
+func extractImplBody(body syntax.Expr) implBodyParts {
+	var parts implBodyParts
 	switch b := body.(type) {
 	case *syntax.ExprRecord:
-		var methods []legacyInstMethod
 		for _, f := range b.Fields {
-			methods = append(methods, legacyInstMethod{
+			parts.Methods = append(parts.Methods, legacyInstMethod{
 				Name: f.Label,
 				Expr: f.Value,
 				S:    f.S,
 			})
 		}
-		return methods
 	case *syntax.ExprBlock:
-		var methods []legacyInstMethod
 		for _, bind := range b.Binds {
-			methods = append(methods, legacyInstMethod{
+			parts.Methods = append(parts.Methods, legacyInstMethod{
 				Name: bind.Var,
 				Expr: bind.Expr,
 				S:    bind.S,
 			})
 		}
-		return methods
+		for _, td := range b.TypeDefs {
+			if td.IsType && td.TypeDef != nil {
+				parts.TypeDefs = append(parts.TypeDefs, legacyAssocTypeDef{
+					Name: td.Name,
+					RHS:  td.TypeDef,
+					S:    td.S,
+				})
+			}
+		}
 	}
-	return nil
+	return parts
 }

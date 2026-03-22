@@ -125,15 +125,34 @@ func (p *Parser) parseBlock() syn.Expr {
 	//          type Name Pats =: RHS; (associated type definition, inside impl body)
 	//          data Name Pats =: Cons; (associated data definition, inside impl body)
 	var binds []syn.AstBind
+	var typeDefs []syn.ImplField
 	for p.peek().Kind == syn.TokLower || p.peek().Kind == syn.TokType || p.peek().Kind == syn.TokData {
 		saved := p.pos
 
-		// Skip type/data keywords for associated definitions (consume as block items).
+		// Parse type/data associated definitions in impl bodies.
 		if p.peek().Kind == syn.TokType || p.peek().Kind == syn.TokData {
-			p.advance()                                                                    // consume type/data
-			for p.peek().Kind != syn.TokSemicolon && p.peek().Kind != syn.TokRBrace && p.peek().Kind != syn.TokEOF {
-				p.advance() // skip associated definition body
+			tdStart := p.peek().S.Start
+			isType := p.peek().Kind == syn.TokType
+			p.advance() // consume type/data
+			tdName := p.expectUpper()
+			// Consume patterns before =:
+			var tdPats []syn.TypeExpr
+			for p.isTypeAtomStart() && p.peek().Kind != syn.TokEqColon && p.peek().Kind != syn.TokSemicolon {
+				tdPats = append(tdPats, p.parseTypeAtom())
 			}
+			var tdBody syn.TypeExpr
+			if p.peek().Kind == syn.TokEqColon {
+				p.advance()
+				tdBody = p.parseType()
+			}
+			_ = tdPats // patterns stored in the ImplField for later use
+			_ = isType
+			typeDefs = append(typeDefs, syn.ImplField{
+				Name:    tdName,
+				IsType:  true,
+				TypeDef: tdBody,
+				S:       span.Span{Start: tdStart, End: p.prevEnd()},
+			})
 			if p.peek().Kind == syn.TokSemicolon {
 				p.advance()
 			}
@@ -159,18 +178,19 @@ func (p *Parser) parseBlock() syn.Expr {
 		}
 	}
 
-	// If we have bindings and the next token is }, treat as binding-only block (impl body).
-	if len(binds) > 0 && p.peek().Kind == syn.TokRBrace {
+	// If we have bindings/typeDefs and the next token is }, treat as binding-only block (impl body).
+	if (len(binds) > 0 || len(typeDefs) > 0) && p.peek().Kind == syn.TokRBrace {
 		p.advance() // consume }
 		return &syn.ExprBlock{
-			Binds: binds,
-			S:     span.Span{Start: start, End: p.prevEnd()},
+			Binds:    binds,
+			TypeDefs: typeDefs,
+			S:        span.Span{Start: start, End: p.prevEnd()},
 		}
 	}
 	body := p.parseExpr()
 	p.expectClosing(syn.TokRBrace, openTok.S)
 	return &syn.ExprBlock{
-		Binds: binds, Body: body,
+		Binds: binds, TypeDefs: typeDefs, Body: body,
 		S: span.Span{Start: start, End: p.prevEnd()},
 	}
 }
