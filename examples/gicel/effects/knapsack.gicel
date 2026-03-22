@@ -19,7 +19,7 @@ capacity := 10
 
 range :: Int -> Int -> List Int
 range := fix (\self lo hi.
-  case lo > hi { True -> []; False -> Cons lo (self (lo + 1) hi) })
+  case lo > hi { True => []; False => Cons lo (self (lo + 1) hi) })
 
 getOr := \def i xs. maybe def id (index i xs)
 
@@ -54,7 +54,7 @@ dpAnswer := {
   finalDp := foldl (\dp. \(w, v).
     foldl (\t j. case j >= w {
       True  -> setAt j (max (getOr 0 j t) (getOr 0 (j - w) t + v)) t;
-      False -> t
+      False => t
     }) dp revRange
   ) (replicate (capacity + 1) 0) items;
   getOr 0 capacity finalDp

@@ -2,43 +2,43 @@ import Prelude
 
 data Ordering := LT | EQ | GT
 
-class Show a { tag :: a -> Bool }
-class Show a => Eq a { eq :: a -> a -> Bool }
-class Eq a => Ord a { compare :: a -> a -> Ordering }
+data Show a { tag :: a -> Bool }
+data Show a => Eq a { eq :: a -> a -> Bool }
+data Eq a => Ord a { compare :: a -> a -> Ordering }
 
-instance Show Bool { tag := \_. True }
-instance Show () { tag := \_. True }
-instance Show Ordering {
+impl Show Bool { tag := \_. True }
+impl Show () { tag := \_. True }
+impl Show Ordering {
   tag := \x. case x { LT -> True; EQ -> True; GT -> True }
 }
 
-instance Eq Bool {
+impl Eq Bool {
   eq := \x y. case x {
     True  -> y;
-    False -> case y { True -> False; False -> True }
+    False => case y { True => False; False => True }
   }
 }
-instance Eq () { eq := \_ _. True }
-instance Eq Ordering {
+impl Eq () { eq := \_ _. True }
+impl Eq Ordering {
   eq := \x y. case x {
-    LT -> case y { LT -> True; _ -> False };
-    EQ -> case y { EQ -> True; _ -> False };
-    GT -> case y { GT -> True; _ -> False }
+    LT -> case y { LT -> True; _ => False };
+    EQ -> case y { EQ -> True; _ => False };
+    GT -> case y { GT -> True; _ => False }
   }
 }
 
-instance Ord Bool {
+impl Ord Bool {
   compare := \x y. case x {
-    False -> case y { False -> EQ; True -> LT };
-    True  -> case y { False -> GT; True -> EQ }
+    False => case y { False => EQ; True => LT };
+    True  -> case y { False => GT; True => EQ }
   }
 }
-instance Ord () { compare := \_ _. EQ }
-instance Ord Ordering {
+impl Ord () { compare := \_ _. EQ }
+impl Ord Ordering {
   compare := \x y. case x {
-    LT -> case y { LT -> EQ; _ -> LT };
+    LT -> case y { LT -> EQ; _ => LT };
     EQ -> case y { LT -> GT; EQ -> EQ; GT -> LT };
-    GT -> case y { GT -> EQ; _ -> GT }
+    GT -> case y { GT -> EQ; _ => GT }
   }
 }
 

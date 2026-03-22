@@ -19,7 +19,7 @@ import (
 const source = `
 import Prelude
 
-myNot := \b. case b { True -> False; False -> True }
+myNot := \b. case b { True => False; False => True }
 
 main := myNot True
 `

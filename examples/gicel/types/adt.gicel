@@ -36,7 +36,7 @@ isLarge := \s. { a := area s; a > 50 }
 colorIf :: Bool -> Color -> Maybe Color
 colorIf := \cond c. case cond {
   True  -> Just c;
-  False -> Nothing
+  False => Nothing
 }
 
 -- Nested pattern: match constructor inside Maybe directly

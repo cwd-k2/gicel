@@ -35,19 +35,19 @@ eval := fix (\self e. case e {
   LitInt n  -> n;
   Not inner -> not (self inner);
   Add x y   -> self x + self y;
-  If c t f  -> case self c { True -> self t; False -> self f }
+  If c t f  -> case self c { True => self t; False => self f }
 })
 
 -- ── Shallow extractors ───────────────────────────────────────
 
 getBool :: Expr Bool -> Maybe Bool
-getBool := \e. case e { LitBool b -> Just b; _ -> Nothing }
+getBool := \e. case e { LitBool b -> Just b; _ => Nothing }
 
 getInt :: Expr Int -> Maybe Int
-getInt := \e. case e { LitInt n -> Just n; _ -> Nothing }
+getInt := \e. case e { LitInt n -> Just n; _ => Nothing }
 
 isLiteral :: Expr a -> Bool
-isLiteral := \e. case e { LitBool _ -> True; LitInt _ -> True; _ -> False }
+isLiteral := \e. case e { LitBool _ => True; LitInt _ => True; _ => False }
 
 -- ── Tests ────────────────────────────────────────────────────
 

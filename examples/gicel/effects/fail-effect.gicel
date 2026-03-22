@@ -46,7 +46,7 @@ mixed := thunk do {
 -- Pure fallback: use `case` to handle Nothing without failing
 -- This avoids the fail effect entirely
 safeLookup := \m. case m {
-  Nothing -> 0;
+  Nothing => 0;
   Just x  -> x
 }
 

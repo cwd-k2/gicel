@@ -6,7 +6,7 @@ mkPoint :: Int -> Int -> Point
 mkPoint := \x y. MkPoint x y
 
 getX :: Point -> Int
-getX := \p. case p { MkPoint x _ -> x }
+getX := \p. case p { MkPoint x _ => x }
 
 getY :: Point -> Int
 getY := \p. case p { MkPoint _ y -> y }

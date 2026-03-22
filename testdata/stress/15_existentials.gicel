@@ -21,7 +21,7 @@ applyWrapper := \w. case w { MkWrapper f x -> f x }
 
 -- Existential pair with constraints
 epBothEq :: ExistsPair -> Bool
-epBothEq := \ep. case ep { MkEP a b -> case eq a a { True -> eq b b; False -> False } }
+epBothEq := \ep. case ep { MkEP a b -> case eq a a { True => eq b b; False => False } }
 
 -- Chain existentials
 chainTest :: SomeEq -> SomeEq -> Bool

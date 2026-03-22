@@ -18,16 +18,16 @@ import (
 const utilsSource = `
 data Pair a b := MkPair a b
 
-mkPair :: \ a b. a -> b -> Pair a b
+mkPair: \ a b. a -> b -> Pair a b
 mkPair := \a b. MkPair a b
 
-fstPair :: \ a b. Pair a b -> a
-fstPair := \p. case p { MkPair a _ -> a }
+fstPair: \ a b. Pair a b -> a
+fstPair := \p. case p { MkPair a _ => a }
 
-sndPair :: \ a b. Pair a b -> b
+sndPair: \ a b. Pair a b -> b
 sndPair := \p. case p { MkPair _ b -> b }
 
-swapPair :: \ a b. Pair a b -> Pair b a
+swapPair: \ a b. Pair a b -> Pair b a
 swapPair := \p. case p { MkPair a b -> MkPair b a }
 `
 

@@ -12,10 +12,10 @@ import Prelude
 
 range :: Int -> Int -> List Int
 range := fix (\self lo hi.
-  case lo > hi { True -> []; False -> Cons lo (self (lo + 1) hi) })
+  case lo > hi { True => []; False => Cons lo (self (lo + 1) hi) })
 
 guard :: Bool -> List ()
-guard := \c. case c { True -> [()]; False -> [] }
+guard := \c. case c { True => [()]; False => [] }
 
 -- ── Layer 1: List do-notation ──────────────────────────────
 -- The type annotation :: List T steers do to the List IxMonad.
@@ -50,7 +50,7 @@ sumPairs := do {
 
 data NDFree a := NDPure a | NDChoice (NDFree a) (NDFree a) | NDFail
 
-instance Monad NDFree {
+impl Monad NDFree {
   mpure := NDPure;
   mbind := fix (\self m f. case m {
     NDPure a     -> f a;
@@ -76,16 +76,16 @@ fromList := fix (\self xs. case xs {
 
 -- Guard: fail unless condition holds.
 guardND :: Bool -> NDFree ()
-guardND := \c. case c { True -> NDPure (); False -> NDFail }
+guardND := \c. case c { True => NDPure (); False => NDFail }
 
 -- N-Queens (N=4): place queens so none attack each other.
 safe :: Int -> List Int -> Int -> Bool
 safe := fix (\self col qs d. case qs {
-  Nil -> True;
+  Nil => True;
   Cons q rest ->
-    case eq col q   { True -> False;
-    False -> case eq (abs (col - q)) d { True -> False;
-    False -> self col rest (d + 1) }}
+    case eq col q   { True => False;
+    False => case eq (abs (col - q)) d { True => False;
+    False => self col rest (d + 1) }}
 })
 
 -- do notation on NDFree: fromList provides choices, guardND prunes.
@@ -93,7 +93,7 @@ nqueens :: Int -> List Int -> NDFree (List Int)
 nqueens := fix (\self n placed.
   case eq (length placed) n {
     True  -> mpure (reverse placed);
-    False -> do {
+    False => do {
       col <- fromList (range 0 (n - 1));
       guardND (safe col placed 1);
       self n (Cons col placed)

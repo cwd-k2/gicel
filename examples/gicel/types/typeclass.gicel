@@ -10,17 +10,17 @@ import Prelude
 data Season := Spring | Summer | Autumn | Winter
 
 -- A custom type class: "Warm" tells us if a value is considered warm
-class Warm a {
+data Warm a {
   isWarm :: a -> Bool
 }
 
 -- Instance for Bool: True is warm, False is cold
-instance Warm Bool {
-  isWarm := \b. case b { True -> True; False -> False }
+impl Warm Bool {
+  isWarm := \b. case b { True => True; False => False }
 }
 
 -- Instance for Season
-instance Warm Season {
+impl Warm Season {
   isWarm := \s. case s {
     Spring -> True;
     Summer -> True;
@@ -30,9 +30,9 @@ instance Warm Season {
 }
 
 -- Instance for Maybe: Just x is warm if x is warm; Nothing is cold
-instance Warm a => Warm (Maybe a) {
+impl Warm a => Warm (Maybe a) {
   isWarm := \m. case m {
-    Nothing -> False;
+    Nothing => False;
     Just x  -> isWarm x
   }
 }

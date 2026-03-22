@@ -32,7 +32,7 @@ filter := \p. fix (\self xs. case xs {
   Nil        -> Nil;
   Cons x rest -> case p x {
     True  -> Cons x (self rest);
-    False -> self rest
+    False => self rest
   }
 })
 
@@ -45,7 +45,7 @@ reverse := \xs. fix (\go acc ys. case ys {
 take :: \a. Int -> List a -> List a
 take := \n. fix (\self xs. case intEq n (intZero ()) {
   True  -> Nil;
-  False -> case xs {
+  False => case xs {
     Nil        -> Nil;
     Cons x rest -> Cons x (self rest)
   }
@@ -65,7 +65,7 @@ treeMap := \f. fix (\self t. case t {
   Branch l r -> Branch (self l) (self r)
 })
 
-not := \b. case b { True -> False; False -> True }
+not := \b. case b { True => False; False => True }
 
 list1 := Cons True (Cons False (Cons True (Cons False (Cons True Nil))))
 mapped := map not list1

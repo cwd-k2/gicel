@@ -16,7 +16,7 @@ import Prelude
 --   Monad:   (=<<) :: (a -> m b) -> m a -> m b   "value から effect を生む"
 --   Comonad: extend :: (w a -> b) -> w a -> w b   "context から value を取る"
 
-class Functor w => Comonad w {
+data Functor w => Comonad w {
   extract :: \a. w a -> a;
   extend  :: \a b. (w a -> b) -> w a -> w b
 }
@@ -36,16 +36,16 @@ duplicate := extend id
 data Env e a := MkEnv e a
 
 getEnv :: \e a. Env e a -> e
-getEnv := \ea. case ea { MkEnv e _ -> e }
+getEnv := \ea. case ea { MkEnv e _ => e }
 
-instance Functor (Env e) {
+impl Functor (Env e) {
   fmap := \f ea. case ea { MkEnv e a -> MkEnv e (f a) }
 }
 
-instance Comonad (Env e) {
+impl Comonad (Env e) {
   extract := \ea. case ea { MkEnv _ a -> a };
   -- extend: 環境は保持、値は f(環境+値) で置き換え
-  extend  := \f ea. case ea { MkEnv e _ -> MkEnv e (f ea) }
+  extend  := \f ea. case ea { MkEnv e _ => MkEnv e (f ea) }
 }
 
 -- 使用例: 設定を付帯して計算
@@ -75,13 +75,13 @@ pos :: \s a. Store s a -> s
 pos := \st. case st { MkStore _ s -> s }
 
 peek :: \s a. s -> Store s a -> a
-peek := \s st. case st { MkStore f _ -> f s }
+peek := \s st. case st { MkStore f _ => f s }
 
-instance Functor (Store s) {
+impl Functor (Store s) {
   fmap := \f st. case st { MkStore g s -> MkStore (f . g) s }
 }
 
-instance Comonad (Store s) {
+impl Comonad (Store s) {
   extract := \st. case st { MkStore f s -> f s };
   -- extend: 各位置 s' に対して f(Store focused at s') を計算
   extend  := \f st. case st { MkStore g s -> MkStore (\s'. f (MkStore g s')) s }
@@ -112,55 +112,55 @@ test_extend := extract arr2   -- 30 + 40 = 70
 data Zipper a := MkZipper (List a) a (List a)
 
 focus :: \a. Zipper a -> a
-focus := \z. case z { MkZipper _ c _ -> c }
+focus := \z. case z { MkZipper _ c _ => c }
 
 -- 焦点を左右にシフト
 goLeft :: \a. Zipper a -> Maybe (Zipper a)
 goLeft := \z. case z { MkZipper ls c rs -> case ls {
-  Nil -> Nothing;
+  Nil => Nothing;
   Cons l rest -> Just (MkZipper rest l (Cons c rs))
 }}
 
 goRight :: \a. Zipper a -> Maybe (Zipper a)
 goRight := \z. case z { MkZipper ls c rs -> case rs {
-  Nil -> Nothing;
+  Nil => Nothing;
   Cons r rest -> Just (MkZipper (Cons c ls) r rest)
 }}
 
 -- 全左/右シフトを収集 (extend の実装に必要)
 allLefts :: \a. Zipper a -> List (Zipper a)
 allLefts := fix (\self z. case goLeft z {
-  Nothing -> Nil;
+  Nothing => Nil;
   Just z' -> Cons z' (self z')
 })
 
 allRights :: \a. Zipper a -> List (Zipper a)
 allRights := fix (\self z. case goRight z {
-  Nothing -> Nil;
+  Nothing => Nil;
   Just z' -> Cons z' (self z')
 })
 
-instance Functor Zipper {
+impl Functor Zipper {
   fmap := \f z. case z {
     MkZipper ls c rs -> MkZipper (map f ls) (f c) (map f rs)
   }
 }
 
-instance Comonad Zipper {
-  extract := \z. case z { MkZipper _ c _ -> c };
+impl Comonad Zipper {
+  extract := \z. case z { MkZipper _ c _ => c };
   extend := \f z. MkZipper (map f (allLefts z)) (f z) (map f (allRights z))
 }
 
 -- ── Zipper ヘルパー ──────────────────────────────────────────
 
 leftVal :: \a. a -> Zipper a -> a
-leftVal := \def z. case z { MkZipper ls _ _ -> case ls {
-  Nil -> def; Cons l _ -> l
+leftVal := \def z. case z { MkZipper ls _ _ => case ls {
+  Nil => def; Cons l _ => l
 }}
 
 rightVal :: \a. a -> Zipper a -> a
 rightVal := \def z. case z { MkZipper _ _ rs -> case rs {
-  Nil -> def; Cons r _ -> r
+  Nil => def; Cons r _ => r
 }}
 
 zipperToList :: \a. Zipper a -> List a

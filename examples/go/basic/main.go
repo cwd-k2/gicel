@@ -17,9 +17,9 @@ import (
 const source = `
 import Prelude
 
-not := \b. case b { True -> False; False -> True }
+not := \b. case b { True => False; False => True }
 
-and := \a b. case a { True -> b; False -> False }
+and := \a b. case a { True => b; False => False }
 
 main := and (not False) True
 `

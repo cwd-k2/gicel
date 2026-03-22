@@ -17,7 +17,7 @@ data Testable := {
 
 -- Construct existential values: the concrete type is hidden after wrapping
 boolTest := MkTestable not True
-maybeTest := MkTestable (\m. case m { Just _ -> True; Nothing -> False }) (Just False)
+maybeTest := MkTestable (\m. case m { Just _ => True; Nothing => False }) (Just False)
 unitTest := MkTestable (const False) ()
 
 -- Run the predicate on the hidden value.
@@ -27,7 +27,7 @@ runTest :: Testable -> Bool
 runTest := \t. case t { MkTestable f x -> f x }
 
 test1 := runTest boolTest     -- not True = False
-test2 := runTest maybeTest    -- Just _ -> True
+test2 := runTest maybeTest    -- Just _ => True
 test3 := runTest unitTest     -- \u -> False
 
 -- Existential with an Eq constraint.
@@ -60,10 +60,10 @@ runTransform := \t. case t { MkTransform f x -> f x }
 
 -- Different transformations that all produce Bool
 t1 := MkTransform not False
-t2 := MkTransform (\m. case m { Just _ -> True; Nothing -> False }) Nothing
+t2 := MkTransform (\m. case m { Just _ => True; Nothing => False }) Nothing
 
 test6 := runTransform t1      -- not False = True
-test7 := runTransform t2      -- Nothing -> False
+test7 := runTransform t2      -- Nothing => False
 
 -- Output: (False, True, False, True, False, True, False)
 main := (test1, test2, test3, test4, test5, test6, test7)

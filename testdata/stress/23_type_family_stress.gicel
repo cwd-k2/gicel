@@ -34,8 +34,8 @@ type Wrap (a: Type) :: Type := {
 -- to Elem (List (Maybe Int)) = Maybe Int.
 unwrapList :: List (Wrap Int) -> Elem (List (Wrap Int))
 unwrapList := \xs. case xs {
-  Cons x _ -> x;
-  Nil -> Nothing
+  Cons x _ => x;
+  Nil => Nothing
 }
 
 -- Type-safe vector length at the type level.

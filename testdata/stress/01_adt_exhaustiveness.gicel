@@ -43,7 +43,7 @@ dirToBool := \d. case d {
   West  -> False; Up    -> True;  Down -> False
 }
 
-not := \b. case b { True -> False; False -> True }
+not := \b. case b { True => False; False => True }
 
 colorToBool :: Color -> Bool
 colorToBool := \c. case c {
@@ -53,9 +53,9 @@ colorToBool := \c. case c {
 
 pairMatch :: Color -> Shape -> Bool
 pairMatch := \c s. case c {
-  Red   -> case s { Circle -> True; _ -> False };
-  Green -> case s { Square -> True; _ -> False };
-  Blue  -> case s { Triangle -> True; _ -> False };
+  Red   -> case s { Circle -> True; _ => False };
+  Green -> case s { Square -> True; _ => False };
+  Blue  -> case s { Triangle -> True; _ => False };
   _     -> False
 }
 
@@ -71,14 +71,14 @@ chainAll := \c. dayToShape (colorToDay c)
 
 matchColor :: Color -> Color -> Bool
 matchColor := \a b. case a {
-  Red     -> case b { Red -> True; _ -> False };
-  Green   -> case b { Green -> True; _ -> False };
-  Blue    -> case b { Blue -> True; _ -> False };
-  Yellow  -> case b { Yellow -> True; _ -> False };
-  Cyan    -> case b { Cyan -> True; _ -> False };
-  Magenta -> case b { Magenta -> True; _ -> False };
-  White   -> case b { White -> True; _ -> False };
-  Black   -> case b { Black -> True; _ -> False }
+  Red     -> case b { Red -> True; _ => False };
+  Green   -> case b { Green -> True; _ => False };
+  Blue    -> case b { Blue -> True; _ => False };
+  Yellow  -> case b { Yellow -> True; _ => False };
+  Cyan    -> case b { Cyan -> True; _ => False };
+  Magenta -> case b { Magenta -> True; _ => False };
+  White   -> case b { White -> True; _ => False };
+  Black   -> case b { Black -> True; _ => False }
 }
 
 main := pairMatch (shapeToColor (chainAll Cyan)) (chainAll Cyan)

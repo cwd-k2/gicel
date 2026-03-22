@@ -34,8 +34,8 @@ maybeDoCase :: Maybe Ordering
 maybeDoCase := do {
   x <- Just True;
   case x {
-    True -> Just LT;
-    False -> Just GT
+    True => Just LT;
+    False => Just GT
   }
 }
 
@@ -45,7 +45,7 @@ maybeDoNestedCase := do {
   x <- Just (Just True);
   case x {
     Just v -> Just v;
-    Nothing -> Nothing
+    Nothing => Nothing
   }
 }
 
@@ -65,8 +65,8 @@ listFilter :: List Bool
 listFilter := do {
   x <- Cons True (Cons False (Cons True Nil));
   case x {
-    True -> Cons x Nil;
-    False -> Nil
+    True => Cons x Nil;
+    False => Nil
   }
 }
 
@@ -119,7 +119,7 @@ listMonoidTest := append (empty :: List Bool) (Cons True Nil)
 
 -- 15. List Functor
 listFmapTest :: List Bool
-listFmapTest := fmap (\x. case x { True -> False; False -> True }) (Cons True (Cons False Nil))
+listFmapTest := fmap (\x. case x { True => False; False => True }) (Cons True (Cons False Nil))
 
 -- 16. List Foldable
 listFoldrTest :: Bool
@@ -153,15 +153,15 @@ eqPairMaybe := eq (Just True, Just False) (Just True, Just False)
 
 -- 23. foldr on List of Bools (count True)
 foldListBool :: Bool
-foldListBool := foldr (\x acc. case x { True -> acc; False -> acc }) True (Cons True (Cons False Nil))
+foldListBool := foldr (\x acc. case x { True => acc; False => acc }) True (Cons True (Cons False Nil))
 
 -- 24. foldr with tuple accumulator
 foldPairAcc :: (Bool, Bool)
-foldPairAcc := foldr (\x acc. case acc { (a, b) -> case x { True -> (True, b); False -> (a, True) } }) (False, False) (Cons True (Cons False Nil))
+foldPairAcc := foldr (\x acc. case acc { (a, b) -> case x { True => (True, b); False => (a, True) } }) (False, False) (Cons True (Cons False Nil))
 
 -- 25. Traverse Maybe over Maybe
 traverseMaybeTest :: Maybe (Maybe Bool)
-traverseMaybeTest := traverse (\x. Just (case x { True -> False; False -> True })) (Just True)
+traverseMaybeTest := traverse (\x. Just (case x { True => False; False => True })) (Just True)
 
 -- ======================================================================
 -- Applicative patterns
@@ -169,7 +169,7 @@ traverseMaybeTest := traverse (\x. Just (case x { True -> False; False -> True }
 
 -- 26. wrap + ap
 apTest :: Maybe Bool
-apTest := ap (Just (\x. case x { True -> False; False -> True })) (Just True)
+apTest := ap (Just (\x. case x { True => False; False => True })) (Just True)
 
 -- 27. ap with Nothing function
 apNothingFn :: Maybe Bool

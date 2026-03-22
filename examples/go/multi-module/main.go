@@ -25,13 +25,13 @@ import (
 const geometrySource = `
 data Point := MkPoint Int Int
 
-mkPoint :: Int -> Int -> Point
+mkPoint: Int -> Int -> Point
 mkPoint := \x y. MkPoint x y
 
-getX :: Point -> Int
-getX := \p. case p { MkPoint x _ -> x }
+getX: Point -> Int
+getX := \p. case p { MkPoint x _ => x }
 
-getY :: Point -> Int
+getY: Point -> Int
 getY := \p. case p { MkPoint _ y -> y }
 `
 
@@ -41,7 +41,7 @@ import Prelude
 
 data Color := Red | Green | Blue
 
-name :: Color -> String
+name: Color -> String
 name := \c. case c { Red -> "red"; Green -> "green"; Blue -> "blue" }
 `
 
@@ -49,10 +49,10 @@ name := \c. case c { Red -> "red"; Green -> "green"; Blue -> "blue" }
 const mathSource = `
 import Prelude
 
-double :: Int -> Int
+double: Int -> Int
 double := \x. x + x
 
-square :: Int -> Int
+square: Int -> Int
 square := \x. x * x
 `
 

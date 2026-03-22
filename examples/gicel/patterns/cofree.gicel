@@ -21,13 +21,13 @@ import Prelude
 data Cofree (f: Type -> Type) a := MkCofree a (f (Cofree f a))
 
 cofreeHead :: \(f: Type -> Type) a. Cofree f a -> a
-cofreeHead := \c. case c { MkCofree a _ -> a }
+cofreeHead := \c. case c { MkCofree a _ => a }
 
 cofreeTail :: \(f: Type -> Type) a. Cofree f a -> f (Cofree f a)
 cofreeTail := \c. case c { MkCofree _ t -> t }
 
 -- Functor: map over every annotation in the tree
-instance Functor f => Functor (Cofree f) {
+impl Functor f => Functor (Cofree f) {
   fmap := \g c. case c { MkCofree a t -> MkCofree (g a) (fmap (fmap g) t) }
 }
 

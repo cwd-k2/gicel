@@ -7,42 +7,42 @@
 import Prelude
 
 -- A multi-parameter class for lossless coercion between types
-class Coercible a b {
+data Coercible a b {
   coerce :: a -> b
 }
 
 -- A multi-parameter class for lossy/semantic conversion
-class Convert a b {
+data Convert a b {
   convert :: a -> b
 }
 
--- Coerce Bool to Maybe Bool: True -> Just True, False -> Nothing
-instance Coercible Bool (Maybe Bool) {
-  coerce := \b. case b { True -> Just True; False -> Nothing }
+-- Coerce Bool to Maybe Bool: True => Just True, False => Nothing
+impl Coercible Bool (Maybe Bool) {
+  coerce := \b. case b { True => Just True; False => Nothing }
 }
 
--- Coerce Maybe a to Bool: Just -> True, Nothing -> False
-instance Coercible (Maybe a) Bool {
-  coerce := \m. case m { Just _ -> True; Nothing -> False }
+-- Coerce Maybe a to Bool: Just -> True, Nothing => False
+impl Coercible (Maybe a) Bool {
+  coerce := \m. case m { Just _ => True; Nothing => False }
 }
 
 -- Coerce () to Bool: unit is False
-instance Coercible () Bool {
+impl Coercible () Bool {
   coerce := const False
 }
 
--- Convert Bool to Ordering: True -> GT, False -> LT
-instance Convert Bool Ordering {
-  convert := \b. case b { True -> GT; False -> LT }
+-- Convert Bool to Ordering: True => GT, False => LT
+impl Convert Bool Ordering {
+  convert := \b. case b { True => GT; False => LT }
 }
 
 -- Convert Ordering to Bool: GT/EQ -> True, LT -> False
-instance Convert Ordering Bool {
+impl Convert Ordering Bool {
   convert := \o. case o { GT -> True; EQ -> True; LT -> False }
 }
 
 -- Coerce Ordering to Bool (same mapping as Convert, for composition demo)
-instance Coercible Ordering Bool {
+impl Coercible Ordering Bool {
   coerce := \o. case o { GT -> True; EQ -> True; LT -> False }
 }
 
@@ -60,10 +60,10 @@ test5 := convert True               -- GT   (Bool -> Ordering)
 test6 := convert LT                 -- False (Ordering -> Bool)
 
 -- Composed: Bool -Convert-> Ordering -Coerce-> Bool
--- True -> GT -> True
+-- True => GT -> True
 test7 := (convertAndCoerce True :: Bool)
 
--- False -> LT -> False
+-- False => LT -> False
 test8 := (convertAndCoerce False :: Bool)
 
 -- Output: (Just True, True, False, False, GT, False, True, False)

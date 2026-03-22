@@ -27,7 +27,7 @@ id_k :: \ (k: Kind). \ (a: k). a -> a
 id_k := \x. x
 
 -- Use fmap: (Bool -> Bool) -> Maybe Bool -> Maybe Bool
-main := fmap (\b. case b { True -> False; False -> True }) (Just True)
+main := fmap (\b. case b { True => False; False => True }) (Just True)
 `
 
 func main() {

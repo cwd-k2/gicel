@@ -62,7 +62,7 @@ ordRecord := compare (False, True) (True, False)
 wrapped := Just { x: 1, y: 2 }
 unwrapped := case wrapped {
   Just r -> r.#x;
-  Nothing -> 0
+  Nothing => 0
 }
 
 -- Large record (many fields)
@@ -75,8 +75,8 @@ sumBig := big.#f1 + big.#f2 + big.#f3 + big.#f4 + big.#f5 +
 -- Records in lists
 points := Cons { x: 0, y: 0 } (Cons { x: 1, y: 1 } Nil)
 firstPoint := case points {
-  Cons p _ -> p.#x;
-  Nil -> 0
+  Cons p _ => p.#x;
+  Nil => 0
 }
 
 -- Accumulate results

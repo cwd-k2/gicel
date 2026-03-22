@@ -2,7 +2,7 @@
 import Prelude
 
 not :: Bool -> Bool
-not := \b. case b { True -> False; False -> True }
+not := \b. case b { True => False; False => True }
 
 -- Eq: test equality on various types.
 eqTest1 := eq True True

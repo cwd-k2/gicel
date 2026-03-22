@@ -41,7 +41,7 @@ func main() {
 	rt, err := eng2.NewRuntime(context.Background(), `
 import Prelude
 
-loop :: Bool -> Bool
+loop: Bool -> Bool
 loop := fix (\self b. self b)
 main := loop True
 `)

@@ -8,20 +8,20 @@
 import Prelude
 
 -- Custom equality class (to avoid conflict with Prelude's Eq)
-class Eq' a {
+data Eq' a {
   eq' :: a -> a -> Bool
 }
 
 -- Base instance: Bool equality
-instance Eq' Bool {
+impl Eq' Bool {
   eq' := \x y. case x {
-    True  -> case y { True -> True;  False -> False };
-    False -> case y { True -> False; False -> True }
+    True  -> case y { True => True;  False => False };
+    False => case y { True => False; False => True }
   }
 }
 
 -- Base instance: Ordering equality
-instance Eq' Ordering {
+impl Eq' Ordering {
   eq' := \x y. case x {
     LT -> case y { LT -> True; EQ -> False; GT -> False };
     EQ -> case y { LT -> False; EQ -> True; GT -> False };
@@ -32,15 +32,15 @@ instance Eq' Ordering {
 -- Conditional instance: Maybe a is Eq' when a is Eq'
 -- This is the key pattern: the constraint `Eq' a =>` makes this
 -- instance available only when an Eq' instance for `a` exists.
-instance Eq' a => Eq' (Maybe a) {
+impl Eq' a => Eq' (Maybe a) {
   eq' := \x y. case x {
-    Nothing -> case y { Nothing -> True;  Just _  -> False };
-    Just a  -> case y { Nothing -> False; Just b  -> eq' a b }
+    Nothing => case y { Nothing => True;  Just _  -> False };
+    Just a  -> case y { Nothing => False; Just b  -> eq' a b }
   }
 }
 
 -- Conditional instance for tuples: (a, b) is Eq' when both a and b are
-instance Eq' a => Eq' b => Eq' (a, b) {
+impl Eq' a => Eq' b => Eq' (a, b) {
   eq' := \(a1, b1). \(a2, b2). eq' a1 a2 && eq' b1 b2
 }
 

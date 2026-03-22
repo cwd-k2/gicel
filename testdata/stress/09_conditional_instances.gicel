@@ -1,43 +1,43 @@
 import Prelude
 
-class Eq a { eq :: a -> a -> Bool }
+data Eq a { eq :: a -> a -> Bool }
 
-instance Eq Bool {
+impl Eq Bool {
   eq := \x y. case x {
     True  -> y;
-    False -> case y { True -> False; False -> True }
+    False => case y { True => False; False => True }
   }
 }
 
-instance Eq () { eq := \_ _. True }
+impl Eq () { eq := \_ _. True }
 
-instance Eq a => Eq (Maybe a) {
+impl Eq a => Eq (Maybe a) {
   eq := \x y. case x {
-    Nothing -> case y { Nothing -> True; Just _ -> False };
-    Just a  -> case y { Nothing -> False; Just b -> eq a b }
+    Nothing => case y { Nothing => True; Just _ => False };
+    Just a  -> case y { Nothing => False; Just b -> eq a b }
   }
 }
 
-instance (Eq a) => (Eq b) => Eq (a, b) {
+impl (Eq a) => (Eq b) => Eq (a, b) {
   eq := \x y. case x {
     (a1, b1) -> case y {
       (a2, b2) -> case eq a1 a2 {
         True  -> eq b1 b2;
-        False -> False
+        False => False
       }
     }
   }
 }
 
-instance (Eq a) => (Eq b) => Eq (Result a b) {
+impl (Eq a) => (Eq b) => Eq (Result a b) {
   eq := \x y. case x {
-    Ok a  -> case y { Ok b -> eq a b;  Err _ -> False };
-    Err a -> case y { Ok _ -> False; Err b -> eq a b }
+    Ok a  -> case y { Ok b -> eq a b;  Err _ => False };
+    Err a -> case y { Ok _ => False; Err b -> eq a b }
   }
 }
 
 neq :: \a. Eq a => a -> a -> Bool
-neq := \x y. case eq x y { True -> False; False -> True }
+neq := \x y. case eq x y { True => False; False => True }
 
 eqMaybeBool :: Maybe Bool -> Maybe Bool -> Bool
 eqMaybeBool := \x y. eq x y

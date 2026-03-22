@@ -30,12 +30,12 @@ infixn 4 ===
 (===) := eq
 
 -- [class] — define a type class
-class Describe a {
+data Describe a {
   describe :: a -> String
 }
 
 -- [instance] — implement the class for Color
-instance Describe Color {
+impl Describe Color {
   describe := \c. case c {
     Red   -> "red";
     Green -> "green";
@@ -44,10 +44,10 @@ instance Describe Color {
 }
 
 -- [instance] — implement for Bool (from prelude)
-instance Describe Bool {
+impl Describe Bool {
   describe := \b. case b {
     True  -> "true";
-    False -> "false"
+    False => "false"
   }
 }
 
