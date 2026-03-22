@@ -199,14 +199,14 @@ func TestPerformanceVerifyInjectivityCost(t *testing.T) {
 	const N = 50
 
 	// Define N data constructors.
-	sb.WriteString("data Tag := ")
+	sb.WriteString("data Tag := { ")
 	for i := 0; i < N; i++ {
 		if i > 0 {
-			sb.WriteString(" | ")
+			sb.WriteString("; ")
 		}
-		sb.WriteString(tagName(i))
+		sb.WriteString(tagName(i) + ": Tag")
 	}
-	sb.WriteString("\n")
+	sb.WriteString("; }\n")
 
 	// Define an injective type family.
 	sb.WriteString("type F (a: Tag) :: (r: Tag) | r =: a := {\n")
@@ -245,14 +245,14 @@ func TestPerformanceIntersectCapRowsManyBranches(t *testing.T) {
 
 	var sb strings.Builder
 	// Define a data type with many constructors.
-	sb.WriteString("data BigEnum := ")
+	sb.WriteString("data BigEnum := { ")
 	for i := 0; i < numBranches; i++ {
 		if i > 0 {
-			sb.WriteString(" | ")
+			sb.WriteString("; ")
 		}
-		sb.WriteString("C" + tagName(i))
+		sb.WriteString("C" + tagName(i) + ": BigEnum")
 	}
-	sb.WriteString("\n")
+	sb.WriteString("; }\n")
 
 	sb.WriteString("data Unit := { Unit: Unit; }\n")
 	sb.WriteString("f :: BigEnum -> Unit\n")
@@ -261,7 +261,7 @@ func TestPerformanceIntersectCapRowsManyBranches(t *testing.T) {
 		if i > 0 {
 			sb.WriteString(";\n")
 		}
-		sb.WriteString("  C" + tagName(i) + " -> Unit")
+		sb.WriteString("  C" + tagName(i) + " => Unit")
 	}
 	sb.WriteString("\n}\n")
 
@@ -285,17 +285,17 @@ func TestPerformanceFunDepManyInstances(t *testing.T) {
 
 	// Define N distinct types.
 	for i := 0; i < N; i++ {
-		sb.WriteString("data D" + tagName(i) + " := MkD" + tagName(i) + "\n")
+		sb.WriteString("data D" + tagName(i) + " := { MkD" + tagName(i) + ": D" + tagName(i) + "; }\n")
 	}
 
-	// Define a class with a fundep.
-	sb.WriteString("class Assoc a b | a =: b {\n")
-	sb.WriteString("  assocGet :: a -> b\n")
+	// Define a class with a fundep (fundep syntax silently consumed by parser).
+	sb.WriteString("data Assoc := \\a b | a =: b. {\n")
+	sb.WriteString("  assocGet: a -> b\n")
 	sb.WriteString("}\n")
 
 	// N instances.
 	for i := 0; i < N; i++ {
-		sb.WriteString("instance Assoc D" + tagName(i) + " D" + tagName((i+1)%N) + " {\n")
+		sb.WriteString("impl Assoc D" + tagName(i) + " D" + tagName((i+1)%N) + " {\n")
 		sb.WriteString("  assocGet := \\_. MkD" + tagName((i+1)%N) + "\n")
 		sb.WriteString("}\n")
 	}

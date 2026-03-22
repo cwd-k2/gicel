@@ -77,14 +77,14 @@ f := \x. x
 func TestStressManyEquations(t *testing.T) {
 	// Type family with 60 equations mapping numbered constructors to results.
 	var b strings.Builder
-	b.WriteString("data Tag :=")
+	b.WriteString("data Tag := { ")
 	for i := 0; i < 60; i++ {
 		if i > 0 {
-			b.WriteString(" |")
+			b.WriteString("; ")
 		}
-		b.WriteString(fmt.Sprintf(" T%d", i))
+		b.WriteString(fmt.Sprintf("T%d: Tag", i))
 	}
-	b.WriteString("\n")
+	b.WriteString("; }\n")
 	b.WriteString("data Result := { R0: Result; R1: Result; }\n")
 	b.WriteString("type Dispatch (t: Tag) :: Result := {\n")
 	for i := 0; i < 60; i++ {
@@ -248,7 +248,7 @@ k4 := MaybeKey Unit
 
 -- Pattern match on data family constructors.
 unwrapListKey :: \ a. Key (List a) -> a
-unwrapListKey := \k. case k { ListKey x -> x }
+unwrapListKey := \k. case k { ListKey x => x }
 `
 	checkSource(t, source, nil)
 }
