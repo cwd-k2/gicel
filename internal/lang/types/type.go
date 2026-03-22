@@ -69,13 +69,14 @@ type TyCBPV struct {
 	S                 span.Span
 }
 
-// RowField is a single label:type pair in a row, with optional multiplicity.
-// Mult is nil for unrestricted (the default); non-nil for graded capabilities.
+// RowField is a single label:type pair in a row, with optional grade annotations.
+// Grades is nil/empty for unrestricted (the default); each element is a grade
+// from a potentially different grade algebra (e.g., TyCon("Linear"), TyCon("Secret")).
 type RowField struct {
-	Label string
-	Type  Type
-	Mult  Type // nil = Unrestricted; e.g., TyCon("Linear"), TyCon("Affine")
-	S     span.Span
+	Label  string
+	Type   Type
+	Grades []Type // nil = no grade constraints (unrestricted default)
+	S      span.Span
 }
 
 // ConstraintEntry is a single class constraint in a constraint row.

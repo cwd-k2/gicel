@@ -21,11 +21,11 @@ import (
 // TestRegressionFreeVarsMultTraversal verifies that types.FreeVars
 // correctly collects type variables from Mult annotations on row fields.
 // If the Mult traversal were missing, the variable "m" would be lost.
-func TestRegressionFreeVarsMultTraversal(t *testing.T) {
+func TestRegressionFreeVarsGradeTraversal(t *testing.T) {
 	row := types.ClosedRow(types.RowField{
-		Label: "handle",
-		Type:  &types.TyCon{Name: "FileHandle"},
-		Mult:  &types.TyVar{Name: "m"},
+		Label:  "handle",
+		Type:   &types.TyCon{Name: "FileHandle"},
+		Grades: []types.Type{&types.TyVar{Name: "m"}},
 	})
 	fv := types.FreeVars(row)
 	if _, ok := fv["m"]; !ok {
@@ -33,19 +33,19 @@ func TestRegressionFreeVarsMultTraversal(t *testing.T) {
 	}
 }
 
-// TestRegressionFreeVarsMultTraversalMultiField verifies FreeVars with
-// multiple fields where Mult uses different type variables.
-func TestRegressionFreeVarsMultTraversalMultiField(t *testing.T) {
+// TestRegressionFreeVarsGradeTraversalMultiField verifies FreeVars with
+// multiple fields where grades use different type variables.
+func TestRegressionFreeVarsGradeTraversalMultiField(t *testing.T) {
 	row := types.ClosedRow(
 		types.RowField{
-			Label: "x",
-			Type:  &types.TyVar{Name: "a"},
-			Mult:  &types.TyVar{Name: "m1"},
+			Label:  "x",
+			Type:   &types.TyVar{Name: "a"},
+			Grades: []types.Type{&types.TyVar{Name: "m1"}},
 		},
 		types.RowField{
-			Label: "y",
-			Type:  &types.TyVar{Name: "b"},
-			Mult:  &types.TyVar{Name: "m2"},
+			Label:  "y",
+			Type:   &types.TyVar{Name: "b"},
+			Grades: []types.Type{&types.TyVar{Name: "m2"}},
 		},
 	)
 	fv := types.FreeVars(row)
@@ -59,17 +59,16 @@ func TestRegressionFreeVarsMultTraversalMultiField(t *testing.T) {
 	}
 }
 
-// TestRegressionFreeVarsMultNilIgnored verifies that nil Mult does
+// TestRegressionFreeVarsNoGrades verifies that nil Grades does
 // not contribute free variables.
-func TestRegressionFreeVarsMultNilIgnored(t *testing.T) {
+func TestRegressionFreeVarsNoGrades(t *testing.T) {
 	row := types.ClosedRow(types.RowField{
 		Label: "handle",
 		Type:  &types.TyCon{Name: "FileHandle"},
-		Mult:  nil, // no multiplicity annotation
 	})
 	fv := types.FreeVars(row)
 	if len(fv) != 0 {
-		t.Errorf("expected 0 free vars for nil Mult, got %v", fv)
+		t.Errorf("expected 0 free vars for nil Grades, got %v", fv)
 	}
 }
 

@@ -54,11 +54,15 @@ func (u *Unifier) unifyEvCapRows(
 		if err := u.Unify(t1, t2); err != nil {
 			return err
 		}
-		// Unify multiplicity annotations if both sides have them.
-		m1 := types.RowFieldMult(aFieldsN, label)
-		m2 := types.RowFieldMult(bFieldsN, label)
-		if m1 != nil && m2 != nil {
-			if err := u.Unify(m1, m2); err != nil {
+		// Unify grade annotations pairwise.
+		g1 := types.RowFieldGrades(aFieldsN, label)
+		g2 := types.RowFieldGrades(bFieldsN, label)
+		n := len(g1)
+		if len(g2) < n {
+			n = len(g2)
+		}
+		for i := 0; i < n; i++ {
+			if err := u.Unify(g1[i], g2[i]); err != nil {
 				return err
 			}
 		}

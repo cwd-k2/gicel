@@ -23,10 +23,9 @@ func (ch *Checker) checkDo(e *syntax.ExprDo, expected types.Type) ir.Core {
 
 	// Fast path: Computation types use Core.Bind with expected pre/post threading.
 	if comp, ok := expected.(*types.TyCBPV); ok && comp.Tag == types.TagComp {
-		var steps []multStep
-		d := &doElaborator{ch: ch, mode: doModeChecked, comp: comp, steps: &steps}
+		d := &doElaborator{ch: ch, mode: doModeChecked, comp: comp}
 		_, result := d.elaborate(e.Stmts, e.S)
-		ch.checkMultiplicity(comp, steps, e.S)
+		ch.checkGradeBoundary(comp, e.S)
 		return result
 	}
 	switch expected.(type) {

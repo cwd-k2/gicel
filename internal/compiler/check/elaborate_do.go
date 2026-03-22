@@ -13,7 +13,7 @@ import (
 // Do elaboration files:
 //   elaborate_do.go          — doElaborator, shared helpers, unified elaboration loop
 //   elaborate_do_monadic.go  — checkDo dispatch, IxMonad helpers (extractMonadHead, mkIxBind, etc.)
-//   elaborate_do_mult.go     — multiplicity enforcement (checkMultiplicity)
+//   grade.go                 — grade boundary check (checkGradeBoundary)
 
 // --- doElaborator: unified do-block elaboration ---
 
@@ -22,7 +22,7 @@ type doMode int
 
 const (
 	doModeInfer   doMode = iota // fresh metas for pre/post; returns inferred type
-	doModeChecked               // threads known pre/post from TyCBPV; records multSteps
+	doModeChecked               // threads known pre/post from TyCBPV
 	doModeMonadic               // IxMonad class dispatch via dictionary
 )
 
@@ -33,9 +33,8 @@ type doElaborator struct {
 	ch   *Checker
 	mode doMode
 
-	// checked mode: threading state and multiplicity recording.
-	comp  *types.TyCBPV
-	steps *[]multStep
+	// checked mode: threading state.
+	comp *types.TyCBPV
 
 	// monadic mode: IxMonad dispatch parameters.
 	monadHead types.Type
@@ -171,8 +170,6 @@ func (d *doElaborator) checkedBind(varName string, comp syntax.Expr, rest []synt
 	compTy = ch.unifier.Zonk(compTy)
 
 	if inferredComp, ok := compTy.(*types.TyCBPV); ok {
-		// Record step for multiplicity analysis.
-		*d.steps = append(*d.steps, multStep{pre: inferredComp.Pre, post: inferredComp.Post, s: stmtS})
 		// Unify inferred pre with expected pre.
 		if err := ch.unifier.Unify(inferredComp.Pre, d.comp.Pre); err != nil {
 			ch.addUnifyError(err, stmtS, fmt.Sprintf(

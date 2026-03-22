@@ -397,14 +397,14 @@ f := \b. case b {
 	checkSource(t, source, nil)
 }
 
-// --- Graded Evidence: RowField.Mult ---
+// --- Graded Evidence: RowField.Grades ---
 
-func TestRowFieldMultPretty(t *testing.T) {
-	// RowField with Mult should pretty-print as "label: Type @ Mult"
+func TestRowFieldGradesPretty(t *testing.T) {
+	// RowField with Grades should pretty-print as "label: Type @ Grade"
 	row := types.ClosedRow(types.RowField{
-		Label: "handle",
-		Type:  &types.TyCon{Name: "FileHandle"},
-		Mult:  &types.TyCon{Name: "Linear"},
+		Label:  "handle",
+		Type:   &types.TyCon{Name: "FileHandle"},
+		Grades: []types.Type{&types.TyCon{Name: "Linear"}},
 	})
 	s := types.Pretty(row)
 	if !strings.Contains(s, "@ Linear") {
@@ -412,28 +412,28 @@ func TestRowFieldMultPretty(t *testing.T) {
 	}
 }
 
-func TestRowFieldMultEquality(t *testing.T) {
-	a := types.ClosedRow(types.RowField{Label: "x", Type: &types.TyCon{Name: "Int"}, Mult: &types.TyCon{Name: "Linear"}})
-	b := types.ClosedRow(types.RowField{Label: "x", Type: &types.TyCon{Name: "Int"}, Mult: &types.TyCon{Name: "Linear"}})
-	c := types.ClosedRow(types.RowField{Label: "x", Type: &types.TyCon{Name: "Int"}, Mult: &types.TyCon{Name: "Affine"}})
-	d := types.ClosedRow(types.RowField{Label: "x", Type: &types.TyCon{Name: "Int"}}) // no Mult
+func TestRowFieldGradesEquality(t *testing.T) {
+	a := types.ClosedRow(types.RowField{Label: "x", Type: &types.TyCon{Name: "Int"}, Grades: []types.Type{&types.TyCon{Name: "Linear"}}})
+	b := types.ClosedRow(types.RowField{Label: "x", Type: &types.TyCon{Name: "Int"}, Grades: []types.Type{&types.TyCon{Name: "Linear"}}})
+	c := types.ClosedRow(types.RowField{Label: "x", Type: &types.TyCon{Name: "Int"}, Grades: []types.Type{&types.TyCon{Name: "Affine"}}})
+	d := types.ClosedRow(types.RowField{Label: "x", Type: &types.TyCon{Name: "Int"}}) // no Grades
 
 	if !types.Equal(a, b) {
-		t.Error("same Mult should be equal")
+		t.Error("same Grades should be equal")
 	}
 	if types.Equal(a, c) {
-		t.Error("different Mult should not be equal")
+		t.Error("different Grades should not be equal")
 	}
 	if types.Equal(a, d) {
-		t.Error("Mult vs no-Mult should not be equal")
+		t.Error("Grades vs no-Grades should not be equal")
 	}
 }
 
-func TestRowFieldMultSubst(t *testing.T) {
+func TestRowFieldGradesSubst(t *testing.T) {
 	row := types.ClosedRow(types.RowField{
-		Label: "cap",
-		Type:  &types.TyVar{Name: "a"},
-		Mult:  &types.TyVar{Name: "m"},
+		Label:  "cap",
+		Type:   &types.TyVar{Name: "a"},
+		Grades: []types.Type{&types.TyVar{Name: "m"}},
 	})
 	result := types.Subst(row, "m", &types.TyCon{Name: "Linear"})
 	evRow, ok := result.(*types.TyEvidenceRow)
@@ -444,23 +444,23 @@ func TestRowFieldMultSubst(t *testing.T) {
 	if len(fields) != 1 {
 		t.Fatalf("expected 1 field, got %d", len(fields))
 	}
-	mult := fields[0].Mult
-	if mult == nil {
-		t.Fatal("expected non-nil Mult after subst")
+	if len(fields[0].Grades) != 1 {
+		t.Fatalf("expected 1 grade, got %d", len(fields[0].Grades))
 	}
-	if con, ok := mult.(*types.TyCon); !ok || con.Name != "Linear" {
-		t.Errorf("expected Mult = Linear, got %v", mult)
+	grade := fields[0].Grades[0]
+	if con, ok := grade.(*types.TyCon); !ok || con.Name != "Linear" {
+		t.Errorf("expected Grade = Linear, got %v", grade)
 	}
 }
 
-func TestRowFieldMultZonk(t *testing.T) {
+func TestRowFieldGradesZonk(t *testing.T) {
 	u := unify.NewUnifier()
 	meta := &types.TyMeta{ID: 1, Kind: types.KType{}}
 	u.InstallTempSolution(1, &types.TyCon{Name: "Affine"})
 	row := types.ClosedRow(types.RowField{
-		Label: "cap",
-		Type:  &types.TyCon{Name: "Int"},
-		Mult:  meta,
+		Label:  "cap",
+		Type:   &types.TyCon{Name: "Int"},
+		Grades: []types.Type{meta},
 	})
 	result := u.Zonk(row)
 	evRow, ok := result.(*types.TyEvidenceRow)
@@ -471,9 +471,12 @@ func TestRowFieldMultZonk(t *testing.T) {
 	if len(fields) != 1 {
 		t.Fatalf("expected 1 field, got %d", len(fields))
 	}
-	mult := fields[0].Mult
-	if con, ok := mult.(*types.TyCon); !ok || con.Name != "Affine" {
-		t.Errorf("expected Mult = Affine after zonk, got %v", mult)
+	if len(fields[0].Grades) != 1 {
+		t.Fatalf("expected 1 grade, got %d", len(fields[0].Grades))
+	}
+	grade := fields[0].Grades[0]
+	if con, ok := grade.(*types.TyCon); !ok || con.Name != "Affine" {
+		t.Errorf("expected Grade = Affine after zonk, got %v", grade)
 	}
 }
 

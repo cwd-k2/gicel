@@ -143,11 +143,11 @@ func RowFieldType(fields []RowField, label string) Type {
 	return nil
 }
 
-// RowFieldMult returns the multiplicity of a row field with the given label, or nil.
-func RowFieldMult(fields []RowField, label string) Type {
+// RowFieldGrades returns the grade annotations of a row field with the given label, or nil.
+func RowFieldGrades(fields []RowField, label string) []Type {
 	for _, f := range fields {
 		if f.Label == label {
-			return f.Mult
+			return f.Grades
 		}
 	}
 	return nil
