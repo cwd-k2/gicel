@@ -257,13 +257,16 @@ func (ch *Checker) check(expr syntax.Expr, expected types.Type) ir.Core {
 			bodyCore := ch.check(expr, body)
 			return &ir.TyLam{TyParam: f.Var, Kind: f.Kind, Body: bodyCore, S: expr.Span()}
 		}
-		preID := ch.freshID // track scope boundary
+		ch.solver.level++
+		preID := ch.freshID // belt-and-suspenders scope boundary
 		skolem := ch.freshSkolem(f.Var, f.Kind)
 		ch.ctx.Push(&CtxTyVar{Name: f.Var, Kind: f.Kind})
 		bodyCore := ch.check(expr, types.Subst(f.Body, f.Var, skolem))
 		ch.ctx.Pop()
-		// Escape check: skolem must not appear in solutions for
-		// metas created before the skolem (outside the scope).
+		ch.solver.level--
+		// Belt-and-suspenders: verify skolem didn't leak into outer solutions.
+		// Touchability (when enabled) prevents this structurally; this check
+		// detects level-system bugs.
 		ch.checkSkolemEscapeInSolutions(skolem, preID, expr.Span())
 		return &ir.TyLam{TyParam: f.Var, Kind: f.Kind, Body: bodyCore, S: expr.Span()}
 	}
