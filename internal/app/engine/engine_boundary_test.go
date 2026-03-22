@@ -176,7 +176,7 @@ func TestNonExhaustiveMaybe(t *testing.T) {
 	eng.Use(stdlib.Prelude)
 	_, err := eng.NewRuntime(context.Background(), `
 import Prelude
-f := \x. case x { Just y -> y }
+f := \x. case x { Just y => y }
 main := f (Just True)
 `)
 	if err == nil {

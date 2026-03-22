@@ -44,7 +44,7 @@ var grammarPrograms = []stressProgram{
 data LibBool := LibTrue | LibFalse
 libTrue := LibTrue
 libNot :: LibBool -> LibBool
-libNot := \b. case b { LibTrue -> LibFalse; LibFalse -> LibTrue }
+libNot := \b. case b { LibTrue => LibFalse; LibFalse => LibTrue }
 `)
 			if err != nil {
 				panic(err)

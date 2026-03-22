@@ -33,7 +33,7 @@ infixr 9 .
 (.) := \f g x. f (g x)
 
 not :: Bool -> Bool
-not := \b. case b { True -> False; False -> True }
+not := \b. case b { True => False; False => True }
 
 id :: \ a. a -> a
 id := \x. x
@@ -199,7 +199,7 @@ func TestSemicolonInCaseAlts(t *testing.T) {
 	eng.Use(gicel.Prelude)
 	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
-f := \x. case x { True -> False; False -> True }
+f := \x. case x { True => False; False => True }
 main := f True
 `)
 	if err != nil {
@@ -220,8 +220,8 @@ func TestNewlineInCaseAlts(t *testing.T) {
 	_, err := eng.NewRuntime(context.Background(), `
 import Prelude
 f := \x. case x {
-  True -> False
-  False -> True
+  True => False
+  False => True
 }
 main := f False
 `)
@@ -336,7 +336,7 @@ applyBoth :: (\a. a -> a) -> Bool
 applyBoth := \f. f True
 
 not :: Bool -> Bool
-not := \b. case b { True -> False; False -> True }
+not := \b. case b { True => False; False => True }
 
 main := applyBoth not
 `)
@@ -614,7 +614,7 @@ import Prelude
 data Pair a b := MkPair a b
 
 fst :: \a b. Pair a b -> a
-fst := \p. case p { MkPair x _ -> x }
+fst := \p. case p { MkPair x _ => x }
 
 snd :: \a b. Pair a b -> b
 snd := \p. case p { MkPair _ y -> y }
@@ -638,8 +638,8 @@ func TestDoubleNestedPatternMatch(t *testing.T) {
 import Prelude
 isJustTrue :: Maybe Bool -> Bool
 isJustTrue := \m. case m {
-  Just b -> case b { True -> True; False -> False };
-  Nothing -> False
+  Just b -> case b { True => True; False => False };
+  Nothing => False
 }
 main := isJustTrue (Just True)
 `)
@@ -910,7 +910,7 @@ import Prelude
 id :: \a. a -> a
 id := \x. x
 
-main := case id True { True -> id (); False -> id () }
+main := case id True { True => id (); False => id () }
 `)
 	if err != nil {
 		t.Fatal("polymorphic function at multiple types should be accepted:", err)
@@ -971,7 +971,7 @@ func TestFP_WildcardInCasePattern(t *testing.T) {
 	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 data Color := Red | Green | Blue
-isRed := \c. case c { Red -> True; _ -> False }
+isRed := \c. case c { Red -> True; _ => False }
 main := isRed Blue
 `)
 	if err != nil {
@@ -1469,7 +1469,7 @@ func TestNestedPatternBareConstructor(t *testing.T) {
 import Prelude
 data Pair a b := MkPair a b
 
-match := \p. case p { MkPair (Just x) Nothing -> x; _ -> False }
+match := \p. case p { MkPair (Just x) Nothing => x; _ => False }
 main := match (MkPair (Just True) Nothing)
 `)
 	if err != nil {
@@ -1487,7 +1487,7 @@ func TestNestedPatternParenthesized(t *testing.T) {
 	eng.Use(gicel.Prelude)
 	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
-isJustTrue := \m. case m { Just True -> True; _ -> False }
+isJustTrue := \m. case m { Just True => True; _ => False }
 main := (isJustTrue (Just True), isJustTrue (Just False), isJustTrue Nothing)
 `)
 	if err != nil {
@@ -1510,7 +1510,7 @@ func TestNestedPatternExhaustiveness(t *testing.T) {
 	eng.Use(gicel.Prelude)
 	_, err := eng.NewRuntime(context.Background(), `
 import Prelude
-f := \x. case x { Just True -> True }
+f := \x. case x { Just True => True }
 main := f (Just True)
 `)
 	if err == nil {
@@ -1527,7 +1527,7 @@ func TestNestedPatternDeepNesting(t *testing.T) {
 	eng.Use(gicel.Prelude)
 	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
-f := \x. case x { Just (Just (Just True)) -> True; _ -> False }
+f := \x. case x { Just (Just (Just True)) -> True; _ => False }
 main := (f (Just (Just (Just True))), f (Just (Just (Just False))), f (Just (Just Nothing)))
 `)
 	if err != nil {
@@ -1709,7 +1709,7 @@ func TestLiteralPatternInt(t *testing.T) {
 	eng.Use(gicel.Prelude)
 	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
-describe := \n. case n { 0 -> "zero"; 1 -> "one"; _ -> "other" }
+describe := \n. case n { 0 -> "zero"; 1 -> "one"; _ => "other" }
 main := describe 1
 `)
 	if err != nil {
@@ -1730,7 +1730,7 @@ func TestLiteralPatternString(t *testing.T) {
 	eng.Use(gicel.Prelude)
 	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
-greet := \name. case name { "Alice" -> "Hello Alice"; _ -> "Hello stranger" }
+greet := \name. case name { "Alice" -> "Hello Alice"; _ => "Hello stranger" }
 main := greet "Alice"
 `)
 	if err != nil {
@@ -1751,7 +1751,7 @@ func TestLiteralPatternFallthrough(t *testing.T) {
 	eng.Use(gicel.Prelude)
 	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
-fib := \n. case n { 0 -> 0; 1 -> 1; _ -> 99 }
+fib := \n. case n { 0 -> 0; 1 -> 1; _ => 99 }
 main := fib 5
 `)
 	if err != nil {
@@ -1772,7 +1772,7 @@ func TestLiteralPatternInNestedCase(t *testing.T) {
 	eng.Use(gicel.Prelude)
 	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
-f := \m. case m { Just n -> case n { 0 -> True; _ -> False }; Nothing -> False }
+f := \m. case m { Just n -> case n { 0 -> True; _ => False }; Nothing => False }
 main := f (Just 0)
 `)
 	if err != nil {
@@ -1790,7 +1790,7 @@ func TestLiteralPatternRune(t *testing.T) {
 	eng.Use(gicel.Prelude)
 	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
-classify := \c. case c { 'a' -> "vowel"; 'e' -> "vowel"; _ -> "other" }
+classify := \c. case c { 'a' -> "vowel"; 'e' -> "vowel"; _ => "other" }
 main := classify 'a'
 `)
 	if err != nil {

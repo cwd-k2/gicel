@@ -269,7 +269,7 @@ main := loop 0
 func TestAdversarial_FixExponentialBranching(t *testing.T) {
 	src := `
 import Prelude
-bomb := fix (\self n. case n == 0 { True -> 0; False -> self (n - 1) + self (n - 1) })
+bomb := fix (\self n. case n == 0 { True => 0; False => self (n - 1) + self (n - 1) })
 main := bomb 50
 `
 	eng := gicel.NewEngine()
@@ -669,7 +669,7 @@ func TestV9_FixConValErrorMessage(t *testing.T) {
 import Prelude
 data Pair := MkPair Int Int
 getFirst :: Pair -> Int
-getFirst := \p. case p { MkPair a _ -> a }
+getFirst := \p. case p { MkPair a _ => a }
 main := getFirst (fix (\self. MkPair 1 2))
 `
 	eng := gicel.NewEngine()

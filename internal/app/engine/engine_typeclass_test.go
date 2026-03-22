@@ -19,7 +19,7 @@ data Bool := { True: Bool; False: Bool; }
 data Eq := \a. { eq: a -> a -> Bool }
 impl Eq Bool := {
   eq := \x y. case x {
-    True  -> case y { True => True;  False => False };
+    True  => case y { True => True;  False => False };
     False => case y { True => False; False => True }
   }
 }
@@ -45,7 +45,7 @@ data Bool := { True: Bool; False: Bool; }
 data Eq := \a. { eq: a -> a -> Bool }
 impl Eq Bool := {
   eq := \x y. case x {
-    True  -> case y { True => True;  False => False };
+    True  => case y { True => True;  False => False };
     False => case y { True => False; False => True }
   }
 }
@@ -103,7 +103,7 @@ data Maybe a := Just a | Nothing
 data Functor := \f. { fmap: \a b. (a -> b) -> f a -> f b }
 impl Functor Maybe := {
   fmap := \g mx. case mx {
-    Just x  -> Just (g x);
+    Just x  => Just (g x);
     Nothing => Nothing
   }
 }

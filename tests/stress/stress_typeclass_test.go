@@ -35,7 +35,7 @@ var typeclassPrograms = []stressProgram{
 			// convert True (Convert Bool (Maybe Bool)) = Just True
 			// coerce (Just True) (Coercible (Maybe Bool) Bool) = True
 			// coerced2 = (coerce :: () -> Bool) (coerce True) = True
-			// main = case True { True -> coerced2; ... } = True
+			// main = case True { True => coerced2; ... } = True
 			assertCon(t, v, "True")
 		},
 	},
