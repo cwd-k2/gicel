@@ -1,8 +1,8 @@
-data Bool := { True: (); False: (); }
-data Result := \e a. { Ok: a; Err: e; }
-data Maybe := \a. { Just: a; Nothing: (); }
-data List := \a. { Cons: a -> List a; Nil: (); }
-data Ordering := { LT: (); EQ: (); GT: (); }
+data Bool := { True: Bool; False: Bool; }
+data Result := \e a. { Ok: a -> Result e a; Err: e -> Result e a; }
+data Maybe := \a. { Just: a -> Maybe a; Nothing: Maybe a; }
+data List := \a. { Cons: a -> List a -> List a; Nil: List a; }
+data Ordering := { LT: Ordering; EQ: Ordering; GT: Ordering; }
 
 data Eq := \a. { eq: a -> a -> Bool }
 data Ord := \a. Eq a => { compare: a -> a -> Ordering }

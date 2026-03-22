@@ -82,8 +82,8 @@ func TestRegressionFreeVarsNoGrades(t *testing.T) {
 // when unifying subcomponents of TyArrow.
 func TestRegressionReduceFamilyInArrowType(t *testing.T) {
 	source := `
-data List := \a. { Nil: (); Cons: a -> List a; }
-data Unit := { Unit: (); }
+data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
+data Unit := { Unit: Unit; }
 type Elem (c: Type) :: Type := {
   Elem (List a) =: a
 }
@@ -97,8 +97,8 @@ f := \x. x
 // applications nested inside Computation types are reduced.
 func TestRegressionReduceFamilyInCompType(t *testing.T) {
 	source := `
-data List := \a. { Nil: (); Cons: a -> List a; }
-data Unit := { Unit: (); }
+data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
+data Unit := { Unit: Unit; }
 type Elem (c: Type) :: Type := {
   Elem (List a) =: a
 }
@@ -112,8 +112,8 @@ f := \c. c
 // type family in the argument of an arrow within another arrow.
 func TestRegressionReduceFamilyInNestedArrow(t *testing.T) {
 	source := `
-data List := \a. { Nil: (); Cons: a -> List a; }
-data Unit := { Unit: (); }
+data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
+data Unit := { Unit: Unit; }
 type Elem (c: Type) :: Type := {
   Elem (List a) =: a
 }
@@ -166,8 +166,8 @@ type Bad (s: Session) :: (r: Session) | r =: s := {
 // produces a duplicate declaration error.
 func TestRegressionDataFamilyConstructorCollision(t *testing.T) {
 	source := `
-data Wrapper := \a. { Wrap: a; }
-data Unit := { Unit: (); }
+data Wrapper := \a. { Wrap: a -> Wrapper a; }
+data Unit := { Unit: Unit; }
 
 data Container := \c. {
   data Elem c :: Type
@@ -184,8 +184,8 @@ impl Container (Wrapper a) := {
 // constructor names in data family instances do not produce errors.
 func TestRegressionDataFamilyConstructorNoCollision(t *testing.T) {
 	source := `
-data Wrapper := \a. { Wrap: a; }
-data Unit := { Unit: (); }
+data Wrapper := \a. { Wrap: a -> Wrapper a; }
+data Unit := { Unit: Unit; }
 
 data Container := \c. {
   data Elem c :: Type
@@ -210,8 +210,8 @@ x := WrapElem Unit
 // limits and terminates with an appropriate error.
 func TestRegressionExponentialTypeGrowthBound(t *testing.T) {
 	source := `
-data Pair := \a b. { MkPair: a -> b; }
-data Unit := { Unit: (); }
+data Pair := \a b. { MkPair: a -> b -> Pair a b; }
+data Unit := { Unit: Unit; }
 type Grow (a: Type) :: Type := {
   Grow a =: Grow (Pair a a)
 }
@@ -233,8 +233,8 @@ func TestRegressionFundepBestEffort(t *testing.T) {
 	// not solely by the fundep improvement. Even if fundep improvement were
 	// disabled, the instance resolution for Elem (List a) a should succeed.
 	source := `
-data Unit := { Unit: (); }
-data List := \a. { Nil: (); Cons: a -> List a; }
+data Unit := { Unit: Unit; }
+data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
 data Elem := \c e. {
   extract: c -> e
 }
@@ -252,8 +252,8 @@ f := \xs. extract xs
 // should still compile via normal instance resolution.
 func TestRegressionFundepImprovementFromMeta(t *testing.T) {
 	source := `
-data Unit := { Unit: (); }
-data List := \a. { Nil: (); Cons: a -> List a; }
+data Unit := { Unit: Unit; }
+data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
 data Collection := \c e. {
   empty: c
 }

@@ -37,7 +37,7 @@ func benchCheck(b *testing.B, source string) {
 // Eq instance, and a main that resolves Eq on the last type.
 func instanceScaleSource(n int) string {
 	var b strings.Builder
-	b.WriteString("data Bool := { True: (); False: (); }\n")
+	b.WriteString("data Bool := { True: Bool; False: Bool; }\n")
 	b.WriteString("class Eq a { eq :: a -> a -> Bool }\n")
 	for i := 0; i < n; i++ {
 		fmt.Fprintf(&b, "data T%d := C%d\n", i, i)
@@ -79,7 +79,7 @@ func BenchmarkResolveInstances100(b *testing.B) {
 // class C0 a, class C0 a => C1 a, ..., class C(n-1) a => Cn a
 func superclassChainSource(depth int) string {
 	var b strings.Builder
-	b.WriteString("data Bool := { True: (); False: (); }\n")
+	b.WriteString("data Bool := { True: Bool; False: Bool; }\n")
 	b.WriteString("class C0 a { m0 :: a -> Bool }\n")
 	for i := 1; i <= depth; i++ {
 		fmt.Fprintf(&b, "class C%d a => C%d a { m%d :: a -> Bool }\n", i-1, i, i)
@@ -157,7 +157,7 @@ func BenchmarkTypeFamilyReduceLinear50(b *testing.B) {
 // largeDeclSource generates n independent function declarations.
 func largeDeclSource(n int) string {
 	var b strings.Builder
-	b.WriteString("data Bool := { True: (); False: (); }\n")
+	b.WriteString("data Bool := { True: Bool; False: Bool; }\n")
 	for i := 0; i < n; i++ {
 		fmt.Fprintf(&b, "f%d :: Bool -> Bool\nf%d := \\x. x\n", i, i)
 	}

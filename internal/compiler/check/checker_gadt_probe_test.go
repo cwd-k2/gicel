@@ -20,7 +20,7 @@ import (
 // out of its case branch should be detected.
 func TestProbeE_GADT_SkolemEscapeDetection(t *testing.T) {
 	source := `
-data Bool := { True: (); False: (); }
+data Bool := { True: Bool; False: Bool; }
 data Exists := { MkExists: \a. a -> Exists }
 
 -- This should fail: the existential 'a' escapes through the return type
@@ -37,7 +37,7 @@ leak := \e. case e { MkExists x => x }
 // type index in the case branch.
 func TestProbeE_GADT_IndexRefinement(t *testing.T) {
 	source := `
-data Bool := { True: (); False: (); }
+data Bool := { True: Bool; False: Bool; }
 data Expr a := { LitBool: Bool -> Expr Bool }
 
 eval :: Expr Bool -> Bool
@@ -52,7 +52,7 @@ main := eval (LitBool True)
 // with different index types.
 func TestProbeE_GADT_MultiConstructorIndexRefinement(t *testing.T) {
 	source := `
-data Bool := { True: (); False: (); }
+data Bool := { True: Bool; False: Bool; }
 data Nat := { Z: (); S: Nat; }
 
 data Tag a := { TagBool: Tag Bool; TagNat: Tag Nat }

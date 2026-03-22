@@ -79,7 +79,7 @@ func TestContextEvidencePopRestoresScope(t *testing.T) {
 
 func TestCheckTyEvidenceWithEvidence(t *testing.T) {
 	// Regression test: TyEvidence check mode works with CtxEvidence.
-	source := `data Bool := { True: (); False: (); }
+	source := `data Bool := { True: Bool; False: Bool; }
 data Eq := \a. { eq: a -> a -> Bool }
 impl Eq Bool := { eq := \x y. True }
 f :: \ a. Eq a => a -> a -> Bool
@@ -99,7 +99,7 @@ main := f True False`
 
 func TestCheckMultiConstraintResolution(t *testing.T) {
 	// Test that multiple constraints ((Eq a, Ord a) => ...) resolve correctly.
-	source := `data Bool := { True: (); False: (); }
+	source := `data Bool := { True: Bool; False: Bool; }
 data Eq := \a. { eq: a -> a -> Bool }
 data Ord := \a. Eq a => { compare: a -> a -> Bool }
 impl Eq Bool := { eq := \x y. True }

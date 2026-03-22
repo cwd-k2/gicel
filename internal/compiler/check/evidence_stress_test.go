@@ -18,7 +18,7 @@ import (
 func TestStressDeepSuperclassChain(t *testing.T) {
 	// Chain of 5 superclasses: C5 => C4 => C3 => C2 => C1.
 	// Using C1's method with only C5 in scope requires traversing 4 levels.
-	source := `data Bool := { True: (); False: (); }
+	source := `data Bool := { True: Bool; False: Bool; }
 data C1 := \a. { m1: a -> Bool }
 data C2 := \a. C1 a => { m2: a -> Bool }
 data C3 := \a. C2 a => { m3: a -> Bool }
@@ -38,7 +38,7 @@ main := f True`
 func TestStressManyInstancesOneClass(t *testing.T) {
 	// 10 types, each with an Eq instance. Resolve Eq for each.
 	var sb strings.Builder
-	sb.WriteString("data Bool := { True: (); False: (); }\n")
+	sb.WriteString("data Bool := { True: Bool; False: Bool; }\n")
 	sb.WriteString("data Eq := \\a. { eq: a -> a -> Bool }\n")
 	for i := 0; i < 10; i++ {
 		name := fmt.Sprintf("T%d", i)
@@ -56,7 +56,7 @@ func TestStressManyInstancesOneClass(t *testing.T) {
 func TestStressManyClasses(t *testing.T) {
 	// 10 independent classes, each with one instance.
 	var sb strings.Builder
-	sb.WriteString("data Bool := { True: (); False: (); }\n")
+	sb.WriteString("data Bool := { True: Bool; False: Bool; }\n")
 	for i := 0; i < 10; i++ {
 		sb.WriteString(fmt.Sprintf("data C%d := \\a. { m%d: a -> Bool }\n", i, i))
 	}
@@ -77,9 +77,9 @@ func TestStressManyClasses(t *testing.T) {
 func TestStressContextualInstanceChain(t *testing.T) {
 	// Nested contextual instances: Eq a => Eq (F a), Eq a => Eq (G a).
 	// Resolve Eq (F (G Bool)).
-	source := `data Bool := { True: (); False: (); }
-data F := \a. { MkF: a; }
-data G := \a. { MkG: a; }
+	source := `data Bool := { True: Bool; False: Bool; }
+data F := \a. { MkF: a -> F a; }
+data G := \a. { MkG: a -> G a; }
 data Eq := \a. { eq: a -> a -> Bool }
 impl Eq Bool := { eq := \x y. True }
 impl Eq a => Eq (F a) := { eq := \x y. True }
@@ -90,7 +90,7 @@ main := eq (MkF (MkG True)) (MkF (MkG False))`
 
 func TestStressMultiParamConstraints(t *testing.T) {
 	// Curried constraints with different type variables.
-	source := `data Bool := { True: (); False: (); }
+	source := `data Bool := { True: Bool; False: Bool; }
 data Eq := \a. { eq: a -> a -> Bool }
 data Show := \a. { show: a -> Bool }
 impl Eq Bool := { eq := \x y. True }
@@ -107,8 +107,8 @@ main := f True False`
 
 func TestEdgeSameClassDifferentArgs(t *testing.T) {
 	// Two Eq constraints with different type args.
-	source := `data Bool := { True: (); False: (); }
-data Unit := { Unit: (); }
+	source := `data Bool := { True: Bool; False: Bool; }
+data Unit := { Unit: Unit; }
 data Eq := \a. { eq: a -> a -> Bool }
 impl Eq Bool := { eq := \x y. True }
 impl Eq Unit := { eq := \x y. True }
@@ -121,7 +121,7 @@ main := f True Unit`
 func TestEdgeConstraintSuperclass(t *testing.T) {
 	// (Eq a, Ord a) where Ord a => Eq a — curried constraints with redundancy.
 	// Both constraints should be available; superclass makes Eq doubly available.
-	source := `data Bool := { True: (); False: (); }
+	source := `data Bool := { True: Bool; False: Bool; }
 data Eq := \a. { eq: a -> a -> Bool }
 data Ord := \a. Eq a => { compare: a -> a -> Bool }
 impl Eq Bool := { eq := \x y. True }
@@ -134,7 +134,7 @@ main := f True False`
 
 func TestEdgeNestedConstraintAlias(t *testing.T) {
 	// Constraint alias used in a curried constraints.
-	source := `data Bool := { True: (); False: (); }
+	source := `data Bool := { True: Bool; False: Bool; }
 data Eq := \a. { eq: a -> a -> Bool }
 data Ord := \a. Eq a => { compare: a -> a -> Bool }
 impl Eq Bool := { eq := \x y. True }
@@ -148,7 +148,7 @@ main := f True`
 
 func TestEdgeConstraintInLet(t *testing.T) {
 	// Curried constraints in a block-scoped binding.
-	source := `data Bool := { True: (); False: (); }
+	source := `data Bool := { True: Bool; False: Bool; }
 data Eq := \a. { eq: a -> a -> Bool }
 data Show := \a. { show: a -> Bool }
 impl Eq Bool := { eq := \x y. True }
@@ -163,7 +163,7 @@ func TestEdgeEmptyParensNotTuple(t *testing.T) {
 	// () in type position is now valid (unit type = Record {}).
 	// () => Bool -> Bool parses but should fail at check time
 	// because Record {} is not a constraint.
-	source := `data Bool := { True: (); False: (); }
+	source := `data Bool := { True: Bool; False: Bool; }
 f :: () => Bool -> Bool
 f := \x. x
 main := f True`
@@ -189,8 +189,8 @@ main := f True`
 
 func TestEdgeConstraintWithForall(t *testing.T) {
 	// \ a b. (Eq a, Eq b) => Pair a b -> Bool
-	source := `data Bool := { True: (); False: (); }
-data Pair := \a b. { MkPair: a -> b; }
+	source := `data Bool := { True: Bool; False: Bool; }
+data Pair := \a b. { MkPair: a -> b -> Pair a b; }
 data Eq := \a. { eq: a -> a -> Bool }
 impl Eq Bool := { eq := \x y. True }
 impl Eq a => Eq b => Eq (Pair a b) := { eq := \x y. True }
@@ -202,7 +202,7 @@ main := f (MkPair True True) (MkPair False False)`
 
 func TestEdgeMissingInstance(t *testing.T) {
 	// (Eq a, Ord a) but no Ord instance — should error.
-	source := `data Bool := { True: (); False: (); }
+	source := `data Bool := { True: Bool; False: Bool; }
 data Eq := \a. { eq: a -> a -> Bool }
 data Ord := \a. Eq a => { compare: a -> a -> Bool }
 impl Eq Bool := { eq := \x y. True }
@@ -214,7 +214,7 @@ main := f True`
 
 func TestEdgeConstraintInstanceContext(t *testing.T) {
 	// Instance with multiple context constraints (curried style).
-	source := `data Bool := { True: (); False: (); }
+	source := `data Bool := { True: Bool; False: Bool; }
 data Triple a b c := MkTriple a b c
 data Eq := \a. { eq: a -> a -> Bool }
 impl Eq Bool := { eq := \x y. True }
@@ -230,13 +230,13 @@ main := eq (MkTriple True True True) (MkTriple False False False)`
 func TestRegressionCurriedConstraints(t *testing.T) {
 	// (Eq a, Ord a) => T must behave identically to Eq a => Ord a => T
 	// in all aspects: check mode, subsCheck, instantiate.
-	templateProd := `data Bool := { True: (); False: (); }
+	templateProd := `data Bool := { True: Bool; False: Bool; }
 data Eq := \a. { eq: a -> a -> Bool }
 data Ord := \a. Eq a => { compare: a -> a -> Bool }
 impl Eq Bool := { eq := \x y. True }
 impl Ord Bool := { compare := \x y. True }
 %s`
-	templateCurr := `data Bool := { True: (); False: (); }
+	templateCurr := `data Bool := { True: Bool; False: Bool; }
 data Eq := \a. { eq: a -> a -> Bool }
 data Ord := \a. Eq a => { compare: a -> a -> Bool }
 impl Eq Bool := { eq := \x y. True }

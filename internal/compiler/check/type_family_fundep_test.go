@@ -31,8 +31,8 @@ type Add (a: Nat) (b: Nat) :: Nat := {
 data NatProxy (n: Nat) := MkProxy
 
 -- Elem: container element extraction.
-data List := \a. { Nil: (); Cons: a -> List a; }
-data Maybe := \a. { Nothing: (); Just: a; }
+data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
+data Maybe := \a. { Nothing: Maybe a; Just: a -> Maybe a; }
 
 type Elem (c: Type) :: Type := {
   Elem (List a) =: a;
@@ -90,9 +90,9 @@ func TestAdvancedDataFamilyPolymorphism(t *testing.T) {
 		},
 	}
 	source := `
-data Unit := { Unit: (); }
-data Bool := { True: (); False: (); }
-data Maybe := \a. { Nothing: (); Just: a; }
+data Unit := { Unit: Unit; }
+data Bool := { True: Bool; False: Bool; }
+data Maybe := \a. { Nothing: Maybe a; Just: a -> Maybe a; }
 
 -- Wrappable class: each type wraps into a different runtime shape.
 data Wrappable := \w. {
@@ -155,10 +155,10 @@ func TestAdvancedFunDepInference(t *testing.T) {
 		},
 	}
 	source := `
-data Unit := { Unit: (); }
-data Bool := { True: (); False: (); }
-data Maybe := \a. { Nothing: (); Just: a; }
-data List := \a. { Nil: (); Cons: a -> List a; }
+data Unit := { Unit: Unit; }
+data Bool := { True: Bool; False: Bool; }
+data Maybe := \a. { Nothing: Maybe a; Just: a -> Maybe a; }
+data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
 
 -- Convert class with fundep: source type determines target.
 data Convert := \a b | a =: b. {
@@ -229,9 +229,9 @@ bwd := backward 0
 func TestAdvancedTypeFamilyWithDataFamily(t *testing.T) {
 	// Combine closed type family with data family in the same program.
 	source := `
-data Unit := { Unit: (); }
-data Bool := { True: (); False: (); }
-data Maybe := \a. { Nothing: (); Just: a; }
+data Unit := { Unit: Unit; }
+data Bool := { True: Bool; False: Bool; }
+data Maybe := \a. { Nothing: Maybe a; Just: a -> Maybe a; }
 
 type IsJust (m: Type) :: Bool := {
   IsJust (Maybe a) =: True;
@@ -263,9 +263,9 @@ proof := \x. x
 func TestAdvancedFunDepWithTypeFamily(t *testing.T) {
 	// Fundep interacts with type family reduction.
 	source := `
-data Unit := { Unit: (); }
-data Maybe := \a. { Nothing: (); Just: a; }
-data List := \a. { Nil: (); Cons: a -> List a; }
+data Unit := { Unit: Unit; }
+data Maybe := \a. { Nothing: Maybe a; Just: a -> Maybe a; }
+data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
 
 type Elem (c: Type) :: Type := {
   Elem (List a) =: a;

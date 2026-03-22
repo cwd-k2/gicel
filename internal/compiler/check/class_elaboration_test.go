@@ -12,7 +12,7 @@ import (
 // --- Type class elaboration tests ---
 
 func TestClassElaboratesDataDecl(t *testing.T) {
-	source := `data Bool := { True: (); False: (); }
+	source := `data Bool := { True: Bool; False: Bool; }
 data Eq := \a. { eq: a -> a -> Bool }`
 	prog := checkSource(t, source, nil)
 	// Should have generated Eq$Dict data declaration.
@@ -34,7 +34,7 @@ data Eq := \a. { eq: a -> a -> Bool }`
 }
 
 func TestClassElaboratesSelectors(t *testing.T) {
-	source := `data Bool := { True: (); False: (); }
+	source := `data Bool := { True: Bool; False: Bool; }
 data Eq := \a. { eq: a -> a -> Bool }`
 	prog := checkSource(t, source, nil)
 	// Should have generated eq binding (selector).
@@ -60,7 +60,7 @@ data Eq := \a. { eq: a -> a -> Bool }`
 }
 
 func TestClassMethodInScope(t *testing.T) {
-	source := `data Bool := { True: (); False: (); }
+	source := `data Bool := { True: Bool; False: Bool; }
 data Eq := \a. { eq: a -> a -> Bool }
 f :: Eq a => a -> a -> Bool
 f := \x y. eq x y`
@@ -80,7 +80,7 @@ f := \x y. eq x y`
 }
 
 func TestSuperclassDictField(t *testing.T) {
-	source := `data Bool := { True: (); False: (); }
+	source := `data Bool := { True: Bool; False: Bool; }
 data Eq := \a. { eq: a -> a -> Bool }
 data Ord := \a. Eq a => { compare: a -> a -> Bool }`
 	prog := checkSource(t, source, nil)
@@ -104,7 +104,7 @@ data Ord := \a. Eq a => { compare: a -> a -> Bool }`
 }
 
 func TestInstanceElaboratesBinding(t *testing.T) {
-	source := `data Bool := { True: (); False: (); }
+	source := `data Bool := { True: Bool; False: Bool; }
 data Eq := \a. { eq: a -> a -> Bool }
 impl Eq Bool := { eq := \x y. True }`
 	prog := checkSource(t, source, nil)
@@ -121,8 +121,8 @@ impl Eq Bool := { eq := \x y. True }`
 
 func TestInstanceWithContextElaborates(t *testing.T) {
 	// instance Eq a => Eq (Maybe a) → dictionary function
-	source := `data Bool := { True: (); False: (); }
-data Maybe := \a. { Just: a; Nothing: (); }
+	source := `data Bool := { True: Bool; False: Bool; }
+data Maybe := \a. { Just: a -> Maybe a; Nothing: Maybe a; }
 data Eq := \a. { eq: a -> a -> Bool }
 impl Eq a => Eq (Maybe a) := { eq := \x y. True }`
 	prog := checkSource(t, source, nil)

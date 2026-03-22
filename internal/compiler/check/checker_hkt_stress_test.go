@@ -26,7 +26,7 @@ f := \x. x
 // TestStressKindPolyIdentityChain — chain of kind-polymorphic identity applications
 func TestStressKindPolyIdentityChain(t *testing.T) {
 	source := `
-data Bool := { True: (); False: (); }
+data Bool := { True: Bool; False: Bool; }
 
 id_k :: \ (k: Kind). \ (a: k). a -> a
 id_k := \x. x
@@ -139,7 +139,7 @@ func TestStressPolyKindedClassManyInstances(t *testing.T) {
 		sb.WriteString("}\n\n")
 	}
 	// Use each one
-	sb.WriteString("data Bool := { True: (); False: (); }\n")
+	sb.WriteString("data Bool := { True: Bool; False: Bool; }\n")
 	for i := 0; i < 10; i++ {
 		fmt.Fprintf(&sb, "test%d := fmap (\\x. True) (MkD%d True)\n", i, i)
 	}
@@ -149,8 +149,8 @@ func TestStressPolyKindedClassManyInstances(t *testing.T) {
 // TestStressKindPolyClassWithContext — poly-kinded class with context constraints
 func TestStressKindPolyClassWithContext(t *testing.T) {
 	source := `
-data Bool := { True: (); False: (); }
-data Maybe := \a. { Nothing: (); Just: a; }
+data Bool := { True: Bool; False: Bool; }
+data Maybe := \a. { Nothing: Maybe a; Just: a -> Maybe a; }
 
 data Eq := \a. {
   eq: a -> a -> Bool

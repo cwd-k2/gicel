@@ -27,7 +27,7 @@ data Collection := \a. {
 func TestDataFamilyParseInstanceDef(t *testing.T) {
 	// data family instance inside instance body
 	source := `
-data List := \a. { Nil: (); Cons: a -> List a; }
+data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
 
 data Collection := \a. {
   data Elem a :: Type;
@@ -47,8 +47,8 @@ impl Collection (List a) := {
 func TestDataFamilyConstructorType(t *testing.T) {
 	// The mangled constructor should be usable as a value
 	source := `
-data List := \a. { Nil: (); Cons: a -> List a; }
-data Unit := { Unit: (); }
+data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
+data Unit := { Unit: Unit; }
 
 data Collection := \a. {
   data Elem a :: Type;
@@ -69,8 +69,8 @@ x := ListElem Unit
 func TestDataFamilyMultipleInstances(t *testing.T) {
 	// Different instances define different constructors for the same family
 	source := `
-data List := \a. { Nil: (); Cons: a -> List a; }
-data Unit := { Unit: (); }
+data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
+data Unit := { Unit: Unit; }
 
 data Collection := \a. {
   data Elem a :: Type;
@@ -100,8 +100,8 @@ y := UnitElem
 
 func TestDataFamilyPatternMatch(t *testing.T) {
 	source := `
-data List := \a. { Nil: (); Cons: a -> List a; }
-data Unit := { Unit: (); }
+data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
+data Unit := { Unit: Unit; }
 
 data Collection := \a. {
   data Elem a :: Type;
@@ -123,7 +123,7 @@ unwrap := \e. case e { ListElem x => x }
 
 func TestDataFamilyNotDeclaredInClass(t *testing.T) {
 	source := `
-data Unit := { Unit: (); }
+data Unit := { Unit: Unit; }
 data Foo := \a. {
   empty: a
 }
@@ -137,7 +137,7 @@ impl Foo Unit := {
 
 func TestDataFamilyArityMismatch(t *testing.T) {
 	source := `
-data Unit := { Unit: (); }
+data Unit := { Unit: Unit; }
 data Collection := \a. {
   data Elem a :: Type;
   empty: a
@@ -158,8 +158,8 @@ func TestDataFamilyTypeReduction(t *testing.T) {
 		RegisteredTypes: map[string]types.Kind{"Int": types.KType{}},
 	}
 	source := `
-data List := \a. { Nil: (); Cons: a -> List a; }
-data Unit := { Unit: (); }
+data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
+data Unit := { Unit: Unit; }
 
 data Collection := \a. {
   data Elem a :: Type;
@@ -184,7 +184,7 @@ id := \x. x
 
 func TestDataFamilyMultipleConstructors(t *testing.T) {
 	source := `
-data Unit := { Unit: (); }
+data Unit := { Unit: Unit; }
 
 data Container := \a. {
   data Entry a :: Type;
@@ -209,7 +209,7 @@ f := \e. case e {
 
 func TestDataFamilyExhaustiveness(t *testing.T) {
 	source := `
-data Unit := { Unit: (); }
+data Unit := { Unit: Unit; }
 
 data Container := \a. {
   data Entry a :: Type;

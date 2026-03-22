@@ -17,7 +17,7 @@ import (
 // TestStressHigherRankThreeLevels — three nested \ levels with subsumption.
 func TestStressHigherRankThreeLevels(t *testing.T) {
 	source := `
-data Bool := { True: (); False: (); }
+data Bool := { True: Bool; False: Bool; }
 
 -- Level 1: \ a. a -> a
 id :: \ a. a -> a
@@ -39,8 +39,8 @@ main := applyApplyId applyId
 // TestStressHigherRankNested — higher-rank nested in function arguments.
 func TestStressHigherRankNested(t *testing.T) {
 	source := `
-data Bool := { True: (); False: (); }
-data Maybe := \a. { Nothing: (); Just: a; }
+data Bool := { True: Bool; False: Bool; }
+data Maybe := \a. { Nothing: Maybe a; Just: a -> Maybe a; }
 
 apply :: (\ a. a -> a) -> Bool -> Bool
 apply := \f x. f x
@@ -56,7 +56,7 @@ main := (apply (\x. x) True, applyMaybe (\x. Just x) False)
 // TestStressManyUnannLetBindings — 15 unannotated let-bindings with class constraints.
 func TestStressManyUnannLetBindings(t *testing.T) {
 	var sb strings.Builder
-	sb.WriteString("data Bool := { True: (); False: (); }\n")
+	sb.WriteString("data Bool := { True: Bool; False: Bool; }\n")
 	sb.WriteString("data Eq := \\a. { eq: a -> a -> Bool }\n")
 	sb.WriteString("impl Eq Bool { eq := \\x y. True }\n\n")
 
@@ -72,7 +72,7 @@ func TestStressManyUnannLetBindings(t *testing.T) {
 func TestStressDeepNestedLambdas(t *testing.T) {
 	const N = 50
 	var sb strings.Builder
-	sb.WriteString("data Bool := { True: (); False: (); }\n")
+	sb.WriteString("data Bool := { True: Bool; False: Bool; }\n")
 
 	// Build signature: \ a0 ... a49. a0 -> a1 -> ... -> a49 -> a0
 	sb.WriteString("f :: \\")
@@ -104,8 +104,8 @@ func TestStressDeepNestedLambdas(t *testing.T) {
 // TestStressRowHKTInteraction — Functor on Record with row polymorphism.
 func TestStressRowHKTInteraction(t *testing.T) {
 	source := `
-data Bool := { True: (); False: (); }
-data Maybe := \a. { Nothing: (); Just: a; }
+data Bool := { True: Bool; False: Bool; }
+data Maybe := \a. { Nothing: Maybe a; Just: a -> Maybe a; }
 
 data Functor := \(f: Type -> Type). {
   fmap: \ a b. (a -> b) -> f a -> f b
@@ -127,7 +127,7 @@ main := fmap not (Just True)
 // TestStressExhaustiveGADTManyCons — exhaustiveness with 10 GADT constructors.
 func TestStressExhaustiveGADTManyCons(t *testing.T) {
 	var sb strings.Builder
-	sb.WriteString("data Bool := { True: (); False: (); }\n")
+	sb.WriteString("data Bool := { True: Bool; False: Bool; }\n")
 	sb.WriteString("data Expr a := {\n")
 	// 10 constructors, separated by ;
 	for i := range 10 {
@@ -155,7 +155,7 @@ func TestStressExhaustiveGADTManyCons(t *testing.T) {
 // TestStressConstraintAliasinContext — type alias used as constraint context.
 func TestStressConstraintAliasInContext(t *testing.T) {
 	source := `
-data Bool := { True: (); False: (); }
+data Bool := { True: Bool; False: Bool; }
 
 data Eq := \a. { eq: a -> a -> Bool }
 data Ord := \a. Eq a => { compare: a -> a -> Bool }
@@ -176,8 +176,8 @@ main := bothCheck True False
 // TestStressDeepSuperclassWithHKT — 4-level superclass chain + poly-kinded class.
 func TestStressDeepSuperclassWithHKT(t *testing.T) {
 	source := `
-data Bool := { True: (); False: (); }
-data Maybe := \a. { Nothing: (); Just: a; }
+data Bool := { True: Bool; False: Bool; }
+data Maybe := \a. { Nothing: Maybe a; Just: a -> Maybe a; }
 
 data C1 := \a. { m1: a -> Bool }
 data C2 := \a. C1 a => { m2: a -> Bool }
@@ -209,7 +209,7 @@ main := fmap f (Just True)
 // TestStressManyContextualInstances — 8 contextual instances in a chain.
 func TestStressManyContextualInstances(t *testing.T) {
 	var sb strings.Builder
-	sb.WriteString("data Bool := { True: (); False: (); }\n")
+	sb.WriteString("data Bool := { True: Bool; False: Bool; }\n")
 	sb.WriteString("data Eq := \\a. { eq: a -> a -> Bool }\n")
 	sb.WriteString("impl Eq Bool { eq := \\x y. True }\n\n")
 
@@ -233,8 +233,8 @@ func TestStressManyContextualInstances(t *testing.T) {
 // TestStressMultiParamClassManyArgs — multi-param class with 4 type parameters.
 func TestStressMultiParamClassManyArgs(t *testing.T) {
 	source := `
-data Bool := { True: (); False: (); }
-data Unit := { Unit: (); }
+data Bool := { True: Bool; False: Bool; }
+data Unit := { Unit: Unit; }
 
 data Multi := \a b c d. {
   multi: a -> b -> c -> d -> Bool

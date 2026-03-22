@@ -13,7 +13,7 @@ import (
 
 func TestTypeFamilyParseBasic(t *testing.T) {
 	source := `
-data Bool := { True: (); False: (); }
+data Bool := { True: Bool; False: Bool; }
 type IsTrue (b: Bool) :: Bool := {
   IsTrue True =: True;
   IsTrue False =: False
@@ -41,8 +41,8 @@ type LUB (m1: Mult) (m2: Mult) :: Mult := {
 func TestTypeFamilyReduceAppPattern(t *testing.T) {
 	// Elem (List a) = a: result kind is Type, so it can be used as a value type.
 	source := `
-data List := \a. { Nil: (); Cons: a -> List a; }
-data Unit := { Unit: (); }
+data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
+data Unit := { Unit: Unit; }
 type Elem (c: Type) :: Type := {
   Elem (List a) =: a
 }
@@ -55,9 +55,9 @@ f := \x. x
 func TestTypeFamilyReduceMultiEquations(t *testing.T) {
 	// Multiple equations, Type-kinded result.
 	source := `
-data List := \a. { Nil: (); Cons: a -> List a; }
-data Unit := { Unit: (); }
-data Pair := \a b. { MkPair: a -> b; }
+data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
+data Unit := { Unit: Unit; }
+data Pair := \a b. { MkPair: a -> b -> Pair a b; }
 type Elem (c: Type) :: Type := {
   Elem (List a) =: a;
   Elem (Pair a b) =: a
@@ -73,7 +73,7 @@ g := \x. x
 func TestTypeFamilyReduceIdentity(t *testing.T) {
 	// Simple identity-like type family.
 	source := `
-data Unit := { Unit: (); }
+data Unit := { Unit: Unit; }
 type Id (a: Type) :: Type := {
   Id a =: a
 }
@@ -86,8 +86,8 @@ f := \x. x
 func TestTypeFamilyReduceConstant(t *testing.T) {
 	// Constant type family: always returns the same type.
 	source := `
-data Unit := { Unit: (); }
-data List := \a. { Nil: (); Cons: a -> List a; }
+data Unit := { Unit: Unit; }
+data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
 type AlwaysUnit (a: Type) :: Type := {
   AlwaysUnit a =: Unit
 }
@@ -103,7 +103,7 @@ func TestTypeFamilyStuckOnMeta(t *testing.T) {
 	// A Type-kinded family with a skolem argument: reduction is stuck.
 	// The stuck TyFamilyApp should unify with itself.
 	source := `
-data List := \a. { Nil: (); Cons: a -> List a; }
+data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
 type Elem (c: Type) :: Type := {
   Elem (List a) =: a
 }
@@ -117,8 +117,8 @@ f := \x. x
 
 func TestTypeFamilyWildcard(t *testing.T) {
 	source := `
-data Unit := { Unit: (); }
-data List := \a. { Nil: (); Cons: a -> List a; }
+data Unit := { Unit: Unit; }
+data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
 type AlwaysUnit (a: Type) :: Type := {
   AlwaysUnit _ =: Unit
 }
@@ -148,7 +148,7 @@ type Serializable (fmt: Serialization) :: Constraint := {
 
 func TestTypeFamilyArityMismatch(t *testing.T) {
 	source := `
-data Bool := { True: (); False: (); }
+data Bool := { True: Bool; False: Bool; }
 type F (a: Bool) :: Bool := {
   F True False =: True
 }
@@ -158,7 +158,7 @@ type F (a: Bool) :: Bool := {
 
 func TestTypeFamilyNameMismatch(t *testing.T) {
 	source := `
-data Bool := { True: (); False: (); }
+data Bool := { True: Bool; False: Bool; }
 type F (a: Bool) :: Bool := {
   G True =: True
 }
@@ -170,8 +170,8 @@ func TestTypeFamilyInjectivityViolation(t *testing.T) {
 	// Elem (List Unit) = Unit and Elem Unit = Unit: RHSes both Unit,
 	// but LHS patterns (List a) and Unit cannot unify → injectivity violation.
 	source := `
-data Unit := { Unit: (); }
-data List := \a. { Nil: (); Cons: a -> List a; }
+data Unit := { Unit: Unit; }
+data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
 type Elem (c: Type) :: (r: Type) | r =: c := {
   Elem (List a) =: a;
   Elem Unit =: Unit
@@ -182,7 +182,7 @@ type Elem (c: Type) :: (r: Type) | r =: c := {
 
 func TestTypeFamilyDuplicate(t *testing.T) {
 	source := `
-data Bool := { True: (); False: (); }
+data Bool := { True: Bool; False: Bool; }
 type F (a: Bool) :: Bool := {
   F True =: True
 }
@@ -197,8 +197,8 @@ type F (a: Bool) :: Bool := {
 
 func TestTypeFamilyInFunctionType(t *testing.T) {
 	source := `
-data List := \a. { Nil: (); Cons: a -> List a; }
-data Unit := { Unit: (); }
+data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
+data Unit := { Unit: Unit; }
 type Elem (c: Type) :: Type := {
   Elem (List a) =: a
 }
@@ -222,7 +222,7 @@ main := length (map (\x. x) (Cons Unit Nil))
 
 func TestTypeAliasStillWorks(t *testing.T) {
 	source := `
-data Unit := { Unit: (); }
+data Unit := { Unit: Unit; }
 type Id := \a. a
 f :: Id Unit => Unit
 f := \x. x
@@ -234,8 +234,8 @@ f := \x. x
 
 func TestAssocTypeBasic(t *testing.T) {
 	source := `
-data List := \a. { Nil: (); Cons: a -> List a; }
-data Unit := { Unit: (); }
+data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
+data Unit := { Unit: Unit; }
 
 data Container := \c. {
   type Elem c :: Type;
@@ -258,9 +258,9 @@ f := \x. x
 
 func TestAssocTypeMultipleInstances(t *testing.T) {
 	source := `
-data List := \a. { Nil: (); Cons: a -> List a; }
-data Unit := { Unit: (); }
-data Pair := \a b. { MkPair: a -> b; }
+data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
+data Unit := { Unit: Unit; }
+data Pair := \a b. { MkPair: a -> b -> Pair a b; }
 
 data Container := \c. {
   type Elem c :: Type;
@@ -312,7 +312,7 @@ func TestRecursiveTypeFamilyFuelExhaustion(t *testing.T) {
 	// Cycle detected via sentinel memoization; the family remains stuck (unreduced),
 	// producing a type mismatch (E0200) when Loop Unit is compared against Unit.
 	source := `
-data Unit := { Unit: (); }
+data Unit := { Unit: Unit; }
 type Loop (a: Type) :: Type := {
   Loop a =: Loop a
 }
@@ -326,8 +326,8 @@ f := \x. x
 
 func TestFunDepParse(t *testing.T) {
 	source := `
-data Unit := { Unit: (); }
-data List := \a. { Nil: (); Cons: a -> List a; }
+data Unit := { Unit: Unit; }
+data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
 data Elem := \c e | c =: e. {
   cfold: (e -> e) -> c -> c
 }
@@ -386,8 +386,8 @@ func TestDivergentPostStatesLUBDefined(t *testing.T) {
 	// This test verifies the structural readiness: lubPostStates falls back
 	// to unification when LUB is not yet wired in.
 	source := `
-data Bool := { True: (); False: (); }
-data Unit := { Unit: (); }
+data Bool := { True: Bool; False: Bool; }
+data Unit := { Unit: Unit; }
 f :: Bool -> Unit
 f := \b. case b {
   True => Unit;
@@ -578,8 +578,8 @@ func TestCheckAppAssocTypeFromReturnContext(t *testing.T) {
 	// the expected return type `List Bool` must solve ?c = List Bool
 	// BEFORE checking the argument, so that Elem (List Bool) reduces to Bool.
 	source := `
-data Bool := { True: (); False: (); }
-data List := \a. { Nil: (); Cons: a -> List a; }
+data Bool := { True: Bool; False: Bool; }
+data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
 
 data FromList := \c. {
   type Elem c :: Type;
@@ -600,8 +600,8 @@ main := fromList (Cons True Nil)
 func TestCheckAppAssocTypeInfixFromReturnContext(t *testing.T) {
 	// Same scenario but using an infix operator.
 	source := `
-data Bool := { True: (); False: (); }
-data List := \a. { Nil: (); Cons: a -> List a; }
+data Bool := { True: Bool; False: Bool; }
+data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
 
 data Conv := \c. {
   type Elem c :: Type;
@@ -626,8 +626,8 @@ main := conv <| (Cons True Nil)
 func TestCheckAppAssocTypeAnnotationStillWorks(t *testing.T) {
 	// Annotation-based workaround should still work alongside the fix.
 	source := `
-data Bool := { True: (); False: (); }
-data List := \a. { Nil: (); Cons: a -> List a; }
+data Bool := { True: Bool; False: Bool; }
+data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
 
 data FromList := \c. {
   type Elem c :: Type;
@@ -647,8 +647,8 @@ main := (fromList (Cons True Nil)) :: List Bool
 func TestCheckAppNoRegressionPlainFunction(t *testing.T) {
 	// Ensure plain function application still works correctly in check mode.
 	source := `
-data Bool := { True: (); False: (); }
-data List := \a. { Nil: (); Cons: a -> List a; }
+data Bool := { True: Bool; False: Bool; }
+data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
 
 id :: \ a. a -> a
 id := \x. x
@@ -663,7 +663,7 @@ func TestCheckAppCBPVSpecialFormsFallback(t *testing.T) {
 	// CBPV special forms (pure, thunk, force) must still work through
 	// the infer + subsCheck path, not the new checkApp path.
 	source := `
-data Unit := { Unit: (); }
+data Unit := { Unit: Unit; }
 
 main :: Computation {} {} Unit
 main := pure Unit
@@ -675,8 +675,8 @@ func TestCheckAppAssocTypeNestedApp(t *testing.T) {
 	// Nested application where both inner and outer app benefit from
 	// return-context type propagation.
 	source := `
-data Bool := { True: (); False: (); }
-data List := \a. { Nil: (); Cons: a -> List a; }
+data Bool := { True: Bool; False: Bool; }
+data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
 
 data Convert := \c. {
   type Elem c :: Type;

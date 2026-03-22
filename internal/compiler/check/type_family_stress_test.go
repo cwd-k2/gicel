@@ -58,7 +58,7 @@ func TestStressDeepRecursiveTF_DepthExceedsLimit(t *testing.T) {
 	// Cycle detected via sentinel memoization; the families remain stuck (unreduced),
 	// producing a type mismatch (E0200) when Bounce Unit is compared against Unit.
 	source := `
-data Unit := { Unit: (); }
+data Unit := { Unit: Unit; }
 data Nat := { Z: (); S: Nat; }
 type Bounce (a: Type) :: Type := {
   Bounce a =: Trampoline a
@@ -115,9 +115,9 @@ func TestStressManyEquations(t *testing.T) {
 
 func TestStressNestedFamilyApplications(t *testing.T) {
 	source := `
-data Wrapper := \a. { Wrap: a; }
-data Unit := { Unit: (); }
-data List := \a. { Nil: (); Cons: a -> List a; }
+data Wrapper := \a. { Wrap: a -> Wrapper a; }
+data Unit := { Unit: Unit; }
+data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
 
 type Unwrap (w: Type) :: Type := {
   Unwrap (Wrapper a) =: a
@@ -140,9 +140,9 @@ f := \x. x
 
 func TestStressTriplyNestedFamilies(t *testing.T) {
 	source := `
-data Unit := { Unit: (); }
+data Unit := { Unit: Unit; }
 data Box a := MkBox a
-data List := \a. { Nil: (); Cons: a -> List a; }
+data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
 
 type Unbox (b: Type) :: Type := {
   Unbox (Box a) =: a
@@ -167,8 +167,8 @@ g := \x. x
 
 func TestStressTypeFamilyInClassContext(t *testing.T) {
 	source := `
-data Unit := { Unit: (); }
-data List := \a. { Nil: (); Cons: a -> List a; }
+data Unit := { Unit: Unit; }
+data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
 
 type Elem (c: Type) :: Type := {
   Elem (List a) =: a
@@ -200,10 +200,10 @@ f := chead
 
 func TestStressMultipleDataFamilyInstances(t *testing.T) {
 	source := `
-data Unit := { Unit: (); }
-data List := \a. { Nil: (); Cons: a -> List a; }
-data Pair := \a b. { MkPair: a -> b; }
-data Maybe := \a. { Nothing: (); Just: a; }
+data Unit := { Unit: Unit; }
+data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
+data Pair := \a b. { MkPair: a -> b -> Pair a b; }
+data Maybe := \a. { Nothing: Maybe a; Just: a -> Maybe a; }
 
 emptyPair :: \ a b. Pair a b
 emptyPair := assumption
@@ -256,11 +256,11 @@ unwrapListKey := \k. case k { ListKey x -> x }
 func TestStressFiveDataFamilyInstances(t *testing.T) {
 	// 5 instances with unique constructors for exhaustive data family coverage.
 	source := `
-data Unit := { Unit: (); }
-data List := \a. { Nil: (); Cons: a -> List a; }
-data Pair := \a b. { MkPair: a -> b; }
+data Unit := { Unit: Unit; }
+data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
+data Pair := \a b. { MkPair: a -> b -> Pair a b; }
 data Either a b := Left a | Right b
-data Maybe := \a. { Nothing: (); Just: a; }
+data Maybe := \a. { Nothing: Maybe a; Just: a -> Maybe a; }
 
 nilFallback :: \ a. a
 nilFallback := assumption
@@ -323,7 +323,7 @@ func TestBoundaryZeroArityTypeFamily(t *testing.T) {
 	// A type family with no parameters, acting like a type-level constant.
 	// This tests whether the parser and checker handle 0-parameter type families.
 	source := `
-data Unit := { Unit: (); }
+data Unit := { Unit: Unit; }
 type Const :: Type := {
   Const =: Unit
 }
@@ -337,9 +337,9 @@ f := \x. x
 
 func TestBoundaryComplexNestedPattern(t *testing.T) {
 	source := `
-data Maybe := \a. { Nothing: (); Just: a; }
-data List := \a. { Nil: (); Cons: a -> List a; }
-data Unit := { Unit: (); }
+data Maybe := \a. { Nothing: Maybe a; Just: a -> Maybe a; }
+data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
+data Unit := { Unit: Unit; }
 
 type DeepElem (c: Type) :: Type := {
   DeepElem (Maybe (List a)) =: a;
@@ -362,7 +362,7 @@ g := \x. x
 func TestBoundaryFunDepAllDetermined(t *testing.T) {
 	// Every parameter is in a "from" or "to" position.
 	source := `
-data Unit := { Unit: (); }
+data Unit := { Unit: Unit; }
 
 data Iso := \a b | a =: b, b =: a. {
   to: a -> b;
@@ -391,7 +391,7 @@ func TestBoundaryLubPostStatesZeroBranches(t *testing.T) {
 data Void := {
   VoidCon: Void
 }
-data Unit := { Unit: (); }
+data Unit := { Unit: Unit; }
 absurd :: Void -> Unit
 absurd := \v. case v { VoidCon -> Unit }
 `
@@ -418,8 +418,8 @@ f := \u. case u {
 func TestBoundaryIntersectCapRowsIdentical(t *testing.T) {
 	// Both branches have exactly the same post-state → intersection = same row.
 	source := `
-data Bool := { True: (); False: (); }
-data Unit := { Unit: (); }
+data Bool := { True: Bool; False: Bool; }
+data Unit := { Unit: Unit; }
 consumeA :: Computation { a: Unit, b: Unit } { b: Unit } Unit
 consumeA := assumption
 f :: Bool -> Computation { a: Unit, b: Unit } { b: Unit } Unit
@@ -438,8 +438,8 @@ func TestBoundaryIntersectCapRowsDisjoint(t *testing.T) {
 	// Branch False: post = { a: Unit }
 	// Intersection: post = {}
 	source := `
-data Bool := { True: (); False: (); }
-data Unit := { Unit: (); }
+data Bool := { True: Bool; False: Bool; }
+data Unit := { Unit: Unit; }
 consumeA :: Computation { a: Unit, b: Unit } { b: Unit } Unit
 consumeA := assumption
 consumeB :: Computation { a: Unit, b: Unit } { a: Unit } Unit
@@ -463,7 +463,7 @@ func TestBoundaryThreeWayIntersection(t *testing.T) {
 	// Intersection: post = { c: Unit }
 	source := `
 data Three := One | Two | Three
-data Unit := { Unit: (); }
+data Unit := { Unit: Unit; }
 noop :: Computation { a: Unit, b: Unit, c: Unit } { a: Unit, b: Unit, c: Unit } Unit
 noop := assumption
 consumeA :: Computation { a: Unit, b: Unit, c: Unit } { b: Unit, c: Unit } Unit
@@ -484,7 +484,7 @@ f := \t. case t {
 
 func TestBoundaryTypeFamilyAllWildcards(t *testing.T) {
 	source := `
-data Unit := { Unit: (); }
+data Unit := { Unit: Unit; }
 type Always (a: Type) :: Type := {
   Always _ =: Unit
 }
@@ -518,9 +518,9 @@ f := \x. x
 func TestBoundaryPatternVarReuseAcrossEquations(t *testing.T) {
 	// The variable 'a' appears in both equations but has different bindings.
 	source := `
-data Unit := { Unit: (); }
-data Maybe := \a. { Nothing: (); Just: a; }
-data List := \a. { Nil: (); Cons: a -> List a; }
+data Unit := { Unit: Unit; }
+data Maybe := \a. { Nothing: Maybe a; Just: a -> Maybe a; }
+data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
 
 type Elem (c: Type) :: Type := {
   Elem (Maybe a) =: a;
@@ -540,7 +540,7 @@ g := \x. x
 
 func TestBoundaryDataFamilyExhaustivenessMultiCon(t *testing.T) {
 	source := `
-data Unit := { Unit: (); }
+data Unit := { Unit: Unit; }
 
 data HasTag := \c. {
   data Tag c :: Type;
@@ -565,7 +565,7 @@ f := \t. case t {
 
 func TestBoundaryDataFamilyExhaustivenessIncomplete(t *testing.T) {
 	source := `
-data Unit := { Unit: (); }
+data Unit := { Unit: Unit; }
 
 data HasTag := \c. {
   data Tag c :: Type;

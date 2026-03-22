@@ -4,7 +4,7 @@ import "testing"
 
 func TestDoBlockPrePostThreading(t *testing.T) {
 	source := `
-data Unit := { Unit: (); }
+data Unit := { Unit: Unit; }
 consume :: Computation { handle: Unit } {} Unit
 consume := assumption
 main :: Computation { handle: Unit } {} Unit
@@ -15,7 +15,7 @@ main := do { x <- consume; pure x }
 
 func TestDoBlockPrePostMultiBind(t *testing.T) {
 	source := `
-data Unit := { Unit: (); }
+data Unit := { Unit: Unit; }
 step1 :: Computation { a: Unit } { b: Unit } Unit
 step1 := assumption
 step2 :: Computation { b: Unit } {} Unit
@@ -29,7 +29,7 @@ main := do { x <- step1; step2 }
 func TestDoBlockPrePostWithMult(t *testing.T) {
 	source := `
 data Mult := { Unrestricted: (); Affine: (); Linear: (); }
-data Unit := { Unit: (); }
+data Unit := { Unit: Unit; }
 consume :: Computation { handle: Unit @Linear } {} Unit
 consume := assumption
 main :: Computation { handle: Unit @Linear } {} Unit
@@ -41,7 +41,7 @@ main := do { x <- consume; pure x }
 func TestDoBlockPrePostChainWithMult(t *testing.T) {
 	source := `
 data Mult := { Unrestricted: (); Affine: (); Linear: (); }
-data Unit := { Unit: (); }
+data Unit := { Unit: Unit; }
 open :: Computation {} { handle: Unit @Linear } Unit
 open := assumption
 use :: Computation { handle: Unit @Linear } { handle: Unit @Linear } Unit

@@ -15,8 +15,8 @@ import (
 func TestDivergentPostEqualBranches(t *testing.T) {
 	// Both branches consume the same caps → same post-state → OK.
 	source := `
-data Bool := { True: (); False: (); }
-data Unit := { Unit: (); }
+data Bool := { True: Bool; False: Bool; }
+data Unit := { Unit: Unit; }
 consumeAll :: Computation { a: Unit, b: Unit } {} Unit
 consumeAll := assumption
 f :: Bool -> Computation { a: Unit, b: Unit } {} Unit
@@ -48,8 +48,8 @@ func TestDivergentPostPartialOverlap(t *testing.T) {
 	// Branch False: post = { a: Unit, b: Unit }  (nothing consumed)
 	// Intersection: post = { b: Unit }  (b is in both branches)
 	source := `
-data Bool := { True: (); False: (); }
-data Unit := { Unit: (); }
+data Bool := { True: Bool; False: Bool; }
+data Unit := { Unit: Unit; }
 consumeA :: Computation { a: Unit, b: Unit } { b: Unit } Unit
 consumeA := assumption
 noop :: Computation { a: Unit, b: Unit } { a: Unit, b: Unit } Unit
@@ -68,8 +68,8 @@ f := \b. case b {
 func TestDivergentPostWithMultEqual(t *testing.T) {
 	source := `
 data Mult := { Unrestricted: (); Affine: (); Linear: (); }
-data Bool := { True: (); False: (); }
-data Unit := { Unit: (); }
+data Bool := { True: Bool; False: Bool; }
+data Unit := { Unit: Unit; }
 close :: Computation { h: Unit @Linear } {} Unit
 close := assumption
 f :: Bool -> Computation { h: Unit @Linear } {} Unit
@@ -101,8 +101,8 @@ type LUB (m1: Mult) (m2: Mult) :: Mult := {
 
 func TestCasePureValueUnchanged(t *testing.T) {
 	source := `
-data Bool := { True: (); False: (); }
-data Unit := { Unit: (); }
+data Bool := { True: Bool; False: Bool; }
+data Unit := { Unit: Unit; }
 f :: Bool -> Unit
 f := \b. case b {
   True => Unit;
@@ -119,8 +119,8 @@ func TestDivergentPostWithLUBJoin(t *testing.T) {
 	// Branch False: post = { a: Unit }  (b consumed)
 	// Intersection join: post = {}  (no label is in ALL branches)
 	source := `
-data Bool := { True: (); False: (); }
-data Unit := { Unit: (); }
+data Bool := { True: Bool; False: Bool; }
+data Unit := { Unit: Unit; }
 consumeA :: Computation { a: Unit, b: Unit } { b: Unit } Unit
 consumeA := assumption
 consumeB :: Computation { a: Unit, b: Unit } { a: Unit } Unit
@@ -149,8 +149,8 @@ type LUB (m1: Mult) (m2: Mult) :: Mult := {
   LUB _ Affine =: Affine;
   LUB Unrestricted Unrestricted =: Unrestricted
 }
-data Bool := { True: (); False: (); }
-data Unit := { Unit: (); }
+data Bool := { True: Bool; False: Bool; }
+data Unit := { Unit: Unit; }
 makeLinear :: Computation { h: Unit @Affine } { h: Unit @Linear } Unit
 makeLinear := assumption
 noop :: Computation { h: Unit @Affine } { h: Unit @Affine } Unit
@@ -175,8 +175,8 @@ type LUB (m1: Mult) (m2: Mult) :: Mult := {
   LUB _ Affine =: Affine;
   LUB Unrestricted Unrestricted =: Unrestricted
 }
-data Bool := { True: (); False: (); }
-data Unit := { Unit: (); }
+data Bool := { True: Bool; False: Bool; }
+data Unit := { Unit: Unit; }
 makeAffine :: Computation { h: Unit @Unrestricted } { h: Unit @Affine } Unit
 makeAffine := assumption
 makeLinear :: Computation { h: Unit @Unrestricted } { h: Unit @Linear } Unit
@@ -195,8 +195,8 @@ func TestDivergentPostOneSidedMult(t *testing.T) {
 	// Result takes the annotation (more restrictive).
 	source := `
 data Mult := { Unrestricted: (); Affine: (); Linear: (); }
-data Bool := { True: (); False: (); }
-data Unit := { Unit: (); }
+data Bool := { True: Bool; False: Bool; }
+data Unit := { Unit: Unit; }
 makeLinear :: Computation { h: Unit } { h: Unit @Linear } Unit
 makeLinear := assumption
 noop :: Computation { h: Unit } { h: Unit } Unit

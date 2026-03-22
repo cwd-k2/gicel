@@ -49,20 +49,16 @@ func (ch *Checker) processDataDecl(d *syntax.DeclData, prog *ir.Program) {
 		conName := field.Label
 		fieldTy := ch.resolveTypeExpr(field.Type)
 
-		// Build constructor type from field type.
-		// Arrow chain: Cons: a -> List a  →  constructor type = a -> List a -> List a (appending result)
-		// Nullary: Nil: ()  →  constructor type = List a
-		// Single field: Just: a  →  constructor type = a -> Maybe a
-		var conType types.Type
-		var fieldTypes []types.Type
-		if isUnitType(fieldTy) {
-			// Nullary constructor
-			conType = resultType
-		} else {
-			// Decompose arrow chain into individual fields.
-			// a -> b -> c  becomes fields [a, b] with result c replaced by our resultType.
-			conType, fieldTypes = decomposeArrowFields(fieldTy, resultType)
-		}
+		// Constructor type is the full GADT-style type.
+		// The field type IS the constructor's full type:
+		//   Nil:  List a                → nullary, return = List a
+		//   Cons: a -> List a -> List a → binary, fields = [a, List a], return = List a
+		//   Just: a -> Maybe a          → unary, fields = [a], return = Maybe a
+		//   Lit:  Int -> Expr Int       → GADT, fields = [Int], return = Expr Int (refined)
+		//
+		// The checker peels arrows to extract field types; the last type is the return.
+		conType := fieldTy
+		fieldTypes, _ := decomposeConSig(fieldTy)
 
 		// Wrap in forall for type params.
 		for i := len(parts.Params) - 1; i >= 0; i-- {
@@ -82,7 +78,8 @@ func (ch *Checker) processDataDecl(d *syntax.DeclData, prog *ir.Program) {
 	ch.reg.RegisterPromotedKind(d.Name, dataKind)
 	for _, field := range parts.Fields {
 		fieldTy := ch.resolveTypeExpr(field.Type)
-		if isUnitType(fieldTy) {
+		fields, _ := decomposeConSig(fieldTy)
+		if len(fields) == 0 {
 			ch.reg.RegisterPromotedCon(field.Label, dataKind)
 		}
 	}

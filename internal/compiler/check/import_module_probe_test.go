@@ -98,7 +98,7 @@ func TestProbeA_QualPattern_WrongQualifier(t *testing.T) {
 	}
 	source := `
 import MyMod as M
-data Bool := { True: (); False: (); }
+data Bool := { True: Bool; False: Bool; }
 
 -- Use a wrong qualifier "X" (not imported).
 f := \x. case x { X.Red => True; M.Blue => False }
@@ -119,7 +119,7 @@ func TestProbeA_QualPattern_NonExportedConstructor(t *testing.T) {
 	}
 	source := `
 import MyMod as M
-data Bool := { True: (); False: (); }
+data Bool := { True: Bool; False: Bool; }
 
 -- Blue is NOT exported by MyMod.
 f := \x. case x { M.Red => True; M.Blue => False }
@@ -141,7 +141,7 @@ func TestProbeA_QualPattern_ValidQualPattern(t *testing.T) {
 	// Since Color is a qualified-imported type, we reference it via M.Color.
 	source := `
 import MyMod as M
-data Bool := { True: (); False: (); }
+data Bool := { True: Bool; False: Bool; }
 
 f :: M.Color -> Bool
 f := \x. case x { M.Red => True; M.Blue => False }
@@ -199,7 +199,7 @@ func TestProbeA_QualPattern_NestedQualPattern(t *testing.T) {
 	}
 	source := `
 import MaybeLib as ML
-data Bool := { True: (); False: (); }
+data Bool := { True: Bool; False: Bool; }
 
 f :: ML.Maybe Bool -> Bool
 f := \x. case x { ML.Just b => b; ML.Nothing => False }
@@ -392,7 +392,7 @@ func TestProbeD_Module_QualifiedConLookup(t *testing.T) {
 	}
 	source := `
 import Colors as C
-data Bool := { True: (); False: (); }
+data Bool := { True: Bool; False: Bool; }
 
 f :: C.Color -> Bool
 f := \x. case x { C.Red => True; C.Blue => False }
@@ -439,7 +439,7 @@ func TestProbeD_Module_QualifiedShadowLocal(t *testing.T) {
 import Lib as L
 
 -- Local "val" of different type
-data Bool := { True: (); False: (); }
+data Bool := { True: Bool; False: Bool; }
 val :: Bool
 val := True
 
@@ -458,7 +458,7 @@ main := L.val
 func TestProbeE_Module_SelectiveImportNonExistent(t *testing.T) {
 	// This requires setting up a module first
 	source := `
-data Bool := { True: (); False: (); }
+data Bool := { True: Bool; False: Bool; }
 main := True
 `
 	// Register a module, then try to selectively import a nonexistent name
@@ -481,7 +481,7 @@ main := 42
 func TestProbeE_Module_QualifiedAccessToPrivateName(t *testing.T) {
 	config := makeModuleConfig(t, "Lib", `
 _private := 42
-data Bool := { True: (); False: (); }
+data Bool := { True: Bool; False: Bool; }
 public := True
 `)
 	errSource := `

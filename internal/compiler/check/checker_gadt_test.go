@@ -15,7 +15,7 @@ import (
 
 func TestGADTConTypeRegistration(t *testing.T) {
 	// IntLit :: Int -> Expr Int → constructor type is registered correctly.
-	source := `data Bool := { True: (); False: (); }
+	source := `data Bool := { True: Bool; False: Bool; }
 data Expr a := { IntLit: Bool -> Expr Bool; BoolLit: Bool -> Expr Bool }
 main := IntLit True`
 	prog := checkSource(t, source, nil)
@@ -50,7 +50,7 @@ main := IntLit True`
 
 func TestGADTPatternRefinement(t *testing.T) {
 	// case (e: Expr Bool) { BoolLit b => b } should derive b: Bool
-	source := `data Bool := { True: (); False: (); }
+	source := `data Bool := { True: Bool; False: Bool; }
 data Expr a := { BoolLit: Bool -> Expr Bool; IntLit: Bool -> Expr Bool }
 f :: Expr Bool -> Bool
 f := \e. case e { BoolLit b => b; IntLit b => b }`
@@ -58,7 +58,7 @@ f := \e. case e { BoolLit b => b; IntLit b => b }`
 
 	// Negative test: refinement must not allow returning wrong type.
 	// After matching BoolLit b, b: Bool; returning it as Int should fail.
-	badSource := `data Bool := { True: (); False: (); }
+	badSource := `data Bool := { True: Bool; False: Bool; }
 data Expr a := { BoolLit: Bool -> Expr Bool; IntLit: Bool -> Expr Bool }
 f :: Expr Bool -> Expr Bool
 f := \e. case e { BoolLit b => b; IntLit b => b }`
@@ -67,7 +67,7 @@ f := \e. case e { BoolLit b => b; IntLit b => b }`
 
 func TestGADTMultiBranch(t *testing.T) {
 	// Multiple GADT constructors sharing the same return type specialization.
-	source := `data Bool := { True: (); False: (); }
+	source := `data Bool := { True: Bool; False: Bool; }
 data Expr a := { Lit: Bool -> Expr Bool; Not: Expr Bool -> Expr Bool }
 eval :: Expr Bool -> Bool
 eval := \e. case e { Lit b => b; Not inner => True }`
@@ -77,8 +77,8 @@ eval := \e. case e { Lit b => b; Not inner => True }`
 func TestGADTExhaustiveRelevant(t *testing.T) {
 	// Tag Bool case: TagUnit is irrelevant (return type Tag Unit ≠ Tag Bool).
 	// Only TagBool is required.
-	source := `data Bool := { True: (); False: (); }
-data Unit := { Unit: (); }
+	source := `data Bool := { True: Bool; False: Bool; }
+data Unit := { Unit: Unit; }
 data Tag a := { TagBool: Bool -> Tag Bool; TagUnit: Unit => Tag Unit }
 f :: Tag Bool -> Bool
 f := \t. case t { TagBool b => b }`
@@ -87,8 +87,8 @@ f := \t. case t { TagBool b => b }`
 
 func TestGADTNonExhaustiveError(t *testing.T) {
 	// Tag Bool case: TagBool is required but missing → error.
-	source := `data Bool := { True: (); False: (); }
-data Unit := { Unit: (); }
+	source := `data Bool := { True: Bool; False: Bool; }
+data Unit := { Unit: Unit; }
 data Tag a := { TagBool: Bool -> Tag Bool; TagUnit: Unit => Tag Unit }
 f :: Tag Bool -> Bool
 f := \t. case t { TagUnit _ => True }`
@@ -101,9 +101,9 @@ f := \t. case t { TagUnit _ => True }`
 func TestGADTAllBranchesIrrelevant(t *testing.T) {
 	// If all constructors are irrelevant for the scrutinee type,
 	// an empty case is OK (dead code).
-	source := `data Bool := { True: (); False: (); }
-data Unit := { Unit: (); }
-data Void := { MkVoid: (); }
+	source := `data Bool := { True: Bool; False: Bool; }
+data Unit := { Unit: Unit; }
+data Void := { MkVoid: Void; }
 data Tag a := { TagBool: Bool -> Tag Bool; TagUnit: Unit => Tag Unit }
 f :: Tag Void -> Void
 f := \t. case t { _ => MkVoid }`
@@ -156,7 +156,7 @@ func TestGADTExistentialEscapeWithGivenEq(t *testing.T) {
 	// The existential escapes into the result type via a discarding lambda.
 	// Before fix: GivenEqs presence disabled escape check entirely.
 	source := `
-data Unit := { Unit: (); }
+data Unit := { Unit: Unit; }
 data Box a := {
   MkBox: \b. b -> Box Unit
 }
@@ -170,7 +170,7 @@ func TestGADTSafeExistentialsInGivenEq(t *testing.T) {
 	// GADT constructor where existentials appear in the given eq values.
 	// These are safe — they're part of the GADT refinement.
 	source := `
-data Pair := \a b. { MkPair: a -> b; }
+data Pair := \a b. { MkPair: a -> b -> Pair a b; }
 data Expr a := {
   PairLit: \b c. b -> c -> Expr (Pair b c)
 }

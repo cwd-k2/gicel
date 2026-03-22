@@ -34,8 +34,8 @@ func TestInteractionTypeFamilyHKT(t *testing.T) {
 	// The type family Elem must reduce correctly when applied to (f a)
 	// where f is resolved to a concrete type constructor.
 	source := `
-data List := \a. { Nil: (); Cons: a -> List a; }
-data Unit := { Unit: (); }
+data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
+data Unit := { Unit: Unit; }
 
 type Elem (c: Type) :: Type := {
   Elem (List a) =: a
@@ -59,8 +59,8 @@ func TestInteractionTypeFamilyHKTMethodUse(t *testing.T) {
 	// Use a type family result as the return type of a function
 	// that also uses an HKT class method.
 	source := `
-data List := \a. { Nil: (); Cons: a -> List a; }
-data Unit := { Unit: (); }
+data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
+data Unit := { Unit: Unit; }
 
 type Elem (c: Type) :: Type := {
   Elem (List a) =: a
@@ -77,9 +77,9 @@ func TestInteractionTypeFamilyHKTPolyKindedClassAssoc(t *testing.T) {
 	// The associated type Elem is declared on Container c.
 	// A poly-kinded Functor class coexists to test HKT + assoc type interaction.
 	source := `
-data List := \a. { Nil: (); Cons: a -> List a; }
-data Unit := { Unit: (); }
-data Maybe := \a. { Nothing: (); Just: a; }
+data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
+data Unit := { Unit: Unit; }
+data Maybe := \a. { Nothing: Maybe a; Just: a -> Maybe a; }
 
 data Container := \c. {
   type Elem c :: Type;
@@ -114,8 +114,8 @@ func TestInteractionTypeFamilyRecord(t *testing.T) {
 	// Verify that field projection works when the record field type
 	// involves a type family application.
 	source := `
-data List := \a. { Nil: (); Cons: a -> List a; }
-data Unit := { Unit: (); }
+data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
+data Unit := { Unit: Unit; }
 
 type Elem (c: Type) :: Type := {
   Elem (List a) =: a
@@ -134,8 +134,8 @@ func TestInteractionTypeFamilyRecordFieldType(t *testing.T) {
 	// A record where one field's type is determined by a type family.
 	// The type family reduces before the record type is constructed.
 	source := `
-data List := \a. { Nil: (); Cons: a -> List a; }
-data Unit := { Unit: (); }
+data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
+data Unit := { Unit: Unit; }
 
 type Elem (c: Type) :: Type := {
   Elem (List a) =: a
@@ -157,8 +157,8 @@ func TestInteractionTypeFamilyOperatorSection(t *testing.T) {
 	// the type to be known, this tests that type family reduction
 	// happens before the operator is applied.
 	source := `
-data List := \a. { Nil: (); Cons: a -> List a; }
-data Unit := { Unit: (); }
+data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
+data Unit := { Unit: Unit; }
 
 type Elem (c: Type) :: Type := {
   Elem (List a) =: a
@@ -176,9 +176,9 @@ apply := \x. id x
 func TestInteractionTypeFamilyWithMap(t *testing.T) {
 	// Use map with a function whose argument type involves a type family.
 	source := `
-data List := \a. { Nil: (); Cons: a -> List a; }
-data Unit := { Unit: (); }
-data Bool := { True: (); False: (); }
+data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
+data Unit := { Unit: Unit; }
+data Bool := { True: Bool; False: Bool; }
 
 type Elem (c: Type) :: Type := {
   Elem (List a) =: a
@@ -204,8 +204,8 @@ func TestInteractionDataFamilyExhaustNested(t *testing.T) {
 	// Data family with constructors used in nested pattern matching.
 	// Exhaustiveness checking must resolve the data family to find constructors.
 	source := `
-data Unit := { Unit: (); }
-data Bool := { True: (); False: (); }
+data Unit := { Unit: Unit; }
+data Bool := { True: Bool; False: Bool; }
 
 data Wrapper := \a. {
   data Wrap a :: Type;
@@ -229,8 +229,8 @@ test := \w. case w {
 func TestInteractionDataFamilyExhaustMissing(t *testing.T) {
 	// Missing a branch in nested pattern on data family constructor.
 	source := `
-data Unit := { Unit: (); }
-data Bool := { True: (); False: (); }
+data Unit := { Unit: Unit; }
+data Bool := { True: Bool; False: Bool; }
 
 data Wrapper := \a. {
   data Wrap a :: Type;
@@ -253,8 +253,8 @@ test := \w. case w {
 func TestInteractionDataFamilyNestedUnwrap(t *testing.T) {
 	// Nested patterns on data family: case on the inner value.
 	source := `
-data Unit := { Unit: (); }
-data Maybe := \a. { Nothing: (); Just: a; }
+data Unit := { Unit: Unit; }
+data Maybe := \a. { Nothing: Maybe a; Just: a -> Maybe a; }
 
 data Container := \a. {
   data Elem a :: Type;
@@ -280,8 +280,8 @@ func TestInteractionFundepSuperclass(t *testing.T) {
 	// A class with fundeps that's a superclass of another class.
 	// Instance resolution should work through the superclass chain.
 	source := `
-data Unit := { Unit: (); }
-data List := \a. { Nil: (); Cons: a -> List a; }
+data Unit := { Unit: Unit; }
+data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
 
 data Elem := \c e | c =: e. {
   extract: c -> e
@@ -305,8 +305,8 @@ impl Foldable (List a) a := {
 func TestInteractionFundepSuperclassUse(t *testing.T) {
 	// Using the superclass method through the subclass constraint.
 	source := `
-data Unit := { Unit: (); }
-data List := \a. { Nil: (); Cons: a -> List a; }
+data Unit := { Unit: Unit; }
+data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
 
 data Elem := \c e | c =: e. {
   extract: c -> e
@@ -329,8 +329,8 @@ headOrDefault := \def xs. case xs { Nil => def; Cons x rest => extract (Cons x r
 func TestInteractionTypeFamilyDoBlock(t *testing.T) {
 	// A do block where the result type involves a type family.
 	source := `
-data List := \a. { Nil: (); Cons: a -> List a; }
-data Unit := { Unit: (); }
+data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
+data Unit := { Unit: Unit; }
 
 type Elem (c: Type) :: Type := {
   Elem (List a) =: a
@@ -348,8 +348,8 @@ main := do { x <- step; pure x }
 func TestInteractionTypeFamilyDoBlockPrePost(t *testing.T) {
 	// Do block with pre/post states and type family in the result type.
 	source := `
-data List := \a. { Nil: (); Cons: a -> List a; }
-data Unit := { Unit: (); }
+data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
+data Unit := { Unit: Unit; }
 
 type Elem (c: Type) :: Type := {
   Elem (List a) =: a
@@ -379,8 +379,8 @@ func TestInteractionAssocTypeMissingDef(t *testing.T) {
 	// The associated type family should have no equation for this instance,
 	// meaning applications involving this instance will be stuck (not crash).
 	source := `
-data Unit := { Unit: (); }
-data List := \a. { Nil: (); Cons: a -> List a; }
+data Unit := { Unit: Unit; }
+data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
 
 data Container := \c. {
   type Elem c :: Type;
@@ -413,9 +413,9 @@ impl Container (List a) := {
 func TestInteractionMultipleTypeFamiliesInSignature(t *testing.T) {
 	// A function type that uses two different type families.
 	source := `
-data List := \a. { Nil: (); Cons: a -> List a; }
-data Maybe := \a. { Nothing: (); Just: a; }
-data Unit := { Unit: (); }
+data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
+data Maybe := \a. { Nothing: Maybe a; Just: a -> Maybe a; }
+data Unit := { Unit: Unit; }
 
 type Elem (c: Type) :: Type := {
   Elem (List a) =: a
@@ -434,9 +434,9 @@ f := \x. Just x
 func TestInteractionTypeFamiliesInBothArgAndResult(t *testing.T) {
 	// Type families used in both argument position and result position.
 	source := `
-data List := \a. { Nil: (); Cons: a -> List a; }
-data Pair := \a b. { MkPair: a -> b; }
-data Unit := { Unit: (); }
+data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
+data Pair := \a b. { MkPair: a -> b -> Pair a b; }
+data Unit := { Unit: Unit; }
 
 type Elem (c: Type) :: Type := {
   Elem (List a) =: a;
@@ -457,8 +457,8 @@ func TestInteractionTypeFamilyChained(t *testing.T) {
 	// Type family applied to the result of another type family.
 	// Outer(Inner(x)) should reduce correctly.
 	source := `
-data List := \a. { Nil: (); Cons: a -> List a; }
-data Unit := { Unit: (); }
+data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
+data Unit := { Unit: Unit; }
 
 type Elem (c: Type) :: Type := {
   Elem (List a) =: a
@@ -485,7 +485,7 @@ f := \x. x
 func TestInteractionExplicitTyAppTypeFamilyResult(t *testing.T) {
 	// id @(Elem (List Int)) 42 should work.
 	source := `
-data List := \a. { Nil: (); Cons: a -> List a; }
+data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
 
 type Elem (c: Type) :: Type := {
   Elem (List a) =: a
@@ -506,7 +506,7 @@ test := \n. id @(Elem (List Int)) n
 func TestInteractionExplicitTyAppTypeFamilyIdentity(t *testing.T) {
 	// Explicit type application with an identity type family.
 	source := `
-data Unit := { Unit: (); }
+data Unit := { Unit: Unit; }
 
 type Id (a: Type) :: Type := {
   Id a =: a
@@ -527,8 +527,8 @@ test := id @(Id Unit) Unit
 func TestInteractionHigherRankTypeFamilyArg(t *testing.T) {
 	// A higher-rank function that uses a type family in its argument type.
 	source := `
-data List := \a. { Nil: (); Cons: a -> List a; }
-data Unit := { Unit: (); }
+data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
+data Unit := { Unit: Unit; }
 
 type Elem (c: Type) :: Type := {
   Elem (List a) =: a
@@ -550,8 +550,8 @@ test := applyToUnit (\x. x)
 func TestInteractionRecursiveLetTypeFamilyAnnotation(t *testing.T) {
 	// A recursive binding where the annotated type uses a type family.
 	source := `
-data List := \a. { Nil: (); Cons: a -> List a; }
-data Unit := { Unit: (); }
+data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
+data Unit := { Unit: Unit; }
 
 type Elem (c: Type) :: Type := {
   Elem (List a) =: a
@@ -576,8 +576,8 @@ main := length (Cons Unit Nil)
 func TestInteractionThunkForceTypeFamilyResult(t *testing.T) {
 	// thunk and force with a computation whose result type involves a type family.
 	source := `
-data List := \a. { Nil: (); Cons: a -> List a; }
-data Unit := { Unit: (); }
+data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
+data Unit := { Unit: Unit; }
 
 type Elem (c: Type) :: Type := {
   Elem (List a) =: a
@@ -595,8 +595,8 @@ run := force delayed
 func TestInteractionThunkForceTypeFamilyPrePost(t *testing.T) {
 	// thunk/force with type family in result and explicit pre/post states.
 	source := `
-data List := \a. { Nil: (); Cons: a -> List a; }
-data Unit := { Unit: (); }
+data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
+data Unit := { Unit: Unit; }
 
 type Elem (c: Type) :: Type := {
   Elem (List a) =: a
@@ -619,9 +619,9 @@ func TestInteractionCaseTypeFamilyScrutinee(t *testing.T) {
 	// Pattern matching on a value whose type is a type family application
 	// that reduces to a concrete ADT.
 	source := `
-data List := \a. { Nil: (); Cons: a -> List a; }
-data Unit := { Unit: (); }
-data Bool := { True: (); False: (); }
+data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
+data Unit := { Unit: Unit; }
+data Bool := { True: Bool; False: Bool; }
 
 type Elem (c: Type) :: Type := {
   Elem (List a) =: a
@@ -644,7 +644,7 @@ test := \x. case x { True => False; False => True }
 func TestInteractionErrorTypeFamilyArityTooMany(t *testing.T) {
 	// Applying too many arguments to a type family.
 	source := `
-data Unit := { Unit: (); }
+data Unit := { Unit: Unit; }
 type Id (a: Type) :: Type := {
   Id a =: a
 }
@@ -661,7 +661,7 @@ f := \x. x
 func TestInteractionErrorTypeFamilyEquationArityMismatch(t *testing.T) {
 	// A type family equation with wrong number of patterns.
 	source := `
-data Unit := { Unit: (); }
+data Unit := { Unit: Unit; }
 type Id (a: Type) :: Type := {
   Id a b =: a
 }
@@ -681,12 +681,12 @@ func TestInteractionErrorTypeFamilyNoMatch(t *testing.T) {
 	// This should produce a type mismatch because the stuck TyFamilyApp
 	// cannot unify with the expected type.
 	source := `
-data Unit := { Unit: (); }
-data Bool := { True: (); False: (); }
+data Unit := { Unit: Unit; }
+data Bool := { True: Bool; False: Bool; }
 type Elem (c: Type) :: Type := {
   Elem (List a) =: a
 }
-data List := \a. { Nil: (); Cons: a -> List a; }
+data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
 f :: Elem Bool -> Unit
 f := \x. x
 `
@@ -702,8 +702,8 @@ f := \x. x
 
 func TestInteractionErrorInjectivityEquationNumbers(t *testing.T) {
 	source := `
-data Unit := { Unit: (); }
-data Bool := { True: (); False: (); }
+data Unit := { Unit: Unit; }
+data Bool := { True: Bool; False: Bool; }
 type Collapse (a: Type) :: (r: Type) | r =: a := {
   Collapse Unit =: Unit;
   Collapse Bool =: Unit
@@ -722,7 +722,7 @@ type Collapse (a: Type) :: (r: Type) | r =: a := {
 
 func TestInteractionErrorRecursiveDepthFamilyName(t *testing.T) {
 	source := `
-data Unit := { Unit: (); }
+data Unit := { Unit: Unit; }
 type Loop (a: Type) :: Type := {
   Loop a =: Loop a
 }
@@ -746,7 +746,7 @@ func TestInteractionErrorDataFamilyConstructorWithoutInstance(t *testing.T) {
 	// Using a data family constructor name that doesn't exist
 	// (simulates the case where the instance wasn't imported).
 	source := `
-data Unit := { Unit: (); }
+data Unit := { Unit: Unit; }
 data Container := \a. {
   data Elem a :: Type;
   empty: a
@@ -773,8 +773,8 @@ func TestInteractionTypeFamilyInConstraint(t *testing.T) {
 	// A function with a class constraint where the type argument
 	// involves a type family application.
 	source := `
-data List := \a. { Nil: (); Cons: a -> List a; }
-data Bool := { True: (); False: (); }
+data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
+data Bool := { True: Bool; False: Bool; }
 
 type Elem (c: Type) :: Type := {
   Elem (List a) =: a
@@ -805,9 +805,9 @@ func TestInteractionAssocTypeAndFundep(t *testing.T) {
 	// A class that has both an associated type and a functional dependency.
 	// These are complementary but should not interfere with each other.
 	source := `
-data Unit := { Unit: (); }
-data List := \a. { Nil: (); Cons: a -> List a; }
-data Bool := { True: (); False: (); }
+data Unit := { Unit: Unit; }
+data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
+data Bool := { True: Bool; False: Bool; }
 
 data Collection := \c e | c =: e. {
   type Key c :: Type;
@@ -832,8 +832,8 @@ impl Collection (List a) a := {
 func TestInteractionDataFamilyAndFundep(t *testing.T) {
 	// Data family in a class that also has fundeps.
 	source := `
-data Unit := { Unit: (); }
-data Bool := { True: (); False: (); }
+data Unit := { Unit: Unit; }
+data Bool := { True: Bool; False: Bool; }
 
 data Convertible := \a b | a =: b. {
   data Result a :: Type;
@@ -859,10 +859,10 @@ func TestInteractionAssocTypeMultipleInstancesReduce(t *testing.T) {
 	// Two instances define the same associated type family with different equations.
 	// Verify that reduction picks the correct equation for each instance.
 	source := `
-data List := \a. { Nil: (); Cons: a -> List a; }
-data Maybe := \a. { Nothing: (); Just: a; }
-data Unit := { Unit: (); }
-data Bool := { True: (); False: (); }
+data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
+data Maybe := \a. { Nothing: Maybe a; Just: a -> Maybe a; }
+data Unit := { Unit: Unit; }
+data Bool := { True: Bool; False: Bool; }
 
 data Container := \c. {
   type Elem c :: Type;
@@ -898,8 +898,8 @@ testMaybe := \x. x
 func TestInteractionTypeFamilyInsideForall(t *testing.T) {
 	// Type family application inside a \-quantified type.
 	source := `
-data List := \a. { Nil: (); Cons: a -> List a; }
-data Unit := { Unit: (); }
+data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
+data Unit := { Unit: Unit; }
 
 type Elem (c: Type) :: Type := {
   Elem (List a) =: a
@@ -936,8 +936,8 @@ func TestInteractionTypeFamilyLetBinding(t *testing.T) {
 	// Type family result used in a let-block binding.
 	// Block syntax: { x := e; body }
 	source := `
-data List := \a. { Nil: (); Cons: a -> List a; }
-data Unit := { Unit: (); }
+data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
+data Unit := { Unit: Unit; }
 
 type Elem (c: Type) :: Type := {
   Elem (List a) =: a
@@ -959,9 +959,9 @@ main := { x := Unit; wrap x }
 func TestInteractionTypeFamilyTuple(t *testing.T) {
 	// Use a type family result within a tuple context.
 	source := `
-data List := \a. { Nil: (); Cons: a -> List a; }
-data Unit := { Unit: (); }
-data Pair := \a b. { MkPair: a -> b; }
+data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
+data Unit := { Unit: Unit; }
+data Pair := \a b. { MkPair: a -> b -> Pair a b; }
 
 type Elem (c: Type) :: Type := {
   Elem (List a) =: a
@@ -980,9 +980,9 @@ mkPair := \x y. MkPair x y
 func TestInteractionWildcardTypeFamilyHKT(t *testing.T) {
 	// Type family with wildcard pattern + HKT interaction.
 	source := `
-data Unit := { Unit: (); }
-data Maybe := \a. { Nothing: (); Just: a; }
-data List := \a. { Nil: (); Cons: a -> List a; }
+data Unit := { Unit: Unit; }
+data Maybe := \a. { Nothing: Maybe a; Just: a -> Maybe a; }
+data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
 
 type Always (a: Type) :: Type := {
   Always _ =: Unit
@@ -1010,8 +1010,8 @@ func TestInteractionTypeFamilyMultiplicityDoBlock(t *testing.T) {
 	// Computation with multiplicity annotations and type family in result.
 	source := `
 data Mult := { Unrestricted: (); Affine: (); Linear: (); }
-data List := \a. { Nil: (); Cons: a -> List a; }
-data Unit := { Unit: (); }
+data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
+data Unit := { Unit: Unit; }
 
 type Elem (c: Type) :: Type := {
   Elem (List a) =: a
@@ -1039,9 +1039,9 @@ func TestInteractionBugReduceFamilyInEvidence(t *testing.T) {
 	// reduceFamilyApps does not recurse into TyEvidence, so this tests
 	// whether the normalize path handles it correctly via other means.
 	source := `
-data List := \a. { Nil: (); Cons: a -> List a; }
-data Unit := { Unit: (); }
-data Bool := { True: (); False: (); }
+data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
+data Unit := { Unit: Unit; }
+data Bool := { True: Bool; False: Bool; }
 
 type Elem (c: Type) :: Type := {
   Elem (List a) =: a
@@ -1069,8 +1069,8 @@ func TestInteractionBugTypeFamilyInCapabilityRow(t *testing.T) {
 	// Type family application as the type of a capability row field.
 	// This tests whether reduceFamilyApps recurses into TyEvidenceRow.
 	source := `
-data List := \a. { Nil: (); Cons: a -> List a; }
-data Unit := { Unit: (); }
+data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
+data Unit := { Unit: Unit; }
 
 type Elem (c: Type) :: Type := {
   Elem (List a) =: a
@@ -1093,8 +1093,8 @@ func TestInteractionBugUndersaturatedTypeFamilyInApp(t *testing.T) {
 	// A 2-param type family partially applied: only 1 argument given.
 	// This should NOT be reduced (not saturated), and should not crash.
 	source := `
-data Unit := { Unit: (); }
-data Pair := \a b. { MkPair: a -> b; }
+data Unit := { Unit: Unit; }
+data Pair := \a b. { MkPair: a -> b -> Pair a b; }
 type Fst (a: Type) (b: Type) :: Type := {
   Fst a b =: a
 }
@@ -1111,9 +1111,9 @@ func TestInteractionBugTypeFamilyShadowedVar(t *testing.T) {
 	// Two equations use the same pattern variable name.
 	// Each equation's bindings should be independent.
 	source := `
-data Unit := { Unit: (); }
-data Bool := { True: (); False: (); }
-data Pair := \a b. { MkPair: a -> b; }
+data Unit := { Unit: Unit; }
+data Bool := { True: Bool; False: Bool; }
+data Pair := \a b. { MkPair: a -> b -> Pair a b; }
 type Fst (c: Type) :: Type := {
   Fst (Pair a b) =: a
 }
@@ -1137,8 +1137,8 @@ func TestInteractionBugDataFamilyExhaustAfterReduction(t *testing.T) {
 	// A data family type reduces to a mangled type.
 	// Exhaustiveness checking must look up the mangled type's constructors.
 	source := `
-data Unit := { Unit: (); }
-data Bool := { True: (); False: (); }
+data Unit := { Unit: Unit; }
+data Bool := { True: Bool; False: Bool; }
 
 data Container := \a. {
   data Elem a :: Type;
@@ -1162,8 +1162,8 @@ test := \e. case e {
 func TestInteractionBugDataFamilyExhaustMissingAfterReduction(t *testing.T) {
 	// Same as above but missing one constructor - should detect non-exhaustive.
 	source := `
-data Unit := { Unit: (); }
-data Bool := { True: (); False: (); }
+data Unit := { Unit: Unit; }
+data Bool := { True: Bool; False: Bool; }
 
 data Container := \a. {
   data Elem a :: Type;
@@ -1191,9 +1191,9 @@ func TestInteractionBugTypeFamilyInstanceResolution(t *testing.T) {
 	// Instance resolution where the type argument contains a type family.
 	// The resolver should reduce the type family before matching instances.
 	source := `
-data List := \a. { Nil: (); Cons: a -> List a; }
-data Unit := { Unit: (); }
-data Bool := { True: (); False: (); }
+data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
+data Unit := { Unit: Unit; }
+data Bool := { True: Bool; False: Bool; }
 
 type Elem (c: Type) :: Type := {
   Elem (List a) =: a
@@ -1221,8 +1221,8 @@ func TestInteractionBugZonkAndTypeFamilyReduction(t *testing.T) {
 	// After zonking, a meta variable is resolved to a type family argument.
 	// The type family should be reducible after zonking resolves the meta.
 	source := `
-data List := \a. { Nil: (); Cons: a -> List a; }
-data Unit := { Unit: (); }
+data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
+data Unit := { Unit: Unit; }
 
 type Elem (c: Type) :: Type := {
   Elem (List a) =: a
@@ -1246,9 +1246,9 @@ func TestInteractionBugAssocTypeOverlapOrder(t *testing.T) {
 	// type arguments. The equation order in the family should match
 	// each instance correctly.
 	source := `
-data List := \a. { Nil: (); Cons: a -> List a; }
-data Maybe := \a. { Nothing: (); Just: a; }
-data Unit := { Unit: (); }
+data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
+data Maybe := \a. { Nothing: Maybe a; Just: a -> Maybe a; }
+data Unit := { Unit: Unit; }
 
 data Container := \c. {
   type Elem c :: Type;
@@ -1281,7 +1281,7 @@ testMaybe := \x. x
 func TestInteractionBugExplicitTyAppWithFamilyReduction(t *testing.T) {
 	// @(Elem (List Int)) should reduce to @Int in the type application.
 	source := `
-data List := \a. { Nil: (); Cons: a -> List a; }
+data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
 
 type Elem (c: Type) :: Type := {
   Elem (List a) =: a
@@ -1307,8 +1307,8 @@ func TestInteractionBugFundepWithReducedType(t *testing.T) {
 	// Fundep improvement where one argument is a type family application
 	// that reduces to a concrete type. The improvement should work after reduction.
 	source := `
-data Unit := { Unit: (); }
-data List := \a. { Nil: (); Cons: a -> List a; }
+data Unit := { Unit: Unit; }
+data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
 
 type Id (a: Type) :: Type := {
   Id a =: a
@@ -1338,9 +1338,9 @@ func TestInteractionBugContainsMetaTyFamilyApp(t *testing.T) {
 	// detect the meta so the constraint can be deferred properly.
 	// Without the fix, the constraint would be resolved prematurely.
 	source := `
-data List := \a. { Nil: (); Cons: a -> List a; }
-data Unit := { Unit: (); }
-data Bool := { True: (); False: (); }
+data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
+data Unit := { Unit: Unit; }
+data Bool := { True: Bool; False: Bool; }
 
 type Elem (c: Type) :: Type := {
   Elem (List a) =: a
@@ -1367,8 +1367,8 @@ test := \x y. eq x y
 func TestInteractionBugTypeFamilyHigherRank(t *testing.T) {
 	// Type family used inside a higher-rank type position.
 	source := `
-data List := \a. { Nil: (); Cons: a -> List a; }
-data Unit := { Unit: (); }
+data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
+data Unit := { Unit: Unit; }
 
 type Elem (c: Type) :: Type := {
   Elem (List a) =: a
@@ -1391,9 +1391,9 @@ func TestInteractionBugReduceFamilyAppsEvidence(t *testing.T) {
 	// Type family application inside a qualified type.
 	// Tests that type family reduction works even through evidence layers.
 	source := `
-data List := \a. { Nil: (); Cons: a -> List a; }
-data Unit := { Unit: (); }
-data Bool := { True: (); False: (); }
+data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
+data Unit := { Unit: Unit; }
+data Bool := { True: Bool; False: Bool; }
 
 type Elem (c: Type) :: Type := {
   Elem (List a) =: a
@@ -1421,8 +1421,8 @@ testEq := \x y. eq x y
 func TestInteractionBugDataFamilyOperator(t *testing.T) {
 	// Using data family constructors in the context of function application.
 	source := `
-data Unit := { Unit: (); }
-data Bool := { True: (); False: (); }
+data Unit := { Unit: Unit; }
+data Bool := { True: Bool; False: Bool; }
 
 data Container := \a. {
   data Elem a :: Type;
@@ -1450,8 +1450,8 @@ test := id (Tag True)
 func TestInteractionBugMultipleConstraintsTypeFamilies(t *testing.T) {
 	// Multiple class constraints where the types are related via type families.
 	source := `
-data Unit := { Unit: (); }
-data Bool := { True: (); False: (); }
+data Unit := { Unit: Unit; }
+data Bool := { True: Bool; False: Bool; }
 
 data Eq := \a. {
   eq: a -> a -> Bool
@@ -1562,9 +1562,9 @@ func TestInteractionReduceFamilyAppsEvidence(t *testing.T) {
 	// Type family application nested inside a TyEvidence body should
 	// be reduced by reduceFamilyApps.
 	source := `
-data List := \a. { Nil: (); Cons: a -> List a; }
-data Unit := { Unit: (); }
-data Bool := { True: (); False: (); }
+data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
+data Unit := { Unit: Unit; }
+data Bool := { True: Bool; False: Bool; }
 
 type Elem (c: Type) :: Type := {
   Elem (List a) =: a
@@ -1592,8 +1592,8 @@ func TestInteractionReduceFamilyAppsCapRow(t *testing.T) {
 	// Type family application as the type of a capability in a row.
 	// After the fix, reduceFamilyApps recurses into TyEvidenceRow fields.
 	source := `
-data List := \a. { Nil: (); Cons: a -> List a; }
-data Unit := { Unit: (); }
+data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
+data Unit := { Unit: Unit; }
 
 type Elem (c: Type) :: Type := {
   Elem (List a) =: a
