@@ -125,6 +125,106 @@ func isClassLikeData(parts dataBodyParts) bool {
 	return true // all lowercase fields = methods = class-like
 }
 
+// --- Legacy AST compatibility types ---
+// These replicate the old syntax AST types that were removed during the unified
+// syntax migration. They exist solely to preserve the checker's internal
+// class/instance/type-family processing logic during the transition.
+// They will be removed once the checker is fully adapted to the unified syntax.
+
+// legacyDeclClass mirrors the removed syntax.DeclClass.
+type legacyDeclClass struct {
+	Name           string
+	Supers         []syntax.TypeExpr
+	TyParams       []syntax.TyBinder
+	FunDeps        []legacyFunDep
+	Methods        []legacyClassMethod
+	AssocTypes     []legacyAssocTypeDecl
+	AssocDataDecls []legacyAssocDataDecl
+	S              span.Span
+}
+
+// legacyDeclInstance mirrors the removed syntax.DeclInstance.
+type legacyDeclInstance struct {
+	Context       []syntax.TypeExpr
+	ClassName     string
+	TypeArgs      []syntax.TypeExpr
+	Methods       []legacyInstMethod
+	AssocTypeDefs []legacyAssocTypeDef
+	AssocDataDefs []legacyAssocDataDef
+	S             span.Span
+}
+
+// legacyDeclTypeFamily mirrors the removed syntax.DeclTypeFamily.
+type legacyDeclTypeFamily struct {
+	Name       string
+	Params     []syntax.TyBinder
+	ResultKind syntax.KindExpr
+	ResultName string
+	Deps       []legacyFunDep
+	Equations  []legacyTFEquation
+	S          span.Span
+}
+
+type legacyFunDep struct {
+	From string
+	To   []string
+}
+
+type legacyAssocTypeDecl struct {
+	Name       string
+	Params     []syntax.TyBinder
+	ResultKind syntax.KindExpr
+	ResultName string
+	Deps       []legacyFunDep
+	S          span.Span
+}
+
+type legacyAssocDataDecl struct {
+	Name       string
+	Params     []syntax.TyBinder
+	ResultKind syntax.KindExpr
+	S          span.Span
+}
+
+type legacyTFEquation struct {
+	Name     string
+	Patterns []syntax.TypeExpr
+	RHS      syntax.TypeExpr
+	S        span.Span
+}
+
+type legacyAssocTypeDef struct {
+	Name     string
+	Patterns []syntax.TypeExpr
+	RHS      syntax.TypeExpr
+	S        span.Span
+}
+
+type legacyAssocDataDef struct {
+	Name     string
+	Patterns []syntax.TypeExpr
+	Cons     []legacyDeclCon
+	S        span.Span
+}
+
+type legacyDeclCon struct {
+	Name   string
+	Fields []syntax.TypeExpr
+	S      span.Span
+}
+
+type legacyInstMethod struct {
+	Name string
+	Expr syntax.Expr
+	S    span.Span
+}
+
+type legacyGADTConDecl struct {
+	Name string
+	Type syntax.TypeExpr
+	S    span.Span
+}
+
 // --- Compatibility wrappers ---
 // These convert from the unified syntax AST to the checker's internal processing.
 

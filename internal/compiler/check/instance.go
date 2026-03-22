@@ -11,7 +11,7 @@ import (
 // processInstanceHeader validates and registers an instance.
 // Returns the instance info and a map of unevaluated method expressions.
 // The method map is consumed by processInstanceBody; it is not stored in InstanceInfo.
-func (ch *Checker) processInstanceHeader(d *syntax.DeclInstance) (*InstanceInfo, map[string]syntax.Expr) {
+func (ch *Checker) processInstanceHeaderLegacy(d *legacyDeclInstance) (*InstanceInfo, map[string]syntax.Expr) {
 	classInfo, ok := ch.reg.LookupClass(d.ClassName)
 	if !ok {
 		ch.addCodedError(diagnostic.ErrBadClass, d.S, fmt.Sprintf("unknown class: %s", d.ClassName))
