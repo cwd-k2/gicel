@@ -312,7 +312,7 @@ func TestLubPostStates_SingleBranch(t *testing.T) {
 data Unit := { MkUnit: (); }
 consume :: Computation { x: Unit } {} Unit
 consume := assumption
-f :: Unit => Computation { x: Unit } {} Unit
+f :: Unit -> Computation { x: Unit } {} Unit
 f := \u. case u {
   MkUnit => consume
 }

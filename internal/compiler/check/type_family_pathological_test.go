@@ -447,7 +447,7 @@ consumeAC :: Computation { a: Unit, b: Unit, c: Unit } { b: Unit } Unit
 consumeAC := assumption
 consumeBC :: Computation { a: Unit, b: Unit, c: Unit } { a: Unit } Unit
 consumeBC := assumption
-f :: Three => Computation { a: Unit, b: Unit, c: Unit } {} Unit
+f :: Three -> Computation { a: Unit, b: Unit, c: Unit } {} Unit
 f := \t. case t {
   One => consumeAB;
   Two => consumeAC;

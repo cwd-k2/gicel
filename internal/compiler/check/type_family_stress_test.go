@@ -405,7 +405,7 @@ func TestBoundarySingleBranchCase(t *testing.T) {
 data Unit := { MkUnit: (); }
 consume :: Computation { a: Unit } {} Unit
 consume := assumption
-f :: Unit => Computation { a: Unit } {} Unit
+f :: Unit -> Computation { a: Unit } {} Unit
 f := \u. case u {
   MkUnit => consume
 }
@@ -470,7 +470,7 @@ consumeA :: Computation { a: Unit, b: Unit, c: Unit } { b: Unit, c: Unit } Unit
 consumeA := assumption
 consumeB :: Computation { a: Unit, b: Unit, c: Unit } { a: Unit, c: Unit } Unit
 consumeB := assumption
-f :: Three => Computation { a: Unit, b: Unit, c: Unit } { c: Unit } Unit
+f :: Three -> Computation { a: Unit, b: Unit, c: Unit } { c: Unit } Unit
 f := \t. case t {
   One => noop;
   Two => consumeA;
