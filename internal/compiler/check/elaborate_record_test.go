@@ -23,7 +23,7 @@ func TestRecordLitSimple(t *testing.T) {
 }
 
 func TestRecordLitMultiField(t *testing.T) {
-	source := `data Bool := True | False
+	source := `data Bool := { True: (); False: (); }
 main := { x: 42, y: True }`
 	checkSource(t, source, nil)
 }
@@ -63,7 +63,7 @@ func TestRecordUpdateSimple(t *testing.T) {
 }
 
 func TestRecordUpdateMulti(t *testing.T) {
-	source := `data Bool := True | False
+	source := `data Bool := { True: (); False: (); }
 main := { { x: 42, y: True } | x: 0, y: False }`
 	checkSource(t, source, nil)
 }
@@ -98,7 +98,7 @@ main := f { x: 42 }`
 }
 
 func TestRecordPatternMultiField(t *testing.T) {
-	source := `data Bool := True | False
+	source := `data Bool := { True: (); False: (); }
 f := \r. case r { { x: a, y: b } -> a }
 main := f { x: 42, y: True }`
 	checkSource(t, source, nil)
@@ -137,7 +137,7 @@ main := f { x: 42 }`
 
 func TestRecordCheckModeTypeMismatch(t *testing.T) {
 	// Field type mismatch should error.
-	source := `data Bool := True | False
+	source := `data Bool := { True: (); False: (); }
 f :: Record { x: Int } -> Int
 f := \r. r.#x
 main := f { x: True }`

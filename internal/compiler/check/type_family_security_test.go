@@ -28,11 +28,11 @@ func TestSecurityTypeFamilyDoublingRHS(t *testing.T) {
 	// After 100 steps, the type would be 2^100 nodes — but fuel stops it.
 	source := `
 data Pair a b := MkPair a b
-data Unit := Unit
+data Unit := { Unit: (); }
 type Grow (a: Type) :: Type := {
   Grow a =: Grow (Pair a a)
 }
-f :: Grow Unit -> Unit
+f :: Grow Unit => Unit
 f := \x. x
 `
 	start := time.Now()
@@ -51,11 +51,11 @@ f := \x. x
 func TestSecurityTypeFamilyLinearGrowth(t *testing.T) {
 	source := `
 data List a := Nil | Cons a (List a)
-data Unit := Unit
+data Unit := { Unit: (); }
 type GrowList (a: Type) :: Type := {
   GrowList a =: Cons Unit (GrowList a)
 }
-f :: GrowList Unit -> Unit
+f :: GrowList Unit => Unit
 f := \x. x
 `
 	start := time.Now()
@@ -72,12 +72,12 @@ f := \x. x
 // (simulated via a single family that ping-pongs).
 func TestSecurityTypeFamilyMutualRecursion(t *testing.T) {
 	source := `
-data Unit := Unit
+data Unit := { Unit: (); }
 data Wrapper a := Wrap a
 type Ping (a: Type) :: Type := {
   Ping a =: Ping (Wrapper a)
 }
-f :: Ping Unit -> Unit
+f :: Ping Unit => Unit
 f := \x. x
 `
 	start := time.Now()
@@ -173,7 +173,7 @@ func TestSecurityConstructorOverwrite(t *testing.T) {
 	// define a data family instance that also introduces "Wrap".
 	source := `
 data Wrapper a := Wrap a
-data Unit := Unit
+data Unit := { Unit: (); }
 
 class Container c {
   data Elem c :: Type
@@ -254,7 +254,7 @@ func TestPerformanceIntersectCapRowsManyBranches(t *testing.T) {
 	}
 	sb.WriteString("\n")
 
-	sb.WriteString("data Unit := Unit\n")
+	sb.WriteString("data Unit := { Unit: (); }\n")
 	sb.WriteString("f :: BigEnum -> Unit\n")
 	sb.WriteString("f := \\x. case x {\n")
 	for i := 0; i < numBranches; i++ {
@@ -321,9 +321,9 @@ func TestPerformanceFunDepManyInstances(t *testing.T) {
 func TestPerformanceSnapshotCost(t *testing.T) {
 	// A program that creates many metavariables through polymorphic usage.
 	source := `
-data Bool := True | False
+data Bool := { True: (); False: (); }
 data List a := Nil | Cons a (List a)
-data Unit := Unit
+data Unit := { Unit: (); }
 
 id :: \ a. a -> a
 id := \x. x
@@ -348,11 +348,11 @@ f := id (id (id (id (id (id (id (id (id (id Unit)))))))))
 // producing a type mismatch (E0200) when Loop Unit is compared against Unit.
 func TestSecurityHeadTyConWithFamiliesDepth(t *testing.T) {
 	source := `
-data Unit := Unit
+data Unit := { Unit: (); }
 type Loop (a: Type) :: Type := {
   Loop a =: Loop a
 }
-f :: Loop Unit -> Unit
+f :: Loop Unit => Unit
 f := \x. x
 `
 	start := time.Now()
@@ -371,7 +371,7 @@ func TestSecurityParserDeepNesting(t *testing.T) {
 	// Generate a deeply nested type: (((((...))))) with 200 levels.
 	var sb strings.Builder
 	const depth = 200
-	sb.WriteString("data Unit := Unit\n")
+	sb.WriteString("data Unit := { Unit: (); }\n")
 	sb.WriteString("f :: ")
 	for i := 0; i < depth; i++ {
 		sb.WriteString("(")
@@ -444,11 +444,11 @@ func TestSecurityExponentialTypeGrowth(t *testing.T) {
 	// Let's test the worst case: a single family that explicitly doubles.
 	source := `
 data Pair a b := MkPair a b
-data Unit := Unit
+data Unit := { Unit: (); }
 type Explode (a: Type) :: Type := {
   Explode a =: Explode (Pair a a)
 }
-f :: Explode Unit -> Unit
+f :: Explode Unit => Unit
 f := \x. x
 `
 	start := time.Now()

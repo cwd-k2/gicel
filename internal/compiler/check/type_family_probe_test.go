@@ -43,8 +43,8 @@ func TestProbeA_TF_PeanoAtFuelBoundary(t *testing.T) {
 // This means type families cannot be used as field types in Record annotations.
 func TestProbeA_TF_FamilyReturningRowUsedInRecord(t *testing.T) {
 	source := `
-data Bool := True | False
-data Unit := Unit
+data Bool := { True: (); False: (); }
+data Unit := { Unit: (); }
 data List a := Nil | Cons a (List a)
 
 type Elem (c: Type) :: Type := {
@@ -66,8 +66,8 @@ main := f True
 // another family: F (G x).
 func TestProbeA_TF_NestedFamilyApplication(t *testing.T) {
 	source := `
-data Unit := Unit
-data Bool := True | False
+data Unit := { Unit: (); }
+data Bool := { True: (); False: (); }
 data List a := Nil | Cons a (List a)
 
 type Wrap (a: Type) :: Type := {
@@ -90,8 +90,8 @@ main := f True
 // function argument type.
 func TestProbeA_TF_FamilyInFunctionArg(t *testing.T) {
 	source := `
-data Unit := Unit
-data Bool := True | False
+data Unit := { Unit: (); }
+data Bool := { True: (); False: (); }
 data List a := Nil | Cons a (List a)
 
 type Elem (c: Type) :: Type := {
@@ -110,14 +110,14 @@ main := g True False
 // doubles the type size. Should be caught by the type size limit.
 func TestProbeA_TF_RecursiveFamilyExponentialGrowth(t *testing.T) {
 	source := `
-data Unit := Unit
+data Unit := { Unit: (); }
 data Pair a b := MkPair a b
 
 type Grow (a: Type) :: Type := {
   Grow a =: Grow (Pair a a)
 }
 
-f :: Grow Unit -> Unit
+f :: Grow Unit => Unit
 f := \x. x
 `
 	checkSourceExpectError(t, source, nil)
@@ -127,8 +127,8 @@ f := \x. x
 // with an associated type. Verify both reduce correctly.
 func TestProbeA_TF_AssociatedTypeMultipleInstances(t *testing.T) {
 	source := `
-data Unit := Unit
-data Bool := True | False
+data Unit := { Unit: (); }
+data Bool := { True: (); False: (); }
 data List a := Nil | Cons a (List a)
 
 class Container c {
@@ -149,7 +149,7 @@ instance Container Unit {
 testList :: Elem (List Bool) -> Bool
 testList := \x. x
 
-testUnit :: Elem Unit -> Unit
+testUnit :: Elem Unit => Unit
 testUnit := \x. x
 `
 	checkSource(t, source, nil)
@@ -159,8 +159,8 @@ testUnit := \x. x
 // (no equation matches) should produce a type error, not a crash.
 func TestProbeA_TF_StuckFamilyDoesNotCrash(t *testing.T) {
 	source := `
-data Unit := Unit
-data Bool := True | False
+data Unit := { Unit: (); }
+data Bool := { True: (); False: (); }
 
 type OnlyList (c: Type) :: Type := {
   OnlyList (List a) =: a
@@ -184,8 +184,8 @@ func TestProbeA_TF_PeanoExactlyAtLimit(t *testing.T) {
 // Tests multi-hop family reduction.
 func TestProbeA_TF_ChainOfThreeFamilies(t *testing.T) {
 	source := `
-data Unit := Unit
-data Bool := True | False
+data Unit := { Unit: (); }
+data Bool := { True: (); False: (); }
 
 type C (a: Type) :: Type := {
   C a =: a
@@ -213,8 +213,8 @@ main := f True
 // a meta should not crash and should leave the type as TyFamilyApp or meta.
 func TestProbeD_TF_StuckOnUnsolvedMeta(t *testing.T) {
 	source := `
-data Unit := Unit
-data Bool := True | False
+data Unit := { Unit: (); }
+data Bool := { True: (); False: (); }
 data List a := Nil | Cons a (List a)
 
 type Elem (c: Type) :: Type := {
@@ -239,7 +239,7 @@ f := \x. x
 // fuel limit fires, leaving Loop Z stuck on both sides of the identity.
 func TestProbeD_TF_RecursiveFamilyFuelExhausted(t *testing.T) {
 	source := `
-data Nat := Z | S Nat
+data Nat := { Z: (); S: Nat; }
 data Phantom (n: Nat) := MkPhantom
 
 type Loop (a: Nat) :: Nat := {
@@ -257,7 +257,7 @@ f := \x. x
 // TestProbeD_TF_IdentityFamily — a trivial family that returns its argument.
 func TestProbeD_TF_IdentityFamily(t *testing.T) {
 	source := `
-data Bool := True | False
+data Bool := { True: (); False: (); }
 
 type Id (a: Type) :: Type := {
   Id a =: a
@@ -274,14 +274,14 @@ main := f True
 // TestProbeD_TF_TwoArgumentFamily — a family with two parameters.
 func TestProbeD_TF_TwoArgumentFamily(t *testing.T) {
 	source := `
-data Bool := True | False
-data Unit := Unit
+data Bool := { True: (); False: (); }
+data Unit := { Unit: (); }
 
 type Fst (a: Type) (b: Type) :: Type := {
   Fst a b =: a
 }
 
-f :: Fst Bool Unit -> Bool
+f :: Fst Bool Unit => Bool
 f := \x. x
 
 main := f True
@@ -300,8 +300,8 @@ main := f True
 // its argument is an unsolved meta should not panic.
 func TestProbeE_TypeFamily_StuckOnMeta(t *testing.T) {
 	source := `
-data Bool := True | False
-data Nat := Z | S Nat
+data Bool := { True: (); False: (); }
+data Nat := { Z: (); S: Nat; }
 
 type IsZero (n: Type) :: Type := {
   IsZero Z =: Bool;
@@ -321,7 +321,7 @@ main := id Z
 // the fuel limit should report an error, not hang.
 func TestProbeE_TypeFamily_RecursiveFuelLimit(t *testing.T) {
 	source := `
-data Nat := Z | S Nat
+data Nat := { Z: (); S: Nat; }
 
 type Loop (n: Type) :: Type := {
   Loop n =: Loop (S n)
@@ -342,14 +342,14 @@ main := (Z :: Loop Z)
 // catch this before it becomes pathological.
 func TestProbeE_TypeFamily_ExponentialGrowth(t *testing.T) {
 	source := `
-data Unit := Unit
+data Unit := { Unit: (); }
 data Pair a b := MkPair a b
 
 type Grow (a: Type) :: Type := {
   Grow a =: Pair (Grow a) (Grow a)
 }
 
-f :: Grow Unit -> Unit
+f :: Grow Unit => Unit
 f := \x. x
 `
 	errMsg := checkSourceExpectError(t, source, nil)
@@ -362,8 +362,8 @@ f := \x. x
 // but different LHS should be flagged as an injectivity violation.
 func TestProbeE_TypeFamily_InjectivityViolation(t *testing.T) {
 	source := `
-data Bool := True | False
-data Unit := Unit
+data Bool := { True: (); False: (); }
+data Unit := { Unit: (); }
 
 type F (a: Type) :: (r: Type) | r =: a := {
   F Bool =: Bool;
@@ -380,8 +380,8 @@ type F (a: Type) :: (r: Type) | r =: a := {
 // the family application should remain stuck (not panic).
 func TestProbeE_TypeFamily_NoMatchingEquation(t *testing.T) {
 	source := `
-data Bool := True | False
-data Nat := Z | S Nat
+data Bool := { True: (); False: (); }
+data Nat := { Z: (); S: Nat; }
 
 type IsZero (n: Type) :: Type := {
   IsZero Z =: Bool
@@ -402,7 +402,7 @@ main := Z
 // inside a GADT case branch.
 func TestProbeE_Interaction_GADTWithTypeClass(t *testing.T) {
 	source := `
-data Bool := True | False
+data Bool := { True: (); False: (); }
 class Eq a { eq :: a -> a -> Bool }
 instance Eq Bool { eq := \x y. True }
 
@@ -420,8 +420,8 @@ main := test (MkSomeEq True False)
 // result as a type class argument.
 func TestProbeE_Interaction_TypeFamilyWithTypeClass(t *testing.T) {
 	source := `
-data Bool := True | False
-data Nat := Z | S Nat
+data Bool := { True: (); False: (); }
+data Nat := { Z: (); S: Nat; }
 
 type IsZero (n: Type) :: Type := {
   IsZero Z =: Bool
@@ -440,7 +440,7 @@ main := show (True :: IsZero Z)
 // constraints should lift residuals into qualified types.
 func TestProbeE_Interaction_ConstrainedLetGen(t *testing.T) {
 	source := `
-data Bool := True | False
+data Bool := { True: (); False: (); }
 class Eq a { eq :: a -> a -> Bool }
 instance Eq Bool { eq := \x y. True }
 
@@ -455,7 +455,7 @@ main := same True True
 // record field through a constraint-qualified type.
 func TestProbeE_Interaction_RecordProjectionWithConstraint(t *testing.T) {
 	source := `
-data Bool := True | False
+data Bool := { True: (); False: (); }
 
 getX := \r. r.#x
 main := getX { x: True, y: True }

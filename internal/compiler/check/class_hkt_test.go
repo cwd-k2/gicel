@@ -16,7 +16,7 @@ class Functor (f: k -> Type) {
 }
 
 instance Functor Maybe {
-  fmap := \g mx. case mx { Nothing -> Nothing; Just x -> Just (g x) }
+  fmap := \g mx. case mx { Nothing => Nothing; Just x => Just (g x) }
 }
 `
 	checkSource(t, source, nil)
@@ -25,7 +25,7 @@ instance Functor Maybe {
 func TestPolyKindedClassUseMethod(t *testing.T) {
 	// Use a poly-kinded class method
 	source := `
-data Bool := True | False
+data Bool := { True: (); False: (); }
 data Maybe a := Nothing | Just a
 
 class Functor (f: k -> Type) {
@@ -33,7 +33,7 @@ class Functor (f: k -> Type) {
 }
 
 instance Functor Maybe {
-  fmap := \g mx. case mx { Nothing -> Nothing; Just x -> Just (g x) }
+  fmap := \g mx. case mx { Nothing => Nothing; Just x => Just (g x) }
 }
 
 test := fmap (\x. True) (Just True)
@@ -44,7 +44,7 @@ test := fmap (\x. True) (Just True)
 func TestMonoKindedClassStillWorks(t *testing.T) {
 	// Ensure existing mono-kinded classes still work (no regression)
 	source := `
-data Bool := True | False
+data Bool := { True: (); False: (); }
 
 class Eq a {
   eq :: a -> a -> Bool
@@ -88,7 +88,7 @@ class BiMap (f: k -> j -> Type) {
 func TestPolyKindedClassWithSuperclass(t *testing.T) {
 	// Poly-kinded class with superclass constraint
 	source := `
-data Bool := True | False
+data Bool := { True: (); False: (); }
 data Maybe a := Nothing | Just a
 
 class Functor (f: k -> Type) {
@@ -96,7 +96,7 @@ class Functor (f: k -> Type) {
 }
 
 instance Functor Maybe {
-  fmap := \g mx. case mx { Nothing -> Nothing; Just x -> Just (g x) }
+  fmap := \g mx. case mx { Nothing => Nothing; Just x => Just (g x) }
 }
 
 class Functor f => Applicative (f: k -> Type) {
@@ -120,7 +120,7 @@ class Functor (f: k -> Type) {
 }
 
 instance Functor Maybe {
-  fmap := \g mx. case mx { Nothing -> Nothing; Just x -> Just (g x) }
+  fmap := \g mx. case mx { Nothing => Nothing; Just x => Just (g x) }
 }
 `
 	checkSource(t, source, nil)

@@ -17,7 +17,7 @@ func TestAdvancedTypeFamilyStress(t *testing.T) {
 	}
 	source := `
 -- Peano naturals as DataKinds.
-data Nat := Z | S Nat
+data Nat := { Z: (); S: Nat; }
 
 -- Type-level addition.
 type Add (a: Nat) (b: Nat) :: Nat := {
@@ -88,8 +88,8 @@ func TestAdvancedDataFamilyPolymorphism(t *testing.T) {
 		},
 	}
 	source := `
-data Unit := Unit
-data Bool := True | False
+data Unit := { Unit: (); }
+data Bool := { True: (); False: (); }
 data Maybe a := Nothing | Just a
 
 -- Wrappable class: each type wraps into a different runtime shape.
@@ -153,8 +153,8 @@ func TestAdvancedFunDepInference(t *testing.T) {
 		},
 	}
 	source := `
-data Unit := Unit
-data Bool := True | False
+data Unit := { Unit: (); }
+data Bool := { True: (); False: (); }
 data Maybe a := Nothing | Just a
 data List a := Nil | Cons a (List a)
 
@@ -164,7 +164,7 @@ class Convert a b | a =: b {
 }
 
 instance Convert Bool Int {
-  convert := \b. case b { True -> 1; False -> 0 }
+  convert := \b. case b { True => 1; False => 0 }
 }
 
 instance Convert Unit Bool {
@@ -185,11 +185,11 @@ class HasElem c e | c =: e {
 }
 
 instance HasElem (List a) a {
-  getFirst := \xs. case xs { Cons x _ -> Just x; Nil -> Nothing }
+  getFirst := \xs. case xs { Cons x _ => Just x; Nil => Nothing }
 }
 
 instance HasElem (Maybe a) a {
-  getFirst := \m. case m { Just x -> Just x; Nothing -> Nothing }
+  getFirst := \m. case m { Just x => Just x; Nothing => Nothing }
 }
 
 -- getFirst (Cons Unit Nil): c = List Unit → e = Unit
@@ -207,7 +207,7 @@ class Iso a b | a =: b, b =: a {
 }
 
 instance Iso Bool Int {
-  forward := \b. case b { True -> 1; False -> 0 };
+  forward := \b. case b { True => 1; False => 0 };
   backward := \_. True
 }
 
@@ -227,8 +227,8 @@ bwd := backward 0
 func TestAdvancedTypeFamilyWithDataFamily(t *testing.T) {
 	// Combine closed type family with data family in the same program.
 	source := `
-data Unit := Unit
-data Bool := True | False
+data Unit := { Unit: (); }
+data Bool := { True: (); False: (); }
 data Maybe a := Nothing | Just a
 
 type IsJust (m: Type) :: Bool := {
@@ -261,7 +261,7 @@ proof := \x. x
 func TestAdvancedFunDepWithTypeFamily(t *testing.T) {
 	// Fundep interacts with type family reduction.
 	source := `
-data Unit := Unit
+data Unit := { Unit: (); }
 data Maybe a := Nothing | Just a
 data List a := Nil | Cons a (List a)
 
@@ -276,7 +276,7 @@ class Extract c e | c =: e {
 }
 
 instance Extract (List a) a {
-  extract := \xs. case xs { Cons x _ -> Just x; Nil -> Nothing }
+  extract := \xs. case xs { Cons x _ => Just x; Nil => Nothing }
 }
 
 -- extract (Cons Unit Nil): c = List Unit → e = Unit
@@ -289,7 +289,7 @@ result := extract (Cons Unit Nil)
 func TestAdvancedRecursiveTFWithPhantom(t *testing.T) {
 	// Recursive type family Dual for session types with concrete usage.
 	source := `
-data Session := Send Session | Recv Session | End
+data Session := { Send: Session; Recv: Session; End: (); }
 
 type Dual (s: Session) :: Session := {
   Dual (Send s) =: Recv (Dual s);

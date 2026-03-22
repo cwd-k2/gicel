@@ -20,7 +20,7 @@ import (
 // to a function with a higher-rank type.
 func TestProbeA_HigherRank_PolyFnAsArg(t *testing.T) {
 	source := `
-data Bool := True | False
+data Bool := { True: (); False: (); }
 data Maybe a := Nothing | Just a
 
 id :: \ a. a -> a
@@ -38,7 +38,7 @@ main := apply id
 // is applied at two different types inside the body.
 func TestProbeA_HigherRank_PolyFnUsedAtTwoTypes(t *testing.T) {
 	source := `
-data Bool := True | False
+data Bool := { True: (); False: (); }
 data Maybe a := Nothing | Just a
 
 applyBoth :: (\ a. a -> a) -> (Bool, Maybe Bool)
@@ -53,7 +53,7 @@ main := applyBoth (\x. x)
 // a higher-rank type is expected should fail.
 func TestProbeA_HigherRank_WrongRankError(t *testing.T) {
 	source := `
-data Bool := True | False
+data Bool := { True: (); False: (); }
 
 apply :: (\ a. a -> a) -> Bool
 apply := \f. f True
@@ -81,7 +81,7 @@ main := apply notId
 // to unify it with `?m1 -> ?m2`, which fails.
 func TestProbeA_HigherRank_ReturnPolyFn(t *testing.T) {
 	source := `
-data Bool := True | False
+data Bool := { True: (); False: (); }
 
 mkId :: Bool -> (\ a. a -> a)
 mkId := \b. \x. x
@@ -100,7 +100,7 @@ main := applied False
 // before arrow decomposition, so this succeeds.
 func TestProbeA_HigherRank_ReturnPolyFnDirect(t *testing.T) {
 	source := `
-data Bool := True | False
+data Bool := { True: (); False: (); }
 
 mkId :: Bool -> (\ a. a -> a)
 mkId := \b. \x. x
@@ -114,7 +114,7 @@ main := (mkId True) False
 // subsumption. Exercises deep skolem/meta interplay.
 func TestProbeA_HigherRank_FourLevels(t *testing.T) {
 	source := `
-data Bool := True | False
+data Bool := { True: (); False: (); }
 
 id :: \ a. a -> a
 id := \x. x

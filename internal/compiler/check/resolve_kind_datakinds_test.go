@@ -56,7 +56,7 @@ main := (MkProxy :: Proxy A)`
 
 func TestPromoteSkipsFieldedConstructors(t *testing.T) {
 	// data Maybe a := Just a | Nothing → only Nothing is promoted, Just is not
-	source := `data Bool := True | False
+	source := `data Bool := { True: (); False: (); }
 data Maybe a := Just a | Nothing
 data Proxy s := MkProxy
 main := (MkProxy :: Proxy Nothing)`
@@ -64,10 +64,10 @@ main := (MkProxy :: Proxy Nothing)`
 }
 
 func TestPromotedInTypeSignature(t *testing.T) {
-	// DB Opened -> DB Closed should kind-check
+	// DB Opened => DB Closed should kind-check
 	source := `data DBState := Opened | Closed
 data DB s := MkDB
-close :: DB Opened -> DB Closed
+close :: DB Opened => DB Closed
 close := \_. MkDB
 main := close MkDB`
 	checkSource(t, source, nil)

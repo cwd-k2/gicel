@@ -15,7 +15,7 @@ func TestDoIxMonadOnlyType(t *testing.T) {
 	// A type with IxMonad but no Monad instance should support do notation.
 	// Before fix: ErrNoInstance because Monad was required.
 	source := `
-data Unit := Unit
+data Unit := { Unit: (); }
 class IxMonad (m: Row -> Row -> Type -> Type) {
   ixpure :: \a (r: Row). a -> m r r a;
   ixbind :: \a b (r1: Row) (r2: Row) (r3: Row). m r1 r2 a -> (a -> m r2 r3 b) -> m r1 r3 b
@@ -38,7 +38,7 @@ main := do { ixpure Unit }
 func TestDoIxMonadOnlyMultiStmt(t *testing.T) {
 	// Multi-statement do block with IxMonad-only type.
 	source := `
-data Unit := Unit
+data Unit := { Unit: (); }
 class IxMonad (m: Row -> Row -> Type -> Type) {
   ixpure :: \a (r: Row). a -> m r r a;
   ixbind :: \a b (r1: Row) (r2: Row) (r3: Row). m r1 r2 a -> (a -> m r2 r3 b) -> m r1 r3 b
@@ -74,7 +74,7 @@ class Monad (m: Type -> Type) {
 }
 instance Monad Maybe {
   mpure := Just;
-  mbind := \ma f. case ma { Nothing -> Nothing; Just a -> f a }
+  mbind := \ma f. case ma { Nothing => Nothing; Just a => f a }
 }
 main :: Maybe Int
 main := do { pure 42; pure 0 }
@@ -96,7 +96,7 @@ class Monad (m: Type -> Type) {
 }
 instance Monad Maybe {
   mpure := Just;
-  mbind := \ma f. case ma { Nothing -> Nothing; Just a -> f a }
+  mbind := \ma f. case ma { Nothing => Nothing; Just a => f a }
 }
 main :: Maybe Int
 main := do { x <- pure 42; mpure x }

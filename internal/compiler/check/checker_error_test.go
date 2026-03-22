@@ -18,25 +18,25 @@ func TestCheckUnboundVar(t *testing.T) {
 // --- Error code coverage tests ---
 
 func TestErrorUnboundCon(t *testing.T) {
-	source := `data Bool := True | False
-main := case True { Foo -> True; _ -> False }`
+	source := `data Bool := { True: (); False: (); }
+main := case True { Foo -> True; _ => False }`
 	checkSourceExpectCode(t, source, nil, diagnostic.ErrUnboundCon)
 }
 
 func TestErrorBadApplication(t *testing.T) {
-	source := `data Bool := True | False
+	source := `data Bool := { True: (); False: (); }
 main := True True`
 	checkSourceExpectCode(t, source, nil, diagnostic.ErrBadApplication)
 }
 
 func TestErrorBadComputation(t *testing.T) {
-	source := `data Bool := True | False
+	source := `data Bool := { True: (); False: (); }
 main := do { x <- True; pure x }`
 	checkSourceExpectCode(t, source, nil, diagnostic.ErrBadComputation)
 }
 
 func TestErrorBadThunk(t *testing.T) {
-	source := `data Bool := True | False
+	source := `data Bool := { True: (); False: (); }
 main := force True`
 	checkSourceExpectCode(t, source, nil, diagnostic.ErrBadThunk)
 }
@@ -104,13 +104,13 @@ func TestErrorBadDoEnding(t *testing.T) {
 }
 
 func TestErrorBadClass(t *testing.T) {
-	source := `data Bool := True | False
+	source := `data Bool := { True: (); False: (); }
 instance Phantom Bool { foo := \x. x }`
 	checkSourceExpectCode(t, source, nil, diagnostic.ErrBadClass)
 }
 
 func TestErrorMissingMethod(t *testing.T) {
-	source := `data Bool := True | False
+	source := `data Bool := { True: (); False: (); }
 class Eq a { eq :: a -> a -> Bool }
 instance Eq Bool {}`
 	checkSourceExpectCode(t, source, nil, diagnostic.ErrMissingMethod)
@@ -125,7 +125,7 @@ bad := \e. case e { MkExists x -> x }`
 }
 
 func TestErrorSkolemRigid(t *testing.T) {
-	source := `data Bool := True | False
+	source := `data Bool := { True: (); False: (); }
 main :: \ a b. a -> b
 main := \x. x`
 	checkSourceExpectCode(t, source, nil, diagnostic.ErrSkolemRigid)

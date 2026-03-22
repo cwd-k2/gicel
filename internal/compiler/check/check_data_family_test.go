@@ -48,7 +48,7 @@ func TestDataFamilyConstructorType(t *testing.T) {
 	// The mangled constructor should be usable as a value
 	source := `
 data List a := Nil | Cons a (List a)
-data Unit := Unit
+data Unit := { Unit: (); }
 
 class Collection a {
   data Elem a :: Type;
@@ -70,7 +70,7 @@ func TestDataFamilyMultipleInstances(t *testing.T) {
 	// Different instances define different constructors for the same family
 	source := `
 data List a := Nil | Cons a (List a)
-data Unit := Unit
+data Unit := { Unit: (); }
 
 class Collection a {
   data Elem a :: Type;
@@ -101,7 +101,7 @@ y := UnitElem
 func TestDataFamilyPatternMatch(t *testing.T) {
 	source := `
 data List a := Nil | Cons a (List a)
-data Unit := Unit
+data Unit := { Unit: (); }
 
 class Collection a {
   data Elem a :: Type;
@@ -123,7 +123,7 @@ unwrap := \e. case e { ListElem x -> x }
 
 func TestDataFamilyNotDeclaredInClass(t *testing.T) {
 	source := `
-data Unit := Unit
+data Unit := { Unit: (); }
 class Foo a {
   empty :: a
 }
@@ -137,7 +137,7 @@ instance Foo Unit {
 
 func TestDataFamilyArityMismatch(t *testing.T) {
 	source := `
-data Unit := Unit
+data Unit := { Unit: (); }
 class Collection a {
   data Elem a :: Type;
   empty :: a
@@ -159,7 +159,7 @@ func TestDataFamilyTypeReduction(t *testing.T) {
 	}
 	source := `
 data List a := Nil | Cons a (List a)
-data Unit := Unit
+data Unit := { Unit: (); }
 
 class Collection a {
   data Elem a :: Type;
@@ -184,7 +184,7 @@ id := \x. x
 
 func TestDataFamilyMultipleConstructors(t *testing.T) {
 	source := `
-data Unit := Unit
+data Unit := { Unit: (); }
 
 class Container a {
   data Entry a :: Type;
@@ -196,7 +196,7 @@ instance Container Unit {
   empty := Unit
 }
 
-f :: Entry Unit -> Unit
+f :: Entry Unit => Unit
 f := \e. case e {
   Singleton x -> x;
   Empty -> Unit
@@ -209,7 +209,7 @@ f := \e. case e {
 
 func TestDataFamilyExhaustiveness(t *testing.T) {
 	source := `
-data Unit := Unit
+data Unit := { Unit: (); }
 
 class Container a {
   data Entry a :: Type;
@@ -221,7 +221,7 @@ instance Container Unit {
   empty := Unit
 }
 
-f :: Entry Unit -> Unit
+f :: Entry Unit => Unit
 f := \e. case e {
   Singleton x -> x
 }

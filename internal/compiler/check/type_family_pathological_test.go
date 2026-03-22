@@ -24,7 +24,7 @@ import (
 // an error in closed TF semantics (like GHC), but might be suspicious.
 func TestPathologicalOverlappingEquations(t *testing.T) {
 	source := `
-data Bool := True | False
+data Bool := { True: (); False: (); }
 type F (a: Type) :: Type := {
   F Int =: Bool;
   F Int =: String
@@ -46,14 +46,14 @@ type F (a: Type) :: Type := {
 // producing a type mismatch (E0200) when F Unit is compared against Unit.
 func TestPathologicalCircularTypeFamilies(t *testing.T) {
 	source := `
-data Unit := Unit
+data Unit := { Unit: (); }
 type F (a: Type) :: Type := {
   F a =: G a
 }
 type G (a: Type) :: Type := {
   G a =: F a
 }
-f :: F Unit -> Unit
+f :: F Unit => Unit
 f := \x. x
 `
 	checkSourceExpectCode(t, source, nil, diagnostic.ErrTypeMismatch)
@@ -63,7 +63,7 @@ f := \x. x
 // F (List a) = F a is recursive but decreasing — should terminate.
 func TestPathologicalDecreasingRecursion(t *testing.T) {
 	source := `
-data Unit := Unit
+data Unit := { Unit: (); }
 data List a := Nil | Cons a (List a)
 type F (a: Type) :: Type := {
   F (List a) =: F a;
@@ -72,7 +72,7 @@ type F (a: Type) :: Type := {
 f :: F (List (List Unit)) -> Unit
 f := \x. x
 `
-	// F (List (List Unit)) -> F (List Unit) -> F Unit -> Unit
+	// F (List (List Unit)) -> F (List Unit) -> F Unit => Unit
 	// Three reduction steps, well within the 100 fuel limit.
 	checkSource(t, source, nil)
 }
@@ -81,7 +81,7 @@ f := \x. x
 // The constructor ignores `a` — this is fine structurally.
 func TestPathologicalDataFamilyPhantomParam(t *testing.T) {
 	source := `
-data Unit := Unit
+data Unit := { Unit: (); }
 data List a := Nil | Cons a (List a)
 
 class Container c {
@@ -107,7 +107,7 @@ func TestPathological100Instances(t *testing.T) {
 	for i := 0; i < 100; i++ {
 		b.WriteString(fmt.Sprintf("data T%d := C%d\n", i, i))
 	}
-	b.WriteString("data Bool := True | False\n")
+	b.WriteString("data Bool := { True: (); False: (); }\n")
 	b.WriteString("class Eq a { eq :: a -> a -> Bool }\n")
 	for i := 0; i < 100; i++ {
 		b.WriteString(fmt.Sprintf("instance Eq T%d { eq := \\x y. True }\n", i))
@@ -118,7 +118,7 @@ func TestPathological100Instances(t *testing.T) {
 // (f) Fundep class with 0 instances — does resolution hang or error properly?
 func TestPathologicalFunDepNoInstances(t *testing.T) {
 	source := `
-data Unit := Unit
+data Unit := { Unit: (); }
 class Convert a b | a =: b {
   convert :: a -> b
 }
@@ -130,11 +130,11 @@ class Convert a b | a =: b {
 // Fundep class with 0 instances — trying to USE it should fail gracefully.
 func TestPathologicalFunDepNoInstancesUsage(t *testing.T) {
 	source := `
-data Unit := Unit
+data Unit := { Unit: (); }
 class Convert a b | a =: b {
   convert :: a -> b
 }
-f :: Unit -> Unit
+f :: Unit => Unit
 f := convert
 `
 	// Using `convert` without an instance should produce a resolution error,
@@ -149,7 +149,7 @@ func TestPathologicalTFPatternIsTFApp(t *testing.T) {
 	// A TF application in the pattern position would be resolved as a TyCon
 	// (since F is in scope as a type name), so this tests the resolution path.
 	source := `
-data Unit := Unit
+data Unit := { Unit: (); }
 type F (a: Type) :: Type := {
   F a =: a
 }
@@ -169,7 +169,7 @@ type G (a: Type) :: Type := {
 // (h) Associated type defined in instance for wrong class.
 func TestPathologicalAssocTypeWrongClass(t *testing.T) {
 	source := `
-data Unit := Unit
+data Unit := { Unit: (); }
 data List a := Nil | Cons a (List a)
 
 class Container c {
@@ -198,7 +198,7 @@ func TestPathologicalDataFamilyMangledNameCollision(t *testing.T) {
 	// with the same head constructor. The mangling should include the class
 	// to prevent collision, or the checker should detect the conflict.
 	source := `
-data Unit := Unit
+data Unit := { Unit: (); }
 data Wrap a := MkWrap a
 
 class C1 a {
@@ -239,7 +239,7 @@ instance C2 Unit {
 // across multiple nesting levels.
 func TestPathologicalDeepDataFamilyExhaustiveness(t *testing.T) {
 	source := `
-data Unit := Unit
+data Unit := { Unit: (); }
 data Maybe a := Nothing | Just a
 
 class HasRepr c {
@@ -255,11 +255,11 @@ instance HasRepr Unit {
 -- Nested pattern match on data family + Maybe.
 f :: Maybe (Repr Unit) -> Unit
 f := \x. case x {
-  Nothing -> Unit;
+  Nothing => Unit;
   Just r -> case r {
-    ReprA -> Unit;
-    ReprB -> Unit;
-    ReprC -> Unit
+    ReprA => Unit;
+    ReprB => Unit;
+    ReprC => Unit
   }
 }
 `
@@ -270,12 +270,12 @@ f := \x. case x {
 // by the type size limit, not just the fuel limit.
 func TestPathologicalExponentialGrowth(t *testing.T) {
 	source := `
-data Unit := Unit
+data Unit := { Unit: (); }
 data Pair a b := MkPair a b
 type Grow (a: Type) :: Type := {
   Grow a =: Grow (Pair a a)
 }
-f :: Grow Unit -> Unit
+f :: Grow Unit => Unit
 f := \x. x
 `
 	checkSourceExpectCode(t, source, nil, diagnostic.ErrTypeFamilyReduction)
@@ -285,7 +285,7 @@ f := \x. x
 func TestPathologicalLargeButFiniteResult(t *testing.T) {
 	// This family produces a chain of S wrappers — linear growth, should be fine.
 	source := `
-data Nat := Z | S Nat
+data Nat := { Z: (); S: Nat; }
 type AddTen (n: Nat) :: Nat := {
   AddTen n =: S (S (S (S (S (S (S (S (S (S n)))))))))
 }
@@ -304,7 +304,7 @@ f := \x. x
 // reducing R again should give R (result is in normal form).
 func TestPropertyReductionIdempotence(t *testing.T) {
 	source := `
-data Unit := Unit
+data Unit := { Unit: (); }
 data List a := Nil | Cons a (List a)
 data Maybe a := Nothing | Just a
 
@@ -324,7 +324,7 @@ type Id (a: Type) :: Type := {
 	}{
 		{"Elem_List", "f :: Elem (List Unit) -> Unit\nf := \\x. x"},
 		{"Elem_Maybe", "g :: Elem (Maybe Unit) -> Unit\ng := \\x. x"},
-		{"Id_Unit", "h :: Id Unit -> Unit\nh := \\x. x"},
+		{"Id_Unit", "h :: Id Unit => Unit\nh := \\x. x"},
 		{"Id_List", "i :: Id (List Unit) -> List Unit\ni := \\x. x"},
 	}
 	for _, tc := range testCases {
@@ -342,7 +342,7 @@ type Id (a: Type) :: Type := {
 // (a') Reduction idempotence for recursive TFs.
 func TestPropertyReductionIdempotenceRecursive(t *testing.T) {
 	source := `
-data Nat := Z | S Nat
+data Nat := { Z: (); S: Nat; }
 type Add (a: Nat) (b: Nat) :: Nat := {
   Add Z b =: b;
   Add (S a) b =: S (Add a b)
@@ -362,7 +362,7 @@ f := \x. x
 func TestPropertyUnificationSymmetry(t *testing.T) {
 	// Test 1: TF application on left vs right.
 	source1 := `
-data Unit := Unit
+data Unit := { Unit: (); }
 data List a := Nil | Cons a (List a)
 type Elem (c: Type) :: Type := {
   Elem (List a) =: a
@@ -371,12 +371,12 @@ f :: Elem (List Unit) -> Unit
 f := \x. x
 `
 	source2 := `
-data Unit := Unit
+data Unit := { Unit: (); }
 data List a := Nil | Cons a (List a)
 type Elem (c: Type) :: Type := {
   Elem (List a) =: a
 }
-f :: Unit -> Elem (List Unit)
+f :: Unit => Elem (List Unit)
 f := \x. x
 `
 	// Both should succeed: Elem (List Unit) = Unit in either direction.
@@ -388,7 +388,7 @@ f := \x. x
 func TestPropertyUnificationSymmetryPoly(t *testing.T) {
 	// Verify: \ c. Elem c -> Elem c works in both positions.
 	source := `
-data Unit := Unit
+data Unit := { Unit: (); }
 data List a := Nil | Cons a (List a)
 type Elem (c: Type) :: Type := {
   Elem (List a) =: a
@@ -404,29 +404,29 @@ func TestPropertyIntersectCapRowsCommutativity(t *testing.T) {
 	// Branch order: True first, then False. vs. False first, then True.
 	// Both should produce the same post-state.
 	source1 := `
-data Bool := True | False
-data Unit := Unit
+data Bool := { True: (); False: (); }
+data Unit := { Unit: (); }
 consumeA :: Computation { a: Unit, b: Unit } { b: Unit } Unit
 consumeA := assumption
 consumeB :: Computation { a: Unit, b: Unit } { a: Unit } Unit
 consumeB := assumption
 f :: Bool -> Computation { a: Unit, b: Unit } {} Unit
 f := \b. case b {
-  True -> consumeA;
-  False -> consumeB
+  True => consumeA;
+  False => consumeB
 }
 `
 	source2 := `
-data Bool := True | False
-data Unit := Unit
+data Bool := { True: (); False: (); }
+data Unit := { Unit: (); }
 consumeA :: Computation { a: Unit, b: Unit } { b: Unit } Unit
 consumeA := assumption
 consumeB :: Computation { a: Unit, b: Unit } { a: Unit } Unit
 consumeB := assumption
 f :: Bool -> Computation { a: Unit, b: Unit } {} Unit
 f := \b. case b {
-  False -> consumeB;
-  True -> consumeA
+  False => consumeB;
+  True => consumeA
 }
 `
 	// Both should type-check with the same result type.
@@ -440,18 +440,18 @@ func TestPropertyIntersectCapRowsCommutativity3Way(t *testing.T) {
 	// The intersection should be {c: Unit} regardless of branch order.
 	source := `
 data Three := One | Two | Three
-data Unit := Unit
+data Unit := { Unit: (); }
 consumeAB :: Computation { a: Unit, b: Unit, c: Unit } { c: Unit } Unit
 consumeAB := assumption
 consumeAC :: Computation { a: Unit, b: Unit, c: Unit } { b: Unit } Unit
 consumeAC := assumption
 consumeBC :: Computation { a: Unit, b: Unit, c: Unit } { a: Unit } Unit
 consumeBC := assumption
-f :: Three -> Computation { a: Unit, b: Unit, c: Unit } {} Unit
+f :: Three => Computation { a: Unit, b: Unit, c: Unit } {} Unit
 f := \t. case t {
-  One -> consumeAB;
-  Two -> consumeAC;
-  Three -> consumeBC
+  One => consumeAB;
+  Two => consumeAC;
+  Three => consumeBC
 }
 `
 	// Intersection of {c}, {b}, {a} = {} (no label in all three).
@@ -463,7 +463,7 @@ f := \t. case t {
 // multiple identical applications, it is deterministic.
 func TestPropertyMatchTyPatternDeterminism(t *testing.T) {
 	source := `
-data Unit := Unit
+data Unit := { Unit: (); }
 data List a := Nil | Cons a (List a)
 data Maybe a := Nothing | Just a
 
@@ -584,7 +584,7 @@ func TestPathologicalSubstManyDependentVars(t *testing.T) {
 // a TF application appears inside a \ body.
 func TestPathologicalTFInsideForall(t *testing.T) {
 	source := `
-data Unit := Unit
+data Unit := { Unit: (); }
 data List a := Nil | Cons a (List a)
 type Elem (c: Type) :: Type := {
   Elem (List a) =: a
@@ -599,7 +599,7 @@ f := \x. x
 // a computation type doesn't cause issues.
 func TestPathologicalStuckTFInComputation(t *testing.T) {
 	source := `
-data Unit := Unit
+data Unit := { Unit: (); }
 data List a := Nil | Cons a (List a)
 type Elem (c: Type) :: Type := {
   Elem (List a) =: a
@@ -614,24 +614,24 @@ f := \x. x
 // with consistent bindings across multiple parameters.
 func TestPathologicalRepeatedPatternVar(t *testing.T) {
 	source := `
-data Unit := Unit
+data Unit := { Unit: (); }
 data Pair a b := MkPair a b
 type Same (a: Type) (b: Type) :: Type := {
   Same a a =: Unit
 }
-f :: Same Unit Unit -> Unit
+f :: Same Unit Unit => Unit
 f := \x. x
 `
 	// Same Unit Unit: pattern a matches Unit (first param), then a must also
-	// match Unit (second param). Both are Unit -> matchSuccess.
+	// match Unit (second param). Both are Unit => matchSuccess.
 	checkSource(t, source, nil)
 }
 
 // Repeated pattern var with *inconsistent* bindings.
 func TestPathologicalRepeatedPatternVarFail(t *testing.T) {
 	source := `
-data Unit := Unit
-data Bool := True | False
+data Unit := { Unit: (); }
+data Bool := { True: (); False: (); }
 data Pair a b := MkPair a b
 type Same (a: Type) (b: Type) :: Type := {
   Same a a =: Unit

@@ -83,7 +83,7 @@ func TestRegressionFreeVarsNoGrades(t *testing.T) {
 func TestRegressionReduceFamilyInArrowType(t *testing.T) {
 	source := `
 data List a := Nil | Cons a (List a)
-data Unit := Unit
+data Unit := { Unit: (); }
 type Elem (c: Type) :: Type := {
   Elem (List a) =: a
 }
@@ -98,7 +98,7 @@ f := \x. x
 func TestRegressionReduceFamilyInCompType(t *testing.T) {
 	source := `
 data List a := Nil | Cons a (List a)
-data Unit := Unit
+data Unit := { Unit: (); }
 type Elem (c: Type) :: Type := {
   Elem (List a) =: a
 }
@@ -113,11 +113,11 @@ f := \c. c
 func TestRegressionReduceFamilyInNestedArrow(t *testing.T) {
 	source := `
 data List a := Nil | Cons a (List a)
-data Unit := Unit
+data Unit := { Unit: (); }
 type Elem (c: Type) :: Type := {
   Elem (List a) =: a
 }
-f :: (Elem (List Unit) -> Unit) -> Unit -> Unit
+f :: (Elem (List Unit) -> Unit) -> Unit => Unit
 f := \g x. g x
 `
 	checkSource(t, source, nil)
@@ -133,7 +133,7 @@ func TestRegressionInjectivityNonTypeKind(t *testing.T) {
 	// Session is a promoted data kind. Dual maps Session -> Session
 	// and is injective.
 	source := `
-data Session := Send Session | Recv Session | End
+data Session := { Send: Session; Recv: Session; End: (); }
 type Dual (s: Session) :: (r: Session) | r =: s := {
   Dual (Send s) =: Recv (Dual s);
   Dual (Recv s) =: Send (Dual s);
@@ -148,7 +148,7 @@ type Dual (s: Session) :: (r: Session) | r =: s := {
 func TestRegressionInjectivityNonTypeKindViolation(t *testing.T) {
 	// Both equations map to End, but from different LHS patterns.
 	source := `
-data Session := Send Session | Recv Session | End
+data Session := { Send: Session; Recv: Session; End: (); }
 type Bad (s: Session) :: (r: Session) | r =: s := {
   Bad (Send s) =: End;
   Bad (Recv s) =: End
@@ -167,7 +167,7 @@ type Bad (s: Session) :: (r: Session) | r =: s := {
 func TestRegressionDataFamilyConstructorCollision(t *testing.T) {
 	source := `
 data Wrapper a := Wrap a
-data Unit := Unit
+data Unit := { Unit: (); }
 
 class Container c {
   data Elem c :: Type
@@ -185,7 +185,7 @@ instance Container (Wrapper a) {
 func TestRegressionDataFamilyConstructorNoCollision(t *testing.T) {
 	source := `
 data Wrapper a := Wrap a
-data Unit := Unit
+data Unit := { Unit: (); }
 
 class Container c {
   data Elem c :: Type
@@ -211,11 +211,11 @@ x := WrapElem Unit
 func TestRegressionExponentialTypeGrowthBound(t *testing.T) {
 	source := `
 data Pair a b := MkPair a b
-data Unit := Unit
+data Unit := { Unit: (); }
 type Grow (a: Type) :: Type := {
   Grow a =: Grow (Pair a a)
 }
-f :: Grow Unit -> Unit
+f :: Grow Unit => Unit
 f := \x. x
 `
 	checkSourceExpectCode(t, source, nil, diagnostic.ErrTypeFamilyReduction)
@@ -233,15 +233,15 @@ func TestRegressionFundepBestEffort(t *testing.T) {
 	// not solely by the fundep improvement. Even if fundep improvement were
 	// disabled, the instance resolution for Elem (List a) a should succeed.
 	source := `
-data Unit := Unit
+data Unit := { Unit: (); }
 data List a := Nil | Cons a (List a)
 class Elem c e | c =: e {
   extract :: c -> e
 }
 instance Elem (List a) a {
-  extract := \xs. case xs { Cons x rest -> x; Nil -> extract Nil }
+  extract := \xs. case xs { Cons x rest => x; Nil => extract Nil }
 }
-f :: List Unit -> Unit
+f :: List Unit => Unit
 f := \xs. extract xs
 `
 	checkSource(t, source, nil)
@@ -252,7 +252,7 @@ f := \xs. extract xs
 // should still compile via normal instance resolution.
 func TestRegressionFundepImprovementFromMeta(t *testing.T) {
 	source := `
-data Unit := Unit
+data Unit := { Unit: (); }
 data List a := Nil | Cons a (List a)
 class Collection c e | c =: e {
   empty :: c

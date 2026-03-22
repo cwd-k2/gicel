@@ -165,7 +165,7 @@ func TestProbeE_KindUnify_KConstraintVsKType(t *testing.T) {
 // type parameter should compile.
 func TestProbeE_HKT_KindPolymorphicClass(t *testing.T) {
 	source := `
-data Bool := True | False
+data Bool := { True: (); False: (); }
 data Maybe a := Nothing | Just a
 
 class Functor (f: k -> Type) {
@@ -173,11 +173,11 @@ class Functor (f: k -> Type) {
 }
 
 instance Functor Maybe {
-  fmap := \g mx. case mx { Nothing -> Nothing; Just x -> Just (g x) }
+  fmap := \g mx. case mx { Nothing => Nothing; Just x => Just (g x) }
 }
 
 myNot :: Bool -> Bool
-myNot := \b. case b { True -> False; False -> True }
+myNot := \b. case b { True => False; False => True }
 
 main := fmap myNot (Just True)
 `
@@ -193,7 +193,7 @@ main := fmap myNot (Just True)
 // valid type application. This could lead to unsound types being accepted.
 func TestProbeE_KindMismatch_InTypeApp(t *testing.T) {
 	source := `
-data Bool := True | False
+data Bool := { True: (); False: (); }
 -- Bool has kind Type, not Type -> Type, so Bool Int is a kind error
 f :: Bool Int -> Bool
 f := \x. True
