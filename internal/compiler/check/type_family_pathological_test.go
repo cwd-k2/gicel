@@ -84,17 +84,17 @@ func TestPathologicalDataFamilyPhantomParam(t *testing.T) {
 data Unit := { Unit: (); }
 data List := \a. { Nil: (); Cons: (a, List a); }
 
-class Container c {
+data Container := \c. {
   data Phantom c :: Type;
-  empty :: c
+  empty: c
 }
 
-instance Container (List a) {
+impl Container (List a) := {
   data Phantom (List a) =: PhantomList;
   empty := Nil
 }
 
-x :: Phantom (List Unit)
+x: Phantom (List Unit)
 x := PhantomList
 `
 	checkSource(t, source, nil)
@@ -119,8 +119,8 @@ func TestPathological100Instances(t *testing.T) {
 func TestPathologicalFunDepNoInstances(t *testing.T) {
 	source := `
 data Unit := { Unit: (); }
-class Convert a b | a =: b {
-  convert :: a -> b
+data Convert := \a b | a =: b. {
+  convert: a -> b
 }
 `
 	// Just declaring a class with fundeps and no instances should be fine.
@@ -131,8 +131,8 @@ class Convert a b | a =: b {
 func TestPathologicalFunDepNoInstancesUsage(t *testing.T) {
 	source := `
 data Unit := { Unit: (); }
-class Convert a b | a =: b {
-  convert :: a -> b
+data Convert := \a b | a =: b. {
+  convert: a -> b
 }
 f :: Unit => Unit
 f := convert
@@ -172,16 +172,16 @@ func TestPathologicalAssocTypeWrongClass(t *testing.T) {
 data Unit := { Unit: (); }
 data List := \a. { Nil: (); Cons: (a, List a); }
 
-class Container c {
+data Container := \c. {
   type Elem c :: Type;
-  empty :: c
+  empty: c
 }
 
-class Show a {
-  show :: a -> a
+data Show := \a. {
+  show: a -> a
 }
 
-instance Show Unit {
+impl Show Unit := {
   type Elem Unit =: Unit;
   show := \x. x
 }
@@ -201,22 +201,22 @@ func TestPathologicalDataFamilyMangledNameCollision(t *testing.T) {
 data Unit := { Unit: (); }
 data Wrap a := MkWrap a
 
-class C1 a {
+data C1 := \a. {
   data Key a :: Type;
-  m1 :: a
+  m1: a
 }
 
-class C2 a {
+data C2 := \a. {
   data Key a :: Type;
-  m2 :: a
+  m2: a
 }
 
-instance C1 Unit {
+impl C1 Unit := {
   data Key Unit =: KeyC1;
   m1 := Unit
 }
 
-instance C2 Unit {
+impl C2 Unit := {
   data Key Unit =: KeyC2;
   m2 := Unit
 }
@@ -242,12 +242,12 @@ func TestPathologicalDeepDataFamilyExhaustiveness(t *testing.T) {
 data Unit := { Unit: (); }
 data Maybe := \a. { Nothing: (); Just: a; }
 
-class HasRepr c {
+data HasRepr := \c. {
   data Repr c :: Type;
-  toRepr :: c -> Repr c
+  toRepr: c -> Repr c
 }
 
-instance HasRepr Unit {
+impl HasRepr Unit := {
   data Repr Unit =: ReprA | ReprB | ReprC;
   toRepr := \_. ReprA
 }
@@ -472,14 +472,14 @@ type Elem (c: Type) :: Type := {
   Elem (Maybe a) =: a
 }
 
-f1 :: Elem (List Unit) -> Unit
+f1: Elem (List Unit) -> Unit
 f1 := \x. x
 f2 :: Elem (List Unit) -> Unit
 f2 := \x. x
 f3 :: Elem (List Unit) -> Unit
 f3 := \x. x
 
-g1 :: Elem (Maybe Unit) -> Unit
+g1: Elem (Maybe Unit) -> Unit
 g1 := \x. x
 g2 :: Elem (Maybe Unit) -> Unit
 g2 := \x. x

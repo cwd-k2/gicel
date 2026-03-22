@@ -42,10 +42,10 @@ func TestStressHigherRankNested(t *testing.T) {
 data Bool := { True: (); False: (); }
 data Maybe := \a. { Nothing: (); Just: a; }
 
-apply :: (\ a. a -> a) -> Bool -> Bool
+apply: (\ a. a -> a) -> Bool -> Bool
 apply := \f x. f x
 
-applyMaybe :: (\ a. a -> Maybe a) -> Bool -> Maybe Bool
+applyMaybe: (\ a. a -> Maybe a) -> Bool -> Maybe Bool
 applyMaybe := \f x. f x
 
 main := (apply (\x. x) True, applyMaybe (\x. Just x) False)
@@ -107,11 +107,11 @@ func TestStressRowHKTInteraction(t *testing.T) {
 data Bool := { True: (); False: (); }
 data Maybe := \a. { Nothing: (); Just: a; }
 
-class Functor (f: Type -> Type) {
-  fmap :: \ a b. (a -> b) -> f a -> f b
+data Functor := \(f: Type -> Type). {
+  fmap: \ a b. (a -> b) -> f a -> f b
 }
 
-instance Functor Maybe {
+impl Functor Maybe := {
   fmap := \g mx. case mx { Nothing => Nothing; Just x => Just (g x) }
 }
 
@@ -157,10 +157,10 @@ func TestStressConstraintAliasInContext(t *testing.T) {
 	source := `
 data Bool := { True: (); False: (); }
 
-class Eq a { eq :: a -> a -> Bool }
-class Eq a => Ord a { compare :: a -> a -> Bool }
-instance Eq Bool { eq := \x y. True }
-instance Ord Bool { compare := \x y. True }
+data Eq := \a. { eq :: a -> a -> Bool }
+data Ord := \a. Eq a => { compare :: a -> a -> Bool }
+impl Eq Bool := { eq := \x y. True }
+impl Ord Bool := { compare := \x y. True }
 
 type EqOrd a := (Eq a, Ord a) => a -> a -> Bool
 
@@ -179,21 +179,21 @@ func TestStressDeepSuperclassWithHKT(t *testing.T) {
 data Bool := { True: (); False: (); }
 data Maybe := \a. { Nothing: (); Just: a; }
 
-class C1 a { m1 :: a -> Bool }
-class C1 a => C2 a { m2 :: a -> Bool }
-class C2 a => C3 a { m3 :: a -> Bool }
-class C3 a => C4 a { m4 :: a -> Bool }
+data C1 := \a. { m1 :: a -> Bool }
+data C2 := \a. C1 a => { m2 :: a -> Bool }
+data C3 := \a. C2 a => { m3 :: a -> Bool }
+data C4 := \a. C3 a => { m4 :: a -> Bool }
 
-instance C1 Bool { m1 := \x. True }
-instance C2 Bool { m2 := \x. True }
-instance C3 Bool { m3 := \x. True }
-instance C4 Bool { m4 := \x. True }
+impl C1 Bool := { m1 := \x. True }
+impl C2 Bool := { m2 := \x. True }
+impl C3 Bool := { m3 := \x. True }
+impl C4 Bool := { m4 := \x. True }
 
-class Functor (f: Type -> Type) {
-  fmap :: \ a b. (a -> b) -> f a -> f b
+data Functor := \(f: Type -> Type). {
+  fmap: \ a b. (a -> b) -> f a -> f b
 }
 
-instance Functor Maybe {
+impl Functor Maybe := {
   fmap := \g mx. case mx { Nothing => Nothing; Just x => Just (g x) }
 }
 
@@ -236,15 +236,15 @@ func TestStressMultiParamClassManyArgs(t *testing.T) {
 data Bool := { True: (); False: (); }
 data Unit := { Unit: (); }
 
-class Multi a b c d {
-  multi :: a -> b -> c -> d -> Bool
+data Multi := \a b c d. {
+  multi: a -> b -> c -> d -> Bool
 }
 
-instance Multi Bool Bool Bool Bool {
+impl Multi Bool Bool Bool Bool := {
   multi := \a b c d. True
 }
 
-instance Multi Unit Unit Unit Unit {
+impl Multi Unit Unit Unit Unit := {
   multi := \a b c d. False
 }
 

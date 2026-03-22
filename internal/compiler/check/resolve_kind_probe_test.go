@@ -168,15 +168,15 @@ func TestProbeE_HKT_KindPolymorphicClass(t *testing.T) {
 data Bool := { True: (); False: (); }
 data Maybe := \a. { Nothing: (); Just: a; }
 
-class Functor (f: k -> Type) {
-  fmap :: \ a b. (a -> b) -> f a -> f b
+data Functor := \(f: k -> Type). {
+  fmap: \ a b. (a -> b) -> f a -> f b
 }
 
-instance Functor Maybe {
+impl Functor Maybe := {
   fmap := \g mx. case mx { Nothing => Nothing; Just x => Just (g x) }
 }
 
-myNot :: Bool -> Bool
+myNot: Bool -> Bool
 myNot := \b. case b { True => False; False => True }
 
 main := fmap myNot (Just True)

@@ -363,10 +363,10 @@ func TestFunDepImprovement_MetaFromDoesNotFire(t *testing.T) {
 	source := `
 data Unit := { Unit: (); }
 data List := \a. { Nil: (); Cons: (a, List a); }
-class Collection c e | c =: e {
-  empty :: c
+data Collection := \c e | c =: e. {
+  empty: c
 }
-instance Collection (List a) a {
+impl Collection (List a) a := {
   empty := Nil
 }
 main :: List Unit
@@ -380,10 +380,10 @@ func TestFunDepImprovement_FirstMatchWins(t *testing.T) {
 	source := `
 data Unit := { Unit: (); }
 data List := \a. { Nil: (); Cons: (a, List a); }
-class Elem c e | c =: e {
-  extract :: c -> e
+data Elem := \c e | c =: e. {
+  extract: c -> e
 }
-instance Elem (List a) a {
+impl Elem (List a) a := {
   extract := \xs. case xs { Cons x rest => x; Nil => extract Nil }
 }
 f :: List Unit => Unit
@@ -395,8 +395,8 @@ f := \xs. extract xs
 // Unknown parameter in fundep should produce error.
 func TestFunDepImprovement_UnknownFromParam(t *testing.T) {
 	source := `
-class Bad a b | z =: b {
-  m :: a -> b
+data Bad := \a b | z =: b. {
+  m: a -> b
 }
 `
 	checkSourceExpectCode(t, source, nil, diagnostic.ErrBadClass)
@@ -405,8 +405,8 @@ class Bad a b | z =: b {
 // Unknown "to" parameter in fundep should produce error.
 func TestFunDepImprovement_UnknownToParam(t *testing.T) {
 	source := `
-class Bad a b | a =: z {
-  m :: a -> b
+data Bad := \a b | a =: z. {
+  m: a -> b
 }
 `
 	checkSourceExpectCode(t, source, nil, diagnostic.ErrBadClass)
@@ -628,22 +628,22 @@ data List := \a. { Nil: (); Cons: (a, List a); }
 data Unit := { Unit: (); }
 data Maybe := \a. { Nothing: (); Just: a; }
 
-class Container c {
+data Container := \c. {
   data Elem c :: Type;
-  empty :: c
+  empty: c
 }
 
-instance Container (List a) {
+impl Container (List a) := {
   data Elem (List a) =: ListElem a;
   empty := Nil
 }
 
-instance Container (Maybe a) {
+impl Container (Maybe a) := {
   data Elem (Maybe a) =: MaybeElem a;
   empty := Nothing
 }
 
-x :: Elem (List Unit)
+x: Elem (List Unit)
 x := ListElem Unit
 y :: Elem (Maybe Unit)
 y := MaybeElem Unit
@@ -656,17 +656,17 @@ func TestMangledDataFamilyName_ZeroArgPattern(t *testing.T) {
 	source := `
 data Unit := { Unit: (); }
 
-class Container c {
+data Container := \c. {
   data Elem c :: Type;
-  empty :: c
+  empty: c
 }
 
-instance Container Unit {
+impl Container Unit := {
   data Elem Unit =: UnitElem;
   empty := Unit
 }
 
-x :: Elem Unit
+x: Elem Unit
 x := UnitElem
 `
 	checkSource(t, source, nil)
@@ -739,9 +739,9 @@ f := \x. x
 // Associated type in class with no instances should produce a stuck type.
 func TestAssocType_NoInstances(t *testing.T) {
 	source := `
-class Container c {
+data Container := \c. {
   type Elem c :: Type;
-  clength :: c -> Int
+  clength: c -> Int
 }
 f :: \ c. Elem c -> Elem c
 f := \x. x
@@ -756,14 +756,14 @@ f := \x. x
 func TestAssocType_WrongClass(t *testing.T) {
 	source := `
 data Unit := { Unit: (); }
-class Foo a {
+data Foo := \a. {
   type MyType a :: Type;
-  m :: a
+  m: a
 }
-class Bar a {
-  m2 :: a
+data Bar := \a. {
+  m2: a
 }
-instance Bar Unit {
+impl Bar Unit := {
   data MyType Unit =: Bad;
   m2 := Unit
 }
@@ -775,11 +775,11 @@ instance Bar Unit {
 func TestAssocType_ArityMismatchInInstance(t *testing.T) {
 	source := `
 data Unit := { Unit: (); }
-class Container c {
+data Container := \c. {
   type Elem c :: Type;
-  empty :: c
+  empty: c
 }
-instance Container Unit {
+impl Container Unit := {
   type Elem Unit Unit =: Unit;
   empty := Unit
 }
@@ -846,8 +846,8 @@ main := do {
 func TestConstraintFamily_ReducesToClass(t *testing.T) {
 	source := `
 data Serialization := JSON | Binary
-class Show a {
-  show :: a -> a
+data Show := \a. {
+  show: a -> a
 }
 type Serializable (fmt: Serialization) :: Constraint := {
   Serializable JSON =: Show;
@@ -1015,17 +1015,17 @@ func TestDataFamily_NonExhaustiveMatch(t *testing.T) {
 	source := `
 data Unit := { Unit: (); }
 
-class Container a {
+data Container := \a. {
   data Entry a :: Type;
-  empty :: a
+  empty: a
 }
 
-instance Container Unit {
+impl Container Unit := {
   data Entry Unit =: Singleton Unit | Empty;
   empty := Unit
 }
 
-f :: Entry Unit => Unit
+f: Entry Unit => Unit
 f := \e. case e {
   Singleton x -> x
 }
@@ -1038,17 +1038,17 @@ func TestDataFamily_ExhaustiveMatch(t *testing.T) {
 	source := `
 data Unit := { Unit: (); }
 
-class Container a {
+data Container := \a. {
   data Entry a :: Type;
-  empty :: a
+  empty: a
 }
 
-instance Container Unit {
+impl Container Unit := {
   data Entry Unit =: Singleton Unit | Empty;
   empty := Unit
 }
 
-f :: Entry Unit => Unit
+f: Entry Unit => Unit
 f := \e. case e {
   Singleton x -> x;
   Empty -> Unit

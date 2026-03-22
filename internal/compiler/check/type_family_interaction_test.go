@@ -41,11 +41,11 @@ type Elem (c: Type) :: Type := {
   Elem (List a) =: a
 }
 
-class Container (f: k -> Type) {
-  size :: \ a. f a -> Int
+data Container := \(f: k -> Type). {
+  size: \ a. f a -> Int
 }
 
-instance Container List {
+impl Container List := {
   size := \xs. 0
 }
 `
@@ -66,7 +66,7 @@ type Elem (c: Type) :: Type := {
   Elem (List a) =: a
 }
 
-first :: List Unit => Elem (List Unit)
+first: List Unit => Elem (List Unit)
 first := \xs. case xs { Cons x rest => x; Nil => Unit }
 `
 	checkSource(t, source, nil)
@@ -81,25 +81,25 @@ data List := \a. { Nil: (); Cons: (a, List a); }
 data Unit := { Unit: (); }
 data Maybe := \a. { Nothing: (); Just: a; }
 
-class Container c {
+data Container := \c. {
   type Elem c :: Type;
-  chead :: c -> Elem c
+  chead: c -> Elem c
 }
 
-instance Container (List a) {
+impl Container (List a) := {
   type Elem (List a) =: a;
   chead := \xs. case xs { Cons x rest => x; Nil => chead Nil }
 }
 
-class Functor (f: k -> Type) {
-  fmap :: \ a b. (a -> b) -> f a -> f b
+data Functor := \(f: k -> Type). {
+  fmap: \ a b. (a -> b) -> f a -> f b
 }
 
-instance Functor Maybe {
+impl Functor Maybe := {
   fmap := \g mx. case mx { Nothing => Nothing; Just x => Just (g x) }
 }
 
-test :: Elem (List Unit) -> Unit
+test: Elem (List Unit) -> Unit
 test := \x. x
 `
 	checkSource(t, source, nil)
@@ -121,10 +121,10 @@ type Elem (c: Type) :: Type := {
   Elem (List a) =: a
 }
 
-f :: Elem (List Unit) -> Unit
+f: Elem (List Unit) -> Unit
 f := \x. x
 
-g :: Record { value: Unit } -> Unit
+g: Record { value: Unit } -> Unit
 g := \r. r.#value
 `
 	checkSource(t, source, nil)
@@ -141,7 +141,7 @@ type Elem (c: Type) :: Type := {
   Elem (List a) =: a
 }
 
-mkRecord :: Elem (List Unit) -> Record { value: Unit }
+mkRecord: Elem (List Unit) -> Record { value: Unit }
 mkRecord := \x. { value: x }
 `
 	checkSource(t, source, nil)
@@ -164,10 +164,10 @@ type Elem (c: Type) :: Type := {
   Elem (List a) =: a
 }
 
-id :: \ a. a -> a
+id: \ a. a -> a
 id := \x. x
 
-apply :: Elem (List Unit) -> Unit
+apply: Elem (List Unit) -> Unit
 apply := \x. id x
 `
 	checkSource(t, source, nil)
@@ -184,13 +184,13 @@ type Elem (c: Type) :: Type := {
   Elem (List a) =: a
 }
 
-map :: \ a b. (a -> b) -> List a -> List b
+map: \ a b. (a -> b) -> List a -> List b
 map := assumption
 
-toUnit :: Unit => Bool
+toUnit: Unit => Bool
 toUnit := \x. True
 
-test :: List Unit => List Bool
+test: List Unit => List Bool
 test := \xs. map toUnit xs
 `
 	checkSource(t, source, nil)
@@ -207,17 +207,17 @@ func TestInteractionDataFamilyExhaustNested(t *testing.T) {
 data Unit := { Unit: (); }
 data Bool := { True: (); False: (); }
 
-class Wrapper a {
+data Wrapper := \a. {
   data Wrap a :: Type;
-  unwrap :: Wrap a -> a
+  unwrap: Wrap a -> a
 }
 
-instance Wrapper Bool {
+impl Wrapper Bool := {
   data Wrap Bool =: WrapBool Bool;
   unwrap := \w. case w { WrapBool b -> b }
 }
 
-test :: Wrap Bool -> Bool
+test: Wrap Bool -> Bool
 test := \w. case w {
   WrapBool True => True;
   WrapBool False => False
@@ -232,17 +232,17 @@ func TestInteractionDataFamilyExhaustMissing(t *testing.T) {
 data Unit := { Unit: (); }
 data Bool := { True: (); False: (); }
 
-class Wrapper a {
+data Wrapper := \a. {
   data Wrap a :: Type;
-  unwrap :: Wrap a -> a
+  unwrap: Wrap a -> a
 }
 
-instance Wrapper Bool {
+impl Wrapper Bool := {
   data Wrap Bool =: WrapBool Bool;
   unwrap := \w. case w { WrapBool b -> b }
 }
 
-test :: Wrap Bool -> Bool
+test: Wrap Bool -> Bool
 test := \w. case w {
   WrapBool True => True
 }
@@ -256,17 +256,17 @@ func TestInteractionDataFamilyNestedUnwrap(t *testing.T) {
 data Unit := { Unit: (); }
 data Maybe := \a. { Nothing: (); Just: a; }
 
-class Container a {
+data Container := \a. {
   data Elem a :: Type;
-  empty :: a
+  empty: a
 }
 
-instance Container (Maybe a) {
+impl Container (Maybe a) := {
   data Elem (Maybe a) =: MaybeElem a;
   empty := Nothing
 }
 
-test :: \ a. Elem (Maybe a) -> a
+test: \ a. Elem (Maybe a) -> a
 test := \e. case e { MaybeElem x -> x }
 `
 	checkSource(t, source, nil)
@@ -283,19 +283,19 @@ func TestInteractionFundepSuperclass(t *testing.T) {
 data Unit := { Unit: (); }
 data List := \a. { Nil: (); Cons: (a, List a); }
 
-class Elem c e | c =: e {
-  extract :: c -> e
+data Elem := \c e | c =: e. {
+  extract: c -> e
 }
 
-class Elem c e => Foldable c e | c =: e {
-  cfold :: \ b. (e -> b -> b) -> b -> c -> b
+data Elem := \c e => Foldable c e | c =: e. {
+  cfold: \ b. (e -> b -> b) -> b -> c -> b
 }
 
-instance Elem (List a) a {
+impl Elem (List a) a := {
   extract := \xs. case xs { Cons x rest => x; Nil => extract Nil }
 }
 
-instance Foldable (List a) a {
+impl Foldable (List a) a := {
   cfold := \f z xs. case xs { Nil => z; Cons x rest => f x (cfold f z rest) }
 }
 `
@@ -308,15 +308,15 @@ func TestInteractionFundepSuperclassUse(t *testing.T) {
 data Unit := { Unit: (); }
 data List := \a. { Nil: (); Cons: (a, List a); }
 
-class Elem c e | c =: e {
-  extract :: c -> e
+data Elem := \c e | c =: e. {
+  extract: c -> e
 }
 
-instance Elem (List a) a {
+impl Elem (List a) a := {
   extract := \xs. case xs { Cons x rest => x; Nil => extract Nil }
 }
 
-headOrDefault :: \ a. a -> List a -> a
+headOrDefault: \ a. a -> List a -> a
 headOrDefault := \def xs. case xs { Nil => def; Cons x rest => extract (Cons x rest) }
 `
 	checkSource(t, source, nil)
@@ -336,10 +336,10 @@ type Elem (c: Type) :: Type := {
   Elem (List a) =: a
 }
 
-step :: Computation {} {} (Elem (List Unit))
+step: Computation {} {} (Elem (List Unit))
 step := assumption
 
-main :: Computation {} {} Unit
+main: Computation {} {} Unit
 main := do { x <- step; pure x }
 `
 	checkSource(t, source, nil)
@@ -355,16 +355,16 @@ type Elem (c: Type) :: Type := {
   Elem (List a) =: a
 }
 
-open :: Computation {} { handle: Unit } Unit
+open: Computation {} { handle: Unit } Unit
 open := assumption
 
-read :: Computation { handle: Unit } { handle: Unit } (Elem (List Unit))
+read: Computation { handle: Unit } { handle: Unit } (Elem (List Unit))
 read := assumption
 
-close :: Computation { handle: Unit } {} Unit
+close: Computation { handle: Unit } {} Unit
 close := assumption
 
-main :: Computation {} {} Unit
+main: Computation {} {} Unit
 main := do { open; x <- read; close }
 `
 	checkSource(t, source, nil)
@@ -382,12 +382,12 @@ func TestInteractionAssocTypeMissingDef(t *testing.T) {
 data Unit := { Unit: (); }
 data List := \a. { Nil: (); Cons: (a, List a); }
 
-class Container c {
+data Container := \c. {
   type Elem c :: Type;
-  size :: c -> Int
+  size: c -> Int
 }
 
-instance Container (List a) {
+impl Container (List a) := {
   size := \xs. 0
 }
 `
@@ -425,7 +425,7 @@ type Nullable (c: Type) :: Type := {
   Nullable (List a) =: Maybe a
 }
 
-f :: Elem (List Unit) -> Nullable (List Unit)
+f: Elem (List Unit) -> Nullable (List Unit)
 f := \x. Just x
 `
 	checkSource(t, source, nil)
@@ -447,7 +447,7 @@ type Second (c: Type) :: Type := {
   Second (Pair a b) =: b
 }
 
-swap :: Elem (Pair Unit Unit) -> Second (Pair Unit Unit) -> Pair Unit Unit
+swap: Elem (Pair Unit Unit) -> Second (Pair Unit Unit) -> Pair Unit Unit
 swap := \x y. MkPair x y
 `
 	checkSource(t, source, nil)
@@ -468,7 +468,7 @@ type Id (a: Type) :: Type := {
   Id a =: a
 }
 
-f :: Id (Elem (List Unit)) -> Unit
+f: Id (Elem (List Unit)) -> Unit
 f := \x. x
 `
 	checkSource(t, source, nil)
@@ -491,10 +491,10 @@ type Elem (c: Type) :: Type := {
   Elem (List a) =: a
 }
 
-id :: \ a. a -> a
+id: \ a. a -> a
 id := \x. x
 
-test :: Int -> Int
+test: Int -> Int
 test := \n. id @(Elem (List Int)) n
 `
 	config := &CheckConfig{
@@ -512,7 +512,7 @@ type Id (a: Type) :: Type := {
   Id a =: a
 }
 
-id :: \ a. a -> a
+id: \ a. a -> a
 id := \x. x
 
 test := id @(Id Unit) Unit
@@ -534,10 +534,10 @@ type Elem (c: Type) :: Type := {
   Elem (List a) =: a
 }
 
-applyToUnit :: (Unit => Unit) -> Unit
+applyToUnit: (Unit => Unit) -> Unit
 applyToUnit := \f. f Unit
 
-test :: Unit
+test: Unit
 test := applyToUnit (\x. x)
 `
 	checkSource(t, source, nil)
@@ -557,10 +557,10 @@ type Elem (c: Type) :: Type := {
   Elem (List a) =: a
 }
 
-length :: \ a. List a -> Int
+length: \ a. List a -> Int
 length := assumption
 
-main :: Int
+main: Int
 main := length (Cons Unit Nil)
 `
 	config := &CheckConfig{
@@ -583,10 +583,10 @@ type Elem (c: Type) :: Type := {
   Elem (List a) =: a
 }
 
-delayed :: Thunk {} {} (Elem (List Unit))
+delayed: Thunk {} {} (Elem (List Unit))
 delayed := thunk (pure Unit)
 
-run :: Computation {} {} Unit
+run: Computation {} {} Unit
 run := force delayed
 `
 	checkSource(t, source, nil)
@@ -602,10 +602,10 @@ type Elem (c: Type) :: Type := {
   Elem (List a) =: a
 }
 
-mkThunk :: Thunk { cap: Unit } { cap: Unit } (Elem (List Unit))
+mkThunk: Thunk { cap: Unit } { cap: Unit } (Elem (List Unit))
 mkThunk := assumption
 
-run :: Computation { cap: Unit } { cap: Unit } (Elem (List Unit))
+run: Computation { cap: Unit } { cap: Unit } (Elem (List Unit))
 run := force mkThunk
 `
 	checkSource(t, source, nil)
@@ -627,7 +627,7 @@ type Elem (c: Type) :: Type := {
   Elem (List a) =: a
 }
 
-test :: Elem (List Bool) -> Bool
+test: Elem (List Bool) -> Bool
 test := \x. case x { True => False; False => True }
 `
 	checkSource(t, source, nil)
@@ -747,9 +747,9 @@ func TestInteractionErrorDataFamilyConstructorWithoutInstance(t *testing.T) {
 	// (simulates the case where the instance wasn't imported).
 	source := `
 data Unit := { Unit: (); }
-class Container a {
+data Container := \a. {
   data Elem a :: Type;
-  empty :: a
+  empty: a
 }
 x :: Elem Unit
 x := ListElem Unit
@@ -780,15 +780,15 @@ type Elem (c: Type) :: Type := {
   Elem (List a) =: a
 }
 
-class Eq a {
-  eq :: a -> a -> Bool
+data Eq := \a. {
+  eq: a -> a -> Bool
 }
 
-instance Eq Bool {
+impl Eq Bool := {
   eq := \x y. True
 }
 
-test :: List Bool -> Bool
+test: List Bool -> Bool
 test := \xs. case xs {
   Cons x rest => eq x True;
   Nil => False
@@ -809,12 +809,12 @@ data Unit := { Unit: (); }
 data List := \a. { Nil: (); Cons: (a, List a); }
 data Bool := { True: (); False: (); }
 
-class Collection c e | c =: e {
+data Collection := \c e | c =: e. {
   type Key c :: Type;
-  elem :: c -> e
+  elem: c -> e
 }
 
-instance Collection (List a) a {
+impl Collection (List a) a := {
   type Key (List a) =: Int;
   elem := \xs. case xs { Cons x rest => x; Nil => elem Nil }
 }
@@ -835,17 +835,17 @@ func TestInteractionDataFamilyAndFundep(t *testing.T) {
 data Unit := { Unit: (); }
 data Bool := { True: (); False: (); }
 
-class Convertible a b | a =: b {
+data Convertible := \a b | a =: b. {
   data Result a :: Type;
-  convert :: a -> Result a
+  convert: a -> Result a
 }
 
-instance Convertible Bool Unit {
+impl Convertible Bool Unit := {
   data Result Bool =: BoolResult Unit;
   convert := \b. BoolResult Unit
 }
 
-test :: Result Bool
+test: Result Bool
 test := convert True
 `
 	checkSource(t, source, nil)
@@ -864,25 +864,25 @@ data Maybe := \a. { Nothing: (); Just: a; }
 data Unit := { Unit: (); }
 data Bool := { True: (); False: (); }
 
-class Container c {
+data Container := \c. {
   type Elem c :: Type;
-  size :: c -> Int
+  size: c -> Int
 }
 
-instance Container (List a) {
+impl Container (List a) := {
   type Elem (List a) =: a;
   size := \xs. 0
 }
 
-instance Container (Maybe a) {
+impl Container (Maybe a) := {
   type Elem (Maybe a) =: a;
   size := \xs. 0
 }
 
-testList :: Elem (List Bool) -> Bool
+testList: Elem (List Bool) -> Bool
 testList := \x. x
 
-testMaybe :: Elem (Maybe Unit) -> Unit
+testMaybe: Elem (Maybe Unit) -> Unit
 testMaybe := \x. x
 `
 	config := &CheckConfig{
@@ -905,7 +905,7 @@ type Elem (c: Type) :: Type := {
   Elem (List a) =: a
 }
 
-identity :: \ c. Elem c -> Elem c
+identity: \ c. Elem c -> Elem c
 identity := \x. x
 `
 	checkSource(t, source, nil)
@@ -943,10 +943,10 @@ type Elem (c: Type) :: Type := {
   Elem (List a) =: a
 }
 
-wrap :: Elem (List Unit) -> Unit
+wrap: Elem (List Unit) -> Unit
 wrap := \x. x
 
-main :: Unit
+main: Unit
 main := { x := Unit; wrap x }
 `
 	checkSource(t, source, nil)
@@ -967,7 +967,7 @@ type Elem (c: Type) :: Type := {
   Elem (List a) =: a
 }
 
-mkPair :: Elem (List Unit) -> Elem (List Unit) -> Pair Unit Unit
+mkPair: Elem (List Unit) -> Elem (List Unit) -> Pair Unit Unit
 mkPair := \x y. MkPair x y
 `
 	checkSource(t, source, nil)
@@ -988,15 +988,15 @@ type Always (a: Type) :: Type := {
   Always _ =: Unit
 }
 
-class Functor (f: k -> Type) {
-  fmap :: \ a b. (a -> b) -> f a -> f b
+data Functor := \(f: k -> Type). {
+  fmap: \ a b. (a -> b) -> f a -> f b
 }
 
-instance Functor Maybe {
+impl Functor Maybe := {
   fmap := \g mx. case mx { Nothing => Nothing; Just x => Just (g x) }
 }
 
-test :: Always (Maybe Unit) -> Unit
+test: Always (Maybe Unit) -> Unit
 test := \x. x
 `
 	checkSource(t, source, nil)
@@ -1017,10 +1017,10 @@ type Elem (c: Type) :: Type := {
   Elem (List a) =: a
 }
 
-readHandle :: Computation { handle: Unit @Linear } { handle: Unit @Linear } (Elem (List Unit))
+readHandle: Computation { handle: Unit @Linear } { handle: Unit @Linear } (Elem (List Unit))
 readHandle := assumption
 
-main :: Computation { handle: Unit @Linear } { handle: Unit @Linear } Unit
+main: Computation { handle: Unit @Linear } { handle: Unit @Linear } Unit
 main := do { x <- readHandle; pure x }
 `
 	checkSource(t, source, nil)
@@ -1047,15 +1047,15 @@ type Elem (c: Type) :: Type := {
   Elem (List a) =: a
 }
 
-class Eq a {
-  eq :: a -> a -> Bool
+data Eq := \a. {
+  eq: a -> a -> Bool
 }
 
-instance Eq Bool {
+impl Eq Bool := {
   eq := \x y. True
 }
 
-test :: Eq (Elem (List Bool)) => Elem (List Bool) -> Bool
+test: Eq (Elem (List Bool)) => Elem (List Bool) -> Bool
 test := \x. eq x True
 `
 	checkSource(t, source, nil)
@@ -1076,10 +1076,10 @@ type Elem (c: Type) :: Type := {
   Elem (List a) =: a
 }
 
-step :: Computation { handle: Elem (List Unit) } { handle: Elem (List Unit) } Unit
+step: Computation { handle: Elem (List Unit) } { handle: Elem (List Unit) } Unit
 step := assumption
 
-main :: Computation { handle: Unit } { handle: Unit } Unit
+main: Computation { handle: Unit } { handle: Unit } Unit
 main := step
 `
 	checkSource(t, source, nil)
@@ -1140,17 +1140,17 @@ func TestInteractionBugDataFamilyExhaustAfterReduction(t *testing.T) {
 data Unit := { Unit: (); }
 data Bool := { True: (); False: (); }
 
-class Container a {
+data Container := \a. {
   data Elem a :: Type;
-  empty :: a
+  empty: a
 }
 
-instance Container Bool {
+impl Container Bool := {
   data Elem Bool =: BoolElem Bool | EmptyElem;
   empty := True
 }
 
-test :: Elem Bool -> Bool
+test: Elem Bool -> Bool
 test := \e. case e {
   BoolElem b -> b;
   EmptyElem -> False
@@ -1165,17 +1165,17 @@ func TestInteractionBugDataFamilyExhaustMissingAfterReduction(t *testing.T) {
 data Unit := { Unit: (); }
 data Bool := { True: (); False: (); }
 
-class Container a {
+data Container := \a. {
   data Elem a :: Type;
-  empty :: a
+  empty: a
 }
 
-instance Container Bool {
+impl Container Bool := {
   data Elem Bool =: BoolElem Bool | EmptyElem;
   empty := True
 }
 
-test :: Elem Bool -> Bool
+test: Elem Bool -> Bool
 test := \e. case e {
   BoolElem b -> b
 }
@@ -1199,15 +1199,15 @@ type Elem (c: Type) :: Type := {
   Elem (List a) =: a
 }
 
-class Eq a {
-  eq :: a -> a -> Bool
+data Eq := \a. {
+  eq: a -> a -> Bool
 }
 
-instance Eq Bool {
+impl Eq Bool := {
   eq := \x y. True
 }
 
-test :: Bool -> Bool
+test: Bool -> Bool
 test := \x. eq x True
 `
 	checkSource(t, source, nil)
@@ -1228,10 +1228,10 @@ type Elem (c: Type) :: Type := {
   Elem (List a) =: a
 }
 
-id :: \ a. a -> a
+id: \ a. a -> a
 id := \x. x
 
-test :: Unit
+test: Unit
 test := id Unit
 `
 	checkSource(t, source, nil)
@@ -1250,25 +1250,25 @@ data List := \a. { Nil: (); Cons: (a, List a); }
 data Maybe := \a. { Nothing: (); Just: a; }
 data Unit := { Unit: (); }
 
-class Container c {
+data Container := \c. {
   type Elem c :: Type;
-  empty :: c
+  empty: c
 }
 
-instance Container (List a) {
+impl Container (List a) := {
   type Elem (List a) =: a;
   empty := Nil
 }
 
-instance Container (Maybe a) {
+impl Container (Maybe a) := {
   type Elem (Maybe a) =: a;
   empty := Nothing
 }
 
-testList :: Elem (List Unit) -> Unit
+testList: Elem (List Unit) -> Unit
 testList := \x. x
 
-testMaybe :: Elem (Maybe Unit) -> Unit
+testMaybe: Elem (Maybe Unit) -> Unit
 testMaybe := \x. x
 `
 	checkSource(t, source, nil)
@@ -1287,10 +1287,10 @@ type Elem (c: Type) :: Type := {
   Elem (List a) =: a
 }
 
-id :: \ a. a -> a
+id: \ a. a -> a
 id := \x. x
 
-test :: Int -> Int
+test: Int -> Int
 test := \n. id @(Elem (List Int)) n
 `
 	config := &CheckConfig{
@@ -1314,15 +1314,15 @@ type Id (a: Type) :: Type := {
   Id a =: a
 }
 
-class Elem c e | c =: e {
-  extract :: c -> e
+data Elem := \c e | c =: e. {
+  extract: c -> e
 }
 
-instance Elem (List a) a {
+impl Elem (List a) a := {
   extract := \xs. case xs { Cons x rest => x; Nil => extract Nil }
 }
 
-test :: List Unit => Id Unit
+test: List Unit => Id Unit
 test := \xs. extract xs
 `
 	checkSource(t, source, nil)
@@ -1346,15 +1346,15 @@ type Elem (c: Type) :: Type := {
   Elem (List a) =: a
 }
 
-class Eq a {
-  eq :: a -> a -> Bool
+data Eq := \a. {
+  eq: a -> a -> Bool
 }
 
-instance Eq Bool {
+impl Eq Bool := {
   eq := \x y. True
 }
 
-test :: Bool -> Bool -> Bool
+test: Bool -> Bool -> Bool
 test := \x y. eq x y
 `
 	checkSource(t, source, nil)
@@ -1374,10 +1374,10 @@ type Elem (c: Type) :: Type := {
   Elem (List a) =: a
 }
 
-apply :: \ a b. (a -> b) -> a -> b
+apply: \ a b. (a -> b) -> a -> b
 apply := \f x. f x
 
-test :: Unit => Unit
+test: Unit => Unit
 test := \x. apply (\y. y) x
 `
 	checkSource(t, source, nil)
@@ -1399,11 +1399,11 @@ type Elem (c: Type) :: Type := {
   Elem (List a) =: a
 }
 
-class Eq a {
-  eq :: a -> a -> Bool
+data Eq := \a. {
+  eq: a -> a -> Bool
 }
 
-instance Eq Unit {
+impl Eq Unit := {
   eq := \x y. True
 }
 
@@ -1424,20 +1424,20 @@ func TestInteractionBugDataFamilyOperator(t *testing.T) {
 data Unit := { Unit: (); }
 data Bool := { True: (); False: (); }
 
-class Container a {
+data Container := \a. {
   data Elem a :: Type;
-  empty :: a
+  empty: a
 }
 
-instance Container Bool {
+impl Container Bool := {
   data Elem Bool =: Tag Bool;
   empty := True
 }
 
-id :: \ a. a -> a
+id: \ a. a -> a
 id := \x. x
 
-test :: Elem Bool
+test: Elem Bool
 test := id (Tag True)
 `
 	checkSource(t, source, nil)
@@ -1453,23 +1453,23 @@ func TestInteractionBugMultipleConstraintsTypeFamilies(t *testing.T) {
 data Unit := { Unit: (); }
 data Bool := { True: (); False: (); }
 
-class Eq a {
-  eq :: a -> a -> Bool
+data Eq := \a. {
+  eq: a -> a -> Bool
 }
 
-class Show a {
-  show :: a -> a
+data Show := \a. {
+  show: a -> a
 }
 
-instance Eq Bool {
+impl Eq Bool := {
   eq := \x y. True
 }
 
-instance Show Bool {
+impl Show Bool := {
   show := \x. x
 }
 
-test :: Bool -> Bool
+test: Bool -> Bool
 test := \x. show (eq x True)
 `
 	checkSource(t, source, nil)
@@ -1570,15 +1570,15 @@ type Elem (c: Type) :: Type := {
   Elem (List a) =: a
 }
 
-class Eq a {
-  eq :: a -> a -> Bool
+data Eq := \a. {
+  eq: a -> a -> Bool
 }
 
-instance Eq Unit {
+impl Eq Unit := {
   eq := \x y. True
 }
 
-testConstrainedBody :: Elem (List Unit) -> Elem (List Unit) -> Bool
+testConstrainedBody: Elem (List Unit) -> Elem (List Unit) -> Bool
 testConstrainedBody := \x y. eq x y
 `
 	checkSource(t, source, nil)
@@ -1599,10 +1599,10 @@ type Elem (c: Type) :: Type := {
   Elem (List a) =: a
 }
 
-step :: Computation { cap: Elem (List Unit) } {} Unit
+step: Computation { cap: Elem (List Unit) } {} Unit
 step := assumption
 
-main :: Computation { cap: Unit } {} Unit
+main: Computation { cap: Unit } {} Unit
 main := step
 `
 	checkSource(t, source, nil)

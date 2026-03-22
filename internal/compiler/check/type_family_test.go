@@ -133,8 +133,8 @@ f := \x. x
 func TestConstraintFamily(t *testing.T) {
 	source := `
 data Serialization := JSON | Binary
-class Show a {
-  show :: a -> a
+data Show := \a. {
+  show: a -> a
 }
 type Serializable (fmt: Serialization) :: Constraint := {
   Serializable JSON =: Show;
@@ -237,20 +237,20 @@ func TestAssocTypeBasic(t *testing.T) {
 data List := \a. { Nil: (); Cons: (a, List a); }
 data Unit := { Unit: (); }
 
-class Container c {
+data Container := \c. {
   type Elem c :: Type;
-  cfold :: \ b. (Elem c -> b -> b) -> b -> c -> b
+  cfold: \ b. (Elem c -> b -> b) -> b -> c -> b
 }
 
-instance Container (List a) {
+impl Container (List a) := {
   type Elem (List a) =: a;
   cfold := foldr
 }
 
-foldr :: \ a b. (a -> b -> b) -> b -> List a -> b
+foldr: \ a b. (a -> b -> b) -> b -> List a -> b
 foldr := assumption
 
-f :: Elem (List Unit) -> Unit
+f: Elem (List Unit) -> Unit
 f := \x. x
 `
 	checkSource(t, source, nil)
@@ -262,28 +262,28 @@ data List := \a. { Nil: (); Cons: (a, List a); }
 data Unit := { Unit: (); }
 data Pair := \a b. { MkPair: (a, b); }
 
-class Container c {
+data Container := \c. {
   type Elem c :: Type;
-  clength :: c -> Int
+  clength: c -> Int
 }
 
-instance Container (List a) {
+impl Container (List a) := {
   type Elem (List a) =: a;
   clength := listLength
 }
 
-instance Container (Pair a b) {
+impl Container (Pair a b) := {
   type Elem (Pair a b) =: a;
   clength := pairLength
 }
 
-listLength :: \ a. List a -> Int
+listLength: \ a. List a -> Int
 listLength := assumption
 
-pairLength :: \ a b. Pair a b -> Int
+pairLength: \ a b. Pair a b -> Int
 pairLength := assumption
 
-f :: Elem (List Unit) -> Unit
+f: Elem (List Unit) -> Unit
 f := \x. x
 g :: Elem (Pair Unit Unit) -> Unit
 g := \x. x
@@ -328,10 +328,10 @@ func TestFunDepParse(t *testing.T) {
 	source := `
 data Unit := { Unit: (); }
 data List := \a. { Nil: (); Cons: (a, List a); }
-class Elem c e | c =: e {
-  cfold :: (e -> e) -> c -> c
+data Elem := \c e | c =: e. {
+  cfold: (e -> e) -> c -> c
 }
-instance Elem (List a) a {
+impl Elem (List a) a := {
   cfold := \f xs. xs
 }
 `
@@ -340,8 +340,8 @@ instance Elem (List a) a {
 
 func TestFunDepUnknownParam(t *testing.T) {
 	source := `
-class Bad a b | z =: b {
-  m :: a -> b
+data Bad := \a b | z =: b. {
+  m: a -> b
 }
 `
 	checkSourceExpectCode(t, source, nil, diagnostic.ErrBadClass)
@@ -581,17 +581,17 @@ func TestCheckAppAssocTypeFromReturnContext(t *testing.T) {
 data Bool := { True: (); False: (); }
 data List := \a. { Nil: (); Cons: (a, List a); }
 
-class FromList c {
+data FromList := \c. {
   type Elem c :: Type;
-  fromList :: List (Elem c) -> c
+  fromList: List (Elem c) -> c
 }
 
-instance FromList (List a) {
+impl FromList (List a) := {
   type Elem (List a) =: a;
   fromList := \xs. xs
 }
 
-main :: List Bool
+main: List Bool
 main := fromList (Cons True Nil)
 `
 	checkSource(t, source, nil)
@@ -603,12 +603,12 @@ func TestCheckAppAssocTypeInfixFromReturnContext(t *testing.T) {
 data Bool := { True: (); False: (); }
 data List := \a. { Nil: (); Cons: (a, List a); }
 
-class Conv c {
+data Conv := \c. {
   type Elem c :: Type;
-  conv :: List (Elem c) -> c
+  conv: List (Elem c) -> c
 }
 
-instance Conv (List a) {
+impl Conv (List a) := {
   type Elem (List a) =: a;
   conv := \xs. xs
 }
@@ -617,7 +617,7 @@ infixr 0 <|
 (<|) :: \ a b. (a -> b) -> a -> b
 (<|) := \f x. f x
 
-main :: List Bool
+main: List Bool
 main := conv <| (Cons True Nil)
 `
 	checkSource(t, source, nil)
@@ -629,12 +629,12 @@ func TestCheckAppAssocTypeAnnotationStillWorks(t *testing.T) {
 data Bool := { True: (); False: (); }
 data List := \a. { Nil: (); Cons: (a, List a); }
 
-class FromList c {
+data FromList := \c. {
   type Elem c :: Type;
-  fromList :: List (Elem c) -> c
+  fromList: List (Elem c) -> c
 }
 
-instance FromList (List a) {
+impl FromList (List a) := {
   type Elem (List a) =: a;
   fromList := \xs. xs
 }
@@ -650,10 +650,10 @@ func TestCheckAppNoRegressionPlainFunction(t *testing.T) {
 data Bool := { True: (); False: (); }
 data List := \a. { Nil: (); Cons: (a, List a); }
 
-id :: \ a. a -> a
+id: \ a. a -> a
 id := \x. x
 
-main :: List Bool
+main: List Bool
 main := id (Cons True Nil)
 `
 	checkSource(t, source, nil)
@@ -665,7 +665,7 @@ func TestCheckAppCBPVSpecialFormsFallback(t *testing.T) {
 	source := `
 data Unit := { Unit: (); }
 
-main :: Computation {} {} Unit
+main: Computation {} {} Unit
 main := pure Unit
 `
 	checkSource(t, source, nil)
@@ -678,20 +678,20 @@ func TestCheckAppAssocTypeNestedApp(t *testing.T) {
 data Bool := { True: (); False: (); }
 data List := \a. { Nil: (); Cons: (a, List a); }
 
-class Convert c {
+data Convert := \c. {
   type Elem c :: Type;
-  convert :: Elem c -> c
+  convert: Elem c -> c
 }
 
-instance Convert (List a) {
+impl Convert (List a) := {
   type Elem (List a) =: a;
   convert := \x. Cons x Nil
 }
 
-wrap :: \ a. a -> a
+wrap: \ a. a -> a
 wrap := \x. x
 
-main :: List Bool
+main: List Bool
 main := wrap (convert True)
 `
 	checkSource(t, source, nil)

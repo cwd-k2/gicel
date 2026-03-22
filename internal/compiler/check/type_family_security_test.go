@@ -175,11 +175,11 @@ func TestSecurityConstructorOverwrite(t *testing.T) {
 data Wrapper := \a. { Wrap: a; }
 data Unit := { Unit: (); }
 
-class Container c {
+data Container := \c. {
   data Elem c :: Type
 }
 
-instance Container (Wrapper a) {
+impl Container (Wrapper a) := {
   data Elem (Wrapper a) =: Wrap a
 }
 `
@@ -325,10 +325,10 @@ data Bool := { True: (); False: (); }
 data List := \a. { Nil: (); Cons: (a, List a); }
 data Unit := { Unit: (); }
 
-id :: \ a. a -> a
+id: \ a. a -> a
 id := \x. x
 
-f :: Unit
+f: Unit
 f := id (id (id (id (id (id (id (id (id (id Unit)))))))))
 `
 	start := time.Now()

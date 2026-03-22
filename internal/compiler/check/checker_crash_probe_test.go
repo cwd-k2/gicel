@@ -123,7 +123,7 @@ data Bool := { True: (); False: (); }
 f :: ((\ a. a -> a) -> Bool) -> Bool
 f := \g. g (\x. x)
 
-g :: (\ a. a -> a) -> Bool
+g: (\ a. a -> a) -> Bool
 g := \h. h True
 
 main := f g
@@ -137,7 +137,7 @@ func TestProbeA_CrashResist_ManyTypeApps(t *testing.T) {
 	source := `
 data Bool := { True: (); False: (); }
 
-id :: \ a. a -> a
+id: \ a. a -> a
 id := \x. x
 
 -- Explicit type application.
@@ -296,7 +296,7 @@ main := Nil
 // that hasn't been registered should produce a clean error.
 func TestProbeE_Crash_TypeAnnotationWithUnregisteredType(t *testing.T) {
 	source := `
-f :: FakeType -> FakeType
+f: FakeType -> FakeType
 f := \x. x
 main := f
 `
@@ -323,14 +323,14 @@ main := f True True True
 func TestProbeE_Crash_LargeConstraintContext(t *testing.T) {
 	source := `
 data Bool := { True: (); False: (); }
-class C1 a { m1 :: a -> Bool }
-class C2 a { m2 :: a -> Bool }
-class C3 a { m3 :: a -> Bool }
-instance C1 Bool { m1 := \x. x }
-instance C2 Bool { m2 := \x. x }
-instance C3 Bool { m3 := \x. x }
+data C1 := \a. { m1 :: a -> Bool }
+data C2 := \a. { m2 :: a -> Bool }
+data C3 := \a. { m3 :: a -> Bool }
+impl C1 Bool := { m1 := \x. x }
+impl C2 Bool := { m2 := \x. x }
+impl C3 Bool := { m3 := \x. x }
 
-f :: \a. (C1 a, C2 a, C3 a) => a -> Bool
+f: \a. (C1 a, C2 a, C3 a) => a -> Bool
 f := \x. m1 x
 
 main := f True

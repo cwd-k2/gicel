@@ -17,7 +17,7 @@ import (
 func TestStressDeepKindNesting(t *testing.T) {
 	// \ (k: Kind). \ (j: Kind). \ (f: k -> j -> Type). Int
 	source := `
-f :: \ (k: Kind). \ (j: Kind). \ (f: k -> j -> Type). Int -> Int
+f: \ (k: Kind). \ (j: Kind). \ (f: k -> j -> Type). Int -> Int
 f := \x. x
 `
 	checkSource(t, source, nil)
@@ -28,7 +28,7 @@ func TestStressKindPolyIdentityChain(t *testing.T) {
 	source := `
 data Bool := { True: (); False: (); }
 
-id_k :: \ (k: Kind). \ (a: k). a -> a
+id_k: \ (k: Kind). \ (a: k). a -> a
 id_k := \x. x
 
 chain := id_k (id_k (id_k True))
@@ -152,27 +152,27 @@ func TestStressKindPolyClassWithContext(t *testing.T) {
 data Bool := { True: (); False: (); }
 data Maybe := \a. { Nothing: (); Just: a; }
 
-class Eq a {
-  eq :: a -> a -> Bool
+data Eq := \a. {
+  eq: a -> a -> Bool
 }
 
-instance Eq Bool {
+impl Eq Bool := {
   eq := \x y. True
 }
 
-class Functor (f: k -> Type) {
-  fmap :: \ a b. (a -> b) -> f a -> f b
+data Functor := \(f: k -> Type). {
+  fmap: \ a b. (a -> b) -> f a -> f b
 }
 
-instance Functor Maybe {
+impl Functor Maybe := {
   fmap := \g mx. case mx { Nothing => Nothing; Just x => Just (g x) }
 }
 
-class Functor f => Applicative (f: k -> Type) {
-  pure :: \ a. a -> f a
+data Applicative := \(f: k -> Type). Functor f => {
+  pure: \ a. a -> f a
 }
 
-instance Applicative Maybe {
+impl Applicative Maybe := {
   pure := \x. Just x
 }
 

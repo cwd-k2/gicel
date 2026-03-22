@@ -17,7 +17,7 @@ f := True`
 func TestConstraintKindedParamInClassDecl(t *testing.T) {
 	// A class can declare a Constraint-kinded type parameter.
 	source := `data Bool := { True: (); False: (); }
-class Constrained (c: Constraint) { witness :: Bool }`
+data Constrained := \(c: Constraint). { witness :: Bool }`
 	checkSource(t, source, nil)
 }
 
@@ -41,8 +41,8 @@ func TestConstraintKindedParamInTypeAlias(t *testing.T) {
 	// type WithEq a := (Eq a) — a constraint alias.
 	// Already tested in Phase 5A, but now with explicit Constraint kind:
 	source := `data Bool := { True: (); False: (); }
-class Eq a { eq :: a -> a -> Bool }
-instance Eq Bool { eq := \x y. True }
+data Eq := \a. { eq :: a -> a -> Bool }
+impl Eq Bool := { eq := \x y. True }
 type Eqable a := Eq a => a -> a -> Bool
 f :: \ a. Eqable a
 f := \x y. eq x y

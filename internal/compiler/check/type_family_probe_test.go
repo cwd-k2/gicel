@@ -98,7 +98,7 @@ type Elem (c: Type) :: Type := {
   Elem (List a) =: a
 }
 
-g :: Elem (List Bool) -> Bool -> Bool
+g: Elem (List Bool) -> Bool -> Bool
 g := \x y. x
 
 main := g True False
@@ -117,7 +117,7 @@ type Grow (a: Type) :: Type := {
   Grow a =: Grow (Pair a a)
 }
 
-f :: Grow Unit => Unit
+f: Grow Unit => Unit
 f := \x. x
 `
 	checkSourceExpectError(t, source, nil)
@@ -131,25 +131,25 @@ data Unit := { Unit: (); }
 data Bool := { True: (); False: (); }
 data List := \a. { Nil: (); Cons: (a, List a); }
 
-class Container c {
+data Container := \c. {
   type Elem c :: Type;
-  empty :: c
+  empty: c
 }
 
-instance Container (List a) {
+impl Container (List a) := {
   type Elem (List a) =: a;
   empty := Nil
 }
 
-instance Container Unit {
+impl Container Unit := {
   type Elem Unit =: Unit;
   empty := Unit
 }
 
-testList :: Elem (List Bool) -> Bool
+testList: Elem (List Bool) -> Bool
 testList := \x. x
 
-testUnit :: Elem Unit => Unit
+testUnit: Elem Unit => Unit
 testUnit := \x. x
 `
 	checkSource(t, source, nil)
@@ -197,7 +197,7 @@ type A (a: Type) :: Type := {
   A a =: B a
 }
 
-f :: A Bool -> Bool
+f: A Bool -> Bool
 f := \x. x
 
 main := f True
@@ -246,7 +246,7 @@ type Loop (a: Nat) :: Nat := {
   Loop a =: Loop (S a)
 }
 
-f :: Phantom (Loop Z) -> Phantom (Loop Z)
+f: Phantom (Loop Z) -> Phantom (Loop Z)
 f := \x. x
 `
 	// Either outcome is acceptable: error (fuel/budget exhausted during
@@ -263,7 +263,7 @@ type Id (a: Type) :: Type := {
   Id a =: a
 }
 
-f :: Id Bool -> Bool
+f: Id Bool -> Bool
 f := \x. x
 
 main := f True
@@ -281,7 +281,7 @@ type Fst (a: Type) (b: Type) :: Type := {
   Fst a b =: a
 }
 
-f :: Fst Bool Unit => Bool
+f: Fst Bool Unit => Bool
 f := \x. x
 
 main := f True
@@ -349,7 +349,7 @@ type Grow (a: Type) :: Type := {
   Grow a =: Pair (Grow a) (Grow a)
 }
 
-f :: Grow Unit => Unit
+f: Grow Unit => Unit
 f := \x. x
 `
 	errMsg := checkSourceExpectError(t, source, nil)
@@ -403,12 +403,12 @@ main := Z
 func TestProbeE_Interaction_GADTWithTypeClass(t *testing.T) {
 	source := `
 data Bool := { True: (); False: (); }
-class Eq a { eq :: a -> a -> Bool }
-instance Eq Bool { eq := \x y. True }
+data Eq := \a. { eq :: a -> a -> Bool }
+impl Eq Bool := { eq := \x y. True }
 
 data SomeEq := { MkSomeEq :: \a. Eq a => a -> a -> SomeEq }
 
-test :: SomeEq -> Bool
+test: SomeEq -> Bool
 test := \s. case s { MkSomeEq x y -> eq x y }
 
 main := test (MkSomeEq True False)
@@ -427,8 +427,8 @@ type IsZero (n: Type) :: Type := {
   IsZero Z =: Bool
 }
 
-class Show a { show :: a -> Bool }
-instance Show Bool { show := \x. x }
+data Show := \a. { show :: a -> Bool }
+impl Show Bool := { show := \x. x }
 
 -- Use IsZero Z (which reduces to Bool) in a context requiring Show
 main := show (True :: IsZero Z)
@@ -441,8 +441,8 @@ main := show (True :: IsZero Z)
 func TestProbeE_Interaction_ConstrainedLetGen(t *testing.T) {
 	source := `
 data Bool := { True: (); False: (); }
-class Eq a { eq :: a -> a -> Bool }
-instance Eq Bool { eq := \x y. True }
+data Eq := \a. { eq :: a -> a -> Bool }
+impl Eq Bool := { eq := \x y. True }
 
 -- same should be generalized to: \ a. Eq a => a -> a -> Bool
 same := \x y. eq x y

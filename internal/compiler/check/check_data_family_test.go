@@ -16,9 +16,9 @@ import (
 func TestDataFamilyParseClassDecl(t *testing.T) {
 	// data family declaration inside class body
 	source := `
-class Collection a {
+data Collection := \a. {
   data Elem a :: Type;
-  empty :: a
+  empty: a
 }
 `
 	checkSource(t, source, nil)
@@ -29,12 +29,12 @@ func TestDataFamilyParseInstanceDef(t *testing.T) {
 	source := `
 data List := \a. { Nil: (); Cons: (a, List a); }
 
-class Collection a {
+data Collection := \a. {
   data Elem a :: Type;
-  empty :: a
+  empty: a
 }
 
-instance Collection (List a) {
+impl Collection (List a) := {
   data Elem (List a) =: ListElem a;
   empty := Nil
 }
@@ -50,17 +50,17 @@ func TestDataFamilyConstructorType(t *testing.T) {
 data List := \a. { Nil: (); Cons: (a, List a); }
 data Unit := { Unit: (); }
 
-class Collection a {
+data Collection := \a. {
   data Elem a :: Type;
-  empty :: a
+  empty: a
 }
 
-instance Collection (List a) {
+impl Collection (List a) := {
   data Elem (List a) =: ListElem a;
   empty := Nil
 }
 
-x :: Elem (List Unit)
+x: Elem (List Unit)
 x := ListElem Unit
 `
 	checkSource(t, source, nil)
@@ -72,25 +72,25 @@ func TestDataFamilyMultipleInstances(t *testing.T) {
 data List := \a. { Nil: (); Cons: (a, List a); }
 data Unit := { Unit: (); }
 
-class Collection a {
+data Collection := \a. {
   data Elem a :: Type;
-  empty :: a
+  empty: a
 }
 
-instance Collection (List a) {
+impl Collection (List a) := {
   data Elem (List a) =: ListElem a;
   empty := Nil
 }
 
-instance Collection Unit {
+impl Collection Unit := {
   data Elem Unit =: UnitElem;
   empty := Unit
 }
 
-x :: Elem (List Unit)
+x: Elem (List Unit)
 x := ListElem Unit
 
-y :: Elem Unit
+y: Elem Unit
 y := UnitElem
 `
 	checkSource(t, source, nil)
@@ -103,17 +103,17 @@ func TestDataFamilyPatternMatch(t *testing.T) {
 data List := \a. { Nil: (); Cons: (a, List a); }
 data Unit := { Unit: (); }
 
-class Collection a {
+data Collection := \a. {
   data Elem a :: Type;
-  empty :: a
+  empty: a
 }
 
-instance Collection (List a) {
+impl Collection (List a) := {
   data Elem (List a) =: ListElem a;
   empty := Nil
 }
 
-unwrap :: \ a. Elem (List a) -> a
+unwrap: \ a. Elem (List a) -> a
 unwrap := \e. case e { ListElem x -> x }
 `
 	checkSource(t, source, nil)
@@ -124,10 +124,10 @@ unwrap := \e. case e { ListElem x -> x }
 func TestDataFamilyNotDeclaredInClass(t *testing.T) {
 	source := `
 data Unit := { Unit: (); }
-class Foo a {
-  empty :: a
+data Foo := \a. {
+  empty: a
 }
-instance Foo Unit {
+impl Foo Unit := {
   data Elem Unit =: UnitElem;
   empty := Unit
 }
@@ -138,11 +138,11 @@ instance Foo Unit {
 func TestDataFamilyArityMismatch(t *testing.T) {
 	source := `
 data Unit := { Unit: (); }
-class Collection a {
+data Collection := \a. {
   data Elem a :: Type;
-  empty :: a
+  empty: a
 }
-instance Collection Unit {
+impl Collection Unit := {
   data Elem Unit Unit =: Bad;
   empty := Unit
 }
@@ -161,20 +161,20 @@ func TestDataFamilyTypeReduction(t *testing.T) {
 data List := \a. { Nil: (); Cons: (a, List a); }
 data Unit := { Unit: (); }
 
-class Collection a {
+data Collection := \a. {
   data Elem a :: Type;
-  empty :: a
+  empty: a
 }
 
-instance Collection (List a) {
+impl Collection (List a) := {
   data Elem (List a) =: ListElem a;
   empty := Nil
 }
 
-wrap :: \ a. a -> Elem (List a)
+wrap: \ a. a -> Elem (List a)
 wrap := \x. ListElem x
 
-id :: Elem (List Int) -> Elem (List Int)
+id: Elem (List Int) -> Elem (List Int)
 id := \x. x
 `
 	checkSource(t, source, config)
@@ -186,17 +186,17 @@ func TestDataFamilyMultipleConstructors(t *testing.T) {
 	source := `
 data Unit := { Unit: (); }
 
-class Container a {
+data Container := \a. {
   data Entry a :: Type;
-  empty :: a
+  empty: a
 }
 
-instance Container Unit {
+impl Container Unit := {
   data Entry Unit =: Singleton Unit | Empty;
   empty := Unit
 }
 
-f :: Entry Unit => Unit
+f: Entry Unit => Unit
 f := \e. case e {
   Singleton x -> x;
   Empty -> Unit
@@ -211,17 +211,17 @@ func TestDataFamilyExhaustiveness(t *testing.T) {
 	source := `
 data Unit := { Unit: (); }
 
-class Container a {
+data Container := \a. {
   data Entry a :: Type;
-  empty :: a
+  empty: a
 }
 
-instance Container Unit {
+impl Container Unit := {
   data Entry Unit =: Singleton Unit | Empty;
   empty := Unit
 }
 
-f :: Entry Unit => Unit
+f: Entry Unit => Unit
 f := \e. case e {
   Singleton x -> x
 }

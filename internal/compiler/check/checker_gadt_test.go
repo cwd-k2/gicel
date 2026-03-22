@@ -158,7 +158,7 @@ func TestGADTExistentialEscapeWithGivenEq(t *testing.T) {
 	source := `
 data Unit := { Unit: (); }
 data Box a := {
-  MkBox :: \b. b -> Box Unit
+  MkBox: \b. b -> Box Unit
 }
 bad :: \a. Box a -> Unit
 bad := \w. (\x. Unit) (case w { MkBox val -> val })
@@ -172,7 +172,7 @@ func TestGADTSafeExistentialsInGivenEq(t *testing.T) {
 	source := `
 data Pair := \a b. { MkPair: (a, b); }
 data Expr a := {
-  PairLit :: \b c. b -> c -> Expr (Pair b c)
+  PairLit: \b c. b -> c -> Expr (Pair b c)
 }
 f :: \a. Expr a -> a
 f := \e. case e { PairLit x y -> MkPair x y }

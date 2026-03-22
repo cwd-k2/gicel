@@ -169,11 +169,11 @@ func TestRegressionDataFamilyConstructorCollision(t *testing.T) {
 data Wrapper := \a. { Wrap: a; }
 data Unit := { Unit: (); }
 
-class Container c {
+data Container := \c. {
   data Elem c :: Type
 }
 
-instance Container (Wrapper a) {
+impl Container (Wrapper a) := {
   data Elem (Wrapper a) =: Wrap a
 }
 `
@@ -187,15 +187,15 @@ func TestRegressionDataFamilyConstructorNoCollision(t *testing.T) {
 data Wrapper := \a. { Wrap: a; }
 data Unit := { Unit: (); }
 
-class Container c {
+data Container := \c. {
   data Elem c :: Type
 }
 
-instance Container (Wrapper a) {
+impl Container (Wrapper a) := {
   data Elem (Wrapper a) =: WrapElem a
 }
 
-x :: Elem (Wrapper Unit)
+x: Elem (Wrapper Unit)
 x := WrapElem Unit
 `
 	checkSource(t, source, nil)
@@ -235,10 +235,10 @@ func TestRegressionFundepBestEffort(t *testing.T) {
 	source := `
 data Unit := { Unit: (); }
 data List := \a. { Nil: (); Cons: (a, List a); }
-class Elem c e | c =: e {
-  extract :: c -> e
+data Elem := \c e | c =: e. {
+  extract: c -> e
 }
-instance Elem (List a) a {
+impl Elem (List a) a := {
   extract := \xs. case xs { Cons x rest => x; Nil => extract Nil }
 }
 f :: List Unit => Unit
@@ -254,10 +254,10 @@ func TestRegressionFundepImprovementFromMeta(t *testing.T) {
 	source := `
 data Unit := { Unit: (); }
 data List := \a. { Nil: (); Cons: (a, List a); }
-class Collection c e | c =: e {
-  empty :: c
+data Collection := \c e | c =: e. {
+  empty: c
 }
-instance Collection (List a) a {
+impl Collection (List a) a := {
   empty := Nil
 }
 main :: List Unit

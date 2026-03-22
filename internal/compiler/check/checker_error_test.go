@@ -105,14 +105,14 @@ func TestErrorBadDoEnding(t *testing.T) {
 
 func TestErrorBadClass(t *testing.T) {
 	source := `data Bool := { True: (); False: (); }
-instance Phantom Bool { foo := \x. x }`
+impl Phantom Bool := { foo := \x. x }`
 	checkSourceExpectCode(t, source, nil, diagnostic.ErrBadClass)
 }
 
 func TestErrorMissingMethod(t *testing.T) {
 	source := `data Bool := { True: (); False: (); }
-class Eq a { eq :: a -> a -> Bool }
-instance Eq Bool {}`
+data Eq := \a. { eq :: a -> a -> Bool }
+impl Eq Bool := {}`
 	checkSourceExpectCode(t, source, nil, diagnostic.ErrMissingMethod)
 }
 

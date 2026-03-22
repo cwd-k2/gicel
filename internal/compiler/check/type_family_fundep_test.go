@@ -93,31 +93,31 @@ data Bool := { True: (); False: (); }
 data Maybe := \a. { Nothing: (); Just: a; }
 
 -- Wrappable class: each type wraps into a different runtime shape.
-class Wrappable w {
+data Wrappable := \w. {
   data Wrapped w :: Type;
-  wrap :: w -> Wrapped w;
-  unwrap :: Wrapped w -> w
+  wrap: w -> Wrapped w;
+  unwrap: Wrapped w -> w
 }
 
-instance Wrappable Int {
+impl Wrappable Int := {
   data Wrapped Int =: IntBox Int;
   wrap := \n. IntBox n;
   unwrap := \w. case w { IntBox n -> n }
 }
 
-instance Wrappable Bool {
+impl Wrappable Bool := {
   data Wrapped Bool =: BoolBit Bool;
   wrap := \b. BoolBit b;
   unwrap := \w. case w { BoolBit b -> b }
 }
 
-instance Wrappable Unit {
+impl Wrappable Unit := {
   data Wrapped Unit =: UnitBox;
   wrap := \_. UnitBox;
   unwrap := \_. Unit
 }
 
-instance Wrappable (Maybe a) {
+impl Wrappable (Maybe a) := {
   data Wrapped (Maybe a) =: OptBox (Maybe a);
   wrap := \m. OptBox m;
   unwrap := \w. case w { OptBox m -> m }
@@ -127,17 +127,17 @@ instance Wrappable (Maybe a) {
 boxedInt :: Wrapped Int
 boxedInt := IntBox 42
 
-boxedBool :: Wrapped Bool
+boxedBool: Wrapped Bool
 boxedBool := BoolBit True
 
-boxedUnit :: Wrapped Unit
+boxedUnit: Wrapped Unit
 boxedUnit := UnitBox
 
 -- Pattern matching on data family types.
 isIntBox :: Wrapped Int -> Int
 isIntBox := \w. case w { IntBox n -> n }
 
-isBoolBit :: Wrapped Bool -> Bool
+isBoolBit: Wrapped Bool -> Bool
 isBoolBit := \w. case w { BoolBit b -> b }
 `
 	checkSource(t, source, config)
@@ -159,15 +159,15 @@ data Maybe := \a. { Nothing: (); Just: a; }
 data List := \a. { Nil: (); Cons: (a, List a); }
 
 -- Convert class with fundep: source type determines target.
-class Convert a b | a =: b {
-  convert :: a -> b
+data Convert := \a b | a =: b. {
+  convert: a -> b
 }
 
-instance Convert Bool Int {
+impl Convert Bool Int := {
   convert := \b. case b { True => 1; False => 0 }
 }
 
-instance Convert Unit Bool {
+impl Convert Unit Bool := {
   convert := \_. True
 }
 
@@ -180,15 +180,15 @@ unitToBool :: Bool
 unitToBool := convert Unit
 
 -- HasElem class: container determines element type.
-class HasElem c e | c =: e {
-  getFirst :: c -> Maybe e
+data HasElem := \c e | c =: e. {
+  getFirst: c -> Maybe e
 }
 
-instance HasElem (List a) a {
+impl HasElem (List a) a := {
   getFirst := \xs. case xs { Cons x _ => Just x; Nil => Nothing }
 }
 
-instance HasElem (Maybe a) a {
+impl HasElem (Maybe a) a := {
   getFirst := \m. case m { Just x => Just x; Nothing => Nothing }
 }
 
@@ -201,12 +201,12 @@ firstOfMaybe :: Maybe Bool
 firstOfMaybe := getFirst (Just True)
 
 -- Bidirectional fundep.
-class Iso a b | a =: b, b =: a {
-  forward :: a -> b;
-  backward :: b -> a
+data Iso := \a b | a =: b, b =: a. {
+  forward: a -> b;
+  backward: b -> a
 }
 
-instance Iso Bool Int {
+impl Iso Bool Int := {
   forward := \b. case b { True => 1; False => 0 };
   backward := \_. True
 }
@@ -236,12 +236,12 @@ type IsJust (m: Type) :: Bool := {
   IsJust _ =: False
 }
 
-class Container c {
+data Container := \c. {
   data Elem c :: Type;
-  cempty :: c
+  cempty: c
 }
 
-instance Container (Maybe a) {
+impl Container (Maybe a) := {
   data Elem (Maybe a) =: MaybeElem a;
   cempty := Nothing
 }
@@ -271,11 +271,11 @@ type Elem (c: Type) :: Type := {
 }
 
 -- Fundep class where one param is a type family application.
-class Extract c e | c =: e {
-  extract :: c -> Maybe e
+data Extract := \c e | c =: e. {
+  extract: c -> Maybe e
 }
 
-instance Extract (List a) a {
+impl Extract (List a) a := {
   extract := \xs. case xs { Cons x _ => Just x; Nil => Nothing }
 }
 

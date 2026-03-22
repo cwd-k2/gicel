@@ -32,7 +32,7 @@ import (
 func TestProbeA_RowUnify_EmptyRows(t *testing.T) {
 	// Use Record {} or () in type position for empty record.
 	source := `
-f :: () -> ()
+f: () -> ()
 f := \x. x
 
 main := f {}
@@ -43,7 +43,7 @@ main := f {}
 // TestProbeA_RowUnify_SingleField — single-field record round-trip.
 func TestProbeA_RowUnify_SingleField(t *testing.T) {
 	source := `
-f :: Record { x: Int } -> Record { x: Int }
+f: Record { x: Int } -> Record { x: Int }
 f := \r. r
 
 main := f { x: 42 }
@@ -84,7 +84,7 @@ func TestProbeA_RowUnify_OrderInsensitivity(t *testing.T) {
 	source := `
 data Bool := { True: (); False: (); }
 
-f :: Record { a: Bool, b: Int } -> Bool
+f: Record { a: Bool, b: Int } -> Bool
 f := \r. r.#a
 
 -- Construct with b first, a second — should still unify.
@@ -114,7 +114,7 @@ func TestProbeA_RowUnify_ExtraFieldVsClosedRow(t *testing.T) {
 	source := `
 data Bool := { True: (); False: (); }
 
-f :: Record { x: Bool } -> Bool
+f: Record { x: Bool } -> Bool
 f := \r. r.#x
 
 -- Extra field y should cause a row mismatch error.
@@ -165,7 +165,7 @@ f := \x. { x: f x }
 // () -> () is valid (unit type).
 func TestProbeA_EmptyRecordUnifiesWithEmptyRecord(t *testing.T) {
 	source := `
-f :: () -> ()
+f: () -> ()
 f := \x. x
 
 main := f {}
@@ -200,7 +200,7 @@ main := { r | x: False }
 func TestProbeA_RowUnify_RecordAnnotationVsLiteralBareRow(t *testing.T) {
 	// This SHOULD work but doesn't: bare {} in type annotation.
 	source := `
-f :: {} -> {}
+f: {} -> {}
 f := \x. x
 main := f {}
 `

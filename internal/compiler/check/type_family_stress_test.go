@@ -175,22 +175,22 @@ type Elem (c: Type) :: Type := {
 }
 
 -- A class whose method return type is a type family application.
-class Container c {
-  chead :: c -> Elem c
+data Container := \c. {
+  chead: c -> Elem c
 }
 
 -- Use a top-level assumption as the fallback for Nil.
 nilFallback :: \ a. a
 nilFallback := assumption
 
-instance Container (List a) {
+impl Container (List a) := {
   chead := \xs. case xs {
     Cons x _ => x;
     Nil => nilFallback
   }
 }
 
-f :: List Unit => Elem (List Unit)
+f: List Unit => Elem (List Unit)
 f := chead
 `
 	checkSource(t, source, nil)
@@ -205,30 +205,30 @@ data List := \a. { Nil: (); Cons: (a, List a); }
 data Pair := \a b. { MkPair: (a, b); }
 data Maybe := \a. { Nothing: (); Just: a; }
 
-emptyPair :: \ a b. Pair a b
+emptyPair: \ a b. Pair a b
 emptyPair := assumption
 
-class Collection c {
+data Collection := \c. {
   data Key c :: Type;
-  empty :: c
+  empty: c
 }
 
-instance Collection (List a) {
+impl Collection (List a) := {
   data Key (List a) =: ListKey a;
   empty := Nil
 }
 
-instance Collection Unit {
+impl Collection Unit := {
   data Key Unit =: UnitKey;
   empty := Unit
 }
 
-instance Collection (Pair a b) {
+impl Collection (Pair a b) := {
   data Key (Pair a b) =: PairKey a;
   empty := emptyPair
 }
 
-instance Collection (Maybe a) {
+impl Collection (Maybe a) := {
   data Key (Maybe a) =: MaybeKey a;
   empty := Nothing
 }
@@ -237,13 +237,13 @@ instance Collection (Maybe a) {
 k1 :: Key (List Unit)
 k1 := ListKey Unit
 
-k2 :: Key Unit
+k2: Key Unit
 k2 := UnitKey
 
-k3 :: Key (Pair Unit Unit)
+k3: Key (Pair Unit Unit)
 k3 := PairKey Unit
 
-k4 :: Key (Maybe Unit)
+k4: Key (Maybe Unit)
 k4 := MaybeKey Unit
 
 -- Pattern match on data family constructors.
@@ -262,49 +262,49 @@ data Pair := \a b. { MkPair: (a, b); }
 data Either a b := Left a | Right b
 data Maybe := \a. { Nothing: (); Just: a; }
 
-nilFallback :: \ a. a
+nilFallback: \ a. a
 nilFallback := assumption
 
-class HasRepr c {
+data HasRepr := \c. {
   data Repr c :: Type;
-  toRepr :: c -> Repr c
+  toRepr: c -> Repr c
 }
 
-instance HasRepr Unit {
+impl HasRepr Unit := {
   data Repr Unit =: ReprUnit;
   toRepr := \_. ReprUnit
 }
 
-instance HasRepr (List a) {
+impl HasRepr (List a) := {
   data Repr (List a) =: ReprList a;
   toRepr := \xs. case xs { Cons x _ => ReprList x; Nil => nilFallback }
 }
 
-instance HasRepr (Pair a b) {
+impl HasRepr (Pair a b) := {
   data Repr (Pair a b) =: ReprPair a b;
   toRepr := \p. case p { MkPair a b => ReprPair a b }
 }
 
-instance HasRepr (Either a b) {
+impl HasRepr (Either a b) := {
   data Repr (Either a b) =: ReprLeft a | ReprRight b;
   toRepr := \e. case e { Left a => ReprLeft a; Right b => ReprRight b }
 }
 
-instance HasRepr (Maybe a) {
+impl HasRepr (Maybe a) := {
   data Repr (Maybe a) =: ReprJust a | ReprNothing;
   toRepr := \m. case m { Just x => ReprJust x; Nothing => ReprNothing }
 }
 
-x1 :: Repr Unit
+x1: Repr Unit
 x1 := ReprUnit
 
-x2 :: Repr (List Unit)
+x2: Repr (List Unit)
 x2 := ReprList Unit
 
-x3 :: Repr (Pair Unit Unit)
+x3: Repr (Pair Unit Unit)
 x3 := ReprPair Unit Unit
 
-x4 :: Repr (Maybe Unit)
+x4: Repr (Maybe Unit)
 x4 := case (toRepr (Just Unit)) {
   ReprJust x => ReprJust x;
   ReprNothing => ReprNothing
@@ -348,10 +348,10 @@ type DeepElem (c: Type) :: Type := {
   DeepElem (List a) =: a
 }
 
-f :: DeepElem (Maybe (List Unit)) -> Unit
+f: DeepElem (Maybe (List Unit)) -> Unit
 f := \x. x
 
-g :: DeepElem (List (Maybe Unit)) -> Unit
+g: DeepElem (List (Maybe Unit)) -> Unit
 g := \x. x
 `
 	checkSource(t, source, nil)
@@ -364,17 +364,17 @@ func TestBoundaryFunDepAllDetermined(t *testing.T) {
 	source := `
 data Unit := { Unit: (); }
 
-class Iso a b | a =: b, b =: a {
-  to :: a -> b;
-  from :: b -> a
+data Iso := \a b | a =: b, b =: a. {
+  to: a -> b;
+  from: b -> a
 }
 
-instance Iso Unit Unit {
+impl Iso Unit Unit := {
   to := \x. x;
   from := \x. x
 }
 
-f :: Unit => Unit
+f: Unit => Unit
 f := to
 `
 	checkSource(t, source, nil)
@@ -389,7 +389,7 @@ func TestBoundaryLubPostStatesZeroBranches(t *testing.T) {
 	// The checker may report non-exhaustive warning, so we just verify no panic.
 	source := `
 data Void := {
-  VoidCon :: Void
+  VoidCon: Void
 }
 data Unit := { Unit: (); }
 absurd :: Void -> Unit
@@ -527,10 +527,10 @@ type Elem (c: Type) :: Type := {
   Elem (List a) =: a
 }
 
-f :: Elem (Maybe Unit) -> Unit
+f: Elem (Maybe Unit) -> Unit
 f := \x. x
 
-g :: Elem (List Unit) -> Unit
+g: Elem (List Unit) -> Unit
 g := \x. x
 `
 	checkSource(t, source, nil)
@@ -542,12 +542,12 @@ func TestBoundaryDataFamilyExhaustivenessMultiCon(t *testing.T) {
 	source := `
 data Unit := { Unit: (); }
 
-class HasTag c {
+data HasTag := \c. {
   data Tag c :: Type;
-  getTag :: c -> Tag c
+  getTag: c -> Tag c
 }
 
-instance HasTag Unit {
+impl HasTag Unit := {
   data Tag Unit =: TagA | TagB | TagC;
   getTag := \_. TagA
 }
@@ -567,12 +567,12 @@ func TestBoundaryDataFamilyExhaustivenessIncomplete(t *testing.T) {
 	source := `
 data Unit := { Unit: (); }
 
-class HasTag c {
+data HasTag := \c. {
   data Tag c :: Type;
-  getTag :: c -> Tag c
+  getTag: c -> Tag c
 }
 
-instance HasTag Unit {
+impl HasTag Unit := {
   data Tag Unit =: TagA | TagB | TagC;
   getTag := \_. TagA
 }
