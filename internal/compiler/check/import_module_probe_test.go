@@ -202,7 +202,7 @@ import MaybeLib as ML
 data Bool := { True: (); False: (); }
 
 f :: ML.Maybe Bool -> Bool
-f := \x. case x { ML.Just b -> b; ML.Nothing => False }
+f := \x. case x { ML.Just b => b; ML.Nothing => False }
 
 main := f (ML.Just True)
 `

@@ -198,8 +198,8 @@ impl Container Unit := {
 
 f :: Entry Unit => Unit
 f := \e. case e {
-  Singleton x -> x;
-  Empty -> Unit
+  Singleton x => x;
+  Empty => Unit
 }
 `
 	checkSource(t, source, nil)
@@ -223,7 +223,7 @@ impl Container Unit := {
 
 f :: Entry Unit => Unit
 f := \e. case e {
-  Singleton x -> x
+  Singleton x => x
 }
 `
 	// Missing Empty branch → non-exhaustive

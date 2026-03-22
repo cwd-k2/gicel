@@ -218,7 +218,7 @@ func TestGradeTypeChangingPreservation(t *testing.T) {
 	source := `
 data Mult := { Unrestricted: (); Affine: (); Linear: (); }
 data Unit := { Unit: (); }
-data S := A | B | C
+data S := { A: (); B: (); C: (); }
 step1 :: Computation { ch: A @Linear } { ch: B @Linear } Unit
 step1 := assumption
 step2 :: Computation { ch: B @Linear } { ch: C @Linear } Unit

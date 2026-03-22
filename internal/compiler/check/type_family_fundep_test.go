@@ -102,13 +102,13 @@ data Wrappable := \w. {
 impl Wrappable Int := {
   data Wrapped Int =: IntBox Int;
   wrap := \n. IntBox n;
-  unwrap := \w. case w { IntBox n -> n }
+  unwrap := \w. case w { IntBox n => n }
 }
 
 impl Wrappable Bool := {
   data Wrapped Bool =: BoolBit Bool;
   wrap := \b. BoolBit b;
-  unwrap := \w. case w { BoolBit b -> b }
+  unwrap := \w. case w { BoolBit b => b }
 }
 
 impl Wrappable Unit := {
@@ -135,10 +135,10 @@ boxedUnit := UnitBox
 
 -- Pattern matching on data family types.
 isIntBox :: Wrapped Int -> Int
-isIntBox := \w. case w { IntBox n -> n }
+isIntBox := \w. case w { IntBox n => n }
 
 isBoolBit :: Wrapped Bool -> Bool
-isBoolBit := \w. case w { BoolBit b -> b }
+isBoolBit := \w. case w { BoolBit b => b }
 `
 	checkSource(t, source, config)
 }

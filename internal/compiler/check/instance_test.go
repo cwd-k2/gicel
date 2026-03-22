@@ -146,7 +146,7 @@ impl Eq Bool := { eq := \x y. case x { True => y; False => case y { True => Fals
 impl Eq a => Eq (Maybe a) := {
   eq := \x y. case x {
     Nothing => case y { Nothing => True; Just _ => False };
-    Just a  -> case y { Nothing => False; Just b -> eq a b }
+    Just a  => case y { Nothing => False; Just b => eq a b }
   }
 }`
 	checkSource(t, source, nil)
@@ -160,7 +160,7 @@ data Eq := \a. { eq: a -> a -> Bool }
 impl Eq a => Eq (Maybe a) := {
   eq := \x y. case x {
     Nothing => case y { Nothing => True; Just _ => False };
-    Just a  -> case y { Nothing => False; Just b -> eq a b }
+    Just a  => case y { Nothing => False; Just b => eq a b }
   }
 }
 impl Eq (Maybe Bool) := {

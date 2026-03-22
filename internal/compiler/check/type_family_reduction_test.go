@@ -1027,7 +1027,7 @@ impl Container Unit := {
 
 f :: Entry Unit => Unit
 f := \e. case e {
-  Singleton x -> x
+  Singleton x => x
 }
 `
 	checkSourceExpectCode(t, source, nil, diagnostic.ErrNonExhaustive)
@@ -1050,8 +1050,8 @@ impl Container Unit := {
 
 f :: Entry Unit => Unit
 f := \e. case e {
-  Singleton x -> x;
-  Empty -> Unit
+  Singleton x => x;
+  Empty => Unit
 }
 `
 	checkSource(t, source, nil)

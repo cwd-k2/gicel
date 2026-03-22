@@ -534,7 +534,7 @@ type Elem (c: Type) :: Type := {
   Elem (List a) =: a
 }
 
-applyToUnit: (Unit => Unit) -> Unit
+applyToUnit :: (Unit => Unit) -> Unit
 applyToUnit := \f. f Unit
 
 test :: Unit

@@ -42,10 +42,10 @@ func TestStressHigherRankNested(t *testing.T) {
 data Bool := { True: (); False: (); }
 data Maybe := \a. { Nothing: (); Just: a; }
 
-apply: (\ a. a -> a) -> Bool -> Bool
+apply :: (\ a. a -> a) -> Bool -> Bool
 apply := \f x. f x
 
-applyMaybe: (\ a. a -> Maybe a) -> Bool -> Maybe Bool
+applyMaybe :: (\ a. a -> Maybe a) -> Bool -> Maybe Bool
 applyMaybe := \f x. f x
 
 main := (apply (\x. x) True, applyMaybe (\x. Just x) False)
@@ -57,8 +57,8 @@ main := (apply (\x. x) True, applyMaybe (\x. Just x) False)
 func TestStressManyUnannLetBindings(t *testing.T) {
 	var sb strings.Builder
 	sb.WriteString("data Bool := { True: (); False: (); }\n")
-	sb.WriteString("class Eq a { eq :: a -> a -> Bool }\n")
-	sb.WriteString("instance Eq Bool { eq := \\x y. True }\n\n")
+	sb.WriteString("data Eq := \\a. { eq: a -> a -> Bool }\n")
+	sb.WriteString("impl Eq Bool { eq := \\x y. True }\n\n")
 
 	// 15 unannotated bindings, each using eq.
 	for i := range 15 {
@@ -136,7 +136,7 @@ func TestStressExhaustiveGADTManyCons(t *testing.T) {
 		} else {
 			sb.WriteString("  ")
 		}
-		sb.WriteString(fmt.Sprintf("Con%d :: Bool -> Expr Bool", i))
+		sb.WriteString(fmt.Sprintf("Con%d: Bool", i))
 	}
 	sb.WriteString("\n}\n\n")
 	// Match all 10 constructors, branches separated by ;
@@ -145,7 +145,7 @@ func TestStressExhaustiveGADTManyCons(t *testing.T) {
 		if i > 0 {
 			sb.WriteString(";\n")
 		}
-		sb.WriteString(fmt.Sprintf("  Con%d b -> b", i))
+		sb.WriteString(fmt.Sprintf("  Con%d b => b", i))
 	}
 	sb.WriteString("\n}\n")
 	sb.WriteString("main := eval (Con0 True)\n")
@@ -210,13 +210,13 @@ main := fmap f (Just True)
 func TestStressManyContextualInstances(t *testing.T) {
 	var sb strings.Builder
 	sb.WriteString("data Bool := { True: (); False: (); }\n")
-	sb.WriteString("class Eq a { eq :: a -> a -> Bool }\n")
-	sb.WriteString("instance Eq Bool { eq := \\x y. True }\n\n")
+	sb.WriteString("data Eq := \\a. { eq: a -> a -> Bool }\n")
+	sb.WriteString("impl Eq Bool { eq := \\x y. True }\n\n")
 
 	// 8 wrapper types, each with a contextual Eq instance.
 	for i := range 8 {
 		sb.WriteString(fmt.Sprintf("data W%d a := MkW%d a\n", i, i))
-		sb.WriteString(fmt.Sprintf("instance Eq a => Eq (W%d a) { eq := \\x y. True }\n\n", i))
+		sb.WriteString(fmt.Sprintf("impl Eq a => Eq (W%d a) { eq := \\x y. True }\n\n", i))
 	}
 
 	// Nested application: Eq (W0 (W1 (W2 (W3 (W4 (W5 (W6 (W7 Bool))))))))

@@ -129,12 +129,12 @@ func TestStressPolyKindedClassManyInstances(t *testing.T) {
 		fmt.Fprintf(&sb, "data D%d a := MkD%d a\n", i, i)
 	}
 	// Poly-kinded Functor
-	sb.WriteString("\nclass Functor (f: k -> Type) {\n")
-	sb.WriteString("  fmap :: \\ a b. (a -> b) -> f a -> f b\n")
+	sb.WriteString("\ndata Functor := \\(f: k -> Type). {\n")
+	sb.WriteString("  fmap: \\ a b. (a -> b) -> f a -> f b\n")
 	sb.WriteString("}\n\n")
 	// 10 instances
 	for i := 0; i < 10; i++ {
-		fmt.Fprintf(&sb, "instance Functor D%d {\n", i)
+		fmt.Fprintf(&sb, "impl Functor D%d {\n", i)
 		fmt.Fprintf(&sb, "  fmap := \\g x. case x { MkD%d v => MkD%d (g v) }\n", i, i)
 		sb.WriteString("}\n\n")
 	}
