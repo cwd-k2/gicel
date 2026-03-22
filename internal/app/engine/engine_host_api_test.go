@@ -482,7 +482,7 @@ func TestCustomPack(t *testing.T) {
 		return r.RegisterModule("Custom", `
 import Prelude
 
-myConst: Int
+myConst :: Int
 myConst := assumption
 
 main := myConst

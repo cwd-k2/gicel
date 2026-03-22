@@ -18,10 +18,10 @@ func TestDataKindsDBState(t *testing.T) {
 data DBState := { Opened: DBState; Closed: DBState; }
 data DB := \s. { MkDB: DB s; }
 
-open: DB Closed => DB Opened
+open :: DB Closed => DB Opened
 open := \_. MkDB
 
-close: DB Opened => DB Closed
+close :: DB Opened => DB Closed
 close := \_. MkDB
 
 main := close (open (MkDB :: DB Closed))
@@ -50,10 +50,10 @@ func TestDataKindsInRow(t *testing.T) {
 import Prelude
 data DBState := { Opened: DBState; Closed: DBState; }
 
-readDB: () -> Computation { db: Int } { db: Int } Int
+readDB :: () -> Computation { db: Int } { db: Int } Int
 readDB := assumption
 
-main: Computation { db: Int } { db: Int } Int
+main :: Computation { db: Int } { db: Int } Int
 main := do { readDB () }
 `)
 	if err != nil {
@@ -100,7 +100,7 @@ func TestGADTEvalExpr(t *testing.T) {
 import Prelude
 data Expr a := { LitBool: Bool -> Expr Bool; Not: Expr Bool -> Expr Bool }
 
-eval: Expr Bool -> Bool
+eval :: Expr Bool -> Bool
 eval := fix (\self e. case e {
   LitBool b -> b;
   Not inner -> case self inner { True => False; False => True }
@@ -129,7 +129,7 @@ data DB := \s. { MkDB: DB s; }
 
 data Action s := { Open: Action Opened; Close: Action Closed }
 
-describe: Action Opened => DB Opened
+describe :: Action Opened => DB Opened
 describe := \a. case a { Open -> MkDB }
 
 main := describe Open

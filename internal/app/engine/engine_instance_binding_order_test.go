@@ -20,7 +20,7 @@ func TestInstanceMethodReferencesRegularBinding(t *testing.T) {
 import Prelude
 data Wrap := \f. { wrap: \ a. a -> f a }
 
-myJust: \ a. a -> Maybe a
+myJust :: \ a. a -> Maybe a
 myJust := \x. Just x
 
 impl Wrap Maybe := { wrap := myJust }
@@ -50,7 +50,7 @@ import Prelude
 
 data Scale := \a. { scale: Int -> a -> a }
 
-scaleInt: Int -> Int -> Int
+scaleInt :: Int -> Int -> Int
 scaleInt := \n x. n * x
 
 impl Scale Int := { scale := scaleInt }

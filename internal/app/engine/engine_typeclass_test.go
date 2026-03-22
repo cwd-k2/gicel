@@ -277,7 +277,7 @@ data Coercible := \a b. { coerce: a -> b }
 
 impl Coercible Bool Bool := { coerce := \x. x }
 
-main: Bool
+main :: Bool
 main := coerce True
 `)
 	if err != nil {

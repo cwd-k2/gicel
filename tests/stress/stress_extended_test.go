@@ -211,7 +211,7 @@ func TestStressDeepSelfRecursion(t *testing.T) {
 	source := `
 import Prelude
 
-countdown: Int -> Int
+countdown :: Int -> Int
 countdown := fix (\self n. case n == 0 { True => 0; False => self (n - 1) })
 
 main := countdown 500
@@ -334,7 +334,7 @@ func TestStressRecursiveListFoldl(t *testing.T) {
 	source := `
 import Prelude
 
-mkRange: Int -> Int -> List Int
+mkRange :: Int -> Int -> List Int
 mkRange := fix (\self lo hi. case lo == hi { True => Nil; False => Cons lo (self (lo + 1) hi) })
 
 main := foldl (\acc x. acc + x) 0 (mkRange 1 201)
@@ -747,7 +747,7 @@ func TestStressAllocLimitRecursiveRecord(t *testing.T) {
 	source := `
 import Prelude
 
-build: Int -> Record { a: Int, b: Int, c: Int, d: Int, e: Int } -> Int
+build :: Int -> Record { a: Int, b: Int, c: Int, d: Int, e: Int } -> Int
 build := fix (\self n r. case n == 0 { True => r.#a; False => self (n - 1) { r | a: n } })
 
 main := build 10000 { a: 0, b: 0, c: 0, d: 0, e: 0 }
@@ -779,7 +779,7 @@ func TestStressStepLimitBranching(t *testing.T) {
 	source := `
 import Prelude
 
-longBranch: Int -> Int
+longBranch :: Int -> Int
 longBranch := fix (\self n. case n == 0 { True => 0; False => self (n - 1) })
 
 main := case True { True => longBranch 10000; False => 42 }

@@ -257,7 +257,7 @@ func TestTypeAlias(t *testing.T) {
 import Prelude
 type Effect := \r a. Computation r r a
 
-main: Effect {} Bool
+main :: Effect {} Bool
 main := pure True
 `)
 	if err != nil {

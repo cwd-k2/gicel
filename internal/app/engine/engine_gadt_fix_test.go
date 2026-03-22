@@ -23,7 +23,7 @@ data Expr a := {
   AddInt: Expr Int -> Expr Int -> Expr Int
 }
 
-renderExpr: \a. Expr a -> String
+renderExpr :: \a. Expr a -> String
 renderExpr := fix (\self expr. case expr {
   IntLit n     -> showInt n;
   BoolLit b    -> case b { True => "t"; False => "f" };
@@ -52,7 +52,7 @@ func TestMonomorphicFixRegression(t *testing.T) {
 	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 
-factorial: Int -> Int
+factorial :: Int -> Int
 factorial := fix (\self n. case n == 0 { True => 1; False => n * self (n - 1) })
 
 main := factorial 5
@@ -79,10 +79,10 @@ func TestFixNonLambdaFallback(t *testing.T) {
 	_, err := eng.NewRuntime(context.Background(), `
 import Prelude
 
-id: \a. a -> a
+id :: \a. a -> a
 id := \x. x
 
-val: Int -> Int
+val :: Int -> Int
 val := fix id
 
 main := 0

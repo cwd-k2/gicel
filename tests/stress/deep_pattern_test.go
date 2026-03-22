@@ -32,10 +32,10 @@ infixr 9 .
 (.) :: \ a b c. (b -> c) -> (a -> b) -> a -> c
 (.) := \f g x. f (g x)
 
-not: Bool -> Bool
+not :: Bool -> Bool
 not := \b. case b { True => False; False => True }
 
-id: \ a. a -> a
+id :: \ a. a -> a
 id := \x. x
 
 main := (not . id) True
@@ -61,7 +61,7 @@ infixr 9 .
 (.) :: \ a b c. (b -> c) -> (a -> b) -> a -> c
 (.) := \f g x. f (g x)
 
-id: \ a. a -> a
+id :: \ a. a -> a
 id := \x. x
 
 main := (id . id) True
@@ -335,7 +335,7 @@ import Prelude
 applyBoth :: (\a. a -> a) -> Bool
 applyBoth := \f. f True
 
-not: Bool -> Bool
+not :: Bool -> Bool
 not := \b. case b { True => False; False => True }
 
 main := applyBoth not
@@ -532,7 +532,7 @@ func TestGADTRefinementDisjointBranches(t *testing.T) {
 import Prelude
 data Token a := { BoolTok: Bool -> Token Bool; UnitTok: Token () }
 
-toBool: Token Bool -> Bool
+toBool :: Token Bool -> Bool
 toBool := \t. case t { BoolTok b -> b }
 
 main := toBool (BoolTok True)
@@ -584,7 +584,7 @@ main := myLength (Cons True (Cons False (Cons True Nil)))
 	rt2, err := eng2.NewRuntime(context.Background(), `
 import Prelude
 
-myLength: List a -> Int
+myLength :: List a -> Int
 myLength := fix (\self xs. case xs { Nil => 0; Cons _ rest -> 1 + self rest })
 
 main := myLength (Cons True (Cons False (Cons True Nil)))
@@ -613,10 +613,10 @@ func TestNestedConstructorPatternMatch(t *testing.T) {
 import Prelude
 data Pair := \a b. { MkPair: a -> b -> Pair a b; }
 
-fst: \a b. Pair a b -> a
+fst :: \a b. Pair a b -> a
 fst := \p. case p { MkPair x _ => x }
 
-snd: \a b. Pair a b -> b
+snd :: \a b. Pair a b -> b
 snd := \p. case p { MkPair _ y -> y }
 
 main := fst (MkPair True False)
@@ -1246,7 +1246,7 @@ data Phase := Building | Running
 
 data Builder (p: Phase) := MkBuilder
 
-start: Builder Building
+start :: Builder Building
 start := MkBuilder
 
 main := start
