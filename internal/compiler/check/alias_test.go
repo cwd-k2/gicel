@@ -12,8 +12,8 @@ import (
 
 func TestAliasCycleDirect(t *testing.T) {
 	errMsg := checkSourceExpectCode(t, `type A := A`, nil, diagnostic.ErrCyclicAlias)
-	if !strings.Contains(errMsg, "A => A") {
-		t.Errorf("expected cycle path A => A, got: %s", errMsg)
+	if !strings.Contains(errMsg, "A -> A") {
+		t.Errorf("expected cycle path A -> A, got: %s", errMsg)
 	}
 }
 

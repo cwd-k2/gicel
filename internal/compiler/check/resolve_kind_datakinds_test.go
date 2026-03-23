@@ -38,8 +38,8 @@ func TestKDataArity(t *testing.T) {
 
 func TestResolveUserKind(t *testing.T) {
 	// \ (s: DBState). T → the kind annotation DBState should resolve to KData{DBState}
-	source := `data DBState := { Opened: (); Closed: (); }
-data DB := \s. { MkDB: (); }
+	source := `data DBState := { Opened: DBState; Closed: DBState; }
+data DB := \s. { MkDB: DB s; }
 f :: \ (s: DBState). DB s -> DB s
 f := \x. x
 main := f (MkDB :: DB Opened)`
@@ -65,8 +65,8 @@ main := (MkProxy :: Proxy Nothing)`
 
 func TestPromotedInTypeSignature(t *testing.T) {
 	// DB Opened => DB Closed should kind-check
-	source := `data DBState := { Opened: (); Closed: (); }
-data DB := \s. { MkDB: (); }
+	source := `data DBState := { Opened: DBState; Closed: DBState; }
+data DB := \s. { MkDB: DB s; }
 close :: DB Opened -> DB Closed
 close := \_. MkDB
 main := close MkDB`
