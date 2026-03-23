@@ -126,7 +126,7 @@ func prettyPattern(p Pattern) string {
 func PrettyProgram(p *Program) string {
 	var b strings.Builder
 	for _, d := range p.DataDecls {
-		fmt.Fprintf(&b, "data %s", d.Name)
+		fmt.Fprintf(&b, "form %s", d.Name)
 		for _, tp := range d.TyParams {
 			fmt.Fprintf(&b, " %s", tp.Name)
 		}

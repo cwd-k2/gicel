@@ -206,7 +206,7 @@ main := x
 func TestProbeE_OverlappingInstances(t *testing.T) {
 	src := `
 import Prelude
-data C := \a. { m: a -> a }
+form C := \a. { m: a -> a }
 impl C Int := { m := \x. x }
 impl C a := { m := \x. x }
 main := m 42
@@ -226,7 +226,7 @@ main := m 42
 func TestProbeE_NonExhaustivePatterns(t *testing.T) {
 	src := `
 import Prelude
-data D := A | B | C
+form D := A | B | C
 f := \x. case x { A => 1; B => 2 }
 main := f C
 `
@@ -409,12 +409,12 @@ func TestProbeE_V6_MultilineInstanceMethod(t *testing.T) {
 	src := `
 import Prelude
 
-data Comonad := \w. Functor w => {
+form Comonad := \w. Functor w => {
   extract: \a. w a -> a;
   extend: \a b. (w a -> b) -> w a -> w b;
 }
 
-data Z := \a. { MkZ: List a -> a -> List a -> Z a; }
+form Z := \a. { MkZ: List a -> a -> List a -> Z a; }
 
 impl Functor Z := {
   fmap := \f z. case z { MkZ ls c rs => MkZ (map f ls) (f c) (map f rs) }

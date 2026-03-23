@@ -12,7 +12,7 @@ import (
 )
 
 func TestCheckDataDecl(t *testing.T) {
-	prog := checkSource(t, "data Bool := { True: Bool; False: Bool; }", nil)
+	prog := checkSource(t, "form Bool := { True: Bool; False: Bool; }", nil)
 	if len(prog.DataDecls) != 1 {
 		t.Fatalf("expected 1 data decl, got %d", len(prog.DataDecls))
 	}
@@ -34,7 +34,7 @@ func TestCheckIdentity(t *testing.T) {
 }
 
 func TestCheckApplication(t *testing.T) {
-	source := `data Bool := { True: Bool; False: Bool; }
+	source := `form Bool := { True: Bool; False: Bool; }
 id := \x. x
 main := id True`
 	prog := checkSource(t, source, nil)
@@ -55,7 +55,7 @@ func TestCheckAssumption(t *testing.T) {
 			"dbOpen": types.MkArrow(types.Con("Unit"), types.Con("Unit")),
 		},
 	}
-	source := `data Unit := { Unit: Unit; }
+	source := `form Unit := { Unit: Unit; }
 dbOpen := assumption`
 	prog := checkSource(t, source, config)
 	found := false
@@ -124,7 +124,7 @@ func TestCheckLitMismatch(t *testing.T) {
 }
 
 func TestCheckDoBlock(t *testing.T) {
-	source := `data Unit := { Unit: Unit; }
+	source := `form Unit := { Unit: Unit; }
 main := do { pure Unit }`
 	prog := checkSource(t, source, nil)
 	if len(prog.Bindings) != 1 {
@@ -134,7 +134,7 @@ main := do { pure Unit }`
 
 func TestCheckTypeAlias(t *testing.T) {
 	// Test with inferred Computation type via pure.
-	source := `data Unit := { Unit: Unit; }
+	source := `form Unit := { Unit: Unit; }
 main := pure Unit`
 	prog := checkSource(t, source, nil)
 	if len(prog.Bindings) != 1 {

@@ -2,14 +2,14 @@ import Prelude
 
 type Eff := \r a. Computation r r a
 
-data Ordering := { LT: Ordering; EQ: Ordering; GT: Ordering }
-data Tree := \a. { Leaf: a -> Tree a; Branch: Tree a -> Tree a -> Tree a }
-data Color := { Red: Color; Green: Color; Blue: Color }
+form Ordering := { LT: Ordering; EQ: Ordering; GT: Ordering }
+form Tree := \a. { Leaf: a -> Tree a; Branch: Tree a -> Tree a -> Tree a }
+form Color := { Red: Color; Green: Color; Blue: Color }
 
-data Eq := \a. { eq: a -> a -> Bool }
-data Ord := \a. Eq a => { cmp: a -> a -> Ordering }
-data Functor := \f. { fmap: \a b. (a -> b) -> f a -> f b }
-data Coercible := \a b. { coerce: a -> b }
+form Eq := \a. { eq: a -> a -> Bool }
+form Ord := \a. Eq a => { cmp: a -> a -> Ordering }
+form Functor := \f. { fmap: \a b. (a -> b) -> f a -> f b }
+form Coercible := \a b. { coerce: a -> b }
 
 impl Eq Bool := {
   eq := \x y. case x {

@@ -36,7 +36,7 @@ const (
 	// Keywords (9)
 	TokCase
 	TokDo
-	TokData
+	TokForm
 	TokType
 	TokInfixl
 	TokInfixr

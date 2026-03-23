@@ -22,19 +22,19 @@ type DeclValueDef struct {
 	S    span.Span
 }
 
-// DeclData is a nominal type declaration.
+// DeclForm is a nominal type declaration.
 //
-// Unified syntax: data Name [:: Kind] := Body;
+// Unified syntax: form Name [:: Kind] := Body;
 // Body is a type expression: \params. [constraints =>] { fields/constructors }.
 // The checker decomposes Body into parameters, constraints, and fields.
 //
 // Examples:
 //
-//	data Maybe := \a. { Nothing: (); Just: a; };
-//	data Eq := \a. { eq: a -> a -> Bool; neq: a -> a -> Bool := \x y. not (eq x y); };
-//	data Ord := \a. Eq a => { compare: a -> a -> Ordering; };
-//	data Collection := \(c: Type). { type Elem :: Type; empty: c; insert: Elem c -> c -> c; };
-type DeclData struct {
+//	form Maybe := \a. { Nothing: (); Just: a; };
+//	form Eq := \a. { eq: a -> a -> Bool; neq: a -> a -> Bool := \x y. not (eq x y); };
+//	form Ord := \a. Eq a => { compare: a -> a -> Ordering; };
+//	form Collection := \(c: Type). { type Elem :: Type; empty: c; insert: Elem c -> c -> c; };
+type DeclForm struct {
 	Name    string
 	KindAnn KindExpr // optional :: Kind annotation (nil if omitted)
 	Body    TypeExpr // \params. [constraints =>] { fields }
@@ -123,7 +123,7 @@ type AstProgram struct {
 
 func (*DeclTypeAnn) declNode()   {}
 func (*DeclValueDef) declNode()  {}
-func (*DeclData) declNode()      {}
+func (*DeclForm) declNode()      {}
 func (*DeclTypeAlias) declNode() {}
 func (*DeclImpl) declNode()      {}
 func (*DeclFixity) declNode()    {}
@@ -131,7 +131,7 @@ func (*DeclImport) declNode()    {}
 
 func (d *DeclTypeAnn) Span() span.Span   { return d.S }
 func (d *DeclValueDef) Span() span.Span  { return d.S }
-func (d *DeclData) Span() span.Span      { return d.S }
+func (d *DeclForm) Span() span.Span      { return d.S }
 func (d *DeclTypeAlias) Span() span.Span { return d.S }
 func (d *DeclImpl) Span() span.Span      { return d.S }
 func (d *DeclFixity) Span() span.Span    { return d.S }

@@ -7,10 +7,10 @@
 import Prelude
 
 -- A custom ADT for demonstration
-data Season := Spring | Summer | Autumn | Winter
+form Season := Spring | Summer | Autumn | Winter
 
 -- A custom type class: "Warm" tells us if a value is considered warm
-data Warm := \a. {
+form Warm := \a. {
   isWarm: a -> Bool
 }
 

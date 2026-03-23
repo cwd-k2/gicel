@@ -25,7 +25,7 @@ import (
 func TestProbeA_CrashResist_50NestedForalls(t *testing.T) {
 	const N = 55
 	var sb strings.Builder
-	sb.WriteString("data Bool := { True: Bool; False: Bool; }\n")
+	sb.WriteString("form Bool := { True: Bool; False: Bool; }\n")
 
 	// Build: f :: \ a0 a1 ... a54. a0 -> a0
 	sb.WriteString("f :: \\")
@@ -43,11 +43,11 @@ func TestProbeA_CrashResist_50NestedForalls(t *testing.T) {
 func TestProbeA_CrashResist_20ClassConstraints(t *testing.T) {
 	const N = 20
 	var sb strings.Builder
-	sb.WriteString("data Bool := { True: Bool; False: Bool; }\n")
+	sb.WriteString("form Bool := { True: Bool; False: Bool; }\n")
 
 	// Define 20 classes (data declarations with method).
 	for i := range N {
-		sb.WriteString(fmt.Sprintf("data Cls%d := \\a. { method%d: a -> Bool; }\n", i, i))
+		sb.WriteString(fmt.Sprintf("form Cls%d := \\a. { method%d: a -> Bool; }\n", i, i))
 	}
 	// Instances for Bool.
 	for i := range N {
@@ -117,7 +117,7 @@ func TestProbeA_CrashResist_WideRow30FieldsProjection(t *testing.T) {
 // in type signature used with subsumption.
 func TestProbeA_CrashResist_DeepNestedForallInSig(t *testing.T) {
 	source := `
-data Bool := { True: Bool; False: Bool; }
+form Bool := { True: Bool; False: Bool; }
 
 -- Three levels of higher-rank.
 f :: ((\ a. a -> a) -> Bool) -> Bool
@@ -135,7 +135,7 @@ main := f g
 // should not stack-overflow.
 func TestProbeA_CrashResist_ManyTypeApps(t *testing.T) {
 	source := `
-data Bool := { True: Bool; False: Bool; }
+form Bool := { True: Bool; False: Bool; }
 
 id :: \ a. a -> a
 id := \x. x
@@ -151,13 +151,13 @@ main := id @Bool True
 func TestProbeA_CrashResist_DeepInstanceChain(t *testing.T) {
 	const N = 10
 	var sb strings.Builder
-	sb.WriteString("data Bool := { True: Bool; False: Bool; }\n")
-	sb.WriteString("data Eq := \\a. { eq: a -> a -> Bool; }\n")
+	sb.WriteString("form Bool := { True: Bool; False: Bool; }\n")
+	sb.WriteString("form Eq := \\a. { eq: a -> a -> Bool; }\n")
 	sb.WriteString("impl Eq Bool := { eq := \\x y. True }\n\n")
 
 	// 10 wrapper types, each with a contextual Eq instance.
 	for i := range N {
-		sb.WriteString(fmt.Sprintf("data W%d := \\a. { MkW%d: a -> W%d a; }\n", i, i, i))
+		sb.WriteString(fmt.Sprintf("form W%d := \\a. { MkW%d: a -> W%d a; }\n", i, i, i))
 		sb.WriteString(fmt.Sprintf("impl Eq a => Eq (W%d a) := { eq := \\x y. True }\n\n", i))
 	}
 
@@ -174,8 +174,8 @@ func TestProbeA_CrashResist_DeepInstanceChain(t *testing.T) {
 func TestProbeA_CrashResist_LargeDataType(t *testing.T) {
 	const N = 35
 	var sb strings.Builder
-	sb.WriteString("data Bool := { True: Bool; False: Bool; }\n")
-	sb.WriteString("data BigEnum := {")
+	sb.WriteString("form Bool := { True: Bool; False: Bool; }\n")
+	sb.WriteString("form BigEnum := {")
 	for i := range N {
 		if i > 0 {
 			sb.WriteString(";")
@@ -205,8 +205,8 @@ func TestProbeA_CrashResist_LargeDataType(t *testing.T) {
 // GADT pattern should not escape to the result type.
 func TestProbeA_SkolemEscapeInCase(t *testing.T) {
 	source := `
-data Bool := { True: Bool; False: Bool; }
-data Exists := { MkExists: \ a. a -> Exists }
+form Bool := { True: Bool; False: Bool; }
+form Exists := { MkExists: \ a. a -> Exists }
 
 -- Trying to return the existentially-bound value should fail.
 bad :: Exists -> Bool
@@ -223,7 +223,7 @@ bad := \e. case e { MkExists x => x }
 // that doesn't match should produce a clean error.
 func TestProbeE_Crash_TypeAnnotationOnLambda(t *testing.T) {
 	source := `
-data Bool := { True: Bool; False: Bool; }
+form Bool := { True: Bool; False: Bool; }
 f :: Bool -> Bool -> Bool
 f := \x. x
 main := f True
@@ -237,7 +237,7 @@ main := f True
 // TestProbeE_Crash_EmptyDataDecl — a data decl with no constructors.
 func TestProbeE_Crash_EmptyDataDecl(t *testing.T) {
 	source := `
-data Void
+form Void
 main := Void
 `
 	// Empty data decl — might fail at parse or check, but should not panic
@@ -248,7 +248,7 @@ main := Void
 // doesn't exist in the record type.
 func TestProbeE_Crash_RecordUpdateNonexistentField(t *testing.T) {
 	source := `
-data Bool := { True: Bool; False: Bool; }
+form Bool := { True: Bool; False: Bool; }
 r := { x: True }
 main := { r | y: True }
 `
@@ -258,7 +258,7 @@ main := { r | y: True }
 // TestProbeE_Crash_DeeplyNestedCase — deeply nested case expressions.
 func TestProbeE_Crash_DeeplyNestedCase(t *testing.T) {
 	source := `
-data Bool := { True: Bool; False: Bool; }
+form Bool := { True: Bool; False: Bool; }
 f := \x. case x {
   True => case x {
     True => case x {
@@ -281,8 +281,8 @@ main := f True
 // to be undecidable in general; the checker should not hang.
 func TestProbeE_Crash_PolymorphicRecursionWithoutAnnotation(t *testing.T) {
 	source := `
-data Bool := { True: Bool; False: Bool; }
-data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
+form Bool := { True: Bool; False: Bool; }
+form List := \a. { Nil: List a; Cons: a -> List a -> List a; }
 -- Without a type annotation, this would require polymorphic recursion
 -- which is undecidable. The checker should either reject it or handle it
 -- with the fuel limit.
@@ -308,7 +308,7 @@ main := f
 // nested forall type should work correctly.
 func TestProbeE_Crash_NestedForallInstantiation(t *testing.T) {
 	source := `
-data Bool := { True: Bool; False: Bool; }
+form Bool := { True: Bool; False: Bool; }
 
 -- Three levels of quantification
 f :: \a b c. a -> b -> c -> a
@@ -322,10 +322,10 @@ main := f True True True
 // TestProbeE_Crash_LargeConstraintContext — a function with many constraints.
 func TestProbeE_Crash_LargeConstraintContext(t *testing.T) {
 	source := `
-data Bool := { True: Bool; False: Bool; }
-data C1 := \a. { m1: a -> Bool }
-data C2 := \a. { m2: a -> Bool }
-data C3 := \a. { m3: a -> Bool }
+form Bool := { True: Bool; False: Bool; }
+form C1 := \a. { m1: a -> Bool }
+form C2 := \a. { m2: a -> Bool }
+form C3 := \a. { m3: a -> Bool }
 impl C1 Bool := { m1 := \x. x }
 impl C2 Bool := { m2 := \x. x }
 impl C3 Bool := { m3 := \x. x }
@@ -342,7 +342,7 @@ main := f True
 // produce a clean error.
 func TestProbeE_Crash_CaseOnFunctionType(t *testing.T) {
 	source := `
-data Bool := { True: Bool; False: Bool; }
+form Bool := { True: Bool; False: Bool; }
 f := \g. case g { True => True; False => False }
 main := f (\x. x)
 `

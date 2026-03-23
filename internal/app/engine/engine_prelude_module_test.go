@@ -36,7 +36,7 @@ func TestNoPreludeWithModules(t *testing.T) {
 	eng := NewEngine()
 	// Without prelude, Bool is not defined — need to define it ourselves.
 	rt, err := eng.NewRuntime(context.Background(), `
-data MyBool := { Yes: MyBool; No: MyBool; }
+form MyBool := { Yes: MyBool; No: MyBool; }
 main := Yes
 `)
 	if err != nil {
@@ -56,7 +56,7 @@ func TestSetPreludeCustom(t *testing.T) {
 	// Custom prelude replaces default: only defines MyBool, no standard Bool.
 	eng := NewEngine()
 	eng.RegisterModule("Prelude", `
-data MyBool := { Yes: MyBool; No: MyBool; }
+form MyBool := { Yes: MyBool; No: MyBool; }
 `)
 	rt, err := eng.NewRuntime(context.Background(), "import Prelude\nmain := Yes")
 	if err != nil {
@@ -76,7 +76,7 @@ func TestSetPreludeCoreStillAvailable(t *testing.T) {
 	// Core definitions (IxMonad, Effect, then) available even with custom Prelude.
 	eng := NewEngine()
 	eng.RegisterModule("Prelude", `
-data Bool := { True: Bool; False: Bool; }
+form Bool := { True: Bool; False: Bool; }
 `)
 	// Effect and then come from CoreSource, Bool from custom prelude.
 	rt, err := eng.NewRuntime(context.Background(), `
@@ -100,7 +100,7 @@ main := pure True
 func TestSetPreludeNoDefaultBool(t *testing.T) {
 	// Custom prelude that doesn't define Bool — standard Bool should not be available.
 	eng := NewEngine()
-	eng.RegisterModule("Prelude", `data Color := { Red: Color; Blue: Color; }`)
+	eng.RegisterModule("Prelude", `form Color := { Red: Color; Blue: Color; }`)
 	_, err := eng.NewRuntime(context.Background(), `
 import Prelude
 main := True

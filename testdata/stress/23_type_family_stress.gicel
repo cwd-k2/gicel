@@ -6,10 +6,10 @@
 import Prelude
 
 -- Peano naturals as DataKinds for type-level arithmetic.
-data Nat := Z | S Nat
+form Nat := Z | S Nat
 
 -- Phantom type indexed by Nat.
-data NatProxy := \(n: Nat). { MkProxy: NatProxy n }
+form NatProxy := \(n: Nat). { MkProxy: NatProxy n }
 
 -- Type family that maps a container to its element type.
 type ElemOf :: Type := \(c: Type). case c {
@@ -32,7 +32,7 @@ unwrapList := \xs. case xs {
 
 -- Type-safe vector length at the type level.
 -- A simple length-indexed structure using Peano.
-data Vec := \(n: Nat) a. {
+form Vec := \(n: Nat) a. {
   VNil: Vec Z a;
   VCons: \(m: Nat). a -> Vec m a -> Vec (S m) a
 }
@@ -46,7 +46,7 @@ empty :: Vec Z Int
 empty := VNil
 
 -- Season rotation uses recursive type family.
-data Season := { Spring: Season; Summer: Season; Autumn: Season; Winter: Season }
+form Season := { Spring: Season; Summer: Season; Autumn: Season; Winter: Season }
 
 type NextSeason :: Season := \(s: Season). case s {
   Spring => Summer;
@@ -55,7 +55,7 @@ type NextSeason :: Season := \(s: Season). case s {
   Winter => Spring
 }
 
-data Tagged := \(s: Season). { MkTagged: Tagged s }
+form Tagged := \(s: Season). { MkTagged: Tagged s }
 
 -- NextSeason reduces concrete seasons at compile time.
 advance :: \(s: Season). Tagged s -> Tagged (NextSeason s)

@@ -15,12 +15,12 @@ func TestDoIxMonadOnlyType(t *testing.T) {
 	// A type with IxMonad but no Monad instance should support do notation.
 	// Before fix: ErrNoInstance because Monad was required.
 	source := `
-data Unit := { Unit: Unit; }
-data IxMonad := \(m: Row -> Row -> Type -> Type). {
+form Unit := { Unit: Unit; }
+form IxMonad := \(m: Row -> Row -> Type -> Type). {
   ixpure: \a (r: Row). a -> m r r a;
   ixbind: \a b (r1: Row) (r2: Row) (r3: Row). m r1 r2 a -> (a -> m r2 r3 b) -> m r1 r3 b
 }
-data MyIx := \(pre: Row) (post: Row) a. { MkMyIx: a -> MyIx pre post a; }
+form MyIx := \(pre: Row) (post: Row) a. { MkMyIx: a -> MyIx pre post a; }
 _myIxPure :: \a (r: Row). a -> MyIx r r a
 _myIxPure := assumption
 _myIxBind :: \a b (r1: Row) (r2: Row) (r3: Row). MyIx r1 r2 a -> (a -> MyIx r2 r3 b) -> MyIx r1 r3 b
@@ -38,12 +38,12 @@ main := do { ixpure Unit }
 func TestDoIxMonadOnlyMultiStmt(t *testing.T) {
 	// Multi-statement do block with IxMonad-only type.
 	source := `
-data Unit := { Unit: Unit; }
-data IxMonad := \(m: Row -> Row -> Type -> Type). {
+form Unit := { Unit: Unit; }
+form IxMonad := \(m: Row -> Row -> Type -> Type). {
   ixpure: \a (r: Row). a -> m r r a;
   ixbind: \a b (r1: Row) (r2: Row) (r3: Row). m r1 r2 a -> (a -> m r2 r3 b) -> m r1 r3 b
 }
-data MyIx := \(pre: Row) (post: Row) a. { MkMyIx: a -> MyIx pre post a; }
+form MyIx := \(pre: Row) (post: Row) a. { MkMyIx: a -> MyIx pre post a; }
 _myIxPure :: \a (r: Row). a -> MyIx r r a
 _myIxPure := assumption
 _myIxBind :: \a b (r1: Row) (r2: Row) (r3: Row). MyIx r1 r2 a -> (a -> MyIx r2 r3 b) -> MyIx r1 r3 b
@@ -67,8 +67,8 @@ func TestDoMonadMidStatementPureRewrite(t *testing.T) {
 	// Before fix: mid-statement `pure 42` was not rewritten to `mpure 42`,
 	// causing a type mismatch (Computation vs Maybe).
 	source := `
-data Maybe := \a. { Just: a -> Maybe a; Nothing: Maybe a; }
-data Monad := \(m: Type -> Type). {
+form Maybe := \a. { Just: a -> Maybe a; Nothing: Maybe a; }
+form Monad := \(m: Type -> Type). {
   mpure: \a. a -> m a;
   mbind: \a b. m a -> (a -> m b) -> m b
 }
@@ -89,8 +89,8 @@ func TestDoMonadBindPureRewrite(t *testing.T) {
 	// do { x <- pure 42; mpure x } :: Maybe Int
 	// Before fix: `pure 42` in StmtBind was not rewritten to `mpure 42`.
 	source := `
-data Maybe := \a. { Just: a -> Maybe a; Nothing: Maybe a; }
-data Monad := \(m: Type -> Type). {
+form Maybe := \a. { Just: a -> Maybe a; Nothing: Maybe a; }
+form Monad := \(m: Type -> Type). {
   mpure: \a. a -> m a;
   mbind: \a b. m a -> (a -> m b) -> m b
 }

@@ -61,7 +61,7 @@ func BenchmarkEngineCompileLarge(b *testing.B) {
 // ---------------------------------------------------------------------------
 
 func BenchmarkEngineNewRuntimeNoModules(b *testing.B) {
-	source := `data MyBool := { MyTrue: MyBool; MyFalse: MyBool; }
+	source := `form MyBool := { MyTrue: MyBool; MyFalse: MyBool; }
 main := MyTrue
 `
 	for b.Loop() {
@@ -85,7 +85,7 @@ func BenchmarkEngineNewRuntimePrelude(b *testing.B) {
 }
 
 func BenchmarkEngineNewRuntimeWithModules(b *testing.B) {
-	modTemplate := `data M%dBool := M%dTrue | M%dFalse
+	modTemplate := `form M%dBool := M%dTrue | M%dFalse
 _m%dNot :: M%dBool -> M%dBool
 _m%dNot := \x. case x { M%dTrue => M%dFalse; M%dFalse => M%dTrue }
 `

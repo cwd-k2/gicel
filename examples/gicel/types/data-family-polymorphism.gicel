@@ -8,7 +8,7 @@ import Prelude
 
 -- A Collection class with an associated type family for elements.
 -- Each collection type determines its own element type.
-data Collection := \c. {
+form Collection := \c. {
   type Elem c :: Type;
   chead: c -> Maybe (Elem c);
   clength: c -> Int
@@ -30,7 +30,7 @@ impl Collection (Maybe a) := {
 
 -- A Wrapper class with associated type for the wrapped form.
 -- Different types wrap into different type representations.
-data Wrappable := \w. {
+form Wrappable := \w. {
   type Wrapped w :: Type;
   wrap: w -> Wrapped w;
   unwrap: Wrapped w -> w

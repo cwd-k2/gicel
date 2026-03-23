@@ -36,7 +36,7 @@ func parse(input string) (*AstProgram, *diagnostic.Errors) {
 
 func TestLexKeywords(t *testing.T) {
 	tokens := lex("case do data type infixl infixr infixn")
-	expected := []TokenKind{TokCase, TokDo, TokData, TokType, TokInfixl, TokInfixr, TokInfixn, TokEOF}
+	expected := []TokenKind{TokCase, TokDo, TokForm, TokType, TokInfixl, TokInfixr, TokInfixn, TokEOF}
 	for i, want := range expected {
 		if tokens[i].Kind != want {
 			t.Errorf("token[%d]: got %v, want %v", i, tokens[i].Kind, want)
@@ -348,7 +348,7 @@ func TestParseOperatorValueDef(t *testing.T) {
 }
 
 func TestParseOperatorInModule(t *testing.T) {
-	src := `data Int := MkInt
+	src := `form Int := MkInt
 add :: Int -> Int -> Int
 add := \x y. x
 infixl 6 +
@@ -382,16 +382,16 @@ infixl 6 +
 }
 
 func TestParseDataDecl(t *testing.T) {
-	prog, es := parse("data Bool := True | False")
+	prog, es := parse("form Bool := True | False")
 	if es.HasErrors() {
 		t.Fatal(es.Format())
 	}
 	if len(prog.Decls) != 1 {
 		t.Fatalf("expected 1 decl, got %d", len(prog.Decls))
 	}
-	d, ok := prog.Decls[0].(*DeclData)
+	d, ok := prog.Decls[0].(*DeclForm)
 	if !ok {
-		t.Fatal("expected DeclData")
+		t.Fatal("expected DeclForm")
 	}
 	if d.Name != "Bool" || len(d.Cons) != 2 {
 		t.Errorf("expected Bool with 2 cons, got %s with %d", d.Name, len(d.Cons))
@@ -985,7 +985,7 @@ func TestParseMultipleImports(t *testing.T) {
 }
 
 func TestParseImportBeforeDecl(t *testing.T) {
-	prog, es := parse("import Lib\ndata Bool := True | False\nmain := True")
+	prog, es := parse("import Lib\nform Bool := True | False\nmain := True")
 	if es.HasErrors() {
 		t.Fatal(es.Format())
 	}
@@ -1008,13 +1008,13 @@ func TestAtDeclBoundaryImport(t *testing.T) {
 // --- GADT parser tests ---
 
 func TestParseGADTDecl(t *testing.T) {
-	prog, es := parse("data Expr a := { IntLit :: Int -> Expr Int; BoolLit :: Bool -> Expr Bool }")
+	prog, es := parse("form Expr a := { IntLit :: Int -> Expr Int; BoolLit :: Bool -> Expr Bool }")
 	if es.HasErrors() {
 		t.Fatal(es.Format())
 	}
-	d, ok := prog.Decls[0].(*DeclData)
+	d, ok := prog.Decls[0].(*DeclForm)
 	if !ok {
-		t.Fatal("expected DeclData")
+		t.Fatal("expected DeclForm")
 	}
 	if d.Name != "Expr" {
 		t.Errorf("expected Expr, got %s", d.Name)
@@ -1037,11 +1037,11 @@ func TestParseGADTDecl(t *testing.T) {
 }
 
 func TestParseGADTMixedArity(t *testing.T) {
-	prog, es := parse("data T a := { Nil :: T Unit; Cons :: a -> T a -> T a }")
+	prog, es := parse("form T a := { Nil :: T Unit; Cons :: a -> T a -> T a }")
 	if es.HasErrors() {
 		t.Fatal(es.Format())
 	}
-	d := prog.Decls[0].(*DeclData)
+	d := prog.Decls[0].(*DeclForm)
 	if len(d.GADTCons) != 2 {
 		t.Fatalf("expected 2 GADT cons, got %d", len(d.GADTCons))
 	}
@@ -1057,11 +1057,11 @@ func TestParseGADTMixedArity(t *testing.T) {
 
 func TestParseGADTvsADT(t *testing.T) {
 	// ADT form
-	adtProg, adtEs := parse("data Bool := True | False")
+	adtProg, adtEs := parse("form Bool := True | False")
 	if adtEs.HasErrors() {
 		t.Fatal(adtEs.Format())
 	}
-	adtD := adtProg.Decls[0].(*DeclData)
+	adtD := adtProg.Decls[0].(*DeclForm)
 	if len(adtD.Cons) != 2 {
 		t.Errorf("ADT: expected 2 cons, got %d", len(adtD.Cons))
 	}
@@ -1070,11 +1070,11 @@ func TestParseGADTvsADT(t *testing.T) {
 	}
 
 	// GADT form
-	gadtProg, gadtEs := parse("data Expr a := { Lit :: Int -> Expr Int }")
+	gadtProg, gadtEs := parse("form Expr a := { Lit :: Int -> Expr Int }")
 	if gadtEs.HasErrors() {
 		t.Fatal(gadtEs.Format())
 	}
-	gadtD := gadtProg.Decls[0].(*DeclData)
+	gadtD := gadtProg.Decls[0].(*DeclForm)
 	if len(gadtD.Cons) != 0 {
 		t.Errorf("GADT: expected 0 ADT cons, got %d", len(gadtD.Cons))
 	}
@@ -1141,11 +1141,11 @@ func TestSemicolonMultiple(t *testing.T) {
 }
 
 func TestGADTConReturnType(t *testing.T) {
-	prog, es := parse("data Expr a := { IntLit :: Int -> Expr Int; Add :: Expr Int -> Expr Int -> Expr Int; IsZero :: Expr Int -> Expr Bool }")
+	prog, es := parse("form Expr a := { IntLit :: Int -> Expr Int; Add :: Expr Int -> Expr Int -> Expr Int; IsZero :: Expr Int -> Expr Bool }")
 	if es.HasErrors() {
 		t.Fatal(es.Format())
 	}
-	d := prog.Decls[0].(*DeclData)
+	d := prog.Decls[0].(*DeclForm)
 	if len(d.GADTCons) != 3 {
 		t.Fatalf("expected 3 GADT cons, got %d", len(d.GADTCons))
 	}
@@ -1590,7 +1590,7 @@ func TestParseDeepNestedDo(t *testing.T) {
 
 func TestParseGADTStallGuard(t *testing.T) {
 	// Malformed GADT body with unrecognizable tokens — must not hang.
-	_, es := parse("data Foo where { = }")
+	_, es := parse("form Foo where { = }")
 	if !es.HasErrors() {
 		t.Fatal("expected parse errors for invalid GADT body")
 	}
@@ -2114,7 +2114,7 @@ func TestParseAnnotationInParen(t *testing.T) {
 
 func TestParseTypeFamilyTrailingSemicolon(t *testing.T) {
 	source := `
-data Bool := True | False
+form Bool := True | False
 type IsTrue (b: Bool) :: Bool := {
   IsTrue True =: True;
   IsTrue False =: False;
@@ -2249,13 +2249,13 @@ class Expand a b c | a =: b c {
 
 func TestParseAssocDataMultipleConstructors(t *testing.T) {
 	source := `
-data Unit := Unit
+form Unit := Unit
 class Container a {
-  data Entry a :: Type;
+  form Entry a :: Type;
   empty :: a
 }
 instance Container Unit {
-  data Entry Unit =: Singleton Unit | Empty;
+  form Entry Unit =: Singleton Unit | Empty;
   empty := Unit
 }
 `
@@ -2296,7 +2296,7 @@ instance Container Unit {
 
 func TestParseTypeFamilySemicolonSeparated(t *testing.T) {
 	// Equations explicitly separated by semicolons (required inside braces).
-	source := `data Bool := True | False
+	source := `form Bool := True | False
 type Not (b: Bool) :: Bool := {
   Not True =: False;
   Not False =: True
@@ -2318,8 +2318,8 @@ type Not (b: Bool) :: Bool := {
 
 func TestParseTypeFamilyWithInjectivity(t *testing.T) {
 	source := `
-data Unit := Unit
-data List a := Nil | Cons a (List a)
+form Unit := Unit
+form List a := Nil | Cons a (List a)
 type Elem (c: Type) :: (r: Type) | r =: c := {
   Elem (List a) =: a
 }
@@ -2372,13 +2372,13 @@ type Const :: Type := {
 func TestParseAssocDataNoFields(t *testing.T) {
 	// Nullary constructors in associated data family.
 	source := `
-data Unit := Unit
+form Unit := Unit
 class Tag a {
-  data TagType a :: Type;
+  form TagType a :: Type;
   tag :: a
 }
 instance Tag Unit {
-  data TagType Unit =: UnitTag;
+  form TagType Unit =: UnitTag;
   tag := Unit
 }
 `

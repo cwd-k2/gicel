@@ -42,7 +42,7 @@ func parseMustFail(t *testing.T, source string) string {
 // (a) Extremely long type family name (1000+ characters)
 func TestPathologicalLongTypeFamilyName(t *testing.T) {
 	name := strings.Repeat("A", 1024)
-	source := fmt.Sprintf(`data Unit := Unit
+	source := fmt.Sprintf(`form Unit := Unit
 type %s (a: Type) :: Type := {
   %s a =: Unit
 }`, name, name)
@@ -77,7 +77,7 @@ func TestPathological100PatternParams(t *testing.T) {
 		paramDecls.WriteString(fmt.Sprintf("(p%d: Type)", i))
 		eqPatterns.WriteString(fmt.Sprintf("p%d", i))
 	}
-	source := fmt.Sprintf(`data Unit := Unit
+	source := fmt.Sprintf(`form Unit := Unit
 type F %s :: Type := {
   F %s =: Unit
 }`, paramDecls.String(), eqPatterns.String())
@@ -104,7 +104,7 @@ func TestPathologicalDeeplyNestedRHS(t *testing.T) {
 	for i := 0; i < 50; i++ {
 		rhs = fmt.Sprintf("(Maybe %s)", rhs)
 	}
-	source := fmt.Sprintf(`data Maybe a := Nothing | Just a
+	source := fmt.Sprintf(`form Maybe a := Nothing | Just a
 type F (a: Type) :: Type := {
   F a =: %s
 }`, rhs)
@@ -143,7 +143,7 @@ func TestPathologicalEmptyClassBodyWithFunDeps(t *testing.T) {
 func TestPathologicalLowercaseEquationName(t *testing.T) {
 	// The equation parser calls expectUpper(), so a lowercase name
 	// will produce a parse error.
-	source := `data Unit := Unit
+	source := `form Unit := Unit
 type F (a: Type) :: Type := {
   f a =: Unit
 }`
@@ -235,7 +235,7 @@ func TestPathologicalDoublePipeFunDeps(t *testing.T) {
 
 // (i) Type family equation with no RHS (just patterns, missing =:)
 func TestPathologicalEquationNoRHS(t *testing.T) {
-	source := `data Unit := Unit
+	source := `form Unit := Unit
 type F (a: Type) :: Type := {
   F Unit
 }`
@@ -248,14 +248,14 @@ type F (a: Type) :: Type := {
 // (j) Instance with both assoc type and assoc data of same name
 // This is structurally odd but the parser processes them independently.
 func TestPathologicalAssocTypeAndDataSameName(t *testing.T) {
-	source := `data Unit := Unit
+	source := `form Unit := Unit
 class C a {
   type Elem a :: Type;
-  data Elem a :: Type
+  form Elem a :: Type
 }
 instance C Unit {
   type Elem Unit =: Unit;
-  data Elem Unit =: ElemCon
+  form Elem Unit =: ElemCon
 }`
 	// The parser should handle this without crashing.
 	// Whether or not it's semantically valid is the checker's business.
@@ -295,7 +295,7 @@ func TestPathologicalDeepParenNesting(t *testing.T) {
 func TestPathologicalManyDeclarations(t *testing.T) {
 	var b strings.Builder
 	for i := 0; i < 200; i++ {
-		b.WriteString(fmt.Sprintf("data T%d := C%d\n", i, i))
+		b.WriteString(fmt.Sprintf("form T%d := C%d\n", i, i))
 	}
 	prog := parseMustSucceed(t, b.String())
 	if len(prog.Decls) != 200 {
@@ -305,7 +305,7 @@ func TestPathologicalManyDeclarations(t *testing.T) {
 
 // Equation with only uppercase name and no patterns and no =: (bare)
 func TestPathologicalBareEquationName(t *testing.T) {
-	source := `data Unit := Unit
+	source := `form Unit := Unit
 type F :: Type := {
   F
 }`
@@ -321,7 +321,7 @@ func TestParseBodyIterationLimit(t *testing.T) {
 	// Construct an instance with a very long body of malformed method definitions.
 	// This exercises the parseBody iteration limit guard.
 	var b strings.Builder
-	b.WriteString("data Unit := Unit\n")
+	b.WriteString("form Unit := Unit\n")
 	b.WriteString("class C a { m :: a -> a }\n")
 	b.WriteString("instance C Unit {\n")
 	for i := 0; i < 5000; i++ {

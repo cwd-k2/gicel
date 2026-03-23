@@ -4,10 +4,10 @@ Type classes provide ad-hoc polymorphism through dictionary-passing elaboration.
 
 ### Class Declaration
 
-Type classes are declared using `data` with lambda parameters and a brace body containing method signatures:
+Type classes are declared using `form` with lambda parameters and a brace body containing method signatures:
 
 ```
-data ClassName := \param+. [Constraint =>] {
+form ClassName := \param+. [Constraint =>] {
   method: Type;
   ...
 }
@@ -16,7 +16,7 @@ data ClassName := \param+. [Constraint =>] {
 Superclass constraints follow the lambda parameters, before the brace:
 
 ```
-data Ord := \a. Eq a => {
+form Ord := \a. Eq a => {
   compare: a -> a -> Ordering
 }
 ```
@@ -86,8 +86,8 @@ Packed    (independent)
 Classes compile to dictionaries (data types). No special runtime representation:
 
 ```
-data Eq := \a. { eq: a -> a -> Bool }
--- becomes: data Eq$Dict := \a. { Eq$MkDict: (a -> a -> Bool) -> Eq$Dict a }
+form Eq := \a. { eq: a -> a -> Bool }
+-- becomes: form Eq$Dict := \a. { Eq$MkDict: (a -> a -> Bool) -> Eq$Dict a }
 ```
 
 Constrained calls have dictionaries inserted automatically:

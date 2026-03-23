@@ -15,8 +15,8 @@ import (
 
 func TestGADTConTypeRegistration(t *testing.T) {
 	// IntLit :: Int -> Expr Int → constructor type is registered correctly.
-	source := `data Bool := { True: Bool; False: Bool; }
-data Expr := \a. { IntLit: Bool -> Expr Bool; BoolLit: Bool -> Expr Bool }
+	source := `form Bool := { True: Bool; False: Bool; }
+form Expr := \a. { IntLit: Bool -> Expr Bool; BoolLit: Bool -> Expr Bool }
 main := IntLit True`
 	prog := checkSource(t, source, nil)
 	found := false
@@ -50,16 +50,16 @@ main := IntLit True`
 
 func TestGADTPatternRefinement(t *testing.T) {
 	// case (e: Expr Bool) { BoolLit b => b } should derive b: Bool
-	source := `data Bool := { True: Bool; False: Bool; }
-data Expr := \a. { BoolLit: Bool -> Expr Bool; IntLit: Bool -> Expr Bool }
+	source := `form Bool := { True: Bool; False: Bool; }
+form Expr := \a. { BoolLit: Bool -> Expr Bool; IntLit: Bool -> Expr Bool }
 f :: Expr Bool -> Bool
 f := \e. case e { BoolLit b => b; IntLit b => b }`
 	checkSource(t, source, nil)
 
 	// Negative test: refinement must not allow returning wrong type.
 	// After matching BoolLit b, b: Bool; returning it as Int should fail.
-	badSource := `data Bool := { True: Bool; False: Bool; }
-data Expr := \a. { BoolLit: Bool -> Expr Bool; IntLit: Bool -> Expr Bool }
+	badSource := `form Bool := { True: Bool; False: Bool; }
+form Expr := \a. { BoolLit: Bool -> Expr Bool; IntLit: Bool -> Expr Bool }
 f :: Expr Bool -> Expr Bool
 f := \e. case e { BoolLit b => b; IntLit b => b }`
 	checkSourceExpectCode(t, badSource, nil, diagnostic.ErrTypeMismatch)
@@ -67,8 +67,8 @@ f := \e. case e { BoolLit b => b; IntLit b => b }`
 
 func TestGADTMultiBranch(t *testing.T) {
 	// Multiple GADT constructors sharing the same return type specialization.
-	source := `data Bool := { True: Bool; False: Bool; }
-data Expr := \a. { Lit: Bool -> Expr Bool; Not: Expr Bool -> Expr Bool }
+	source := `form Bool := { True: Bool; False: Bool; }
+form Expr := \a. { Lit: Bool -> Expr Bool; Not: Expr Bool -> Expr Bool }
 eval :: Expr Bool -> Bool
 eval := \e. case e { Lit b => b; Not inner => True }`
 	checkSource(t, source, nil)
@@ -77,9 +77,9 @@ eval := \e. case e { Lit b => b; Not inner => True }`
 func TestGADTExhaustiveRelevant(t *testing.T) {
 	// Tag Bool case: TagUnit is irrelevant (return type Tag Unit ≠ Tag Bool).
 	// Only TagBool is required.
-	source := `data Bool := { True: Bool; False: Bool; }
-data Unit := { Unit: Unit; }
-data Tag := \a. { TagBool: Bool -> Tag Bool; TagUnit: Unit => Tag Unit }
+	source := `form Bool := { True: Bool; False: Bool; }
+form Unit := { Unit: Unit; }
+form Tag := \a. { TagBool: Bool -> Tag Bool; TagUnit: Unit => Tag Unit }
 f :: Tag Bool -> Bool
 f := \t. case t { TagBool b => b }`
 	checkSource(t, source, nil)
@@ -87,9 +87,9 @@ f := \t. case t { TagBool b => b }`
 
 func TestGADTNonExhaustiveError(t *testing.T) {
 	// Tag Bool case: TagBool is required but missing → error.
-	source := `data Bool := { True: Bool; False: Bool; }
-data Unit := { Unit: Unit; }
-data Tag := \a. { TagBool: Bool -> Tag Bool; TagUnit: Unit => Tag Unit }
+	source := `form Bool := { True: Bool; False: Bool; }
+form Unit := { Unit: Unit; }
+form Tag := \a. { TagBool: Bool -> Tag Bool; TagUnit: Unit => Tag Unit }
 f :: Tag Bool -> Bool
 f := \t. case t { TagUnit _ => True }`
 	errMsg := checkSourceExpectCode(t, source, nil, diagnostic.ErrNonExhaustive)
@@ -101,10 +101,10 @@ f := \t. case t { TagUnit _ => True }`
 func TestGADTAllBranchesIrrelevant(t *testing.T) {
 	// If all constructors are irrelevant for the scrutinee type,
 	// an empty case is OK (dead code).
-	source := `data Bool := { True: Bool; False: Bool; }
-data Unit := { Unit: Unit; }
-data Void := { MkVoid: Void; }
-data Tag := \a. { TagBool: Bool -> Tag Bool; TagUnit: Unit => Tag Unit }
+	source := `form Bool := { True: Bool; False: Bool; }
+form Unit := { Unit: Unit; }
+form Void := { MkVoid: Void; }
+form Tag := \a. { TagBool: Bool -> Tag Bool; TagUnit: Unit => Tag Unit }
 f :: Tag Void -> Void
 f := \t. case t { _ => MkVoid }`
 	checkSource(t, source, nil)
@@ -114,7 +114,7 @@ func TestGADTEvalPolyRecursive(t *testing.T) {
 	// V7: Polymorphic recursive GADT evaluator with fix.
 	// Verifies that a multi-branch GADT with mixed return types
 	// and recursive calls type-checks under polymorphic fix.
-	source := `data Expr := \a. { LitI: Int -> Expr Int; LitB: Bool -> Expr Bool; Add: Expr Int -> Expr Int -> Expr Int }
+	source := `form Expr := \a. { LitI: Int -> Expr Int; LitB: Bool -> Expr Bool; Add: Expr Int -> Expr Int -> Expr Int }
 eval :: \a. Expr a -> a
 eval := fix (\self e. case e { LitI n => n; LitB b => b; Add x y => self x + self y })
 main := eval (Add (LitI 10) (LitI 32))`
@@ -156,8 +156,8 @@ func TestGADTExistentialEscapeWithGivenEq(t *testing.T) {
 	// The existential escapes into the result type via a discarding lambda.
 	// Before fix: GivenEqs presence disabled escape check entirely.
 	source := `
-data Unit := { Unit: Unit; }
-data Box := \a. {
+form Unit := { Unit: Unit; }
+form Box := \a. {
   MkBox: \b. b -> Box Unit
 }
 bad :: \a. Box a -> Unit
@@ -170,8 +170,8 @@ func TestGADTSafeExistentialsInGivenEq(t *testing.T) {
 	// GADT constructor where existentials appear in the given eq values.
 	// These are safe — they're part of the GADT refinement.
 	source := `
-data Pair := \a b. { MkPair: a -> b -> Pair a b; }
-data Expr := \a. {
+form Pair := \a b. { MkPair: a -> b -> Pair a b; }
+form Expr := \a. {
   PairLit: \b c. b -> c -> Expr (Pair b c)
 }
 f :: \a. Expr a -> a

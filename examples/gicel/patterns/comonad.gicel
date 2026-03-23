@@ -16,7 +16,7 @@ import Prelude
 --   Monad:   (=<<) :: (a -> m b) -> m a -> m b   "value から effect を生む"
 --   Comonad: extend :: (w a -> b) -> w a -> w b   "context から value を取る"
 
-data Comonad := \w. Functor w => {
+form Comonad := \w. Functor w => {
   extract: \a. w a -> a;
   extend:  \a b. (w a -> b) -> w a -> w b
 }
@@ -33,7 +33,7 @@ duplicate := extend id
 --
 -- Coeffect: 「この計算には環境 e が必要」
 
-data Env := \e a. { MkEnv: e -> a -> Env e a }
+form Env := \e a. { MkEnv: e -> a -> Env e a }
 
 getEnv :: \e a. Env e a -> e
 getEnv := \ea. case ea { MkEnv e _ => e }
@@ -69,7 +69,7 @@ test_env := extract env2  -- "Hello world"
 --   Lens s a ≅ s -> Store a s
 --   (構造 s の中の焦点 a を取り出し、別の a で書き戻せる)
 
-data Store := \s a. { MkStore: (s -> a) -> s -> Store s a }
+form Store := \s a. { MkStore: (s -> a) -> s -> Store s a }
 
 pos :: \s a. Store s a -> s
 pos := \st. case st { MkStore _ s => s }
@@ -109,7 +109,7 @@ test_extend := extract arr2   -- 30 + 40 = 70
 -- MkZipper [左(近→遠)] 焦点 [右(近→遠)]
 -- 例: [1, 2, |3|, 4, 5] = MkZipper [2,1] 3 [4,5]
 
-data Zipper := \a. { MkZipper: List a -> a -> List a -> Zipper a }
+form Zipper := \a. { MkZipper: List a -> a -> List a -> Zipper a }
 
 focus :: \a. Zipper a -> a
 focus := \z. case z { MkZipper _ c _ => c }

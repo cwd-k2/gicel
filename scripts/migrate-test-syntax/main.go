@@ -2,7 +2,7 @@
 // Usage: go run ./scripts/migrate-test-syntax/ internal/compiler/check/*_test.go
 //
 // Transformations applied to string literals:
-// 1. "class Name params {" → "data Name := \params. {"
+// 1. "class Name params {" → "form Name := \params. {"
 // 2. "instance [Ctx =>] Name types {" → "impl [Ctx =>] Name types := {"
 // 3. "method :: Type" inside class bodies → "method: Type"
 // 4. Keep top-level "name :: Type" unchanged (type annotations)
@@ -75,9 +75,9 @@ var (
 	// type Name params := Body → type Name := \params. Body
 	typeAliasRe = regexp.MustCompile(`(?m)^(\s*)type\s+(\w+)\s+([a-z][\w\s]*?)\s*:=\s*`)
 
-	// class Name params { → data Name := \params. {
+	// class Name params { → form Name := \params. {
 	classRe = regexp.MustCompile(`(?m)^(\s*)class\s+(\w+)\s+(.+?)\s*\{`)
-	// class (Super) => Name params { → data Name := \params. Super => {
+	// class (Super) => Name params { → form Name := \params. Super => {
 	classCtxRe = regexp.MustCompile(`(?m)^(\s*)class\s+\(([^)]+)\)\s*=>\s*(\w+)\s+(.+?)\s*\{`)
 	// class Super => Name params { (without parens)
 	classCtxNoPRe = regexp.MustCompile(`(?m)^(\s*)class\s+(\w+\s+\w+)\s*=>\s*(\w+)\s+(.+?)\s*\{`)
@@ -103,31 +103,31 @@ func migrateGICELSource(src string) string {
 
 	// Order matters: context forms before simple class.
 
-	// class (Ctx) => Name params {  →  data Name := \params. Ctx => {
+	// class (Ctx) => Name params {  →  form Name := \params. Ctx => {
 	src = classCtxRe.ReplaceAllStringFunc(src, func(m string) string {
 		groups := classCtxRe.FindStringSubmatch(m)
 		indent, ctx, name, params := groups[1], groups[2], groups[3], groups[4]
 		params = strings.TrimSpace(params)
-		return fmt.Sprintf("%sdata %s := \\%s. %s => {", indent, name, params, ctx)
+		return fmt.Sprintf("%sform %s := \\%s. %s => {", indent, name, params, ctx)
 	})
 
-	// class Ctx => Name params {  →  data Name := \params. Ctx => {
+	// class Ctx => Name params {  →  form Name := \params. Ctx => {
 	src = classCtxNoPRe.ReplaceAllStringFunc(src, func(m string) string {
 		groups := classCtxNoPRe.FindStringSubmatch(m)
 		indent, ctx, name, params := groups[1], groups[2], groups[3], groups[4]
 		params = strings.TrimSpace(params)
-		return fmt.Sprintf("%sdata %s := \\%s. %s => {", indent, name, params, ctx)
+		return fmt.Sprintf("%sform %s := \\%s. %s => {", indent, name, params, ctx)
 	})
 
-	// class Name params {  →  data Name := \params. {
+	// class Name params {  →  form Name := \params. {
 	src = classRe.ReplaceAllStringFunc(src, func(m string) string {
 		groups := classRe.FindStringSubmatch(m)
 		indent, name, params := groups[1], groups[2], groups[3]
 		params = strings.TrimSpace(params)
 		if params == "" {
-			return fmt.Sprintf("%sdata %s := {", indent, name)
+			return fmt.Sprintf("%sform %s := {", indent, name)
 		}
-		return fmt.Sprintf("%sdata %s := \\%s. {", indent, name, params)
+		return fmt.Sprintf("%sform %s := \\%s. {", indent, name, params)
 	})
 
 	// instance ... {  →  impl ... := {

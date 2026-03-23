@@ -33,7 +33,7 @@ func TestReduceTyFamily_IndeterminateStopsReduction(t *testing.T) {
 	// type F (a: Type) :: Type := { F Bool =: Int; F a =: Bool }
 	// F ?meta should be stuck (indeterminate), not fall through to F a =: Bool.
 	source := `
-data Bool := { True: Bool; False: Bool; }
+form Bool := { True: Bool; False: Bool; }
 type F :: Type := \(a: Type). case a {
   Bool => Int;
   a => Bool
@@ -52,7 +52,7 @@ f := \x. x
 // The family remains stuck (unreduced), producing a type mismatch (E0200).
 func TestReduceTyFamily_FuelCounterIncrements(t *testing.T) {
 	source := `
-data Unit := { Unit: Unit; }
+form Unit := { Unit: Unit; }
 type Loop :: Type := \(a: Type). case a {
   a => Loop a
 }
@@ -66,7 +66,7 @@ f := \x. x
 // Empty type family — no equations, always stuck.
 func TestReduceTyFamily_EmptyFamily(t *testing.T) {
 	source := `
-data Unit := { Unit: Unit; }
+form Unit := { Unit: Unit; }
 type F :: Type := \(a: Type). case a {
 }
 f :: \ c. F c -> F c
@@ -79,7 +79,7 @@ f := \x. x
 // Single-equation type family.
 func TestReduceTyFamily_SingleEquation(t *testing.T) {
 	source := `
-data Unit := { Unit: Unit; }
+form Unit := { Unit: Unit; }
 type F :: Type := \(a: Type). case a {
   Unit => Unit
 }
@@ -92,8 +92,8 @@ f := \x. x
 // Type family applied to unsolved metavariable must be stuck.
 func TestReduceTyFamily_StuckOnMeta(t *testing.T) {
 	source := `
-data Bool := { True: Bool; False: Bool; }
-data Unit := { Unit: Unit; }
+form Bool := { True: Bool; False: Bool; }
+form Unit := { Unit: Unit; }
 type F :: Type := \(a: Type). case a {
   Bool => Unit;
   Unit => Bool
@@ -108,8 +108,8 @@ f := \x. x
 func TestReduceTyFamily_FirstMatchWins(t *testing.T) {
 	// F Unit should reduce to Bool (first equation), not Int (second).
 	source := `
-data Bool := { True: Bool; False: Bool; }
-data Unit := { Unit: Unit; }
+form Bool := { True: Bool; False: Bool; }
+form Unit := { Unit: Unit; }
 type F :: Type := \(a: Type). case a {
   a => Bool;
   Unit => Int
@@ -127,8 +127,8 @@ f := \x. x
 func TestReduceTyFamily_SpecificBeforeGeneral(t *testing.T) {
 	// F Bool = Int, F a = Bool. F Bool should give Int.
 	source := `
-data Bool := { True: Bool; False: Bool; }
-data Unit := { Unit: Unit; }
+form Bool := { True: Bool; False: Bool; }
+form Unit := { Unit: Unit; }
 type F :: Type := \(a: Type). case a {
   Bool => Int;
   a => Bool
@@ -152,9 +152,9 @@ h := \x. x
 func TestMatchTyPattern_WildcardUnderscoreBinds(t *testing.T) {
 	// Two-param type family encoded via Pair.
 	source := `
-data Unit := { Unit: Unit; }
-data Bool := { True: Bool; False: Bool; }
-data Pair := \a b. { MkPair: a -> b -> Pair a b; }
+form Unit := { Unit: Unit; }
+form Bool := { True: Bool; False: Bool; }
+form Pair := \a b. { MkPair: a -> b -> Pair a b; }
 type Const :: Type := \(p: Type). case p {
   (Pair a _) => a
 }
@@ -169,9 +169,9 @@ f := \x. x
 func TestMatchTyPattern_ConsistentBindings(t *testing.T) {
 	// F (Pair a a) = Unit should only match when both components are the same.
 	source := `
-data Unit := { Unit: Unit; }
-data Bool := { True: Bool; False: Bool; }
-data Pair := \a b. { MkPair: a -> b -> Pair a b; }
+form Unit := { Unit: Unit; }
+form Bool := { True: Bool; False: Bool; }
+form Pair := \a b. { MkPair: a -> b -> Pair a b; }
 type F :: Type := \(p: Type). case p {
   (Pair a a) => Unit;
   (Pair a b) => Bool
@@ -188,9 +188,9 @@ h := \x. x
 // this test would fail.
 func TestMatchTyPattern_TyAppDecomposition(t *testing.T) {
 	source := `
-data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
-data Maybe := \a. { Nothing: Maybe a; Just: a -> Maybe a; }
-data Unit := { Unit: Unit; }
+form List := \a. { Nil: List a; Cons: a -> List a -> List a; }
+form Maybe := \a. { Nothing: Maybe a; Just: a -> Maybe a; }
+form Unit := { Unit: Unit; }
 type Elem :: Type := \(c: Type). case c {
   (List a) => a;
   (Maybe a) => a
@@ -206,8 +206,8 @@ g := \x. x
 // matchTyPattern with TyCon vs TyMeta should give matchIndeterminate.
 func TestMatchTyPattern_TyConVsMeta(t *testing.T) {
 	source := `
-data Unit := { Unit: Unit; }
-data Bool := { True: Bool; False: Bool; }
+form Unit := { Unit: Unit; }
+form Bool := { True: Bool; False: Bool; }
 type F :: Type := \(a: Type). case a {
   Unit => Bool;
   Bool => Unit
@@ -230,8 +230,8 @@ func TestIntersectCapRows_DropsPartialLabels(t *testing.T) {
 	// Branch 2: keeps both => post = { a: Unit, b: Unit }
 	// Intersection: only 'b' is shared => post = { b: Unit }
 	source := `
-data Bool := { True: Bool; False: Bool; }
-data Unit := { Unit: Unit; }
+form Bool := { True: Bool; False: Bool; }
+form Unit := { Unit: Unit; }
 consumeA :: Computation { a: Unit, b: Unit } { b: Unit } Unit
 consumeA := assumption
 noop :: Computation { a: Unit, b: Unit } { a: Unit, b: Unit } Unit
@@ -251,8 +251,8 @@ func TestIntersectCapRows_AllConsumedDifferent(t *testing.T) {
 	// Branch 2: consumes 'b', keeps 'a'
 	// Intersection: no label in ALL branches => post = {}
 	source := `
-data Bool := { True: Bool; False: Bool; }
-data Unit := { Unit: Unit; }
+form Bool := { True: Bool; False: Bool; }
+form Unit := { Unit: Unit; }
 consumeA :: Computation { a: Unit, b: Unit } { b: Unit } Unit
 consumeA := assumption
 consumeB :: Computation { a: Unit, b: Unit } { a: Unit } Unit
@@ -269,8 +269,8 @@ f := \b. case b {
 // All branches consume all caps: intersection = full set (all labels shared).
 func TestIntersectCapRows_AllBranchesSame(t *testing.T) {
 	source := `
-data Bool := { True: Bool; False: Bool; }
-data Unit := { Unit: Unit; }
+form Bool := { True: Bool; False: Bool; }
+form Unit := { Unit: Unit; }
 consumeAll :: Computation { a: Unit, b: Unit } {} Unit
 consumeAll := assumption
 f :: Bool -> Computation { a: Unit, b: Unit } {} Unit
@@ -285,8 +285,8 @@ f := \b. case b {
 // Three-way branch: label must be in ALL three branches to survive.
 func TestIntersectCapRows_ThreeWayBranch(t *testing.T) {
 	source := `
-data Color := { Red: Color; Green: Color; Blue: Color; }
-data Unit := { Unit: Unit; }
+form Color := { Red: Color; Green: Color; Blue: Color; }
+form Unit := { Unit: Unit; }
 consumeA :: Computation { a: Unit, b: Unit, c: Unit } { b: Unit, c: Unit } Unit
 consumeA := assumption
 consumeB :: Computation { a: Unit, b: Unit, c: Unit } { a: Unit, c: Unit } Unit
@@ -312,7 +312,7 @@ f := \col. case col {
 // Single-branch case: lubPostStates should return that branch's post directly.
 func TestLubPostStates_SingleBranch(t *testing.T) {
 	source := `
-data Unit := { MkUnit: (); }
+form Unit := { MkUnit: (); }
 consume :: Computation { x: Unit } {} Unit
 consume := assumption
 f :: Unit -> Computation { x: Unit } {} Unit
@@ -327,8 +327,8 @@ f := \u. case u {
 // unification of result types applies.
 func TestLubPostStates_NonCompResultType(t *testing.T) {
 	source := `
-data Bool := { True: Bool; False: Bool; }
-data Unit := { Unit: Unit; }
+form Bool := { True: Bool; False: Bool; }
+form Unit := { Unit: Unit; }
 f :: Bool -> Unit
 f := \b. case b {
   True => Unit;
@@ -341,8 +341,8 @@ f := \b. case b {
 // Case with empty post-states on both branches.
 func TestLubPostStates_BothEmpty(t *testing.T) {
 	source := `
-data Bool := { True: Bool; False: Bool; }
-data Unit := { Unit: Unit; }
+form Bool := { True: Bool; False: Bool; }
+form Unit := { Unit: Unit; }
 nothing :: Computation {} {} Unit
 nothing := assumption
 f :: Bool -> Computation {} {} Unit
@@ -364,9 +364,9 @@ func TestFunDepImprovement_MetaFromDoesNotFire(t *testing.T) {
 	// Without fundep, resolution works via normal instance matching.
 	// The program should compile via normal instance resolution.
 	source := `
-data Unit := { Unit: Unit; }
-data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
-data Collection := \c e. {
+form Unit := { Unit: Unit; }
+form List := \a. { Nil: List a; Cons: a -> List a -> List a; }
+form Collection := \c e. {
   empty: c
 }
 impl Collection (List a) a := {
@@ -381,9 +381,9 @@ main := empty
 // First matching instance should win for instance resolution.
 func TestFunDepImprovement_FirstMatchWins(t *testing.T) {
 	source := `
-data Unit := { Unit: Unit; }
-data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
-data Elem := \c e. {
+form Unit := { Unit: Unit; }
+form List := \a. { Nil: List a; Cons: a -> List a -> List a; }
+form Elem := \c e. {
   extract: c -> e
 }
 impl Elem (List a) a := {
@@ -401,7 +401,7 @@ f := \xs. extract xs
 // A class with two params and a method is valid without fundeps.
 func TestFunDepImprovement_UnknownFromParam(t *testing.T) {
 	source := `
-data Bad := \a b. {
+form Bad := \a b. {
   m: a -> b
 }
 `
@@ -412,7 +412,7 @@ data Bad := \a b. {
 // A class with two params and a method is valid without fundeps.
 func TestFunDepImprovement_UnknownToParam(t *testing.T) {
 	source := `
-data Bad := \a b. {
+form Bad := \a b. {
   m: a -> b
 }
 `
@@ -426,7 +426,7 @@ data Bad := \a b. {
 // Duplicate type family should produce error.
 func TestProcessTypeFamily_DuplicateCheck(t *testing.T) {
 	source := `
-data Bool := { True: Bool; False: Bool; }
+form Bool := { True: Bool; False: Bool; }
 type F :: Bool := \(a: Bool). case a {
   True => True
 }
@@ -440,7 +440,7 @@ type F :: Bool := \(a: Bool). case a {
 // Type family conflicting with type alias.
 func TestProcessTypeFamily_ConflictsWithAlias(t *testing.T) {
 	source := `
-data Unit := { Unit: Unit; }
+form Unit := { Unit: Unit; }
 type F := \a. a
 type F :: Type := \(a: Type). case a {
   a => a
@@ -453,7 +453,7 @@ type F :: Type := \(a: Type). case a {
 // This test verifies that a single-equation type family with a valid equation compiles.
 func TestProcessTypeFamily_EquationNameMismatch(t *testing.T) {
 	source := `
-data Bool := { True: Bool; False: Bool; }
+form Bool := { True: Bool; False: Bool; }
 type F :: Bool := \(a: Bool). case a {
   True => True;
   False => False
@@ -468,7 +468,7 @@ type F :: Bool := \(a: Bool). case a {
 // pattern in a 1-param family is accepted as a single complex pattern.
 func TestProcessTypeFamily_ArityValidation(t *testing.T) {
 	source := `
-data Bool := { True: Bool; False: Bool; }
+form Bool := { True: Bool; False: Bool; }
 type F :: Bool := \(a: Bool). case a {
   True => True;
   False => False
@@ -480,7 +480,7 @@ type F :: Bool := \(a: Bool). case a {
 // Zero-arity equation (too few patterns).
 func TestProcessTypeFamily_ArityTooFew(t *testing.T) {
 	source := `
-data Bool := { True: Bool; False: Bool; }
+form Bool := { True: Bool; False: Bool; }
 type F :: Bool := \(a: Bool) (b: Bool). case a {
   True => True
 }
@@ -498,8 +498,8 @@ func TestInstallFamilyReducer_DepthResetsPerNormalize(t *testing.T) {
 	// Two separate type family uses that each require reduction.
 	// If depth doesn't reset, the second might hit the limit.
 	source := `
-data Unit := { Unit: Unit; }
-data Bool := { True: Bool; False: Bool; }
+form Unit := { Unit: Unit; }
+form Bool := { True: Bool; False: Bool; }
 type F :: Type := \(a: Type). case a {
   Unit => Bool;
   Bool => Unit
@@ -515,7 +515,7 @@ g := \x. x
 // Recursive type family that terminates within limit.
 func TestInstallFamilyReducer_RecursiveWithinLimit(t *testing.T) {
 	source := `
-data Session := { Send: Session; Recv: Session; End: (); }
+form Session := { Send: Session; Recv: Session; End: (); }
 type Dual :: Session := \(s: Session). case s {
   (Send s) => Recv (Dual s);
   (Recv s) => Send (Dual s);
@@ -533,8 +533,8 @@ type Dual :: Session := \(s: Session). case s {
 func TestReduceFamilyApps_NonFamilyHeadUntouched(t *testing.T) {
 	// List is not a type family; applying List to a type should not trigger reduction.
 	source := `
-data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
-data Unit := { Unit: Unit; }
+form List := \a. { Nil: List a; Cons: a -> List a -> List a; }
+form Unit := { Unit: Unit; }
 f :: List Unit -> List Unit
 f := \x. x
 `
@@ -544,8 +544,8 @@ f := \x. x
 // TyApp chain that forms saturated family application should reduce.
 func TestReduceFamilyApps_SaturatedFamilyApp(t *testing.T) {
 	source := `
-data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
-data Unit := { Unit: Unit; }
+form List := \a. { Nil: List a; Cons: a -> List a -> List a; }
+form Unit := { Unit: Unit; }
 type Elem :: Type := \(c: Type). case c {
   (List a) => a
 }
@@ -565,8 +565,8 @@ func TestReduceFamilyApps_NestedFamilyAppStuck(t *testing.T) {
 	// but currently stays stuck because inner TyFamilyApp args are not reduced
 	// before the outer family tries to match.
 	source := `
-data Unit := { Unit: Unit; }
-data Bool := { True: Bool; False: Bool; }
+form Unit := { Unit: Unit; }
+form Bool := { True: Bool; False: Bool; }
 type F :: Type := \(a: Type). case a {
   Bool => Unit
 }
@@ -585,9 +585,9 @@ f := \x. x
 // reduction in the unifier's normalize pass.
 func TestReduceFamilyApps_InnerReductionViaUnifier(t *testing.T) {
 	source := `
-data Unit := { Unit: Unit; }
-data Bool := { True: Bool; False: Bool; }
-data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
+form Unit := { Unit: Unit; }
+form Bool := { True: Bool; False: Bool; }
+form List := \a. { Nil: List a; Cons: a -> List a -> List a; }
 type Elem :: Type := \(c: Type). case c {
   (List a) => a
 }
@@ -605,8 +605,8 @@ g := \x. x
 // Type family in function argument position.
 func TestReduceFamilyApps_InArgPosition(t *testing.T) {
 	source := `
-data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
-data Unit := { Unit: Unit; }
+form List := \a. { Nil: List a; Cons: a -> List a -> List a; }
+form Unit := { Unit: Unit; }
 type Elem :: Type := \(c: Type). case c {
   (List a) => a
 }
@@ -619,8 +619,8 @@ f := \x. x
 // Type family in both argument and result positions.
 func TestReduceFamilyApps_BothPositions(t *testing.T) {
 	source := `
-data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
-data Unit := { Unit: Unit; }
+form List := \a. { Nil: List a; Cons: a -> List a -> List a; }
+form Unit := { Unit: Unit; }
 type Elem :: Type := \(c: Type). case c {
   (List a) => a
 }
@@ -639,11 +639,11 @@ func TestMangledDataFamilyName_NoCollisions(t *testing.T) {
 	// Verifies that associated type family equations for different instances
 	// produce correct reductions.
 	source := `
-data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
-data Unit := { Unit: Unit; }
-data Maybe := \a. { Nothing: Maybe a; Just: a -> Maybe a; }
+form List := \a. { Nil: List a; Cons: a -> List a -> List a; }
+form Unit := { Unit: Unit; }
+form Maybe := \a. { Nothing: Maybe a; Just: a -> Maybe a; }
 
-data Container := \c. {
+form Container := \c. {
   type Elem c :: Type;
   empty: c
 }
@@ -669,9 +669,9 @@ y := \v. v
 // Zero-argument associated type definition in instance.
 func TestMangledDataFamilyName_ZeroArgPattern(t *testing.T) {
 	source := `
-data Unit := { Unit: Unit; }
+form Unit := { Unit: Unit; }
 
-data Container := \c. {
+form Container := \c. {
   type Elem c :: Type;
   empty: c
 }
@@ -702,8 +702,8 @@ func TestVerifyInjectivity_ViolationCaught(t *testing.T) {
 	// Without injectivity annotation, overlapping RHSes are allowed
 	// (they behave as a regular closed type family with first-match semantics).
 	source := `
-data Unit := { Unit: Unit; }
-data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
+form Unit := { Unit: Unit; }
+form List := \a. { Nil: List a; Cons: a -> List a -> List a; }
 type Elem :: Type := \(c: Type). case c {
   (List a) => a;
   Unit => Unit
@@ -717,8 +717,8 @@ f := \x. x
 // Equations with distinct RHSes should work fine.
 func TestVerifyInjectivity_DistinctRHSes(t *testing.T) {
 	source := `
-data Unit := { Unit: Unit; }
-data Bool := { True: Bool; False: Bool; }
+form Unit := { Unit: Unit; }
+form Bool := { True: Bool; False: Bool; }
 type Tag :: Type := \(c: Type). case c {
   Unit => Bool;
   Bool => Unit
@@ -740,7 +740,7 @@ type Id :: Type := \(a: Type). case a {
 // Single equation identity family with concrete usage.
 func TestVerifyInjectivity_CompatibleOverlap(t *testing.T) {
 	source := `
-data Unit := { Unit: Unit; }
+form Unit := { Unit: Unit; }
 type F :: Type := \(a: Type). case a {
   a => a
 }
@@ -757,7 +757,7 @@ f := \x. x
 // Associated type in class with no instances should produce a stuck type.
 func TestAssocType_NoInstances(t *testing.T) {
 	source := `
-data Container := \c. {
+form Container := \c. {
   type Elem c :: Type;
   clength: c -> Int
 }
@@ -773,12 +773,12 @@ f := \x. x
 // Associated type equation in wrong class should be rejected.
 func TestAssocType_WrongClass(t *testing.T) {
 	source := `
-data Unit := { Unit: Unit; }
-data Foo := \a. {
+form Unit := { Unit: Unit; }
+form Foo := \a. {
   type MyType a :: Type;
   m: a
 }
-data Bar := \a. {
+form Bar := \a. {
   m2: a
 }
 impl Bar Unit := {
@@ -792,8 +792,8 @@ impl Bar Unit := {
 // Associated type with arity mismatch in instance.
 func TestAssocType_ArityMismatchInInstance(t *testing.T) {
 	source := `
-data Unit := { Unit: Unit; }
-data Container := \c. {
+form Unit := { Unit: Unit; }
+form Container := \c. {
   type Elem c :: Type;
   empty: c
 }
@@ -814,7 +814,7 @@ impl Container Unit := {
 // Multi-step do block with correct threading.
 func TestDoThreading_ThreeSteps(t *testing.T) {
 	source := `
-data Unit := { Unit: Unit; }
+form Unit := { Unit: Unit; }
 step1 :: Computation { a: Unit, b: Unit } { b: Unit } Unit
 step1 := assumption
 step2 :: Computation { b: Unit } { c: Unit } Unit
@@ -830,7 +830,7 @@ main := do { step1; step2; step3 }
 // Do block where intermediate pre doesn't match: should fail.
 func TestDoThreading_PreMismatch(t *testing.T) {
 	source := `
-data Unit := { Unit: Unit; }
+form Unit := { Unit: Unit; }
 step1 :: Computation { a: Unit } { b: Unit } Unit
 step1 := assumption
 step2 :: Computation { z: Unit } {} Unit
@@ -845,7 +845,7 @@ main := do { step1; step2 }
 // Do block with bind and pre/post.
 func TestDoThreading_BindPrePost(t *testing.T) {
 	source := `
-data Unit := { Unit: Unit; }
+form Unit := { Unit: Unit; }
 produce :: Computation { a: Unit } { b: Unit } Unit
 produce := assumption
 consume :: Computation { b: Unit } {} Unit
@@ -865,8 +865,8 @@ main := do {
 
 func TestConstraintFamily_ReducesToClass(t *testing.T) {
 	source := `
-data Serialization := { JSON: Serialization; Binary: Serialization; }
-data Show := \a. {
+form Serialization := { JSON: Serialization; Binary: Serialization; }
+form Show := \a. {
   show: a -> a
 }
 type Serializable :: Constraint := \(fmt: Serialization). case fmt {
@@ -884,8 +884,8 @@ type Serializable :: Constraint := \(fmt: Serialization). case fmt {
 // Mult mismatch in row unification should fail.
 func TestMultUnification_MismatchFails(t *testing.T) {
 	source := `
-data Mult := { Unrestricted: (); Affine: (); Linear: (); }
-data Unit := { Unit: Unit; }
+form Mult := { Unrestricted: (); Affine: (); Linear: (); }
+form Unit := { Unit: Unit; }
 f :: { x: Unit @Linear } -> { x: Unit @Affine }
 f := \r. r
 `
@@ -895,8 +895,8 @@ f := \r. r
 // Mult matches in row unification should succeed.
 func TestMultUnification_MatchSucceeds(t *testing.T) {
 	source := `
-data Mult := { Unrestricted: (); Affine: (); Linear: (); }
-data Unit := { Unit: Unit; }
+form Mult := { Unrestricted: (); Affine: (); Linear: (); }
+form Unit := { Unit: Unit; }
 f :: { x: Unit @Linear } -> { x: Unit @Linear }
 f := \r. r
 `
@@ -906,8 +906,8 @@ f := \r. r
 // One side has Mult, other doesn't: should not unify.
 func TestMultUnification_AsymmetricMult(t *testing.T) {
 	source := `
-data Mult := { Unrestricted: (); Affine: (); Linear: (); }
-data Unit := { Unit: Unit; }
+form Mult := { Unrestricted: (); Affine: (); Linear: (); }
+form Unit := { Unit: Unit; }
 f :: { x: Unit @Linear } -> { x: Unit }
 f := \r. r
 `
@@ -923,8 +923,8 @@ f := \r. r
 
 func TestTypeFamilyPosition_InArgument(t *testing.T) {
 	source := `
-data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
-data Unit := { Unit: Unit; }
+form List := \a. { Nil: List a; Cons: a -> List a -> List a; }
+form Unit := { Unit: Unit; }
 type Elem :: Type := \(c: Type). case c {
   (List a) => a
 }
@@ -936,8 +936,8 @@ wrap := \x. x
 
 func TestTypeFamilyPosition_InResult(t *testing.T) {
 	source := `
-data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
-data Unit := { Unit: Unit; }
+form List := \a. { Nil: List a; Cons: a -> List a -> List a; }
+form Unit := { Unit: Unit; }
 type Elem :: Type := \(c: Type). case c {
   (List a) => a
 }
@@ -949,8 +949,8 @@ unwrap := \x. x
 
 func TestTypeFamilyPosition_InBothPositions(t *testing.T) {
 	source := `
-data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
-data Unit := { Unit: Unit; }
+form List := \a. { Nil: List a; Cons: a -> List a -> List a; }
+form Unit := { Unit: Unit; }
 type Elem :: Type := \(c: Type). case c {
   (List a) => a
 }
@@ -967,7 +967,7 @@ id := \x. x
 // Two stuck TyFamilyApps with same name and args should unify.
 func TestTyFamilyAppUnify_SameStuck(t *testing.T) {
 	source := `
-data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
+form List := \a. { Nil: List a; Cons: a -> List a -> List a; }
 type Elem :: Type := \(c: Type). case c {
   (List a) => a
 }
@@ -980,7 +980,7 @@ f := \x. x
 // Two stuck TyFamilyApps with different args should NOT unify.
 func TestTyFamilyAppUnify_DifferentArgsStuck(t *testing.T) {
 	source := `
-data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
+form List := \a. { Nil: List a; Cons: a -> List a -> List a; }
 type Elem :: Type := \(c: Type). case c {
   (List a) => a
 }
@@ -998,7 +998,7 @@ f := \x. x
 // Pattern with no variables (all concrete constructors).
 func TestCollectPatternVars_AllConcrete(t *testing.T) {
 	source := `
-data Bool := { True: Bool; False: Bool; }
+form Bool := { True: Bool; False: Bool; }
 type F :: Bool := \(a: Bool). case a {
   True => False;
   False => True
@@ -1010,9 +1010,9 @@ type F :: Bool := \(a: Bool). case a {
 // Pattern with nested variables.
 func TestCollectPatternVars_NestedVars(t *testing.T) {
 	source := `
-data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
-data Maybe := \a. { Nothing: Maybe a; Just: a -> Maybe a; }
-data Unit := { Unit: Unit; }
+form List := \a. { Nil: List a; Cons: a -> List a -> List a; }
+form Maybe := \a. { Nothing: Maybe a; Just: a -> Maybe a; }
+form Unit := { Unit: Unit; }
 type F :: Type := \(c: Type). case c {
   (List a) => a;
   (Maybe a) => a
@@ -1032,8 +1032,8 @@ f := \x. x
 // requires the legacy syntax path.
 func TestDataFamily_NonExhaustiveMatch(t *testing.T) {
 	source := `
-data Unit := { Unit: Unit; }
-data Entry := { Singleton: Unit -> Entry; Empty: Entry; }
+form Unit := { Unit: Unit; }
+form Entry := { Singleton: Unit -> Entry; Empty: Entry; }
 
 f :: Entry -> Unit
 f := \e. case e {
@@ -1046,8 +1046,8 @@ f := \e. case e {
 // Exhaustive match should pass.
 func TestDataFamily_ExhaustiveMatch(t *testing.T) {
 	source := `
-data Unit := { Unit: Unit; }
-data Entry := { Singleton: Unit -> Entry; Empty: Entry; }
+form Unit := { Unit: Unit; }
+form Entry := { Singleton: Unit -> Entry; Empty: Entry; }
 
 f :: Entry -> Unit
 f := \e. case e {
@@ -1066,9 +1066,9 @@ func TestTypeFamilyTwoParams_PartialMatch(t *testing.T) {
 	// Two-param type family encoded via Pair since unified syntax only
 	// supports single-param type families.
 	source := `
-data Bool := { True: Bool; False: Bool; }
-data Unit := { Unit: Unit; }
-data Pair := \a b. { MkPair: a -> b -> Pair a b; }
+form Bool := { True: Bool; False: Bool; }
+form Unit := { Unit: Unit; }
+form Pair := \a b. { MkPair: a -> b -> Pair a b; }
 type And :: Bool := \(p: Type). case p {
   (Pair True True) => True;
   (Pair True False) => False;
@@ -1085,8 +1085,8 @@ type And :: Bool := \(p: Type). case p {
 func TestDivergentPost_AllBranchesConsumeAll(t *testing.T) {
 	// Both branches consume all: intersection = full set (empty post).
 	source := `
-data Bool := { True: Bool; False: Bool; }
-data Unit := { Unit: Unit; }
+form Bool := { True: Bool; False: Bool; }
+form Unit := { Unit: Unit; }
 consume1 :: Computation { a: Unit } {} Unit
 consume1 := assumption
 consume2 :: Computation { a: Unit } {} Unit
@@ -1108,8 +1108,8 @@ func TestDivergentPost_NoSharedCaps(t *testing.T) {
 	// Branch 1: post = { a }, Branch 2: post = { b }
 	// Intersection = {} (no label in all branches)
 	source := `
-data Bool := { True: Bool; False: Bool; }
-data Unit := { Unit: Unit; }
+form Bool := { True: Bool; False: Bool; }
+form Unit := { Unit: Unit; }
 keepA :: Computation { a: Unit, b: Unit } { a: Unit } Unit
 keepA := assumption
 keepB :: Computation { a: Unit, b: Unit } { b: Unit } Unit
@@ -1130,8 +1130,8 @@ f := \b. case b {
 func TestTypeFamilyWildcard_MultiParam(t *testing.T) {
 	// Two-param type family with wildcards, encoded via Pair.
 	source := `
-data Bool := { True: Bool; False: Bool; }
-data Pair := \a b. { MkPair: a -> b -> Pair a b; }
+form Bool := { True: Bool; False: Bool; }
+form Pair := \a b. { MkPair: a -> b -> Pair a b; }
 type Or :: Bool := \(p: Type). case p {
   (Pair True _) => True;
   (Pair _ True) => True;
@@ -1148,9 +1148,9 @@ type Or :: Bool := \(p: Type). case p {
 func TestMatchTyPatterns_ConsistencyTyApp(t *testing.T) {
 	// F (Pair (List a) (List a)) = a: both components must bind 'a' to the same type.
 	source := `
-data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
-data Unit := { Unit: Unit; }
-data Pair := \a b. { MkPair: a -> b -> Pair a b; }
+form List := \a. { Nil: List a; Cons: a -> List a -> List a; }
+form Unit := { Unit: Unit; }
+form Pair := \a b. { MkPair: a -> b -> Pair a b; }
 type F :: Type := \(p: Type). case p {
   (Pair (List a) (List a)) => a
 }
@@ -1164,10 +1164,10 @@ f := \x. x
 // F (Pair (List Unit) (List Bool)) would incorrectly reduce.
 func TestMatchTyPatterns_InconsistencyFails(t *testing.T) {
 	source := `
-data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
-data Unit := { Unit: Unit; }
-data Bool := { True: Bool; False: Bool; }
-data Pair := \a b. { MkPair: a -> b -> Pair a b; }
+form List := \a. { Nil: List a; Cons: a -> List a -> List a; }
+form Unit := { Unit: Unit; }
+form Bool := { True: Bool; False: Bool; }
+form Pair := \a b. { MkPair: a -> b -> Pair a b; }
 type F :: Type := \(p: Type). case p {
   (Pair (List a) (List a)) => a
 }
@@ -1186,8 +1186,8 @@ f := \x. x
 
 func TestTypeFamilyCoexistsWithAlias(t *testing.T) {
 	source := `
-data Unit := { Unit: Unit; }
-data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
+form Unit := { Unit: Unit; }
+form List := \a. { Nil: List a; Cons: a -> List a -> List a; }
 type Id := \a. a
 type Elem :: Type := \(c: Type). case c {
   (List a) => a
@@ -1207,8 +1207,8 @@ func TestLubPostStates_IncompatibleCapTypes(t *testing.T) {
 	// Branch 2: post = { x: Bool }
 	// Intersection: label 'x' is in both, but types Unit vs Bool can't unify.
 	source := `
-data Bool := { True: Bool; False: Bool; }
-data Unit := { Unit: Unit; }
+form Bool := { True: Bool; False: Bool; }
+form Unit := { Unit: Unit; }
 opA :: Computation { x: Unit } { x: Unit } Unit
 opA := assumption
 opB :: Computation { x: Unit } { x: Bool } Unit
@@ -1231,7 +1231,7 @@ func TestRecursiveTyFamily_DualOfDual(t *testing.T) {
 	// Dual(Dual(Send End)) should reduce back to Send End.
 	// This tests deep recursive reduction.
 	source := `
-data Session := { Send: Session; Recv: Session; End: (); }
+form Session := { Send: Session; Recv: Session; End: (); }
 type Dual :: Session := \(s: Session). case s {
   (Send s) => Recv (Dual s);
   (Recv s) => Send (Dual s);
@@ -1248,7 +1248,7 @@ type Dual :: Session := \(s: Session). case s {
 
 func TestTypeFamilyFuelExhaustion_ErrorMessage(t *testing.T) {
 	source := `
-data Unit := { Unit: Unit; }
+form Unit := { Unit: Unit; }
 type Loop :: Type := \(a: Type). case a {
   a => Loop a
 }
@@ -1271,8 +1271,8 @@ func TestInjectivityViolation_ErrorMessage(t *testing.T) {
 	// This test verifies that the type family compiles correctly as a
 	// regular closed type family.
 	source := `
-data Unit := { Unit: Unit; }
-data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
+form Unit := { Unit: Unit; }
+form List := \a. { Nil: List a; Cons: a -> List a -> List a; }
 type F :: Type := \(c: Type). case c {
   (List a) => a;
   Unit => Unit

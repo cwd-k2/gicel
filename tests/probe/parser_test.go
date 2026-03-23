@@ -193,7 +193,7 @@ main := (double . inc) 10`
 
 func TestProbeE_Parser_NestedPatternMatch(t *testing.T) {
 	source := `import Prelude
-data Pair := \a b. { MkPair: a -> b -> Pair a b; }
+form Pair := \a b. { MkPair: a -> b -> Pair a b; }
 main := case MkPair (Just 42) True {
   MkPair Nothing _ => 0;
   MkPair (Just n) True => n;
@@ -372,7 +372,7 @@ func TestProbeE_Parser_DeepNestedLambdasRuntime(t *testing.T) {
 
 func TestProbeE_Parser_GADTEndToEnd(t *testing.T) {
 	source := `import Prelude
-data Expr := \a. {
+form Expr := \a. {
   LitBool: Bool -> Expr Bool;
   LitInt: Int -> Expr Int;
 }
@@ -444,7 +444,7 @@ func TestProbeE_Parser_ErrorMsgQuality(t *testing.T) {
 		keyword string
 	}{
 		{"missing_body", "main :=", "expression"},
-		{"bad_data_decl", "data := True", "uppercase"},
+		{"bad_form_decl", "form := True", "uppercase"},
 		{"bad_import", "import\nmain := 1", "uppercase"},
 		{"unterminated_string", `main := "hello`, "unterminated"},
 	}
@@ -462,9 +462,9 @@ func TestProbeE_Parser_ErrorMsgQuality(t *testing.T) {
 
 func TestProbeE_Parser_ClassInstanceEndToEnd(t *testing.T) {
 	source := `import Prelude
-data Color := { Red: Color; Green: Color; Blue: Color; }
+form Color := { Red: Color; Green: Color; Blue: Color; }
 
-data Named := \a. {
+form Named := \a. {
   name: a -> String;
 }
 

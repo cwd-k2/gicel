@@ -11,12 +11,12 @@ import Prelude
 --   DoorState: a kind
 --   Open   : DoorState  (a type of kind DoorState)
 --   Closed: DoorState  (a type of kind DoorState)
-data DoorState := Open | Closed
+form DoorState := Open | Closed
 
 -- A Door with a phantom type parameter `s` of kind DoorState.
 -- The runtime representation is always MkDoor (a unit-like value),
 -- but the type tracks whether the door is open or closed.
-data Door := \(s: DoorState). { MkDoor: Door s }
+form Door := \(s: DoorState). { MkDoor: Door s }
 
 -- Create doors in known states. The type annotation fixes the phantom.
 closedDoor :: Door Closed
@@ -60,9 +60,9 @@ test5 := isOpen step3              -- True
 --   isClosed openDoor     -- type error: expected Door Closed, got Door Open
 
 -- Another example: file handle states
-data FileState := Reading | Writing | FileClosed
+form FileState := Reading | Writing | FileClosed
 
-data FileHandle := \(s: FileState). { MkHandle: FileHandle s }
+form FileHandle := \(s: FileState). { MkHandle: FileHandle s }
 
 -- Only a Reading handle can be read from
 readHandle :: FileHandle Reading -> Bool

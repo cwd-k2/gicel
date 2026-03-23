@@ -5,7 +5,7 @@
 
 **v0.16.0** — [Changelog](CHANGELOG.md)
 
-> **Pre-1.0 notice:** GICEL is pre-1.0. Breaking changes to syntax or API may occur between minor versions. v0.16 unifies `class`/`instance` into `data`/`impl` and introduces scoped evidence injection.
+> **Pre-1.0 notice:** GICEL is pre-1.0. Breaking changes to syntax or API may occur between minor versions. v0.16 unifies `class`/`instance` into `form`/`impl` and introduces scoped evidence injection.
 
 Embed a type-safe, sandboxed language in your Go application.
 GICEL compiles Haskell-like source into typed computations, runs them with
@@ -158,8 +158,8 @@ See [`examples/go/`](examples/go/) for full patterns.
 ### Type System
 
 - Full type inference with higher-rank polymorphism
-- Type classes (via unified `data`/`impl`) with superclasses, associated types
-- Type families — closed, associated, data families with recursive reduction
+- Type classes (via unified `form`/`impl`) with superclasses, associated types
+- Type families — closed, associated, form families with recursive reduction
 - Row polymorphism — extensible records and capability environments
 - GADTs with refined return types and existential types
 - Grade annotations (`@Linear`, `@Affine`) for resource tracking
@@ -168,7 +168,7 @@ See [`examples/go/`](examples/go/) for full patterns.
 
 ### Language
 
-- 9 keywords: `case do data type impl infixl infixr infixn import`
+- 9 keywords: `case do form type impl infixl infixr infixn import`
 - ADTs with exhaustive pattern matching (shorthand and GADT styles)
 - Do-notation for monadic sequencing
 - Records, tuples, module system (open, selective, qualified imports)

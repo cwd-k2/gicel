@@ -343,7 +343,7 @@ func TestFullPipeline(t *testing.T) {
 	eng.Use(stdlib.Prelude)
 	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
-data SomeEq := { MkSomeEq: \a. Eq a => a -> SomeEq }
+form SomeEq := { MkSomeEq: \a. Eq a => a -> SomeEq }
 isSelf :: SomeEq -> Bool
 isSelf := \s. case s { MkSomeEq x => eq x x }
 applyId :: (\a. a -> a) -> Bool
@@ -549,7 +549,7 @@ func TestKindedClassParam(t *testing.T) {
 	eng.Use(stdlib.Prelude)
 	_, err := eng.NewRuntime(context.Background(), `
 import Prelude
-data MyClass := \(m: Row -> Row -> Type -> Type). {
+form MyClass := \(m: Row -> Row -> Type -> Type). {
   myPure: \a (r: Row). a -> m r r a
 }
 main := True
@@ -564,7 +564,7 @@ func TestKindedClassParamWithInstance(t *testing.T) {
 	eng.Use(stdlib.Prelude)
 	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
-data Wrap := \(f: Type -> Type). {
+form Wrap := \(f: Type -> Type). {
   wrap: \a. a -> f a
 }
 impl Wrap Maybe := {
@@ -677,10 +677,10 @@ func TestTypeFamilyIsolationAcrossCompilations(t *testing.T) {
 	eng := NewEngine()
 	// Register a module with a class + associated type.
 	err := eng.RegisterModule("TFLib", `
-data Bool := { True: Bool; False: Bool; }
-data Nat := { Zero: Nat; Succ: Nat -> Nat; }
+form Bool := { True: Bool; False: Bool; }
+form Nat := { Zero: Nat; Succ: Nat -> Nat; }
 
-data Convert := \a. {
+form Convert := \a. {
   type Target a :: Type;
   convert: a -> Target a
 }

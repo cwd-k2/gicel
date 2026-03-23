@@ -18,25 +18,25 @@ func TestCheckUnboundVar(t *testing.T) {
 // --- Error code coverage tests ---
 
 func TestErrorUnboundCon(t *testing.T) {
-	source := `data Bool := { True: Bool; False: Bool; }
+	source := `form Bool := { True: Bool; False: Bool; }
 main := case True { Foo=> True; _ => False }`
 	checkSourceExpectCode(t, source, nil, diagnostic.ErrUnboundCon)
 }
 
 func TestErrorBadApplication(t *testing.T) {
-	source := `data Bool := { True: Bool; False: Bool; }
+	source := `form Bool := { True: Bool; False: Bool; }
 main := True True`
 	checkSourceExpectCode(t, source, nil, diagnostic.ErrBadApplication)
 }
 
 func TestErrorBadComputation(t *testing.T) {
-	source := `data Bool := { True: Bool; False: Bool; }
+	source := `form Bool := { True: Bool; False: Bool; }
 main := do { x <- True; pure x }`
 	checkSourceExpectCode(t, source, nil, diagnostic.ErrBadComputation)
 }
 
 func TestErrorBadThunk(t *testing.T) {
-	source := `data Bool := { True: Bool; False: Bool; }
+	source := `form Bool := { True: Bool; False: Bool; }
 main := force True`
 	checkSourceExpectCode(t, source, nil, diagnostic.ErrBadThunk)
 }
@@ -104,14 +104,14 @@ func TestErrorBadDoEnding(t *testing.T) {
 }
 
 func TestErrorBadClass(t *testing.T) {
-	source := `data Bool := { True: Bool; False: Bool; }
+	source := `form Bool := { True: Bool; False: Bool; }
 impl Phantom Bool := { foo := \x. x }`
 	checkSourceExpectCode(t, source, nil, diagnostic.ErrBadClass)
 }
 
 func TestErrorMissingMethod(t *testing.T) {
-	source := `data Bool := { True: Bool; False: Bool; }
-data Eq := \a. { eq: a -> a -> Bool }
+	source := `form Bool := { True: Bool; False: Bool; }
+form Eq := \a. { eq: a -> a -> Bool }
 impl Eq Bool := {}`
 	checkSourceExpectCode(t, source, nil, diagnostic.ErrMissingMethod)
 }
@@ -119,13 +119,13 @@ impl Eq Bool := {}`
 func TestErrorSkolemEscape(t *testing.T) {
 	// Existential type variable escapes via GADT pattern match:
 	// MkExists packs an existential 'a'; extracting it leaks 'a' into the result.
-	source := `data Exists := { MkExists: \ a. a -> Exists }
+	source := `form Exists := { MkExists: \ a. a -> Exists }
 bad := \e. case e { MkExists x => x }`
 	checkSourceExpectCode(t, source, nil, diagnostic.ErrSkolemEscape)
 }
 
 func TestErrorSkolemRigid(t *testing.T) {
-	source := `data Bool := { True: Bool; False: Bool; }
+	source := `form Bool := { True: Bool; False: Bool; }
 main :: \ a b. a -> b
 main := \x. x`
 	checkSourceExpectCode(t, source, nil, diagnostic.ErrSkolemRigid)

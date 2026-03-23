@@ -8,7 +8,7 @@ import Prelude
 
 -- ── AST ─────────────────────────────────────────────────────
 
-data Expr := {
+form Expr := {
   Lit:  Int -> Expr;
   Add:  Expr -> Expr -> Expr;
   Sub:  Expr -> Expr -> Expr;

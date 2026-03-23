@@ -502,7 +502,7 @@ func TestStressModuleDependencyChain(t *testing.T) {
 
 	// Each module defines its own type and value, importing the previous.
 	err := eng.RegisterModule("M0", `
-data T0 := { MkT0: T0 }
+form T0 := { MkT0: T0 }
 val0 := MkT0
 `)
 	if err != nil {
@@ -510,7 +510,7 @@ val0 := MkT0
 	}
 
 	for i := 1; i < 10; i++ {
-		src := fmt.Sprintf("import M%d\ndata T%d := { MkT%d: T%d }\nval%d := MkT%d\n", i-1, i, i, i, i, i)
+		src := fmt.Sprintf("import M%d\nform T%d := { MkT%d: T%d }\nval%d := MkT%d\n", i-1, i, i, i, i, i)
 		if err := eng.RegisterModule(fmt.Sprintf("M%d", i), src); err != nil {
 			t.Fatalf("registering M%d: %v", i, err)
 		}
@@ -536,7 +536,7 @@ main := val9
 // TestStressModuleUnknownImport — importing a non-existent module must error.
 func TestStressModuleUnknownImport(t *testing.T) {
 	eng := gicel.NewEngine()
-	err := eng.RegisterModule("A", "import NonExistent\ndata TA := MkTA")
+	err := eng.RegisterModule("A", "import NonExistent\nform TA := MkTA")
 	if err == nil {
 		t.Fatal("expected error for unknown module import")
 	}
@@ -584,7 +584,7 @@ func TestStressConcurrentSandbox(t *testing.T) {
 func TestStressCustomPrelude(t *testing.T) {
 	eng := gicel.NewEngine()
 	err := eng.RegisterModule("Prelude", `
-data MyBool := { Yes: MyBool; No: MyBool; }
+form MyBool := { Yes: MyBool; No: MyBool; }
 myNot :: MyBool -> MyBool
 myNot := \b. case b { Yes => No; No => Yes }
 `)

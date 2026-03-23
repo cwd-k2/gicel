@@ -23,7 +23,7 @@ import (
 
 // Geometry module: defines Point and operations.
 const geometrySource = `
-data Point := { MkPoint: Int -> Int -> Point }
+form Point := { MkPoint: Int -> Int -> Point }
 
 mkPoint :: Int -> Int -> Point
 mkPoint := \x y. MkPoint x y
@@ -39,7 +39,7 @@ getY := \p. case p { MkPoint _ y => y }
 const colorSource = `
 import Prelude
 
-data Color := Red | Green | Blue
+form Color := Red | Green | Blue
 
 name :: Color -> String
 name := \c. case c { Red => "red"; Green => "green"; Blue => "blue" }

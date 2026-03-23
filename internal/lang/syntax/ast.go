@@ -65,7 +65,7 @@ type ExprDo struct {
 
 type ExprBlock struct {
 	Binds    []AstBind
-	TypeDefs []ImplField // associated type/data definitions (in impl bodies)
+	TypeDefs []ImplField // associated type/form definitions (in impl bodies)
 	Body     Expr
 	S        span.Span
 }

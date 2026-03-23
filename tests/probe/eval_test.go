@@ -291,7 +291,7 @@ func TestProbeE_Eval_SandboxNoMainBinding(t *testing.T) {
 func TestProbeE_Eval_PatternMatchExhaustionRuntime(t *testing.T) {
 	_, err := peRun(t, `
 import Prelude
-data Color := Red | Blue
+form Color := Red | Blue
 f :: Color -> Int
 f := \c. case c { Red => 1 }
 main := f Blue
@@ -552,7 +552,7 @@ func TestProbeE_Eval_ExplainCaseMatch(t *testing.T) {
 	// or suppressed as an internal pattern.
 	_, steps, err := peRunWithExplain(t, `
 import Prelude
-data Color := Red | Blue
+form Color := Red | Blue
 main := case Red { Red => 1; Blue => 0 }
 `, gicel.Prelude)
 	if err != nil {

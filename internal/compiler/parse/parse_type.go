@@ -267,12 +267,12 @@ func (p *Parser) parseRowType() syn.TypeExpr {
 		if p.peek().Kind == syn.TokRBrace || p.peek().Kind == syn.TokEOF {
 			break
 		}
-		// Associated type/data declaration: type Name :: Kind; or data Name :: Kind;
-		if p.peek().Kind == syn.TokType || p.peek().Kind == syn.TokData {
+		// Associated type/form declaration: type Name :: Kind; or form Name :: Kind;
+		if p.peek().Kind == syn.TokType || p.peek().Kind == syn.TokForm {
 			tdStart := p.peek().S.Start
-			p.advance() // consume 'type' or 'data'
+			p.advance() // consume 'type' or 'form'
 			tName := p.expectUpper()
-			// Consume optional params (legacy: data Elem a :: Type)
+			// Consume optional params (legacy: form Elem a :: Type)
 			for p.peek().Kind == syn.TokLower {
 				p.advance()
 			}

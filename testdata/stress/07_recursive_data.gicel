@@ -51,7 +51,7 @@ take := \n. fix (\self xs. case intEq n (intZero ()) {
   }
 })
 
-data Tree := \a. { Leaf: a -> Tree a; Branch: Tree a -> Tree a -> Tree a }
+form Tree := \a. { Leaf: a -> Tree a; Branch: Tree a -> Tree a -> Tree a }
 
 treeSize :: \a. Tree a -> Int
 treeSize := fix (\self t. case t {

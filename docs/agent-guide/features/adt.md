@@ -5,28 +5,28 @@
 Simple enumerations (no fields, no type parameters) use the short form:
 
 ```
-data Name := Con (| Con)*
+form Name := Con (| Con)*
 ```
 
 Example:
 
 ```
-data Ordering := LT | EQ | GT
-data Bool := True | False
+form Ordering := LT | EQ | GT
+form Bool := True | False
 ```
 
 Parameterized types and constructors with fields use the unified syntax:
 
 ```
-data Name := \param*. { Con: Type; ... }
+form Name := \param*. { Con: Type; ... }
 ```
 
 Parameters can be bare type variables or kinded:
 
 ```
-data Maybe := \a. { Just: a -> Maybe a; Nothing: Maybe a }
-data List := \a. { Cons: a -> List a -> List a; Nil: List a }
-data Shape := { Circle: Int -> Shape; Rect: Int -> Int -> Shape }
+form Maybe := \a. { Just: a -> Maybe a; Nothing: Maybe a }
+form List := \a. { Cons: a -> List a -> List a; Nil: List a }
+form Shape := { Circle: Int -> Shape; Rect: Int -> Int -> Shape }
 ```
 
 ### GADTs
@@ -34,7 +34,7 @@ data Shape := { Circle: Int -> Shape; Rect: Int -> Int -> Shape }
 GADTs use braces with full constructor type signatures. Each constructor can refine the type parameter:
 
 ```
-data Expr := \a. {
+form Expr := \a. {
   LitBool: Bool -> Expr Bool;
   LitInt:  Int -> Expr Int;
   Add:     Expr Int -> Expr Int -> Expr Int
@@ -44,7 +44,7 @@ data Expr := \a. {
 GADT pattern matching refines type variables in branches. Existential types are supported:
 
 ```
-data SomeEq := {
+form SomeEq := {
   MkSomeEq: \a. Eq a => a -> SomeEq
 }
 ```
@@ -75,11 +75,11 @@ Literal patterns (integers, strings, runes) require a wildcard catch-all since l
 Data types are automatically promoted to kinds. Nullary constructors become types of that kind:
 
 ```
-data DBState := Opened | Closed
+form DBState := Opened | Closed
 -- DBState is now also a kind
 -- Opened: DBState, Closed: DBState at the type level
 
-data DB := \(s: DBState). { MkDB: DB s }
+form DB := \(s: DBState). { MkDB: DB s }
 -- DB Opened: Type, DB Closed: Type
 ```
 

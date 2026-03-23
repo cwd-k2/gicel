@@ -1,6 +1,6 @@
 import Prelude
 
-data Eq := \a. { eq: a -> a -> Bool }
+form Eq := \a. { eq: a -> a -> Bool }
 
 impl Eq Bool := {
   eq := \x y. case x {

@@ -23,7 +23,7 @@ deepUnwrap := \m. case m {
 }
 
 -- Bare nullary constructor as pattern argument
-data Wrapped := \a. { Wrap: a -> Wrapped a }
+form Wrapped := \a. { Wrap: a -> Wrapped a }
 
 isWrappedNothing :: Wrapped (Maybe Int) -> Bool
 isWrappedNothing := \w. case w {

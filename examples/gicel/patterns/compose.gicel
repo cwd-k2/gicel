@@ -9,7 +9,7 @@ import Prelude
 
 -- ── Compose ──────────────────────────────────────────────────
 
-data Compose := \(f: Type -> Type) (g: Type -> Type) a. { MkCompose: f (g a) -> Compose f g a }
+form Compose := \(f: Type -> Type) (g: Type -> Type) a. { MkCompose: f (g a) -> Compose f g a }
 
 getCompose :: \(f: Type -> Type) (g: Type -> Type) a. Compose f g a -> f (g a)
 getCompose := \c. case c { MkCompose fga => fga }
@@ -21,7 +21,7 @@ impl (Functor f, Functor g) => Functor (Compose f g) := {
 
 -- ── Identity functor ─────────────────────────────────────────
 
-data Id := \a. { MkId: a -> Id a }
+form Id := \a. { MkId: a -> Id a }
 
 runId :: \a. Id a -> a
 runId := \i. case i { MkId a => a }

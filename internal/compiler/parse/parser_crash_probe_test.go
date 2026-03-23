@@ -333,7 +333,7 @@ func TestProbeD_SingleBackslash(t *testing.T) {
 
 // TestProbeD_KeywordAlone verifies that each keyword alone does not crash.
 func TestProbeD_KeywordAlone(t *testing.T) {
-	keywords := []string{"case", "do", "data", "type", "infixl", "infixr", "infixn", "class", "instance", "import"}
+	keywords := []string{"case", "do", "form", "type", "infixl", "infixr", "infixn", "class", "instance", "import"}
 	for _, kw := range keywords {
 		t.Run(kw, func(t *testing.T) {
 			_, es := parse(kw)
@@ -748,14 +748,14 @@ func TestProbeD_MixedDeclsStress(t *testing.T) {
 import Prelude
 import Mod as M
 
-data Bool := True | False
+form Bool := True | False
 
 type Alias := Int
 
 infixl 6 +
 (+) := \a b. a
 
-data Eq := \a. {
+form Eq := \a. {
   eq: a -> a -> Bool
 }
 
@@ -918,7 +918,7 @@ func TestProbeE_CrashRepeatedSemicolons(t *testing.T) {
 
 // TestProbeE_CrashAllKeywordsAsExpr verifies keywords in expression position error gracefully.
 func TestProbeE_CrashAllKeywordsAsExpr(t *testing.T) {
-	keywords := []string{"data", "type", "impl", "import", "infixl", "infixr", "infixn"}
+	keywords := []string{"form", "type", "impl", "import", "infixl", "infixr", "infixn"}
 	for _, kw := range keywords {
 		t.Run(kw, func(t *testing.T) {
 			source := fmt.Sprintf("main := %s", kw)

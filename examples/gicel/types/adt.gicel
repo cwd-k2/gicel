@@ -6,10 +6,10 @@
 import Prelude
 
 -- A simple enumeration type
-data Color := Red | Green | Blue
+form Color := Red | Green | Blue
 
 -- A sum type with fields
-data Shape := { Circle: Int -> Shape; Rect: Int -> Int -> Shape }
+form Shape := { Circle: Int -> Shape; Rect: Int -> Int -> Shape }
 
 -- Convert a Color to a descriptive boolean (is it a primary additive color?)
 isPrimary :: Color -> Bool

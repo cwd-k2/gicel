@@ -8,20 +8,20 @@
 import Prelude
 
 -- A custom ADT to work with
-data Priority := Low | Medium | High
+form Priority := Low | Medium | High
 
 -- Base class: can convert to a Bool representation
-data Show' := \a. {
+form Show' := \a. {
   toBool: a -> Bool
 }
 
 -- Eq' requires Show': any Eq' type must also be Show'
-data Eq' := \a. Show' a => {
+form Eq' := \a. Show' a => {
   eq': a -> a -> Bool
 }
 
 -- Ord' requires Eq' (and transitively Show'): full ordering
-data Ord' := \a. Eq' a => {
+form Ord' := \a. Eq' a => {
   compare': a -> a -> Ordering
 }
 

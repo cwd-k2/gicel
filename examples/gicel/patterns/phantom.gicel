@@ -10,12 +10,12 @@ import Prelude
 
 -- ── State tokens (used only at the type level) ───────────────
 
-data Locked := Locked
-data Unlocked := Unlocked
+form Locked := Locked
+form Unlocked := Unlocked
 
 -- ── Door with phantom state ──────────────────────────────────
 
-data Door := \(state: Type). { MkDoor: String -> Door state }
+form Door := \(state: Type). { MkDoor: String -> Door state }
 
 doorName :: \s. Door s -> String
 doorName := \d. case d { MkDoor name => name }
@@ -46,10 +46,10 @@ test_relock := doorName (lock (unlock front))  -- "Front"
 -- ── Token with phantom ───────────────────────────────────────
 -- Another phantom pattern: type-safe tokens
 
-data ReadOnly := ReadOnly
-data ReadWrite := ReadWrite
+form ReadOnly := ReadOnly
+form ReadWrite := ReadWrite
 
-data Token := \(perm: Type). { MkToken: Int -> Token perm }
+form Token := \(perm: Type). { MkToken: Int -> Token perm }
 
 tokenId :: \p. Token p -> Int
 tokenId := \t. case t { MkToken i => i }

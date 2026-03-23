@@ -13,8 +13,8 @@ import (
 // --- Instance resolution tests ---
 
 func TestResolveMissingInstanceError(t *testing.T) {
-	source := `data Bool := { True: Bool; False: Bool; }
-data Eq := \a. { eq: a -> a -> Bool }
+	source := `form Bool := { True: Bool; False: Bool; }
+form Eq := \a. { eq: a -> a -> Bool }
 f :: \ a. Eq a => a -> a -> Bool
 f := \x y. eq x y
 main := f True False`
@@ -22,8 +22,8 @@ main := f True False`
 }
 
 func TestResolveSimpleInstance(t *testing.T) {
-	source := `data Bool := { True: Bool; False: Bool; }
-data Eq := \a. { eq: a -> a -> Bool }
+	source := `form Bool := { True: Bool; False: Bool; }
+form Eq := \a. { eq: a -> a -> Bool }
 impl Eq Bool := { eq := \x y. True }
 f :: \ a. Eq a => a -> a -> Bool
 f := \x y. eq x y
@@ -41,9 +41,9 @@ main := f True False`
 }
 
 func TestResolveContextualInstance(t *testing.T) {
-	source := `data Bool := { True: Bool; False: Bool; }
-data Maybe := \a. { Just: a -> Maybe a; Nothing: Maybe a; }
-data Eq := \a. { eq: a -> a -> Bool }
+	source := `form Bool := { True: Bool; False: Bool; }
+form Maybe := \a. { Just: a -> Maybe a; Nothing: Maybe a; }
+form Eq := \a. { eq: a -> a -> Bool }
 impl Eq Bool := { eq := \x y. True }
 impl Eq a => Eq (Maybe a) := { eq := \x y. True }
 f :: \ a. Eq a => a -> a -> Bool
@@ -65,9 +65,9 @@ main := f (Just True) (Just False)`
 
 func TestInstanceIndexLookup(t *testing.T) {
 	// Register 10 classes each with 10 instances, then resolve specific one.
-	source := `data Bool := { True: Bool; False: Bool; }
-data Eq := \a. { eq: a -> a -> Bool }
-data Show := \a. { show: a -> Bool }
+	source := `form Bool := { True: Bool; False: Bool; }
+form Eq := \a. { eq: a -> a -> Bool }
+form Show := \a. { show: a -> Bool }
 impl Eq Bool := { eq := \x y. True }
 impl Show Bool := { show := \x. True }
 main := eq True False`
@@ -85,8 +85,8 @@ main := eq True False`
 
 func TestOverlappingInstances(t *testing.T) {
 	// Two instances of Eq for the same type should trigger ErrOverlap.
-	source := `data Bool := { True: Bool; False: Bool; }
-data Eq := \a. { eq: a -> a -> Bool }
+	source := `form Bool := { True: Bool; False: Bool; }
+form Eq := \a. { eq: a -> a -> Bool }
 impl Eq Bool := { eq := \x y. case x { True => y; False => case y { True => False; False => True } } }
 impl Eq Bool := { eq := \x y. True }
 main := eq True False`
@@ -95,9 +95,9 @@ main := eq True False`
 
 func TestNonOverlappingInstances(t *testing.T) {
 	// Instances for different types should not overlap.
-	source := `data Bool := { True: Bool; False: Bool; }
-data Unit := { Unit: Unit; }
-data Eq := \a. { eq: a -> a -> Bool }
+	source := `form Bool := { True: Bool; False: Bool; }
+form Unit := { Unit: Unit; }
+form Eq := \a. { eq: a -> a -> Bool }
 impl Eq Bool := { eq := \x y. case x { True => y; False => case y { True => False; False => True } } }
 impl Eq Unit := { eq := \_ _. True }
 main := eq True False`
@@ -106,42 +106,42 @@ main := eq True False`
 
 func TestInstanceArityMismatch(t *testing.T) {
 	// Class Eq has 1 type param, instance provides 2 → ErrBadInstance.
-	source := `data Bool := { True: Bool; False: Bool; }
-data Eq := \a. { eq: a -> a -> Bool }
+	source := `form Bool := { True: Bool; False: Bool; }
+form Eq := \a. { eq: a -> a -> Bool }
 impl Eq Bool Bool := { eq := \x y. True }`
 	checkSourceExpectCode(t, source, nil, diagnostic.ErrBadInstance)
 }
 
 func TestInstanceUnknownContextClass(t *testing.T) {
 	// Instance context references a class that doesn't exist → ErrBadInstance.
-	source := `data Bool := { True: Bool; False: Bool; }
-data Maybe := \a. { Nothing: Maybe a; Just: a -> Maybe a; }
-data Eq := \a. { eq: a -> a -> Bool }
+	source := `form Bool := { True: Bool; False: Bool; }
+form Maybe := \a. { Nothing: Maybe a; Just: a -> Maybe a; }
+form Eq := \a. { eq: a -> a -> Bool }
 impl Phantom a => Eq (Maybe a) := { eq := \_ _. True }`
 	checkSourceExpectCode(t, source, nil, diagnostic.ErrBadInstance)
 }
 
 func TestInstanceSelfCycle(t *testing.T) {
 	// Instance context requires itself → ErrBadInstance.
-	source := `data Bool := { True: Bool; False: Bool; }
-data Eq := \a. { eq: a -> a -> Bool }
+	source := `form Bool := { True: Bool; False: Bool; }
+form Eq := \a. { eq: a -> a -> Bool }
 impl Eq a => Eq a := { eq := \x y. True }`
 	checkSourceExpectCode(t, source, nil, diagnostic.ErrBadInstance)
 }
 
 func TestInstanceExtraMethod(t *testing.T) {
 	// Instance defines a method not declared in the class → ErrBadInstance.
-	source := `data Bool := { True: Bool; False: Bool; }
-data Eq := \a. { eq: a -> a -> Bool }
+	source := `form Bool := { True: Bool; False: Bool; }
+form Eq := \a. { eq: a -> a -> Bool }
 impl Eq Bool := { eq := \x y. True; notAMethod := \x. x }`
 	checkSourceExpectCode(t, source, nil, diagnostic.ErrBadInstance)
 }
 
 func TestInstanceValidContextClass(t *testing.T) {
 	// Valid instance with known context class should succeed.
-	source := `data Bool := { True: Bool; False: Bool; }
-data Maybe := \a. { Nothing: Maybe a; Just: a -> Maybe a; }
-data Eq := \a. { eq: a -> a -> Bool }
+	source := `form Bool := { True: Bool; False: Bool; }
+form Maybe := \a. { Nothing: Maybe a; Just: a -> Maybe a; }
+form Eq := \a. { eq: a -> a -> Bool }
 impl Eq Bool := { eq := \x y. case x { True => y; False => case y { True => False; False => True } } }
 impl Eq a => Eq (Maybe a) := {
   eq := \x y. case x {
@@ -154,9 +154,9 @@ impl Eq a => Eq (Maybe a) := {
 
 func TestParametricOverlappingInstances(t *testing.T) {
 	// instance Eq (Maybe a) overlaps with instance Eq (Maybe Bool).
-	source := `data Bool := { True: Bool; False: Bool; }
-data Maybe := \a. { Nothing: Maybe a; Just: a -> Maybe a; }
-data Eq := \a. { eq: a -> a -> Bool }
+	source := `form Bool := { True: Bool; False: Bool; }
+form Maybe := \a. { Nothing: Maybe a; Just: a -> Maybe a; }
+form Eq := \a. { eq: a -> a -> Bool }
 impl Eq a => Eq (Maybe a) := {
   eq := \x y. case x {
     Nothing => case y { Nothing => True; Just _ => False };
@@ -171,9 +171,9 @@ impl Eq (Maybe Bool) := {
 
 func TestSelfCycleCompoundType(t *testing.T) {
 	// instance Eq (Maybe a) => Eq (Maybe a) is a self-cycle with compound types.
-	source := `data Bool := { True: Bool; False: Bool; }
-data Maybe := \a. { Nothing: Maybe a; Just: a -> Maybe a; }
-data Eq := \a. { eq: a -> a -> Bool }
+	source := `form Bool := { True: Bool; False: Bool; }
+form Maybe := \a. { Nothing: Maybe a; Just: a -> Maybe a; }
+form Eq := \a. { eq: a -> a -> Bool }
 impl Eq (Maybe a) => Eq (Maybe a) := { eq := \x y. True }`
 	checkSourceExpectCode(t, source, nil, diagnostic.ErrBadInstance)
 }
@@ -181,8 +181,8 @@ impl Eq (Maybe a) => Eq (Maybe a) := { eq := \x y. True }`
 func TestOverlapBlocksRegistration(t *testing.T) {
 	// Overlapping instance should NOT be registered — resolution should fail
 	// with "no instance" rather than silently picking one.
-	source := `data Bool := { True: Bool; False: Bool; }
-data Eq := \a. { eq: a -> a -> Bool }
+	source := `form Bool := { True: Bool; False: Bool; }
+form Eq := \a. { eq: a -> a -> Bool }
 impl Eq Bool := { eq := \x y. case x { True => y; False => case y { True => False; False => True } } }
 impl Eq Bool := { eq := \x y. True }
 main := eq True False`
@@ -193,8 +193,8 @@ main := eq True False`
 
 func TestSelfCycleBlocksRegistration(t *testing.T) {
 	// Self-cycle should not be registered — no cascading errors from resolution.
-	source := `data Bool := { True: Bool; False: Bool; }
-data Eq := \a. { eq: a -> a -> Bool }
+	source := `form Bool := { True: Bool; False: Bool; }
+form Eq := \a. { eq: a -> a -> Bool }
 impl Eq a => Eq a := { eq := \x y. True }`
 	checkSourceExpectCode(t, source, nil, diagnostic.ErrBadInstance)
 }
@@ -204,8 +204,8 @@ impl Eq a => Eq a := { eq := \x y. True }`
 func TestPrivateInstanceNoOverlap(t *testing.T) {
 	// A private instance (impl _name) should NOT overlap with a public instance
 	// for the same class and type.
-	source := `data Int := { MkInt: Int; }
-data MyEq := \a. { eq: a -> a -> Int; }
+	source := `form Int := { MkInt: Int; }
+form MyEq := \a. { eq: a -> a -> Int; }
 impl MyEq Int := { eq := \x y. MkInt; }
 impl _alwaysEq :: MyEq Int := { eq := \x y. MkInt; }
 main := eq MkInt MkInt`
@@ -216,8 +216,8 @@ func TestPrivateInstanceSolverInvisible(t *testing.T) {
 	// When both a public and private instance exist for the same class/type,
 	// the solver should resolve to the public instance (the private one is
 	// still registered but the public one is found first for same-module).
-	source := `data Int := { MkInt: Int; }
-data MyEq := \a. { eq: a -> a -> Int; }
+	source := `form Int := { MkInt: Int; }
+form MyEq := \a. { eq: a -> a -> Int; }
 impl MyEq Int := { eq := \x y. MkInt; }
 impl _alt :: MyEq Int := { eq := \x y. MkInt; }
 main := eq MkInt MkInt`
@@ -236,8 +236,8 @@ main := eq MkInt MkInt`
 func TestTwoPrivateInstancesNoOverlap(t *testing.T) {
 	// Two private instances for the same class/type should not overlap
 	// with each other either.
-	source := `data Int := { MkInt: Int; }
-data MyEq := \a. { eq: a -> a -> Int; }
+	source := `form Int := { MkInt: Int; }
+form MyEq := \a. { eq: a -> a -> Int; }
 impl _a :: MyEq Int := { eq := \x y. MkInt; }
 impl _b :: MyEq Int := { eq := \x y. MkInt; }
 main := MkInt`
@@ -246,8 +246,8 @@ main := MkInt`
 
 func TestPublicInstancesStillOverlap(t *testing.T) {
 	// Two public instances for the same class/type should still overlap.
-	source := `data Bool := { True: Bool; False: Bool; }
-data Eq := \a. { eq: a -> a -> Bool; }
+	source := `form Bool := { True: Bool; False: Bool; }
+form Eq := \a. { eq: a -> a -> Bool; }
 impl first :: Eq Bool := { eq := \x y. True; }
 impl second :: Eq Bool := { eq := \x y. False; }
 main := eq True False`
@@ -258,8 +258,8 @@ main := eq True False`
 
 func TestScopedEvidenceInjection(t *testing.T) {
 	// Private instance injected via value => expr overrides public instance.
-	source := `data Int := { MkInt: Int; }
-data MyEq := \a. { eq: a -> a -> Int; }
+	source := `form Int := { MkInt: Int; }
+form MyEq := \a. { eq: a -> a -> Int; }
 impl MyEq Int := { eq := \x y. MkInt; }
 impl _alt :: MyEq Int := { eq := \x y. MkInt; }
 main := _alt => eq MkInt MkInt`
@@ -268,9 +268,9 @@ main := _alt => eq MkInt MkInt`
 
 func TestScopedEvidenceNested(t *testing.T) {
 	// Nested scoped evidence: d1 => d2 => expr.
-	source := `data Int := { MkInt: Int; }
-data MyEq := \a. { eq: a -> a -> Int; }
-data MyOrd := \a. { cmp: a -> a -> Int; }
+	source := `form Int := { MkInt: Int; }
+form MyEq := \a. { eq: a -> a -> Int; }
+form MyOrd := \a. { cmp: a -> a -> Int; }
 impl MyEq Int := { eq := \x y. MkInt; }
 impl MyOrd Int := { cmp := \x y. MkInt; }
 impl _e :: MyEq Int := { eq := \x y. MkInt; }
@@ -281,8 +281,8 @@ main := _e => _o => eq MkInt MkInt`
 
 func TestScopedEvidenceDoesNotLeak(t *testing.T) {
 	// Scoped evidence should not affect resolution outside the => body.
-	source := `data Bool := { True: Bool; False: Bool; }
-data MyEq := \a. { eq: a -> a -> Bool; }
+	source := `form Bool := { True: Bool; False: Bool; }
+form MyEq := \a. { eq: a -> a -> Bool; }
 impl MyEq Bool := { eq := \x y. True; }
 impl _alt :: MyEq Bool := { eq := \x y. False; }
 inner := _alt => eq True False
@@ -294,7 +294,7 @@ main := outer`
 func TestScopedEvidenceNonDictType(t *testing.T) {
 	// value => expr where value has a non-dict type: context stays balanced,
 	// evidence is not injected, body is checked normally.
-	source := `data Unit := { Unit: Unit; }
+	source := `form Unit := { Unit: Unit; }
 main := Unit => Unit`
 	checkSource(t, source, nil)
 }

@@ -48,10 +48,11 @@ func convertFile(src string) string {
 }
 
 // Type family declaration pattern:
-// type Name (params) :: Kind := {
-//   Name Pat =: RHS;
-//   ...
-// }
+//
+//	type Name (params) :: Kind := {
+//	  Name Pat =: RHS;
+//	  ...
+//	}
 var (
 	// Match type family declaration with params and ::
 	tfDeclRe = regexp.MustCompile(`(?m)^(\s*)type\s+(\w+)\s+(.+?)\s*::\s*(.+?)\s*:=\s*\{`)

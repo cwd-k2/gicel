@@ -41,7 +41,7 @@ Typical agent workflow:
 | `features.records`       | Record literals, projection, update, tuples, rows       |
 | `features.adt`           | Data types, constructors, GADTs, pattern matching       |
 | `features.type-classes`  | Classes, instances, superclasses, class hierarchy       |
-| `features.type-families` | Closed TF, associated types, data families, injectivity |
+| `features.type-families` | Closed TF, associated types, form families, injectivity |
 | `features.effects`       | Computation, pure/bind, CapEnv, thunk/force             |
 | `features.modules`       | Import forms, qualified names, private `_` prefix       |
 | `features.session-types` | Session types, multiplicity, @Linear/@Affine, Dual      |

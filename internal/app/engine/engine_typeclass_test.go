@@ -15,8 +15,8 @@ import (
 func TestTypeClassEqBool(t *testing.T) {
 	eng := NewEngine()
 	rt, err := eng.NewRuntime(context.Background(), `
-data Bool := { True: Bool; False: Bool; }
-data Eq := \a. { eq: a -> a -> Bool }
+form Bool := { True: Bool; False: Bool; }
+form Eq := \a. { eq: a -> a -> Bool }
 impl Eq Bool := {
   eq := \x y. case x {
     True  => case y { True => True;  False => False };
@@ -41,8 +41,8 @@ main := eq True False
 func TestTypeClassPolymorphic(t *testing.T) {
 	eng := NewEngine()
 	rt, err := eng.NewRuntime(context.Background(), `
-data Bool := { True: Bool; False: Bool; }
-data Eq := \a. { eq: a -> a -> Bool }
+form Bool := { True: Bool; False: Bool; }
+form Eq := \a. { eq: a -> a -> Bool }
 impl Eq Bool := {
   eq := \x y. case x {
     True  => case y { True => True;  False => False };
@@ -69,9 +69,9 @@ main := f True True
 func TestTypeClassSuperclass(t *testing.T) {
 	eng := NewEngine()
 	rt, err := eng.NewRuntime(context.Background(), `
-data Bool := { True: Bool; False: Bool; }
-data Eq := \a. { eq: a -> a -> Bool }
-data Ord := \a. Eq a => { lt: a -> a -> Bool }
+form Bool := { True: Bool; False: Bool; }
+form Eq := \a. { eq: a -> a -> Bool }
+form Ord := \a. Eq a => { lt: a -> a -> Bool }
 impl Eq Bool := {
   eq := \x y. True
 }
@@ -98,9 +98,9 @@ main := useOrd True False
 func TestTypeClassFunctor(t *testing.T) {
 	eng := NewEngine()
 	rt, err := eng.NewRuntime(context.Background(), `
-data Bool := { True: Bool; False: Bool; }
-data Maybe := \a. { Just: a -> Maybe a; Nothing: Maybe a; }
-data Functor := \f. { fmap: \a b. (a -> b) -> f a -> f b }
+form Bool := { True: Bool; False: Bool; }
+form Maybe := \a. { Just: a -> Maybe a; Nothing: Maybe a; }
+form Functor := \f. { fmap: \a b. (a -> b) -> f a -> f b }
 impl Functor Maybe := {
   fmap := \g mx. case mx {
     Just x  => Just (g x);
@@ -133,8 +133,8 @@ main := fmap not (Just True)
 func TestTypeClassMultiParam(t *testing.T) {
 	eng := NewEngine()
 	rt, err := eng.NewRuntime(context.Background(), `
-data Bool := { True: Bool; False: Bool; }
-data Coercible := \a b. { coerce: a -> b }
+form Bool := { True: Bool; False: Bool; }
+form Coercible := \a b. { coerce: a -> b }
 impl Coercible Bool Bool := {
   coerce := \x. x
 }
@@ -249,7 +249,7 @@ func TestCoercibleMultiParam(t *testing.T) {
 	eng.Use(stdlib.Prelude)
 	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
-data Coercible := \a b. { coerce: a -> b }
+form Coercible := \a b. { coerce: a -> b }
 
 impl Coercible Bool () := { coerce := \_. () }
 
@@ -273,7 +273,7 @@ func TestCoercibleUsage(t *testing.T) {
 	eng.Use(stdlib.Prelude)
 	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
-data Coercible := \a b. { coerce: a -> b }
+form Coercible := \a b. { coerce: a -> b }
 
 impl Coercible Bool Bool := { coerce := \x. x }
 
@@ -536,7 +536,7 @@ func TestExistentialWithStdlib(t *testing.T) {
 	eng.Use(stdlib.Prelude)
 	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
-data SomeSemigroup := { MkSomeSG: \a. Semigroup a => a -> a -> SomeSemigroup }
+form SomeSemigroup := { MkSomeSG: \a. Semigroup a => a -> a -> SomeSemigroup }
 combine :: SomeSemigroup -> Bool
 combine := \s. case s { MkSomeSG x y => case append x y { _ => True } }
 main := combine (MkSomeSG EQ LT)

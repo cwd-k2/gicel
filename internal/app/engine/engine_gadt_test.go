@@ -15,8 +15,8 @@ import (
 func TestDataKindsDBState(t *testing.T) {
 	eng := NewEngine()
 	rt, err := eng.NewRuntime(context.Background(), `
-data DBState := { Opened: DBState; Closed: DBState; }
-data DB := \s. { MkDB: DB s; }
+form DBState := { Opened: DBState; Closed: DBState; }
+form DB := \s. { MkDB: DB s; }
 
 open :: DB Closed -> DB Opened
 open := \_. MkDB
@@ -48,7 +48,7 @@ func TestDataKindsInRow(t *testing.T) {
 	})
 	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
-data DBState := { Opened: DBState; Closed: DBState; }
+form DBState := { Opened: DBState; Closed: DBState; }
 
 readDB :: () -> Computation { db: Int } { db: Int } Int
 readDB := assumption
@@ -74,7 +74,7 @@ func TestDataKindsBoolPromotion(t *testing.T) {
 	eng.Use(stdlib.Prelude)
 	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
-data Proxy := \s. { MkProxy: Proxy s; }
+form Proxy := \s. { MkProxy: Proxy s; }
 main := (MkProxy :: Proxy True)
 `)
 	if err != nil {
@@ -98,7 +98,7 @@ func TestGADTEvalExpr(t *testing.T) {
 	eng.EnableRecursion()
 	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
-data Expr := \a. { LitBool: Bool -> Expr Bool; Not: Expr Bool -> Expr Bool }
+form Expr := \a. { LitBool: Bool -> Expr Bool; Not: Expr Bool -> Expr Bool }
 
 eval :: Expr Bool -> Bool
 eval := fix (\self e. case e {
@@ -124,10 +124,10 @@ main := eval (Not (LitBool True))
 func TestGADTWithDataKinds(t *testing.T) {
 	eng := NewEngine()
 	rt, err := eng.NewRuntime(context.Background(), `
-data DBState := { Opened: DBState; Closed: DBState; }
-data DB := \s. { MkDB: DB s; }
+form DBState := { Opened: DBState; Closed: DBState; }
+form DB := \s. { MkDB: DB s; }
 
-data Action := \s. { Open: Action Opened; Close: Action Closed }
+form Action := \s. { Open: Action Opened; Close: Action Closed }
 
 describe :: Action Opened -> DB Opened
 describe := \a. case a { Open => MkDB }
@@ -152,7 +152,7 @@ func TestGADTNestedPattern(t *testing.T) {
 	eng.Use(stdlib.Prelude)
 	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
-data Expr := \a. { LitBool: Bool -> Expr Bool; Not: Expr Bool -> Expr Bool }
+form Expr := \a. { LitBool: Bool -> Expr Bool; Not: Expr Bool -> Expr Bool }
 
 -- Nested pattern: match on Not (LitBool _)
 isDoubleNeg :: Expr Bool -> Bool

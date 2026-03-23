@@ -8,7 +8,7 @@
 import Prelude
 
 -- Convert class with fundep: the source type determines the target type.
-data Convert := \a b. {
+form Convert := \a b. {
   convert: a -> b
 }
 

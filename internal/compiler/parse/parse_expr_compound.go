@@ -125,19 +125,19 @@ func (p *Parser) parseBlock() syn.Expr {
 	// Block expression with bindings.
 	// Handles: name := expr; (value binding)
 	//          type Name Pats =: RHS; (associated type definition, inside impl body)
-	//          data Name Pats =: Cons; (associated data definition, inside impl body)
+	//          form Name Pats =: Cons; (associated form definition, inside impl body)
 	var binds []syn.AstBind
 	var typeDefs []syn.ImplField
-	for p.peek().Kind == syn.TokLower || p.peek().Kind == syn.TokType || p.peek().Kind == syn.TokData {
+	for p.peek().Kind == syn.TokLower || p.peek().Kind == syn.TokType || p.peek().Kind == syn.TokForm {
 		bindStart := p.peek().S.Start
 		saved := p.pos
 
-		// Parse type/data associated definitions in impl bodies.
-		// New syntax: type Elem := a;  or  data Elem := ListElem a | Empty;
-		if p.peek().Kind == syn.TokType || p.peek().Kind == syn.TokData {
+		// Parse type/form associated definitions in impl bodies.
+		// New syntax: type Elem := a;  or  form Elem := ListElem a | Empty;
+		if p.peek().Kind == syn.TokType || p.peek().Kind == syn.TokForm {
 			tdStart := p.peek().S.Start
-			isData := p.peek().Kind == syn.TokData
-			p.advance() // consume type/data
+			isData := p.peek().Kind == syn.TokForm
+			p.advance() // consume type/form
 			tdName := p.expectUpper()
 			p.expect(syn.TokColonEq)
 			var tdBody syn.TypeExpr
@@ -146,7 +146,7 @@ func (p *Parser) parseBlock() syn.Expr {
 			// Emit a diagnostic for additional | constructors rather than silently dropping.
 			if p.peek().Kind == syn.TokPipe {
 				p.addErrorCode(diagnostic.ErrParseSyntax,
-					"multi-constructor associated data families are not yet supported; only the first constructor is used")
+					"multi-constructor associated form families are not yet supported; only the first constructor is used")
 				for p.peek().Kind == syn.TokPipe {
 					p.advance()
 					for p.peek().Kind != syn.TokPipe && p.peek().Kind != syn.TokSemicolon &&

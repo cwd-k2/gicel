@@ -16,8 +16,8 @@ import (
 func TestDataFamilyParseClassDecl(t *testing.T) {
 	// data family declaration inside class body
 	source := `
-data Collection := \a. {
-  data Elem a :: Type;
+form Collection := \a. {
+  form Elem a :: Type;
   empty: a
 }
 `
@@ -27,15 +27,15 @@ data Collection := \a. {
 func TestDataFamilyParseInstanceDef(t *testing.T) {
 	// data family instance inside instance body
 	source := `
-data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
+form List := \a. { Nil: List a; Cons: a -> List a -> List a; }
 
-data Collection := \a. {
-  data Elem a :: Type;
+form Collection := \a. {
+  form Elem a :: Type;
   empty: a
 }
 
 impl Collection (List a) := {
-  data Elem := ListElem a;
+  form Elem := ListElem a;
   empty := Nil
 }
 `
@@ -45,19 +45,19 @@ impl Collection (List a) := {
 // --- Constructor registration ---
 
 func TestDataFamilyConstructorType(t *testing.T) {
-	t.Skip("data family constructor registration: type mismatch in mangled name")
+	t.Skip("form family constructor registration: type mismatch in mangled name")
 	// The mangled constructor should be usable as a value
 	source := `
-data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
-data Unit := { Unit: Unit; }
+form List := \a. { Nil: List a; Cons: a -> List a -> List a; }
+form Unit := { Unit: Unit; }
 
-data Collection := \a. {
-  data Elem a :: Type;
+form Collection := \a. {
+  form Elem a :: Type;
   empty: a
 }
 
 impl Collection (List a) := {
-  data Elem := ListElem a;
+  form Elem := ListElem a;
   empty := Nil
 }
 
@@ -68,24 +68,24 @@ x := ListElem Unit
 }
 
 func TestDataFamilyMultipleInstances(t *testing.T) {
-	t.Skip("data family constructor registration: type mismatch in mangled name")
+	t.Skip("form family constructor registration: type mismatch in mangled name")
 	// Different instances define different constructors for the same family
 	source := `
-data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
-data Unit := { Unit: Unit; }
+form List := \a. { Nil: List a; Cons: a -> List a -> List a; }
+form Unit := { Unit: Unit; }
 
-data Collection := \a. {
-  data Elem a :: Type;
+form Collection := \a. {
+  form Elem a :: Type;
   empty: a
 }
 
 impl Collection (List a) := {
-  data Elem := ListElem a;
+  form Elem := ListElem a;
   empty := Nil
 }
 
 impl Collection Unit := {
-  data Elem := UnitElem;
+  form Elem := UnitElem;
   empty := Unit
 }
 
@@ -101,18 +101,18 @@ y := UnitElem
 // --- Pattern matching ---
 
 func TestDataFamilyPatternMatch(t *testing.T) {
-	t.Skip("data family constructor registration: type mismatch in mangled name")
+	t.Skip("form family constructor registration: type mismatch in mangled name")
 	source := `
-data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
-data Unit := { Unit: Unit; }
+form List := \a. { Nil: List a; Cons: a -> List a -> List a; }
+form Unit := { Unit: Unit; }
 
-data Collection := \a. {
-  data Elem a :: Type;
+form Collection := \a. {
+  form Elem a :: Type;
   empty: a
 }
 
 impl Collection (List a) := {
-  data Elem := ListElem a;
+  form Elem := ListElem a;
   empty := Nil
 }
 
@@ -126,12 +126,12 @@ unwrap := \e. case e { ListElem x => x }
 
 func TestDataFamilyNotDeclaredInClass(t *testing.T) {
 	source := `
-data Unit := { Unit: Unit; }
-data Foo := \a. {
+form Unit := { Unit: Unit; }
+form Foo := \a. {
   empty: a
 }
 impl Foo Unit := {
-  data Elem := UnitElem;
+  form Elem := UnitElem;
   empty := Unit
 }
 `
@@ -141,13 +141,13 @@ impl Foo Unit := {
 func TestDataFamilyArityMismatch(t *testing.T) {
 	// Defining a data family member not declared in the class should error.
 	source := `
-data Unit := { Unit: Unit; }
-data Collection := \a. {
-  data Elem a :: Type;
+form Unit := { Unit: Unit; }
+form Collection := \a. {
+  form Elem a :: Type;
   empty: a
 }
 impl Collection Unit := {
-  data NotElem := Bad;
+  form NotElem := Bad;
   empty := Unit
 }
 `
@@ -157,22 +157,22 @@ impl Collection Unit := {
 // --- Reduction: Elem as data family reduces like type family ---
 
 func TestDataFamilyTypeReduction(t *testing.T) {
-	t.Skip("data family constructor registration: type mismatch in mangled name")
+	t.Skip("form family constructor registration: type mismatch in mangled name")
 	// Elem (List Unit) should be usable as a type that accepts ListElem
 	config := &CheckConfig{
 		RegisteredTypes: map[string]types.Kind{"Int": types.KType{}},
 	}
 	source := `
-data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
-data Unit := { Unit: Unit; }
+form List := \a. { Nil: List a; Cons: a -> List a -> List a; }
+form Unit := { Unit: Unit; }
 
-data Collection := \a. {
-  data Elem a :: Type;
+form Collection := \a. {
+  form Elem a :: Type;
   empty: a
 }
 
 impl Collection (List a) := {
-  data Elem := ListElem a;
+  form Elem := ListElem a;
   empty := Nil
 }
 
@@ -188,17 +188,17 @@ id := \x. x
 // --- Data family with multiple constructors ---
 
 func TestDataFamilyMultipleConstructors(t *testing.T) {
-	t.Skip("data family constructor registration: type mismatch in mangled name")
+	t.Skip("form family constructor registration: type mismatch in mangled name")
 	source := `
-data Unit := { Unit: Unit; }
+form Unit := { Unit: Unit; }
 
-data Container := \a. {
-  data Entry a :: Type;
+form Container := \a. {
+  form Entry a :: Type;
   empty: a
 }
 
 impl Container Unit := {
-  data Entry := Singleton Unit | Empty;
+  form Entry := Singleton Unit | Empty;
   empty := Unit
 }
 
@@ -214,17 +214,17 @@ f := \e. case e {
 // --- Exhaustiveness ---
 
 func TestDataFamilyExhaustiveness(t *testing.T) {
-	t.Skip("data family constructor registration: type mismatch in mangled name")
+	t.Skip("form family constructor registration: type mismatch in mangled name")
 	source := `
-data Unit := { Unit: Unit; }
+form Unit := { Unit: Unit; }
 
-data Container := \a. {
-  data Entry a :: Type;
+form Container := \a. {
+  form Entry a :: Type;
   empty: a
 }
 
 impl Container Unit := {
-  data Entry := Singleton Unit | Empty;
+  form Entry := Singleton Unit | Empty;
   empty := Unit
 }
 

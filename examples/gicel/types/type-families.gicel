@@ -20,7 +20,7 @@ listHead := \xs. case xs {
 }
 
 -- DataKinds + type family: promoted constructors as type-level values.
-data Season := Spring | Summer | Autumn | Winter
+form Season := Spring | Summer | Autumn | Winter
 
 type NextSeason :: Season := \(s: Season). case s {
   Spring => Summer;
@@ -30,7 +30,7 @@ type NextSeason :: Season := \(s: Season). case s {
 }
 
 -- Phantom-typed tags indexed by Season.
-data Tagged := \(s: Season). { MkTagged: Tagged s }
+form Tagged := \(s: Season). { MkTagged: Tagged s }
 
 -- advance uses a recursive type family to compute the next season.
 advance :: \(s: Season). Tagged s -> Tagged (NextSeason s)

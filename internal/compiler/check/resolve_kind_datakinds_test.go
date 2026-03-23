@@ -38,8 +38,8 @@ func TestKDataArity(t *testing.T) {
 
 func TestResolveUserKind(t *testing.T) {
 	// \ (s: DBState). T → the kind annotation DBState should resolve to KData{DBState}
-	source := `data DBState := { Opened: DBState; Closed: DBState; }
-data DB := \s. { MkDB: DB s; }
+	source := `form DBState := { Opened: DBState; Closed: DBState; }
+form DB := \s. { MkDB: DB s; }
 f :: \ (s: DBState). DB s -> DB s
 f := \x. x
 main := f (MkDB :: DB Opened)`
@@ -47,26 +47,26 @@ main := f (MkDB :: DB Opened)`
 }
 
 func TestPromoteNullaryConstructors(t *testing.T) {
-	// data S := { A: S; B: S; } → A and B are promoted to type level with kind S
-	source := `data S := { A: S; B: S; }
-data Proxy := \s. { MkProxy: Proxy s; }
+	// form S := { A: S; B: S; } → A and B are promoted to type level with kind S
+	source := `form S := { A: S; B: S; }
+form Proxy := \s. { MkProxy: Proxy s; }
 main := (MkProxy :: Proxy A)`
 	checkSource(t, source, nil)
 }
 
 func TestPromoteSkipsFieldedConstructors(t *testing.T) {
-	// data Maybe := \a. { Just: a -> Maybe a; Nothing: Maybe a; } → only Nothing is promoted, Just is not
-	source := `data Bool := { True: Bool; False: Bool; }
-data Maybe := \a. { Just: a -> Maybe a; Nothing: Maybe a; }
-data Proxy := \s. { MkProxy: Proxy s; }
+	// form Maybe := \a. { Just: a -> Maybe a; Nothing: Maybe a; } → only Nothing is promoted, Just is not
+	source := `form Bool := { True: Bool; False: Bool; }
+form Maybe := \a. { Just: a -> Maybe a; Nothing: Maybe a; }
+form Proxy := \s. { MkProxy: Proxy s; }
 main := (MkProxy :: Proxy Nothing)`
 	checkSource(t, source, nil)
 }
 
 func TestPromotedInTypeSignature(t *testing.T) {
 	// DB Opened => DB Closed should kind-check
-	source := `data DBState := { Opened: DBState; Closed: DBState; }
-data DB := \s. { MkDB: DB s; }
+	source := `form DBState := { Opened: DBState; Closed: DBState; }
+form DB := \s. { MkDB: DB s; }
 close :: DB Opened -> DB Closed
 close := \_. MkDB
 main := close MkDB`

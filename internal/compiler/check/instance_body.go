@@ -141,19 +141,19 @@ func (ch *Checker) processAssocDataDef(field syntax.ImplField, patterns []syntax
 	fam, ok := ch.reg.LookupFamily(field.Name)
 	if !ok {
 		ch.addCodedError(diagnostic.ErrBadInstance, instSpan,
-			fmt.Sprintf("instance %s: associated data %s not declared in class %s",
+			fmt.Sprintf("instance %s: associated form %s not declared in class %s",
 				className, field.Name, className))
 		return
 	}
 	if !fam.IsAssoc || fam.ClassName != className {
 		ch.addCodedError(diagnostic.ErrBadInstance, instSpan,
-			fmt.Sprintf("instance %s: %s is not an associated data of class %s",
+			fmt.Sprintf("instance %s: %s is not an associated form of class %s",
 				className, field.Name, className))
 		return
 	}
 	if len(patterns) != len(fam.Params) {
 		ch.addCodedError(diagnostic.ErrTypeFamilyEquation, field.S,
-			fmt.Sprintf("associated data %s expects %d argument(s), got %d",
+			fmt.Sprintf("associated form %s expects %d argument(s), got %d",
 				field.Name, len(fam.Params), len(patterns)))
 		return
 	}
@@ -213,7 +213,7 @@ func (ch *Checker) processAssocDataDef(field syntax.ImplField, patterns []syntax
 	// Guard against constructor name collision with existing constructors.
 	if existing, dup := ch.reg.LookupConType(conName); dup {
 		ch.addCodedError(diagnostic.ErrDuplicateDecl, field.S,
-			fmt.Sprintf("data family instance %s: constructor %s conflicts with existing constructor (type: %s)",
+			fmt.Sprintf("form family instance %s: constructor %s conflicts with existing constructor (type: %s)",
 				field.Name, conName, types.Pretty(existing)))
 		return
 	}

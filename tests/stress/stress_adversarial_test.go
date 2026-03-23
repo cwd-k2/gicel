@@ -204,7 +204,7 @@ func TestAdversarial_ManyBindings(t *testing.T) {
 // TestAdversarial_ManyConstructors confirms ADT with many constructors works.
 func TestAdversarial_ManyConstructors(t *testing.T) {
 	var sb strings.Builder
-	sb.WriteString("import Prelude\ndata Big := C0")
+	sb.WriteString("import Prelude\nform Big := C0")
 	for i := 1; i < 1000; i++ {
 		sb.WriteString(fmt.Sprintf(" | C%d", i))
 	}
@@ -377,7 +377,7 @@ main := x
 func TestAdversarial_OverlappingInstances(t *testing.T) {
 	src := `
 import Prelude
-data MyClass := \a. { myMethod: a -> Int }
+form MyClass := \a. { myMethod: a -> Int }
 impl MyClass Int := { myMethod := \x. x }
 impl MyClass a := { myMethod := \x. 0 }
 main := myMethod 42
@@ -398,7 +398,7 @@ main := myMethod 42
 func TestAdversarial_NonExhaustivePattern(t *testing.T) {
 	src := `
 import Prelude
-data Color := { Red: Color; Green: Color; Blue: Color; }
+form Color := { Red: Color; Green: Color; Blue: Color; }
 incomplete := \c. case c { Red => 1; Green => 2 }
 main := incomplete Blue
 `
@@ -441,13 +441,13 @@ func TestAdversarial_DeepPolymorphicChain(t *testing.T) {
 func TestAdversarial_SuperclassChain(t *testing.T) {
 	src := `
 import Prelude
-data A := \a. { methodA: a -> Int }
-data B := \a. A a => { methodB: a -> Int }
-data C := \a. B a => { methodC: a -> Int }
-data D := \a. C a => { methodD: a -> Int }
-data E := \a. D a => { methodE: a -> Int }
-data F := \a. E a => { methodF: a -> Int }
-data G := \a. F a => { methodG: a -> Int }
+form A := \a. { methodA: a -> Int }
+form B := \a. A a => { methodB: a -> Int }
+form C := \a. B a => { methodC: a -> Int }
+form D := \a. C a => { methodD: a -> Int }
+form E := \a. D a => { methodE: a -> Int }
+form F := \a. E a => { methodF: a -> Int }
+form G := \a. F a => { methodG: a -> Int }
 
 impl A Int := { methodA := \x. x }
 impl B Int := { methodB := \x. x + 1 }
@@ -634,7 +634,7 @@ func TestAdversarial_ManyTypeErrors(t *testing.T) {
 func TestV8_MonadDoNotation(t *testing.T) {
 	src := `
 import Prelude
-data Reader := \e a. { MkReader: (e -> a) -> Reader e a; }
+form Reader := \e a. { MkReader: (e -> a) -> Reader e a; }
 runReader :: \e a. Reader e a -> e -> a
 runReader := \r env. case r { MkReader f => f env }
 ask :: \e. Reader e e
@@ -667,7 +667,7 @@ main := runReader (do { x <- ask; pure (append "port=" (show x)) } :: Reader Int
 func TestV9_FixConValErrorMessage(t *testing.T) {
 	src := `
 import Prelude
-data Pair := { MkPair: Int -> Int -> Pair }
+form Pair := { MkPair: Int -> Int -> Pair }
 getFirst :: Pair -> Int
 getFirst := \p. case p { MkPair a _ => a }
 main := getFirst (fix (\self. MkPair 1 2))

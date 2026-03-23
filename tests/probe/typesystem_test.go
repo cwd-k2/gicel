@@ -35,8 +35,8 @@ func assertConName(t *testing.T, v gicel.Value, name string) {
 func TestProbeE_TC_OverlappingInstancesRejectOrChoose(t *testing.T) {
 	eng := gicel.NewEngine()
 	_, err := eng.Compile(context.Background(), `
-data Bool := True | False
-data C := \a. { method: a -> Bool }
+form Bool := True | False
+form C := \a. { method: a -> Bool }
 impl C Bool := { method := \x. x }
 impl C Bool := { method := \x. True }
 main := method True
@@ -51,8 +51,8 @@ main := method True
 func TestProbeE_TC_EmptyClassInstanceCompile(t *testing.T) {
 	eng := gicel.NewEngine()
 	_, err := eng.Compile(context.Background(), `
-data Bool := True | False
-data Phantom := \a. { _marker: () }
+form Bool := True | False
+form Phantom := \a. { _marker: () }
 impl Phantom Bool := { _marker := () }
 main := True
 `)
@@ -66,10 +66,10 @@ main := True
 func TestProbeE_TC_SuperclassTransitiveResolution(t *testing.T) {
 	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(context.Background(), `
-data Bool := { True: Bool; False: Bool; }
-data A := \a. { ma: a -> Bool }
-data B := \a. A a => { mb: a -> Bool }
-data C := \a. B a => { mc: a -> Bool }
+form Bool := { True: Bool; False: Bool; }
+form A := \a. { ma: a -> Bool }
+form B := \a. A a => { mb: a -> Bool }
+form C := \a. B a => { mc: a -> Bool }
 impl A Bool := { ma := \x. True }
 impl B Bool := { mb := \x. True }
 impl C Bool := { mc := \x. True }
@@ -95,8 +95,8 @@ main := f True
 func TestProbeE_TC_InstanceResolutionDepthLimit(t *testing.T) {
 	eng := gicel.NewEngine()
 	_, err := eng.Compile(context.Background(), `
-data Bool := True | False
-data C := \a. { method: a -> Bool }
+form Bool := True | False
+form C := \a. { method: a -> Bool }
 -- An instance that requires itself as a context: C a => C a
 -- This creates an infinite resolution loop
 impl C a => C a := { method := \x. method x }
@@ -113,8 +113,8 @@ main := method True
 func TestProbeE_TC_MultiParamClassResolution(t *testing.T) {
 	eng := gicel.NewEngine()
 	_, err := eng.Compile(context.Background(), `
-data Bool := True | False
-data Convert := \a b. { convert: a -> b }
+form Bool := True | False
+form Convert := \a b. { convert: a -> b }
 impl Convert Bool Bool := { convert := \x. x }
 
 -- The 'b' type is ambiguous from the call site alone
@@ -138,7 +138,7 @@ main := f True
 func TestProbeE_TF_RecursiveFamilyHitsFuelLimit(t *testing.T) {
 	eng := gicel.NewEngine()
 	_, err := eng.Compile(context.Background(), `
-data Nat := Z | S Nat
+form Nat := Z | S Nat
 
 type Loop :: Type := \(n: Type). case n {
   n => Loop (S n)
@@ -161,8 +161,8 @@ main := (Z :: Loop Z)
 func TestProbeE_TF_ReducibleFamily(t *testing.T) {
 	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(context.Background(), `
-data Bool := { True: Bool; False: Bool; }
-data Nat := Z | S Nat
+form Bool := { True: Bool; False: Bool; }
+form Nat := Z | S Nat
 
 type IsZero :: Type := \(n: Type). case n {
   Z => Bool;
@@ -191,7 +191,7 @@ func TestProbeE_TF_FamilyWithDataKinds(t *testing.T) {
 	eng.Use(gicel.Prelude)
 	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
-data Color := Red | Green | Blue
+form Color := Red | Green | Blue
 
 type ColorToInt :: Type := \(c: Color). case c {
   Red => Int;
@@ -226,8 +226,8 @@ main := val
 func TestProbeE_GADT_ExistentialEscapeError(t *testing.T) {
 	eng := gicel.NewEngine()
 	_, err := eng.Compile(context.Background(), `
-data Bool := True | False
-data Exists := { MkExists: \a. a -> Exists; }
+form Bool := True | False
+form Exists := { MkExists: \a. a -> Exists; }
 
 -- x has type 'a' (existential), but return type is 'a' which escapes
 bad :: Exists -> Bool
@@ -245,7 +245,7 @@ func TestProbeE_GADT_ValidExistential(t *testing.T) {
 	eng.Use(gicel.Prelude)
 	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
-data Exists := { MkExists: \a. Show a => a -> Exists; }
+form Exists := { MkExists: \a. Show a => a -> Exists; }
 
 showExists :: Exists -> String
 showExists := \e. case e { MkExists x => show x }
@@ -275,7 +275,7 @@ func TestProbeE_GADT_NestedExistentialWithClass(t *testing.T) {
 	eng.Use(gicel.Prelude)
 	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
-data SomeEq := { MkSomeEq: \a. Eq a => a -> a -> SomeEq; }
+form SomeEq := { MkSomeEq: \a. Eq a => a -> a -> SomeEq; }
 
 test :: SomeEq -> Bool
 test := \s. case s { MkSomeEq x y => eq x y }
@@ -300,8 +300,8 @@ main := test (MkSomeEq True True)
 // name from two open imports should be detected.
 func TestProbeE_Module_AmbiguousNameFromTwoOpenImports(t *testing.T) {
 	eng := gicel.NewEngine()
-	eng.RegisterModule("A", `data Bool := True | False`)
-	eng.RegisterModule("B", `data Bool := Yes | No`)
+	eng.RegisterModule("A", `form Bool := True | False`)
+	eng.RegisterModule("B", `form Bool := Yes | No`)
 	_, err := eng.Compile(context.Background(), `
 import A
 import B
@@ -353,7 +353,7 @@ main := A.val + B.val
 // clear error message.
 func TestProbeE_Module_SelectiveImportOfNonexistentName(t *testing.T) {
 	eng := gicel.NewEngine()
-	eng.RegisterModule("Lib", `data Color := Red | Blue`)
+	eng.RegisterModule("Lib", `form Color := Red | Blue`)
 	_, err := eng.Compile(context.Background(), `
 import Lib (nonexistent)
 main := 42
@@ -373,13 +373,13 @@ func TestProbeE_Module_CircularDependencyDetection(t *testing.T) {
 	// Module A imports B, but B doesn't exist yet
 	err := eng.RegisterModule("A", `
 import B
-data Unit := Unit
+form Unit := Unit
 `)
 	if err == nil {
 		// If A compiled (unlikely since B doesn't exist), try to register B importing A
 		err = eng.RegisterModule("B", `
 import A
-data Void := MkVoid
+form Void := MkVoid
 `)
 		if err == nil {
 			t.Fatal("expected circular dependency error")
@@ -397,8 +397,8 @@ data Void := MkVoid
 func TestProbeE_Module_InstanceCoherenceAcrossModules(t *testing.T) {
 	eng := gicel.NewEngine()
 	if err := eng.RegisterModule("ClassDef", `
-data Bool := { True: Bool; False: Bool; }
-data MyEq := \a. { myEq: a -> a -> Bool }
+form Bool := { True: Bool; False: Bool; }
+form MyEq := \a. { myEq: a -> a -> Bool }
 `); err != nil {
 		t.Fatal(err)
 	}
@@ -432,7 +432,7 @@ main := myEq True False
 func TestProbeE_HigherRank_RankNAnnotation(t *testing.T) {
 	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(context.Background(), `
-data Bool := { True: Bool; False: Bool; }
+form Bool := { True: Bool; False: Bool; }
 
 -- Rank-2: f takes a polymorphic function
 apply :: (\a. a -> a) -> Bool -> Bool
@@ -455,7 +455,7 @@ main := apply (\x. x) True
 func TestProbeE_HigherRank_Subsumption(t *testing.T) {
 	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(context.Background(), `
-data Bool := { True: Bool; False: Bool; }
+form Bool := { True: Bool; False: Bool; }
 
 f :: (Bool -> Bool) -> Bool
 f := \g. g True
@@ -487,7 +487,7 @@ func TestProbeE_Cross_TypeFamilyWithClass(t *testing.T) {
 	eng.Use(gicel.Prelude)
 	_, err := eng.Compile(context.Background(), `
 import Prelude
-data List a := Nil | Cons a (List a)
+form List a := Nil | Cons a (List a)
 
 class Container (c :: Type) {
   type Elem c :: Type
@@ -507,15 +507,15 @@ instance Container (List a) {
 func TestProbeE_Cross_GADTWithTypeFamily(t *testing.T) {
 	eng := gicel.NewEngine()
 	_, err := eng.Compile(context.Background(), `
-data Bool := True | False
-data Nat := Z | S Nat
+form Bool := True | False
+form Nat := Z | S Nat
 
 type IsZero (n: Type) :: Type := {
   IsZero Z =: Bool;
   IsZero (S n) =: Nat
 }
 
-data Proof n := { ProofZ :: Proof Z; ProofS :: \m. Proof m -> Proof (S m) }
+form Proof n := { ProofZ :: Proof Z; ProofS :: \m. Proof m -> Proof (S m) }
 
 main := ProofZ
 `)
@@ -560,7 +560,7 @@ main := eqAndShow 1 2
 func TestProbeE_Crash_ApplyNonFunctionType(t *testing.T) {
 	eng := gicel.NewEngine()
 	_, err := eng.Compile(context.Background(), `
-data Bool := True | False
+form Bool := True | False
 main := True True
 `)
 	if err == nil {
@@ -657,7 +657,7 @@ func TestProbeE_Crash_OnlyComments(t *testing.T) {
 func TestProbeE_Crash_DataDeclWithManyConstructors(t *testing.T) {
 	eng := gicel.NewEngine()
 	var b strings.Builder
-	b.WriteString("data Big :=")
+	b.WriteString("form Big :=")
 	for i := 0; i < 50; i++ {
 		if i > 0 {
 			b.WriteString(" |")

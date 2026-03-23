@@ -11,13 +11,13 @@ import (
 )
 
 func TestExhaustiveComplete(t *testing.T) {
-	source := `data Bool := { True: Bool; False: Bool; }
+	source := `form Bool := { True: Bool; False: Bool; }
 main := \b. case b { True => True; False => False }`
 	checkSource(t, source, nil)
 }
 
 func TestExhaustiveIncomplete(t *testing.T) {
-	source := `data Bool := { True: Bool; False: Bool; }
+	source := `form Bool := { True: Bool; False: Bool; }
 main := \b. case b { True => True }`
 	errMsg := checkSourceExpectCode(t, source, nil, diagnostic.ErrNonExhaustive)
 	if !strings.Contains(errMsg, "False") {
@@ -26,27 +26,27 @@ main := \b. case b { True => True }`
 }
 
 func TestExhaustiveWildcard(t *testing.T) {
-	source := `data Bool := { True: Bool; False: Bool; }
+	source := `form Bool := { True: Bool; False: Bool; }
 main := \b. case b { _ => True }`
 	checkSource(t, source, nil)
 }
 
 func TestExhaustiveVarPattern(t *testing.T) {
-	source := `data Bool := { True: Bool; False: Bool; }
+	source := `form Bool := { True: Bool; False: Bool; }
 main := \b. case b { x => x }`
 	checkSource(t, source, nil)
 }
 
 func TestExhaustiveNestedComplete(t *testing.T) {
-	source := `data Maybe := \a. { Just: a -> Maybe a; Nothing: Maybe a; }
-data Bool := { True: Bool; False: Bool; }
+	source := `form Maybe := \a. { Just: a -> Maybe a; Nothing: Maybe a; }
+form Bool := { True: Bool; False: Bool; }
 main := \m. case m { Just (Just _) => 1; Just (Nothing) => 2; Nothing => 3 }`
 	checkSource(t, source, nil)
 }
 
 func TestExhaustiveNestedIncomplete(t *testing.T) {
-	source := `data Maybe := \a. { Just: a -> Maybe a; Nothing: Maybe a; }
-data Bool := { True: Bool; False: Bool; }
+	source := `form Maybe := \a. { Just: a -> Maybe a; Nothing: Maybe a; }
+form Bool := { True: Bool; False: Bool; }
 main := \m. case m { Just (Just _) => 1; Nothing => 3 }`
 	errMsg := checkSourceExpectCode(t, source, nil, diagnostic.ErrNonExhaustive)
 	if !strings.Contains(errMsg, "Nothing") && !strings.Contains(errMsg, "Just") {
@@ -55,7 +55,7 @@ main := \m. case m { Just (Just _) => 1; Nothing => 3 }`
 }
 
 func TestRedundantPattern(t *testing.T) {
-	source := `data Bool := { True: Bool; False: Bool; }
+	source := `form Bool := { True: Bool; False: Bool; }
 main := \b. case b { _ => 1; True => 2 }`
 	checkSourceExpectCode(t, source, nil, diagnostic.ErrRedundantPattern)
 }
@@ -64,28 +64,28 @@ main := \b. case b { _ => 1; True => 2 }`
 
 func TestExhaustiveRecordPatterns(t *testing.T) {
 	// Record patterns should be handled by the exhaustiveness checker.
-	source := `data Bool := { True: Bool; False: Bool; }
+	source := `form Bool := { True: Bool; False: Bool; }
 main := \r. case r { { x: True, y: _ } => 1; { x: False, y: _ } => 2 }`
 	checkSource(t, source, nil)
 }
 
 func TestExhaustiveWildcardOnly(t *testing.T) {
 	// A single wildcard always covers all cases.
-	source := `data Color := { Red: Color; Green: Color; Blue: Color; }
+	source := `form Color := { Red: Color; Green: Color; Blue: Color; }
 main := \c. case c { _ => 1 }`
 	checkSource(t, source, nil)
 }
 
 func TestExhaustiveMultiConComplete(t *testing.T) {
 	// Three-constructor type fully covered.
-	source := `data Tri := { A: Tri; B: Tri; C: Tri; }
+	source := `form Tri := { A: Tri; B: Tri; C: Tri; }
 main := \t. case t { A => 1; B => 2; C => 3 }`
 	checkSource(t, source, nil)
 }
 
 func TestExhaustiveMultiConIncomplete(t *testing.T) {
 	// Missing constructor C should be reported.
-	source := `data Tri := { A: Tri; B: Tri; C: Tri; }
+	source := `form Tri := { A: Tri; B: Tri; C: Tri; }
 main := \t. case t { A => 1; B => 2 }`
 	errMsg := checkSourceExpectCode(t, source, nil, diagnostic.ErrNonExhaustive)
 	if !strings.Contains(errMsg, "C") {
@@ -95,16 +95,16 @@ main := \t. case t { A => 1; B => 2 }`
 
 func TestRedundantPatternMiddle(t *testing.T) {
 	// Wildcard before specific constructors: second alt is redundant.
-	source := `data Bool := { True: Bool; False: Bool; }
+	source := `form Bool := { True: Bool; False: Bool; }
 main := \b. case b { True => 1; True => 2; False => 3 }`
 	checkSourceExpectCode(t, source, nil, diagnostic.ErrRedundantPattern)
 }
 
 func TestExhaustiveGADTFiltering(t *testing.T) {
 	// GADT: only constructors applicable to the scrutinee type should be required.
-	source := `data Bool := { True: Bool; False: Bool; }
-data Unit := { Unit: Unit; }
-data Tag := \a. { TagBool: Tag Bool; TagUnit: Tag Unit }
+	source := `form Bool := { True: Bool; False: Bool; }
+form Unit := { Unit: Unit; }
+form Tag := \a. { TagBool: Tag Bool; TagUnit: Tag Unit }
 f :: Tag Bool -> Bool
 f := \t. case t { TagBool => True }`
 	checkSource(t, source, nil)

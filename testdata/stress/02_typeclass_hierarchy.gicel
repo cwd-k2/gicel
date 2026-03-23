@@ -1,10 +1,10 @@
 import Prelude
 
-data Ordering := { LT: Ordering; EQ: Ordering; GT: Ordering }
+form Ordering := { LT: Ordering; EQ: Ordering; GT: Ordering }
 
-data Show := \a. { tag: a -> Bool }
-data Eq := \a. Show a => { eq: a -> a -> Bool }
-data Ord := \a. Eq a => { compare: a -> a -> Ordering }
+form Show := \a. { tag: a -> Bool }
+form Eq := \a. Show a => { eq: a -> a -> Bool }
+form Ord := \a. Eq a => { compare: a -> a -> Ordering }
 
 impl Show Bool := { tag := \_. True }
 impl Show () := { tag := \_. True }

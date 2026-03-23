@@ -46,12 +46,12 @@ type TyExprForall struct {
 
 type TyExprRow struct {
 	Fields    []TyRowField
-	TypeDecls []TyRowTypeDecl // associated type declarations (in data bodies only)
+	TypeDecls []TyRowTypeDecl // associated type declarations (in form bodies only)
 	Tail      *TyExprVar
 	S         span.Span
 }
 
-// TyRowTypeDecl is an associated type declaration within a data body row.
+// TyRowTypeDecl is an associated type declaration within a form body row.
 //
 //	type Elem :: Type;
 type TyRowTypeDecl struct {
@@ -98,7 +98,7 @@ type TyRowField struct {
 	Label   string
 	Type    TypeExpr
 	Mult    TypeExpr // nil if no @Mult annotation (surface syntax, pre-grade migration)
-	Default Expr     // nil if no default value (for method defaults in data bodies)
+	Default Expr     // nil if no default value (for method defaults in form bodies)
 	S       span.Span
 }
 

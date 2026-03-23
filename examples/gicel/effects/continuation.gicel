@@ -10,7 +10,7 @@ import Prelude
 
 -- ── Continuation Monad ───────────────────────────────────────
 
-data Cont := \r a. { MkCont: ((a -> r) -> r) -> Cont r a }
+form Cont := \r a. { MkCont: ((a -> r) -> r) -> Cont r a }
 
 runCont :: \r a. Cont r a -> (a -> r) -> r
 runCont := \c. case c { MkCont f => f }

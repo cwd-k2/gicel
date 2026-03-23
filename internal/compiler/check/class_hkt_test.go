@@ -9,9 +9,9 @@ import "testing"
 func TestPolyKindedClassDecl(t *testing.T) {
 	// class Functor (f: k -> Type) with implicit kind variable k
 	source := `
-data Maybe := \a. { Nothing: Maybe a; Just: a -> Maybe a; }
+form Maybe := \a. { Nothing: Maybe a; Just: a -> Maybe a; }
 
-data Functor := \(f: k -> Type). {
+form Functor := \(f: k -> Type). {
   fmap: \ a b. (a -> b) -> f a -> f b
 }
 
@@ -25,10 +25,10 @@ impl Functor Maybe := {
 func TestPolyKindedClassUseMethod(t *testing.T) {
 	// Use a poly-kinded class method
 	source := `
-data Bool := { True: Bool; False: Bool; }
-data Maybe := \a. { Nothing: Maybe a; Just: a -> Maybe a; }
+form Bool := { True: Bool; False: Bool; }
+form Maybe := \a. { Nothing: Maybe a; Just: a -> Maybe a; }
 
-data Functor := \(f: k -> Type). {
+form Functor := \(f: k -> Type). {
   fmap: \ a b. (a -> b) -> f a -> f b
 }
 
@@ -44,9 +44,9 @@ test := fmap (\x. True) (Just True)
 func TestMonoKindedClassStillWorks(t *testing.T) {
 	// Ensure existing mono-kinded classes still work (no regression)
 	source := `
-data Bool := { True: Bool; False: Bool; }
+form Bool := { True: Bool; False: Bool; }
 
-data Eq := \a. {
+form Eq := \a. {
   eq: a -> a -> Bool
 }
 
@@ -66,7 +66,7 @@ test := eq True False
 func TestClassInfoKindParams(t *testing.T) {
 	// Verify that kind params are tracked in ClassInfo
 	source := `
-data MyClass := \(f: k -> Type). {
+form MyClass := \(f: k -> Type). {
   method: \ a. f a -> f a
 }
 `
@@ -78,7 +78,7 @@ data MyClass := \(f: k -> Type). {
 func TestClassMultipleKindVars(t *testing.T) {
 	// Multiple kind variables in a class
 	source := `
-data BiMap := \(f: k -> j -> Type). {
+form BiMap := \(f: k -> j -> Type). {
   bimap: \ a b c d. (a -> c) -> (b -> d) -> f a b -> f c d
 }
 `
@@ -88,10 +88,10 @@ data BiMap := \(f: k -> j -> Type). {
 func TestPolyKindedClassWithSuperclass(t *testing.T) {
 	// Poly-kinded class with superclass constraint
 	source := `
-data Bool := { True: Bool; False: Bool; }
-data Maybe := \a. { Nothing: Maybe a; Just: a -> Maybe a; }
+form Bool := { True: Bool; False: Bool; }
+form Maybe := \a. { Nothing: Maybe a; Just: a -> Maybe a; }
 
-data Functor := \(f: k -> Type). {
+form Functor := \(f: k -> Type). {
   fmap: \ a b. (a -> b) -> f a -> f b
 }
 
@@ -99,7 +99,7 @@ impl Functor Maybe := {
   fmap := \g mx. case mx { Nothing => Nothing; Just x => Just (g x) }
 }
 
-data Applicative := \(f: k -> Type). Functor f => {
+form Applicative := \(f: k -> Type). Functor f => {
   pure: \ a. a -> f a
 }
 `
@@ -113,9 +113,9 @@ data Applicative := \(f: k -> Type). Functor f => {
 func TestInstanceKindMatch(t *testing.T) {
 	// instance Functor Maybe — Maybe: Type -> Type, k unifies with Type
 	source := `
-data Maybe := \a. { Nothing: Maybe a; Just: a -> Maybe a; }
+form Maybe := \a. { Nothing: Maybe a; Just: a -> Maybe a; }
 
-data Functor := \(f: k -> Type). {
+form Functor := \(f: k -> Type). {
   fmap: \ a b. (a -> b) -> f a -> f b
 }
 

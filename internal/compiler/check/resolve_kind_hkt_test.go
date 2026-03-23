@@ -55,7 +55,7 @@ f := \x. x`
 func TestKindPolyInstantiation(t *testing.T) {
 	// Define a kind-polymorphic identity and use it at a concrete kind.
 	source := `
-data Bool := { True: Bool; False: Bool; }
+form Bool := { True: Bool; False: Bool; }
 
 id_k :: \ (k: Kind). \ (a: k). a -> a
 id_k := \x. x
@@ -68,8 +68,8 @@ use := id_k True
 func TestKindPolyInstantiationArrow(t *testing.T) {
 	// Kind-polymorphic function applied to a function-kinded type.
 	source := `
-data Bool := { True: Bool; False: Bool; }
-data Maybe := \a. { Nothing: Maybe a; Just: a -> Maybe a; }
+form Bool := { True: Bool; False: Bool; }
+form Maybe := \a. { Nothing: Maybe a; Just: a -> Maybe a; }
 
 id_k :: \ (k: Kind). \ (a: k). a -> a
 id_k := \x. x

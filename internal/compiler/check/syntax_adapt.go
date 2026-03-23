@@ -6,14 +6,14 @@ import (
 
 // --- Unified syntax adaptation layer ---
 //
-// The unified syntax represents data declarations as TypeExpr bodies:
-//   data Name := \params. [constraints =>] { fields };
+// The unified syntax represents form declarations as TypeExpr bodies:
+//   form Name := \params. [constraints =>] { fields };
 //
 // The checker's internal processing expects decomposed components.
 // These functions bridge the gap.
 
-// dataBodyParts holds the decomposed components of a data declaration body.
-type dataBodyParts struct {
+// formBodyParts holds the decomposed components of a form declaration body.
+type formBodyParts struct {
 	Params    []syntax.TyBinder
 	Supers    []syntax.TypeExpr
 	Fields    []syntax.TyRowField
@@ -21,13 +21,13 @@ type dataBodyParts struct {
 	InnerBody syntax.TypeExpr // the raw body (for non-record data)
 }
 
-// decomposeDataBody decomposes a data declaration body TypeExpr into
+// decomposeFormBody decomposes a form declaration body TypeExpr into
 // parameters, superclass constraints, row fields, and associated type declarations.
 //
 //	\(a: Type). Eq a => { eq: a -> a -> Bool; }
 //	→ Params: [a:Type], Supers: [Eq a], Fields: [{eq: a->a->Bool}]
-func decomposeDataBody(body syntax.TypeExpr) dataBodyParts {
-	var parts dataBodyParts
+func decomposeFormBody(body syntax.TypeExpr) formBodyParts {
+	var parts formBodyParts
 	t := body
 
 	// Peel off forall binders: \params. body
@@ -100,16 +100,16 @@ func isTypeFamilyBody(body syntax.TypeExpr) bool {
 	return ok
 }
 
-// isClassLikeData determines whether a data declaration represents a type class
+// isClassLikeForm determines whether a form declaration represents a type class
 // vs a regular data type.
 //
-// The distinction follows GICEL's lexical category rule: data constructors start
+// The distinction follows GICEL's lexical category rule: form constructors start
 // with uppercase, type class methods start with lowercase. This is a language
 // invariant enforced by the parser (TokUpper vs TokLower), not a naming convention.
 //
 // Additionally, the body must be a record row ({ fields }), not a raw type expression
-// or pipe-ADT sugar. A non-row body (e.g., data Void := \a. a) is never class-like.
-func isClassLikeData(parts dataBodyParts) bool {
+// or pipe-ADT sugar. A non-row body (e.g., form Void := \a. a) is never class-like.
+func isClassLikeForm(parts formBodyParts) bool {
 	// Must have a record body and at least one field.
 	if _, isRow := parts.InnerBody.(*syntax.TyExprRow); !isRow {
 		return false

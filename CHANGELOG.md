@@ -4,13 +4,13 @@
 
 ### Breaking: Unified Syntax
 
-The `class`/`instance`/`where`/`family` keywords are replaced by `data`/`impl`/`type`.
+The `class`/`instance`/`where`/`family` keywords are replaced by `form`/`impl`/`type`.
 
-- **Type classes** — `data Eq := \a. { eq: a -> a -> Bool; }` (was `class Eq a where eq :: a -> a -> Bool`)
+- **Type classes** — `form Eq := \a. { eq: a -> a -> Bool; }` (was `class Eq a where eq :: a -> a -> Bool`)
 - **Instances** — `impl Eq Int := { eq := \x y. True; }` (was `instance Eq Int where eq = ...`)
 - **Type families** — `type F :: Type := \a. case a { ... }` (was `type family F a :: Type where ...`)
 - **Case alternatives** — `case x { True => 1; False => 0 }` (was `True -> 1; False -> 0`)
-- **ADT shorthand** — `data Bool := True | False` for simple enums
+- **ADT shorthand** — `form Bool := True | False` for simple enums
 
 ### Scoped Evidence Injection
 
@@ -71,9 +71,9 @@ The `class`/`instance`/`where`/`family` keywords are replaced by `data`/`impl`/`
 - Grade-count mismatch in row unification and case join now errors (was silent truncation)
 - `joinGrades` grade-count mismatch errors consistently with row unification
 - `usageJoin` alphabetical sort: `Join(Zero, Unrestricted)` now correctly returns `Unrestricted`
-- Double data family registration (if → else if) in processImplHeader
+- Double form family registration (if → else if) in processImplHeader
 - `TyRowTypeDecl` and `AstBind` span calculations use byte offset (was token index)
-- Multi-constructor data family diagnostic uses `ErrParseSyntax` (was `ErrClassSyntax`)
+- Multi-constructor form family diagnostic uses `ErrParseSyntax` (was `ErrClassSyntax`)
 - `resolveFromSuperclasses` respects `SolverInvisible` flag
 
 ---
@@ -105,7 +105,7 @@ Level-based touchability for type inference. No surface syntax changes; internal
 ### Type Checker — Import/Export Separation
 
 - **`modscope` subpackage** — 15 import functions (464 lines) extracted from `Scope` methods to `modscope.Importer` with callback-based `ImportEnv`, following the `exhaust.CheckEnv` / `family.ReduceEnv` pattern. `Scope` reduced from 12 fields to 4 (session/reg/config references removed)
-- **`ModuleExports` moved to `env/`** — pure data type relocated to `env/module_exports.go`; `checker.go` retains a type alias for compatibility
+- **`ModuleExports` moved to `env/`** — pure form type relocated to `env/module_exports.go`; `checker.go` retains a type alias for compatibility
 - **Registry encapsulation completed** — 7 iteration accessors added (`AllConInfo`, `AllAliases`, `AllClasses`, `AllInstances`, `AllPromotedKinds`, `AllPromotedCons`, `AllFamilies`); `export.go` migrated to zero direct field references
 - **`isPrivateName`/`isOperatorName` consolidated** — moved to `env/names.go` (exported); duplicate definitions in `export.go` and `modscope/import.go` removed
 
@@ -333,7 +333,7 @@ Checker restructuring: establish subpackage boundaries, then consolidate constra
 - **`check/env` subpackage** — shared environment type definitions (`AliasInfo`, `ClassInfo`, `InstanceInfo`, `ConstraintInfo`) extracted as canonical home
 - **`internal/engine` extraction** — Engine/Runtime/RunSandbox moved from root package. Root `gicel` package becomes a pure facade of type aliases and re-exports; external API unchanged
 - **Legacy StuckIndex removal** — `StuckIndex`, `ProcessRework`, and `maxReworkIterations` removed. Inert set with `CtFunEq` constraints is the single mechanism for stuck type family re-activation
-- **Injective type key serialization** — `typeNameForMangling` (lossy, head-only) replaced with `WriteTypeKey` (structural, collision-free) in data family mangling
+- **Injective type key serialization** — `typeNameForMangling` (lossy, head-only) replaced with `WriteTypeKey` (structural, collision-free) in form family mangling
 - **`DefaultEntryPoint` constant** — scattered `"main"` literals consolidated into `engine.DefaultEntryPoint` (re-exported as `gicel.DefaultEntryPoint`)
 - **Tuple label unification** — all tuple label sites consolidated to `types.TupleLabel`
 - **Type key totality** — `WriteTypeKey` panics on unhandled variant instead of falling back to `Pretty`
@@ -408,7 +408,7 @@ Structural refactoring for next-version extensibility:
 ### Fixes
 
 - **`NormalizeRow` panic → error return** — duplicate labels during type checking no longer crash the host process; `RunSandbox` now wraps the entire compile+execute path in a top-level recover
-- **`flatten()` data race** — `Env.Flatten()` pre-materializes the builtin environment at Runtime construction, eliminating a benign data race when sharing a Runtime across goroutines
+- **`flatten()` form race** — `Env.Flatten()` pre-materializes the builtin environment at Runtime construction, eliminating a benign form race when sharing a Runtime across goroutines
 - **`ResetFreshCounter`** — test determinism for type variable naming
 
 ### Refactoring
@@ -429,10 +429,10 @@ Structural refactoring for next-version extensibility:
 
 ### Language Features
 
-- **Type families** — closed type families with pattern matching and reduction, associated types in class/instance declarations, recursive type families (fuel 100), data families with constructor mangling and exhaustiveness support
+- **Type families** — closed type families with pattern matching and reduction, associated types in class/instance declarations, recursive type families (fuel 100), form families with constructor mangling and exhaustiveness support
 - **Functional dependencies** on multi-parameter type classes (`| a =: b`)
 - **Divergent post-states** — case branches may consume different capabilities; post-states are joined by intersection
-- **Data families** — associated data type instances with automatic constructor mangling
+- **Data families** — associated form type instances with automatic constructor mangling
 - **Multiplicity annotations** — `@Mult` syntax on row types (structural foundation; enforcement added in v0.11.0)
 - **Constraint tuple syntax** — `(Eq a, Ord a) => T` in class/instance declarations and type annotations
 - **Literal patterns** — Int, String, Rune, Double in case expressions
@@ -484,5 +484,5 @@ Systematic three-round structural reorganization (net -3,200 lines):
 - **8 new cohesive files** — `import.go`, `bidir_cbpv.go`, `bidir_case.go`, `exhaust_matrix.go`, `decl_generalize.go`, `eval_apply.go`, `eval_letrec.go`, `avl.go`
 - **Dead code removal** — unused `group` field, `evidenceSource` type, 3 temporary probe test files
 - **Content coupling fix** — `Unifier.InstallTempSolution`/`RemoveTempSolution` API replaces direct `soln` map access
-- **O(1) data type lookup** — `dataTypeByName` reverse index for exhaustiveness checking
+- **O(1) form type lookup** — `dataTypeByName` reverse index for exhaustiveness checking
 - **Naming cleanup** — `hasMeta`/`containsMeta` → `sliceHasMeta`/`typeHasMeta`; raw `"\x00"` → `core.QualifiedKey`

@@ -18,7 +18,7 @@ import (
 func TestProbeC_Module_QualifiedConstructor(t *testing.T) {
 	eng := gicel.NewEngine()
 	err := eng.RegisterModule("Lib", `
-data Color := Red | Blue | Green
+form Color := Red | Blue | Green
 `)
 	if err != nil {
 		t.Fatal(err)
@@ -67,7 +67,7 @@ func TestProbeC_Module_PrivateNotExported(t *testing.T) {
 	// _prefixed names should not be exported.
 	eng := gicel.NewEngine()
 	err := eng.RegisterModule("Lib", `
-data Bool := True | False
+form Bool := True | False
 _internal := True
 public := _internal
 `)
@@ -93,7 +93,7 @@ func TestProbeC_Module_PrivateDirectAccess(t *testing.T) {
 	// Attempting to access _internal directly should fail at compile time.
 	eng := gicel.NewEngine()
 	err := eng.RegisterModule("Lib", `
-data Bool := True | False
+form Bool := True | False
 _secret := True
 `)
 	if err != nil {
@@ -112,7 +112,7 @@ func TestProbeC_Module_EmptyModule(t *testing.T) {
 	// Register a module with only data declarations (no value bindings).
 	eng := gicel.NewEngine()
 	err := eng.RegisterModule("Lib", `
-data Unit := { Unit: Unit; }
+form Unit := { Unit: Unit; }
 `)
 	if err != nil {
 		t.Fatal(err)
@@ -176,11 +176,11 @@ func TestProbeC_Module_RegisterModuleSyntaxError(t *testing.T) {
 
 func TestProbeC_Module_DuplicateRegistration(t *testing.T) {
 	eng := gicel.NewEngine()
-	err := eng.RegisterModule("Lib", `data U := U`)
+	err := eng.RegisterModule("Lib", `form U := U`)
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = eng.RegisterModule("Lib", `data V := V`)
+	err = eng.RegisterModule("Lib", `form V := V`)
 	if err == nil {
 		t.Fatal("expected error for duplicate module registration")
 	}
@@ -191,7 +191,7 @@ func TestProbeC_Module_DuplicateRegistration(t *testing.T) {
 
 func TestProbeC_Module_EmptyModuleName(t *testing.T) {
 	eng := gicel.NewEngine()
-	err := eng.RegisterModule("", `data U := U`)
+	err := eng.RegisterModule("", `form U := U`)
 	if err == nil {
 		t.Fatal("expected error for empty module name")
 	}

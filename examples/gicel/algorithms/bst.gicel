@@ -7,7 +7,7 @@ import Prelude
 
 -- ── BST data type (GADT form for parameterized recursive type) ──
 
-data BST := \a. {
+form BST := \a. {
   Tip:  BST a;
   Bin:  BST a -> a -> BST a -> BST a
 }

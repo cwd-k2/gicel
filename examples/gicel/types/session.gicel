@@ -11,7 +11,7 @@ import Prelude
 
 -- === Multiplicity infrastructure ===
 
-data Mult := Unrestricted | Affine | Linear
+form Mult := Unrestricted | Affine | Linear
 
 type LUB :: Mult := \(m1: Mult) (m2: Mult). case (m1, m2) {
   (Linear, _) => Linear;
@@ -28,9 +28,9 @@ type LUB :: Mult := \(m1: Mult) (m2: Mult). case (m1, m2) {
 -- Recv s: "receive a value, then continue as s"
 -- End:    "session complete"
 
-data Send := \s. { MkSend: Send s }
-data Recv := \s. { MkRecv: Recv s }
-data End := MkEnd
+form Send := \s. { MkSend: Send s }
+form Recv := \s. { MkRecv: Recv s }
+form End := MkEnd
 
 -- === Duality ===
 --

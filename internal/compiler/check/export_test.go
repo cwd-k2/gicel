@@ -51,8 +51,8 @@ func setupExportChecker() *Checker {
 		{ClassName: "PubClass", TypeArgs: []types.Type{types.Con("Int")}, DictBindName: "PubClass$Int"},
 	}
 	ch.reg.promotedKinds = map[string]types.Kind{
-		"Public":   types.KType{}, // promoted from data Public
-		"_Private": types.KType{}, // promoted from data _Private
+		"Public":   types.KType{}, // promoted from form Public
+		"_Private": types.KType{}, // promoted from form _Private
 	}
 	ch.reg.promotedCons = map[string]types.Kind{
 		"MkPublic": types.KType{}, // promoted from constructor MkPublic (parent: Public)

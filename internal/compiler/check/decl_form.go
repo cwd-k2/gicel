@@ -6,9 +6,9 @@ import (
 	"github.com/cwd-k2/gicel/internal/lang/types"
 )
 
-// processDataDeclParts registers a data type from pre-decomposed body parts.
-// Class-like data declarations must be filtered out by the caller.
-func (ch *Checker) processDataDeclParts(d *syntax.DeclData, parts dataBodyParts, prog *ir.Program) {
+// processFormDeclParts registers a data type from pre-decomposed form body parts.
+// Class-like form declarations must be filtered out by the caller.
+func (ch *Checker) processFormDeclParts(d *syntax.DeclForm, parts formBodyParts, prog *ir.Program) {
 	// Resolve parameter kinds.
 	paramKinds := make([]types.Kind, len(parts.Params))
 	for i, p := range parts.Params {
@@ -33,7 +33,7 @@ func (ch *Checker) processDataDeclParts(d *syntax.DeclData, parts dataBodyParts,
 
 	// Register each constructor from row fields.
 	// In unified syntax, constructors are uppercase fields in the body row:
-	//   data Maybe := \a. { Nothing: (); Just: a; };
+	//   form Maybe := \a. { Nothing: (); Just: a; };
 	coreDecl := ir.DataDecl{Name: d.Name, S: d.S}
 	for i, p := range parts.Params {
 		coreDecl.TyParams = append(coreDecl.TyParams, ir.TyParam{Name: p.Name, Kind: paramKinds[i]})

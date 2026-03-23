@@ -30,22 +30,22 @@ type declPipeline struct {
 	annotations   map[string]types.Type
 	instances     []*InstanceInfo
 	methodBodies  map[*InstanceInfo]map[string]syntax.Expr // instance → unevaluated method exprs (pipeline-local)
-	dataBodyCache map[*syntax.DeclData]dataBodyParts       // shared decomposition results
+	formBodyCache map[*syntax.DeclForm]formBodyParts       // shared decomposition results
 }
 
 func (ch *Checker) checkDecls(decls []syntax.Decl) *ir.Program {
-	p := &declPipeline{ch: ch, decls: decls, prog: &ir.Program{}, dataBodyCache: make(map[*syntax.DeclData]dataBodyParts)}
+	p := &declPipeline{ch: ch, decls: decls, prog: &ir.Program{}, formBodyCache: make(map[*syntax.DeclForm]formBodyParts)}
 	return p.run()
 }
 
 // decomposeData returns the decomposed body parts for a data declaration,
 // caching the result to avoid repeated decomposition across pipeline phases.
-func (p *declPipeline) decomposeData(d *syntax.DeclData) dataBodyParts {
-	if parts, ok := p.dataBodyCache[d]; ok {
+func (p *declPipeline) decomposeData(d *syntax.DeclForm) formBodyParts {
+	if parts, ok := p.formBodyCache[d]; ok {
 		return parts
 	}
-	parts := decomposeDataBody(d.Body)
-	p.dataBodyCache[d] = parts
+	parts := decomposeFormBody(d.Body)
+	p.formBodyCache[d] = parts
 	return parts
 }
 
@@ -70,10 +70,10 @@ func (p *declPipeline) run() *ir.Program {
 // cyclic alias detection, and alias expander installation.
 func (p *declPipeline) registerTypes() {
 	for _, d := range p.decls {
-		if data, ok := d.(*syntax.DeclData); ok {
+		if data, ok := d.(*syntax.DeclForm); ok {
 			parts := p.decomposeData(data)
-			if !isClassLikeData(parts) {
-				p.ch.processDataDeclParts(data, parts, p.prog)
+			if !isClassLikeForm(parts) {
+				p.ch.processFormDeclParts(data, parts, p.prog)
 			}
 		}
 	}
@@ -97,9 +97,9 @@ func (p *declPipeline) registerTypes() {
 func (p *declPipeline) registerClasses() {
 	// Process class-like data declarations (data with all-lowercase fields).
 	for _, d := range p.decls {
-		if data, ok := d.(*syntax.DeclData); ok {
+		if data, ok := d.(*syntax.DeclForm); ok {
 			parts := p.decomposeData(data)
-			if isClassLikeData(parts) {
+			if isClassLikeForm(parts) {
 				p.ch.processClassDecl(data, parts, p.prog)
 			}
 		}

@@ -6,7 +6,7 @@
 | -------- | ----------------------------------------------------------------------------------------------------- |
 | `case`   | Pattern matching                                                                                      |
 | `do`     | Monadic do-block                                                                                      |
-| `data`   | Algebraic data type / type class declaration                                                          |
+| `form`   | Algebraic form type / type class declaration                                                          |
 | `type`   | Type alias / type family declaration                                                                  |
 | `impl`   | Type class instance declaration                                                                       |
 | `infixl` | Left-associative operator fixity                                                                      |
@@ -63,7 +63,7 @@
 
 ### Declaration Boundaries
 
-Top-level declarations are separated by newlines or semicolons. Both are interchangeable at the top level; trailing and repeated semicolons are permitted. A new declaration starts when the next token (preceded by a newline or semicolon at depth 0) is one of: lowercase identifier, uppercase identifier, `data`, `type`, `infixl`, `infixr`, `infixn`, `impl`, `import`, or `(op)`. Inside braces (`do`, `case`, GADT), semicolons are required between statements/alternatives.
+Top-level declarations are separated by newlines or semicolons. Both are interchangeable at the top level; trailing and repeated semicolons are permitted. A new declaration starts when the next token (preceded by a newline or semicolon at depth 0) is one of: lowercase identifier, uppercase identifier, `form`, `type`, `infixl`, `infixr`, `infixn`, `impl`, `import`, or `(op)`. Inside braces (`do`, `case`, GADT), semicolons are required between statements/alternatives.
 
 Import declarations must appear before all other declarations.
 

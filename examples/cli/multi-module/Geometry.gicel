@@ -1,6 +1,6 @@
 -- Geometry module: Point type and operations.
 
-data Point := MkPoint Int Int
+form Point := MkPoint Int Int
 
 mkPoint :: Int -> Int -> Point
 mkPoint := \x y. MkPoint x y

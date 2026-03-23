@@ -8,7 +8,7 @@
 import Prelude
 
 -- Custom equality class (to avoid conflict with Prelude's Eq)
-data Eq' := \a. {
+form Eq' := \a. {
   eq': a -> a -> Bool
 }
 

@@ -45,7 +45,7 @@ func TestNoCheckWithoutEntryPoint(t *testing.T) {
 func TestRejectAnnotatedBareComputation(t *testing.T) {
 	config := &CheckConfig{EntryPoint: "main"}
 	checkSourceExpectCode(t, `
-data Unit := { Unit: Unit; }
+form Unit := { Unit: Unit; }
 f :: Computation {} {} Unit
 f := do { pure Unit }
 main := Unit

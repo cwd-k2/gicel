@@ -8,7 +8,7 @@ import Prelude
 
 -- Container class with an associated type Elem.
 -- type Elem c :: Type declares a type family inside the class.
-data Container := \c. {
+form Container := \c. {
   type Elem c :: Type;
   cfold: \b. (Elem c -> b -> b) -> b -> c -> b
 }

@@ -22,7 +22,7 @@ guard := \c. case c { True => [()]; False => [] }
 -- x <- [1,2,3] means "for each x in [1,2,3]".
 
 -- Pythagorean triples a² + b² = c² (a ≤ b ≤ c ≤ 10)
-data Triple := { MkTriple: Int -> Int -> Int -> Triple }
+form Triple := { MkTriple: Int -> Int -> Int -> Triple }
 
 pythag :: List Triple
 pythag := do {
@@ -48,7 +48,7 @@ sumPairs := do {
 -- The computation is a tree. The interpreter walks it.
 -- NDFree gets a Monad instance, so do notation works directly.
 
-data NDFree := \a. { NDPure: a -> NDFree a; NDChoice: NDFree a -> NDFree a -> NDFree a; NDFail: NDFree a }
+form NDFree := \a. { NDPure: a -> NDFree a; NDChoice: NDFree a -> NDFree a -> NDFree a; NDFail: NDFree a }
 
 impl Monad NDFree := {
   mpure := NDPure;

@@ -370,7 +370,7 @@ func TestExhaustiveLargeADT(t *testing.T) {
 	eng.Use(stdlib.Prelude)
 	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
-data Color := { Red: Color; Green: Color; Blue: Color; Yellow: Color; Cyan: Color; Magenta: Color; }
+form Color := { Red: Color; Green: Color; Blue: Color; Yellow: Color; Cyan: Color; Magenta: Color; }
 
 f := \c. case c {
   Red => True;
@@ -402,7 +402,7 @@ func TestNonExhaustiveLargeADT(t *testing.T) {
 	eng.Use(stdlib.Prelude)
 	_, err := eng.NewRuntime(context.Background(), `
 import Prelude
-data Color := { Red: Color; Green: Color; Blue: Color; Yellow: Color; Cyan: Color; Magenta: Color; }
+form Color := { Red: Color; Green: Color; Blue: Color; Yellow: Color; Cyan: Color; Magenta: Color; }
 
 f := \c. case c {
   Red => True;

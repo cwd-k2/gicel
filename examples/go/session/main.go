@@ -17,10 +17,10 @@ import (
 const source = `
 import Prelude
 
-data Mult := Unrestricted | Affine | Linear
-data Send := \s. { MkSend: Send s }
-data Recv := \s. { MkRecv: Recv s }
-data End := { MkEnd: End }
+form Mult := Unrestricted | Affine | Linear
+form Send := \s. { MkSend: Send s }
+form Recv := \s. { MkRecv: Recv s }
+form End := { MkEnd: End }
 
 -- Session operations (host-provided)
 send :: \s. Computation { ch: Send s @Linear } { ch: s @Linear } Int

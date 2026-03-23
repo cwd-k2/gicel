@@ -18,7 +18,7 @@ import Prelude
 -- When f = Maybe, this is a non-empty list.
 -- When f = ((,) e), this is an infinite stream with annotations.
 
-data Cofree := \(f: Type -> Type) a. { MkCofree: a -> f (Cofree f a) -> Cofree f a }
+form Cofree := \(f: Type -> Type) a. { MkCofree: a -> f (Cofree f a) -> Cofree f a }
 
 cofreeHead :: \(f: Type -> Type) a. Cofree f a -> a
 cofreeHead := \c. case c { MkCofree a _ => a }

@@ -96,7 +96,7 @@ func TestProbeB_NullByte(t *testing.T) {
 // TestProbeD_UnicodeUpperIdent checks if unicode uppercase letters are accepted as Upper identifiers.
 func TestProbeD_UnicodeUpperIdent(t *testing.T) {
 	// isUpperStart only checks A-Z (ASCII). Unicode uppercase should be rejected.
-	_, es := parse("data \u00C9tat := \u00C9tat") // data État := État
+	_, es := parse("form \u00C9tat := \u00C9tat") // form État := État
 	if !es.HasErrors() {
 		// If this succeeds, the lexer accepts Unicode uppercase as identifiers.
 		t.Log("Unicode uppercase identifier accepted (isUpperStart accepts only ASCII A-Z)")

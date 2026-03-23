@@ -10,8 +10,8 @@
 -- computations without affecting runtime behavior.
 -- Level: types
 
-data Mult := Unrestricted | Affine | Linear
-data Unit := Unit
+form Mult := Unrestricted | Affine | Linear
+form Unit := Unit
 
 -- A resource that must be consumed exactly once.
 -- The @Linear annotation on handle tracks this at the type level.

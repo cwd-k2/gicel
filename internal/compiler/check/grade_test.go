@@ -14,8 +14,8 @@ import (
 
 func TestGradeAnnotationParse(t *testing.T) {
 	source := `
-data Mult := { Unrestricted: Mult; Affine: Mult; Linear: Mult; }
-data Unit := { Unit: Unit; }
+form Mult := { Unrestricted: Mult; Affine: Mult; Linear: Mult; }
+form Unit := { Unit: Unit; }
 f :: { cap: Unit @Linear | r } -> Unit
 f := \x. Unit
 `
@@ -24,8 +24,8 @@ f := \x. Unit
 
 func TestGradeAnnotationParseMultipleFields(t *testing.T) {
 	source := `
-data Mult := { Unrestricted: Mult; Affine: Mult; Linear: Mult; }
-data Unit := { Unit: Unit; }
+form Mult := { Unrestricted: Mult; Affine: Mult; Linear: Mult; }
+form Unit := { Unit: Unit; }
 f :: { a: Unit @Linear, b: Unit @Affine } -> Unit
 f := \x. Unit
 `
@@ -34,8 +34,8 @@ f := \x. Unit
 
 func TestGradeAnnotationParseMixed(t *testing.T) {
 	source := `
-data Mult := { Unrestricted: Mult; Affine: Mult; Linear: Mult; }
-data Unit := { Unit: Unit; }
+form Mult := { Unrestricted: Mult; Affine: Mult; Linear: Mult; }
+form Unit := { Unit: Unit; }
 f :: { a: Unit @Linear, b: Unit } -> Unit
 f := \x. Unit
 `
@@ -46,8 +46,8 @@ f := \x. Unit
 
 func TestGradeAnnotationResolves(t *testing.T) {
 	source := `
-data Mult := { Unrestricted: Mult; Affine: Mult; Linear: Mult; }
-data Unit := { Unit: Unit; }
+form Mult := { Unrestricted: Mult; Affine: Mult; Linear: Mult; }
+form Unit := { Unit: Unit; }
 f :: { cap: Unit @Linear } -> { cap: Unit @Linear } -> Unit
 f := \x y. Unit
 `
@@ -58,8 +58,8 @@ f := \x y. Unit
 
 func TestGradeAnnotationUnifyMatch(t *testing.T) {
 	source := `
-data Mult := { Unrestricted: Mult; Affine: Mult; Linear: Mult; }
-data Unit := { Unit: Unit; }
+form Mult := { Unrestricted: Mult; Affine: Mult; Linear: Mult; }
+form Unit := { Unit: Unit; }
 id :: { cap: Unit @Linear } -> { cap: Unit @Linear }
 id := \x. x
 `
@@ -68,8 +68,8 @@ id := \x. x
 
 func TestGradeAnnotationUnifyMismatch(t *testing.T) {
 	source := `
-data Mult := { Unrestricted: Mult; Affine: Mult; Linear: Mult; }
-data Unit := { Unit: Unit; }
+form Mult := { Unrestricted: Mult; Affine: Mult; Linear: Mult; }
+form Unit := { Unit: Unit; }
 bad :: { cap: Unit @Linear } -> { cap: Unit @Affine }
 bad := \x. x
 `
@@ -80,8 +80,8 @@ bad := \x. x
 
 func TestGradeInComputation(t *testing.T) {
 	source := `
-data Mult := { Unrestricted: Mult; Affine: Mult; Linear: Mult; }
-data Unit := { Unit: Unit; }
+form Mult := { Unrestricted: Mult; Affine: Mult; Linear: Mult; }
+form Unit := { Unit: Unit; }
 use :: Computation { handle: Unit @Linear } {} Unit
 use := assumption
 `
@@ -90,8 +90,8 @@ use := assumption
 
 func TestGradePreserveInComputation(t *testing.T) {
 	source := `
-data Mult := { Unrestricted: Mult; Affine: Mult; Linear: Mult; }
-data Unit := { Unit: Unit; }
+form Mult := { Unrestricted: Mult; Affine: Mult; Linear: Mult; }
+form Unit := { Unit: Unit; }
 noop :: Computation { handle: Unit @Linear } { handle: Unit @Linear } Unit
 noop := assumption
 `
@@ -102,8 +102,8 @@ noop := assumption
 
 func TestGradeDoOpenUseClose(t *testing.T) {
 	source := `
-data Mult := { Unrestricted: Mult; Affine: Mult; Linear: Mult; }
-data Unit := { Unit: Unit; }
+form Mult := { Unrestricted: Mult; Affine: Mult; Linear: Mult; }
+form Unit := { Unit: Unit; }
 open :: Computation {} { h: Unit @Linear } Unit
 open := assumption
 use :: Computation { h: Unit @Linear } { h: Unit @Linear } Unit
@@ -118,8 +118,8 @@ main := do { open; use; close }
 
 func TestGradeDoBindResult(t *testing.T) {
 	source := `
-data Mult := { Unrestricted: Mult; Affine: Mult; Linear: Mult; }
-data Unit := { Unit: Unit; }
+form Mult := { Unrestricted: Mult; Affine: Mult; Linear: Mult; }
+form Unit := { Unit: Unit; }
 open :: Computation {} { h: Unit @Linear } Unit
 open := assumption
 read :: Computation { h: Unit @Linear } { h: Unit @Linear } Int
@@ -146,8 +146,8 @@ func TestGradeLinearMustBeConsumedEventually(t *testing.T) {
 	// open's post is { h: Unit @Linear }, but main expects post = {}
 	// Row unification catches this.
 	source := `
-data Mult := { Unrestricted: Mult; Affine: Mult; Linear: Mult; }
-data Unit := { Unit: Unit; }
+form Mult := { Unrestricted: Mult; Affine: Mult; Linear: Mult; }
+form Unit := { Unit: Unit; }
 open :: Computation {} { h: Unit @Linear } Unit
 open := assumption
 main :: Computation {} {} Unit
@@ -160,7 +160,7 @@ main := do { open }
 
 func TestGradeLUBTypeFamilyDefined(t *testing.T) {
 	source := `
-data Mult := { Unrestricted: Mult; Affine: Mult; Linear: Mult; }
+form Mult := { Unrestricted: Mult; Affine: Mult; Linear: Mult; }
 type LUB :: Mult := \(m1: Mult) (m2: Mult). case (m1, m2) {
   (Linear, _) => Linear;
   (_, Linear) => Linear;
@@ -176,8 +176,8 @@ type LUB :: Mult := \(m1: Mult) (m2: Mult). case (m1, m2) {
 
 func TestGradeLinearSingleUseClose(t *testing.T) {
 	source := `
-data Mult := { Unrestricted: Mult; Affine: Mult; Linear: Mult; }
-data Unit := { Unit: Unit; }
+form Mult := { Unrestricted: Mult; Affine: Mult; Linear: Mult; }
+form Unit := { Unit: Unit; }
 use :: Computation { h: Unit @Linear } { h: Unit @Linear } Unit
 use := assumption
 close :: Computation { h: Unit @Linear } {} Unit
@@ -190,8 +190,8 @@ good := do { use; close }
 
 func TestGradeLinearConsumeOnly(t *testing.T) {
 	source := `
-data Mult := { Unrestricted: Mult; Affine: Mult; Linear: Mult; }
-data Unit := { Unit: Unit; }
+form Mult := { Unrestricted: Mult; Affine: Mult; Linear: Mult; }
+form Unit := { Unit: Unit; }
 close :: Computation { h: Unit @Linear } {} Unit
 close := assumption
 good :: Computation { h: Unit @Linear } {} Unit
@@ -202,8 +202,8 @@ good := do { close }
 
 func TestGradeUnrestrictedAllowsMultiple(t *testing.T) {
 	source := `
-data Mult := { Unrestricted: Mult; Affine: Mult; Linear: Mult; }
-data Unit := { Unit: Unit; }
+form Mult := { Unrestricted: Mult; Affine: Mult; Linear: Mult; }
+form Unit := { Unit: Unit; }
 use :: Computation { h: Unit @Unrestricted } { h: Unit @Unrestricted } Unit
 use := assumption
 close :: Computation { h: Unit @Unrestricted } {} Unit
@@ -217,9 +217,9 @@ f := do { use; use; use; close }
 func TestGradeTypeChangingPreservation(t *testing.T) {
 	// Protocol state transition — type changes at each step.
 	source := `
-data Mult := { Unrestricted: Mult; Affine: Mult; Linear: Mult; }
-data Unit := { Unit: Unit; }
-data S := { A: S; B: S; C: S; }
+form Mult := { Unrestricted: Mult; Affine: Mult; Linear: Mult; }
+form Unit := { Unit: Unit; }
+form S := { A: S; B: S; C: S; }
 step1 :: Computation { ch: A @Linear } { ch: B @Linear } Unit
 step1 := assumption
 step2 :: Computation { ch: B @Linear } { ch: C @Linear } Unit
@@ -234,8 +234,8 @@ f := do { step1; step2; close }
 
 func TestGradeNoAnnotationNoRestriction(t *testing.T) {
 	source := `
-data Mult := { Unrestricted: Mult; Affine: Mult; Linear: Mult; }
-data Unit := { Unit: Unit; }
+form Mult := { Unrestricted: Mult; Affine: Mult; Linear: Mult; }
+form Unit := { Unit: Unit; }
 use :: Computation { h: Unit } { h: Unit } Unit
 use := assumption
 close :: Computation { h: Unit } {} Unit
@@ -422,8 +422,8 @@ func TestGradeBoundaryConcrete_LinearRejected(t *testing.T) {
 	// Linear field preserved unchanged across do-block boundary → error.
 	// noop preserves h unchanged, so the grade boundary check fires.
 	source := `
-data Mult := { Unrestricted: Mult; Affine: Mult; Linear: Mult; Zero: Mult; }
-data Unit := { Unit: Unit; }
+form Mult := { Unrestricted: Mult; Affine: Mult; Linear: Mult; Zero: Mult; }
+form Unit := { Unit: Unit; }
 noop :: Computation { h: Unit @Linear } { h: Unit @Linear } Unit
 noop := assumption
 main :: Computation { h: Unit @Linear } { h: Unit @Linear } Unit
@@ -438,8 +438,8 @@ func TestGradeBoundaryConcrete_ZeroAllowed(t *testing.T) {
 	// permitted by gradeCanPreserve. (The "no use" semantic of Zero
 	// is not captured by the algebraic check alone.)
 	source := `
-data Mult := { Unrestricted: Mult; Affine: Mult; Linear: Mult; Zero: Mult; }
-data Unit := { Unit: Unit; }
+form Mult := { Unrestricted: Mult; Affine: Mult; Linear: Mult; Zero: Mult; }
+form Unit := { Unit: Unit; }
 noop :: Computation { h: Unit @Zero } { h: Unit @Zero } Unit
 noop := assumption
 main :: Computation { h: Unit @Zero } { h: Unit @Zero } Unit
@@ -451,8 +451,8 @@ main := do { noop }
 func TestGradeBoundaryConcrete_AffineAllowed(t *testing.T) {
 	// Affine field preserved unchanged across do-block boundary → allowed.
 	source := `
-data Mult := { Unrestricted: Mult; Affine: Mult; Linear: Mult; Zero: Mult; }
-data Unit := { Unit: Unit; }
+form Mult := { Unrestricted: Mult; Affine: Mult; Linear: Mult; Zero: Mult; }
+form Unit := { Unit: Unit; }
 noop :: Computation { h: Unit @Affine } { h: Unit @Affine } Unit
 noop := assumption
 main :: Computation { h: Unit @Affine } { h: Unit @Affine } Unit
@@ -466,8 +466,8 @@ func TestGradeBoundaryConcrete_UnrestrictedPreserved(t *testing.T) {
 	// gradeCanPreserve(Unrestricted) correctly returns true:
 	// Join(Zero, Unrestricted) = Unrestricted, Equal(Unrestricted, Unrestricted) = true.
 	source := `
-data Mult := { Unrestricted: Mult; Affine: Mult; Linear: Mult; Zero: Mult; }
-data Unit := { Unit: Unit; }
+form Mult := { Unrestricted: Mult; Affine: Mult; Linear: Mult; Zero: Mult; }
+form Unit := { Unit: Unit; }
 noop :: Computation { h: Unit @Unrestricted } { h: Unit @Unrestricted } Unit
 noop := assumption
 main :: Computation { h: Unit @Unrestricted } { h: Unit @Unrestricted } Unit

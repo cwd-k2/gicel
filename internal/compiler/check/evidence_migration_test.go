@@ -15,8 +15,8 @@ func TestCheckTyEvidenceSingleConstraint(t *testing.T) {
 	// Building a TyEvidence manually and checking against it.
 	// This tests the check-mode handling of TyEvidence:
 	// { Eq a } => a -> a -> Bool should introduce a dict Lam.
-	source := `data Bool := { True: Bool; False: Bool; }
-data Eq := \a. { eq: a -> a -> Bool }
+	source := `form Bool := { True: Bool; False: Bool; }
+form Eq := \a. { eq: a -> a -> Bool }
 impl Eq Bool := { eq := \x y. True }
 f :: \ a. Eq a => a -> a -> Bool
 f := \x y. eq x y
@@ -35,9 +35,9 @@ main := f True False`
 
 func TestCheckTyEvidenceMultiConstraint(t *testing.T) {
 	// (Eq a, Ord a) => ... should work (constraint tuple).
-	source := `data Bool := { True: Bool; False: Bool; }
-data Eq := \a. { eq: a -> a -> Bool }
-data Ord := \a. Eq a => { compare: a -> a -> Bool }
+	source := `form Bool := { True: Bool; False: Bool; }
+form Eq := \a. { eq: a -> a -> Bool }
+form Ord := \a. Eq a => { compare: a -> a -> Bool }
 impl Eq Bool := { eq := \x y. True }
 impl Ord Bool := { compare := \x y. True }
 g :: \ a. (Eq a, Ord a) => a -> a -> Bool
@@ -62,8 +62,8 @@ main := g True False`
 func TestSubsCheckTyEvidence(t *testing.T) {
 	// When subsCheck encounters a TyEvidence on the inferred side,
 	// it should defer the constraints and peel them off.
-	source := `data Bool := { True: Bool; False: Bool; }
-data Eq := \a. { eq: a -> a -> Bool }
+	source := `form Bool := { True: Bool; False: Bool; }
+form Eq := \a. { eq: a -> a -> Bool }
 impl Eq Bool := { eq := \x y. True }
 main := eq True False`
 	prog := checkSource(t, source, nil)
@@ -84,8 +84,8 @@ main := eq True False`
 
 func TestResolveTypeExprProducesTyEvidence(t *testing.T) {
 	// resolveTypeExpr for "Eq a => a -> Bool" produces TyEvidence.
-	source := `data Bool := { True: Bool; False: Bool; }
-data Eq := \a. { eq: a -> a -> Bool }
+	source := `form Bool := { True: Bool; False: Bool; }
+form Eq := \a. { eq: a -> a -> Bool }
 f :: Eq a => a -> Bool
 f := \x. True`
 	checkSource(t, source, nil)
@@ -97,8 +97,8 @@ f := \x. True`
 
 func TestClassSelectorTypeMigration(t *testing.T) {
 	// Class selector type should use TyEvidence (not TyQual).
-	source := `data Bool := { True: Bool; False: Bool; }
-data Eq := \a. { eq: a -> a -> Bool }
+	source := `form Bool := { True: Bool; False: Bool; }
+form Eq := \a. { eq: a -> a -> Bool }
 impl Eq Bool := { eq := \x y. True }
 main := eq True False`
 	prog := checkSource(t, source, nil)
@@ -135,9 +135,9 @@ main := eq True False`
 func TestInstanceContextMigration(t *testing.T) {
 	// Instance with context: Eq a => Eq (Maybe a).
 	// After migration this should still work.
-	source := `data Bool := { True: Bool; False: Bool; }
-data Maybe := \a. { Just: a -> Maybe a; Nothing: Maybe a; }
-data Eq := \a. { eq: a -> a -> Bool }
+	source := `form Bool := { True: Bool; False: Bool; }
+form Maybe := \a. { Just: a -> Maybe a; Nothing: Maybe a; }
+form Eq := \a. { eq: a -> a -> Bool }
 impl Eq Bool := { eq := \x y. True }
 impl Eq a => Eq (Maybe a) := { eq := \x y. True }
 main := eq (Just True) (Just False)`
@@ -159,9 +159,9 @@ main := eq (Just True) (Just False)`
 
 func TestSuperclassResolutionMigration(t *testing.T) {
 	// Ord a => ... should allow resolving Eq a (superclass).
-	source := `data Bool := { True: Bool; False: Bool; }
-data Eq := \a. { eq: a -> a -> Bool }
-data Ord := \a. Eq a => { compare: a -> a -> Bool }
+	source := `form Bool := { True: Bool; False: Bool; }
+form Eq := \a. { eq: a -> a -> Bool }
+form Ord := \a. Eq a => { compare: a -> a -> Bool }
 impl Eq Bool := { eq := \x y. True }
 impl Ord Bool := { compare := \x y. True }
 f :: \ a. Ord a => a -> a -> Bool
@@ -185,8 +185,8 @@ main := f True False`
 
 func TestTyEvidenceZonkInChecker(t *testing.T) {
 	// Verify that TyEvidence types are correctly zonked during type checking.
-	source := `data Bool := { True: Bool; False: Bool; }
-data Eq := \a. { eq: a -> a -> Bool }
+	source := `form Bool := { True: Bool; False: Bool; }
+form Eq := \a. { eq: a -> a -> Bool }
 impl Eq Bool := { eq := \x y. True }
 f :: \ a. Eq a => a -> a -> Bool
 f := \x y. eq x y`
@@ -195,8 +195,8 @@ f := \x y. eq x y`
 
 func TestTyEvidenceInBindingType(t *testing.T) {
 	// After checking, the binding type for f should have TyForall → TyEvidence structure.
-	source := `data Bool := { True: Bool; False: Bool; }
-data Eq := \a. { eq: a -> a -> Bool }
+	source := `form Bool := { True: Bool; False: Bool; }
+form Eq := \a. { eq: a -> a -> Bool }
 f :: \ a. Eq a => a -> Bool
 f := \x. True`
 	prog := checkSource(t, source, nil)

@@ -36,7 +36,7 @@ func dictName(className string) string { return className + "$Dict" }
 // processClassDecl elaborates a class-like data declaration into:
 // 1. A DataDecl for the dictionary type
 // 2. Selector bindings for each method
-func (ch *Checker) processClassDecl(d *syntax.DeclData, parts dataBodyParts, prog *ir.Program) {
+func (ch *Checker) processClassDecl(d *syntax.DeclForm, parts formBodyParts, prog *ir.Program) {
 	dn := dictName(d.Name)
 
 	// Reject default method implementations (not yet supported).

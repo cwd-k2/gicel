@@ -5,9 +5,9 @@ Session types encode communication protocols as types. GICEL expresses them via 
 ### Protocol States
 
 ```
-data Send := \s. { MkSend: Send s }   -- send a value, continue as s
-data Recv := \s. { MkRecv: Recv s }   -- receive a value, continue as s
-data End  := MkEnd                     -- session complete
+form Send := \s. { MkSend: Send s }   -- send a value, continue as s
+form Recv := \s. { MkRecv: Recv s }   -- receive a value, continue as s
+form End  := MkEnd                     -- session complete
 ```
 
 ### Duality

@@ -23,12 +23,12 @@ import (
 func TestProbeD_InstanceDepth_NearLimit(t *testing.T) {
 	const N = 15
 	var sb strings.Builder
-	sb.WriteString("data Bool := { True: Bool; False: Bool; }\n")
-	sb.WriteString("data Eq := \\a. { eq: a -> a -> Bool; }\n")
+	sb.WriteString("form Bool := { True: Bool; False: Bool; }\n")
+	sb.WriteString("form Eq := \\a. { eq: a -> a -> Bool; }\n")
 	sb.WriteString("impl Eq Bool := { eq := \\x y. True }\n\n")
 
 	for i := 0; i < N; i++ {
-		sb.WriteString(fmt.Sprintf("data W%d := \\a. { MkW%d: a -> W%d a; }\n", i, i, i))
+		sb.WriteString(fmt.Sprintf("form W%d := \\a. { MkW%d: a -> W%d a; }\n", i, i, i))
 		sb.WriteString(fmt.Sprintf("impl Eq a => Eq (W%d a) := { eq := \\x y. True }\n\n", i))
 	}
 
@@ -45,8 +45,8 @@ func TestProbeD_InstanceDepth_NearLimit(t *testing.T) {
 // requires itself at the same type should be rejected at instance registration.
 func TestProbeD_InstanceDepth_SelfRecursiveSameType(t *testing.T) {
 	source := `
-data Bool := { True: Bool; False: Bool; }
-data C := \a. { m: a -> Bool }
+form Bool := { True: Bool; False: Bool; }
+form C := \a. { m: a -> Bool }
 impl C a => C a := { m := \x. True }
 main := m True
 `
@@ -59,11 +59,11 @@ main := m True
 
 // TestProbeE_TypeClass_EmptyClass — a class with a single marker method should compile.
 // In unified syntax, class-like data requires at least one lowercase field
-// to be recognized as a type class (the isClassLikeData heuristic).
+// to be recognized as a type class (the isClassLikeForm heuristic).
 func TestProbeE_TypeClass_EmptyClass(t *testing.T) {
 	source := `
-data Marker := \a. { _tag: () }
-data Bool := { True: Bool; False: Bool; }
+form Marker := \a. { _tag: () }
+form Bool := { True: Bool; False: Bool; }
 impl Marker Bool := { _tag := () }
 main := True
 `
@@ -74,8 +74,8 @@ main := True
 // should produce a clean error, not a panic.
 func TestProbeE_TypeClass_OverlappingInstancesError(t *testing.T) {
 	source := `
-data Bool := { True: Bool; False: Bool; }
-data C := \a. { method: a -> Bool }
+form Bool := { True: Bool; False: Bool; }
+form C := \a. { method: a -> Bool }
 impl C Bool := { method := \x. x }
 impl C Bool := { method := \x. True }
 main := method True
@@ -91,8 +91,8 @@ main := method True
 // should report a clear error.
 func TestProbeE_TypeClass_MissingMethodError(t *testing.T) {
 	source := `
-data Bool := { True: Bool; False: Bool; }
-data C := \a. { method1: a -> Bool; method2: a -> a }
+form Bool := { True: Bool; False: Bool; }
+form C := \a. { method1: a -> Bool; method2: a -> a }
 impl C Bool := { method1 := \x. x }
 main := method1 True
 `
@@ -106,9 +106,9 @@ main := method1 True
 // without providing the subclass instance should fail cleanly.
 func TestProbeE_TypeClass_SuperclassWithoutInstance(t *testing.T) {
 	source := `
-data Bool := { True: Bool; False: Bool; }
-data Eq := \a. { eq: a -> a -> Bool }
-data Ord := \a. Eq a => { lt: a -> a -> Bool }
+form Bool := { True: Bool; False: Bool; }
+form Eq := \a. { eq: a -> a -> Bool }
+form Ord := \a. Eq a => { lt: a -> a -> Bool }
 
 -- Ord Bool instance without Eq Bool instance
 impl Ord Bool := { lt := \x y. True }
@@ -124,8 +124,8 @@ main := lt True False
 // unsolved metas that cannot be defaulted should produce a diagnostic.
 func TestProbeE_TypeClass_AmbiguousConstraintDefaulting(t *testing.T) {
 	source := `
-data Bool := { True: Bool; False: Bool; }
-data C := \a. { method: a -> Bool }
+form Bool := { True: Bool; False: Bool; }
+form C := \a. { method: a -> Bool }
 impl C Bool := { method := \x. x }
 
 -- f takes no arguments that could determine the type variable
@@ -141,10 +141,10 @@ main := f True
 // through a 3-level chain.
 func TestProbeE_TypeClass_DeepSuperclassChain(t *testing.T) {
 	source := `
-data Bool := { True: Bool; False: Bool; }
-data A := \a. { methodA: a -> Bool }
-data B := \a. A a => { methodB: a -> Bool }
-data C := \a. B a => { methodC: a -> Bool }
+form Bool := { True: Bool; False: Bool; }
+form A := \a. { methodA: a -> Bool }
+form B := \a. A a => { methodB: a -> Bool }
+form C := \a. B a => { methodC: a -> Bool }
 
 impl A Bool := { methodA := \x. True }
 impl B Bool := { methodB := \x. True }
@@ -163,9 +163,9 @@ main := useA True
 // unnecessary context constraint should still compile.
 func TestProbeE_TypeClass_InstanceWithExtraContext(t *testing.T) {
 	source := `
-data Bool := { True: Bool; False: Bool; }
-data Maybe := \a. { Nothing: Maybe a; Just: a -> Maybe a; }
-data Eq := \a. { eq: a -> a -> Bool }
+form Bool := { True: Bool; False: Bool; }
+form Maybe := \a. { Nothing: Maybe a; Just: a -> Maybe a; }
+form Eq := \a. { eq: a -> a -> Bool }
 impl Eq Bool := { eq := \x y. True }
 impl Eq a => Eq (Maybe a) := {
   eq := \mx my. case mx {
@@ -182,10 +182,10 @@ main := eq (Just True) (Just False)
 // type information to resolve the instance should produce a sensible error.
 func TestProbeA_TypeClassMethodAmbiguity(t *testing.T) {
 	source := `
-data Bool := { True: Bool; False: Bool; }
-data Unit := { Unit: Unit; }
+form Bool := { True: Bool; False: Bool; }
+form Unit := { Unit: Unit; }
 
-data Show := \a. { show: a -> a }
+form Show := \a. { show: a -> a }
 impl Show Bool := { show := \x. x }
 impl Show Unit := { show := \x. x }
 

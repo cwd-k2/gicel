@@ -12,7 +12,7 @@ import Prelude
 -- A GADT for typed expressions.
 -- The `:= { ... }` syntax with full type signatures per constructor
 -- distinguishes GADTs from ordinary ADTs.
-data Expr := \a. {
+form Expr := \a. {
   LitBool: Bool -> Expr Bool;
   LitInt:  Int -> Expr Int;
   Not:     Expr Bool -> Expr Bool;

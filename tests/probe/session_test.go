@@ -19,10 +19,10 @@ import (
 const sessionPreamble = `
 import Prelude
 
-data Mult := { Unrestricted: Mult; Affine: Mult; Linear: Mult; }
-data Send := \s. { MkSend: Send s; }
-data Recv := \s. { MkRecv: Recv s; }
-data End := { MkEnd: End; }
+form Mult := { Unrestricted: Mult; Affine: Mult; Linear: Mult; }
+form Send := \s. { MkSend: Send s; }
+form Recv := \s. { MkRecv: Recv s; }
+form End := { MkEnd: End; }
 
 type LUB :: Mult := \(m1: Mult) (m2: Mult). case (m1, m2) {
   (Linear, _) => Linear;

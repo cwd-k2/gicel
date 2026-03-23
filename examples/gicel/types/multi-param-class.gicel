@@ -7,12 +7,12 @@
 import Prelude
 
 -- A multi-parameter class for lossless coercion between types
-data Coercible := \a b. {
+form Coercible := \a b. {
   coerce: a -> b
 }
 
 -- A multi-parameter class for lossy/semantic conversion
-data Convert := \a b. {
+form Convert := \a b. {
   convert: a -> b
 }
 

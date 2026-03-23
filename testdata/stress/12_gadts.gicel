@@ -1,7 +1,7 @@
 -- GADTs: type-safe expression DSL
 import Prelude
 
-data Expr := \a. {
+form Expr := \a. {
   LitBool: Bool -> Expr Bool;
   Not:     Expr Bool -> Expr Bool;
   And:     Expr Bool -> Expr Bool -> Expr Bool

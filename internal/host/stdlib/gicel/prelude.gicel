@@ -1,21 +1,21 @@
-data Bool := { True: Bool; False: Bool; }
-data Result := \e a. { Ok: a -> Result e a; Err: e -> Result e a; }
-data Maybe := \a. { Just: a -> Maybe a; Nothing: Maybe a; }
-data List := \a. { Cons: a -> List a -> List a; Nil: List a; }
-data Ordering := { LT: Ordering; EQ: Ordering; GT: Ordering; }
+form Bool := { True: Bool; False: Bool; }
+form Result := \e a. { Ok: a -> Result e a; Err: e -> Result e a; }
+form Maybe := \a. { Just: a -> Maybe a; Nothing: Maybe a; }
+form List := \a. { Cons: a -> List a -> List a; Nil: List a; }
+form Ordering := { LT: Ordering; EQ: Ordering; GT: Ordering; }
 
-data Eq := \a. { eq: a -> a -> Bool }
-data Ord := \a. Eq a => { compare: a -> a -> Ordering }
-data Functor := \f. { fmap: \a b. (a -> b) -> f a -> f b }
-data Foldable := \t. { foldr: \a b. (a -> b -> b) -> b -> t a -> b }
+form Eq := \a. { eq: a -> a -> Bool }
+form Ord := \a. Eq a => { compare: a -> a -> Ordering }
+form Functor := \f. { fmap: \a b. (a -> b) -> f a -> f b }
+form Foldable := \t. { foldr: \a b. (a -> b -> b) -> b -> t a -> b }
 
-data Semigroup := \a. { append: a -> a -> a }
-data Monoid := \a. Semigroup a => { empty: a }
-data Applicative := \f. Functor f => {
+form Semigroup := \a. { append: a -> a -> a }
+form Monoid := \a. Semigroup a => { empty: a }
+form Applicative := \f. Functor f => {
   wrap: \a. a -> f a;
   ap   : \a b. f (a -> b) -> f a -> f b
 }
-data Traversable := \t. (Functor t, Foldable t) => {
+form Traversable := \t. (Functor t, Foldable t) => {
   traverse: \f a b. Applicative f => (a -> f b) -> t a -> f (t b)
 }
 
@@ -245,12 +245,12 @@ infixr 5 <+
 (<+) :: \a. a -> List a -> List a
 (<+) := Cons
 
-data Show := \a. { show: a -> String }
+form Show := \a. { show: a -> String }
 impl Show Bool := { show := \b. case b { True => "True"; False => "False" } }
 impl Show () := { show := \_. "()" }
 impl Show Ordering := { show := \x. case x { LT => "LT"; EQ => "EQ"; GT => "GT" } }
 
-data Alternative := \f. Applicative f => {
+form Alternative := \f. Applicative f => {
   none: \a. f a;
   alt  : \a. f a -> f a -> f a
 }
@@ -268,7 +268,7 @@ impl Alternative List := { none := Nil; alt := append }
 guard :: \(f: Type -> Type). Alternative f => Bool -> f ()
 guard := \b. case b { True => wrap (); False => none }
 
-data Monad := \(m: Type -> Type). {
+form Monad := \(m: Type -> Type). {
   mpure: \a. a -> m a;
   mbind: \a b. m a -> (a -> m b) -> m b
 }
@@ -307,7 +307,7 @@ impl IxMonad List := {
   ixbind := \xs f. foldr (\x acc. append (f x) acc) Nil xs
 }
 
-data Packed := \c e. {
+form Packed := \c e. {
   pack   : List e -> c;
   unpack: c -> List e
 }
@@ -317,12 +317,12 @@ impl Packed (List a) a := {
   unpack := id
 }
 
-data FromList := \l. {
+form FromList := \l. {
   type Elem l :: Type;
   fromList: List (Elem l) -> l
 }
 
-data ToList := \l. FromList l => {
+form ToList := \l. FromList l => {
   toList: l -> List (Elem l)
 }
 
@@ -581,7 +581,7 @@ impl Ord Int := { compare := _cmpInt }
 impl Semigroup Int := { append := _addInt }
 impl Monoid Int := { empty := 0 }
 
-data Num := \a. Eq a => {
+form Num := \a. Eq a => {
   add    : a -> a -> a;
   sub    : a -> a -> a;
   mul    : a -> a -> a;
@@ -595,7 +595,7 @@ impl Num Int := {
   negate := _negInt
 }
 
-data Div := \a. Num a => {
+form Div := \a. Num a => {
   div: a -> a -> a
 }
 

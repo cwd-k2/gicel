@@ -18,22 +18,22 @@ func TestAdvancedTypeFamilyStress(t *testing.T) {
 	}
 	source := `
 -- Peano naturals as DataKinds.
-data Nat := { Z: (); S: Nat; }
+form Nat := { Z: (); S: Nat; }
 
 -- Type-level addition (encoded via NatPair since multi-param families
 -- require unified syntax encoding).
-data NatPair := \(a: Nat) (b: Nat). { MkNatPair: NatPair a b; }
+form NatPair := \(a: Nat) (b: Nat). { MkNatPair: NatPair a b; }
 type Add :: Nat := \(p: Type). case p {
   (NatPair Z b) => b;
   (NatPair (S a) b) => S (Add (NatPair a b))
 }
 
 -- Phantom type indexed by Nat.
-data NatProxy := \(n: Nat). { MkProxy: NatProxy n; }
+form NatProxy := \(n: Nat). { MkProxy: NatProxy n; }
 
 -- Elem: container element extraction.
-data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
-data Maybe := \a. { Nothing: Maybe a; Just: a -> Maybe a; }
+form List := \a. { Nil: List a; Cons: a -> List a -> List a; }
+form Maybe := \a. { Nothing: Maybe a; Just: a -> Maybe a; }
 
 type Elem :: Type := \(c: Type). case c {
   (List a) => a;
@@ -51,7 +51,7 @@ nestedElem :: Elem (List (Wrap Int)) -> Maybe Int
 nestedElem := \x. x
 
 -- Season rotation: single-step NextSeason is fully reduced.
-data Season := { Spring: Season; Summer: Season; Autumn: Season; Winter: Season; }
+form Season := { Spring: Season; Summer: Season; Autumn: Season; Winter: Season; }
 
 type NextSeason :: Season := \(s: Season). case s {
   Spring => Summer;
@@ -60,7 +60,7 @@ type NextSeason :: Season := \(s: Season). case s {
   Winter => Spring
 }
 
-data Tagged := \(s: Season). { MkTagged: Tagged s; }
+form Tagged := \(s: Season). { MkTagged: Tagged s; }
 
 -- NextSeason reduces for concrete season values.
 nextProof :: Tagged (NextSeason Spring) -> Tagged Summer
@@ -91,13 +91,13 @@ func TestAdvancedDataFamilyPolymorphism(t *testing.T) {
 		},
 	}
 	source := `
-data Unit := { Unit: Unit; }
-data Bool := { True: Bool; False: Bool; }
-data Maybe := \a. { Nothing: Maybe a; Just: a -> Maybe a; }
+form Unit := { Unit: Unit; }
+form Bool := { True: Bool; False: Bool; }
+form Maybe := \a. { Nothing: Maybe a; Just: a -> Maybe a; }
 
 -- Wrappable class: each type wraps into the same shape (associated type family).
 -- Data family constructors are not supported in unified syntax.
-data Wrappable := \w. {
+form Wrappable := \w. {
   type Wrapped w :: Type;
   wrap: w -> Wrapped w;
   unwrap: Wrapped w -> w
@@ -144,13 +144,13 @@ func TestAdvancedFunDepInference(t *testing.T) {
 		},
 	}
 	source := `
-data Unit := { Unit: Unit; }
-data Bool := { True: Bool; False: Bool; }
-data Maybe := \a. { Nothing: Maybe a; Just: a -> Maybe a; }
-data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
+form Unit := { Unit: Unit; }
+form Bool := { True: Bool; False: Bool; }
+form Maybe := \a. { Nothing: Maybe a; Just: a -> Maybe a; }
+form List := \a. { Nil: List a; Cons: a -> List a -> List a; }
 
 -- Convert class (without fundep annotation in unified syntax).
-data Convert := \a b. {
+form Convert := \a b. {
   convert: a -> b
 }
 
@@ -171,7 +171,7 @@ unitToBool :: Bool
 unitToBool := convert Unit
 
 -- HasElem class.
-data HasElem := \c e. {
+form HasElem := \c e. {
   getFirst: c -> Maybe e
 }
 
@@ -192,7 +192,7 @@ firstOfMaybe :: Maybe Bool
 firstOfMaybe := getFirst (Just True)
 
 -- Bidirectional class (without fundep annotation).
-data Iso := \a b. {
+form Iso := \a b. {
   forward: a -> b;
   backward: b -> a
 }
@@ -218,16 +218,16 @@ bwd := backward 0
 func TestAdvancedTypeFamilyWithDataFamily(t *testing.T) {
 	// Combine closed type family with associated type family in the same program.
 	source := `
-data Unit := { Unit: Unit; }
-data Bool := { True: Bool; False: Bool; }
-data Maybe := \a. { Nothing: Maybe a; Just: a -> Maybe a; }
+form Unit := { Unit: Unit; }
+form Bool := { True: Bool; False: Bool; }
+form Maybe := \a. { Nothing: Maybe a; Just: a -> Maybe a; }
 
 type IsJust :: Bool := \(m: Type). case m {
   (Maybe a) => True;
   _ => False
 }
 
-data Container := \c. {
+form Container := \c. {
   type Elem c :: Type;
   cempty: c
 }
@@ -242,7 +242,7 @@ v :: Elem (Maybe Unit) -> Unit
 v := \x. x
 
 -- IsJust reduces for a concrete type.
-data Phantom := \(b: Bool). { MkPhantom: Phantom b; }
+form Phantom := \(b: Bool). { MkPhantom: Phantom b; }
 proof :: Phantom (IsJust (Maybe Unit)) -> Phantom True
 proof := \x. x
 `
@@ -252,9 +252,9 @@ proof := \x. x
 func TestAdvancedFunDepWithTypeFamily(t *testing.T) {
 	// Class interacts with type family reduction.
 	source := `
-data Unit := { Unit: Unit; }
-data Maybe := \a. { Nothing: Maybe a; Just: a -> Maybe a; }
-data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
+form Unit := { Unit: Unit; }
+form Maybe := \a. { Nothing: Maybe a; Just: a -> Maybe a; }
+form List := \a. { Nil: List a; Cons: a -> List a -> List a; }
 
 type Elem :: Type := \(c: Type). case c {
   (List a) => a;
@@ -262,7 +262,7 @@ type Elem :: Type := \(c: Type). case c {
 }
 
 -- Class where one param is the element type.
-data Extract := \c e. {
+form Extract := \c e. {
   extract: c -> Maybe e
 }
 
@@ -280,7 +280,7 @@ result := extract (Cons Unit Nil)
 func TestAdvancedRecursiveTFWithPhantom(t *testing.T) {
 	// Recursive type family Dual for session types with concrete usage.
 	source := `
-data Session := { Send: Session; Recv: Session; End: (); }
+form Session := { Send: Session; Recv: Session; End: (); }
 
 type Dual :: Session := \(s: Session). case s {
   (Send s) => Recv (Dual s);
@@ -288,7 +288,7 @@ type Dual :: Session := \(s: Session). case s {
   End => End
 }
 
-data Chan := \(s: Session). { MkChan: Chan s; }
+form Chan := \(s: Session). { MkChan: Chan s; }
 
 -- Dual (Send End) = Recv (Dual End) = Recv End
 dualProof1 :: Chan (Dual (Send End)) -> Chan (Recv End)

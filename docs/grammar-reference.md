@@ -8,7 +8,7 @@
 | -------- | ---------------------------------------------------------------------------------------------------- |
 | `case`   | Pattern matching                                                                                     |
 | `do`     | Monadic do-block                                                                                     |
-| `data`   | Algebraic data type / type class declaration                                                         |
+| `form`   | Algebraic form type / type class declaration                                                         |
 | `type`   | Type alias / type family declaration                                                                 |
 | `impl`   | Type class instance declaration                                                                      |
 | `infixl` | Left-associative operator fixity                                                                     |
@@ -83,7 +83,7 @@ Single-quoted single character: `'a'`, `'\n'`. Same escape sequences as strings.
 ### Data Type (ADT shorthand)
 
 ```
-data Name := Con field* (| Con field*)*
+form Name := Con field* (| Con field*)*
 ```
 
 Parameters can be bare type variables or kinded: `(name: Kind)`.
@@ -91,18 +91,18 @@ Parameters can be bare type variables or kinded: `(name: Kind)`.
 Examples:
 
 ```
-data Bool := True | False
-data Maybe a := Just a | Nothing
-data Result e a := Ok a | Err e
-data List a := Cons a (List a) | Nil
-data Dict (c: Constraint) := MkDict c    -- Constraint-kinded param
-data Evidence (c: Constraint) a := MkEvidence c a
+form Bool := True | False
+form Maybe a := Just a | Nothing
+form Result e a := Ok a | Err e
+form List a := Cons a (List a) | Nil
+form Dict (c: Constraint) := MkDict c    -- Constraint-kinded param
+form Evidence (c: Constraint) a := MkEvidence c a
 ```
 
 ### Data Type (GADT-style full constructor types)
 
 ```
-data Name := [\param*.] {
+form Name := [\param*.] {
   Con: TypeExpr;
   Con: TypeExpr
 }
@@ -113,14 +113,14 @@ Each constructor declares its full type including the return type. Distinguished
 Examples:
 
 ```
-data Expr := \a. {
+form Expr := \a. {
   LitBool: Bool -> Expr Bool;
   LitInt:  Int -> Expr Int;
   Not:     Expr Bool -> Expr Bool;
   Add:     Expr Int -> Expr Int -> Expr Int
 }
 
-data List := \a. {
+form List := \a. {
   Nil:  List a;
   Cons: a -> List a -> List a
 }
@@ -128,12 +128,12 @@ data List := \a. {
 
 GADT constructors enable type refinement in `case` branches: matching `LitBool` on `Expr a` refines `a ~ Bool`. Exhaustiveness checking filters constructors whose return type cannot unify with the scrutinee type.
 
-### Type Class (via `data`)
+### Type Class (via `form`)
 
-Type classes are declared using `data` with a brace body containing method signatures. Method types use `:` (not `::`).
+Type classes are declared using `form` with a brace body containing method signatures. Method types use `:` (not `::`).
 
 ```
-data ClassName := [\param*.] [Constraint =>] {
+form ClassName := [\param*.] [Constraint =>] {
   method1: TypeExpr;
   method2: TypeExpr;
   [AssocTypeDecl]*;
@@ -141,7 +141,7 @@ data ClassName := [\param*.] [Constraint =>] {
 }
 ```
 
-Associated type and data declarations within the class body:
+Associated type and form declarations within the class body:
 
 ```
 AssocTypeDecl (in class body)
@@ -154,19 +154,19 @@ AssocDataDecl (in class body)
 Examples:
 
 ```
-data Eq := \a. { eq: a -> a -> Bool }
-data Ord := \a. Eq a => { compare: a -> a -> Ordering }
-data Functor := \f. { fmap: \a b. (a -> b) -> f a -> f b }
+form Eq := \a. { eq: a -> a -> Bool }
+form Ord := \a. Eq a => { compare: a -> a -> Ordering }
+form Functor := \f. { fmap: \a b. (a -> b) -> f a -> f b }
 
 -- Associated type in class
-data Container := \c. {
+form Container := \c. {
   type Elem c :: Type;
   cfold: \b. (Elem c -> b -> b) -> b -> c -> b
 }
 
--- Associated data family in class
-data Collection := \c. {
-  data Key c :: Type;
+-- Associated form family in class
+form Collection := \c. {
+  form Key c :: Type;
   lookup: Key c -> c -> Maybe (Elem c)
 }
 ```
@@ -223,9 +223,9 @@ impl Container (List a) := {
   cfold := foldr
 }
 
--- Associated data family definition in impl
+-- Associated form family definition in impl
 impl Collection (List a) := {
-  data Key := ListIndex Int;
+  form Key := ListIndex Int;
   lookup := \k xs. case k {
     ListIndex i => index xs i
   }
@@ -604,10 +604,10 @@ Type equality constraints are introduced by GADT constructor matching: matching 
 
 ### Dict Reification
 
-Constraint-kinded type parameters in data declarations enable reification of class evidence as first-class values:
+Constraint-kinded type parameters in form declarations enable reification of class evidence as first-class values:
 
 ```
-data Dict (c: Constraint) := MkDict c
+form Dict (c: Constraint) := MkDict c
 ```
 
 The parameter `c` has kind `Constraint`. The constructor field `c` elaborates to an implicit evidence argument — the dictionary for the constraint. At construction, evidence is resolved automatically from the context:
@@ -629,7 +629,7 @@ The user writes `MkDict` with zero explicit pattern arguments; the evidence fiel
 Constraint-kinded parameters can coexist with regular parameters:
 
 ```
-data Evidence (c: Constraint) a := MkEvidence c a
+form Evidence (c: Constraint) a := MkEvidence c a
 ```
 
 Here `c` is the implicit evidence field and `a` is a regular field.
@@ -690,7 +690,7 @@ Constraint            -- kind of class constraints
 Type -> Type          -- higher-kinded (e.g. Maybe: Type -> Type)
 Constraint -> Type    -- constraint-parameterized (higher-kinded constraint)
 (Row -> Type)         -- parenthesized kind
-Bool                  -- DataKinds: promoted data type as kind
+Bool                  -- DataKinds: promoted form type as kind
 DBState               -- DataKinds: user-defined promoted kind
 ```
 
@@ -699,23 +699,23 @@ DBState               -- DataKinds: user-defined promoted kind
 ```
 \(c: Constraint). Bool                    -- constraint-kinded param
 \a (c: Constraint). a -> Bool             -- mixed kinds
-data Constrained := \(c: Constraint). { ... }   -- in class declarations
-data Dict (c: Constraint) := MkDict c            -- in data declarations (Dict reification)
+form Constrained := \(c: Constraint). { ... }   -- in class declarations
+form Dict (c: Constraint) := MkDict c            -- in form declarations (Dict reification)
 ```
 
 ### DataKinds Promotion
 
-When a data type is declared, it is automatically promoted to a kind of the same name. All constructors — both nullary and those with fields — are promoted to type-level constructors of that kind.
+When a form type is declared, it is automatically promoted to a kind of the same name. All constructors — both nullary and those with fields — are promoted to type-level constructors of that kind.
 
 ```
-data DBState := Opened | Closed
+form DBState := Opened | Closed
 -- DBState is now a kind
 -- Opened: DBState, Closed: DBState (type-level)
 
-data DB (s: DBState) := MkDB
+form DB (s: DBState) := MkDB
 -- DB Opened: Type, DB Closed: Type
 
-data HList := \(a: Type). HCons a (HList a) | HNil
+form HList := \(a: Type). HCons a (HList a) | HNil
 -- HList is now a kind
 -- HCons: Type -> HList a -> HList a (type-level)
 -- HNil: HList a (type-level)
@@ -792,7 +792,7 @@ Declarations are separated by newlines or semicolons at the top level. Both sepa
 
 At nesting depth 0, a new declaration begins when the next token (preceded by a newline or semicolon) is one of:
 
-`lowercase` | `uppercase` | `data` | `type` | `infixl` | `infixr` | `infixn` | `impl` | `import` | `(op)` (operator definition)
+`lowercase` | `uppercase` | `form` | `type` | `infixl` | `infixr` | `infixn` | `impl` | `import` | `(op)` (operator definition)
 
 Inside braces (`do`, `case`, block expressions, GADT declarations), semicolons are **required** separators between statements, branches, or constructors. Newlines alone do not act as separators within braces.
 
@@ -821,11 +821,11 @@ The Prelude is loaded via `eng.Use(gicel.Prelude)` and imported in source with `
 ### Data Types and Constructors
 
 ```
-data Bool := True | False
-data Ordering := LT | EQ | GT
-data Result e a := Ok a | Err e
-data Maybe a := Just a | Nothing
-data List a := Cons a (List a) | Nil
+form Bool := True | False
+form Ordering := LT | EQ | GT
+form Result e a := Ok a | Err e
+form Maybe a := Just a | Nothing
+form List a := Cons a (List a) | Nil
 ```
 
 `()` is the unit type (empty record). `(a, b)` is the tuple type (sugar for `Record { _1: a, _2: b }`).

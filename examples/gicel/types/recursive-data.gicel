@@ -7,10 +7,10 @@
 import Prelude
 
 -- Peano natural numbers: zero and successor
-data Nat := { Z: Nat; S: Nat -> Nat }
+form Nat := { Z: Nat; S: Nat -> Nat }
 
 -- Binary tree with values at leaves
-data Tree := \a. { Leaf: a -> Tree a; Branch: Tree a -> Tree a -> Tree a }
+form Tree := \a. { Leaf: a -> Tree a; Branch: Tree a -> Tree a -> Tree a }
 
 -- Construct some Nat values
 zero := Z

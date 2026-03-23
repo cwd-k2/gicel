@@ -68,7 +68,7 @@ These define what computation _means_. Changing Stratum 0 changes the language's
 
 The language has two modes of expression.
 
-**Values** are pure, inert data: integers, strings, functions, data constructors, records. They are classified by types and evaluated without side effects.
+**Values** are pure, inert data: integers, strings, functions, form constructors, records. They are classified by types and evaluated without side effects.
 
 **Computations** are typed transitions over capability environments. They may read, modify, or consume capabilities provided by the host. They are classified by the `Computation` type, which tracks the required and resulting capability state. A computation, once constructed, is an action awaiting execution — it is not inert data.
 
@@ -165,7 +165,7 @@ force (thunk c) = c                 -- thunk/force cancellation
 
 Semantics: `thunk` does not evaluate its argument — it captures the computation as a value. `force` triggers evaluation. Thunks are not memoized: forcing the same thunk multiple times executes the computation each time.
 
-**When to use `thunk`.** A `Computation` is an action, not a piece of data — it cannot sit at the top level as a bare binding (see §2.1.1). To define a named computation that runs later, suspend it with `thunk` and `force` it at the call site:
+**When to use `thunk`.** A `Computation` is an action, not a piece of form — it cannot sit at the top level as a bare binding (see §2.1.1). To define a named computation that runs later, suspend it with `thunk` and `force` it at the call site:
 
 ```
 helper :: Thunk { state: Int } { state: Int } Int
@@ -305,7 +305,7 @@ Type, row, and kind equivalence. The equality theory includes:
 ## 3.1 Keywords
 
 ```
-case  do  data  type  impl  infixl  infixr  infixn  import
+case  do  form  type  impl  infixl  infixr  infixn  import
 ```
 
 9 keywords. Note that `pure`, `bind`, `thunk`, `force`, `assumption`, `rec`, and `fix` are **not** keywords — they are ordinary identifiers with built-in meaning. `pure`, `bind`, `rec`, and `fix` are first-class functions (can be partially applied and passed to higher-order functions); `thunk` and `force` are term formers (must be fully applied).
@@ -536,7 +536,7 @@ DataBody  ::= '{' ConField (';' ConField)* '}'                         -- GADT o
 ConField  ::= ConName ':' Type                            -- constructor (uppercase: full type sig)
             | VarName ':' Type                             -- method (lowercase: field declaration)
             | 'type' ConName TyBinder* '::' Kind          -- associated type declaration
-            | 'data' ConName TyBinder* '::' Kind          -- associated data declaration
+            | 'data' ConName TyBinder* '::' Kind          -- associated form declaration
 
 ConDecl   ::= ConName TypeAtom*
 
@@ -550,25 +550,25 @@ InstanceName ::= '_' Var '::' Constraint            -- private named instance
 
 ImplMember ::= VarName ':=' Expr                            -- method definition
              | 'type' ConName ':=' Type                     -- associated type definition
-             | 'data' ConName ':=' ConDecl ('|' ConDecl)*   -- associated data definition
+             | 'data' ConName ':=' ConDecl ('|' ConDecl)*   -- associated form definition
 ```
 
-### 3.8.1 Unified `data` Declaration
+### 3.8.1 Unified `form` Declaration
 
-The `data` keyword serves three roles, distinguished by body structure:
+The `form` keyword serves three roles, distinguished by body structure:
 
 **ADT shorthand** — constructors separated by `|`, no braces:
 
 ```
-data Bool := True | False
-data Maybe := \a. Just a | Nothing
-data List := \a. Cons a (List a) | Nil
+form Bool := True | False
+form Maybe := \a. Just a | Nothing
+form List := \a. Cons a (List a) | Nil
 ```
 
 **GADT-style** — braces with uppercase-named fields declaring full constructor types:
 
 ```
-data Expr := \a. {
+form Expr := \a. {
   LitBool: Bool -> Expr Bool;
   LitInt:  Int -> Expr Int;
   If:      Expr Bool -> Expr a -> Expr a -> Expr a
@@ -578,11 +578,11 @@ data Expr := \a. {
 **Class-like** — braces with lowercase-named fields declaring method signatures. No `:=` before the body. Parameters appear after the name, not in a lambda:
 
 ```
-data Eq a {
+form Eq a {
   eq: a -> a -> Bool
 }
 
-data Functor (f: Type -> Type) {
+form Functor (f: Type -> Type) {
   fmap: \a b. (a -> b) -> f a -> f b
 }
 ```
@@ -590,20 +590,20 @@ data Functor (f: Type -> Type) {
 Superclass constraints precede the body:
 
 ```
-data Ord a Eq a => {
+form Ord a Eq a => {
   compare: a -> a -> Ordering
 }
 
-data Applicative (f: Type -> Type) Functor f => {
+form Applicative (f: Type -> Type) Functor f => {
   wrap: \a. a -> f a;
   ap:   \a b. f (a -> b) -> f a -> f b
 }
 ```
 
-Associated type and data declarations may appear inside the class-like body:
+Associated type and form declarations may appear inside the class-like body:
 
 ```
-data Container c {
+form Container c {
   type Elem c :: Type;
   cfold: \b. (Elem c -> b -> b) -> b -> c -> b
 }
@@ -611,7 +611,7 @@ data Container c {
 
 ### 3.8.2 `impl` Declaration
 
-`impl` provides definitions for a class-like `data` declaration. The `:=` before the body is required:
+`impl` provides definitions for a class-like `form` declaration. The `:=` before the body is required:
 
 ```
 impl Eq Bool := {
@@ -639,11 +639,11 @@ impl Container (List a) := {
 }
 ```
 
-Associated data definitions use `:=`:
+Associated form definitions use `:=`:
 
 ```
 impl Wrappable Int := {
-  data Wrapped := IntBox Int;
+  form Wrapped := IntBox Int;
   wrap := \n. IntBox n;
   unwrap := \w. case w { IntBox n => n }
 }
@@ -720,10 +720,10 @@ Eq         : Type -> Constraint
 
 ## 4.3 DataKinds
 
-Every `data` declaration automatically promotes its nullary constructors to the type level:
+Every `form` declaration automatically promotes its nullary constructors to the type level:
 
 ```
-data DBState := Opened | Closed
+form DBState := Opened | Closed
 ```
 
 Produces:
@@ -745,14 +745,14 @@ dbOpen :: \r. Computation { db: DB Closed | r }
 All constructors — nullary and parameterized — are promoted. A parameterized constructor like `Pi: U -> U -> U` becomes available at the type level with kind `U -> U -> U`, enabling universe decoding patterns:
 
 ```
-data U :: Kind := { Set: U; Pi: U -> U -> U; }
+form U :: Kind := { Set: U; Pi: U -> U -> U; }
 type Decode :: Type := \(u: U). case u {
   Set => Int;
   (Pi a b) => Decode a -> Decode b
 }
 ```
 
-In type position, names are resolved by: (1) check type constructors, (2) check promoted data constructors, (3) ambiguity error if both match.
+In type position, names are resolved by: (1) check type constructors, (2) check promoted form constructors, (3) ambiguity error if both match.
 
 ## 4.4 Kind Polymorphism (HKT)
 
@@ -872,10 +872,10 @@ For literal patterns on `Int`, `String`, and `Rune`, the type's value space is o
 
 ## 6.1 Declaration
 
-Type classes are declared using `data` with all-lowercase method fields:
+Type classes are declared using `form` with all-lowercase method fields:
 
 ```
-data <Name> <tyvar>+ <Constraint>* {
+form <Name> <tyvar>+ <Constraint>* {
   <method>: <Type> ;
   ...
 }
@@ -884,7 +884,7 @@ data <Name> <tyvar>+ <Constraint>* {
 Superclass constraints follow the parameters:
 
 ```
-data Ord a Eq a => {
+form Ord a Eq a => {
   compare: a -> a -> Ordering
 }
 ```
@@ -892,7 +892,7 @@ data Ord a Eq a => {
 Type class parameters may be kind-polymorphic:
 
 ```
-data Functor (f: Type -> Type) {
+form Functor (f: Type -> Type) {
   fmap: \a b. (a -> b) -> f a -> f b
 }
 ```
@@ -938,13 +938,13 @@ Type classes elaborate entirely to existing Core IR constructs. No new Core node
 **Class → Data Type + Selectors:**
 
 ```
-data Eq a { eq: a -> a -> Bool }
+form Eq a { eq: a -> a -> Bool }
 -- elaborates to:
-data Eq$Dict a := Eq$MkDict (a -> a -> Bool)
+form Eq$Dict a := Eq$MkDict (a -> a -> Bool)
 eq :: \a. Eq$Dict a -> a -> a -> Bool
 ```
 
-A class with `n` methods and `m` superclasses produces a data type with one constructor of arity `m + n`. The first `m` fields are superclass dictionaries.
+A class with `n` methods and `m` superclasses produces a form type with one constructor of arity `m + n`. The first `m` fields are superclass dictionaries.
 
 **Instance → Dictionary Value:**
 
@@ -1072,16 +1072,16 @@ This mechanism is the primary use site for private instances (§6.2.1). Public i
 ADT shorthand uses `|`-separated constructors:
 
 ```
-data Maybe := \a. Just a | Nothing
-data List := \a. Cons a (List a) | Nil
-data Ordering := LT | EQ | GT
+form Maybe := \a. Just a | Nothing
+form List := \a. Cons a (List a) | Nil
+form Ordering := LT | EQ | GT
 ```
 
 Non-parametric ADTs omit the lambda:
 
 ```
-data Bool := True | False
-data Ordering := LT | EQ | GT
+form Bool := True | False
+form Ordering := LT | EQ | GT
 ```
 
 ## 7.2 GADT Syntax
@@ -1089,7 +1089,7 @@ data Ordering := LT | EQ | GT
 GADTs use `:= {` with full constructor type signatures. Each constructor declares its complete type including the return type:
 
 ```
-data Expr := \a. {
+form Expr := \a. {
   LitBool: Bool -> Expr Bool;
   LitInt:  Int -> Expr Int;
   If:      Expr Bool -> Expr a -> Expr a -> Expr a
@@ -1101,7 +1101,7 @@ The arrow chain convention (Lean/Agda style) specifies constructor fields. The c
 Nullary constructors declare their return type directly without arrows:
 
 ```
-data List := \a. {
+form List := \a. {
   Nil:  List a;
   Cons: a -> List a -> List a
 }
@@ -1116,7 +1116,7 @@ When pattern matching on a GADT constructor, the checker introduces local type e
 GADT constructors may introduce type variables not appearing in the return type — these are existentially quantified:
 
 ```
-data SomeEq := {
+form SomeEq := {
   MkSomeEq: \a. Eq a => a -> SomeEq
 }
 ```
@@ -1622,11 +1622,11 @@ This is an internal refactoring with no user-visible changes. All programs type-
 ## 15.1 Prelude Types
 
 ```
-data Bool := True | False
-data Maybe := \a. Just a | Nothing
-data List := \a. Cons a (List a) | Nil
-data Ordering := LT | EQ | GT
-data Result := \e a. Ok a | Err e
+form Bool := True | False
+form Maybe := \a. Just a | Nothing
+form List := \a. Cons a (List a) | Nil
+form Ordering := LT | EQ | GT
+form Result := \e a. Ok a | Err e
 
 type Effect :: Type := \r a. Computation r r a
 
@@ -1696,10 +1696,10 @@ type ElemOf :: Type := \(c: Type). case c {
 
 ### 17.1.2 Associated Types
 
-A class-like `data` body may declare associated type families (kind signature only). `impl` bodies provide definitions using `:=`.
+A class-like `form` body may declare associated type families (kind signature only). `impl` bodies provide definitions using `:=`.
 
 ```
-data Container c {
+form Container c {
   type Elem c :: Type;
   cfold: \b. (Elem c -> b -> b) -> b -> c -> b
 }
@@ -1719,16 +1719,16 @@ Associated types elaborate to standalone type families whose equations are colle
 
 ### 17.1.3 Data Families
 
-A class-like `data` body may declare associated data families (kind signature only). `impl` bodies provide data type definitions, enabling per-instance representation.
+A class-like `form` body may declare associated form families (kind signature only). `impl` bodies provide form type definitions, enabling per-instance representation.
 
 ```
-data Collection c {
-  data Key c :: Type;
+form Collection c {
+  form Key c :: Type;
   insert: Key c -> c -> c
 }
 
 impl Collection IntSet := {
-  data Key := MkKey Int;
+  form Key := MkKey Int;
   insert := intSetInsert
 }
 ```
@@ -1792,7 +1792,7 @@ close :: Computation { h: Handle @Linear } {} ()
 Without annotation, fields are `@Unrestricted`. The multiplicity kind forms a four-element lattice:
 
 ```
-data Mult := Zero | Linear | Affine | Unrestricted
+form Mult := Zero | Linear | Affine | Unrestricted
 ```
 
 The lattice order is: `Zero` and `Linear` are incomparable, both below `Affine`, which is below `Unrestricted`. `Zero` represents a capability that has been consumed and cannot be used.
@@ -1847,9 +1847,9 @@ The intersection of label sets determines the joined post-state. Labels present 
 Session types are encoded via the Atkey indexed monad without special syntax. Protocol states are regular type constructors; `@Linear` annotations on channel labels enforce usage discipline.
 
 ```
-data Send := \s. MkSend          -- send a value, continue as s
-data Recv := \s. MkRecv          -- receive a value, continue as s
-data End := MkEnd                -- session complete
+form Send := \s. MkSend          -- send a value, continue as s
+form Recv := \s. MkRecv          -- receive a value, continue as s
+form End := MkEnd                -- session complete
 
 type Dual :: Type := \(s: Type). case s {
   Send s => Recv (Dual s);

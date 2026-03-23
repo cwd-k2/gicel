@@ -54,7 +54,7 @@ type Id :: Type := \(a: Type). case a { a => a }
 main := (1 :: Id Int) + 2`},
 	{name: "ADT pattern match", source: `
 import Prelude
-data Color := { Red: Color; Green: Color; Blue: Color; }
+form Color := { Red: Color; Green: Color; Blue: Color; }
 name :: Color -> String
 name := \c. case c { Red => "red"; Green => "green"; Blue => "blue" }
 main := name Red`},
@@ -65,7 +65,7 @@ main := { x: 1, y: True }`},
 	{name: "composition", source: `import Prelude; main := ((\x. x + 1) . (\x. x * 2)) 3`},
 	{name: "check only ADT", source: `
 import Prelude
-data Protocol := { Done: Protocol; }
+form Protocol := { Done: Protocol; }
 main := Done`, checkOnly: true},
 }
 

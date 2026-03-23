@@ -82,8 +82,8 @@ func TestRegressionFreeVarsNoGrades(t *testing.T) {
 // when unifying subcomponents of TyArrow.
 func TestRegressionReduceFamilyInArrowType(t *testing.T) {
 	source := `
-data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
-data Unit := { Unit: Unit; }
+form List := \a. { Nil: List a; Cons: a -> List a -> List a; }
+form Unit := { Unit: Unit; }
 type Elem :: Type := \(c: Type). case c {
   (List a) => a
 }
@@ -97,8 +97,8 @@ f := \x. x
 // applications nested inside Computation types are reduced.
 func TestRegressionReduceFamilyInCompType(t *testing.T) {
 	source := `
-data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
-data Unit := { Unit: Unit; }
+form List := \a. { Nil: List a; Cons: a -> List a -> List a; }
+form Unit := { Unit: Unit; }
 type Elem :: Type := \(c: Type). case c {
   (List a) => a
 }
@@ -112,8 +112,8 @@ f := \c. c
 // type family in the argument of an arrow within another arrow.
 func TestRegressionReduceFamilyInNestedArrow(t *testing.T) {
 	source := `
-data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
-data Unit := { Unit: Unit; }
+form List := \a. { Nil: List a; Cons: a -> List a -> List a; }
+form Unit := { Unit: Unit; }
 type Elem :: Type := \(c: Type). case c {
   (List a) => a
 }
@@ -133,7 +133,7 @@ func TestRegressionInjectivityNonTypeKind(t *testing.T) {
 	// Session is a promoted data kind. Dual maps Session -> Session
 	// and is injective.
 	source := `
-data Session := { Send: Session; Recv: Session; End: Session; }
+form Session := { Send: Session; Recv: Session; End: Session; }
 type Dual :: Session := \(s: Session). case s {
   (Send s) => Recv (Dual s);
   (Recv s) => Send (Dual s);
@@ -148,7 +148,7 @@ type Dual :: Session := \(s: Session). case s {
 func TestRegressionInjectivityNonTypeKindViolation(t *testing.T) {
 	// Both equations map to End, but from different LHS patterns.
 	source := `
-data Session := { Send: Session; Recv: Session; End: Session; }
+form Session := { Send: Session; Recv: Session; End: Session; }
 type Bad :: Session := \(s: Session). case s {
   (Send s) => End;
   (Recv s) => End
@@ -166,17 +166,17 @@ type Bad :: Session := \(s: Session). case s {
 // produces a duplicate declaration error.
 func TestRegressionDataFamilyConstructorCollision(t *testing.T) {
 	source := `
-data Wrapper := \a. { Wrap: a -> Wrapper a; }
-data Unit := { Unit: Unit; }
-data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
+form Wrapper := \a. { Wrap: a -> Wrapper a; }
+form Unit := { Unit: Unit; }
+form List := \a. { Nil: List a; Cons: a -> List a -> List a; }
 
-data Container := \c. {
-  data Elem c :: Type;
+form Container := \c. {
+  form Elem c :: Type;
   empty: c
 }
 
 impl Container (List a) := {
-  data Elem := Wrap a;
+  form Elem := Wrap a;
   empty := Nil
 }
 `
@@ -186,18 +186,18 @@ impl Container (List a) := {
 // TestRegressionDataFamilyConstructorNoCollision verifies that distinct
 // constructor names in data family instances do not produce errors.
 func TestRegressionDataFamilyConstructorNoCollision(t *testing.T) {
-	t.Skip("data family constructor registration: type mismatch in mangled name")
+	t.Skip("form family constructor registration: type mismatch in mangled name")
 	source := `
-data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
-data Unit := { Unit: Unit; }
+form List := \a. { Nil: List a; Cons: a -> List a -> List a; }
+form Unit := { Unit: Unit; }
 
-data Container := \c. {
-  data Elem c :: Type;
+form Container := \c. {
+  form Elem c :: Type;
   empty: c
 }
 
 impl Container (List a) := {
-  data Elem := ListElem a;
+  form Elem := ListElem a;
   empty := Nil
 }
 
@@ -216,8 +216,8 @@ x := ListElem Unit
 // limits and terminates with an appropriate error.
 func TestRegressionExponentialTypeGrowthBound(t *testing.T) {
 	source := `
-data Pair := \a b. { MkPair: a -> b -> Pair a b; }
-data Unit := { Unit: Unit; }
+form Pair := \a b. { MkPair: a -> b -> Pair a b; }
+form Unit := { Unit: Unit; }
 type Grow :: Type := \(a: Type). case a {
   a => Grow (Pair a a)
 }
@@ -239,9 +239,9 @@ func TestRegressionFundepBestEffort(t *testing.T) {
 	// not solely by the fundep improvement. Even if fundep improvement were
 	// disabled, the instance resolution for Elem (List a) a should succeed.
 	source := `
-data Unit := { Unit: Unit; }
-data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
-data Elem := \c e. {
+form Unit := { Unit: Unit; }
+form List := \a. { Nil: List a; Cons: a -> List a -> List a; }
+form Elem := \c e. {
   extract: c -> e
 }
 impl Elem (List a) a := {
@@ -258,9 +258,9 @@ f := \xs. extract xs
 // should still compile via normal instance resolution.
 func TestRegressionFundepImprovementFromMeta(t *testing.T) {
 	source := `
-data Unit := { Unit: Unit; }
-data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
-data Collection := \c e. {
+form Unit := { Unit: Unit; }
+form List := \a. { Nil: List a; Cons: a -> List a -> List a; }
+form Collection := \c e. {
   empty: c
 }
 impl Collection (List a) a := {

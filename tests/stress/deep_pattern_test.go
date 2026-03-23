@@ -474,12 +474,12 @@ main := eq (Just (Just True)) (Just Nothing)
 // ---------------------------------------------------------------------------
 
 func TestKindInferenceSimple(t *testing.T) {
-	// data Maybe := \a. { Just: a -> Maybe a; Nothing: Maybe a; }  -- 'a' should get kind Type.
+	// form Maybe := \a. { Just: a -> Maybe a; Nothing: Maybe a; }  -- 'a' should get kind Type.
 	eng := gicel.NewEngine()
 	eng.Use(gicel.Prelude)
 	_, err := eng.Compile(context.Background(), `
 import Prelude
-data MyMaybe := \a. { MyJust: a -> MyMaybe a; MyNothing: MyMaybe a; }
+form MyMaybe := \a. { MyJust: a -> MyMaybe a; MyNothing: MyMaybe a; }
 main := MyJust True
 `)
 	if err != nil {
@@ -495,7 +495,7 @@ func TestKindMismatchInApplication(t *testing.T) {
 	eng.Use(gicel.Prelude)
 	_, err := eng.Compile(context.Background(), `
 import Prelude
-data F (a: Type -> Type) := MkF
+form F (a: Type -> Type) := MkF
 main := (MkF :: F Bool)
 `)
 	if err == nil {
@@ -530,7 +530,7 @@ func TestGADTRefinementDisjointBranches(t *testing.T) {
 	eng.Use(gicel.Prelude)
 	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
-data Token := \a. { BoolTok: Bool -> Token Bool; UnitTok: Token () }
+form Token := \a. { BoolTok: Bool -> Token Bool; UnitTok: Token () }
 
 toBool :: Token Bool -> Bool
 toBool := \t. case t { BoolTok b => b }
@@ -611,7 +611,7 @@ func TestNestedConstructorPatternMatch(t *testing.T) {
 	eng.Use(gicel.Prelude)
 	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
-data Pair := \a b. { MkPair: a -> b -> Pair a b; }
+form Pair := \a b. { MkPair: a -> b -> Pair a b; }
 
 fst :: \a b. Pair a b -> a
 fst := \p. case p { MkPair x _ => x }
@@ -970,7 +970,7 @@ func TestFP_WildcardInCasePattern(t *testing.T) {
 	eng.Use(gicel.Prelude)
 	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
-data Color := { Red: Color; Green: Color; Blue: Color; }
+form Color := { Red: Color; Green: Color; Blue: Color; }
 isRed := \c. case c { Red => True; _ => False }
 main := isRed Blue
 `)
@@ -1043,7 +1043,7 @@ func TestErrorReportsNonExhaustiveConstructor(t *testing.T) {
 	eng.Use(gicel.Prelude)
 	_, err := eng.NewRuntime(context.Background(), `
 import Prelude
-data Color := { Red: Color; Green: Color; Blue: Color; }
+form Color := { Red: Color; Green: Color; Blue: Color; }
 f := \c. case c { Red => True }
 main := f Red
 `)
@@ -1242,9 +1242,9 @@ main := (mkPair True False).#_1
 func TestDataKindsInGADTIndex(t *testing.T) {
 	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(context.Background(), `
-data Phase := { Building: Phase; Running: Phase; }
+form Phase := { Building: Phase; Running: Phase; }
 
-data Builder := \(p: Phase). { MkBuilder: Builder p }
+form Builder := \(p: Phase). { MkBuilder: Builder p }
 
 start :: Builder Building
 start := MkBuilder
@@ -1269,8 +1269,8 @@ func TestDataKindsMismatch(t *testing.T) {
 	eng.Use(gicel.Prelude)
 	_, err := eng.NewRuntime(context.Background(), `
 import Prelude
-data Phase := { Building: Phase; Running: Phase; }
-data Builder := \(p: Phase). { MkBuilder: Builder p }
+form Phase := { Building: Phase; Running: Phase; }
+form Builder := \(p: Phase). { MkBuilder: Builder p }
 start :: Builder True
 start := MkBuilder
 main := start
@@ -1341,8 +1341,8 @@ func TestInstanceResolutionDepthLimit(t *testing.T) {
 	// We use a realistic scenario: two classes with mutually recursive instances.
 	_, err := eng.NewRuntime(context.Background(), `
 import Prelude
-data Foo := \a. { foo: a -> Int }
-data Bar := \a. { bar: a -> Int }
+form Foo := \a. { foo: a -> Int }
+form Bar := \a. { bar: a -> Int }
 impl Bar a => Foo a := { foo := \x. bar x }
 impl Foo a => Bar a := { bar := \x. foo x }
 main := foo True
@@ -1449,7 +1449,7 @@ func TestParserKindExprDepthLimit(t *testing.T) {
 	for i := 0; i < 300; i++ {
 		kind = "(" + kind + ")"
 	}
-	src := fmt.Sprintf("data X (a: %s) := MkX\nmain := MkX", kind)
+	src := fmt.Sprintf("form X (a: %s) := MkX\nmain := MkX", kind)
 	_, err := eng.NewRuntime(context.Background(), src)
 	// Should get a parse error, not a stack overflow.
 	if err == nil {
@@ -1467,7 +1467,7 @@ func TestNestedPatternBareConstructor(t *testing.T) {
 	eng.Use(gicel.Prelude)
 	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
-data Pair := \a b. { MkPair: a -> b -> Pair a b; }
+form Pair := \a b. { MkPair: a -> b -> Pair a b; }
 
 match := \p. case p { MkPair (Just x) Nothing => x; _ => False }
 main := match (MkPair (Just True) Nothing)

@@ -23,7 +23,7 @@ func main() {
 	eng := gicel.NewEngine()
 
 	rt, err := eng.NewRuntime(context.Background(), `
-data Color := Red | Green | Blue
+form Color := Red | Green | Blue
 
 swap :: Color -> Color
 swap := \c. case c { Red => Blue; Blue => Red; Green => Green }
@@ -48,7 +48,7 @@ main := swap Red
 	// must explicitly write `import Prelude` to access it.
 	eng2 := gicel.NewEngine()
 	err = eng2.RegisterModule("Prelude", `
-data Bit := On | Off
+form Bit := On | Off
 
 flip :: Bit -> Bit
 flip := \b. case b { On => Off; Off => On }

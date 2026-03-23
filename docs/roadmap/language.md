@@ -78,7 +78,7 @@ pre/post スワップ。`dag (dag f) = f` は構造的に保証。`dag (f ; g) =
 ハードコードの `@Linear`/`@Affine`/`@Unrestricted` を型クラスベースの半環に一般化:
 
 ```gicel
-data UsageSemiring (s: Type) {
+form UsageSemiring (s: Type) {
   zero: s; one: s; plus: s -> s -> s; mult: s -> s -> s
 }
 ```

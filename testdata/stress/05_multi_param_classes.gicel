@@ -1,8 +1,8 @@
 import Prelude
 
-data Coercible := \a b. { coerce: a -> b }
-data Convert := \a b. { convert: a -> b }
-data Iso := \a b. { to: a -> b; from: b -> a }
+form Coercible := \a b. { coerce: a -> b }
+form Convert := \a b. { convert: a -> b }
+form Iso := \a b. { to: a -> b; from: b -> a }
 
 impl Coercible Bool () := { coerce := \_. () }
 impl Coercible () Bool := { coerce := \_. True }

@@ -17,7 +17,7 @@ import (
 func generateProgram(n int) string {
 	var b strings.Builder
 	for i := range n {
-		fmt.Fprintf(&b, "data T%d = C%d Int\n", i, i)
+		fmt.Fprintf(&b, "form T%d = C%d Int\n", i, i)
 		fmt.Fprintf(&b, "f%d := \\x. x\n", i)
 	}
 	fmt.Fprintf(&b, "main := f0 (C0 42)\n")

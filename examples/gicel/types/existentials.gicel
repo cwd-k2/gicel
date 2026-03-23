@@ -11,7 +11,7 @@ import Prelude
 -- A simple existential: wraps a value with a predicate that can test it.
 -- `a` is universally quantified in the constructor but existentially
 -- bound when pattern matching -- the consumer doesn't know what `a` is.
-data Testable := {
+form Testable := {
   MkTestable: \a. (a -> Bool) -> a -> Testable
 }
 
@@ -33,7 +33,7 @@ test3 := runTest unitTest     -- \u -> False
 -- Existential with an Eq constraint.
 -- The constructor requires Eq a, which is packed as evidence alongside
 -- the hidden values. Pattern matching recovers the Eq dictionary.
-data SomeEq := {
+form SomeEq := {
   MkSomeEq: \a. Eq a => a -> a -> SomeEq
 }
 
@@ -50,7 +50,7 @@ test5 := checkEq eqMaybes    -- eq (Just False) Nothing = False
 
 -- Existential that hides a transformation pipeline.
 -- `a` is existential; only the output type `b` is visible.
-data Transform := \b. {
+form Transform := \b. {
   MkTransform: \a. (a -> b) -> a -> Transform b
 }
 

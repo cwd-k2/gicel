@@ -18,7 +18,7 @@ func TestInstanceMethodReferencesRegularBinding(t *testing.T) {
 	eng.Use(stdlib.Prelude)
 	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
-data Wrap := \f. { wrap: \ a. a -> f a }
+form Wrap := \f. { wrap: \ a. a -> f a }
 
 myJust :: \ a. a -> Maybe a
 myJust := \x. Just x
@@ -48,7 +48,7 @@ func TestInstanceMethodReferencesChain(t *testing.T) {
 	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 
-data Scale := \a. { scale: Int -> a -> a }
+form Scale := \a. { scale: Int -> a -> a }
 
 scaleInt :: Int -> Int -> Int
 scaleInt := \n x. n * x

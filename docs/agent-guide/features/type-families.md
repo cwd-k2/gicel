@@ -21,7 +21,7 @@ Distinguished from a type alias by `::` after the name.
 Classes can declare associated types (kind signature only). Instances provide definitions.
 
 ```
-data Container := \c. {
+form Container := \c. {
   type Elem c :: Type;
   cfold: \b. (Elem c -> b -> b) -> b -> c -> b
 }
@@ -36,10 +36,10 @@ impl Container (List a) := {
 
 ### Data Families
 
-Data families are generative -- each instance creates a distinct data type with its own constructors:
+Data families are generative -- each instance creates a distinct form type with its own constructors:
 
 ```
-data Collection := \c. {
+form Collection := \c. {
   type Key c :: Type;
   lookup: Key c -> c -> Maybe (Elem c)
 }

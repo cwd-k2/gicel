@@ -1,7 +1,7 @@
 //go:build probe
 
 // Declaration probe tests: data, type alias, impl, forall, fixity, separators.
-// Rewritten for unified syntax (DeclData/DeclTypeAlias/DeclImpl).
+// Rewritten for unified syntax (DeclForm/DeclTypeAlias/DeclImpl).
 // Does NOT cover: lexer (lexer_probe_test.go), crash (parser_crash_probe_test.go).
 package parse
 
@@ -17,12 +17,12 @@ import (
 
 // TestProbeB_GADTDecl checks GADT-style data declaration with row body.
 func TestProbeB_GADTDecl(t *testing.T) {
-	src := `data Expr := \a. {
+	src := `form Expr := \a. {
   Lit: Int -> Expr Int;
   Add: Expr Int -> Expr Int -> Expr Int
 }`
 	prog := parseMustSucceed(t, src)
-	d := prog.Decls[0].(*DeclData)
+	d := prog.Decls[0].(*DeclForm)
 	if d.Name != "Expr" {
 		t.Errorf("expected 'Expr', got %q", d.Name)
 	}
@@ -118,11 +118,11 @@ func TestProbeB_EmptyRowType(t *testing.T) {
 }
 
 // TestProbeB_DataWithSuperclass checks data with superclass constraint
-// (unified syntax: data Ord := \a. Eq a => { compare: a -> a -> Int }).
+// (unified syntax: form Ord := \a. Eq a => { compare: a -> a -> Int }).
 func TestProbeB_DataWithSuperclass(t *testing.T) {
-	src := `data Ord := \a. Eq a => { compare: a -> a -> Int }`
+	src := `form Ord := \a. Eq a => { compare: a -> a -> Int }`
 	prog := parseMustSucceed(t, src)
-	d := prog.Decls[0].(*DeclData)
+	d := prog.Decls[0].(*DeclForm)
 	if d.Name != "Ord" {
 		t.Errorf("expected 'Ord', got %q", d.Name)
 	}
@@ -146,8 +146,8 @@ func TestProbeB_DataWithSuperclass(t *testing.T) {
 // TestProbeB_ImplWithContext checks impl with context constraint
 // (unified syntax: impl Eq a => Eq (Maybe a) := { eq := ... }).
 func TestProbeB_ImplWithContext(t *testing.T) {
-	src := `data Maybe := \a. { Nothing: (); Just: a }
-data Eq := \a. { eq: a -> a -> a }
+	src := `form Maybe := \a. { Nothing: (); Just: a }
+form Eq := \a. { eq: a -> a -> a }
 impl Eq a => Eq (Maybe a) := { eq := \x y. x }`
 	prog := parseMustSucceed(t, src)
 	for _, d := range prog.Decls {
@@ -273,9 +273,9 @@ func TestProbeB_ConstraintTupleDesugaring(t *testing.T) {
 // TestProbeB_ImplTupleConstraint checks impl with tuple constraint
 // (unified syntax: impl (Eq a, Show a) => MyClass a := { ... }).
 func TestProbeB_ImplTupleConstraint(t *testing.T) {
-	src := `data Eq := \a. { eq: a -> a }
-data Show := \a. { show: a -> a }
-data MyClass := \a. { m: a -> a }
+	src := `form Eq := \a. { eq: a -> a }
+form Show := \a. { show: a -> a }
+form MyClass := \a. { m: a -> a }
 impl (Eq a, Show a) => MyClass a := { m := \x. x }`
 	prog := parseMustSucceed(t, src)
 	for _, d := range prog.Decls {
@@ -300,11 +300,11 @@ impl (Eq a, Show a) => MyClass a := { m := \x. x }`
 }
 
 // TestProbeB_DataWithKindedParam checks data with kinded parameter in body.
-// Unified syntax: data F := \(a: Type). { MkF: a }.
+// Unified syntax: form F := \(a: Type). { MkF: a }.
 func TestProbeB_DataWithKindedParam(t *testing.T) {
-	src := `data F := \(a: Type). { MkF: a }`
+	src := `form F := \(a: Type). { MkF: a }`
 	prog := parseMustSucceed(t, src)
-	d := prog.Decls[0].(*DeclData)
+	d := prog.Decls[0].(*DeclForm)
 	fa, ok := d.Body.(*TyExprForall)
 	if !ok {
 		t.Fatalf("expected TyExprForall body, got %T", d.Body)
@@ -337,9 +337,9 @@ func TestProbeD_NewlineTopLevel(t *testing.T) {
 
 // TestProbeD_SemicolonInDataBody verifies semicolons as separators in data row bodies.
 func TestProbeD_SemicolonInDataBody(t *testing.T) {
-	source := "data MyC := \\a. {\n  f: a -> a;\n  g: a -> a\n}"
+	source := "form MyC := \\a. {\n  f: a -> a;\n  g: a -> a\n}"
 	prog := parseMustSucceed(t, source)
-	d := prog.Decls[0].(*DeclData)
+	d := prog.Decls[0].(*DeclForm)
 	fa, ok := d.Body.(*TyExprForall)
 	if !ok {
 		t.Fatalf("expected TyExprForall body, got %T", d.Body)
@@ -355,7 +355,7 @@ func TestProbeD_SemicolonInDataBody(t *testing.T) {
 
 // TestProbeD_SemicolonInImplBody verifies semicolons as separators in impl bodies.
 func TestProbeD_SemicolonInImplBody(t *testing.T) {
-	source := "data MyC := \\a. { f: a -> a; g: a -> a }\nimpl MyC Int := {\n  f := \\x. x;\n  g := \\x. x\n}"
+	source := "form MyC := \\a. { f: a -> a; g: a -> a }\nimpl MyC Int := {\n  f := \\x. x;\n  g := \\x. x\n}"
 	prog := parseMustSucceed(t, source)
 	for _, d := range prog.Decls {
 		if _, ok := d.(*DeclImpl); ok {
@@ -442,15 +442,15 @@ func TestProbeD_FixityNegativePrec(t *testing.T) {
 	_ = es
 }
 
-// TestProbeD_DataEmptyRowBody verifies `data T := {}` does not crash.
+// TestProbeD_DataEmptyRowBody verifies `form T := {}` does not crash.
 func TestProbeD_DataEmptyRowBody(t *testing.T) {
-	prog, es := parse("data T := {}")
+	prog, es := parse("form T := {}")
 	if es.HasErrors() {
 		t.Logf("empty body errors: %s", es.Format())
 	}
 	if prog != nil {
 		for _, d := range prog.Decls {
-			if dd, ok := d.(*DeclData); ok && dd.Name == "T" {
+			if dd, ok := d.(*DeclForm); ok && dd.Name == "T" {
 				row, ok := dd.Body.(*TyExprRow)
 				if !ok {
 					t.Logf("body is %T, not TyExprRow", dd.Body)
@@ -464,7 +464,7 @@ func TestProbeD_DataEmptyRowBody(t *testing.T) {
 
 // TestProbeD_DataRowMissingColon verifies a row field without `:` is handled.
 func TestProbeD_DataRowMissingColon(t *testing.T) {
-	source := "data T := { MkT Int }"
+	source := "form T := { MkT Int }"
 	_, es := parse(source)
 	if !es.HasErrors() {
 		t.Error("expected error for row field without `:`")
@@ -473,10 +473,10 @@ func TestProbeD_DataRowMissingColon(t *testing.T) {
 
 // TestProbeD_DataSingleRowField verifies a single row field parses correctly.
 func TestProbeD_DataSingleRowField(t *testing.T) {
-	source := "data T := { MkT: Int -> T }"
+	source := "form T := { MkT: Int -> T }"
 	prog := parseMustSucceed(t, source)
 	for _, d := range prog.Decls {
-		if dd, ok := d.(*DeclData); ok && dd.Name == "T" {
+		if dd, ok := d.(*DeclForm); ok && dd.Name == "T" {
 			row, ok := dd.Body.(*TyExprRow)
 			if !ok {
 				t.Fatalf("expected TyExprRow body, got %T", dd.Body)
@@ -493,10 +493,10 @@ func TestProbeD_DataSingleRowField(t *testing.T) {
 
 // TestProbeD_DataMultipleRowFieldsSemicolon verifies multiple row fields separated by semicolons.
 func TestProbeD_DataMultipleRowFieldsSemicolon(t *testing.T) {
-	source := "data T := { A: Int -> T; B: T }"
+	source := "form T := { A: Int -> T; B: T }"
 	prog := parseMustSucceed(t, source)
 	for _, d := range prog.Decls {
-		if dd, ok := d.(*DeclData); ok && dd.Name == "T" {
+		if dd, ok := d.(*DeclForm); ok && dd.Name == "T" {
 			row, ok := dd.Body.(*TyExprRow)
 			if !ok {
 				t.Fatalf("expected TyExprRow body, got %T", dd.Body)
@@ -510,10 +510,10 @@ func TestProbeD_DataMultipleRowFieldsSemicolon(t *testing.T) {
 
 // TestProbeD_DataMultipleRowFieldsComma verifies row fields separated by commas.
 func TestProbeD_DataMultipleRowFieldsComma(t *testing.T) {
-	source := "data T := { A: Int -> T, B: T }"
+	source := "form T := { A: Int -> T, B: T }"
 	prog := parseMustSucceed(t, source)
 	for _, d := range prog.Decls {
-		if dd, ok := d.(*DeclData); ok && dd.Name == "T" {
+		if dd, ok := d.(*DeclForm); ok && dd.Name == "T" {
 			row, ok := dd.Body.(*TyExprRow)
 			if !ok {
 				t.Fatalf("expected TyExprRow body, got %T", dd.Body)
@@ -541,10 +541,10 @@ func TestProbeD_TypeAliasEmptyCaseBody(t *testing.T) {
 	}
 }
 
-// TestProbeD_DataNoMethods checks `data C := \a. {}` (empty row body).
+// TestProbeD_DataNoMethods checks `form C := \a. {}` (empty row body).
 func TestProbeD_DataNoMethods(t *testing.T) {
-	prog := parseMustSucceed(t, "data C := \\a. {}")
-	d := prog.Decls[0].(*DeclData)
+	prog := parseMustSucceed(t, "form C := \\a. {}")
+	d := prog.Decls[0].(*DeclForm)
 	if d.Name != "C" {
 		t.Errorf("expected 'C', got %q", d.Name)
 	}
@@ -574,12 +574,12 @@ func TestProbeD_ImplEmptyBody(t *testing.T) {
 
 // TestProbeD_DataMultipleSuperclassChain verifies chained superclass constraints.
 func TestProbeD_DataMultipleSuperclassChain(t *testing.T) {
-	source := "data MyClass := \\a. Eq a => Ord a => { m: a -> a }"
+	source := "form MyClass := \\a. Eq a => Ord a => { m: a -> a }"
 	prog, es := parse(source)
 	if es.HasErrors() {
 		t.Fatalf("unexpected error: %s", es.Format())
 	}
-	d := prog.Decls[0].(*DeclData)
+	d := prog.Decls[0].(*DeclForm)
 	fa, ok := d.Body.(*TyExprForall)
 	if !ok {
 		t.Fatalf("expected TyExprForall body, got %T", d.Body)
@@ -617,9 +617,9 @@ func TestProbeD_ImplParenthesizedConstraints(t *testing.T) {
 	t.Error("impl declaration not found")
 }
 
-// TestProbeD_DataNoBody verifies `data C := \a.` with no body after forall dot.
+// TestProbeD_DataNoBody verifies `form C := \a.` with no body after forall dot.
 func TestProbeD_DataNoBody(t *testing.T) {
-	_, es := parse("data C := \\a.")
+	_, es := parse("form C := \\a.")
 	if !es.HasErrors() {
 		t.Error("expected error for data with no body after forall")
 	}
@@ -686,9 +686,9 @@ func TestProbeD_ForallType(t *testing.T) {
 	}
 }
 
-// TestProbeD_DataNoConstructors verifies `data T :=` with nothing after `:=`.
+// TestProbeD_DataNoConstructors verifies `form T :=` with nothing after `:=`.
 func TestProbeD_DataNoConstructors(t *testing.T) {
-	_, es := parse("data T :=")
+	_, es := parse("form T :=")
 	if !es.HasErrors() {
 		t.Error("expected error for data with no body after :=")
 	}
@@ -697,13 +697,13 @@ func TestProbeD_DataNoConstructors(t *testing.T) {
 // TestProbeD_DataManyConstructors verifies a data type with many ADT constructors.
 func TestProbeD_DataManyConstructors(t *testing.T) {
 	var b strings.Builder
-	b.WriteString("data T := C0")
+	b.WriteString("form T := C0")
 	for i := 1; i < 100; i++ {
 		b.WriteString(fmt.Sprintf(" | C%d", i))
 	}
 	prog := parseMustSucceed(t, b.String())
 	for _, d := range prog.Decls {
-		if dd, ok := d.(*DeclData); ok && dd.Name == "T" {
+		if dd, ok := d.(*DeclForm); ok && dd.Name == "T" {
 			// ADT shorthand desugars to a TyExprRow with one field per constructor
 			row, ok := dd.Body.(*TyExprRow)
 			if !ok {
@@ -718,29 +718,29 @@ func TestProbeD_DataManyConstructors(t *testing.T) {
 
 // ===== From probe_e =====
 
-// TestProbeE_DataDeclNoConstructors verifies that `data T :=` with nothing after
+// TestProbeE_DataDeclNoConstructors verifies that `form T :=` with nothing after
 // the `:=` either errors or produces an empty constructor list.
 func TestProbeE_DataDeclNoConstructors(t *testing.T) {
-	_, es := parse("data T :=")
+	_, es := parse("form T :=")
 	if !es.HasErrors() {
 		t.Error("expected error for data decl with no body")
 	}
 }
 
-// TestProbeE_DataDeclTrailingPipe verifies `data T := A |` with trailing pipe.
+// TestProbeE_DataDeclTrailingPipe verifies `form T := A |` with trailing pipe.
 func TestProbeE_DataDeclTrailingPipe(t *testing.T) {
-	_, es := parse("data T := A |")
+	_, es := parse("form T := A |")
 	if !es.HasErrors() {
 		t.Error("expected error for trailing pipe in data decl")
 	}
 }
 
-// TestProbeE_DataDeclEmptyBody verifies `data C := \a. {}` parses (empty row).
+// TestProbeE_DataDeclEmptyBody verifies `form C := \a. {}` parses (empty row).
 func TestProbeE_DataDeclEmptyBody(t *testing.T) {
-	prog := parseMustSucceed(t, "data C := \\a. {}")
+	prog := parseMustSucceed(t, "form C := \\a. {}")
 	found := false
 	for _, d := range prog.Decls {
-		if dd, ok := d.(*DeclData); ok && dd.Name == "C" {
+		if dd, ok := d.(*DeclForm); ok && dd.Name == "C" {
 			found = true
 			fa, ok := dd.Body.(*TyExprForall)
 			if !ok {
@@ -756,13 +756,13 @@ func TestProbeE_DataDeclEmptyBody(t *testing.T) {
 		}
 	}
 	if !found {
-		t.Error("data C not found")
+		t.Error("form C not found")
 	}
 }
 
-// TestProbeE_DataDeclNoBody verifies `data C :=` with no body at all.
+// TestProbeE_DataDeclNoBody verifies `form C :=` with no body at all.
 func TestProbeE_DataDeclNoBody(t *testing.T) {
-	_, es := parse("data C :=")
+	_, es := parse("form C :=")
 	if !es.HasErrors() {
 		t.Error("expected error for data without body")
 	}
@@ -822,13 +822,13 @@ func TestProbeE_NamedDeclExpectedColonColon(t *testing.T) {
 
 // TestProbeE_DataRowBasic verifies GADT-style row body syntax.
 func TestProbeE_DataRowBasic(t *testing.T) {
-	source := `data T := \a. {
+	source := `form T := \a. {
   MkT: Int -> T Int;
   MkU: T Bool
 }`
 	prog := parseMustSucceed(t, source)
 	for _, d := range prog.Decls {
-		if dd, ok := d.(*DeclData); ok && dd.Name == "T" {
+		if dd, ok := d.(*DeclForm); ok && dd.Name == "T" {
 			fa, ok := dd.Body.(*TyExprForall)
 			if !ok {
 				t.Fatalf("expected TyExprForall body, got %T", dd.Body)
@@ -844,15 +844,15 @@ func TestProbeE_DataRowBasic(t *testing.T) {
 	}
 }
 
-// TestProbeE_DataEmptyRow verifies `data T := {}` — empty row body.
+// TestProbeE_DataEmptyRow verifies `form T := {}` — empty row body.
 func TestProbeE_DataEmptyRow(t *testing.T) {
-	prog, es := parse("data T := {}")
+	prog, es := parse("form T := {}")
 	if es.HasErrors() {
 		t.Logf("empty row body errors: %s", es.Format())
 	}
 	if prog != nil {
 		for _, d := range prog.Decls {
-			if dd, ok := d.(*DeclData); ok && dd.Name == "T" {
+			if dd, ok := d.(*DeclForm); ok && dd.Name == "T" {
 				row, ok := dd.Body.(*TyExprRow)
 				if !ok {
 					t.Logf("body is %T, not TyExprRow", dd.Body)
@@ -911,33 +911,33 @@ x := 1`
 
 // TestProbeE_DataWithSuperclass verifies data with superclass constraint.
 func TestProbeE_DataWithSuperclass(t *testing.T) {
-	source := `data Ord := \a. Eq a => { compare: a -> a -> a }`
+	source := `form Ord := \a. Eq a => { compare: a -> a -> a }`
 	parseMustSucceed(t, source)
 }
 
 // TestProbeE_DataWithMultipleSuperclasses verifies curried superclasses.
 func TestProbeE_DataWithMultipleSuperclasses(t *testing.T) {
-	source := `data MyClass := \a. Eq a => Ord a => { m: a -> a }`
+	source := `form MyClass := \a. Eq a => Ord a => { m: a -> a }`
 	parseMustSucceed(t, source)
 }
 
 // TestProbeE_DataWithTupleSuperclass verifies tuple-style superclass.
 func TestProbeE_DataWithTupleSuperclass(t *testing.T) {
-	source := `data MyClass := \a. (Eq a, Ord a) => { m: a -> a }`
+	source := `form MyClass := \a. (Eq a, Ord a) => { m: a -> a }`
 	parseMustSucceed(t, source)
 }
 
 // TestProbeE_ImplWithContext verifies impl with context constraint.
 func TestProbeE_ImplWithContext(t *testing.T) {
-	source := `data Maybe := \a. { Nothing: (); Just: a }
-data Eq := \a. { eq: a -> a -> a }
+	source := `form Maybe := \a. { Nothing: (); Just: a }
+form Eq := \a. { eq: a -> a -> a }
 impl Eq a => Eq (Maybe a) := { eq := \x y. x }`
 	parseMustSucceed(t, source)
 }
 
 // TestProbeE_DataBodyWithKeyword verifies data body with just a keyword errors.
 func TestProbeE_DataBodyWithKeyword(t *testing.T) {
-	_, es := parse(`data C := \a. { import }`)
+	_, es := parse(`form C := \a. { import }`)
 	if !es.HasErrors() {
 		t.Error("expected error for keyword in data body")
 	}
@@ -945,7 +945,7 @@ func TestProbeE_DataBodyWithKeyword(t *testing.T) {
 
 // TestProbeE_ImplMethodMissingColonEq verifies impl method without := errors.
 func TestProbeE_ImplMethodMissingColonEq(t *testing.T) {
-	source := `data C := \a. { m: a -> a }
+	source := `form C := \a. { m: a -> a }
 impl C Int := { m = \x. x }`
 	_, es := parse(source)
 	if !es.HasErrors() {
@@ -1030,7 +1030,7 @@ func TestProbeE_LeadingSemicolons(t *testing.T) {
 
 // TestProbeE_TypeAliasWithCase verifies type alias with case body (type family replacement).
 func TestProbeE_TypeAliasWithCase(t *testing.T) {
-	source := `data Unit := Unit
+	source := `form Unit := Unit
 type F :: Type -> Type := \a. case a {
   Unit => Unit
 }`
@@ -1070,7 +1070,7 @@ x := 1`
 // TestProbeE_ImplBodyStall verifies that garbage in impl body
 // doesn't cause infinite loop (the p.pos == before guard should catch it).
 func TestProbeE_ImplBodyStall(t *testing.T) {
-	source := `data C := \a. { m: a }
+	source := `form C := \a. { m: a }
 impl C Int := { + + + }`
 	_, es := parse(source)
 	if !es.HasErrors() {
@@ -1081,7 +1081,7 @@ impl C Int := { + + + }`
 // TestProbeE_DataBodyStall verifies that garbage in data body row
 // doesn't cause infinite loop.
 func TestProbeE_DataBodyStall(t *testing.T) {
-	source := `data C := \a. { + + + }`
+	source := `form C := \a. { + + + }`
 	_, es := parse(source)
 	if !es.HasErrors() {
 		t.Error("expected error for garbage in data body")
@@ -1107,9 +1107,9 @@ func TestProbeE_ParenWithAnnotation(t *testing.T) {
 // TestProbeE_AllKeywordsInOneSource verifies a source using all declaration keywords.
 func TestProbeE_AllKeywordsInOneSource(t *testing.T) {
 	source := `import Prelude
-data Bool := True | False
+form Bool := True | False
 type MyBool := Bool
-data MyClass := \a. { m: a -> a }
+form MyClass := \a. { m: a -> a }
 impl MyClass Bool := { m := \x. x }
 infixl 6 +
 infixr 5 ++

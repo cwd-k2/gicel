@@ -77,8 +77,8 @@ func TestContextTimeout(t *testing.T) {
 	eng.SetStepLimit(1) // extremely low step limit
 	eng.EnableRecursion()
 	rt, err := eng.NewRuntime(context.Background(), `
-data Unit := { Unit: Unit; }
-data Bool := { True: Bool; False: Bool; }
+form Unit := { Unit: Unit; }
+form Bool := { True: Bool; False: Bool; }
 not := \b. case b { True => False; False => True }
 main := not (not (not True))
 `)

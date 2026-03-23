@@ -9,7 +9,7 @@ import Prelude
 
 -- ── MaybeT ───────────────────────────────────────────────────
 
-data MaybeT := \(m: Type -> Type) a. { MkMaybeT: m (Maybe a) -> MaybeT m a }
+form MaybeT := \(m: Type -> Type) a. { MkMaybeT: m (Maybe a) -> MaybeT m a }
 
 runMaybeT :: \(m: Type -> Type) a. MaybeT m a -> m (Maybe a)
 runMaybeT := \mt. case mt { MkMaybeT ma => ma }

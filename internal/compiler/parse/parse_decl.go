@@ -30,7 +30,7 @@ func (p *Parser) collectFixity() {
 //
 // Unified syntax declarations:
 //
-//	data Name [:: Kind] := Body;
+//	form Name [:: Kind] := Body;
 //	type Name [:: Kind] := Body;
 //	impl [name ::] TypeExpr := Expr;
 //	name :: Type;
@@ -39,8 +39,8 @@ func (p *Parser) collectFixity() {
 //	import Module;
 func (p *Parser) parseDecl() syn.Decl {
 	switch {
-	case p.peek().Kind == syn.TokData:
-		return p.parseDataDecl()
+	case p.peek().Kind == syn.TokForm:
+		return p.parseFormDecl()
 	case p.peek().Kind == syn.TokType:
 		return p.parseTypeDecl()
 	case p.peek().Kind == syn.TokImpl:
@@ -58,17 +58,17 @@ func (p *Parser) parseDecl() syn.Decl {
 	}
 }
 
-// parseDataDecl parses a nominal type declaration.
+// parseFormDecl parses a nominal type declaration.
 //
-//	data Name [:: Kind] := Body;
+//	form Name [:: Kind] := Body;
 //
 // Body is a type expression: \params. [constraints =>] { fields/constructors }.
 //
-// ADT shorthand (sugar): data Name [params] := Con1 [fields] | Con2 [fields]
+// ADT shorthand (sugar): form Name [params] := Con1 [fields] | Con2 [fields]
 // Desugars to GADT-style row constructors.
-func (p *Parser) parseDataDecl() *syn.DeclData {
+func (p *Parser) parseFormDecl() *syn.DeclForm {
 	start := p.peek().S.Start
-	p.expect(syn.TokData)
+	p.expect(syn.TokForm)
 	name := p.expectUpper()
 
 	var kindAnn syn.KindExpr
@@ -79,15 +79,15 @@ func (p *Parser) parseDataDecl() *syn.DeclData {
 
 	p.expect(syn.TokColonEq)
 
-	// ADT shorthand: data Name := Con1 | Con2 fields | ...
+	// ADT shorthand: form Name := Con1 | Con2 fields | ...
 	if p.peek().Kind == syn.TokUpper && p.looksLikePipeADT() {
 		body := p.parseADTConsAsRow(nil, start)
-		return &syn.DeclData{Name: name, KindAnn: kindAnn, Body: body, S: span.Span{Start: start, End: p.prevEnd()}}
+		return &syn.DeclForm{Name: name, KindAnn: kindAnn, Body: body, S: span.Span{Start: start, End: p.prevEnd()}}
 	}
 
 	body := p.parseType()
 
-	return &syn.DeclData{
+	return &syn.DeclForm{
 		Name:    name,
 		KindAnn: kindAnn,
 		Body:    body,
@@ -136,8 +136,8 @@ func (p *Parser) parseADTConsAsRow(params []syn.TyBinder, start span.Pos) syn.Ty
 	}
 
 	// Build the data type name applied to params for return types.
-	// e.g., data Maybe a := Just a | Nothing → return type = Maybe a
-	// For param-less: data Bool := True | False → return type = Bool
+	// e.g., form Maybe a := Just a | Nothing → return type = Maybe a
+	// For param-less: form Bool := True | False → return type = Bool
 	// We need the data type name from the outer context, but parseADTConsAsRow
 	// doesn't have it. Use a placeholder that the checker resolves.
 	// Actually, for ADT shorthand, constructors don't include the return type
@@ -156,7 +156,7 @@ func (p *Parser) parseADTConsAsRow(params []syn.TyBinder, start span.Pos) syn.Ty
 			}
 		} else {
 			// Non-nullary: synthesize arrow chain f1 -> f2 -> ... -> ()
-			// The trailing () is a sentinel that processDataDeclParts replaces
+			// The trailing () is a sentinel that processFormDeclParts replaces
 			// with the actual result type (e.g., Shape).
 			ty = &syn.TyExprApp{
 				Fun: &syn.TyExprCon{Name: "Record", S: c.s},

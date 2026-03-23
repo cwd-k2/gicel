@@ -10,7 +10,7 @@
 
 import Prelude
 
-data Mult := Unrestricted | Affine | Linear
+form Mult := Unrestricted | Affine | Linear
 
 -- Mult values describe resource usage disciplines.
 describe :: Mult -> String
