@@ -55,10 +55,10 @@ func makeCheckConfig(host *HostEnv, store *ModuleStore, limits *Limits) *check.C
 		deps[name] = mod.deps
 	}
 	return &check.CheckConfig{
-		RegisteredTypes: maps.Clone(host.registeredTys),
-		Assumptions:     maps.Clone(host.assumptions),
-		Bindings:        maps.Clone(host.bindings),
-		GatedBuiltins:   maps.Clone(host.gatedBuiltins),
+		RegisteredTypes: host.registeredTys,
+		Assumptions:     host.assumptions,
+		Bindings:        host.bindings,
+		GatedBuiltins:   host.gatedBuiltins,
 		Trace:           limits.checkTraceHook,
 		ImportedModules: imported,
 		ModuleDeps:      deps,

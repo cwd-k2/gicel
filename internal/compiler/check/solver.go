@@ -136,6 +136,7 @@ func (ch *Checker) resolveCtClassKeyed(ct *CtClass, key string, resolutions map[
 // Injective: distinct (className, zonked args) produce distinct keys.
 func constraintKey(className string, args []types.Type) string {
 	var b strings.Builder
+	b.Grow(len(className) + len(args)*16)
 	b.WriteString(className)
 	for _, a := range args {
 		b.WriteByte(' ')

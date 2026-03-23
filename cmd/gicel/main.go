@@ -379,7 +379,10 @@ func cmdRun(args []string) int {
 	eng.SetAllocLimit(*maxAlloc)
 	eng.SetEntryPoint(*entry)
 
-	rt, err := eng.NewRuntime(context.Background(), string(source))
+	ctx, cancel := context.WithTimeout(context.Background(), *timeout)
+	defer cancel()
+
+	rt, err := eng.NewRuntime(ctx, string(source))
 	if err != nil {
 		return handleCompileError(err, *jsonOut)
 	}
@@ -401,9 +404,6 @@ func cmdRun(args []string) int {
 			opts.ExplainDepth = gicel.ExplainAll
 		}
 	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), *timeout)
-	defer cancel()
 
 	result, err := rt.RunWith(ctx, opts)
 	if err != nil {

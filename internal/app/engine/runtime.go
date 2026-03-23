@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"maps"
 
 	"github.com/cwd-k2/gicel/internal/infra/budget"
 	"github.com/cwd-k2/gicel/internal/infra/span"
@@ -25,8 +24,9 @@ const (
 
 // RunOptions configures a single execution.
 //
-// Caps and Bindings are defensively copied on entry to RunWith.
-// The caller may safely reuse or mutate these maps after the call.
+// Caps is passed to CapEnv with copy-on-write semantics; the caller's
+// map is never mutated. Bindings is read-only during execution.
+// Both maps may be safely reused after the call returns.
 type RunOptions struct {
 	// Entry is the top-level binding to evaluate (default: DefaultEntryPoint).
 	Entry string
@@ -264,8 +264,8 @@ func (r *Runtime) RunWith(ctx context.Context, opts *RunOptions) (*RunResult, er
 		}
 	}
 	result, stats, err := r.execute(ctx, &runRequest{
-		caps:      maps.Clone(opts.Caps),
-		bindings:  maps.Clone(opts.Bindings),
+		caps:      opts.Caps,
+		bindings:  opts.Bindings,
 		entry:     entry,
 		obs:       obs,
 		traceHook: opts.Trace,
