@@ -98,7 +98,7 @@ func TestGADTEvalExpr(t *testing.T) {
 	eng.EnableRecursion()
 	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
-data Expr a := { LitBool: Bool -> Expr Bool; Not: Expr Bool -> Expr Bool }
+data Expr := \a. { LitBool: Bool -> Expr Bool; Not: Expr Bool -> Expr Bool }
 
 eval :: Expr Bool -> Bool
 eval := fix (\self e. case e {
@@ -127,7 +127,7 @@ func TestGADTWithDataKinds(t *testing.T) {
 data DBState := { Opened: DBState; Closed: DBState; }
 data DB := \s. { MkDB: DB s; }
 
-data Action s := { Open: Action Opened; Close: Action Closed }
+data Action := \s. { Open: Action Opened; Close: Action Closed }
 
 describe :: Action Opened -> DB Opened
 describe := \a. case a { Open => MkDB }
@@ -152,7 +152,7 @@ func TestGADTNestedPattern(t *testing.T) {
 	eng.Use(stdlib.Prelude)
 	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
-data Expr a := { LitBool: Bool -> Expr Bool; Not: Expr Bool -> Expr Bool }
+data Expr := \a. { LitBool: Bool -> Expr Bool; Not: Expr Bool -> Expr Bool }
 
 -- Nested pattern: match on Not (LitBool _)
 isDoubleNeg :: Expr Bool -> Bool

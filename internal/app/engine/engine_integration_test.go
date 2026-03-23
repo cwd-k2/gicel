@@ -692,7 +692,7 @@ data Convert := \a. {
 	rt1, err := eng.NewRuntime(context.Background(), `
 import TFLib
 impl Convert Bool := {
-  type Target Bool =: Nat;
+  type Target := Nat;
   convert := \b. case b { True => Succ Zero; False => Zero }
 }
 main := convert True
@@ -714,7 +714,7 @@ main := convert True
 	rt2, err := eng.NewRuntime(context.Background(), `
 import TFLib
 impl Convert Nat := {
-  type Target Nat =: Bool;
+  type Target := Bool;
   convert := \n. case n { Zero => False; Succ _ => True }
 }
 main := convert Zero

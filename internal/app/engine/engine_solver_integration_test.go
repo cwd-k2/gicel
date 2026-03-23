@@ -50,7 +50,7 @@ f := \x. case x == x { True => show x; False => "no" }
 main := f 42`},
 	{name: "type family basic", source: `
 import Prelude
-type Id (a: Type) :: Type := { Id a =: a }
+type Id :: Type := \(a: Type). case a { a => a }
 main := (1 :: Id Int) + 2`},
 	{name: "ADT pattern match", source: `
 import Prelude

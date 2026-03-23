@@ -168,13 +168,16 @@ func TestRegressionDataFamilyConstructorCollision(t *testing.T) {
 	source := `
 data Wrapper := \a. { Wrap: a -> Wrapper a; }
 data Unit := { Unit: Unit; }
+data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
 
 data Container := \c. {
-  data Elem c :: Type
+  data Elem c :: Type;
+  empty: c
 }
 
-impl Container (Wrapper a) := {
-  data Elem := Wrap a
+impl Container (List a) := {
+  data Elem := Wrap a;
+  empty := Nil
 }
 `
 	checkSourceExpectCode(t, source, nil, diagnostic.ErrDuplicateDecl)
@@ -184,19 +187,21 @@ impl Container (Wrapper a) := {
 // constructor names in data family instances do not produce errors.
 func TestRegressionDataFamilyConstructorNoCollision(t *testing.T) {
 	source := `
-data Wrapper := \a. { Wrap: a -> Wrapper a; }
+data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
 data Unit := { Unit: Unit; }
 
 data Container := \c. {
-  data Elem c :: Type
+  data Elem c :: Type;
+  empty: c
 }
 
-impl Container (Wrapper a) := {
-  data Elem := WrapElem a
+impl Container (List a) := {
+  data Elem := ListElem a;
+  empty := Nil
 }
 
-x :: Elem (Wrapper Unit)
-x := WrapElem Unit
+x :: Elem (List Unit)
+x := ListElem Unit
 `
 	checkSource(t, source, nil)
 }

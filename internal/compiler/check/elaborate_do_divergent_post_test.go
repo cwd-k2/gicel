@@ -86,12 +86,12 @@ f := \b. case b {
 func TestDivergentPostLUBDefined(t *testing.T) {
 	source := `
 data Mult := { Unrestricted: (); Affine: (); Linear: (); }
-type LUB :: Mult := \(m1: Mult) (m2: Mult). case m1 {
-  Linear _ => Linear;
-  _ Linear => Linear;
-  Affine _ => Affine;
-  _ Affine => Affine;
-  Unrestricted Unrestricted => Unrestricted
+type LUB :: Mult := \(m1: Mult) (m2: Mult). case (m1, m2) {
+  (Linear, _) => Linear;
+  (_, Linear) => Linear;
+  (Affine, _) => Affine;
+  (_, Affine) => Affine;
+  (Unrestricted, Unrestricted) => Unrestricted
 }
 `
 	checkSource(t, source, nil)
@@ -142,12 +142,12 @@ func TestDivergentPostLUBHeterogeneousMult(t *testing.T) {
 	// LUB(Linear, Affine) = Linear → joined post has h @Linear.
 	source := `
 data Mult := { Unrestricted: (); Affine: (); Linear: (); }
-type LUB :: Mult := \(m1: Mult) (m2: Mult). case m1 {
-  Linear _ => Linear;
-  _ Linear => Linear;
-  Affine _ => Affine;
-  _ Affine => Affine;
-  Unrestricted Unrestricted => Unrestricted
+type LUB :: Mult := \(m1: Mult) (m2: Mult). case (m1, m2) {
+  (Linear, _) => Linear;
+  (_, Linear) => Linear;
+  (Affine, _) => Affine;
+  (_, Affine) => Affine;
+  (Unrestricted, Unrestricted) => Unrestricted
 }
 data Bool := { True: Bool; False: Bool; }
 data Unit := { Unit: Unit; }
@@ -168,12 +168,12 @@ func TestDivergentPostLUBSymmetric(t *testing.T) {
 	// LUB(Affine, Linear) = Linear (symmetric with above).
 	source := `
 data Mult := { Unrestricted: (); Affine: (); Linear: (); }
-type LUB :: Mult := \(m1: Mult) (m2: Mult). case m1 {
-  Linear _ => Linear;
-  _ Linear => Linear;
-  Affine _ => Affine;
-  _ Affine => Affine;
-  Unrestricted Unrestricted => Unrestricted
+type LUB :: Mult := \(m1: Mult) (m2: Mult). case (m1, m2) {
+  (Linear, _) => Linear;
+  (_, Linear) => Linear;
+  (Affine, _) => Affine;
+  (_, Affine) => Affine;
+  (Unrestricted, Unrestricted) => Unrestricted
 }
 data Bool := { True: Bool; False: Bool; }
 data Unit := { Unit: Unit; }

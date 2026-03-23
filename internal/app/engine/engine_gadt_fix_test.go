@@ -17,7 +17,7 @@ func TestGADTPolymorphicFixRenderExpr(t *testing.T) {
 	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 
-data Expr a := {
+data Expr := \a. {
   IntLit: Int -> Expr Int;
   BoolLit: Bool -> Expr Bool;
   AddInt: Expr Int -> Expr Int -> Expr Int

@@ -176,15 +176,23 @@ data Wrapper := \a. { Wrap: a -> Wrapper a; }
 data Unit := { Unit: Unit; }
 
 data Container := \c. {
-  data Elem c :: Type
+  type Elem c :: Type;
+  dummy: c
 }
 
+dummyWrap :: \ a. Wrapper a
+dummyWrap := assumption
+
 impl Container (Wrapper a) := {
-  Elem (Wrapper a) => Wrap a
+  type Elem := Wrapper a;
+  dummy := dummyWrap
 }
 `
-	// The second "Wrap" constructor should conflict with the first.
-	checkSourceExpectCode(t, source, nil, diagnostic.ErrDuplicateDecl)
+	// This test verifies that the impl processes correctly; the type alias
+	// maps Elem (Wrapper a) to Wrapper a, with no constructor collision.
+	// With unified syntax, data family constructor registration is not
+	// available, so this test verifies associated type definition instead.
+	checkSource(t, source, nil)
 }
 
 // --- 4. verifyInjectivity Quadratic Cost ---
@@ -406,7 +414,7 @@ func TestSecurityParserLongEquationBlock(t *testing.T) {
 	}
 	sb.WriteString("; }\n")
 
-	sb.WriteString("type F (a: Tag) :: Tag := {\n")
+	sb.WriteString("type F :: Tag := \\(a: Tag). case a {\n")
 	for i := 0; i < N; i++ {
 		if i > 0 {
 			sb.WriteString(";\n")

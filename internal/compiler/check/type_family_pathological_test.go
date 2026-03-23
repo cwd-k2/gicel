@@ -238,22 +238,24 @@ impl C2 Unit := {
 // Tests whether the exhaustiveness checker handles data family types
 // across multiple nesting levels.
 func TestPathologicalDeepDataFamilyExhaustiveness(t *testing.T) {
+	// Deeply nested exhaustiveness check with associated type and regular data types.
 	source := `
 data Unit := { Unit: Unit; }
 data Maybe := \a. { Nothing: Maybe a; Just: a -> Maybe a; }
+data Repr := { ReprA: Repr; ReprB: Repr; ReprC: Repr; }
 
 data HasRepr := \c. {
-  data Repr c :: Type;
-  toRepr: c -> Repr c
+  type ReprOf c :: Type;
+  toRepr: c -> ReprOf c
 }
 
 impl HasRepr Unit := {
-  Repr Unit => ReprA | ReprB | ReprC;
+  type ReprOf := Repr;
   toRepr := \_. ReprA
 }
 
--- Nested pattern match on data family + Maybe.
-f :: Maybe (Repr Unit) -> Unit
+-- Nested pattern match on associated type result + Maybe.
+f :: Maybe Repr -> Unit
 f := \x. case x {
   Nothing => Unit;
   Just r => case r {
@@ -343,15 +345,16 @@ type Id :: Type := \(a: Type). case a {
 func TestPropertyReductionIdempotenceRecursive(t *testing.T) {
 	source := `
 data Nat := { Z: (); S: Nat; }
-type Add :: Nat := \(a: Nat) (b: Nat). case a {
-  Z b => b;
-  (S a) b => S (Add a b)
+data NatPair := \(a: Nat) (b: Nat). { MkNatPair: NatPair a b; }
+type Add :: Nat := \(p: Type). case p {
+  (NatPair Z b) => b;
+  (NatPair (S a) b) => S (Add (NatPair a b))
 }
 data Phantom := \(n: Nat). { MkPhantom: Phantom n; }
 
--- Add (S (S Z)) (S Z) = S (S (S Z))
--- Reducing again: S (S (S Z)) has no TF app at the top → same result.
-f :: Phantom (Add (S (S Z)) (S Z)) -> Phantom (S (S (S Z)))
+-- Add (NatPair (S (S Z)) (S Z)) = S (S (S Z))
+-- Reducing again: S (S (S Z)) has no TF app at the top -> same result.
+f :: Phantom (Add (NatPair (S (S Z)) (S Z))) -> Phantom (S (S (S Z)))
 f := \x. x
 `
 	checkSource(t, source, nil)
@@ -616,14 +619,14 @@ func TestPathologicalRepeatedPatternVar(t *testing.T) {
 	source := `
 data Unit := { Unit: Unit; }
 data Pair := \a b. { MkPair: a -> b -> Pair a b; }
-type Same :: Type := \(a: Type) (b: Type). case a {
-  a a => Unit
+type Same :: Type := \(p: Type). case p {
+  (Pair a a) => Unit
 }
-f :: Same Unit Unit -> Unit
+f :: Same (Pair Unit Unit) -> Unit
 f := \x. x
 `
-	// Same Unit Unit: pattern a matches Unit (first param), then a must also
-	// match Unit (second param). Both are Unit => matchSuccess.
+	// Same (Pair Unit Unit): pattern (Pair a a) matches with a = Unit.
+	// Both positions bind a to Unit => matchSuccess.
 	checkSource(t, source, nil)
 }
 
@@ -633,14 +636,14 @@ func TestPathologicalRepeatedPatternVarFail(t *testing.T) {
 data Unit := { Unit: Unit; }
 data Bool := { True: Bool; False: Bool; }
 data Pair := \a b. { MkPair: a -> b -> Pair a b; }
-type Same :: Type := \(a: Type) (b: Type). case a {
-  a a => Unit
+type Same :: Type := \(p: Type). case p {
+  (Pair a a) => Unit
 }
-f :: Same Unit Bool -> Unit
+f :: Same (Pair Unit Bool) -> Unit
 f := \x. x
 `
-	// Same Unit Bool: pattern a matches Unit (first param), then a must also
-	// match Bool (second param). Unit != Bool -> matchFail.
+	// Same (Pair Unit Bool): pattern (Pair a a) tries to bind a to Unit and Bool.
+	// Unit != Bool -> matchFail.
 	// With no other equation, reduction is stuck and types won't match.
 	checkSourceExpectError(t, source, nil)
 }

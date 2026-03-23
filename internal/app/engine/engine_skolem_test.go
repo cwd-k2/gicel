@@ -127,7 +127,7 @@ func TestExistentialNoConstraint(t *testing.T) {
 	eng.Use(stdlib.Prelude)
 	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
-data ExistsF f := { MkExistsF: \a. f a -> ExistsF f }
+data ExistsF := \f. { MkExistsF: \a. f a -> ExistsF f }
 useMaybe :: ExistsF Maybe -> Bool
 useMaybe := \e. case e { MkExistsF _ => True }
 main := useMaybe (MkExistsF (Just True))
@@ -147,7 +147,7 @@ func TestExistentialMixed(t *testing.T) {
 	eng.Use(stdlib.Prelude)
 	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
-data Wrapper a := { MkWrapper: \b. (b -> a) -> b -> Wrapper a }
+data Wrapper := \a. { MkWrapper: \b. (b -> a) -> b -> Wrapper a }
 useWrapper :: Wrapper Bool -> Bool
 useWrapper := \w. case w { MkWrapper f x => f x }
 main := useWrapper (MkWrapper (\x. x) True)
@@ -204,7 +204,7 @@ func TestExistentialWithGADT(t *testing.T) {
 	eng.Use(stdlib.Prelude)
 	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
-data Typed a := { MkBool: Bool -> Typed Bool; MkUnit: Typed () }
+data Typed := \a. { MkBool: Bool -> Typed Bool; MkUnit: Typed () }
 data SomeTyped := { MkSome: \a. Typed a -> SomeTyped }
 classify :: SomeTyped -> Bool
 classify := \s. case s { MkSome t => True }
