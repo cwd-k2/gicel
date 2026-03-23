@@ -16,7 +16,7 @@ data Mappable (f: Type -> Type) {
 }
 
 -- Instance for Maybe (from Prelude)
-impl Mappable Maybe {
+impl Mappable Maybe := {
   mmap := \g mx. case mx {
     Nothing => Nothing;
     Just x  -> Just (g x)
@@ -24,7 +24,7 @@ impl Mappable Maybe {
 }
 
 -- Instance for Tree
-impl Mappable Tree {
+impl Mappable Tree := {
   mmap := \g t. case t {
     TLeaf x       -> TLeaf (g x);
     TBranch l r   -> TBranch (mmap g l) (mmap g r)

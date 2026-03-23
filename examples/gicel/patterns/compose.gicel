@@ -15,7 +15,7 @@ getCompose :: \(f: Type -> Type) (g: Type -> Type) a. Compose f g a -> f (g a)
 getCompose := \c. case c { MkCompose fga -> fga }
 
 -- fmap for Compose = fmap the outer, then fmap the inner
-impl (Functor f, Functor g) => Functor (Compose f g) {
+impl (Functor f, Functor g) => Functor (Compose f g) := {
   fmap := \h c. case c { MkCompose fga -> MkCompose (fmap (fmap h) fga) }
 }
 
@@ -26,7 +26,7 @@ data Id a := MkId a
 runId :: \a. Id a -> a
 runId := \i. case i { MkId a -> a }
 
-impl Functor Id {
+impl Functor Id := {
   fmap := \f i. case i { MkId a -> MkId (f a) }
 }
 

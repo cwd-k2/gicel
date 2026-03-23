@@ -38,11 +38,11 @@ data Env e a := MkEnv e a
 getEnv :: \e a. Env e a -> e
 getEnv := \ea. case ea { MkEnv e _ => e }
 
-impl Functor (Env e) {
+impl Functor (Env e) := {
   fmap := \f ea. case ea { MkEnv e a -> MkEnv e (f a) }
 }
 
-impl Comonad (Env e) {
+impl Comonad (Env e) := {
   extract := \ea. case ea { MkEnv _ a -> a };
   -- extend: 環境は保持、値は f(環境+値) で置き換え
   extend  := \f ea. case ea { MkEnv e _ => MkEnv e (f ea) }
@@ -77,11 +77,11 @@ pos := \st. case st { MkStore _ s -> s }
 peek :: \s a. s -> Store s a -> a
 peek := \s st. case st { MkStore f _ => f s }
 
-impl Functor (Store s) {
+impl Functor (Store s) := {
   fmap := \f st. case st { MkStore g s -> MkStore (f . g) s }
 }
 
-impl Comonad (Store s) {
+impl Comonad (Store s) := {
   extract := \st. case st { MkStore f s -> f s };
   -- extend: 各位置 s' に対して f(Store focused at s') を計算
   extend  := \f st. case st { MkStore g s -> MkStore (\s'. f (MkStore g s')) s }
@@ -140,13 +140,13 @@ allRights := fix (\self z. case goRight z {
   Just z' -> Cons z' (self z')
 })
 
-impl Functor Zipper {
+impl Functor Zipper := {
   fmap := \f z. case z {
     MkZipper ls c rs -> MkZipper (map f ls) (f c) (map f rs)
   }
 }
 
-impl Comonad Zipper {
+impl Comonad Zipper := {
   extract := \z. case z { MkZipper _ c _ => c };
   extend := \f z. MkZipper (map f (allLefts z)) (f z) (map f (allRights z))
 }

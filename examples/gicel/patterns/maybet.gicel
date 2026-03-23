@@ -15,7 +15,7 @@ runMaybeT :: \(m: Type -> Type) a. MaybeT m a -> m (Maybe a)
 runMaybeT := \mt. case mt { MkMaybeT ma -> ma }
 
 -- Monad instance: bind threads Maybe failure through the base monad
-impl Monad m => Monad (MaybeT m) {
+impl Monad m => Monad (MaybeT m) := {
   mpure := \a. MkMaybeT (mpure (Just a));
   mbind := \ma f. MkMaybeT (mbind (runMaybeT ma) (\opt. case opt {
     Nothing => mpure Nothing;

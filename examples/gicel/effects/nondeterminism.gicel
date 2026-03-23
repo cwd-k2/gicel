@@ -50,7 +50,7 @@ sumPairs := do {
 
 data NDFree a := NDPure a | NDChoice (NDFree a) (NDFree a) | NDFail
 
-impl Monad NDFree {
+impl Monad NDFree := {
   mpure := NDPure;
   mbind := fix (\self m f. case m {
     NDPure a     -> f a;

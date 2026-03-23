@@ -21,7 +21,7 @@ type ElemOf (c: Type) :: Type := {
 
 -- Instance for List: keys are Int (positional index).
 -- Key (List a) =: ListIndex
-impl Collection (List a) {
+impl Collection (List a) := {
   data Key (List a) =: ListIndex Int;
   insert := \k xs. xs;
   lookup := \k xs. case xs { Cons x _ => Just x; Nil => Nothing }
@@ -36,21 +36,21 @@ data Wrappable w {
 }
 
 -- Int wraps to a tagged box.
-impl Wrappable Int {
+impl Wrappable Int := {
   data Wrapped Int =: IntBox Int;
   wrap := \n. IntBox n;
   unwrap := \w. case w { IntBox n -> n }
 }
 
 -- Bool wraps to a bitflag.
-impl Wrappable Bool {
+impl Wrappable Bool := {
   data Wrapped Bool =: BoolBit Bool;
   wrap := \b. BoolBit b;
   unwrap := \w. case w { BoolBit b -> b }
 }
 
 -- Maybe wraps to an optional box.
-impl Wrappable (Maybe a) {
+impl Wrappable (Maybe a) := {
   data Wrapped (Maybe a) =: OptBox (Maybe a);
   wrap := \m. OptBox m;
   unwrap := \w. case w { OptBox m -> m }

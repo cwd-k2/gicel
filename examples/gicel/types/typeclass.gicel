@@ -15,12 +15,12 @@ data Warm a {
 }
 
 -- Instance for Bool: True is warm, False is cold
-impl Warm Bool {
+impl Warm Bool := {
   isWarm := \b. case b { True => True; False => False }
 }
 
 -- Instance for Season
-impl Warm Season {
+impl Warm Season := {
   isWarm := \s. case s {
     Spring -> True;
     Summer -> True;
@@ -30,7 +30,7 @@ impl Warm Season {
 }
 
 -- Instance for Maybe: Just x is warm if x is warm; Nothing is cold
-impl Warm a => Warm (Maybe a) {
+impl Warm a => Warm (Maybe a) := {
   isWarm := \m. case m {
     Nothing => False;
     Just x  -> isWarm x

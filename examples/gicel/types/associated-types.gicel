@@ -14,13 +14,13 @@ data Container c {
 }
 
 -- Instance for List: Elem (List a) =: a.
-impl Container (List a) {
+impl Container (List a) := {
   type Elem (List a) =: a;
   cfold := foldr
 }
 
 -- Instance for String: Elem String =: Rune.
-impl Container String {
+impl Container String := {
   type Elem String =: Rune;
   cfold := \f z s. foldr f z (toRunes s)
 }

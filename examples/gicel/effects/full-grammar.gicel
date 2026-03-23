@@ -35,7 +35,7 @@ data Describe a {
 }
 
 -- [instance] — implement the class for Color
-impl Describe Color {
+impl Describe Color := {
   describe := \c. case c {
     Red   -> "red";
     Green -> "green";
@@ -44,7 +44,7 @@ impl Describe Color {
 }
 
 -- [instance] — implement for Bool (from prelude)
-impl Describe Bool {
+impl Describe Bool := {
   describe := \b. case b {
     True  -> "true";
     False => "false"

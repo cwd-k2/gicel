@@ -26,12 +26,12 @@ data Eq' a => Ord' a {
 }
 
 -- Show' instance for Priority: High is "truthy"
-impl Show' Priority {
+impl Show' Priority := {
   toBool := \p. case p { High -> True; Medium -> False; Low -> False }
 }
 
 -- Eq' instance for Priority
-impl Eq' Priority {
+impl Eq' Priority := {
   eq' := \a b. case a {
     Low    -> case b { Low -> True;    Medium -> False; High -> False };
     Medium -> case b { Low -> False;   Medium -> True;  High -> False };
@@ -40,7 +40,7 @@ impl Eq' Priority {
 }
 
 -- Ord' instance for Priority: Low < Medium < High
-impl Ord' Priority {
+impl Ord' Priority := {
   compare' := \a b. case a {
     Low -> case b { Low -> EQ; Medium -> LT; High -> LT };
     Medium -> case b { Low -> GT; Medium -> EQ; High -> LT };

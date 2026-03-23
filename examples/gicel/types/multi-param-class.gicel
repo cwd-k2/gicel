@@ -17,32 +17,32 @@ data Convert a b {
 }
 
 -- Coerce Bool to Maybe Bool: True => Just True, False => Nothing
-impl Coercible Bool (Maybe Bool) {
+impl Coercible Bool (Maybe Bool) := {
   coerce := \b. case b { True => Just True; False => Nothing }
 }
 
 -- Coerce Maybe a to Bool: Just -> True, Nothing => False
-impl Coercible (Maybe a) Bool {
+impl Coercible (Maybe a) Bool := {
   coerce := \m. case m { Just _ => True; Nothing => False }
 }
 
 -- Coerce () to Bool: unit is False
-impl Coercible () Bool {
+impl Coercible () Bool := {
   coerce := const False
 }
 
 -- Convert Bool to Ordering: True => GT, False => LT
-impl Convert Bool Ordering {
+impl Convert Bool Ordering := {
   convert := \b. case b { True => GT; False => LT }
 }
 
 -- Convert Ordering to Bool: GT/EQ -> True, LT -> False
-impl Convert Ordering Bool {
+impl Convert Ordering Bool := {
   convert := \o. case o { GT -> True; EQ -> True; LT -> False }
 }
 
 -- Coerce Ordering to Bool (same mapping as Convert, for composition demo)
-impl Coercible Ordering Bool {
+impl Coercible Ordering Bool := {
   coerce := \o. case o { GT -> True; EQ -> True; LT -> False }
 }
 

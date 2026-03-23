@@ -13,12 +13,12 @@ data Convert a b | a =: b {
 }
 
 -- Bool → Int: True = 1, False = 0
-impl Convert Bool Int {
+impl Convert Bool Int := {
   convert := \b. case b { True => 1; False => 0 }
 }
 
 -- Maybe a → List a: Just x = [x], Nothing = []
-impl Convert (Maybe a) (List a) {
+impl Convert (Maybe a) (List a) := {
   convert := \m. case m { Just x => Cons x Nil; Nothing => Nil }
 }
 
