@@ -17,7 +17,7 @@ chainThunk := \t. do {
 
 selectForce :: Bool -> Thunk {} {} Int -> Thunk {} {} Int -> Computation {} {} Int
 selectForce := \which t1 t2. case which {
-  True  -> force t1;
+  True  => force t1;
   False => force t2
 }
 

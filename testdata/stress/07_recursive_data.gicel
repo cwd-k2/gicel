@@ -18,7 +18,7 @@ length := fix (\self xs. case xs {
 map :: \a b. (a -> b) -> List a -> List b
 map := \f. fix (\self xs. case xs {
   Nil        -> Nil;
-  Cons x rest -> Cons (f x) (self rest)
+  Cons x rest => Cons (f x) (self rest)
 })
 
 append :: \a. List a -> List a -> List a
@@ -30,8 +30,8 @@ append := \xs ys. fix (\self zs. case zs {
 filter :: \a. (a -> Bool) -> List a -> List a
 filter := \p. fix (\self xs. case xs {
   Nil        -> Nil;
-  Cons x rest -> case p x {
-    True  -> Cons x (self rest);
+  Cons x rest => case p x {
+    True  => Cons x (self rest);
     False => self rest
   }
 })
@@ -44,10 +44,10 @@ reverse := \xs. fix (\go acc ys. case ys {
 
 take :: \a. Int -> List a -> List a
 take := \n. fix (\self xs. case intEq n (intZero ()) {
-  True  -> Nil;
+  True  => Nil;
   False => case xs {
     Nil        -> Nil;
-    Cons x rest -> Cons x (self rest)
+    Cons x rest => Cons x (self rest)
   }
 })
 
@@ -56,13 +56,13 @@ data Tree a := Leaf a | Branch (Tree a) (Tree a)
 treeSize :: \a. Tree a -> Int
 treeSize := fix (\self t. case t {
   Leaf _     -> intSucc (intZero ());
-  Branch l r -> intAdd (self l) (self r)
+  Branch l r => intAdd (self l) (self r)
 })
 
 treeMap :: \a b. (a -> b) -> Tree a -> Tree b
 treeMap := \f. fix (\self t. case t {
   Leaf x     -> Leaf (f x);
-  Branch l r -> Branch (self l) (self r)
+  Branch l r => Branch (self l) (self r)
 })
 
 not := \b. case b { True => False; False => True }

@@ -44,7 +44,7 @@ maybeDoNestedCase :: Maybe Bool
 maybeDoNestedCase := do {
   x <- Just (Just True);
   case x {
-    Just v -> Just v;
+    Just v => Just v;
     Nothing => Nothing
   }
 }

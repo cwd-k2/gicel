@@ -6,23 +6,23 @@ data Ordering := LT | EQ | GT
 data Tree a := Leaf a | Branch (Tree a) (Tree a)
 data Color := Red | Green | Blue
 
-data Eq a { eq :: a -> a -> Bool }
-data Eq a => Ord a { cmp :: a -> a -> Ordering }
-data Functor f { fmap :: \a b. (a -> b) -> f a -> f b }
-data Coercible a b { coerce :: a -> b }
+data Eq := \a. { eq: a -> a -> Bool }
+data Ord := \a. Eq a => { cmp: a -> a -> Ordering }
+data Functor := \f. { fmap: \a b. (a -> b) -> f a -> f b }
+data Coercible := \a b. { coerce: a -> b }
 
 impl Eq Bool {
   eq := \x y. case x {
-    True  -> y;
+    True  => y;
     False => case y { True => False; False => True }
   }
 }
 impl Eq () { eq := \_ _. True }
 impl Eq Ordering {
   eq := \x y. case x {
-    LT -> case y { LT -> True; _ => False };
-    EQ -> case y { EQ -> True; _ => False };
-    GT -> case y { GT -> True; _ => False }
+    LT => case y { LT => True; _ => False };
+    EQ => case y { EQ => True; _ => False };
+    GT => case y { GT => True; _ => False }
   }
 }
 impl Eq Color {
@@ -49,7 +49,7 @@ impl (Eq a) => (Eq b) => Eq (a, b) {
 impl Ord Bool {
   cmp := \x y. case x {
     False => case y { False => EQ; True => LT };
-    True  -> case y { False => GT; True => EQ }
+    True  => case y { False => GT; True => EQ }
   }
 }
 
@@ -62,7 +62,7 @@ impl Functor Maybe {
 impl Functor Tree {
   fmap := \g t. case t {
     Leaf x     -> Leaf (g x);
-    Branch l r -> Branch (fmap g l) (fmap g r)
+    Branch l r => Branch (fmap g l) (fmap g r)
   }
 }
 
@@ -80,7 +80,7 @@ liftMap :: \f a b. Functor f => (a -> b) -> f a -> f b
 liftMap := \g fa. fmap g fa
 
 eqViaOrd :: \a. Ord a => a -> a -> Bool
-eqViaOrd := \x y. case cmp x y { EQ -> True; _ => False }
+eqViaOrd := \x y. case cmp x y { EQ => True; _ => False }
 
 convertAndCheck :: \a b. (Coercible a b, Eq b) => a -> b -> Bool
 convertAndCheck := \x expected. eq (coerce x) expected
@@ -107,15 +107,15 @@ pipeline := thunk (do {
   r3 <- force t;
   eqResult := {
     mapped := fmap not (Just True);
-    case mapped { Just v -> v; Nothing => True }
+    case mapped { Just v => v; Nothing => True }
   };
   colorCheck := convertAndCheck Red True;
   pairEq := genericEq (True, False) (True, False);
   ordCheck := eqViaOrd True True;
   result := case eqResult {
-    True  -> case colorCheck {
-      True  -> case pairEq {
-        True  -> case ordCheck { True => True; False => False };
+    True  => case colorCheck {
+      True  => case pairEq {
+        True  => case ordCheck { True => True; False => False };
         False => False
       };
       False => False
