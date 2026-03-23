@@ -2,21 +2,20 @@
 
 ## Lexical Structure
 
-### Keywords (10 + 1 contextual)
+### Keywords (9 + 1 contextual)
 
-| Keyword    | Purpose                                                                                              |
-| ---------- | ---------------------------------------------------------------------------------------------------- |
-| `case`     | Pattern matching                                                                                     |
-| `do`       | Monadic do-block                                                                                     |
-| `data`     | Algebraic data type declaration                                                                      |
-| `type`     | Type alias declaration                                                                               |
-| `infixl`   | Left-associative operator fixity                                                                     |
-| `infixr`   | Right-associative operator fixity                                                                    |
-| `infixn`   | Non-associative operator fixity                                                                      |
-| `class`    | Type class declaration                                                                               |
-| `instance` | Type class instance declaration                                                                      |
-| `import`   | Module import                                                                                        |
-| `as`       | Qualified import alias (contextual — only special after `import`, usable as variable name elsewhere) |
+| Keyword  | Purpose                                                                                              |
+| -------- | ---------------------------------------------------------------------------------------------------- |
+| `case`   | Pattern matching                                                                                     |
+| `do`     | Monadic do-block                                                                                     |
+| `data`   | Algebraic data type / type class declaration                                                         |
+| `type`   | Type alias / type family declaration                                                                 |
+| `impl`   | Type class instance declaration                                                                      |
+| `infixl` | Left-associative operator fixity                                                                     |
+| `infixr` | Right-associative operator fixity                                                                    |
+| `infixn` | Non-associative operator fixity                                                                      |
+| `import` | Module import                                                                                        |
+| `as`     | Qualified import alias (contextual — only special after `import`, usable as variable name elsewhere) |
 
 ### Built-in Identifiers
 
@@ -32,21 +31,21 @@
 
 ### Punctuation & Operators
 
-| Token | Meaning                            |
-| ----- | ---------------------------------- |
-| `->`  | Function type / case alternative   |
-| `<-`  | Monadic bind in do-block           |
-| `=>`  | Constraint qualifier               |
-| `::`  | Type annotation                    |
-| `:=`  | Value definition / let-bind        |
-| `:`   | Kind annotation separator          |
-| `.`   | Lambda / quantifier body separator |
-| `\`   | Lambda / universal quantification  |
-| `_`   | Wildcard pattern                   |
-| `=:`  | TF equation / fundep / assoc def   |
-| `@`   | Explicit type application          |
-| `\|`  | Constructor / row tail separator   |
-| `;`   | Declaration / statement separator  |
+| Token | Meaning                                                    |
+| ----- | ---------------------------------------------------------- |
+| `->`  | Function type                                              |
+| `<-`  | Monadic bind in do-block                                   |
+| `=>`  | Constraint qualifier / case alternative / grade annotation |
+| `::`  | Type annotation                                            |
+| `:=`  | Value definition / let-bind                                |
+| `:`   | Field / method type separator                              |
+| `.`   | Lambda / quantifier body separator                         |
+| `\`   | Lambda / universal quantification                          |
+| `_`   | Wildcard pattern                                           |
+| `~`   | Type equality constraint                                   |
+| `@`   | Explicit type application                                  |
+| `\|`  | Constructor / row tail separator                           |
+| `;`   | Declaration / statement separator                          |
 
 ### Identifiers
 
@@ -81,10 +80,10 @@ Single-quoted single character: `'a'`, `'\n'`. Same escape sequences as strings.
 
 ## Declarations
 
-### Data Type (ADT)
+### Data Type (ADT shorthand)
 
 ```
-data Name param* := Con field* (| Con field*)*
+data Name := Con field* (| Con field*)*
 ```
 
 Parameters can be bare type variables or kinded: `(name: Kind)`.
@@ -100,29 +99,126 @@ data Dict (c: Constraint) := MkDict c    -- Constraint-kinded param
 data Evidence (c: Constraint) a := MkEvidence c a
 ```
 
-### Data Type (GADT)
+### Data Type (GADT-style full constructor types)
 
 ```
-data Name param* := {
-  Con :: TypeExpr;
-  Con :: TypeExpr
+data Name := [\param*.] {
+  Con: TypeExpr;
+  Con: TypeExpr
 }
 ```
 
-Distinguished from ADT by `:= {`. Each constructor has a full type signature including return type.
+Each constructor declares its full type including the return type. Distinguished from ADT shorthand by `:= {` or `:= \params. {`. The parameter lambda and brace body form are used for both type classes and GADTs.
 
 Examples:
 
 ```
-data Expr a := {
-  LitBool :: Bool -> Expr Bool;
-  LitInt  :: Int -> Expr Int;
-  Not     :: Expr Bool -> Expr Bool;
-  Add     :: Expr Int -> Expr Int -> Expr Int
+data Expr := \a. {
+  LitBool: Bool -> Expr Bool;
+  LitInt:  Int -> Expr Int;
+  Not:     Expr Bool -> Expr Bool;
+  Add:     Expr Int -> Expr Int -> Expr Int
+}
+
+data List := \a. {
+  Nil:  List a;
+  Cons: a -> List a -> List a
 }
 ```
 
 GADT constructors enable type refinement in `case` branches: matching `LitBool` on `Expr a` refines `a ~ Bool`. Exhaustiveness checking filters constructors whose return type cannot unify with the scrutinee type.
+
+### Type Class (via `data`)
+
+Type classes are declared using `data` with a brace body containing method signatures. Method types use `:` (not `::`).
+
+```
+data ClassName := [\param*.] [Constraint =>] {
+  method1: TypeExpr;
+  method2: TypeExpr;
+  [AssocTypeDecl]*;
+  [AssocDataDecl]*
+}
+```
+
+Associated type and data declarations within the class body:
+
+```
+AssocTypeDecl (in class body)
+  = 'type' UpperName TyBinder* '::' ResultKind
+
+AssocDataDecl (in class body)
+  = 'data' UpperName TyBinder* '::' KindExpr
+```
+
+Examples:
+
+```
+data Eq := \a. { eq: a -> a -> Bool }
+data Ord := \a. Eq a => { compare: a -> a -> Ordering }
+data Functor := \f. { fmap: \a b. (a -> b) -> f a -> f b }
+
+-- Associated type in class
+data Container := \c. {
+  type Elem c :: Type;
+  cfold: \b. (Elem c -> b -> b) -> b -> c -> b
+}
+
+-- Associated data family in class
+data Collection := \c. {
+  data Key c :: Type;
+  lookup: Key c -> c -> Maybe (Elem c)
+}
+```
+
+### Type Class Instance (`impl`)
+
+```
+impl [Constraint =>] ClassName TypeArg* := {
+  method1 := Expr;
+  method2 := Expr;
+  [AssocTypeDef]*;
+  [AssocDataDef]*
+}
+
+AssocTypeDef (in impl body)
+  = 'type' UpperName ':=' TypeExpr
+
+AssocDataDef (in impl body)
+  = 'data' UpperName ':=' ConDecl ('|' ConDecl)*
+```
+
+Examples:
+
+```
+impl Eq Bool := {
+  eq := \x y. case x {
+    True  => case y { True => True; False => False };
+    False => case y { True => False; False => True }
+  }
+}
+
+impl Eq a => Eq (Maybe a) := {
+  eq := \x y. case x {
+    Nothing => case y { Nothing => True; Just _ => False };
+    Just a  => case y { Nothing => False; Just b => eq a b }
+  }
+}
+
+-- Associated type definition in impl
+impl Container (List a) := {
+  type Elem := a;
+  cfold := foldr
+}
+
+-- Associated data family definition in impl
+impl Collection (List a) := {
+  data Key := ListIndex Int;
+  lookup := \k xs. case k {
+    ListIndex i => index xs i
+  }
+}
+```
 
 ### Type Alias
 
@@ -134,6 +230,45 @@ Example:
 
 ```
 type Effect r a := Computation r r a
+```
+
+### Type Family (Closed)
+
+Type families are type-level functions declared with `type`, distinguished from type aliases by `::` after the parameters. Equations use `case` with `=>`.
+
+```
+TypeFamilyDecl
+  = 'type' UpperName '::' ResultKind ':=' '\' TyBinder+ '.' 'case' TyBinder '{' Equation (';' Equation)* '}'
+
+ResultKind
+  = KindExpr
+
+Equation
+  = TypePattern '=>' TypeExpr
+```
+
+Equations are checked top-to-bottom; first match wins. Reduction is stuck (not skipped) when a match is indeterminate due to unsolved metavariables.
+
+Examples:
+
+```
+type Elem :: Type := \(c: Type). case c {
+  List a => a;
+  String => Rune
+}
+
+type NextSeason :: Season := \(s: Season). case s {
+  Spring => Summer;
+  Summer => Autumn;
+  Autumn => Winter;
+  Winter => Spring
+}
+
+type IsWeekend :: Bool := \(d: Season). case d {
+  Summer => True;
+  Winter => True;
+  _      => False
+}
 ```
 
 ### Type Annotation
@@ -158,7 +293,7 @@ name := Expr
 Example:
 
 ```
-not := \b. case b { True -> False; False -> True }
+not := \b. case b { True => False; False => True }
 ```
 
 ### Operator Definition
@@ -223,128 +358,6 @@ Import declarations must appear before all other declarations. Duplicate imports
 
 Value bindings whose name starts with `_` are module-private and excluded from exports.
 
-### Type Family (Closed)
-
-```
-TypeFamilyDecl
-  = 'type' UpperName TyBinder* '::' ResultKind ':=' '{' Equation (';' Equation)* '}'
-
-ResultKind
-  = KindExpr
-  | '(' LowerName ':' KindExpr ')' '|' DepList
-
-DepList
-  = LowerName '=:' LowerName+
-
-Equation
-  = UpperName TypePattern* '=:' TypeExpr
-```
-
-Distinguished from a type alias by `::` after the parameters. Equations are checked top-to-bottom; first match wins. Reduction is stuck (not skipped) when a match is indeterminate due to unsolved metavariables.
-
-Examples:
-
-```
-type Elem (c: Type) :: Type := {
-  Elem (List a) =: a;
-  Elem String =: Rune
-}
-
--- Injective (named result with functional dependency)
-type Effects (mode: AppMode) :: (r: Row) | r =: mode := {
-  Effects ReadOnly  =: { get: () -> String };
-  Effects ReadWrite =: { get: () -> String, put: String -> () }
-}
-```
-
-### Type Class
-
-```
-class [Constraint =>] ClassName param* [ClassFunDep] {
-  method1 :: TypeExpr;
-  method2 :: TypeExpr;
-  [AssocTypeDecl]*;
-  [AssocDataDecl]*
-}
-
-ClassFunDep (after class params, before '{')
-  = '|' LowerName '=:' LowerName+ (',' LowerName '=:' LowerName+)*
-
-AssocTypeDecl (in class body)
-  = 'type' UpperName TyBinder* '::' ResultKind
-
-AssocDataDecl (in class body)
-  = 'data' UpperName TyBinder* '::' KindExpr
-```
-
-Examples:
-
-```
-class Eq a { eq :: a -> a -> Bool }
-class Eq a => Ord a { compare :: a -> a -> Ordering }
-class Functor f { fmap :: \a b. (a -> b) -> f a -> f b }
-
--- Associated type in class
-class Container c {
-  type Elem c :: Type;
-  cfold :: \b. (Elem c -> b -> b) -> b -> c -> b
-}
-
--- Functional dependency
-class Convert a b | a =: b {
-  convert :: a -> b
-}
-
--- Associated data family in class
-class Collection c {
-  data Key c :: Type;
-  lookup :: Key c -> c -> Maybe (Elem c)
-}
-```
-
-### Type Class Instance
-
-```
-instance [Constraint =>] ClassName TypeArg* {
-  method1 := Expr;
-  method2 := Expr;
-  [AssocTypeDef]*;
-  [AssocDataDef]*
-}
-
-AssocTypeDef (in instance body)
-  = 'type' UpperName TypePattern* '=:' TypeExpr
-
-AssocDataDef (in instance body)
-  = 'data' UpperName TypePattern* '=:' ConDecl ('|' ConDecl)*
-```
-
-Examples:
-
-```
-instance Eq Bool { eq := \x y. True }
-instance Eq a => Eq (Maybe a) {
-  eq := \x y. case x {
-    Nothing -> case y { Nothing -> True; Just _ -> False };
-    Just a  -> case y { Nothing -> False; Just b -> eq a b }
-  }
-}
-
--- Associated type definition in instance
-instance Container (List a) {
-  type Elem (List a) =: a;
-  cfold := foldr
-}
-
--- Associated data family definition in instance
-instance Collection (List a) {
-  data Key (List a) =: ListIndex Int;
-  lookup := \k xs. case k {
-    ListIndex i -> index xs i
-  }
-}
-```
-
 ---
 
 ## Expressions
@@ -379,10 +392,12 @@ f @Int        -- explicit type application
 
 ```
 case scrutinee {
-  Con x y -> expr;
-  _       -> expr
+  Con x y => expr;
+  _       => expr
 }
 ```
+
+Case alternatives use `=>` to separate the pattern from the body.
 
 ### Record Literal
 
@@ -533,9 +548,20 @@ A quantified constraint `\vars. context => head` asserts that, for any instantia
 -- \a. Eq$Dict a -> Eq$Dict (f a)
 ```
 
-At use sites, the quantified constraint is resolved by finding a matching global instance. For example, `instance Eq a => Eq (F a)` satisfies `\a. Eq a => Eq (F a)`.
+At use sites, the quantified constraint is resolved by finding a matching global instance. For example, `impl Eq a => Eq (F a) := { ... }` satisfies `\a. Eq a => Eq (F a)`.
 
 Within a function body, quantified evidence can be applied to produce dictionaries for specific types. If `f` has constraint `(\a. Eq a => Eq (g a))`, then `eq (x :: g Bool) y` resolves `Eq (g Bool)` by applying the quantified evidence to `Bool` and the `Eq Bool` dictionary.
+
+### Type Equality Constraint
+
+The `~` operator asserts that two types are equal:
+
+```
+a ~ Bool => a -> Int
+(a ~ Int, b ~ String) => a -> b
+```
+
+Type equality constraints are introduced by GADT constructor matching: matching `LitBool` on `Expr a` brings `a ~ Bool` into scope.
 
 ### Dict Reification
 
@@ -556,7 +582,7 @@ Pattern matching on `Dict` brings the evidence back into scope:
 
 ```
 withDict :: \a. Dict (Eq a) -> a -> a -> Bool
-withDict := \d x y. case d { MkDict -> eq x y }
+withDict := \d x y. case d { MkDict => eq x y }
 ```
 
 The user writes `MkDict` with zero explicit pattern arguments; the evidence field is implicit. Inside the branch body, the constraint `Eq a` is available for resolution.
@@ -587,17 +613,17 @@ Here `c` is the implicit evidence field and `a` is a regular field.
 { x: Int, y: Bool }            -- closed row
 { x: Int | r }                 -- open row (tail variable)
 { get: () -> Int | r }         -- capability row
-{ h: Handle @Linear | r }     -- multiplicity-annotated field
+{ h: Linear => Handle | r }   -- grade-annotated field
 ```
 
-Row field grammar (updated):
+Row field grammar:
 
 ```
 RowField
-  = LowerName ':' TypeExpr ('@' TypeAtom)?
+  = LowerName ':' [GradeExpr '=>'] TypeExpr
 ```
 
-The optional `@Mult` suffix annotates a field with a multiplicity (e.g., `@Linear`, `@Affine`). Without annotation, fields are `@Unrestricted`.
+The optional `GradeExpr =>` prefix annotates a field with a grade (e.g., `Linear =>`, `Affine =>`). Without annotation, fields are unrestricted.
 
 ### Record / Tuple Type
 
@@ -634,7 +660,7 @@ DBState               -- DataKinds: user-defined promoted kind
 ```
 \(c: Constraint). Bool                    -- constraint-kinded param
 \a (c: Constraint). a -> Bool             -- mixed kinds
-class Constrained (c: Constraint) { ... }       -- in class declarations
+data Constrained := \(c: Constraint). { ... }   -- in class declarations
 data Dict (c: Constraint) := MkDict c            -- in data declarations (Dict reification)
 ```
 
@@ -675,9 +701,9 @@ Con x y          -- constructor with arguments
 Integer, string, and rune literals can appear as case patterns. They match by equality:
 
 ```
-case n { 0 -> "zero"; 1 -> "one"; _ -> "other" }
-case name { "Alice" -> "hello"; _ -> "hi" }
-case ch { 'x' -> True; _ -> False }
+case n { 0 => "zero"; 1 => "one"; _ => "other" }
+case name { "Alice" => "hello"; _ => "hi" }
+case ch { 'x' => True; _ => False }
 ```
 
 Since literal types cannot be exhaustively enumerated, a wildcard or variable catch-all is always required.
@@ -687,9 +713,9 @@ Since literal types cannot be exhaustively enumerated, a wildcard or variable ca
 Constructor patterns can be nested. Nullary constructors need no parentheses; multi-argument constructors must be parenthesized:
 
 ```
-case m { Just True -> "yes"; Just False -> "no"; Nothing -> "none" }
-case xs { Cons Nothing rest -> rest; Cons (Just x) rest -> rest; Nil -> Nil }
-case m { Just (Just (Just True)) -> "deep"; _ -> "other" }
+case m { Just True => "yes"; Just False => "no"; Nothing => "none" }
+case xs { Cons Nothing rest => rest; Cons (Just x) rest => rest; Nil => Nil }
+case m { Just (Just (Just True)) => "deep"; _ => "other" }
 ```
 
 ---
@@ -721,7 +747,7 @@ Declarations are separated by newlines or semicolons at the top level. Both sepa
 
 At nesting depth 0, a new declaration begins when the next token (preceded by a newline or semicolon) is one of:
 
-`lowercase` | `uppercase` | `data` | `type` | `infixl` | `infixr` | `infixn` | `class` | `instance` | `import` | `(op)` (operator definition)
+`lowercase` | `uppercase` | `data` | `type` | `infixl` | `infixr` | `infixn` | `impl` | `import` | `(op)` (operator definition)
 
 Inside braces (`do`, `case`, block expressions, GADT declarations), semicolons are **required** separators between statements, branches, or constructors. Newlines alone do not act as separators within braces.
 
@@ -802,25 +828,25 @@ Packed
 FromList ──→ ToList
 ```
 
-| Class         | Key Methods                                                 |
-| ------------- | ----------------------------------------------------------- |
-| `IxMonad`     | `ixpure`, `ixbind` (Core)                                   |
-| `Eq`          | `eq :: a -> a -> Bool`                                      |
-| `Ord`         | `compare :: a -> a -> Ordering`                             |
-| `Num`         | `add`, `sub`, `mul`, `negate`                               |
-| `Div`         | `div :: a -> a -> a`                                        |
-| `Show`        | `show :: a -> String`                                       |
-| `Semigroup`   | `append :: a -> a -> a`                                     |
-| `Monoid`      | `empty :: a`                                                |
-| `Functor`     | `fmap :: (a -> b) -> f a -> f b`                            |
-| `Foldable`    | `foldr :: (a -> b -> b) -> b -> t a -> b`                   |
-| `Applicative` | `wrap :: a -> f a`, `ap :: f (a -> b) -> f a -> f b`        |
-| `Alternative` | `none :: f a`, `alt :: f a -> f a -> f a`                   |
-| `Monad`       | `mpure :: a -> m a`, `mbind :: m a -> (a -> m b) -> m b`    |
-| `Traversable` | `traverse :: Applicative f => (a -> f b) -> t a -> f (t b)` |
-| `Packed`      | `pack :: List e -> c`, `unpack :: c -> List e`              |
-| `FromList`    | `fromList :: List (Elem l) -> l` (assoc type: `Elem`)       |
-| `ToList`      | `toList :: l -> List (Elem l)`                              |
+| Class         | Key Methods                                               |
+| ------------- | --------------------------------------------------------- |
+| `IxMonad`     | `ixpure`, `ixbind` (Core)                                 |
+| `Eq`          | `eq: a -> a -> Bool`                                      |
+| `Ord`         | `compare: a -> a -> Ordering`                             |
+| `Num`         | `add`, `sub`, `mul`, `negate`                             |
+| `Div`         | `div: a -> a -> a`                                        |
+| `Show`        | `show: a -> String`                                       |
+| `Semigroup`   | `append: a -> a -> a`                                     |
+| `Monoid`      | `empty: a`                                                |
+| `Functor`     | `fmap: (a -> b) -> f a -> f b`                            |
+| `Foldable`    | `foldr: (a -> b -> b) -> b -> t a -> b`                   |
+| `Applicative` | `wrap: a -> f a`, `ap: f (a -> b) -> f a -> f b`          |
+| `Alternative` | `none: f a`, `alt: f a -> f a -> f a`                     |
+| `Monad`       | `mpure: a -> m a`, `mbind: m a -> (a -> m b) -> m b`      |
+| `Traversable` | `traverse: Applicative f => (a -> f b) -> t a -> f (t b)` |
+| `Packed`      | `pack: List e -> c`, `unpack: c -> List e`                |
+| `FromList`    | `fromList: List (Elem l) -> l` (assoc type: `Elem`)       |
+| `ToList`      | `toList: l -> List (Elem l)`                              |
 
 ---
 
