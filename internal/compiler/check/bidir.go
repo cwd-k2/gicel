@@ -445,19 +445,20 @@ func (ch *Checker) withEvidenceScope(e *syntax.ExprEvidence, body func() ir.Core
 	dictTy, dictCore := ch.infer(e.Dict)
 	bindName := fmt.Sprintf("$ev_%d", ch.fresh())
 	ch.ctx.Push(&CtxVar{Name: bindName, Type: dictTy})
-	ch.pushEvidenceFromDictType(bindName, dictTy)
+	pushedEvidence := ch.pushEvidenceFromDictType(bindName, dictTy)
 	bodyCore := body()
 	bodyCore = ch.resolveDeferredConstraints(bodyCore)
-	ch.popEvidenceFromDictType(dictTy)
-	ch.ctx.Pop()
+	if pushedEvidence {
+		ch.ctx.Pop() // pop CtxEvidence
+	}
+	ch.ctx.Pop() // pop CtxVar
 	lamCore := &ir.Lam{Param: bindName, ParamType: dictTy, Body: bodyCore, Generated: true, S: e.S}
 	return &ir.App{Fun: lamCore, Arg: dictCore, S: e.S}
 }
 
 // pushEvidenceFromDictType decomposes a dictionary type into class name + args
-// and pushes a CtxEvidence entry so the solver can find it during resolution.
-// Uses the canonical ClassFromDict registry lookup (not suffix heuristics).
-func (ch *Checker) pushEvidenceFromDictType(bindName string, dictTy types.Type) {
+// and pushes a CtxEvidence entry. Returns true if a CtxEvidence was pushed.
+func (ch *Checker) pushEvidenceFromDictType(bindName string, dictTy types.Type) bool {
 	dictTy = ch.unifier.Zonk(dictTy)
 	head, args := types.UnwindApp(dictTy)
 	if con, ok := head.(*types.TyCon); ok {
@@ -468,17 +469,8 @@ func (ch *Checker) pushEvidenceFromDictType(bindName string, dictTy types.Type) 
 				DictName:  bindName,
 				DictType:  dictTy,
 			})
+			return true
 		}
 	}
-}
-
-// popEvidenceFromDictType pops the CtxEvidence entry pushed by pushEvidenceFromDictType.
-func (ch *Checker) popEvidenceFromDictType(dictTy types.Type) {
-	dictTy = ch.unifier.Zonk(dictTy)
-	head, _ := types.UnwindApp(dictTy)
-	if con, ok := head.(*types.TyCon); ok {
-		if _, ok := ch.reg.ClassFromDict(con.Name); ok {
-			ch.ctx.Pop()
-		}
-	}
+	return false
 }

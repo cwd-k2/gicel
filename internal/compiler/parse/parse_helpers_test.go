@@ -1,3 +1,6 @@
+// Parse test helpers — shared lex/parse utilities for parse package tests.
+// Does NOT cover: correctness testing (parse_test.go, lexer_test.go).
+
 package parse
 
 import (

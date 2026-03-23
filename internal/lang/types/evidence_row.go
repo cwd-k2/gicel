@@ -158,14 +158,14 @@ func CollectCapFields(fields []RowField, labels []string) []RowField {
 	return result
 }
 
-// ConstraintMatch pairs two constraint entries that were matched during classification.
-type ConstraintMatch struct {
+// constraintMatch pairs two constraint entries that were matched during classification.
+type constraintMatch struct {
 	A, B ConstraintEntry
 }
 
-// ConstraintArgsEqual checks if two constraint entries have the same className
+// constraintArgsEqual checks if two constraint entries have the same className
 // and structurally equal args.
-func ConstraintArgsEqual(a, b ConstraintEntry) bool {
+func constraintArgsEqual(a, b ConstraintEntry) bool {
 	if a.ClassName != b.ClassName || len(a.Args) != len(b.Args) {
 		return false
 	}
@@ -181,7 +181,7 @@ func ConstraintArgsEqual(a, b ConstraintEntry) bool {
 // onlyA, and onlyB. For entries with the same className, it attempts greedy matching:
 // first by structural equality on args, then by position.
 func ClassifyConstraints(a, b []ConstraintEntry) (
-	shared []ConstraintMatch,
+	shared []constraintMatch,
 	onlyA, onlyB []ConstraintEntry,
 ) {
 	bByClass := make(map[string][]int)
@@ -197,8 +197,8 @@ func ClassifyConstraints(a, b []ConstraintEntry) (
 			if bUsed[bi] {
 				continue
 			}
-			if ConstraintArgsEqual(ea, b[bi]) {
-				shared = append(shared, ConstraintMatch{A: ea, B: b[bi]})
+			if constraintArgsEqual(ea, b[bi]) {
+				shared = append(shared, constraintMatch{A: ea, B: b[bi]})
 				bUsed[bi] = true
 				matched = true
 				break
@@ -209,7 +209,7 @@ func ClassifyConstraints(a, b []ConstraintEntry) (
 				if bUsed[bi] {
 					continue
 				}
-				shared = append(shared, ConstraintMatch{A: ea, B: b[bi]})
+				shared = append(shared, constraintMatch{A: ea, B: b[bi]})
 				bUsed[bi] = true
 				matched = true
 				break
