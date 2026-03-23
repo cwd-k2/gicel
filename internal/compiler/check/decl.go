@@ -211,11 +211,13 @@ func (ch *Checker) processTypeFamilyFromAlias(d *syntax.DeclTypeAlias) {
 			eqName = d.Name
 		}
 
-		// Use RawPatCount for arity — this is the actual number of patterns
-		// before they were synthesized into an application chain.
+		// Determine pattern count for equation arity validation.
+		// RawPatCount is set by the legacy parser; for new case format it's 0.
 		patCount := alt.RawPatCount
 		if patCount == 0 && alt.Pattern != nil {
-			patCount = 1
+			// For new case format: if the pattern is a tuple (Record { _1: ..., _2: ... }),
+			// use the tuple arity. Otherwise it's a single pattern.
+			patCount = countTupleArity(alt.Pattern)
 		}
 		patterns := extractTFPatterns(alt.Pattern, patCount)
 		equations = append(equations, legacyTFEquation{
@@ -236,16 +238,42 @@ func (ch *Checker) processTypeFamilyFromAlias(d *syntax.DeclTypeAlias) {
 	ch.processTypeFamily(legacy)
 }
 
+// countTupleArity returns the number of elements if the type expression is a tuple,
+// or 1 if it's a regular type.
+func countTupleArity(t syntax.TypeExpr) int {
+	// Tuple pattern: (A, B) parses as TyExprApp(TyExprCon("Record"), TyExprRow{Fields: [_1: A, _2: B]})
+	if app, ok := t.(*syntax.TyExprApp); ok {
+		if con, ok := app.Fun.(*syntax.TyExprCon); ok && con.Name == "Record" {
+			if row, ok := app.Arg.(*syntax.TyExprRow); ok && len(row.Fields) > 0 {
+				return len(row.Fields)
+			}
+		}
+	}
+	return 1
+}
+
 // extractTFPatterns extracts type family equation patterns from a case alternative pattern.
 // For single-param families, returns [pattern].
-// For multi-param (synthesized application chain from legacy parser), unwinds into individual patterns.
+// For multi-param: unwraps tuple patterns (Record {_1: P1, _2: P2}) or application chains.
 func extractTFPatterns(pat syntax.TypeExpr, numParams int) []syntax.TypeExpr {
 	if numParams <= 1 {
 		return []syntax.TypeExpr{pat}
 	}
-	// Multi-param: unwrap application chain.
-	// The legacy parser builds: App(App(pat1, pat2), pat3) for [pat1, pat2, pat3].
-	// Unwinding gives us the individual patterns.
+
+	// Check for tuple pattern: (P1, P2, ...) = TyExprApp(Record, TyExprRow{Fields: ...})
+	if app, ok := pat.(*syntax.TyExprApp); ok {
+		if con, ok := app.Fun.(*syntax.TyExprCon); ok && con.Name == "Record" {
+			if row, ok := app.Arg.(*syntax.TyExprRow); ok && len(row.Fields) >= numParams {
+				result := make([]syntax.TypeExpr, len(row.Fields))
+				for i, f := range row.Fields {
+					result[i] = f.Type
+				}
+				return result
+			}
+		}
+	}
+
+	// Legacy format: unwrap application chain.
 	var result []syntax.TypeExpr
 	t := pat
 	for {

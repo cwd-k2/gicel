@@ -47,9 +47,9 @@ main := f (MkDB :: DB Opened)`
 }
 
 func TestPromoteNullaryConstructors(t *testing.T) {
-	// data S := { A: (); B: (); } → A and B are promoted to type level with kind S
-	source := `data S := { A: (); B: (); }
-data Proxy := \s. { MkProxy: (); }
+	// data S := { A: S; B: S; } → A and B are promoted to type level with kind S
+	source := `data S := { A: S; B: S; }
+data Proxy := \s. { MkProxy: Proxy s; }
 main := (MkProxy :: Proxy A)`
 	checkSource(t, source, nil)
 }
@@ -58,7 +58,7 @@ func TestPromoteSkipsFieldedConstructors(t *testing.T) {
 	// data Maybe := \a. { Just: a -> Maybe a; Nothing: Maybe a; } → only Nothing is promoted, Just is not
 	source := `data Bool := { True: Bool; False: Bool; }
 data Maybe := \a. { Just: a -> Maybe a; Nothing: Maybe a; }
-data Proxy := \s. { MkProxy: (); }
+data Proxy := \s. { MkProxy: Proxy s; }
 main := (MkProxy :: Proxy Nothing)`
 	checkSource(t, source, nil)
 }

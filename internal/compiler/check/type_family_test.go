@@ -24,13 +24,13 @@ type IsTrue :: Bool := \(b: Bool). case b {
 
 func TestTypeFamilyParseTwoParams(t *testing.T) {
 	source := `
-data Mult := { Unrestricted: (); Affine: (); Linear: (); }
-type LUB :: Mult := \(m1: Mult) (m2: Mult). case m1 {
-  Linear _ => Linear;
-  _ Linear => Linear;
-  Affine _ => Affine;
-  _ Affine => Affine;
-  Unrestricted Unrestricted => Unrestricted
+data Mult := { Unrestricted: Mult; Affine: Mult; Linear: Mult; }
+type LUB :: Mult := \(m1: Mult) (m2: Mult). case (m1, m2) {
+  (Linear, _) => Linear;
+  (_, Linear) => Linear;
+  (Affine, _) => Affine;
+  (_, Affine) => Affine;
+  (Unrestricted, Unrestricted) => Unrestricted
 }
 `
 	checkSource(t, source, nil)
