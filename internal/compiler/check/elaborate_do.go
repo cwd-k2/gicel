@@ -308,6 +308,13 @@ func (ch *Checker) inferBlock(e *syntax.ExprBlock) (types.Type, ir.Core) {
 	}
 
 	// Infer body with all bindings in scope.
+	if e.Body == nil {
+		ch.addCodedError(diagnostic.ErrEmptyDo, e.S, "block must end with an expression")
+		for range e.Binds {
+			ch.ctx.Pop()
+		}
+		return &types.TyError{S: e.S}, &ir.Lit{Value: nil, S: e.S}
+	}
 	resultTy, result := ch.infer(e.Body)
 
 	// Pop all bindings.
