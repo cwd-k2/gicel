@@ -39,7 +39,13 @@ func unifyErrorCode(err error) diagnostic.Code {
 // addUnifyError maps a unification error to the appropriate structured error code.
 // Used at general type-mismatch sites where the UnifyError kind IS the primary diagnosis.
 func (s *Session) addUnifyError(err error, sp span.Span, ctx string) {
-	s.addCodedError(unifyErrorCode(err), sp, ctx+": "+err.Error())
+	detail := err.Error()
+	// Avoid redundant detail when the unifier just restates the type pair.
+	if strings.HasPrefix(detail, "type mismatch:") {
+		s.addCodedError(unifyErrorCode(err), sp, ctx)
+		return
+	}
+	s.addCodedError(unifyErrorCode(err), sp, ctx+": "+detail)
 }
 
 // addSemanticUnifyError reports a unification failure with a semantic error code.

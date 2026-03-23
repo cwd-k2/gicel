@@ -43,12 +43,18 @@ func Pretty(t Type) string {
 	case *TySkolem:
 		return fmt.Sprintf("#%s", ty.Name)
 	case *TyMeta:
-		return fmt.Sprintf("?%d", ty.ID)
+		return "_"
 	case *TyError:
 		return "<error>"
 	default:
 		return "?"
 	}
+}
+
+// PrettyAtom renders a type as a single syntactic atom.
+// Compound types (arrows, applications, foralls, etc.) are wrapped in parentheses.
+func PrettyAtom(t Type) string {
+	return prettyAtom(t)
 }
 
 func prettyAtom(t Type) string {

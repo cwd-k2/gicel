@@ -127,18 +127,18 @@ func (u *Unifier) resolveEvidenceTails(aTail, bTail types.Type, onlyA, onlyB typ
 	case aTail == nil && bTail == nil:
 		if onlyA.EntryCount() > 0 || onlyB.EntryCount() > 0 {
 			return &UnifyError{Kind: UnifyRowMismatch, Detail: fmt.Sprintf(
-				"evidence row mismatch: extra entries (left=%d, right=%d)", onlyA.EntryCount(), onlyB.EntryCount())}
+				"row mismatch: extra entries (left=%d, right=%d)", onlyA.EntryCount(), onlyB.EntryCount())}
 		}
 	case aTail != nil && bTail == nil:
 		if onlyA.EntryCount() > 0 {
 			return &UnifyError{Kind: UnifyRowMismatch, Detail: fmt.Sprintf(
-				"extra entries in evidence row: %d", onlyA.EntryCount())}
+				"record has extra field(s): %d", onlyA.EntryCount())}
 		}
 		return u.solveEvidenceTail(aTail, onlyB, nil)
 	case aTail == nil && bTail != nil:
 		if onlyB.EntryCount() > 0 {
 			return &UnifyError{Kind: UnifyRowMismatch, Detail: fmt.Sprintf(
-				"extra entries in evidence row: %d", onlyB.EntryCount())}
+				"record has extra field(s): %d", onlyB.EntryCount())}
 		}
 		return u.solveEvidenceTail(bTail, onlyA, nil)
 	default:

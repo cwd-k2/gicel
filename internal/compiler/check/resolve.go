@@ -264,7 +264,7 @@ func (ch *Checker) applyFunDepImprovement(className string, args []types.Type) {
 func (ch *Checker) prettyTypeArgs(args []types.Type) string {
 	parts := make([]string, len(args))
 	for i, a := range args {
-		parts[i] = types.Pretty(ch.unifier.Zonk(a))
+		parts[i] = types.PrettyAtom(ch.unifier.Zonk(a))
 	}
 	return strings.Join(parts, " ")
 }
