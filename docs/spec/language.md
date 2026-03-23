@@ -305,10 +305,10 @@ Type, row, and kind equivalence. The equality theory includes:
 ## 3.1 Keywords
 
 ```
-case  do  data  type  infixl  infixr  infixn  class  instance  import
+case  do  data  type  impl  infixl  infixr  infixn  import
 ```
 
-10 keywords. Note that `pure`, `bind`, `thunk`, `force`, `assumption`, `rec`, and `fix` are **not** keywords — they are ordinary identifiers with built-in meaning. `pure`, `bind`, `rec`, and `fix` are first-class functions (can be partially applied and passed to higher-order functions); `thunk` and `force` are term formers (must be fully applied).
+9 keywords. Note that `pure`, `bind`, `thunk`, `force`, `assumption`, `rec`, and `fix` are **not** keywords — they are ordinary identifiers with built-in meaning. `pure`, `bind`, `rec`, and `fix` are first-class functions (can be partially applied and passed to higher-order functions); `thunk` and `force` are term formers (must be fully applied).
 
 `\` is used for both lambda (`\x. e`) and universal quantification (`\a. T`). Both use `.` as the body separator. The parser disambiguates by context (expression vs. type). Multi-parameter lambdas are supported: `\x y. e` desugars to `\x. \y. e`.
 
@@ -331,8 +331,9 @@ Op     ::= operator characters              -- +, -, *, /, ==, >>=, .
 | ----- | ----------------------------------------------------------------------------------- |
 | `::`  | Type annotation                                                                     |
 | `:=`  | Definition binding                                                                  |
-| `->`  | Function type arrow / case alternative                                              |
-| `=>`  | Constraint arrow                                                                    |
+| `->`  | Function type arrow                                                                 |
+| `=>`  | Constraint arrow / case alternative                                                 |
+| `~`   | Type equality constraint                                                            |
 | `\`   | Lambda                                                                              |
 | `\|`  | Row extension / record update / case separator                                      |
 | `.`   | lambda body separator / quantifier body separator / composition operator (infixr 9) |
@@ -343,23 +344,21 @@ Op     ::= operator characters              -- +, -, *, /, ==, >>=, .
 
 The language uses 9 relational symbols, each corresponding to a distinct judgment form:
 
-| Symbol | Name           | Judgment          | Usage                                     |
-| ------ | -------------- | ----------------- | ----------------------------------------- |
-| `::`   | classification | `Γ ⊢ e : A`       | type annotation, GADT constructor types   |
-| `:=`   | definition     | `Γ ⊢ x ≡ e`       | value/type/data definitions               |
-| `:`    | attribution    | `l : T`           | record fields, kind annotations           |
-| `=:`   | rule           | `P ⟶ T`           | TF equations, associated types, fundeps   |
-| `->`   | implication    | `A ⊃ B`           | function types, case alternatives         |
-| `=>`   | premise        | `C ⊢ T`           | constraint qualification, superclass      |
-| `.`    | body           | `λx. e` / `∀a. T` | lambda/forall body separator, composition |
-| `<-`   | bind           | `x ← M`           | monadic bind in do-notation               |
-| `\|`   | alternative    | `A ∨ B`           | constructors, row tail, record update     |
+| Symbol | Name           | Judgment          | Usage                                                                 |
+| ------ | -------------- | ----------------- | --------------------------------------------------------------------- |
+| `::`   | classification | `Γ ⊢ e : A`       | type annotation, GADT constructor types                               |
+| `:=`   | definition     | `Γ ⊢ x ≡ e`       | value/type/data/impl definitions                                      |
+| `:`    | attribution    | `l : T`           | record fields, kind annotations, methods                              |
+| `->`   | implication    | `A ⊃ B`           | function types                                                        |
+| `=>`   | dispatch       | `C ⊢ T` / `P ⇒ E` | constraint qualification, case alternatives, type family alternatives |
+| `~`    | equality       | `A ~ B`           | type equality constraints                                             |
+| `.`    | body           | `λx. e` / `∀a. T` | lambda/forall body separator, composition                             |
+| `<-`   | bind           | `x ← M`           | monadic bind in do-notation                                           |
+| `\|`   | alternative    | `A ∨ B`           | constructors, row tail, record update                                 |
 
-`=` is intentionally absent from the language. In programming, `=` is notoriously overloaded across assignment, comparison, definition, and equation. GICEL splits its roles: `:=` for definitions, `=:` for rules.
+`=` is intentionally absent from the language. In programming, `=` is notoriously overloaded across assignment, comparison, definition, and equation. GICEL uses `:=` for definitions exclusively.
 
-`:=` and `=:` are visual mirrors. The colon position indicates direction. `:=` points left — name receives value ("define this name as this value"). `=:` points right — pattern produces result ("this pattern rewrites to this result").
-
-`->` and `=:` both express "from X, produce Y" but differ in kind. `->` is type-level implication and value-level alternative: it _constructs_ a function type or selects a branch. `=:` is type-level computation: it _rewrites_ a type family application to its result, or declares a determination relation. The distinction is construction versus reduction.
+`=>` unifies three roles: constraint qualification (`Eq a => ...`), case alternatives (`True => ...`), and type-level case alternatives (`List a => a`). All three share the structure "from this premise/pattern, dispatch to this result." The arrow direction and the fat shape distinguish it from `->` (function type / implication).
 
 ## 3.5 Type Syntax
 
@@ -376,6 +375,9 @@ TypeApp   ::= TypeApp TypeAtom
 TypeAtom  ::= TyVar | TyCon
             | '(' Type ')'
             | RowExpr
+            | 'case' TypeAtom '{' TyAlt (';' TyAlt)* '}'  -- type-level case
+
+TyAlt     ::= TypeApp '=>' TypeApp
 
 TyBinder  ::= TyVar                          -- kind inferred
             | '(' TyVar ':' Kind ')'          -- kinded
@@ -434,7 +436,7 @@ Stmt      ::= Var '<-' Expr                                  -- bind
             | Var ':=' Expr                                   -- pure let-bind
             | Expr                                            -- execute
 
-Branch    ::= Pattern '->' Expr
+Branch    ::= Pattern '=>' Expr
 
 Lit       ::= IntLit | StringLit | RuneLit
 ```
@@ -488,17 +490,17 @@ FieldPat  ::= LowerName ':' Pattern
 Constructor patterns can be nested. A nullary constructor appearing as an argument to another constructor needs no parentheses; a multi-argument constructor argument must be parenthesized (Haskell convention):
 
 ```
-case m { Just True -> "yes"; Just False -> "no"; Nothing -> "empty" }
-case xs { Cons Nothing rest -> rest; Cons (Just x) rest -> rest; Nil -> Nil }
-case m { Just (Just (Just True)) -> "deep"; _ -> "other" }
+case m { Just True => "yes"; Just False => "no"; Nothing => "empty" }
+case xs { Cons Nothing rest => rest; Cons (Just x) rest => rest; Nil => Nil }
+case m { Just (Just (Just True)) => "deep"; _ => "other" }
 ```
 
 Literal patterns match by equality on `Int`, `String`, and `Rune`:
 
 ```
-case n { 0 -> "zero"; 1 -> "one"; _ -> "other" }
-case name { "Alice" -> "hello"; _ -> "hi" }
-case ch { 'a' -> True; _ -> False }
+case n { 0 => "zero"; 1 => "one"; _ => "other" }
+case name { "Alice" => "hello"; _ => "hi" }
+case ch { 'a' => True; _ => False }
 ```
 
 Literal types are open — the exhaustiveness checker cannot enumerate all values of `Int`, `String`, or `Rune`, so a wildcard or variable catch-all is required.
@@ -514,40 +516,130 @@ Import    ::= 'import' ModuleName                        -- open
             | 'import' ModuleName '(' ImportList ')'     -- selective
             | 'import' ModuleName 'as' Upper             -- qualified
 
-Decl      ::= DeclBind | DeclData | DeclType | DeclFixity | DeclClass | DeclInstance
+Decl      ::= DeclBind | DeclData | DeclType | DeclFixity | DeclImpl
 
 DeclBind  ::= Var '::' Type ';' Var ':=' Expr               -- annotated binding
             | Var ':=' Expr                                   -- unannotated binding
 
-DeclData  ::= 'data' ConName TyBinder* ':=' ConDecl ('|' ConDecl)*       -- ADT
-            | 'data' ConName TyBinder* ':=' '{' GADTCon (';' GADTCon)* '}'  -- GADT
+DeclData  ::= 'data' ConName ':=' '\' TyBinder+ '.' DataBody          -- parametric
+            | 'data' ConName ':=' DataBody                              -- non-parametric
+            | 'data' ConName TyBinder* DataBody                         -- class-like (no :=)
+
+DataBody  ::= '{' ConField (';' ConField)* '}'                         -- GADT or class-like body
+            | ConDecl ('|' ConDecl)*                                    -- ADT shorthand
+
+ConField  ::= ConName ':' Type                            -- constructor (uppercase: full type sig)
+            | VarName ':' Type                             -- method (lowercase: field declaration)
+            | 'type' ConName TyBinder* '::' Kind          -- associated type declaration
+            | 'data' ConName TyBinder* '::' Kind          -- associated data declaration
 
 ConDecl   ::= ConName TypeAtom*
-GADTCon   ::= ConName '::' Type
 
-DeclType  ::= 'type' ConName TyBinder* ':=' Type              -- type alias
-            | 'type' ConName TyBinder* '::' ResultKind ':=' '{' TFEq (';' TFEq)* '}'  -- type family
-
-ResultKind ::= KindExpr                                       -- non-injective
-             | '(' TyVar '::' KindExpr ')' '|' DepList       -- injective
-
-DepList   ::= TyVar '=:' TyVar+
-
-TFEq      ::= ConName TypePattern* '=:' Type                   -- type family equation
+DeclType  ::= 'type' ConName '::' Kind ':=' Type           -- type alias or type family
 
 DeclFixity ::= ('infixl' | 'infixr' | 'infixn') Int Var
 
-DeclClass ::= 'class' Constraint* ConName TyVar+ ClassFunDep? '{' ClassMember (';' ClassMember)* '}'
-ClassMember ::= VarName '::' Type                              -- method
-              | 'type' ConName TyBinder* '::' ResultKind       -- associated type decl
-              | 'data' ConName TyBinder* '::' KindExpr         -- associated data decl
+DeclImpl  ::= 'impl' Constraint* ConName Type+ ':=' '{' ImplMember (';' ImplMember)* '}'
 
-ClassFunDep ::= '|' TyVar '=:' TyVar+ (',' TyVar '=:' TyVar+)*
+ImplMember ::= VarName ':=' Expr                            -- method definition
+             | 'type' ConName ':=' Type                     -- associated type definition
+             | 'data' ConName ':=' ConDecl ('|' ConDecl)*   -- associated data definition
+```
 
-DeclInstance ::= 'instance' Constraint* ConName Type+ '{' InstMember (';' InstMember)* '}'
-InstMember ::= VarName ':=' Expr                               -- method
-             | 'type' ConName TypePattern* '=:' Type            -- associated type def
-             | 'data' ConName TypePattern* '=:' ConDecl ('|' ConDecl)*  -- associated data def
+### 3.8.1 Unified `data` Declaration
+
+The `data` keyword serves three roles, distinguished by body structure:
+
+**ADT shorthand** — constructors separated by `|`, no braces:
+
+```
+data Bool := True | False
+data Maybe := \a. Just a | Nothing
+data List := \a. Cons a (List a) | Nil
+```
+
+**GADT-style** — braces with uppercase-named fields declaring full constructor types:
+
+```
+data Expr := \a. {
+  LitBool: Bool -> Expr Bool;
+  LitInt:  Int -> Expr Int;
+  If:      Expr Bool -> Expr a -> Expr a -> Expr a
+}
+```
+
+**Class-like** — braces with lowercase-named fields declaring method signatures. No `:=` before the body. Parameters appear after the name, not in a lambda:
+
+```
+data Eq a {
+  eq: a -> a -> Bool
+}
+
+data Functor (f: Type -> Type) {
+  fmap: \a b. (a -> b) -> f a -> f b
+}
+```
+
+Superclass constraints precede the body:
+
+```
+data Ord a Eq a => {
+  compare: a -> a -> Ordering
+}
+
+data Applicative (f: Type -> Type) Functor f => {
+  wrap: \a. a -> f a;
+  ap:   \a b. f (a -> b) -> f a -> f b
+}
+```
+
+Associated type and data declarations may appear inside the class-like body:
+
+```
+data Container c {
+  type Elem c :: Type;
+  cfold: \b. (Elem c -> b -> b) -> b -> c -> b
+}
+```
+
+### 3.8.2 `impl` Declaration
+
+`impl` provides definitions for a class-like `data` declaration. The `:=` before the body is required:
+
+```
+impl Eq Bool := {
+  eq := \x y. case x {
+    True  => case y { True => True; False => False };
+    False => case y { True => False; False => True }
+  }
+}
+
+impl Eq a => Eq (Maybe a) := {
+  eq := \x y. case (x, y) {
+    (Nothing, Nothing) => True;
+    (Just a, Just b)   => eq a b;
+    _                  => False
+  }
+}
+```
+
+Associated type definitions use `:=`:
+
+```
+impl Container (List a) := {
+  type Elem := a;
+  cfold := foldr
+}
+```
+
+Associated data definitions use `:=`:
+
+```
+impl Wrappable Int := {
+  data Wrapped := IntBox Int;
+  wrap := \n. IntBox n;
+  unwrap := \w. case w { IntBox n => n }
+}
 ```
 
 ## 3.9 Row Syntax
@@ -751,8 +843,8 @@ The exhaustiveness checker uses the Maranget algorithm. For GADTs, a constructor
 ```
 eval :: Expr Bool -> Bool
 eval := \e. case e {
-  BoolLit b -> b;
-  If c t f  -> ...
+  BoolLit b => b;
+  If c t f  => ...
 }
 -- IntLit is irrelevant: Expr Int does not unify with Expr Bool
 ```
@@ -765,26 +857,28 @@ For literal patterns on `Int`, `String`, and `Rune`, the type's value space is o
 
 ## 6.1 Declaration
 
+Type classes are declared using `data` with all-lowercase method fields:
+
 ```
-class <Constraint>* <Name> <tyvar>+ {
-  <method> :: <Type> ;
+data <Name> <tyvar>+ <Constraint>* {
+  <method>: <Type> ;
   ...
 }
 ```
 
-Superclass constraints precede the class name:
+Superclass constraints follow the parameters:
 
 ```
-class Eq a => Ord a {
-  compare :: a -> a -> Ordering
+data Ord a Eq a => {
+  compare: a -> a -> Ordering
 }
 ```
 
 Type class parameters may be kind-polymorphic:
 
 ```
-class Functor (f: k -> Type) {
-  fmap :: \a b. (a -> b) -> f a -> f b
+data Functor (f: Type -> Type) {
+  fmap: \a b. (a -> b) -> f a -> f b
 }
 ```
 
@@ -792,8 +886,10 @@ A type class `C` with `n` parameters has kind `T₁ -> ... -> Tₙ -> Constraint
 
 ## 6.2 Instance Declaration
 
+Instances are declared with `impl`:
+
 ```
-instance <Constraint>* <Name> <Type>+ {
+impl <Constraint>* <Name> <Type>+ := {
   <method> := <Expr> ;
   ...
 }
@@ -808,7 +904,7 @@ Type classes elaborate entirely to existing Core IR constructs. No new Core node
 **Class → Data Type + Selectors:**
 
 ```
-class Eq a { eq :: a -> a -> Bool }
+data Eq a { eq: a -> a -> Bool }
 -- elaborates to:
 data Eq$Dict a := Eq$MkDict (a -> a -> Bool)
 eq :: \a. Eq$Dict a -> a -> a -> Bool
@@ -819,7 +915,7 @@ A class with `n` methods and `m` superclasses produces a data type with one cons
 **Instance → Dictionary Value:**
 
 ```
-instance Eq Bool { eq := ... }
+impl Eq Bool := { eq := ... }
 -- elaborates to:
 eq$Bool :: Eq$Dict Bool
 eq$Bool := Eq$MkDict (...)
@@ -828,7 +924,7 @@ eq$Bool := Eq$MkDict (...)
 **Constrained Instance → Dictionary Function:**
 
 ```
-instance Eq a => Eq (Maybe a) { ... }
+impl Eq a => Eq (Maybe a) := { ... }
 -- elaborates to:
 eq$Maybe :: \a. Eq$Dict a -> Eq$Dict (Maybe a)
 ```
@@ -846,7 +942,7 @@ eq True False
 For a goal `C T₁ ... Tₙ`:
 
 1. Search all in-scope instances for `C`.
-2. For each instance `instance Ctx => C S₁ ... Sₙ`, attempt to unify `Tᵢ ~ Sᵢ`.
+2. For each `impl Ctx => C S₁ ... Sₙ`, attempt to unify `Tᵢ ~ Sᵢ`.
 3. Exactly one match → use it, recursively resolve context constraints.
 4. Zero matches → error. Multiple matches → error (no overlapping instances).
 
@@ -875,25 +971,25 @@ Eq ──→ Num ──→ Div   (in Prelude)
 
 17 type classes (1 in Core, 16 in Prelude):
 
-| Class         | Parameters                       | Key Methods                                                 |
-| ------------- | -------------------------------- | ----------------------------------------------------------- |
-| `IxMonad`     | `m: Row -> Row -> Type -> Type`  | `ixpure`, `ixbind` (Core)                                   |
-| `Eq`          | `a`                              | `eq :: a -> a -> Bool`                                      |
-| `Ord`         | `a` (requires Eq)                | `compare :: a -> a -> Ordering`                             |
-| `Num`         | `a` (requires Eq)                | `add`, `sub`, `mul`, `negate`                               |
-| `Div`         | `a` (requires Num)               | `div :: a -> a -> a`                                        |
-| `Show`        | `a`                              | `show :: a -> String`                                       |
-| `Semigroup`   | `a`                              | `append :: a -> a -> a`                                     |
-| `Monoid`      | `a` (requires Semigroup)         | `empty :: a`                                                |
-| `Functor`     | `f : k -> Type`                  | `fmap :: (a -> b) -> f a -> f b`                            |
-| `Foldable`    | `t`                              | `foldr :: (a -> b -> b) -> b -> t a -> b`                   |
-| `Applicative` | `f` (requires Functor)           | `wrap :: a -> f a`, `ap :: f (a -> b) -> f a -> f b`        |
-| `Alternative` | `f` (requires Applicative)       | `none :: f a`, `alt :: f a -> f a -> f a`                   |
-| `Monad`       | `m: Type -> Type`                | `mpure :: a -> m a`, `mbind :: m a -> (a -> m b) -> m b`    |
-| `Traversable` | `t` (requires Functor, Foldable) | `traverse :: Applicative f => (a -> f b) -> t a -> f (t b)` |
-| `Packed`      | `c`, `e` (fundep: c → e)         | `pack :: List e -> c`, `unpack :: c -> List e`              |
-| `FromList`    | `l` (assoc type: `Elem l`)       | `fromList :: List (Elem l) -> l`                            |
-| `ToList`      | `l` (requires FromList)          | `toList :: l -> List (Elem l)`                              |
+| Class         | Parameters                       | Key Methods                                                       |
+| ------------- | -------------------------------- | ----------------------------------------------------------------- |
+| `IxMonad`     | `m: Row -> Row -> Type -> Type`  | `ixpure`, `ixbind` (Core)                                         |
+| `Eq`          | `a`                              | `eq: a -> a -> Bool`                                              |
+| `Ord`         | `a` (requires Eq)                | `compare: a -> a -> Ordering`                                     |
+| `Num`         | `a` (requires Eq)                | `add`, `sub`, `mul`, `negate`                                     |
+| `Div`         | `a` (requires Num)               | `div: a -> a -> a`                                                |
+| `Show`        | `a`                              | `show: a -> String`                                               |
+| `Semigroup`   | `a`                              | `append: a -> a -> a`                                             |
+| `Monoid`      | `a` (requires Semigroup)         | `empty: a`                                                        |
+| `Functor`     | `f : Type -> Type`               | `fmap: \a b. (a -> b) -> f a -> f b`                              |
+| `Foldable`    | `t`                              | `foldr: \a b. (a -> b -> b) -> b -> t a -> b`                     |
+| `Applicative` | `f` (requires Functor)           | `wrap: \a. a -> f a`, `ap: \a b. f (a -> b) -> f a -> f b`        |
+| `Alternative` | `f` (requires Applicative)       | `none: \a. f a`, `alt: \a. f a -> f a -> f a`                     |
+| `Monad`       | `m: Type -> Type`                | `mpure: \a. a -> m a`, `mbind: \a b. m a -> (a -> m b) -> m b`    |
+| `Traversable` | `t` (requires Functor, Foldable) | `traverse: \f a b. Applicative f => (a -> f b) -> t a -> f (t b)` |
+| `Packed`      | `c`, `e`                         | `pack: List e -> c`, `unpack: c -> List e`                        |
+| `FromList`    | `l` (assoc type: `Elem l`)       | `fromList: List (Elem l) -> l`                                    |
+| `ToList`      | `l` (requires FromList)          | `toList: l -> List (Elem l)`                                      |
 
 `Num` and `Div` are type classes with instances for both `Int` and `Double`. Arithmetic operators `+`, `-`, `*` dispatch through `Num`; `/` dispatches through `Div`. Integer overflow wraps silently using Go's `int64` two's-complement semantics. Division by zero is a runtime error.
 
@@ -915,23 +1011,43 @@ Constraints do not affect the `pre`/`post` row structure.
 
 # 7. Algebraic Data Types
 
-## 7.1 ADT Syntax
+## 7.1 ADT Shorthand
+
+ADT shorthand uses `|`-separated constructors:
 
 ```
-data Maybe a := Just a | Nothing
-data List a := Cons a (List a) | Nil
+data Maybe := \a. Just a | Nothing
+data List := \a. Cons a (List a) | Nil
+data Ordering := LT | EQ | GT
+```
+
+Non-parametric ADTs omit the lambda:
+
+```
+data Bool := True | False
 data Ordering := LT | EQ | GT
 ```
 
 ## 7.2 GADT Syntax
 
-GADTs use `= {` to distinguish from regular ADTs:
+GADTs use `:= {` with full constructor type signatures. Each constructor declares its complete type including the return type:
 
 ```
-data Expr a := {
-  BoolLit :: Bool -> Expr Bool;
-  IntLit  :: Int -> Expr Int;
-  If      :: Expr Bool -> Expr a -> Expr a -> Expr a
+data Expr := \a. {
+  LitBool: Bool -> Expr Bool;
+  LitInt:  Int -> Expr Int;
+  If:      Expr Bool -> Expr a -> Expr a -> Expr a
+}
+```
+
+The arrow chain convention (Lean/Agda style) specifies constructor fields. The checker decomposes the full type signature to extract field types and return type.
+
+Nullary constructors declare their return type directly without arrows:
+
+```
+data List := \a. {
+  Nil:  List a;
+  Cons: a -> List a -> List a
 }
 ```
 
@@ -945,7 +1061,7 @@ GADT constructors may introduce type variables not appearing in the return type 
 
 ```
 data SomeEq := {
-  MkSomeEq :: \a. Eq a => a -> SomeEq
+  MkSomeEq: \a. Eq a => a -> SomeEq
 }
 ```
 
@@ -1031,7 +1147,7 @@ Record patterns are open (partial match permitted):
 ```
 \{ x: a, y: b }. a
 \{ x: a }. a                 -- other fields ignored
-case r { { x: a, y: b } -> a }
+case r { { x: a, y: b } => a }
 { x: n } := r                -- block binding destructuring
 ```
 
@@ -1107,8 +1223,8 @@ Recursion is opt-in. The host must call `EnableRecursion()` to permit recursive 
 
 ```
 rec fac := \n. case eq n 0 {
-  True -> 1;
-  False -> n * fac (n - 1)
+  True => 1;
+  False => n * fac (n - 1)
 }
 ```
 
@@ -1144,8 +1260,8 @@ The post-state of each step must match the pre-state of the next — ensured by 
 Effects are encoded as capability row patterns, not monad transformers:
 
 ```
-type Effect r a := Computation r r a     -- state-preserving computation
-type Suspended r a := Thunk r r a        -- state-preserving suspension
+type Effect :: Type := \r a. Computation r r a     -- state-preserving computation
+type Suspended :: Type := \r a. Thunk r r a        -- state-preserving suspension
 
 -- Maybe as effect: fromMaybe uses the fail capability
 fromMaybe :: \a r. Maybe a -> Computation { fail: () | r } { fail: () | r } a
@@ -1357,7 +1473,7 @@ eng.RegisterPrim("dbOpen", func(ctx context.Context, capEnv gicel.CapEnv, args [
 })
 
 // Stdlib packs
-eng.Use(gicel.Prelude)      // Num, Str, List (import Prelude)
+eng.Use(gicel.Prelude)      // Num/Str/List (import Prelude)
 eng.Use(gicel.EffectFail)   // fail capability (import Effect.Fail)
 eng.Use(gicel.EffectState)  // get/put capabilities (import Effect.State)
 eng.Use(gicel.EffectIO)     // print/debug via CapEnv buffer (import Effect.IO)
@@ -1445,12 +1561,12 @@ This is an internal refactoring with no user-visible changes. All programs type-
 
 ```
 data Bool := True | False
-data Maybe a := Just a | Nothing
-data List a := Cons a (List a) | Nil
+data Maybe := \a. Just a | Nothing
+data List := \a. Cons a (List a) | Nil
 data Ordering := LT | EQ | GT
-data Result e a := Ok a | Err e
+data Result := \e a. Ok a | Err e
 
-type Effect r a := Computation r r a
+type Effect :: Type := \r a. Computation r r a
 
 fst :: \a b. (a, b) -> a
 snd :: \a b. (a, b) -> b
@@ -1494,43 +1610,45 @@ Type families introduce type-level computation: functions from types to types, e
 
 ### 17.1.1 Standalone Closed Type Family
 
-A closed type family declares an ordered sequence of equations. Reduction proceeds top-to-bottom; the first matching equation wins.
+A closed type family is a `type` declaration whose body is a lambda containing a type-level `case`. Reduction proceeds top-to-bottom; the first matching alternative wins.
 
 ```
-type Name TyBinder* :: ResultKind := { Equation (; Equation)* }
+type Name :: ResultKind := \TyBinder+. case scrutinee { Alt (; Alt)* }
+
+Alt ::= TypePattern '=>' Type
 ```
 
-The `::` after parameters distinguishes type families from type aliases. Each equation repeats the family name.
+The `::` after the name provides the result kind. The body is a lambda over the parameters, with a `case` expression that dispatches on the scrutinee.
 
 ```
-type Elem (c: Type) :: Type := {
-  Elem (List a) =: a;
-  Elem (Slice a) =: a;
-  Elem String =: Rune
+type ElemOf :: Type := \(c: Type). case c {
+  List a  => a;
+  Slice a => a;
+  String  => Rune
 }
 ```
 
-**Reduction semantics**: For each equation, the checker attempts to match the arguments against the left-hand side patterns. On success, the result is the substituted right-hand side. On failure, the next equation is tried. On **indeterminate** match (unsolved metavariables), reduction is **stuck** — further equations are not tried. This prevents premature commitment when a metavariable may later unify with an earlier equation's pattern.
+**Reduction semantics**: For each alternative, the checker attempts to match the scrutinee against the left-hand side pattern. On success, the result is the substituted right-hand side. On failure, the next alternative is tried. On **indeterminate** match (unsolved metavariables), reduction is **stuck** — further alternatives are not tried. This prevents premature commitment when a metavariable may later unify with an earlier alternative's pattern.
 
 **Confluence**: guaranteed by ordered, first-match semantics. **Termination**: Non-recursive type families reduce in one step per application. Recursive type families use a shared step budget (default: 50,000 steps per compile session) and a type size bound (10,000 nodes per expression) to prevent exponential growth.
 
 ### 17.1.2 Associated Types
 
-A class body may declare associated type families (kind signature only). Instance bodies provide definitions (single equation each).
+A class-like `data` body may declare associated type families (kind signature only). `impl` bodies provide definitions using `:=`.
 
 ```
-class Container c {
+data Container c {
   type Elem c :: Type;
-  cfold :: \b. (Elem c -> b -> b) -> b -> c -> b
+  cfold: \b. (Elem c -> b -> b) -> b -> c -> b
 }
 
-instance Container (List a) {
-  type Elem (List a) =: a;
+impl Container (List a) := {
+  type Elem := a;
   cfold := foldr
 }
 
-instance Container String {
-  type Elem String =: Rune;
+impl Container String := {
+  type Elem := Rune;
   cfold := strFoldr
 }
 ```
@@ -1539,48 +1657,36 @@ Associated types elaborate to standalone type families whose equations are colle
 
 ### 17.1.3 Data Families
 
-A class body may declare associated data families (kind signature only). Instance bodies provide data type definitions, enabling per-instance representation.
+A class-like `data` body may declare associated data families (kind signature only). `impl` bodies provide data type definitions, enabling per-instance representation.
 
 ```
-class Collection c {
-  data Elem c :: Type;
-  insert :: Elem c -> c -> c
+data Collection c {
+  data Key c :: Type;
+  insert: Key c -> c -> c
 }
 
-instance Collection IntSet {
-  data Elem IntSet =: MkElem Int;
+impl Collection IntSet := {
+  data Key := MkKey Int;
   insert := intSetInsert
 }
 ```
 
-Data families are generative: `Elem IntSet` and `Elem CharSet` are distinct types even if both wrap the same representation.
+Data families are generative: `Key IntSet` and `Key CharSet` are distinct types even if both wrap the same representation.
 
-### 17.1.4 Functional Dependencies
+### 17.1.4 Injectivity Annotation
 
-Type class declarations may include functional dependencies after the class parameters, constraining instance resolution:
+A type family may declare its result injective via a named result binder with a type equality constraint:
 
 ```
-class Convert a b | a =: b {
-  convert :: a -> b
+type Effects :: Row := \(mode: AppMode). case mode {
+  ReadOnly  => { get: () -> String };
+  ReadWrite => { get: () -> String, put: String -> () }
 }
 ```
 
-`| a =: b` means: knowing `a` uniquely determines `b`. Multiple dependencies are comma-separated: `| a =: b, b =: a`. The checker rejects instances that violate the declared dependencies.
+Injectivity is verified at declaration time by pairwise comparison: if two alternatives' right-hand sides unify, their left-hand sides must also unify. Many natural type families (e.g., `ElemOf` where both `List Rune` and `String` map to `Rune`) are not injective.
 
-### 17.1.5 Injectivity Annotation
-
-A type family may declare its result injective via a named result binder with functional dependency:
-
-```
-type Effects (mode: AppMode) :: (r: Row) | r =: mode := {
-  Effects ReadOnly  =: { get: () -> String };
-  Effects ReadWrite =: { get: () -> String, put: String -> () }
-}
-```
-
-`| r =: mode` means the result uniquely determines the argument. Verified at declaration time by pairwise comparison: if two equations' right-hand sides unify, their left-hand sides must also unify. Many natural type families (e.g., `Elem` where both `List Rune` and `String` map to `Rune`) are not injective.
-
-### 17.1.6 Type-Level Pattern Matching
+### 17.1.5 Type-Level Pattern Matching
 
 | Pattern form           | Matches                     |
 | ---------------------- | --------------------------- |
@@ -1590,13 +1696,13 @@ type Effects (mode: AppMode) :: (r: Row) | r =: mode := {
 | Application `List a`   | Head match + recursive      |
 | Wildcard `_`           | Any type (non-binding)      |
 
-Nested patterns are supported: `Elem (List (Maybe a)) = Maybe a`.
+Nested patterns are supported: `List (Maybe a)` matches `List (Maybe Int)`, binding `a` to `Int`.
 
-### 17.1.7 Interaction with Existing Features
+### 17.1.6 Interaction with Existing Features
 
 **Row types**: Type families operate above rows. Row unification remains built-in. Type families can return row types but cannot pattern-match on row structure.
 
-**Evidence system**: Type families appearing inside evidence entries are reduced before instance search: `Eq (Elem (List Int))` reduces to `Eq Int`, then resolves normally.
+**Evidence system**: Type families appearing inside evidence entries are reduced before instance search: `Eq (ElemOf (List Int))` reduces to `Eq Int`, then resolves normally.
 
 **GADTs**: Type family reduction occurs during GADT refinement; the checker normalizes types before computing local equalities.
 
@@ -1604,7 +1710,7 @@ Nested patterns are supported: `Elem (List (Maybe a)) = Maybe a`.
 
 **Core IR**: Fully reduced at compile time. No `TyFamilyApp` survives into Core. No runtime representation.
 
-**Keyword count**: Remains 10. `type` is reused; `::` after parameters is the disambiguator.
+**Keyword count**: Remains 9. `type` is reused; `::` after the name is the disambiguator.
 
 ## 17.2 Multiplicity Annotations
 
@@ -1632,12 +1738,12 @@ Multiplicity annotations are checked by the type system but do not affect runtim
 The `LUB` (least upper bound) of multiplicities at branch join points can be computed via a type family:
 
 ```
-type LUB (m1: Mult) (m2: Mult) :: Mult := {
-  LUB Linear _ =: Linear;
-  LUB _ Linear =: Linear;
-  LUB Affine _ =: Affine;
-  LUB _ Affine =: Affine;
-  LUB Unrestricted Unrestricted =: Unrestricted
+type LUB :: Mult := \(m1: Mult) (m2: Mult). case (m1, m2) {
+  (Linear, _)                   => Linear;
+  (_, Linear)                   => Linear;
+  (Affine, _)                   => Affine;
+  (_, Affine)                   => Affine;
+  (Unrestricted, Unrestricted)  => Unrestricted
 }
 ```
 
@@ -1647,8 +1753,8 @@ The current specification requires all branches of a `case` expression to produc
 
 ```
 case cond {
-  True  -> consume handle;    -- post: { }
-  False -> pure ()            -- post: { h: Handle @Linear }
+  True  => consume handle;    -- post: { }
+  False => pure ()            -- post: { h: Handle @Linear }
 }
 -- joined post-state: LUB applied field-wise
 ```
@@ -1666,14 +1772,14 @@ The intersection of label sets determines the joined post-state. Labels present 
 Session types are encoded via the Atkey indexed monad without special syntax. Protocol states are regular type constructors; `@Linear` annotations on channel labels enforce usage discipline.
 
 ```
-data Send s := MkSend          -- send a value, continue as s
-data Recv s := MkRecv          -- receive a value, continue as s
-data End    := MkEnd            -- session complete
+data Send := \s. MkSend          -- send a value, continue as s
+data Recv := \s. MkRecv          -- receive a value, continue as s
+data End := MkEnd                -- session complete
 
-type Dual (s: Type) :: Type := {
-  Dual (Send s) =: Recv (Dual s);
-  Dual (Recv s) =: Send (Dual s);
-  Dual End      =: End
+type Dual :: Type := \(s: Type). case s {
+  Send s => Recv (Dual s);
+  Recv s => Send (Dual s);
+  End    => End
 }
 
 send  :: \s. Computation { ch: Send s @Linear } { ch: s @Linear } T
@@ -1697,13 +1803,13 @@ close :: Computation { ch: End @Linear } {} ()
 
 **(b)** follows from the parametric typing of `send` and `recv`. Type unification ensures that the type parameter of each operation matches the corresponding position in the protocol structure.
 
-**(c)** follows from the multiplicity enforcement (Phase 1–2). The `@Linear` annotation ensures that each same-type preservation occurs at most once; type-changing preservations (protocol transitions) are unrestricted. The `close` operation is the only primitive that consumes `ch` at `End`. Since `@Linear` capabilities cannot be silently dropped (row unification rejects post-states that lose annotated labels without consumption), a well-typed program that removes `ch` from its post-state must have executed `close`.
+**(c)** follows from the multiplicity enforcement (Phase 1-2). The `@Linear` annotation ensures that each same-type preservation occurs at most once; type-changing preservations (protocol transitions) are unrestricted. The `close` operation is the only primitive that consumes `ch` at `End`. Since `@Linear` capabilities cannot be silently dropped (row unification rejects post-states that lose annotated labels without consumption), a well-typed program that removes `ch` from its post-state must have executed `close`.
 
 ## 18.4 Duality Involution
 
 **Property.** `Dual (Dual S)` reduces to `S` for all closed protocol states `S`.
 
-This follows from the type family equations by structural induction on `S`. Each constructor pair (`Send`/`Recv`) is symmetric under double application of `Dual`, and `Dual End = End`.
+This follows from the type family alternatives by structural induction on `S`. Each constructor pair (`Send`/`Recv`) is symmetric under double application of `Dual`, and `Dual End` reduces to `End`.
 
 # 19. Potential Extensions
 
