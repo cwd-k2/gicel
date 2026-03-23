@@ -8,19 +8,46 @@ import (
 	"github.com/cwd-k2/gicel/internal/lang/types"
 )
 
-// processInstanceHeader validates and registers an instance.
-// Returns the instance info and a map of unevaluated method expressions.
-// The method map is consumed by processInstanceBody; it is not stored in InstanceInfo.
-func (ch *Checker) processInstanceHeaderLegacy(d *legacyDeclInstance) (*InstanceInfo, map[string]syntax.Expr) {
-	classInfo, ok := ch.reg.LookupClass(d.ClassName)
+// processImplHeader processes an impl declaration, validates and registers
+// the instance. Returns the instance info and a map of unevaluated method
+// expressions. The method map is consumed by processInstanceBody; it is not
+// stored in InstanceInfo.
+func (ch *Checker) processImplHeader(impl *syntax.DeclImpl) (*InstanceInfo, map[string]syntax.Expr) {
+	// Decompose the type annotation into class name and type args.
+	// impl Eq Bool := { ... }  →  Ann = TyExprApp(TyExprCon("Eq"), TyExprCon("Bool"))
+
+	// Peel off context constraints: impl (Eq a) => Ord a := { ... }
+	ann := impl.Ann
+	var contextExprs []syntax.TypeExpr
+	for {
+		if qual, ok := ann.(*syntax.TyExprQual); ok {
+			contextExprs = append(contextExprs, desugarConstraints(qual.Constraint)...)
+			ann = qual.Body
+		} else {
+			break
+		}
+	}
+
+	// Unwind application to get class name and type args.
+	className, syntaxTypeArgs := unwindTypeApp(ann)
+	if className == "" {
+		return nil, nil
+	}
+
+	// Extract methods and associated type definitions from the body.
+	bodyParts := extractImplBody(impl.Body)
+
+	// --- Instance validation and registration ---
+
+	classInfo, ok := ch.reg.LookupClass(className)
 	if !ok {
-		ch.addCodedError(diagnostic.ErrBadClass, d.S, fmt.Sprintf("unknown class: %s", d.ClassName))
+		ch.addCodedError(diagnostic.ErrBadClass, impl.S, fmt.Sprintf("unknown class: %s", className))
 		return nil, nil
 	}
 
 	// Resolve type arguments.
 	var typeArgs []types.Type
-	for _, ta := range d.TypeArgs {
+	for _, ta := range syntaxTypeArgs {
 		typeArgs = append(typeArgs, ch.resolveTypeExpr(ta))
 	}
 
@@ -28,7 +55,7 @@ func (ch *Checker) processInstanceHeaderLegacy(d *legacyDeclInstance) (*Instance
 
 	// Resolve context constraints.
 	var context []ConstraintInfo
-	for _, ctx := range d.Context {
+	for _, ctx := range contextExprs {
 		resolved := ch.resolveTypeExpr(ctx)
 		head, args := types.UnwindApp(resolved)
 		if con, ok := head.(*types.TyCon); ok {
@@ -38,18 +65,18 @@ func (ch *Checker) processInstanceHeaderLegacy(d *legacyDeclInstance) (*Instance
 
 	// Arity check: number of type arguments must match class parameter count.
 	if len(typeArgs) != len(classInfo.TyParams) {
-		ch.addCodedError(diagnostic.ErrBadInstance, d.S,
+		ch.addCodedError(diagnostic.ErrBadInstance, impl.S,
 			fmt.Sprintf("instance %s: expected %d type argument(s), got %d",
-				d.ClassName, len(classInfo.TyParams), len(typeArgs)))
+				className, len(classInfo.TyParams), len(typeArgs)))
 		return nil, nil
 	}
 
 	// Context well-formedness: each constraint in the instance context must reference a known class.
 	for _, ctx := range context {
 		if _, ok := ch.reg.LookupClass(ctx.ClassName); !ok {
-			ch.addCodedError(diagnostic.ErrBadInstance, d.S,
+			ch.addCodedError(diagnostic.ErrBadInstance, impl.S,
 				fmt.Sprintf("instance %s: context references unknown class %s",
-					d.ClassName, ctx.ClassName))
+					className, ctx.ClassName))
 			return nil, nil
 		}
 	}
@@ -57,7 +84,7 @@ func (ch *Checker) processInstanceHeaderLegacy(d *legacyDeclInstance) (*Instance
 	// Self-cycle detection: instance context must not require itself.
 	// e.g., `instance Eq a => Eq a` would cause infinite recursion.
 	for _, ctx := range context {
-		if ctx.ClassName == d.ClassName && len(ctx.Args) == len(typeArgs) {
+		if ctx.ClassName == className && len(ctx.Args) == len(typeArgs) {
 			selfCycle := true
 			for i := range ctx.Args {
 				if !types.Equal(ctx.Args[i], typeArgs[i]) {
@@ -66,38 +93,34 @@ func (ch *Checker) processInstanceHeaderLegacy(d *legacyDeclInstance) (*Instance
 				}
 			}
 			if selfCycle {
-				ch.addCodedError(diagnostic.ErrBadInstance, d.S,
+				ch.addCodedError(diagnostic.ErrBadInstance, impl.S,
 					fmt.Sprintf("instance %s: self-referential context (instance requires itself)",
-						d.ClassName))
+						className))
 				return nil, nil
 			}
 		}
 	}
 
 	// Build dict binding name: ClassName$TypeName (simplified naming)
-	dictName := ch.instanceDictName(d.ClassName, typeArgs)
+	dictName := ch.instanceDictName(className, typeArgs)
 
 	// Validate method set (missing / extra).
-	methodExprs := make(map[string]syntax.Expr)
-	for _, m := range d.Methods {
-		methodExprs[m.Name] = m.Expr
-	}
-	if !ch.validateInstanceMethods(d.ClassName, classInfo, d.Methods, methodExprs, d.S) {
+	if !ch.validateInstanceMethods(className, classInfo, bodyParts.Methods, impl.S) {
 		return nil, nil
 	}
 
 	inst := &InstanceInfo{
-		ClassName:    d.ClassName,
+		ClassName:    className,
 		TypeArgs:     typeArgs,
 		Context:      context,
 		DictBindName: dictName,
 		Module:       ch.scope.CurrentModule(),
-		S:            d.S,
+		S:            impl.S,
 	}
 
 	// Overlap check: verify no existing local instance for this class matches the same types.
 	// Imported instances are excluded: user source is allowed to shadow module instances.
-	for _, existing := range ch.reg.InstancesForClass(d.ClassName) {
+	for _, existing := range ch.reg.InstancesForClass(className) {
 		if existing == inst {
 			continue // same pointer (re-exported via module)
 		}
@@ -108,57 +131,63 @@ func (ch *Checker) processInstanceHeaderLegacy(d *legacyDeclInstance) (*Instance
 			continue
 		}
 		if ch.instancesOverlap(existing, inst) {
-			ch.addCodedError(diagnostic.ErrOverlap, d.S,
+			ch.addCodedError(diagnostic.ErrOverlap, impl.S,
 				fmt.Sprintf("overlapping instances for class %s: %s and %s",
-					d.ClassName, existing.DictBindName, dictName))
+					className, existing.DictBindName, dictName))
 			return nil, nil
 		}
 	}
 
 	// Process associated type definitions: convert to equations and append
 	// to the corresponding TypeFamilyInfo registered during class processing.
-	for _, atd := range d.AssocTypeDefs {
-		fam, ok := ch.reg.LookupFamily(atd.Name)
-		if !ok {
-			ch.addCodedError(diagnostic.ErrBadInstance, d.S,
-				fmt.Sprintf("instance %s: associated type %s not declared in class %s",
-					d.ClassName, atd.Name, d.ClassName))
+	for _, td := range bodyParts.TypeDefs {
+		if td.IsData || td.TypeDef == nil {
 			continue
 		}
-		if !fam.IsAssoc || fam.ClassName != d.ClassName {
-			ch.addCodedError(diagnostic.ErrBadInstance, d.S,
+		fam, ok := ch.reg.LookupFamily(td.Name)
+		if !ok {
+			ch.addCodedError(diagnostic.ErrBadInstance, impl.S,
+				fmt.Sprintf("instance %s: associated type %s not declared in class %s",
+					className, td.Name, className))
+			continue
+		}
+		if !fam.IsAssoc || fam.ClassName != className {
+			ch.addCodedError(diagnostic.ErrBadInstance, impl.S,
 				fmt.Sprintf("instance %s: %s is not an associated type of class %s",
-					d.ClassName, atd.Name, d.ClassName))
+					className, td.Name, className))
 			continue
 		}
 		// Arity check.
-		if len(atd.Patterns) != len(fam.Params) {
-			ch.addCodedError(diagnostic.ErrTypeFamilyEquation, atd.S,
+		if len(syntaxTypeArgs) != len(fam.Params) {
+			ch.addCodedError(diagnostic.ErrTypeFamilyEquation, td.S,
 				fmt.Sprintf("associated type %s expects %d argument(s), got %d",
-					atd.Name, len(fam.Params), len(atd.Patterns)))
+					td.Name, len(fam.Params), len(syntaxTypeArgs)))
 			continue
 		}
 		// Resolve patterns and RHS.
-		resolvedPats := make([]types.Type, len(atd.Patterns))
-		for i, pat := range atd.Patterns {
+		resolvedPats := make([]types.Type, len(syntaxTypeArgs))
+		for i, pat := range syntaxTypeArgs {
 			resolvedPats[i] = ch.resolveTypeExpr(pat)
 		}
-		resolvedRHS := ch.resolveTypeExpr(atd.RHS)
+		resolvedRHS := ch.resolveTypeExpr(td.TypeDef)
 		fam.Equations = append(fam.Equations, tfEquation{
 			Patterns: resolvedPats,
 			RHS:      resolvedRHS,
-			S:        atd.S,
+			S:        td.S,
 		})
 	}
 
 	// Process associated data family definitions: register constructors
 	// and create type family equations mapping the family to its mangled data type.
-	for _, add := range d.AssocDataDefs {
-		ch.processAssocDataDef(add, d.ClassName, d.S)
+	for _, td := range bodyParts.TypeDefs {
+		if !td.IsData || td.TypeDef == nil {
+			continue
+		}
+		ch.processAssocDataDef(td, syntaxTypeArgs, className, impl.S)
 	}
 
 	ch.reg.RegisterInstance(inst)
-	return inst, methodExprs
+	return inst, bodyParts.Methods
 }
 
 // instancesOverlap checks if two instances can match the same type arguments

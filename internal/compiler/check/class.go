@@ -33,23 +33,31 @@ func collectKindVars(k syntax.KindExpr, kindVars map[string]bool, params *[]stri
 func dictName(className string) string { return className + "$Dict" }
 
 // ClassInfo stores elaborated class information.
-// processClassDecl elaborates a class declaration into:
+// processClassDecl elaborates a class-like data declaration into:
 // 1. A DataDecl for the dictionary type
 // 2. Selector bindings for each method
-func (ch *Checker) processClassDecl(d *legacyDeclClass, prog *ir.Program) {
+func (ch *Checker) processClassDecl(d *syntax.DeclData, parts dataBodyParts, prog *ir.Program) {
 	dn := dictName(d.Name)
+
+	// Reject default method implementations (not yet supported).
+	for _, f := range parts.Fields {
+		if f.Default != nil {
+			ch.addCodedError(diagnostic.ErrBadClass, f.S,
+				"default method implementations are not yet supported in unified syntax")
+		}
+	}
 
 	// Collect implicit kind variables from type parameter kind annotations.
 	// e.g., class Functor (f: k -> Type) → kindParams = ["k"]
 	var kindParams []string
-	for _, p := range d.TyParams {
+	for _, p := range parts.Params {
 		collectKindVars(p.Kind, ch.reg.kindVars, &kindParams)
 	}
 
 	// Collect type parameters with their kinds (kind vars now in scope).
 	var tyParams []string
 	var tyParamKinds []types.Kind
-	for _, p := range d.TyParams {
+	for _, p := range parts.Params {
 		tyParams = append(tyParams, p.Name)
 		tyParamKinds = append(tyParamKinds, ch.resolveKindExpr(p.Kind))
 	}
@@ -57,7 +65,7 @@ func (ch *Checker) processClassDecl(d *legacyDeclClass, prog *ir.Program) {
 	// Process superclass constraints.
 	var supers []SuperInfo
 	var superFieldTypes []types.Type
-	for _, sup := range d.Supers {
+	for _, sup := range parts.Supers {
 		resolved := ch.resolveTypeExpr(sup)
 		head, args := types.UnwindApp(resolved)
 		if con, ok := head.(*types.TyCon); ok {
@@ -69,93 +77,38 @@ func (ch *Checker) processClassDecl(d *legacyDeclClass, prog *ir.Program) {
 
 	// Process associated type declarations before method signatures,
 	// so that associated type names are available during method type resolution.
+	// In unified syntax, associated types don't repeat class params — inject
+	// the class params so that the family is registered with the correct arity.
 	var assocTypeNames []string
-	for _, atd := range d.AssocTypes {
-		assocTypeNames = append(assocTypeNames, atd.Name)
+	for _, td := range parts.TypeDecls {
+		assocTypeNames = append(assocTypeNames, td.Name)
 		// Register as a type family with no equations yet (equations come from instances).
 		var atParams []TFParam
-		for _, p := range atd.Params {
+		for _, p := range parts.Params {
 			atParams = append(atParams, TFParam{Name: p.Name, Kind: ch.resolveKindExpr(p.Kind)})
 		}
-		resultKind := ch.resolveKindExpr(atd.ResultKind)
-		var deps []tfDep
-		for _, fd := range atd.Deps {
-			deps = append(deps, tfDep{From: fd.From, To: fd.To})
-		}
-		ch.reg.RegisterFamily(atd.Name, &TypeFamilyInfo{
-			Name:       atd.Name,
+		resultKind := ch.resolveKindExpr(td.KindAnn)
+		ch.reg.RegisterFamily(td.Name, &TypeFamilyInfo{
+			Name:       td.Name,
 			Params:     atParams,
 			ResultKind: resultKind,
-			ResultName: atd.ResultName,
-			Deps:       deps,
 			IsAssoc:    true,
 			ClassName:  d.Name,
 		})
 	}
 
-	// Process associated data family declarations.
-	// Data families are registered as type families (for Elem reduction)
-	// AND as data type placeholders (for constructor resolution).
-	for _, add := range d.AssocDataDecls {
-		assocTypeNames = append(assocTypeNames, add.Name)
-		var dfParams []TFParam
-		for _, p := range add.Params {
-			dfParams = append(dfParams, TFParam{Name: p.Name, Kind: ch.resolveKindExpr(p.Kind)})
-		}
-		resultKind := ch.resolveKindExpr(add.ResultKind)
-		ch.reg.RegisterFamily(add.Name, &TypeFamilyInfo{
-			Name:       add.Name,
-			Params:     dfParams,
-			ResultKind: resultKind,
-			IsAssoc:    true,
-			ClassName:  d.Name,
-		})
-		// Register the data family name as a type constructor.
-		var dfKind types.Kind = resultKind
-		for i := len(dfParams) - 1; i >= 0; i-- {
-			dfKind = &types.KArrow{From: dfParams[i].Kind, To: dfKind}
-		}
-		ch.reg.RegisterTypeKind(add.Name, dfKind)
-	}
-
-	// Process method signatures (after associated types/data families are registered).
+	// Process method signatures (after associated types are registered).
 	var methods []MethodInfo
 	var methodFieldTypes []types.Type
-	for _, m := range d.Methods {
-		methTy := ch.resolveTypeExpr(m.Type)
-		methods = append(methods, MethodInfo{Name: m.Name, Type: methTy})
+	for _, f := range parts.Fields {
+		methTy := ch.resolveTypeExpr(f.Type)
+		methods = append(methods, MethodInfo{Name: f.Label, Type: methTy})
 		methodFieldTypes = append(methodFieldTypes, methTy)
 	}
 
 	// Clean up kind variable scope.
 	for _, kv := range kindParams {
 		ch.reg.UnsetKindVar(kv)
-	}
-
-	// Elaborate functional dependencies: convert param names to indices.
-	paramIndex := make(map[string]int, len(tyParams))
-	for i, p := range tyParams {
-		paramIndex[p] = i
-	}
-	var funDeps []ClassFunDep
-	for _, fd := range d.FunDeps {
-		fromIdx, ok := paramIndex[fd.From]
-		if !ok {
-			ch.addCodedError(diagnostic.ErrBadClass, d.S,
-				fmt.Sprintf("class %s: functional dependency references unknown parameter %s", d.Name, fd.From))
-			continue
-		}
-		var toIdxs []int
-		for _, to := range fd.To {
-			toIdx, ok := paramIndex[to]
-			if !ok {
-				ch.addCodedError(diagnostic.ErrBadClass, d.S,
-					fmt.Sprintf("class %s: functional dependency references unknown parameter %s", d.Name, to))
-				continue
-			}
-			toIdxs = append(toIdxs, toIdx)
-		}
-		funDeps = append(funDeps, ClassFunDep{From: []int{fromIdx}, To: toIdxs})
 	}
 
 	// Store class info.
@@ -168,7 +121,6 @@ func (ch *Checker) processClassDecl(d *legacyDeclClass, prog *ir.Program) {
 		Methods:      methods,
 		DictName:     dn,
 		AssocTypes:   assocTypeNames,
-		FunDeps:      funDeps,
 	}
 	ch.reg.RegisterClass(d.Name, info)
 

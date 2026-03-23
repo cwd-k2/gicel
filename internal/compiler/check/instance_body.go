@@ -119,41 +119,44 @@ func (ch *Checker) instanceDictName(className string, typeArgs []types.Type) str
 
 // processAssocDataDef registers constructors for an associated data family definition
 // and creates the type family equation mapping the family to its mangled data type.
-func (ch *Checker) processAssocDataDef(add legacyAssocDataDef, className string, instSpan span.Span) {
-	fam, ok := ch.reg.LookupFamily(add.Name)
+//
+// The field is a syntax.ImplField with IsData=true; patterns come from the
+// instance's type arguments (already decomposed by the caller).
+func (ch *Checker) processAssocDataDef(field syntax.ImplField, patterns []syntax.TypeExpr, className string, instSpan span.Span) {
+	fam, ok := ch.reg.LookupFamily(field.Name)
 	if !ok {
 		ch.addCodedError(diagnostic.ErrBadInstance, instSpan,
 			fmt.Sprintf("instance %s: associated data %s not declared in class %s",
-				className, add.Name, className))
+				className, field.Name, className))
 		return
 	}
 	if !fam.IsAssoc || fam.ClassName != className {
 		ch.addCodedError(diagnostic.ErrBadInstance, instSpan,
 			fmt.Sprintf("instance %s: %s is not an associated data of class %s",
-				className, add.Name, className))
+				className, field.Name, className))
 		return
 	}
-	if len(add.Patterns) != len(fam.Params) {
-		ch.addCodedError(diagnostic.ErrTypeFamilyEquation, add.S,
+	if len(patterns) != len(fam.Params) {
+		ch.addCodedError(diagnostic.ErrTypeFamilyEquation, field.S,
 			fmt.Sprintf("associated data %s expects %d argument(s), got %d",
-				add.Name, len(fam.Params), len(add.Patterns)))
+				field.Name, len(fam.Params), len(patterns)))
 		return
 	}
 
 	// Resolve patterns.
-	resolvedPats := make([]types.Type, len(add.Patterns))
-	for i, pat := range add.Patterns {
+	resolvedPats := make([]types.Type, len(patterns))
+	for i, pat := range patterns {
 		resolvedPats[i] = ch.resolveTypeExpr(pat)
 	}
 
 	// Build the mangled data type name: FamilyName$Pattern1$Pattern2
-	mangledName := ch.mangledDataFamilyName(add.Name, resolvedPats)
+	mangledName := ch.mangledDataFamilyName(field.Name, resolvedPats)
 
 	// Register the mangled data type as a type constructor.
 	ch.reg.RegisterTypeKind(mangledName, types.KType{})
 
 	// Build result type for the mangled data type.
-	var mangledResultType types.Type = &types.TyCon{Name: mangledName, S: add.S}
+	var mangledResultType types.Type = &types.TyCon{Name: mangledName, S: field.S}
 
 	// Collect free vars from patterns (they become type params of the mangled data type).
 	patVars := collectPatternVars(resolvedPats)
@@ -162,8 +165,8 @@ func (ch *Checker) processAssocDataDef(add legacyAssocDataDef, className string,
 	for _, pv := range patVars {
 		mangledResultType = &types.TyApp{
 			Fun: mangledResultType,
-			Arg: &types.TyVar{Name: pv, S: add.S},
-			S:   add.S,
+			Arg: &types.TyVar{Name: pv, S: field.S},
+			S:   field.S,
 		}
 		// Update the registered kind to accept this parameter.
 		existingKind, _ := ch.reg.LookupTypeKind(mangledName)
@@ -173,37 +176,62 @@ func (ch *Checker) processAssocDataDef(add legacyAssocDataDef, className string,
 	dataInfo := &DataTypeInfo{Name: mangledName}
 	ch.reg.RegisterDataType(mangledName, dataInfo)
 
-	// Register each constructor.
-	for _, con := range add.Cons {
-		var conType types.Type = mangledResultType
-		var fieldTypes []types.Type
-		for i := len(con.Fields) - 1; i >= 0; i-- {
-			fieldTy := ch.resolveTypeExpr(con.Fields[i])
-			fieldTypes = append([]types.Type{fieldTy}, fieldTypes...)
-			conType = types.MkArrow(fieldTy, conType)
-		}
-		// Wrap in forall for pattern vars.
-		for i := len(patVars) - 1; i >= 0; i-- {
-			conType = types.MkForall(patVars[i], types.KType{}, conType)
-		}
-		// Guard against constructor name collision with existing constructors.
-		if existing, dup := ch.reg.LookupConType(con.Name); dup {
-			ch.addCodedError(diagnostic.ErrDuplicateDecl, con.S,
-				fmt.Sprintf("data family instance %s: constructor %s conflicts with existing constructor (type: %s)",
-					add.Name, con.Name, types.Pretty(existing)))
-			continue
-		}
-		ch.ctx.Push(&CtxVar{Name: con.Name, Type: conType, Module: ch.scope.CurrentModule()})
-		dataInfo.Constructors = append(dataInfo.Constructors, ConstructorInfo{Name: con.Name, Arity: len(fieldTypes)})
-		ch.reg.RegisterConstructor(con.Name, conType, ch.scope.CurrentModule(), dataInfo)
+	// Extract constructors directly from the TypeDef expression.
+	// The RHS is a type application chain: e.g., "ListElem a" → TyExprApp(TyExprCon("ListElem"), TyExprVar("a"))
+	conName, conFields := unwindImplDataCon(field.TypeDef)
+	if conName == "" {
+		return
 	}
+
+	// Register the constructor.
+	var conType types.Type = mangledResultType
+	var fieldTypes []types.Type
+	for i := len(conFields) - 1; i >= 0; i-- {
+		fieldTy := ch.resolveTypeExpr(conFields[i])
+		fieldTypes = append([]types.Type{fieldTy}, fieldTypes...)
+		conType = types.MkArrow(fieldTy, conType)
+	}
+	// Wrap in forall for pattern vars.
+	for i := len(patVars) - 1; i >= 0; i-- {
+		conType = types.MkForall(patVars[i], types.KType{}, conType)
+	}
+	// Guard against constructor name collision with existing constructors.
+	if existing, dup := ch.reg.LookupConType(conName); dup {
+		ch.addCodedError(diagnostic.ErrDuplicateDecl, field.S,
+			fmt.Sprintf("data family instance %s: constructor %s conflicts with existing constructor (type: %s)",
+				field.Name, conName, types.Pretty(existing)))
+		return
+	}
+	ch.ctx.Push(&CtxVar{Name: conName, Type: conType, Module: ch.scope.CurrentModule()})
+	dataInfo.Constructors = append(dataInfo.Constructors, ConstructorInfo{Name: conName, Arity: len(fieldTypes)})
+	ch.reg.RegisterConstructor(conName, conType, ch.scope.CurrentModule(), dataInfo)
 
 	// Add type family equation: Family patterns =: MangledType patVars
 	fam.Equations = append(fam.Equations, tfEquation{
 		Patterns: resolvedPats,
 		RHS:      mangledResultType,
-		S:        add.S,
+		S:        field.S,
 	})
+}
+
+// unwindImplDataCon extracts a constructor name and field types from an impl
+// data definition's RHS type expression. Returns ("", nil) if the head is
+// not a type constructor.
+func unwindImplDataCon(rhs syntax.TypeExpr) (string, []syntax.TypeExpr) {
+	var args []syntax.TypeExpr
+	t := rhs
+	for {
+		if app, ok := t.(*syntax.TyExprApp); ok {
+			args = append([]syntax.TypeExpr{app.Arg}, args...)
+			t = app.Fun
+		} else {
+			break
+		}
+	}
+	if con, ok := t.(*syntax.TyExprCon); ok {
+		return con.Name, args
+	}
+	return "", nil
 }
 
 // autoLiftTypeArgs applies automatic Lift wrapping to type arguments whose kinds
@@ -241,13 +269,12 @@ func (ch *Checker) autoLiftTypeArgs(typeArgs []types.Type, paramKinds []types.Ki
 func (ch *Checker) validateInstanceMethods(
 	className string,
 	classInfo *ClassInfo,
-	declMethods []legacyInstMethod,
-	methodExprs map[string]syntax.Expr,
+	methods map[string]syntax.Expr,
 	s span.Span,
 ) bool {
 	hasMissing := false
 	for _, m := range classInfo.Methods {
-		if _, ok := methodExprs[m.Name]; !ok {
+		if _, ok := methods[m.Name]; !ok {
 			ch.addCodedError(diagnostic.ErrMissingMethod, s,
 				fmt.Sprintf("instance %s: missing method %s", className, m.Name))
 			hasMissing = true
@@ -262,11 +289,11 @@ func (ch *Checker) validateInstanceMethods(
 		classMethodSet[m.Name] = true
 	}
 	hasExtra := false
-	for _, m := range declMethods {
-		if !classMethodSet[m.Name] {
+	for name := range methods {
+		if !classMethodSet[name] {
 			ch.addCodedError(diagnostic.ErrBadInstance, s,
 				fmt.Sprintf("instance %s: extra method %s not declared in class",
-					className, m.Name))
+					className, name))
 			hasExtra = true
 		}
 	}

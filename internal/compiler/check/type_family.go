@@ -7,6 +7,7 @@ import (
 	"github.com/cwd-k2/gicel/internal/compiler/check/family"
 	"github.com/cwd-k2/gicel/internal/infra/diagnostic"
 	"github.com/cwd-k2/gicel/internal/infra/span"
+	"github.com/cwd-k2/gicel/internal/lang/syntax"
 	"github.com/cwd-k2/gicel/internal/lang/types"
 )
 
@@ -14,8 +15,7 @@ import (
 type TypeFamilyInfo = family.TypeFamilyInfo
 type TFParam = family.TFParam
 
-// Lowercase aliases for types constructed in class.go/instance.go.
-type tfDep = family.TFDep
+// Lowercase alias for types constructed in class.go/instance.go.
 type tfEquation = family.TFEquation
 
 // collectPatternVars delegates to the family subpackage.
@@ -36,76 +36,72 @@ func (ch *Checker) matchTyPattern(pat, arg types.Type, subst map[string]types.Ty
 	return ch.familyEnv().MatchTyPattern(pat, arg, subst)
 }
 
-// processTypeFamily kind-checks and registers a type family declaration.
-func (ch *Checker) processTypeFamily(d *legacyDeclTypeFamily) {
+// processTypeFamilyDecl kind-checks and registers a closed type family from
+// its unified syntax components. Called from processTypeFamilyFromAlias after
+// extracting the case expression from the alias body.
+func (ch *Checker) processTypeFamilyDecl(
+	name string,
+	syntaxParams []syntax.TyBinder,
+	kindAnn syntax.KindExpr,
+	alts []syntax.TyAlt,
+	s span.Span,
+) {
 	// Check for duplicate.
-	if _, dup := ch.reg.LookupFamily(d.Name); dup {
-		ch.addCodedError(diagnostic.ErrDuplicateDecl, d.S,
-			fmt.Sprintf("duplicate type family: %s", d.Name))
+	if _, dup := ch.reg.LookupFamily(name); dup {
+		ch.addCodedError(diagnostic.ErrDuplicateDecl, s,
+			fmt.Sprintf("duplicate type family: %s", name))
 		return
 	}
-	if _, dup := ch.reg.LookupAlias(d.Name); dup {
-		ch.addCodedError(diagnostic.ErrDuplicateDecl, d.S,
-			fmt.Sprintf("type family %s conflicts with type alias of the same name", d.Name))
+	if _, dup := ch.reg.LookupAlias(name); dup {
+		ch.addCodedError(diagnostic.ErrDuplicateDecl, s,
+			fmt.Sprintf("type family %s conflicts with type alias of the same name", name))
 		return
 	}
 
 	// Resolve parameter kinds.
 	var params []TFParam
-	for _, p := range d.Params {
+	for _, p := range syntaxParams {
 		params = append(params, TFParam{Name: p.Name, Kind: ch.resolveKindExpr(p.Kind)})
 	}
 
 	// Resolve result kind.
-	resultKind := ch.resolveKindExpr(d.ResultKind)
+	resultKind := ch.resolveKindExpr(kindAnn)
 
-	// Elaborate dependencies.
-	var deps []tfDep
-	for _, fd := range d.Deps {
-		deps = append(deps, tfDep{From: fd.From, To: fd.To})
-	}
-
-	// Resolve equations.
+	// Resolve equations from case alternatives.
 	var equations []tfEquation
-	for _, eq := range d.Equations {
-		if eq.Name != d.Name {
-			ch.addCodedError(diagnostic.ErrTypeFamilyEquation, eq.S,
-				fmt.Sprintf("equation name %s does not match type family %s", eq.Name, d.Name))
-			continue
+	for _, alt := range alts {
+		patCount := 0
+		if alt.Pattern != nil {
+			patCount = countTupleArity(alt.Pattern)
 		}
-		if len(eq.Patterns) != len(params) {
-			ch.addCodedError(diagnostic.ErrTypeFamilyEquation, eq.S,
+		patterns := extractTFPatterns(alt.Pattern, patCount)
+
+		if len(patterns) != len(params) {
+			ch.addCodedError(diagnostic.ErrTypeFamilyEquation, alt.S,
 				fmt.Sprintf("type family %s expects %d arguments, equation has %d",
-					d.Name, len(params), len(eq.Patterns)))
+					name, len(params), len(patterns)))
 			continue
 		}
-		resolvedPats := make([]types.Type, len(eq.Patterns))
-		for i, pat := range eq.Patterns {
+		resolvedPats := make([]types.Type, len(patterns))
+		for i, pat := range patterns {
 			resolvedPats[i] = ch.resolveTypeExpr(pat)
 		}
-		resolvedRHS := ch.resolveTypeExpr(eq.RHS)
+		resolvedRHS := ch.resolveTypeExpr(alt.Body)
 		equations = append(equations, tfEquation{
 			Patterns: resolvedPats,
 			RHS:      resolvedRHS,
-			S:        eq.S,
+			S:        alt.S,
 		})
 	}
 
 	info := &TypeFamilyInfo{
-		Name:       d.Name,
+		Name:       name,
 		Params:     params,
 		ResultKind: resultKind,
-		ResultName: d.ResultName,
-		Deps:       deps,
 		Equations:  equations,
 	}
 
-	// Verify injectivity if declared.
-	if d.ResultName != "" {
-		ch.familyEnv().VerifyInjectivity(info)
-	}
-
-	ch.reg.RegisterFamily(d.Name, info)
+	ch.reg.RegisterFamily(name, info)
 }
 
 // familyEnv returns the cached family.ReduceEnv, constructing it on first use.

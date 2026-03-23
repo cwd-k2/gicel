@@ -100,7 +100,7 @@ func (p *declPipeline) registerClasses() {
 		if data, ok := d.(*syntax.DeclData); ok {
 			parts := p.decomposeData(data)
 			if isClassLikeData(parts) {
-				p.ch.processClassFromData(data, parts, p.prog)
+				p.ch.processClassDecl(data, parts, p.prog)
 			}
 		}
 	}
@@ -201,50 +201,18 @@ func (ch *Checker) processTypeAlias(d *syntax.DeclTypeAlias) {
 	ch.reg.RegisterAlias(d.Name, &AliasInfo{Params: params, ParamKinds: paramKinds, Body: body})
 }
 
-// processTypeFamilyFromAlias handles a DeclTypeAlias whose body contains a type-level case,
-// indicating a closed type family. Converts to legacyDeclTypeFamily and delegates.
+// processTypeFamilyFromAlias handles a DeclTypeAlias whose body contains a
+// type-level case, indicating a closed type family. Extracts the case
+// alternatives and delegates directly to processTypeFamilyDecl.
 func (ch *Checker) processTypeFamilyFromAlias(d *syntax.DeclTypeAlias) {
 	parts := decomposeTypeAliasBody(d.Body)
 
-	// Extract TyExprCase from the inner body.
 	caseExpr, ok := parts.Body.(*syntax.TyExprCase)
 	if !ok {
-		return // not a type family after all
+		return
 	}
 
-	// Build legacy type family params.
-	var params []syntax.TyBinder
-	params = append(params, parts.Params...)
-
-	// Build legacy equations from case alternatives.
-	var equations []legacyTFEquation
-	for _, alt := range caseExpr.Alts {
-		// Equation name is always the enclosing declaration name.
-		eqName := d.Name
-
-		// Determine pattern count: if the pattern is a tuple, use tuple arity;
-		// otherwise it's a single pattern.
-		patCount := 0
-		if alt.Pattern != nil {
-			patCount = countTupleArity(alt.Pattern)
-		}
-		patterns := extractTFPatterns(alt.Pattern, patCount)
-		equations = append(equations, legacyTFEquation{
-			Name:     eqName,
-			Patterns: patterns,
-			RHS:      alt.Body,
-			S:        alt.S,
-		})
-	}
-
-	legacy := &legacyDeclTypeFamily{
-		Name:       d.Name,
-		Params:     params,
-		ResultKind: d.KindAnn,
-		Equations:  equations,
-		S:          d.S,
-	}
-	ch.processTypeFamily(legacy)
+	ch.processTypeFamilyDecl(d.Name, parts.Params, d.KindAnn, caseExpr.Alts, d.S)
 }
 
 // countTupleArity returns the number of elements if the type expression is a tuple,
