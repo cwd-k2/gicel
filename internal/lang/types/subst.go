@@ -2,6 +2,7 @@ package types
 
 import (
 	"fmt"
+	"sort"
 	"sync/atomic"
 )
 
@@ -253,11 +254,26 @@ func substKindInTypeDepth(t Type, varName string, replacement Kind, depth int) T
 // Unlike sequential Subst calls, this performs a single pass:
 // all variables are replaced in one traversal, so substitution
 // values do not interfere with each other.
+// SubstMany performs simultaneous substitution of all variables in subs.
+// Because substitution is simultaneous (not sequential), the result is
+// independent of map iteration order for the substitution itself.
+// Capture-avoidance loops iterate in sorted key order to ensure
+// deterministic fresh name generation.
 func SubstMany(t Type, subs map[string]Type) Type {
 	if len(subs) == 0 {
 		return t
 	}
 	return substMany(t, subs, 0)
+}
+
+// sortedKeys returns the keys of a map in sorted order.
+func sortedKeys(m map[string]Type) []string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	return keys
 }
 
 func substMany(t Type, subs map[string]Type, depth int) Type {
@@ -299,8 +315,9 @@ func substMany(t Type, subs map[string]Type, depth int) Type {
 				return ty
 			}
 			// Capture avoidance: check if any replacement contains the bound variable.
-			for _, repl := range reduced {
-				if OccursIn(ty.Var, repl) {
+			// Sorted iteration ensures deterministic fresh name generation.
+			for _, k := range sortedKeys(reduced) {
+				if OccursIn(ty.Var, reduced[k]) {
 					fresh := freshName(ty.Var)
 					body := substDepth(ty.Body, ty.Var, &TyVar{Name: fresh}, depth+1)
 					body = substMany(body, reduced, depth+1)
@@ -313,9 +330,9 @@ func substMany(t Type, subs map[string]Type, depth int) Type {
 			}
 			return &TyForall{Var: ty.Var, Kind: ty.Kind, Body: newBody, S: ty.S}
 		}
-		// Not shadowed: check capture avoidance.
-		for _, repl := range subs {
-			if OccursIn(ty.Var, repl) {
+		// Not shadowed: check capture avoidance (sorted for deterministic freshName).
+		for _, k := range sortedKeys(subs) {
+			if OccursIn(ty.Var, subs[k]) {
 				fresh := freshName(ty.Var)
 				body := substDepth(ty.Body, ty.Var, &TyVar{Name: fresh}, depth+1)
 				body = substMany(body, subs, depth+1)

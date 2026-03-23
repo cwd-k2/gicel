@@ -3,7 +3,6 @@
 package check
 
 import (
-	"strings"
 	"testing"
 
 	"github.com/cwd-k2/gicel/internal/compiler/check/unify"
@@ -190,27 +189,16 @@ main := { r | x: False }
 	checkSource(t, source, config)
 }
 
-// TestProbeA_RowUnify_RecordAnnotationVsLiteralBareRow — demonstrates
-// that `{}` in type position is NOT equivalent to `Record {}`.
-// BUG: low — The bare `{}` and `{ l: T }` syntax in type position
-// produces a raw evidence row, not a `Record <row>`. Users must write
-// `Record { l: T }` in annotations. This is a syntax inconsistency:
-// `{}` in expression position creates `Record {}`, but `{}` in type
-// position does not. The only workaround is `()` for empty records
-// or `Record { ... }` for non-empty records.
+// TestProbeA_RowUnify_RecordAnnotationVsLiteralBareRow — bare `{}` in type
+// position now unifies with `Record {}` from expression position via
+// cross-case unification (bare row ↔ Record(row)).
 func TestProbeA_RowUnify_RecordAnnotationVsLiteralBareRow(t *testing.T) {
-	// This SHOULD work but doesn't: bare {} in type annotation.
-	// Unified syntax uses :: for type annotations (not :).
 	source := `
 f :: {} -> {}
 f := \x. x
 main := f {}
 `
-	// Known issue: bare {} in type position != Record {}.
-	errMsg := checkSourceExpectError(t, source, nil)
-	if !strings.Contains(errMsg, "Record") {
-		t.Logf("Error (known syntax inconsistency): %s", errMsg)
-	}
+	checkSource(t, source, nil)
 }
 
 // TestProbeA_RowUnify_RecordPatternExtraFields — matching a record with
