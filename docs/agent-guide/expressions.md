@@ -83,7 +83,6 @@ do {
 
 ```
 x + y                          -- operator syntax (if fixity is declared)
-x `plus` y                     -- backtick syntax for any binary function
 ```
 
 Wrap an operator in parentheses to use it as a first-class value:

@@ -125,8 +125,8 @@ process := do {
 suspended :: Thunk {} {} Bool
 suspended := thunk (pure True)
 
-resumed :: Computation {} {} Bool
-resumed := force suspended
+-- force returns a Computation — use inside do or as entry point
+main := force suspended
 ```
 
 ---
