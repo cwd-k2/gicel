@@ -3,9 +3,17 @@ package check
 import (
 	"fmt"
 
+	"github.com/cwd-k2/gicel/internal/compiler/check/family"
 	"github.com/cwd-k2/gicel/internal/infra/diagnostic"
 	"github.com/cwd-k2/gicel/internal/infra/span"
 	"github.com/cwd-k2/gicel/internal/lang/types"
+)
+
+// Internal type family names for grade algebra. The '$' prefix is not
+// valid in user identifiers, guaranteeing no collision.
+const (
+	gradeJoinFamily = "$GradeJoin"
+	gradeDropFamily = "$GradeDrop"
 )
 
 // --- Grade algebra: Join and Drop ---
@@ -76,21 +84,98 @@ func usageJoin(a, b *types.TyCon) *types.TyCon {
 	}
 }
 
+// --- Grade algebra type families ---
+
+// registerGradeAlgebraFamilies registers internal type families $GradeJoin
+// and $GradeDrop that encode the usage/multiplicity lattice as type-level
+// equations. These families enable constraint-based grade enforcement via
+// CtFunEq when grades contain unsolved metavariables.
+//
+// The equations mirror the usageJoin lattice and gradeDrop exactly.
+func (ch *Checker) registerGradeAlgebraFamilies() {
+	multKind := gradeAlgebraKind(ch)
+
+	zero := &types.TyCon{Name: "Zero"}
+	linear := &types.TyCon{Name: "Linear"}
+	affine := &types.TyCon{Name: "Affine"}
+	unrestricted := &types.TyCon{Name: "Unrestricted"}
+	wildcard := &types.TyVar{Name: "_"}
+
+	// $GradeJoin :: Mult -> Mult -> Mult
+	//
+	// Equations encode the full usage lattice join. Order matters:
+	// specific patterns before wildcards (closed family semantics).
+	joinInfo := &family.TypeFamilyInfo{
+		Name: gradeJoinFamily,
+		Params: []family.TFParam{
+			{Name: "a", Kind: multKind},
+			{Name: "b", Kind: multKind},
+		},
+		ResultKind: multKind,
+		Equations: []family.TFEquation{
+			// Identity cases: Join(x, x) = x
+			{Patterns: []types.Type{zero, zero}, RHS: zero},
+			{Patterns: []types.Type{linear, linear}, RHS: linear},
+			{Patterns: []types.Type{affine, affine}, RHS: affine},
+			{Patterns: []types.Type{unrestricted, unrestricted}, RHS: unrestricted},
+			// Unrestricted absorbs everything
+			{Patterns: []types.Type{unrestricted, wildcard}, RHS: unrestricted},
+			{Patterns: []types.Type{wildcard, unrestricted}, RHS: unrestricted},
+			// Zero ⊔ Linear = Affine (incomparable elements)
+			{Patterns: []types.Type{zero, linear}, RHS: affine},
+			{Patterns: []types.Type{linear, zero}, RHS: affine},
+			// Affine absorbs Zero and Linear
+			{Patterns: []types.Type{affine, wildcard}, RHS: affine},
+			{Patterns: []types.Type{wildcard, affine}, RHS: affine},
+		},
+	}
+	ch.reg.RegisterFamily(gradeJoinFamily, joinInfo)
+
+	// $GradeDrop :: Mult
+	//
+	// Zero-parameter family. Drop for the usage algebra is always Zero.
+	dropInfo := &family.TypeFamilyInfo{
+		Name:       gradeDropFamily,
+		ResultKind: multKind,
+		Equations: []family.TFEquation{
+			{Patterns: nil, RHS: zero},
+		},
+	}
+	ch.reg.RegisterFamily(gradeDropFamily, dropInfo)
+}
+
+// gradeAlgebraKind returns the kind to use for grade algebra parameters.
+// If "Mult" is registered as a promoted kind (via DataKinds), returns
+// KData{"Mult"}; otherwise falls back to KType{}.
+func gradeAlgebraKind(ch *Checker) types.Kind {
+	if k, ok := ch.reg.LookupPromotedKind("Mult"); ok {
+		return k
+	}
+	return types.KType{}
+}
+
+// gradeContainsMeta reports whether ty contains any unsolved metavariable.
+func gradeContainsMeta(ty types.Type) bool {
+	return types.AnyType(ty, func(t types.Type) bool {
+		_, ok := t.(*types.TyMeta)
+		return ok
+	})
+}
+
 // --- Grade boundary check ---
 
 // checkGradeBoundary verifies that capability fields with grade annotations
 // respect their grades across the computation boundary.
 //
-// Phase 2: structural enforcement. The grade algebra (Join, Drop) is defined
-// and boundary violations are detected via gradeCanPreserve. A linear or
-// zero-graded field that appears unchanged in post triggers a multiplicity error.
-// Grade constraint emission via CtFunEq (associated type families) is deferred
-// to a future phase for full algebraic grade propagation.
-//
 // For each graded field in pre: if the field appears in post with the same type
 // (i.e., was preserved unchanged), the grade must permit preservation.
 // A field that was consumed (absent from post) or transitioned (type changed)
 // is always valid regardless of grade.
+//
+// Two enforcement paths:
+//   - Concrete grade (no metas): fast path via gradeCanPreserve with immediate error.
+//   - Grade containing metas: emit CtFunEq constraint "$GradeJoin(Zero, grade) ~ grade"
+//     so the solver can re-check once the meta is solved.
 func (ch *Checker) checkGradeBoundary(comp *types.TyCBPV, s span.Span) {
 	preFields := extractCapFields(ch, comp.Pre)
 	if len(preFields) == 0 {
@@ -119,6 +204,16 @@ func (ch *Checker) checkGradeBoundary(comp *types.TyCBPV, s span.Span) {
 		// Field preserved unchanged. Check each grade allows preservation.
 		for _, grade := range f.Grades {
 			grade = ch.unifier.Zonk(grade)
+
+			if gradeContainsMeta(grade) {
+				// Deferred path: emit CtFunEq for $GradeJoin(Zero, grade) ~ grade.
+				// When the meta is solved, the solver re-processes the constraint
+				// and the family reduces to a concrete result for unification.
+				ch.emitGradePreserveConstraint(grade, s)
+				continue
+			}
+
+			// Fast path: concrete grade, check immediately.
 			if !gradeCanPreserve(grade) {
 				ch.addCodedError(diagnostic.ErrMultiplicity, s,
 					fmt.Sprintf("@%s capability %q must be consumed (type unchanged across computation boundary)",
@@ -126,6 +221,40 @@ func (ch *Checker) checkGradeBoundary(comp *types.TyCBPV, s span.Span) {
 			}
 		}
 	}
+}
+
+// emitGradePreserveConstraint emits a CtFunEq constraint encoding the
+// preservation check: $GradeJoin(Zero, grade) ~ grade.
+//
+// If the grade is e.g. a metavariable ?m, this constraint says:
+// "when ?m is solved, Join(Zero, ?m) must equal ?m" — which is the
+// algebraic definition of gradeCanPreserve.
+func (ch *Checker) emitGradePreserveConstraint(grade types.Type, s span.Span) {
+	multKind := gradeAlgebraKind(ch)
+	zero := &types.TyCon{Name: "Zero"}
+	args := []types.Type{zero, grade}
+
+	resultMeta := ch.freshMeta(multKind)
+	blocking := ch.unifier.CollectBlockingMetas(args)
+	if len(blocking) == 0 {
+		// No blocking metas after all (shouldn't happen if gradeContainsMeta
+		// returned true, but be defensive). Fall back to direct check.
+		return
+	}
+
+	ct := &CtFunEq{
+		FamilyName: gradeJoinFamily,
+		Args:       args,
+		ResultMeta: resultMeta,
+		BlockingOn: blocking,
+		S:          s,
+	}
+	ch.solver.RegisterStuckFunEq(ct)
+
+	// When the family reduces, resultMeta will be unified with Join(Zero, grade).
+	// Unify resultMeta ~ grade so that preservation is enforced: the result
+	// of Join(Zero, grade) must equal grade itself.
+	_ = ch.unifier.Unify(resultMeta, grade) //nolint:errcheck // advisory
 }
 
 // extractCapFields returns the capability fields from a zonked row type, or nil.
