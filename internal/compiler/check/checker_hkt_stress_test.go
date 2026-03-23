@@ -126,7 +126,7 @@ func TestStressPolyKindedClassManyInstances(t *testing.T) {
 	var sb strings.Builder
 	// Build 10 data types: D0, D1, ..., D9, each with a type parameter
 	for i := 0; i < 10; i++ {
-		fmt.Fprintf(&sb, "data D%d a := MkD%d a\n", i, i)
+		fmt.Fprintf(&sb, "data D%d := \\a. { MkD%d: a -> D%d a; }\n", i, i, i)
 	}
 	// Poly-kinded Functor
 	sb.WriteString("\ndata Functor := \\(f: k -> Type). {\n")

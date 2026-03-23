@@ -215,7 +215,7 @@ func TestStressManyContextualInstances(t *testing.T) {
 
 	// 8 wrapper types, each with a contextual Eq instance.
 	for i := range 8 {
-		sb.WriteString(fmt.Sprintf("data W%d a := MkW%d a\n", i, i))
+		sb.WriteString(fmt.Sprintf("data W%d := \\a. { MkW%d: a -> W%d a; }\n", i, i, i))
 		sb.WriteString(fmt.Sprintf("impl Eq a => Eq (W%d a) { eq := \\x y. True }\n\n", i))
 	}
 

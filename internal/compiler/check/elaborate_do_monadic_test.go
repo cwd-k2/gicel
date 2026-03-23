@@ -20,7 +20,7 @@ data IxMonad := \(m: Row -> Row -> Type -> Type). {
   ixpure: \a (r: Row). a -> m r r a;
   ixbind: \a b (r1: Row) (r2: Row) (r3: Row). m r1 r2 a -> (a -> m r2 r3 b) -> m r1 r3 b
 }
-data MyIx (pre: Row) (post: Row) a := MkMyIx a
+data MyIx := \(pre: Row) (post: Row) a. { MkMyIx: a -> MyIx pre post a; }
 _myIxPure :: \a (r: Row). a -> MyIx r r a
 _myIxPure := assumption
 _myIxBind :: \a b (r1: Row) (r2: Row) (r3: Row). MyIx r1 r2 a -> (a -> MyIx r2 r3 b) -> MyIx r1 r3 b
@@ -43,7 +43,7 @@ data IxMonad := \(m: Row -> Row -> Type -> Type). {
   ixpure: \a (r: Row). a -> m r r a;
   ixbind: \a b (r1: Row) (r2: Row) (r3: Row). m r1 r2 a -> (a -> m r2 r3 b) -> m r1 r3 b
 }
-data MyIx (pre: Row) (post: Row) a := MkMyIx a
+data MyIx := \(pre: Row) (post: Row) a. { MkMyIx: a -> MyIx pre post a; }
 _myIxPure :: \a (r: Row). a -> MyIx r r a
 _myIxPure := assumption
 _myIxBind :: \a b (r1: Row) (r2: Row) (r3: Row). MyIx r1 r2 a -> (a -> MyIx r2 r3 b) -> MyIx r1 r3 b

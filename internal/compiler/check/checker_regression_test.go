@@ -133,8 +133,8 @@ func TestRegressionInjectivityNonTypeKind(t *testing.T) {
 	// Session is a promoted data kind. Dual maps Session -> Session
 	// and is injective.
 	source := `
-data Session := { Send: Session; Recv: Session; End: (); }
-Dual (s: Session) :: (r: Session) | r => s := {
+data Session := { Send: Session; Recv: Session; End: Session; }
+type Dual :: Session := \(s: Session). case s {
   (Send s) => Recv (Dual s);
   (Recv s) => Send (Dual s);
   End => End
@@ -148,8 +148,8 @@ Dual (s: Session) :: (r: Session) | r => s := {
 func TestRegressionInjectivityNonTypeKindViolation(t *testing.T) {
 	// Both equations map to End, but from different LHS patterns.
 	source := `
-data Session := { Send: Session; Recv: Session; End: (); }
-Bad (s: Session) :: (r: Session) | r => s := {
+data Session := { Send: Session; Recv: Session; End: Session; }
+type Bad :: Session := \(s: Session). case s {
   (Send s) => End;
   (Recv s) => End
 }

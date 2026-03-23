@@ -289,7 +289,7 @@ func TestPerformanceFunDepManyInstances(t *testing.T) {
 	}
 
 	// Define a class with a fundep (fundep syntax silently consumed by parser).
-	sb.WriteString("data Assoc := \\a b | a =: b. {\n")
+	sb.WriteString("data Assoc := \\a b. {\n")
 	sb.WriteString("  assocGet: a -> b\n")
 	sb.WriteString("}\n")
 
