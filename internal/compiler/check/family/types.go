@@ -46,15 +46,6 @@ func (f *TypeFamilyInfo) Clone() *TypeFamilyInfo {
 	return &cp
 }
 
-// CloneFamilies returns a new map with cloned TypeFamilyInfo values.
-func CloneFamilies(m map[string]*TypeFamilyInfo) map[string]*TypeFamilyInfo {
-	out := make(map[string]*TypeFamilyInfo, len(m))
-	for k, v := range m {
-		out[k] = v.Clone()
-	}
-	return out
-}
-
 // MatchResult classifies the outcome of type-level pattern matching.
 type MatchResult int
 

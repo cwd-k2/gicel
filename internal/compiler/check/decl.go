@@ -24,17 +24,29 @@ import (
 // Phases 1-5.6 must complete before 6+. Phase 7.5 depends on 4-5.6.
 // Phase 8 depends on 7.5 (open-scope instance resolution).
 type declPipeline struct {
-	ch           *Checker
-	decls        []syntax.Decl
-	prog         *ir.Program
-	annotations  map[string]types.Type
-	instances    []*InstanceInfo
-	methodBodies map[*InstanceInfo]map[string]syntax.Expr // instance → unevaluated method exprs (pipeline-local)
+	ch            *Checker
+	decls         []syntax.Decl
+	prog          *ir.Program
+	annotations   map[string]types.Type
+	instances     []*InstanceInfo
+	methodBodies  map[*InstanceInfo]map[string]syntax.Expr // instance → unevaluated method exprs (pipeline-local)
+	dataBodyCache map[*syntax.DeclData]dataBodyParts       // shared decomposition results
 }
 
 func (ch *Checker) checkDecls(decls []syntax.Decl) *ir.Program {
-	p := &declPipeline{ch: ch, decls: decls, prog: &ir.Program{}}
+	p := &declPipeline{ch: ch, decls: decls, prog: &ir.Program{}, dataBodyCache: make(map[*syntax.DeclData]dataBodyParts)}
 	return p.run()
+}
+
+// decomposeData returns the decomposed body parts for a data declaration,
+// caching the result to avoid repeated decomposition across pipeline phases.
+func (p *declPipeline) decomposeData(d *syntax.DeclData) dataBodyParts {
+	if parts, ok := p.dataBodyCache[d]; ok {
+		return parts
+	}
+	parts := decomposeDataBody(d.Body)
+	p.dataBodyCache[d] = parts
+	return parts
 }
 
 func (p *declPipeline) run() *ir.Program {
@@ -59,7 +71,10 @@ func (p *declPipeline) run() *ir.Program {
 func (p *declPipeline) registerTypes() {
 	for _, d := range p.decls {
 		if data, ok := d.(*syntax.DeclData); ok {
-			p.ch.processDataDecl(data, p.prog)
+			parts := p.decomposeData(data)
+			if !isClassLikeData(parts) {
+				p.ch.processDataDeclParts(data, parts, p.prog)
+			}
 		}
 	}
 	for _, d := range p.decls {
@@ -83,7 +98,7 @@ func (p *declPipeline) registerClasses() {
 	// Process class-like data declarations (data with all-lowercase fields).
 	for _, d := range p.decls {
 		if data, ok := d.(*syntax.DeclData); ok {
-			parts := decomposeDataBody(data.Body)
+			parts := p.decomposeData(data)
 			if isClassLikeData(parts) {
 				p.ch.processClassFromData(data, parts, p.prog)
 			}

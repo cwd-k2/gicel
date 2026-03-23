@@ -13,8 +13,7 @@ import (
 
 // ReduceEnv provides the checker capabilities needed for type family operations.
 type ReduceEnv struct {
-	Families     map[string]*TypeFamilyInfo                // primary map (Registry)
-	LookupFamily func(name string) (*TypeFamilyInfo, bool) // fallback lookup (includes Scope injections)
+	LookupFamily func(name string) (*TypeFamilyInfo, bool) // family lookup (includes Scope injections)
 	Budget       *budget.CheckBudget
 	Unifier      *unify.Unifier
 	FreshMeta    func(k types.Kind) *types.TyMeta
@@ -26,14 +25,9 @@ type ReduceEnv struct {
 	RegisterStuckFn func(name string, args []types.Type, resultKind types.Kind, s span.Span) *types.TyMeta
 }
 
-// lookupFamily returns the TypeFamilyInfo for name. Prefers LookupFamily
-// callback if set (includes Scope injections), otherwise falls back to Families map.
+// lookupFamily returns the TypeFamilyInfo for name via the LookupFamily callback.
 func (e *ReduceEnv) lookupFamily(name string) (*TypeFamilyInfo, bool) {
-	if e.LookupFamily != nil {
-		return e.LookupFamily(name)
-	}
-	fam, ok := e.Families[name]
-	return fam, ok
+	return e.LookupFamily(name)
 }
 
 // maxReductionTypeSize is the maximum allowed size (node count) of a type

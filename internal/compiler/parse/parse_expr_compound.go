@@ -103,10 +103,11 @@ func (p *Parser) parseBlock() syn.Expr {
 		}
 	}
 
-	// Check for record update: expr | field = val, ...
-	// We need to detect this by trying to parse an expression, then checking for |.
-	// For simplicity, handle the case where the record is a single variable or expression.
-	// Attempt: if after parsing the first expression we see |, it's a record update.
+	// Check for record update with complex expression: { expr | field = val, ... }
+	// The simple lower-name case is handled above with a 2-token lookahead.
+	// For general expressions (applications, projections, etc.) we must speculatively
+	// parse the full expression to find | — fixed lookahead cannot determine where
+	// a variable-length expression ends.
 	var updateExpr syn.Expr
 	p.speculate(func() bool {
 		firstExpr := p.parseExpr()

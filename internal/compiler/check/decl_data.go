@@ -6,15 +6,9 @@ import (
 	"github.com/cwd-k2/gicel/internal/lang/types"
 )
 
-func (ch *Checker) processDataDecl(d *syntax.DeclData, prog *ir.Program) {
-	// Decompose the unified syntax body into parts.
-	parts := decomposeDataBody(d.Body)
-
-	// Skip class-like data declarations — they're processed in registerClasses.
-	if isClassLikeData(parts) {
-		return
-	}
-
+// processDataDeclParts registers a data type from pre-decomposed body parts.
+// Class-like data declarations must be filtered out by the caller.
+func (ch *Checker) processDataDeclParts(d *syntax.DeclData, parts dataBodyParts, prog *ir.Program) {
 	// Resolve parameter kinds.
 	paramKinds := make([]types.Kind, len(parts.Params))
 	for i, p := range parts.Params {
