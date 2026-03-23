@@ -138,12 +138,14 @@ func (ch *Checker) joinGrades(result *types.RowField, other []types.Type, s span
 		return // keep result grades
 	}
 
-	// Both annotated: join pairwise. Try LUB type family, fall back to unification.
-	n := len(result.Grades)
-	if len(other) < n {
-		n = len(other)
+	// Both annotated: grade counts must match.
+	if len(result.Grades) != len(other) {
+		ch.addCodedError(diagnostic.ErrTypeMismatch, s,
+			fmt.Sprintf("grade count mismatch for %s: %d vs %d",
+				result.Label, len(result.Grades), len(other)))
+		return
 	}
-	for i := 0; i < n; i++ {
+	for i := range result.Grades {
 		lubResult, ok := ch.reduceTyFamily("LUB", []types.Type{result.Grades[i], other[i]}, s)
 		if ok {
 			result.Grades[i] = lubResult

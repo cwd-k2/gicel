@@ -430,31 +430,35 @@ func substQuantifiedConstraint(qc *QuantifiedConstraint, varName string, replace
 	if depth > maxTraversalDepth {
 		return qc
 	}
-	// Capture avoidance: check if any bound var appears free in replacement.
+	// Capture avoidance: rename bound vars that appear free in replacement
+	// BEFORE substituting, so the rename does not corrupt the replacement.
 	vars := make([]ForallBinder, len(qc.Vars))
 	copy(vars, qc.Vars)
+
+	// Step 1: Determine which bound vars need freshening.
+	ctx := make([]ConstraintEntry, len(qc.Context))
+	copy(ctx, qc.Context)
+	head := qc.Head
+
 	for i, v := range vars {
 		if OccursIn(v.Name, replacement) {
 			fresh := freshName(v.Name)
-			// Rename this bound var in context and head.
 			vars[i] = ForallBinder{Name: fresh, Kind: v.Kind}
 			*changed = true
+			// Step 2: Rename the bound variable in context and head BEFORE substitution.
+			for j := range ctx {
+				ctx[j] = renameInConstraintEntry(ctx[j], v.Name, fresh, depth+1)
+			}
+			head = renameInConstraintEntry(head, v.Name, fresh, depth+1)
 		}
 	}
-	ctx := make([]ConstraintEntry, len(qc.Context))
-	for i, c := range qc.Context {
+
+	// Step 3: Now substitute — the renamed body no longer shadows the replacement.
+	for i, c := range ctx {
 		ctx[i] = substConstraintEntry(c, varName, replacement, changed, depth+1)
 	}
-	head := substConstraintEntry(qc.Head, varName, replacement, changed, depth+1)
-	// Also apply renames from capture avoidance.
-	for i, orig := range qc.Vars {
-		if vars[i].Name != orig.Name {
-			for j := range ctx {
-				ctx[j] = renameInConstraintEntry(ctx[j], orig.Name, vars[i].Name, depth+1)
-			}
-			head = renameInConstraintEntry(head, orig.Name, vars[i].Name, depth+1)
-		}
-	}
+	head = substConstraintEntry(head, varName, replacement, changed, depth+1)
+
 	return &QuantifiedConstraint{Vars: vars, Context: ctx, Head: head}
 }
 

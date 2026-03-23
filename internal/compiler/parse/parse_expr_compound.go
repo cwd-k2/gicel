@@ -128,6 +128,7 @@ func (p *Parser) parseBlock() syn.Expr {
 	var binds []syn.AstBind
 	var typeDefs []syn.ImplField
 	for p.peek().Kind == syn.TokLower || p.peek().Kind == syn.TokType || p.peek().Kind == syn.TokData {
+		bindStart := p.peek().S.Start
 		saved := p.pos
 
 		// Parse type/data associated definitions in impl bodies.
@@ -173,7 +174,7 @@ func (p *Parser) parseBlock() syn.Expr {
 			expr := p.parseExpr()
 			binds = append(binds, syn.AstBind{
 				Var: name, Expr: expr,
-				S: span.Span{Start: span.Pos(saved), End: p.prevEnd()},
+				S: span.Span{Start: bindStart, End: p.prevEnd()},
 			})
 			if p.peek().Kind == syn.TokSemicolon {
 				p.advance()

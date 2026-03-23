@@ -176,16 +176,6 @@ func TestLabels(t *testing.T) {
 	}
 }
 
-func TestHasLabel(t *testing.T) {
-	r := ClosedRow(RowField{Label: "x", Type: Con("Int")})
-	if !hasLabel(r, "x") {
-		t.Error("expected hasLabel(x) = true")
-	}
-	if hasLabel(r, "y") {
-		t.Error("expected hasLabel(y) = false")
-	}
-}
-
 func TestExtendRow(t *testing.T) {
 	r := ClosedRow(RowField{Label: "x", Type: Con("Int")})
 	r2, err := ExtendRow(r, RowField{Label: "y", Type: Con("Bool")})

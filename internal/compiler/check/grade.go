@@ -62,13 +62,12 @@ func usageJoin(a, b *types.TyCon) *types.TyCon {
 		x, y = y, x
 	}
 
-	// Sorted pairs: (Affine,Linear), (Affine,Unrestricted), (Affine,Zero),
-	//               (Linear,Unrestricted), (Linear,Zero), (Unrestricted,Zero)
+	// After sort: x <= y alphabetically.
+	// Affine < Linear < Unrestricted < Zero
 	switch {
-	case x == "Unrestricted" || y == "Unrestricted":
+	case y == "Unrestricted":
 		return &types.TyCon{Name: "Unrestricted"}
 	case x == "Affine" || y == "Affine":
-		// Affine joined with anything except Unrestricted = Affine (handled above)
 		return &types.TyCon{Name: "Affine"}
 	case (x == "Linear" && y == "Zero") || (x == "Zero" && y == "Linear"):
 		return &types.TyCon{Name: "Affine"}

@@ -17,16 +17,6 @@ func Labels(r *TyEvidenceRow) map[string]struct{} {
 	return m
 }
 
-// hasLabel checks if a label exists in a capability evidence row.
-func hasLabel(r *TyEvidenceRow, label string) bool {
-	for _, f := range r.CapFields() {
-		if f.Label == label {
-			return true
-		}
-	}
-	return false
-}
-
 // ExtendRow adds a field to a capability evidence row, maintaining sorted order.
 func ExtendRow(r *TyEvidenceRow, f RowField) (*TyEvidenceRow, error) {
 	fields := r.CapFields()

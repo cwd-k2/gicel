@@ -267,7 +267,10 @@ func (ch *Checker) processClassFromData(d *syntax.DeclData, parts dataBodyParts,
 		Supers:     parts.Supers,
 		Methods:    methods,
 		AssocTypes: assocTypes,
-		S:          d.S,
+		// AssocDataDecls intentionally absent: the parser does not produce data
+		// family declarations in class bodies (TyRowTypeDecl has no IsData flag).
+		// Associated data families are only created via impl bodies.
+		S: d.S,
 	}
 	ch.processClassDecl(legacy, prog)
 }
