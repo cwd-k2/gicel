@@ -47,9 +47,9 @@ data Bool := { True: Bool; False: Bool; }
 data Unit := { Unit: Unit; }
 data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
 
-type Elem (c: Type) :: Type := {
-  Elem (List a) =: a;
-  Elem Unit =: Unit
+type Elem :: Type := \(c: Type). case c {
+  (List a) => a;
+  Unit => Unit
 }
 
 -- Use a type family result in a non-Record-annotated context to avoid
@@ -70,11 +70,11 @@ data Unit := { Unit: Unit; }
 data Bool := { True: Bool; False: Bool; }
 data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
 
-type Wrap (a: Type) :: Type := {
-  Wrap a =: List a
+type Wrap :: Type := \(a: Type). case a {
+  a => List a
 }
-type Elem (c: Type) :: Type := {
-  Elem (List a) =: a
+type Elem :: Type := \(c: Type). case c {
+  (List a) => a
 }
 
 -- Elem (Wrap Bool) should reduce to Elem (List Bool) then to Bool.
@@ -94,8 +94,8 @@ data Unit := { Unit: Unit; }
 data Bool := { True: Bool; False: Bool; }
 data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
 
-type Elem (c: Type) :: Type := {
-  Elem (List a) =: a
+type Elem :: Type := \(c: Type). case c {
+  (List a) => a
 }
 
 g :: Elem (List Bool) -> Bool -> Bool
@@ -113,8 +113,8 @@ func TestProbeA_TF_RecursiveFamilyExponentialGrowth(t *testing.T) {
 data Unit := { Unit: Unit; }
 data Pair := \a b. { MkPair: a -> b -> Pair a b; }
 
-type Grow (a: Type) :: Type := {
-  Grow a =: Grow (Pair a a)
+type Grow :: Type := \(a: Type). case a {
+  a => Grow (Pair a a)
 }
 
 f :: Grow Unit -> Unit
@@ -137,12 +137,12 @@ data Container := \c. {
 }
 
 impl Container (List a) := {
-  type Elem (List a) =: a;
+  Elem (List a) => a;
   empty := Nil
 }
 
 impl Container Unit := {
-  type Elem Unit =: Unit;
+  Elem Unit => Unit;
   empty := Unit
 }
 
@@ -162,8 +162,8 @@ func TestProbeA_TF_StuckFamilyDoesNotCrash(t *testing.T) {
 data Unit := { Unit: Unit; }
 data Bool := { True: Bool; False: Bool; }
 
-type OnlyList (c: Type) :: Type := {
-  OnlyList (List a) =: a
+type OnlyList :: Type := \(c: Type). case c {
+  (List a) => a
 }
 data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
 
@@ -187,14 +187,14 @@ func TestProbeA_TF_ChainOfThreeFamilies(t *testing.T) {
 data Unit := { Unit: Unit; }
 data Bool := { True: Bool; False: Bool; }
 
-type C (a: Type) :: Type := {
-  C a =: a
+type C :: Type := \(a: Type). case a {
+  a => a
 }
-type B (a: Type) :: Type := {
-  B a =: C a
+type B :: Type := \(a: Type). case a {
+  a => C a
 }
-type A (a: Type) :: Type := {
-  A a =: B a
+type A :: Type := \(a: Type). case a {
+  a => B a
 }
 
 f :: A Bool -> Bool
@@ -217,8 +217,8 @@ data Unit := { Unit: Unit; }
 data Bool := { True: Bool; False: Bool; }
 data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
 
-type Elem (c: Type) :: Type := {
-  Elem (List a) =: a
+type Elem :: Type := \(c: Type). case c {
+  (List a) => a
 }
 
 -- f has polymorphic arg, Elem reduction is deferred.
@@ -242,8 +242,8 @@ func TestProbeD_TF_RecursiveFamilyFuelExhausted(t *testing.T) {
 data Nat := { Z: (); S: Nat; }
 data Phantom := \(n: Nat). { MkPhantom: Phantom n; }
 
-type Loop (a: Nat) :: Nat := {
-  Loop a =: Loop (S a)
+type Loop :: Nat := \(a: Nat). case a {
+  a => Loop (S a)
 }
 
 f :: Phantom (Loop Z) -> Phantom (Loop Z)
@@ -259,8 +259,8 @@ func TestProbeD_TF_IdentityFamily(t *testing.T) {
 	source := `
 data Bool := { True: Bool; False: Bool; }
 
-type Id (a: Type) :: Type := {
-  Id a =: a
+type Id :: Type := \(a: Type). case a {
+  a => a
 }
 
 f :: Id Bool -> Bool
@@ -277,8 +277,8 @@ func TestProbeD_TF_TwoArgumentFamily(t *testing.T) {
 data Bool := { True: Bool; False: Bool; }
 data Unit := { Unit: Unit; }
 
-type Fst (a: Type) (b: Type) :: Type := {
-  Fst a b =: a
+type Fst :: Type := \(a: Type) (b: Type). case a {
+  a b => a
 }
 
 f :: Fst Bool Unit -> Bool
@@ -303,9 +303,9 @@ func TestProbeE_TypeFamily_StuckOnMeta(t *testing.T) {
 data Bool := { True: Bool; False: Bool; }
 data Nat := { Z: (); S: Nat; }
 
-type IsZero (n: Type) :: Type := {
-  IsZero Z =: Bool;
-  IsZero (S n) =: Nat
+type IsZero :: Type := \(n: Type). case n {
+  Z => Bool;
+  (S n) => Nat
 }
 
 -- Applying IsZero to an unsolved meta should remain stuck, not crash
@@ -323,8 +323,8 @@ func TestProbeE_TypeFamily_RecursiveFuelLimit(t *testing.T) {
 	source := `
 data Nat := { Z: (); S: Nat; }
 
-type Loop (n: Type) :: Type := {
-  Loop n =: Loop (S n)
+type Loop :: Type := \(n: Type). case n {
+  n => Loop (S n)
 }
 
 main := (Z :: Loop Z)
@@ -337,7 +337,7 @@ main := (Z :: Loop Z)
 
 // TestProbeE_TypeFamily_ExponentialGrowth — a type family that produces
 // exponentially growing types should be caught by the size or depth limit.
-// The family `Grow a =: Pair (Grow a) (Grow a)` doubles the type per
+// The family `a => Pair (Grow a) (Grow a)` doubles the type per
 // reduction step. The checker's reduction depth and type size limits
 // catch this before it becomes pathological.
 func TestProbeE_TypeFamily_ExponentialGrowth(t *testing.T) {
@@ -345,8 +345,8 @@ func TestProbeE_TypeFamily_ExponentialGrowth(t *testing.T) {
 data Unit := { Unit: Unit; }
 data Pair := \a b. { MkPair: a -> b -> Pair a b; }
 
-type Grow (a: Type) :: Type := {
-  Grow a =: Pair (Grow a) (Grow a)
+type Grow :: Type := \(a: Type). case a {
+  a => Pair (Grow a) (Grow a)
 }
 
 f :: Grow Unit -> Unit
@@ -365,9 +365,9 @@ func TestProbeE_TypeFamily_InjectivityViolation(t *testing.T) {
 data Bool := { True: Bool; False: Bool; }
 data Unit := { Unit: Unit; }
 
-type F (a: Type) :: (r: Type) | r =: a := {
-  F Bool =: Bool;
-  F Unit =: Bool
+F (a: Type) :: (r: Type) | r => a := {
+  Bool => Bool;
+  Unit => Bool
 }
 `
 	errMsg := checkSourceExpectError(t, source, nil)
@@ -383,8 +383,8 @@ func TestProbeE_TypeFamily_NoMatchingEquation(t *testing.T) {
 data Bool := { True: Bool; False: Bool; }
 data Nat := { Z: (); S: Nat; }
 
-type IsZero (n: Type) :: Type := {
-  IsZero Z =: Bool
+type IsZero :: Type := \(n: Type). case n {
+  Z => Bool
 }
 
 -- S Z has no matching equation — the family is stuck
@@ -423,8 +423,8 @@ func TestProbeE_Interaction_TypeFamilyWithTypeClass(t *testing.T) {
 data Bool := { True: Bool; False: Bool; }
 data Nat := { Z: (); S: Nat; }
 
-type IsZero (n: Type) :: Type := {
-  IsZero Z =: Bool
+type IsZero :: Type := \(n: Type). case n {
+  Z => Bool
 }
 
 data Show := \a. { show: a -> Bool }

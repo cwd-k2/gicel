@@ -114,15 +114,14 @@ func BenchmarkSuperclassDepth10(b *testing.B) {
 // ---------------------------------------------------------------------------
 
 // typeFamilyLinearSource generates a closed type family with n equations.
-// Uses GICEL syntax: type F (a: Type) :: Type := { F T0 =: T1; ... }
 func typeFamilyLinearSource(n int) string {
 	var b strings.Builder
 	for i := 0; i < n; i++ {
 		fmt.Fprintf(&b, "data T%d := C%d\n", i, i)
 	}
-	b.WriteString("type F (a: Type) :: Type := {\n")
+	b.WriteString("type F :: Type := \\(a: Type). case a {\n")
 	for i := 0; i < n; i++ {
-		fmt.Fprintf(&b, "  F T%d =: T%d", i, (i+1)%n)
+		fmt.Fprintf(&b, "  T%d => T%d", i, (i+1)%n)
 		if i < n-1 {
 			b.WriteString(";")
 		}

@@ -25,9 +25,9 @@ import (
 func TestPathologicalOverlappingEquations(t *testing.T) {
 	source := `
 data Bool := { True: Bool; False: Bool; }
-type F (a: Type) :: Type := {
-  F Int =: Bool;
-  F Int =: String
+type F :: Type := \(a: Type). case a {
+  Int => Bool;
+  Int => String
 }
 `
 	config := &CheckConfig{
@@ -47,11 +47,11 @@ type F (a: Type) :: Type := {
 func TestPathologicalCircularTypeFamilies(t *testing.T) {
 	source := `
 data Unit := { Unit: Unit; }
-type F (a: Type) :: Type := {
-  F a =: G a
+type F :: Type := \(a: Type). case a {
+  a => G a
 }
-type G (a: Type) :: Type := {
-  G a =: F a
+type G :: Type := \(a: Type). case a {
+  a => F a
 }
 f :: F Unit -> Unit
 f := \x. x
@@ -65,9 +65,9 @@ func TestPathologicalDecreasingRecursion(t *testing.T) {
 	source := `
 data Unit := { Unit: Unit; }
 data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
-type F (a: Type) :: Type := {
-  F (List a) =: F a;
-  F a =: a
+type F :: Type := \(a: Type). case a {
+  (List a) => F a;
+  a => a
 }
 f :: F (List (List Unit)) -> Unit
 f := \x. x
@@ -90,7 +90,7 @@ data Container := \c. {
 }
 
 impl Container (List a) := {
-  data Phantom (List a) =: PhantomList;
+  Phantom (List a) => PhantomList;
   empty := Nil
 }
 
@@ -119,7 +119,7 @@ func TestPathological100Instances(t *testing.T) {
 func TestPathologicalFunDepNoInstances(t *testing.T) {
 	source := `
 data Unit := { Unit: Unit; }
-data Convert := \a b | a =: b. {
+Convert := \a b | a => b. {
   convert: a -> b
 }
 `
@@ -131,7 +131,7 @@ data Convert := \a b | a =: b. {
 func TestPathologicalFunDepNoInstancesUsage(t *testing.T) {
 	source := `
 data Unit := { Unit: Unit; }
-data Convert := \a b | a =: b. {
+Convert := \a b | a => b. {
   convert: a -> b
 }
 f :: Unit -> Unit
@@ -150,11 +150,11 @@ func TestPathologicalTFPatternIsTFApp(t *testing.T) {
 	// (since F is in scope as a type name), so this tests the resolution path.
 	source := `
 data Unit := { Unit: Unit; }
-type F (a: Type) :: Type := {
-  F a =: a
+type F :: Type := \(a: Type). case a {
+  a => a
 }
-type G (a: Type) :: Type := {
-  G (F a) =: a
+type G :: Type := \(a: Type). case a {
+  (F a) => a
 }
 `
 	// The parser resolves `F` in a pattern position as a TyCon (type constructor),
@@ -182,7 +182,7 @@ data Show := \a. {
 }
 
 impl Show Unit := {
-  type Elem Unit =: Unit;
+  Elem Unit => Unit;
   show := \x. x
 }
 `
@@ -212,12 +212,12 @@ data C2 := \a. {
 }
 
 impl C1 Unit := {
-  data Key Unit =: KeyC1;
+  Key Unit => KeyC1;
   m1 := Unit
 }
 
 impl C2 Unit := {
-  data Key Unit =: KeyC2;
+  Key Unit => KeyC2;
   m2 := Unit
 }
 `
@@ -248,7 +248,7 @@ data HasRepr := \c. {
 }
 
 impl HasRepr Unit := {
-  data Repr Unit =: ReprA | ReprB | ReprC;
+  Repr Unit => ReprA | ReprB | ReprC;
   toRepr := \_. ReprA
 }
 
@@ -272,8 +272,8 @@ func TestPathologicalExponentialGrowth(t *testing.T) {
 	source := `
 data Unit := { Unit: Unit; }
 data Pair := \a b. { MkPair: a -> b -> Pair a b; }
-type Grow (a: Type) :: Type := {
-  Grow a =: Grow (Pair a a)
+type Grow :: Type := \(a: Type). case a {
+  a => Grow (Pair a a)
 }
 f :: Grow Unit -> Unit
 f := \x. x
@@ -286,8 +286,8 @@ func TestPathologicalLargeButFiniteResult(t *testing.T) {
 	// This family produces a chain of S wrappers — linear growth, should be fine.
 	source := `
 data Nat := { Z: (); S: Nat; }
-type AddTen (n: Nat) :: Nat := {
-  AddTen n =: S (S (S (S (S (S (S (S (S (S n)))))))))
+type AddTen :: Nat := \(n: Nat). case n {
+  n => S (S (S (S (S (S (S (S (S (S n)))))))))
 }
 data Phantom := \(n: Nat). { MkPhantom: Phantom n; }
 f :: Phantom (AddTen Z) -> Phantom (S (S (S (S (S (S (S (S (S (S Z))))))))))
@@ -308,13 +308,13 @@ data Unit := { Unit: Unit; }
 data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
 data Maybe := \a. { Nothing: Maybe a; Just: a -> Maybe a; }
 
-type Elem (c: Type) :: Type := {
-  Elem (List a) =: a;
-  Elem (Maybe a) =: a
+type Elem :: Type := \(c: Type). case c {
+  (List a) => a;
+  (Maybe a) => a
 }
 
-type Id (a: Type) :: Type := {
-  Id a =: a
+type Id :: Type := \(a: Type). case a {
+  a => a
 }
 `
 	// Test various TF applications and verify the result is in normal form.
@@ -343,9 +343,9 @@ type Id (a: Type) :: Type := {
 func TestPropertyReductionIdempotenceRecursive(t *testing.T) {
 	source := `
 data Nat := { Z: (); S: Nat; }
-type Add (a: Nat) (b: Nat) :: Nat := {
-  Add Z b =: b;
-  Add (S a) b =: S (Add a b)
+type Add :: Nat := \(a: Nat) (b: Nat). case a {
+  Z b => b;
+  (S a) b => S (Add a b)
 }
 data Phantom := \(n: Nat). { MkPhantom: Phantom n; }
 
@@ -364,8 +364,8 @@ func TestPropertyUnificationSymmetry(t *testing.T) {
 	source1 := `
 data Unit := { Unit: Unit; }
 data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
-type Elem (c: Type) :: Type := {
-  Elem (List a) =: a
+type Elem :: Type := \(c: Type). case c {
+  (List a) => a
 }
 f :: Elem (List Unit) -> Unit
 f := \x. x
@@ -373,8 +373,8 @@ f := \x. x
 	source2 := `
 data Unit := { Unit: Unit; }
 data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
-type Elem (c: Type) :: Type := {
-  Elem (List a) =: a
+type Elem :: Type := \(c: Type). case c {
+  (List a) => a
 }
 f :: Unit -> Elem (List Unit)
 f := \x. x
@@ -390,8 +390,8 @@ func TestPropertyUnificationSymmetryPoly(t *testing.T) {
 	source := `
 data Unit := { Unit: Unit; }
 data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
-type Elem (c: Type) :: Type := {
-  Elem (List a) =: a
+type Elem :: Type := \(c: Type). case c {
+  (List a) => a
 }
 f :: \ c. Elem c -> Elem c
 f := \x. x
@@ -467,9 +467,9 @@ data Unit := { Unit: Unit; }
 data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
 data Maybe := \a. { Nothing: Maybe a; Just: a -> Maybe a; }
 
-type Elem (c: Type) :: Type := {
-  Elem (List a) =: a;
-  Elem (Maybe a) =: a
+type Elem :: Type := \(c: Type). case c {
+  (List a) => a;
+  (Maybe a) => a
 }
 
 f1 :: Elem (List Unit) -> Unit
@@ -586,8 +586,8 @@ func TestPathologicalTFInsideForall(t *testing.T) {
 	source := `
 data Unit := { Unit: Unit; }
 data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
-type Elem (c: Type) :: Type := {
-  Elem (List a) =: a
+type Elem :: Type := \(c: Type). case c {
+  (List a) => a
 }
 f :: \ a. a -> Elem (List a)
 f := \x. x
@@ -601,8 +601,8 @@ func TestPathologicalStuckTFInComputation(t *testing.T) {
 	source := `
 data Unit := { Unit: Unit; }
 data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
-type Elem (c: Type) :: Type := {
-  Elem (List a) =: a
+type Elem :: Type := \(c: Type). case c {
+  (List a) => a
 }
 f :: \ c. Computation {} {} (Elem c) -> Computation {} {} (Elem c)
 f := \x. x
@@ -616,8 +616,8 @@ func TestPathologicalRepeatedPatternVar(t *testing.T) {
 	source := `
 data Unit := { Unit: Unit; }
 data Pair := \a b. { MkPair: a -> b -> Pair a b; }
-type Same (a: Type) (b: Type) :: Type := {
-  Same a a =: Unit
+type Same :: Type := \(a: Type) (b: Type). case a {
+  a a => Unit
 }
 f :: Same Unit Unit -> Unit
 f := \x. x
@@ -633,8 +633,8 @@ func TestPathologicalRepeatedPatternVarFail(t *testing.T) {
 data Unit := { Unit: Unit; }
 data Bool := { True: Bool; False: Bool; }
 data Pair := \a b. { MkPair: a -> b -> Pair a b; }
-type Same (a: Type) (b: Type) :: Type := {
-  Same a a =: Unit
+type Same :: Type := \(a: Type) (b: Type). case a {
+  a a => Unit
 }
 f :: Same Unit Bool -> Unit
 f := \x. x

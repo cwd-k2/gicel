@@ -22,9 +22,9 @@ func TestAdvancedTypeFamilyStress(t *testing.T) {
 data Nat := { Z: (); S: Nat; }
 
 -- Type-level addition.
-type Add (a: Nat) (b: Nat) :: Nat := {
-  Add Z b =: b;
-  Add (S a) b =: S (Add a b)
+type Add :: Nat := \(a: Nat) (b: Nat). case a {
+  Z b => b;
+  (S a) b => S (Add a b)
 }
 
 -- Phantom type indexed by Nat.
@@ -34,14 +34,14 @@ data NatProxy := \(n: Nat). { MkProxy: NatProxy n; }
 data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
 data Maybe := \a. { Nothing: Maybe a; Just: a -> Maybe a; }
 
-type Elem (c: Type) :: Type := {
-  Elem (List a) =: a;
-  Elem (Maybe a) =: a
+type Elem :: Type := \(c: Type). case c {
+  (List a) => a;
+  (Maybe a) => a
 }
 
 -- Wrap: type-level function.
-type Wrap (a: Type) :: Type := {
-  Wrap a =: Maybe a
+type Wrap :: Type := \(a: Type). case a {
+  a => Maybe a
 }
 
 -- Nested reduction: Elem (List (Wrap Int)) reduces as:
@@ -52,11 +52,11 @@ nestedElem := \x. x
 -- Season rotation: single-step NextSeason is fully reduced.
 data Season := { Spring: Season; Summer: Season; Autumn: Season; Winter: Season; }
 
-type NextSeason (s: Season) :: Season := {
-  NextSeason Spring =: Summer;
-  NextSeason Summer =: Autumn;
-  NextSeason Autumn =: Winter;
-  NextSeason Winter =: Spring
+type NextSeason :: Season := \(s: Season). case s {
+  Spring => Summer;
+  Summer => Autumn;
+  Autumn => Winter;
+  Winter => Spring
 }
 
 data Tagged := \(s: Season). { MkTagged: Tagged s; }
@@ -102,25 +102,25 @@ data Wrappable := \w. {
 }
 
 impl Wrappable Int := {
-  data Wrapped Int =: IntBox Int;
+  Wrapped Int => IntBox Int;
   wrap := \n. IntBox n;
   unwrap := \w. case w { IntBox n => n }
 }
 
 impl Wrappable Bool := {
-  data Wrapped Bool =: BoolBit Bool;
+  Wrapped Bool => BoolBit Bool;
   wrap := \b. BoolBit b;
   unwrap := \w. case w { BoolBit b => b }
 }
 
 impl Wrappable Unit := {
-  data Wrapped Unit =: UnitBox;
+  Wrapped Unit => UnitBox;
   wrap := \_. UnitBox;
   unwrap := \_. Unit
 }
 
 impl Wrappable (Maybe a) := {
-  data Wrapped (Maybe a) =: OptBox (Maybe a);
+  Wrapped (Maybe a) => OptBox (Maybe a);
   wrap := \m. OptBox m;
   unwrap := \w. case w { OptBox m -> m }
 }
@@ -161,7 +161,7 @@ data Maybe := \a. { Nothing: Maybe a; Just: a -> Maybe a; }
 data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
 
 -- Convert class with fundep: source type determines target.
-data Convert := \a b | a =: b. {
+Convert := \a b | a => b. {
   convert: a -> b
 }
 
@@ -182,7 +182,7 @@ unitToBool :: Bool
 unitToBool := convert Unit
 
 -- HasElem class: container determines element type.
-data HasElem := \c e | c =: e. {
+HasElem := \c e | c => e. {
   getFirst: c -> Maybe e
 }
 
@@ -203,7 +203,7 @@ firstOfMaybe :: Maybe Bool
 firstOfMaybe := getFirst (Just True)
 
 -- Bidirectional fundep.
-data Iso := \a b | a =: b, b =: a. {
+Iso := \a b | a => b, b =: a. {
   forward: a -> b;
   backward: b -> a
 }
@@ -233,9 +233,9 @@ data Unit := { Unit: Unit; }
 data Bool := { True: Bool; False: Bool; }
 data Maybe := \a. { Nothing: Maybe a; Just: a -> Maybe a; }
 
-type IsJust (m: Type) :: Bool := {
-  IsJust (Maybe a) =: True;
-  IsJust _ =: False
+type IsJust :: Bool := \(m: Type). case m {
+  (Maybe a) => True;
+  _ => False
 }
 
 data Container := \c. {
@@ -244,7 +244,7 @@ data Container := \c. {
 }
 
 impl Container (Maybe a) := {
-  data Elem (Maybe a) =: MaybeElem a;
+  Elem (Maybe a) => MaybeElem a;
   cempty := Nothing
 }
 
@@ -267,13 +267,13 @@ data Unit := { Unit: Unit; }
 data Maybe := \a. { Nothing: Maybe a; Just: a -> Maybe a; }
 data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
 
-type Elem (c: Type) :: Type := {
-  Elem (List a) =: a;
-  Elem (Maybe a) =: a
+type Elem :: Type := \(c: Type). case c {
+  (List a) => a;
+  (Maybe a) => a
 }
 
 -- Fundep class where one param is a type family application.
-data Extract := \c e | c =: e. {
+Extract := \c e | c => e. {
   extract: c -> Maybe e
 }
 
@@ -293,10 +293,10 @@ func TestAdvancedRecursiveTFWithPhantom(t *testing.T) {
 	source := `
 data Session := { Send: Session; Recv: Session; End: (); }
 
-type Dual (s: Session) :: Session := {
-  Dual (Send s) =: Recv (Dual s);
-  Dual (Recv s) =: Send (Dual s);
-  Dual End =: End
+type Dual :: Session := \(s: Session). case s {
+  (Send s) => Recv (Dual s);
+  (Recv s) => Send (Dual s);
+  End => End
 }
 
 data Chan := \(s: Session). { MkChan: Chan s; }

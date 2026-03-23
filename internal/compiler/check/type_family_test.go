@@ -14,9 +14,9 @@ import (
 func TestTypeFamilyParseBasic(t *testing.T) {
 	source := `
 data Bool := { True: Bool; False: Bool; }
-type IsTrue (b: Bool) :: Bool := {
-  IsTrue True =: True;
-  IsTrue False =: False
+type IsTrue :: Bool := \(b: Bool). case b {
+  True => True;
+  False => False
 }
 `
 	checkSource(t, source, nil)
@@ -25,12 +25,12 @@ type IsTrue (b: Bool) :: Bool := {
 func TestTypeFamilyParseTwoParams(t *testing.T) {
 	source := `
 data Mult := { Unrestricted: (); Affine: (); Linear: (); }
-type LUB (m1: Mult) (m2: Mult) :: Mult := {
-  LUB Linear _ =: Linear;
-  LUB _ Linear =: Linear;
-  LUB Affine _ =: Affine;
-  LUB _ Affine =: Affine;
-  LUB Unrestricted Unrestricted =: Unrestricted
+type LUB :: Mult := \(m1: Mult) (m2: Mult). case m1 {
+  Linear _ => Linear;
+  _ Linear => Linear;
+  Affine _ => Affine;
+  _ Affine => Affine;
+  Unrestricted Unrestricted => Unrestricted
 }
 `
 	checkSource(t, source, nil)
@@ -43,8 +43,8 @@ func TestTypeFamilyReduceAppPattern(t *testing.T) {
 	source := `
 data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
 data Unit := { Unit: Unit; }
-type Elem (c: Type) :: Type := {
-  Elem (List a) =: a
+type Elem :: Type := \(c: Type). case c {
+  (List a) => a
 }
 f :: Elem (List Unit) -> Unit
 f := \x. x
@@ -58,9 +58,9 @@ func TestTypeFamilyReduceMultiEquations(t *testing.T) {
 data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
 data Unit := { Unit: Unit; }
 data Pair := \a b. { MkPair: a -> b -> Pair a b; }
-type Elem (c: Type) :: Type := {
-  Elem (List a) =: a;
-  Elem (Pair a b) =: a
+type Elem :: Type := \(c: Type). case c {
+  (List a) => a;
+  (Pair a b) => a
 }
 f :: Elem (List Unit) -> Unit
 f := \x. x
@@ -74,8 +74,8 @@ func TestTypeFamilyReduceIdentity(t *testing.T) {
 	// Simple identity-like type family.
 	source := `
 data Unit := { Unit: Unit; }
-type Id (a: Type) :: Type := {
-  Id a =: a
+type Id :: Type := \(a: Type). case a {
+  a => a
 }
 f :: Id Unit -> Unit
 f := \x. x
@@ -88,8 +88,8 @@ func TestTypeFamilyReduceConstant(t *testing.T) {
 	source := `
 data Unit := { Unit: Unit; }
 data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
-type AlwaysUnit (a: Type) :: Type := {
-  AlwaysUnit a =: Unit
+type AlwaysUnit :: Type := \(a: Type). case a {
+  a => Unit
 }
 f :: AlwaysUnit (List Unit) -> Unit
 f := \x. x
@@ -104,8 +104,8 @@ func TestTypeFamilyStuckOnMeta(t *testing.T) {
 	// The stuck TyFamilyApp should unify with itself.
 	source := `
 data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
-type Elem (c: Type) :: Type := {
-  Elem (List a) =: a
+type Elem :: Type := \(c: Type). case c {
+  (List a) => a
 }
 f :: \ c. Elem c -> Elem c
 f := \x. x
@@ -119,8 +119,8 @@ func TestTypeFamilyWildcard(t *testing.T) {
 	source := `
 data Unit := { Unit: Unit; }
 data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
-type AlwaysUnit (a: Type) :: Type := {
-  AlwaysUnit _ =: Unit
+type AlwaysUnit :: Type := \(a: Type). case a {
+  _ => Unit
 }
 f :: AlwaysUnit (List Unit) -> Unit
 f := \x. x
@@ -136,9 +136,9 @@ data Serialization := { JSON: Serialization; Binary: Serialization; }
 data Show := \a. {
   show: a -> a
 }
-type Serializable (fmt: Serialization) :: Constraint := {
-  Serializable JSON =: Show;
-  Serializable Binary =: Show
+type Serializable :: Constraint := \(fmt: Serialization). case fmt {
+  JSON => Show;
+  Binary => Show
 }
 `
 	checkSource(t, source, nil)
@@ -149,8 +149,8 @@ type Serializable (fmt: Serialization) :: Constraint := {
 func TestTypeFamilyArityMismatch(t *testing.T) {
 	source := `
 data Bool := { True: Bool; False: Bool; }
-type F (a: Bool) :: Bool := {
-  F True False =: True
+type F :: Bool := \(a: Bool). case a {
+  True False => True
 }
 `
 	checkSourceExpectCode(t, source, nil, diagnostic.ErrTypeFamilyEquation)
@@ -159,8 +159,8 @@ type F (a: Bool) :: Bool := {
 func TestTypeFamilyNameMismatch(t *testing.T) {
 	source := `
 data Bool := { True: Bool; False: Bool; }
-type F (a: Bool) :: Bool := {
-  G True =: True
+type F :: Bool := \(a: Bool). case a {
+  True => True
 }
 `
 	checkSourceExpectCode(t, source, nil, diagnostic.ErrTypeFamilyEquation)
@@ -172,9 +172,9 @@ func TestTypeFamilyInjectivityViolation(t *testing.T) {
 	source := `
 data Unit := { Unit: Unit; }
 data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
-type Elem (c: Type) :: (r: Type) | r =: c := {
-  Elem (List a) =: a;
-  Elem Unit =: Unit
+Elem (c: Type) :: (r: Type) | r => c := {
+  (List a) => a;
+  Unit => Unit
 }
 `
 	checkSourceExpectCode(t, source, nil, diagnostic.ErrInjectivity)
@@ -183,11 +183,11 @@ type Elem (c: Type) :: (r: Type) | r =: c := {
 func TestTypeFamilyDuplicate(t *testing.T) {
 	source := `
 data Bool := { True: Bool; False: Bool; }
-type F (a: Bool) :: Bool := {
-  F True =: True
+type F :: Bool := \(a: Bool). case a {
+  True => True
 }
-type F (a: Bool) :: Bool := {
-  F True =: False
+type F :: Bool := \(a: Bool). case a {
+  True => False
 }
 `
 	checkSourceExpectCode(t, source, nil, diagnostic.ErrDuplicateDecl)
@@ -199,8 +199,8 @@ func TestTypeFamilyInFunctionType(t *testing.T) {
 	source := `
 data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
 data Unit := { Unit: Unit; }
-type Elem (c: Type) :: Type := {
-  Elem (List a) =: a
+type Elem :: Type := \(c: Type). case c {
+  (List a) => a
 }
 map :: \ a b. (a -> b) -> List a -> List b
 map := assumption
@@ -243,7 +243,7 @@ data Container := \c. {
 }
 
 impl Container (List a) := {
-  type Elem (List a) =: a;
+  Elem (List a) => a;
   cfold := foldr
 }
 
@@ -268,12 +268,12 @@ data Container := \c. {
 }
 
 impl Container (List a) := {
-  type Elem (List a) =: a;
+  Elem (List a) => a;
   clength := listLength
 }
 
 impl Container (Pair a b) := {
-  type Elem (Pair a b) =: a;
+  Elem (Pair a b) => a;
   clength := pairLength
 }
 
@@ -299,10 +299,10 @@ g := \x. x
 func TestRecursiveTypeFamilyDual(t *testing.T) {
 	source := `
 data Session := { Send: Session; Recv: Session; End: (); }
-type Dual (s: Session) :: Session := {
-  Dual (Send s) =: Recv (Dual s);
-  Dual (Recv s) =: Send (Dual s);
-  Dual End =: End
+type Dual :: Session := \(s: Session). case s {
+  (Send s) => Recv (Dual s);
+  (Recv s) => Send (Dual s);
+  End => End
 }
 `
 	checkSource(t, source, nil)
@@ -313,8 +313,8 @@ func TestRecursiveTypeFamilyFuelExhaustion(t *testing.T) {
 	// producing a type mismatch (E0200) when Loop Unit is compared against Unit.
 	source := `
 data Unit := { Unit: Unit; }
-type Loop (a: Type) :: Type := {
-  Loop a =: Loop a
+type Loop :: Type := \(a: Type). case a {
+  a => Loop a
 }
 f :: Loop Unit -> Unit
 f := \x. x
@@ -328,7 +328,7 @@ func TestFunDepParse(t *testing.T) {
 	source := `
 data Unit := { Unit: Unit; }
 data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
-data Elem := \c e | c =: e. {
+Elem := \c e | c => e. {
   cfold: (e -> e) -> c -> c
 }
 impl Elem (List a) a := {
@@ -340,7 +340,7 @@ impl Elem (List a) a := {
 
 func TestFunDepUnknownParam(t *testing.T) {
 	source := `
-data Bad := \a b | z =: b. {
+Bad := \a b | z => b. {
   m: a -> b
 }
 `
@@ -353,10 +353,10 @@ func TestSessionTypeDual(t *testing.T) {
 	// Session types as a library feature on recursive TF + DataKinds.
 	source := `
 data Session := { Send: Session; Recv: Session; End: (); }
-type Dual (s: Session) :: Session := {
-  Dual (Send s) =: Recv (Dual s);
-  Dual (Recv s) =: Send (Dual s);
-  Dual End =: End
+type Dual :: Session := \(s: Session). case s {
+  (Send s) => Recv (Dual s);
+  (Recv s) => Send (Dual s);
+  End => End
 }
 `
 	checkSource(t, source, nil)
@@ -367,10 +367,10 @@ func TestSessionTypeDualOfDual(t *testing.T) {
 	// This tests recursive TF with promoted constructor patterns.
 	source := `
 data Session := { Send: Session; Recv: Session; End: (); }
-type Dual (s: Session) :: Session := {
-  Dual (Send s) =: Recv (Dual s);
-  Dual (Recv s) =: Send (Dual s);
-  Dual End =: End
+type Dual :: Session := \(s: Session). case s {
+  (Send s) => Recv (Dual s);
+  (Recv s) => Send (Dual s);
+  End => End
 }
 `
 	// Just verify parsing + registration — full reduction of
@@ -587,7 +587,7 @@ data FromList := \c. {
 }
 
 impl FromList (List a) := {
-  type Elem (List a) =: a;
+  Elem (List a) => a;
   fromList := \xs. xs
 }
 
@@ -609,7 +609,7 @@ data Conv := \c. {
 }
 
 impl Conv (List a) := {
-  type Elem (List a) =: a;
+  Elem (List a) => a;
   conv := \xs. xs
 }
 
@@ -635,7 +635,7 @@ data FromList := \c. {
 }
 
 impl FromList (List a) := {
-  type Elem (List a) =: a;
+  Elem (List a) => a;
   fromList := \xs. xs
 }
 
@@ -684,7 +684,7 @@ data Convert := \c. {
 }
 
 impl Convert (List a) := {
-  type Elem (List a) =: a;
+  Elem (List a) => a;
   convert := \x. Cons x Nil
 }
 

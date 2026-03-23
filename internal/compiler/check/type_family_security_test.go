@@ -29,8 +29,8 @@ func TestSecurityTypeFamilyDoublingRHS(t *testing.T) {
 	source := `
 data Pair := \a b. { MkPair: a -> b -> Pair a b; }
 data Unit := { Unit: Unit; }
-type Grow (a: Type) :: Type := {
-  Grow a =: Grow (Pair a a)
+type Grow :: Type := \(a: Type). case a {
+  a => Grow (Pair a a)
 }
 f :: Grow Unit -> Unit
 f := \x. x
@@ -52,8 +52,8 @@ func TestSecurityTypeFamilyLinearGrowth(t *testing.T) {
 	source := `
 data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
 data Unit := { Unit: Unit; }
-type GrowList (a: Type) :: Type := {
-  GrowList a =: Cons Unit (GrowList a)
+type GrowList :: Type := \(a: Type). case a {
+  a => Cons Unit (GrowList a)
 }
 f :: GrowList Unit -> Unit
 f := \x. x
@@ -74,8 +74,8 @@ func TestSecurityTypeFamilyMutualRecursion(t *testing.T) {
 	source := `
 data Unit := { Unit: Unit; }
 data Wrapper := \a. { Wrap: a -> Wrapper a; }
-type Ping (a: Type) :: Type := {
-  Ping a =: Ping (Wrapper a)
+type Ping :: Type := \(a: Type). case a {
+  a => Ping (Wrapper a)
 }
 f :: Ping Unit -> Unit
 f := \x. x
@@ -180,7 +180,7 @@ data Container := \c. {
 }
 
 impl Container (Wrapper a) := {
-  data Elem (Wrapper a) =: Wrap a
+  Elem (Wrapper a) => Wrap a
 }
 `
 	// The second "Wrap" constructor should conflict with the first.
@@ -209,12 +209,12 @@ func TestPerformanceVerifyInjectivityCost(t *testing.T) {
 	sb.WriteString("; }\n")
 
 	// Define an injective type family.
-	sb.WriteString("type F (a: Tag) :: (r: Tag) | r =: a := {\n")
+	sb.WriteString("type F :: Tag := \\(a: Tag). case a {\n")
 	for i := 0; i < N; i++ {
 		if i > 0 {
 			sb.WriteString(";\n")
 		}
-		sb.WriteString("  F " + tagName(i) + " =: " + tagName(N-1-i))
+		sb.WriteString("  " + tagName(i) + " => " + tagName(N-1-i))
 	}
 	sb.WriteString("\n}\n")
 
@@ -349,8 +349,8 @@ f := id (id (id (id (id (id (id (id (id (id Unit)))))))))
 func TestSecurityHeadTyConWithFamiliesDepth(t *testing.T) {
 	source := `
 data Unit := { Unit: Unit; }
-type Loop (a: Type) :: Type := {
-  Loop a =: Loop a
+type Loop :: Type := \(a: Type). case a {
+  a => Loop a
 }
 f :: Loop Unit -> Unit
 f := \x. x
@@ -411,7 +411,7 @@ func TestSecurityParserLongEquationBlock(t *testing.T) {
 		if i > 0 {
 			sb.WriteString(";\n")
 		}
-		sb.WriteString("  F " + tagName(i) + " =: " + tagName(i))
+		sb.WriteString("  " + tagName(i) + " => " + tagName(i))
 	}
 	sb.WriteString("\n}\n")
 
@@ -445,8 +445,8 @@ func TestSecurityExponentialTypeGrowth(t *testing.T) {
 	source := `
 data Pair := \a b. { MkPair: a -> b -> Pair a b; }
 data Unit := { Unit: Unit; }
-type Explode (a: Type) :: Type := {
-  Explode a =: Explode (Pair a a)
+type Explode :: Type := \(a: Type). case a {
+  a => Explode (Pair a a)
 }
 f :: Explode Unit -> Unit
 f := \x. x

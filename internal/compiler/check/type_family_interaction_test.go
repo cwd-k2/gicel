@@ -37,8 +37,8 @@ func TestInteractionTypeFamilyHKT(t *testing.T) {
 data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
 data Unit := { Unit: Unit; }
 
-type Elem (c: Type) :: Type := {
-  Elem (List a) =: a
+type Elem :: Type := \(c: Type). case c {
+  (List a) => a
 }
 
 data Container := \(f: k -> Type). {
@@ -62,8 +62,8 @@ func TestInteractionTypeFamilyHKTMethodUse(t *testing.T) {
 data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
 data Unit := { Unit: Unit; }
 
-type Elem (c: Type) :: Type := {
-  Elem (List a) =: a
+type Elem :: Type := \(c: Type). case c {
+  (List a) => a
 }
 
 first :: List Unit -> Elem (List Unit)
@@ -87,7 +87,7 @@ data Container := \c. {
 }
 
 impl Container (List a) := {
-  type Elem (List a) =: a;
+  Elem (List a) => a;
   chead := \xs. case xs { Cons x rest => x; Nil => chead Nil }
 }
 
@@ -117,8 +117,8 @@ func TestInteractionTypeFamilyRecord(t *testing.T) {
 data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
 data Unit := { Unit: Unit; }
 
-type Elem (c: Type) :: Type := {
-  Elem (List a) =: a
+type Elem :: Type := \(c: Type). case c {
+  (List a) => a
 }
 
 f :: Elem (List Unit) -> Unit
@@ -137,8 +137,8 @@ func TestInteractionTypeFamilyRecordFieldType(t *testing.T) {
 data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
 data Unit := { Unit: Unit; }
 
-type Elem (c: Type) :: Type := {
-  Elem (List a) =: a
+type Elem :: Type := \(c: Type). case c {
+  (List a) => a
 }
 
 mkRecord :: Elem (List Unit) -> Record { value: Unit }
@@ -160,8 +160,8 @@ func TestInteractionTypeFamilyOperatorSection(t *testing.T) {
 data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
 data Unit := { Unit: Unit; }
 
-type Elem (c: Type) :: Type := {
-  Elem (List a) =: a
+type Elem :: Type := \(c: Type). case c {
+  (List a) => a
 }
 
 id :: \ a. a -> a
@@ -180,8 +180,8 @@ data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
 data Unit := { Unit: Unit; }
 data Bool := { True: Bool; False: Bool; }
 
-type Elem (c: Type) :: Type := {
-  Elem (List a) =: a
+type Elem :: Type := \(c: Type). case c {
+  (List a) => a
 }
 
 map :: \ a b. (a -> b) -> List a -> List b
@@ -213,7 +213,7 @@ data Wrapper := \a. {
 }
 
 impl Wrapper Bool := {
-  data Wrap Bool =: WrapBool Bool;
+  Wrap Bool => WrapBool Bool;
   unwrap := \w. case w { WrapBool b => b }
 }
 
@@ -238,7 +238,7 @@ data Wrapper := \a. {
 }
 
 impl Wrapper Bool := {
-  data Wrap Bool =: WrapBool Bool;
+  Wrap Bool => WrapBool Bool;
   unwrap := \w. case w { WrapBool b => b }
 }
 
@@ -262,7 +262,7 @@ data Container := \a. {
 }
 
 impl Container (Maybe a) := {
-  data Elem (Maybe a) =: MaybeElem a;
+  Elem (Maybe a) => MaybeElem a;
   empty := Nothing
 }
 
@@ -332,8 +332,8 @@ func TestInteractionTypeFamilyDoBlock(t *testing.T) {
 data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
 data Unit := { Unit: Unit; }
 
-type Elem (c: Type) :: Type := {
-  Elem (List a) =: a
+type Elem :: Type := \(c: Type). case c {
+  (List a) => a
 }
 
 step :: Computation {} {} (Elem (List Unit))
@@ -351,8 +351,8 @@ func TestInteractionTypeFamilyDoBlockPrePost(t *testing.T) {
 data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
 data Unit := { Unit: Unit; }
 
-type Elem (c: Type) :: Type := {
-  Elem (List a) =: a
+type Elem :: Type := \(c: Type). case c {
+  (List a) => a
 }
 
 open :: Computation {} { handle: Unit } Unit
@@ -417,12 +417,12 @@ data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
 data Maybe := \a. { Nothing: Maybe a; Just: a -> Maybe a; }
 data Unit := { Unit: Unit; }
 
-type Elem (c: Type) :: Type := {
-  Elem (List a) =: a
+type Elem :: Type := \(c: Type). case c {
+  (List a) => a
 }
 
-type Nullable (c: Type) :: Type := {
-  Nullable (List a) =: Maybe a
+type Nullable :: Type := \(c: Type). case c {
+  (List a) => Maybe a
 }
 
 f :: Elem (List Unit) -> Nullable (List Unit)
@@ -438,13 +438,13 @@ data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
 data Pair := \a b. { MkPair: a -> b -> Pair a b; }
 data Unit := { Unit: Unit; }
 
-type Elem (c: Type) :: Type := {
-  Elem (List a) =: a;
-  Elem (Pair a b) =: a
+type Elem :: Type := \(c: Type). case c {
+  (List a) => a;
+  (Pair a b) => a
 }
 
-type Second (c: Type) :: Type := {
-  Second (Pair a b) =: b
+type Second :: Type := \(c: Type). case c {
+  (Pair a b) => b
 }
 
 swap :: Elem (Pair Unit Unit) -> Second (Pair Unit Unit) -> Pair Unit Unit
@@ -460,12 +460,12 @@ func TestInteractionTypeFamilyChained(t *testing.T) {
 data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
 data Unit := { Unit: Unit; }
 
-type Elem (c: Type) :: Type := {
-  Elem (List a) =: a
+type Elem :: Type := \(c: Type). case c {
+  (List a) => a
 }
 
-type Id (a: Type) :: Type := {
-  Id a =: a
+type Id :: Type := \(a: Type). case a {
+  a => a
 }
 
 f :: Id (Elem (List Unit)) -> Unit
@@ -487,8 +487,8 @@ func TestInteractionExplicitTyAppTypeFamilyResult(t *testing.T) {
 	source := `
 data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
 
-type Elem (c: Type) :: Type := {
-  Elem (List a) =: a
+type Elem :: Type := \(c: Type). case c {
+  (List a) => a
 }
 
 id :: \ a. a -> a
@@ -508,8 +508,8 @@ func TestInteractionExplicitTyAppTypeFamilyIdentity(t *testing.T) {
 	source := `
 data Unit := { Unit: Unit; }
 
-type Id (a: Type) :: Type := {
-  Id a =: a
+type Id :: Type := \(a: Type). case a {
+  a => a
 }
 
 id :: \ a. a -> a
@@ -530,8 +530,8 @@ func TestInteractionHigherRankTypeFamilyArg(t *testing.T) {
 data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
 data Unit := { Unit: Unit; }
 
-type Elem (c: Type) :: Type := {
-  Elem (List a) =: a
+type Elem :: Type := \(c: Type). case c {
+  (List a) => a
 }
 
 applyToUnit :: (Unit -> Unit) -> Unit
@@ -553,8 +553,8 @@ func TestInteractionRecursiveLetTypeFamilyAnnotation(t *testing.T) {
 data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
 data Unit := { Unit: Unit; }
 
-type Elem (c: Type) :: Type := {
-  Elem (List a) =: a
+type Elem :: Type := \(c: Type). case c {
+  (List a) => a
 }
 
 length :: \ a. List a -> Int
@@ -579,8 +579,8 @@ func TestInteractionThunkForceTypeFamilyResult(t *testing.T) {
 data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
 data Unit := { Unit: Unit; }
 
-type Elem (c: Type) :: Type := {
-  Elem (List a) =: a
+type Elem :: Type := \(c: Type). case c {
+  (List a) => a
 }
 
 delayed :: Thunk {} {} (Elem (List Unit))
@@ -598,8 +598,8 @@ func TestInteractionThunkForceTypeFamilyPrePost(t *testing.T) {
 data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
 data Unit := { Unit: Unit; }
 
-type Elem (c: Type) :: Type := {
-  Elem (List a) =: a
+type Elem :: Type := \(c: Type). case c {
+  (List a) => a
 }
 
 mkThunk :: Thunk { cap: Unit } { cap: Unit } (Elem (List Unit))
@@ -623,8 +623,8 @@ data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
 data Unit := { Unit: Unit; }
 data Bool := { True: Bool; False: Bool; }
 
-type Elem (c: Type) :: Type := {
-  Elem (List a) =: a
+type Elem :: Type := \(c: Type). case c {
+  (List a) => a
 }
 
 test :: Elem (List Bool) -> Bool
@@ -645,8 +645,8 @@ func TestInteractionErrorTypeFamilyArityTooMany(t *testing.T) {
 	// Applying too many arguments to a type family.
 	source := `
 data Unit := { Unit: Unit; }
-type Id (a: Type) :: Type := {
-  Id a =: a
+type Id :: Type := \(a: Type). case a {
+  a => a
 }
 f :: Id Unit Unit -> Unit
 f := \x. x
@@ -662,8 +662,8 @@ func TestInteractionErrorTypeFamilyEquationArityMismatch(t *testing.T) {
 	// A type family equation with wrong number of patterns.
 	source := `
 data Unit := { Unit: Unit; }
-type Id (a: Type) :: Type := {
-  Id a b =: a
+type Id :: Type := \(a: Type). case a {
+  a b => a
 }
 `
 	errMsg := checkSourceExpectCode(t, source, nil, diagnostic.ErrTypeFamilyEquation)
@@ -683,8 +683,8 @@ func TestInteractionErrorTypeFamilyNoMatch(t *testing.T) {
 	source := `
 data Unit := { Unit: Unit; }
 data Bool := { True: Bool; False: Bool; }
-type Elem (c: Type) :: Type := {
-  Elem (List a) =: a
+type Elem :: Type := \(c: Type). case c {
+  (List a) => a
 }
 data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
 f :: Elem Bool -> Unit
@@ -704,9 +704,9 @@ func TestInteractionErrorInjectivityEquationNumbers(t *testing.T) {
 	source := `
 data Unit := { Unit: Unit; }
 data Bool := { True: Bool; False: Bool; }
-type Collapse (a: Type) :: (r: Type) | r =: a := {
-  Collapse Unit =: Unit;
-  Collapse Bool =: Unit
+Collapse (a: Type) :: (r: Type) | r => a := {
+  Unit => Unit;
+  Bool => Unit
 }
 `
 	errMsg := checkSourceExpectCode(t, source, nil, diagnostic.ErrInjectivity)
@@ -723,8 +723,8 @@ type Collapse (a: Type) :: (r: Type) | r =: a := {
 func TestInteractionErrorRecursiveDepthFamilyName(t *testing.T) {
 	source := `
 data Unit := { Unit: Unit; }
-type Loop (a: Type) :: Type := {
-  Loop a =: Loop a
+type Loop :: Type := \(a: Type). case a {
+  a => Loop a
 }
 f :: Loop Unit -> Unit
 f := \x. x
@@ -776,8 +776,8 @@ func TestInteractionTypeFamilyInConstraint(t *testing.T) {
 data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
 data Bool := { True: Bool; False: Bool; }
 
-type Elem (c: Type) :: Type := {
-  Elem (List a) =: a
+type Elem :: Type := \(c: Type). case c {
+  (List a) => a
 }
 
 data Eq := \a. {
@@ -809,13 +809,13 @@ data Unit := { Unit: Unit; }
 data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
 data Bool := { True: Bool; False: Bool; }
 
-data Collection := \c e | c =: e. {
+Collection := \c e | c => e. {
   type Key c :: Type;
   elem: c -> e
 }
 
 impl Collection (List a) a := {
-  type Key (List a) =: Int;
+  Key (List a) => Int;
   elem := \xs. case xs { Cons x rest => x; Nil => elem Nil }
 }
 `
@@ -835,13 +835,13 @@ func TestInteractionDataFamilyAndFundep(t *testing.T) {
 data Unit := { Unit: Unit; }
 data Bool := { True: Bool; False: Bool; }
 
-data Convertible := \a b | a =: b. {
+Convertible := \a b | a => b. {
   data Result a :: Type;
   convert: a -> Result a
 }
 
 impl Convertible Bool Unit := {
-  data Result Bool =: BoolResult Unit;
+  Result Bool => BoolResult Unit;
   convert := \b. BoolResult Unit
 }
 
@@ -870,12 +870,12 @@ data Container := \c. {
 }
 
 impl Container (List a) := {
-  type Elem (List a) =: a;
+  Elem (List a) => a;
   size := \xs. 0
 }
 
 impl Container (Maybe a) := {
-  type Elem (Maybe a) =: a;
+  Elem (Maybe a) => a;
   size := \xs. 0
 }
 
@@ -901,8 +901,8 @@ func TestInteractionTypeFamilyInsideForall(t *testing.T) {
 data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
 data Unit := { Unit: Unit; }
 
-type Elem (c: Type) :: Type := {
-  Elem (List a) =: a
+type Elem :: Type := \(c: Type). case c {
+  (List a) => a
 }
 
 identity :: \ c. Elem c -> Elem c
@@ -920,9 +920,9 @@ func TestInteractionRecursiveTypeFamilyWithDataKinds(t *testing.T) {
 	source := `
 data Nat := { Zero: (); Succ: Nat; }
 
-type Add (m: Nat) (n: Nat) :: Nat := {
-  Add Zero n =: n;
-  Add (Succ m) n =: Succ (Add m n)
+type Add :: Nat := \(m: Nat) (n: Nat). case m {
+  Zero n => n;
+  (Succ m) n => Succ (Add m n)
 }
 `
 	checkSource(t, source, nil)
@@ -939,8 +939,8 @@ func TestInteractionTypeFamilyLetBinding(t *testing.T) {
 data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
 data Unit := { Unit: Unit; }
 
-type Elem (c: Type) :: Type := {
-  Elem (List a) =: a
+type Elem :: Type := \(c: Type). case c {
+  (List a) => a
 }
 
 wrap :: Elem (List Unit) -> Unit
@@ -963,8 +963,8 @@ data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
 data Unit := { Unit: Unit; }
 data Pair := \a b. { MkPair: a -> b -> Pair a b; }
 
-type Elem (c: Type) :: Type := {
-  Elem (List a) =: a
+type Elem :: Type := \(c: Type). case c {
+  (List a) => a
 }
 
 mkPair :: Elem (List Unit) -> Elem (List Unit) -> Pair Unit Unit
@@ -984,8 +984,8 @@ data Unit := { Unit: Unit; }
 data Maybe := \a. { Nothing: Maybe a; Just: a -> Maybe a; }
 data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
 
-type Always (a: Type) :: Type := {
-  Always _ =: Unit
+type Always :: Type := \(a: Type). case a {
+  _ => Unit
 }
 
 data Functor := \(f: k -> Type). {
@@ -1013,8 +1013,8 @@ data Mult := { Unrestricted: (); Affine: (); Linear: (); }
 data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
 data Unit := { Unit: Unit; }
 
-type Elem (c: Type) :: Type := {
-  Elem (List a) =: a
+type Elem :: Type := \(c: Type). case c {
+  (List a) => a
 }
 
 readHandle :: Computation { handle: Unit @Linear } { handle: Unit @Linear } (Elem (List Unit))
@@ -1043,8 +1043,8 @@ data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
 data Unit := { Unit: Unit; }
 data Bool := { True: Bool; False: Bool; }
 
-type Elem (c: Type) :: Type := {
-  Elem (List a) =: a
+type Elem :: Type := \(c: Type). case c {
+  (List a) => a
 }
 
 data Eq := \a. {
@@ -1072,8 +1072,8 @@ func TestInteractionBugTypeFamilyInCapabilityRow(t *testing.T) {
 data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
 data Unit := { Unit: Unit; }
 
-type Elem (c: Type) :: Type := {
-  Elem (List a) =: a
+type Elem :: Type := \(c: Type). case c {
+  (List a) => a
 }
 
 step :: Computation { handle: Elem (List Unit) } { handle: Elem (List Unit) } Unit
@@ -1095,8 +1095,8 @@ func TestInteractionBugUndersaturatedTypeFamilyInApp(t *testing.T) {
 	source := `
 data Unit := { Unit: Unit; }
 data Pair := \a b. { MkPair: a -> b -> Pair a b; }
-type Fst (a: Type) (b: Type) :: Type := {
-  Fst a b =: a
+type Fst :: Type := \(a: Type) (b: Type). case a {
+  a b => a
 }
 `
 	// Just test that declaration is accepted. No application.
@@ -1114,11 +1114,11 @@ func TestInteractionBugTypeFamilyShadowedVar(t *testing.T) {
 data Unit := { Unit: Unit; }
 data Bool := { True: Bool; False: Bool; }
 data Pair := \a b. { MkPair: a -> b -> Pair a b; }
-type Fst (c: Type) :: Type := {
-  Fst (Pair a b) =: a
+type Fst :: Type := \(c: Type). case c {
+  (Pair a b) => a
 }
-type Snd (c: Type) :: Type := {
-  Snd (Pair a b) =: b
+type Snd :: Type := \(c: Type). case c {
+  (Pair a b) => b
 }
 f :: Fst (Pair Bool Unit) -> Bool
 f := \x. x
@@ -1146,7 +1146,7 @@ data Container := \a. {
 }
 
 impl Container Bool := {
-  data Elem Bool =: BoolElem Bool | EmptyElem;
+  Elem Bool => BoolElem Bool | EmptyElem;
   empty := True
 }
 
@@ -1171,7 +1171,7 @@ data Container := \a. {
 }
 
 impl Container Bool := {
-  data Elem Bool =: BoolElem Bool | EmptyElem;
+  Elem Bool => BoolElem Bool | EmptyElem;
   empty := True
 }
 
@@ -1195,8 +1195,8 @@ data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
 data Unit := { Unit: Unit; }
 data Bool := { True: Bool; False: Bool; }
 
-type Elem (c: Type) :: Type := {
-  Elem (List a) =: a
+type Elem :: Type := \(c: Type). case c {
+  (List a) => a
 }
 
 data Eq := \a. {
@@ -1224,8 +1224,8 @@ func TestInteractionBugZonkAndTypeFamilyReduction(t *testing.T) {
 data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
 data Unit := { Unit: Unit; }
 
-type Elem (c: Type) :: Type := {
-  Elem (List a) =: a
+type Elem :: Type := \(c: Type). case c {
+  (List a) => a
 }
 
 id :: \ a. a -> a
@@ -1256,12 +1256,12 @@ data Container := \c. {
 }
 
 impl Container (List a) := {
-  type Elem (List a) =: a;
+  Elem (List a) => a;
   empty := Nil
 }
 
 impl Container (Maybe a) := {
-  type Elem (Maybe a) =: a;
+  Elem (Maybe a) => a;
   empty := Nothing
 }
 
@@ -1283,8 +1283,8 @@ func TestInteractionBugExplicitTyAppWithFamilyReduction(t *testing.T) {
 	source := `
 data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
 
-type Elem (c: Type) :: Type := {
-  Elem (List a) =: a
+type Elem :: Type := \(c: Type). case c {
+  (List a) => a
 }
 
 id :: \ a. a -> a
@@ -1310,8 +1310,8 @@ func TestInteractionBugFundepWithReducedType(t *testing.T) {
 data Unit := { Unit: Unit; }
 data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
 
-type Id (a: Type) :: Type := {
-  Id a =: a
+type Id :: Type := \(a: Type). case a {
+  a => a
 }
 
 data Elem := \c e. {
@@ -1342,8 +1342,8 @@ data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
 data Unit := { Unit: Unit; }
 data Bool := { True: Bool; False: Bool; }
 
-type Elem (c: Type) :: Type := {
-  Elem (List a) =: a
+type Elem :: Type := \(c: Type). case c {
+  (List a) => a
 }
 
 data Eq := \a. {
@@ -1370,8 +1370,8 @@ func TestInteractionBugTypeFamilyHigherRank(t *testing.T) {
 data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
 data Unit := { Unit: Unit; }
 
-type Elem (c: Type) :: Type := {
-  Elem (List a) =: a
+type Elem :: Type := \(c: Type). case c {
+  (List a) => a
 }
 
 apply :: \ a b. (a -> b) -> a -> b
@@ -1395,8 +1395,8 @@ data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
 data Unit := { Unit: Unit; }
 data Bool := { True: Bool; False: Bool; }
 
-type Elem (c: Type) :: Type := {
-  Elem (List a) =: a
+type Elem :: Type := \(c: Type). case c {
+  (List a) => a
 }
 
 data Eq := \a. {
@@ -1430,7 +1430,7 @@ data Container := \a. {
 }
 
 impl Container Bool := {
-  data Elem Bool =: Tag Bool;
+  Elem Bool => Tag Bool;
   empty := True
 }
 
@@ -1566,8 +1566,8 @@ data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
 data Unit := { Unit: Unit; }
 data Bool := { True: Bool; False: Bool; }
 
-type Elem (c: Type) :: Type := {
-  Elem (List a) =: a
+type Elem :: Type := \(c: Type). case c {
+  (List a) => a
 }
 
 data Eq := \a. {
@@ -1595,8 +1595,8 @@ func TestInteractionReduceFamilyAppsCapRow(t *testing.T) {
 data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
 data Unit := { Unit: Unit; }
 
-type Elem (c: Type) :: Type := {
-  Elem (List a) =: a
+type Elem :: Type := \(c: Type). case c {
+  (List a) => a
 }
 
 step :: Computation { cap: Elem (List Unit) } {} Unit

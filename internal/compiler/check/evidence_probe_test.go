@@ -280,7 +280,7 @@ func TestProbeD_Constraint_MultiParamClass(t *testing.T) {
 data Bool := { True: Bool; False: Bool; }
 data Unit := { Unit: Unit; }
 
-data Convert := \a b | a =: b. { convert: a -> b }
+Convert := \a b | a => b. { convert: a -> b }
 impl Convert Bool Unit := { convert := \x. Unit }
 
 main := convert True

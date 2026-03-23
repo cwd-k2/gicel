@@ -84,8 +84,8 @@ func TestRegressionReduceFamilyInArrowType(t *testing.T) {
 	source := `
 data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
 data Unit := { Unit: Unit; }
-type Elem (c: Type) :: Type := {
-  Elem (List a) =: a
+type Elem :: Type := \(c: Type). case c {
+  (List a) => a
 }
 f :: Elem (List Unit) -> Unit
 f := \x. x
@@ -99,8 +99,8 @@ func TestRegressionReduceFamilyInCompType(t *testing.T) {
 	source := `
 data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
 data Unit := { Unit: Unit; }
-type Elem (c: Type) :: Type := {
-  Elem (List a) =: a
+type Elem :: Type := \(c: Type). case c {
+  (List a) => a
 }
 f :: Computation {} {} (Elem (List Unit)) -> Computation {} {} Unit
 f := \c. c
@@ -114,8 +114,8 @@ func TestRegressionReduceFamilyInNestedArrow(t *testing.T) {
 	source := `
 data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
 data Unit := { Unit: Unit; }
-type Elem (c: Type) :: Type := {
-  Elem (List a) =: a
+type Elem :: Type := \(c: Type). case c {
+  (List a) => a
 }
 f :: (Elem (List Unit) -> Unit) -> Unit -> Unit
 f := \g x. g x
@@ -134,10 +134,10 @@ func TestRegressionInjectivityNonTypeKind(t *testing.T) {
 	// and is injective.
 	source := `
 data Session := { Send: Session; Recv: Session; End: (); }
-type Dual (s: Session) :: (r: Session) | r =: s := {
-  Dual (Send s) =: Recv (Dual s);
-  Dual (Recv s) =: Send (Dual s);
-  Dual End =: End
+Dual (s: Session) :: (r: Session) | r => s := {
+  (Send s) => Recv (Dual s);
+  (Recv s) => Send (Dual s);
+  End => End
 }
 `
 	checkSource(t, source, nil)
@@ -149,9 +149,9 @@ func TestRegressionInjectivityNonTypeKindViolation(t *testing.T) {
 	// Both equations map to End, but from different LHS patterns.
 	source := `
 data Session := { Send: Session; Recv: Session; End: (); }
-type Bad (s: Session) :: (r: Session) | r =: s := {
-  Bad (Send s) =: End;
-  Bad (Recv s) =: End
+Bad (s: Session) :: (r: Session) | r => s := {
+  (Send s) => End;
+  (Recv s) => End
 }
 `
 	checkSourceExpectCode(t, source, nil, diagnostic.ErrInjectivity)
@@ -174,7 +174,7 @@ data Container := \c. {
 }
 
 impl Container (Wrapper a) := {
-  data Elem (Wrapper a) =: Wrap a
+  Elem (Wrapper a) => Wrap a
 }
 `
 	checkSourceExpectCode(t, source, nil, diagnostic.ErrDuplicateDecl)
@@ -192,7 +192,7 @@ data Container := \c. {
 }
 
 impl Container (Wrapper a) := {
-  data Elem (Wrapper a) =: WrapElem a
+  Elem (Wrapper a) => WrapElem a
 }
 
 x :: Elem (Wrapper Unit)
@@ -206,14 +206,14 @@ x := WrapElem Unit
 // -----------------------------------------------
 
 // TestRegressionExponentialTypeGrowthBound verifies that a type family
-// of the form `Grow a =: Grow (Pair a a)` is bounded by the reduction
+// of the form `a => Grow (Pair a a)` is bounded by the reduction
 // limits and terminates with an appropriate error.
 func TestRegressionExponentialTypeGrowthBound(t *testing.T) {
 	source := `
 data Pair := \a b. { MkPair: a -> b -> Pair a b; }
 data Unit := { Unit: Unit; }
-type Grow (a: Type) :: Type := {
-  Grow a =: Grow (Pair a a)
+type Grow :: Type := \(a: Type). case a {
+  a => Grow (Pair a a)
 }
 f :: Grow Unit -> Unit
 f := \x. x

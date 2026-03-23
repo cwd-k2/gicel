@@ -60,11 +60,11 @@ func TestStressDeepRecursiveTF_DepthExceedsLimit(t *testing.T) {
 	source := `
 data Unit := { Unit: Unit; }
 data Nat := { Z: (); S: Nat; }
-type Bounce (a: Type) :: Type := {
-  Bounce a =: Trampoline a
+type Bounce :: Type := \(a: Type). case a {
+  a => Trampoline a
 }
-type Trampoline (a: Type) :: Type := {
-  Trampoline a =: Bounce a
+type Trampoline :: Type := \(a: Type). case a {
+  a => Bounce a
 }
 f :: Bounce Unit -> Unit
 f := \x. x
@@ -119,16 +119,16 @@ data Wrapper := \a. { Wrap: a -> Wrapper a; }
 data Unit := { Unit: Unit; }
 data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
 
-type Unwrap (w: Type) :: Type := {
-  Unwrap (Wrapper a) =: a
+type Unwrap :: Type := \(w: Type). case w {
+  (Wrapper a) => a
 }
 
-type Head (l: Type) :: Type := {
-  Head (List a) =: a
+type Head :: Type := \(l: Type). case l {
+  (List a) => a
 }
 
-type Apply (f: Type) :: Type := {
-  Apply a =: a
+type Apply :: Type := \(f: Type). case f {
+  a => a
 }
 
 -- Nested: Unwrap (Wrapper (Head (List (Apply Unit)))) = Head (List Unit) = Unit
@@ -144,16 +144,16 @@ data Unit := { Unit: Unit; }
 data Box a := MkBox a
 data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
 
-type Unbox (b: Type) :: Type := {
-  Unbox (Box a) =: a
+type Unbox :: Type := \(b: Type). case b {
+  (Box a) => a
 }
 
-type Elem (c: Type) :: Type := {
-  Elem (List a) =: a
+type Elem :: Type := \(c: Type). case c {
+  (List a) => a
 }
 
-type Id (a: Type) :: Type := {
-  Id a =: a
+type Id :: Type := \(a: Type). case a {
+  a => a
 }
 
 -- Id(Elem(List(Unbox(Box Unit)))) = Id(Elem(List Unit)) = Id(Unit) = Unit
@@ -170,8 +170,8 @@ func TestStressTypeFamilyInClassContext(t *testing.T) {
 data Unit := { Unit: Unit; }
 data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
 
-type Elem (c: Type) :: Type := {
-  Elem (List a) =: a
+type Elem :: Type := \(c: Type). case c {
+  (List a) => a
 }
 
 -- A class whose method return type is a type family application.
@@ -214,22 +214,22 @@ data Collection := \c. {
 }
 
 impl Collection (List a) := {
-  data Key (List a) =: ListKey a;
+  Key (List a) => ListKey a;
   empty := Nil
 }
 
 impl Collection Unit := {
-  data Key Unit =: UnitKey;
+  Key Unit => UnitKey;
   empty := Unit
 }
 
 impl Collection (Pair a b) := {
-  data Key (Pair a b) =: PairKey a;
+  Key (Pair a b) => PairKey a;
   empty := emptyPair
 }
 
 impl Collection (Maybe a) := {
-  data Key (Maybe a) =: MaybeKey a;
+  Key (Maybe a) => MaybeKey a;
   empty := Nothing
 }
 
@@ -271,27 +271,27 @@ data HasRepr := \c. {
 }
 
 impl HasRepr Unit := {
-  data Repr Unit =: ReprUnit;
+  Repr Unit => ReprUnit;
   toRepr := \_. ReprUnit
 }
 
 impl HasRepr (List a) := {
-  data Repr (List a) =: ReprList a;
+  Repr (List a) => ReprList a;
   toRepr := \xs. case xs { Cons x _ => ReprList x; Nil => nilFallback }
 }
 
 impl HasRepr (Pair a b) := {
-  data Repr (Pair a b) =: ReprPair a b;
+  Repr (Pair a b) => ReprPair a b;
   toRepr := \p. case p { MkPair a b => ReprPair a b }
 }
 
 impl HasRepr (Either a b) := {
-  data Repr (Either a b) =: ReprLeft a | ReprRight b;
+  Repr (Either a b) => ReprLeft a | ReprRight b;
   toRepr := \e. case e { Left a => ReprLeft a; Right b => ReprRight b }
 }
 
 impl HasRepr (Maybe a) := {
-  data Repr (Maybe a) =: ReprJust a | ReprNothing;
+  Repr (Maybe a) => ReprJust a | ReprNothing;
   toRepr := \m. case m { Just x => ReprJust x; Nothing => ReprNothing }
 }
 
@@ -325,7 +325,7 @@ func TestBoundaryZeroArityTypeFamily(t *testing.T) {
 	source := `
 data Unit := { Unit: Unit; }
 type Const :: Type := {
-  Const =: Unit
+   => Unit
 }
 f :: Const -> Unit
 f := \x. x
@@ -341,11 +341,11 @@ data Maybe := \a. { Nothing: Maybe a; Just: a -> Maybe a; }
 data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
 data Unit := { Unit: Unit; }
 
-type DeepElem (c: Type) :: Type := {
-  DeepElem (Maybe (List a)) =: a;
-  DeepElem (List (Maybe a)) =: a;
-  DeepElem (Maybe a) =: a;
-  DeepElem (List a) =: a
+type DeepElem :: Type := \(c: Type). case c {
+  (Maybe (List a)) => a;
+  (List (Maybe a)) => a;
+  (Maybe a) => a;
+  (List a) => a
 }
 
 f :: DeepElem (Maybe (List Unit)) -> Unit
@@ -364,7 +364,7 @@ func TestBoundaryFunDepAllDetermined(t *testing.T) {
 	source := `
 data Unit := { Unit: Unit; }
 
-data Iso := \a b | a =: b, b =: a. {
+Iso := \a b | a => b, b =: a. {
   to: a -> b;
   from: b -> a
 }
@@ -485,8 +485,8 @@ f := \t. case t {
 func TestBoundaryTypeFamilyAllWildcards(t *testing.T) {
 	source := `
 data Unit := { Unit: Unit; }
-type Always (a: Type) :: Type := {
-  Always _ =: Unit
+type Always :: Type := \(a: Type). case a {
+  _ => Unit
 }
 f :: Always Int -> Unit
 f := \x. x
@@ -502,9 +502,9 @@ f := \x. x
 func TestBoundaryRecursiveTFTerminatesAtDepth1(t *testing.T) {
 	source := `
 data Nat := { Z: (); S: Nat; }
-type Pred (n: Nat) :: Nat := {
-  Pred (S n) =: n;
-  Pred Z =: Z
+type Pred :: Nat := \(n: Nat). case n {
+  (S n) => n;
+  Z => Z
 }
 data Phantom := \\(n: Nat). { MkPhantom: Phantom n; }
 f :: Phantom (Pred (S Z)) -> Phantom Z
@@ -522,9 +522,9 @@ data Unit := { Unit: Unit; }
 data Maybe := \a. { Nothing: Maybe a; Just: a -> Maybe a; }
 data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
 
-type Elem (c: Type) :: Type := {
-  Elem (Maybe a) =: a;
-  Elem (List a) =: a
+type Elem :: Type := \(c: Type). case c {
+  (Maybe a) => a;
+  (List a) => a
 }
 
 f :: Elem (Maybe Unit) -> Unit
@@ -548,7 +548,7 @@ data HasTag := \c. {
 }
 
 impl HasTag Unit := {
-  data Tag Unit =: TagA | TagB | TagC;
+  Tag Unit => TagA | TagB | TagC;
   getTag := \_. TagA
 }
 
@@ -573,7 +573,7 @@ data HasTag := \c. {
 }
 
 impl HasTag Unit := {
-  data Tag Unit =: TagA | TagB | TagC;
+  Tag Unit => TagA | TagB | TagC;
   getTag := \_. TagA
 }
 

@@ -160,12 +160,12 @@ main := do { open }
 func TestGradeLUBTypeFamilyDefined(t *testing.T) {
 	source := `
 data Mult := { Unrestricted: (); Affine: (); Linear: (); }
-type LUB (m1: Mult) (m2: Mult) :: Mult := {
-  LUB Linear _ =: Linear;
-  LUB _ Linear =: Linear;
-  LUB Affine _ =: Affine;
-  LUB _ Affine =: Affine;
-  LUB Unrestricted Unrestricted =: Unrestricted
+type LUB :: Mult := \(m1: Mult) (m2: Mult). case m1 {
+  Linear _ => Linear;
+  _ Linear => Linear;
+  Affine _ => Affine;
+  _ Affine => Affine;
+  Unrestricted Unrestricted => Unrestricted
 }
 `
 	checkSource(t, source, nil)

@@ -339,9 +339,11 @@ func (p *Parser) parseTypeCase() *syn.TyExprCase {
 	var alts []syn.TyAlt
 	p.parseBody("type case", openTok.S, func() {
 		altStart := p.peek().S.Start
-		pattern := p.parseType()
+		// Parse pattern: stop before => (don't consume it as QualType)
+		pattern := p.parseTypeApp()
 		p.expect(syn.TokFatArrow)
-		body := p.parseType()
+		// Parse body: also stop before ; or } (don't consume as QualType)
+		body := p.parseTypeApp()
 		alts = append(alts, syn.TyAlt{
 			Pattern: pattern,
 			Body:    body,
