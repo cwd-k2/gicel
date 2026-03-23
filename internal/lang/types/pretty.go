@@ -127,7 +127,17 @@ func prettyEvidenceRow(r *TyEvidenceRow) string {
 	case *ConstraintEntries:
 		return prettyConstraintEntries(entries.Entries, r.Tail)
 	default:
-		return "{?}"
+		// Generic fallback for future fiber types.
+		children := r.Entries.AllChildren()
+		parts := make([]string, len(children))
+		for i, c := range children {
+			parts[i] = Pretty(c)
+		}
+		result := "{ " + strings.Join(parts, ", ") + " }"
+		if r.Tail != nil {
+			result = "{ " + strings.Join(parts, ", ") + " | " + Pretty(r.Tail) + " }"
+		}
+		return result
 	}
 }
 

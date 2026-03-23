@@ -141,6 +141,16 @@ func writeEvidenceRowKey(b *strings.Builder, row *TyEvidenceRow) {
 		}
 		b.WriteByte('}')
 	default:
-		b.WriteString("{R}")
+		// Generic fallback for future fiber types.
+		b.WriteString("{X")
+		for _, child := range row.Entries.AllChildren() {
+			b.WriteByte(' ')
+			WriteTypeKey(b, child)
+		}
+		if row.Tail != nil {
+			b.WriteString("|")
+			WriteTypeKey(b, row.Tail)
+		}
+		b.WriteByte('}')
 	}
 }

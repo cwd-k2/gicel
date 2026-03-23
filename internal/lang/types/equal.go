@@ -137,7 +137,24 @@ func equalAlpha(a, b Type, bindings []alphaBinding) bool {
 			}
 			return true
 		default:
-			return false
+			// Generic fallback for future fiber types: compare via AllChildren.
+			bChildren := bt.Entries.AllChildren()
+			aChildren := at.Entries.AllChildren()
+			if len(aChildren) != len(bChildren) {
+				return false
+			}
+			for i := range aChildren {
+				if !equalAlpha(aChildren[i], bChildren[i], bindings) {
+					return false
+				}
+			}
+			if (at.Tail == nil) != (bt.Tail == nil) {
+				return false
+			}
+			if at.Tail != nil {
+				return equalAlpha(at.Tail, bt.Tail, bindings)
+			}
+			return true
 		}
 
 	case *TyEvidence:
