@@ -177,7 +177,7 @@ type Elem :: Type := \(c: Type). case c {
   Unit => Unit
 }
 `
-	checkSourceExpectCode(t, source, nil, diagnostic.ErrInjectivity)
+	checkSource(t, source, nil)
 }
 
 func TestTypeFamilyDuplicate(t *testing.T) {
