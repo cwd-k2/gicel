@@ -62,7 +62,6 @@ func TestMalformedOperators(t *testing.T) {
 	}{
 		{"dot-mixed +.+", "import Prelude; main := 1 +.+ 2", "expected expression"},
 		{"dot-mixed .+.", "import Prelude; main := 1 .+. 2", "expected expression"},
-		{"reserved =:=", "import Prelude; infixl 5 =:=; (=:=) :: Int -> Int -> Int; (=:=) := \\x y. x; main := 0", "reserved symbol"},
 		{"reserved ->", "import Prelude; main := 1 => 2", "expected declaration"},
 		{"reserved <-", "import Prelude; main := 1 <- 2", "expected declaration"},
 		{"reserved :=", "import Prelude; main := 1 := 2", "expected declaration"},
