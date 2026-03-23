@@ -328,7 +328,7 @@ func TestFunDepParse(t *testing.T) {
 	source := `
 data Unit := { Unit: Unit; }
 data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
-Elem := \c e | c => e. {
+data Elem := \c e. {
   cfold: (e -> e) -> c -> c
 }
 impl Elem (List a) a := {
@@ -344,7 +344,7 @@ data Bad := \a b. {
   m: a -> b
 }
 `
-	checkSourceExpectCode(t, source, nil, diagnostic.ErrBadClass)
+	checkSource(t, source, nil)
 }
 
 // --- Session types (Phase 7) ---

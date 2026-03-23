@@ -132,7 +132,7 @@ data Eq := \a. { eq: a -> a -> Bool }
 impl Eq Bool := { eq := \x y. True }
 impl Eq Unit := { eq := \x y. True }
 impl Eq a => Eq (F a) := { eq := \x y. True }
-f :: \ (g: Type -> Type). (\ a. Eq a => Eq (g a)) => g Bool -> g Unit => Bool
+f :: \ (g: Type -> Type). (\ a. Eq a => Eq (g a)) => g Bool -> g Unit -> Bool
 f := \x y. eq x x
 main := f (MkF True) (MkF Unit)`
 	checkSource(t, source, nil)

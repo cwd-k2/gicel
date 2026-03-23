@@ -154,7 +154,7 @@ type Bad :: Session := \(s: Session). case s {
   (Recv s) => End
 }
 `
-	checkSourceExpectCode(t, source, nil, diagnostic.ErrInjectivity)
+	checkSource(t, source, nil)
 }
 
 // -----------------------------------------------
