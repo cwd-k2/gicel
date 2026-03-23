@@ -45,7 +45,7 @@ impl Collection (List a) := {
 // --- Constructor registration ---
 
 func TestDataFamilyConstructorType(t *testing.T) {
-	t.Skip("data family constructor registration not yet implemented")
+	t.Skip("data family constructor registration: type mismatch in mangled name")
 	// The mangled constructor should be usable as a value
 	source := `
 data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
@@ -68,7 +68,7 @@ x := ListElem Unit
 }
 
 func TestDataFamilyMultipleInstances(t *testing.T) {
-	t.Skip("data family constructor registration not yet implemented")
+	t.Skip("data family constructor registration: type mismatch in mangled name")
 	// Different instances define different constructors for the same family
 	source := `
 data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
@@ -101,7 +101,7 @@ y := UnitElem
 // --- Pattern matching ---
 
 func TestDataFamilyPatternMatch(t *testing.T) {
-	t.Skip("data family constructor registration not yet implemented")
+	t.Skip("data family constructor registration: type mismatch in mangled name")
 	source := `
 data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
 data Unit := { Unit: Unit; }
@@ -157,7 +157,7 @@ impl Collection Unit := {
 // --- Reduction: Elem as data family reduces like type family ---
 
 func TestDataFamilyTypeReduction(t *testing.T) {
-	t.Skip("data family constructor registration not yet implemented")
+	t.Skip("data family constructor registration: type mismatch in mangled name")
 	// Elem (List Unit) should be usable as a type that accepts ListElem
 	config := &CheckConfig{
 		RegisteredTypes: map[string]types.Kind{"Int": types.KType{}},
@@ -188,7 +188,7 @@ id := \x. x
 // --- Data family with multiple constructors ---
 
 func TestDataFamilyMultipleConstructors(t *testing.T) {
-	t.Skip("data family constructor registration not yet implemented")
+	t.Skip("data family constructor registration: type mismatch in mangled name")
 	source := `
 data Unit := { Unit: Unit; }
 
@@ -214,7 +214,7 @@ f := \e. case e {
 // --- Exhaustiveness ---
 
 func TestDataFamilyExhaustiveness(t *testing.T) {
-	t.Skip("data family constructor registration not yet implemented")
+	t.Skip("data family constructor registration: type mismatch in mangled name")
 	source := `
 data Unit := { Unit: Unit; }
 

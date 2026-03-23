@@ -320,18 +320,30 @@ func (ch *Checker) processImplHeader(impl *syntax.DeclImpl) (*InstanceInfo, map[
 	// Extract methods and associated type definitions from the body.
 	bodyParts := extractImplBody(impl.Body)
 
-	// Build legacy associated type definitions with patterns from type args.
+	// Build legacy associated type/data definitions with patterns from type args.
 	var assocTypeDefs []legacyAssocTypeDef
+	var assocDataDefs []legacyAssocDataDef
 	for _, td := range bodyParts.TypeDefs {
-		// The legacy format expects patterns: type Elem (List a) =: a
-		// We have the RHS and the instance type args. Build patterns from type args.
-		atd := legacyAssocTypeDef{
-			Name:     td.Name,
-			Patterns: typeArgs, // use instance type args as patterns
-			RHS:      td.RHS,
-			S:        td.S,
+		if td.IsData && td.TypeDef != nil {
+			// Associated data family definition: data Elem := ListElem a | Empty
+			// The TypeDef contains the first constructor type (ListElem a).
+			// Register as a data family equation (type family with mangled name).
+			assocDataDefs = append(assocDataDefs, legacyAssocDataDef{
+				Name:     td.Name,
+				Patterns: typeArgs,
+				Cons:     parseImplDataCons(td.TypeDef),
+				S:        td.S,
+			})
 		}
-		assocTypeDefs = append(assocTypeDefs, atd)
+		if td.TypeDef != nil {
+			// All type/data defs create type family equations.
+			assocTypeDefs = append(assocTypeDefs, legacyAssocTypeDef{
+				Name:     td.Name,
+				Patterns: typeArgs,
+				RHS:      td.TypeDef,
+				S:        td.S,
+			})
+		}
 	}
 
 	legacy := &legacyDeclInstance{
@@ -340,9 +352,36 @@ func (ch *Checker) processImplHeader(impl *syntax.DeclImpl) (*InstanceInfo, map[
 		TypeArgs:      typeArgs,
 		Methods:       bodyParts.Methods,
 		AssocTypeDefs: assocTypeDefs,
+		AssocDataDefs: assocDataDefs,
 		S:             impl.S,
 	}
 	return ch.processInstanceHeaderLegacy(legacy)
+}
+
+// parseImplDataCons extracts constructor declarations from a data family definition RHS.
+// The RHS is the first constructor type (from parseType), e.g., "ListElem a".
+// For ADT shorthand with |, only the first constructor is captured by the parser.
+func parseImplDataCons(rhs syntax.TypeExpr) []legacyDeclCon {
+	// The RHS is a type expression representing a constructor application.
+	// e.g., "ListElem a" → TyExprApp(TyExprCon("ListElem"), TyExprVar("a"))
+	// Extract the constructor name and field types.
+	// Unwind TyExprApp chain to get head constructor and args.
+	var args []syntax.TypeExpr
+	t := rhs
+	for {
+		if app, ok := t.(*syntax.TyExprApp); ok {
+			args = append([]syntax.TypeExpr{app.Arg}, args...)
+			t = app.Fun
+		} else {
+			break
+		}
+	}
+	if con, ok := t.(*syntax.TyExprCon); ok {
+		fields := make([]syntax.TypeExpr, len(args))
+		copy(fields, args)
+		return []legacyDeclCon{{Name: con.Name, Fields: fields}}
+	}
+	return nil
 }
 
 // unwindTypeApp decomposes a type expression into a head name and arguments.
@@ -374,7 +413,7 @@ func unwindTypeApp(t syntax.TypeExpr) (string, []syntax.TypeExpr) {
 // implBodyParts holds decomposed impl body contents.
 type implBodyParts struct {
 	Methods  []legacyInstMethod
-	TypeDefs []legacyAssocTypeDef
+	TypeDefs []syntax.ImplField // associated type/data definitions from impl body
 }
 
 // extractImplBody extracts method definitions and associated type definitions
@@ -398,15 +437,7 @@ func extractImplBody(body syntax.Expr) implBodyParts {
 				S:    bind.S,
 			})
 		}
-		for _, td := range b.TypeDefs {
-			if td.IsType && td.TypeDef != nil {
-				parts.TypeDefs = append(parts.TypeDefs, legacyAssocTypeDef{
-					Name: td.Name,
-					RHS:  td.TypeDef,
-					S:    td.S,
-				})
-			}
-		}
+		parts.TypeDefs = append(parts.TypeDefs, b.TypeDefs...)
 	}
 	return parts
 }

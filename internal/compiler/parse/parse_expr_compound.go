@@ -133,6 +133,7 @@ func (p *Parser) parseBlock() syn.Expr {
 		// New syntax: type Elem := a;  or  data Elem := ListElem a | Empty;
 		if p.peek().Kind == syn.TokType || p.peek().Kind == syn.TokData {
 			tdStart := p.peek().S.Start
+			isData := p.peek().Kind == syn.TokData
 			p.advance() // consume type/data
 			tdName := p.expectUpper()
 			p.expect(syn.TokColonEq)
@@ -148,7 +149,8 @@ func (p *Parser) parseBlock() syn.Expr {
 			}
 			typeDefs = append(typeDefs, syn.ImplField{
 				Name:    tdName,
-				IsType:  true,
+				IsType:  !isData,
+				IsData:  isData,
 				TypeDef: tdBody,
 				S:       span.Span{Start: tdStart, End: p.prevEnd()},
 			})

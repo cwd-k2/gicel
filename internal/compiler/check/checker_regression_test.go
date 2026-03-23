@@ -180,13 +180,13 @@ impl Container (List a) := {
   empty := Nil
 }
 `
-	checkSource(t, source, nil)
+	checkSourceExpectCode(t, source, nil, diagnostic.ErrDuplicateDecl)
 }
 
 // TestRegressionDataFamilyConstructorNoCollision verifies that distinct
 // constructor names in data family instances do not produce errors.
 func TestRegressionDataFamilyConstructorNoCollision(t *testing.T) {
-	t.Skip("data family constructor registration not yet implemented")
+	t.Skip("data family constructor registration: type mismatch in mangled name")
 	source := `
 data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
 data Unit := { Unit: Unit; }
