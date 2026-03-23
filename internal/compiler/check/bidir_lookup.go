@@ -22,6 +22,10 @@ func (ch *Checker) matchArrow(ty types.Type, s span.Span) (types.Type, types.Typ
 			break
 		}
 	}
+	// Reduce type family applications before arrow decomposition.
+	// check() already reduces the expected type, but matchArrow is also called
+	// from infer paths where the type may not have been pre-reduced.
+	ty = ch.reduceFamilyInType(ty)
 	if arr, ok := ty.(*types.TyArrow); ok {
 		return arr.From, arr.To
 	}

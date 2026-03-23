@@ -233,6 +233,13 @@ func (ch *Checker) check(expr syntax.Expr, expected types.Type) ir.Core {
 
 	expected = ch.unifier.Zonk(expected)
 
+	// Reduce type family applications in the expected type so that checking
+	// can decompose the result (e.g., `F (Pi Set Set)` → `Unit -> Unit`).
+	// NOTE: Type family reduction is NOT done here globally because it can
+	// change type identity and break computation boundary checks (e.g.,
+	// DualDual(S) ≠ S after reduction). Reduction happens on demand in
+	// matchArrow and the unifier.
+
 	// Polymorphic fix/rec: intercept before forall peeling so self
 	// gets the full expected type, enabling polymorphic recursion.
 	if app, ok := expr.(*syntax.ExprApp); ok {
