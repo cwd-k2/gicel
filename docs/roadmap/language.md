@@ -123,10 +123,6 @@ Row merging (separable composition) は SMC で提供されるが、quantum enta
 
 非 entry の top-level binding に bare `Computation` 型は不可 (E0291)。`thunk` で `Thunk` 型に変換する。entry point (default `main`) のみ免除。
 
-### Functional dependencies are not supported
-
-Functional dependencies (`| a =: b`) were part of the legacy `class ... where` syntax and have been removed in the unified syntax migration. Type families and injectivity annotations cover the same design space.
-
 ### Compiler-generated names use `$` convention
 
 辞書コンストラクタ等は `$` を含む。Lexer はユーザ識別子の `$` を拒否し衝突を防止。
