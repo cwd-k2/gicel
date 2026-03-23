@@ -21,10 +21,10 @@ import (
 // f :: Add (S (S (... Z ...))) Z => ...
 func peanoSource(depth int) string {
 	var b strings.Builder
-	b.WriteString("data Nat := { Z: (); S: Nat; }\n")
-	b.WriteString("type Add (a: Nat) (b: Nat) :: Nat := {\n")
-	b.WriteString("  Add Z b =: b;\n")
-	b.WriteString("  Add (S a) b =: S (Add a b)\n")
+	b.WriteString("data Nat := { Z: Nat; S: Nat -> Nat; }\n")
+	b.WriteString("type Add :: Nat := \\(a: Nat) (b: Nat). case a {\n")
+	b.WriteString("  Z => b;\n")
+	b.WriteString("  (S a) => S (Add a b)\n")
 	b.WriteString("}\n")
 
 	// Build S^depth applied to Z
@@ -86,15 +86,15 @@ func TestStressManyEquations(t *testing.T) {
 	}
 	b.WriteString("; }\n")
 	b.WriteString("data Result := { R0: Result; R1: Result; }\n")
-	b.WriteString("type Dispatch (t: Tag) :: Result := {\n")
+	b.WriteString("type Dispatch :: Result := \\(t: Tag). case t {\n")
 	for i := 0; i < 60; i++ {
 		if i > 0 {
 			b.WriteString(";\n")
 		}
 		if i%2 == 0 {
-			b.WriteString(fmt.Sprintf("  Dispatch T%d =: R0", i))
+			b.WriteString(fmt.Sprintf("  T%d => R0", i))
 		} else {
-			b.WriteString(fmt.Sprintf("  Dispatch T%d =: R1", i))
+			b.WriteString(fmt.Sprintf("  T%d => R1", i))
 		}
 	}
 	b.WriteString("\n}\n")
