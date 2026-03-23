@@ -22,9 +22,21 @@ func (p *Parser) parseAnnotation() syn.Expr {
 	if p.peek().Kind == syn.TokColonColon {
 		p.advance()
 		ty := p.parseType()
-		return &syn.ExprAnn{
+		e = &syn.ExprAnn{
 			Expr: e, AnnType: ty,
 			S: span.Span{Start: e.Span().Start, End: p.prevEnd()},
+		}
+	}
+	// Scoped evidence injection: value => expr
+	// Binds loosely (below annotation, above nothing). Right-associative:
+	// d1 => d2 => expr = d1 => (d2 => expr)
+	if p.peek().Kind == syn.TokFatArrow && !p.atStmtBoundary() {
+		p.advance()
+		body := p.parseExpr() // right-associative: recurse into full parseExpr
+		return &syn.ExprEvidence{
+			Dict: e,
+			Body: body,
+			S:    span.Span{Start: e.Span().Start, End: p.prevEnd()},
 		}
 	}
 	return e

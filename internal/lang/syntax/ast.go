@@ -150,6 +150,15 @@ type ExprSection struct {
 	S       span.Span
 }
 
+// ExprEvidence is a scoped evidence injection: value => expr.
+// The Dict expression is evaluated to a dictionary value, which is then
+// injected into the local context for resolution during checking of Body.
+type ExprEvidence struct {
+	Dict Expr // dictionary/evidence value
+	Body Expr // expression checked with Dict in scope
+	S    span.Span
+}
+
 // ExprError represents a parse error placeholder.
 // The checker should skip type checking and return an error type/core immediately.
 type ExprError struct {
@@ -178,6 +187,7 @@ func (*ExprRecord) exprNode()       {}
 func (*ExprRecordUpdate) exprNode() {}
 func (*ExprProject) exprNode()      {}
 func (*ExprSection) exprNode()      {}
+func (*ExprEvidence) exprNode()     {}
 func (*ExprError) exprNode()        {}
 
 func (e *ExprVar) Span() span.Span          { return e.S }
@@ -202,6 +212,7 @@ func (e *ExprRecord) Span() span.Span       { return e.S }
 func (e *ExprRecordUpdate) Span() span.Span { return e.S }
 func (e *ExprProject) Span() span.Span      { return e.S }
 func (e *ExprSection) Span() span.Span      { return e.S }
+func (e *ExprEvidence) Span() span.Span     { return e.S }
 func (e *ExprError) Span() span.Span        { return e.S }
 
 // ---- Statements (in do blocks) ----

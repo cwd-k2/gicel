@@ -62,7 +62,7 @@ func TestMalformedOperators(t *testing.T) {
 	}{
 		{"dot-mixed +.+", "import Prelude; main := 1 +.+ 2", "expected expression"},
 		{"dot-mixed .+.", "import Prelude; main := 1 .+. 2", "expected expression"},
-		{"reserved ->", "import Prelude; main := 1 => 2", "expected declaration"},
+		// "1 => 2" is now valid syntax (scoped evidence injection, elaborates to (\$ev. 2) 1)
 		{"reserved <-", "import Prelude; main := 1 <- 2", "expected declaration"},
 		{"reserved :=", "import Prelude; main := 1 := 2", "expected declaration"},
 		{"reserved |", "import Prelude; main := 1 | 2", "expected declaration"},

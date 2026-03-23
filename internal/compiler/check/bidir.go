@@ -212,6 +212,9 @@ func (ch *Checker) infer(expr syntax.Expr) (types.Type, ir.Core) {
 	case *syntax.ExprProject:
 		return ch.inferProject(e)
 
+	case *syntax.ExprEvidence:
+		return ch.inferEvidence(e)
+
 	case *syntax.ExprError:
 		return ch.errorPair(e.S)
 
@@ -309,6 +312,9 @@ func (ch *Checker) check(expr syntax.Expr, expected types.Type) ir.Core {
 
 	case *syntax.ExprParen:
 		return ch.check(e.Inner, expected)
+
+	case *syntax.ExprEvidence:
+		return ch.checkEvidence(e, expected)
 
 	default:
 		// Subsumption: infer type, then check inferred ≤ expected.
@@ -412,4 +418,29 @@ func (ch *Checker) subsCheck(inferred, expected types.Type, expr ir.Core, s span
 			types.Pretty(expected), types.Pretty(inferred)))
 	}
 	return expr
+}
+
+// inferEvidence handles `value => expr` in infer mode.
+// Evaluates the dict expression, injects it into the context, and infers
+// the type of the body with the evidence in scope.
+func (ch *Checker) inferEvidence(e *syntax.ExprEvidence) (types.Type, ir.Core) {
+	dictTy, dictCore := ch.infer(e.Dict)
+	bindName := fmt.Sprintf("$ev_%d", ch.fresh())
+	ch.ctx.Push(&CtxVar{Name: bindName, Type: dictTy})
+	bodyTy, bodyCore := ch.infer(e.Body)
+	ch.ctx.Pop()
+	// Elaborate: (\$ev. body) dict
+	lamCore := &ir.Lam{Param: bindName, ParamType: dictTy, Body: bodyCore, Generated: true, S: e.S}
+	return bodyTy, &ir.App{Fun: lamCore, Arg: dictCore, S: e.S}
+}
+
+// checkEvidence handles `value => expr` in check mode.
+func (ch *Checker) checkEvidence(e *syntax.ExprEvidence, expected types.Type) ir.Core {
+	dictTy, dictCore := ch.infer(e.Dict)
+	bindName := fmt.Sprintf("$ev_%d", ch.fresh())
+	ch.ctx.Push(&CtxVar{Name: bindName, Type: dictTy})
+	bodyCore := ch.check(e.Body, expected)
+	ch.ctx.Pop()
+	lamCore := &ir.Lam{Param: bindName, ParamType: dictTy, Body: bodyCore, Generated: true, S: e.S}
+	return &ir.App{Fun: lamCore, Arg: dictCore, S: e.S}
 }
