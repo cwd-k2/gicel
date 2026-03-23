@@ -2,6 +2,7 @@ package parse
 
 import (
 	"context"
+	"testing"
 
 	. "github.com/cwd-k2/gicel/internal/lang/syntax" //nolint:revive
 
@@ -33,4 +34,22 @@ func lexWithErrors(input string) ([]Token, *diagnostic.Errors) {
 	src := span.NewSource("test", input)
 	l := NewLexer(src)
 	return l.Tokenize()
+}
+
+func parseMustSucceed(t *testing.T, source string) *AstProgram {
+	t.Helper()
+	prog, es := parse(source)
+	if es.HasErrors() {
+		t.Fatalf("unexpected parse error: %s", es.Format())
+	}
+	return prog
+}
+
+func parseMustFail(t *testing.T, source string) string {
+	t.Helper()
+	_, es := parse(source)
+	if !es.HasErrors() {
+		t.Fatal("expected parse error, got none")
+	}
+	return es.Format()
 }

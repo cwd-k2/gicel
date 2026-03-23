@@ -1,6 +1,7 @@
 package check
 
 import (
+	"github.com/cwd-k2/gicel/internal/infra/diagnostic"
 	"github.com/cwd-k2/gicel/internal/infra/span"
 	"github.com/cwd-k2/gicel/internal/lang/ir"
 	"github.com/cwd-k2/gicel/internal/lang/syntax"
@@ -62,17 +63,8 @@ func decomposeDataBody(body syntax.TypeExpr) dataBodyParts {
 // desugarConstraints unpacks a constraint that may be a tuple.
 // (Eq a, Ord a) → [Eq a, Ord a]; Eq a → [Eq a].
 func desugarConstraints(c syntax.TypeExpr) []syntax.TypeExpr {
-	// Check for tuple constraint: Record { _1: C1, _2: C2 }
-	if app, ok := c.(*syntax.TyExprApp); ok {
-		if con, ok := app.Fun.(*syntax.TyExprCon); ok && con.Name == "Record" {
-			if row, ok := app.Arg.(*syntax.TyExprRow); ok && len(row.Fields) > 0 {
-				cs := make([]syntax.TypeExpr, len(row.Fields))
-				for i, f := range row.Fields {
-					cs[i] = f.Type
-				}
-				return cs
-			}
-		}
+	if cs := syntax.DesugarConstraintTuple(c); cs != nil {
+		return cs
 	}
 	return []syntax.TypeExpr{c}
 }
@@ -112,17 +104,28 @@ func isTypeFamilyBody(body syntax.TypeExpr) bool {
 }
 
 // isClassLikeData determines whether a data declaration represents a type class
-// (all fields are lowercase methods) vs a regular data type (at least one uppercase constructor).
+// vs a regular data type.
+//
+// The distinction follows GICEL's lexical category rule: data constructors start
+// with uppercase, type class methods start with lowercase. This is a language
+// invariant enforced by the parser (TokUpper vs TokLower), not a naming convention.
+//
+// Additionally, the body must be a record row ({ fields }), not a raw type expression
+// or pipe-ADT sugar. A non-row body (e.g., data Void := \a. a) is never class-like.
 func isClassLikeData(parts dataBodyParts) bool {
+	// Must have a record body and at least one field.
+	if _, isRow := parts.InnerBody.(*syntax.TyExprRow); !isRow {
+		return false
+	}
 	if len(parts.Fields) == 0 {
 		return false
 	}
 	for _, f := range parts.Fields {
 		if len(f.Label) > 0 && f.Label[0] >= 'A' && f.Label[0] <= 'Z' {
-			return false // has an uppercase field = constructor = not a class
+			return false // uppercase field = constructor = data type
 		}
 	}
-	return true // all lowercase fields = methods = class-like
+	return true
 }
 
 // --- Legacy AST compatibility types ---
@@ -219,40 +222,13 @@ type legacyInstMethod struct {
 	S    span.Span
 }
 
-type legacyGADTConDecl struct {
-	Name string
-	Type syntax.TypeExpr
-	S    span.Span
-}
-
 // --- Compatibility wrappers ---
 // These convert from the unified syntax AST to the checker's internal processing.
-
-// legacyClassDecl builds a legacy DeclClass-equivalent from a data declaration.
-// This is used during the transition period while the checker internals still
-// expect the old class processing pipeline.
-type legacyClassDecl struct {
-	Name       string
-	TyParams   []syntax.TyBinder
-	Supers     []syntax.TypeExpr
-	Methods    []legacyClassMethod
-	AssocTypes []syntax.TyRowTypeDecl
-	S          span.Span
-}
 
 type legacyClassMethod struct {
 	Name string
 	Type syntax.TypeExpr
 	S    span.Span
-}
-
-// legacyInstanceDecl builds a legacy DeclInstance-equivalent from an impl declaration.
-type legacyInstanceDecl struct {
-	Context   []syntax.TypeExpr
-	ClassName string
-	TypeArgs  []syntax.TypeExpr
-	Methods   map[string]syntax.Expr
-	S         span.Span
 }
 
 // processClassFromData processes a class-like data declaration by converting it
@@ -261,6 +237,10 @@ func (ch *Checker) processClassFromData(d *syntax.DeclData, parts dataBodyParts,
 	// Build legacy method list from row fields.
 	var methods []legacyClassMethod
 	for _, f := range parts.Fields {
+		if f.Default != nil {
+			ch.addCodedError(diagnostic.ErrBadClass, f.S,
+				"default method implementations are not yet supported in unified syntax")
+		}
 		methods = append(methods, legacyClassMethod{
 			Name: f.Label,
 			Type: f.Type,
@@ -334,9 +314,8 @@ func (ch *Checker) processImplHeader(impl *syntax.DeclImpl) (*InstanceInfo, map[
 				Cons:     parseImplDataCons(td.TypeDef),
 				S:        td.S,
 			})
-		}
-		if td.TypeDef != nil {
-			// All type/data defs create type family equations.
+		} else if td.TypeDef != nil {
+			// Type family equation (non-data associated type).
 			assocTypeDefs = append(assocTypeDefs, legacyAssocTypeDef{
 				Name:     td.Name,
 				Patterns: typeArgs,

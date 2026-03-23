@@ -33,8 +33,8 @@ func TestProbeD_RecoveryInDoBlock(t *testing.T) {
 // does not cascade into subsequent alternatives.
 func TestProbeD_RecoveryInCaseAlt(t *testing.T) {
 	source := `main := case x {
-  True + -> 1
-  False -> 2
+  True + => 1
+  False => 2
 }`
 	_, es := parse(source)
 	if !es.HasErrors() {
@@ -116,15 +116,15 @@ func TestProbeD_UnclosedBracketHint(t *testing.T) {
 }
 
 // TestProbeD_CaseAltMissingArrowRecovery verifies that a case alt with
-// a missing -> recovers and parses the next alt.
+// a missing => recovers and parses the next alt.
 func TestProbeD_CaseAltMissingArrowRecovery(t *testing.T) {
 	source := `main := case x {
   True 1
-  False -> 2
+  False => 2
 }`
 	_, es := parse(source)
 	if !es.HasErrors() {
-		t.Fatal("expected errors for missing -> in case alt")
+		t.Fatal("expected errors for missing => in case alt")
 	}
 	// Should report the missing arrow but not cascade excessively.
 	if es.Len() > 4 {

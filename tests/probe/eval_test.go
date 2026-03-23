@@ -293,7 +293,7 @@ func TestProbeE_Eval_PatternMatchExhaustionRuntime(t *testing.T) {
 import Prelude
 data Color := Red | Blue
 f :: Color -> Int
-f := \c. case c { Red -> 1 }
+f := \c. case c { Red => 1 }
 main := f Blue
 `, gicel.Prelude)
 	if err == nil {
@@ -330,7 +330,7 @@ func TestProbeE_Eval_DepthLimitTriggersOnRecursion(t *testing.T) {
 	eng.SetAllocLimit(10 * 1024 * 1024)
 	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
-loop := fix (\self n. case n == 0 { True -> 0; False -> self (n + negate 1) })
+loop := fix (\self n. case n == 0 { True => 0; False => self (n + negate 1) })
 main := loop 100
 `)
 	if err != nil {
@@ -553,7 +553,7 @@ func TestProbeE_Eval_ExplainCaseMatch(t *testing.T) {
 	_, steps, err := peRunWithExplain(t, `
 import Prelude
 data Color := Red | Blue
-main := case Red { Red -> 1; Blue -> 0 }
+main := case Red { Red => 1; Blue => 0 }
 `, gicel.Prelude)
 	if err != nil {
 		t.Fatal(err)
@@ -1087,7 +1087,7 @@ func TestProbeE_Eval_FixWithRecursionEnabled(t *testing.T) {
 	eng.EnableRecursion()
 	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
-countdown := fix (\self n. case n == 0 { True -> 0; False -> self (n + negate 1) })
+countdown := fix (\self n. case n == 0 { True => 0; False => self (n + negate 1) })
 main := countdown 10
 `)
 	if err != nil {

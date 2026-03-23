@@ -19,23 +19,23 @@ import (
 const sessionPreamble = `
 import Prelude
 
-data Mult := Unrestricted | Affine | Linear
-data Send s := MkSend
-data Recv s := MkRecv
-data End := MkEnd
+data Mult := { Unrestricted: Mult; Affine: Mult; Linear: Mult; }
+data Send := \s. { MkSend: Send s; }
+data Recv := \s. { MkRecv: Recv s; }
+data End := { MkEnd: End; }
 
-type LUB (m1: Mult) (m2: Mult) :: Mult := {
-  LUB Linear _ =: Linear;
-  LUB _ Linear =: Linear;
-  LUB Affine _ =: Affine;
-  LUB _ Affine =: Affine;
-  LUB Unrestricted Unrestricted =: Unrestricted
+type LUB :: Mult := \(m1: Mult) (m2: Mult). case (m1, m2) {
+  (Linear, _) => Linear;
+  (_, Linear) => Linear;
+  (Affine, _) => Affine;
+  (_, Affine) => Affine;
+  (Unrestricted, Unrestricted) => Unrestricted
 }
 
-type Dual (s: Type) :: Type := {
-  Dual (Send s) =: Recv (Dual s);
-  Dual (Recv s) =: Send (Dual s);
-  Dual End      =: End
+type Dual :: Type := \(s: Type). case s {
+  Send s => Recv (Dual s);
+  Recv s => Send (Dual s);
+  End    => End
 }
 
 send :: \s. Computation { ch: Send s @Linear } { ch: s @Linear } Int
@@ -169,7 +169,7 @@ func TestSessionDualInvolution(t *testing.T) {
 	// We test this by checking that a value annotated with the double-dual type
 	// unifies with the original type.
 	errs := sessionCheck(t, `
-type DualDual (s: Type) :: Type := { DualDual s =: Dual (Dual s) }
+type DualDual :: Type := \(s: Type). case s { s => Dual (Dual s) }
 
 -- If Dual(Dual(Send (Recv End))) = Send (Recv End),
 -- then these types should unify.

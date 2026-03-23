@@ -54,14 +54,14 @@ func (u *Unifier) unifyEvCapRows(
 		if err := u.Unify(t1, t2); err != nil {
 			return err
 		}
-		// Unify grade annotations pairwise.
+		// Unify grade annotations pairwise — count must match.
 		g1 := types.RowFieldGrades(aFieldsN, label)
 		g2 := types.RowFieldGrades(bFieldsN, label)
-		n := len(g1)
-		if len(g2) < n {
-			n = len(g2)
+		if len(g1) != len(g2) {
+			return &UnifyError{Kind: UnifyMismatch, Detail: fmt.Sprintf(
+				"grade count mismatch for label %q: %d vs %d", label, len(g1), len(g2))}
 		}
-		for i := 0; i < n; i++ {
+		for i := range g1 {
 			if err := u.Unify(g1[i], g2[i]); err != nil {
 				return err
 			}

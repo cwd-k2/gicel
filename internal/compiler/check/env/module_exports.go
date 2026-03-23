@@ -10,8 +10,8 @@ import (
 // which type and value names were defined by this module (not inherited).
 // Used by import resolution for ambiguity detection and selective imports.
 type ModuleOwnership struct {
-	OwnedTypeNames     map[string]bool   // data type names defined by this module
-	OwnedNames         map[string]bool   // data type names + constructor names defined by this module
+	OwnedTypeNames     map[string]bool     // data type names defined by this module
+	OwnedNames         map[string]bool     // data type names + constructor names defined by this module
 	ConstructorsByType map[string][]string // type name → constructor names (precomputed index)
 }
 

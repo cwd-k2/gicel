@@ -109,7 +109,7 @@ func TestProbeB_DotQualVarInApp(t *testing.T) {
 
 // TestProbeB_DotQualConInPattern verifies M.Just in pattern position.
 func TestProbeB_DotQualConInPattern(t *testing.T) {
-	prog := parseMustSucceed(t, "main := case x { M.Just y -> y }")
+	prog := parseMustSucceed(t, "main := case x { M.Just y => y }")
 	d := prog.Decls[0].(*DeclValueDef)
 	c := d.Expr.(*ExprCase)
 	pqc, ok := c.Alts[0].Pattern.(*PatQualCon)

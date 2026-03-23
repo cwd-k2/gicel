@@ -7,7 +7,6 @@ type TokenKind int
 
 const (
 	TokEOF TokenKind = iota
-	TokNewline
 
 	// Delimiters
 	TokLParen    // (

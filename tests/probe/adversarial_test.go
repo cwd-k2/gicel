@@ -126,7 +126,7 @@ main := loop 0
 func TestProbeE_FixExponential(t *testing.T) {
 	src := `
 import Prelude
-bomb := fix (\self n. case n == 0 { True -> 0; False -> self (n - 1) + self (n - 1) })
+bomb := fix (\self n. case n == 0 { True => 0; False => self (n - 1) + self (n - 1) })
 main := bomb 30
 `
 	eng := gicel.NewEngine()
@@ -186,7 +186,7 @@ main := grow Nil
 func TestProbeE_TypeFamilyReductionFuel(t *testing.T) {
 	src := `
 import Prelude
-type Loop a :: Type := { Loop a =: Loop (Maybe a) }
+type Loop :: Type := \(a: Type). case a { a => Loop (Maybe a) }
 x :: Loop Int
 x := 42
 main := x
@@ -206,9 +206,9 @@ main := x
 func TestProbeE_OverlappingInstances(t *testing.T) {
 	src := `
 import Prelude
-class C a { m :: a -> a }
-instance C Int { m := \x. x }
-instance C a { m := \x. x }
+data C := \a. { m: a -> a }
+impl C Int := { m := \x. x }
+impl C a := { m := \x. x }
 main := m 42
 `
 	_, err := probeSandbox(src, &gicel.SandboxConfig{
@@ -227,7 +227,7 @@ func TestProbeE_NonExhaustivePatterns(t *testing.T) {
 	src := `
 import Prelude
 data D := A | B | C
-f := \x. case x { A -> 1; B -> 2 }
+f := \x. case x { A => 1; B => 2 }
 main := f C
 `
 	_, err := probeSandbox(src, &gicel.SandboxConfig{
@@ -409,19 +409,19 @@ func TestProbeE_V6_MultilineInstanceMethod(t *testing.T) {
 	src := `
 import Prelude
 
-class Functor w => Comonad w {
-  extract :: \a. w a -> a;
-  extend  :: \a b. (w a -> b) -> w a -> w b
+data Comonad := \w. Functor w => {
+  extract: \a. w a -> a;
+  extend: \a b. (w a -> b) -> w a -> w b;
 }
 
-data Z a := MkZ (List a) a (List a)
+data Z := \a. { MkZ: List a -> a -> List a -> Z a; }
 
-instance Functor Z {
-  fmap := \f z. case z { MkZ ls c rs -> MkZ (map f ls) (f c) (map f rs) }
+impl Functor Z := {
+  fmap := \f z. case z { MkZ ls c rs => MkZ (map f ls) (f c) (map f rs) }
 }
 
-instance Comonad Z {
-  extract := \z. case z { MkZ _ c _ -> c };
+impl Comonad Z := {
+  extract := \z. case z { MkZ _ c _ => c };
   extend := \f z. MkZ
     (map f Nil)
     (f z)

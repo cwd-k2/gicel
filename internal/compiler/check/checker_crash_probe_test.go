@@ -45,13 +45,13 @@ func TestProbeA_CrashResist_20ClassConstraints(t *testing.T) {
 	var sb strings.Builder
 	sb.WriteString("data Bool := { True: Bool; False: Bool; }\n")
 
-	// Define 20 classes.
+	// Define 20 classes (data declarations with method).
 	for i := range N {
-		sb.WriteString(fmt.Sprintf("class Cls%d a { method%d :: a -> Bool }\n", i, i))
+		sb.WriteString(fmt.Sprintf("data Cls%d := \\a. { method%d: a -> Bool; }\n", i, i))
 	}
 	// Instances for Bool.
 	for i := range N {
-		sb.WriteString(fmt.Sprintf("instance Cls%d Bool { method%d := \\x. True }\n", i, i))
+		sb.WriteString(fmt.Sprintf("impl Cls%d Bool := { method%d := \\x. True }\n", i, i))
 	}
 
 	// A function constrained by all 20 classes.
@@ -152,13 +152,13 @@ func TestProbeA_CrashResist_DeepInstanceChain(t *testing.T) {
 	const N = 10
 	var sb strings.Builder
 	sb.WriteString("data Bool := { True: Bool; False: Bool; }\n")
-	sb.WriteString("class Eq a { eq :: a -> a -> Bool }\n")
-	sb.WriteString("instance Eq Bool { eq := \\x y. True }\n\n")
+	sb.WriteString("data Eq := \\a. { eq: a -> a -> Bool; }\n")
+	sb.WriteString("impl Eq Bool := { eq := \\x y. True }\n\n")
 
 	// 10 wrapper types, each with a contextual Eq instance.
 	for i := range N {
-		sb.WriteString(fmt.Sprintf("data W%d a := MkW%d a\n", i, i))
-		sb.WriteString(fmt.Sprintf("instance Eq a => Eq (W%d a) { eq := \\x y. True }\n\n", i))
+		sb.WriteString(fmt.Sprintf("data W%d := \\a. { MkW%d: a -> W%d a; }\n", i, i, i))
+		sb.WriteString(fmt.Sprintf("impl Eq a => Eq (W%d a) := { eq := \\x y. True }\n\n", i))
 	}
 
 	// Nested: Eq (W0 (W1 (W2 ... (W9 Bool) ...)))
@@ -175,14 +175,14 @@ func TestProbeA_CrashResist_LargeDataType(t *testing.T) {
 	const N = 35
 	var sb strings.Builder
 	sb.WriteString("data Bool := { True: Bool; False: Bool; }\n")
-	sb.WriteString("data BigEnum :=")
+	sb.WriteString("data BigEnum := {")
 	for i := range N {
 		if i > 0 {
-			sb.WriteString(" |")
+			sb.WriteString(";")
 		}
-		sb.WriteString(fmt.Sprintf(" C%d", i))
+		sb.WriteString(fmt.Sprintf(" C%d: BigEnum", i))
 	}
-	sb.WriteString("\n\n")
+	sb.WriteString("; }\n\n")
 
 	// Exhaustive case match over all constructors.
 	sb.WriteString("f :: BigEnum -> Bool\nf := \\x. case x {\n")
@@ -191,9 +191,9 @@ func TestProbeA_CrashResist_LargeDataType(t *testing.T) {
 			sb.WriteString(";\n")
 		}
 		if i%2 == 0 {
-			sb.WriteString(fmt.Sprintf("  C%d=> True", i))
+			sb.WriteString(fmt.Sprintf("  C%d => True", i))
 		} else {
-			sb.WriteString(fmt.Sprintf("  C%d -> False", i))
+			sb.WriteString(fmt.Sprintf("  C%d => False", i))
 		}
 	}
 	sb.WriteString("\n}\n")

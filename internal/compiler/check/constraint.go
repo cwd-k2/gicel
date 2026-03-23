@@ -43,7 +43,7 @@ type CtFunEq struct {
 	S          span.Span
 }
 
-func (*CtFunEq) ctMarker()            {}
+func (*CtFunEq) ctMarker()           {}
 func (c *CtFunEq) ctSpan() span.Span { return c.S }
 
 // CtImplication represents an implication constraint for GADT branches
@@ -58,7 +58,7 @@ type CtImplication struct {
 	S        span.Span
 }
 
-func (*CtImplication) ctMarker()            {}
+func (*CtImplication) ctMarker()           {}
 func (c *CtImplication) ctSpan() span.Span { return c.S }
 
 // collectMetaIDs collects all TyMeta IDs from a slice of types.

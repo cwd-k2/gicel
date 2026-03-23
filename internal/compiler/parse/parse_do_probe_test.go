@@ -184,11 +184,11 @@ func TestProbeE_DoBlockMissingBrace(t *testing.T) {
 // TestProbeE_DoInsideCaseInsideLambda verifies complex nesting.
 func TestProbeE_DoInsideCaseInsideLambda(t *testing.T) {
 	source := `main := \x. case x {
-  True -> do {
+  True => do {
     y <- pure 1;
     pure y
   };
-  False -> pure 0
+  False => pure 0
 }`
 	parseMustSucceed(t, source)
 }

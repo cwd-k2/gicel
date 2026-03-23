@@ -15,7 +15,7 @@ import (
 
 // TestProbeB_PatternTupleWithQualCon checks tuple pattern with qualified constructors.
 func TestProbeB_PatternTupleWithQualCon(t *testing.T) {
-	src := `main := case x { (M.Just a, M.Nothing) -> a }`
+	src := `main := case x { (M.Just a, M.Nothing) => a }`
 	prog := parseMustSucceed(t, src)
 	d := prog.Decls[0].(*DeclValueDef)
 	c := d.Expr.(*ExprCase)
@@ -47,7 +47,7 @@ func TestProbeB_PatternTupleWithQualCon(t *testing.T) {
 
 // TestProbeB_PatternDeeplyNested checks deeply nested patterns.
 func TestProbeB_PatternDeeplyNested(t *testing.T) {
-	src := `main := case x { Just (Just (Just a)) -> a }`
+	src := `main := case x { Just (Just (Just a)) => a }`
 	prog := parseMustSucceed(t, src)
 	d := prog.Decls[0].(*DeclValueDef)
 	c := d.Expr.(*ExprCase)
@@ -77,7 +77,7 @@ func TestProbeB_PatternDeeplyNested(t *testing.T) {
 
 // TestProbeB_PatternLiteralZero checks pattern matching on literal 0.
 func TestProbeB_PatternLiteralZero(t *testing.T) {
-	src := `main := case x { 0 -> 1; _ -> 0 }`
+	src := `main := case x { 0 => 1; _ => 0 }`
 	prog := parseMustSucceed(t, src)
 	d := prog.Decls[0].(*DeclValueDef)
 	c := d.Expr.(*ExprCase)
@@ -95,7 +95,7 @@ func TestProbeB_PatternLiteralZero(t *testing.T) {
 
 // TestProbeB_PatternStringLit checks string literal in pattern.
 func TestProbeB_PatternStringLit(t *testing.T) {
-	src := `main := case x { "hello" -> 1; _ -> 0 }`
+	src := `main := case x { "hello" => 1; _ => 0 }`
 	prog := parseMustSucceed(t, src)
 	d := prog.Decls[0].(*DeclValueDef)
 	c := d.Expr.(*ExprCase)
@@ -110,7 +110,7 @@ func TestProbeB_PatternStringLit(t *testing.T) {
 
 // TestProbeB_PatternRecordInCase checks record pattern matching.
 func TestProbeB_PatternRecordInCase(t *testing.T) {
-	src := `main := case x { { name: n, age: a } -> n }`
+	src := `main := case x { { name: n, age: a } => n }`
 	prog := parseMustSucceed(t, src)
 	d := prog.Decls[0].(*DeclValueDef)
 	c := d.Expr.(*ExprCase)
@@ -125,7 +125,7 @@ func TestProbeB_PatternRecordInCase(t *testing.T) {
 
 // TestProbeB_PatternWildcardAtom checks wildcard _ as pattern atom under constructor.
 func TestProbeB_PatternWildcardAtom(t *testing.T) {
-	src := `main := case x { Just _ -> 1 }`
+	src := `main := case x { Just _ => 1 }`
 	prog := parseMustSucceed(t, src)
 	d := prog.Decls[0].(*DeclValueDef)
 	c := d.Expr.(*ExprCase)
@@ -144,7 +144,7 @@ func TestProbeB_PatternWildcardAtom(t *testing.T) {
 
 // TestProbeB_PatternUnitInCase checks () pattern in case.
 func TestProbeB_PatternUnitInCase(t *testing.T) {
-	src := `main := case x { () -> 1 }`
+	src := `main := case x { () => 1 }`
 	prog := parseMustSucceed(t, src)
 	d := prog.Decls[0].(*DeclValueDef)
 	c := d.Expr.(*ExprCase)
@@ -161,7 +161,7 @@ func TestProbeB_PatternUnitInCase(t *testing.T) {
 // TestProbeB_DotQualConAtomInPattern checks qualified constructor as atom
 // in pattern position (0-arg qualified con nested under another con).
 func TestProbeB_DotQualConAtomInPattern(t *testing.T) {
-	src := `main := case x { Pair M.Nothing M.Nothing -> 1 }`
+	src := `main := case x { Pair M.Nothing M.Nothing => 1 }`
 	prog := parseMustSucceed(t, src)
 	d := prog.Decls[0].(*DeclValueDef)
 	c := d.Expr.(*ExprCase)
@@ -201,36 +201,36 @@ func TestProbeE_DeeplyNestedPattern(t *testing.T) {
 	for i := 0; i < depth; i++ {
 		b.WriteString(")")
 	}
-	source := fmt.Sprintf("main := case x { %s -> x }", b.String())
+	source := fmt.Sprintf("main := case x { %s => x }", b.String())
 	parseMustSucceed(t, source)
 }
 
 // TestProbeE_WildcardAsConstructorArg verifies `Just _` pattern.
 func TestProbeE_WildcardAsConstructorArg(t *testing.T) {
-	parseMustSucceed(t, `main := case x { Just _ -> 1 }`)
+	parseMustSucceed(t, `main := case x { Just _ => 1 }`)
 }
 
 // TestProbeE_NestedTuplePattern verifies `(x, (y, z))` pattern.
 func TestProbeE_NestedTuplePattern(t *testing.T) {
-	parseMustSucceed(t, `main := case x { (a, (b, c)) -> a }`)
+	parseMustSucceed(t, `main := case x { (a, (b, c)) => a }`)
 }
 
 // TestProbeE_PatternLiterals verifies literal patterns.
 func TestProbeE_PatternLiterals(t *testing.T) {
-	parseMustSucceed(t, `main := case x { 0 -> 1; "hello" -> 2; _ -> 3 }`)
+	parseMustSucceed(t, `main := case x { 0 => 1; "hello" => 2; _ => 3 }`)
 }
 
 // TestProbeE_RecordPattern verifies record pattern matching.
 func TestProbeE_RecordPattern(t *testing.T) {
-	parseMustSucceed(t, `main := case x { { a: 1, b: y } -> y }`)
+	parseMustSucceed(t, `main := case x { { a: 1, b: y } => y }`)
 }
 
 // TestProbeE_EmptyRecordPattern verifies {} pattern.
 func TestProbeE_EmptyRecordPattern(t *testing.T) {
-	parseMustSucceed(t, `main := case x { {} -> 1 }`)
+	parseMustSucceed(t, `main := case x { {} => 1 }`)
 }
 
 // TestProbeE_PatternParenUnit verifies () in pattern position.
 func TestProbeE_PatternParenUnit(t *testing.T) {
-	parseMustSucceed(t, `main := case x { () -> 1 }`)
+	parseMustSucceed(t, `main := case x { () => 1 }`)
 }

@@ -112,7 +112,7 @@ func TestProbeC_Module_EmptyModule(t *testing.T) {
 	// Register a module with only data declarations (no value bindings).
 	eng := gicel.NewEngine()
 	err := eng.RegisterModule("Lib", `
-data Unit := Unit
+data Unit := { Unit: Unit; }
 `)
 	if err != nil {
 		t.Fatal(err)

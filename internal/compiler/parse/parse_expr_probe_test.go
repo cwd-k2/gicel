@@ -204,7 +204,7 @@ func TestProbeB_EmptyRecord(t *testing.T) {
 
 // TestProbeB_CaseWithSemicolonAlts checks case alternatives separated by semicolons.
 func TestProbeB_CaseWithSemicolonAlts(t *testing.T) {
-	src := `main := case x { True -> 1; False -> 0 }`
+	src := `main := case x { True => 1; False => 0 }`
 	prog := parseMustSucceed(t, src)
 	d := prog.Decls[0].(*DeclValueDef)
 	c := d.Expr.(*ExprCase)
@@ -217,14 +217,14 @@ func TestProbeB_CaseWithSemicolonAlts(t *testing.T) {
 // Newlines and semicolons are interchangeable as separators at all levels.
 func TestProbeB_MultipleCaseAltsNewline(t *testing.T) {
 	// Newlines separate case alternatives:
-	prog := parseMustSucceed(t, "main := case x {\n  True -> 1\n  False -> 0\n}")
+	prog := parseMustSucceed(t, "main := case x {\n  True => 1\n  False => 0\n}")
 	d := prog.Decls[0].(*DeclValueDef)
 	c := d.Expr.(*ExprCase)
 	if len(c.Alts) != 2 {
 		t.Errorf("expected 2 alts with newlines, got %d", len(c.Alts))
 	}
 	// Semicolons also work:
-	prog2 := parseMustSucceed(t, "main := case x {\n  True -> 1;\n  False -> 0\n}")
+	prog2 := parseMustSucceed(t, "main := case x {\n  True => 1;\n  False => 0\n}")
 	d2 := prog2.Decls[0].(*DeclValueDef)
 	c2 := d2.Expr.(*ExprCase)
 	if len(c2.Alts) != 2 {
@@ -415,17 +415,17 @@ func TestProbeE_CaseEmptyAlts(t *testing.T) {
 	}
 }
 
-// TestProbeE_CaseMissingArrow verifies case with missing -> in alternative.
+// TestProbeE_CaseMissingArrow verifies case with missing => in alternative.
 func TestProbeE_CaseMissingArrow(t *testing.T) {
 	_, es := parse(`main := case x { y 1 }`)
 	if !es.HasErrors() {
-		t.Error("expected error for missing -> in case alt")
+		t.Error("expected error for missing => in case alt")
 	}
 }
 
 // TestProbeE_CaseNoBraces verifies case without braces errors.
 func TestProbeE_CaseNoBraces(t *testing.T) {
-	_, es := parse(`main := case x y -> 1`)
+	_, es := parse(`main := case x y => 1`)
 	if !es.HasErrors() {
 		t.Error("expected error for case without braces")
 	}
@@ -500,13 +500,13 @@ func TestProbeE_QualifiedConAdjacent(t *testing.T) {
 func TestProbeE_CaseScrutineeNoBrace(t *testing.T) {
 	// `case x { ... }` — the `{` should start the case body, not be parsed
 	// as a record/block expression.
-	source := `main := case x { True -> 1; False -> 0 }`
+	source := `main := case x { True => 1; False => 0 }`
 	parseMustSucceed(t, source)
 }
 
 // TestProbeE_CaseScrutineeComplexExpr verifies complex scrutinee parsing.
 func TestProbeE_CaseScrutineeComplexExpr(t *testing.T) {
-	source := `main := case f x y { True -> 1 }`
+	source := `main := case f x y { True => 1 }`
 	prog := parseMustSucceed(t, source)
 	d := prog.Decls[0].(*DeclValueDef)
 	caseExpr, ok := d.Expr.(*ExprCase)
@@ -534,7 +534,7 @@ func TestProbeE_CaseAltStall(t *testing.T) {
 // TestProbeNestedCaseInParen verifies that a case expression whose
 // scrutinee is itself a parenthesized case parses correctly (V10 fix).
 func TestProbeNestedCaseInParen(t *testing.T) {
-	source := `main := case (case Just True { Just b -> b; Nothing -> False }) { True -> "yes"; False -> "no" }`
+	source := `main := case (case Just True { Just b => b; Nothing => False }) { True => "yes"; False => "no" }`
 	prog := parseMustSucceed(t, source)
 	d := prog.Decls[0].(*DeclValueDef)
 	outer, ok := d.Expr.(*ExprCase)

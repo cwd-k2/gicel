@@ -911,13 +911,10 @@ data Unit := { Unit: Unit; }
 f :: { x: Unit @Linear } -> { x: Unit }
 f := \r. r
 `
-	// Whether this is an error depends on the semantics: if Mult=nil means
-	// Unrestricted and @Linear != Unrestricted, it should fail.
-	// If it's lenient (nil Mult unifies with anything), it may succeed.
-	// This test documents the actual behavior.
-	// From the row_unify.go code: only unify if both sides have Mult.
-	// So if one side has nil Mult, the unification of Mult is skipped.
-	checkSource(t, source, nil)
+	// Grade-count mismatch: { x: Unit @Linear } has 1 grade, { x: Unit } has 0.
+	// Unification requires matching grade counts — a graded field cannot unify
+	// with an ungraded field because they represent different capability constraints.
+	checkSourceExpectCode(t, source, nil, diagnostic.ErrTypeMismatch)
 }
 
 // -----------------------------------------------

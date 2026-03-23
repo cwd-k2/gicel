@@ -193,11 +193,11 @@ main := (double . inc) 10`
 
 func TestProbeE_Parser_NestedPatternMatch(t *testing.T) {
 	source := `import Prelude
-data Pair a b := MkPair a b
+data Pair := \a b. { MkPair: a -> b -> Pair a b; }
 main := case MkPair (Just 42) True {
-  MkPair Nothing _ -> 0;
-  MkPair (Just n) True -> n;
-  _ -> 0
+  MkPair Nothing _ => 0;
+  MkPair (Just n) True => n;
+  _ => 0
 }`
 	v, err := peParserRun(t, source, gicel.Prelude)
 	if err != nil {
@@ -211,7 +211,7 @@ main := case MkPair (Just 42) True {
 
 func TestProbeE_Parser_LiteralPattern(t *testing.T) {
 	source := `import Prelude
-f := \n. case n { 0 -> "zero"; 1 -> "one"; _ -> "other" }
+f := \n. case n { 0 => "zero"; 1 => "one"; _ => "other" }
 main := f 1`
 	v, err := peParserRun(t, source, gicel.Prelude)
 	if err != nil {
@@ -225,7 +225,7 @@ main := f 1`
 
 func TestProbeE_Parser_TuplePatternMatch(t *testing.T) {
 	source := `import Prelude
-main := case (1, 2) { (a, b) -> a + b }`
+main := case (1, 2) { (a, b) => a + b }`
 	v, err := peParserRun(t, source, gicel.Prelude)
 	if err != nil {
 		t.Fatal(err)
@@ -372,14 +372,14 @@ func TestProbeE_Parser_DeepNestedLambdasRuntime(t *testing.T) {
 
 func TestProbeE_Parser_GADTEndToEnd(t *testing.T) {
 	source := `import Prelude
-data Expr a := {
-  LitBool :: Bool -> Expr Bool;
-  LitInt  :: Int -> Expr Int
+data Expr := \a. {
+  LitBool: Bool -> Expr Bool;
+  LitInt: Int -> Expr Int;
 }
 
 getInt :: Expr Int -> Maybe Int
 getInt := \e. case e {
-  LitInt n -> Just n
+  LitInt n => Just n
 }
 
 main := getInt (LitInt 42)`
@@ -462,17 +462,17 @@ func TestProbeE_Parser_ErrorMsgQuality(t *testing.T) {
 
 func TestProbeE_Parser_ClassInstanceEndToEnd(t *testing.T) {
 	source := `import Prelude
-data Color := Red | Green | Blue
+data Color := { Red: Color; Green: Color; Blue: Color; }
 
-class Named a {
-  name :: a -> String
+data Named := \a. {
+  name: a -> String;
 }
 
-instance Named Color {
+impl Named Color := {
   name := \c. case c {
-    Red -> "red";
-    Green -> "green";
-    Blue -> "blue"
+    Red => "red";
+    Green => "green";
+    Blue => "blue"
   }
 }
 

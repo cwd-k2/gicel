@@ -30,9 +30,10 @@ import (
 // inconsistency: `{}` in expression position creates a Record, but `{}` in
 // type position is not `Record {}`.
 func TestProbeA_RowUnify_EmptyRows(t *testing.T) {
-	// Use Record {} or () in type position for empty record.
+	// Use () in type position for empty record (unit type).
+	// Note: => is the constraint arrow in unified syntax, -> is the function arrow.
 	source := `
-f :: () => ()
+f :: () -> ()
 f := \x. x
 
 main := f {}
@@ -165,7 +166,7 @@ f := \x. { x: f x }
 // () => () is valid (unit type).
 func TestProbeA_EmptyRecordUnifiesWithEmptyRecord(t *testing.T) {
 	source := `
-f :: () => ()
+f :: () -> ()
 f := \x. x
 
 main := f {}
@@ -199,8 +200,9 @@ main := { r | x: False }
 // or `Record { ... }` for non-empty records.
 func TestProbeA_RowUnify_RecordAnnotationVsLiteralBareRow(t *testing.T) {
 	// This SHOULD work but doesn't: bare {} in type annotation.
+	// Unified syntax uses :: for type annotations (not :).
 	source := `
-f: {} -> {}
+f :: {} -> {}
 f := \x. x
 main := f {}
 `

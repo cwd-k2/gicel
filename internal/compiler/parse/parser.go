@@ -126,12 +126,6 @@ type Parser struct {
 	// acts as a statement boundary, preventing greedy expression consumption.
 	stmtBoundaryDepth int
 
-	// methodBodyMode refines statement boundary detection for instance/class
-	// method bodies: a newline is only a boundary when followed by a method
-	// declaration start (lower + := or lower + ::) or associated type/data.
-	// This allows multiline function applications as method bodies (V6 fix).
-	methodBodyMode bool
-
 	guard parserGuard // resource safety harness
 }
 
@@ -210,7 +204,6 @@ func (p *Parser) ParseType() syn.TypeExpr {
 // Pattern parsing is in parse_pattern.go.
 // Type parsing is in parse_type.go.
 // Import parsing is in parse_import.go.
-// Class/instance parsing is in parse_class.go.
 
 // --- Helpers ---
 
@@ -367,24 +360,7 @@ func (p *Parser) atStmtBoundary() bool {
 	if p.stmtBoundaryDepth <= 0 || p.depth != p.stmtBoundaryDepth || !p.peek().NewlineBefore {
 		return false
 	}
-	if !p.methodBodyMode {
-		return true
-	}
-	// In method body mode (V6 fix): only treat a newline as a boundary when
-	// the next token clearly starts a new declaration, not a continuation line.
-	switch p.peek().Kind {
-	case syn.TokData, syn.TokType:
-		return true
-	case syn.TokLower:
-		// 2-token lookahead: lower followed by := or :: starts a new method.
-		if p.pos+1 < len(p.tokens) {
-			next := p.tokens[p.pos+1].Kind
-			return next == syn.TokColonEq || next == syn.TokColonColon
-		}
-		return false
-	default:
-		return false
-	}
+	return true
 }
 
 // parseBody runs a brace-delimited body loop with consistent separator
@@ -393,23 +369,8 @@ func (p *Parser) atStmtBoundary() bool {
 // callback is invoked for each item; context is used in stagnation
 // error messages.
 func (p *Parser) parseBody(bodyCtx string, openSpan span.Span, parse func()) {
-	p.parseBodyOpts(bodyCtx, openSpan, false, parse)
-}
-
-// parseMethodBody is parseBody with methodBodyMode enabled — continuation
-// lines (newline + `(`, etc.) are not treated as statement boundaries.
-func (p *Parser) parseMethodBody(bodyCtx string, openSpan span.Span, parse func()) {
-	p.parseBodyOpts(bodyCtx, openSpan, true, parse)
-}
-
-func (p *Parser) parseBodyOpts(bodyCtx string, openSpan span.Span, methodBody bool, parse func()) {
 	savedBoundary := p.stmtBoundaryDepth
 	p.stmtBoundaryDepth = p.depth
-	savedMethodMode := p.methodBodyMode
-	if methodBody {
-		p.methodBodyMode = true
-	}
-	defer func() { p.methodBodyMode = savedMethodMode }()
 	pg := p.newProgressGuard(bodyCtx)
 	for p.peek().Kind != syn.TokRBrace && p.peek().Kind != syn.TokEOF {
 		if !pg.Begin() {
@@ -509,10 +470,6 @@ func (p *Parser) lookupFixity(op string) Fixity {
 // tokensAdjacent checks if two tokens have no whitespace between them.
 func tokensAdjacent(a, b syn.Token) bool {
 	return a.S.End == b.S.Start
-}
-
-func (p *Parser) addError(msg string) {
-	p.addErrorCode(diagnostic.ErrParseSyntax, msg)
 }
 
 func (p *Parser) addErrorCode(code diagnostic.Code, msg string) {

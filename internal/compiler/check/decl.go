@@ -204,19 +204,13 @@ func (ch *Checker) processTypeFamilyFromAlias(d *syntax.DeclTypeAlias) {
 	// Build legacy equations from case alternatives.
 	var equations []legacyTFEquation
 	for _, alt := range caseExpr.Alts {
-		// Use the equation name from the TyAlt (stored by parser for legacy format).
-		// If empty, use the declaration name.
-		eqName := alt.EqName
-		if eqName == "" {
-			eqName = d.Name
-		}
+		// Equation name is always the enclosing declaration name.
+		eqName := d.Name
 
-		// Determine pattern count for equation arity validation.
-		// RawPatCount is set by the legacy parser; for new case format it's 0.
-		patCount := alt.RawPatCount
-		if patCount == 0 && alt.Pattern != nil {
-			// For new case format: if the pattern is a tuple (Record { _1: ..., _2: ... }),
-			// use the tuple arity. Otherwise it's a single pattern.
+		// Determine pattern count: if the pattern is a tuple, use tuple arity;
+		// otherwise it's a single pattern.
+		patCount := 0
+		if alt.Pattern != nil {
 			patCount = countTupleArity(alt.Pattern)
 		}
 		patterns := extractTFPatterns(alt.Pattern, patCount)

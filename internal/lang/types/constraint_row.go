@@ -50,7 +50,11 @@ func structuralKey(t Type) string {
 		case *CapabilityEntries:
 			var parts []string
 			for _, f := range entries.Fields {
-				parts = append(parts, f.Label+":"+structuralKey(f.Type))
+				entry := f.Label + ":" + structuralKey(f.Type)
+				for _, g := range f.Grades {
+					entry += "@" + structuralKey(g)
+				}
+				parts = append(parts, entry)
 			}
 			return "Row({" + strings.Join(parts, ",") + "}|" + tail + ")"
 		case *ConstraintEntries:

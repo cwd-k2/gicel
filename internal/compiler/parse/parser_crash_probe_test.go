@@ -195,7 +195,7 @@ func TestProbeB_DeepNestedCase(t *testing.T) {
 	var b strings.Builder
 	b.WriteString("main := ")
 	for i := 0; i < 50; i++ {
-		b.WriteString("case x { True -> ")
+		b.WriteString("case x { True => ")
 	}
 	b.WriteString("1")
 	for i := 0; i < 50; i++ {
@@ -448,7 +448,7 @@ good2 := 99`
 // TestProbeD_ErrorRecoveryCascade tests whether a deeply broken expression
 // cascades into many errors or stays contained.
 func TestProbeD_ErrorRecoveryCascade(t *testing.T) {
-	source := `main := case { + -> * ; } }`
+	source := `main := case { + => * ; } }`
 	_, es := parse(source)
 	if !es.HasErrors() {
 		t.Fatal("expected errors")
@@ -755,11 +755,11 @@ type Alias := Int
 infixl 6 +
 (+) := \a b. a
 
-class Eq a {
-  eq :: a -> a -> Bool
+data Eq := \a. {
+  eq: a -> a -> Bool
 }
 
-instance Eq Bool {
+impl Eq Bool := {
   eq := \a b. True
 }
 
@@ -835,7 +835,7 @@ func TestProbeE_CrashDeepNestedCase(t *testing.T) {
 	var b strings.Builder
 	b.WriteString("main := ")
 	for i := 0; i < 50; i++ {
-		b.WriteString("case x { True -> ")
+		b.WriteString("case x { True => ")
 	}
 	b.WriteString("1")
 	for i := 0; i < 50; i++ {
@@ -918,7 +918,7 @@ func TestProbeE_CrashRepeatedSemicolons(t *testing.T) {
 
 // TestProbeE_CrashAllKeywordsAsExpr verifies keywords in expression position error gracefully.
 func TestProbeE_CrashAllKeywordsAsExpr(t *testing.T) {
-	keywords := []string{"data", "type", "class", "instance", "import", "infixl", "infixr", "infixn"}
+	keywords := []string{"data", "type", "impl", "import", "infixl", "infixr", "infixn"}
 	for _, kw := range keywords {
 		t.Run(kw, func(t *testing.T) {
 			source := fmt.Sprintf("main := %s", kw)

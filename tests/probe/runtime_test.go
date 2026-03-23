@@ -251,7 +251,7 @@ func TestProbeC_Error_CompileErrorNonExhaustiveHasInfo(t *testing.T) {
 	eng.Use(gicel.Prelude)
 	_, err := eng.NewRuntime(context.Background(), `
 import Prelude
-f := \x. case x { 0 -> "zero"; 1 -> "one" }
+f := \x. case x { 0 => "zero"; 1 => "one" }
 main := f 99
 `)
 	if err == nil {
@@ -440,7 +440,7 @@ main := 1 + 2
 func TestProbeC_Regression_CaseOnTuple(t *testing.T) {
 	v, err := probeRun(t, `
 import Prelude
-f := \p. case p { (x, y) -> x + y }
+f := \p. case p { (x, y) => x + y }
 main := f (10, 20)
 `, gicel.Prelude)
 	if err != nil {

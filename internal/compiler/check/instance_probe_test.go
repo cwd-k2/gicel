@@ -24,12 +24,12 @@ func TestProbeD_InstanceDepth_NearLimit(t *testing.T) {
 	const N = 15
 	var sb strings.Builder
 	sb.WriteString("data Bool := { True: Bool; False: Bool; }\n")
-	sb.WriteString("class Eq a { eq :: a -> a -> Bool }\n")
-	sb.WriteString("instance Eq Bool { eq := \\x y. True }\n\n")
+	sb.WriteString("data Eq := \\a. { eq: a -> a -> Bool; }\n")
+	sb.WriteString("impl Eq Bool := { eq := \\x y. True }\n\n")
 
 	for i := 0; i < N; i++ {
-		sb.WriteString(fmt.Sprintf("data W%d a := MkW%d a\n", i, i))
-		sb.WriteString(fmt.Sprintf("instance Eq a => Eq (W%d a) { eq := \\x y. True }\n\n", i))
+		sb.WriteString(fmt.Sprintf("data W%d := \\a. { MkW%d: a -> W%d a; }\n", i, i, i))
+		sb.WriteString(fmt.Sprintf("impl Eq a => Eq (W%d a) := { eq := \\x y. True }\n\n", i))
 	}
 
 	// Build W0 (W1 (... (W14 Bool) ...))
@@ -57,12 +57,14 @@ main := m True
 // From probe_e: Type class edge cases
 // =====================================================================
 
-// TestProbeE_TypeClass_EmptyClass — a class with no methods should compile.
+// TestProbeE_TypeClass_EmptyClass — a class with a single marker method should compile.
+// In unified syntax, class-like data requires at least one lowercase field
+// to be recognized as a type class (the isClassLikeData heuristic).
 func TestProbeE_TypeClass_EmptyClass(t *testing.T) {
 	source := `
-data Marker := \a. {}
+data Marker := \a. { _tag: () }
 data Bool := { True: Bool; False: Bool; }
-impl Marker Bool := {}
+impl Marker Bool := { _tag := () }
 main := True
 `
 	checkSource(t, source, nil)

@@ -393,20 +393,14 @@ func TestProbeE_LexerConsecutiveStrings(t *testing.T) {
 	}
 }
 
-// TestProbeE_LexerEqColonAmbiguity verifies =: vs = : disambiguation.
-func TestProbeE_LexerEqColonAmbiguity(t *testing.T) {
-	// =: should be a single TokEqColon token.
-	tokens := lex("=:")
-	if tokens[0].Kind != TokEqColon {
-		t.Errorf("expected TokEqColon for '=:', got %v", tokens[0].Kind)
+// TestProbeE_LexerEqSpaceColon verifies = : tokenizes as two tokens.
+func TestProbeE_LexerEqSpaceColon(t *testing.T) {
+	tokens := lex("= :")
+	if tokens[0].Kind != TokEq {
+		t.Errorf("expected TokEq for '=', got %v", tokens[0].Kind)
 	}
-	// = : (with space) should be two tokens.
-	tokens2 := lex("= :")
-	if tokens2[0].Kind != TokEq {
-		t.Errorf("expected TokEq for '=', got %v", tokens2[0].Kind)
-	}
-	if tokens2[1].Kind != TokColon {
-		t.Errorf("expected TokColon for ':', got %v", tokens2[1].Kind)
+	if tokens[1].Kind != TokColon {
+		t.Errorf("expected TokColon for ':', got %v", tokens[1].Kind)
 	}
 }
 

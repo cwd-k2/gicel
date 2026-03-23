@@ -269,6 +269,7 @@ func (p *Parser) parseRowType() syn.TypeExpr {
 		}
 		// Associated type/data declaration: type Name :: Kind; or data Name :: Kind;
 		if p.peek().Kind == syn.TokType || p.peek().Kind == syn.TokData {
+			tdStart := p.peek().S.Start
 			p.advance() // consume 'type' or 'data'
 			tName := p.expectUpper()
 			// Consume optional params (legacy: data Elem a :: Type)
@@ -280,7 +281,7 @@ func (p *Parser) parseRowType() syn.TypeExpr {
 			typeDecls = append(typeDecls, syn.TyRowTypeDecl{
 				Name:    tName,
 				KindAnn: tKind,
-				S:       span.Span{Start: span.Pos(p.pos), End: p.prevEnd()},
+				S:       span.Span{Start: tdStart, End: p.prevEnd()},
 			})
 			if p.peek().Kind == syn.TokSemicolon {
 				p.advance()
@@ -358,29 +359,7 @@ func (p *Parser) parseTypeCase() *syn.TyExprCase {
 	}
 }
 
-// desugarConstraintTuple detects a tuple type used as a constraint group.
-// (C1, C2, ...) parses as syn.TyExprApp(Record, syn.TyExprRow{_1: C1, _2: C2, ...}).
-// Returns the constraint types if the pattern matches, nil otherwise.
+// desugarConstraintTuple delegates to the canonical syntax.DesugarConstraintTuple.
 func desugarConstraintTuple(t syn.TypeExpr) []syn.TypeExpr {
-	app, ok := t.(*syn.TyExprApp)
-	if !ok {
-		return nil
-	}
-	con, ok := app.Fun.(*syn.TyExprCon)
-	if !ok || con.Name != "Record" {
-		return nil
-	}
-	row, ok := app.Arg.(*syn.TyExprRow)
-	if !ok || len(row.Fields) < 2 || row.Tail != nil {
-		return nil
-	}
-	// Verify tuple field labels: _1, _2, ...
-	constraints := make([]syn.TypeExpr, len(row.Fields))
-	for i, f := range row.Fields {
-		if f.Label != syn.TupleLabel(i+1) {
-			return nil
-		}
-		constraints[i] = f.Type
-	}
-	return constraints
+	return syn.DesugarConstraintTuple(t)
 }

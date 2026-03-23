@@ -18,7 +18,7 @@ func gradeJoin(a, b types.Type) types.Type {
 	if !aOk || !bOk {
 		return a // fallback: keep first (conservative)
 	}
-	return multJoin(ac, bc)
+	return usageJoin(ac, bc)
 }
 
 // gradeDrop returns the Drop element for the grade algebra of the given grade.
@@ -40,18 +40,18 @@ func gradeCanPreserve(grade types.Type) bool {
 	return types.Equal(joined, grade)
 }
 
-// multJoin implements the Join operation for the Mult grade algebra.
+// usageJoin implements the Join operation for the usage/multiplicity grade algebra.
 //
 // Lattice:
 //
-//	      Unrestricted
-//	          |
-//	        Affine
-//	       /      \
-//	    Zero    Linear
+//	  Unrestricted
+//	      |
+//	    Affine
+//	   /      \
+//	Zero    Linear
 //
 // Zero and Linear are incomparable. Join(Zero, Linear) = Affine.
-func multJoin(a, b *types.TyCon) *types.TyCon {
+func usageJoin(a, b *types.TyCon) *types.TyCon {
 	if a.Name == b.Name {
 		return a
 	}
@@ -82,11 +82,11 @@ func multJoin(a, b *types.TyCon) *types.TyCon {
 // checkGradeBoundary verifies that capability fields with grade annotations
 // respect their grades across the computation boundary.
 //
-// Phase 1: structural placeholder. The grade algebra (Join, Drop) is defined
-// and the infrastructure is in place, but enforcement is deferred to Phase 2
-// when grade constraints will be emitted as CtFunEq through associated type
-// families. Row unification already enforces type-level protocol compliance;
-// the boundary check will add grade-specific verification on top.
+// Phase 2: structural enforcement. The grade algebra (Join, Drop) is defined
+// and boundary violations are detected via gradeCanPreserve. A linear or
+// zero-graded field that appears unchanged in post triggers a multiplicity error.
+// Grade constraint emission via CtFunEq (associated type families) is deferred
+// to a future phase for full algebraic grade propagation.
 //
 // For each graded field in pre: if the field appears in post with the same type
 // (i.e., was preserved unchanged), the grade must permit preservation.

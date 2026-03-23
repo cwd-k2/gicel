@@ -20,7 +20,7 @@ func TestProbeC_Pattern_FirstMatchWins(t *testing.T) {
 	// Verify compile-time rejection (not a runtime issue).
 	_, err := probeRun(t, `
 import Prelude
-f := \x. case x { True -> 1; True -> 2; _ -> 3 }
+f := \x. case x { True => 1; True => 2; _ => 3 }
 main := f True
 `, gicel.Prelude)
 	if err == nil {
@@ -34,7 +34,7 @@ main := f True
 func TestProbeC_Pattern_WildcardCatchAll(t *testing.T) {
 	v, err := probeRun(t, `
 import Prelude
-f := \x. case x { True -> 1; _ -> 2 }
+f := \x. case x { True => 1; _ => 2 }
 main := f False
 `, gicel.Prelude)
 	if err != nil {
@@ -46,7 +46,7 @@ main := f False
 func TestProbeC_Pattern_LiteralIntMatch(t *testing.T) {
 	v, err := probeRun(t, `
 import Prelude
-f := \x. case x { 0 -> "zero"; 1 -> "one"; _ -> "other" }
+f := \x. case x { 0 => "zero"; 1 => "one"; _ => "other" }
 main := f 0
 `, gicel.Prelude)
 	if err != nil {
@@ -58,7 +58,7 @@ main := f 0
 func TestProbeC_Pattern_LiteralIntMatchOther(t *testing.T) {
 	v, err := probeRun(t, `
 import Prelude
-f := \x. case x { 0 -> "zero"; 1 -> "one"; _ -> "other" }
+f := \x. case x { 0 => "zero"; 1 => "one"; _ => "other" }
 main := f 99
 `, gicel.Prelude)
 	if err != nil {
@@ -70,7 +70,7 @@ main := f 99
 func TestProbeC_Pattern_LiteralStringMatch(t *testing.T) {
 	v, err := probeRun(t, `
 import Prelude
-f := \x. case x { "hello" -> True; _ -> False }
+f := \x. case x { "hello" => True; _ => False }
 main := f "hello"
 `, gicel.Prelude)
 	if err != nil {
@@ -82,7 +82,7 @@ main := f "hello"
 func TestProbeC_Pattern_LiteralStringMismatch(t *testing.T) {
 	v, err := probeRun(t, `
 import Prelude
-f := \x. case x { "hello" -> True; _ -> False }
+f := \x. case x { "hello" => True; _ => False }
 main := f "world"
 `, gicel.Prelude)
 	if err != nil {
@@ -94,7 +94,7 @@ main := f "world"
 func TestProbeC_Pattern_NestedConstructor(t *testing.T) {
 	v, err := probeRun(t, `
 import Prelude
-f := \x. case x { Just (Just y) -> y; _ -> False }
+f := \x. case x { Just (Just y) => y; _ => False }
 main := f (Just (Just True))
 `, gicel.Prelude)
 	if err != nil {
@@ -106,7 +106,7 @@ main := f (Just (Just True))
 func TestProbeC_Pattern_NestedConstructorFallthrough(t *testing.T) {
 	v, err := probeRun(t, `
 import Prelude
-f := \x. case x { Just (Just y) -> y; _ -> False }
+f := \x. case x { Just (Just y) => y; _ => False }
 main := f (Just Nothing)
 `, gicel.Prelude)
 	if err != nil {
@@ -121,7 +121,7 @@ func TestProbeC_Pattern_NonExhaustive_CompileError(t *testing.T) {
 	eng.Use(gicel.Prelude)
 	_, err := eng.NewRuntime(context.Background(), `
 import Prelude
-f := \x. case x { True -> 1 }
+f := \x. case x { True => 1 }
 main := f False
 `)
 	if err == nil {
@@ -139,7 +139,7 @@ func TestProbeC_Pattern_NonExhaustive_CaughtAtCompile(t *testing.T) {
 	eng.Use(gicel.Prelude)
 	_, err := eng.NewRuntime(context.Background(), `
 import Prelude
-f := \x. case x { 0 -> "zero"; 1 -> "one" }
+f := \x. case x { 0 => "zero"; 1 => "one" }
 main := f 99
 `)
 	if err == nil {
@@ -154,7 +154,7 @@ func TestProbeC_Pattern_CaseOnLiteral(t *testing.T) {
 	// Case directly on an integer literal.
 	v, err := probeRun(t, `
 import Prelude
-main := case 42 { 42 -> True; _ -> False }
+main := case 42 { 42 => True; _ => False }
 `, gicel.Prelude)
 	if err != nil {
 		t.Fatal(err)
@@ -165,7 +165,7 @@ main := case 42 { 42 -> True; _ -> False }
 func TestProbeC_Pattern_CaseOnEmptyList(t *testing.T) {
 	v, err := probeRun(t, `
 import Prelude
-f := \xs. case xs { Nil -> "empty"; Cons _ _ -> "nonempty" }
+f := \xs. case xs { Nil => "empty"; Cons _ _ => "nonempty" }
 main := f Nil
 `, gicel.Prelude)
 	if err != nil {
@@ -177,7 +177,7 @@ main := f Nil
 func TestProbeC_Pattern_CaseOnSingletonList(t *testing.T) {
 	v, err := probeRun(t, `
 import Prelude
-f := \xs. case xs { Nil -> 0; Cons x Nil -> 1; Cons _ _ -> 2 }
+f := \xs. case xs { Nil => 0; Cons x Nil => 1; Cons _ _ => 2 }
 main := f (Cons True Nil)
 `, gicel.Prelude)
 	if err != nil {

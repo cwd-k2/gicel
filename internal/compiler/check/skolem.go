@@ -73,4 +73,3 @@ func removeSkolemIDsFrom(ids map[int]string, ty types.Type) {
 		removeSkolemIDsFrom(ids, child)
 	}
 }
-

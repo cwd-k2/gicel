@@ -3,6 +3,7 @@ package parse
 import (
 	syn "github.com/cwd-k2/gicel/internal/lang/syntax"
 
+	"github.com/cwd-k2/gicel/internal/infra/diagnostic"
 	"github.com/cwd-k2/gicel/internal/infra/span"
 )
 
@@ -139,12 +140,17 @@ func (p *Parser) parseBlock() syn.Expr {
 			p.expect(syn.TokColonEq)
 			var tdBody syn.TypeExpr
 			tdBody = p.parseType()
-			// For data family defs, skip | separated constructors
-			for p.peek().Kind == syn.TokPipe {
-				p.advance()
-				for p.peek().Kind != syn.TokPipe && p.peek().Kind != syn.TokSemicolon &&
-					p.peek().Kind != syn.TokRBrace && p.peek().Kind != syn.TokEOF {
+			// Multi-constructor data family defs: only the first constructor is captured.
+			// Emit a diagnostic for additional | constructors rather than silently dropping.
+			if p.peek().Kind == syn.TokPipe {
+				p.addErrorCode(diagnostic.ErrClassSyntax,
+					"multi-constructor associated data families are not yet supported; only the first constructor is used")
+				for p.peek().Kind == syn.TokPipe {
 					p.advance()
+					for p.peek().Kind != syn.TokPipe && p.peek().Kind != syn.TokSemicolon &&
+						p.peek().Kind != syn.TokRBrace && p.peek().Kind != syn.TokEOF {
+						p.advance()
+					}
 				}
 			}
 			typeDefs = append(typeDefs, syn.ImplField{

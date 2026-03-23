@@ -36,9 +36,9 @@ func TestProbeE_TC_OverlappingInstancesRejectOrChoose(t *testing.T) {
 	eng := gicel.NewEngine()
 	_, err := eng.Compile(context.Background(), `
 data Bool := True | False
-class C a { method :: a -> Bool }
-instance C Bool { method := \x. x }
-instance C Bool { method := \x. True }
+data C := \a. { method: a -> Bool }
+impl C Bool := { method := \x. x }
+impl C Bool := { method := \x. True }
 main := method True
 `)
 	// An error is acceptable (overlapping instances). A result is also acceptable
@@ -52,8 +52,8 @@ func TestProbeE_TC_EmptyClassInstanceCompile(t *testing.T) {
 	eng := gicel.NewEngine()
 	_, err := eng.Compile(context.Background(), `
 data Bool := True | False
-class Phantom a {}
-instance Phantom Bool {}
+data Phantom := \a. { _marker: () }
+impl Phantom Bool := { _marker := () }
 main := True
 `)
 	if err != nil {
@@ -66,13 +66,13 @@ main := True
 func TestProbeE_TC_SuperclassTransitiveResolution(t *testing.T) {
 	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(context.Background(), `
-data Bool := True | False
-class A a { ma :: a -> Bool }
-class A a => B a { mb :: a -> Bool }
-class B a => C a { mc :: a -> Bool }
-instance A Bool { ma := \x. True }
-instance B Bool { mb := \x. True }
-instance C Bool { mc := \x. True }
+data Bool := { True: Bool; False: Bool; }
+data A := \a. { ma: a -> Bool }
+data B := \a. A a => { mb: a -> Bool }
+data C := \a. B a => { mc: a -> Bool }
+impl A Bool := { ma := \x. True }
+impl B Bool := { mb := \x. True }
+impl C Bool := { mc := \x. True }
 
 -- Accessing ma through a C constraint (C -> B -> A)
 f :: \a. C a => a -> Bool
@@ -96,10 +96,10 @@ func TestProbeE_TC_InstanceResolutionDepthLimit(t *testing.T) {
 	eng := gicel.NewEngine()
 	_, err := eng.Compile(context.Background(), `
 data Bool := True | False
-class C a { method :: a -> Bool }
+data C := \a. { method: a -> Bool }
 -- An instance that requires itself as a context: C a => C a
 -- This creates an infinite resolution loop
-instance C a => C a { method := \x. method x }
+impl C a => C a := { method := \x. method x }
 main := method True
 `)
 	// Should error (resolution depth or ambiguity), not hang
@@ -114,8 +114,8 @@ func TestProbeE_TC_MultiParamClassResolution(t *testing.T) {
 	eng := gicel.NewEngine()
 	_, err := eng.Compile(context.Background(), `
 data Bool := True | False
-class Convert a b { convert :: a -> b }
-instance Convert Bool Bool { convert := \x. x }
+data Convert := \a b. { convert: a -> b }
+impl Convert Bool Bool := { convert := \x. x }
 
 -- The 'b' type is ambiguous from the call site alone
 f :: Bool -> Bool
@@ -140,8 +140,8 @@ func TestProbeE_TF_RecursiveFamilyHitsFuelLimit(t *testing.T) {
 	_, err := eng.Compile(context.Background(), `
 data Nat := Z | S Nat
 
-type Loop (n: Type) :: Type := {
-  Loop n =: Loop (S n)
+type Loop :: Type := \(n: Type). case n {
+  n => Loop (S n)
 }
 
 main := (Z :: Loop Z)
@@ -161,12 +161,12 @@ main := (Z :: Loop Z)
 func TestProbeE_TF_ReducibleFamily(t *testing.T) {
 	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(context.Background(), `
-data Bool := True | False
+data Bool := { True: Bool; False: Bool; }
 data Nat := Z | S Nat
 
-type IsZero (n: Type) :: Type := {
-  IsZero Z =: Bool;
-  IsZero (S n) =: Nat
+type IsZero :: Type := \(n: Type). case n {
+  Z => Bool;
+  S n => Nat
 }
 
 val :: IsZero Z
@@ -193,10 +193,10 @@ func TestProbeE_TF_FamilyWithDataKinds(t *testing.T) {
 import Prelude
 data Color := Red | Green | Blue
 
-type ColorToInt (c: Color) :: Type := {
-  ColorToInt Red =: Int;
-  ColorToInt Green =: Int;
-  ColorToInt Blue =: Int
+type ColorToInt :: Type := \(c: Color). case c {
+  Red => Int;
+  Green => Int;
+  Blue => Int
 }
 
 val :: ColorToInt Red
@@ -227,11 +227,11 @@ func TestProbeE_GADT_ExistentialEscapeError(t *testing.T) {
 	eng := gicel.NewEngine()
 	_, err := eng.Compile(context.Background(), `
 data Bool := True | False
-data Exists := { MkExists :: \a. a -> Exists }
+data Exists := { MkExists: \a. a -> Exists; }
 
 -- x has type 'a' (existential), but return type is 'a' which escapes
 bad :: Exists -> Bool
-bad := \e. case e { MkExists x -> x }
+bad := \e. case e { MkExists x => x }
 `)
 	if err == nil {
 		t.Fatal("expected error for existential type escape")
@@ -245,10 +245,10 @@ func TestProbeE_GADT_ValidExistential(t *testing.T) {
 	eng.Use(gicel.Prelude)
 	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
-data Exists := { MkExists :: \a. Show a => a -> Exists }
+data Exists := { MkExists: \a. Show a => a -> Exists; }
 
 showExists :: Exists -> String
-showExists := \e. case e { MkExists x -> show x }
+showExists := \e. case e { MkExists x => show x }
 
 main := showExists (MkExists True)
 `)
@@ -275,10 +275,10 @@ func TestProbeE_GADT_NestedExistentialWithClass(t *testing.T) {
 	eng.Use(gicel.Prelude)
 	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
-data SomeEq := { MkSomeEq :: \a. Eq a => a -> a -> SomeEq }
+data SomeEq := { MkSomeEq: \a. Eq a => a -> a -> SomeEq; }
 
 test :: SomeEq -> Bool
-test := \s. case s { MkSomeEq x y -> eq x y }
+test := \s. case s { MkSomeEq x y => eq x y }
 
 main := test (MkSomeEq True True)
 `)
@@ -396,14 +396,18 @@ data Void := MkVoid
 // modules should be visible for constraint resolution.
 func TestProbeE_Module_InstanceCoherenceAcrossModules(t *testing.T) {
 	eng := gicel.NewEngine()
-	eng.RegisterModule("ClassDef", `
-data Bool := True | False
-class MyEq a { myEq :: a -> a -> Bool }
-`)
-	eng.RegisterModule("InstanceDef", `
+	if err := eng.RegisterModule("ClassDef", `
+data Bool := { True: Bool; False: Bool; }
+data MyEq := \a. { myEq: a -> a -> Bool }
+`); err != nil {
+		t.Fatal(err)
+	}
+	if err := eng.RegisterModule("InstanceDef", `
 import ClassDef
-instance MyEq Bool { myEq := \x y. True }
-`)
+impl MyEq Bool := { myEq := \x y. True }
+`); err != nil {
+		t.Fatal(err)
+	}
 	rt, err := eng.NewRuntime(context.Background(), `
 import ClassDef
 import InstanceDef
@@ -428,7 +432,7 @@ main := myEq True False
 func TestProbeE_HigherRank_RankNAnnotation(t *testing.T) {
 	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(context.Background(), `
-data Bool := True | False
+data Bool := { True: Bool; False: Bool; }
 
 -- Rank-2: f takes a polymorphic function
 apply :: (\a. a -> a) -> Bool -> Bool
@@ -451,7 +455,7 @@ main := apply (\x. x) True
 func TestProbeE_HigherRank_Subsumption(t *testing.T) {
 	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(context.Background(), `
-data Bool := True | False
+data Bool := { True: Bool; False: Bool; }
 
 f :: (Bool -> Bool) -> Bool
 f := \g. g True
@@ -528,7 +532,7 @@ func TestProbeE_Cross_LetGenWithMultipleConstraints(t *testing.T) {
 	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 -- eqAndShow should generalize to: \ a. (Eq a, Show a) => a -> a -> String
-eqAndShow := \x y. case eq x y { True -> show x; False -> show y }
+eqAndShow := \x y. case eq x y { True => show x; False => show y }
 main := eqAndShow 1 2
 `)
 	if err != nil {
