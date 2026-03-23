@@ -57,12 +57,12 @@ delete := _mapDelete compare
 size :: \k v. Map k v -> Int
 size := _mapSize
 
-impl Ord k => FromList (Map k v) {
-  type Elem (Map k v) =: (k, v);
+impl Ord k => FromList (Map k v) := {
+  type Elem := (k, v);
   fromList := _mapFromList compare
 }
 
-impl Ord k => ToList (Map k v) { toList := _mapToList }
+impl Ord k => ToList (Map k v) := { toList := _mapToList }
 
 foldlWithKey :: \k v b. (b -> k -> v -> b) -> b -> Map k v -> b
 foldlWithKey := _mapFoldlWithKey

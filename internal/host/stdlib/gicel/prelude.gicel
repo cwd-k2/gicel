@@ -19,16 +19,16 @@ data Traversable := \t. (Functor t, Foldable t) => {
   traverse: \f a b. Applicative f => (a -> f b) -> t a -> f (t b)
 }
 
-impl Eq Bool {
+impl Eq Bool := {
   eq := \x y. case x {
     True => case y { True => True; False => False };
     False => case y { True => False; False => True }
   }
 }
 
-impl Eq () { eq := \_ _. True }
+impl Eq () := { eq := \_ _. True }
 
-impl Eq Ordering {
+impl Eq Ordering := {
   eq := \x y. case x {
     LT => case y { LT => True; EQ => False; GT => False };
     EQ => case y { LT => False; EQ => True; GT => False };
@@ -36,7 +36,7 @@ impl Eq Ordering {
   }
 }
 
-impl Eq a => Eq (Maybe a) {
+impl Eq a => Eq (Maybe a) := {
   eq := \x y. case (x, y) {
     (Nothing, Nothing) => True;
     (Just a, Just b)   => eq a b;
@@ -45,53 +45,53 @@ impl Eq a => Eq (Maybe a) {
   }
 }
 
-impl (Eq a, Eq b) => Eq (a, b) {
+impl (Eq a, Eq b) => Eq (a, b) := {
   eq := \x y. case (x, y) {
     ((a1, b1), (a2, b2)) => eq a1 a2 && eq b1 b2
   }
 }
 
-impl Functor Maybe {
+impl Functor Maybe := {
   fmap := \f ma. case ma {
     Nothing => Nothing;
     Just a => Just (f a)
   }
 }
 
-impl Foldable Maybe {
+impl Foldable Maybe := {
   foldr := \f z ma. case ma {
     Nothing => z;
     Just a => f a z
   }
 }
 
-impl Semigroup () { append := \_ _. () }
-impl Semigroup Ordering { append := \x y. case x { EQ => y; _ => x } }
-impl Semigroup a => Semigroup (Maybe a) {
+impl Semigroup () := { append := \_ _. () }
+impl Semigroup Ordering := { append := \x y. case x { EQ => y; _ => x } }
+impl Semigroup a => Semigroup (Maybe a) := {
   append := \x y. case x {
     Nothing => y;
     Just a => case y { Nothing => Just a; Just b => Just (append a b) }
   }
 }
-impl Monoid () { empty := () }
-impl Monoid Ordering { empty := EQ }
-impl Semigroup a => Monoid (Maybe a) { empty := Nothing }
+impl Monoid () := { empty := () }
+impl Monoid Ordering := { empty := EQ }
+impl Semigroup a => Monoid (Maybe a) := { empty := Nothing }
 
-impl Ord Bool {
+impl Ord Bool := {
   compare := \x y. case x {
     False => case y { False => EQ; True => LT };
     True  => case y { False => GT; True => EQ }
   }
 }
-impl Ord () { compare := \_ _. EQ }
-impl Ord Ordering {
+impl Ord () := { compare := \_ _. EQ }
+impl Ord Ordering := {
   compare := \x y. case x {
     LT => case y { LT => EQ; EQ => LT; GT => LT };
     EQ => case y { LT => GT; EQ => EQ; GT => LT };
     GT => case y { LT => GT; EQ => GT; GT => EQ }
   }
 }
-impl Ord a => Ord (Maybe a) {
+impl Ord a => Ord (Maybe a) := {
   compare := \x y. case (x, y) {
     (Nothing, Nothing) => EQ;
     (Nothing, Just _)  => LT;
@@ -99,13 +99,13 @@ impl Ord a => Ord (Maybe a) {
     (Just a, Just b)   => compare a b
   }
 }
-impl (Ord a, Ord b) => Ord (a, b) {
+impl (Ord a, Ord b) => Ord (a, b) := {
   compare := \x y. case (x, y) {
     ((a1, b1), (a2, b2)) => append (compare a1 a2) (compare b1 b2)
   }
 }
 
-impl Applicative Maybe {
+impl Applicative Maybe := {
   wrap := Just;
   ap := \mf mx. case mf {
     Nothing => Nothing;
@@ -113,14 +113,14 @@ impl Applicative Maybe {
   }
 }
 
-impl Traversable Maybe {
+impl Traversable Maybe := {
   traverse := \f x. case x {
     Nothing => wrap Nothing;
     Just a  => fmap Just (f a)
   }
 }
 
-impl Eq a => Eq (List a) {
+impl Eq a => Eq (List a) := {
   eq := \xs ys. case (xs, ys) {
     (Nil, Nil) => True;
     (Cons x rest, Cons y rest2) => eq x y && eq rest rest2;
@@ -129,28 +129,28 @@ impl Eq a => Eq (List a) {
   }
 }
 
-impl Functor List {
+impl Functor List := {
   fmap := \f xs. case xs {
     Nil => Nil;
     Cons x rest => Cons (f x) (fmap f rest)
   }
 }
 
-impl Foldable List {
+impl Foldable List := {
   foldr := \f z xs. case xs {
     Nil => z;
     Cons x rest => f x (foldr f z rest)
   }
 }
 
-impl Semigroup (List a) {
+impl Semigroup (List a) := {
   append := \xs ys. case xs {
     Nil => ys;
     Cons x rest => Cons x (append rest ys)
   }
 }
 
-impl Monoid (List a) { empty := Nil }
+impl Monoid (List a) := { empty := Nil }
 
 id :: \a. a -> a
 id := \x. x
@@ -246,9 +246,9 @@ infixr 5 <+
 (<+) := Cons
 
 data Show := \a. { show: a -> String }
-impl Show Bool { show := \b. case b { True => "True"; False => "False" } }
-impl Show () { show := \_. "()" }
-impl Show Ordering { show := \x. case x { LT => "LT"; EQ => "EQ"; GT => "GT" } }
+impl Show Bool := { show := \b. case b { True => "True"; False => "False" } }
+impl Show () := { show := \_. "()" }
+impl Show Ordering := { show := \x. case x { LT => "LT"; EQ => "EQ"; GT => "GT" } }
 
 data Alternative := \f. Applicative f => {
   none: \a. f a;
@@ -258,12 +258,12 @@ infixl 3 <|>
 (<|>) :: \(f: Type -> Type) a. Alternative f => f a -> f a -> f a
 (<|>) := alt
 
-impl Alternative Maybe {
+impl Alternative Maybe := {
   none := Nothing;
   alt  := \x y. case x { Just _ => x; Nothing => y }
 }
 
-impl Alternative List { none := Nil; alt := append }
+impl Alternative List := { none := Nil; alt := append }
 
 guard :: \(f: Type -> Type). Alternative f => Bool -> f ()
 guard := \b. case b { True => wrap (); False => none }
@@ -273,12 +273,12 @@ data Monad := \(m: Type -> Type). {
   mbind: \a b. m a -> (a -> m b) -> m b
 }
 
-impl Monad Maybe {
+impl Monad Maybe := {
   mpure := Just;
   mbind := \ma f. case ma { Nothing => Nothing; Just a => f a }
 }
 
-impl Monad List {
+impl Monad List := {
   mpure := singleton;
   mbind := \xs f. foldr (\x acc. append (f x) acc) Nil xs
 }
@@ -294,7 +294,7 @@ infixl 1 >>
 -- IxMonad instances for Maybe and List provide `pure`/`ixpure` dispatch
 -- in monadic contexts (e.g. `Just 5 >>= \x. pure x`). Auto-lifted to
 -- IxMonad (Lift Maybe) / IxMonad (Lift List) by the checker.
-impl IxMonad Maybe {
+impl IxMonad Maybe := {
   ixpure := Just;
   ixbind := \ma f. case ma {
     Nothing => Nothing;
@@ -302,7 +302,7 @@ impl IxMonad Maybe {
   }
 }
 
-impl IxMonad List {
+impl IxMonad List := {
   ixpure := singleton;
   ixbind := \xs f. foldr (\x acc. append (f x) acc) Nil xs
 }
@@ -312,7 +312,7 @@ data Packed := \c e. {
   unpack: c -> List e
 }
 
-impl Packed (List a) a {
+impl Packed (List a) a := {
   pack   := id;
   unpack := id
 }
@@ -326,32 +326,32 @@ data ToList := \l. FromList l => {
   toList: l -> List (Elem l)
 }
 
-impl FromList (List a) {
-  type Elem (List a) =: a;
+impl FromList (List a) := {
+  type Elem := a;
   fromList := id
 }
 
-impl ToList (List a) { toList := id }
+impl ToList (List a) := { toList := id }
 
-impl FromList (Maybe a) {
-  type Elem (Maybe a) =: a;
+impl FromList (Maybe a) := {
+  type Elem := a;
   fromList := head
 }
 
-impl ToList (Maybe a) {
+impl ToList (Maybe a) := {
   toList := \m. case m { Nothing => Nil; Just x => Cons x Nil }
 }
 
-impl Applicative List {
+impl Applicative List := {
   wrap := singleton;
   ap := \fs xs. foldr (\f acc. append (fmap f xs) acc) Nil fs
 }
 
-impl Traversable List {
+impl Traversable List := {
   traverse := \f. foldr (\x acc. ap (fmap Cons (f x)) acc) (wrap Nil)
 }
 
-impl (Eq e, Eq a) => Eq (Result e a) {
+impl (Eq e, Eq a) => Eq (Result e a) := {
   eq := \x y. case (x, y) {
     (Ok a1, Ok a2)   => eq a1 a2;
     (Err e1, Err e2) => eq e1 e2;
@@ -360,7 +360,7 @@ impl (Eq e, Eq a) => Eq (Result e a) {
   }
 }
 
-impl (Ord e, Ord a) => Ord (Result e a) {
+impl (Ord e, Ord a) => Ord (Result e a) := {
   compare := \x y. case (x, y) {
     (Err e1, Err e2) => compare e1 e2;
     (Err _, Ok _)    => LT;
@@ -369,21 +369,21 @@ impl (Ord e, Ord a) => Ord (Result e a) {
   }
 }
 
-impl Functor (Result e) {
+impl Functor (Result e) := {
   fmap := \f r. case r {
     Err x => Err x;
     Ok a => Ok (f a)
   }
 }
 
-impl Foldable (Result e) {
+impl Foldable (Result e) := {
   foldr := \f z r. case r {
     Err _ => z;
     Ok a => f a z
   }
 }
 
-impl Ord a => Ord (List a) {
+impl Ord a => Ord (List a) := {
   compare := \xs ys. case (xs, ys) {
     (Nil, Nil) => EQ;
     (Nil, Cons _ _) => LT;
@@ -575,11 +575,11 @@ _cmpInt := assumption
 _showInt :: Int -> String
 _showInt := assumption
 
-impl Show Int { show := _showInt }
-impl Eq Int { eq := _eqInt }
-impl Ord Int { compare := _cmpInt }
-impl Semigroup Int { append := _addInt }
-impl Monoid Int { empty := 0 }
+impl Show Int := { show := _showInt }
+impl Eq Int := { eq := _eqInt }
+impl Ord Int := { compare := _cmpInt }
+impl Semigroup Int := { append := _addInt }
+impl Monoid Int := { empty := 0 }
 
 data Num := \a. Eq a => {
   add    : a -> a -> a;
@@ -588,7 +588,7 @@ data Num := \a. Eq a => {
   negate: a -> a
 }
 
-impl Num Int {
+impl Num Int := {
   add := _addInt;
   sub := _subInt;
   mul := _mulInt;
@@ -599,7 +599,7 @@ data Div := \a. Num a => {
   div: a -> a -> a
 }
 
-impl Div Int { div := _divInt }
+impl Div Int := { div := _divInt }
 
 mod :: Int -> Int -> Int
 mod := _modInt
@@ -625,21 +625,21 @@ _cmpDouble := assumption
 _showDouble :: Double -> String
 _showDouble := assumption
 
-impl Show Double { show := _showDouble }
-impl Eq Double { eq := _eqDouble }
-impl Ord Double { compare := _cmpDouble }
+impl Show Double := { show := _showDouble }
+impl Eq Double := { eq := _eqDouble }
+impl Ord Double := { compare := _cmpDouble }
 
-impl Num Double {
+impl Num Double := {
   add := _addDouble;
   sub := _subDouble;
   mul := _mulDouble;
   negate := _negDouble
 }
 
-impl Semigroup Double { append := _addDouble }
-impl Monoid Double { empty := 0.0 }
+impl Semigroup Double := { append := _addDouble }
+impl Monoid Double := { empty := 0.0 }
 
-impl Div Double { div := _divDouble }
+impl Div Double := { div := _divDouble }
 
 _divDouble :: Double -> Double -> Double
 _divDouble := assumption
@@ -851,12 +851,12 @@ _eqRune := assumption
 _cmpRune :: Rune -> Rune -> Ordering
 _cmpRune := assumption
 
-impl Eq String { eq := _eqStr }
-impl Ord String { compare := _cmpStr }
-impl Semigroup String { append := _appendStr }
-impl Monoid String { empty := _emptyStr }
-impl Eq Rune { eq := _eqRune }
-impl Ord Rune { compare := _cmpRune }
+impl Eq String := { eq := _eqStr }
+impl Ord String := { compare := _cmpStr }
+impl Semigroup String := { append := _appendStr }
+impl Monoid String := { empty := _emptyStr }
+impl Eq Rune := { eq := _eqRune }
+impl Ord Rune := { compare := _cmpRune }
 
 strlen :: String -> Int
 strlen := _lengthStr
@@ -933,38 +933,38 @@ _fromRunes := assumption
 fromRunes :: List Rune -> String
 fromRunes := _fromRunes
 
-impl FromList String {
-  type Elem String =: Rune;
+impl FromList String := {
+  type Elem := Rune;
   fromList := fromRunes
 }
 
-impl ToList String { toList := toRunes }
+impl ToList String := { toList := toRunes }
 
-impl Packed String Rune {
+impl Packed String Rune := {
   pack   := fromRunes;
   unpack := toRunes
 }
 
-impl Show String { show := \s. append "\"" (append s "\"") }
+impl Show String := { show := \s. append "\"" (append s "\"") }
 
-impl Show a => Show (Maybe a) {
+impl Show a => Show (Maybe a) := {
   show := \m. case m {
     Nothing => "Nothing";
     Just a  => append "Just " (show a)
   }
 }
 
-impl Show a => Show (List a) {
+impl Show a => Show (List a) := {
   show := \xs. append "[" (append (join ", " (fmap show xs)) "]")
 }
 
-impl (Show e, Show a) => Show (Result e a) {
+impl (Show e, Show a) => Show (Result e a) := {
   show := \r. case r {
     Err e => append "Err " (show e);
     Ok a  => append "Ok " (show a)
   }
 }
 
-impl (Show a, Show b) => Show (a, b) {
+impl (Show a, Show b) => Show (a, b) := {
   show := \p. append "(" (append (show (p.#_1)) (append ", " (append (show (p.#_2)) ")")))
 }

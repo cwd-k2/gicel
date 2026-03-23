@@ -64,19 +64,19 @@ infixl 5 +>
 (+>) :: \a. Slice a -> a -> Slice a
 (+>) := _sliceSnoc
 
-impl Functor Slice { fmap := _sliceMap }
-impl Foldable Slice { foldr := _sliceFoldr }
-impl Semigroup (Slice a) { append := _sliceAppend }
-impl Monoid (Slice a) { empty := _sliceEmpty }
+impl Functor Slice := { fmap := _sliceMap }
+impl Foldable Slice := { foldr := _sliceFoldr }
+impl Semigroup (Slice a) := { append := _sliceAppend }
+impl Monoid (Slice a) := { empty := _sliceEmpty }
 
-impl Packed (Slice a) a {
+impl Packed (Slice a) a := {
   pack   := _sliceFromList;
   unpack := _sliceToList
 }
 
-impl FromList (Slice a) {
-  type Elem (Slice a) =: a;
+impl FromList (Slice a) := {
+  type Elem := a;
   fromList := _sliceFromList
 }
 
-impl ToList (Slice a) { toList := _sliceToList }
+impl ToList (Slice a) := { toList := _sliceToList }
