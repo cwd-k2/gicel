@@ -66,8 +66,8 @@ func usageJoin(a, b *types.TyCon) *types.TyCon {
 		x, y = y, x
 	}
 
-	// After sort: x <= y alphabetically.
-	// Affine < Linear < Unrestricted < Zero
+	// After sort: x <= y (string order: Affine < Linear < Unrestricted < Zero).
+	// This is NOT the lattice order — it is only used to reduce case count.
 	switch {
 	case x == "Unrestricted" || y == "Unrestricted":
 		return &types.TyCon{Name: "Unrestricted"}
@@ -110,12 +110,12 @@ func (ch *Checker) registerGradeAlgebraFamilies() {
 		},
 		ResultKind: multKind,
 		Equations: []family.TFEquation{
-			// Identity cases: Join(x, x) = x
+			// Identity cases for non-absorbing elements.
+			// Unrestricted identity is subsumed by the wildcard cases below.
 			{Patterns: []types.Type{zero, zero}, RHS: zero},
 			{Patterns: []types.Type{linear, linear}, RHS: linear},
 			{Patterns: []types.Type{affine, affine}, RHS: affine},
-			{Patterns: []types.Type{unrestricted, unrestricted}, RHS: unrestricted},
-			// Unrestricted absorbs everything
+			// Unrestricted absorbs everything (including itself)
 			{Patterns: []types.Type{unrestricted, wildcard}, RHS: unrestricted},
 			{Patterns: []types.Type{wildcard, unrestricted}, RHS: unrestricted},
 			// Zero ⊔ Linear = Affine (incomparable elements)

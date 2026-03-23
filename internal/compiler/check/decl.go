@@ -336,7 +336,11 @@ func (ch *Checker) processValueDef(d *syntax.DeclValueDef, annotations map[strin
 				d.Name))
 	}
 
-	ch.ctx.Push(&CtxVar{Name: d.Name, Type: ty, Module: ch.scope.CurrentModule()})
+	// Annotated bindings were pre-registered in preregisterBindings (phase 7.5).
+	// Only push for unannotated or assumption bindings to avoid double-push.
+	if !hasAnn {
+		ch.ctx.Push(&CtxVar{Name: d.Name, Type: ty, Module: ch.scope.CurrentModule()})
+	}
 	prog.Bindings = append(prog.Bindings, ir.Binding{
 		Name: d.Name,
 		Type: ty,

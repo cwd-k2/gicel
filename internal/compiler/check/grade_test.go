@@ -283,8 +283,8 @@ func TestGradeAlgebraFamiliesRegistered(t *testing.T) {
 	if len(joinInfo.Params) != 2 {
 		t.Errorf("$GradeJoin: expected 2 params, got %d", len(joinInfo.Params))
 	}
-	if len(joinInfo.Equations) != 10 {
-		t.Errorf("$GradeJoin: expected 10 equations, got %d", len(joinInfo.Equations))
+	if len(joinInfo.Equations) != 9 {
+		t.Errorf("$GradeJoin: expected 9 equations, got %d", len(joinInfo.Equations))
 	}
 
 	dropInfo, ok := ch.lookupFamily(gradeDropFamily)
@@ -584,8 +584,8 @@ func TestGradeAlgebraFamiliesIdempotent(t *testing.T) {
 	if !ok {
 		t.Fatal("$GradeJoin not found after double registration")
 	}
-	if len(info.Equations) != 10 {
-		t.Errorf("expected 10 equations, got %d", len(info.Equations))
+	if len(info.Equations) != 9 {
+		t.Errorf("expected 9 equations, got %d", len(info.Equations))
 	}
 }
 

@@ -281,7 +281,6 @@ main := _e => _o => eq MkInt MkInt`
 
 func TestScopedEvidenceDoesNotLeak(t *testing.T) {
 	// Scoped evidence should not affect resolution outside the => body.
-	// The public instance is used for the outer `eq` call.
 	source := `data Bool := { True: Bool; False: Bool; }
 data MyEq := \a. { eq: a -> a -> Bool; }
 impl MyEq Bool := { eq := \x y. True; }
@@ -289,5 +288,13 @@ impl _alt :: MyEq Bool := { eq := \x y. False; }
 inner := _alt => eq True False
 outer := eq True True
 main := outer`
+	checkSource(t, source, nil)
+}
+
+func TestScopedEvidenceNonDictType(t *testing.T) {
+	// value => expr where value has a non-dict type: context stays balanced,
+	// evidence is not injected, body is checked normally.
+	source := `data Unit := { Unit: Unit; }
+main := Unit => Unit`
 	checkSource(t, source, nil)
 }
