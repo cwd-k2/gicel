@@ -154,10 +154,10 @@ func (p *Parser) parseADTConsAsRow(params []syn.TyBinder, start span.Pos) syn.Ty
 				Arg: &syn.TyExprRow{S: c.s},
 				S:   c.s,
 			}
-		} else if len(c.fields) == 1 {
-			ty = c.fields[0]
 		} else {
-			// Multi-field: synthesize arrow chain f1 -> f2 -> ... -> ()
+			// Non-nullary: synthesize arrow chain f1 -> f2 -> ... -> ()
+			// The trailing () is a sentinel that processDataDeclParts replaces
+			// with the actual result type (e.g., Shape).
 			ty = &syn.TyExprApp{
 				Fun: &syn.TyExprCon{Name: "Record", S: c.s},
 				Arg: &syn.TyExprRow{S: c.s},
