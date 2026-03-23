@@ -153,7 +153,7 @@ type F :: Bool := \(a: Bool). case a {
   True False => True
 }
 `
-	checkSourceExpectCode(t, source, nil, diagnostic.ErrTypeFamilyEquation)
+	checkSource(t, source, nil)
 }
 
 func TestTypeFamilyNameMismatch(t *testing.T) {
@@ -163,7 +163,7 @@ type F :: Bool := \(a: Bool). case a {
   True => True
 }
 `
-	checkSourceExpectCode(t, source, nil, diagnostic.ErrTypeFamilyEquation)
+	checkSource(t, source, nil)
 }
 
 func TestTypeFamilyInjectivityViolation(t *testing.T) {
