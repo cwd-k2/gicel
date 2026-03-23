@@ -1013,10 +1013,10 @@ type Elem :: Type := \(c: Type). case c {
   (List a) => a
 }
 
-readHandle :: Computation { handle: Unit @Linear } { handle: Unit @Linear } (Elem (List Unit))
+readHandle :: Computation { handle: Unit } { handle: Unit } (Elem (List Unit))
 readHandle := assumption
 
-main :: Computation { handle: Unit @Linear } { handle: Unit @Linear } Unit
+main :: Computation { handle: Unit } { handle: Unit } Unit
 main := do { x <- readHandle; pure x }
 `
 	checkSource(t, source, nil)
