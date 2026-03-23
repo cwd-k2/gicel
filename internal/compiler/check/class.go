@@ -32,11 +32,10 @@ func collectKindVars(k syntax.KindExpr, kindVars map[string]bool, params *[]stri
 // dictName returns the dictionary type/constructor name for a class.
 func dictName(className string) string { return className + "$Dict" }
 
-// ClassInfo stores elaborated class information.
-// processClassDecl elaborates a class-like data declaration into:
+// processClassLikeForm elaborates a class-like form declaration into:
 // 1. A DataDecl for the dictionary type
 // 2. Selector bindings for each method
-func (ch *Checker) processClassDecl(d *syntax.DeclForm, parts formBodyParts, prog *ir.Program) {
+func (ch *Checker) processClassLikeForm(d *syntax.DeclForm, parts formBodyParts, prog *ir.Program) {
 	dn := dictName(d.Name)
 
 	// Reject default method implementations (not yet supported).

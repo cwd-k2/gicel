@@ -5,4 +5,4 @@ import Prelude
 form Color := Red | Green | Blue
 
 name :: Color -> String
-name := \c. case c { Red -> "red"; Green -> "green"; Blue -> "blue" }
+name := \c. case c { Red => "red"; Green => "green"; Blue => "blue" }

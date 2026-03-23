@@ -18,7 +18,7 @@ type formBodyParts struct {
 	Supers    []syntax.TypeExpr
 	Fields    []syntax.TyRowField
 	TypeDecls []syntax.TyRowTypeDecl
-	InnerBody syntax.TypeExpr // the raw body (for non-record data)
+	InnerBody syntax.TypeExpr // the raw body (for non-record forms)
 }
 
 // decomposeFormBody decomposes a form declaration body TypeExpr into
@@ -101,9 +101,9 @@ func isTypeFamilyBody(body syntax.TypeExpr) bool {
 }
 
 // isClassLikeForm determines whether a form declaration represents a type class
-// vs a regular data type.
+// vs a regular algebraic data type.
 //
-// The distinction follows GICEL's lexical category rule: form constructors start
+// The distinction follows GICEL's lexical category rule: constructors start
 // with uppercase, type class methods start with lowercase. This is a language
 // invariant enforced by the parser (TokUpper vs TokLower), not a naming convention.
 //
@@ -119,7 +119,7 @@ func isClassLikeForm(parts formBodyParts) bool {
 	}
 	for _, f := range parts.Fields {
 		if len(f.Label) > 0 && f.Label[0] >= 'A' && f.Label[0] <= 'Z' {
-			return false // uppercase field = constructor = data type
+			return false // uppercase field = constructor = algebraic type
 		}
 	}
 	return true

@@ -79,10 +79,10 @@ expect_output "JSON output" '"ok": true' \
 expect_output "type family reduction" "MkProxy" \
   "$GICEL" run -e '
 import Prelude
-data Bool := True | False
-type Not (b: Bool) :: Bool := { Not True =: False; Not False =: True }
-data Proxy (a: Bool) := MkProxy
-f :: Proxy (Not (Not True)) -> Proxy True
+form Bool2 := True2 | False2
+type Not :: Bool2 := \(b: Bool2). case b { True2 => False2; False2 => True2 }
+form Proxy := \(a: Bool2). { MkProxy: Proxy a }
+f :: Proxy (Not (Not True2)) -> Proxy True2
 f := \x. x
 main := f MkProxy
 '
@@ -97,7 +97,7 @@ main := do { put 10; x <- get; pure (x + 1) }
 expect_output "recursion" "120" \
   "$GICEL" run --recursion -e '
 import Prelude
-f := fix (\self n. case n { 0 -> 1; _ -> n * self (n - 1) })
+f := fix (\self n. case n { 0 => 1; _ => n * self (n - 1) })
 main := f 5
 '
 
@@ -152,9 +152,9 @@ expect_error_contains "fix without recursion" "unbound variable" \
 expect_error_contains "non-exhaustive" "missing" \
   "$GICEL" check -e '
 import Prelude
-data Color := Red | Green | Blue
+form Color := Red | Green | Blue
 f :: Color -> Int
-f := \c. case c { Red -> 1; Green -> 2 }
+f := \c. case c { Red => 1; Green => 2 }
 '
 
 echo ""
@@ -185,8 +185,8 @@ main := replicate 10000 42
 expect_error_contains "exponential type family" "too large" \
   "$GICEL" check -e '
 import Prelude
-data Pair a b := MkPair a b
-type Grow (a: Type) :: Type := { Grow a =: Grow (Pair a a) }
+form Pair := \a b. { MkPair: a -> b -> Pair a b }
+type Grow :: Type := \(a: Type). case a { a => Grow (Pair a a) }
 f :: Grow Int -> Int
 f := \x. x
 '
@@ -211,22 +211,22 @@ echo ""
 echo "List patterns & pretty print:"
 
 expect_output "list pattern [x, y]" "7" \
-  "$GICEL" run -e 'import Prelude; f := \xs. case xs { [x, y] -> x + y; _ -> 0 }; main := f [3, 4]'
+  "$GICEL" run -e 'import Prelude; f := \xs. case xs { [x, y] => x + y; _ => 0 }; main := f [3, 4]'
 
 expect_output "list pattern []" '"empty"' \
-  "$GICEL" run -e 'import Prelude; f := \xs. case xs { [] -> "empty"; _ -> "other" }; main := f ([] :: List Int)'
+  "$GICEL" run -e 'import Prelude; f := \xs. case xs { [] => "empty"; _ => "other" }; main := f ([] :: List Int)'
 
 expect_output "list pattern nested" '"match"' \
-  "$GICEL" run -e 'import Prelude; f := \xs. case xs { [[1], [2, 3]] -> "match"; _ -> "no" }; main := f [[1], [2, 3]]'
+  "$GICEL" run -e 'import Prelude; f := \xs. case xs { [[1], [2, 3]] => "match"; _ => "no" }; main := f [[1], [2, 3]]'
 
 expect_output "list pattern with constructor" "99" \
-  "$GICEL" run -e 'import Prelude; f := \xs. case xs { [Just x, Nothing] -> x; _ -> 0 }; main := f [Just 99, Nothing]'
+  "$GICEL" run -e 'import Prelude; f := \xs. case xs { [Just x, Nothing] => x; _ => 0 }; main := f [Just 99, Nothing]'
 
 expect_output "list pattern literal" '"yes"' \
-  "$GICEL" run -e 'import Prelude; f := \xs. case xs { [1, 2, 3] -> "yes"; _ -> "no" }; main := f [1, 2, 3]'
+  "$GICEL" run -e 'import Prelude; f := \xs. case xs { [1, 2, 3] => "yes"; _ => "no" }; main := f [1, 2, 3]'
 
 expect_output "mixing Cons and []" "42" \
-  "$GICEL" run -e 'import Prelude; f := \xs. case xs { Cons x [] -> x; _ -> 0 }; main := f [42]'
+  "$GICEL" run -e 'import Prelude; f := \xs. case xs { Cons x [] => x; _ => 0 }; main := f [42]'
 
 expect_output "pretty list" "[1, 2, 3]" \
   "$GICEL" run -e 'import Prelude; main := [1, 2, 3]'
@@ -265,7 +265,7 @@ echo "Malformed inputs:"
 expect_error_contains "operator +.+" "expected expression" \
   "$GICEL" check -e 'import Prelude; main := 1 +.+ 2'
 
-expect_error_contains "operator =:= (reserved :=)" "reserved symbol" \
+expect_error_contains "operator =:= (reserved :=)" "expected operator" \
   "$GICEL" check -e 'import Prelude; infixl 5 =:=; (=:=) :: Int -> Int -> Int; (=:=) := \x y. x; main := 0'
 
 expect_error_contains "reserved ->" "expected declaration" \
@@ -293,16 +293,16 @@ expect_error_contains "unclosed list pattern" "expected ]" \
   "$GICEL" check -e 'import Prelude; f := \xs. case xs { [x, y -> x }; main := 0'
 
 expect_error_contains "list pattern trailing comma" "expected pattern" \
-  "$GICEL" check -e 'import Prelude; f := \xs. case xs { [x,] -> x; _ -> 0 }; main := 0'
+  "$GICEL" check -e 'import Prelude; f := \xs. case xs { [x,] => x; _ => 0 }; main := 0'
 
 expect_error_contains "double comma in list" "expected expression" \
   "$GICEL" check -e 'import Prelude; main := [1,,2]'
 
 expect_error_contains "list type mismatch" "type mismatch" \
-  "$GICEL" check -e 'import Prelude; f :: List Int -> Int; f := \xs. case xs { ["hello"] -> 0; _ -> 1 }; main := 0'
+  "$GICEL" check -e 'import Prelude; f :: List Int -> Int; f := \xs. case xs { ["hello"] => 0; _ => 1 }; main := 0'
 
 expect_error_contains "list pattern on non-list" "type mismatch" \
-  "$GICEL" check -e 'import Prelude; f :: Int -> Int; f := \x. case x { [a] -> a; _ -> 0 }; main := 0'
+  "$GICEL" check -e 'import Prelude; f :: Int -> Int; f := \x. case x { [a] => a; _ => 0 }; main := 0'
 
 expect_error_contains "special chars @#$" "expected declaration" \
   "$GICEL" check -e '@#$%'

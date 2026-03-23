@@ -13,8 +13,8 @@ import (
 // Cross-phase state (annotations, instance headers) lives here rather than
 // as loose locals, making the data flow between phases explicit.
 //
-// Phase 1-3.5: registerTypes — data, aliases, families, cycle detection
-// Phase 4-5.6: registerClasses — classes, instance headers, family reducers
+// Phase 1-3.5: registerTypes — forms, aliases, families, cycle detection
+// Phase 4-5.6: registerClassLikeForms — class-like forms, impl headers, family reducers
 // Phase 6:     collectAnnotations — type annotations (implicit forall)
 // Phase 7:     checkAssumptions — host-provided assumptions
 // Phase 7.5:   preregisterBindings — forward-declare annotated binding types
@@ -38,9 +38,9 @@ func (ch *Checker) checkDecls(decls []syntax.Decl) *ir.Program {
 	return p.run()
 }
 
-// decomposeData returns the decomposed body parts for a data declaration,
+// decomposeForm returns the decomposed body parts for a form declaration,
 // caching the result to avoid repeated decomposition across pipeline phases.
-func (p *declPipeline) decomposeData(d *syntax.DeclForm) formBodyParts {
+func (p *declPipeline) decomposeForm(d *syntax.DeclForm) formBodyParts {
 	if parts, ok := p.formBodyCache[d]; ok {
 		return parts
 	}
@@ -51,7 +51,7 @@ func (p *declPipeline) decomposeData(d *syntax.DeclForm) formBodyParts {
 
 func (p *declPipeline) run() *ir.Program {
 	p.registerTypes()
-	p.registerClasses()
+	p.registerClassLikeForms()
 	if p.ch.checkCancelled() {
 		return p.prog
 	}
@@ -66,14 +66,14 @@ func (p *declPipeline) run() *ir.Program {
 	return p.prog
 }
 
-// registerTypes handles phases 1–3.5: data decls, type aliases, type families,
+// registerTypes handles phases 1–3.5: form decls, type aliases, type families,
 // cyclic alias detection, and alias expander installation.
 func (p *declPipeline) registerTypes() {
 	for _, d := range p.decls {
-		if data, ok := d.(*syntax.DeclForm); ok {
-			parts := p.decomposeData(data)
+		if form, ok := d.(*syntax.DeclForm); ok {
+			parts := p.decomposeForm(form)
 			if !isClassLikeForm(parts) {
-				p.ch.processFormDeclParts(data, parts, p.prog)
+				p.ch.processFormDeclParts(form, parts, p.prog)
 			}
 		}
 	}
@@ -92,15 +92,15 @@ func (p *declPipeline) registerTypes() {
 	}
 }
 
-// registerClasses handles phases 4–5.6: class-like data declarations, impl headers,
-// type family reducer installation, and strict type name activation.
-func (p *declPipeline) registerClasses() {
-	// Process class-like data declarations (data with all-lowercase fields).
+// registerClassLikeForms handles phases 4–5.6: class-like form declarations,
+// impl headers, type family reducer installation, and strict type name activation.
+func (p *declPipeline) registerClassLikeForms() {
+	// Process class-like form declarations (forms with all-lowercase fields).
 	for _, d := range p.decls {
-		if data, ok := d.(*syntax.DeclForm); ok {
-			parts := p.decomposeData(data)
+		if form, ok := d.(*syntax.DeclForm); ok {
+			parts := p.decomposeForm(form)
 			if isClassLikeForm(parts) {
-				p.ch.processClassDecl(data, parts, p.prog)
+				p.ch.processClassLikeForm(form, parts, p.prog)
 			}
 		}
 	}

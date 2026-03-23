@@ -158,10 +158,10 @@ func (p *Parser) parseADTConsAsRow(params []syn.TyBinder, start span.Pos) syn.Ty
 		}
 	}
 
-	// Build the data type name applied to params for return types.
+	// Build the form type name applied to params for return types.
 	// e.g., form Maybe a := Just a | Nothing → return type = Maybe a
 	// For param-less: form Bool := True | False → return type = Bool
-	// We need the data type name from the outer context, but parseADTConsAsRow
+	// We need the form type name from the outer context, but parseADTConsAsRow
 	// doesn't have it. Use a placeholder that the checker resolves.
 	// Actually, for ADT shorthand, constructors don't include the return type
 	// (it's implicit). We synthesize: Con: field1 -> field2 -> ... -> ()

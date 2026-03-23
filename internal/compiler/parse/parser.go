@@ -121,7 +121,7 @@ type Parser struct {
 	noBraceAtom bool // when true, { is not an atom start (inside case scrutinee)
 
 	// stmtBoundaryDepth enables newline-as-separator inside brace-delimited
-	// bodies (do-blocks, class/instance bodies, GADT constructors, case alts).
+	// bodies (do-blocks, form/impl bodies, GADT constructors, case alts).
 	// When > 0 and p.depth == stmtBoundaryDepth, a token with NewlineBefore
 	// acts as a statement boundary, preventing greedy expression consumption.
 	stmtBoundaryDepth int

@@ -137,7 +137,7 @@ form ClassName := [\param*.] [Constraint =>] {
   method1: TypeExpr;
   method2: TypeExpr;
   [AssocTypeDecl]*;
-  [AssocDataDecl]*
+  [AssocFormDecl]*
 }
 ```
 
@@ -147,8 +147,8 @@ Associated type and form declarations within the class body:
 AssocTypeDecl (in class body)
   = 'type' UpperName TyBinder* '::' ResultKind
 
-AssocDataDecl (in class body)
-  = 'data' UpperName TyBinder* '::' KindExpr
+AssocFormDecl (in class body)
+  = 'form' UpperName TyBinder* '::' KindExpr
 ```
 
 Examples:
@@ -178,7 +178,7 @@ impl [Constraint =>] ClassName TypeArg* := {
   method1 := Expr;
   method2 := Expr;
   [AssocTypeDef]*;
-  [AssocDataDef]*
+  [AssocFormDef]*
 }
 
 impl _name :: [Constraint =>] ClassName TypeArg* := Expr
@@ -186,8 +186,8 @@ impl _name :: [Constraint =>] ClassName TypeArg* := Expr
 AssocTypeDef (in impl body)
   = 'type' UpperName ':=' TypeExpr
 
-AssocDataDef (in impl body)
-  = 'data' UpperName ':=' ConDecl ('|' ConDecl)*
+AssocFormDef (in impl body)
+  = 'form' UpperName ':=' ConDecl ('|' ConDecl)*
 ```
 
 **Private instances.** An `impl` declaration with a name starting with `_` is _private_ — it is invisible to the constraint solver and will not be selected during automatic instance resolution. Private instances are accessible only through explicit evidence injection (`value => expr`):

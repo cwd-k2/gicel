@@ -1,8 +1,7 @@
 -- GICEL Example: Full Grammar Exercise
 --
--- This program exercises all 11 keywords in one file:
---   case, do, data, type, forall, infixl, infixr, infixn,
---   class, instance, import
+-- This program exercises all 9 keywords in one file:
+--   case, do, form, type, infixl, infixr, infixn, impl, import
 
 import Prelude
 
@@ -29,12 +28,12 @@ infixn 4 ===
 (===) :: Int -> Int -> Bool
 (===) := eq
 
--- [class] — define a type class
+-- [form] — define a type class
 form Describe := \a. {
   describe: a -> String
 }
 
--- [instance] — implement the class for Color
+-- [impl] — implement the class for Color
 impl Describe Color := {
   describe := \c. case c {
     Red   => "red";
@@ -43,7 +42,7 @@ impl Describe Color := {
   }
 }
 
--- [instance] — implement for Bool (from prelude)
+-- [impl] — implement for Bool (from prelude)
 impl Describe Bool := {
   describe := \b. case b {
     True  => "true";
@@ -51,13 +50,13 @@ impl Describe Bool := {
   }
 }
 
--- [forall] — polymorphic function
+-- [\] — polymorphic type binder
 describeIt :: \a. Describe a => a -> String
 describeIt := describe
 
 -- [do] — monadic computation with let bindings
 -- Output: (True, ("green", "true"), 12)
--- All 10 keywords used: case, do, data, type, infixl, infixr, infixn, class, instance, import
+-- All 9 keywords used: case, do, form, type, infixl, infixr, infixn, impl, import
 main := do {
   a <- pure (2 <+> 3);            -- 2 + 3 + 1 = 6
   b <- pure (2 <**> 3 <**> 1);   -- 2 * (3 * 1) = 6 (right-assoc)

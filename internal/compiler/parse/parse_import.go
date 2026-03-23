@@ -60,9 +60,9 @@ func (p *Parser) parseImportList() []syn.ImportName {
 //
 //	lower            → value binding
 //	(op)             → operator
-//	Upper            → type/class bare
-//	Upper (..)       → type/class with all subs
-//	Upper (A, B)     → type/class with specific subs
+//	Upper            → type/form bare
+//	Upper (..)       → type/form with all subs
+//	Upper (A, B)     → type/form with specific subs
 func (p *Parser) parseImportName() syn.ImportName {
 	// Operator: (op)
 	if p.peek().Kind == syn.TokLParen {

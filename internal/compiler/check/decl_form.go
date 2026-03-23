@@ -6,7 +6,7 @@ import (
 	"github.com/cwd-k2/gicel/internal/lang/types"
 )
 
-// processFormDeclParts registers a data type from pre-decomposed form body parts.
+// processFormDeclParts registers a form declaration from pre-decomposed body parts.
 // Class-like form declarations must be filtered out by the caller.
 func (ch *Checker) processFormDeclParts(d *syntax.DeclForm, parts formBodyParts, prog *ir.Program) {
 	// Resolve parameter kinds.

@@ -526,9 +526,9 @@ Decl      ::= DeclBind | DeclData | DeclType | DeclFixity | DeclImpl
 DeclBind  ::= Var '::' Type ';' Var ':=' Expr               -- annotated binding
             | Var ':=' Expr                                   -- unannotated binding
 
-DeclData  ::= 'data' ConName ':=' '\' TyBinder+ '.' DataBody          -- parametric
-            | 'data' ConName ':=' DataBody                              -- non-parametric
-            | 'data' ConName TyBinder* DataBody                         -- class-like (no :=)
+DeclData  ::= 'form' ConName ':=' '\' TyBinder+ '.' DataBody          -- parametric
+            | 'form' ConName ':=' DataBody                              -- non-parametric
+            | 'form' ConName TyBinder* DataBody                         -- class-like (no :=)
 
 DataBody  ::= '{' ConField (';' ConField)* '}'                         -- GADT or class-like body
             | ConDecl ('|' ConDecl)*                                    -- ADT shorthand
@@ -536,7 +536,7 @@ DataBody  ::= '{' ConField (';' ConField)* '}'                         -- GADT o
 ConField  ::= ConName ':' Type                            -- constructor (uppercase: full type sig)
             | VarName ':' Type                             -- method (lowercase: field declaration)
             | 'type' ConName TyBinder* '::' Kind          -- associated type declaration
-            | 'data' ConName TyBinder* '::' Kind          -- associated form declaration
+            | 'form' ConName TyBinder* '::' Kind          -- associated form declaration
 
 ConDecl   ::= ConName TypeAtom*
 
@@ -550,7 +550,7 @@ InstanceName ::= '_' Var '::' Constraint            -- private named instance
 
 ImplMember ::= VarName ':=' Expr                            -- method definition
              | 'type' ConName ':=' Type                     -- associated type definition
-             | 'data' ConName ':=' ConDecl ('|' ConDecl)*   -- associated form definition
+             | 'form' ConName ':=' ConDecl ('|' ConDecl)*   -- associated form definition
 ```
 
 ### 3.8.1 Unified `form` Declaration

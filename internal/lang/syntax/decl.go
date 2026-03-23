@@ -58,7 +58,7 @@ type DeclTypeAlias struct {
 	S       span.Span
 }
 
-// DeclImpl is an axiom registration (evidence for a data type).
+// DeclImpl is an axiom registration (evidence for a type class).
 //
 // Unified syntax:
 //
