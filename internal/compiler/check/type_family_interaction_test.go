@@ -87,7 +87,7 @@ data Container := \c. {
 }
 
 impl Container (List a) := {
-  Elem (List a) => a;
+  type Elem := a;
   chead := \xs. case xs { Cons x rest => x; Nil => chead Nil }
 }
 
@@ -870,7 +870,7 @@ data Container := \c. {
 }
 
 impl Container (List a) := {
-  Elem (List a) => a;
+  type Elem := a;
   size := \xs. 0
 }
 
@@ -1256,7 +1256,7 @@ data Container := \c. {
 }
 
 impl Container (List a) := {
-  Elem (List a) => a;
+  type Elem := a;
   empty := Nil
 }
 
