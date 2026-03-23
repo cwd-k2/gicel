@@ -172,7 +172,7 @@ func TestTypeFamilyInjectivityViolation(t *testing.T) {
 	source := `
 data Unit := { Unit: Unit; }
 data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
-Elem (c: Type) :: (r: Type) | r => c := {
+type Elem :: Type := \(c: Type). case c {
   (List a) => a;
   Unit => Unit
 }
@@ -243,7 +243,7 @@ data Container := \c. {
 }
 
 impl Container (List a) := {
-  Elem (List a) => a;
+  type Elem := a;
   cfold := foldr
 }
 
@@ -268,12 +268,12 @@ data Container := \c. {
 }
 
 impl Container (List a) := {
-  Elem (List a) => a;
+  type Elem := a;
   clength := listLength
 }
 
 impl Container (Pair a b) := {
-  Elem (Pair a b) => a;
+  type Elem := a;
   clength := pairLength
 }
 
@@ -340,7 +340,7 @@ impl Elem (List a) a := {
 
 func TestFunDepUnknownParam(t *testing.T) {
 	source := `
-Bad := \a b | z => b. {
+data Bad := \a b. {
   m: a -> b
 }
 `
@@ -587,7 +587,7 @@ data FromList := \c. {
 }
 
 impl FromList (List a) := {
-  Elem (List a) => a;
+  type Elem := a;
   fromList := \xs. xs
 }
 
@@ -609,7 +609,7 @@ data Conv := \c. {
 }
 
 impl Conv (List a) := {
-  Elem (List a) => a;
+  type Elem := a;
   conv := \xs. xs
 }
 
@@ -635,7 +635,7 @@ data FromList := \c. {
 }
 
 impl FromList (List a) := {
-  Elem (List a) => a;
+  type Elem := a;
   fromList := \xs. xs
 }
 
@@ -684,7 +684,7 @@ data Convert := \c. {
 }
 
 impl Convert (List a) := {
-  Elem (List a) => a;
+  type Elem := a;
   convert := \x. Cons x Nil
 }
 
