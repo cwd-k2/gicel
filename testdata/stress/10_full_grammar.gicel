@@ -61,7 +61,7 @@ impl Functor Maybe {
 }
 impl Functor Tree {
   fmap := \g t. case t {
-    Leaf x     -> Leaf (g x);
+    Leaf x     => Leaf (g x);
     Branch l r => Branch (fmap g l) (fmap g r)
   }
 }

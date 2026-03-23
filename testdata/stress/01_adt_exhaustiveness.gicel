@@ -39,8 +39,8 @@ prioToDir := \p. case p {
 
 dirToBool :: Dir -> Bool
 dirToBool := \d. case d {
-  North -> True;  South -> False; East -> True;
-  West  -> False; Up    -> True;  Down -> False
+  North => True;  South => False; East => True;
+  West  => False; Up    => True;  Down => False
 }
 
 not := \b. case b { True => False; False => True }
@@ -56,7 +56,7 @@ pairMatch := \c s. case c {
   Red   => case s { Circle => True; _ => False };
   Green => case s { Square => True; _ => False };
   Blue  => case s { Triangle => True; _ => False };
-  _     -> False
+  _     => False
 }
 
 tripleChain :: Color -> Bool

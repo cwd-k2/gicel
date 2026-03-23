@@ -43,8 +43,8 @@ mappedTree := fmap not treeOfBools
 
 main := case mappedTree {
   Branch l _ => case l {
-    Leaf v -> v;
-    _      -> True
+    Leaf v => v;
+    _      => True
   };
-  Leaf v -> v
+  Leaf v => v
 }

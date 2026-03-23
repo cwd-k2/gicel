@@ -39,7 +39,7 @@ filter := \p. fix (\self xs. case xs {
 reverse :: \a. List a -> List a
 reverse := \xs. fix (\go acc ys. case ys {
   Nil        => acc;
-  Cons y rest -> go (Cons y acc) rest
+  Cons y rest => go (Cons y acc) rest
 }) Nil xs
 
 take :: \a. Int -> List a -> List a
@@ -55,13 +55,13 @@ data Tree a := Leaf a | Branch (Tree a) (Tree a)
 
 treeSize :: \a. Tree a -> Int
 treeSize := fix (\self t. case t {
-  Leaf _     -> intSucc (intZero ());
+  Leaf _     => intSucc (intZero ());
   Branch l r => intAdd (self l) (self r)
 })
 
 treeMap :: \a b. (a -> b) -> Tree a -> Tree b
 treeMap := \f. fix (\self t. case t {
-  Leaf x     -> Leaf (f x);
+  Leaf x     => Leaf (f x);
   Branch l r => Branch (self l) (self r)
 })
 
