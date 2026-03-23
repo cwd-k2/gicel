@@ -128,7 +128,7 @@ main := fmap not (Just True)
 func TestStressExhaustiveGADTManyCons(t *testing.T) {
 	var sb strings.Builder
 	sb.WriteString("data Bool := { True: Bool; False: Bool; }\n")
-	sb.WriteString("data Expr a := {\n")
+	sb.WriteString("data Expr := \a. {\n")
 	// 10 constructors, separated by ;
 	for i := range 10 {
 		if i > 0 {

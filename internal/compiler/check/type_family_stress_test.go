@@ -364,7 +364,7 @@ func TestBoundaryFunDepAllDetermined(t *testing.T) {
 	source := `
 data Unit := { Unit: Unit; }
 
-Iso := \a b | a => b, b =: a. {
+:= \a b | a => b, b => a. {
   to: a -> b;
   from: b -> a
 }

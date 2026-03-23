@@ -203,7 +203,7 @@ firstOfMaybe :: Maybe Bool
 firstOfMaybe := getFirst (Just True)
 
 -- Bidirectional fundep.
-Iso := \a b | a => b, b =: a. {
+:= \a b | a => b, b => a. {
   forward: a -> b;
   backward: b -> a
 }

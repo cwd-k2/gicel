@@ -38,7 +38,7 @@ leak := \e. case e { MkExists x => x }
 func TestProbeE_GADT_IndexRefinement(t *testing.T) {
 	source := `
 data Bool := { True: Bool; False: Bool; }
-data Expr a := { LitBool: Bool -> Expr Bool }
+data Expr := \a. { LitBool: Bool -> Expr Bool }
 
 eval :: Expr Bool -> Bool
 eval := \e. case e { LitBool b => b }
@@ -55,7 +55,7 @@ func TestProbeE_GADT_MultiConstructorIndexRefinement(t *testing.T) {
 data Bool := { True: Bool; False: Bool; }
 data Nat := { Z: (); S: Nat; }
 
-data Tag a := { TagBool: Tag Bool; TagNat: Tag Nat }
+data Tag := \a. { TagBool: Tag Bool; TagNat: Tag Nat }
 
 describe :: Tag Bool -> Bool
 describe := \t. case t { TagBool => True }
