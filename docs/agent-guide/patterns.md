@@ -6,14 +6,14 @@
 -- Destructure Maybe with nested patterns
 describe :: Maybe Bool -> String
 describe := \m. case m {
-  Just True  -> "yes";
-  Just False -> "no";
-  Nothing    -> "empty"
+  Just True  => "yes";
+  Just False => "no";
+  Nothing    => "empty"
 }
 
 -- Wildcard for catch-all
 isZeroOrd :: Ordering -> Bool
-isZeroOrd := \o. case o { EQ -> True; _ -> False }
+isZeroOrd := \o. case o { EQ => True; _ => False }
 ```
 
 ### Nested Patterns
@@ -22,10 +22,10 @@ Constructor patterns can appear inside other constructor patterns. Nullary const
 
 ```
 -- Bare nullary constructor as argument
-case xs { Cons Nothing rest -> rest; Cons (Just x) rest -> rest; Nil -> Nil }
+case xs { Cons Nothing rest => rest; Cons (Just x) rest => rest; Nil => Nil }
 
 -- Deep nesting
-case m { Just (Just (Just True)) -> "deep"; _ -> "other" }
+case m { Just (Just (Just True)) => "deep"; _ => "other" }
 ```
 
 ### Literal Patterns
@@ -36,10 +36,10 @@ Integer, string, and rune literals can be used directly in case patterns:
 import Prelude
 
 classify :: Int -> String
-classify := \n. case n { 0 -> "zero"; 1 -> "one"; _ -> "other" }
+classify := \n. case n { 0 => "zero"; 1 => "one"; _ => "other" }
 
 greet :: String -> String
-greet := \name. case name { "Alice" -> "hello"; _ -> "hi" }
+greet := \name. case name { "Alice" => "hello"; _ => "hi" }
 ```
 
 Literal types are open (cannot enumerate all values), so a wildcard or variable catch-all is always required.
@@ -88,8 +88,8 @@ parseOrFail := \s. fromMaybe (readInt s)
 
 safeDivide :: Int -> Int -> Computation { fail: String | r } { fail: String | r } Int
 safeDivide := \x y. case y == 0 {
-  True  -> failWith "division by zero";
-  False -> pure (div x y)
+  True  => failWith "division by zero";
+  False => pure (div x y)
 }
 ```
 
@@ -115,7 +115,7 @@ import Effect.Fail
 process :: Computation { state: Int, fail: () } { state: Int, fail: () } Int
 process := do {
   n <- get;
-  case n > 0 { True -> do { put (n - 1); pure n }; False -> fail }
+  case n > 0 { True => do { put (n - 1); pure n }; False => fail }
 }
 ```
 
@@ -151,11 +151,11 @@ resumed := force suspended
 
 ```
 -- Wrong: parser reads `[] 0` as application
-case xs { Nil -> 0
-           Cons x _ -> x }
+case xs { Nil => 0
+           Cons x _ => x }
 
 -- Correct: semicolons separate branches inside braces
-case xs { Nil -> 0; Cons x _ -> x }
+case xs { Nil => 0; Cons x _ => x }
 ```
 
 Note: for list traversal, prefer Prelude's `map`/`filter`/`foldr` over manual `case` on `Cons`/`Nil`.
@@ -166,10 +166,10 @@ Note: for list traversal, prefer Prelude's `map`/`filter`/`foldr` over manual `c
 
 ```
 -- Wrong: self-reference without fix
-countdown := \n. case n == 0 { True -> 0; False -> countdown (n - 1) }
+countdown := \n. case n == 0 { True => 0; False => countdown (n - 1) }
 
 -- Correct: fix provides self as parameter
-countdown := fix (\self n. case n == 0 { True -> 0; False -> self (n - 1) })
+countdown := fix (\self n. case n == 0 { True => 0; False => self (n - 1) })
 ```
 
 ### The dot serves triple duty

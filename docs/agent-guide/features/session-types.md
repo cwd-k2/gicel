@@ -5,9 +5,9 @@ Session types encode communication protocols as types. GICEL expresses them via 
 ### Protocol States
 
 ```
-data Send s := MkSend          -- send a value, continue as s
-data Recv s := MkRecv          -- receive a value, continue as s
-data End    := MkEnd            -- session complete
+data Send := \s. { MkSend: Send s }   -- send a value, continue as s
+data Recv := \s. { MkRecv: Recv s }   -- receive a value, continue as s
+data End  := MkEnd                     -- session complete
 ```
 
 ### Duality
@@ -53,8 +53,8 @@ When case branches produce different post-states, the `LUB` type family computes
 
 ```
 case cond {
-  True  -> consume handle;    -- post: {}
-  False -> pure ()            -- post: { h: Handle @Linear }
+  True  => consume handle;    -- post: {}
+  False => pure ()            -- post: { h: Handle @Linear }
 }
 -- joined post-state: LUB applied field-wise
 ```

@@ -38,7 +38,7 @@ Record patterns are open -- unlisted fields are ignored:
 ```
 \{ x: a, y: b }. a                  -- lambda with record pattern
 \{ x: a }. a                        -- partial match, other fields ignored
-case r { { x: a, y: b } -> a }
+case r { { x: a, y: b } => a }
 { x: n } := r                       -- block binding destructuring
 ```
 

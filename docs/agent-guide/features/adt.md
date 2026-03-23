@@ -2,28 +2,42 @@
 
 ### ADT Declaration
 
+Simple enumerations (no fields, no type parameters) use the short form:
+
 ```
-data Name param* := Con field* (| Con field*)*
+data Name := Con (| Con)*
+```
+
+Example:
+
+```
+data Ordering := LT | EQ | GT
+data Bool := True | False
+```
+
+Parameterized types and constructors with fields use the unified syntax:
+
+```
+data Name := \param*. { Con: Type; ... }
 ```
 
 Parameters can be bare type variables or kinded:
 
 ```
-data Maybe a := Just a | Nothing
-data List a := Cons a (List a) | Nil
-data Ordering := LT | EQ | GT
-data Dict (c: Constraint) := MkDict c
+data Maybe := \a. { Just: a -> Maybe a; Nothing: Maybe a }
+data List := \a. { Cons: a -> List a -> List a; Nil: List a }
+data Shape := { Circle: Int -> Shape; Rect: Int -> Int -> Shape }
 ```
 
 ### GADTs
 
-GADTs use `= {` with explicit constructor type signatures:
+GADTs use braces with full constructor type signatures. Each constructor can refine the type parameter:
 
 ```
-data Expr a := {
-  LitBool :: Bool -> Expr Bool;
-  LitInt  :: Int -> Expr Int;
-  Add     :: Expr Int -> Expr Int -> Expr Int
+data Expr := \a. {
+  LitBool: Bool -> Expr Bool;
+  LitInt:  Int -> Expr Int;
+  Add:     Expr Int -> Expr Int -> Expr Int
 }
 ```
 
@@ -31,7 +45,7 @@ GADT pattern matching refines type variables in branches. Existential types are 
 
 ```
 data SomeEq := {
-  MkSomeEq :: \a. Eq a => a -> SomeEq
+  MkSomeEq: \a. Eq a => a -> SomeEq
 }
 ```
 
@@ -39,8 +53,8 @@ data SomeEq := {
 
 ```
 case scrutinee {
-  Con x y -> expr;
-  _       -> expr
+  Con x y => expr;
+  _       => expr
 }
 ```
 
@@ -48,9 +62,9 @@ Patterns: variable, wildcard (`_`), constructor, literal, nested constructor. Br
 
 ```
 case m {
-  Just True  -> "yes";
-  Just False -> "no";
-  Nothing    -> "empty"
+  Just True  => "yes";
+  Just False => "no";
+  Nothing    => "empty"
 }
 ```
 
@@ -65,20 +79,20 @@ data DBState := Opened | Closed
 -- DBState is now also a kind
 -- Opened: DBState, Closed: DBState at the type level
 
-data DB (s: DBState) := MkDB
+data DB := \(s: DBState). { MkDB: DB s }
 -- DB Opened: Type, DB Closed: Type
 ```
 
 ### Type Aliases
 
 ```
-type Name param* := TypeExpr
+type Name := \param*. TypeExpr
 ```
 
 Example:
 
 ```
-type Effect r a := Computation r r a
+type Effect := \r a. Computation r r a
 ```
 
 See the language specification (Chapter 7) for elaboration and exhaustiveness details.

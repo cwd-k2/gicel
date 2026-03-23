@@ -7,9 +7,9 @@ The Prelude is loaded via `eng.Use(gicel.Prelude)` and must be explicitly import
 ```
 data Bool := True | False
 data Ordering := LT | EQ | GT
-data Result e a := Ok a | Err e
-data Maybe a := Just a | Nothing
-data List a := Cons a (List a) | Nil
+data Result := \e a. { Ok: a -> Result e a; Err: e -> Result e a }
+data Maybe := \a. { Just: a -> Maybe a; Nothing: Maybe a }
+data List := \a. { Cons: a -> List a -> List a; Nil: List a }
 ```
 
 `()` is the unit type (empty record). `(a, b)` is the tuple type (sugar for `Record { _1: a, _2: b }`).
@@ -17,9 +17,9 @@ data List a := Cons a (List a) | Nil
 ### Type Aliases
 
 ```
-type Effect r a := Computation r r a
-type Suspended r a := Thunk r r a
-type Lift (m: Type -> Type) (r1: Row) (r2: Row) a := m a
+type Effect := \r a. Computation r r a
+type Suspended := \r a. Thunk r r a
+type Lift := \(m: Type -> Type) (r1: Row) (r2: Row) a. m a
 ```
 
 ### Type Classes
@@ -27,7 +27,7 @@ type Lift (m: Type -> Type) (r1: Row) (r2: Row) a := m a
 **Eq**
 
 ```
-data Eq a {
+data Eq := \a. {
   eq: a -> a -> Bool
 }
 ```
@@ -35,7 +35,7 @@ data Eq a {
 **Ord**
 
 ```
-data Ord a Eq a => {
+data Ord := \a. Eq a => {
   compare: a -> a -> Ordering
 }
 ```
@@ -43,7 +43,7 @@ data Ord a Eq a => {
 **Num**
 
 ```
-data Num a Eq a => {
+data Num := \a. Eq a => {
   add:    a -> a -> a;
   sub:    a -> a -> a;
   mul:    a -> a -> a;
@@ -54,7 +54,7 @@ data Num a Eq a => {
 **Div**
 
 ```
-data Div a Num a => {
+data Div := \a. Num a => {
   div: a -> a -> a
 }
 ```
@@ -62,7 +62,7 @@ data Div a Num a => {
 **Semigroup**
 
 ```
-data Semigroup a {
+data Semigroup := \a. {
   append: a -> a -> a
 }
 ```
@@ -70,7 +70,7 @@ data Semigroup a {
 **Monoid**
 
 ```
-data Monoid a Semigroup a => {
+data Monoid := \a. Semigroup a => {
   empty: a
 }
 ```
@@ -78,7 +78,7 @@ data Monoid a Semigroup a => {
 **Functor**
 
 ```
-data Functor (f: Type -> Type) {
+data Functor := \(f: Type -> Type). {
   fmap: \a b. (a -> b) -> f a -> f b
 }
 ```
@@ -86,7 +86,7 @@ data Functor (f: Type -> Type) {
 **Foldable**
 
 ```
-data Foldable t {
+data Foldable := \(t: Type -> Type). {
   foldr: \a b. (a -> b -> b) -> b -> t a -> b
 }
 ```
@@ -94,7 +94,7 @@ data Foldable t {
 **Applicative**
 
 ```
-data Applicative (f: Type -> Type) Functor f => {
+data Applicative := \(f: Type -> Type). Functor f => {
   wrap: \a. a -> f a;
   ap:   \a b. f (a -> b) -> f a -> f b
 }
@@ -103,15 +103,15 @@ data Applicative (f: Type -> Type) Functor f => {
 **Traversable**
 
 ```
-data Traversable t (Functor t, Foldable t) => {
-  traverse: \f a b. Applicative f => (a -> f b) -> t a -> f (t b)
+data Traversable := \(t: Type -> Type). (Functor t, Foldable t) => {
+  traverse: \(f: Type -> Type) a b. Applicative f => (a -> f b) -> t a -> f (t b)
 }
 ```
 
 **IxMonad**
 
 ```
-data IxMonad (m: Row -> Row -> Type -> Type) {
+data IxMonad := \(m: Row -> Row -> Type -> Type). {
   ixpure: \a (r: Row). a -> m r r a;
   ixbind: \a b (r1: Row) (r2: Row) (r3: Row).
               m r1 r2 a -> (a -> m r2 r3 b) -> m r1 r3 b
@@ -121,7 +121,7 @@ data IxMonad (m: Row -> Row -> Type -> Type) {
 **Show**
 
 ```
-data Show a {
+data Show := \a. {
   show: a -> String
 }
 ```
@@ -129,7 +129,7 @@ data Show a {
 **Alternative**
 
 ```
-data Alternative (f: Type -> Type) Applicative f => {
+data Alternative := \(f: Type -> Type). Applicative f => {
   none: \a. f a;
   alt:  \a. f a -> f a -> f a
 }
@@ -138,7 +138,7 @@ data Alternative (f: Type -> Type) Applicative f => {
 **Monad**
 
 ```
-data Monad (m: Type -> Type) {
+data Monad := \(m: Type -> Type). {
   mpure: \a. a -> m a;
   mbind: \a b. m a -> (a -> m b) -> m b
 }
@@ -147,7 +147,7 @@ data Monad (m: Type -> Type) {
 **Packed**
 
 ```
-data Packed c e {
+data Packed := \c e. {
   pack:   List e -> c;
   unpack: c -> List e
 }

@@ -11,14 +11,14 @@ Prelude bundles what was previously Num, Str, and List into a single pack. Load 
 **Type classes:**
 
 ```
-data Num a Eq a => {
+data Num := \a. Eq a => {
   add:    a -> a -> a;
   sub:    a -> a -> a;
   mul:    a -> a -> a;
   negate: a -> a
 }
 
-data Div a Num a => {
+data Div := \a. Num a => {
   div: a -> a -> a
 }
 ```
@@ -212,7 +212,7 @@ Host provides `"io"` capability. Output accumulates as `[]string` in the final C
 Provides lazy list (stream) operations. Requires recursion (`fix`), loaded via `RegisterModuleRec`. Load with `eng.Use(gicel.DataStream)` and import with `import Data.Stream`.
 
 ```
-data Stream a := LCons a (() -> Stream a) | LNil
+data Stream := \a. { LCons: a -> (() -> Stream a) -> Stream a; LNil: Stream a }
 ```
 
 | Name       | Type                                        | Description            |

@@ -12,7 +12,7 @@ Multi-parameter lambdas are supported. `.` separates parameters from body:
 \{ x, y }. expr                -- record pattern
 ```
 
-Pattern parameters are desugared to `case`: `\(a, b). body` becomes `\$p. case $p { (a, b) -> body }`.
+Pattern parameters are desugared to `case`: `\(a, b). body` becomes `\$p. case $p { (a, b) => body }`.
 
 ### Application
 
@@ -36,8 +36,8 @@ eq @(Maybe Int) x y            -- instantiate eq at Maybe Int
 
 ```
 case scrutinee {
-  Con x y -> expr;
-  _       -> expr
+  Con x y => expr;
+  _       => expr
 }
 ```
 
