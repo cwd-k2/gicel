@@ -57,9 +57,7 @@ func (c *CapabilityEntries) AllChildren() []Type {
 	ch := make([]Type, 0, len(c.Fields))
 	for _, f := range c.Fields {
 		ch = append(ch, f.Type)
-		if f.Mult != nil {
-			ch = append(ch, f.Mult)
-		}
+		ch = append(ch, f.Grades...)
 	}
 	return ch
 }
@@ -67,11 +65,14 @@ func (c *CapabilityEntries) AllChildren() []Type {
 func (c *CapabilityEntries) MapChildren(f func(Type) Type) EvidenceEntries {
 	fields := make([]RowField, len(c.Fields))
 	for i, fld := range c.Fields {
-		var mult Type
-		if fld.Mult != nil {
-			mult = f(fld.Mult)
+		var grades []Type
+		if len(fld.Grades) > 0 {
+			grades = make([]Type, len(fld.Grades))
+			for j, g := range fld.Grades {
+				grades[j] = f(g)
+			}
 		}
-		fields[i] = RowField{Label: fld.Label, Type: f(fld.Type), Mult: mult, S: fld.S}
+		fields[i] = RowField{Label: fld.Label, Type: f(fld.Type), Grades: grades, S: fld.S}
 	}
 	return &CapabilityEntries{Fields: fields}
 }
@@ -85,17 +86,20 @@ func (c *CapabilityEntries) ZonkEntries(zonk func(Type) Type) (EvidenceEntries, 
 	fields := make([]RowField, len(c.Fields))
 	for i, f := range c.Fields {
 		zTy := zonk(f.Type)
-		var zMult Type
-		if f.Mult != nil {
-			zMult = zonk(f.Mult)
-			if zMult != f.Mult {
-				changed = true
-			}
-		}
-		fields[i] = RowField{Label: f.Label, Type: zTy, Mult: zMult, S: f.S}
 		if zTy != f.Type {
 			changed = true
 		}
+		var zGrades []Type
+		if len(f.Grades) > 0 {
+			zGrades = make([]Type, len(f.Grades))
+			for j, g := range f.Grades {
+				zGrades[j] = zonk(g)
+				if zGrades[j] != g {
+					changed = true
+				}
+			}
+		}
+		fields[i] = RowField{Label: f.Label, Type: zTy, Grades: zGrades, S: f.S}
 	}
 	return &CapabilityEntries{Fields: fields}, changed
 }

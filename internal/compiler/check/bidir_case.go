@@ -78,8 +78,8 @@ func (ch *Checker) intersectCapRows(rows []*types.TyEvidenceRow, s span.Span) ty
 	for _, f := range firstRow.CapFields() {
 		if labelCount[f.Label] == n {
 			// This label is in all branches — keep it.
-			// Unify the type; join multiplicities via LUB.
-			resultField := types.RowField{Label: f.Label, Type: f.Type, Mult: f.Mult, S: f.S}
+			// Unify the type; join grades via LUB.
+			resultField := types.RowField{Label: f.Label, Type: f.Type, Grades: f.Grades, S: f.S}
 			for _, otherRow := range rows[1:] {
 				for _, of := range otherRow.CapFields() {
 					if of.Label == f.Label {
@@ -88,7 +88,7 @@ func (ch *Checker) intersectCapRows(rows []*types.TyEvidenceRow, s span.Span) ty
 								fmt.Sprintf("divergent capability type for %s: %s vs %s",
 									f.Label, types.Pretty(resultField.Type), types.Pretty(of.Type)))
 						}
-						ch.joinMult(&resultField, of.Mult, s)
+						ch.joinGrades(&resultField, of.Grades, s)
 						break
 					}
 				}
@@ -122,35 +122,38 @@ func (ch *Checker) intersectCapRows(rows []*types.TyEvidenceRow, s span.Span) ty
 	return types.ClosedRow(sharedFields...)
 }
 
-// joinMult joins a result field's multiplicity with another branch's multiplicity.
+// joinGrades joins a result field's grades with another branch's grades.
 // Uses the LUB type family when available; falls back to unification.
-func (ch *Checker) joinMult(result *types.RowField, other types.Type, s span.Span) {
-	m1 := result.Mult
-	m2 := other
-
-	if m1 == nil && m2 == nil {
+func (ch *Checker) joinGrades(result *types.RowField, other []types.Type, s span.Span) {
+	if len(result.Grades) == 0 && len(other) == 0 {
 		return
 	}
 
 	// One side annotated, other unrestricted → take the annotation (more restrictive).
-	if m1 == nil && m2 != nil {
-		result.Mult = m2
+	if len(result.Grades) == 0 && len(other) > 0 {
+		result.Grades = other
 		return
 	}
-	if m1 != nil && m2 == nil {
-		return // keep m1
+	if len(result.Grades) > 0 && len(other) == 0 {
+		return // keep result grades
 	}
 
-	// Both annotated: try LUB type family, fall back to unification.
-	lubResult, ok := ch.reduceTyFamily("LUB", []types.Type{m1, m2}, s)
-	if ok {
-		result.Mult = lubResult
-		return
+	// Both annotated: join pairwise. Try LUB type family, fall back to unification.
+	n := len(result.Grades)
+	if len(other) < n {
+		n = len(other)
 	}
-	if err := ch.unifier.Unify(m1, m2); err != nil {
-		ch.addCodedError(diagnostic.ErrTypeMismatch, s,
-			fmt.Sprintf("divergent multiplicity for %s: %s vs %s",
-				result.Label, types.Pretty(m1), types.Pretty(m2)))
+	for i := 0; i < n; i++ {
+		lubResult, ok := ch.reduceTyFamily("LUB", []types.Type{result.Grades[i], other[i]}, s)
+		if ok {
+			result.Grades[i] = lubResult
+			continue
+		}
+		if err := ch.unifier.Unify(result.Grades[i], other[i]); err != nil {
+			ch.addCodedError(diagnostic.ErrTypeMismatch, s,
+				fmt.Sprintf("divergent grade for %s: %s vs %s",
+					result.Label, types.Pretty(result.Grades[i]), types.Pretty(other[i])))
+		}
 	}
 }
 

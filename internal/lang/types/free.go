@@ -40,8 +40,8 @@ func freeVarsRec(t Type, bound map[string]bool, fv map[string]struct{}, depth in
 		case *CapabilityEntries:
 			for _, f := range entries.Fields {
 				freeVarsRec(f.Type, bound, fv, depth+1)
-				if f.Mult != nil {
-					freeVarsRec(f.Mult, bound, fv, depth+1)
+				for _, g := range f.Grades {
+					freeVarsRec(g, bound, fv, depth+1)
 				}
 			}
 		case *ConstraintEntries:

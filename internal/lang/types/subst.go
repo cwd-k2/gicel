@@ -105,14 +105,17 @@ func substDepth(t Type, varName string, replacement Type, depth int) Type {
 				if newT != f.Type {
 					changed = true
 				}
-				var newMult Type
-				if f.Mult != nil {
-					newMult = substDepth(f.Mult, varName, replacement, depth+1)
-					if newMult != f.Mult {
-						changed = true
+				var newGrades []Type
+				if len(f.Grades) > 0 {
+					newGrades = make([]Type, len(f.Grades))
+					for j, g := range f.Grades {
+						newGrades[j] = substDepth(g, varName, replacement, depth+1)
+						if newGrades[j] != g {
+							changed = true
+						}
 					}
 				}
-				fields[i] = RowField{Label: f.Label, Type: newT, Mult: newMult, S: f.S}
+				fields[i] = RowField{Label: f.Label, Type: newT, Grades: newGrades, S: f.S}
 			}
 			var newTail Type
 			if ty.Tail != nil {

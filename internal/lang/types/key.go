@@ -115,9 +115,9 @@ func writeEvidenceRowKey(b *strings.Builder, row *TyEvidenceRow) {
 			b.WriteString(f.Label)
 			b.WriteByte(':')
 			WriteTypeKey(b, f.Type)
-			if f.Mult != nil {
+			for _, g := range f.Grades {
 				b.WriteByte('@')
-				WriteTypeKey(b, f.Mult)
+				WriteTypeKey(b, g)
 			}
 		}
 		if row.Tail != nil {
