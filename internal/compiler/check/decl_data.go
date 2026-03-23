@@ -51,7 +51,13 @@ func (ch *Checker) processDataDeclParts(d *syntax.DeclData, parts dataBodyParts,
 		//   Lit:  Int -> Expr Int       → GADT, fields = [Int], return = Expr Int (refined)
 		//
 		// The checker peels arrows to extract field types; the last type is the return.
+		// ADT shorthand generates unit type (Record {}) for nullary constructors.
+		// Replace with resultType so the constructor type is correct.
 		conType := fieldTy
+		if isUnitType(fieldTy) {
+			conType = resultType
+			fieldTy = resultType
+		}
 		fieldTypes, retTy := decomposeConSig(fieldTy)
 
 		// Detect GADT: if the constructor's return type differs from the
@@ -82,6 +88,21 @@ func (ch *Checker) processDataDeclParts(d *syntax.DeclData, parts dataBodyParts,
 	for _, field := range parts.Fields {
 		ch.reg.RegisterPromotedCon(field.Label, dataKind)
 	}
+}
+
+// isUnitType checks if a type is the unit type: Record {} or bare {}.
+func isUnitType(t types.Type) bool {
+	if app, ok := t.(*types.TyApp); ok {
+		if con, ok := app.Fun.(*types.TyCon); ok && con.Name == "Record" {
+			if row, ok := app.Arg.(*types.TyEvidenceRow); ok {
+				return row.Entries.EntryCount() == 0
+			}
+		}
+	}
+	if row, ok := t.(*types.TyEvidenceRow); ok {
+		return row.Entries.EntryCount() == 0
+	}
+	return false
 }
 
 // decomposeConSig strips outer foralls and qualifications, then peels arrow arguments.
