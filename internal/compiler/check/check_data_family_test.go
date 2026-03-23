@@ -35,7 +35,7 @@ data Collection := \a. {
 }
 
 impl Collection (List a) := {
-  Elem (List a) => ListElem a;
+  data Elem := ListElem a;
   empty := Nil
 }
 `
@@ -56,7 +56,7 @@ data Collection := \a. {
 }
 
 impl Collection (List a) := {
-  Elem (List a) => ListElem a;
+  data Elem := ListElem a;
   empty := Nil
 }
 
@@ -78,12 +78,12 @@ data Collection := \a. {
 }
 
 impl Collection (List a) := {
-  Elem (List a) => ListElem a;
+  data Elem := ListElem a;
   empty := Nil
 }
 
 impl Collection Unit := {
-  Elem Unit => UnitElem;
+  data Elem := UnitElem;
   empty := Unit
 }
 
@@ -109,7 +109,7 @@ data Collection := \a. {
 }
 
 impl Collection (List a) := {
-  Elem (List a) => ListElem a;
+  data Elem := ListElem a;
   empty := Nil
 }
 
@@ -128,7 +128,7 @@ data Foo := \a. {
   empty: a
 }
 impl Foo Unit := {
-  Elem Unit => UnitElem;
+  data Elem := UnitElem;
   empty := Unit
 }
 `
@@ -167,7 +167,7 @@ data Collection := \a. {
 }
 
 impl Collection (List a) := {
-  Elem (List a) => ListElem a;
+  data Elem := ListElem a;
   empty := Nil
 }
 
@@ -192,7 +192,7 @@ data Container := \a. {
 }
 
 impl Container Unit := {
-  Entry Unit => Singleton Unit | Empty;
+  data Entry := Singleton Unit | Empty;
   empty := Unit
 }
 
@@ -217,7 +217,7 @@ data Container := \a. {
 }
 
 impl Container Unit := {
-  Entry Unit => Singleton Unit | Empty;
+  data Entry := Singleton Unit | Empty;
   empty := Unit
 }
 

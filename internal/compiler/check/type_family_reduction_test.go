@@ -634,7 +634,7 @@ data Container := \c. {
 }
 
 impl Container (List a) := {
-  Elem (List a) => ListElem a;
+  data Elem := ListElem a;
   empty := Nil
 }
 
@@ -662,7 +662,7 @@ data Container := \c. {
 }
 
 impl Container Unit := {
-  Elem Unit => UnitElem;
+  data Elem := UnitElem;
   empty := Unit
 }
 
@@ -1021,7 +1021,7 @@ data Container := \a. {
 }
 
 impl Container Unit := {
-  Entry Unit => Singleton Unit | Empty;
+  data Entry := Singleton Unit | Empty;
   empty := Unit
 }
 
@@ -1044,7 +1044,7 @@ data Container := \a. {
 }
 
 impl Container Unit := {
-  Entry Unit => Singleton Unit | Empty;
+  data Entry := Singleton Unit | Empty;
   empty := Unit
 }
 
