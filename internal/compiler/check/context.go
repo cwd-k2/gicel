@@ -8,9 +8,10 @@ type CtxEntry interface {
 }
 
 type CtxVar struct {
-	Name   string
-	Type   types.Type
-	Module string // source module ("" = local/builtin, "Prelude" = from module)
+	Name            string
+	Type            types.Type
+	Module          string // source module ("" = local/builtin, "Prelude" = from module)
+	SolverInvisible bool   // true: not used by instance resolution (private instance user names)
 }
 
 type CtxTyVar struct {

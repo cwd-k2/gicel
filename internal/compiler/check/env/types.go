@@ -50,7 +50,9 @@ type InstanceInfo struct {
 	TypeArgs     []types.Type     // concrete type arguments
 	Context      []ConstraintInfo // instance context constraints
 	DictBindName string           // e.g. "Eq$Bool" or "Eq$(Maybe 'a)"
+	UserName     string           // user-visible name from `impl name ::` ("" for anonymous)
 	Module       string           // source module that defined this instance
+	Private      bool             // true for impl _name (solver-invisible outside defining module)
 	S            span.Span
 }
 

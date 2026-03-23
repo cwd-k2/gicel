@@ -3,6 +3,7 @@ package check
 import (
 	"fmt"
 
+	"github.com/cwd-k2/gicel/internal/compiler/check/env"
 	"github.com/cwd-k2/gicel/internal/infra/diagnostic"
 	"github.com/cwd-k2/gicel/internal/lang/syntax"
 	"github.com/cwd-k2/gicel/internal/lang/types"
@@ -101,8 +102,13 @@ func (ch *Checker) processImplHeader(impl *syntax.DeclImpl) (*InstanceInfo, map[
 		}
 	}
 
-	// Build dict binding name: ClassName$TypeName (simplified naming)
+	// Build dict binding name: ClassName$TypeName (simplified naming).
+	// Private instances get a unique suffix to avoid colliding with the
+	// public instance dict in the context.
 	dictName := ch.instanceDictName(className, typeArgs)
+	if env.IsPrivateName(impl.Name) {
+		dictName = fmt.Sprintf("%s$%d", dictName, ch.fresh())
+	}
 
 	// Validate method set (missing / extra).
 	if !ch.validateInstanceMethods(className, classInfo, bodyParts.Methods, impl.S) {
@@ -114,18 +120,25 @@ func (ch *Checker) processImplHeader(impl *syntax.DeclImpl) (*InstanceInfo, map[
 		TypeArgs:     typeArgs,
 		Context:      context,
 		DictBindName: dictName,
+		UserName:     impl.Name,
 		Module:       ch.scope.CurrentModule(),
+		Private:      env.IsPrivateName(impl.Name),
 		S:            impl.S,
 	}
 
 	// Overlap check: verify no existing local instance for this class matches the same types.
 	// Imported instances are excluded: user source is allowed to shadow module instances.
+	// Private instances (impl _name) are solver-invisible outside their defining module
+	// and occupy a separate namespace — they never overlap with public instances.
 	for _, existing := range ch.reg.InstancesForClass(className) {
 		if existing == inst {
 			continue // same pointer (re-exported via module)
 		}
 		if ch.reg.IsImportedInstance(existing) {
 			continue // imported from a module; shadowing is allowed
+		}
+		if inst.Private || existing.Private {
+			continue // private instances don't participate in public overlap checks
 		}
 		if len(existing.TypeArgs) != len(typeArgs) {
 			continue

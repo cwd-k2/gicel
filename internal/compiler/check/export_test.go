@@ -138,17 +138,39 @@ func TestExport_PrivateClassExcluded(t *testing.T) {
 	}
 }
 
-// TestExport_InstancesNotFiltered — instances should never be filtered
-// even if they involve private types (coherence requirement).
-func TestExport_InstancesNotFiltered(t *testing.T) {
+// TestExport_PublicInstancesExported — public instances should always be
+// exported (coherence requirement).
+func TestExport_PublicInstancesExported(t *testing.T) {
 	ch := setupExportChecker()
 	exports := ch.ExportModule(makeExportProgram())
 
 	if len(exports.Instances) == 0 {
-		t.Fatal("instances should not be filtered (coherence)")
+		t.Fatal("public instances should be exported (coherence)")
 	}
 	if exports.Instances[0].ClassName != "PubClass" {
 		t.Errorf("expected PubClass instance, got %s", exports.Instances[0].ClassName)
+	}
+}
+
+// TestExport_PrivateInstancesExcluded — private instances (Private=true)
+// should not be exported.
+func TestExport_PrivateInstancesExcluded(t *testing.T) {
+	ch := setupExportChecker()
+	ch.reg.RegisterInstance(&InstanceInfo{
+		ClassName:    "PubClass",
+		TypeArgs:     []types.Type{types.Con("Bool")},
+		DictBindName: "PubClass$Bool",
+		Private:      true,
+	})
+	exports := ch.ExportModule(makeExportProgram())
+
+	for _, inst := range exports.Instances {
+		if inst.Private {
+			t.Errorf("private instance %s should not be exported", inst.DictBindName)
+		}
+	}
+	if len(exports.Instances) != 1 {
+		t.Errorf("expected 1 public instance, got %d", len(exports.Instances))
 	}
 }
 

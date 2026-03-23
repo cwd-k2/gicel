@@ -10,7 +10,9 @@ import (
 // Only names defined by this module are exported; inherited types from
 // imported modules are excluded (no transitive re-export).
 // Names starting with '_' are private and excluded from exports.
-// Instances are never filtered (coherence requirement).
+// Private instances (impl _name) are excluded from exports: they are
+// solver-invisible outside their defining module. Public instances are
+// always exported (coherence requirement).
 func (ch *Checker) ExportModule(prog *ir.Program) *ModuleExports {
 	values := make(map[string]types.Type)
 	for _, b := range prog.Bindings {
@@ -92,7 +94,7 @@ func (ch *Checker) ExportModule(prog *ir.Program) *ModuleExports {
 		ConstructorInfo: filteredConInfo,
 		Aliases:         filterOwnedMap(ch.reg.AllAliases(), impAliases),
 		Classes:         filterOwnedMap(ch.reg.AllClasses(), impClasses),
-		Instances:       ch.reg.AllInstances(),
+		Instances:       filterPublicInstances(ch.reg.AllInstances()),
 		Values:          values,
 		PromotedKinds:   ownedPromKinds,
 		PromotedCons:    ownedPromCons,
@@ -139,6 +141,19 @@ func filterOwnedOrEnrichedFamilies(families map[string]*TypeFamilyInfo, impEqCou
 			result[name] = fam.Clone()
 		}
 		// Otherwise: purely inherited, skip.
+	}
+	return result
+}
+
+// filterPublicInstances returns a new slice excluding private instances.
+// Private instances (impl _name) are solver-invisible outside their defining
+// module and must not be exported.
+func filterPublicInstances(instances []*InstanceInfo) []*InstanceInfo {
+	var result []*InstanceInfo
+	for _, inst := range instances {
+		if !inst.Private {
+			result = append(result, inst)
+		}
 	}
 	return result
 }

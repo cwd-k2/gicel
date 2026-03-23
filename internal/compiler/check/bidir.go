@@ -428,8 +428,9 @@ func (ch *Checker) inferEvidence(e *syntax.ExprEvidence) (types.Type, ir.Core) {
 	bindName := fmt.Sprintf("$ev_%d", ch.fresh())
 	ch.ctx.Push(&CtxVar{Name: bindName, Type: dictTy})
 	bodyTy, bodyCore := ch.infer(e.Body)
+	// Resolve deferred constraints while the evidence is still in scope.
+	bodyCore = ch.resolveDeferredConstraints(bodyCore)
 	ch.ctx.Pop()
-	// Elaborate: (\$ev. body) dict
 	lamCore := &ir.Lam{Param: bindName, ParamType: dictTy, Body: bodyCore, Generated: true, S: e.S}
 	return bodyTy, &ir.App{Fun: lamCore, Arg: dictCore, S: e.S}
 }
@@ -440,6 +441,8 @@ func (ch *Checker) checkEvidence(e *syntax.ExprEvidence, expected types.Type) ir
 	bindName := fmt.Sprintf("$ev_%d", ch.fresh())
 	ch.ctx.Push(&CtxVar{Name: bindName, Type: dictTy})
 	bodyCore := ch.check(e.Body, expected)
+	// Resolve deferred constraints while the evidence is still in scope.
+	bodyCore = ch.resolveDeferredConstraints(bodyCore)
 	ch.ctx.Pop()
 	lamCore := &ir.Lam{Param: bindName, ParamType: dictTy, Body: bodyCore, Generated: true, S: e.S}
 	return &ir.App{Fun: lamCore, Arg: dictCore, S: e.S}

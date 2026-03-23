@@ -198,3 +198,58 @@ data Eq := \a. { eq: a -> a -> Bool }
 impl Eq a => Eq a := { eq := \x y. True }`
 	checkSourceExpectCode(t, source, nil, diagnostic.ErrBadInstance)
 }
+
+// --- Private instance tests ---
+
+func TestPrivateInstanceNoOverlap(t *testing.T) {
+	// A private instance (impl _name) should NOT overlap with a public instance
+	// for the same class and type.
+	source := `data Int := { MkInt: Int; }
+data MyEq := \a. { eq: a -> a -> Int; }
+impl MyEq Int := { eq := \x y. MkInt; }
+impl _alwaysEq :: MyEq Int := { eq := \x y. MkInt; }
+main := eq MkInt MkInt`
+	checkSource(t, source, nil)
+}
+
+func TestPrivateInstanceSolverInvisible(t *testing.T) {
+	// When both a public and private instance exist for the same class/type,
+	// the solver should resolve to the public instance (the private one is
+	// still registered but the public one is found first for same-module).
+	source := `data Int := { MkInt: Int; }
+data MyEq := \a. { eq: a -> a -> Int; }
+impl MyEq Int := { eq := \x y. MkInt; }
+impl _alt :: MyEq Int := { eq := \x y. MkInt; }
+main := eq MkInt MkInt`
+	prog := checkSource(t, source, nil)
+	for _, b := range prog.Bindings {
+		if b.Name == "main" {
+			if !types.Equal(b.Type, types.Con("Int")) {
+				t.Errorf("expected main :: Int, got %s", types.Pretty(b.Type))
+			}
+			return
+		}
+	}
+	t.Error("expected binding 'main'")
+}
+
+func TestTwoPrivateInstancesNoOverlap(t *testing.T) {
+	// Two private instances for the same class/type should not overlap
+	// with each other either.
+	source := `data Int := { MkInt: Int; }
+data MyEq := \a. { eq: a -> a -> Int; }
+impl _a :: MyEq Int := { eq := \x y. MkInt; }
+impl _b :: MyEq Int := { eq := \x y. MkInt; }
+main := MkInt`
+	checkSource(t, source, nil)
+}
+
+func TestPublicInstancesStillOverlap(t *testing.T) {
+	// Two public instances for the same class/type should still overlap.
+	source := `data Bool := { True: Bool; False: Bool; }
+data Eq := \a. { eq: a -> a -> Bool; }
+impl first :: Eq Bool := { eq := \x y. True; }
+impl second :: Eq Bool := { eq := \x y. False; }
+main := eq True False`
+	checkSourceExpectCode(t, source, nil, diagnostic.ErrOverlap)
+}

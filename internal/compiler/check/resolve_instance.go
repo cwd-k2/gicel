@@ -14,7 +14,7 @@ import (
 func (ch *Checker) resolveFromContext(className string, args []types.Type, s span.Span) ir.Core {
 	var result ir.Core
 	ch.ctx.Scan(func(entry CtxEntry) bool {
-		if v, ok := entry.(*CtxVar); ok && ch.matchesDictVar(v, className, args) {
+		if v, ok := entry.(*CtxVar); ok && !v.SolverInvisible && ch.matchesDictVar(v, className, args) {
 			result = &ir.Var{Name: v.Name, Module: v.Module, S: s}
 			return false
 		}
@@ -60,6 +60,11 @@ func (ch *Checker) resolveFromQuantifiedEvidence(className string, args []types.
 // resolving context dictionaries.
 func (ch *Checker) resolveFromGlobalInstances(className string, args []types.Type, s span.Span) ir.Core {
 	for _, inst := range ch.reg.InstancesForClass(className) {
+		// Private instances are solver-invisible in global search.
+		// They are accessible only via explicit evidence injection (value => expr).
+		if inst.Private {
+			continue
+		}
 		if len(inst.TypeArgs) != len(args) {
 			continue
 		}

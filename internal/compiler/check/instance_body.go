@@ -94,14 +94,29 @@ func (ch *Checker) processInstanceBody(inst *InstanceInfo, methods map[string]sy
 		}
 	}
 
-	// Register binding.
-	ch.ctx.Push(&CtxVar{Name: inst.DictBindName, Type: dictTy, Module: ch.scope.CurrentModule()})
+	// Register binding. Private instances are solver-invisible: they are only
+	// accessible via explicit evidence injection (value => expr).
+	ch.ctx.Push(&CtxVar{Name: inst.DictBindName, Type: dictTy, Module: ch.scope.CurrentModule(), SolverInvisible: inst.Private})
 	prog.Bindings = append(prog.Bindings, ir.Binding{
 		Name: inst.DictBindName,
 		Type: dictTy,
 		Expr: dictExpr,
 		S:    inst.S,
 	})
+
+	// If the instance has a user-visible name (impl name :: ...),
+	// register an alias binding so the name can be used in value => expr.
+	// SolverInvisible prevents automatic resolution from picking up this binding;
+	// it is only used when explicitly referenced by name.
+	if inst.UserName != "" && inst.UserName != inst.DictBindName {
+		ch.ctx.Push(&CtxVar{Name: inst.UserName, Type: dictTy, Module: ch.scope.CurrentModule(), SolverInvisible: true})
+		prog.Bindings = append(prog.Bindings, ir.Binding{
+			Name: inst.UserName,
+			Type: dictTy,
+			Expr: &ir.Var{Name: inst.DictBindName, Module: ch.scope.CurrentModule(), S: inst.S},
+			S:    inst.S,
+		})
+	}
 }
 
 // instanceDictName generates a dictionary binding name for an instance.
