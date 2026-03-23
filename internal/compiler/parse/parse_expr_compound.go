@@ -130,33 +130,22 @@ func (p *Parser) parseBlock() syn.Expr {
 		saved := p.pos
 
 		// Parse type/data associated definitions in impl bodies.
+		// New syntax: type Elem := a;  or  data Elem := ListElem a | Empty;
 		if p.peek().Kind == syn.TokType || p.peek().Kind == syn.TokData {
 			tdStart := p.peek().S.Start
-			isType := p.peek().Kind == syn.TokType
 			p.advance() // consume type/data
 			tdName := p.expectUpper()
-			// Consume patterns before =:
-			var tdPats []syn.TypeExpr
-			for p.isTypeAtomStart() && p.peek().Kind != syn.TokEqColon && p.peek().Kind != syn.TokSemicolon {
-				tdPats = append(tdPats, p.parseTypeAtom())
-			}
+			p.expect(syn.TokColonEq)
 			var tdBody syn.TypeExpr
-			if p.peek().Kind == syn.TokEqColon {
+			tdBody = p.parseType()
+			// For data family defs, skip | separated constructors
+			for p.peek().Kind == syn.TokPipe {
 				p.advance()
-				// For data family defs, the RHS may contain | separated constructors.
-				// Consume the first type, then skip any | separated rest.
-				tdBody = p.parseType()
-				for p.peek().Kind == syn.TokPipe {
-					p.advance() // skip |
-					// Consume the next constructor declaration
-					for p.peek().Kind != syn.TokPipe && p.peek().Kind != syn.TokSemicolon &&
-						p.peek().Kind != syn.TokRBrace && p.peek().Kind != syn.TokEOF {
-						p.advance()
-					}
+				for p.peek().Kind != syn.TokPipe && p.peek().Kind != syn.TokSemicolon &&
+					p.peek().Kind != syn.TokRBrace && p.peek().Kind != syn.TokEOF {
+					p.advance()
 				}
 			}
-			_ = tdPats // patterns stored in the ImplField for later use
-			_ = isType
 			typeDefs = append(typeDefs, syn.ImplField{
 				Name:    tdName,
 				IsType:  true,

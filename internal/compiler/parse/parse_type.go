@@ -75,13 +75,6 @@ func (p *Parser) parseForallType() syn.TypeExpr {
 			binders = append(binders, b)
 		}
 	}
-	// Skip legacy fundep annotation: | a =: b
-	if p.peek().Kind == syn.TokPipe {
-		p.advance() // |
-		for p.peek().Kind != syn.TokDot && p.peek().Kind != syn.TokEOF {
-			p.advance() // consume fundep tokens
-		}
-	}
 	p.expect(syn.TokDot)
 	body := p.parseType()
 	return &syn.TyExprForall{

@@ -30,8 +30,8 @@ func (p *Parser) collectFixity() {
 //
 // Unified syntax declarations:
 //
-//	data Name [:: Kind] := TypeExpr;
-//	type Name [:: Kind] := TypeExpr;
+//	data Name [:: Kind] := Body;
+//	type Name [:: Kind] := Body;
 //	impl [name ::] TypeExpr := Expr;
 //	name :: Type;
 //	name := Expr;
@@ -60,33 +60,16 @@ func (p *Parser) parseDecl() syn.Decl {
 
 // parseDataDecl parses a nominal type declaration.
 //
-// New format:
-//
 //	data Name [:: Kind] := Body;
 //
-// Legacy class format (detected by params before { or =>):
+// Body is a type expression: \params. [constraints =>] { fields/constructors }.
 //
-//	data Name params { methods }   (was: class Name params { ... })
-//	data Name := \params. Ctx => { methods }  (superclass form)
-//
-// Legacy ADT format (detected by params before :=):
-//
-//	data Name params := Con1 | Con2 ...
-//
-// All forms produce DeclData with Body as a TypeExpr.
+// ADT shorthand (sugar): data Name [params] := Con1 [fields] | Con2 [fields]
+// Desugars to GADT-style row constructors.
 func (p *Parser) parseDataDecl() *syn.DeclData {
 	start := p.peek().S.Start
 	p.expect(syn.TokData)
 	name := p.expectUpper()
-
-	// Detect legacy formats.
-	// If next token is lowercase or kinded-binder "(", params are present.
-	if p.peek().Kind == syn.TokLower || (p.peek().Kind == syn.TokLParen && p.isKindedBinder()) {
-		return p.parseDataDeclLegacy(name, start)
-	}
-
-	// Check for superclass form: data Name := \params. Ctx => { ... }
-	// (already handled by parseType via TyExprQual)
 
 	var kindAnn syn.KindExpr
 	if p.peek().Kind == syn.TokColonColon {
@@ -96,8 +79,7 @@ func (p *Parser) parseDataDecl() *syn.DeclData {
 
 	p.expect(syn.TokColonEq)
 
-	// Detect legacy ADT format without params: data Color := Red | Green | Blue
-	// If first token after := is uppercase and | follows eventually, it's ADT.
+	// ADT shorthand: data Name := Con1 | Con2 fields | ...
 	if p.peek().Kind == syn.TokUpper && p.looksLikePipeADT() {
 		body := p.parseADTConsAsRow(nil, start)
 		return &syn.DeclData{Name: name, KindAnn: kindAnn, Body: body, S: span.Span{Start: start, End: p.prevEnd()}}
@@ -113,46 +95,23 @@ func (p *Parser) parseDataDecl() *syn.DeclData {
 	}
 }
 
-// parseDataDeclLegacy handles data declarations with LHS parameters.
-// Supports both ADT format (Con1 | Con2) and class format ({ methods }).
-func (p *Parser) parseDataDeclLegacy(name string, start span.Pos) *syn.DeclData {
-	params := p.parseTyBinderList()
-
-	// Check for class format: params followed by { (no :=)
-	if p.peek().Kind == syn.TokLBrace {
-		// Class-like: data Name params { methods }
-		row := p.parseRowType()
-		var body syn.TypeExpr = row
-		if len(params) > 0 {
-			body = &syn.TyExprForall{Binders: params, Body: row, S: span.Span{Start: start, End: p.prevEnd()}}
+// looksLikePipeADT peeks ahead to see if the current position starts a pipe-separated
+// ADT constructor list (e.g., Red | Green | Blue).
+func (p *Parser) looksLikePipeADT() bool {
+	for i := p.pos; i < len(p.tokens); i++ {
+		k := p.tokens[i].Kind
+		if k == syn.TokPipe {
+			return true
 		}
-		return &syn.DeclData{Name: name, Body: body, S: span.Span{Start: start, End: p.prevEnd()}}
+		if k == syn.TokSemicolon || k == syn.TokEOF || (p.tokens[i].NewlineBefore && i > p.pos) {
+			return false
+		}
 	}
-
-	// Check for superclass: params followed by => then {
-	// e.g., data Ord := \a. Eq a => { ... }  — but this is new format.
-	// Legacy: (Eq a) => Name params { ... }  — already converted by migration tool
-	// to: data Name := \params. Eq a => { ... }
-
-	p.expect(syn.TokColonEq)
-
-	// ADT format: Con1 | Con2 fields
-	if p.peek().Kind == syn.TokUpper {
-		body := p.parseADTConsAsRow(params, start)
-		return &syn.DeclData{Name: name, Body: body, S: span.Span{Start: start, End: p.prevEnd()}}
-	}
-
-	// Otherwise, parse as type expression (new format with params on LHS — transitional)
-	inner := p.parseType()
-	var body syn.TypeExpr = inner
-	if len(params) > 0 {
-		body = &syn.TyExprForall{Binders: params, Body: inner, S: span.Span{Start: start, End: p.prevEnd()}}
-	}
-	return &syn.DeclData{Name: name, Body: body, S: span.Span{Start: start, End: p.prevEnd()}}
+	return false
 }
 
 // parseADTConsAsRow parses ADT constructors (Con1 fields | Con2 fields)
-// and synthesizes a TyExprRow with constructor entries.
+// and synthesizes a TyExprRow with GADT-style full constructor types.
 func (p *Parser) parseADTConsAsRow(params []syn.TyBinder, start span.Pos) syn.TypeExpr {
 	type adtCon struct {
 		name   string
@@ -161,7 +120,6 @@ func (p *Parser) parseADTConsAsRow(params []syn.TyBinder, start span.Pos) syn.Ty
 	}
 
 	var cons []adtCon
-	// Parse first constructor
 	for {
 		cStart := p.peek().S.Start
 		cName := p.expectUpper()
@@ -177,34 +135,36 @@ func (p *Parser) parseADTConsAsRow(params []syn.TyBinder, start span.Pos) syn.Ty
 		}
 	}
 
-	// Convert to row fields.
+	// Build the data type name applied to params for return types.
+	// e.g., data Maybe a := Just a | Nothing → return type = Maybe a
+	// For param-less: data Bool := True | False → return type = Bool
+	// We need the data type name from the outer context, but parseADTConsAsRow
+	// doesn't have it. Use a placeholder that the checker resolves.
+	// Actually, for ADT shorthand, constructors don't include the return type
+	// (it's implicit). We synthesize: Con: field1 -> field2 -> ... -> ()
+	// where () signals "nullary or ADT-style" to the checker.
+
 	rowFields := make([]syn.TyRowField, len(cons))
 	for i, c := range cons {
 		var ty syn.TypeExpr
-		switch len(c.fields) {
-		case 0:
-			// Nullary: Con → Con: ()
+		if len(c.fields) == 0 {
+			// Nullary: synthesize unit type ()
 			ty = &syn.TyExprApp{
 				Fun: &syn.TyExprCon{Name: "Record", S: c.s},
 				Arg: &syn.TyExprRow{S: c.s},
 				S:   c.s,
 			}
-		case 1:
+		} else if len(c.fields) == 1 {
 			ty = c.fields[0]
-		default:
-			// Multi-field: synthesize tuple (f1, f2, ...) → Record { _1: f1, _2: f2 }
-			tupleFields := make([]syn.TyRowField, len(c.fields))
-			for j, f := range c.fields {
-				tupleFields[j] = syn.TyRowField{
-					Label: syn.TupleLabel(j + 1),
-					Type:  f,
-					S:     f.Span(),
-				}
-			}
+		} else {
+			// Multi-field: synthesize arrow chain f1 -> f2 -> ... -> ()
 			ty = &syn.TyExprApp{
 				Fun: &syn.TyExprCon{Name: "Record", S: c.s},
-				Arg: &syn.TyExprRow{Fields: tupleFields, S: c.s},
+				Arg: &syn.TyExprRow{S: c.s},
 				S:   c.s,
+			}
+			for j := len(c.fields) - 1; j >= 0; j-- {
+				ty = &syn.TyExprArrow{From: c.fields[j], To: ty, S: c.s}
 			}
 		}
 		rowFields[i] = syn.TyRowField{Label: c.name, Type: ty, S: c.s}
@@ -219,25 +179,13 @@ func (p *Parser) parseADTConsAsRow(params []syn.TyBinder, start span.Pos) syn.Ty
 
 // parseTypeDecl parses a structural type declaration.
 //
-// New format:
-//
 //	type Name [:: Kind] := Body;
 //
-// Legacy equation format (type families):
-//
-//	type Name params :: Kind := { Name Pats =: RHS; ... }
-//
-// Both produce DeclTypeAlias. The legacy format desugars params into
-// a lambda prefix and equations into TyExprCase alternatives.
+// Body is a type expression. For type families, the body contains a case.
 func (p *Parser) parseTypeDecl() *syn.DeclTypeAlias {
 	start := p.peek().S.Start
 	p.expect(syn.TokType)
 	name := p.expectUpper()
-
-	// Detect legacy type family format: name followed by params (lowercase or "(").
-	if p.peek().Kind == syn.TokLower || (p.peek().Kind == syn.TokLParen && p.isKindedBinder()) {
-		return p.parseTypeFamilyLegacy(name, start)
-	}
 
 	var kindAnn syn.KindExpr
 	if p.peek().Kind == syn.TokColonColon {
@@ -246,13 +194,6 @@ func (p *Parser) parseTypeDecl() *syn.DeclTypeAlias {
 	}
 
 	p.expect(syn.TokColonEq)
-
-	// Zero-arity type family: type Const :: Type := { Const =: Unit }
-	// Detect by checking if { follows := and contains =: (equation separator).
-	if p.peek().Kind == syn.TokLBrace && p.looksLikeTypeFamilyBody() {
-		return p.parseTypeFamilyLegacy0(name, kindAnn, start)
-	}
-
 	body := p.parseType()
 
 	return &syn.DeclTypeAlias{
@@ -260,258 +201,6 @@ func (p *Parser) parseTypeDecl() *syn.DeclTypeAlias {
 		KindAnn: kindAnn,
 		Body:    body,
 		S:       span.Span{Start: start, End: p.prevEnd()},
-	}
-}
-
-// looksLikePipeADT peeks ahead to see if the current position starts a pipe-separated
-// ADT constructor list (e.g., Red | Green | Blue).
-func (p *Parser) looksLikePipeADT() bool {
-	for i := p.pos; i < len(p.tokens); i++ {
-		k := p.tokens[i].Kind
-		if k == syn.TokPipe {
-			return true
-		}
-		// Stop at statement boundary
-		if k == syn.TokSemicolon || k == syn.TokEOF || p.tokens[i].NewlineBefore && i > p.pos {
-			return false
-		}
-	}
-	return false
-}
-
-// looksLikeTypeFamilyBody peeks ahead to see if { ... =: ... } pattern exists.
-func (p *Parser) looksLikeTypeFamilyBody() bool {
-	// Scan ahead from current { looking for =: before }
-	for i := p.pos + 1; i < len(p.tokens); i++ {
-		if p.tokens[i].Kind == syn.TokRBrace {
-			return false
-		}
-		if p.tokens[i].Kind == syn.TokEqColon {
-			return true
-		}
-	}
-	return false
-}
-
-// parseTypeFamilyLegacy0 parses a zero-arity type family (no params).
-func (p *Parser) parseTypeFamilyLegacy0(name string, kindAnn syn.KindExpr, start span.Pos) *syn.DeclTypeAlias {
-	openTok := p.expect(syn.TokLBrace)
-	var alts []syn.TyAlt
-	p.parseBody("type family declaration", openTok.S, func() {
-		eqStart := p.peek().S.Start
-		_ = p.expectUpper() // family name
-		var patterns []syn.TypeExpr
-		for p.isTypeAtomStart() && p.peek().Kind != syn.TokEqColon {
-			patterns = append(patterns, p.parseTypeAtom())
-		}
-		p.expect(syn.TokEqColon)
-		rhs := p.parseType()
-		var pat syn.TypeExpr
-		if len(patterns) == 1 {
-			pat = patterns[0]
-		} else if len(patterns) > 1 {
-			pat = patterns[0]
-			for _, extra := range patterns[1:] {
-				pat = &syn.TyExprApp{Fun: pat, Arg: extra, S: span.Span{Start: eqStart, End: p.prevEnd()}}
-			}
-		}
-		if pat != nil {
-			alts = append(alts, syn.TyAlt{Pattern: pat, Body: rhs, S: span.Span{Start: eqStart, End: p.prevEnd()}})
-		}
-	})
-
-	var body syn.TypeExpr
-	if len(alts) > 0 {
-		scrutinee := &syn.TyExprCon{Name: "_", S: span.Span{Start: start, End: start}}
-		body = &syn.TyExprCase{Scrutinee: scrutinee, Alts: alts, S: span.Span{Start: start, End: p.prevEnd()}}
-	}
-
-	return &syn.DeclTypeAlias{
-		Name:    name,
-		KindAnn: kindAnn,
-		Body:    body,
-		S:       span.Span{Start: start, End: p.prevEnd()},
-	}
-}
-
-// parseTypeFamilyLegacy parses the legacy type family equation format
-// and desugars it into a DeclTypeAlias with lambda + case body.
-//
-//	type Elem (c: Type) :: Type := { Elem (List a) =: a }
-//	→ DeclTypeAlias { Name: "Elem", Body: \(c: Type). case c { List a => a } }
-func (p *Parser) parseTypeFamilyLegacy(name string, start span.Pos) *syn.DeclTypeAlias {
-	params := p.parseTyBinderList()
-
-	var kindAnn syn.KindExpr
-	var resultName string
-	var deps []syn.TyRowTypeDecl // reuse for injectivity deps (unused but parsed)
-	_ = deps
-
-	if p.peek().Kind == syn.TokColonColon {
-		p.advance()
-		kindAnn, resultName = p.parseResultKindLegacy()
-	}
-
-	p.expect(syn.TokColonEq)
-
-	// If body doesn't start with {, it's a plain type alias with params, not a type family.
-	if p.peek().Kind != syn.TokLBrace {
-		inner := p.parseType()
-		var body syn.TypeExpr = inner
-		if len(params) > 0 {
-			body = &syn.TyExprForall{Binders: params, Body: inner, S: span.Span{Start: start, End: p.prevEnd()}}
-		}
-		_ = resultName
-		return &syn.DeclTypeAlias{
-			Name:    name,
-			KindAnn: kindAnn,
-			Body:    body,
-			S:       span.Span{Start: start, End: p.prevEnd()},
-		}
-	}
-
-	// Parse equations: { Name Pats =: RHS; ... }
-	openTok := p.expect(syn.TokLBrace)
-	var alts []syn.TyAlt
-	p.parseBody("type family declaration", openTok.S, func() {
-		eqStart := p.peek().S.Start
-		eqName := p.expectUpper() // family name (validated in checker)
-		var patterns []syn.TypeExpr
-		for p.isTypeAtomStart() && p.peek().Kind != syn.TokEqColon {
-			patterns = append(patterns, p.parseTypeAtom())
-		}
-		p.expect(syn.TokEqColon)
-		rhs := p.parseType()
-		// Build pattern: for single param, use the pattern directly.
-		// For multi-param, build a tuple pattern.
-		var pat syn.TypeExpr
-		if len(patterns) == 1 {
-			pat = patterns[0]
-		} else {
-			// Multi-param: synthesize application (approximate)
-			pat = patterns[0]
-			for _, extra := range patterns[1:] {
-				pat = &syn.TyExprApp{Fun: pat, Arg: extra, S: span.Span{Start: eqStart, End: p.prevEnd()}}
-			}
-		}
-		alts = append(alts, syn.TyAlt{
-			EqName:      eqName,
-			RawPatCount: len(patterns),
-			Pattern:     pat,
-			Body:        rhs,
-			S:           span.Span{Start: eqStart, End: p.prevEnd()},
-		})
-	})
-
-	// Build body: \params. case <first_param> { alts }
-	var scrutinee syn.TypeExpr
-	if len(params) > 0 {
-		scrutinee = &syn.TyExprVar{Name: params[0].Name, S: span.Span{Start: start, End: start}}
-	} else {
-		scrutinee = &syn.TyExprCon{Name: "_", S: span.Span{Start: start, End: start}}
-	}
-
-	caseExpr := &syn.TyExprCase{
-		Scrutinee: scrutinee,
-		Alts:      alts,
-		S:         span.Span{Start: start, End: p.prevEnd()},
-	}
-
-	var body syn.TypeExpr = caseExpr
-	if len(params) > 0 {
-		body = &syn.TyExprForall{
-			Binders: params,
-			Body:    caseExpr,
-			S:       span.Span{Start: start, End: p.prevEnd()},
-		}
-	}
-
-	// Encode injectivity result name in KindAnn if present.
-	_ = resultName
-
-	return &syn.DeclTypeAlias{
-		Name:    name,
-		KindAnn: kindAnn,
-		Body:    body,
-		S:       span.Span{Start: start, End: p.prevEnd()},
-	}
-}
-
-// parseTyBinderList parses a sequence of type binders: bare or kinded.
-func (p *Parser) parseTyBinderList() []syn.TyBinder {
-	var params []syn.TyBinder
-	for p.peek().Kind == syn.TokLower || (p.peek().Kind == syn.TokLParen && p.isKindedBinder()) {
-		if p.peek().Kind == syn.TokLParen {
-			lp := p.peek().S.Start
-			p.advance()
-			pName := p.expectLower()
-			p.expect(syn.TokColon)
-			kind := p.parseKindExpr()
-			p.expect(syn.TokRParen)
-			params = append(params, syn.TyBinder{Name: pName, Kind: kind, S: span.Span{Start: lp, End: p.prevEnd()}})
-		} else {
-			pName := p.peek().Text
-			pS := p.peek().S
-			p.advance()
-			params = append(params, syn.TyBinder{Name: pName, S: pS})
-		}
-	}
-	return params
-}
-
-// isKindedBinder checks if the next tokens form (name: Kind) pattern.
-func (p *Parser) isKindedBinder() bool {
-	if p.pos+2 >= len(p.tokens) {
-		return false
-	}
-	return p.tokens[p.pos+1].Kind == syn.TokLower && p.tokens[p.pos+2].Kind == syn.TokColon
-}
-
-// parseResultKindLegacy parses a result kind, optionally with injectivity annotation.
-func (p *Parser) parseResultKindLegacy() (syn.KindExpr, string) {
-	// Check for injective form: (name: Kind) | deps
-	if p.peek().Kind == syn.TokLParen && p.isInjectiveResult() {
-		p.advance() // consume (
-		resultName := p.expectLower()
-		p.expect(syn.TokColon)
-		kind := p.parseKindExpr()
-		p.expect(syn.TokRParen)
-		// Parse | deps (consume but ignore for now)
-		if p.peek().Kind == syn.TokPipe {
-			p.advance()
-			p.parseFunDepListLegacy()
-		}
-		return kind, resultName
-	}
-	kind := p.parseKindExpr()
-	return kind, ""
-}
-
-// isInjectiveResult checks if the tokens form (lower: Kind) | ...
-func (p *Parser) isInjectiveResult() bool {
-	if p.pos+3 >= len(p.tokens) {
-		return false
-	}
-	return p.tokens[p.pos+1].Kind == syn.TokLower && p.tokens[p.pos+2].Kind == syn.TokColon
-}
-
-// parseFunDepListLegacy consumes functional dependency annotations.
-func (p *Parser) parseFunDepListLegacy() {
-	for {
-		if p.peek().Kind == syn.TokLower {
-			p.advance() // from
-		}
-		if p.peek().Kind == syn.TokEqColon {
-			p.advance() // =:
-			for p.peek().Kind == syn.TokLower {
-				p.advance() // to params
-			}
-		}
-		if p.peek().Kind == syn.TokComma {
-			p.advance()
-		} else {
-			break
-		}
 	}
 }
 
@@ -535,16 +224,12 @@ func (p *Parser) parseImplDecl() *syn.DeclImpl {
 	}
 
 	// Parse type annotation, preventing { from being consumed as a row type.
-	// This ensures "impl Eq Bool { ... }" parses Eq Bool as annotation, not Eq Bool { ... }.
 	savedNoBrace := p.noBraceAtom
 	p.noBraceAtom = true
 	ann := p.parseType()
 	p.noBraceAtom = savedNoBrace
 
-	// Accept both := (new) and direct { (legacy instance format).
-	if p.peek().Kind == syn.TokColonEq {
-		p.advance()
-	}
+	p.expect(syn.TokColonEq)
 	body := p.parseExpr()
 
 	return &syn.DeclImpl{
