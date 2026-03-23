@@ -1,19 +1,19 @@
 ## 2. Language Overview
 
-### Keywords (10)
+### Keywords (9 + 1 contextual)
 
-| Keyword    | Purpose                           |
-| ---------- | --------------------------------- |
-| `case`     | Pattern matching                  |
-| `do`       | Monadic do-block                  |
-| `data`     | Algebraic data type declaration   |
-| `type`     | Type alias declaration            |
-| `infixl`   | Left-associative operator fixity  |
-| `infixr`   | Right-associative operator fixity |
-| `infixn`   | Non-associative operator fixity   |
-| `class`    | Type class declaration            |
-| `instance` | Type class instance declaration   |
-| `import`   | Module import                     |
+| Keyword  | Purpose                                                                                               |
+| -------- | ----------------------------------------------------------------------------------------------------- |
+| `case`   | Pattern matching                                                                                      |
+| `do`     | Monadic do-block                                                                                      |
+| `data`   | Algebraic data type / type class declaration                                                          |
+| `type`   | Type alias / type family declaration                                                                  |
+| `impl`   | Type class instance declaration                                                                       |
+| `infixl` | Left-associative operator fixity                                                                      |
+| `infixr` | Right-associative operator fixity                                                                     |
+| `infixn` | Non-associative operator fixity                                                                       |
+| `import` | Module import                                                                                         |
+| `as`     | Qualified import alias (contextual -- only special after `import`, usable as variable name elsewhere) |
 
 ### Built-in Identifiers
 
@@ -31,21 +31,21 @@
 
 ### Punctuation and Delimiters
 
-| Token | Meaning                                                    |
-| ----- | ---------------------------------------------------------- |
-| `->`  | Function type arrow / case alternative                     |
-| `<-`  | Monadic bind in do-block                                   |
-| `=>`  | Constraint qualifier                                       |
-| `::`  | Type annotation                                            |
-| `:=`  | Value definition                                           |
-| `:`   | Kind annotation separator                                  |
-| `.`   | Lambda / quantifier body separator (also compose operator) |
-| `\`   | Lambda / universal quantification                          |
-| `_`   | Wildcard pattern                                           |
-| `=:`  | TF equation / fundep / associated type/data definition     |
-| `@`   | Explicit type application                                  |
-| `\|`  | Constructor alternative / row tail                         |
-| `;`   | Declaration / statement separator                          |
+| Token | Meaning                                                                         |
+| ----- | ------------------------------------------------------------------------------- |
+| `->`  | Function type arrow                                                             |
+| `<-`  | Monadic bind in do-block                                                        |
+| `=>`  | Constraint qualifier / case alternative / grade annotation / evidence injection |
+| `::`  | Type annotation                                                                 |
+| `:=`  | Value definition                                                                |
+| `:`   | Kind annotation separator                                                       |
+| `.`   | Lambda / quantifier body separator (also compose operator)                      |
+| `\`   | Lambda / universal quantification                                               |
+| `_`   | Wildcard pattern                                                                |
+| `~`   | Type equality constraint                                                        |
+| `@`   | Explicit type application                                                       |
+| `\|`  | Constructor alternative / row tail                                              |
+| `;`   | Declaration / statement separator                                               |
 
 ### Comments
 
@@ -63,7 +63,7 @@
 
 ### Declaration Boundaries
 
-Top-level declarations are separated by newlines or semicolons. Both are interchangeable at the top level; trailing and repeated semicolons are permitted. A new declaration starts when the next token (preceded by a newline or semicolon at depth 0) is one of: lowercase identifier, uppercase identifier, `data`, `type`, `infixl`, `infixr`, `infixn`, `class`, `instance`, `import`, or `(op)`. Inside braces (`do`, `case`, GADT), semicolons are required between statements/alternatives.
+Top-level declarations are separated by newlines or semicolons. Both are interchangeable at the top level; trailing and repeated semicolons are permitted. A new declaration starts when the next token (preceded by a newline or semicolon at depth 0) is one of: lowercase identifier, uppercase identifier, `data`, `type`, `infixl`, `infixr`, `infixn`, `impl`, `import`, or `(op)`. Inside braces (`do`, `case`, GADT), semicolons are required between statements/alternatives.
 
 Import declarations must appear before all other declarations.
 

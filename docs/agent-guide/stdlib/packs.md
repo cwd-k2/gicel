@@ -11,15 +11,15 @@ Prelude bundles what was previously Num, Str, and List into a single pack. Load 
 **Type classes:**
 
 ```
-class Eq a => Num a {
-  add    :: a -> a -> a;
-  sub    :: a -> a -> a;
-  mul    :: a -> a -> a;
-  negate :: a -> a
+data Num a Eq a => {
+  add:    a -> a -> a;
+  sub:    a -> a -> a;
+  mul:    a -> a -> a;
+  negate: a -> a
 }
 
-class Num a => Div a {
-  div :: a -> a -> a
+data Div a Num a => {
+  div: a -> a -> a
 }
 ```
 

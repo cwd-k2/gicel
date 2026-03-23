@@ -4,30 +4,30 @@ Type families define type-level functions evaluated during type checking and ful
 
 ### Standalone Closed Type Family
 
-Declared with `type Name params :: Kind := { equations }`. Equations checked top-to-bottom; first match wins.
+Declared with `type Name :: Kind := \params. case scrutinee { equations }`. Equations checked top-to-bottom; first match wins.
 
 ```
-type Elem (c: Type) :: Type := {
-  Elem (List a) =: a;
-  Elem (Slice a) =: a;
-  Elem String =: Rune
+type Elem :: Type := \(c: Type). case c {
+  List a  => a;
+  Slice a => a;
+  String  => Rune
 }
 ```
 
-Distinguished from a type alias by `::` after parameters.
+Distinguished from a type alias by `::` after the name.
 
 ### Associated Types
 
 Classes can declare associated types (kind signature only). Instances provide definitions.
 
 ```
-class Container c {
+data Container c {
   type Elem c :: Type;
-  cfold :: \b. (Elem c -> b -> b) -> b -> c -> b
+  cfold: \b. (Elem c -> b -> b) -> b -> c -> b
 }
 
-instance Container (List a) {
-  type Elem (List a) =: a;
+impl Container (List a) := {
+  type Elem := a;
   cfold := foldr
 }
 ```
@@ -39,39 +39,27 @@ instance Container (List a) {
 Data families are generative -- each instance creates a distinct data type with its own constructors:
 
 ```
-class Collection c {
+data Collection c {
   data Key c :: Type;
-  lookup :: Key c -> c -> Maybe (Elem c)
+  lookup: Key c -> c -> Maybe (Elem c)
 }
 
-instance Collection (List a) {
-  data Key (List a) =: ListIndex Int;
-  lookup := \k xs. case k { ListIndex i -> index xs i }
-}
-```
-
-### Functional Dependencies
-
-Constrain instance resolution. `| a =: b` means knowing `a` determines `b`:
-
-```
-class Convert a b | a =: b {
-  convert :: a -> b
+impl Collection (List a) := {
+  data Key := ListIndex Int;
+  lookup := \k xs. case k { ListIndex i => index xs i }
 }
 ```
 
 ### Injectivity
 
-Declare a type family result as injective with a named result binder:
+Injectivity is verified at declaration time by pairwise comparison: if two alternatives' right-hand sides unify, their left-hand sides must also unify.
 
 ```
-type Effects (mode: AppMode) :: (r: Row) | r =: mode := {
-  Effects ReadOnly  =: { get: () -> String };
-  Effects ReadWrite =: { get: () -> String, put: String -> () }
+type Effects :: Row := \(mode: AppMode). case mode {
+  ReadOnly  => { get: () -> String };
+  ReadWrite => { get: () -> String, put: String -> () }
 }
 ```
-
-`| r =: mode` means the result uniquely determines the argument.
 
 ### Reduction
 

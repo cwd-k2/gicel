@@ -27,93 +27,93 @@ type Lift (m: Type -> Type) (r1: Row) (r2: Row) a := m a
 **Eq**
 
 ```
-class Eq a {
-  eq :: a -> a -> Bool
+data Eq a {
+  eq: a -> a -> Bool
 }
 ```
 
 **Ord**
 
 ```
-class Eq a => Ord a {
-  compare :: a -> a -> Ordering
+data Ord a Eq a => {
+  compare: a -> a -> Ordering
 }
 ```
 
 **Num**
 
 ```
-class Eq a => Num a {
-  add    :: a -> a -> a;
-  sub    :: a -> a -> a;
-  mul    :: a -> a -> a;
-  negate :: a -> a
+data Num a Eq a => {
+  add:    a -> a -> a;
+  sub:    a -> a -> a;
+  mul:    a -> a -> a;
+  negate: a -> a
 }
 ```
 
 **Div**
 
 ```
-class Num a => Div a {
-  div :: a -> a -> a
+data Div a Num a => {
+  div: a -> a -> a
 }
 ```
 
 **Semigroup**
 
 ```
-class Semigroup a {
-  append :: a -> a -> a
+data Semigroup a {
+  append: a -> a -> a
 }
 ```
 
 **Monoid**
 
 ```
-class Semigroup a => Monoid a {
-  empty :: a
+data Monoid a Semigroup a => {
+  empty: a
 }
 ```
 
 **Functor**
 
 ```
-class Functor f {
-  fmap :: \a b. (a -> b) -> f a -> f b
+data Functor (f: Type -> Type) {
+  fmap: \a b. (a -> b) -> f a -> f b
 }
 ```
 
 **Foldable**
 
 ```
-class Foldable t {
-  foldr :: \a b. (a -> b -> b) -> b -> t a -> b
+data Foldable t {
+  foldr: \a b. (a -> b -> b) -> b -> t a -> b
 }
 ```
 
 **Applicative**
 
 ```
-class Functor f => Applicative f {
-  wrap :: \a. a -> f a;
-  ap   :: \a b. f (a -> b) -> f a -> f b
+data Applicative (f: Type -> Type) Functor f => {
+  wrap: \a. a -> f a;
+  ap:   \a b. f (a -> b) -> f a -> f b
 }
 ```
 
 **Traversable**
 
 ```
-class Functor t => Foldable t => Traversable t {
-  traverse :: \f a b. Applicative f => (a -> f b) -> t a -> f (t b)
+data Traversable t (Functor t, Foldable t) => {
+  traverse: \f a b. Applicative f => (a -> f b) -> t a -> f (t b)
 }
 ```
 
 **IxMonad**
 
 ```
-class IxMonad (m: Row -> Row -> Type -> Type) {
-  ixpure :: \a (r: Row). a -> m r r a;
-  ixbind :: \a b (r1: Row) (r2: Row) (r3: Row).
+data IxMonad (m: Row -> Row -> Type -> Type) {
+  ixpure: \a (r: Row). a -> m r r a;
+  ixbind: \a b (r1: Row) (r2: Row) (r3: Row).
               m r1 r2 a -> (a -> m r2 r3 b) -> m r1 r3 b
 }
 ```
@@ -121,35 +121,35 @@ class IxMonad (m: Row -> Row -> Type -> Type) {
 **Show**
 
 ```
-class Show a {
-  show :: a -> String
+data Show a {
+  show: a -> String
 }
 ```
 
 **Alternative**
 
 ```
-class Applicative f => Alternative f {
-  none :: \a. f a;
-  alt  :: \a. f a -> f a -> f a
+data Alternative (f: Type -> Type) Applicative f => {
+  none: \a. f a;
+  alt:  \a. f a -> f a -> f a
 }
 ```
 
 **Monad**
 
 ```
-class Monad (m: Type -> Type) {
-  mpure :: \a. a -> m a;
-  mbind :: \a b. m a -> (a -> m b) -> m b
+data Monad (m: Type -> Type) {
+  mpure: \a. a -> m a;
+  mbind: \a b. m a -> (a -> m b) -> m b
 }
 ```
 
 **Packed**
 
 ```
-class Packed c e {
-  pack   :: List e -> c;
-  unpack :: c -> List e
+data Packed c e {
+  pack:   List e -> c;
+  unpack: c -> List e
 }
 ```
 

@@ -15,10 +15,10 @@ data End    := MkEnd            -- session complete
 The `Dual` type family computes the complementary protocol:
 
 ```
-type Dual (s: Type) :: Type := {
-  Dual (Send s) =: Recv (Dual s);
-  Dual (Recv s) =: Send (Dual s);
-  Dual End      =: End
+type Dual :: Type := \(s: Type). case s {
+  Send s => Recv (Dual s);
+  Recv s => Send (Dual s);
+  End    => End
 }
 ```
 

@@ -4,25 +4,27 @@ Type classes provide ad-hoc polymorphism through dictionary-passing elaboration.
 
 ### Class Declaration
 
+Type classes are declared using `data` with a brace body containing method signatures:
+
 ```
-class Superclass* ClassName param+ {
-  method :: Type ;
+data ClassName param+ [Constraint =>] {
+  method: Type ;
   ...
 }
 ```
 
-Superclass constraints precede the class name:
+Superclass constraints follow the parameters:
 
 ```
-class Eq a => Ord a {
-  compare :: a -> a -> Ordering
+data Ord a Eq a => {
+  compare: a -> a -> Ordering
 }
 ```
 
 ### Instance Declaration
 
 ```
-instance Constraint* ClassName Type+ {
+impl [Constraint =>] ClassName Type+ := {
   method := expr ;
   ...
 }
@@ -31,19 +33,19 @@ instance Constraint* ClassName Type+ {
 Every method must be defined (no defaults). No overlapping instances.
 
 ```
-instance Eq Bool {
+impl Eq Bool := {
   eq := \x y. case (x, y) {
-    (True, True)   -> True;
-    (False, False) -> True;
-    _              -> False
+    (True, True)   => True;
+    (False, False) => True;
+    _              => False
   }
 }
 
-instance Eq a => Eq (Maybe a) {
+impl Eq a => Eq (Maybe a) := {
   eq := \x y. case (x, y) {
-    (Just a, Just b) -> eq a b;
-    (Nothing, Nothing) -> True;
-    _ -> False
+    (Just a, Just b) => eq a b;
+    (Nothing, Nothing) => True;
+    _ => False
   }
 }
 ```
@@ -84,7 +86,7 @@ Packed    (independent)
 Classes compile to dictionaries (data types). No special runtime representation:
 
 ```
-class Eq a { eq :: a -> a -> Bool }
+data Eq a { eq: a -> a -> Bool }
 -- becomes: data Eq$Dict a := Eq$MkDict (a -> a -> Bool)
 ```
 

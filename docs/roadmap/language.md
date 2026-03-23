@@ -78,8 +78,8 @@ pre/post スワップ。`dag (dag f) = f` は構造的に保証。`dag (f ; g) =
 ハードコードの `@Linear`/`@Affine`/`@Unrestricted` を型クラスベースの半環に一般化:
 
 ```gicel
-class UsageSemiring (s: Type) {
-  zero :: s; one :: s; plus :: s -> s -> s; mult :: s -> s -> s
+data UsageSemiring (s: Type) {
+  zero: s; one: s; plus: s -> s -> s; mult: s -> s -> s
 }
 ```
 
@@ -123,9 +123,9 @@ Row merging (separable composition) は SMC で提供されるが、quantum enta
 
 非 entry の top-level binding に bare `Computation` 型は不可 (E0291)。`thunk` で `Thunk` 型に変換する。entry point (default `main`) のみ免除。
 
-### Fundep improvement is best-effort
+### Functional dependencies are not supported
 
-`| a =: b` の改善は best-effort。`from` position がインスタンスにマッチすれば `to` の unify を試みるが、失敗時は silent skip。
+Functional dependencies (`| a =: b`) were part of the legacy `class ... where` syntax and have been removed in the unified syntax migration. Type families and injectivity annotations cover the same design space.
 
 ### Compiler-generated names use `$` convention
 
