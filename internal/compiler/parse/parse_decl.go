@@ -95,6 +95,14 @@ func (p *Parser) parseDataDecl() *syn.DeclData {
 	}
 
 	p.expect(syn.TokColonEq)
+
+	// Detect legacy ADT format without params: data Color := Red | Green | Blue
+	// If first token after := is uppercase and | follows eventually, it's ADT.
+	if p.peek().Kind == syn.TokUpper && p.looksLikePipeADT() {
+		body := p.parseADTConsAsRow(nil, start)
+		return &syn.DeclData{Name: name, KindAnn: kindAnn, Body: body, S: span.Span{Start: start, End: p.prevEnd()}}
+	}
+
 	body := p.parseType()
 
 	return &syn.DeclData{
@@ -253,6 +261,22 @@ func (p *Parser) parseTypeDecl() *syn.DeclTypeAlias {
 		Body:    body,
 		S:       span.Span{Start: start, End: p.prevEnd()},
 	}
+}
+
+// looksLikePipeADT peeks ahead to see if the current position starts a pipe-separated
+// ADT constructor list (e.g., Red | Green | Blue).
+func (p *Parser) looksLikePipeADT() bool {
+	for i := p.pos; i < len(p.tokens); i++ {
+		k := p.tokens[i].Kind
+		if k == syn.TokPipe {
+			return true
+		}
+		// Stop at statement boundary
+		if k == syn.TokSemicolon || k == syn.TokEOF || p.tokens[i].NewlineBefore && i > p.pos {
+			return false
+		}
+	}
+	return false
 }
 
 // looksLikeTypeFamilyBody peeks ahead to see if { ... =: ... } pattern exists.
