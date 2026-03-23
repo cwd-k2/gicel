@@ -74,15 +74,13 @@ func (ch *Checker) processDataDeclParts(d *syntax.DeclData, parts dataBodyParts,
 
 	prog.DataDecls = append(prog.DataDecls, coreDecl)
 
-	// DataKinds: promote nullary constructors to type level.
+	// DataKinds: promote all constructors to type level.
+	// Both nullary (e.g., True, False) and non-nullary (e.g., Cons, Pi)
+	// are promoted, enabling universe decoding patterns at the type level.
 	dataKind := types.KData{Name: d.Name}
 	ch.reg.RegisterPromotedKind(d.Name, dataKind)
 	for _, field := range parts.Fields {
-		fieldTy := ch.resolveTypeExpr(field.Type)
-		fields, _ := decomposeConSig(fieldTy)
-		if len(fields) == 0 {
-			ch.reg.RegisterPromotedCon(field.Label, dataKind)
-		}
+		ch.reg.RegisterPromotedCon(field.Label, dataKind)
 	}
 }
 

@@ -343,8 +343,8 @@ func (p *Parser) parseTypeCase() *syn.TyExprCase {
 		// Parse pattern: stop before => (don't consume it as QualType)
 		pattern := p.parseTypeApp()
 		p.expect(syn.TokFatArrow)
-		// Parse body: also stop before ; or } (don't consume as QualType)
-		body := p.parseTypeApp()
+		// Parse body: allow -> (function type) but not => (which delimits the next alt).
+		body := p.parseTypeCaseBody()
 		alts = append(alts, syn.TyAlt{
 			Pattern: pattern,
 			Body:    body,
@@ -357,6 +357,22 @@ func (p *Parser) parseTypeCase() *syn.TyExprCase {
 		Alts:      alts,
 		S:         span.Span{Start: start, End: p.prevEnd()},
 	}
+}
+
+// parseTypeCaseBody parses a type expression inside a case alternative body.
+// Allows -> (function arrow) but stops at => (which separates alternatives)
+// and \  (which would start a forall — not valid in case bodies without parens).
+func (p *Parser) parseTypeCaseBody() syn.TypeExpr {
+	left := p.parseTypeApp()
+	if p.peek().Kind == syn.TokArrow {
+		p.advance()
+		right := p.parseTypeCaseBody() // right-associative
+		return &syn.TyExprArrow{
+			From: left, To: right,
+			S: span.Span{Start: left.Span().Start, End: right.Span().End},
+		}
+	}
+	return left
 }
 
 // desugarConstraintTuple delegates to the canonical syntax.DesugarConstraintTuple.
