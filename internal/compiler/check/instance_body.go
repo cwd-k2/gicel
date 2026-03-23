@@ -108,7 +108,7 @@ func (ch *Checker) processInstanceBody(inst *InstanceInfo, methods map[string]sy
 	// register an alias binding so the name can be used in value => expr.
 	// SolverInvisible prevents automatic resolution from picking up this binding;
 	// it is only used when explicitly referenced by name.
-	if inst.UserName != "" && inst.UserName != inst.DictBindName {
+	if inst.UserName != "" {
 		ch.ctx.Push(&CtxVar{Name: inst.UserName, Type: dictTy, Module: ch.scope.CurrentModule(), SolverInvisible: true})
 		prog.Bindings = append(prog.Bindings, ir.Binding{
 			Name: inst.UserName,
@@ -287,11 +287,16 @@ func (ch *Checker) validateInstanceMethods(
 	methods map[string]syntax.Expr,
 	s span.Span,
 ) bool {
-	hasMissing := false
+	classMethodSet := make(map[string]bool, len(classInfo.Methods))
 	for _, m := range classInfo.Methods {
-		if _, ok := methods[m.Name]; !ok {
+		classMethodSet[m.Name] = true
+	}
+
+	hasMissing := false
+	for name := range classMethodSet {
+		if _, ok := methods[name]; !ok {
 			ch.addCodedError(diagnostic.ErrMissingMethod, s,
-				fmt.Sprintf("instance %s: missing method %s", className, m.Name))
+				fmt.Sprintf("instance %s: missing method %s", className, name))
 			hasMissing = true
 		}
 	}
@@ -299,10 +304,6 @@ func (ch *Checker) validateInstanceMethods(
 		return false
 	}
 
-	classMethodSet := make(map[string]bool, len(classInfo.Methods))
-	for _, m := range classInfo.Methods {
-		classMethodSet[m.Name] = true
-	}
 	hasExtra := false
 	for name := range methods {
 		if !classMethodSet[name] {

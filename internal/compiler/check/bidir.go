@@ -421,28 +421,32 @@ func (ch *Checker) subsCheck(inferred, expected types.Type, expr ir.Core, s span
 }
 
 // inferEvidence handles `value => expr` in infer mode.
-// Evaluates the dict expression, injects it into the context, and infers
-// the type of the body with the evidence in scope.
 func (ch *Checker) inferEvidence(e *syntax.ExprEvidence) (types.Type, ir.Core) {
-	dictTy, dictCore := ch.infer(e.Dict)
-	bindName := fmt.Sprintf("$ev_%d", ch.fresh())
-	ch.ctx.Push(&CtxVar{Name: bindName, Type: dictTy})
-	ch.pushEvidenceFromDictType(bindName, dictTy)
-	bodyTy, bodyCore := ch.infer(e.Body)
-	bodyCore = ch.resolveDeferredConstraints(bodyCore)
-	ch.popEvidenceFromDictType(dictTy)
-	ch.ctx.Pop()
-	lamCore := &ir.Lam{Param: bindName, ParamType: dictTy, Body: bodyCore, Generated: true, S: e.S}
-	return bodyTy, &ir.App{Fun: lamCore, Arg: dictCore, S: e.S}
+	var bodyTy types.Type
+	core := ch.withEvidenceScope(e, func() ir.Core {
+		var bodyCore ir.Core
+		bodyTy, bodyCore = ch.infer(e.Body)
+		return bodyCore
+	})
+	return bodyTy, core
 }
 
 // checkEvidence handles `value => expr` in check mode.
 func (ch *Checker) checkEvidence(e *syntax.ExprEvidence, expected types.Type) ir.Core {
+	return ch.withEvidenceScope(e, func() ir.Core {
+		return ch.check(e.Body, expected)
+	})
+}
+
+// withEvidenceScope handles the shared push/pop/resolve protocol for
+// scoped evidence injection. The body callback runs with the evidence
+// in scope; deferred constraints are resolved before cleanup.
+func (ch *Checker) withEvidenceScope(e *syntax.ExprEvidence, body func() ir.Core) ir.Core {
 	dictTy, dictCore := ch.infer(e.Dict)
 	bindName := fmt.Sprintf("$ev_%d", ch.fresh())
 	ch.ctx.Push(&CtxVar{Name: bindName, Type: dictTy})
 	ch.pushEvidenceFromDictType(bindName, dictTy)
-	bodyCore := ch.check(e.Body, expected)
+	bodyCore := body()
 	bodyCore = ch.resolveDeferredConstraints(bodyCore)
 	ch.popEvidenceFromDictType(dictTy)
 	ch.ctx.Pop()
