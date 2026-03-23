@@ -1,5 +1,83 @@
 # Changelog
 
+## v0.16.0 — 2026-03-24
+
+### Breaking: Unified Syntax
+
+The `class`/`instance`/`where`/`family` keywords are replaced by `data`/`impl`/`type`.
+
+- **Type classes** — `data Eq := \a. { eq: a -> a -> Bool; }` (was `class Eq a where eq :: a -> a -> Bool`)
+- **Instances** — `impl Eq Int := { eq := \x y. True; }` (was `instance Eq Int where eq = ...`)
+- **Type families** — `type F :: Type := \a. case a { ... }` (was `type family F a :: Type where ...`)
+- **Case alternatives** — `case x { True => 1; False => 0 }` (was `True -> 1; False -> 0`)
+- **ADT shorthand** — `data Bool := True | False` for simple enums
+
+### Scoped Evidence Injection
+
+- **`value => expr`** — inject a dictionary into local scope for constraint resolution
+- **Private instances** — `impl _name :: Type := expr` is solver-invisible; accessible only via `=>`
+- No overlap with public instances; not exported across module boundaries
+
+### Evidence System — L9/L10
+
+- **L9 generic defaults** — `equal.go`, `key.go`, `pretty.go` have generic default cases for future evidence fiber types
+- **L10 grade constraints** — `$GradeJoin`/`$GradeDrop` internal type families; `checkGradeBoundary` emits `CtFunEq` for grades containing metavariables
+
+### DataKinds
+
+- All constructors (including non-nullary) promoted to type level
+- Enables universe decoding patterns: `type Decode :: Type := \(u: U). case u { Set => Int; (Pi a b) => Decode a -> Decode b }`
+
+### Parser
+
+- `parseTypeCaseBody` — `->` (function arrow) allowed in type family case bodies
+- `value => expr` parsed as scoped evidence injection (right-associative, below annotation)
+
+### Type Checker
+
+- `matchArrow` reduces type family applications on demand for arrow decomposition
+- Bare row `{}` / `{ x: Int }` in type position unifies with `Record {}` / `Record { x: Int }` from expression position
+- `SubstMany` uses sorted key iteration for deterministic capture-avoidance
+- `substQuantifiedConstraint` applies capture-avoidance rename before substitution
+- Zonk path compression skips trail outside snapshot scopes (memory optimization)
+- `--timeout` now covers the compile phase (was eval-only)
+
+### Refactoring
+
+- Legacy adapter layer fully eliminated — `syntax_adapt.go` contains only decomposition utilities
+- `structuralKey` replaced with canonical `TypeKey` (injectivity guarantee)
+- `ReduceEnv.Families` raw map removed; `LookupFamily` callback is the single path
+- `processDataDeclParts` caches decomposition results in `declPipeline`
+- Unnecessary `maps.Clone` removed from compile and runtime paths
+- Context double-push for annotated bindings fixed
+
+### Error Messages
+
+- Row/evidence jargon replaced with user-friendly terms
+- Metavariables rendered as `_` instead of `?N`
+- Redundant "type mismatch" suffix removed
+- Arrow types parenthesized in "no instance for" messages
+
+### Documentation
+
+- All 51 GICEL examples updated to unified syntax
+- All 21 Go examples updated to unified syntax
+- Agent-guide topics (expressions, patterns, ADT, type classes, type families, session types, stdlib) updated
+- Grammar reference and language spec updated
+
+### Bug Fixes
+
+- ADT shorthand: single-field constructor now builds arrow type (was using bare field type)
+- Grade-count mismatch in row unification and case join now errors (was silent truncation)
+- `joinGrades` grade-count mismatch errors consistently with row unification
+- `usageJoin` alphabetical sort: `Join(Zero, Unrestricted)` now correctly returns `Unrestricted`
+- Double data family registration (if → else if) in processImplHeader
+- `TyRowTypeDecl` and `AstBind` span calculations use byte offset (was token index)
+- Multi-constructor data family diagnostic uses `ErrParseSyntax` (was `ErrClassSyntax`)
+- `resolveFromSuperclasses` respects `SolverInvisible` flag
+
+---
+
 ## v0.15.4 — 2026-03-23
 
 ### Type Checker — OutsideIn(X) L4: Touchability

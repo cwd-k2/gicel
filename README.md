@@ -3,7 +3,9 @@
 **G**o's **I**ndexed **C**apability **E**ffect **L**ibrary /
 **G**ICEL's **I**ndexed **C**apability **E**ffect **L**anguage
 
-**v0.15.4** — [Changelog](CHANGELOG.md)
+**v0.16.0** — [Changelog](CHANGELOG.md)
+
+> **Pre-1.0 notice:** GICEL is pre-1.0. Breaking changes to syntax or API may occur between minor versions. v0.16 unifies `class`/`instance` into `data`/`impl` and introduces scoped evidence injection.
 
 Embed a type-safe, sandboxed language in your Go application.
 GICEL compiles Haskell-like source into typed computations, runs them with
@@ -156,17 +158,21 @@ See [`examples/go/`](examples/go/) for full patterns.
 ### Type System
 
 - Full type inference with higher-rank polymorphism
-- Type classes with superclasses, functional dependencies, associated types
+- Type classes (via unified `data`/`impl`) with superclasses, associated types
 - Type families — closed, associated, data families with recursive reduction
 - Row polymorphism — extensible records and capability environments
-- GADTs with refined return types
+- GADTs with refined return types and existential types
+- Grade annotations (`@Linear`, `@Affine`) for resource tracking
+- DataKinds — all constructors promoted to type level
+- Scoped evidence injection (`value => expr`) for local instance override
 
 ### Language
 
-- 10 keywords: `case do data type infixl infixr infixn class instance import`
-- ADTs with exhaustive pattern matching
+- 9 keywords: `case do data type impl infixl infixr infixn import`
+- ADTs with exhaustive pattern matching (shorthand and GADT styles)
 - Do-notation for monadic sequencing
 - Records, tuples, module system (open, selective, qualified imports)
+- Scoped evidence injection (`value => expr`) with private instances
 
 ### Runtime
 
