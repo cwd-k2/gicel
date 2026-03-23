@@ -15,9 +15,9 @@ import (
 func TestRegisterModule(t *testing.T) {
 	eng := NewEngine()
 	err := eng.RegisterModule("Lib", `
-data Bool := True | False
+data Bool := { True: Bool; False: Bool; }
 not :: Bool -> Bool
-not := \b. case b { True -> False; False -> True }
+not := \b. case b { True => False; False => True }
 `)
 	if err != nil {
 		t.Fatal(err)
@@ -27,9 +27,9 @@ not := \b. case b { True -> False; False -> True }
 func TestImportModuleTypes(t *testing.T) {
 	eng := NewEngine()
 	err := eng.RegisterModule("Lib", `
-data Bool := True | False
+data Bool := { True: Bool; False: Bool; }
 not :: Bool -> Bool
-not := \b. case b { True -> False; False -> True }
+not := \b. case b { True => False; False => True }
 `)
 	if err != nil {
 		t.Fatal(err)
@@ -54,9 +54,9 @@ main := not True
 func TestImportModuleInstances(t *testing.T) {
 	eng := NewEngine()
 	err := eng.RegisterModule("EqLib", `
-data Bool := True | False
-class Eq a { eq :: a -> a -> Bool }
-instance Eq Bool { eq := \x y. True }
+data Bool := { True: Bool; False: Bool; }
+data Eq := \a. { eq: a -> a -> Bool }
+impl Eq Bool := { eq := \x y. True }
 `)
 	if err != nil {
 		t.Fatal(err)
@@ -82,7 +82,7 @@ func TestRegisterModuleFile(t *testing.T) {
 	dir := t.TempDir()
 	path := dir + "/Lib.gicel"
 	if err := os.WriteFile(path, []byte(`
-data Color := Red | Blue
+data Color := { Red: Color; Blue: Color; }
 `), 0644); err != nil {
 		t.Fatal(err)
 	}
@@ -121,7 +121,7 @@ func TestCircularImportError(t *testing.T) {
 	// Register module A that imports B.
 	err := eng.RegisterModule("A", `
 import B
-data Unit := Unit
+data Unit := { Unit: Unit; }
 `)
 	// Should fail because B is not registered.
 	if err == nil {
@@ -143,12 +143,12 @@ data Void := MkVoid
 func TestImportNameCollision(t *testing.T) {
 	eng := NewEngine()
 	// Module A defines Bool.
-	err := eng.RegisterModule("A", `data Bool := True | False`)
+	err := eng.RegisterModule("A", `data Bool := { True: Bool; False: Bool; }`)
 	if err != nil {
 		t.Fatal(err)
 	}
 	// Module B also defines Bool.
-	err = eng.RegisterModule("B", `data Bool := Yes | No`)
+	err = eng.RegisterModule("B", `data Bool := { Yes: Bool; No: Bool; }`)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -194,14 +194,14 @@ main := Just (v1 + v2)
 func TestModuleAccumulation(t *testing.T) {
 	eng := NewEngine()
 	err := eng.RegisterModule("A", `
-data Bool := True | False
+data Bool := { True: Bool; False: Bool; }
 `)
 	if err != nil {
 		t.Fatal(err)
 	}
 	err = eng.RegisterModule("B", `
 import A
-data Pair a b := MkPair a b
+data Pair := \a b. { MkPair: a -> b -> Pair a b; }
 `)
 	if err != nil {
 		t.Fatal(err)
@@ -237,7 +237,7 @@ func TestInvalidModuleSource(t *testing.T) {
 func TestSelectiveImport(t *testing.T) {
 	eng := NewEngine()
 	err := eng.RegisterModule("Lib", `
-data Color := Red | Green | Blue
+data Color := { Red: Color; Green: Color; Blue: Color; }
 red :: Color
 red := Red
 green :: Color
@@ -267,7 +267,7 @@ main := red
 func TestSelectiveImportRejectsUnlisted(t *testing.T) {
 	eng := NewEngine()
 	err := eng.RegisterModule("Lib", `
-data Color := Red | Green | Blue
+data Color := { Red: Color; Green: Color; Blue: Color; }
 red :: Color
 red := Red
 green :: Color
@@ -289,7 +289,7 @@ main := green
 func TestQualifiedImport(t *testing.T) {
 	eng := NewEngine()
 	err := eng.RegisterModule("Lib", `
-data Color := Red | Green | Blue
+data Color := { Red: Color; Green: Color; Blue: Color; }
 red :: Color
 red := Red
 `)
@@ -316,7 +316,7 @@ main := L.red
 func TestQualifiedImportConstructor(t *testing.T) {
 	eng := NewEngine()
 	err := eng.RegisterModule("Lib", `
-data Color := Red | Green | Blue
+data Color := { Red: Color; Green: Color; Blue: Color; }
 `)
 	if err != nil {
 		t.Fatal(err)
@@ -341,7 +341,7 @@ main := L.Green
 func TestQualifiedNotInUnqualifiedScope(t *testing.T) {
 	eng := NewEngine()
 	err := eng.RegisterModule("Lib", `
-data Color := Red | Green | Blue
+data Color := { Red: Color; Green: Color; Blue: Color; }
 red :: Color
 red := Red
 `)
@@ -361,7 +361,7 @@ main := red
 func TestDuplicateImportError(t *testing.T) {
 	eng := NewEngine()
 	err := eng.RegisterModule("Lib", `
-data Color := Red | Green | Blue
+data Color := { Red: Color; Green: Color; Blue: Color; }
 `)
 	if err != nil {
 		t.Fatal(err)
@@ -403,7 +403,7 @@ main := L.MkX
 func TestSelectiveImportAllSubs(t *testing.T) {
 	eng := NewEngine()
 	err := eng.RegisterModule("Lib", `
-data Maybe a := Nothing | Just a
+data Maybe := \a. { Nothing: Maybe a; Just: a -> Maybe a; }
 `)
 	if err != nil {
 		t.Fatal(err)
@@ -456,21 +456,21 @@ func setupTestModules(t *testing.T, eng *Engine) {
 		t.Fatal(err)
 	}
 	if err := eng.RegisterModule("Geometry", `
-data Point := MkPoint Int Int
+data Point := { MkPoint: Int -> Int -> Point; }
 mkPoint :: Int -> Int -> Point
 mkPoint := \x y. MkPoint x y
 getX :: Point -> Int
-getX := \p. case p { MkPoint x _ -> x }
+getX := \p. case p { MkPoint x _ => x }
 getY :: Point -> Int
-getY := \p. case p { MkPoint _ y -> y }
+getY := \p. case p { MkPoint _ y => y }
 `); err != nil {
 		t.Fatal(err)
 	}
 	if err := eng.RegisterModule("Color", `
 import Prelude
-data Color := Red | Green | Blue
+data Color := { Red: Color; Green: Color; Blue: Color; }
 name :: Color -> String
-name := \c. case c { Red -> "red"; Green -> "green"; Blue -> "blue" }
+name := \c. case c { Red => "red"; Green => "green"; Blue => "blue" }
 `); err != nil {
 		t.Fatal(err)
 	}
@@ -792,9 +792,9 @@ func TestSelectiveImportAlwaysImportsInstances(t *testing.T) {
 		t.Fatal(err)
 	}
 	err := eng.RegisterModule("EqLib", `
-data MyBool := MyTrue | MyFalse
-class MyEq a { myEq :: a -> a -> MyBool }
-instance MyEq MyBool { myEq := \_ _. MyTrue }
+data MyBool := { MyTrue: MyBool; MyFalse: MyBool; }
+data MyEq := \a. { myEq: a -> a -> MyBool }
+impl MyEq MyBool := { myEq := \_ _. MyTrue }
 `)
 	if err != nil {
 		t.Fatal(err)
@@ -823,9 +823,9 @@ func TestQualifiedImportAlwaysImportsInstances(t *testing.T) {
 		t.Fatal(err)
 	}
 	err := eng.RegisterModule("EqLib", `
-data MyBool := MyTrue | MyFalse
-class MyEq a { myEq :: a -> a -> MyBool }
-instance MyEq MyBool { myEq := \_ _. MyTrue }
+data MyBool := { MyTrue: MyBool; MyFalse: MyBool; }
+data MyEq := \a. { myEq: a -> a -> MyBool }
+impl MyEq MyBool := { myEq := \_ _. MyTrue }
 `)
 	if err != nil {
 		t.Fatal(err)
@@ -998,8 +998,8 @@ func TestQualifiedConstraintUserClass(t *testing.T) {
 	}
 	err := eng.RegisterModule("MyLib", `
 import Prelude
-class MyClass a { myMethod :: a -> Int }
-instance MyClass Int { myMethod := \x. x + 1 }
+data MyClass := \a. { myMethod: a -> Int }
+impl MyClass Int := { myMethod := \x. x + 1 }
 `)
 	if err != nil {
 		t.Fatal(err)
@@ -1022,9 +1022,9 @@ func TestModuleExplainSourceName(t *testing.T) {
 	eng.Use(stdlib.Prelude)
 	err := eng.RegisterModule("Logic", `
 import Prelude
-data Answer := Yes | No
+data Answer := { Yes: Answer; No: Answer; }
 decide :: Answer -> Int
-decide := \a. case a { Yes -> 1; No -> 0 }
+decide := \a. case a { Yes => 1; No => 0 }
 `)
 	if err != nil {
 		t.Fatal(err)

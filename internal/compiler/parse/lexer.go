@@ -146,29 +146,6 @@ func (l *Lexer) scanToken() syn.Token {
 			l.pos += 2
 			return l.tok(syn.TokFatArrow, start)
 		}
-		if ch == '=' && l.peekAt(1) == ':' {
-			if isOperatorChar(l.peekAt(2)) {
-				// =: is a reserved symbol; consume the invalid sequence and report error.
-				l.pos += 2
-				for l.pos < len(l.source.Text) {
-					r, size := utf8.DecodeRuneInString(l.source.Text[l.pos:])
-					if !isOperatorChar(r) && r != ':' {
-						break
-					}
-					l.pos += size
-				}
-				text := l.source.Text[start:l.pos]
-				l.errors.Add(&diagnostic.Error{
-					Code:    diagnostic.ErrReservedInOp,
-					Phase:   diagnostic.PhaseLex,
-					Span:    span.Span{Start: span.Pos(start), End: span.Pos(l.pos)},
-					Message: fmt.Sprintf("operator %q contains reserved symbol =:", text),
-				})
-				return l.tok(syn.TokOp, start)
-			}
-			l.pos += 2
-			return l.tok(syn.TokEqColon, start)
-		}
 		if ch == '=' && !isOperatorChar(l.peekAt(1)) {
 			l.advance()
 			return l.tok(syn.TokEq, start)
@@ -176,6 +153,10 @@ func (l *Lexer) scanToken() syn.Token {
 		if ch == '|' && !isOperatorChar(l.peekAt(1)) {
 			l.advance()
 			return l.tok(syn.TokPipe, start)
+		}
+		if ch == '~' && !isOperatorChar(l.peekAt(1)) {
+			l.advance()
+			return l.tok(syn.TokTilde, start)
 		}
 		if ch == '_' && !isIdentCont(l.peekAt(1)) {
 			l.advance()
@@ -512,16 +493,15 @@ func (l *Lexer) scanRune(start int) syn.Token {
 }
 
 var keywords = map[string]syn.TokenKind{
-	"case":     syn.TokCase,
-	"do":       syn.TokDo,
-	"data":     syn.TokData,
-	"type":     syn.TokType,
-	"infixl":   syn.TokInfixl,
-	"infixr":   syn.TokInfixr,
-	"infixn":   syn.TokInfixn,
-	"class":    syn.TokClass,
-	"instance": syn.TokInstance,
-	"import":   syn.TokImport,
+	"case":   syn.TokCase,
+	"do":     syn.TokDo,
+	"data":   syn.TokData,
+	"type":   syn.TokType,
+	"infixl": syn.TokInfixl,
+	"infixr": syn.TokInfixr,
+	"infixn": syn.TokInfixn,
+	"impl":   syn.TokImpl,
+	"import": syn.TokImport,
 }
 
 func isLowerStart(r rune) bool {

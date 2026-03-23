@@ -212,7 +212,7 @@ func TestStressDeepSelfRecursion(t *testing.T) {
 import Prelude
 
 countdown :: Int -> Int
-countdown := fix (\self n. case n == 0 { True -> 0; False -> self (n - 1) })
+countdown := fix (\self n. case n == 0 { True => 0; False => self (n - 1) })
 
 main := countdown 500
 `
@@ -311,7 +311,7 @@ func TestStressClosureFVTrimming(t *testing.T) {
 	for i := range 50 {
 		sb.WriteString(fmt.Sprintf("x%d := True\n", i))
 	}
-	sb.WriteString("f := \\y. case y { True -> x0; False -> x49 }\n")
+	sb.WriteString("f := \\y. case y { True => x0; False => x49 }\n")
 	sb.WriteString("main := (f True, f False)\n")
 
 	result, err := gicel.RunSandbox(sb.String(), &gicel.SandboxConfig{
@@ -335,7 +335,7 @@ func TestStressRecursiveListFoldl(t *testing.T) {
 import Prelude
 
 mkRange :: Int -> Int -> List Int
-mkRange := fix (\self lo hi. case lo == hi { True -> Nil; False -> Cons lo (self (lo + 1) hi) })
+mkRange := fix (\self lo hi. case lo == hi { True => Nil; False => Cons lo (self (lo + 1) hi) })
 
 main := foldl (\acc x. acc + x) 0 (mkRange 1 201)
 `
@@ -502,7 +502,7 @@ func TestStressModuleDependencyChain(t *testing.T) {
 
 	// Each module defines its own type and value, importing the previous.
 	err := eng.RegisterModule("M0", `
-data T0 := MkT0
+data T0 := { MkT0: T0 }
 val0 := MkT0
 `)
 	if err != nil {
@@ -510,7 +510,7 @@ val0 := MkT0
 	}
 
 	for i := 1; i < 10; i++ {
-		src := fmt.Sprintf("import M%d\ndata T%d := MkT%d\nval%d := MkT%d\n", i-1, i, i, i, i)
+		src := fmt.Sprintf("import M%d\ndata T%d := { MkT%d: T%d }\nval%d := MkT%d\n", i-1, i, i, i, i, i)
 		if err := eng.RegisterModule(fmt.Sprintf("M%d", i), src); err != nil {
 			t.Fatalf("registering M%d: %v", i, err)
 		}
@@ -584,9 +584,9 @@ func TestStressConcurrentSandbox(t *testing.T) {
 func TestStressCustomPrelude(t *testing.T) {
 	eng := gicel.NewEngine()
 	err := eng.RegisterModule("Prelude", `
-data MyBool := Yes | No
+data MyBool := { Yes: MyBool; No: MyBool; }
 myNot :: MyBool -> MyBool
-myNot := \b. case b { Yes -> No; No -> Yes }
+myNot := \b. case b { Yes => No; No => Yes }
 `)
 	if err != nil {
 		t.Fatal(err)
@@ -748,7 +748,7 @@ func TestStressAllocLimitRecursiveRecord(t *testing.T) {
 import Prelude
 
 build :: Int -> Record { a: Int, b: Int, c: Int, d: Int, e: Int } -> Int
-build := fix (\self n r. case n == 0 { True -> r.#a; False -> self (n - 1) { r | a: n } })
+build := fix (\self n r. case n == 0 { True => r.#a; False => self (n - 1) { r | a: n } })
 
 main := build 10000 { a: 0, b: 0, c: 0, d: 0, e: 0 }
 `
@@ -780,9 +780,9 @@ func TestStressStepLimitBranching(t *testing.T) {
 import Prelude
 
 longBranch :: Int -> Int
-longBranch := fix (\self n. case n == 0 { True -> 0; False -> self (n - 1) })
+longBranch := fix (\self n. case n == 0 { True => 0; False => self (n - 1) })
 
-main := case True { True -> longBranch 10000; False -> 42 }
+main := case True { True => longBranch 10000; False => 42 }
 `
 	eng := gicel.NewEngine()
 	eng.EnableRecursion()

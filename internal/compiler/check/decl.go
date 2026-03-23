@@ -64,12 +64,11 @@ func (p *declPipeline) registerTypes() {
 	}
 	for _, d := range p.decls {
 		if alias, ok := d.(*syntax.DeclTypeAlias); ok {
-			p.ch.processTypeAlias(alias)
-		}
-	}
-	for _, d := range p.decls {
-		if tf, ok := d.(*syntax.DeclTypeFamily); ok {
-			p.ch.processTypeFamily(tf)
+			if isTypeFamilyBody(alias.Body) {
+				p.ch.processTypeFamilyFromAlias(alias)
+			} else {
+				p.ch.processTypeAlias(alias)
+			}
 		}
 	}
 	hasCyclicAlias := p.ch.validateAliasGraph()
@@ -78,26 +77,30 @@ func (p *declPipeline) registerTypes() {
 	}
 }
 
-// registerClasses handles phases 4–5.6: class declarations, instance headers,
+// registerClasses handles phases 4–5.6: class-like data declarations, impl headers,
 // type family reducer installation, and strict type name activation.
 func (p *declPipeline) registerClasses() {
+	// Process class-like data declarations (data with all-lowercase fields).
 	for _, d := range p.decls {
-		if cls, ok := d.(*syntax.DeclClass); ok {
-			p.ch.processClassDecl(cls, p.prog)
+		if data, ok := d.(*syntax.DeclData); ok {
+			parts := decomposeDataBody(data.Body)
+			if isClassLikeData(parts) {
+				p.ch.processClassFromData(data, parts, p.prog)
+			}
 		}
 	}
 	p.methodBodies = make(map[*InstanceInfo]map[string]syntax.Expr)
 	for _, d := range p.decls {
-		if inst, ok := d.(*syntax.DeclInstance); ok {
-			info, methods := p.ch.processInstanceHeader(inst)
+		if impl, ok := d.(*syntax.DeclImpl); ok {
+			info, methods := p.ch.processImplHeader(impl)
 			if info != nil {
 				p.instances = append(p.instances, info)
 				p.methodBodies[info] = methods
 			}
 		}
 	}
-	// Placed after class and instance headers because associated type families
-	// are registered in class processing and equations are collected from instances.
+	// Placed after class and impl headers because associated type families
+	// are registered in class processing and equations are collected from impls.
 	p.ch.installFamilyReducer()
 	if p.ch.config.StrictTypeNames {
 		p.ch.strictTypeNames = true
@@ -172,14 +175,117 @@ func isAssumptionDef(def *syntax.DeclValueDef) bool {
 }
 
 func (ch *Checker) processTypeAlias(d *syntax.DeclTypeAlias) {
+	parts := decomposeTypeAliasBody(d.Body)
 	var params []string
 	var paramKinds []types.Kind
-	for _, p := range d.Params {
+	for _, p := range parts.Params {
 		params = append(params, p.Name)
 		paramKinds = append(paramKinds, ch.resolveKindExpr(p.Kind))
 	}
-	body := ch.resolveTypeExpr(d.Body)
+	body := ch.resolveTypeExpr(parts.Body)
 	ch.reg.RegisterAlias(d.Name, &AliasInfo{Params: params, ParamKinds: paramKinds, Body: body})
+}
+
+// processTypeFamilyFromAlias handles a DeclTypeAlias whose body contains a type-level case,
+// indicating a closed type family. Converts to legacyDeclTypeFamily and delegates.
+func (ch *Checker) processTypeFamilyFromAlias(d *syntax.DeclTypeAlias) {
+	parts := decomposeTypeAliasBody(d.Body)
+
+	// Extract TyExprCase from the inner body.
+	caseExpr, ok := parts.Body.(*syntax.TyExprCase)
+	if !ok {
+		return // not a type family after all
+	}
+
+	// Build legacy type family params.
+	var params []syntax.TyBinder
+	params = append(params, parts.Params...)
+
+	// Build legacy equations from case alternatives.
+	var equations []legacyTFEquation
+	for _, alt := range caseExpr.Alts {
+		// Use the equation name from the TyAlt (stored by parser for legacy format).
+		// If empty, use the declaration name.
+		eqName := alt.EqName
+		if eqName == "" {
+			eqName = d.Name
+		}
+
+		// Determine pattern count for equation arity validation.
+		// RawPatCount is set by the legacy parser; for new case format it's 0.
+		patCount := alt.RawPatCount
+		if patCount == 0 && alt.Pattern != nil {
+			// For new case format: if the pattern is a tuple (Record { _1: ..., _2: ... }),
+			// use the tuple arity. Otherwise it's a single pattern.
+			patCount = countTupleArity(alt.Pattern)
+		}
+		patterns := extractTFPatterns(alt.Pattern, patCount)
+		equations = append(equations, legacyTFEquation{
+			Name:     eqName,
+			Patterns: patterns,
+			RHS:      alt.Body,
+			S:        alt.S,
+		})
+	}
+
+	legacy := &legacyDeclTypeFamily{
+		Name:       d.Name,
+		Params:     params,
+		ResultKind: d.KindAnn,
+		Equations:  equations,
+		S:          d.S,
+	}
+	ch.processTypeFamily(legacy)
+}
+
+// countTupleArity returns the number of elements if the type expression is a tuple,
+// or 1 if it's a regular type.
+func countTupleArity(t syntax.TypeExpr) int {
+	// Tuple pattern: (A, B) parses as TyExprApp(TyExprCon("Record"), TyExprRow{Fields: [_1: A, _2: B]})
+	if app, ok := t.(*syntax.TyExprApp); ok {
+		if con, ok := app.Fun.(*syntax.TyExprCon); ok && con.Name == "Record" {
+			if row, ok := app.Arg.(*syntax.TyExprRow); ok && len(row.Fields) > 0 {
+				return len(row.Fields)
+			}
+		}
+	}
+	return 1
+}
+
+// extractTFPatterns extracts type family equation patterns from a case alternative pattern.
+// For single-param families, returns [pattern].
+// For multi-param: unwraps tuple patterns (Record {_1: P1, _2: P2}) or application chains.
+func extractTFPatterns(pat syntax.TypeExpr, numParams int) []syntax.TypeExpr {
+	if numParams <= 1 {
+		return []syntax.TypeExpr{pat}
+	}
+
+	// Check for tuple pattern: (P1, P2, ...) = TyExprApp(Record, TyExprRow{Fields: ...})
+	if app, ok := pat.(*syntax.TyExprApp); ok {
+		if con, ok := app.Fun.(*syntax.TyExprCon); ok && con.Name == "Record" {
+			if row, ok := app.Arg.(*syntax.TyExprRow); ok && len(row.Fields) >= numParams {
+				result := make([]syntax.TypeExpr, len(row.Fields))
+				for i, f := range row.Fields {
+					result[i] = f.Type
+				}
+				return result
+			}
+		}
+	}
+
+	// Legacy format: unwrap application chain.
+	var result []syntax.TypeExpr
+	t := pat
+	for {
+		if app, ok := t.(*syntax.TyExprApp); ok {
+			result = append([]syntax.TypeExpr{app.Arg}, result...)
+			t = app.Fun
+		} else {
+			result = append([]syntax.TypeExpr{t}, result...)
+			break
+		}
+	}
+	return result
 }
 
 func (ch *Checker) processValueDef(d *syntax.DeclValueDef, annotations map[string]types.Type, prog *ir.Program) {

@@ -7,15 +7,23 @@ import (
 )
 
 func (ch *Checker) processDataDecl(d *syntax.DeclData, prog *ir.Program) {
+	// Decompose the unified syntax body into parts.
+	parts := decomposeDataBody(d.Body)
+
+	// Skip class-like data declarations — they're processed in registerClasses.
+	if isClassLikeData(parts) {
+		return
+	}
+
 	// Resolve parameter kinds.
-	paramKinds := make([]types.Kind, len(d.Params))
-	for i, p := range d.Params {
+	paramKinds := make([]types.Kind, len(parts.Params))
+	for i, p := range parts.Params {
 		paramKinds[i] = ch.resolveKindExpr(p.Kind)
 	}
 
 	// Register type constructor kind.
 	var kind types.Kind = types.KType{}
-	for i := len(d.Params) - 1; i >= 0; i-- {
+	for i := len(parts.Params) - 1; i >= 0; i-- {
 		kind = &types.KArrow{From: paramKinds[i], To: kind}
 	}
 	ch.reg.RegisterTypeKind(d.Name, kind)
@@ -25,55 +33,49 @@ func (ch *Checker) processDataDecl(d *syntax.DeclData, prog *ir.Program) {
 
 	// Build result type: T a b c ...
 	var resultType types.Type = &types.TyCon{Name: d.Name, S: d.S}
-	for _, p := range d.Params {
+	for _, p := range parts.Params {
 		resultType = &types.TyApp{Fun: resultType, Arg: &types.TyVar{Name: p.Name, S: p.S}, S: d.S}
 	}
 
-	// Register each constructor.
+	// Register each constructor from row fields.
+	// In unified syntax, constructors are uppercase fields in the body row:
+	//   data Maybe := \a. { Nothing: (); Just: a; };
 	coreDecl := ir.DataDecl{Name: d.Name, S: d.S}
-	for i, p := range d.Params {
+	for i, p := range parts.Params {
 		coreDecl.TyParams = append(coreDecl.TyParams, ir.TyParam{Name: p.Name, Kind: paramKinds[i]})
 	}
 
-	for _, con := range d.Cons {
-		var conType types.Type = resultType
-		var fieldTypes []types.Type
-		var constraintEntries []types.ConstraintEntry
-		for i := len(con.Fields) - 1; i >= 0; i-- {
-			fieldTy := ch.resolveTypeExpr(con.Fields[i])
-			// Check if this field is a Constraint-kinded type variable.
-			// If so, treat it as an evidence constraint rather than a regular field.
-			if ch.isConstraintKindedField(fieldTy, d.Params, paramKinds) {
-				entry := ch.constraintFromField(fieldTy)
-				if entry != nil {
-					constraintEntries = append([]types.ConstraintEntry{*entry}, constraintEntries...)
-					continue
-				}
-			}
-			fieldTypes = append([]types.Type{fieldTy}, fieldTypes...)
-			conType = types.MkArrow(fieldTy, conType)
+	for _, field := range parts.Fields {
+		conName := field.Label
+		fieldTy := ch.resolveTypeExpr(field.Type)
+
+		// Constructor type is the full GADT-style type.
+		// The field type IS the constructor's full type:
+		//   Nil:  List a                → nullary, return = List a
+		//   Cons: a -> List a -> List a → binary, fields = [a, List a], return = List a
+		//   Just: a -> Maybe a          → unary, fields = [a], return = Maybe a
+		//   Lit:  Int -> Expr Int       → GADT, fields = [Int], return = Expr Int (refined)
+		//
+		// The checker peels arrows to extract field types; the last type is the return.
+		conType := fieldTy
+		fieldTypes, retTy := decomposeConSig(fieldTy)
+
+		// Detect GADT: if the constructor's return type differs from the
+		// generic result type (T a b c ...), this is a refined return type.
+		var gadtReturnType types.Type
+		if !types.Equal(retTy, resultType) {
+			gadtReturnType = retTy
 		}
-		// Wrap with evidence constraints if any fields were Constraint-kinded.
-		if len(constraintEntries) > 0 {
-			conType = &types.TyEvidence{
-				Constraints: &types.TyEvidenceRow{Entries: &types.ConstraintEntries{Entries: constraintEntries}},
-				Body:        conType,
-			}
-		}
+
 		// Wrap in forall for type params.
-		for i := len(d.Params) - 1; i >= 0; i-- {
-			conType = types.MkForall(d.Params[i].Name, paramKinds[i], conType)
+		for i := len(parts.Params) - 1; i >= 0; i-- {
+			conType = types.MkForall(parts.Params[i].Name, paramKinds[i], conType)
 		}
 
-		ch.ctx.Push(&CtxVar{Name: con.Name, Type: conType, Module: ch.scope.CurrentModule()})
-		dataInfo.Constructors = append(dataInfo.Constructors, ConstructorInfo{Name: con.Name, Arity: len(fieldTypes)})
-		ch.reg.RegisterConstructor(con.Name, conType, ch.scope.CurrentModule(), dataInfo)
-		coreDecl.Cons = append(coreDecl.Cons, ir.ConDecl{Name: con.Name, Fields: fieldTypes, S: con.S})
-	}
-
-	// GADT constructors.
-	for _, gcon := range d.GADTCons {
-		ch.processGADTCon(gcon, d.Params, dataInfo, &coreDecl)
+		ch.ctx.Push(&CtxVar{Name: conName, Type: conType, Module: ch.scope.CurrentModule()})
+		dataInfo.Constructors = append(dataInfo.Constructors, ConstructorInfo{Name: conName, Arity: len(fieldTypes), ReturnType: gadtReturnType})
+		ch.reg.RegisterConstructor(conName, conType, ch.scope.CurrentModule(), dataInfo)
+		coreDecl.Cons = append(coreDecl.Cons, ir.ConDecl{Name: conName, Fields: fieldTypes, ReturnType: gadtReturnType, S: field.S})
 	}
 
 	prog.DataDecls = append(prog.DataDecls, coreDecl)
@@ -81,51 +83,55 @@ func (ch *Checker) processDataDecl(d *syntax.DeclData, prog *ir.Program) {
 	// DataKinds: promote nullary constructors to type level.
 	dataKind := types.KData{Name: d.Name}
 	ch.reg.RegisterPromotedKind(d.Name, dataKind)
-	for _, con := range d.Cons {
-		if len(con.Fields) == 0 {
-			ch.reg.RegisterPromotedCon(con.Name, dataKind)
-		}
-	}
-	for _, gcon := range d.GADTCons {
-		fieldTypes, _ := decomposeConSig(ch.resolveTypeExpr(gcon.Type))
-		if len(fieldTypes) == 0 {
-			ch.reg.RegisterPromotedCon(gcon.Name, dataKind)
+	for _, field := range parts.Fields {
+		fieldTy := ch.resolveTypeExpr(field.Type)
+		fields, _ := decomposeConSig(fieldTy)
+		if len(fields) == 0 {
+			ch.reg.RegisterPromotedCon(field.Label, dataKind)
 		}
 	}
 }
 
-// processGADTCon registers a single GADT constructor: resolves its type,
-// wraps unquantified data params, and registers it into conTypes/conInfo/coreDecl.
-func (ch *Checker) processGADTCon(gcon syntax.GADTConDecl, dataParams []syntax.TyBinder, dataInfo *DataTypeInfo, coreDecl *ir.DataDecl) {
-	conTy := ch.resolveTypeExpr(gcon.Type)
-
-	// Wrap data type params that appear free in the constructor type
-	// but aren't already quantified.
-	existingForalls := collectForallNames(conTy)
-	for i := len(dataParams) - 1; i >= 0; i-- {
-		p := dataParams[i].Name
-		if _, already := existingForalls[p]; !already {
-			if types.OccursIn(p, conTy) {
-				conTy = types.MkForall(p, types.KType{}, conTy)
-			}
+// decomposeArrowFields takes a field type and the expected result type.
+// If the field type is an arrow chain (a -> b -> c), the last type in the chain
+// is replaced by resultType, and the intermediate types become constructor fields.
+// If the field type is NOT an arrow, it's a single-field constructor.
+//
+//	a -> List a  + resultType=List a  →  conType = a -> List a -> List a, fields = [a, List a]
+//	a            + resultType=Maybe a →  conType = a -> Maybe a, fields = [a]
+func decomposeArrowFields(fieldTy types.Type, resultType types.Type) (conType types.Type, fieldTypes []types.Type) {
+	// Collect arrow chain fields.
+	ty := fieldTy
+	for {
+		if arr, ok := ty.(*types.TyArrow); ok {
+			fieldTypes = append(fieldTypes, arr.From)
+			ty = arr.To
+		} else {
+			// Last element: this is either the "return type" (to be replaced)
+			// or a single field. For constructors, we always append resultType.
+			fieldTypes = append(fieldTypes, ty)
+			break
 		}
 	}
 
-	fieldTypes, retTy := decomposeConSig(conTy)
+	// Build constructor type: field1 -> field2 -> ... -> resultType
+	conType = resultType
+	for i := len(fieldTypes) - 1; i >= 0; i-- {
+		conType = types.MkArrow(fieldTypes[i], conType)
+	}
+	return conType, fieldTypes
+}
 
-	ch.ctx.Push(&CtxVar{Name: gcon.Name, Type: conTy, Module: ch.scope.CurrentModule()})
-	dataInfo.Constructors = append(dataInfo.Constructors, ConstructorInfo{
-		Name:       gcon.Name,
-		Arity:      len(fieldTypes),
-		ReturnType: retTy,
-	})
-	ch.reg.RegisterConstructor(gcon.Name, conTy, ch.scope.CurrentModule(), dataInfo)
-	coreDecl.Cons = append(coreDecl.Cons, ir.ConDecl{
-		Name:       gcon.Name,
-		Fields:     fieldTypes,
-		ReturnType: retTy,
-		S:          gcon.S,
-	})
+// isUnitType checks if a type is the unit type: Record {} or ().
+func isUnitType(t types.Type) bool {
+	if app, ok := t.(*types.TyApp); ok {
+		if con, ok := app.Fun.(*types.TyCon); ok && con.Name == "Record" {
+			if row, ok := app.Arg.(*types.TyEvidenceRow); ok {
+				return row.Entries.EntryCount() == 0
+			}
+		}
+	}
+	return false
 }
 
 // isConstraintKindedField checks if a field type references a Constraint-kinded type variable.

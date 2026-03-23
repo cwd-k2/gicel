@@ -8,19 +8,19 @@ import Prelude
 
 -- Container class with an associated type Elem.
 -- type Elem c :: Type declares a type family inside the class.
-class Container c {
+data Container c {
   type Elem c :: Type;
   cfold :: \b. (Elem c -> b -> b) -> b -> c -> b
 }
 
 -- Instance for List: Elem (List a) =: a.
-instance Container (List a) {
+impl Container (List a) := {
   type Elem (List a) =: a;
   cfold := foldr
 }
 
 -- Instance for String: Elem String =: Rune.
-instance Container String {
+impl Container String := {
   type Elem String =: Rune;
   cfold := \f z s. foldr f z (toRunes s)
 }
@@ -31,7 +31,7 @@ clength :: \c. Container c => c -> Int
 clength := cfold (\_ n. n + 1) 0
 
 cany :: \c. Container c => (Elem c -> Bool) -> c -> Bool
-cany := \p. cfold (\x acc. case acc { True -> True; False -> p x }) False
+cany := \p. cfold (\x acc. case acc { True => True; False => p x }) False
 
 -- clength on List Int: Elem (List Int) → Int, fold counts elements.
 listLen := clength (Cons 1 (Cons 2 (Cons 3 Nil)))

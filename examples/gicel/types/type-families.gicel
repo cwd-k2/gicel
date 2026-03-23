@@ -15,8 +15,8 @@ type ElemOf (c: Type) :: Type := {
 -- This function's return type is computed by the type family.
 listHead :: List Int -> Maybe (ElemOf (List Int))
 listHead := \xs. case xs {
-  Cons x _ -> Just x;
-  Nil -> Nothing
+  Cons x _ => Just x;
+  Nil => Nothing
 }
 
 -- DataKinds + type family: promoted constructors as type-level values.

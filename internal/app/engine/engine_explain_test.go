@@ -64,7 +64,7 @@ func TestExplainLineNumbersForBindAndMatch(t *testing.T) {
 	))
 
 	var steps []eval.ExplainStep
-	rt, err := eng.NewRuntime(context.Background(), "import Prelude\nmain := do {\n  x <- getBool;\n  case x {\n    True -> pure x;\n    False -> pure x\n  }\n}")
+	rt, err := eng.NewRuntime(context.Background(), "import Prelude\nmain := do {\n  x <- getBool;\n  case x {\n    True => pure x;\n    False => pure x\n  }\n}")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -264,7 +264,7 @@ func TestSetCheckTraceHookPublicAPI(t *testing.T) {
 		events = append(events, e)
 	})
 	_, err := eng.Compile(context.Background(), `
-data MyBool := T | F
+data MyBool := { T: MyBool; F: MyBool; }
 id := \x. x
 main := id T
 `)

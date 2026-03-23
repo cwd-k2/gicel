@@ -1,20 +1,20 @@
 -- GADTs: type-safe expression DSL
 import Prelude
 
-data Expr a := {
-  LitBool :: Bool -> Expr Bool;
-  Not     :: Expr Bool -> Expr Bool;
-  And     :: Expr Bool -> Expr Bool -> Expr Bool
+data Expr := \a. {
+  LitBool: Bool -> Expr Bool;
+  Not:     Expr Bool -> Expr Bool;
+  And:     Expr Bool -> Expr Bool -> Expr Bool
 }
 
 -- Evaluate with type refinement in each branch.
 eval :: Expr Bool -> Bool
 eval := fix (\self e. case e {
-  LitBool b -> b;
-  Not inner -> case self inner { True -> False; False -> True };
-  And l r -> case self l {
-    False -> False;
-    True -> self r
+  LitBool b => b;
+  Not inner => case self inner { True => False; False => True };
+  And l r => case self l {
+    False => False;
+    True => self r
   }
 })
 

@@ -41,11 +41,11 @@ cmpPair := compare (1, 2) (1, 3)
 
 -- Tuple pattern matching
 swap :: \a b. (a, b) -> (b, a)
-swap := \p. case p { (x, y) -> (y, x) }
+swap := \p. case p { (x, y) => (y, x) }
 swapped := swap (True, False)
 
 -- Record pattern matching
-extractXY := \p. case p { { x: px, y: py } -> (px, py) }
+extractXY := \p. case p { { x: px, y: py } => (px, py) }
 xyTuple := extractXY point
 
 -- Deeply nested tuples
@@ -61,8 +61,8 @@ ordRecord := compare (False, True) (True, False)
 -- Mixed records and Maybe
 wrapped := Just { x: 1, y: 2 }
 unwrapped := case wrapped {
-  Just r -> r.#x;
-  Nothing -> 0
+  Just r => r.#x;
+  Nothing => 0
 }
 
 -- Large record (many fields)
@@ -75,8 +75,8 @@ sumBig := big.#f1 + big.#f2 + big.#f3 + big.#f4 + big.#f5 +
 -- Records in lists
 points := Cons { x: 0, y: 0 } (Cons { x: 1, y: 1 } Nil)
 firstPoint := case points {
-  Cons p _ -> p.#x;
-  Nil -> 0
+  Cons p _ => p.#x;
+  Nil => 0
 }
 
 -- Accumulate results

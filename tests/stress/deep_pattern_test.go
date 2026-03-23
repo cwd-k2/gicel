@@ -33,7 +33,7 @@ infixr 9 .
 (.) := \f g x. f (g x)
 
 not :: Bool -> Bool
-not := \b. case b { True -> False; False -> True }
+not := \b. case b { True => False; False => True }
 
 id :: \ a. a -> a
 id := \x. x
@@ -199,7 +199,7 @@ func TestSemicolonInCaseAlts(t *testing.T) {
 	eng.Use(gicel.Prelude)
 	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
-f := \x. case x { True -> False; False -> True }
+f := \x. case x { True => False; False => True }
 main := f True
 `)
 	if err != nil {
@@ -220,8 +220,8 @@ func TestNewlineInCaseAlts(t *testing.T) {
 	_, err := eng.NewRuntime(context.Background(), `
 import Prelude
 f := \x. case x {
-  True -> False
-  False -> True
+  True => False
+  False => True
 }
 main := f False
 `)
@@ -336,7 +336,7 @@ applyBoth :: (\a. a -> a) -> Bool
 applyBoth := \f. f True
 
 not :: Bool -> Bool
-not := \b. case b { True -> False; False -> True }
+not := \b. case b { True => False; False => True }
 
 main := applyBoth not
 `)
@@ -474,12 +474,12 @@ main := eq (Just (Just True)) (Just Nothing)
 // ---------------------------------------------------------------------------
 
 func TestKindInferenceSimple(t *testing.T) {
-	// data Maybe a := Just a | Nothing  -- 'a' should get kind Type.
+	// data Maybe := \a. { Just: a -> Maybe a; Nothing: Maybe a; }  -- 'a' should get kind Type.
 	eng := gicel.NewEngine()
 	eng.Use(gicel.Prelude)
 	_, err := eng.Compile(context.Background(), `
 import Prelude
-data MyMaybe a := MyJust a | MyNothing
+data MyMaybe := \a. { MyJust: a -> MyMaybe a; MyNothing: MyMaybe a; }
 main := MyJust True
 `)
 	if err != nil {
@@ -530,10 +530,10 @@ func TestGADTRefinementDisjointBranches(t *testing.T) {
 	eng.Use(gicel.Prelude)
 	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
-data Token a := { BoolTok :: Bool -> Token Bool; UnitTok :: Token () }
+data Token := \a. { BoolTok: Bool -> Token Bool; UnitTok: Token () }
 
 toBool :: Token Bool -> Bool
-toBool := \t. case t { BoolTok b -> b }
+toBool := \t. case t { BoolTok b => b }
 
 main := toBool (BoolTok True)
 `)
@@ -561,7 +561,7 @@ func TestLetRecFix(t *testing.T) {
 	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 
-myLength := fix (\self xs. case xs { Nil -> 0; Cons _ rest -> 1 + self rest })
+myLength := fix (\self xs. case xs { Nil => 0; Cons _ rest => 1 + self rest })
 
 main := myLength (Cons True (Cons False (Cons True Nil)))
 `)
@@ -585,7 +585,7 @@ main := myLength (Cons True (Cons False (Cons True Nil)))
 import Prelude
 
 myLength :: List a -> Int
-myLength := fix (\self xs. case xs { Nil -> 0; Cons _ rest -> 1 + self rest })
+myLength := fix (\self xs. case xs { Nil => 0; Cons _ rest => 1 + self rest })
 
 main := myLength (Cons True (Cons False (Cons True Nil)))
 `)
@@ -611,13 +611,13 @@ func TestNestedConstructorPatternMatch(t *testing.T) {
 	eng.Use(gicel.Prelude)
 	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
-data Pair a b := MkPair a b
+data Pair := \a b. { MkPair: a -> b -> Pair a b; }
 
 fst :: \a b. Pair a b -> a
-fst := \p. case p { MkPair x _ -> x }
+fst := \p. case p { MkPair x _ => x }
 
 snd :: \a b. Pair a b -> b
-snd := \p. case p { MkPair _ y -> y }
+snd := \p. case p { MkPair _ y => y }
 
 main := fst (MkPair True False)
 `)
@@ -638,8 +638,8 @@ func TestDoubleNestedPatternMatch(t *testing.T) {
 import Prelude
 isJustTrue :: Maybe Bool -> Bool
 isJustTrue := \m. case m {
-  Just b -> case b { True -> True; False -> False };
-  Nothing -> False
+  Just b => case b { True => True; False => False };
+  Nothing => False
 }
 main := isJustTrue (Just True)
 `)
@@ -705,7 +705,7 @@ func TestRecordPatternMatchEndToEnd(t *testing.T) {
 	eng.Use(gicel.Prelude)
 	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
-swap := \r. case r { { x: a, y: b } -> { x: b, y: a } }
+swap := \r. case r { { x: a, y: b } => { x: b, y: a } }
 r := swap { x: 1, y: 2 }
 main := r.#x
 `)
@@ -756,7 +756,7 @@ func TestTuplePatternMatch(t *testing.T) {
 	// Case destructure form:
 	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
-myFst := \p. case p { (a, b) -> a }
+myFst := \p. case p { (a, b) => a }
 main := myFst (True, False)
 `)
 	if err != nil {
@@ -910,7 +910,7 @@ import Prelude
 id :: \a. a -> a
 id := \x. x
 
-main := case id True { True -> id (); False -> id () }
+main := case id True { True => id (); False => id () }
 `)
 	if err != nil {
 		t.Fatal("polymorphic function at multiple types should be accepted:", err)
@@ -934,7 +934,7 @@ func TestFP_LambdaWithRecordPattern(t *testing.T) {
 	// Case destructure form:
 	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
-getX := \r. case r { { x: v } -> v }
+getX := \r. case r { { x: v } => v }
 main := getX { x: True }
 `)
 	if err != nil {
@@ -970,8 +970,8 @@ func TestFP_WildcardInCasePattern(t *testing.T) {
 	eng.Use(gicel.Prelude)
 	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
-data Color := Red | Green | Blue
-isRed := \c. case c { Red -> True; _ -> False }
+data Color := { Red: Color; Green: Color; Blue: Color; }
+isRed := \c. case c { Red => True; _ => False }
 main := isRed Blue
 `)
 	if err != nil {
@@ -993,7 +993,7 @@ func TestFP_NestedTuplePattern(t *testing.T) {
 	// Case destructure form:
 	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
-f := \p. case p { (a, inner) -> case inner { (b, c) -> b } }
+f := \p. case p { (a, inner) => case inner { (b, c) => b } }
 main := f (True, (False, True))
 `)
 	if err != nil {
@@ -1043,8 +1043,8 @@ func TestErrorReportsNonExhaustiveConstructor(t *testing.T) {
 	eng.Use(gicel.Prelude)
 	_, err := eng.NewRuntime(context.Background(), `
 import Prelude
-data Color := Red | Green | Blue
-f := \c. case c { Red -> True }
+data Color := { Red: Color; Green: Color; Blue: Color; }
+f := \c. case c { Red => True }
 main := f Red
 `)
 	if err == nil {
@@ -1200,7 +1200,7 @@ func TestTypeAliasInFunctionSig(t *testing.T) {
 	eng.Use(gicel.Prelude)
 	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
-type Predicate a := a -> Bool
+type Predicate := \a. a -> Bool
 isTrue :: Predicate Bool
 isTrue := \b. b
 main := isTrue True
@@ -1220,7 +1220,7 @@ func TestTypeAliasWithParams(t *testing.T) {
 	eng.Use(gicel.Prelude)
 	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
-type Pair a b := (a, b)
+type Pair := \a b. (a, b)
 mkPair :: \a b. a -> b -> Pair a b
 mkPair := \x y. (x, y)
 main := (mkPair True False).#_1
@@ -1242,9 +1242,9 @@ main := (mkPair True False).#_1
 func TestDataKindsInGADTIndex(t *testing.T) {
 	eng := gicel.NewEngine()
 	rt, err := eng.NewRuntime(context.Background(), `
-data Phase := Building | Running
+data Phase := { Building: Phase; Running: Phase; }
 
-data Builder (p: Phase) := MkBuilder
+data Builder := \(p: Phase). { MkBuilder: Builder p }
 
 start :: Builder Building
 start := MkBuilder
@@ -1269,8 +1269,8 @@ func TestDataKindsMismatch(t *testing.T) {
 	eng.Use(gicel.Prelude)
 	_, err := eng.NewRuntime(context.Background(), `
 import Prelude
-data Phase := Building | Running
-data Builder (p: Phase) := MkBuilder
+data Phase := { Building: Phase; Running: Phase; }
+data Builder := \(p: Phase). { MkBuilder: Builder p }
 start :: Builder True
 start := MkBuilder
 main := start
@@ -1341,10 +1341,10 @@ func TestInstanceResolutionDepthLimit(t *testing.T) {
 	// We use a realistic scenario: two classes with mutually recursive instances.
 	_, err := eng.NewRuntime(context.Background(), `
 import Prelude
-class Foo a { foo :: a -> Int }
-class Bar a { bar :: a -> Int }
-instance Bar a => Foo a { foo := \x. bar x }
-instance Foo a => Bar a { bar := \x. foo x }
+data Foo := \a. { foo: a -> Int }
+data Bar := \a. { bar: a -> Int }
+impl Bar a => Foo a := { foo := \x. bar x }
+impl Foo a => Bar a := { bar := \x. foo x }
 main := foo True
 `)
 	if err == nil {
@@ -1377,7 +1377,7 @@ main := pure @A True
 	eng2.Use(gicel.Prelude)
 	_, err2 := eng2.NewRuntime(context.Background(), `
 import Prelude
-type F a := F a
+type F := \a. F a
 main := pure @(F Int) True
 `)
 	if err2 == nil {
@@ -1392,17 +1392,17 @@ func TestAliasExpansionDepthLimit(t *testing.T) {
 	// Build a chain of aliases: T0 a = a, T1 a = T0 (T0 a), ..., TN a = T(N-1) (T(N-1) a)
 	// This grows exponentially in expansion depth.
 	src := `
-type T0 a := a
-type T1 a := T0 (T0 a)
-type T2 a := T1 (T1 a)
-type T3 a := T2 (T2 a)
-type T4 a := T3 (T3 a)
-type T5 a := T4 (T4 a)
-type T6 a := T5 (T5 a)
-type T7 a := T6 (T6 a)
-type T8 a := T7 (T7 a)
-type T9 a := T8 (T8 a)
-type T10 a := T9 (T9 a)
+type T0 := \a. a
+type T1 := \a. T0 (T0 a)
+type T2 := \a. T1 (T1 a)
+type T3 := \a. T2 (T2 a)
+type T4 := \a. T3 (T3 a)
+type T5 := \a. T4 (T4 a)
+type T6 := \a. T5 (T5 a)
+type T7 := \a. T6 (T6 a)
+type T8 := \a. T7 (T7 a)
+type T9 := \a. T8 (T8 a)
+type T10 := \a. T9 (T9 a)
 id :: T10 Bool -> T10 Bool
 id := \x. x
 main := id True
@@ -1467,9 +1467,9 @@ func TestNestedPatternBareConstructor(t *testing.T) {
 	eng.Use(gicel.Prelude)
 	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
-data Pair a b := MkPair a b
+data Pair := \a b. { MkPair: a -> b -> Pair a b; }
 
-match := \p. case p { MkPair (Just x) Nothing -> x; _ -> False }
+match := \p. case p { MkPair (Just x) Nothing => x; _ => False }
 main := match (MkPair (Just True) Nothing)
 `)
 	if err != nil {
@@ -1487,7 +1487,7 @@ func TestNestedPatternParenthesized(t *testing.T) {
 	eng.Use(gicel.Prelude)
 	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
-isJustTrue := \m. case m { Just True -> True; _ -> False }
+isJustTrue := \m. case m { Just True => True; _ => False }
 main := (isJustTrue (Just True), isJustTrue (Just False), isJustTrue Nothing)
 `)
 	if err != nil {
@@ -1510,7 +1510,7 @@ func TestNestedPatternExhaustiveness(t *testing.T) {
 	eng.Use(gicel.Prelude)
 	_, err := eng.NewRuntime(context.Background(), `
 import Prelude
-f := \x. case x { Just True -> True }
+f := \x. case x { Just True => True }
 main := f (Just True)
 `)
 	if err == nil {
@@ -1527,7 +1527,7 @@ func TestNestedPatternDeepNesting(t *testing.T) {
 	eng.Use(gicel.Prelude)
 	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
-f := \x. case x { Just (Just (Just True)) -> True; _ -> False }
+f := \x. case x { Just (Just (Just True)) => True; _ => False }
 main := (f (Just (Just (Just True))), f (Just (Just (Just False))), f (Just (Just Nothing)))
 `)
 	if err != nil {
@@ -1709,7 +1709,7 @@ func TestLiteralPatternInt(t *testing.T) {
 	eng.Use(gicel.Prelude)
 	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
-describe := \n. case n { 0 -> "zero"; 1 -> "one"; _ -> "other" }
+describe := \n. case n { 0 => "zero"; 1 => "one"; _ => "other" }
 main := describe 1
 `)
 	if err != nil {
@@ -1730,7 +1730,7 @@ func TestLiteralPatternString(t *testing.T) {
 	eng.Use(gicel.Prelude)
 	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
-greet := \name. case name { "Alice" -> "Hello Alice"; _ -> "Hello stranger" }
+greet := \name. case name { "Alice" => "Hello Alice"; _ => "Hello stranger" }
 main := greet "Alice"
 `)
 	if err != nil {
@@ -1751,7 +1751,7 @@ func TestLiteralPatternFallthrough(t *testing.T) {
 	eng.Use(gicel.Prelude)
 	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
-fib := \n. case n { 0 -> 0; 1 -> 1; _ -> 99 }
+fib := \n. case n { 0 => 0; 1 => 1; _ => 99 }
 main := fib 5
 `)
 	if err != nil {
@@ -1772,7 +1772,7 @@ func TestLiteralPatternInNestedCase(t *testing.T) {
 	eng.Use(gicel.Prelude)
 	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
-f := \m. case m { Just n -> case n { 0 -> True; _ -> False }; Nothing -> False }
+f := \m. case m { Just n => case n { 0 => True; _ => False }; Nothing => False }
 main := f (Just 0)
 `)
 	if err != nil {
@@ -1790,7 +1790,7 @@ func TestLiteralPatternRune(t *testing.T) {
 	eng.Use(gicel.Prelude)
 	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
-classify := \c. case c { 'a' -> "vowel"; 'e' -> "vowel"; _ -> "other" }
+classify := \c. case c { 'a' => "vowel"; 'e' => "vowel"; _ => "other" }
 main := classify 'a'
 `)
 	if err != nil {

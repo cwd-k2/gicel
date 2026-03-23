@@ -16,11 +16,11 @@ import (
 
 func BenchmarkInstanceResolve100(b *testing.B) {
 	// Build source with many instances to benchmark resolution.
-	source := `data Bool := True | False
-data Unit := Unit
-class Eq a { eq :: a -> a -> Bool }
-instance Eq Bool { eq := \x y. True }
-instance Eq Unit { eq := \x y. True }
+	source := `data Bool := { True: Bool; False: Bool; }
+data Unit := { Unit: Unit; }
+data Eq := \a. { eq: a -> a -> Bool }
+impl Eq Bool := { eq := \x y. True }
+impl Eq Unit := { eq := \x y. True }
 main := eq True False`
 
 	b.ResetTimer()

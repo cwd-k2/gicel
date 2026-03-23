@@ -1,8 +1,8 @@
 -- DataKinds: state machine with phantom type indices
 data DBState := Opened | Closed
-data DB s := MkDB
+data DB := \(s: DBState). { MkDB: DB s }
 
-data Action s := MkAction
+data Action := \(s: DBState). { MkAction: Action s }
 
 -- Type-safe open/close using promoted constructors as kinds.
 open :: DB Closed -> DB Opened

@@ -16,7 +16,7 @@ dualApply := \f g. (f True, g ())
 
 -- Rank-2 in case branch
 caseWithPoly :: Bool -> (\a. a -> a) -> Bool
-caseWithPoly := \b f. case b { True -> f True; False -> f False }
+caseWithPoly := \b f. case b { True => f True; False => f False }
 
 -- Helper: polymorphic identity
 id :: \a. a -> a

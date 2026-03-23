@@ -162,6 +162,8 @@ func (p *Parser) parseTypeApp() syn.TypeExpr {
 
 func (p *Parser) parseTypeAtom() syn.TypeExpr {
 	switch p.peek().Kind {
+	case syn.TokCase:
+		return p.parseTypeCase()
 	case syn.TokUnderscore:
 		// Wildcard type pattern: _ (used in type family equations)
 		tok := p.peek()
@@ -245,6 +247,7 @@ func (p *Parser) parseRowType() syn.TypeExpr {
 		return &syn.TyExprRow{S: span.Span{Start: start, End: p.prevEnd()}}
 	}
 	var fields []syn.TyRowField
+	var typeDecls []syn.TyRowTypeDecl
 	var tail *syn.TyExprVar
 
 	pg := p.newProgressGuard("row type")
@@ -264,7 +267,39 @@ func (p *Parser) parseRowType() syn.TypeExpr {
 		if p.peek().Kind == syn.TokRBrace || p.peek().Kind == syn.TokEOF {
 			break
 		}
-		label := p.expectLower()
+		// Associated type/data declaration: type Name :: Kind; or data Name :: Kind;
+		if p.peek().Kind == syn.TokType || p.peek().Kind == syn.TokData {
+			p.advance() // consume 'type' or 'data'
+			tName := p.expectUpper()
+			// Consume optional params (legacy: data Elem a :: Type)
+			for p.peek().Kind == syn.TokLower {
+				p.advance()
+			}
+			p.expect(syn.TokColonColon)
+			tKind := p.parseKindExpr()
+			typeDecls = append(typeDecls, syn.TyRowTypeDecl{
+				Name:    tName,
+				KindAnn: tKind,
+				S:       span.Span{Start: span.Pos(p.pos), End: p.prevEnd()},
+			})
+			if p.peek().Kind == syn.TokSemicolon {
+				p.advance()
+			}
+			continue
+		}
+		// Field: label: Type [@Mult] [:= Default];
+		// Label can be lowercase (method) or uppercase (constructor).
+		fieldStart := p.peek().S.Start
+		var label string
+		if p.peek().Kind == syn.TokLower {
+			label = p.expectLower()
+		} else if p.peek().Kind == syn.TokUpper {
+			label = p.expectUpper()
+		} else {
+			p.addErrorCode(diagnostic.ErrUnexpectedToken, "expected field label in row type")
+			p.advance()
+			continue
+		}
 		p.expect(syn.TokColon)
 		ty := p.parseType()
 		var mult syn.TypeExpr
@@ -272,18 +307,54 @@ func (p *Parser) parseRowType() syn.TypeExpr {
 			p.advance()
 			mult = p.parseTypeAtom()
 		}
+		var dflt syn.Expr
+		if p.peek().Kind == syn.TokColonEq {
+			p.advance()
+			dflt = p.parseExpr()
+		}
 		fields = append(fields, syn.TyRowField{
-			Label: label, Type: ty, Mult: mult,
-			S: span.Span{Start: span.Pos(p.pos), End: p.prevEnd()},
+			Label: label, Type: ty, Mult: mult, Default: dflt,
+			S: span.Span{Start: fieldStart, End: p.prevEnd()},
 		})
-		if p.peek().Kind == syn.TokComma {
+		if p.peek().Kind == syn.TokComma || p.peek().Kind == syn.TokSemicolon {
 			p.advance()
 		}
 	}
 	p.expect(syn.TokRBrace)
 	return &syn.TyExprRow{
-		Fields: fields, Tail: tail,
+		Fields: fields, TypeDecls: typeDecls, Tail: tail,
 		S: span.Span{Start: start, End: p.prevEnd()},
+	}
+}
+
+// parseTypeCase parses a type-level case expression (for closed type families).
+//
+//	case scrutinee { Pattern => Body; ... }
+func (p *Parser) parseTypeCase() *syn.TyExprCase {
+	start := p.peek().S.Start
+	p.expect(syn.TokCase)
+	scrutinee := p.parseTypeAtom()
+
+	openTok := p.expect(syn.TokLBrace)
+	var alts []syn.TyAlt
+	p.parseBody("type case", openTok.S, func() {
+		altStart := p.peek().S.Start
+		// Parse pattern: stop before => (don't consume it as QualType)
+		pattern := p.parseTypeApp()
+		p.expect(syn.TokFatArrow)
+		// Parse body: also stop before ; or } (don't consume as QualType)
+		body := p.parseTypeApp()
+		alts = append(alts, syn.TyAlt{
+			Pattern: pattern,
+			Body:    body,
+			S:       span.Span{Start: altStart, End: p.prevEnd()},
+		})
+	})
+
+	return &syn.TyExprCase{
+		Scrutinee: scrutinee,
+		Alts:      alts,
+		S:         span.Span{Start: start, End: p.prevEnd()},
 	}
 }
 

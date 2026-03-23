@@ -45,14 +45,42 @@ type TyExprForall struct {
 }
 
 type TyExprRow struct {
-	Fields []TyRowField
-	Tail   *TyExprVar
-	S      span.Span
+	Fields    []TyRowField
+	TypeDecls []TyRowTypeDecl // associated type declarations (in data bodies only)
+	Tail      *TyExprVar
+	S         span.Span
+}
+
+// TyRowTypeDecl is an associated type declaration within a data body row.
+//
+//	type Elem :: Type;
+type TyRowTypeDecl struct {
+	Name    string
+	KindAnn KindExpr
+	S       span.Span
 }
 
 type TyExprParen struct {
 	Inner TypeExpr
 	S     span.Span
+}
+
+// TyExprCase is a type-level case expression (closed type family body).
+//
+//	case scrutinee { Pattern => Body; ... }
+type TyExprCase struct {
+	Scrutinee TypeExpr
+	Alts      []TyAlt
+	S         span.Span
+}
+
+// TyAlt is a single alternative in a type-level case.
+type TyAlt struct {
+	EqName     string   // equation name (from legacy format, for validation)
+	RawPatCount int     // number of patterns before synthesis (for arity validation)
+	Pattern    TypeExpr // type pattern (e.g., Send s, List a)
+	Body       TypeExpr // result type
+	S          span.Span
 }
 
 // TyExprQual is a qualified type: Constraint => Body.
@@ -69,10 +97,11 @@ type TyBinder struct {
 }
 
 type TyRowField struct {
-	Label string
-	Type  TypeExpr
-	Mult  TypeExpr // nil if no @Mult annotation
-	S     span.Span
+	Label   string
+	Type    TypeExpr
+	Mult    TypeExpr // nil if no @Mult annotation (surface syntax, pre-grade migration)
+	Default Expr     // nil if no default value (for method defaults in data bodies)
+	S       span.Span
 }
 
 // ---- Kind expressions ----
@@ -109,6 +138,7 @@ func (*TyExprArrow) typeExprNode()   {}
 func (*TyExprForall) typeExprNode()  {}
 func (*TyExprRow) typeExprNode()     {}
 func (*TyExprParen) typeExprNode()   {}
+func (*TyExprCase) typeExprNode()    {}
 func (*TyExprQual) typeExprNode()    {}
 
 func (t *TyExprVar) Span() span.Span     { return t.S }
@@ -119,6 +149,7 @@ func (t *TyExprArrow) Span() span.Span   { return t.S }
 func (t *TyExprForall) Span() span.Span  { return t.S }
 func (t *TyExprRow) Span() span.Span     { return t.S }
 func (t *TyExprParen) Span() span.Span   { return t.S }
+func (t *TyExprCase) Span() span.Span    { return t.S }
 func (t *TyExprQual) Span() span.Span    { return t.S }
 
 func (*KindExprType) kindExprNode()       {}

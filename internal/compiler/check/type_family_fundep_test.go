@@ -6,8 +6,9 @@ import (
 	"github.com/cwd-k2/gicel/internal/lang/types"
 )
 
-// Type family fundep tests — type families, data families, and functional dependencies in combination.
+// Type family fundep tests — type families, class instances, and associated types in combination.
 // Does NOT cover: type family reduction (type_family_reduction_test.go), data family basics (data_family_test.go).
+// Note: fundep annotations and data family constructors are not supported in unified syntax.
 
 // --- 3a: Type family stress: nested families, recursive reduction, type-level computation ---
 
@@ -17,29 +18,31 @@ func TestAdvancedTypeFamilyStress(t *testing.T) {
 	}
 	source := `
 -- Peano naturals as DataKinds.
-data Nat := Z | S Nat
+data Nat := { Z: (); S: Nat; }
 
--- Type-level addition.
-type Add (a: Nat) (b: Nat) :: Nat := {
-  Add Z b =: b;
-  Add (S a) b =: S (Add a b)
+-- Type-level addition (encoded via NatPair since multi-param families
+-- require unified syntax encoding).
+data NatPair := \(a: Nat) (b: Nat). { MkNatPair: NatPair a b; }
+type Add :: Nat := \(p: Type). case p {
+  (NatPair Z b) => b;
+  (NatPair (S a) b) => S (Add (NatPair a b))
 }
 
 -- Phantom type indexed by Nat.
-data NatProxy (n: Nat) := MkProxy
+data NatProxy := \(n: Nat). { MkProxy: NatProxy n; }
 
 -- Elem: container element extraction.
-data List a := Nil | Cons a (List a)
-data Maybe a := Nothing | Just a
+data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
+data Maybe := \a. { Nothing: Maybe a; Just: a -> Maybe a; }
 
-type Elem (c: Type) :: Type := {
-  Elem (List a) =: a;
-  Elem (Maybe a) =: a
+type Elem :: Type := \(c: Type). case c {
+  (List a) => a;
+  (Maybe a) => a
 }
 
 -- Wrap: type-level function.
-type Wrap (a: Type) :: Type := {
-  Wrap a =: Maybe a
+type Wrap :: Type := \(a: Type). case a {
+  a => Maybe a
 }
 
 -- Nested reduction: Elem (List (Wrap Int)) reduces as:
@@ -48,37 +51,37 @@ nestedElem :: Elem (List (Wrap Int)) -> Maybe Int
 nestedElem := \x. x
 
 -- Season rotation: single-step NextSeason is fully reduced.
-data Season := Spring | Summer | Autumn | Winter
+data Season := { Spring: Season; Summer: Season; Autumn: Season; Winter: Season; }
 
-type NextSeason (s: Season) :: Season := {
-  NextSeason Spring =: Summer;
-  NextSeason Summer =: Autumn;
-  NextSeason Autumn =: Winter;
-  NextSeason Winter =: Spring
+type NextSeason :: Season := \(s: Season). case s {
+  Spring => Summer;
+  Summer => Autumn;
+  Autumn => Winter;
+  Winter => Spring
 }
 
-data Tagged (s: Season) := MkTagged
+data Tagged := \(s: Season). { MkTagged: Tagged s; }
 
 -- NextSeason reduces for concrete season values.
 nextProof :: Tagged (NextSeason Spring) -> Tagged Summer
 nextProof := \x. x
 
--- Add (S (S Z)) Z = S (S Z): Peano addition at compile time.
-addProof :: NatProxy (Add (S (S Z)) Z) -> NatProxy (S (S Z))
+-- Add (NatPair (S (S Z)) Z) = S (S Z): Peano addition at compile time.
+addProof :: NatProxy (Add (NatPair (S (S Z)) Z)) -> NatProxy (S (S Z))
 addProof := \x. x
 
--- Add Z (S Z) = S Z
-addProof2 :: NatProxy (Add Z (S Z)) -> NatProxy (S Z)
+-- Add (NatPair Z (S Z)) = S Z
+addProof2 :: NatProxy (Add (NatPair Z (S Z))) -> NatProxy (S Z)
 addProof2 := \x. x
 
--- Add (S Z) (S Z) = S (S Z)
-addProof3 :: NatProxy (Add (S Z) (S Z)) -> NatProxy (S (S Z))
+-- Add (NatPair (S Z) (S Z)) = S (S Z)
+addProof3 :: NatProxy (Add (NatPair (S Z) (S Z))) -> NatProxy (S (S Z))
 addProof3 := \x. x
 `
 	checkSource(t, source, config)
 }
 
-// --- 3b: Data family polymorphism ---
+// --- 3b: Associated type family polymorphism ---
 
 func TestAdvancedDataFamilyPolymorphism(t *testing.T) {
 	config := &CheckConfig{
@@ -88,62 +91,50 @@ func TestAdvancedDataFamilyPolymorphism(t *testing.T) {
 		},
 	}
 	source := `
-data Unit := Unit
-data Bool := True | False
-data Maybe a := Nothing | Just a
+data Unit := { Unit: Unit; }
+data Bool := { True: Bool; False: Bool; }
+data Maybe := \a. { Nothing: Maybe a; Just: a -> Maybe a; }
 
--- Wrappable class: each type wraps into a different runtime shape.
-class Wrappable w {
-  data Wrapped w :: Type;
-  wrap :: w -> Wrapped w;
-  unwrap :: Wrapped w -> w
+-- Wrappable class: each type wraps into the same shape (associated type family).
+-- Data family constructors are not supported in unified syntax.
+data Wrappable := \w. {
+  type Wrapped w :: Type;
+  wrap: w -> Wrapped w;
+  unwrap: Wrapped w -> w
 }
 
-instance Wrappable Int {
-  data Wrapped Int =: IntBox Int;
-  wrap := \n. IntBox n;
-  unwrap := \w. case w { IntBox n -> n }
+impl Wrappable Int := {
+  type Wrapped := Int;
+  wrap := \n. n;
+  unwrap := \w. w
 }
 
-instance Wrappable Bool {
-  data Wrapped Bool =: BoolBit Bool;
-  wrap := \b. BoolBit b;
-  unwrap := \w. case w { BoolBit b -> b }
+impl Wrappable Bool := {
+  type Wrapped := Bool;
+  wrap := \b. b;
+  unwrap := \w. w
 }
 
-instance Wrappable Unit {
-  data Wrapped Unit =: UnitBox;
-  wrap := \_. UnitBox;
+impl Wrappable Unit := {
+  type Wrapped := Unit;
+  wrap := \_. Unit;
   unwrap := \_. Unit
 }
 
-instance Wrappable (Maybe a) {
-  data Wrapped (Maybe a) =: OptBox (Maybe a);
-  wrap := \m. OptBox m;
-  unwrap := \w. case w { OptBox m -> m }
-}
-
--- Data family constructors are type-distinct.
+-- Verify associated type reduces correctly.
 boxedInt :: Wrapped Int
-boxedInt := IntBox 42
+boxedInt := 42
 
 boxedBool :: Wrapped Bool
-boxedBool := BoolBit True
+boxedBool := True
 
 boxedUnit :: Wrapped Unit
-boxedUnit := UnitBox
-
--- Pattern matching on data family types.
-isIntBox :: Wrapped Int -> Int
-isIntBox := \w. case w { IntBox n -> n }
-
-isBoolBit :: Wrapped Bool -> Bool
-isBoolBit := \w. case w { BoolBit b -> b }
+boxedUnit := Unit
 `
 	checkSource(t, source, config)
 }
 
-// --- 3c: Fundep inference ---
+// --- 3c: Class with multiple params and instance resolution ---
 
 func TestAdvancedFunDepInference(t *testing.T) {
 	config := &CheckConfig{
@@ -153,69 +144,69 @@ func TestAdvancedFunDepInference(t *testing.T) {
 		},
 	}
 	source := `
-data Unit := Unit
-data Bool := True | False
-data Maybe a := Nothing | Just a
-data List a := Nil | Cons a (List a)
+data Unit := { Unit: Unit; }
+data Bool := { True: Bool; False: Bool; }
+data Maybe := \a. { Nothing: Maybe a; Just: a -> Maybe a; }
+data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
 
--- Convert class with fundep: source type determines target.
-class Convert a b | a =: b {
-  convert :: a -> b
+-- Convert class (without fundep annotation in unified syntax).
+data Convert := \a b. {
+  convert: a -> b
 }
 
-instance Convert Bool Int {
-  convert := \b. case b { True -> 1; False -> 0 }
+impl Convert Bool Int := {
+  convert := \b. case b { True => 1; False => 0 }
 }
 
-instance Convert Unit Bool {
+impl Convert Unit Bool := {
   convert := \_. True
 }
 
--- Fundep inference: convert True → the checker deduces b = Int from a = Bool.
+-- Instance resolution: convert True with annotation deduces b = Int.
 boolToInt :: Int
 boolToInt := convert True
 
--- convert Unit → deduces b = Bool from a = Unit.
+-- convert Unit with annotation deduces b = Bool.
 unitToBool :: Bool
 unitToBool := convert Unit
 
--- HasElem class: container determines element type.
-class HasElem c e | c =: e {
-  getFirst :: c -> Maybe e
+-- HasElem class.
+data HasElem := \c e. {
+  getFirst: c -> Maybe e
 }
 
-instance HasElem (List a) a {
-  getFirst := \xs. case xs { Cons x _ -> Just x; Nil -> Nothing }
+impl HasElem (List a) a := {
+  getFirst := \xs. case xs { Cons x _ => Just x; Nil => Nothing }
 }
 
-instance HasElem (Maybe a) a {
-  getFirst := \m. case m { Just x -> Just x; Nothing -> Nothing }
+impl HasElem (Maybe a) a := {
+  getFirst := \m. case m { Just x => Just x; Nothing => Nothing }
 }
 
--- getFirst (Cons Unit Nil): c = List Unit → e = Unit
+-- getFirst (Cons Unit Nil): c = List Unit, e = Unit
 firstOfList :: Maybe Unit
 firstOfList := getFirst (Cons Unit Nil)
 
--- getFirst (Just True): c = Maybe Bool → e = Bool
+-- getFirst (Just True): c = Maybe Bool, e = Bool
 firstOfMaybe :: Maybe Bool
 firstOfMaybe := getFirst (Just True)
 
--- Bidirectional fundep.
-class Iso a b | a =: b, b =: a {
-  forward :: a -> b;
-  backward :: b -> a
+-- Bidirectional class (without fundep annotation).
+data Iso := \a b. {
+  forward: a -> b;
+  backward: b -> a
 }
 
-instance Iso Bool Int {
-  forward := \b. case b { True -> 1; False -> 0 };
+impl Iso Bool Int := {
+  forward := \b. case b { True => 1; False => 0 };
   backward := \_. True
 }
 
--- forward True: a = Bool → b = Int
+-- forward True: a = Bool, b = Int
 fwd :: Int
 fwd := forward True
 
--- backward 0: b = Int → a = Bool
+-- backward 0: b = Int, a = Bool
 bwd :: Bool
 bwd := backward 0
 `
@@ -225,33 +216,33 @@ bwd := backward 0
 // --- Additional: complex interactions ---
 
 func TestAdvancedTypeFamilyWithDataFamily(t *testing.T) {
-	// Combine closed type family with data family in the same program.
+	// Combine closed type family with associated type family in the same program.
 	source := `
-data Unit := Unit
-data Bool := True | False
-data Maybe a := Nothing | Just a
+data Unit := { Unit: Unit; }
+data Bool := { True: Bool; False: Bool; }
+data Maybe := \a. { Nothing: Maybe a; Just: a -> Maybe a; }
 
-type IsJust (m: Type) :: Bool := {
-  IsJust (Maybe a) =: True;
-  IsJust _ =: False
+type IsJust :: Bool := \(m: Type). case m {
+  (Maybe a) => True;
+  _ => False
 }
 
-class Container c {
-  data Elem c :: Type;
-  cempty :: c
+data Container := \c. {
+  type Elem c :: Type;
+  cempty: c
 }
 
-instance Container (Maybe a) {
-  data Elem (Maybe a) =: MaybeElem a;
+impl Container (Maybe a) := {
+  type Elem := a;
   cempty := Nothing
 }
 
--- Both the closed TF and data family work together.
-v :: Elem (Maybe Unit)
-v := MaybeElem Unit
+-- Both the closed TF and associated type work together.
+v :: Elem (Maybe Unit) -> Unit
+v := \x. x
 
 -- IsJust reduces for a concrete type.
-data Phantom (b: Bool) := MkPhantom
+data Phantom := \(b: Bool). { MkPhantom: Phantom b; }
 proof :: Phantom (IsJust (Maybe Unit)) -> Phantom True
 proof := \x. x
 `
@@ -259,27 +250,27 @@ proof := \x. x
 }
 
 func TestAdvancedFunDepWithTypeFamily(t *testing.T) {
-	// Fundep interacts with type family reduction.
+	// Class interacts with type family reduction.
 	source := `
-data Unit := Unit
-data Maybe a := Nothing | Just a
-data List a := Nil | Cons a (List a)
+data Unit := { Unit: Unit; }
+data Maybe := \a. { Nothing: Maybe a; Just: a -> Maybe a; }
+data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
 
-type Elem (c: Type) :: Type := {
-  Elem (List a) =: a;
-  Elem (Maybe a) =: a
+type Elem :: Type := \(c: Type). case c {
+  (List a) => a;
+  (Maybe a) => a
 }
 
--- Fundep class where one param is a type family application.
-class Extract c e | c =: e {
-  extract :: c -> Maybe e
+-- Class where one param is the element type.
+data Extract := \c e. {
+  extract: c -> Maybe e
 }
 
-instance Extract (List a) a {
-  extract := \xs. case xs { Cons x _ -> Just x; Nil -> Nothing }
+impl Extract (List a) a := {
+  extract := \xs. case xs { Cons x _ => Just x; Nil => Nothing }
 }
 
--- extract (Cons Unit Nil): c = List Unit → e = Unit
+-- extract (Cons Unit Nil): c = List Unit, e = Unit
 result :: Maybe Unit
 result := extract (Cons Unit Nil)
 `
@@ -289,15 +280,15 @@ result := extract (Cons Unit Nil)
 func TestAdvancedRecursiveTFWithPhantom(t *testing.T) {
 	// Recursive type family Dual for session types with concrete usage.
 	source := `
-data Session := Send Session | Recv Session | End
+data Session := { Send: Session; Recv: Session; End: (); }
 
-type Dual (s: Session) :: Session := {
-  Dual (Send s) =: Recv (Dual s);
-  Dual (Recv s) =: Send (Dual s);
-  Dual End =: End
+type Dual :: Session := \(s: Session). case s {
+  (Send s) => Recv (Dual s);
+  (Recv s) => Send (Dual s);
+  End => End
 }
 
-data Chan (s: Session) := MkChan
+data Chan := \(s: Session). { MkChan: Chan s; }
 
 -- Dual (Send End) = Recv (Dual End) = Recv End
 dualProof1 :: Chan (Dual (Send End)) -> Chan (Recv End)

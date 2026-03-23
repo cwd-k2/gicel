@@ -24,14 +24,14 @@ ordMaybe3 := compare (Just True) (Nothing :: Maybe Bool)
 
 -- Applicative tests
 appWrap := (wrap True :: Maybe Bool)
-appAp   := ap (Just (\x. case x { True -> False; False -> True })) (Just True)
+appAp   := ap (Just (\x. case x { True => False; False => True })) (Just True)
 
 -- Traversable tests
 travMaybeJust := traverse (\x. Just x) (Just True)
 travMaybeNothing := traverse (\x. Just x) (Nothing :: Maybe Bool)
 
 -- Functor List
-fmapList := fmap (\x. case x { True -> False; False -> True }) (Cons True Nil)
+fmapList := fmap (\x. case x { True => False; False => True }) (Cons True Nil)
 
 -- Foldable List
 foldList := foldr (\x acc. x) False (Cons True Nil)

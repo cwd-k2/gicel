@@ -20,10 +20,10 @@ import (
 const source = `
 import Prelude
 
-myApply :: (Int -> Int) -> Int -> Int
+myApply: (Int -> Int) -> Int -> Int
 myApply := assumption
 
-double :: Int -> Int
+double: Int -> Int
 double := \x. x + x
 
 main := myApply double 21

@@ -41,10 +41,10 @@ var grammarPrograms = []stressProgram{
 		file: "13_modules.gicel",
 		setup: func(e *gicel.Engine) {
 			err := e.RegisterModule("Lib", `
-data LibBool := LibTrue | LibFalse
+data LibBool := { LibTrue: LibBool; LibFalse: LibBool; }
 libTrue := LibTrue
 libNot :: LibBool -> LibBool
-libNot := \b. case b { LibTrue -> LibFalse; LibFalse -> LibTrue }
+libNot := \b. case b { LibTrue => LibFalse; LibFalse => LibTrue }
 `)
 			if err != nil {
 				panic(err)

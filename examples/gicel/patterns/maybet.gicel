@@ -15,10 +15,10 @@ runMaybeT :: \(m: Type -> Type) a. MaybeT m a -> m (Maybe a)
 runMaybeT := \mt. case mt { MkMaybeT ma -> ma }
 
 -- Monad instance: bind threads Maybe failure through the base monad
-instance Monad m => Monad (MaybeT m) {
+impl Monad m => Monad (MaybeT m) := {
   mpure := \a. MkMaybeT (mpure (Just a));
   mbind := \ma f. MkMaybeT (mbind (runMaybeT ma) (\opt. case opt {
-    Nothing -> mpure Nothing;
+    Nothing => mpure Nothing;
     Just a  -> runMaybeT (f a)
   }))
 }
@@ -32,7 +32,7 @@ failT := MkMaybeT (mpure Nothing)
 safeDivM :: Int -> Int -> MaybeT Maybe Int
 safeDivM := \x y. case eq y 0 {
   True  -> failT;
-  False -> MkMaybeT (Just (Just (x / y)))
+  False => MkMaybeT (Just (Just (x / y)))
 }
 
 -- 10 / 2 = 5, then 5 / 0 → Nothing (short-circuits)

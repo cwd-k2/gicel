@@ -17,7 +17,7 @@ import (
 // TestStressHigherRankThreeLevels — three nested \ levels with subsumption.
 func TestStressHigherRankThreeLevels(t *testing.T) {
 	source := `
-data Bool := True | False
+data Bool := { True: Bool; False: Bool; }
 
 -- Level 1: \ a. a -> a
 id :: \ a. a -> a
@@ -39,8 +39,8 @@ main := applyApplyId applyId
 // TestStressHigherRankNested — higher-rank nested in function arguments.
 func TestStressHigherRankNested(t *testing.T) {
 	source := `
-data Bool := True | False
-data Maybe a := Nothing | Just a
+data Bool := { True: Bool; False: Bool; }
+data Maybe := \a. { Nothing: Maybe a; Just: a -> Maybe a; }
 
 apply :: (\ a. a -> a) -> Bool -> Bool
 apply := \f x. f x
@@ -56,9 +56,9 @@ main := (apply (\x. x) True, applyMaybe (\x. Just x) False)
 // TestStressManyUnannLetBindings — 15 unannotated let-bindings with class constraints.
 func TestStressManyUnannLetBindings(t *testing.T) {
 	var sb strings.Builder
-	sb.WriteString("data Bool := True | False\n")
-	sb.WriteString("class Eq a { eq :: a -> a -> Bool }\n")
-	sb.WriteString("instance Eq Bool { eq := \\x y. True }\n\n")
+	sb.WriteString("data Bool := { True: Bool; False: Bool; }\n")
+	sb.WriteString("data Eq := \\a. { eq: a -> a -> Bool }\n")
+	sb.WriteString("impl Eq Bool := { eq := \\x y. True }\n\n")
 
 	// 15 unannotated bindings, each using eq.
 	for i := range 15 {
@@ -72,7 +72,7 @@ func TestStressManyUnannLetBindings(t *testing.T) {
 func TestStressDeepNestedLambdas(t *testing.T) {
 	const N = 50
 	var sb strings.Builder
-	sb.WriteString("data Bool := True | False\n")
+	sb.WriteString("data Bool := { True: Bool; False: Bool; }\n")
 
 	// Build signature: \ a0 ... a49. a0 -> a1 -> ... -> a49 -> a0
 	sb.WriteString("f :: \\")
@@ -104,20 +104,20 @@ func TestStressDeepNestedLambdas(t *testing.T) {
 // TestStressRowHKTInteraction — Functor on Record with row polymorphism.
 func TestStressRowHKTInteraction(t *testing.T) {
 	source := `
-data Bool := True | False
-data Maybe a := Nothing | Just a
+data Bool := { True: Bool; False: Bool; }
+data Maybe := \a. { Nothing: Maybe a; Just: a -> Maybe a; }
 
-class Functor (f: Type -> Type) {
-  fmap :: \ a b. (a -> b) -> f a -> f b
+data Functor := \(f: Type -> Type). {
+  fmap: \ a b. (a -> b) -> f a -> f b
 }
 
-instance Functor Maybe {
-  fmap := \g mx. case mx { Nothing -> Nothing; Just x -> Just (g x) }
+impl Functor Maybe := {
+  fmap := \g mx. case mx { Nothing => Nothing; Just x => Just (g x) }
 }
 
 -- Use Functor Maybe with a record argument.
 not :: Bool -> Bool
-not := \b. case b { True -> False; False -> True }
+not := \b. case b { True => False; False => True }
 
 main := fmap not (Just True)
 `
@@ -127,8 +127,8 @@ main := fmap not (Just True)
 // TestStressExhaustiveGADTManyCons — exhaustiveness with 10 GADT constructors.
 func TestStressExhaustiveGADTManyCons(t *testing.T) {
 	var sb strings.Builder
-	sb.WriteString("data Bool := True | False\n")
-	sb.WriteString("data Expr a := {\n")
+	sb.WriteString("data Bool := { True: Bool; False: Bool; }\n")
+	sb.WriteString("data Expr := \\a. {\n")
 	// 10 constructors, separated by ;
 	for i := range 10 {
 		if i > 0 {
@@ -136,7 +136,7 @@ func TestStressExhaustiveGADTManyCons(t *testing.T) {
 		} else {
 			sb.WriteString("  ")
 		}
-		sb.WriteString(fmt.Sprintf("Con%d :: Bool -> Expr Bool", i))
+		sb.WriteString(fmt.Sprintf("Con%d: Bool -> Expr Bool", i))
 	}
 	sb.WriteString("\n}\n\n")
 	// Match all 10 constructors, branches separated by ;
@@ -145,7 +145,7 @@ func TestStressExhaustiveGADTManyCons(t *testing.T) {
 		if i > 0 {
 			sb.WriteString(";\n")
 		}
-		sb.WriteString(fmt.Sprintf("  Con%d b -> b", i))
+		sb.WriteString(fmt.Sprintf("  Con%d b => b", i))
 	}
 	sb.WriteString("\n}\n")
 	sb.WriteString("main := eval (Con0 True)\n")
@@ -155,14 +155,14 @@ func TestStressExhaustiveGADTManyCons(t *testing.T) {
 // TestStressConstraintAliasinContext — type alias used as constraint context.
 func TestStressConstraintAliasInContext(t *testing.T) {
 	source := `
-data Bool := True | False
+data Bool := { True: Bool; False: Bool; }
 
-class Eq a { eq :: a -> a -> Bool }
-class Eq a => Ord a { compare :: a -> a -> Bool }
-instance Eq Bool { eq := \x y. True }
-instance Ord Bool { compare := \x y. True }
+data Eq := \a. { eq: a -> a -> Bool }
+data Ord := \a. Eq a => { compare: a -> a -> Bool }
+impl Eq Bool := { eq := \x y. True }
+impl Ord Bool := { compare := \x y. True }
 
-type EqOrd a := (Eq a, Ord a) => a -> a -> Bool
+type EqOrd := \a. (Eq a, Ord a) => a -> a -> Bool
 
 -- Use the alias.
 bothCheck :: \ a. EqOrd a
@@ -176,25 +176,25 @@ main := bothCheck True False
 // TestStressDeepSuperclassWithHKT — 4-level superclass chain + poly-kinded class.
 func TestStressDeepSuperclassWithHKT(t *testing.T) {
 	source := `
-data Bool := True | False
-data Maybe a := Nothing | Just a
+data Bool := { True: Bool; False: Bool; }
+data Maybe := \a. { Nothing: Maybe a; Just: a -> Maybe a; }
 
-class C1 a { m1 :: a -> Bool }
-class C1 a => C2 a { m2 :: a -> Bool }
-class C2 a => C3 a { m3 :: a -> Bool }
-class C3 a => C4 a { m4 :: a -> Bool }
+data C1 := \a. { m1: a -> Bool }
+data C2 := \a. C1 a => { m2: a -> Bool }
+data C3 := \a. C2 a => { m3: a -> Bool }
+data C4 := \a. C3 a => { m4: a -> Bool }
 
-instance C1 Bool { m1 := \x. True }
-instance C2 Bool { m2 := \x. True }
-instance C3 Bool { m3 := \x. True }
-instance C4 Bool { m4 := \x. True }
+impl C1 Bool := { m1 := \x. True }
+impl C2 Bool := { m2 := \x. True }
+impl C3 Bool := { m3 := \x. True }
+impl C4 Bool := { m4 := \x. True }
 
-class Functor (f: Type -> Type) {
-  fmap :: \ a b. (a -> b) -> f a -> f b
+data Functor := \(f: Type -> Type). {
+  fmap: \ a b. (a -> b) -> f a -> f b
 }
 
-instance Functor Maybe {
-  fmap := \g mx. case mx { Nothing -> Nothing; Just x -> Just (g x) }
+impl Functor Maybe := {
+  fmap := \g mx. case mx { Nothing => Nothing; Just x => Just (g x) }
 }
 
 -- Use deep superclass method via top-level constraint + HKT.
@@ -209,14 +209,14 @@ main := fmap f (Just True)
 // TestStressManyContextualInstances — 8 contextual instances in a chain.
 func TestStressManyContextualInstances(t *testing.T) {
 	var sb strings.Builder
-	sb.WriteString("data Bool := True | False\n")
-	sb.WriteString("class Eq a { eq :: a -> a -> Bool }\n")
-	sb.WriteString("instance Eq Bool { eq := \\x y. True }\n\n")
+	sb.WriteString("data Bool := { True: Bool; False: Bool; }\n")
+	sb.WriteString("data Eq := \\a. { eq: a -> a -> Bool }\n")
+	sb.WriteString("impl Eq Bool := { eq := \\x y. True }\n\n")
 
 	// 8 wrapper types, each with a contextual Eq instance.
 	for i := range 8 {
-		sb.WriteString(fmt.Sprintf("data W%d a := MkW%d a\n", i, i))
-		sb.WriteString(fmt.Sprintf("instance Eq a => Eq (W%d a) { eq := \\x y. True }\n\n", i))
+		sb.WriteString(fmt.Sprintf("data W%d := \\a. { MkW%d: a -> W%d a; }\n", i, i, i))
+		sb.WriteString(fmt.Sprintf("impl Eq a => Eq (W%d a) := { eq := \\x y. True }\n\n", i))
 	}
 
 	// Nested application: Eq (W0 (W1 (W2 (W3 (W4 (W5 (W6 (W7 Bool))))))))
@@ -233,18 +233,18 @@ func TestStressManyContextualInstances(t *testing.T) {
 // TestStressMultiParamClassManyArgs — multi-param class with 4 type parameters.
 func TestStressMultiParamClassManyArgs(t *testing.T) {
 	source := `
-data Bool := True | False
-data Unit := Unit
+data Bool := { True: Bool; False: Bool; }
+data Unit := { Unit: Unit; }
 
-class Multi a b c d {
-  multi :: a -> b -> c -> d -> Bool
+data Multi := \a b c d. {
+  multi: a -> b -> c -> d -> Bool
 }
 
-instance Multi Bool Bool Bool Bool {
+impl Multi Bool Bool Bool Bool := {
   multi := \a b c d. True
 }
 
-instance Multi Unit Unit Unit Unit {
+impl Multi Unit Unit Unit Unit := {
   multi := \a b c d. False
 }
 

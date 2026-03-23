@@ -26,10 +26,10 @@ data End := MkEnd
 send :: \s. Computation { ch: Send s @Linear } { ch: s @Linear } Int
 send := assumption
 
-recv :: \s. Computation { ch: Recv s @Linear } { ch: s @Linear } Int
+recv: \s. Computation { ch: Recv s @Linear } { ch: s @Linear } Int
 recv := assumption
 
-close :: Computation { ch: End @Linear } {} ()
+close: Computation { ch: End @Linear } {} ()
 close := assumption
 
 -- Ping-pong protocol: send a number, receive a response, close.

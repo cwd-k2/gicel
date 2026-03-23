@@ -55,7 +55,7 @@ type LUB (m1: Mult) (m2: Mult) :: Mult := {
 lub :: Mult -> Mult -> Mult
 lub := \a b. case a {
   Linear -> Linear;
-  Affine -> case b { Linear -> Linear; _ -> Affine };
+  Affine -> case b { Linear -> Linear; _ => Affine };
   Unrestricted -> b
 }
 

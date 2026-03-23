@@ -17,7 +17,7 @@ import (
 // The source declares `greet` as an assumption with its type annotation
 // written directly in the language via `::`.
 const source = `
-greet :: () -> ()
+greet: () -> ()
 greet := assumption
 
 main := greet ()

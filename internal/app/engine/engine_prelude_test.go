@@ -757,8 +757,8 @@ func TestCatMaybes(t *testing.T) {
 }
 
 func TestMapMaybe(t *testing.T) {
-	// mapMaybe (\x. case x { True -> Just False; False -> Nothing }) [True, False, True]
-	v := runPure(t, `main := mapMaybe (\x. case x { True -> Just False; False -> Nothing }) (Cons True (Cons False (Cons True Nil)))`)
+	// mapMaybe (\x. case x { True => Just False; False => Nothing }) [True, False, True]
+	v := runPure(t, `main := mapMaybe (\x. case x { True => Just False; False => Nothing }) (Cons True (Cons False (Cons True Nil)))`)
 	con := v.(*eval.ConVal)
 	assertConVal(t, con.Args[0], "False")
 	con2 := con.Args[1].(*eval.ConVal)

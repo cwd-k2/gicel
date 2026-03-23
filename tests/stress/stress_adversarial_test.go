@@ -269,7 +269,7 @@ main := loop 0
 func TestAdversarial_FixExponentialBranching(t *testing.T) {
 	src := `
 import Prelude
-bomb := fix (\self n. case n == 0 { True -> 0; False -> self (n - 1) + self (n - 1) })
+bomb := fix (\self n. case n == 0 { True => 0; False => self (n - 1) + self (n - 1) })
 main := bomb 50
 `
 	eng := gicel.NewEngine()
@@ -356,7 +356,7 @@ main := grow "A"
 func TestAdversarial_TypeFamilyInfiniteLoop(t *testing.T) {
 	src := `
 import Prelude
-type Loop a :: Type := { Loop a =: Loop (Maybe a) }
+type Loop :: Type := \(a: Type). case a { a => Loop (Maybe a) }
 x :: Loop Int
 x := 42
 main := x
@@ -377,9 +377,9 @@ main := x
 func TestAdversarial_OverlappingInstances(t *testing.T) {
 	src := `
 import Prelude
-class MyClass a { myMethod :: a -> Int }
-instance MyClass Int { myMethod := \x. x }
-instance MyClass a { myMethod := \x. 0 }
+data MyClass := \a. { myMethod: a -> Int }
+impl MyClass Int := { myMethod := \x. x }
+impl MyClass a := { myMethod := \x. 0 }
 main := myMethod 42
 `
 	_, err := gicel.RunSandbox(src, &gicel.SandboxConfig{
@@ -398,8 +398,8 @@ main := myMethod 42
 func TestAdversarial_NonExhaustivePattern(t *testing.T) {
 	src := `
 import Prelude
-data Color := Red | Green | Blue
-incomplete := \c. case c { Red -> 1; Green -> 2 }
+data Color := { Red: Color; Green: Color; Blue: Color; }
+incomplete := \c. case c { Red => 1; Green => 2 }
 main := incomplete Blue
 `
 	_, err := gicel.RunSandbox(src, &gicel.SandboxConfig{
@@ -441,21 +441,21 @@ func TestAdversarial_DeepPolymorphicChain(t *testing.T) {
 func TestAdversarial_SuperclassChain(t *testing.T) {
 	src := `
 import Prelude
-class A a { methodA :: a -> Int }
-class A a => B a { methodB :: a -> Int }
-class B a => C a { methodC :: a -> Int }
-class C a => D a { methodD :: a -> Int }
-class D a => E a { methodE :: a -> Int }
-class E a => F a { methodF :: a -> Int }
-class F a => G a { methodG :: a -> Int }
+data A := \a. { methodA: a -> Int }
+data B := \a. A a => { methodB: a -> Int }
+data C := \a. B a => { methodC: a -> Int }
+data D := \a. C a => { methodD: a -> Int }
+data E := \a. D a => { methodE: a -> Int }
+data F := \a. E a => { methodF: a -> Int }
+data G := \a. F a => { methodG: a -> Int }
 
-instance A Int { methodA := \x. x }
-instance B Int { methodB := \x. x + 1 }
-instance C Int { methodC := \x. x + 2 }
-instance D Int { methodD := \x. x + 3 }
-instance E Int { methodE := \x. x + 4 }
-instance F Int { methodF := \x. x + 5 }
-instance G Int { methodG := \x. x + 6 }
+impl A Int := { methodA := \x. x }
+impl B Int := { methodB := \x. x + 1 }
+impl C Int := { methodC := \x. x + 2 }
+impl D Int := { methodD := \x. x + 3 }
+impl E Int := { methodE := \x. x + 4 }
+impl F Int := { methodF := \x. x + 5 }
+impl G Int := { methodG := \x. x + 6 }
 
 main := methodG 42
 `
@@ -634,12 +634,12 @@ func TestAdversarial_ManyTypeErrors(t *testing.T) {
 func TestV8_MonadDoNotation(t *testing.T) {
 	src := `
 import Prelude
-data Reader e a := MkReader (e -> a)
+data Reader := \e a. { MkReader: (e -> a) -> Reader e a; }
 runReader :: \e a. Reader e a -> e -> a
-runReader := \r env. case r { MkReader f -> f env }
+runReader := \r env. case r { MkReader f => f env }
 ask :: \e. Reader e e
 ask := MkReader (\e. e)
-instance Monad (Reader e) {
+impl Monad (Reader e) := {
   mpure := \a. MkReader (\_. a);
   mbind := \ma f. MkReader (\env. runReader (f (runReader ma env)) env)
 }
@@ -667,9 +667,9 @@ main := runReader (do { x <- ask; pure (append "port=" (show x)) } :: Reader Int
 func TestV9_FixConValErrorMessage(t *testing.T) {
 	src := `
 import Prelude
-data Pair := MkPair Int Int
+data Pair := { MkPair: Int -> Int -> Pair }
 getFirst :: Pair -> Int
-getFirst := \p. case p { MkPair a _ -> a }
+getFirst := \p. case p { MkPair a _ => a }
 main := getFirst (fix (\self. MkPair 1 2))
 `
 	eng := gicel.NewEngine()

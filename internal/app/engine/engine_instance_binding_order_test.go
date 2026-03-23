@@ -18,12 +18,12 @@ func TestInstanceMethodReferencesRegularBinding(t *testing.T) {
 	eng.Use(stdlib.Prelude)
 	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
-class Wrap f { wrap :: \ a. a -> f a }
+data Wrap := \f. { wrap: \ a. a -> f a }
 
 myJust :: \ a. a -> Maybe a
 myJust := \x. Just x
 
-instance Wrap Maybe { wrap := myJust }
+impl Wrap Maybe := { wrap := myJust }
 
 main := wrap True
 `)
@@ -48,12 +48,12 @@ func TestInstanceMethodReferencesChain(t *testing.T) {
 	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 
-class Scale a { scale :: Int -> a -> a }
+data Scale := \a. { scale: Int -> a -> a }
 
 scaleInt :: Int -> Int -> Int
 scaleInt := \n x. n * x
 
-instance Scale Int { scale := scaleInt }
+impl Scale Int := { scale := scaleInt }
 
 main := scale 3 10
 `)

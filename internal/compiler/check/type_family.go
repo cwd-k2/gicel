@@ -7,7 +7,6 @@ import (
 	"github.com/cwd-k2/gicel/internal/compiler/check/family"
 	"github.com/cwd-k2/gicel/internal/infra/diagnostic"
 	"github.com/cwd-k2/gicel/internal/infra/span"
-	"github.com/cwd-k2/gicel/internal/lang/syntax"
 	"github.com/cwd-k2/gicel/internal/lang/types"
 )
 
@@ -38,7 +37,7 @@ func (ch *Checker) matchTyPattern(pat, arg types.Type, subst map[string]types.Ty
 }
 
 // processTypeFamily kind-checks and registers a type family declaration.
-func (ch *Checker) processTypeFamily(d *syntax.DeclTypeFamily) {
+func (ch *Checker) processTypeFamily(d *legacyDeclTypeFamily) {
 	// Check for duplicate.
 	if _, dup := ch.reg.LookupFamily(d.Name); dup {
 		ch.addCodedError(diagnostic.ErrDuplicateDecl, d.S,

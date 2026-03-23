@@ -234,10 +234,10 @@ func TestCollision_QualifiedDisambiguatesType(t *testing.T) {
 	source := `
 import ModA as A
 import ModB as B
-data Bool := True | False
+data Bool := { True: Bool; False: Bool; }
 
 f :: A.Color -> Bool
-f := \x. case x { A.Red -> True }
+f := \x. case x { A.Red => True }
 
 main := f A.Red
 `

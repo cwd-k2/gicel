@@ -8,18 +8,18 @@
 import Prelude
 
 -- Convert class with fundep: the source type determines the target type.
-class Convert a b | a =: b {
+data Convert a b | a =: b {
   convert :: a -> b
 }
 
 -- Bool → Int: True = 1, False = 0
-instance Convert Bool Int {
-  convert := \b. case b { True -> 1; False -> 0 }
+impl Convert Bool Int := {
+  convert := \b. case b { True => 1; False => 0 }
 }
 
 -- Maybe a → List a: Just x = [x], Nothing = []
-instance Convert (Maybe a) (List a) {
-  convert := \m. case m { Just x -> Cons x Nil; Nothing -> Nil }
+impl Convert (Maybe a) (List a) := {
+  convert := \m. case m { Just x => Cons x Nil; Nothing => Nil }
 }
 
 -- Without the fundep, the compiler couldn't infer the return type

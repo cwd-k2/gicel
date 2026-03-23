@@ -36,7 +36,7 @@ func dictName(className string) string { return className + "$Dict" }
 // processClassDecl elaborates a class declaration into:
 // 1. A DataDecl for the dictionary type
 // 2. Selector bindings for each method
-func (ch *Checker) processClassDecl(d *syntax.DeclClass, prog *ir.Program) {
+func (ch *Checker) processClassDecl(d *legacyDeclClass, prog *ir.Program) {
 	dn := dictName(d.Name)
 
 	// Collect implicit kind variables from type parameter kind annotations.

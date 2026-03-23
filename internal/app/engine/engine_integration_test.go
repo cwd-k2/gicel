@@ -255,7 +255,7 @@ func TestTypeAlias(t *testing.T) {
 	eng.Use(stdlib.Prelude)
 	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
-type Effect r a := Computation r r a
+type Effect := \r a. Computation r r a
 
 main :: Effect {} Bool
 main := pure True
@@ -343,14 +343,14 @@ func TestFullPipeline(t *testing.T) {
 	eng.Use(stdlib.Prelude)
 	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
-data SomeEq := { MkSomeEq :: \a. Eq a => a -> SomeEq }
+data SomeEq := { MkSomeEq: \a. Eq a => a -> SomeEq }
 isSelf :: SomeEq -> Bool
-isSelf := \s. case s { MkSomeEq x -> eq x x }
+isSelf := \s. case s { MkSomeEq x => eq x x }
 applyId :: (\a. a -> a) -> Bool
 applyId := \f. f True
 id :: \a. a -> a
 id := \x. x
-main := case isSelf (MkSomeEq True) { True -> applyId id; False -> False }
+main := case isSelf (MkSomeEq True) { True => applyId id; False => False }
 `)
 	if err != nil {
 		t.Fatal(err)
@@ -389,7 +389,7 @@ func TestConstraintTupleE2E(t *testing.T) {
 	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 eqAndOrd :: \a. (Eq a, Ord a) => a -> a -> Bool
-eqAndOrd := \x y. case eq x y { True -> True; False -> case compare x y { EQ -> True; _ -> False } }
+eqAndOrd := \x y. case eq x y { True => True; False => case compare x y { EQ => True; _ => False } }
 main := eqAndOrd True True
 `)
 	if err != nil {
@@ -549,8 +549,8 @@ func TestKindedClassParam(t *testing.T) {
 	eng.Use(stdlib.Prelude)
 	_, err := eng.NewRuntime(context.Background(), `
 import Prelude
-class MyClass (m: Row -> Row -> Type -> Type) {
-  myPure :: \a (r: Row). a -> m r r a
+data MyClass := \(m: Row -> Row -> Type -> Type). {
+  myPure: \a (r: Row). a -> m r r a
 }
 main := True
 `)
@@ -564,10 +564,10 @@ func TestKindedClassParamWithInstance(t *testing.T) {
 	eng.Use(stdlib.Prelude)
 	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
-class Wrap (f: Type -> Type) {
-  wrap :: \a. a -> f a
+data Wrap := \(f: Type -> Type). {
+  wrap: \a. a -> f a
 }
-instance Wrap Maybe {
+impl Wrap Maybe := {
   wrap := \x. Just x
 }
 main := wrap True
@@ -677,12 +677,12 @@ func TestTypeFamilyIsolationAcrossCompilations(t *testing.T) {
 	eng := NewEngine()
 	// Register a module with a class + associated type.
 	err := eng.RegisterModule("TFLib", `
-data Bool := True | False
-data Nat := Zero | Succ Nat
+data Bool := { True: Bool; False: Bool; }
+data Nat := { Zero: Nat; Succ: Nat -> Nat; }
 
-class Convert a {
+data Convert := \a. {
   type Target a :: Type;
-  convert :: a -> Target a
+  convert: a -> Target a
 }
 `)
 	if err != nil {
@@ -691,9 +691,9 @@ class Convert a {
 	// First compilation: instance Convert Bool.
 	rt1, err := eng.NewRuntime(context.Background(), `
 import TFLib
-instance Convert Bool {
-  type Target Bool =: Nat;
-  convert := \b. case b { True -> Succ Zero; False -> Zero }
+impl Convert Bool := {
+  type Target := Nat;
+  convert := \b. case b { True => Succ Zero; False => Zero }
 }
 main := convert True
 `)
@@ -713,9 +713,9 @@ main := convert True
 	// would have leaked into the module metadata.
 	rt2, err := eng.NewRuntime(context.Background(), `
 import TFLib
-instance Convert Nat {
-  type Target Nat =: Bool;
-  convert := \n. case n { Zero -> False; Succ _ -> True }
+impl Convert Nat := {
+  type Target := Bool;
+  convert := \n. case n { Zero => False; Succ _ => True }
 }
 main := convert Zero
 `)

@@ -8,12 +8,12 @@ fail := failWith ()
 
 fromMaybe :: \a r. Maybe a -> Computation { fail: () | r } { fail: () | r } a
 fromMaybe := \m. case m {
-  Nothing -> fail;
-  Just x  -> pure x
+  Nothing => fail;
+  Just x  => pure x
 }
 
 fromResult :: \e a r. Result e a -> Computation { fail: e | r } { fail: e | r } a
 fromResult := \r. case r {
-  Err e -> failWith e;
-  Ok x  -> pure x
+  Err e => failWith e;
+  Ok x  => pure x
 }

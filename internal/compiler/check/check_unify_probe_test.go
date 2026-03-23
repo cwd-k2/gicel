@@ -32,7 +32,7 @@ import (
 func TestProbeA_RowUnify_EmptyRows(t *testing.T) {
 	// Use Record {} or () in type position for empty record.
 	source := `
-f :: () -> ()
+f :: () => ()
 f := \x. x
 
 main := f {}
@@ -58,7 +58,7 @@ main := f { x: 42 }
 // against a concrete closed row should solve the tail to empty.
 func TestProbeA_RowUnify_TailVsClosedRow(t *testing.T) {
 	source := `
-data Bool := True | False
+data Bool := { True: Bool; False: Bool; }
 
 -- f is polymorphic over the row tail but concretely applied to a closed record.
 f := \r. r.#x
@@ -82,7 +82,7 @@ main := f { x: True, y: 42 }
 // evidence row. Using `Record { a: Bool, b: Int }` is the correct syntax.
 func TestProbeA_RowUnify_OrderInsensitivity(t *testing.T) {
 	source := `
-data Bool := True | False
+data Bool := { True: Bool; False: Bool; }
 
 f :: Record { a: Bool, b: Int } -> Bool
 f := \r. r.#a
@@ -112,7 +112,7 @@ main := { x: 42, x: 43 }
 // extra field to a function expecting a closed row should error.
 func TestProbeA_RowUnify_ExtraFieldVsClosedRow(t *testing.T) {
 	source := `
-data Bool := True | False
+data Bool := { True: Bool; False: Bool; }
 
 f :: Record { x: Bool } -> Bool
 f := \r. r.#x
@@ -141,7 +141,7 @@ main := { x: 42 }.#z
 // the wrong type should fail. Record update syntax: { base | field: value }.
 func TestProbeA_RowUnify_RecordUpdateFieldType(t *testing.T) {
 	source := `
-data Bool := True | False
+data Bool := { True: Bool; False: Bool; }
 
 main := { { x: 42 } | x: True }
 `
@@ -162,10 +162,10 @@ f := \x. { x: f x }
 }
 
 // TestProbeA_EmptyRecordUnifiesWithEmptyRecord — edge case: check that
-// () -> () is valid (unit type).
+// () => () is valid (unit type).
 func TestProbeA_EmptyRecordUnifiesWithEmptyRecord(t *testing.T) {
 	source := `
-f :: () -> ()
+f :: () => ()
 f := \x. x
 
 main := f {}
@@ -178,7 +178,7 @@ main := f {}
 // Uses the correct record update syntax: { base | field: value }.
 func TestProbeA_RowUnify_UpdatePreservesExtraFields(t *testing.T) {
 	source := `
-data Bool := True | False
+data Bool := { True: Bool; False: Bool; }
 
 r := { x: True, y: 42 }
 main := { r | x: False }
@@ -200,7 +200,7 @@ main := { r | x: False }
 func TestProbeA_RowUnify_RecordAnnotationVsLiteralBareRow(t *testing.T) {
 	// This SHOULD work but doesn't: bare {} in type annotation.
 	source := `
-f :: {} -> {}
+f: {} -> {}
 f := \x. x
 main := f {}
 `
@@ -215,9 +215,9 @@ main := f {}
 // more fields than the pattern should work (the pattern is open).
 func TestProbeA_RowUnify_RecordPatternExtraFields(t *testing.T) {
 	source := `
-data Bool := True | False
+data Bool := { True: Bool; False: Bool; }
 
-f := \r. case r { { x: a } -> a }
+f := \r. case r { { x: a } => a }
 main := f { x: True, y: 42 }
 `
 	config := &CheckConfig{

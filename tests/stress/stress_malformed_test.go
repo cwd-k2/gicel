@@ -62,8 +62,7 @@ func TestMalformedOperators(t *testing.T) {
 	}{
 		{"dot-mixed +.+", "import Prelude; main := 1 +.+ 2", "expected expression"},
 		{"dot-mixed .+.", "import Prelude; main := 1 .+. 2", "expected expression"},
-		{"reserved =:=", "import Prelude; infixl 5 =:=; (=:=) :: Int -> Int -> Int; (=:=) := \\x y. x; main := 0", "reserved symbol"},
-		{"reserved ->", "import Prelude; main := 1 -> 2", "expected declaration"},
+		{"reserved ->", "import Prelude; main := 1 => 2", "expected declaration"},
 		{"reserved <-", "import Prelude; main := 1 <- 2", "expected declaration"},
 		{"reserved :=", "import Prelude; main := 1 := 2", "expected declaration"},
 		{"reserved |", "import Prelude; main := 1 | 2", "expected declaration"},
@@ -146,12 +145,12 @@ func TestMalformedListSyntax(t *testing.T) {
 		src  string
 		want string
 	}{
-		{"unclosed list pattern", "import Prelude; f := \\xs. case xs { [x, y -> x }; main := 0", "expected ]"},
-		{"trailing comma in pattern", "import Prelude; f := \\xs. case xs { [x,] -> x; _ -> 0 }; main := 0", "expected pattern"},
+		{"unclosed list pattern", "import Prelude; f := \\xs. case xs { [x, y => x }; main := 0", "expected ]"},
+		{"trailing comma in pattern", "import Prelude; f := \\xs. case xs { [x,] => x; _ => 0 }; main := 0", "expected pattern"},
 		{"double comma in literal", "import Prelude; main := [1,,2]", "expected expression"},
 		{"semicolon in list", "import Prelude; main := [1; 2; 3]", "expected ]"},
-		{"list type mismatch", `import Prelude; f :: List Int -> Int; f := \xs. case xs { ["hello"] -> 0; _ -> 1 }; main := 0`, "type mismatch"},
-		{"list pattern on non-list", `import Prelude; f :: Int -> Int; f := \x. case x { [a] -> a; _ -> 0 }; main := 0`, "type mismatch"},
+		{"list type mismatch", `import Prelude; f :: List Int -> Int; f := \xs. case xs { ["hello"] => 0; _ => 1 }; main := 0`, "type mismatch"},
+		{"list pattern on non-list", `import Prelude; f :: Int -> Int; f := \x. case x { [a] => a; _ => 0 }; main := 0`, "type mismatch"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -233,7 +232,7 @@ func TestStressLargeListPattern(t *testing.T) {
 		}
 		sb.WriteString(fmt.Sprintf("x%d", i))
 	}
-	sb.WriteString(fmt.Sprintf("] -> x0 + x%d; _ -> 0 }\n", 49))
+	sb.WriteString(fmt.Sprintf("] => x0 + x%d; _ => 0 }\n", 49))
 	sb.WriteString("main := f [")
 	for i := range 50 {
 		if i > 0 {
@@ -277,7 +276,7 @@ func TestStressNestedListPattern(t *testing.T) {
 		valBuf.WriteString("]")
 	}
 
-	src := fmt.Sprintf("import Prelude\nf := \\xs. case xs { %s -> x; _ -> 0 }\nmain := f %s\n",
+	src := fmt.Sprintf("import Prelude\nf := \\xs. case xs { %s => x; _ => 0 }\nmain := f %s\n",
 		patBuf.String(), valBuf.String())
 
 	result, err := gicel.RunSandbox(src, &gicel.SandboxConfig{

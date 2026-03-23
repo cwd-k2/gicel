@@ -119,7 +119,7 @@ func (ch *Checker) instanceDictName(className string, typeArgs []types.Type) str
 
 // processAssocDataDef registers constructors for an associated data family definition
 // and creates the type family equation mapping the family to its mangled data type.
-func (ch *Checker) processAssocDataDef(add syntax.AssocDataDef, className string, instSpan span.Span) {
+func (ch *Checker) processAssocDataDef(add legacyAssocDataDef, className string, instSpan span.Span) {
 	fam, ok := ch.reg.LookupFamily(add.Name)
 	if !ok {
 		ch.addCodedError(diagnostic.ErrBadInstance, instSpan,
@@ -241,7 +241,7 @@ func (ch *Checker) autoLiftTypeArgs(typeArgs []types.Type, paramKinds []types.Ki
 func (ch *Checker) validateInstanceMethods(
 	className string,
 	classInfo *ClassInfo,
-	declMethods []syntax.InstMethod,
+	declMethods []legacyInstMethod,
 	methodExprs map[string]syntax.Expr,
 	s span.Span,
 ) bool {

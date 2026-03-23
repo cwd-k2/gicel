@@ -30,7 +30,7 @@ var solverTestCases = []solverTestCase{
 	{name: "polymorphic", source: `import Prelude; id := \x. x; main := id (id 1)`},
 	{name: "pair", source: `import Prelude; main := (1, True)`},
 	{name: "list", source: `import Prelude; main := [1, 2, 3]`},
-	{name: "case", source: `import Prelude; main := case True { True -> 1; False -> 0 }`},
+	{name: "case", source: `import Prelude; main := case True { True => 1; False => 0 }`},
 	{name: "do notation", source: `
 import Prelude
 import Effect.State
@@ -46,17 +46,17 @@ main := double 5`},
 	{name: "nested constraints", source: `
 import Prelude
 f :: (Eq a, Show a) => a -> String
-f := \x. case x == x { True -> show x; False -> "no" }
+f := \x. case x == x { True => show x; False => "no" }
 main := f 42`},
 	{name: "type family basic", source: `
 import Prelude
-type Id (a: Type) :: Type := { Id a =: a }
+type Id :: Type := \(a: Type). case a { a => a }
 main := (1 :: Id Int) + 2`},
 	{name: "ADT pattern match", source: `
 import Prelude
-data Color := Red | Green | Blue
+data Color := { Red: Color; Green: Color; Blue: Color; }
 name :: Color -> String
-name := \c. case c { Red -> "red"; Green -> "green"; Blue -> "blue" }
+name := \c. case c { Red => "red"; Green => "green"; Blue => "blue" }
 main := name Red`},
 	{name: "record", source: `
 import Prelude
@@ -65,7 +65,7 @@ main := { x: 1, y: True }`},
 	{name: "composition", source: `import Prelude; main := ((\x. x + 1) . (\x. x * 2)) 3`},
 	{name: "check only ADT", source: `
 import Prelude
-data Protocol := Done
+data Protocol := { Done: Protocol; }
 main := Done`, checkOnly: true},
 }
 

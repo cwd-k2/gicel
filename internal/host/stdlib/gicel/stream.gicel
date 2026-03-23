@@ -1,25 +1,25 @@
 import Prelude
 
-data Stream a := LCons a (() -> Stream a) | LNil
+data Stream := \a. { LCons: a -> (() -> Stream a) -> Stream a; LNil: Stream a; }
 
 head :: \a. Stream a -> Maybe a
-head := \s. case s { LNil -> Nothing; LCons x _ -> Just x }
+head := \s. case s { LNil => Nothing; LCons x _ => Just x }
 
 tail :: \a. Stream a -> Maybe (Stream a)
-tail := \s. case s { LNil -> Nothing; LCons _ t -> Just (t ()) }
+tail := \s. case s { LNil => Nothing; LCons _ t => Just (t ()) }
 
-instance FromList (Stream a) {
-  type Elem (Stream a) =: a;
+impl FromList (Stream a) := {
+  type Elem := a;
   fromList := fix \self xs. case xs {
-    Nil -> LNil;
-    Cons x rest -> LCons x (\_. self rest)
+    Nil => LNil;
+    Cons x rest => LCons x (\_. self rest)
   }
 }
 
-instance ToList (Stream a) {
+impl ToList (Stream a) := {
   toList := fix \self s. case s {
-    LNil -> Nil;
-    LCons x t -> Cons x (self (t ()))
+    LNil => Nil;
+    LCons x t => Cons x (self (t ()))
   }
 }
 
@@ -35,16 +35,16 @@ take := _takeS
 drop :: \a. Int -> Stream a -> Stream a
 drop := _dropS
 
-instance Functor Stream {
+impl Functor Stream := {
   fmap := \f. fix \self s. case s {
-    LNil -> LNil;
-    LCons x t -> LCons (f x) (\_. self (t ()))
+    LNil => LNil;
+    LCons x t => LCons (f x) (\_. self (t ()))
   }
 }
 
-instance Foldable Stream {
+impl Foldable Stream := {
   foldr := \f z. fix \self s. case s {
-    LNil -> z;
-    LCons x t -> f x (self (t ()))
+    LNil => z;
+    LCons x t => f x (self (t ()))
   }
 }

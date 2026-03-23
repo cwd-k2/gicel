@@ -45,12 +45,12 @@ delete := _setDelete compare
 size :: \k. Set k -> Int
 size := _setSize
 
-instance Ord k => FromList (Set k) {
-  type Elem (Set k) =: k;
+impl Ord k => FromList (Set k) := {
+  type Elem := k;
   fromList := _setFromList compare
 }
 
-instance Ord k => ToList (Set k) { toList := _setToList }
+impl Ord k => ToList (Set k) := { toList := _setToList }
 
 union :: \k. Ord k => Set k -> Set k -> Set k
 union := _setUnion compare

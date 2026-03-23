@@ -29,7 +29,7 @@ func TestTypeErrorNonExhaustive(t *testing.T) {
 	eng.Use(stdlib.Prelude)
 	_, err := eng.NewRuntime(context.Background(), `
 import Prelude
-f := \x. case x { True -> () }
+f := \x. case x { True => () }
 main := f True
 `)
 	if err == nil {
@@ -77,9 +77,9 @@ func TestContextTimeout(t *testing.T) {
 	eng.SetStepLimit(1) // extremely low step limit
 	eng.EnableRecursion()
 	rt, err := eng.NewRuntime(context.Background(), `
-data Unit := Unit
-data Bool := True | False
-not := \b. case b { True -> False; False -> True }
+data Unit := { Unit: Unit; }
+data Bool := { True: Bool; False: Bool; }
+not := \b. case b { True => False; False => True }
 main := not (not (not True))
 `)
 	if err != nil {
@@ -176,7 +176,7 @@ func TestNonExhaustiveMaybe(t *testing.T) {
 	eng.Use(stdlib.Prelude)
 	_, err := eng.NewRuntime(context.Background(), `
 import Prelude
-f := \x. case x { Just y -> y }
+f := \x. case x { Just y => y }
 main := f (Just True)
 `)
 	if err == nil {

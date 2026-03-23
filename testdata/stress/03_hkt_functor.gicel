@@ -1,32 +1,32 @@
 import Prelude
 
-data Tree a := Leaf a | Branch (Tree a) (Tree a)
+data Tree := \a. { Leaf: a -> Tree a; Branch: Tree a -> Tree a -> Tree a }
 
-class Functor f { fmap :: \a b. (a -> b) -> f a -> f b }
+data Functor := \f. { fmap: \a b. (a -> b) -> f a -> f b }
 
-instance Functor Maybe {
+impl Functor Maybe := {
   fmap := \g mx. case mx {
-    Nothing -> Nothing;
-    Just x  -> Just (g x)
+    Nothing => Nothing;
+    Just x  => Just (g x)
   }
 }
 
-instance Functor Tree {
+impl Functor Tree := {
   fmap := \g t. case t {
-    Leaf x       -> Leaf (g x);
-    Branch l r   -> Branch (fmap g l) (fmap g r)
+    Leaf x       => Leaf (g x);
+    Branch l r   => Branch (fmap g l) (fmap g r)
   }
 }
 
-class Functor f => Applicative f {
-  wrap :: \a. a -> f a
+data Applicative := \f. Functor f => {
+  wrap: \a. a -> f a
 }
 
-instance Applicative Maybe {
+impl Applicative Maybe := {
   wrap := \x. Just x
 }
 
-not := \b. case b { True -> False; False -> True }
+not := \b. case b { True => False; False => True }
 
 liftF :: \f a b. Functor f => (a -> b) -> f a -> f b
 liftF := \g fa. fmap g fa
@@ -42,9 +42,9 @@ treeOfBools := Branch (Leaf True) (Branch (Leaf False) (Leaf True))
 mappedTree := fmap not treeOfBools
 
 main := case mappedTree {
-  Branch l _ -> case l {
-    Leaf v -> v;
-    _      -> True
+  Branch l _ => case l {
+    Leaf v => v;
+    _      => True
   };
-  Leaf v -> v
+  Leaf v => v
 }

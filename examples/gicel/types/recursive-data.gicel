@@ -20,7 +20,7 @@ three := S (S (S Z))
 
 -- Check if a Nat is zero
 isZero :: Nat -> Bool
-isZero := \n. case n { Z -> True; S _ -> False }
+isZero := \n. case n { Z -> True; S _ => False }
 
 -- Extract the predecessor, if any
 pred :: Nat -> Maybe Nat
@@ -38,27 +38,27 @@ bigTree := Branch (Branch (Leaf True) (Leaf False)) (Leaf True)
 
 -- Check if a tree is a single leaf
 isLeaf :: Tree a -> Bool
-isLeaf := \t. case t { Leaf _ -> True; Branch _ _ -> False }
+isLeaf := \t. case t { Leaf _ => True; Branch _ _ => False }
 
 -- Get the value from a leaf, or Nothing for a branch
 leafValue :: Tree a -> Maybe a
-leafValue := \t. case t { Leaf x -> Just x; Branch _ _ -> Nothing }
+leafValue := \t. case t { Leaf x -> Just x; Branch _ _ => Nothing }
 
 -- Get the left subtree, if it is a branch
 leftChild :: Tree a -> Maybe (Tree a)
-leftChild := \t. case t { Leaf _ -> Nothing; Branch l _ -> Just l }
+leftChild := \t. case t { Leaf _ => Nothing; Branch l _ => Just l }
 
 -- Count the depth of a tree (recursive, requires --recursion)
 depth :: Tree a -> Int
 depth := fix (\self t. case t {
-  Leaf _ -> 0;
+  Leaf _ => 0;
   Branch l r -> 1 + max (self l) (self r)
 })
 
 -- Count the number of leaves (recursive, requires --recursion)
 size :: Tree a -> Int
 size := fix (\self t. case t {
-  Leaf _ -> 1;
+  Leaf _ => 1;
   Branch l r -> self l + self r
 })
 

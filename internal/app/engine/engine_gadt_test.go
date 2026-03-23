@@ -15,8 +15,8 @@ import (
 func TestDataKindsDBState(t *testing.T) {
 	eng := NewEngine()
 	rt, err := eng.NewRuntime(context.Background(), `
-data DBState := Opened | Closed
-data DB s := MkDB
+data DBState := { Opened: DBState; Closed: DBState; }
+data DB := \s. { MkDB: DB s; }
 
 open :: DB Closed -> DB Opened
 open := \_. MkDB
@@ -48,7 +48,7 @@ func TestDataKindsInRow(t *testing.T) {
 	})
 	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
-data DBState := Opened | Closed
+data DBState := { Opened: DBState; Closed: DBState; }
 
 readDB :: () -> Computation { db: Int } { db: Int } Int
 readDB := assumption
@@ -74,7 +74,7 @@ func TestDataKindsBoolPromotion(t *testing.T) {
 	eng.Use(stdlib.Prelude)
 	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
-data Proxy s := MkProxy
+data Proxy := \s. { MkProxy: Proxy s; }
 main := (MkProxy :: Proxy True)
 `)
 	if err != nil {
@@ -98,12 +98,12 @@ func TestGADTEvalExpr(t *testing.T) {
 	eng.EnableRecursion()
 	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
-data Expr a := { LitBool :: Bool -> Expr Bool; Not :: Expr Bool -> Expr Bool }
+data Expr := \a. { LitBool: Bool -> Expr Bool; Not: Expr Bool -> Expr Bool }
 
 eval :: Expr Bool -> Bool
 eval := fix (\self e. case e {
-  LitBool b -> b;
-  Not inner -> case self inner { True -> False; False -> True }
+  LitBool b => b;
+  Not inner => case self inner { True => False; False => True }
 })
 
 main := eval (Not (LitBool True))
@@ -124,13 +124,13 @@ main := eval (Not (LitBool True))
 func TestGADTWithDataKinds(t *testing.T) {
 	eng := NewEngine()
 	rt, err := eng.NewRuntime(context.Background(), `
-data DBState := Opened | Closed
-data DB s := MkDB
+data DBState := { Opened: DBState; Closed: DBState; }
+data DB := \s. { MkDB: DB s; }
 
-data Action s := { Open :: Action Opened; Close :: Action Closed }
+data Action := \s. { Open: Action Opened; Close: Action Closed }
 
 describe :: Action Opened -> DB Opened
-describe := \a. case a { Open -> MkDB }
+describe := \a. case a { Open => MkDB }
 
 main := describe Open
 `)
@@ -152,16 +152,16 @@ func TestGADTNestedPattern(t *testing.T) {
 	eng.Use(stdlib.Prelude)
 	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
-data Expr a := { LitBool :: Bool -> Expr Bool; Not :: Expr Bool -> Expr Bool }
+data Expr := \a. { LitBool: Bool -> Expr Bool; Not: Expr Bool -> Expr Bool }
 
 -- Nested pattern: match on Not (LitBool _)
 isDoubleNeg :: Expr Bool -> Bool
 isDoubleNeg := \e. case e {
-  Not inner -> case inner {
-    Not _ -> True;
-    LitBool _ -> False
+  Not inner => case inner {
+    Not _ => True;
+    LitBool _ => False
   };
-  LitBool _ -> False
+  LitBool _ => False
 }
 
 main := isDoubleNeg (Not (Not (LitBool True)))

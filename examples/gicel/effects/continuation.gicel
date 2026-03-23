@@ -15,7 +15,7 @@ data Cont r a := MkCont ((a -> r) -> r)
 runCont :: \r a. Cont r a -> (a -> r) -> r
 runCont := \c. case c { MkCont f -> f }
 
-instance Monad (Cont r) {
+impl Monad (Cont r) := {
   mpure := \a. MkCont (\k. k a);
   mbind := \ma f. MkCont (\k. runCont ma (\a. runCont (f a) k))
 }
@@ -53,7 +53,7 @@ ex3 := runCont earlyExit id    -- 42
 clampPositive :: Cont Int Int
 clampPositive := do {
   x <- MkCont (\k. k (negate 3));
-  case x < 0 { True -> abort 0; False -> mpure x }
+  case x < 0 { True => abort 0; False => mpure x }
 }
 
 ex4 := runCont clampPositive id  -- 0 (negative → clamped)

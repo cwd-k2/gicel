@@ -12,38 +12,6 @@ import (
 	"github.com/cwd-k2/gicel/internal/infra/diagnostic"
 )
 
-// --- =: guard ---
-
-func TestLexer_EqColonEqReportsError(t *testing.T) {
-	tokens, es := lexWithErrors("=:=")
-	if tokens[0].Kind != TokOp || tokens[0].Text != "=:=" {
-		t.Errorf("expected TokOp(\"=:=\"), got %v %q", tokens[0].Kind, tokens[0].Text)
-	}
-	if !es.HasErrors() {
-		t.Fatal("expected error for =:= containing reserved =:")
-	}
-	found := false
-	for _, e := range es.Errs {
-		if e.Code == diagnostic.ErrReservedInOp && strings.Contains(e.Message, "=:") {
-			found = true
-		}
-	}
-	if !found {
-		t.Errorf("expected ErrReservedInOp mentioning =:, got: %s", es.Format())
-	}
-}
-
-func TestLexer_EqColonStillWorks(t *testing.T) {
-	tokens := lex("=:")
-	if tokens[0].Kind != TokEqColon {
-		t.Errorf("expected TokEqColon for '=:', got %v", tokens[0].Kind)
-	}
-	tokens2 := lex("=: x")
-	if tokens2[0].Kind != TokEqColon {
-		t.Errorf("expected TokEqColon for '=: x', got %v", tokens2[0].Kind)
-	}
-}
-
 // --- => guard ---
 
 func TestLexer_FatArrowStillWorks(t *testing.T) {

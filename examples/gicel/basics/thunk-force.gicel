@@ -16,7 +16,7 @@ basic := thunk do {
 
 -- Thunks as first-class values: store two, force one based on a condition
 choose := \flag thenBranch elseBranch.
-  case flag { True -> thenBranch; False -> elseBranch }
+  case flag { True => thenBranch; False => elseBranch }
 
 branching := thunk do {
   tA := thunk (pure 100);

@@ -28,7 +28,7 @@ func ExampleEngine_NewRuntime() {
 
 	rt, err := eng.NewRuntime(context.Background(), `
 		import Prelude
-		not := \b. case b { True -> False; False -> True }
+		not := \b. case b { True => False; False => True }
 		main := not False
 	`)
 	if err != nil {

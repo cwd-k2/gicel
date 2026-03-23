@@ -231,11 +231,11 @@ func TestListReplicate(t *testing.T) {
 }
 
 func TestListFoldl(t *testing.T) {
-	// foldl (\acc x -> case x { True -> acc + 1; False -> acc }) 0 [True, False, True]
+	// foldl (\acc x -> case x { True => acc + 1; False => acc }) 0 [True, False, True]
 	// = ((0 + 1) + 0) + 1 = 2
 	v := runWithPacks(t, `
 import Prelude
-main := foldl (\acc x. case x { True -> acc + 1; False -> acc }) 0 (Cons True (Cons False (Cons True Nil)))
+main := foldl (\acc x. case x { True => acc + 1; False => acc }) 0 (Cons True (Cons False (Cons True Nil)))
 `, stdlib.Prelude)
 	hv, ok := v.(*eval.HostVal)
 	if !ok {
@@ -558,7 +558,7 @@ main := scanl (\x y. x + y) 0 (Cons 1 (Cons 2 (Cons 3 Nil)))
 func TestListUnfoldr(t *testing.T) {
 	v := runWithPacks(t, `
 import Prelude
-main := unfoldr (\n. case n == 0 { True -> Nothing; False -> Just (n, n - 1) }) 3
+main := unfoldr (\n. case n == 0 { True => Nothing; False => Just (n, n - 1) }) 3
 `, stdlib.Prelude)
 	// unfoldr from 3: Just (3,2), Just (2,1), Just (1,0), Nothing → [3,2,1]
 	con := v.(*eval.ConVal)

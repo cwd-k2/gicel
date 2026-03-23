@@ -23,8 +23,8 @@ func TestAliasCycleMutual(t *testing.T) {
 
 func TestAliasNoCycle(t *testing.T) {
 	// Eff references Computation, which is a built-in — not an alias.
-	source := `type Eff r a := Computation r r a
-data Unit := Unit
+	source := `type Eff := \r a. Computation r r a
+data Unit := { Unit: Unit; }
 main := pure Unit`
 	checkSource(t, source, nil)
 }

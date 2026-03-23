@@ -13,8 +13,8 @@ import (
 
 func TestGradeAnnotationParse(t *testing.T) {
 	source := `
-data Mult := Unrestricted | Affine | Linear
-data Unit := Unit
+data Mult := { Unrestricted: Mult; Affine: Mult; Linear: Mult; }
+data Unit := { Unit: Unit; }
 f :: { cap: Unit @Linear | r } -> Unit
 f := \x. Unit
 `
@@ -23,8 +23,8 @@ f := \x. Unit
 
 func TestGradeAnnotationParseMultipleFields(t *testing.T) {
 	source := `
-data Mult := Unrestricted | Affine | Linear
-data Unit := Unit
+data Mult := { Unrestricted: Mult; Affine: Mult; Linear: Mult; }
+data Unit := { Unit: Unit; }
 f :: { a: Unit @Linear, b: Unit @Affine } -> Unit
 f := \x. Unit
 `
@@ -33,8 +33,8 @@ f := \x. Unit
 
 func TestGradeAnnotationParseMixed(t *testing.T) {
 	source := `
-data Mult := Unrestricted | Affine | Linear
-data Unit := Unit
+data Mult := { Unrestricted: Mult; Affine: Mult; Linear: Mult; }
+data Unit := { Unit: Unit; }
 f :: { a: Unit @Linear, b: Unit } -> Unit
 f := \x. Unit
 `
@@ -45,8 +45,8 @@ f := \x. Unit
 
 func TestGradeAnnotationResolves(t *testing.T) {
 	source := `
-data Mult := Unrestricted | Affine | Linear
-data Unit := Unit
+data Mult := { Unrestricted: Mult; Affine: Mult; Linear: Mult; }
+data Unit := { Unit: Unit; }
 f :: { cap: Unit @Linear } -> { cap: Unit @Linear } -> Unit
 f := \x y. Unit
 `
@@ -57,8 +57,8 @@ f := \x y. Unit
 
 func TestGradeAnnotationUnifyMatch(t *testing.T) {
 	source := `
-data Mult := Unrestricted | Affine | Linear
-data Unit := Unit
+data Mult := { Unrestricted: Mult; Affine: Mult; Linear: Mult; }
+data Unit := { Unit: Unit; }
 id :: { cap: Unit @Linear } -> { cap: Unit @Linear }
 id := \x. x
 `
@@ -67,8 +67,8 @@ id := \x. x
 
 func TestGradeAnnotationUnifyMismatch(t *testing.T) {
 	source := `
-data Mult := Unrestricted | Affine | Linear
-data Unit := Unit
+data Mult := { Unrestricted: Mult; Affine: Mult; Linear: Mult; }
+data Unit := { Unit: Unit; }
 bad :: { cap: Unit @Linear } -> { cap: Unit @Affine }
 bad := \x. x
 `
@@ -79,8 +79,8 @@ bad := \x. x
 
 func TestGradeInComputation(t *testing.T) {
 	source := `
-data Mult := Unrestricted | Affine | Linear
-data Unit := Unit
+data Mult := { Unrestricted: Mult; Affine: Mult; Linear: Mult; }
+data Unit := { Unit: Unit; }
 use :: Computation { handle: Unit @Linear } {} Unit
 use := assumption
 `
@@ -89,8 +89,8 @@ use := assumption
 
 func TestGradePreserveInComputation(t *testing.T) {
 	source := `
-data Mult := Unrestricted | Affine | Linear
-data Unit := Unit
+data Mult := { Unrestricted: Mult; Affine: Mult; Linear: Mult; }
+data Unit := { Unit: Unit; }
 noop :: Computation { handle: Unit @Linear } { handle: Unit @Linear } Unit
 noop := assumption
 `
@@ -101,8 +101,8 @@ noop := assumption
 
 func TestGradeDoOpenUseClose(t *testing.T) {
 	source := `
-data Mult := Unrestricted | Affine | Linear
-data Unit := Unit
+data Mult := { Unrestricted: Mult; Affine: Mult; Linear: Mult; }
+data Unit := { Unit: Unit; }
 open :: Computation {} { h: Unit @Linear } Unit
 open := assumption
 use :: Computation { h: Unit @Linear } { h: Unit @Linear } Unit
@@ -117,8 +117,8 @@ main := do { open; use; close }
 
 func TestGradeDoBindResult(t *testing.T) {
 	source := `
-data Mult := Unrestricted | Affine | Linear
-data Unit := Unit
+data Mult := { Unrestricted: Mult; Affine: Mult; Linear: Mult; }
+data Unit := { Unit: Unit; }
 open :: Computation {} { h: Unit @Linear } Unit
 open := assumption
 read :: Computation { h: Unit @Linear } { h: Unit @Linear } Int
@@ -145,8 +145,8 @@ func TestGradeLinearMustBeConsumedEventually(t *testing.T) {
 	// open's post is { h: Unit @Linear }, but main expects post = {}
 	// Row unification catches this.
 	source := `
-data Mult := Unrestricted | Affine | Linear
-data Unit := Unit
+data Mult := { Unrestricted: Mult; Affine: Mult; Linear: Mult; }
+data Unit := { Unit: Unit; }
 open :: Computation {} { h: Unit @Linear } Unit
 open := assumption
 main :: Computation {} {} Unit
@@ -159,13 +159,13 @@ main := do { open }
 
 func TestGradeLUBTypeFamilyDefined(t *testing.T) {
 	source := `
-data Mult := Unrestricted | Affine | Linear
-type LUB (m1: Mult) (m2: Mult) :: Mult := {
-  LUB Linear _ =: Linear;
-  LUB _ Linear =: Linear;
-  LUB Affine _ =: Affine;
-  LUB _ Affine =: Affine;
-  LUB Unrestricted Unrestricted =: Unrestricted
+data Mult := { Unrestricted: Mult; Affine: Mult; Linear: Mult; }
+type LUB :: Mult := \(m1: Mult) (m2: Mult). case (m1, m2) {
+  (Linear, _) => Linear;
+  (_, Linear) => Linear;
+  (Affine, _) => Affine;
+  (_, Affine) => Affine;
+  (Unrestricted, Unrestricted) => Unrestricted
 }
 `
 	checkSource(t, source, nil)
@@ -175,8 +175,8 @@ type LUB (m1: Mult) (m2: Mult) :: Mult := {
 
 func TestGradeLinearSingleUseClose(t *testing.T) {
 	source := `
-data Mult := Unrestricted | Affine | Linear
-data Unit := Unit
+data Mult := { Unrestricted: Mult; Affine: Mult; Linear: Mult; }
+data Unit := { Unit: Unit; }
 use :: Computation { h: Unit @Linear } { h: Unit @Linear } Unit
 use := assumption
 close :: Computation { h: Unit @Linear } {} Unit
@@ -189,8 +189,8 @@ good := do { use; close }
 
 func TestGradeLinearConsumeOnly(t *testing.T) {
 	source := `
-data Mult := Unrestricted | Affine | Linear
-data Unit := Unit
+data Mult := { Unrestricted: Mult; Affine: Mult; Linear: Mult; }
+data Unit := { Unit: Unit; }
 close :: Computation { h: Unit @Linear } {} Unit
 close := assumption
 good :: Computation { h: Unit @Linear } {} Unit
@@ -201,8 +201,8 @@ good := do { close }
 
 func TestGradeUnrestrictedAllowsMultiple(t *testing.T) {
 	source := `
-data Mult := Unrestricted | Affine | Linear
-data Unit := Unit
+data Mult := { Unrestricted: Mult; Affine: Mult; Linear: Mult; }
+data Unit := { Unit: Unit; }
 use :: Computation { h: Unit @Unrestricted } { h: Unit @Unrestricted } Unit
 use := assumption
 close :: Computation { h: Unit @Unrestricted } {} Unit
@@ -216,9 +216,9 @@ f := do { use; use; use; close }
 func TestGradeTypeChangingPreservation(t *testing.T) {
 	// Protocol state transition — type changes at each step.
 	source := `
-data Mult := Unrestricted | Affine | Linear
-data Unit := Unit
-data S := A | B | C
+data Mult := { Unrestricted: Mult; Affine: Mult; Linear: Mult; }
+data Unit := { Unit: Unit; }
+data S := { A: S; B: S; C: S; }
 step1 :: Computation { ch: A @Linear } { ch: B @Linear } Unit
 step1 := assumption
 step2 :: Computation { ch: B @Linear } { ch: C @Linear } Unit
@@ -233,8 +233,8 @@ f := do { step1; step2; close }
 
 func TestGradeNoAnnotationNoRestriction(t *testing.T) {
 	source := `
-data Mult := Unrestricted | Affine | Linear
-data Unit := Unit
+data Mult := { Unrestricted: Mult; Affine: Mult; Linear: Mult; }
+data Unit := { Unit: Unit; }
 use :: Computation { h: Unit } { h: Unit } Unit
 use := assumption
 close :: Computation { h: Unit } {} Unit

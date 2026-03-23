@@ -1,6 +1,9 @@
 package check
 
 import (
+	"fmt"
+
+	"github.com/cwd-k2/gicel/internal/infra/diagnostic"
 	"github.com/cwd-k2/gicel/internal/infra/span"
 	"github.com/cwd-k2/gicel/internal/lang/types"
 )
@@ -90,11 +93,40 @@ func multJoin(a, b *types.TyCon) *types.TyCon {
 // A field that was consumed (absent from post) or transitioned (type changed)
 // is always valid regardless of grade.
 func (ch *Checker) checkGradeBoundary(comp *types.TyCBPV, s span.Span) {
-	// Phase 1: no enforcement. Grade checking will be activated in Phase 2
-	// when GradeAlgebra is expressible as data + impl with associated type
-	// families, and grade constraints flow through the solver as CtFunEq.
-	_ = comp
-	_ = s
+	preFields := extractCapFields(ch, comp.Pre)
+	if len(preFields) == 0 {
+		return
+	}
+
+	postFields := extractCapFields(ch, comp.Post)
+
+	for _, f := range preFields {
+		if len(f.Grades) == 0 {
+			continue // no grade constraints (unrestricted)
+		}
+
+		postTy := capFieldTypeByLabel(postFields, f.Label)
+		if postTy == nil {
+			continue // consumed: field not in post → OK
+		}
+
+		preTy := ch.unifier.Zonk(f.Type)
+		postTy = ch.unifier.Zonk(postTy)
+
+		if !types.Equal(preTy, postTy) {
+			continue // transitioned: type changed → OK
+		}
+
+		// Field preserved unchanged. Check each grade allows preservation.
+		for _, grade := range f.Grades {
+			grade = ch.unifier.Zonk(grade)
+			if !gradeCanPreserve(grade) {
+				ch.addCodedError(diagnostic.ErrMultiplicity, s,
+					fmt.Sprintf("@%s capability %q must be consumed (type unchanged across computation boundary)",
+						types.Pretty(grade), f.Label))
+			}
+		}
+	}
 }
 
 // extractCapFields returns the capability fields from a zonked row type, or nil.

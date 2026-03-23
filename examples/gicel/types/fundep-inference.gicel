@@ -8,20 +8,20 @@ import Prelude
 
 -- A type class for serialization with fundep: the format determines
 -- the wire type uniquely.
-class Serialize a b | a =: b {
+data Serialize a b | a =: b {
   encode :: a -> b;
   decode :: b -> a
 }
 
 -- Int serializes to String.
-instance Serialize Int String {
+impl Serialize Int String := {
   encode := show;
   decode := \s. 0
 }
 
 -- Bool serializes to Int (1/0).
-instance Serialize Bool Int {
-  encode := \b. case b { True -> 1; False -> 0 };
+impl Serialize Bool Int := {
+  encode := \b. case b { True => 1; False => 0 };
   decode := \n. True
 }
 
@@ -37,16 +37,16 @@ intAsStr := encode 42
 
 -- A two-parameter class for container mapping with fundep.
 -- Knowing the source container determines the element type.
-class HasElem c e | c =: e {
+data HasElem c e | c =: e {
   getFirst :: c -> Maybe e
 }
 
-instance HasElem (List a) a {
-  getFirst := \xs. case xs { Cons x _ -> Just x; Nil -> Nothing }
+impl HasElem (List a) a := {
+  getFirst := \xs. case xs { Cons x _ => Just x; Nil => Nothing }
 }
 
-instance HasElem (Maybe a) a {
-  getFirst := \m. case m { Just x -> Just x; Nothing -> Nothing }
+impl HasElem (Maybe a) a := {
+  getFirst := \m. case m { Just x => Just x; Nothing => Nothing }
 }
 
 -- The fundep c =: e means:
@@ -59,13 +59,13 @@ firstOfMaybe :: Maybe Bool
 firstOfMaybe := getFirst (Just True)
 
 -- Bidirectional fundep: knowing either direction determines the other.
-class Iso a b | a =: b, b =: a {
+data Iso a b | a =: b, b =: a {
   forward :: a -> b;
   backward :: b -> a
 }
 
-instance Iso Bool Int {
-  forward := \b. case b { True -> 1; False -> 0 };
+impl Iso Bool Int := {
+  forward := \b. case b { True => 1; False => 0 };
   backward := \n. True
 }
 

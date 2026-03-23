@@ -11,20 +11,20 @@ data Tree a := TLeaf a | TBranch (Tree a) (Tree a)
 
 -- Custom Mappable class with explicit kind annotation
 -- (f: Type -> Type) specifies that f is a type constructor
-class Mappable (f: Type -> Type) {
+data Mappable (f: Type -> Type) {
   mmap :: \a b. (a -> b) -> f a -> f b
 }
 
 -- Instance for Maybe (from Prelude)
-instance Mappable Maybe {
+impl Mappable Maybe := {
   mmap := \g mx. case mx {
-    Nothing -> Nothing;
+    Nothing => Nothing;
     Just x  -> Just (g x)
   }
 }
 
 -- Instance for Tree
-instance Mappable Tree {
+impl Mappable Tree := {
   mmap := \g t. case t {
     TLeaf x       -> TLeaf (g x);
     TBranch l r   -> TBranch (mmap g l) (mmap g r)

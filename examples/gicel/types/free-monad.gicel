@@ -18,7 +18,7 @@ data KV a := KVDone a
            | KVGet String (Int -> KV a)
            | KVPut String Int (KV a)
 
-instance Monad KV {
+impl Monad KV := {
   mpure := KVDone;
   mbind := fix (\self ma g. case ma {
     KVDone a           -> g a;
@@ -49,7 +49,7 @@ runKV := fix (\self prog bVal. case prog {
   KVDone a           -> a;
   KVGet key k        -> case eq key "a" {
     True  -> self (k 10) bVal;
-    False -> self (k bVal) bVal
+    False => self (k bVal) bVal
   };
   KVPut _ v next -> self next v
 })
@@ -63,7 +63,7 @@ test1 := runKV kvProgram 0  -- 21
 
 data Free (f: Type -> Type) a := Done a | Step (f (Free f a))
 
-instance Functor f => Monad (Free f) {
+impl Functor f => Monad (Free f) := {
   mpure := Done;
   mbind := fix (\self ma g. case ma {
     Done a  -> g a;
@@ -74,7 +74,7 @@ instance Functor f => Monad (Free f) {
 -- A counter DSL: increment and read the current count.
 data CounterF next := Inc next | GetCount (Int -> next)
 
-instance Functor CounterF {
+impl Functor CounterF := {
   fmap := \g cmd. case cmd {
     Inc next   -> Inc (g next);
     GetCount f -> GetCount (\n. g (f n))

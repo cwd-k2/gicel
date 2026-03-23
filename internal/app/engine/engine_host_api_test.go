@@ -55,7 +55,7 @@ func TestEngineUse(t *testing.T) {
 func TestNoPrelude(t *testing.T) {
 	eng := NewEngine()
 	rt, err := eng.NewRuntime(context.Background(), `
-data MyBool := MyTrue | MyFalse
+data MyBool := { MyTrue: MyBool; MyFalse: MyBool; }
 main := MyTrue
 `)
 	if err != nil {
@@ -105,7 +105,7 @@ func TestStepLimit(t *testing.T) {
 	eng.EnableRecursion()
 	// No recursion in source, just a program that completes in few steps.
 	rt, err := eng.NewRuntime(context.Background(), `
-data Unit := Unit
+data Unit := { Unit: Unit; }
 main := Unit
 `)
 	if err != nil {
@@ -208,7 +208,7 @@ func TestRuntimeConcurrent(t *testing.T) {
 	eng.Use(stdlib.Prelude)
 	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
-not := \b. case b { True -> False; False -> True }
+not := \b. case b { True => False; False => True }
 main := not False
 `)
 	if err != nil {

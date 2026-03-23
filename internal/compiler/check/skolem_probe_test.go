@@ -84,12 +84,12 @@ func TestProbeD_Skolem_MetaSolvedToSkolemInRow(t *testing.T) {
 // not escape through case pattern.
 func TestProbeD_Skolem_EscapeInExistential(t *testing.T) {
 	source := `
-data Bool := True | False
-data Exists := { MkExists :: \ a. a -> Exists }
+data Bool := { True: Bool; False: Bool; }
+data Exists := { MkExists: \ a. a -> Exists }
 
 -- Trying to return the existentially-bound value should fail.
 bad :: Exists -> Bool
-bad := \e. case e { MkExists x -> x }
+bad := \e. case e { MkExists x => x }
 `
 	checkSourceExpectError(t, source, nil)
 }

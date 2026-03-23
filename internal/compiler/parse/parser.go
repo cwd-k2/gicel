@@ -348,7 +348,7 @@ func (p *Parser) atDeclBoundary() bool {
 		return false
 	}
 	switch tok.Kind {
-	case syn.TokLower, syn.TokUpper, syn.TokData, syn.TokType, syn.TokInfixl, syn.TokInfixr, syn.TokInfixn, syn.TokClass, syn.TokInstance, syn.TokImport:
+	case syn.TokLower, syn.TokUpper, syn.TokData, syn.TokType, syn.TokInfixl, syn.TokInfixr, syn.TokInfixn, syn.TokImpl, syn.TokImport:
 		return true
 	case syn.TokLParen:
 		// (op) declaration pattern
@@ -433,7 +433,10 @@ func (p *Parser) isTypeAtomStart() bool {
 		return false
 	}
 	k := p.peek().Kind
-	return k == syn.TokLower || k == syn.TokUpper || k == syn.TokLParen || k == syn.TokLBrace || k == syn.TokUnderscore
+	if p.noBraceAtom && k == syn.TokLBrace {
+		return false
+	}
+	return k == syn.TokLower || k == syn.TokUpper || k == syn.TokLParen || k == syn.TokLBrace || k == syn.TokUnderscore || k == syn.TokCase
 }
 
 // syncToStmtBoundary advances to the next statement boundary within a
@@ -466,7 +469,7 @@ func (p *Parser) syncToNextDecl() {
 			switch tok.Kind {
 			case syn.TokLower, syn.TokUpper, syn.TokData, syn.TokType,
 				syn.TokInfixl, syn.TokInfixr, syn.TokInfixn,
-				syn.TokClass, syn.TokInstance, syn.TokImport, syn.TokLParen:
+				syn.TokImpl, syn.TokImport, syn.TokLParen:
 				return
 			}
 		}

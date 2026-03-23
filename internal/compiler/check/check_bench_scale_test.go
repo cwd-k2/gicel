@@ -37,11 +37,11 @@ func benchCheck(b *testing.B, source string) {
 // Eq instance, and a main that resolves Eq on the last type.
 func instanceScaleSource(n int) string {
 	var b strings.Builder
-	b.WriteString("data Bool := True | False\n")
-	b.WriteString("class Eq a { eq :: a -> a -> Bool }\n")
+	b.WriteString("data Bool := { True: Bool; False: Bool; }\n")
+	b.WriteString("data Eq := \\a. { eq: a -> a -> Bool }\n")
 	for i := 0; i < n; i++ {
-		fmt.Fprintf(&b, "data T%d := C%d\n", i, i)
-		fmt.Fprintf(&b, "instance Eq T%d { eq := \\x y. True }\n", i)
+		fmt.Fprintf(&b, "data T%d := { C%d: T%d; }\n", i, i, i)
+		fmt.Fprintf(&b, "impl Eq T%d := { eq := \\x y. True }\n", i)
 	}
 	fmt.Fprintf(&b, "main := eq C%d C%d\n", n-1, n-1)
 	return b.String()
@@ -76,18 +76,18 @@ func BenchmarkResolveInstances100(b *testing.B) {
 // ---------------------------------------------------------------------------
 
 // superclassChainSource generates a chain of n superclasses:
-// class C0 a, class C0 a => C1 a, ..., class C(n-1) a => Cn a
+// data C0 := \a. { m0: a -> Bool }, data C1 := \a. C0 a => { m1: a -> Bool }, ...
 func superclassChainSource(depth int) string {
 	var b strings.Builder
-	b.WriteString("data Bool := True | False\n")
-	b.WriteString("class C0 a { m0 :: a -> Bool }\n")
+	b.WriteString("data Bool := { True: Bool; False: Bool; }\n")
+	b.WriteString("data C0 := \\a. { m0: a -> Bool }\n")
 	for i := 1; i <= depth; i++ {
-		fmt.Fprintf(&b, "class C%d a => C%d a { m%d :: a -> Bool }\n", i-1, i, i)
+		fmt.Fprintf(&b, "data C%d := \\a. C%d a => { m%d: a -> Bool }\n", i, i-1, i)
 	}
-	b.WriteString("data X := X\n")
+	b.WriteString("data X := { X: X; }\n")
 	// Provide instances for the full chain.
 	for i := 0; i <= depth; i++ {
-		fmt.Fprintf(&b, "instance C%d X { m%d := \\x. True }\n", i, i)
+		fmt.Fprintf(&b, "impl C%d X := { m%d := \\x. True }\n", i, i)
 	}
 	fmt.Fprintf(&b, "main := m%d X\n", depth)
 	return b.String()
@@ -114,15 +114,14 @@ func BenchmarkSuperclassDepth10(b *testing.B) {
 // ---------------------------------------------------------------------------
 
 // typeFamilyLinearSource generates a closed type family with n equations.
-// Uses GICEL syntax: type F (a: Type) :: Type := { F T0 =: T1; ... }
 func typeFamilyLinearSource(n int) string {
 	var b strings.Builder
 	for i := 0; i < n; i++ {
-		fmt.Fprintf(&b, "data T%d := C%d\n", i, i)
+		fmt.Fprintf(&b, "data T%d := { C%d: T%d; }\n", i, i, i)
 	}
-	b.WriteString("type F (a: Type) :: Type := {\n")
+	b.WriteString("type F :: Type := \\(a: Type). case a {\n")
 	for i := 0; i < n; i++ {
-		fmt.Fprintf(&b, "  F T%d =: T%d", i, (i+1)%n)
+		fmt.Fprintf(&b, "  T%d => T%d", i, (i+1)%n)
 		if i < n-1 {
 			b.WriteString(";")
 		}
@@ -157,7 +156,7 @@ func BenchmarkTypeFamilyReduceLinear50(b *testing.B) {
 // largeDeclSource generates n independent function declarations.
 func largeDeclSource(n int) string {
 	var b strings.Builder
-	b.WriteString("data Bool := True | False\n")
+	b.WriteString("data Bool := { True: Bool; False: Bool; }\n")
 	for i := 0; i < n; i++ {
 		fmt.Fprintf(&b, "f%d :: Bool -> Bool\nf%d := \\x. x\n", i, i)
 	}

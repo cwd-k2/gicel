@@ -26,7 +26,7 @@ f := \x. x
 // TestStressKindPolyIdentityChain — chain of kind-polymorphic identity applications
 func TestStressKindPolyIdentityChain(t *testing.T) {
 	source := `
-data Bool := True | False
+data Bool := { True: Bool; False: Bool; }
 
 id_k :: \ (k: Kind). \ (a: k). a -> a
 id_k := \x. x
@@ -126,20 +126,20 @@ func TestStressPolyKindedClassManyInstances(t *testing.T) {
 	var sb strings.Builder
 	// Build 10 data types: D0, D1, ..., D9, each with a type parameter
 	for i := 0; i < 10; i++ {
-		fmt.Fprintf(&sb, "data D%d a := MkD%d a\n", i, i)
+		fmt.Fprintf(&sb, "data D%d := \\a. { MkD%d: a -> D%d a; }\n", i, i, i)
 	}
 	// Poly-kinded Functor
-	sb.WriteString("\nclass Functor (f: k -> Type) {\n")
-	sb.WriteString("  fmap :: \\ a b. (a -> b) -> f a -> f b\n")
+	sb.WriteString("\ndata Functor := \\(f: k -> Type). {\n")
+	sb.WriteString("  fmap: \\ a b. (a -> b) -> f a -> f b\n")
 	sb.WriteString("}\n\n")
 	// 10 instances
 	for i := 0; i < 10; i++ {
-		fmt.Fprintf(&sb, "instance Functor D%d {\n", i)
-		fmt.Fprintf(&sb, "  fmap := \\g x. case x { MkD%d v -> MkD%d (g v) }\n", i, i)
+		fmt.Fprintf(&sb, "impl Functor D%d := {\n", i)
+		fmt.Fprintf(&sb, "  fmap := \\g x. case x { MkD%d v => MkD%d (g v) }\n", i, i)
 		sb.WriteString("}\n\n")
 	}
 	// Use each one
-	sb.WriteString("data Bool := True | False\n")
+	sb.WriteString("data Bool := { True: Bool; False: Bool; }\n")
 	for i := 0; i < 10; i++ {
 		fmt.Fprintf(&sb, "test%d := fmap (\\x. True) (MkD%d True)\n", i, i)
 	}
@@ -149,30 +149,30 @@ func TestStressPolyKindedClassManyInstances(t *testing.T) {
 // TestStressKindPolyClassWithContext — poly-kinded class with context constraints
 func TestStressKindPolyClassWithContext(t *testing.T) {
 	source := `
-data Bool := True | False
-data Maybe a := Nothing | Just a
+data Bool := { True: Bool; False: Bool; }
+data Maybe := \a. { Nothing: Maybe a; Just: a -> Maybe a; }
 
-class Eq a {
-  eq :: a -> a -> Bool
+data Eq := \a. {
+  eq: a -> a -> Bool
 }
 
-instance Eq Bool {
+impl Eq Bool := {
   eq := \x y. True
 }
 
-class Functor (f: k -> Type) {
-  fmap :: \ a b. (a -> b) -> f a -> f b
+data Functor := \(f: k -> Type). {
+  fmap: \ a b. (a -> b) -> f a -> f b
 }
 
-instance Functor Maybe {
-  fmap := \g mx. case mx { Nothing -> Nothing; Just x -> Just (g x) }
+impl Functor Maybe := {
+  fmap := \g mx. case mx { Nothing => Nothing; Just x => Just (g x) }
 }
 
-class Functor f => Applicative (f: k -> Type) {
-  pure :: \ a. a -> f a
+data Applicative := \(f: k -> Type). Functor f => {
+  pure: \ a. a -> f a
 }
 
-instance Applicative Maybe {
+impl Applicative Maybe := {
   pure := \x. Just x
 }
 

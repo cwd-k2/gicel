@@ -17,13 +17,13 @@ func TestTupleUnit(t *testing.T) {
 }
 
 func TestTuplePair(t *testing.T) {
-	source := `data Bool := True | False
+	source := `data Bool := { True: Bool; False: Bool; }
 main := (42, True)`
 	checkSource(t, source, nil)
 }
 
 func TestTupleTriple(t *testing.T) {
-	source := `data Bool := True | False
+	source := `data Bool := { True: Bool; False: Bool; }
 main := (1, 2, True)`
 	checkSource(t, source, nil)
 }
@@ -70,14 +70,14 @@ main := f ()`
 // =============================================================================
 
 func TestTuplePatternPair(t *testing.T) {
-	source := `data Bool := True | False
-f := \p. case p { (a, b) -> a }
+	source := `data Bool := { True: Bool; False: Bool; }
+f := \p. case p { (a, b) => a }
 main := f (42, True)`
 	checkSource(t, source, nil)
 }
 
 func TestTuplePatternUnit(t *testing.T) {
-	source := `f := \u. case u { () -> 42 }
+	source := `f := \u. case u { () => 42 }
 main := f ()`
 	checkSource(t, source, nil)
 }
@@ -94,7 +94,7 @@ main := f (1, 2)`
 }
 
 func TestTupleCheckModeTypeMismatch(t *testing.T) {
-	source := `data Bool := True | False
+	source := `data Bool := { True: Bool; False: Bool; }
 f :: (Int, Int) -> Int
 f := \p. p.#_1
 main := f (True, 2)`

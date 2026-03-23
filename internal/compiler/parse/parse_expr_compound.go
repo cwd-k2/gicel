@@ -121,9 +121,45 @@ func (p *Parser) parseBlock() syn.Expr {
 	}
 
 	// Block expression with bindings.
+	// Handles: name := expr; (value binding)
+	//          type Name Pats =: RHS; (associated type definition, inside impl body)
+	//          data Name Pats =: Cons; (associated data definition, inside impl body)
 	var binds []syn.AstBind
-	for p.peek().Kind == syn.TokLower {
+	var typeDefs []syn.ImplField
+	for p.peek().Kind == syn.TokLower || p.peek().Kind == syn.TokType || p.peek().Kind == syn.TokData {
 		saved := p.pos
+
+		// Parse type/data associated definitions in impl bodies.
+		// New syntax: type Elem := a;  or  data Elem := ListElem a | Empty;
+		if p.peek().Kind == syn.TokType || p.peek().Kind == syn.TokData {
+			tdStart := p.peek().S.Start
+			isData := p.peek().Kind == syn.TokData
+			p.advance() // consume type/data
+			tdName := p.expectUpper()
+			p.expect(syn.TokColonEq)
+			var tdBody syn.TypeExpr
+			tdBody = p.parseType()
+			// For data family defs, skip | separated constructors
+			for p.peek().Kind == syn.TokPipe {
+				p.advance()
+				for p.peek().Kind != syn.TokPipe && p.peek().Kind != syn.TokSemicolon &&
+					p.peek().Kind != syn.TokRBrace && p.peek().Kind != syn.TokEOF {
+					p.advance()
+				}
+			}
+			typeDefs = append(typeDefs, syn.ImplField{
+				Name:    tdName,
+				IsType:  !isData,
+				IsData:  isData,
+				TypeDef: tdBody,
+				S:       span.Span{Start: tdStart, End: p.prevEnd()},
+			})
+			if p.peek().Kind == syn.TokSemicolon {
+				p.advance()
+			}
+			continue
+		}
+
 		name := p.peek().Text
 		p.advance()
 		if p.peek().Kind == syn.TokColonEq {
@@ -143,10 +179,19 @@ func (p *Parser) parseBlock() syn.Expr {
 		}
 	}
 
+	// If we have bindings/typeDefs and the next token is }, treat as binding-only block (impl body).
+	if (len(binds) > 0 || len(typeDefs) > 0) && p.peek().Kind == syn.TokRBrace {
+		p.advance() // consume }
+		return &syn.ExprBlock{
+			Binds:    binds,
+			TypeDefs: typeDefs,
+			S:        span.Span{Start: start, End: p.prevEnd()},
+		}
+	}
 	body := p.parseExpr()
 	p.expectClosing(syn.TokRBrace, openTok.S)
 	return &syn.ExprBlock{
-		Binds: binds, Body: body,
+		Binds: binds, TypeDefs: typeDefs, Body: body,
 		S: span.Span{Start: start, End: p.prevEnd()},
 	}
 }
