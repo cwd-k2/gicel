@@ -19,7 +19,7 @@ func TestDictReificationBasic(t *testing.T) {
 	source := `data Bool := { True: Bool; False: Bool; }
 data Eq := \a. { eq: a -> a -> Bool }
 impl Eq Bool := { eq := \x y. True }
-data Dict (c: Constraint) := MkDict c
+data Dict := \(c: Constraint). { MkDict: c -> Dict c; }
 mkDict :: Dict (Eq Bool)
 mkDict := MkDict`
 	checkSource(t, source, nil)
@@ -30,7 +30,7 @@ func TestDictReificationPatternMatch(t *testing.T) {
 	source := `data Bool := { True: Bool; False: Bool; }
 data Eq := \a. { eq: a -> a -> Bool }
 impl Eq Bool := { eq := \x y. True }
-data Dict (c: Constraint) := MkDict c
+data Dict := \(c: Constraint). { MkDict: c -> Dict c; }
 useDict :: Dict (Eq Bool) -> Bool -> Bool -> Bool
 useDict := \d x y. case d { MkDict => eq x y }
 main := useDict MkDict True False`
@@ -42,7 +42,7 @@ func TestDictReificationPolymorphic(t *testing.T) {
 	source := `data Bool := { True: Bool; False: Bool; }
 data Eq := \a. { eq: a -> a -> Bool }
 impl Eq Bool := { eq := \x y. True }
-data Dict (c: Constraint) := MkDict c
+data Dict := \(c: Constraint). { MkDict: c -> Dict c; }
 withDict :: \ a. Dict (Eq a) -> a -> a -> Bool
 withDict := \d x y. case d { MkDict => eq x y }
 main := withDict (MkDict :: Dict (Eq Bool)) True False`
@@ -57,7 +57,7 @@ data Eq := \a. { eq: a -> a -> Bool }
 data Show := \a. { show: a -> Unit }
 impl Eq Bool := { eq := \x y. True }
 impl Show Bool := { show := \x. MkUnit }
-data Dict (c: Constraint) := MkDict c
+data Dict := \(c: Constraint). { MkDict: c -> Dict c; }
 useEq :: Dict (Eq Bool) -> Bool -> Bool -> Bool
 useEq := \d x y. case d { MkDict => eq x y }
 useShow :: Dict (Show Bool) -> Bool -> Unit
@@ -72,7 +72,7 @@ data Eq := \a. { eq: a -> a -> Bool }
 data Ord := \a. Eq a => { compare: a -> a -> Bool }
 impl Eq Bool := { eq := \x y. True }
 impl Ord Bool := { compare := \x y. True }
-data Dict (c: Constraint) := MkDict c
+data Dict := \(c: Constraint). { MkDict: c -> Dict c; }
 useOrd :: Dict (Ord Bool) -> Bool -> Bool -> Bool
 useOrd := \d x y. case d { MkDict => eq x y }`
 	checkSource(t, source, nil)
@@ -83,7 +83,7 @@ func TestDictReificationPassThrough(t *testing.T) {
 	source := `data Bool := { True: Bool; False: Bool; }
 data Eq := \a. { eq: a -> a -> Bool }
 impl Eq Bool := { eq := \x y. True }
-data Dict (c: Constraint) := MkDict c
+data Dict := \(c: Constraint). { MkDict: c -> Dict c; }
 passDict :: Dict (Eq Bool) -> Dict (Eq Bool)
 passDict := \d. d`
 	checkSource(t, source, nil)
@@ -94,7 +94,7 @@ func TestDictReificationNested(t *testing.T) {
 	source := `data Bool := { True: Bool; False: Bool; }
 data Eq := \a. { eq: a -> a -> Bool }
 impl Eq Bool := { eq := \x y. True }
-data Dict (c: Constraint) := MkDict c
+data Dict := \(c: Constraint). { MkDict: c -> Dict c; }
 data Pair := \a b. { MkPair: a -> b -> Pair a b; }
 wrapDict :: Dict (Eq Bool) -> Pair (Dict (Eq Bool)) Bool
 wrapDict := \d. MkPair d True`
@@ -107,7 +107,7 @@ func TestDictReificationErrorNoInstance(t *testing.T) {
 data Nat := { Zero: Nat; Succ: Nat -> Nat; }
 data Eq := \a. { eq: a -> a -> Bool }
 impl Eq Bool := { eq := \x y. True }
-data Dict (c: Constraint) := MkDict c
+data Dict := \(c: Constraint). { MkDict: c -> Dict c; }
 bad :: Dict (Eq Nat)
 bad := MkDict`
 	errMsg := checkSourceExpectError(t, source, nil)
@@ -121,7 +121,7 @@ func TestDictReificationMultipleFields(t *testing.T) {
 	source := `data Bool := { True: Bool; False: Bool; }
 data Eq := \a. { eq: a -> a -> Bool }
 impl Eq Bool := { eq := \x y. True }
-data Evidence (c: Constraint) a := MkEvidence c a
+data Evidence := \(c: Constraint) a. { MkEvidence: c -> a -> Evidence c a; }
 useEvidence :: Evidence (Eq Bool) Bool -> Bool
 useEvidence := \e. case e { MkEvidence x => eq x True }`
 	checkSource(t, source, nil)
@@ -135,7 +135,7 @@ data Eq := \a. { eq: a -> a -> Bool }
 data Show := \a. { show: a -> Unit }
 impl Eq Bool := { eq := \x y. True }
 impl Show Bool := { show := \x. MkUnit }
-data Dict (c: Constraint) := MkDict c
+data Dict := \(c: Constraint). { MkDict: c -> Dict c; }
 chain :: Dict (Eq Bool) -> Dict (Show Bool) -> Bool -> Unit
 chain := \d1 d2 x. case d1 { MkDict => case d2 { MkDict => show x } }`
 	checkSource(t, source, nil)
@@ -146,7 +146,7 @@ func TestDictReificationInferredType(t *testing.T) {
 	source := `data Bool := { True: Bool; False: Bool; }
 data Eq := \a. { eq: a -> a -> Bool }
 impl Eq Bool := { eq := \x y. True }
-data Dict (c: Constraint) := MkDict c
+data Dict := \(c: Constraint). { MkDict: c -> Dict c; }
 useInferred := case (MkDict :: Dict (Eq Bool)) { MkDict => eq True False }`
 	checkSource(t, source, nil)
 }
