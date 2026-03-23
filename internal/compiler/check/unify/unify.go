@@ -64,7 +64,8 @@ type Unifier struct {
 	freshID    *int
 
 	// Undo trail for O(1) snapshot / O(k) restore.
-	trail []trailEntry
+	trail         []trailEntry
+	snapshotDepth int // number of active Snapshot scopes (for trail-free path compression)
 
 	AliasExpander AliasExpander // optional; set by Checker after alias processing
 	FamilyReducer FamilyReducer // optional; set by Checker after type family processing
@@ -158,6 +159,7 @@ type Snapshot struct {
 
 // Snapshot captures the current unifier state for later rollback.
 func (u *Unifier) Snapshot() Snapshot {
+	u.snapshotDepth++
 	return Snapshot{pos: len(u.trail)}
 }
 
@@ -194,6 +196,7 @@ func (u *Unifier) Restore(snap Snapshot) {
 		}
 	}
 	u.trail = u.trail[:snap.pos]
+	u.snapshotDepth--
 }
 
 // trailSolnWrite records the current soln[id] value before mutation.
@@ -277,8 +280,13 @@ func (u *Unifier) Zonk(t types.Type) types.Type {
 		}
 		result := u.Zonk(soln)
 		if result != soln {
-			u.trailSolnWrite(ty.ID)
-			u.soln[ty.ID] = result // path compression
+			// Path compression: only trail when a snapshot is active
+			// (trail entries outside snapshot scopes are never restored
+			// and would leak memory over long compilations).
+			if u.snapshotDepth > 0 {
+				u.trailSolnWrite(ty.ID)
+			}
+			u.soln[ty.ID] = result
 		}
 		return result
 	case *types.TyApp:
