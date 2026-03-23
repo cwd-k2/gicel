@@ -1,5 +1,20 @@
 # Changelog
 
+## v0.16.1 — 2026-03-24
+
+### Internal
+
+- Purge legacy surface syntax from internal naming (`decomposeData` → `decomposeForm`, `registerClasses` → `registerClassLikeForms`, `processClassDecl` → `processClassLikeForm`)
+- Remove dead code: `//go:build legacy_syntax` test files, migration scripts (`migrate-test-syntax`, `convert-tf`, `migrate-syntax.sh`)
+
+### Documentation
+
+- Fix grammar specification: `'data'` → `'form'` in `grammar-reference.md` and `spec/language.md`
+- Remove undocumented backtick infix syntax from agent guide
+- Fix thunk/force example that failed bare Computation check
+- Update smoke test to current syntax (`form` keyword, `=>` case arrows, GADT constructor syntax)
+- Update multi-module example files to current syntax
+
 ## v0.16.0 — 2026-03-24
 
 ### Breaking: Unified Syntax
