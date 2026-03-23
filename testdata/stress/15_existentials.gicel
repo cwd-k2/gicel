@@ -9,25 +9,25 @@ data ExistsPair := { MkEP :: \a b. (Eq a, Eq b) => a -> b -> ExistsPair }
 
 -- Existential with Eq constraint: compare packed value with itself
 selfEq :: SomeEq -> Bool
-selfEq := \s. case s { MkSomeEq x -> eq x x }
+selfEq := \s. case s { MkSomeEq x => eq x x }
 
 -- Existential with Ord constraint: compare two packed values
 ordResult :: SomeOrd -> Ordering
-ordResult := \s. case s { MkSomeOrd x y -> compare x y }
+ordResult := \s. case s { MkSomeOrd x y => compare x y }
 
 -- Mixed universal/existential: apply hidden function
 applyWrapper :: Wrapper Bool -> Bool
-applyWrapper := \w. case w { MkWrapper f x -> f x }
+applyWrapper := \w. case w { MkWrapper f x => f x }
 
 -- Existential pair with constraints
 epBothEq :: ExistsPair -> Bool
-epBothEq := \ep. case ep { MkEP a b -> case eq a a { True => eq b b; False => False } }
+epBothEq := \ep. case ep { MkEP a b => case eq a a { True => eq b b; False => False } }
 
 -- Chain existentials
 chainTest :: SomeEq -> SomeEq -> Bool
 chainTest := \s1 s2.
   case s1 { MkSomeEq x ->
-    case s2 { MkSomeEq y -> True } }
+    case s2 { MkSomeEq y => True } }
 
 -- Pack different types
 packBool := MkSomeEq True

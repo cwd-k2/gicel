@@ -7,14 +7,14 @@ data Functor := \f. { fmap: \a b. (a -> b) -> f a -> f b }
 impl Functor Maybe {
   fmap := \g mx. case mx {
     Nothing => Nothing;
-    Just x  -> Just (g x)
+    Just x  => Just (g x)
   }
 }
 
 impl Functor Tree {
   fmap := \g t. case t {
-    Leaf x       -> Leaf (g x);
-    Branch l r   -> Branch (fmap g l) (fmap g r)
+    Leaf x       => Leaf (g x);
+    Branch l r   => Branch (fmap g l) (fmap g r)
   }
 }
 

@@ -56,7 +56,7 @@ impl Ord Bool {
 impl Functor Maybe {
   fmap := \g mx. case mx {
     Nothing => Nothing;
-    Just x  -> Just (g x)
+    Just x  => Just (g x)
   }
 }
 impl Functor Tree {

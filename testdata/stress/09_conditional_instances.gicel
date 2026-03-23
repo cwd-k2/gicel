@@ -31,8 +31,8 @@ impl (Eq a) => (Eq b) => Eq (a, b) {
 
 impl (Eq a) => (Eq b) => Eq (Result a b) {
   eq := \x y. case x {
-    Ok a  -> case y { Ok b -> eq a b;  Err _ => False };
-    Err a -> case y { Ok _ => False; Err b -> eq a b }
+    Ok a  => case y { Ok b => eq a b;  Err _ => False };
+    Err a => case y { Ok _ => False; Err b => eq a b }
   }
 }
 

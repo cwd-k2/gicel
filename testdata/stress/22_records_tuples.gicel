@@ -40,12 +40,12 @@ cmpUnit := compare () ()
 cmpPair := compare (1, 2) (1, 3)
 
 -- Tuple pattern matching
-swap :: \a b. (a, b) -> (b, a)
-swap := \p. case p { (x, y) -> (y, x) }
+swap :: \a b. (a, b) => (b, a)
+swap := \p. case p { (x, y) => (y, x) }
 swapped := swap (True, False)
 
 -- Record pattern matching
-extractXY := \p. case p { { x: px, y: py } -> (px, py) }
+extractXY := \p. case p { { x: px, y: py } => (px, py) }
 xyTuple := extractXY point
 
 -- Deeply nested tuples
@@ -61,7 +61,7 @@ ordRecord := compare (False, True) (True, False)
 -- Mixed records and Maybe
 wrapped := Just { x: 1, y: 2 }
 unwrapped := case wrapped {
-  Just r -> r.#x;
+  Just r => r.#x;
   Nothing => 0
 }
 

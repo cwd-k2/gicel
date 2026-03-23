@@ -11,25 +11,25 @@ intEq := assumption
 
 length :: \a. List a -> Int
 length := fix (\self xs. case xs {
-  Nil       -> intZero ();
-  Cons _ rest -> intSucc (self rest)
+  Nil       => intZero ();
+  Cons _ rest => intSucc (self rest)
 })
 
 map :: \a b. (a -> b) -> List a -> List b
 map := \f. fix (\self xs. case xs {
-  Nil        -> Nil;
+  Nil        => Nil;
   Cons x rest => Cons (f x) (self rest)
 })
 
 append :: \a. List a -> List a -> List a
 append := \xs ys. fix (\self zs. case zs {
-  Nil        -> ys;
-  Cons z rest -> Cons z (self rest)
+  Nil        => ys;
+  Cons z rest => Cons z (self rest)
 }) xs
 
 filter :: \a. (a -> Bool) -> List a -> List a
 filter := \p. fix (\self xs. case xs {
-  Nil        -> Nil;
+  Nil        => Nil;
   Cons x rest => case p x {
     True  => Cons x (self rest);
     False => self rest
@@ -38,7 +38,7 @@ filter := \p. fix (\self xs. case xs {
 
 reverse :: \a. List a -> List a
 reverse := \xs. fix (\go acc ys. case ys {
-  Nil        -> acc;
+  Nil        => acc;
   Cons y rest -> go (Cons y acc) rest
 }) Nil xs
 
@@ -46,7 +46,7 @@ take :: \a. Int -> List a -> List a
 take := \n. fix (\self xs. case intEq n (intZero ()) {
   True  => Nil;
   False => case xs {
-    Nil        -> Nil;
+    Nil        => Nil;
     Cons x rest => Cons x (self rest)
   }
 })

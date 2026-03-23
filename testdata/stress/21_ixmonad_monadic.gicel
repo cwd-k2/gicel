@@ -157,7 +157,7 @@ foldListBool := foldr (\x acc. case x { True => acc; False => acc }) True (Cons 
 
 -- 24. foldr with tuple accumulator
 foldPairAcc :: (Bool, Bool)
-foldPairAcc := foldr (\x acc. case acc { (a, b) -> case x { True => (True, b); False => (a, True) } }) (False, False) (Cons True (Cons False Nil))
+foldPairAcc := foldr (\x acc. case acc { (a, b) => case x { True => (True, b); False => (a, True) } }) (False, False) (Cons True (Cons False Nil))
 
 -- 25. Traverse Maybe over Maybe
 traverseMaybeTest :: Maybe (Maybe Bool)
