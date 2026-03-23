@@ -134,11 +134,22 @@ func migrateGICELSource(src string) string {
 	src = instanceRe.ReplaceAllStringFunc(src, func(m string) string {
 		groups := instanceRe.FindStringSubmatch(m)
 		indent, rest := groups[1], groups[2]
+		rest = strings.TrimSpace(rest)
 		// Don't add := if already present
 		if strings.Contains(rest, ":=") {
+			return fmt.Sprintf("%simpl %s {", indent, rest)
+		}
+		return fmt.Sprintf("%simpl %s := {", indent, rest)
+	})
+
+	// Also fix impl without := that weren't caught by instanceRe
+	// Pattern: "impl Type {" at start of line → "impl Type := {"
+	implFixRe := regexp.MustCompile(`(?m)(impl [^{]*[^=]) \{`)
+	src = implFixRe.ReplaceAllStringFunc(src, func(m string) string {
+		if strings.Contains(m, ":=") {
 			return m
 		}
-		return fmt.Sprintf("%simpl %s := {", indent, strings.TrimSpace(rest))
+		return strings.Replace(m, " {", " := {", 1)
 	})
 
 	// Convert method signatures inside braces.
