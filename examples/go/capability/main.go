@@ -22,10 +22,10 @@ import (
 // The source declares types with :: annotations directly in the language.
 // Assumptions with Computation return types can be sequenced with `<-` in do-blocks.
 const source = `
-getCounter: () -> Computation {} {} Int
+getCounter :: () -> Computation {} {} Int
 getCounter := assumption
 
-incCounter: () -> Computation {} {} ()
+incCounter :: () -> Computation {} {} ()
 incCounter := assumption
 
 main := do {

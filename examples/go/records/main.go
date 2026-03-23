@@ -48,7 +48,7 @@ cmpTest := compare (1, 2) (1, 3)
 
 -- Pattern matching on records
 swap :: \ a b. (a, b) -> (b, a)
-swap := \p. case p { (x, y) -> (y, x) }
+swap := \p. case p { (x, y) => (y, x) }
 
 -- Nested records
 nested := { inner: { a: True, b: False }, tag: 42 }

@@ -19,7 +19,7 @@ import (
 const loopSource = `
 import Prelude
 
-loop: Int -> Int
+loop :: Int -> Int
 loop := fix (\self n. self (n + 1))
 main := loop 0
 `

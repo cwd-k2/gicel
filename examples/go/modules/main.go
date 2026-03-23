@@ -16,19 +16,19 @@ import (
 // A utility module that defines a custom data type and helper functions.
 // The prelude (Bool, Maybe, etc.) is automatically available inside modules.
 const utilsSource = `
-data Pair a b := MkPair a b
+data Pair := \a b. { MkPair: a -> b -> Pair a b }
 
-mkPair: \ a b. a -> b -> Pair a b
+mkPair :: \ a b. a -> b -> Pair a b
 mkPair := \a b. MkPair a b
 
-fstPair: \ a b. Pair a b -> a
+fstPair :: \ a b. Pair a b -> a
 fstPair := \p. case p { MkPair a _ => a }
 
-sndPair: \ a b. Pair a b -> b
-sndPair := \p. case p { MkPair _ b -> b }
+sndPair :: \ a b. Pair a b -> b
+sndPair := \p. case p { MkPair _ b => b }
 
-swapPair: \ a b. Pair a b -> Pair b a
-swapPair := \p. case p { MkPair a b -> MkPair b a }
+swapPair :: \ a b. Pair a b -> Pair b a
+swapPair := \p. case p { MkPair a b => MkPair b a }
 `
 
 // The main program uses types and functions from the module.

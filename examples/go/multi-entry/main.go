@@ -24,7 +24,7 @@ import (
 const source = `
 import Prelude
 
-square: Int -> Int
+square :: Int -> Int
 square := \x. x * x
 
 greeting := "hello, GICEL"

@@ -25,8 +25,8 @@ func main() {
 	rt, err := eng.NewRuntime(context.Background(), `
 data Color := Red | Green | Blue
 
-swap: Color -> Color
-swap := \c. case c { Red -> Blue; Blue -> Red; Green -> Green }
+swap :: Color -> Color
+swap := \c. case c { Red => Blue; Blue => Red; Green => Green }
 
 main := swap Red
 `)
@@ -50,8 +50,8 @@ main := swap Red
 	err = eng2.RegisterModule("Prelude", `
 data Bit := On | Off
 
-flip: Bit -> Bit
-flip := \b. case b { On -> Off; Off -> On }
+flip :: Bit -> Bit
+flip := \b. case b { On => Off; Off => On }
 `)
 	if err != nil {
 		log.Fatal("register prelude error: ", err)

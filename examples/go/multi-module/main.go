@@ -23,16 +23,16 @@ import (
 
 // Geometry module: defines Point and operations.
 const geometrySource = `
-data Point := MkPoint Int Int
+data Point := { MkPoint: Int -> Int -> Point }
 
-mkPoint: Int -> Int -> Point
+mkPoint :: Int -> Int -> Point
 mkPoint := \x y. MkPoint x y
 
-getX: Point -> Int
+getX :: Point -> Int
 getX := \p. case p { MkPoint x _ => x }
 
-getY: Point -> Int
-getY := \p. case p { MkPoint _ y -> y }
+getY :: Point -> Int
+getY := \p. case p { MkPoint _ y => y }
 `
 
 // Color module: defines Color and a display name.
@@ -41,18 +41,18 @@ import Prelude
 
 data Color := Red | Green | Blue
 
-name: Color -> String
-name := \c. case c { Red -> "red"; Green -> "green"; Blue -> "blue" }
+name :: Color -> String
+name := \c. case c { Red => "red"; Green => "green"; Blue => "blue" }
 `
 
 // Math module: simple arithmetic helpers.
 const mathSource = `
 import Prelude
 
-double: Int -> Int
+double :: Int -> Int
 double := \x. x + x
 
-square: Int -> Int
+square :: Int -> Int
 square := \x. x * x
 `
 

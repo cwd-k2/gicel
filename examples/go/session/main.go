@@ -18,18 +18,18 @@ const source = `
 import Prelude
 
 data Mult := Unrestricted | Affine | Linear
-data Send s := MkSend
-data Recv s := MkRecv
-data End := MkEnd
+data Send := \s. { MkSend: Send s }
+data Recv := \s. { MkRecv: Recv s }
+data End := { MkEnd: End }
 
 -- Session operations (host-provided)
 send :: \s. Computation { ch: Send s @Linear } { ch: s @Linear } Int
 send := assumption
 
-recv: \s. Computation { ch: Recv s @Linear } { ch: s @Linear } Int
+recv :: \s. Computation { ch: Recv s @Linear } { ch: s @Linear } Int
 recv := assumption
 
-close: Computation { ch: End @Linear } {} ()
+close :: Computation { ch: End @Linear } {} ()
 close := assumption
 
 -- Ping-pong protocol: send a number, receive a response, close.
