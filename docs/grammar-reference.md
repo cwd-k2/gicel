@@ -31,21 +31,21 @@
 
 ### Punctuation & Operators
 
-| Token | Meaning                                                    |
-| ----- | ---------------------------------------------------------- |
-| `->`  | Function type                                              |
-| `<-`  | Monadic bind in do-block                                   |
-| `=>`  | Constraint qualifier / case alternative / grade annotation |
-| `::`  | Type annotation                                            |
-| `:=`  | Value definition / let-bind                                |
-| `:`   | Field / method type separator                              |
-| `.`   | Lambda / quantifier body separator                         |
-| `\`   | Lambda / universal quantification                          |
-| `_`   | Wildcard pattern                                           |
-| `~`   | Type equality constraint                                   |
-| `@`   | Explicit type application                                  |
-| `\|`  | Constructor / row tail separator                           |
-| `;`   | Declaration / statement separator                          |
+| Token | Meaning                                                                         |
+| ----- | ------------------------------------------------------------------------------- |
+| `->`  | Function type                                                                   |
+| `<-`  | Monadic bind in do-block                                                        |
+| `=>`  | Constraint qualifier / case alternative / grade annotation / evidence injection |
+| `::`  | Type annotation                                                                 |
+| `:=`  | Value definition / let-bind                                                     |
+| `:`   | Field / method type separator                                                   |
+| `.`   | Lambda / quantifier body separator                                              |
+| `\`   | Lambda / universal quantification                                               |
+| `_`   | Wildcard pattern                                                                |
+| `~`   | Type equality constraint                                                        |
+| `@`   | Explicit type application                                                       |
+| `\|`  | Constructor / row tail separator                                                |
+| `;`   | Declaration / statement separator                                               |
 
 ### Identifiers
 
@@ -181,11 +181,23 @@ impl [Constraint =>] ClassName TypeArg* := {
   [AssocDataDef]*
 }
 
+impl _name :: [Constraint =>] ClassName TypeArg* := Expr
+
 AssocTypeDef (in impl body)
   = 'type' UpperName ':=' TypeExpr
 
 AssocDataDef (in impl body)
   = 'data' UpperName ':=' ConDecl ('|' ConDecl)*
+```
+
+**Private instances.** An `impl` declaration with a name starting with `_` is _private_ — it is invisible to the constraint solver and will not be selected during automatic instance resolution. Private instances are accessible only through explicit evidence injection (`value => expr`):
+
+```
+impl _myEq :: Eq Int := { eq := \x y. eqInt x y }
+
+-- _myEq is NOT available to the solver.
+-- Must inject explicitly:
+result := _myEq => eq 1 2
 ```
 
 Examples:
@@ -244,8 +256,13 @@ ResultKind
   = KindExpr
 
 Equation
-  = TypePattern '=>' TypeExpr
+  = TypePattern '=>' TypeCaseBody
+
+TypeCaseBody
+  = TypeApp ('->' TypeCaseBody)?
 ```
+
+The case alternative body (`TypeCaseBody`) permits `->` (function types) but not `=>` (constraint qualification). This avoids ambiguity with the case separator `=>`.
 
 Equations are checked top-to-bottom; first match wins. Reduction is stuck (not skipped) when a match is indeterminate due to unsolved metavariables.
 
@@ -268,6 +285,12 @@ type IsWeekend :: Bool := \(d: Season). case d {
   Summer => True;
   Winter => True;
   _      => False
+}
+
+-- Case body with -> (function type result)
+type Handler :: Type := \(e: Type). case e {
+  IOError     => String -> Result String ();
+  ParseError  => Int -> String
 }
 ```
 
@@ -481,6 +504,22 @@ x + y               -- operator syntax (if declared)
 (expr :: Type)
 ```
 
+### Evidence Injection
+
+```
+value => expr
+```
+
+Scoped evidence injection: the left operand provides a dictionary or evidence value, which is injected into the local scope for constraint resolution within `expr`. Right-associative, binds below annotation (`::`) at the same level as constraint `=>` in types.
+
+This allows explicitly passing evidence to expressions that require it, bypassing the automatic solver:
+
+```
+myEqInstance => eq x y        -- use myEqInstance for Eq resolution in eq x y
+```
+
+Private instances (see `impl` declarations) are accessible only through this mechanism.
+
 ### Special Forms
 
 ```
@@ -666,7 +705,7 @@ data Dict (c: Constraint) := MkDict c            -- in data declarations (Dict r
 
 ### DataKinds Promotion
 
-When a data type is declared, it is automatically promoted to a kind of the same name. Nullary constructors (those with no fields) are promoted to types of that kind. Constructors with fields are not promoted.
+When a data type is declared, it is automatically promoted to a kind of the same name. All constructors — both nullary and those with fields — are promoted to type-level constructors of that kind.
 
 ```
 data DBState := Opened | Closed
@@ -675,6 +714,11 @@ data DBState := Opened | Closed
 
 data DB (s: DBState) := MkDB
 -- DB Opened: Type, DB Closed: Type
+
+data HList := \(a: Type). HCons a (HList a) | HNil
+-- HList is now a kind
+-- HCons: Type -> HList a -> HList a (type-level)
+-- HNil: HList a (type-level)
 ```
 
 Resolution order in type positions: registered type constructor → type alias → promoted constructor.
@@ -725,6 +769,7 @@ case m { Just (Just (Just True)) => "deep"; _ => "other" }
 | Level | Form              | Associativity    |
 | ----- | ----------------- | ---------------- |
 | 0     | `:: Type`         | right            |
+| 0.5   | `=> expr`         | right            |
 | 1–9   | Infix operators   | per `infixl/r/n` |
 | 10    | Application `f x` | left             |
 | —     | Atoms             | —                |

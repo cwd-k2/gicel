@@ -28,7 +28,7 @@ func (ch *Checker) resolveFromContext(className string, args []types.Type, s spa
 func (ch *Checker) resolveFromSuperclasses(className string, args []types.Type, s span.Span) ir.Core {
 	var result ir.Core
 	ch.ctx.Scan(func(entry CtxEntry) bool {
-		if v, ok := entry.(*CtxVar); ok {
+		if v, ok := entry.(*CtxVar); ok && !v.SolverInvisible {
 			if expr := ch.extractSuperDict(v, className, args, s); expr != nil {
 				result = expr
 				return false

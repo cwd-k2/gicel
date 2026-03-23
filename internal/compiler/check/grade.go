@@ -73,7 +73,7 @@ func usageJoin(a, b *types.TyCon) *types.TyCon {
 	// After sort: x <= y alphabetically.
 	// Affine < Linear < Unrestricted < Zero
 	switch {
-	case y == "Unrestricted":
+	case x == "Unrestricted" || y == "Unrestricted":
 		return &types.TyCon{Name: "Unrestricted"}
 	case x == "Affine" || y == "Affine":
 		return &types.TyCon{Name: "Affine"}

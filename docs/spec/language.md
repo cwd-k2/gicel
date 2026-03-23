@@ -332,7 +332,7 @@ Op     ::= operator characters              -- +, -, *, /, ==, >>=, .
 | `::`  | Type annotation                                                                     |
 | `:=`  | Definition binding                                                                  |
 | `->`  | Function type arrow                                                                 |
-| `=>`  | Constraint arrow / case alternative                                                 |
+| `=>`  | Constraint arrow / case alternative / evidence injection                            |
 | `~`   | Type equality constraint                                                            |
 | `\`   | Lambda                                                                              |
 | `\|`  | Row extension / record update / case separator                                      |
@@ -344,21 +344,21 @@ Op     ::= operator characters              -- +, -, *, /, ==, >>=, .
 
 The language uses 9 relational symbols, each corresponding to a distinct judgment form:
 
-| Symbol | Name           | Judgment          | Usage                                                                 |
-| ------ | -------------- | ----------------- | --------------------------------------------------------------------- |
-| `::`   | classification | `Γ ⊢ e : A`       | type annotation, GADT constructor types                               |
-| `:=`   | definition     | `Γ ⊢ x ≡ e`       | value/type/data/impl definitions                                      |
-| `:`    | attribution    | `l : T`           | record fields, kind annotations, methods                              |
-| `->`   | implication    | `A ⊃ B`           | function types                                                        |
-| `=>`   | dispatch       | `C ⊢ T` / `P ⇒ E` | constraint qualification, case alternatives, type family alternatives |
-| `~`    | equality       | `A ~ B`           | type equality constraints                                             |
-| `.`    | body           | `λx. e` / `∀a. T` | lambda/forall body separator, composition                             |
-| `<-`   | bind           | `x ← M`           | monadic bind in do-notation                                           |
-| `\|`   | alternative    | `A ∨ B`           | constructors, row tail, record update                                 |
+| Symbol | Name           | Judgment          | Usage                                                                                     |
+| ------ | -------------- | ----------------- | ----------------------------------------------------------------------------------------- |
+| `::`   | classification | `Γ ⊢ e : A`       | type annotation, GADT constructor types                                                   |
+| `:=`   | definition     | `Γ ⊢ x ≡ e`       | value/type/data/impl definitions                                                          |
+| `:`    | attribution    | `l : T`           | record fields, kind annotations, methods                                                  |
+| `->`   | implication    | `A ⊃ B`           | function types                                                                            |
+| `=>`   | dispatch       | `C ⊢ T` / `P ⇒ E` | constraint qualification, case alternatives, type family alternatives, evidence injection |
+| `~`    | equality       | `A ~ B`           | type equality constraints                                                                 |
+| `.`    | body           | `λx. e` / `∀a. T` | lambda/forall body separator, composition                                                 |
+| `<-`   | bind           | `x ← M`           | monadic bind in do-notation                                                               |
+| `\|`   | alternative    | `A ∨ B`           | constructors, row tail, record update                                                     |
 
 `=` is intentionally absent from the language. In programming, `=` is notoriously overloaded across assignment, comparison, definition, and equation. GICEL uses `:=` for definitions exclusively.
 
-`=>` unifies three roles: constraint qualification (`Eq a => ...`), case alternatives (`True => ...`), and type-level case alternatives (`List a => a`). All three share the structure "from this premise/pattern, dispatch to this result." The arrow direction and the fat shape distinguish it from `->` (function type / implication).
+`=>` unifies four roles: constraint qualification (`Eq a => ...`), case alternatives (`True => ...`), type-level case alternatives (`List a => a`), and evidence injection (`_inst => expr`). All four share the structure "from this premise/evidence, dispatch to this result." The arrow direction and the fat shape distinguish it from `->` (function type / implication).
 
 ## 3.5 Type Syntax
 
@@ -377,7 +377,9 @@ TypeAtom  ::= TyVar | TyCon
             | RowExpr
             | 'case' TypeAtom '{' TyAlt (';' TyAlt)* '}'  -- type-level case
 
-TyAlt     ::= TypeApp '=>' TypeApp
+TyAlt     ::= TypeApp '=>' TypeCaseBody
+
+TypeCaseBody ::= Type                             -- allows '->' but stops at '=>'
 
 TyBinder  ::= TyVar                          -- kind inferred
             | '(' TyVar ':' Kind ')'          -- kinded
@@ -403,6 +405,7 @@ Precedence of type operators (loosest to tightest):
 Expr      ::= 'do' '{' Stmt+ '}'                           -- do block
             | '\' Pattern+ '.' Expr                         -- lambda (multi-parameter)
             | 'case' Expr '{' Branch (';' Branch)* '}'     -- case analysis
+            | Expr '=>' Expr                                -- evidence injection (right-assoc)
             | ExprInfix
 
 ExprInfix ::= ExprInfix Op ExprApp                          -- operator application
@@ -454,6 +457,8 @@ Three operator section forms exist:
 - `(expr op)` is a left section: `(1 +)` desugars to `\x. 1 + x`. The operator binds the left argument.
 
 All three forms produce ordinary values of function type and can be passed to higher-order functions.
+
+`Expr '=>' Expr` is **scoped evidence injection**. It introduces a dictionary value into the local evidence scope for constraint resolution within the body. The left operand must be a value of some instance dictionary type; the right operand is the body where that evidence is available for resolution. Right-associative: `d1 => d2 => expr` means `d1 => (d2 => expr)`. This elaborates to `(\$ev. body) dict` — the evidence becomes a lambda parameter. Deferred constraints are resolved within the evidence scope (before the evidence is popped from the context). See §6.7 for the interaction with private instances.
 
 Disambiguation of `{`: `ident :=` → block expression, `ident :` → record literal, `expr |` → record update.
 
@@ -539,7 +544,9 @@ DeclType  ::= 'type' ConName '::' Kind ':=' Type           -- type alias or type
 
 DeclFixity ::= ('infixl' | 'infixr' | 'infixn') Int Var
 
-DeclImpl  ::= 'impl' Constraint* ConName Type+ ':=' '{' ImplMember (';' ImplMember)* '}'
+DeclImpl  ::= 'impl' InstanceName? Constraint* ConName Type+ ':=' '{' ImplMember (';' ImplMember)* '}'
+
+InstanceName ::= '_' Var '::' Constraint            -- private named instance
 
 ImplMember ::= VarName ':=' Expr                            -- method definition
              | 'type' ConName ':=' Type                     -- associated type definition
@@ -651,7 +658,7 @@ RowExpr  ::= '{' '}'                                          -- empty row
 RowField ::= Label ':' Type ('@' TypeAtom)?                   -- optional multiplicity
 ```
 
-The optional `@Mult` suffix annotates a field with a multiplicity (`@Linear`, `@Affine`, or `@Unrestricted`). Without annotation, fields default to `@Unrestricted`.
+The optional `@Mult` suffix annotates a field with a multiplicity grade (`@Zero`, `@Linear`, `@Affine`, or `@Unrestricted`). Without annotation, fields default to `@Unrestricted`.
 
 ## 3.10 Operator Fixity
 
@@ -735,7 +742,15 @@ dbOpen :: \r. Computation { db: DB Closed | r }
                           ()
 ```
 
-Promotion applies only to nullary constructors. Constructors with fields are not promoted.
+All constructors — nullary and parameterized — are promoted. A parameterized constructor like `Pi: U -> U -> U` becomes available at the type level with kind `U -> U -> U`, enabling universe decoding patterns:
+
+```
+data U :: Kind := { Set: U; Pi: U -> U -> U; }
+type Decode :: Type := \(u: U). case u {
+  Set => Int;
+  (Pi a b) => Decode a -> Decode b
+}
+```
 
 In type position, names are resolved by: (1) check type constructors, (2) check promoted data constructors, (3) ambiguity error if both match.
 
@@ -897,6 +912,25 @@ impl <Constraint>* <Name> <Type>+ := {
 
 No default methods — every method must be defined in every instance. Orphan instances are allowed (controlled namespace). No overlapping instances.
 
+### 6.2.1 Private Instances
+
+An instance whose name starts with `_` is **private**:
+
+```
+impl _alwaysEq :: Eq Int := {
+  eq := \x y. 42
+}
+```
+
+Private instances are:
+
+- **Solver-invisible globally** — the constraint solver never selects them during automatic resolution. They cannot overlap with public instances (separate namespace).
+- **Not exported** across module boundaries — importing modules cannot see them.
+- **Accessible by name** for value-level reference (e.g., `_alwaysEq` is a binding of type `Eq$Dict Int`).
+- **Usable via evidence injection** — `_alwaysEq => eq 1 2` makes the private instance available for resolution within the body expression (see §6.7).
+
+Private instances enable local instance overriding without breaking global coherence.
+
 ## 6.3 Elaboration (Dictionary Passing)
 
 Type classes elaborate entirely to existing Core IR constructs. No new Core nodes are needed.
@@ -1007,6 +1041,28 @@ f :: \a. Eq$Dict a -> a -> Computation {} {} Bool
 
 Constraints do not affect the `pre`/`post` row structure.
 
+## 6.7 Scoped Evidence Injection
+
+The `value => expr` form introduces a dictionary value into the local evidence context for the duration of `expr`. The solver can use this evidence when resolving constraints emitted within the body.
+
+```
+impl _alwaysEq :: Eq Int := {
+  eq := \x y. 42
+}
+
+result := _alwaysEq => eq 1 2    -- resolves Eq Int via _alwaysEq, returns 42
+```
+
+Multiple injections compose right-associatively:
+
+```
+d1 => d2 => expr                 -- d1 => (d2 => expr)
+```
+
+Elaboration: `dict => body` elaborates to `(\$ev. body) dict`, where `$ev` is a fresh evidence variable available to the solver during body checking. Deferred constraints are resolved within the evidence scope — the solver sees the injected evidence before it is popped from the context.
+
+This mechanism is the primary use site for private instances (§6.2.1). Public instances are resolved automatically by the solver; private instances require explicit injection to take effect.
+
 ---
 
 # 7. Algebraic Data Types
@@ -1096,12 +1152,12 @@ r := { apply: \x. x }
 
 The expected type propagates into the record literal, so the lambda receives the `\a. a -> a` annotation and type-checks at rank 2.
 
-**Note:** In type annotations, always write `Record { ... }` explicitly. A bare `{ ... }` in type position is a capability row (used in `Computation` pre/post indices), not a `Record` type:
+**Bare row unification:** A bare `{ ... }` in type position unifies transparently with `Record { ... }` from expression position. Writing `Record { ... }` explicitly in type annotations is still recommended for clarity, but `{ x: Int }` in a type annotation unifies with `Record { x: Int }` inferred from an expression:
 
 ```
-f :: Record { x: Int } -> Int   -- correct: Record type
-f :: { x: Int } -> Int          -- wrong: capability row, not Record
-g :: Computation { db: DB } {} ()  -- correct: capability rows
+f :: { x: Int } -> Int          -- unifies with Record { x: Int } -> Int
+f :: Record { x: Int } -> Int   -- explicit form (recommended)
+g :: Computation { db: DB } {} ()  -- capability rows (not Record)
 ```
 
 Duplicate field labels in a record type are rejected at compile time (error E0210):
@@ -1423,6 +1479,12 @@ publicFn :: Int -> Int       -- exported
 publicFn := \x. _helper x
 ```
 
+Instance declarations with a `_` prefix name are also private — they are excluded from exports and from global instance resolution (see §6.2.1):
+
+```gicel
+impl _localEq :: Eq Int := { eq := \x y. 42 }   -- private instance: solver-invisible
+```
+
 Type names (uppercase) cannot start with `_`, so type-level privacy requires selective exports (a future direction).
 
 ## 12.5 Ambiguity Detection
@@ -1615,10 +1677,10 @@ A closed type family is a `type` declaration whose body is a lambda containing a
 ```
 type Name :: ResultKind := \TyBinder+. case scrutinee { Alt (; Alt)* }
 
-Alt ::= TypePattern '=>' Type
+Alt ::= TypePattern '=>' TypeCaseBody
 ```
 
-The `::` after the name provides the result kind. The body is a lambda over the parameters, with a `case` expression that dispatches on the scrutinee.
+The `::` after the name provides the result kind. The body is a lambda over the parameters, with a `case` expression that dispatches on the scrutinee. Alternative bodies allow `->` (function arrow) but stop at `=>` (the alternative separator). This permits result types like `Decode a -> Decode b` without ambiguity.
 
 ```
 type ElemOf :: Type := \(c: Type). case c {
@@ -1727,13 +1789,26 @@ open  :: Computation {} { h: Handle @Linear } ()
 close :: Computation { h: Handle @Linear } {} ()
 ```
 
-Without annotation, fields are `@Unrestricted`. The multiplicity kind is:
+Without annotation, fields are `@Unrestricted`. The multiplicity kind forms a four-element lattice:
 
 ```
-data Mult := Unrestricted | Affine | Linear
+data Mult := Zero | Linear | Affine | Unrestricted
 ```
+
+The lattice order is: `Zero` and `Linear` are incomparable, both below `Affine`, which is below `Unrestricted`. `Zero` represents a capability that has been consumed and cannot be used.
 
 Multiplicity annotations are checked by the type system but do not affect runtime evaluation. They constrain how capabilities may be used: `@Linear` requires exactly-once consumption, `@Affine` allows at-most-once.
+
+### 17.2.1 Grade Boundary Enforcement
+
+Grade boundary checking (whether a capability can be preserved across a bind step) uses two paths:
+
+- **Concrete grades**: immediate check via `gradeCanPreserve`. If the grade does not permit preservation, a compile-time error is emitted.
+- **Grades with metavariables**: a `CtFunEq` constraint is emitted using internal type families `$GradeJoin` and `$GradeDrop`. The constraint `$GradeJoin(Zero, grade) ~ grade` blocks until the metavariable is solved, then the type family reduces and unification enforces the grade boundary.
+
+The `$GradeJoin` type family encodes the full usage/multiplicity lattice (Zero, Linear, Affine, Unrestricted) as a 10-equation closed type family. `$GradeDrop` always reduces to Zero.
+
+This dual-path design enables future multiplicity polymorphism: grade-polymorphic functions emit deferred constraints that are resolved once the grade metavariable is instantiated.
 
 The `LUB` (least upper bound) of multiplicities at branch join points can be computed via a type family:
 

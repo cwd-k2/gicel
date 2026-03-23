@@ -145,7 +145,7 @@ func (p *Parser) parseBlock() syn.Expr {
 			// Multi-constructor data family defs: only the first constructor is captured.
 			// Emit a diagnostic for additional | constructors rather than silently dropping.
 			if p.peek().Kind == syn.TokPipe {
-				p.addErrorCode(diagnostic.ErrClassSyntax,
+				p.addErrorCode(diagnostic.ErrParseSyntax,
 					"multi-constructor associated data families are not yet supported; only the first constructor is used")
 				for p.peek().Kind == syn.TokPipe {
 					p.advance()

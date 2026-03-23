@@ -427,9 +427,10 @@ func (ch *Checker) inferEvidence(e *syntax.ExprEvidence) (types.Type, ir.Core) {
 	dictTy, dictCore := ch.infer(e.Dict)
 	bindName := fmt.Sprintf("$ev_%d", ch.fresh())
 	ch.ctx.Push(&CtxVar{Name: bindName, Type: dictTy})
+	ch.pushEvidenceFromDictType(bindName, dictTy)
 	bodyTy, bodyCore := ch.infer(e.Body)
-	// Resolve deferred constraints while the evidence is still in scope.
 	bodyCore = ch.resolveDeferredConstraints(bodyCore)
+	ch.popEvidenceFromDictType(dictTy)
 	ch.ctx.Pop()
 	lamCore := &ir.Lam{Param: bindName, ParamType: dictTy, Body: bodyCore, Generated: true, S: e.S}
 	return bodyTy, &ir.App{Fun: lamCore, Arg: dictCore, S: e.S}
@@ -440,10 +441,39 @@ func (ch *Checker) checkEvidence(e *syntax.ExprEvidence, expected types.Type) ir
 	dictTy, dictCore := ch.infer(e.Dict)
 	bindName := fmt.Sprintf("$ev_%d", ch.fresh())
 	ch.ctx.Push(&CtxVar{Name: bindName, Type: dictTy})
+	ch.pushEvidenceFromDictType(bindName, dictTy)
 	bodyCore := ch.check(e.Body, expected)
-	// Resolve deferred constraints while the evidence is still in scope.
 	bodyCore = ch.resolveDeferredConstraints(bodyCore)
+	ch.popEvidenceFromDictType(dictTy)
 	ch.ctx.Pop()
 	lamCore := &ir.Lam{Param: bindName, ParamType: dictTy, Body: bodyCore, Generated: true, S: e.S}
 	return &ir.App{Fun: lamCore, Arg: dictCore, S: e.S}
+}
+
+// pushEvidenceFromDictType decomposes a dictionary type into class name + args
+// and pushes a CtxEvidence entry so the solver can find it during resolution.
+func (ch *Checker) pushEvidenceFromDictType(bindName string, dictTy types.Type) {
+	dictTy = ch.unifier.Zonk(dictTy)
+	head, args := types.UnwindApp(dictTy)
+	if con, ok := head.(*types.TyCon); ok {
+		if cn := strings.TrimSuffix(con.Name, "$Dict"); cn != con.Name {
+			ch.ctx.Push(&CtxEvidence{
+				ClassName: cn,
+				Args:      args,
+				DictName:  bindName,
+				DictType:  dictTy,
+			})
+		}
+	}
+}
+
+// popEvidenceFromDictType pops the CtxEvidence entry pushed by pushEvidenceFromDictType.
+func (ch *Checker) popEvidenceFromDictType(dictTy types.Type) {
+	dictTy = ch.unifier.Zonk(dictTy)
+	head, _ := types.UnwindApp(dictTy)
+	if con, ok := head.(*types.TyCon); ok {
+		if cn := strings.TrimSuffix(con.Name, "$Dict"); cn != con.Name {
+			ch.ctx.Pop()
+		}
+	}
 }

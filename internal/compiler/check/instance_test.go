@@ -253,3 +253,41 @@ impl second :: Eq Bool := { eq := \x y. False; }
 main := eq True False`
 	checkSourceExpectCode(t, source, nil, diagnostic.ErrOverlap)
 }
+
+// --- Scoped evidence injection tests ---
+
+func TestScopedEvidenceInjection(t *testing.T) {
+	// Private instance injected via value => expr overrides public instance.
+	source := `data Int := { MkInt: Int; }
+data MyEq := \a. { eq: a -> a -> Int; }
+impl MyEq Int := { eq := \x y. MkInt; }
+impl _alt :: MyEq Int := { eq := \x y. MkInt; }
+main := _alt => eq MkInt MkInt`
+	checkSource(t, source, nil)
+}
+
+func TestScopedEvidenceNested(t *testing.T) {
+	// Nested scoped evidence: d1 => d2 => expr.
+	source := `data Int := { MkInt: Int; }
+data MyEq := \a. { eq: a -> a -> Int; }
+data MyOrd := \a. { cmp: a -> a -> Int; }
+impl MyEq Int := { eq := \x y. MkInt; }
+impl MyOrd Int := { cmp := \x y. MkInt; }
+impl _e :: MyEq Int := { eq := \x y. MkInt; }
+impl _o :: MyOrd Int := { cmp := \x y. MkInt; }
+main := _e => _o => eq MkInt MkInt`
+	checkSource(t, source, nil)
+}
+
+func TestScopedEvidenceDoesNotLeak(t *testing.T) {
+	// Scoped evidence should not affect resolution outside the => body.
+	// The public instance is used for the outer `eq` call.
+	source := `data Bool := { True: Bool; False: Bool; }
+data MyEq := \a. { eq: a -> a -> Bool; }
+impl MyEq Bool := { eq := \x y. True; }
+impl _alt :: MyEq Bool := { eq := \x y. False; }
+inner := _alt => eq True False
+outer := eq True True
+main := outer`
+	checkSource(t, source, nil)
+}

@@ -461,12 +461,10 @@ main := do { noop }
 	checkSource(t, source, nil)
 }
 
-func TestGradeBoundaryConcrete_UnrestrictedRejected(t *testing.T) {
-	// Unrestricted field preserved across do-block boundary. Due to a known
-	// deficiency in usageJoin (Zero ⊔ Unrestricted returns Zero instead of
-	// Unrestricted when the sort-based switch falls through), gradeCanPreserve
-	// rejects this case. The $GradeJoin family handles it correctly, so this
-	// test documents the current fast-path behavior as a regression baseline.
+func TestGradeBoundaryConcrete_UnrestrictedPreserved(t *testing.T) {
+	// Unrestricted field preserved across do-block boundary.
+	// gradeCanPreserve(Unrestricted) correctly returns true:
+	// Join(Zero, Unrestricted) = Unrestricted, Equal(Unrestricted, Unrestricted) = true.
 	source := `
 data Mult := { Unrestricted: Mult; Affine: Mult; Linear: Mult; Zero: Mult; }
 data Unit := { Unit: Unit; }
@@ -475,7 +473,7 @@ noop := assumption
 main :: Computation { h: Unit @Unrestricted } { h: Unit @Unrestricted } Unit
 main := do { noop }
 `
-	checkSourceExpectError(t, source, nil)
+	checkSource(t, source, nil)
 }
 
 // --- Unit: gradeContainsMeta ---
