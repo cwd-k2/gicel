@@ -452,13 +452,14 @@ func (ch *Checker) checkEvidence(e *syntax.ExprEvidence, expected types.Type) ir
 
 // pushEvidenceFromDictType decomposes a dictionary type into class name + args
 // and pushes a CtxEvidence entry so the solver can find it during resolution.
+// Uses the canonical ClassFromDict registry lookup (not suffix heuristics).
 func (ch *Checker) pushEvidenceFromDictType(bindName string, dictTy types.Type) {
 	dictTy = ch.unifier.Zonk(dictTy)
 	head, args := types.UnwindApp(dictTy)
 	if con, ok := head.(*types.TyCon); ok {
-		if cn := strings.TrimSuffix(con.Name, "$Dict"); cn != con.Name {
+		if className, ok := ch.reg.ClassFromDict(con.Name); ok {
 			ch.ctx.Push(&CtxEvidence{
-				ClassName: cn,
+				ClassName: className,
 				Args:      args,
 				DictName:  bindName,
 				DictType:  dictTy,
@@ -472,7 +473,7 @@ func (ch *Checker) popEvidenceFromDictType(dictTy types.Type) {
 	dictTy = ch.unifier.Zonk(dictTy)
 	head, _ := types.UnwindApp(dictTy)
 	if con, ok := head.(*types.TyCon); ok {
-		if cn := strings.TrimSuffix(con.Name, "$Dict"); cn != con.Name {
+		if _, ok := ch.reg.ClassFromDict(con.Name); ok {
 			ch.ctx.Pop()
 		}
 	}

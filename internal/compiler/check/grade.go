@@ -29,15 +29,11 @@ func gradeJoin(a, b types.Type) types.Type {
 	return usageJoin(ac, bc)
 }
 
-// gradeDrop returns the Drop element for the grade algebra of the given grade.
-func gradeDrop(grade types.Type) types.Type {
-	if con, ok := grade.(*types.TyCon); ok {
-		switch con.Name {
-		case "Linear", "Affine", "Unrestricted", "Zero":
-			return &types.TyCon{Name: "Zero"}
-		}
-	}
-	return &types.TyCon{Name: "Zero"} // default for unknown algebras
+// gradeDrop returns the Drop element for the usage grade algebra.
+// Always Zero. When multiple grade algebras are supported, dispatch
+// on the algebra tag here.
+func gradeDrop(_ types.Type) types.Type {
+	return &types.TyCon{Name: "Zero"}
 }
 
 // gradeCanPreserve checks whether a field with the given grade can be preserved
@@ -77,7 +73,8 @@ func usageJoin(a, b *types.TyCon) *types.TyCon {
 		return &types.TyCon{Name: "Unrestricted"}
 	case x == "Affine" || y == "Affine":
 		return &types.TyCon{Name: "Affine"}
-	case (x == "Linear" && y == "Zero") || (x == "Zero" && y == "Linear"):
+	case x == "Linear" && y == "Zero":
+		// After sort x <= y: "Linear" < "Zero", so this is the only reachable ordering.
 		return &types.TyCon{Name: "Affine"}
 	default:
 		return a // fallback
@@ -189,7 +186,7 @@ func (ch *Checker) checkGradeBoundary(comp *types.TyCBPV, s span.Span) {
 			continue // no grade constraints (unrestricted)
 		}
 
-		postTy := capFieldTypeByLabel(postFields, f.Label)
+		postTy := types.RowFieldType(postFields, f.Label)
 		if postTy == nil {
 			continue // consumed: field not in post → OK
 		}
@@ -237,8 +234,14 @@ func (ch *Checker) emitGradePreserveConstraint(grade types.Type, s span.Span) {
 	resultMeta := ch.freshMeta(multKind)
 	blocking := ch.unifier.CollectBlockingMetas(args)
 	if len(blocking) == 0 {
-		// No blocking metas after all (shouldn't happen if gradeContainsMeta
-		// returned true, but be defensive). Fall back to direct check.
+		// Invariant: gradeContainsMeta was true, so CollectBlockingMetas should
+		// find at least one meta. If not, the meta was zonked between the check
+		// and here. Fall back to the concrete fast path.
+		if !gradeCanPreserve(ch.unifier.Zonk(grade)) {
+			ch.addCodedError(diagnostic.ErrMultiplicity, s,
+				fmt.Sprintf("@%s capability must be consumed (type unchanged across computation boundary)",
+					types.Pretty(grade)))
+		}
 		return
 	}
 
@@ -269,14 +272,4 @@ func extractCapFields(ch *Checker, ty types.Type) []types.RowField {
 		return nil
 	}
 	return cap.Fields
-}
-
-// capFieldTypeByLabel returns the type of a field with the given label, or nil.
-func capFieldTypeByLabel(fields []types.RowField, label string) types.Type {
-	for _, f := range fields {
-		if f.Label == label {
-			return f.Type
-		}
-	}
-	return nil
 }
