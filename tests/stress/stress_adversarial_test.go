@@ -356,7 +356,7 @@ main := grow "A"
 func TestAdversarial_TypeFamilyInfiniteLoop(t *testing.T) {
 	src := `
 import Prelude
-type Loop a :: Type := { Loop a =: Loop (Maybe a) }
+type Loop :: Type := \(a: Type). case a { a => Loop (Maybe a) }
 x :: Loop Int
 x := 42
 main := x
@@ -667,7 +667,7 @@ main := runReader (do { x <- ask; pure (append "port=" (show x)) } :: Reader Int
 func TestV9_FixConValErrorMessage(t *testing.T) {
 	src := `
 import Prelude
-data Pair := MkPair Int Int
+data Pair := { MkPair: Int -> Int -> Pair }
 getFirst :: Pair -> Int
 getFirst := \p. case p { MkPair a _ => a }
 main := getFirst (fix (\self. MkPair 1 2))

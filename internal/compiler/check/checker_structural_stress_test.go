@@ -128,7 +128,7 @@ main := fmap not (Just True)
 func TestStressExhaustiveGADTManyCons(t *testing.T) {
 	var sb strings.Builder
 	sb.WriteString("data Bool := { True: Bool; False: Bool; }\n")
-	sb.WriteString("data Expr := \a. {\n")
+	sb.WriteString("data Expr := \\a. {\n")
 	// 10 constructors, separated by ;
 	for i := range 10 {
 		if i > 0 {
@@ -216,7 +216,7 @@ func TestStressManyContextualInstances(t *testing.T) {
 	// 8 wrapper types, each with a contextual Eq instance.
 	for i := range 8 {
 		sb.WriteString(fmt.Sprintf("data W%d := \\a. { MkW%d: a -> W%d a; }\n", i, i, i))
-		sb.WriteString(fmt.Sprintf("impl Eq a => Eq (W%d a) { eq := \\x y. True }\n\n", i))
+		sb.WriteString(fmt.Sprintf("impl Eq a => Eq (W%d a) := { eq := \\x y. True }\n\n", i))
 	}
 
 	// Nested application: Eq (W0 (W1 (W2 (W3 (W4 (W5 (W6 (W7 Bool))))))))

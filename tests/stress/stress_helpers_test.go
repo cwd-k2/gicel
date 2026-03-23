@@ -242,11 +242,11 @@ func TestStressGeneratedLargeProgram(t *testing.T) {
 	// Generate a program with 100 data types, 100 functions, 50 class instances.
 	var source string
 	source += "import Prelude\n"
-	source += "data D0 := D0C0 | D0C1 | D0C2\n"
+	source += "data D0 := { D0C0: D0; D0C1: D0; D0C2: D0 }\n"
 
 	// Generate 50 additional data types
 	for i := 1; i <= 50; i++ {
-		source += fmt.Sprintf("data D%d a := D%dA a | D%dB\n", i, i, i)
+		source += fmt.Sprintf("data D%d := \\a. { D%dA: a -> D%d a; D%dB: D%d a }\n", i, i, i, i, i)
 	}
 
 	// Eq and its instances are already provided by Prelude.

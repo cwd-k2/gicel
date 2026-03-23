@@ -530,7 +530,7 @@ func TestGADTRefinementDisjointBranches(t *testing.T) {
 	eng.Use(gicel.Prelude)
 	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
-data Token a := { BoolTok: Bool -> Token Bool; UnitTok: Token () }
+data Token := \a. { BoolTok: Bool -> Token Bool; UnitTok: Token () }
 
 toBool :: Token Bool -> Bool
 toBool := \t. case t { BoolTok b => b }
@@ -1244,7 +1244,7 @@ func TestDataKindsInGADTIndex(t *testing.T) {
 	rt, err := eng.NewRuntime(context.Background(), `
 data Phase := { Building: Phase; Running: Phase; }
 
-data Builder (p: Phase) := MkBuilder
+data Builder := \(p: Phase). { MkBuilder: Builder p }
 
 start :: Builder Building
 start := MkBuilder
@@ -1270,7 +1270,7 @@ func TestDataKindsMismatch(t *testing.T) {
 	_, err := eng.NewRuntime(context.Background(), `
 import Prelude
 data Phase := { Building: Phase; Running: Phase; }
-data Builder (p: Phase) := MkBuilder
+data Builder := \(p: Phase). { MkBuilder: Builder p }
 start :: Builder True
 start := MkBuilder
 main := start

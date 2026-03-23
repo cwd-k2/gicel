@@ -42,8 +42,8 @@ func TestStressManyInstancesOneClass(t *testing.T) {
 	sb.WriteString("data Eq := \\a. { eq: a -> a -> Bool }\n")
 	for i := 0; i < 10; i++ {
 		name := fmt.Sprintf("T%d", i)
-		sb.WriteString(fmt.Sprintf("data %s := { Mk%s: (); }\n", name, name))
-		sb.WriteString(fmt.Sprintf("impl Eq %s { eq := \\x y. True }\n", name))
+		sb.WriteString(fmt.Sprintf("data %s := { Mk%s: %s; }\n", name, name, name))
+		sb.WriteString(fmt.Sprintf("impl Eq %s := { eq := \\x y. True }\n", name))
 	}
 	// Use eq on each type.
 	for i := 0; i < 10; i++ {
@@ -61,7 +61,7 @@ func TestStressManyClasses(t *testing.T) {
 		sb.WriteString(fmt.Sprintf("data C%d := \\a. { m%d: a -> Bool }\n", i, i))
 	}
 	for i := 0; i < 10; i++ {
-		sb.WriteString(fmt.Sprintf("impl C%d Bool { m%d := \\x. True }\n", i, i))
+		sb.WriteString(fmt.Sprintf("impl C%d Bool := { m%d := \\x. True }\n", i, i))
 	}
 	// Function requiring all 10 constraints (curried style).
 	sb.WriteString("f :: \\ a. ")

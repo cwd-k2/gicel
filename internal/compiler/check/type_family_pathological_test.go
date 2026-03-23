@@ -85,17 +85,17 @@ data Unit := { Unit: Unit; }
 data List := \a. { Nil: List a; Cons: a -> List a -> List a; }
 
 data Container := \c. {
-  data Phantom c :: Type;
+  type Phantom c :: Type;
   empty: c
 }
 
 impl Container (List a) := {
-  Phantom (List a) => PhantomList;
+  type Phantom := Unit;
   empty := Nil
 }
 
 x :: Phantom (List Unit)
-x := PhantomList
+x := Unit
 `
 	checkSource(t, source, nil)
 }
@@ -110,7 +110,7 @@ func TestPathological100Instances(t *testing.T) {
 	b.WriteString("data Bool := { True: Bool; False: Bool; }\n")
 	b.WriteString("data Eq := \\a. { eq: a -> a -> Bool }\n")
 	for i := 0; i < 100; i++ {
-		b.WriteString(fmt.Sprintf("impl Eq T%d { eq := \\x y. True }\n", i))
+		b.WriteString(fmt.Sprintf("impl Eq T%d := { eq := \\x y. True }\n", i))
 	}
 	checkSource(t, b.String(), nil)
 }
@@ -119,19 +119,19 @@ func TestPathological100Instances(t *testing.T) {
 func TestPathologicalFunDepNoInstances(t *testing.T) {
 	source := `
 data Unit := { Unit: Unit; }
-Convert := \a b | a => b. {
+data Convert := \a b. {
   convert: a -> b
 }
 `
-	// Just declaring a class with fundeps and no instances should be fine.
+	// Just declaring a class with no instances should be fine.
 	checkSource(t, source, nil)
 }
 
-// Fundep class with 0 instances — trying to USE it should fail gracefully.
+// Class with 0 instances — trying to USE it should fail gracefully.
 func TestPathologicalFunDepNoInstancesUsage(t *testing.T) {
 	source := `
 data Unit := { Unit: Unit; }
-Convert := \a b | a => b. {
+data Convert := \a b. {
   convert: a -> b
 }
 f :: Unit -> Unit
@@ -182,7 +182,7 @@ data Show := \a. {
 }
 
 impl Show Unit := {
-  Elem Unit => Unit;
+  type Elem := Unit;
   show := \x. x
 }
 `
@@ -212,12 +212,12 @@ data C2 := \a. {
 }
 
 impl C1 Unit := {
-  Key Unit => KeyC1;
+  type Key := Unit;
   m1 := Unit
 }
 
 impl C2 Unit := {
-  Key Unit => KeyC2;
+  type Key := Unit;
   m2 := Unit
 }
 `

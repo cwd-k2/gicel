@@ -136,6 +136,7 @@ impl Foo Unit := {
 }
 
 func TestDataFamilyArityMismatch(t *testing.T) {
+	// Defining a data family member not declared in the class should error.
 	source := `
 data Unit := { Unit: Unit; }
 data Collection := \a. {
@@ -143,7 +144,7 @@ data Collection := \a. {
   empty: a
 }
 impl Collection Unit := {
-  Elem Unit Unit => Bad;
+  data NotElem := Bad;
   empty := Unit
 }
 `

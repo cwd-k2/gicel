@@ -1,11 +1,11 @@
 import Prelude
 
-data Color := Red | Green | Blue | Yellow | Cyan | Magenta | White | Black
-data Shape := Circle | Square | Triangle | Pentagon | Hexagon | Octagon
-data Day := Mon | Tue | Wed | Thu | Fri | Sat | Sun
-data Suit := Spade | Heart | Diamond | Club
-data Prio := Low | Medium | High | Critical | Blocker
-data Dir := North | South | East | West | Up | Down
+data Color := { Red: Color; Green: Color; Blue: Color; Yellow: Color; Cyan: Color; Magenta: Color; White: Color; Black: Color }
+data Shape := { Circle: Shape; Square: Shape; Triangle: Shape; Pentagon: Shape; Hexagon: Shape; Octagon: Shape }
+data Day := { Mon: Day; Tue: Day; Wed: Day; Thu: Day; Fri: Day; Sat: Day; Sun: Day }
+data Suit := { Spade: Suit; Heart: Suit; Diamond: Suit; Club: Suit }
+data Prio := { Low: Prio; Medium: Prio; High: Prio; Critical: Prio; Blocker: Prio }
+data Dir := { North: Dir; South: Dir; East: Dir; West: Dir; Up: Dir; Down: Dir }
 
 colorToDay :: Color -> Day
 colorToDay := \c. case c {

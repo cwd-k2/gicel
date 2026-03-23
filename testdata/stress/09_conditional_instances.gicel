@@ -2,23 +2,23 @@ import Prelude
 
 data Eq := \a. { eq: a -> a -> Bool }
 
-impl Eq Bool {
+impl Eq Bool := {
   eq := \x y. case x {
     True  => y;
     False => case y { True => False; False => True }
   }
 }
 
-impl Eq () { eq := \_ _. True }
+impl Eq () := { eq := \_ _. True }
 
-impl Eq a => Eq (Maybe a) {
+impl Eq a => Eq (Maybe a) := {
   eq := \x y. case x {
     Nothing => case y { Nothing => True; Just _ => False };
     Just a  => case y { Nothing => False; Just b => eq a b }
   }
 }
 
-impl (Eq a) => (Eq b) => Eq (a, b) {
+impl (Eq a) => (Eq b) => Eq (a, b) := {
   eq := \x y. case x {
     (a1, b1) => case y {
       (a2, b2) => case eq a1 a2 {
@@ -29,7 +29,7 @@ impl (Eq a) => (Eq b) => Eq (a, b) {
   }
 }
 
-impl (Eq a) => (Eq b) => Eq (Result a b) {
+impl (Eq a) => (Eq b) => Eq (Result a b) := {
   eq := \x y. case x {
     Ok a  => case y { Ok b => eq a b;  Err _ => False };
     Err a => case y { Ok _ => False; Err b => eq a b }

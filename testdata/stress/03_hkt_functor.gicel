@@ -1,17 +1,17 @@
 import Prelude
 
-data Tree a := Leaf a | Branch (Tree a) (Tree a)
+data Tree := \a. { Leaf: a -> Tree a; Branch: Tree a -> Tree a -> Tree a }
 
 data Functor := \f. { fmap: \a b. (a -> b) -> f a -> f b }
 
-impl Functor Maybe {
+impl Functor Maybe := {
   fmap := \g mx. case mx {
     Nothing => Nothing;
     Just x  => Just (g x)
   }
 }
 
-impl Functor Tree {
+impl Functor Tree := {
   fmap := \g t. case t {
     Leaf x       => Leaf (g x);
     Branch l r   => Branch (fmap g l) (fmap g r)
@@ -22,7 +22,7 @@ data Applicative := \f. Functor f => {
   wrap: \a. a -> f a
 }
 
-impl Applicative Maybe {
+impl Applicative Maybe := {
   wrap := \x. Just x
 }
 

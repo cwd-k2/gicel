@@ -1,44 +1,44 @@
 import Prelude
 
-type Eff r a := Computation r r a
+type Eff := \r a. Computation r r a
 
-data Ordering := LT | EQ | GT
-data Tree a := Leaf a | Branch (Tree a) (Tree a)
-data Color := Red | Green | Blue
+data Ordering := { LT: Ordering; EQ: Ordering; GT: Ordering }
+data Tree := \a. { Leaf: a -> Tree a; Branch: Tree a -> Tree a -> Tree a }
+data Color := { Red: Color; Green: Color; Blue: Color }
 
 data Eq := \a. { eq: a -> a -> Bool }
 data Ord := \a. Eq a => { cmp: a -> a -> Ordering }
 data Functor := \f. { fmap: \a b. (a -> b) -> f a -> f b }
 data Coercible := \a b. { coerce: a -> b }
 
-impl Eq Bool {
+impl Eq Bool := {
   eq := \x y. case x {
     True  => y;
     False => case y { True => False; False => True }
   }
 }
-impl Eq () { eq := \_ _. True }
-impl Eq Ordering {
+impl Eq () := { eq := \_ _. True }
+impl Eq Ordering := {
   eq := \x y. case x {
     LT => case y { LT => True; _ => False };
     EQ => case y { EQ => True; _ => False };
     GT => case y { GT => True; _ => False }
   }
 }
-impl Eq Color {
+impl Eq Color := {
   eq := \x y. case x {
     Red   => case y { Red => True; _ => False };
     Green => case y { Green => True; _ => False };
     Blue  => case y { Blue => True; _ => False }
   }
 }
-impl Eq a => Eq (Maybe a) {
+impl Eq a => Eq (Maybe a) := {
   eq := \x y. case x {
     Nothing => case y { Nothing => True; Just _ => False };
     Just a  => case y { Nothing => False; Just b => eq a b }
   }
 }
-impl (Eq a) => (Eq b) => Eq (a, b) {
+impl (Eq a) => (Eq b) => Eq (a, b) := {
   eq := \x y. case x {
     (a1, b1) => case y {
       (a2, b2) => case eq a1 a2 { True => eq b1 b2; False => False }
@@ -46,28 +46,28 @@ impl (Eq a) => (Eq b) => Eq (a, b) {
   }
 }
 
-impl Ord Bool {
+impl Ord Bool := {
   cmp := \x y. case x {
     False => case y { False => EQ; True => LT };
     True  => case y { False => GT; True => EQ }
   }
 }
 
-impl Functor Maybe {
+impl Functor Maybe := {
   fmap := \g mx. case mx {
     Nothing => Nothing;
     Just x  => Just (g x)
   }
 }
-impl Functor Tree {
+impl Functor Tree := {
   fmap := \g t. case t {
     Leaf x     => Leaf (g x);
     Branch l r => Branch (fmap g l) (fmap g r)
   }
 }
 
-impl Coercible Bool () { coerce := \_. () }
-impl Coercible Color Bool {
+impl Coercible Bool () := { coerce := \_. () }
+impl Coercible Color Bool := {
   coerce := \c. case c { Red => True; Green => False; Blue => True }
 }
 

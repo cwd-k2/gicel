@@ -174,7 +174,7 @@ data Container := \c. {
 }
 
 impl Container (Wrapper a) := {
-  Elem (Wrapper a) => Wrap a
+  data Elem := Wrap a
 }
 `
 	checkSourceExpectCode(t, source, nil, diagnostic.ErrDuplicateDecl)
@@ -192,7 +192,7 @@ data Container := \c. {
 }
 
 impl Container (Wrapper a) := {
-  Elem (Wrapper a) => WrapElem a
+  data Elem := WrapElem a
 }
 
 x :: Elem (Wrapper Unit)
