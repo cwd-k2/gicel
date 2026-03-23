@@ -15,18 +15,18 @@ data Unlocked := Unlocked
 
 -- ── Door with phantom state ──────────────────────────────────
 
-data Door (state: Type) := MkDoor String
+data Door := \(state: Type). { MkDoor: String -> Door state }
 
 doorName :: \s. Door s -> String
-doorName := \d. case d { MkDoor name -> name }
+doorName := \d. case d { MkDoor name => name }
 
 -- State transitions: each changes the phantom parameter
 
 lock :: Door Unlocked -> Door Locked
-lock := \d. case d { MkDoor name -> MkDoor name }
+lock := \d. case d { MkDoor name => MkDoor name }
 
 unlock :: Door Locked -> Door Unlocked
-unlock := \d. case d { MkDoor name -> MkDoor name }
+unlock := \d. case d { MkDoor name => MkDoor name }
 
 -- Only unlocked doors can be opened
 open_ :: Door Unlocked -> String
@@ -49,14 +49,14 @@ test_relock := doorName (lock (unlock front))  -- "Front"
 data ReadOnly := ReadOnly
 data ReadWrite := ReadWrite
 
-data Token (perm: Type) := MkToken Int
+data Token := \(perm: Type). { MkToken: Int -> Token perm }
 
 tokenId :: \p. Token p -> Int
-tokenId := \t. case t { MkToken i -> i }
+tokenId := \t. case t { MkToken i => i }
 
 -- Upgrade: ReadOnly → ReadWrite requires explicit promotion
 promote :: Token ReadOnly -> Token ReadWrite
-promote := \t. case t { MkToken i -> MkToken i }
+promote := \t. case t { MkToken i => MkToken i }
 
 readToken :: \p. Token p -> String
 readToken := \t. append "read:" (show (tokenId t))

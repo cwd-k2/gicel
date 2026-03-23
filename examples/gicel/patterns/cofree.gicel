@@ -18,17 +18,17 @@ import Prelude
 -- When f = Maybe, this is a non-empty list.
 -- When f = ((,) e), this is an infinite stream with annotations.
 
-data Cofree (f: Type -> Type) a := MkCofree a (f (Cofree f a))
+data Cofree := \(f: Type -> Type) a. { MkCofree: a -> f (Cofree f a) -> Cofree f a }
 
 cofreeHead :: \(f: Type -> Type) a. Cofree f a -> a
 cofreeHead := \c. case c { MkCofree a _ => a }
 
 cofreeTail :: \(f: Type -> Type) a. Cofree f a -> f (Cofree f a)
-cofreeTail := \c. case c { MkCofree _ t -> t }
+cofreeTail := \c. case c { MkCofree _ t => t }
 
 -- Functor: map over every annotation in the tree
 impl Functor f => Functor (Cofree f) := {
-  fmap := \g c. case c { MkCofree a t -> MkCofree (g a) (fmap (fmap g) t) }
+  fmap := \g c. case c { MkCofree a t => MkCofree (g a) (fmap (fmap g) t) }
 }
 
 -- ── Rose tree = Cofree List ──────────────────────────────────

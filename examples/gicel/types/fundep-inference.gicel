@@ -8,9 +8,9 @@ import Prelude
 
 -- A type class for serialization with fundep: the format determines
 -- the wire type uniquely.
-data Serialize a b | a =: b {
-  encode :: a -> b;
-  decode :: b -> a
+data Serialize := \a b. {
+  encode: a -> b;
+  decode: b -> a
 }
 
 -- Int serializes to String.
@@ -37,8 +37,8 @@ intAsStr := encode 42
 
 -- A two-parameter class for container mapping with fundep.
 -- Knowing the source container determines the element type.
-data HasElem c e | c =: e {
-  getFirst :: c -> Maybe e
+data HasElem := \c e. {
+  getFirst: c -> Maybe e
 }
 
 impl HasElem (List a) a := {
@@ -59,9 +59,9 @@ firstOfMaybe :: Maybe Bool
 firstOfMaybe := getFirst (Just True)
 
 -- Bidirectional fundep: knowing either direction determines the other.
-data Iso a b | a =: b, b =: a {
-  forward :: a -> b;
-  backward :: b -> a
+data Iso := \a b. {
+  forward: a -> b;
+  backward: b -> a
 }
 
 impl Iso Bool Int := {

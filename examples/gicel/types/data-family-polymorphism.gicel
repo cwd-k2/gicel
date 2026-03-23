@@ -1,70 +1,70 @@
 -- GICEL Example: Data Family Polymorphism
 --
--- Data families create type-indexed data structures: different instances
--- of the same family use different runtime representations.
+-- Associated type families create type-indexed structures: different instances
+-- of the same class use different type representations. Each instance
+-- determines its own associated type via `type Elem := ...`.
 
 import Prelude
 
--- A Collection class with an associated data family for keys.
--- Each collection type determines its own key representation.
-data Collection c {
-  data Key c :: Type;
-  insert :: Key c -> c -> c;
-  lookup :: Key c -> c -> Maybe (ElemOf c)
+-- A Collection class with an associated type family for elements.
+-- Each collection type determines its own element type.
+data Collection := \c. {
+  type Elem c :: Type;
+  chead: c -> Maybe (Elem c);
+  clength: c -> Int
 }
 
--- ElemOf is a closed type family that extracts the element type.
-type ElemOf (c: Type) :: Type := {
-  ElemOf (List a) =: a;
-  ElemOf (Maybe a) =: a
-}
-
--- Instance for List: keys are Int (positional index).
--- Key (List a) =: ListIndex
+-- Instance for List: Elem (List a) = a.
 impl Collection (List a) := {
-  data Key (List a) =: ListIndex Int;
-  insert := \k xs. xs;
-  lookup := \k xs. case xs { Cons x _ => Just x; Nil => Nothing }
+  type Elem := a;
+  chead := \xs. case xs { Cons x _ => Just x; Nil => Nothing };
+  clength := length
 }
 
--- A Wrapper class with associated data for the wrapped form.
--- Different types wrap into different runtime shapes.
-data Wrappable w {
-  data Wrapped w :: Type;
-  wrap :: w -> Wrapped w;
-  unwrap :: Wrapped w -> w
+-- Instance for Maybe: Elem (Maybe a) = a.
+impl Collection (Maybe a) := {
+  type Elem := a;
+  chead := \m. m;
+  clength := \m. case m { Just _ => 1; Nothing => 0 }
 }
 
--- Int wraps to a tagged box.
+-- A Wrapper class with associated type for the wrapped form.
+-- Different types wrap into different type representations.
+data Wrappable := \w. {
+  type Wrapped w :: Type;
+  wrap: w -> Wrapped w;
+  unwrap: Wrapped w -> w
+}
+
+-- Int wraps to Int (identity).
 impl Wrappable Int := {
-  data Wrapped Int =: IntBox Int;
-  wrap := \n. IntBox n;
-  unwrap := \w. case w { IntBox n -> n }
+  type Wrapped := Int;
+  wrap := \n. n;
+  unwrap := \w. w
 }
 
--- Bool wraps to a bitflag.
+-- Bool wraps to Bool (identity).
 impl Wrappable Bool := {
-  data Wrapped Bool =: BoolBit Bool;
-  wrap := \b. BoolBit b;
-  unwrap := \w. case w { BoolBit b -> b }
+  type Wrapped := Bool;
+  wrap := \b. b;
+  unwrap := \w. w
 }
 
--- Maybe wraps to an optional box.
-impl Wrappable (Maybe a) := {
-  data Wrapped (Maybe a) =: OptBox (Maybe a);
-  wrap := \m. OptBox m;
-  unwrap := \w. case w { OptBox m -> m }
-}
+-- Usage: generic operations via associated types.
+-- The type checker reduces Elem c at each call site.
+listHead := chead [1, 2, 3]              -- Just 1
+maybeHead := chead (Just True)            -- Just True
+listLen := clength [10, 20, 30]           -- 3
+maybeLen := clength (Just 42)             -- 1
 
--- Usage: type-safe wrapping and unwrapping.
--- Each Wrapped type has distinct constructors:
--- IntBox 42 and BoolBit True cannot be confused at the type level.
+-- Wrapping and unwrapping.
+-- Type annotations are needed so the checker can resolve Wrapped w.
 wrappedInt := wrap 42
 wrappedBool := wrap True
+recoveredInt :: Int
+recoveredInt := unwrap wrappedInt         -- 42
+recoveredBool :: Bool
+recoveredBool := unwrap wrappedBool       -- True
 
--- Pattern matching on data family constructors recovers the original value.
-recoveredInt := case wrappedInt { IntBox n -> n }
-recoveredBool := case wrappedBool { BoolBit b -> b }
-
--- Output: (42, True)
-main := (recoveredInt, recoveredBool)
+-- Output: (Just 1, Just True, 3, 1, 42, True)
+main := (listHead, maybeHead, listLen, maybeLen, recoveredInt, recoveredBool)

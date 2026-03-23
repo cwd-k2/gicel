@@ -1,0 +1,153 @@
+-- Graph algorithms — DFS and BFS on adjacency list representation.
+-- Uses Data.Set for visited tracking, Data.Map for adjacency lists.
+-- Requires: --recursion --packs prelude,map,set
+-- Run: bin/gicel run --recursion --packs prelude,map,set examples/gicel/algorithms/graph.gicel
+
+import Prelude
+import Data.Map as Map
+import Data.Set as Set
+
+-- ── Graph type: adjacency list via Map ──────────────────────
+
+-- Graph is Map from node to list of neighbors
+type Graph := Map Int (List Int)
+
+-- Build graph from edge list (directed)
+mkGraph :: List (Int, Int) -> Graph
+mkGraph := foldl (\g (from, to).
+  {
+    nbrs := maybe Nil id (Map.lookup from g);
+    Map.insert from (Cons to nbrs) g
+  }
+) (Map.empty :: Graph)
+
+-- Build undirected graph (add both directions)
+mkUndirected :: List (Int, Int) -> Graph
+mkUndirected := \edges.
+  foldl (\g (a, b).
+    {
+      nbrsA := maybe Nil id (Map.lookup a g);
+      g2 := Map.insert a (Cons b nbrsA) g;
+      nbrsB := maybe Nil id (Map.lookup b g2);
+      Map.insert b (Cons a nbrsB) g2
+    }
+  ) (Map.empty :: Graph) edges
+
+-- Get neighbors of a node
+neighbors :: Int -> Graph -> List Int
+neighbors := \node g. maybe Nil id (Map.lookup node g)
+
+-- ── DFS: depth-first search ─────────────────────────────────
+
+-- DFS returning nodes in visit order
+dfs :: Graph -> Int -> List Int
+dfs := \g start. {
+  -- DFS with explicit stack: (stack, visited, result)
+  go := fix (\self stack visited result. case stack {
+    Nil => reverse result;
+    Cons node rest => case Set.member node visited {
+      True  => self rest visited result;
+      False => {
+        visited2 := Set.insert node visited;
+        nbrs := neighbors node g;
+        -- Push neighbors onto stack (reverse to visit in order)
+        stack2 := concat (reverse nbrs) rest;
+        self stack2 visited2 (Cons node result)
+      }
+    }
+  });
+  go [start] (Set.empty :: Set Int) Nil
+}
+
+-- ── BFS: breadth-first search ───────────────────────────────
+
+-- BFS returning nodes in visit order
+bfs :: Graph -> Int -> List Int
+bfs := \g start. {
+  -- BFS with queue (list used as FIFO — dequeue from front, enqueue at back)
+  go := fix (\self queue visited result. case queue {
+    Nil => reverse result;
+    Cons node rest => case Set.member node visited {
+      True  => self rest visited result;
+      False => {
+        visited2 := Set.insert node visited;
+        nbrs := neighbors node g;
+        -- Filter already-visited neighbors, enqueue at back
+        newNbrs := filter (\n. not (Set.member n visited2)) nbrs;
+        queue2 := concat rest (reverse newNbrs);
+        self queue2 visited2 (Cons node result)
+      }
+    }
+  });
+  go [start] (Set.empty :: Set Int) Nil
+}
+
+-- ── Topological sort (DFS-based, for DAGs) ──────────────────
+
+topoSort :: Graph -> List Int -> List Int
+topoSort := \g nodes. {
+  -- For each node, if unvisited, DFS and append in post-order
+  go := fix (\self remaining visited order. case remaining {
+    Nil => order;
+    Cons node rest => case Set.member node visited {
+      True  => self rest visited order;
+      False => {
+        -- DFS post-order: visit children first, then self
+        dfsPost := fix (\dfs2 n vis ord. case Set.member n vis {
+          True  => (vis, ord);
+          False => {
+            vis2 := Set.insert n vis;
+            nbrs := neighbors n g;
+            -- Visit all neighbors
+            afterNbrs := foldl (\(v, o) nb. dfs2 nb v o) (vis2, ord) nbrs;
+            -- Append self after all children
+            (\(v, o). (v, Cons n o)) afterNbrs
+          }
+        });
+        (\(vis2, ord2). self rest vis2 ord2) (dfsPost node visited order)
+      }
+    }
+  });
+  go nodes (Set.empty :: Set Int) Nil
+}
+
+-- ── Path existence ──────────────────────────────────────────
+
+hasPath :: Graph -> Int -> Int -> Bool
+hasPath := \g start end. elem end (dfs g start)
+
+-- ── Tests ───────────────────────────────────────────────────
+
+-- Test graph:
+--   1 -> 2 -> 4
+--   |    |
+--   v    v
+--   3 -> 5
+graph1 := mkGraph [(1, 2), (1, 3), (2, 4), (2, 5), (3, 5)]
+
+testDFS := dfs graph1 1                         -- [1, 3, 5, 2, 4] or similar
+testBFS := bfs graph1 1                         -- [1, 2, 3, 4, 5] or similar
+
+-- Undirected graph:
+--   1 -- 2 -- 3
+--   |         |
+--   4 -- 5 -- 6
+graph2 := mkUndirected [(1, 2), (2, 3), (1, 4), (4, 5), (5, 6), (3, 6)]
+
+testDFS2 := dfs graph2 1
+testBFS2 := bfs graph2 1
+
+-- Path existence
+testPath1 := hasPath graph1 1 5                 -- True
+testPath2 := hasPath graph1 5 1                 -- False (directed)
+
+-- DAG for topological sort:
+--   A(1) -> B(2) -> D(4)
+--   A(1) -> C(3) -> D(4)
+dag := mkGraph [(1, 2), (1, 3), (2, 4), (3, 4)]
+testTopo := topoSort dag [1, 2, 3, 4]          -- [4, 2, 3, 1] or valid topo order
+
+-- Disconnected components
+testDisconnected := dfs graph1 4                 -- [4] (no outgoing edges from 4)
+
+main := (testDFS, testBFS, testDFS2, testBFS2, testPath1, testPath2, testTopo, testDisconnected)

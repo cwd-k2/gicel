@@ -8,20 +8,20 @@ import Prelude
 
 -- Container class with an associated type Elem.
 -- type Elem c :: Type declares a type family inside the class.
-data Container c {
+data Container := \c. {
   type Elem c :: Type;
-  cfold :: \b. (Elem c -> b -> b) -> b -> c -> b
+  cfold: \b. (Elem c -> b -> b) -> b -> c -> b
 }
 
 -- Instance for List: Elem (List a) =: a.
 impl Container (List a) := {
-  type Elem (List a) =: a;
+  type Elem := a;
   cfold := foldr
 }
 
 -- Instance for String: Elem String =: Rune.
 impl Container String := {
-  type Elem String =: Rune;
+  type Elem := Rune;
   cfold := \f z s. foldr f z (toRunes s)
 }
 

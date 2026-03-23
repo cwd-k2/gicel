@@ -12,7 +12,7 @@ import Prelude
 -- `a` is universally quantified in the constructor but existentially
 -- bound when pattern matching -- the consumer doesn't know what `a` is.
 data Testable := {
-  MkTestable :: \a. (a -> Bool) -> a -> Testable
+  MkTestable: \a. (a -> Bool) -> a -> Testable
 }
 
 -- Construct existential values: the concrete type is hidden after wrapping
@@ -24,7 +24,7 @@ unitTest := MkTestable (const False) ()
 -- Pattern matching on MkTestable brings the existential `a` into scope,
 -- along with `f :: a -> Bool` and `x :: a`.
 runTest :: Testable -> Bool
-runTest := \t. case t { MkTestable f x -> f x }
+runTest := \t. case t { MkTestable f x => f x }
 
 test1 := runTest boolTest     -- not True = False
 test2 := runTest maybeTest    -- Just _ => True
@@ -34,7 +34,7 @@ test3 := runTest unitTest     -- \u -> False
 -- The constructor requires Eq a, which is packed as evidence alongside
 -- the hidden values. Pattern matching recovers the Eq dictionary.
 data SomeEq := {
-  MkSomeEq :: \a. Eq a => a -> a -> SomeEq
+  MkSomeEq: \a. Eq a => a -> a -> SomeEq
 }
 
 -- Construct SomeEq values with different concrete types
@@ -43,20 +43,20 @@ eqMaybes := MkSomeEq (Just False) Nothing
 
 -- Compare the hidden pair using the existential Eq evidence
 checkEq :: SomeEq -> Bool
-checkEq := \s. case s { MkSomeEq x y -> eq x y }
+checkEq := \s. case s { MkSomeEq x y => eq x y }
 
 test4 := checkEq eqBools     -- eq True True = True
 test5 := checkEq eqMaybes    -- eq (Just False) Nothing = False
 
 -- Existential that hides a transformation pipeline.
 -- `a` is existential; only the output type `b` is visible.
-data Transform b := {
-  MkTransform :: \a. (a -> b) -> a -> Transform b
+data Transform := \b. {
+  MkTransform: \a. (a -> b) -> a -> Transform b
 }
 
 -- Run the hidden transformation
 runTransform :: \b. Transform b -> b
-runTransform := \t. case t { MkTransform f x -> f x }
+runTransform := \t. case t { MkTransform f x => f x }
 
 -- Different transformations that all produce Bool
 t1 := MkTransform not False

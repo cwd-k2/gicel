@@ -47,7 +47,7 @@ mixed := thunk do {
 -- This avoids the fail effect entirely
 safeLookup := \m. case m {
   Nothing => 0;
-  Just x  -> x
+  Just x  => x
 }
 
 safeResult := safeLookup (Just 99)     -- 99

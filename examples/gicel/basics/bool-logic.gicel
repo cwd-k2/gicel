@@ -22,7 +22,7 @@ myOr := \a b. case a { True => True; False => b }
 -- Exclusive OR: True when exactly one argument is True
 myXor :: Bool -> Bool -> Bool
 myXor := \a b. case a {
-  True  -> myNot b;
+  True  => myNot b;
   False => b
 }
 

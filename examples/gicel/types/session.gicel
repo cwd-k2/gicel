@@ -13,12 +13,12 @@ import Prelude
 
 data Mult := Unrestricted | Affine | Linear
 
-type LUB (m1: Mult) (m2: Mult) :: Mult := {
-  LUB Linear _ =: Linear;
-  LUB _ Linear =: Linear;
-  LUB Affine _ =: Affine;
-  LUB _ Affine =: Affine;
-  LUB Unrestricted Unrestricted =: Unrestricted
+type LUB :: Mult := \(m1: Mult) (m2: Mult). case (m1, m2) {
+  (Linear, _) => Linear;
+  (_, Linear) => Linear;
+  (Affine, _) => Affine;
+  (_, Affine) => Affine;
+  (Unrestricted, Unrestricted) => Unrestricted
 }
 
 -- === Protocol structure ===
@@ -28,8 +28,8 @@ type LUB (m1: Mult) (m2: Mult) :: Mult := {
 -- Recv s: "receive a value, then continue as s"
 -- End:    "session complete"
 
-data Send s := MkSend
-data Recv s := MkRecv
+data Send := \s. { MkSend: Send s }
+data Recv := \s. { MkRecv: Recv s }
 data End := MkEnd
 
 -- === Duality ===
@@ -37,10 +37,10 @@ data End := MkEnd
 -- The fundamental involution: Dual (Dual s) ~ s.
 -- If one endpoint follows protocol s, the other follows Dual s.
 
-type Dual (s: Type) :: Type := {
-  Dual (Send s) =: Recv (Dual s);
-  Dual (Recv s) =: Send (Dual s);
-  Dual End      =: End
+type Dual :: Type := \(s: Type). case s {
+  Send s => Recv (Dual s);
+  Recv s => Send (Dual s);
+  End    => End
 }
 
 -- === Session operations ===

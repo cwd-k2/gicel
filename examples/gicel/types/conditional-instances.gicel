@@ -8,14 +8,14 @@
 import Prelude
 
 -- Custom equality class (to avoid conflict with Prelude's Eq)
-data Eq' a {
-  eq' :: a -> a -> Bool
+data Eq' := \a. {
+  eq': a -> a -> Bool
 }
 
 -- Base instance: Bool equality
 impl Eq' Bool := {
   eq' := \x y. case x {
-    True  -> case y { True => True;  False => False };
+    True  => case y { True => True;  False => False };
     False => case y { True => False; False => True }
   }
 }
@@ -23,9 +23,9 @@ impl Eq' Bool := {
 -- Base instance: Ordering equality
 impl Eq' Ordering := {
   eq' := \x y. case x {
-    LT -> case y { LT -> True; EQ -> False; GT -> False };
-    EQ -> case y { LT -> False; EQ -> True; GT -> False };
-    GT -> case y { LT -> False; EQ -> False; GT -> True }
+    LT => case y { LT => True; EQ => False; GT => False };
+    EQ => case y { LT => False; EQ => True; GT => False };
+    GT => case y { LT => False; EQ => False; GT => True }
   }
 }
 
@@ -34,8 +34,8 @@ impl Eq' Ordering := {
 -- instance available only when an Eq' instance for `a` exists.
 impl Eq' a => Eq' (Maybe a) := {
   eq' := \x y. case x {
-    Nothing => case y { Nothing => True;  Just _  -> False };
-    Just a  -> case y { Nothing => False; Just b  -> eq' a b }
+    Nothing => case y { Nothing => True;  Just _  => False };
+    Just a  => case y { Nothing => False; Just b  => eq' a b }
   }
 }
 

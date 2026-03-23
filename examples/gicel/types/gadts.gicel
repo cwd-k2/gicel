@@ -12,12 +12,12 @@ import Prelude
 -- A GADT for typed expressions.
 -- The `:= { ... }` syntax with full type signatures per constructor
 -- distinguishes GADTs from ordinary ADTs.
-data Expr a := {
-  LitBool :: Bool -> Expr Bool;
-  LitInt  :: Int -> Expr Int;
-  Not     :: Expr Bool -> Expr Bool;
-  Add     :: Expr Int -> Expr Int -> Expr Int;
-  If      :: Expr Bool -> Expr a -> Expr a -> Expr a
+data Expr := \a. {
+  LitBool: Bool -> Expr Bool;
+  LitInt:  Int -> Expr Int;
+  Not:     Expr Bool -> Expr Bool;
+  Add:     Expr Int -> Expr Int -> Expr Int;
+  If:      \a. Expr Bool -> Expr a -> Expr a -> Expr a
 }
 
 -- ── Type-safe recursive evaluator ────────────────────────────
@@ -31,20 +31,20 @@ data Expr a := {
 
 eval :: \a. Expr a -> a
 eval := fix (\self e. case e {
-  LitBool b -> b;
-  LitInt n  -> n;
-  Not inner -> not (self inner);
-  Add x y   -> self x + self y;
-  If c t f  -> case self c { True => self t; False => self f }
+  LitBool b => b;
+  LitInt n  => n;
+  Not inner => not (self inner);
+  Add x y   => self x + self y;
+  If c t f  => case self c { True => self t; False => self f }
 })
 
 -- ── Shallow extractors ───────────────────────────────────────
 
 getBool :: Expr Bool -> Maybe Bool
-getBool := \e. case e { LitBool b -> Just b; _ => Nothing }
+getBool := \e. case e { LitBool b => Just b; _ => Nothing }
 
 getInt :: Expr Int -> Maybe Int
-getInt := \e. case e { LitInt n -> Just n; _ => Nothing }
+getInt := \e. case e { LitInt n => Just n; _ => Nothing }
 
 isLiteral :: Expr a -> Bool
 isLiteral := \e. case e { LitBool _ => True; LitInt _ => True; _ => False }

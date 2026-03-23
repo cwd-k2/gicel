@@ -34,8 +34,8 @@ sumBy := \f. foldl (\acc x. acc + f x) 0
 -- All subsets of a list, via structural recursion
 subsets :: \a. List a -> List (List a)
 subsets := fix (\self xs. case xs {
-  Nil      -> [[]];
-  Cons x t -> { ss := self t; concat ((\s. Cons x s) <$> ss) ss }
+  Nil      => [[]];
+  Cons x t => { ss := self t; concat ((\s. Cons x s) <$> ss) ss }
 })
 
 bruteForce := {
@@ -53,7 +53,7 @@ revRange := reverse (range 0 capacity)
 dpAnswer := {
   finalDp := foldl (\dp. \(w, v).
     foldl (\t j. case j >= w {
-      True  -> setAt j (max (getOr 0 j t) (getOr 0 (j - w) t + v)) t;
+      True  => setAt j (max (getOr 0 j t) (getOr 0 (j - w) t + v)) t;
       False => t
     }) dp revRange
   ) (replicate (capacity + 1) 0) items;

@@ -7,8 +7,8 @@ import Prelude
 
 -- A closed type family: equations tried top-to-bottom, first match wins.
 -- ElemOf maps a container type to its element type.
-type ElemOf (c: Type) :: Type := {
-  ElemOf (List a) =: a
+type ElemOf :: Type := \(c: Type). case c {
+  List a => a
 }
 
 -- The type checker reduces ElemOf (List Int) → Int at compile time.
@@ -22,15 +22,15 @@ listHead := \xs. case xs {
 -- DataKinds + type family: promoted constructors as type-level values.
 data Season := Spring | Summer | Autumn | Winter
 
-type NextSeason (s: Season) :: Season := {
-  NextSeason Spring =: Summer;
-  NextSeason Summer =: Autumn;
-  NextSeason Autumn =: Winter;
-  NextSeason Winter =: Spring
+type NextSeason :: Season := \(s: Season). case s {
+  Spring => Summer;
+  Summer => Autumn;
+  Autumn => Winter;
+  Winter => Spring
 }
 
 -- Phantom-typed tags indexed by Season.
-data Tagged (s: Season) := MkTagged
+data Tagged := \(s: Season). { MkTagged: Tagged s }
 
 -- advance uses a recursive type family to compute the next season.
 advance :: \(s: Season). Tagged s -> Tagged (NextSeason s)
@@ -53,10 +53,10 @@ backToSpring :: Tagged Spring
 backToSpring := advance winter
 
 -- Multi-equation type family with wildcard patterns.
-type IsWeekend (d: Season) :: Bool := {
-  IsWeekend Summer =: True;
-  IsWeekend Winter =: True;
-  IsWeekend _ =: False
+type IsWeekend :: Bool := \(d: Season). case d {
+  Summer => True;
+  Winter => True;
+  _ => False
 }
 
 -- ElemOf reduces: ElemOf (List Int) = Int, so answer has type Int.

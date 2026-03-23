@@ -8,8 +8,8 @@
 import Prelude
 
 -- Convert class with fundep: the source type determines the target type.
-data Convert a b | a =: b {
-  convert :: a -> b
+data Convert := \a b. {
+  convert: a -> b
 }
 
 -- Bool → Int: True = 1, False = 0

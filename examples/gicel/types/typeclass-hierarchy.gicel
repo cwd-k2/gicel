@@ -11,40 +11,40 @@ import Prelude
 data Priority := Low | Medium | High
 
 -- Base class: can convert to a Bool representation
-data Show' a {
-  toBool :: a -> Bool
+data Show' := \a. {
+  toBool: a -> Bool
 }
 
 -- Eq' requires Show': any Eq' type must also be Show'
-data Show' a => Eq' a {
-  eq' :: a -> a -> Bool
+data Eq' := \a. Show' a => {
+  eq': a -> a -> Bool
 }
 
 -- Ord' requires Eq' (and transitively Show'): full ordering
-data Eq' a => Ord' a {
-  compare' :: a -> a -> Ordering
+data Ord' := \a. Eq' a => {
+  compare': a -> a -> Ordering
 }
 
 -- Show' instance for Priority: High is "truthy"
 impl Show' Priority := {
-  toBool := \p. case p { High -> True; Medium -> False; Low -> False }
+  toBool := \p. case p { High => True; Medium => False; Low => False }
 }
 
 -- Eq' instance for Priority
 impl Eq' Priority := {
   eq' := \a b. case a {
-    Low    -> case b { Low -> True;    Medium -> False; High -> False };
-    Medium -> case b { Low -> False;   Medium -> True;  High -> False };
-    High   -> case b { Low -> False;   Medium -> False; High -> True }
+    Low    => case b { Low => True;    Medium => False; High => False };
+    Medium => case b { Low => False;   Medium => True;  High => False };
+    High   => case b { Low => False;   Medium => False; High => True }
   }
 }
 
 -- Ord' instance for Priority: Low < Medium < High
 impl Ord' Priority := {
   compare' := \a b. case a {
-    Low -> case b { Low -> EQ; Medium -> LT; High -> LT };
-    Medium -> case b { Low -> GT; Medium -> EQ; High -> LT };
-    High -> case b { Low -> GT; Medium -> GT; High -> EQ }
+    Low => case b { Low => EQ; Medium => LT; High => LT };
+    Medium => case b { Low => GT; Medium => EQ; High => LT };
+    High => case b { Low => GT; Medium => GT; High => EQ }
   }
 }
 

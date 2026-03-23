@@ -13,10 +13,10 @@ import Prelude
 -- The wrapper data type is needed to give a nominal type in GICEL
 -- (no type aliases).
 
-data Church := MkChurch (\a. (a -> a) -> a -> a)
+data Church := { MkChurch: (\a. (a -> a) -> a -> a) -> Church }
 
 runChurch :: \a. Church -> (a -> a) -> a -> a
-runChurch := \n f x. case n { MkChurch g -> g f x }
+runChurch := \n f x. case n { MkChurch g => g f x }
 
 -- ── Constructors ─────────────────────────────────────────────
 

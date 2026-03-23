@@ -22,7 +22,7 @@ guard := \c. case c { True => [()]; False => [] }
 -- x <- [1,2,3] means "for each x in [1,2,3]".
 
 -- Pythagorean triples a² + b² = c² (a ≤ b ≤ c ≤ 10)
-data Triple := MkTriple Int Int Int
+data Triple := { MkTriple: Int -> Int -> Int -> Triple }
 
 pythag :: List Triple
 pythag := do {
@@ -48,30 +48,30 @@ sumPairs := do {
 -- The computation is a tree. The interpreter walks it.
 -- NDFree gets a Monad instance, so do notation works directly.
 
-data NDFree a := NDPure a | NDChoice (NDFree a) (NDFree a) | NDFail
+data NDFree := \a. { NDPure: a -> NDFree a; NDChoice: NDFree a -> NDFree a -> NDFree a; NDFail: NDFree a }
 
 impl Monad NDFree := {
   mpure := NDPure;
   mbind := fix (\self m f. case m {
-    NDPure a     -> f a;
-    NDChoice l r -> NDChoice (self l f) (self r f);
-    NDFail       -> NDFail
+    NDPure a     => f a;
+    NDChoice l r => NDChoice (self l f) (self r f);
+    NDFail       => NDFail
   })
 }
 
 -- Interpreter: collect all results into a list.
 runND :: \a. NDFree a -> List a
 runND := fix (\self m. case m {
-  NDPure a     -> [a];
-  NDChoice l r -> concat (self l) (self r);
-  NDFail       -> []
+  NDPure a     => [a];
+  NDChoice l r => concat (self l) (self r);
+  NDFail       => []
 })
 
 -- Lift a list into NDFree (each element becomes a choice branch).
 fromList :: \a. List a -> NDFree a
 fromList := fix (\self xs. case xs {
-  Nil        -> NDFail;
-  Cons x rest -> NDChoice (NDPure x) (self rest)
+  Nil        => NDFail;
+  Cons x rest => NDChoice (NDPure x) (self rest)
 })
 
 -- Guard: fail unless condition holds.
@@ -82,7 +82,7 @@ guardND := \c. case c { True => NDPure (); False => NDFail }
 safe :: Int -> List Int -> Int -> Bool
 safe := fix (\self col qs d. case qs {
   Nil => True;
-  Cons q rest ->
+  Cons q rest =>
     case eq col q   { True => False;
     False => case eq (abs (col - q)) d { True => False;
     False => self col rest (d + 1) }}
@@ -92,7 +92,7 @@ safe := fix (\self col qs d. case qs {
 nqueens :: Int -> List Int -> NDFree (List Int)
 nqueens := fix (\self n placed.
   case eq (length placed) n {
-    True  -> mpure (reverse placed);
+    True  => mpure (reverse placed);
     False => do {
       col <- fromList (range 0 (n - 1));
       guardND (safe col placed 1);

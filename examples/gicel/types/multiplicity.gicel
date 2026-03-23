@@ -15,19 +15,19 @@ data Mult := Unrestricted | Affine | Linear
 -- Mult values describe resource usage disciplines.
 describe :: Mult -> String
 describe := \m. case m {
-  Linear -> "linear: must use exactly once";
-  Affine -> "affine: use at most once";
-  Unrestricted -> "unrestricted: use freely"
+  Linear => "linear: must use exactly once";
+  Affine => "affine: use at most once";
+  Unrestricted => "unrestricted: use freely"
 }
 
 -- LUB (least upper bound): the strictest of two multiplicities.
 -- Definable as a closed type family over promoted Mult constructors.
-type LUB (m1: Mult) (m2: Mult) :: Mult := {
-  LUB Linear _ =: Linear;
-  LUB _ Linear =: Linear;
-  LUB Affine _ =: Affine;
-  LUB _ Affine =: Affine;
-  LUB Unrestricted Unrestricted =: Unrestricted
+type LUB :: Mult := \(m1: Mult) (m2: Mult). case (m1, m2) {
+  (Linear, _) => Linear;
+  (_, Linear) => Linear;
+  (Affine, _) => Affine;
+  (_, Affine) => Affine;
+  (Unrestricted, Unrestricted) => Unrestricted
 }
 
 -- @Mult annotates row fields with a usage discipline.
@@ -54,9 +54,9 @@ type LUB (m1: Mult) (m2: Mult) :: Mult := {
 -- Mirror LUB at the value level for demonstration.
 lub :: Mult -> Mult -> Mult
 lub := \a b. case a {
-  Linear -> Linear;
-  Affine -> case b { Linear -> Linear; _ => Affine };
-  Unrestricted -> b
+  Linear => Linear;
+  Affine => case b { Linear => Linear; _ => Affine };
+  Unrestricted => b
 }
 
 -- Output: ("linear: must use exactly once", "affine: use at most once",

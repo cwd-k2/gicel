@@ -14,16 +14,18 @@ import Prelude
 -- No Functor constraint needed — each effect type is self-contained.
 -- This is the simplest way to build a monadic DSL via the Monad class.
 
-data KV a := KVDone a
-           | KVGet String (Int -> KV a)
-           | KVPut String Int (KV a)
+data KV := \a. {
+  KVDone: a -> KV a;
+  KVGet:  String -> (Int -> KV a) -> KV a;
+  KVPut:  String -> Int -> KV a -> KV a
+}
 
 impl Monad KV := {
   mpure := KVDone;
   mbind := fix (\self ma g. case ma {
-    KVDone a           -> g a;
-    KVGet key k        -> KVGet key (\v. self (k v) g);
-    KVPut key val next -> KVPut key val (self next g)
+    KVDone a           => g a;
+    KVGet key k        => KVGet key (\v. self (k v) g);
+    KVPut key val next => KVPut key val (self next g)
   })
 }
 
@@ -46,12 +48,12 @@ kvProgram := do {
 -- Pure interpreter: "a" always returns 10, "b" is mutable.
 runKV :: \a. KV a -> Int -> a
 runKV := fix (\self prog bVal. case prog {
-  KVDone a           -> a;
-  KVGet key k        -> case eq key "a" {
-    True  -> self (k 10) bVal;
+  KVDone a           => a;
+  KVGet key k        => case eq key "a" {
+    True  => self (k 10) bVal;
     False => self (k bVal) bVal
   };
-  KVPut _ v next -> self next v
+  KVPut _ v next => self next v
 })
 
 -- kvGet "a" = 10, kvPut "b" 11, kvGet "b" = 11, result = 10 + 11
@@ -61,23 +63,23 @@ test1 := runKV kvProgram 0  -- 21
 -- The classic encoding: Free f a factors out the effect functor f.
 -- Requires Functor f to thread bind through the effect layer.
 
-data Free (f: Type -> Type) a := Done a | Step (f (Free f a))
+data Free := \(f: Type -> Type) a. { Done: a -> Free f a; Step: f (Free f a) -> Free f a }
 
 impl Functor f => Monad (Free f) := {
   mpure := Done;
   mbind := fix (\self ma g. case ma {
-    Done a  -> g a;
-    Step fa -> Step (fmap (\m. self m g) fa)
+    Done a  => g a;
+    Step fa => Step (fmap (\m. self m g) fa)
   })
 }
 
 -- A counter DSL: increment and read the current count.
-data CounterF next := Inc next | GetCount (Int -> next)
+data CounterF := \next. { Inc: next -> CounterF next; GetCount: (Int -> next) -> CounterF next }
 
 impl Functor CounterF := {
   fmap := \g cmd. case cmd {
-    Inc next   -> Inc (g next);
-    GetCount f -> GetCount (\n. g (f n))
+    Inc next   => Inc (g next);
+    GetCount f => GetCount (\n. g (f n))
   }
 }
 
@@ -101,10 +103,10 @@ counterProgram := do {
 -- Interpreter: fold the Free structure with a running count.
 runCounter :: \a. Free CounterF a -> Int -> a
 runCounter := fix (\self prog count. case prog {
-  Done a  -> a;
-  Step fa -> case fa {
-    Inc next   -> self next (count + 1);
-    GetCount k -> self (k count) count
+  Done a  => a;
+  Step fa => case fa {
+    Inc next   => self next (count + 1);
+    GetCount k => self (k count) count
   }
 })
 

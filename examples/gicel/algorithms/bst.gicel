@@ -1,0 +1,111 @@
+-- Binary Search Tree — insert, lookup, inorder traversal.
+-- Uses GADT-style declaration for parameterized recursive type.
+-- Requires: --recursion --packs prelude
+-- Run: bin/gicel run --recursion --packs prelude examples/gicel/algorithms/bst.gicel
+
+import Prelude
+
+-- ── BST data type (GADT form for parameterized recursive type) ──
+
+data BST := \a. {
+  Tip:  BST a;
+  Bin:  BST a -> a -> BST a -> BST a
+}
+
+-- ── Insert: maintain BST invariant ──────────────────────────
+
+bstInsert :: \a. Ord a => a -> BST a -> BST a
+bstInsert := fix (\self x t. case t {
+  Tip => Bin Tip x Tip;
+  Bin left val right => case compare x val {
+    LT => Bin (self x left) val right;
+    GT => Bin left val (self x right);
+    EQ => t
+  }
+})
+
+-- ── Lookup: search for element ──────────────────────────────
+
+bstLookup :: \a. Ord a => a -> BST a -> Bool
+bstLookup := fix (\self x t. case t {
+  Tip => False;
+  Bin left val right => case compare x val {
+    EQ => True;
+    LT => self x left;
+    GT => self x right
+  }
+})
+
+-- ── Inorder traversal: produce sorted list ──────────────────
+
+bstInorder :: \a. BST a -> List a
+bstInorder := fix (\self t. case t {
+  Tip => [];
+  Bin left val right => concat (self left) (Cons val (self right))
+})
+
+-- ── Minimum element ─────────────────────────────────────────
+
+bstMin :: \a. BST a -> Maybe a
+bstMin := fix (\self t. case t {
+  Tip => Nothing;
+  Bin left val _ => case left {
+    Tip => Just val;
+    _   => self left
+  }
+})
+
+-- ── Maximum element ─────────────────────────────────────────
+
+bstMax :: \a. BST a -> Maybe a
+bstMax := fix (\self t. case t {
+  Tip => Nothing;
+  Bin _ val right => case right {
+    Tip => Just val;
+    _   => self right
+  }
+})
+
+-- ── Size: count nodes ───────────────────────────────────────
+
+bstSize :: \a. BST a -> Int
+bstSize := fix (\self t. case t {
+  Tip => 0;
+  Bin left _ right => 1 + self left + self right
+})
+
+-- ── Depth ───────────────────────────────────────────────────
+
+bstDepth :: \a. BST a -> Int
+bstDepth := fix (\self t. case t {
+  Tip => 0;
+  Bin left _ right => 1 + max (self left) (self right)
+})
+
+-- ── Build from list ─────────────────────────────────────────
+
+bstFromList :: \a. Ord a => List a -> BST a
+bstFromList := foldl (flip bstInsert) Tip
+
+-- ── Tests ───────────────────────────────────────────────────
+
+tree := bstFromList [5, 3, 7, 1, 4, 6, 8, 2]
+
+testInorder := bstInorder tree                    -- [1, 2, 3, 4, 5, 6, 7, 8]
+testLookup1 := bstLookup 4 tree                   -- True
+testLookup2 := bstLookup 9 tree                   -- False
+testMin     := bstMin tree                         -- Just 1
+testMax     := bstMax tree                         -- Just 8
+testSize    := bstSize tree                        -- 8
+testDepth   := bstDepth tree                       -- 4
+
+-- Insert duplicates: no change
+tree2 := bstInsert 5 (bstInsert 3 tree)
+testDup := bstInorder tree2                        -- still [1..8]
+
+-- Build from descending: worst-case depth
+worstCase  := bstFromList [8, 7, 6, 5, 4, 3, 2, 1]
+testWorst  := bstInorder worstCase                 -- [1..8]
+testWDepth := bstDepth worstCase                   -- 8 (fully left-skewed)
+
+main := (testInorder, testLookup1, testLookup2, testMin, testMax, testSize, testDepth, testDup, testWDepth)

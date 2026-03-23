@@ -9,17 +9,17 @@ import Prelude
 
 -- ── MaybeT ───────────────────────────────────────────────────
 
-data MaybeT (m: Type -> Type) a := MkMaybeT (m (Maybe a))
+data MaybeT := \(m: Type -> Type) a. { MkMaybeT: m (Maybe a) -> MaybeT m a }
 
 runMaybeT :: \(m: Type -> Type) a. MaybeT m a -> m (Maybe a)
-runMaybeT := \mt. case mt { MkMaybeT ma -> ma }
+runMaybeT := \mt. case mt { MkMaybeT ma => ma }
 
 -- Monad instance: bind threads Maybe failure through the base monad
 impl Monad m => Monad (MaybeT m) := {
   mpure := \a. MkMaybeT (mpure (Just a));
   mbind := \ma f. MkMaybeT (mbind (runMaybeT ma) (\opt. case opt {
     Nothing => mpure Nothing;
-    Just a  -> runMaybeT (f a)
+    Just a  => runMaybeT (f a)
   }))
 }
 
@@ -31,7 +31,7 @@ failT := MkMaybeT (mpure Nothing)
 
 safeDivM :: Int -> Int -> MaybeT Maybe Int
 safeDivM := \x y. case eq y 0 {
-  True  -> failT;
+  True  => failT;
   False => MkMaybeT (Just (Just (x / y)))
 }
 

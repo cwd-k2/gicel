@@ -7,13 +7,13 @@
 import Prelude
 
 -- A multi-parameter class for lossless coercion between types
-data Coercible a b {
-  coerce :: a -> b
+data Coercible := \a b. {
+  coerce: a -> b
 }
 
 -- A multi-parameter class for lossy/semantic conversion
-data Convert a b {
-  convert :: a -> b
+data Convert := \a b. {
+  convert: a -> b
 }
 
 -- Coerce Bool to Maybe Bool: True => Just True, False => Nothing
@@ -38,12 +38,12 @@ impl Convert Bool Ordering := {
 
 -- Convert Ordering to Bool: GT/EQ -> True, LT -> False
 impl Convert Ordering Bool := {
-  convert := \o. case o { GT -> True; EQ -> True; LT -> False }
+  convert := \o. case o { GT => True; EQ => True; LT => False }
 }
 
 -- Coerce Ordering to Bool (same mapping as Convert, for composition demo)
 impl Coercible Ordering Bool := {
-  coerce := \o. case o { GT -> True; EQ -> True; LT -> False }
+  coerce := \o. case o { GT => True; EQ => True; LT => False }
 }
 
 -- Compose two conversions: convert then coerce
