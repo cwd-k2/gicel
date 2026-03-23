@@ -58,7 +58,7 @@ func TestStressManyUnannLetBindings(t *testing.T) {
 	var sb strings.Builder
 	sb.WriteString("data Bool := { True: Bool; False: Bool; }\n")
 	sb.WriteString("data Eq := \\a. { eq: a -> a -> Bool }\n")
-	sb.WriteString("impl Eq Bool { eq := \\x y. True }\n\n")
+	sb.WriteString("impl Eq Bool := { eq := \\x y. True }\n\n")
 
 	// 15 unannotated bindings, each using eq.
 	for i := range 15 {
@@ -211,7 +211,7 @@ func TestStressManyContextualInstances(t *testing.T) {
 	var sb strings.Builder
 	sb.WriteString("data Bool := { True: Bool; False: Bool; }\n")
 	sb.WriteString("data Eq := \\a. { eq: a -> a -> Bool }\n")
-	sb.WriteString("impl Eq Bool { eq := \\x y. True }\n\n")
+	sb.WriteString("impl Eq Bool := { eq := \\x y. True }\n\n")
 
 	// 8 wrapper types, each with a contextual Eq instance.
 	for i := range 8 {

@@ -134,7 +134,7 @@ func TestStressPolyKindedClassManyInstances(t *testing.T) {
 	sb.WriteString("}\n\n")
 	// 10 instances
 	for i := 0; i < 10; i++ {
-		fmt.Fprintf(&sb, "impl Functor D%d {\n", i)
+		fmt.Fprintf(&sb, "impl Functor D%d := {\n", i)
 		fmt.Fprintf(&sb, "  fmap := \\g x. case x { MkD%d v => MkD%d (g v) }\n", i, i)
 		sb.WriteString("}\n\n")
 	}

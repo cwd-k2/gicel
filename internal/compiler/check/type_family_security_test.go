@@ -295,7 +295,7 @@ func TestPerformanceFunDepManyInstances(t *testing.T) {
 
 	// N instances.
 	for i := 0; i < N; i++ {
-		sb.WriteString("impl Assoc D" + tagName(i) + " D" + tagName((i+1)%N) + " {\n")
+		sb.WriteString("impl Assoc D" + tagName(i) + " D" + tagName((i+1)%N) + " := {\n")
 		sb.WriteString("  assocGet := \\_. MkD" + tagName((i+1)%N) + "\n")
 		sb.WriteString("}\n")
 	}
