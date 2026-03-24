@@ -1,5 +1,14 @@
 # Changelog
 
+## v0.16.4 — 2026-03-24
+
+### Fixes
+
+- **Tuple/record exhaustiveness** — Record pattern specialization now propagates field types to the exhaustiveness checker. Previously `case (t1,t2) { (A,A) => ...; (B,B) => ... }` was falsely accepted as exhaustive; now correctly reports missing patterns.
+- **Duplicate binding detection** — `f := 1; f := 2` now emits E0280 "duplicate binding" instead of silently using the first definition.
+- **ADT shorthand with constructor arguments** — `form Nat := Zero | Succ Nat` now correctly registers `Succ` as `Nat -> Nat` (was registering with unit return type, causing "expected Nat, got Record {}" on nested use).
+- Remove dead fundep implementation (never reachable from surface syntax)
+
 ## v0.16.3 — 2026-03-24
 
 ### Fixes
