@@ -1,8 +1,7 @@
 -- GICEL Example: Knapsack (Effect.Array)
 --
 -- 0/1 knapsack using a mutable DP table.
--- The DP sweep uses Effect.Array for O(1) indexed reads and writes,
--- compared to the List-based O(n) setAt in effects/knapsack.gicel.
+-- The DP sweep uses Effect.Array for O(1) indexed reads and writes.
 --
 -- Run: gicel run --recursion --packs prelude,array knapsack-array.gicel
 
@@ -21,10 +20,10 @@ max := \a b. case a > b { True => a; False => b }
 --   dp[j] = max(dp[j], dp[j-w] + v)
 solve := \items capacity. do {
   dp <- new (capacity + 1) 0;
-  fix (\loopItems is. case is {
+  flip fix items $ \loopItems is. case is {
     Nil => pure ();
     Cons (w, v) rest => do {
-      fix (\loopJ j. case j >= w {
+      flip fix capacity $ \loopJ j. case j >= w {
         False => pure ();
         True  => do {
           cur  <- readAt j dp;
@@ -33,12 +32,12 @@ solve := \items capacity. do {
             (Just c, Just p) => writeAt j (max c (p + v)) dp;
             _                => pure ()
           };
-          loopJ (j - 1)
+          loopJ $ j - 1
         }
-      }) capacity;
+      };
       loopItems rest
     }
-  }) items;
+  };
   readAt capacity dp
 }
 

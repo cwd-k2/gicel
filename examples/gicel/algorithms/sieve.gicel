@@ -17,30 +17,31 @@ sieve := \limit. do {
   writeAt 1 False is;
 
   -- Mark composites: for i from 2, while i*i <= limit
-  fix (\outer i. case i * i > limit {
+  flip fix 2 $ \outer i. case i * i > limit {
     True  => pure ();
     False => do {
       v <- readAt i is;
       case v {
-        Just True => fix (\inner j. case j > limit {
-          True  => pure ();
-          False => do { writeAt j False is; inner (j + i) }
-        }) (i * i);
+        Just True =>
+          flip fix (i * i) $ \inner j. case j > limit {
+            True  => pure ();
+            False => do { writeAt j False is; inner $ j + i }
+          };
         _ => pure ()
       };
-      outer (i + 1)
+      outer $ i + 1
     }
-  }) 2;
+  };
 
   -- Collect primes
   s <- toSlice is;
-  pure (fix (\collect i acc. case i > limit {
+  pure $ flip fix (2, []) $ \collect (i, acc). case i > limit {
     True  => reverse acc;
     False => case index i s {
-      Just True => collect (i + 1) (Cons i acc);
-      _         => collect (i + 1) acc
+      Just True => collect (i + 1, Cons i acc);
+      _         => collect (i + 1, acc)
     }
-  }) 2 [])
+  }
 }
 
 -- Primes up to 30
