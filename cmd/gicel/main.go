@@ -210,10 +210,11 @@ var packMap = map[string]gicel.Pack{
 	"slice":   gicel.DataSlice,
 	"map":     gicel.DataMap,
 	"set":     gicel.DataSet,
+	"console": consolePack,
 }
 
 // allPackOrder ensures deterministic pack loading.
-var allPackOrder = []string{"prelude", "fail", "state", "io", "stream", "slice", "map", "set"}
+var allPackOrder = []string{"prelude", "fail", "state", "io", "stream", "slice", "map", "set", "console"}
 
 func setupEngine(use string) (*gicel.Engine, error) {
 	eng := gicel.NewEngine()
@@ -391,7 +392,10 @@ func cmdRun(args []string) int {
 	// Build per-execution options with explain/trace hooks.
 	var explainSteps []gicel.ExplainStep
 	var formatter *explainFormatter
-	opts := &gicel.RunOptions{Entry: *entry}
+	opts := &gicel.RunOptions{
+		Entry: *entry,
+		Caps:  map[string]any{"console": nil},
+	}
 	if *explain {
 		if *jsonOut {
 			opts.Explain = func(step gicel.ExplainStep) {
