@@ -258,45 +258,57 @@ func (m *moduleFlags) Set(val string) error {
 }
 
 // readSource loads GICEL source from -e string, stdin ("-"), or a file argument.
-func readSource(fs *flag.FlagSet, expr string) ([]byte, error) {
+func readSource(fs *flag.FlagSet, expr string, budget *sourceBudget) ([]byte, error) {
 	if expr != "" {
-		return []byte(expr), nil
+		data := []byte(expr)
+		budget.used += int64(len(data))
+		return data, nil
 	}
 	if fs.NArg() < 1 {
 		return nil, fmt.Errorf("no source file specified (use -e or pass a file, - for stdin)")
 	}
 	if fs.Arg(0) == "-" {
-		return readLimited(os.Stdin)
+		return budget.read(os.Stdin)
 	}
-	return readFileLimited(fs.Arg(0))
+	return budget.readFile(fs.Arg(0))
 }
 
-// maxSourceSize is the maximum allowed source file size (10 MiB).
-const maxSourceSize = 10 * 1024 * 1024
+// maxTotalSourceSize is the aggregate limit across all source files (10 MiB).
+const maxTotalSourceSize = 10 * 1024 * 1024
 
-func readFileLimited(path string) ([]byte, error) {
+// sourceBudget tracks cumulative source bytes read in a single invocation.
+type sourceBudget struct {
+	used int64
+}
+
+func (b *sourceBudget) readFile(path string) ([]byte, error) {
 	f, err := os.Open(path)
 	if err != nil {
 		return nil, err
 	}
 	defer f.Close()
-	return readLimited(f)
+	return b.read(f)
 }
 
-func readLimited(r io.Reader) ([]byte, error) {
-	limited := io.LimitReader(r, maxSourceSize+1)
+func (b *sourceBudget) read(r io.Reader) ([]byte, error) {
+	remaining := maxTotalSourceSize - b.used
+	if remaining <= 0 {
+		return nil, fmt.Errorf("total source size exceeds limit (%d MiB)", maxTotalSourceSize/(1024*1024))
+	}
+	limited := io.LimitReader(r, remaining+1)
 	data, err := io.ReadAll(limited)
 	if err != nil {
 		return nil, err
 	}
-	if len(data) > maxSourceSize {
-		return nil, fmt.Errorf("source exceeds maximum size (%d MiB)", maxSourceSize/(1024*1024))
+	b.used += int64(len(data))
+	if b.used > maxTotalSourceSize {
+		return nil, fmt.Errorf("total source size exceeds limit (%d MiB)", maxTotalSourceSize/(1024*1024))
 	}
 	return data, nil
 }
 
 // registerUserModules parses --module Name=path flags and registers each module.
-func registerUserModules(eng *gicel.Engine, modules []string) error {
+func registerUserModules(eng *gicel.Engine, modules []string, budget *sourceBudget) error {
 	for _, spec := range modules {
 		eqIdx := strings.IndexByte(spec, '=')
 		if eqIdx < 0 {
@@ -304,7 +316,7 @@ func registerUserModules(eng *gicel.Engine, modules []string) error {
 		}
 		name := spec[:eqIdx]
 		path := spec[eqIdx+1:]
-		data, err := readFileLimited(path)
+		data, err := budget.readFile(path)
 		if err != nil {
 			return fmt.Errorf("reading module %s: %w", name, err)
 		}
@@ -317,7 +329,8 @@ func registerUserModules(eng *gicel.Engine, modules []string) error {
 
 // prepareEngine loads source and configures the engine with common flags.
 func prepareEngine(fs *flag.FlagSet, use string, recursion bool, expr string, modules []string) ([]byte, *gicel.Engine, error) {
-	source, err := readSource(fs, expr)
+	budget := &sourceBudget{}
+	source, err := readSource(fs, expr, budget)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -328,7 +341,7 @@ func prepareEngine(fs *flag.FlagSet, use string, recursion bool, expr string, mo
 	if recursion {
 		eng.EnableRecursion()
 	}
-	if err := registerUserModules(eng, modules); err != nil {
+	if err := registerUserModules(eng, modules, budget); err != nil {
 		return nil, nil, err
 	}
 	return source, eng, nil
