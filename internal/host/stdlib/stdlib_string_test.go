@@ -153,7 +153,6 @@ func TestJoinImpl(t *testing.T) {
 	assertStr(t, v, "a-b-c")
 }
 
-
 // --- List new primitives ---
 
 // boolApplier creates an Applier that applies a Bool-returning predicate.
@@ -643,7 +642,6 @@ func TestLengthImplMalformed(t *testing.T) {
 	}
 }
 
-
 // --- List error path coverage ---
 
 func TestFromSliceImplNonHostValNonConVal(t *testing.T) {
@@ -761,4 +759,3 @@ func TestSliceToListNonValue(t *testing.T) {
 		t.Errorf("expected 42, got %v", hv.Inner)
 	}
 }
-

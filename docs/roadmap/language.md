@@ -141,7 +141,7 @@ Session types は check-only で正しく動作する。Runtime 実行には hos
 
 課題:
 
-- session example は check-only。CLI から学んで試す導線が閉じていない
+- session の CLI example は削除済み（check-only で実行不可）。Go example (examples/go/session) のみ
 - structuring rule (bare Computation prohibition) が session 文脈で十分説明されていない
 - runtime 対応は host primitive 設計を伴う
 

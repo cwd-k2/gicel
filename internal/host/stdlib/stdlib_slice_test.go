@@ -233,7 +233,6 @@ func TestSliceToListImpl(t *testing.T) {
 
 // Stream unit tests removed — recursive operations now expressed in GICEL.
 
-
 // --- fromRunes ---
 
 func TestFromRunesImplEmpty(t *testing.T) {
@@ -252,7 +251,6 @@ func TestFromRunesImpl(t *testing.T) {
 	}
 	assertStr(t, v, "hi")
 }
-
 
 // --- Slice: exact boundary index ---
 
@@ -276,4 +274,3 @@ func TestRoundTrip(t *testing.T) {
 		t.Fatalf("round-trip: expected %d items, got %d", len(original), len(items))
 	}
 }
-

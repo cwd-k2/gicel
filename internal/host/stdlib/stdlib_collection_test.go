@@ -548,7 +548,6 @@ func TestSetToListEmpty(t *testing.T) {
 	assertCon(t, v, "Nil")
 }
 
-
 // --- AVL tree balance / rotation tests ---
 
 func TestAVLRotationViaSequentialInserts(t *testing.T) {
@@ -705,7 +704,6 @@ func TestMapFromListIncompleteTuple(t *testing.T) {
 		t.Fatal("expected error for incomplete tuple")
 	}
 }
-
 
 func TestSetFromListMalformed(t *testing.T) {
 	cmpFn := &eval.HostVal{Inner: "cmp"}
@@ -1111,4 +1109,3 @@ func collectConsList(v eval.Value) []eval.Value {
 		v = con.Args[1]
 	}
 }
-

@@ -296,4 +296,3 @@ func TestAsStringError(t *testing.T) {
 		t.Fatal("expected error from asString with int")
 	}
 }
-
