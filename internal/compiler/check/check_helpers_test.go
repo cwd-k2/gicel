@@ -166,7 +166,7 @@ func setupCheckerWithPrelude(t *testing.T) *Checker {
 // newTestChecker creates a minimal Checker for unit tests.
 func newTestChecker() *Checker {
 	ch := &Checker{
-		Session: &Session{
+		CheckState: &CheckState{
 			ctx:    NewContext(),
 			errors: &diagnostic.Errors{Source: span.NewSource("test", "")},
 			config: &CheckConfig{},

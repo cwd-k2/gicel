@@ -7,17 +7,27 @@ import (
 	"github.com/cwd-k2/gicel/internal/compiler/check"
 	"github.com/cwd-k2/gicel/internal/compiler/optimize"
 	"github.com/cwd-k2/gicel/internal/compiler/parse"
-	"github.com/cwd-k2/gicel/internal/host/registry"
 	"github.com/cwd-k2/gicel/internal/infra/diagnostic"
 	"github.com/cwd-k2/gicel/internal/infra/span"
 	"github.com/cwd-k2/gicel/internal/lang/ir"
 	"github.com/cwd-k2/gicel/internal/lang/syntax"
 )
 
+// pipelineCtx encapsulates the compile-time environment shared across
+// pipeline stages: lex → parse → check → optimize → assemble.
+type pipelineCtx struct {
+	ctx        context.Context
+	host       *HostEnv
+	store      *ModuleStore
+	limits     *Limits
+	traceHook  check.CheckTraceHook
+	entryPoint string
+}
+
 // lexAndParse is the shared lex/parse pipeline for both module registration
 // and main-source compilation. It always injects fixity from all registered
 // modules so that operator precedence is consistent regardless of entry path.
-func lexAndParse(ctx context.Context, sourceName, source string, store *ModuleStore, injectCore bool) (*syntax.AstProgram, *span.Source, error) {
+func (pc *pipelineCtx) lexAndParse(sourceName, source string, injectCore bool) (*syntax.AstProgram, *span.Source, error) {
 	src := span.NewSource(sourceName, source)
 	l := parse.NewLexer(src)
 	tokens, lexErrs := l.Tokenize()
@@ -25,8 +35,8 @@ func lexAndParse(ctx context.Context, sourceName, source string, store *ModuleSt
 		return nil, nil, &CompileError{Errors: lexErrs}
 	}
 	parseErrs := &diagnostic.Errors{Source: src}
-	p := parse.NewParser(ctx, tokens, parseErrs)
-	store.CollectFixity(p)
+	p := parse.NewParser(pc.ctx, tokens, parseErrs)
+	pc.store.CollectFixity(p)
 	ast := p.ParseProgram()
 	if parseErrs.HasErrors() {
 		return nil, nil, &CompileError{Errors: parseErrs}
@@ -46,35 +56,34 @@ func injectCoreImport(ast *syntax.AstProgram) {
 	ast.Imports = append([]syntax.DeclImport{{ModuleName: "Core"}}, ast.Imports...)
 }
 
-// makeCheckConfig builds a CheckConfig from the three Engine subsystems.
-func makeCheckConfig(host *HostEnv, store *ModuleStore, limits *Limits, traceHook check.CheckTraceHook) *check.CheckConfig {
-	imported := make(map[string]*check.ModuleExports, len(store.modules))
-	deps := make(map[string][]string, len(store.modules))
-	for name, mod := range store.modules {
+// makeCheckConfig builds a CheckConfig from the pipeline context.
+func (pc *pipelineCtx) makeCheckConfig() *check.CheckConfig {
+	imported := make(map[string]*check.ModuleExports, len(pc.store.modules))
+	deps := make(map[string][]string, len(pc.store.modules))
+	for name, mod := range pc.store.modules {
 		imported[name] = mod.exports
 		deps[name] = mod.deps
 	}
 	return &check.CheckConfig{
-		RegisteredTypes: host.registeredTys,
-		Assumptions:     host.assumptions,
-		Bindings:        host.bindings,
-		GatedBuiltins:   host.gatedBuiltins,
-		Trace:           traceHook,
+		RegisteredTypes: pc.host.registeredTys,
+		Assumptions:     pc.host.assumptions,
+		Bindings:        pc.host.bindings,
+		GatedBuiltins:   pc.host.gatedBuiltins,
+		Trace:           pc.traceHook,
 		ImportedModules: imported,
 		ModuleDeps:      deps,
 		StrictTypeNames: true,
-		NestingLimit:    limits.nestingLimit,
-		MaxTFSteps:      limits.maxTFSteps,
-		MaxSolverSteps:  limits.maxSolverSteps,
-		MaxResolveDepth: limits.maxResolveDepth,
+		NestingLimit:    pc.limits.nestingLimit,
+		MaxTFSteps:      pc.limits.maxTFSteps,
+		MaxSolverSteps:  pc.limits.maxSolverSteps,
+		MaxResolveDepth: pc.limits.maxResolveDepth,
 	}
 }
 
 // compileModule runs the full compilation pipeline for a single module:
 // lex → parse → dep check → type check → optimize → annotate.
-// See compileMain for the main-source counterpart.
-func compileModule(ctx context.Context, name, source string, host *HostEnv, store *ModuleStore, limits *Limits, traceHook check.CheckTraceHook) (*compiledModule, error) {
-	ast, src, err := lexAndParse(ctx, name, source, store, name != "Core" && store.Has("Core"))
+func (pc *pipelineCtx) compileModule(name, source string) (*compiledModule, error) {
+	ast, src, err := pc.lexAndParse(name, source, name != "Core" && pc.store.Has("Core"))
 	if err != nil {
 		return nil, err
 	}
@@ -83,12 +92,12 @@ func compileModule(ctx context.Context, name, source string, host *HostEnv, stor
 	for _, imp := range ast.Imports {
 		deps = append(deps, imp.ModuleName)
 	}
-	if err := store.CheckCircularDeps(name, deps); err != nil {
+	if err := pc.store.CheckCircularDeps(name, deps); err != nil {
 		return nil, err
 	}
 
-	config := makeCheckConfig(host, store, limits, traceHook)
-	config.Context = ctx
+	config := pc.makeCheckConfig()
+	config.Context = pc.ctx
 	config.CurrentModule = name
 	prog, exports, checkErrs := check.CheckModule(ast, src, config)
 	if checkErrs.HasErrors() {
@@ -102,7 +111,7 @@ func compileModule(ctx context.Context, name, source string, host *HostEnv, stor
 		}
 	}
 
-	postCheck(prog, host.rewriteRules)
+	pc.postCheck(prog)
 
 	return &compiledModule{
 		prog:           prog,
@@ -115,22 +124,21 @@ func compileModule(ctx context.Context, name, source string, host *HostEnv, stor
 }
 
 // postCheck applies the shared post-type-checking pipeline: optimize and annotate free vars.
-func postCheck(prog *ir.Program, rules []registry.RewriteRule) {
-	optimize.OptimizeProgram(prog, rules)
+func (pc *pipelineCtx) postCheck(prog *ir.Program) {
+	optimize.OptimizeProgram(prog, pc.host.rewriteRules)
 	ir.AnnotateFreeVarsProgram(prog)
 }
 
 // compileMain compiles the main source: lex → parse → type check → optimize → annotate.
-// See compileModule for the module counterpart.
-func compileMain(ctx context.Context, source string, host *HostEnv, store *ModuleStore, limits *Limits, traceHook check.CheckTraceHook, entryPoint string) (*ir.Program, *span.Source, error) {
-	ast, src, err := lexAndParse(ctx, "<input>", source, store, store.Has("Core"))
+func (pc *pipelineCtx) compileMain(source string) (*ir.Program, *span.Source, error) {
+	ast, src, err := pc.lexAndParse("<input>", source, pc.store.Has("Core"))
 	if err != nil {
 		return nil, nil, err
 	}
 
-	cfg := makeCheckConfig(host, store, limits, traceHook)
-	cfg.Context = ctx
-	cfg.EntryPoint = entryPoint
+	cfg := pc.makeCheckConfig()
+	cfg.Context = pc.ctx
+	cfg.EntryPoint = pc.entryPoint
 	if cfg.EntryPoint == "" {
 		cfg.EntryPoint = DefaultEntryPoint
 	}
@@ -139,16 +147,16 @@ func compileMain(ctx context.Context, source string, host *HostEnv, store *Modul
 		return nil, nil, &CompileError{Errors: checkErrs}
 	}
 
-	postCheck(prog, host.rewriteRules)
+	pc.postCheck(prog)
 
 	return prog, src, nil
 }
 
 // assembleRuntime constructs an immutable Runtime from compiled artifacts.
-func assembleRuntime(prog *ir.Program, src *span.Source, host *HostEnv, store *ModuleStore, limits *Limits, entryPoint string) *Runtime {
-	entries := store.Entries()
+func (pc *pipelineCtx) assembleRuntime(prog *ir.Program, src *span.Source) *Runtime {
+	entries := pc.store.Entries()
 
-	entryName := entryPoint
+	entryName := pc.entryPoint
 	if entryName == "" {
 		entryName = DefaultEntryPoint
 	}
@@ -163,20 +171,20 @@ func assembleRuntime(prog *ir.Program, src *span.Source, host *HostEnv, store *M
 
 	rt := &Runtime{
 		prog:               prog,
-		prims:              host.prims.Clone(),
-		stepLimit:          limits.stepLimit,
-		depthLimit:         limits.depthLimit,
-		nestingLimit:       limits.nestingLimit,
-		allocLimit:         limits.allocLimit,
+		prims:              pc.host.prims.Clone(),
+		stepLimit:          pc.limits.stepLimit,
+		depthLimit:         pc.limits.depthLimit,
+		nestingLimit:       pc.limits.nestingLimit,
+		allocLimit:         pc.limits.allocLimit,
 		source:             src,
-		bindings:           maps.Clone(host.bindings),
+		bindings:           maps.Clone(pc.host.bindings),
 		moduleEntries:      entries,
 		sortedMainBindings: sortedMain,
 		entryName:          entryName,
 		entryExpr:          entryExpr,
 	}
-	runtimeGates := maps.Clone(host.gatedBuiltins)
-	if store.recursion {
+	runtimeGates := maps.Clone(pc.host.gatedBuiltins)
+	if pc.store.recursion {
 		runtimeGates["fix"] = true
 		runtimeGates["rec"] = true
 	}

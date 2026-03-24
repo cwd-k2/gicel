@@ -38,7 +38,7 @@ func unifyErrorCode(err error) diagnostic.Code {
 
 // addUnifyError maps a unification error to the appropriate structured error code.
 // Used at general type-mismatch sites where the UnifyError kind IS the primary diagnosis.
-func (s *Session) addUnifyError(err error, sp span.Span, ctx string) {
+func (s *CheckState) addUnifyError(err error, sp span.Span, ctx string) {
 	detail := err.Error()
 	// Avoid redundant detail when the unifier just restates the type pair.
 	if strings.HasPrefix(detail, "type mismatch:") {
@@ -52,7 +52,7 @@ func (s *Session) addUnifyError(err error, sp span.Span, ctx string) {
 // For simple mismatches, the semantic code and message are used as-is.
 // For specific failures (occurs check, skolem rigidity, etc.), the underlying
 // unification error overrides the semantic code — it reveals the root cause.
-func (s *Session) addSemanticUnifyError(semanticCode diagnostic.Code, err error, sp span.Span, ctx string) {
+func (s *CheckState) addSemanticUnifyError(semanticCode diagnostic.Code, err error, sp span.Span, ctx string) {
 	code := unifyErrorCode(err)
 	if code == diagnostic.ErrTypeMismatch {
 		s.addCodedError(semanticCode, sp, ctx)

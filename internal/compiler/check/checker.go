@@ -127,8 +127,8 @@ func (s *Scope) InjectFamily(name string, info *TypeFamilyInfo) {
 	s.injectedFamilies[name] = info
 }
 
-// Session holds cross-cutting infrastructure shared by all check services.
-type Session struct {
+// CheckState holds cross-cutting infrastructure shared by all check services.
+type CheckState struct {
 	ctx             *Context
 	unifier         *unify.Unifier
 	budget          *budget.CheckBudget
@@ -143,7 +143,7 @@ type Session struct {
 
 // Checker holds mutable state during type checking.
 type Checker struct {
-	*Session
+	*CheckState
 
 	// Semantic registries (populated in declaration phases, then read-only).
 	reg *Registry
@@ -160,7 +160,7 @@ type Checker struct {
 
 // checkCancelled checks the budget context for cancellation.
 // Returns true if cancelled, recording a terminal error.
-func (s *Session) checkCancelled() bool {
+func (s *CheckState) checkCancelled() bool {
 	if s.cancelled {
 		return true
 	}
@@ -219,7 +219,7 @@ func newChecker(prog *syntax.AstProgram, source *span.Source, config *CheckConfi
 	if ctx == nil {
 		ctx = context.Background()
 	}
-	session := &Session{
+	session := &CheckState{
 		ctx: NewContext(),
 		budget: func() *budget.CheckBudget {
 			b := budget.NewCheck(ctx)
@@ -270,7 +270,7 @@ func newChecker(prog *syntax.AstProgram, source *span.Source, config *CheckConfi
 		return r
 	}()
 	ch := &Checker{
-		Session: session,
+		CheckState: session,
 		reg:     reg,
 		scope: &Scope{
 			currentModule: config.CurrentModule,
@@ -331,7 +331,7 @@ func (ch *Checker) initContext() {
 	ch.reg.RegisterTypeKind("Record", &types.KArrow{From: types.KRow{}, To: types.KType{}})
 }
 
-func (s *Session) fresh() int {
+func (s *CheckState) fresh() int {
 	s.freshID++
 	return s.freshID
 }
@@ -341,21 +341,21 @@ func (ch *Checker) freshMeta(k types.Kind) *types.TyMeta {
 	return &types.TyMeta{ID: id, Kind: k, Level: ch.solver.Level()}
 }
 
-func (s *Session) freshSkolem(name string, k types.Kind) *types.TySkolem {
+func (s *CheckState) freshSkolem(name string, k types.Kind) *types.TySkolem {
 	id := s.fresh()
 	return &types.TySkolem{ID: id, Name: name, Kind: k}
 }
 
-func (s *Session) freshKindMeta() *types.KMeta {
+func (s *CheckState) freshKindMeta() *types.KMeta {
 	id := s.fresh()
 	return &types.KMeta{ID: id}
 }
 
-func (s *Session) mkType(name string) types.Type {
+func (s *CheckState) mkType(name string) types.Type {
 	return &types.TyCon{Name: name}
 }
 
-func (s *Session) errorPair(sp span.Span) (types.Type, ir.Core) {
+func (s *CheckState) errorPair(sp span.Span) (types.Type, ir.Core) {
 	return &types.TyError{S: sp}, &ir.Var{Name: "<error>", S: sp}
 }
 
@@ -368,7 +368,7 @@ type checkerSnapshot struct {
 // kind solutions, skolem solutions). Constraint state (inert set, worklist),
 // context, errors, and SolverLevel are NOT captured. SolverLevel is managed
 // separately by withTrial/withProbe.
-func (s *Session) saveState() checkerSnapshot {
+func (s *CheckState) saveState() checkerSnapshot {
 	return checkerSnapshot{
 		unifier: s.unifier.Snapshot(),
 	}
@@ -377,7 +377,7 @@ func (s *Session) saveState() checkerSnapshot {
 // restoreState rolls back the unifier to a previously saved snapshot.
 // Only meta solutions, labels, kind solutions, and skolem solutions are
 // restored. Constraint state, context, and errors are not affected.
-func (s *Session) restoreState(snap checkerSnapshot) {
+func (s *CheckState) restoreState(snap checkerSnapshot) {
 	s.unifier.Restore(snap.unifier)
 }
 
@@ -388,7 +388,7 @@ func (s *Session) restoreState(snap checkerSnapshot) {
 // Constraint state (inert set, worklist), context, and errors are NOT
 // rolled back — trials test unifiability, not constraint satisfiability.
 // MUST NOT: emit constraints, push/pop context, mutate inert set.
-func (s *Session) withTrial(fn func() bool) bool {
+func (s *CheckState) withTrial(fn func() bool) bool {
 	saved := s.saveState()
 	savedLevel := s.unifier.SolverLevel
 	s.unifier.SolverLevel = -1 // disable touchability in trial scope
@@ -405,7 +405,7 @@ func (s *Session) withTrial(fn func() bool) bool {
 // rolled back regardless of fn's return value. Use for pure
 // unifiability tests where the answer matters but the solutions don't.
 // MUST NOT: emit constraints, push/pop context, mutate inert set.
-func (s *Session) withProbe(fn func() bool) bool {
+func (s *CheckState) withProbe(fn func() bool) bool {
 	saved := s.saveState()
 	savedLevel := s.unifier.SolverLevel
 	s.unifier.SolverLevel = -1 // disable touchability in probe scope
@@ -484,13 +484,13 @@ func (ch *Checker) lookupFamily(name string) (*TypeFamilyInfo, bool) {
 }
 
 // tryUnify attempts to unify a and b, rolling back on failure.
-func (s *Session) tryUnify(a, b types.Type) bool {
+func (s *CheckState) tryUnify(a, b types.Type) bool {
 	return s.withTrial(func() bool {
 		return s.unifier.Unify(a, b) == nil
 	})
 }
 
-func (s *Session) addCodedError(code diagnostic.Code, sp span.Span, msg string) {
+func (s *CheckState) addCodedError(code diagnostic.Code, sp span.Span, msg string) {
 	s.errors.Add(&diagnostic.Error{
 		Code:    code,
 		Phase:   diagnostic.PhaseCheck,
@@ -499,7 +499,7 @@ func (s *Session) addCodedError(code diagnostic.Code, sp span.Span, msg string) 
 	})
 }
 
-func (s *Session) trace(kind CheckTraceKind, sp span.Span, format string, args ...any) {
+func (s *CheckState) trace(kind CheckTraceKind, sp span.Span, format string, args ...any) {
 	if s.config.Trace != nil {
 		line, col := s.source.Location(sp.Start)
 		s.config.Trace(CheckTraceEvent{

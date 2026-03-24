@@ -16,7 +16,7 @@ type CheckEnv struct {
 	DataTypes    map[string]*DataTypeInfo // type name → data type info
 	ConInfoMap   map[string]*DataTypeInfo // constructor name → owning data type
 	ConTypes     map[string]types.Type    // constructor name → full type scheme
-	Fresh        func() int               // fresh ID generator (delegates to Session.fresh)
+	Fresh        func() int               // fresh ID generator (delegates to CheckState.fresh)
 	Unifier      *unify.Unifier           // main unifier (for Zonk)
 	ReduceFamily func(types.Type) types.Type
 	CanUnifyWith func(retTy, scrutTy types.Type) bool

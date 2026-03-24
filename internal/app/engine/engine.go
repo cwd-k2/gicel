@@ -153,6 +153,22 @@ func (e *Engine) RegisterModuleFile(path string) error {
 	return e.RegisterModule(name, string(data))
 }
 
+// pipeline creates a pipelineCtx from the current Engine state.
+func (e *Engine) pipeline(ctx context.Context) *pipelineCtx {
+	ep := e.entryPoint
+	if ep == "" {
+		ep = DefaultEntryPoint
+	}
+	return &pipelineCtx{
+		ctx:        ctx,
+		host:       &e.host,
+		store:      &e.store,
+		limits:     &e.limits,
+		traceHook:  e.checkTraceHook,
+		entryPoint: ep,
+	}
+}
+
 // RegisterModule compiles a module and makes it available for import.
 func (e *Engine) RegisterModule(name, source string) error {
 	if name == "" {
@@ -164,7 +180,7 @@ func (e *Engine) RegisterModule(name, source string) error {
 	if e.store.Has(name) {
 		return fmt.Errorf("module %s already registered", name)
 	}
-	mod, err := compileModule(e.compileCtx, name, source, &e.host, &e.store, &e.limits, e.checkTraceHook)
+	mod, err := e.pipeline(e.compileCtx).compileModule(name, source)
 	if err != nil {
 		return err
 	}
@@ -213,7 +229,7 @@ func (cr *CompileResult) CoreProgram() *CoreProgram {
 // Does not type-check or optimize. Use Compile for static analysis
 // or NewRuntime for execution.
 func (e *Engine) Parse(source string) error {
-	_, _, err := lexAndParse(e.compileCtx, "<input>", source, &e.store, e.store.Has("Core"))
+	_, _, err := e.pipeline(e.compileCtx).lexAndParse("<input>", source, e.store.Has("Core"))
 	return err
 }
 
@@ -221,13 +237,14 @@ func (e *Engine) Parse(source string) error {
 // static inspection. Unlike NewRuntime, it does not optimize or assemble
 // a runtime. Pass context.Background() when cancellation is not needed.
 func (e *Engine) Compile(ctx context.Context, source string) (*CompileResult, error) {
-	ast, src, err := lexAndParse(ctx, "<input>", source, &e.store, e.store.Has("Core"))
+	pc := e.pipeline(ctx)
+	ast, src, err := pc.lexAndParse("<input>", source, e.store.Has("Core"))
 	if err != nil {
 		return nil, err
 	}
-	cfg := makeCheckConfig(&e.host, &e.store, &e.limits, e.checkTraceHook)
+	cfg := pc.makeCheckConfig()
 	cfg.Context = ctx
-	cfg.EntryPoint = e.entryPoint
+	cfg.EntryPoint = pc.entryPoint
 	if cfg.EntryPoint == "" {
 		cfg.EntryPoint = DefaultEntryPoint
 	}
@@ -242,13 +259,10 @@ func (e *Engine) Compile(ctx context.Context, source string) (*CompileResult, er
 // The context bounds compilation time (type checking in particular);
 // pass context.Background() when cancellation is not needed.
 func (e *Engine) NewRuntime(ctx context.Context, source string) (*Runtime, error) {
-	ep := e.entryPoint
-	if ep == "" {
-		ep = DefaultEntryPoint
-	}
-	prog, src, err := compileMain(ctx, source, &e.host, &e.store, &e.limits, e.checkTraceHook, ep)
+	pc := e.pipeline(ctx)
+	prog, src, err := pc.compileMain(source)
 	if err != nil {
 		return nil, err
 	}
-	return assembleRuntime(prog, src, &e.host, &e.store, &e.limits, ep), nil
+	return pc.assembleRuntime(prog, src), nil
 }

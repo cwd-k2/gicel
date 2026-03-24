@@ -101,7 +101,7 @@ f := \x. x
 //   - Family "A$B" with pattern [C] → "A$B$$1$C"
 func TestSecurityMangledNameCollision(t *testing.T) {
 	ch := &Checker{
-		Session: &Session{},
+		CheckState: &CheckState{},
 		reg:     &Registry{families: make(map[string]*TypeFamilyInfo)},
 	}
 
@@ -123,7 +123,7 @@ func TestSecurityMangledNameCollision(t *testing.T) {
 // scheme prevents collision between "Elem" with pattern "List" and "Elem$List" with no patterns.
 func TestSecurityMangledNameCollisionPatternSeparator(t *testing.T) {
 	ch := &Checker{
-		Session: &Session{},
+		CheckState: &CheckState{},
 		reg:     &Registry{families: make(map[string]*TypeFamilyInfo)},
 	}
 
@@ -144,7 +144,7 @@ func TestSecurityMangledNameCollisionPatternSeparator(t *testing.T) {
 // The arity prefix distinguishes [A, B] (arity 2) from [A$B] (arity 1).
 func TestSecurityMangledNameMultiplePatterns(t *testing.T) {
 	ch := &Checker{
-		Session: &Session{},
+		CheckState: &CheckState{},
 		reg:     &Registry{families: make(map[string]*TypeFamilyInfo)},
 	}
 
