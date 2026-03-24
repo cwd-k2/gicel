@@ -2,6 +2,8 @@
 --
 -- Import Prelude for Int type and all arithmetic operators.
 -- Demonstrates: +, -, *, div (/), mod, negate, abs, eq, compare.
+--
+-- Run: bin/gicel run examples/gicel/basics/arithmetic.gicel
 
 import Prelude
 
@@ -14,7 +16,7 @@ remainder := mod 17 5          -- 2
 
 -- Unary operations
 negated := negate 42           -- -42
-absolute := abs (negate 7)     -- 7
+absolute := abs $ negate 7     -- 7
 
 -- Compound expressions: operator precedence (* before +)
 compound := 2 + 3 * 4          -- 14  (not 20)
@@ -43,7 +45,7 @@ le := 5 <= 5                   -- True
 ge := 5 >= 4                   -- True
 
 -- sign: returns -1, 0, or 1
-signNeg := sign (negate 42)    -- -1
+signNeg := sign $ negate 42    -- -1
 signZero := sign 0             -- 0
 signPos := sign 99             -- 1
 

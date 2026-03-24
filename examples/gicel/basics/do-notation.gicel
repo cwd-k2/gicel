@@ -4,6 +4,8 @@
 --   x <- comp     binds the result of a computation (monadic bind)
 --   y := expr     creates a let binding (non-monadic, pure value)
 -- The last expression must be a Computation (use `pure` to wrap values).
+--
+-- Run: bin/gicel run examples/gicel/basics/do-notation.gicel
 
 import Prelude
 
@@ -17,7 +19,7 @@ simple := thunk do {
 chain := thunk do {
   x <- pure 10;
   y <- pure 20;
-  pure (x + y)
+  pure $ x + y
 }
 
 -- Let binding: `:=` binds a pure expression, no `<-` needed
@@ -33,7 +35,7 @@ nested := thunk do {
   a <- pure 100;
   b <- pure 50;
   sum := a + b;
-  c <- pure (sum * 2);
+  c <- pure $ sum * 2;
   pure c
 }
 

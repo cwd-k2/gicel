@@ -5,6 +5,7 @@
 -- type signature uses `forall` to introduce type variables that do not
 -- appear in the data type's parameters, making them existentially
 -- quantified when pattern matching.
+-- Run: bin/gicel run examples/gicel/types/existentials.gicel
 
 import Prelude
 

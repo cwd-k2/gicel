@@ -15,72 +15,72 @@ form BST := \a. {
 -- ── Insert: maintain BST invariant ──────────────────────────
 
 bstInsert :: \a. Ord a => a -> BST a -> BST a
-bstInsert := fix (\self x t. case t {
+bstInsert := fix $ \self x t. case t {
   Tip => Bin Tip x Tip;
   Bin left val right => case compare x val {
     LT => Bin (self x left) val right;
-    GT => Bin left val (self x right);
+    GT => Bin left val $ self x right;
     EQ => t
   }
-})
+}
 
 -- ── Lookup: search for element ──────────────────────────────
 
 bstLookup :: \a. Ord a => a -> BST a -> Bool
-bstLookup := fix (\self x t. case t {
+bstLookup := fix $ \self x t. case t {
   Tip => False;
   Bin left val right => case compare x val {
     EQ => True;
     LT => self x left;
     GT => self x right
   }
-})
+}
 
 -- ── Inorder traversal: produce sorted list ──────────────────
 
 bstInorder :: \a. BST a -> List a
-bstInorder := fix (\self t. case t {
+bstInorder := fix $ \self t. case t {
   Tip => [];
-  Bin left val right => concat (self left) (Cons val (self right))
-})
+  Bin left val right => concat (self left) $ Cons val (self right)
+}
 
 -- ── Minimum element ─────────────────────────────────────────
 
 bstMin :: \a. BST a -> Maybe a
-bstMin := fix (\self t. case t {
+bstMin := fix $ \self t. case t {
   Tip => Nothing;
   Bin left val _ => case left {
     Tip => Just val;
     _   => self left
   }
-})
+}
 
 -- ── Maximum element ─────────────────────────────────────────
 
 bstMax :: \a. BST a -> Maybe a
-bstMax := fix (\self t. case t {
+bstMax := fix $ \self t. case t {
   Tip => Nothing;
   Bin _ val right => case right {
     Tip => Just val;
     _   => self right
   }
-})
+}
 
 -- ── Size: count nodes ───────────────────────────────────────
 
 bstSize :: \a. BST a -> Int
-bstSize := fix (\self t. case t {
+bstSize := fix $ \self t. case t {
   Tip => 0;
   Bin left _ right => 1 + self left + self right
-})
+}
 
 -- ── Depth ───────────────────────────────────────────────────
 
 bstDepth :: \a. BST a -> Int
-bstDepth := fix (\self t. case t {
+bstDepth := fix $ \self t. case t {
   Tip => 0;
   Bin left _ right => 1 + max (self left) (self right)
-})
+}
 
 -- ── Build from list ─────────────────────────────────────────
 
@@ -100,7 +100,7 @@ testSize    := bstSize tree                        -- 8
 testDepth   := bstDepth tree                       -- 4
 
 -- Insert duplicates: no change
-tree2 := bstInsert 5 (bstInsert 3 tree)
+tree2 := bstInsert 5 $ bstInsert 3 tree
 testDup := bstInorder tree2                        -- still [1..8]
 
 -- Build from descending: worst-case depth

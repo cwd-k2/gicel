@@ -4,6 +4,7 @@
 -- Uses custom names (Show', Eq', Ord') to avoid conflict with the
 -- Prelude's Eq and Ord. Demonstrates constraint propagation: a
 -- function requiring Ord' can use Show' and Eq' methods too.
+-- Run: bin/gicel run examples/gicel/types/typeclass-hierarchy.gicel
 
 import Prelude
 

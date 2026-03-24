@@ -6,16 +6,16 @@ import Prelude
 
 -- Naive recursive Fibonacci via fix
 fibRec :: Int -> Int
-fibRec := fix (\self n. case n {
+fibRec := fix $ \self n. case n {
   0 => 0;
   1 => 1;
   _ => self (n - 1) + self (n - 2)
-})
+}
 
 -- Iterative Fibonacci via foldl (no recursion needed, but --recursion
 -- is required for fibRec above)
 fibIter :: Int -> Int
-fibIter := \n. fst (foldl (\(a, b) _. (b, a + b)) (0, 1) (replicate n ()))
+fibIter := \n. fst $ foldl (\(a, b) _. (b, a + b)) (0, 1) $ replicate n ()
 
 -- Memoized Fibonacci building a list bottom-up
 fibList :: Int -> List Int
@@ -25,10 +25,10 @@ fibList := \n. case n {
   _ => {
     seed := [1, 0];
     result := foldl (\acc _. {
-      a := maybe 0 id (index 0 acc);
-      b := maybe 0 id (index 1 acc);
+      a := maybe 0 id $ index 0 acc;
+      b := maybe 0 id $ index 1 acc;
       Cons (a + b) acc
-    }) seed (replicate (n - 1) ());
+    }) seed $ replicate (n - 1) ();
     reverse result
   }
 }

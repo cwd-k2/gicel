@@ -5,7 +5,7 @@
 --   1. Direct embedding — effect constructors in the monad type
 --   2. Generic Free f — factors out the effect functor via Functor f
 -- Requires: --recursion (mbind and interpreters use fix)
--- Run: gicel run --recursion examples/gicel/types/free-monad.gicel
+-- Run: bin/gicel run --recursion examples/gicel/types/free-monad.gicel
 
 import Prelude
 
@@ -22,11 +22,11 @@ form KV := \a. {
 
 impl Monad KV := {
   mpure := KVDone;
-  mbind := fix (\self ma g. case ma {
+  mbind := fix $ \self ma g. case ma {
     KVDone a           => g a;
     KVGet key k        => KVGet key (\v. self (k v) g);
     KVPut key val next => KVPut key val (self next g)
-  })
+  }
 }
 
 -- Smart constructors lift individual commands into KV.
@@ -47,14 +47,14 @@ kvProgram := do {
 
 -- Pure interpreter: "a" always returns 10, "b" is mutable.
 runKV :: \a. KV a -> Int -> a
-runKV := fix (\self prog bVal. case prog {
+runKV := fix $ \self prog bVal. case prog {
   KVDone a           => a;
-  KVGet key k        => case eq key "a" {
-    True  => self (k 10) bVal;
-    False => self (k bVal) bVal
-  };
+  KVGet key k        =>
+    if eq key "a"
+      then self (k 10) bVal
+      else self (k bVal) bVal;
   KVPut _ v next => self next v
-})
+}
 
 -- kvGet "a" = 10, kvPut "b" 11, kvGet "b" = 11, result = 10 + 11
 test1 := runKV kvProgram 0  -- 21
@@ -67,10 +67,10 @@ form Free := \(f: Type -> Type) a. { Done: a -> Free f a; Step: f (Free f a) -> 
 
 impl Functor f => Monad (Free f) := {
   mpure := Done;
-  mbind := fix (\self ma g. case ma {
+  mbind := fix $ \self ma g. case ma {
     Done a  => g a;
     Step fa => Step (fmap (\m. self m g) fa)
-  })
+  }
 }
 
 -- A counter DSL: increment and read the current count.
@@ -102,13 +102,13 @@ counterProgram := do {
 
 -- Interpreter: fold the Free structure with a running count.
 runCounter :: \a. Free CounterF a -> Int -> a
-runCounter := fix (\self prog count. case prog {
+runCounter := fix $ \self prog count. case prog {
   Done a  => a;
   Step fa => case fa {
     Inc next   => self next (count + 1);
     GetCount k => self (k count) count
   }
-})
+}
 
 -- inc 3 times, getCount = 3, result = 3 * 100
 test2 := runCounter counterProgram 0  -- 300

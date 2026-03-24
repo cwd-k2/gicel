@@ -20,21 +20,21 @@ runChurch := \n f x. case n { MkChurch g => g f x }
 
 -- ── Constructors ─────────────────────────────────────────────
 
-zero  := MkChurch (\_ x. x)
-one   := MkChurch (\f x. f x)
-two   := MkChurch (\f x. f (f x))
-three := MkChurch (\f x. f (f (f x)))
+zero  := MkChurch $ \_ x. x
+one   := MkChurch $ \f x. f x
+two   := MkChurch $ \f x. f (f x)
+three := MkChurch $ \f x. f (f (f x))
 
 -- ── Arithmetic ───────────────────────────────────────────────
 
 succ_ :: Church -> Church
-succ_ := \n. MkChurch (\f x. f (runChurch n f x))
+succ_ := \n. MkChurch $ \f x. f (runChurch n f x)
 
 add_ :: Church -> Church -> Church
-add_ := \m n. MkChurch (\f x. runChurch m f (runChurch n f x))
+add_ := \m n. MkChurch $ \f x. runChurch m f (runChurch n f x)
 
 mul_ :: Church -> Church -> Church
-mul_ := \m n. MkChurch (\f. runChurch m (runChurch n f))
+mul_ := \m n. MkChurch $ \f. runChurch m (runChurch n f)
 
 -- ── Conversion ───────────────────────────────────────────────
 

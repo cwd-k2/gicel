@@ -30,15 +30,15 @@ unlock := \d. case d { MkDoor name => MkDoor name }
 
 -- Only unlocked doors can be opened
 open_ :: Door Unlocked -> String
-open_ := \d. append "Opened: " (doorName d)
+open_ := \d. append "Opened: " $ doorName d
 
 -- ── Usage ────────────────────────────────────────────────────
 
 front := MkDoor "Front" :: Door Locked
 
 test_name   := doorName front            -- "Front"
-test_open   := open_ (unlock front)      -- "Opened: Front"
-test_relock := doorName (lock (unlock front))  -- "Front"
+test_open   := open_ $ unlock front       -- "Opened: Front"
+test_relock := doorName $ lock $ unlock front  -- "Front"
 
 -- This would be a compile-time error (uncomment to verify):
 -- test_bad := open_ front  -- Error: Door Locked vs Door Unlocked
@@ -59,10 +59,10 @@ promote :: Token ReadOnly -> Token ReadWrite
 promote := \t. case t { MkToken i => MkToken i }
 
 readToken :: \p. Token p -> String
-readToken := \t. append "read:" (show (tokenId t))
+readToken := \t. append "read:" $ show $ tokenId t
 
 writeToken :: Token ReadWrite -> String
-writeToken := \t. append "write:" (show (tokenId t))
+writeToken := \t. append "write:" $ show $ tokenId t
 
 roToken := MkToken 42 :: Token ReadOnly
 rwToken := promote roToken

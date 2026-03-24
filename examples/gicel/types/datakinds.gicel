@@ -4,6 +4,7 @@
 -- kind. Nullary constructors become types of that kind. This enables
 -- phantom type parameters that encode state at the type level,
 -- preventing invalid transitions statically.
+-- Run: bin/gicel run examples/gicel/types/datakinds.gicel
 
 import Prelude
 

@@ -18,10 +18,10 @@ myMap := fix $ \self f xs. case xs {
 myFilter :: \a. (a -> Bool) -> List a -> List a
 myFilter := fix $ \self p xs. case xs {
   Nil        => Nil;
-  Cons x rest => case p x {
-    True  => Cons x $ self p rest;
-    False => self p rest
-  }
+  Cons x rest =>
+    if p x
+      then Cons x $ self p rest
+      else self p rest
 }
 
 -- ── Fold left: strict accumulator ───────────────────────────
@@ -53,7 +53,7 @@ splitHalf := fix $ \self xs. case xs {
   Nil => (Nil, Nil);
   Cons x rest => case rest {
     Nil => (Cons x Nil, Nil);
-    Cons y rest2 => case self rest2 { (as, bs) => (Cons x as, Cons y bs) }
+    Cons y rest2 => { (as, bs) := self rest2; (Cons x as, Cons y bs) }
   }
 }
 
@@ -76,7 +76,7 @@ mySort := fix $ \self cmp xs. case xs {
   Nil => Nil;
   Cons x rest => case rest {
     Nil => [x];
-    _   => case splitHalf xs { (left, right) => merge cmp (self cmp left) (self cmp right) }
+    _   => { (left, right) := splitHalf xs; merge cmp (self cmp left) (self cmp right) }
   }
 }
 

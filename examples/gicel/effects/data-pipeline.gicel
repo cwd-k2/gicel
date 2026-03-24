@@ -2,6 +2,7 @@
 --
 -- A practical data processing workflow using lists.
 -- Process a list of exam scores: filter, transform, and summarize.
+-- Run: bin/gicel run examples/gicel/effects/data-pipeline.gicel
 
 import Prelude
 

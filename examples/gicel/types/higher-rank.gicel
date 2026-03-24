@@ -4,6 +4,7 @@
 -- functions as arguments. The key insight is that a rank-2 type
 -- like `(\a. a -> a) -> (Bool, Bool)` requires the caller
 -- to pass a function that works for ALL types, not just one.
+-- Run: bin/gicel run examples/gicel/types/higher-rank.gicel
 
 import Prelude
 

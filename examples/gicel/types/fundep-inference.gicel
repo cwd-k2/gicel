@@ -3,6 +3,7 @@
 -- Functional dependencies allow the type checker to infer types that
 -- would otherwise be ambiguous. This example shows how fundeps drive
 -- type inference through multi-parameter type classes.
+-- Run: bin/gicel run examples/gicel/types/fundep-inference.gicel
 
 import Prelude
 
@@ -21,7 +22,7 @@ impl Serialize Int String := {
 
 -- Bool serializes to Int (1/0).
 impl Serialize Bool Int := {
-  encode := \b. case b { True => 1; False => 0 };
+  encode := \b. if b then 1 else 0;
   decode := \n. True
 }
 
@@ -65,7 +66,7 @@ form Iso := \a b. {
 }
 
 impl Iso Bool Int := {
-  forward := \b. case b { True => 1; False => 0 };
+  forward := \b. if b then 1 else 0;
   backward := \n. True
 }
 
@@ -77,4 +78,5 @@ fwd := forward True
 bwd :: Bool
 bwd := backward 0
 
+-- Output: (1, Just 1, 1)
 main := (boolAsInt, firstOfList, fwd)

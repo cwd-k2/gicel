@@ -1,7 +1,7 @@
 -- GICEL Example: Hello World
 --
 -- The classic first program. Uses the Console pack for real stdout output.
--- Run with: gicel run examples/gicel/basics/hello.gicel
+-- Run: bin/gicel run examples/gicel/basics/hello.gicel
 --
 -- Output:
 --   Hello, GICEL!

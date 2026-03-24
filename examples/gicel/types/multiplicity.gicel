@@ -7,6 +7,7 @@
 --
 -- Multiplicities constrain how capabilities flow through
 -- computations without affecting runtime behavior.
+-- Run: bin/gicel run examples/gicel/types/multiplicity.gicel
 
 import Prelude
 

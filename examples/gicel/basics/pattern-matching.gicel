@@ -1,6 +1,8 @@
 -- GICEL Example: Pattern Matching
 --
 -- Demonstrates nested constructor patterns and literal patterns.
+--
+-- Run: bin/gicel run examples/gicel/basics/pattern-matching.gicel
 
 import Prelude
 

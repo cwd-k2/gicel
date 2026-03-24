@@ -3,7 +3,7 @@
 -- Classic prime sieve using a mutable boolean array.
 -- Demonstrates Array writeAt in a nested loop.
 --
--- Run: gicel run --recursion --packs prelude,slice,array sieve.gicel
+-- Run: bin/gicel run --recursion --packs prelude,slice,array examples/gicel/algorithms/sieve.gicel
 -- Output: [2, 3, 5, 7, 11, 13, 17, 19, 23, 29]
 
 import Prelude
@@ -16,34 +16,32 @@ sieve := \limit. do {
   writeAt 1 False is;
 
   -- Mark composites
-  flip fix 2 $ \outer i. case i * i > limit {
-    True  => pure ();
-    False => do {
+  flip fix 2 $ \outer i.
+    if i * i > limit then pure ()
+    else do {
       v <- readAt i is;
       case v {
         Just True =>
-          flip fix (i * i) $ \inner j. case j > limit {
-            True  => pure ();
-            False => do { writeAt j False is; inner $ j + i }
-          };
+          flip fix (i * i) $ \inner j.
+            if j > limit then pure ()
+            else do {
+              writeAt j False is;
+              inner $ j + i
+            };
         _ => pure ()
       };
       outer $ i + 1
-    }
-  };
+    };
 
   -- Collect primes into a list
   s <- toSlice is;
   pure $ flip fix (2, []) $ \collect (i, acc).
-    case i > limit {
-      True  => reverse acc;
-      False => {
-        isPrime := maybe False id $ index i s;
-        case isPrime {
-          True  => collect (i + 1, Cons i acc);
-          False => collect (i + 1, acc)
-        }
-      }
+    if i > limit then reverse acc
+    else {
+      isPrime := maybe False id $ index i s;
+      if isPrime
+        then collect (i + 1, Cons i acc)
+        else collect (i + 1, acc)
     }
 }
 

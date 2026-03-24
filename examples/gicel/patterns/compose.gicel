@@ -16,7 +16,7 @@ getCompose := \c. case c { MkCompose fga => fga }
 
 -- fmap for Compose = fmap the outer, then fmap the inner
 impl (Functor f, Functor g) => Functor (Compose f g) := {
-  fmap := \h c. case c { MkCompose fga => MkCompose (fmap (fmap h) fga) }
+  fmap := \h c. case c { MkCompose fga => MkCompose $ fmap (fmap h) fga }
 }
 
 -- ── Identity functor ─────────────────────────────────────────
@@ -27,26 +27,26 @@ runId :: \a. Id a -> a
 runId := \i. case i { MkId a => a }
 
 impl Functor Id := {
-  fmap := \f i. case i { MkId a => MkId (f a) }
+  fmap := \f i. case i { MkId a => MkId $ f a }
 }
 
 -- ── Examples ─────────────────────────────────────────────────
 
 -- Compose Maybe List: Maybe (List a)
-test1 := MkCompose (Just (Cons 1 (Cons 2 (Cons 3 Nil)))) :: Compose Maybe List Int
-test1_mapped := getCompose (fmap (\x. x * 10) test1) -- Just [10,20,30]
+test1 := MkCompose (Just [1, 2, 3]) :: Compose Maybe List Int
+test1_mapped := getCompose $ fmap (\x. x * 10) test1 -- Just [10,20,30]
 
 -- Compose List Maybe: List (Maybe a)
-test2 := MkCompose (Cons (Just 1) (Cons Nothing (Cons (Just 3) Nil))) :: Compose List Maybe Int
-test2_mapped := getCompose (fmap (\x. x + 100) test2) -- [Just 101, Nothing, Just 103]
+test2 := MkCompose [Just 1, Nothing, Just 3] :: Compose List Maybe Int
+test2_mapped := getCompose $ fmap (\x. x + 100) test2 -- [Just 101, Nothing, Just 103]
 
 -- Compose Id Maybe: Id (Maybe a) — trivial wrapping
-test3 := MkCompose (MkId (Just "hello")) :: Compose Id Maybe String
-test3_mapped := runId (getCompose (fmap toUpper test3)) -- Just "HELLO"
+test3 := MkCompose (MkId $ Just "hello") :: Compose Id Maybe String
+test3_mapped := runId $ getCompose $ fmap toUpper test3 -- Just "HELLO"
 
 -- Double composition: Compose Maybe (Compose List Maybe) a
-test4 := MkCompose (Just (MkCompose (Cons (Just 1) (Cons (Just 2) Nil))))
-test4_mapped := getCompose (fmap (\x. x * 2) test4)
+test4 := MkCompose $ Just $ MkCompose [Just 1, Just 2]
+test4_mapped := getCompose $ fmap (\x. x * 2) test4
 
 -- ── Output ───────────────────────────────────────────────────
 

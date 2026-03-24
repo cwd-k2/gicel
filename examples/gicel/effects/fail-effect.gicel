@@ -6,41 +6,42 @@
 --   fromResult :: Result e a -> Computation {fail:e|r}  {fail:e|r}  a
 -- If the value is Nothing or Err, the computation fails (runtime error).
 -- If the value is Just or Ok, the inner value is extracted and returned.
+-- Run: bin/gicel run examples/gicel/effects/fail-effect.gicel
 
 import Prelude
 import Effect.Fail
 
 -- fromMaybe with Just: extracts the value
 extractJust := thunk do {
-  x <- fromMaybe (Just 42);
+  x <- fromMaybe $ Just 42;
   pure x
 }
 
 -- fromResult with Ok: extracts the value
 extractOk := thunk do {
-  x <- fromResult (Ok 100);
+  x <- fromResult $ Ok 100;
   pure x
 }
 
 -- Chaining successful extractions
 chainSuccess := thunk do {
-  x <- fromMaybe (Just 10);
-  y <- fromMaybe (Just 20);
-  pure (x + y)
+  x <- fromMaybe $ Just 10;
+  y <- fromMaybe $ Just 20;
+  pure $ x + y
 }
 
 -- fromResult chaining
 chainResults := thunk do {
-  a <- fromResult (Ok 5);
-  b <- fromResult (Ok 10);
-  pure (a + b)
+  a <- fromResult $ Ok 5;
+  b <- fromResult $ Ok 10;
+  pure $ a + b
 }
 
 -- Mix fromMaybe and fromResult
 mixed := thunk do {
-  x <- fromMaybe (Just 30);
-  y <- fromResult (Ok 20);
-  pure (x + y)
+  x <- fromMaybe $ Just 30;
+  y <- fromResult $ Ok 20;
+  pure $ x + y
 }
 
 -- Pure fallback: use `case` to handle Nothing without failing
@@ -50,7 +51,7 @@ safeLookup := \m. case m {
   Just x  => x
 }
 
-safeResult := safeLookup (Just 99)     -- 99
+safeResult := safeLookup $ Just 99     -- 99
 safeDefault := safeLookup Nothing      -- 0
 
 -- Output: (42, 100, 30, 15, 50, 99, 0)

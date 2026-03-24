@@ -3,6 +3,7 @@
 -- The prelude provides type classes and instances without any imports.
 -- This file demonstrates Eq, Ord, Functor, Foldable, Semigroup, Monoid,
 -- and Applicative on Bool, Maybe, List, Ordering, and tuples.
+-- Run: bin/gicel run examples/gicel/types/prelude-classes.gicel
 
 import Prelude
 

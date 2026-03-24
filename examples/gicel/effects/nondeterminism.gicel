@@ -91,10 +91,12 @@ safe := fix (\self col qs d. case qs {
 -- do notation on NDFree: fromList provides choices, guardND prunes.
 nqueens :: Int -> List Int -> NDFree (List Int)
 nqueens := fix (\self n placed.
-  if eq (length placed) n then mpure (reverse placed) else do {
-      col <- fromList (range 0 (n - 1));
-      guardND (safe col placed 1);
-      self n (Cons col placed)
+  if eq (length placed) n
+    then mpure (reverse placed)
+    else do {
+      col <- fromList $ range 0 (n - 1);
+      guardND $ safe col placed 1;
+      self n $ Cons col placed
     })
 
 queens4 := runND (nqueens 4 [])

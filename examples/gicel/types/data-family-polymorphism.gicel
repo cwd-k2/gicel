@@ -3,6 +3,7 @@
 -- Associated type families create type-indexed structures: different instances
 -- of the same class use different type representations. Each instance
 -- determines its own associated type via `type Elem := ...`.
+-- Run: bin/gicel run examples/gicel/types/data-family-polymorphism.gicel
 
 import Prelude
 

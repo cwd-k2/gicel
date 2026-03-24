@@ -4,6 +4,7 @@
 --   class C a b | a =: b
 -- means "knowing a uniquely determines b." This improves type inference
 -- by allowing the compiler to deduce type parameters automatically.
+-- Run: bin/gicel run examples/gicel/types/fundeps.gicel
 
 import Prelude
 
@@ -14,7 +15,7 @@ form Convert := \a b. {
 
 -- Bool → Int: True = 1, False = 0
 impl Convert Bool Int := {
-  convert := \b. case b { True => 1; False => 0 }
+  convert := \b. if b then 1 else 0
 }
 
 -- Maybe a → List a: Just x = [x], Nothing = []

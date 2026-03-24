@@ -28,7 +28,7 @@ cofreeTail := \c. case c { MkCofree _ t => t }
 
 -- Functor: map over every annotation in the tree
 impl Functor f => Functor (Cofree f) := {
-  fmap := \g c. case c { MkCofree a t => MkCofree (g a) (fmap (fmap g) t) }
+  fmap := \g c. case c { MkCofree a t => MkCofree (g a) $ fmap (fmap g) t }
 }
 
 -- ── Rose tree = Cofree List ──────────────────────────────────
@@ -41,11 +41,11 @@ branch := \x children. MkCofree x children
 
 -- Count children at the root
 childCount :: \a. Cofree List a -> Int
-childCount := \t. length (cofreeTail t)
+childCount := \t. length $ cofreeTail t
 
 -- Collect root values of immediate children
 childValues :: \a. Cofree List a -> List a
-childValues := \t. map cofreeHead (cofreeTail t)
+childValues := \t. map cofreeHead $ cofreeTail t
 
 -- ── Example tree ─────────────────────────────────────────────
 --       1
@@ -54,13 +54,13 @@ childValues := \t. map cofreeHead (cofreeTail t)
 --    /
 --   4
 
-tree1 := branch 1 (Cons (branch 2 (Cons (leaf 4) Nil)) (Cons (leaf 3) Nil))
+tree1 := branch 1 [branch 2 [leaf 4], leaf 3]
 
 test_root     := cofreeHead tree1              -- 1
 test_children := childCount tree1              -- 2
 test_values   := childValues tree1             -- [2, 3]
-test_fmap     := cofreeHead (fmap (\x. x * 10) tree1)  -- 10
-test_deep     := childValues (fmap (\x. x + 100) tree1) -- [102, 103]
+test_fmap     := cofreeHead $ fmap (\x. x * 10) tree1   -- 10
+test_deep     := childValues $ fmap (\x. x + 100) tree1 -- [102, 103]
 
 -- ── Non-empty list = Cofree Maybe ────────────────────────────
 
@@ -68,12 +68,12 @@ nel1 :: \a. a -> Cofree Maybe a
 nel1 := \x. MkCofree x Nothing
 
 nelCons :: \a. a -> Cofree Maybe a -> Cofree Maybe a
-nelCons := \x rest. MkCofree x (Just rest)
+nelCons := \x rest. MkCofree x $ Just rest
 
 nelHead :: \a. Cofree Maybe a -> a
 nelHead := cofreeHead
 
-myNel := nelCons 1 (nelCons 2 (nel1 3))
+myNel := nelCons 1 $ nelCons 2 $ nel1 3
 test_nel := nelHead myNel  -- 1
 
 -- ── Output ───────────────────────────────────────────────────

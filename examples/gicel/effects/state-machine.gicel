@@ -8,6 +8,8 @@
 --   Step 4: Add tax
 --   Step 5: Add shipping
 -- Each step reads the current total, transforms it, and writes it back.
+--
+-- Run: bin/gicel run --packs prelude,state examples/gicel/effects/state-machine.gicel
 
 import Prelude
 import Effect.State

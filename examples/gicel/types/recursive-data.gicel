@@ -2,7 +2,7 @@
 --
 -- Defines recursive types (Nat and Tree) and demonstrates constructing
 -- values, pattern matching, and recursive functions.
--- Run with: bin/gicel run --recursion examples/gicel/types/recursive-data.gicel
+-- Run: bin/gicel run --recursion examples/gicel/types/recursive-data.gicel
 
 import Prelude
 

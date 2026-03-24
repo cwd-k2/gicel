@@ -23,13 +23,16 @@ solve := \items capacity. do {
   flip fix items $ \loopItems is. case is {
     Nil => pure ();
     Cons (w, v) rest => do {
-      flip fix capacity $ \loopJ j. if j >= w then do {
-          cur  <- readAt j dp;
-          prev <- readAt (j - w) dp;
-          val  := max (maybe 0 id cur) (maybe 0 id prev + v);
-          writeAt j val dp;
-          loopJ $ j - 1
-        } else pure ();
+      flip fix capacity $ \loopJ j.
+        if j >= w
+          then do {
+            cur  <- readAt j dp;
+            prev <- readAt (j - w) dp;
+            val  := max (maybe 0 id cur) (maybe 0 id prev + v);
+            writeAt j val dp;
+            loopJ $ j - 1
+          }
+          else pure ();
       loopItems rest
     }
   };

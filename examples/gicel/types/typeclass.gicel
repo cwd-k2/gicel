@@ -3,6 +3,7 @@
 -- Defines a custom type class, creates instances for custom ADTs,
 -- and uses class methods polymorphically. Also demonstrates using
 -- the Prelude's Eq class.
+-- Run: bin/gicel run examples/gicel/types/typeclass.gicel
 
 import Prelude
 

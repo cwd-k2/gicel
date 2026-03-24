@@ -2,6 +2,7 @@
 --
 -- The IO pack provides print and debug capabilities
 -- that write to the CapEnv io buffer.
+-- Run: bin/gicel run examples/gicel/effects/io.gicel
 
 import Prelude
 import Effect.IO
@@ -10,6 +11,6 @@ import Effect.IO
 -- Return value: ()
 main := do {
   print "hello, ";
-  print ("world" <> "!");
+  print $ "world" <> "!";
   debug "done"
 }

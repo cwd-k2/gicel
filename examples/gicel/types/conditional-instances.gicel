@@ -4,6 +4,7 @@
 -- instances). Defines a custom Eq' class and shows how
 -- `instance Eq' a => Eq' (Maybe a)` propagates the constraint: you
 -- can compare Maybe values only when the element type is comparable.
+-- Run: bin/gicel run examples/gicel/types/conditional-instances.gicel
 
 import Prelude
 

@@ -1,7 +1,8 @@
 -- GICEL Example: Full Grammar Exercise
 --
--- This program exercises all 9 keywords in one file:
---   case, do, form, type, infixl, infixr, infixn, impl, import
+-- This program exercises all 12 keywords in one file:
+--   case, do, form, type, infixl, infixr, infixn, impl, import, if, then, else
+-- Run: bin/gicel run examples/gicel/effects/full-grammar.gicel
 
 import Prelude
 
@@ -43,11 +44,9 @@ impl Describe Color := {
 }
 
 -- [impl] — implement for Bool (from prelude)
+-- [if/then/else] — conditional expression
 impl Describe Bool := {
-  describe := \b. case b {
-    True  => "true";
-    False => "false"
-  }
+  describe := \b. if b then "true" else "false"
 }
 
 -- [\] — polymorphic type binder
@@ -56,10 +55,10 @@ describeIt := describe
 
 -- [do] — monadic computation with let bindings
 -- Output: (True, ("green", "true"), 12)
--- All 9 keywords used: case, do, form, type, infixl, infixr, infixn, impl, import
+-- All 12 keywords used: case, do, form, type, infixl, infixr, infixn, impl, import, if, then, else
 main := do {
-  a <- pure (2 <+> 3);            -- 2 + 3 + 1 = 6
-  b <- pure (2 <**> 3 <**> 1);   -- 2 * (3 * 1) = 6 (right-assoc)
+  a <- pure $ 2 <+> 3;            -- 2 + 3 + 1 = 6
+  b <- pure $ 2 <**> 3 <**> 1;   -- 2 * (3 * 1) = 6 (right-assoc)
   isEq := a === b;               -- 6 === 6 = True
   colorName := describe Green;    -- "green"
   boolName := describeIt True;

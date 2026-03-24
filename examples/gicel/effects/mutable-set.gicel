@@ -19,8 +19,9 @@ main := do {
   MSet.insert 5 s;
   MSet.insert 9 s;
 
-  -- Size (duplicates are ignored)
-  n := MSet.size s;
+  -- Snapshot size via toList (size is pure, reads current mutable state)
+  xs <- MSet.toList s;
+  n := length xs;
 
   -- Membership
   has4 <- MSet.member 4 s;
@@ -29,13 +30,13 @@ main := do {
   -- Delete
   MSet.delete 4 s;
   has4after <- MSet.member 4 s;
-  nAfter := MSet.size s;
 
-  -- Sorted traversal
+  -- Sorted traversal (also used for post-delete size)
   sorted <- MSet.toList s;
+  nAfter := length sorted;
 
   -- Fold: sum all elements
-  total <- MSet.fold (\acc x. acc + x) 0 s;
+  total <- MSet.fold (+) 0 s;
 
   -- Result: (5, True, False, False, 4, [1, 3, 5, 9], 18)
   pure (n, has4, has7, has4after, nAfter, sorted, total)

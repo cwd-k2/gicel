@@ -6,6 +6,8 @@
 --
 -- String length uses `strlen` (not `length`) to avoid collision
 -- with Prelude's `length`.
+--
+-- Run: bin/gicel run examples/gicel/basics/strings.gicel
 
 import Prelude
 

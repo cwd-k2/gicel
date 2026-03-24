@@ -16,40 +16,39 @@ runMaybeT := \mt. case mt { MkMaybeT ma => ma }
 
 -- Monad instance: bind threads Maybe failure through the base monad
 impl Monad m => Monad (MaybeT m) := {
-  mpure := \a. MkMaybeT (mpure (Just a));
-  mbind := \ma f. MkMaybeT (mbind (runMaybeT ma) (\opt. case opt {
+  mpure := \a. MkMaybeT $ mpure $ Just a;
+  mbind := \ma f. MkMaybeT $ mbind (runMaybeT ma) $ \opt. case opt {
     Nothing => mpure Nothing;
     Just a  => runMaybeT (f a)
-  }))
+  }
 }
 
 -- Lift a failure into MaybeT
 failT :: \(m: Type -> Type) a. Monad m => MaybeT m a
-failT := MkMaybeT (mpure Nothing)
+failT := MkMaybeT $ mpure Nothing
 
 -- ── Safe division: Maybe failure over Maybe ──────────────────
 
 safeDivM :: Int -> Int -> MaybeT Maybe Int
-safeDivM := \x y. case eq y 0 {
-  True  => failT;
-  False => MkMaybeT (Just (Just (x / y)))
-}
+safeDivM := \x y.
+  if eq y 0 then failT
+  else MkMaybeT $ Just $ Just (x / y)
 
 -- 10 / 2 = 5, then 5 / 0 → Nothing (short-circuits)
-test_fail := runMaybeT (do { a <- safeDivM 10 2; b <- safeDivM a 0; pure (a + b) })
+test_fail := runMaybeT $ do { a <- safeDivM 10 2; b <- safeDivM a 0; pure (a + b) }
 -- Just Nothing
 
 -- 10 / 2 = 5, then 5 / 1 = 5, result = 10
-test_ok := runMaybeT (do { a <- safeDivM 10 2; b <- safeDivM a 1; pure (a + b) })
+test_ok := runMaybeT $ do { a <- safeDivM 10 2; b <- safeDivM a 1; pure (a + b) }
 -- Just (Just 10)
 
 -- Chain of three: 100 / 10 / 5 / 1 = 2
-test_chain := runMaybeT (do {
+test_chain := runMaybeT $ do {
   a <- safeDivM 100 10;
   b <- safeDivM a 5;
   c <- safeDivM b 1;
   pure c
-})
+}
 -- Just (Just 2)
 
 -- ── Output ───────────────────────────────────────────────────

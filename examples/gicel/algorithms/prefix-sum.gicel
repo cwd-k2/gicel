@@ -4,7 +4,7 @@
 -- array, and answers range-sum queries. Demonstrates the full
 -- input pipeline: Console.getLine -> words -> Read -> Array.
 --
--- Run: echo "1 3 5 7 9" | gicel run --recursion --packs prelude,slice,array,console prefix-sum.gicel
+-- Run: echo "1 3 5 7 9" | bin/gicel run --recursion --packs prelude,slice,array,console examples/gicel/algorithms/prefix-sum.gicel
 --
 -- Expected output:
 --   size: 5
@@ -25,14 +25,13 @@ readInts := mapMaybe read . words
 buildPrefix := \xs. do {
   n := length xs;
   prefix <- new (n + 1) 0;
-  flip fix 0 $ \loop i. case i >= n {
-    True  => pure ();
-    False => do {
-      p <- readAt i prefix;
-      v := maybe 0 id $ index i xs;
-      writeAt (i + 1) (maybe 0 id p + v) prefix;
-      loop $ i + 1
-    }
+  flip fix 0 $ \loop i.
+    if i >= n then pure ()
+    else do {
+    p <- readAt i prefix;
+    v := maybe 0 id $ index i xs;
+    writeAt (i + 1) (maybe 0 id p + v) prefix;
+    loop $ i + 1
   };
   toSlice prefix
 }

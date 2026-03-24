@@ -2,6 +2,8 @@
 --
 -- Lists can be written as [1, 2, 3] (desugars to Cons/Nil).
 -- Import Prelude for higher-order list operations.
+--
+-- Run: bin/gicel run examples/gicel/basics/lists.gicel
 
 import Prelude
 

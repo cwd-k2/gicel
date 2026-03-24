@@ -3,6 +3,7 @@
 -- Defines type classes with multiple type parameters: Coercible and
 -- Convert. Shows how to create instances for various type pairs and
 -- compose constraints in function signatures.
+-- Run: bin/gicel run examples/gicel/types/multi-param-class.gicel
 
 import Prelude
 

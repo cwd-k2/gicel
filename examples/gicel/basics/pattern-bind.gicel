@@ -4,6 +4,8 @@
 -- and do-blocks. Only irrefutable patterns (tuples, records,
 -- wildcards, variables) are allowed — constructor and literal
 -- patterns are rejected at compile time.
+--
+-- Run: bin/gicel run examples/gicel/basics/pattern-bind.gicel
 
 import Prelude
 

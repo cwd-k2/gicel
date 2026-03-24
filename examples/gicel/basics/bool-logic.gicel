@@ -4,6 +4,8 @@
 -- (True, False). Demonstrates pattern matching and function composition.
 -- Note: `not` is already in the Prelude; we redefine it as `myNot` for
 -- educational purposes.
+--
+-- Run: bin/gicel run examples/gicel/basics/bool-logic.gicel
 
 import Prelude
 

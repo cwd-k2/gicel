@@ -4,6 +4,8 @@
 -- The state is threaded through the capability environment.
 -- Always `put` an initial value before `get` — the CLI starts with
 -- no state capability.
+--
+-- Run: bin/gicel run --packs prelude,state examples/gicel/effects/state-effect.gicel
 
 import Prelude
 import Effect.State

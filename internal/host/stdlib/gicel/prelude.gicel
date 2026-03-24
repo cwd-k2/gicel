@@ -539,7 +539,7 @@ intersperse := \sep xs. case xs {
 }
 
 nub :: \a. Eq a => List a -> List a
-nub := foldr (\x acc. case elem x acc { True => acc; False => Cons x acc }) Nil
+nub := nubBy (==)
 
 -- ─── Num ─────────────────────────────────────────────────────────────────────
 
