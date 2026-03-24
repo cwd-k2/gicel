@@ -330,10 +330,10 @@ expect_output "pattern binding in do" "7" \
   "$GICEL" run --show -e 'import Prelude; main := do { (x, y) <- pure (3, 4); pure (x + y) }'
 
 expect_output "mmap pack loads" "2" \
-  "$GICEL" run --show --packs prelude,mmap -e 'import Prelude; import Effect.Map as MM; main := do { m <- MM.new compare; MM.insert 1 "a" m; MM.insert 2 "b" m; MM.size m }'
+  "$GICEL" run --show --packs prelude,mmap -e 'import Prelude; import Effect.Map as MM; main := do { m <- MM.new; MM.insert 1 "a" m; MM.insert 2 "b" m; MM.size m }'
 
 expect_output "mset pack loads" "3" \
-  "$GICEL" run --show --packs prelude,mset -e 'import Prelude; import Effect.Set as MS; main := do { s <- MS.new compare; MS.insert 1 s; MS.insert 2 s; MS.insert 3 s; n <- MS.size s; pure n }'
+  "$GICEL" run --show --packs prelude,mset -e 'import Prelude; import Effect.Set as MS; main := do { s <- MS.new; MS.insert 1 s; MS.insert 2 s; MS.insert 3 s; MS.size s }'
 
 expect_output "Bool JSON output" '"value": true' \
   "$GICEL" run --json -e 'import Prelude; main := True'
