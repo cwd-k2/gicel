@@ -142,7 +142,7 @@ main := do {
   MMap.insert 2 "two" m;
   v1 <- MMap.lookup 1 m;
   v2 <- MMap.lookup 2 m;
-  s := MMap.size m;
+  s <- MMap.size m;
   pure (s, v1, v2)
 }
 `, gicel.Prelude, gicel.EffectMap)
@@ -169,7 +169,7 @@ main := do {
   before <- MMap.member 1 m;
   MMap.delete 1 m;
   after <- MMap.member 1 m;
-  s := MMap.size m;
+  s <- MMap.size m;
   pure (before, after, s)
 }
 `, gicel.Prelude, gicel.EffectMap)
@@ -191,7 +191,7 @@ import Prelude
 import Effect.Map as MMap
 main := do {
   m <- MMap.fromList (Cons (1, "a") (Cons (2, "b") (Cons (3, "c") Nil)));
-  s := MMap.size m;
+  s <- MMap.size m;
   entries <- MMap.toList m;
   pure (s, length entries)
 }
@@ -244,7 +244,7 @@ main := do {
   MSet.insert 1 s;
   has2 <- MSet.member 2 s;
   has9 <- MSet.member 9 s;
-  n := MSet.size s;
+  n <- MSet.size s;
   pure (n, has2, has9)
 }
 `, gicel.Prelude, gicel.EffectSet)
@@ -271,7 +271,7 @@ main := do {
   MSet.insert 30 s;
   MSet.delete 20 s;
   after <- MSet.member 20 s;
-  n := MSet.size s;
+  n <- MSet.size s;
   pure (after, n)
 }
 `, gicel.Prelude, gicel.EffectSet)
@@ -292,7 +292,7 @@ import Prelude
 import Effect.Set as MSet
 main := do {
   s <- MSet.fromList (Cons 5 (Cons 3 (Cons 1 (Cons 3 Nil))));
-  n := MSet.size s;
+  n <- MSet.size s;
   xs <- MSet.toList s;
   pure (n, length xs)
 }

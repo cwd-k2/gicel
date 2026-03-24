@@ -156,14 +156,34 @@ func (d *doElaborator) inferBind(varName string, comp syntax.Expr, rest []syntax
 	ch.ctx.Push(&CtxVar{Name: varName, Type: resultTy})
 	restTy, restCore := d.elaborate(rest, doS)
 	ch.ctx.Pop()
+	// Thread post-state: unify comp's post with rest's pre so that
+	// type information (e.g. state type from put) propagates to
+	// variables bound by get in subsequent statements.
+	d.unifyCompPostPre(compTy, restTy, stmtS)
 	return restTy, &ir.Bind{Comp: compCore, Var: varName, Body: restCore, S: stmtS}
 }
 
 func (d *doElaborator) inferExprStmt(expr syntax.Expr, rest []syntax.Stmt, stmtS, doS span.Span) (types.Type, ir.Core) {
 	ch := d.ch
-	_, compCore := ch.infer(expr)
+	compTy, compCore := ch.infer(expr)
 	restTy, restCore := d.elaborate(rest, doS)
+	// Thread post-state: see inferBind comment.
+	d.unifyCompPostPre(compTy, restTy, stmtS)
 	return restTy, &ir.Bind{Comp: compCore, Var: "_", Body: restCore, S: stmtS}
+}
+
+// unifyCompPostPre unifies the post-state of compTy with the pre-state of
+// restTy. This propagates type information through capability rows in
+// infer-mode do-blocks (e.g. put sets state to Int, get's result becomes Int).
+func (d *doElaborator) unifyCompPostPre(compTy, restTy types.Type, s span.Span) {
+	ch := d.ch
+	compTy = ch.unifier.Zonk(compTy)
+	restTy = ch.unifier.Zonk(restTy)
+	compComp, ok1 := compTy.(*types.TyCBPV)
+	restComp, ok2 := restTy.(*types.TyCBPV)
+	if ok1 && ok2 {
+		_ = ch.unifier.Unify(compComp.Post, restComp.Pre) //nolint:errcheck // advisory
+	}
 }
 
 // --- Pattern bind (all modes) ---
