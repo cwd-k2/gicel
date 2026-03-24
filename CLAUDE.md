@@ -63,6 +63,8 @@ bin/gicel run [flags] <file>.gicel
 | `slice`   | `Data.Slice`   |                        |
 | `map`     | `Data.Map`     |                        |
 | `set`     | `Data.Set`     |                        |
+| `mmap`    | `Effect.Map`   |                        |
+| `mset`    | `Effect.Set`   |                        |
 
 ### check — type-check only
 

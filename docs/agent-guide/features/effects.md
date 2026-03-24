@@ -101,12 +101,12 @@ force :: Thunk pre post a -> Computation pre post a
 
 The type alias `Suspended r a := Thunk r r a` mirrors `Effect` for suspended computations that preserve their capability state.
 
-### then
+### seq
 
 Provided by Core (always available without import) for sequencing when you do not need the intermediate result:
 
 ```
-then :: \a b (r1: Row) (r2: Row) (r3: Row).
+seq :: \a b (r1: Row) (r2: Row) (r3: Row).
   Computation r1 r2 a -> Computation r2 r3 b -> Computation r1 r3 b
 ```
 

@@ -12,7 +12,7 @@ items := [(2, 3), (3, 4), (4, 5), (5, 6)]
 capacity := 10
 
 max :: Int -> Int -> Int
-max := \a b. case a > b { True => a; False => b }
+max := \a b. if a > b then a else b
 
 -- Build the DP table using in-place mutation.
 -- dp[j] = maximum value achievable with capacity j.
@@ -23,16 +23,13 @@ solve := \items capacity. do {
   flip fix items $ \loopItems is. case is {
     Nil => pure ();
     Cons (w, v) rest => do {
-      flip fix capacity $ \loopJ j. case j >= w {
-        False => pure ();
-        True  => do {
+      flip fix capacity $ \loopJ j. if j >= w then do {
           cur  <- readAt j dp;
           prev <- readAt (j - w) dp;
           val  := max (maybe 0 id cur) (maybe 0 id prev + v);
           writeAt j val dp;
           loopJ $ j - 1
-        }
-      };
+        } else pure ();
       loopItems rest
     }
   };

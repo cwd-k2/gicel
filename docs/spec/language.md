@@ -305,10 +305,10 @@ Type, row, and kind equivalence. The equality theory includes:
 ## 3.1 Keywords
 
 ```
-case  do  form  type  impl  infixl  infixr  infixn  import
+case  do  form  type  impl  infixl  infixr  infixn  import  if  then  else
 ```
 
-9 keywords. Note that `pure`, `bind`, `thunk`, `force`, `assumption`, `rec`, and `fix` are **not** keywords — they are ordinary identifiers with built-in meaning. `pure`, `bind`, `rec`, and `fix` are first-class functions (can be partially applied and passed to higher-order functions); `thunk` and `force` are term formers (must be fully applied).
+12 keywords. Note that `pure`, `bind`, `thunk`, `force`, `assumption`, `rec`, and `fix` are **not** keywords — they are ordinary identifiers with built-in meaning. `pure`, `bind`, `rec`, and `fix` are first-class functions (can be partially applied and passed to higher-order functions); `thunk` and `force` are term formers (must be fully applied).
 
 `\` is used for both lambda (`\x. e`) and universal quantification (`\a. T`). Both use `.` as the body separator. The parser disambiguates by context (expression vs. type). Multi-parameter lambdas are supported: `\x y. e` desugars to `\x. \y. e`.
 
@@ -1462,7 +1462,7 @@ gicel run --module Util=lib/Util.gicel main.gicel
 
 The Prelude is split into two parts:
 
-- **Core** (not replaceable): language-essential definitions — `IxMonad` class, `Computation` instance, `Effect` alias, `Suspended` alias, `then` combinator, `Lift` type alias
+- **Core** (not replaceable): language-essential definitions — `IxMonad` class, `Computation` instance, `Effect` alias, `Suspended` alias, `seq` combinator, `Lift` type alias
 - **Prelude** (replaceable): standard library types, classes, instances — `Bool`, `Maybe`, `List`, `Ordering`, 16 type classes (Eq through ToList, including Num and Div), instances
 
 Core is auto-registered and auto-imported; the user cannot control it. Prelude requires explicit `Use(Prelude)` on the engine and `import Prelude` in source.

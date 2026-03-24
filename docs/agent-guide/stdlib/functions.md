@@ -58,7 +58,7 @@ equating  :: Eq b => (a -> b) -> a -> a -> Bool
 **Effect sequencing:**
 
 ```
-then :: Computation r1 r2 a -> Computation r2 r3 b -> Computation r1 r3 b
+seq :: Computation r1 r2 a -> Computation r2 r3 b -> Computation r1 r3 b
 ```
 
 ---

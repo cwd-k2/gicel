@@ -45,16 +45,14 @@ dfs := \g start. {
   -- DFS with explicit stack: (stack, visited, result)
   go := fix (\self stack visited result. case stack {
     Nil => reverse result;
-    Cons node rest => case Set.member node visited {
-      True  => self rest visited result;
-      False => {
+    Cons node rest =>
+      if Set.member node visited then self rest visited result
+      else {
         visited2 := Set.insert node visited;
         nbrs := neighbors node g;
-        -- Push neighbors onto stack (reverse to visit in order)
         stack2 := concat (reverse nbrs) rest;
         self stack2 visited2 (Cons node result)
       }
-    }
   });
   go [start] (Set.empty :: Set Int) Nil
 }
@@ -67,17 +65,15 @@ bfs := \g start. {
   -- BFS with queue (list used as FIFO — dequeue from front, enqueue at back)
   go := fix (\self queue visited result. case queue {
     Nil => reverse result;
-    Cons node rest => case Set.member node visited {
-      True  => self rest visited result;
-      False => {
+    Cons node rest =>
+      if Set.member node visited then self rest visited result
+      else {
         visited2 := Set.insert node visited;
         nbrs := neighbors node g;
-        -- Filter already-visited neighbors, enqueue at back
         newNbrs := filter (\n. not (Set.member n visited2)) nbrs;
         queue2 := concat rest (reverse newNbrs);
         self queue2 visited2 (Cons node result)
       }
-    }
   });
   go [start] (Set.empty :: Set Int) Nil
 }
@@ -89,24 +85,22 @@ topoSort := \g nodes. {
   -- For each node, if unvisited, DFS and append in post-order
   go := fix (\self remaining visited order. case remaining {
     Nil => order;
-    Cons node rest => case Set.member node visited {
-      True  => self rest visited order;
-      False => {
+    Cons node rest =>
+      if Set.member node visited then self rest visited order
+      else {
         -- DFS post-order: visit children first, then self
-        dfsPost := fix (\dfs2 n vis ord. case Set.member n vis {
-          True  => (vis, ord);
-          False => {
+        dfsPost := fix (\dfs2 n vis ord.
+          if Set.member n vis then (vis, ord)
+          else {
             vis2 := Set.insert n vis;
             nbrs := neighbors n g;
-            -- Visit all neighbors
             afterNbrs := foldl (\(v, o) nb. dfs2 nb v o) (vis2, ord) nbrs;
-            -- Append self after all children
-            case afterNbrs { (v, o) => (v, Cons n o) }
-          }
-        });
-        case dfsPost node visited order { (vis2, ord2) => self rest vis2 ord2 }
+            (v, o) := afterNbrs;
+            (v, Cons n o)
+          });
+        (vis2, ord2) := dfsPost node visited order;
+        self rest vis2 ord2
       }
-    }
   });
   go nodes (Set.empty :: Set Int) Nil
 }

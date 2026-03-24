@@ -58,6 +58,22 @@ Con Nothing y                  -- nested nullary constructor (no parens needed)
 
 Literal patterns require a wildcard catch-all (literal types cannot be exhaustively enumerated).
 
+### If-Then-Else
+
+Syntax sugar for a `case` on `Bool`:
+
+```
+if condition then expr1 else expr2
+```
+
+Desugars to:
+
+```
+case condition { True => expr1; False => expr2 }
+```
+
+Both branches must have the same type. The condition must be of type `Bool`.
+
 ### Block Expression (let-bindings)
 
 ```

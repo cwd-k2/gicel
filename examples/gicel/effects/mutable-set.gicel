@@ -1,0 +1,42 @@
+-- GICEL Example: Mutable Set (Effect.Set)
+--
+-- Effect.Set provides an ordered mutable set backed by AVL trees,
+-- gated by the { mset: () } effect row. Backed internally by
+-- MMap k (), mirroring how Data.Set backs on Data.Map.
+--
+-- Run: bin/gicel run --packs prelude,mset examples/gicel/effects/mutable-set.gicel
+
+import Prelude
+import Effect.Set as MSet
+
+main := do {
+  -- Build a set from insertions
+  s <- MSet.new;
+  MSet.insert 3 s;
+  MSet.insert 1 s;
+  MSet.insert 4 s;
+  MSet.insert 1 s;
+  MSet.insert 5 s;
+  MSet.insert 9 s;
+
+  -- Size (duplicates are ignored)
+  n := MSet.size s;
+
+  -- Membership
+  has4 <- MSet.member 4 s;
+  has7 <- MSet.member 7 s;
+
+  -- Delete
+  MSet.delete 4 s;
+  has4after <- MSet.member 4 s;
+  nAfter := MSet.size s;
+
+  -- Sorted traversal
+  sorted <- MSet.toList s;
+
+  -- Fold: sum all elements
+  total <- MSet.fold (\acc x. acc + x) 0 s;
+
+  -- Result: (5, True, False, False, 4, [1, 3, 5, 9], 18)
+  pure (n, has4, has7, has4after, nAfter, sorted, total)
+}

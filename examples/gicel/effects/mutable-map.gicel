@@ -1,0 +1,39 @@
+-- GICEL Example: Mutable Map (Effect.Map)
+--
+-- Effect.Map provides an ordered mutable map backed by AVL trees,
+-- gated by the { mmap: () } effect row. All mutating operations
+-- (insert, delete, adjust) modify the map in place.
+--
+-- Run: bin/gicel run --packs prelude,mmap examples/gicel/effects/mutable-map.gicel
+
+import Prelude
+import Effect.Map as MMap
+
+-- Word frequency counter: count occurrences of each word.
+main := do {
+  freq <- MMap.new;
+
+  -- Insert/update word counts
+  MMap.insert "hello" 1 freq;
+  MMap.insert "world" 1 freq;
+  MMap.insert "hello" 2 freq;
+  MMap.insert "gicel" 1 freq;
+
+  -- Lookup
+  hello <- MMap.lookup "hello" freq;
+  missing <- MMap.lookup "nope" freq;
+
+  -- Adjust: increment "world" count
+  MMap.adjust "world" (+ 1) freq;
+  world <- MMap.lookup "world" freq;
+
+  -- Delete
+  MMap.delete "gicel" freq;
+  afterDel := MMap.size freq;
+
+  -- Collect all entries (sorted by key)
+  entries <- MMap.toList freq;
+
+  -- Result: (Just 2, Nothing, Just 2, 2, [("hello", 2), ("world", 2)])
+  pure (hello, missing, world, afterDel, entries)
+}

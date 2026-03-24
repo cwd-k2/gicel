@@ -1,6 +1,6 @@
 ## 2. Language Overview
 
-### Keywords (9 + 1 contextual)
+### Keywords (12 + 1 contextual)
 
 | Keyword  | Purpose                                                                                               |
 | -------- | ----------------------------------------------------------------------------------------------------- |
@@ -13,6 +13,9 @@
 | `infixr` | Right-associative operator fixity                                                                     |
 | `infixn` | Non-associative operator fixity                                                                       |
 | `import` | Module import                                                                                         |
+| `if`     | Conditional expression (if-then-else)                                                                 |
+| `then`   | Conditional expression (if-then-else)                                                                 |
+| `else`   | Conditional expression (if-then-else)                                                                 |
 | `as`     | Qualified import alias (contextual -- only special after `import`, usable as variable name elsewhere) |
 
 ### Built-in Identifiers
