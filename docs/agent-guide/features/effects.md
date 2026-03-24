@@ -76,12 +76,31 @@ main := do {
 }
 ```
 
-This restriction applies only to `Computation`. Value-typed monads (`List`, `Maybe`, etc.) support `do`-notation and can be bound at the top level without `thunk`:
+This restriction applies only to `Computation`. Value-typed monads (`List`, `Maybe`, custom `Monad` instances) also support `do`-notation when the binding has a type annotation:
 
 ```
 pairs :: List (Int, Int)
 pairs := do { x <- [1,2,3]; y <- [10,20]; pure (x, y) }
 ```
+
+The type annotation is required because without it, `do` defaults to `Computation` inference. With the annotation, the checker dispatches to `mbind`/`mpure` from the `Monad` instance:
+
+```
+form Writer := \a. { MkWriter: (a, List String) -> Writer a }
+-- (Monad instance omitted for brevity)
+
+tell :: String -> Writer ()
+tell := \s. MkWriter ((), [s])
+
+program :: Writer String          -- annotation selects Monad dispatch
+program := do {
+  tell "hello";
+  tell "world";
+  mpure "done"
+}
+```
+
+Note: inside value-monad `do` blocks, use `mpure` (not `pure`, which is reserved for `Computation`).
 
 CapEnv is copy-on-write: effects thread through Computation indices. `put` does not mutate; it produces a new CapEnv.
 
