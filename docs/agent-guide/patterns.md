@@ -73,8 +73,12 @@ pipeline := foldl (+) 0 $ (\x. x * x) <$> filter (> 0) myList
 import Prelude
 import Effect.State
 
-counter :: Computation { state: Int } { state: Int } Int
-counter := do { modify (+ 1); modify (+ 1); modify (+ 1); get }
+-- Top-level computations must be suspended with thunk
+counter :: Thunk { state: Int } { state: Int } Int
+counter := thunk do { put 0; modify (+ 1); modify (+ 1); modify (+ 1); get }
+
+-- Force a thunk inside do to execute it
+main := do { r <- force counter; pure r }
 ```
 
 ### Error Handling
@@ -87,10 +91,7 @@ parseOrFail :: String -> Computation { fail: () | r } { fail: () | r } Int
 parseOrFail := \s. fromMaybe (readInt s)
 
 safeDivide :: Int -> Int -> Computation { fail: String | r } { fail: String | r } Int
-safeDivide := \x y. case y == 0 {
-  True  => failWith "division by zero";
-  False => pure (div x y)
-}
+safeDivide := \x y. if y == 0 then failWith "division by zero" else pure (div x y)
 ```
 
 ### Function Composition
@@ -112,11 +113,17 @@ import Prelude
 import Effect.State
 import Effect.Fail
 
-process :: Computation { state: Int, fail: () } { state: Int, fail: () } Int
-process := do {
+-- Guard with fail (pure-only), then perform stateful operations
+process :: Thunk { state: Int, fail: () } { state: Int, fail: () } Int
+process := thunk do {
+  put 5;
   n <- get;
-  case n > 0 { True => do { put (n - 1); pure n }; False => fail }
+  _ <- if n > 0 then pure n else fail;
+  put (n - 1);
+  pure n
 }
+
+main := do { r <- force process; pure r }
 ```
 
 ### Thunk and Force
@@ -166,10 +173,10 @@ Note: for list traversal, prefer Prelude's `map`/`filter`/`foldr` over manual `c
 
 ```
 -- Wrong: self-reference without fix
-countdown := \n. case n == 0 { True => 0; False => countdown (n - 1) }
+countdown := \n. if n == 0 then 0 else countdown (n - 1)
 
 -- Correct: fix provides self as parameter
-countdown := fix (\self n. case n == 0 { True => 0; False => self (n - 1) })
+countdown := fix (\self n. if n == 0 then 0 else self (n - 1))
 ```
 
 ### The dot serves triple duty

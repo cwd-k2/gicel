@@ -8,11 +8,12 @@ The simplest way to run GICEL from Go:
 import "github.com/cwd-k2/gicel"
 
 result, err := gicel.RunSandbox(source, &gicel.SandboxConfig{
-    Packs:    []gicel.Pack{gicel.Prelude, gicel.DataMap, gicel.DataSet, gicel.EffectFail, gicel.EffectState, gicel.EffectIO, gicel.DataStream, gicel.DataSlice},
+    Packs:    []gicel.Pack{gicel.Prelude, gicel.EffectFail, gicel.EffectState, gicel.EffectIO, gicel.DataStream, gicel.DataSlice, gicel.EffectArray, gicel.DataMap, gicel.DataSet, gicel.EffectMap, gicel.EffectSet},
     Entry:    "main",              // default: "main"
     Timeout:  5 * time.Second,     // default: 5s
     MaxSteps: 100_000,             // default: 100,000
     MaxDepth: 100,                 // default: 100
+    MaxNesting: 256,               // default: 256
     MaxAlloc: 10 * 1024 * 1024,   // default: 10 MiB
     Caps:     map[string]any{"state": gicel.ToValue(0), "io": gicel.ToValue(nil)},
     Bindings: map[string]gicel.Value{"input": gicel.ToValue("hello")},
@@ -28,8 +29,8 @@ RunSandbox applies timeout to the entire pipeline (pack application, compilation
 
 ```go
 eng := gicel.NewEngine()
-eng.Use(gicel.Prelude)
-eng.Use(gicel.EffectState)
+_ = eng.Use(gicel.Prelude)
+_ = eng.Use(gicel.EffectState)
 eng.SetStepLimit(500_000)
 
 rt, err := eng.NewRuntime(ctx, source)
@@ -39,16 +40,19 @@ result, err := rt.RunWith(ctx, &gicel.RunOptions{Caps: caps, Bindings: bindings}
 
 ### Available Packs
 
-| Pack                | Module         | Provides                                    |
-| ------------------- | -------------- | ------------------------------------------- |
-| `gicel.Prelude`     | `Prelude`      | Num, Str, List — arithmetic, strings, lists |
-| `gicel.EffectFail`  | `Effect.Fail`  | Failure effect                              |
-| `gicel.EffectState` | `Effect.State` | Get/put state                               |
-| `gicel.EffectIO`    | `Effect.IO`    | Print/debug output                          |
-| `gicel.DataStream`  | `Data.Stream`  | Lazy lists (requires recursion)             |
-| `gicel.DataSlice`   | `Data.Slice`   | O(1) contiguous arrays                      |
-| `gicel.DataMap`     | `Data.Map`     | Ordered immutable map (AVL)                 |
-| `gicel.DataSet`     | `Data.Set`     | Ordered immutable set                       |
+| Pack                | Module         | Provides                                         |
+| ------------------- | -------------- | ------------------------------------------------ |
+| `gicel.Prelude`     | `Prelude`      | Num, Str, List — arithmetic, strings, lists      |
+| `gicel.EffectFail`  | `Effect.Fail`  | Failure effect                                   |
+| `gicel.EffectState` | `Effect.State` | Get/put state                                    |
+| `gicel.EffectIO`    | `Effect.IO`    | Print/debug output                               |
+| `gicel.DataStream`  | `Data.Stream`  | Lazy lists (requires recursion)                  |
+| `gicel.DataSlice`   | `Data.Slice`   | O(1) contiguous arrays                           |
+| `gicel.EffectArray` | `Effect.Array` | Mutable fixed-size arrays ({ array: () } effect) |
+| `gicel.DataMap`     | `Data.Map`     | Ordered immutable map (AVL)                      |
+| `gicel.DataSet`     | `Data.Set`     | Ordered immutable set                            |
+| `gicel.EffectMap`   | `Effect.Map`   | Mutable ordered maps ({ mmap: () } effect)       |
+| `gicel.EffectSet`   | `Effect.Set`   | Mutable ordered sets ({ mset: () } effect)       |
 
 ### Custom Primitives (RegisterPrim)
 
@@ -93,18 +97,22 @@ eng.DeclareBinding("myInput", gicel.ConType("Int"))
 
 ### Type Construction Helpers
 
-| Function                                  | Description                   |
-| ----------------------------------------- | ----------------------------- |
-| `gicel.ConType(name)`                     | Type constructor: `"Int"`     |
-| `gicel.ArrowType(from, to)`               | Function type: `from -> to`   |
-| `gicel.AppType(f, arg)`                   | Type application: `f a`       |
-| `gicel.CompType(pre, post, result)`       | `Computation pre post result` |
-| `gicel.ForallType(var, body)`             | `\var. body`                  |
-| `gicel.ForallRow(var, body)`              | `\(var: Row). body`           |
-| `gicel.EmptyRowType()`                    | Empty row `{}`                |
-| `gicel.RecordType(fields ...RowField)`    | Closed record type            |
-| `gicel.TupleType(elems ...Type)`          | Tuple record type             |
-| `gicel.KindType()`, `KindArrow(from, to)` | Kind constructors             |
+| Function                                  | Description                           |
+| ----------------------------------------- | ------------------------------------- |
+| `gicel.ConType(name)`                     | Type constructor: `"Int"`             |
+| `gicel.ArrowType(from, to)`               | Function type: `from -> to`           |
+| `gicel.AppType(f, arg)`                   | Type application: `f a`               |
+| `gicel.CompType(pre, post, result)`       | `Computation pre post result`         |
+| `gicel.VarType(name)`                     | Type variable reference               |
+| `gicel.ForallType(var, body)`             | `\var. body`                          |
+| `gicel.ForallRow(var, body)`              | `\(var: Row). body`                   |
+| `gicel.ForallKind(name, kind, body)`      | `\(name: kind). body` (explicit kind) |
+| `gicel.EmptyRowType()`                    | Empty row `{}`                        |
+| `gicel.RecordType(fields ...RowField)`    | Closed record type                    |
+| `gicel.TupleType(elems ...Type)`          | Tuple record type                     |
+| `gicel.KindType()`, `KindArrow(from, to)` | Kind constructors                     |
+| `gicel.KindRow()`                         | Row kind                              |
+| `gicel.TypePretty(t)`                     | Human-readable type string            |
 
 **Preferred usage:**
 
@@ -114,19 +122,24 @@ eng.DeclareBinding("myInput", gicel.ConType("Int"))
 
 ### Engine Configuration
 
-| Method                                       | Description                      |
-| -------------------------------------------- | -------------------------------- |
-| `eng.Use(pack)`                              | Apply a stdlib pack              |
-| `eng.RegisterPrim(name, impl)`               | Register a primitive             |
-| `eng.RegisterType(name, kind)`               | Register an opaque host type     |
-| `eng.DeclareBinding(name, ty)`               | Declare a host-provided variable |
-| `eng.EnableRecursion()`                      | Enable `rec` and `fix` built-ins |
-| `eng.SetStepLimit(n)` / `SetDepthLimit(n)`   | Resource limits                  |
-| `eng.SetAllocLimit(bytes)`                   | Allocation limit (0 = disabled)  |
-| `eng.Use(gicel.Prelude)`                     | Load Prelude (Num, Str, List)    |
-| `eng.RegisterModule(name, src)`              | Register a custom module         |
-| `eng.NewRuntime(ctx, source)`                | Compile to Runtime               |
-| `eng.Compile(ctx, source)` / `Parse(source)` | Type-check or parse-only (error) |
+| Method                                     | Description                       |
+| ------------------------------------------ | --------------------------------- |
+| `eng.Use(pack) error`                      | Apply a stdlib pack               |
+| `eng.RegisterPrim(name, impl)`             | Register a primitive              |
+| `eng.RegisterType(name, kind)`             | Register an opaque host type      |
+| `eng.DeclareBinding(name, ty)`             | Declare a host-provided variable  |
+| `eng.EnableRecursion()`                    | Enable `rec` and `fix` built-ins  |
+| `eng.SetStepLimit(n)` / `SetDepthLimit(n)` | Resource limits                   |
+| `eng.SetNestingLimit(n)`                   | Structural nesting depth limit    |
+| `eng.SetAllocLimit(bytes)`                 | Allocation limit (0 = disabled)   |
+| `eng.SetEntryPoint(name)`                  | Entry point name (default: main)  |
+| `eng.SetCompileContext(ctx)`               | Context for module compilation    |
+| `eng.RegisterModule(name, src)`            | Register a custom module          |
+| `eng.RegisterModuleFile(path)`             | Register module from .gicel file  |
+| `eng.RegisterModuleRec(name, src)`         | Register module with fix/rec      |
+| `eng.NewRuntime(ctx, source)`              | Compile to Runtime                |
+| `eng.Compile(ctx, source)`                 | Type-check; returns CompileResult |
+| `eng.Parse(source)`                        | Parse-only (syntax errors)        |
 
 ### Error Handling
 
@@ -149,20 +162,22 @@ if errors.As(err, &re) {
 var stepErr *gicel.StepLimitError
 var depthErr *gicel.DepthLimitError
 var allocErr *gicel.AllocLimitError
+var nestErr *gicel.NestingLimitError
 if errors.As(err, &stepErr) { /* step limit exceeded */ }
 if errors.As(err, &depthErr) { /* depth limit exceeded */ }
 if errors.As(err, &allocErr) { /* allocErr.Used, allocErr.Limit */ }
+if errors.As(err, &nestErr) { /* structural nesting limit exceeded */ }
 ```
 
-`Diagnostic`: `Code int`, `Phase string` ("lex"/"parse"/"check"), `Line int`, `Col int`, `Message string`.
+`Diagnostic`: `Code int`, `Phase string` ("lex"/"parse"/"check"), `Line int`, `Col int`, `Message string`, `Hints []DiagnosticHint` (secondary annotations, may be nil). `DiagnosticHint`: `Line int`, `Col int`, `Message string`.
 
-`RuntimeError`: `Message string`, `Line int`, `Col int` (1-based, populated by Runtime). Covers: unbound variable, non-exhaustive match, division by zero, `fail`/`failWith`. Step/depth/alloc limit exceeded return distinct error types: `StepLimitError`, `DepthLimitError`, `AllocLimitError` (match with `errors.As`).
+`RuntimeError`: `Message string`, `Line int`, `Col int` (1-based, populated by Runtime). Covers: unbound variable, non-exhaustive match, division by zero, `fail`/`failWith`. Step/depth/alloc/nesting limit exceeded return distinct error types: `StepLimitError`, `DepthLimitError`, `AllocLimitError`, `NestingLimitError` (match with `errors.As`).
 
 ### Hooks (per-execution via RunOptions)
 
 **TraceHook** fires on every eval step. Signature: `func(TraceEvent) error`. Fields: `Depth int`, `NodeKind string` (e.g. "Var", "App", "Lam"), `NodeDesc string` (human-readable), `CapEnv`. Return non-nil error to abort.
 
-**ExplainHook** fires at semantic boundaries. Signature: `func(ExplainStep)`. Fields: `Seq int`, `Depth int`, `Kind ExplainKind`, `Line int`, `Col int`, `Detail ExplainDetail`. Kinds: `ExplainBind`, `ExplainMatch`, `ExplainEffect`, `ExplainLabel`, `ExplainResult`.
+**ExplainHook** fires at semantic boundaries. Signature: `func(ExplainStep)`. Fields: `Seq int`, `Depth int`, `Kind ExplainKind`, `SourceName string`, `Line int`, `Col int`, `Detail ExplainDetail`. Kinds: `ExplainBind`, `ExplainMatch`, `ExplainEffect`, `ExplainLabel`, `ExplainResult`.
 
 ```go
 rt.RunWith(ctx, &gicel.RunOptions{

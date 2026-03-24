@@ -78,7 +78,7 @@ form Monoid := \a. Semigroup a => {
 **Functor**
 
 ```
-form Functor := \(f: Type -> Type). {
+form Functor := \f. {
   fmap: \a b. (a -> b) -> f a -> f b
 }
 ```
@@ -86,7 +86,7 @@ form Functor := \(f: Type -> Type). {
 **Foldable**
 
 ```
-form Foldable := \(t: Type -> Type). {
+form Foldable := \t. {
   foldr: \a b. (a -> b -> b) -> b -> t a -> b
 }
 ```
@@ -94,7 +94,7 @@ form Foldable := \(t: Type -> Type). {
 **Applicative**
 
 ```
-form Applicative := \(f: Type -> Type). Functor f => {
+form Applicative := \f. Functor f => {
   wrap: \a. a -> f a;
   ap:   \a b. f (a -> b) -> f a -> f b
 }
@@ -103,8 +103,8 @@ form Applicative := \(f: Type -> Type). Functor f => {
 **Traversable**
 
 ```
-form Traversable := \(t: Type -> Type). (Functor t, Foldable t) => {
-  traverse: \(f: Type -> Type) a b. Applicative f => (a -> f b) -> t a -> f (t b)
+form Traversable := \t. (Functor t, Foldable t) => {
+  traverse: \f a b. Applicative f => (a -> f b) -> t a -> f (t b)
 }
 ```
 
@@ -129,7 +129,7 @@ form Show := \a. {
 **Alternative**
 
 ```
-form Alternative := \(f: Type -> Type). Applicative f => {
+form Alternative := \f. Applicative f => {
   none: \a. f a;
   alt:  \a. f a -> f a -> f a
 }
@@ -148,29 +148,55 @@ form Monad := \(m: Type -> Type). {
 
 ```
 form Packed := \c e. {
-  pack:   List e -> c;
-  unpack: c -> List e
+  pack:   Slice e -> c;
+  unpack: c -> Slice e
+}
+```
+
+**Read**
+
+```
+form Read := \a. {
+  read: String -> Maybe a
+}
+```
+
+**FromList**
+
+```
+form FromList := \l. {
+  type Elem l :: Type;
+  fromList: List (Elem l) -> l
+}
+```
+
+**ToList**
+
+```
+form ToList := \l. FromList l => {
+  toList: l -> List (Elem l)
 }
 ```
 
 ### Instances
 
-| Class         | Instances                                                            |
-| ------------- | -------------------------------------------------------------------- |
-| `IxMonad`     | `Computation` (built-in), `Maybe`, `List`                            |
-| `Monad`       | `Maybe`, `List`                                                      |
-| `Eq`          | `Bool`, `()`, `Ordering`, `Maybe a`, `(a,b)`, `List a`, `Result e a` |
-| `Ord`         | `Bool`, `()`, `Ordering`, `Maybe a`, `(a,b)`, `List a`, `Result e a` |
-| `Num`         | `Int`, `Double`                                                      |
-| `Div`         | `Int`, `Double`                                                      |
-| `Semigroup`   | `()`, `Ordering`, `Maybe a`, `List a`, `Int`, `Double`               |
-| `Monoid`      | `()`, `Ordering`, `Maybe a`, `List a`, `Int`, `Double`               |
-| `Show`        | `Bool`, `()`, `Ordering`                                             |
-| `Functor`     | `Maybe`, `List`, `Result e`                                          |
-| `Foldable`    | `Maybe`, `List`, `Result e`                                          |
-| `Applicative` | `Maybe`, `List`                                                      |
-| `Traversable` | `Maybe`, `List`                                                      |
-| `Alternative` | `Maybe`, `List`                                                      |
-| `Packed`      | `Packed (List a) a` (identity)                                       |
-
-`Show Int`, additional `Show` instances (`String`, `Maybe a`, `List a`, `Result e a`, `(a,b)`), and `Packed String Rune` are all provided by the Prelude.
+| Class         | Instances                                                                                                       |
+| ------------- | --------------------------------------------------------------------------------------------------------------- |
+| `IxMonad`     | `Computation` (built-in), `Maybe`, `List`                                                                       |
+| `Monad`       | `Maybe`, `List`                                                                                                 |
+| `Eq`          | `Bool`, `()`, `Ordering`, `Maybe a`, `(a,b)`, `List a`, `Result e a`, `Int`, `Double`, `String`, `Rune`, `Byte` |
+| `Ord`         | `Bool`, `()`, `Ordering`, `Maybe a`, `(a,b)`, `List a`, `Result e a`, `Int`, `Double`, `String`, `Rune`, `Byte` |
+| `Num`         | `Int`, `Double`                                                                                                 |
+| `Div`         | `Int`, `Double`                                                                                                 |
+| `Semigroup`   | `()`, `Ordering`, `Maybe a`, `List a`, `Int`, `Double`, `String`                                                |
+| `Monoid`      | `()`, `Ordering`, `Maybe a`, `List a`, `Int`, `Double`, `String`                                                |
+| `Show`        | `Bool`, `()`, `Ordering`, `Int`, `Double`, `Byte`, `String`, `Maybe a`, `List a`, `Result e a`, `(a,b)`         |
+| `Functor`     | `Maybe`, `List`, `Result e`                                                                                     |
+| `Foldable`    | `Maybe`, `List`, `Result e`                                                                                     |
+| `Applicative` | `Maybe`, `List`                                                                                                 |
+| `Traversable` | `Maybe`, `List`                                                                                                 |
+| `Alternative` | `Maybe`, `List`                                                                                                 |
+| `Packed`      | `Packed String Rune`, `Packed String Byte`                                                                      |
+| `Read`        | `Int`, `Double`, `String`                                                                                       |
+| `FromList`    | `List a`, `Maybe a`, `String`                                                                                   |
+| `ToList`      | `List a`, `Maybe a`, `String`                                                                                   |

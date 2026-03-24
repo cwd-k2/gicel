@@ -36,6 +36,16 @@
 
 | Token | Meaning                                                                         |
 | ----- | ------------------------------------------------------------------------------- |
+| `(`   | Grouping / tuple / operator section / import list                               |
+| `)`   | Close parenthesis                                                               |
+| `{`   | Brace-delimited body (`do`, `case`, GADT)                                       |
+| `}`   | Close brace                                                                     |
+| `[`   | List literal / list pattern                                                     |
+| `]`   | Close bracket                                                                   |
+| `,`   | Separator in tuples, import lists, constructor sub-lists                        |
+| `;`   | Declaration / statement separator                                               |
+| `\|`  | Constructor alternative / row tail                                              |
+| `@`   | Explicit type application                                                       |
 | `->`  | Function type arrow                                                             |
 | `<-`  | Monadic bind in do-block                                                        |
 | `=>`  | Constraint qualifier / case alternative / grade annotation / evidence injection |
@@ -43,12 +53,11 @@
 | `:=`  | Value definition                                                                |
 | `:`   | Kind annotation separator                                                       |
 | `.`   | Lambda / quantifier body separator (also compose operator)                      |
+| `.#`  | Record field projection (`r.#x`)                                                |
 | `\`   | Lambda / universal quantification                                               |
 | `_`   | Wildcard pattern                                                                |
+| `=`   | Reserved (not user-facing; disambiguates from `=>` and operators)               |
 | `~`   | Type equality constraint                                                        |
-| `@`   | Explicit type application                                                       |
-| `\|`  | Constructor alternative / row tail                                              |
-| `;`   | Declaration / statement separator                                               |
 
 ### Comments
 
@@ -66,7 +75,7 @@
 
 ### Declaration Boundaries
 
-Top-level declarations are separated by newlines or semicolons. Both are interchangeable at the top level; trailing and repeated semicolons are permitted. A new declaration starts when the next token (preceded by a newline or semicolon at depth 0) is one of: lowercase identifier, uppercase identifier, `form`, `type`, `infixl`, `infixr`, `infixn`, `impl`, `import`, or `(op)`. Inside braces (`do`, `case`, GADT), semicolons are required between statements/alternatives.
+Top-level declarations are separated by newlines or semicolons. Both are interchangeable at the top level; trailing and repeated semicolons are permitted. A new declaration starts when the next token (preceded by a newline or semicolon at depth 0) is one of: lowercase identifier, uppercase identifier, `form`, `type`, `infixl`, `infixr`, `infixn`, `impl`, `import`, or `(op)`. Inside braces (`do`, `case`, GADT), newlines and semicolons are both accepted as separators between statements/alternatives.
 
 Import declarations must appear before all other declarations.
 

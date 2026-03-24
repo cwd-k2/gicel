@@ -12,6 +12,6 @@ Provides contiguous array with O(1) length/index. Load with `eng.Use(gicel.DataS
 | `fromList`  | `\a. List a -> Slice a`                    | Build from list |
 | `foldr`     | `\a b. (a -> b -> b) -> b -> Slice a -> b` | Right fold      |
 | `foldl`     | `\a b. (b -> a -> b) -> b -> Slice a -> b` | Left fold       |
-| `map`       | `\a b. (a -> b) -> Slice a -> Slice b`     | Map over slice  |
+| `fmap`      | `\a b. (a -> b) -> Slice a -> Slice b`     | Map over slice  |
 
-Instances: `Functor Slice`, `Foldable Slice`, `Semigroup (Slice a)`, `Monoid (Slice a)`, `Packed (Slice a) a`, `FromList (Slice a)`, `ToList (Slice a)`
+Instances: `Functor Slice`, `Foldable Slice`, `FromList (Slice a)`, `ToList (Slice a)`

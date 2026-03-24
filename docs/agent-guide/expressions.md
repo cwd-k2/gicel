@@ -9,7 +9,7 @@ Multi-parameter lambdas are supported. `.` separates parameters from body:
 \x y z. expr                   -- desugars to \x. \y. \z. expr
 \(Just x). expr                -- constructor pattern
 \(a, b). expr                  -- tuple pattern
-\{ x, y }. expr                -- record pattern
+\{ x: x, y: y }. expr          -- record pattern
 ```
 
 Pattern parameters are desugared to `case`: `\(a, b). body` becomes `\$p. case $p { (a, b) => body }`.
@@ -120,7 +120,7 @@ Right sections bind the right argument, left sections bind the left. Both desuga
 ```
 map (+ 1) xs                   -- increment each element
 filter (0 <) xs                -- keep positives
-map (show) xs                  -- (op) alone is the prefix form
+foldr (+) 0 xs                 -- (op) alone is the prefix form
 ```
 
 ### Special Forms
@@ -141,21 +141,20 @@ bind comp (\x. body)           -- explicit monadic bind
 
 ### Expression Precedence
 
-| Level | Form              | Associativity    |
-| ----- | ----------------- | ---------------- |
-| 0     | `:: Type`         | right            |
-| 1-9   | Infix operators   | per `infixl/r/n` |
-| 10    | Application `f x` | left             |
-| --    | Atoms             | --               |
+| Level  | Form              | Associativity    |
+| ------ | ----------------- | ---------------- |
+| lowest | `:: Type`         | none             |
+| 0-9    | Infix operators   | per `infixl/r/n` |
+| 10     | Application `f x` | left             |
+| --     | Atoms             | --               |
 
 ### Type Expression Precedence
 
 | Level | Form        | Associativity |
 | ----- | ----------- | ------------- |
 | 0     | `\ ... .`   | --            |
-| 1     | `=>`        | right         |
-| 2     | `->`        | right         |
-| 3     | Application | left          |
+| 1     | `=>` / `->` | right         |
+| 2     | Application | left          |
 | --    | Atoms       | --            |
 
 ---
