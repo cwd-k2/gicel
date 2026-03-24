@@ -128,7 +128,7 @@ CLI flags:
 | `--entry`       | `main`   | Entry point binding name                                                                             |
 | `--timeout`     | `5s`     | Execution timeout (run only)                                                                         |
 | `--max-steps`   | `100000` | Step limit (run only)                                                                                |
-| `--max-depth`   | `100`    | Depth limit (run only)                                                                               |
+| `--max-depth`   | `10000`  | Depth limit (run only)                                                                               |
 | `--max-nesting` | `512`    | Structural nesting depth limit                                                                       |
 | `--max-alloc`   | `100MiB` | Allocation byte limit (run only)                                                                     |
 | `--json`        | `false`  | Output result as JSON (run, check)                                                                   |

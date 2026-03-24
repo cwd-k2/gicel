@@ -1381,7 +1381,7 @@ Strict call-by-value (CBV) evaluation with an environment-based evaluator.
 The evaluator enforces multiple layers of protection:
 
 - **Step limit**: maximum number of evaluation steps (Engine default: 1,000,000; CLI/Sandbox default: 100,000)
-- **Depth limit**: maximum call stack depth (Engine default: 1,000; CLI/Sandbox default: 100)
+- **Depth limit**: maximum call stack depth (Engine default: unlimited; CLI default: 10,000). With Bind-chain TCO, sequential do-blocks do not consume depth; this limit applies only to non-tail recursive closure calls.
 - **Context cancellation**: Go `context.Context` integration for timeout
 - **Recursion guard**: recursive definitions rejected unless `EnableRecursion()` is called
 

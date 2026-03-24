@@ -83,7 +83,7 @@ type bounceVal struct {
 	leaveDepth int          // pending ev.budget.Leave() calls
 	leaveObs   bool         // pending ev.obs.LeaveInternal()
 	source     *span.Source // source context for the continuation (nil = no change)
-	forceSpan  *span.Span  // pending ForceEffectful call site (nil = none)
+	forceSpan  *span.Span   // pending ForceEffectful call site (nil = none)
 }
 
 func (*HostVal) valueNode()     {}

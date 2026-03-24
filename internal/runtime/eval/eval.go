@@ -87,7 +87,7 @@ func (ev *Evaluator) Eval(env *Env, capEnv CapEnv, expr ir.Core) (EvalResult, er
 		ev.SetSource(savedSource)
 	}()
 
-	var pendingLeaveObs int    // accumulated LeaveInternal calls to fire on resolution
+	var pendingLeaveObs int         // accumulated LeaveInternal calls to fire on resolution
 	var pendingForceSpan *span.Span // deferred ForceEffectful from Bind bounce
 	for {
 		r, err := ev.evalStep(env, capEnv, expr)

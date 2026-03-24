@@ -1,5 +1,35 @@
 # Changelog
 
+## v0.17.2 — 2026-03-25
+
+### Bind-chain Tail-Call Optimization
+
+Do-block loops via `fix` no longer consume evaluation depth. Previously, each `<-` in a do-block grew the Go call stack by one frame, so a loop of N iterations required `--max-depth >= N`. Now Bind returns a trampoline bounce (like closure application and `force`), keeping depth flat regardless of chain length.
+
+- **`--max-depth` default raised** from 100 to 10,000. With TCO, this limit now affects only non-tail recursive closure calls, not sequential do-blocks.
+- **`bounceVal.forceSpan`** — new field that defers `ForceEffectful` to the trampoline, preserving correct forcing of bare effectful PrimOps at the end of do-blocks (e.g., `do { put 42; get }`).
+
+### Evaluator Allocation Optimization
+
+Reduced intermediate `map[string]Value` allocations across pattern matching and environment operations.
+
+- **Pattern matching** — `matchDepth` rewritten to collect bindings into a `[]binding` slice via `append`, materializing the final map once in `Match()`. For a 3-variable nested pattern: 13 allocs / 2064B → 5 allocs / 560B.
+- **`Env.TrimTo`** — fast path (flat env) uses direct map lookup; slow path walks the chain with a name set, avoiding a full `flatten()` allocation.
+- **`Env.ExtendMany`** — single-allocation merge. Reuses parent's flat cache when available, otherwise walks the chain directly into the combined map.
+
+### Benchmarks & Scaling Tests
+
+- **Engine benchmarks** — 500-decl compile, all-packs load, do-block compile cost, Effect.Array and Data.Map end-to-end
+- **Check benchmarks** — do-block type inference scaling (5/15/30 binds), 500-decl throughput, overlap resolution scaling (50/200 instances)
+- **Eval benchmarks** — `Env.TrimTo`, nested pattern match allocation
+- **`scripts/scaling-test.sh`** — parameterized wall-clock scaling tests for sort, map, sieve, set, and do-block suites
+
+### Measured Impact
+
+Scaling tests (wall-clock, merge sort N=2000): 0.53s → 0.42s (21% improvement).
+Sieve N=50000: 2.43s → 1.93s (21% improvement).
+Eval stress test (recursive_data): 282KB / 3621 allocs → 251KB / 3473 allocs per iteration.
+
 ## v0.17.1 — 2026-03-25
 
 ### Examples Overhaul
