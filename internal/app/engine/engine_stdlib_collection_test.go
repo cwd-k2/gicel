@@ -774,3 +774,48 @@ main := toList (insert 2 (insert 1 (empty :: Set Int)))
 	}
 	assertHostInt(t, con.Args[0], 1)
 }
+
+// --- Byte type (v0.17.0) ---
+
+func TestByteToIntRoundtrip(t *testing.T) {
+	v := runWithPacks(t, `
+import Prelude
+main := case intToByte 65 {
+  Just b  => byteToInt b
+  Nothing => 0 - 1
+}
+`, stdlib.Prelude)
+	assertHostInt(t, v, 65)
+}
+
+// --- Read typeclass (v0.17.0) ---
+
+func TestReadDouble(t *testing.T) {
+	v := runWithPacks(t, `
+import Prelude
+main := read "3.14" :: Maybe Double
+`, stdlib.Prelude)
+	con, ok := v.(*eval.ConVal)
+	if !ok || con.Con != "Just" {
+		t.Fatalf("expected Just, got %v", v)
+	}
+	hv, ok := con.Args[0].(*eval.HostVal)
+	if !ok {
+		t.Fatalf("expected HostVal, got %T", con.Args[0])
+	}
+	f, ok := hv.Inner.(float64)
+	if !ok {
+		t.Fatalf("expected float64, got %T", hv.Inner)
+	}
+	if f != 3.14 {
+		t.Fatalf("expected 3.14, got %v", f)
+	}
+}
+
+func TestReadIntInvalid(t *testing.T) {
+	v := runWithPacks(t, `
+import Prelude
+main := read "abc" :: Maybe Int
+`, stdlib.Prelude)
+	assertConVal(t, v, "Nothing")
+}

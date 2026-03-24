@@ -315,6 +315,37 @@ expect_ok "semicolons around decls" \
 
 echo ""
 
+# === New Features (v0.17) ===
+
+expect_output "if-then-else basic" "42" \
+  "$GICEL" run --show -e 'import Prelude; main := if True then 42 else 0'
+
+expect_output "if-then-else with variable" "1" \
+  "$GICEL" run --show -e 'import Prelude; x := True; main := if x then 1 else 2'
+
+expect_output "pattern binding in block" "30" \
+  "$GICEL" run --show -e 'import Prelude; main := { (a, b) := (10, 20); a + b }'
+
+expect_output "pattern binding in do" "7" \
+  "$GICEL" run --show -e 'import Prelude; main := do { (x, y) <- pure (3, 4); pure (x + y) }'
+
+expect_output "mmap pack loads" "2" \
+  "$GICEL" run --show --packs prelude,mmap -e 'import Prelude; import Effect.Map as MM; main := do { m <- MM.new compare; MM.insert 1 "a" m; MM.insert 2 "b" m; MM.size m }'
+
+expect_output "mset pack loads" "3" \
+  "$GICEL" run --show --packs prelude,mset -e 'import Prelude; import Effect.Set as MS; main := do { s <- MS.new compare; MS.insert 1 s; MS.insert 2 s; MS.insert 3 s; n <- MS.size s; pure n }'
+
+expect_output "Bool JSON output" '"value": true' \
+  "$GICEL" run --json -e 'import Prelude; main := True'
+
+expect_error_contains "module name validation error" "must start with an uppercase letter" \
+  "$GICEL" run --module "bad=file.gicel" -e 'main := 1'
+
+expect_output "seq combinator" "42" \
+  "$GICEL" run --show -e 'import Prelude; main := do { seq (pure 1) (pure 42) }'
+
+echo ""
+
 # === Summary ===
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo "  Passed: $PASS"

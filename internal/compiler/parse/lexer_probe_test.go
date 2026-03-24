@@ -528,3 +528,14 @@ main := x'`
 		t.Errorf("expected 3 decls, got %d", len(prog.Decls))
 	}
 }
+
+// TestProbeF_LexerBOMStripping verifies UTF-8 BOM at start of source is stripped.
+func TestProbeF_LexerBOMStripping(t *testing.T) {
+	withoutBOM := `main := 42`
+	withBOM := "\xef\xbb\xbf" + withoutBOM
+	progA := parseMustSucceed(t, withoutBOM)
+	progB := parseMustSucceed(t, withBOM)
+	if len(progA.Decls) != len(progB.Decls) {
+		t.Fatalf("decl count mismatch: without=%d, with=%d", len(progA.Decls), len(progB.Decls))
+	}
+}

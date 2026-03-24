@@ -141,3 +141,18 @@ func assertContains(t *testing.T, s, substr string) {
 		t.Errorf("output missing %q:\n%s", substr, s)
 	}
 }
+
+func TestDiagnosticLineTruncation(t *testing.T) {
+	// Source line longer than 200 chars should be truncated in output.
+	longLine := strings.Repeat("x", 300)
+	src := span.NewSource("test", longLine)
+	es := &Errors{Source: src}
+	es.Add(&Error{Code: 1, Phase: PhaseLex, Span: span.Span{Start: 0, End: 1}, Message: "test"})
+	got := es.Format()
+	if strings.Contains(got, longLine) {
+		t.Error("expected source line to be truncated, but full 300-char line appeared")
+	}
+	if !strings.Contains(got, "...") {
+		t.Error("expected truncation marker '...' in output")
+	}
+}

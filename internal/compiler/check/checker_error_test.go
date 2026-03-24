@@ -4,6 +4,7 @@
 package check
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/cwd-k2/gicel/internal/compiler/check/unify"
@@ -129,4 +130,33 @@ func TestErrorSkolemRigid(t *testing.T) {
 main :: \ a b. a -> b
 main := \x. x`
 	checkSourceExpectCode(t, source, nil, diagnostic.ErrSkolemRigid)
+}
+
+// --- Regression tests (v0.16.3–v0.16.5) ---
+
+func TestErrorListLiteralRequiresPrelude(t *testing.T) {
+	errMsg := checkSourceExpectCode(t, "main := [1, 2, 3]", nil, diagnostic.ErrUnboundCon)
+	if !strings.Contains(strings.ToLower(errMsg), "prelude") && !strings.Contains(strings.ToLower(errMsg), "list literal") {
+		t.Errorf("expected error mentioning Prelude or list literal, got: %s", errMsg)
+	}
+}
+
+func TestErrorFixRequiresRecursionHint(t *testing.T) {
+	errMsg := checkSourceExpectCode(t, `main := fix (\self x. self x) 1`, nil, diagnostic.ErrUnboundVar)
+	if !strings.Contains(strings.ToLower(errMsg), "recursion") {
+		t.Errorf("expected error mentioning recursion, got: %s", errMsg)
+	}
+}
+
+func TestErrorTupleExhaustivenessIncomplete(t *testing.T) {
+	source := `form AB := { A: AB; B: AB; }
+main := \x y. case (x, y) { (A, A) => 1; (B, B) => 2 }`
+	checkSourceExpectCode(t, source, nil, diagnostic.ErrNonExhaustive)
+}
+
+func TestErrorDuplicateValueBinding(t *testing.T) {
+	source := `f := 1
+f := 2
+main := f`
+	checkSourceExpectCode(t, source, nil, diagnostic.ErrDuplicateDecl)
 }
