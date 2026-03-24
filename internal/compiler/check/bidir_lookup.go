@@ -176,8 +176,12 @@ func (ch *Checker) inferList(e *syntax.ExprList) (types.Type, ir.Core) {
 	listTy := &types.TyApp{Fun: &types.TyCon{Name: "List"}, Arg: elemTy}
 
 	// Build from the end: Nil, then Cons e_n (Cons e_{n-1} ...)
-	nilMod, _ := ch.reg.LookupConModule("Nil")
-	consMod, _ := ch.reg.LookupConModule("Cons")
+	nilMod, nilOk := ch.reg.LookupConModule("Nil")
+	consMod, consOk := ch.reg.LookupConModule("Cons")
+	if !nilOk || !consOk {
+		ch.addCodedError(diagnostic.ErrUnboundCon, e.S, "list literals require Prelude; add 'import Prelude'")
+		return ch.errorPair(e.S)
+	}
 	var result ir.Core = &ir.Con{Name: "Nil", Module: nilMod, S: e.S}
 	for i := len(e.Elems) - 1; i >= 0; i-- {
 		elemCore := ch.check(e.Elems[i], elemTy)

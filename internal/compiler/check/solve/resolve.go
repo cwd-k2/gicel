@@ -160,7 +160,10 @@ func (s *Solver) extractSuperDict(v *env.CtxVar, targetClass string, targetArgs 
 // chain recursively searches the superclass hierarchy for the target class,
 // building chained Case extractions along the path.
 func (sd *superDictSearch) chain(dictExpr ir.Core, dictTyName string, dictTyArgs []types.Type) ir.Core {
-	parentClass, _ := sd.solver.env.ClassFromDict(dictTyName)
+	parentClass, ok := sd.solver.env.ClassFromDict(dictTyName)
+	if !ok {
+		return nil
+	}
 	if sd.visited[parentClass] {
 		return nil
 	}

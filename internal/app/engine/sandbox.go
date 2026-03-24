@@ -139,6 +139,7 @@ func RunSandbox(source string, cfg *SandboxConfig) (result *RunResult, err error
 		}
 	}
 
+	eng.SetEntryPoint(entry)
 	rt, err := eng.NewRuntime(ctx, source)
 	if err != nil {
 		return nil, err

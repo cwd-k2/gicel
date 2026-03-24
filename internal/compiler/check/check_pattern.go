@@ -53,6 +53,7 @@ func (ch *Checker) checkLitPattern(p *syntax.PatLit, scrutTy types.Type) pattern
 	litTy, litVal, parseErr := parseLitValue(p.Kind, p.Value)
 	if parseErr != nil {
 		ch.addCodedError(diagnostic.ErrTypeMismatch, p.S, fmt.Sprintf("invalid literal in pattern: %s", p.Value))
+		return patternResult{Pattern: &ir.PWild{S: p.S}}
 	}
 	if err := ch.unifier.Unify(litTy, scrutTy); err != nil {
 		ch.addUnifyError(err, p.S, "literal pattern type mismatch")

@@ -3,6 +3,7 @@ package eval
 import (
 	"context"
 	"fmt"
+	"runtime"
 
 	"github.com/cwd-k2/gicel/internal/infra/span"
 	"github.com/cwd-k2/gicel/internal/lang/ir"
@@ -67,7 +68,9 @@ func (ev *Evaluator) applyResolved(capEnv CapEnv, fn Value, arg Value, site *ir.
 func callPrim(ctx context.Context, impl PrimImpl, capEnv CapEnv, args []Value, applier Applier) (val Value, newCap CapEnv, err error) {
 	defer func() {
 		if r := recover(); r != nil {
-			val, newCap, err = nil, capEnv, fmt.Errorf("primitive panicked: %v", r)
+			buf := make([]byte, 4096)
+			n := runtime.Stack(buf, false)
+			val, newCap, err = nil, capEnv, fmt.Errorf("primitive panicked: %v\n%s", r, buf[:n])
 		}
 	}()
 	val, newCap, err = impl(ctx, capEnv, args, applier)

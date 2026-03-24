@@ -29,9 +29,8 @@ const (
 	ErrInvalidOperator Code = 104 // invalid operator in declaration
 	ErrExpectedType    Code = 105 // expected type expression
 	ErrInvalidPattern  Code = 106 // invalid pattern
-	ErrImportSyntax    Code = 107 // import syntax error
-	ErrClassSyntax     Code = 108 // class/instance syntax error
-	ErrFixitySyntax    Code = 109 // fixity declaration error
+	ErrImportSyntax Code = 107 // import syntax error
+	ErrFixitySyntax Code = 109 // fixity declaration error
 	ErrParserLimit     Code = 110 // recursion/step limit in parser
 )
 

@@ -24,7 +24,10 @@ func gradeJoin(a, b types.Type) types.Type {
 	ac, aOk := a.(*types.TyCon)
 	bc, bOk := b.(*types.TyCon)
 	if !aOk || !bOk {
-		return a // fallback: keep first (conservative)
+		// Non-TyCon grade (e.g., unsolved meta). Return first argument as
+		// conservative fallback. The CtFunEq path in checkGradeBoundary
+		// handles the deferred case when metas are involved.
+		return a
 	}
 	return usageJoin(ac, bc)
 }
@@ -77,7 +80,11 @@ func usageJoin(a, b *types.TyCon) *types.TyCon {
 		// After sort x <= y: "Linear" < "Zero", so this is the only reachable ordering.
 		return &types.TyCon{Name: "Affine"}
 	default:
-		return a // fallback
+		// Unknown grade constructor name. The usage algebra is closed
+		// ({Zero, Linear, Affine, Unrestricted}); reaching here means a
+		// grade value was promoted from a user-defined type that does not
+		// belong to the algebra. Return first argument conservatively.
+		return a
 	}
 }
 

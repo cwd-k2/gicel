@@ -369,18 +369,19 @@ func cmdRun(args []string) int {
 		return preflightError("--entry must not be empty", *jsonOut)
 	}
 
+	ctx, cancel := context.WithTimeout(context.Background(), *timeout)
+	defer cancel()
+
 	source, eng, err := prepareEngine(fs, *packs, *recursion, *expr, modules)
 	if err != nil {
 		return preflightError(err.Error(), *jsonOut)
 	}
+	eng.SetCompileContext(ctx)
 	eng.SetStepLimit(*maxSteps)
 	eng.SetDepthLimit(*maxDepth)
 	eng.SetNestingLimit(*maxNesting)
 	eng.SetAllocLimit(*maxAlloc)
 	eng.SetEntryPoint(*entry)
-
-	ctx, cancel := context.WithTimeout(context.Background(), *timeout)
-	defer cancel()
 
 	rt, err := eng.NewRuntime(ctx, string(source))
 	if err != nil {
@@ -479,14 +480,14 @@ func cmdCheck(args []string) int {
 		return preflightError("--timeout must be a positive duration (e.g., 1s, 5m)", *jsonOut)
 	}
 
-	source, eng, err := prepareEngine(fs, *packs, *recursion, *expr, modules)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "error: %v\n", err)
-		return 1
-	}
-
 	ctx, cancel := context.WithTimeout(context.Background(), *timeout)
 	defer cancel()
+
+	source, eng, err := prepareEngine(fs, *packs, *recursion, *expr, modules)
+	if err != nil {
+		return preflightError(err.Error(), *jsonOut)
+	}
+	eng.SetCompileContext(ctx)
 
 	cr, err := eng.Compile(ctx, string(source))
 	if err != nil {

@@ -29,6 +29,9 @@ func (ch *Checker) resolveKindExpr(k syntax.KindExpr) types.Kind {
 		if pk, ok := ch.reg.LookupPromotedKind(ke.Name); ok {
 			return pk
 		}
+		// Unrecognized kind name defaults to Type. This is intentional:
+		// kind-polymorphic annotations use unbound names that resolve to Type
+		// when no DataKinds promotion applies.
 		return types.KType{}
 	case *syntax.KindExprSort:
 		return types.KSort{}

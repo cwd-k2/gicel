@@ -13,7 +13,12 @@ import (
 
 // processInstanceBody type-checks instance method implementations and generates the dictionary binding.
 func (ch *Checker) processInstanceBody(inst *InstanceInfo, methods map[string]syntax.Expr, prog *ir.Program) {
-	classInfo, _ := ch.reg.LookupClass(inst.ClassName)
+	classInfo, ok := ch.reg.LookupClass(inst.ClassName)
+	if !ok {
+		ch.addCodedError(diagnostic.ErrNoInstance, inst.S,
+			fmt.Sprintf("class %s not found for instance", inst.ClassName))
+		return
+	}
 
 	// Build substitution: class type params -> instance type args.
 	subst := make(map[string]types.Type)
