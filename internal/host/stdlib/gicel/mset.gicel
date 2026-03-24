@@ -1,0 +1,49 @@
+import Prelude
+
+_msetNew :: \k r. (k -> k -> Ordering) -> Computation { mset: () | r } { mset: () | r } (MSet k)
+_msetNew := assumption
+
+_msetInsert :: \k r. (k -> k -> Ordering) -> k -> MSet k -> Computation { mset: () | r } { mset: () | r } ()
+_msetInsert := assumption
+
+_msetMember :: \k r. (k -> k -> Ordering) -> k -> MSet k -> Computation { mset: () | r } { mset: () | r } Bool
+_msetMember := assumption
+
+_msetDelete :: \k r. (k -> k -> Ordering) -> k -> MSet k -> Computation { mset: () | r } { mset: () | r } ()
+_msetDelete := assumption
+
+_msetSize :: \k. MSet k -> Int
+_msetSize := assumption
+
+_msetToList :: \k r. MSet k -> Computation { mset: () | r } { mset: () | r } (List k)
+_msetToList := assumption
+
+_msetFromList :: \k r. (k -> k -> Ordering) -> List k -> Computation { mset: () | r } { mset: () | r } (MSet k)
+_msetFromList := assumption
+
+_msetFold :: \k b r. (b -> k -> b) -> b -> MSet k -> Computation { mset: () | r } { mset: () | r } b
+_msetFold := assumption
+
+new :: \k r. Ord k => Computation { mset: () | r } { mset: () | r } (MSet k)
+new := _msetNew compare
+
+insert :: \k r. Ord k => k -> MSet k -> Computation { mset: () | r } { mset: () | r } ()
+insert := _msetInsert compare
+
+member :: \k r. Ord k => k -> MSet k -> Computation { mset: () | r } { mset: () | r } Bool
+member := _msetMember compare
+
+delete :: \k r. Ord k => k -> MSet k -> Computation { mset: () | r } { mset: () | r } ()
+delete := _msetDelete compare
+
+size :: \k. MSet k -> Int
+size := _msetSize
+
+toList :: \k r. MSet k -> Computation { mset: () | r } { mset: () | r } (List k)
+toList := _msetToList
+
+fromList :: \k r. Ord k => List k -> Computation { mset: () | r } { mset: () | r } (MSet k)
+fromList := _msetFromList compare
+
+fold :: \k b r. (b -> k -> b) -> b -> MSet k -> Computation { mset: () | r } { mset: () | r } b
+fold := _msetFold

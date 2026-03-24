@@ -213,7 +213,21 @@ func (ch *Checker) desugarDoToMonad(stmts []syntax.Stmt, s span.Span) syntax.Exp
 	rest := ch.desugarDoToMonad(stmts[1:], s)
 	switch st := stmts[0].(type) {
 	case *syntax.StmtBind:
-		// mbind comp (\x. rest)
+		// mbind comp (\x. rest)  — or for pattern: mbind comp (\$fresh. case $fresh { pat => rest })
+		var lamBody syntax.Expr
+		var lamParam syntax.Pattern
+		if name, ok := syntax.PatVarName(st.Pat); ok {
+			lamParam = &syntax.PatVar{Name: name, S: st.S}
+			lamBody = rest
+		} else {
+			freshName := fmt.Sprintf("$p%d", ch.fresh())
+			lamParam = &syntax.PatVar{Name: freshName, S: st.S}
+			lamBody = &syntax.ExprCase{
+				Scrutinee: &syntax.ExprVar{Name: freshName, S: st.S},
+				Alts:      []syntax.AstAlt{{Pattern: st.Pat, Body: rest, S: st.S}},
+				S:         st.S,
+			}
+		}
 		return &syntax.ExprApp{
 			Fun: &syntax.ExprApp{
 				Fun: &syntax.ExprVar{Name: "mbind", S: st.S},
@@ -221,8 +235,8 @@ func (ch *Checker) desugarDoToMonad(stmts []syntax.Stmt, s span.Span) syntax.Exp
 				S:   st.S,
 			},
 			Arg: &syntax.ExprLam{
-				Params: []syntax.Pattern{&syntax.PatVar{Name: st.Var, S: st.S}},
-				Body:   rest,
+				Params: []syntax.Pattern{lamParam},
+				Body:   lamBody,
 				S:      st.S,
 			},
 			S: st.S,
@@ -243,11 +257,25 @@ func (ch *Checker) desugarDoToMonad(stmts []syntax.Stmt, s span.Span) syntax.Exp
 			S: st.S,
 		}
 	case *syntax.StmtPureBind:
-		// (\x. rest) val
+		// (\x. rest) val  — or for pattern: (\$fresh. case $fresh { pat => rest }) val
+		var lamBody syntax.Expr
+		var lamParam syntax.Pattern
+		if name, ok := syntax.PatVarName(st.Pat); ok {
+			lamParam = &syntax.PatVar{Name: name, S: st.S}
+			lamBody = rest
+		} else {
+			freshName := fmt.Sprintf("$p%d", ch.fresh())
+			lamParam = &syntax.PatVar{Name: freshName, S: st.S}
+			lamBody = &syntax.ExprCase{
+				Scrutinee: &syntax.ExprVar{Name: freshName, S: st.S},
+				Alts:      []syntax.AstAlt{{Pattern: st.Pat, Body: rest, S: st.S}},
+				S:         st.S,
+			}
+		}
 		return &syntax.ExprApp{
 			Fun: &syntax.ExprLam{
-				Params: []syntax.Pattern{&syntax.PatVar{Name: st.Var, S: st.S}},
-				Body:   rest,
+				Params: []syntax.Pattern{lamParam},
+				Body:   lamBody,
 				S:      st.S,
 			},
 			Arg: st.Expr,

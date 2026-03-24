@@ -319,10 +319,10 @@ func TestThenCombinator(t *testing.T) {
 	eng.DeclareBinding("y", ConType("Int"))
 	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
-main := then (pure x) (pure y)
+main := seq (pure x) (pure y)
 `)
 	if err != nil {
-		t.Fatalf("then combinator should compile: %v", err)
+		t.Fatalf("seq combinator should compile: %v", err)
 	}
 	result, err := rt.RunWith(context.Background(), &RunOptions{Bindings: map[string]eval.Value{
 		"x": ToValue(1),

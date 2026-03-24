@@ -168,7 +168,9 @@ func extractImplBody(body syntax.Expr) implBodyParts {
 		}
 	case *syntax.ExprBlock:
 		for _, bind := range b.Binds {
-			parts.Methods[bind.Var] = bind.Expr
+			if name, ok := syntax.PatVarName(bind.Pat); ok {
+				parts.Methods[name] = bind.Expr
+			}
 		}
 		parts.TypeDefs = append(parts.TypeDefs, b.TypeDefs...)
 	}

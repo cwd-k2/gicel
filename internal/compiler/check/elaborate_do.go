@@ -72,16 +72,22 @@ func (d *doElaborator) elaborate(stmts []syntax.Stmt, s span.Span) (types.Type, 
 	// Recursive case: dispatch on first statement.
 	switch st := stmts[0].(type) {
 	case *syntax.StmtBind:
-		return d.elaborateBind(st.Var, st.Comp, stmts[1:], st.S, s)
+		if name, ok := syntax.PatVarName(st.Pat); ok {
+			return d.elaborateBind(name, st.Comp, stmts[1:], st.S, s)
+		}
+		return d.elaboratePatternBind(st.Pat, st.Comp, stmts[1:], st.S, s)
 
 	case *syntax.StmtPureBind:
-		var restTy types.Type
-		c := ch.elaboratePureBind(st, func() ir.Core {
-			var rc ir.Core
-			restTy, rc = d.elaborate(stmts[1:], s)
-			return rc
-		})
-		return restTy, c
+		if _, ok := syntax.PatVarName(st.Pat); ok {
+			var restTy types.Type
+			c := ch.elaboratePureBind(st, func() ir.Core {
+				var rc ir.Core
+				restTy, rc = d.elaborate(stmts[1:], s)
+				return rc
+			})
+			return restTy, c
+		}
+		return d.elaboratePatternPureBind(st.Pat, st.Expr, stmts[1:], st.S, s)
 
 	case *syntax.StmtExpr:
 		return d.elaborateExprStmt(st.Expr, stmts[1:], st.S, s)
@@ -158,6 +164,43 @@ func (d *doElaborator) inferExprStmt(expr syntax.Expr, rest []syntax.Stmt, stmtS
 	_, compCore := ch.infer(expr)
 	restTy, restCore := d.elaborate(rest, doS)
 	return restTy, &ir.Bind{Comp: compCore, Var: "_", Body: restCore, S: stmtS}
+}
+
+// --- Pattern bind (all modes) ---
+
+// elaboratePatternBind handles pat <- comp; rest for irrefutable patterns.
+// Desugars to: $fresh <- comp; case $fresh { pat => rest }
+func (d *doElaborator) elaboratePatternBind(pat syntax.Pattern, comp syntax.Expr, rest []syntax.Stmt, stmtS, doS span.Span) (types.Type, ir.Core) {
+	freshName := fmt.Sprintf("$p%d", d.ch.fresh())
+	freshPat := &syntax.PatVar{Name: freshName, S: pat.Span()}
+	// Rewrite as: $fresh <- comp; case $fresh { pat => rest... }
+	freshBind := &syntax.StmtBind{Pat: freshPat, Comp: comp, S: stmtS}
+	caseStmt := &syntax.StmtExpr{
+		Expr: &syntax.ExprCase{
+			Scrutinee: &syntax.ExprVar{Name: freshName, S: stmtS},
+			Alts:      []syntax.AstAlt{{Pattern: pat, Body: stmtsToDoExpr(rest, doS), S: stmtS}},
+			S:         stmtS,
+		},
+		S: stmtS,
+	}
+	return d.elaborate([]syntax.Stmt{freshBind, caseStmt}, doS)
+}
+
+// elaboratePatternPureBind handles pat := expr; rest for irrefutable patterns.
+// Desugars to: case expr { pat => rest }
+func (d *doElaborator) elaboratePatternPureBind(pat syntax.Pattern, expr syntax.Expr, rest []syntax.Stmt, stmtS, doS span.Span) (types.Type, ir.Core) {
+	caseExpr := &syntax.ExprCase{
+		Scrutinee: expr,
+		Alts:      []syntax.AstAlt{{Pattern: pat, Body: stmtsToDoExpr(rest, doS), S: stmtS}},
+		S:         stmtS,
+	}
+	stmts := []syntax.Stmt{&syntax.StmtExpr{Expr: caseExpr, S: stmtS}}
+	return d.elaborate(stmts, doS)
+}
+
+// stmtsToDoExpr wraps remaining do-block statements as a do expression.
+func stmtsToDoExpr(stmts []syntax.Stmt, s span.Span) syntax.Expr {
+	return &syntax.ExprDo{Stmts: stmts, S: s}
 }
 
 // --- Checked mode ---
@@ -279,13 +322,15 @@ func (ch *Checker) rejectDoEnding(st syntax.Stmt) bool {
 
 // elaboratePureBind desugars x := e into App(Lam(x, rest), e).
 // The binding is in scope for the duration of the rest callback.
+// Caller must ensure st.Pat is a simple PatVar or PatWild.
 func (ch *Checker) elaboratePureBind(st *syntax.StmtPureBind, rest func() ir.Core) ir.Core {
+	name, _ := syntax.PatVarName(st.Pat)
 	bindTy, bindCore := ch.infer(st.Expr)
-	ch.ctx.Push(&CtxVar{Name: st.Var, Type: bindTy})
+	ch.ctx.Push(&CtxVar{Name: name, Type: bindTy})
 	restCore := rest()
 	ch.ctx.Pop()
 	return &ir.App{
-		Fun: &ir.Lam{Param: st.Var, Body: restCore, S: st.S},
+		Fun: &ir.Lam{Param: name, Body: restCore, S: st.S},
 		Arg: bindCore,
 		S:   st.S,
 	}
@@ -293,40 +338,72 @@ func (ch *Checker) elaboratePureBind(st *syntax.StmtPureBind, rest func() ir.Cor
 
 func (ch *Checker) inferBlock(e *syntax.ExprBlock) (types.Type, ir.Core) {
 	// Desugar: { x := e1; body } → App(Lam(x, body), e1)
+	// Pattern binds: { (a,b) := e1; body } → case e1 { (a,b) => body }
 	// Forward pass: infer each binding, add to context.
 	type bindInfo struct {
-		name string
+		pat  syntax.Pattern
 		ty   types.Type
 		core ir.Core
+		pr   *patternResult // non-nil for pattern binds
 		s    span.Span
 	}
 	binds := make([]bindInfo, len(e.Binds))
 	for i, bind := range e.Binds {
 		bindTy, bindCore := ch.infer(bind.Expr)
-		binds[i] = bindInfo{name: bind.Var, ty: bindTy, core: bindCore, s: bind.S}
-		ch.ctx.Push(&CtxVar{Name: bind.Var, Type: bindTy})
+		if name, ok := syntax.PatVarName(bind.Pat); ok {
+			binds[i] = bindInfo{pat: bind.Pat, ty: bindTy, core: bindCore, s: bind.S}
+			ch.ctx.Push(&CtxVar{Name: name, Type: bindTy})
+		} else {
+			pr := ch.checkPattern(bind.Pat, bindTy)
+			binds[i] = bindInfo{pat: bind.Pat, ty: bindTy, core: bindCore, pr: &pr, s: bind.S}
+			for bname, bty := range pr.Bindings {
+				ch.ctx.Push(&CtxVar{Name: bname, Type: bty})
+			}
+		}
 	}
 
 	// Infer body with all bindings in scope.
 	if e.Body == nil {
 		ch.addCodedError(diagnostic.ErrEmptyDo, e.S, "block must end with an expression")
-		for range e.Binds {
-			ch.ctx.Pop()
+		for _, b := range binds {
+			if b.pr != nil {
+				for range b.pr.Bindings {
+					ch.ctx.Pop()
+				}
+			} else {
+				ch.ctx.Pop()
+			}
 		}
 		return &types.TyError{S: e.S}, &ir.Lit{Value: nil, S: e.S}
 	}
 	resultTy, result := ch.infer(e.Body)
 
 	// Pop all bindings.
-	for range e.Binds {
-		ch.ctx.Pop()
+	for _, b := range binds {
+		if b.pr != nil {
+			for range b.pr.Bindings {
+				ch.ctx.Pop()
+			}
+		} else {
+			ch.ctx.Pop()
+		}
 	}
 
 	// Backward pass: build Core IR desugaring.
 	for i := len(binds) - 1; i >= 0; i-- {
 		b := binds[i]
-		lam := &ir.Lam{Param: b.name, Body: result, S: b.s}
-		result = &ir.App{Fun: lam, Arg: b.core, S: b.s}
+		if b.pr != nil {
+			// Pattern bind: case expr { pat => body }
+			result = &ir.Case{
+				Scrutinee: b.core,
+				Alts:      []ir.Alt{{Pattern: b.pr.Pattern, Body: result, S: b.s}},
+				S:         b.s,
+			}
+		} else {
+			name, _ := syntax.PatVarName(b.pat)
+			lam := &ir.Lam{Param: name, Body: result, S: b.s}
+			result = &ir.App{Fun: lam, Arg: b.core, S: b.s}
+		}
 	}
 
 	return resultTy, result

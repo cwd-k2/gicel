@@ -223,13 +223,13 @@ type Stmt interface {
 }
 
 type StmtBind struct {
-	Var  string
+	Pat  Pattern
 	Comp Expr
 	S    span.Span
 }
 
 type StmtPureBind struct {
-	Var  string
+	Pat  Pattern
 	Expr Expr
 	S    span.Span
 }
@@ -250,7 +250,7 @@ func (s *StmtExpr) Span() span.Span     { return s.S }
 // ---- Block bindings ----
 
 type AstBind struct {
-	Var  string
+	Pat  Pattern
 	Expr Expr
 	S    span.Span
 }
@@ -352,3 +352,41 @@ func (p *PatRecord) Span() span.Span  { return p.S }
 func (p *PatParen) Span() span.Span   { return p.S }
 func (p *PatLit) Span() span.Span     { return p.S }
 func (p *PatList) Span() span.Span    { return p.S }
+
+// PatVarName extracts the variable name from a simple pattern.
+// Returns the name and true for PatVar, "_" and true for PatWild,
+// or "" and false for complex patterns.
+func PatVarName(pat Pattern) (string, bool) {
+	switch p := pat.(type) {
+	case *PatVar:
+		return p.Name, true
+	case *PatWild:
+		return "_", true
+	case *PatParen:
+		return PatVarName(p.Inner)
+	default:
+		return "", false
+	}
+}
+
+// IsIrrefutable returns true if the pattern always matches any value
+// of its type. Only irrefutable patterns are allowed in binding positions.
+func IsIrrefutable(pat Pattern) bool {
+	switch p := pat.(type) {
+	case *PatVar:
+		return true
+	case *PatWild:
+		return true
+	case *PatParen:
+		return IsIrrefutable(p.Inner)
+	case *PatRecord:
+		for _, f := range p.Fields {
+			if !IsIrrefutable(f.Pattern) {
+				return false
+			}
+		}
+		return true
+	default:
+		return false
+	}
+}

@@ -215,3 +215,9 @@ var DataMap Pack = stdlib.Map
 
 // DataSet provides immutable ordered set backed by Map k ().
 var DataSet Pack = stdlib.Set
+
+// EffectMap provides mutable ordered maps gated by the { mmap: () } effect.
+var EffectMap Pack = stdlib.EffectMap
+
+// EffectSet provides mutable ordered sets gated by the { mset: () } effect.
+var EffectSet Pack = stdlib.EffectSet

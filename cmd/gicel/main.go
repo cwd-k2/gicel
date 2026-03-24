@@ -211,11 +211,13 @@ var packMap = map[string]gicel.Pack{
 	"map":     gicel.DataMap,
 	"set":     gicel.DataSet,
 	"array":   gicel.EffectArray,
+	"mmap":    gicel.EffectMap,
+	"mset":    gicel.EffectSet,
 	"console": consolePack,
 }
 
 // allPackOrder ensures deterministic pack loading.
-var allPackOrder = []string{"prelude", "fail", "state", "io", "stream", "slice", "map", "set", "array", "console"}
+var allPackOrder = []string{"prelude", "fail", "state", "io", "stream", "slice", "map", "set", "array", "mmap", "mset", "console"}
 
 func setupEngine(use string) (*gicel.Engine, error) {
 	eng := gicel.NewEngine()
@@ -234,7 +236,7 @@ func setupEngine(use string) (*gicel.Engine, error) {
 		}
 		p, ok := packMap[name]
 		if !ok {
-			return nil, fmt.Errorf("unknown pack: %s (available: prelude,fail,state,io,stream,slice,map,set)", name)
+			return nil, fmt.Errorf("unknown pack: %s (available: prelude,fail,state,io,stream,slice,map,set,array,mmap,mset)", name)
 		}
 		if err := p(eng); err != nil {
 			return nil, err

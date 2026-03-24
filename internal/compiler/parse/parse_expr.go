@@ -146,6 +146,8 @@ func (p *Parser) parseAtom() syn.Expr {
 		e = p.parseLambda()
 	case syn.TokCase:
 		e = p.parseCase()
+	case syn.TokIf:
+		e = p.parseIf()
 	case syn.TokDo:
 		e = p.parseDo()
 	case syn.TokLBrace:
@@ -331,6 +333,27 @@ func (p *Parser) parseCase() syn.Expr {
 	}
 }
 
+// parseIf desugars: if cond then t else f → case cond { True => t; False => f }
+func (p *Parser) parseIf() syn.Expr {
+	start := p.peek().S.Start
+	p.expect(syn.TokIf)
+	cond := p.parseExpr()
+	p.expect(syn.TokThen)
+	thenExpr := p.parseExpr()
+	p.expect(syn.TokElse)
+	elseExpr := p.parseExpr()
+	end := p.prevEnd()
+	s := span.Span{Start: start, End: end}
+	return &syn.ExprCase{
+		Scrutinee: cond,
+		Alts: []syn.AstAlt{
+			{Pattern: &syn.PatCon{Con: "True", S: s}, Body: thenExpr, S: s},
+			{Pattern: &syn.PatCon{Con: "False", S: s}, Body: elseExpr, S: s},
+		},
+		S: s,
+	}
+}
+
 func (p *Parser) parseAlt() syn.AstAlt {
 	start := p.peek().S.Start
 	pat := p.parsePattern()
@@ -395,5 +418,5 @@ func (p *Parser) isAtomStart() bool {
 	if p.noBraceAtom && k == syn.TokLBrace {
 		return false
 	}
-	return k == syn.TokLower || k == syn.TokUpper || k == syn.TokLParen || k == syn.TokBackslash || k == syn.TokLBrace || k == syn.TokCase || k == syn.TokDo || k == syn.TokIntLit || k == syn.TokDoubleLit || k == syn.TokStrLit || k == syn.TokRuneLit || k == syn.TokLBracket
+	return k == syn.TokLower || k == syn.TokUpper || k == syn.TokLParen || k == syn.TokBackslash || k == syn.TokLBrace || k == syn.TokCase || k == syn.TokIf || k == syn.TokDo || k == syn.TokIntLit || k == syn.TokDoubleLit || k == syn.TokStrLit || k == syn.TokRuneLit || k == syn.TokLBracket
 }

@@ -33,7 +33,7 @@ const (
 	TokEq         // =
 	TokTilde      // ~
 
-	// Keywords (9)
+	// Keywords (12)
 	TokCase
 	TokDo
 	TokForm
@@ -43,6 +43,9 @@ const (
 	TokInfixn
 	TokImpl
 	TokImport
+	TokIf
+	TokThen
+	TokElse
 
 	// Identifiers
 	TokLower // lowercase-start

@@ -507,6 +507,9 @@ var keywords = map[string]syn.TokenKind{
 	"infixn": syn.TokInfixn,
 	"impl":   syn.TokImpl,
 	"import": syn.TokImport,
+	"if":     syn.TokIf,
+	"then":   syn.TokThen,
+	"else":   syn.TokElse,
 }
 
 func isLowerStart(r rune) bool {

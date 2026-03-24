@@ -35,7 +35,7 @@ func (p *Parser) parseStmt() syn.Stmt {
 			p.advance()
 			comp := p.parseExpr()
 			return &syn.StmtBind{
-				Var: "_", Comp: comp,
+				Pat: &syn.PatWild{S: span.Span{Start: start, End: start + 1}}, Comp: comp,
 				S: span.Span{Start: start, End: p.prevEnd()},
 			}
 		}
@@ -45,13 +45,14 @@ func (p *Parser) parseStmt() syn.Stmt {
 	// Try: name <- expr  or  name := expr
 	if p.peek().Kind == syn.TokLower {
 		name := p.peek().Text
+		nameTok := p.peek()
 		saved := p.pos
 		p.advance()
 		if p.peek().Kind == syn.TokLArrow {
 			p.advance()
 			comp := p.parseExpr()
 			return &syn.StmtBind{
-				Var: name, Comp: comp,
+				Pat: &syn.PatVar{Name: name, S: nameTok.S}, Comp: comp,
 				S: span.Span{Start: start, End: p.prevEnd()},
 			}
 		}
@@ -59,12 +60,47 @@ func (p *Parser) parseStmt() syn.Stmt {
 			p.advance()
 			expr := p.parseExpr()
 			return &syn.StmtPureBind{
-				Var: name, Expr: expr,
+				Pat: &syn.PatVar{Name: name, S: nameTok.S}, Expr: expr,
 				S: span.Span{Start: start, End: p.prevEnd()},
 			}
 		}
 		// Backtrack — it's an expression statement.
 		p.pos = saved
+	}
+	// Try: pattern <- expr  or  pattern := expr (irrefutable pattern bind)
+	if p.peek().Kind == syn.TokLParen {
+		var result syn.Stmt
+		p.speculate(func() bool {
+			pat := p.parsePattern()
+			switch p.peek().Kind {
+			case syn.TokLArrow:
+				if !syn.IsIrrefutable(pat) {
+					p.addErrorCode(diagnostic.ErrInvalidPattern, "refutable pattern in binding; only irrefutable patterns (tuples, records, wildcards) are allowed")
+				}
+				p.advance()
+				comp := p.parseExpr()
+				result = &syn.StmtBind{
+					Pat: pat, Comp: comp,
+					S: span.Span{Start: start, End: p.prevEnd()},
+				}
+				return true
+			case syn.TokColonEq:
+				if !syn.IsIrrefutable(pat) {
+					p.addErrorCode(diagnostic.ErrInvalidPattern, "refutable pattern in binding; only irrefutable patterns (tuples, records, wildcards) are allowed")
+				}
+				p.advance()
+				expr := p.parseExpr()
+				result = &syn.StmtPureBind{
+					Pat: pat, Expr: expr,
+					S: span.Span{Start: start, End: p.prevEnd()},
+				}
+				return true
+			}
+			return false
+		})
+		if result != nil {
+			return result
+		}
 	}
 	expr := p.parseExpr()
 	return &syn.StmtExpr{
@@ -124,11 +160,12 @@ func (p *Parser) parseBlock() syn.Expr {
 
 	// Block expression with bindings.
 	// Handles: name := expr; (value binding)
+	//          pattern := expr; (irrefutable pattern binding)
 	//          type Name Pats =: RHS; (associated type definition, inside impl body)
 	//          form Name Pats =: Cons; (associated form definition, inside impl body)
 	var binds []syn.AstBind
 	var typeDefs []syn.ImplField
-	for p.peek().Kind == syn.TokLower || p.peek().Kind == syn.TokType || p.peek().Kind == syn.TokForm {
+	for p.peek().Kind == syn.TokLower || p.peek().Kind == syn.TokType || p.peek().Kind == syn.TokForm || p.peek().Kind == syn.TokLParen {
 		bindStart := p.peek().S.Start
 		saved := p.pos
 
@@ -168,13 +205,41 @@ func (p *Parser) parseBlock() syn.Expr {
 			continue
 		}
 
+		// Try pattern binding: (pat) := expr
+		if p.peek().Kind == syn.TokLParen {
+			matched := p.speculate(func() bool {
+				pat := p.parsePattern()
+				if p.peek().Kind != syn.TokColonEq {
+					return false
+				}
+				if !syn.IsIrrefutable(pat) {
+					p.addErrorCode(diagnostic.ErrInvalidPattern, "refutable pattern in binding; only irrefutable patterns (tuples, records, wildcards) are allowed")
+				}
+				p.advance()
+				expr := p.parseExpr()
+				binds = append(binds, syn.AstBind{
+					Pat: pat, Expr: expr,
+					S: span.Span{Start: bindStart, End: p.prevEnd()},
+				})
+				if p.peek().Kind == syn.TokSemicolon {
+					p.advance()
+				}
+				return true
+			})
+			if !matched {
+				break
+			}
+			continue
+		}
+
 		name := p.peek().Text
+		nameTok := p.peek()
 		p.advance()
 		if p.peek().Kind == syn.TokColonEq {
 			p.advance()
 			expr := p.parseExpr()
 			binds = append(binds, syn.AstBind{
-				Var: name, Expr: expr,
+				Pat: &syn.PatVar{Name: name, S: nameTok.S}, Expr: expr,
 				S: span.Span{Start: bindStart, End: p.prevEnd()},
 			})
 			if p.peek().Kind == syn.TokSemicolon {

@@ -1,0 +1,43 @@
+-- GICEL Example: Pattern Bindings
+--
+-- Demonstrates irrefutable pattern bindings in block expressions
+-- and do-blocks. Only irrefutable patterns (tuples, records,
+-- wildcards, variables) are allowed — constructor and literal
+-- patterns are rejected at compile time.
+
+import Prelude
+
+-- Tuple pattern bind in a block
+swap := \p. { (a, b) := p; (b, a) }
+
+-- Nested tuple destructuring
+flatten := \p. { ((a, b), c) := p; (a, b, c) }
+
+-- Wildcard: discard unneeded components
+sndOf3 := \t. { (_, b, _) := t; b }
+
+-- Record pattern bind (parens needed inside block to disambiguate from record literal)
+getName := \person. { ({ name: n }) := person; n }
+
+-- Multiple pattern binds in sequence
+compute := { (a, b) := (10, 20); (c, d) := (a * 2, b + 1); c + d }
+
+-- Pattern bind in do-block (pure bind)
+purePatBind := thunk do {
+  (x, y) := (3, 4);
+  pure (x + y)
+}
+
+-- Pattern bind in do-block (monadic bind)
+monadicPatBind := thunk do {
+  (a, b) <- pure (5, 6);
+  (c, d) <- pure (a + 1, b + 1);
+  pure (c * d)
+}
+
+-- Result (--json): ((2, 1), (1, 2, 3), "world", "Alice", 41, 7, 42)
+main := do {
+  p <- force purePatBind;
+  m <- force monadicPatBind;
+  pure (swap (1, 2), flatten ((1, 2), 3), sndOf3 ("hello", "world", "!"), getName { name: "Alice", age: 30 }, compute, p, m)
+}

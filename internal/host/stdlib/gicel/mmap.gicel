@@ -1,0 +1,73 @@
+import Prelude
+
+_mmapNew :: \k v r. (k -> k -> Ordering) -> Computation { mmap: () | r } { mmap: () | r } (MMap k v)
+_mmapNew := assumption
+
+_mmapInsert :: \k v r. (k -> k -> Ordering) -> k -> v -> MMap k v -> Computation { mmap: () | r } { mmap: () | r } ()
+_mmapInsert := assumption
+
+_mmapLookup :: \k v r. (k -> k -> Ordering) -> k -> MMap k v -> Computation { mmap: () | r } { mmap: () | r } (Maybe v)
+_mmapLookup := assumption
+
+_mmapDelete :: \k v r. (k -> k -> Ordering) -> k -> MMap k v -> Computation { mmap: () | r } { mmap: () | r } ()
+_mmapDelete := assumption
+
+_mmapSize :: \k v. MMap k v -> Int
+_mmapSize := assumption
+
+_mmapMember :: \k v r. (k -> k -> Ordering) -> k -> MMap k v -> Computation { mmap: () | r } { mmap: () | r } Bool
+_mmapMember := assumption
+
+_mmapToList :: \k v r. MMap k v -> Computation { mmap: () | r } { mmap: () | r } (List (k, v))
+_mmapToList := assumption
+
+_mmapFromList :: \k v r. (k -> k -> Ordering) -> List (k, v) -> Computation { mmap: () | r } { mmap: () | r } (MMap k v)
+_mmapFromList := assumption
+
+_mmapFoldlWithKey :: \k v b r. (b -> k -> v -> b) -> b -> MMap k v -> Computation { mmap: () | r } { mmap: () | r } b
+_mmapFoldlWithKey := assumption
+
+_mmapKeys :: \k v r. MMap k v -> Computation { mmap: () | r } { mmap: () | r } (List k)
+_mmapKeys := assumption
+
+_mmapValues :: \k v r. MMap k v -> Computation { mmap: () | r } { mmap: () | r } (List v)
+_mmapValues := assumption
+
+_mmapAdjust :: \k v r. (k -> k -> Ordering) -> k -> (v -> v) -> MMap k v -> Computation { mmap: () | r } { mmap: () | r } ()
+_mmapAdjust := assumption
+
+new :: \k v r. Ord k => Computation { mmap: () | r } { mmap: () | r } (MMap k v)
+new := _mmapNew compare
+
+insert :: \k v r. Ord k => k -> v -> MMap k v -> Computation { mmap: () | r } { mmap: () | r } ()
+insert := _mmapInsert compare
+
+lookup :: \k v r. Ord k => k -> MMap k v -> Computation { mmap: () | r } { mmap: () | r } (Maybe v)
+lookup := _mmapLookup compare
+
+delete :: \k v r. Ord k => k -> MMap k v -> Computation { mmap: () | r } { mmap: () | r } ()
+delete := _mmapDelete compare
+
+size :: \k v. MMap k v -> Int
+size := _mmapSize
+
+member :: \k v r. Ord k => k -> MMap k v -> Computation { mmap: () | r } { mmap: () | r } Bool
+member := _mmapMember compare
+
+toList :: \k v r. MMap k v -> Computation { mmap: () | r } { mmap: () | r } (List (k, v))
+toList := _mmapToList
+
+fromList :: \k v r. Ord k => List (k, v) -> Computation { mmap: () | r } { mmap: () | r } (MMap k v)
+fromList := _mmapFromList compare
+
+foldlWithKey :: \k v b r. (b -> k -> v -> b) -> b -> MMap k v -> Computation { mmap: () | r } { mmap: () | r } b
+foldlWithKey := _mmapFoldlWithKey
+
+keys :: \k v r. MMap k v -> Computation { mmap: () | r } { mmap: () | r } (List k)
+keys := _mmapKeys
+
+values :: \k v r. MMap k v -> Computation { mmap: () | r } { mmap: () | r } (List v)
+values := _mmapValues
+
+adjust :: \k v r. Ord k => k -> (v -> v) -> MMap k v -> Computation { mmap: () | r } { mmap: () | r } ()
+adjust := _mmapAdjust compare

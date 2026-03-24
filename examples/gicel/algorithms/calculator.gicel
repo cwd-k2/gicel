@@ -85,9 +85,7 @@ parseWith := fix $ \self sel cs. case sel {
           Cons ')' rest3 => Just (e, rest3);
           _              => Nothing
         };
-      _ =>
-        parseNum cs1 >>= \(n, rest2).
-        Just (Lit n, rest2)
+      _ => parseNum cs1 >>= \(n, rest2). Just (Lit n, rest2)
     }
   };
 
