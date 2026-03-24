@@ -28,10 +28,8 @@ solve := \items capacity. do {
         True  => do {
           cur  <- readAt j dp;
           prev <- readAt (j - w) dp;
-          case (cur, prev) {
-            (Just c, Just p) => writeAt j (max c (p + v)) dp;
-            _                => pure ()
-          };
+          val  := max (maybe 0 id cur) (maybe 0 id prev + v);
+          writeAt j val dp;
           loopJ $ j - 1
         }
       };

@@ -23,16 +23,14 @@ readInts := mapMaybe read . words
 
 -- Build prefix sum array: prefix[i] = sum of xs[0..i-1], prefix[0] = 0.
 buildPrefix := \xs. do {
-  n <- pure $ length xs;
+  n := length xs;
   prefix <- new (n + 1) 0;
   flip fix 0 $ \loop i. case i >= n {
     True  => pure ();
     False => do {
-      prev <- readAt i prefix;
-      case (prev, index i xs) {
-        (Just p, Just v) => writeAt (i + 1) (p + v) prefix;
-        _                => pure ()
-      };
+      p <- readAt i prefix;
+      v := maybe 0 id $ index i xs;
+      writeAt (i + 1) (maybe 0 id p + v) prefix;
       loop $ i + 1
     }
   };
@@ -40,15 +38,15 @@ buildPrefix := \xs. do {
 }
 
 -- Range sum query: sum of xs[lo..hi] (inclusive) using prefix sums.
-rangeSum := \prefix lo hi.
-  case (index (hi + 1) prefix, index lo prefix) {
-    (Just r, Just l) => r - l;
-    _                => 0
-  }
+rangeSum := \prefix lo hi. {
+  r := maybe 0 id $ index (hi + 1) prefix;
+  l := maybe 0 id $ index lo prefix;
+  r - l
+}
 
 main := do {
   line <- getLine;
-  xs <- pure $ fromList $ readInts line;
+  xs := fromList $ readInts line;
   prefix <- buildPrefix xs;
   putLine $ "size: " <> show (length xs);
   putLine $ "prefix: " <> show (toList prefix);

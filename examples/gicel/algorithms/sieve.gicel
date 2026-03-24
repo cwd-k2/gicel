@@ -11,12 +11,11 @@ import Data.Slice
 import Effect.Array
 
 sieve := \limit. do {
-  -- is[i] = True means i is (still considered) prime
   is <- new (limit + 1) True;
   writeAt 0 False is;
   writeAt 1 False is;
 
-  -- Mark composites: for i from 2, while i*i <= limit
+  -- Mark composites
   flip fix 2 $ \outer i. case i * i > limit {
     True  => pure ();
     False => do {
@@ -33,16 +32,19 @@ sieve := \limit. do {
     }
   };
 
-  -- Collect primes
+  -- Collect primes into a list
   s <- toSlice is;
-  pure $ flip fix (2, []) $ \collect (i, acc). case i > limit {
-    True  => reverse acc;
-    False => case index i s {
-      Just True => collect (i + 1, Cons i acc);
-      _         => collect (i + 1, acc)
+  pure $ flip fix (2, []) $ \collect (i, acc).
+    case i > limit {
+      True  => reverse acc;
+      False => {
+        isPrime := maybe False id $ index i s;
+        case isPrime {
+          True  => collect (i + 1, Cons i acc);
+          False => collect (i + 1, acc)
+        }
+      }
     }
-  }
 }
 
--- Primes up to 30
 main := sieve 30
