@@ -7,6 +7,7 @@ import (
 	"os"
 
 	"github.com/cwd-k2/gicel/internal/host/registry"
+	"github.com/cwd-k2/gicel/internal/infra/budget"
 	"github.com/cwd-k2/gicel/internal/runtime/eval"
 )
 
@@ -67,12 +68,16 @@ func putLineImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Ap
 	return unitVal, ce, nil
 }
 
-func getLineImpl(_ context.Context, ce eval.CapEnv, _ []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
+func getLineImpl(ctx context.Context, ce eval.CapEnv, _ []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
 	if consoleMode.buffer {
 		return &eval.HostVal{Inner: ""}, ce, fmt.Errorf("getLine: not available in --json mode")
 	}
 	if stdinScanner.Scan() {
-		return &eval.HostVal{Inner: stdinScanner.Text()}, ce, nil
+		s := stdinScanner.Text()
+		if err := budget.ChargeAlloc(ctx, int64(len(s))); err != nil {
+			return nil, ce, fmt.Errorf("getLine: %w", err)
+		}
+		return &eval.HostVal{Inner: s}, ce, nil
 	}
 	if err := stdinScanner.Err(); err != nil {
 		return nil, ce, fmt.Errorf("getLine: %w", err)
