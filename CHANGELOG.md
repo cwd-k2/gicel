@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.17.1 — 2026-03-24
+## v0.17.1 — 2026-03-25
 
 ### Examples Overhaul
 
@@ -13,11 +13,21 @@ All 54 CLI examples now produce visible Console output when run with `bin/gicel 
 - **`patterns/comonad`** trimmed from 214 to 168 lines
 - **`types/fundeps`** comments corrected (no explicit fundep syntax)
 
+### Fixes
+
+- **Show parenthesization** — `show (Just (Just 42))` now produces `"Just (Just 42)"` instead of `"Just Just 42"`. Same fix for `Result` (`Ok`/`Err`).
+- **MMap.size / MSet.size** — changed from pure to effectful. The previous pure signature read mutable state at demand time, returning stale values when bound with `:=`.
+- **Constraint solver retry** — deferred constraints are re-checked after worklist completion, catching cases where later unification resolved ambiguity.
+
 ### Editor Support
 
 - **tree-sitter**: `if_expression` node added; `let_statement` extended to accept tuple/record pattern bindings; all 54 examples parse without errors
 - **nvim/zed**: `if`/`then`/`else` keywords, `type_family`, `method_signature`, `constraint`, `evidence_injection` captures added
 - **vscode**: `if`/`then`/`else` keywords added, `data` → `form` rename fix in TextMate grammar
+
+### Known Limitations
+
+- **State + polymorphic `show`** — `do { put 42; n <- get; show n }` infers a polymorphic type instead of resolving `Show Int`. Workaround: use `showInt n` or `show (n :: Int)`. Root cause: Atkey bind elaboration doesn't propagate row-solved types to value positions.
 
 ## v0.17.0 — 2026-03-24
 
