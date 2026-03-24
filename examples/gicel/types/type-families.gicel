@@ -66,6 +66,6 @@ answer :: ElemOf (List Int)
 answer := 42
 
 main := do {
-  putLine $ "ElemOf List Int: " <> show answer;
+  putLine $ "ElemOf List Int:  " <> show answer;
   putLine $ "listHead [10,20]: " <> show (listHead (Cons 10 (Cons 20 Nil)))
 }

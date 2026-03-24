@@ -62,10 +62,10 @@ lub := \a b. case a {
 }
 
 main := do {
-  putLine $ "Linear:      " <> describe Linear;
-  putLine $ "Affine:      " <> describe Affine;
+  putLine $ "Linear:       " <> describe Linear;
+  putLine $ "Affine:       " <> describe Affine;
   putLine $ "Unrestricted: " <> describe Unrestricted;
-  putLine $ "lub L A:     " <> describe (lub Linear Affine);
-  putLine $ "lub A U:     " <> describe (lub Affine Unrestricted);
-  putLine $ "lub U U:     " <> describe (lub Unrestricted Unrestricted)
+  putLine $ "lub L A:      " <> describe (lub Linear Affine);
+  putLine $ "lub A U:      " <> describe (lub Affine Unrestricted);
+  putLine $ "lub U U:      " <> describe (lub Unrestricted Unrestricted)
 }

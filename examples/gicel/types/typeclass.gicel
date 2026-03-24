@@ -59,11 +59,11 @@ test8 := warmOrCold True           -- True
 test9 := warmOrCold False          -- False
 
 main := do {
-  putLine $ "isWarm Spring:   " <> show test1;
-  putLine $ "isWarm Winter:   " <> show test2;
-  putLine $ "isWarm Summer:   " <> show test3;
+  putLine $ "isWarm Spring:    " <> show test1;
+  putLine $ "isWarm Winter:    " <> show test2;
+  putLine $ "isWarm Summer:    " <> show test3;
   putLine $ "eq Just T Just T: " <> show test5;
   putLine $ "eq Just T Just F: " <> show test6;
-  putLine $ "warmOrCold True: " <> show test8;
+  putLine $ "warmOrCold True:  " <> show test8;
   putLine $ "warmOrCold False: " <> show test9
 }

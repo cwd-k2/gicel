@@ -39,10 +39,10 @@ main := do {
   -- Fold: sum all elements
   total <- MSet.fold (+) 0 s;
 
-  putLine $ "size:     " <> show n;
-  putLine $ "member 4: " <> show has4;
-  putLine $ "member 7: " <> show has7;
+  putLine $ "size:        " <> show n;
+  putLine $ "member 4:    " <> show has4;
+  putLine $ "member 7:    " <> show has7;
   putLine $ "after del 4: " <> show has4after;
-  putLine $ "sorted:   " <> show sorted;
-  putLine $ "sum:      " <> show total
+  putLine $ "sorted:      " <> show sorted;
+  putLine $ "sum:         " <> show total
 }

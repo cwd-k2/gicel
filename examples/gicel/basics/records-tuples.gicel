@@ -56,14 +56,14 @@ triple := (1, True, "hi")
 tripleFirst := triple.#_1
 
 main := do {
-  putLine $ "point.x:     " <> show px;
-  putLine $ "point.y:     " <> show py;
-  putLine $ "moved.x:     " <> show movedX;
-  putLine $ "getX row-poly: " <> show p1 <> ", " <> show p2;
-  putLine $ "fst pair:    " <> show first;
-  putLine $ "snd pair:    " <> show second;
-  putLine $ "eq tuples:   " <> show eqTest;
-  putLine $ "cmp tuples:  " <> show cmpTest;
-  putLine $ "swap:        " <> show swapped;
+  putLine $ "point.x:        " <> show px;
+  putLine $ "point.y:        " <> show py;
+  putLine $ "moved.x:        " <> show movedX;
+  putLine $ "getX row-poly:  " <> show p1 <> ", " <> show p2;
+  putLine $ "fst pair:       " <> show first;
+  putLine $ "snd pair:       " <> show second;
+  putLine $ "eq tuples:      " <> show eqTest;
+  putLine $ "cmp tuples:     " <> show cmpTest;
+  putLine $ "swap:           " <> show swapped;
   putLine $ "nested.inner.a: " <> show deep
 }

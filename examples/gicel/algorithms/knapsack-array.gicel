@@ -42,7 +42,7 @@ solve := \items capacity. do {
 
 main := do {
   result <- solve items capacity;
-  putLine $ "items:    " <> show items;
-  putLine $ "capacity: " <> show capacity;
+  putLine $ "items:     " <> show items;
+  putLine $ "capacity:  " <> show capacity;
   putLine $ "max value: " <> show result
 }

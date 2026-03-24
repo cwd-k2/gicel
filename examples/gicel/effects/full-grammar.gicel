@@ -59,9 +59,9 @@ describeIt := describe
 main := do {
   a <- pure $ 2 <+> 3;            -- 2 + 3 + 1 = 6
   b <- pure $ 2 <**> 3 <**> 1;   -- 2 * (3 * 1) = 6 (right-assoc)
-  putLine $ "2 <+> 3 = " <> show a;
+  putLine $ "2 <+> 3 =         " <> show a;
   putLine $ "2 <**> 3 <**> 1 = " <> show b;
-  putLine $ "a === b: " <> show (a === b);
-  putLine $ "describe Green: " <> describe Green;
-  putLine $ "describe True: " <> describeIt True
+  putLine $ "a === b:          " <> show (a === b);
+  putLine $ "describe Green:   " <> describe Green;
+  putLine $ "describe True:    " <> describeIt True
 }

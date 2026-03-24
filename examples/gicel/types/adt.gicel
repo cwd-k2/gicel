@@ -51,9 +51,9 @@ circle := Circle 5
 rect := Rect 3 20
 
 main := do {
-  putLine $ "area circle:  " <> show (area circle);
-  putLine $ "area rect:    " <> show (area rect);
-  putLine $ "isLarge circ: " <> show (isLarge circle);
-  putLine $ "isLarge rect: " <> show (isLarge rect);
+  putLine $ "area circle:   " <> show (area circle);
+  putLine $ "area rect:     " <> show (area rect);
+  putLine $ "isLarge circ:  " <> show (isLarge circle);
+  putLine $ "isLarge rect:  " <> show (isLarge rect);
   putLine $ "describeShape: " <> show (describeShape (Just rect))
 }

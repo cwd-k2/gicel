@@ -51,13 +51,13 @@ signZero := sign 0             -- 0
 signPos := sign 99             -- 1
 
 main := do {
-  putLine $ "3 + 4      = " <> show addition;
-  putLine $ "10 - 3     = " <> show subtraction;
-  putLine $ "6 * 7      = " <> show multiplication;
-  putLine $ "100 / 4    = " <> show division;
-  putLine $ "mod 17 5   = " <> show remainder;
-  putLine $ "2 + 3 * 4  = " <> show compound;
-  putLine $ "(2+3) * 4  = " <> show grouped;
+  putLine $ "3 + 4       = " <> show addition;
+  putLine $ "10 - 3      = " <> show subtraction;
+  putLine $ "6 * 7       = " <> show multiplication;
+  putLine $ "100 / 4     = " <> show division;
+  putLine $ "mod 17 5    = " <> show remainder;
+  putLine $ "2 + 3 * 4   = " <> show compound;
+  putLine $ "(2+3) * 4   = " <> show grouped;
   putLine $ "compare 1 2 = " <> show cmpLess;
-  putLine $ "sign (-42) = " <> show signNeg
+  putLine $ "sign (-42)  = " <> show signNeg
 }

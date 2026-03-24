@@ -65,12 +65,12 @@ test7 := isLiteral (LitBool True)        -- True
 test8 := isLiteral (Not (LitBool True))  -- False
 
 main := do {
-  putLine $ "3 + 4:       " <> show test_eval1;
-  putLine $ "not False:   " <> show test_eval2;
-  putLine $ "if T 42 0:   " <> show test_eval3;
-  putLine $ "(1+2) + 3:   " <> show test_eval4;
-  putLine $ "getBool:     " <> show test5;
-  putLine $ "getInt:      " <> show test6;
-  putLine $ "isLiteral T: " <> show test7;
+  putLine $ "3 + 4:         " <> show test_eval1;
+  putLine $ "not False:     " <> show test_eval2;
+  putLine $ "if T 42 0:     " <> show test_eval3;
+  putLine $ "(1+2) + 3:     " <> show test_eval4;
+  putLine $ "getBool:       " <> show test5;
+  putLine $ "getInt:        " <> show test6;
+  putLine $ "isLiteral T:   " <> show test7;
   putLine $ "isLiteral Not: " <> show test8
 }

@@ -39,8 +39,8 @@ wrapBoth := \wrap. (wrap True, wrap GT)
 test4 := wrapBoth Just
 
 main := do {
-  putLine $ "applyToBoth id:  " <> show test1;
+  putLine $ "applyToBoth id:   " <> show test1;
   putLine $ "applyToBoth Just: " <> show test2;
-  putLine $ "applyEq eq:      " <> show test3;
-  putLine $ "wrapBoth Just:   " <> show test4
+  putLine $ "applyEq eq:       " <> show test3;
+  putLine $ "wrapBoth Just:    " <> show test4
 }

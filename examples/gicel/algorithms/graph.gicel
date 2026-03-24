@@ -144,11 +144,11 @@ dag := mkGraph [(1, 2), (1, 3), (2, 4), (3, 4)]
 testTopo := topoSort dag [1, 2, 3, 4]          -- [4, 2, 3, 1] or valid topo order
 
 main := do {
-  putLine $ "DFS from 1:  " <> show testDFS;
-  putLine $ "BFS from 1:  " <> show testBFS;
-  putLine $ "path 1->5:   " <> show testPath1;
-  putLine $ "path 5->1:   " <> show testPath2;
-  putLine $ "topo sort:   " <> show testTopo;
+  putLine $ "DFS from 1:     " <> show testDFS;
+  putLine $ "BFS from 1:     " <> show testBFS;
+  putLine $ "path 1->5:      " <> show testPath1;
+  putLine $ "path 5->1:      " <> show testPath2;
+  putLine $ "topo sort:      " <> show testTopo;
   putLine $ "undirected DFS: " <> show testDFS2;
   putLine $ "undirected BFS: " <> show testBFS2
 }
