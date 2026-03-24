@@ -1,5 +1,17 @@
 # Changelog
 
+## v0.16.5 — 2026-03-24
+
+### UX
+
+- `fix`/`rec` without `--recursion` now hints "requires --recursion flag" instead of generic "unbound variable"
+- Diagnostic source line output truncated at 200 characters (prevents 65MB+ output on pathological inputs)
+- Step limit error no longer leaks internal names like `IxMonad$Computation`
+
+### Compatibility
+
+- UTF-8 BOM (byte order mark) stripped at lexer entry point
+
 ## v0.16.4 — 2026-03-24
 
 ### Fixes
