@@ -1,12 +1,11 @@
--- Phantom types in GICEL
+-- GICEL Example: Phantom Types
 --
--- Type-safe state machine using phantom type parameters.
--- The type parameter tracks the door's state (Locked/Unlocked) at the
--- type level — invalid transitions are compile-time errors.
---
+-- Type-safe state machine via phantom type parameters.
+-- Invalid transitions are compile-time errors.
 -- Run: bin/gicel run examples/gicel/patterns/phantom.gicel
 
 import Prelude
+import Console
 
 -- ── State tokens (used only at the type level) ───────────────
 
@@ -71,7 +70,10 @@ test_read  := readToken roToken     -- "read:42" (any permission can read)
 test_write := writeToken rwToken    -- "write:42" (only ReadWrite can write)
 -- test_bad2 := writeToken roToken  -- Error: ReadOnly vs ReadWrite
 
--- ── Output ───────────────────────────────────────────────────
-
-main := ((test_name, test_open, test_relock), (test_read, test_write))
--- Expected: (("Front", "Opened: Front", "Front"), ("read:42", "write:42"))
+main := do {
+  putLine $ "door name:   " <> test_name;
+  putLine $ "unlock+open: " <> test_open;
+  putLine $ "relock name: " <> test_relock;
+  putLine $ "read token:  " <> test_read;
+  putLine $ "write token: " <> test_write
+}

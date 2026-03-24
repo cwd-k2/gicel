@@ -6,11 +6,14 @@
 
 import Prelude
 import Effect.IO
+import Console
 
--- Side effects: prints "hello, world!" and debug "done" to the io buffer.
--- Return value: ()
+-- Effect.IO writes to the capEnv io buffer (for Go embedding).
+-- Console.putLine writes to stdout (for CLI output).
 main := do {
   print "hello, ";
   print $ "world" <> "!";
-  debug "done"
+  debug "done";
+  putLine "IO effect: wrote to capEnv.io buffer";
+  putLine "(visible via --json)"
 }

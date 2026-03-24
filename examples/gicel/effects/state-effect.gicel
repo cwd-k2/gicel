@@ -9,6 +9,7 @@
 
 import Prelude
 import Effect.State
+import Console
 
 -- Basic: put an initial value, read it back
 basic :: Thunk { state: Int } { state: Int } Int
@@ -54,12 +55,15 @@ pipeline := thunk do {
   get
 }
 
--- Output: (42, 3, 25, 144, 100)
 main := do {
   b <- force basic;
   c <- force counter;
   a <- force accumulate;
   r <- force readAndCompute;
   p <- force pipeline;
-  pure (b, c, a, r, p)
+  putLine $ "basic (put 42):   " <> show b;
+  putLine $ "counter (3x inc): " <> show c;
+  putLine $ "accumulate (5^2): " <> show a;
+  putLine $ "read+compute:     " <> show r;
+  putLine $ "pipeline (*5*10): " <> show p
 }

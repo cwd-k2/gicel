@@ -1,11 +1,11 @@
--- MaybeT monad transformer in GICEL
+-- GICEL Example: MaybeT Monad Transformer
 --
--- MaybeT m a ≅ m (Maybe a) — layers Maybe failure over an existing monad.
--- Demonstrates: HKT, monad transformer pattern, do-notation via Monad class.
---
+-- MaybeT m a = m (Maybe a) — layers Maybe failure over an existing monad.
+-- Demonstrates HKT, monad transformer, do-notation.
 -- Run: bin/gicel run examples/gicel/patterns/maybet.gicel
 
 import Prelude
+import Console
 
 -- ── MaybeT ───────────────────────────────────────────────────
 
@@ -51,7 +51,8 @@ test_chain := runMaybeT $ do {
 }
 -- Just (Just 2)
 
--- ── Output ───────────────────────────────────────────────────
-
-main := (test_fail, test_ok, test_chain)
--- Expected: (Just Nothing, Just (Just 10), Just (Just 2))
+main := do {
+  putLine $ "10/2 then /0: " <> show test_fail;
+  putLine $ "10/2 then /1: " <> show test_ok;
+  putLine $ "100/10/5/1:   " <> show test_chain
+}

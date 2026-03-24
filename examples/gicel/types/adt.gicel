@@ -5,6 +5,7 @@
 -- Run: bin/gicel run examples/gicel/types/adt.gicel
 
 import Prelude
+import Console
 
 -- A simple enumeration type
 form Color := Red | Green | Blue
@@ -49,5 +50,10 @@ describeShape := \ms. case ms {
 circle := Circle 5
 rect := Rect 3 20
 
--- Output: (75, 60, True, True, Just Green, True)
-main := (area circle, area rect, isLarge circle, isLarge rect, colorIf True Green, describeShape (Just rect))
+main := do {
+  putLine $ "area circle:  " <> show (area circle);
+  putLine $ "area rect:    " <> show (area rect);
+  putLine $ "isLarge circ: " <> show (isLarge circle);
+  putLine $ "isLarge rect: " <> show (isLarge rect);
+  putLine $ "describeShape: " <> show (describeShape (Just rect))
+}

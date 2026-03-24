@@ -7,6 +7,7 @@
 -- Run: gicel run continuation.gicel
 
 import Prelude
+import Console
 
 -- ── Continuation Monad ───────────────────────────────────────
 
@@ -88,5 +89,12 @@ pipeline := do {
 -- k 3 = 30, k 7 = 70, result = 30 + 70
 ex8 := runCont pipeline id  -- 100
 
--- Output: (60, 120, 42, 0, 20, 30, 14, 100)
-main := (ex1, ex2, ex3, ex4, ex5, ex6, ex7, ex8)
+main := do {
+  putLine $ "sum (id):       " <> show ex1;
+  putLine $ "sum (*2):       " <> show ex2;
+  putLine $ "early exit:     " <> show ex3;
+  putLine $ "clamp negative: " <> show ex4;
+  putLine $ "multi-shot:     " <> show ex5;
+  putLine $ "CPS (3+4)*2:    " <> show ex7;
+  putLine $ "branch sum:     " <> show ex8
+}

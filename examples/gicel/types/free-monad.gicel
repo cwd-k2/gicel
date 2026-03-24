@@ -8,6 +8,7 @@
 -- Run: bin/gicel run --recursion examples/gicel/types/free-monad.gicel
 
 import Prelude
+import Console
 
 -- ── 1. Free Monad (direct embedding) ────────────────────────
 -- Effect commands are embedded directly as constructors.
@@ -115,5 +116,7 @@ test2 := runCounter counterProgram 0  -- 300
 
 -- ── Results ──────────────────────────────────────────────────
 
--- Output: (21, 300)
-main := (test1, test2)
+main := do {
+  putLine $ "KV store (get+put): " <> show test1;
+  putLine $ "Counter (inc*3):    " <> show test2
+}

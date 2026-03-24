@@ -8,6 +8,7 @@
 -- Run: bin/gicel run examples/gicel/basics/do-notation.gicel
 
 import Prelude
+import Console
 
 -- Simple: bind a pure value and return it
 simple := thunk do {
@@ -48,12 +49,15 @@ compound := thunk do {
   pure result
 }
 
--- Output: (42, 30, 42, 300, 37)
 main := do {
   s <- force simple;
   c <- force chain;
   w <- force withLet;
   n <- force nested;
   d <- force compound;
-  pure (s, c, w, n, d)
+  putLine $ "simple:   " <> show s;
+  putLine $ "chain:    " <> show c;
+  putLine $ "withLet:  " <> show w;
+  putLine $ "nested:   " <> show n;
+  putLine $ "compound: " <> show d
 }

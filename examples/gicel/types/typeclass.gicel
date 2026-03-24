@@ -6,6 +6,7 @@
 -- Run: bin/gicel run examples/gicel/types/typeclass.gicel
 
 import Prelude
+import Console
 
 -- A custom ADT for demonstration
 form Season := Spring | Summer | Autumn | Winter
@@ -57,5 +58,12 @@ test7 := eq Nothing (Nothing :: Maybe Bool) -- True
 test8 := warmOrCold True           -- True
 test9 := warmOrCold False          -- False
 
--- Output: (True, False, True, False, True, False, True, True, False)
-main := (test1, test2, test3, test4, test5, test6, test7, test8, test9)
+main := do {
+  putLine $ "isWarm Spring:   " <> show test1;
+  putLine $ "isWarm Winter:   " <> show test2;
+  putLine $ "isWarm Summer:   " <> show test3;
+  putLine $ "eq Just T Just T: " <> show test5;
+  putLine $ "eq Just T Just F: " <> show test6;
+  putLine $ "warmOrCold True: " <> show test8;
+  putLine $ "warmOrCold False: " <> show test9
+}

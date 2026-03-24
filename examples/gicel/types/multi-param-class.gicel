@@ -6,6 +6,7 @@
 -- Run: bin/gicel run examples/gicel/types/multi-param-class.gicel
 
 import Prelude
+import Console
 
 -- A multi-parameter class for lossless coercion between types
 form Coercible := \a b. {
@@ -67,5 +68,11 @@ test7 := (convertAndCoerce True :: Bool)
 -- False => LT -> False
 test8 := (convertAndCoerce False :: Bool)
 
--- Output: (Just True, True, False, False, GT, False, True, False)
-main := (test1, test2, test3, test4, test5, test6, test7, test8)
+main := do {
+  putLine $ "coerce Just T:    " <> show test1;
+  putLine $ "coerce id:        " <> show test2;
+  putLine $ "convert True Ord: " <> show test5;
+  putLine $ "convert LT Bool:  " <> show test6;
+  putLine $ "roundtrip True:   " <> show test7;
+  putLine $ "roundtrip False:  " <> show test8
+}

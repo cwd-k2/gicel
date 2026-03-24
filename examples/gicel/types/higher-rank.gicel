@@ -7,6 +7,7 @@
 -- Run: bin/gicel run examples/gicel/types/higher-rank.gicel
 
 import Prelude
+import Console
 
 -- A rank-2 function: accepts a polymorphic identity and applies it
 -- at two different types (Bool and Maybe Bool).
@@ -37,5 +38,9 @@ wrapBoth := \wrap. (wrap True, wrap GT)
 
 test4 := wrapBoth Just
 
--- Output: ((True, Just False), (Just True, Just EQ), (False, True), (Just True, Just GT))
-main := (test1, test2, test3, test4)
+main := do {
+  putLine $ "applyToBoth id:  " <> show test1;
+  putLine $ "applyToBoth Just: " <> show test2;
+  putLine $ "applyEq eq:      " <> show test3;
+  putLine $ "wrapBoth Just:   " <> show test4
+}

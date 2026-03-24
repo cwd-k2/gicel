@@ -1,14 +1,12 @@
 -- GICEL Example: Sieve of Eratosthenes (Effect.Array)
 --
 -- Classic prime sieve using a mutable boolean array.
--- Demonstrates Array writeAt in a nested loop.
---
--- Run: bin/gicel run --recursion --packs prelude,slice,array examples/gicel/algorithms/sieve.gicel
--- Output: [2, 3, 5, 7, 11, 13, 17, 19, 23, 29]
+-- Demonstrates nested loops with Array writeAt/readAt.
+-- Run: bin/gicel run --recursion examples/gicel/algorithms/sieve.gicel
 
 import Prelude
-import Data.Slice
 import Effect.Array
+import Console
 
 sieve := \limit. do {
   is <- new (limit + 1) True;
@@ -33,16 +31,16 @@ sieve := \limit. do {
       outer $ i + 1
     };
 
-  -- Collect primes into a list
-  s <- toSlice is;
-  pure $ flip fix (2, []) $ \collect (i, acc).
-    if i > limit then reverse acc
-    else {
-      isPrime := maybe False id $ index i s;
-      if isPrime
-        then collect (i + 1, Cons i acc)
-        else collect (i + 1, acc)
+  -- Collect primes by reading directly from the Array
+  flip fix (2, Nil) $ \collect (i, acc).
+    if i > limit then pure $ reverse acc
+    else do {
+      v <- readAt i is;
+      collect (i + 1, if maybe False id v then Cons i acc else acc)
     }
 }
 
-main := sieve 30
+main := do {
+  primes <- sieve 30;
+  putLine $ "primes up to 30: " <> show primes
+}

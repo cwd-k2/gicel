@@ -6,6 +6,7 @@
 -- Run: bin/gicel run examples/gicel/basics/lists.gicel
 
 import Prelude
+import Console
 
 -- Building lists with list literals
 nums := [1, 2, 3, 4, 5]
@@ -55,5 +56,16 @@ nil := empty :: List Int                         -- []
 pipeline := foldl (+) 0 $ (\x. x * x) <$> filter (> 2) nums
 -- squares of elements > 2: 9 + 16 + 25 = 50
 
--- Output: (5, 15, 15, Just 3, 50)
-main := (len, total, totalR, atTwo, pipeline)
+main := do {
+  putLine $ "nums:     " <> show nums;
+  putLine $ "length:   " <> show len;
+  putLine $ "doubled:  " <> show doubled;
+  putLine $ "evens:    " <> show evens;
+  putLine $ "sum:      " <> show total;
+  putLine $ "reverse:  " <> show rev;
+  putLine $ "take 3:   " <> show first3;
+  putLine $ "joined:   " <> show joined;
+  putLine $ "zipped:   " <> show zipped;
+  putLine $ "index 2:  " <> show atTwo;
+  putLine $ "pipeline: " <> show pipeline
+}

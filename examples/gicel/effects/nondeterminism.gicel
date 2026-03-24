@@ -7,6 +7,7 @@
 -- Run: gicel run --recursion nondeterminism.gicel
 
 import Prelude
+import Console
 
 -- ── Shared helpers ─────────────────────────────────────────
 
@@ -23,6 +24,10 @@ guard := \c. if c then [()] else []
 
 -- Pythagorean triples a² + b² = c² (a ≤ b ≤ c ≤ 10)
 form Triple := { MkTriple: Int -> Int -> Int -> Triple }
+
+impl Show Triple := {
+  show := \t. case t { MkTriple a b c => "(" <> show a <> ", " <> show b <> ", " <> show c <> ")" }
+}
 
 pythag :: List Triple
 pythag := do {
@@ -104,5 +109,8 @@ queens4 := runND (nqueens 4 [])
 
 -- ── Results ──────────────────────────────────────────────────
 
--- Output: ([MkTriple 3 4 5, MkTriple 6 8 10], 6 pairs, [[1,3,0,2],[2,0,3,1]])
-main := (pythag, sumPairs, queens4)
+main := do {
+  putLine $ "pythagorean: " <> show pythag;
+  putLine $ "sum pairs:   " <> show sumPairs;
+  putLine $ "4-queens:    " <> show queens4
+}

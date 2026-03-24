@@ -1,8 +1,10 @@
--- Fibonacci — recursive and iterative.
--- Requires: --recursion --packs prelude
--- Run: bin/gicel run --recursion --packs prelude examples/gicel/algorithms/fibonacci.gicel
+-- GICEL Example: Fibonacci
+--
+-- Three approaches: naive recursive, iterative via foldl, memoized list.
+-- Run: bin/gicel run --recursion examples/gicel/algorithms/fibonacci.gicel
 
 import Prelude
+import Console
 
 -- Naive recursive Fibonacci via fix
 fibRec :: Int -> Int
@@ -33,10 +35,8 @@ fibList := \n. case n {
   }
 }
 
--- Tests
-test1 := map fibRec [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
-test2 := map fibIter [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
-test3 := fibList 10
-
--- Output: all three should produce [0, 1, 1, 2, 3, 5, 8, 13, 21, 34, 55]
-main := (test1, test2, test3)
+main := do {
+  putLine $ "recursive: " <> show (map fibRec [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+  putLine $ "iterative: " <> show (map fibIter [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+  putLine $ "memoized:  " <> show (fibList 10)
+}

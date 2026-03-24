@@ -1,54 +1,55 @@
--- GICEL Example: Prefix Sum (Array + Console)
+-- GICEL Example: Prefix Sum (Array)
 --
--- Reads space-separated integers from stdin, builds a prefix sum
--- array, and answers range-sum queries. Demonstrates the full
--- input pipeline: Console.getLine -> words -> Read -> Array.
---
--- Run: echo "1 3 5 7 9" | bin/gicel run --recursion --packs prelude,slice,array,console examples/gicel/algorithms/prefix-sum.gicel
---
--- Expected output:
---   size: 5
---   prefix: [0, 1, 4, 9, 16, 25]
---   sum [1..3]: 15
---   sum [0..4]: 25
+-- Builds a prefix sum array and answers range-sum queries in O(1).
+-- Demonstrates mutable Array: new, readAt, writeAt, arrayLength.
+-- Run: bin/gicel run --recursion examples/gicel/algorithms/prefix-sum.gicel
 
 import Prelude
-import Data.Slice
 import Effect.Array
 import Console
 
--- Parse a line of space-separated integers.
-readInts :: String -> List Int
-readInts := mapMaybe read . words
-
--- Build prefix sum array: prefix[i] = sum of xs[0..i-1], prefix[0] = 0.
+-- Build prefix sum array from a list.
+-- prefix[i] = sum of input[0..i-1], prefix[0] = 0.
 buildPrefix := \xs. do {
   n := length xs;
   prefix <- new (n + 1) 0;
-  flip fix 0 $ \loop i.
-    if i >= n then pure ()
-    else do {
-    p <- readAt i prefix;
-    v := maybe 0 id $ index i xs;
-    writeAt (i + 1) (maybe 0 id p + v) prefix;
-    loop $ i + 1
+  flip fix (0, xs) $ \loop (i, rest). case rest {
+    Nil => pure ();
+    Cons v tail => do {
+      p <- readAt i prefix;
+      writeAt (i + 1) (maybe 0 id p + v) prefix;
+      loop (i + 1, tail)
+    }
   };
-  toSlice prefix
+  pure prefix
 }
 
--- Range sum query: sum of xs[lo..hi] (inclusive) using prefix sums.
-rangeSum := \prefix lo hi. {
-  r := maybe 0 id $ index (hi + 1) prefix;
-  l := maybe 0 id $ index lo prefix;
-  r - l
+-- Range sum: sum of input[lo..hi] (inclusive) from prefix array.
+rangeSum := \prefix lo hi. do {
+  r <- readAt (hi + 1) prefix;
+  l <- readAt lo prefix;
+  pure $ maybe 0 id r - maybe 0 id l
+}
+
+-- Show array contents as a list.
+showArray := \arr. do {
+  n := size arr;
+  flip fix (0, Nil) $ \loop (i, acc).
+    if i >= n then pure $ show (reverse acc)
+    else do {
+      v <- readAt i arr;
+      loop (i + 1, Cons (maybe 0 id v) acc)
+    }
 }
 
 main := do {
-  line <- getLine;
-  xs := fromList $ readInts line;
-  prefix <- buildPrefix xs;
-  putLine $ "size: " <> show (length xs);
-  putLine $ "prefix: " <> show (toList prefix);
-  putLine $ "sum [1..3]: " <> show (rangeSum prefix 1 3);
-  putLine $ "sum [0..4]: " <> show (rangeSum prefix 0 4)
+  input := [1, 3, 5, 7, 9];
+  prefix <- buildPrefix input;
+  prefixStr <- showArray prefix;
+  putLine $ "input:      " <> show input;
+  putLine $ "prefix:     " <> prefixStr;
+  s1 <- rangeSum prefix 1 3;
+  s2 <- rangeSum prefix 0 4;
+  putLine $ "sum [1..3]: " <> show s1;
+  putLine $ "sum [0..4]: " <> show s2
 }

@@ -1,7 +1,7 @@
--- FizzBuzz — Console output with recursion.
--- Prints numbers 1 to 30, replacing multiples of 3 with "Fizz",
--- multiples of 5 with "Buzz", and multiples of both with "FizzBuzz".
--- Requires: --recursion
+-- GICEL Example: FizzBuzz
+--
+-- Prints 1-30 with the classic Fizz/Buzz substitution.
+-- Demonstrates recursion via fix and Console output.
 -- Run: bin/gicel run --recursion examples/gicel/algorithms/fizzbuzz.gicel
 
 import Prelude

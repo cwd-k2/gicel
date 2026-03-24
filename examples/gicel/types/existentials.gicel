@@ -8,6 +8,7 @@
 -- Run: bin/gicel run examples/gicel/types/existentials.gicel
 
 import Prelude
+import Console
 
 -- A simple existential: wraps a value with a predicate that can test it.
 -- `a` is universally quantified in the constructor but existentially
@@ -66,5 +67,11 @@ t2 := MkTransform (\m. case m { Just _ => True; Nothing => False }) Nothing
 test6 := runTransform t1      -- not False = True
 test7 := runTransform t2      -- Nothing => False
 
--- Output: (False, True, False, True, False, True, False)
-main := (test1, test2, test3, test4, test5, test6, test7)
+main := do {
+  putLine $ "runTest 3==4:   " <> show test1;
+  putLine $ "runTest 5==5:   " <> show test2;
+  putLine $ "checkEq diff:   " <> show test3;
+  putLine $ "checkEq same:   " <> show test4;
+  putLine $ "transform not:  " <> show test6;
+  putLine $ "transform None: " <> show test7
+}

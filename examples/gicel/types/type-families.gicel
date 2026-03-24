@@ -5,6 +5,7 @@
 -- Run: bin/gicel run examples/gicel/types/type-families.gicel
 
 import Prelude
+import Console
 
 -- A closed type family: equations tried top-to-bottom, first match wins.
 -- ElemOf maps a container type to its element type.
@@ -64,5 +65,7 @@ type IsWeekend :: Bool := \(d: Season). case d {
 answer :: ElemOf (List Int)
 answer := 42
 
--- Output: (42, Just 10)
-main := (answer, listHead (Cons 10 (Cons 20 Nil)))
+main := do {
+  putLine $ "ElemOf List Int: " <> show answer;
+  putLine $ "listHead [10,20]: " <> show (listHead (Cons 10 (Cons 20 Nil)))
+}

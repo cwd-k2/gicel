@@ -1,11 +1,11 @@
--- Functor composition in GICEL
+-- GICEL Example: Functor Composition
 --
--- Compose f g a ≅ f (g a) — nesting of two functors is a functor.
--- Demonstrates: HKT, multi-parameter constraints, functor laws.
---
+-- Compose f g a = f (g a) — nesting of two functors is a functor.
+-- Demonstrates HKT and multi-parameter constraints.
 -- Run: bin/gicel run examples/gicel/patterns/compose.gicel
 
 import Prelude
+import Console
 
 -- ── Compose ──────────────────────────────────────────────────
 
@@ -48,7 +48,8 @@ test3_mapped := runId $ getCompose $ fmap toUpper test3 -- Just "HELLO"
 test4 := MkCompose $ Just $ MkCompose [Just 1, Just 2]
 test4_mapped := getCompose $ fmap (\x. x * 2) test4
 
--- ── Output ───────────────────────────────────────────────────
-
-main := (test1_mapped, (test2_mapped, test3_mapped))
--- Expected: (Just ([10, 20, 30]), ([Just 101, Nothing, Just 103], Just "HELLO"))
+main := do {
+  putLine $ "Maybe∘List fmap: " <> show test1_mapped;
+  putLine $ "List∘Maybe fmap: " <> show test2_mapped;
+  putLine $ "Id∘Maybe fmap:   " <> show test3_mapped
+}

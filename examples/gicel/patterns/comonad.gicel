@@ -1,37 +1,23 @@
--- Comonad patterns in GICEL
+-- GICEL Example: Comonads
 --
--- Three comonads with increasing structure:
---   1. Env   — value with environment (coeffect: context dependency)
---   2. Store — position + accessor   (foundation of Lens)
---   3. Zipper — focus in a structure  (extend = local rule propagation)
---
--- Requires: --recursion (Zipper uses fix for allLefts/allRights)
+-- Three comonads: Env (context), Store (lens foundation), Zipper (local rules).
 -- Run: bin/gicel run --recursion examples/gicel/patterns/comonad.gicel
 
 import Prelude
+import Console
 
--- ── Comonad class ────────────────────────────────────────────
---
--- Dual of Monad:
---   Monad:   (=<<) :: (a -> m b) -> m a -> m b   "value から effect を生む"
---   Comonad: extend :: (w a -> b) -> w a -> w b   "context から value を取る"
+-- ── Comonad class (dual of Monad) ────────────────────────────
 
 form Comonad := \w. Functor w => {
   extract: \a. w a -> a;
   extend:  \a b. (w a -> b) -> w a -> w b
 }
 
--- duplicate: extend id — 各位置に「そこから見た全体」を配置
+-- duplicate: extend id
 duplicate :: \(w: Type -> Type) a. Comonad w => w a -> w (w a)
 duplicate := extend id
 
--- ── 1. Env Comonad ───────────────────────────────────────────
---
--- 値に環境を付与する。Reader の双対。
--- Reader: 環境から値を「生む」 (e -> a)
--- Env:    環境を値と「持つ」   (e, a)
---
--- Coeffect: 「この計算には環境 e が必要」
+-- ── 1. Env — value with environment (dual of Reader) ────────
 
 form Env := \e a. { MkEnv: e -> a -> Env e a }
 
@@ -44,11 +30,11 @@ impl Functor (Env e) := {
 
 impl Comonad (Env e) := {
   extract := \ea. case ea { MkEnv _ a => a };
-  -- extend: 環境は保持、値は f(環境+値) で置き換え
+  -- extend: keep environment, replace value with f(env+val)
   extend  := \f ea. case ea { MkEnv e _ => MkEnv e $ f ea }
 }
 
--- 使用例: 設定を付帯して計算
+-- Example: greeting with context
 greet :: Env String String -> String
 greet := \ea. append (getEnv ea) $ append " " $ extract ea
 
@@ -59,15 +45,7 @@ env2 := extend greet env1
 
 test_env := extract env2  -- "Hello world"
 
--- ── 2. Store Comonad ─────────────────────────────────────────
---
--- 「任意の位置を読む関数」+「現在の焦点位置」。
--- extract = 焦点の値を読む
--- extend  = すべての位置で f を評価
---
--- これが Lens の基盤:
---   Lens s a ≅ s -> Store a s
---   (構造 s の中の焦点 a を取り出し、別の a で書き戻せる)
+-- ── 2. Store — position + accessor (foundation of Lens) ─────
 
 form Store := \s a. { MkStore: (s -> a) -> s -> Store s a }
 
@@ -83,38 +61,32 @@ impl Functor (Store s) := {
 
 impl Comonad (Store s) := {
   extract := \st. case st { MkStore f s => f s };
-  -- extend: 各位置 s' に対して f(Store focused at s') を計算
+  -- extend: evaluate f at every position
   extend  := \f st. case st { MkStore g s => MkStore (\s'. f (MkStore g s')) s }
 }
 
--- 使用例: 1D 配列を Store で表現
--- 配列 [0, 10, 20, 30, 40, ...], 焦点 = position 3
+-- Example: 1D array [0,10,20,30,40,...], focused at position 3
 arr := MkStore (\i. i * 10) 3
 
-test_extract := extract arr   -- 30 (焦点の値)
-test_peek    := peek 4 arr    -- 40 (別の位置を覗く)
+test_extract := extract arr   -- 30
+test_peek    := peek 4 arr    -- 40
 
--- extend: 「自分 + 右隣」を各位置で計算
+-- extend: "self + right neighbor" at each position
 sumRight :: Store Int Int -> Int
 sumRight := \st. extract st + peek (pos st + 1) st
 
 arr2 := extend sumRight arr
 test_extend := extract arr2   -- 30 + 40 = 70
 
--- ── 3. Zipper Comonad ────────────────────────────────────────
---
--- 1D 構造に「焦点」を持つ。extend の真価が最も現れる:
--- 「局所ルールをすべての位置に一斉適用する」
---
--- MkZipper [左(近→遠)] 焦点 [右(近→遠)]
--- 例: [1, 2, |3|, 4, 5] = MkZipper [2,1] 3 [4,5]
+-- ── 3. Zipper — focused position in a structure ─────────────
+-- MkZipper [left(near→far)] focus [right(near→far)]
 
 form Zipper := \a. { MkZipper: List a -> a -> List a -> Zipper a }
 
 focus :: \a. Zipper a -> a
 focus := \z. case z { MkZipper _ c _ => c }
 
--- 焦点を左右にシフト
+-- Shift focus left/right
 goLeft :: \a. Zipper a -> Maybe (Zipper a)
 goLeft := \z. case z { MkZipper ls c rs => case ls {
   Nil => Nothing;
@@ -127,7 +99,7 @@ goRight := \z. case z { MkZipper ls c rs => case rs {
   Cons r rest => Just $ MkZipper (Cons c ls) r rest
 }}
 
--- 全左/右シフトを収集 (extend の実装に必要)
+-- Collect all shifted positions (needed for extend)
 allLefts :: \a. Zipper a -> List (Zipper a)
 allLefts := fix $ \self z. case goLeft z {
   Nothing => Nil;
@@ -151,7 +123,7 @@ impl Comonad Zipper := {
   extend := \f z. MkZipper (map f $ allLefts z) (f z) (map f $ allRights z)
 }
 
--- ── Zipper ヘルパー ──────────────────────────────────────────
+-- ── Zipper helpers ──────────────────────────────────────────
 
 leftVal :: \a. a -> Zipper a -> a
 leftVal := \def z. case z { MkZipper ls _ _ => case ls {
@@ -168,47 +140,29 @@ zipperToList := \z. case z {
   MkZipper ls c rs => append (reverse ls) $ Cons c rs
 }
 
--- ── 使用例: 1D 平滑化 ───────────────────────────────────────
---
--- [1, 2, |3|, 4, 5] の各位置で「左 + 自分 + 右」を計算
--- extend sumNeighbors: 局所ルール → 大域変換
+-- ── Example: 1D smoothing (left + self + right at each position)
 
 sumNeighbors :: Zipper Int -> Int
 sumNeighbors := \z. leftVal 0 z + extract z + rightVal 0 z
 
-z1 := MkZipper [2, 1] 3 [4, 5]
--- [1, 2, |3|, 4, 5]
-
+z1 := MkZipper [2, 1] 3 [4, 5]   -- [1, 2, |3|, 4, 5]
 smoothed := extend sumNeighbors z1
--- 位置0: 0+1+2 = 3
--- 位置1: 1+2+3 = 6
--- 位置2: 2+3+4 = 9  ← 焦点
--- 位置3: 3+4+5 = 12
--- 位置4: 4+5+0 = 9
 
-test_focus := extract smoothed          -- 9
-test_all   := zipperToList smoothed     -- [3, 6, 9, 12, 9]
+test_focus := extract smoothed
+test_all   := zipperToList smoothed
 
--- ── 使用例: 離散微分 ─────────────────────────────────────────
---
--- 同じ構造、別のルール: 「右隣 − 自分」= 前進差分
--- extend で別の局所ルール → 別の大域変換
+-- ── Discrete derivative: right - self at each position ──────
 
 diff :: Zipper Int -> Int
 diff := \z. rightVal (extract z) z - extract z
 
 edges := extend diff z1
--- 位置0: 2-1 = 1
--- 位置1: 3-2 = 1
--- 位置2: 4-3 = 1  ← 焦点
--- 位置3: 5-4 = 1
--- 位置4: 5-5 = 0  (右端: default=self)
+test_diff := zipperToList edges
 
-test_diff := zipperToList edges  -- [1, 1, 1, 1, 0]
-
--- ── 出力 ─────────────────────────────────────────────────────
-
-main := ( (test_env, (test_extract, test_peek))
-        , ((test_extend, test_focus), (test_all, test_diff))
-        )
--- Expected: (("Hello world", (30, 40)), ((70, 9), ([3, 6, 9, 12, 9], [1, 1, 1, 1, 0])))
+main := do {
+  putLine $ "Env:       " <> test_env;
+  putLine $ "Store:     " <> show test_extract <> ", peek 4: " <> show test_peek;
+  putLine $ "extend:    " <> show test_extend;
+  putLine $ "smoothed:  " <> show test_all;
+  putLine $ "diff:      " <> show test_diff
+}

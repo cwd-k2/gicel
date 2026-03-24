@@ -7,6 +7,7 @@
 -- Run: bin/gicel run examples/gicel/types/datakinds.gicel
 
 import Prelude
+import Console
 
 -- Declare door states. This creates:
 --   DoorState: a kind
@@ -73,5 +74,10 @@ readHandle := const True
 writeHandle :: FileHandle Writing -> Bool
 writeHandle := const True
 
--- Output: (True, True, True, True, True)
-main := (test1, test2, test3, test4, test5)
+main := do {
+  putLine $ "closed door:  " <> show test1;
+  putLine $ "opened door:  " <> show test2;
+  putLine $ "open+close:   " <> show test3;
+  putLine $ "read handle:  " <> show test4;
+  putLine $ "write handle: " <> show test5
+}

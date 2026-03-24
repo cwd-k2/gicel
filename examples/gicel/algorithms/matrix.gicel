@@ -1,9 +1,10 @@
--- Matrix operations — using lists of lists for representation.
--- Supports: creation, addition, multiplication, transpose, determinant.
--- Requires: --recursion --packs prelude
--- Run: bin/gicel run --recursion --packs prelude examples/gicel/algorithms/matrix.gicel
+-- GICEL Example: Matrix Operations
+--
+-- Addition, multiplication, transpose, determinant using List (List Int).
+-- Run: bin/gicel run --recursion examples/gicel/algorithms/matrix.gicel
 
 import Prelude
+import Console
 
 -- ── Matrix type: List (List Int) — row-major ────────────────
 
@@ -101,10 +102,14 @@ testMul       := matMul a b           -- [[19, 22], [43, 50]]
 testDet       := det a                -- -2
 testTrace     := trace a              -- 5
 
-i2            := identity 2
-testIdentMul  := matMul a i2          -- [[1, 2], [3, 4]]
-testDetIdent  := det $ identity 3     -- 1
-testDet3      := det [[2, 1, 3], [0, 4, 5], [1, 0, 2]]  -- 9
-testMulBA     := matMul b a           -- [[23, 34], [31, 46]]
+showMat := \m. join ", " $ map (\row. show row) m
 
-main := (testAdd, testSub, testScale, testTranspose, testMul, testDet, testTrace, testIdentMul, testDetIdent, testDet3, testMulBA)
+main := do {
+  putLine $ "A + B:     " <> showMat testAdd;
+  putLine $ "A * B:     " <> showMat testMul;
+  putLine $ "transpose: " <> showMat testTranspose;
+  putLine $ "det(A):    " <> show testDet;
+  putLine $ "trace(A):  " <> show testTrace;
+  putLine $ "scale 3 A: " <> showMat testScale;
+  putLine $ "det 3x3:   " <> show (det [[2, 1, 3], [0, 4, 5], [1, 0, 2]])
+}

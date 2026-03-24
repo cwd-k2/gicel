@@ -6,6 +6,7 @@
 -- Run: bin/gicel run examples/gicel/basics/arithmetic.gicel
 
 import Prelude
+import Console
 
 -- Basic arithmetic
 addition := 3 + 4              -- 7
@@ -49,10 +50,14 @@ signNeg := sign $ negate 42    -- -1
 signZero := sign 0             -- 0
 signPos := sign 99             -- 1
 
--- Output: ((7, 7, 42, 25, 2), (14, 20, 150), (True, LT, EQ, GT), (-1, 0, 1))
-main :=
-  ( (addition, subtraction, multiplication, division, remainder)
-  , (compound, grouped, nested)
-  , (isEqual, cmpLess, cmpEqual, cmpGreater)
-  , (signNeg, signZero, signPos)
-  )
+main := do {
+  putLine $ "3 + 4      = " <> show addition;
+  putLine $ "10 - 3     = " <> show subtraction;
+  putLine $ "6 * 7      = " <> show multiplication;
+  putLine $ "100 / 4    = " <> show division;
+  putLine $ "mod 17 5   = " <> show remainder;
+  putLine $ "2 + 3 * 4  = " <> show compound;
+  putLine $ "(2+3) * 4  = " <> show grouped;
+  putLine $ "compare 1 2 = " <> show cmpLess;
+  putLine $ "sign (-42) = " <> show signNeg
+}

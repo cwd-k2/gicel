@@ -5,6 +5,7 @@
 -- Run: bin/gicel run examples/gicel/basics/pattern-matching.gicel
 
 import Prelude
+import Console
 
 -- Nested constructor patterns: match inside Maybe without nesting case
 describe :: Maybe Bool -> String
@@ -69,5 +70,14 @@ test7 := classify 42                    -- "many"
 test8 := greet "Alice"                  -- "Hello, Alice!"
 test9 := greet "Charlie"               -- "Hi, Charlie!"
 
--- Output: ("yes", "empty", "deeply true", "one level", True, "zero", "many", "Hello, Alice!", "Hi, Charlie!")
-main := (test1, test2, test3, test4, test5, test6, test7, test8, test9)
+main := do {
+  putLine $ "Just True:         " <> test1;
+  putLine $ "Nothing:           " <> test2;
+  putLine $ "deep Just True:    " <> test3;
+  putLine $ "Just Nothing:      " <> test4;
+  putLine $ "Wrap Nothing:      " <> show test5;
+  putLine $ "classify 0:        " <> test6;
+  putLine $ "classify 42:       " <> test7;
+  putLine $ "greet Alice:       " <> test8;
+  putLine $ "greet Charlie:     " <> test9
+}

@@ -5,6 +5,7 @@
 -- Run: bin/gicel run examples/gicel/effects/full-grammar.gicel
 
 import Prelude
+import Console
 
 -- [import] — bring in stdlib
 
@@ -54,14 +55,13 @@ describeIt :: \a. Describe a => a -> String
 describeIt := describe
 
 -- [do] — monadic computation with let bindings
--- Output: (True, ("green", "true"), 12)
--- All 12 keywords used: case, do, form, type, infixl, infixr, infixn, impl, import, if, then, else
+-- All 12 keywords: case, do, form, type, infixl, infixr, infixn, impl, import, if, then, else
 main := do {
   a <- pure $ 2 <+> 3;            -- 2 + 3 + 1 = 6
   b <- pure $ 2 <**> 3 <**> 1;   -- 2 * (3 * 1) = 6 (right-assoc)
-  isEq := a === b;               -- 6 === 6 = True
-  colorName := describe Green;    -- "green"
-  boolName := describeIt True;
-  pair := (colorName, boolName) :: Pair String String;
-  pure (isEq, pair, a + b)
+  putLine $ "2 <+> 3 = " <> show a;
+  putLine $ "2 <**> 3 <**> 1 = " <> show b;
+  putLine $ "a === b: " <> show (a === b);
+  putLine $ "describe Green: " <> describe Green;
+  putLine $ "describe True: " <> describeIt True
 }

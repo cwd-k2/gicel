@@ -8,6 +8,7 @@
 -- Run: bin/gicel run examples/gicel/basics/pattern-bind.gicel
 
 import Prelude
+import Console
 
 -- Tuple pattern bind in a block
 swap := \p. { (a, b) := p; (b, a) }
@@ -37,9 +38,15 @@ monadicPatBind := thunk do {
   pure (c * d)
 }
 
--- Result (--json): ((2, 1), (1, 2, 3), "world", "Alice", 41, 7, 42)
 main := do {
   p <- force purePatBind;
   m <- force monadicPatBind;
-  pure (swap (1, 2), flatten ((1, 2), 3), sndOf3 ("hello", "world", "!"), getName { name: "Alice", age: 30 }, compute, p, m)
+  putLine $ "swap (1,2):   " <> show (swap (1, 2));
+  (a, b, c) := flatten ((1, 2), 3);
+  putLine $ "flatten:      (" <> show a <> ", " <> show b <> ", " <> show c <> ")";
+  putLine $ "sndOf3:       " <> sndOf3 ("hello", "world", "!");
+  putLine $ "getName:      " <> getName { name: "Alice", age: 30 };
+  putLine $ "compute:      " <> show compute;
+  putLine $ "pure bind:    " <> show p;
+  putLine $ "monadic bind: " <> show m
 }

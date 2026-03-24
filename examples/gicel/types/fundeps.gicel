@@ -1,35 +1,67 @@
 -- GICEL Example: Functional Dependencies
 --
--- Functional dependencies constrain multi-parameter type classes:
---   class C a b | a =: b
--- means "knowing a uniquely determines b." This improves type inference
--- by allowing the compiler to deduce type parameters automatically.
+-- In multi-parameter type classes, the type checker infers functional
+-- dependencies from instance coverage: when a single instance determines
+-- the remaining type parameters, ambiguity is resolved automatically.
 -- Run: bin/gicel run examples/gicel/types/fundeps.gicel
 
 import Prelude
+import Console
 
--- Convert class with fundep: the source type determines the target type.
+-- Convert: source type determines target type.
 form Convert := \a b. {
   convert: a -> b
 }
 
--- Bool → Int: True = 1, False = 0
 impl Convert Bool Int := {
   convert := \b. if b then 1 else 0
 }
 
--- Maybe a → List a: Just x = [x], Nothing = []
 impl Convert (Maybe a) (List a) := {
   convert := \m. case m { Just x => Cons x Nil; Nothing => Nil }
 }
 
--- Without the fundep, the compiler couldn't infer the return type
--- of `convert True` — it would need an explicit annotation.
--- With | a =: b, knowing a = Bool determines b = Int.
+-- Serialize: bidirectional encoding.
+form Serialize := \a b. {
+  encode: a -> b;
+  decode: b -> a
+}
+
+impl Serialize Int String := {
+  encode := show;
+  decode := \s. 0
+}
+
+impl Serialize Bool Int := {
+  encode := \b. if b then 1 else 0;
+  decode := \n. True
+}
+
+-- HasElem: container determines element type.
+form HasElem := \c e. {
+  getFirst: c -> Maybe e
+}
+
+impl HasElem (List a) a := {
+  getFirst := \xs. case xs { Cons x _ => Just x; Nil => Nothing }
+}
+
+-- Without instance-driven inference, convert True / encode 42 would
+-- be ambiguous. The type checker detects that Bool → Int is the only
+-- matching instance and infers the return type automatically.
+boolAsInt :: Int
 boolAsInt := convert True
 
--- Similarly, knowing a = Maybe Int determines b = List Int.
-listFromMaybe := convert (Just 42)
+intAsStr :: String
+intAsStr := encode 42
 
--- Output: (1, Cons 42 Nil)
-main := (boolAsInt, listFromMaybe)
+firstOfList :: Maybe Int
+firstOfList := getFirst [1, 2]
+
+main := do {
+  putLine $ "convert True:    " <> show boolAsInt;
+  putLine $ "convert Just 42: " <> show (convert (Just 42) :: List Int);
+  putLine $ "encode 42:       " <> intAsStr;
+  putLine $ "encode True:     " <> show (encode True :: Int);
+  putLine $ "getFirst [1,2]:  " <> show firstOfList
+}

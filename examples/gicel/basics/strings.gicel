@@ -10,6 +10,7 @@
 -- Run: bin/gicel run examples/gicel/basics/strings.gicel
 
 import Prelude
+import Console
 
 -- String literals
 greeting := "Hello, GICEL!"
@@ -59,8 +60,17 @@ badParse := readInt "abc"            -- Nothing
 -- showBool: convert Bool to String
 shownBool := showBool True           -- "True"
 
--- Output: ("Hello World", Just 'G', "GICEL", "HELLO", True, "x-y-z", "42", Just 123, LT)
-main :=
-  ( combined, firstChar, sliced
-  , upper, hasIt, joined, shown, parsed, cmpStr
-  )
+main := do {
+  putLine $ "concat:    " <> combined;
+  putLine $ "charAt 0:  " <> case firstChar { Just r => "Just '" <> fromRunes [r] <> "'"; Nothing => "Nothing" };
+  putLine $ "substring: " <> sliced;
+  putLine $ "toUpper:   " <> upper;
+  putLine $ "toLower:   " <> lower;
+  putLine $ "trim:      " <> trimmed;
+  putLine $ "contains:  " <> show hasIt;
+  putLine $ "split:     " <> show parts;
+  putLine $ "join:      " <> joined;
+  putLine $ "show 42:   " <> shown;
+  putLine $ "read 123:  " <> show parsed;
+  putLine $ "compare:   " <> show cmpStr
+}

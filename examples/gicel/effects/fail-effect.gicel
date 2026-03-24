@@ -10,6 +10,7 @@
 
 import Prelude
 import Effect.Fail
+import Console
 
 -- fromMaybe with Just: extracts the value
 extractJust := thunk do {
@@ -54,12 +55,17 @@ safeLookup := \m. case m {
 safeResult := safeLookup $ Just 99     -- 99
 safeDefault := safeLookup Nothing      -- 0
 
--- Output: (42, 100, 30, 15, 50, 99, 0)
 main := do {
   ej <- force extractJust;
   eo <- force extractOk;
   cs <- force chainSuccess;
   cr <- force chainResults;
   mx <- force mixed;
-  pure (ej, eo, cs, cr, mx, safeResult, safeDefault)
+  putLine $ "fromMaybe Just: " <> show ej;
+  putLine $ "fromResult Ok:  " <> show eo;
+  putLine $ "chain Maybe:    " <> show cs;
+  putLine $ "chain Result:   " <> show cr;
+  putLine $ "mixed:          " <> show mx;
+  putLine $ "safe Just 99:   " <> show safeResult;
+  putLine $ "safe Nothing:   " <> show safeDefault
 }

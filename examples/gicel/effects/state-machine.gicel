@@ -13,6 +13,7 @@
 
 import Prelude
 import Effect.State
+import Console
 
 -- Helper: integer percentage (amount * percent / 100)
 pct := \amount percent. amount * percent / 100
@@ -86,10 +87,11 @@ ledger := thunk do {
 }
 -- 1000 + 250 - 100 + 500 - 75 + 300 = 1875
 
--- Output: (177, 165, 1875)
 main := do {
   p <- force processOrder;
   q <- force premiumOrder;
   l <- force ledger;
-  pure (p, q, l)
+  putLine $ "order (50*3 -10% +20% +15): " <> show p;
+  putLine $ "premium (200 -25% +10%):    " <> show q;
+  putLine $ "ledger balance:             " <> show l
 }

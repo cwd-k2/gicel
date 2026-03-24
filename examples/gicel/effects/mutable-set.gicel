@@ -8,6 +8,7 @@
 
 import Prelude
 import Effect.Set as MSet
+import Console
 
 main := do {
   -- Build a set from insertions
@@ -38,6 +39,10 @@ main := do {
   -- Fold: sum all elements
   total <- MSet.fold (+) 0 s;
 
-  -- Result: (5, True, False, False, 4, [1, 3, 5, 9], 18)
-  pure (n, has4, has7, has4after, nAfter, sorted, total)
+  putLine $ "size:     " <> show n;
+  putLine $ "member 4: " <> show has4;
+  putLine $ "member 7: " <> show has7;
+  putLine $ "after del 4: " <> show has4after;
+  putLine $ "sorted:   " <> show sorted;
+  putLine $ "sum:      " <> show total
 }

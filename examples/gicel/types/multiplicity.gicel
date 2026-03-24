@@ -10,6 +10,7 @@
 -- Run: bin/gicel run examples/gicel/types/multiplicity.gicel
 
 import Prelude
+import Console
 
 form Mult := Unrestricted | Affine | Linear
 
@@ -60,7 +61,11 @@ lub := \a b. case a {
   Unrestricted => b
 }
 
--- Output: ("linear: must use exactly once", "affine: use at most once",
---          "unrestricted: use freely", Linear, Affine, Unrestricted)
-main := (describe Linear, describe Affine, describe Unrestricted,
-         lub Linear Affine, lub Affine Unrestricted, lub Unrestricted Unrestricted)
+main := do {
+  putLine $ "Linear:      " <> describe Linear;
+  putLine $ "Affine:      " <> describe Affine;
+  putLine $ "Unrestricted: " <> describe Unrestricted;
+  putLine $ "lub L A:     " <> describe (lub Linear Affine);
+  putLine $ "lub A U:     " <> describe (lub Affine Unrestricted);
+  putLine $ "lub U U:     " <> describe (lub Unrestricted Unrestricted)
+}

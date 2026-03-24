@@ -6,6 +6,7 @@
 -- Run: bin/gicel run examples/gicel/types/hkt.gicel
 
 import Prelude
+import Console
 
 -- A binary tree type (Type -> Type)
 form Tree := \a. { TLeaf: a -> Tree a; TBranch: Tree a -> Tree a -> Tree a }
@@ -21,6 +22,13 @@ impl Mappable Maybe := {
   mmap := \g mx. case mx {
     Nothing => Nothing;
     Just x  => Just (g x)
+  }
+}
+
+impl Show a => Show (Tree a) := {
+  show := fix $ \self t. case t {
+    TLeaf x     => "Leaf " <> show x;
+    TBranch l r => "Branch (" <> self l <> ") (" <> self r <> ")"
   }
 }
 
@@ -58,5 +66,9 @@ test3 := mmap not tree                -- TBranch (TLeaf False) (TLeaf True)
 -- This maps `not` inside a Tree inside a Maybe
 test4 := mmap (mmap not) (Just tree)
 
--- Output: (Just False, Nothing, True, Just (TBranch (TLeaf False) (TLeaf True)))
-main := (test1, test2, testIdType, test4)
+main := do {
+  putLine $ "mmap not (Just T): " <> show test1;
+  putLine $ "mmap not Nothing:  " <> show test2;
+  putLine $ "mmap id id:        " <> show testIdType;
+  putLine $ "nested mmap:       " <> show test4
+}

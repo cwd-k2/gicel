@@ -7,6 +7,7 @@
 
 import Prelude
 import Effect.Array
+import Console
 
 items := [(2, 3), (3, 4), (4, 5), (5, 6)]
 capacity := 10
@@ -39,5 +40,9 @@ solve := \items capacity. do {
   readAt capacity dp
 }
 
--- Output: Just 13
-main := solve items capacity
+main := do {
+  result <- solve items capacity;
+  putLine $ "items:    " <> show items;
+  putLine $ "capacity: " <> show capacity;
+  putLine $ "max value: " <> show result
+}

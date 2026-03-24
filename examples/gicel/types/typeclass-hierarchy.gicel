@@ -7,6 +7,7 @@
 -- Run: bin/gicel run examples/gicel/types/typeclass-hierarchy.gicel
 
 import Prelude
+import Console
 
 -- A custom ADT to work with
 form Priority := Low | Medium | High
@@ -63,5 +64,11 @@ test3 := describe Medium Low      -- (GT, False, False)
 test4 := toBool High              -- True (Show' via Ord' => Eq' => Show')
 test5 := eq' Medium Medium        -- True (Eq' via Ord' => Eq')
 
--- Output: ((LT, False, False), (EQ, True, True), (GT, False, False), True, True)
-main := (test1, test2, test3, test4, test5)
+main := do {
+  putLine $ "compare' Low High:  " <> show (compare' Low High);
+  putLine $ "compare' High High: " <> show (compare' High High);
+  putLine $ "eq' Low High:       " <> show (eq' Low High);
+  putLine $ "eq' High High:      " <> show (eq' High High);
+  putLine $ "toBool High:        " <> show test4;
+  putLine $ "eq' Medium Medium:  " <> show test5
+}

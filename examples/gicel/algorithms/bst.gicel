@@ -1,9 +1,11 @@
--- Binary Search Tree — insert, lookup, inorder traversal.
--- Uses GADT-style declaration for parameterized recursive type.
--- Requires: --recursion --packs prelude
--- Run: bin/gicel run --recursion --packs prelude examples/gicel/algorithms/bst.gicel
+-- GICEL Example: Binary Search Tree
+--
+-- Insert, lookup, inorder traversal, min/max, depth.
+-- Demonstrates recursive data + pattern matching + fix.
+-- Run: bin/gicel run --recursion examples/gicel/algorithms/bst.gicel
 
 import Prelude
+import Console
 
 -- ── BST data type (GADT form for parameterized recursive type) ──
 
@@ -99,13 +101,12 @@ testMax     := bstMax tree                         -- Just 8
 testSize    := bstSize tree                        -- 8
 testDepth   := bstDepth tree                       -- 4
 
--- Insert duplicates: no change
-tree2 := bstInsert 5 $ bstInsert 3 tree
-testDup := bstInorder tree2                        -- still [1..8]
-
--- Build from descending: worst-case depth
-worstCase  := bstFromList [8, 7, 6, 5, 4, 3, 2, 1]
-testWorst  := bstInorder worstCase                 -- [1..8]
-testWDepth := bstDepth worstCase                   -- 8 (fully left-skewed)
-
-main := (testInorder, testLookup1, testLookup2, testMin, testMax, testSize, testDepth, testDup, testWDepth)
+main := do {
+  putLine $ "inorder:    " <> show testInorder;
+  putLine $ "lookup 4:   " <> show testLookup1;
+  putLine $ "lookup 9:   " <> show testLookup2;
+  putLine $ "min:        " <> show testMin;
+  putLine $ "max:        " <> show testMax;
+  putLine $ "size:       " <> show testSize;
+  putLine $ "depth:      " <> show testDepth
+}

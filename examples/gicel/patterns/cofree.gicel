@@ -1,15 +1,11 @@
--- Cofree comonad in GICEL
+-- GICEL Example: Cofree Comonad
 --
--- Cofree f a = the dual of Free f a:
---   Free  f a = Pure a | Free (f (Free f a))    — builds up effects
---   Cofree f a = Cofree a (f (Cofree f a))       — annotates with context
---
--- Cofree List a = rose tree: each node has a value and a list of children.
---
--- Requires: --recursion (Functor instance uses fix via fmap)
+-- Cofree f a = a value paired with a functor-full of subtrees.
+-- Cofree List = rose tree, Cofree Maybe = non-empty list.
 -- Run: bin/gicel run --recursion examples/gicel/patterns/cofree.gicel
 
 import Prelude
+import Console
 
 -- ── Cofree ───────────────────────────────────────────────────
 --
@@ -76,7 +72,11 @@ nelHead := cofreeHead
 myNel := nelCons 1 $ nelCons 2 $ nel1 3
 test_nel := nelHead myNel  -- 1
 
--- ── Output ───────────────────────────────────────────────────
-
-main := ((test_root, test_children, test_values), (test_fmap, test_deep, test_nel))
--- Expected: ((1, 2, [2, 3]), (10, [102, 103], 1))
+main := do {
+  putLine $ "root:       " <> show test_root;
+  putLine $ "children:   " <> show test_children;
+  putLine $ "child vals: " <> show test_values;
+  putLine $ "fmap (*10): " <> show test_fmap;
+  putLine $ "fmap deep:  " <> show test_deep;
+  putLine $ "nel head:   " <> show test_nel
+}

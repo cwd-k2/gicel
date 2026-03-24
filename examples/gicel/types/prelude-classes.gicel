@@ -6,6 +6,7 @@
 -- Run: bin/gicel run examples/gicel/types/prelude-classes.gicel
 
 import Prelude
+import Console
 
 -- Eq: structural equality
 eqBool := eq True True                    -- True
@@ -93,11 +94,15 @@ maybeNone := maybe 0 (+ 1) Nothing             -- 0
 first := fst (10, 20)                    -- 10
 second := snd (10, 20)                   -- 20
 
--- Output: ((True, True, True, True), (LT, EQ, GT), (Just 42, Just 11), (42, 0), (10, 20))
-main :=
-  ( (eqBool, eqJust, eqList, eqTuple)
-  , (cmpBool, cmpUnit, cmpJusts)
-  , (wrapMaybe, apMaybe)
-  , (maybeJust, maybeNone)
-  , (first, second)
-  )
+main := do {
+  putLine $ "Eq Bool:     " <> show eqBool;
+  putLine $ "Eq Maybe:    " <> show eqJust;
+  putLine $ "Eq List:     " <> show eqList;
+  putLine $ "Ord Bool:    " <> show cmpBool;
+  putLine $ "Ord ():      " <> show cmpUnit;
+  putLine $ "Functor:     " <> show wrapMaybe;
+  putLine $ "Applicative: " <> show apMaybe;
+  putLine $ "maybe Just:  " <> show maybeJust;
+  putLine $ "maybe None:  " <> show maybeNone;
+  putLine $ "fst/snd:     " <> show first <> ", " <> show second
+}

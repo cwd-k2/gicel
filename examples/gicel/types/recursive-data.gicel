@@ -5,6 +5,7 @@
 -- Run: bin/gicel run --recursion examples/gicel/types/recursive-data.gicel
 
 import Prelude
+import Console
 
 -- Peano natural numbers: zero and successor
 form Nat := { Z: Nat; S: Nat -> Nat }
@@ -74,5 +75,12 @@ test8 := toInt three         -- 3
 test9 := depth bigTree       -- 2
 test10 := size bigTree       -- 3
 
--- Output: (True, False, True, True, False, Just True, Nothing, 3, 2, 3)
-main := (test1, test2, isLeaf (Leaf Z), test4, test5, test6, test7, test8, test9, test10)
+main := do {
+  putLine $ "isZero zero:  " <> show test1;
+  putLine $ "isZero three: " <> show test2;
+  putLine $ "toInt three:  " <> show test8;
+  putLine $ "isLeaf leaf:  " <> show test4;
+  putLine $ "leafValue:    " <> show test6;
+  putLine $ "depth:        " <> show test9;
+  putLine $ "size:         " <> show test10
+}

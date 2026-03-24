@@ -8,6 +8,7 @@
 -- Run: bin/gicel run examples/gicel/basics/bool-logic.gicel
 
 import Prelude
+import Console
 
 -- Boolean negation via pattern matching
 myNot :: Bool -> Bool
@@ -44,5 +45,9 @@ test3 := myXor True True
 -- OR composed with NOT: (not True) OR False = False OR False = False
 test4 := myOr (myNot True) False
 
--- Output: (True, False, False, False)
-main := (test1, test2, test3, test4)
+main := do {
+  putLine $ "not False AND True   = " <> show test1;
+  putLine $ "True => False        = " <> show test2;
+  putLine $ "True XOR True        = " <> show test3;
+  putLine $ "(not True) OR False  = " <> show test4
+}

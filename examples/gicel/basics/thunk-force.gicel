@@ -6,6 +6,7 @@
 -- Thunks are first-class values: store them, pass them, choose which to force.
 
 import Prelude
+import Console
 
 -- Basic: create a thunk and force it
 basic := thunk do {
@@ -52,12 +53,15 @@ nestedThunk := thunk do {
   pure x
 }
 
--- Output: (42, 100, 200, 30, 99)
 main := do {
   b <- force basic;
   br <- force branching;
   bf <- force branchFalse;
   ca <- force capturing;
   nt <- force nestedThunk;
-  pure (b, br, bf, ca, nt)
+  putLine $ "basic:     " <> show b;
+  putLine $ "branch T:  " <> show br;
+  putLine $ "branch F:  " <> show bf;
+  putLine $ "capturing: " <> show ca;
+  putLine $ "nested:    " <> show nt
 }

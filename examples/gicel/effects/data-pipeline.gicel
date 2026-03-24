@@ -5,6 +5,7 @@
 -- Run: bin/gicel run examples/gicel/effects/data-pipeline.gicel
 
 import Prelude
+import Console
 
 -- Raw scores from a class of students
 scores := [85, 92, 67, 95, 43, 78, 88, 55]
@@ -33,6 +34,13 @@ lowest := foldl min 999 scores                            -- 43
 -- Step 8: Count how many scored above 80
 aboveEighty := length $ filter (> 80) scores               -- 4
 
--- Compose a report tuple
--- Output: (8, 5, 463, 95, 43, 4)
-main := (totalStudents, passingCount, totalBoosted, highest, lowest, aboveEighty)
+main := do {
+  putLine $ "scores:    " <> show scores;
+  putLine $ "total:     " <> show totalStudents;
+  putLine $ "passing:   " <> show passing;
+  putLine $ "boosted:   " <> show boosted;
+  putLine $ "sum:       " <> show totalBoosted;
+  putLine $ "highest:   " <> show highest;
+  putLine $ "lowest:    " <> show lowest;
+  putLine $ "above 80:  " <> show aboveEighty
+}

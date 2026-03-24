@@ -8,6 +8,7 @@
 -- Run: bin/gicel run --recursion examples/gicel/types/gadts.gicel
 
 import Prelude
+import Console
 
 -- A GADT for typed expressions.
 -- The `:= { ... }` syntax with full type signatures per constructor
@@ -63,5 +64,13 @@ test6 := getInt (LitInt 42)              -- Just 42
 test7 := isLiteral (LitBool True)        -- True
 test8 := isLiteral (Not (LitBool True))  -- False
 
--- Output: ((7, True, 42, 6), (Just True, Just 42, True, False))
-main := ((test_eval1, test_eval2, test_eval3, test_eval4), (test5, test6, test7, test8))
+main := do {
+  putLine $ "3 + 4:       " <> show test_eval1;
+  putLine $ "not False:   " <> show test_eval2;
+  putLine $ "if T 42 0:   " <> show test_eval3;
+  putLine $ "(1+2) + 3:   " <> show test_eval4;
+  putLine $ "getBool:     " <> show test5;
+  putLine $ "getInt:      " <> show test6;
+  putLine $ "isLiteral T: " <> show test7;
+  putLine $ "isLiteral Not: " <> show test8
+}

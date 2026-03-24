@@ -8,6 +8,7 @@
 
 import Prelude
 import Effect.Map as MMap
+import Console
 
 -- Word frequency counter: count occurrences of each word.
 main := do {
@@ -34,6 +35,9 @@ main := do {
   -- Collect all entries (sorted by key)
   entries <- MMap.toList freq;
 
-  -- Result: (Just 2, Nothing, Just 2, 2, [("hello", 2), ("world", 2)])
-  pure (hello, missing, world, afterDel, entries)
+  putLine $ "lookup hello:  " <> show hello;
+  putLine $ "lookup nope:   " <> show missing;
+  putLine $ "after adjust:  " <> show world;
+  putLine $ "size after del: " <> show afterDel;
+  putLine $ "entries:       " <> show entries
 }
