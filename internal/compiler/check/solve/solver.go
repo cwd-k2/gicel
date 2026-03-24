@@ -155,6 +155,23 @@ func (s *Solver) SolveWanteds(
 		}
 	}
 
+	// Retry deferred residuals: metavariables may have been solved by
+	// later constraints (e.g. row unification from put/get sequences).
+	// Re-zonk and attempt resolution for any that are no longer ambiguous.
+	if shouldDefer != nil && len(residuals) > 0 {
+		var stillDeferred []*CtClass
+		for _, ct := range residuals {
+			ct.Args = s.zonkAll(ct.Args)
+			if shouldDefer(ct.ClassName, ct.Args) {
+				stillDeferred = append(stillDeferred, ct)
+			} else {
+				key := constraintKey(ct.ClassName, ct.Args)
+				s.resolveCtClassKeyed(ct, key, resolutions)
+			}
+		}
+		residuals = stillDeferred
+	}
+
 	s.inertSet.Reset()
 	return resolutions, residuals
 }
