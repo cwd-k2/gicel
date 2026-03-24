@@ -28,9 +28,8 @@ type CtClass struct {
 	ConstraintVar types.Type
 }
 
-func (*CtClass) ctMarker()               {}
-func (c *CtClass) ctPlaceholder() string { return c.Placeholder }
-func (c *CtClass) ctSpan() span.Span     { return c.S }
+func (*CtClass) ctMarker()           {}
+func (c *CtClass) ctSpan() span.Span { return c.S }
 
 // CtFunEq represents a stuck type family equation: F args ~ resultMeta.
 // When blocking metavariables are solved, the equation is kicked out

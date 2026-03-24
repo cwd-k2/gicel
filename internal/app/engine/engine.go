@@ -245,9 +245,6 @@ func (e *Engine) Compile(ctx context.Context, source string) (*CompileResult, er
 	cfg := pc.makeCheckConfig()
 	cfg.Context = ctx
 	cfg.EntryPoint = pc.entryPoint
-	if cfg.EntryPoint == "" {
-		cfg.EntryPoint = DefaultEntryPoint
-	}
 	prog, _, checkErrs := check.CheckModule(ast, src, cfg)
 	if checkErrs.HasErrors() {
 		return nil, &CompileError{Errors: checkErrs}

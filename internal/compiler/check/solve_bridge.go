@@ -75,24 +75,7 @@ func (ch *Checker) substitutePlaceholders(expr ir.Core, resolutions map[string]i
 	return solve.SubstitutePlaceholders(expr, resolutions)
 }
 
-// zonkAll applies Zonk to each type in the slice.
-func (ch *Checker) zonkAll(tys []types.Type) []types.Type {
-	result := make([]types.Type, len(tys))
-	for i, t := range tys {
-		result[i] = ch.unifier.Zonk(t)
-	}
-	return result
-}
-
 // sliceHasMeta returns true if any type in the slice contains an unsolved TyMeta.
 func sliceHasMeta(tys []types.Type) bool {
 	return solve.SliceHasMeta(tys)
-}
-
-// typeHasMeta returns true if the type contains an unsolved TyMeta.
-func typeHasMeta(ty types.Type) bool {
-	return types.AnyType(ty, func(t types.Type) bool {
-		_, ok := t.(*types.TyMeta)
-		return ok
-	})
 }

@@ -202,7 +202,7 @@ func TestCtInterfaceCompliance(t *testing.T) {
 
 	cc := &CtClass{Placeholder: "p1", ClassName: "Eq", S: s}
 	ct = cc
-	if cc.ctPlaceholder() != "p1" {
+	if cc.Placeholder != "p1" {
 		t.Fatal("CtClass placeholder mismatch")
 	}
 	if ct.ctSpan() != s {

@@ -139,9 +139,6 @@ func (pc *pipelineCtx) compileMain(source string) (*ir.Program, *span.Source, er
 	cfg := pc.makeCheckConfig()
 	cfg.Context = pc.ctx
 	cfg.EntryPoint = pc.entryPoint
-	if cfg.EntryPoint == "" {
-		cfg.EntryPoint = DefaultEntryPoint
-	}
 	prog, checkErrs := check.Check(ast, src, cfg)
 	if checkErrs.HasErrors() {
 		return nil, nil, &CompileError{Errors: checkErrs}
@@ -157,9 +154,6 @@ func (pc *pipelineCtx) assembleRuntime(prog *ir.Program, src *span.Source) *Runt
 	entries := pc.store.Entries()
 
 	entryName := pc.entryPoint
-	if entryName == "" {
-		entryName = DefaultEntryPoint
-	}
 	sortedMain := ir.SortBindings(prog.Bindings)
 	var entryExpr ir.Core
 	for _, b := range sortedMain {
