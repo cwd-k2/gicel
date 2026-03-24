@@ -1,6 +1,9 @@
 package check
 
 import (
+	"fmt"
+
+	"github.com/cwd-k2/gicel/internal/infra/diagnostic"
 	"github.com/cwd-k2/gicel/internal/lang/ir"
 	"github.com/cwd-k2/gicel/internal/lang/syntax"
 	"github.com/cwd-k2/gicel/internal/lang/types"
@@ -39,8 +42,15 @@ func (ch *Checker) processFormDeclParts(d *syntax.DeclForm, parts formBodyParts,
 		coreDecl.TyParams = append(coreDecl.TyParams, ir.TyParam{Name: p.Name, Kind: paramKinds[i]})
 	}
 
+	seenCons := make(map[string]bool, len(parts.Fields))
 	for _, field := range parts.Fields {
 		conName := field.Label
+		if seenCons[conName] {
+			ch.addCodedError(diagnostic.ErrDuplicateDecl, field.S,
+				fmt.Sprintf("duplicate constructor %q in form %s", conName, d.Name))
+			continue
+		}
+		seenCons[conName] = true
 		fieldTy := ch.resolveTypeExpr(field.Type)
 
 		// Constructor type is the full GADT-style type.

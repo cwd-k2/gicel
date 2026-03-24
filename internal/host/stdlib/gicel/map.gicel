@@ -84,3 +84,7 @@ mapValues := _mapMapValues
 
 filterWithKey :: \k v. (k -> v -> Bool) -> Map k v -> Map k v
 filterWithKey := _mapFilterWithKey
+
+impl (Ord k, Show k, Show v) => Show (Map k v) := {
+  show := \m. "Map.fromList " <> show (toList m)
+}

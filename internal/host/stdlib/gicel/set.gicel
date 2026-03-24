@@ -60,3 +60,16 @@ intersection := _setIntersection compare
 
 difference :: \k. Ord k => Set k -> Set k -> Set k
 difference := _setDifference compare
+
+fold :: \k b. (b -> k -> b) -> b -> Set k -> b
+fold := \f z s. foldl f z (_setToList s)
+
+filter :: \k. Ord k => (k -> Bool) -> Set k -> Set k
+filter := \p s. fold (\acc k. if p k then _setInsert compare k acc else acc) (_setEmpty compare) s
+
+map :: \k1 k2. (Ord k1, Ord k2) => (k1 -> k2) -> Set k1 -> Set k2
+map := \f s. fold (\acc k. _setInsert compare (f k) acc) (_setEmpty compare) s
+
+impl (Ord k, Show k) => Show (Set k) := {
+  show := \s. "Set.fromList " <> show (toList s)
+}

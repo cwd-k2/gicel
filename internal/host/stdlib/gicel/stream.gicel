@@ -48,3 +48,7 @@ impl Foldable Stream := {
     LCons x t => f x (self (t ()))
   }
 }
+
+impl Show a => Show (Stream a) := {
+  show := \s. "[" <> join ", " (fmap show (take 10 s)) <> ", ...]"
+}

@@ -51,3 +51,7 @@ impl FromList (Slice a) := {
 }
 
 impl ToList (Slice a) := { toList := _sliceToList }
+
+impl Show a => Show (Slice a) := {
+  show := \s. "Slice.fromList " <> show (toList s)
+}
