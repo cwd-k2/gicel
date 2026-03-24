@@ -11,8 +11,6 @@ import (
 )
 
 // consoleSource is the GICEL module source for the Console pack.
-// The console capability is a unit marker; actual IO is performed
-// by the host primitives registered below.
 const consoleSource = `import Prelude
 
 _consolePutLine :: String -> Computation { console: () | r } { console: () | r } ()
@@ -29,20 +27,27 @@ getLine := _consoleGetLine
 `
 
 // consolePack is a CLI-only pack that provides real stdio operations.
-// Unlike Effect.IO (which buffers output in the capability environment),
-// Console reads from stdin and writes to stdout directly.
-//
-// Security: this pack is registered only by the CLI binary, never by
-// RunSandbox or the Go embedding API. Untrusted code cannot access
-// real stdio unless the host explicitly provides it.
+// In buffer mode (--json), output is captured in the capability environment
+// instead of written to stdout.
 var consolePack registry.Pack = func(e registry.Registrar) error {
 	e.RegisterPrim("_consolePutLine", putLineImpl)
 	e.RegisterPrim("_consoleGetLine", getLineImpl)
 	return e.RegisterModule("Console", consoleSource)
 }
 
-// stdinScanner is shared across getLine calls within a single CLI run.
-var stdinScanner = bufio.NewScanner(os.Stdin)
+// consoleMode controls whether Console writes to real stdio or buffers.
+var consoleMode struct {
+	buffer bool // true = capture to capEnv (--json mode)
+}
+
+var (
+	stdinScanner = bufio.NewScanner(os.Stdin)
+	stdoutWriter = bufio.NewWriter(os.Stdout)
+)
+
+func flushConsole() { stdoutWriter.Flush() }
+
+var unitVal = &eval.RecordVal{Fields: map[string]eval.Value{}}
 
 func putLineImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
 	hv, ok := args[0].(*eval.HostVal)
@@ -53,11 +58,19 @@ func putLineImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Ap
 	if !ok {
 		return nil, ce, fmt.Errorf("putLine: expected string, got %T", hv.Inner)
 	}
-	fmt.Println(s)
-	return &eval.RecordVal{Fields: map[string]eval.Value{}}, ce, nil
+	if consoleMode.buffer {
+		return unitVal, appendConsoleBuffer(ce, s), nil
+	}
+	stdoutWriter.WriteString(s)
+	stdoutWriter.WriteByte('\n')
+	stdoutWriter.Flush()
+	return unitVal, ce, nil
 }
 
 func getLineImpl(_ context.Context, ce eval.CapEnv, _ []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
+	if consoleMode.buffer {
+		return &eval.HostVal{Inner: ""}, ce, fmt.Errorf("getLine: not available in --json mode")
+	}
 	if stdinScanner.Scan() {
 		return &eval.HostVal{Inner: stdinScanner.Text()}, ce, nil
 	}
@@ -65,4 +78,16 @@ func getLineImpl(_ context.Context, ce eval.CapEnv, _ []eval.Value, _ eval.Appli
 		return nil, ce, fmt.Errorf("getLine: %w", err)
 	}
 	return &eval.HostVal{Inner: ""}, ce, nil
+}
+
+// appendConsoleBuffer captures a console line into the capability environment.
+func appendConsoleBuffer(ce eval.CapEnv, line string) eval.CapEnv {
+	existing, _ := ce.Get("console")
+	var buf []string
+	if b, ok := existing.([]string); ok {
+		buf = append(b[:len(b):len(b)], line)
+	} else {
+		buf = []string{line}
+	}
+	return ce.Set("console", buf)
 }

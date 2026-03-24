@@ -62,22 +62,22 @@ echo ""
 echo "Normal operation:"
 
 expect_output "arithmetic" "7" \
-  "$GICEL" run -e 'import Prelude; main := 1 + 2 * 3'
+  "$GICEL" run --show -e 'import Prelude; main := 1 + 2 * 3'
 
 expect_output "string concat" '"42!"' \
-  "$GICEL" run -e 'import Prelude; main := show 42 <> "!"'
+  "$GICEL" run --show -e 'import Prelude; main := show 42 <> "!"'
 
 expect_output "type check" "ok" \
   "$GICEL" check -e 'import Prelude; main := 1 + 2'
 
 expect_output "custom entry" "99" \
-  "$GICEL" run --entry myMain -e 'import Prelude; myMain := 99'
+  "$GICEL" run --show --entry myMain -e 'import Prelude; myMain := 99'
 
 expect_output "JSON output" '"ok": true' \
   "$GICEL" run --json -e 'import Prelude; main := 42'
 
 expect_output "type family reduction" "MkProxy" \
-  "$GICEL" run -e '
+  "$GICEL" run --show -e '
 import Prelude
 form Bool2 := True2 | False2
 type Not :: Bool2 := \(b: Bool2). case b { True2 => False2; False2 => True2 }
@@ -88,31 +88,31 @@ main := f MkProxy
 '
 
 expect_output "stateful computation" "11" \
-  "$GICEL" run -e '
+  "$GICEL" run --show -e '
 import Prelude
 import Effect.State
 main := do { put 10; x <- get; pure (x + 1) }
 '
 
 expect_output "recursion" "120" \
-  "$GICEL" run --recursion -e '
+  "$GICEL" run --show --recursion -e '
 import Prelude
 f := fix (\self n. case n { 0 => 1; _ => n * self (n - 1) })
 main := f 5
 '
 
 expect_output "stdin" "42" \
-  bash -c 'echo "import Prelude; main := 7 * 6" | '"$GICEL"' run -'
+  bash -c 'echo "import Prelude; main := 7 * 6" | '"$GICEL"' run --show -'
 
 expect_output "multi-module" '(3, "red", 6)' \
-  "$GICEL" run \
+  "$GICEL" run --show \
     --module Geometry=examples/cli/multi-module/Geometry.gicel \
     --module Color=examples/cli/multi-module/Color.gicel \
     --module MathLib=examples/cli/multi-module/MathLib.gicel \
     examples/cli/multi-module/main.gicel
 
 expect_ok "explain trace" \
-  "$GICEL" run --explain -e 'import Prelude; main := 1 + 2'
+  "$GICEL" run --show --explain -e 'import Prelude; main := 1 + 2'
 
 expect_ok "docs index" \
   "$GICEL" docs
@@ -132,10 +132,10 @@ echo ""
 echo "Error handling:"
 
 expect_fail "empty program" \
-  "$GICEL" run -e ''
+  "$GICEL" run --show -e ''
 
 expect_error_contains "no main" "not found" \
-  "$GICEL" run -e 'import Prelude; x := 42'
+  "$GICEL" run --show -e 'import Prelude; x := 42'
 
 expect_error_contains "type error" "type mismatch" \
   "$GICEL" check -e 'import Prelude; main := "hello" + 1'
@@ -147,7 +147,7 @@ expect_error_contains "missing file" "no such file" \
   "$GICEL" run --module Foo=nonexistent.gicel -e 'main := 1'
 
 expect_error_contains "fix without recursion" "unbound variable" \
-  "$GICEL" run -e 'import Prelude; f := fix (\self n. n); main := f 1'
+  "$GICEL" run --show -e 'import Prelude; f := fix (\self n. n); main := f 1'
 
 expect_error_contains "non-exhaustive" "missing" \
   "$GICEL" check -e '
@@ -211,31 +211,31 @@ echo ""
 echo "List patterns & pretty print:"
 
 expect_output "list pattern [x, y]" "7" \
-  "$GICEL" run -e 'import Prelude; f := \xs. case xs { [x, y] => x + y; _ => 0 }; main := f [3, 4]'
+  "$GICEL" run --show -e 'import Prelude; f := \xs. case xs { [x, y] => x + y; _ => 0 }; main := f [3, 4]'
 
 expect_output "list pattern []" '"empty"' \
-  "$GICEL" run -e 'import Prelude; f := \xs. case xs { [] => "empty"; _ => "other" }; main := f ([] :: List Int)'
+  "$GICEL" run --show -e 'import Prelude; f := \xs. case xs { [] => "empty"; _ => "other" }; main := f ([] :: List Int)'
 
 expect_output "list pattern nested" '"match"' \
-  "$GICEL" run -e 'import Prelude; f := \xs. case xs { [[1], [2, 3]] => "match"; _ => "no" }; main := f [[1], [2, 3]]'
+  "$GICEL" run --show -e 'import Prelude; f := \xs. case xs { [[1], [2, 3]] => "match"; _ => "no" }; main := f [[1], [2, 3]]'
 
 expect_output "list pattern with constructor" "99" \
-  "$GICEL" run -e 'import Prelude; f := \xs. case xs { [Just x, Nothing] => x; _ => 0 }; main := f [Just 99, Nothing]'
+  "$GICEL" run --show -e 'import Prelude; f := \xs. case xs { [Just x, Nothing] => x; _ => 0 }; main := f [Just 99, Nothing]'
 
 expect_output "list pattern literal" '"yes"' \
-  "$GICEL" run -e 'import Prelude; f := \xs. case xs { [1, 2, 3] => "yes"; _ => "no" }; main := f [1, 2, 3]'
+  "$GICEL" run --show -e 'import Prelude; f := \xs. case xs { [1, 2, 3] => "yes"; _ => "no" }; main := f [1, 2, 3]'
 
 expect_output "mixing Cons and []" "42" \
-  "$GICEL" run -e 'import Prelude; f := \xs. case xs { Cons x [] => x; _ => 0 }; main := f [42]'
+  "$GICEL" run --show -e 'import Prelude; f := \xs. case xs { Cons x [] => x; _ => 0 }; main := f [42]'
 
 expect_output "pretty list" "[1, 2, 3]" \
-  "$GICEL" run -e 'import Prelude; main := [1, 2, 3]'
+  "$GICEL" run --show -e 'import Prelude; main := [1, 2, 3]'
 
 expect_output "pretty nested list" "[[1, 2], [3]]" \
-  "$GICEL" run -e 'import Prelude; main := [[1, 2], [3]]'
+  "$GICEL" run --show -e 'import Prelude; main := [[1, 2], [3]]'
 
 expect_output "pretty empty list" "[]" \
-  "$GICEL" run -e 'import Prelude; main := ([] :: List Int)'
+  "$GICEL" run --show -e 'import Prelude; main := ([] :: List Int)'
 
 expect_output "JSON list array" '"value": [' \
   "$GICEL" run --json -e 'import Prelude; main := [1, 2, 3]'
@@ -311,7 +311,7 @@ expect_ok "1000 semicolons" \
   "$GICEL" check -e "$(printf ';%.0s' $(seq 1 1000))"
 
 expect_ok "semicolons around decls" \
-  "$GICEL" run -e ';;;import Prelude;;;;main := 1 + 2;;;;'
+  "$GICEL" run --show -e ';;;import Prelude;;;;main := 1 + 2;;;;'
 
 echo ""
 

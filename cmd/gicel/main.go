@@ -325,7 +325,14 @@ func preflightError(msg string, jsonOut bool) int {
 	return 1
 }
 
+// isUnitValue reports whether a value is the unit value ().
+func isUnitValue(v gicel.Value) bool {
+	rv, ok := v.(*gicel.RecordVal)
+	return ok && len(rv.Fields) == 0
+}
+
 func cmdRun(args []string) int {
+	defer flushConsole()
 	fs := flag.NewFlagSet("run", flag.ContinueOnError)
 	packs := fs.String("packs", "all", "comma-separated stdlib packs")
 	fs.StringVar(packs, "use", "all", "alias for --packs")
@@ -339,6 +346,7 @@ func cmdRun(args []string) int {
 	maxNesting := fs.Int("max-nesting", 512, "structural nesting depth limit")
 	maxAlloc := fs.Int64("max-alloc", 100*1024*1024, "allocation byte limit (default: 100 MiB)")
 	jsonOut := fs.Bool("json", false, "output as JSON")
+	show := fs.Bool("show", false, "display result value on stdout")
 	explain := fs.Bool("explain", false, "show semantic evaluation trace")
 	verbose := fs.Bool("verbose", false, "show source context in explain trace")
 	noColor := fs.Bool("no-color", false, "disable color output")
@@ -346,6 +354,11 @@ func cmdRun(args []string) int {
 	explainAll := fs.Bool("explain-all", false, "trace stdlib internals (with --explain)")
 	if err := fs.Parse(args); err != nil {
 		return 1
+	}
+
+	// --json mode: Console buffers output into capEnv instead of stdout.
+	if *jsonOut {
+		consoleMode.buffer = true
 	}
 
 	// Validate resource limit flags.
@@ -392,9 +405,13 @@ func cmdRun(args []string) int {
 	// Build per-execution options with explain/trace hooks.
 	var explainSteps []gicel.ExplainStep
 	var formatter *explainFormatter
+	consoleCap := any(nil)
+	if consoleMode.buffer {
+		consoleCap = []string{} // buffer mode: start with empty slice
+	}
 	opts := &gicel.RunOptions{
 		Entry: *entry,
-		Caps:  map[string]any{"console": nil},
+		Caps:  map[string]any{"console": consoleCap},
 	}
 	if *explain {
 		if *jsonOut {
@@ -460,7 +477,7 @@ func cmdRun(args []string) int {
 			out["summary"] = summarizeSteps(explainSteps)
 		}
 		outputJSON(out)
-	} else {
+	} else if *show {
 		fmt.Println(gicel.PrettyValue(result.Value))
 	}
 	return 0

@@ -1,0 +1,26 @@
+-- GICEL Example: FizzBuzz
+--
+-- Classic FizzBuzz using Console output and recursion.
+-- Prints numbers 1 to 30, replacing multiples of 3 with "Fizz",
+-- multiples of 5 with "Buzz", and multiples of both with "FizzBuzz".
+--
+-- Run with: gicel run --recursion examples/gicel/algorithms/fizzbuzz.gicel
+
+import Prelude
+import Console
+
+fizzbuzz :: Int -> String
+fizzbuzz := \n. case (mod n 3 == 0, mod n 5 == 0) {
+  (True, True)   => "FizzBuzz";
+  (True, False)  => "Fizz";
+  (False, True)  => "Buzz";
+  (False, False) => show n
+}
+
+main := fix (\loop i. case i > 30 {
+  True  => pure ();
+  False => do {
+    putLine (fizzbuzz i);
+    loop (i + 1)
+  }
+}) 1

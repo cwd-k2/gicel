@@ -1,16 +1,16 @@
 -- GICEL Example: Hello World
 --
--- The simplest GICEL program. Imports Prelude for integers and strings,
--- defines a greeting and computes 6 * 7, then returns both as a tuple.
+-- The classic first program. Uses the Console pack for real stdout output.
+-- Run with: gicel run examples/gicel/basics/hello.gicel
+--
+-- Output:
+--   Hello, GICEL!
+--   6 * 7 = 42
 
 import Prelude
+import Console
 
--- A simple string binding
-greeting := "Hello, GICEL!"
-
--- Arithmetic expression
-answer := 6 * 7
-
--- The entry point: a tuple of (String, Int)
--- Output: ("Hello, GICEL!", 42)
-main := (greeting, answer)
+main := do {
+  putLine "Hello, GICEL!";
+  putLine ("6 * 7 = " <> show (6 * 7))
+}
