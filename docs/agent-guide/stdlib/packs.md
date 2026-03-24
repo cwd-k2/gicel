@@ -15,5 +15,6 @@ Stdlib packs are loaded on the host side via `eng.Use(pack)` and imported in sou
 | `slice`   | `Data.Slice`   | [data-slice.md](data-slice.md)     |                        |
 | `map`     | `Data.Map`     | [data-map.md](data-map.md)         |                        |
 | `set`     | `Data.Set`     | [data-set.md](data-set.md)         |                        |
+| `console` | `Console`      | [console.md](console.md)           | CLI-only               |
 
 See also: [functions.md](functions.md) for Prelude combinators and operators.

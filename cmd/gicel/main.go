@@ -266,9 +266,33 @@ func readSource(fs *flag.FlagSet, expr string) ([]byte, error) {
 		return nil, fmt.Errorf("no source file specified (use -e or pass a file, - for stdin)")
 	}
 	if fs.Arg(0) == "-" {
-		return io.ReadAll(os.Stdin)
+		return readLimited(os.Stdin)
 	}
-	return os.ReadFile(fs.Arg(0))
+	return readFileLimited(fs.Arg(0))
+}
+
+// maxSourceSize is the maximum allowed source file size (10 MiB).
+const maxSourceSize = 10 * 1024 * 1024
+
+func readFileLimited(path string) ([]byte, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+	return readLimited(f)
+}
+
+func readLimited(r io.Reader) ([]byte, error) {
+	limited := io.LimitReader(r, maxSourceSize+1)
+	data, err := io.ReadAll(limited)
+	if err != nil {
+		return nil, err
+	}
+	if len(data) > maxSourceSize {
+		return nil, fmt.Errorf("source exceeds maximum size (%d MiB)", maxSourceSize/(1024*1024))
+	}
+	return data, nil
 }
 
 // registerUserModules parses --module Name=path flags and registers each module.
@@ -280,7 +304,7 @@ func registerUserModules(eng *gicel.Engine, modules []string) error {
 		}
 		name := spec[:eqIdx]
 		path := spec[eqIdx+1:]
-		data, err := os.ReadFile(path)
+		data, err := readFileLimited(path)
 		if err != nil {
 			return fmt.Errorf("reading module %s: %w", name, err)
 		}

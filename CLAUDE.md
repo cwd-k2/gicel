@@ -66,6 +66,7 @@ bin/gicel run [flags] <file>.gicel
 | `set`     | `Data.Set`     |                        |
 | `mmap`    | `Effect.Map`   |                        |
 | `mset`    | `Effect.Set`   |                        |
+| `console` | `Console`      | CLI-only               |
 
 ### check — type-check only
 

@@ -29,16 +29,19 @@ import Prelude
 main := 2 + 3
 ```
 
-### Hello World (requires Prelude and Effect.IO)
+### Hello World (requires Prelude and Console)
 
 ```
 import Prelude
-import Effect.IO
+import Console
 
-main := print "Hello, world!"
+main := putLine "Hello, world!"
 ```
 
-`main` here is a `Computation { io: () | r } { io: () | r } ()`. The host must provide the `io` capability.
+`main` here is a `Computation { console: () | r } { console: () | r } ()`. The CLI provides the `console` capability and `putLine` writes directly to stdout.
+
+> **Note:** `Effect.IO`'s `print` does _not_ write to stdout -- it appends to an internal buffer
+> retrieved from `result.CapEnv` after execution. Use `Console` when you want visible terminal output.
 
 ### Running Programs
 
@@ -66,23 +69,23 @@ gicel run --explain --verbose program.gicel
 
 CLI flags:
 
-| Flag            | Default   | Description                                                                                 |
-| --------------- | --------- | ------------------------------------------------------------------------------------------- |
-| `--packs`       | `all`     | Comma-separated packs: prelude, fail, state, io, stream, slice, map, set, array, mmap, mset |
-| `--module`      | --        | Register user module: `Name=path` (repeatable, run & check)                                 |
-| `--recursion`   |           | Enable recursive definitions (run, check)                                                   |
-| `--entry`       | `main`    | Entry point binding name                                                                    |
-| `--timeout`     | `5s`      | Execution/compilation timeout (run, check)                                                  |
-| `--max-steps`   | `100000`  | Step limit (run only)                                                                       |
-| `--max-depth`   | `100`     | Depth limit (run only)                                                                      |
-| `--max-nesting` | `512`     | Structural nesting depth limit (run only)                                                   |
-| `--max-alloc`   | `100 MiB` | Allocation byte limit (run only)                                                            |
-| `--json`        | `false`   | Output result as JSON (run, check)                                                          |
-| `--explain`     | `false`   | Show semantic evaluation trace (run only)                                                   |
-| `--explain-all` | `false`   | Trace stdlib internals too (with --explain)                                                 |
-| `--verbose`     | `false`   | Show source context in explain trace (run only)                                             |
-| `--no-color`    | `false`   | Disable color output; also respects `NO_COLOR` env var                                      |
-| `-e <source>`   | --        | Evaluate source string directly (run, check)                                                |
+| Flag            | Default   | Description                                                                                          |
+| --------------- | --------- | ---------------------------------------------------------------------------------------------------- |
+| `--packs`       | `all`     | Comma-separated packs: prelude, fail, state, io, stream, slice, map, set, array, mmap, mset, console |
+| `--module`      | --        | Register user module: `Name=path` (repeatable, run & check)                                          |
+| `--recursion`   |           | Enable recursive definitions (run, check)                                                            |
+| `--entry`       | `main`    | Entry point binding name                                                                             |
+| `--timeout`     | `5s`      | Execution/compilation timeout (run, check)                                                           |
+| `--max-steps`   | `100000`  | Step limit (run only)                                                                                |
+| `--max-depth`   | `100`     | Depth limit (run only)                                                                               |
+| `--max-nesting` | `512`     | Structural nesting depth limit (run only)                                                            |
+| `--max-alloc`   | `100 MiB` | Allocation byte limit (run only)                                                                     |
+| `--json`        | `false`   | Output result as JSON (run, check)                                                                   |
+| `--explain`     | `false`   | Show semantic evaluation trace (run only)                                                            |
+| `--explain-all` | `false`   | Trace stdlib internals too (with --explain)                                                          |
+| `--verbose`     | `false`   | Show source context in explain trace (run only)                                                      |
+| `--no-color`    | `false`   | Disable color output; also respects `NO_COLOR` env var                                               |
+| `-e <source>`   | --        | Evaluate source string directly (run, check)                                                         |
 
 **Inline source (`-e`):** Semicolons and newlines are interchangeable separators.
 Use `;` when writing inline: `gicel run -e 'import Prelude; main := 1 + 2'`.
@@ -101,7 +104,7 @@ main := 2 + 3
     Packs: []gicel.Pack{gicel.Prelude},
 })
 // result.Value is HostVal{Inner: int64(5)}
-// CLI prints: 5  (PrettyValue formats source-level terms)
+// CLI: use --json to see the result, or --show to print the value
 ```
 
 **Go API (Full lifecycle):**
