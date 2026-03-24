@@ -87,7 +87,8 @@ func (ev *Evaluator) Eval(env *Env, capEnv CapEnv, expr ir.Core) (EvalResult, er
 		ev.SetSource(savedSource)
 	}()
 
-	var pendingLeaveObs int // accumulated LeaveInternal calls to fire on resolution
+	var pendingLeaveObs int    // accumulated LeaveInternal calls to fire on resolution
+	var pendingForceSpan *span.Span // deferred ForceEffectful from Bind bounce
 	for {
 		r, err := ev.evalStep(env, capEnv, expr)
 		if err != nil {
@@ -103,6 +104,13 @@ func (ev *Evaluator) Eval(env *Env, capEnv CapEnv, expr ir.Core) (EvalResult, er
 			for range pendingLeaveObs {
 				ev.obs.LeaveInternal()
 			}
+			// Apply deferred ForceEffectful from Bind bounce.
+			if pendingForceSpan != nil {
+				r, err = ev.ForceEffectful(r, *pendingForceSpan)
+				if err != nil {
+					return EvalResult{}, err
+				}
+			}
 			return r, nil
 		}
 		// Unwind depth from the frame that bounced (Enter was already called).
@@ -117,6 +125,10 @@ func (ev *Evaluator) Eval(env *Env, capEnv CapEnv, expr ir.Core) (EvalResult, er
 		// Follow source context through the bounce chain.
 		if b.source != nil {
 			ev.SetSource(b.source)
+		}
+		// Track deferred ForceEffectful from Bind bounces.
+		if b.forceSpan != nil {
+			pendingForceSpan = b.forceSpan
 		}
 		env, capEnv, expr = b.env, b.capEnv, b.expr
 	}
@@ -252,16 +264,13 @@ func (ev *Evaluator) evalStep(env *Env, capEnv CapEnv, expr ir.Core) (EvalResult
 			ev.obs.Emit(ev.budget.Depth(), ExplainBind, bindDetail(e.Var, PrettyValue(compR.Value), true), e.S)
 		}
 		bodyEnv := env.Extend(e.Var, compR.Value)
-		if err := ev.budget.Enter(); err != nil {
-			return EvalResult{}, err
-		}
-		bodyR, err := ev.Eval(bodyEnv, compR.CapEnv, e.Body)
-		ev.budget.Leave()
-		if err != nil {
-			return EvalResult{}, err
-		}
-		// Force effectful PrimVals in the body result too (e.g. do { put 42; get }).
-		return ev.ForceEffectful(bodyR, e.S)
+		// Tail position: bounce body instead of recursing.
+		// ForceEffectful on the body result is deferred to the trampoline via forceSpan.
+		s := e.S
+		return EvalResult{Value: &bounceVal{
+			env: bodyEnv, capEnv: compR.CapEnv, expr: e.Body,
+			forceSpan: &s,
+		}}, nil
 
 	case *ir.Thunk:
 		if err := ev.budget.Alloc(costThunk); err != nil {

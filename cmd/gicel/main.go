@@ -65,7 +65,7 @@ Flags (run only):
   --entry <name>   Entry point binding (default: main)
   --timeout <dur>  Execution timeout (default: 5s)
   --max-steps <n>    Step limit (default: 100000)
-  --max-depth <n>    Depth limit (default: 100)
+  --max-depth <n>    Depth limit (default: 10000)
   --max-nesting <n>  Structural nesting depth limit (default: 512)
   --max-alloc <n>    Allocation byte limit (default: 100 MiB)
   --json           Output result as JSON
@@ -390,7 +390,7 @@ func cmdRun(args []string) int {
 	entry := fs.String("entry", gicel.DefaultEntryPoint, "entry point binding")
 	timeout := fs.Duration("timeout", 5*time.Second, "execution timeout")
 	maxSteps := fs.Int("max-steps", 100000, "step limit")
-	maxDepth := fs.Int("max-depth", 100, "depth limit")
+	maxDepth := fs.Int("max-depth", 10000, "depth limit")
 	maxNesting := fs.Int("max-nesting", 512, "structural nesting depth limit")
 	maxAlloc := fs.Int64("max-alloc", 100*1024*1024, "allocation byte limit (default: 100 MiB)")
 	jsonOut := fs.Bool("json", false, "output as JSON")

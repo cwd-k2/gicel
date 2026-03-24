@@ -73,6 +73,9 @@ type IndirectVal struct {
 // bouncing frame performed (closure application, Force body).
 // leaveObs records whether ev.obs.LeaveInternal() is needed (closure
 // application of an internal-named function).
+// forceSpan, when non-nil, defers a ForceEffectful call to the trampoline.
+// This is used by Bind to avoid recursive Eval while still forcing the
+// final result (e.g. a bare effectful PrimOp at the end of a do-block).
 type bounceVal struct {
 	env        *Env
 	capEnv     CapEnv
@@ -80,6 +83,7 @@ type bounceVal struct {
 	leaveDepth int          // pending ev.budget.Leave() calls
 	leaveObs   bool         // pending ev.obs.LeaveInternal()
 	source     *span.Source // source context for the continuation (nil = no change)
+	forceSpan  *span.Span  // pending ForceEffectful call site (nil = none)
 }
 
 func (*HostVal) valueNode()     {}

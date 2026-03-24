@@ -179,3 +179,98 @@ func BenchmarkCheckLargeDecl200(b *testing.B) {
 		benchCheck(b, source)
 	}
 }
+
+func BenchmarkCheckLargeDecl500(b *testing.B) {
+	source := largeDeclSource(500)
+	b.ResetTimer()
+	for b.Loop() {
+		benchCheck(b, source)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Do-block bind chain type inference scaling
+// ---------------------------------------------------------------------------
+
+// doBlockSource generates a program with n sequential get/put binds in a do-block.
+// Tests state type propagation through infer-mode bind chains.
+func doBlockSource(n int) string {
+	var b strings.Builder
+	b.WriteString("form Bool := { True: Bool; False: Bool; }\n")
+	b.WriteString("form Unit := { MkUnit: Unit }\n")
+	b.WriteString("form Computation := \\(s: Type) (t: Type) (a: Type). { MkComp: (s -> (a, t)) -> Computation s t a }\n")
+	b.WriteString("form IxMonad := \\(m: Type -> Type -> Type -> Type). {\n")
+	b.WriteString("  ixpure: \\a s. a -> m s s a;\n")
+	b.WriteString("  ixbind: \\a b s t u. m s t a -> (a -> m t u b) -> m s u b\n}\n")
+	b.WriteString("impl IxMonad Computation := {\n")
+	b.WriteString("  ixpure := \\a. MkComp (\\s. (a, s));\n")
+	b.WriteString("  ixbind := \\ma f. MkComp (\\s. case ma { MkComp run => case run s { (a, s2) => case f a { MkComp run2 => run2 s2 } } })\n}\n")
+	b.WriteString("myGet :: Computation Bool Bool Bool\nmyGet := MkComp (\\s. (s, s))\n")
+	b.WriteString("myPut :: Bool -> Computation Bool Bool Unit\nmyPut := \\v. MkComp (\\s. (MkUnit, v))\n")
+	b.WriteString("compute := do {\n  myPut True;\n")
+	for i := 0; i < n; i++ {
+		fmt.Fprintf(&b, "  x%d <- myGet; myPut x%d;\n", i, i)
+	}
+	b.WriteString("  myGet\n}\nmain := compute\n")
+	return b.String()
+}
+
+func BenchmarkCheckDoBlock5(b *testing.B) {
+	source := doBlockSource(5)
+	b.ResetTimer()
+	for b.Loop() {
+		benchCheck(b, source)
+	}
+}
+
+func BenchmarkCheckDoBlock15(b *testing.B) {
+	source := doBlockSource(15)
+	b.ResetTimer()
+	for b.Loop() {
+		benchCheck(b, source)
+	}
+}
+
+func BenchmarkCheckDoBlock30(b *testing.B) {
+	source := doBlockSource(30)
+	b.ResetTimer()
+	for b.Loop() {
+		benchCheck(b, source)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Instance resolution with overlap (backtracking cost)
+// ---------------------------------------------------------------------------
+
+// overlappingInstanceSource generates a program where n types share the same
+// class, then resolves via a constrained function that triggers overlap checking.
+func overlappingInstanceSource(n int) string {
+	var b strings.Builder
+	b.WriteString("form Bool := { True: Bool; False: Bool; }\n")
+	b.WriteString("form Show := \\a. { show: a -> Bool }\n")
+	for i := 0; i < n; i++ {
+		fmt.Fprintf(&b, "form T%d := { C%d: T%d; }\n", i, i, i)
+		fmt.Fprintf(&b, "impl Show T%d := { show := \\x. True }\n", i)
+	}
+	// Resolve Show for the middle type — triggers linear scan over instances.
+	mid := n / 2
+	fmt.Fprintf(&b, "main := show C%d\n", mid)
+	return b.String()
+}
+
+func BenchmarkResolveOverlap50(b *testing.B) {
+	source := overlappingInstanceSource(50)
+	b.ResetTimer()
+	for b.Loop() {
+		benchCheck(b, source)
+	}
+}
+
+func BenchmarkResolveOverlap200(b *testing.B) {
+	source := overlappingInstanceSource(200)
+	b.ResetTimer()
+	for b.Loop() {
+		benchCheck(b, source)
+	}
+}

@@ -644,10 +644,9 @@ func TestChargeAllocViaContext(t *testing.T) {
 }
 
 func TestDepthLimitError(t *testing.T) {
-	// With TCO, closure application depth is flat (Enter→bounce→Leave).
-	// Depth only accumulates via Bind chains (not trampolined).
-	// Build: Bind(Pure(Unit), \_. Bind(Pure(Unit), \_. Pure(Unit)))
-	// = 2 nested Binds → depth 2.
+	// Bind chains are trampolined (TCO) — they do NOT consume depth.
+	// Depth only accumulates via non-tail closure application.
+	// Verify that a deep Bind chain succeeds even with maxDepth=1.
 	ev := NewEvaluator(budget.New(context.Background(), 1_000_000, 1), NewPrimRegistry(), nil, nil, nil)
 	term := &ir.Bind{
 		Comp: &ir.Pure{Expr: &ir.Con{Name: "Unit"}},
@@ -659,16 +658,13 @@ func TestDepthLimitError(t *testing.T) {
 		},
 	}
 	_, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), term)
-	if err == nil {
-		t.Fatal("expected DepthLimitError for depth-2 Bind chain at maxDepth=1")
-	}
-	if _, ok := err.(*budget.DepthLimitError); !ok {
-		t.Errorf("expected *DepthLimitError, got %T: %v", err, err)
+	if err != nil {
+		t.Fatalf("Bind chain should not consume depth (TCO), got: %v", err)
 	}
 }
 
 func TestDepthLimitMultiLevel(t *testing.T) {
-	// Build chain of N nested Binds (depth accumulates via Bind).
+	// Bind chains are trampolined — arbitrarily deep chains succeed with low maxDepth.
 	buildBindChain := func(depth int) ir.Core {
 		var body ir.Core = &ir.Pure{Expr: &ir.Con{Name: "Unit"}}
 		for range depth {
@@ -681,18 +677,63 @@ func TestDepthLimitMultiLevel(t *testing.T) {
 		return body
 	}
 
-	// maxDepth=5: chain of 5 Binds should succeed.
+	// maxDepth=5: chain of 100 Binds should succeed (Bind does not consume depth).
 	ev := NewEvaluator(budget.New(context.Background(), 1_000_000, 5), NewPrimRegistry(), nil, nil, nil)
-	_, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), buildBindChain(5))
+	_, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), buildBindChain(100))
 	if err != nil {
-		t.Fatalf("depth-5 Bind chain at maxDepth=5 should succeed, got: %v", err)
+		t.Fatalf("100-Bind chain at maxDepth=5 should succeed (TCO), got: %v", err)
 	}
+}
 
-	// Chain of 6 should fail.
-	ev2 := NewEvaluator(budget.New(context.Background(), 1_000_000, 5), NewPrimRegistry(), nil, nil, nil)
-	_, err = ev2.Eval(EmptyEnv(), EmptyCapEnv(), buildBindChain(6))
-	if _, ok := err.(*budget.DepthLimitError); !ok {
-		t.Errorf("depth-6 Bind chain at maxDepth=5 should fail with DepthLimitError, got %T: %v", err, err)
+func TestBindChainTCO(t *testing.T) {
+	// 10000-deep Bind chain with maxDepth=10 must succeed, proving TCO.
+	var body ir.Core = &ir.Pure{Expr: &ir.Lit{Value: int64(42)}}
+	for range 10000 {
+		body = &ir.Bind{
+			Comp: &ir.Pure{Expr: &ir.Con{Name: "Unit"}},
+			Var:  "_",
+			Body: body,
+		}
+	}
+	ev := NewEvaluator(budget.New(context.Background(), 1_000_000, 10), NewPrimRegistry(), nil, nil, nil)
+	r, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), body)
+	if err != nil {
+		t.Fatalf("10000-Bind chain should succeed with TCO, got: %v", err)
+	}
+	hv, ok := r.Value.(*HostVal)
+	if !ok || hv.Inner != int64(42) {
+		t.Errorf("expected 42, got %v", r.Value)
+	}
+}
+
+func TestBindForceEffectfulDeferred(t *testing.T) {
+	// Verify that ForceEffectful is applied to the terminal value of a Bind
+	// chain when the terminal is a bare effectful PrimOp. The ForceEffectful
+	// call is deferred to the trampoline via forceSpan.
+	prims := NewPrimRegistry()
+	prims.Register("getState", func(ctx context.Context, ce CapEnv, args []Value, _ Applier) (Value, CapEnv, error) {
+		return &HostVal{Inner: int64(99)}, ce, nil
+	})
+	ev := NewEvaluator(budget.New(context.Background(), 1_000_000, 10), prims, nil, nil, nil)
+
+	// Bind(Pure(Unit), _, Bind(Pure(Unit), _, PrimOp("getState")))
+	// The final PrimOp needs ForceEffectful via the trampoline.
+	term := &ir.Bind{
+		Comp: &ir.Pure{Expr: &ir.Con{Name: "Unit"}},
+		Var:  "_",
+		Body: &ir.Bind{
+			Comp: &ir.Pure{Expr: &ir.Con{Name: "Unit"}},
+			Var:  "_",
+			Body: &ir.PrimOp{Name: "getState", Arity: 0, Effectful: true},
+		},
+	}
+	r, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), term)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	hv, ok := r.Value.(*HostVal)
+	if !ok || hv.Inner != int64(99) {
+		t.Errorf("expected ForceEffectful to produce 99, got %v", r.Value)
 	}
 }
 

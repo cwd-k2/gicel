@@ -6,6 +6,8 @@ package eval
 import (
 	"fmt"
 	"testing"
+
+	"github.com/cwd-k2/gicel/internal/lang/ir"
 )
 
 // ---------------------------------------------------------------------------
@@ -71,5 +73,49 @@ func BenchmarkClosureEnvBuild(b *testing.B) {
 		}
 		// Simulate closure capture + lookup.
 		env.Lookup("captured50")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Env.TrimTo (hot path in pprof: 16% of eval alloc)
+// ---------------------------------------------------------------------------
+
+// BenchmarkEnvTrimTo measures the cost of TrimTo, which creates a new env
+// keeping only named bindings. This is called on every closure application.
+func BenchmarkEnvTrimTo(b *testing.B) {
+	env := EmptyEnv()
+	for i := 0; i < 100; i++ {
+		env = env.Extend(fmt.Sprintf("v%d", i), &HostVal{Inner: i})
+	}
+	// Pre-flatten.
+	env.Lookup("v0")
+	names := []string{"v10", "v30", "v50", "v70", "v90"}
+	b.ResetTimer()
+	for b.Loop() {
+		env.TrimTo(names)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Match allocation (hot path in pprof: 13% of eval alloc)
+// ---------------------------------------------------------------------------
+
+// BenchmarkMatchNestedCon measures pattern matching on a nested constructor.
+func BenchmarkMatchNestedCon(b *testing.B) {
+	// Simulate: Cons x (Cons y (Cons z Nil)) → bindings {x, y, z}
+	inner3 := &ConVal{Con: "Nil"}
+	inner2 := &ConVal{Con: "Cons", Args: []Value{&HostVal{Inner: 3}, inner3}}
+	inner1 := &ConVal{Con: "Cons", Args: []Value{&HostVal{Inner: 2}, inner2}}
+	val := &ConVal{Con: "Cons", Args: []Value{&HostVal{Inner: 1}, inner1}}
+
+	// Pattern: Cons x (Cons y (Cons z Nil))
+	patNil := &ir.PCon{Con: "Nil"}
+	patZ := &ir.PCon{Con: "Cons", Args: []ir.Pattern{&ir.PVar{Name: "z"}, patNil}}
+	patY := &ir.PCon{Con: "Cons", Args: []ir.Pattern{&ir.PVar{Name: "y"}, patZ}}
+	pat := &ir.PCon{Con: "Cons", Args: []ir.Pattern{&ir.PVar{Name: "x"}, patY}}
+
+	b.ResetTimer()
+	for b.Loop() {
+		Match(val, pat)
 	}
 }

@@ -122,3 +122,144 @@ func BenchmarkEngineEndToEndSmall(b *testing.B) {
 		}
 	}
 }
+
+// ---------------------------------------------------------------------------
+// Scale: large declaration count (500+ decls)
+// ---------------------------------------------------------------------------
+
+func BenchmarkEngineCompileLarge500(b *testing.B) {
+	source := largeSource(500)
+	b.ResetTimer()
+	for b.Loop() {
+		eng := NewEngine()
+		stdlib.Prelude(eng)
+		_, err := eng.NewRuntime(context.Background(), source)
+		if err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+// ---------------------------------------------------------------------------
+// All packs loaded (compile cost of full stdlib)
+// ---------------------------------------------------------------------------
+
+func BenchmarkEngineNewRuntimeAllPacks(b *testing.B) {
+	for b.Loop() {
+		eng := NewEngine()
+		stdlib.Prelude(eng)
+		stdlib.State(eng)
+		stdlib.Fail(eng)
+		stdlib.IO(eng)
+		stdlib.Slice(eng)
+		stdlib.Array(eng)
+		stdlib.Map(eng)
+		stdlib.Set(eng)
+		stdlib.EffectMap(eng)
+		stdlib.EffectSet(eng)
+		_, err := eng.NewRuntime(context.Background(),
+			"import Prelude\nimport Effect.State\nimport Effect.Fail\nimport Effect.IO\nimport Data.Slice\nimport Effect.Array as Arr\nimport Data.Map as Map\nimport Data.Set as Set\nimport Effect.Map as MMap\nimport Effect.Set as MSet\nmain := True\n")
+		if err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Do-block compile cost (state-threading bind chains)
+// ---------------------------------------------------------------------------
+
+func doBlockSource(binds int) string {
+	var b strings.Builder
+	b.WriteString("import Prelude\nimport Effect.State\n")
+	b.WriteString("compute := thunk do {\n  put 0;\n")
+	for i := 0; i < binds; i++ {
+		fmt.Fprintf(&b, "  n%d <- get; put (n%d + 1);\n", i, i)
+	}
+	b.WriteString("  get\n}\nmain := compute\n")
+	return b.String()
+}
+
+func BenchmarkEngineCompileDoBlock10(b *testing.B) {
+	source := doBlockSource(10)
+	b.ResetTimer()
+	for b.Loop() {
+		eng := NewEngine()
+		stdlib.Prelude(eng)
+		stdlib.State(eng)
+		_, err := eng.NewRuntime(context.Background(), source)
+		if err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkEngineCompileDoBlock30(b *testing.B) {
+	source := doBlockSource(30)
+	b.ResetTimer()
+	for b.Loop() {
+		eng := NewEngine()
+		stdlib.Prelude(eng)
+		stdlib.State(eng)
+		_, err := eng.NewRuntime(context.Background(), source)
+		if err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Effect.Array end-to-end (mutable array operations)
+// ---------------------------------------------------------------------------
+
+func BenchmarkEngineEndToEndArray(b *testing.B) {
+	source := `import Prelude
+import Effect.Array
+compute := thunk do {
+  arr <- new 100 0;
+  writeAt 0 42 arr;
+  writeAt 50 99 arr;
+  v <- readAt 50 arr;
+  pure v
+}
+main := compute
+`
+	for b.Loop() {
+		eng := NewEngine()
+		stdlib.Prelude(eng)
+		stdlib.Array(eng)
+		rt, err := eng.NewRuntime(context.Background(), source)
+		if err != nil {
+			b.Fatal(err)
+		}
+		_, err = rt.RunWith(context.Background(), nil)
+		if err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Data.Map end-to-end (immutable map operations)
+// ---------------------------------------------------------------------------
+
+func BenchmarkEngineEndToEndMap(b *testing.B) {
+	source := `import Prelude
+import Data.Map as Map
+m := Map.insert 3 "c" $ Map.insert 2 "b" $ Map.insert 1 "a" $ (Map.empty :: Map Int String)
+main := (Map.size m, Map.lookup 2 m)
+`
+	for b.Loop() {
+		eng := NewEngine()
+		stdlib.Prelude(eng)
+		stdlib.Map(eng)
+		rt, err := eng.NewRuntime(context.Background(), source)
+		if err != nil {
+			b.Fatal(err)
+		}
+		_, err = rt.RunWith(context.Background(), nil)
+		if err != nil {
+			b.Fatal(err)
+		}
+	}
+}

@@ -42,7 +42,7 @@ bin/gicel run [flags] <file>.gicel
 | `--entry <name>`     | `main`    | Entry point binding                              |
 | `--timeout <dur>`    | `5s`      | Execution timeout                                |
 | `--max-steps <n>`    | `100000`  | Step limit                                       |
-| `--max-depth <n>`    | `100`     | Depth limit                                      |
+| `--max-depth <n>`    | `10000`   | Depth limit                                      |
 | `--max-nesting <n>`  | `512`     | Structural nesting depth limit                   |
 | `--max-alloc <n>`    | `100 MiB` | Allocation byte limit                            |
 | `--json`             | off       | Output result as JSON                            |

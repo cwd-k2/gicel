@@ -884,7 +884,8 @@ func TestProbeE_PrimRegistryCloneIsolation(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestProbeE_BindDepthUnwind(t *testing.T) {
-	// After a Bind, depth should return to the pre-Bind level.
+	// Bind is trampolined (TCO) — it does not consume depth at all.
+	// Depth should be unchanged after a Bind.
 	ev := newTestEval()
 	depthBefore := ev.budget.Depth()
 	term := &ir.Bind{
