@@ -32,15 +32,38 @@ func (e *Env) Extend(name string, val Value) *Env {
 }
 
 // ExtendMany returns a new Env with multiple bindings.
-// Builds a flat Env directly for efficiency.
+// Builds a flat Env directly. Reuses parent's flat cache when available
+// to avoid a redundant flatten + copy cycle.
 func (e *Env) ExtendMany(bindings map[string]Value) *Env {
 	if len(bindings) == 0 {
 		return e
 	}
-	m := e.flatten()
-	combined := make(map[string]Value, len(m)+len(bindings))
-	for k, v := range m {
-		combined[k] = v
+	// If parent is already flat, clone its map and merge new bindings (1 alloc).
+	// Otherwise, flatten into a fresh combined map (also 1 alloc, but avoids
+	// the previous 2-alloc pattern of flatten() + separate combined map).
+	var combined map[string]Value
+	if e.flat != nil {
+		combined = make(map[string]Value, len(e.flat)+len(bindings))
+		for k, v := range e.flat {
+			combined[k] = v
+		}
+	} else {
+		combined = make(map[string]Value, e.size+len(bindings))
+		for cur := e; cur != nil; cur = cur.parent {
+			if cur.flat != nil {
+				for k, v := range cur.flat {
+					if _, exists := combined[k]; !exists {
+						combined[k] = v
+					}
+				}
+				break
+			}
+			if cur.name != "" {
+				if _, exists := combined[cur.name]; !exists {
+					combined[cur.name] = cur.val
+				}
+			}
+		}
 	}
 	for k, v := range bindings {
 		combined[k] = v
@@ -90,14 +113,44 @@ func (e *Env) Flatten() {
 
 // TrimTo returns a new flat Env containing only the named variables.
 // Used to implement safe-for-space closure conversion.
+//
+// Fast path: if the env is already flat, reads directly from the cached map.
+// Slow path: walks the chain with a name set, avoiding a full flatten.
 func (e *Env) TrimTo(names []string) *Env {
 	if len(names) == 0 {
 		return EmptyEnv()
 	}
-	m := make(map[string]Value, len(names))
+	// Fast path: flat cache available — direct lookup, no chain walk.
+	if e.flat != nil {
+		m := make(map[string]Value, len(names))
+		for _, name := range names {
+			if v, ok := e.flat[name]; ok {
+				m[name] = v
+			}
+		}
+		return &Env{flat: m, size: len(m)}
+	}
+	// Slow path: walk chain with a name set to avoid triggering flatten.
+	wanted := make(map[string]struct{}, len(names))
 	for _, name := range names {
-		if val, ok := e.Lookup(name); ok {
-			m[name] = val
+		wanted[name] = struct{}{}
+	}
+	m := make(map[string]Value, len(names))
+	for cur := e; cur != nil && len(wanted) > 0; cur = cur.parent {
+		if cur.flat != nil {
+			for name := range wanted {
+				if v, ok := cur.flat[name]; ok {
+					m[name] = v
+					delete(wanted, name)
+				}
+			}
+			break
+		}
+		if cur.name != "" {
+			if _, ok := wanted[cur.name]; ok {
+				m[cur.name] = cur.val
+				delete(wanted, cur.name)
+			}
 		}
 	}
 	return &Env{flat: m, size: len(m)}

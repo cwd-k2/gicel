@@ -5,64 +5,79 @@ import "github.com/cwd-k2/gicel/internal/lang/ir"
 // maxMatchDepth is the maximum recursion depth for pattern matching.
 const maxMatchDepth = 256
 
+// binding is a name-value pair collected during pattern matching.
+// Using a slice of bindings avoids intermediate map allocations.
+type binding struct {
+	name string
+	val  Value
+}
+
 // Match attempts to match a value against a pattern.
 // Returns the bindings on success, or nil on failure.
 func Match(val Value, pat ir.Pattern) map[string]Value {
-	return matchDepth(val, pat, 0)
+	// Pass non-nil empty slice so success-with-no-bindings (wildcard)
+	// is distinguishable from failure (nil).
+	bindings := collectBindings(val, pat, 0, []binding{})
+	if bindings == nil {
+		return nil
+	}
+	if len(bindings) == 0 {
+		return map[string]Value{}
+	}
+	m := make(map[string]Value, len(bindings))
+	for _, b := range bindings {
+		m[b.name] = b.val
+	}
+	return m
 }
 
-func matchDepth(val Value, pat ir.Pattern, depth int) map[string]Value {
+// collectBindings collects pattern bindings into a slice, avoiding
+// intermediate map allocations. Returns nil on match failure.
+// The acc slice is reused across recursive calls to minimize allocation.
+func collectBindings(val Value, pat ir.Pattern, depth int, acc []binding) []binding {
 	if depth > maxMatchDepth {
 		return nil
 	}
 	switch p := pat.(type) {
 	case *ir.PVar:
-		return map[string]Value{p.Name: val}
+		return append(acc, binding{p.Name, val})
 	case *ir.PWild:
-		return map[string]Value{}
+		return acc
 	case *ir.PCon:
 		cv, ok := val.(*ConVal)
 		if !ok || cv.Con != p.Con || len(cv.Args) != len(p.Args) {
 			return nil
 		}
-		bindings := map[string]Value{}
 		for i, arg := range p.Args {
-			sub := matchDepth(cv.Args[i], arg, depth+1)
-			if sub == nil {
+			acc = collectBindings(cv.Args[i], arg, depth+1, acc)
+			if acc == nil {
 				return nil
 			}
-			for k, v := range sub {
-				bindings[k] = v
-			}
 		}
-		return bindings
+		return acc
 	case *ir.PRecord:
 		rv, ok := val.(*RecordVal)
 		if !ok {
 			return nil
 		}
-		bindings := map[string]Value{}
 		for _, f := range p.Fields {
 			fv, ok := rv.Fields[f.Label]
 			if !ok {
 				return nil
 			}
-			sub := matchDepth(fv, f.Pattern, depth+1)
-			if sub == nil {
+			acc = collectBindings(fv, f.Pattern, depth+1, acc)
+			if acc == nil {
 				return nil
 			}
-			for k, v := range sub {
-				bindings[k] = v
-			}
 		}
-		return bindings
+		return acc
 	case *ir.PLit:
 		hv, ok := val.(*HostVal)
 		if !ok {
 			return nil
 		}
 		if hv.Inner == p.Value {
-			return map[string]Value{}
+			return acc
 		}
 		return nil
 	}
