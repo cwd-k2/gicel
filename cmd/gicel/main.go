@@ -56,7 +56,7 @@ Commands:
   example  List examples, or show source (example <name>)
 
 Flags (run, check):
-  --packs <list>   Packs: prelude,fail,state,io,stream,slice,map,set (default: all)
+  --packs <list>   Packs: prelude,fail,state,io,stream,slice,map,set,array,mmap,mset,console (default: all)
   --module Name=path  Register a user module (repeatable)
   --recursion      Enable recursive definitions (fix/rec)
   -e <source>      Evaluate source string directly
@@ -236,7 +236,7 @@ func setupEngine(use string) (*gicel.Engine, error) {
 		}
 		p, ok := packMap[name]
 		if !ok {
-			return nil, fmt.Errorf("unknown pack: %s (available: prelude,fail,state,io,stream,slice,map,set,array,mmap,mset)", name)
+			return nil, fmt.Errorf("unknown pack: %s (available: prelude,fail,state,io,stream,slice,map,set,array,mmap,mset,console)", name)
 		}
 		if err := p(eng); err != nil {
 			return nil, err
@@ -315,6 +315,14 @@ func registerUserModules(eng *gicel.Engine, modules []string, budget *sourceBudg
 			return fmt.Errorf("invalid module spec: %q (expected Name=path)", spec)
 		}
 		name := spec[:eqIdx]
+		if name == "" || name[0] < 'A' || name[0] > 'Z' {
+			return fmt.Errorf("invalid module name %q: must start with an uppercase letter", name)
+		}
+		for _, r := range name {
+			if !((r >= 'A' && r <= 'Z') || (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') || r == '_') {
+				return fmt.Errorf("invalid module name %q: contains invalid character %q", name, string(r))
+			}
+		}
 		path := spec[eqIdx+1:]
 		data, err := budget.readFile(path)
 		if err != nil {
