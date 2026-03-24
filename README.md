@@ -3,9 +3,9 @@
 **G**o's **I**ndexed **C**apability **E**ffect **L**ibrary /
 **G**ICEL's **I**ndexed **C**apability **E**ffect **L**anguage
 
-**v0.16.0** — [Changelog](CHANGELOG.md)
+**v0.17.1** — [Changelog](CHANGELOG.md)
 
-> **Pre-1.0 notice:** GICEL is pre-1.0. Breaking changes to syntax or API may occur between minor versions. v0.16 unifies `class`/`instance` into `form`/`impl` and introduces scoped evidence injection.
+> **Pre-1.0 notice:** GICEL is pre-1.0. Breaking changes to syntax or API may occur between minor versions.
 
 Embed a type-safe, sandboxed language in your Go application.
 GICEL compiles Haskell-like source into typed computations, runs them with
@@ -74,8 +74,10 @@ go install github.com/cwd-k2/gicel/cmd/gicel@latest
 gicel run hello.gicel              # compile and execute
 gicel check program.gicel          # type-check only
 gicel run -e 'import Prelude; main := 1 + 2'  # inline eval
+gicel run --show program.gicel     # display result value
 gicel run --explain program.gicel  # semantic evaluation trace
 gicel run --json program.gicel     # structured output for tooling
+gicel example                      # browse built-in examples
 ```
 
 ### Go Library
@@ -168,7 +170,7 @@ See [`examples/go/`](examples/go/) for full patterns.
 
 ### Language
 
-- 9 keywords: `case do form type impl infixl infixr infixn import`
+- 12 keywords: `case do form type impl import infixl infixr infixn if then else`
 - ADTs with exhaustive pattern matching (shorthand and GADT styles)
 - Do-notation for monadic sequencing
 - Records, tuples, module system (open, selective, qualified imports)
@@ -188,10 +190,14 @@ See [`examples/go/`](examples/go/) for full patterns.
 | `EffectFail`  | `Effect.Fail`  | `fail`, `failWith`, `fromMaybe`              |
 | `EffectState` | `Effect.State` | `get`, `put`, `modify`                       |
 | `EffectIO`    | `Effect.IO`    | `print`, `debug` (CapEnv buffer, not stdout) |
+| `EffectArray` | `Effect.Array` | Mutable fixed-size arrays                    |
+| `EffectMap`   | `Effect.Map`   | Mutable ordered maps (AVL)                   |
+| `EffectSet`   | `Effect.Set`   | Mutable ordered sets (AVL)                   |
 | `DataStream`  | `Data.Stream`  | Lazy streams with `Foldable`                 |
-| `DataSlice`   | `Data.Slice`   | O(1) index/length arrays                     |
-| `DataMap`     | `Data.Map`     | Ordered map: CRUD, fold, filter, union       |
-| `DataSet`     | `Data.Set`     | Ordered set: CRUD, union, intersection       |
+| `DataSlice`   | `Data.Slice`   | O(1) index/length immutable arrays           |
+| `DataMap`     | `Data.Map`     | Immutable ordered map                        |
+| `DataSet`     | `Data.Set`     | Immutable ordered set                        |
+| `Console`     | `Console`      | `putLine`, `getLine` (CLI-only, real stdio)  |
 
 ## Documentation
 

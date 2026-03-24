@@ -1,5 +1,24 @@
 # Changelog
 
+## v0.17.1 — 2026-03-24
+
+### Examples Overhaul
+
+All 54 CLI examples now produce visible Console output when run with `bin/gicel run`.
+
+- **Console output** added to every example — no `--show` or `--json` needed to see results
+- **Standardized headers** — all files have `-- GICEL Example: <title>` format
+- **Removed 4 files**: `types/session` (check-only, requires Go host), `types/multi-module` (stub), `types/data-family-polymorphism` and `types/fundep-inference` (merged into parent examples)
+- **Bug fixes**: `algorithms/prefix-sum` (stdin dependency, Data.Slice name collision with `--packs all`), `algorithms/sieve` (same collision)
+- **`patterns/comonad`** trimmed from 214 to 168 lines
+- **`types/fundeps`** comments corrected (no explicit fundep syntax)
+
+### Editor Support
+
+- **tree-sitter**: `if_expression` node added; `let_statement` extended to accept tuple/record pattern bindings; all 54 examples parse without errors
+- **nvim/zed**: `if`/`then`/`else` keywords, `type_family`, `method_signature`, `constraint`, `evidence_injection` captures added
+- **vscode**: `if`/`then`/`else` keywords added, `data` → `form` rename fix in TextMate grammar
+
 ## v0.17.0 — 2026-03-24
 
 ### Console Pack (CLI-only)
