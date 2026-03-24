@@ -1,5 +1,29 @@
 # Changelog
 
+## v0.17.0 — 2026-03-24
+
+### Console Pack (CLI-only)
+
+Real stdio for CLI programs. Unlike `Effect.IO` (which buffers), Console writes to stdout and reads from stdin directly.
+
+- `putLine` — write string + newline to stdout
+- `getLine` — read line from stdin
+- Capability: `{ console: () | r }`
+- `--json` mode: Console output captured in `capEnv.console`
+- Security: not available in `RunSandbox` or Go embedding API
+
+### CLI Output Redesign
+
+- **Default**: stdout is Console output only. Result value not displayed.
+- **`--show`**: opt-in result value display on stdout.
+- **`--json`**: unchanged (structured JSON with value, stats, capEnv).
+
+### Examples
+
+- `basics.hello` rewritten with Console
+- `basics.echo` — interactive stdin/stdout
+- `algorithms.fizzbuzz` — FizzBuzz with Console and recursion
+
 ## v0.16.5 — 2026-03-24
 
 ### UX
