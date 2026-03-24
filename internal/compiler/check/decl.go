@@ -38,6 +38,21 @@ func (ch *Checker) checkDecls(decls []syntax.Decl) *ir.Program {
 	return p.run()
 }
 
+// checkDuplicateBindings detects duplicate value binding names and emits errors.
+func (p *declPipeline) checkDuplicateBindings() {
+	seen := make(map[string]bool)
+	for _, d := range p.decls {
+		if def, ok := d.(*syntax.DeclValueDef); ok {
+			if seen[def.Name] {
+				p.ch.addCodedError(diagnostic.ErrDuplicateDecl, def.S,
+					fmt.Sprintf("duplicate binding: %s", def.Name))
+			} else {
+				seen[def.Name] = true
+			}
+		}
+	}
+}
+
 // decomposeForm returns the decomposed body parts for a form declaration,
 // caching the result to avoid repeated decomposition across pipeline phases.
 func (p *declPipeline) decomposeForm(d *syntax.DeclForm) formBodyParts {
@@ -50,6 +65,7 @@ func (p *declPipeline) decomposeForm(d *syntax.DeclForm) formBodyParts {
 }
 
 func (p *declPipeline) run() *ir.Program {
+	p.checkDuplicateBindings()
 	p.registerTypes()
 	p.registerClassLikeForms()
 	if p.ch.checkCancelled() {

@@ -55,10 +55,23 @@ func (ch *Checker) processFormDeclParts(d *syntax.DeclForm, parts formBodyParts,
 		// Replace with resultType so the constructor type is correct.
 		conType := fieldTy
 		if isUnitType(fieldTy) {
+			// Nullary constructor: replace unit with result type.
 			conType = resultType
 			fieldTy = resultType
 		}
 		fieldTypes, retTy := decomposeConSig(fieldTy)
+
+		// ADT shorthand: the parser synthesizes () as a sentinel return type.
+		// Replace it with the actual result type (e.g., Nat for form Nat := ...).
+		if isUnitType(retTy) && len(fieldTypes) > 0 {
+			retTy = resultType
+			// Rebuild conType: field1 -> field2 -> ... -> resultType
+			conType = resultType
+			for i := len(fieldTypes) - 1; i >= 0; i-- {
+				conType = types.MkArrow(fieldTypes[i], conType)
+			}
+			fieldTy = conType
+		}
 
 		// Detect GADT: if the constructor's return type differs from the
 		// generic result type (T a b c ...), this is a refined return type.
