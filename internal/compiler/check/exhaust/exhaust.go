@@ -220,7 +220,7 @@ func (e *CheckEnv) isUsefulAt(mx patMatrix, q patVec, scrutTys []types.Type, dep
 		}
 		sq = append(sq, q[1:]...)
 
-		newTys := nilTypesWithTail(len(labels), restTys)
+		newTys := e.recordFieldTypes(ty, labels, restTys)
 		return e.isUsefulAt(smx, sq, newTys, depth+1)
 	}
 
@@ -247,7 +247,7 @@ func (e *CheckEnv) isUsefulWildcard(mx patMatrix, q patVec, ty types.Type, restT
 		labels := allRecordLabels(mx)
 		smx := specializeRecord(mx, labels)
 		sq := makeWildcardVec(len(labels), q[1:])
-		newTys := nilTypesWithTail(len(labels), restTys)
+		newTys := e.recordFieldTypes(ty, labels, restTys)
 		return e.isUsefulAt(smx, sq, newTys, depth+1)
 	}
 
@@ -286,6 +286,52 @@ func (e *CheckEnv) isUsefulWildcard(mx patMatrix, q patVec, ty types.Type, restT
 	// No patterns at all: use default matrix.
 	dmx := defaultMatrix(mx)
 	return e.isUsefulAt(dmx, q[1:], restTys, depth+1)
+}
+
+// recordFieldTypes extracts field types from a Record type for the given labels.
+// Falls back to nil types (unknown) when the type is not a decomposable Record.
+func (e *CheckEnv) recordFieldTypes(ty types.Type, labels []string, restTys []types.Type) []types.Type {
+	if ty != nil {
+		ty = e.Unifier.Zonk(ty)
+	}
+	fieldMap := extractRecordFields(ty)
+	if fieldMap == nil {
+		return nilTypesWithTail(len(labels), restTys)
+	}
+	result := make([]types.Type, 0, len(labels)+len(restTys))
+	for _, l := range labels {
+		result = append(result, fieldMap[l]) // nil if label not found
+	}
+	return append(result, restTys...)
+}
+
+// extractRecordFields decomposes a Record type into a map of field types.
+// Record types have the shape: TyApp(TyCon("Record"), TyEvidenceRow{CapabilityEntries{Fields}}).
+func extractRecordFields(ty types.Type) map[string]types.Type {
+	if ty == nil {
+		return nil
+	}
+	app, ok := ty.(*types.TyApp)
+	if !ok {
+		return nil
+	}
+	con, ok := app.Fun.(*types.TyCon)
+	if !ok || con.Name != "Record" {
+		return nil
+	}
+	evRow, ok := app.Arg.(*types.TyEvidenceRow)
+	if !ok {
+		return nil
+	}
+	cap, ok := evRow.Entries.(*types.CapabilityEntries)
+	if !ok {
+		return nil
+	}
+	result := make(map[string]types.Type, len(cap.Fields))
+	for _, f := range cap.Fields {
+		result[f.Label] = f.Type
+	}
+	return result
 }
 
 // ---- Public API ----
