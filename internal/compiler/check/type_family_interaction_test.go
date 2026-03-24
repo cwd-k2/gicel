@@ -266,57 +266,7 @@ test := \x. x
 }
 
 // ----------------------------------------------------------------
-// 1e. Fundep + Type class resolution + Superclass
-// ----------------------------------------------------------------
-
-func TestInteractionFundepSuperclass(t *testing.T) {
-	// A class with fundeps that's a superclass of another class.
-	// Instance resolution should work through the superclass chain.
-	source := `
-form Unit := { Unit: Unit; }
-form List := \a. { Nil: List a; Cons: a -> List a -> List a; }
-
-form Elem := \c e. {
-  extract: c -> e
-}
-
-form Foldable := \c e. Elem c e => {
-  cfold: \ b. (e -> b -> b) -> b -> c -> b
-}
-
-impl Elem (List a) a := {
-  extract := \xs. case xs { Cons x rest => x; Nil => extract Nil }
-}
-
-impl Foldable (List a) a := {
-  cfold := \f z xs. case xs { Nil => z; Cons x rest => f x (cfold f z rest) }
-}
-`
-	checkSource(t, source, nil)
-}
-
-func TestInteractionFundepSuperclassUse(t *testing.T) {
-	// Using the superclass method through the subclass constraint.
-	source := `
-form Unit := { Unit: Unit; }
-form List := \a. { Nil: List a; Cons: a -> List a -> List a; }
-
-form Elem := \c e. {
-  extract: c -> e
-}
-
-impl Elem (List a) a := {
-  extract := \xs. case xs { Cons x rest => x; Nil => extract Nil }
-}
-
-headOrDefault :: \ a. a -> List a -> a
-headOrDefault := \def xs. case xs { Nil => def; Cons x rest => extract (Cons x rest) }
-`
-	checkSource(t, source, nil)
-}
-
-// ----------------------------------------------------------------
-// 1f. Type family + do-block pre/post threading
+// 1e. Type family + do-block pre/post threading
 // ----------------------------------------------------------------
 
 func TestInteractionTypeFamilyDoBlock(t *testing.T) {
@@ -787,60 +737,6 @@ test := \xs. case xs {
   Cons x rest => eq x True;
   Nil => False
 }
-`
-	checkSource(t, source, nil)
-}
-
-// ----------------------------------------------------------------
-// Associated type + fundep in same class
-// ----------------------------------------------------------------
-
-func TestInteractionAssocTypeAndFundep(t *testing.T) {
-	// A class that has both an associated type and a functional dependency.
-	// These are complementary but should not interfere with each other.
-	source := `
-form Unit := { Unit: Unit; }
-form List := \a. { Nil: List a; Cons: a -> List a -> List a; }
-form Bool := { True: Bool; False: Bool; }
-
-form Collection := \c e. {
-  type Key c :: Type;
-  elem: c -> e
-}
-
-impl Collection (List a) a := {
-  type Key := Int;
-  elem := \xs. case xs { Cons x rest => x; Nil => elem Nil }
-}
-`
-	config := &CheckConfig{
-		RegisteredTypes: map[string]types.Kind{"Int": types.KType{}},
-	}
-	checkSource(t, source, config)
-}
-
-// ----------------------------------------------------------------
-// Data family + Fundep
-// ----------------------------------------------------------------
-
-func TestInteractionDataFamilyAndFundep(t *testing.T) {
-	// Associated type family in a class.
-	source := `
-form Unit := { Unit: Unit; }
-form Bool := { True: Bool; False: Bool; }
-
-form Convertible := \a. {
-  type Result a :: Type;
-  convert: a -> Result a
-}
-
-impl Convertible Bool := {
-  type Result := Unit;
-  convert := \b. Unit
-}
-
-test :: Result Bool
-test := convert True
 `
 	checkSource(t, source, nil)
 }

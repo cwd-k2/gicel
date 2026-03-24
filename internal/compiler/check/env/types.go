@@ -21,15 +21,7 @@ type ClassInfo struct {
 	Supers       []SuperInfo   // superclass constraints
 	Methods      []MethodInfo  // method signatures
 	DictName     string        // e.g. "Eq$Dict" — used as both type and constructor name
-	AssocTypes   []string      // associated type family names
-	FunDeps      []ClassFunDep // functional dependencies: | a =: b
-}
-
-// ClassFunDep is an elaborated functional dependency on a class.
-// From params determine To params: | a =: b means knowing a determines b.
-type ClassFunDep struct {
-	From []int // indices into TyParams
-	To   []int // indices into TyParams
+	AssocTypes []string // associated type family names
 }
 
 // SuperInfo describes a superclass constraint.

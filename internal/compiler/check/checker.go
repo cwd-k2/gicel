@@ -186,7 +186,6 @@ type ConstructorInfo = exhaust.ConstructorInfo
 // AliasInfo, ClassInfo, InstanceInfo and related types are defined in the env subpackage.
 type AliasInfo = env.AliasInfo
 type ClassInfo = env.ClassInfo
-type ClassFunDep = env.ClassFunDep
 type SuperInfo = env.SuperInfo
 type MethodInfo = env.MethodInfo
 type InstanceInfo = env.InstanceInfo

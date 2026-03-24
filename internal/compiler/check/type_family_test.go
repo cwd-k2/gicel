@@ -322,31 +322,6 @@ f := \x. x
 	checkSourceExpectCode(t, source, nil, diagnostic.ErrTypeMismatch)
 }
 
-// --- Functional dependencies ---
-
-func TestFunDepParse(t *testing.T) {
-	source := `
-form Unit := { Unit: Unit; }
-form List := \a. { Nil: List a; Cons: a -> List a -> List a; }
-form Elem := \c e. {
-  cfold: (e -> e) -> c -> c
-}
-impl Elem (List a) a := {
-  cfold := \f xs. xs
-}
-`
-	checkSource(t, source, nil)
-}
-
-func TestFunDepUnknownParam(t *testing.T) {
-	source := `
-form Bad := \a b. {
-  m: a -> b
-}
-`
-	checkSource(t, source, nil)
-}
-
 // --- Session types (Phase 7) ---
 
 func TestSessionTypeDual(t *testing.T) {

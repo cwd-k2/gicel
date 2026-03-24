@@ -355,72 +355,7 @@ f := \b. case b {
 }
 
 // -----------------------------------------------
-// 5. applyFunDepImprovement mutation tests
-// -----------------------------------------------
-
-// If "from" positions that ARE metas still trigger improvement, this could
-// cause incorrect unification. FunDep should only fire when from-args are determined.
-func TestFunDepImprovement_MetaFromDoesNotFire(t *testing.T) {
-	// Without fundep, resolution works via normal instance matching.
-	// The program should compile via normal instance resolution.
-	source := `
-form Unit := { Unit: Unit; }
-form List := \a. { Nil: List a; Cons: a -> List a -> List a; }
-form Collection := \c e. {
-  empty: c
-}
-impl Collection (List a) a := {
-  empty := Nil
-}
-main :: List Unit
-main := empty
-`
-	checkSource(t, source, nil)
-}
-
-// First matching instance should win for instance resolution.
-func TestFunDepImprovement_FirstMatchWins(t *testing.T) {
-	source := `
-form Unit := { Unit: Unit; }
-form List := \a. { Nil: List a; Cons: a -> List a -> List a; }
-form Elem := \c e. {
-  extract: c -> e
-}
-impl Elem (List a) a := {
-  extract := \xs. case xs { Cons x rest => x; Nil => extract Nil }
-}
-f :: List Unit -> Unit
-f := \xs. extract xs
-`
-	checkSource(t, source, nil)
-}
-
-// Unknown parameter in class should produce error.
-// In unified syntax, fundep annotations are not supported;
-// In unified syntax, fundep annotations are not supported.
-// A class with two params and a method is valid without fundeps.
-func TestFunDepImprovement_UnknownFromParam(t *testing.T) {
-	source := `
-form Bad := \a b. {
-  m: a -> b
-}
-`
-	checkSource(t, source, nil)
-}
-
-// In unified syntax, fundep annotations are not supported.
-// A class with two params and a method is valid without fundeps.
-func TestFunDepImprovement_UnknownToParam(t *testing.T) {
-	source := `
-form Bad := \a b. {
-  m: a -> b
-}
-`
-	checkSource(t, source, nil)
-}
-
-// -----------------------------------------------
-// 6. processTypeFamily mutation tests
+// 5. processTypeFamily mutation tests
 // -----------------------------------------------
 
 // Duplicate type family should produce error.

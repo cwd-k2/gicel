@@ -348,32 +348,7 @@ g := \x. x
 	checkSource(t, source, nil)
 }
 
-// --- 2c: Fundep with all parameters determined ---
-
-func TestBoundaryFunDepAllDetermined(t *testing.T) {
-	// Every parameter is in a "from" or "to" position.
-	// In unified syntax, fundep annotations are not supported;
-	// the class is declared without fundeps.
-	source := `
-form Unit := { Unit: Unit; }
-
-form Iso := \a b. {
-  to: a -> b;
-  from: b -> a
-}
-
-impl Iso Unit Unit := {
-  to := \x. x;
-  from := \x. x
-}
-
-f :: Unit -> Unit
-f := to
-`
-	checkSource(t, source, nil)
-}
-
-// --- 2d: Empty case analysis for lubPostStates ---
+// --- 2c: Empty case analysis for lubPostStates ---
 
 func TestBoundaryLubPostStatesZeroBranches(t *testing.T) {
 	// lubPostStates with len==0 should return a fresh meta.

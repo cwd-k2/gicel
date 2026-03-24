@@ -115,34 +115,7 @@ func TestPathological100Instances(t *testing.T) {
 	checkSource(t, b.String(), nil)
 }
 
-// (f) Fundep class with 0 instances — does resolution hang or error properly?
-func TestPathologicalFunDepNoInstances(t *testing.T) {
-	source := `
-form Unit := { Unit: Unit; }
-form Convert := \a b. {
-  convert: a -> b
-}
-`
-	// Just declaring a class with no instances should be fine.
-	checkSource(t, source, nil)
-}
-
-// Class with 0 instances — trying to USE it should fail gracefully.
-func TestPathologicalFunDepNoInstancesUsage(t *testing.T) {
-	source := `
-form Unit := { Unit: Unit; }
-form Convert := \a b. {
-  convert: a -> b
-}
-f :: Unit -> Unit
-f := convert
-`
-	// Using `convert` without an instance should produce a resolution error,
-	// not a hang.
-	checkSourceExpectError(t, source, nil)
-}
-
-// (g) Type family equation where LHS pattern is another type family application.
+// (f) Type family equation where LHS pattern is another type family application.
 // This tests whether the pattern matcher correctly handles (or rejects) non-constructor patterns.
 func TestPathologicalTFPatternIsTFApp(t *testing.T) {
 	// In a closed TF, patterns should be constructors/vars/wildcards.

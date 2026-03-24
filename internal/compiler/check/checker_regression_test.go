@@ -228,51 +228,6 @@ f := \x. x
 }
 
 // -----------------------------------------------
-// 6. Fundep improvement is best-effort
-// -----------------------------------------------
-
-// TestRegressionFundepBestEffort verifies that fundep improvement failure
-// does not prevent successful type checking when types can be resolved by
-// other means (e.g., annotation, direct instance resolution).
-func TestRegressionFundepBestEffort(t *testing.T) {
-	// The type of `extract xs` is determined by the annotation f :: ... -> Unit,
-	// not solely by the fundep improvement. Even if fundep improvement were
-	// disabled, the instance resolution for Elem (List a) a should succeed.
-	source := `
-form Unit := { Unit: Unit; }
-form List := \a. { Nil: List a; Cons: a -> List a -> List a; }
-form Elem := \c e. {
-  extract: c -> e
-}
-impl Elem (List a) a := {
-  extract := \xs. case xs { Cons x rest => x; Nil => extract Nil }
-}
-f :: List Unit -> Unit
-f := \xs. extract xs
-`
-	checkSource(t, source, nil)
-}
-
-// TestRegressionFundepImprovementFromMeta verifies that fundep improvement
-// does not fire when the "from" position is an unsolved meta. The program
-// should still compile via normal instance resolution.
-func TestRegressionFundepImprovementFromMeta(t *testing.T) {
-	source := `
-form Unit := { Unit: Unit; }
-form List := \a. { Nil: List a; Cons: a -> List a -> List a; }
-form Collection := \c e. {
-  empty: c
-}
-impl Collection (List a) a := {
-  empty := Nil
-}
-main :: List Unit
-main := empty
-`
-	checkSource(t, source, nil)
-}
-
-// -----------------------------------------------
 // 7. Mangled name distinctness
 // -----------------------------------------------
 

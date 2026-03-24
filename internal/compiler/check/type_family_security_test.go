@@ -283,45 +283,6 @@ func TestPerformanceIntersectCapRowsManyBranches(t *testing.T) {
 	t.Logf("case with %d branches: %v", numBranches, elapsed)
 }
 
-// --- 6. applyFunDepImprovement with Many Instances ---
-
-// TestPerformanceFunDepManyInstances tests fundep improvement with
-// many instances of a class with functional dependencies.
-func TestPerformanceFunDepManyInstances(t *testing.T) {
-	const N = 30
-	var sb strings.Builder
-
-	// Define N distinct types.
-	for i := 0; i < N; i++ {
-		sb.WriteString("form D" + tagName(i) + " := { MkD" + tagName(i) + ": D" + tagName(i) + "; }\n")
-	}
-
-	// Define a class with a fundep (fundep syntax silently consumed by parser).
-	sb.WriteString("form Assoc := \\a b. {\n")
-	sb.WriteString("  assocGet: a -> b\n")
-	sb.WriteString("}\n")
-
-	// N instances.
-	for i := 0; i < N; i++ {
-		sb.WriteString("impl Assoc D" + tagName(i) + " D" + tagName((i+1)%N) + " := {\n")
-		sb.WriteString("  assocGet := \\_. MkD" + tagName((i+1)%N) + "\n")
-		sb.WriteString("}\n")
-	}
-
-	// Use the fundep.
-	sb.WriteString("f :: D" + tagName(0) + " -> D" + tagName(1) + "\n")
-	sb.WriteString("f := assocGet\n")
-
-	start := time.Now()
-	checkSource(t, sb.String(), nil)
-	elapsed := time.Since(start)
-
-	if elapsed > 10*time.Second {
-		t.Errorf("fundep improvement with %d instances took %v", N, elapsed)
-	}
-	t.Logf("fundep improvement with %d instances: %v", N, elapsed)
-}
-
 // --- 7. Snapshot/Restore Cost ---
 
 // TestPerformanceSnapshotCost verifies that trial unification snapshot

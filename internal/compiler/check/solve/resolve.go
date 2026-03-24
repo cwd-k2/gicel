@@ -99,7 +99,6 @@ func (s *Solver) resolveInstance(className string, args []types.Type, sp span.Sp
 	if dict := s.resolveFromQuantifiedEvidence(className, args, sp); dict != nil {
 		return dict
 	}
-	s.applyFunDepImprovement(className, args)
 	if dict := s.resolveFromGlobalInstances(className, args, sp); dict != nil {
 		return dict
 	}
@@ -211,66 +210,6 @@ func (sd *superDictSearch) chain(dictExpr ir.Core, dictTyName string, dictTyArgs
 		}
 	}
 	return nil
-}
-
-// applyFunDepImprovement uses functional dependencies to improve type inference.
-// For each fundep a -> b in the class, if the "from" args are determined (no metas),
-// search instances whose "from" positions match, and unify the "to" positions.
-func (s *Solver) applyFunDepImprovement(className string, args []types.Type) {
-	classInfo, ok := s.env.LookupClass(className)
-	if !ok || len(classInfo.FunDeps) == 0 {
-		return
-	}
-	for _, fd := range classInfo.FunDeps {
-		// Check if all "from" positions are determined (no unsolved metas after zonk).
-		allDetermined := true
-		for _, fromIdx := range fd.From {
-			if fromIdx >= len(args) {
-				allDetermined = false
-				break
-			}
-			zonked := s.env.Zonk(args[fromIdx])
-			if _, isMeta := zonked.(*types.TyMeta); isMeta {
-				allDetermined = false
-				break
-			}
-		}
-		if !allDetermined {
-			continue
-		}
-		// Search instances: if "from" positions match, unify "to" positions.
-		for _, inst := range s.env.InstancesForClass(className) {
-			if len(inst.TypeArgs) != len(args) {
-				continue
-			}
-			freshSubst := s.FreshInstanceSubst(inst)
-			fromMatch := s.env.WithTrial(func() bool {
-				for _, fromIdx := range fd.From {
-					instArg := types.SubstMany(inst.TypeArgs[fromIdx], freshSubst)
-					if err := s.env.Unify(instArg, args[fromIdx]); err != nil {
-						return false
-					}
-				}
-				return true
-			})
-			if fromMatch {
-				// "From" positions match — unify "to" positions.
-				for _, toIdx := range fd.To {
-					if toIdx >= len(args) {
-						continue
-					}
-					instArg := s.env.Zonk(types.SubstMany(inst.TypeArgs[toIdx], freshSubst))
-					// Advisory unification: fundep improvement is best-effort.
-					// If the "to" position is already constrained to a different
-					// type, the unification fails silently. This is correct — fundep
-					// improvement refines type information when possible but must
-					// not reject programs where it provides no additional info.
-					_ = s.env.Unify(args[toIdx], instArg) //nolint:errcheck // advisory
-				}
-				break // first matching instance wins
-			}
-		}
-	}
 }
 
 func (s *Solver) prettyTypeArgs(args []types.Type) string {
