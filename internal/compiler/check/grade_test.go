@@ -506,13 +506,13 @@ func TestGradeContainsMeta_NestedMeta(t *testing.T) {
 
 func TestEmitGradePreserveConstraint_EmitsCtFunEq(t *testing.T) {
 	ch := newTestCheckerWithGradeFamilies(t)
-	ch.solver.inertSet = InertSet{}
+	ch.solver.InertSet().Reset()
 
 	meta := ch.freshMeta(types.KType{})
 	ch.emitGradePreserveConstraint(meta, span.Span{})
 
 	// Verify a CtFunEq was registered in the inert set for $GradeJoin.
-	funEqs := ch.solver.inertSet.LookupFunEq(gradeJoinFamily)
+	funEqs := ch.solver.InertSet().LookupFunEq(gradeJoinFamily)
 	if len(funEqs) != 1 {
 		t.Fatalf("expected 1 CtFunEq for $GradeJoin, got %d", len(funEqs))
 	}

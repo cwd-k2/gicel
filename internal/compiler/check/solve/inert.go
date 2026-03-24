@@ -1,4 +1,4 @@
-package check
+package solve
 
 // InertSet holds constraints in canonical form: class constraints indexed
 // by class name, and stuck type family equations indexed by family name.
@@ -9,6 +9,11 @@ type InertSet struct {
 	funEqs         map[string][]*CtFunEq // familyName → stuck equations
 	metaIndex      map[int][]Ct          // metaID → constraints mentioning it
 	resolutionKeys map[string]string     // canonical key → placeholder (for cache lookup)
+}
+
+// NewInertSet returns an empty InertSet.
+func NewInertSet() InertSet {
+	return InertSet{}
 }
 
 // InsertClass adds a class constraint to the inert set.

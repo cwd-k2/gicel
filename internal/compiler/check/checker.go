@@ -8,6 +8,7 @@ import (
 	"github.com/cwd-k2/gicel/internal/compiler/check/exhaust"
 	"github.com/cwd-k2/gicel/internal/compiler/check/family"
 	"github.com/cwd-k2/gicel/internal/compiler/check/modscope"
+	"github.com/cwd-k2/gicel/internal/compiler/check/solve"
 	"github.com/cwd-k2/gicel/internal/compiler/check/unify"
 	"github.com/cwd-k2/gicel/internal/infra/budget"
 	"github.com/cwd-k2/gicel/internal/infra/diagnostic"
@@ -126,83 +127,6 @@ func (s *Scope) InjectFamily(name string, info *TypeFamilyInfo) {
 	s.injectedFamilies[name] = info
 }
 
-// Solver holds mutable state for the constraint solver.
-//
-// Access to level and worklist should go through the methods below rather
-// than direct field access. This ensures invariants (level non-negative,
-// worklist save/restore matching) are maintained at API boundaries.
-type Solver struct {
-	worklist       Worklist
-	inertSet       InertSet
-	ambiguityCache map[string]bool // per-solveWanteds cache; lazily allocated
-
-	// level tracks implication nesting depth for OutsideIn(X) touchability.
-	// Incremented on entry to GADT branches (bidir_case.go) and higher-rank
-	// forall scopes (bidir.go). freshMeta uses this to stamp metas with
-	// their birth level. The companion field unifier.SolverLevel controls
-	// touchability enforcement: metas with Level < SolverLevel are untouchable.
-	level int
-}
-
-// EnterScope increments the solver level. Call ExitScope when leaving.
-func (s *Solver) EnterScope() { s.level++ }
-
-// ExitScope decrements the solver level.
-// Panics if level would go negative (unpaired EnterScope/ExitScope).
-func (s *Solver) ExitScope() {
-	if s.level <= 0 {
-		panic("internal: Solver.ExitScope called at level 0 (unpaired EnterScope/ExitScope)")
-	}
-	s.level--
-}
-
-// SaveWorklist drains the current worklist and returns its contents.
-// The caller must eventually call RestoreWorklist to put constraints back.
-func (s *Solver) SaveWorklist() []Ct { return s.worklist.Drain() }
-
-// RestoreWorklist replaces the worklist contents.
-func (s *Solver) RestoreWorklist(cts []Ct) { s.worklist.Load(cts) }
-
-// Reactivate kicks out constraints blocked on the given meta and
-// re-enqueues them for priority processing.
-func (s *Solver) Reactivate(metaID int) {
-	kicked := s.inertSet.KickOut(metaID)
-	s.worklist.PushFront(kicked...)
-}
-
-// Emit pushes a constraint to the worklist for processing.
-func (s *Solver) Emit(ct Ct) {
-	s.worklist.Push(ct)
-}
-
-// Level returns the current implication nesting depth for touchability.
-func (s *Solver) Level() int {
-	return s.level
-}
-
-// RegisterStuckFunEq inserts a stuck type family equation into the inert
-// set for later re-activation when blocking metas are solved.
-func (s *Solver) RegisterStuckFunEq(ct *CtFunEq) {
-	s.inertSet.InsertFunEq(ct)
-}
-
-// LookupAmbiguity checks the per-solve ambiguity cache.
-func (s *Solver) LookupAmbiguity(key string) (result bool, found bool) {
-	if s.ambiguityCache == nil {
-		return false, false
-	}
-	result, found = s.ambiguityCache[key]
-	return
-}
-
-// CacheAmbiguity stores an ambiguity result in the per-solve cache.
-func (s *Solver) CacheAmbiguity(key string, result bool) {
-	if s.ambiguityCache == nil {
-		s.ambiguityCache = make(map[string]bool)
-	}
-	s.ambiguityCache[key] = result
-}
-
 // Session holds cross-cutting infrastructure shared by all check services.
 type Session struct {
 	ctx             *Context
@@ -228,7 +152,7 @@ type Checker struct {
 	scope *Scope
 
 	// Constraint solver state.
-	solver *Solver
+	solver *solve.Solver
 
 	// Cached family reduction environment (lazy, constructed on first use).
 	cachedFamilyEnv *family.ReduceEnv
@@ -351,8 +275,8 @@ func newChecker(prog *syntax.AstProgram, source *span.Source, config *CheckConfi
 		scope: &Scope{
 			currentModule: config.CurrentModule,
 		},
-		solver: &Solver{},
 	}
+	ch.solver = solve.New(ch)
 	ch.unifier = unify.NewUnifierShared(&ch.freshID)
 	ch.unifier.SolverLevel = 0 // baseline: raised during implication scopes
 	ch.unifier.Budget = ch.budget
@@ -489,6 +413,45 @@ func (s *Session) withProbe(fn func() bool) bool {
 	s.unifier.SolverLevel = savedLevel
 	s.restoreState(saved)
 	return result
+}
+
+// --- solve.Env interface methods ---
+
+func (ch *Checker) Zonk(t types.Type) types.Type         { return ch.unifier.Zonk(t) }
+func (ch *Checker) Unify(a, b types.Type) error          { return ch.unifier.Unify(a, b) }
+func (ch *Checker) SolverLevel() int                     { return ch.unifier.SolverLevel }
+func (ch *Checker) SetSolverLevel(l int)                 { ch.unifier.SolverLevel = l }
+func (ch *Checker) InstallGivenEq(id int, ty types.Type) { ch.unifier.InstallGivenEq(id, ty) }
+func (ch *Checker) RemoveGivenEq(id int)                 { ch.unifier.RemoveGivenEq(id) }
+func (ch *Checker) ScanContext(fn func(CtxEntry) bool)   { ch.ctx.Scan(fn) }
+func (ch *Checker) AddCodedError(code diagnostic.Code, s span.Span, msg string) {
+	ch.addCodedError(code, s, msg)
+}
+func (ch *Checker) ErrorCount() int                               { return ch.errors.Len() }
+func (ch *Checker) TruncateErrors(n int)                          { ch.errors.Truncate(n) }
+func (ch *Checker) ResetSolverSteps()                             { ch.budget.ResetSolverSteps() }
+func (ch *Checker) SolverStep() error                             { return ch.budget.SolverStep() }
+func (ch *Checker) EnterResolve() error                           { return ch.budget.EnterResolve() }
+func (ch *Checker) LeaveResolve()                                 { ch.budget.LeaveResolve() }
+func (ch *Checker) CheckCancelled() bool                          { return ch.checkCancelled() }
+func (ch *Checker) SaveState() any                                { return ch.saveState() }
+func (ch *Checker) RestoreState(s any)                            { ch.restoreState(s.(checkerSnapshot)) }
+func (ch *Checker) WithTrial(fn func() bool) bool                 { return ch.withTrial(fn) }
+func (ch *Checker) WithProbe(fn func() bool) bool                 { return ch.withProbe(fn) }
+func (ch *Checker) Fresh() int                                    { return ch.fresh() }
+func (ch *Checker) FreshMeta(k types.Kind) *types.TyMeta          { return ch.freshMeta(k) }
+func (ch *Checker) Check(expr syntax.Expr, ty types.Type) ir.Core { return ch.check(expr, ty) }
+func (ch *Checker) InstancesForClass(name string) []*InstanceInfo {
+	return ch.reg.InstancesForClass(name)
+}
+func (ch *Checker) LookupClass(name string) (*ClassInfo, bool) {
+	return ch.reg.LookupClass(name)
+}
+func (ch *Checker) ClassFromDict(name string) (string, bool) {
+	return ch.reg.ClassFromDict(name)
+}
+func (ch *Checker) ReduceTyFamily(name string, args []types.Type, s span.Span) (types.Type, bool) {
+	return ch.reduceTyFamily(name, args, s)
 }
 
 // lookupAlias searches for a type alias by name: first in the Registry

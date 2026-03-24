@@ -34,6 +34,9 @@ type Engine struct {
 	store      ModuleStore
 	limits     Limits
 	compileCtx context.Context // module compilation context (default: Background)
+
+	entryPoint     string               // entry binding name (default: "main")
+	checkTraceHook check.CheckTraceHook // diagnostic hook for type checking
 }
 
 // NewEngine creates a new Engine with default limits.
@@ -119,7 +122,7 @@ func (e *Engine) SetAllocLimit(bytes int64) { e.limits.allocLimit = bytes }
 
 // SetCheckTraceHook sets the type checking trace hook.
 func (e *Engine) SetCheckTraceHook(hook check.CheckTraceHook) {
-	e.limits.checkTraceHook = hook
+	e.checkTraceHook = hook
 }
 
 // SetMaxTFSteps sets the type family reduction step limit.
@@ -133,7 +136,7 @@ func (e *Engine) SetMaxResolveDepth(n int) { e.limits.maxResolveDepth = n }
 
 // SetEntryPoint sets the entry point name for bare Computation checking.
 // Non-entry top-level bindings with bare Computation type are rejected.
-func (e *Engine) SetEntryPoint(name string) { e.limits.entryPoint = name }
+func (e *Engine) SetEntryPoint(name string) { e.entryPoint = name }
 
 // SetCompileContext sets the context used for module compilation.
 // This allows callers to impose a timeout or cancellation on
@@ -161,7 +164,7 @@ func (e *Engine) RegisterModule(name, source string) error {
 	if e.store.Has(name) {
 		return fmt.Errorf("module %s already registered", name)
 	}
-	mod, err := compileModule(e.compileCtx, name, source, &e.host, &e.store, &e.limits)
+	mod, err := compileModule(e.compileCtx, name, source, &e.host, &e.store, &e.limits, e.checkTraceHook)
 	if err != nil {
 		return err
 	}
@@ -177,8 +180,7 @@ func (c *CoreProgram) Pretty() string { return ir.PrettyProgram(c.prog) }
 
 // CompileResult holds all static information produced by compilation.
 type CompileResult struct {
-	prog   *ir.Program
-	values map[string]types.Type
+	prog *ir.Program
 }
 
 // Pretty returns the Core IR as a human-readable string.
@@ -195,9 +197,9 @@ func (cr *CompileResult) BindingNames() []string {
 
 // BindingTypes returns a map of binding names to their pretty-printed types.
 func (cr *CompileResult) BindingTypes() map[string]string {
-	m := make(map[string]string, len(cr.values))
-	for name, ty := range cr.values {
-		m[name] = types.Pretty(ty)
+	m := make(map[string]string, len(cr.prog.Bindings))
+	for _, b := range cr.prog.Bindings {
+		m[b.Name] = types.Pretty(b.Type)
 	}
 	return m
 }
@@ -223,26 +225,30 @@ func (e *Engine) Compile(ctx context.Context, source string) (*CompileResult, er
 	if err != nil {
 		return nil, err
 	}
-	cfg := makeCheckConfig(&e.host, &e.store, &e.limits)
+	cfg := makeCheckConfig(&e.host, &e.store, &e.limits, e.checkTraceHook)
 	cfg.Context = ctx
-	cfg.EntryPoint = e.limits.entryPoint
+	cfg.EntryPoint = e.entryPoint
 	if cfg.EntryPoint == "" {
 		cfg.EntryPoint = DefaultEntryPoint
 	}
-	prog, exports, checkErrs := check.CheckModule(ast, src, cfg)
+	prog, _, checkErrs := check.CheckModule(ast, src, cfg)
 	if checkErrs.HasErrors() {
 		return nil, &CompileError{Errors: checkErrs}
 	}
-	return &CompileResult{prog: prog, values: exports.Values}, nil
+	return &CompileResult{prog: prog}, nil
 }
 
 // NewRuntime compiles source code into an immutable, goroutine-safe Runtime.
 // The context bounds compilation time (type checking in particular);
 // pass context.Background() when cancellation is not needed.
 func (e *Engine) NewRuntime(ctx context.Context, source string) (*Runtime, error) {
-	prog, src, err := compileMain(ctx, source, &e.host, &e.store, &e.limits)
+	ep := e.entryPoint
+	if ep == "" {
+		ep = DefaultEntryPoint
+	}
+	prog, src, err := compileMain(ctx, source, &e.host, &e.store, &e.limits, e.checkTraceHook, ep)
 	if err != nil {
 		return nil, err
 	}
-	return assembleRuntime(prog, src, &e.host, &e.store, &e.limits), nil
+	return assembleRuntime(prog, src, &e.host, &e.store, &e.limits, ep), nil
 }

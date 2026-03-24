@@ -21,8 +21,8 @@ func (ch *Checker) validateAliasGraph() bool {
 		black
 	)
 
-	colors := make(map[string]color, len(ch.reg.aliases))
-	for name := range ch.reg.aliases {
+	colors := make(map[string]color, len(ch.reg.AllAliases()))
+	for name := range ch.reg.AllAliases() {
 		colors[name] = white
 	}
 
@@ -53,7 +53,7 @@ func (ch *Checker) validateAliasGraph() bool {
 		path = append(path, name)
 
 		info, _ := ch.reg.LookupAlias(name)
-		refs := collectAliasRefs(info.Body, ch.reg.aliases)
+		refs := collectAliasRefs(info.Body, ch.reg.AllAliases())
 		for _, ref := range refs {
 			if visit(ref) {
 				return true
@@ -66,7 +66,7 @@ func (ch *Checker) validateAliasGraph() bool {
 	}
 
 	hasCycle := false
-	for name := range ch.reg.aliases {
+	for name := range ch.reg.AllAliases() {
 		if colors[name] == white {
 			if visit(name) {
 				hasCycle = true
@@ -124,7 +124,7 @@ func collectAliasRefsRec(ty types.Type, aliases map[string]*AliasInfo, seen map[
 // installAliasExpander sets up the unifier's alias expansion callback.
 // Called after alias validation, before instance processing.
 func (ch *Checker) installAliasExpander() {
-	if len(ch.reg.aliases) == 0 {
+	if len(ch.reg.AllAliases()) == 0 {
 		return
 	}
 	ch.unifier.AliasExpander = func(ty types.Type) types.Type {

@@ -1,36 +1,17 @@
 package check
 
-import "github.com/cwd-k2/gicel/internal/lang/types"
+import (
+	"github.com/cwd-k2/gicel/internal/compiler/check/env"
+	"github.com/cwd-k2/gicel/internal/lang/types"
+)
 
-// CtxEntry is an entry in the typing context.
-type CtxEntry interface {
-	ctxEntry()
-}
-
-type CtxVar struct {
-	Name            string
-	Type            types.Type
-	Module          string // source module ("" = local/builtin, "Prelude" = from module)
-	SolverInvisible bool   // true: not used by instance resolution (private instance user names)
-}
-
-type CtxTyVar struct {
-	Name string
-	Kind types.Kind
-}
-
-// CtxEvidence records available type class evidence in the context.
-type CtxEvidence struct {
-	ClassName  string
-	Args       []types.Type
-	DictName   string                      // context variable name for the dictionary
-	DictType   types.Type                  // dictionary type
-	Quantified *types.QuantifiedConstraint // non-nil for quantified constraints
-}
-
-func (*CtxVar) ctxEntry()      {}
-func (*CtxTyVar) ctxEntry()    {}
-func (*CtxEvidence) ctxEntry() {}
+// CtxEntry, CtxVar, CtxTyVar, CtxEvidence are defined in the env
+// subpackage and re-exported here as type aliases for backward
+// compatibility within the check package.
+type CtxEntry = env.CtxEntry
+type CtxVar = env.CtxVar
+type CtxTyVar = env.CtxTyVar
+type CtxEvidence = env.CtxEvidence
 
 // Context is an ordered typing context (DK-style).
 type Context struct {

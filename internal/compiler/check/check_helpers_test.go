@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/cwd-k2/gicel/internal/compiler/check/family"
+	"github.com/cwd-k2/gicel/internal/compiler/check/solve"
 	"github.com/cwd-k2/gicel/internal/compiler/check/unify"
 	"github.com/cwd-k2/gicel/internal/compiler/parse"
 	"github.com/cwd-k2/gicel/internal/infra/budget"
@@ -183,7 +184,6 @@ func newTestChecker() *Checker {
 			kindVars:          make(map[string]bool),
 			families:          make(map[string]*TypeFamilyInfo),
 		},
-		solver: &Solver{},
 	}
 	ch.budget = budget.NewCheck(context.Background())
 	ch.budget.SetTFStepLimit(family.MaxReductionWork)
@@ -191,5 +191,6 @@ func newTestChecker() *Checker {
 	ch.budget.SetResolveDepthLimit(64)
 	ch.unifier = unify.NewUnifierShared(&ch.freshID)
 	ch.unifier.Budget = ch.budget
+	ch.solver = solve.New(ch)
 	return ch
 }

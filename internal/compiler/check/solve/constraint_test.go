@@ -1,6 +1,6 @@
 // Constraint solver infrastructure tests — Ct, Worklist, InertSet.
 // Does NOT cover: solver.go, deferred.go.
-package check
+package solve
 
 import (
 	"testing"

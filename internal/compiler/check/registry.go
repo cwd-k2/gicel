@@ -211,9 +211,19 @@ func (r *Registry) IsImportedInstance(inst *InstanceInfo) bool {
 // These return the underlying maps directly. Callers must not mutate them.
 // Used by ExportModule to filter and project registry contents.
 
+// AllDataTypes returns the type name → DataTypeInfo map.
+func (r *Registry) AllDataTypes() map[string]*DataTypeInfo {
+	return r.dataTypeByName
+}
+
 // AllConInfo returns the constructor → DataTypeInfo map.
 func (r *Registry) AllConInfo() map[string]*DataTypeInfo {
 	return r.conInfo
+}
+
+// AllConTypes returns the constructor → full type scheme map.
+func (r *Registry) AllConTypes() map[string]types.Type {
+	return r.conTypes
 }
 
 // AllAliases returns the alias name → AliasInfo map.

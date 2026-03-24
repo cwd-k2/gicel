@@ -129,6 +129,9 @@ type DepthLimitError = budget.DepthLimitError
 // AllocLimitError indicates the allocation byte limit was exceeded.
 type AllocLimitError = budget.AllocLimitError
 
+// NestingLimitError indicates the structural nesting depth limit was exceeded.
+type NestingLimitError = budget.NestingLimitError
+
 // ---- Type construction helpers ----
 
 // RowField is a single label:type pair in a row.
@@ -146,6 +149,8 @@ var (
 	NewRow       = engine.NewRow
 	KindType     = engine.KindType
 	KindArrow    = engine.KindArrow
+	KindRow      = engine.KindRow
+	ForallKind   = engine.ForallKind
 	EmptyRowType = engine.EmptyRowType
 	RecordType   = engine.RecordType
 	TupleType    = engine.TupleType

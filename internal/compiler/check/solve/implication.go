@@ -1,4 +1,4 @@
-package check
+package solve
 
 import (
 	"fmt"
@@ -13,12 +13,12 @@ import (
 // install given equalities, solve inner wanteds, then partition residuals
 // into floatable (promoted to outer) and stuck (local skolem/meta → error).
 //
-// Currently unused in production — GADT branches use checkWithLocalScope
+// Currently unused in production — GADT branches use CheckWithLocalScope
 // which handles DK body checking inline. This function processes
 // pre-collected Wanteds (no DK interleaving), so SolverLevel is set
 // immediately. Retained as infrastructure for future constraint kinds.
-func (ch *Checker) processCtImplication(ct *CtImplication, outerResolutions map[string]ir.Core) {
-	savedWorklist := ch.solver.SaveWorklist()
+func (s *Solver) processCtImplication(ct *CtImplication, outerResolutions map[string]ir.Core) {
+	savedWorklist := s.SaveWorklist()
 
 	// Build local skolem ID set before entering inner scope.
 	localSkolems := make(map[int]bool, len(ct.Skolems))
@@ -26,35 +26,35 @@ func (ch *Checker) processCtImplication(ct *CtImplication, outerResolutions map[
 		localSkolems[sk.ID] = true
 	}
 
-	// SolverLevel is set immediately here (unlike bidir_case.go which defers
+	// SolverLevel is set immediately here (unlike CheckWithLocalScope which defers
 	// it until after body check). This is safe because CtImplication carries
 	// pre-collected Wanteds — no DK eager unification occurs inside.
-	ch.solver.EnterScope()
-	savedSolverLevel := ch.unifier.SolverLevel
-	ch.unifier.SolverLevel = ch.solver.Level()
+	s.EnterScope()
+	savedSolverLevel := s.env.SolverLevel()
+	s.env.SetSolverLevel(s.Level())
 
 	for skolemID, ty := range ct.GivenEqs {
-		ch.unifier.InstallGivenEq(skolemID, ty)
+		s.env.InstallGivenEq(skolemID, ty)
 	}
 
-	ch.solver.RestoreWorklist(ct.Wanteds)
+	s.RestoreWorklist(ct.Wanteds)
 
-	innerResolutions, innerResiduals := ch.solveWanteds(localShouldDefer())
+	innerResolutions, innerResiduals := s.SolveWanteds(localShouldDefer())
 	for k, v := range innerResolutions {
 		outerResolutions[k] = v
 	}
 
-	floatable := ch.partitionResiduals(innerResiduals, localSkolems, ch.solver.Level())
+	floatable := s.partitionResiduals(innerResiduals, localSkolems, s.Level())
 
 	for skolemID := range ct.GivenEqs {
-		ch.unifier.RemoveGivenEq(skolemID)
+		s.env.RemoveGivenEq(skolemID)
 	}
-	ch.solver.ExitScope()
-	ch.unifier.SolverLevel = savedSolverLevel
-	ch.solver.RestoreWorklist(append(savedWorklist, floatable...))
+	s.ExitScope()
+	s.env.SetSolverLevel(savedSolverLevel)
+	s.RestoreWorklist(append(savedWorklist, floatable...))
 }
 
-// checkWithLocalScope checks expr against expected inside an implication scope.
+// CheckWithLocalScope checks expr against expected inside an implication scope.
 // Increments solver.level so new metas are at inner level, then solves
 // constraints with touchability enforced. Residuals are partitioned: stuck
 // constraints produce errors, floatable ones are merged into the outer worklist.
@@ -68,18 +68,18 @@ func (ch *Checker) processCtImplication(ct *CtImplication, outerResolutions map[
 // constraints are scoped to the evidence body, not the GADT result type.
 // A full separation of unification and solving (OutsideIn-style) would
 // eliminate this gap but conflicts with DK interleaving.
-func (ch *Checker) checkWithLocalScope(expr syntax.Expr, expected types.Type, skolemIDs map[int]string) ir.Core {
-	savedWorklist := ch.solver.SaveWorklist()
+func (s *Solver) CheckWithLocalScope(expr syntax.Expr, expected types.Type, skolemIDs map[int]string) ir.Core {
+	savedWorklist := s.SaveWorklist()
 
-	ch.solver.EnterScope()
+	s.EnterScope()
 
-	bodyCore := ch.check(expr, expected)
+	bodyCore := s.env.Check(expr, expected)
 
 	// Enable touchability for constraint solving only.
 	// Deferred until after body check — DK eager unification during check
 	// must be free to solve outer metas (e.g. case result type).
-	savedSolverLevel := ch.unifier.SolverLevel
-	ch.unifier.SolverLevel = ch.solver.Level()
+	savedSolverLevel := s.env.SolverLevel()
+	s.env.SetSolverLevel(s.Level())
 
 	// Defer constraints with unsolved metas or local skolems — these
 	// cannot be resolved at the inner level (instance resolution via
@@ -89,40 +89,40 @@ func (ch *Checker) checkWithLocalScope(expr syntax.Expr, expected types.Type, sk
 	for id := range skolemIDs {
 		localSkolems[id] = true
 	}
-	resolutions, residuals := ch.solveWanteds(localShouldDefer())
-	bodyCore = ch.substitutePlaceholders(bodyCore, resolutions)
+	resolutions, residuals := s.SolveWanteds(localShouldDefer())
+	bodyCore = SubstitutePlaceholders(bodyCore, resolutions)
 
-	floatable := ch.partitionResiduals(residuals, localSkolems, ch.solver.Level())
+	floatable := s.partitionResiduals(residuals, localSkolems, s.Level())
 
-	ch.unifier.SolverLevel = savedSolverLevel
-	ch.solver.ExitScope()
-	ch.solver.RestoreWorklist(append(savedWorklist, floatable...))
+	s.env.SetSolverLevel(savedSolverLevel)
+	s.ExitScope()
+	s.RestoreWorklist(append(savedWorklist, floatable...))
 	return bodyCore
 }
 
 // localShouldDefer returns a shouldDefer predicate that defers constraints
 // whose args contain unsolved metas. Used by processCtImplication and
-// checkWithLocalScope to prevent inner-level resolution of constraints
+// CheckWithLocalScope to prevent inner-level resolution of constraints
 // that belong to the outer scope. Constraints with local skolems are NOT
 // deferred — they may be resolvable via given evidence from the GADT
 // pattern. Unresolvable local-skolem constraints become residuals and
 // are caught by partitionResiduals.
 func localShouldDefer() func(string, []types.Type) bool {
 	return func(_ string, zonkedArgs []types.Type) bool {
-		return sliceHasMeta(zonkedArgs)
+		return SliceHasMeta(zonkedArgs)
 	}
 }
 
 // partitionResiduals splits residual constraints into floatable (promoted
 // to the outer scope) and stuck (mentions local skolems or inner-level
 // metas → error). Stuck constraints are reported as ErrNoInstance.
-func (ch *Checker) partitionResiduals(residuals []*CtClass, localSkolems map[int]bool, level int) []Ct {
+func (s *Solver) partitionResiduals(residuals []*CtClass, localSkolems map[int]bool, level int) []Ct {
 	var floatable []Ct
 	for _, r := range residuals {
-		if constraintMentionsLocal(ch, r, localSkolems, level) {
-			ch.addCodedError(diagnostic.ErrNoInstance, r.S,
+		if s.constraintMentionsLocal(r, localSkolems, level) {
+			s.env.AddCodedError(diagnostic.ErrNoInstance, r.S,
 				fmt.Sprintf("cannot resolve %s (mentions GADT-local type variables)",
-					constraintKey(r.ClassName, ch.zonkAll(r.Args))))
+					constraintKey(r.ClassName, s.zonkAll(r.Args))))
 		} else {
 			floatable = append(floatable, r)
 		}
@@ -132,9 +132,9 @@ func (ch *Checker) partitionResiduals(residuals []*CtClass, localSkolems map[int
 
 // constraintMentionsLocal returns true if the constraint's type arguments
 // mention any local skolem ID or any meta created at the given inner level.
-func constraintMentionsLocal(ch *Checker, ct *CtClass, localSkolems map[int]bool, innerLevel int) bool {
+func (s *Solver) constraintMentionsLocal(ct *CtClass, localSkolems map[int]bool, innerLevel int) bool {
 	for _, arg := range ct.Args {
-		zonked := ch.unifier.Zonk(arg)
+		zonked := s.env.Zonk(arg)
 		if typeHasLocal(zonked, localSkolems, innerLevel) {
 			return true
 		}

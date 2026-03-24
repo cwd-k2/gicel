@@ -47,7 +47,7 @@ func injectCoreImport(ast *syntax.AstProgram) {
 }
 
 // makeCheckConfig builds a CheckConfig from the three Engine subsystems.
-func makeCheckConfig(host *HostEnv, store *ModuleStore, limits *Limits) *check.CheckConfig {
+func makeCheckConfig(host *HostEnv, store *ModuleStore, limits *Limits, traceHook check.CheckTraceHook) *check.CheckConfig {
 	imported := make(map[string]*check.ModuleExports, len(store.modules))
 	deps := make(map[string][]string, len(store.modules))
 	for name, mod := range store.modules {
@@ -59,7 +59,7 @@ func makeCheckConfig(host *HostEnv, store *ModuleStore, limits *Limits) *check.C
 		Assumptions:     host.assumptions,
 		Bindings:        host.bindings,
 		GatedBuiltins:   host.gatedBuiltins,
-		Trace:           limits.checkTraceHook,
+		Trace:           traceHook,
 		ImportedModules: imported,
 		ModuleDeps:      deps,
 		StrictTypeNames: true,
@@ -73,7 +73,7 @@ func makeCheckConfig(host *HostEnv, store *ModuleStore, limits *Limits) *check.C
 // compileModule runs the full compilation pipeline for a single module:
 // lex → parse → dep check → type check → optimize → annotate.
 // See compileMain for the main-source counterpart.
-func compileModule(ctx context.Context, name, source string, host *HostEnv, store *ModuleStore, limits *Limits) (*compiledModule, error) {
+func compileModule(ctx context.Context, name, source string, host *HostEnv, store *ModuleStore, limits *Limits, traceHook check.CheckTraceHook) (*compiledModule, error) {
 	ast, src, err := lexAndParse(ctx, name, source, store, name != "Core" && store.Has("Core"))
 	if err != nil {
 		return nil, err
@@ -87,7 +87,7 @@ func compileModule(ctx context.Context, name, source string, host *HostEnv, stor
 		return nil, err
 	}
 
-	config := makeCheckConfig(host, store, limits)
+	config := makeCheckConfig(host, store, limits, traceHook)
 	config.Context = ctx
 	config.CurrentModule = name
 	prog, exports, checkErrs := check.CheckModule(ast, src, config)
@@ -122,15 +122,15 @@ func postCheck(prog *ir.Program, rules []registry.RewriteRule) {
 
 // compileMain compiles the main source: lex → parse → type check → optimize → annotate.
 // See compileModule for the module counterpart.
-func compileMain(ctx context.Context, source string, host *HostEnv, store *ModuleStore, limits *Limits) (*ir.Program, *span.Source, error) {
+func compileMain(ctx context.Context, source string, host *HostEnv, store *ModuleStore, limits *Limits, traceHook check.CheckTraceHook, entryPoint string) (*ir.Program, *span.Source, error) {
 	ast, src, err := lexAndParse(ctx, "<input>", source, store, store.Has("Core"))
 	if err != nil {
 		return nil, nil, err
 	}
 
-	cfg := makeCheckConfig(host, store, limits)
+	cfg := makeCheckConfig(host, store, limits, traceHook)
 	cfg.Context = ctx
-	cfg.EntryPoint = limits.entryPoint
+	cfg.EntryPoint = entryPoint
 	if cfg.EntryPoint == "" {
 		cfg.EntryPoint = DefaultEntryPoint
 	}
@@ -145,10 +145,10 @@ func compileMain(ctx context.Context, source string, host *HostEnv, store *Modul
 }
 
 // assembleRuntime constructs an immutable Runtime from compiled artifacts.
-func assembleRuntime(prog *ir.Program, src *span.Source, host *HostEnv, store *ModuleStore, limits *Limits) *Runtime {
+func assembleRuntime(prog *ir.Program, src *span.Source, host *HostEnv, store *ModuleStore, limits *Limits, entryPoint string) *Runtime {
 	entries := store.Entries()
 
-	entryName := limits.entryPoint
+	entryName := entryPoint
 	if entryName == "" {
 		entryName = DefaultEntryPoint
 	}

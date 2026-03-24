@@ -1,4 +1,4 @@
-package check
+package solve
 
 // Worklist is a FIFO queue of constraints to be processed by the solver.
 // New constraints are pushed to the back; kicked-out constraints are

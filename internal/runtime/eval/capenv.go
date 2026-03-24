@@ -6,12 +6,12 @@ import "sort"
 // Copy-on-write semantics.
 type CapEnv struct {
 	caps map[string]any
-	cow  bool
+	shared bool
 }
 
 // EmptyCapEnv creates an empty capability environment.
 func EmptyCapEnv() CapEnv {
-	return CapEnv{caps: make(map[string]any), cow: false}
+	return CapEnv{caps: make(map[string]any), shared: false}
 }
 
 // NewCapEnv creates a CapEnv from a map. The map is shared with the caller
@@ -21,7 +21,7 @@ func NewCapEnv(m map[string]any) CapEnv {
 	if m == nil {
 		m = make(map[string]any)
 	}
-	return CapEnv{caps: m, cow: true}
+	return CapEnv{caps: m, shared: true}
 }
 
 // Get retrieves a capability by label.
@@ -32,13 +32,13 @@ func (c CapEnv) Get(label string) (any, bool) {
 
 // Set returns a new CapEnv with the label set to the given value.
 func (c CapEnv) Set(label string, val any) CapEnv {
-	if c.cow {
+	if c.shared {
 		newCaps := make(map[string]any, len(c.caps)+1)
 		for k, v := range c.caps {
 			newCaps[k] = v
 		}
 		newCaps[label] = val
-		return CapEnv{caps: newCaps, cow: false}
+		return CapEnv{caps: newCaps, shared: false}
 	}
 	c.caps[label] = val
 	return c
@@ -46,14 +46,14 @@ func (c CapEnv) Set(label string, val any) CapEnv {
 
 // Delete returns a new CapEnv with the label removed.
 func (c CapEnv) Delete(label string) CapEnv {
-	if c.cow {
+	if c.shared {
 		newCaps := make(map[string]any, len(c.caps))
 		for k, v := range c.caps {
 			if k != label {
 				newCaps[k] = v
 			}
 		}
-		return CapEnv{caps: newCaps, cow: false}
+		return CapEnv{caps: newCaps, shared: false}
 	}
 	delete(c.caps, label)
 	return c
@@ -71,6 +71,6 @@ func (c CapEnv) Labels() []string {
 
 // MarkShared marks this CapEnv as shared, ensuring future Set/Delete copy.
 func (c CapEnv) MarkShared() CapEnv {
-	c.cow = true
+	c.shared = true
 	return c
 }

@@ -1,4 +1,4 @@
-package check
+package solve
 
 import (
 	"github.com/cwd-k2/gicel/internal/infra/span"

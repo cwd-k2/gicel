@@ -11,9 +11,9 @@ import (
 // checkExhaustive delegates to the exhaust subpackage.
 func (ch *Checker) checkExhaustive(scrutTy types.Type, alts []ir.Alt, s span.Span) {
 	env := &exhaust.CheckEnv{
-		DataTypes:    ch.reg.dataTypeByName,
-		ConInfoMap:   ch.reg.conInfo,
-		ConTypes:     ch.reg.conTypes,
+		DataTypes:    ch.reg.AllDataTypes(),
+		ConInfoMap:   ch.reg.AllConInfo(),
+		ConTypes:     ch.reg.AllConTypes(),
 		Fresh:        ch.fresh,
 		Unifier:      ch.unifier,
 		ReduceFamily: ch.reduceFamilyInType,

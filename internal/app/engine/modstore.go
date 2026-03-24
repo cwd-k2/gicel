@@ -37,20 +37,10 @@ func (s *ModuleStore) Has(name string) bool {
 	return ok
 }
 
-// Get returns the compiled module for the given name, or nil.
-func (s *ModuleStore) Get(name string) *compiledModule {
-	return s.modules[name]
-}
-
 // Register adds a compiled module and appends it to the ordering.
 func (s *ModuleStore) Register(name string, mod *compiledModule) {
 	s.modules[name] = mod
 	s.order = append(s.order, name)
-}
-
-// Order returns the module registration order.
-func (s *ModuleStore) Order() []string {
-	return s.order
 }
 
 // CheckCircularDeps detects circular dependencies before registering a module.

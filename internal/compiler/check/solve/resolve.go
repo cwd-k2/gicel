@@ -1,9 +1,10 @@
-package check
+package solve
 
 import (
 	"fmt"
 	"strings"
 
+	"github.com/cwd-k2/gicel/internal/compiler/check/env"
 	"github.com/cwd-k2/gicel/internal/infra/diagnostic"
 	"github.com/cwd-k2/gicel/internal/infra/span"
 	"github.com/cwd-k2/gicel/internal/lang/ir"
@@ -12,46 +13,54 @@ import (
 
 // maxResolveDepth default is set via Budget.SetResolveDepthLimit in newChecker.
 
-// extractDictField builds a Case expression that extracts the field at fieldIdx
+// dictName returns the dictionary type/constructor name for a class.
+func dictName(className string) string { return className + "$Dict" }
+
+// ExtractDictField builds a Case expression that extracts the field at fieldIdx
 // from a class dictionary constructor. prefix is used for generated variable names.
-func (ch *Checker) extractDictField(classInfo *ClassInfo, dictExpr ir.Core, fieldIdx int, prefix string, s span.Span) ir.Core {
+func (s *Solver) ExtractDictField(classInfo *env.ClassInfo, dictExpr ir.Core, fieldIdx int, prefix string, sp span.Span) ir.Core {
 	allFields := len(classInfo.Supers) + len(classInfo.Methods)
-	freshBase := ch.fresh()
+	freshBase := s.env.Fresh()
 	var patArgs []ir.Pattern
 	var fieldExpr ir.Core
 	for j := 0; j < allFields; j++ {
 		argName := fmt.Sprintf("$%s_%d_%d", prefix, j, freshBase)
-		patArgs = append(patArgs, &ir.PVar{Name: argName, S: s})
+		patArgs = append(patArgs, &ir.PVar{Name: argName, S: sp})
 		if j == fieldIdx {
-			fieldExpr = &ir.Var{Name: argName, S: s}
+			fieldExpr = &ir.Var{Name: argName, S: sp}
 		}
 	}
 	return &ir.Case{
 		Scrutinee: dictExpr,
 		Alts: []ir.Alt{{
-			Pattern:   &ir.PCon{Con: classInfo.DictName, Args: patArgs, S: s},
+			Pattern:   &ir.PCon{Con: classInfo.DictName, Args: patArgs, S: sp},
 			Body:      fieldExpr,
 			Generated: true,
-			S:         s,
+			S:         sp,
 		}},
-		S: s,
+		S: sp,
 	}
 }
 
-// tryResolveInstance attempts instance resolution without emitting errors.
+// ResolveInstance is the exported entry point for resolveInstance.
+func (s *Solver) ResolveInstance(className string, args []types.Type, sp span.Span) ir.Core {
+	return s.resolveInstance(className, args, sp)
+}
+
+// TryResolveInstance attempts instance resolution without emitting errors.
 // Returns the dictionary expression and true on success, or nil and false if
 // resolution fails. Any errors and worklist side effects produced during the
 // attempt are discarded on failure.
-func (ch *Checker) tryResolveInstance(className string, args []types.Type, s span.Span) (ir.Core, bool) {
-	savedErrs := ch.errors.Len()
-	savedWorklist := ch.solver.SaveWorklist()
-	dict := ch.resolveInstance(className, args, s)
-	if ch.errors.Len() > savedErrs {
-		ch.errors.Truncate(savedErrs)
-		ch.solver.RestoreWorklist(savedWorklist) // restore, discard orphans
+func (s *Solver) TryResolveInstance(className string, args []types.Type, sp span.Span) (ir.Core, bool) {
+	savedErrs := s.env.ErrorCount()
+	savedWorklist := s.SaveWorklist()
+	dict := s.resolveInstance(className, args, sp)
+	if s.env.ErrorCount() > savedErrs {
+		s.env.TruncateErrors(savedErrs)
+		s.RestoreWorklist(savedWorklist) // restore, discard orphans
 		return nil, false
 	}
-	ch.solver.RestoreWorklist(append(savedWorklist, ch.solver.SaveWorklist()...))
+	s.RestoreWorklist(append(savedWorklist, s.SaveWorklist()...))
 	return dict, true
 }
 
@@ -72,45 +81,45 @@ func (ch *Checker) tryResolveInstance(className string, args []types.Type, s spa
 //   - Meta solutions accumulate in the shared unifier across recursive calls
 //     (no rollback). Instance head unification uses withTrial, but context
 //     resolution (recursive resolveInstance) commits permanently.
-func (ch *Checker) resolveInstance(className string, args []types.Type, s span.Span) ir.Core {
-	if err := ch.budget.EnterResolve(); err != nil {
-		ch.addCodedError(diagnostic.ErrResolutionDepth, s,
+func (s *Solver) resolveInstance(className string, args []types.Type, sp span.Span) ir.Core {
+	if err := s.env.EnterResolve(); err != nil {
+		s.env.AddCodedError(diagnostic.ErrResolutionDepth, sp,
 			fmt.Sprintf("instance resolution depth limit exceeded for %s %s (possible infinite loop in instance contexts)",
-				className, ch.prettyTypeArgs(args)))
-		return &ir.Var{Name: "<resolution-depth>", S: s}
+				className, s.prettyTypeArgs(args)))
+		return &ir.Var{Name: "<resolution-depth>", S: sp}
 	}
-	defer ch.budget.LeaveResolve()
+	defer s.env.LeaveResolve()
 
-	if dict := ch.resolveFromContext(className, args, s); dict != nil {
+	if dict := s.resolveFromContext(className, args, sp); dict != nil {
 		return dict
 	}
-	if dict := ch.resolveFromSuperclasses(className, args, s); dict != nil {
+	if dict := s.resolveFromSuperclasses(className, args, sp); dict != nil {
 		return dict
 	}
-	if dict := ch.resolveFromQuantifiedEvidence(className, args, s); dict != nil {
+	if dict := s.resolveFromQuantifiedEvidence(className, args, sp); dict != nil {
 		return dict
 	}
-	ch.applyFunDepImprovement(className, args)
-	if dict := ch.resolveFromGlobalInstances(className, args, s); dict != nil {
+	s.applyFunDepImprovement(className, args)
+	if dict := s.resolveFromGlobalInstances(className, args, sp); dict != nil {
 		return dict
 	}
 
-	ch.addCodedError(diagnostic.ErrNoInstance, s,
-		fmt.Sprintf("no instance for %s %s", className, ch.prettyTypeArgs(args)))
-	return &ir.Var{Name: "<no-instance>", S: s}
+	s.env.AddCodedError(diagnostic.ErrNoInstance, sp,
+		fmt.Sprintf("no instance for %s %s", className, s.prettyTypeArgs(args)))
+	return &ir.Var{Name: "<no-instance>", S: sp}
 }
 
 // matchesDictVar checks if a context variable is a dictionary for the given class and args.
-func (ch *Checker) matchesDictVar(v *CtxVar, className string, args []types.Type) bool {
-	ty := ch.unifier.Zonk(v.Type)
+func (s *Solver) matchesDictVar(v *env.CtxVar, className string, args []types.Type) bool {
+	ty := s.env.Zonk(v.Type)
 	head, tyArgs := types.UnwindApp(ty)
 	if con, ok := head.(*types.TyCon); ok && con.Name == dictName(className) {
 		if len(tyArgs) != len(args) {
 			return false
 		}
-		return ch.withTrial(func() bool {
+		return s.env.WithTrial(func() bool {
 			for i := range args {
-				if err := ch.unifier.Unify(tyArgs[i], args[i]); err != nil {
+				if err := s.env.Unify(tyArgs[i], args[i]); err != nil {
 					return false
 				}
 			}
@@ -122,7 +131,7 @@ func (ch *Checker) matchesDictVar(v *CtxVar, className string, args []types.Type
 
 // superDictSearch holds the immutable context for a superclass dictionary search.
 type superDictSearch struct {
-	ch          *Checker
+	solver      *Solver
 	targetClass string
 	targetArgs  []types.Type
 	s           span.Span
@@ -131,33 +140,33 @@ type superDictSearch struct {
 
 // extractSuperDict checks if a context variable is a dict for a class that
 // has the target class as a (possibly transitive) superclass.
-func (ch *Checker) extractSuperDict(v *CtxVar, targetClass string, targetArgs []types.Type, s span.Span) ir.Core {
-	ty := ch.unifier.Zonk(v.Type)
+func (s *Solver) extractSuperDict(v *env.CtxVar, targetClass string, targetArgs []types.Type, sp span.Span) ir.Core {
+	ty := s.env.Zonk(v.Type)
 	head, tyArgs := types.UnwindApp(ty)
 	con, ok := head.(*types.TyCon)
 	if !ok {
 		return nil
 	}
-	if _, isDict := ch.reg.ClassFromDict(con.Name); !isDict {
+	if _, isDict := s.env.ClassFromDict(con.Name); !isDict {
 		return nil
 	}
 	search := &superDictSearch{
-		ch: ch, targetClass: targetClass, targetArgs: targetArgs,
-		s: s, visited: make(map[string]bool),
+		solver: s, targetClass: targetClass, targetArgs: targetArgs,
+		s: sp, visited: make(map[string]bool),
 	}
-	return search.chain(&ir.Var{Name: v.Name, Module: v.Module, S: s}, con.Name, tyArgs)
+	return search.chain(&ir.Var{Name: v.Name, Module: v.Module, S: sp}, con.Name, tyArgs)
 }
 
 // chain recursively searches the superclass hierarchy for the target class,
 // building chained Case extractions along the path.
 func (sd *superDictSearch) chain(dictExpr ir.Core, dictTyName string, dictTyArgs []types.Type) ir.Core {
-	parentClass, _ := sd.ch.reg.ClassFromDict(dictTyName)
+	parentClass, _ := sd.solver.env.ClassFromDict(dictTyName)
 	if sd.visited[parentClass] {
 		return nil
 	}
 	sd.visited[parentClass] = true
 
-	classInfo, ok := sd.ch.reg.LookupClass(parentClass)
+	classInfo, ok := sd.solver.env.LookupClass(parentClass)
 	if !ok {
 		return nil
 	}
@@ -176,13 +185,13 @@ func (sd *superDictSearch) chain(dictExpr ir.Core, dictTyName string, dictTyArgs
 			superArgs[j] = types.SubstMany(a, subst)
 		}
 
-		extractExpr := sd.ch.extractDictField(classInfo, dictExpr, superIdx, "sf", sd.s)
+		extractExpr := sd.solver.ExtractDictField(classInfo, dictExpr, superIdx, "sf", sd.s)
 
 		// Direct match: this superclass IS the target.
 		if sup.ClassName == sd.targetClass && len(superArgs) == len(sd.targetArgs) {
-			if sd.ch.withTrial(func() bool {
+			if sd.solver.env.WithTrial(func() bool {
 				for j := range sd.targetArgs {
-					if err := sd.ch.unifier.Unify(superArgs[j], sd.targetArgs[j]); err != nil {
+					if err := sd.solver.env.Unify(superArgs[j], sd.targetArgs[j]); err != nil {
 						return false
 					}
 				}
@@ -204,8 +213,8 @@ func (sd *superDictSearch) chain(dictExpr ir.Core, dictTyName string, dictTyArgs
 // applyFunDepImprovement uses functional dependencies to improve type inference.
 // For each fundep a -> b in the class, if the "from" args are determined (no metas),
 // search instances whose "from" positions match, and unify the "to" positions.
-func (ch *Checker) applyFunDepImprovement(className string, args []types.Type) {
-	classInfo, ok := ch.reg.LookupClass(className)
+func (s *Solver) applyFunDepImprovement(className string, args []types.Type) {
+	classInfo, ok := s.env.LookupClass(className)
 	if !ok || len(classInfo.FunDeps) == 0 {
 		return
 	}
@@ -217,7 +226,7 @@ func (ch *Checker) applyFunDepImprovement(className string, args []types.Type) {
 				allDetermined = false
 				break
 			}
-			zonked := ch.unifier.Zonk(args[fromIdx])
+			zonked := s.env.Zonk(args[fromIdx])
 			if _, isMeta := zonked.(*types.TyMeta); isMeta {
 				allDetermined = false
 				break
@@ -227,15 +236,15 @@ func (ch *Checker) applyFunDepImprovement(className string, args []types.Type) {
 			continue
 		}
 		// Search instances: if "from" positions match, unify "to" positions.
-		for _, inst := range ch.reg.InstancesForClass(className) {
+		for _, inst := range s.env.InstancesForClass(className) {
 			if len(inst.TypeArgs) != len(args) {
 				continue
 			}
-			freshSubst := ch.freshInstanceSubst(inst)
-			fromMatch := ch.withTrial(func() bool {
+			freshSubst := s.FreshInstanceSubst(inst)
+			fromMatch := s.env.WithTrial(func() bool {
 				for _, fromIdx := range fd.From {
 					instArg := types.SubstMany(inst.TypeArgs[fromIdx], freshSubst)
-					if err := ch.unifier.Unify(instArg, args[fromIdx]); err != nil {
+					if err := s.env.Unify(instArg, args[fromIdx]); err != nil {
 						return false
 					}
 				}
@@ -247,13 +256,13 @@ func (ch *Checker) applyFunDepImprovement(className string, args []types.Type) {
 					if toIdx >= len(args) {
 						continue
 					}
-					instArg := ch.unifier.Zonk(types.SubstMany(inst.TypeArgs[toIdx], freshSubst))
+					instArg := s.env.Zonk(types.SubstMany(inst.TypeArgs[toIdx], freshSubst))
 					// Advisory unification: fundep improvement is best-effort.
 					// If the "to" position is already constrained to a different
 					// type, the unification fails silently. This is correct — fundep
 					// improvement refines type information when possible but must
 					// not reject programs where it provides no additional info.
-					_ = ch.unifier.Unify(args[toIdx], instArg) //nolint:errcheck // advisory
+					_ = s.env.Unify(args[toIdx], instArg) //nolint:errcheck // advisory
 				}
 				break // first matching instance wins
 			}
@@ -261,10 +270,10 @@ func (ch *Checker) applyFunDepImprovement(className string, args []types.Type) {
 	}
 }
 
-func (ch *Checker) prettyTypeArgs(args []types.Type) string {
+func (s *Solver) prettyTypeArgs(args []types.Type) string {
 	parts := make([]string, len(args))
 	for i, a := range args {
-		parts[i] = types.PrettyAtom(ch.unifier.Zonk(a))
+		parts[i] = types.PrettyAtom(s.env.Zonk(a))
 	}
 	return strings.Join(parts, " ")
 }

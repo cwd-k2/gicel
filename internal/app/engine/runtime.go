@@ -140,7 +140,7 @@ type runRequest struct {
 	traceHook eval.TraceHook
 }
 
-// execute is the unified execution ir.
+// execute is the unified execution core.
 func (r *Runtime) execute(ctx context.Context, req *runRequest) (eval.EvalResult, eval.EvalStats, error) {
 	env, err := r.buildEnv(req.bindings)
 	if err != nil {

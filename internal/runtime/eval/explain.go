@@ -8,7 +8,6 @@ import (
 
 	"github.com/cwd-k2/gicel/internal/infra/span"
 	"github.com/cwd-k2/gicel/internal/lang/ir"
-	"github.com/cwd-k2/gicel/internal/lang/syntax"
 )
 
 // ExplainKind classifies semantic evaluation events.
@@ -150,10 +149,22 @@ func (o *ExplainObserver) IsInternal(name string) bool {
 }
 
 // EnterInternal increments the suppression counter.
-func (o *ExplainObserver) EnterInternal() { o.suppress++ }
+// Safe to call on a nil observer.
+func (o *ExplainObserver) EnterInternal() {
+	if o == nil {
+		return
+	}
+	o.suppress++
+}
 
 // LeaveInternal decrements the suppression counter.
-func (o *ExplainObserver) LeaveInternal() { o.suppress-- }
+// Safe to call on a nil observer.
+func (o *ExplainObserver) LeaveInternal() {
+	if o == nil {
+		return
+	}
+	o.suppress--
+}
 
 // SetSource updates the current source context.
 // Called by the evaluator when crossing module boundaries.
@@ -242,7 +253,7 @@ func IsTuple(r *RecordVal) bool {
 		return true // () is the unit tuple
 	}
 	for i := 1; i <= n; i++ {
-		if _, ok := r.Fields[syntax.TupleLabel(i)]; !ok {
+		if _, ok := r.Fields[fmt.Sprintf("_%d", i)]; !ok {
 			return false
 		}
 	}
@@ -256,7 +267,7 @@ func prettyTupleDepth(r *RecordVal, depth int) string {
 	}
 	parts := make([]string, n)
 	for i := range n {
-		parts[i] = prettyValueDepth(r.Fields[syntax.TupleLabel(i+1)], depth+1)
+		parts[i] = prettyValueDepth(r.Fields[fmt.Sprintf("_%d", i+1)], depth+1)
 	}
 	return "(" + strings.Join(parts, ", ") + ")"
 }
@@ -352,7 +363,7 @@ func collectListPattern(p *ir.PCon, depth int) ([]string, bool) {
 
 func isTuplePattern(p *ir.PRecord) bool {
 	for i, f := range p.Fields {
-		if f.Label != syntax.TupleLabel(i+1) {
+		if f.Label != fmt.Sprintf("_%d", i+1) {
 			return false
 		}
 	}

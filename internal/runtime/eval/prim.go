@@ -17,7 +17,7 @@ type PrimRegistry struct {
 	impls map[string]PrimImpl
 }
 
-// NewPrimRegistry creates an empty primitive reg.
+// NewPrimRegistry creates an empty primitive registry.
 func NewPrimRegistry() *PrimRegistry {
 	return &PrimRegistry{impls: make(map[string]PrimImpl)}
 }
