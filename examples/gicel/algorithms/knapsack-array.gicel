@@ -1,0 +1,46 @@
+-- GICEL Example: Knapsack (Effect.Array)
+--
+-- 0/1 knapsack using a mutable DP table.
+-- The DP sweep uses Effect.Array for O(1) indexed reads and writes,
+-- compared to the List-based O(n) setAt in effects/knapsack.gicel.
+--
+-- Run: gicel run --recursion --packs prelude,array knapsack-array.gicel
+
+import Prelude
+import Effect.Array
+
+items := [(2, 3), (3, 4), (4, 5), (5, 6)]
+capacity := 10
+
+max :: Int -> Int -> Int
+max := \a b. case a > b { True => a; False => b }
+
+-- Build the DP table using in-place mutation.
+-- dp[j] = maximum value achievable with capacity j.
+-- For each item (w, v), sweep j from capacity down to w:
+--   dp[j] = max(dp[j], dp[j-w] + v)
+solve := \items capacity. do {
+  dp <- new (capacity + 1) 0;
+  fix (\loopItems is. case is {
+    Nil => pure ();
+    Cons (w, v) rest => do {
+      fix (\loopJ j. case j >= w {
+        False => pure ();
+        True  => do {
+          cur  <- readAt j dp;
+          prev <- readAt (j - w) dp;
+          case (cur, prev) {
+            (Just c, Just p) => writeAt j (max c (p + v)) dp;
+            _                => pure ()
+          };
+          loopJ (j - 1)
+        }
+      }) capacity;
+      loopItems rest
+    }
+  }) items;
+  readAt capacity dp
+}
+
+-- Output: Just 13
+main := solve items capacity

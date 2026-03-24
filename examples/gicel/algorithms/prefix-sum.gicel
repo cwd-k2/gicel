@@ -1,0 +1,57 @@
+-- GICEL Example: Prefix Sum (Array + Console)
+--
+-- Reads space-separated integers from stdin, builds a prefix sum
+-- array, and answers range-sum queries. Demonstrates the full
+-- input pipeline: Console.getLine -> words -> Read -> Array.
+--
+-- Run: echo "1 3 5 7 9" | gicel run --recursion --packs prelude,slice,array,console prefix-sum.gicel
+--
+-- Expected output:
+--   size: 5
+--   prefix: [0, 1, 4, 9, 16, 25]
+--   sum [1..3]: 15
+--   sum [0..4]: 25
+
+import Prelude
+import Data.Slice
+import Effect.Array
+import Console
+
+-- Parse a line of space-separated integers.
+readInts :: String -> List Int
+readInts := \line. mapMaybe read (words line)
+
+-- Build prefix sum array: prefix[i] = sum of xs[0..i-1], prefix[0] = 0.
+buildPrefix := \xs. do {
+  n <- pure (length xs);
+  prefix <- new (n + 1) 0;
+  fix (\loop i. case i >= n {
+    True  => pure ();
+    False => do {
+      prev <- readAt i prefix;
+      case (prev, index i xs) {
+        (Just p, Just v) => writeAt (i + 1) (p + v) prefix;
+        _                => pure ()
+      };
+      loop (i + 1)
+    }
+  }) 0;
+  toSlice prefix
+}
+
+-- Range sum query: sum of xs[lo..hi] (inclusive) using prefix sums.
+rangeSum := \prefix lo hi.
+  case (index (hi + 1) prefix, index lo prefix) {
+    (Just r, Just l) => r - l;
+    _                => 0
+  }
+
+main := do {
+  line <- getLine;
+  xs <- pure (fromList (readInts line));
+  prefix <- buildPrefix xs;
+  putLine ("size: " <> show (length xs));
+  putLine ("prefix: " <> show (toList prefix));
+  putLine ("sum [1..3]: " <> show (rangeSum prefix 1 3));
+  putLine ("sum [0..4]: " <> show (rangeSum prefix 0 4))
+}

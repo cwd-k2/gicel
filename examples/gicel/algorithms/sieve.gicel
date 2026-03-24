@@ -1,0 +1,47 @@
+-- GICEL Example: Sieve of Eratosthenes (Effect.Array)
+--
+-- Classic prime sieve using a mutable boolean array.
+-- Demonstrates Array writeAt in a nested loop.
+--
+-- Run: gicel run --recursion --packs prelude,slice,array sieve.gicel
+-- Output: [2, 3, 5, 7, 11, 13, 17, 19, 23, 29]
+
+import Prelude
+import Data.Slice
+import Effect.Array
+
+sieve := \limit. do {
+  -- is[i] = True means i is (still considered) prime
+  is <- new (limit + 1) True;
+  writeAt 0 False is;
+  writeAt 1 False is;
+
+  -- Mark composites: for i from 2, while i*i <= limit
+  fix (\outer i. case i * i > limit {
+    True  => pure ();
+    False => do {
+      v <- readAt i is;
+      case v {
+        Just True => fix (\inner j. case j > limit {
+          True  => pure ();
+          False => do { writeAt j False is; inner (j + i) }
+        }) (i * i);
+        _ => pure ()
+      };
+      outer (i + 1)
+    }
+  }) 2;
+
+  -- Collect primes
+  s <- toSlice is;
+  pure (fix (\collect i acc. case i > limit {
+    True  => reverse acc;
+    False => case index i s {
+      Just True => collect (i + 1) (Cons i acc);
+      _         => collect (i + 1) acc
+    }
+  }) 2 [])
+}
+
+-- Primes up to 30
+main := sieve 30
