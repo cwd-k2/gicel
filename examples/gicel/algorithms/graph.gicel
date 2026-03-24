@@ -35,7 +35,7 @@ mkUndirected := \edges.
 
 -- Get neighbors of a node
 neighbors :: Int -> Graph -> List Int
-neighbors := \node g. maybe Nil id (Map.lookup node g)
+neighbors := \node g. maybe Nil id $ Map.lookup node g
 
 -- ── DFS: depth-first search ─────────────────────────────────
 
@@ -101,10 +101,10 @@ topoSort := \g nodes. {
             -- Visit all neighbors
             afterNbrs := foldl (\(v, o) nb. dfs2 nb v o) (vis2, ord) nbrs;
             -- Append self after all children
-            (\(v, o). (v, Cons n o)) afterNbrs
+            case afterNbrs { (v, o) => (v, Cons n o) }
           }
         });
-        (\(vis2, ord2). self rest vis2 ord2) (dfsPost node visited order)
+        case dfsPost node visited order { (vis2, ord2) => self rest vis2 ord2 }
       }
     }
   });

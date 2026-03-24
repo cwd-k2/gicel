@@ -7,130 +7,104 @@ import Prelude
 
 -- ── Matrix type: List (List Int) — row-major ────────────────
 
--- A matrix is a list of rows, each row a list of elements.
-
--- ── Construction helpers ────────────────────────────────────
-
 -- Generate range [lo..hi]
 range :: Int -> Int -> List Int
-range := fix (\self lo hi.
-  case lo > hi { True => []; False => Cons lo (self (lo + 1) hi) })
+range := fix $ \self lo hi.
+  case lo > hi { True => []; False => Cons lo $ self (lo + 1) hi }
 
 -- Identity matrix of size n
 identity :: Int -> List (List Int)
-identity := \n. map (\i. map (\j. case i == j { True => 1; False => 0 }) (range 0 (n - 1))) (range 0 (n - 1))
-
--- Zero matrix of size r x c
-zeros :: Int -> Int -> List (List Int)
-zeros := \r c. replicate r (replicate c 0)
+identity := \n. {
+  idxs := range 0 (n - 1);
+  map (\i. map (\j. case i == j { True => 1; False => 0 }) idxs) idxs
+}
 
 -- ── Element-wise operations ─────────────────────────────────
 
--- Zip two matrices element-wise with a function
 matZipWith :: (Int -> Int -> Int) -> List (List Int) -> List (List Int) -> List (List Int)
-matZipWith := \f a b. zipWith (zipWith f) a b
+matZipWith := \f. zipWith (zipWith f)
 
--- Matrix addition
-matAdd :: List (List Int) -> List (List Int) -> List (List Int)
 matAdd := matZipWith (+)
-
--- Matrix subtraction
-matSub :: List (List Int) -> List (List Int) -> List (List Int)
 matSub := matZipWith (-)
-
--- Scalar multiplication
-matScale :: Int -> List (List Int) -> List (List Int)
-matScale := \s. map (map (* s))
+matScale := \s. map $ map (* s)
 
 -- ── Transpose ───────────────────────────────────────────────
 
--- Transpose: swap rows and columns
 transpose :: List (List Int) -> List (List Int)
-transpose := fix (\self m. case m {
+transpose := fix $ \self m. case m {
   Nil => Nil;
-  Cons row rest => case row {
+  Cons row _ => case row {
     Nil => Nil;
     _   => {
-      heads := map (\r. maybe 0 id (head r)) m;
-      tails := map (\r. maybe Nil id (tail r)) m;
-      Cons heads (self tails)
+      heads := map (maybe 0 id . head) m;
+      tails := map (maybe Nil id . tail) m;
+      Cons heads $ self tails
     }
   }
-})
+}
 
 -- ── Matrix multiplication ───────────────────────────────────
 
--- Dot product of two vectors
 dot :: List Int -> List Int -> Int
-dot := \a b. foldl (+) 0 (zipWith (*) a b)
+dot := \a b. foldl (+) 0 $ zipWith (*) a b
 
--- Matrix multiply: A (m x n) * B (n x p) = C (m x p)
 matMul :: List (List Int) -> List (List Int) -> List (List Int)
 matMul := \a b. {
   bt := transpose b;
-  map (\row. map (\col. dot row col) bt) a
+  map (\row. map (dot row) bt) a
 }
 
--- ── Determinant (for square matrices) ───────────────────────
+-- ── Determinant (cofactor expansion along first row) ────────
 
--- Remove column j from a row
 removeCol :: Int -> List Int -> List Int
-removeCol := \j row. concat (take j row) (drop (j + 1) row)
+removeCol := \j row. concat (take j row) $ drop (j + 1) row
 
--- Minor matrix: remove row 0 and column j
 minor :: Int -> List (List Int) -> List (List Int)
-minor := \j m. map (removeCol j) (maybe [] id (tail m))
+minor := \j m. map (removeCol j) $ maybe [] id $ tail m
 
--- Determinant via cofactor expansion along the first row
+at :: Int -> List Int -> Int
+at := \i row. maybe 0 id $ index i row
+
 det :: List (List Int) -> Int
-det := fix (\self m. case m {
+det := fix $ \self m. case m {
   Nil => 1;
   Cons row rest => case rest {
-    Nil => maybe 0 id (head row);
+    Nil => at 0 row;
     _   => {
-      n := length row;
-      idxs := range 0 (n - 1);
-      foldl (+) 0 (map (\j. {
-        elem := maybe 0 id (index j row);
+      idxs := range 0 (length row - 1);
+      foldl (+) 0 $ map (\j. {
         sign := case mod j 2 == 0 { True => 1; False => negate 1 };
-        sign * elem * self (minor j m)
-      }) idxs)
+        sign * at j row * self (minor j m)
+      }) idxs
     }
   }
-})
+}
 
 -- ── Trace (sum of diagonal) ─────────────────────────────────
 
 trace :: List (List Int) -> Int
 trace := \m. {
   idxs := range 0 (length m - 1);
-  foldl (+) 0 (map (\i. maybe 0 (\row. maybe 0 id (index i row)) (index i m)) idxs)
+  foldl (+) 0 $ map (\i. at i $ maybe [] id $ index i m) idxs
 }
 
 -- ── Tests ───────────────────────────────────────────────────
 
--- 2x2 matrices
 a := [[1, 2], [3, 4]]
 b := [[5, 6], [7, 8]]
 
-testAdd := matAdd a b                              -- [[6, 8], [10, 12]]
-testSub := matSub b a                              -- [[4, 4], [4, 4]]
-testScale := matScale 3 a                           -- [[3, 6], [9, 12]]
-testTranspose := transpose a                        -- [[1, 3], [2, 4]]
-testMul := matMul a b                               -- [[19, 22], [43, 50]]
-testDet := det a                                    -- -2
-testTrace := trace a                                -- 5
+testAdd       := matAdd a b           -- [[6, 8], [10, 12]]
+testSub       := matSub b a           -- [[4, 4], [4, 4]]
+testScale     := matScale 3 a         -- [[3, 6], [9, 12]]
+testTranspose := transpose a          -- [[1, 3], [2, 4]]
+testMul       := matMul a b           -- [[19, 22], [43, 50]]
+testDet       := det a                -- -2
+testTrace     := trace a              -- 5
 
--- Identity checks
-i2 := identity 2                                    -- [[1, 0], [0, 1]]
-testIdentMul := matMul a i2                         -- [[1, 2], [3, 4]]
-testDetIdent := det (identity 3)                    -- 1
-
--- 3x3 determinant
-c := [[2, 1, 3], [0, 4, 5], [1, 0, 2]]
-testDet3 := det c                                   -- 9
-
--- Matrix multiplication associativity: (A*B) should differ from (B*A) for non-commutative case
-testMulBA := matMul b a                             -- [[23, 34], [31, 46]]
+i2            := identity 2
+testIdentMul  := matMul a i2          -- [[1, 2], [3, 4]]
+testDetIdent  := det $ identity 3     -- 1
+testDet3      := det [[2, 1, 3], [0, 4, 5], [1, 0, 2]]  -- 9
+testMulBA     := matMul b a           -- [[23, 34], [31, 46]]
 
 main := (testAdd, testSub, testScale, testTranspose, testMul, testDet, testTrace, testIdentMul, testDetIdent, testDet3, testMulBA)

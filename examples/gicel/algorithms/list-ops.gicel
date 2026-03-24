@@ -8,37 +8,37 @@ import Prelude
 -- ── Map: apply f to every element ───────────────────────────
 
 myMap :: \a b. (a -> b) -> List a -> List b
-myMap := fix (\self f xs. case xs {
+myMap := fix $ \self f xs. case xs {
   Nil        => Nil;
-  Cons x rest => Cons (f x) (self f rest)
-})
+  Cons x rest => Cons (f x) $ self f rest
+}
 
 -- ── Filter: keep elements satisfying predicate ──────────────
 
 myFilter :: \a. (a -> Bool) -> List a -> List a
-myFilter := fix (\self p xs. case xs {
+myFilter := fix $ \self p xs. case xs {
   Nil        => Nil;
   Cons x rest => case p x {
-    True  => Cons x (self p rest);
+    True  => Cons x $ self p rest;
     False => self p rest
   }
-})
+}
 
 -- ── Fold left: strict accumulator ───────────────────────────
 
 myFoldl :: \a b. (b -> a -> b) -> b -> List a -> b
-myFoldl := fix (\self f acc xs. case xs {
+myFoldl := fix $ \self f acc xs. case xs {
   Nil        => acc;
   Cons x rest => self f (f acc x) rest
-})
+}
 
 -- ── Fold right: structural recursion ────────────────────────
 
 myFoldr :: \a b. (a -> b -> b) -> b -> List a -> b
-myFoldr := fix (\self f z xs. case xs {
+myFoldr := fix $ \self f z xs. case xs {
   Nil        => z;
-  Cons x rest => f x (self f z rest)
-})
+  Cons x rest => f x $ self f z rest
+}
 
 -- ── Reverse: via left fold ──────────────────────────────────
 
@@ -49,36 +49,36 @@ myReverse := myFoldl (flip Cons) Nil
 
 -- Split a list into two halves
 splitHalf :: \a. List a -> (List a, List a)
-splitHalf := fix (\self xs. case xs {
+splitHalf := fix $ \self xs. case xs {
   Nil => (Nil, Nil);
   Cons x rest => case rest {
     Nil => (Cons x Nil, Nil);
-    Cons y rest2 => (\(as, bs). (Cons x as, Cons y bs)) (self rest2)
+    Cons y rest2 => case self rest2 { (as, bs) => (Cons x as, Cons y bs) }
   }
-})
+}
 
 -- Merge two sorted lists
 merge :: \a. (a -> a -> Ordering) -> List a -> List a -> List a
-merge := fix (\self cmp xs ys. case xs {
+merge := fix $ \self cmp xs ys. case xs {
   Nil => ys;
   Cons x xrest => case ys {
     Nil => xs;
     Cons y yrest => case cmp x y {
-      GT => Cons y (self cmp xs yrest);
-      _  => Cons x (self cmp xrest ys)
+      GT => Cons y $ self cmp xs yrest;
+      _  => Cons x $ self cmp xrest ys
     }
   }
-})
+}
 
 -- Merge sort with custom comparator
 mySort :: \a. (a -> a -> Ordering) -> List a -> List a
-mySort := fix (\self cmp xs. case xs {
+mySort := fix $ \self cmp xs. case xs {
   Nil => Nil;
   Cons x rest => case rest {
-    Nil => Cons x Nil;
-    _   => (\(left, right). merge cmp (self cmp left) (self cmp right)) (splitHalf xs)
+    Nil => [x];
+    _   => case splitHalf xs { (left, right) => merge cmp (self cmp left) (self cmp right) }
   }
-})
+}
 
 -- ── Tests ───────────────────────────────────────────────────
 
@@ -87,14 +87,11 @@ nums := [1, 2, 3, 4, 5]
 testMap     := myMap (* 2) nums                         -- [2, 4, 6, 8, 10]
 testFilter  := myFilter (\x. mod x 2 == 0) nums        -- [2, 4]
 testFoldl   := myFoldl (+) 0 nums                       -- 15
-testFoldr   := myFoldr (<+) []                           -- [1,2,3,4,5] (identity via cons)
-testFoldr2  := myFoldr (\x acc. acc <> [x]) [] nums     -- [5,4,3,2,1] (reverse via snoc)
 testReverse := myReverse nums                            -- [5, 4, 3, 2, 1]
 testSort    := mySort compare [5, 3, 1, 4, 2]           -- [1, 2, 3, 4, 5]
 testSortStr := mySort compare ["banana", "apple", "cherry"]
 
 -- Compose: sort descending, then take top 3
-descending := \x y. compare y x
-testDesc   := take 3 (mySort descending [10, 3, 7, 1, 9, 5, 8])
+testDesc := take 3 $ mySort (flip compare) [10, 3, 7, 1, 9, 5, 8]
 
 main := (testMap, testFilter, testFoldl, testReverse, testSort, testSortStr, testDesc)

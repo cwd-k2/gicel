@@ -76,9 +76,9 @@ ledger :: Thunk { state: Int } { state: Int } Int
 ledger := thunk do {
   put 1000;                     -- opening balance
   modify (+ 250);               -- deposit
-  modify (\b. b - 100);         -- withdrawal
+  modify (- 100);               -- withdrawal
   modify (+ 500);               -- deposit
-  modify (\b. b - 75);          -- withdrawal
+  modify (- 75);                -- withdrawal
   modify (+ 300);               -- deposit
   get
 }

@@ -19,18 +19,18 @@ form Expr := {
 -- ── Evaluator ───────────────────────────────────────────────
 
 eval :: Expr -> Int
-eval := fix (\self e. case e {
+eval := fix $ \self e. case e {
   Lit n     => n;
   Add l r   => self l + self r;
   Sub l r   => self l - self r;
   Mul l r   => self l * self r;
   Div l r   => div (self l) (self r)
-})
+}
 
 -- ── Parser helpers ──────────────────────────────────────────
 
 isDigit :: Rune -> Bool
-isDigit := \c. (c >= '0') && (c <= '9')
+isDigit := \c. c >= '0' && c <= '9'
 
 digitVal :: Rune -> Int
 digitVal := \c. case c {
@@ -40,23 +40,23 @@ digitVal := \c. case c {
 }
 
 skipWS :: List Rune -> List Rune
-skipWS := fix (\self cs. case cs {
+skipWS := fix $ \self cs. case cs {
   Nil => Nil;
   Cons c rest => case c == ' ' {
     True  => self rest;
     False => cs
   }
-})
+}
 
 parseNum :: List Rune -> Maybe (Int, List Rune)
 parseNum := \cs. {
-  go := fix (\self acc cs2. case cs2 {
+  go := fix $ \self acc cs2. case cs2 {
     Nil => (acc, Nil);
     Cons c rest => case isDigit c {
       True  => self (acc * 10 + digitVal c) rest;
       False => (acc, cs2)
     }
-  });
+  };
   cs1 := skipWS cs;
   case cs1 {
     Nil => Nothing;
@@ -72,115 +72,84 @@ parseNum := \cs. {
 -- selector 0 = parseExpr, 1 = parseTerm, 2 = parseFactor
 
 parseWith :: Int -> List Rune -> Maybe (Expr, List Rune)
-parseWith := fix (\self sel cs. case sel {
+parseWith := fix $ \self sel cs. case sel {
 
   -- parseFactor: number | '(' expr ')'
   2 => {
     cs1 := skipWS cs;
     case cs1 {
       Nil => Nothing;
-      Cons c rest => case c == '(' {
-        True  => case self 0 (skipWS rest) {
-          Nothing => Nothing;
-          Just (e, rest2) => case skipWS rest2 {
-            Nil => Nothing;
-            Cons c2 rest3 => case c2 == ')' {
-              True  => Just (e, rest3);
-              False => Nothing
-            }
-          }
+      Cons '(' rest =>
+        self 0 (skipWS rest) >>= \(e, rest2).
+        case skipWS rest2 {
+          Cons ')' rest3 => Just (e, rest3);
+          _              => Nothing
         };
-        False => case parseNum cs1 {
-          Nothing => Nothing;
-          Just (n, rest2) => Just (Lit n, rest2)
-        }
-      }
+      _ =>
+        parseNum cs1 >>= \(n, rest2).
+        Just (Lit n, rest2)
     }
   };
 
   -- parseTerm: factor (('*'|'/') factor)*
   1 => {
-    loop := fix (\loop2 acc rest0. {
+    loop := fix $ \loop2 acc rest0. {
       rest1 := skipWS rest0;
       case rest1 {
-        Nil => Just (acc, rest1);
-        Cons op rest2 => case op == '*' {
-          True  => case self 2 (skipWS rest2) {
-            Nothing => Nothing;
-            Just (right, rest3) => loop2 (Mul acc right) rest3
-          };
-          False => case op == '/' {
-            True  => case self 2 (skipWS rest2) {
-              Nothing => Nothing;
-              Just (right, rest3) => loop2 (Div acc right) rest3
-            };
-            False => Just (acc, rest1)
-          }
-        }
+        Cons '*' rest2 =>
+          self 2 (skipWS rest2) >>= \(right, rest3).
+          loop2 (Mul acc right) rest3;
+        Cons '/' rest2 =>
+          self 2 (skipWS rest2) >>= \(right, rest3).
+          loop2 (Div acc right) rest3;
+        _ => Just (acc, rest1)
       }
-    });
-    case self 2 cs {
-      Nothing => Nothing;
-      Just (first, rest) => loop first rest
-    }
+    };
+    self 2 cs >>= \(first, rest). loop first rest
   };
 
   -- parseExpr: term (('+'|'-') term)*
   _ => {
-    loop := fix (\loop2 acc rest0. {
+    loop := fix $ \loop2 acc rest0. {
       rest1 := skipWS rest0;
       case rest1 {
-        Nil => Just (acc, rest1);
-        Cons op rest2 => case op == '+' {
-          True  => case self 1 (skipWS rest2) {
-            Nothing => Nothing;
-            Just (right, rest3) => loop2 (Add acc right) rest3
-          };
-          False => case op == '-' {
-            True  => case self 1 (skipWS rest2) {
-              Nothing => Nothing;
-              Just (right, rest3) => loop2 (Sub acc right) rest3
-            };
-            False => Just (acc, rest1)
-          }
-        }
+        Cons '+' rest2 =>
+          self 1 (skipWS rest2) >>= \(right, rest3).
+          loop2 (Add acc right) rest3;
+        Cons '-' rest2 =>
+          self 1 (skipWS rest2) >>= \(right, rest3).
+          loop2 (Sub acc right) rest3;
+        _ => Just (acc, rest1)
       }
-    });
-    case self 1 cs {
-      Nothing => Nothing;
-      Just (first, rest) => loop first rest
-    }
-  }
-})
-
--- Top-level parse: run expr parser, ensure all input consumed
-parse :: String -> Maybe Expr
-parse := \s. {
-  cs := toRunes s;
-  case parseWith 0 cs {
-    Nothing => Nothing;
-    Just (e, rest) => case skipWS rest {
-      Nil => Just e;
-      _   => Nothing
-    }
+    };
+    self 1 cs >>= \(first, rest). loop first rest
   }
 }
 
+-- Top-level parse: run expr parser, ensure all input consumed
+parse :: String -> Maybe Expr
+parse := \s.
+  parseWith 0 (toRunes s) >>= \(e, rest).
+  case skipWS rest {
+    Nil => Just e;
+    _   => Nothing
+  }
+
 -- Convenience: parse and evaluate
 calculate :: String -> Maybe Int
-calculate := \s. fmap eval (parse s)
+calculate := fmap eval . parse
 
 -- ── Tests ───────────────────────────────────────────────────
 
-test1 := calculate "42"                    -- Just 42
-test2 := calculate "1 + 2"                 -- Just 3
-test3 := calculate "10 - 3"                -- Just 7
-test4 := calculate "2 * 3 + 4"            -- Just 10
-test5 := calculate "2 + 3 * 4"            -- Just 14 (precedence)
-test6 := calculate "(2 + 3) * 4"          -- Just 20 (parens)
-test7 := calculate "100 / 5 / 2"          -- Just 10
-test8 := calculate "((1 + 2) * (3 + 4))"  -- Just 21
-test9 := calculate ""                       -- Nothing
-test10 := calculate "1 + + 2"              -- Nothing (malformed)
-
-main := (test1, test2, test3, test4, test5, test6, test7, test8, test9, test10)
+main := (
+  calculate "42",                   -- Just 42
+  calculate "1 + 2",                -- Just 3
+  calculate "10 - 3",               -- Just 7
+  calculate "2 * 3 + 4",           -- Just 10
+  calculate "2 + 3 * 4",           -- Just 14 (precedence)
+  calculate "(2 + 3) * 4",         -- Just 20 (parens)
+  calculate "100 / 5 / 2",         -- Just 10
+  calculate "((1 + 2) * (3 + 4))", -- Just 21
+  calculate "",                     -- Nothing
+  calculate "1 + + 2"              -- Nothing (malformed)
+)
