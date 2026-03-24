@@ -1,5 +1,19 @@
 # Changelog
 
+## v0.16.3 — 2026-03-24
+
+### Fixes
+
+- **RunSandbox custom entry point** — `SetEntryPoint` now called before `NewRuntime`, fixing E0291 false positive on non-main entry bindings with bare Computation type
+- **Literal pattern parse error** — returns wildcard pattern instead of zero-value match on overflow/invalid literals
+- **Superclass resolution** — prevents visited set pollution when `ClassFromDict` returns unknown dict type
+- **Instance body nil guard** — `processInstanceBody` guards against nil `ClassInfo` from unregistered class lookup
+- **Primitive panic stack trace** — `callPrim` now preserves Go stack trace in error message
+- **List literal guard** — emits "list literals require Prelude" when Nil/Cons are not registered
+- **CLI `check --json` error path** — now outputs structured JSON on preflight errors (was plain text)
+- **CLI timeout propagation** — `--timeout` now covers `--module` compilation (was only main source)
+- Remove unused `ErrClassSyntax` error code
+
 ## v0.16.2 — 2026-03-24
 
 ### Architecture
