@@ -270,7 +270,7 @@ func newChecker(prog *syntax.AstProgram, source *span.Source, config *CheckConfi
 	}()
 	ch := &Checker{
 		CheckState: session,
-		reg:     reg,
+		reg:        reg,
 		scope: &Scope{
 			currentModule: config.CurrentModule,
 		},

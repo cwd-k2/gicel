@@ -1,0 +1,43 @@
+import Prelude
+
+_arrayNew :: \a r. Int -> a -> Computation { array: () | r } { array: () | r } (Array a)
+_arrayNew := assumption
+
+_arrayReadAt :: \a r. Int -> Array a -> Computation { array: () | r } { array: () | r } (Maybe a)
+_arrayReadAt := assumption
+
+_arrayWriteAt :: \a r. Int -> a -> Array a -> Computation { array: () | r } { array: () | r } ()
+_arrayWriteAt := assumption
+
+_arraySize :: \a. Array a -> Int
+_arraySize := assumption
+
+_arrayResize :: \a r. Int -> a -> Array a -> Computation { array: () | r } { array: () | r } (Array a)
+_arrayResize := assumption
+
+_arrayFromSlice :: \a r. Slice a -> Computation { array: () | r } { array: () | r } (Array a)
+_arrayFromSlice := assumption
+
+_arrayToSlice :: \a r. Array a -> Computation { array: () | r } { array: () | r } (Slice a)
+_arrayToSlice := assumption
+
+new :: \a r. Int -> a -> Computation { array: () | r } { array: () | r } (Array a)
+new := _arrayNew
+
+readAt :: \a r. Int -> Array a -> Computation { array: () | r } { array: () | r } (Maybe a)
+readAt := _arrayReadAt
+
+writeAt :: \a r. Int -> a -> Array a -> Computation { array: () | r } { array: () | r } ()
+writeAt := _arrayWriteAt
+
+size :: \a. Array a -> Int
+size := _arraySize
+
+resize :: \a r. Int -> a -> Array a -> Computation { array: () | r } { array: () | r } (Array a)
+resize := _arrayResize
+
+toSlice :: \a r. Array a -> Computation { array: () | r } { array: () | r } (Slice a)
+toSlice := _arrayToSlice
+
+fromSlice :: \a r. Slice a -> Computation { array: () | r } { array: () | r } (Array a)
+fromSlice := _arrayFromSlice

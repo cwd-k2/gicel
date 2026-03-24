@@ -102,7 +102,7 @@ f := \x. x
 func TestSecurityMangledNameCollision(t *testing.T) {
 	ch := &Checker{
 		CheckState: &CheckState{},
-		reg:     &Registry{families: make(map[string]*TypeFamilyInfo)},
+		reg:        &Registry{families: make(map[string]*TypeFamilyInfo)},
 	}
 
 	name1 := ch.mangledDataFamilyName("A", []types.Type{
@@ -124,7 +124,7 @@ func TestSecurityMangledNameCollision(t *testing.T) {
 func TestSecurityMangledNameCollisionPatternSeparator(t *testing.T) {
 	ch := &Checker{
 		CheckState: &CheckState{},
-		reg:     &Registry{families: make(map[string]*TypeFamilyInfo)},
+		reg:        &Registry{families: make(map[string]*TypeFamilyInfo)},
 	}
 
 	// Family "Elem" with pattern "List" → "Elem$$1$List"
@@ -145,7 +145,7 @@ func TestSecurityMangledNameCollisionPatternSeparator(t *testing.T) {
 func TestSecurityMangledNameMultiplePatterns(t *testing.T) {
 	ch := &Checker{
 		CheckState: &CheckState{},
-		reg:     &Registry{families: make(map[string]*TypeFamilyInfo)},
+		reg:        &Registry{families: make(map[string]*TypeFamilyInfo)},
 	}
 
 	// Family "F" with patterns [A, B] → "F$$2$A$B"

@@ -6,12 +6,6 @@ _sliceEmpty := assumption
 _sliceSingleton :: \a. a -> Slice a
 _sliceSingleton := assumption
 
-_sliceCons :: \a. a -> Slice a -> Slice a
-_sliceCons := assumption
-
-_sliceSnoc :: \a. Slice a -> a -> Slice a
-_sliceSnoc := assumption
-
 _sliceLength :: \a. Slice a -> Int
 _sliceLength := assumption
 
@@ -23,9 +17,6 @@ _sliceFromList := assumption
 
 _sliceToList :: \a. Slice a -> List a
 _sliceToList := assumption
-
-_sliceAppend :: \a. Slice a -> Slice a -> Slice a
-_sliceAppend := assumption
 
 _sliceFoldr :: \a b. (a -> b -> b) -> b -> Slice a -> b
 _sliceFoldr := assumption
@@ -42,37 +33,17 @@ empty := _sliceEmpty
 singleton :: \a. a -> Slice a
 singleton := _sliceSingleton
 
-cons :: \a. a -> Slice a -> Slice a
-cons := _sliceCons
-
-snoc :: \a. Slice a -> a -> Slice a
-snoc := _sliceSnoc
-
 length :: \a. Slice a -> Int
 length := _sliceLength
 
 index :: \a. Int -> Slice a -> Maybe a
 index := _sliceIndex
 
-append :: \a. Slice a -> Slice a -> Slice a
-append := _sliceAppend
-
 foldl :: \a b. (b -> a -> b) -> b -> Slice a -> b
 foldl := _sliceFoldl
 
-infixl 5 +>
-(+>) :: \a. Slice a -> a -> Slice a
-(+>) := _sliceSnoc
-
 impl Functor Slice := { fmap := _sliceMap }
 impl Foldable Slice := { foldr := _sliceFoldr }
-impl Semigroup (Slice a) := { append := _sliceAppend }
-impl Monoid (Slice a) := { empty := _sliceEmpty }
-
-impl Packed (Slice a) a := {
-  pack   := _sliceFromList;
-  unpack := _sliceToList
-}
 
 impl FromList (Slice a) := {
   type Elem := a;

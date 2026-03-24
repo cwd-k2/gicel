@@ -204,8 +204,11 @@ var EffectIO Pack = stdlib.IO
 // DataStream provides lazy list operations.
 var DataStream Pack = stdlib.Stream
 
-// DataSlice provides contiguous array operations.
+// DataSlice provides immutable indexed snapshots.
 var DataSlice Pack = stdlib.Slice
+
+// EffectArray provides mutable fixed-size arrays gated by the { array: () } effect.
+var EffectArray Pack = stdlib.Array
 
 // DataMap provides immutable ordered map backed by AVL tree.
 var DataMap Pack = stdlib.Map

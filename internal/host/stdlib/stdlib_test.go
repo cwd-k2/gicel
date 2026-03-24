@@ -363,60 +363,12 @@ func TestSliceIndexOutOfBounds(t *testing.T) {
 	assertCon(t, v, "Nothing")
 }
 
-func TestSliceConsImpl(t *testing.T) {
-	v, _, err := sliceConsImpl(ctx, ce, args(intVal(0), sliceOf(intVal(1), intVal(2))), nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	s, err := asSlice(v)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(s) != 3 {
-		t.Fatalf("expected 3 elements, got %d", len(s))
-	}
-	assertInt(t, s[0], 0)
-}
-
-func TestSliceSnocImpl(t *testing.T) {
-	v, _, err := sliceSnocImpl(ctx, ce, args(sliceOf(intVal(1)), intVal(2)), nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	s, err := asSlice(v)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(s) != 2 {
-		t.Fatalf("expected 2 elements, got %d", len(s))
-	}
-	assertInt(t, s[1], 2)
-}
-
 func TestSliceIndexNegative(t *testing.T) {
 	v, _, err := sliceIndexImpl(ctx, ce, args(intVal(-1), sliceOf(intVal(10))), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 	assertCon(t, v, "Nothing")
-}
-
-func TestSliceAppendOrder(t *testing.T) {
-	// [1] ++ [2,3] = [1,2,3] — element order must be preserved (M21).
-	v, _, err := sliceAppendImpl(ctx, ce, args(sliceOf(intVal(1)), sliceOf(intVal(2), intVal(3))), nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	s, err := asSlice(v)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(s) != 3 {
-		t.Fatalf("expected 3 elements, got %d", len(s))
-	}
-	assertInt(t, s[0], 1)
-	assertInt(t, s[1], 2)
-	assertInt(t, s[2], 3)
 }
 
 func TestSliceMapImpl(t *testing.T) {

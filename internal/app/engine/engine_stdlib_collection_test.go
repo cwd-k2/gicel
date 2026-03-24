@@ -124,17 +124,13 @@ main := pack (unpack "hello")
 	assertHostString(t, v, "hello")
 }
 
-func TestPackedListIdentity(t *testing.T) {
+func TestPackedBytesRoundtrip(t *testing.T) {
 	v := runWithPacks(t, `
 import Prelude
-main := pack (Cons True Nil)
+main :: String
+main := pack (unpack "hello" :: Slice Byte)
 `, stdlib.Prelude)
-	con, ok := v.(*eval.ConVal)
-	if !ok || con.Con != "Cons" {
-		t.Fatalf("expected Cons, got %v", v)
-	}
-	assertConVal(t, con.Args[0], "True")
-	assertConVal(t, con.Args[1], "Nil")
+	assertHostString(t, v, "hello")
 }
 
 // ===========================================================================
@@ -264,7 +260,7 @@ func TestSliceIndex(t *testing.T) {
 import Prelude
 import Data.Slice
 main :: Maybe Bool
-main := index 0 (pack (Cons True Nil))
+main := index 0 (fromList (Cons True Nil))
 `, stdlib.Prelude, stdlib.Slice)
 	con, ok := v.(*eval.ConVal)
 	if !ok || con.Con != "Just" {
@@ -273,11 +269,11 @@ main := index 0 (pack (Cons True Nil))
 	assertConVal(t, con.Args[0], "True")
 }
 
-func TestSlicePackedRoundtrip(t *testing.T) {
+func TestSliceFromListRoundtrip(t *testing.T) {
 	v := runWithPacks(t, `
 import Prelude
 import Data.Slice
-main := unpack (pack (Cons True (Cons False Nil)) :: Slice Bool)
+main := toList (fromList (Cons True (Cons False Nil)) :: Slice Bool)
 `, stdlib.Prelude, stdlib.Slice)
 	con := v.(*eval.ConVal)
 	if con.Con != "Cons" {
@@ -298,11 +294,11 @@ main := length (fmap not (singleton True))
 	assertHostInt(t, v, 1)
 }
 
-func TestSliceMonoid(t *testing.T) {
+func TestSliceFromListLength(t *testing.T) {
 	v := runWithPacks(t, `
 import Prelude
 import Data.Slice
-main := length (append (singleton True) (singleton False))
+main := length (fromList [True, False])
 `, stdlib.Prelude, stdlib.Slice)
 	assertHostInt(t, v, 2)
 }

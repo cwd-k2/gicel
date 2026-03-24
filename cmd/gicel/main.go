@@ -210,11 +210,12 @@ var packMap = map[string]gicel.Pack{
 	"slice":   gicel.DataSlice,
 	"map":     gicel.DataMap,
 	"set":     gicel.DataSet,
+	"array":   gicel.EffectArray,
 	"console": consolePack,
 }
 
 // allPackOrder ensures deterministic pack loading.
-var allPackOrder = []string{"prelude", "fail", "state", "io", "stream", "slice", "map", "set", "console"}
+var allPackOrder = []string{"prelude", "fail", "state", "io", "stream", "slice", "map", "set", "array", "console"}
 
 func setupEngine(use string) (*gicel.Engine, error) {
 	eng := gicel.NewEngine()

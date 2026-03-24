@@ -9,18 +9,15 @@ import (
 	"github.com/cwd-k2/gicel/internal/runtime/eval"
 )
 
-// Slice provides contiguous array operations: O(1) length/index,
-// fromList/toList conversion, and Functor/Foldable/Semigroup/Monoid/Packed instances.
+// Slice provides immutable indexed snapshots: O(1) length/index,
+// fromList/toList conversion, and Functor/Foldable instances.
 var Slice Pack = func(e Registrar) error {
 	e.RegisterPrim("_sliceEmpty", sliceEmptyImpl)
 	e.RegisterPrim("_sliceSingleton", sliceSingletonImpl)
-	e.RegisterPrim("_sliceCons", sliceConsImpl)
-	e.RegisterPrim("_sliceSnoc", sliceSnocImpl)
 	e.RegisterPrim("_sliceLength", sliceLengthImpl)
 	e.RegisterPrim("_sliceIndex", sliceIndexImpl)
 	e.RegisterPrim("_sliceFromList", sliceFromListImpl)
 	e.RegisterPrim("_sliceToList", sliceToListImpl)
-	e.RegisterPrim("_sliceAppend", sliceAppendImpl)
 	e.RegisterPrim("_sliceFoldr", sliceFoldrImpl)
 	e.RegisterPrim("_sliceMap", sliceMapImpl)
 	e.RegisterPrim("_sliceFoldl", sliceFoldlImpl)
@@ -115,34 +112,6 @@ func sliceSingletonImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ 
 	return sliceVal([]eval.Value{args[0]}), ce, nil
 }
 
-func sliceConsImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
-	s, err := asSlice(args[1])
-	if err != nil {
-		return nil, ce, err
-	}
-	if err := budget.ChargeAlloc(ctx, int64(len(s)+1)*costSlotSize); err != nil {
-		return nil, ce, err
-	}
-	result := make([]eval.Value, len(s)+1)
-	result[0] = args[0]
-	copy(result[1:], s)
-	return sliceVal(result), ce, nil
-}
-
-func sliceSnocImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
-	s, err := asSlice(args[0])
-	if err != nil {
-		return nil, ce, err
-	}
-	if err := budget.ChargeAlloc(ctx, int64(len(s)+1)*costSlotSize); err != nil {
-		return nil, ce, err
-	}
-	result := make([]eval.Value, len(s)+1)
-	copy(result, s)
-	result[len(s)] = args[1]
-	return sliceVal(result), ce, nil
-}
-
 func sliceLengthImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
 	s, err := asSlice(args[0])
 	if err != nil {
@@ -188,24 +157,6 @@ func sliceToListImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, _ e
 		return nil, ce, err
 	}
 	return buildList(s), ce, nil
-}
-
-func sliceAppendImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
-	a, err := asSlice(args[0])
-	if err != nil {
-		return nil, ce, err
-	}
-	b, err := asSlice(args[1])
-	if err != nil {
-		return nil, ce, err
-	}
-	if err := budget.ChargeAlloc(ctx, int64(len(a)+len(b))*costSlotSize); err != nil {
-		return nil, ce, err
-	}
-	result := make([]eval.Value, len(a)+len(b))
-	copy(result, a)
-	copy(result[len(a):], b)
-	return sliceVal(result), ce, nil
 }
 
 func sliceFoldrImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, apply eval.Applier) (eval.Value, eval.CapEnv, error) {

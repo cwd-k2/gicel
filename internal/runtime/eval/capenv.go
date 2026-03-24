@@ -5,7 +5,7 @@ import "sort"
 // CapEnv is a capability environment: label -> capability state.
 // Copy-on-write semantics.
 type CapEnv struct {
-	caps map[string]any
+	caps   map[string]any
 	shared bool
 }
 

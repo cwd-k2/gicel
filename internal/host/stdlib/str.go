@@ -15,14 +15,25 @@ import (
 // R13: _fromRunes (_toRunes x) → x
 func strPackedRoundtrip(c ir.Core) ir.Core {
 	po, ok := c.(*ir.PrimOp)
-	if !ok || po.Name != "_fromRunes" || len(po.Args) != 1 {
+	if !ok || len(po.Args) != 1 {
 		return c
 	}
 	inner, ok := po.Args[0].(*ir.PrimOp)
-	if !ok || inner.Name != "_toRunes" || len(inner.Args) != 1 {
+	if !ok || len(inner.Args) != 1 {
 		return c
 	}
-	return inner.Args[0]
+	// List-based roundtrip: _fromRunes (_toRunes x) → x
+	// Slice-based roundtrip: _packRunes (_unpackRunes x) → x
+	// Slice-based roundtrip: _packBytes (_unpackBytes x) → x
+	switch {
+	case po.Name == "_fromRunes" && inner.Name == "_toRunes":
+		return inner.Args[0]
+	case po.Name == "_packRunes" && inner.Name == "_unpackRunes":
+		return inner.Args[0]
+	case po.Name == "_packBytes" && inner.Name == "_unpackBytes":
+		return inner.Args[0]
+	}
+	return c
 }
 
 func asString(v eval.Value) (string, error) {
@@ -303,6 +314,34 @@ func readIntImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Ap
 	return &eval.ConVal{Con: "Just", Args: []eval.Value{&eval.HostVal{Inner: n}}}, ce, nil
 }
 
+func readDoubleImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
+	s, err := asString(args[0])
+	if err != nil {
+		return nil, ce, err
+	}
+	f, err := strconv.ParseFloat(strings.TrimSpace(s), 64)
+	if err != nil {
+		return &eval.ConVal{Con: "Nothing"}, ce, nil
+	}
+	return &eval.ConVal{Con: "Just", Args: []eval.Value{&eval.HostVal{Inner: f}}}, ce, nil
+}
+
+func wordsImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
+	s, err := asString(args[0])
+	if err != nil {
+		return nil, ce, err
+	}
+	fields := strings.Fields(s)
+	if err := budget.ChargeAlloc(ctx, int64(len(fields))*costConsNode+int64(len(s))*costPerByte); err != nil {
+		return nil, ce, err
+	}
+	items := make([]eval.Value, len(fields))
+	for i, f := range fields {
+		items[i] = &eval.HostVal{Inner: f}
+	}
+	return buildList(items), ce, nil
+}
+
 func toRunesImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
 	s, err := asString(args[0])
 	if err != nil {
@@ -340,3 +379,160 @@ func fromRunesImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, _ eva
 }
 
 func asInt64Str(v eval.Value) (int64, error) { return asInt64(v, "str") }
+
+// --- Packed (Slice-based) primitives ---
+
+func packRunesImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
+	s, err := asSliceStr(args[0])
+	if err != nil {
+		return nil, ce, err
+	}
+	runes := make([]rune, len(s))
+	for i, item := range s {
+		r, err := asRune(item)
+		if err != nil {
+			return nil, ce, fmt.Errorf("packRunes: element %d: %w", i, err)
+		}
+		runes[i] = r
+	}
+	result := string(runes)
+	if err := budget.ChargeAlloc(ctx, int64(len(result))*costPerByte); err != nil {
+		return nil, ce, err
+	}
+	return &eval.HostVal{Inner: result}, ce, nil
+}
+
+func unpackRunesImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
+	s, err := asString(args[0])
+	if err != nil {
+		return nil, ce, err
+	}
+	runes := []rune(s)
+	if err := budget.ChargeAlloc(ctx, int64(len(runes))*costSlotSize); err != nil {
+		return nil, ce, err
+	}
+	items := make([]eval.Value, len(runes))
+	for i, r := range runes {
+		items[i] = &eval.HostVal{Inner: r}
+	}
+	return &eval.HostVal{Inner: items}, ce, nil
+}
+
+func packBytesImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
+	s, err := asSliceStr(args[0])
+	if err != nil {
+		return nil, ce, err
+	}
+	bs := make([]byte, len(s))
+	for i, item := range s {
+		b, err := asByte(item)
+		if err != nil {
+			return nil, ce, fmt.Errorf("packBytes: element %d: %w", i, err)
+		}
+		bs[i] = b
+	}
+	if err := budget.ChargeAlloc(ctx, int64(len(bs))*costPerByte); err != nil {
+		return nil, ce, err
+	}
+	return &eval.HostVal{Inner: string(bs)}, ce, nil
+}
+
+func unpackBytesImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
+	s, err := asString(args[0])
+	if err != nil {
+		return nil, ce, err
+	}
+	bs := []byte(s)
+	if err := budget.ChargeAlloc(ctx, int64(len(bs))*costSlotSize); err != nil {
+		return nil, ce, err
+	}
+	items := make([]eval.Value, len(bs))
+	for i, b := range bs {
+		items[i] = &eval.HostVal{Inner: b}
+	}
+	return &eval.HostVal{Inner: items}, ce, nil
+}
+
+func asSliceStr(v eval.Value) ([]eval.Value, error) {
+	hv, ok := v.(*eval.HostVal)
+	if !ok {
+		return nil, fmt.Errorf("stdlib/str: expected HostVal, got %T", v)
+	}
+	s, ok := hv.Inner.([]eval.Value)
+	if !ok {
+		return nil, fmt.Errorf("stdlib/str: expected []Value, got %T", hv.Inner)
+	}
+	return s, nil
+}
+
+// --- Byte primitives ---
+
+func asByte(v eval.Value) (byte, error) {
+	hv, ok := v.(*eval.HostVal)
+	if !ok {
+		return 0, fmt.Errorf("stdlib/byte: expected HostVal, got %T", v)
+	}
+	b, ok := hv.Inner.(byte)
+	if !ok {
+		return 0, fmt.Errorf("stdlib/byte: expected byte, got %T", hv.Inner)
+	}
+	return b, nil
+}
+
+func eqByteImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
+	a, err := asByte(args[0])
+	if err != nil {
+		return nil, ce, err
+	}
+	b, err := asByte(args[1])
+	if err != nil {
+		return nil, ce, err
+	}
+	return boolVal(a == b), ce, nil
+}
+
+func cmpByteImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
+	a, err := asByte(args[0])
+	if err != nil {
+		return nil, ce, err
+	}
+	b, err := asByte(args[1])
+	if err != nil {
+		return nil, ce, err
+	}
+	switch {
+	case a < b:
+		return ordVal(-1), ce, nil
+	case a > b:
+		return ordVal(1), ce, nil
+	default:
+		return ordVal(0), ce, nil
+	}
+}
+
+func showByteImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
+	b, err := asByte(args[0])
+	if err != nil {
+		return nil, ce, err
+	}
+	return &eval.HostVal{Inner: strconv.FormatUint(uint64(b), 10)}, ce, nil
+}
+
+func byteToIntImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
+	b, err := asByte(args[0])
+	if err != nil {
+		return nil, ce, err
+	}
+	return &eval.HostVal{Inner: int64(b)}, ce, nil
+}
+
+func intToByteImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
+	n, err := asInt64(args[0], "byte")
+	if err != nil {
+		return nil, ce, err
+	}
+	if n < 0 || n > 255 {
+		return &eval.ConVal{Con: "Nothing"}, ce, nil
+	}
+	return &eval.ConVal{Con: "Just", Args: []eval.Value{&eval.HostVal{Inner: byte(n)}}}, ce, nil
+}

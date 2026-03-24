@@ -17,11 +17,11 @@ type ClassInfo struct {
 	Name         string
 	TyParams     []string
 	TyParamKinds []types.Kind
-	KindParams   []string      // implicit kind variables (e.g., "k" in f: k -> Type)
-	Supers       []SuperInfo   // superclass constraints
-	Methods      []MethodInfo  // method signatures
-	DictName     string        // e.g. "Eq$Dict" — used as both type and constructor name
-	AssocTypes []string // associated type family names
+	KindParams   []string     // implicit kind variables (e.g., "k" in f: k -> Type)
+	Supers       []SuperInfo  // superclass constraints
+	Methods      []MethodInfo // method signatures
+	DictName     string       // e.g. "Eq$Dict" — used as both type and constructor name
+	AssocTypes   []string     // associated type family names
 }
 
 // SuperInfo describes a superclass constraint.

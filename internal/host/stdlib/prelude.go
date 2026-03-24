@@ -72,8 +72,21 @@ var Prelude Pack = func(e Registrar) error {
 	e.RegisterPrim("_split", splitImpl)
 	e.RegisterPrim("_join", joinImpl)
 	e.RegisterPrim("_readInt", readIntImpl)
+	e.RegisterPrim("_readDouble", readDoubleImpl)
+	e.RegisterPrim("_words", wordsImpl)
 	e.RegisterPrim("_toRunes", toRunesImpl)
 	e.RegisterPrim("_fromRunes", fromRunesImpl)
+	e.RegisterPrim("_packRunes", packRunesImpl)
+	e.RegisterPrim("_unpackRunes", unpackRunesImpl)
+	e.RegisterPrim("_packBytes", packBytesImpl)
+	e.RegisterPrim("_unpackBytes", unpackBytesImpl)
+
+	// --- Byte primitives (5) ---
+	e.RegisterPrim("_eqByte", eqByteImpl)
+	e.RegisterPrim("_cmpByte", cmpByteImpl)
+	e.RegisterPrim("_showByte", showByteImpl)
+	e.RegisterPrim("_byteToInt", byteToIntImpl)
+	e.RegisterPrim("_intToByte", intToByteImpl)
 
 	// Fusion rule: packed roundtrip elimination.
 	e.RegisterRewriteRule(strPackedRoundtrip)

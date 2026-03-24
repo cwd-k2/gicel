@@ -29,7 +29,9 @@ func newHostEnv() HostEnv {
 	h.registeredTys["Double"] = types.KType{}
 	h.registeredTys["String"] = types.KType{}
 	h.registeredTys["Rune"] = types.KType{}
+	h.registeredTys["Byte"] = types.KType{}
 	h.registeredTys["Slice"] = &types.KArrow{From: types.KType{}, To: types.KType{}}
+	h.registeredTys["Array"] = &types.KArrow{From: types.KType{}, To: types.KType{}}
 	h.registeredTys["Map"] = &types.KArrow{From: types.KType{}, To: &types.KArrow{From: types.KType{}, To: types.KType{}}}
 	h.registeredTys["Set"] = &types.KArrow{From: types.KType{}, To: types.KType{}}
 	return h

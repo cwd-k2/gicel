@@ -308,13 +308,8 @@ impl IxMonad List := {
 }
 
 form Packed := \c e. {
-  pack   : List e -> c;
-  unpack: c -> List e
-}
-
-impl Packed (List a) a := {
-  pack   := id;
-  unpack := id
+  pack:   Slice e -> c;
+  unpack: c -> Slice e
 }
 
 form FromList := \l. {
@@ -858,6 +853,31 @@ impl Monoid String := { empty := _emptyStr }
 impl Eq Rune := { eq := _eqRune }
 impl Ord Rune := { compare := _cmpRune }
 
+_eqByte :: Byte -> Byte -> Bool
+_eqByte := assumption
+
+_cmpByte :: Byte -> Byte -> Ordering
+_cmpByte := assumption
+
+_showByte :: Byte -> String
+_showByte := assumption
+
+_byteToInt :: Byte -> Int
+_byteToInt := assumption
+
+_intToByte :: Int -> Maybe Byte
+_intToByte := assumption
+
+impl Eq Byte := { eq := _eqByte }
+impl Ord Byte := { compare := _cmpByte }
+impl Show Byte := { show := _showByte }
+
+byteToInt :: Byte -> Int
+byteToInt := _byteToInt
+
+intToByte :: Int -> Maybe Byte
+intToByte := _intToByte
+
 strlen :: String -> Int
 strlen := _lengthStr
 
@@ -887,6 +907,12 @@ _join := assumption
 
 _readInt :: String -> Maybe Int
 _readInt := assumption
+
+_readDouble :: String -> Maybe Double
+_readDouble := assumption
+
+_words :: String -> List String
+_words := assumption
 
 charAt :: Int -> String -> Maybe Rune
 charAt := _charAt
@@ -921,6 +947,18 @@ showBool := \b. case b { True => "True"; False => "False" }
 readInt :: String -> Maybe Int
 readInt := _readInt
 
+readDouble :: String -> Maybe Double
+readDouble := _readDouble
+
+words :: String -> List String
+words := _words
+
+form Read := \a. { read: String -> Maybe a }
+
+impl Read Int    := { read := _readInt }
+impl Read Double := { read := _readDouble }
+impl Read String := { read := Just }
+
 _toRunes :: String -> List Rune
 _toRunes := assumption
 
@@ -940,9 +978,26 @@ impl FromList String := {
 
 impl ToList String := { toList := toRunes }
 
+_packRunes :: Slice Rune -> String
+_packRunes := assumption
+
+_unpackRunes :: String -> Slice Rune
+_unpackRunes := assumption
+
+_packBytes :: Slice Byte -> String
+_packBytes := assumption
+
+_unpackBytes :: String -> Slice Byte
+_unpackBytes := assumption
+
 impl Packed String Rune := {
-  pack   := fromRunes;
-  unpack := toRunes
+  pack   := _packRunes;
+  unpack := _unpackRunes
+}
+
+impl Packed String Byte := {
+  pack   := _packBytes;
+  unpack := _unpackBytes
 }
 
 impl Show String := { show := \s. append "\"" (append s "\"") }

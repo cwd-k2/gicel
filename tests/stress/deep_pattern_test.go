@@ -1662,8 +1662,8 @@ func TestPackedSliceConcreteType(t *testing.T) {
 import Prelude
 import Data.Slice
 xs :: Slice Int
-xs := pack [1, 2, 3]
-main := unpack xs
+xs := fromList [1, 2, 3]
+main := toList xs
 `)
 	if err != nil {
 		t.Fatal("Packed (Slice Int) Int should resolve:", err)
@@ -1685,7 +1685,7 @@ main := unpack xs
 	rt2, err := eng2.NewRuntime(context.Background(), `
 import Prelude
 import Data.Slice
-main := unpack (pack [1, 2, 3] :: Slice Int)
+main := toList (fromList [1, 2, 3] :: Slice Int)
 `)
 	if err != nil {
 		t.Fatal("Packed Slice without annotation should resolve:", err)
