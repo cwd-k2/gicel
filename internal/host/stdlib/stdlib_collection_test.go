@@ -807,3 +807,217 @@ func TestAppendIONoAlias(t *testing.T) {
 	}
 }
 
+// --- Map expansion unit tests (v0.14.0) ---
+
+func TestMapKeysValues(t *testing.T) {
+	apply := intCmpApplier()
+	cmpFn := &eval.HostVal{Inner: "cmp"}
+	emptyV, _, _ := mapEmptyImpl(ctx, ce, args(cmpFn), nil)
+	m1, _, _ := mapInsertImpl(ctx, ce, args(cmpFn, intVal(3), strVal("c"), emptyV), apply)
+	m2, _, _ := mapInsertImpl(ctx, ce, args(cmpFn, intVal(1), strVal("a"), m1), apply)
+	m3, _, _ := mapInsertImpl(ctx, ce, args(cmpFn, intVal(2), strVal("b"), m2), apply)
+
+	keys, _, err := mapKeysImpl(ctx, ce, args(m3), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	kList := collectConsList(keys)
+	if len(kList) != 3 {
+		t.Fatalf("keys: expected 3, got %d", len(kList))
+	}
+	assertInt(t, kList[0], 1)
+	assertInt(t, kList[1], 2)
+	assertInt(t, kList[2], 3)
+
+	vals, _, err := mapValuesImpl(ctx, ce, args(m3), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	vList := collectConsList(vals)
+	if len(vList) != 3 {
+		t.Fatalf("values: expected 3, got %d", len(vList))
+	}
+	assertStr(t, vList[0], "a")
+	assertStr(t, vList[1], "b")
+	assertStr(t, vList[2], "c")
+}
+
+func TestMapMapValuesImpl(t *testing.T) {
+	apply := intCmpApplier()
+	cmpFn := &eval.HostVal{Inner: "cmp"}
+	emptyV, _, _ := mapEmptyImpl(ctx, ce, args(cmpFn), nil)
+	m1, _, _ := mapInsertImpl(ctx, ce, args(cmpFn, intVal(1), intVal(10), emptyV), apply)
+	m2, _, _ := mapInsertImpl(ctx, ce, args(cmpFn, intVal(2), intVal(20), m1), apply)
+
+	// Double each value.
+	doubler := &eval.HostVal{Inner: "doubler"}
+	doubleApply := func(fn, arg eval.Value, capEnv eval.CapEnv) (eval.Value, eval.CapEnv, error) {
+		if _, ok := fn.(*eval.HostVal); ok {
+			if hv, ok := arg.(*eval.HostVal); ok {
+				n := hv.Inner.(int64)
+				return intVal(n * 2), capEnv, nil
+			}
+		}
+		return apply(fn, arg, capEnv)
+	}
+	result, _, err := mapMapValuesImpl(ctx, ce, args(doubler, m2), doubleApply)
+	if err != nil {
+		t.Fatal(err)
+	}
+	vals, _, _ := mapValuesImpl(ctx, ce, args(result), nil)
+	vList := collectConsList(vals)
+	if len(vList) != 2 {
+		t.Fatalf("mapValues: expected 2, got %d", len(vList))
+	}
+	assertInt(t, vList[0], 20)
+	assertInt(t, vList[1], 40)
+}
+
+func TestMapFilterWithKeyImpl(t *testing.T) {
+	apply := intCmpApplier()
+	cmpFn := &eval.HostVal{Inner: "cmp"}
+	emptyV, _, _ := mapEmptyImpl(ctx, ce, args(cmpFn), nil)
+	m1, _, _ := mapInsertImpl(ctx, ce, args(cmpFn, intVal(1), intVal(10), emptyV), apply)
+	m2, _, _ := mapInsertImpl(ctx, ce, args(cmpFn, intVal(2), intVal(20), m1), apply)
+	m3, _, _ := mapInsertImpl(ctx, ce, args(cmpFn, intVal(3), intVal(30), m2), apply)
+
+	// Keep only entries where key > 1.
+	// The apply function must handle BOTH comparison (for AVL tree operations)
+	// and the filter predicate application.
+	type filterPartial struct{ key eval.Value }
+	pred := &eval.HostVal{Inner: "pred"}
+	baseApply := intCmpApplier()
+	filterApply := func(fn, arg eval.Value, capEnv eval.CapEnv) (eval.Value, eval.CapEnv, error) {
+		// Handle predicate applications.
+		if fp, ok := fn.(*eval.HostVal); ok {
+			if fp.Inner == "pred" {
+				// First application: key → partial.
+				return &eval.HostVal{Inner: &filterPartial{key: arg}}, capEnv, nil
+			}
+			if p, ok := fp.Inner.(*filterPartial); ok {
+				// Second application: value (ignored, decide by key).
+				k := p.key.(*eval.HostVal).Inner.(int64)
+				if k > 1 {
+					return &eval.ConVal{Con: "True"}, capEnv, nil
+				}
+				return &eval.ConVal{Con: "False"}, capEnv, nil
+			}
+		}
+		// Fall through to comparison applier for AVL operations.
+		return baseApply(fn, arg, capEnv)
+	}
+	result, _, err := mapFilterWithKeyImpl(ctx, ce, args(pred, m3), filterApply)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rm := result.(*eval.HostVal).Inner.(*mapVal)
+	if rm.size != 2 {
+		t.Errorf("filterWithKey: expected size 2, got %d", rm.size)
+	}
+}
+
+func TestMapKeysEmpty(t *testing.T) {
+	cmpFn := &eval.HostVal{Inner: "cmp"}
+	emptyV, _, _ := mapEmptyImpl(ctx, ce, args(cmpFn), nil)
+	keys, _, err := mapKeysImpl(ctx, ce, args(emptyV), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertCon(t, keys, "Nil")
+}
+
+// --- Set expansion unit tests (v0.14.0) ---
+
+func buildSet(t *testing.T, vals ...int64) eval.Value {
+	t.Helper()
+	apply := intCmpApplier()
+	cmpFn := &eval.HostVal{Inner: "cmp"}
+	s, _, _ := setEmptyImpl(ctx, ce, args(cmpFn), nil)
+	for _, v := range vals {
+		var err error
+		s, _, err = setInsertImpl(ctx, ce, args(cmpFn, intVal(v), s), apply)
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	return s
+}
+
+func setSize(t *testing.T, s eval.Value) int {
+	t.Helper()
+	m := s.(*eval.HostVal).Inner.(*mapVal)
+	return m.size
+}
+
+func TestSetUnionImpl(t *testing.T) {
+	cmpFn := &eval.HostVal{Inner: "cmp"}
+	apply := intCmpApplier()
+	s1 := buildSet(t, 1, 2, 3)
+	s2 := buildSet(t, 2, 3, 4)
+	result, _, err := setUnionImpl(ctx, ce, args(cmpFn, s1, s2), apply)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if sz := setSize(t, result); sz != 4 {
+		t.Errorf("union: expected size 4, got %d", sz)
+	}
+}
+
+func TestSetIntersectionImpl(t *testing.T) {
+	cmpFn := &eval.HostVal{Inner: "cmp"}
+	apply := intCmpApplier()
+	s1 := buildSet(t, 1, 2, 3)
+	s2 := buildSet(t, 2, 3, 4)
+	result, _, err := setIntersectionImpl(ctx, ce, args(cmpFn, s1, s2), apply)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if sz := setSize(t, result); sz != 2 {
+		t.Errorf("intersection: expected size 2, got %d", sz)
+	}
+}
+
+func TestSetIntersectionDisjoint(t *testing.T) {
+	cmpFn := &eval.HostVal{Inner: "cmp"}
+	apply := intCmpApplier()
+	s1 := buildSet(t, 1, 2)
+	s2 := buildSet(t, 3, 4)
+	result, _, err := setIntersectionImpl(ctx, ce, args(cmpFn, s1, s2), apply)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if sz := setSize(t, result); sz != 0 {
+		t.Errorf("disjoint intersection: expected size 0, got %d", sz)
+	}
+}
+
+func TestSetDifferenceImpl(t *testing.T) {
+	cmpFn := &eval.HostVal{Inner: "cmp"}
+	apply := intCmpApplier()
+	s1 := buildSet(t, 1, 2, 3)
+	s2 := buildSet(t, 2)
+	result, _, err := setDifferenceImpl(ctx, ce, args(cmpFn, s1, s2), apply)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if sz := setSize(t, result); sz != 2 {
+		t.Errorf("difference: expected size 2, got %d", sz)
+	}
+}
+
+// collectConsList walks a Cons/Nil list and collects elements.
+func collectConsList(v eval.Value) []eval.Value {
+	var out []eval.Value
+	for {
+		con, ok := v.(*eval.ConVal)
+		if !ok || con.Con == "Nil" {
+			return out
+		}
+		if con.Con != "Cons" || len(con.Args) < 2 {
+			return out
+		}
+		out = append(out, con.Args[0])
+		v = con.Args[1]
+	}
+}
+
