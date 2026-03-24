@@ -1005,6 +1005,97 @@ func TestSetDifferenceImpl(t *testing.T) {
 	}
 }
 
+// --- MutMap unit tests (v0.17.0) ---
+
+func TestMutMapInsertLookupSize(t *testing.T) {
+	apply := intCmpApplier()
+	cmpFn := &eval.HostVal{Inner: "cmp"}
+	mV, _, _ := mmapNewImpl(ctx, ce, args(cmpFn), nil)
+	mmapInsertImpl(ctx, ce, args(cmpFn, intVal(1), strVal("a"), mV), apply)
+	mmapInsertImpl(ctx, ce, args(cmpFn, intVal(2), strVal("b"), mV), apply)
+
+	sizeV, _, _ := mmapSizeImpl(ctx, ce, args(mV), nil)
+	assertInt(t, sizeV, 2)
+
+	lookV, _, _ := mmapLookupImpl(ctx, ce, args(cmpFn, intVal(1), mV), apply)
+	assertCon(t, lookV, "Just")
+	assertStr(t, lookV.(*eval.ConVal).Args[0], "a")
+
+	missV, _, _ := mmapLookupImpl(ctx, ce, args(cmpFn, intVal(99), mV), apply)
+	assertCon(t, missV, "Nothing")
+}
+
+func TestMutMapDeleteSize(t *testing.T) {
+	apply := intCmpApplier()
+	cmpFn := &eval.HostVal{Inner: "cmp"}
+	mV, _, _ := mmapNewImpl(ctx, ce, args(cmpFn), nil)
+	mmapInsertImpl(ctx, ce, args(cmpFn, intVal(1), strVal("a"), mV), apply)
+	mmapInsertImpl(ctx, ce, args(cmpFn, intVal(2), strVal("b"), mV), apply)
+	mmapDeleteImpl(ctx, ce, args(cmpFn, intVal(1), mV), apply)
+
+	sizeV, _, _ := mmapSizeImpl(ctx, ce, args(mV), nil)
+	assertInt(t, sizeV, 1)
+
+	delV, _, _ := mmapLookupImpl(ctx, ce, args(cmpFn, intVal(1), mV), apply)
+	assertCon(t, delV, "Nothing")
+}
+
+// --- Array unit tests (v0.17.0) ---
+
+func TestArrayNewReadWrite(t *testing.T) {
+	arrV, _, err := arrayNewImpl(ctx, ce, args(intVal(3), intVal(0)), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sizeV, _, _ := arraySizeImpl(ctx, ce, args(arrV), nil)
+	assertInt(t, sizeV, 3)
+
+	// Write 42 at index 1.
+	arrayWriteAtImpl(ctx, ce, args(intVal(1), intVal(42), arrV), nil)
+
+	readV, _, _ := arrayReadAtImpl(ctx, ce, args(intVal(1), arrV), nil)
+	assertCon(t, readV, "Just")
+	assertInt(t, readV.(*eval.ConVal).Args[0], 42)
+
+	// Out of bounds → Nothing.
+	oobV, _, _ := arrayReadAtImpl(ctx, ce, args(intVal(10), arrV), nil)
+	assertCon(t, oobV, "Nothing")
+
+	// Negative index → Nothing.
+	negV, _, _ := arrayReadAtImpl(ctx, ce, args(intVal(-1), arrV), nil)
+	assertCon(t, negV, "Nothing")
+}
+
+func TestArrayResize(t *testing.T) {
+	arrV, _, _ := arrayNewImpl(ctx, ce, args(intVal(2), intVal(0)), nil)
+	arrayWriteAtImpl(ctx, ce, args(intVal(0), intVal(10), arrV), nil)
+	arrayWriteAtImpl(ctx, ce, args(intVal(1), intVal(20), arrV), nil)
+
+	resized, _, err := arrayResizeImpl(ctx, ce, args(intVal(4), intVal(99), arrV), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sizeV, _, _ := arraySizeImpl(ctx, ce, args(resized), nil)
+	assertInt(t, sizeV, 4)
+
+	// Preserved values.
+	r0, _, _ := arrayReadAtImpl(ctx, ce, args(intVal(0), resized), nil)
+	assertCon(t, r0, "Just")
+	assertInt(t, r0.(*eval.ConVal).Args[0], 10)
+
+	// Fill value.
+	r3, _, _ := arrayReadAtImpl(ctx, ce, args(intVal(3), resized), nil)
+	assertCon(t, r3, "Just")
+	assertInt(t, r3.(*eval.ConVal).Args[0], 99)
+}
+
+func TestArrayNegativeSize(t *testing.T) {
+	_, _, err := arrayNewImpl(ctx, ce, args(intVal(-1), intVal(0)), nil)
+	if err == nil {
+		t.Error("expected error for negative array size")
+	}
+}
+
 // collectConsList walks a Cons/Nil list and collects elements.
 func collectConsList(v eval.Value) []eval.Value {
 	var out []eval.Value
