@@ -777,6 +777,22 @@ main := toList (insert 2 (insert 1 (empty :: Set Int)))
 
 // --- Byte type (v0.17.0) ---
 
+func TestByteComparison(t *testing.T) {
+	v := runWithPacks(t, `
+import Prelude
+main := case (intToByte 65, intToByte 65) {
+  (Just x, Just y) => (eq x y, compare x y)
+  _                => (False, GT)
+}
+`, stdlib.Prelude)
+	rv, ok := v.(*eval.RecordVal)
+	if !ok || len(rv.Fields) != 2 {
+		t.Fatalf("expected tuple, got %T: %v", v, v)
+	}
+	assertConVal(t, rv.Fields["_1"], "True")
+	assertConVal(t, rv.Fields["_2"], "EQ")
+}
+
 func TestByteToIntRoundtrip(t *testing.T) {
 	v := runWithPacks(t, `
 import Prelude
