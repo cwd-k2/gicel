@@ -66,9 +66,9 @@ test10 := eq' (True, LT) (True, LT)    -- True
 test11 := eq' (True, LT) (True, GT)    -- False
 
 main := do {
-  putLine $ "eq' 42 42:       " <> show test1;
-  putLine $ "eq' 42 43:       " <> show test2;
-  putLine $ "eq' Just1 Just1: " <> show test3;
+  putLine $ "eq' True True:   " <> show test1;
+  putLine $ "eq' True False:  " <> show test2;
+  putLine $ "eq' Just Just:   " <> show test3;
   putLine $ "eq' Nothing:     " <> show test5;
   putLine $ "eq' nested same: " <> show test7;
   putLine $ "eq' nested diff: " <> show test8;

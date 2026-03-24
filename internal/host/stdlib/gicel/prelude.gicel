@@ -1005,7 +1005,7 @@ impl Show String := { show := \s. append "\"" (append s "\"") }
 impl Show a => Show (Maybe a) := {
   show := \m. case m {
     Nothing => "Nothing";
-    Just a  => append "Just " (show a)
+    Just a  => { s := show a; if contains " " s then "Just (" <> s <> ")" else "Just " <> s }
   }
 }
 
@@ -1015,8 +1015,8 @@ impl Show a => Show (List a) := {
 
 impl (Show e, Show a) => Show (Result e a) := {
   show := \r. case r {
-    Err e => append "Err " (show e);
-    Ok a  => append "Ok " (show a)
+    Err e => { s := show e; if contains " " s then "Err (" <> s <> ")" else "Err " <> s };
+    Ok a  => { s := show a; if contains " " s then "Ok (" <> s <> ")" else "Ok " <> s }
   }
 }
 

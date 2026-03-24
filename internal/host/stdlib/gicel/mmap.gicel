@@ -12,7 +12,7 @@ _mmapLookup := assumption
 _mmapDelete :: \k v r. (k -> k -> Ordering) -> k -> MMap k v -> Computation { mmap: () | r } { mmap: () | r } ()
 _mmapDelete := assumption
 
-_mmapSize :: \k v. MMap k v -> Int
+_mmapSize :: \k v r. MMap k v -> Computation { mmap: () | r } { mmap: () | r } Int
 _mmapSize := assumption
 
 _mmapMember :: \k v r. (k -> k -> Ordering) -> k -> MMap k v -> Computation { mmap: () | r } { mmap: () | r } Bool
@@ -48,7 +48,7 @@ lookup := _mmapLookup compare
 delete :: \k v r. Ord k => k -> MMap k v -> Computation { mmap: () | r } { mmap: () | r } ()
 delete := _mmapDelete compare
 
-size :: \k v. MMap k v -> Int
+size :: \k v r. MMap k v -> Computation { mmap: () | r } { mmap: () | r } Int
 size := _mmapSize
 
 member :: \k v r. Ord k => k -> MMap k v -> Computation { mmap: () | r } { mmap: () | r } Bool

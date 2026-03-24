@@ -12,7 +12,7 @@ _msetMember := assumption
 _msetDelete :: \k r. (k -> k -> Ordering) -> k -> MSet k -> Computation { mset: () | r } { mset: () | r } ()
 _msetDelete := assumption
 
-_msetSize :: \k. MSet k -> Int
+_msetSize :: \k r. MSet k -> Computation { mset: () | r } { mset: () | r } Int
 _msetSize := assumption
 
 _msetToList :: \k r. MSet k -> Computation { mset: () | r } { mset: () | r } (List k)
@@ -36,7 +36,7 @@ member := _msetMember compare
 delete :: \k r. Ord k => k -> MSet k -> Computation { mset: () | r } { mset: () | r } ()
 delete := _msetDelete compare
 
-size :: \k. MSet k -> Int
+size :: \k r. MSet k -> Computation { mset: () | r } { mset: () | r } Int
 size := _msetSize
 
 toList :: \k r. MSet k -> Computation { mset: () | r } { mset: () | r } (List k)

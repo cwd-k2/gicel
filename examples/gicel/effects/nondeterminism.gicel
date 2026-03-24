@@ -4,7 +4,7 @@
 --   1. List do — the simplest way (via Monad List instance)
 --   2. Free monad do — reified computation as a data structure
 -- Requires: --recursion (for Free monad and range)
--- Run: gicel run --recursion nondeterminism.gicel
+-- Run: bin/gicel run --recursion examples/gicel/effects/nondeterminism.gicel
 
 import Prelude
 import Console
@@ -37,7 +37,7 @@ pythag := do {
   guard (eq (a * a + b * b) (c * c));
   pure (MkTriple a b c)
 }
--- [MkTriple 3 4 5, MkTriple 6 8 10]
+-- [(3, 4, 5), (6, 8, 10)]
 
 -- Find (x, y) with x + y = 7, x and y in [1..6]
 sumPairs :: List (Int, Int)

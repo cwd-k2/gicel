@@ -2,7 +2,7 @@
 --
 -- Cofree f a = a value paired with a functor-full of subtrees.
 -- Cofree List = rose tree, Cofree Maybe = non-empty list.
--- Run: bin/gicel run --recursion examples/gicel/patterns/cofree.gicel
+-- Run: bin/gicel run examples/gicel/patterns/cofree.gicel
 
 import Prelude
 import Console

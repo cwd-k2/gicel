@@ -5,7 +5,7 @@
 -- Always `put` an initial value before `get` — the CLI starts with
 -- no state capability.
 --
--- Run: bin/gicel run --packs prelude,state examples/gicel/effects/state-effect.gicel
+-- Run: bin/gicel run examples/gicel/effects/state-effect.gicel
 
 import Prelude
 import Effect.State

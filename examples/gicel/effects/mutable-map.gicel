@@ -4,7 +4,7 @@
 -- gated by the { mmap: () } effect row. All mutating operations
 -- (insert, delete, adjust) modify the map in place.
 --
--- Run: bin/gicel run --packs prelude,mmap examples/gicel/effects/mutable-map.gicel
+-- Run: bin/gicel run examples/gicel/effects/mutable-map.gicel
 
 import Prelude
 import Effect.Map as MMap
@@ -30,14 +30,14 @@ main := do {
 
   -- Delete
   MMap.delete "gicel" freq;
-  afterDel := MMap.size freq;
+  afterDel <- MMap.size freq;
 
   -- Collect all entries (sorted by key)
   entries <- MMap.toList freq;
 
-  putLine $ "lookup hello:  " <> show hello;
-  putLine $ "lookup nope:   " <> show missing;
-  putLine $ "after adjust:  " <> show world;
+  putLine $ "lookup hello:   " <> show hello;
+  putLine $ "lookup nope:    " <> show missing;
+  putLine $ "after adjust:   " <> show world;
   putLine $ "size after del: " <> show afterDel;
-  putLine $ "entries:       " <> show entries
+  putLine $ "entries:        " <> show entries
 }

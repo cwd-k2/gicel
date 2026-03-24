@@ -4,7 +4,7 @@
 -- gated by the { mset: () } effect row. Backed internally by
 -- MMap k (), mirroring how Data.Set backs on Data.Map.
 --
--- Run: bin/gicel run --packs prelude,mset examples/gicel/effects/mutable-set.gicel
+-- Run: bin/gicel run examples/gicel/effects/mutable-set.gicel
 
 import Prelude
 import Effect.Set as MSet

@@ -4,7 +4,7 @@
 -- With a Monad instance, do notation threads continuations
 -- automatically. Demonstrates CPS pipelines, control flow manipulation,
 -- and early exit via abort.
--- Run: gicel run continuation.gicel
+-- Run: bin/gicel run examples/gicel/effects/continuation.gicel
 
 import Prelude
 import Console
