@@ -46,7 +46,11 @@ func (ch *Checker) lookupVar(e *syntax.ExprVar) (types.Type, ir.Core, bool) {
 	}
 	ty, mod, ok := ch.ctx.LookupVarFull(e.Name)
 	if !ok {
-		ch.addCodedError(diagnostic.ErrUnboundVar, e.S, fmt.Sprintf("unbound variable: %s", e.Name))
+		msg := fmt.Sprintf("unbound variable: %s", e.Name)
+		if gatedBuiltins[e.Name] {
+			msg += " (requires --recursion flag)"
+		}
+		ch.addCodedError(diagnostic.ErrUnboundVar, e.S, msg)
 		return &types.TyError{S: e.S}, &ir.Var{Name: e.Name, S: e.S}, false
 	}
 	return ty, &ir.Var{Name: e.Name, Module: mod, S: e.S}, true

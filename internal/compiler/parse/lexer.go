@@ -21,9 +21,14 @@ type Lexer struct {
 
 // NewLexer creates a lexer for the given source.
 func NewLexer(source *span.Source) *Lexer {
+	start := 0
+	// Skip UTF-8 BOM if present.
+	if len(source.Text) >= 3 && source.Text[0] == 0xEF && source.Text[1] == 0xBB && source.Text[2] == 0xBF {
+		start = 3
+	}
 	return &Lexer{
 		source: source,
-		pos:    0,
+		pos:    start,
 		errors: &diagnostic.Errors{Source: source},
 	}
 }

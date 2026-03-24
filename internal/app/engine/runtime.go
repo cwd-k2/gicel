@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/cwd-k2/gicel/internal/infra/budget"
 	"github.com/cwd-k2/gicel/internal/infra/span"
@@ -233,6 +234,10 @@ func (r *Runtime) evalBindingsCore(ev *eval.Evaluator, env *eval.Env, bindings [
 		}
 		result, err := ev.Eval(env, eval.NewCapEnv(nil), b.Expr)
 		if err != nil {
+			// Omit internal binding names (containing $) from user-facing errors.
+			if strings.Contains(b.Name, "$") {
+				return nil, err
+			}
 			return nil, fmt.Errorf("evaluating %s: %w", b.Name, err)
 		}
 		v := result.Value

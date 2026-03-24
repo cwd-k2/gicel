@@ -212,12 +212,24 @@ func (es *Errors) renderSpan(b *strings.Builder, sp span.Span) {
 		lineText = strings.TrimRight(es.Source.Text[start:end], "\n")
 	}
 
+	// Truncate long source lines to prevent diagnostic output explosion.
+	const maxLineLen = 200
+	truncated := false
+	if len(lineText) > maxLineLen {
+		lineText = lineText[:maxLineLen] + "..."
+		truncated = true
+	}
+
 	width := fmt.Sprintf("%d", line)
 	fmt.Fprintf(b, " %s |\n", strings.Repeat(" ", len(width)))
 	fmt.Fprintf(b, " %d | %s\n", line, lineText)
+	caretCol := col - 1
+	if truncated && caretCol > maxLineLen {
+		caretCol = maxLineLen // clamp caret to truncated region
+	}
 	fmt.Fprintf(b, " %s | %s%s\n",
 		strings.Repeat(" ", len(width)),
-		strings.Repeat(" ", col-1),
+		strings.Repeat(" ", caretCol),
 		underline(sp))
 }
 
