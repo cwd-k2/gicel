@@ -1,5 +1,27 @@
 # Changelog
 
+## v0.16.2 — 2026-03-24
+
+### Architecture
+
+- **Solver extraction** — Constraint solver and instance resolution moved to `check/solve/` sub-package with consumer-defined `Env` interface (23 methods). The `check` package is no longer a god module for constraint solving.
+- **Layer violations fixed** — `lang/types` no longer imports `lang/syntax`; `runtime/eval` no longer imports `lang/syntax`. Both layer violations resolved by inlining trivial `TupleLabel` computation.
+- **`Limits` type cleaned** — `entryPoint` and `checkTraceHook` moved to `Engine` struct. `Limits` now contains only resource limits.
+- **`CompileResult` simplified** — Removed dual type representation (`values` field eliminated; `BindingTypes()` derives from `prog.Bindings`)
+- **Registry encapsulation** — Direct field access in `alias.go` and `exhaust.go` replaced with accessor methods
+- **Context types shared** — `CtxEntry`, `CtxVar`, `CtxEvidence` moved to `check/env/` for cross-package access
+
+### Public API
+
+- Re-export `NestingLimitError`, `KindRow`, `ForallKind`
+
+### Fixes
+
+- `ExplainObserver.EnterInternal`/`LeaveInternal` now nil-safe (latent SIGSEGV)
+- `sandbox.go` uses `SetCompileContext` instead of direct field access
+- Remove dead `ModuleStore.Get()` and `Order()` methods
+- Rename `CapEnv.cow` → `shared` (semantic inversion fix)
+
 ## v0.16.1 — 2026-03-24
 
 ### Internal
