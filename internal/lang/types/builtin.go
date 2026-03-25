@@ -1,5 +1,7 @@
 package types
 
+import "github.com/cwd-k2/gicel/internal/infra/span"
+
 // Pre-defined type constructor kinds.
 var (
 	KindOfComputation = &KArrow{KRow{}, &KArrow{KRow{}, &KArrow{KType{}, KType{}}}}
@@ -26,9 +28,33 @@ func MkForall(v string, k Kind, body Type) *TyForall {
 	return &TyForall{Var: v, Kind: k, Body: body}
 }
 
-// Con creates a TyCon.
+// builtinTyCons holds singleton instances for frequently used type constructors.
+// Safe to share: type equality is structural (Name ==), not pointer-based.
+// Singleton pointer identity improves Zonk's unchanged-detection hit rate.
+var builtinTyCons = map[string]*TyCon{
+	"Int": {Name: "Int"}, "String": {Name: "String"},
+	"Bool": {Name: "Bool"}, "Double": {Name: "Double"},
+	"Rune": {Name: "Rune"}, "Unit": {Name: "Unit"},
+	"Computation": {Name: "Computation"}, "Thunk": {Name: "Thunk"},
+	"Record": {Name: "Record"}, "List": {Name: "List"},
+	"Pair": {Name: "Pair"}, "Lift": {Name: "Lift"},
+	"Zero": {Name: "Zero"}, "Linear": {Name: "Linear"},
+	"Affine": {Name: "Affine"}, "Unrestricted": {Name: "Unrestricted"},
+}
+
+// Con returns a TyCon for the given name, reusing a singleton for built-in names.
+// Use ConAt when source position must be preserved.
 func Con(name string) *TyCon {
+	if c, ok := builtinTyCons[name]; ok {
+		return c
+	}
 	return &TyCon{Name: name}
+}
+
+// ConAt creates a TyCon with a source span. Always allocates a fresh struct
+// because the span is position-specific and cannot be shared.
+func ConAt(name string, s span.Span) *TyCon {
+	return &TyCon{Name: name, S: s}
 }
 
 // Var creates a TyVar.

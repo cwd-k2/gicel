@@ -29,7 +29,7 @@ func (ch *Checker) processFormDeclParts(d *syntax.DeclForm, parts formBodyParts,
 	ch.reg.RegisterDataType(d.Name, dataInfo)
 
 	// Build result type: T a b c ...
-	var resultType types.Type = &types.TyCon{Name: d.Name, S: d.S}
+	var resultType types.Type = types.ConAt(d.Name, d.S)
 	for _, p := range parts.Params {
 		resultType = &types.TyApp{Fun: resultType, Arg: &types.TyVar{Name: p.Name, S: p.S}, S: d.S}
 	}

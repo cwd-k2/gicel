@@ -390,9 +390,11 @@ func (ch *Checker) checkWithEvidence(expr syntax.Expr, ev *types.TyEvidence) ir.
 // Handles forall on the inferred side by instantiation,
 // and qualified types by deferring constraints.
 // Falls back to Unify when no polymorphism is involved.
+//
+// Precondition: expected must already be zonked by the caller.
+// inferred is zonked here because infer results may contain unresolved metas.
 func (ch *Checker) subsCheck(inferred, expected types.Type, expr ir.Core, s span.Span) ir.Core {
 	inferred = ch.unifier.Zonk(inferred)
-	expected = ch.unifier.Zonk(expected)
 
 	// Inferred ∀a. A ≤ B  →  instantiate a, check A[a:=?m] ≤ B
 	if f, ok := inferred.(*types.TyForall); ok {

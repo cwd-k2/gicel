@@ -362,15 +362,18 @@ func substMany(t Type, subs map[string]Type, depth int) Type {
 		}
 		return &TyEvidence{Constraints: newConstraints, Body: newBody, S: ty.S}
 	case *TyFamilyApp:
-		changed := false
-		newArgs := make([]Type, len(ty.Args))
+		var newArgs []Type // nil until first change
 		for i, a := range ty.Args {
-			newArgs[i] = substMany(a, subs, depth+1)
-			if newArgs[i] != a {
-				changed = true
+			sa := substMany(a, subs, depth+1)
+			if newArgs == nil && sa != a {
+				newArgs = make([]Type, len(ty.Args))
+				copy(newArgs[:i], ty.Args[:i])
+			}
+			if newArgs != nil {
+				newArgs[i] = sa
 			}
 		}
-		if !changed {
+		if newArgs == nil {
 			return ty
 		}
 		return &TyFamilyApp{Name: ty.Name, Args: newArgs, Kind: ty.Kind, S: ty.S}
@@ -386,13 +389,8 @@ func substManyEvidenceRow(row *TyEvidenceRow, subs map[string]Type, depth int) *
 	if depth > maxTraversalDepth {
 		return row
 	}
-	changed := false
-	newEntries := row.Entries.MapChildren(func(child Type) Type {
-		r := substMany(child, subs, depth+1)
-		if r != child {
-			changed = true
-		}
-		return r
+	newEntries, changed := row.Entries.MapChildren(func(child Type) Type {
+		return substMany(child, subs, depth+1)
 	})
 	var newTail Type
 	if row.Tail != nil {

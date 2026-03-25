@@ -176,7 +176,7 @@ func (ch *Checker) processAssocDataDef(field syntax.ImplField, patterns []syntax
 	ch.reg.RegisterTypeKind(mangledName, types.KType{})
 
 	// Build result type for the mangled data type.
-	var mangledResultType types.Type = &types.TyCon{Name: mangledName, S: field.S}
+	var mangledResultType types.Type = types.ConAt(mangledName, field.S)
 
 	// Collect free vars from patterns (they become type params of the mangled data type).
 	patVars := collectPatternVars(resolvedPats)
@@ -269,10 +269,10 @@ func (ch *Checker) autoLiftTypeArgs(typeArgs []types.Type, paramKinds []types.Ki
 		}) {
 			continue
 		}
-		liftKind := ch.kindOfType(&types.TyCon{Name: "Lift"})
+		liftKind := ch.kindOfType(types.Con("Lift"))
 		if liftKind != nil {
 			if ka, ok := liftKind.(*types.KArrow); ok && ka.From.Equal(argKind) {
-				lifted := &types.TyApp{Fun: &types.TyCon{Name: "Lift"}, Arg: typeArgs[i]}
+				lifted := &types.TyApp{Fun: types.Con("Lift"), Arg: typeArgs[i]}
 				liftedKind := ka.To
 				if ch.withTrial(func() bool {
 					return ch.unifier.UnifyKinds(liftedKind, paramKind) == nil

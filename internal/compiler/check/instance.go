@@ -123,6 +123,7 @@ func (ch *Checker) processImplHeader(impl *syntax.DeclImpl) (*InstanceInfo, map[
 		UserName:     impl.Name,
 		Module:       ch.scope.CurrentModule(),
 		Private:      env.IsPrivateName(impl.Name),
+		FreeVarNames: collectInstanceFreeVars(typeArgs, context),
 		S:            impl.S,
 	}
 
@@ -220,4 +221,29 @@ func (ch *Checker) instancesOverlap(a, b *InstanceInfo) bool {
 		}
 	}
 	return true
+}
+
+// collectInstanceFreeVars computes the deduplicated list of free type variable
+// names across an instance's type arguments and context. Called once at
+// registration time to avoid repeated FreeVars calls during resolution.
+func collectInstanceFreeVars(typeArgs []types.Type, context []env.ConstraintInfo) []string {
+	seen := make(map[string]bool)
+	var names []string
+	add := func(ty types.Type) {
+		for v := range types.FreeVars(ty) {
+			if !seen[v] {
+				seen[v] = true
+				names = append(names, v)
+			}
+		}
+	}
+	for _, ta := range typeArgs {
+		add(ta)
+	}
+	for _, ctx := range context {
+		for _, a := range ctx.Args {
+			add(a)
+		}
+	}
+	return names
 }

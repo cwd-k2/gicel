@@ -67,19 +67,19 @@ func parseLitValue(kind syntax.LitKind, raw string) (types.Type, any, error) {
 	switch kind {
 	case syntax.LitInt:
 		n, err := strconv.ParseInt(strings.ReplaceAll(raw, "_", ""), 10, 64)
-		return &types.TyCon{Name: "Int"}, n, err
+		return types.Con("Int"), n, err
 	case syntax.LitDouble:
 		f, err := strconv.ParseFloat(strings.ReplaceAll(raw, "_", ""), 64)
-		return &types.TyCon{Name: "Double"}, f, err
+		return types.Con("Double"), f, err
 	case syntax.LitString:
-		return &types.TyCon{Name: "String"}, raw, nil
+		return types.Con("String"), raw, nil
 	case syntax.LitRune:
 		// Runtime stores rune values as Go rune (int32), matching ExprRuneLit.Value.
 		runes := []rune(raw)
 		if len(runes) > 0 {
-			return &types.TyCon{Name: "Rune"}, runes[0], nil
+			return types.Con("Rune"), runes[0], nil
 		}
-		return &types.TyCon{Name: "Rune"}, rune(0), nil
+		return types.Con("Rune"), rune(0), nil
 	default:
 		panic(fmt.Sprintf("parseLitValue: unknown LitKind %d", kind))
 	}

@@ -54,13 +54,8 @@ func MapType(t Type, f func(Type) Type) Type {
 		}
 		return &TyEvidence{Constraints: cr, Body: body, S: ty.S}
 	case *TyEvidenceRow:
-		changed := false
-		newEntries := ty.Entries.MapChildren(func(child Type) Type {
-			r := f(child)
-			if r != child {
-				changed = true
-			}
-			return r
+		newEntries, changed := ty.Entries.MapChildren(func(child Type) Type {
+			return f(child)
 		})
 		var tail Type
 		if ty.Tail != nil {

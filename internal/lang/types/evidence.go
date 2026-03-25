@@ -17,7 +17,7 @@ type EvidenceEntries interface {
 	evidenceEntries()
 	EntryCount() int
 	AllChildren() []Type
-	MapChildren(f func(Type) Type) EvidenceEntries
+	MapChildren(f func(Type) Type) (EvidenceEntries, bool) // mapped entries, changed
 	FiberKind() Kind
 	Empty() EvidenceEntries                                   // empty entries of the same fiber
 	ZonkEntries(zonk func(Type) Type) (EvidenceEntries, bool) // zonked entries, changed
@@ -62,19 +62,46 @@ func (c *CapabilityEntries) AllChildren() []Type {
 	return ch
 }
 
-func (c *CapabilityEntries) MapChildren(f func(Type) Type) EvidenceEntries {
-	fields := make([]RowField, len(c.Fields))
+func (c *CapabilityEntries) MapChildren(f func(Type) Type) (EvidenceEntries, bool) {
+	var fields []RowField // nil until first change
 	for i, fld := range c.Fields {
-		var grades []Type
-		if len(fld.Grades) > 0 {
-			grades = make([]Type, len(fld.Grades))
-			for j, g := range fld.Grades {
-				grades[j] = f(g)
-			}
+		newTy := f(fld.Type)
+		newGrades, gChanged := mapGrades(fld.Grades, f)
+		if fields == nil && (newTy != fld.Type || gChanged) {
+			fields = make([]RowField, len(c.Fields))
+			copy(fields[:i], c.Fields[:i])
 		}
-		fields[i] = RowField{Label: fld.Label, Type: f(fld.Type), Grades: grades, S: fld.S}
+		if fields != nil {
+			fields[i] = RowField{Label: fld.Label, Type: newTy, Grades: newGrades, S: fld.S}
+		}
 	}
-	return &CapabilityEntries{Fields: fields}
+	if fields == nil {
+		return c, false
+	}
+	return &CapabilityEntries{Fields: fields}, true
+}
+
+// mapGrades applies f to grade annotations, returning the original slice
+// unchanged when no grade was modified.
+func mapGrades(grades []Type, f func(Type) Type) ([]Type, bool) {
+	if len(grades) == 0 {
+		return grades, false
+	}
+	var out []Type
+	for j, g := range grades {
+		fg := f(g)
+		if out == nil && fg != g {
+			out = make([]Type, len(grades))
+			copy(out[:j], grades[:j])
+		}
+		if out != nil {
+			out[j] = fg
+		}
+	}
+	if out == nil {
+		return grades, false
+	}
+	return out, true
 }
 
 func (c *CapabilityEntries) FiberKind() Kind { return KRow{} }
@@ -82,26 +109,45 @@ func (c *CapabilityEntries) FiberKind() Kind { return KRow{} }
 func (c *CapabilityEntries) Empty() EvidenceEntries { return &CapabilityEntries{} }
 
 func (c *CapabilityEntries) ZonkEntries(zonk func(Type) Type) (EvidenceEntries, bool) {
-	changed := false
-	fields := make([]RowField, len(c.Fields))
+	var fields []RowField // nil until first change detected
 	for i, f := range c.Fields {
 		zTy := zonk(f.Type)
-		if zTy != f.Type {
-			changed = true
+		zGrades, gChanged := zonkGrades(f.Grades, zonk)
+		if fields == nil && (zTy != f.Type || gChanged) {
+			fields = make([]RowField, len(c.Fields))
+			copy(fields[:i], c.Fields[:i]) // backfill unchanged prefix
 		}
-		var zGrades []Type
-		if len(f.Grades) > 0 {
-			zGrades = make([]Type, len(f.Grades))
-			for j, g := range f.Grades {
-				zGrades[j] = zonk(g)
-				if zGrades[j] != g {
-					changed = true
-				}
-			}
+		if fields != nil {
+			fields[i] = RowField{Label: f.Label, Type: zTy, Grades: zGrades, S: f.S}
 		}
-		fields[i] = RowField{Label: f.Label, Type: zTy, Grades: zGrades, S: f.S}
 	}
-	return &CapabilityEntries{Fields: fields}, changed
+	if fields == nil {
+		return c, false
+	}
+	return &CapabilityEntries{Fields: fields}, true
+}
+
+// zonkGrades zonks grade annotations, returning the original slice unchanged
+// when no grade was modified.
+func zonkGrades(grades []Type, zonk func(Type) Type) ([]Type, bool) {
+	if len(grades) == 0 {
+		return grades, false
+	}
+	var out []Type // nil until first change
+	for j, g := range grades {
+		zg := zonk(g)
+		if out == nil && zg != g {
+			out = make([]Type, len(grades))
+			copy(out[:j], grades[:j])
+		}
+		if out != nil {
+			out[j] = zg
+		}
+	}
+	if out == nil {
+		return grades, false
+	}
+	return out, true
 }
 
 // --- Constraint fiber ---
@@ -135,52 +181,95 @@ func constraintEntryChildren(e ConstraintEntry) []Type {
 	return ch
 }
 
-func (c *ConstraintEntries) MapChildren(f func(Type) Type) EvidenceEntries {
-	entries := make([]ConstraintEntry, len(c.Entries))
+func (c *ConstraintEntries) MapChildren(f func(Type) Type) (EvidenceEntries, bool) {
+	var entries []ConstraintEntry // nil until first change
 	for i, e := range c.Entries {
-		args := make([]Type, len(e.Args))
-		for j, a := range e.Args {
-			args[j] = f(a)
+		me, entryChanged := mapConstraintEntryChanged(e, f)
+		if entries == nil && entryChanged {
+			entries = make([]ConstraintEntry, len(c.Entries))
+			copy(entries[:i], c.Entries[:i])
 		}
-		entries[i] = ConstraintEntry{
-			ClassName: e.ClassName,
-			Args:      args,
-			S:         e.S,
-		}
-		if e.ConstraintVar != nil {
-			entries[i].ConstraintVar = f(e.ConstraintVar)
-		}
-		if e.Quantified != nil {
-			entries[i].Quantified = mapQuantifiedConstraint(e.Quantified, f)
+		if entries != nil {
+			entries[i] = me
 		}
 	}
-	return &ConstraintEntries{Entries: entries}
-}
-
-// mapQuantifiedConstraint applies f to all type children inside a QuantifiedConstraint.
-func mapQuantifiedConstraint(qc *QuantifiedConstraint, f func(Type) Type) *QuantifiedConstraint {
-	ctx := make([]ConstraintEntry, len(qc.Context))
-	for i, ce := range qc.Context {
-		ctx[i] = mapConstraintEntry(ce, f)
+	if entries == nil {
+		return c, false
 	}
-	head := mapConstraintEntry(qc.Head, f)
-	return &QuantifiedConstraint{Vars: qc.Vars, Context: ctx, Head: head}
+	return &ConstraintEntries{Entries: entries}, true
 }
 
-// mapConstraintEntry applies f to all type children in a ConstraintEntry.
-func mapConstraintEntry(e ConstraintEntry, f func(Type) Type) ConstraintEntry {
-	args := make([]Type, len(e.Args))
+// mapConstraintEntryChanged applies f to all type children in a ConstraintEntry,
+// returning the original unchanged when no child was modified.
+func mapConstraintEntryChanged(e ConstraintEntry, f func(Type) Type) (ConstraintEntry, bool) {
+	changed := false
+
+	var args []Type
 	for j, a := range e.Args {
-		args[j] = f(a)
+		fa := f(a)
+		if args == nil && fa != a {
+			args = make([]Type, len(e.Args))
+			copy(args[:j], e.Args[:j])
+			changed = true
+		}
+		if args != nil {
+			args[j] = fa
+		}
 	}
-	result := ConstraintEntry{ClassName: e.ClassName, Args: args, S: e.S}
+	if args == nil {
+		args = e.Args
+	}
+
+	newCV := e.ConstraintVar
 	if e.ConstraintVar != nil {
-		result.ConstraintVar = f(e.ConstraintVar)
+		newCV = f(e.ConstraintVar)
+		if newCV != e.ConstraintVar {
+			changed = true
+		}
 	}
+
+	newQ := e.Quantified
 	if e.Quantified != nil {
-		result.Quantified = mapQuantifiedConstraint(e.Quantified, f)
+		var qChanged bool
+		newQ, qChanged = mapQuantifiedConstraintChanged(e.Quantified, f)
+		if qChanged {
+			changed = true
+		}
 	}
-	return result
+
+	if !changed {
+		return e, false
+	}
+	return ConstraintEntry{ClassName: e.ClassName, Args: args, ConstraintVar: newCV, Quantified: newQ, S: e.S}, true
+}
+
+// mapQuantifiedConstraintChanged applies f to all type children inside a
+// QuantifiedConstraint, returning the original unchanged when no child was modified.
+func mapQuantifiedConstraintChanged(qc *QuantifiedConstraint, f func(Type) Type) (*QuantifiedConstraint, bool) {
+	changed := false
+	var ctx []ConstraintEntry
+	for i, ce := range qc.Context {
+		mc, cChanged := mapConstraintEntryChanged(ce, f)
+		if ctx == nil && cChanged {
+			ctx = make([]ConstraintEntry, len(qc.Context))
+			copy(ctx[:i], qc.Context[:i])
+			changed = true
+		}
+		if ctx != nil {
+			ctx[i] = mc
+		}
+	}
+	if ctx == nil {
+		ctx = qc.Context
+	}
+	head, headChanged := mapConstraintEntryChanged(qc.Head, f)
+	if headChanged {
+		changed = true
+	}
+	if !changed {
+		return qc, false
+	}
+	return &QuantifiedConstraint{Vars: qc.Vars, Context: ctx, Head: head}, true
 }
 
 func (c *ConstraintEntries) FiberKind() Kind { return KConstraint{} }
@@ -188,31 +277,71 @@ func (c *ConstraintEntries) FiberKind() Kind { return KConstraint{} }
 func (c *ConstraintEntries) Empty() EvidenceEntries { return &ConstraintEntries{} }
 
 func (c *ConstraintEntries) ZonkEntries(zonk func(Type) Type) (EvidenceEntries, bool) {
-	changed := false
-	ces := make([]ConstraintEntry, len(c.Entries))
+	var ces []ConstraintEntry // nil until first change detected
 	for i, e := range c.Entries {
-		ces[i] = zonkConstraintEntryWith(e, zonk, &changed)
+		ze, entryChanged := zonkConstraintEntry(e, zonk)
+		if ces == nil && entryChanged {
+			ces = make([]ConstraintEntry, len(c.Entries))
+			copy(ces[:i], c.Entries[:i]) // backfill unchanged prefix
+		}
+		if ces != nil {
+			ces[i] = ze
+		}
 	}
-	return &ConstraintEntries{Entries: ces}, changed
+	if ces == nil {
+		return c, false
+	}
+	return &ConstraintEntries{Entries: ces}, true
 }
 
-// zonkConstraintEntryWith zonks a single constraint entry using the provided
-// zonk function, including any quantified sub-structure and constraint
-// variable decomposition.
-func zonkConstraintEntryWith(e ConstraintEntry, zonk func(Type) Type, changed *bool) ConstraintEntry {
-	args := make([]Type, len(e.Args))
+// zonkConstraintEntry zonks a single constraint entry, returning the
+// original unchanged when no child type was modified. Handles quantified
+// sub-structure and constraint variable decomposition.
+func zonkConstraintEntry(e ConstraintEntry, zonk func(Type) Type) (ConstraintEntry, bool) {
+	changed := false
+
+	// Zonk Args with lazy alloc.
+	var args []Type
 	for j, a := range e.Args {
-		args[j] = zonk(a)
-		if args[j] != a {
-			*changed = true
+		za := zonk(a)
+		if args == nil && za != a {
+			args = make([]Type, len(e.Args))
+			copy(args[:j], e.Args[:j])
+			changed = true
+		}
+		if args != nil {
+			args[j] = za
 		}
 	}
+	if args == nil {
+		args = e.Args
+	}
+
+	// Zonk ConstraintVar.
+	newCV := e.ConstraintVar
+	if e.ConstraintVar != nil {
+		newCV = zonk(e.ConstraintVar)
+		if newCV != e.ConstraintVar {
+			changed = true
+		}
+	}
+
+	// Zonk Quantified sub-structure.
+	newQ := e.Quantified
+	if e.Quantified != nil {
+		var qChanged bool
+		newQ, qChanged = zonkQuantifiedConstraint(e.Quantified, zonk)
+		if qChanged {
+			changed = true
+		}
+	}
+
+	if !changed {
+		return e, false
+	}
+
 	result := ConstraintEntry{ClassName: e.ClassName, Args: args, S: e.S}
 	if e.ConstraintVar != nil {
-		newCV := zonk(e.ConstraintVar)
-		if newCV != e.ConstraintVar {
-			*changed = true
-		}
 		result.ConstraintVar = newCV
 		// If zonked ConstraintVar is now concrete, decompose into ClassName + Args.
 		if result.ClassName == "" {
@@ -224,18 +353,40 @@ func zonkConstraintEntryWith(e ConstraintEntry, zonk func(Type) Type, changed *b
 		}
 	}
 	if e.Quantified != nil {
-		result.Quantified = zonkQuantifiedConstraintWith(e.Quantified, zonk, changed)
+		result.Quantified = newQ
 	}
-	return result
+	return result, true
 }
 
-func zonkQuantifiedConstraintWith(qc *QuantifiedConstraint, zonk func(Type) Type, changed *bool) *QuantifiedConstraint {
-	ctx := make([]ConstraintEntry, len(qc.Context))
+// zonkQuantifiedConstraint zonks a QuantifiedConstraint, returning the
+// original unchanged when no child was modified.
+func zonkQuantifiedConstraint(qc *QuantifiedConstraint, zonk func(Type) Type) (*QuantifiedConstraint, bool) {
+	changed := false
+	var ctx []ConstraintEntry
 	for i, c := range qc.Context {
-		ctx[i] = zonkConstraintEntryWith(c, zonk, changed)
+		zc, cChanged := zonkConstraintEntry(c, zonk)
+		if ctx == nil && cChanged {
+			ctx = make([]ConstraintEntry, len(qc.Context))
+			copy(ctx[:i], qc.Context[:i])
+			changed = true
+		}
+		if ctx != nil {
+			ctx[i] = zc
+		}
 	}
-	head := zonkConstraintEntryWith(qc.Head, zonk, changed)
-	return &QuantifiedConstraint{Vars: qc.Vars, Context: ctx, Head: head}
+	if ctx == nil {
+		ctx = qc.Context
+	}
+
+	head, headChanged := zonkConstraintEntry(qc.Head, zonk)
+	if headChanged {
+		changed = true
+	}
+
+	if !changed {
+		return qc, false
+	}
+	return &QuantifiedConstraint{Vars: qc.Vars, Context: ctx, Head: head}, true
 }
 
 // --- Evidence row builders ---

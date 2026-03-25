@@ -164,7 +164,7 @@ func (ch *Checker) extractIxMethod(monadHead types.Type, methodIdx int, s span.S
 	}
 
 	// 2. Try Lift-wrapped IxMonad.
-	liftedMonad := &types.TyApp{Fun: &types.TyCon{Name: "Lift"}, Arg: monadHead}
+	liftedMonad := &types.TyApp{Fun: types.Con("Lift"), Arg: monadHead}
 	dict := ch.resolveInstance("IxMonad", []types.Type{liftedMonad}, s)
 	fieldIdx := len(classInfo.Supers) + methodIdx
 	return ch.extractDictField(classInfo, dict, fieldIdx, "ixm", s)
