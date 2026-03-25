@@ -3,7 +3,7 @@
 -- Demonstrates kind annotations in type class declarations, kind
 -- variables in \binders, and higher-kinded type class instances.
 -- GICEL supports HKT via explicit kind annotations using (f: Kind).
--- Run: bin/gicel run examples/gicel/types/hkt.gicel
+-- Run: bin/gicel run --recursion examples/gicel/types/hkt.gicel
 
 import Prelude
 import Console

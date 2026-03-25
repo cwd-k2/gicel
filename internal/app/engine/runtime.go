@@ -180,6 +180,20 @@ func (r *Runtime) buildGlobalArray(hostBindings map[string]eval.Value) ([]eval.V
 	return arr, nil
 }
 
+// buildNamedGlobals constructs the named globals map as a fallback for
+// Var nodes whose Index remains -1 because assignGlobalSlots exceeded
+// maxTraversalDepth. The map mirrors builtinGlobals + host bindings.
+func (r *Runtime) buildNamedGlobals(hostBindings map[string]eval.Value) map[string]eval.Value {
+	m := make(map[string]eval.Value, len(r.builtinGlobals)+len(hostBindings))
+	for k, v := range r.builtinGlobals {
+		m[k] = v
+	}
+	for k, v := range hostBindings {
+		m[k] = v
+	}
+	return m
+}
+
 type runRequest struct {
 	caps      map[string]any
 	bindings  map[string]eval.Value
@@ -205,6 +219,7 @@ func (r *Runtime) execute(ctx context.Context, req *runRequest) (eval.EvalResult
 
 	ev := eval.NewEvaluator(b, r.prims, req.traceHook, req.obs, r.source)
 	ev.SetGlobalArray(globalArray)
+	ev.SetGlobals(r.buildNamedGlobals(req.bindings))
 
 	for _, me := range r.moduleEntries {
 		ev.SetSource(me.source)
@@ -267,9 +282,11 @@ func (r *Runtime) evalBindingsCore(ev *eval.Evaluator, bindings []ir.Binding, mo
 	// Phase 1: place IndirectVal sentinels for forward references.
 	type slotCell struct {
 		slot int
+		key  string
 		cell *eval.IndirectVal
 	}
 	cells := make([]slotCell, len(bindings))
+	globals := ev.Globals()
 	for i, b := range bindings {
 		key := b.Name
 		if modulePrefix != "" {
@@ -278,7 +295,8 @@ func (r *Runtime) evalBindingsCore(ev *eval.Evaluator, bindings []ir.Binding, mo
 		slot := r.globalSlots[key]
 		cell := &eval.IndirectVal{}
 		ev.SetGlobalSlot(slot, cell)
-		cells[i] = slotCell{slot, cell}
+		globals[key] = cell
+		cells[i] = slotCell{slot, key, cell}
 	}
 	// Phase 2: evaluate and fill slots.
 	userVisible := modulePrefix == ""
@@ -304,6 +322,7 @@ func (r *Runtime) evalBindingsCore(ev *eval.Evaluator, bindings []ir.Binding, mo
 		val := v
 		cells[i].cell.Ref = &val
 		ev.SetGlobalSlot(cells[i].slot, v)
+		globals[cells[i].key] = v
 	}
 	return nil
 }

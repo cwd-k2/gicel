@@ -35,7 +35,7 @@ func NewLexer(source *span.Source) *Lexer {
 
 // Tokenize scans the entire source and returns the token stream.
 func (l *Lexer) Tokenize() ([]syn.Token, *diagnostic.Errors) {
-	var tokens []syn.Token
+	tokens := make([]syn.Token, 0, len(l.source.Text)/6)
 	for {
 		tok := l.next()
 		tokens = append(tokens, tok)

@@ -215,7 +215,14 @@ func transformRec(c Core, f func(Core) Core, depth int) Core {
 // (including TyApp/TyLam wrappers), applying f bottom-up. This allows
 // Transform to handle arbitrarily deep left-associative operator chains
 // without exceeding the Go call stack.
-func transformLeftSpine(c Core, f func(Core) Core, baseDepth int) Core {
+//
+// Right children branching off the spine are structurally shallow (arguments
+// to each application). Their transform depth resets to 0, matching the
+// convention used by assignGlobalSlotsLeftSpine and assignIndicesLeftSpine.
+// Without this reset, operator chains exceeding maxTraversalDepth cause
+// right-child Var nodes (e.g., dictionary placeholders) to be returned
+// untransformed, because transformRec bails on non-App nodes past the limit.
+func transformLeftSpine(c Core, f func(Core) Core, _ int) Core {
 	type spineNode struct {
 		app *App // original App node (for span)
 		arg Core // right child (already transformed or pending)
@@ -227,20 +234,20 @@ func transformLeftSpine(c Core, f func(Core) Core, baseDepth int) Core {
 	for {
 		switch n := cur.(type) {
 		case *App:
-			arg := transformRec(n.Arg, f, baseDepth+1)
+			arg := transformRec(n.Arg, f, 0)
 			spine = append(spine, spineNode{app: n, arg: arg})
 			cur = n.Fun
 			continue
 		case *TyApp:
-			inner := transformLeftSpineOrRec(n.Expr, f, baseDepth)
+			inner := transformLeftSpineOrRec(n.Expr, f, 0)
 			cur = f(&TyApp{Expr: inner, TyArg: n.TyArg, S: n.S})
 			goto rebuild
 		case *TyLam:
-			inner := transformLeftSpineOrRec(n.Body, f, baseDepth)
+			inner := transformLeftSpineOrRec(n.Body, f, 0)
 			cur = f(&TyLam{TyParam: n.TyParam, Kind: n.Kind, Body: inner, S: n.S})
 			goto rebuild
 		default:
-			cur = transformRec(n, f, baseDepth+1)
+			cur = transformRec(n, f, 0)
 			goto rebuild
 		}
 	}
@@ -256,9 +263,9 @@ rebuild:
 
 // transformLeftSpineOrRec continues with left-spine processing if the
 // node is an App, otherwise falls back to regular recursion.
-func transformLeftSpineOrRec(c Core, f func(Core) Core, depth int) Core {
+func transformLeftSpineOrRec(c Core, f func(Core) Core, _ int) Core {
 	if _, ok := c.(*App); ok {
-		return transformLeftSpine(c, f, depth)
+		return transformLeftSpine(c, f, 0)
 	}
-	return transformRec(c, f, depth+1)
+	return transformRec(c, f, 0)
 }
