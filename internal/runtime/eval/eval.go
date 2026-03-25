@@ -84,9 +84,10 @@ func (ev *Evaluator) Globals() map[string]Value {
 	return ev.globals
 }
 
-// GlobalArray returns the evaluator's slot-indexed globals array.
-func (ev *Evaluator) GlobalArray() []Value {
-	return ev.globalArray
+// SetGlobalSlot sets a single value in the globals array at the given slot.
+// Used by evalBindingsCore to fill binding values during setup.
+func (ev *Evaluator) SetGlobalSlot(slot int, v Value) {
+	ev.globalArray[slot] = v
 }
 
 // Stats returns the accumulated statistics.

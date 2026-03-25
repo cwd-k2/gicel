@@ -180,23 +180,6 @@ func (r *Runtime) buildGlobalArray(hostBindings map[string]eval.Value) ([]eval.V
 	return arr, nil
 }
 
-// buildGlobals clones the builtin globals and adds user-provided bindings.
-// The clone ensures concurrent RunWith calls don't share mutable state.
-func (r *Runtime) buildGlobals(bindings map[string]eval.Value) (map[string]eval.Value, error) {
-	globals := make(map[string]eval.Value, len(r.builtinGlobals)+len(r.bindings))
-	for k, v := range r.builtinGlobals {
-		globals[k] = v
-	}
-	for name := range r.bindings {
-		v, ok := bindings[name]
-		if !ok {
-			return nil, fmt.Errorf("missing binding: %s", name)
-		}
-		globals[name] = v
-	}
-	return globals, nil
-}
-
 type runRequest struct {
 	caps      map[string]any
 	bindings  map[string]eval.Value
@@ -220,13 +203,8 @@ func (r *Runtime) execute(ctx context.Context, req *runRequest) (eval.EvalResult
 		b.SetAllocLimit(r.allocLimit)
 	}
 
-	// Named map is the fallback for Var nodes that AssignGlobalSlots could not
-	// reach due to the IR traversal depth limit (e.g., 500-operator chains).
-	namedGlobals, _ := r.buildGlobals(req.bindings)
-
 	ev := eval.NewEvaluator(b, r.prims, req.traceHook, req.obs, r.source)
 	ev.SetGlobalArray(globalArray)
-	ev.SetGlobals(namedGlobals)
 
 	for _, me := range r.moduleEntries {
 		ev.SetSource(me.source)
@@ -286,7 +264,6 @@ func (r *Runtime) execute(ctx context.Context, req *runRequest) (eval.EvalResult
 // Callers must pass bindings in dependency order (via ir.SortBindings).
 // Values are stored directly in the evaluator's global array at pre-assigned slots.
 func (r *Runtime) evalBindingsCore(ev *eval.Evaluator, bindings []ir.Binding, modulePrefix string, obs *eval.ExplainObserver) error {
-	ga := ev.GlobalArray()
 	// Phase 1: place IndirectVal sentinels for forward references.
 	type slotCell struct {
 		slot int
@@ -300,7 +277,7 @@ func (r *Runtime) evalBindingsCore(ev *eval.Evaluator, bindings []ir.Binding, mo
 		}
 		slot := r.globalSlots[key]
 		cell := &eval.IndirectVal{}
-		ga[slot] = cell
+		ev.SetGlobalSlot(slot, cell)
 		cells[i] = slotCell{slot, cell}
 	}
 	// Phase 2: evaluate and fill slots.
@@ -326,7 +303,7 @@ func (r *Runtime) evalBindingsCore(ev *eval.Evaluator, bindings []ir.Binding, mo
 		// Fill IndirectVal (for closures that captured the cell) and replace slot.
 		val := v
 		cells[i].cell.Ref = &val
-		ga[cells[i].slot] = v
+		ev.SetGlobalSlot(cells[i].slot, v)
 	}
 	return nil
 }
