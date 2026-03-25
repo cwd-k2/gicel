@@ -121,6 +121,24 @@ func walkLeftSpine(app *App, visit func(Core) bool, depth int, skipRoot bool) {
 }
 
 // Transform applies a function to every Core node bottom-up.
+// Clone creates a deep copy of a Core tree. All nodes including Var and Lit
+// are freshly allocated, so the clone shares no mutable state with the original.
+// This is necessary when the same subtree is inserted into multiple positions
+// in the IR (e.g., by substitution), because AssignIndices mutates Var.Index
+// and Lam.FVIndices in place.
+func Clone(c Core) Core {
+	return Transform(c, func(n Core) Core {
+		switch v := n.(type) {
+		case *Var:
+			return &Var{Name: v.Name, Module: v.Module, Key: v.Key, Index: v.Index, S: v.S}
+		case *Lit:
+			return &Lit{Value: v.Value, S: v.S}
+		default:
+			return n
+		}
+	})
+}
+
 func Transform(c Core, f func(Core) Core) Core {
 	return transformRec(c, f, 0)
 }

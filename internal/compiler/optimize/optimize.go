@@ -177,7 +177,7 @@ func subst(expr ir.Core, name string, replacement ir.Core) ir.Core {
 	switch n := expr.(type) {
 	case *ir.Var:
 		if n.Name == name {
-			return replacement
+			return ir.Clone(replacement)
 		}
 		return n
 	case *ir.Lam:
