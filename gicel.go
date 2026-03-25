@@ -227,3 +227,9 @@ var EffectMap Pack = stdlib.EffectMap
 
 // EffectSet provides mutable ordered sets gated by the { mset: () } effect.
 var EffectSet Pack = stdlib.EffectSet
+
+// EffectRef provides mutable reference cells gated by the { ref: () } effect.
+var EffectRef Pack = stdlib.Ref
+
+// DataJSON provides ToJSON/FromJSON type classes for JSON encoding/decoding.
+var DataJSON Pack = stdlib.JSON

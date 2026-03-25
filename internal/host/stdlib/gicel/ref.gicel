@@ -1,0 +1,22 @@
+import Prelude
+
+_refNew :: \a (r: Row). a -> Computation { ref: () | r } { ref: () | r } (Ref a)
+_refNew := assumption
+
+_refRead :: \a (r: Row). Ref a -> Computation { ref: () | r } { ref: () | r } a
+_refRead := assumption
+
+_refWrite :: \a (r: Row). a -> Ref a -> Computation { ref: () | r } { ref: () | r } ()
+_refWrite := assumption
+
+new :: \a (r: Row). a -> Computation { ref: () | r } { ref: () | r } (Ref a)
+new := _refNew
+
+read :: \a (r: Row). Ref a -> Computation { ref: () | r } { ref: () | r } a
+read := _refRead
+
+write :: \a (r: Row). a -> Ref a -> Computation { ref: () | r } { ref: () | r } ()
+write := _refWrite
+
+modify :: \a (r: Row). (a -> a) -> Ref a -> Computation { ref: () | r } { ref: () | r } ()
+modify := \f r. do { v <- _refRead r; _refWrite (f v) r }

@@ -559,7 +559,7 @@ func TestStressConcurrentSandbox(t *testing.T) {
 			}
 			r, err := gicel.RunSandbox(fmt.Sprintf("import Prelude\nmain := %s", val), &gicel.SandboxConfig{
 				Packs:    []gicel.Pack{gicel.Prelude},
-				MaxSteps: 1000 + idx*100,
+				MaxSteps: 5000 + idx*100,
 			})
 			errs[idx] = err
 			results[idx] = r

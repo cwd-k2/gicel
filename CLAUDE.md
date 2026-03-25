@@ -62,8 +62,10 @@ bin/gicel run [flags] <file>.gicel
 | `stream`  | `Data.Stream`  | requires `--recursion` |
 | `slice`   | `Data.Slice`   |                        |
 | `array`   | `Effect.Array` |                        |
+| `ref`     | `Effect.Ref`   |                        |
 | `map`     | `Data.Map`     |                        |
 | `set`     | `Data.Set`     |                        |
+| `json`    | `Data.JSON`    |                        |
 | `mmap`    | `Effect.Map`   |                        |
 | `mset`    | `Effect.Set`   |                        |
 | `console` | `Console`      | CLI-only               |

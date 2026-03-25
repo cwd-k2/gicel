@@ -20,6 +20,9 @@ var Set Pack = func(e Registrar) error {
 	e.RegisterPrim("_setUnion", setUnionImpl)
 	e.RegisterPrim("_setIntersection", setIntersectionImpl)
 	e.RegisterPrim("_setDifference", setDifferenceImpl)
+	e.RegisterPrim("_setIsSubsetOf", setIsSubsetOfImpl)
+	e.RegisterPrim("_setFindMin", setFindMinImpl)
+	e.RegisterPrim("_setFindMax", setFindMaxImpl)
 	return e.RegisterModule("Data.Set", setSource)
 }
 
@@ -265,4 +268,69 @@ func avlWalkDifference(ctx context.Context, n *avlNode, s2 *mapVal, result *mapV
 		}
 	}
 	return avlWalkDifference(ctx, n.right, s2, result, ce, apply)
+}
+
+// _setIsSubsetOf :: (k -> k -> Ordering) -> Set k -> Set k -> Bool
+func setIsSubsetOfImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, apply eval.Applier) (eval.Value, eval.CapEnv, error) {
+	s1, err := asMapVal(args[1])
+	if err != nil {
+		return nil, ce, err
+	}
+	s2, err := asMapVal(args[2])
+	if err != nil {
+		return nil, ce, err
+	}
+	if s1.size > s2.size {
+		return boolVal(false), ce, nil
+	}
+	result, newCe, err := avlAllMember(s1.root, s2, ce, apply)
+	if err != nil {
+		return nil, ce, err
+	}
+	return boolVal(result), newCe, nil
+}
+
+// avlAllMember checks that every key in n is present in target.
+func avlAllMember(n *avlNode, target *mapVal, ce eval.CapEnv, apply eval.Applier) (bool, eval.CapEnv, error) {
+	if n == nil {
+		return true, ce, nil
+	}
+	ok, newCe, err := avlAllMember(n.left, target, ce, apply)
+	if err != nil || !ok {
+		return false, ce, err
+	}
+	_, found, newCe, err := avlLookup(target.root, n.key, target.cmp, newCe, apply)
+	if err != nil {
+		return false, ce, err
+	}
+	if !found {
+		return false, newCe, nil
+	}
+	return avlAllMember(n.right, target, newCe, apply)
+}
+
+// _setFindMin :: Set k -> Maybe k
+func setFindMinImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
+	m, err := asMapVal(args[0])
+	if err != nil {
+		return nil, ce, err
+	}
+	if m.root == nil {
+		return &eval.ConVal{Con: "Nothing"}, ce, nil
+	}
+	n := avlMinNode(m.root)
+	return &eval.ConVal{Con: "Just", Args: []eval.Value{n.key}}, ce, nil
+}
+
+// _setFindMax :: Set k -> Maybe k
+func setFindMaxImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
+	m, err := asMapVal(args[0])
+	if err != nil {
+		return nil, ce, err
+	}
+	if m.root == nil {
+		return &eval.ConVal{Con: "Nothing"}, ce, nil
+	}
+	n := avlMaxNode(m.root)
+	return &eval.ConVal{Con: "Just", Args: []eval.Value{n.key}}, ce, nil
 }

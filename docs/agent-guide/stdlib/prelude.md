@@ -48,7 +48,7 @@ fromRunes :: List Rune -> String
 charAt   :: Int -> String -> Maybe Rune
 ```
 
-Instances: `Eq`, `Ord`. String can be packed/unpacked as `List Rune` or `List Byte` via the `Packed` class.
+Classification functions: `isAlpha`, `isDigit`, `isAlphaNum`, `isSpace`, `isUpper`, `isLower`. Conversions: `runeToInt`, `intToRune`, `digitToInt`. Instances: `Eq`, `Ord`, `Show`. String can be packed/unpacked as `List Rune` or `List Byte` via the `Packed` class.
 
 ### Type Aliases
 
@@ -197,6 +197,17 @@ form Read := \a. {
 }
 ```
 
+**Bifunctor**
+
+```
+form Bifunctor := \(p: Type -> Type -> Type). {
+  bimap: \a b c d. (a -> c) -> (b -> d) -> p a b -> p c d
+}
+```
+
+Derived: `bfirst :: (a -> c) -> p a b -> p c b`, `bsecond :: (b -> d) -> p a b -> p a d`.
+Tuple variants: `bimapPair`, `firstPair`, `secondPair`.
+
 **FromList**
 
 ```
@@ -226,7 +237,7 @@ form ToList := \l. FromList l => {
 | `Div`         | `Int`, `Double`                                                                                                 |
 | `Semigroup`   | `()`, `Ordering`, `Maybe a`, `List a`, `Int`, `Double`, `String`                                                |
 | `Monoid`      | `()`, `Ordering`, `Maybe a`, `List a`, `Int`, `Double`, `String`                                                |
-| `Show`        | `Bool`, `()`, `Ordering`, `Int`, `Double`, `Byte`, `String`, `Maybe a`, `List a`, `Result e a`, `(a,b)`         |
+| `Show`        | `Bool`, `()`, `Ordering`, `Int`, `Double`, `Byte`, `Rune`, `String`, `Maybe a`, `List a`, `Result e a`, `(a,b)` |
 | `Functor`     | `Maybe`, `List`, `Result e`                                                                                     |
 | `Foldable`    | `Maybe`, `List`, `Result e`                                                                                     |
 | `Applicative` | `Maybe`, `List`                                                                                                 |
@@ -234,5 +245,6 @@ form ToList := \l. FromList l => {
 | `Alternative` | `Maybe`, `List`                                                                                                 |
 | `Packed`      | `Packed String Rune`, `Packed String Byte`                                                                      |
 | `Read`        | `Int`, `Double`, `String`                                                                                       |
+| `Bifunctor`   | `Result`                                                                                                        |
 | `FromList`    | `List a`, `Maybe a`, `String`                                                                                   |
 | `ToList`      | `List a`, `Maybe a`, `String`                                                                                   |

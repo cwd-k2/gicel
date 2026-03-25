@@ -1,0 +1,100 @@
+import Prelude
+
+-- ─── ToJSON ─────────────────────────────────────────────────────────────────
+
+form ToJSON := \a. { toJSON: a -> String }
+
+_toJSONInt :: Int -> String
+_toJSONInt := assumption
+
+_toJSONDouble :: Double -> String
+_toJSONDouble := assumption
+
+_toJSONString :: String -> String
+_toJSONString := assumption
+
+_toJSONBool :: Bool -> String
+_toJSONBool := assumption
+
+_toJSONList :: \a. (a -> String) -> List a -> String
+_toJSONList := assumption
+
+_toJSONMaybe :: \a. (a -> String) -> Maybe a -> String
+_toJSONMaybe := assumption
+
+_toJSONPair :: \a b. (a -> String) -> (b -> String) -> (a, b) -> String
+_toJSONPair := assumption
+
+_toJSONResult :: \e a. (e -> String) -> (a -> String) -> Result e a -> String
+_toJSONResult := assumption
+
+impl ToJSON Int    := { toJSON := _toJSONInt }
+impl ToJSON Double := { toJSON := _toJSONDouble }
+impl ToJSON String := { toJSON := _toJSONString }
+impl ToJSON Bool   := { toJSON := _toJSONBool }
+impl ToJSON ()     := { toJSON := \_. "null" }
+
+impl ToJSON a => ToJSON (List a) := {
+  toJSON := _toJSONList toJSON
+}
+
+impl ToJSON a => ToJSON (Maybe a) := {
+  toJSON := _toJSONMaybe toJSON
+}
+
+impl (ToJSON a, ToJSON b) => ToJSON (a, b) := {
+  toJSON := _toJSONPair toJSON toJSON
+}
+
+impl (ToJSON e, ToJSON a) => ToJSON (Result e a) := {
+  toJSON := _toJSONResult toJSON toJSON
+}
+
+-- ─── FromJSON ───────────────────────────────────────────────────────────────
+
+form FromJSON := \a. { fromJSON: String -> Maybe a }
+
+_fromJSONInt :: String -> Maybe Int
+_fromJSONInt := assumption
+
+_fromJSONDouble :: String -> Maybe Double
+_fromJSONDouble := assumption
+
+_fromJSONString :: String -> Maybe String
+_fromJSONString := assumption
+
+_fromJSONBool :: String -> Maybe Bool
+_fromJSONBool := assumption
+
+_fromJSONList :: \a. (String -> Maybe a) -> String -> Maybe (List a)
+_fromJSONList := assumption
+
+_fromJSONMaybe :: \a. (String -> Maybe a) -> String -> Maybe (Maybe a)
+_fromJSONMaybe := assumption
+
+_fromJSONPair :: \a b. (String -> Maybe a) -> (String -> Maybe b) -> String -> Maybe (a, b)
+_fromJSONPair := assumption
+
+_fromJSONResult :: \e a. (String -> Maybe e) -> (String -> Maybe a) -> String -> Maybe (Result e a)
+_fromJSONResult := assumption
+
+impl FromJSON Int    := { fromJSON := _fromJSONInt }
+impl FromJSON Double := { fromJSON := _fromJSONDouble }
+impl FromJSON String := { fromJSON := _fromJSONString }
+impl FromJSON Bool   := { fromJSON := _fromJSONBool }
+
+impl FromJSON a => FromJSON (List a) := {
+  fromJSON := _fromJSONList fromJSON
+}
+
+impl FromJSON a => FromJSON (Maybe a) := {
+  fromJSON := _fromJSONMaybe fromJSON
+}
+
+impl (FromJSON a, FromJSON b) => FromJSON (a, b) := {
+  fromJSON := _fromJSONPair fromJSON fromJSON
+}
+
+impl (FromJSON e, FromJSON a) => FromJSON (Result e a) := {
+  fromJSON := _fromJSONResult fromJSON fromJSON
+}

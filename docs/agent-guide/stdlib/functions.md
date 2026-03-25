@@ -66,23 +66,33 @@ seq :: \a b (r1: Row) (r2: Row) (r3: Row). Computation r1 r2 a -> Computation r2
 
 ### Prelude Utility Functions
 
-| Category | Functions                                                                     |
-| -------- | ----------------------------------------------------------------------------- |
-| Maybe    | `isJust`, `isNothing`                                                         |
-| Result   | `isOk`, `isErr`, `fromOk`, `fromErr`                                          |
-| Foldable | `foldMap`, `collectList`, `find`, `elem`, `notElem`, `any`, `all`             |
-| List     | `lookup`, `concatMap`, `flatten`, `catMaybes`, `mapMaybe`                     |
-| List     | `partition`, `takeWhile`, `intersperse`, `nub`, `nubBy`, `and`, `or`          |
-| List     | `length`, `concat`, `foldl`, `take`, `drop`, `index`, `replicate`, `reverse`  |
-| List     | `zip`, `unzip`, `zipWith`, `dropWhile`, `span`, `break`                       |
-| List     | `sortBy`, `sort`, `scanl`, `unfoldr`, `iterateN`, `intercalate`               |
-| List     | `fromSlice`, `toSlice`                                                        |
-| Monadic  | `guard`, `when`, `unless`, `mjoin`, `liftA2`, `void`                          |
-| Numeric  | `mod`, `abs`, `sign`, `absDouble`, `signDouble`                               |
-| Convert  | `toDouble`, `round`, `floor`, `ceiling`, `truncate`, `byteToInt`, `intToByte` |
-| String   | `strlen`, `charAt`, `substring`, `toUpper`, `toLower`, `trim`                 |
-| String   | `contains`, `split`, `join`, `words`, `toRunes`, `fromRunes`                  |
-| String   | `showInt`, `showBool`, `readInt`, `readDouble`                                |
+| Category  | Functions                                                                     |
+| --------- | ----------------------------------------------------------------------------- |
+| Maybe     | `isJust`, `isNothing`                                                         |
+| Result    | `isOk`, `isErr`, `fromOk`, `fromErr`                                          |
+| Foldable  | `foldMap`, `collectList`, `find`, `elem`, `notElem`, `any`, `all`             |
+| List      | `lookup`, `concatMap`, `flatten`, `catMaybes`, `mapMaybe`                     |
+| List      | `partition`, `takeWhile`, `intersperse`, `nub`, `nubBy`, `and`, `or`          |
+| List      | `length`, `concat`, `foldl`, `take`, `drop`, `index`, `replicate`, `reverse`  |
+| List      | `zip`, `unzip`, `zipWith`, `dropWhile`, `span`, `break`                       |
+| List      | `sortBy`, `sort`, `scanl`, `unfoldr`, `iterateN`, `intercalate`               |
+| List      | `fromSlice`, `toSlice`                                                        |
+| List      | `uncons`, `listToMaybe`, `maybeToList`, `group`, `groupBy`                    |
+| List      | `minimum`, `maximum`, `minimumBy`, `maximumBy`, `sum`, `product`              |
+| List      | `isPrefixOf`, `isSuffixOf`, `sumDouble`, `productDouble`                      |
+| Monadic   | `guard`, `when`, `unless`, `mjoin`, `liftA2`, `void`                          |
+| Monadic   | `mapM`, `mapM_`, `forM`, `forM_`, `sequence`, `sequence_`                     |
+| Monadic   | `foldM`, `filterM`, `replicateM`                                              |
+| Numeric   | `mod`, `abs`, `sign`, `absDouble`, `signDouble`                               |
+| Numeric   | `even`, `odd`, `gcd`, `lcm`, `clamp`                                          |
+| Convert   | `toDouble`, `round`, `floor`, `ceiling`, `truncate`, `byteToInt`, `intToByte` |
+| Rune      | `isAlpha`, `isDigit`, `isAlphaNum`, `isSpace`, `isUpper`, `isLower`           |
+| Rune      | `runeToInt`, `intToRune`, `digitToInt`                                        |
+| String    | `strlen`, `charAt`, `substring`, `toUpper`, `toLower`, `trim`                 |
+| String    | `contains`, `split`, `join`, `words`, `toRunes`, `fromRunes`                  |
+| String    | `lines`, `unlines`, `unwords`, `startsWith`, `endsWith`                       |
+| String    | `showInt`, `showBool`, `readInt`, `readDouble`                                |
+| Bifunctor | `bimap`, `bfirst`, `bsecond`, `bimapPair`, `firstPair`, `secondPair`          |
 
 ---
 

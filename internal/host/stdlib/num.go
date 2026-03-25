@@ -272,3 +272,25 @@ func truncateImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.A
 	}
 	return intResult(int64(math.Trunc(f)), ce)
 }
+
+func gcdImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
+	a, err := asInt64Num(args[0])
+	if err != nil {
+		return nil, ce, err
+	}
+	b, err := asInt64Num(args[1])
+	if err != nil {
+		return nil, ce, err
+	}
+	// Absolute values
+	if a < 0 {
+		a = -a
+	}
+	if b < 0 {
+		b = -b
+	}
+	for b != 0 {
+		a, b = b, a%b
+	}
+	return intResult(a, ce)
+}

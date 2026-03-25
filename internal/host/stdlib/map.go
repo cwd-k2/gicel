@@ -26,6 +26,12 @@ var Map Pack = func(e Registrar) error {
 	e.RegisterPrim("_mapValues", mapValuesImpl)
 	e.RegisterPrim("_mapMapValues", mapMapValuesImpl)
 	e.RegisterPrim("_mapFilterWithKey", mapFilterWithKeyImpl)
+	e.RegisterPrim("_mapInsertWith", mapInsertWithImpl)
+	e.RegisterPrim("_mapIntersectionWith", mapIntersectionWithImpl)
+	e.RegisterPrim("_mapFindMin", mapFindMinImpl)
+	e.RegisterPrim("_mapFindMax", mapFindMaxImpl)
+	e.RegisterPrim("_mapMapWithKey", mapMapWithKeyImpl)
+	e.RegisterPrim("_mapFoldrWithKey", mapFoldrWithKeyImpl)
 	return e.RegisterModule("Data.Map", mapSource)
 }
 
@@ -320,4 +326,142 @@ func mapFilterWithKeyImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value
 		return nil, ce, err
 	}
 	return &eval.HostVal{Inner: &mapVal{root: newRoot, cmp: m.cmp, size: newSize}}, newCe, nil
+}
+
+// _mapInsertWith :: (k -> k -> Ordering) -> (v -> v -> v) -> k -> v -> Map k v -> Map k v
+func mapInsertWithImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, apply eval.Applier) (eval.Value, eval.CapEnv, error) {
+	// args[0] = compare (unused, map stores its own)
+	f := args[1]
+	key := args[2]
+	value := args[3]
+	m, err := asMapVal(args[4])
+	if err != nil {
+		return nil, ce, err
+	}
+	if err := budget.ChargeAlloc(ctx, costAVLNode); err != nil {
+		return nil, ce, err
+	}
+	newRoot, inserted, newCe, err := avlInsertWith(m.root, key, value, f, m.cmp, ce, apply)
+	if err != nil {
+		return nil, ce, err
+	}
+	newSize := m.size
+	if inserted {
+		newSize++
+	}
+	return &eval.HostVal{Inner: &mapVal{root: newRoot, cmp: m.cmp, size: newSize}}, newCe, nil
+}
+
+// _mapIntersectionWith :: (v -> v -> w) -> Map k v -> Map k w -> Map k w
+func mapIntersectionWithImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, apply eval.Applier) (eval.Value, eval.CapEnv, error) {
+	f := args[0]
+	m1, err := asMapVal(args[1])
+	if err != nil {
+		return nil, ce, err
+	}
+	m2, err := asMapVal(args[2])
+	if err != nil {
+		return nil, ce, err
+	}
+	result := &mapVal{root: nil, cmp: m1.cmp, size: 0}
+	ce, err = avlIntersectWalk(ctx, m1.root, m2, f, result, ce, apply)
+	if err != nil {
+		return nil, ce, err
+	}
+	return &eval.HostVal{Inner: result}, ce, nil
+}
+
+func avlIntersectWalk(ctx context.Context, n *avlNode, m2 *mapVal, f eval.Value, result *mapVal, ce eval.CapEnv, apply eval.Applier) (eval.CapEnv, error) {
+	if n == nil {
+		return ce, nil
+	}
+	var err error
+	ce, err = avlIntersectWalk(ctx, n.left, m2, f, result, ce, apply)
+	if err != nil {
+		return ce, err
+	}
+	v2, found, newCe, err := avlLookup(m2.root, n.key, m2.cmp, ce, apply)
+	if err != nil {
+		return ce, err
+	}
+	ce = newCe
+	if found {
+		partial, ce2, err2 := apply(f, n.value, ce)
+		if err2 != nil {
+			return ce, err2
+		}
+		merged, ce3, err3 := apply(partial, v2, ce2)
+		if err3 != nil {
+			return ce, err3
+		}
+		ce = ce3
+		if err := budget.ChargeAlloc(ctx, costAVLNode); err != nil {
+			return ce, err
+		}
+		var inserted bool
+		result.root, inserted, ce, err = avlInsert(result.root, n.key, merged, result.cmp, ce, apply)
+		if err != nil {
+			return ce, err
+		}
+		if inserted {
+			result.size++
+		}
+	}
+	return avlIntersectWalk(ctx, n.right, m2, f, result, ce, apply)
+}
+
+// _mapFindMin :: Map k v -> Maybe (k, v)
+func mapFindMinImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
+	m, err := asMapVal(args[0])
+	if err != nil {
+		return nil, ce, err
+	}
+	if m.root == nil {
+		return &eval.ConVal{Con: "Nothing"}, ce, nil
+	}
+	n := avlMinNode(m.root)
+	pair := &eval.RecordVal{Fields: map[string]eval.Value{ir.TupleLabel(1): n.key, ir.TupleLabel(2): n.value}}
+	return &eval.ConVal{Con: "Just", Args: []eval.Value{pair}}, ce, nil
+}
+
+// _mapFindMax :: Map k v -> Maybe (k, v)
+func mapFindMaxImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
+	m, err := asMapVal(args[0])
+	if err != nil {
+		return nil, ce, err
+	}
+	if m.root == nil {
+		return &eval.ConVal{Con: "Nothing"}, ce, nil
+	}
+	n := avlMaxNode(m.root)
+	pair := &eval.RecordVal{Fields: map[string]eval.Value{ir.TupleLabel(1): n.key, ir.TupleLabel(2): n.value}}
+	return &eval.ConVal{Con: "Just", Args: []eval.Value{pair}}, ce, nil
+}
+
+// _mapMapWithKey :: (k -> v -> w) -> Map k v -> Map k w
+func mapMapWithKeyImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, apply eval.Applier) (eval.Value, eval.CapEnv, error) {
+	f := args[0]
+	m, err := asMapVal(args[1])
+	if err != nil {
+		return nil, ce, err
+	}
+	if err := budget.ChargeAlloc(ctx, int64(m.size)*costAVLNode); err != nil {
+		return nil, ce, err
+	}
+	newRoot, newCe, err := avlMapWithKey(m.root, f, ce, apply)
+	if err != nil {
+		return nil, ce, err
+	}
+	return &eval.HostVal{Inner: &mapVal{root: newRoot, cmp: m.cmp, size: m.size}}, newCe, nil
+}
+
+// _mapFoldrWithKey :: (k -> v -> b -> b) -> b -> Map k v -> b
+func mapFoldrWithKeyImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, apply eval.Applier) (eval.Value, eval.CapEnv, error) {
+	f := args[0]
+	acc := args[1]
+	m, err := asMapVal(args[2])
+	if err != nil {
+		return nil, ce, err
+	}
+	return avlFoldrWithKey(m.root, f, acc, ce, apply)
 }

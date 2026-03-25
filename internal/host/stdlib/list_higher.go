@@ -339,3 +339,59 @@ func iterateNImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, apply 
 	}
 	return buildList(items), ce, nil
 }
+
+// groupByImpl groups consecutive elements by a user-supplied equality predicate.
+// _listGroupBy :: (a -> a -> Bool) -> List a -> List (List a)
+func groupByImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, apply eval.Applier) (eval.Value, eval.CapEnv, error) {
+	eq := args[0]
+	list := args[1]
+	var groups []eval.Value
+	var current []eval.Value
+	var currentKey eval.Value
+	for {
+		con, ok := list.(*eval.ConVal)
+		if !ok {
+			return nil, ce, fmt.Errorf("groupBy: expected List, got %T", list)
+		}
+		if con.Con == "Nil" {
+			break
+		}
+		if con.Con != "Cons" || len(con.Args) != 2 {
+			return nil, ce, fmt.Errorf("groupBy: malformed list node: %s", con.Con)
+		}
+		elem := con.Args[0]
+		if currentKey == nil {
+			current = []eval.Value{elem}
+			currentKey = elem
+		} else {
+			partial, newCe, err := apply(eq, currentKey, ce)
+			if err != nil {
+				return nil, ce, err
+			}
+			result, newCe2, err := apply(partial, elem, newCe)
+			if err != nil {
+				return nil, ce, err
+			}
+			ce = newCe2
+			boolCon, ok := result.(*eval.ConVal)
+			if !ok {
+				return nil, ce, fmt.Errorf("groupBy: predicate must return Bool, got %T", result)
+			}
+			if boolCon.Con == "True" {
+				current = append(current, elem)
+			} else {
+				groups = append(groups, buildList(current))
+				current = []eval.Value{elem}
+				currentKey = elem
+			}
+		}
+		list = con.Args[1]
+	}
+	if len(current) > 0 {
+		groups = append(groups, buildList(current))
+	}
+	if err := budget.ChargeAlloc(ctx, int64(len(groups))*costConsNode); err != nil {
+		return nil, ce, err
+	}
+	return buildList(groups), ce, nil
+}

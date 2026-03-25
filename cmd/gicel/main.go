@@ -56,7 +56,7 @@ Commands:
   example  List examples, or show source (example <name>)
 
 Flags (run, check):
-  --packs <list>   Packs: prelude,fail,state,io,stream,slice,map,set,array,mmap,mset,console (default: all)
+  --packs <list>   Packs: prelude,fail,state,io,stream,slice,map,set,array,ref,mmap,mset,json,console (default: all)
   --module Name=path  Register a user module (repeatable)
   --recursion      Enable recursive definitions (fix/rec)
   -e <source>      Evaluate source string directly
@@ -213,11 +213,13 @@ var packMap = map[string]gicel.Pack{
 	"array":   gicel.EffectArray,
 	"mmap":    gicel.EffectMap,
 	"mset":    gicel.EffectSet,
+	"ref":     gicel.EffectRef,
+	"json":    gicel.DataJSON,
 	"console": consolePack,
 }
 
 // allPackOrder ensures deterministic pack loading.
-var allPackOrder = []string{"prelude", "fail", "state", "io", "stream", "slice", "map", "set", "array", "mmap", "mset", "console"}
+var allPackOrder = []string{"prelude", "fail", "state", "io", "stream", "slice", "map", "set", "array", "ref", "mmap", "mset", "json", "console"}
 
 func setupEngine(use string) (*gicel.Engine, error) {
 	eng := gicel.NewEngine()
@@ -236,7 +238,7 @@ func setupEngine(use string) (*gicel.Engine, error) {
 		}
 		p, ok := packMap[name]
 		if !ok {
-			return nil, fmt.Errorf("unknown pack: %s (available: prelude,fail,state,io,stream,slice,map,set,array,mmap,mset,console)", name)
+			return nil, fmt.Errorf("unknown pack: %s (available: prelude,fail,state,io,stream,slice,map,set,array,ref,mmap,mset,json,console)", name)
 		}
 		if err := p(eng); err != nil {
 			return nil, err

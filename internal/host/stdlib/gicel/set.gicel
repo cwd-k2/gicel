@@ -70,6 +70,36 @@ filter := \p s. fold (\acc k. if p k then _setInsert compare k acc else acc) (_s
 map :: \k1 k2. (Ord k1, Ord k2) => (k1 -> k2) -> Set k1 -> Set k2
 map := \f s. fold (\acc k. _setInsert compare (f k) acc) (_setEmpty compare) s
 
+null :: \k. Set k -> Bool
+null := \s. _setSize s == 0
+
+singleton :: \k. Ord k => k -> Set k
+singleton := \k. insert k empty
+
+_setIsSubsetOf :: \k. (k -> k -> Ordering) -> Set k -> Set k -> Bool
+_setIsSubsetOf := assumption
+
+isSubsetOf :: \k. Ord k => Set k -> Set k -> Bool
+isSubsetOf := _setIsSubsetOf compare
+
+_setFindMin :: \k. Set k -> Maybe k
+_setFindMin := assumption
+
+_setFindMax :: \k. Set k -> Maybe k
+_setFindMax := assumption
+
+findMin :: \k. Set k -> Maybe k
+findMin := _setFindMin
+
+findMax :: \k. Set k -> Maybe k
+findMax := _setFindMax
+
+partition :: \k. Ord k => (k -> Bool) -> Set k -> (Set k, Set k)
+partition := \p s. fold (\acc k. if p k
+  then (_setInsert compare k (fst acc), snd acc)
+  else (fst acc, _setInsert compare k (snd acc))
+) (_setEmpty compare, _setEmpty compare) s
+
 impl (Ord k, Show k) => Show (Set k) := {
   show := \s. "Set.fromList " <> show (toList s)
 }

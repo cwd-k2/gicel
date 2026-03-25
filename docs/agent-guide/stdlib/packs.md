@@ -9,12 +9,14 @@ Stdlib packs are loaded on the host side via `eng.Use(pack)` and imported in sou
 | `state`   | `Effect.State` | [effect-state.md](effect-state.md) |                        |
 | `io`      | `Effect.IO`    | [effect-io.md](effect-io.md)       |                        |
 | `array`   | `Effect.Array` | [effect-array.md](effect-array.md) |                        |
+| `ref`     | `Effect.Ref`   | [effect-ref.md](effect-ref.md)     |                        |
 | `mmap`    | `Effect.Map`   | [effect-map.md](effect-map.md)     |                        |
 | `mset`    | `Effect.Set`   | [effect-set.md](effect-set.md)     |                        |
 | `stream`  | `Data.Stream`  | [data-stream.md](data-stream.md)   | requires `--recursion` |
 | `slice`   | `Data.Slice`   | [data-slice.md](data-slice.md)     |                        |
 | `map`     | `Data.Map`     | [data-map.md](data-map.md)         |                        |
 | `set`     | `Data.Set`     | [data-set.md](data-set.md)         |                        |
+| `json`    | `Data.JSON`    | [data-json.md](data-json.md)       |                        |
 | `console` | `Console`      | [console.md](console.md)           | CLI-only               |
 
 See also: [functions.md](functions.md) for Prelude combinators and operators.

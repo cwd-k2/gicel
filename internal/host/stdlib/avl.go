@@ -316,6 +316,100 @@ func avlFilterWithKey(n *avlNode, pred eval.Value, cmp eval.Value, root **avlNod
 	return avlFilterWithKey(n.right, pred, cmp, root, size, ce, apply)
 }
 
+func avlMaxNode(n *avlNode) *avlNode {
+	for n.right != nil {
+		n = n.right
+	}
+	return n
+}
+
+// avlInsertWith inserts with a merge function: if key exists, value = f(existing, new).
+func avlInsertWith(n *avlNode, key, value eval.Value, f, cmp eval.Value, ce eval.CapEnv, apply eval.Applier) (*avlNode, bool, eval.CapEnv, error) {
+	if n == nil {
+		return avlNewNode(key, value), true, ce, nil
+	}
+	ord, newCe, err := compareKeys(cmp, key, n.key, ce, apply)
+	if err != nil {
+		return n, false, ce, err
+	}
+	node := &avlNode{key: n.key, value: n.value, left: n.left, right: n.right, height: n.height}
+	var inserted bool
+	switch ord {
+	case -1:
+		node.left, inserted, newCe, err = avlInsertWith(n.left, key, value, f, cmp, newCe, apply)
+	case 1:
+		node.right, inserted, newCe, err = avlInsertWith(n.right, key, value, f, cmp, newCe, apply)
+	default:
+		// Key exists: apply f existing new
+		partial, ce2, err2 := apply(f, n.value, newCe)
+		if err2 != nil {
+			return n, false, ce, err2
+		}
+		merged, ce3, err3 := apply(partial, value, ce2)
+		if err3 != nil {
+			return n, false, ce, err3
+		}
+		node.value = merged
+		return node, false, ce3, nil
+	}
+	if err != nil {
+		return n, false, ce, err
+	}
+	return avlRebalance(node), inserted, newCe, nil
+}
+
+// avlMapWithKey applies f(key, value) to every entry.
+func avlMapWithKey(n *avlNode, f eval.Value, ce eval.CapEnv, apply eval.Applier) (*avlNode, eval.CapEnv, error) {
+	if n == nil {
+		return nil, ce, nil
+	}
+	var err error
+	var left, right *avlNode
+	left, ce, err = avlMapWithKey(n.left, f, ce, apply)
+	if err != nil {
+		return nil, ce, err
+	}
+	partial, ce, err := apply(f, n.key, ce)
+	if err != nil {
+		return nil, ce, err
+	}
+	var newVal eval.Value
+	newVal, ce, err = apply(partial, n.value, ce)
+	if err != nil {
+		return nil, ce, err
+	}
+	right, ce, err = avlMapWithKey(n.right, f, ce, apply)
+	if err != nil {
+		return nil, ce, err
+	}
+	return &avlNode{key: n.key, value: newVal, left: left, right: right, height: n.height}, ce, nil
+}
+
+// avlFoldrWithKey walks the tree in reverse-order (right to left).
+func avlFoldrWithKey(n *avlNode, f, acc eval.Value, ce eval.CapEnv, apply eval.Applier) (eval.Value, eval.CapEnv, error) {
+	if n == nil {
+		return acc, ce, nil
+	}
+	var err error
+	acc, ce, err = avlFoldrWithKey(n.right, f, acc, ce, apply)
+	if err != nil {
+		return nil, ce, err
+	}
+	partial1, ce, err := apply(f, n.key, ce)
+	if err != nil {
+		return nil, ce, err
+	}
+	partial2, ce, err := apply(partial1, n.value, ce)
+	if err != nil {
+		return nil, ce, err
+	}
+	acc, ce, err = apply(partial2, acc, ce)
+	if err != nil {
+		return nil, ce, err
+	}
+	return avlFoldrWithKey(n.left, f, acc, ce, apply)
+}
+
 func avlFoldlWithKey(n *avlNode, f, acc eval.Value, ce eval.CapEnv, apply eval.Applier) (eval.Value, eval.CapEnv, error) {
 	if n == nil {
 		return acc, ce, nil

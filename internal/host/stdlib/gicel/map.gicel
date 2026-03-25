@@ -85,6 +85,48 @@ mapValues := _mapMapValues
 filterWithKey :: \k v. (k -> v -> Bool) -> Map k v -> Map k v
 filterWithKey := _mapFilterWithKey
 
+null :: \k v. Map k v -> Bool
+null := \m. _mapSize m == 0
+
+singleton :: \k v. Ord k => k -> v -> Map k v
+singleton := \k v. insert k v empty
+
+_mapInsertWith :: \k v. (k -> k -> Ordering) -> (v -> v -> v) -> k -> v -> Map k v -> Map k v
+_mapInsertWith := assumption
+
+insertWith :: \k v. Ord k => (v -> v -> v) -> k -> v -> Map k v -> Map k v
+insertWith := _mapInsertWith compare
+
+_mapIntersectionWith :: \k v w. (v -> w -> w) -> Map k v -> Map k w -> Map k w
+_mapIntersectionWith := assumption
+
+intersectionWith :: \k v w. (v -> w -> w) -> Map k v -> Map k w -> Map k w
+intersectionWith := _mapIntersectionWith
+
+_mapFindMin :: \k v. Map k v -> Maybe (k, v)
+_mapFindMin := assumption
+
+_mapFindMax :: \k v. Map k v -> Maybe (k, v)
+_mapFindMax := assumption
+
+findMin :: \k v. Map k v -> Maybe (k, v)
+findMin := _mapFindMin
+
+findMax :: \k v. Map k v -> Maybe (k, v)
+findMax := _mapFindMax
+
+_mapMapWithKey :: \k v w. (k -> v -> w) -> Map k v -> Map k w
+_mapMapWithKey := assumption
+
+mapWithKey :: \k v w. (k -> v -> w) -> Map k v -> Map k w
+mapWithKey := _mapMapWithKey
+
+_mapFoldrWithKey :: \k v b. (k -> v -> b -> b) -> b -> Map k v -> b
+_mapFoldrWithKey := assumption
+
+foldrWithKey :: \k v b. (k -> v -> b -> b) -> b -> Map k v -> b
+foldrWithKey := _mapFoldrWithKey
+
 impl (Ord k, Show k, Show v) => Show (Map k v) := {
   show := \m. "Map.fromList " <> show (toList m)
 }

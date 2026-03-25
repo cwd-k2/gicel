@@ -1029,3 +1029,273 @@ impl (Show e, Show a) => Show (Result e a) := {
 impl (Show a, Show b) => Show (a, b) := {
   show := \p. append "(" (append (show (p.#_1)) (append ", " (append (show (p.#_2)) ")")))
 }
+
+-- ─── Bifunctor ──────────────────────────────────────────────────────────────
+
+form Bifunctor := \(p: Type -> Type -> Type). {
+  bimap: \a b c d. (a -> c) -> (b -> d) -> p a b -> p c d
+}
+
+bfirst :: \(p: Type -> Type -> Type) a b c. Bifunctor p => (a -> c) -> p a b -> p c b
+bfirst := \f. bimap f id
+
+bsecond :: \(p: Type -> Type -> Type) a b d. Bifunctor p => (b -> d) -> p a b -> p a d
+bsecond := bimap id
+
+impl Bifunctor Result := {
+  bimap := \f g r. case r { Err e => Err (f e); Ok a => Ok (g a) }
+}
+
+-- Tuple bimap: standalone functions (no Bifunctor instance — tuple is built-in syntax)
+bimapPair :: \a b c d. (a -> c) -> (b -> d) -> (a, b) -> (c, d)
+bimapPair := \f g p. (f (fst p), g (snd p))
+
+firstPair :: \a b c. (a -> c) -> (a, b) -> (c, b)
+firstPair := \f p. (f (fst p), snd p)
+
+secondPair :: \a b d. (b -> d) -> (a, b) -> (a, d)
+secondPair := \g p. (fst p, g (snd p))
+
+-- ─── Rune operations ────────────────────────────────────────────────────────
+
+_isAlpha :: Rune -> Bool
+_isAlpha := assumption
+
+_isDigit :: Rune -> Bool
+_isDigit := assumption
+
+_isAlphaNum :: Rune -> Bool
+_isAlphaNum := assumption
+
+_isSpace :: Rune -> Bool
+_isSpace := assumption
+
+_isUpper :: Rune -> Bool
+_isUpper := assumption
+
+_isLower :: Rune -> Bool
+_isLower := assumption
+
+_runeToInt :: Rune -> Int
+_runeToInt := assumption
+
+_intToRune :: Int -> Maybe Rune
+_intToRune := assumption
+
+_digitToInt :: Rune -> Maybe Int
+_digitToInt := assumption
+
+_showRune :: Rune -> String
+_showRune := assumption
+
+isAlpha :: Rune -> Bool
+isAlpha := _isAlpha
+
+isDigit :: Rune -> Bool
+isDigit := _isDigit
+
+isAlphaNum :: Rune -> Bool
+isAlphaNum := _isAlphaNum
+
+isSpace :: Rune -> Bool
+isSpace := _isSpace
+
+isUpper :: Rune -> Bool
+isUpper := _isUpper
+
+isLower :: Rune -> Bool
+isLower := _isLower
+
+runeToInt :: Rune -> Int
+runeToInt := _runeToInt
+
+intToRune :: Int -> Maybe Rune
+intToRune := _intToRune
+
+digitToInt :: Rune -> Maybe Int
+digitToInt := _digitToInt
+
+impl Show Rune := { show := _showRune }
+
+-- ─── Additional Num ─────────────────────────────────────────────────────────
+
+_gcd :: Int -> Int -> Int
+_gcd := assumption
+
+even :: Int -> Bool
+even := \n. mod n 2 == 0
+
+odd :: Int -> Bool
+odd := \n. mod n 2 /= 0
+
+gcd :: Int -> Int -> Int
+gcd := _gcd
+
+lcm :: Int -> Int -> Int
+lcm := \a b. case _gcd a b { 0 => 0; g => abs (a / g * b) }
+
+clamp :: \a. Ord a => (a, a) -> a -> a
+clamp := \bounds x.
+  case compare x (fst bounds) {
+    LT => fst bounds;
+    _ => case compare x (snd bounds) { GT => snd bounds; _ => x }
+  }
+
+-- ─── Additional List ────────────────────────────────────────────────────────
+
+uncons :: \a. List a -> Maybe (a, List a)
+uncons := \xs. case xs { Nil => Nothing; Cons x rest => Just (x, rest) }
+
+listToMaybe :: \a. List a -> Maybe a
+listToMaybe := head
+
+maybeToList :: \a. Maybe a -> List a
+maybeToList := \m. case m { Nothing => Nil; Just x => Cons x Nil }
+
+minimum :: \a. Ord a => List a -> Maybe a
+minimum := \xs. case xs {
+  Nil => Nothing;
+  Cons x rest => Just (foldl min x rest)
+}
+
+maximum :: \a. Ord a => List a -> Maybe a
+maximum := \xs. case xs {
+  Nil => Nothing;
+  Cons x rest => Just (foldl max x rest)
+}
+
+sum :: List Int -> Int
+sum := foldl _addInt 0
+
+product :: List Int -> Int
+product := foldl _mulInt 1
+
+sumDouble :: List Double -> Double
+sumDouble := foldl _addDouble 0.0
+
+productDouble :: List Double -> Double
+productDouble := foldl _mulDouble 1.0
+
+_listGroupBy :: \a. (a -> a -> Bool) -> List a -> List (List a)
+_listGroupBy := assumption
+
+groupBy :: \a. (a -> a -> Bool) -> List a -> List (List a)
+groupBy := _listGroupBy
+
+group :: \a. Eq a => List a -> List (List a)
+group := groupBy eq
+
+minimumBy :: \a. (a -> a -> Ordering) -> List a -> Maybe a
+minimumBy := \cmp xs. case xs {
+  Nil => Nothing;
+  Cons x rest => Just (foldl (\acc y. case cmp acc y { GT => y; _ => acc }) x rest)
+}
+
+maximumBy :: \a. (a -> a -> Ordering) -> List a -> Maybe a
+maximumBy := \cmp xs. case xs {
+  Nil => Nothing;
+  Cons x rest => Just (foldl (\acc y. case cmp acc y { LT => y; _ => acc }) x rest)
+}
+
+isPrefixOf :: \a. Eq a => List a -> List a -> Bool
+isPrefixOf := \prefix xs. case prefix {
+  Nil => True;
+  Cons p ps => case xs {
+    Nil => False;
+    Cons x rest => eq p x && isPrefixOf ps rest
+  }
+}
+
+isSuffixOf :: \a. Eq a => List a -> List a -> Bool
+isSuffixOf := \suffix xs. isPrefixOf (reverse suffix) (reverse xs)
+
+-- ─── Additional String ──────────────────────────────────────────────────────
+
+_lines :: String -> List String
+_lines := assumption
+
+_unlines :: List String -> String
+_unlines := assumption
+
+_isPrefixOfStr :: String -> String -> Bool
+_isPrefixOfStr := assumption
+
+_isSuffixOfStr :: String -> String -> Bool
+_isSuffixOfStr := assumption
+
+lines :: String -> List String
+lines := _lines
+
+unlines :: List String -> String
+unlines := _unlines
+
+unwords :: List String -> String
+unwords := join " "
+
+startsWith :: String -> String -> Bool
+startsWith := _isPrefixOfStr
+
+endsWith :: String -> String -> Bool
+endsWith := _isSuffixOfStr
+
+-- ─── Monadic combinators (Effect / Suspended scope) ─────────────────────────
+
+mapM :: \a b (r: Row). (a -> Effect r b) -> List a -> Effect r (List b)
+mapM := \f xs. case xs {
+  Nil => pure Nil;
+  Cons x rest => do {
+    y  <- f x;
+    ys <- mapM f rest;
+    pure (Cons y ys)
+  }
+}
+
+mapM_ :: \a b (r: Row). (a -> Effect r b) -> List a -> Effect r ()
+mapM_ := \f xs. case xs {
+  Nil => pure ();
+  Cons x rest => do {
+    _ <- f x;
+    mapM_ f rest
+  }
+}
+
+forM :: \a b (r: Row). List a -> (a -> Effect r b) -> Effect r (List b)
+forM := flip mapM
+
+forM_ :: \a b (r: Row). List a -> (a -> Effect r b) -> Effect r ()
+forM_ := flip mapM_
+
+sequence :: \a (r: Row). List (Effect r a) -> Effect r (List a)
+sequence := mapM id
+
+sequence_ :: \a (r: Row). List (Effect r a) -> Effect r ()
+sequence_ := mapM_ id
+
+foldM :: \a b (r: Row). (b -> a -> Effect r b) -> b -> List a -> Effect r b
+foldM := \f acc xs. case xs {
+  Nil => pure acc;
+  Cons x rest => do {
+    acc' <- f acc x;
+    foldM f acc' rest
+  }
+}
+
+filterM :: \a (r: Row). (a -> Effect r Bool) -> List a -> Effect r (List a)
+filterM := \p xs. case xs {
+  Nil => pure Nil;
+  Cons x rest => do {
+    keep <- p x;
+    ys   <- filterM p rest;
+    pure (if keep then Cons x ys else ys)
+  }
+}
+
+replicateM :: \a (r: Row). Int -> Effect r a -> Effect r (List a)
+replicateM := \n action. case n <= 0 {
+  True => pure Nil;
+  False => do {
+    x  <- action;
+    xs <- replicateM (n - 1) action;
+    pure (Cons x xs)
+  }
+}

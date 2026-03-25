@@ -36,5 +36,6 @@ func newHostEnv() HostEnv {
 	h.registeredTys["Set"] = &types.KArrow{From: types.KType{}, To: types.KType{}}
 	h.registeredTys["MMap"] = &types.KArrow{From: types.KType{}, To: &types.KArrow{From: types.KType{}, To: types.KType{}}}
 	h.registeredTys["MSet"] = &types.KArrow{From: types.KType{}, To: types.KType{}}
+	h.registeredTys["Ref"] = &types.KArrow{From: types.KType{}, To: types.KType{}}
 	return h
 }

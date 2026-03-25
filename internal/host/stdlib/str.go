@@ -453,6 +453,79 @@ func unpackBytesImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, _ e
 	return &eval.HostVal{Inner: items}, ce, nil
 }
 
+// --- String additional primitives ---
+
+func linesImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
+	s, err := asString(args[0])
+	if err != nil {
+		return nil, ce, err
+	}
+	// Match Haskell: split on '\n', final empty line from trailing newline is dropped.
+	parts := strings.Split(s, "\n")
+	if len(parts) > 0 && parts[len(parts)-1] == "" {
+		parts = parts[:len(parts)-1]
+	}
+	if err := budget.ChargeAlloc(ctx, int64(len(parts))*costConsNode+int64(len(s))*costPerByte); err != nil {
+		return nil, ce, err
+	}
+	items := make([]eval.Value, len(parts))
+	for i, p := range parts {
+		items[i] = &eval.HostVal{Inner: p}
+	}
+	return buildList(items), ce, nil
+}
+
+func unlinesImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
+	items, ok := listToSlice(args[0])
+	if !ok {
+		return nil, ce, fmt.Errorf("unlines: expected List String")
+	}
+	strs := make([]string, len(items))
+	totalLen := 0
+	for i, item := range items {
+		s, err := asString(item)
+		if err != nil {
+			return nil, ce, fmt.Errorf("unlines: element %d: %w", i, err)
+		}
+		strs[i] = s
+		totalLen += len(s) + 1 // +1 for '\n'
+	}
+	if err := budget.ChargeAlloc(ctx, int64(totalLen)*costPerByte); err != nil {
+		return nil, ce, err
+	}
+	var b strings.Builder
+	b.Grow(totalLen)
+	for _, s := range strs {
+		b.WriteString(s)
+		b.WriteByte('\n')
+	}
+	return &eval.HostVal{Inner: b.String()}, ce, nil
+}
+
+func isPrefixOfStrImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
+	prefix, err := asString(args[0])
+	if err != nil {
+		return nil, ce, err
+	}
+	s, err := asString(args[1])
+	if err != nil {
+		return nil, ce, err
+	}
+	return boolVal(strings.HasPrefix(s, prefix)), ce, nil
+}
+
+func isSuffixOfStrImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
+	suffix, err := asString(args[0])
+	if err != nil {
+		return nil, ce, err
+	}
+	s, err := asString(args[1])
+	if err != nil {
+		return nil, ce, err
+	}
+	return boolVal(strings.HasSuffix(s, suffix)), ce, nil
+}
+
 func asSliceStr(v eval.Value) ([]eval.Value, error) {
 	hv, ok := v.(*eval.HostVal)
 	if !ok {
