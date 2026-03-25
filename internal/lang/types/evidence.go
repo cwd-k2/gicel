@@ -82,26 +82,45 @@ func (c *CapabilityEntries) FiberKind() Kind { return KRow{} }
 func (c *CapabilityEntries) Empty() EvidenceEntries { return &CapabilityEntries{} }
 
 func (c *CapabilityEntries) ZonkEntries(zonk func(Type) Type) (EvidenceEntries, bool) {
-	changed := false
-	fields := make([]RowField, len(c.Fields))
+	var fields []RowField // nil until first change detected
 	for i, f := range c.Fields {
 		zTy := zonk(f.Type)
-		if zTy != f.Type {
-			changed = true
+		zGrades, gChanged := zonkGrades(f.Grades, zonk)
+		if fields == nil && (zTy != f.Type || gChanged) {
+			fields = make([]RowField, len(c.Fields))
+			copy(fields[:i], c.Fields[:i]) // backfill unchanged prefix
 		}
-		var zGrades []Type
-		if len(f.Grades) > 0 {
-			zGrades = make([]Type, len(f.Grades))
-			for j, g := range f.Grades {
-				zGrades[j] = zonk(g)
-				if zGrades[j] != g {
-					changed = true
-				}
-			}
+		if fields != nil {
+			fields[i] = RowField{Label: f.Label, Type: zTy, Grades: zGrades, S: f.S}
 		}
-		fields[i] = RowField{Label: f.Label, Type: zTy, Grades: zGrades, S: f.S}
 	}
-	return &CapabilityEntries{Fields: fields}, changed
+	if fields == nil {
+		return c, false
+	}
+	return &CapabilityEntries{Fields: fields}, true
+}
+
+// zonkGrades zonks grade annotations, returning the original slice unchanged
+// when no grade was modified.
+func zonkGrades(grades []Type, zonk func(Type) Type) ([]Type, bool) {
+	if len(grades) == 0 {
+		return grades, false
+	}
+	var out []Type // nil until first change
+	for j, g := range grades {
+		zg := zonk(g)
+		if out == nil && zg != g {
+			out = make([]Type, len(grades))
+			copy(out[:j], grades[:j])
+		}
+		if out != nil {
+			out[j] = zg
+		}
+	}
+	if out == nil {
+		return grades, false
+	}
+	return out, true
 }
 
 // --- Constraint fiber ---
@@ -188,31 +207,71 @@ func (c *ConstraintEntries) FiberKind() Kind { return KConstraint{} }
 func (c *ConstraintEntries) Empty() EvidenceEntries { return &ConstraintEntries{} }
 
 func (c *ConstraintEntries) ZonkEntries(zonk func(Type) Type) (EvidenceEntries, bool) {
-	changed := false
-	ces := make([]ConstraintEntry, len(c.Entries))
+	var ces []ConstraintEntry // nil until first change detected
 	for i, e := range c.Entries {
-		ces[i] = zonkConstraintEntryWith(e, zonk, &changed)
+		ze, entryChanged := zonkConstraintEntry(e, zonk)
+		if ces == nil && entryChanged {
+			ces = make([]ConstraintEntry, len(c.Entries))
+			copy(ces[:i], c.Entries[:i]) // backfill unchanged prefix
+		}
+		if ces != nil {
+			ces[i] = ze
+		}
 	}
-	return &ConstraintEntries{Entries: ces}, changed
+	if ces == nil {
+		return c, false
+	}
+	return &ConstraintEntries{Entries: ces}, true
 }
 
-// zonkConstraintEntryWith zonks a single constraint entry using the provided
-// zonk function, including any quantified sub-structure and constraint
-// variable decomposition.
-func zonkConstraintEntryWith(e ConstraintEntry, zonk func(Type) Type, changed *bool) ConstraintEntry {
-	args := make([]Type, len(e.Args))
+// zonkConstraintEntry zonks a single constraint entry, returning the
+// original unchanged when no child type was modified. Handles quantified
+// sub-structure and constraint variable decomposition.
+func zonkConstraintEntry(e ConstraintEntry, zonk func(Type) Type) (ConstraintEntry, bool) {
+	changed := false
+
+	// Zonk Args with lazy alloc.
+	var args []Type
 	for j, a := range e.Args {
-		args[j] = zonk(a)
-		if args[j] != a {
-			*changed = true
+		za := zonk(a)
+		if args == nil && za != a {
+			args = make([]Type, len(e.Args))
+			copy(args[:j], e.Args[:j])
+			changed = true
+		}
+		if args != nil {
+			args[j] = za
 		}
 	}
+	if args == nil {
+		args = e.Args
+	}
+
+	// Zonk ConstraintVar.
+	newCV := e.ConstraintVar
+	if e.ConstraintVar != nil {
+		newCV = zonk(e.ConstraintVar)
+		if newCV != e.ConstraintVar {
+			changed = true
+		}
+	}
+
+	// Zonk Quantified sub-structure.
+	newQ := e.Quantified
+	if e.Quantified != nil {
+		var qChanged bool
+		newQ, qChanged = zonkQuantifiedConstraint(e.Quantified, zonk)
+		if qChanged {
+			changed = true
+		}
+	}
+
+	if !changed {
+		return e, false
+	}
+
 	result := ConstraintEntry{ClassName: e.ClassName, Args: args, S: e.S}
 	if e.ConstraintVar != nil {
-		newCV := zonk(e.ConstraintVar)
-		if newCV != e.ConstraintVar {
-			*changed = true
-		}
 		result.ConstraintVar = newCV
 		// If zonked ConstraintVar is now concrete, decompose into ClassName + Args.
 		if result.ClassName == "" {
@@ -224,18 +283,40 @@ func zonkConstraintEntryWith(e ConstraintEntry, zonk func(Type) Type, changed *b
 		}
 	}
 	if e.Quantified != nil {
-		result.Quantified = zonkQuantifiedConstraintWith(e.Quantified, zonk, changed)
+		result.Quantified = newQ
 	}
-	return result
+	return result, true
 }
 
-func zonkQuantifiedConstraintWith(qc *QuantifiedConstraint, zonk func(Type) Type, changed *bool) *QuantifiedConstraint {
-	ctx := make([]ConstraintEntry, len(qc.Context))
+// zonkQuantifiedConstraint zonks a QuantifiedConstraint, returning the
+// original unchanged when no child was modified.
+func zonkQuantifiedConstraint(qc *QuantifiedConstraint, zonk func(Type) Type) (*QuantifiedConstraint, bool) {
+	changed := false
+	var ctx []ConstraintEntry
 	for i, c := range qc.Context {
-		ctx[i] = zonkConstraintEntryWith(c, zonk, changed)
+		zc, cChanged := zonkConstraintEntry(c, zonk)
+		if ctx == nil && cChanged {
+			ctx = make([]ConstraintEntry, len(qc.Context))
+			copy(ctx[:i], qc.Context[:i])
+			changed = true
+		}
+		if ctx != nil {
+			ctx[i] = zc
+		}
 	}
-	head := zonkConstraintEntryWith(qc.Head, zonk, changed)
-	return &QuantifiedConstraint{Vars: qc.Vars, Context: ctx, Head: head}
+	if ctx == nil {
+		ctx = qc.Context
+	}
+
+	head, headChanged := zonkConstraintEntry(qc.Head, zonk)
+	if headChanged {
+		changed = true
+	}
+
+	if !changed {
+		return qc, false
+	}
+	return &QuantifiedConstraint{Vars: qc.Vars, Context: ctx, Head: head}, true
 }
 
 // --- Evidence row builders ---
