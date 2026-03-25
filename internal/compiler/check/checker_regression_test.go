@@ -3,7 +3,7 @@ package check
 import (
 	"testing"
 
-	"github.com/cwd-k2/gicel/internal/compiler/check/family"
+	"github.com/cwd-k2/gicel/internal/compiler/check/env"
 	"github.com/cwd-k2/gicel/internal/infra/diagnostic"
 	"github.com/cwd-k2/gicel/internal/lang/types"
 )
@@ -287,7 +287,7 @@ func TestRegressionMangledNameDistinctness(t *testing.T) {
 // -----------------------------------------------
 
 // TestRegressionMatchTyPatternsLengthMismatch verifies that calling
-// matchTyPatterns with mismatched pattern/arg lengths returns family.MatchFail
+// matchTyPatterns with mismatched pattern/arg lengths returns env.MatchFail
 // (not panic). The length guard in matchTyPatterns prevents an index
 // out-of-range panic when len(patterns) > len(args).
 func TestRegressionMatchTyPatternsLengthMismatch(t *testing.T) {
@@ -304,13 +304,13 @@ func TestRegressionMatchTyPatternsLengthMismatch(t *testing.T) {
 	}
 
 	_, result := ch.matchTyPatterns(patterns, args)
-	if result != family.MatchFail {
-		t.Fatalf("expected family.MatchFail for length mismatch (more patterns), got %d", result)
+	if result != env.MatchFail {
+		t.Fatalf("expected env.MatchFail for length mismatch (more patterns), got %d", result)
 	}
 }
 
 // TestRegressionMatchTyPatternsLengthMismatchMoreArgs verifies the
-// reverse case: more args than patterns also returns family.MatchFail.
+// reverse case: more args than patterns also returns env.MatchFail.
 func TestRegressionMatchTyPatternsLengthMismatchMoreArgs(t *testing.T) {
 	ch := newTestChecker()
 
@@ -323,8 +323,8 @@ func TestRegressionMatchTyPatternsLengthMismatchMoreArgs(t *testing.T) {
 	}
 
 	_, result := ch.matchTyPatterns(patterns, args)
-	if result != family.MatchFail {
-		t.Fatalf("expected family.MatchFail for length mismatch (more args), got %d", result)
+	if result != env.MatchFail {
+		t.Fatalf("expected env.MatchFail for length mismatch (more args), got %d", result)
 	}
 }
 

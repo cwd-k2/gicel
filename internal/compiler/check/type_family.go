@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/cwd-k2/gicel/internal/compiler/check/env"
 	"github.com/cwd-k2/gicel/internal/compiler/check/family"
 	"github.com/cwd-k2/gicel/internal/infra/diagnostic"
 	"github.com/cwd-k2/gicel/internal/infra/span"
@@ -11,12 +12,12 @@ import (
 	"github.com/cwd-k2/gicel/internal/lang/types"
 )
 
-// Type aliases for family types used throughout check/.
-type TypeFamilyInfo = family.TypeFamilyInfo
-type TFParam = family.TFParam
+// Type aliases for env types used throughout check/.
+type TypeFamilyInfo = env.TypeFamilyInfo
+type TFParam = env.TFParam
 
 // Lowercase alias for types constructed in class.go/instance.go.
-type tfEquation = family.TFEquation
+type tfEquation = env.TFEquation
 
 // collectPatternVars delegates to the family subpackage.
 var collectPatternVars = family.CollectPatternVars
@@ -27,12 +28,12 @@ func (ch *Checker) verifyInjectivity(info *TypeFamilyInfo) {
 }
 
 // matchTyPatterns delegates to the family subpackage.
-func (ch *Checker) matchTyPatterns(patterns, args []types.Type) (map[string]types.Type, family.MatchResult) {
+func (ch *Checker) matchTyPatterns(patterns, args []types.Type) (map[string]types.Type, env.MatchResult) {
 	return ch.familyEnv().MatchTyPatterns(patterns, args)
 }
 
 // matchTyPattern delegates to the family subpackage.
-func (ch *Checker) matchTyPattern(pat, arg types.Type, subst map[string]types.Type) family.MatchResult {
+func (ch *Checker) matchTyPattern(pat, arg types.Type, subst map[string]types.Type) env.MatchResult {
 	return ch.familyEnv().MatchTyPattern(pat, arg, subst)
 }
 

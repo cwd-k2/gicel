@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/cwd-k2/gicel/internal/compiler/check/env"
 	"github.com/cwd-k2/gicel/internal/compiler/check/unify"
 	"github.com/cwd-k2/gicel/internal/infra/budget"
 	"github.com/cwd-k2/gicel/internal/infra/diagnostic"
@@ -13,7 +14,7 @@ import (
 
 // ReduceEnv provides the checker capabilities needed for type family operations.
 type ReduceEnv struct {
-	LookupFamily func(name string) (*TypeFamilyInfo, bool) // family lookup (includes Scope injections)
+	LookupFamily func(name string) (*env.TypeFamilyInfo, bool) // family lookup (includes Scope injections)
 	Budget       *budget.CheckBudget
 	Unifier      *unify.Unifier
 	FreshMeta    func(k types.Kind) *types.TyMeta
@@ -26,7 +27,7 @@ type ReduceEnv struct {
 }
 
 // lookupFamily returns the TypeFamilyInfo for name via the LookupFamily callback.
-func (e *ReduceEnv) lookupFamily(name string) (*TypeFamilyInfo, bool) {
+func (e *ReduceEnv) lookupFamily(name string) (*env.TypeFamilyInfo, bool) {
 	return e.LookupFamily(name)
 }
 
@@ -61,7 +62,7 @@ func (e *ReduceEnv) ReduceTyFamily(name string, args []types.Type, s span.Span) 
 	for _, eq := range fam.Equations {
 		subst, result := e.MatchTyPatterns(eq.Patterns, args)
 		switch result {
-		case MatchSuccess:
+		case env.MatchSuccess:
 			rhs := types.SubstMany(eq.RHS, subst)
 			if types.TypeSize(rhs, maxReductionTypeSize) > maxReductionTypeSize {
 				e.AddError(diagnostic.ErrTypeFamilyReduction, s,
@@ -69,9 +70,9 @@ func (e *ReduceEnv) ReduceTyFamily(name string, args []types.Type, s span.Span) 
 				return nil, false
 			}
 			return rhs, true
-		case MatchFail:
+		case env.MatchFail:
 			continue
-		case MatchIndeterminate:
+		case env.MatchIndeterminate:
 			return nil, false
 		}
 	}
@@ -79,67 +80,67 @@ func (e *ReduceEnv) ReduceTyFamily(name string, args []types.Type, s span.Span) 
 }
 
 // MatchTyPatterns attempts to match type patterns against arguments.
-func (e *ReduceEnv) MatchTyPatterns(patterns, args []types.Type) (map[string]types.Type, MatchResult) {
+func (e *ReduceEnv) MatchTyPatterns(patterns, args []types.Type) (map[string]types.Type, env.MatchResult) {
 	if len(patterns) != len(args) {
-		return nil, MatchFail
+		return nil, env.MatchFail
 	}
 	subst := make(map[string]types.Type)
 	for i, pat := range patterns {
 		result := e.MatchTyPattern(pat, args[i], subst)
-		if result != MatchSuccess {
+		if result != env.MatchSuccess {
 			return nil, result
 		}
 	}
-	return subst, MatchSuccess
+	return subst, env.MatchSuccess
 }
 
 // MatchTyPattern matches a single type pattern against an argument.
-func (e *ReduceEnv) MatchTyPattern(pat, arg types.Type, subst map[string]types.Type) MatchResult {
+func (e *ReduceEnv) MatchTyPattern(pat, arg types.Type, subst map[string]types.Type) env.MatchResult {
 	arg = e.Unifier.Zonk(arg)
 
 	switch p := pat.(type) {
 	case *types.TyVar:
 		if p.Name == "_" {
-			return MatchSuccess
+			return env.MatchSuccess
 		}
 		if existing, ok := subst[p.Name]; ok {
 			if types.Equal(existing, arg) {
-				return MatchSuccess
+				return env.MatchSuccess
 			}
-			return MatchFail
+			return env.MatchFail
 		}
 		subst[p.Name] = arg
-		return MatchSuccess
+		return env.MatchSuccess
 
 	case *types.TyCon:
 		switch a := arg.(type) {
 		case *types.TyCon:
 			if p.Name == a.Name {
-				return MatchSuccess
+				return env.MatchSuccess
 			}
-			return MatchFail
+			return env.MatchFail
 		case *types.TyMeta:
-			return MatchIndeterminate
+			return env.MatchIndeterminate
 		default:
-			return MatchFail
+			return env.MatchFail
 		}
 
 	case *types.TyApp:
 		switch a := arg.(type) {
 		case *types.TyApp:
 			r := e.MatchTyPattern(p.Fun, a.Fun, subst)
-			if r != MatchSuccess {
+			if r != env.MatchSuccess {
 				return r
 			}
 			return e.MatchTyPattern(p.Arg, a.Arg, subst)
 		case *types.TyMeta:
-			return MatchIndeterminate
+			return env.MatchIndeterminate
 		default:
-			return MatchFail
+			return env.MatchFail
 		}
 
 	default:
-		return MatchFail
+		return env.MatchFail
 	}
 }
 

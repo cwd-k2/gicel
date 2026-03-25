@@ -3,6 +3,7 @@ package family
 import (
 	"fmt"
 
+	"github.com/cwd-k2/gicel/internal/compiler/check/env"
 	"github.com/cwd-k2/gicel/internal/infra/diagnostic"
 	"github.com/cwd-k2/gicel/internal/lang/types"
 )
@@ -11,7 +12,7 @@ import (
 // injectivity annotation by pairwise equation comparison.
 // For every pair of equations, if the RHSes can unify,
 // the corresponding LHS patterns must also unify.
-func (e *ReduceEnv) VerifyInjectivity(info *TypeFamilyInfo) {
+func (e *ReduceEnv) VerifyInjectivity(info *env.TypeFamilyInfo) {
 	for i := 0; i < len(info.Equations); i++ {
 		for j := i + 1; j < len(info.Equations); j++ {
 			eqI := info.Equations[i]
@@ -41,7 +42,7 @@ func (e *ReduceEnv) VerifyInjectivity(info *TypeFamilyInfo) {
 }
 
 // instantiatePatVars replaces free TyVars (pattern variables) with fresh metas.
-func (e *ReduceEnv) instantiatePatVars(ty types.Type, patterns []types.Type, params []TFParam) types.Type {
+func (e *ReduceEnv) instantiatePatVars(ty types.Type, patterns []types.Type, params []env.TFParam) types.Type {
 	varKinds := collectPatternVarKinds(patterns, params)
 	for _, v := range CollectPatternVars(patterns) {
 		kind := varKinds[v]
@@ -51,7 +52,7 @@ func (e *ReduceEnv) instantiatePatVars(ty types.Type, patterns []types.Type, par
 }
 
 // instantiatePatVarsList replaces free TyVars in each pattern with fresh metas.
-func (e *ReduceEnv) instantiatePatVarsList(patterns []types.Type, params []TFParam) []types.Type {
+func (e *ReduceEnv) instantiatePatVarsList(patterns []types.Type, params []env.TFParam) []types.Type {
 	vars := CollectPatternVars(patterns)
 	varKinds := collectPatternVarKinds(patterns, params)
 	result := make([]types.Type, len(patterns))
@@ -91,7 +92,7 @@ func CollectPatternVarsRec(t types.Type, seen map[string]bool, result *[]string)
 
 // collectPatternVarKinds maps each pattern variable to its kind based on the
 // parameter position where it first appears.
-func collectPatternVarKinds(patterns []types.Type, params []TFParam) map[string]types.Kind {
+func collectPatternVarKinds(patterns []types.Type, params []env.TFParam) map[string]types.Kind {
 	result := make(map[string]types.Kind)
 	for i, p := range patterns {
 		var paramKind types.Kind

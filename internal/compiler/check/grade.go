@@ -3,7 +3,6 @@ package check
 import (
 	"fmt"
 
-	"github.com/cwd-k2/gicel/internal/compiler/check/family"
 	"github.com/cwd-k2/gicel/internal/infra/diagnostic"
 	"github.com/cwd-k2/gicel/internal/infra/span"
 	"github.com/cwd-k2/gicel/internal/lang/types"
@@ -109,14 +108,14 @@ func (ch *Checker) registerGradeAlgebraFamilies() {
 	//
 	// Equations encode the full usage lattice join. Order matters:
 	// specific patterns before wildcards (closed family semantics).
-	joinInfo := &family.TypeFamilyInfo{
+	joinInfo := &TypeFamilyInfo{
 		Name: gradeJoinFamily,
-		Params: []family.TFParam{
+		Params: []TFParam{
 			{Name: "a", Kind: multKind},
 			{Name: "b", Kind: multKind},
 		},
 		ResultKind: multKind,
-		Equations: []family.TFEquation{
+		Equations: []tfEquation{
 			// Identity cases for non-absorbing elements.
 			// Unrestricted identity is subsumed by the wildcard cases below.
 			{Patterns: []types.Type{zero, zero}, RHS: zero},
@@ -138,10 +137,10 @@ func (ch *Checker) registerGradeAlgebraFamilies() {
 	// $GradeDrop :: Mult
 	//
 	// Zero-parameter family. Drop for the usage algebra is always Zero.
-	dropInfo := &family.TypeFamilyInfo{
+	dropInfo := &TypeFamilyInfo{
 		Name:       gradeDropFamily,
 		ResultKind: multKind,
-		Equations: []family.TFEquation{
+		Equations: []tfEquation{
 			{Patterns: nil, RHS: zero},
 		},
 	}

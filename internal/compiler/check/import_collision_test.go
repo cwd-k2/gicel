@@ -7,7 +7,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/cwd-k2/gicel/internal/compiler/check/family"
 	"github.com/cwd-k2/gicel/internal/infra/diagnostic"
 	"github.com/cwd-k2/gicel/internal/lang/types"
 )
@@ -84,7 +83,7 @@ func mkFamilyModule(famName string) *ModuleExports {
 		TypeFamilies: map[string]*TypeFamilyInfo{
 			famName: {
 				Name:       famName,
-				Params:     []family.TFParam{{Name: "a", Kind: types.KType{}}},
+				Params:     []TFParam{{Name: "a", Kind: types.KType{}}},
 				ResultKind: types.KType{},
 			},
 		},

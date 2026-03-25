@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/cwd-k2/gicel/internal/compiler/check/env"
 	"github.com/cwd-k2/gicel/internal/compiler/check/unify"
 	"github.com/cwd-k2/gicel/internal/infra/diagnostic"
 	"github.com/cwd-k2/gicel/internal/infra/span"
@@ -13,8 +14,8 @@ import (
 
 // CheckEnv provides the checker capabilities needed for exhaustiveness analysis.
 type CheckEnv struct {
-	DataTypes    map[string]*DataTypeInfo // type name → data type info
-	ConInfoMap   map[string]*DataTypeInfo // constructor name → owning data type
+	DataTypes    map[string]*env.DataTypeInfo // type name → data type info
+	ConInfoMap   map[string]*env.DataTypeInfo // constructor name → owning data type
 	ConTypes     map[string]types.Type    // constructor name → full type scheme
 	Fresh        func() int               // fresh ID generator (delegates to CheckState.fresh)
 	Unifier      *unify.Unifier           // main unifier (for Zonk)
@@ -23,7 +24,7 @@ type CheckEnv struct {
 	AddError     func(code diagnostic.Code, s span.Span, msg string)
 }
 
-func (e *CheckEnv) lookupDataType(tyName string) *DataTypeInfo {
+func (e *CheckEnv) lookupDataType(tyName string) *env.DataTypeInfo {
 	return e.DataTypes[tyName]
 }
 

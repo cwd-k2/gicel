@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"github.com/cwd-k2/gicel/internal/compiler/check/env"
-	"github.com/cwd-k2/gicel/internal/compiler/check/exhaust"
 	"github.com/cwd-k2/gicel/internal/compiler/check/family"
 	"github.com/cwd-k2/gicel/internal/compiler/check/modscope"
 	"github.com/cwd-k2/gicel/internal/compiler/check/solve"
@@ -179,9 +178,9 @@ func (s *CheckState) checkCancelled() bool {
 	}
 }
 
-// DataTypeInfo and ConstructorInfo are defined in the exhaust subpackage.
-type DataTypeInfo = exhaust.DataTypeInfo
-type ConstructorInfo = exhaust.ConstructorInfo
+// DataTypeInfo and ConstructorInfo are defined in the env subpackage.
+type DataTypeInfo = env.DataTypeInfo
+type ConstructorInfo = env.ConstructorInfo
 
 // AliasInfo, ClassInfo, InstanceInfo and related types are defined in the env subpackage.
 type AliasInfo = env.AliasInfo
