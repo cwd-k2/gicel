@@ -56,6 +56,7 @@ type ExprCase struct {
 	Scrutinee Expr
 	Alts      []AstAlt
 	S         span.Span
+	IfDesugar bool // true when desugared from if-then-else
 }
 
 type ExprDo struct {

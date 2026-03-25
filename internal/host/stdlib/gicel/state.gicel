@@ -3,7 +3,7 @@ import Prelude
 get :: \s r. Computation { state: s | r } { state: s | r } s
 get := assumption
 
-put :: \s r. s -> Computation { state: s | r } { state: s | r } ()
+put :: \s1 s2 r. s2 -> Computation { state: s1 | r } { state: s2 | r } ()
 put := assumption
 
 modify :: \s r. (s -> s) -> Computation { state: s | r } { state: s | r } ()

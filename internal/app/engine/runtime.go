@@ -315,7 +315,10 @@ func (r *Runtime) evalBindingsCore(ev *eval.Evaluator, bindings []ir.Binding, mo
 		}
 		result, err := ev.Eval(nil, eval.NewCapEnv(nil), b.Expr)
 		if err != nil {
-			if strings.Contains(b.Name, "$") {
+			// Limit errors are global resource exhaustion — the binding
+			// name where the limit happened to fire is an implementation
+			// detail, not useful to the user.
+			if budget.IsLimitError(err) || strings.Contains(b.Name, "$") {
 				return err
 			}
 			return fmt.Errorf("evaluating %s: %w", b.Name, err)

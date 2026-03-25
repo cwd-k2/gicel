@@ -66,5 +66,3 @@ The type system guarantees:
 1. **Protocol compliance** -- each operation advances the state according to the type family rules.
 2. **Communication safety** -- type parameters match the protocol specification.
 3. **Session completion** -- if a channel is absent from the post-state, it reached `End` and was closed.
-
-See the language specification (Chapters 17-18) for the formal session fidelity theorem and proof structure.

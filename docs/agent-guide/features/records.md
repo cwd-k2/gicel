@@ -87,5 +87,3 @@ Higher-rank fields are supported:
 r :: Record { apply: \a. a -> a }
 r := { apply: \x. x }
 ```
-
-See the language specification (Chapter 8) for elaboration details.

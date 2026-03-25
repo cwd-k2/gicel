@@ -350,7 +350,8 @@ func (p *Parser) parseIf() syn.Expr {
 			{Pattern: &syn.PatCon{Con: "True", S: s}, Body: thenExpr, S: s},
 			{Pattern: &syn.PatCon{Con: "False", S: s}, Body: elseExpr, S: s},
 		},
-		S: s,
+		S:         s,
+		IfDesugar: true,
 	}
 }
 

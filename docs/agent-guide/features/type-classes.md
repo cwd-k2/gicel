@@ -99,5 +99,3 @@ Constrained calls have dictionaries inserted automatically:
 eq True False
 -- becomes: (eq @Bool) eq$Bool True False
 ```
-
-See the language specification (Chapter 6) for resolution rules and interaction with Computation types.

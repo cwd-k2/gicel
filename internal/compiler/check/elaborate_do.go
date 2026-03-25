@@ -39,6 +39,12 @@ type doElaborator struct {
 	// monadic mode: IxMonad dispatch parameters.
 	monadHead types.Type
 	expected  types.Type
+
+	// infer mode: post-state from the preceding statement.
+	// Used to pre-resolve comp pre-states before pattern matching,
+	// preventing pattern-bound variable metas from leaking into
+	// the state position (the "put a after pattern bind" bug).
+	lastPost types.Type
 }
 
 // errPair returns a mode-appropriate error pair.
@@ -152,10 +158,36 @@ func (d *doElaborator) elaborateExprStmt(expr syntax.Expr, rest []syntax.Stmt, s
 func (d *doElaborator) inferBind(varName string, comp syntax.Expr, rest []syntax.Stmt, stmtS, doS span.Span) (types.Type, ir.Core) {
 	ch := d.ch
 	compTy, compCore := ch.infer(comp)
+	compTy = ch.unifier.Zonk(compTy)
+
+	// Pre-resolve: if the preceding statement's post-state is known,
+	// unify it with this comp's pre-state BEFORE elaborating rest.
+	// This resolves result-type metas before pattern matching, preventing
+	// pattern-bound variable metas from leaking into the state position.
+	if d.lastPost != nil {
+		if inferredComp, ok := compTy.(*types.TyCBPV); ok {
+			_ = ch.unifier.Unify(d.lastPost, inferredComp.Pre) //nolint:errcheck // advisory
+			compTy = ch.unifier.Zonk(compTy)
+		}
+	}
+
 	resultTy := ch.extractCompResult(compTy, stmtS)
+
+	// Track post-state for the next statement.
+	var savedPost types.Type
+	if inferredComp, ok := compTy.(*types.TyCBPV); ok {
+		savedPost = d.lastPost
+		d.lastPost = inferredComp.Post
+	}
+
 	ch.ctx.Push(&CtxVar{Name: varName, Type: resultTy})
 	restTy, restCore := d.elaborate(rest, doS)
 	ch.ctx.Pop()
+
+	if savedPost != nil || d.lastPost != nil {
+		d.lastPost = savedPost
+	}
+
 	// Thread post-state: unify comp's post with rest's pre so that
 	// type information (e.g. state type from put) propagates to
 	// variables bound by get in subsequent statements.
@@ -166,7 +198,21 @@ func (d *doElaborator) inferBind(varName string, comp syntax.Expr, rest []syntax
 func (d *doElaborator) inferExprStmt(expr syntax.Expr, rest []syntax.Stmt, stmtS, doS span.Span) (types.Type, ir.Core) {
 	ch := d.ch
 	compTy, compCore := ch.infer(expr)
+	compTy = ch.unifier.Zonk(compTy)
+
+	// Track post-state for the next statement's pre-resolve.
+	var savedPost types.Type
+	if inferredComp, ok := compTy.(*types.TyCBPV); ok {
+		savedPost = d.lastPost
+		d.lastPost = inferredComp.Post
+	}
+
 	restTy, restCore := d.elaborate(rest, doS)
+
+	if savedPost != nil || d.lastPost != nil {
+		d.lastPost = savedPost
+	}
+
 	// Thread post-state: see inferBind comment.
 	d.unifyCompPostPre(compTy, restTy, stmtS)
 	return restTy, &ir.Bind{Comp: compCore, Var: "_", Body: restCore, S: stmtS}

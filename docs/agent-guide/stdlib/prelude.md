@@ -48,7 +48,7 @@ fromRunes :: List Rune -> String
 charAt   :: Int -> String -> Maybe Rune
 ```
 
-Instances: `Eq`, `Ord`, `Show`. String can be packed/unpacked as `List Rune` or `List Byte` via the `Packed` class.
+Instances: `Eq`, `Ord`. String can be packed/unpacked as `List Rune` or `List Byte` via the `Packed` class.
 
 ### Type Aliases
 

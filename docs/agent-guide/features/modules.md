@@ -75,5 +75,3 @@ Modules are type-checked at registration. Circular imports are forbidden. Duplic
 ### Ambiguity
 
 When two imports bring the same name into scope, the compiler reports an ambiguity error. Use qualified or selective import to disambiguate.
-
-See the language specification (Chapter 12) for constraints and the Prelude/Core distinction.

@@ -132,6 +132,12 @@ type AllocLimitError = budget.AllocLimitError
 // NestingLimitError indicates the structural nesting depth limit was exceeded.
 type NestingLimitError = budget.NestingLimitError
 
+// TimeoutError indicates the execution timed out via context deadline.
+type TimeoutError = budget.TimeoutError
+
+// CancelledError indicates the execution was cancelled externally.
+type CancelledError = budget.CancelledError
+
 // ---- Type construction helpers ----
 
 // RowField is a single label:type pair in a row.

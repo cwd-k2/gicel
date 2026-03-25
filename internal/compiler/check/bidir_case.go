@@ -183,6 +183,19 @@ func (ch *Checker) checkCase(e *syntax.ExprCase, expected types.Type) ir.Core {
 }
 
 func (ch *Checker) checkCaseAlts(scrutTy, resultTy types.Type, scrutCore ir.Core, e *syntax.ExprCase) ir.Core {
+	// If-desugar: the scrutinee must be Bool. Check once and emit a clear message
+	// on failure, then override scrutTy so the per-branch pattern checks do not
+	// produce duplicate "constructor type mismatch" errors.
+	if e.IfDesugar {
+		boolTy := types.Con("Bool")
+		if err := ch.unifier.Unify(scrutTy, boolTy); err != nil {
+			ch.addCodedError(diagnostic.ErrTypeMismatch, e.Scrutinee.Span(),
+				fmt.Sprintf("type mismatch in if-condition: expected Bool, got %s",
+					types.Pretty(ch.unifier.Zonk(scrutTy))))
+			scrutTy = boolTy
+		}
+	}
+
 	// Divergent post-states: when result is TyCBPV (Computation), each branch gets a
 	// fresh post-state meta. After all branches, post-states are joined.
 	comp, isComp := ch.unifier.Zonk(resultTy).(*types.TyCBPV)

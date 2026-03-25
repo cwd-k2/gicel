@@ -10,6 +10,7 @@ package budget
 
 import (
 	"context"
+	"errors"
 	"fmt"
 )
 
@@ -62,10 +63,12 @@ func (b *Budget) SetAllocLimit(bytes int64) {
 }
 
 // checkCtx returns the context error if cancelled (non-blocking).
+// The raw context error is wrapped in a GICEL-specific error type
+// so users see "execution timed out" instead of "context deadline exceeded".
 func (b *Budget) checkCtx() error {
 	select {
 	case <-b.ctx.Done():
-		return b.ctx.Err()
+		return wrapCtxErr(b.ctx.Err())
 	default:
 		return nil
 	}
@@ -170,20 +173,37 @@ func (b *Budget) Context() context.Context { return b.ctx }
 
 // --- Error types ---
 
+// LimitError is implemented by all resource limit errors.
+// It distinguishes limit exhaustion (a global condition) from
+// evaluation errors local to a specific binding.
+type LimitError interface {
+	error
+	limitError() // marker method
+}
+
+// IsLimitError reports whether err is a resource limit error.
+func IsLimitError(err error) bool {
+	var le LimitError
+	return errors.As(err, &le)
+}
+
 // StepLimitError indicates the step limit was exceeded.
 type StepLimitError struct{}
 
 func (e *StepLimitError) Error() string { return "step limit exceeded" }
+func (e *StepLimitError) limitError()   {}
 
 // DepthLimitError indicates the nesting depth limit was exceeded.
 type DepthLimitError struct{}
 
 func (e *DepthLimitError) Error() string { return "depth limit exceeded" }
+func (e *DepthLimitError) limitError()   {}
 
 // NestingLimitError indicates the structural nesting limit was exceeded.
 type NestingLimitError struct{}
 
 func (e *NestingLimitError) Error() string { return "nesting limit exceeded" }
+func (e *NestingLimitError) limitError()   {}
 
 // AllocLimitError indicates the allocation limit was exceeded.
 type AllocLimitError struct {
@@ -193,6 +213,37 @@ type AllocLimitError struct {
 
 func (e *AllocLimitError) Error() string {
 	return fmt.Sprintf("allocation limit exceeded: %d bytes used, %d bytes allowed", e.Used, e.Limit)
+}
+func (e *AllocLimitError) limitError() {}
+
+// TimeoutError indicates the execution timed out via context deadline.
+// It wraps the underlying context error so errors.Is(err, context.DeadlineExceeded)
+// continues to work.
+type TimeoutError struct {
+	Cause error
+}
+
+func (e *TimeoutError) Error() string { return "execution timed out" }
+func (e *TimeoutError) Unwrap() error { return e.Cause }
+func (e *TimeoutError) limitError()   {}
+
+// CancelledError indicates the execution was cancelled externally.
+// It wraps the underlying context error so errors.Is(err, context.Canceled)
+// continues to work.
+type CancelledError struct {
+	Cause error
+}
+
+func (e *CancelledError) Error() string { return "execution cancelled" }
+func (e *CancelledError) Unwrap() error { return e.Cause }
+func (e *CancelledError) limitError()   {}
+
+// wrapCtxErr wraps a raw context error in a user-friendly GICEL error type.
+func wrapCtxErr(err error) error {
+	if errors.Is(err, context.DeadlineExceeded) {
+		return &TimeoutError{Cause: err}
+	}
+	return &CancelledError{Cause: err}
 }
 
 // --- Context helpers ---

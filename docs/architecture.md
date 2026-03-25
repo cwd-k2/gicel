@@ -2,7 +2,7 @@
 
 Package dependency diagram for the GICEL compiler and runtime.
 
-_Last updated: v0.15.4 (2026-03-23)._
+_Last updated: v0.17.2 (2026-03-25)._
 
 ## Layer Model
 
@@ -37,10 +37,14 @@ host/registry ──→ runtime/eval
 runtime/eval ──→ lang/{ir,syntax}
              ──→ infra/{budget,span}
 
-compiler/check ──→ check/{unify,family,exhaust,env,modscope}
+compiler/check ──→ check/{solve,unify,family,exhaust,env,modscope}
                ──→ compiler/parse
                ──→ lang/{syntax,types,ir}
                ──→ infra/{budget,diagnostic,span}
+
+  check/solve ──→ check/{unify,family}
+              ──→ lang/types
+              ──→ infra/{budget,diagnostic,span}
 
   check/modscope ──→ check/{env,exhaust,family}
                  ──→ lang/{syntax,types}
@@ -99,22 +103,23 @@ infra/span   ──→ (isolated)
 
 ### compiler — source to Core IR
 
-| Package                   | Responsibility                                                                       |
-| ------------------------- | ------------------------------------------------------------------------------------ |
-| `compiler/parse`          | Pratt-parser from source to AST                                                      |
-| `compiler/check`          | Bidirectional type checking, OutsideIn(X) constraint solving, elaboration to Core IR |
-| `compiler/check/unify`    | Type unification, meta-variable solving                                              |
-| `compiler/check/family`   | Type family reduction                                                                |
-| `compiler/check/exhaust`  | Pattern exhaustiveness checking (Maranget)                                           |
-| `compiler/check/env`      | Module export types: aliases, classes, instances, type families                      |
-| `compiler/check/modscope` | Module import resolution, qualified name scoping                                     |
-| `compiler/optimize`       | Core IR simplification and fusion                                                    |
+| Package                   | Responsibility                                                  |
+| ------------------------- | --------------------------------------------------------------- |
+| `compiler/parse`          | Pratt-parser from source to AST                                 |
+| `compiler/check`          | Bidirectional type checking, elaboration to Core IR             |
+| `compiler/check/solve`    | OutsideIn(X) constraint solving, worklist, inert set            |
+| `compiler/check/unify`    | Type unification, meta-variable solving                         |
+| `compiler/check/family`   | Type family reduction                                           |
+| `compiler/check/exhaust`  | Pattern exhaustiveness checking (Maranget)                      |
+| `compiler/check/env`      | Module export types: aliases, classes, instances, type families |
+| `compiler/check/modscope` | Module import resolution, qualified name scoping                |
+| `compiler/optimize`       | Core IR simplification and fusion                               |
 
 ### runtime — Core IR execution
 
-| Package        | Responsibility                           |
-| -------------- | ---------------------------------------- |
-| `runtime/eval` | Trampoline-based call-by-value evaluator |
+| Package        | Responsibility                                                      |
+| -------------- | ------------------------------------------------------------------- |
+| `runtime/eval` | Trampoline-based CBV evaluator, de Bruijn indexed array environment |
 
 ### host — Go integration
 

@@ -94,5 +94,3 @@ Example:
 ```
 type Effect := \r a. Computation r r a
 ```
-
-See the language specification (Chapter 7) for elaboration and exhaustiveness details.

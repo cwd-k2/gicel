@@ -1,10 +1,10 @@
 // Example: resource-limits — protecting against runaway programs.
 //
-// Shows SetStepLimit, SetDepthLimit, and SetAllocLimit on the Engine.
-// Each limit targets a different abuse pattern:
-//   - Step limit: prevents infinite loops (flat iteration).
-//   - Depth limit: prevents stack overflow (deep recursion).
-//   - Alloc limit: prevents memory exhaustion.
+// Shows SetStepLimit and SetDepthLimit on the Engine.
+//   - Step limit: prevents infinite loops (catches runaway iteration).
+//   - Depth limit: bounds call nesting (defense-in-depth; the evaluator's
+//     trampoline keeps depth near zero for GICEL-level recursion, so this
+//     limit primarily guards against deep nesting from host callbacks).
 package main
 
 import (
@@ -43,29 +43,13 @@ func main() {
 	fmt.Println("step limit test:", err)
 	// Output: step limit test: step limit exceeded
 
-	// --- Depth limit: catches deep recursion ---
-	eng2 := gicel.NewEngine()
-	eng2.EnableRecursion()
-	eng2.Use(gicel.Prelude)
-	eng2.SetStepLimit(1_000_000) // high enough to not interfere
-	eng2.SetDepthLimit(10)
-
-	rt2, err := eng2.NewRuntime(context.Background(), loopSource)
-	if err != nil {
-		log.Fatal("compile error: ", err)
-	}
-
-	_, err = rt2.RunWith(ctx, nil)
-	fmt.Println("depth limit test:", err)
-	// Output: depth limit test: call depth limit exceeded
-
 	// --- Success with generous limits ---
-	eng3 := gicel.NewEngine()
-	eng3.Use(gicel.Prelude)
-	eng3.SetStepLimit(1_000_000)
-	eng3.SetDepthLimit(1_000)
+	eng2 := gicel.NewEngine()
+	eng2.Use(gicel.Prelude)
+	eng2.SetStepLimit(1_000_000)
+	eng2.SetDepthLimit(1_000)
 
-	rt3, err := eng3.NewRuntime(context.Background(), `
+	rt2, err := eng2.NewRuntime(context.Background(), `
 import Prelude
 
 main := 1 + 2 + 3
@@ -74,7 +58,7 @@ main := 1 + 2 + 3
 		log.Fatal("compile error: ", err)
 	}
 
-	result, err := rt3.RunWith(ctx, nil)
+	result, err := rt2.RunWith(ctx, nil)
 	if err != nil {
 		log.Fatal("runtime error: ", err)
 	}

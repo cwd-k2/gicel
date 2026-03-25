@@ -1,5 +1,63 @@
 # Changelog
 
+## v0.18.0 — 2026-03-25
+
+### De Bruijn Index + Array Environment
+
+Complete migration from name-based parent-chain environment to de Bruijn indexed array environment. The evaluator now uses integer indices for all variable lookups — no hash maps on the hot path.
+
+- **Locals**: raw `[]Value` slice, indexed by de Bruijn index
+- **Globals**: slot-indexed `[]Value` on `Evaluator`, assigned by `AssignGlobalSlots`
+- **Closure capture**: flat capture (STG model) with pre-allocated capacity for subsequent `Push`
+- **IR pass**: `AssignIndices` assigns local de Bruijn indices; `AssignGlobalSlots` assigns global slots
+- **Clone fix**: shared-node index corruption in `SubstitutePlaceholders` prevented by deep clone during beta-reduction
+
+**Measured improvements** (vs v0.17.2):
+
+- Per-iteration: 190ms → 94ms (**-51%**)
+- Mallocs/iter: 1.62M → 1.07M (**-34%**)
+- Alloc/iter: 141MB → 76MB (**-46%**)
+
+### Compile Speed Optimization
+
+Cumulative ~15% allocation reduction across the type checker and IR pipeline.
+
+- **ZonkEntries**: lazy allocation — only materialized when entries exist
+- **subsCheck**: redundant zonk removal
+- **TyCon**: singleton interning for common type constructors
+- **OccursIn**: early-exit on non-meta types
+- **TyFamilyApp**: lazy allocation for reduction results
+- **Context evidence index**: O(1) evidence lookup by type key
+- **FreshInstanceSubst**: free-variable cache to avoid redundant walks
+- **ModuleCache**: cross-engine sharing of compiled module results
+- **ir.Program immutability**: mutation eliminated, enabling safe sharing
+
+### Field Test Fixes (3 rounds)
+
+Issues discovered by zero-context field test agents:
+
+- **Deep operator chain**: deeply nested infix expressions no longer cause stack overflow in the parser
+- **Token allocation**: pre-allocated token slice reduces lexer allocation
+- **Cycle detection**: `let x := x` now reports a cycle error instead of hanging
+- **MaybeT example**: corrected to use proper transformer pattern
+- **Docs fixes**: multiple corrections to built-in documentation accuracy
+
+### Checker Refactoring
+
+Major internal restructuring of the type checker for maintainability:
+
+- **solve_bridge.go**: consolidated solve boundary (checker ↔ solver interface)
+- **Type alias relay removed**: unified all references to `env` package directly
+- **check_pattern.go renamed**, `unify/zonk.go` split into focused files
+- **processClassLikeForm / processImplHeader**: phase extraction into discrete steps
+- **Registry immutability**: documented and reduced `buildMethodSelector` parameter surface
+- **Naming conventions**: dependency inversion, code deduplication across checker
+
+### Documentation
+
+- Architecture doc updated with `check/solve` package
+- Language roadmap reorganized into `language/` directory
+
 ## v0.17.2 — 2026-03-25
 
 ### Bind-chain Tail-Call Optimization

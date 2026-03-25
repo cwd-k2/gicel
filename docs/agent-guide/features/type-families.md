@@ -67,5 +67,3 @@ type Effects :: Row := \(mode: AppMode). case mode {
 - **Recursive** type families use a fuel limit (default: 100) to prevent divergence.
 - **Indeterminate** matches (unsolved metavariables) cause reduction to stick, preventing premature commitment.
 - Type families cannot be partially applied.
-
-See the language specification (Chapter 17) for pattern matching rules and interaction with row types, GADTs, and the evidence system.

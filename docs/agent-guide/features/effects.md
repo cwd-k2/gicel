@@ -96,11 +96,11 @@ program :: Writer String          -- annotation selects Monad dispatch
 program := do {
   tell "hello";
   tell "world";
-  mpure "done"
+  pure "done"
 }
 ```
 
-Note: inside value-monad `do` blocks, use `mpure` (not `pure`, which is reserved for `Computation`).
+Note: inside value-monad `do` blocks, both `pure` and `mpure` work. `pure` is the universal return (works in both `Computation` and value-monad contexts); `mpure` is an alias provided by `Monad` instances.
 
 CapEnv is copy-on-write: effects thread through Computation indices. `put` does not mutate; it produces a new CapEnv.
 

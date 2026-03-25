@@ -168,10 +168,11 @@ func (b *CheckBudget) MaxResolveDepth() int { return b.maxResolveDepth }
 // --- Internal ---
 
 // checkCtx returns the context error if cancelled (non-blocking).
+// Uses wrapCtxErr (defined in budget.go) for user-friendly messages.
 func (b *CheckBudget) checkCtx() error {
 	select {
 	case <-b.ctx.Done():
-		return b.ctx.Err()
+		return wrapCtxErr(b.ctx.Err())
 	default:
 		return nil
 	}
