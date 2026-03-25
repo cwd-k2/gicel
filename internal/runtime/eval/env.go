@@ -59,28 +59,33 @@ func (e *Env) PushMany(vals []Value) *Env {
 }
 
 // Capture creates a closure environment by extracting specific local values
-// at the given de Bruijn indices. The captured values are stored in order
-// (FVIndices[0] first, FVIndices[len-1] last). Returns an Env with the
-// same globals but a fresh locals slice — breaking any backing-array aliasing
-// from prior Push calls.
-func (e *Env) Capture(fvIndices []int) *Env {
-	if len(fvIndices) == 0 {
+// at the given de Bruijn indices. extraCap pre-allocates additional capacity
+// for subsequent Push calls (1 for Lam application, 1 for Fix self-ref),
+// so that entering the closure does not trigger a backing-array growth.
+//
+// Returns an Env with the same globals but a fresh locals slice — breaking
+// any backing-array aliasing from prior Push calls.
+func (e *Env) Capture(fvIndices []int, extraCap int) *Env {
+	n := len(fvIndices)
+	if n == 0 && extraCap == 0 {
 		return &Env{globals: e.globals}
 	}
-	cap := make([]Value, len(fvIndices))
+	locals := make([]Value, n, n+extraCap)
 	for i, idx := range fvIndices {
-		cap[i] = e.locals[len(e.locals)-1-idx]
+		locals[i] = e.locals[len(e.locals)-1-idx]
 	}
-	return &Env{globals: e.globals, locals: cap}
+	return &Env{globals: e.globals, locals: locals}
 }
 
 // CaptureAll creates a closure environment that copies all current locals.
 // Used when FV annotation overflowed (FV == nil → FVIndices == nil).
-func (e *Env) CaptureAll() *Env {
-	if len(e.locals) == 0 {
+// extraCap pre-allocates capacity for subsequent Push calls.
+func (e *Env) CaptureAll(extraCap int) *Env {
+	n := len(e.locals)
+	if n == 0 && extraCap == 0 {
 		return &Env{globals: e.globals}
 	}
-	cp := make([]Value, len(e.locals))
+	cp := make([]Value, n, n+extraCap)
 	copy(cp, e.locals)
 	return &Env{globals: e.globals, locals: cp}
 }

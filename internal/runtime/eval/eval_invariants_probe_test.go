@@ -329,7 +329,7 @@ func TestProbeE_EnvCaptureEmpty(t *testing.T) {
 	env := EmptyEnv()
 	env = env.Push(&HostVal{Inner: 1})
 	env = env.Push(&HostVal{Inner: 2})
-	captured := env.Capture([]int{})
+	captured := env.Capture([]int{}, 0)
 	if len(captured.locals) != 0 {
 		t.Errorf("Capture([]) should produce 0 locals, got %d", len(captured.locals))
 	}
@@ -338,10 +338,10 @@ func TestProbeE_EnvCaptureEmpty(t *testing.T) {
 func TestProbeE_EnvCaptureSubset(t *testing.T) {
 	// Capture extracts only requested indices.
 	env := EmptyEnv()
-	env = env.Push(&HostVal{Inner: 10})  // index 2
-	env = env.Push(&HostVal{Inner: 20})  // index 1
-	env = env.Push(&HostVal{Inner: 30})  // index 0
-	captured := env.Capture([]int{0, 2}) // capture innermost and outermost
+	env = env.Push(&HostVal{Inner: 10})     // index 2
+	env = env.Push(&HostVal{Inner: 20})     // index 1
+	env = env.Push(&HostVal{Inner: 30})     // index 0
+	captured := env.Capture([]int{0, 2}, 0) // capture innermost and outermost
 	if len(captured.locals) != 2 {
 		t.Errorf("expected 2 captured locals, got %d", len(captured.locals))
 	}

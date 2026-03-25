@@ -43,9 +43,9 @@ func (ev *Evaluator) evalFix(env *Env, capEnv CapEnv, e *ir.Fix) (EvalResult, er
 	}
 	closureBase := env
 	if lam.FVIndices != nil {
-		closureBase = env.Capture(lam.FVIndices)
+		closureBase = env.Capture(lam.FVIndices, 1) // +1 for self-ref Push
 	} else if lam.FV != nil {
-		closureBase = env.CaptureAll()
+		closureBase = env.CaptureAll(1)
 	}
 	clo := &Closure{Env: nil, Param: lam.Param, Body: lam.Body, Source: ev.source}
 	clo.Env = closureBase.Push(clo) // knot-tying: self-reference at index 1 (above param)

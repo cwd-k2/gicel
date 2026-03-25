@@ -60,7 +60,7 @@ func TestEnvCapture(t *testing.T) {
 	env = env.Push(&HostVal{Inner: 30}) // index 0
 
 	// Capture indices 0 and 2 (innermost and outermost).
-	captured := env.Capture([]int{0, 2})
+	captured := env.Capture([]int{0, 2}, 0)
 	// Captured env: [30, 10]
 	// Index 0 = 10 (last in captured), Index 1 = 30 (first in captured)
 	v := captured.LookupLocal(0)
@@ -94,7 +94,7 @@ func TestEnvCaptureAll(t *testing.T) {
 	env = env.Push(&HostVal{Inner: 1})
 	env = env.Push(&HostVal{Inner: 2})
 
-	all := env.CaptureAll()
+	all := env.CaptureAll(0)
 	v := all.LookupLocal(0)
 	if hv := v.(*HostVal); hv.Inner != 2 {
 		t.Errorf("expected 2, got %v", hv.Inner)

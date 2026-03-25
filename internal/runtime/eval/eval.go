@@ -188,9 +188,9 @@ func (ev *Evaluator) evalStep(env *Env, capEnv CapEnv, expr ir.Core) (EvalResult
 		}
 		closureEnv := env
 		if e.FVIndices != nil {
-			closureEnv = env.Capture(e.FVIndices)
+			closureEnv = env.Capture(e.FVIndices, 1) // +1 for param Push on application
 		} else if e.FV != nil {
-			closureEnv = env.CaptureAll()
+			closureEnv = env.CaptureAll(1)
 		}
 		return EvalResult{&Closure{Env: closureEnv, Param: e.Param, Body: e.Body, Source: ev.source}, capEnv}, nil
 
@@ -292,9 +292,9 @@ func (ev *Evaluator) evalStep(env *Env, capEnv CapEnv, expr ir.Core) (EvalResult
 		}
 		thunkEnv := env
 		if e.FVIndices != nil {
-			thunkEnv = env.Capture(e.FVIndices)
+			thunkEnv = env.Capture(e.FVIndices, 0) // thunk body: no Push
 		} else if e.FV != nil {
-			thunkEnv = env.CaptureAll()
+			thunkEnv = env.CaptureAll(0)
 		}
 		// Mark capEnv as shared since ThunkVal captures it.
 		return EvalResult{&ThunkVal{Env: thunkEnv, Comp: e.Comp, Source: ev.source}, capEnv.MarkShared()}, nil
