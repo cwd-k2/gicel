@@ -2,44 +2,12 @@ package engine
 
 import (
 	"fmt"
-	"sync"
 
 	"github.com/cwd-k2/gicel/internal/compiler/check"
 	"github.com/cwd-k2/gicel/internal/compiler/parse"
 	"github.com/cwd-k2/gicel/internal/infra/span"
 	"github.com/cwd-k2/gicel/internal/lang/ir"
 )
-
-// moduleCache is a concurrent-safe cache for compiled modules, keyed by
-// module name. Used internally to skip recompilation when multiple engines
-// load the same stdlib packs.
-//
-// NOTE: compiledModule.prog is mutated in-place by assignGlobalSlots during
-// runtime assembly. Sharing cached modules across concurrent NewRuntime calls
-// is therefore unsafe. This cache is safe only when engines are used
-// sequentially or when each engine's runtime assembly does not overlap.
-type moduleCache struct {
-	mu      sync.RWMutex
-	modules map[string]*compiledModule // name → compiled module
-}
-
-func newModuleCache() *moduleCache {
-	return &moduleCache{modules: make(map[string]*compiledModule)}
-}
-
-func (c *moduleCache) get(name string) *compiledModule {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-	return c.modules[name]
-}
-
-func (c *moduleCache) put(name string, mod *compiledModule) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	if _, ok := c.modules[name]; !ok {
-		c.modules[name] = mod
-	}
-}
 
 type compiledModule struct {
 	prog           *ir.Program

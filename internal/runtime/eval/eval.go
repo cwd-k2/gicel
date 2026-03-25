@@ -31,8 +31,9 @@ type Evaluator struct {
 	ctx           context.Context
 	prims         *PrimRegistry
 	budget        *budget.Budget
-	globals       map[string]Value // named globals (test/fallback path)
-	globalArray   []Value          // slot-indexed globals (production path)
+	globals     map[string]Value // named globals (test/fallback path)
+	globalArray []Value          // slot-indexed globals (production path)
+	globalSlots map[string]int   // name → slot index for global Var resolution
 	trace         TraceHook
 	obs           *ExplainObserver // nil when explain is disabled
 	source        *span.Source     // current source context for error attribution
@@ -72,9 +73,14 @@ func (ev *Evaluator) SetGlobals(g map[string]Value) {
 	ev.globals = g
 }
 
+// SetGlobalSlots sets the name → slot mapping for global variables.
+// At eval time, unresolved globals (Var.Index == -1) are looked up by
+// name in this map and then resolved via the global array.
+func (ev *Evaluator) SetGlobalSlots(s map[string]int) {
+	ev.globalSlots = s
+}
+
 // SetGlobalArray sets the slot-indexed globals array for the evaluator.
-// When set, Var nodes with Index <= -2 (assigned by AssignGlobalSlots)
-// are resolved via array lookup: globals[-(Index+2)].
 func (ev *Evaluator) SetGlobalArray(g []Value) {
 	ev.globalArray = g
 }
@@ -187,18 +193,18 @@ func (ev *Evaluator) evalStep(locals []Value, capEnv CapEnv, expr ir.Core) (Eval
 		if e.Index >= 0 {
 			// Local variable — de Bruijn indexed.
 			v = LookupLocal(locals, e.Index)
-		} else if ir.IsGlobalIndex(e.Index) {
-			// Global variable — slot-indexed array lookup.
-			v = ev.globalArray[ir.DecodeGlobalSlot(e.Index)]
 		} else {
-			// Fallback: named lookup (tests, un-indexed IR).
+			// Global variable — resolve name to slot, then array lookup.
 			key := e.Key
 			if key == "" {
 				key = ir.VarKey(e)
 			}
-			var ok bool
-			v, ok = ev.globals[key]
-			if !ok {
+			if slot, ok := ev.globalSlots[key]; ok {
+				v = ev.globalArray[slot]
+			} else if v2, ok2 := ev.globals[key]; ok2 {
+				// Fallback: named lookup (tests, un-indexed IR).
+				v = v2
+			} else {
 				return EvalResult{}, &RuntimeError{Message: fmt.Sprintf("unbound variable: %s", e.Name), Span: e.S, Source: ev.source}
 			}
 		}

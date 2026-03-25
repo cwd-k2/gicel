@@ -184,6 +184,6 @@ func (pc *pipelineCtx) assembleRuntime(prog *ir.Program, src *span.Source) *Runt
 		runtimeGates["rec"] = true
 	}
 	rt.initBuiltinGlobals(runtimeGates)
-	rt.assignGlobalSlots()
+	rt.buildGlobalSlots()
 	return rt
 }

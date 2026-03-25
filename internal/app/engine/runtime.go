@@ -121,10 +121,11 @@ func (r *Runtime) initBuiltinGlobals(gatedBuiltins map[string]bool) {
 	r.builtinGlobals = globals
 }
 
-// assignGlobalSlots collects all global names and assigns each a slot index.
-// Then walks all IR (module + main) to convert Var.Index = -1 to -(slot+2).
-// This completes the de Bruijn unification: all variables are integer-indexed.
-func (r *Runtime) assignGlobalSlots() {
+// buildGlobalSlots collects all global names and assigns each a slot index.
+// The resulting map is used by the evaluator to resolve global Var nodes
+// (Index == -1) by name at eval time. No IR mutation occurs — the program
+// IR remains immutable after compilation.
+func (r *Runtime) buildGlobalSlots() {
 	slots := make(map[string]int, len(r.builtinGlobals)+len(r.bindings))
 
 	// Assign slots from builtinGlobals (builtins + constructors).
@@ -167,12 +168,6 @@ func (r *Runtime) assignGlobalSlots() {
 
 	r.globalSlots = slots
 	r.numGlobals = len(slots)
-
-	// Walk all IR to assign global slot indices.
-	for _, me := range r.moduleEntries {
-		ir.AssignGlobalSlotsProgram(me.prog, slots)
-	}
-	ir.AssignGlobalSlotsProgram(r.prog, slots)
 }
 
 // buildGlobalArray creates the global value array from the slot map.
@@ -232,6 +227,7 @@ func (r *Runtime) execute(ctx context.Context, req *runRequest) (eval.EvalResult
 
 	ev := eval.NewEvaluator(b, r.prims, req.traceHook, req.obs, r.source)
 	ev.SetGlobalArray(globalArray)
+	ev.SetGlobalSlots(r.globalSlots)
 	ev.SetGlobals(r.buildNamedGlobals(req.bindings))
 
 	for _, me := range r.moduleEntries {

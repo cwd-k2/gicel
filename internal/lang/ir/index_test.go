@@ -69,53 +69,10 @@ func TestAssignIndicesCasePatternVars(t *testing.T) {
 	}
 }
 
-func TestAssignGlobalSlotsProgram(t *testing.T) {
-	// Program with two bindings: f refers to g.
-	gRef := &Var{Name: "g", Index: -1, Key: "g"}
-	prog := &Program{
-		Bindings: []Binding{
-			{Name: "f", Expr: gRef},
-			{Name: "g", Expr: &Lit{Value: int64(0)}},
-		},
-	}
-	slots := map[string]int{"f": 0, "g": 1}
-	AssignGlobalSlotsProgram(prog, slots)
-
-	wantIndex := EncodeGlobalSlot(1) // g is slot 1 → encoded as -3
-	if gRef.Index != wantIndex {
-		t.Errorf("Var(g) after AssignGlobalSlotsProgram: want Index %d (slot 1), got %d", wantIndex, gRef.Index)
-	}
-}
-
-func TestGlobalSlotEncoding(t *testing.T) {
-	tests := []struct {
-		slot      int
-		wantIndex int
-	}{
-		{0, -2},
-		{1, -3},
-		{10, -12},
-	}
-	for _, tt := range tests {
-		idx := EncodeGlobalSlot(tt.slot)
-		if idx != tt.wantIndex {
-			t.Errorf("EncodeGlobalSlot(%d) = %d, want %d", tt.slot, idx, tt.wantIndex)
-		}
-		if !IsGlobalIndex(idx) {
-			t.Errorf("IsGlobalIndex(%d) = false, want true", idx)
-		}
-		got := DecodeGlobalSlot(idx)
-		if got != tt.slot {
-			t.Errorf("DecodeGlobalSlot(%d) = %d, want %d", idx, got, tt.slot)
-		}
-	}
-	if IsGlobalIndex(-1) {
-		t.Error("IsGlobalIndex(-1) = true, want false (sentinel for unassigned)")
-	}
-	if IsGlobalIndex(0) {
-		t.Error("IsGlobalIndex(0) = true, want false (local index)")
-	}
-}
+// Global slot encoding tests removed: assignGlobalSlots IR mutation
+// was replaced by name-based resolution in the evaluator. Global Var
+// nodes remain at Index == -1 permanently; the evaluator resolves
+// them via globalSlots map at eval time.
 
 func TestAssignIndicesPrimOpArgs(t *testing.T) {
 	// PrimOp with Var args — after #1 fix, args must be traversed.
