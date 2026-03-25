@@ -1,16 +1,9 @@
 package exhaust
 
-import "github.com/cwd-k2/gicel/internal/lang/types"
+import "github.com/cwd-k2/gicel/internal/compiler/check/env"
 
-// DataTypeInfo carries constructor information for exhaustiveness checking.
-type DataTypeInfo struct {
-	Name         string
-	Constructors []ConstructorInfo
-}
+// DataTypeInfo is an alias for the canonical definition in the env package.
+type DataTypeInfo = env.DataTypeInfo
 
-// ConstructorInfo is a constructor's name, arity, and optional GADT return type.
-type ConstructorInfo struct {
-	Name       string
-	Arity      int
-	ReturnType types.Type // GADT: non-nil if constructor has refined return type
-}
+// ConstructorInfo is an alias for the canonical definition in the env package.
+type ConstructorInfo = env.ConstructorInfo

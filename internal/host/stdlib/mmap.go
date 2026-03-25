@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"github.com/cwd-k2/gicel/internal/infra/budget"
-	"github.com/cwd-k2/gicel/internal/lang/syntax"
+	"github.com/cwd-k2/gicel/internal/lang/ir"
 	"github.com/cwd-k2/gicel/internal/runtime/eval"
 )
 
@@ -172,8 +172,8 @@ func mmapFromListImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, ap
 		if !ok {
 			return nil, ce, fmt.Errorf("mmapFromList: expected tuple, got %T", con.Args[0])
 		}
-		key, ok1 := pair.Fields[syntax.TupleLabel(1)]
-		value, ok2 := pair.Fields[syntax.TupleLabel(2)]
+		key, ok1 := pair.Fields[ir.TupleLabel(1)]
+		value, ok2 := pair.Fields[ir.TupleLabel(2)]
 		if !ok1 || !ok2 {
 			return nil, ce, fmt.Errorf("mmapFromList: tuple must have _1 and _2")
 		}

@@ -1,10 +1,6 @@
 package env
 
-import (
-	"github.com/cwd-k2/gicel/internal/compiler/check/exhaust"
-	"github.com/cwd-k2/gicel/internal/compiler/check/family"
-	"github.com/cwd-k2/gicel/internal/lang/types"
-)
+import "github.com/cwd-k2/gicel/internal/lang/types"
 
 // ModuleOwnership carries the ownership signals for a compiled module:
 // which type and value names were defined by this module (not inherited).
@@ -21,13 +17,13 @@ type ModuleOwnership struct {
 type ModuleExports struct {
 	Types           map[string]types.Kind             // registered type constructors
 	ConTypes        map[string]types.Type             // constructor → full type
-	ConstructorInfo map[string]*exhaust.DataTypeInfo  // constructor → data type info
+	ConstructorInfo map[string]*DataTypeInfo           // constructor → data type info
 	Aliases         map[string]*AliasInfo             // type aliases
 	Classes         map[string]*ClassInfo             // class declarations
 	Instances       []*InstanceInfo                   // instance declarations
 	Values          map[string]types.Type             // top-level value types
 	PromotedKinds   map[string]types.Kind             // DataKinds promotions
 	PromotedCons    map[string]types.Kind             // promoted constructors
-	TypeFamilies    map[string]*family.TypeFamilyInfo // type family declarations
+	TypeFamilies    map[string]*TypeFamilyInfo         // type family declarations
 	ModuleOwnership                                   // ownership signals
 }

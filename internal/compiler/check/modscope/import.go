@@ -5,8 +5,6 @@ import (
 	"maps"
 
 	"github.com/cwd-k2/gicel/internal/compiler/check/env"
-	"github.com/cwd-k2/gicel/internal/compiler/check/exhaust"
-	"github.com/cwd-k2/gicel/internal/compiler/check/family"
 	"github.com/cwd-k2/gicel/internal/infra/diagnostic"
 	"github.com/cwd-k2/gicel/internal/infra/span"
 	"github.com/cwd-k2/gicel/internal/lang/syntax"
@@ -19,12 +17,12 @@ type ImportEnv struct {
 	RegisterTypeKind     func(string, types.Kind)
 	RegisterAlias        func(string, *env.AliasInfo)
 	RegisterClass        func(string, *env.ClassInfo)
-	RegisterFamily       func(string, *family.TypeFamilyInfo)
-	RegisterDataType     func(string, *exhaust.DataTypeInfo)
+	RegisterFamily       func(string, *env.TypeFamilyInfo)
+	RegisterDataType     func(string, *env.DataTypeInfo)
 	RegisterPromotedKind func(string, types.Kind)
 	RegisterPromotedCon  func(string, types.Kind)
 	SetConBinding        func(string, types.Type, string)
-	SetConInfo           func(string, *exhaust.DataTypeInfo)
+	SetConInfo           func(string, *env.DataTypeInfo)
 	ImportInstance       func(*env.InstanceInfo)
 
 	// Error reporting.
@@ -139,76 +137,55 @@ func (imp *Importer) Import(
 }
 
 // checkAmbiguousName reports an error if name is already imported from a different module.
-// Returns true if the name is ambiguous and should be skipped.
-// Private names (_-prefixed) and compiler-generated names ($-containing) are exempt.
 func (imp *Importer) checkAmbiguousName(name, moduleName string, s span.Span) bool {
-	if env.IsPrivateName(name) {
-		return false // compiler-generated or private, skip
-	}
-	prev, exists := imp.importedNames[name]
-	if !exists {
-		imp.importedNames[name] = moduleName
-		return false
-	}
-	if prev == moduleName {
-		return false // same module, no conflict
-	}
-	// Both modules provide this name: check ownership and provenance.
-	// Ambiguity is suppressed when both sides re-export from a shared
-	// dependency, or when one side re-exports from the other (dependency chain).
-	prevOwns := imp.moduleOwnsName(prev, name)
-	curOwns := imp.moduleOwnsName(moduleName, name)
-	if !prevOwns && !curOwns {
-		// Both are re-exports — assumed from a shared dependency.
-		imp.importedNames[name] = moduleName
-		return false
-	}
-	if prevOwns && !curOwns && imp.moduleDependsOn(moduleName, prev) {
-		// cur re-exports from prev via dependency chain.
-		imp.importedNames[name] = moduleName
-		return false
-	}
-	if curOwns && !prevOwns && imp.moduleDependsOn(prev, moduleName) {
-		// prev re-exports from cur via dependency chain.
-		imp.importedNames[name] = moduleName
-		return false
-	}
-	imp.env.AddError(diagnostic.ErrImport, s,
-		fmt.Sprintf("ambiguous name %q: imported from both %s and %s (use qualified import to disambiguate)", name, prev, moduleName))
-	return true
+	return imp.checkAmbiguous(imp.importedNames, imp.moduleOwnsName, "name", name, moduleName, s)
 }
 
 // checkAmbiguousTypeName reports an error if a type-level name is already imported
-// from a different module. Returns true if the name is ambiguous and should be skipped.
-// Logic mirrors checkAmbiguousName but operates on the type namespace.
+// from a different module.
 func (imp *Importer) checkAmbiguousTypeName(name, moduleName string, s span.Span) bool {
+	return imp.checkAmbiguous(imp.importedTypeNames, imp.moduleOwnsTypeName, "type name", name, moduleName, s)
+}
+
+// checkAmbiguous is the shared implementation for value- and type-namespace
+// ambiguity detection. It returns true if the name is ambiguous and should be skipped.
+// Private names (_-prefixed) and compiler-generated names ($-containing) are exempt.
+// Ambiguity is suppressed when both sides re-export from a shared dependency,
+// or when one side re-exports from the other (dependency chain).
+func (imp *Importer) checkAmbiguous(
+	namespace map[string]string,
+	ownerFn func(moduleName, name string) bool,
+	errLabel, name, moduleName string,
+	s span.Span,
+) bool {
 	if env.IsPrivateName(name) {
 		return false
 	}
-	prev, exists := imp.importedTypeNames[name]
+	prev, exists := namespace[name]
 	if !exists {
-		imp.importedTypeNames[name] = moduleName
+		namespace[name] = moduleName
 		return false
 	}
 	if prev == moduleName {
 		return false
 	}
-	prevOwns := imp.moduleOwnsTypeName(prev, name)
-	curOwns := imp.moduleOwnsTypeName(moduleName, name)
+	prevOwns := ownerFn(prev, name)
+	curOwns := ownerFn(moduleName, name)
 	if !prevOwns && !curOwns {
-		imp.importedTypeNames[name] = moduleName
+		namespace[name] = moduleName
 		return false
 	}
 	if prevOwns && !curOwns && imp.moduleDependsOn(moduleName, prev) {
-		imp.importedTypeNames[name] = moduleName
+		namespace[name] = moduleName
 		return false
 	}
 	if curOwns && !prevOwns && imp.moduleDependsOn(prev, moduleName) {
-		imp.importedTypeNames[name] = moduleName
+		namespace[name] = moduleName
 		return false
 	}
 	imp.env.AddError(diagnostic.ErrImport, s,
-		fmt.Sprintf("ambiguous type name %q: imported from both %s and %s (use qualified import to disambiguate)", name, prev, moduleName))
+		fmt.Sprintf("ambiguous %s %q: imported from both %s and %s (use qualified import to disambiguate)",
+			errLabel, name, prev, moduleName))
 	return true
 }
 

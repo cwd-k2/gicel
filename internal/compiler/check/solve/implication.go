@@ -5,7 +5,6 @@ import (
 
 	"github.com/cwd-k2/gicel/internal/infra/diagnostic"
 	"github.com/cwd-k2/gicel/internal/lang/ir"
-	"github.com/cwd-k2/gicel/internal/lang/syntax"
 	"github.com/cwd-k2/gicel/internal/lang/types"
 )
 
@@ -68,12 +67,12 @@ func (s *Solver) processCtImplication(ct *CtImplication, outerResolutions map[st
 // constraints are scoped to the evidence body, not the GADT result type.
 // A full separation of unification and solving (OutsideIn-style) would
 // eliminate this gap but conflicts with DK interleaving.
-func (s *Solver) CheckWithLocalScope(expr syntax.Expr, expected types.Type, skolemIDs map[int]string) ir.Core {
+func (s *Solver) CheckWithLocalScope(checkBody func(types.Type) ir.Core, expected types.Type, skolemIDs map[int]string) ir.Core {
 	savedWorklist := s.SaveWorklist()
 
 	s.EnterScope()
 
-	bodyCore := s.env.Check(expr, expected)
+	bodyCore := checkBody(expected)
 
 	// Enable touchability for constraint solving only.
 	// Deferred until after body check — DK eager unification during check

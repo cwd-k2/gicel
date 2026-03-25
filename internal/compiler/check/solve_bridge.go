@@ -52,7 +52,10 @@ func (ch *Checker) tryResolveInstance(className string, args []types.Type, s spa
 
 // checkWithLocalScope checks expr against expected inside an implication scope.
 func (ch *Checker) checkWithLocalScope(expr syntax.Expr, expected types.Type, skolemIDs map[int]string) ir.Core {
-	return ch.solver.CheckWithLocalScope(expr, expected, skolemIDs)
+	return ch.solver.CheckWithLocalScope(
+		func(ty types.Type) ir.Core { return ch.check(expr, ty) },
+		expected, skolemIDs,
+	)
 }
 
 // extractDictField delegates to the solver's method.

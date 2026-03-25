@@ -433,13 +433,10 @@ func (ch *Checker) SolverStep() error                             { return ch.bu
 func (ch *Checker) EnterResolve() error                           { return ch.budget.EnterResolve() }
 func (ch *Checker) LeaveResolve()                                 { ch.budget.LeaveResolve() }
 func (ch *Checker) CheckCancelled() bool                          { return ch.checkCancelled() }
-func (ch *Checker) SaveState() any                                { return ch.saveState() }
-func (ch *Checker) RestoreState(s any)                            { ch.restoreState(s.(checkerSnapshot)) }
 func (ch *Checker) WithTrial(fn func() bool) bool                 { return ch.withTrial(fn) }
 func (ch *Checker) WithProbe(fn func() bool) bool                 { return ch.withProbe(fn) }
 func (ch *Checker) Fresh() int                                    { return ch.fresh() }
 func (ch *Checker) FreshMeta(k types.Kind) *types.TyMeta          { return ch.freshMeta(k) }
-func (ch *Checker) Check(expr syntax.Expr, ty types.Type) ir.Core { return ch.check(expr, ty) }
 func (ch *Checker) InstancesForClass(name string) []*InstanceInfo {
 	return ch.reg.InstancesForClass(name)
 }

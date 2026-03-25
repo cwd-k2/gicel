@@ -75,17 +75,16 @@ func (s *Solver) isAmbiguousInstance(className string, args []types.Type) bool {
 			continue
 		}
 		freshSubst := s.FreshInstanceSubst(inst)
-		saved := s.env.SaveState()
-		ok := true
-		for i := range args {
-			instArg := types.SubstMany(inst.TypeArgs[i], freshSubst)
-			if err := s.env.Unify(instArg, args[i]); err != nil {
-				ok = false
-				break
+		matched := s.env.WithProbe(func() bool {
+			for i := range args {
+				instArg := types.SubstMany(inst.TypeArgs[i], freshSubst)
+				if err := s.env.Unify(instArg, args[i]); err != nil {
+					return false
+				}
 			}
-		}
-		s.env.RestoreState(saved)
-		if ok {
+			return true
+		})
+		if matched {
 			matchCount++
 			if matchCount > 1 {
 				break

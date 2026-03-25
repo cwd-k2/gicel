@@ -66,7 +66,7 @@ func (c *CapabilityEntries) MapChildren(f func(Type) Type) (EvidenceEntries, boo
 	var fields []RowField // nil until first change
 	for i, fld := range c.Fields {
 		newTy := f(fld.Type)
-		newGrades, gChanged := mapGrades(fld.Grades, f)
+		newGrades, gChanged := applyGrades(fld.Grades, f)
 		if fields == nil && (newTy != fld.Type || gChanged) {
 			fields = make([]RowField, len(c.Fields))
 			copy(fields[:i], c.Fields[:i])
@@ -81,13 +81,13 @@ func (c *CapabilityEntries) MapChildren(f func(Type) Type) (EvidenceEntries, boo
 	return &CapabilityEntries{Fields: fields}, true
 }
 
-// mapGrades applies f to grade annotations, returning the original slice
-// unchanged when no grade was modified.
-func mapGrades(grades []Type, f func(Type) Type) ([]Type, bool) {
+// applyGrades applies f to grade annotations, returning the original slice
+// unchanged (and false) when no grade was modified.
+func applyGrades(grades []Type, f func(Type) Type) ([]Type, bool) {
 	if len(grades) == 0 {
 		return grades, false
 	}
-	var out []Type
+	var out []Type // nil until first change
 	for j, g := range grades {
 		fg := f(g)
 		if out == nil && fg != g {
@@ -112,7 +112,7 @@ func (c *CapabilityEntries) ZonkEntries(zonk func(Type) Type) (EvidenceEntries, 
 	var fields []RowField // nil until first change detected
 	for i, f := range c.Fields {
 		zTy := zonk(f.Type)
-		zGrades, gChanged := zonkGrades(f.Grades, zonk)
+		zGrades, gChanged := applyGrades(f.Grades, zonk)
 		if fields == nil && (zTy != f.Type || gChanged) {
 			fields = make([]RowField, len(c.Fields))
 			copy(fields[:i], c.Fields[:i]) // backfill unchanged prefix
@@ -127,28 +127,6 @@ func (c *CapabilityEntries) ZonkEntries(zonk func(Type) Type) (EvidenceEntries, 
 	return &CapabilityEntries{Fields: fields}, true
 }
 
-// zonkGrades zonks grade annotations, returning the original slice unchanged
-// when no grade was modified.
-func zonkGrades(grades []Type, zonk func(Type) Type) ([]Type, bool) {
-	if len(grades) == 0 {
-		return grades, false
-	}
-	var out []Type // nil until first change
-	for j, g := range grades {
-		zg := zonk(g)
-		if out == nil && zg != g {
-			out = make([]Type, len(grades))
-			copy(out[:j], grades[:j])
-		}
-		if out != nil {
-			out[j] = zg
-		}
-	}
-	if out == nil {
-		return grades, false
-	}
-	return out, true
-}
 
 // --- Constraint fiber ---
 

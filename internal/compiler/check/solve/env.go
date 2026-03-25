@@ -4,8 +4,6 @@ import (
 	"github.com/cwd-k2/gicel/internal/compiler/check/env"
 	"github.com/cwd-k2/gicel/internal/infra/diagnostic"
 	"github.com/cwd-k2/gicel/internal/infra/span"
-	"github.com/cwd-k2/gicel/internal/lang/ir"
-	"github.com/cwd-k2/gicel/internal/lang/syntax"
 	"github.com/cwd-k2/gicel/internal/lang/types"
 )
 
@@ -43,10 +41,6 @@ type Env interface {
 	Fresh() int
 	FreshMeta(types.Kind) *types.TyMeta
 
-	// State save/restore for trial unification
-	SaveState() any
-	RestoreState(any)
-
 	// Trial/probe unification scopes
 	WithTrial(fn func() bool) bool
 	WithProbe(fn func() bool) bool
@@ -56,7 +50,4 @@ type Env interface {
 
 	// Type family reduction
 	ReduceTyFamily(name string, args []types.Type, s span.Span) (types.Type, bool)
-
-	// Check callback (bidirectional checker)
-	Check(expr syntax.Expr, ty types.Type) ir.Core
 }

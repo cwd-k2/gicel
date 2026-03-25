@@ -253,7 +253,7 @@ func IsTuple(r *RecordVal) bool {
 		return true // () is the unit tuple
 	}
 	for i := 1; i <= n; i++ {
-		if _, ok := r.Fields[fmt.Sprintf("_%d", i)]; !ok {
+		if _, ok := r.Fields[ir.TupleLabel(i)]; !ok {
 			return false
 		}
 	}
@@ -267,7 +267,7 @@ func prettyTupleDepth(r *RecordVal, depth int) string {
 	}
 	parts := make([]string, n)
 	for i := range n {
-		parts[i] = prettyValueDepth(r.Fields[fmt.Sprintf("_%d", i+1)], depth+1)
+		parts[i] = prettyValueDepth(r.Fields[ir.TupleLabel(i+1)], depth+1)
 	}
 	return "(" + strings.Join(parts, ", ") + ")"
 }
@@ -363,7 +363,7 @@ func collectListPattern(p *ir.PCon, depth int) ([]string, bool) {
 
 func isTuplePattern(p *ir.PRecord) bool {
 	for i, f := range p.Fields {
-		if f.Label != fmt.Sprintf("_%d", i+1) {
+		if f.Label != ir.TupleLabel(i+1) {
 			return false
 		}
 	}
