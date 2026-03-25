@@ -23,6 +23,7 @@ import (
 	"github.com/cwd-k2/gicel/internal/runtime/eval"
 )
 
+
 // DefaultEntryPoint is the default name of the top-level binding that serves
 // as the program's entry point when no explicit name is provided.
 const DefaultEntryPoint = "main"
@@ -37,6 +38,7 @@ type Engine struct {
 
 	entryPoint     string               // entry binding name (default: "main")
 	checkTraceHook check.CheckTraceHook // diagnostic hook for type checking
+	moduleCache    *ModuleCache         // optional shared module cache
 }
 
 // NewEngine creates a new Engine with default limits.
@@ -170,6 +172,7 @@ func (e *Engine) pipeline(ctx context.Context) *pipelineCtx {
 }
 
 // RegisterModule compiles a module and makes it available for import.
+// If a ModuleCache is set, previously compiled modules are reused.
 func (e *Engine) RegisterModule(name, source string) error {
 	if name == "" {
 		return fmt.Errorf("module name must not be empty")
@@ -180,12 +183,28 @@ func (e *Engine) RegisterModule(name, source string) error {
 	if e.store.Has(name) {
 		return fmt.Errorf("module %s already registered", name)
 	}
+	// Check module cache before compiling.
+	if e.moduleCache != nil {
+		if cached := e.moduleCache.get(name); cached != nil {
+			e.store.Register(name, cached)
+			return nil
+		}
+	}
 	mod, err := e.pipeline(e.compileCtx).compileModule(name, source)
 	if err != nil {
 		return err
 	}
+	if e.moduleCache != nil {
+		e.moduleCache.put(name, mod)
+	}
 	e.store.Register(name, mod)
 	return nil
+}
+
+// SetModuleCache sets a shared module cache. Engines sharing the same
+// cache skip recompilation for modules with identical names.
+func (e *Engine) SetModuleCache(c *ModuleCache) {
+	e.moduleCache = c
 }
 
 // CoreProgram is an opaque compiled Core IR for inspection.
