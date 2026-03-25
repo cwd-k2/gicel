@@ -54,11 +54,11 @@ type Runtime struct {
 	allocLimit         int64
 	source             *span.Source
 	bindings           map[string]types.Type
-	moduleEntries      []moduleEntry // ALL module programs in registration order
-	builtinEnv         *eval.Env     // pre-built pure/bind/force/fix/rec closures
-	sortedMainBindings []ir.Binding  // all main bindings, topologically pre-sorted
-	entryName          string        // default entry point name
-	entryExpr          ir.Core       // default entry point expression (nil if not found)
+	moduleEntries      []moduleEntry         // ALL module programs in registration order
+	builtinGlobals     map[string]eval.Value // pre-built pure/bind/force/fix/rec closures + constructors
+	sortedMainBindings []ir.Binding          // all main bindings, topologically pre-sorted
+	entryName          string                // default entry point name
+	entryExpr          ir.Core               // default entry point expression (nil if not found)
 }
 
 type moduleEntry struct {
@@ -97,34 +97,32 @@ func (r *Runtime) annotateError(err error) error {
 	return err
 }
 
-// initBuiltinEnv constructs the immutable base environment with builtins and constructors.
-func (r *Runtime) initBuiltinEnv(gatedBuiltins map[string]bool) {
-	env := eval.BuiltinEnv(gatedBuiltins["fix"], gatedBuiltins["rec"])
+// initBuiltinGlobals constructs the immutable base globals with builtins and constructors.
+func (r *Runtime) initBuiltinGlobals(gatedBuiltins map[string]bool) {
+	globals := eval.BuiltinGlobals(gatedBuiltins["fix"], gatedBuiltins["rec"])
 
 	for _, me := range r.moduleEntries {
 		for _, d := range me.prog.DataDecls {
 			for _, con := range d.Cons {
-				cv := &eval.ConVal{Con: con.Name}
-				env = env.Extend(ir.QualifiedKey(me.name, con.Name), cv)
+				globals[ir.QualifiedKey(me.name, con.Name)] = &eval.ConVal{Con: con.Name}
 			}
 		}
 	}
 
 	for _, d := range r.prog.DataDecls {
 		for _, con := range d.Cons {
-			env = env.Extend(con.Name, &eval.ConVal{Con: con.Name})
+			globals[con.Name] = &eval.ConVal{Con: con.Name}
 		}
 	}
 
-	r.builtinEnv = env
+	r.builtinGlobals = globals
 }
 
-// buildEnv clones the builtin globals and adds user-provided bindings.
+// buildGlobals clones the builtin globals and adds user-provided bindings.
 // The clone ensures concurrent RunWith calls don't share mutable state.
-func (r *Runtime) buildEnv(bindings map[string]eval.Value) (*eval.Env, error) {
-	base := r.builtinEnv.Globals()
-	globals := make(map[string]eval.Value, len(base)+len(r.bindings))
-	for k, v := range base {
+func (r *Runtime) buildGlobals(bindings map[string]eval.Value) (map[string]eval.Value, error) {
+	globals := make(map[string]eval.Value, len(r.builtinGlobals)+len(r.bindings))
+	for k, v := range r.builtinGlobals {
 		globals[k] = v
 	}
 	for name := range r.bindings {
@@ -134,7 +132,7 @@ func (r *Runtime) buildEnv(bindings map[string]eval.Value) (*eval.Env, error) {
 		}
 		globals[name] = v
 	}
-	return eval.NewGlobalEnv(globals), nil
+	return globals, nil
 }
 
 type runRequest struct {
@@ -147,7 +145,7 @@ type runRequest struct {
 
 // execute is the unified execution core.
 func (r *Runtime) execute(ctx context.Context, req *runRequest) (eval.EvalResult, eval.EvalStats, error) {
-	env, err := r.buildEnv(req.bindings)
+	globals, err := r.buildGlobals(req.bindings)
 	if err != nil {
 		return eval.EvalResult{}, eval.EvalStats{}, err
 	}
@@ -161,11 +159,11 @@ func (r *Runtime) execute(ctx context.Context, req *runRequest) (eval.EvalResult
 	}
 
 	ev := eval.NewEvaluator(b, r.prims, req.traceHook, req.obs, r.source)
+	ev.SetGlobals(globals)
 
 	for _, me := range r.moduleEntries {
 		ev.SetSource(me.source)
-		env, err = r.evalBindingsCore(ev, env, me.sortedBindings, me.name, req.obs)
-		if err != nil {
+		if err := r.evalBindingsCore(ev, me.sortedBindings, me.name, req.obs); err != nil {
 			return eval.EvalResult{}, eval.EvalStats{}, err
 		}
 	}
@@ -191,8 +189,7 @@ func (r *Runtime) execute(ctx context.Context, req *runRequest) (eval.EvalResult
 		}
 	}
 
-	env, err = r.evalBindingsCore(ev, env, nonEntry, "", req.obs)
-	if err != nil {
+	if err := r.evalBindingsCore(ev, nonEntry, "", req.obs); err != nil {
 		return eval.EvalResult{}, eval.EvalStats{}, err
 	}
 
@@ -204,7 +201,7 @@ func (r *Runtime) execute(ctx context.Context, req *runRequest) (eval.EvalResult
 		req.obs.Section(req.entry)
 	}
 	capEnv := eval.NewCapEnv(req.caps)
-	result, err := ev.Eval(env, capEnv, entryExpr)
+	result, err := ev.Eval(nil, capEnv, entryExpr)
 	if err != nil {
 		return eval.EvalResult{}, eval.EvalStats{}, err
 	}
@@ -220,15 +217,17 @@ func (r *Runtime) execute(ctx context.Context, req *runRequest) (eval.EvalResult
 
 // evalBindingsCore evaluates a slice of pre-sorted bindings using forward-reference cells.
 // Callers must pass bindings in dependency order (via ir.SortBindings).
-func (r *Runtime) evalBindingsCore(ev *eval.Evaluator, env *eval.Env, bindings []ir.Binding, modulePrefix string, obs *eval.ExplainObserver) (*eval.Env, error) {
+// Globals are mutated directly on the evaluator's globals map.
+func (r *Runtime) evalBindingsCore(ev *eval.Evaluator, bindings []ir.Binding, modulePrefix string, obs *eval.ExplainObserver) error {
+	globals := ev.Globals()
 	cells := make(map[string]*eval.IndirectVal, len(bindings))
 	for _, b := range bindings {
 		cell := &eval.IndirectVal{}
 		cells[b.Name] = cell
 		if modulePrefix != "" {
-			env = env.Extend(ir.QualifiedKey(modulePrefix, b.Name), cell)
+			globals[ir.QualifiedKey(modulePrefix, b.Name)] = cell
 		} else {
-			env = env.Extend(b.Name, cell)
+			globals[b.Name] = cell
 		}
 	}
 	userVisible := modulePrefix == ""
@@ -236,13 +235,13 @@ func (r *Runtime) evalBindingsCore(ev *eval.Evaluator, env *eval.Env, bindings [
 		if userVisible {
 			obs.Section(b.Name)
 		}
-		result, err := ev.Eval(env, eval.NewCapEnv(nil), b.Expr)
+		result, err := ev.Eval(nil, eval.NewCapEnv(nil), b.Expr)
 		if err != nil {
 			// Omit internal binding names (containing $) from user-facing errors.
 			if strings.Contains(b.Name, "$") {
-				return nil, err
+				return err
 			}
-			return nil, fmt.Errorf("evaluating %s: %w", b.Name, err)
+			return fmt.Errorf("evaluating %s: %w", b.Name, err)
 		}
 		v := result.Value
 		if clo, ok := v.(*eval.Closure); ok {
@@ -253,7 +252,7 @@ func (r *Runtime) evalBindingsCore(ev *eval.Evaluator, env *eval.Env, bindings [
 		}
 		cells[b.Name].Ref = &v
 	}
-	return env, nil
+	return nil
 }
 
 // RunWith executes the program with the given options.

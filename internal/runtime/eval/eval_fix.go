@@ -24,7 +24,7 @@ func peelTyLam(c ir.Core) ir.Core {
 //
 // Fix { Name, Body } where Body (after TyLam peeling) must be a Lam.
 // The result is a closure whose environment binds Name to itself.
-func (ev *Evaluator) evalFix(env *Env, capEnv CapEnv, e *ir.Fix) (EvalResult, error) {
+func (ev *Evaluator) evalFix(locals []Value, capEnv CapEnv, e *ir.Fix) (EvalResult, error) {
 	if err := ev.budget.Alloc(costFix); err != nil {
 		return EvalResult{}, err
 	}
@@ -41,13 +41,13 @@ func (ev *Evaluator) evalFix(env *Env, capEnv CapEnv, e *ir.Fix) (EvalResult, er
 			Source: ev.source,
 		}
 	}
-	closureBase := env
+	closureBase := locals
 	if lam.FVIndices != nil {
-		closureBase = env.Capture(lam.FVIndices, 1) // +1 for self-ref Push
+		closureBase = Capture(locals, lam.FVIndices, 1) // +1 for self-ref Push
 	} else if lam.FV != nil {
-		closureBase = env.CaptureAll(1)
+		closureBase = CaptureAll(locals, 1)
 	}
-	clo := &Closure{Env: nil, Param: lam.Param, Body: lam.Body, Source: ev.source}
-	clo.Env = closureBase.Push(clo) // knot-tying: self-reference at index 1 (above param)
+	clo := &Closure{Locals: nil, Param: lam.Param, Body: lam.Body, Source: ev.source}
+	clo.Locals = Push(closureBase, clo) // knot-tying: self-reference at index 1 (above param)
 	return EvalResult{clo, capEnv}, nil
 }

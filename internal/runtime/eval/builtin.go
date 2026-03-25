@@ -2,22 +2,22 @@ package eval
 
 import "github.com/cwd-k2/gicel/internal/lang/ir"
 
-// BuiltinEnv constructs the base environment with pure, bind, force,
+// BuiltinGlobals constructs the base globals map with pure, bind, force,
 // and optional fix/rec closures. pure and bind are first-class functions
 // here; the checker also optimizes fully-applied pure/bind to direct
 // Core.Pure/Core.Bind nodes for capability environment threading.
 //
 // Builtin closures use global variable references (Index = -1) because
 // they are registered in the globals map, not the locals stack.
-func BuiltinEnv(enableFix, enableRec bool) *Env {
-	env := EmptyEnv()
+func BuiltinGlobals(enableFix, enableRec bool) map[string]Value {
+	globals := make(map[string]Value, 8)
 
 	// pure: a -> a (identity in CBV)
 	// The param "_v" is a local variable at index 0 in the closure body.
-	env.Extend("pure", &Closure{
-		Env: EmptyEnv(), Param: "_v",
+	globals["pure"] = &Closure{
+		Locals: nil, Param: "_v",
 		Body: &ir.Var{Name: "_v", Index: 0},
-	})
+	}
 
 	// bind: m -> (a -> m) -> m (apply continuation)
 	// _comp is the outer param, captured in the inner closure.
@@ -27,32 +27,32 @@ func BuiltinEnv(enableFix, enableRec bool) *Env {
 		FVIndices: []int{0}, // capture _comp from outer closure env
 		Body:      &ir.App{Fun: &ir.Var{Name: "_f", Index: 0}, Arg: &ir.Var{Name: "_comp", Index: 1}},
 	}
-	env.Extend("bind", &Closure{
-		Env: EmptyEnv(), Param: "_comp",
+	globals["bind"] = &Closure{
+		Locals: nil, Param: "_comp",
 		Body: bindBody,
-	})
+	}
 
 	// force: Thunk -> Computation
-	env.Extend("force", &Closure{
-		Env: EmptyEnv(), Param: "_thk",
+	globals["force"] = &Closure{
+		Locals: nil, Param: "_thk",
 		Body: &ir.Force{Expr: &ir.Var{Name: "_thk", Index: 0}},
-	})
+	}
 
 	// Gated built-ins: rec and fix.
 	if enableFix {
-		env.Extend("fix", &Closure{
-			Env: EmptyEnv(), Param: "_f",
+		globals["fix"] = &Closure{
+			Locals: nil, Param: "_f",
 			Body: fixBody(),
-		})
+		}
 	}
 	if enableRec {
-		env.Extend("rec", &Closure{
-			Env: EmptyEnv(), Param: "_f",
+		globals["rec"] = &Closure{
+			Locals: nil, Param: "_f",
 			Body: fixBody(),
-		})
+		}
 	}
 
-	return env
+	return globals
 }
 
 // fixBody returns a Fix node for the fix/rec builtin closures.

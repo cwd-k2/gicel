@@ -57,11 +57,11 @@ func (ev *Evaluator) applyResolved(capEnv CapEnv, fn Value, arg Value, site *ir.
 		ev.SetSource(b.source)
 	}
 	if b.leaveObs {
-		result, err := ev.Eval(b.env, b.capEnv, b.expr)
+		result, err := ev.Eval(b.locals, b.capEnv, b.expr)
 		ev.obs.LeaveInternal()
 		return result, err
 	}
-	return ev.Eval(b.env, b.capEnv, b.expr)
+	return ev.Eval(b.locals, b.capEnv, b.expr)
 }
 
 // callPrim safely invokes a PrimImpl, recovering from panics and nil returns.
@@ -102,9 +102,9 @@ func (ev *Evaluator) apply(capEnv CapEnv, fn Value, arg Value, site *ir.App) (Ev
 				ev.obs.Emit(ev.budget.Depth(), ExplainLabel, detail, site.S)
 			}
 		}
-		bodyEnv := f.Env.Push(arg)
+		bodyLocals := Push(f.Locals, arg)
 		return EvalResult{Value: &bounceVal{
-			env: bodyEnv, capEnv: capEnv, expr: f.Body,
+			locals: bodyLocals, capEnv: capEnv, expr: f.Body,
 			leaveDepth: 1, leaveObs: leaveObs, source: f.Source,
 		}}, nil
 	case *ConVal:

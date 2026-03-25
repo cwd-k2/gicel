@@ -183,6 +183,6 @@ func (pc *pipelineCtx) assembleRuntime(prog *ir.Program, src *span.Source) *Runt
 		runtimeGates["fix"] = true
 		runtimeGates["rec"] = true
 	}
-	rt.initBuiltinEnv(runtimeGates)
+	rt.initBuiltinGlobals(runtimeGates)
 	return rt
 }

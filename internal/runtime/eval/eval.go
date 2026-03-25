@@ -31,6 +31,7 @@ type Evaluator struct {
 	ctx           context.Context
 	prims         *PrimRegistry
 	budget        *budget.Budget
+	globals       map[string]Value // module-level bindings; set once before eval
 	trace         TraceHook
 	obs           *ExplainObserver // nil when explain is disabled
 	source        *span.Source     // current source context for error attribution
@@ -64,6 +65,16 @@ func (ev *Evaluator) SetSource(src *span.Source) {
 	}
 }
 
+// SetGlobals sets the globals map for the evaluator. Must be called before Eval.
+func (ev *Evaluator) SetGlobals(g map[string]Value) {
+	ev.globals = g
+}
+
+// Globals returns the evaluator's globals map.
+func (ev *Evaluator) Globals() map[string]Value {
+	return ev.globals
+}
+
 // Stats returns the accumulated statistics.
 func (ev *Evaluator) Stats() EvalStats {
 	ev.stats.Allocated = ev.budget.Allocated()
@@ -77,7 +88,7 @@ func (ev *Evaluator) Stats() EvalStats {
 //
 // Source context is saved on entry and restored on return, so nested
 // Eval calls (subexpressions) cannot leak source changes to the caller.
-func (ev *Evaluator) Eval(env *Env, capEnv CapEnv, expr ir.Core) (EvalResult, error) {
+func (ev *Evaluator) Eval(locals []Value, capEnv CapEnv, expr ir.Core) (EvalResult, error) {
 	if err := ev.budget.Nest(); err != nil {
 		return EvalResult{}, err
 	}
@@ -90,7 +101,7 @@ func (ev *Evaluator) Eval(env *Env, capEnv CapEnv, expr ir.Core) (EvalResult, er
 	var pendingLeaveObs int         // accumulated LeaveInternal calls to fire on resolution
 	var pendingForceSpan *span.Span // deferred ForceEffectful from Bind bounce
 	for {
-		r, err := ev.evalStep(env, capEnv, expr)
+		r, err := ev.evalStep(locals, capEnv, expr)
 		if err != nil {
 			// Unwind observer suppression even on error (matches defer semantics).
 			for range pendingLeaveObs {
@@ -130,13 +141,13 @@ func (ev *Evaluator) Eval(env *Env, capEnv CapEnv, expr ir.Core) (EvalResult, er
 		if b.forceSpan != nil {
 			pendingForceSpan = b.forceSpan
 		}
-		env, capEnv, expr = b.env, b.capEnv, b.expr
+		locals, capEnv, expr = b.locals, b.capEnv, b.expr
 	}
 }
 
 // evalStep performs one evaluation step. Tail positions return bounceVal
 // to be continued by the Eval trampoline.
-func (ev *Evaluator) evalStep(env *Env, capEnv CapEnv, expr ir.Core) (EvalResult, error) {
+func (ev *Evaluator) evalStep(locals []Value, capEnv CapEnv, expr ir.Core) (EvalResult, error) {
 	// Check step limit (also checks context cancellation).
 	if err := ev.budget.Step(); err != nil {
 		return EvalResult{}, err
@@ -158,9 +169,9 @@ func (ev *Evaluator) evalStep(env *Env, capEnv CapEnv, expr ir.Core) (EvalResult
 	switch e := expr.(type) {
 	case *ir.Var:
 		var v Value
-		if e.Index >= 0 && e.Index < len(env.locals) {
+		if e.Index >= 0 && e.Index < len(locals) {
 			// Local variable — de Bruijn indexed.
-			v = env.LookupLocal(e.Index)
+			v = LookupLocal(locals, e.Index)
 		} else {
 			// Global variable — key-based lookup.
 			key := e.Key
@@ -168,7 +179,7 @@ func (ev *Evaluator) evalStep(env *Env, capEnv CapEnv, expr ir.Core) (EvalResult
 				key = ir.VarKey(e)
 			}
 			var ok bool
-			v, ok = env.LookupGlobal(key)
+			v, ok = ev.globals[key]
 			if !ok {
 				return EvalResult{}, &RuntimeError{Message: fmt.Sprintf("unbound variable: %s", e.Name), Span: e.S, Source: ev.source}
 			}
@@ -186,20 +197,20 @@ func (ev *Evaluator) evalStep(env *Env, capEnv CapEnv, expr ir.Core) (EvalResult
 		if err := ev.budget.Alloc(costClosure); err != nil {
 			return EvalResult{}, err
 		}
-		closureEnv := env
+		closureLocals := locals
 		if e.FVIndices != nil {
-			closureEnv = env.Capture(e.FVIndices, 1) // +1 for param Push on application
+			closureLocals = Capture(locals, e.FVIndices, 1) // +1 for param Push on application
 		} else if e.FV != nil {
-			closureEnv = env.CaptureAll(1)
+			closureLocals = CaptureAll(locals, 1)
 		}
-		return EvalResult{&Closure{Env: closureEnv, Param: e.Param, Body: e.Body, Source: ev.source}, capEnv}, nil
+		return EvalResult{&Closure{Locals: closureLocals, Param: e.Param, Body: e.Body, Source: ev.source}, capEnv}, nil
 
 	case *ir.App:
-		funR, err := ev.Eval(env, capEnv, e.Fun)
+		funR, err := ev.Eval(locals, capEnv, e.Fun)
 		if err != nil {
 			return EvalResult{}, err
 		}
-		argR, err := ev.Eval(env, funR.CapEnv, e.Arg)
+		argR, err := ev.Eval(locals, funR.CapEnv, e.Arg)
 		if err != nil {
 			return EvalResult{}, err
 		}
@@ -213,11 +224,11 @@ func (ev *Evaluator) evalStep(env *Env, capEnv CapEnv, expr ir.Core) (EvalResult
 
 	case *ir.TyApp:
 		// Type application is erased at runtime.
-		return ev.Eval(env, capEnv, e.Expr)
+		return ev.Eval(locals, capEnv, e.Expr)
 
 	case *ir.TyLam:
 		// Type abstraction is erased at runtime.
-		return ev.Eval(env, capEnv, e.Body)
+		return ev.Eval(locals, capEnv, e.Body)
 
 	case *ir.Con:
 		if err := ev.budget.Alloc(int64(costConBase + costConArg*len(e.Args))); err != nil {
@@ -226,7 +237,7 @@ func (ev *Evaluator) evalStep(env *Env, capEnv CapEnv, expr ir.Core) (EvalResult
 		args := make([]Value, len(e.Args))
 		ce := capEnv
 		for i, arg := range e.Args {
-			r, err := ev.Eval(env, ce, arg)
+			r, err := ev.Eval(locals, ce, arg)
 			if err != nil {
 				return EvalResult{}, err
 			}
@@ -236,7 +247,7 @@ func (ev *Evaluator) evalStep(env *Env, capEnv CapEnv, expr ir.Core) (EvalResult
 		return EvalResult{&ConVal{Con: e.Name, Args: args}, ce}, nil
 
 	case *ir.Case:
-		scrutR, err := ev.Eval(env, capEnv, e.Scrutinee)
+		scrutR, err := ev.Eval(locals, capEnv, e.Scrutinee)
 		if err != nil {
 			return EvalResult{}, err
 		}
@@ -247,9 +258,9 @@ func (ev *Evaluator) evalStep(env *Env, capEnv CapEnv, expr ir.Core) (EvalResult
 					namedBindings := MatchNamed(scrutR.Value, alt.Pattern)
 					ev.obs.Emit(ev.budget.Depth(), ExplainMatch, matchDetail(PrettyValue(scrutR.Value), formatPattern(alt.Pattern), namedBindings), e.S)
 				}
-				altEnv := env.PushMany(matchVals)
+				altLocals := PushMany(locals, matchVals)
 				// Tail position: bounce instead of recursing.
-				return EvalResult{Value: &bounceVal{env: altEnv, capEnv: scrutR.CapEnv, expr: alt.Body}}, nil
+				return EvalResult{Value: &bounceVal{locals: altLocals, capEnv: scrutR.CapEnv, expr: alt.Body}}, nil
 			}
 		}
 		return EvalResult{}, &RuntimeError{
@@ -259,13 +270,13 @@ func (ev *Evaluator) evalStep(env *Env, capEnv CapEnv, expr ir.Core) (EvalResult
 		}
 
 	case *ir.Fix:
-		return ev.evalFix(env, capEnv, e)
+		return ev.evalFix(locals, capEnv, e)
 
 	case *ir.Pure:
-		return ev.Eval(env, capEnv, e.Expr)
+		return ev.Eval(locals, capEnv, e.Expr)
 
 	case *ir.Bind:
-		compR, err := ev.Eval(env, capEnv, e.Comp)
+		compR, err := ev.Eval(locals, capEnv, e.Comp)
 		if err != nil {
 			return EvalResult{}, err
 		}
@@ -277,12 +288,12 @@ func (ev *Evaluator) evalStep(env *Env, capEnv CapEnv, expr ir.Core) (EvalResult
 		if ev.obs.Active() && !e.Generated && e.Var != "_" {
 			ev.obs.Emit(ev.budget.Depth(), ExplainBind, bindDetail(e.Var, PrettyValue(compR.Value), true), e.S)
 		}
-		bodyEnv := env.Push(compR.Value)
+		bodyLocals := Push(locals, compR.Value)
 		// Tail position: bounce body instead of recursing.
 		// ForceEffectful on the body result is deferred to the trampoline via forceSpan.
 		s := e.S
 		return EvalResult{Value: &bounceVal{
-			env: bodyEnv, capEnv: compR.CapEnv, expr: e.Body,
+			locals: bodyLocals, capEnv: compR.CapEnv, expr: e.Body,
 			forceSpan: &s,
 		}}, nil
 
@@ -290,17 +301,17 @@ func (ev *Evaluator) evalStep(env *Env, capEnv CapEnv, expr ir.Core) (EvalResult
 		if err := ev.budget.Alloc(costThunk); err != nil {
 			return EvalResult{}, err
 		}
-		thunkEnv := env
+		thunkLocals := locals
 		if e.FVIndices != nil {
-			thunkEnv = env.Capture(e.FVIndices, 0) // thunk body: no Push
+			thunkLocals = Capture(locals, e.FVIndices, 0) // thunk body: no Push
 		} else if e.FV != nil {
-			thunkEnv = env.CaptureAll(0)
+			thunkLocals = CaptureAll(locals, 0)
 		}
 		// Mark capEnv as shared since ThunkVal captures it.
-		return EvalResult{&ThunkVal{Env: thunkEnv, Comp: e.Comp, Source: ev.source}, capEnv.MarkShared()}, nil
+		return EvalResult{&ThunkVal{Locals: thunkLocals, Comp: e.Comp, Source: ev.source}, capEnv.MarkShared()}, nil
 
 	case *ir.Force:
-		exprR, err := ev.Eval(env, capEnv, e.Expr)
+		exprR, err := ev.Eval(locals, capEnv, e.Expr)
 		if err != nil {
 			return EvalResult{}, err
 		}
@@ -317,7 +328,7 @@ func (ev *Evaluator) evalStep(env *Env, capEnv CapEnv, expr ir.Core) (EvalResult
 		}
 		// Tail position: bounce instead of recursing.
 		return EvalResult{Value: &bounceVal{
-			env: thunk.Env, capEnv: exprR.CapEnv, expr: thunk.Comp,
+			locals: thunk.Locals, capEnv: exprR.CapEnv, expr: thunk.Comp,
 			leaveDepth: 1, source: thunk.Source,
 		}}, nil
 
@@ -338,7 +349,7 @@ func (ev *Evaluator) evalStep(env *Env, capEnv CapEnv, expr ir.Core) (EvalResult
 		args := make([]Value, len(e.Args))
 		ce := capEnv
 		for i, arg := range e.Args {
-			r, err := ev.Eval(env, ce, arg)
+			r, err := ev.Eval(locals, ce, arg)
 			if err != nil {
 				return EvalResult{}, err
 			}
@@ -366,7 +377,7 @@ func (ev *Evaluator) evalStep(env *Env, capEnv CapEnv, expr ir.Core) (EvalResult
 		fields := make(map[string]Value, len(e.Fields))
 		ce := capEnv
 		for _, f := range e.Fields {
-			r, err := ev.Eval(env, ce, f.Value)
+			r, err := ev.Eval(locals, ce, f.Value)
 			if err != nil {
 				return EvalResult{}, err
 			}
@@ -376,7 +387,7 @@ func (ev *Evaluator) evalStep(env *Env, capEnv CapEnv, expr ir.Core) (EvalResult
 		return EvalResult{&RecordVal{Fields: fields}, ce}, nil
 
 	case *ir.RecordProj:
-		recR, err := ev.Eval(env, capEnv, e.Record)
+		recR, err := ev.Eval(locals, capEnv, e.Record)
 		if err != nil {
 			return EvalResult{}, err
 		}
@@ -399,7 +410,7 @@ func (ev *Evaluator) evalStep(env *Env, capEnv CapEnv, expr ir.Core) (EvalResult
 		return EvalResult{v, recR.CapEnv}, nil
 
 	case *ir.RecordUpdate:
-		recR, err := ev.Eval(env, capEnv, e.Record)
+		recR, err := ev.Eval(locals, capEnv, e.Record)
 		if err != nil {
 			return EvalResult{}, err
 		}
@@ -421,7 +432,7 @@ func (ev *Evaluator) evalStep(env *Env, capEnv CapEnv, expr ir.Core) (EvalResult
 		}
 		ce := recR.CapEnv
 		for _, upd := range e.Updates {
-			r, err := ev.Eval(env, ce, upd.Value)
+			r, err := ev.Eval(locals, ce, upd.Value)
 			if err != nil {
 				return EvalResult{}, err
 			}
