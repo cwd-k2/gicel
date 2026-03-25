@@ -123,10 +123,11 @@ func (pc *pipelineCtx) compileModule(name, source string) (*compiledModule, erro
 	}, nil
 }
 
-// postCheck applies the shared post-type-checking pipeline: optimize and annotate free vars.
+// postCheck applies the shared post-type-checking pipeline: optimize, annotate free vars, assign de Bruijn indices.
 func (pc *pipelineCtx) postCheck(prog *ir.Program) {
 	optimize.OptimizeProgram(prog, pc.host.rewriteRules)
 	ir.AnnotateFreeVarsProgram(prog)
+	ir.AssignIndicesProgram(prog)
 }
 
 // compileMain compiles the main source: lex → parse → type check → optimize → annotate.
@@ -182,6 +183,7 @@ func (pc *pipelineCtx) assembleRuntime(prog *ir.Program, src *span.Source) *Runt
 		runtimeGates["fix"] = true
 		runtimeGates["rec"] = true
 	}
-	rt.initBuiltinEnv(runtimeGates)
+	rt.initBuiltinGlobals(runtimeGates)
+	rt.assignGlobalSlots()
 	return rt
 }

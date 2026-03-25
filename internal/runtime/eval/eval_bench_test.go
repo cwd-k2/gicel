@@ -1,5 +1,5 @@
-// Evaluator benchmarks — env lookup, curried application, closure chains.
-// Does NOT cover: env extend (eval_test.go), full pipeline (engine/engine_bench_test.go).
+// Evaluator benchmarks — globals lookup, curried application, closure capture, match.
+// Does NOT cover: full pipeline (engine/engine_bench_test.go).
 
 package eval
 
@@ -11,38 +11,36 @@ import (
 )
 
 // ---------------------------------------------------------------------------
-// Env: deep lookup (Finding 1 regression check)
+// Globals: map lookup (O(1))
 // ---------------------------------------------------------------------------
 
-// BenchmarkEnvDeepLookup measures lookup cost in a deep parent chain.
-// After Finding 1 fix, lookups on chains > flatThreshold should amortize to O(1).
-func BenchmarkEnvDeepLookup(b *testing.B) {
-	env := EmptyEnv()
-	for i := 0; i < 200; i++ {
-		env = env.Extend(fmt.Sprintf("v%d", i), &HostVal{Inner: i})
+// BenchmarkGlobalsDeepLookup measures global lookup cost with many bindings.
+func BenchmarkGlobalsDeepLookup(b *testing.B) {
+	globals := make(map[string]Value, 200)
+	for i := range 200 {
+		globals[fmt.Sprintf("v%d", i)] = &HostVal{Inner: i}
 	}
-	// First lookup triggers flattening.
-	env.Lookup("v100")
+	_ = globals["v100"]
 	b.ResetTimer()
 	for b.Loop() {
-		env.Lookup("v100")
+		_ = globals["v100"]
 	}
 }
 
-// BenchmarkEnvShallowLookup measures lookup cost in a short chain (no flattening).
-func BenchmarkEnvShallowLookup(b *testing.B) {
-	env := EmptyEnv()
-	for i := 0; i < 10; i++ {
-		env = env.Extend(fmt.Sprintf("v%d", i), &HostVal{Inner: i})
+// BenchmarkGlobalsShallowLookup measures global lookup cost with few bindings.
+func BenchmarkGlobalsShallowLookup(b *testing.B) {
+	globals := make(map[string]Value, 10)
+	for i := range 10 {
+		globals[fmt.Sprintf("v%d", i)] = &HostVal{Inner: i}
 	}
 	b.ResetTimer()
 	for b.Loop() {
-		env.Lookup("v5")
+		_ = globals["v5"]
 	}
 }
 
 // ---------------------------------------------------------------------------
-// ConVal curried application (Finding 6)
+// ConVal curried application
 // ---------------------------------------------------------------------------
 
 // BenchmarkConValCurriedApply measures the allocation cost of building a
@@ -50,7 +48,7 @@ func BenchmarkEnvShallowLookup(b *testing.B) {
 func BenchmarkConValCurriedApply(b *testing.B) {
 	for b.Loop() {
 		var v Value = &ConVal{Con: "MkTuple", Args: nil}
-		for i := 0; i < 10; i++ {
+		for i := range 10 {
 			args := make([]Value, len(v.(*ConVal).Args)+1)
 			copy(args, v.(*ConVal).Args)
 			args[len(args)-1] = &HostVal{Inner: i}
@@ -60,44 +58,40 @@ func BenchmarkConValCurriedApply(b *testing.B) {
 }
 
 // ---------------------------------------------------------------------------
-// Closure chain (eval throughput proxy)
+// Globals map build (eval throughput proxy)
 // ---------------------------------------------------------------------------
 
-// BenchmarkClosureEnvBuild measures the cost of building a closure's
-// captured environment chain via repeated Extend.
-func BenchmarkClosureEnvBuild(b *testing.B) {
+// BenchmarkGlobalsMapBuild measures the cost of building globals via map insert.
+func BenchmarkGlobalsMapBuild(b *testing.B) {
 	for b.Loop() {
-		env := EmptyEnv()
-		for i := 0; i < 100; i++ {
-			env = env.Extend(fmt.Sprintf("captured%d", i), &HostVal{Inner: i})
+		globals := make(map[string]Value, 100)
+		for i := range 100 {
+			globals[fmt.Sprintf("captured%d", i)] = &HostVal{Inner: i}
 		}
-		// Simulate closure capture + lookup.
-		env.Lookup("captured50")
+		_ = globals["captured50"]
 	}
 }
 
 // ---------------------------------------------------------------------------
-// Env.TrimTo (hot path in pprof: 16% of eval alloc)
+// Capture (closure creation hot path)
 // ---------------------------------------------------------------------------
 
-// BenchmarkEnvTrimTo measures the cost of TrimTo, which creates a new env
-// keeping only named bindings. This is called on every closure application.
-func BenchmarkEnvTrimTo(b *testing.B) {
-	env := EmptyEnv()
-	for i := 0; i < 100; i++ {
-		env = env.Extend(fmt.Sprintf("v%d", i), &HostVal{Inner: i})
+// BenchmarkCapture measures the cost of Capture, which extracts specific
+// locals by de Bruijn index. Called on every closure/thunk creation.
+func BenchmarkCapture(b *testing.B) {
+	var locals []Value
+	for i := range 100 {
+		locals = Push(locals, &HostVal{Inner: i})
 	}
-	// Pre-flatten.
-	env.Lookup("v0")
-	names := []string{"v10", "v30", "v50", "v70", "v90"}
+	indices := []int{10, 30, 50, 70, 90}
 	b.ResetTimer()
 	for b.Loop() {
-		env.TrimTo(names)
+		Capture(locals, indices, 1)
 	}
 }
 
 // ---------------------------------------------------------------------------
-// Match allocation (hot path in pprof: 13% of eval alloc)
+// Match allocation
 // ---------------------------------------------------------------------------
 
 // BenchmarkMatchNestedCon measures pattern matching on a nested constructor.

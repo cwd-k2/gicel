@@ -30,7 +30,8 @@ import (
 func TestProbeE_StepLimitZero(t *testing.T) {
 	// maxSteps=0 disables the step limit. Eval should succeed.
 	ev := NewEvaluator(budget.New(context.Background(), 0, 100), NewPrimRegistry(), nil, nil, nil)
-	_, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), &ir.Lit{Value: int64(42)})
+	ev.SetGlobals(map[string]Value{})
+	_, err := ev.Eval(nil, EmptyCapEnv(), &ir.Lit{Value: int64(42)})
 	if err != nil {
 		t.Errorf("maxSteps=0 (disabled) should succeed, got %v", err)
 	}
@@ -43,7 +44,8 @@ func TestProbeE_StepLimitNegative(t *testing.T) {
 		t.Fatalf("expected negative maxSteps to be clamped to 0, got %d", b.Max())
 	}
 	ev := NewEvaluator(b, NewPrimRegistry(), nil, nil, nil)
-	_, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), &ir.Lit{Value: int64(42)})
+	ev.SetGlobals(map[string]Value{})
+	_, err := ev.Eval(nil, EmptyCapEnv(), &ir.Lit{Value: int64(42)})
 	if err != nil {
 		t.Errorf("maxSteps=0 (disabled) should succeed, got %v", err)
 	}
@@ -52,12 +54,13 @@ func TestProbeE_StepLimitNegative(t *testing.T) {
 func TestProbeE_DepthLimitZero(t *testing.T) {
 	// maxDepth=0 disables the depth limit. Eval should succeed.
 	ev := NewEvaluator(budget.New(context.Background(), 1_000_000, 0), NewPrimRegistry(), nil, nil, nil)
+	ev.SetGlobals(map[string]Value{})
 	term := &ir.Bind{
 		Comp: &ir.Pure{Expr: &ir.Lit{Value: int64(1)}},
 		Var:  "_",
 		Body: &ir.Lit{Value: int64(2)},
 	}
-	_, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), term)
+	_, err := ev.Eval(nil, EmptyCapEnv(), term)
 	if err != nil {
 		t.Errorf("maxDepth=0 (disabled) should succeed, got %v", err)
 	}
@@ -70,12 +73,13 @@ func TestProbeE_DepthLimitNegative(t *testing.T) {
 		t.Fatalf("expected negative maxDepth to be clamped to 0, got %d", b.MaxDepth())
 	}
 	ev := NewEvaluator(b, NewPrimRegistry(), nil, nil, nil)
+	ev.SetGlobals(map[string]Value{})
 	term := &ir.Bind{
 		Comp: &ir.Pure{Expr: &ir.Lit{Value: int64(1)}},
 		Var:  "_",
 		Body: &ir.Lit{Value: int64(2)},
 	}
-	_, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), term)
+	_, err := ev.Eval(nil, EmptyCapEnv(), term)
 	if err != nil {
 		t.Errorf("maxDepth=0 (disabled) should succeed, got %v", err)
 	}
@@ -89,7 +93,8 @@ func TestProbeE_AllocLimitNegative(t *testing.T) {
 		t.Fatalf("expected negative allocLimit to be clamped to 0, got %d", b.MaxAlloc())
 	}
 	ev := NewEvaluator(b, NewPrimRegistry(), nil, nil, nil)
-	_, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), &ir.Con{Name: "Unit"})
+	ev.SetGlobals(map[string]Value{})
+	_, err := ev.Eval(nil, EmptyCapEnv(), &ir.Con{Name: "Unit"})
 	if err != nil {
 		t.Fatalf("allocLimit=0 (disabled) should allow allocation, got: %v", err)
 	}
@@ -100,15 +105,16 @@ func TestProbeE_AllocLimitExactBoundary(t *testing.T) {
 	b := budget.New(context.Background(), 1_000_000, 1_000)
 	b.SetAllocLimit(int64(costConBase))
 	ev := NewEvaluator(b, NewPrimRegistry(), nil, nil, nil)
+	ev.SetGlobals(map[string]Value{})
 
 	// First allocation: exactly at limit.
-	_, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), &ir.Con{Name: "A"})
+	_, err := ev.Eval(nil, EmptyCapEnv(), &ir.Con{Name: "A"})
 	if err != nil {
 		t.Fatalf("first Con should succeed at exact limit: %v", err)
 	}
 
 	// Second allocation: over limit.
-	_, err = ev.Eval(EmptyEnv(), EmptyCapEnv(), &ir.Con{Name: "B"})
+	_, err = ev.Eval(nil, EmptyCapEnv(), &ir.Con{Name: "B"})
 	if err == nil {
 		t.Fatal("second Con should exceed alloc limit")
 	}
@@ -123,6 +129,7 @@ func TestProbeE_AllocLimitOverflowSafe(t *testing.T) {
 	b := budget.New(context.Background(), 1_000_000, 1_000)
 	b.SetAllocLimit(100)
 	ev := NewEvaluator(b, NewPrimRegistry(), nil, nil, nil)
+	ev.SetGlobals(map[string]Value{})
 
 	// Try to allocate a huge record. The alloc check should fire before overflow.
 	fields := make([]ir.RecordField, 1000)
@@ -132,7 +139,7 @@ func TestProbeE_AllocLimitOverflowSafe(t *testing.T) {
 			Value: &ir.Lit{Value: int64(i)},
 		}
 	}
-	_, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), &ir.RecordLit{Fields: fields})
+	_, err := ev.Eval(nil, EmptyCapEnv(), &ir.RecordLit{Fields: fields})
 	if err == nil {
 		t.Fatal("expected AllocLimitError for huge record")
 	}
@@ -156,7 +163,7 @@ func TestProbeE_BounceValNeverEscapes(t *testing.T) {
 			},
 		}
 	}
-	r, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), term)
+	r, err := ev.Eval(nil, EmptyCapEnv(), term)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -175,9 +182,9 @@ func TestProbeE_FixEval(t *testing.T) {
 	ev := newTestEval()
 	term := &ir.Fix{
 		Name: "f",
-		Body: &ir.Lam{Param: "x", Body: &ir.Var{Name: "x"}},
+		Body: &ir.Lam{Param: "x", Body: &ir.Var{Index: -1, Name: "x"}},
 	}
-	r, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), term)
+	r, err := ev.Eval(nil, EmptyCapEnv(), term)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -192,7 +199,7 @@ func TestProbeE_BounceValFromForce(t *testing.T) {
 	term := &ir.Force{
 		Expr: &ir.Thunk{Comp: &ir.Lit{Value: int64(77)}},
 	}
-	r, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), term)
+	r, err := ev.Eval(nil, EmptyCapEnv(), term)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -208,7 +215,9 @@ func TestProbeE_BounceValFromForce(t *testing.T) {
 func TestProbeE_ApplyResolvedNoBounce(t *testing.T) {
 	// applyResolved (used by Applier) must resolve bounces.
 	ev := newTestEval()
-	clo := &Closure{Env: EmptyEnv(), Param: "x", Body: &ir.Var{Name: "x"}}
+	body := &ir.Lam{Param: "x", Body: &ir.Var{Name: "x"}}
+	prepareIR(body)
+	clo := &Closure{Locals: nil, Param: body.Param, Body: body.Body}
 	r, err := ev.applyResolved(EmptyCapEnv(), clo, &HostVal{Inner: int64(42)}, &ir.App{})
 	if err != nil {
 		t.Fatal(err)
@@ -311,78 +320,62 @@ func TestProbeE_CapEnvSetAfterCOWIsNotShared(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 4. Env Chain Edge Cases
+// 4. Locals / Globals Edge Cases
 // ---------------------------------------------------------------------------
 
-func TestProbeE_EnvEmptyLookup(t *testing.T) {
-	env := EmptyEnv()
-	_, ok := env.Lookup("anything")
+func TestProbeE_GlobalsEmptyLookup(t *testing.T) {
+	globals := map[string]Value{}
+	_, ok := globals["anything"]
 	if ok {
-		t.Error("Lookup on empty env should return false")
+		t.Error("lookup on empty globals should return false")
 	}
 }
 
-func TestProbeE_EnvTrimToEmpty(t *testing.T) {
-	env := EmptyEnv().Extend("x", &HostVal{Inner: 1}).Extend("y", &HostVal{Inner: 2})
-	trimmed := env.TrimTo(nil)
-	if trimmed.Len() != 0 {
-		t.Errorf("TrimTo(nil) should produce empty env, got len %d", trimmed.Len())
+func TestProbeE_CaptureEmpty(t *testing.T) {
+	// Capture with no indices produces nil locals.
+	var locals []Value
+	locals = Push(locals, &HostVal{Inner: 1})
+	locals = Push(locals, &HostVal{Inner: 2})
+	captured := Capture(locals, []int{}, 0)
+	if len(captured) != 0 {
+		t.Errorf("Capture([]) should produce 0 locals, got %d", len(captured))
 	}
 }
 
-func TestProbeE_EnvTrimToNonexistent(t *testing.T) {
-	env := EmptyEnv().Extend("x", &HostVal{Inner: 1})
-	trimmed := env.TrimTo([]string{"x", "missing"})
-	// "x" should be present, "missing" should not.
-	if _, ok := trimmed.Lookup("x"); !ok {
-		t.Error("trimmed should have 'x'")
-	}
-	if _, ok := trimmed.Lookup("missing"); ok {
-		t.Error("trimmed should not have 'missing'")
-	}
-	// Size should reflect only found bindings.
-	if trimmed.Len() != 1 {
-		t.Errorf("expected len 1, got %d", trimmed.Len())
+func TestProbeE_CaptureSubset(t *testing.T) {
+	// Capture extracts only requested indices.
+	var locals []Value
+	locals = Push(locals, &HostVal{Inner: 10})  // index 2
+	locals = Push(locals, &HostVal{Inner: 20})  // index 1
+	locals = Push(locals, &HostVal{Inner: 30})  // index 0
+	captured := Capture(locals, []int{0, 2}, 0) // capture innermost and outermost
+	if len(captured) != 2 {
+		t.Errorf("expected 2 captured locals, got %d", len(captured))
 	}
 }
 
-func TestProbeE_EnvFlattenThreshold(t *testing.T) {
-	// Build an env chain just under and at the flatten threshold.
-	env := EmptyEnv()
-	for i := 0; i < flatThreshold; i++ {
-		env = env.Extend(fmt.Sprintf("v%d", i), &HostVal{Inner: i})
+func TestProbeE_GlobalsDeepLookup(t *testing.T) {
+	// Many globals should all be found via map lookup.
+	globals := make(map[string]Value, 200)
+	for i := range 200 {
+		globals[fmt.Sprintf("v%d", i)] = &HostVal{Inner: i}
 	}
-	// At threshold, lookup should still work.
-	v, ok := env.Lookup("v0")
+	v, ok := globals["v0"]
 	if !ok || v.(*HostVal).Inner != 0 {
-		t.Error("lookup at threshold should work")
+		t.Error("deep global lookup should work")
 	}
-	// One more extension triggers flatten.
-	env = env.Extend("extra", &HostVal{Inner: 999})
-	v, ok = env.Lookup("extra")
-	if !ok || v.(*HostVal).Inner != 999 {
-		t.Error("lookup after threshold should work")
-	}
-	v, ok = env.Lookup("v0")
-	if !ok || v.(*HostVal).Inner != 0 {
-		t.Error("lookup of deep binding after flatten should work")
+	v, ok = globals["v199"]
+	if !ok || v.(*HostVal).Inner != 199 {
+		t.Error("most recent global lookup should work")
 	}
 }
 
-func TestProbeE_EnvExtendManyShadowing(t *testing.T) {
-	env := EmptyEnv().Extend("x", &HostVal{Inner: 1})
-	env = env.ExtendMany(map[string]Value{"x": &HostVal{Inner: 2}, "y": &HostVal{Inner: 3}})
-	v, ok := env.Lookup("x")
+func TestProbeE_GlobalsShadowing(t *testing.T) {
+	globals := map[string]Value{"x": &HostVal{Inner: 1}}
+	globals["x"] = &HostVal{Inner: 2}
+	v, ok := globals["x"]
 	if !ok || v.(*HostVal).Inner != 2 {
-		t.Errorf("ExtendMany should shadow: expected 2, got %v", v)
-	}
-}
-
-func TestProbeE_EnvExtendManyEmpty(t *testing.T) {
-	env := EmptyEnv().Extend("x", &HostVal{Inner: 1})
-	env2 := env.ExtendMany(map[string]Value{})
-	if env2 != env {
-		t.Error("ExtendMany with empty map should return same env")
+		t.Errorf("map insert should shadow: expected 2, got %v", v)
 	}
 }
 
@@ -451,8 +444,8 @@ func TestProbeE_MatchNestedCon(t *testing.T) {
 	if bindings == nil {
 		t.Fatal("nested match should succeed")
 	}
-	if bindings["x"].(*HostVal).Inner != int64(1) {
-		t.Errorf("expected x=1, got %v", bindings["x"])
+	if bindings[0].(*HostVal).Inner != int64(1) {
+		t.Errorf("expected x=1, got %v", bindings[0])
 	}
 }
 
@@ -571,8 +564,8 @@ func TestProbeE_ValueStringMethods(t *testing.T) {
 		{"HostVal int64", &HostVal{Inner: int64(42)}},
 		{"ConVal empty", &ConVal{Con: "Nil"}},
 		{"ConVal with args", &ConVal{Con: "Cons", Args: []Value{&HostVal{Inner: int64(1)}, &ConVal{Con: "Nil"}}}},
-		{"Closure", &Closure{Env: EmptyEnv(), Param: "x", Body: &ir.Var{Name: "x"}}},
-		{"ThunkVal", &ThunkVal{Env: EmptyEnv(), Comp: &ir.Lit{Value: int64(0)}}},
+		{"Closure", &Closure{Locals: nil, Param: "x", Body: &ir.Var{Index: -1, Name: "x"}}},
+		{"ThunkVal", &ThunkVal{Locals: nil, Comp: &ir.Lit{Value: int64(0)}}},
 		{"PrimVal empty", &PrimVal{Name: "test", Arity: 2}},
 		{"PrimVal with args", &PrimVal{Name: "test", Arity: 2, Args: []Value{&HostVal{Inner: int64(1)}}}},
 		{"RecordVal empty", &RecordVal{Fields: map[string]Value{}}},
@@ -582,7 +575,7 @@ func TestProbeE_ValueStringMethods(t *testing.T) {
 			var v Value = &HostVal{Inner: int64(42)}
 			return &IndirectVal{Ref: &v}
 		}()},
-		{"bounceVal", &bounceVal{env: EmptyEnv(), capEnv: EmptyCapEnv(), expr: &ir.Lit{Value: int64(0)}}},
+		{"bounceVal", &bounceVal{locals: nil, capEnv: EmptyCapEnv(), expr: &ir.Lit{Value: int64(0)}}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -798,7 +791,7 @@ func TestProbeE_EvalNilCore(t *testing.T) {
 			t.Fatalf("eval of nil Core panicked: %v", r)
 		}
 	}()
-	_, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), nil)
+	_, err := ev.Eval(nil, EmptyCapEnv(), nil)
 	if err == nil {
 		t.Fatal("expected error for nil Core node")
 	}
@@ -816,7 +809,8 @@ func TestProbeE_FixApply(t *testing.T) {
 		Body: &ir.Lam{Param: "x", Body: &ir.Var{Name: "x"}},
 	}
 	term := &ir.App{Fun: fix, Arg: &ir.Lit{Value: int64(42)}}
-	r, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), term)
+	prepareIR(term)
+	r, err := ev.Eval(nil, EmptyCapEnv(), term)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -837,8 +831,8 @@ func TestProbeE_IndirectValChain(t *testing.T) {
 	innerInd := &IndirectVal{Ref: &innerVal}
 	var outerVal Value = innerInd
 	outerInd := &IndirectVal{Ref: &outerVal}
-	env := EmptyEnv().Extend("x", outerInd)
-	r, err := ev.Eval(env, EmptyCapEnv(), &ir.Var{Name: "x"})
+	ev.globals["x"] = outerInd
+	r, err := ev.Eval(nil, EmptyCapEnv(), &ir.Var{Index: -1, Name: "x"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -893,7 +887,7 @@ func TestProbeE_BindDepthUnwind(t *testing.T) {
 		Var:  "_",
 		Body: &ir.Pure{Expr: &ir.Lit{Value: int64(2)}},
 	}
-	_, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), term)
+	_, err := ev.Eval(nil, EmptyCapEnv(), term)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -910,7 +904,7 @@ func TestProbeE_ForceDepthUnwind(t *testing.T) {
 	term := &ir.Force{
 		Expr: &ir.Thunk{Comp: &ir.Pure{Expr: &ir.Lit{Value: int64(1)}}},
 	}
-	_, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), term)
+	_, err := ev.Eval(nil, EmptyCapEnv(), term)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -935,7 +929,7 @@ func TestProbeE_RecordUpdateAddsNewField(t *testing.T) {
 			{Label: "y", Value: &ir.Lit{Value: int64(2)}},
 		},
 	}
-	r, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), term)
+	r, err := ev.Eval(nil, EmptyCapEnv(), term)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -957,7 +951,7 @@ func TestProbeE_RecordEmptyUpdate(t *testing.T) {
 		}},
 		Updates: nil,
 	}
-	r, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), term)
+	r, err := ev.Eval(nil, EmptyCapEnv(), term)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -978,6 +972,7 @@ func TestProbeE_CapEnvThreadingThroughConArgs(t *testing.T) {
 		return &HostVal{Inner: int64(1)}, ce.Set("marked", true), nil
 	})
 	ev := NewEvaluator(defaultBudget(), prims, nil, nil, nil)
+	ev.SetGlobals(map[string]Value{})
 	term := &ir.Con{
 		Name: "Pair",
 		Args: []ir.Core{
@@ -986,7 +981,7 @@ func TestProbeE_CapEnvThreadingThroughConArgs(t *testing.T) {
 		},
 	}
 	// markCap is non-effectful with arity 0 and has args (none), so it should be called.
-	r, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), term)
+	r, err := ev.Eval(nil, EmptyCapEnv(), term)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -10,7 +10,7 @@ import (
 func TestEvalRecordLitEmpty(t *testing.T) {
 	ev := newTestEval()
 	term := &ir.RecordLit{}
-	r, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), term)
+	r, err := ev.Eval(nil, EmptyCapEnv(), term)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -31,7 +31,7 @@ func TestEvalRecordLit(t *testing.T) {
 			{Label: "y", Value: &ir.Lit{Value: int64(7)}},
 		},
 	}
-	r, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), term)
+	r, err := ev.Eval(nil, EmptyCapEnv(), term)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -59,7 +59,7 @@ func TestEvalRecordProj(t *testing.T) {
 		},
 		Label: "y",
 	}
-	r, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), term)
+	r, err := ev.Eval(nil, EmptyCapEnv(), term)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -79,7 +79,7 @@ func TestEvalRecordProjMissing(t *testing.T) {
 		},
 		Label: "z",
 	}
-	_, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), term)
+	_, err := ev.Eval(nil, EmptyCapEnv(), term)
 	if err == nil {
 		t.Fatal("expected error for missing field")
 	}
@@ -98,7 +98,7 @@ func TestEvalRecordUpdate(t *testing.T) {
 			{Label: "x", Value: &ir.Lit{Value: int64(100)}},
 		},
 	}
-	r, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), term)
+	r, err := ev.Eval(nil, EmptyCapEnv(), term)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -137,7 +137,9 @@ func TestEvalRecordPattern(t *testing.T) {
 			},
 		},
 	}
-	r, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), term)
+	ir.AnnotateFreeVars(term)
+	ir.AssignIndices(term)
+	r, err := ev.Eval(nil, EmptyCapEnv(), term)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -167,7 +169,7 @@ func TestEvalRecordPatternWild(t *testing.T) {
 			},
 		},
 	}
-	r, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), term)
+	r, err := ev.Eval(nil, EmptyCapEnv(), term)
 	if err != nil {
 		t.Fatal(err)
 	}

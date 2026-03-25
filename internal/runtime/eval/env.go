@@ -1,188 +1,93 @@
 package eval
 
-// Env is a lexically-scoped variable environment.
+// Environment representation:
 //
-// Design: parent-chain with lazy flattening. Extend creates a new Env
-// node that links to its parent (O(1) allocation, no map copy). Lookup
-// walks the chain. When the chain exceeds flatThreshold, the chain is
-// flattened into a cached map for amortized O(1) lookup.
+//   - globals: map[string]Value held on the Evaluator, set once before eval,
+//     immutable during evaluation. Looked up by string key.
 //
-// Fix knot-tying works because Closure captures an *Env pointer;
-// parent-chain nodes share structure just like flat-map Envs did.
-type Env struct {
-	parent *Env
-	name   string
-	val    Value
-	flat   map[string]Value // lazy flattening cache (nil = not yet computed)
-	size   int
-}
-
-// flatThreshold controls when the chain is flattened into a map.
-// Chosen to balance recursive binding scenarios vs small-scope overhead.
-const flatThreshold = 32
-
-// EmptyEnv creates an empty environment.
-func EmptyEnv() *Env {
-	return &Env{flat: make(map[string]Value), size: 0}
-}
-
-// Extend returns a new Env with an additional binding. O(1).
-func (e *Env) Extend(name string, val Value) *Env {
-	return &Env{parent: e, name: name, val: val, size: e.size + 1}
-}
-
-// ExtendMany returns a new Env with multiple bindings.
-// Builds a flat Env directly. Reuses parent's flat cache when available
-// to avoid a redundant flatten + copy cycle.
-func (e *Env) ExtendMany(bindings map[string]Value) *Env {
-	if len(bindings) == 0 {
-		return e
-	}
-	// If parent is already flat, clone its map and merge new bindings (1 alloc).
-	// Otherwise, flatten into a fresh combined map (also 1 alloc, but avoids
-	// the previous 2-alloc pattern of flatten() + separate combined map).
-	var combined map[string]Value
-	if e.flat != nil {
-		combined = make(map[string]Value, len(e.flat)+len(bindings))
-		for k, v := range e.flat {
-			combined[k] = v
-		}
-	} else {
-		combined = make(map[string]Value, e.size+len(bindings))
-		for cur := e; cur != nil; cur = cur.parent {
-			if cur.flat != nil {
-				for k, v := range cur.flat {
-					if _, exists := combined[k]; !exists {
-						combined[k] = v
-					}
-				}
-				break
-			}
-			if cur.name != "" {
-				if _, exists := combined[cur.name]; !exists {
-					combined[cur.name] = cur.val
-				}
-			}
-		}
-	}
-	for k, v := range bindings {
-		combined[k] = v
-	}
-	return &Env{flat: combined, size: len(combined)}
-}
-
-// Lookup searches for a variable. Walks the parent chain, then checks
-// the flat cache. Triggers flattening when the chain exceeds threshold.
-func (e *Env) Lookup(name string) (Value, bool) {
-	// Fast path: flat cache available.
-	if e.flat != nil {
-		v, ok := e.flat[name]
-		return v, ok
-	}
-	// Flatten if the chain exceeds the threshold. After this, e.flat
-	// is populated and all subsequent lookups on this Env are O(1).
-	if e.size > flatThreshold {
-		m := e.flatten()
-		v, ok := m[name]
-		return v, ok
-	}
-	// Walk chain (short environments only).
-	for cur := e; cur != nil; cur = cur.parent {
-		if cur.flat != nil {
-			v, ok := cur.flat[name]
-			return v, ok
-		}
-		if cur.name == name {
-			return cur.val, true
-		}
-	}
-	return nil, false
-}
-
-// Len returns the number of bindings.
-func (e *Env) Len() int {
-	return e.size
-}
-
-// Flatten eagerly materializes the flat cache. Use this on Env nodes
-// that will be shared across goroutines to avoid the lazy-write data race
-// in flatten().
-func (e *Env) Flatten() {
-	e.flat = e.flatten()
-}
-
-// TrimTo returns a new flat Env containing only the named variables.
-// Used to implement safe-for-space closure conversion.
+//   - locals: []Value (de Bruijn indexed array) for lexically-scoped bindings
+//     (lambda params, bind vars, case pattern vars, fix names).
+//     Index 0 = innermost binding. Lookup is locals[len(locals)-1-index], O(1).
 //
-// Fast path: if the env is already flat, reads directly from the cached map.
-// Slow path: walks the chain with a name set, avoiding a full flatten.
-func (e *Env) TrimTo(names []string) *Env {
-	if len(names) == 0 {
-		return EmptyEnv()
-	}
-	// Fast path: flat cache available — direct lookup, no chain walk.
-	if e.flat != nil {
-		m := make(map[string]Value, len(names))
-		for _, name := range names {
-			if v, ok := e.flat[name]; ok {
-				m[name] = v
-			}
-		}
-		return &Env{flat: m, size: len(m)}
-	}
-	// Slow path: walk chain with a name set to avoid triggering flatten.
-	wanted := make(map[string]struct{}, len(names))
-	for _, name := range names {
-		wanted[name] = struct{}{}
-	}
-	m := make(map[string]Value, len(names))
-	for cur := e; cur != nil && len(wanted) > 0; cur = cur.parent {
-		if cur.flat != nil {
-			for name := range wanted {
-				if v, ok := cur.flat[name]; ok {
-					m[name] = v
-					delete(wanted, name)
-				}
-			}
-			break
-		}
-		if cur.name != "" {
-			if _, ok := wanted[cur.name]; ok {
-				m[cur.name] = cur.val
-				delete(wanted, cur.name)
-			}
-		}
-	}
-	return &Env{flat: m, size: len(m)}
+// Aliasing invariant: Push/PushMany use Go's append for amortized O(1) extension.
+// Sibling scopes may share a backing array, but this is safe because:
+//   - Evaluation is sequential — sibling sub-evaluations run one at a time.
+//   - Closures always go through Capture or CaptureAll, which create an
+//     independent copy. This is the only way locals survive beyond their
+//     creating scope.
+//
+// This is analogous to GHC STG's flat closure: the environment itself is
+// a transient stack, and closure creation extracts an independent snapshot.
+
+// Extra capacity hints for Capture/CaptureAll.
+const (
+	ExtraCapParam = 1 // Lam: pre-allocate for Push(param) on application
+	ExtraCapSelf  = 1 // Fix: pre-allocate for Push(self) in knot-tying
+	ExtraCapNone  = 0 // Thunk: no Push on force
+)
+
+// LookupLocal returns the value at the given de Bruijn index in the local stack.
+func LookupLocal(locals []Value, index int) Value {
+	return locals[len(locals)-1-index]
 }
 
-// flatten materializes the full binding map from the parent chain.
-// Caches the result for future lookups.
-func (e *Env) flatten() map[string]Value {
-	if e.flat != nil {
-		return e.flat
+// Push appends a single value to the local stack (amortized O(1) via append).
+func Push(locals []Value, val Value) []Value {
+	return append(locals, val)
+}
+
+// PushMany appends multiple values to the local stack.
+func PushMany(locals []Value, vals []Value) []Value {
+	if len(vals) == 0 {
+		return locals
 	}
-	// Collect chain nodes.
-	m := make(map[string]Value, e.size)
-	for cur := e; cur != nil; cur = cur.parent {
-		if cur.flat != nil {
-			// Merge flat cache (earlier in chain = more recent, wins).
-			for k, v := range cur.flat {
-				if _, exists := m[k]; !exists {
-					m[k] = v
-				}
-			}
-			break
-		}
-		if cur.name != "" {
-			if _, exists := m[cur.name]; !exists {
-				m[cur.name] = cur.val
-			}
-		}
+	return append(locals, vals...)
+}
+
+// Capture creates a closure environment by extracting specific local values
+// at the given de Bruijn indices. extraCap pre-allocates additional capacity
+// for subsequent Push calls (1 for Lam application, 1 for Fix self-ref),
+// so that entering the closure does not trigger a backing-array growth.
+//
+// Returns a fresh locals slice — breaking any backing-array aliasing from
+// prior Push calls.
+func Capture(locals []Value, fvIndices []int, extraCap int) []Value {
+	n := len(fvIndices)
+	if n == 0 && extraCap == 0 {
+		return nil
 	}
-	// Cache if above threshold.
-	if e.size > flatThreshold {
-		e.flat = m
+	result := make([]Value, n, n+extraCap)
+	for i, idx := range fvIndices {
+		result[i] = locals[len(locals)-1-idx]
 	}
-	return m
+	return result
+}
+
+// CaptureAll creates a closure environment that copies all current locals.
+// Used when FV names are known but FVIndices were not assigned (FV != nil, FVIndices == nil).
+// extraCap pre-allocates capacity for subsequent Push calls.
+func CaptureAll(locals []Value, extraCap int) []Value {
+	n := len(locals)
+	if n == 0 && extraCap == 0 {
+		return nil
+	}
+	cp := make([]Value, n, n+extraCap)
+	copy(cp, locals)
+	return cp
+}
+
+// CaptureLam creates the closure environment for a Lam or Fix body.
+// Dispatches on the FV annotation state:
+//
+//	FVIndices != nil → Capture (precise, common case)
+//	FV != nil        → CaptureAll (FV overflow fallback)
+//	both nil         → no capture (top-level, un-annotated)
+func CaptureLam(locals []Value, fvIndices []int, fv []string, extraCap int) []Value {
+	if fvIndices != nil {
+		return Capture(locals, fvIndices, extraCap)
+	}
+	if fv != nil {
+		return CaptureAll(locals, extraCap)
+	}
+	return locals
 }

@@ -2,92 +2,98 @@ package eval
 
 import "testing"
 
-func TestEnvExtendLookup(t *testing.T) {
-	env := EmptyEnv()
-	env = env.Extend("x", &HostVal{Inner: 42})
-	v, ok := env.Lookup("x")
-	if !ok {
-		t.Fatal("expected x to be found")
+func TestLocalPushLookup(t *testing.T) {
+	var locals []Value
+	locals = Push(locals, &HostVal{Inner: 10})
+	locals = Push(locals, &HostVal{Inner: 20})
+	locals = Push(locals, &HostVal{Inner: 30})
+
+	// Index 0 = innermost (last pushed)
+	v := LookupLocal(locals, 0)
+	if hv := v.(*HostVal); hv.Inner != 30 {
+		t.Errorf("index 0: expected 30, got %v", hv.Inner)
 	}
-	if hv, ok := v.(*HostVal); !ok || hv.Inner != 42 {
-		t.Errorf("expected 42, got %v", v)
+	v = LookupLocal(locals, 1)
+	if hv := v.(*HostVal); hv.Inner != 20 {
+		t.Errorf("index 1: expected 20, got %v", hv.Inner)
+	}
+	v = LookupLocal(locals, 2)
+	if hv := v.(*HostVal); hv.Inner != 10 {
+		t.Errorf("index 2: expected 10, got %v", hv.Inner)
 	}
 }
 
-func TestEnvShadowing(t *testing.T) {
-	env := EmptyEnv()
-	env = env.Extend("x", &HostVal{Inner: 1})
-	env = env.Extend("x", &HostVal{Inner: 2})
-	v, _ := env.Lookup("x")
+func TestCapture(t *testing.T) {
+	var locals []Value
+	locals = Push(locals, &HostVal{Inner: 10}) // index 2
+	locals = Push(locals, &HostVal{Inner: 20}) // index 1
+	locals = Push(locals, &HostVal{Inner: 30}) // index 0
+
+	// Capture indices 0 and 2 (innermost and outermost).
+	captured := Capture(locals, []int{0, 2}, 0)
+	// Captured: [30, 10]
+	// Index 0 = 10 (last in captured), Index 1 = 30 (first in captured)
+	v := LookupLocal(captured, 0)
+	if hv := v.(*HostVal); hv.Inner != 10 {
+		t.Errorf("captured index 0: expected 10, got %v", hv.Inner)
+	}
+	v = LookupLocal(captured, 1)
+	if hv := v.(*HostVal); hv.Inner != 30 {
+		t.Errorf("captured index 1: expected 30, got %v", hv.Inner)
+	}
+}
+
+func TestPushMany(t *testing.T) {
+	var locals []Value
+	locals = Push(locals, &HostVal{Inner: 1})
+	locals = PushMany(locals, []Value{&HostVal{Inner: 2}, &HostVal{Inner: 3}})
+	// Layout: [1, 2, 3]
+	// Index 0 = 3, index 1 = 2, index 2 = 1
+	v := LookupLocal(locals, 0)
+	if hv := v.(*HostVal); hv.Inner != 3 {
+		t.Errorf("index 0: expected 3, got %v", hv.Inner)
+	}
+	v = LookupLocal(locals, 2)
+	if hv := v.(*HostVal); hv.Inner != 1 {
+		t.Errorf("index 2: expected 1, got %v", hv.Inner)
+	}
+}
+
+func TestCaptureAll(t *testing.T) {
+	var locals []Value
+	locals = Push(locals, &HostVal{Inner: 1})
+	locals = Push(locals, &HostVal{Inner: 2})
+
+	all := CaptureAll(locals, 0)
+	v := LookupLocal(all, 0)
 	if hv := v.(*HostVal); hv.Inner != 2 {
-		t.Errorf("expected shadowed value 2, got %v", hv.Inner)
+		t.Errorf("expected 2, got %v", hv.Inner)
+	}
+
+	// Original locals should be unaffected by modifications to captured.
+	all = Push(all, &HostVal{Inner: 99})
+	if len(locals) != 2 {
+		t.Errorf("original locals should still have 2 entries, got %d", len(locals))
 	}
 }
 
-func TestEnvNotFound(t *testing.T) {
-	env := EmptyEnv()
-	_, ok := env.Lookup("missing")
-	if ok {
-		t.Error("expected not found in empty env")
+func TestPushNil(t *testing.T) {
+	// Push on nil locals should work correctly.
+	locals := Push(nil, &HostVal{Inner: 42})
+	if len(locals) != 1 {
+		t.Fatalf("expected 1, got %d", len(locals))
+	}
+	v := LookupLocal(locals, 0)
+	if hv := v.(*HostVal); hv.Inner != 42 {
+		t.Errorf("expected 42, got %v", hv.Inner)
 	}
 }
 
-func TestEnvExtendMany(t *testing.T) {
-	env := EmptyEnv().Extend("a", &HostVal{Inner: 1})
-	env = env.ExtendMany(map[string]Value{
-		"b": &HostVal{Inner: 2},
-		"c": &HostVal{Inner: 3},
-	})
-	for _, name := range []string{"a", "b", "c"} {
-		if _, ok := env.Lookup(name); !ok {
-			t.Errorf("expected %s to be found", name)
-		}
-	}
-}
-
-func TestEnvFlatten(t *testing.T) {
-	env := EmptyEnv()
-	for i := range 50 { // exceed flatThreshold
-		env = env.Extend("v"+string(rune('a'+i%26))+string(rune('0'+i/26)), &HostVal{Inner: i})
-	}
-	env.Flatten()
-	// Should still find values after explicit flatten.
-	v, ok := env.Lookup("va0")
-	if !ok {
-		t.Fatal("expected va0 after flatten")
-	}
-	if hv := v.(*HostVal); hv.Inner != 0 {
-		t.Errorf("expected 0, got %v", hv.Inner)
-	}
-}
-
-func TestEnvTrimTo(t *testing.T) {
-	env := EmptyEnv()
-	env = env.Extend("a", &HostVal{Inner: 1})
-	env = env.Extend("b", &HostVal{Inner: 2})
-	env = env.Extend("c", &HostVal{Inner: 3})
-	trimmed := env.TrimTo([]string{"a", "c"})
-	if _, ok := trimmed.Lookup("a"); !ok {
-		t.Error("expected a in trimmed")
-	}
-	if _, ok := trimmed.Lookup("b"); ok {
-		t.Error("b should not be in trimmed")
-	}
-	if _, ok := trimmed.Lookup("c"); !ok {
-		t.Error("expected c in trimmed")
-	}
-	if trimmed.Len() != 2 {
-		t.Errorf("expected len 2, got %d", trimmed.Len())
-	}
-}
-
-func TestEnvLen(t *testing.T) {
-	env := EmptyEnv()
-	if env.Len() != 0 {
-		t.Error("empty env should have len 0")
-	}
-	env = env.Extend("x", &HostVal{Inner: 1})
-	if env.Len() != 1 {
-		t.Errorf("expected len 1, got %d", env.Len())
+func TestCaptureEmpty(t *testing.T) {
+	// Capture with no indices produces nil.
+	locals := Push(nil, &HostVal{Inner: 1})
+	captured := Capture(locals, []int{}, 0)
+	if captured != nil {
+		t.Errorf("Capture([]) should produce nil, got %v", captured)
 	}
 }

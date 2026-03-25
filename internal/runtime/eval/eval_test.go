@@ -18,13 +18,23 @@ func defaultBudget() *budget.Budget {
 }
 
 func newTestEval() *Evaluator {
-	return NewEvaluator(defaultBudget(), NewPrimRegistry(), nil, nil, nil)
+	ev := NewEvaluator(defaultBudget(), NewPrimRegistry(), nil, nil, nil)
+	ev.SetGlobals(map[string]Value{})
+	return ev
+}
+
+// prepareIR runs the FV annotation and de Bruijn index assignment passes
+// on a Core expression, matching the production pipeline. Test IR constructed
+// with named variables (Index = 0 default) will have correct indices assigned.
+func prepareIR(c ir.Core) {
+	ir.AnnotateFreeVars(c)
+	ir.AssignIndices(c)
 }
 
 func TestEvalVar(t *testing.T) {
 	ev := newTestEval()
-	env := EmptyEnv().Extend("x", &HostVal{Inner: 42})
-	r, err := ev.Eval(env, EmptyCapEnv(), &ir.Var{Name: "x"})
+	ev.globals["x"] = &HostVal{Inner: 42}
+	r, err := ev.Eval(nil, EmptyCapEnv(), &ir.Var{Index: -1, Name: "x"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -41,7 +51,8 @@ func TestEvalLamApp(t *testing.T) {
 		Fun: &ir.Lam{Param: "x", Body: &ir.Var{Name: "x"}},
 		Arg: &ir.Con{Name: "Unit"},
 	}
-	r, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), term)
+	prepareIR(term)
+	r, err := ev.Eval(nil, EmptyCapEnv(), term)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -59,8 +70,9 @@ func TestEvalPureBind(t *testing.T) {
 		Var:  "x",
 		Body: &ir.Pure{Expr: &ir.Var{Name: "x"}},
 	}
-	env := EmptyEnv().Extend("val", &HostVal{Inner: 42})
-	r, err := ev.Eval(env, EmptyCapEnv(), term)
+	prepareIR(term)
+	ev.globals["val"] = &HostVal{Inner: 42}
+	r, err := ev.Eval(nil, EmptyCapEnv(), term)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -78,7 +90,7 @@ func TestEvalThunkForce(t *testing.T) {
 			Comp: &ir.Pure{Expr: &ir.Con{Name: "Unit"}},
 		},
 	}
-	r, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), term)
+	r, err := ev.Eval(nil, EmptyCapEnv(), term)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -94,12 +106,13 @@ func TestEvalCase(t *testing.T) {
 	term := &ir.Case{
 		Scrutinee: &ir.Con{Name: "True"},
 		Alts: []ir.Alt{
-			{Pattern: &ir.PCon{Con: "True"}, Body: &ir.Var{Name: "one"}},
-			{Pattern: &ir.PCon{Con: "False"}, Body: &ir.Var{Name: "two"}},
+			{Pattern: &ir.PCon{Con: "True"}, Body: &ir.Var{Index: -1, Name: "one"}},
+			{Pattern: &ir.PCon{Con: "False"}, Body: &ir.Var{Index: -1, Name: "two"}},
 		},
 	}
-	env := EmptyEnv().Extend("one", &HostVal{Inner: 1}).Extend("two", &HostVal{Inner: 2})
-	r, err := ev.Eval(env, EmptyCapEnv(), term)
+	ev.globals["one"] = &HostVal{Inner: 1}
+	ev.globals["two"] = &HostVal{Inner: 2}
+	r, err := ev.Eval(nil, EmptyCapEnv(), term)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -112,7 +125,7 @@ func TestEvalCase(t *testing.T) {
 func TestEvalTyAppErased(t *testing.T) {
 	ev := newTestEval()
 	term := &ir.TyApp{Expr: &ir.Con{Name: "Unit"}}
-	r, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), term)
+	r, err := ev.Eval(nil, EmptyCapEnv(), term)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -128,11 +141,12 @@ func TestEvalPrimOp(t *testing.T) {
 		return args[0], cap, nil
 	})
 	ev := NewEvaluator(defaultBudget(), prims, nil, nil, nil)
+	ev.SetGlobals(map[string]Value{})
 	term := &ir.PrimOp{
 		Name: "id",
 		Args: []ir.Core{&ir.Con{Name: "Unit"}},
 	}
-	r, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), term)
+	r, err := ev.Eval(nil, EmptyCapEnv(), term)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -148,13 +162,14 @@ func TestEvalCapEnvThreading(t *testing.T) {
 		return &ConVal{Con: "Unit"}, cap.Set("foo", "bar"), nil
 	})
 	ev := NewEvaluator(defaultBudget(), prims, nil, nil, nil)
+	ev.SetGlobals(map[string]Value{})
 	// Bind(PrimOp("setFoo"), "_", Pure(Con("Unit")))
 	term := &ir.Bind{
 		Comp: &ir.PrimOp{Name: "setFoo"},
 		Var:  "_",
 		Body: &ir.Pure{Expr: &ir.Con{Name: "Unit"}},
 	}
-	r, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), term)
+	r, err := ev.Eval(nil, EmptyCapEnv(), term)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -166,14 +181,15 @@ func TestEvalCapEnvThreading(t *testing.T) {
 
 func TestStepLimit(t *testing.T) {
 	ev := NewEvaluator(budget.New(context.Background(), 3, 100), NewPrimRegistry(), nil, nil, nil)
+	ev.SetGlobals(map[string]Value{})
 	// A chain: App(App(Lam, Lam), Con) — will exceed 3 steps
 	term := &ir.App{
 		Fun: &ir.Lam{Param: "f",
-			Body: &ir.App{Fun: &ir.Var{Name: "f"}, Arg: &ir.Con{Name: "Unit"}},
+			Body: &ir.App{Fun: &ir.Var{Index: -1, Name: "f"}, Arg: &ir.Con{Name: "Unit"}},
 		},
-		Arg: &ir.Lam{Param: "x", Body: &ir.Var{Name: "x"}},
+		Arg: &ir.Lam{Param: "x", Body: &ir.Var{Index: -1, Name: "x"}},
 	}
-	_, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), term)
+	_, err := ev.Eval(nil, EmptyCapEnv(), term)
 	if _, ok := err.(*budget.StepLimitError); !ok {
 		t.Errorf("expected StepLimitError, got %v", err)
 	}
@@ -183,7 +199,8 @@ func TestContextCancellation(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel() // cancel immediately
 	ev := NewEvaluator(budget.New(ctx, 1_000_000, 1_000), NewPrimRegistry(), nil, nil, nil)
-	_, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), &ir.Con{Name: "Unit"})
+	ev.SetGlobals(map[string]Value{})
+	_, err := ev.Eval(nil, EmptyCapEnv(), &ir.Con{Name: "Unit"})
 	if !errors.Is(err, context.Canceled) {
 		t.Errorf("expected context.Canceled, got %v", err)
 	}
@@ -196,8 +213,9 @@ func TestTraceHook(t *testing.T) {
 		return nil
 	}
 	ev := NewEvaluator(defaultBudget(), NewPrimRegistry(), hook, nil, nil)
+	ev.SetGlobals(map[string]Value{})
 	term := &ir.Pure{Expr: &ir.Con{Name: "Unit"}}
-	_, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), term)
+	_, err := ev.Eval(nil, EmptyCapEnv(), term)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -206,64 +224,61 @@ func TestTraceHook(t *testing.T) {
 	}
 }
 
-func TestEnvParentChainLookup(t *testing.T) {
-	// Build a 100-deep chain and verify deepest binding is found.
-	env := EmptyEnv()
+func TestGlobalsMapLookup(t *testing.T) {
+	// Build a map with 100 entries and verify lookup.
+	globals := make(map[string]Value, 100)
 	for i := 0; i < 100; i++ {
-		env = env.Extend(fmt.Sprintf("v%d", i), &HostVal{Inner: i})
+		globals[fmt.Sprintf("v%d", i)] = &HostVal{Inner: i}
 	}
-	// Lookup the deepest binding.
-	v, ok := env.Lookup("v0")
+	// Lookup the first binding.
+	v, ok := globals["v0"]
 	if !ok {
-		t.Fatal("v0 not found in 100-deep chain")
+		t.Fatal("v0 not found")
 	}
 	if v.(*HostVal).Inner != 0 {
 		t.Errorf("expected 0, got %v", v.(*HostVal).Inner)
 	}
-	// Lookup the most recent binding.
-	v99, ok := env.Lookup("v99")
+	// Lookup the last binding.
+	v99, ok := globals["v99"]
 	if !ok {
 		t.Fatal("v99 not found")
 	}
 	if v99.(*HostVal).Inner != 99 {
 		t.Errorf("expected 99, got %v", v99.(*HostVal).Inner)
 	}
-	// Verify Len().
-	if env.Len() != 100 {
-		t.Errorf("expected Len()=100, got %d", env.Len())
+	if len(globals) != 100 {
+		t.Errorf("expected len=100, got %d", len(globals))
 	}
 }
 
-func TestEnvExtendAlloc(t *testing.T) {
-	// Extend should NOT copy the map (O(1) allocation).
-	base := EmptyEnv()
-	for i := 0; i < 50; i++ {
-		base = base.Extend(fmt.Sprintf("v%d", i), &HostVal{Inner: i})
+func TestGlobalsMapInsertAlloc(t *testing.T) {
+	// Map insert in place — no map copy.
+	globals := make(map[string]Value, 60)
+	for i := range 50 {
+		globals[fmt.Sprintf("v%d", i)] = &HostVal{Inner: i}
 	}
 	allocs := testing.AllocsPerRun(100, func() {
-		base.Extend("extra", &HostVal{Inner: 999})
+		globals["extra"] = &HostVal{Inner: 999}
 	})
-	// With parent-chain, Extend allocates 1 Env struct only.
-	// Old impl would allocate map + copy (much more).
-	if allocs > 3 {
-		t.Errorf("Extend allocated %v per run; expected <= 3 (parent-chain O(1))", allocs)
+	if allocs > 1 {
+		t.Errorf("map insert allocated %v per run; expected <= 1 (in-place)", allocs)
 	}
 }
 
-func BenchmarkEnvExtend100(b *testing.B) {
+func BenchmarkGlobalsMapBuild100(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		env := EmptyEnv()
+		globals := make(map[string]Value, 100)
 		for j := 0; j < 100; j++ {
-			env = env.Extend(fmt.Sprintf("v%d", j), &HostVal{Inner: j})
+			globals[fmt.Sprintf("v%d", j)] = &HostVal{Inner: j}
 		}
 		// Force a lookup to prevent dead-code elimination.
-		env.Lookup("v50")
+		_ = globals["v50"]
 	}
 }
 
-func TestEnvLookup(t *testing.T) {
-	env := EmptyEnv().Extend("x", &HostVal{Inner: 1}).Extend("y", &HostVal{Inner: 2})
-	v, ok := env.Lookup("x")
+func TestGlobalsMapLookupAndShadowing(t *testing.T) {
+	globals := map[string]Value{"x": &HostVal{Inner: 1}, "y": &HostVal{Inner: 2}}
+	v, ok := globals["x"]
 	if !ok {
 		t.Fatal("x not found")
 	}
@@ -271,8 +286,8 @@ func TestEnvLookup(t *testing.T) {
 		t.Error("x should be 1")
 	}
 	// Shadowing
-	env2 := env.Extend("x", &HostVal{Inner: 99})
-	v2, _ := env2.Lookup("x")
+	globals["x"] = &HostVal{Inner: 99}
+	v2 := globals["x"]
 	if v2.(*HostVal).Inner != 99 {
 		t.Error("shadowed x should be 99")
 	}
@@ -301,7 +316,8 @@ func TestMatchPatterns(t *testing.T) {
 	if bindings == nil {
 		t.Fatal("match should succeed")
 	}
-	if bindings["a"].(*HostVal).Inner != 1 || bindings["b"].(*HostVal).Inner != 2 {
+	// Match returns []Value in pattern-binding order: [a, b]
+	if bindings[0].(*HostVal).Inner != 1 || bindings[1].(*HostVal).Inner != 2 {
 		t.Error("binding values wrong")
 	}
 	// Mismatch: different constructor
@@ -335,11 +351,12 @@ func TestMatchRecordPattern(t *testing.T) {
 	if bindings == nil {
 		t.Fatal("expected match to succeed")
 	}
-	if bindings["a"].(*HostVal).Inner != 10 {
-		t.Errorf("expected a=10, got %v", bindings["a"])
+	// Match returns []Value in pattern field order: [a, b]
+	if bindings[0].(*HostVal).Inner != 10 {
+		t.Errorf("expected a=10, got %v", bindings[0])
 	}
-	if bindings["b"].(*HostVal).Inner != 20 {
-		t.Errorf("expected b=20, got %v", bindings["b"])
+	if bindings[1].(*HostVal).Inner != 20 {
+		t.Errorf("expected b=20, got %v", bindings[1])
 	}
 	// Missing field should fail.
 	patExtra := &ir.PRecord{Fields: []ir.PRecordField{
@@ -358,7 +375,7 @@ func TestMatchRecordPattern(t *testing.T) {
 func TestEvalStats(t *testing.T) {
 	ev := newTestEval()
 	term := &ir.Pure{Expr: &ir.Con{Name: "Unit"}}
-	_, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), term)
+	_, err := ev.Eval(nil, EmptyCapEnv(), term)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -372,6 +389,7 @@ func TestAllocLimit(t *testing.T) {
 	b := budget.New(context.Background(), 1_000_000, 1_000)
 	b.SetAllocLimit(100) // 100 bytes — enough for a few small values
 	ev := NewEvaluator(b, NewPrimRegistry(), nil, nil, nil)
+	ev.SetGlobals(map[string]Value{})
 
 	// Build a 10-field record: costRecBase(56) + costRecFld(32)*10 = 376 bytes > 100
 	fields := make([]ir.RecordField, 10)
@@ -381,7 +399,7 @@ func TestAllocLimit(t *testing.T) {
 			Value: &ir.Lit{Value: i},
 		}
 	}
-	_, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), &ir.RecordLit{Fields: fields})
+	_, err := ev.Eval(nil, EmptyCapEnv(), &ir.RecordLit{Fields: fields})
 	if err == nil {
 		t.Fatal("expected AllocLimitError, got nil")
 	}
@@ -398,7 +416,8 @@ func TestAllocTracking(t *testing.T) {
 		Fun: &ir.Lam{Param: "x", Body: &ir.Var{Name: "x"}},
 		Arg: &ir.Con{Name: "Unit"},
 	}
-	_, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), term)
+	prepareIR(term)
+	_, err := ev.Eval(nil, EmptyCapEnv(), term)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -422,12 +441,13 @@ func TestBindForceEffectfulBody(t *testing.T) {
 		return &ConVal{Con: "Unit"}, cap.Set("foo", "done"), nil
 	})
 	ev := NewEvaluator(defaultBudget(), prims, nil, nil, nil)
+	ev.SetGlobals(map[string]Value{})
 	term := &ir.Bind{
 		Comp: &ir.Pure{Expr: &ir.Con{Name: "Unit"}},
 		Var:  "_",
 		Body: &ir.PrimOp{Name: "setFoo", Arity: 0, Effectful: true},
 	}
-	r, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), term)
+	r, err := ev.Eval(nil, EmptyCapEnv(), term)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -441,74 +461,81 @@ func TestBindForceEffectfulBody(t *testing.T) {
 }
 
 func TestClosureEnvTrimmed(t *testing.T) {
-	// Closure with FV annotation should trim env to named vars only.
+	// Closure with FV annotation should capture only referenced locals.
 	ev := newTestEval()
-	lam := &ir.Lam{Param: "x", Body: &ir.Var{Name: "y"}, FV: []string{"y"}}
-	env := EmptyEnv().Extend("y", &HostVal{Inner: 1}).Extend("z", &HostVal{Inner: 2})
-	r, err := ev.Eval(env, EmptyCapEnv(), lam)
+	var locals []Value
+	locals = Push(locals, &HostVal{Inner: 1}) // y at de Bruijn index 1
+	locals = Push(locals, &HostVal{Inner: 2}) // z at de Bruijn index 0
+	// Lam captures only y (index 1 in enclosing env).
+	lam := &ir.Lam{
+		Param:     "x",
+		Body:      &ir.Var{Name: "y", Index: 1},
+		FV:        []string{"y"},
+		FVIndices: []int{1},
+	}
+	r, err := ev.Eval(locals, EmptyCapEnv(), lam)
 	if err != nil {
 		t.Fatal(err)
 	}
 	clo := r.Value.(*Closure)
-	if _, ok := clo.Env.Lookup("z"); ok {
-		t.Error("trimmed closure env should not contain 'z'")
-	}
-	if _, ok := clo.Env.Lookup("y"); !ok {
-		t.Error("trimmed closure env should contain 'y'")
+	if len(clo.Locals) != 1 {
+		t.Errorf("trimmed closure locals should have 1 entry (y only), got %d", len(clo.Locals))
 	}
 }
 
 func TestThunkEnvTrimmed(t *testing.T) {
-	// Thunk with FV annotation should trim env.
+	// Thunk with FV annotation should capture only referenced locals.
 	ev := newTestEval()
+	var locals []Value
+	locals = Push(locals, &HostVal{Inner: 1}) // y at de Bruijn index 1
+	locals = Push(locals, &HostVal{Inner: 2}) // z at de Bruijn index 0
 	thunk := &ir.Thunk{
-		Comp: &ir.Pure{Expr: &ir.Var{Name: "y"}},
-		FV:   []string{"y"},
+		Comp:      &ir.Pure{Expr: &ir.Var{Name: "y", Index: 0}},
+		FV:        []string{"y"},
+		FVIndices: []int{1},
 	}
-	env := EmptyEnv().Extend("y", &HostVal{Inner: 1}).Extend("z", &HostVal{Inner: 2})
-	r, err := ev.Eval(env, EmptyCapEnv(), thunk)
+	r, err := ev.Eval(locals, EmptyCapEnv(), thunk)
 	if err != nil {
 		t.Fatal(err)
 	}
 	tv := r.Value.(*ThunkVal)
-	if _, ok := tv.Env.Lookup("z"); ok {
-		t.Error("trimmed thunk env should not contain 'z'")
-	}
-	if _, ok := tv.Env.Lookup("y"); !ok {
-		t.Error("trimmed thunk env should contain 'y'")
+	if len(tv.Locals) != 1 {
+		t.Errorf("trimmed thunk locals should have 1 entry (y only), got %d", len(tv.Locals))
 	}
 }
 
 func TestFixEnvTrimmed(t *testing.T) {
-	// fix f = \x. ext — returned closure should have trimmed env.
+	// fix f = \x. ext — returned closure should capture only ext, not noise.
 	ev := newTestEval()
+	var locals []Value
+	locals = Push(locals, &HostVal{Inner: 1}) // ext at de Bruijn index 1
+	locals = Push(locals, &HostVal{Inner: 2}) // noise at de Bruijn index 0
+	// Lam captures ext (index 1). Fix adds self-ref.
+	// After Capture([ext]) + Push(self): locals = [ext, self].
+	// In body after Push(x): [ext, self, x]. ext=2, self=1, x=0.
 	term := &ir.Fix{
 		Name: "f",
 		Body: &ir.Lam{
-			Param: "x",
-			Body:  &ir.Var{Name: "ext"},
-			FV:    []string{"ext"},
+			Param:     "x",
+			Body:      &ir.Var{Name: "ext", Index: 2},
+			FV:        []string{"ext"},
+			FVIndices: []int{1},
 		},
 	}
-	env := EmptyEnv().
-		Extend("ext", &HostVal{Inner: 1}).
-		Extend("noise", &HostVal{Inner: 2})
-	r, err := ev.Eval(env, EmptyCapEnv(), term)
+	r, err := ev.Eval(locals, EmptyCapEnv(), term)
 	if err != nil {
 		t.Fatal(err)
 	}
 	clo := r.Value.(*Closure)
-	if _, ok := clo.Env.Lookup("noise"); ok {
-		t.Error("Fix closure env should not contain 'noise'")
-	}
-	if _, ok := clo.Env.Lookup("ext"); !ok {
-		t.Error("Fix closure env should contain 'ext'")
+	// Captured locals: [ext, self] — 2 entries (FV + fix self-ref).
+	if len(clo.Locals) != 2 {
+		t.Errorf("Fix closure locals should have 2 entries (ext + self), got %d", len(clo.Locals))
 	}
 }
 
 func TestAllocTrackingThunk(t *testing.T) {
 	ev := newTestEval()
-	_, err := ev.Eval(EmptyEnv(), EmptyCapEnv(),
+	_, err := ev.Eval(nil, EmptyCapEnv(),
 		&ir.Thunk{Comp: &ir.Pure{Expr: &ir.Con{Name: "Unit"}}})
 	if err != nil {
 		t.Fatal(err)
@@ -527,7 +554,8 @@ func TestAllocTrackingFix(t *testing.T) {
 		},
 		Arg: &ir.Con{Name: "Unit"},
 	}
-	_, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), term)
+	prepareIR(term)
+	_, err := ev.Eval(nil, EmptyCapEnv(), term)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -548,7 +576,7 @@ func TestAllocTrackingRecordUpdate(t *testing.T) {
 			{Label: "a", Value: &ir.Lit{Value: int64(2)}},
 		},
 	}
-	_, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), term)
+	_, err := ev.Eval(nil, EmptyCapEnv(), term)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -565,7 +593,7 @@ func TestThunkCapEnvMarkShared(t *testing.T) {
 	ev := newTestEval()
 	capEnv := EmptyCapEnv().Set("a", 1)
 	thunk := &ir.Thunk{Comp: &ir.Pure{Expr: &ir.Con{Name: "Unit"}}}
-	r, err := ev.Eval(EmptyEnv(), capEnv, thunk)
+	r, err := ev.Eval(nil, capEnv, thunk)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -581,15 +609,16 @@ func TestThunkCapEnvMarkShared(t *testing.T) {
 func TestStepLimitBoundary(t *testing.T) {
 	// Budget with 2 steps allows exactly 2 eval steps.
 	ev := NewEvaluator(budget.New(context.Background(), 2, 100), NewPrimRegistry(), nil, nil, nil)
-	_, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), &ir.Lit{Value: int64(42)})
+	ev.SetGlobals(map[string]Value{})
+	_, err := ev.Eval(nil, EmptyCapEnv(), &ir.Lit{Value: int64(42)})
 	if err != nil {
 		t.Fatalf("budget(2): first eval should succeed, got %v", err)
 	}
-	_, err = ev.Eval(EmptyEnv(), EmptyCapEnv(), &ir.Lit{Value: int64(43)})
+	_, err = ev.Eval(nil, EmptyCapEnv(), &ir.Lit{Value: int64(43)})
 	if err != nil {
 		t.Fatalf("budget(2): second eval should succeed, got %v", err)
 	}
-	_, err = ev.Eval(EmptyEnv(), EmptyCapEnv(), &ir.Lit{Value: int64(44)})
+	_, err = ev.Eval(nil, EmptyCapEnv(), &ir.Lit{Value: int64(44)})
 	if _, ok := err.(*budget.StepLimitError); !ok {
 		t.Errorf("budget(2): third eval should fail with StepLimitError, got %v", err)
 	}
@@ -598,11 +627,13 @@ func TestStepLimitBoundary(t *testing.T) {
 func TestDepthLimitBoundary(t *testing.T) {
 	// maxDepth=1: one level of function application should succeed.
 	ev := NewEvaluator(budget.New(context.Background(), 1_000_000, 1), NewPrimRegistry(), nil, nil, nil)
+	ev.SetGlobals(map[string]Value{})
 	term := &ir.App{
 		Fun: &ir.Lam{Param: "x", Body: &ir.Var{Name: "x"}},
 		Arg: &ir.Con{Name: "Unit"},
 	}
-	_, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), term)
+	prepareIR(term)
+	_, err := ev.Eval(nil, EmptyCapEnv(), term)
 	if err != nil {
 		t.Fatalf("maxDepth=1: single application should succeed, got %v", err)
 	}
@@ -613,7 +644,8 @@ func TestAllocLimitBoundary(t *testing.T) {
 	b := budget.New(context.Background(), 1_000_000, 1_000)
 	b.SetAllocLimit(int64(costConBase))
 	ev := NewEvaluator(b, NewPrimRegistry(), nil, nil, nil)
-	_, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), &ir.Con{Name: "Unit"})
+	ev.SetGlobals(map[string]Value{})
+	_, err := ev.Eval(nil, EmptyCapEnv(), &ir.Con{Name: "Unit"})
 	if err != nil {
 		t.Fatalf("allocLimit=costConBase: one ConVal should succeed, got %v", err)
 	}
@@ -648,6 +680,7 @@ func TestDepthLimitError(t *testing.T) {
 	// Depth only accumulates via non-tail closure application.
 	// Verify that a deep Bind chain succeeds even with maxDepth=1.
 	ev := NewEvaluator(budget.New(context.Background(), 1_000_000, 1), NewPrimRegistry(), nil, nil, nil)
+	ev.SetGlobals(map[string]Value{})
 	term := &ir.Bind{
 		Comp: &ir.Pure{Expr: &ir.Con{Name: "Unit"}},
 		Var:  "_",
@@ -657,7 +690,7 @@ func TestDepthLimitError(t *testing.T) {
 			Body: &ir.Pure{Expr: &ir.Con{Name: "Unit"}},
 		},
 	}
-	_, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), term)
+	_, err := ev.Eval(nil, EmptyCapEnv(), term)
 	if err != nil {
 		t.Fatalf("Bind chain should not consume depth (TCO), got: %v", err)
 	}
@@ -679,7 +712,8 @@ func TestDepthLimitMultiLevel(t *testing.T) {
 
 	// maxDepth=5: chain of 100 Binds should succeed (Bind does not consume depth).
 	ev := NewEvaluator(budget.New(context.Background(), 1_000_000, 5), NewPrimRegistry(), nil, nil, nil)
-	_, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), buildBindChain(100))
+	ev.SetGlobals(map[string]Value{})
+	_, err := ev.Eval(nil, EmptyCapEnv(), buildBindChain(100))
 	if err != nil {
 		t.Fatalf("100-Bind chain at maxDepth=5 should succeed (TCO), got: %v", err)
 	}
@@ -696,7 +730,8 @@ func TestBindChainTCO(t *testing.T) {
 		}
 	}
 	ev := NewEvaluator(budget.New(context.Background(), 1_000_000, 10), NewPrimRegistry(), nil, nil, nil)
-	r, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), body)
+	ev.SetGlobals(map[string]Value{})
+	r, err := ev.Eval(nil, EmptyCapEnv(), body)
 	if err != nil {
 		t.Fatalf("10000-Bind chain should succeed with TCO, got: %v", err)
 	}
@@ -715,6 +750,7 @@ func TestBindForceEffectfulDeferred(t *testing.T) {
 		return &HostVal{Inner: int64(99)}, ce, nil
 	})
 	ev := NewEvaluator(budget.New(context.Background(), 1_000_000, 10), prims, nil, nil, nil)
+	ev.SetGlobals(map[string]Value{})
 
 	// Bind(Pure(Unit), _, Bind(Pure(Unit), _, PrimOp("getState")))
 	// The final PrimOp needs ForceEffectful via the trampoline.
@@ -727,7 +763,7 @@ func TestBindForceEffectfulDeferred(t *testing.T) {
 			Body: &ir.PrimOp{Name: "getState", Arity: 0, Effectful: true},
 		},
 	}
-	r, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), term)
+	r, err := ev.Eval(nil, EmptyCapEnv(), term)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -740,10 +776,11 @@ func TestBindForceEffectfulDeferred(t *testing.T) {
 func TestFixNestedEval(t *testing.T) {
 	// Nested Fix nodes evaluate correctly — each produces a closure.
 	ev := newTestEval()
-	// fix g in (fix f in \x. x) applied to Unit
+	// (fix f in \x. x) applied to Unit
 	inner := &ir.Fix{Name: "f", Body: &ir.Lam{Param: "x", Body: &ir.Var{Name: "x"}}}
 	term := &ir.App{Fun: inner, Arg: &ir.Con{Name: "Unit"}}
-	r, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), term)
+	prepareIR(term)
+	r, err := ev.Eval(nil, EmptyCapEnv(), term)
 	if err != nil {
 		t.Fatalf("expected success, got: %v", err)
 	}
@@ -756,7 +793,7 @@ func TestFixNestedEval(t *testing.T) {
 
 func TestEvalVarUnbound(t *testing.T) {
 	ev := newTestEval()
-	_, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), &ir.Var{Name: "missing"})
+	_, err := ev.Eval(nil, EmptyCapEnv(), &ir.Var{Index: -1, Name: "missing"})
 	if err == nil {
 		t.Fatal("expected error for unbound variable")
 	}
@@ -773,7 +810,7 @@ func TestEvalCaseNoMatch(t *testing.T) {
 			{Pattern: &ir.PCon{Con: "Bar"}, Body: &ir.Lit{Value: int64(1)}},
 		},
 	}
-	_, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), term)
+	_, err := ev.Eval(nil, EmptyCapEnv(), term)
 	if err == nil {
 		t.Fatal("expected error for non-exhaustive case")
 	}
@@ -785,7 +822,7 @@ func TestEvalCaseNoMatch(t *testing.T) {
 func TestFixNonLamBinding(t *testing.T) {
 	ev := newTestEval()
 	term := &ir.Fix{Name: "x", Body: &ir.Con{Name: "Unit"}}
-	_, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), term)
+	_, err := ev.Eval(nil, EmptyCapEnv(), term)
 	if err == nil {
 		t.Fatal("expected error for Fix non-lambda body")
 	}
@@ -798,7 +835,8 @@ func TestTraceHookAbort(t *testing.T) {
 	sentinel := errors.New("abort from hook")
 	hook := func(ev TraceEvent) error { return sentinel }
 	evl := NewEvaluator(defaultBudget(), NewPrimRegistry(), hook, nil, nil)
-	_, err := evl.Eval(EmptyEnv(), EmptyCapEnv(), &ir.Lit{Value: int64(1)})
+	evl.SetGlobals(map[string]Value{})
+	_, err := evl.Eval(nil, EmptyCapEnv(), &ir.Lit{Value: int64(1)})
 	if !errors.Is(err, sentinel) {
 		t.Errorf("expected sentinel error from hook, got %v", err)
 	}
@@ -850,7 +888,7 @@ func TestNewCapEnvIsolatesCallerMap(t *testing.T) {
 func TestPrimOpNotRegistered(t *testing.T) {
 	ev := newTestEval()
 	term := &ir.PrimOp{Name: "nonexistent", Args: []ir.Core{&ir.Lit{Value: int64(0)}}}
-	_, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), term)
+	_, err := ev.Eval(nil, EmptyCapEnv(), term)
 	if err == nil {
 		t.Fatal("expected error for unregistered PrimOp")
 	}
@@ -867,6 +905,7 @@ func TestTCOTailRecursionFlat(t *testing.T) {
 	ctx := context.Background()
 	prims := NewPrimRegistry()
 	ev := NewEvaluator(budget.New(ctx, N*10, N*2), prims, nil, nil, nil)
+	ev.SetGlobals(map[string]Value{})
 
 	zeroLit := &ir.Lit{Value: int64(0)}
 	oneLit := &ir.Lit{Value: int64(1)}
@@ -887,6 +926,7 @@ func TestTCOTailRecursionFlat(t *testing.T) {
 	innerLam := &ir.Lam{Param: "n", Body: body}
 	fix := &ir.Fix{Name: "self", Body: innerLam}
 	term := &ir.App{Fun: fix, Arg: &ir.Lit{Value: int64(N)}}
+	prepareIR(term)
 
 	prims.Register("eq", func(_ context.Context, ce CapEnv, args []Value, _ Applier) (Value, CapEnv, error) {
 		a := args[0].(*HostVal).Inner.(int64)
@@ -902,7 +942,7 @@ func TestTCOTailRecursionFlat(t *testing.T) {
 		return &HostVal{Inner: a - b}, ce, nil
 	})
 
-	result, err := ev.Eval(EmptyEnv(), NewCapEnv(nil), term)
+	result, err := ev.Eval(nil, NewCapEnv(nil), term)
 	if err != nil {
 		t.Fatalf("TCO tail recursion failed: %v", err)
 	}
@@ -926,7 +966,7 @@ func TestTCOCaseNonTailDoesNotBounce(t *testing.T) {
 			{Pattern: &ir.PCon{Con: "False"}, Body: &ir.Lit{Value: int64(0)}},
 		},
 	}
-	r, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), term)
+	r, err := ev.Eval(nil, EmptyCapEnv(), term)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -960,7 +1000,7 @@ func TestTCONestedCase(t *testing.T) {
 			{Pattern: &ir.PCon{Con: "False"}, Body: &ir.Lit{Value: int64(3)}},
 		},
 	}
-	r, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), term)
+	r, err := ev.Eval(nil, EmptyCapEnv(), term)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -979,7 +1019,7 @@ func TestEvalRecordProjOnNonRecordEval(t *testing.T) {
 		Record: &ir.Lit{Value: int64(42)},
 		Label:  "x",
 	}
-	_, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), term)
+	_, err := ev.Eval(nil, EmptyCapEnv(), term)
 	if err == nil {
 		t.Fatal("expected error for projection on non-record")
 	}
@@ -991,7 +1031,7 @@ func TestEvalRecordUpdateOnNonRecordEval(t *testing.T) {
 		Record:  &ir.Lit{Value: int64(42)},
 		Updates: []ir.RecordField{{Label: "x", Value: &ir.Lit{Value: int64(1)}}},
 	}
-	_, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), term)
+	_, err := ev.Eval(nil, EmptyCapEnv(), term)
 	if err == nil {
 		t.Fatal("expected error for update on non-record")
 	}
@@ -1000,7 +1040,7 @@ func TestEvalRecordUpdateOnNonRecordEval(t *testing.T) {
 func TestEvalForceNonThunk(t *testing.T) {
 	ev := newTestEval()
 	term := &ir.Force{Expr: &ir.Lit{Value: int64(42)}}
-	_, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), term)
+	_, err := ev.Eval(nil, EmptyCapEnv(), term)
 	if err == nil {
 		t.Fatal("expected error for force on non-thunk")
 	}
@@ -1015,7 +1055,7 @@ func TestEvalApplicationOfNonFunction(t *testing.T) {
 		Fun: &ir.Lit{Value: int64(42)},
 		Arg: &ir.Con{Name: "Unit"},
 	}
-	_, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), term)
+	_, err := ev.Eval(nil, EmptyCapEnv(), term)
 	if err == nil {
 		t.Fatal("expected error for application of non-function")
 	}
@@ -1033,7 +1073,7 @@ func TestEvalConWithArgs(t *testing.T) {
 			&ir.Lit{Value: int64(2)},
 		},
 	}
-	r, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), term)
+	r, err := ev.Eval(nil, EmptyCapEnv(), term)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1056,7 +1096,7 @@ func TestEvalConApplication(t *testing.T) {
 		},
 		Arg: &ir.Lit{Value: int64(2)},
 	}
-	r, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), term)
+	r, err := ev.Eval(nil, EmptyCapEnv(), term)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1076,14 +1116,16 @@ func TestFixSelfReference(t *testing.T) {
 		Name: "self",
 		Body: &ir.Lam{Param: "x", Body: &ir.Var{Name: "self"}},
 	}
-	r, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), term)
+	prepareIR(term)
+	r, err := ev.Eval(nil, EmptyCapEnv(), term)
 	if err != nil {
 		t.Fatal(err)
 	}
 	clo := r.Value.(*Closure)
 	// Applying the fixpoint closure should return itself.
-	r2, err := ev.Eval(clo.Env, EmptyCapEnv(), &ir.App{
-		Fun: &ir.Var{Name: "self"},
+	ev.globals["self"] = clo
+	r2, err := ev.Eval(nil, EmptyCapEnv(), &ir.App{
+		Fun: &ir.Var{Index: -1, Name: "self"},
 		Arg: &ir.Con{Name: "Unit"},
 	})
 	if err != nil {
@@ -1095,7 +1137,7 @@ func TestFixSelfReference(t *testing.T) {
 }
 
 func TestBounceValString(t *testing.T) {
-	b := &bounceVal{env: EmptyEnv(), capEnv: EmptyCapEnv(), expr: &ir.Con{Name: "Unit"}}
+	b := &bounceVal{locals: nil, capEnv: EmptyCapEnv(), expr: &ir.Con{Name: "Unit"}}
 	if b.String() != "bounceVal(...)" {
 		t.Errorf("expected 'bounceVal(...)', got %q", b.String())
 	}
@@ -1104,7 +1146,7 @@ func TestBounceValString(t *testing.T) {
 func TestEvalTyLamErased(t *testing.T) {
 	ev := newTestEval()
 	term := &ir.TyLam{Body: &ir.Con{Name: "Unit"}}
-	r, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), term)
+	r, err := ev.Eval(nil, EmptyCapEnv(), term)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1122,7 +1164,7 @@ func TestEvalRecordProjMissingField(t *testing.T) {
 		}},
 		Label: "missing",
 	}
-	_, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), term)
+	_, err := ev.Eval(nil, EmptyCapEnv(), term)
 	if err == nil {
 		t.Fatal("expected error for missing field")
 	}
@@ -1140,10 +1182,11 @@ func TestEvalPrimValPartialApplication(t *testing.T) {
 		return &HostVal{Inner: a + b}, ce, nil
 	})
 	ev := NewEvaluator(defaultBudget(), prims, nil, nil, nil)
+	ev.SetGlobals(map[string]Value{})
 
 	// PrimOp with arity 2, applied to 0 args → PrimVal.
 	primOp := &ir.PrimOp{Name: "add2", Arity: 2}
-	r, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), primOp)
+	r, err := ev.Eval(nil, EmptyCapEnv(), primOp)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1157,7 +1200,7 @@ func TestEvalPrimValPartialApplication(t *testing.T) {
 
 	// Apply first arg → still PrimVal with 1 arg.
 	term1 := &ir.App{Fun: primOp, Arg: &ir.Lit{Value: int64(10)}}
-	r1, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), term1)
+	r1, err := ev.Eval(nil, EmptyCapEnv(), term1)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1174,7 +1217,7 @@ func TestEvalPrimValPartialApplication(t *testing.T) {
 		Fun: term1,
 		Arg: &ir.Lit{Value: int64(20)},
 	}
-	r2, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), term2)
+	r2, err := ev.Eval(nil, EmptyCapEnv(), term2)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1191,10 +1234,11 @@ func TestEvalEffectfulPrimValDeferred(t *testing.T) {
 		return &ConVal{Con: "Done"}, ce.Set("effected", true), nil
 	})
 	ev := NewEvaluator(defaultBudget(), prims, nil, nil, nil)
+	ev.SetGlobals(map[string]Value{})
 
 	// Effectful PrimOp with arity=0: should produce a PrimVal (deferred).
 	term := &ir.PrimOp{Name: "eff0", Arity: 0, Effectful: true}
-	r, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), term)
+	r, err := ev.Eval(nil, EmptyCapEnv(), term)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1217,7 +1261,7 @@ func TestEvalUnknownCoreNode(t *testing.T) {
 	term := &ir.RecordLit{Fields: []ir.RecordField{
 		{Label: "x", Value: &ir.Lit{Value: int64(1)}},
 	}}
-	r, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), term)
+	r, err := ev.Eval(nil, EmptyCapEnv(), term)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1234,7 +1278,7 @@ func TestEvalPrimOpMissingPrim(t *testing.T) {
 	// PrimOp with saturated args but no registered implementation.
 	ev := newTestEval()
 	term := &ir.PrimOp{Name: "missing_prim", Arity: 1, Args: []ir.Core{&ir.Lit{Value: int64(1)}}}
-	_, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), term)
+	_, err := ev.Eval(nil, EmptyCapEnv(), term)
 	if err == nil {
 		t.Fatal("expected error for missing primitive with args")
 	}
@@ -1244,8 +1288,8 @@ func TestIndirectVal(t *testing.T) {
 	// IndirectVal with nil Ref should error.
 	ev := newTestEval()
 	ind := &IndirectVal{Ref: nil}
-	env := EmptyEnv().Extend("x", ind)
-	_, err := ev.Eval(env, EmptyCapEnv(), &ir.Var{Name: "x"})
+	ev.globals["x"] = ind
+	_, err := ev.Eval(nil, EmptyCapEnv(), &ir.Var{Index: -1, Name: "x"})
 	if err == nil {
 		t.Fatal("expected error for uninitialized IndirectVal")
 	}
@@ -1256,8 +1300,8 @@ func TestIndirectVal(t *testing.T) {
 	// IndirectVal with set Ref should dereference.
 	var val Value = &HostVal{Inner: int64(42)}
 	ind2 := &IndirectVal{Ref: &val}
-	env2 := EmptyEnv().Extend("y", ind2)
-	r, err := ev.Eval(env2, EmptyCapEnv(), &ir.Var{Name: "y"})
+	ev.globals["y"] = ind2
+	r, err := ev.Eval(nil, EmptyCapEnv(), &ir.Var{Index: -1, Name: "y"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1274,15 +1318,16 @@ func TestRuntimeErrorSourcePropagation(t *testing.T) {
 	mainSrc := span.NewSource("Main", "main source text")
 
 	ev := NewEvaluator(defaultBudget(), NewPrimRegistry(), nil, nil, mainSrc)
+	ev.SetGlobals(map[string]Value{})
 
 	// Create a closure in module source context.
 	ev.SetSource(modSrc)
 	caseExpr := &ir.Case{
-		Scrutinee: &ir.Var{Name: "x"},
+		Scrutinee: &ir.Var{Index: -1, Name: "x"},
 		Alts:      nil, // no alts → non-exhaustive match guaranteed
 		S:         span.Span{Start: 5, End: 20},
 	}
-	closureR, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), &ir.Lam{Param: "x", Body: caseExpr})
+	closureR, err := ev.Eval(nil, EmptyCapEnv(), &ir.Lam{Param: "x", Body: caseExpr})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1294,8 +1339,8 @@ func TestRuntimeErrorSourcePropagation(t *testing.T) {
 	}
 
 	// Evaluate the case body in module context to trigger the RuntimeError.
-	env := EmptyEnv().Extend("x", &ConVal{Con: "Unknown"})
-	_, err = ev.Eval(env, EmptyCapEnv(), caseExpr)
+	ev.globals["x"] = &ConVal{Con: "Unknown"}
+	_, err = ev.Eval(nil, EmptyCapEnv(), caseExpr)
 	if err == nil {
 		t.Fatal("expected RuntimeError from non-exhaustive case")
 	}
@@ -1323,6 +1368,7 @@ func TestSourceRestoredAfterEval(t *testing.T) {
 	obs := NewExplainObserver(hook, mainSrc)
 
 	ev := NewEvaluator(defaultBudget(), NewPrimRegistry(), nil, obs, mainSrc)
+	ev.SetGlobals(map[string]Value{})
 
 	// Create a closure in module context that does a simple case match.
 	ev.SetSource(modSrc)
@@ -1335,7 +1381,8 @@ func TestSourceRestoredAfterEval(t *testing.T) {
 		S: span.Span{Start: 1, End: 3},
 	}
 	lamExpr := &ir.Lam{Param: "x", Body: body}
-	closureR, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), lamExpr)
+	prepareIR(lamExpr)
+	closureR, err := ev.Eval(nil, EmptyCapEnv(), lamExpr)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1347,12 +1394,12 @@ func TestSourceRestoredAfterEval(t *testing.T) {
 
 	// Apply the module closure from main context.
 	appExpr := &ir.App{
-		Fun: &ir.Var{Name: "f"},
+		Fun: &ir.Var{Index: -1, Name: "f"},
 		Arg: &ir.Lit{Value: int64(1)},
 		S:   span.Span{Start: 1, End: 4},
 	}
-	env := EmptyEnv().Extend("f", clo)
-	_, err = ev.Eval(env, EmptyCapEnv(), appExpr)
+	ev.globals["f"] = clo
+	_, err = ev.Eval(nil, EmptyCapEnv(), appExpr)
 	if err != nil {
 		t.Fatal(err)
 	}

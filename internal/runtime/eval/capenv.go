@@ -3,7 +3,8 @@ package eval
 import "sort"
 
 // CapEnv is a capability environment: label -> capability state.
-// Copy-on-write semantics.
+// Copy-on-write semantics. A nil caps map represents an empty environment
+// with zero allocation; the map is created lazily on the first Set.
 type CapEnv struct {
 	caps   map[string]any
 	shared bool
@@ -11,28 +12,32 @@ type CapEnv struct {
 
 // EmptyCapEnv creates an empty capability environment.
 func EmptyCapEnv() CapEnv {
-	return CapEnv{caps: make(map[string]any), shared: false}
+	return CapEnv{} // caps: nil — zero allocation
 }
 
 // NewCapEnv creates a CapEnv from a map. The map is shared with the caller
 // under copy-on-write: the first Set or Delete will copy before mutating,
 // leaving the caller's original map untouched.
+// A nil map produces an empty CapEnv with no allocation.
 func NewCapEnv(m map[string]any) CapEnv {
 	if m == nil {
-		m = make(map[string]any)
+		return CapEnv{shared: true}
 	}
 	return CapEnv{caps: m, shared: true}
 }
 
 // Get retrieves a capability by label.
 func (c CapEnv) Get(label string) (any, bool) {
+	if c.caps == nil {
+		return nil, false
+	}
 	v, ok := c.caps[label]
 	return v, ok
 }
 
 // Set returns a new CapEnv with the label set to the given value.
 func (c CapEnv) Set(label string, val any) CapEnv {
-	if c.shared {
+	if c.caps == nil || c.shared {
 		newCaps := make(map[string]any, len(c.caps)+1)
 		for k, v := range c.caps {
 			newCaps[k] = v
@@ -46,6 +51,9 @@ func (c CapEnv) Set(label string, val any) CapEnv {
 
 // Delete returns a new CapEnv with the label removed.
 func (c CapEnv) Delete(label string) CapEnv {
+	if c.caps == nil {
+		return c
+	}
 	if c.shared {
 		newCaps := make(map[string]any, len(c.caps))
 		for k, v := range c.caps {
@@ -61,6 +69,9 @@ func (c CapEnv) Delete(label string) CapEnv {
 
 // Labels returns all capability labels, sorted.
 func (c CapEnv) Labels() []string {
+	if c.caps == nil {
+		return nil
+	}
 	labels := make([]string, 0, len(c.caps))
 	for k := range c.caps {
 		labels = append(labels, k)

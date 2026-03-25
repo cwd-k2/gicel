@@ -22,7 +22,7 @@ type HostVal struct {
 
 // Closure is a function value capturing its definition environment.
 type Closure struct {
-	Env    *Env
+	Locals []Value
 	Param  string
 	Body   ir.Core
 	Name   string       // top-level binding name; "" for anonymous lambdas
@@ -37,7 +37,7 @@ type ConVal struct {
 
 // ThunkVal is a suspended computation captured by `thunk`.
 type ThunkVal struct {
-	Env    *Env
+	Locals []Value
 	Comp   ir.Core
 	Source *span.Source // source where the thunk was created
 }
@@ -77,7 +77,7 @@ type IndirectVal struct {
 // This is used by Bind to avoid recursive Eval while still forcing the
 // final result (e.g. a bare effectful PrimOp at the end of a do-block).
 type bounceVal struct {
-	env        *Env
+	locals     []Value
 	capEnv     CapEnv
 	expr       ir.Core
 	leaveDepth int          // pending ev.budget.Leave() calls

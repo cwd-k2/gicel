@@ -104,16 +104,13 @@ func freeVarsRec(c Core, bound map[string]int, fv map[string]struct{}, depth int
 // right-side children. Prevents Go stack overflow on deeply left-nested
 // operator chains.
 func freeVarsLeftSpine(app *App, bound map[string]int, fv map[string]struct{}, depth int) {
-	type rightChild struct {
-		node Core
-	}
-	var rights []rightChild
+	var rights []Core
 
 	cur := Core(app)
 	for {
 		switch n := cur.(type) {
 		case *App:
-			rights = append(rights, rightChild{n.Arg})
+			rights = append(rights, n.Arg)
 			cur = n.Fun
 			continue
 		case *TyApp:
@@ -128,7 +125,7 @@ func freeVarsLeftSpine(app *App, bound map[string]int, fv map[string]struct{}, d
 		break
 	}
 	for i := len(rights) - 1; i >= 0; i-- {
-		freeVarsRec(rights[i].node, bound, fv, depth+1)
+		freeVarsRec(rights[i], bound, fv, depth+1)
 	}
 }
 
@@ -209,7 +206,11 @@ func annotateFV(c Core, depth int) map[string]struct{} {
 	}
 	switch n := c.(type) {
 	case *Var:
-		return map[string]struct{}{varKey(n): {}}
+		// Pre-compute the environment lookup key to avoid string concat at eval time.
+		if n.Key == "" {
+			n.Key = varKey(n)
+		}
+		return map[string]struct{}{n.Key: {}}
 	case *Lam:
 		bodyFV := annotateFV(n.Body, depth+1)
 		if isFVOverflow(bodyFV) {
@@ -330,7 +331,11 @@ func varKey(v *Var) string {
 }
 
 // VarKey returns the map key for a Var node (exported for use in evaluator).
+// Uses the pre-computed Key field when available.
 func VarKey(v *Var) string {
+	if v.Key != "" {
+		return v.Key
+	}
 	return varKey(v)
 }
 

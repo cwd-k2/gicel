@@ -14,9 +14,13 @@ type Core interface {
 
 // Var — variable reference.
 // Module is non-empty for qualified imports (canonical module name, not alias).
+// Key is the pre-computed environment lookup key (populated by AnnotateFreeVars).
+// Index is the de Bruijn index (populated by AssignIndices); -1 = not yet assigned.
 type Var struct {
 	Name   string
 	Module string // "" = local/open, "Std.Num" = qualified import origin
+	Key    string // cached VarKey — avoids string concat on every eval step
+	Index  int    // de Bruijn index (-1 = unassigned)
 	S      span.Span
 }
 
@@ -25,7 +29,8 @@ type Lam struct {
 	Param     string
 	ParamType types.Type
 	Body      Core
-	FV        []string // Free variables (populated by AnnotateFreeVars)
+	FV        []string // Free variables by name (populated by AnnotateFreeVars)
+	FVIndices []int    // FV positions in enclosing env (populated by AssignIndices)
 	Generated bool     // true when introduced by the compiler (dict params, pattern desugar, sections)
 	S         span.Span
 }
@@ -95,9 +100,10 @@ type Bind struct {
 
 // Thunk — suspend computation (thunk c).
 type Thunk struct {
-	Comp Core
-	FV   []string // Free variables (populated by AnnotateFreeVars)
-	S    span.Span
+	Comp      Core
+	FV        []string // Free variables by name (populated by AnnotateFreeVars)
+	FVIndices []int    // FV positions in enclosing env (populated by AssignIndices)
+	S         span.Span
 }
 
 // Force — resume suspended computation (force e).

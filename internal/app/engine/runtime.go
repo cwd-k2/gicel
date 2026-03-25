@@ -54,11 +54,13 @@ type Runtime struct {
 	allocLimit         int64
 	source             *span.Source
 	bindings           map[string]types.Type
-	moduleEntries      []moduleEntry // ALL module programs in registration order
-	builtinEnv         *eval.Env     // pre-built pure/bind/force/fix/rec closures
-	sortedMainBindings []ir.Binding  // all main bindings, topologically pre-sorted
-	entryName          string        // default entry point name
-	entryExpr          ir.Core       // default entry point expression (nil if not found)
+	moduleEntries      []moduleEntry         // ALL module programs in registration order
+	builtinGlobals     map[string]eval.Value // pre-built pure/bind/force/fix/rec closures + constructors
+	globalSlots        map[string]int        // global name → slot index (assigned at NewRuntime)
+	numGlobals         int                   // total number of global slots
+	sortedMainBindings []ir.Binding          // all main bindings, topologically pre-sorted
+	entryName          string                // default entry point name
+	entryExpr          ir.Core               // default entry point expression (nil if not found)
 }
 
 type moduleEntry struct {
@@ -97,40 +99,85 @@ func (r *Runtime) annotateError(err error) error {
 	return err
 }
 
-// initBuiltinEnv constructs the immutable base environment with builtins and constructors.
-func (r *Runtime) initBuiltinEnv(gatedBuiltins map[string]bool) {
-	env := eval.BuiltinEnv(gatedBuiltins["fix"], gatedBuiltins["rec"])
+// initBuiltinGlobals constructs the immutable base globals with builtins and constructors.
+func (r *Runtime) initBuiltinGlobals(gatedBuiltins map[string]bool) {
+	globals := eval.BuiltinGlobals(gatedBuiltins["fix"], gatedBuiltins["rec"])
 
 	for _, me := range r.moduleEntries {
 		for _, d := range me.prog.DataDecls {
 			for _, con := range d.Cons {
-				cv := &eval.ConVal{Con: con.Name}
-				env = env.Extend(ir.QualifiedKey(me.name, con.Name), cv)
+				globals[ir.QualifiedKey(me.name, con.Name)] = &eval.ConVal{Con: con.Name}
 			}
 		}
 	}
 
 	for _, d := range r.prog.DataDecls {
 		for _, con := range d.Cons {
-			env = env.Extend(con.Name, &eval.ConVal{Con: con.Name})
+			globals[con.Name] = &eval.ConVal{Con: con.Name}
 		}
 	}
 
-	env.Flatten()
-	r.builtinEnv = env
+	r.builtinGlobals = globals
 }
 
-// buildEnv extends the pre-built builtin environment with user-provided bindings.
-func (r *Runtime) buildEnv(bindings map[string]eval.Value) (*eval.Env, error) {
-	env := r.builtinEnv
+// assignGlobalSlots collects all global names and assigns each a slot index.
+// Then walks all IR (module + main) to convert Var.Index = -1 to -(slot+2).
+// This completes the de Bruijn unification: all variables are integer-indexed.
+func (r *Runtime) assignGlobalSlots() {
+	slots := make(map[string]int, len(r.builtinGlobals)+len(r.bindings))
+
+	// Assign slots from builtinGlobals (builtins + constructors).
+	for k := range r.builtinGlobals {
+		slots[k] = len(slots)
+	}
+	// Host binding names (values provided at RunWith time).
 	for name := range r.bindings {
-		v, ok := bindings[name]
+		if _, ok := slots[name]; !ok {
+			slots[name] = len(slots)
+		}
+	}
+	// Module binding names.
+	for _, me := range r.moduleEntries {
+		for _, b := range me.prog.Bindings {
+			key := ir.QualifiedKey(me.name, b.Name)
+			if _, ok := slots[key]; !ok {
+				slots[key] = len(slots)
+			}
+		}
+	}
+	// Main binding names.
+	for _, b := range r.prog.Bindings {
+		if _, ok := slots[b.Name]; !ok {
+			slots[b.Name] = len(slots)
+		}
+	}
+
+	r.globalSlots = slots
+	r.numGlobals = len(slots)
+
+	// Walk all IR to assign global slot indices.
+	for _, me := range r.moduleEntries {
+		ir.AssignGlobalSlotsProgram(me.prog, slots)
+	}
+	ir.AssignGlobalSlotsProgram(r.prog, slots)
+}
+
+// buildGlobalArray creates the global value array from the slot map.
+// Builtin values and host bindings are filled; module/main bindings
+// are left nil (filled by evalBindingsCore).
+func (r *Runtime) buildGlobalArray(hostBindings map[string]eval.Value) ([]eval.Value, error) {
+	arr := make([]eval.Value, r.numGlobals)
+	for k, v := range r.builtinGlobals {
+		arr[r.globalSlots[k]] = v
+	}
+	for name := range r.bindings {
+		v, ok := hostBindings[name]
 		if !ok {
 			return nil, fmt.Errorf("missing binding: %s", name)
 		}
-		env = env.Extend(name, v)
+		arr[r.globalSlots[name]] = v
 	}
-	return env, nil
+	return arr, nil
 }
 
 type runRequest struct {
@@ -143,7 +190,7 @@ type runRequest struct {
 
 // execute is the unified execution core.
 func (r *Runtime) execute(ctx context.Context, req *runRequest) (eval.EvalResult, eval.EvalStats, error) {
-	env, err := r.buildEnv(req.bindings)
+	globalArray, err := r.buildGlobalArray(req.bindings)
 	if err != nil {
 		return eval.EvalResult{}, eval.EvalStats{}, err
 	}
@@ -157,11 +204,11 @@ func (r *Runtime) execute(ctx context.Context, req *runRequest) (eval.EvalResult
 	}
 
 	ev := eval.NewEvaluator(b, r.prims, req.traceHook, req.obs, r.source)
+	ev.SetGlobalArray(globalArray)
 
 	for _, me := range r.moduleEntries {
 		ev.SetSource(me.source)
-		env, err = r.evalBindingsCore(ev, env, me.sortedBindings, me.name, req.obs)
-		if err != nil {
+		if err := r.evalBindingsCore(ev, me.sortedBindings, me.name, req.obs); err != nil {
 			return eval.EvalResult{}, eval.EvalStats{}, err
 		}
 	}
@@ -187,8 +234,7 @@ func (r *Runtime) execute(ctx context.Context, req *runRequest) (eval.EvalResult
 		}
 	}
 
-	env, err = r.evalBindingsCore(ev, env, nonEntry, "", req.obs)
-	if err != nil {
+	if err := r.evalBindingsCore(ev, nonEntry, "", req.obs); err != nil {
 		return eval.EvalResult{}, eval.EvalStats{}, err
 	}
 
@@ -200,7 +246,7 @@ func (r *Runtime) execute(ctx context.Context, req *runRequest) (eval.EvalResult
 		req.obs.Section(req.entry)
 	}
 	capEnv := eval.NewCapEnv(req.caps)
-	result, err := ev.Eval(env, capEnv, entryExpr)
+	result, err := ev.Eval(nil, capEnv, entryExpr)
 	if err != nil {
 		return eval.EvalResult{}, eval.EvalStats{}, err
 	}
@@ -214,31 +260,38 @@ func (r *Runtime) execute(ctx context.Context, req *runRequest) (eval.EvalResult
 	return result, ev.Stats(), nil
 }
 
-// evalBindingsCore evaluates a slice of pre-sorted bindings using forward-reference cells.
+// evalBindingsCore evaluates a slice of pre-sorted bindings.
 // Callers must pass bindings in dependency order (via ir.SortBindings).
-func (r *Runtime) evalBindingsCore(ev *eval.Evaluator, env *eval.Env, bindings []ir.Binding, modulePrefix string, obs *eval.ExplainObserver) (*eval.Env, error) {
-	cells := make(map[string]*eval.IndirectVal, len(bindings))
-	for _, b := range bindings {
-		cell := &eval.IndirectVal{}
-		cells[b.Name] = cell
-		if modulePrefix != "" {
-			env = env.Extend(ir.QualifiedKey(modulePrefix, b.Name), cell)
-		} else {
-			env = env.Extend(b.Name, cell)
-		}
+// Values are stored directly in the evaluator's global array at pre-assigned slots.
+func (r *Runtime) evalBindingsCore(ev *eval.Evaluator, bindings []ir.Binding, modulePrefix string, obs *eval.ExplainObserver) error {
+	// Phase 1: place IndirectVal sentinels for forward references.
+	type slotCell struct {
+		slot int
+		cell *eval.IndirectVal
 	}
+	cells := make([]slotCell, len(bindings))
+	for i, b := range bindings {
+		key := b.Name
+		if modulePrefix != "" {
+			key = ir.QualifiedKey(modulePrefix, b.Name)
+		}
+		slot := r.globalSlots[key]
+		cell := &eval.IndirectVal{}
+		ev.SetGlobalSlot(slot, cell)
+		cells[i] = slotCell{slot, cell}
+	}
+	// Phase 2: evaluate and fill slots.
 	userVisible := modulePrefix == ""
-	for _, b := range bindings {
+	for i, b := range bindings {
 		if userVisible {
 			obs.Section(b.Name)
 		}
-		result, err := ev.Eval(env, eval.NewCapEnv(nil), b.Expr)
+		result, err := ev.Eval(nil, eval.NewCapEnv(nil), b.Expr)
 		if err != nil {
-			// Omit internal binding names (containing $) from user-facing errors.
 			if strings.Contains(b.Name, "$") {
-				return nil, err
+				return err
 			}
-			return nil, fmt.Errorf("evaluating %s: %w", b.Name, err)
+			return fmt.Errorf("evaluating %s: %w", b.Name, err)
 		}
 		v := result.Value
 		if clo, ok := v.(*eval.Closure); ok {
@@ -247,9 +300,12 @@ func (r *Runtime) evalBindingsCore(ev *eval.Evaluator, env *eval.Env, bindings [
 				obs.MarkInternal(b.Name)
 			}
 		}
-		cells[b.Name].Ref = &v
+		// Fill IndirectVal (for closures that captured the cell) and replace slot.
+		val := v
+		cells[i].cell.Ref = &val
+		ev.SetGlobalSlot(cells[i].slot, v)
 	}
-	return env, nil
+	return nil
 }
 
 // RunWith executes the program with the given options.
