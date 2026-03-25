@@ -28,7 +28,18 @@ func AssignIndicesProgram(p *Program) {
 	}
 }
 
-// AssignGlobalSlots converts unassigned global variables (Index == -1) to
+// EncodeGlobalSlot returns the Var.Index encoding for a global slot.
+// Slot 0 → -2, slot 1 → -3, etc. Index -1 is reserved for unassigned globals.
+func EncodeGlobalSlot(slot int) int { return -(slot + 2) }
+
+// DecodeGlobalSlot extracts the slot number from a Var.Index.
+// Precondition: IsGlobalIndex(idx).
+func DecodeGlobalSlot(idx int) int { return -(idx + 2) }
+
+// IsGlobalIndex returns true if the Var.Index encodes an assigned global slot.
+func IsGlobalIndex(idx int) bool { return idx <= -2 }
+
+// assignGlobalSlotsSingle converts unassigned global variables (Index == -1) to
 // array-indexed globals using the provided slot mapping. After this pass,
 // global Var nodes have Index = -(slot+2): -2 → slot 0, -3 → slot 1, etc.
 // Index -1 remains the sentinel for "unassigned global" (test/fallback path).
@@ -39,7 +50,7 @@ func AssignIndicesProgram(p *Program) {
 //	Index >= 0  → locals[len-1-Index]   (de Bruijn)
 //	Index <= -2 → globals[-(Index+2)]   (slot)
 //	Index == -1 → named map fallback    (tests only)
-func AssignGlobalSlots(c Core, slots map[string]int) {
+func assignGlobalSlotsSingle(c Core, slots map[string]int) {
 	assignGlobalSlots(c, slots, 0)
 }
 
@@ -68,7 +79,7 @@ func assignGlobalSlots(c Core, slots map[string]int, depth int) {
 				key = VarKey(n)
 			}
 			if slot, ok := slots[key]; ok {
-				n.Index = -(slot + 2)
+				n.Index = EncodeGlobalSlot(slot)
 			}
 		}
 	case *Lam:
@@ -236,7 +247,7 @@ func assignIndices(c Core, localScope map[string]int, depth int) {
 		// sees the fix name at a known position (index 1, between captured
 		// FVs and the param). FVIndices does NOT include the fix name;
 		// evalFix adds it after Capture via Push.
-		lam, ok := peelTyLam(n.Body).(*Lam)
+		lam, ok := PeelTyLam(n.Body).(*Lam)
 		if !ok {
 			assignIndices(n.Body, localScope, depth+1)
 			return
@@ -259,7 +270,9 @@ func assignIndices(c Core, localScope map[string]int, depth int) {
 		assignIndices(n.Expr, localScope, depth+1)
 
 	case *PrimOp:
-		// No sub-expressions.
+		for _, arg := range n.Args {
+			assignIndices(arg, localScope, depth+1)
+		}
 
 	case *Lit:
 		// No sub-expressions.
@@ -380,8 +393,8 @@ func shiftScope(scope map[string]int, n int) map[string]int {
 	return shifted
 }
 
-// peelTyLam strips type abstractions from a Core node (copied from eval).
-func peelTyLam(c Core) Core {
+// PeelTyLam strips type abstractions from a Core node.
+func PeelTyLam(c Core) Core {
 	for {
 		if tl, ok := c.(*TyLam); ok {
 			c = tl.Body

@@ -73,8 +73,8 @@ func (ev *Evaluator) SetGlobals(g map[string]Value) {
 }
 
 // SetGlobalArray sets the slot-indexed globals array for the evaluator.
-// When set, Var nodes with Index < 0 (assigned by AssignGlobalSlots)
-// are resolved via array lookup: globals[-(Index+1)].
+// When set, Var nodes with Index <= -2 (assigned by AssignGlobalSlots)
+// are resolved via array lookup: globals[-(Index+2)].
 func (ev *Evaluator) SetGlobalArray(g []Value) {
 	ev.globalArray = g
 }
@@ -186,9 +186,9 @@ func (ev *Evaluator) evalStep(locals []Value, capEnv CapEnv, expr ir.Core) (Eval
 		if e.Index >= 0 {
 			// Local variable — de Bruijn indexed.
 			v = LookupLocal(locals, e.Index)
-		} else if e.Index <= -2 {
+		} else if ir.IsGlobalIndex(e.Index) {
 			// Global variable — slot-indexed array lookup.
-			v = ev.globalArray[-(e.Index + 2)]
+			v = ev.globalArray[ir.DecodeGlobalSlot(e.Index)]
 		} else {
 			// Fallback: named lookup (tests, un-indexed IR).
 			key := e.Key
@@ -214,12 +214,7 @@ func (ev *Evaluator) evalStep(locals []Value, capEnv CapEnv, expr ir.Core) (Eval
 		if err := ev.budget.Alloc(costClosure); err != nil {
 			return EvalResult{}, err
 		}
-		closureLocals := locals
-		if e.FVIndices != nil {
-			closureLocals = Capture(locals, e.FVIndices, 1) // +1 for param Push on application
-		} else if e.FV != nil {
-			closureLocals = CaptureAll(locals, 1)
-		}
+		closureLocals := CaptureLam(locals, e.FVIndices, e.FV, ExtraCapParam)
 		return EvalResult{&Closure{Locals: closureLocals, Param: e.Param, Body: e.Body, Source: ev.source}, capEnv}, nil
 
 	case *ir.App:
@@ -318,12 +313,7 @@ func (ev *Evaluator) evalStep(locals []Value, capEnv CapEnv, expr ir.Core) (Eval
 		if err := ev.budget.Alloc(costThunk); err != nil {
 			return EvalResult{}, err
 		}
-		thunkLocals := locals
-		if e.FVIndices != nil {
-			thunkLocals = Capture(locals, e.FVIndices, 0) // thunk body: no Push
-		} else if e.FV != nil {
-			thunkLocals = CaptureAll(locals, 0)
-		}
+		thunkLocals := CaptureLam(locals, e.FVIndices, e.FV, ExtraCapNone)
 		// Mark capEnv as shared since ThunkVal captures it.
 		return EvalResult{&ThunkVal{Locals: thunkLocals, Comp: e.Comp, Source: ev.source}, capEnv.MarkShared()}, nil
 

@@ -121,7 +121,7 @@ func (r *Runtime) initBuiltinGlobals(gatedBuiltins map[string]bool) {
 }
 
 // assignGlobalSlots collects all global names and assigns each a slot index.
-// Then walks all IR (module + main) to convert Var.Index = -1 to -(slot+1).
+// Then walks all IR (module + main) to convert Var.Index = -1 to -(slot+2).
 // This completes the de Bruijn unification: all variables are integer-indexed.
 func (r *Runtime) assignGlobalSlots() {
 	slots := make(map[string]int, len(r.builtinGlobals)+len(r.bindings))

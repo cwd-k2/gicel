@@ -19,6 +19,13 @@ package eval
 // This is analogous to GHC STG's flat closure: the environment itself is
 // a transient stack, and closure creation extracts an independent snapshot.
 
+// Extra capacity hints for Capture/CaptureAll.
+const (
+	ExtraCapParam = 1 // Lam: pre-allocate for Push(param) on application
+	ExtraCapSelf  = 1 // Fix: pre-allocate for Push(self) in knot-tying
+	ExtraCapNone  = 0 // Thunk: no Push on force
+)
+
 // LookupLocal returns the value at the given de Bruijn index in the local stack.
 func LookupLocal(locals []Value, index int) Value {
 	return locals[len(locals)-1-index]
@@ -57,7 +64,7 @@ func Capture(locals []Value, fvIndices []int, extraCap int) []Value {
 }
 
 // CaptureAll creates a closure environment that copies all current locals.
-// Used when FV annotation overflowed (FV == nil → FVIndices == nil).
+// Used when FV names are known but FVIndices were not assigned (FV != nil, FVIndices == nil).
 // extraCap pre-allocates capacity for subsequent Push calls.
 func CaptureAll(locals []Value, extraCap int) []Value {
 	n := len(locals)
@@ -67,4 +74,20 @@ func CaptureAll(locals []Value, extraCap int) []Value {
 	cp := make([]Value, n, n+extraCap)
 	copy(cp, locals)
 	return cp
+}
+
+// CaptureLam creates the closure environment for a Lam or Fix body.
+// Dispatches on the FV annotation state:
+//
+//	FVIndices != nil → Capture (precise, common case)
+//	FV != nil        → CaptureAll (FV overflow fallback)
+//	both nil         → no capture (top-level, un-annotated)
+func CaptureLam(locals []Value, fvIndices []int, fv []string, extraCap int) []Value {
+	if fvIndices != nil {
+		return Capture(locals, fvIndices, extraCap)
+	}
+	if fv != nil {
+		return CaptureAll(locals, extraCap)
+	}
+	return locals
 }
