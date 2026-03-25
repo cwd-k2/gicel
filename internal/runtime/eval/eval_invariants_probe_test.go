@@ -175,7 +175,7 @@ func TestProbeE_FixEval(t *testing.T) {
 	ev := newTestEval()
 	term := &ir.Fix{
 		Name: "f",
-		Body: &ir.Lam{Param: "x", Body: &ir.Var{Name: "x"}},
+		Body: &ir.Lam{Param: "x", Body: &ir.Var{Index: -1, Name: "x"}},
 	}
 	r, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), term)
 	if err != nil {
@@ -208,7 +208,7 @@ func TestProbeE_BounceValFromForce(t *testing.T) {
 func TestProbeE_ApplyResolvedNoBounce(t *testing.T) {
 	// applyResolved (used by Applier) must resolve bounces.
 	ev := newTestEval()
-	clo := &Closure{Env: EmptyEnv(), Param: "x", Body: &ir.Var{Name: "x"}}
+	clo := &Closure{Env: EmptyEnv(), Param: "x", Body: &ir.Var{Index: -1, Name: "x"}}
 	r, err := ev.applyResolved(EmptyCapEnv(), clo, &HostVal{Inner: int64(42)}, &ir.App{})
 	if err != nil {
 		t.Fatal(err)
@@ -571,7 +571,7 @@ func TestProbeE_ValueStringMethods(t *testing.T) {
 		{"HostVal int64", &HostVal{Inner: int64(42)}},
 		{"ConVal empty", &ConVal{Con: "Nil"}},
 		{"ConVal with args", &ConVal{Con: "Cons", Args: []Value{&HostVal{Inner: int64(1)}, &ConVal{Con: "Nil"}}}},
-		{"Closure", &Closure{Env: EmptyEnv(), Param: "x", Body: &ir.Var{Name: "x"}}},
+		{"Closure", &Closure{Env: EmptyEnv(), Param: "x", Body: &ir.Var{Index: -1, Name: "x"}}},
 		{"ThunkVal", &ThunkVal{Env: EmptyEnv(), Comp: &ir.Lit{Value: int64(0)}}},
 		{"PrimVal empty", &PrimVal{Name: "test", Arity: 2}},
 		{"PrimVal with args", &PrimVal{Name: "test", Arity: 2, Args: []Value{&HostVal{Inner: int64(1)}}}},
@@ -813,7 +813,7 @@ func TestProbeE_FixApply(t *testing.T) {
 	ev := newTestEval()
 	fix := &ir.Fix{
 		Name: "f",
-		Body: &ir.Lam{Param: "x", Body: &ir.Var{Name: "x"}},
+		Body: &ir.Lam{Param: "x", Body: &ir.Var{Index: -1, Name: "x"}},
 	}
 	term := &ir.App{Fun: fix, Arg: &ir.Lit{Value: int64(42)}}
 	r, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), term)
@@ -838,7 +838,7 @@ func TestProbeE_IndirectValChain(t *testing.T) {
 	var outerVal Value = innerInd
 	outerInd := &IndirectVal{Ref: &outerVal}
 	env := EmptyEnv().Extend("x", outerInd)
-	r, err := ev.Eval(env, EmptyCapEnv(), &ir.Var{Name: "x"})
+	r, err := ev.Eval(env, EmptyCapEnv(), &ir.Var{Index: -1, Name: "x"})
 	if err != nil {
 		t.Fatal(err)
 	}

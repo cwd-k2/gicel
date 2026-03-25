@@ -120,17 +120,22 @@ func (r *Runtime) initBuiltinEnv(gatedBuiltins map[string]bool) {
 	r.builtinEnv = env
 }
 
-// buildEnv extends the pre-built builtin environment with user-provided bindings.
+// buildEnv clones the builtin globals and adds user-provided bindings.
+// The clone ensures concurrent RunWith calls don't share mutable state.
 func (r *Runtime) buildEnv(bindings map[string]eval.Value) (*eval.Env, error) {
-	env := r.builtinEnv
+	base := r.builtinEnv.Globals()
+	globals := make(map[string]eval.Value, len(base)+len(r.bindings))
+	for k, v := range base {
+		globals[k] = v
+	}
 	for name := range r.bindings {
 		v, ok := bindings[name]
 		if !ok {
 			return nil, fmt.Errorf("missing binding: %s", name)
 		}
-		env = env.Extend(name, v)
+		globals[name] = v
 	}
-	return env, nil
+	return eval.NewGlobalEnv(globals), nil
 }
 
 type runRequest struct {

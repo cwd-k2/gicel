@@ -6,23 +6,33 @@ import "github.com/cwd-k2/gicel/internal/lang/ir"
 const maxMatchDepth = 256
 
 // binding is a name-value pair collected during pattern matching.
-// Using a slice of bindings avoids intermediate map allocations.
 type binding struct {
 	name string
 	val  Value
 }
 
 // Match attempts to match a value against a pattern.
-// Returns the bindings on success, or nil on failure.
-func Match(val Value, pat ir.Pattern) map[string]Value {
-	// Pass non-nil empty slice so success-with-no-bindings (wildcard)
-	// is distinguishable from failure (nil).
+// Returns a slice of values in pattern-binding order on success, or nil on failure.
+func Match(val Value, pat ir.Pattern) []Value {
 	bindings := collectBindings(val, pat, 0, []binding{})
 	if bindings == nil {
 		return nil
 	}
 	if len(bindings) == 0 {
-		return map[string]Value{}
+		return []Value{} // success with no bindings (wildcard/literal)
+	}
+	vals := make([]Value, len(bindings))
+	for i, b := range bindings {
+		vals[i] = b.val
+	}
+	return vals
+}
+
+// MatchNamed attempts to match and returns a name→value map (for explain/diagnostics).
+func MatchNamed(val Value, pat ir.Pattern) map[string]Value {
+	bindings := collectBindings(val, pat, 0, []binding{})
+	if bindings == nil {
+		return nil
 	}
 	m := make(map[string]Value, len(bindings))
 	for _, b := range bindings {
@@ -33,7 +43,6 @@ func Match(val Value, pat ir.Pattern) map[string]Value {
 
 // collectBindings collects pattern bindings into a slice, avoiding
 // intermediate map allocations. Returns nil on match failure.
-// The acc slice is reused across recursive calls to minimize allocation.
 func collectBindings(val Value, pat ir.Pattern, depth int, acc []binding) []binding {
 	if depth > maxMatchDepth {
 		return nil

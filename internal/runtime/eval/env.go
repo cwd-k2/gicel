@@ -1,188 +1,114 @@
 package eval
 
-// Env is a lexically-scoped variable environment.
+// Env is a lexically-scoped variable environment with a hybrid representation:
 //
-// Design: parent-chain with lazy flattening. Extend creates a new Env
-// node that links to its parent (O(1) allocation, no map copy). Lookup
-// walks the chain. When the chain exceeds flatThreshold, the chain is
-// flattened into a cached map for amortized O(1) lookup.
+//   - globals: shared flat map for module-level bindings (builtins, constructors,
+//     top-level definitions). Looked up by string key. Set up once per execution,
+//     never modified during evaluation.
 //
-// Fix knot-tying works because Closure captures an *Env pointer;
-// parent-chain nodes share structure just like flat-map Envs did.
+//   - locals: de Bruijn indexed array for lexically-scoped bindings (lambda params,
+//     bind vars, case pattern vars, fix names). Index 0 = innermost binding.
+//     Lookup is locals[len(locals)-1-index], O(1) with zero allocation.
+//
+// This design eliminates map allocations from the evaluation hot path while
+// keeping the simplicity of named lookup for global bindings whose layout
+// depends on runtime assembly.
 type Env struct {
-	parent *Env
-	name   string
-	val    Value
-	flat   map[string]Value // lazy flattening cache (nil = not yet computed)
-	size   int
+	globals map[string]Value
+	locals  []Value
 }
 
-// flatThreshold controls when the chain is flattened into a map.
-// Chosen to balance recursive binding scenarios vs small-scope overhead.
-const flatThreshold = 32
+// NewGlobalEnv creates an Env with the given globals map and no locals.
+func NewGlobalEnv(globals map[string]Value) *Env {
+	return &Env{globals: globals}
+}
 
-// EmptyEnv creates an empty environment.
+// EmptyEnv returns an Env with empty globals and no locals.
 func EmptyEnv() *Env {
-	return &Env{flat: make(map[string]Value), size: 0}
+	return &Env{globals: map[string]Value{}}
 }
 
-// Extend returns a new Env with an additional binding. O(1).
-func (e *Env) Extend(name string, val Value) *Env {
-	return &Env{parent: e, name: name, val: val, size: e.size + 1}
+// LookupLocal returns the value at the given de Bruijn index in the local stack.
+func (e *Env) LookupLocal(index int) Value {
+	return e.locals[len(e.locals)-1-index]
 }
 
-// ExtendMany returns a new Env with multiple bindings.
-// Builds a flat Env directly. Reuses parent's flat cache when available
-// to avoid a redundant flatten + copy cycle.
-func (e *Env) ExtendMany(bindings map[string]Value) *Env {
-	if len(bindings) == 0 {
+// LookupGlobal searches for a variable by key in the globals map.
+func (e *Env) LookupGlobal(key string) (Value, bool) {
+	v, ok := e.globals[key]
+	return v, ok
+}
+
+// Push appends a single value to the local stack.
+// Always copies to prevent aliasing with the parent's backing array.
+func (e *Env) Push(val Value) *Env {
+	newLocals := make([]Value, len(e.locals)+1)
+	copy(newLocals, e.locals)
+	newLocals[len(e.locals)] = val
+	return &Env{globals: e.globals, locals: newLocals}
+}
+
+// PushMany appends multiple values to the local stack.
+func (e *Env) PushMany(vals []Value) *Env {
+	if len(vals) == 0 {
 		return e
 	}
-	// If parent is already flat, clone its map and merge new bindings (1 alloc).
-	// Otherwise, flatten into a fresh combined map (also 1 alloc, but avoids
-	// the previous 2-alloc pattern of flatten() + separate combined map).
-	var combined map[string]Value
-	if e.flat != nil {
-		combined = make(map[string]Value, len(e.flat)+len(bindings))
-		for k, v := range e.flat {
-			combined[k] = v
-		}
-	} else {
-		combined = make(map[string]Value, e.size+len(bindings))
-		for cur := e; cur != nil; cur = cur.parent {
-			if cur.flat != nil {
-				for k, v := range cur.flat {
-					if _, exists := combined[k]; !exists {
-						combined[k] = v
-					}
-				}
-				break
-			}
-			if cur.name != "" {
-				if _, exists := combined[cur.name]; !exists {
-					combined[cur.name] = cur.val
-				}
-			}
-		}
-	}
-	for k, v := range bindings {
-		combined[k] = v
-	}
-	return &Env{flat: combined, size: len(combined)}
+	newLocals := make([]Value, len(e.locals)+len(vals))
+	copy(newLocals, e.locals)
+	copy(newLocals[len(e.locals):], vals)
+	return &Env{globals: e.globals, locals: newLocals}
 }
 
-// Lookup searches for a variable. Walks the parent chain, then checks
-// the flat cache. Triggers flattening when the chain exceeds threshold.
+// Capture creates a closure environment by extracting specific local values
+// at the given de Bruijn indices. The captured values are stored in order
+// (FVIndices[0] first, FVIndices[len-1] last). Returns an Env with the
+// same globals but a fresh locals slice.
+func (e *Env) Capture(fvIndices []int) *Env {
+	if len(fvIndices) == 0 {
+		return &Env{globals: e.globals}
+	}
+	cap := make([]Value, len(fvIndices))
+	for i, idx := range fvIndices {
+		cap[i] = e.locals[len(e.locals)-1-idx]
+	}
+	return &Env{globals: e.globals, locals: cap}
+}
+
+// CaptureAll creates a closure environment that copies all current locals.
+// Used when FV annotation overflowed (FVIndices == nil).
+func (e *Env) CaptureAll() *Env {
+	if len(e.locals) == 0 {
+		return &Env{globals: e.globals}
+	}
+	cp := make([]Value, len(e.locals))
+	copy(cp, e.locals)
+	return &Env{globals: e.globals, locals: cp}
+}
+
+// Globals returns the underlying globals map (for use by runtime assembly).
+func (e *Env) Globals() map[string]Value {
+	return e.globals
+}
+
+// --- Legacy API (used by tests and explain system) ---
+
+// Extend adds a named binding to the globals map. Used during env setup
+// (initBuiltinEnv, evalBindingsCore), NOT during evaluation hot path.
+func (e *Env) Extend(name string, val Value) *Env {
+	e.globals[name] = val
+	return e
+}
+
+// Lookup searches globals by name. Used by explain system and legacy paths.
 func (e *Env) Lookup(name string) (Value, bool) {
-	// Fast path: flat cache available.
-	if e.flat != nil {
-		v, ok := e.flat[name]
-		return v, ok
-	}
-	// Flatten if the chain exceeds the threshold. After this, e.flat
-	// is populated and all subsequent lookups on this Env are O(1).
-	if e.size > flatThreshold {
-		m := e.flatten()
-		v, ok := m[name]
-		return v, ok
-	}
-	// Walk chain (short environments only).
-	for cur := e; cur != nil; cur = cur.parent {
-		if cur.flat != nil {
-			v, ok := cur.flat[name]
-			return v, ok
-		}
-		if cur.name == name {
-			return cur.val, true
-		}
-	}
-	return nil, false
+	v, ok := e.globals[name]
+	return v, ok
 }
 
-// Len returns the number of bindings.
+// Flatten is a no-op (kept for API compatibility during migration).
+func (e *Env) Flatten() {}
+
+// Len returns the total number of bindings (globals + locals).
 func (e *Env) Len() int {
-	return e.size
-}
-
-// Flatten eagerly materializes the flat cache. Use this on Env nodes
-// that will be shared across goroutines to avoid the lazy-write data race
-// in flatten().
-func (e *Env) Flatten() {
-	e.flat = e.flatten()
-}
-
-// TrimTo returns a new flat Env containing only the named variables.
-// Used to implement safe-for-space closure conversion.
-//
-// Fast path: if the env is already flat, reads directly from the cached map.
-// Slow path: walks the chain with a name set, avoiding a full flatten.
-func (e *Env) TrimTo(names []string) *Env {
-	if len(names) == 0 {
-		return EmptyEnv()
-	}
-	// Fast path: flat cache available — direct lookup, no chain walk.
-	if e.flat != nil {
-		m := make(map[string]Value, len(names))
-		for _, name := range names {
-			if v, ok := e.flat[name]; ok {
-				m[name] = v
-			}
-		}
-		return &Env{flat: m, size: len(m)}
-	}
-	// Slow path: walk chain with a name set to avoid triggering flatten.
-	wanted := make(map[string]struct{}, len(names))
-	for _, name := range names {
-		wanted[name] = struct{}{}
-	}
-	m := make(map[string]Value, len(names))
-	for cur := e; cur != nil && len(wanted) > 0; cur = cur.parent {
-		if cur.flat != nil {
-			for name := range wanted {
-				if v, ok := cur.flat[name]; ok {
-					m[name] = v
-					delete(wanted, name)
-				}
-			}
-			break
-		}
-		if cur.name != "" {
-			if _, ok := wanted[cur.name]; ok {
-				m[cur.name] = cur.val
-				delete(wanted, cur.name)
-			}
-		}
-	}
-	return &Env{flat: m, size: len(m)}
-}
-
-// flatten materializes the full binding map from the parent chain.
-// Caches the result for future lookups.
-func (e *Env) flatten() map[string]Value {
-	if e.flat != nil {
-		return e.flat
-	}
-	// Collect chain nodes.
-	m := make(map[string]Value, e.size)
-	for cur := e; cur != nil; cur = cur.parent {
-		if cur.flat != nil {
-			// Merge flat cache (earlier in chain = more recent, wins).
-			for k, v := range cur.flat {
-				if _, exists := m[k]; !exists {
-					m[k] = v
-				}
-			}
-			break
-		}
-		if cur.name != "" {
-			if _, exists := m[cur.name]; !exists {
-				m[cur.name] = cur.val
-			}
-		}
-	}
-	// Cache if above threshold.
-	if e.size > flatThreshold {
-		e.flat = m
-	}
-	return m
+	return len(e.globals) + len(e.locals)
 }

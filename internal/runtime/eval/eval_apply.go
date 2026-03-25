@@ -102,7 +102,7 @@ func (ev *Evaluator) apply(capEnv CapEnv, fn Value, arg Value, site *ir.App) (Ev
 				ev.obs.Emit(ev.budget.Depth(), ExplainLabel, detail, site.S)
 			}
 		}
-		bodyEnv := f.Env.Extend(f.Param, arg)
+		bodyEnv := f.Env.Push(arg)
 		return EvalResult{Value: &bounceVal{
 			env: bodyEnv, capEnv: capEnv, expr: f.Body,
 			leaveDepth: 1, leaveObs: leaveObs, source: f.Source,

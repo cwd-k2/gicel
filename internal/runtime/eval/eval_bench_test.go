@@ -82,17 +82,15 @@ func BenchmarkClosureEnvBuild(b *testing.B) {
 
 // BenchmarkEnvTrimTo measures the cost of TrimTo, which creates a new env
 // keeping only named bindings. This is called on every closure application.
-func BenchmarkEnvTrimTo(b *testing.B) {
+func BenchmarkEnvCapture(b *testing.B) {
 	env := EmptyEnv()
 	for i := 0; i < 100; i++ {
-		env = env.Extend(fmt.Sprintf("v%d", i), &HostVal{Inner: i})
+		env = env.Push(&HostVal{Inner: i})
 	}
-	// Pre-flatten.
-	env.Lookup("v0")
-	names := []string{"v10", "v30", "v50", "v70", "v90"}
+	indices := []int{10, 30, 50, 70, 90}
 	b.ResetTimer()
 	for b.Loop() {
-		env.TrimTo(names)
+		env.Capture(indices)
 	}
 }
 

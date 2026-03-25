@@ -133,7 +133,7 @@ func TestEvalRecordPattern(t *testing.T) {
 						{Label: "x", Pattern: &ir.PVar{Name: "a"}},
 					},
 				},
-				Body: &ir.Var{Name: "a"},
+				Body: &ir.Var{Index: -1, Name: "a"},
 			},
 		},
 	}

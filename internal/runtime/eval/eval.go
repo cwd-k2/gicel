@@ -157,10 +157,21 @@ func (ev *Evaluator) evalStep(env *Env, capEnv CapEnv, expr ir.Core) (EvalResult
 
 	switch e := expr.(type) {
 	case *ir.Var:
-		key := ir.VarKey(e)
-		v, ok := env.Lookup(key)
-		if !ok {
-			return EvalResult{}, &RuntimeError{Message: fmt.Sprintf("unbound variable: %s", e.Name), Span: e.S, Source: ev.source}
+		var v Value
+		if e.Index >= 0 && e.Index < len(env.locals) {
+			// Local variable — de Bruijn indexed.
+			v = env.LookupLocal(e.Index)
+		} else {
+			// Global variable — key-based lookup.
+			key := e.Key
+			if key == "" {
+				key = ir.VarKey(e)
+			}
+			var ok bool
+			v, ok = env.LookupGlobal(key)
+			if !ok {
+				return EvalResult{}, &RuntimeError{Message: fmt.Sprintf("unbound variable: %s", e.Name), Span: e.S, Source: ev.source}
+			}
 		}
 		// Dereference forward-reference cells (used for mutually-recursive top-level bindings).
 		if ind, ok := v.(*IndirectVal); ok {
@@ -176,8 +187,10 @@ func (ev *Evaluator) evalStep(env *Env, capEnv CapEnv, expr ir.Core) (EvalResult
 			return EvalResult{}, err
 		}
 		closureEnv := env
-		if e.FV != nil {
-			closureEnv = env.TrimTo(e.FV)
+		if e.FVIndices != nil {
+			closureEnv = env.Capture(e.FVIndices)
+		} else if e.FV != nil {
+			closureEnv = env.CaptureAll()
 		}
 		return EvalResult{&Closure{Env: closureEnv, Param: e.Param, Body: e.Body, Source: ev.source}, capEnv}, nil
 
@@ -228,12 +241,13 @@ func (ev *Evaluator) evalStep(env *Env, capEnv CapEnv, expr ir.Core) (EvalResult
 			return EvalResult{}, err
 		}
 		for _, alt := range e.Alts {
-			bindings := Match(scrutR.Value, alt.Pattern)
-			if bindings != nil {
+			matchVals := Match(scrutR.Value, alt.Pattern)
+			if matchVals != nil {
 				if ev.obs.Active() && !alt.Generated {
-					ev.obs.Emit(ev.budget.Depth(), ExplainMatch, matchDetail(PrettyValue(scrutR.Value), formatPattern(alt.Pattern), bindings), e.S)
+					namedBindings := MatchNamed(scrutR.Value, alt.Pattern)
+					ev.obs.Emit(ev.budget.Depth(), ExplainMatch, matchDetail(PrettyValue(scrutR.Value), formatPattern(alt.Pattern), namedBindings), e.S)
 				}
-				altEnv := env.ExtendMany(bindings)
+				altEnv := env.PushMany(matchVals)
 				// Tail position: bounce instead of recursing.
 				return EvalResult{Value: &bounceVal{env: altEnv, capEnv: scrutR.CapEnv, expr: alt.Body}}, nil
 			}
@@ -263,7 +277,7 @@ func (ev *Evaluator) evalStep(env *Env, capEnv CapEnv, expr ir.Core) (EvalResult
 		if ev.obs.Active() && !e.Generated && e.Var != "_" {
 			ev.obs.Emit(ev.budget.Depth(), ExplainBind, bindDetail(e.Var, PrettyValue(compR.Value), true), e.S)
 		}
-		bodyEnv := env.Extend(e.Var, compR.Value)
+		bodyEnv := env.Push(compR.Value)
 		// Tail position: bounce body instead of recursing.
 		// ForceEffectful on the body result is deferred to the trampoline via forceSpan.
 		s := e.S
@@ -277,8 +291,10 @@ func (ev *Evaluator) evalStep(env *Env, capEnv CapEnv, expr ir.Core) (EvalResult
 			return EvalResult{}, err
 		}
 		thunkEnv := env
-		if e.FV != nil {
-			thunkEnv = env.TrimTo(e.FV)
+		if e.FVIndices != nil {
+			thunkEnv = env.Capture(e.FVIndices)
+		} else if e.FV != nil {
+			thunkEnv = env.CaptureAll()
 		}
 		// Mark capEnv as shared since ThunkVal captures it.
 		return EvalResult{&ThunkVal{Env: thunkEnv, Comp: e.Comp, Source: ev.source}, capEnv.MarkShared()}, nil

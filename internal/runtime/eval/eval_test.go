@@ -21,10 +21,18 @@ func newTestEval() *Evaluator {
 	return NewEvaluator(defaultBudget(), NewPrimRegistry(), nil, nil, nil)
 }
 
+// prepareIR runs the FV annotation and de Bruijn index assignment passes
+// on a Core expression, matching the production pipeline. Test IR constructed
+// with named variables (Index = 0 default) will have correct indices assigned.
+func prepareIR(c ir.Core) {
+	ir.AnnotateFreeVars(c)
+	ir.AssignIndices(c)
+}
+
 func TestEvalVar(t *testing.T) {
 	ev := newTestEval()
 	env := EmptyEnv().Extend("x", &HostVal{Inner: 42})
-	r, err := ev.Eval(env, EmptyCapEnv(), &ir.Var{Name: "x"})
+	r, err := ev.Eval(env, EmptyCapEnv(), &ir.Var{Index: -1, Name: "x"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -38,7 +46,7 @@ func TestEvalLamApp(t *testing.T) {
 	ev := newTestEval()
 	// (\x. x) Unit
 	term := &ir.App{
-		Fun: &ir.Lam{Param: "x", Body: &ir.Var{Name: "x"}},
+		Fun: &ir.Lam{Param: "x", Body: &ir.Var{Index: -1, Name: "x"}},
 		Arg: &ir.Con{Name: "Unit"},
 	}
 	r, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), term)
@@ -55,9 +63,9 @@ func TestEvalPureBind(t *testing.T) {
 	ev := newTestEval()
 	// Bind(Pure(HostVal(42)), "x", Pure(Var("x")))
 	term := &ir.Bind{
-		Comp: &ir.Pure{Expr: &ir.Var{Name: "val"}},
+		Comp: &ir.Pure{Expr: &ir.Var{Index: -1, Name: "val"}},
 		Var:  "x",
-		Body: &ir.Pure{Expr: &ir.Var{Name: "x"}},
+		Body: &ir.Pure{Expr: &ir.Var{Index: -1, Name: "x"}},
 	}
 	env := EmptyEnv().Extend("val", &HostVal{Inner: 42})
 	r, err := ev.Eval(env, EmptyCapEnv(), term)
@@ -94,8 +102,8 @@ func TestEvalCase(t *testing.T) {
 	term := &ir.Case{
 		Scrutinee: &ir.Con{Name: "True"},
 		Alts: []ir.Alt{
-			{Pattern: &ir.PCon{Con: "True"}, Body: &ir.Var{Name: "one"}},
-			{Pattern: &ir.PCon{Con: "False"}, Body: &ir.Var{Name: "two"}},
+			{Pattern: &ir.PCon{Con: "True"}, Body: &ir.Var{Index: -1, Name: "one"}},
+			{Pattern: &ir.PCon{Con: "False"}, Body: &ir.Var{Index: -1, Name: "two"}},
 		},
 	}
 	env := EmptyEnv().Extend("one", &HostVal{Inner: 1}).Extend("two", &HostVal{Inner: 2})
@@ -169,9 +177,9 @@ func TestStepLimit(t *testing.T) {
 	// A chain: App(App(Lam, Lam), Con) — will exceed 3 steps
 	term := &ir.App{
 		Fun: &ir.Lam{Param: "f",
-			Body: &ir.App{Fun: &ir.Var{Name: "f"}, Arg: &ir.Con{Name: "Unit"}},
+			Body: &ir.App{Fun: &ir.Var{Index: -1, Name: "f"}, Arg: &ir.Con{Name: "Unit"}},
 		},
-		Arg: &ir.Lam{Param: "x", Body: &ir.Var{Name: "x"}},
+		Arg: &ir.Lam{Param: "x", Body: &ir.Var{Index: -1, Name: "x"}},
 	}
 	_, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), term)
 	if _, ok := err.(*budget.StepLimitError); !ok {
@@ -301,7 +309,8 @@ func TestMatchPatterns(t *testing.T) {
 	if bindings == nil {
 		t.Fatal("match should succeed")
 	}
-	if bindings["a"].(*HostVal).Inner != 1 || bindings["b"].(*HostVal).Inner != 2 {
+	// Match returns []Value in pattern-binding order: [a, b]
+	if bindings[0].(*HostVal).Inner != 1 || bindings[1].(*HostVal).Inner != 2 {
 		t.Error("binding values wrong")
 	}
 	// Mismatch: different constructor
@@ -335,11 +344,12 @@ func TestMatchRecordPattern(t *testing.T) {
 	if bindings == nil {
 		t.Fatal("expected match to succeed")
 	}
-	if bindings["a"].(*HostVal).Inner != 10 {
-		t.Errorf("expected a=10, got %v", bindings["a"])
+	// Match returns []Value in pattern field order: [a, b]
+	if bindings[0].(*HostVal).Inner != 10 {
+		t.Errorf("expected a=10, got %v", bindings[0])
 	}
-	if bindings["b"].(*HostVal).Inner != 20 {
-		t.Errorf("expected b=20, got %v", bindings["b"])
+	if bindings[1].(*HostVal).Inner != 20 {
+		t.Errorf("expected b=20, got %v", bindings[1])
 	}
 	// Missing field should fail.
 	patExtra := &ir.PRecord{Fields: []ir.PRecordField{
@@ -395,7 +405,7 @@ func TestAllocTracking(t *testing.T) {
 	ev := newTestEval()
 	// Evaluate: (\x. x) Unit — creates a Closure then a ConVal.
 	term := &ir.App{
-		Fun: &ir.Lam{Param: "x", Body: &ir.Var{Name: "x"}},
+		Fun: &ir.Lam{Param: "x", Body: &ir.Var{Index: -1, Name: "x"}},
 		Arg: &ir.Con{Name: "Unit"},
 	}
 	_, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), term)
@@ -443,7 +453,7 @@ func TestBindForceEffectfulBody(t *testing.T) {
 func TestClosureEnvTrimmed(t *testing.T) {
 	// Closure with FV annotation should trim env to named vars only.
 	ev := newTestEval()
-	lam := &ir.Lam{Param: "x", Body: &ir.Var{Name: "y"}, FV: []string{"y"}}
+	lam := &ir.Lam{Param: "x", Body: &ir.Var{Index: -1, Name: "y"}, FV: []string{"y"}}
 	env := EmptyEnv().Extend("y", &HostVal{Inner: 1}).Extend("z", &HostVal{Inner: 2})
 	r, err := ev.Eval(env, EmptyCapEnv(), lam)
 	if err != nil {
@@ -462,7 +472,7 @@ func TestThunkEnvTrimmed(t *testing.T) {
 	// Thunk with FV annotation should trim env.
 	ev := newTestEval()
 	thunk := &ir.Thunk{
-		Comp: &ir.Pure{Expr: &ir.Var{Name: "y"}},
+		Comp: &ir.Pure{Expr: &ir.Var{Index: -1, Name: "y"}},
 		FV:   []string{"y"},
 	}
 	env := EmptyEnv().Extend("y", &HostVal{Inner: 1}).Extend("z", &HostVal{Inner: 2})
@@ -486,7 +496,7 @@ func TestFixEnvTrimmed(t *testing.T) {
 		Name: "f",
 		Body: &ir.Lam{
 			Param: "x",
-			Body:  &ir.Var{Name: "ext"},
+			Body:  &ir.Var{Index: -1, Name: "ext"},
 			FV:    []string{"ext"},
 		},
 	}
@@ -523,7 +533,7 @@ func TestAllocTrackingFix(t *testing.T) {
 	term := &ir.App{
 		Fun: &ir.Fix{
 			Name: "f",
-			Body: &ir.Lam{Param: "x", Body: &ir.Var{Name: "x"}},
+			Body: &ir.Lam{Param: "x", Body: &ir.Var{Index: -1, Name: "x"}},
 		},
 		Arg: &ir.Con{Name: "Unit"},
 	}
@@ -599,7 +609,7 @@ func TestDepthLimitBoundary(t *testing.T) {
 	// maxDepth=1: one level of function application should succeed.
 	ev := NewEvaluator(budget.New(context.Background(), 1_000_000, 1), NewPrimRegistry(), nil, nil, nil)
 	term := &ir.App{
-		Fun: &ir.Lam{Param: "x", Body: &ir.Var{Name: "x"}},
+		Fun: &ir.Lam{Param: "x", Body: &ir.Var{Index: -1, Name: "x"}},
 		Arg: &ir.Con{Name: "Unit"},
 	}
 	_, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), term)
@@ -741,7 +751,7 @@ func TestFixNestedEval(t *testing.T) {
 	// Nested Fix nodes evaluate correctly — each produces a closure.
 	ev := newTestEval()
 	// fix g in (fix f in \x. x) applied to Unit
-	inner := &ir.Fix{Name: "f", Body: &ir.Lam{Param: "x", Body: &ir.Var{Name: "x"}}}
+	inner := &ir.Fix{Name: "f", Body: &ir.Lam{Param: "x", Body: &ir.Var{Index: -1, Name: "x"}}}
 	term := &ir.App{Fun: inner, Arg: &ir.Con{Name: "Unit"}}
 	r, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), term)
 	if err != nil {
@@ -756,7 +766,7 @@ func TestFixNestedEval(t *testing.T) {
 
 func TestEvalVarUnbound(t *testing.T) {
 	ev := newTestEval()
-	_, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), &ir.Var{Name: "missing"})
+	_, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), &ir.Var{Index: -1, Name: "missing"})
 	if err == nil {
 		t.Fatal("expected error for unbound variable")
 	}
@@ -870,17 +880,18 @@ func TestTCOTailRecursionFlat(t *testing.T) {
 
 	zeroLit := &ir.Lit{Value: int64(0)}
 	oneLit := &ir.Lit{Value: int64(1)}
+	// Inside the Lam body: n at index 0, self at index 1
 	eqOp := &ir.PrimOp{Name: "eq", Arity: 2, Args: []ir.Core{
-		&ir.Var{Name: "n"}, zeroLit,
+		&ir.Var{Index: -1, Name: "n"}, zeroLit,
 	}}
 	subOp := &ir.PrimOp{Name: "sub", Arity: 2, Args: []ir.Core{
-		&ir.Var{Name: "n"}, oneLit,
+		&ir.Var{Index: -1, Name: "n"}, oneLit,
 	}}
-	selfCall := &ir.App{Fun: &ir.Var{Name: "self"}, Arg: subOp}
+	selfCall := &ir.App{Fun: &ir.Var{Index: -1, Name: "self"}, Arg: subOp}
 	body := &ir.Case{
 		Scrutinee: eqOp,
 		Alts: []ir.Alt{
-			{Pattern: &ir.PCon{Con: "True"}, Body: &ir.Var{Name: "n"}},
+			{Pattern: &ir.PCon{Con: "True"}, Body: &ir.Var{Index: -1, Name: "n"}},
 			{Pattern: &ir.PCon{Con: "False"}, Body: selfCall},
 		},
 	}
@@ -1074,7 +1085,10 @@ func TestFixSelfReference(t *testing.T) {
 	ev := newTestEval()
 	term := &ir.Fix{
 		Name: "self",
-		Body: &ir.Lam{Param: "x", Body: &ir.Var{Name: "self"}},
+		Body: &ir.Lam{Param: "x", Body: &ir.Var{Index: -1, Name: "self"}},
+		// After Fix: captured env = [], Push(self) → [self]
+		// After Lam apply: Push(arg) → [self, arg]
+		// self at index 1, x at index 0
 	}
 	r, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), term)
 	if err != nil {
@@ -1082,8 +1096,10 @@ func TestFixSelfReference(t *testing.T) {
 	}
 	clo := r.Value.(*Closure)
 	// Applying the fixpoint closure should return itself.
-	r2, err := ev.Eval(clo.Env, EmptyCapEnv(), &ir.App{
-		Fun: &ir.Var{Name: "self"},
+	appEnv := EmptyEnv()
+	appEnv.Extend("self", clo)
+	r2, err := ev.Eval(appEnv, EmptyCapEnv(), &ir.App{
+		Fun: &ir.Var{Index: -1, Name: "self"},
 		Arg: &ir.Con{Name: "Unit"},
 	})
 	if err != nil {
@@ -1245,7 +1261,7 @@ func TestIndirectVal(t *testing.T) {
 	ev := newTestEval()
 	ind := &IndirectVal{Ref: nil}
 	env := EmptyEnv().Extend("x", ind)
-	_, err := ev.Eval(env, EmptyCapEnv(), &ir.Var{Name: "x"})
+	_, err := ev.Eval(env, EmptyCapEnv(), &ir.Var{Index: -1, Name: "x"})
 	if err == nil {
 		t.Fatal("expected error for uninitialized IndirectVal")
 	}
@@ -1257,7 +1273,7 @@ func TestIndirectVal(t *testing.T) {
 	var val Value = &HostVal{Inner: int64(42)}
 	ind2 := &IndirectVal{Ref: &val}
 	env2 := EmptyEnv().Extend("y", ind2)
-	r, err := ev.Eval(env2, EmptyCapEnv(), &ir.Var{Name: "y"})
+	r, err := ev.Eval(env2, EmptyCapEnv(), &ir.Var{Index: -1, Name: "y"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1278,7 +1294,7 @@ func TestRuntimeErrorSourcePropagation(t *testing.T) {
 	// Create a closure in module source context.
 	ev.SetSource(modSrc)
 	caseExpr := &ir.Case{
-		Scrutinee: &ir.Var{Name: "x"},
+		Scrutinee: &ir.Var{Index: -1, Name: "x"},
 		Alts:      nil, // no alts → non-exhaustive match guaranteed
 		S:         span.Span{Start: 5, End: 20},
 	}
@@ -1327,10 +1343,10 @@ func TestSourceRestoredAfterEval(t *testing.T) {
 	// Create a closure in module context that does a simple case match.
 	ev.SetSource(modSrc)
 	body := &ir.Case{
-		Scrutinee: &ir.Var{Name: "x"},
+		Scrutinee: &ir.Var{Index: -1, Name: "x"}, // x is the Lam param (index 0)
 		Alts: []ir.Alt{{
 			Pattern: &ir.PVar{Name: "y"},
-			Body:    &ir.Var{Name: "y"},
+			Body:    &ir.Var{Index: -1, Name: "y"}, // y is the pattern binding (index 0 in alt)
 		}},
 		S: span.Span{Start: 1, End: 3},
 	}
@@ -1347,7 +1363,7 @@ func TestSourceRestoredAfterEval(t *testing.T) {
 
 	// Apply the module closure from main context.
 	appExpr := &ir.App{
-		Fun: &ir.Var{Name: "f"},
+		Fun: &ir.Var{Index: -1, Name: "f"},
 		Arg: &ir.Lit{Value: int64(1)},
 		S:   span.Span{Start: 1, End: 4},
 	}

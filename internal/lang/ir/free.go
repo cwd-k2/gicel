@@ -209,7 +209,11 @@ func annotateFV(c Core, depth int) map[string]struct{} {
 	}
 	switch n := c.(type) {
 	case *Var:
-		return map[string]struct{}{varKey(n): {}}
+		// Pre-compute the environment lookup key to avoid string concat at eval time.
+		if n.Key == "" {
+			n.Key = varKey(n)
+		}
+		return map[string]struct{}{n.Key: {}}
 	case *Lam:
 		bodyFV := annotateFV(n.Body, depth+1)
 		if isFVOverflow(bodyFV) {
@@ -330,7 +334,11 @@ func varKey(v *Var) string {
 }
 
 // VarKey returns the map key for a Var node (exported for use in evaluator).
+// Uses the pre-computed Key field when available.
 func VarKey(v *Var) string {
+	if v.Key != "" {
+		return v.Key
+	}
 	return varKey(v)
 }
 
