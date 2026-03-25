@@ -245,6 +245,19 @@ func setupEngine(use string) (*gicel.Engine, error) {
 	return eng, nil
 }
 
+// exprFlag tracks the -e flag value and warns on duplicates.
+type exprFlag struct {
+	value string
+	count int
+}
+
+func (e *exprFlag) String() string { return e.value }
+func (e *exprFlag) Set(val string) error {
+	e.value = val
+	e.count++
+	return nil
+}
+
 // moduleFlags is a repeatable flag for --module Name=path pairs.
 type moduleFlags []string
 
@@ -394,14 +407,18 @@ func cmdRun(args []string) int {
 	maxNesting := fs.Int("max-nesting", 512, "structural nesting depth limit")
 	maxAlloc := fs.Int64("max-alloc", 100*1024*1024, "allocation byte limit (default: 100 MiB)")
 	jsonOut := fs.Bool("json", false, "output as JSON")
-	show := fs.Bool("show", false, "display result value on stdout")
+	_ = fs.Bool("show", false, "display result value on stdout (default; kept for compatibility)")
 	explain := fs.Bool("explain", false, "show semantic evaluation trace")
 	verbose := fs.Bool("verbose", false, "show source context in explain trace")
 	noColor := fs.Bool("no-color", false, "disable color output")
-	expr := fs.String("e", "", "evaluate source string directly")
+	var expr exprFlag
+	fs.Var(&expr, "e", "evaluate source string directly")
 	explainAll := fs.Bool("explain-all", false, "trace stdlib internals (with --explain)")
 	if err := fs.Parse(args); err != nil {
 		return 1
+	}
+	if expr.count > 1 {
+		fmt.Fprintf(os.Stderr, "warning: -e specified %d times; using last value\n", expr.count)
 	}
 
 	// --json mode: Console buffers output into capEnv instead of stdout.
@@ -434,7 +451,7 @@ func cmdRun(args []string) int {
 	ctx, cancel := context.WithTimeout(context.Background(), *timeout)
 	defer cancel()
 
-	source, eng, err := prepareEngine(fs, *packs, *recursion, *expr, modules)
+	source, eng, err := prepareEngine(fs, *packs, *recursion, expr.value, modules)
 	if err != nil {
 		return preflightError(err.Error(), *jsonOut)
 	}
@@ -483,6 +500,13 @@ func cmdRun(args []string) int {
 		}
 		if *jsonOut {
 			errJSON := runtimeErrorJSON(err)
+			if result != nil {
+				errJSON["stats"] = map[string]any{
+					"steps":     result.Stats.Steps,
+					"maxDepth":  result.Stats.MaxDepth,
+					"allocated": result.Stats.Allocated,
+				}
+			}
 			if *explain && len(explainSteps) > 0 {
 				errJSON["explain"] = explainSteps
 				errJSON["summary"] = summarizeSteps(explainSteps)
@@ -525,7 +549,7 @@ func cmdRun(args []string) int {
 			out["summary"] = summarizeSteps(explainSteps)
 		}
 		outputJSON(out)
-	} else if *show {
+	} else if !isUnitValue(result.Value) {
 		fmt.Println(gicel.PrettyValue(result.Value))
 	}
 	return 0
@@ -539,10 +563,14 @@ func cmdCheck(args []string) int {
 	var modules moduleFlags
 	fs.Var(&modules, "module", "register module: Name=path (repeatable)")
 	jsonOut := fs.Bool("json", false, "output as JSON")
-	expr := fs.String("e", "", "evaluate source string directly")
+	var expr exprFlag
+	fs.Var(&expr, "e", "evaluate source string directly")
 	timeout := fs.Duration("timeout", 5*time.Second, "compilation timeout")
 	if err := fs.Parse(args); err != nil {
 		return 1
+	}
+	if expr.count > 1 {
+		fmt.Fprintf(os.Stderr, "warning: -e specified %d times; using last value\n", expr.count)
 	}
 
 	if *timeout <= 0 {
@@ -552,7 +580,7 @@ func cmdCheck(args []string) int {
 	ctx, cancel := context.WithTimeout(context.Background(), *timeout)
 	defer cancel()
 
-	source, eng, err := prepareEngine(fs, *packs, *recursion, *expr, modules)
+	source, eng, err := prepareEngine(fs, *packs, *recursion, expr.value, modules)
 	if err != nil {
 		return preflightError(err.Error(), *jsonOut)
 	}

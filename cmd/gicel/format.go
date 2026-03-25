@@ -458,10 +458,32 @@ func formatCapEnv(ce gicel.CapEnv) map[string]any {
 		if val, ok := v.(gicel.Value); ok {
 			m[l] = formatValue(val)
 		} else {
-			m[l] = fmt.Sprintf("%v", v)
+			m[l] = formatCapEntry(v)
 		}
 	}
 	return m
+}
+
+// formatCapEntry serializes a non-Value capability environment entry as a
+// JSON-compatible type. Common Go types are handled explicitly to avoid
+// Go-native fmt.Sprintf formatting (e.g., "[line1 line2]" for []string).
+func formatCapEntry(v any) any {
+	switch val := v.(type) {
+	case []string:
+		return val
+	case string:
+		return val
+	case int64:
+		return val
+	case float64:
+		return val
+	case bool:
+		return val
+	case nil:
+		return nil
+	default:
+		return fmt.Sprintf("%v", v)
+	}
 }
 
 func formatValue(v gicel.Value) any {

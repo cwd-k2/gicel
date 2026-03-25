@@ -221,7 +221,7 @@ func prettyValueDepth(v Value, depth int) string {
 	case *ThunkVal:
 		return "<thunk>"
 	case *PrimVal:
-		return "<primitive:" + val.Name + ">"
+		return "<function>"
 	case *IndirectVal:
 		if val.Ref == nil {
 			return "<uninitialized>"

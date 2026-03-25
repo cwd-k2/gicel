@@ -262,6 +262,30 @@ func reverseImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, _ eval.
 	return result, ce, nil
 }
 
+// rangeImpl generates an inclusive integer range [from..to].
+func rangeImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
+	from, err := asInt64List(args[0])
+	if err != nil {
+		return nil, ce, err
+	}
+	to, err := asInt64List(args[1])
+	if err != nil {
+		return nil, ce, err
+	}
+	if from > to {
+		return &eval.ConVal{Con: "Nil"}, ce, nil
+	}
+	n := to - from + 1
+	if err := budget.ChargeAlloc(ctx, n*costConsNode); err != nil {
+		return nil, ce, err
+	}
+	items := make([]eval.Value, n)
+	for i := int64(0); i < n; i++ {
+		items[i] = &eval.HostVal{Inner: from + i}
+	}
+	return buildList(items), ce, nil
+}
+
 // buildList creates a ConVal Cons/Nil chain from a slice.
 func buildList(items []eval.Value) eval.Value {
 	var result eval.Value = &eval.ConVal{Con: "Nil"}

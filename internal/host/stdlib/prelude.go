@@ -54,8 +54,9 @@ var Prelude Pack = func(e Registrar) error {
 	e.RegisterPrim("_listScanl", scanlImpl)
 	e.RegisterPrim("_listUnfoldr", unfoldrImpl)
 	e.RegisterPrim("_listIterateN", iterateNImpl)
+	e.RegisterPrim("_listRange", rangeImpl)
 
-	// --- Str primitives (18) ---
+	// --- Str primitives (19) ---
 	e.RegisterPrim("_eqStr", eqStrImpl)
 	e.RegisterPrim("_cmpStr", cmpStrImpl)
 	e.RegisterPrim("_appendStr", appendStrImpl)

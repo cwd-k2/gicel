@@ -170,14 +170,7 @@ func (v *ThunkVal) String() string {
 }
 
 func (v *PrimVal) String() string {
-	if len(v.Args) == 0 {
-		return fmt.Sprintf("PrimVal(%s)", v.Name)
-	}
-	args := make([]string, len(v.Args))
-	for i, a := range v.Args {
-		args[i] = a.String()
-	}
-	return fmt.Sprintf("PrimVal(%s %s)", v.Name, strings.Join(args, " "))
+	return "<function>"
 }
 
 func (v *RecordVal) String() string {

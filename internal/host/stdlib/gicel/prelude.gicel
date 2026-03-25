@@ -742,6 +742,9 @@ _listReplicate := assumption
 _listReverse :: \a. List a -> List a
 _listReverse := assumption
 
+_listRange :: Int -> Int -> List Int
+_listRange := assumption
+
 _listZip :: \a b. List a -> List b -> List (a, b)
 _listZip := assumption
 
@@ -762,6 +765,9 @@ index := _listIndex
 
 replicate :: \a. Int -> a -> List a
 replicate := _listReplicate
+
+range :: Int -> Int -> List Int
+range := _listRange
 
 reverse :: \a. List a -> List a
 reverse := _listReverse

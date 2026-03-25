@@ -80,9 +80,17 @@ func callPrim(ctx context.Context, impl PrimImpl, capEnv CapEnv, args []Value, a
 	return
 }
 
-// wrapPrimError is a passthrough — structured errors (budget limits, context
-// cancellation, RuntimeError) must not be wrapped to preserve errors.As matching.
-func wrapPrimError(err error, _ span.Span, _ *span.Source) error {
+// wrapPrimError wraps plain errors into RuntimeError with span attribution.
+// Typed errors (RuntimeError, budget limits, context errors) pass through
+// unchanged to preserve their concrete type for errors.As matching.
+func wrapPrimError(err error, s span.Span, source *span.Source) error {
+	if _, ok := err.(*RuntimeError); ok {
+		return err
+	}
+	typeName := fmt.Sprintf("%T", err)
+	if typeName == "*errors.errorString" || typeName == "*fmt.wrapError" {
+		return &RuntimeError{Message: err.Error(), Span: s, Source: source}
+	}
 	return err
 }
 
