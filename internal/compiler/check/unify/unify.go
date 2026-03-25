@@ -590,7 +590,7 @@ func (u *Unifier) unifyAppWithTriple(app types.Type, conName string, fields [3]t
 	for _, arg := range args[:len(args)-3] {
 		conHead = &types.TyApp{Fun: conHead, Arg: arg}
 	}
-	if err := u.Unify(conHead, &types.TyCon{Name: conName}); err != nil {
+	if err := u.Unify(conHead, types.Con(conName)); err != nil {
 		return err
 	}
 	for i := range 3 {

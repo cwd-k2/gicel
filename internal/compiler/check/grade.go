@@ -36,7 +36,7 @@ func gradeJoin(a, b types.Type) types.Type {
 // Always Zero. When multiple grade algebras are supported, dispatch
 // on the algebra tag here.
 func gradeDrop(_ types.Type) types.Type {
-	return &types.TyCon{Name: "Zero"}
+	return types.Con("Zero")
 }
 
 // gradeCanPreserve checks whether a field with the given grade can be preserved
@@ -73,12 +73,12 @@ func usageJoin(a, b *types.TyCon) *types.TyCon {
 	// This is NOT the lattice order — it is only used to reduce case count.
 	switch {
 	case x == "Unrestricted" || y == "Unrestricted":
-		return &types.TyCon{Name: "Unrestricted"}
+		return types.Con("Unrestricted")
 	case x == "Affine" || y == "Affine":
-		return &types.TyCon{Name: "Affine"}
+		return types.Con("Affine")
 	case x == "Linear" && y == "Zero":
 		// After sort x <= y: "Linear" < "Zero", so this is the only reachable ordering.
-		return &types.TyCon{Name: "Affine"}
+		return types.Con("Affine")
 	default:
 		// Unknown grade constructor name. The usage algebra is closed
 		// ({Zero, Linear, Affine, Unrestricted}); reaching here means a
@@ -99,10 +99,10 @@ func usageJoin(a, b *types.TyCon) *types.TyCon {
 func (ch *Checker) registerGradeAlgebraFamilies() {
 	multKind := gradeAlgebraKind(ch)
 
-	zero := &types.TyCon{Name: "Zero"}
-	linear := &types.TyCon{Name: "Linear"}
-	affine := &types.TyCon{Name: "Affine"}
-	unrestricted := &types.TyCon{Name: "Unrestricted"}
+	zero := types.Con("Zero")
+	linear := types.Con("Linear")
+	affine := types.Con("Affine")
+	unrestricted := types.Con("Unrestricted")
 	wildcard := &types.TyVar{Name: "_"}
 
 	// $GradeJoin :: Mult -> Mult -> Mult
@@ -235,7 +235,7 @@ func (ch *Checker) checkGradeBoundary(comp *types.TyCBPV, s span.Span) {
 // algebraic definition of gradeCanPreserve.
 func (ch *Checker) emitGradePreserveConstraint(grade types.Type, s span.Span) {
 	multKind := gradeAlgebraKind(ch)
-	zero := &types.TyCon{Name: "Zero"}
+	zero := types.Con("Zero")
 	args := []types.Type{zero, grade}
 
 	resultMeta := ch.freshMeta(multKind)

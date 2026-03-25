@@ -31,7 +31,7 @@ func (ch *Checker) inferRecord(e *syntax.ExprRecord) (types.Type, ir.Core) {
 		Entries: &types.CapabilityEntries{Fields: fields},
 		S:       e.S,
 	}
-	recTy := &types.TyApp{Fun: &types.TyCon{Name: "Record"}, Arg: row, S: e.S}
+	recTy := &types.TyApp{Fun: types.Con("Record"), Arg: row, S: e.S}
 	return ch.unifier.Zonk(recTy), &ir.RecordLit{Fields: coreFields, S: e.S}
 }
 
@@ -88,7 +88,7 @@ func (ch *Checker) matchRecordField(ty types.Type, label string, s span.Span) ty
 		Tail: tailMeta,
 		S:    s,
 	}
-	expectedRecTy := &types.TyApp{Fun: &types.TyCon{Name: "Record"}, Arg: expectedRow, S: s}
+	expectedRecTy := &types.TyApp{Fun: types.Con("Record"), Arg: expectedRow, S: s}
 	if err := ch.unifier.Unify(ty, expectedRecTy); err != nil {
 		ch.addCodedError(diagnostic.ErrRowMismatch, s, fmt.Sprintf("expected record with field %s, got %s", label, types.Pretty(ty)))
 		return ch.freshMeta(types.KType{})
@@ -150,7 +150,7 @@ func (ch *Checker) checkRecord(e *syntax.ExprRecord, expected types.Type) ir.Cor
 		Entries: &types.CapabilityEntries{Fields: rowFields},
 		S:       e.S,
 	}
-	recTy := &types.TyApp{Fun: &types.TyCon{Name: "Record"}, Arg: row, S: e.S}
+	recTy := &types.TyApp{Fun: types.Con("Record"), Arg: row, S: e.S}
 	coreExpr := &ir.RecordLit{Fields: coreFields, S: e.S}
 	return ch.subsCheck(ch.unifier.Zonk(recTy), expected, coreExpr, e.S)
 }

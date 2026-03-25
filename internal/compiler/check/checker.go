@@ -351,7 +351,7 @@ func (s *CheckState) freshKindMeta() *types.KMeta {
 }
 
 func (s *CheckState) mkType(name string) types.Type {
-	return &types.TyCon{Name: name}
+	return types.Con(name)
 }
 
 func (s *CheckState) errorPair(sp span.Span) (types.Type, ir.Core) {

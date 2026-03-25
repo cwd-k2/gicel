@@ -269,10 +269,10 @@ func (ch *Checker) autoLiftTypeArgs(typeArgs []types.Type, paramKinds []types.Ki
 		}) {
 			continue
 		}
-		liftKind := ch.kindOfType(&types.TyCon{Name: "Lift"})
+		liftKind := ch.kindOfType(types.Con("Lift"))
 		if liftKind != nil {
 			if ka, ok := liftKind.(*types.KArrow); ok && ka.From.Equal(argKind) {
-				lifted := &types.TyApp{Fun: &types.TyCon{Name: "Lift"}, Arg: typeArgs[i]}
+				lifted := &types.TyApp{Fun: types.Con("Lift"), Arg: typeArgs[i]}
 				liftedKind := ka.To
 				if ch.withTrial(func() bool {
 					return ch.unifier.UnifyKinds(liftedKind, paramKind) == nil
