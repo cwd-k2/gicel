@@ -116,7 +116,6 @@ func (r *Runtime) initBuiltinEnv(gatedBuiltins map[string]bool) {
 		}
 	}
 
-	env.Flatten()
 	r.builtinEnv = env
 }
 

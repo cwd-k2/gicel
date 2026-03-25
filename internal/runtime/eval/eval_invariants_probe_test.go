@@ -208,7 +208,9 @@ func TestProbeE_BounceValFromForce(t *testing.T) {
 func TestProbeE_ApplyResolvedNoBounce(t *testing.T) {
 	// applyResolved (used by Applier) must resolve bounces.
 	ev := newTestEval()
-	clo := &Closure{Env: EmptyEnv(), Param: "x", Body: &ir.Var{Index: -1, Name: "x"}}
+	body := &ir.Lam{Param: "x", Body: &ir.Var{Name: "x"}}
+	prepareIR(body)
+	clo := &Closure{Env: EmptyEnv(), Param: body.Param, Body: body.Body}
 	r, err := ev.applyResolved(EmptyCapEnv(), clo, &HostVal{Inner: int64(42)}, &ir.App{})
 	if err != nil {
 		t.Fatal(err)
@@ -316,73 +318,57 @@ func TestProbeE_CapEnvSetAfterCOWIsNotShared(t *testing.T) {
 
 func TestProbeE_EnvEmptyLookup(t *testing.T) {
 	env := EmptyEnv()
-	_, ok := env.Lookup("anything")
+	_, ok := env.LookupGlobal("anything")
 	if ok {
-		t.Error("Lookup on empty env should return false")
+		t.Error("LookupGlobal on empty env should return false")
 	}
 }
 
-func TestProbeE_EnvTrimToEmpty(t *testing.T) {
-	env := EmptyEnv().Extend("x", &HostVal{Inner: 1}).Extend("y", &HostVal{Inner: 2})
-	trimmed := env.TrimTo(nil)
-	if trimmed.Len() != 0 {
-		t.Errorf("TrimTo(nil) should produce empty env, got len %d", trimmed.Len())
-	}
-}
-
-func TestProbeE_EnvTrimToNonexistent(t *testing.T) {
-	env := EmptyEnv().Extend("x", &HostVal{Inner: 1})
-	trimmed := env.TrimTo([]string{"x", "missing"})
-	// "x" should be present, "missing" should not.
-	if _, ok := trimmed.Lookup("x"); !ok {
-		t.Error("trimmed should have 'x'")
-	}
-	if _, ok := trimmed.Lookup("missing"); ok {
-		t.Error("trimmed should not have 'missing'")
-	}
-	// Size should reflect only found bindings.
-	if trimmed.Len() != 1 {
-		t.Errorf("expected len 1, got %d", trimmed.Len())
-	}
-}
-
-func TestProbeE_EnvFlattenThreshold(t *testing.T) {
-	// Build an env chain just under and at the flatten threshold.
+func TestProbeE_EnvCaptureEmpty(t *testing.T) {
+	// Capture with no indices produces env with no locals.
 	env := EmptyEnv()
-	for i := 0; i < flatThreshold; i++ {
+	env = env.Push(&HostVal{Inner: 1})
+	env = env.Push(&HostVal{Inner: 2})
+	captured := env.Capture([]int{})
+	if len(captured.locals) != 0 {
+		t.Errorf("Capture([]) should produce 0 locals, got %d", len(captured.locals))
+	}
+}
+
+func TestProbeE_EnvCaptureSubset(t *testing.T) {
+	// Capture extracts only requested indices.
+	env := EmptyEnv()
+	env = env.Push(&HostVal{Inner: 10})  // index 2
+	env = env.Push(&HostVal{Inner: 20})  // index 1
+	env = env.Push(&HostVal{Inner: 30})  // index 0
+	captured := env.Capture([]int{0, 2}) // capture innermost and outermost
+	if len(captured.locals) != 2 {
+		t.Errorf("expected 2 captured locals, got %d", len(captured.locals))
+	}
+}
+
+func TestProbeE_EnvGlobalDeepLookup(t *testing.T) {
+	// Many globals should all be found via LookupGlobal.
+	env := EmptyEnv()
+	for i := range 200 {
 		env = env.Extend(fmt.Sprintf("v%d", i), &HostVal{Inner: i})
 	}
-	// At threshold, lookup should still work.
-	v, ok := env.Lookup("v0")
+	v, ok := env.LookupGlobal("v0")
 	if !ok || v.(*HostVal).Inner != 0 {
-		t.Error("lookup at threshold should work")
+		t.Error("deep global lookup should work")
 	}
-	// One more extension triggers flatten.
-	env = env.Extend("extra", &HostVal{Inner: 999})
-	v, ok = env.Lookup("extra")
-	if !ok || v.(*HostVal).Inner != 999 {
-		t.Error("lookup after threshold should work")
-	}
-	v, ok = env.Lookup("v0")
-	if !ok || v.(*HostVal).Inner != 0 {
-		t.Error("lookup of deep binding after flatten should work")
+	v, ok = env.LookupGlobal("v199")
+	if !ok || v.(*HostVal).Inner != 199 {
+		t.Error("most recent global lookup should work")
 	}
 }
 
-func TestProbeE_EnvExtendManyShadowing(t *testing.T) {
+func TestProbeE_EnvExtendShadowing(t *testing.T) {
 	env := EmptyEnv().Extend("x", &HostVal{Inner: 1})
-	env = env.ExtendMany(map[string]Value{"x": &HostVal{Inner: 2}, "y": &HostVal{Inner: 3}})
-	v, ok := env.Lookup("x")
+	env.Extend("x", &HostVal{Inner: 2})
+	v, ok := env.LookupGlobal("x")
 	if !ok || v.(*HostVal).Inner != 2 {
-		t.Errorf("ExtendMany should shadow: expected 2, got %v", v)
-	}
-}
-
-func TestProbeE_EnvExtendManyEmpty(t *testing.T) {
-	env := EmptyEnv().Extend("x", &HostVal{Inner: 1})
-	env2 := env.ExtendMany(map[string]Value{})
-	if env2 != env {
-		t.Error("ExtendMany with empty map should return same env")
+		t.Errorf("Extend should shadow: expected 2, got %v", v)
 	}
 }
 
@@ -451,8 +437,8 @@ func TestProbeE_MatchNestedCon(t *testing.T) {
 	if bindings == nil {
 		t.Fatal("nested match should succeed")
 	}
-	if bindings["x"].(*HostVal).Inner != int64(1) {
-		t.Errorf("expected x=1, got %v", bindings["x"])
+	if bindings[0].(*HostVal).Inner != int64(1) {
+		t.Errorf("expected x=1, got %v", bindings[0])
 	}
 }
 
@@ -813,9 +799,10 @@ func TestProbeE_FixApply(t *testing.T) {
 	ev := newTestEval()
 	fix := &ir.Fix{
 		Name: "f",
-		Body: &ir.Lam{Param: "x", Body: &ir.Var{Index: -1, Name: "x"}},
+		Body: &ir.Lam{Param: "x", Body: &ir.Var{Name: "x"}},
 	}
 	term := &ir.App{Fun: fix, Arg: &ir.Lit{Value: int64(42)}}
+	prepareIR(term)
 	r, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), term)
 	if err != nil {
 		t.Fatal(err)

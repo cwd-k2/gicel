@@ -133,10 +133,12 @@ func TestEvalRecordPattern(t *testing.T) {
 						{Label: "x", Pattern: &ir.PVar{Name: "a"}},
 					},
 				},
-				Body: &ir.Var{Index: -1, Name: "a"},
+				Body: &ir.Var{Name: "a"},
 			},
 		},
 	}
+	ir.AnnotateFreeVars(term)
+	ir.AssignIndices(term)
 	r, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), term)
 	if err != nil {
 		t.Fatal(err)

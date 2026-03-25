@@ -16,10 +16,12 @@ func deepApp(depth int) ir.Core {
 	var expr ir.Core = &ir.Lit{Value: int64(1)}
 	for i := 0; i < depth; i++ {
 		expr = &ir.App{
-			Fun: &ir.Lam{Param: "_", Body: &ir.Var{Index: -1, Name: "_"}},
+			Fun: &ir.Lam{Param: "_", Body: &ir.Var{Name: "_"}},
 			Arg: expr,
 		}
 	}
+	ir.AnnotateFreeVars(expr)
+	ir.AssignIndices(expr)
 	return expr
 }
 

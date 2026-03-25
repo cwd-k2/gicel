@@ -46,9 +46,10 @@ func TestEvalLamApp(t *testing.T) {
 	ev := newTestEval()
 	// (\x. x) Unit
 	term := &ir.App{
-		Fun: &ir.Lam{Param: "x", Body: &ir.Var{Index: -1, Name: "x"}},
+		Fun: &ir.Lam{Param: "x", Body: &ir.Var{Name: "x"}},
 		Arg: &ir.Con{Name: "Unit"},
 	}
+	prepareIR(term)
 	r, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), term)
 	if err != nil {
 		t.Fatal(err)
@@ -63,10 +64,11 @@ func TestEvalPureBind(t *testing.T) {
 	ev := newTestEval()
 	// Bind(Pure(HostVal(42)), "x", Pure(Var("x")))
 	term := &ir.Bind{
-		Comp: &ir.Pure{Expr: &ir.Var{Index: -1, Name: "val"}},
+		Comp: &ir.Pure{Expr: &ir.Var{Name: "val"}},
 		Var:  "x",
-		Body: &ir.Pure{Expr: &ir.Var{Index: -1, Name: "x"}},
+		Body: &ir.Pure{Expr: &ir.Var{Name: "x"}},
 	}
+	prepareIR(term)
 	env := EmptyEnv().Extend("val", &HostVal{Inner: 42})
 	r, err := ev.Eval(env, EmptyCapEnv(), term)
 	if err != nil {
@@ -221,7 +223,7 @@ func TestEnvParentChainLookup(t *testing.T) {
 		env = env.Extend(fmt.Sprintf("v%d", i), &HostVal{Inner: i})
 	}
 	// Lookup the deepest binding.
-	v, ok := env.Lookup("v0")
+	v, ok := env.LookupGlobal("v0")
 	if !ok {
 		t.Fatal("v0 not found in 100-deep chain")
 	}
@@ -229,7 +231,7 @@ func TestEnvParentChainLookup(t *testing.T) {
 		t.Errorf("expected 0, got %v", v.(*HostVal).Inner)
 	}
 	// Lookup the most recent binding.
-	v99, ok := env.Lookup("v99")
+	v99, ok := env.LookupGlobal("v99")
 	if !ok {
 		t.Fatal("v99 not found")
 	}
@@ -243,18 +245,16 @@ func TestEnvParentChainLookup(t *testing.T) {
 }
 
 func TestEnvExtendAlloc(t *testing.T) {
-	// Extend should NOT copy the map (O(1) allocation).
+	// Extend mutates the globals map in place — no map copy.
 	base := EmptyEnv()
-	for i := 0; i < 50; i++ {
+	for i := range 50 {
 		base = base.Extend(fmt.Sprintf("v%d", i), &HostVal{Inner: i})
 	}
 	allocs := testing.AllocsPerRun(100, func() {
 		base.Extend("extra", &HostVal{Inner: 999})
 	})
-	// With parent-chain, Extend allocates 1 Env struct only.
-	// Old impl would allocate map + copy (much more).
-	if allocs > 3 {
-		t.Errorf("Extend allocated %v per run; expected <= 3 (parent-chain O(1))", allocs)
+	if allocs > 1 {
+		t.Errorf("Extend allocated %v per run; expected <= 1 (in-place map insert)", allocs)
 	}
 }
 
@@ -265,13 +265,13 @@ func BenchmarkEnvExtend100(b *testing.B) {
 			env = env.Extend(fmt.Sprintf("v%d", j), &HostVal{Inner: j})
 		}
 		// Force a lookup to prevent dead-code elimination.
-		env.Lookup("v50")
+		env.LookupGlobal("v50")
 	}
 }
 
 func TestEnvLookup(t *testing.T) {
 	env := EmptyEnv().Extend("x", &HostVal{Inner: 1}).Extend("y", &HostVal{Inner: 2})
-	v, ok := env.Lookup("x")
+	v, ok := env.LookupGlobal("x")
 	if !ok {
 		t.Fatal("x not found")
 	}
@@ -280,7 +280,7 @@ func TestEnvLookup(t *testing.T) {
 	}
 	// Shadowing
 	env2 := env.Extend("x", &HostVal{Inner: 99})
-	v2, _ := env2.Lookup("x")
+	v2, _ := env2.LookupGlobal("x")
 	if v2.(*HostVal).Inner != 99 {
 		t.Error("shadowed x should be 99")
 	}
@@ -405,9 +405,10 @@ func TestAllocTracking(t *testing.T) {
 	ev := newTestEval()
 	// Evaluate: (\x. x) Unit — creates a Closure then a ConVal.
 	term := &ir.App{
-		Fun: &ir.Lam{Param: "x", Body: &ir.Var{Index: -1, Name: "x"}},
+		Fun: &ir.Lam{Param: "x", Body: &ir.Var{Name: "x"}},
 		Arg: &ir.Con{Name: "Unit"},
 	}
+	prepareIR(term)
 	_, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), term)
 	if err != nil {
 		t.Fatal(err)
@@ -451,68 +452,75 @@ func TestBindForceEffectfulBody(t *testing.T) {
 }
 
 func TestClosureEnvTrimmed(t *testing.T) {
-	// Closure with FV annotation should trim env to named vars only.
+	// Closure with FV annotation should capture only referenced locals.
 	ev := newTestEval()
-	lam := &ir.Lam{Param: "x", Body: &ir.Var{Index: -1, Name: "y"}, FV: []string{"y"}}
-	env := EmptyEnv().Extend("y", &HostVal{Inner: 1}).Extend("z", &HostVal{Inner: 2})
+	env := EmptyEnv()
+	env = env.Push(&HostVal{Inner: 1}) // y at de Bruijn index 1
+	env = env.Push(&HostVal{Inner: 2}) // z at de Bruijn index 0
+	// Lam captures only y (index 1 in enclosing env).
+	lam := &ir.Lam{
+		Param:     "x",
+		Body:      &ir.Var{Name: "y", Index: 1},
+		FV:        []string{"y"},
+		FVIndices: []int{1},
+	}
 	r, err := ev.Eval(env, EmptyCapEnv(), lam)
 	if err != nil {
 		t.Fatal(err)
 	}
 	clo := r.Value.(*Closure)
-	if _, ok := clo.Env.Lookup("z"); ok {
-		t.Error("trimmed closure env should not contain 'z'")
-	}
-	if _, ok := clo.Env.Lookup("y"); !ok {
-		t.Error("trimmed closure env should contain 'y'")
+	if len(clo.Env.locals) != 1 {
+		t.Errorf("trimmed closure env should have 1 local (y only), got %d", len(clo.Env.locals))
 	}
 }
 
 func TestThunkEnvTrimmed(t *testing.T) {
-	// Thunk with FV annotation should trim env.
+	// Thunk with FV annotation should capture only referenced locals.
 	ev := newTestEval()
+	env := EmptyEnv()
+	env = env.Push(&HostVal{Inner: 1}) // y at de Bruijn index 1
+	env = env.Push(&HostVal{Inner: 2}) // z at de Bruijn index 0
 	thunk := &ir.Thunk{
-		Comp: &ir.Pure{Expr: &ir.Var{Index: -1, Name: "y"}},
-		FV:   []string{"y"},
+		Comp:      &ir.Pure{Expr: &ir.Var{Name: "y", Index: 0}},
+		FV:        []string{"y"},
+		FVIndices: []int{1},
 	}
-	env := EmptyEnv().Extend("y", &HostVal{Inner: 1}).Extend("z", &HostVal{Inner: 2})
 	r, err := ev.Eval(env, EmptyCapEnv(), thunk)
 	if err != nil {
 		t.Fatal(err)
 	}
 	tv := r.Value.(*ThunkVal)
-	if _, ok := tv.Env.Lookup("z"); ok {
-		t.Error("trimmed thunk env should not contain 'z'")
-	}
-	if _, ok := tv.Env.Lookup("y"); !ok {
-		t.Error("trimmed thunk env should contain 'y'")
+	if len(tv.Env.locals) != 1 {
+		t.Errorf("trimmed thunk env should have 1 local (y only), got %d", len(tv.Env.locals))
 	}
 }
 
 func TestFixEnvTrimmed(t *testing.T) {
-	// fix f = \x. ext — returned closure should have trimmed env.
+	// fix f = \x. ext — returned closure should capture only ext, not noise.
 	ev := newTestEval()
+	env := EmptyEnv()
+	env = env.Push(&HostVal{Inner: 1}) // ext at de Bruijn index 1
+	env = env.Push(&HostVal{Inner: 2}) // noise at de Bruijn index 0
+	// Lam captures ext (index 1). Fix adds self-ref.
+	// After Capture([ext]) + Push(self): locals = [ext, self].
+	// In body after Push(x): [ext, self, x]. ext=2, self=1, x=0.
 	term := &ir.Fix{
 		Name: "f",
 		Body: &ir.Lam{
-			Param: "x",
-			Body:  &ir.Var{Index: -1, Name: "ext"},
-			FV:    []string{"ext"},
+			Param:     "x",
+			Body:      &ir.Var{Name: "ext", Index: 2},
+			FV:        []string{"ext"},
+			FVIndices: []int{1},
 		},
 	}
-	env := EmptyEnv().
-		Extend("ext", &HostVal{Inner: 1}).
-		Extend("noise", &HostVal{Inner: 2})
 	r, err := ev.Eval(env, EmptyCapEnv(), term)
 	if err != nil {
 		t.Fatal(err)
 	}
 	clo := r.Value.(*Closure)
-	if _, ok := clo.Env.Lookup("noise"); ok {
-		t.Error("Fix closure env should not contain 'noise'")
-	}
-	if _, ok := clo.Env.Lookup("ext"); !ok {
-		t.Error("Fix closure env should contain 'ext'")
+	// Captured env: [ext, self] — 2 locals (FV + fix self-ref).
+	if len(clo.Env.locals) != 2 {
+		t.Errorf("Fix closure env should have 2 locals (ext + self), got %d", len(clo.Env.locals))
 	}
 }
 
@@ -533,10 +541,11 @@ func TestAllocTrackingFix(t *testing.T) {
 	term := &ir.App{
 		Fun: &ir.Fix{
 			Name: "f",
-			Body: &ir.Lam{Param: "x", Body: &ir.Var{Index: -1, Name: "x"}},
+			Body: &ir.Lam{Param: "x", Body: &ir.Var{Name: "x"}},
 		},
 		Arg: &ir.Con{Name: "Unit"},
 	}
+	prepareIR(term)
 	_, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), term)
 	if err != nil {
 		t.Fatal(err)
@@ -609,9 +618,10 @@ func TestDepthLimitBoundary(t *testing.T) {
 	// maxDepth=1: one level of function application should succeed.
 	ev := NewEvaluator(budget.New(context.Background(), 1_000_000, 1), NewPrimRegistry(), nil, nil, nil)
 	term := &ir.App{
-		Fun: &ir.Lam{Param: "x", Body: &ir.Var{Index: -1, Name: "x"}},
+		Fun: &ir.Lam{Param: "x", Body: &ir.Var{Name: "x"}},
 		Arg: &ir.Con{Name: "Unit"},
 	}
+	prepareIR(term)
 	_, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), term)
 	if err != nil {
 		t.Fatalf("maxDepth=1: single application should succeed, got %v", err)
@@ -750,9 +760,10 @@ func TestBindForceEffectfulDeferred(t *testing.T) {
 func TestFixNestedEval(t *testing.T) {
 	// Nested Fix nodes evaluate correctly — each produces a closure.
 	ev := newTestEval()
-	// fix g in (fix f in \x. x) applied to Unit
-	inner := &ir.Fix{Name: "f", Body: &ir.Lam{Param: "x", Body: &ir.Var{Index: -1, Name: "x"}}}
+	// (fix f in \x. x) applied to Unit
+	inner := &ir.Fix{Name: "f", Body: &ir.Lam{Param: "x", Body: &ir.Var{Name: "x"}}}
 	term := &ir.App{Fun: inner, Arg: &ir.Con{Name: "Unit"}}
+	prepareIR(term)
 	r, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), term)
 	if err != nil {
 		t.Fatalf("expected success, got: %v", err)
@@ -880,24 +891,24 @@ func TestTCOTailRecursionFlat(t *testing.T) {
 
 	zeroLit := &ir.Lit{Value: int64(0)}
 	oneLit := &ir.Lit{Value: int64(1)}
-	// Inside the Lam body: n at index 0, self at index 1
 	eqOp := &ir.PrimOp{Name: "eq", Arity: 2, Args: []ir.Core{
-		&ir.Var{Index: -1, Name: "n"}, zeroLit,
+		&ir.Var{Name: "n"}, zeroLit,
 	}}
 	subOp := &ir.PrimOp{Name: "sub", Arity: 2, Args: []ir.Core{
-		&ir.Var{Index: -1, Name: "n"}, oneLit,
+		&ir.Var{Name: "n"}, oneLit,
 	}}
-	selfCall := &ir.App{Fun: &ir.Var{Index: -1, Name: "self"}, Arg: subOp}
+	selfCall := &ir.App{Fun: &ir.Var{Name: "self"}, Arg: subOp}
 	body := &ir.Case{
 		Scrutinee: eqOp,
 		Alts: []ir.Alt{
-			{Pattern: &ir.PCon{Con: "True"}, Body: &ir.Var{Index: -1, Name: "n"}},
+			{Pattern: &ir.PCon{Con: "True"}, Body: &ir.Var{Name: "n"}},
 			{Pattern: &ir.PCon{Con: "False"}, Body: selfCall},
 		},
 	}
 	innerLam := &ir.Lam{Param: "n", Body: body}
 	fix := &ir.Fix{Name: "self", Body: innerLam}
 	term := &ir.App{Fun: fix, Arg: &ir.Lit{Value: int64(N)}}
+	prepareIR(term)
 
 	prims.Register("eq", func(_ context.Context, ce CapEnv, args []Value, _ Applier) (Value, CapEnv, error) {
 		a := args[0].(*HostVal).Inner.(int64)
@@ -1085,11 +1096,9 @@ func TestFixSelfReference(t *testing.T) {
 	ev := newTestEval()
 	term := &ir.Fix{
 		Name: "self",
-		Body: &ir.Lam{Param: "x", Body: &ir.Var{Index: -1, Name: "self"}},
-		// After Fix: captured env = [], Push(self) → [self]
-		// After Lam apply: Push(arg) → [self, arg]
-		// self at index 1, x at index 0
+		Body: &ir.Lam{Param: "x", Body: &ir.Var{Name: "self"}},
 	}
+	prepareIR(term)
 	r, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), term)
 	if err != nil {
 		t.Fatal(err)
@@ -1343,14 +1352,15 @@ func TestSourceRestoredAfterEval(t *testing.T) {
 	// Create a closure in module context that does a simple case match.
 	ev.SetSource(modSrc)
 	body := &ir.Case{
-		Scrutinee: &ir.Var{Index: -1, Name: "x"}, // x is the Lam param (index 0)
+		Scrutinee: &ir.Var{Name: "x"},
 		Alts: []ir.Alt{{
 			Pattern: &ir.PVar{Name: "y"},
-			Body:    &ir.Var{Index: -1, Name: "y"}, // y is the pattern binding (index 0 in alt)
+			Body:    &ir.Var{Name: "y"},
 		}},
 		S: span.Span{Start: 1, End: 3},
 	}
 	lamExpr := &ir.Lam{Param: "x", Body: body}
+	prepareIR(lamExpr)
 	closureR, err := ev.Eval(EmptyEnv(), EmptyCapEnv(), lamExpr)
 	if err != nil {
 		t.Fatal(err)

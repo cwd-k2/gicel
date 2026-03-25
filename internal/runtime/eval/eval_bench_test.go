@@ -1,4 +1,4 @@
-// Evaluator benchmarks — env lookup, curried application, closure chains.
+// Evaluator benchmarks — env operations, curried application, closure capture, match.
 // Does NOT cover: env extend (eval_test.go), full pipeline (engine/engine_bench_test.go).
 
 package eval
@@ -11,38 +11,36 @@ import (
 )
 
 // ---------------------------------------------------------------------------
-// Env: deep lookup (Finding 1 regression check)
+// Env: global lookup (flat map, O(1))
 // ---------------------------------------------------------------------------
 
-// BenchmarkEnvDeepLookup measures lookup cost in a deep parent chain.
-// After Finding 1 fix, lookups on chains > flatThreshold should amortize to O(1).
+// BenchmarkEnvDeepLookup measures global lookup cost with many bindings.
 func BenchmarkEnvDeepLookup(b *testing.B) {
 	env := EmptyEnv()
-	for i := 0; i < 200; i++ {
+	for i := range 200 {
 		env = env.Extend(fmt.Sprintf("v%d", i), &HostVal{Inner: i})
 	}
-	// First lookup triggers flattening.
-	env.Lookup("v100")
+	env.LookupGlobal("v100")
 	b.ResetTimer()
 	for b.Loop() {
-		env.Lookup("v100")
+		env.LookupGlobal("v100")
 	}
 }
 
-// BenchmarkEnvShallowLookup measures lookup cost in a short chain (no flattening).
+// BenchmarkEnvShallowLookup measures global lookup cost with few bindings.
 func BenchmarkEnvShallowLookup(b *testing.B) {
 	env := EmptyEnv()
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		env = env.Extend(fmt.Sprintf("v%d", i), &HostVal{Inner: i})
 	}
 	b.ResetTimer()
 	for b.Loop() {
-		env.Lookup("v5")
+		env.LookupGlobal("v5")
 	}
 }
 
 // ---------------------------------------------------------------------------
-// ConVal curried application (Finding 6)
+// ConVal curried application
 // ---------------------------------------------------------------------------
 
 // BenchmarkConValCurriedApply measures the allocation cost of building a
@@ -50,7 +48,7 @@ func BenchmarkEnvShallowLookup(b *testing.B) {
 func BenchmarkConValCurriedApply(b *testing.B) {
 	for b.Loop() {
 		var v Value = &ConVal{Con: "MkTuple", Args: nil}
-		for i := 0; i < 10; i++ {
+		for i := range 10 {
 			args := make([]Value, len(v.(*ConVal).Args)+1)
 			copy(args, v.(*ConVal).Args)
 			args[len(args)-1] = &HostVal{Inner: i}
@@ -60,31 +58,29 @@ func BenchmarkConValCurriedApply(b *testing.B) {
 }
 
 // ---------------------------------------------------------------------------
-// Closure chain (eval throughput proxy)
+// Closure globals build (eval throughput proxy)
 // ---------------------------------------------------------------------------
 
-// BenchmarkClosureEnvBuild measures the cost of building a closure's
-// captured environment chain via repeated Extend.
+// BenchmarkClosureEnvBuild measures the cost of building globals via Extend.
 func BenchmarkClosureEnvBuild(b *testing.B) {
 	for b.Loop() {
 		env := EmptyEnv()
-		for i := 0; i < 100; i++ {
+		for i := range 100 {
 			env = env.Extend(fmt.Sprintf("captured%d", i), &HostVal{Inner: i})
 		}
-		// Simulate closure capture + lookup.
-		env.Lookup("captured50")
+		env.LookupGlobal("captured50")
 	}
 }
 
 // ---------------------------------------------------------------------------
-// Env.TrimTo (hot path in pprof: 16% of eval alloc)
+// Env.Capture (closure creation hot path)
 // ---------------------------------------------------------------------------
 
-// BenchmarkEnvTrimTo measures the cost of TrimTo, which creates a new env
-// keeping only named bindings. This is called on every closure application.
+// BenchmarkEnvCapture measures the cost of Capture, which extracts specific
+// locals by de Bruijn index. Called on every closure/thunk creation.
 func BenchmarkEnvCapture(b *testing.B) {
 	env := EmptyEnv()
-	for i := 0; i < 100; i++ {
+	for i := range 100 {
 		env = env.Push(&HostVal{Inner: i})
 	}
 	indices := []int{10, 30, 50, 70, 90}
@@ -95,7 +91,7 @@ func BenchmarkEnvCapture(b *testing.B) {
 }
 
 // ---------------------------------------------------------------------------
-// Match allocation (hot path in pprof: 13% of eval alloc)
+// Match allocation
 // ---------------------------------------------------------------------------
 
 // BenchmarkMatchNestedCon measures pattern matching on a nested constructor.

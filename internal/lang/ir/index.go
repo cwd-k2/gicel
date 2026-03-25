@@ -147,8 +147,12 @@ func assignLam(n *Lam, enclosingScope map[string]int, depth int, fixName string,
 	}
 
 	// Collect local FVs (skip globals and fix name).
+	// FVIndices starts non-nil (empty) to distinguish "no local captures"
+	// from "FV overflow" (FV == nil). The evaluator uses:
+	//   FVIndices != nil → Capture(FVIndices)
+	//   FVIndices == nil && FV != nil → CaptureAll (overflow)
 	var localFVNames []string
-	n.FVIndices = nil
+	n.FVIndices = []int{}
 	for _, name := range n.FV {
 		if isFix && name == fixName {
 			continue // fix name is added by evalFix, not captured
@@ -192,7 +196,7 @@ func assignThunk(n *Thunk, enclosingScope map[string]int, depth int) {
 	}
 
 	var localFVNames []string
-	n.FVIndices = nil
+	n.FVIndices = []int{}
 	for _, name := range n.FV {
 		if enclosingScope == nil {
 			continue

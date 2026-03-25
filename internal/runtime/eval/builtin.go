@@ -59,13 +59,15 @@ func BuiltinEnv(enableFix, enableRec bool) *Env {
 // fix f = the fixpoint of f, i.e. x where x = \arg. (f x) arg.
 //
 // After capture (see assignLam in index.go for Fix):
-//   _f is global (Index = -1) — captured from the enclosing closure
-//   Actually _f is the param of the outer fix closure, so it's local.
+//
+//	_f is global (Index = -1) — captured from the enclosing closure
+//	Actually _f is the param of the outer fix closure, so it's local.
 //
 // Layout inside the Fix Lam body:
-//   _arg at index 0 (Lam param)
-//   _x at index 1 (Fix self-reference)
-//   _f at index 2 (captured from enclosing scope)
+//
+//	_arg at index 0 (Lam param)
+//	_x at index 1 (Fix self-reference)
+//	_f at index 2 (captured from enclosing scope)
 func fixBody() *ir.Fix {
 	return &ir.Fix{
 		Name: "_x",

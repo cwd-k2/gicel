@@ -10,9 +10,15 @@ package eval
 //     bind vars, case pattern vars, fix names). Index 0 = innermost binding.
 //     Lookup is locals[len(locals)-1-index], O(1) with zero allocation.
 //
-// This design eliminates map allocations from the evaluation hot path while
-// keeping the simplicity of named lookup for global bindings whose layout
-// depends on runtime assembly.
+// Aliasing invariant: Push/PushMany use Go's append for amortized O(1) extension.
+// Sibling scopes may share a backing array, but this is safe because:
+//   - Evaluation is sequential — sibling sub-evaluations run one at a time.
+//   - Closures always go through Capture or CaptureAll, which create an
+//     independent copy. This is the only way an Env survives beyond its
+//     creating scope.
+//
+// This is analogous to GHC STG's flat closure: the environment itself is
+// a transient stack, and closure creation extracts an independent snapshot.
 type Env struct {
 	globals map[string]Value
 	locals  []Value
@@ -39,13 +45,9 @@ func (e *Env) LookupGlobal(key string) (Value, bool) {
 	return v, ok
 }
 
-// Push appends a single value to the local stack.
-// Always copies to prevent aliasing with the parent's backing array.
+// Push appends a single value to the local stack (amortized O(1) via append).
 func (e *Env) Push(val Value) *Env {
-	newLocals := make([]Value, len(e.locals)+1)
-	copy(newLocals, e.locals)
-	newLocals[len(e.locals)] = val
-	return &Env{globals: e.globals, locals: newLocals}
+	return &Env{globals: e.globals, locals: append(e.locals, val)}
 }
 
 // PushMany appends multiple values to the local stack.
@@ -53,16 +55,14 @@ func (e *Env) PushMany(vals []Value) *Env {
 	if len(vals) == 0 {
 		return e
 	}
-	newLocals := make([]Value, len(e.locals)+len(vals))
-	copy(newLocals, e.locals)
-	copy(newLocals[len(e.locals):], vals)
-	return &Env{globals: e.globals, locals: newLocals}
+	return &Env{globals: e.globals, locals: append(e.locals, vals...)}
 }
 
 // Capture creates a closure environment by extracting specific local values
 // at the given de Bruijn indices. The captured values are stored in order
 // (FVIndices[0] first, FVIndices[len-1] last). Returns an Env with the
-// same globals but a fresh locals slice.
+// same globals but a fresh locals slice — breaking any backing-array aliasing
+// from prior Push calls.
 func (e *Env) Capture(fvIndices []int) *Env {
 	if len(fvIndices) == 0 {
 		return &Env{globals: e.globals}
@@ -75,7 +75,7 @@ func (e *Env) Capture(fvIndices []int) *Env {
 }
 
 // CaptureAll creates a closure environment that copies all current locals.
-// Used when FV annotation overflowed (FVIndices == nil).
+// Used when FV annotation overflowed (FV == nil → FVIndices == nil).
 func (e *Env) CaptureAll() *Env {
 	if len(e.locals) == 0 {
 		return &Env{globals: e.globals}
@@ -90,23 +90,12 @@ func (e *Env) Globals() map[string]Value {
 	return e.globals
 }
 
-// --- Legacy API (used by tests and explain system) ---
-
 // Extend adds a named binding to the globals map. Used during env setup
 // (initBuiltinEnv, evalBindingsCore), NOT during evaluation hot path.
 func (e *Env) Extend(name string, val Value) *Env {
 	e.globals[name] = val
 	return e
 }
-
-// Lookup searches globals by name. Used by explain system and legacy paths.
-func (e *Env) Lookup(name string) (Value, bool) {
-	v, ok := e.globals[name]
-	return v, ok
-}
-
-// Flatten is a no-op (kept for API compatibility during migration).
-func (e *Env) Flatten() {}
 
 // Len returns the total number of bindings (globals + locals).
 func (e *Env) Len() int {
