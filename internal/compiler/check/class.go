@@ -121,9 +121,9 @@ func (ch *Checker) processClassLikeForm(d *syntax.DeclForm, parts formBodyParts,
 	prog.DataDecls = append(prog.DataDecls, coreDecl)
 
 	// Generate selector bindings for each method.
-	dict := dictLayout{resultType: resultType, fieldTypes: allFieldTypes}
+	dict := dictLayout{resultType: resultType, fieldTypes: allFieldTypes, prog: prog, s: d.S}
 	for i, m := range methods {
-		ch.buildMethodSelector(info, m, i, dict, prog, d.S)
+		ch.buildMethodSelector(info, m, i, dict)
 	}
 }
 
@@ -198,17 +198,21 @@ func (ch *Checker) resolveMethods(parts formBodyParts) ([]MethodInfo, []types.Ty
 	return methods, methodFieldTypes
 }
 
-// dictLayout groups the dictionary type representation for buildMethodSelector.
+// dictLayout groups the dictionary type representation and IR context
+// for buildMethodSelector.
 type dictLayout struct {
 	resultType types.Type   // D a b c ...
 	fieldTypes []types.Type // superclass dicts ++ method types
+	prog       *ir.Program
+	s          span.Span
 }
 
 // buildMethodSelector generates a selector binding for a single class method.
 // The selector pattern-matches on the dictionary constructor to extract the method
 // at position fieldIdx (supers count + method index within methods).
-func (ch *Checker) buildMethodSelector(cls *ClassInfo, m MethodInfo, methodIdx int, dict dictLayout, prog *ir.Program, s span.Span) {
+func (ch *Checker) buildMethodSelector(cls *ClassInfo, m MethodInfo, methodIdx int, dict dictLayout) {
 	fieldIdx := len(cls.Supers) + methodIdx
+	s := dict.s
 
 	tyParamVars := make([]types.Type, len(cls.TyParams))
 	for j, p := range cls.TyParams {
@@ -258,7 +262,7 @@ func (ch *Checker) buildMethodSelector(cls *ClassInfo, m MethodInfo, methodIdx i
 		selectorBody = &ir.TyLam{TyParam: cls.KindParams[j], Kind: types.KSort{}, Body: selectorBody, S: s}
 	}
 
-	prog.Bindings = append(prog.Bindings, ir.Binding{
+	dict.prog.Bindings = append(dict.prog.Bindings, ir.Binding{
 		Name: m.Name,
 		Type: selectorTy,
 		Expr: selectorBody,

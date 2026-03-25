@@ -211,47 +211,56 @@ func (r *Registry) IsImportedInstance(inst *InstanceInfo) bool {
 // These return the underlying maps directly. Callers must not mutate them.
 // Used by ExportModule to filter and project registry contents.
 
-// AllDataTypes returns the type name → DataTypeInfo map.
+// AllDataTypes returns the type name -> DataTypeInfo map.
+// The caller must not modify the returned map.
 func (r *Registry) AllDataTypes() map[string]*DataTypeInfo {
 	return r.dataTypeByName
 }
 
-// AllConInfo returns the constructor → DataTypeInfo map.
+// AllConInfo returns the constructor -> DataTypeInfo map.
+// The caller must not modify the returned map.
 func (r *Registry) AllConInfo() map[string]*DataTypeInfo {
 	return r.conInfo
 }
 
-// AllConTypes returns the constructor → full type scheme map.
+// AllConTypes returns the constructor -> full type scheme map.
+// The caller must not modify the returned map.
 func (r *Registry) AllConTypes() map[string]types.Type {
 	return r.conTypes
 }
 
-// AllAliases returns the alias name → AliasInfo map.
+// AllAliases returns the alias name -> AliasInfo map.
+// The caller must not modify the returned map.
 func (r *Registry) AllAliases() map[string]*AliasInfo {
 	return r.aliases
 }
 
-// AllClasses returns the class name → ClassInfo map.
+// AllClasses returns the class name -> ClassInfo map.
+// The caller must not modify the returned map.
 func (r *Registry) AllClasses() map[string]*ClassInfo {
 	return r.classes
 }
 
 // AllInstances returns the ordered slice of all registered instances.
+// The caller must not modify the returned slice.
 func (r *Registry) AllInstances() []*InstanceInfo {
 	return r.instances
 }
 
-// AllPromotedKinds returns the promoted data name → kind map.
+// AllPromotedKinds returns the promoted data name -> kind map.
+// The caller must not modify the returned map.
 func (r *Registry) AllPromotedKinds() map[string]types.Kind {
 	return r.promotedKinds
 }
 
-// AllPromotedCons returns the promoted constructor → kind map.
+// AllPromotedCons returns the promoted constructor -> kind map.
+// The caller must not modify the returned map.
 func (r *Registry) AllPromotedCons() map[string]types.Kind {
 	return r.promotedCons
 }
 
-// AllFamilies returns the type family name → TypeFamilyInfo map.
+// AllFamilies returns the type family name -> TypeFamilyInfo map.
+// The caller must not modify the returned map.
 func (r *Registry) AllFamilies() map[string]*TypeFamilyInfo {
 	return r.families
 }
