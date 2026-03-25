@@ -31,7 +31,8 @@ type Evaluator struct {
 	ctx           context.Context
 	prims         *PrimRegistry
 	budget        *budget.Budget
-	globals       map[string]Value // module-level bindings; set once before eval
+	globals       map[string]Value // named globals (test/fallback path)
+	globalArray   []Value          // slot-indexed globals (production path)
 	trace         TraceHook
 	obs           *ExplainObserver // nil when explain is disabled
 	source        *span.Source     // current source context for error attribution
@@ -65,14 +66,27 @@ func (ev *Evaluator) SetSource(src *span.Source) {
 	}
 }
 
-// SetGlobals sets the globals map for the evaluator. Must be called before Eval.
+// SetGlobals sets the named globals map for the evaluator.
+// Used by tests and as the fallback for un-indexed globals.
 func (ev *Evaluator) SetGlobals(g map[string]Value) {
 	ev.globals = g
 }
 
-// Globals returns the evaluator's globals map.
+// SetGlobalArray sets the slot-indexed globals array for the evaluator.
+// When set, Var nodes with Index < 0 (assigned by AssignGlobalSlots)
+// are resolved via array lookup: globals[-(Index+1)].
+func (ev *Evaluator) SetGlobalArray(g []Value) {
+	ev.globalArray = g
+}
+
+// Globals returns the evaluator's named globals map.
 func (ev *Evaluator) Globals() map[string]Value {
 	return ev.globals
+}
+
+// GlobalArray returns the evaluator's slot-indexed globals array.
+func (ev *Evaluator) GlobalArray() []Value {
+	return ev.globalArray
 }
 
 // Stats returns the accumulated statistics.
@@ -169,11 +183,14 @@ func (ev *Evaluator) evalStep(locals []Value, capEnv CapEnv, expr ir.Core) (Eval
 	switch e := expr.(type) {
 	case *ir.Var:
 		var v Value
-		if e.Index >= 0 && e.Index < len(locals) {
+		if e.Index >= 0 {
 			// Local variable — de Bruijn indexed.
 			v = LookupLocal(locals, e.Index)
+		} else if e.Index <= -2 {
+			// Global variable — slot-indexed array lookup.
+			v = ev.globalArray[-(e.Index + 2)]
 		} else {
-			// Global variable — key-based lookup.
+			// Fallback: named lookup (tests, un-indexed IR).
 			key := e.Key
 			if key == "" {
 				key = ir.VarKey(e)

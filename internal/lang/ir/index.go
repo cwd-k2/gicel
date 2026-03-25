@@ -28,12 +28,163 @@ func AssignIndicesProgram(p *Program) {
 	}
 }
 
+// AssignGlobalSlots converts unassigned global variables (Index == -1) to
+// array-indexed globals using the provided slot mapping. After this pass,
+// global Var nodes have Index = -(slot+2): -2 → slot 0, -3 → slot 1, etc.
+// Index -1 remains the sentinel for "unassigned global" (test/fallback path).
+//
+// This completes the de Bruijn unification: all variables (local and global)
+// are resolved to integer indices. The evaluator dispatches:
+//
+//	Index >= 0  → locals[len-1-Index]   (de Bruijn)
+//	Index <= -2 → globals[-(Index+2)]   (slot)
+//	Index == -1 → named map fallback    (tests only)
+func AssignGlobalSlots(c Core, slots map[string]int) {
+	assignGlobalSlots(c, slots, 0)
+}
+
+// AssignGlobalSlotsProgram assigns global slots to all bindings in a Program.
+func AssignGlobalSlotsProgram(p *Program, slots map[string]int) {
+	for i := range p.Bindings {
+		assignGlobalSlots(p.Bindings[i].Expr, slots, 0)
+	}
+}
+
+func assignGlobalSlots(c Core, slots map[string]int, depth int) {
+	if depth > maxTraversalDepth {
+		// For left-spine App chains (e.g., long operator chains),
+		// use iterative descent to avoid hitting the depth limit.
+		if _, ok := c.(*App); ok {
+			assignGlobalSlotsLeftSpine(c, slots)
+			return
+		}
+		return
+	}
+	switch n := c.(type) {
+	case *Var:
+		if n.Index == -1 {
+			key := n.Key
+			if key == "" {
+				key = VarKey(n)
+			}
+			if slot, ok := slots[key]; ok {
+				n.Index = -(slot + 2)
+			}
+		}
+	case *Lam:
+		assignGlobalSlots(n.Body, slots, depth+1)
+	case *App:
+		assignGlobalSlotsLeftSpine(c, slots)
+		return
+	case *TyApp:
+		assignGlobalSlots(n.Expr, slots, depth+1)
+	case *TyLam:
+		assignGlobalSlots(n.Body, slots, depth+1)
+	case *Con:
+		for _, arg := range n.Args {
+			assignGlobalSlots(arg, slots, depth+1)
+		}
+	case *Case:
+		assignGlobalSlots(n.Scrutinee, slots, depth+1)
+		for _, alt := range n.Alts {
+			assignGlobalSlots(alt.Body, slots, depth+1)
+		}
+	case *Fix:
+		assignGlobalSlots(n.Body, slots, depth+1)
+	case *Pure:
+		assignGlobalSlots(n.Expr, slots, depth+1)
+	case *Bind:
+		assignGlobalSlots(n.Comp, slots, depth+1)
+		assignGlobalSlots(n.Body, slots, depth+1)
+	case *Thunk:
+		assignGlobalSlots(n.Comp, slots, depth+1)
+	case *Force:
+		assignGlobalSlots(n.Expr, slots, depth+1)
+	case *PrimOp:
+		for _, arg := range n.Args {
+			assignGlobalSlots(arg, slots, depth+1)
+		}
+	case *Lit:
+		// leaf
+	case *RecordLit:
+		for _, f := range n.Fields {
+			assignGlobalSlots(f.Value, slots, depth+1)
+		}
+	case *RecordProj:
+		assignGlobalSlots(n.Record, slots, depth+1)
+	case *RecordUpdate:
+		assignGlobalSlots(n.Record, slots, depth+1)
+		for _, f := range n.Updates {
+			assignGlobalSlots(f.Value, slots, depth+1)
+		}
+	}
+}
+
+// assignGlobalSlotsLeftSpine iteratively descends the left spine of App nodes
+// (and TyApp/TyLam wrappers), assigning global slots to right children.
+func assignGlobalSlotsLeftSpine(c Core, slots map[string]int) {
+	var rights []Core
+	cur := c
+	for {
+		switch n := cur.(type) {
+		case *App:
+			rights = append(rights, n.Arg)
+			cur = n.Fun
+			continue
+		case *TyApp:
+			cur = n.Expr
+			continue
+		case *TyLam:
+			cur = n.Body
+			continue
+		default:
+			assignGlobalSlots(n, slots, 0)
+		}
+		break
+	}
+	for i := len(rights) - 1; i >= 0; i-- {
+		assignGlobalSlots(rights[i], slots, 0)
+	}
+}
+
+// assignIndicesLeftSpine iteratively descends the left spine of App nodes,
+// processing right children recursively. Prevents Go stack overflow on
+// deeply left-nested operator chains (e.g., 500-operator expressions).
+func assignIndicesLeftSpine(c Core, localScope map[string]int) {
+	var rights []Core
+	cur := c
+	for {
+		switch n := cur.(type) {
+		case *App:
+			rights = append(rights, n.Arg)
+			cur = n.Fun
+			continue
+		case *TyApp:
+			cur = n.Expr
+			continue
+		case *TyLam:
+			cur = n.Body
+			continue
+		default:
+			assignIndices(n, localScope, 0)
+		}
+		break
+	}
+	for i := len(rights) - 1; i >= 0; i-- {
+		assignIndices(rights[i], localScope, 0)
+	}
+}
+
 // assignIndices walks the Core IR top-down, maintaining a local scope
 // that maps variable keys to their de Bruijn indices.
 // Variables found in localScope get Index >= 0 (local lookup).
 // Variables NOT found get Index = -1 (global lookup by Key).
 func assignIndices(c Core, localScope map[string]int, depth int) {
 	if depth > maxTraversalDepth {
+		if _, ok := c.(*App); ok {
+			assignIndicesLeftSpine(c, localScope)
+			return
+		}
 		return
 	}
 	switch n := c.(type) {
@@ -55,8 +206,8 @@ func assignIndices(c Core, localScope map[string]int, depth int) {
 		assignLam(n, localScope, depth, "", false)
 
 	case *App:
-		assignIndices(n.Fun, localScope, depth+1)
-		assignIndices(n.Arg, localScope, depth+1)
+		assignIndicesLeftSpine(c, localScope)
+		return
 
 	case *TyApp:
 		assignIndices(n.Expr, localScope, depth+1)

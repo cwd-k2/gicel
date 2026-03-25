@@ -56,6 +56,8 @@ type Runtime struct {
 	bindings           map[string]types.Type
 	moduleEntries      []moduleEntry         // ALL module programs in registration order
 	builtinGlobals     map[string]eval.Value // pre-built pure/bind/force/fix/rec closures + constructors
+	globalSlots        map[string]int        // global name → slot index (assigned at NewRuntime)
+	numGlobals         int                   // total number of global slots
 	sortedMainBindings []ir.Binding          // all main bindings, topologically pre-sorted
 	entryName          string                // default entry point name
 	entryExpr          ir.Core               // default entry point expression (nil if not found)
@@ -118,6 +120,66 @@ func (r *Runtime) initBuiltinGlobals(gatedBuiltins map[string]bool) {
 	r.builtinGlobals = globals
 }
 
+// assignGlobalSlots collects all global names and assigns each a slot index.
+// Then walks all IR (module + main) to convert Var.Index = -1 to -(slot+1).
+// This completes the de Bruijn unification: all variables are integer-indexed.
+func (r *Runtime) assignGlobalSlots() {
+	slots := make(map[string]int, len(r.builtinGlobals)+len(r.bindings))
+
+	// Assign slots from builtinGlobals (builtins + constructors).
+	for k := range r.builtinGlobals {
+		slots[k] = len(slots)
+	}
+	// Host binding names (values provided at RunWith time).
+	for name := range r.bindings {
+		if _, ok := slots[name]; !ok {
+			slots[name] = len(slots)
+		}
+	}
+	// Module binding names.
+	for _, me := range r.moduleEntries {
+		for _, b := range me.prog.Bindings {
+			key := ir.QualifiedKey(me.name, b.Name)
+			if _, ok := slots[key]; !ok {
+				slots[key] = len(slots)
+			}
+		}
+	}
+	// Main binding names.
+	for _, b := range r.prog.Bindings {
+		if _, ok := slots[b.Name]; !ok {
+			slots[b.Name] = len(slots)
+		}
+	}
+
+	r.globalSlots = slots
+	r.numGlobals = len(slots)
+
+	// Walk all IR to assign global slot indices.
+	for _, me := range r.moduleEntries {
+		ir.AssignGlobalSlotsProgram(me.prog, slots)
+	}
+	ir.AssignGlobalSlotsProgram(r.prog, slots)
+}
+
+// buildGlobalArray creates the global value array from the slot map.
+// Builtin values and host bindings are filled; module/main bindings
+// are left nil (filled by evalBindingsCore).
+func (r *Runtime) buildGlobalArray(hostBindings map[string]eval.Value) ([]eval.Value, error) {
+	arr := make([]eval.Value, r.numGlobals)
+	for k, v := range r.builtinGlobals {
+		arr[r.globalSlots[k]] = v
+	}
+	for name := range r.bindings {
+		v, ok := hostBindings[name]
+		if !ok {
+			return nil, fmt.Errorf("missing binding: %s", name)
+		}
+		arr[r.globalSlots[name]] = v
+	}
+	return arr, nil
+}
+
 // buildGlobals clones the builtin globals and adds user-provided bindings.
 // The clone ensures concurrent RunWith calls don't share mutable state.
 func (r *Runtime) buildGlobals(bindings map[string]eval.Value) (map[string]eval.Value, error) {
@@ -145,7 +207,7 @@ type runRequest struct {
 
 // execute is the unified execution core.
 func (r *Runtime) execute(ctx context.Context, req *runRequest) (eval.EvalResult, eval.EvalStats, error) {
-	globals, err := r.buildGlobals(req.bindings)
+	globalArray, err := r.buildGlobalArray(req.bindings)
 	if err != nil {
 		return eval.EvalResult{}, eval.EvalStats{}, err
 	}
@@ -158,8 +220,13 @@ func (r *Runtime) execute(ctx context.Context, req *runRequest) (eval.EvalResult
 		b.SetAllocLimit(r.allocLimit)
 	}
 
+	// Named map is the fallback for Var nodes that AssignGlobalSlots could not
+	// reach due to the IR traversal depth limit (e.g., 500-operator chains).
+	namedGlobals, _ := r.buildGlobals(req.bindings)
+
 	ev := eval.NewEvaluator(b, r.prims, req.traceHook, req.obs, r.source)
-	ev.SetGlobals(globals)
+	ev.SetGlobalArray(globalArray)
+	ev.SetGlobals(namedGlobals)
 
 	for _, me := range r.moduleEntries {
 		ev.SetSource(me.source)
@@ -215,29 +282,35 @@ func (r *Runtime) execute(ctx context.Context, req *runRequest) (eval.EvalResult
 	return result, ev.Stats(), nil
 }
 
-// evalBindingsCore evaluates a slice of pre-sorted bindings using forward-reference cells.
+// evalBindingsCore evaluates a slice of pre-sorted bindings.
 // Callers must pass bindings in dependency order (via ir.SortBindings).
-// Globals are mutated directly on the evaluator's globals map.
+// Values are stored directly in the evaluator's global array at pre-assigned slots.
 func (r *Runtime) evalBindingsCore(ev *eval.Evaluator, bindings []ir.Binding, modulePrefix string, obs *eval.ExplainObserver) error {
-	globals := ev.Globals()
-	cells := make(map[string]*eval.IndirectVal, len(bindings))
-	for _, b := range bindings {
-		cell := &eval.IndirectVal{}
-		cells[b.Name] = cell
-		if modulePrefix != "" {
-			globals[ir.QualifiedKey(modulePrefix, b.Name)] = cell
-		} else {
-			globals[b.Name] = cell
-		}
+	ga := ev.GlobalArray()
+	// Phase 1: place IndirectVal sentinels for forward references.
+	type slotCell struct {
+		slot int
+		cell *eval.IndirectVal
 	}
+	cells := make([]slotCell, len(bindings))
+	for i, b := range bindings {
+		key := b.Name
+		if modulePrefix != "" {
+			key = ir.QualifiedKey(modulePrefix, b.Name)
+		}
+		slot := r.globalSlots[key]
+		cell := &eval.IndirectVal{}
+		ga[slot] = cell
+		cells[i] = slotCell{slot, cell}
+	}
+	// Phase 2: evaluate and fill slots.
 	userVisible := modulePrefix == ""
-	for _, b := range bindings {
+	for i, b := range bindings {
 		if userVisible {
 			obs.Section(b.Name)
 		}
 		result, err := ev.Eval(nil, eval.NewCapEnv(nil), b.Expr)
 		if err != nil {
-			// Omit internal binding names (containing $) from user-facing errors.
 			if strings.Contains(b.Name, "$") {
 				return err
 			}
@@ -250,7 +323,10 @@ func (r *Runtime) evalBindingsCore(ev *eval.Evaluator, bindings []ir.Binding, mo
 				obs.MarkInternal(b.Name)
 			}
 		}
-		cells[b.Name].Ref = &v
+		// Fill IndirectVal (for closures that captured the cell) and replace slot.
+		val := v
+		cells[i].cell.Ref = &val
+		ga[cells[i].slot] = v
 	}
 	return nil
 }
