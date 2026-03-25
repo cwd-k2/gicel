@@ -175,24 +175,15 @@ func (s *Solver) resolveQuantifiedConstraint(qc *types.QuantifiedConstraint, sp 
 
 // FreshInstanceSubst creates a substitution mapping each free type variable
 // in an instance's type arguments and context to a fresh meta variable.
+// Uses pre-computed FreeVarNames to avoid repeated FreeVars traversals.
 func (s *Solver) FreshInstanceSubst(inst *env.InstanceInfo) map[string]types.Type {
-	seen := make(map[string]bool)
-	subst := make(map[string]types.Type)
-	collect := func(ty types.Type) {
-		for v := range types.FreeVars(ty) {
-			if !seen[v] {
-				seen[v] = true
-				subst[v] = s.env.FreshMeta(types.KType{})
-			}
-		}
+	names := inst.FreeVarNames
+	if len(names) == 0 {
+		return nil
 	}
-	for _, ta := range inst.TypeArgs {
-		collect(ta)
-	}
-	for _, ctx := range inst.Context {
-		for _, a := range ctx.Args {
-			collect(a)
-		}
+	subst := make(map[string]types.Type, len(names))
+	for _, v := range names {
+		subst[v] = s.env.FreshMeta(types.KType{})
 	}
 	return subst
 }

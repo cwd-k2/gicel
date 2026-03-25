@@ -45,6 +45,7 @@ type InstanceInfo struct {
 	UserName     string           // user-visible name from `impl name ::` ("" for anonymous)
 	Module       string           // source module that defined this instance
 	Private      bool             // true for impl _name (solver-invisible outside defining module)
+	FreeVarNames []string         // cached free type variable names (computed once at registration)
 	S            span.Span
 }
 
