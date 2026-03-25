@@ -1,8 +1,22 @@
 # Universe Extensions
 
-[infrastructure.md](infrastructure.md) L0-b (universe enforcement) 後に開かれる拡張候補。各項目は L0-b の `KSort{Level: int}` 設計が**排除しない**形になっていることを前提とする。
+[infrastructure.md](infrastructure.md) L0-b (universe enforcement) 後に開かれる拡張。各項目は L0-b の `KSort{Level: int}` 設計が**排除しない**形になっていることを前提とする。
 
 **依存**: 全項目が L0-b を前提とする。一部は solver 基盤 (L1-L2) も前提。
+
+**実行順序**:
+
+```
+L0-b (Universe enforcement)
+  │
+  ├──→ Non-nullary promotion    (L0-b のみ。L1/L2 と並行可能)
+  │
+  └──→ L1/L2 安定後:
+         │
+         ├──→ Universe polymorphism  (Level metavar + constraint solver)
+         │       │
+         └───────┴──→ Cumulativity   (subkinding rule。Univ poly 後が望ましい)
+```
 
 ## Non-nullary Constructor Promotion
 
@@ -38,7 +52,7 @@ id :: \(l: Level). \(a: Type l). a -> a := \x. x;
 - Level constraint solver (`ℓ₁ ≤ ℓ₂`, `max(ℓ₁, ℓ₂)`) — Harper-Pollack (1991) のアルゴリズム: constraint graph の acyclicity check + shortest-path assignment
 - Level quantifier の parsing と elaboration
 
-**前提**: L0-b + solver 基盤 (L1-L2)。L3 (grade algebra) には不要。必要になるのは「同一の型レベルライブラリを複数の level で使う」場合であり、AI agent ラッパーとしての用途では遠い。証明系や高度な型レベルプログラミングへの拡張時に再評価。
+**前提**: L0-b + solver 基盤 (L1-L2)。L3 (grade algebra) には不要。型レベルライブラリを複数 level で共有する場面で必要になる。
 
 **参考設計**:
 
@@ -55,7 +69,7 @@ id :: \(l: Level). \(a: Type l). a -> a := \x. x;
 
 **必要なインフラ**: Kind unification に subkinding rule 追加、subsumption check の kind 版。
 
-**前提**: L0-b。kind unification の複雑度を上げるため、L0-b の equality-based enforcement が安定してから検討。現在の promotion 機構で level 間参照は明示的に可能であり、cumulativity は利便性の問題。
+**前提**: L0-b + kind unification 安定。Universe polymorphism の後が望ましい — level metavariable が入った状態で subkinding を設計する方が、後から level polymorphism を追加するより整合的。現在の promotion 機構で level 間参照は明示的に可能であり、cumulativity は利便性の問題だが、ユーザ体験に大きく効く。
 
 **Coq の教訓**: Cumulative inductive types (Timany-Sozeau 2017) は cumulativity と inductive types の相互作用を慎重に設計した。GICEL の `form` (inductive) に cumulativity を追加する場合、同様の設計判断が必要。
 
@@ -64,7 +78,7 @@ id :: \(l: Level). \(a: Type l). a -> a := \x. x;
 `Kind` をペイロードに持つ data 型の promotion で必要。
 
 ```gicel
-data KCode := { EmbedK: Kind; ArrK: KCode -> KCode; }
+form KCode := { EmbedK: Kind; ArrK: KCode -> KCode; }
 -- promoted level = max(2, 3) + 1 = 4 (Sort₂) — 現状表現不能
 ```
 

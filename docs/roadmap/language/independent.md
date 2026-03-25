@@ -72,12 +72,11 @@ Session types は check-only で正しく動作する。Runtime 実行には hos
 
 ## Far Future (assessed, not planned)
 
-| Extension                                             | Category         | Prerequisite                      |
-| ----------------------------------------------------- | ---------------- | --------------------------------- |
-| Tensor product kind (`QType`)                         | Type system      | Full SMC + quantum use case       |
-| Universe polymorphism                                 | Type system      | L0-b + solver maturity            |
-| Cumulativity                                          | Type system      | L0-b + kind unification stability |
-| Non-nullary constructor promotion                     | Type system      | L0-b                              |
-| Optimizer Phase 2–3 (selective inline + case-of-case) | Optimization     | Benchmark-driven demand           |
-| Refinement types                                      | Phase transition | Separate analysis                 |
-| Dependent types                                       | Full restructure | Far future                        |
+以下は計画に含まれない項目。Universe extensions (non-nullary promotion, universe polymorphism, cumulativity) は [universe.md](universe.md) に移動済み。
+
+| Extension                                             | Category         | Prerequisite                |
+| ----------------------------------------------------- | ---------------- | --------------------------- |
+| Tensor product kind (`QType`)                         | Type system      | Full SMC + quantum use case |
+| Optimizer Phase 2–3 (selective inline + case-of-case) | Optimization     | Benchmark-driven demand     |
+| Refinement types                                      | Phase transition | Separate analysis           |
+| Dependent types                                       | Full restructure | Far future                  |
