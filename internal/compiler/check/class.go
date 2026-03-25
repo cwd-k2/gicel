@@ -47,64 +47,17 @@ func (ch *Checker) processClassLikeForm(d *syntax.DeclForm, parts formBodyParts,
 		}
 	}
 
-	// Collect implicit kind variables from type parameter kind annotations.
-	// e.g., class Functor (f: k -> Type) → kindParams = ["k"]
-	var kindParams []string
-	for _, p := range parts.Params {
-		collectKindVars(p.Kind, ch.reg.kindVars, &kindParams)
-	}
+	// Phase 1: collect type/kind parameters.
+	kindParams, tyParams, tyParamKinds := ch.collectClassParams(parts)
 
-	// Collect type parameters with their kinds (kind vars now in scope).
-	var tyParams []string
-	var tyParamKinds []types.Kind
-	for _, p := range parts.Params {
-		tyParams = append(tyParams, p.Name)
-		tyParamKinds = append(tyParamKinds, ch.resolveKindExpr(p.Kind))
-	}
+	// Phase 2: resolve superclass constraints.
+	supers, superFieldTypes := ch.resolveSupers(parts)
 
-	// Process superclass constraints.
-	var supers []SuperInfo
-	var superFieldTypes []types.Type
-	for _, sup := range parts.Supers {
-		resolved := ch.resolveTypeExpr(sup)
-		head, args := types.UnwindApp(resolved)
-		if con, ok := head.(*types.TyCon); ok {
-			supers = append(supers, SuperInfo{ClassName: con.Name, Args: args})
-			superDictTy := ch.buildDictType(con.Name, args)
-			superFieldTypes = append(superFieldTypes, superDictTy)
-		}
-	}
+	// Phase 3: register associated type families.
+	assocTypeNames := ch.registerAssocTypes(parts, d.Name)
 
-	// Process associated type declarations before method signatures,
-	// so that associated type names are available during method type resolution.
-	// In unified syntax, associated types don't repeat class params — inject
-	// the class params so that the family is registered with the correct arity.
-	var assocTypeNames []string
-	for _, td := range parts.TypeDecls {
-		assocTypeNames = append(assocTypeNames, td.Name)
-		// Register as a type family with no equations yet (equations come from instances).
-		var atParams []TFParam
-		for _, p := range parts.Params {
-			atParams = append(atParams, TFParam{Name: p.Name, Kind: ch.resolveKindExpr(p.Kind)})
-		}
-		resultKind := ch.resolveKindExpr(td.KindAnn)
-		ch.reg.RegisterFamily(td.Name, &TypeFamilyInfo{
-			Name:       td.Name,
-			Params:     atParams,
-			ResultKind: resultKind,
-			IsAssoc:    true,
-			ClassName:  d.Name,
-		})
-	}
-
-	// Process method signatures (after associated types are registered).
-	var methods []MethodInfo
-	var methodFieldTypes []types.Type
-	for _, f := range parts.Fields {
-		methTy := ch.resolveTypeExpr(f.Type)
-		methods = append(methods, MethodInfo{Name: f.Label, Type: methTy})
-		methodFieldTypes = append(methodFieldTypes, methTy)
-	}
+	// Phase 4: resolve method signatures.
+	methods, methodFieldTypes := ch.resolveMethods(parts)
 
 	// Clean up kind variable scope.
 	for _, kv := range kindParams {
@@ -172,6 +125,77 @@ func (ch *Checker) processClassLikeForm(d *syntax.DeclForm, parts formBodyParts,
 	for i, m := range methods {
 		ch.buildMethodSelector(info, m, i, dict, prog, d.S)
 	}
+}
+
+// collectClassParams collects implicit kind variables from type parameter
+// annotations and resolves type parameters with their kinds.
+func (ch *Checker) collectClassParams(parts formBodyParts) (kindParams, tyParams []string, tyParamKinds []types.Kind) {
+	// Collect implicit kind variables from type parameter kind annotations.
+	// e.g., class Functor (f: k -> Type) -> kindParams = ["k"]
+	for _, p := range parts.Params {
+		collectKindVars(p.Kind, ch.reg.kindVars, &kindParams)
+	}
+
+	// Collect type parameters with their kinds (kind vars now in scope).
+	for _, p := range parts.Params {
+		tyParams = append(tyParams, p.Name)
+		tyParamKinds = append(tyParamKinds, ch.resolveKindExpr(p.Kind))
+	}
+	return
+}
+
+// resolveSupers resolves superclass constraints into SuperInfo and their
+// corresponding dictionary field types.
+func (ch *Checker) resolveSupers(parts formBodyParts) ([]SuperInfo, []types.Type) {
+	var supers []SuperInfo
+	var superFieldTypes []types.Type
+	for _, sup := range parts.Supers {
+		resolved := ch.resolveTypeExpr(sup)
+		head, args := types.UnwindApp(resolved)
+		if con, ok := head.(*types.TyCon); ok {
+			supers = append(supers, SuperInfo{ClassName: con.Name, Args: args})
+			superDictTy := ch.buildDictType(con.Name, args)
+			superFieldTypes = append(superFieldTypes, superDictTy)
+		}
+	}
+	return supers, superFieldTypes
+}
+
+// registerAssocTypes registers associated type family declarations, injecting
+// class parameters so each family has the correct arity. Must be called before
+// resolveMethods so that associated type names are in scope.
+func (ch *Checker) registerAssocTypes(parts formBodyParts, className string) []string {
+	var assocTypeNames []string
+	for _, td := range parts.TypeDecls {
+		assocTypeNames = append(assocTypeNames, td.Name)
+		// Register as a type family with no equations yet (equations come from instances).
+		var atParams []TFParam
+		for _, p := range parts.Params {
+			atParams = append(atParams, TFParam{Name: p.Name, Kind: ch.resolveKindExpr(p.Kind)})
+		}
+		resultKind := ch.resolveKindExpr(td.KindAnn)
+		ch.reg.RegisterFamily(td.Name, &TypeFamilyInfo{
+			Name:       td.Name,
+			Params:     atParams,
+			ResultKind: resultKind,
+			IsAssoc:    true,
+			ClassName:  className,
+		})
+	}
+	return assocTypeNames
+}
+
+// resolveMethods resolves method signatures into MethodInfo and their
+// corresponding field types for the dictionary constructor.
+func (ch *Checker) resolveMethods(parts formBodyParts) ([]MethodInfo, []types.Type) {
+	var methods []MethodInfo
+	var methodFieldTypes []types.Type
+	for _, f := range parts.Fields {
+		methTy := ch.resolveTypeExpr(f.Type)
+		methods = append(methods, MethodInfo{Name: f.Label, Type: methTy})
+		methodFieldTypes = append(methodFieldTypes, methTy)
+	}
+	return methods, methodFieldTypes
 }
 
 // dictLayout groups the dictionary type representation for buildMethodSelector.
