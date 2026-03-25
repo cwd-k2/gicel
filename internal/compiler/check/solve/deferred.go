@@ -106,7 +106,10 @@ func SubstitutePlaceholders(expr ir.Core, resolutions map[string]ir.Core) ir.Cor
 	return ir.Transform(expr, func(c ir.Core) ir.Core {
 		if v, ok := c.(*ir.Var); ok {
 			if resolved, ok := resolutions[v.Name]; ok {
-				return resolved
+				// Clone to prevent shared mutable nodes: AssignIndices
+				// mutates Var.Index in place, so each substitution site
+				// must have an independent copy.
+				return ir.Clone(resolved)
 			}
 		}
 		return c

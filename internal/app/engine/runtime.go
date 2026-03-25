@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/cwd-k2/gicel/internal/infra/budget"
@@ -127,11 +128,23 @@ func (r *Runtime) assignGlobalSlots() {
 	slots := make(map[string]int, len(r.builtinGlobals)+len(r.bindings))
 
 	// Assign slots from builtinGlobals (builtins + constructors).
+	// Sort keys for deterministic slot assignment — Go map iteration is
+	// non-deterministic, and varying slot indices can expose latent bugs.
+	builtinKeys := make([]string, 0, len(r.builtinGlobals))
 	for k := range r.builtinGlobals {
+		builtinKeys = append(builtinKeys, k)
+	}
+	sort.Strings(builtinKeys)
+	for _, k := range builtinKeys {
 		slots[k] = len(slots)
 	}
 	// Host binding names (values provided at RunWith time).
+	hostKeys := make([]string, 0, len(r.bindings))
 	for name := range r.bindings {
+		hostKeys = append(hostKeys, name)
+	}
+	sort.Strings(hostKeys)
+	for _, name := range hostKeys {
 		if _, ok := slots[name]; !ok {
 			slots[name] = len(slots)
 		}

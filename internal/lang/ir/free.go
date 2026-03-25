@@ -2,6 +2,7 @@ package ir
 
 import (
 	"fmt"
+	"sort"
 
 	"github.com/cwd-k2/gicel/internal/lang/types"
 )
@@ -318,6 +319,7 @@ func setToSlice(s map[string]struct{}) []string {
 	for k := range s {
 		result = append(result, k)
 	}
+	sort.Strings(result)
 	return result
 }
 
