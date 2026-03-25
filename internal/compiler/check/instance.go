@@ -5,6 +5,7 @@ import (
 
 	"github.com/cwd-k2/gicel/internal/compiler/check/env"
 	"github.com/cwd-k2/gicel/internal/infra/diagnostic"
+	"github.com/cwd-k2/gicel/internal/infra/span"
 	"github.com/cwd-k2/gicel/internal/lang/syntax"
 	"github.com/cwd-k2/gicel/internal/lang/types"
 )
@@ -15,7 +16,7 @@ import (
 // stored in InstanceInfo.
 func (ch *Checker) processImplHeader(impl *syntax.DeclImpl) (*InstanceInfo, map[string]syntax.Expr) {
 	// Decompose the type annotation into class name and type args.
-	// impl Eq Bool := { ... }  →  Ann = TyExprApp(TyExprCon("Eq"), TyExprCon("Bool"))
+	// impl Eq Bool := { ... }  ->  Ann = TyExprApp(TyExprCon("Eq"), TyExprCon("Bool"))
 
 	// Peel off context constraints: impl (Eq a) => Ord a := { ... }
 	ann := impl.Ann
@@ -72,34 +73,9 @@ func (ch *Checker) processImplHeader(impl *syntax.DeclImpl) (*InstanceInfo, map[
 		return nil, nil
 	}
 
-	// Context well-formedness: each constraint in the instance context must reference a known class.
-	for _, ctx := range context {
-		if _, ok := ch.reg.LookupClass(ctx.ClassName); !ok {
-			ch.addCodedError(diagnostic.ErrBadInstance, impl.S,
-				fmt.Sprintf("instance %s: context references unknown class %s",
-					className, ctx.ClassName))
-			return nil, nil
-		}
-	}
-
-	// Self-cycle detection: instance context must not require itself.
-	// e.g., `instance Eq a => Eq a` would cause infinite recursion.
-	for _, ctx := range context {
-		if ctx.ClassName == className && len(ctx.Args) == len(typeArgs) {
-			selfCycle := true
-			for i := range ctx.Args {
-				if !types.Equal(ctx.Args[i], typeArgs[i]) {
-					selfCycle = false
-					break
-				}
-			}
-			if selfCycle {
-				ch.addCodedError(diagnostic.ErrBadInstance, impl.S,
-					fmt.Sprintf("instance %s: self-referential context (instance requires itself)",
-						className))
-				return nil, nil
-			}
-		}
+	// Validate context constraints (well-formedness + self-cycle).
+	if !ch.validateInstanceContext(className, typeArgs, context, impl.S) {
+		return nil, nil
 	}
 
 	// Build dict binding name: ClassName$TypeName (simplified naming).
@@ -152,21 +128,66 @@ func (ch *Checker) processImplHeader(impl *syntax.DeclImpl) (*InstanceInfo, map[
 		}
 	}
 
+	// Inject associated type definitions and data family definitions.
+	ch.injectAssocTypes(bodyParts.TypeDefs, syntaxTypeArgs, className, impl.S)
+
+	ch.reg.RegisterInstance(inst)
+	return inst, bodyParts.Methods
+}
+
+// validateInstanceContext checks context well-formedness and detects
+// self-referential constraints. Returns false if any error was found.
+func (ch *Checker) validateInstanceContext(className string, typeArgs []types.Type, context []ConstraintInfo, s span.Span) bool {
+	// Context well-formedness: each constraint in the instance context must reference a known class.
+	for _, ctx := range context {
+		if _, ok := ch.reg.LookupClass(ctx.ClassName); !ok {
+			ch.addCodedError(diagnostic.ErrBadInstance, s,
+				fmt.Sprintf("instance %s: context references unknown class %s",
+					className, ctx.ClassName))
+			return false
+		}
+	}
+
+	// Self-cycle detection: instance context must not require itself.
+	// e.g., `instance Eq a => Eq a` would cause infinite recursion.
+	for _, ctx := range context {
+		if ctx.ClassName == className && len(ctx.Args) == len(typeArgs) {
+			selfCycle := true
+			for i := range ctx.Args {
+				if !types.Equal(ctx.Args[i], typeArgs[i]) {
+					selfCycle = false
+					break
+				}
+			}
+			if selfCycle {
+				ch.addCodedError(diagnostic.ErrBadInstance, s,
+					fmt.Sprintf("instance %s: self-referential context (instance requires itself)",
+						className))
+				return false
+			}
+		}
+	}
+	return true
+}
+
+// injectAssocTypes processes associated type and data family definitions
+// from an instance body, converting them to type family equations.
+func (ch *Checker) injectAssocTypes(typeDefs []syntax.ImplField, syntaxTypeArgs []syntax.TypeExpr, className string, s span.Span) {
 	// Process associated type definitions: convert to equations and append
 	// to the corresponding TypeFamilyInfo registered during class processing.
-	for _, td := range bodyParts.TypeDefs {
+	for _, td := range typeDefs {
 		if td.IsData || td.TypeDef == nil {
 			continue
 		}
 		fam, ok := ch.reg.LookupFamily(td.Name)
 		if !ok {
-			ch.addCodedError(diagnostic.ErrBadInstance, impl.S,
+			ch.addCodedError(diagnostic.ErrBadInstance, s,
 				fmt.Sprintf("instance %s: associated type %s not declared in class %s",
 					className, td.Name, className))
 			continue
 		}
 		if !fam.IsAssoc || fam.ClassName != className {
-			ch.addCodedError(diagnostic.ErrBadInstance, impl.S,
+			ch.addCodedError(diagnostic.ErrBadInstance, s,
 				fmt.Sprintf("instance %s: %s is not an associated type of class %s",
 					className, td.Name, className))
 			continue
@@ -193,15 +214,12 @@ func (ch *Checker) processImplHeader(impl *syntax.DeclImpl) (*InstanceInfo, map[
 
 	// Process associated data family definitions: register constructors
 	// and create type family equations mapping the family to its mangled data type.
-	for _, td := range bodyParts.TypeDefs {
+	for _, td := range typeDefs {
 		if !td.IsData || td.TypeDef == nil {
 			continue
 		}
-		ch.processAssocDataDef(td, syntaxTypeArgs, className, impl.S)
+		ch.processAssocDataDef(td, syntaxTypeArgs, className, s)
 	}
-
-	ch.reg.RegisterInstance(inst)
-	return inst, bodyParts.Methods
 }
 
 // instancesOverlap checks if two instances can match the same type arguments
