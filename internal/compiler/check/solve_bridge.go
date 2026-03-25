@@ -38,17 +38,17 @@ func (ch *Checker) ScanContext(fn func(CtxEntry) bool)   { ch.ctx.Scan(fn) }
 func (ch *Checker) AddCodedError(code diagnostic.Code, s span.Span, msg string) {
 	ch.addCodedError(code, s, msg)
 }
-func (ch *Checker) ErrorCount() int                               { return ch.errors.Len() }
-func (ch *Checker) TruncateErrors(n int)                          { ch.errors.Truncate(n) }
-func (ch *Checker) ResetSolverSteps()                             { ch.budget.ResetSolverSteps() }
-func (ch *Checker) SolverStep() error                             { return ch.budget.SolverStep() }
-func (ch *Checker) EnterResolve() error                           { return ch.budget.EnterResolve() }
-func (ch *Checker) LeaveResolve()                                 { ch.budget.LeaveResolve() }
-func (ch *Checker) CheckCancelled() bool                          { return ch.checkCancelled() }
-func (ch *Checker) WithTrial(fn func() bool) bool                 { return ch.withTrial(fn) }
-func (ch *Checker) WithProbe(fn func() bool) bool                 { return ch.withProbe(fn) }
-func (ch *Checker) Fresh() int                                    { return ch.fresh() }
-func (ch *Checker) FreshMeta(k types.Kind) *types.TyMeta          { return ch.freshMeta(k) }
+func (ch *Checker) ErrorCount() int                      { return ch.errors.Len() }
+func (ch *Checker) TruncateErrors(n int)                 { ch.errors.Truncate(n) }
+func (ch *Checker) ResetSolverSteps()                    { ch.budget.ResetSolverSteps() }
+func (ch *Checker) SolverStep() error                    { return ch.budget.SolverStep() }
+func (ch *Checker) EnterResolve() error                  { return ch.budget.EnterResolve() }
+func (ch *Checker) LeaveResolve()                        { ch.budget.LeaveResolve() }
+func (ch *Checker) CheckCancelled() bool                 { return ch.checkCancelled() }
+func (ch *Checker) WithTrial(fn func() bool) bool        { return ch.withTrial(fn) }
+func (ch *Checker) WithProbe(fn func() bool) bool        { return ch.withProbe(fn) }
+func (ch *Checker) Fresh() int                           { return ch.fresh() }
+func (ch *Checker) FreshMeta(k types.Kind) *types.TyMeta { return ch.freshMeta(k) }
 func (ch *Checker) InstancesForClass(name string) []*InstanceInfo {
 	return ch.reg.InstancesForClass(name)
 }

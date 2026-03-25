@@ -16,9 +16,9 @@ import (
 type CheckEnv struct {
 	DataTypes    map[string]*env.DataTypeInfo // type name → data type info
 	ConInfoMap   map[string]*env.DataTypeInfo // constructor name → owning data type
-	ConTypes     map[string]types.Type    // constructor name → full type scheme
-	Fresh        func() int               // fresh ID generator (delegates to CheckState.fresh)
-	Unifier      *unify.Unifier           // main unifier (for Zonk)
+	ConTypes     map[string]types.Type        // constructor name → full type scheme
+	Fresh        func() int                   // fresh ID generator (delegates to CheckState.fresh)
+	Unifier      *unify.Unifier               // main unifier (for Zonk)
 	ReduceFamily func(types.Type) types.Type
 	CanUnifyWith func(retTy, scrutTy types.Type) bool
 	AddError     func(code diagnostic.Code, s span.Span, msg string)

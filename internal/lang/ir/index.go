@@ -28,7 +28,6 @@ func AssignIndicesProgram(p *Program) {
 	}
 }
 
-
 // assignIndicesLeftSpine iteratively descends the left spine of App nodes,
 // processing right children recursively. Prevents Go stack overflow on
 // deeply left-nested operator chains (e.g., 500-operator expressions).

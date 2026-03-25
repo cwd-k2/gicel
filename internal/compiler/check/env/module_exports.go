@@ -15,15 +15,15 @@ type ModuleOwnership struct {
 // Semantic exports (Types through TypeFamilies) describe what the module provides.
 // Embedded ModuleOwnership tracks which names this module defines vs. inherits.
 type ModuleExports struct {
-	Types           map[string]types.Kind             // registered type constructors
-	ConTypes        map[string]types.Type             // constructor → full type
-	ConstructorInfo map[string]*DataTypeInfo           // constructor → data type info
-	Aliases         map[string]*AliasInfo             // type aliases
-	Classes         map[string]*ClassInfo             // class declarations
-	Instances       []*InstanceInfo                   // instance declarations
-	Values          map[string]types.Type             // top-level value types
-	PromotedKinds   map[string]types.Kind             // DataKinds promotions
-	PromotedCons    map[string]types.Kind             // promoted constructors
-	TypeFamilies    map[string]*TypeFamilyInfo         // type family declarations
-	ModuleOwnership                                   // ownership signals
+	Types           map[string]types.Kind      // registered type constructors
+	ConTypes        map[string]types.Type      // constructor → full type
+	ConstructorInfo map[string]*DataTypeInfo   // constructor → data type info
+	Aliases         map[string]*AliasInfo      // type aliases
+	Classes         map[string]*ClassInfo      // class declarations
+	Instances       []*InstanceInfo            // instance declarations
+	Values          map[string]types.Type      // top-level value types
+	PromotedKinds   map[string]types.Kind      // DataKinds promotions
+	PromotedCons    map[string]types.Kind      // promoted constructors
+	TypeFamilies    map[string]*TypeFamilyInfo // type family declarations
+	ModuleOwnership                            // ownership signals
 }

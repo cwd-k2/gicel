@@ -31,9 +31,9 @@ type Evaluator struct {
 	ctx           context.Context
 	prims         *PrimRegistry
 	budget        *budget.Budget
-	globals     map[string]Value // named globals (test/fallback path)
-	globalArray []Value          // slot-indexed globals (production path)
-	globalSlots map[string]int   // name → slot index for global Var resolution
+	globals       map[string]Value // named globals (test/fallback path)
+	globalArray   []Value          // slot-indexed globals (production path)
+	globalSlots   map[string]int   // name → slot index for global Var resolution
 	trace         TraceHook
 	obs           *ExplainObserver // nil when explain is disabled
 	source        *span.Source     // current source context for error attribution

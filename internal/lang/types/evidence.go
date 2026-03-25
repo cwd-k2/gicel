@@ -127,7 +127,6 @@ func (c *CapabilityEntries) ZonkEntries(zonk func(Type) Type) (EvidenceEntries, 
 	return &CapabilityEntries{Fields: fields}, true
 }
 
-
 // --- Constraint fiber ---
 
 // ConstraintEntries holds type class constraint entries.
