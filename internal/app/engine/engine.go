@@ -23,7 +23,6 @@ import (
 	"github.com/cwd-k2/gicel/internal/runtime/eval"
 )
 
-
 // DefaultEntryPoint is the default name of the top-level binding that serves
 // as the program's entry point when no explicit name is provided.
 const DefaultEntryPoint = "main"
@@ -38,7 +37,7 @@ type Engine struct {
 
 	entryPoint     string               // entry binding name (default: "main")
 	checkTraceHook check.CheckTraceHook // diagnostic hook for type checking
-	moduleCache    *ModuleCache         // optional shared module cache
+	moduleCache    *moduleCache         // optional shared module cache
 }
 
 // NewEngine creates a new Engine with default limits.
@@ -199,12 +198,6 @@ func (e *Engine) RegisterModule(name, source string) error {
 	}
 	e.store.Register(name, mod)
 	return nil
-}
-
-// SetModuleCache sets a shared module cache. Engines sharing the same
-// cache skip recompilation for modules with identical names.
-func (e *Engine) SetModuleCache(c *ModuleCache) {
-	e.moduleCache = c
 }
 
 // CoreProgram is an opaque compiled Core IR for inspection.

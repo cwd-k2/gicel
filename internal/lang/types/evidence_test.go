@@ -97,7 +97,7 @@ func TestCapabilityMapChildren(t *testing.T) {
 		RowField{Label: "x", Type: Con("Int")},
 		RowField{Label: "y", Type: Con("Bool")},
 	)
-	mapped := r.Entries.MapChildren(func(ty Type) Type {
+	mapped, _ := r.Entries.MapChildren(func(ty Type) Type {
 		if c, ok := ty.(*TyCon); ok {
 			return Con("Mapped" + c.Name)
 		}
@@ -114,7 +114,7 @@ func TestCapabilityMapChildren(t *testing.T) {
 
 func TestConstraintMapChildren(t *testing.T) {
 	r := SingleConstraint("Eq", []Type{Con("Int")})
-	mapped := r.Entries.MapChildren(func(ty Type) Type {
+	mapped, _ := r.Entries.MapChildren(func(ty Type) Type {
 		if c, ok := ty.(*TyCon); ok {
 			return Con("Mapped" + c.Name)
 		}

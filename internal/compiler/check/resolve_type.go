@@ -26,7 +26,7 @@ func (ch *Checker) resolveTypeExpr(texpr syntax.TypeExpr) types.Type {
 			ch.addCodedError(diagnostic.ErrUnboundCon, t.S, fmt.Sprintf("unknown type: %s", t.Name))
 			return &types.TyError{S: t.S}
 		}
-		return &types.TyCon{Name: t.Name, S: t.S}
+		return types.ConAt(t.Name, t.S)
 	case *syntax.TyExprQualCon:
 		qs, ok := ch.scope.LookupQualified(t.Qualifier)
 		if !ok {
@@ -39,7 +39,7 @@ func (ch *Checker) resolveTypeExpr(texpr syntax.TypeExpr) types.Type {
 				return info.Body
 			}
 			ch.scope.InjectAlias(t.Name, info)
-			return &types.TyCon{Name: t.Name, S: t.S}
+			return types.ConAt(t.Name, t.S)
 		}
 		// Check qualified type families (zero-arity: immediate; parameterized: inject into Scope for TyApp expansion)
 		if fam, ok := qs.Exports.TypeFamilies[t.Name]; ok {
@@ -47,19 +47,19 @@ func (ch *Checker) resolveTypeExpr(texpr syntax.TypeExpr) types.Type {
 				return &types.TyFamilyApp{Name: t.Name, Args: nil, Kind: fam.ResultKind, S: t.S}
 			}
 			ch.scope.InjectFamily(t.Name, fam.Clone())
-			return &types.TyCon{Name: t.Name, S: t.S}
+			return types.ConAt(t.Name, t.S)
 		}
 		// Check qualified types — only types defined by this module's data declarations,
 		// not inherited built-in types (Int, String, etc.).
 		if isModuleDefinedType(qs.Exports, t.Name) {
-			return &types.TyCon{Name: t.Name, S: t.S}
+			return types.ConAt(t.Name, t.S)
 		}
 		// Check promoted kinds/constructors
 		if _, ok := qs.Exports.PromotedKinds[t.Name]; ok {
-			return &types.TyCon{Name: t.Name, S: t.S}
+			return types.ConAt(t.Name, t.S)
 		}
 		if _, ok := qs.Exports.PromotedCons[t.Name]; ok {
-			return &types.TyCon{Name: t.Name, S: t.S}
+			return types.ConAt(t.Name, t.S)
 		}
 		ch.addCodedError(diagnostic.ErrImport, t.S,
 			fmt.Sprintf("module %s does not export type: %s", qs.ModuleName, t.Name))

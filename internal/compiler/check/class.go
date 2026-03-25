@@ -135,7 +135,7 @@ func (ch *Checker) processClassLikeForm(d *syntax.DeclForm, parts formBodyParts,
 	ch.reg.RegisterTypeKind(dn, dictKind)
 
 	// Build result type: DictTy a b c ...
-	var resultType types.Type = &types.TyCon{Name: dn, S: d.S}
+	var resultType types.Type = types.ConAt(dn, d.S)
 	for _, p := range tyParams {
 		resultType = &types.TyApp{Fun: resultType, Arg: &types.TyVar{Name: p}, S: d.S}
 	}
@@ -244,7 +244,7 @@ func (ch *Checker) buildMethodSelector(cls *ClassInfo, m MethodInfo, methodIdx i
 
 // buildDictType constructs the dictionary type for a class applied to arguments.
 func (ch *Checker) buildDictType(className string, args []types.Type) types.Type {
-	var ty types.Type = &types.TyCon{Name: dictName(className)}
+	var ty types.Type = types.Con(dictName(className))
 	for _, a := range args {
 		ty = &types.TyApp{Fun: ty, Arg: a}
 	}

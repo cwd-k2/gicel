@@ -43,9 +43,11 @@ func (c *Context) Pop() CtxEntry {
 	c.entries = c.entries[:pos]
 	if ev, ok := e.(*CtxEvidence); ok && ev.ClassName != "" {
 		idxs := c.evidenceIndex[ev.ClassName]
-		if n := len(idxs); n > 0 && idxs[n-1] == pos {
-			c.evidenceIndex[ev.ClassName] = idxs[:n-1]
+		n := len(idxs)
+		if n == 0 || idxs[n-1] != pos {
+			panic("internal: evidenceIndex LIFO invariant violated on Pop")
 		}
+		c.evidenceIndex[ev.ClassName] = idxs[:n-1]
 	}
 	return e
 }

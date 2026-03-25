@@ -176,7 +176,7 @@ func (ch *Checker) processAssocDataDef(field syntax.ImplField, patterns []syntax
 	ch.reg.RegisterTypeKind(mangledName, types.KType{})
 
 	// Build result type for the mangled data type.
-	var mangledResultType types.Type = &types.TyCon{Name: mangledName, S: field.S}
+	var mangledResultType types.Type = types.ConAt(mangledName, field.S)
 
 	// Collect free vars from patterns (they become type params of the mangled data type).
 	patVars := collectPatternVars(resolvedPats)

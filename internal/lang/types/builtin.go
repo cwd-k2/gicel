@@ -1,5 +1,7 @@
 package types
 
+import "github.com/cwd-k2/gicel/internal/infra/span"
+
 // Pre-defined type constructor kinds.
 var (
 	KindOfComputation = &KArrow{KRow{}, &KArrow{KRow{}, &KArrow{KType{}, KType{}}}}
@@ -41,11 +43,18 @@ var builtinTyCons = map[string]*TyCon{
 }
 
 // Con returns a TyCon for the given name, reusing a singleton for built-in names.
+// Use ConAt when source position must be preserved.
 func Con(name string) *TyCon {
 	if c, ok := builtinTyCons[name]; ok {
 		return c
 	}
 	return &TyCon{Name: name}
+}
+
+// ConAt creates a TyCon with a source span. Always allocates a fresh struct
+// because the span is position-specific and cannot be shared.
+func ConAt(name string, s span.Span) *TyCon {
+	return &TyCon{Name: name, S: s}
 }
 
 // Var creates a TyVar.

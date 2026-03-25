@@ -389,13 +389,8 @@ func substManyEvidenceRow(row *TyEvidenceRow, subs map[string]Type, depth int) *
 	if depth > maxTraversalDepth {
 		return row
 	}
-	changed := false
-	newEntries := row.Entries.MapChildren(func(child Type) Type {
-		r := substMany(child, subs, depth+1)
-		if r != child {
-			changed = true
-		}
-		return r
+	newEntries, changed := row.Entries.MapChildren(func(child Type) Type {
+		return substMany(child, subs, depth+1)
 	})
 	var newTail Type
 	if row.Tail != nil {
