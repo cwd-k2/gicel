@@ -120,6 +120,12 @@ func (p *declPipeline) registerClassLikeForms() {
 			}
 		}
 	}
+	// Detect cyclic superclass constraints before processing instances.
+	// Cycles (A requires B, B requires A) would cause infinite loops or
+	// uninitialized forward references during dictionary construction.
+	if p.ch.validateSuperclassGraph() {
+		return
+	}
 	p.methodBodies = make(map[*InstanceInfo]map[string]syntax.Expr)
 	for _, d := range p.decls {
 		if impl, ok := d.(*syntax.DeclImpl); ok {

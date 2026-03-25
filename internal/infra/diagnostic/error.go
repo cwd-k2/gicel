@@ -55,6 +55,7 @@ const (
 	ErrNoInstance          Code = 220 // no matching type class instance
 	ErrOverlap             Code = 221 // overlapping instances
 	ErrBadClass            Code = 222 // invalid class declaration
+	ErrCyclicSuperclass    Code = 226 // cyclic superclass constraint
 	ErrBadInstance         Code = 223 // invalid instance declaration
 	ErrMissingMethod       Code = 224 // missing method in instance
 	ErrRedundantPattern    Code = 225 // redundant pattern in case expression

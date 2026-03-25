@@ -2,6 +2,7 @@ package check
 
 import (
 	"fmt"
+	"strings"
 	"unicode"
 
 	"github.com/cwd-k2/gicel/internal/infra/diagnostic"
@@ -248,6 +249,76 @@ func (ch *Checker) buildDictType(className string, args []types.Type) types.Type
 		ty = &types.TyApp{Fun: ty, Arg: a}
 	}
 	return ty
+}
+
+// validateSuperclassGraph checks for cyclic superclass constraints using
+// DFS three-color marking. A cycle exists when class A requires B as a
+// superclass and B (directly or transitively) requires A. Such cycles would
+// cause infinite recursion during dictionary construction at runtime.
+// Returns true if any cycle was found.
+func (ch *Checker) validateSuperclassGraph() bool {
+	type color int
+	const (
+		white color = iota
+		gray
+		black
+	)
+
+	classes := ch.reg.AllClasses()
+	colors := make(map[string]color, len(classes))
+	for name := range classes {
+		colors[name] = white
+	}
+
+	var path []string
+
+	var visit func(name string) bool
+	visit = func(name string) bool {
+		switch colors[name] {
+		case black:
+			return false
+		case gray:
+			cycleStart := 0
+			for i, p := range path {
+				if p == name {
+					cycleStart = i
+					break
+				}
+			}
+			cycle := append(path[cycleStart:], name)
+			ch.addCodedError(diagnostic.ErrCyclicSuperclass, span.Span{},
+				fmt.Sprintf("cyclic superclass constraint: %s", strings.Join(cycle, " -> ")))
+			return true
+		}
+
+		colors[name] = gray
+		path = append(path, name)
+
+		info, ok := classes[name]
+		if ok {
+			for _, sup := range info.Supers {
+				if _, isClass := classes[sup.ClassName]; isClass {
+					if visit(sup.ClassName) {
+						return true
+					}
+				}
+			}
+		}
+
+		path = path[:len(path)-1]
+		colors[name] = black
+		return false
+	}
+
+	hasCycle := false
+	for name := range classes {
+		if colors[name] == white {
+			if visit(name) {
+				hasCycle = true
+			}
+		}
+	}
+	return hasCycle
 }
 
 // buildQuantifiedDictType constructs the evidence type for a quantified constraint.

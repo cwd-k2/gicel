@@ -14,6 +14,42 @@ form List := \a. { Cons: a -> List a -> List a; Nil: List a }
 
 `()` is the unit type (empty record). `(a, b)` is the tuple type (sugar for `Record { _1: a, _2: b }`).
 
+### Primitive Types
+
+**Int** — Arbitrary-precision integer (backed by Go `int64`). Literals: `42`, `100_000`. Negative values via `negate 5`. Instances: `Eq`, `Ord`, `Num`, `Div`, `Semigroup`, `Monoid`, `Show`, `Read`.
+
+**Double** — IEEE 754 64-bit floating point. Literals: `3.14`, `1.0e10`, `2.5e-3`. Operations:
+
+```
+toDouble  :: Int -> Double
+round     :: Double -> Int
+floor     :: Double -> Int
+ceiling   :: Double -> Int
+truncate  :: Double -> Int
+readDouble :: String -> Maybe Double
+```
+
+Arithmetic via `Num Double` (`+`, `-`, `*`, `negate`) and `Div Double` (`/`). Instances: `Eq`, `Ord`, `Num`, `Div`, `Semigroup`, `Monoid`, `Show`, `Read`.
+
+**Byte** — 8-bit unsigned integer (0--255). Conversions:
+
+```
+byteToInt :: Byte -> Int
+intToByte :: Int -> Byte
+```
+
+Instances: `Eq`, `Ord`, `Show`.
+
+**Rune** — Unicode code point. Literals: `'a'`, `'\n'`, `'\x41'`, `'\0'`. Conversions:
+
+```
+toRunes  :: String -> List Rune
+fromRunes :: List Rune -> String
+charAt   :: Int -> String -> Maybe Rune
+```
+
+Instances: `Eq`, `Ord`, `Show`. String can be packed/unpacked as `List Rune` or `List Byte` via the `Packed` class.
+
 ### Type Aliases
 
 ```

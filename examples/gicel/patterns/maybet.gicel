@@ -14,13 +14,16 @@ form MaybeT := \(m: Type -> Type) a. { MkMaybeT: m (Maybe a) -> MaybeT m a }
 runMaybeT :: \(m: Type -> Type) a. MaybeT m a -> m (Maybe a)
 runMaybeT := \mt. case mt { MkMaybeT ma => ma }
 
--- Monad instance: bind threads Maybe failure through the base monad
+-- Monad instance: bind threads Maybe failure through the base monad.
+-- The let-binding `{ r := ...; MkMaybeT r }` prevents the inner (base monad)
+-- mbind from being fused into the outer MaybeT bind chain, which would
+-- misroute the pattern match to the wrong monad dictionary at runtime.
 impl Monad m => Monad (MaybeT m) := {
   mpure := \a. MkMaybeT $ mpure $ Just a;
-  mbind := \ma f. MkMaybeT $ mbind (runMaybeT ma) $ \opt. case opt {
+  mbind := \ma f. { r := mbind (runMaybeT ma) (\opt. case opt {
     Nothing => mpure Nothing;
     Just a  => runMaybeT (f a)
-  }
+  }); MkMaybeT r }
 }
 
 -- Lift a failure into MaybeT

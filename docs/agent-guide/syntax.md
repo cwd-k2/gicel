@@ -32,6 +32,26 @@
 
 `pure` and `bind` are always available without any import.
 
+#### Recursive Combinators (`--recursion`)
+
+Both `rec` and `fix` require the `--recursion` flag (CLI) or `AllowRecursion: true` (Go API). Without it, their use is a compile error.
+
+**`fix`** — value-level fixpoint. Type: `\a. (a -> a) -> a`. Builds a recursive value by passing "self" as an argument:
+
+```
+-- Fibonacci via fix
+fib := fix $ \self n. if n <= 1 then n else self (n - 1) + self (n - 2)
+```
+
+**`rec`** — computation-level fixpoint. Type: `\(r: Row) a. (Computation r r a -> Computation r r a) -> Computation r r a`. The pre and post rows must be equal (the effect signature is unchanged by the recursive call):
+
+```
+-- Stateful loop via rec
+loop := rec $ \self. do { x <- get; if x >= 10 then pure x else do { put (x + 1); self } }
+```
+
+Use `fix` for pure recursive functions. Use `rec` for recursive effectful computations where the effect row is preserved across iterations.
+
 ### Punctuation and Delimiters
 
 | Token | Meaning                                                                         |

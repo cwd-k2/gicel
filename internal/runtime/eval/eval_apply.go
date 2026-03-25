@@ -25,7 +25,7 @@ func (ev *Evaluator) ForceEffectful(r EvalResult, callSite span.Span) (EvalResul
 	capForImpl := r.CapEnv.MarkShared()
 	val, newCap, err := callPrim(ev.ctx, impl, capForImpl, pv.Args, ev.applier())
 	if err != nil {
-		return EvalResult{}, err
+		return EvalResult{}, wrapPrimError(err, pv.S, ev.source)
 	}
 	if ev.obs.Active() {
 		site := callSite
@@ -78,6 +78,12 @@ func callPrim(ctx context.Context, impl PrimImpl, capEnv CapEnv, args []Value, a
 		err = fmt.Errorf("primitive returned nil value")
 	}
 	return
+}
+
+// wrapPrimError is a passthrough — structured errors (budget limits, context
+// cancellation, RuntimeError) must not be wrapped to preserve errors.As matching.
+func wrapPrimError(err error, _ span.Span, _ *span.Source) error {
+	return err
 }
 
 // applier returns the cached Applier that delegates to the evaluator's apply method.
@@ -135,7 +141,7 @@ func (ev *Evaluator) apply(capEnv CapEnv, fn Value, arg Value, site *ir.App) (Ev
 		}
 		val, newCap, err := callPrim(ev.ctx, impl, capEnv, args, ev.applier())
 		if err != nil {
-			return EvalResult{}, err
+			return EvalResult{}, wrapPrimError(err, site.S, ev.source)
 		}
 		return EvalResult{val, newCap}, nil
 	default:

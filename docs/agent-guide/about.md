@@ -84,7 +84,9 @@ CLI flags:
 | `--explain`     | `false`   | Show semantic evaluation trace (run only)                                                            |
 | `--explain-all` | `false`   | Trace stdlib internals too (with --explain)                                                          |
 | `--verbose`     | `false`   | Show source context in explain trace (run only)                                                      |
+| `--show`        | `true`    | Display result value on stdout (default on for non-JSON mode)                                        |
 | `--no-color`    | `false`   | Disable color output; also respects `NO_COLOR` env var                                               |
+| `--use`         | `all`     | Alias for `--packs`                                                                                  |
 | `-e <source>`   | --        | Evaluate source string directly (run, check)                                                         |
 
 **Inline source (`-e`):** Semicolons and newlines are interchangeable separators.

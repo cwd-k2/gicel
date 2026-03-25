@@ -224,7 +224,7 @@ func (r *Runtime) execute(ctx context.Context, req *runRequest) (eval.EvalResult
 	for _, me := range r.moduleEntries {
 		ev.SetSource(me.source)
 		if err := r.evalBindingsCore(ev, me.sortedBindings, me.name, req.obs); err != nil {
-			return eval.EvalResult{}, eval.EvalStats{}, err
+			return eval.EvalResult{}, ev.Stats(), err
 		}
 	}
 	ev.SetSource(r.source)
@@ -250,11 +250,11 @@ func (r *Runtime) execute(ctx context.Context, req *runRequest) (eval.EvalResult
 	}
 
 	if err := r.evalBindingsCore(ev, nonEntry, "", req.obs); err != nil {
-		return eval.EvalResult{}, eval.EvalStats{}, err
+		return eval.EvalResult{}, ev.Stats(), err
 	}
 
 	if entryExpr == nil {
-		return eval.EvalResult{}, eval.EvalStats{}, fmt.Errorf("entry point %q not found", req.entry)
+		return eval.EvalResult{}, ev.Stats(), fmt.Errorf("entry point %q not found", req.entry)
 	}
 
 	if req.obs != nil {
@@ -263,11 +263,11 @@ func (r *Runtime) execute(ctx context.Context, req *runRequest) (eval.EvalResult
 	capEnv := eval.NewCapEnv(req.caps)
 	result, err := ev.Eval(nil, capEnv, entryExpr)
 	if err != nil {
-		return eval.EvalResult{}, eval.EvalStats{}, err
+		return eval.EvalResult{}, ev.Stats(), err
 	}
 	result, err = ev.ForceEffectful(result, span.Span{})
 	if err != nil {
-		return eval.EvalResult{}, eval.EvalStats{}, err
+		return eval.EvalResult{}, ev.Stats(), err
 	}
 	if req.obs != nil {
 		req.obs.Result(eval.PrettyValue(result.Value))
@@ -351,7 +351,7 @@ func (r *Runtime) RunWith(ctx context.Context, opts *RunOptions) (*RunResult, er
 		traceHook: opts.Trace,
 	})
 	if err != nil {
-		return nil, r.annotateError(err)
+		return &RunResult{Stats: stats}, r.annotateError(err)
 	}
 	return &RunResult{Value: result.Value, CapEnv: result.CapEnv, Stats: stats}, nil
 }

@@ -374,7 +374,7 @@ func (ev *Evaluator) evalStep(locals []Value, capEnv CapEnv, expr ir.Core) (Eval
 		}
 		val, newCap, err := callPrim(ev.ctx, impl, ce, args, ev.applier())
 		if err != nil {
-			return EvalResult{}, err
+			return EvalResult{}, wrapPrimError(err, e.S, ev.source)
 		}
 		return EvalResult{val, newCap}, nil
 
