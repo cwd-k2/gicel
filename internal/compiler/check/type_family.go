@@ -129,11 +129,30 @@ func (ch *Checker) familyEnv() *family.ReduceEnv {
 // enforcement during type checking.
 func (ch *Checker) installFamilyReducer() {
 	ch.registerGradeAlgebraFamilies()
+	ch.registerBuiltinRowFamilies()
 	if len(ch.reg.families) == 0 {
 		return
 	}
 	env := ch.familyEnv()
 	ch.unifier.FamilyReducer = env.ReduceAll
+}
+
+// registerBuiltinRowFamilies registers type family info for builtin row-level
+// type families (Merge, etc.). The actual reduction logic is in family/row_family.go;
+// the registration here makes the family names known to the checker so they can
+// appear in type signatures and be resolved as type family applications.
+func (ch *Checker) registerBuiltinRowFamilies() {
+	// Merge :: Row -> Row -> Row
+	if _, exists := ch.reg.LookupFamily("Merge"); !exists {
+		ch.reg.RegisterFamily("Merge", &TypeFamilyInfo{
+			Name: "Merge",
+			Params: []TFParam{
+				{Name: "r1", Kind: types.KRow{}},
+				{Name: "r2", Kind: types.KRow{}},
+			},
+			ResultKind: types.KRow{},
+		})
+	}
 }
 
 // reduceFamilyInType reduces type family applications within a type.

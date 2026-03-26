@@ -55,6 +55,10 @@ func (e *ReduceEnv) ReduceTyFamily(name string, args []types.Type, s span.Span) 
 			fmt.Sprintf("type family %s: reduction limit exceeded (possible infinite recursion or exponential growth)", name))
 		return nil, false
 	}
+	// Builtin row-level type families.
+	if result, ok := e.reduceBuiltinRowFamily(name, args, s); ok {
+		return result, true
+	}
 	fam, ok := e.lookupFamily(name)
 	if !ok {
 		return nil, false
