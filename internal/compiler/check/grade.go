@@ -174,15 +174,21 @@ type resolvedGradeAlgebra struct {
 func (ch *Checker) resolveGradeAlgebra(gradeKind types.Kind) resolvedGradeAlgebra {
 	classInfo, hasClass := ch.reg.LookupClass(gradeAlgebraClassName)
 	if hasClass {
+		// Match grade kind against instance type args.
+		// GradeAlgebra takes a Kind-kinded parameter (g: Kind).
+		// Instance: impl GradeAlgebra Mult := ...
+		// Instance TypeArgs[0] = TyCon("Mult"), which is a type constructor (kind Type).
+		// Grade kind = KData{"Mult"} (promoted kind from DataKinds).
+		// Match by comparing the type arg name with the KData name.
 		instances := ch.reg.InstancesForClass(gradeAlgebraClassName)
 		for _, inst := range instances {
 			if len(inst.TypeArgs) == 0 {
 				continue
 			}
-			// Match the instance's type arg kind against the target grade kind.
-			argKind := ch.kindOfType(inst.TypeArgs[0])
-			if argKind != nil && argKind.Equal(gradeKind) {
-				return ch.extractGradeAlgebra(classInfo, inst)
+			if con, ok := inst.TypeArgs[0].(*types.TyCon); ok {
+				if dk, ok := gradeKind.(types.KData); ok && dk.Name == con.Name {
+					return ch.extractGradeAlgebra(classInfo, inst)
+				}
 			}
 		}
 	}
