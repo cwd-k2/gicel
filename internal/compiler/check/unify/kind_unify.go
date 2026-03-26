@@ -53,7 +53,35 @@ func (u *Unifier) UnifyKinds(k1, k2 types.Kind) error {
 		}
 	}
 
+	// Cumulativity: ground kinds (Type, Row, Constraint, KData) are
+	// sub-kinds of Sort₀ (= Kind). This allows kind-polymorphic binders
+	// like \(k: Kind). ... to accept Type, Row, etc. as arguments.
+	if isGroundKind(k1) && isSortLevel(k2, 0) {
+		return nil
+	}
+	if isSortLevel(k1, 0) && isGroundKind(k2) {
+		return nil
+	}
+
 	return &UnifyError{Kind: UnifyMismatch, Detail: fmt.Sprintf("kind mismatch: %s vs %s", k1, k2)}
+}
+
+// isGroundKind returns true if k is a concrete kind that inhabits Sort₀.
+func isGroundKind(k types.Kind) bool {
+	switch k.(type) {
+	case types.KType, types.KRow, types.KConstraint, types.KData:
+		return true
+	default:
+		return false
+	}
+}
+
+// isSortLevel returns true if k is KSort at the given level.
+func isSortLevel(k types.Kind, level int) bool {
+	if s, ok := k.(types.KSort); ok {
+		return s.Level == level
+	}
+	return false
 }
 
 func (u *Unifier) solveKindMeta(m *types.KMeta, k types.Kind) error {
