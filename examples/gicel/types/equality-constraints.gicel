@@ -1,0 +1,22 @@
+-- GICEL Example: Equality Constraints
+--
+-- Type equality constraints (a ~ T) assert that two types are equal.
+-- At the definition site, the equality is a given (locally available).
+-- At the call site, it becomes a wanted (must be discharged).
+-- Run: bin/gicel run examples/gicel/types/equality-constraints.gicel
+
+import Prelude
+
+-- Simple equality constraint: a must be Int.
+addOne :: \a. a ~ Int => a -> Int
+addOne := \x. x + 1
+
+-- Mixed equality and class constraints.
+showIfInt :: \a. (a ~ Int, Eq a) => a -> Bool
+showIfInt := \x. eq x 0
+
+-- Both directions: Int ~ a also works.
+identity :: \a. Int ~ a => a -> Int
+identity := \x. x
+
+main := addOne 41

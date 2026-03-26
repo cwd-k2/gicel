@@ -344,6 +344,35 @@ expect_error_contains "module name validation error" "must start with an upperca
 expect_output "seq combinator" "42" \
   "$GICEL" run --show -e 'import Prelude; main := do { seq (pure 1) (pure 42) }'
 
+# --- Equality constraints ---
+expect_ok "equality constraint (a ~ Int)" \
+  "$GICEL" check -e 'f :: \a. a ~ Int => a -> Int; f := \x. x; main := f 42'
+
+expect_ok "equality constraint tuple (a ~ Int, Eq a)" \
+  "$GICEL" check -e 'form Eq := \a. { eq: a -> a -> Bool }; form Bool := { True: Bool; False: Bool }; impl Eq Int := { eq := \_ _. True }; f :: \a. (a ~ Int, Eq a) => a -> Bool; f := \x. eq x x; main := f 42'
+
+# --- Merge type family ---
+expect_ok "Merge disjoint rows" \
+  "$GICEL" check -e 'form Bool := { True: Bool; False: Bool }; f :: Merge { a: Int } { b: Bool } -> Int; f := \r. 42; g :: { a: Int, b: Bool } -> Int; g := f; main := 42'
+
+expect_error_contains "Merge overlap error" "overlapping" \
+  "$GICEL" check -e 'f :: Merge { a: Int } { a: Bool } -> Int; f := \r. 42; main := 42'
+
+# --- Non-nullary promotion ---
+expect_ok "non-nullary promoted con in type family" \
+  "$GICEL" check -e 'form Bool := { True: Bool; False: Bool }; form Maybe := \a. { Nothing: Maybe a; Just: a -> Maybe a }; type IsJust :: Bool := \(m: Maybe). case m { Just _ => True; Nothing => False }; type T :: Bool := IsJust (Just Int); main := 42'
+
+# --- Kind cumulativity ---
+expect_ok "kind cumulativity: Type ≤ Kind" \
+  "$GICEL" check -e 'type Id := \(k: Kind) (a: k). a; type T := Id Type Int; main := 42'
+
+expect_ok "kind cumulativity: KData ≤ Kind" \
+  "$GICEL" check -e 'form Bool := { True: Bool; False: Bool }; type Const := \(k1: Kind) (k2: Kind) (a: k1) (b: k2). a; type T := Const Bool Type True Int; main := 42'
+
+# --- User-defined grade algebra ---
+expect_ok "user-defined grade algebra (Level)" \
+  "$GICEL" check --packs prelude -e 'import Prelude; form Level := { Public: Level; Secret: Level }; type LevelJoin :: Level -> Level -> Level := \(a: Level) (b: Level). case (a, b) { (Secret, _) => Secret; (_, Secret) => Secret; (x, _) => x }; impl GradeAlgebra Level := { type GradeJoin := LevelJoin; type GradeDrop := Public }; main := 42'
+
 echo ""
 
 # === Summary ===

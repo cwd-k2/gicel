@@ -1,0 +1,20 @@
+-- GICEL Example: Merge Row Type Family
+--
+-- Merge :: Row -> Row -> Row performs disjoint row merging at the type level.
+-- Overlapping labels produce a compile error.
+-- Run: bin/gicel run examples/gicel/types/row-merge.gicel
+
+import Prelude
+
+-- Merge two disjoint row types.
+type Combined :: Row := Merge { a: Int } { b: Bool }
+
+-- A function accepting the merged row.
+f :: Combined -> Int
+f := \_ . 42
+
+-- Merge result unifies with the concrete row { a: Int, b: Bool }.
+g :: { a: Int, b: Bool } -> Int
+g := f
+
+main := 42

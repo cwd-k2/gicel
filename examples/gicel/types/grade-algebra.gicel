@@ -1,0 +1,32 @@
+-- GICEL Example: User-Defined Grade Algebra
+--
+-- The GradeAlgebra class enables user-defined grade lattices.
+-- This example defines a security level grade and uses it in
+-- capability row annotations.
+-- Run: bin/gicel run examples/gicel/types/grade-algebra.gicel
+
+import Prelude
+
+-- Define a security level lattice.
+form Level := { Public: Level; Confidential: Level; Secret: Level }
+
+-- Join: lattice maximum.
+type LevelJoin :: Level -> Level -> Level := \(a: Level) (b: Level). case (a, b) {
+  (Secret, _)       => Secret;
+  (_, Secret)       => Secret;
+  (Confidential, _) => Confidential;
+  (_, Confidential) => Confidential;
+  (x, _)            => x
+}
+
+-- Register as a GradeAlgebra instance.
+-- Drop = Public (the bottom element: preservable by default).
+impl GradeAlgebra Level := {
+  type GradeJoin := LevelJoin;
+  type GradeDrop := Public
+}
+
+-- The standard Mult algebra (Zero/Linear/Affine/Unrestricted)
+-- is defined in Prelude and available automatically.
+
+main := 42

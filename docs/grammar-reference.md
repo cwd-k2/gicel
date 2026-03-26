@@ -294,6 +294,41 @@ type Handler :: Type := \(e: Type). case e {
 }
 ```
 
+### Builtin Type Families
+
+`Merge :: Row -> Row -> Row` performs disjoint merge of two capability rows. Overlapping labels produce a compile error.
+
+```
+type Combined :: Row := Merge { a: Int } { b: Bool }
+-- Combined reduces to { a: Int, b: Bool }
+```
+
+### DataKinds: Non-Nullary Constructor Promotion
+
+All constructors are promoted to the type level, including those with fields. Non-nullary constructors receive kind arrows:
+
+```
+form Maybe := \a. { Nothing: Maybe a; Just: a -> Maybe a }
+-- Nothing :: Maybe (kind arity 0)
+-- Just :: Type -> Maybe (kind arrow from field type)
+
+type IsJust :: Bool := \(m: Maybe). case m {
+  Just _ => True;
+  Nothing => False
+}
+```
+
+### Kind Polymorphism and Cumulativity
+
+Kind-polymorphic binders accept any ground kind (Type, Row, Constraint, promoted kinds) via cumulativity: ground kinds are sub-kinds of Kind.
+
+```
+type Id := \(k: Kind) (a: k). a
+type T1 := Id Type Int         -- k = Type
+type T2 := Id Row { x: Int }   -- k = Row
+type T3 := Id Bool True         -- k = Bool (promoted)
+```
+
 ### Type Annotation
 
 ```
@@ -662,7 +697,27 @@ RowField
   = LowerName ':' [GradeExpr '=>'] TypeExpr
 ```
 
-The optional `GradeExpr =>` prefix annotates a field with a grade (e.g., `Linear =>`, `Affine =>`). Without annotation, fields are unrestricted.
+The `@Grade` suffix annotates a field with a grade. Without annotation, fields are unrestricted. The `GradeExpr =>` prefix form is also accepted.
+
+```
+{ x: Int @Linear }           -- @-syntax (preferred)
+{ h: Linear => Handle | r }  -- =>-syntax (legacy)
+```
+
+The standard grade algebra uses `Mult` (Zero, Linear, Affine, Unrestricted), defined in Prelude via the `GradeAlgebra` class. User-defined grades are supported by implementing `GradeAlgebra` for a custom promoted kind:
+
+```
+form Level := { Public: Level; Secret: Level }
+type LevelJoin :: Level -> Level -> Level := \(a: Level) (b: Level). case (a, b) {
+  (Secret, _) => Secret;
+  (_, Secret) => Secret;
+  (x, _)      => x
+}
+impl GradeAlgebra Level := {
+  type GradeJoin := LevelJoin;
+  type GradeDrop := Public
+}
+```
 
 ### Record / Tuple Type
 
