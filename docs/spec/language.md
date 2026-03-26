@@ -764,6 +764,17 @@ Kind variables are introduced with explicit annotation in `\` binders:
 
 `Kind` is a distinguished sort — the kind of kinds. Kind variables range over all kinds.
 
+### 4.4.1 Kind Cumulativity
+
+Ground kinds (`Type`, `Row`, `Constraint`, and promoted kinds like `DBState`) are sub-kinds of `Kind`. This enables kind-polymorphic binders to accept any ground kind:
+
+```
+type Id := \(k: Kind) (a: k). a
+type T1 := Id Type Int         -- k inferred as Type
+type T2 := Id Row { x: Int }   -- k inferred as Row
+type T3 := Id Bool True         -- k inferred as Bool (promoted)
+```
+
 Kind inference uses kind metavariables and unification:
 
 - `KindMeta` metavariables in the ordered context
@@ -1694,7 +1705,18 @@ type ElemOf :: Type := \(c: Type). case c {
 
 **Confluence**: guaranteed by ordered, first-match semantics. **Termination**: Non-recursive type families reduce in one step per application. Recursive type families use a shared step budget (default: 50,000 steps per compile session) and a type size bound (10,000 nodes per expression) to prevent exponential growth.
 
-### 17.1.2 Associated Types
+### 17.1.2 Builtin Row Type Families
+
+`Merge :: Row -> Row -> Row` is a builtin type family that performs disjoint merge of two capability rows. Overlapping labels produce a compile error.
+
+```
+type Combined :: Row := Merge { a: Int } { b: Bool }
+-- reduces to { a: Int, b: Bool }
+```
+
+Open rows (containing unsolved metavariables in tails) remain stuck until the variables are resolved.
+
+### 17.1.3 Associated Types
 
 A class-like `form` body may declare associated type families (kind signature only). `impl` bodies provide definitions using `:=`.
 
@@ -1799,14 +1821,33 @@ The lattice order is: `Zero` and `Linear` are incomparable, both below `Affine`,
 
 Multiplicity annotations are checked by the type system but do not affect runtime evaluation. They constrain how capabilities may be used: `@Linear` requires exactly-once consumption, `@Affine` allows at-most-once.
 
-### 17.2.1 Grade Boundary Enforcement
+### 17.2.1 User-Defined Grade Algebras
 
-Grade boundary checking (whether a capability can be preserved across a bind step) uses two paths:
+The `GradeAlgebra` class (defined in Prelude) enables user-defined grade lattices:
 
-- **Concrete grades**: immediate check via `gradeCanPreserve`. If the grade does not permit preservation, a compile-time error is emitted.
-- **Grades with metavariables**: a `CtFunEq` constraint is emitted using internal type families `$GradeJoin` and `$GradeDrop`. The constraint `$GradeJoin(Zero, grade) ~ grade` blocks until the metavariable is solved, then the type family reduces and unification enforces the grade boundary.
+```
+form GradeAlgebra := \(g: Kind). {
+  type GradeJoin :: g -> g;
+  type GradeDrop :: g
+}
+```
 
-The `$GradeJoin` type family encodes the full usage/multiplicity lattice (Zero, Linear, Affine, Unrestricted) as a 10-equation closed type family. `$GradeDrop` always reduces to Zero.
+The standard `Mult` algebra is provided by Prelude. Users can define custom algebras (e.g., security levels):
+
+```
+form Level := { Public: Level; Secret: Level }
+impl GradeAlgebra Level := {
+  type GradeJoin := LevelJoin;
+  type GradeDrop := Public
+}
+```
+
+### 17.2.2 Grade Boundary Enforcement
+
+Grade boundary checking (whether a capability can be preserved across a bind step) resolves the `GradeAlgebra` instance for the grade's kind and checks `Join(Drop, grade) ~ grade`:
+
+- **Concrete grades**: immediate reduction via the resolved Join family.
+- **Grades with metavariables**: a `CtFunEq` constraint is emitted. The constraint blocks until the metavariable is solved, then the type family reduces and unification enforces the grade boundary. An `OnFailure` callback produces `ErrMultiplicity` on violation.
 
 This dual-path design enables future multiplicity polymorphism: grade-polymorphic functions emit deferred constraints that are resolved once the grade metavariable is instantiated.
 
