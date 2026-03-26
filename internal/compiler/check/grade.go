@@ -157,6 +157,78 @@ func gradeAlgebraKind(ch *Checker) types.Kind {
 	return types.KType{}
 }
 
+// gradeAlgebraClassName is the name of the user-facing grade algebra class.
+const gradeAlgebraClassName = "GradeAlgebra"
+
+// resolvedGradeAlgebra holds the resolved join family name and drop value
+// for a grade kind.
+type resolvedGradeAlgebra struct {
+	joinFamily string     // name of the GradeJoin type family
+	dropValue  types.Type // the Drop element (promoted constructor, e.g. Zero)
+}
+
+// resolveGradeAlgebra looks up a GradeAlgebra instance for the given grade kind
+// and extracts the associated type family names by reducing the associated types.
+// Falls back to the internal $GradeJoin/$GradeDrop families if no user-defined
+// GradeAlgebra instance is found.
+func (ch *Checker) resolveGradeAlgebra(gradeKind types.Kind) resolvedGradeAlgebra {
+	classInfo, hasClass := ch.reg.LookupClass(gradeAlgebraClassName)
+	if hasClass {
+		instances := ch.reg.InstancesForClass(gradeAlgebraClassName)
+		for _, inst := range instances {
+			if len(inst.TypeArgs) == 0 {
+				continue
+			}
+			// Match the instance's type arg kind against the target grade kind.
+			argKind := ch.kindOfType(inst.TypeArgs[0])
+			if argKind != nil && argKind.Equal(gradeKind) {
+				return ch.extractGradeAlgebra(classInfo, inst)
+			}
+		}
+	}
+	// Fallback: use internal families.
+	return resolvedGradeAlgebra{
+		joinFamily: gradeJoinFamily,
+		dropValue:  types.Con("Zero"),
+	}
+}
+
+// extractGradeAlgebra extracts GradeJoin and GradeDrop from a matched instance
+// by reducing the associated type families with the instance's type args.
+func (ch *Checker) extractGradeAlgebra(classInfo *ClassInfo, inst *InstanceInfo) resolvedGradeAlgebra {
+	result := resolvedGradeAlgebra{
+		joinFamily: gradeJoinFamily, // default fallback
+		dropValue:  types.Con("Zero"),
+	}
+	for _, assocName := range classInfo.AssocTypes {
+		fam, ok := ch.reg.LookupFamily(assocName)
+		if !ok {
+			continue
+		}
+		// Reduce the associated type with the instance's type args.
+		reduced, didReduce := ch.reduceTyFamily(assocName, inst.TypeArgs, inst.S)
+		if !didReduce {
+			continue
+		}
+		switch assocName {
+		case "GradeJoin":
+			// The reduced result should be a type family name (TyCon).
+			if con, ok := reduced.(*types.TyCon); ok {
+				result.joinFamily = con.Name
+			} else {
+				// GradeJoin reduced to the family itself — use the assoc name.
+				result.joinFamily = assocName
+			}
+		case "GradeDrop":
+			result.dropValue = reduced
+		default:
+			// Unknown associated type — check by family result kind.
+			_ = fam
+		}
+	}
+	return result
+}
+
 // gradeContainsMeta reports whether ty contains any unsolved metavariable.
 func gradeContainsMeta(ty types.Type) bool {
 	return types.AnyType(ty, func(t types.Type) bool {
@@ -207,17 +279,21 @@ func (ch *Checker) checkGradeBoundary(comp *types.TyCBPV, s span.Span) {
 		// Field preserved unchanged. Check each grade allows preservation.
 		for _, grade := range f.Grades {
 			grade = ch.unifier.Zonk(grade)
+			gk := ch.kindOfType(grade)
+			if gk == nil {
+				gk = gradeAlgebraKind(ch)
+			}
 
 			if gradeContainsMeta(grade) {
-				// Deferred path: emit CtFunEq for $GradeJoin(Zero, grade) ~ grade.
+				// Deferred path: emit CtFunEq for Join(Drop, grade) ~ grade.
 				// When the meta is solved, the solver re-processes the constraint
 				// and the family reduces to a concrete result for unification.
-				ch.emitGradePreserveConstraint(grade, s)
+				ch.emitGradePreserveConstraint(grade, gk, s)
 				continue
 			}
 
 			// Fast path: concrete grade, check immediately.
-			if !gradeCanPreserve(grade) {
+			if !ch.gradeCanPreserveDynamic(grade, gk) {
 				ch.addCodedError(diagnostic.ErrMultiplicity, s,
 					fmt.Sprintf("@%s capability %q must be consumed (type unchanged across computation boundary)",
 						types.Pretty(grade), f.Label))
@@ -226,24 +302,37 @@ func (ch *Checker) checkGradeBoundary(comp *types.TyCBPV, s span.Span) {
 	}
 }
 
+// gradeCanPreserveDynamic checks whether a field with the given grade can be
+// preserved unchanged across a computation boundary, using the resolved grade algebra.
+func (ch *Checker) gradeCanPreserveDynamic(grade types.Type, gradeKind types.Kind) bool {
+	algebra := ch.resolveGradeAlgebra(gradeKind)
+	drop := algebra.dropValue
+	joined, ok := ch.reduceTyFamily(algebra.joinFamily, []types.Type{drop, grade}, span.Span{})
+	if !ok {
+		// Family reduction failed (stuck or no match).
+		// Fallback to the hardcoded check for backward compatibility.
+		return gradeCanPreserve(grade)
+	}
+	return types.Equal(joined, grade)
+}
+
 // emitGradePreserveConstraint emits a CtFunEq constraint encoding the
-// preservation check: $GradeJoin(Zero, grade) ~ grade.
+// preservation check: Join(Drop, grade) ~ grade.
 //
 // If the grade is e.g. a metavariable ?m, this constraint says:
-// "when ?m is solved, Join(Zero, ?m) must equal ?m" — which is the
+// "when ?m is solved, Join(Drop, ?m) must equal ?m" — which is the
 // algebraic definition of gradeCanPreserve.
-func (ch *Checker) emitGradePreserveConstraint(grade types.Type, s span.Span) {
-	multKind := gradeAlgebraKind(ch)
-	zero := types.Con("Zero")
-	args := []types.Type{zero, grade}
+func (ch *Checker) emitGradePreserveConstraint(grade types.Type, gradeKind types.Kind, s span.Span) {
+	algebra := ch.resolveGradeAlgebra(gradeKind)
+	args := []types.Type{algebra.dropValue, grade}
 
-	resultMeta := ch.freshMeta(multKind)
+	resultMeta := ch.freshMeta(gradeKind)
 	blocking := ch.unifier.CollectBlockingMetas(args)
 	if len(blocking) == 0 {
 		// Invariant: gradeContainsMeta was true, so CollectBlockingMetas should
 		// find at least one meta. If not, the meta was zonked between the check
 		// and here. Fall back to the concrete fast path.
-		if !gradeCanPreserve(ch.unifier.Zonk(grade)) {
+		if !ch.gradeCanPreserveDynamic(ch.unifier.Zonk(grade), gradeKind) {
 			ch.addCodedError(diagnostic.ErrMultiplicity, s,
 				fmt.Sprintf("@%s capability must be consumed (type unchanged across computation boundary)",
 					types.Pretty(grade)))
@@ -252,7 +341,7 @@ func (ch *Checker) emitGradePreserveConstraint(grade types.Type, s span.Span) {
 	}
 
 	ct := &CtFunEq{
-		FamilyName: gradeJoinFamily,
+		FamilyName: algebra.joinFamily,
 		Args:       args,
 		ResultMeta: resultMeta,
 		BlockingOn: blocking,

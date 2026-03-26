@@ -509,7 +509,7 @@ func TestEmitGradePreserveConstraint_EmitsCtFunEq(t *testing.T) {
 	ch.solver.InertSet().Reset()
 
 	meta := ch.freshMeta(types.KType{})
-	ch.emitGradePreserveConstraint(meta, span.Span{})
+	ch.emitGradePreserveConstraint(meta, gradeAlgebraKind(ch), span.Span{})
 
 	// Verify a CtFunEq was registered in the inert set for $GradeJoin.
 	funEqs := ch.solver.InertSet().LookupFunEq(gradeJoinFamily)
