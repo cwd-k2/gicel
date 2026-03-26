@@ -110,11 +110,13 @@ func isTypeFamilyBody(body syntax.TypeExpr) bool {
 // Additionally, the body must be a record row ({ fields }), not a raw type expression
 // or pipe-ADT sugar. A non-row body (e.g., form Void := \a. a) is never class-like.
 func isClassLikeForm(parts formBodyParts) bool {
-	// Must have a record body and at least one field.
+	// Must have a record body.
 	if _, isRow := parts.InnerBody.(*syntax.TyExprRow); !isRow {
 		return false
 	}
-	if len(parts.Fields) == 0 {
+	// Must have at least one field or associated type declaration.
+	// A class with only associated types (no methods) is valid.
+	if len(parts.Fields) == 0 && len(parts.TypeDecls) == 0 {
 		return false
 	}
 	for _, f := range parts.Fields {

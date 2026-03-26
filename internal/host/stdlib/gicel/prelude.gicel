@@ -3,6 +3,27 @@ form Result := \e a. { Ok: a -> Result e a; Err: e -> Result e a; }
 form Maybe := \a. { Just: a -> Maybe a; Nothing: Maybe a; }
 form List := \a. { Cons: a -> List a -> List a; Nil: List a; }
 form Ordering := { LT: Ordering; EQ: Ordering; GT: Ordering; }
+form Mult := { Zero: Mult; Linear: Mult; Affine: Mult; Unrestricted: Mult; }
+
+form GradeAlgebra := \(g: Kind). {
+  type GradeJoin :: g -> g;
+  type GradeDrop :: g
+}
+
+type MultJoin :: Mult -> Mult -> Mult := \(m1: Mult) (m2: Mult). case (m1, m2) {
+  (Unrestricted, _) => Unrestricted;
+  (_, Unrestricted) => Unrestricted;
+  (Affine, _)       => Affine;
+  (_, Affine)       => Affine;
+  (Linear, Zero)    => Affine;
+  (Zero, Linear)    => Affine;
+  (x, _)            => x
+}
+
+impl GradeAlgebra Mult := {
+  type GradeJoin := MultJoin;
+  type GradeDrop := Zero
+}
 
 form Eq := \a. { eq: a -> a -> Bool }
 form Ord := \a. Eq a => { compare: a -> a -> Ordering }
