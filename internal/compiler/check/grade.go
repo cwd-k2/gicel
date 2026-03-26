@@ -256,7 +256,12 @@ func (ch *Checker) emitGradePreserveConstraint(grade types.Type, s span.Span) {
 		Args:       args,
 		ResultMeta: resultMeta,
 		BlockingOn: blocking,
-		S:          s,
+		OnFailure: func(errSpan span.Span, expected, actual types.Type) {
+			ch.addCodedError(diagnostic.ErrMultiplicity, errSpan,
+				fmt.Sprintf("@%s capability must be consumed (grade preservation violation: expected %s, got %s)",
+					types.Pretty(grade), types.Pretty(expected), types.Pretty(actual)))
+		},
+		S: s,
 	}
 	ch.solver.RegisterStuckFunEq(ct)
 

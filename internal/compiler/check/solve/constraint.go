@@ -34,11 +34,16 @@ func (c *CtClass) ctSpan() span.Span { return c.S }
 // CtFunEq represents a stuck type family equation: F args ~ resultMeta.
 // When blocking metavariables are solved, the equation is kicked out
 // of the inert set back to the worklist for re-processing.
+//
+// OnFailure is an optional callback invoked when the reduced result
+// cannot unify with ResultMeta. Used by grade constraints to emit
+// domain-specific errors (e.g. ErrMultiplicity). Nil for non-grade families.
 type CtFunEq struct {
 	FamilyName string
 	Args       []types.Type
 	ResultMeta *types.TyMeta
 	BlockingOn []int
+	OnFailure  func(span.Span, types.Type, types.Type) // (span, expected, actual); nil = silent
 	S          span.Span
 }
 

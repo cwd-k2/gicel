@@ -260,11 +260,11 @@ func (s *Solver) processCtFunEq(ct *CtFunEq) {
 	zonked := s.zonkAll(ct.Args)
 	result, reduced := s.env.ReduceTyFamily(ct.FamilyName, zonked, ct.S)
 	if reduced {
-		// Advisory unification: reduced type family result is unified with the
-		// result meta. Failure implies conflicting reductions of the same family
-		// application — prevented by overlap checks. If it occurs despite that,
-		// the unsolved meta produces a downstream type mismatch error.
-		_ = s.env.Unify(ct.ResultMeta, result) //nolint:errcheck // advisory
+		// Unify the reduced result with the result meta.
+		// Failure implies conflicting reductions or a grade violation.
+		if err := s.env.Unify(ct.ResultMeta, result); err != nil && ct.OnFailure != nil {
+			ct.OnFailure(ct.S, s.env.Zonk(ct.ResultMeta), s.env.Zonk(result))
+		}
 		return
 	}
 	// Still stuck: update args and re-register in inert set.
