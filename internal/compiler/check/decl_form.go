@@ -115,12 +115,23 @@ func (ch *Checker) processFormDeclParts(d *syntax.DeclForm, parts formBodyParts,
 	prog.DataDecls = append(prog.DataDecls, coreDecl)
 
 	// DataKinds: promote all constructors to type level.
-	// Both nullary (e.g., True, False) and non-nullary (e.g., Cons, Pi)
-	// are promoted, enabling universe decoding patterns at the type level.
+	// Nullary constructors (e.g., True, False) get kind KData{Name}.
+	// Non-nullary constructors (e.g., Just: a -> Maybe a) get a kind arrow:
+	//   Just :: KType -> KData{Maybe}
+	// This enables type-level application of promoted constructors.
 	dataKind := types.KData{Name: d.Name}
 	ch.reg.RegisterPromotedKind(d.Name, dataKind)
-	for _, field := range parts.Fields {
-		ch.reg.RegisterPromotedCon(field.Label, dataKind)
+	for _, con := range coreDecl.Cons {
+		var conKind types.Kind = dataKind
+		// Build kind arrow from field types (right to left).
+		for i := len(con.Fields) - 1; i >= 0; i-- {
+			fieldKind := ch.kindOfType(con.Fields[i])
+			if fieldKind == nil {
+				fieldKind = types.KType{}
+			}
+			conKind = &types.KArrow{From: fieldKind, To: conKind}
+		}
+		ch.reg.RegisterPromotedCon(con.Name, conKind)
 	}
 }
 

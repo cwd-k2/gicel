@@ -63,6 +63,33 @@ main := (MkProxy :: Proxy Nothing)`
 	checkSource(t, source, nil)
 }
 
+func TestNonNullaryPromotedConKind(t *testing.T) {
+	// Non-nullary constructors should be promoted with kind arrows.
+	// Just :: Type -> Maybe (i.e., KArrow{KType, KData{Maybe}})
+	source := `form Maybe := \a. { Nothing: Maybe a; Just: a -> Maybe a }
+type Test :: Maybe := Just Int
+main := 42`
+	checkSource(t, source, nil)
+}
+
+func TestNonNullaryPromotedConInTypeFamily(t *testing.T) {
+	// Non-nullary promoted con in type family pattern.
+	source := `
+form Bool := { True: Bool; False: Bool }
+form Maybe := \a. { Nothing: Maybe a; Just: a -> Maybe a }
+
+type IsJust :: Bool := \(m: Maybe). case m {
+  Just _ => True;
+  Nothing => False
+}
+
+type T1 :: Bool := IsJust (Just Int)
+type T2 :: Bool := IsJust Nothing
+
+main := 42`
+	checkSource(t, source, nil)
+}
+
 func TestPromotedInTypeSignature(t *testing.T) {
 	// DB Opened => DB Closed should kind-check
 	source := `form DBState := { Opened: DBState; Closed: DBState; }
