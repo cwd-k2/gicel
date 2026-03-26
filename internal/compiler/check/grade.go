@@ -207,8 +207,7 @@ func (ch *Checker) extractGradeAlgebra(classInfo *ClassInfo, inst *InstanceInfo)
 		dropValue:  types.Con("Zero"),
 	}
 	for _, assocName := range classInfo.AssocTypes {
-		fam, ok := ch.reg.LookupFamily(assocName)
-		if !ok {
+		if _, ok := ch.reg.LookupFamily(assocName); !ok {
 			continue
 		}
 		// Reduce the associated type with the instance's type args.
@@ -222,14 +221,10 @@ func (ch *Checker) extractGradeAlgebra(classInfo *ClassInfo, inst *InstanceInfo)
 			if con, ok := reduced.(*types.TyCon); ok {
 				result.joinFamily = con.Name
 			} else {
-				// GradeJoin reduced to the family itself — use the assoc name.
 				result.joinFamily = assocName
 			}
 		case "GradeDrop":
 			result.dropValue = reduced
-		default:
-			// Unknown associated type — check by family result kind.
-			_ = fam
 		}
 	}
 	return result

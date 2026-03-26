@@ -356,7 +356,11 @@ func (ch *Checker) checkWithEvidence(expr syntax.Expr, ev *types.TyEvidence) ir.
 				givenEqSkolems = append(givenEqSkolems, sk.ID)
 			} else {
 				// Both sides are concrete or meta — unify directly.
-				_ = ch.unifier.Unify(lhs, rhs)
+				if err := ch.unifier.Unify(lhs, rhs); err != nil {
+					ch.addCodedError(diagnostic.ErrTypeMismatch, entry.S,
+						fmt.Sprintf("unsatisfiable equality constraint: %s ~ %s",
+							types.Pretty(lhs), types.Pretty(rhs)))
+				}
 			}
 			continue
 		}

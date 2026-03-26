@@ -31,6 +31,7 @@ func (ch *Checker) processFormDeclParts(d *syntax.DeclForm, parts formBodyParts,
 		if _, isSort := resultKind.(types.KSort); isSort {
 			ch.addCodedError(diagnostic.ErrKindMismatch, d.S,
 				fmt.Sprintf("form %s has result kind %s, but form declarations must have result kind Type", d.Name, resultKind))
+			return // halt: do not register invalid form
 		}
 	}
 	ch.reg.RegisterTypeKind(d.Name, kind)

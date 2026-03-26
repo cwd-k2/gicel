@@ -268,7 +268,9 @@ func (s *Solver) processCtEq(ct *CtEq) {
 		// Check if stuck (contains metas) vs genuinely unsatisfiable.
 		lhsMetas := collectMetaIDs([]types.Type{lhs})
 		rhsMetas := collectMetaIDs([]types.Type{rhs})
-		blocking := append(lhsMetas, rhsMetas...)
+		blocking := make([]int, 0, len(lhsMetas)+len(rhsMetas))
+		blocking = append(blocking, lhsMetas...)
+		blocking = append(blocking, rhsMetas...)
 		if len(blocking) > 0 {
 			// Stuck: register in inert set for re-activation.
 			ct.Lhs = lhs
