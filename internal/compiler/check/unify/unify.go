@@ -259,7 +259,11 @@ func (u *Unifier) RegisterLabelContext(id int, labels map[string]struct{}) {
 	u.labels[id] = labels
 }
 
-// normalize applies alias expansion and special type normalization.
+// normalize applies alias expansion, type family reduction, and special
+// type normalization. Type family reduction is eager here for compatibility:
+// many inference paths depend on TyFamilyApp being reduced before unification.
+// The solver's CtFunEq path (L2-b) handles deferred reduction for stuck
+// applications whose args contain unsolved metas.
 func (u *Unifier) normalize(t types.Type) types.Type {
 	if u.AliasExpander != nil {
 		t = u.AliasExpander(t)

@@ -146,15 +146,36 @@ func (ch *Checker) joinGrades(result *types.RowField, other []types.Type, s span
 		return
 	}
 	for i := range result.Grades {
-		lubResult, ok := ch.reduceTyFamily("LUB", []types.Type{result.Grades[i], other[i]}, s)
+		a := ch.unifier.Zonk(result.Grades[i])
+		b := ch.unifier.Zonk(other[i])
+		lubResult, ok := ch.reduceTyFamily("LUB", []types.Type{a, b}, s)
 		if ok {
 			result.Grades[i] = lubResult
 			continue
 		}
-		if err := ch.unifier.Unify(result.Grades[i], other[i]); err != nil {
+		// Stuck: emit CtFunEq for deferred LUB reduction.
+		args := []types.Type{a, b}
+		blocking := ch.unifier.CollectBlockingMetas(args)
+		if len(blocking) > 0 {
+			if _, lubFam := ch.reg.LookupFamily("LUB"); lubFam {
+				resultMeta := ch.freshMeta(types.KType{})
+				ct := &CtFunEq{
+					FamilyName: "LUB",
+					Args:       args,
+					ResultMeta: resultMeta,
+					BlockingOn: blocking,
+					S:          s,
+				}
+				ch.solver.RegisterStuckFunEq(ct)
+				result.Grades[i] = resultMeta
+				continue
+			}
+		}
+		// No LUB family or no blocking metas: fall back to unification.
+		if err := ch.unifier.Unify(a, b); err != nil {
 			ch.addCodedError(diagnostic.ErrTypeMismatch, s,
 				fmt.Sprintf("divergent grade for %s: %s vs %s",
-					result.Label, types.Pretty(result.Grades[i]), types.Pretty(other[i])))
+					result.Label, types.Pretty(a), types.Pretty(b)))
 		}
 	}
 }
