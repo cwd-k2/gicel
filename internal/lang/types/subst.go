@@ -419,7 +419,16 @@ func substConstraintEntry(e ConstraintEntry, varName string, replacement Type, c
 		}
 		args[j] = newA
 	}
-	result := ConstraintEntry{ClassName: e.ClassName, Args: args, S: e.S}
+	result := ConstraintEntry{ClassName: e.ClassName, Args: args, IsEquality: e.IsEquality, S: e.S}
+	if e.IsEquality {
+		newLhs := substDepth(e.EqLhs, varName, replacement, depth+1)
+		newRhs := substDepth(e.EqRhs, varName, replacement, depth+1)
+		if newLhs != e.EqLhs || newRhs != e.EqRhs {
+			*changed = true
+		}
+		result.EqLhs = newLhs
+		result.EqRhs = newRhs
+	}
 	if e.ConstraintVar != nil {
 		newCV := substDepth(e.ConstraintVar, varName, replacement, depth+1)
 		if newCV != e.ConstraintVar {

@@ -50,6 +50,18 @@ type CtFunEq struct {
 func (*CtFunEq) ctMarker()           {}
 func (c *CtFunEq) ctSpan() span.Span { return c.S }
 
+// CtEq represents a type equality constraint: Lhs ~ Rhs.
+// Emitted from user-written (a ~ Int) => constraints and (future)
+// solver-managed GADT given equalities.
+type CtEq struct {
+	Lhs types.Type
+	Rhs types.Type
+	S   span.Span
+}
+
+func (*CtEq) ctMarker()           {}
+func (c *CtEq) ctSpan() span.Span { return c.S }
+
 // CtImplication represents an implication constraint for GADT branches
 // and other scoped constraint-solving contexts. It bundles:
 //   - Skolems: GADT existential variables introduced by the pattern

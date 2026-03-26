@@ -3,6 +3,7 @@ package check
 import (
 	"fmt"
 
+	"github.com/cwd-k2/gicel/internal/compiler/check/solve"
 	"github.com/cwd-k2/gicel/internal/infra/diagnostic"
 	"github.com/cwd-k2/gicel/internal/infra/span"
 	"github.com/cwd-k2/gicel/internal/lang/syntax"
@@ -124,6 +125,17 @@ func (ch *Checker) resolveTypeExpr(texpr syntax.TypeExpr) types.Type {
 			S:       t.S,
 		}
 	case *syntax.TyExprQual:
+		// Equality constraint: a ~ T => Body
+		// Embedded in TyEvidence as ConstraintEntry with IsEquality=true.
+		// No evidence dictionary is generated; the CtEq is emitted when
+		// the constraint is instantiated (forall variables → metas).
+		if eq, ok := t.Constraint.(*syntax.TyExprEq); ok {
+			body := ch.resolveTypeExpr(t.Body)
+			lhs := ch.resolveTypeExpr(eq.Lhs)
+			rhs := ch.resolveTypeExpr(eq.Rhs)
+			entry := types.ConstraintEntry{IsEquality: true, EqLhs: lhs, EqRhs: rhs, S: eq.S}
+			return qualifyBody(entry, body, t.S)
+		}
 		body := ch.resolveTypeExpr(t.Body)
 		constraint := ch.resolveTypeExpr(t.Constraint)
 		// Quantified constraint: (\ a. C1 a => C2 (f a)) => T
@@ -144,6 +156,15 @@ func (ch *Checker) resolveTypeExpr(texpr syntax.TypeExpr) types.Type {
 		}
 		ch.addCodedError(diagnostic.ErrNoInstance, t.S, fmt.Sprintf("invalid constraint: %s", types.Pretty(constraint)))
 		return body
+	case *syntax.TyExprEq:
+		// Equality constraint outside of a qualified type position.
+		// Resolve both sides; the checker will process it contextually.
+		lhs := ch.resolveTypeExpr(t.Lhs)
+		rhs := ch.resolveTypeExpr(t.Rhs)
+		// Emit immediately — this handles edge cases where ~ appears
+		// outside constraint position (e.g. in standalone type expressions).
+		ch.solver.Emit(&solve.CtEq{Lhs: lhs, Rhs: rhs, S: t.S})
+		return types.Con("()")
 	case *syntax.TyExprParen:
 		return ch.resolveTypeExpr(t.Inner)
 	default:

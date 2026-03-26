@@ -3,6 +3,7 @@ package check
 import (
 	"fmt"
 
+	"github.com/cwd-k2/gicel/internal/compiler/check/solve"
 	"github.com/cwd-k2/gicel/internal/infra/diagnostic"
 	"github.com/cwd-k2/gicel/internal/infra/span"
 	"github.com/cwd-k2/gicel/internal/lang/ir"
@@ -150,6 +151,10 @@ func (ch *Checker) instantiate(ty types.Type, expr ir.Core) (types.Type, ir.Core
 		}
 		if ev, ok := ty.(*types.TyEvidence); ok {
 			for _, entry := range ev.Constraints.ConEntries() {
+				if entry.IsEquality {
+					ch.solver.Emit(&solve.CtEq{Lhs: entry.EqLhs, Rhs: entry.EqRhs, S: entry.S})
+					continue
+				}
 				placeholder := fmt.Sprintf("%s_%d", prefixDictDefer, ch.fresh())
 				ch.emitClassConstraint(placeholder, entry, expr.Span())
 				expr = &ir.App{Fun: expr, Arg: &ir.Var{Name: placeholder, S: expr.Span()}, S: expr.Span()}

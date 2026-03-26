@@ -337,9 +337,29 @@ func (ch *Checker) checkWithEvidence(expr syntax.Expr, ev *types.TyEvidence) ir.
 		param string
 		ty    types.Type
 	}
-	dicts := make([]dictInfo, len(ev.Constraints.ConEntries()))
+	var dicts []dictInfo
+	var givenEqSkolems []int // skolem IDs with installed given equalities
 	pushed := 0
-	for i, entry := range ev.Constraints.ConEntries() {
+	for _, entry := range ev.Constraints.ConEntries() {
+		// Equality constraint: install as a given equality (definition site).
+		// If one side is a skolem, use InstallGivenEq so that the skolem
+		// is locally equal to the other side within this body.
+		// At the call site (bidir_lookup.go), this becomes a wanted CtEq.
+		if entry.IsEquality {
+			lhs := ch.unifier.Zonk(entry.EqLhs)
+			rhs := ch.unifier.Zonk(entry.EqRhs)
+			if sk, ok := lhs.(*types.TySkolem); ok {
+				ch.unifier.InstallGivenEq(sk.ID, rhs)
+				givenEqSkolems = append(givenEqSkolems, sk.ID)
+			} else if sk, ok := rhs.(*types.TySkolem); ok {
+				ch.unifier.InstallGivenEq(sk.ID, lhs)
+				givenEqSkolems = append(givenEqSkolems, sk.ID)
+			} else {
+				// Both sides are concrete or meta — unify directly.
+				_ = ch.unifier.Unify(lhs, rhs)
+			}
+			continue
+		}
 		var dictTy types.Type
 		var className string
 		var args []types.Type
@@ -363,7 +383,7 @@ func (ch *Checker) checkWithEvidence(expr syntax.Expr, ev *types.TyEvidence) ir.
 			dictTy = ch.buildDictType(entry.ClassName, entry.Args)
 		}
 		dictParam := fmt.Sprintf("%s_%s_%d", prefixDict, className, ch.fresh())
-		dicts[i] = dictInfo{param: dictParam, ty: dictTy}
+		dicts = append(dicts, dictInfo{param: dictParam, ty: dictTy})
 		ch.ctx.Push(&CtxVar{Name: dictParam, Type: dictTy})
 		pushed++
 		ch.ctx.Push(&CtxEvidence{
@@ -379,6 +399,10 @@ func (ch *Checker) checkWithEvidence(expr syntax.Expr, ev *types.TyEvidence) ir.
 	bodyCore = ch.resolveDeferredConstraints(bodyCore)
 	for range pushed {
 		ch.ctx.Pop()
+	}
+	// Remove given equalities scoped to this evidence body.
+	for _, skolemID := range givenEqSkolems {
+		ch.unifier.RemoveGivenEq(skolemID)
 	}
 	for i := len(dicts) - 1; i >= 0; i-- {
 		bodyCore = &ir.Lam{Param: dicts[i].param, ParamType: dicts[i].ty, Body: bodyCore, Generated: true, S: expr.Span()}

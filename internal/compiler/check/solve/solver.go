@@ -134,6 +134,8 @@ func (s *Solver) SolveWanteds(
 			s.processCtClass(c, resolutions, &residuals, shouldDefer)
 		case *CtFunEq:
 			s.processCtFunEq(c)
+		case *CtEq:
+			s.processCtEq(c)
 		case *CtImplication:
 			s.processCtImplication(c, resolutions)
 		}
@@ -253,6 +255,32 @@ func constraintKey(className string, args []types.Type) string {
 		types.WriteTypeKey(&b, a)
 	}
 	return b.String()
+}
+
+// processCtEq handles a type equality constraint: Lhs ~ Rhs.
+// Zonks both sides and attempts unification. If either side contains
+// unsolved metas (stuck), the constraint is inserted into the inert set
+// for re-activation when blocking metas are solved.
+func (s *Solver) processCtEq(ct *CtEq) {
+	lhs := s.env.Zonk(ct.Lhs)
+	rhs := s.env.Zonk(ct.Rhs)
+	if err := s.env.Unify(lhs, rhs); err != nil {
+		// Check if stuck (contains metas) vs genuinely unsatisfiable.
+		lhsMetas := collectMetaIDs([]types.Type{lhs})
+		rhsMetas := collectMetaIDs([]types.Type{rhs})
+		blocking := append(lhsMetas, rhsMetas...)
+		if len(blocking) > 0 {
+			// Stuck: register in inert set for re-activation.
+			ct.Lhs = lhs
+			ct.Rhs = rhs
+			s.inertSet.InsertEq(ct, blocking)
+			return
+		}
+		// Genuinely unsatisfiable equality.
+		s.env.AddCodedError(diagnostic.ErrTypeMismatch, ct.S,
+			fmt.Sprintf("unsatisfiable type equality: %s ~ %s",
+				types.Pretty(lhs), types.Pretty(rhs)))
+	}
 }
 
 // processCtFunEq handles a stuck type family equation from the worklist.

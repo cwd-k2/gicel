@@ -67,6 +67,12 @@ func (is *InertSet) InsertFunEq(ct *CtFunEq) {
 	is.tagScope(ct)
 }
 
+// InsertEq adds a type equality constraint to the inert set.
+func (is *InertSet) InsertEq(ct *CtEq, blockingOn []int) {
+	is.indexMetas(ct, blockingOn)
+	is.tagScope(ct)
+}
+
 // LookupClass returns all inert class constraints for the given class name.
 func (is *InertSet) LookupClass(className string) []*CtClass {
 	return is.classMap[className]
@@ -88,6 +94,9 @@ func (is *InertSet) KickOut(metaID int) []Ct {
 			is.removeClass(c)
 		case *CtFunEq:
 			is.removeFunEq(c)
+		case *CtEq:
+			// CtEq is only in the meta index, no secondary map to clean.
+			_ = c
 		}
 	}
 	return cts
@@ -140,6 +149,8 @@ func (is *InertSet) clearScope(d int) {
 			is.removeClass(c)
 		case *CtFunEq:
 			is.removeFunEq(c)
+		case *CtEq:
+			_ = c // CtEq is only in the meta index
 		}
 		// Remove from meta index.
 		for id, cts := range is.metaIndex {

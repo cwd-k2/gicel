@@ -85,11 +85,16 @@ type RowField struct {
 // and ClassName/Args reflect the head constraint.
 // For constraint variables (c: Constraint), ConstraintVar is non-nil and
 // ClassName/Args are derived from it after substitution/zonking.
+// For equality constraints (a ~ Int), IsEquality is true and EqLhs/EqRhs
+// hold the two sides. ClassName and Args are unused.
 type ConstraintEntry struct {
 	ClassName     string
 	Args          []Type
 	Quantified    *QuantifiedConstraint // non-nil for forall-quantified constraints
 	ConstraintVar Type                  // non-nil for constraint variable references
+	IsEquality    bool                  // true for equality constraints (a ~ b)
+	EqLhs         Type                  // left side of equality (valid when IsEquality)
+	EqRhs         Type                  // right side of equality (valid when IsEquality)
 	S             span.Span
 }
 
