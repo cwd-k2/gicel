@@ -41,7 +41,7 @@ func (u *Unifier) UnifyKinds(k1, k2 types.Kind) error {
 			return nil
 		}
 	case types.KSort:
-		if _, ok := k2.(types.KSort); ok {
+		if b, ok := k2.(types.KSort); ok && a.Level == b.Level {
 			return nil
 		}
 	case *types.KArrow:

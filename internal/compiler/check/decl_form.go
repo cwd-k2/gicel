@@ -19,9 +19,19 @@ func (ch *Checker) processFormDeclParts(d *syntax.DeclForm, parts formBodyParts,
 	}
 
 	// Register type constructor kind.
+	// The result kind of a form declaration is always Type.
+	// If a kind annotation is present, validate that it is consistent.
 	var kind types.Kind = types.KType{}
 	for i := len(parts.Params) - 1; i >= 0; i-- {
 		kind = &types.KArrow{From: paramKinds[i], To: kind}
+	}
+	if d.KindAnn != nil {
+		annKind := ch.resolveKindExpr(d.KindAnn)
+		resultKind := types.ResultKind(annKind)
+		if _, isSort := resultKind.(types.KSort); isSort {
+			ch.addCodedError(diagnostic.ErrKindMismatch, d.S,
+				fmt.Sprintf("form %s has result kind %s, but form declarations must have result kind Type", d.Name, resultKind))
+		}
 	}
 	ch.reg.RegisterTypeKind(d.Name, kind)
 

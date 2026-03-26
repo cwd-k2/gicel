@@ -1,4 +1,4 @@
-// Form declaration tests — duplicate constructors, nullary constructors, shorthand ADT.
+// Form declaration tests — duplicate constructors, nullary constructors, shorthand ADT, universe enforcement.
 // Does NOT cover: GADT, DataKinds, type families.
 
 package check
@@ -9,6 +9,26 @@ import (
 	"github.com/cwd-k2/gicel/internal/infra/diagnostic"
 	"github.com/cwd-k2/gicel/internal/lang/types"
 )
+
+// --- Universe enforcement tests ---
+
+func TestFormKindAnnotationRejectsSort(t *testing.T) {
+	// form Foo :: Kind := ... should be rejected: form result kind must be Type.
+	source := `form Foo :: Kind := { Bar: Foo; }`
+	checkSourceExpectCode(t, source, nil, diagnostic.ErrKindMismatch)
+}
+
+func TestFormKindAnnotationAllowsType(t *testing.T) {
+	// form Foo :: Type := ... should be accepted.
+	source := `form Foo :: Type := { Bar: Foo; }`
+	checkSource(t, source, nil)
+}
+
+func TestFormNoKindAnnotationDefault(t *testing.T) {
+	// form Foo := ... (no annotation) should default to Type and succeed.
+	source := `form Foo := { Bar: Foo; }`
+	checkSource(t, source, nil)
+}
 
 func TestFormDuplicateConstructor(t *testing.T) {
 	source := `form Bad := { X: Bad; X: Bad; }`

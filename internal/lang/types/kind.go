@@ -43,7 +43,10 @@ type KVar struct {
 
 // KSort is the sort of kinds — the kind of kinds.
 // Used in \ binders: \ (k: Kind). ...
-type KSort struct{}
+// Level 0 is the sort of ordinary kinds (Type, Row, Constraint, etc.).
+// Higher levels (Sort₂, Sort₃, ...) are available structurally but not
+// currently generated — they will be needed if kind-of-kind reasoning arises.
+type KSort struct{ Level int }
 
 func (KType) kindNode()       {}
 func (KRow) kindNode()        {}
@@ -92,9 +95,9 @@ func (k KVar) Equal(other Kind) bool {
 	return ok && k.Name == o.Name
 }
 
-func (KSort) Equal(other Kind) bool {
-	_, ok := other.(KSort)
-	return ok
+func (k KSort) Equal(other Kind) bool {
+	o, ok := other.(KSort)
+	return ok && k.Level == o.Level
 }
 
 func (KType) String() string       { return "Type" }
@@ -111,7 +114,12 @@ func (k *KArrow) String() string {
 
 func (k *KMeta) String() string { return fmt.Sprintf("?k%d", k.ID) }
 func (k KVar) String() string   { return k.Name }
-func (KSort) String() string    { return "Kind" }
+func (k KSort) String() string {
+	if k.Level == 0 {
+		return "Kind"
+	}
+	return fmt.Sprintf("Sort%d", k.Level+1)
+}
 
 // KindSubst substitutes [varName := replacement] in a kind.
 func KindSubst(k Kind, varName string, replacement Kind) Kind {

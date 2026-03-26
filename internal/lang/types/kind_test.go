@@ -154,3 +154,39 @@ func TestKindArrowParensPrinting(t *testing.T) {
 		t.Errorf("expected %s, got %s", expected, outer.String())
 	}
 }
+
+// --- KSort Level tests ---
+
+func TestKSortLevelEquality(t *testing.T) {
+	s0a := KSort{Level: 0}
+	s0b := KSort{} // zero-value: Level 0
+	s1 := KSort{Level: 1}
+
+	if !s0a.Equal(s0b) {
+		t.Error("KSort{Level: 0} should equal KSort{}")
+	}
+	if s0a.Equal(s1) {
+		t.Error("KSort{Level: 0} should not equal KSort{Level: 1}")
+	}
+	if s1.Equal(s0a) {
+		t.Error("KSort{Level: 1} should not equal KSort{Level: 0}")
+	}
+	if !s0a.Equal(KSort{}) {
+		t.Error("KSort zero-value should equal itself")
+	}
+}
+
+func TestKSortLevelString(t *testing.T) {
+	if s := (KSort{}).String(); s != "Kind" {
+		t.Errorf("KSort{} should be Kind, got %s", s)
+	}
+	if s := (KSort{Level: 0}).String(); s != "Kind" {
+		t.Errorf("KSort{Level: 0} should be Kind, got %s", s)
+	}
+	if s := (KSort{Level: 1}).String(); s != "Sort2" {
+		t.Errorf("KSort{Level: 1} should be Sort2, got %s", s)
+	}
+	if s := (KSort{Level: 2}).String(); s != "Sort3" {
+		t.Errorf("KSort{Level: 2} should be Sort3, got %s", s)
+	}
+}
