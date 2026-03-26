@@ -600,7 +600,7 @@ a ~ Bool => a -> Int
 (a ~ Int, b ~ String) => a -> b
 ```
 
-Type equality constraints are introduced by GADT constructor matching: matching `LitBool` on `Expr a` brings `a ~ Bool` into scope.
+Type equality constraints can be written explicitly in type signatures. At the definition site, they are installed as given equalities (the skolem is locally equal to the RHS). At the call site, they become wanted constraints that must be discharged. GADT constructor matching also introduces equality constraints: matching `LitBool` on `Expr a` brings `a ~ Bool` into scope.
 
 ### Dict Reification
 
