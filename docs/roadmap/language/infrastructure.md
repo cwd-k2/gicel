@@ -2,18 +2,20 @@
 
 Grade algebra のハードコード排除と、残存する solver 課題を解消する計画。[smc.md](smc.md) Phase 4 (Multiplicity Generalization) の前提基盤を整備する。
 
-**クリティカルパス**: L2-a (TF reduction) → L3 (grade algebra)
+**状態**: L3 完了。内部 `$GradeJoin`/`$GradeDrop` fallback は残存（Prelude なし環境向け）。
 
 ## 完了済み
 
-| Layer        | 項目                           | 概要                                    | Commit    |
-| ------------ | ------------------------------ | --------------------------------------- | --------- |
-| L0-b         | Universe enforcement           | `KSort{Level int}`、`form :: Kind` 拒否 | `92e9428` |
-| L1-a         | SolverLevel protocol           | 3 timing pattern の不変条件コメント     | `ecfa545` |
-| L1-b         | Inert set scope                | `scopeDepth`、scope-aware `Reset`       | `ecfa545` |
-| L1-c Stage 1 | Equality constraints (parser)  | `TyExprEq`、`TokTilde` パース           | `e32302e` |
-| L1-c Stage 2 | Equality constraints (checker) | `CtEq`、given eq via `InstallGivenEq`   | `1d002da` |
-| L2-b         | Grade CtFunEq error            | `OnFailure` callback、`ErrMultiplicity` | `f2892e5` |
+| Layer        | 項目                           | 概要                                                 | Commit              |
+| ------------ | ------------------------------ | ---------------------------------------------------- | ------------------- |
+| L0-b         | Universe enforcement           | `KSort{Level int}`、`form :: Kind` 拒否              | `92e9428`           |
+| L1-a         | SolverLevel protocol           | 3 timing pattern の不変条件コメント                  | `ecfa545`           |
+| L1-b         | Inert set scope                | `scopeDepth`、scope-aware `Reset`                    | `ecfa545`           |
+| L1-c Stage 1 | Equality constraints (parser)  | `TyExprEq`、`TokTilde` パース                        | `e32302e`           |
+| L1-c Stage 2 | Equality constraints (checker) | `CtEq`、given eq via `InstallGivenEq`                | `1d002da`           |
+| L2-b         | Grade CtFunEq error            | `OnFailure` callback、`ErrMultiplicity`              | `f2892e5`           |
+| L2-a partial | TF on-demand (joinGrades)      | joinGrades の CtFunEq 化                             | `ba3b499`           |
+| L3           | Grade algebra user-definable   | `GradeAlgebra` class、dynamic resolution、e2e テスト | `382a9ea`–`f31b88a` |
 
 **後続拡張への設計注記** (L0-b):
 
