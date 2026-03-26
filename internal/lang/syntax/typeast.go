@@ -88,6 +88,14 @@ type TyExprQual struct {
 	S          span.Span
 }
 
+// TyExprEq is a type equality constraint: Lhs ~ Rhs.
+// Used in constraint positions: (a ~ Int) => ..., (a ~ Int, Eq a) => ...
+type TyExprEq struct {
+	Lhs TypeExpr
+	Rhs TypeExpr
+	S   span.Span
+}
+
 type TyBinder struct {
 	Name string
 	Kind KindExpr // nil means kind not annotated (inferred)
@@ -138,6 +146,7 @@ func (*TyExprRow) typeExprNode()     {}
 func (*TyExprParen) typeExprNode()   {}
 func (*TyExprCase) typeExprNode()    {}
 func (*TyExprQual) typeExprNode()    {}
+func (*TyExprEq) typeExprNode()      {}
 
 func (t *TyExprVar) Span() span.Span     { return t.S }
 func (t *TyExprCon) Span() span.Span     { return t.S }
@@ -149,6 +158,7 @@ func (t *TyExprRow) Span() span.Span     { return t.S }
 func (t *TyExprParen) Span() span.Span   { return t.S }
 func (t *TyExprCase) Span() span.Span    { return t.S }
 func (t *TyExprQual) Span() span.Span    { return t.S }
+func (t *TyExprEq) Span() span.Span      { return t.S }
 
 func (*KindExprType) kindExprNode()       {}
 func (*KindExprRow) kindExprNode()        {}

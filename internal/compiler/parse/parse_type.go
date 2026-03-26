@@ -20,6 +20,15 @@ func (p *Parser) parseTypeArrow() syn.TypeExpr {
 		return p.parseForallType()
 	}
 	left := p.parseTypeApp()
+	// Type equality constraint: a ~ b (binds tighter than => and ->).
+	if p.peek().Kind == syn.TokTilde {
+		p.advance()
+		right := p.parseTypeApp()
+		left = &syn.TyExprEq{
+			Lhs: left, Rhs: right,
+			S: span.Span{Start: left.Span().Start, End: right.Span().End},
+		}
+	}
 	if p.peek().Kind == syn.TokFatArrow {
 		p.advance()
 		body := p.parseTypeArrow() // right-associative
