@@ -194,6 +194,105 @@ func TestInertSetReset(t *testing.T) {
 	}
 }
 
+// --- Scope-aware Reset tests ---
+
+func TestInertSetScopeAwareReset(t *testing.T) {
+	// Constraints inserted at outer scope survive Reset at inner scope.
+	var is InertSet
+	outerCt := &CtClass{Placeholder: "d1", ClassName: "Eq", Args: []types.Type{&types.TyCon{Name: "Int"}}}
+	is.InsertClass(outerCt, "")
+
+	is.EnterScope()
+	innerCt := &CtClass{Placeholder: "d2", ClassName: "Num", Args: []types.Type{&types.TyCon{Name: "Int"}}}
+	is.InsertClass(innerCt, "")
+
+	// Reset at inner scope: only innerCt should be cleared.
+	is.Reset()
+
+	if len(is.LookupClass("Eq")) != 1 {
+		t.Fatal("outer Eq should survive inner Reset")
+	}
+	if len(is.LookupClass("Num")) != 0 {
+		t.Fatal("inner Num should be cleared by Reset")
+	}
+	is.LeaveScope()
+}
+
+func TestInertSetLeaveScope(t *testing.T) {
+	// LeaveScope clears inner constraints and decrements depth.
+	var is InertSet
+	outerCt := &CtFunEq{FamilyName: "F", BlockingOn: []int{1}}
+	is.InsertFunEq(outerCt)
+
+	is.EnterScope()
+	innerCt := &CtFunEq{FamilyName: "G", BlockingOn: []int{2}}
+	is.InsertFunEq(innerCt)
+
+	is.LeaveScope()
+
+	if len(is.LookupFunEq("F")) != 1 {
+		t.Fatal("outer F should survive LeaveScope")
+	}
+	if len(is.LookupFunEq("G")) != 0 {
+		t.Fatal("inner G should be cleared by LeaveScope")
+	}
+	if is.ScopeDepth() != 0 {
+		t.Fatalf("expected depth 0 after LeaveScope, got %d", is.ScopeDepth())
+	}
+}
+
+func TestInertSetResetAtDepthZero(t *testing.T) {
+	// Reset at depth 0 clears all constraints (backward compatible).
+	var is InertSet
+	is.InsertClass(&CtClass{Placeholder: "d1", ClassName: "Eq", Args: []types.Type{&types.TyCon{Name: "Int"}}}, "")
+	is.InsertFunEq(&CtFunEq{FamilyName: "F", BlockingOn: []int{1}})
+	is.Reset()
+	if len(is.CollectClassResiduals()) != 0 {
+		t.Fatal("expected no residuals after Reset at depth 0")
+	}
+	if len(is.LookupFunEq("F")) != 0 {
+		t.Fatal("expected no funEqs after Reset at depth 0")
+	}
+}
+
+func TestInertSetNestedScopes(t *testing.T) {
+	// Three levels: constraints at each level survive resets at deeper levels.
+	var is InertSet
+	ct0 := &CtClass{Placeholder: "d0", ClassName: "A", Args: []types.Type{&types.TyCon{Name: "Int"}}}
+	is.InsertClass(ct0, "")
+
+	is.EnterScope() // depth 1
+	ct1 := &CtClass{Placeholder: "d1", ClassName: "B", Args: []types.Type{&types.TyCon{Name: "Int"}}}
+	is.InsertClass(ct1, "")
+
+	is.EnterScope() // depth 2
+	ct2 := &CtClass{Placeholder: "d2", ClassName: "C", Args: []types.Type{&types.TyCon{Name: "Int"}}}
+	is.InsertClass(ct2, "")
+
+	// Reset at depth 2: only ct2 cleared.
+	is.Reset()
+	if len(is.LookupClass("A")) != 1 {
+		t.Fatal("A should survive")
+	}
+	if len(is.LookupClass("B")) != 1 {
+		t.Fatal("B should survive")
+	}
+	if len(is.LookupClass("C")) != 0 {
+		t.Fatal("C should be cleared")
+	}
+
+	is.LeaveScope() // back to depth 1
+	is.LeaveScope() // back to depth 0
+
+	// Only ct0 remains.
+	if len(is.LookupClass("A")) != 1 {
+		t.Fatal("A should survive all scope exits")
+	}
+	if len(is.LookupClass("B")) != 0 {
+		t.Fatal("B should be cleared by LeaveScope")
+	}
+}
+
 // --- Ct interface tests ---
 
 func TestCtInterfaceCompliance(t *testing.T) {

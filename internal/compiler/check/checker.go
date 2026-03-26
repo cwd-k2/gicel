@@ -276,7 +276,16 @@ func newChecker(prog *syntax.AstProgram, source *span.Source, config *CheckConfi
 	}
 	ch.solver = solve.New(ch)
 	ch.unifier = unify.NewUnifierShared(&ch.freshID)
-	ch.unifier.SolverLevel = 0 // baseline: raised during implication scopes
+	// SolverLevel timing patterns (L1-a invariant):
+	//
+	//   Baseline (here):    SolverLevel = 0   — all level-0 metas are touchable.
+	//   Trial/Probe:        SolverLevel = -1  — touchability disabled for speculative unification.
+	//   Implication scope:  SolverLevel = solver.Level() — metas below this level are untouchable.
+	//
+	// The DK interleaving constraint: in CheckWithLocalScope (solve/implication.go),
+	// SolverLevel is set AFTER body check, not before. Body check's eager unification
+	// must be free to solve outer metas (e.g. case result type).
+	ch.unifier.SolverLevel = 0
 	ch.unifier.Budget = ch.budget
 	ch.unifier.OnSolve = func(metaID int) {
 		ch.solver.Reactivate(metaID)

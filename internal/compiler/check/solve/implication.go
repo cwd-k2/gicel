@@ -29,6 +29,7 @@ func (s *Solver) processCtImplication(ct *CtImplication, outerResolutions map[st
 	// it until after body check). This is safe because CtImplication carries
 	// pre-collected Wanteds — no DK eager unification occurs inside.
 	s.EnterScope()
+	s.inertSet.EnterScope()
 	savedSolverLevel := s.env.SolverLevel()
 	s.env.SetSolverLevel(s.Level())
 
@@ -48,6 +49,7 @@ func (s *Solver) processCtImplication(ct *CtImplication, outerResolutions map[st
 	for skolemID := range ct.GivenEqs {
 		s.env.RemoveGivenEq(skolemID)
 	}
+	s.inertSet.LeaveScope()
 	s.ExitScope()
 	s.env.SetSolverLevel(savedSolverLevel)
 	s.RestoreWorklist(append(savedWorklist, floatable...))
@@ -71,6 +73,7 @@ func (s *Solver) CheckWithLocalScope(checkBody func(types.Type) ir.Core, expecte
 	savedWorklist := s.SaveWorklist()
 
 	s.EnterScope()
+	s.inertSet.EnterScope()
 
 	bodyCore := checkBody(expected)
 
@@ -94,6 +97,7 @@ func (s *Solver) CheckWithLocalScope(checkBody func(types.Type) ir.Core, expecte
 	floatable := s.partitionResiduals(residuals, localSkolems, s.Level())
 
 	s.env.SetSolverLevel(savedSolverLevel)
+	s.inertSet.LeaveScope()
 	s.ExitScope()
 	s.RestoreWorklist(append(savedWorklist, floatable...))
 	return bodyCore
