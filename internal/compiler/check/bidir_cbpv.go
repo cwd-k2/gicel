@@ -45,7 +45,9 @@ func (ch *Checker) inferPure(e *syntax.ExprApp) (types.Type, ir.Core) {
 	argTy, argCore := ch.infer(e.Arg)
 	r := ch.freshMeta(types.TypeOfRows)
 	resultTy := types.MkComp(r, r, argTy)
-	ch.trace(TraceInfer, e.S, "pure: %s ⇒ %s", types.Pretty(argTy), types.Pretty(resultTy))
+	if ch.config.Trace != nil {
+		ch.trace(TraceInfer, e.S, "pure: %s ⇒ %s", types.Pretty(argTy), types.Pretty(resultTy))
+	}
 	return resultTy, &ir.Pure{Expr: argCore, S: e.S}
 }
 
@@ -91,7 +93,9 @@ func (ch *Checker) inferBind(compExpr, contExpr syntax.Expr, s span.Span) (types
 	}
 
 	resultTy := types.MkComp(ch.unifier.Zonk(r1), ch.unifier.Zonk(r3), ch.unifier.Zonk(b))
-	ch.trace(TraceInfer, s, "bind: ⇒ %s", types.Pretty(resultTy))
+	if ch.config.Trace != nil {
+		ch.trace(TraceInfer, s, "bind: ⇒ %s", types.Pretty(resultTy))
+	}
 	return resultTy, &ir.Bind{Comp: compCore, Var: bindVar, Body: bodyCore, Generated: true, S: s}
 }
 
@@ -117,7 +121,9 @@ func (ch *Checker) inferDualForm(
 	// Fast path: direct triple extraction.
 	if pre, post, result := cbpvTriple(argTy); pre != nil {
 		resultTy := mkResult(pre, post, result)
-		ch.trace(TraceInfer, e.S, "%s: %s ⇒ %s", label, types.Pretty(argTy), types.Pretty(resultTy))
+		if ch.config.Trace != nil {
+			ch.trace(TraceInfer, e.S, "%s: %s ⇒ %s", label, types.Pretty(argTy), types.Pretty(resultTy))
+		}
 		return resultTy, mkCore(argCore)
 	}
 
@@ -132,7 +138,9 @@ func (ch *Checker) inferDualForm(
 		return &types.TyError{S: e.S}, mkCore(argCore)
 	}
 	resultTy := mkResult(ch.unifier.Zonk(pre), ch.unifier.Zonk(post), ch.unifier.Zonk(result))
-	ch.trace(TraceInfer, e.S, "%s: %s ⇒ %s", label, types.Pretty(argTy), types.Pretty(resultTy))
+	if ch.config.Trace != nil {
+		ch.trace(TraceInfer, e.S, "%s: %s ⇒ %s", label, types.Pretty(argTy), types.Pretty(resultTy))
+	}
 	return resultTy, mkCore(argCore)
 }
 

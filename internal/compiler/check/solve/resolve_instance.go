@@ -11,11 +11,20 @@ import (
 // Each returns a dictionary expression on success, or nil to delegate
 // to the next phase.
 
-// resolveFromContext scans context variables for an exact dictionary match.
+// resolveFromContext looks up context dict variables for an exact dictionary match.
+// Uses the dictVarIndex for O(1) class-name lookup when available, then falls back
+// to a full context scan for dict vars without DictClassName (e.g., pattern bindings).
 func (s *Solver) resolveFromContext(className string, args []types.Type, sp span.Span) ir.Core {
+	// Fast path: indexed lookup.
+	for _, v := range s.env.LookupDictVar(className) {
+		if s.matchesDictVar(v, className, args) {
+			return &ir.Var{Name: v.Name, Module: v.Module, S: sp}
+		}
+	}
+	// Slow path: scan for dict vars not in the index (no DictClassName set).
 	var result ir.Core
 	s.env.ScanContext(func(entry env.CtxEntry) bool {
-		if v, ok := entry.(*env.CtxVar); ok && !v.SolverInvisible && s.matchesDictVar(v, className, args) {
+		if v, ok := entry.(*env.CtxVar); ok && !v.SolverInvisible && v.DictClassName == "" && s.matchesDictVar(v, className, args) {
 			result = &ir.Var{Name: v.Name, Module: v.Module, S: sp}
 			return false
 		}

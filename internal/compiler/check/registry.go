@@ -1,6 +1,7 @@
 package check
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/cwd-k2/gicel/internal/lang/types"
@@ -65,13 +66,21 @@ func (r *Registry) RegisterClass(name string, info *ClassInfo) {
 // into an existing family. When multiple modules independently enrich
 // the same associated type family (diamond import), equations from all
 // sources are collected and deduplicated by structural pattern identity.
-func (r *Registry) RegisterFamily(name string, info *TypeFamilyInfo) {
+func (r *Registry) RegisterFamily(name string, info *TypeFamilyInfo) error {
 	existing, ok := r.families[name]
 	if !ok {
 		r.families[name] = info
-		return
+		return nil
+	}
+	// Reject collision between associated types from different classes.
+	if existing.IsAssoc && info.IsAssoc && existing.ClassName != info.ClassName {
+		return fmt.Errorf("associated type %s conflicts: defined in both %s and %s",
+			name, existing.ClassName, info.ClassName)
 	}
 	// Merge: append equations from info not already present.
+	// When multiple modules independently enrich the same associated type
+	// family (diamond import), equations from all sources are collected
+	// and deduplicated by structural pattern identity.
 	seen := make(map[string]bool, len(existing.Equations))
 	for _, eq := range existing.Equations {
 		seen[equationPatternKey(eq)] = true
@@ -82,6 +91,7 @@ func (r *Registry) RegisterFamily(name string, info *TypeFamilyInfo) {
 			seen[key] = true
 		}
 	}
+	return nil
 }
 
 // equationPatternKey produces a canonical key from the LHS patterns of a

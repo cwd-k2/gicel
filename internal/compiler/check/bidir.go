@@ -85,7 +85,9 @@ func (ch *Checker) infer(expr syntax.Expr) (types.Type, ir.Core) {
 		if !ok {
 			return ty, coreExpr
 		}
-		ch.trace(TraceInfer, e.S, "infer: %s ⇒ %s", e.Name, types.Pretty(ty))
+		if ch.config.Trace != nil {
+			ch.trace(TraceInfer, e.S, "infer: %s ⇒ %s", e.Name, types.Pretty(ty))
+		}
 		return ch.instantiate(ty, coreExpr)
 
 	case *syntax.ExprCon:
@@ -100,7 +102,9 @@ func (ch *Checker) infer(expr syntax.Expr) (types.Type, ir.Core) {
 		if !ok {
 			return ty, coreExpr
 		}
-		ch.trace(TraceInfer, e.S, "infer: %s.%s ⇒ %s", e.Qualifier, e.Name, types.Pretty(ty))
+		if ch.config.Trace != nil {
+			ch.trace(TraceInfer, e.S, "infer: %s.%s ⇒ %s", e.Qualifier, e.Name, types.Pretty(ty))
+		}
 		return ch.instantiate(ty, coreExpr)
 
 	case *syntax.ExprQualCon:
@@ -386,7 +390,7 @@ func (ch *Checker) checkWithEvidence(expr syntax.Expr, ev *types.TyEvidence) ir.
 		}
 		dictParam := fmt.Sprintf("%s_%s_%d", prefixDict, className, ch.fresh())
 		dicts = append(dicts, dictInfo{param: dictParam, ty: dictTy})
-		ch.ctx.Push(&CtxVar{Name: dictParam, Type: dictTy})
+		ch.ctx.Push(&CtxVar{Name: dictParam, Type: dictTy, DictClassName: className})
 		pushed++
 		ch.ctx.Push(&CtxEvidence{
 			ClassName:  className,

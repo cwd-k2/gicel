@@ -194,6 +194,72 @@ func (t *TySkolem) Children() []Type   { return nil }
 func (t *TyMeta) Children() []Type     { return nil }
 func (t *TyError) Children() []Type    { return nil }
 
+// ContainsMetaOrSkolem returns true if the type contains any TyMeta or TySkolem.
+// A type that returns false is "ground" — Zonk cannot reveal hidden skolems.
+func ContainsMetaOrSkolem(t Type) bool {
+	switch t.(type) {
+	case *TyMeta:
+		return true
+	case *TySkolem:
+		return true
+	}
+	found := false
+	ForEachChild(t, func(child Type) bool {
+		if ContainsMetaOrSkolem(child) {
+			found = true
+			return false
+		}
+		return true
+	})
+	return found
+}
+
+// ForEachChild calls fn for each direct child of t. If fn returns false,
+// iteration stops early. Leaf nodes (TyVar, TyCon, TyMeta, TySkolem, TyError)
+// have no children. This avoids the slice allocation of Children().
+func ForEachChild(t Type, fn func(Type) bool) {
+	switch ty := t.(type) {
+	case *TyApp:
+		if fn(ty.Fun) {
+			fn(ty.Arg)
+		}
+	case *TyArrow:
+		if fn(ty.From) {
+			fn(ty.To)
+		}
+	case *TyForall:
+		if fn(ty.Kind) {
+			fn(ty.Body)
+		}
+	case *TyCBPV:
+		if fn(ty.Pre) && fn(ty.Post) {
+			fn(ty.Result)
+		}
+	case *TyEvidence:
+		if fn(ty.Constraints) {
+			fn(ty.Body)
+		}
+	case *TyEvidenceRow:
+		for _, child := range ty.Entries.AllChildren() {
+			if !fn(child) {
+				return
+			}
+		}
+		if ty.Tail != nil {
+			fn(ty.Tail)
+		}
+	case *TyFamilyApp:
+		for _, a := range ty.Args {
+			if !fn(a) {
+				return
+			}
+		}
+		if ty.Kind != nil {
+			fn(ty.Kind)
+		}
+	}
+}
+
 // TypeSize returns the number of nodes in a type, up to a limit.
 // If the type has more than limit nodes, it returns limit+1 and stops early.
 // This is used to bound allocation during type family reduction.
@@ -206,12 +272,10 @@ func typeSizeRec(t Type, limit, acc int) int {
 		return acc
 	}
 	acc++
-	for _, ch := range t.Children() {
-		acc = typeSizeRec(ch, limit, acc)
-		if acc > limit {
-			return acc
-		}
-	}
+	ForEachChild(t, func(child Type) bool {
+		acc = typeSizeRec(child, limit, acc)
+		return acc <= limit
+	})
 	return acc
 }
 

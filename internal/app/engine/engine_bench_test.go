@@ -263,3 +263,90 @@ main := (Map.size m, Map.lookup 2 m)
 		}
 	}
 }
+
+// ---------------------------------------------------------------------------
+// Stdlib collection benchmarks — map insert scale, set algebra, mutable map
+// ---------------------------------------------------------------------------
+
+func mapInsertSource(n int) string {
+	var b strings.Builder
+	b.WriteString("import Prelude\nimport Data.Map as Map\n")
+	b.WriteString("main := {\n  m := (Map.empty :: Map Int Int);\n")
+	for i := 0; i < n; i++ {
+		fmt.Fprintf(&b, "  m := Map.insert %d %d m;\n", i, i*10)
+	}
+	fmt.Fprintf(&b, "  Map.lookup %d m\n}\n", n/2)
+	return b.String()
+}
+
+func BenchmarkEndToEndMapInsert50(b *testing.B) {
+	source := mapInsertSource(50)
+	for b.Loop() {
+		eng := NewEngine()
+		stdlib.Prelude(eng)
+		stdlib.Map(eng)
+		rt, err := eng.NewRuntime(context.Background(), source)
+		if err != nil {
+			b.Fatal(err)
+		}
+		_, err = rt.RunWith(context.Background(), nil)
+		if err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func mutableMapInsertSource(n int) string {
+	var b strings.Builder
+	b.WriteString("import Prelude\nimport Effect.Map\n")
+	b.WriteString("main := thunk do {\n  m <- new;\n")
+	for i := 0; i < n; i++ {
+		fmt.Fprintf(&b, "  insert %d %d m;\n", i, i*10)
+	}
+	fmt.Fprintf(&b, "  lookup %d m\n}\n", n/2)
+	return b.String()
+}
+
+func BenchmarkEndToEndMutableMapInsert50(b *testing.B) {
+	source := mutableMapInsertSource(50)
+	for b.Loop() {
+		eng := NewEngine()
+		stdlib.Prelude(eng)
+		stdlib.EffectMap(eng)
+		rt, err := eng.NewRuntime(context.Background(), source)
+		if err != nil {
+			b.Fatal(err)
+		}
+		_, err = rt.RunWith(context.Background(), nil)
+		if err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkEndToEndSetAlgebra(b *testing.B) {
+	source := `import Prelude
+import Data.Set
+main := {
+  s1 := (fromList [1,2,3,4,5,6,7,8,9,10] :: Set Int);
+  s2 := (fromList [5,6,7,8,9,10,11,12,13,14] :: Set Int);
+  u := union s1 s2;
+  i := intersection s1 s2;
+  d := difference s1 s2;
+  (size u, size i, size d)
+}
+`
+	for b.Loop() {
+		eng := NewEngine()
+		stdlib.Prelude(eng)
+		stdlib.Set(eng)
+		rt, err := eng.NewRuntime(context.Background(), source)
+		if err != nil {
+			b.Fatal(err)
+		}
+		_, err = rt.RunWith(context.Background(), nil)
+		if err != nil {
+			b.Fatal(err)
+		}
+	}
+}

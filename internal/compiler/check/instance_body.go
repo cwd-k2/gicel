@@ -38,7 +38,7 @@ func (ch *Checker) processInstanceBody(inst *InstanceInfo, methods map[string]sy
 		paramName := fmt.Sprintf("%s_%s_%d", prefixDict, ctx.ClassName, ch.fresh())
 		paramTy := ch.buildDictType(ctx.ClassName, ctx.Args)
 		ctxParams = append(ctxParams, ctxParam{name: paramName, ty: paramTy})
-		ch.ctx.Push(&CtxVar{Name: paramName, Type: paramTy})
+		ch.ctx.Push(&CtxVar{Name: paramName, Type: paramTy, DictClassName: ctx.ClassName})
 	}
 
 	// Build the dictionary constructor arguments.
@@ -101,7 +101,7 @@ func (ch *Checker) processInstanceBody(inst *InstanceInfo, methods map[string]sy
 
 	// Register binding. Private instances are solver-invisible: they are only
 	// accessible via explicit evidence injection (value => expr).
-	ch.ctx.Push(&CtxVar{Name: inst.DictBindName, Type: dictTy, Module: ch.scope.CurrentModule(), SolverInvisible: inst.Private})
+	ch.ctx.Push(&CtxVar{Name: inst.DictBindName, Type: dictTy, Module: ch.scope.CurrentModule(), SolverInvisible: inst.Private, DictClassName: inst.ClassName})
 	prog.Bindings = append(prog.Bindings, ir.Binding{
 		Name: inst.DictBindName,
 		Type: dictTy,

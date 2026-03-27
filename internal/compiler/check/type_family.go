@@ -102,7 +102,7 @@ func (ch *Checker) processTypeFamilyDecl(
 		Equations:  equations,
 	}
 
-	ch.reg.RegisterFamily(name, info)
+	_ = ch.reg.RegisterFamily(name, info) // closed type families never conflict by name
 }
 
 // familyEnv returns the cached family.ReduceEnv, constructing it on first use.
@@ -142,7 +142,7 @@ func (ch *Checker) installFamilyReducer() {
 func (ch *Checker) registerBuiltinRowFamilies() {
 	// Merge :: Row -> Row -> Row
 	if _, exists := ch.reg.LookupFamily("Merge"); !exists {
-		ch.reg.RegisterFamily("Merge", &TypeFamilyInfo{
+		_ = ch.reg.RegisterFamily("Merge", &TypeFamilyInfo{
 			Name: "Merge",
 			Params: []TFParam{
 				{Name: "r1", Kind: types.TypeOfRows},

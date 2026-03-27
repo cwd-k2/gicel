@@ -99,7 +99,7 @@ func (ch *Checker) processImplHeader(impl *syntax.DeclImpl) (*InstanceInfo, map[
 		UserName:     impl.Name,
 		Module:       ch.scope.CurrentModule(),
 		Private:      env.IsPrivateName(impl.Name),
-		FreeVarNames: collectInstanceFreeVars(typeArgs, context),
+		FreeVars: collectInstanceFreeVarsWithKind(typeArgs, context),
 		S:            impl.S,
 	}
 
@@ -244,24 +244,56 @@ func (ch *Checker) instancesOverlap(a, b *InstanceInfo) bool {
 // collectInstanceFreeVars computes the deduplicated list of free type variable
 // names across an instance's type arguments and context. Called once at
 // registration time to avoid repeated FreeVars calls during resolution.
-func collectInstanceFreeVars(typeArgs []types.Type, context []env.ConstraintInfo) []string {
+// collectInstanceFreeVarsWithKind collects free type variables from instance
+// type arguments and context, inferring each variable's kind from its position
+// in the type structure.
+//
+// Kind inference rules:
+//   - TyVar at TyCBPV.Pre/Post → Row
+//   - TyVar at TyEvidenceRow.Tail → Row
+//   - TyVar elsewhere → Type
+func collectInstanceFreeVarsWithKind(typeArgs []types.Type, context []env.ConstraintInfo) []env.FreeVarInfo {
 	seen := make(map[string]bool)
-	var names []string
-	add := func(ty types.Type) {
-		for v := range types.FreeVars(ty) {
-			if !seen[v] {
-				seen[v] = true
-				names = append(names, v)
+	var vars []env.FreeVarInfo
+	var walk func(ty types.Type, expectedKind types.Type)
+	walk = func(ty types.Type, expectedKind types.Type) {
+		switch t := ty.(type) {
+		case *types.TyVar:
+			if !seen[t.Name] {
+				seen[t.Name] = true
+				vars = append(vars, env.FreeVarInfo{Name: t.Name, Kind: expectedKind})
 			}
+		case *types.TyApp:
+			walk(t.Fun, expectedKind)
+			walk(t.Arg, types.TypeOfTypes)
+		case *types.TyArrow:
+			walk(t.From, types.TypeOfTypes)
+			walk(t.To, types.TypeOfTypes)
+		case *types.TyCBPV:
+			walk(t.Pre, types.TypeOfRows)
+			walk(t.Post, types.TypeOfRows)
+			walk(t.Result, types.TypeOfTypes)
+		case *types.TyEvidenceRow:
+			for _, child := range t.Entries.AllChildren() {
+				walk(child, types.TypeOfTypes)
+			}
+			if t.Tail != nil {
+				walk(t.Tail, types.TypeOfRows)
+			}
+		case *types.TyEvidence:
+			walk(t.Constraints, types.TypeOfTypes)
+			walk(t.Body, expectedKind)
+		case *types.TyForall:
+			walk(t.Body, expectedKind)
 		}
 	}
 	for _, ta := range typeArgs {
-		add(ta)
+		walk(ta, types.TypeOfTypes)
 	}
 	for _, ctx := range context {
 		for _, a := range ctx.Args {
-			add(a)
+			walk(a, types.TypeOfTypes)
 		}
 	}
-	return names
+	return vars
 }

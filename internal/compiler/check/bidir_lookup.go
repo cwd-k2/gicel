@@ -158,8 +158,10 @@ func (ch *Checker) instantiate(ty types.Type, expr ir.Core) (types.Type, ir.Core
 		ty = ch.unifier.Zonk(ty)
 		if f, ok := ty.(*types.TyForall); ok {
 			meta := ch.freshMeta(f.Kind)
-			ch.trace(TraceInstantiate, span.Span{}, "instantiate: %s → %s[%s := ?%d]",
-				types.Pretty(ty), f.Var, types.Pretty(meta), meta.ID)
+			if ch.config.Trace != nil {
+				ch.trace(TraceInstantiate, span.Span{}, "instantiate: %s → %s[%s := ?%d]",
+					types.Pretty(ty), f.Var, types.Pretty(meta), meta.ID)
+			}
 			ty = types.Subst(f.Body, f.Var, meta)
 			expr = &ir.TyApp{Expr: expr, TyArg: meta, S: expr.Span()}
 			continue

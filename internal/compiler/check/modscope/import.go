@@ -17,7 +17,7 @@ type ImportEnv struct {
 	RegisterTypeKind     func(string, types.Type)
 	RegisterAlias        func(string, *env.AliasInfo)
 	RegisterClass        func(string, *env.ClassInfo)
-	RegisterFamily       func(string, *env.TypeFamilyInfo)
+	RegisterFamily       func(string, *env.TypeFamilyInfo) error
 	RegisterDataType     func(string, *env.DataTypeInfo)
 	RegisterPromotedKind func(string, types.Type)
 	RegisterPromotedCon  func(string, types.Type)
@@ -362,7 +362,7 @@ func (imp *Importer) importOpen(mod *env.ModuleExports, moduleName string, s spa
 	}
 	for name, fam := range mod.TypeFamilies {
 		if !imp.checkAmbiguousTypeName(name, moduleName, s) {
-			imp.env.RegisterFamily(name, fam.Clone())
+			_ = imp.env.RegisterFamily(name, fam.Clone())
 		}
 	}
 }
@@ -454,7 +454,7 @@ func (imp *Importer) importSelective(mod *env.ModuleExports, decl syntax.DeclImp
 		// Type family
 		if fam, ok := mod.TypeFamilies[name]; ok {
 			if !imp.checkAmbiguousTypeName(name, decl.ModuleName, decl.S) {
-				imp.env.RegisterFamily(name, fam.Clone())
+				_ = imp.env.RegisterFamily(name, fam.Clone())
 			}
 			found = true
 		}
