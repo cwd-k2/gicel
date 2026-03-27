@@ -19,11 +19,11 @@ type Pack = registry.Pack
 // These parallel the evaluator's cost model (eval.go costClosure, costConBase, etc.)
 // and target the same order-of-magnitude accuracy.
 const (
-	costSlotSize  = 16  // one pointer in []Value / []any / []string
-	costConsNode  = 64  // ConVal{"Cons", [elem, tail]}: 32 base + 2×16 args
-	costTupleNode = 120 // RecordVal{_1, _2}: 56 base + 2×32 fields
-	costAVLNode   = 64  // avlNode struct (key, value, left, right, height)
-	costPerByte   = 1   // string/[]rune allocation per byte
+	costSlotSize  = 16 // one pointer in []Value / []any / []string
+	costConsNode  = 64 // ConVal{"Cons", [elem, tail]}: 32 base + 2×16 args
+	costTupleNode = 80 // RecordVal{_1, _2}: 32 base + 2×24 fields (sorted slice)
+	costAVLNode   = 64 // avlNode struct (key, value, left, right, height)
+	costPerByte   = 1  // string/[]rune allocation per byte
 )
 
 // freeIn checks if name appears free in a Core expression.

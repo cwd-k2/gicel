@@ -29,9 +29,12 @@ func eraseLabelArg(c Core) Core {
 	if !ok || !types.IsKindLevel(con.Level) {
 		return c
 	}
-	// Skip built-in kind constants — these are genuine type-level
-	// arguments, not label literals.
-	if types.IsBuiltinKindCon(con) {
+	// Only erase label literals: lowercase-initial names at kind level.
+	// Promoted data constructors (True, False, Open, etc.) and grade
+	// constants (Zero, Linear, etc.) are uppercase and must NOT be erased.
+	// Built-in kind constants (Type, Row, Constraint, Label, Kind) are
+	// also uppercase. This single check covers all cases.
+	if len(con.Name) == 0 || con.Name[0] < 'a' || con.Name[0] > 'z' {
 		return c
 	}
 	// Erase: TyApp{Expr, TyCon{name, L1}} → App{Expr, Lit{name}}
