@@ -9,20 +9,35 @@ import (
 	"github.com/cwd-k2/gicel/internal/lang/types"
 )
 
+// declPhase identifies a declaration pipeline phase. Phases must execute
+// in strictly ascending order; violating this invariant is a compiler bug.
+type declPhase int
+
+const (
+	phaseRegisterTypes       declPhase = 1 // forms, aliases, families, cycle detection
+	phaseRegisterClassLike   declPhase = 2 // class-like forms, impl headers, family reducers
+	phaseCollectAnnotations  declPhase = 3 // type annotations (implicit forall)
+	phaseCheckAssumptions    declPhase = 4 // host-provided assumptions
+	phasePreregisterBindings declPhase = 5 // forward-declare annotated binding types
+	phaseCheckInstances      declPhase = 6 // instance body elaboration + dict generation
+	phaseCheckValues         declPhase = 7 // remaining value definitions
+)
+
 // declPipeline coordinates the multi-phase declaration checking process.
 // Cross-phase state (annotations, instance headers) lives here rather than
 // as loose locals, making the data flow between phases explicit.
 //
-// Phase 1-3.5: registerTypes — forms, aliases, families, cycle detection
-// Phase 4-5.6: registerClassLikeForms — class-like forms, impl headers, family reducers
-// Phase 6:     collectAnnotations — type annotations (implicit forall)
-// Phase 7:     checkAssumptions — host-provided assumptions
-// Phase 7.5:   preregisterBindings — forward-declare annotated binding types
-// Phase 8:     checkInstances — instance body elaboration + dict generation
-// Phase 9:     checkValues — remaining value definitions
+// Phase ordering and dependencies:
 //
-// Phases 1-5.6 must complete before 6+. Phase 7.5 depends on 4-5.6.
-// Phase 8 depends on 7.5 (open-scope instance resolution).
+//	Phase                       Depends on           Produces
+//	─────────────────────────────────────────────────────────────────
+//	RegisterTypes               (none)               typeKinds, aliases, families, data types
+//	RegisterClassLike           RegisterTypes        classes, instances (headers), family reducers
+//	CollectAnnotations          RegisterClassLike    annotations map
+//	CheckAssumptions            CollectAnnotations   context vars (assumption bindings)
+//	PreregisterBindings         RegisterClassLike    context vars (annotated binding types)
+//	CheckInstances              PreregisterBindings  instance bodies, dict bindings
+//	CheckValues                 CheckInstances       remaining value bindings
 type declPipeline struct {
 	ch            *Checker
 	decls         []syntax.Decl
@@ -31,6 +46,16 @@ type declPipeline struct {
 	instances     []*InstanceInfo
 	methodBodies  map[*InstanceInfo]map[string]syntax.Expr // instance → unevaluated method exprs (pipeline-local)
 	formBodyCache map[*syntax.DeclForm]formBodyParts       // shared decomposition results
+	currentPhase  declPhase                                // monotonically increasing phase tracker
+}
+
+// enterPhase asserts that the pipeline is transitioning to a later phase.
+// Panics if the phase ordering invariant is violated.
+func (p *declPipeline) enterPhase(phase declPhase) {
+	if phase <= p.currentPhase {
+		panic(fmt.Sprintf("internal: declaration phase %d entered after phase %d", phase, p.currentPhase))
+	}
+	p.currentPhase = phase
 }
 
 func (ch *Checker) checkDecls(decls []syntax.Decl) *ir.Program {
@@ -66,18 +91,25 @@ func (p *declPipeline) decomposeForm(d *syntax.DeclForm) formBodyParts {
 
 func (p *declPipeline) run() *ir.Program {
 	p.checkDuplicateBindings()
+	p.enterPhase(phaseRegisterTypes)
 	p.registerTypes()
+	p.enterPhase(phaseRegisterClassLike)
 	p.registerClassLikeForms()
 	if p.ch.checkCancelled() {
 		return p.prog
 	}
+	p.enterPhase(phaseCollectAnnotations)
 	p.collectAnnotations()
+	p.enterPhase(phaseCheckAssumptions)
 	p.checkAssumptions()
+	p.enterPhase(phasePreregisterBindings)
 	p.preregisterBindings()
 	if p.ch.checkCancelled() {
 		return p.prog
 	}
+	p.enterPhase(phaseCheckInstances)
 	p.checkInstances()
+	p.enterPhase(phaseCheckValues)
 	p.checkValues()
 	return p.prog
 }
