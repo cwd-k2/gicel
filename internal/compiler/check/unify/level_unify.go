@@ -80,14 +80,6 @@ func levelOccursIn(id int, l types.LevelExpr) bool {
 	}
 }
 
-// DefaultLevels defaults all unsolved level metavariables to L0 (value type level).
-// Called after constraint solving is complete to ground any remaining level metas.
-func (u *Unifier) DefaultLevels() {
-	// Unsolved level metas remain in the map with no entry.
-	// zonkLevel returns them as-is; ZonkLevelDefault replaces them with L0.
-	// This is a future extension point — for now the method exists as API surface.
-}
-
 // ZonkLevelDefault replaces solved level metas with their solutions and
 // unsolved level metas with L0. Use after type checking is complete.
 func (u *Unifier) ZonkLevelDefault(l types.LevelExpr) types.LevelExpr {

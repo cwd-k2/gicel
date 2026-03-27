@@ -109,12 +109,18 @@ func (is *InertSet) KickOutMentioningSkolem(skolemID int) []Ct {
 
 	// Check stuck wanted equalities in the meta index.
 	// CtEq constraints are only indexed via metaIndex, not a dedicated map.
+	// A CtEq blocked on multiple metas appears in multiple buckets;
+	// deduplicate to avoid processing the same constraint twice.
+	seenEqs := make(map[*CtEq]bool)
 	for id, cts := range is.metaIndex {
 		var remaining []Ct
 		for _, ct := range cts {
 			if eq, ok := ct.(*CtEq); ok {
 				if typeMentionsSkolem(eq.Lhs, skolemID) || typeMentionsSkolem(eq.Rhs, skolemID) {
-					kicked = append(kicked, eq)
+					if !seenEqs[eq] {
+						seenEqs[eq] = true
+						kicked = append(kicked, eq)
+					}
 					delete(is.ctScope, eq)
 					continue
 				}

@@ -22,7 +22,7 @@ import (
 //   - TyApp: (Fun Arg)
 //   - TyArrow: (From->To)
 //   - TyCBPV: {C Pre Post Result} or {T Pre Post Result}
-//   - TyForall: {V Var Body}
+//   - TyForall: {V Var:Kind Body}
 //   - TyFamilyApp: [Name Arg1 Arg2 ...]
 //   - TyEvidence: {E Constraints Body}
 //   - TyEvidenceRow: capability = {R Label:Type ...}, constraint = {Q Class Args ...}
@@ -69,6 +69,8 @@ func WriteTypeKey(b *strings.Builder, t Type) {
 	case *TyForall:
 		b.WriteString("{V ")
 		b.WriteString(ty.Var)
+		b.WriteByte(':')
+		WriteTypeKey(b, ty.Kind)
 		b.WriteByte(' ')
 		WriteTypeKey(b, ty.Body)
 		b.WriteByte('}')
@@ -114,7 +116,9 @@ func writeEvidenceRowKey(b *strings.Builder, row *TyEvidenceRow) {
 	switch entries := row.Entries.(type) {
 	case *CapabilityEntries:
 		b.WriteString("{R")
-		for _, f := range entries.Fields {
+		// Normalize field order for canonical keying.
+		normalized, _ := NormalizeRow(&TyEvidenceRow{Entries: entries, Tail: row.Tail})
+		for _, f := range normalized.CapFields() {
 			b.WriteByte(' ')
 			b.WriteString(f.Label)
 			b.WriteByte(':')

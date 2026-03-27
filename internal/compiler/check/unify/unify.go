@@ -299,6 +299,25 @@ func normalizeCompApp(t types.Type) types.Type {
 	return t
 }
 
+// isGroundKind returns true if k is a concrete kind that inhabits Sort₀.
+// These are TyCon at level 1: Type, Row, Constraint, and promoted data kinds.
+func isGroundKind(k types.Type) bool {
+	if tc, ok := k.(*types.TyCon); ok {
+		return types.IsKindLevel(tc.Level)
+	}
+	return false
+}
+
+// isSortLevel returns true if k is a TyCon at the given universe level.
+func isSortLevel(k types.Type, level int) bool {
+	if tc, ok := k.(*types.TyCon); ok {
+		if lit, ok := tc.Level.(*types.LevelLit); ok {
+			return lit.N == level
+		}
+	}
+	return false
+}
+
 // Unify solves the constraint a ~ b.
 func (u *Unifier) Unify(a, b types.Type) error {
 	if u.Budget != nil {
@@ -378,11 +397,10 @@ func (u *Unifier) Unify(a, b types.Type) error {
 		}
 	case *types.TyCon:
 		if bt, ok := b.(*types.TyCon); ok && at.Name == bt.Name {
-			if err := u.unifyLevels(at.Level, bt.Level); err == nil {
-				return nil
-			}
+			return u.unifyLevels(at.Level, bt.Level)
 		}
 		// Cumulativity: ground kinds at level 1 unify with Sort₀ at level 2.
+		// Only applies when names differ (e.g. Type vs Kind).
 		if bt, ok := b.(*types.TyCon); ok {
 			if isGroundKind(at) && isSortLevel(bt, 2) {
 				return nil
@@ -581,9 +599,10 @@ func (u *Unifier) collectMetaIDsRec(t types.Type, seen map[int]bool, ids *[]int)
 			*ids = append(*ids, ty.ID)
 		}
 	default:
-		for _, ch := range t.Children() {
+		types.ForEachChild(t, func(ch types.Type) bool {
 			u.collectMetaIDsRec(u.Zonk(ch), seen, ids)
-		}
+			return true
+		})
 	}
 }
 
@@ -599,11 +618,14 @@ func (u *Unifier) occursIn(id int, t types.Type) bool {
 	case *types.TySkolem:
 		return false // skolem IDs are in a different namespace
 	default:
-		for _, ch := range t.Children() {
+		found := false
+		types.ForEachChild(t, func(ch types.Type) bool {
 			if u.occursIn(id, ch) {
-				return true
+				found = true
+				return false
 			}
-		}
-		return false
+			return true
+		})
+		return found
 	}
 }

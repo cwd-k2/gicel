@@ -32,16 +32,18 @@ func (ch *Checker) resolveKindExpr(k syntax.TypeExpr) types.Type {
 			if pk, ok := ch.reg.LookupPromotedKind(ke.Name); ok {
 				return pk
 			}
-			// Unrecognized kind name defaults to Type. This is intentional:
-			// kind-polymorphic annotations use unbound names that resolve to Type
-			// when no DataKinds promotion applies.
+			// Uppercase names are constructors — unrecognized ones are likely typos.
+			ch.addCodedError(diagnostic.ErrKindMismatch, ke.S,
+				fmt.Sprintf("unrecognized kind name %q", ke.Name))
 			return types.TypeOfTypes
 		}
 	case *syntax.TyExprVar:
 		if ch.reg.IsKindVar(ke.Name) {
 			return &types.TyVar{Name: ke.Name}
 		}
-		// Unrecognized kind variable defaults to Type.
+		// Lowercase names in kind position are treated as defaulting to Type.
+		// This supports kind-polymorphic annotations where the variable is
+		// not explicitly bound as a kind variable.
 		return types.TypeOfTypes
 	case *syntax.TyExprArrow:
 		return &types.TyArrow{From: ch.resolveKindExpr(ke.From), To: ch.resolveKindExpr(ke.To)}
@@ -114,21 +116,6 @@ func (ch *Checker) hasDeterministicKind(ty types.Type) bool {
 	default:
 		return false
 	}
-}
-
-// isModuleDefinedType checks if a type name was defined by the module itself
-// (via data declarations or class declarations), as opposed to being inherited
-// from built-in types or open imports.
-func isModuleDefinedType(exports *ModuleExports, name string) bool {
-	if exports.OwnedTypeNames[name] {
-		return true
-	}
-	// Classes are already checked separately, but class-defined types
-	// (dict types) might appear in Types.
-	if _, ok := exports.Classes[name]; ok {
-		return true
-	}
-	return false
 }
 
 // builtinTypeNames are type constructor names that are intrinsic to the checker

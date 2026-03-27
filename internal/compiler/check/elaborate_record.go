@@ -100,18 +100,19 @@ func (ch *Checker) matchRecordField(ty types.Type, label string, s span.Span) ty
 // inferRecordUpdate infers the type of a record update { r | l1: e1, ..., ln: en }.
 func (ch *Checker) inferRecordUpdate(e *syntax.ExprRecordUpdate) (types.Type, ir.Core) {
 	recTy, recCore := ch.infer(e.Record)
-	coreUpdates := make([]ir.RecordField, len(e.Updates))
+	coreUpdates := make([]ir.RecordField, 0, len(e.Updates))
 	seen := make(map[string]bool, len(e.Updates))
-	for i, upd := range e.Updates {
+	for _, upd := range e.Updates {
 		if seen[upd.Label] {
 			ch.addCodedError(diagnostic.ErrDuplicateLabel, upd.S,
 				fmt.Sprintf("duplicate label %q in record update", upd.Label))
+			continue
 		}
 		seen[upd.Label] = true
 		// Infer the update value type, then check it matches the existing field.
 		fieldTy := ch.matchRecordField(recTy, upd.Label, upd.S)
 		updCore := ch.check(upd.Value, fieldTy)
-		coreUpdates[i] = ir.RecordField{Label: upd.Label, Value: updCore}
+		coreUpdates = append(coreUpdates, ir.RecordField{Label: upd.Label, Value: updCore})
 	}
 	return recTy, &ir.RecordUpdate{Record: recCore, Updates: coreUpdates, S: e.S}
 }
@@ -187,17 +188,18 @@ func (ch *Checker) extractRecordFieldTypes(ty types.Type) map[string]types.Type 
 // checkRecordPattern checks a record pattern { l1: p1, ..., ln: pn } against a scrutinee type.
 func (ch *Checker) checkRecordPattern(p *syntax.PatRecord, scrutTy types.Type) patternResult {
 	bindings := make(map[string]types.Type)
-	coreFields := make([]ir.PRecordField, len(p.Fields))
+	coreFields := make([]ir.PRecordField, 0, len(p.Fields))
 	seen := make(map[string]bool, len(p.Fields))
-	for i, f := range p.Fields {
+	for _, f := range p.Fields {
 		if seen[f.Label] {
 			ch.addCodedError(diagnostic.ErrDuplicateLabel, f.S,
 				fmt.Sprintf("duplicate label %q in record pattern", f.Label))
+			continue
 		}
 		seen[f.Label] = true
 		fieldTy := ch.matchRecordField(scrutTy, f.Label, f.S)
 		child := ch.checkPattern(f.Pattern, fieldTy)
-		coreFields[i] = ir.PRecordField{Label: f.Label, Pattern: child.Pattern}
+		coreFields = append(coreFields, ir.PRecordField{Label: f.Label, Pattern: child.Pattern})
 		for k, v := range child.Bindings {
 			bindings[k] = v
 		}

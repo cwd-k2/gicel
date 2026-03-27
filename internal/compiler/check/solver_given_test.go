@@ -121,10 +121,13 @@ f := \tag. case tag {
 	checkSourceNoPanic(t, source, config)
 }
 
-// --- Given enables class resolution ---
+// --- Given equality enables GADT branch typing ---
 
-func TestSolverGivenEnablesClassResolution(t *testing.T) {
-	// GADT branch with given a ~ Int should allow Num a to resolve as Num Int.
+func TestSolverGivenEqEnablesGADTBranch(t *testing.T) {
+	// GADT branch with given a ~ Int makes x: a usable where return type is a.
+	// This tests given equality installation and GADT type refinement, not class
+	// resolution. For given-enabled class resolution, see the engine-level test
+	// TestGivenEnablesClassResolution which has Prelude (Num) available.
 	source := `
 form Tag := \a. { IntTag: Tag Int; BoolTag: Tag Bool }
 
@@ -140,8 +143,6 @@ addOne := \tag x. case tag {
 			"Bool": types.TypeOfTypes,
 		},
 	}
-	// This should type-check: in the IntTag branch, a ~ Int makes the
-	// body (just x) well-typed since x: a and return type is a.
 	checkSource(t, source, config)
 }
 

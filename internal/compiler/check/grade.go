@@ -75,11 +75,12 @@ func (ch *Checker) extractGradeAlgebra(classInfo *ClassInfo, inst *InstanceInfo)
 		}
 		switch assocName {
 		case "GradeJoin":
-			// The reduced result should be a type family name (TyCon).
+			// The reduced result must be a type family name (TyCon).
+			// If it doesn't reduce to a TyCon, the algebra is unusable.
 			if con, ok := reduced.(*types.TyCon); ok {
 				result.joinFamily = con.Name
 			} else {
-				result.joinFamily = assocName
+				return resolvedGradeAlgebra{}
 			}
 		case "GradeDrop":
 			result.dropValue = reduced

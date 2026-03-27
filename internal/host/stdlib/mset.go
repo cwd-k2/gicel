@@ -175,8 +175,9 @@ func msetFoldImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, apply ev
 }
 
 // _msetUnion :: (k -> k -> Ordering) -> MSet k -> MSet k -> MSet k
-// Inserts all elements from b into a (mutates a).
+// Creates a new MSet containing all elements from both a and b.
 func msetUnionImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, apply eval.Applier) (eval.Value, eval.CapEnv, error) {
+	cmp := args[0]
 	a, err := asMutSetVal(args[1])
 	if err != nil {
 		return nil, ce, err
@@ -185,32 +186,37 @@ func msetUnionImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, apply
 	if err != nil {
 		return nil, ce, err
 	}
-	cmp := args[0]
-	var insertAll func(n *avlNode) error
-	insertAll = func(n *avlNode) error {
+	result := &mutMapVal{root: nil, cmp: cmp, size: 0}
+	// Copy all elements from a.
+	var copyTree func(n *avlNode) error
+	copyTree = func(n *avlNode) error {
 		if n == nil {
 			return nil
 		}
-		if err := insertAll(n.left); err != nil {
+		if err := copyTree(n.left); err != nil {
 			return err
 		}
 		if err := budget.ChargeAlloc(ctx, costAVLNode); err != nil {
 			return err
 		}
 		var inserted bool
-		a.root, inserted, ce, err = avlInsert(a.root, n.key, unitVal, cmp, ce, apply)
+		result.root, inserted, ce, err = avlInsert(result.root, n.key, unitVal, cmp, ce, apply)
 		if err != nil {
 			return err
 		}
 		if inserted {
-			a.size++
+			result.size++
 		}
-		return insertAll(n.right)
+		return copyTree(n.right)
 	}
-	if err := insertAll(b.root); err != nil {
+	if err := copyTree(a.root); err != nil {
 		return nil, ce, err
 	}
-	return args[1], ce, nil // return the mutated set a
+	// Insert all elements from b (duplicates are no-ops).
+	if err := copyTree(b.root); err != nil {
+		return nil, ce, err
+	}
+	return &eval.HostVal{Inner: result}, ce, nil
 }
 
 // _msetIntersection :: (k -> k -> Ordering) -> MSet k -> MSet k -> MSet k

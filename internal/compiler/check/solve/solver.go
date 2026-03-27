@@ -142,7 +142,12 @@ func (s *Solver) SolveWanteds(
 	var residuals []*CtClass
 	s.inertSet.Reset()
 	s.ambiguityCache = nil // lazily allocated; zero-cost when shouldDefer is nil
-	s.env.ResetSolverSteps()
+	// Only reset the step budget at the top level. Nested SolveWanteds calls
+	// (via processCtImplication / CheckWithLocalScope) share the outer budget
+	// to prevent N × maxSteps blowup across implication scopes.
+	if s.inertSet.ScopeDepth() == 0 {
+		s.env.ResetSolverSteps()
+	}
 
 	for {
 		ct, ok := s.worklist.Pop()

@@ -85,5 +85,10 @@ repeat :: \a. a -> Stream a
 repeat := \x. { go := fix \self _. LCons x (\_. self ()); go () }
 
 impl Show a => Show (Stream a) := {
-  show := \s. "[" <> join ", " (fmap show (take 10 s)) <> ", ...]"
+  show := \s. {
+    preview := take 11 s;
+    elems := take 10 s;
+    suffix := if length preview > 10 then ", ...]" else "]";
+    "[" <> join ", " (fmap show elems) <> suffix
+  }
 }
