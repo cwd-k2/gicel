@@ -55,7 +55,7 @@ func (ch *Checker) resolveKindExpr(k syntax.TypeExpr) types.Type {
 
 // checkTypeAppKind validates that a type application F A is kind-correct.
 // Only checks when:
-//   - F has an explicitly annotated parameter kind (not the default KType)
+//   - F has an explicitly annotated parameter kind (not the default Type)
 //   - A is a concrete type constructor (TyCon or TyApp) with a deterministic kind
 //
 // This avoids false positives from type variables whose kind isn't yet in context.

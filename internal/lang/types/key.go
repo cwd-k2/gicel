@@ -127,7 +127,8 @@ func writeEvidenceRowKey(b *strings.Builder, row *TyEvidenceRow) {
 		b.WriteByte('}')
 	case *ConstraintEntries:
 		b.WriteString("{Q")
-		for _, e := range entries.Entries {
+		normalized := NormalizeConstraints(&TyEvidenceRow{Entries: entries, Tail: row.Tail})
+		for _, e := range normalized.ConEntries() {
 			b.WriteByte(' ')
 			b.WriteString(e.ClassName)
 			for _, a := range e.Args {

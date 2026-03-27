@@ -187,7 +187,7 @@ func (t *TyVar) Children() []Type      { return nil }
 func (t *TyCon) Children() []Type      { return nil }
 func (t *TyApp) Children() []Type      { return []Type{t.Fun, t.Arg} }
 func (t *TyArrow) Children() []Type    { return []Type{t.From, t.To} }
-func (t *TyForall) Children() []Type   { return []Type{t.Body} }
+func (t *TyForall) Children() []Type   { return []Type{t.Kind, t.Body} }
 func (t *TyCBPV) Children() []Type     { return []Type{t.Pre, t.Post, t.Result} }
 func (t *TyEvidence) Children() []Type { return []Type{t.Constraints, t.Body} }
 func (t *TySkolem) Children() []Type   { return nil }

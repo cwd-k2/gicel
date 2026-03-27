@@ -36,7 +36,7 @@ main := eq True False`
 }
 
 func TestQuantifyFreeVarsKindInference(t *testing.T) {
-	// Row variable in Computation pre/post should be quantified as KRow.
+	// Row variable in Computation pre/post should be quantified as Row.
 	compTy := types.MkComp(
 		&types.TyVar{Name: "r"},
 		&types.TyVar{Name: "r"},
@@ -83,7 +83,7 @@ func TestQuantifyFreeVarsKindInference(t *testing.T) {
 // --- inferFreeVarKinds: additional coverage ---
 
 func TestInferFreeVarKindsThunk(t *testing.T) {
-	// Variable in TyCBPV (Thunk) pre/post should get KRow.
+	// Variable in TyCBPV (Thunk) pre/post should get Row.
 	fv := map[string]struct{}{"r": {}, "a": {}}
 	thunkTy := types.MkThunk(
 		&types.TyVar{Name: "r"},
@@ -100,12 +100,12 @@ func TestInferFreeVarKindsThunk(t *testing.T) {
 }
 
 func TestInferFreeVarKindsBothPositions(t *testing.T) {
-	// Variable appearing in both row and type positions should get KRow.
+	// Variable appearing in both row and type positions should get Row.
 	fv := map[string]struct{}{"x": {}}
 	ty := types.MkComp(
-		&types.TyVar{Name: "x"}, // row position → KRow
+		&types.TyVar{Name: "x"}, // row position → Row
 		&types.TyVar{Name: "x"},
-		&types.TyVar{Name: "x"}, // type position → KType, but KRow wins
+		&types.TyVar{Name: "x"}, // type position → Type, but Row wins
 	)
 	kinds := inferFreeVarKinds(ty, fv)
 	if !types.Equal(kinds["x"], types.TypeOfRows) {

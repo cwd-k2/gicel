@@ -1,4 +1,4 @@
-// DataKinds tests — KData equality/arity, user kind resolution, constructor promotion.
+// DataKinds tests — promoted data kind equality/arity, user kind resolution, constructor promotion.
 // Does NOT cover: GADT (gadt_check_test.go), kind unification (unify/kind_unify_test.go).
 
 package check
@@ -37,7 +37,7 @@ func TestKDataArity(t *testing.T) {
 }
 
 func TestResolveUserKind(t *testing.T) {
-	// \ (s: DBState). T → the kind annotation DBState should resolve to KData{DBState}
+	// \ (s: DBState). T → the kind annotation DBState should resolve to PromotedDataKind(DBState)
 	source := `form DBState := { Opened: DBState; Closed: DBState; }
 form DB := \s. { MkDB: DB s; }
 f :: \ (s: DBState). DB s -> DB s
@@ -65,7 +65,7 @@ main := (MkProxy :: Proxy Nothing)`
 
 func TestNonNullaryPromotedConKind(t *testing.T) {
 	// Non-nullary constructors should be promoted with kind arrows.
-	// Just :: Type -> Maybe (i.e., KArrow{KType, KData{Maybe}})
+	// Just :: Type -> Maybe (i.e., Type -> PromotedDataKind(Maybe))
 	source := `form Maybe := \a. { Nothing: Maybe a; Just: a -> Maybe a }
 type Test :: Maybe := Just Int
 main := 42`

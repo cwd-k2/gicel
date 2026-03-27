@@ -348,11 +348,6 @@ func (ch *Checker) freshMeta(k types.Type) *types.TyMeta {
 	return &types.TyMeta{ID: id, Kind: k, Level: ch.solver.Level()}
 }
 
-// freshLevelMeta creates a fresh level metavariable for universe level inference.
-func (ch *Checker) freshLevelMeta() *types.LevelMeta {
-	return &types.LevelMeta{ID: ch.fresh()}
-}
-
 func (s *CheckState) freshSkolem(name string, k types.Type) *types.TySkolem {
 	id := s.fresh()
 	return &types.TySkolem{ID: id, Name: name, Kind: k}
@@ -369,18 +364,20 @@ func (ch *Checker) tryTrivialUnify(a, b types.Type) bool {
 		return true
 	}
 	if m, ok := a.(*types.TyMeta); ok && ch.unifier.Solve(m.ID) == nil {
-		ch.unifier.SolveFreshMeta(m, b)
-		return true
+		if ch.unifier.SolveFreshMeta(m, b) {
+			return true
+		}
 	}
 	if m, ok := b.(*types.TyMeta); ok && ch.unifier.Solve(m.ID) == nil {
-		ch.unifier.SolveFreshMeta(m, a)
-		return true
+		if ch.unifier.SolveFreshMeta(m, a) {
+			return true
+		}
 	}
 	return false
 }
 
 // isSortKind checks whether a kind-as-Type is a sort (universe level >= 2),
-// i.e. the kind of kinds. This replaces the old `f.Kind.(types.KSort)` assertion.
+// i.e. the kind of kinds (SortZero or higher).
 func isSortKind(k types.Type) bool {
 	if tc, ok := k.(*types.TyCon); ok {
 		if lit, ok := tc.Level.(*types.LevelLit); ok {
@@ -388,10 +385,6 @@ func isSortKind(k types.Type) bool {
 		}
 	}
 	return false
-}
-
-func (s *CheckState) mkType(name string) types.Type {
-	return types.Con(name)
 }
 
 func (s *CheckState) errorPair(sp span.Span) (types.Type, ir.Core) {

@@ -10,7 +10,7 @@ import (
 
 // gradeAlgebraKind returns the kind to use for grade algebra parameters.
 // If "Mult" is registered as a promoted kind (via DataKinds), returns
-// KData{"Mult"}; otherwise falls back to KType{}.
+// PromotedDataKind("Mult"); otherwise falls back to TypeOfTypes.
 func gradeAlgebraKind(ch *Checker) types.Type {
 	if k, ok := ch.reg.LookupPromotedKind("Mult"); ok {
 		return k
@@ -40,8 +40,8 @@ func (ch *Checker) resolveGradeAlgebra(gradeKind types.Type) resolvedGradeAlgebr
 		// GradeAlgebra takes a Kind-kinded parameter (g: Kind).
 		// Instance: impl GradeAlgebra Mult := ...
 		// Instance TypeArgs[0] = TyCon("Mult"), which is a type constructor (kind Type).
-		// Grade kind = KData{"Mult"} (promoted kind from DataKinds).
-		// Match by comparing the type arg name with the KData name.
+		// Grade kind = PromotedDataKind("Mult") (promoted kind from DataKinds).
+		// Match by comparing the type arg name with the promoted data kind name.
 		instances := ch.reg.InstancesForClass(gradeAlgebraClassName)
 		for _, inst := range instances {
 			if len(inst.TypeArgs) == 0 {

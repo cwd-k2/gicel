@@ -64,6 +64,6 @@ type Effects :: Row := \(mode: AppMode). case mode {
 ### Reduction
 
 - **Non-recursive** type families reduce in one step per application.
-- **Recursive** type families use a fuel limit (default: 100) to prevent divergence.
+- **Recursive** type families use a fuel limit (default: 50,000) to prevent divergence.
 - **Indeterminate** matches (unsolved metavariables) cause reduction to stick, preventing premature commitment.
 - Type families cannot be partially applied.

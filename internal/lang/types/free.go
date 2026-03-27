@@ -25,6 +25,7 @@ func freeVarsRec(t Type, bound map[string]bool, fv map[string]struct{}, depth in
 		freeVarsRec(ty.From, bound, fv, depth+1)
 		freeVarsRec(ty.To, bound, fv, depth+1)
 	case *TyForall:
+		freeVarsRec(ty.Kind, bound, fv, depth+1)
 		newBound := make(map[string]bool, len(bound)+1)
 		for k, v := range bound {
 			newBound[k] = v
@@ -85,7 +86,11 @@ func occursIn(name string, t Type, bound map[string]bool, depth int) bool {
 		return occursIn(name, ty.From, bound, depth+1) || occursIn(name, ty.To, bound, depth+1)
 	case *TyForall:
 		if ty.Var == name {
-			return false // shadowed
+			// Shadowed in body, but Kind is outside the binding scope.
+			return occursIn(name, ty.Kind, bound, depth+1)
+		}
+		if occursIn(name, ty.Kind, bound, depth+1) {
+			return true
 		}
 		if bound == nil {
 			return occursIn(name, ty.Body, map[string]bool{ty.Var: true}, depth+1)

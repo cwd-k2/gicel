@@ -2,7 +2,7 @@
 
 ## Lexical Structure
 
-### Keywords (9 + 1 contextual)
+### Keywords (12 + 1 contextual)
 
 | Keyword  | Purpose                                                                                              |
 | -------- | ---------------------------------------------------------------------------------------------------- |
@@ -15,6 +15,9 @@
 | `infixr` | Right-associative operator fixity                                                                    |
 | `infixn` | Non-associative operator fixity                                                                      |
 | `import` | Module import                                                                                        |
+| `if`     | Conditional expression (if-then-else)                                                                |
+| `then`   | Conditional expression (if-then-else)                                                                |
+| `else`   | Conditional expression (if-then-else)                                                                |
 | `as`     | Qualified import alias (contextual — only special after `import`, usable as variable name elsewhere) |
 
 ### Built-in Identifiers
@@ -687,21 +690,21 @@ Here `c` is the implicit evidence field and `a` is a regular field.
 { x: Int, y: Bool }            -- closed row
 { x: Int | r }                 -- open row (tail variable)
 { get: () -> Int | r }         -- capability row
-{ h: Linear => Handle | r }   -- grade-annotated field
+{ x: Int @Linear }            -- grade-annotated field
 ```
 
 Row field grammar:
 
 ```
 RowField
-  = LowerName ':' [GradeExpr '=>'] TypeExpr
+  = LowerName ':' TypeExpr ['@' GradeExpr]
 ```
 
-The `@Grade` suffix annotates a field with a grade. Without annotation, fields are unrestricted. The `GradeExpr =>` prefix form is also accepted.
+The `@Grade` suffix annotates a field with a grade. Without annotation, fields are unrestricted.
 
 ```
-{ x: Int @Linear }           -- @-syntax (preferred)
-{ h: Linear => Handle | r }  -- =>-syntax (legacy)
+{ x: Int @Linear }           -- grade annotation
+{ h: Handle @Linear | r }    -- graded field in open row
 ```
 
 The standard grade algebra uses `Mult` (Zero, Linear, Affine, Unrestricted), defined in Prelude via the `GradeAlgebra` class. User-defined grades are supported by implementing `GradeAlgebra` for a custom promoted kind:

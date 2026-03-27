@@ -115,9 +115,9 @@ func (ch *Checker) processFormDeclParts(d *syntax.DeclForm, parts formBodyParts,
 	prog.DataDecls = append(prog.DataDecls, coreDecl)
 
 	// DataKinds: promote all constructors to type level.
-	// Nullary constructors (e.g., True, False) get kind KData{Name}.
+	// Nullary constructors (e.g., True, False) get PromotedDataKind(Name).
 	// Non-nullary constructors (e.g., Just: a -> Maybe a) get a kind arrow:
-	//   Just :: KType -> KData{Maybe}
+	//   Just :: Type -> PromotedDataKind(Maybe)
 	// This enables type-level application of promoted constructors.
 	dataKind := types.PromotedDataKind(d.Name)
 	ch.reg.RegisterPromotedKind(d.Name, dataKind)

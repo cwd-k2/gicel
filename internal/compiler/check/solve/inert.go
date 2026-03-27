@@ -188,17 +188,6 @@ func (is *InertSet) Reset() {
 	is.clearScope(is.scopeDepth)
 }
 
-// ResetAll clears all constraints from the inert set regardless of scope.
-func (is *InertSet) ResetAll() {
-	clear(is.classMap)
-	clear(is.funEqs)
-	clear(is.givenEqs)
-	is.givenEqs = is.givenEqs[:0]
-	clear(is.metaIndex)
-	clear(is.resolutionKeys)
-	clear(is.ctScope)
-}
-
 // tagScope records the current scope depth for a constraint.
 func (is *InertSet) tagScope(ct Ct) {
 	if is.ctScope == nil {
@@ -225,18 +214,7 @@ func (is *InertSet) clearScope(d int) {
 		case *CtEq:
 			_ = c // CtEq is only in the meta index
 		}
-		// Remove from meta index.
-		for id, cts := range is.metaIndex {
-			for i, indexed := range cts {
-				if indexed == ct {
-					last := len(cts) - 1
-					cts[i] = cts[last]
-					cts[last] = nil
-					is.metaIndex[id] = cts[:last]
-					break
-				}
-			}
-		}
+		is.removeFromMetaIndex(ct)
 		delete(is.ctScope, ct)
 	}
 	// Clear given equalities at this scope.

@@ -190,10 +190,10 @@ func (ch *Checker) infer(expr syntax.Expr) (types.Type, ir.Core) {
 			ch.addCodedError(diagnostic.ErrTypeMismatch, e.S, fmt.Sprintf("invalid integer literal: %s", e.Value))
 			return ch.errorPair(e.S)
 		}
-		return ch.mkType("Int"), &ir.Lit{Value: val, S: e.S}
+		return types.Con("Int"), &ir.Lit{Value: val, S: e.S}
 
 	case *syntax.ExprStrLit:
-		return ch.mkType("String"), &ir.Lit{Value: e.Value, S: e.S}
+		return types.Con("String"), &ir.Lit{Value: e.Value, S: e.S}
 
 	case *syntax.ExprDoubleLit:
 		val, err := strconv.ParseFloat(strings.ReplaceAll(e.Value, "_", ""), 64)
@@ -201,10 +201,10 @@ func (ch *Checker) infer(expr syntax.Expr) (types.Type, ir.Core) {
 			ch.addCodedError(diagnostic.ErrTypeMismatch, e.S, fmt.Sprintf("invalid double literal: %s", e.Value))
 			return ch.errorPair(e.S)
 		}
-		return ch.mkType("Double"), &ir.Lit{Value: val, S: e.S}
+		return types.Con("Double"), &ir.Lit{Value: val, S: e.S}
 
 	case *syntax.ExprRuneLit:
-		return ch.mkType("Rune"), &ir.Lit{Value: e.Value, S: e.S}
+		return types.Con("Rune"), &ir.Lit{Value: e.Value, S: e.S}
 
 	case *syntax.ExprList:
 		return ch.inferList(e)

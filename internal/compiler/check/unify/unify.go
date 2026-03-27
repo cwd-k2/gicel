@@ -544,12 +544,18 @@ func (u *Unifier) solveMeta(m *types.TyMeta, t types.Type) error {
 // freshly created and immediately unifiable with a known type, this skips
 // the overhead of emitting a CtEq and processing it through the solver.
 // Precondition: m must be unsolved (Solve(m.ID) == nil).
-func (u *Unifier) SolveFreshMeta(m *types.TyMeta, t types.Type) {
+// Returns false if the meta is untouchable at the current solver level.
+func (u *Unifier) SolveFreshMeta(m *types.TyMeta, t types.Type) bool {
+	// Touchability: reject if meta was created at an outer level.
+	if u.SolverLevel >= 0 && m.Level < u.SolverLevel {
+		return false
+	}
 	u.trailSolnWrite(m.ID)
 	u.soln[m.ID] = t
 	if u.OnSolve != nil {
 		u.OnSolve(m.ID)
 	}
+	return true
 }
 
 // CollectBlockingMetas collects all unsolved meta IDs in the given types,

@@ -16,8 +16,8 @@ type Registry struct {
 	instances         []*InstanceInfo
 	instancesByClass  map[string][]*InstanceInfo
 	importedInstances map[*InstanceInfo]bool
-	promotedKinds     map[string]types.Type      // DataKinds: data name → KData
-	promotedCons      map[string]types.Type      // DataKinds: nullary con → KData
+	promotedKinds     map[string]types.Type      // DataKinds: data name → promoted data kind
+	promotedCons      map[string]types.Type      // DataKinds: nullary con → promoted data kind
 	kindVars          map[string]bool            // HKT: kind variables in scope
 	families          map[string]*TypeFamilyInfo // type family declarations
 }

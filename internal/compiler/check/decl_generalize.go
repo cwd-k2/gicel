@@ -113,7 +113,7 @@ func collectUnsolvedMetas(tys ...types.Type) []metaInfo {
 // This implements Haskell-style implicit universal quantification for type annotations:
 // `f :: List a -> Int` is treated as `f :: \ a. List a -> Int`.
 // Kind inference: variables appearing in row positions (TyCBPV.Pre/Post,
-// TyEvidenceRow.Tail) are quantified as KRow; all others as KType.
+// TyEvidenceRow.Tail) are quantified as Row; all others as Type.
 func quantifyFreeVars(ty types.Type) types.Type {
 	fv := types.FreeVars(ty)
 	if len(fv) == 0 {
@@ -136,8 +136,8 @@ func quantifyFreeVars(ty types.Type) types.Type {
 }
 
 // inferFreeVarKinds walks a type and determines the kind for each free variable
-// based on the position where it appears. Variables in row positions get KRow;
-// variables in type positions get KType. If a variable appears in both, KRow wins
+// based on the position where it appears. Variables in row positions get Row;
+// variables in type positions get Type. If a variable appears in both, Row wins
 // (a row variable used where a type is expected is more likely a mistake caught by
 // the kind checker, whereas a type variable in a row position is the real bug).
 func inferFreeVarKinds(ty types.Type, fv map[string]struct{}) map[string]types.Type {

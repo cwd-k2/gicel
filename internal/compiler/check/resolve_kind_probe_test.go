@@ -46,8 +46,8 @@ func TestProbeD_KindUnify_KindMetaSolving(t *testing.T) {
 	}
 }
 
-// TestProbeD_KindUnify_KindArrow — unifying (KMeta -> Type) with (Row -> Type)
-// should solve KMeta = Row.
+// TestProbeD_KindUnify_KindArrow — unifying (meta -> Type) with (Row -> Type)
+// should solve meta = Row.
 func TestProbeD_KindUnify_KindArrow(t *testing.T) {
 	u := unify.NewUnifier()
 	km := kindMeta(1)
@@ -157,7 +157,7 @@ func TestProbeE_KindUnify_KDataDistinct(t *testing.T) {
 	}
 }
 
-// TestProbeE_KindUnify_KConstraintVsKType — Constraint vs Type must fail.
+// TestProbeE_KindUnify_KConstraintVsKType — Constraint vs Type (at level 1) must fail.
 func TestProbeE_KindUnify_KConstraintVsKType(t *testing.T) {
 	u := unify.NewUnifier()
 	err := u.Unify(types.TypeOfConstraints, types.TypeOfTypes)
