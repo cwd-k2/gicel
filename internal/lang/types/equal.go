@@ -78,13 +78,10 @@ func equalAlpha(a, b Type, bindings []alphaBinding) bool {
 			if !ok {
 				return false
 			}
-			an, errA := NormalizeRow(&TyEvidenceRow{Entries: aEntries, Tail: at.Tail})
-			bn, errB := NormalizeRow(&TyEvidenceRow{Entries: bEntries, Tail: bt.Tail})
-			if errA != nil || errB != nil {
-				return false
-			}
-			aFields := an.CapFields()
-			bFields := bn.CapFields()
+			// Cap rows are maintained in sorted order by construction,
+			// so normalization is not needed for equality comparison.
+			aFields := aEntries.Fields
+			bFields := bEntries.Fields
 			if len(aFields) != len(bFields) {
 				return false
 			}
@@ -105,11 +102,11 @@ func equalAlpha(a, b Type, bindings []alphaBinding) bool {
 					}
 				}
 			}
-			if (an.Tail == nil) != (bn.Tail == nil) {
+			if (at.Tail == nil) != (bt.Tail == nil) {
 				return false
 			}
-			if an.Tail != nil {
-				return equalAlpha(an.Tail, bn.Tail, bindings)
+			if at.Tail != nil {
+				return equalAlpha(at.Tail, bt.Tail, bindings)
 			}
 			return true
 		case *ConstraintEntries:
@@ -117,6 +114,8 @@ func equalAlpha(a, b Type, bindings []alphaBinding) bool {
 			if !ok {
 				return false
 			}
+			// Defensive normalization: constraint rows may be constructed
+			// directly without ExtendConstraint in tests or external code.
 			an := NormalizeConstraints(&TyEvidenceRow{Entries: aEntries, Tail: at.Tail})
 			bn := NormalizeConstraints(&TyEvidenceRow{Entries: bEntries, Tail: bt.Tail})
 			aCons := an.ConEntries()
@@ -129,11 +128,11 @@ func equalAlpha(a, b Type, bindings []alphaBinding) bool {
 					return false
 				}
 			}
-			if (an.Tail == nil) != (bn.Tail == nil) {
+			if (at.Tail == nil) != (bt.Tail == nil) {
 				return false
 			}
-			if an.Tail != nil {
-				return equalAlpha(an.Tail, bn.Tail, bindings)
+			if at.Tail != nil {
+				return equalAlpha(at.Tail, bt.Tail, bindings)
 			}
 			return true
 		default:

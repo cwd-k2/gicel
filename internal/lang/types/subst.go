@@ -197,7 +197,15 @@ func SubstMany(t Type, subs map[string]Type) Type {
 	if len(subs) == 0 {
 		return t
 	}
-	return substMany(t, subs, 0)
+	// Pre-compute sorted keys and free variable union once.
+	keys := sortedKeys(subs)
+	fvUnion := make(map[string]bool)
+	for _, v := range subs {
+		for name := range FreeVars(v) {
+			fvUnion[name] = true
+		}
+	}
+	return substManyOpt(t, subs, keys, fvUnion, 0)
 }
 
 // sortedKeys returns the keys of a map in sorted order.
@@ -210,7 +218,7 @@ func sortedKeys(m map[string]Type) []string {
 	return keys
 }
 
-func substMany(t Type, subs map[string]Type, depth int) Type {
+func substManyOpt(t Type, subs map[string]Type, keys []string, fvUnion map[string]bool, depth int) Type {
 	if depth > maxTraversalDepth {
 		return t
 	}
@@ -223,21 +231,21 @@ func substMany(t Type, subs map[string]Type, depth int) Type {
 	case *TyCon:
 		return ty
 	case *TyApp:
-		newFun := substMany(ty.Fun, subs, depth+1)
-		newArg := substMany(ty.Arg, subs, depth+1)
+		newFun := substManyOpt(ty.Fun, subs, keys, fvUnion, depth+1)
+		newArg := substManyOpt(ty.Arg, subs, keys, fvUnion, depth+1)
 		if newFun == ty.Fun && newArg == ty.Arg {
 			return ty
 		}
 		return &TyApp{Fun: newFun, Arg: newArg, S: ty.S}
 	case *TyArrow:
-		newFrom := substMany(ty.From, subs, depth+1)
-		newTo := substMany(ty.To, subs, depth+1)
+		newFrom := substManyOpt(ty.From, subs, keys, fvUnion, depth+1)
+		newTo := substManyOpt(ty.To, subs, keys, fvUnion, depth+1)
 		if newFrom == ty.From && newTo == ty.To {
 			return ty
 		}
 		return &TyArrow{From: newFrom, To: newTo, S: ty.S}
 	case *TyForall:
-		newKind := substMany(ty.Kind, subs, depth+1)
+		newKind := substManyOpt(ty.Kind, subs, keys, fvUnion, depth+1)
 		// Remove shadowed variable from substitution.
 		if _, shadowed := subs[ty.Var]; shadowed {
 			reduced := make(map[string]Type, len(subs)-1)
@@ -252,49 +260,44 @@ func substMany(t Type, subs map[string]Type, depth int) Type {
 				}
 				return &TyForall{Var: ty.Var, Kind: newKind, Body: ty.Body, S: ty.S}
 			}
-			// Capture avoidance: check if any replacement contains the bound variable.
-			// Sorted iteration ensures deterministic fresh name generation.
-			for _, k := range sortedKeys(reduced) {
-				if OccursIn(ty.Var, reduced[k]) {
-					fresh := freshName(ty.Var)
-					body := substDepth(ty.Body, ty.Var, &TyVar{Name: fresh}, depth+1)
-					body = substMany(body, reduced, depth+1)
-					return &TyForall{Var: fresh, Kind: newKind, Body: body, S: ty.S}
-				}
+			// Capture avoidance: use pre-computed FV union for O(1) check.
+			if fvUnion[ty.Var] {
+				fresh := freshName(ty.Var)
+				body := substDepth(ty.Body, ty.Var, &TyVar{Name: fresh}, depth+1)
+				body = substManyOpt(body, reduced, keys, fvUnion, depth+1)
+				return &TyForall{Var: fresh, Kind: newKind, Body: body, S: ty.S}
 			}
-			newBody := substMany(ty.Body, reduced, depth+1)
+			newBody := substManyOpt(ty.Body, reduced, keys, fvUnion, depth+1)
 			if newKind == ty.Kind && newBody == ty.Body {
 				return ty
 			}
 			return &TyForall{Var: ty.Var, Kind: newKind, Body: newBody, S: ty.S}
 		}
-		// Not shadowed: check capture avoidance (sorted for deterministic freshName).
-		for _, k := range sortedKeys(subs) {
-			if OccursIn(ty.Var, subs[k]) {
-				fresh := freshName(ty.Var)
-				body := substDepth(ty.Body, ty.Var, &TyVar{Name: fresh}, depth+1)
-				body = substMany(body, subs, depth+1)
-				return &TyForall{Var: fresh, Kind: newKind, Body: body, S: ty.S}
-			}
+		// Not shadowed: capture avoidance via pre-computed FV union.
+		if fvUnion[ty.Var] {
+			fresh := freshName(ty.Var)
+			body := substDepth(ty.Body, ty.Var, &TyVar{Name: fresh}, depth+1)
+			body = substManyOpt(body, subs, keys, fvUnion, depth+1)
+			return &TyForall{Var: fresh, Kind: newKind, Body: body, S: ty.S}
 		}
-		newBody := substMany(ty.Body, subs, depth+1)
+		newBody := substManyOpt(ty.Body, subs, keys, fvUnion, depth+1)
 		if newKind == ty.Kind && newBody == ty.Body {
 			return ty
 		}
 		return &TyForall{Var: ty.Var, Kind: newKind, Body: newBody, S: ty.S}
 	case *TyCBPV:
-		newPre := substMany(ty.Pre, subs, depth+1)
-		newPost := substMany(ty.Post, subs, depth+1)
-		newResult := substMany(ty.Result, subs, depth+1)
+		newPre := substManyOpt(ty.Pre, subs, keys, fvUnion, depth+1)
+		newPost := substManyOpt(ty.Post, subs, keys, fvUnion, depth+1)
+		newResult := substManyOpt(ty.Result, subs, keys, fvUnion, depth+1)
 		if newPre == ty.Pre && newPost == ty.Post && newResult == ty.Result {
 			return ty
 		}
 		return &TyCBPV{Tag: ty.Tag, Pre: newPre, Post: newPost, Result: newResult, S: ty.S}
 	case *TyEvidenceRow:
-		return substManyEvidenceRow(ty, subs, depth+1)
+		return substManyEvidenceRow(ty, subs, keys, fvUnion, depth+1)
 	case *TyEvidence:
-		newConstraints := substManyEvidenceRow(ty.Constraints, subs, depth+1)
-		newBody := substMany(ty.Body, subs, depth+1)
+		newConstraints := substManyEvidenceRow(ty.Constraints, subs, keys, fvUnion, depth+1)
+		newBody := substManyOpt(ty.Body, subs, keys, fvUnion, depth+1)
 		if newConstraints == ty.Constraints && newBody == ty.Body {
 			return ty
 		}
@@ -302,7 +305,7 @@ func substMany(t Type, subs map[string]Type, depth int) Type {
 	case *TyFamilyApp:
 		var newArgs []Type // nil until first change
 		for i, a := range ty.Args {
-			sa := substMany(a, subs, depth+1)
+			sa := substManyOpt(a, subs, keys, fvUnion, depth+1)
 			if newArgs == nil && sa != a {
 				newArgs = make([]Type, len(ty.Args))
 				copy(newArgs[:i], ty.Args[:i])
@@ -320,7 +323,7 @@ func substMany(t Type, subs map[string]Type, depth int) Type {
 	}
 }
 
-func substManyEvidenceRow(row *TyEvidenceRow, subs map[string]Type, depth int) *TyEvidenceRow {
+func substManyEvidenceRow(row *TyEvidenceRow, subs map[string]Type, keys []string, fvUnion map[string]bool, depth int) *TyEvidenceRow {
 	if row == nil {
 		return nil
 	}
@@ -328,11 +331,11 @@ func substManyEvidenceRow(row *TyEvidenceRow, subs map[string]Type, depth int) *
 		return row
 	}
 	newEntries, changed := row.Entries.MapChildren(func(child Type) Type {
-		return substMany(child, subs, depth+1)
+		return substManyOpt(child, subs, keys, fvUnion, depth+1)
 	})
 	var newTail Type
 	if row.Tail != nil {
-		newTail = substMany(row.Tail, subs, depth+1)
+		newTail = substManyOpt(row.Tail, subs, keys, fvUnion, depth+1)
 		if newTail != row.Tail {
 			changed = true
 		}

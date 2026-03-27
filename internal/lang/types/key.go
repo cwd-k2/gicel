@@ -116,9 +116,9 @@ func writeEvidenceRowKey(b *strings.Builder, row *TyEvidenceRow) {
 	switch entries := row.Entries.(type) {
 	case *CapabilityEntries:
 		b.WriteString("{R")
-		// Normalize field order for canonical keying.
-		normalized, _ := NormalizeRow(&TyEvidenceRow{Entries: entries, Tail: row.Tail})
-		for _, f := range normalized.CapFields() {
+		// Cap rows are maintained in sorted order by ExtendRow/ClosedRow/OpenRow,
+		// so normalization is not needed here.
+		for _, f := range entries.Fields {
 			b.WriteByte(' ')
 			b.WriteString(f.Label)
 			b.WriteByte(':')
@@ -135,8 +135,9 @@ func writeEvidenceRowKey(b *strings.Builder, row *TyEvidenceRow) {
 		b.WriteByte('}')
 	case *ConstraintEntries:
 		b.WriteString("{Q")
-		normalized := NormalizeConstraints(&TyEvidenceRow{Entries: entries, Tail: row.Tail})
-		for _, e := range normalized.ConEntries() {
+		// Constraint rows are maintained in sorted order by ExtendConstraint,
+		// so normalization is not needed here.
+		for _, e := range entries.Entries {
 			b.WriteByte(' ')
 			writeConstraintEntryKey(b, e)
 		}

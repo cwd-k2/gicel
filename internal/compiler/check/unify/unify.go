@@ -621,21 +621,32 @@ func (u *Unifier) collectMetaIDsRec(t types.Type, seen map[int]bool, ids *[]int)
 	}
 }
 
-// occursIn uses Children() for generic traversal, unlike Zonk which uses
-// manual recursion for identity-preserving path compression.
+// occursIn checks whether a meta variable with the given ID appears in type t.
+// Zonks the entire type once at entry, then traverses the zonked tree without
+// further Zonk calls. This avoids O(N²) repeated traversals on deep types.
+func (u *Unifier) occursIn(id int, t types.Type) bool {
+	return u.occursInZonked(id, u.Zonk(t))
+}
+
+// occursInZonked walks a pre-zonked type tree checking for meta variable id.
 // No budget check: recursion depth is bounded by the structural size of the
 // type, which is finite and bounded by the outer Unify/Zonk budget.
-func (u *Unifier) occursIn(id int, t types.Type) bool {
-	t = u.Zonk(t)
+func (u *Unifier) occursInZonked(id int, t types.Type) bool {
+	// Resolve one level of meta indirection (the child may itself be solved).
+	if m, ok := t.(*types.TyMeta); ok {
+		if s, exists := u.soln[m.ID]; exists {
+			t = s
+		}
+	}
 	switch ty := t.(type) {
 	case *types.TyMeta:
 		return ty.ID == id
 	case *types.TySkolem:
-		return false // skolem IDs are in a different namespace
+		return false
 	default:
 		found := false
 		types.ForEachChild(t, func(ch types.Type) bool {
-			if u.occursIn(id, ch) {
+			if u.occursInZonked(id, ch) {
 				found = true
 				return false
 			}
