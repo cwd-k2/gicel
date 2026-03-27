@@ -29,13 +29,13 @@ type Worklist = solve.Worklist
 
 // --- solve.Env interface methods ---
 
-func (ch *Checker) Zonk(t types.Type) types.Type         { return ch.unifier.Zonk(t) }
-func (ch *Checker) Unify(a, b types.Type) error          { return ch.unifier.Unify(a, b) }
-func (ch *Checker) SolverLevel() int                     { return ch.unifier.SolverLevel }
-func (ch *Checker) SetSolverLevel(l int)                 { ch.unifier.SolverLevel = l }
-func (ch *Checker) InstallGivenEq(id int, ty types.Type) { ch.unifier.InstallGivenEq(id, ty) }
-func (ch *Checker) RemoveGivenEq(id int)                 { ch.unifier.RemoveGivenEq(id) }
-func (ch *Checker) ScanContext(fn func(CtxEntry) bool)   { ch.ctx.Scan(fn) }
+func (ch *Checker) Zonk(t types.Type) types.Type             { return ch.unifier.Zonk(t) }
+func (ch *Checker) Unify(a, b types.Type) error              { return ch.unifier.Unify(a, b) }
+func (ch *Checker) SolverLevel() int                         { return ch.unifier.SolverLevel }
+func (ch *Checker) SetSolverLevel(l int)                     { ch.unifier.SolverLevel = l }
+func (ch *Checker) InstallGivenEq(id int, ty types.Type)     { ch.unifier.InstallGivenEq(id, ty) }
+func (ch *Checker) RemoveGivenEq(id int)                     { ch.unifier.RemoveGivenEq(id) }
+func (ch *Checker) ScanContext(fn func(CtxEntry) bool)       { ch.ctx.Scan(fn) }
 func (ch *Checker) LookupDictVar(className string) []*CtxVar { return ch.ctx.LookupDictVar(className) }
 func (ch *Checker) AddCodedError(code diagnostic.Code, s span.Span, msg string) {
 	ch.addCodedError(code, s, msg)

@@ -67,8 +67,6 @@ func substManyList(ts []types.Type, subs map[string]types.Type) []types.Type {
 	return result
 }
 
-
-
 // CollectPatternVars collects all TyVar names from type patterns.
 func CollectPatternVars(patterns []types.Type) []string {
 	seen := make(map[string]bool)

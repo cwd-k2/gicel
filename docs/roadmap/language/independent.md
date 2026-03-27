@@ -30,11 +30,11 @@ Map String -< List -< Maybe -< Int
 
 ## Design Fork Points
 
-| Fork Point                                  | Current State                              | Decision Trigger                            |
-| ------------------------------------------- | ------------------------------------------ | ------------------------------------------- |
-| `Row` as L1 TyCon vs structured index       | L1 TyCon (unified representation)          | Non-capability row-like indexing の需要     |
-| Algebraic effects/handlers vs indexed monad | Indexed monad (type families compensate)   | Handlers が AI agent use case に優る場合    |
-| Tensor product kind (`QType`)               | Not present (rows cover current needs)     | Quantum entanglement or non-separable state |
+| Fork Point                                  | Current State                            | Decision Trigger                            |
+| ------------------------------------------- | ---------------------------------------- | ------------------------------------------- |
+| `Row` as L1 TyCon vs structured index       | L1 TyCon (unified representation)        | Non-capability row-like indexing の需要     |
+| Algebraic effects/handlers vs indexed monad | Indexed monad (type families compensate) | Handlers が AI agent use case に優る場合    |
+| Tensor product kind (`QType`)               | Not present (rows cover current needs)   | Quantum entanglement or non-separable state |
 
 ### Tensor Product Kind
 

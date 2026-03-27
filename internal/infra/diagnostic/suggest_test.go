@@ -5,7 +5,10 @@ import (
 )
 
 func TestLevenshtein(t *testing.T) {
-	cases := []struct{ a, b string; want int }{
+	cases := []struct {
+		a, b string
+		want int
+	}{
 		{"", "", 0},
 		{"a", "", 1},
 		{"", "b", 1},

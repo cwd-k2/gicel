@@ -20,11 +20,11 @@ type ClassInfo struct {
 	Name         string
 	TyParams     []string
 	TyParamKinds []types.Type
-	KindParams   []string     // implicit kind variables (e.g., "k" in f: k -> Type)
-	Supers       []SuperInfo  // superclass constraints
-	Methods      []MethodInfo // method signatures
-	DictName     string       // e.g. "Eq$Dict" — used as both type and constructor name
-	AssocTypes   []string     // associated type family names
+	KindParams   []string        // implicit kind variables (e.g., "k" in f: k -> Type)
+	Supers       []SuperInfo     // superclass constraints
+	Methods      []MethodInfo    // method signatures
+	DictName     string          // e.g. "Eq$Dict" — used as both type and constructor name
+	AssocTypes   []string        // associated type family names
 	SuperClosure map[string]bool // transitive superclass names (computed after validation)
 }
 
@@ -49,7 +49,7 @@ type InstanceInfo struct {
 	UserName     string           // user-visible name from `impl name ::` ("" for anonymous)
 	Module       string           // source module that defined this instance
 	Private      bool             // true for impl _name (solver-invisible outside defining module)
-	FreeVars []FreeVarInfo         // cached free type variables with kinds (computed once at registration)
+	FreeVars     []FreeVarInfo    // cached free type variables with kinds (computed once at registration)
 	S            span.Span
 }
 

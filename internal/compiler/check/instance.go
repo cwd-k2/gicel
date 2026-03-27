@@ -99,7 +99,7 @@ func (ch *Checker) processImplHeader(impl *syntax.DeclImpl) (*InstanceInfo, map[
 		UserName:     impl.Name,
 		Module:       ch.scope.CurrentModule(),
 		Private:      env.IsPrivateName(impl.Name),
-		FreeVars: collectInstanceFreeVarsWithKind(typeArgs, context),
+		FreeVars:     collectInstanceFreeVarsWithKind(typeArgs, context),
 		S:            impl.S,
 	}
 

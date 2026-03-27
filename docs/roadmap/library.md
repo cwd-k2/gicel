@@ -16,11 +16,11 @@ Packs: Prelude, Effect.Fail, Effect.State, Effect.IO, Data.Stream, Data.Slice, E
 
 ### 拡充候補
 
-| 候補                                | 分類     | 前提                           |
-| ----------------------------------- | -------- | ------------------------------ |
-| Tuple Eq/Ord runtime support        | Prelude  | ユーザ需要                     |
-| Data.Map: mapKeys, intersectionWith | Data.Map | ユーザ需要                     |
-| Data.Text (UTF-8 aware operations)  | 新 pack  | 文字列処理ユースケースの拡大時 |
+| 候補                                | 分類     | 前提                                    |
+| ----------------------------------- | -------- | --------------------------------------- |
+| Tuple Eq/Ord runtime support        | Prelude  | ユーザ需要                              |
+| Data.Map: mapKeys, intersectionWith | Data.Map | ユーザ需要                              |
+| Data.Text (UTF-8 aware operations)  | 新 pack  | 文字列処理ユースケースの拡大時          |
 | Shell (外部プロセス実行)            | 新 pack  | Label kind 言語拡張。[設計書](shell.md) |
 
 ## CLI
