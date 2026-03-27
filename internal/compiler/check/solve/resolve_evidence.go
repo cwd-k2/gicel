@@ -102,7 +102,11 @@ func (s *Solver) resolveQuantifiedConstraint(qc *types.QuantifiedConstraint, sp 
 				return false
 			}
 			for i, ic := range inst.Context {
-				if ic.ClassName != qc.Context[i].ClassName {
+				qcc := qc.Context[i]
+				if ic.ClassName != qcc.ClassName {
+					return false
+				}
+				if len(ic.Args) != len(qcc.Args) {
 					return false
 				}
 			}
@@ -153,7 +157,11 @@ func (s *Solver) resolveQuantifiedConstraint(qc *types.QuantifiedConstraint, sp 
 				return false
 			}
 			for i, ec := range eq.Context {
-				if ec.ClassName != qc.Context[i].ClassName {
+				qcc := qc.Context[i]
+				if ec.ClassName != qcc.ClassName {
+					return false
+				}
+				if len(ec.Args) != len(qcc.Args) {
 					return false
 				}
 			}

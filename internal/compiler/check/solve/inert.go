@@ -166,15 +166,18 @@ func (is *InertSet) KickOut(metaID int) []Ct {
 	cts := is.metaIndex[metaID]
 	delete(is.metaIndex, metaID)
 	for _, ct := range cts {
+		// Clean secondary maps.
 		switch c := ct.(type) {
 		case *CtClass:
 			is.removeClass(c)
 		case *CtFunEq:
 			is.removeFunEq(c)
 		case *CtEq:
-			// CtEq is only in the meta index, no secondary map to clean.
 			_ = c
 		}
+		// Remove from other meta index buckets to prevent duplicate
+		// re-processing when a different meta is kicked later.
+		is.removeFromMetaIndex(ct)
 	}
 	return cts
 }
