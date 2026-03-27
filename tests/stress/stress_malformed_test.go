@@ -86,7 +86,7 @@ func TestMalformedOperators(t *testing.T) {
 	}
 }
 
-func TestValidUserOperators(t *testing.T) {
+func TestMalformed_ValidUserOperators(t *testing.T) {
 	cases := []struct {
 		name string
 		src  string
@@ -171,7 +171,7 @@ func TestMalformedListSyntax(t *testing.T) {
 // Semicolon edge cases
 // ---------------------------------------------------------------------------
 
-func TestSemicolonEdgeCases(t *testing.T) {
+func TestMalformed_SemicolonEdgeCases(t *testing.T) {
 	t.Run("1000 semicolons", func(t *testing.T) {
 		src := strings.Repeat(";", 1000)
 		_, err := gicel.RunSandbox(src, &gicel.SandboxConfig{})

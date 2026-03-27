@@ -626,12 +626,12 @@ func TestAdversarial_ManyTypeErrors(t *testing.T) {
 }
 
 // ===========================================================================
-// V8: User-defined Monad do notation
+// User-defined Monad do notation
 // ===========================================================================
 
-// TestV8_MonadDoNotation verifies do-notation works with a user-defined
+// TestAdversarial_MonadDoNotation verifies do-notation works with a user-defined
 // Monad instance (Reader monad) where the bind type parameters a and b differ.
-func TestV8_MonadDoNotation(t *testing.T) {
+func TestAdversarial_MonadDoNotation(t *testing.T) {
 	src := `
 import Prelude
 form Reader := \e a. { MkReader: (e -> a) -> Reader e a; }
@@ -659,12 +659,12 @@ main := runReader (do { x <- ask; pure (append "port=" (show x)) } :: Reader Int
 }
 
 // ===========================================================================
-// V9: fix ConVal error message
+// fix ConVal error message
 // ===========================================================================
 
-// TestV9_FixConValErrorMessage verifies that applying fix to a constructor
+// TestAdversarial_FixConValErrorMessage verifies that applying fix to a constructor
 // body produces a clear error message mentioning "requires a lambda body".
-func TestV9_FixConValErrorMessage(t *testing.T) {
+func TestAdversarial_FixConValErrorMessage(t *testing.T) {
 	src := `
 import Prelude
 form Pair := { MkPair: Int -> Int -> Pair }

@@ -72,6 +72,19 @@ func BenchmarkGlobalsMapBuild(b *testing.B) {
 	}
 }
 
+// BenchmarkGlobalsMapBuild100 measures the cost of building globals via map insert
+// with the legacy b.N loop style.
+func BenchmarkGlobalsMapBuild100(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		globals := make(map[string]Value, 100)
+		for j := 0; j < 100; j++ {
+			globals[fmt.Sprintf("v%d", j)] = &HostVal{Inner: j}
+		}
+		// Force a lookup to prevent dead-code elimination.
+		_ = globals["v50"]
+	}
+}
+
 // ---------------------------------------------------------------------------
 // Capture (closure creation hot path)
 // ---------------------------------------------------------------------------

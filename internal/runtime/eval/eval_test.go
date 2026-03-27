@@ -265,17 +265,6 @@ func TestGlobalsMapInsertAlloc(t *testing.T) {
 	}
 }
 
-func BenchmarkGlobalsMapBuild100(b *testing.B) {
-	for i := 0; i < b.N; i++ {
-		globals := make(map[string]Value, 100)
-		for j := 0; j < 100; j++ {
-			globals[fmt.Sprintf("v%d", j)] = &HostVal{Inner: j}
-		}
-		// Force a lookup to prevent dead-code elimination.
-		_ = globals["v50"]
-	}
-}
-
 func TestGlobalsMapLookupAndShadowing(t *testing.T) {
 	globals := map[string]Value{"x": &HostVal{Inner: 1}, "y": &HostVal{Inner: 2}}
 	v, ok := globals["x"]
