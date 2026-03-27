@@ -120,6 +120,37 @@ force :: Thunk pre post a -> Computation pre post a
 
 The type alias `Suspended r a := Thunk r r a` mirrors `Effect` for suspended computations that preserve their capability state.
 
+### Named Capabilities
+
+Named capabilities allow multiple independent instances of the same effect type to coexist. Use label literals (`` `name ``) as type-level parameters:
+
+```
+import Effect.State
+
+-- Two independent state capabilities
+program :: Computation { x: Int, y: String | r } { x: Int, y: String | r } Int
+program := do {
+  putAt @`x 42;
+  putAt @`y "hello";
+  getAt @`x
+}
+```
+
+Available `*At` variants:
+
+| Named variant              | Fixed equivalent | Pack           |
+| -------------------------- | ---------------- | -------------- |
+| `getAt @`label`            | `get`            | `Effect.State` |
+| `putAt @`label value`      | `put value`      | `Effect.State` |
+| `failWithAt @`label error` | `failWith error` | `Effect.Fail`  |
+
+Row type families `Without` and `Lookup` operate on label-parameterized rows:
+
+```
+Without `a { a: Int, b: String }  -- reduces to { b: String }
+Lookup `a { a: Int, b: String }   -- reduces to Int
+```
+
 ### seq
 
 Provided by Core (always available without import) for sequencing when you do not need the intermediate result:

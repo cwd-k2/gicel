@@ -61,6 +61,24 @@ type Effects :: Row := \(mode: AppMode). case mode {
 }
 ```
 
+### Builtin Row Type Families
+
+Three builtin type families operate on capability rows:
+
+| Family    | Signature              | Description                           |
+| --------- | ---------------------- | ------------------------------------- |
+| `Merge`   | `Row -> Row -> Row`    | Disjoint merge of two capability rows |
+| `Without` | `Label -> Row -> Row`  | Remove a label from a capability row  |
+| `Lookup`  | `Label -> Row -> Type` | Extract the type at a label in a row  |
+
+```
+Merge { a: Int } { b: String }         -- { a: Int, b: String }
+Without `a { a: Int, b: String }       -- { b: String }
+Lookup `a { a: Int, b: String }        -- Int
+```
+
+`Without` and `Lookup` require the `Label` kind for their first argument (use backtick label literals: `` `name ``).
+
 ### Reduction
 
 - **Non-recursive** type families reduce in one step per application.

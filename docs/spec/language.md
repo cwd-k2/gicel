@@ -375,6 +375,7 @@ TypeApp   ::= TypeApp TypeAtom
 TypeAtom  ::= TyVar | TyCon
             | '(' Type ')'
             | RowExpr
+            | '`' Label                                    -- label literal
             | 'case' TypeAtom '{' TyAlt (';' TyAlt)* '}'  -- type-level case
 
 TyAlt     ::= TypeApp '=>' TypeCaseBody
@@ -386,7 +387,7 @@ TyBinder  ::= TyVar                          -- kind inferred
 
 Constraint ::= TypeApp                        -- e.g., Eq a, Ord b
 
-Kind      ::= 'Type' | 'Row' | 'Constraint' | 'Kind'
+Kind      ::= 'Type' | 'Row' | 'Constraint' | 'Label' | 'Kind'
             | Kind '->' Kind
             | ConName                          -- promoted DataKinds
             | KindVar
@@ -706,6 +707,7 @@ Built-in operators:
 | `Type`       | Kind of value types                                   |
 | `Row`        | Kind of row descriptors (capabilities, record fields) |
 | `Constraint` | Kind of type class predicates                         |
+| `Label`      | Kind of type-level label literals (`` `name ``)       |
 
 ## 4.2 Kind Arrows
 
