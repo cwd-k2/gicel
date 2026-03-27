@@ -76,7 +76,7 @@ bin/gicel run [flags] <file>.gicel
 bin/gicel check [flags] <file>.gicel
 ```
 
-Shares `--packs`, `--module`, `--recursion`, `-e`, `--json` with `run`.
+Shares `--packs`, `--module`, `--recursion`, `-e`, `--json`, `--timeout` with `run`.
 
 ### docs / example — reference & examples
 

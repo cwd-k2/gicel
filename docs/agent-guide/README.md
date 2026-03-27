@@ -155,7 +155,7 @@ main := 2 + 3
     Packs: []gicel.Pack{gicel.Prelude},
 })
 // result.Value is HostVal{Inner: int64(5)}
-// CLI: use --json to see the result, or --show to print the value
+// CLI: use --json to see the result as structured data
 ```
 
 **Go API (Full lifecycle):**

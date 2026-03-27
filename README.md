@@ -74,7 +74,6 @@ go install github.com/cwd-k2/gicel/cmd/gicel@latest
 gicel run hello.gicel              # compile and execute
 gicel check program.gicel          # type-check only
 gicel run -e 'import Prelude; main := 1 + 2'  # inline eval
-gicel run --show program.gicel     # display result value
 gicel run --explain program.gicel  # semantic evaluation trace
 gicel run --json program.gicel     # structured output for tooling
 gicel example                      # browse built-in examples
@@ -197,6 +196,8 @@ See [`examples/go/`](examples/go/) for full patterns.
 | `DataSlice`   | `Data.Slice`   | O(1) index/length immutable arrays           |
 | `DataMap`     | `Data.Map`     | Immutable ordered map                        |
 | `DataSet`     | `Data.Set`     | Immutable ordered set                        |
+| `EffectRef`   | `Effect.Ref`   | Mutable reference cells                      |
+| `DataJSON`    | `Data.JSON`    | `ToJSON`/`FromJSON` type classes             |
 | `Console`     | `Console`      | `putLine`, `getLine` (CLI-only, real stdio)  |
 
 ## Documentation

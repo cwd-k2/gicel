@@ -53,6 +53,8 @@ result, err := rt.RunWith(ctx, &gicel.RunOptions{Caps: caps, Bindings: bindings}
 | `gicel.DataSet`     | `Data.Set`     | Ordered immutable set                            |
 | `gicel.EffectMap`   | `Effect.Map`   | Mutable ordered maps ({ mmap: () } effect)       |
 | `gicel.EffectSet`   | `Effect.Set`   | Mutable ordered sets ({ mset: () } effect)       |
+| `gicel.EffectRef`   | `Effect.Ref`   | Mutable reference cells ({ ref: () } effect)     |
+| `gicel.DataJSON`    | `Data.JSON`    | ToJSON/FromJSON type classes                     |
 
 ### Custom Primitives (RegisterPrim)
 

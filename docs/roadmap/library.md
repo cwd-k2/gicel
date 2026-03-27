@@ -88,7 +88,7 @@ capability model + `RegisterPrim` は TCB。docs に trust boundary 説明あり
 ### 方向性
 
 - pack naming 三層化（CLI `state` / Go `EffectState` / source `Effect.State`）の統一は大きな変更。docs の対照表で対応中
-- `--packs all` default → 学習には便利だが least-privilege とは緊張。リネーム済み (`--use` → `--packs`) で「制限」の意味を強化
+- `--packs all` default → 学習には便利だが least-privilege とは緊張。`--packs` の命名で「制限」の意味を表現
 
 ## Performance Tracking
 

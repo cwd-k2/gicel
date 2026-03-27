@@ -21,6 +21,9 @@ import (
 	"github.com/cwd-k2/gicel"
 )
 
+// version is the CLI version, set via -ldflags at build time.
+var version = "dev"
+
 func main() {
 	if len(os.Args) < 2 {
 		printUsage()
@@ -38,6 +41,9 @@ func main() {
 		os.Exit(cmdExample(os.Args[2:]))
 	case "help", "-h", "--help":
 		printUsage()
+		os.Exit(0)
+	case "version", "--version":
+		fmt.Println("gicel " + version)
 		os.Exit(0)
 	default:
 		fmt.Fprintf(os.Stderr, "unknown command: %s\n", os.Args[1])
@@ -75,7 +81,94 @@ Flags (run only):
   --no-color       Disable color output`)
 }
 
+func printRunUsage(w io.Writer) {
+	fmt.Fprintln(w, `Usage: gicel run [flags] <file>
+
+Flags:
+  --packs <list>     Stdlib packs (default: all)
+  --module Name=path Register a user module (repeatable)
+  --recursion        Enable recursive definitions (fix/rec)
+  -e <source>        Evaluate source string directly
+  --entry <name>     Entry point binding (default: main)
+  --timeout <dur>    Execution timeout (default: 5s)
+  --max-steps <n>    Step limit (default: 100000)
+  --max-depth <n>    Depth limit (default: 10000)
+  --max-nesting <n>  Structural nesting depth limit (default: 512)
+  --max-alloc <n>    Allocation byte limit (default: 100 MiB)
+  --json             Output result as JSON
+  --explain          Show semantic evaluation trace
+  --explain-all      Trace stdlib internals (with --explain)
+  --verbose          Show source context in explain trace
+  --no-color         Disable color output`)
+}
+
+func printCheckUsage(w io.Writer) {
+	fmt.Fprintln(w, `Usage: gicel check [flags] <file>
+
+Flags:
+  --packs <list>     Stdlib packs (default: all)
+  --module Name=path Register a user module (repeatable)
+  --recursion        Enable recursive definitions (fix/rec)
+  -e <source>        Evaluate source string directly
+  --json             Output as JSON
+  --timeout <dur>    Compilation timeout (default: 5s)`)
+}
+
+func printDocsUsage(w io.Writer) {
+	fmt.Fprintln(w, `Usage: gicel docs [topic]
+
+List available documentation topics, or show a specific topic.`)
+}
+
+func printExampleUsage(w io.Writer) {
+	fmt.Fprintln(w, `Usage: gicel example [name]
+
+List available examples, or show example source.`)
+}
+
+// normalizeFlagError rewrites Go flag error messages to use -- prefix for
+// multi-character flags, preserving single-character flags as -e style.
+func normalizeFlagError(msg string) string {
+	// "flag provided but not defined: -xyz" → "unknown flag: --xyz"
+	if rest, ok := strings.CutPrefix(msg, "flag provided but not defined: -"); ok {
+		rest = strings.TrimPrefix(rest, "-") // handle ---xyz edge case
+		if len(rest) > 1 {
+			return "unknown flag: --" + rest
+		}
+		return "unknown flag: -" + rest
+	}
+	// "invalid value ... for flag -xyz" → "invalid value ... for flag --xyz"
+	if i := strings.Index(msg, " for flag -"); i >= 0 {
+		after := msg[i+len(" for flag -"):]
+		after = strings.TrimPrefix(after, "-")
+		if len(after) > 1 {
+			return msg[:i] + " for flag --" + after
+		}
+	}
+	return msg
+}
+
+func isHelpFlag(s string) bool {
+	return s == "--help" || s == "-h" || s == "-help" || s == "help"
+}
+
+// warnTrailingFlags warns about flag-like arguments after the positional filename.
+func warnTrailingFlags(fs *flag.FlagSet) {
+	if fs.NArg() <= 1 {
+		return
+	}
+	for _, a := range fs.Args()[1:] {
+		if strings.HasPrefix(a, "-") {
+			fmt.Fprintf(os.Stderr, "warning: %q after filename is ignored; place flags before the filename\n", a)
+		}
+	}
+}
+
 func cmdDocs(args []string) int {
+	if len(args) > 0 && isHelpFlag(args[0]) {
+		printDocsUsage(os.Stderr)
+		return 0
+	}
 	if len(args) == 0 {
 		topics := gicel.DocTopics()
 		if len(topics) == 0 {
@@ -132,6 +225,10 @@ func cmdDocs(args []string) int {
 }
 
 func cmdExample(args []string) int {
+	if len(args) > 0 && isHelpFlag(args[0]) {
+		printExampleUsage(os.Stderr)
+		return 0
+	}
 	if len(args) == 0 {
 		examples := gicel.Examples()
 		if len(examples) == 0 {
@@ -221,9 +318,38 @@ var packMap = map[string]gicel.Pack{
 // allPackOrder ensures deterministic pack loading.
 var allPackOrder = []string{"prelude", "fail", "state", "io", "stream", "slice", "map", "set", "array", "ref", "mmap", "mset", "json", "console"}
 
-func setupEngine(use string) (*gicel.Engine, error) {
+func setupEngine(packs string) (*gicel.Engine, error) {
 	eng := gicel.NewEngine()
-	for name := range strings.SplitSeq(strings.ToLower(use), ",") {
+
+	// Pre-validate pack names and dependencies.
+	names := strings.Split(strings.ToLower(packs), ",")
+	hasAll, hasPrelude := false, false
+	for _, n := range names {
+		n = strings.TrimSpace(n)
+		if n == "" {
+			continue
+		}
+		if n == "all" {
+			hasAll = true
+			continue
+		}
+		if _, ok := packMap[n]; !ok {
+			return nil, fmt.Errorf("unknown pack: %s (available: prelude,fail,state,io,stream,slice,map,set,array,ref,mmap,mset,json,console)", n)
+		}
+		if n == "prelude" {
+			hasPrelude = true
+		}
+	}
+	if !hasAll && !hasPrelude {
+		for _, n := range names {
+			n = strings.TrimSpace(n)
+			if n != "" && n != "prelude" {
+				return nil, fmt.Errorf("pack %q requires prelude; use --packs prelude,%s or --packs all", n, packs)
+			}
+		}
+	}
+
+	for name := range strings.SplitSeq(strings.ToLower(packs), ",") {
 		name = strings.TrimSpace(name)
 		if name == "" {
 			continue
@@ -351,13 +477,13 @@ func registerUserModules(eng *gicel.Engine, modules []string, budget *sourceBudg
 }
 
 // prepareEngine loads source and configures the engine with common flags.
-func prepareEngine(fs *flag.FlagSet, use string, recursion bool, expr string, modules []string) ([]byte, *gicel.Engine, error) {
+func prepareEngine(fs *flag.FlagSet, packs string, recursion bool, expr string, modules []string) ([]byte, *gicel.Engine, error) {
 	budget := &sourceBudget{}
 	source, err := readSource(fs, expr, budget)
 	if err != nil {
 		return nil, nil, err
 	}
-	eng, err := setupEngine(use)
+	eng, err := setupEngine(packs)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -397,8 +523,9 @@ func isUnitValue(v gicel.Value) bool {
 func cmdRun(args []string) int {
 	defer flushConsole()
 	fs := flag.NewFlagSet("run", flag.ContinueOnError)
+	fs.SetOutput(io.Discard)
+	fs.Usage = func() {}
 	packs := fs.String("packs", "all", "comma-separated stdlib packs")
-	fs.StringVar(packs, "use", "all", "alias for --packs")
 	recursion := fs.Bool("recursion", false, "enable recursive definitions (fix/rec)")
 	var modules moduleFlags
 	fs.Var(&modules, "module", "register module: Name=path (repeatable)")
@@ -409,7 +536,6 @@ func cmdRun(args []string) int {
 	maxNesting := fs.Int("max-nesting", 512, "structural nesting depth limit")
 	maxAlloc := fs.Int64("max-alloc", 100*1024*1024, "allocation byte limit (default: 100 MiB)")
 	jsonOut := fs.Bool("json", false, "output as JSON")
-	_ = fs.Bool("show", false, "display result value on stdout (default; kept for compatibility)")
 	explain := fs.Bool("explain", false, "show semantic evaluation trace")
 	verbose := fs.Bool("verbose", false, "show source context in explain trace")
 	noColor := fs.Bool("no-color", false, "disable color output")
@@ -417,8 +543,15 @@ func cmdRun(args []string) int {
 	fs.Var(&expr, "e", "evaluate source string directly")
 	explainAll := fs.Bool("explain-all", false, "trace stdlib internals (with --explain)")
 	if err := fs.Parse(args); err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			printRunUsage(os.Stderr)
+			return 0
+		}
+		fmt.Fprintf(os.Stderr, "error: %s\n", normalizeFlagError(err.Error()))
+		printRunUsage(os.Stderr)
 		return 1
 	}
+	warnTrailingFlags(fs)
 	if expr.count > 1 {
 		fmt.Fprintf(os.Stderr, "warning: -e specified %d times; using last value\n", expr.count)
 	}
@@ -559,8 +692,9 @@ func cmdRun(args []string) int {
 
 func cmdCheck(args []string) int {
 	fs := flag.NewFlagSet("check", flag.ContinueOnError)
+	fs.SetOutput(io.Discard)
+	fs.Usage = func() {}
 	packs := fs.String("packs", "all", "comma-separated stdlib packs")
-	fs.StringVar(packs, "use", "all", "alias for --packs")
 	recursion := fs.Bool("recursion", false, "enable recursive definitions (fix/rec)")
 	var modules moduleFlags
 	fs.Var(&modules, "module", "register module: Name=path (repeatable)")
@@ -569,8 +703,15 @@ func cmdCheck(args []string) int {
 	fs.Var(&expr, "e", "evaluate source string directly")
 	timeout := fs.Duration("timeout", 5*time.Second, "compilation timeout")
 	if err := fs.Parse(args); err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			printCheckUsage(os.Stderr)
+			return 0
+		}
+		fmt.Fprintf(os.Stderr, "error: %s\n", normalizeFlagError(err.Error()))
+		printCheckUsage(os.Stderr)
 		return 1
 	}
+	warnTrailingFlags(fs)
 	if expr.count > 1 {
 		fmt.Fprintf(os.Stderr, "warning: -e specified %d times; using last value\n", expr.count)
 	}
@@ -604,6 +745,3 @@ func cmdCheck(args []string) int {
 	}
 	return 0
 }
-
-// compileErrorJSON produces structured JSON from a compile error.
-// If the error is a *gicel.CompileError, diagnostics are included.

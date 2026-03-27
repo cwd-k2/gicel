@@ -62,22 +62,22 @@ echo ""
 echo "Normal operation:"
 
 expect_output "arithmetic" "7" \
-  "$GICEL" run --show -e 'import Prelude; main := 1 + 2 * 3'
+  "$GICEL" run -e 'import Prelude; main := 1 + 2 * 3'
 
 expect_output "string concat" '"42!"' \
-  "$GICEL" run --show -e 'import Prelude; main := show 42 <> "!"'
+  "$GICEL" run -e 'import Prelude; main := show 42 <> "!"'
 
 expect_output "type check" "ok" \
   "$GICEL" check -e 'import Prelude; main := 1 + 2'
 
 expect_output "custom entry" "99" \
-  "$GICEL" run --show --entry myMain -e 'import Prelude; myMain := 99'
+  "$GICEL" run --entry myMain -e 'import Prelude; myMain := 99'
 
 expect_output "JSON output" '"ok": true' \
   "$GICEL" run --json -e 'import Prelude; main := 42'
 
 expect_output "type family reduction" "MkProxy" \
-  "$GICEL" run --show -e '
+  "$GICEL" run -e '
 import Prelude
 form Bool2 := True2 | False2
 type Not :: Bool2 := \(b: Bool2). case b { True2 => False2; False2 => True2 }
@@ -88,31 +88,31 @@ main := f MkProxy
 '
 
 expect_output "stateful computation" "11" \
-  "$GICEL" run --show -e '
+  "$GICEL" run -e '
 import Prelude
 import Effect.State
 main := do { put 10; x <- get; pure (x + 1) }
 '
 
 expect_output "recursion" "120" \
-  "$GICEL" run --show --recursion -e '
+  "$GICEL" run --recursion -e '
 import Prelude
 f := fix (\self n. case n { 0 => 1; _ => n * self (n - 1) })
 main := f 5
 '
 
 expect_output "stdin" "42" \
-  bash -c 'echo "import Prelude; main := 7 * 6" | '"$GICEL"' run --show -'
+  bash -c 'echo "import Prelude; main := 7 * 6" | '"$GICEL"' run -'
 
 expect_output "multi-module" '(3, "red", 6)' \
-  "$GICEL" run --show \
+  "$GICEL" run \
     --module Geometry=examples/cli/multi-module/Geometry.gicel \
     --module Color=examples/cli/multi-module/Color.gicel \
     --module MathLib=examples/cli/multi-module/MathLib.gicel \
     examples/cli/multi-module/main.gicel
 
 expect_ok "explain trace" \
-  "$GICEL" run --show --explain -e 'import Prelude; main := 1 + 2'
+  "$GICEL" run --explain -e 'import Prelude; main := 1 + 2'
 
 expect_ok "docs index" \
   "$GICEL" docs
@@ -132,10 +132,10 @@ echo ""
 echo "Error handling:"
 
 expect_fail "empty program" \
-  "$GICEL" run --show -e ''
+  "$GICEL" run -e ''
 
 expect_error_contains "no main" "not found" \
-  "$GICEL" run --show -e 'import Prelude; x := 42'
+  "$GICEL" run -e 'import Prelude; x := 42'
 
 expect_error_contains "type error" "type mismatch" \
   "$GICEL" check -e 'import Prelude; main := "hello" + 1'
@@ -147,7 +147,7 @@ expect_error_contains "missing file" "no such file" \
   "$GICEL" run --module Foo=nonexistent.gicel -e 'main := 1'
 
 expect_error_contains "fix without recursion" "unbound variable" \
-  "$GICEL" run --show -e 'import Prelude; f := fix (\self n. n); main := f 1'
+  "$GICEL" run -e 'import Prelude; f := fix (\self n. n); main := f 1'
 
 expect_error_contains "non-exhaustive" "missing" \
   "$GICEL" check -e '
@@ -211,31 +211,31 @@ echo ""
 echo "List patterns & pretty print:"
 
 expect_output "list pattern [x, y]" "7" \
-  "$GICEL" run --show -e 'import Prelude; f := \xs. case xs { [x, y] => x + y; _ => 0 }; main := f [3, 4]'
+  "$GICEL" run -e 'import Prelude; f := \xs. case xs { [x, y] => x + y; _ => 0 }; main := f [3, 4]'
 
 expect_output "list pattern []" '"empty"' \
-  "$GICEL" run --show -e 'import Prelude; f := \xs. case xs { [] => "empty"; _ => "other" }; main := f ([] :: List Int)'
+  "$GICEL" run -e 'import Prelude; f := \xs. case xs { [] => "empty"; _ => "other" }; main := f ([] :: List Int)'
 
 expect_output "list pattern nested" '"match"' \
-  "$GICEL" run --show -e 'import Prelude; f := \xs. case xs { [[1], [2, 3]] => "match"; _ => "no" }; main := f [[1], [2, 3]]'
+  "$GICEL" run -e 'import Prelude; f := \xs. case xs { [[1], [2, 3]] => "match"; _ => "no" }; main := f [[1], [2, 3]]'
 
 expect_output "list pattern with constructor" "99" \
-  "$GICEL" run --show -e 'import Prelude; f := \xs. case xs { [Just x, Nothing] => x; _ => 0 }; main := f [Just 99, Nothing]'
+  "$GICEL" run -e 'import Prelude; f := \xs. case xs { [Just x, Nothing] => x; _ => 0 }; main := f [Just 99, Nothing]'
 
 expect_output "list pattern literal" '"yes"' \
-  "$GICEL" run --show -e 'import Prelude; f := \xs. case xs { [1, 2, 3] => "yes"; _ => "no" }; main := f [1, 2, 3]'
+  "$GICEL" run -e 'import Prelude; f := \xs. case xs { [1, 2, 3] => "yes"; _ => "no" }; main := f [1, 2, 3]'
 
 expect_output "mixing Cons and []" "42" \
-  "$GICEL" run --show -e 'import Prelude; f := \xs. case xs { Cons x [] => x; _ => 0 }; main := f [42]'
+  "$GICEL" run -e 'import Prelude; f := \xs. case xs { Cons x [] => x; _ => 0 }; main := f [42]'
 
 expect_output "pretty list" "[1, 2, 3]" \
-  "$GICEL" run --show -e 'import Prelude; main := [1, 2, 3]'
+  "$GICEL" run -e 'import Prelude; main := [1, 2, 3]'
 
 expect_output "pretty nested list" "[[1, 2], [3]]" \
-  "$GICEL" run --show -e 'import Prelude; main := [[1, 2], [3]]'
+  "$GICEL" run -e 'import Prelude; main := [[1, 2], [3]]'
 
 expect_output "pretty empty list" "[]" \
-  "$GICEL" run --show -e 'import Prelude; main := ([] :: List Int)'
+  "$GICEL" run -e 'import Prelude; main := ([] :: List Int)'
 
 expect_output "JSON list array" '"value": [' \
   "$GICEL" run --json -e 'import Prelude; main := [1, 2, 3]'
@@ -311,29 +311,29 @@ expect_ok "1000 semicolons" \
   "$GICEL" check -e "$(printf ';%.0s' $(seq 1 1000))"
 
 expect_ok "semicolons around decls" \
-  "$GICEL" run --show -e ';;;import Prelude;;;;main := 1 + 2;;;;'
+  "$GICEL" run -e ';;;import Prelude;;;;main := 1 + 2;;;;'
 
 echo ""
 
-# === New Features (v0.17) ===
+# === Features ===
 
 expect_output "if-then-else basic" "42" \
-  "$GICEL" run --show -e 'import Prelude; main := if True then 42 else 0'
+  "$GICEL" run -e 'import Prelude; main := if True then 42 else 0'
 
 expect_output "if-then-else with variable" "1" \
-  "$GICEL" run --show -e 'import Prelude; x := True; main := if x then 1 else 2'
+  "$GICEL" run -e 'import Prelude; x := True; main := if x then 1 else 2'
 
 expect_output "pattern binding in block" "30" \
-  "$GICEL" run --show -e 'import Prelude; main := { (a, b) := (10, 20); a + b }'
+  "$GICEL" run -e 'import Prelude; main := { (a, b) := (10, 20); a + b }'
 
 expect_output "pattern binding in do" "7" \
-  "$GICEL" run --show -e 'import Prelude; main := do { (x, y) <- pure (3, 4); pure (x + y) }'
+  "$GICEL" run -e 'import Prelude; main := do { (x, y) <- pure (3, 4); pure (x + y) }'
 
 expect_output "mmap pack loads" "2" \
-  "$GICEL" run --show --packs prelude,mmap -e 'import Prelude; import Effect.Map as MM; main := do { m <- MM.new; MM.insert 1 "a" m; MM.insert 2 "b" m; MM.size m }'
+  "$GICEL" run --packs prelude,mmap -e 'import Prelude; import Effect.Map as MM; main := do { m <- MM.new; MM.insert 1 "a" m; MM.insert 2 "b" m; MM.size m }'
 
 expect_output "mset pack loads" "3" \
-  "$GICEL" run --show --packs prelude,mset -e 'import Prelude; import Effect.Set as MS; main := do { s <- MS.new; MS.insert 1 s; MS.insert 2 s; MS.insert 3 s; MS.size s }'
+  "$GICEL" run --packs prelude,mset -e 'import Prelude; import Effect.Set as MS; main := do { s <- MS.new; MS.insert 1 s; MS.insert 2 s; MS.insert 3 s; MS.size s }'
 
 expect_output "Bool JSON output" '"value": true' \
   "$GICEL" run --json -e 'import Prelude; main := True'
@@ -342,7 +342,7 @@ expect_error_contains "module name validation error" "must start with an upperca
   "$GICEL" run --module "bad=file.gicel" -e 'main := 1'
 
 expect_output "seq combinator" "42" \
-  "$GICEL" run --show -e 'import Prelude; main := do { seq (pure 1) (pure 42) }'
+  "$GICEL" run -e 'import Prelude; main := do { seq (pure 1) (pure 42) }'
 
 # --- Equality constraints ---
 expect_ok "equality constraint (a ~ Int)" \
@@ -372,6 +372,38 @@ expect_ok "kind cumulativity: KData ≤ Kind" \
 # --- User-defined grade algebra ---
 expect_ok "user-defined grade algebra (Level)" \
   "$GICEL" check --packs prelude -e 'import Prelude; form Level := { Public: Level; Secret: Level }; type LevelJoin :: Level -> Level -> Level := \(a: Level) (b: Level). case (a, b) { (Secret, _) => Secret; (_, Secret) => Secret; (x, _) => x }; impl GradeAlgebra Level := { type GradeJoin := LevelJoin; type GradeDrop := Public }; main := 42'
+
+echo ""
+
+# === CLI UX ===
+echo "CLI UX:"
+
+expect_ok "run --help exits 0" \
+  "$GICEL" run --help
+
+expect_ok "check --help exits 0" \
+  "$GICEL" check --help
+
+expect_ok "docs --help exits 0" \
+  "$GICEL" docs --help
+
+expect_ok "example --help exits 0" \
+  "$GICEL" example --help
+
+expect_output "version output" "gicel" \
+  "$GICEL" version
+
+expect_output "--version flag" "gicel" \
+  "$GICEL" --version
+
+expect_error_contains "unknown flag shows --" "unknown flag:" \
+  "$GICEL" run --bad-flag
+
+expect_error_contains "pack without prelude" "requires prelude" \
+  "$GICEL" run --packs fail -e 'main := 1'
+
+expect_output "trailing flag warns" "warning" \
+  bash -c 'echo "main := ()" | '"$GICEL"' run - --json 2>&1'
 
 echo ""
 
