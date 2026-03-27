@@ -100,7 +100,7 @@ type RecordVal = eval.RecordVal
 // RecordField is a single field in a record value.
 type RecordField = eval.RecordField
 
-// NewRecord creates a RecordVal from fields (must be label-sorted).
+// NewRecord creates a RecordVal from fields (sorts by label).
 var NewRecord = eval.NewRecord
 
 // NewRecordFromMap creates a RecordVal from a map (sorts labels).
