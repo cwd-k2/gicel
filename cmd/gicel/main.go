@@ -323,12 +323,13 @@ func setupEngine(packs string) (*gicel.Engine, error) {
 
 	// Pre-validate pack names and dependencies.
 	names := strings.Split(strings.ToLower(packs), ",")
-	hasAll, hasPrelude := false, false
+	hasAll, hasPrelude, hasAny := false, false, false
 	for _, n := range names {
 		n = strings.TrimSpace(n)
 		if n == "" {
 			continue
 		}
+		hasAny = true
 		if n == "all" {
 			hasAll = true
 			continue
@@ -339,6 +340,9 @@ func setupEngine(packs string) (*gicel.Engine, error) {
 		if n == "prelude" {
 			hasPrelude = true
 		}
+	}
+	if !hasAny {
+		return nil, fmt.Errorf("no packs specified; use --packs prelude or --packs all")
 	}
 	if !hasAll && !hasPrelude {
 		for _, n := range names {
@@ -362,10 +366,7 @@ func setupEngine(packs string) (*gicel.Engine, error) {
 			}
 			return eng, nil
 		}
-		p, ok := packMap[name]
-		if !ok {
-			return nil, fmt.Errorf("unknown pack: %s (available: prelude,fail,state,io,stream,slice,map,set,array,ref,mmap,mset,json,console)", name)
-		}
+		p := packMap[name] // pre-validated above
 		if err := p(eng); err != nil {
 			return nil, err
 		}
