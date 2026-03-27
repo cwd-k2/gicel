@@ -2,6 +2,7 @@ package check
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/cwd-k2/gicel/internal/compiler/check/solve"
 	"github.com/cwd-k2/gicel/internal/infra/diagnostic"
@@ -56,7 +57,11 @@ func (ch *Checker) lookupVar(e *syntax.ExprVar) (types.Type, ir.Core, bool) {
 		if gatedBuiltins[e.Name] {
 			msg += " (requires --recursion flag)"
 		}
-		ch.addCodedError(diagnostic.ErrUnboundVar, e.S, msg)
+		if hints := ch.suggestVar(e.Name); len(hints) > 0 {
+			ch.addCodedErrorWithHints(diagnostic.ErrUnboundVar, e.S, msg, hints)
+		} else {
+			ch.addCodedError(diagnostic.ErrUnboundVar, e.S, msg)
+		}
 		return &types.TyError{S: e.S}, &ir.Var{Name: e.Name, S: e.S}, false
 	}
 	return ty, &ir.Var{Name: e.Name, Module: mod, S: e.S}, true
@@ -69,7 +74,12 @@ func (ch *Checker) lookupCon(e *syntax.ExprCon) (types.Type, ir.Core, bool) {
 	}
 	ty, ok := ch.reg.LookupConType(e.Name)
 	if !ok {
-		ch.addCodedError(diagnostic.ErrUnboundCon, e.S, fmt.Sprintf("unknown constructor: %s", e.Name))
+		msg := fmt.Sprintf("unknown constructor: %s", e.Name)
+		if hints := ch.suggestCon(e.Name); len(hints) > 0 {
+			ch.addCodedErrorWithHints(diagnostic.ErrUnboundCon, e.S, msg, hints)
+		} else {
+			ch.addCodedError(diagnostic.ErrUnboundCon, e.S, msg)
+		}
 		return &types.TyError{S: e.S}, &ir.Con{Name: e.Name, S: e.S}, false
 	}
 	mod, _ := ch.reg.LookupConModule(e.Name)
@@ -211,4 +221,40 @@ func (ch *Checker) inferList(e *syntax.ExprList) (types.Type, ir.Core) {
 	}
 
 	return ch.unifier.Zonk(listTy), result
+}
+
+// suggestVar returns hint(s) for an unbound variable by searching the context
+// for similar names.
+func (ch *Checker) suggestVar(name string) []diagnostic.Hint {
+	seen := make(map[string]bool)
+	var candidates []string
+	ch.ctx.Scan(func(entry CtxEntry) bool {
+		if v, ok := entry.(*CtxVar); ok && !seen[v.Name] && v.Name != "" && v.Name[0] != '$' {
+			seen[v.Name] = true
+			candidates = append(candidates, v.Name)
+		}
+		return true
+	})
+	return suggestHints(name, candidates)
+}
+
+// suggestCon returns hint(s) for an unknown constructor by searching the registry.
+func (ch *Checker) suggestCon(name string) []diagnostic.Hint {
+	var candidates []string
+	for c := range ch.reg.AllConTypes() {
+		candidates = append(candidates, c)
+	}
+	return suggestHints(name, candidates)
+}
+
+func suggestHints(name string, candidates []string) []diagnostic.Hint {
+	matches := diagnostic.Suggest(name, candidates, 2, 3)
+	if len(matches) == 0 {
+		return nil
+	}
+	quoted := make([]string, len(matches))
+	for i, m := range matches {
+		quoted[i] = "'" + m + "'"
+	}
+	return []diagnostic.Hint{{Message: "did you mean " + strings.Join(quoted, ", ") + "?"}}
 }
