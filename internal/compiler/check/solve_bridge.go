@@ -138,6 +138,15 @@ func (ch *Checker) substitutePlaceholders(expr ir.Core, resolutions map[string]i
 	return solve.SubstitutePlaceholders(expr, resolutions)
 }
 
+// enterSolverScope enters a new solver scope for implication/local constraints.
+func (ch *Checker) enterSolverScope() { ch.solver.EnterScope() }
+
+// exitSolverScope exits the current solver scope.
+func (ch *Checker) exitSolverScope() { ch.solver.ExitScope() }
+
+// registerStuckFunEq registers a stuck type family equation in the inert set.
+func (ch *Checker) registerStuckFunEq(ct *solve.CtFunEq) { ch.solver.RegisterStuckFunEq(ct) }
+
 // sliceHasMeta returns true if any type in the slice contains an unsolved TyMeta.
 func sliceHasMeta(tys []types.Type) bool {
 	return solve.SliceHasMeta(tys)

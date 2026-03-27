@@ -204,7 +204,7 @@ func (ch *Checker) registerStuckViaInert(name string, args []types.Type, resultK
 		BlockingOn: blocking,
 		S:          s,
 	}
-	ch.solver.RegisterStuckFunEq(ct)
+	ch.registerStuckFunEq(ct)
 	return resultMeta
 }
 

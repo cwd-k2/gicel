@@ -277,13 +277,13 @@ func (ch *Checker) check(expr syntax.Expr, expected types.Type) ir.Core {
 			bodyCore := ch.check(expr, body)
 			return &ir.TyLam{TyParam: f.Var, Kind: f.Kind, Body: bodyCore, S: expr.Span()}
 		}
-		ch.solver.EnterScope()
+		ch.enterSolverScope()
 		preID := ch.freshID // belt-and-suspenders scope boundary
 		skolem := ch.freshSkolem(f.Var, f.Kind)
 		ch.ctx.Push(&CtxTyVar{Name: f.Var, Kind: f.Kind})
 		bodyCore := ch.check(expr, types.Subst(f.Body, f.Var, skolem))
 		ch.ctx.Pop()
-		ch.solver.ExitScope()
+		ch.exitSolverScope()
 		// Belt-and-suspenders: verify skolem didn't leak into outer solutions.
 		// Touchability (when enabled) prevents this structurally; this check
 		// detects level-system bugs.

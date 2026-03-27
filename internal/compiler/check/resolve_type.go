@@ -3,7 +3,6 @@ package check
 import (
 	"fmt"
 
-	"github.com/cwd-k2/gicel/internal/compiler/check/solve"
 	"github.com/cwd-k2/gicel/internal/infra/diagnostic"
 	"github.com/cwd-k2/gicel/internal/infra/span"
 	"github.com/cwd-k2/gicel/internal/lang/syntax"
@@ -178,7 +177,7 @@ func (ch *Checker) resolveTypeExpr(texpr syntax.TypeExpr) types.Type {
 		rhs := ch.resolveTypeExpr(t.Rhs)
 		// Emit immediately — this handles edge cases where ~ appears
 		// outside constraint position (e.g. in standalone type expressions).
-		ch.solver.Emit(&solve.CtEq{Lhs: lhs, Rhs: rhs, S: t.S})
+		ch.emitEq(lhs, rhs, t.S, nil)
 		return types.Con("()")
 	case *syntax.TyExprParen:
 		return ch.resolveTypeExpr(t.Inner)

@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/cwd-k2/gicel/internal/compiler/check/solve"
 	"github.com/cwd-k2/gicel/internal/infra/diagnostic"
 	"github.com/cwd-k2/gicel/internal/infra/span"
 	"github.com/cwd-k2/gicel/internal/lang/ir"
@@ -169,7 +168,7 @@ func (ch *Checker) instantiate(ty types.Type, expr ir.Core) (types.Type, ir.Core
 		if ev, ok := ty.(*types.TyEvidence); ok {
 			for _, entry := range ev.Constraints.ConEntries() {
 				if entry.IsEquality {
-					ch.solver.Emit(&solve.CtEq{Lhs: entry.EqLhs, Rhs: entry.EqRhs, S: entry.S})
+					ch.emitEq(entry.EqLhs, entry.EqRhs, entry.S, nil)
 					continue
 				}
 				placeholder := fmt.Sprintf("%s_%d", prefixDictDefer, ch.fresh())

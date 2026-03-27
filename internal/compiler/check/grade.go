@@ -220,7 +220,7 @@ func (ch *Checker) emitGradePreserveConstraint(grade types.Type, gradeKind types
 		},
 		S: s,
 	}
-	ch.solver.RegisterStuckFunEq(ct)
+	ch.registerStuckFunEq(ct)
 
 	// When the family reduces, resultMeta will be unified with Join(Zero, grade).
 	// Unify resultMeta ~ grade so that preservation is enforced: the result

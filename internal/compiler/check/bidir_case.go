@@ -161,7 +161,7 @@ func (ch *Checker) joinGrades(result *types.RowField, other []types.Type, s span
 					BlockingOn: blocking,
 					S:          s,
 				}
-				ch.solver.RegisterStuckFunEq(ct)
+				ch.registerStuckFunEq(ct)
 				result.Grades[i] = resultMeta
 				continue
 			}
