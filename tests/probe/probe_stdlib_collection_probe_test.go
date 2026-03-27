@@ -153,9 +153,9 @@ main := do {
 	if !ok {
 		t.Fatalf("expected RecordVal, got %T: %v", v, v)
 	}
-	pdAssertInt(t, rec.Fields["_1"], 2)
-	pdAssertCon(t, rec.Fields["_2"], "Just")
-	pdAssertCon(t, rec.Fields["_3"], "Just")
+	pdAssertInt(t, rec.MustGet("_1"), 2)
+	pdAssertCon(t, rec.MustGet("_2"), "Just")
+	pdAssertCon(t, rec.MustGet("_3"), "Just")
 }
 
 func TestProbeE_MMapDeleteAndMember(t *testing.T) {
@@ -180,9 +180,9 @@ main := do {
 	if !ok {
 		t.Fatalf("expected RecordVal, got %T: %v", v, v)
 	}
-	pdAssertCon(t, rec.Fields["_1"], "True")
-	pdAssertCon(t, rec.Fields["_2"], "False")
-	pdAssertInt(t, rec.Fields["_3"], 1)
+	pdAssertCon(t, rec.MustGet("_1"), "True")
+	pdAssertCon(t, rec.MustGet("_2"), "False")
+	pdAssertInt(t, rec.MustGet("_3"), 1)
 }
 
 func TestProbeE_MMapFromListToList(t *testing.T) {
@@ -203,8 +203,8 @@ main := do {
 	if !ok {
 		t.Fatalf("expected RecordVal, got %T: %v", v, v)
 	}
-	pdAssertInt(t, rec.Fields["_1"], 3)
-	pdAssertInt(t, rec.Fields["_2"], 3)
+	pdAssertInt(t, rec.MustGet("_1"), 3)
+	pdAssertInt(t, rec.MustGet("_2"), 3)
 }
 
 func TestProbeE_MMapAdjust(t *testing.T) {
@@ -255,9 +255,9 @@ main := do {
 	if !ok {
 		t.Fatalf("expected RecordVal, got %T: %v", v, v)
 	}
-	pdAssertInt(t, rec.Fields["_1"], 3) // duplicate insert collapsed
-	pdAssertCon(t, rec.Fields["_2"], "True")
-	pdAssertCon(t, rec.Fields["_3"], "False")
+	pdAssertInt(t, rec.MustGet("_1"), 3) // duplicate insert collapsed
+	pdAssertCon(t, rec.MustGet("_2"), "True")
+	pdAssertCon(t, rec.MustGet("_3"), "False")
 }
 
 func TestProbeE_MSetDeleteAndSize(t *testing.T) {
@@ -282,8 +282,8 @@ main := do {
 	if !ok {
 		t.Fatalf("expected RecordVal, got %T: %v", v, v)
 	}
-	pdAssertCon(t, rec.Fields["_1"], "False")
-	pdAssertInt(t, rec.Fields["_2"], 2)
+	pdAssertCon(t, rec.MustGet("_1"), "False")
+	pdAssertInt(t, rec.MustGet("_2"), 2)
 }
 
 func TestProbeE_MSetFromListToList(t *testing.T) {
@@ -304,8 +304,8 @@ main := do {
 	if !ok {
 		t.Fatalf("expected RecordVal, got %T: %v", v, v)
 	}
-	pdAssertInt(t, rec.Fields["_1"], 3) // duplicate 3 collapsed
-	pdAssertInt(t, rec.Fields["_2"], 3)
+	pdAssertInt(t, rec.MustGet("_1"), 3) // duplicate 3 collapsed
+	pdAssertInt(t, rec.MustGet("_2"), 3)
 }
 
 // ===================================================================
@@ -359,9 +359,9 @@ main := do {
 		{"_2", 20},
 		{"_3", 30},
 	} {
-		con, ok := rec.Fields[field.name].(*gicel.ConVal)
+		con, ok := rec.MustGet(field.name).(*gicel.ConVal)
 		if !ok || con.Con != "Just" {
-			t.Fatalf("expected Just for %s, got %v", field.name, rec.Fields[field.name])
+			t.Fatalf("expected Just for %s, got %v", field.name, rec.MustGet(field.name))
 		}
 		pdAssertInt(t, con.Args[0], field.val)
 	}
@@ -388,8 +388,8 @@ main := do {
 	if !ok {
 		t.Fatalf("expected RecordVal, got %T: %v", v, v)
 	}
-	pdAssertInt(t, rec.Fields["_1"], 3)
-	pdAssertInt(t, rec.Fields["_2"], 3)
+	pdAssertInt(t, rec.MustGet("_1"), 3)
+	pdAssertInt(t, rec.MustGet("_2"), 3)
 }
 
 func TestProbeE_ArrayResize(t *testing.T) {
@@ -414,17 +414,17 @@ main := do {
 	if !ok {
 		t.Fatalf("expected RecordVal, got %T: %v", v, v)
 	}
-	pdAssertInt(t, rec.Fields["_1"], 4)
+	pdAssertInt(t, rec.MustGet("_1"), 4)
 	// Original element at index 0 preserved.
-	con0, ok := rec.Fields["_2"].(*gicel.ConVal)
+	con0, ok := rec.MustGet("_2").(*gicel.ConVal)
 	if !ok || con0.Con != "Just" {
-		t.Fatalf("expected Just for _2, got %v", rec.Fields["_2"])
+		t.Fatalf("expected Just for _2, got %v", rec.MustGet("_2"))
 	}
 	pdAssertInt(t, con0.Args[0], 42)
 	// New element at index 3 should be the fill value 0.
-	con3, ok := rec.Fields["_3"].(*gicel.ConVal)
+	con3, ok := rec.MustGet("_3").(*gicel.ConVal)
 	if !ok || con3.Con != "Just" {
-		t.Fatalf("expected Just for _3, got %v", rec.Fields["_3"])
+		t.Fatalf("expected Just for _3, got %v", rec.MustGet("_3"))
 	}
 	pdAssertInt(t, con3.Args[0], 0)
 }
@@ -463,8 +463,8 @@ main := (length (keys m), length (values m))
 	if !ok {
 		t.Fatalf("expected RecordVal, got %T: %v", v, v)
 	}
-	pdAssertInt(t, rec.Fields["_1"], 3)
-	pdAssertInt(t, rec.Fields["_2"], 3)
+	pdAssertInt(t, rec.MustGet("_1"), 3)
+	pdAssertInt(t, rec.MustGet("_2"), 3)
 }
 
 func TestProbeE_MapMapValues(t *testing.T) {
@@ -490,9 +490,9 @@ main := (lookup 1 m2, lookup 2 m2)
 		{"_1", 20},
 		{"_2", 40},
 	} {
-		con, ok := rec.Fields[field.name].(*gicel.ConVal)
+		con, ok := rec.MustGet(field.name).(*gicel.ConVal)
 		if !ok || con.Con != "Just" {
-			t.Fatalf("expected Just for %s, got %v", field.name, rec.Fields[field.name])
+			t.Fatalf("expected Just for %s, got %v", field.name, rec.MustGet(field.name))
 		}
 		pdAssertInt(t, con.Args[0], field.val)
 	}

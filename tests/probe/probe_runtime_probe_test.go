@@ -24,7 +24,7 @@ func TestProbeC_Edge_EntryReturnsUnit(t *testing.T) {
 		t.Fatal(err)
 	}
 	rv, ok := result.Value.(*gicel.RecordVal)
-	if !ok || len(rv.Fields) != 0 {
+	if !ok || rv.Len() != 0 {
 		t.Fatalf("expected (), got %v", result.Value)
 	}
 }
@@ -167,8 +167,8 @@ func TestProbeC_Edge_RecordEmpty(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected RecordVal, got %T: %v", result.Value, result.Value)
 	}
-	if len(rv.Fields) != 0 {
-		t.Fatalf("expected empty record, got %d fields", len(rv.Fields))
+	if rv.Len() != 0 {
+		t.Fatalf("expected empty record, got %d fields", rv.Len())
 	}
 }
 
@@ -771,8 +771,8 @@ func TestProbeD_Record_EmptyRecord(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected RecordVal (unit), got %T: %v", v, v)
 	}
-	if len(rec.Fields) != 0 {
-		t.Fatalf("expected empty record, got %d fields", len(rec.Fields))
+	if rec.Len() != 0 {
+		t.Fatalf("expected empty record, got %d fields", rec.Len())
 	}
 }
 

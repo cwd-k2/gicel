@@ -18,8 +18,8 @@ func TestEvalRecordLitEmpty(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected RecordVal, got %T", r.Value)
 	}
-	if len(rv.Fields) != 0 {
-		t.Errorf("expected empty record, got %d fields", len(rv.Fields))
+	if rv.Len() != 0 {
+		t.Errorf("expected empty record, got %d fields", rv.Len())
 	}
 }
 
@@ -39,7 +39,7 @@ func TestEvalRecordLit(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected RecordVal, got %T", r.Value)
 	}
-	xv, ok := rv.Fields["x"]
+	xv, ok := rv.Get("x")
 	if !ok {
 		t.Fatal("missing field x")
 	}
@@ -106,11 +106,11 @@ func TestEvalRecordUpdate(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected RecordVal, got %T", r.Value)
 	}
-	xv := rv.Fields["x"].(*HostVal)
+	xv := rv.MustGet("x").(*HostVal)
 	if xv.Inner != int64(100) {
 		t.Errorf("expected x = 100, got %v", xv.Inner)
 	}
-	yv := rv.Fields["y"].(*HostVal)
+	yv := rv.MustGet("y").(*HostVal)
 	if yv.Inner != int64(7) {
 		t.Errorf("expected y = 7 (unchanged), got %v", yv.Inner)
 	}

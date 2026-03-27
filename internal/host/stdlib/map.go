@@ -160,8 +160,8 @@ func mapFromListImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, app
 		if !ok {
 			return nil, ce, fmt.Errorf("mapFromList: expected tuple, got %T", con.Args[0])
 		}
-		key, ok1 := pair.Fields[ir.TupleLabel(1)]
-		value, ok2 := pair.Fields[ir.TupleLabel(2)]
+		key, ok1 := pair.Get(ir.TupleLabel(1))
+		value, ok2 := pair.Get(ir.TupleLabel(2))
 		if !ok1 || !ok2 {
 			return nil, ce, fmt.Errorf("mapFromList: tuple must have _1 and _2")
 		}
@@ -420,7 +420,7 @@ func mapFindMinImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval
 		return &eval.ConVal{Con: "Nothing"}, ce, nil
 	}
 	n := avlMinNode(m.root)
-	pair := &eval.RecordVal{Fields: map[string]eval.Value{ir.TupleLabel(1): n.key, ir.TupleLabel(2): n.value}}
+	pair := eval.NewRecordFromMap(map[string]eval.Value{ir.TupleLabel(1): n.key, ir.TupleLabel(2): n.value})
 	return &eval.ConVal{Con: "Just", Args: []eval.Value{pair}}, ce, nil
 }
 
@@ -434,7 +434,7 @@ func mapFindMaxImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval
 		return &eval.ConVal{Con: "Nothing"}, ce, nil
 	}
 	n := avlMaxNode(m.root)
-	pair := &eval.RecordVal{Fields: map[string]eval.Value{ir.TupleLabel(1): n.key, ir.TupleLabel(2): n.value}}
+	pair := eval.NewRecordFromMap(map[string]eval.Value{ir.TupleLabel(1): n.key, ir.TupleLabel(2): n.value})
 	return &eval.ConVal{Con: "Just", Args: []eval.Value{pair}}, ce, nil
 }
 

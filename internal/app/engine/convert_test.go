@@ -56,7 +56,7 @@ func TestToValueFromBool(t *testing.T) {
 func TestToValueNil(t *testing.T) {
 	v := ToValue(nil)
 	rv, ok := v.(*eval.RecordVal)
-	if !ok || len(rv.Fields) != 0 {
+	if !ok || rv.Len() != 0 {
 		t.Errorf("ToValue(nil) should produce (), got %s", v)
 	}
 }

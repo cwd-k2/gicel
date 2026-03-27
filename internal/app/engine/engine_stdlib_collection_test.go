@@ -148,7 +148,7 @@ main := zip (Cons True (Cons False Nil)) (Cons () Nil)
 		t.Fatalf("expected Cons, got %v", v)
 	}
 	pair, ok := con.Args[0].(*eval.RecordVal)
-	if !ok || len(pair.Fields) != 2 {
+	if !ok || pair.Len() != 2 {
 		t.Fatalf("expected tuple, got %v", con.Args[0])
 	}
 	assertConVal(t, con.Args[1], "Nil")
@@ -161,7 +161,7 @@ main := unzip (Cons (True, ()) Nil)
 `, stdlib.Prelude)
 	// unzip [(True, ())] = ([True], [()])
 	rv, ok := v.(*eval.RecordVal)
-	if !ok || len(rv.Fields) != 2 {
+	if !ok || rv.Len() != 2 {
 		t.Fatalf("expected tuple, got %v", v)
 	}
 }
@@ -437,7 +437,7 @@ main := do { print "hello" }
 		t.Fatal(err)
 	}
 	rv, ok := result.Value.(*eval.RecordVal)
-	if !ok || len(rv.Fields) != 0 {
+	if !ok || rv.Len() != 0 {
 		t.Fatalf("expected (), got %T: %v", result.Value, result.Value)
 	}
 	// Check that io buffer captured the output.
@@ -637,7 +637,7 @@ main := do { debug 42 }
 		t.Fatal(err)
 	}
 	rv2, ok2 := result.Value.(*eval.RecordVal)
-	if !ok2 || len(rv2.Fields) != 0 {
+	if !ok2 || rv2.Len() != 0 {
 		t.Fatalf("expected (), got %T: %v", result.Value, result.Value)
 	}
 	buf, ok := result.CapEnv.Get("io")
@@ -786,11 +786,11 @@ main := case (intToByte 65, intToByte 65) {
 }
 `, stdlib.Prelude)
 	rv, ok := v.(*eval.RecordVal)
-	if !ok || len(rv.Fields) != 2 {
+	if !ok || rv.Len() != 2 {
 		t.Fatalf("expected tuple, got %T: %v", v, v)
 	}
-	assertConVal(t, rv.Fields["_1"], "True")
-	assertConVal(t, rv.Fields["_2"], "EQ")
+	assertConVal(t, rv.MustGet("_1"), "True")
+	assertConVal(t, rv.MustGet("_2"), "EQ")
 }
 
 func TestByteToIntRoundtrip(t *testing.T) {

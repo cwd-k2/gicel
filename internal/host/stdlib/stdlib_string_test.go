@@ -210,11 +210,11 @@ func TestSpanImpl(t *testing.T) {
 		t.Fatal(err)
 	}
 	rv := v.(*eval.RecordVal)
-	prefix, ok := listToSlice(rv.Fields["_1"])
+	prefix, ok := listToSlice(rv.MustGet("_1"))
 	if !ok {
 		t.Fatal("expected list for _1")
 	}
-	suffix, ok := listToSlice(rv.Fields["_2"])
+	suffix, ok := listToSlice(rv.MustGet("_2"))
 	if !ok {
 		t.Fatal("expected list for _2")
 	}
@@ -335,10 +335,10 @@ func TestUnfoldrImpl(t *testing.T) {
 		if n == 0 {
 			return &eval.ConVal{Con: "Nothing"}, capEnv, nil
 		}
-		pair := &eval.RecordVal{Fields: map[string]eval.Value{
+		pair := eval.NewRecordFromMap(map[string]eval.Value{
 			"_1": intVal(n),
 			"_2": intVal(n - 1),
-		}}
+		})
 		return &eval.ConVal{Con: "Just", Args: []eval.Value{pair}}, capEnv, nil
 	}
 	v, _, err := unfoldrImpl(ctx, ce, args(f, intVal(3)), applier)
@@ -510,8 +510,8 @@ func TestUnzipImplEmpty(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected RecordVal, got %T", v)
 	}
-	assertCon(t, rv.Fields["_1"], "Nil")
-	assertCon(t, rv.Fields["_2"], "Nil")
+	assertCon(t, rv.MustGet("_1"), "Nil")
+	assertCon(t, rv.MustGet("_2"), "Nil")
 }
 
 func TestFoldlImplDirect(t *testing.T) {
@@ -561,8 +561,8 @@ func TestSpanImplEmpty(t *testing.T) {
 		t.Fatal(err)
 	}
 	rv := v.(*eval.RecordVal)
-	assertCon(t, rv.Fields["_1"], "Nil")
-	assertCon(t, rv.Fields["_2"], "Nil")
+	assertCon(t, rv.MustGet("_1"), "Nil")
+	assertCon(t, rv.MustGet("_2"), "Nil")
 }
 
 func TestSpanImplNoneDrop(t *testing.T) {
@@ -575,8 +575,8 @@ func TestSpanImplNoneDrop(t *testing.T) {
 		t.Fatal(err)
 	}
 	rv := v.(*eval.RecordVal)
-	assertCon(t, rv.Fields["_1"], "Nil")
-	suffix, ok := listToSlice(rv.Fields["_2"])
+	assertCon(t, rv.MustGet("_1"), "Nil")
+	suffix, ok := listToSlice(rv.MustGet("_2"))
 	if !ok {
 		t.Fatal("expected list for _2")
 	}
@@ -646,7 +646,7 @@ func TestLengthImplMalformed(t *testing.T) {
 
 func TestFromSliceImplNonHostValNonConVal(t *testing.T) {
 	// A non-HostVal, non-ConVal input should error.
-	_, _, err := fromSliceImpl(ctx, ce, args(&eval.RecordVal{Fields: map[string]eval.Value{}}), nil)
+	_, _, err := fromSliceImpl(ctx, ce, args(eval.NewRecordFromMap(map[string]eval.Value{})), nil)
 	if err == nil {
 		t.Fatal("expected error for non-HostVal/non-ConVal input")
 	}
@@ -713,7 +713,7 @@ func TestUnzipImplNonTuple(t *testing.T) {
 
 func TestUnzipImplIncompleteTuple(t *testing.T) {
 	// RecordVal with _1 but not _2.
-	bad := &eval.RecordVal{Fields: map[string]eval.Value{"_1": intVal(1)}}
+	bad := eval.NewRecordFromMap(map[string]eval.Value{"_1": intVal(1)})
 	list := conList(bad)
 	_, _, err := unzipImpl(ctx, ce, args(list), nil)
 	if err == nil {

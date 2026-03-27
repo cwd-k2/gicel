@@ -25,7 +25,7 @@ main := do { fail; pure True }
 	if err != nil {
 		t.Fatal(err)
 	}
-	caps := map[string]any{"fail": &eval.RecordVal{Fields: map[string]eval.Value{}}}
+	caps := map[string]any{"fail": eval.NewRecordFromMap(map[string]eval.Value{})}
 	_, err = rt.RunWith(context.Background(), &RunOptions{Caps: caps})
 	if err == nil {
 		t.Fatal("expected error from fail")
@@ -46,7 +46,7 @@ main := fromMaybe (Just True)
 	if err != nil {
 		t.Fatal(err)
 	}
-	caps := map[string]any{"fail": &eval.RecordVal{Fields: map[string]eval.Value{}}}
+	caps := map[string]any{"fail": eval.NewRecordFromMap(map[string]eval.Value{})}
 	result, err := rt.RunWith(context.Background(), &RunOptions{Caps: caps})
 	if err != nil {
 		t.Fatal(err)
@@ -125,7 +125,7 @@ main := fromResult (Ok True)
 	if err != nil {
 		t.Fatal(err)
 	}
-	caps := map[string]any{"fail": &eval.RecordVal{Fields: map[string]eval.Value{}}}
+	caps := map[string]any{"fail": eval.NewRecordFromMap(map[string]eval.Value{})}
 	result, err := rt.RunWith(context.Background(), &RunOptions{Caps: caps})
 	if err != nil {
 		t.Fatal(err)
@@ -158,7 +158,7 @@ main := do { put 42; fail }
 	}
 	caps := map[string]any{
 		"state": &eval.HostVal{Inner: int64(0)},
-		"fail":  &eval.RecordVal{Fields: map[string]eval.Value{}},
+		"fail":  eval.NewRecordFromMap(map[string]eval.Value{}),
 	}
 	_, err = rt.RunWith(context.Background(), &RunOptions{Caps: caps})
 	if err == nil {

@@ -894,21 +894,21 @@ main := (getX point, colorName, doubled)
 	if !ok {
 		t.Fatalf("expected RecordVal, got %T: %s", result.Value, result.Value)
 	}
-	f1, ok := rec.Fields["_1"]
+	f1, ok := rec.Get("_1")
 	if !ok {
 		t.Fatal("missing field _1")
 	}
 	if hv, ok := f1.(*eval.HostVal); !ok || hv.Inner != int64(3) {
 		t.Errorf("_1: expected 3, got %s", f1)
 	}
-	f2, ok := rec.Fields["_2"]
+	f2, ok := rec.Get("_2")
 	if !ok {
 		t.Fatal("missing field _2")
 	}
 	if hv, ok := f2.(*eval.HostVal); !ok || hv.Inner != "red" {
 		t.Errorf("_2: expected \"red\", got %s", f2)
 	}
-	f3, ok := rec.Fields["_3"]
+	f3, ok := rec.Get("_3")
 	if !ok {
 		t.Fatal("missing field _3")
 	}

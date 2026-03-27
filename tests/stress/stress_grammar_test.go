@@ -24,14 +24,14 @@ var grammarPrograms = []stressProgram{
 			})
 			e.RegisterPrim("writeS", func(ctx context.Context, ce gicel.CapEnv, args []gicel.Value, _ gicel.Applier) (gicel.Value, gicel.CapEnv, error) {
 				n := gicel.MustHost[int](args[0])
-				return &gicel.RecordVal{Fields: map[string]gicel.Value{}}, ce.Set("s", n), nil
+				return gicel.NewRecordFromMap(map[string]gicel.Value{}), ce.Set("s", n), nil
 			})
 		},
 		caps:  map[string]any{"s": 0},
 		binds: map[string]gicel.Value{"seed": gicel.ToValue(10)},
 		check: func(t *testing.T, v gicel.Value) {
 			rv, ok := v.(*gicel.RecordVal)
-			if !ok || len(rv.Fields) != 2 {
+			if !ok || rv.Len() != 2 {
 				t.Errorf("expected tuple, got %s", v)
 			}
 		},

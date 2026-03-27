@@ -516,7 +516,7 @@ main := do {
 	}
 	caps := map[string]any{
 		"state": &eval.HostVal{Inner: int64(0)},
-		"fail":  &eval.RecordVal{Fields: map[string]eval.Value{}},
+		"fail":  eval.NewRecordFromMap(map[string]eval.Value{}),
 	}
 	result, err := rt.RunWith(context.Background(), &RunOptions{Caps: caps})
 	if err != nil {

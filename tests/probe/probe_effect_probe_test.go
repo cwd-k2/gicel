@@ -120,7 +120,7 @@ func TestProbeD_Effect_StateBeforeFail(t *testing.T) {
 	// put then fail: error should propagate.
 	caps := map[string]any{
 		"state": &gicel.HostVal{Inner: int64(0)},
-		"fail":  &gicel.RecordVal{Fields: map[string]gicel.Value{}},
+		"fail":  gicel.NewRecordFromMap(map[string]gicel.Value{}),
 	}
 	_, err := pdRunWithCaps(t, `
 import Prelude
@@ -185,7 +185,7 @@ main := do {
 
 func TestProbeD_Effect_FromMaybeNothing(t *testing.T) {
 	caps := map[string]any{
-		"fail": &gicel.RecordVal{Fields: map[string]gicel.Value{}},
+		"fail": gicel.NewRecordFromMap(map[string]gicel.Value{}),
 	}
 	_, err := pdRunWithCaps(t, `
 import Prelude

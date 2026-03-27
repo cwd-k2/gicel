@@ -219,7 +219,7 @@ func avlConsRight(n *avlNode, acc *eval.Value) {
 		return
 	}
 	avlConsRight(n.right, acc)
-	pair := &eval.RecordVal{Fields: map[string]eval.Value{ir.TupleLabel(1): n.key, ir.TupleLabel(2): n.value}}
+	pair := eval.NewRecordFromMap(map[string]eval.Value{ir.TupleLabel(1): n.key, ir.TupleLabel(2): n.value})
 	*acc = &eval.ConVal{Con: "Cons", Args: []eval.Value{pair, *acc}}
 	avlConsRight(n.left, acc)
 }

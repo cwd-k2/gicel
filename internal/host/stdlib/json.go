@@ -159,8 +159,8 @@ func toJSONPairImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, appl
 	if !ok {
 		return nil, ce, fmt.Errorf("json: expected tuple, got %T", args[2])
 	}
-	a, ok1 := pair.Fields[ir.TupleLabel(1)]
-	b, ok2 := pair.Fields[ir.TupleLabel(2)]
+	a, ok1 := pair.Get(ir.TupleLabel(1))
+	b, ok2 := pair.Get(ir.TupleLabel(2))
 	if !ok1 || !ok2 {
 		return nil, ce, fmt.Errorf("json: expected tuple with _1 and _2")
 	}
@@ -360,10 +360,10 @@ func fromJSONPairImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, appl
 	if !ok || conB.Con == "Nothing" {
 		return jsonNothing, newCe, nil
 	}
-	pair := &eval.RecordVal{Fields: map[string]eval.Value{
+	pair := eval.NewRecordFromMap(map[string]eval.Value{
 		ir.TupleLabel(1): conA.Args[0],
 		ir.TupleLabel(2): conB.Args[0],
-	}}
+	})
 	return jsonJust(pair), newCe, nil
 }
 

@@ -522,19 +522,20 @@ func formatValue(v gicel.Value) any {
 
 // formatJSONTuple converts a tuple RecordVal to a JSON array.
 func formatJSONTuple(r *gicel.RecordVal) []any {
-	n := len(r.Fields)
+	n := r.Len()
 	elems := make([]any, n)
 	for i := range n {
-		elems[i] = formatValue(r.Fields[gicel.TupleLabel(i+1)])
+		elems[i] = formatValue(r.MustGet(gicel.TupleLabel(i + 1)))
 	}
 	return elems
 }
 
 // formatJSONRecord converts a RecordVal to a JSON object with recursively formatted fields.
 func formatJSONRecord(r *gicel.RecordVal) map[string]any {
-	m := make(map[string]any, len(r.Fields))
-	for k, v := range r.Fields {
-		m[k] = formatValue(v)
+	fields := r.RawFields()
+	m := make(map[string]any, len(fields))
+	for _, f := range fields {
+		m[f.Label] = formatValue(f.Value)
 	}
 	return m
 }

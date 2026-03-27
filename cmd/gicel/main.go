@@ -519,7 +519,7 @@ func preflightError(msg string, jsonOut bool) int {
 // isUnitValue reports whether a value is the unit value ().
 func isUnitValue(v gicel.Value) bool {
 	rv, ok := v.(*gicel.RecordVal)
-	return ok && len(rv.Fields) == 0
+	return ok && rv.Len() == 0
 }
 
 func cmdRun(args []string) int {

@@ -693,7 +693,7 @@ func TestProbeE_Comp_PureUnit(t *testing.T) {
 		t.Fatalf("runtime error: %v", err)
 	}
 	rv, ok := result.Value.(*gicel.RecordVal)
-	if !ok || len(rv.Fields) != 0 {
+	if !ok || rv.Len() != 0 {
 		t.Errorf("expected (), got %s", result.Value)
 	}
 }
@@ -745,7 +745,7 @@ main := f ()
 		t.Fatalf("runtime error: %v", err)
 	}
 	rv, ok := result.Value.(*gicel.RecordVal)
-	if !ok || len(rv.Fields) != 0 {
+	if !ok || rv.Len() != 0 {
 		t.Errorf("expected (), got %s", result.Value)
 	}
 }
@@ -769,7 +769,7 @@ main := { outer: { inner: 42 } }
 	if !ok {
 		t.Fatalf("expected RecordVal, got %T: %s", result.Value, result.Value)
 	}
-	inner, ok := rv.Fields["outer"]
+	inner, ok := rv.Get("outer")
 	if !ok {
 		t.Fatal("missing field 'outer'")
 	}
@@ -777,7 +777,7 @@ main := { outer: { inner: 42 } }
 	if !ok {
 		t.Fatalf("expected inner RecordVal, got %T: %s", inner, inner)
 	}
-	val, ok := innerRv.Fields["inner"]
+	val, ok := innerRv.Get("inner")
 	if !ok {
 		t.Fatal("missing field 'inner'")
 	}
@@ -806,8 +806,8 @@ main := (1, 2, 3, 4, 5, 6, 7, 8)
 	if !ok {
 		t.Fatalf("expected RecordVal, got %T: %s", result.Value, result.Value)
 	}
-	if len(rv.Fields) != 8 {
-		t.Errorf("expected 8 fields, got %d", len(rv.Fields))
+	if rv.Len() != 8 {
+		t.Errorf("expected 8 fields, got %d", rv.Len())
 	}
 }
 
@@ -833,10 +833,10 @@ main := (id True, id 42)
 		t.Fatalf("runtime error: %v", err)
 	}
 	rv, ok := result.Value.(*gicel.RecordVal)
-	if !ok || len(rv.Fields) != 2 {
+	if !ok || rv.Len() != 2 {
 		t.Fatalf("expected 2-tuple, got %s", result.Value)
 	}
-	assertConName(t, rv.Fields["_1"], "True")
+	assertConName(t, rv.MustGet("_1"), "True")
 }
 
 // TestProbeE_Infer_ConstrainedLetGen — inferred constraints should be
@@ -858,9 +858,9 @@ main := (same 1 1, same True False)
 		t.Fatalf("runtime error: %v", err)
 	}
 	rv, ok := result.Value.(*gicel.RecordVal)
-	if !ok || len(rv.Fields) != 2 {
+	if !ok || rv.Len() != 2 {
 		t.Fatalf("expected 2-tuple, got %s", result.Value)
 	}
-	assertConName(t, rv.Fields["_1"], "True")
-	assertConName(t, rv.Fields["_2"], "False")
+	assertConName(t, rv.MustGet("_1"), "True")
+	assertConName(t, rv.MustGet("_2"), "False")
 }

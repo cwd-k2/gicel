@@ -33,7 +33,7 @@ var typesPrograms = []stressProgram{
 		},
 		check: func(t *testing.T, v gicel.Value) {
 			rv, ok := v.(*gicel.RecordVal)
-			if !ok || len(rv.Fields) != 2 {
+			if !ok || rv.Len() != 2 {
 				t.Errorf("expected tuple, got %s", v)
 			}
 		},
@@ -55,12 +55,12 @@ var typesPrograms = []stressProgram{
 		},
 		check: func(t *testing.T, v gicel.Value) {
 			rv, ok := v.(*gicel.RecordVal)
-			if !ok || len(rv.Fields) < 2 {
+			if !ok || rv.Len() < 2 {
 				t.Errorf("expected tuple, got %s", v)
 				return
 			}
 			// expr1 = And True (Not False) = And True True = True
-			assertCon(t, rv.Fields["_1"], "True")
+			assertCon(t, rv.MustGet("_1"), "True")
 		},
 	},
 	{
@@ -70,11 +70,11 @@ var typesPrograms = []stressProgram{
 		check: func(t *testing.T, v gicel.Value) {
 			// selfEq packBool = True (eq True True)
 			rv, ok := v.(*gicel.RecordVal)
-			if !ok || len(rv.Fields) < 2 {
+			if !ok || rv.Len() < 2 {
 				t.Errorf("expected tuple, got %s", v)
 				return
 			}
-			assertCon(t, rv.Fields["_1"], "True")
+			assertCon(t, rv.MustGet("_1"), "True")
 		},
 	},
 	{
@@ -84,20 +84,20 @@ var typesPrograms = []stressProgram{
 		check: func(t *testing.T, v gicel.Value) {
 			// main = ((True, ()), (True, ...))
 			rv, ok := v.(*gicel.RecordVal)
-			if !ok || len(rv.Fields) < 2 {
+			if !ok || rv.Len() < 2 {
 				t.Errorf("expected tuple, got %s", v)
 				return
 			}
 			// first element is applyToBoth id = (True, ())
-			inner, ok := rv.Fields["_1"].(*gicel.RecordVal)
-			if !ok || len(inner.Fields) != 2 {
-				t.Errorf("expected inner tuple, got %s", rv.Fields["_1"])
+			inner, ok := rv.MustGet("_1").(*gicel.RecordVal)
+			if !ok || inner.Len() != 2 {
+				t.Errorf("expected inner tuple, got %s", rv.MustGet("_1"))
 				return
 			}
-			assertCon(t, inner.Fields["_1"], "True")
-			unitV, ok := inner.Fields["_2"].(*gicel.RecordVal)
-			if !ok || len(unitV.Fields) != 0 {
-				t.Errorf("expected () in inner _2, got %s", inner.Fields["_2"])
+			assertCon(t, inner.MustGet("_1"), "True")
+			unitV, ok := inner.MustGet("_2").(*gicel.RecordVal)
+			if !ok || unitV.Len() != 0 {
+				t.Errorf("expected () in inner _2, got %s", inner.MustGet("_2"))
 			}
 		},
 	},
@@ -154,8 +154,8 @@ var typesPrograms = []stressProgram{
 					t.Errorf("expected RecordVal, got %T", v)
 					return
 				}
-				assertCon(t, rv.Fields["_1"], "False")
-				assertCon(t, rv.Fields["_2"], "True")
+				assertCon(t, rv.MustGet("_1"), "False")
+				assertCon(t, rv.MustGet("_2"), "True")
 			})
 			// xyTuple = (3, 4)
 			p = assertPairHead(t, p, "xyTuple", func(t *testing.T, v gicel.Value) {
@@ -164,8 +164,8 @@ var typesPrograms = []stressProgram{
 					t.Errorf("expected RecordVal, got %T", v)
 					return
 				}
-				assertHostVal(t, rv.Fields["_1"], int64(3))
-				assertHostVal(t, rv.Fields["_2"], int64(4))
+				assertHostVal(t, rv.MustGet("_1"), int64(3))
+				assertHostVal(t, rv.MustGet("_2"), int64(4))
 			})
 			// d1 = 1
 			p = assertPairHead(t, p, "d1", func(t *testing.T, v gicel.Value) {

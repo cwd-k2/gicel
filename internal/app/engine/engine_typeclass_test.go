@@ -263,7 +263,7 @@ main := coerce True
 		t.Fatal(err)
 	}
 	rv, ok := result.Value.(*eval.RecordVal)
-	if !ok || len(rv.Fields) != 0 {
+	if !ok || rv.Len() != 0 {
 		t.Errorf("expected (), got %s", result.Value)
 	}
 }
@@ -310,7 +310,7 @@ main := append () ()
 		t.Fatal(err)
 	}
 	rv, ok := result.Value.(*eval.RecordVal)
-	if !ok || len(rv.Fields) != 0 {
+	if !ok || rv.Len() != 0 {
 		t.Errorf("expected (), got %s", result.Value)
 	}
 }
@@ -372,7 +372,7 @@ main := append () ()
 		t.Fatal(err)
 	}
 	rv, ok := result.Value.(*eval.RecordVal)
-	if !ok || len(rv.Fields) != 0 {
+	if !ok || rv.Len() != 0 {
 		t.Errorf("expected (), got %s", result.Value)
 	}
 }
@@ -394,11 +394,11 @@ main := (test1, test2)
 		t.Fatal(err)
 	}
 	rv, ok := result.Value.(*eval.RecordVal)
-	if !ok || len(rv.Fields) != 2 {
+	if !ok || rv.Len() != 2 {
 		t.Fatalf("expected tuple, got %s", result.Value)
 	}
-	assertConName(t, rv.Fields["_1"], "LT") // LT <> EQ = LT
-	assertConName(t, rv.Fields["_2"], "GT") // EQ <> GT = GT
+	assertConName(t, rv.MustGet("_1"), "LT") // LT <> EQ = LT
+	assertConName(t, rv.MustGet("_2"), "GT") // EQ <> GT = GT
 }
 
 func TestMonoidUnit(t *testing.T) {
@@ -416,7 +416,7 @@ main := (empty :: ())
 		t.Fatal(err)
 	}
 	rv, ok := result.Value.(*eval.RecordVal)
-	if !ok || len(rv.Fields) != 0 {
+	if !ok || rv.Len() != 0 {
 		t.Errorf("expected (), got %s", result.Value)
 	}
 }
@@ -504,11 +504,11 @@ main := (test1, test2)
 		t.Fatal(err)
 	}
 	rv, ok := result.Value.(*eval.RecordVal)
-	if !ok || len(rv.Fields) != 2 {
+	if !ok || rv.Len() != 2 {
 		t.Fatalf("expected tuple, got %s", result.Value)
 	}
-	assertConName(t, rv.Fields["_1"], "LT") // Nothing < Just _
-	assertConName(t, rv.Fields["_2"], "LT") // Just False < Just True
+	assertConName(t, rv.MustGet("_1"), "LT") // Nothing < Just _
+	assertConName(t, rv.MustGet("_2"), "LT") // Just False < Just True
 }
 
 func TestOrdPair(t *testing.T) {
@@ -571,7 +571,7 @@ main := (same 1 2, same True True)
 	}
 	// same 1 2 = False, same True True = True
 	rv, ok := result.Value.(*eval.RecordVal)
-	if !ok || len(rv.Fields) != 2 {
+	if !ok || rv.Len() != 2 {
 		t.Fatalf("expected (False, True), got %v", result.Value)
 	}
 }
@@ -594,7 +594,7 @@ main := (mymax 3 7, mymax True False)
 		t.Fatalf("constrained let-gen Ord should run: %v", err)
 	}
 	rv, ok := result.Value.(*eval.RecordVal)
-	if !ok || len(rv.Fields) != 2 {
+	if !ok || rv.Len() != 2 {
 		t.Fatalf("expected (7, True), got %v", result.Value)
 	}
 }
@@ -621,8 +621,8 @@ main := (testEq, (testOrd, (testSemigroup, (testMonoid, (testFunctor, testApplic
 		t.Fatal(err)
 	}
 	rv, ok := result.Value.(*eval.RecordVal)
-	if !ok || len(rv.Fields) != 2 {
+	if !ok || rv.Len() != 2 {
 		t.Fatalf("expected tuple, got %s", result.Value)
 	}
-	assertConName(t, rv.Fields["_1"], "True") // eq True True = True
+	assertConName(t, rv.MustGet("_1"), "True") // eq True True = True
 }

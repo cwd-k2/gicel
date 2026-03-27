@@ -108,9 +108,9 @@ func TestMapToListFromList(t *testing.T) {
 
 	// Build list [(2, "b"), (1, "a"), (3, "c")]
 	pairs := []eval.Value{
-		&eval.RecordVal{Fields: map[string]eval.Value{"_1": intVal(2), "_2": strVal("b")}},
-		&eval.RecordVal{Fields: map[string]eval.Value{"_1": intVal(1), "_2": strVal("a")}},
-		&eval.RecordVal{Fields: map[string]eval.Value{"_1": intVal(3), "_2": strVal("c")}},
+		eval.NewRecordFromMap(map[string]eval.Value{"_1": intVal(2), "_2": strVal("b")}),
+		eval.NewRecordFromMap(map[string]eval.Value{"_1": intVal(1), "_2": strVal("a")}),
+		eval.NewRecordFromMap(map[string]eval.Value{"_1": intVal(3), "_2": strVal("c")}),
 	}
 	list := buildList(pairs)
 
@@ -131,7 +131,7 @@ func TestMapToListFromList(t *testing.T) {
 	// In-order traversal should give sorted keys: 1, 2, 3.
 	for i, want := range []int64{1, 2, 3} {
 		pair := items[i].(*eval.RecordVal)
-		assertInt(t, pair.Fields["_1"], want)
+		assertInt(t, pair.MustGet("_1"), want)
 	}
 }
 
@@ -387,7 +387,7 @@ func TestMapManyInserts(t *testing.T) {
 	}
 	for i, want := range items {
 		pair := want.(*eval.RecordVal)
-		assertInt(t, pair.Fields["_1"], int64(i))
+		assertInt(t, pair.MustGet("_1"), int64(i))
 	}
 }
 
@@ -574,7 +574,7 @@ func TestAVLRotationViaSequentialInserts(t *testing.T) {
 	items, _ := listToSlice(sorted)
 	for i, item := range items {
 		pair := item.(*eval.RecordVal)
-		assertInt(t, pair.Fields["_1"], int64(i+1))
+		assertInt(t, pair.MustGet("_1"), int64(i+1))
 	}
 
 	// Descending: 15,14,...,1 forces right rotations.
@@ -609,9 +609,9 @@ func TestAVLDoubleRotation(t *testing.T) {
 	if len(items) != 3 {
 		t.Fatalf("expected 3 items, got %d", len(items))
 	}
-	assertInt(t, items[0].(*eval.RecordVal).Fields["_1"], 1)
-	assertInt(t, items[1].(*eval.RecordVal).Fields["_1"], 2)
-	assertInt(t, items[2].(*eval.RecordVal).Fields["_1"], 3)
+	assertInt(t, items[0].(*eval.RecordVal).MustGet("_1"), 1)
+	assertInt(t, items[1].(*eval.RecordVal).MustGet("_1"), 2)
+	assertInt(t, items[2].(*eval.RecordVal).MustGet("_1"), 3)
 }
 
 func TestAVLDeleteNodeWithTwoChildren(t *testing.T) {
@@ -697,7 +697,7 @@ func TestMapFromListIncompleteTuple(t *testing.T) {
 	apply := intCmpApplier()
 	cmpFn := &eval.HostVal{Inner: "cmp"}
 	// RecordVal without _1 and _2.
-	pair := &eval.RecordVal{Fields: map[string]eval.Value{"_1": intVal(1)}}
+	pair := eval.NewRecordFromMap(map[string]eval.Value{"_1": intVal(1)})
 	badList := &eval.ConVal{Con: "Cons", Args: []eval.Value{pair, &eval.ConVal{Con: "Nil"}}}
 	_, _, err := mapFromListImpl(ctx, ce, args(cmpFn, badList), apply)
 	if err == nil {

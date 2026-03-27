@@ -324,11 +324,11 @@ func TestStressClosureFVTrimming(t *testing.T) {
 		t.Fatal(err)
 	}
 	rv, ok := result.Value.(*gicel.RecordVal)
-	if !ok || len(rv.Fields) != 2 {
+	if !ok || rv.Len() != 2 {
 		t.Fatalf("expected tuple, got %s", result.Value)
 	}
-	assertCon(t, rv.Fields["_1"], "True")
-	assertCon(t, rv.Fields["_2"], "True")
+	assertCon(t, rv.MustGet("_1"), "True")
+	assertCon(t, rv.MustGet("_2"), "True")
 }
 
 // TestStressRecursiveListFoldl — foldl over a 200-element list.

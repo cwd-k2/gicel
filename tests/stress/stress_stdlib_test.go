@@ -17,11 +17,11 @@ var stdlibPrograms = []stressProgram{
 		check: func(t *testing.T, v gicel.Value) {
 			// main = (True, (True, (False, (True, ((Just False), True)))))
 			rv, ok := v.(*gicel.RecordVal)
-			if !ok || len(rv.Fields) < 2 {
+			if !ok || rv.Len() < 2 {
 				t.Errorf("expected tuple, got %s", v)
 				return
 			}
-			assertCon(t, rv.Fields["_1"], "True") // eq True True
+			assertCon(t, rv.MustGet("_1"), "True") // eq True True
 		},
 	},
 	{
@@ -30,12 +30,12 @@ var stdlibPrograms = []stressProgram{
 		setup: func(e *gicel.Engine) {},
 		check: func(t *testing.T, v gicel.Value) {
 			rv, ok := v.(*gicel.RecordVal)
-			if !ok || len(rv.Fields) < 2 {
+			if !ok || rv.Len() < 2 {
 				t.Errorf("expected tuple, got %s", v)
 				return
 			}
 			// First element: sgOrdLT = append LT EQ = LT
-			assertCon(t, rv.Fields["_1"], "LT")
+			assertCon(t, rv.MustGet("_1"), "LT")
 		},
 	},
 	{
@@ -45,12 +45,12 @@ var stdlibPrograms = []stressProgram{
 		check: func(t *testing.T, v gicel.Value) {
 			// main = (42, (3, (7, (10, (True, (LT, 21))))))
 			rv, ok := v.(*gicel.RecordVal)
-			if !ok || len(rv.Fields) < 2 {
+			if !ok || rv.Len() < 2 {
 				t.Errorf("expected tuple, got %s", v)
 				return
 			}
 			// litInt = 42
-			if hv := gicel.MustHost[int64](rv.Fields["_1"]); hv != 42 {
+			if hv := gicel.MustHost[int64](rv.MustGet("_1")); hv != 42 {
 				t.Errorf("litInt: expected 42, got %d", hv)
 			}
 		},
@@ -62,11 +62,11 @@ var stdlibPrograms = []stressProgram{
 		check: func(t *testing.T, v gicel.Value) {
 			// main = ("hello world", (5, (True, ...)))
 			rv, ok := v.(*gicel.RecordVal)
-			if !ok || len(rv.Fields) < 2 {
+			if !ok || rv.Len() < 2 {
 				t.Errorf("expected tuple, got %s", v)
 				return
 			}
-			if hv := gicel.MustHost[string](rv.Fields["_1"]); hv != "hello world" {
+			if hv := gicel.MustHost[string](rv.MustGet("_1")); hv != "hello world" {
 				t.Errorf("strConcat: expected 'hello world', got '%s'", hv)
 			}
 		},

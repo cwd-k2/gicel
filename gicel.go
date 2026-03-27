@@ -97,6 +97,15 @@ type ConVal = eval.ConVal
 // RecordVal is a record value { l1: v1, ..., ln: vn }.
 type RecordVal = eval.RecordVal
 
+// RecordField is a single field in a record value.
+type RecordField = eval.RecordField
+
+// NewRecord creates a RecordVal from fields (must be label-sorted).
+var NewRecord = eval.NewRecord
+
+// NewRecordFromMap creates a RecordVal from a map (sorts labels).
+var NewRecordFromMap = eval.NewRecordFromMap
+
 // CapEnv is a capability environment with copy-on-write semantics.
 type CapEnv = eval.CapEnv
 

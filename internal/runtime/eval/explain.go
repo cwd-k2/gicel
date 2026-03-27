@@ -2,7 +2,6 @@ package eval
 
 import (
 	"fmt"
-	"sort"
 	"strconv"
 	"strings"
 
@@ -248,12 +247,12 @@ func prettyHost(v any) string {
 
 // IsTuple checks if a RecordVal is tuple sugar (fields _1, _2, ..., _n).
 func IsTuple(r *RecordVal) bool {
-	n := len(r.Fields)
+	n := r.Len()
 	if n == 0 {
 		return true // () is the unit tuple
 	}
 	for i := 1; i <= n; i++ {
-		if _, ok := r.Fields[ir.TupleLabel(i)]; !ok {
+		if _, ok := r.Get(ir.TupleLabel(i)); !ok {
 			return false
 		}
 	}
@@ -261,26 +260,22 @@ func IsTuple(r *RecordVal) bool {
 }
 
 func prettyTupleDepth(r *RecordVal, depth int) string {
-	n := len(r.Fields)
+	n := r.Len()
 	if n == 0 {
 		return "()"
 	}
 	parts := make([]string, n)
 	for i := range n {
-		parts[i] = prettyValueDepth(r.Fields[ir.TupleLabel(i+1)], depth+1)
+		parts[i] = prettyValueDepth(r.MustGet(ir.TupleLabel(i+1)), depth+1)
 	}
 	return "(" + strings.Join(parts, ", ") + ")"
 }
 
 func prettyRecordDepth(r *RecordVal, depth int) string {
-	keys := make([]string, 0, len(r.Fields))
-	for k := range r.Fields {
-		keys = append(keys, k)
-	}
-	sort.Strings(keys)
-	parts := make([]string, len(keys))
-	for i, k := range keys {
-		parts[i] = k + ": " + prettyValueDepth(r.Fields[k], depth+1)
+	fields := r.RawFields()
+	parts := make([]string, len(fields))
+	for i, f := range fields {
+		parts[i] = f.Label + ": " + prettyValueDepth(f.Value, depth+1)
 	}
 	return "{ " + strings.Join(parts, ", ") + " }"
 }

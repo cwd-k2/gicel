@@ -19,8 +19,8 @@ func TestProbeD_Convert_NilToValue(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected RecordVal (unit), got %T", v)
 	}
-	if len(rec.Fields) != 0 {
-		t.Fatalf("expected empty record (unit), got %d fields", len(rec.Fields))
+	if rec.Len() != 0 {
+		t.Fatalf("expected empty record (unit), got %d fields", rec.Len())
 	}
 }
 

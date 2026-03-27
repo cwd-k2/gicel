@@ -805,10 +805,10 @@ main := (size m, lookup 1 m)
 	if !ok {
 		t.Fatalf("expected RecordVal, got %T: %v", v, v)
 	}
-	pdAssertInt(t, rec.Fields["_1"], 1) // size = 1, not 2
-	justV, ok := rec.Fields["_2"].(*gicel.ConVal)
+	pdAssertInt(t, rec.MustGet("_1"), 1) // size = 1, not 2
+	justV, ok := rec.MustGet("_2").(*gicel.ConVal)
 	if !ok || justV.Con != "Just" {
-		t.Fatalf("expected Just, got %v", rec.Fields["_2"])
+		t.Fatalf("expected Just, got %v", rec.MustGet("_2"))
 	}
 	pdAssertString(t, justV.Args[0], "b") // latest value wins
 }

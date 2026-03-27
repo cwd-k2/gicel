@@ -328,10 +328,10 @@ func TestMatchPatterns(t *testing.T) {
 
 func TestMatchRecordPattern(t *testing.T) {
 	// Match { x: 1, y: 2 } against { x: a, y: b }
-	rv := &RecordVal{Fields: map[string]Value{
+	rv := NewRecordFromMap(map[string]Value{
 		"x": &HostVal{Inner: 10},
 		"y": &HostVal{Inner: 20},
-	}}
+	})
 	pat := &ir.PRecord{Fields: []ir.PRecordField{
 		{Label: "x", Pattern: &ir.PVar{Name: "a"}},
 		{Label: "y", Pattern: &ir.PVar{Name: "b"}},
@@ -1258,7 +1258,7 @@ func TestEvalUnknownCoreNode(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected RecordVal, got %T", r.Value)
 	}
-	if v, ok := rv.Fields["x"]; !ok || v.(*HostVal).Inner != int64(1) {
+	if v, ok := rv.Get("x"); !ok || v.(*HostVal).Inner != int64(1) {
 		t.Error("expected field x=1")
 	}
 }
