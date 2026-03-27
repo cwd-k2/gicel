@@ -149,6 +149,30 @@ func NewParser(ctx context.Context, tokens []syn.Token, errors *diagnostic.Error
 	}
 }
 
+// PreScanImportNames extracts module names from import declarations
+// by scanning the token stream. Does not invoke the parser — simply
+// looks for `import <Upper>[.<Upper>]*` patterns. Handles dotted module
+// names (e.g., "Effect.State", "Data.Map") by consuming adjacent dot+Upper
+// sequences. Returns the direct import names.
+func PreScanImportNames(tokens []syn.Token) []string {
+	var names []string
+	for i := 0; i < len(tokens)-1; i++ {
+		if tokens[i].Kind != syn.TokImport || tokens[i+1].Kind != syn.TokUpper {
+			continue
+		}
+		name := tokens[i+1].Text
+		j := i + 2
+		// Consume dotted name segments: .Upper.Upper...
+		for j+1 < len(tokens) && tokens[j].Kind == syn.TokDot && tokens[j+1].Kind == syn.TokUpper {
+			name += "." + tokens[j+1].Text
+			j += 2
+		}
+		names = append(names, name)
+		i = j - 1 // advance past consumed tokens
+	}
+	return names
+}
+
 // AddFixity merges host-supplied fixity declarations into the parser.
 func (p *Parser) AddFixity(fixity map[string]Fixity) {
 	maps.Copy(p.fixity, fixity)

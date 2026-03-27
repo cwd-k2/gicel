@@ -25,8 +25,9 @@ type pipelineCtx struct {
 }
 
 // lexAndParse is the shared lex/parse pipeline for both module registration
-// and main-source compilation. It always injects fixity from all registered
-// modules so that operator precedence is consistent regardless of entry path.
+// and main-source compilation. Fixity is scoped to the transitive import
+// closure of the module being compiled, preventing unimported modules from
+// affecting operator precedence.
 func (pc *pipelineCtx) lexAndParse(sourceName, source string, injectCore bool) (*syntax.AstProgram, *span.Source, error) {
 	src := span.NewSource(sourceName, source)
 	l := parse.NewLexer(src)
@@ -36,7 +37,13 @@ func (pc *pipelineCtx) lexAndParse(sourceName, source string, injectCore bool) (
 	}
 	parseErrs := &diagnostic.Errors{Source: src}
 	p := parse.NewParser(pc.ctx, tokens, parseErrs)
-	pc.store.CollectFixity(p)
+	// Scope fixity to the import closure: pre-scan import names from tokens,
+	// then inject fixity only from transitively imported modules.
+	importNames := parse.PreScanImportNames(tokens)
+	if injectCore {
+		importNames = append(importNames, "Core")
+	}
+	pc.store.CollectFixityForImports(p, importNames)
 	ast := p.ParseProgram()
 	if parseErrs.HasErrors() {
 		return nil, nil, &CompileError{Errors: parseErrs}
