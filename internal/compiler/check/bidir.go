@@ -355,12 +355,8 @@ func (ch *Checker) checkWithEvidence(expr syntax.Expr, ev *types.TyEvidence) ir.
 				ch.unifier.InstallGivenEq(sk.ID, lhs)
 				givenEqSkolems = append(givenEqSkolems, sk.ID)
 			} else {
-				// Both sides are concrete or meta — unify directly.
-				if err := ch.unifier.Unify(lhs, rhs); err != nil {
-					ch.addCodedError(diagnostic.ErrTypeMismatch, entry.S,
-						fmt.Sprintf("unsatisfiable equality constraint: %s ~ %s",
-							types.Pretty(lhs), types.Pretty(rhs)))
-				}
+				// Both sides are concrete or meta — emit equality constraint.
+				ch.emitEq(lhs, rhs, entry.S, nil)
 			}
 			continue
 		}
@@ -448,7 +444,8 @@ func (ch *Checker) subsCheck(inferred, expected types.Type, expr ir.Core, s span
 		return ch.subsCheck(ev.Body, expected, expr, s)
 	}
 
-	// Default: unify
+	// Default: unify eagerly. subsCheck is on the critical path for type
+	// information flow — metas must be solved immediately for downstream code.
 	if err := ch.unifier.Unify(inferred, expected); err != nil {
 		ch.addUnifyError(err, s, fmt.Sprintf("type mismatch: expected %s, got %s",
 			types.Pretty(expected), types.Pretty(inferred)))

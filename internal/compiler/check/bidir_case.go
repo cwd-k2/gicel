@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"maps"
 
+	"github.com/cwd-k2/gicel/internal/compiler/check/solve"
 	"github.com/cwd-k2/gicel/internal/infra/diagnostic"
 	"github.com/cwd-k2/gicel/internal/infra/span"
 	"github.com/cwd-k2/gicel/internal/lang/ir"
@@ -42,14 +43,13 @@ func (ch *Checker) lubPostStates(posts []types.Type, s span.Span) types.Type {
 		return ch.intersectCapRows(rows, s)
 	}
 
-	// Fallback: unify all posts (v0 behavior).
+	// Fallback: emit equality constraints for all posts (v0 behavior).
 	result := zonked[0]
 	for i := 1; i < len(zonked); i++ {
-		if err := ch.unifier.Unify(result, zonked[i]); err != nil {
-			ch.addCodedError(diagnostic.ErrTypeMismatch, s,
-				fmt.Sprintf("divergent post-states in case branches: %s vs %s",
-					types.Pretty(result), types.Pretty(zonked[i])))
-		}
+		ch.emitEq(result, zonked[i], s, &solve.CtOrigin{
+			Context: fmt.Sprintf("divergent post-states in case branches: %s vs %s",
+				types.Pretty(result), types.Pretty(zonked[i])),
+		})
 	}
 	return result
 }
@@ -83,11 +83,9 @@ func (ch *Checker) intersectCapRows(rows []*types.TyEvidenceRow, s span.Span) ty
 			for _, otherRow := range rows[1:] {
 				for _, of := range otherRow.CapFields() {
 					if of.Label == f.Label {
-						if err := ch.unifier.Unify(resultField.Type, of.Type); err != nil {
-							ch.addCodedError(diagnostic.ErrTypeMismatch, s,
-								fmt.Sprintf("divergent capability type for %s: %s vs %s",
-									f.Label, types.Pretty(resultField.Type), types.Pretty(of.Type)))
-						}
+						ch.emitEq(resultField.Type, of.Type, s, &solve.CtOrigin{
+							Context: fmt.Sprintf("conflicting field types for label %s", f.Label),
+						})
 						ch.joinGrades(&resultField, of.Grades, s)
 						break
 					}
@@ -171,12 +169,8 @@ func (ch *Checker) joinGrades(result *types.RowField, other []types.Type, s span
 				continue
 			}
 		}
-		// No LUB family or no blocking metas: fall back to unification.
-		if err := ch.unifier.Unify(a, b); err != nil {
-			ch.addCodedError(diagnostic.ErrTypeMismatch, s,
-				fmt.Sprintf("divergent grade for %s: %s vs %s",
-					result.Label, types.Pretty(a), types.Pretty(b)))
-		}
+		// No LUB family or no blocking metas: fall back to equality constraint.
+		ch.emitEq(a, b, s, nil)
 	}
 }
 
@@ -209,12 +203,13 @@ func (ch *Checker) checkCaseAlts(scrutTy, resultTy types.Type, scrutCore ir.Core
 	// produce duplicate "constructor type mismatch" errors.
 	if e.IfDesugar {
 		boolTy := types.Con("Bool")
-		if err := ch.unifier.Unify(scrutTy, boolTy); err != nil {
-			ch.addCodedError(diagnostic.ErrTypeMismatch, e.Scrutinee.Span(),
-				fmt.Sprintf("type mismatch in if-condition: expected Bool, got %s",
-					types.Pretty(ch.unifier.Zonk(scrutTy))))
-			scrutTy = boolTy
+		if !ch.tryTrivialUnify(scrutTy, boolTy) {
+			ch.emitEq(scrutTy, boolTy, e.Scrutinee.Span(), &solve.CtOrigin{
+				Context: fmt.Sprintf("type mismatch in if-condition: expected Bool, got %s",
+					types.Pretty(ch.unifier.Zonk(scrutTy))),
+			})
 		}
+		scrutTy = boolTy
 	}
 
 	// Divergent post-states: when result is TyCBPV (Computation), each branch gets a
@@ -272,11 +267,10 @@ func (ch *Checker) checkCaseAlts(scrutTy, resultTy types.Type, scrutCore ir.Core
 	// Join divergent post-states.
 	if isComp && len(branchPosts) > 0 {
 		joinedPost := ch.lubPostStates(branchPosts, e.S)
-		if err := ch.unifier.Unify(comp.Post, joinedPost); err != nil {
-			ch.addUnifyError(err, e.S, fmt.Sprintf(
-				"cannot unify case post-state: expected %s, got %s",
-				types.Pretty(comp.Post), types.Pretty(joinedPost)))
-		}
+		ch.emitEq(comp.Post, joinedPost, e.S, &solve.CtOrigin{
+			Context: fmt.Sprintf("cannot unify case post-state: expected %s, got %s",
+				types.Pretty(comp.Post), types.Pretty(joinedPost)),
+		})
 	}
 
 	ch.checkExhaustive(scrutTy, alts, e.S)

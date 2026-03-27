@@ -30,7 +30,10 @@ func (ch *Checker) matchArrow(ty types.Type, s span.Span) (types.Type, types.Typ
 	if arr, ok := ty.(*types.TyArrow); ok {
 		return arr.From, arr.To
 	}
-	// Generate fresh metas.
+	// Generate fresh metas and decompose eagerly.
+	// Eager unification is required: the fresh metas on the RHS are the
+	// checker's own decomposition targets, so "stuck on unsolved meta" in
+	// the solver would suppress the error indefinitely.
 	argTy := ch.freshMeta(types.TypeOfTypes)
 	retTy := ch.freshMeta(types.TypeOfTypes)
 	if err := ch.unifier.Unify(ty, types.MkArrow(argTy, retTy)); err != nil {

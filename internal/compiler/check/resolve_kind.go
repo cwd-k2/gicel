@@ -3,6 +3,7 @@ package check
 import (
 	"fmt"
 
+	"github.com/cwd-k2/gicel/internal/compiler/check/solve"
 	"github.com/cwd-k2/gicel/internal/infra/diagnostic"
 	"github.com/cwd-k2/gicel/internal/infra/span"
 	"github.com/cwd-k2/gicel/internal/lang/syntax"
@@ -84,10 +85,10 @@ func (ch *Checker) checkTypeAppKind(fun, arg types.Type, s span.Span) {
 	if m, isMeta := argKind.(*types.TyMeta); isMeta && types.Equal(m.Kind, types.SortZero) {
 		return
 	}
-	if err := ch.unifier.Unify(ka.From, argKind); err != nil {
-		ch.addCodedError(diagnostic.ErrKindMismatch, s,
-			fmt.Sprintf("kind mismatch in type application: expected kind %s, got %s", types.PrettyTypeAsKind(ka.From), types.PrettyTypeAsKind(argKind)))
-	}
+	ch.emitEq(ka.From, argKind, s, &solve.CtOrigin{
+		Code:    diagnostic.ErrKindMismatch,
+		Context: fmt.Sprintf("kind mismatch in type application: expected kind %s, got %s", types.PrettyTypeAsKind(ka.From), types.PrettyTypeAsKind(argKind)),
+	})
 }
 
 // hasDeterministicKind returns true if the type's kind is deterministic

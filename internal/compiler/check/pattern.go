@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/cwd-k2/gicel/internal/compiler/check/solve"
 	"github.com/cwd-k2/gicel/internal/infra/diagnostic"
 	"github.com/cwd-k2/gicel/internal/infra/span"
 	"github.com/cwd-k2/gicel/internal/lang/ir"
@@ -55,9 +56,9 @@ func (ch *Checker) checkLitPattern(p *syntax.PatLit, scrutTy types.Type) pattern
 		ch.addCodedError(diagnostic.ErrTypeMismatch, p.S, fmt.Sprintf("invalid literal in pattern: %s", p.Value))
 		return patternResult{Pattern: &ir.PWild{S: p.S}}
 	}
-	if err := ch.unifier.Unify(litTy, scrutTy); err != nil {
-		ch.addUnifyError(err, p.S, "literal pattern type mismatch")
-	}
+	ch.emitEq(litTy, scrutTy, p.S, &solve.CtOrigin{
+		Context: "literal pattern type mismatch",
+	})
 	return patternResult{Pattern: &ir.PLit{Value: litVal, S: p.S}}
 }
 

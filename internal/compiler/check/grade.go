@@ -358,7 +358,7 @@ func (ch *Checker) emitGradePreserveConstraint(grade types.Type, gradeKind types
 	// When the family reduces, resultMeta will be unified with Join(Zero, grade).
 	// Unify resultMeta ~ grade so that preservation is enforced: the result
 	// of Join(Zero, grade) must equal grade itself.
-	_ = ch.unifier.Unify(resultMeta, grade) //nolint:errcheck // advisory
+	ch.emitEq(resultMeta, grade, s, nil)
 }
 
 // extractCapFields returns the capability fields from a zonked row type, or nil.
