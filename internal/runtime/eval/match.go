@@ -70,7 +70,7 @@ func collectBindings(val Value, pat ir.Pattern, depth int, acc []binding) []bind
 			return nil
 		}
 		for _, f := range p.Fields {
-			fv, ok := rv.Fields[f.Label]
+			fv, ok := rv.Get(f.Label)
 			if !ok {
 				return nil
 			}

@@ -263,7 +263,7 @@ func TestPutImpl(t *testing.T) {
 		t.Fatal(err)
 	}
 	rv, ok := v.(*eval.RecordVal)
-	if !ok || len(rv.Fields) != 0 {
+	if !ok || rv.Len() != 0 {
 		t.Fatalf("expected empty RecordVal (unit), got %v", v)
 	}
 	s, ok := newCe.Get("state")

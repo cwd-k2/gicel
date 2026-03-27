@@ -47,11 +47,11 @@ var typeclassPrograms = []stressProgram{
 			// main = (eqTest1, (eqTest2, (eqTest3, eqTest4)))
 			// eqTest1 = True (val1==val2), eqTest2 = False (val1!=val3)
 			rv, ok := v.(*gicel.RecordVal)
-			if !ok || len(rv.Fields) < 2 {
+			if !ok || rv.Len() < 2 {
 				t.Errorf("expected tuple, got %s", v)
 				return
 			}
-			assertCon(t, rv.Fields["_1"], "True") // val1 == val2
+			assertCon(t, rv.MustGet("_1"), "True") // val1 == val2
 		},
 	},
 }

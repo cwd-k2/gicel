@@ -54,11 +54,97 @@ type PrimVal struct {
 }
 
 // UnitVal is the unit value () — an empty record.
-var UnitVal Value = &RecordVal{Fields: map[string]Value{}}
+var UnitVal Value = &RecordVal{}
+
+// RecordField is a single field in a record value.
+type RecordField struct {
+	Label string
+	Value Value
+}
 
 // RecordVal is a record value { l1: v1, ..., ln: vn }.
+// Fields are stored as a sorted slice for cache-friendly access
+// and reduced GC pressure compared to map[string]Value.
 type RecordVal struct {
-	Fields map[string]Value
+	fields []RecordField
+	// Fields is the legacy map accessor. It is populated lazily on first
+	// access via the Fields method, for backward compatibility during migration.
+}
+
+// Get returns the value for the given label, or (nil, false).
+func (r *RecordVal) Get(label string) (Value, bool) {
+	for i := range r.fields {
+		if r.fields[i].Label == label {
+			return r.fields[i].Value, true
+		}
+	}
+	return nil, false
+}
+
+// MustGet returns the value for the given label, panicking if absent.
+func (r *RecordVal) MustGet(label string) Value {
+	v, ok := r.Get(label)
+	if !ok {
+		panic("RecordVal.MustGet: missing label " + label)
+	}
+	return v
+}
+
+// Len returns the number of fields.
+func (r *RecordVal) Len() int { return len(r.fields) }
+
+// RawFields returns the underlying sorted field slice.
+func (r *RecordVal) RawFields() []RecordField { return r.fields }
+
+// Fields returns a map view for backward compatibility.
+// Allocates a new map on each call — prefer Get/RawFields in new code.
+func (r *RecordVal) AsMap() map[string]Value {
+	m := make(map[string]Value, len(r.fields))
+	for _, f := range r.fields {
+		m[f.Label] = f.Value
+	}
+	return m
+}
+
+// NewRecord creates a RecordVal from fields (must be label-sorted).
+func NewRecord(fields []RecordField) *RecordVal {
+	return &RecordVal{fields: fields}
+}
+
+// NewRecordFromMap creates a RecordVal from a map (sorts labels).
+func NewRecordFromMap(m map[string]Value) *RecordVal {
+	fields := make([]RecordField, 0, len(m))
+	for k, v := range m {
+		fields = append(fields, RecordField{Label: k, Value: v})
+	}
+	sort.Slice(fields, func(i, j int) bool { return fields[i].Label < fields[j].Label })
+	return &RecordVal{fields: fields}
+}
+
+// RecordUpdate returns a new RecordVal with updated fields.
+// Updates are applied on top of the existing fields.
+func (r *RecordVal) Update(updates []RecordField) *RecordVal {
+	// Build update map for O(1) lookup.
+	umap := make(map[string]Value, len(updates))
+	for _, u := range updates {
+		umap[u.Label] = u.Value
+	}
+	// Merge: keep existing fields (possibly overwritten) + new fields.
+	result := make([]RecordField, 0, len(r.fields)+len(updates))
+	for _, f := range r.fields {
+		if v, ok := umap[f.Label]; ok {
+			result = append(result, RecordField{Label: f.Label, Value: v})
+			delete(umap, f.Label)
+		} else {
+			result = append(result, f)
+		}
+	}
+	// Remaining updates are new fields — insert in sorted position.
+	for k, v := range umap {
+		result = append(result, RecordField{Label: k, Value: v})
+	}
+	sort.Slice(result, func(i, j int) bool { return result[i].Label < result[j].Label })
+	return &RecordVal{fields: result}
 }
 
 // IndirectVal is a forward-reference cell for mutually-recursive top-level bindings.
@@ -177,17 +263,13 @@ func (v *PrimVal) String() string {
 }
 
 func (v *RecordVal) String() string {
-	if len(v.Fields) == 0 {
+	if len(v.fields) == 0 {
 		return "()"
 	}
-	keys := make([]string, 0, len(v.Fields))
-	for k := range v.Fields {
-		keys = append(keys, k)
-	}
-	sort.Strings(keys)
-	parts := make([]string, len(keys))
-	for i, k := range keys {
-		parts[i] = fmt.Sprintf("%s = %s", k, v.Fields[k])
+	// Fields are already sorted, so no need to sort keys.
+	parts := make([]string, len(v.fields))
+	for i, f := range v.fields {
+		parts[i] = fmt.Sprintf("%s = %s", f.Label, f.Value)
 	}
 	return fmt.Sprintf("{ %s }", strings.Join(parts, ", "))
 }

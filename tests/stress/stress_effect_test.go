@@ -26,13 +26,13 @@ var effectPrograms = []stressProgram{
 			e.RegisterPrim("incN", func(ctx context.Context, ce gicel.CapEnv, args []gicel.Value, _ gicel.Applier) (gicel.Value, gicel.CapEnv, error) {
 				v, _ := ce.Get("n")
 				n, _ := v.(int)
-				return &gicel.RecordVal{Fields: map[string]gicel.Value{}}, ce.Set("n", n+1), nil
+				return gicel.NewRecordFromMap(map[string]gicel.Value{}), ce.Set("n", n+1), nil
 			})
 			e.RegisterPrim("addN", func(ctx context.Context, ce gicel.CapEnv, args []gicel.Value, _ gicel.Applier) (gicel.Value, gicel.CapEnv, error) {
 				v, _ := ce.Get("n")
 				n, _ := v.(int)
 				delta := gicel.MustHost[int](args[0])
-				return &gicel.RecordVal{Fields: map[string]gicel.Value{}}, ce.Set("n", n+delta), nil
+				return gicel.NewRecordFromMap(map[string]gicel.Value{}), ce.Set("n", n+delta), nil
 			})
 		},
 		caps: map[string]any{"n": 0},
@@ -80,7 +80,7 @@ var effectPrograms = []stressProgram{
 			})
 			e.RegisterPrim("writeDB", func(ctx context.Context, ce gicel.CapEnv, args []gicel.Value, _ gicel.Applier) (gicel.Value, gicel.CapEnv, error) {
 				n := gicel.MustHost[int](args[0])
-				return &gicel.RecordVal{Fields: map[string]gicel.Value{}}, ce.Set("db", n), nil
+				return gicel.NewRecordFromMap(map[string]gicel.Value{}), ce.Set("db", n), nil
 			})
 			e.RegisterPrim("getLog", func(ctx context.Context, ce gicel.CapEnv, args []gicel.Value, _ gicel.Applier) (gicel.Value, gicel.CapEnv, error) {
 				v, _ := ce.Get("log")
@@ -91,7 +91,7 @@ var effectPrograms = []stressProgram{
 				v, _ := ce.Get("log")
 				n, _ := v.(int)
 				delta := gicel.MustHost[int](args[0])
-				return &gicel.RecordVal{Fields: map[string]gicel.Value{}}, ce.Set("log", n+delta), nil
+				return gicel.NewRecordFromMap(map[string]gicel.Value{}), ce.Set("log", n+delta), nil
 			})
 			e.RegisterPrim("readConfig", func(ctx context.Context, ce gicel.CapEnv, args []gicel.Value, _ gicel.Applier) (gicel.Value, gicel.CapEnv, error) {
 				v, _ := ce.Get("cfg")
@@ -114,17 +114,17 @@ var effectPrograms = []stressProgram{
 		},
 		caps: map[string]any{
 			"state": &gicel.HostVal{Inner: int64(0)},
-			"fail":  &gicel.RecordVal{Fields: map[string]gicel.Value{}},
+			"fail":  gicel.NewRecordFromMap(map[string]gicel.Value{}),
 		},
 		check: func(t *testing.T, v gicel.Value) {
 			// main = (v1, (v2, (v3, (v4, (v5, v6)))))
 			// v1=100, v2=1, v3=42, v4=True, v5=20, v6=111
 			rv, ok := v.(*gicel.RecordVal)
-			if !ok || len(rv.Fields) < 2 {
+			if !ok || rv.Len() < 2 {
 				t.Errorf("expected tuple, got %s", v)
 				return
 			}
-			if hv := gicel.MustHost[int64](rv.Fields["_1"]); hv != 100 {
+			if hv := gicel.MustHost[int64](rv.MustGet("_1")); hv != 100 {
 				t.Errorf("v1 (putAndGet): expected 100, got %d", hv)
 			}
 		},

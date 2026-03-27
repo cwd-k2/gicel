@@ -403,17 +403,17 @@ func (ev *Evaluator) evalStep(locals []Value, capEnv CapEnv, expr ir.Core) (Eval
 		if err := ev.budget.Alloc(int64(costRecBase + costRecFld*len(e.Fields))); err != nil {
 			return EvalResult{}, err
 		}
-		fields := make(map[string]Value, len(e.Fields))
+		rfields := make([]RecordField, len(e.Fields))
 		ce := capEnv
-		for _, f := range e.Fields {
+		for i, f := range e.Fields {
 			r, err := ev.Eval(locals, ce, f.Value)
 			if err != nil {
 				return EvalResult{}, err
 			}
-			fields[f.Label] = r.Value
+			rfields[i] = RecordField{Label: f.Label, Value: r.Value}
 			ce = r.CapEnv
 		}
-		return EvalResult{&RecordVal{Fields: fields}, ce}, nil
+		return EvalResult{NewRecord(rfields), ce}, nil
 
 	case *ir.RecordProj:
 		recR, err := ev.Eval(locals, capEnv, e.Record)
@@ -428,7 +428,7 @@ func (ev *Evaluator) evalStep(locals []Value, capEnv CapEnv, expr ir.Core) (Eval
 				Source:  ev.source,
 			}
 		}
-		v, ok := rec.Fields[e.Label]
+		v, ok := rec.Get(e.Label)
 		if !ok {
 			return EvalResult{}, &RuntimeError{
 				Message: fmt.Sprintf("record has no field: %s", e.Label),
@@ -451,24 +451,20 @@ func (ev *Evaluator) evalStep(locals []Value, capEnv CapEnv, expr ir.Core) (Eval
 				Source:  ev.source,
 			}
 		}
-		if err := ev.budget.Alloc(int64(costRecBase + costRecFld*len(rec.Fields))); err != nil {
+		if err := ev.budget.Alloc(int64(costRecBase + costRecFld*rec.Len())); err != nil {
 			return EvalResult{}, err
 		}
-		// Copy all fields, then overwrite with updates.
-		newFields := make(map[string]Value, len(rec.Fields))
-		for k, v := range rec.Fields {
-			newFields[k] = v
-		}
+		updates := make([]RecordField, len(e.Updates))
 		ce := recR.CapEnv
-		for _, upd := range e.Updates {
+		for i, upd := range e.Updates {
 			r, err := ev.Eval(locals, ce, upd.Value)
 			if err != nil {
 				return EvalResult{}, err
 			}
-			newFields[upd.Label] = r.Value
+			updates[i] = RecordField{Label: upd.Label, Value: r.Value}
 			ce = r.CapEnv
 		}
-		return EvalResult{&RecordVal{Fields: newFields}, ce}, nil
+		return EvalResult{rec.Update(updates), ce}, nil
 
 	default:
 		return EvalResult{}, &RuntimeError{

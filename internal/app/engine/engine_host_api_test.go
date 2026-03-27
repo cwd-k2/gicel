@@ -317,7 +317,7 @@ func TestRunWith(t *testing.T) {
 		t.Fatal(err)
 	}
 	rv, ok := result.Value.(*eval.RecordVal)
-	if !ok || len(rv.Fields) != 0 {
+	if !ok || rv.Len() != 0 {
 		t.Errorf("expected (), got %s", result.Value)
 	}
 	// CapEnv should be present (even if empty).

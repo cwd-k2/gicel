@@ -44,7 +44,7 @@ func TestPure(t *testing.T) {
 		t.Fatal(err)
 	}
 	rv, ok := result.Value.(*eval.RecordVal)
-	if !ok || len(rv.Fields) != 0 {
+	if !ok || rv.Len() != 0 {
 		t.Errorf("expected (), got %s", result.Value)
 	}
 }
@@ -106,7 +106,7 @@ func TestDoBlock(t *testing.T) {
 		t.Fatal(err)
 	}
 	rv, ok := result.Value.(*eval.RecordVal)
-	if !ok || len(rv.Fields) != 0 {
+	if !ok || rv.Len() != 0 {
 		t.Errorf("expected (), got %s", result.Value)
 	}
 }
@@ -226,7 +226,7 @@ func TestThunkForce(t *testing.T) {
 		t.Fatal(err)
 	}
 	rv, ok := result.Value.(*eval.RecordVal)
-	if !ok || len(rv.Fields) != 0 {
+	if !ok || rv.Len() != 0 {
 		t.Errorf("expected (), got %s", result.Value)
 	}
 }
@@ -342,8 +342,8 @@ main := (True, False)
 	if !ok {
 		t.Errorf("expected RecordVal (tuple), got %T: %s", result.Value, result.Value)
 	}
-	if len(rv.Fields) != 2 {
-		t.Fatalf("expected 2 fields, got %d", len(rv.Fields))
+	if rv.Len() != 2 {
+		t.Fatalf("expected 2 fields, got %d", rv.Len())
 	}
 }
 

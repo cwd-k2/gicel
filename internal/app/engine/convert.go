@@ -11,7 +11,7 @@ import (
 // and all other types are wrapped as HostVal.
 func ToValue(v any) eval.Value {
 	if v == nil {
-		return &eval.RecordVal{Fields: map[string]eval.Value{}}
+		return eval.NewRecordFromMap(map[string]eval.Value{})
 	}
 	switch x := v.(type) {
 	case eval.Value:
@@ -103,11 +103,7 @@ func FromRecord(v eval.Value) (map[string]eval.Value, bool) {
 	if !ok {
 		return nil, false
 	}
-	fields := make(map[string]eval.Value, len(rv.Fields))
-	for k, v := range rv.Fields {
-		fields[k] = v
-	}
-	return fields, true
+	return rv.AsMap(), true
 }
 
 // MustHost extracts the inner Go value from a HostVal, panicking if it is not one.

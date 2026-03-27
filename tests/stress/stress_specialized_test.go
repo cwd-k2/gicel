@@ -52,9 +52,9 @@ main := (isJustTrue (Just True), isJustTrue (Just False), isJustTrue Nothing)
 	}
 	// Verify: (True, False, False) — positive AND negative cases
 	rv := result.Value.(*gicel.RecordVal)
-	assertCon(t, rv.Fields["_1"], "True")
-	assertCon(t, rv.Fields["_2"], "False")
-	assertCon(t, rv.Fields["_3"], "False")
+	assertCon(t, rv.MustGet("_1"), "True")
+	assertCon(t, rv.MustGet("_2"), "False")
+	assertCon(t, rv.MustGet("_3"), "False")
 }
 
 func TestNestedPatternExhaustiveness(t *testing.T) {
@@ -91,9 +91,9 @@ main := (f (Just (Just (Just True))), f (Just (Just (Just False))), f (Just (Jus
 		t.Fatal(err)
 	}
 	rv := result.Value.(*gicel.RecordVal)
-	assertCon(t, rv.Fields["_1"], "True")
-	assertCon(t, rv.Fields["_2"], "False")
-	assertCon(t, rv.Fields["_3"], "False")
+	assertCon(t, rv.MustGet("_1"), "True")
+	assertCon(t, rv.MustGet("_2"), "False")
+	assertCon(t, rv.MustGet("_3"), "False")
 }
 
 // ---------------------------------------------------------------------------
@@ -194,8 +194,8 @@ main := ((r.#apply) True, (r.#apply) 42)
 	}
 	// Verify polymorphic use: (True, 42) — field used at Bool AND Int.
 	rv := result.Value.(*gicel.RecordVal)
-	assertCon(t, rv.Fields["_1"], "True")
-	v := gicel.MustHost[int64](rv.Fields["_2"])
+	assertCon(t, rv.MustGet("_1"), "True")
+	v := gicel.MustHost[int64](rv.MustGet("_2"))
 	if v != 42 {
 		t.Errorf("expected 42, got %d", v)
 	}

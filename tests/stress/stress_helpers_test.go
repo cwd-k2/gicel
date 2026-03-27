@@ -209,12 +209,12 @@ func assertCon(t *testing.T, v gicel.Value, name string) {
 func assertPairHead(t *testing.T, v gicel.Value, label string, check func(*testing.T, gicel.Value)) gicel.Value {
 	t.Helper()
 	rv, ok := v.(*gicel.RecordVal)
-	if !ok || len(rv.Fields) < 2 {
+	if !ok || rv.Len() < 2 {
 		t.Errorf("%s: expected tuple, got %v", label, v)
 		return v
 	}
-	check(t, rv.Fields["_1"])
-	return rv.Fields["_2"]
+	check(t, rv.MustGet("_1"))
+	return rv.MustGet("_2")
 }
 
 // assertConArg checks that v is a ConVal with name `con` and first arg is a ConVal with name `arg`.

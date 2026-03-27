@@ -67,10 +67,10 @@ main := wrapJust (origin.#x + origin.#y)
 	}
 
 	bindings := map[string]gicel.Value{
-		"origin": &gicel.RecordVal{Fields: map[string]gicel.Value{
+		"origin": gicel.NewRecordFromMap(map[string]gicel.Value{
 			"x": gicel.ToValue(int64(3)),
 			"y": gicel.ToValue(int64(4)),
-		}},
+		}),
 	}
 
 	result, err := rt.RunWith(context.Background(), &gicel.RunOptions{Bindings: bindings})

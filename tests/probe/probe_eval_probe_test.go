@@ -732,7 +732,7 @@ func TestProbeE_Eval_EmptyRecord(t *testing.T) {
 		t.Fatalf("unit value: %v", err)
 	}
 	rv, ok := v.(*gicel.RecordVal)
-	if !ok || len(rv.Fields) != 0 {
+	if !ok || rv.Len() != 0 {
 		t.Errorf("expected (), got %v", v)
 	}
 }
@@ -807,7 +807,7 @@ func TestProbeE_Eval_FailInDoBlock(t *testing.T) {
 	_, err := peRunWithCaps(t, `
 import Effect.Fail
 main := do { fail; pure 42 }
-`, map[string]any{"fail": &gicel.RecordVal{Fields: map[string]gicel.Value{}}},
+`, map[string]any{"fail": gicel.NewRecordFromMap(map[string]gicel.Value{})},
 		gicel.Prelude, gicel.EffectFail)
 	if err == nil {
 		t.Fatal("expected error from fail")
@@ -912,7 +912,7 @@ main := S.index (negate 1) (S.singleton 42)
 func TestProbeE_Eval_ToValueNil(t *testing.T) {
 	v := gicel.ToValue(nil)
 	rv, ok := v.(*gicel.RecordVal)
-	if !ok || len(rv.Fields) != 0 {
+	if !ok || rv.Len() != 0 {
 		t.Errorf("ToValue(nil) should be unit, got %v", v)
 	}
 }

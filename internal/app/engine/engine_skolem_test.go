@@ -305,7 +305,7 @@ main := apply id
 		t.Fatal(err)
 	}
 	rv, ok := result.Value.(*eval.RecordVal)
-	if !ok || len(rv.Fields) != 2 {
+	if !ok || rv.Len() != 2 {
 		t.Errorf("expected tuple (Bool, ()), got %s", result.Value)
 	}
 }
@@ -331,12 +331,12 @@ main := runId id
 		t.Fatal(err)
 	}
 	rv, ok := result.Value.(*eval.RecordVal)
-	if !ok || len(rv.Fields) != 2 {
+	if !ok || rv.Len() != 2 {
 		t.Errorf("expected tuple (Bool, ()), got %s", result.Value)
 	}
-	assertConName(t, rv.Fields["_1"], "True")
-	unitField, ok := rv.Fields["_2"].(*eval.RecordVal)
-	if !ok || len(unitField.Fields) != 0 {
-		t.Errorf("expected () in _2, got %s", rv.Fields["_2"])
+	assertConName(t, rv.MustGet("_1"), "True")
+	unitField, ok := rv.MustGet("_2").(*eval.RecordVal)
+	if !ok || unitField.Len() != 0 {
+		t.Errorf("expected () in _2, got %s", rv.MustGet("_2"))
 	}
 }

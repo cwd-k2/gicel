@@ -80,8 +80,8 @@ func main() {
 			fmt.Printf("%-18s = %v\n", label, p)
 			break
 		}
-		fmt.Printf("%-18s = %v\n", label, rv.Fields["_1"])
-		p = rv.Fields["_2"]
+		fmt.Printf("%-18s = %v\n", label, rv.MustGet("_1"))
+		p = rv.MustGet("_2")
 	}
 	// Output:
 	// point.#x           = HostVal(3)

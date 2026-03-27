@@ -451,7 +451,7 @@ func TestProbeE_MatchNestedCon(t *testing.T) {
 
 func TestProbeE_MatchEmptyRecord(t *testing.T) {
 	// Match empty record against empty record pattern.
-	val := &RecordVal{Fields: map[string]Value{}}
+	val := NewRecordFromMap(map[string]Value{})
 	pat := &ir.PRecord{Fields: nil}
 	bindings := Match(val, pat)
 	if bindings == nil {
@@ -568,8 +568,8 @@ func TestProbeE_ValueStringMethods(t *testing.T) {
 		{"ThunkVal", &ThunkVal{Locals: nil, Comp: &ir.Lit{Value: int64(0)}}},
 		{"PrimVal empty", &PrimVal{Name: "test", Arity: 2}},
 		{"PrimVal with args", &PrimVal{Name: "test", Arity: 2, Args: []Value{&HostVal{Inner: int64(1)}}}},
-		{"RecordVal empty", &RecordVal{Fields: map[string]Value{}}},
-		{"RecordVal with fields", &RecordVal{Fields: map[string]Value{"x": &HostVal{Inner: int64(1)}}}},
+		{"RecordVal empty", NewRecordFromMap(map[string]Value{})},
+		{"RecordVal with fields", NewRecordFromMap(map[string]Value{"x": &HostVal{Inner: int64(1)}})},
 		{"IndirectVal nil", &IndirectVal{Ref: nil}},
 		{"IndirectVal set", func() Value {
 			var v Value = &HostVal{Inner: int64(42)}
@@ -593,10 +593,10 @@ func TestProbeE_ValueStringMethods(t *testing.T) {
 
 func TestProbeE_PrettyValueTuple(t *testing.T) {
 	// Tuple: {_1: 1, _2: 2} should be "(1, 2)"
-	rv := &RecordVal{Fields: map[string]Value{
+	rv := NewRecordFromMap(map[string]Value{
 		"_1": &HostVal{Inner: int64(1)},
 		"_2": &HostVal{Inner: int64(2)},
-	}}
+	})
 	s := PrettyValue(rv)
 	if s != "(1, 2)" {
 		t.Errorf("expected '(1, 2)', got %q", s)
@@ -604,7 +604,7 @@ func TestProbeE_PrettyValueTuple(t *testing.T) {
 }
 
 func TestProbeE_PrettyValueUnit(t *testing.T) {
-	rv := &RecordVal{Fields: map[string]Value{}}
+	rv := NewRecordFromMap(map[string]Value{})
 	s := PrettyValue(rv)
 	if s != "()" {
 		t.Errorf("expected '()', got %q", s)
@@ -612,10 +612,10 @@ func TestProbeE_PrettyValueUnit(t *testing.T) {
 }
 
 func TestProbeE_PrettyValueNonTupleRecord(t *testing.T) {
-	rv := &RecordVal{Fields: map[string]Value{
+	rv := NewRecordFromMap(map[string]Value{
 		"name": &HostVal{Inner: "Alice"},
 		"age":  &HostVal{Inner: int64(30)},
-	}}
+	})
 	s := PrettyValue(rv)
 	// Should contain field names.
 	if !strings.Contains(s, "name") || !strings.Contains(s, "age") {
@@ -934,10 +934,10 @@ func TestProbeE_RecordUpdateAddsNewField(t *testing.T) {
 		t.Fatal(err)
 	}
 	rv := r.Value.(*RecordVal)
-	if len(rv.Fields) != 2 {
-		t.Errorf("expected 2 fields, got %d", len(rv.Fields))
+	if rv.Len() != 2 {
+		t.Errorf("expected 2 fields, got %d", rv.Len())
 	}
-	if rv.Fields["y"].(*HostVal).Inner != int64(2) {
+	if rv.MustGet("y").(*HostVal).Inner != int64(2) {
 		t.Error("new field y should be 2")
 	}
 }
@@ -956,7 +956,7 @@ func TestProbeE_RecordEmptyUpdate(t *testing.T) {
 		t.Fatal(err)
 	}
 	rv := r.Value.(*RecordVal)
-	if len(rv.Fields) != 1 || rv.Fields["x"].(*HostVal).Inner != int64(1) {
+	if rv.Len() != 1 || rv.MustGet("x").(*HostVal).Inner != int64(1) {
 		t.Error("empty update should preserve original fields")
 	}
 }
