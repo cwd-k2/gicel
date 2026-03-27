@@ -214,7 +214,7 @@ func isAssumptionDef(def *syntax.DeclValueDef) bool {
 func (ch *Checker) processTypeAlias(d *syntax.DeclTypeAlias) {
 	parts := decomposeTypeAliasBody(d.Body)
 	var params []string
-	var paramKinds []types.Kind
+	var paramKinds []types.Type
 	for _, p := range parts.Params {
 		params = append(params, p.Name)
 		paramKinds = append(paramKinds, ch.resolveKindExpr(p.Kind))

@@ -16,10 +16,10 @@ import (
 // or compiler-generated '$').
 func setupExportChecker() *Checker {
 	ch := newTestChecker()
-	ch.reg.typeKinds = map[string]types.Kind{
-		"Int":      types.KType{},
-		"Public":   types.KType{},
-		"_Private": types.KType{},
+	ch.reg.typeKinds = map[string]types.Type{
+		"Int":      types.TypeOfTypes,
+		"Public":   types.TypeOfTypes,
+		"_Private": types.TypeOfTypes,
 	}
 	publicInfo := &DataTypeInfo{
 		Name:         "Public",
@@ -50,17 +50,17 @@ func setupExportChecker() *Checker {
 	ch.reg.instances = []*InstanceInfo{
 		{ClassName: "PubClass", TypeArgs: []types.Type{types.Con("Int")}, DictBindName: "PubClass$Int"},
 	}
-	ch.reg.promotedKinds = map[string]types.Kind{
-		"Public":   types.KType{}, // promoted from form Public
-		"_Private": types.KType{}, // promoted from form _Private
+	ch.reg.promotedKinds = map[string]types.Type{
+		"Public":   types.TypeOfTypes, // promoted from form Public
+		"_Private": types.TypeOfTypes, // promoted from form _Private
 	}
-	ch.reg.promotedCons = map[string]types.Kind{
-		"MkPublic": types.KType{}, // promoted from constructor MkPublic (parent: Public)
-		"_Hidden":  types.KType{}, // promoted from constructor _Hidden (parent: _Private)
+	ch.reg.promotedCons = map[string]types.Type{
+		"MkPublic": types.TypeOfTypes, // promoted from constructor MkPublic (parent: Public)
+		"_Hidden":  types.TypeOfTypes, // promoted from constructor _Hidden (parent: _Private)
 	}
 	ch.reg.families = map[string]*TypeFamilyInfo{
-		"PubFam":  {Name: "PubFam", ResultKind: types.KType{}},
-		"_PriFam": {Name: "_PriFam", ResultKind: types.KType{}},
+		"PubFam":  {Name: "PubFam", ResultKind: types.TypeOfTypes},
+		"_PriFam": {Name: "_PriFam", ResultKind: types.TypeOfTypes},
 	}
 	return ch
 }

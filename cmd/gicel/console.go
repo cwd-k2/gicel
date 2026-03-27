@@ -36,11 +36,6 @@ var consolePack registry.Pack = func(e registry.Registrar) error {
 	return e.RegisterModule("Console", consoleSource)
 }
 
-// consoleMode controls whether Console writes to real stdio or buffers.
-var consoleMode struct {
-	buffer bool // true = capture to capEnv (--json mode)
-}
-
 var (
 	stdinScanner = bufio.NewScanner(os.Stdin)
 	stdoutWriter = bufio.NewWriter(os.Stdout)
@@ -48,7 +43,14 @@ var (
 
 func flushConsole() { stdoutWriter.Flush() }
 
-var unitVal = &eval.RecordVal{Fields: map[string]eval.Value{}}
+// isConsoleBuffered returns true when the console capability is in buffer mode.
+// Buffer mode is indicated by the capability value being a []string (even if empty).
+// Direct mode uses a non-[]string value (typically nil or ()).
+func isConsoleBuffered(ce eval.CapEnv) bool {
+	v, _ := ce.Get("console")
+	_, ok := v.([]string)
+	return ok
+}
 
 func putLineImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
 	hv, ok := args[0].(*eval.HostVal)
@@ -59,17 +61,17 @@ func putLineImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Ap
 	if !ok {
 		return nil, ce, fmt.Errorf("putLine: expected string, got %T", hv.Inner)
 	}
-	if consoleMode.buffer {
-		return unitVal, appendConsoleBuffer(ce, s), nil
+	if isConsoleBuffered(ce) {
+		return eval.UnitVal, appendConsoleBuffer(ce, s), nil
 	}
 	stdoutWriter.WriteString(s)
 	stdoutWriter.WriteByte('\n')
 	stdoutWriter.Flush()
-	return unitVal, ce, nil
+	return eval.UnitVal, ce, nil
 }
 
 func getLineImpl(ctx context.Context, ce eval.CapEnv, _ []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
-	if consoleMode.buffer {
+	if isConsoleBuffered(ce) {
 		return &eval.HostVal{Inner: ""}, ce, fmt.Errorf("getLine: not available in --json mode")
 	}
 	if stdinScanner.Scan() {

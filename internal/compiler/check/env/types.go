@@ -5,10 +5,13 @@ import (
 	"github.com/cwd-k2/gicel/internal/lang/types"
 )
 
+// DictName returns the dictionary type constructor name for a class.
+func DictName(className string) string { return className + "$Dict" }
+
 // AliasInfo holds the definition of a type alias: parameter names, their kinds, and the body.
 type AliasInfo struct {
 	Params     []string
-	ParamKinds []types.Kind
+	ParamKinds []types.Type
 	Body       types.Type
 }
 
@@ -16,12 +19,13 @@ type AliasInfo struct {
 type ClassInfo struct {
 	Name         string
 	TyParams     []string
-	TyParamKinds []types.Kind
-	KindParams   []string     // implicit kind variables (e.g., "k" in f: k -> Type)
-	Supers       []SuperInfo  // superclass constraints
-	Methods      []MethodInfo // method signatures
-	DictName     string       // e.g. "Eq$Dict" — used as both type and constructor name
-	AssocTypes   []string     // associated type family names
+	TyParamKinds []types.Type
+	KindParams   []string        // implicit kind variables (e.g., "k" in f: k -> Type)
+	Supers       []SuperInfo     // superclass constraints
+	Methods      []MethodInfo    // method signatures
+	DictName     string          // e.g. "Eq$Dict" — used as both type and constructor name
+	AssocTypes   []string        // associated type family names
+	SuperClosure map[string]bool // transitive superclass names (computed after validation)
 }
 
 // SuperInfo describes a superclass constraint.
@@ -45,8 +49,14 @@ type InstanceInfo struct {
 	UserName     string           // user-visible name from `impl name ::` ("" for anonymous)
 	Module       string           // source module that defined this instance
 	Private      bool             // true for impl _name (solver-invisible outside defining module)
-	FreeVarNames []string         // cached free type variable names (computed once at registration)
+	FreeVars     []FreeVarInfo    // cached free type variables with kinds (computed once at registration)
 	S            span.Span
+}
+
+// FreeVarInfo pairs a free variable name with its inferred kind.
+type FreeVarInfo struct {
+	Name string
+	Kind types.Type
 }
 
 // ConstraintInfo represents a constraint in instance context.
@@ -76,7 +86,7 @@ type ConstructorInfo struct {
 type TypeFamilyInfo struct {
 	Name       string
 	Params     []TFParam
-	ResultKind types.Kind
+	ResultKind types.Type
 	ResultName string  // non-empty if injective
 	Deps       []TFDep // injectivity deps (elaborated)
 	Equations  []TFEquation
@@ -87,7 +97,7 @@ type TypeFamilyInfo struct {
 // TFParam is a type family parameter with its name and kind.
 type TFParam struct {
 	Name string
-	Kind types.Kind
+	Kind types.Type
 }
 
 // TFDep is an elaborated functional dependency.

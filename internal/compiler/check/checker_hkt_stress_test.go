@@ -39,26 +39,26 @@ chain := id_k (id_k (id_k True))
 // TestStressKindUnificationLargeArrow — large kind arrow with variables
 func TestStressKindUnificationLargeArrow(t *testing.T) {
 	u := unify.NewUnifier()
-	// Build k1 -> k2 -> ... -> k20 -> Type with each ki as a KMeta
-	var metas []*types.KMeta
-	var k1 types.Kind = types.KType{}
+	// Build k1 -> k2 -> ... -> k20 -> Type with each ki as a kind meta
+	var metas []*types.TyMeta
+	var k1 types.Type = types.TypeOfTypes
 	for i := 19; i >= 0; i-- {
-		m := &types.KMeta{ID: i + 100}
-		metas = append([]*types.KMeta{m}, metas...)
-		k1 = &types.KArrow{From: m, To: k1}
+		m := &types.TyMeta{ID: i + 100, Kind: types.SortZero}
+		metas = append([]*types.TyMeta{m}, metas...)
+		k1 = &types.TyArrow{From: m, To: k1}
 	}
 	// Build Type -> Type -> ... -> Type -> Type (all concrete)
-	var k2 types.Kind = types.KType{}
+	var k2 types.Type = types.TypeOfTypes
 	for i := 0; i < 20; i++ {
-		k2 = &types.KArrow{From: types.KType{}, To: k2}
+		k2 = &types.TyArrow{From: types.TypeOfTypes, To: k2}
 	}
-	if err := u.UnifyKinds(k1, k2); err != nil {
+	if err := u.Unify(k1, k2); err != nil {
 		t.Fatalf("large kind arrow unification should succeed: %v", err)
 	}
 	for i, m := range metas {
-		solved := u.ZonkKind(m)
-		if !solved.Equal(types.KType{}) {
-			t.Errorf("meta %d should be Type, got %s", i, solved)
+		solved := u.Zonk(m)
+		if !types.Equal(solved, types.TypeOfTypes) {
+			t.Errorf("meta %d should be Type, got %s", i, types.PrettyTypeAsKind(solved))
 		}
 	}
 }
@@ -67,25 +67,25 @@ func TestStressKindUnificationLargeArrow(t *testing.T) {
 func TestStressKindMetaChain(t *testing.T) {
 	u := unify.NewUnifier()
 	const n = 50
-	metas := make([]*types.KMeta, n)
+	metas := make([]*types.TyMeta, n)
 	for i := 0; i < n; i++ {
-		metas[i] = &types.KMeta{ID: i + 200}
+		metas[i] = &types.TyMeta{ID: i + 200, Kind: types.SortZero}
 	}
 	// Chain: ?k0 ~ ?k1, ?k1 ~ ?k2, ..., ?k48 ~ ?k49
 	for i := 0; i < n-1; i++ {
-		if err := u.UnifyKinds(metas[i], metas[i+1]); err != nil {
+		if err := u.Unify(metas[i], metas[i+1]); err != nil {
 			t.Fatalf("chain unify %d ~ %d failed: %v", i, i+1, err)
 		}
 	}
 	// Solve the last one
-	if err := u.UnifyKinds(metas[n-1], types.KRow{}); err != nil {
+	if err := u.Unify(metas[n-1], types.TypeOfRows); err != nil {
 		t.Fatalf("solve tail failed: %v", err)
 	}
 	// All should resolve to Row
 	for i, m := range metas {
-		solved := u.ZonkKind(m)
-		if !solved.Equal(types.KRow{}) {
-			t.Errorf("meta %d should be Row, got %s", i, solved)
+		solved := u.Zonk(m)
+		if !types.Equal(solved, types.TypeOfRows) {
+			t.Errorf("meta %d should be Row, got %s", i, types.PrettyTypeAsKind(solved))
 		}
 	}
 }
@@ -98,11 +98,11 @@ func TestStressSubstKindInTypeLarge(t *testing.T) {
 		name := fmt.Sprintf("f%d", i)
 		ty = &types.TyForall{
 			Var:  name,
-			Kind: &types.KArrow{From: types.KVar{Name: "k"}, To: types.KType{}},
+			Kind: &types.TyArrow{From: &types.TyVar{Name: "k"}, To: types.TypeOfTypes},
 			Body: ty,
 		}
 	}
-	result := types.SubstKindInType(ty, "k", types.KRow{})
+	result := types.SubstKindInType(ty, "k", types.TypeOfRows)
 	// Verify all foralls have kind Row -> Type
 	current := result
 	for i := 0; i < 20; i++ {
@@ -110,12 +110,12 @@ func TestStressSubstKindInTypeLarge(t *testing.T) {
 		if !ok {
 			t.Fatalf("expected TyForall at depth %d, got %T", i, current)
 		}
-		arrow, ok := f.Kind.(*types.KArrow)
+		arrow, ok := f.Kind.(*types.TyArrow)
 		if !ok {
-			t.Fatalf("expected KArrow at depth %d, got %T", i, f.Kind)
+			t.Fatalf("expected TyArrow at depth %d, got %T", i, f.Kind)
 		}
-		if !arrow.From.Equal(types.KRow{}) {
-			t.Errorf("depth %d: expected From=Row, got %s", i, arrow.From)
+		if !types.Equal(arrow.From, types.TypeOfRows) {
+			t.Errorf("depth %d: expected From=Row, got %s", i, types.PrettyTypeAsKind(arrow.From))
 		}
 		current = f.Body
 	}

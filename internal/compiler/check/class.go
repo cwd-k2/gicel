@@ -5,6 +5,7 @@ import (
 	"strings"
 	"unicode"
 
+	"github.com/cwd-k2/gicel/internal/compiler/check/env"
 	"github.com/cwd-k2/gicel/internal/infra/diagnostic"
 	"github.com/cwd-k2/gicel/internal/infra/span"
 	"github.com/cwd-k2/gicel/internal/lang/ir"
@@ -12,32 +13,32 @@ import (
 	"github.com/cwd-k2/gicel/internal/lang/types"
 )
 
-// collectKindVars scans a kind expression for unbound lowercase names
-// (implicit kind variables), registers them in kindVars, and appends to params.
-func collectKindVars(k syntax.KindExpr, kindVars map[string]bool, params *[]string) {
+// collectKindVars scans a kind annotation (represented as TypeExpr) for
+// unbound lowercase names (implicit kind variables), registers them in
+// kindVars, and appends to params.
+func collectKindVars(k syntax.TypeExpr, kindVars map[string]bool, params *[]string) {
 	if k == nil {
 		return
 	}
 	switch ke := k.(type) {
-	case *syntax.KindExprArrow:
+	case *syntax.TyExprArrow:
 		collectKindVars(ke.From, kindVars, params)
 		collectKindVars(ke.To, kindVars, params)
-	case *syntax.KindExprName:
+	case *syntax.TyExprVar:
 		if len(ke.Name) > 0 && unicode.IsLower(rune(ke.Name[0])) && !kindVars[ke.Name] {
 			kindVars[ke.Name] = true
 			*params = append(*params, ke.Name)
 		}
+	case *syntax.TyExprParen:
+		collectKindVars(ke.Inner, kindVars, params)
 	}
 }
-
-// dictName returns the dictionary type/constructor name for a class.
-func dictName(className string) string { return className + "$Dict" }
 
 // processClassLikeForm elaborates a class-like form declaration into:
 // 1. A DataDecl for the dictionary type
 // 2. Selector bindings for each method
 func (ch *Checker) processClassLikeForm(d *syntax.DeclForm, parts formBodyParts, prog *ir.Program) {
-	dn := dictName(d.Name)
+	dn := env.DictName(d.Name)
 
 	// Reject default method implementations (not yet supported).
 	for _, f := range parts.Fields {
@@ -81,9 +82,9 @@ func (ch *Checker) processClassLikeForm(d *syntax.DeclForm, parts formBodyParts,
 	allFieldTypes := append(superFieldTypes, methodFieldTypes...)
 
 	// Register the dict type constructor kind.
-	var dictKind types.Kind = types.KType{}
+	var dictKind types.Type = types.TypeOfTypes
 	for i := len(tyParamKinds) - 1; i >= 0; i-- {
-		dictKind = &types.KArrow{From: tyParamKinds[i], To: dictKind}
+		dictKind = &types.TyArrow{From: tyParamKinds[i], To: dictKind}
 	}
 	ch.reg.RegisterTypeKind(dn, dictKind)
 
@@ -103,7 +104,7 @@ func (ch *Checker) processClassLikeForm(d *syntax.DeclForm, parts formBodyParts,
 	}
 	// Wrap kind parameters as outermost foralls (kind-level quantification).
 	for i := len(kindParams) - 1; i >= 0; i-- {
-		conType = types.MkForall(kindParams[i], types.KSort{}, conType)
+		conType = types.MkForall(kindParams[i], types.SortZero, conType)
 	}
 
 	// Register constructor.
@@ -129,7 +130,7 @@ func (ch *Checker) processClassLikeForm(d *syntax.DeclForm, parts formBodyParts,
 
 // collectClassParams collects implicit kind variables from type parameter
 // annotations and resolves type parameters with their kinds.
-func (ch *Checker) collectClassParams(parts formBodyParts) (kindParams, tyParams []string, tyParamKinds []types.Kind) {
+func (ch *Checker) collectClassParams(parts formBodyParts) (kindParams, tyParams []string, tyParamKinds []types.Type) {
 	// Collect implicit kind variables from type parameter kind annotations.
 	// e.g., class Functor (f: k -> Type) -> kindParams = ["k"]
 	for _, p := range parts.Params {
@@ -174,13 +175,15 @@ func (ch *Checker) registerAssocTypes(parts formBodyParts, className string) []s
 			atParams = append(atParams, TFParam{Name: p.Name, Kind: ch.resolveKindExpr(p.Kind)})
 		}
 		resultKind := ch.resolveKindExpr(td.KindAnn)
-		ch.reg.RegisterFamily(td.Name, &TypeFamilyInfo{
+		if err := ch.reg.RegisterFamily(td.Name, &TypeFamilyInfo{
 			Name:       td.Name,
 			Params:     atParams,
 			ResultKind: resultKind,
 			IsAssoc:    true,
 			ClassName:  className,
-		})
+		}); err != nil {
+			ch.addCodedError(diagnostic.ErrTypeFamilyEquation, td.S, err.Error())
+		}
 	}
 	return assocTypeNames
 }
@@ -224,7 +227,7 @@ func (ch *Checker) buildMethodSelector(cls *ClassInfo, m MethodInfo, methodIdx i
 		selectorTy = types.MkForall(cls.TyParams[j], cls.TyParamKinds[j], selectorTy)
 	}
 	for j := len(cls.KindParams) - 1; j >= 0; j-- {
-		selectorTy = types.MkForall(cls.KindParams[j], types.KSort{}, selectorTy)
+		selectorTy = types.MkForall(cls.KindParams[j], types.SortZero, selectorTy)
 	}
 
 	ch.ctx.Push(&CtxVar{Name: m.Name, Type: selectorTy, Module: ch.scope.CurrentModule()})
@@ -259,7 +262,7 @@ func (ch *Checker) buildMethodSelector(cls *ClassInfo, m MethodInfo, methodIdx i
 		selectorBody = &ir.TyLam{TyParam: cls.TyParams[j], Kind: cls.TyParamKinds[j], Body: selectorBody, S: s}
 	}
 	for j := len(cls.KindParams) - 1; j >= 0; j-- {
-		selectorBody = &ir.TyLam{TyParam: cls.KindParams[j], Kind: types.KSort{}, Body: selectorBody, S: s}
+		selectorBody = &ir.TyLam{TyParam: cls.KindParams[j], Kind: types.SortZero, Body: selectorBody, S: s}
 	}
 
 	dict.prog.Bindings = append(dict.prog.Bindings, ir.Binding{
@@ -272,7 +275,7 @@ func (ch *Checker) buildMethodSelector(cls *ClassInfo, m MethodInfo, methodIdx i
 
 // buildDictType constructs the dictionary type for a class applied to arguments.
 func (ch *Checker) buildDictType(className string, args []types.Type) types.Type {
-	var ty types.Type = types.Con(dictName(className))
+	var ty types.Type = types.Con(env.DictName(className))
 	for _, a := range args {
 		ty = &types.TyApp{Fun: ty, Arg: a}
 	}
@@ -335,6 +338,19 @@ func (ch *Checker) validateSuperclassGraph() bool {
 
 		path = path[:len(path)-1]
 		colors[name] = black
+		// Compute transitive superclass closure.
+		if info, ok := classes[name]; ok {
+			closure := make(map[string]bool, len(info.Supers))
+			for _, sup := range info.Supers {
+				closure[sup.ClassName] = true
+				if supInfo, ok := classes[sup.ClassName]; ok && supInfo.SuperClosure != nil {
+					for k := range supInfo.SuperClosure {
+						closure[k] = true
+					}
+				}
+			}
+			info.SuperClosure = closure
+		}
 		return false
 	}
 

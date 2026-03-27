@@ -15,3 +15,14 @@ Provides contiguous array with O(1) length/index. Load with `eng.Use(gicel.DataS
 | `fmap`      | `\a b. (a -> b) -> Slice a -> Slice b`     | Map over slice  |
 
 Instances: `Functor Slice`, `Foldable Slice`, `FromList (Slice a)`, `ToList (Slice a)`
+
+**Example:**
+
+```
+import Prelude
+import Data.Slice as S
+
+xs := fromList [10, 20, 30] :: Slice Int
+main := (S.length xs, S.index 1 xs, toList (fmap (* 2) xs))
+-- (3, Just 20, [20, 40, 60])
+```

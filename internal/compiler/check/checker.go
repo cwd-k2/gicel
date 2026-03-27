@@ -39,7 +39,7 @@ const (
 // CheckConfig provides environment for type checking.
 type CheckConfig struct {
 	Context         context.Context // cancellation context (nil = no cancellation)
-	RegisteredTypes map[string]types.Kind
+	RegisteredTypes map[string]types.Type
 	Assumptions     map[string]types.Type
 	Bindings        map[string]types.Type
 	GatedBuiltins   map[string]bool
@@ -218,79 +218,93 @@ func newChecker(prog *syntax.AstProgram, source *span.Source, config *CheckConfi
 		ctx = context.Background()
 	}
 	session := &CheckState{
-		ctx: NewContext(),
-		budget: func() *budget.CheckBudget {
-			b := budget.NewCheck(ctx)
-			if config.NestingLimit > 0 {
-				b.SetNestingLimit(config.NestingLimit)
-			}
-			maxTF := config.MaxTFSteps
-			if maxTF <= 0 {
-				maxTF = family.MaxReductionWork
-			}
-			b.SetTFStepLimit(maxTF)
-			maxSolver := config.MaxSolverSteps
-			if maxSolver <= 0 {
-				maxSolver = defaultMaxSolverSteps
-			}
-			b.SetSolverStepLimit(maxSolver)
-			maxResolve := config.MaxResolveDepth
-			if maxResolve <= 0 {
-				maxResolve = defaultMaxResolveDepth
-			}
-			b.SetResolveDepthLimit(maxResolve)
-			return b
-		}(),
+		ctx:    NewContext(),
+		budget: newBudget(ctx, config),
 		errors: &diagnostic.Errors{Source: source},
 		source: source,
 		config: config,
 	}
-	reg := func() *Registry {
-		r := &Registry{
-			typeKinds:         make(map[string]types.Kind),
-			conModules:        make(map[string]string),
-			conTypes:          make(map[string]types.Type),
-			conInfo:           make(map[string]*DataTypeInfo),
-			dataTypeByName:    make(map[string]*DataTypeInfo),
-			aliases:           make(map[string]*AliasInfo),
-			classes:           make(map[string]*ClassInfo),
-			dictToClass:       make(map[string]string),
-			instancesByClass:  make(map[string][]*InstanceInfo),
-			importedInstances: make(map[*InstanceInfo]bool),
-			promotedKinds:     make(map[string]types.Kind),
-			promotedCons:      make(map[string]types.Kind),
-			kindVars:          make(map[string]bool),
-			families:          make(map[string]*TypeFamilyInfo),
-		}
-		for name, kind := range config.RegisteredTypes {
-			r.typeKinds[name] = kind
-		}
-		return r
-	}()
 	ch := &Checker{
 		CheckState: session,
-		reg:        reg,
+		reg:        newRegistry(config),
 		scope: &Scope{
 			currentModule: config.CurrentModule,
 		},
 	}
 	ch.solver = solve.New(ch)
+	ch.wireUnifier()
+	ch.initContext()
+	ch.importModules(prog)
+	return ch
+}
+
+func newBudget(ctx context.Context, config *CheckConfig) *budget.CheckBudget {
+	b := budget.NewCheck(ctx)
+	if config.NestingLimit > 0 {
+		b.SetNestingLimit(config.NestingLimit)
+	}
+	maxTF := config.MaxTFSteps
+	if maxTF <= 0 {
+		maxTF = family.MaxReductionWork
+	}
+	b.SetTFStepLimit(maxTF)
+	maxSolver := config.MaxSolverSteps
+	if maxSolver <= 0 {
+		maxSolver = defaultMaxSolverSteps
+	}
+	b.SetSolverStepLimit(maxSolver)
+	maxResolve := config.MaxResolveDepth
+	if maxResolve <= 0 {
+		maxResolve = defaultMaxResolveDepth
+	}
+	b.SetResolveDepthLimit(maxResolve)
+	return b
+}
+
+func newRegistry(config *CheckConfig) *Registry {
+	r := &Registry{
+		typeKinds:         make(map[string]types.Type),
+		conModules:        make(map[string]string),
+		conTypes:          make(map[string]types.Type),
+		conInfo:           make(map[string]*DataTypeInfo),
+		dataTypeByName:    make(map[string]*DataTypeInfo),
+		aliases:           make(map[string]*AliasInfo),
+		classes:           make(map[string]*ClassInfo),
+		dictToClass:       make(map[string]string),
+		instancesByClass:  make(map[string][]*InstanceInfo),
+		importedInstances: make(map[*InstanceInfo]bool),
+		promotedKinds:     make(map[string]types.Type),
+		promotedCons:      make(map[string]types.Type),
+		kindVars:          make(map[string]bool),
+		families:          make(map[string]*TypeFamilyInfo),
+	}
+	for name, kind := range config.RegisteredTypes {
+		r.typeKinds[name] = kind
+	}
+	return r
+}
+
+// wireUnifier initializes the unifier and connects it to the solver.
+//
+// SolverLevel timing patterns (L1-a invariant):
+//
+//	Baseline:           SolverLevel = 0   — all level-0 metas are touchable.
+//	Trial/Probe:        SolverLevel = -1  — touchability disabled for speculative unification.
+//	Implication scope:  SolverLevel = solver.Level() — metas below this level are untouchable.
+//
+// The DK interleaving constraint: in CheckWithLocalScope (solve/implication.go),
+// SolverLevel is set AFTER body check, not before. Body check's eager unification
+// must be free to solve outer metas (e.g. case result type).
+func (ch *Checker) wireUnifier() {
 	ch.unifier = unify.NewUnifierShared(&ch.freshID)
-	// SolverLevel timing patterns (L1-a invariant):
-	//
-	//   Baseline (here):    SolverLevel = 0   — all level-0 metas are touchable.
-	//   Trial/Probe:        SolverLevel = -1  — touchability disabled for speculative unification.
-	//   Implication scope:  SolverLevel = solver.Level() — metas below this level are untouchable.
-	//
-	// The DK interleaving constraint: in CheckWithLocalScope (solve/implication.go),
-	// SolverLevel is set AFTER body check, not before. Body check's eager unification
-	// must be free to solve outer metas (e.g. case result type).
 	ch.unifier.SolverLevel = 0
 	ch.unifier.Budget = ch.budget
 	ch.unifier.OnSolve = func(metaID int) {
 		ch.solver.Reactivate(metaID)
 	}
-	ch.initContext()
+}
+
+func (ch *Checker) importModules(prog *syntax.AstProgram) {
 	imp := modscope.NewImporter(modscope.ImportEnv{
 		RegisterTypeKind:     ch.reg.RegisterTypeKind,
 		RegisterAlias:        ch.reg.RegisterAlias,
@@ -309,10 +323,9 @@ func newChecker(prog *syntax.AstProgram, source *span.Source, config *CheckConfi
 	})
 	ch.scope.qualifiedScopes = imp.Import(
 		prog.Imports,
-		config.ImportedModules,
-		config.ModuleDeps,
+		ch.config.ImportedModules,
+		ch.config.ModuleDeps,
 	)
-	return ch
 }
 
 func (ch *Checker) initContext() {
@@ -335,7 +348,7 @@ func (ch *Checker) initContext() {
 		ch.ctx.Push(&CtxVar{Name: name, Type: ty})
 	}
 	// Built-in type constructors.
-	ch.reg.RegisterTypeKind("Record", &types.KArrow{From: types.KRow{}, To: types.KType{}})
+	ch.reg.RegisterTypeKind("Record", &types.TyArrow{From: types.TypeOfRows, To: types.TypeOfTypes})
 }
 
 func (s *CheckState) fresh() int {
@@ -343,23 +356,46 @@ func (s *CheckState) fresh() int {
 	return s.freshID
 }
 
-func (ch *Checker) freshMeta(k types.Kind) *types.TyMeta {
+func (ch *Checker) freshMeta(k types.Type) *types.TyMeta {
 	id := ch.fresh()
 	return &types.TyMeta{ID: id, Kind: k, Level: ch.solver.Level()}
 }
 
-func (s *CheckState) freshSkolem(name string, k types.Kind) *types.TySkolem {
+func (s *CheckState) freshSkolem(name string, k types.Type) *types.TySkolem {
 	id := s.fresh()
 	return &types.TySkolem{ID: id, Name: name, Kind: k}
 }
 
-func (s *CheckState) freshKindMeta() *types.KMeta {
-	id := s.fresh()
-	return &types.KMeta{ID: id}
+// tryTrivialUnify attempts to solve a trivial unification eagerly.
+// Returns true if solved (both sides are identical, or one is a fresh meta).
+// This is a legitimate shortcut: the result is identical to emitting a CtEq
+// and having the solver process it, but avoids the overhead.
+func (ch *Checker) tryTrivialUnify(a, b types.Type) bool {
+	a = ch.unifier.Zonk(a)
+	b = ch.unifier.Zonk(b)
+	if a == b {
+		return true
+	}
+	if m, ok := a.(*types.TyMeta); ok && ch.unifier.Solve(m.ID) == nil {
+		if ch.unifier.SolveFreshMeta(m, b) {
+			return true
+		}
+	}
+	if m, ok := b.(*types.TyMeta); ok && ch.unifier.Solve(m.ID) == nil {
+		if ch.unifier.SolveFreshMeta(m, a) {
+			return true
+		}
+	}
+	return false
 }
 
-func (s *CheckState) mkType(name string) types.Type {
-	return types.Con(name)
+// isSortKind checks whether a kind-as-Type is a sort (universe level >= 2),
+// i.e. the kind of kinds (SortZero or higher).
+func isSortKind(k types.Type) bool {
+	if tc, ok := k.(*types.TyCon); ok {
+		return types.IsSortLevel(tc.Level)
+	}
+	return false
 }
 
 func (s *CheckState) errorPair(sp span.Span) (types.Type, ir.Core) {
@@ -422,35 +458,6 @@ func (s *CheckState) withProbe(fn func() bool) bool {
 	return result
 }
 
-// lookupAlias searches for a type alias by name: first in the Registry
-// (populated during declaration phases), then in Scope's injected aliases
-// (populated from qualified references).
-func (ch *Checker) lookupAlias(name string) (*AliasInfo, bool) {
-	if info, ok := ch.reg.LookupAlias(name); ok {
-		return info, true
-	}
-	if ch.scope != nil && ch.scope.injectedAliases != nil {
-		if info, ok := ch.scope.injectedAliases[name]; ok {
-			return info, true
-		}
-	}
-	return nil, false
-}
-
-// lookupFamily searches for a type family by name: first in the Registry,
-// then in Scope's injected families.
-func (ch *Checker) lookupFamily(name string) (*TypeFamilyInfo, bool) {
-	if info, ok := ch.reg.LookupFamily(name); ok {
-		return info, true
-	}
-	if ch.scope != nil && ch.scope.injectedFamilies != nil {
-		if info, ok := ch.scope.injectedFamilies[name]; ok {
-			return info, true
-		}
-	}
-	return nil, false
-}
-
 // tryUnify attempts to unify a and b, rolling back on failure.
 func (s *CheckState) tryUnify(a, b types.Type) bool {
 	return s.withTrial(func() bool {
@@ -464,6 +471,16 @@ func (s *CheckState) addCodedError(code diagnostic.Code, sp span.Span, msg strin
 		Phase:   diagnostic.PhaseCheck,
 		Span:    sp,
 		Message: msg,
+	})
+}
+
+func (s *CheckState) addCodedErrorWithHints(code diagnostic.Code, sp span.Span, msg string, hints []diagnostic.Hint) {
+	s.errors.Add(&diagnostic.Error{
+		Code:    code,
+		Phase:   diagnostic.PhaseCheck,
+		Span:    sp,
+		Message: msg,
+		Hints:   hints,
 	})
 }
 

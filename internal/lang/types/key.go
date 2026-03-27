@@ -22,7 +22,7 @@ import (
 //   - TyApp: (Fun Arg)
 //   - TyArrow: (From->To)
 //   - TyCBPV: {C Pre Post Result} or {T Pre Post Result}
-//   - TyForall: {V Var Body}
+//   - TyForall: {V Var:Kind Body}
 //   - TyFamilyApp: [Name Arg1 Arg2 ...]
 //   - TyEvidence: {E Constraints Body}
 //   - TyEvidenceRow: capability = {R Label:Type ...}, constraint = {Q Class Args ...}
@@ -31,6 +31,10 @@ func WriteTypeKey(b *strings.Builder, t Type) {
 	switch ty := t.(type) {
 	case *TyCon:
 		b.WriteString(ty.Name)
+		if ty.Level != nil && !IsValueLevel(ty.Level) {
+			b.WriteByte('#')
+			b.WriteString(ty.Level.LevelString())
+		}
 	case *TyVar:
 		b.WriteByte('\'')
 		b.WriteString(ty.Name)
@@ -65,6 +69,8 @@ func WriteTypeKey(b *strings.Builder, t Type) {
 	case *TyForall:
 		b.WriteString("{V ")
 		b.WriteString(ty.Var)
+		b.WriteByte(':')
+		WriteTypeKey(b, ty.Kind)
 		b.WriteByte(' ')
 		WriteTypeKey(b, ty.Body)
 		b.WriteByte('}')
@@ -110,7 +116,9 @@ func writeEvidenceRowKey(b *strings.Builder, row *TyEvidenceRow) {
 	switch entries := row.Entries.(type) {
 	case *CapabilityEntries:
 		b.WriteString("{R")
-		for _, f := range entries.Fields {
+		// Normalize field order for canonical keying.
+		normalized, _ := NormalizeRow(&TyEvidenceRow{Entries: entries, Tail: row.Tail})
+		for _, f := range normalized.CapFields() {
 			b.WriteByte(' ')
 			b.WriteString(f.Label)
 			b.WriteByte(':')
@@ -127,13 +135,10 @@ func writeEvidenceRowKey(b *strings.Builder, row *TyEvidenceRow) {
 		b.WriteByte('}')
 	case *ConstraintEntries:
 		b.WriteString("{Q")
-		for _, e := range entries.Entries {
+		normalized := NormalizeConstraints(&TyEvidenceRow{Entries: entries, Tail: row.Tail})
+		for _, e := range normalized.ConEntries() {
 			b.WriteByte(' ')
-			b.WriteString(e.ClassName)
-			for _, a := range e.Args {
-				b.WriteByte(':')
-				WriteTypeKey(b, a)
-			}
+			writeConstraintEntryKey(b, e)
 		}
 		if row.Tail != nil {
 			b.WriteString("|")
@@ -152,5 +157,27 @@ func writeEvidenceRowKey(b *strings.Builder, row *TyEvidenceRow) {
 			WriteTypeKey(b, row.Tail)
 		}
 		b.WriteByte('}')
+	}
+}
+
+// writeConstraintEntryKey writes a canonical key for a single constraint entry,
+// including all distinguishing fields: ClassName, Args, IsEquality/EqLhs/EqRhs,
+// and ConstraintVar.
+func writeConstraintEntryKey(b *strings.Builder, e ConstraintEntry) {
+	if e.IsEquality {
+		b.WriteString("~")
+		WriteTypeKey(b, e.EqLhs)
+		b.WriteByte(':')
+		WriteTypeKey(b, e.EqRhs)
+		return
+	}
+	b.WriteString(e.ClassName)
+	for _, a := range e.Args {
+		b.WriteByte(':')
+		WriteTypeKey(b, a)
+	}
+	if e.ConstraintVar != nil {
+		b.WriteString("$")
+		WriteTypeKey(b, e.ConstraintVar)
 	}
 }

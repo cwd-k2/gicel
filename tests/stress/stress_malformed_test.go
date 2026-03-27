@@ -86,7 +86,7 @@ func TestMalformedOperators(t *testing.T) {
 	}
 }
 
-func TestValidUserOperators(t *testing.T) {
+func TestMalformed_ValidUserOperators(t *testing.T) {
 	cases := []struct {
 		name string
 		src  string
@@ -171,7 +171,7 @@ func TestMalformedListSyntax(t *testing.T) {
 // Semicolon edge cases
 // ---------------------------------------------------------------------------
 
-func TestSemicolonEdgeCases(t *testing.T) {
+func TestMalformed_SemicolonEdgeCases(t *testing.T) {
 	t.Run("1000 semicolons", func(t *testing.T) {
 		src := strings.Repeat(";", 1000)
 		_, err := gicel.RunSandbox(src, &gicel.SandboxConfig{})
@@ -214,80 +214,5 @@ func TestMalformedGarbageInputs(t *testing.T) {
 			// Should either error or return no-main, never panic.
 			_ = err
 		})
-	}
-}
-
-// ---------------------------------------------------------------------------
-// List pattern stress — large list, deeply nested
-// ---------------------------------------------------------------------------
-
-func TestStressLargeListPattern(t *testing.T) {
-	// 50-element exact-match list pattern.
-	var sb strings.Builder
-	sb.WriteString("import Prelude\n")
-	sb.WriteString("f := \\xs. case xs { [")
-	for i := range 50 {
-		if i > 0 {
-			sb.WriteString(", ")
-		}
-		sb.WriteString(fmt.Sprintf("x%d", i))
-	}
-	sb.WriteString(fmt.Sprintf("] => x0 + x%d; _ => 0 }\n", 49))
-	sb.WriteString("main := f [")
-	for i := range 50 {
-		if i > 0 {
-			sb.WriteString(", ")
-		}
-		sb.WriteString(fmt.Sprintf("%d", i))
-	}
-	sb.WriteString("]\n")
-
-	result, err := gicel.RunSandbox(sb.String(), &gicel.SandboxConfig{
-		Packs:    []gicel.Pack{gicel.Prelude},
-		MaxSteps: 500_000,
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	n := gicel.MustHost[int64](result.Value)
-	if n != 49 { // x0=0, x49=49, 0+49=49
-		t.Errorf("expected 49, got %d", n)
-	}
-}
-
-func TestStressNestedListPattern(t *testing.T) {
-	// 10 levels of list nesting: [[[[[[[[[[x]]]]]]]]]]
-	depth := 10
-	var patBuf strings.Builder
-	for range depth {
-		patBuf.WriteString("[")
-	}
-	patBuf.WriteString("x")
-	for range depth {
-		patBuf.WriteString("]")
-	}
-
-	var valBuf strings.Builder
-	for range depth {
-		valBuf.WriteString("[")
-	}
-	valBuf.WriteString("42")
-	for range depth {
-		valBuf.WriteString("]")
-	}
-
-	src := fmt.Sprintf("import Prelude\nf := \\xs. case xs { %s => x; _ => 0 }\nmain := f %s\n",
-		patBuf.String(), valBuf.String())
-
-	result, err := gicel.RunSandbox(src, &gicel.SandboxConfig{
-		Packs:    []gicel.Pack{gicel.Prelude},
-		MaxSteps: 500_000,
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	n := gicel.MustHost[int64](result.Value)
-	if n != 42 {
-		t.Errorf("expected 42, got %d", n)
 	}
 }

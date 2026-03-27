@@ -3,6 +3,7 @@ package check
 import (
 	"fmt"
 
+	"github.com/cwd-k2/gicel/internal/compiler/check/solve"
 	"github.com/cwd-k2/gicel/internal/infra/diagnostic"
 	"github.com/cwd-k2/gicel/internal/infra/span"
 	"github.com/cwd-k2/gicel/internal/lang/ir"
@@ -90,13 +91,12 @@ func (ch *Checker) extractMonadResult(ty types.Type, monadHead types.Type, s spa
 		return args[len(args)-1]
 	}
 	// Generate fresh meta as fallback.
-	result := ch.freshMeta(types.KType{})
+	result := ch.freshMeta(types.TypeOfTypes)
 	headApp := &types.TyApp{Fun: monadHead, Arg: result}
-	if err := ch.unifier.Unify(ty, headApp); err != nil {
-		ch.addSemanticUnifyError(diagnostic.ErrBadComputation, err, s, fmt.Sprintf("expected %s type, got %s",
-			types.Pretty(monadHead), types.Pretty(ty)))
-		return &types.TyError{S: s}
-	}
+	ch.emitEq(ty, headApp, s, &solve.CtOrigin{
+		Code:    diagnostic.ErrBadComputation,
+		Context: fmt.Sprintf("expected %s type, got %s", types.Pretty(monadHead), types.Pretty(ty)),
+	})
 	return result
 }
 

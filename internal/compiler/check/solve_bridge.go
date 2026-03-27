@@ -14,9 +14,10 @@ import (
 
 // --- Constraint type aliases ---
 
-// Ct, CtClass, CtFunEq, CtImplication are defined in the solve subpackage.
+// Ct, CtClass, CtEq, CtFunEq, CtImplication are defined in the solve subpackage.
 type Ct = solve.Ct
 type CtClass = solve.CtClass
+type CtEq = solve.CtEq
 type CtFunEq = solve.CtFunEq
 type CtImplication = solve.CtImplication
 
@@ -28,13 +29,14 @@ type Worklist = solve.Worklist
 
 // --- solve.Env interface methods ---
 
-func (ch *Checker) Zonk(t types.Type) types.Type         { return ch.unifier.Zonk(t) }
-func (ch *Checker) Unify(a, b types.Type) error          { return ch.unifier.Unify(a, b) }
-func (ch *Checker) SolverLevel() int                     { return ch.unifier.SolverLevel }
-func (ch *Checker) SetSolverLevel(l int)                 { ch.unifier.SolverLevel = l }
-func (ch *Checker) InstallGivenEq(id int, ty types.Type) { ch.unifier.InstallGivenEq(id, ty) }
-func (ch *Checker) RemoveGivenEq(id int)                 { ch.unifier.RemoveGivenEq(id) }
-func (ch *Checker) ScanContext(fn func(CtxEntry) bool)   { ch.ctx.Scan(fn) }
+func (ch *Checker) Zonk(t types.Type) types.Type             { return ch.unifier.Zonk(t) }
+func (ch *Checker) Unify(a, b types.Type) error              { return ch.unifier.Unify(a, b) }
+func (ch *Checker) SolverLevel() int                         { return ch.unifier.SolverLevel }
+func (ch *Checker) SetSolverLevel(l int)                     { ch.unifier.SolverLevel = l }
+func (ch *Checker) InstallGivenEq(id int, ty types.Type)     { ch.unifier.InstallGivenEq(id, ty) }
+func (ch *Checker) RemoveGivenEq(id int)                     { ch.unifier.RemoveGivenEq(id) }
+func (ch *Checker) ScanContext(fn func(CtxEntry) bool)       { ch.ctx.Scan(fn) }
+func (ch *Checker) LookupDictVar(className string) []*CtxVar { return ch.ctx.LookupDictVar(className) }
 func (ch *Checker) AddCodedError(code diagnostic.Code, s span.Span, msg string) {
 	ch.addCodedError(code, s, msg)
 }
@@ -48,7 +50,7 @@ func (ch *Checker) CheckCancelled() bool                 { return ch.checkCancel
 func (ch *Checker) WithTrial(fn func() bool) bool        { return ch.withTrial(fn) }
 func (ch *Checker) WithProbe(fn func() bool) bool        { return ch.withProbe(fn) }
 func (ch *Checker) Fresh() int                           { return ch.fresh() }
-func (ch *Checker) FreshMeta(k types.Kind) *types.TyMeta { return ch.freshMeta(k) }
+func (ch *Checker) FreshMeta(k types.Type) *types.TyMeta { return ch.freshMeta(k) }
 func (ch *Checker) InstancesForClass(name string) []*InstanceInfo {
 	return ch.reg.InstancesForClass(name)
 }
@@ -72,6 +74,21 @@ func (ch *Checker) solveWanteds(shouldDefer func(string, []types.Type) bool) (ma
 // emitClassConstraint records a class constraint by pushing it to the worklist.
 func (ch *Checker) emitClassConstraint(placeholder string, entry types.ConstraintEntry, s span.Span) {
 	ch.solver.EmitClassConstraint(placeholder, entry, s)
+}
+
+// emitEq emits a type equality constraint to the solver worklist.
+// Origin provides semantic context for error reporting; nil = generic message.
+func (ch *Checker) emitEq(lhs, rhs types.Type, s span.Span, origin *solve.CtOrigin) {
+	ch.solver.Emit(&solve.CtEq{Lhs: lhs, Rhs: rhs, Origin: origin, S: s})
+}
+
+// emitGivenEq emits a given equality to the solver with priority processing.
+// Given equalities are pushed to the front of the worklist so they are
+// processed before wanted constraints. The unifier's InstallGivenEq is
+// also called for Zonk transparency — this dual installation is the
+// hybrid approach for Step 4; Step 7 will consolidate.
+func (ch *Checker) emitGivenEq(lhs, rhs types.Type, s span.Span) {
+	ch.solver.EmitGivenEq(&solve.CtEq{Lhs: lhs, Rhs: rhs, Flavor: solve.CtGiven, S: s})
 }
 
 // resolveDeferredConstraints discharges all worklist constraints eagerly.

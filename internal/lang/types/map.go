@@ -29,11 +29,12 @@ func MapType(t Type, f func(Type) Type) Type {
 		}
 		return &TyArrow{From: from, To: to, S: ty.S}
 	case *TyForall:
+		kind := f(ty.Kind)
 		body := f(ty.Body)
-		if body == ty.Body {
+		if kind == ty.Kind && body == ty.Body {
 			return t
 		}
-		return &TyForall{Var: ty.Var, Kind: ty.Kind, Body: body, S: ty.S}
+		return &TyForall{Var: ty.Var, Kind: kind, Body: body, S: ty.S}
 	case *TyCBPV:
 		pre := f(ty.Pre)
 		post := f(ty.Post)
@@ -69,7 +70,8 @@ func MapType(t Type, f func(Type) Type) Type {
 		}
 		return &TyEvidenceRow{Entries: newEntries, Tail: tail, S: ty.S}
 	case *TyFamilyApp:
-		changed := false
+		kind := f(ty.Kind)
+		changed := kind != ty.Kind
 		args := make([]Type, len(ty.Args))
 		for i, a := range ty.Args {
 			args[i] = f(a)
@@ -80,7 +82,7 @@ func MapType(t Type, f func(Type) Type) Type {
 		if !changed {
 			return t
 		}
-		return &TyFamilyApp{Name: ty.Name, Args: args, Kind: ty.Kind, S: ty.S}
+		return &TyFamilyApp{Name: ty.Name, Args: args, Kind: kind, S: ty.S}
 	default:
 		// TyVar, TyCon, TyMeta, TySkolem, TyError — leaves
 		return t

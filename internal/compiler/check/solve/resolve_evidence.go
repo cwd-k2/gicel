@@ -30,38 +30,39 @@ func (s *Solver) applyQuantifiedEvidence(e *env.CtxEvidence, className string, a
 		freshSubst[v.Name] = s.env.FreshMeta(v.Kind)
 	}
 
-	// Try to unify head args with wanted args.
+	// Wrap head unification and context resolution in a single trial
+	// so that if context resolution fails, head solutions are rolled back.
+	var dictExpr ir.Core
+	savedErrs := s.env.ErrorCount()
 	if !s.env.WithTrial(func() bool {
+		// Head match.
 		for i := range args {
 			headArg := types.SubstMany(qc.Head.Args[i], freshSubst)
 			if err := s.env.Unify(headArg, args[i]); err != nil {
 				return false
 			}
 		}
-		return true
+		// Build the evidence expression.
+		dictExpr = &ir.Var{Name: e.DictName, S: sp}
+		for _, v := range qc.Vars {
+			tyArg := s.env.Zonk(freshSubst[v.Name])
+			dictExpr = &ir.TyApp{Expr: dictExpr, TyArg: tyArg, S: sp}
+		}
+		// Resolve and apply context (premise) dictionaries.
+		for _, ctx := range qc.Context {
+			ctxArgs := make([]types.Type, len(ctx.Args))
+			for j, a := range ctx.Args {
+				ctxArgs[j] = s.env.Zonk(types.SubstMany(a, freshSubst))
+			}
+			ctxDict := s.resolveInstance(ctx.ClassName, ctxArgs, sp)
+			dictExpr = &ir.App{Fun: dictExpr, Arg: ctxDict, S: sp}
+		}
+		// If context resolution emitted errors, treat as failure.
+		return s.env.ErrorCount() == savedErrs
 	}) {
+		s.env.TruncateErrors(savedErrs)
 		return nil
 	}
-
-	// Build the evidence expression by applying the quantified evidence function.
-	var dictExpr ir.Core = &ir.Var{Name: e.DictName, S: sp}
-
-	// Apply type arguments.
-	for _, v := range qc.Vars {
-		tyArg := s.env.Zonk(freshSubst[v.Name])
-		dictExpr = &ir.TyApp{Expr: dictExpr, TyArg: tyArg, S: sp}
-	}
-
-	// Resolve and apply context (premise) dictionaries.
-	for _, ctx := range qc.Context {
-		ctxArgs := make([]types.Type, len(ctx.Args))
-		for j, a := range ctx.Args {
-			ctxArgs[j] = s.env.Zonk(types.SubstMany(a, freshSubst))
-		}
-		ctxDict := s.resolveInstance(ctx.ClassName, ctxArgs, sp)
-		dictExpr = &ir.App{Fun: dictExpr, Arg: ctxDict, S: sp}
-	}
-
 	return dictExpr
 }
 
@@ -101,7 +102,11 @@ func (s *Solver) resolveQuantifiedConstraint(qc *types.QuantifiedConstraint, sp 
 				return false
 			}
 			for i, ic := range inst.Context {
-				if ic.ClassName != qc.Context[i].ClassName {
+				qcc := qc.Context[i]
+				if ic.ClassName != qcc.ClassName {
+					return false
+				}
+				if len(ic.Args) != len(qcc.Args) {
 					return false
 				}
 			}
@@ -152,7 +157,11 @@ func (s *Solver) resolveQuantifiedConstraint(qc *types.QuantifiedConstraint, sp 
 				return false
 			}
 			for i, ec := range eq.Context {
-				if ec.ClassName != qc.Context[i].ClassName {
+				qcc := qc.Context[i]
+				if ec.ClassName != qcc.ClassName {
+					return false
+				}
+				if len(ec.Args) != len(qcc.Args) {
 					return false
 				}
 			}
@@ -175,15 +184,16 @@ func (s *Solver) resolveQuantifiedConstraint(qc *types.QuantifiedConstraint, sp 
 
 // FreshInstanceSubst creates a substitution mapping each free type variable
 // in an instance's type arguments and context to a fresh meta variable.
-// Uses pre-computed FreeVarNames to avoid repeated FreeVars traversals.
+// Uses pre-computed FreeVars to avoid repeated traversals. Each variable's
+// kind is used to create the meta at the correct kind (Type vs Row).
 func (s *Solver) FreshInstanceSubst(inst *env.InstanceInfo) map[string]types.Type {
-	names := inst.FreeVarNames
-	if len(names) == 0 {
+	fvs := inst.FreeVars
+	if len(fvs) == 0 {
 		return nil
 	}
-	subst := make(map[string]types.Type, len(names))
-	for _, v := range names {
-		subst[v] = s.env.FreshMeta(types.KType{})
+	subst := make(map[string]types.Type, len(fvs))
+	for _, v := range fvs {
+		subst[v.Name] = s.env.FreshMeta(v.Kind)
 	}
 	return subst
 }

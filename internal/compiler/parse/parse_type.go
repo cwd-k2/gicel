@@ -70,7 +70,7 @@ func (p *Parser) parseForallType() syn.TypeExpr {
 			p.advance()
 			name := p.expectLower()
 			p.expect(syn.TokColon)
-			kind := p.parseKindExpr()
+			kind := p.parseKindAnnotation()
 			p.expect(syn.TokRParen)
 			binders = append(binders, syn.TyBinder{
 				Name: name,
@@ -92,13 +92,15 @@ func (p *Parser) parseForallType() syn.TypeExpr {
 	}
 }
 
-// parseKindExpr parses a kind expression: Type, Row, or K1 -> K2.
-func (p *Parser) parseKindExpr() syn.KindExpr {
+// parseKindAnnotation parses a kind annotation as a TypeExpr.
+// Kind keywords (Type, Row, Constraint, Kind) become TyExprCon nodes;
+// arrows and parentheses use the standard TypeExpr AST.
+func (p *Parser) parseKindAnnotation() syn.TypeExpr {
 	left := p.parseKindAtom()
 	if p.peek().Kind == syn.TokArrow {
 		p.advance()
-		right := p.parseKindExpr() // right-associative
-		return &syn.KindExprArrow{
+		right := p.parseKindAnnotation() // right-associative
+		return &syn.TyExprArrow{
 			From: left, To: right,
 			S: span.Span{Start: left.Span().Start, End: right.Span().End},
 		}
@@ -106,50 +108,36 @@ func (p *Parser) parseKindExpr() syn.KindExpr {
 	return left
 }
 
-// parseKindAtom parses an atomic kind: Type, Row, Constraint, user-defined kind, or (K).
-func (p *Parser) parseKindAtom() syn.KindExpr {
+// parseKindAtom parses an atomic kind as a TypeExpr: Type, Row, Constraint,
+// Kind, user-defined kind names, kind variables, or (K).
+func (p *Parser) parseKindAtom() syn.TypeExpr {
 	switch {
-	case p.peek().Kind == syn.TokUpper && p.peek().Text == "Type":
-		tok := p.peek()
-		p.advance()
-		return &syn.KindExprType{S: tok.S}
-	case p.peek().Kind == syn.TokUpper && p.peek().Text == "Row":
-		tok := p.peek()
-		p.advance()
-		return &syn.KindExprRow{S: tok.S}
-	case p.peek().Kind == syn.TokUpper && p.peek().Text == "Constraint":
-		tok := p.peek()
-		p.advance()
-		return &syn.KindExprConstraint{S: tok.S}
-	case p.peek().Kind == syn.TokUpper && p.peek().Text == "Kind":
-		tok := p.peek()
-		p.advance()
-		return &syn.KindExprSort{S: tok.S}
 	case p.peek().Kind == syn.TokUpper:
-		// DataKinds: user-defined kind name (e.g., DBState, Bool)
+		// All uppercase names (Type, Row, Constraint, Kind, user-defined) → TyExprCon.
 		tok := p.peek()
 		p.advance()
-		return &syn.KindExprName{Name: tok.Text, S: tok.S}
+		return &syn.TyExprCon{Name: tok.Text, S: tok.S}
 	case p.peek().Kind == syn.TokLower:
 		// Kind variable reference (e.g., k in "\ (k: Kind). k -> Type")
 		tok := p.peek()
 		p.advance()
-		return &syn.KindExprName{Name: tok.Text, S: tok.S}
+		return &syn.TyExprVar{Name: tok.Text, S: tok.S}
 	case p.peek().Kind == syn.TokLParen:
 		if !p.enterRecurse() {
 			tok := p.peek()
-			return &syn.KindExprType{S: tok.S}
+			return &syn.TyExprCon{Name: "Type", S: tok.S}
 		}
+		start := p.peek().S.Start
 		p.advance()
-		k := p.parseKindExpr()
+		k := p.parseKindAnnotation()
 		p.expect(syn.TokRParen)
 		p.leaveRecurse()
-		return k
+		return &syn.TyExprParen{Inner: k, S: span.Span{Start: start, End: p.prevEnd()}}
 	default:
 		p.addErrorCode(diagnostic.ErrExpectedType, "expected kind (Type, Row, or K -> K)")
 		tok := p.peek()
 		p.advance()
-		return &syn.KindExprType{S: tok.S}
+		return &syn.TyExprCon{Name: "Type", S: tok.S}
 	}
 }
 
@@ -286,7 +274,7 @@ func (p *Parser) parseRowType() syn.TypeExpr {
 				p.advance()
 			}
 			p.expect(syn.TokColonColon)
-			tKind := p.parseKindExpr()
+			tKind := p.parseKindAnnotation()
 			typeDecls = append(typeDecls, syn.TyRowTypeDecl{
 				Name:    tName,
 				KindAnn: tKind,

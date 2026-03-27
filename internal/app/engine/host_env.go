@@ -11,7 +11,7 @@ import (
 type HostEnv struct {
 	bindings      map[string]types.Type
 	assumptions   map[string]types.Type
-	registeredTys map[string]types.Kind
+	registeredTys map[string]types.Type
 	prims         *eval.PrimRegistry
 	gatedBuiltins map[string]bool
 	rewriteRules  []registry.RewriteRule
@@ -21,21 +21,21 @@ func newHostEnv() HostEnv {
 	h := HostEnv{
 		bindings:      make(map[string]types.Type),
 		assumptions:   make(map[string]types.Type),
-		registeredTys: make(map[string]types.Kind),
+		registeredTys: make(map[string]types.Type),
 		prims:         eval.NewPrimRegistry(),
 		gatedBuiltins: make(map[string]bool),
 	}
-	h.registeredTys["Int"] = types.KType{}
-	h.registeredTys["Double"] = types.KType{}
-	h.registeredTys["String"] = types.KType{}
-	h.registeredTys["Rune"] = types.KType{}
-	h.registeredTys["Byte"] = types.KType{}
-	h.registeredTys["Slice"] = &types.KArrow{From: types.KType{}, To: types.KType{}}
-	h.registeredTys["Array"] = &types.KArrow{From: types.KType{}, To: types.KType{}}
-	h.registeredTys["Map"] = &types.KArrow{From: types.KType{}, To: &types.KArrow{From: types.KType{}, To: types.KType{}}}
-	h.registeredTys["Set"] = &types.KArrow{From: types.KType{}, To: types.KType{}}
-	h.registeredTys["MMap"] = &types.KArrow{From: types.KType{}, To: &types.KArrow{From: types.KType{}, To: types.KType{}}}
-	h.registeredTys["MSet"] = &types.KArrow{From: types.KType{}, To: types.KType{}}
-	h.registeredTys["Ref"] = &types.KArrow{From: types.KType{}, To: types.KType{}}
+	h.registeredTys["Int"] = types.TypeOfTypes
+	h.registeredTys["Double"] = types.TypeOfTypes
+	h.registeredTys["String"] = types.TypeOfTypes
+	h.registeredTys["Rune"] = types.TypeOfTypes
+	h.registeredTys["Byte"] = types.TypeOfTypes
+	h.registeredTys["Slice"] = &types.TyArrow{From: types.TypeOfTypes, To: types.TypeOfTypes}
+	h.registeredTys["Array"] = &types.TyArrow{From: types.TypeOfTypes, To: types.TypeOfTypes}
+	h.registeredTys["Map"] = &types.TyArrow{From: types.TypeOfTypes, To: &types.TyArrow{From: types.TypeOfTypes, To: types.TypeOfTypes}}
+	h.registeredTys["Set"] = &types.TyArrow{From: types.TypeOfTypes, To: types.TypeOfTypes}
+	h.registeredTys["MMap"] = &types.TyArrow{From: types.TypeOfTypes, To: &types.TyArrow{From: types.TypeOfTypes, To: types.TypeOfTypes}}
+	h.registeredTys["MSet"] = &types.TyArrow{From: types.TypeOfTypes, To: types.TypeOfTypes}
+	h.registeredTys["Ref"] = &types.TyArrow{From: types.TypeOfTypes, To: types.TypeOfTypes}
 	return h
 }

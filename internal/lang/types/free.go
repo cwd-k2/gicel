@@ -25,6 +25,7 @@ func freeVarsRec(t Type, bound map[string]bool, fv map[string]struct{}, depth in
 		freeVarsRec(ty.From, bound, fv, depth+1)
 		freeVarsRec(ty.To, bound, fv, depth+1)
 	case *TyForall:
+		freeVarsRec(ty.Kind, bound, fv, depth+1)
 		newBound := make(map[string]bool, len(bound)+1)
 		for k, v := range bound {
 			newBound[k] = v
@@ -85,7 +86,11 @@ func occursIn(name string, t Type, bound map[string]bool, depth int) bool {
 		return occursIn(name, ty.From, bound, depth+1) || occursIn(name, ty.To, bound, depth+1)
 	case *TyForall:
 		if ty.Var == name {
-			return false // shadowed
+			// Shadowed in body, but Kind is outside the binding scope.
+			return occursIn(name, ty.Kind, bound, depth+1)
+		}
+		if occursIn(name, ty.Kind, bound, depth+1) {
+			return true
 		}
 		if bound == nil {
 			return occursIn(name, ty.Body, map[string]bool{ty.Var: true}, depth+1)
@@ -148,6 +153,11 @@ func occursInConstraintEntry(name string, e ConstraintEntry, bound map[string]bo
 			return true
 		}
 	}
+	if e.IsEquality {
+		if occursIn(name, e.EqLhs, bound, depth+1) || occursIn(name, e.EqRhs, bound, depth+1) {
+			return true
+		}
+	}
 	if e.ConstraintVar != nil && occursIn(name, e.ConstraintVar, bound, depth+1) {
 		return true
 	}
@@ -179,6 +189,10 @@ func freeVarsConstraintEntry(e ConstraintEntry, bound map[string]bool, fv map[st
 	}
 	for _, a := range e.Args {
 		freeVarsRec(a, bound, fv, depth+1)
+	}
+	if e.IsEquality {
+		freeVarsRec(e.EqLhs, bound, fv, depth+1)
+		freeVarsRec(e.EqRhs, bound, fv, depth+1)
 	}
 	if e.ConstraintVar != nil {
 		freeVarsRec(e.ConstraintVar, bound, fv, depth+1)

@@ -113,7 +113,7 @@ type DataDecl struct {
 // TyParam is a type parameter with its kind.
 type TyParam struct {
 	Name string
-	Kind types.Kind
+	Kind types.Type
 }
 
 // ConDecl is a single constructor declaration.

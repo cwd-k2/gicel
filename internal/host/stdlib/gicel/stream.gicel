@@ -49,6 +49,46 @@ impl Foldable Stream := {
   }
 }
 
+filter :: \a. (a -> Bool) -> Stream a -> Stream a
+filter := \p. fix \self s. case s {
+  LNil => LNil;
+  LCons x t =>
+    if p x then LCons x (\_. self (t ()))
+    else self (t ())
+}
+
+zipWith :: \a b c. (a -> b -> c) -> Stream a -> Stream b -> Stream c
+zipWith := \f. fix \self sa sb.
+  case sa {
+    LNil => LNil;
+    LCons a ta => case sb {
+      LNil => LNil;
+      LCons b tb => LCons (f a b) (\_. self (ta ()) (tb ()))
+    }
+  }
+
+zip :: \a b. Stream a -> Stream b -> Stream (a, b)
+zip := zipWith (\a b. (a, b))
+
+iterate :: \a. (a -> a) -> a -> Stream a
+iterate := \f. fix \self x. LCons x (\_. self (f x))
+
+takeWhile :: \a. (a -> Bool) -> Stream a -> List a
+takeWhile := \p. fix \self s. case s {
+  LNil => Nil;
+  LCons x t =>
+    if p x then Cons x (self (t ()))
+    else Nil
+}
+
+repeat :: \a. a -> Stream a
+repeat := \x. { go := fix \self _. LCons x (\_. self ()); go () }
+
 impl Show a => Show (Stream a) := {
-  show := \s. "[" <> join ", " (fmap show (take 10 s)) <> ", ...]"
+  show := \s. {
+    preview := take 11 s;
+    elems := take 10 s;
+    suffix := if length preview > 10 then ", ...]" else "]";
+    "[" <> join ", " (fmap show elems) <> suffix
+  }
 }

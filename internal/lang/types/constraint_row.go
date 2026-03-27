@@ -13,5 +13,8 @@ func ConstraintKey(e ConstraintEntry) string {
 	for _, a := range e.Args {
 		parts = append(parts, TypeKey(a))
 	}
+	if e.ConstraintVar != nil {
+		parts = append(parts, "$"+TypeKey(e.ConstraintVar))
+	}
 	return strings.Join(parts, " ")
 }

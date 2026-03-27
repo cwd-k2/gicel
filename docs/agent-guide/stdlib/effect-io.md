@@ -14,3 +14,18 @@ Host provides `"io"` capability. Output accumulates as `[]string` in the final C
 > **Note:** `print` and `debug` do not write to stdout or stderr. They are pure operations
 > that append strings to the `io` capability buffer. The host retrieves accumulated output
 > from `result.CapEnv` after execution.
+
+**Example:**
+
+```
+import Prelude
+import Effect.IO
+
+main := do {
+  print "hello, ";
+  print "world!";
+  debug 42
+}
+```
+
+With `--json`, the `io` key in `capEnv` contains the accumulated strings.

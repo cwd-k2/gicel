@@ -3,6 +3,7 @@ package check
 import (
 	"fmt"
 
+	"github.com/cwd-k2/gicel/internal/compiler/check/solve"
 	"github.com/cwd-k2/gicel/internal/infra/diagnostic"
 	"github.com/cwd-k2/gicel/internal/infra/span"
 	"github.com/cwd-k2/gicel/internal/lang/ir"
@@ -166,7 +167,7 @@ func (d *doElaborator) inferBind(varName string, comp syntax.Expr, rest []syntax
 	// pattern-bound variable metas from leaking into the state position.
 	if d.lastPost != nil {
 		if inferredComp, ok := compTy.(*types.TyCBPV); ok {
-			_ = ch.unifier.Unify(d.lastPost, inferredComp.Pre) //nolint:errcheck // advisory
+			ch.emitEq(d.lastPost, inferredComp.Pre, stmtS, nil)
 			compTy = ch.unifier.Zonk(compTy)
 		}
 	}
@@ -228,7 +229,7 @@ func (d *doElaborator) unifyCompPostPre(compTy, restTy types.Type, s span.Span) 
 	compComp, ok1 := compTy.(*types.TyCBPV)
 	restComp, ok2 := restTy.(*types.TyCBPV)
 	if ok1 && ok2 {
-		_ = ch.unifier.Unify(compComp.Post, restComp.Pre) //nolint:errcheck // advisory
+		ch.emitEq(compComp.Post, restComp.Pre, s, nil)
 	}
 }
 
@@ -279,12 +280,11 @@ func (d *doElaborator) checkedBind(varName string, comp syntax.Expr, rest []synt
 	compTy = ch.unifier.Zonk(compTy)
 
 	if inferredComp, ok := compTy.(*types.TyCBPV); ok {
-		// Unify inferred pre with expected pre.
-		if err := ch.unifier.Unify(inferredComp.Pre, d.comp.Pre); err != nil {
-			ch.addUnifyError(err, stmtS, fmt.Sprintf(
-				"%s: pre-state mismatch: expected %s, got %s",
-				errLabel, types.Pretty(d.comp.Pre), types.Pretty(inferredComp.Pre)))
-		}
+		// Emit equality constraint: inferred pre vs expected pre.
+		ch.emitEq(inferredComp.Pre, d.comp.Pre, stmtS, &solve.CtOrigin{
+			Context: fmt.Sprintf("%s: pre-state mismatch: expected %s, got %s",
+				errLabel, types.Pretty(d.comp.Pre), types.Pretty(inferredComp.Pre)),
+		})
 
 		if isBind {
 			ch.ctx.Push(&CtxVar{Name: varName, Type: inferredComp.Result})
@@ -316,7 +316,7 @@ func (d *doElaborator) checkedBind(varName string, comp syntax.Expr, rest []synt
 	// Advisory unification: pre/post threading is unavailable in infer-fallback.
 	// Failure here is expected when the do-block mixes monadic and pure branches;
 	// the downstream subsumption check will report the actual type mismatch.
-	_ = ch.unifier.Unify(restTy, d.comp) //nolint:errcheck // advisory
+	ch.emitEq(restTy, d.comp, stmtS, nil)
 	return d.comp, &ir.Bind{Comp: compCore, Var: varName, Body: restCore, S: stmtS}
 }
 
@@ -481,9 +481,9 @@ func (ch *Checker) extractCompResult(ty types.Type, s span.Span) types.Type {
 		return comp.Result
 	}
 	// Try to unify with a fresh Computation.
-	pre := ch.freshMeta(types.KRow{})
-	post := ch.freshMeta(types.KRow{})
-	result := ch.freshMeta(types.KType{})
+	pre := ch.freshMeta(types.TypeOfRows)
+	post := ch.freshMeta(types.TypeOfRows)
+	result := ch.freshMeta(types.TypeOfTypes)
 	expected := types.MkComp(pre, post, result)
 	if err := ch.unifier.Unify(ty, expected); err != nil {
 		ch.addSemanticUnifyError(diagnostic.ErrBadComputation, err, s, fmt.Sprintf("expected computation type, got %s", types.Pretty(ty)))

@@ -39,28 +39,28 @@ type trailTag byte
 const (
 	trailSoln       trailTag = iota // soln map
 	trailLabel                      // labels map
-	trailKindSoln                   // kindSoln map
 	trailSkolemSoln                 // skolemSoln map
+	trailLevelSoln                  // levelSoln map
 )
 
 // trailEntry records a single map mutation for undo-log rollback.
 // On Restore, entries are replayed in reverse order, restoring the
 // pre-mutation value (or deleting the key if it did not exist).
 type trailEntry struct {
-	tag     trailTag
-	id      int
-	existed bool
-	oldType types.Type          // valid when tag == trailSoln
-	oldLbl  map[string]struct{} // valid when tag == trailLabel
-	oldKind types.Kind          // valid when tag == trailKindSoln
+	tag      trailTag
+	id       int
+	existed  bool
+	oldType  types.Type          // valid when tag == trailSoln or trailSkolemSoln
+	oldLbl   map[string]struct{} // valid when tag == trailLabel
+	oldLevel types.LevelExpr     // valid when tag == trailLevelSoln
 }
 
 // Unifier manages type unification.
 type Unifier struct {
 	soln       map[int]types.Type
 	labels     map[int]map[string]struct{}
-	kindSoln   map[int]types.Kind // kind metavariable solutions
-	skolemSoln map[int]types.Type // GADT given equalities: skolem → type
+	levelSoln  map[int]types.LevelExpr // level metavar solutions
+	skolemSoln map[int]types.Type      // GADT given equalities: skolem → type
 	freshID    *int
 
 	// Undo trail for O(1) snapshot / O(k) restore.
@@ -96,7 +96,7 @@ func NewUnifier() *Unifier {
 	return &Unifier{
 		soln:        make(map[int]types.Type),
 		labels:      make(map[int]map[string]struct{}),
-		kindSoln:    make(map[int]types.Kind),
+		levelSoln:   make(map[int]types.LevelExpr),
 		freshID:     &id,
 		SolverLevel: -1,
 	}
@@ -108,7 +108,7 @@ func NewUnifierShared(freshID *int) *Unifier {
 	return &Unifier{
 		soln:        make(map[int]types.Type),
 		labels:      make(map[int]map[string]struct{}),
-		kindSoln:    make(map[int]types.Kind),
+		levelSoln:   make(map[int]types.LevelExpr),
 		freshID:     freshID,
 		SolverLevel: -1,
 	}
@@ -140,11 +140,6 @@ func (u *Unifier) Solutions() map[int]types.Type {
 // Labels returns the label context map for save/restore during trial unification.
 func (u *Unifier) Labels() map[int]map[string]struct{} {
 	return u.labels
-}
-
-// KindSolutions returns the kind solution map for save/restore during trial unification.
-func (u *Unifier) KindSolutions() map[int]types.Kind {
-	return u.kindSoln
 }
 
 // ---------------------------------------------------------------------------
@@ -181,17 +176,17 @@ func (u *Unifier) Restore(snap Snapshot) {
 			} else {
 				delete(u.labels, e.id)
 			}
-		case trailKindSoln:
-			if e.existed {
-				u.kindSoln[e.id] = e.oldKind
-			} else {
-				delete(u.kindSoln, e.id)
-			}
 		case trailSkolemSoln:
 			if e.existed {
 				u.skolemSoln[e.id] = e.oldType
 			} else {
 				delete(u.skolemSoln, e.id)
+			}
+		case trailLevelSoln:
+			if e.existed {
+				u.levelSoln[e.id] = e.oldLevel
+			} else {
+				delete(u.levelSoln, e.id)
 			}
 		}
 	}
@@ -215,14 +210,6 @@ func (u *Unifier) trailLabelWrite(id int) {
 	})
 }
 
-// trailKindWrite records the current kindSoln[id] value before mutation.
-func (u *Unifier) trailKindWrite(id int) {
-	old, existed := u.kindSoln[id]
-	u.trail = append(u.trail, trailEntry{
-		tag: trailKindSoln, id: id, existed: existed, oldKind: old,
-	})
-}
-
 // trailSkolemWrite records the current skolemSoln[id] value before mutation.
 func (u *Unifier) trailSkolemWrite(id int) {
 	if u.skolemSoln == nil {
@@ -231,6 +218,14 @@ func (u *Unifier) trailSkolemWrite(id int) {
 	old, existed := u.skolemSoln[id]
 	u.trail = append(u.trail, trailEntry{
 		tag: trailSkolemSoln, id: id, existed: existed, oldType: old,
+	})
+}
+
+// trailLevelWrite records the current levelSoln[id] value before mutation.
+func (u *Unifier) trailLevelWrite(id int) {
+	old, existed := u.levelSoln[id]
+	u.trail = append(u.trail, trailEntry{
+		tag: trailLevelSoln, id: id, existed: existed, oldLevel: old,
 	})
 }
 
@@ -304,6 +299,25 @@ func normalizeCompApp(t types.Type) types.Type {
 	return t
 }
 
+// isGroundKind returns true if k is a concrete kind that inhabits Sort₀.
+// These are TyCon at level 1: Type, Row, Constraint, and promoted data kinds.
+func isGroundKind(k types.Type) bool {
+	if tc, ok := k.(*types.TyCon); ok {
+		return types.IsKindLevel(tc.Level)
+	}
+	return false
+}
+
+// isSortLevel returns true if k is a TyCon at the given universe level.
+func isSortLevel(k types.Type, level int) bool {
+	if tc, ok := k.(*types.TyCon); ok {
+		if lit, ok := tc.Level.(*types.LevelLit); ok {
+			return lit.N == level
+		}
+	}
+	return false
+}
+
 // Unify solves the constraint a ~ b.
 func (u *Unifier) Unify(a, b types.Type) error {
 	if u.Budget != nil {
@@ -319,7 +333,11 @@ func (u *Unifier) Unify(a, b types.Type) error {
 	a = u.normalize(a)
 	b = u.normalize(b)
 
-	// Error types unify with anything.
+	// Error types unify with anything (poison absorption for error recovery).
+	// This prevents cascading errors when one side is already an error.
+	// Note: types.Equal does NOT treat TyError this way — Equal is structural
+	// ("are these the same type?"), while Unify is error-aware ("can these
+	// coexist without reporting a new error?"). See equal.go TyError comment.
 	if _, ok := a.(*types.TyError); ok {
 		return nil
 	}
@@ -379,7 +397,17 @@ func (u *Unifier) Unify(a, b types.Type) error {
 		}
 	case *types.TyCon:
 		if bt, ok := b.(*types.TyCon); ok && at.Name == bt.Name {
-			return nil
+			return u.unifyLevels(at.Level, bt.Level)
+		}
+		// Cumulativity: ground kinds at level 1 unify with Sort₀ at level 2.
+		// Only applies when names differ (e.g. Type vs Kind).
+		if bt, ok := b.(*types.TyCon); ok {
+			if isGroundKind(at) && isSortLevel(bt, 2) {
+				return nil
+			}
+			if isSortLevel(at, 2) && isGroundKind(bt) {
+				return nil
+			}
 		}
 	case *types.TyArrow:
 		if bt, ok := b.(*types.TyArrow); ok {
@@ -414,8 +442,19 @@ func (u *Unifier) Unify(a, b types.Type) error {
 		}
 	case *types.TyForall:
 		if bt, ok := b.(*types.TyForall); ok {
+			// Kind check: quantified variables must have compatible kinds.
+			if at.Kind != nil && bt.Kind != nil {
+				if err := u.Unify(at.Kind, bt.Kind); err != nil {
+					return err
+				}
+			}
 			// Unify bodies with bound variables treated as equal.
-			return u.Unify(at.Body, types.Subst(bt.Body, bt.Var, &types.TyVar{Name: at.Var}))
+			// Use a fresh variable to avoid capture: substitute both sides
+			// to a common name that cannot clash with free variables.
+			fresh := &types.TyVar{Name: at.Var}
+			bodyA := at.Body
+			bodyB := types.Subst(bt.Body, bt.Var, fresh)
+			return u.Unify(bodyA, bodyB)
 		}
 	case *types.TyCBPV:
 		if bt, ok := b.(*types.TyCBPV); ok && at.Tag == bt.Tag {
@@ -533,6 +572,29 @@ func (u *Unifier) solveMeta(m *types.TyMeta, t types.Type) error {
 	return nil
 }
 
+// SolveFreshMeta directly solves a fresh (unsolved) metavariable to a value.
+// Used as a trivial shortcut during constraint generation: when a meta is
+// freshly created and immediately unifiable with a known type, this skips
+// the overhead of emitting a CtEq and processing it through the solver.
+// Precondition: m must be unsolved (Solve(m.ID) == nil).
+// Returns false if the meta is untouchable at the current solver level.
+func (u *Unifier) SolveFreshMeta(m *types.TyMeta, t types.Type) bool {
+	// Touchability: reject if meta was created at an outer level.
+	if u.SolverLevel >= 0 && m.Level < u.SolverLevel {
+		return false
+	}
+	// Occurs check: reject infinite types (e.g., ?m = List ?m).
+	if u.occursIn(m.ID, t) {
+		return false
+	}
+	u.trailSolnWrite(m.ID)
+	u.soln[m.ID] = t
+	if u.OnSolve != nil {
+		u.OnSolve(m.ID)
+	}
+	return true
+}
+
 // CollectBlockingMetas collects all unsolved meta IDs in the given types,
 // using the current solution map to resolve already-solved metas.
 func (u *Unifier) CollectBlockingMetas(tys []types.Type) []int {
@@ -552,14 +614,17 @@ func (u *Unifier) collectMetaIDsRec(t types.Type, seen map[int]bool, ids *[]int)
 			*ids = append(*ids, ty.ID)
 		}
 	default:
-		for _, ch := range t.Children() {
+		types.ForEachChild(t, func(ch types.Type) bool {
 			u.collectMetaIDsRec(u.Zonk(ch), seen, ids)
-		}
+			return true
+		})
 	}
 }
 
 // occursIn uses Children() for generic traversal, unlike Zonk which uses
 // manual recursion for identity-preserving path compression.
+// No budget check: recursion depth is bounded by the structural size of the
+// type, which is finite and bounded by the outer Unify/Zonk budget.
 func (u *Unifier) occursIn(id int, t types.Type) bool {
 	t = u.Zonk(t)
 	switch ty := t.(type) {
@@ -568,11 +633,14 @@ func (u *Unifier) occursIn(id int, t types.Type) bool {
 	case *types.TySkolem:
 		return false // skolem IDs are in a different namespace
 	default:
-		for _, ch := range t.Children() {
+		found := false
+		types.ForEachChild(t, func(ch types.Type) bool {
 			if u.occursIn(id, ch) {
-				return true
+				found = true
+				return false
 			}
-		}
-		return false
+			return true
+		})
+		return found
 	}
 }

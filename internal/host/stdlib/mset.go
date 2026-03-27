@@ -19,6 +19,9 @@ var EffectSet Pack = func(e Registrar) error {
 	e.RegisterPrim("_msetToList", msetToListImpl)
 	e.RegisterPrim("_msetFromList", msetFromListImpl)
 	e.RegisterPrim("_msetFold", msetFoldImpl)
+	e.RegisterPrim("_msetUnion", msetUnionImpl)
+	e.RegisterPrim("_msetIntersection", msetIntersectionImpl)
+	e.RegisterPrim("_msetDifference", msetDifferenceImpl)
 	return e.RegisterModule("Effect.Set", msetSource)
 }
 
@@ -169,6 +172,145 @@ func msetFoldImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, apply ev
 		return apply(partial, node.key, newCe)
 	}
 	return avlFoldl(m.root, wrapper, acc, ce)
+}
+
+// _msetUnion :: (k -> k -> Ordering) -> MSet k -> MSet k -> MSet k
+// Creates a new MSet containing all elements from both a and b.
+func msetUnionImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, apply eval.Applier) (eval.Value, eval.CapEnv, error) {
+	cmp := args[0]
+	a, err := asMutSetVal(args[1])
+	if err != nil {
+		return nil, ce, err
+	}
+	b, err := asMutSetVal(args[2])
+	if err != nil {
+		return nil, ce, err
+	}
+	result := &mutMapVal{root: nil, cmp: cmp, size: 0}
+	// Copy all elements from a.
+	var copyTree func(n *avlNode) error
+	copyTree = func(n *avlNode) error {
+		if n == nil {
+			return nil
+		}
+		if err := copyTree(n.left); err != nil {
+			return err
+		}
+		if err := budget.ChargeAlloc(ctx, costAVLNode); err != nil {
+			return err
+		}
+		var inserted bool
+		result.root, inserted, ce, err = avlInsert(result.root, n.key, unitVal, cmp, ce, apply)
+		if err != nil {
+			return err
+		}
+		if inserted {
+			result.size++
+		}
+		return copyTree(n.right)
+	}
+	if err := copyTree(a.root); err != nil {
+		return nil, ce, err
+	}
+	// Insert all elements from b (duplicates are no-ops).
+	if err := copyTree(b.root); err != nil {
+		return nil, ce, err
+	}
+	return &eval.HostVal{Inner: result}, ce, nil
+}
+
+// _msetIntersection :: (k -> k -> Ordering) -> MSet k -> MSet k -> MSet k
+// Creates a new MSet containing elements present in both a and b.
+func msetIntersectionImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, apply eval.Applier) (eval.Value, eval.CapEnv, error) {
+	cmp := args[0]
+	a, err := asMutSetVal(args[1])
+	if err != nil {
+		return nil, ce, err
+	}
+	b, err := asMutSetVal(args[2])
+	if err != nil {
+		return nil, ce, err
+	}
+	result := &mutMapVal{root: nil, cmp: cmp, size: 0}
+	var walk func(n *avlNode) error
+	walk = func(n *avlNode) error {
+		if n == nil {
+			return nil
+		}
+		if err := walk(n.left); err != nil {
+			return err
+		}
+		_, found, newCe, err := avlLookup(b.root, n.key, cmp, ce, apply)
+		if err != nil {
+			return err
+		}
+		ce = newCe
+		if found {
+			if err := budget.ChargeAlloc(ctx, costAVLNode); err != nil {
+				return err
+			}
+			var inserted bool
+			result.root, inserted, ce, err = avlInsert(result.root, n.key, unitVal, cmp, ce, apply)
+			if err != nil {
+				return err
+			}
+			if inserted {
+				result.size++
+			}
+		}
+		return walk(n.right)
+	}
+	if err := walk(a.root); err != nil {
+		return nil, ce, err
+	}
+	return &eval.HostVal{Inner: result}, ce, nil
+}
+
+// _msetDifference :: (k -> k -> Ordering) -> MSet k -> MSet k -> MSet k
+// Creates a new MSet containing elements in a but not in b.
+func msetDifferenceImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, apply eval.Applier) (eval.Value, eval.CapEnv, error) {
+	cmp := args[0]
+	a, err := asMutSetVal(args[1])
+	if err != nil {
+		return nil, ce, err
+	}
+	b, err := asMutSetVal(args[2])
+	if err != nil {
+		return nil, ce, err
+	}
+	result := &mutMapVal{root: nil, cmp: cmp, size: 0}
+	var walk func(n *avlNode) error
+	walk = func(n *avlNode) error {
+		if n == nil {
+			return nil
+		}
+		if err := walk(n.left); err != nil {
+			return err
+		}
+		_, found, newCe, err := avlLookup(b.root, n.key, cmp, ce, apply)
+		if err != nil {
+			return err
+		}
+		ce = newCe
+		if !found {
+			if err := budget.ChargeAlloc(ctx, costAVLNode); err != nil {
+				return err
+			}
+			var inserted bool
+			result.root, inserted, ce, err = avlInsert(result.root, n.key, unitVal, cmp, ce, apply)
+			if err != nil {
+				return err
+			}
+			if inserted {
+				result.size++
+			}
+		}
+		return walk(n.right)
+	}
+	if err := walk(a.root); err != nil {
+		return nil, ce, err
+	}
+	return &eval.HostVal{Inner: result}, ce, nil
 }
 
 // avlFoldl performs an in-order traversal with a Go-level fold function.

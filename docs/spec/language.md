@@ -308,7 +308,7 @@ Type, row, and kind equivalence. The equality theory includes:
 case  do  form  type  impl  infixl  infixr  infixn  import  if  then  else
 ```
 
-12 keywords. Note that `pure`, `bind`, `thunk`, `force`, `assumption`, `rec`, and `fix` are **not** keywords — they are ordinary identifiers with built-in meaning. `pure`, `bind`, `rec`, and `fix` are first-class functions (can be partially applied and passed to higher-order functions); `thunk` and `force` are term formers (must be fully applied).
+Keywords are listed above. Note that `pure`, `bind`, `thunk`, `force`, `assumption`, `rec`, and `fix` are **not** keywords — they are ordinary identifiers with built-in meaning. `pure`, `bind`, `rec`, and `fix` are first-class functions (can be partially applied and passed to higher-order functions); `thunk` and `force` are term formers (must be fully applied).
 
 `\` is used for both lambda (`\x. e`) and universal quantification (`\a. T`). Both use `.` as the body separator. The parser disambiguates by context (expression vs. type). Multi-parameter lambdas are supported: `\x y. e` desugars to `\x. \y. e`.
 
@@ -1014,7 +1014,7 @@ Packed    (independent — collection packing)
 Eq ──→ Num ──→ Div   (in Prelude)
 ```
 
-17 type classes (1 in Core, 16 in Prelude):
+Type classes (Core + Prelude):
 
 | Class         | Parameters                       | Key Methods                                                       |
 | ------------- | -------------------------------- | ----------------------------------------------------------------- |
@@ -1392,7 +1392,7 @@ Strict call-by-value (CBV) evaluation with an environment-based evaluator.
 The evaluator enforces multiple layers of protection:
 
 - **Step limit**: maximum number of evaluation steps (Engine default: 1,000,000; CLI/Sandbox default: 100,000)
-- **Depth limit**: maximum call stack depth (Engine default: unlimited; CLI default: 10,000). With Bind-chain TCO, sequential do-blocks do not consume depth; this limit applies only to non-tail recursive closure calls.
+- **Depth limit**: maximum call stack depth (Engine default: 1,000; CLI default: 10,000). With Bind-chain TCO, sequential do-blocks do not consume depth; this limit applies only to non-tail recursive closure calls.
 - **Context cancellation**: Go `context.Context` integration for timeout
 - **Recursion guard**: recursive definitions rejected unless `EnableRecursion()` is called
 
@@ -1474,7 +1474,7 @@ gicel run --module Util=lib/Util.gicel main.gicel
 The Prelude is split into two parts:
 
 - **Core** (not replaceable): language-essential definitions — `IxMonad` class, `Computation` instance, `Effect` alias, `Suspended` alias, `seq` combinator, `Lift` type alias
-- **Prelude** (replaceable): standard library types, classes, instances — `Bool`, `Maybe`, `List`, `Ordering`, 16 type classes (Eq through ToList, including Num and Div), instances
+- **Prelude** (replaceable): standard library types, classes, instances — `Bool`, `Maybe`, `List`, `Ordering`, type classes (Eq through ToList, including Num and Div), instances
 
 Core is auto-registered and auto-imported; the user cannot control it. Prelude requires explicit `Use(Prelude)` on the engine and `import Prelude` in source.
 
@@ -1651,16 +1651,16 @@ snd :: \a b. (a, b) -> b
 
 Each Go-side pack bundles type registration, module source, and primitive implementations. The pack is loaded with `eng.Use(pack)` and imported in source by its module name.
 
-| Go Pack       | Module         | Provides                                                                |
-| ------------- | -------------- | ----------------------------------------------------------------------- |
-| `Prelude`     | `Prelude`      | Num/Str/List: arithmetic, string ops, list ops, 16 type classes, 5 ADTs |
-| `EffectFail`  | `Effect.Fail`  | `fail` capability, `fromMaybe`, `fromResult`                            |
-| `EffectState` | `Effect.State` | `get`/`put` capabilities                                                |
-| `EffectIO`    | `Effect.IO`    | `print`/`debug` via CapEnv buffer                                       |
-| `DataStream`  | `Data.Stream`  | Lazy list: `LCons`/`LNil`, `head`, `tail`, `take`, `drop`               |
-| `DataSlice`   | `Data.Slice`   | Contiguous array: O(1) `length`/`index`, `Functor`/`Foldable`           |
-| `DataMap`     | `Data.Map`     | Ordered immutable map (AVL): `insert`, `lookup`, `delete`               |
-| `DataSet`     | `Data.Set`     | Ordered immutable set (backed by Map): `insert`, `member`               |
+| Go Pack       | Module         | Provides                                                           |
+| ------------- | -------------- | ------------------------------------------------------------------ |
+| `Prelude`     | `Prelude`      | Num/Str/List: arithmetic, string ops, list ops, type classes, ADTs |
+| `EffectFail`  | `Effect.Fail`  | `fail` capability, `fromMaybe`, `fromResult`                       |
+| `EffectState` | `Effect.State` | `get`/`put` capabilities                                           |
+| `EffectIO`    | `Effect.IO`    | `print`/`debug` via CapEnv buffer                                  |
+| `DataStream`  | `Data.Stream`  | Lazy list: `LCons`/`LNil`, `head`, `tail`, `take`, `drop`          |
+| `DataSlice`   | `Data.Slice`   | Contiguous array: O(1) `length`/`index`, `Functor`/`Foldable`      |
+| `DataMap`     | `Data.Map`     | Ordered immutable map (AVL): `insert`, `lookup`, `delete`          |
+| `DataSet`     | `Data.Set`     | Ordered immutable set (backed by Map): `insert`, `member`          |
 
 Types (`Int`, `Double`, `String`, `Rune`, `Slice`, `Map`, `Set`) are checker built-ins registered in `NewEngine()`. Runtime representation: `HostVal` wrapping Go values.
 

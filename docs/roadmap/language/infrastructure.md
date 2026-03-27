@@ -36,11 +36,7 @@ Computation 型自体に grade を付与する。
 
 ### Row TF: Without / Lookup
 
-型レベル label 表現（型レベル文字列 or promoted symbol）の設計が前提。
-
-## L4: Solver 統合（長期）
-
-GADT given eq の solver 統合、normalize FamilyReducer 除去、OutsideIn(X) 本格導入。相互依存。
+型レベル label 表現（Label kind）の設計が前提。
 
 ## Open Questions
 

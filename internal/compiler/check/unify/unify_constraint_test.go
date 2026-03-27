@@ -12,7 +12,7 @@ import (
 
 func TestZonkConstraintRow(t *testing.T) {
 	u := NewUnifier()
-	m := &types.TyMeta{ID: 1, Kind: types.KType{}}
+	m := &types.TyMeta{ID: 1, Kind: types.TypeOfTypes}
 	u.soln[1] = types.Con("Int")
 
 	cr := &types.TyEvidenceRow{
@@ -49,7 +49,7 @@ func TestZonkConstraintRowIdentity(t *testing.T) {
 
 func TestZonkConstraintRowTail(t *testing.T) {
 	u := NewUnifier()
-	m := &types.TyMeta{ID: 1, Kind: types.KConstraint{}}
+	m := &types.TyMeta{ID: 1, Kind: types.TypeOfConstraints}
 	remaining := &types.TyEvidenceRow{
 		Entries: &types.ConstraintEntries{
 			Entries: []types.ConstraintEntry{
@@ -79,7 +79,7 @@ func TestZonkConstraintRowTail(t *testing.T) {
 
 func TestZonkEvidence(t *testing.T) {
 	u := NewUnifier()
-	m := &types.TyMeta{ID: 1, Kind: types.KType{}}
+	m := &types.TyMeta{ID: 1, Kind: types.TypeOfTypes}
 	u.soln[1] = types.Con("Int")
 
 	ev := &types.TyEvidence{
@@ -139,9 +139,9 @@ func TestUnifyConstraintRowClosedMismatch(t *testing.T) {
 
 func TestUnifyConstraintRowOpenClosed(t *testing.T) {
 	u := NewUnifier()
-	m := &types.TyMeta{ID: 1, Kind: types.KConstraint{}}
+	m := &types.TyMeta{ID: 1, Kind: types.TypeOfConstraints}
 	// { Eq a | c } ~ { Eq Int, Ord Int }
-	mA := &types.TyMeta{ID: 2, Kind: types.KType{}}
+	mA := &types.TyMeta{ID: 2, Kind: types.TypeOfTypes}
 	cr1 := &types.TyEvidenceRow{
 		Entries: &types.ConstraintEntries{
 			Entries: []types.ConstraintEntry{
@@ -180,10 +180,10 @@ func TestUnifyConstraintRowOpenClosed(t *testing.T) {
 
 func TestUnifyConstraintRowOpenOpen(t *testing.T) {
 	u := NewUnifier()
-	m1 := &types.TyMeta{ID: 100, Kind: types.KConstraint{}}
-	m2 := &types.TyMeta{ID: 101, Kind: types.KConstraint{}}
-	mA := &types.TyMeta{ID: 102, Kind: types.KType{}}
-	mB := &types.TyMeta{ID: 103, Kind: types.KType{}}
+	m1 := &types.TyMeta{ID: 100, Kind: types.TypeOfConstraints}
+	m2 := &types.TyMeta{ID: 101, Kind: types.TypeOfConstraints}
+	mA := &types.TyMeta{ID: 102, Kind: types.TypeOfTypes}
+	mB := &types.TyMeta{ID: 103, Kind: types.TypeOfTypes}
 
 	// { Eq ?a | c1 } ~ { Eq ?b | c2 }
 	cr1 := &types.TyEvidenceRow{
@@ -265,8 +265,8 @@ func TestUnifyConstraintRowOpenClosedExtraOnOpenSide(t *testing.T) {
 	// Open { Eq a, Ord a | c } vs closed { Eq Int }
 	// The open side has extra Ord — closed has no tail to absorb it → error.
 	u := NewUnifier()
-	m := &types.TyMeta{ID: 900, Kind: types.KConstraint{}}
-	mA := &types.TyMeta{ID: 901, Kind: types.KType{}}
+	m := &types.TyMeta{ID: 900, Kind: types.TypeOfConstraints}
+	mA := &types.TyMeta{ID: 901, Kind: types.TypeOfTypes}
 
 	cr1 := &types.TyEvidenceRow{
 		Entries: &types.ConstraintEntries{
@@ -291,7 +291,7 @@ func TestUnifyConstraintRowOpenClosedExtraOnOpenSide(t *testing.T) {
 
 func TestUnifyEvidence(t *testing.T) {
 	u := NewUnifier()
-	m := &types.TyMeta{ID: 1, Kind: types.KType{}}
+	m := &types.TyMeta{ID: 1, Kind: types.TypeOfTypes}
 
 	ev1 := &types.TyEvidence{
 		Constraints: types.SingleConstraint("Eq", []types.Type{m}),

@@ -31,7 +31,7 @@ func equalAlpha(a, b Type, bindings []alphaBinding) bool {
 
 	case *TyCon:
 		bt, ok := b.(*TyCon)
-		return ok && at.Name == bt.Name
+		return ok && at.Name == bt.Name && LevelEqual(at.Level, bt.Level)
 
 	case *TyApp:
 		bt, ok := b.(*TyApp)
@@ -52,7 +52,7 @@ func equalAlpha(a, b Type, bindings []alphaBinding) bool {
 		if !ok {
 			return false
 		}
-		if !at.Kind.Equal(bt.Kind) {
+		if !equalAlpha(at.Kind, bt.Kind, bindings) {
 			return false
 		}
 		newBindings := append(bindings, alphaBinding{at.Var, bt.Var})
@@ -188,6 +188,13 @@ func equalAlpha(a, b Type, bindings []alphaBinding) bool {
 		return ok && at.ID == bt.ID
 
 	case *TyError:
+		// TyError is structurally equal only to another TyError.
+		// This differs from Unify, where TyError absorbs any type (error recovery).
+		// The distinction is intentional: Equal answers "are these the same type?"
+		// (no — TyError is not Int), while Unify answers "can these coexist without
+		// reporting a new error?" (yes — cascading errors are suppressed).
+		// Making Equal treat TyError as universal would suppress grade violations,
+		// corrupt type family pattern matching, and break row label deduplication.
 		_, ok := b.(*TyError)
 		return ok
 
@@ -205,6 +212,18 @@ func equalConstraintEntry(a, b ConstraintEntry, bindings []alphaBinding) bool {
 	}
 	for j := range a.Args {
 		if !equalAlpha(a.Args[j], b.Args[j], bindings) {
+			return false
+		}
+	}
+	// Equality constraints: both must agree on IsEquality and sides.
+	if a.IsEquality != b.IsEquality {
+		return false
+	}
+	if a.IsEquality {
+		if !equalAlpha(a.EqLhs, b.EqLhs, bindings) {
+			return false
+		}
+		if !equalAlpha(a.EqRhs, b.EqRhs, bindings) {
 			return false
 		}
 	}
@@ -235,7 +254,7 @@ func equalQuantifiedConstraint(a, b *QuantifiedConstraint, bindings []alphaBindi
 	newBindings := make([]alphaBinding, len(bindings), len(bindings)+len(a.Vars))
 	copy(newBindings, bindings)
 	for i, av := range a.Vars {
-		if !av.Kind.Equal(b.Vars[i].Kind) {
+		if !equalAlpha(av.Kind, b.Vars[i].Kind, bindings) {
 			return false
 		}
 		newBindings = append(newBindings, alphaBinding{av.Name, b.Vars[i].Name})

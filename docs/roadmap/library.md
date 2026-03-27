@@ -6,7 +6,7 @@ GICEL のライブラリ、CLI、ツーリング、ホスト API の方向性。
 
 ### 現状
 
-12 packs: Prelude, Effect.Fail, Effect.State, Effect.IO, Data.Stream, Data.Slice, Effect.Array, Data.Map, Data.Set, Effect.Map, Effect.Set, Console
+Packs: Prelude, Effect.Fail, Effect.State, Effect.IO, Data.Stream, Data.Slice, Effect.Array, Data.Map, Data.Set, Effect.Map, Effect.Set, Data.JSON, Console
 
 ### 方向性
 
@@ -16,17 +16,18 @@ GICEL のライブラリ、CLI、ツーリング、ホスト API の方向性。
 
 ### 拡充候補
 
-| 候補                                | 分類     | 前提                           |
-| ----------------------------------- | -------- | ------------------------------ |
-| Tuple Eq/Ord runtime support        | Prelude  | ユーザ需要                     |
-| Data.Map: mapKeys, intersectionWith | Data.Map | ユーザ需要                     |
-| Data.Text (UTF-8 aware operations)  | 新 pack  | 文字列処理ユースケースの拡大時 |
+| 候補                                | 分類     | 前提                                    |
+| ----------------------------------- | -------- | --------------------------------------- |
+| Tuple Eq/Ord runtime support        | Prelude  | ユーザ需要                              |
+| Data.Map: mapKeys, intersectionWith | Data.Map | ユーザ需要                              |
+| Data.Text (UTF-8 aware operations)  | 新 pack  | 文字列処理ユースケースの拡大時          |
+| Shell (外部プロセス実行)            | 新 pack  | Label kind 言語拡張。[設計書](shell.md) |
 
 ## CLI
 
 ### 現状
 
-4 commands: run, check, docs, example。`--packs`, `--module`, `--explain`, `--json` 等の主要フラグは整備済み。
+Commands: run, check, docs, example。`--packs`, `--module`, `--explain`, `--json` 等の主要フラグは整備済み。
 
 ### 方向性
 
@@ -87,7 +88,7 @@ capability model + `RegisterPrim` は TCB。docs に trust boundary 説明あり
 ### 方向性
 
 - pack naming 三層化（CLI `state` / Go `EffectState` / source `Effect.State`）の統一は大きな変更。docs の対照表で対応中
-- `--packs all` default → 学習には便利だが least-privilege とは緊張。リネーム済み (`--use` → `--packs`) で「制限」の意味を強化
+- `--packs all` default → 学習には便利だが least-privilege とは緊張。`--packs` の命名で「制限」の意味を表現
 
 ## Performance Tracking
 

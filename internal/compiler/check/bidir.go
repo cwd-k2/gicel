@@ -85,7 +85,9 @@ func (ch *Checker) infer(expr syntax.Expr) (types.Type, ir.Core) {
 		if !ok {
 			return ty, coreExpr
 		}
-		ch.trace(TraceInfer, e.S, "infer: %s ⇒ %s", e.Name, types.Pretty(ty))
+		if ch.config.Trace != nil {
+			ch.trace(TraceInfer, e.S, "infer: %s ⇒ %s", e.Name, types.Pretty(ty))
+		}
 		return ch.instantiate(ty, coreExpr)
 
 	case *syntax.ExprCon:
@@ -100,7 +102,9 @@ func (ch *Checker) infer(expr syntax.Expr) (types.Type, ir.Core) {
 		if !ok {
 			return ty, coreExpr
 		}
-		ch.trace(TraceInfer, e.S, "infer: %s.%s ⇒ %s", e.Qualifier, e.Name, types.Pretty(ty))
+		if ch.config.Trace != nil {
+			ch.trace(TraceInfer, e.S, "infer: %s.%s ⇒ %s", e.Qualifier, e.Name, types.Pretty(ty))
+		}
 		return ch.instantiate(ty, coreExpr)
 
 	case *syntax.ExprQualCon:
@@ -176,8 +180,8 @@ func (ch *Checker) infer(expr syntax.Expr) (types.Type, ir.Core) {
 
 	case *syntax.ExprLam:
 		// In infer mode, generate fresh metas for param types.
-		paramTy := ch.freshMeta(types.KType{})
-		retTy := ch.freshMeta(types.KType{})
+		paramTy := ch.freshMeta(types.TypeOfTypes)
+		retTy := ch.freshMeta(types.TypeOfTypes)
 		lamCore := ch.checkLam(e, types.MkArrow(paramTy, retTy))
 		return ch.unifier.Zonk(types.MkArrow(paramTy, retTy)), lamCore
 
@@ -190,10 +194,10 @@ func (ch *Checker) infer(expr syntax.Expr) (types.Type, ir.Core) {
 			ch.addCodedError(diagnostic.ErrTypeMismatch, e.S, fmt.Sprintf("invalid integer literal: %s", e.Value))
 			return ch.errorPair(e.S)
 		}
-		return ch.mkType("Int"), &ir.Lit{Value: val, S: e.S}
+		return types.Con("Int"), &ir.Lit{Value: val, S: e.S}
 
 	case *syntax.ExprStrLit:
-		return ch.mkType("String"), &ir.Lit{Value: e.Value, S: e.S}
+		return types.Con("String"), &ir.Lit{Value: e.Value, S: e.S}
 
 	case *syntax.ExprDoubleLit:
 		val, err := strconv.ParseFloat(strings.ReplaceAll(e.Value, "_", ""), 64)
@@ -201,10 +205,10 @@ func (ch *Checker) infer(expr syntax.Expr) (types.Type, ir.Core) {
 			ch.addCodedError(diagnostic.ErrTypeMismatch, e.S, fmt.Sprintf("invalid double literal: %s", e.Value))
 			return ch.errorPair(e.S)
 		}
-		return ch.mkType("Double"), &ir.Lit{Value: val, S: e.S}
+		return types.Con("Double"), &ir.Lit{Value: val, S: e.S}
 
 	case *syntax.ExprRuneLit:
-		return ch.mkType("Rune"), &ir.Lit{Value: e.Value, S: e.S}
+		return types.Con("Rune"), &ir.Lit{Value: e.Value, S: e.S}
 
 	case *syntax.ExprList:
 		return ch.inferList(e)
@@ -265,11 +269,11 @@ func (ch *Checker) check(expr syntax.Expr, expected types.Type) ir.Core {
 	// against the quantified type. This implements the spec rule:
 	//   ⟦ e : \ a:K. T ⟧ = TyLam(a, K, ⟦e: T⟧)
 	if f, ok := expected.(*types.TyForall); ok {
-		if _, isSort := f.Kind.(types.KSort); isSort {
-			// Kind-level quantifier: introduce a fresh kind skolem (KVar)
+		if isSortKind(f.Kind) {
+			// Kind-level quantifier: introduce a fresh kind skolem (TyVar)
 			// and substitute in all kind positions.
 			freshName := fmt.Sprintf("%s$%d", f.Var, ch.fresh())
-			body := types.SubstKindInType(f.Body, f.Var, types.KVar{Name: freshName})
+			body := types.Subst(f.Body, f.Var, &types.TyVar{Name: freshName})
 			bodyCore := ch.check(expr, body)
 			return &ir.TyLam{TyParam: f.Var, Kind: f.Kind, Body: bodyCore, S: expr.Span()}
 		}
@@ -350,17 +354,15 @@ func (ch *Checker) checkWithEvidence(expr syntax.Expr, ev *types.TyEvidence) ir.
 			rhs := ch.unifier.Zonk(entry.EqRhs)
 			if sk, ok := lhs.(*types.TySkolem); ok {
 				ch.unifier.InstallGivenEq(sk.ID, rhs)
+				ch.emitGivenEq(lhs, rhs, entry.S)
 				givenEqSkolems = append(givenEqSkolems, sk.ID)
 			} else if sk, ok := rhs.(*types.TySkolem); ok {
 				ch.unifier.InstallGivenEq(sk.ID, lhs)
+				ch.emitGivenEq(lhs, rhs, entry.S)
 				givenEqSkolems = append(givenEqSkolems, sk.ID)
 			} else {
-				// Both sides are concrete or meta — unify directly.
-				if err := ch.unifier.Unify(lhs, rhs); err != nil {
-					ch.addCodedError(diagnostic.ErrTypeMismatch, entry.S,
-						fmt.Sprintf("unsatisfiable equality constraint: %s ~ %s",
-							types.Pretty(lhs), types.Pretty(rhs)))
-				}
+				// Both sides are concrete or meta — emit equality constraint.
+				ch.emitEq(lhs, rhs, entry.S, nil)
 			}
 			continue
 		}
@@ -388,7 +390,7 @@ func (ch *Checker) checkWithEvidence(expr syntax.Expr, ev *types.TyEvidence) ir.
 		}
 		dictParam := fmt.Sprintf("%s_%s_%d", prefixDict, className, ch.fresh())
 		dicts = append(dicts, dictInfo{param: dictParam, ty: dictTy})
-		ch.ctx.Push(&CtxVar{Name: dictParam, Type: dictTy})
+		ch.ctx.Push(&CtxVar{Name: dictParam, Type: dictTy, DictClassName: className})
 		pushed++
 		ch.ctx.Push(&CtxEvidence{
 			ClassName:  className,
@@ -426,10 +428,10 @@ func (ch *Checker) subsCheck(inferred, expected types.Type, expr ir.Core, s span
 
 	// Inferred ∀a. A ≤ B  →  instantiate a, check A[a:=?m] ≤ B
 	if f, ok := inferred.(*types.TyForall); ok {
-		if _, isSort := f.Kind.(types.KSort); isSort {
+		if isSortKind(f.Kind) {
 			// Kind-level quantifier: instantiate with a fresh kind metavariable
-			km := ch.freshKindMeta()
-			body := types.SubstKindInType(f.Body, f.Var, km)
+			km := ch.freshMeta(types.SortZero)
+			body := types.Subst(f.Body, f.Var, km)
 			return ch.subsCheck(body, expected, expr, s)
 		}
 		meta := ch.freshMeta(f.Kind)
@@ -448,7 +450,8 @@ func (ch *Checker) subsCheck(inferred, expected types.Type, expr ir.Core, s span
 		return ch.subsCheck(ev.Body, expected, expr, s)
 	}
 
-	// Default: unify
+	// Default: unify eagerly. subsCheck is on the critical path for type
+	// information flow — metas must be solved immediately for downstream code.
 	if err := ch.unifier.Unify(inferred, expected); err != nil {
 		ch.addUnifyError(err, s, fmt.Sprintf("type mismatch: expected %s, got %s",
 			types.Pretty(expected), types.Pretty(inferred)))

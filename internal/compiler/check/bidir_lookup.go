@@ -2,6 +2,7 @@ package check
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/cwd-k2/gicel/internal/compiler/check/solve"
 	"github.com/cwd-k2/gicel/internal/infra/diagnostic"
@@ -30,9 +31,14 @@ func (ch *Checker) matchArrow(ty types.Type, s span.Span) (types.Type, types.Typ
 	if arr, ok := ty.(*types.TyArrow); ok {
 		return arr.From, arr.To
 	}
-	// Generate fresh metas.
-	argTy := ch.freshMeta(types.KType{})
-	retTy := ch.freshMeta(types.KType{})
+	// Generate fresh metas and decompose eagerly.
+	// Eager unification is required here: callers use argTy/retTy immediately
+	// for downstream checking (e.g., check(arg, argTy)), so the metas must
+	// be solved before control returns. The headIsMeta check in processCtEq
+	// would correctly handle error detection, but deferral would leave the
+	// decomposition metas unsolved when callers need them.
+	argTy := ch.freshMeta(types.TypeOfTypes)
+	retTy := ch.freshMeta(types.TypeOfTypes)
 	if err := ch.unifier.Unify(ty, types.MkArrow(argTy, retTy)); err != nil {
 		ch.addSemanticUnifyError(diagnostic.ErrBadApplication, err, s, fmt.Sprintf("expected function type, got %s", types.Pretty(ty)))
 	}
@@ -51,7 +57,11 @@ func (ch *Checker) lookupVar(e *syntax.ExprVar) (types.Type, ir.Core, bool) {
 		if gatedBuiltins[e.Name] {
 			msg += " (requires --recursion flag)"
 		}
-		ch.addCodedError(diagnostic.ErrUnboundVar, e.S, msg)
+		if hints := ch.suggestVar(e.Name); len(hints) > 0 {
+			ch.addCodedErrorWithHints(diagnostic.ErrUnboundVar, e.S, msg, hints)
+		} else {
+			ch.addCodedError(diagnostic.ErrUnboundVar, e.S, msg)
+		}
 		return &types.TyError{S: e.S}, &ir.Var{Name: e.Name, S: e.S}, false
 	}
 	return ty, &ir.Var{Name: e.Name, Module: mod, S: e.S}, true
@@ -64,7 +74,12 @@ func (ch *Checker) lookupCon(e *syntax.ExprCon) (types.Type, ir.Core, bool) {
 	}
 	ty, ok := ch.reg.LookupConType(e.Name)
 	if !ok {
-		ch.addCodedError(diagnostic.ErrUnboundCon, e.S, fmt.Sprintf("unknown constructor: %s", e.Name))
+		msg := fmt.Sprintf("unknown constructor: %s", e.Name)
+		if hints := ch.suggestCon(e.Name); len(hints) > 0 {
+			ch.addCodedErrorWithHints(diagnostic.ErrUnboundCon, e.S, msg, hints)
+		} else {
+			ch.addCodedError(diagnostic.ErrUnboundCon, e.S, msg)
+		}
 		return &types.TyError{S: e.S}, &ir.Con{Name: e.Name, S: e.S}, false
 	}
 	mod, _ := ch.reg.LookupConModule(e.Name)
@@ -143,8 +158,10 @@ func (ch *Checker) instantiate(ty types.Type, expr ir.Core) (types.Type, ir.Core
 		ty = ch.unifier.Zonk(ty)
 		if f, ok := ty.(*types.TyForall); ok {
 			meta := ch.freshMeta(f.Kind)
-			ch.trace(TraceInstantiate, span.Span{}, "instantiate: %s → %s[%s := ?%d]",
-				types.Pretty(ty), f.Var, types.Pretty(meta), meta.ID)
+			if ch.config.Trace != nil {
+				ch.trace(TraceInstantiate, span.Span{}, "instantiate: %s → %s[%s := ?%d]",
+					types.Pretty(ty), f.Var, types.Pretty(meta), meta.ID)
+			}
 			ty = types.Subst(f.Body, f.Var, meta)
 			expr = &ir.TyApp{Expr: expr, TyArg: meta, S: expr.Span()}
 			continue
@@ -181,7 +198,7 @@ func (ch *Checker) patternName(p syntax.Pattern) string {
 
 // inferList handles list literal [e1, e2, ...] by desugaring to Cons/Nil chain.
 func (ch *Checker) inferList(e *syntax.ExprList) (types.Type, ir.Core) {
-	elemTy := ch.freshMeta(types.KType{})
+	elemTy := ch.freshMeta(types.TypeOfTypes)
 	listTy := &types.TyApp{Fun: types.Con("List"), Arg: elemTy}
 
 	// Build from the end: Nil, then Cons e_n (Cons e_{n-1} ...)
@@ -206,4 +223,40 @@ func (ch *Checker) inferList(e *syntax.ExprList) (types.Type, ir.Core) {
 	}
 
 	return ch.unifier.Zonk(listTy), result
+}
+
+// suggestVar returns hint(s) for an unbound variable by searching the context
+// for similar names.
+func (ch *Checker) suggestVar(name string) []diagnostic.Hint {
+	seen := make(map[string]bool)
+	var candidates []string
+	ch.ctx.Scan(func(entry CtxEntry) bool {
+		if v, ok := entry.(*CtxVar); ok && !seen[v.Name] && v.Name != "" && v.Name[0] != '$' {
+			seen[v.Name] = true
+			candidates = append(candidates, v.Name)
+		}
+		return true
+	})
+	return suggestHints(name, candidates)
+}
+
+// suggestCon returns hint(s) for an unknown constructor by searching the registry.
+func (ch *Checker) suggestCon(name string) []diagnostic.Hint {
+	var candidates []string
+	for c := range ch.reg.AllConTypes() {
+		candidates = append(candidates, c)
+	}
+	return suggestHints(name, candidates)
+}
+
+func suggestHints(name string, candidates []string) []diagnostic.Hint {
+	matches := diagnostic.Suggest(name, candidates, 2, 3)
+	if len(matches) == 0 {
+		return nil
+	}
+	quoted := make([]string, len(matches))
+	for i, m := range matches {
+		quoted[i] = "'" + m + "'"
+	}
+	return []diagnostic.Hint{{Message: "did you mean " + strings.Join(quoted, ", ") + "?"}}
 }

@@ -1,3 +1,5 @@
+// Extended stress tests — integration scenarios across multiple subsystems.
+// Does NOT cover: stress_parser_test.go, stress_checker_test.go, stress_evaluator_test.go.
 package stress_test
 
 import (

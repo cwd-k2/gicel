@@ -19,10 +19,17 @@ func (ch *Checker) containsSkolem(ty types.Type, skolemIDs map[int]string) (int,
 		}
 		return 0, false
 	}
-	for _, child := range ty.Children() {
-		if id, found := ch.containsSkolem(child, skolemIDs); found {
-			return id, true
+	var foundID int
+	var found bool
+	types.ForEachChild(ty, func(child types.Type) bool {
+		if id, ok := ch.containsSkolem(child, skolemIDs); ok {
+			foundID, found = id, true
+			return false
 		}
+		return true
+	})
+	if found {
+		return foundID, true
 	}
 	return 0, false
 }
@@ -51,6 +58,11 @@ func (ch *Checker) checkSkolemEscapeInSolutions(skolem *types.TySkolem, preID in
 		if metaID > preID {
 			continue // meta is within the skolem's scope
 		}
+		// Ground solutions (no TyMeta or TySkolem) cannot contain the target
+		// skolem even after Zonk — skip the expensive Zonk+walk.
+		if !types.ContainsMetaOrSkolem(soln) {
+			continue
+		}
 		zonked := ch.unifier.Zonk(soln)
 		if _, found := ch.containsSkolem(zonked, ids); found {
 			ch.addCodedError(diagnostic.ErrSkolemEscape, s,
@@ -69,7 +81,8 @@ func removeSkolemIDsFrom(ids map[int]string, ty types.Type) {
 		delete(ids, sk.ID)
 		return
 	}
-	for _, child := range ty.Children() {
+	types.ForEachChild(ty, func(child types.Type) bool {
 		removeSkolemIDsFrom(ids, child)
-	}
+		return true
+	})
 }

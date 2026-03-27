@@ -10,7 +10,7 @@ type TypeExpr interface {
 
 type TyExprVar struct {
 	Name string
-	Kind KindExpr // non-nil when used as a kinded class type parameter
+	Kind TypeExpr // non-nil when used as a kinded class type parameter
 	S    span.Span
 }
 
@@ -56,7 +56,7 @@ type TyExprRow struct {
 //	type Elem :: Type;
 type TyRowTypeDecl struct {
 	Name    string
-	KindAnn KindExpr
+	KindAnn TypeExpr
 	S       span.Span
 }
 
@@ -98,7 +98,7 @@ type TyExprEq struct {
 
 type TyBinder struct {
 	Name string
-	Kind KindExpr // nil means kind not annotated (inferred)
+	Kind TypeExpr // nil means kind not annotated (inferred)
 	S    span.Span
 }
 
@@ -109,32 +109,6 @@ type TyRowField struct {
 	Default Expr     // nil if no default value (for method defaults in form bodies)
 	S       span.Span
 }
-
-// ---- Kind expressions ----
-
-type KindExpr interface {
-	kindExprNode()
-	Span() span.Span
-}
-
-type KindExprType struct{ S span.Span }
-type KindExprRow struct{ S span.Span }
-type KindExprConstraint struct{ S span.Span }
-type KindExprArrow struct {
-	From KindExpr
-	To   KindExpr
-	S    span.Span
-}
-
-// KindExprName is a user-defined kind name (DataKinds promotion).
-type KindExprName struct {
-	Name string
-	S    span.Span
-}
-
-// KindExprSort is the sort of kinds: Kind.
-// Used in \ binders: \ (k: Kind). ...
-type KindExprSort struct{ S span.Span }
 
 func (*TyExprVar) typeExprNode()     {}
 func (*TyExprCon) typeExprNode()     {}
@@ -159,17 +133,3 @@ func (t *TyExprParen) Span() span.Span   { return t.S }
 func (t *TyExprCase) Span() span.Span    { return t.S }
 func (t *TyExprQual) Span() span.Span    { return t.S }
 func (t *TyExprEq) Span() span.Span      { return t.S }
-
-func (*KindExprType) kindExprNode()       {}
-func (*KindExprRow) kindExprNode()        {}
-func (*KindExprConstraint) kindExprNode() {}
-func (*KindExprArrow) kindExprNode()      {}
-func (*KindExprName) kindExprNode()       {}
-func (*KindExprSort) kindExprNode()       {}
-
-func (k *KindExprType) Span() span.Span       { return k.S }
-func (k *KindExprRow) Span() span.Span        { return k.S }
-func (k *KindExprConstraint) Span() span.Span { return k.S }
-func (k *KindExprArrow) Span() span.Span      { return k.S }
-func (k *KindExprName) Span() span.Span       { return k.S }
-func (k *KindExprSort) Span() span.Span       { return k.S }

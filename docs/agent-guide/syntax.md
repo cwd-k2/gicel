@@ -34,7 +34,7 @@
 
 #### Recursive Combinators (`--recursion`)
 
-Both `rec` and `fix` require the `--recursion` flag (CLI) or `AllowRecursion: true` (Go API). Without it, their use is a compile error.
+Both `rec` and `fix` require the `--recursion` flag (CLI) or `eng.EnableRecursion()` (Go API). Without it, their use is a compile error.
 
 **`fix`** — value-level fixpoint. Type: `\a. (a -> a) -> a`. Builds a recursive value by passing "self" as an argument:
 

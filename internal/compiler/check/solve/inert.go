@@ -11,6 +11,7 @@ package solve
 type InertSet struct {
 	classMap       map[string][]*CtClass // className → class constraints
 	funEqs         map[string][]*CtFunEq // familyName → stuck equations
+	givenEqs       []*CtEq               // given equalities (skolem ~ concrete)
 	metaIndex      map[int][]Ct          // metaID → constraints mentioning it
 	resolutionKeys map[string]string     // canonical key → placeholder (for cache lookup)
 	scopeDepth     int                   // current scope depth
@@ -73,6 +74,82 @@ func (is *InertSet) InsertEq(ct *CtEq, blockingOn []int) {
 	is.tagScope(ct)
 }
 
+// InsertGiven adds a given equality to the inert set for scope management.
+// Given equalities are recorded separately from wanted CtEqs and are
+// cleared on scope exit via LeaveScope.
+func (is *InertSet) InsertGiven(ct *CtEq) {
+	is.givenEqs = append(is.givenEqs, ct)
+	is.tagScope(ct)
+}
+
+// KickOutMentioningSkolem removes and returns all CtFunEq and CtEq
+// constraints whose type arguments mention the given skolem ID.
+// Called when a given equality sk ~ T is installed, so constraints
+// blocked on the skolem can be re-processed with the new information.
+func (is *InertSet) KickOutMentioningSkolem(skolemID int) []Ct {
+	var kicked []Ct
+
+	// Check stuck type family equations.
+	for name, eqs := range is.funEqs {
+		var remaining []*CtFunEq
+		for _, eq := range eqs {
+			if typesMentionSkolem(eq.Args, skolemID) {
+				kicked = append(kicked, eq)
+				// Also remove from meta index.
+				is.removeFromMetaIndex(eq)
+				delete(is.ctScope, eq)
+			} else {
+				remaining = append(remaining, eq)
+			}
+		}
+		if len(remaining) != len(eqs) {
+			is.funEqs[name] = remaining
+		}
+	}
+
+	// Check stuck wanted equalities in the meta index.
+	// CtEq constraints are only indexed via metaIndex, not a dedicated map.
+	// A CtEq blocked on multiple metas appears in multiple buckets;
+	// deduplicate to avoid processing the same constraint twice.
+	seenEqs := make(map[*CtEq]bool)
+	for id, cts := range is.metaIndex {
+		var remaining []Ct
+		for _, ct := range cts {
+			if eq, ok := ct.(*CtEq); ok {
+				if typeMentionsSkolem(eq.Lhs, skolemID) || typeMentionsSkolem(eq.Rhs, skolemID) {
+					if !seenEqs[eq] {
+						seenEqs[eq] = true
+						kicked = append(kicked, eq)
+					}
+					delete(is.ctScope, eq)
+					continue
+				}
+			}
+			remaining = append(remaining, ct)
+		}
+		if len(remaining) != len(cts) {
+			is.metaIndex[id] = remaining
+		}
+	}
+
+	return kicked
+}
+
+// removeFromMetaIndex removes a constraint from all meta index entries.
+func (is *InertSet) removeFromMetaIndex(ct Ct) {
+	for id, cts := range is.metaIndex {
+		for i, indexed := range cts {
+			if indexed == ct {
+				last := len(cts) - 1
+				cts[i] = cts[last]
+				cts[last] = nil
+				is.metaIndex[id] = cts[:last]
+				break
+			}
+		}
+	}
+}
+
 // LookupClass returns all inert class constraints for the given class name.
 func (is *InertSet) LookupClass(className string) []*CtClass {
 	return is.classMap[className]
@@ -89,15 +166,18 @@ func (is *InertSet) KickOut(metaID int) []Ct {
 	cts := is.metaIndex[metaID]
 	delete(is.metaIndex, metaID)
 	for _, ct := range cts {
+		// Clean secondary maps.
 		switch c := ct.(type) {
 		case *CtClass:
 			is.removeClass(c)
 		case *CtFunEq:
 			is.removeFunEq(c)
 		case *CtEq:
-			// CtEq is only in the meta index, no secondary map to clean.
 			_ = c
 		}
+		// Remove from other meta index buckets to prevent duplicate
+		// re-processing when a different meta is kicked later.
+		is.removeFromMetaIndex(ct)
 	}
 	return cts
 }
@@ -115,15 +195,6 @@ func (is *InertSet) CollectClassResiduals() []*CtClass {
 // Constraints from outer scopes (depth < current) are preserved.
 func (is *InertSet) Reset() {
 	is.clearScope(is.scopeDepth)
-}
-
-// ResetAll clears all constraints from the inert set regardless of scope.
-func (is *InertSet) ResetAll() {
-	clear(is.classMap)
-	clear(is.funEqs)
-	clear(is.metaIndex)
-	clear(is.resolutionKeys)
-	clear(is.ctScope)
 }
 
 // tagScope records the current scope depth for a constraint.
@@ -152,19 +223,23 @@ func (is *InertSet) clearScope(d int) {
 		case *CtEq:
 			_ = c // CtEq is only in the meta index
 		}
-		// Remove from meta index.
-		for id, cts := range is.metaIndex {
-			for i, indexed := range cts {
-				if indexed == ct {
-					last := len(cts) - 1
-					cts[i] = cts[last]
-					cts[last] = nil
-					is.metaIndex[id] = cts[:last]
-					break
-				}
+		is.removeFromMetaIndex(ct)
+		delete(is.ctScope, ct)
+	}
+	// Clear given equalities at this scope.
+	// Check the toRemove set rather than ctScope (already deleted above).
+	if len(is.givenEqs) > 0 {
+		removedSet := make(map[Ct]bool, len(toRemove))
+		for _, ct := range toRemove {
+			removedSet[ct] = true
+		}
+		var remaining []*CtEq
+		for _, g := range is.givenEqs {
+			if !removedSet[g] {
+				remaining = append(remaining, g)
 			}
 		}
-		delete(is.ctScope, ct)
+		is.givenEqs = remaining
 	}
 	// Clear resolution keys at this scope (conservative: clear all at scope >= d).
 	// Resolution keys don't track scope, so we clear all of them when any scope is cleared.

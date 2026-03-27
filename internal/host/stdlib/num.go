@@ -241,12 +241,27 @@ func toDoubleImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.A
 	return floatResult(float64(n), ce)
 }
 
+// floatToInt safely converts a float64 to int64, rejecting NaN, Inf, and
+// values outside the representable int64 range.
+func floatToInt(f float64, op string, ce eval.CapEnv) (eval.Value, eval.CapEnv, error) {
+	if math.IsNaN(f) {
+		return nil, ce, fmt.Errorf("%s: NaN cannot be converted to Int", op)
+	}
+	if math.IsInf(f, 0) {
+		return nil, ce, fmt.Errorf("%s: Inf cannot be converted to Int", op)
+	}
+	if f > float64(math.MaxInt64) || f < float64(math.MinInt64) {
+		return nil, ce, fmt.Errorf("%s: value %g out of Int range", op, f)
+	}
+	return intResult(int64(f), ce)
+}
+
 func roundImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
 	f, err := asFloat64Num(args[0])
 	if err != nil {
 		return nil, ce, err
 	}
-	return intResult(int64(math.RoundToEven(f)), ce)
+	return floatToInt(math.RoundToEven(f), "round", ce)
 }
 
 func floorImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
@@ -254,7 +269,7 @@ func floorImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Appl
 	if err != nil {
 		return nil, ce, err
 	}
-	return intResult(int64(math.Floor(f)), ce)
+	return floatToInt(math.Floor(f), "floor", ce)
 }
 
 func ceilingImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
@@ -262,7 +277,7 @@ func ceilingImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Ap
 	if err != nil {
 		return nil, ce, err
 	}
-	return intResult(int64(math.Ceil(f)), ce)
+	return floatToInt(math.Ceil(f), "ceiling", ce)
 }
 
 func truncateImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
@@ -270,7 +285,7 @@ func truncateImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.A
 	if err != nil {
 		return nil, ce, err
 	}
-	return intResult(int64(math.Trunc(f)), ce)
+	return floatToInt(math.Trunc(f), "truncate", ce)
 }
 
 func gcdImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {

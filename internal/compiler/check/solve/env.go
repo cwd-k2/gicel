@@ -25,6 +25,7 @@ type Env interface {
 
 	// Context scan
 	ScanContext(func(env.CtxEntry) bool)
+	LookupDictVar(className string) []*env.CtxVar
 
 	// Budget
 	ResetSolverSteps()
@@ -39,7 +40,7 @@ type Env interface {
 
 	// Fresh generation
 	Fresh() int
-	FreshMeta(types.Kind) *types.TyMeta
+	FreshMeta(types.Type) *types.TyMeta
 
 	// Trial/probe unification scopes
 	WithTrial(fn func() bool) bool

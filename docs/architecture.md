@@ -2,7 +2,7 @@
 
 Package dependency diagram for the GICEL compiler and runtime.
 
-_Last updated: v0.17.2 (2026-03-25)._
+_Last updated: v0.18.0 (2026-03-27)._
 
 ## Layer Model
 
@@ -28,13 +28,13 @@ app/engine ──→ compiler/{check,parse,optimize}
 
 host/stdlib ──→ host/registry
             ──→ runtime/eval
-            ──→ lang/{ir,syntax}
+            ──→ lang/ir
             ──→ infra/budget
 
 host/registry ──→ runtime/eval
               ──→ lang/ir
 
-runtime/eval ──→ lang/{ir,syntax}
+runtime/eval ──→ lang/ir
              ──→ infra/{budget,span}
 
 compiler/check ──→ check/{solve,unify,family,exhaust,env,modscope}
@@ -42,23 +42,22 @@ compiler/check ──→ check/{solve,unify,family,exhaust,env,modscope}
                ──→ lang/{syntax,types,ir}
                ──→ infra/{budget,diagnostic,span}
 
-  check/solve ──→ check/{unify,family}
-              ──→ lang/types
-              ──→ infra/{budget,diagnostic,span}
+  check/solve ──→ check/env
+              ──→ lang/{types,ir}
+              ──→ infra/{diagnostic,span}
 
-  check/modscope ──→ check/{env,exhaust,family}
+  check/modscope ──→ check/env
                  ──→ lang/{syntax,types}
                  ──→ infra/{diagnostic,span}
 
-  check/env ──→ check/{exhaust,family}
-            ──→ lang/types
+  check/env ──→ lang/types
             ──→ infra/span
 
   check/family ──→ check/unify
                ──→ lang/types
                ──→ infra/{budget,diagnostic,span}
 
-  check/exhaust ──→ check/unify
+  check/exhaust ──→ check/{env,unify}
                 ──→ lang/{ir,types}
                 ──→ infra/{diagnostic,span}
 
@@ -95,11 +94,11 @@ infra/span   ──→ (isolated)
 
 ### lang — language definition
 
-| Package       | Responsibility                                          |
-| ------------- | ------------------------------------------------------- |
-| `lang/syntax` | AST node types, token definitions, source-level helpers |
-| `lang/types`  | Type, Kind, row types, evidence representation          |
-| `lang/ir`     | Core IR (17 formers), program structure, walkers        |
+| Package       | Responsibility                                             |
+| ------------- | ---------------------------------------------------------- |
+| `lang/syntax` | AST node types, token definitions, source-level helpers    |
+| `lang/types`  | Type (unified across universe levels), row types, evidence |
+| `lang/ir`     | Core IR (17 formers), program structure, walkers           |
 
 ### compiler — source to Core IR
 

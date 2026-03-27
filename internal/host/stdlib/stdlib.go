@@ -79,5 +79,5 @@ func ordVal(cmp int) *eval.ConVal {
 	}
 }
 
-// unitVal is the unit value (empty record).
-var unitVal = &eval.RecordVal{Fields: map[string]eval.Value{}}
+// unitVal is the shared unit value (empty record).
+var unitVal = eval.UnitVal

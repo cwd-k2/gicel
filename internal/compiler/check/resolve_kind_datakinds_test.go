@@ -1,4 +1,4 @@
-// DataKinds tests — KData equality/arity, user kind resolution, constructor promotion.
+// DataKinds tests — promoted data kind equality/arity, user kind resolution, constructor promotion.
 // Does NOT cover: GADT (gadt_check_test.go), kind unification (unify/kind_unify_test.go).
 
 package check
@@ -12,32 +12,32 @@ import (
 // --- DataKinds tests ---
 
 func TestKDataEquality(t *testing.T) {
-	k1 := types.KData{Name: "Bool"}
-	k2 := types.KData{Name: "Bool"}
-	k3 := types.KData{Name: "DBState"}
-	if !k1.Equal(k2) {
-		t.Error("KData{Bool} should equal KData{Bool}")
+	k1 := types.PromotedDataKind("Bool")
+	k2 := types.PromotedDataKind("Bool")
+	k3 := types.PromotedDataKind("DBState")
+	if !types.Equal(k1, k2) {
+		t.Error("PromotedDataKind(Bool) should equal PromotedDataKind(Bool)")
 	}
-	if k1.Equal(k3) {
-		t.Error("KData{Bool} should not equal KData{DBState}")
+	if types.Equal(k1, k3) {
+		t.Error("PromotedDataKind(Bool) should not equal PromotedDataKind(DBState)")
 	}
-	if k1.String() != "Bool" {
-		t.Errorf("expected 'Bool', got %s", k1.String())
+	if k1.Name != "Bool" {
+		t.Errorf("expected 'Bool', got %s", k1.Name)
 	}
 }
 
 func TestKDataArity(t *testing.T) {
-	k := types.KData{Name: "DBState"}
+	k := types.PromotedDataKind("DBState")
 	if types.Arity(k) != 0 {
-		t.Errorf("KData arity should be 0, got %d", types.Arity(k))
+		t.Errorf("PromotedDataKind arity should be 0, got %d", types.Arity(k))
 	}
-	if types.ResultKind(k) != k {
-		t.Error("KData ResultKind should be itself")
+	if !types.Equal(types.ResultKind(k), k) {
+		t.Error("PromotedDataKind ResultKind should be itself")
 	}
 }
 
 func TestResolveUserKind(t *testing.T) {
-	// \ (s: DBState). T → the kind annotation DBState should resolve to KData{DBState}
+	// \ (s: DBState). T → the kind annotation DBState should resolve to PromotedDataKind(DBState)
 	source := `form DBState := { Opened: DBState; Closed: DBState; }
 form DB := \s. { MkDB: DB s; }
 f :: \ (s: DBState). DB s -> DB s
@@ -65,7 +65,7 @@ main := (MkProxy :: Proxy Nothing)`
 
 func TestNonNullaryPromotedConKind(t *testing.T) {
 	// Non-nullary constructors should be promoted with kind arrows.
-	// Just :: Type -> Maybe (i.e., KArrow{KType, KData{Maybe}})
+	// Just :: Type -> Maybe (i.e., Type -> PromotedDataKind(Maybe))
 	source := `form Maybe := \a. { Nothing: Maybe a; Just: a -> Maybe a }
 type Test :: Maybe := Just Int
 main := 42`

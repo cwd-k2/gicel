@@ -20,9 +20,14 @@ type TyVar struct {
 }
 
 // TyCon is a named type constructor.
+// Level indicates the universe level:
+//   - nil or L0: value types (Int, Bool, List, ...)
+//   - L1: kinds (Type, Row, Constraint, promoted data kinds)
+//   - L2: sort of kinds (Kind = Sort₀)
 type TyCon struct {
-	Name string
-	S    span.Span
+	Name  string
+	Level LevelExpr // nil = L0 (value type)
+	S     span.Span
 }
 
 // TyApp is a general type application (F T).
@@ -40,9 +45,10 @@ type TyArrow struct {
 }
 
 // TyForall is a universal quantification (\ a:K. T).
+// Kind holds the kind of the bound variable as a Type at universe level >= 1.
 type TyForall struct {
 	Var  string
-	Kind Kind
+	Kind Type
 	Body Type
 	S    span.Span
 }
@@ -112,7 +118,7 @@ type QuantifiedConstraint struct {
 // ForallBinder is a universally quantified type variable with its kind.
 type ForallBinder struct {
 	Name string
-	Kind Kind
+	Kind Type
 }
 
 // TyEvidence is a qualified type: { C1, C2 | c } => Body.
@@ -130,7 +136,7 @@ type TyEvidence struct {
 // Currently all metas are created at level 0.
 type TyMeta struct {
 	ID    int
-	Kind  Kind
+	Kind  Type
 	Level int // implication nesting depth (0 = top-level)
 	S     span.Span
 }
@@ -140,7 +146,7 @@ type TyMeta struct {
 type TySkolem struct {
 	ID   int
 	Name string // original variable name (for error messages)
-	Kind Kind
+	Kind Type
 	S    span.Span
 }
 
@@ -181,12 +187,78 @@ func (t *TyVar) Children() []Type      { return nil }
 func (t *TyCon) Children() []Type      { return nil }
 func (t *TyApp) Children() []Type      { return []Type{t.Fun, t.Arg} }
 func (t *TyArrow) Children() []Type    { return []Type{t.From, t.To} }
-func (t *TyForall) Children() []Type   { return []Type{t.Body} }
+func (t *TyForall) Children() []Type   { return []Type{t.Kind, t.Body} }
 func (t *TyCBPV) Children() []Type     { return []Type{t.Pre, t.Post, t.Result} }
 func (t *TyEvidence) Children() []Type { return []Type{t.Constraints, t.Body} }
 func (t *TySkolem) Children() []Type   { return nil }
 func (t *TyMeta) Children() []Type     { return nil }
 func (t *TyError) Children() []Type    { return nil }
+
+// ContainsMetaOrSkolem returns true if the type contains any TyMeta or TySkolem.
+// A type that returns false is "ground" — Zonk cannot reveal hidden skolems.
+func ContainsMetaOrSkolem(t Type) bool {
+	switch t.(type) {
+	case *TyMeta:
+		return true
+	case *TySkolem:
+		return true
+	}
+	found := false
+	ForEachChild(t, func(child Type) bool {
+		if ContainsMetaOrSkolem(child) {
+			found = true
+			return false
+		}
+		return true
+	})
+	return found
+}
+
+// ForEachChild calls fn for each direct child of t. If fn returns false,
+// iteration stops early. Leaf nodes (TyVar, TyCon, TyMeta, TySkolem, TyError)
+// have no children. This avoids the slice allocation of Children().
+func ForEachChild(t Type, fn func(Type) bool) {
+	switch ty := t.(type) {
+	case *TyApp:
+		if fn(ty.Fun) {
+			fn(ty.Arg)
+		}
+	case *TyArrow:
+		if fn(ty.From) {
+			fn(ty.To)
+		}
+	case *TyForall:
+		if fn(ty.Kind) {
+			fn(ty.Body)
+		}
+	case *TyCBPV:
+		if fn(ty.Pre) && fn(ty.Post) {
+			fn(ty.Result)
+		}
+	case *TyEvidence:
+		if fn(ty.Constraints) {
+			fn(ty.Body)
+		}
+	case *TyEvidenceRow:
+		for _, child := range ty.Entries.AllChildren() {
+			if !fn(child) {
+				return
+			}
+		}
+		if ty.Tail != nil {
+			fn(ty.Tail)
+		}
+	case *TyFamilyApp:
+		for _, a := range ty.Args {
+			if !fn(a) {
+				return
+			}
+		}
+		if ty.Kind != nil {
+			fn(ty.Kind)
+		}
+	}
+}
 
 // TypeSize returns the number of nodes in a type, up to a limit.
 // If the type has more than limit nodes, it returns limit+1 and stops early.
@@ -200,12 +272,10 @@ func typeSizeRec(t Type, limit, acc int) int {
 		return acc
 	}
 	acc++
-	for _, ch := range t.Children() {
-		acc = typeSizeRec(ch, limit, acc)
-		if acc > limit {
-			return acc
-		}
-	}
+	ForEachChild(t, func(child Type) bool {
+		acc = typeSizeRec(child, limit, acc)
+		return acc <= limit
+	})
 	return acc
 }
 

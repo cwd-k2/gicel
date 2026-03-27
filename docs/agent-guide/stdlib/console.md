@@ -19,3 +19,15 @@ Load with `--packs console` (or the default `all`) and import with `import Conso
 Unlike `Effect.IO`, which accumulates output in an internal buffer retrievable from `result.CapEnv`, Console performs actual I/O against the host process's file descriptors.
 
 **`--json` mode:** When the CLI is invoked with `--json`, `putLine` output is captured into the `console` key of the capability environment (as `[]string`) instead of being written to stdout. `getLine` returns an error in this mode since interactive stdin is not available.
+
+**Example:**
+
+```
+import Prelude
+import Console
+
+main := do {
+  putLine "Hello, GICEL!";
+  putLine ("6 * 7 = " <> show (6 * 7))
+}
+```

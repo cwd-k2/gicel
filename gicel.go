@@ -51,6 +51,24 @@ type SandboxConfig = engine.SandboxConfig
 // CompileError wraps compilation errors.
 type CompileError = engine.CompileError
 
+// CompileResult holds all static information produced by compilation.
+type CompileResult = engine.CompileResult
+
+// Diagnostic is a single structured error from compilation.
+type Diagnostic = engine.Diagnostic
+
+// DiagnosticHint is a secondary annotation on a compilation diagnostic.
+type DiagnosticHint = engine.DiagnosticHint
+
+// InternalPanicError wraps a recovered panic from RunSandbox.
+type InternalPanicError = engine.InternalPanicError
+
+// RowBuilder constructs row types incrementally.
+type RowBuilder = engine.RowBuilder
+
+// CoreProgram is an opaque compiled Core IR for inspection.
+type CoreProgram = engine.CoreProgram
+
 // NewEngine creates a new Engine with default limits.
 var NewEngine = engine.NewEngine
 
@@ -99,6 +117,9 @@ type TraceHook = eval.TraceHook
 
 // ExplainStep is a single semantic event during evaluation.
 type ExplainStep = eval.ExplainStep
+
+// ExplainDetail carries kind-specific structured data within an ExplainStep.
+type ExplainDetail = eval.ExplainDetail
 
 // ExplainHook receives semantic evaluation events.
 type ExplainHook = eval.ExplainHook

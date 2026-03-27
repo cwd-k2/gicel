@@ -1,11 +1,16 @@
 package check
 
-import "github.com/cwd-k2/gicel/internal/lang/types"
+import (
+	"fmt"
+	"strings"
+
+	"github.com/cwd-k2/gicel/internal/lang/types"
+)
 
 // Registry holds semantic registries populated during declaration
 // processing and read during type checking.
 type Registry struct {
-	typeKinds         map[string]types.Kind // registered type constructor kinds (absorbed from config)
+	typeKinds         map[string]types.Type // registered type constructor kinds (absorbed from config)
 	conModules        map[string]string     // constructor name → source module name
 	conTypes          map[string]types.Type
 	conInfo           map[string]*DataTypeInfo
@@ -16,8 +21,8 @@ type Registry struct {
 	instances         []*InstanceInfo
 	instancesByClass  map[string][]*InstanceInfo
 	importedInstances map[*InstanceInfo]bool
-	promotedKinds     map[string]types.Kind      // DataKinds: data name → KData
-	promotedCons      map[string]types.Kind      // DataKinds: nullary con → KData
+	promotedKinds     map[string]types.Type      // DataKinds: data name → promoted data kind
+	promotedCons      map[string]types.Type      // DataKinds: nullary con → promoted data kind
 	kindVars          map[string]bool            // HKT: kind variables in scope
 	families          map[string]*TypeFamilyInfo // type family declarations
 }
@@ -39,7 +44,7 @@ func (r *Registry) RegisterInstance(inst *InstanceInfo) {
 }
 
 // RegisterTypeKind records a type constructor's kind.
-func (r *Registry) RegisterTypeKind(name string, kind types.Kind) {
+func (r *Registry) RegisterTypeKind(name string, kind types.Type) {
 	r.typeKinds[name] = kind
 }
 
@@ -57,10 +62,50 @@ func (r *Registry) RegisterClass(name string, info *ClassInfo) {
 	}
 }
 
-// RegisterFamily records a type family declaration.
-// Phase: 3 (type family processing). Qualified names use Scope.InjectFamily instead.
-func (r *Registry) RegisterFamily(name string, info *TypeFamilyInfo) {
-	r.families[name] = info
+// RegisterFamily records a type family declaration or merges equations
+// into an existing family. When multiple modules independently enrich
+// the same associated type family (diamond import), equations from all
+// sources are collected and deduplicated by structural pattern identity.
+func (r *Registry) RegisterFamily(name string, info *TypeFamilyInfo) error {
+	existing, ok := r.families[name]
+	if !ok {
+		r.families[name] = info
+		return nil
+	}
+	// Reject collision between associated types from different classes.
+	if existing.IsAssoc && info.IsAssoc && existing.ClassName != info.ClassName {
+		return fmt.Errorf("associated type %s conflicts: defined in both %s and %s",
+			name, existing.ClassName, info.ClassName)
+	}
+	// Merge: append equations from info not already present.
+	// When multiple modules independently enrich the same associated type
+	// family (diamond import), equations from all sources are collected
+	// and deduplicated by structural pattern identity.
+	seen := make(map[string]bool, len(existing.Equations))
+	for _, eq := range existing.Equations {
+		seen[equationPatternKey(eq)] = true
+	}
+	for _, eq := range info.Equations {
+		if key := equationPatternKey(eq); !seen[key] {
+			existing.Equations = append(existing.Equations, eq)
+			seen[key] = true
+		}
+	}
+	return nil
+}
+
+// equationPatternKey produces a canonical key from the LHS patterns of a
+// type family equation. Two equations with structurally equal patterns
+// are considered identical for deduplication purposes.
+func equationPatternKey(eq tfEquation) string {
+	var b strings.Builder
+	for i, p := range eq.Patterns {
+		if i > 0 {
+			b.WriteByte(' ')
+		}
+		types.WriteTypeKey(&b, p)
+	}
+	return b.String()
 }
 
 // RegisterDataType records a data type's reverse lookup entry.
@@ -69,12 +114,12 @@ func (r *Registry) RegisterDataType(name string, info *DataTypeInfo) {
 }
 
 // RegisterPromotedKind records a DataKinds promoted data name.
-func (r *Registry) RegisterPromotedKind(name string, kind types.Kind) {
+func (r *Registry) RegisterPromotedKind(name string, kind types.Type) {
 	r.promotedKinds[name] = kind
 }
 
 // RegisterPromotedCon records a DataKinds promoted nullary constructor.
-func (r *Registry) RegisterPromotedCon(name string, kind types.Kind) {
+func (r *Registry) RegisterPromotedCon(name string, kind types.Type) {
 	r.promotedCons[name] = kind
 }
 
@@ -150,7 +195,7 @@ func (r *Registry) LookupFamily(name string) (*TypeFamilyInfo, bool) {
 }
 
 // LookupTypeKind returns the kind of a registered type constructor.
-func (r *Registry) LookupTypeKind(name string) (types.Kind, bool) {
+func (r *Registry) LookupTypeKind(name string) (types.Type, bool) {
 	k, ok := r.typeKinds[name]
 	return k, ok
 }
@@ -184,7 +229,7 @@ func (r *Registry) HasPromotedKind(name string) bool {
 }
 
 // LookupPromotedKind returns the kind for a DataKinds promoted data name.
-func (r *Registry) LookupPromotedKind(name string) (types.Kind, bool) {
+func (r *Registry) LookupPromotedKind(name string) (types.Type, bool) {
 	k, ok := r.promotedKinds[name]
 	return k, ok
 }
@@ -196,7 +241,7 @@ func (r *Registry) HasPromotedCon(name string) bool {
 }
 
 // LookupPromotedCon returns the kind for a DataKinds promoted constructor.
-func (r *Registry) LookupPromotedCon(name string) (types.Kind, bool) {
+func (r *Registry) LookupPromotedCon(name string) (types.Type, bool) {
 	k, ok := r.promotedCons[name]
 	return k, ok
 }
@@ -249,13 +294,13 @@ func (r *Registry) AllInstances() []*InstanceInfo {
 
 // AllPromotedKinds returns the promoted data name -> kind map.
 // The caller must not modify the returned map.
-func (r *Registry) AllPromotedKinds() map[string]types.Kind {
+func (r *Registry) AllPromotedKinds() map[string]types.Type {
 	return r.promotedKinds
 }
 
 // AllPromotedCons returns the promoted constructor -> kind map.
 // The caller must not modify the returned map.
-func (r *Registry) AllPromotedCons() map[string]types.Kind {
+func (r *Registry) AllPromotedCons() map[string]types.Type {
 	return r.promotedCons
 }
 

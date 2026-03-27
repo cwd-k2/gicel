@@ -43,7 +43,7 @@ func (ch *Checker) matchTyPattern(pat, arg types.Type, subst map[string]types.Ty
 func (ch *Checker) processTypeFamilyDecl(
 	name string,
 	syntaxParams []syntax.TyBinder,
-	kindAnn syntax.KindExpr,
+	kindAnn syntax.TypeExpr,
 	alts []syntax.TyAlt,
 	s span.Span,
 ) {
@@ -102,7 +102,7 @@ func (ch *Checker) processTypeFamilyDecl(
 		Equations:  equations,
 	}
 
-	ch.reg.RegisterFamily(name, info)
+	_ = ch.reg.RegisterFamily(name, info) // closed type families never conflict by name
 }
 
 // familyEnv returns the cached family.ReduceEnv, constructing it on first use.
@@ -124,11 +124,9 @@ func (ch *Checker) familyEnv() *family.ReduceEnv {
 }
 
 // installFamilyReducer registers internal type families and sets the
-// family reducer callback in the unifier. Grade algebra families are
-// registered first so they are available for constraint-based grade
-// enforcement during type checking.
+// family reducer callback in the unifier. Grade algebra is defined
+// exclusively by the Prelude's GradeAlgebra class instances.
 func (ch *Checker) installFamilyReducer() {
-	ch.registerGradeAlgebraFamilies()
 	ch.registerBuiltinRowFamilies()
 	if len(ch.reg.families) == 0 {
 		return
@@ -144,13 +142,13 @@ func (ch *Checker) installFamilyReducer() {
 func (ch *Checker) registerBuiltinRowFamilies() {
 	// Merge :: Row -> Row -> Row
 	if _, exists := ch.reg.LookupFamily("Merge"); !exists {
-		ch.reg.RegisterFamily("Merge", &TypeFamilyInfo{
+		_ = ch.reg.RegisterFamily("Merge", &TypeFamilyInfo{
 			Name: "Merge",
 			Params: []TFParam{
-				{Name: "r1", Kind: types.KRow{}},
-				{Name: "r2", Kind: types.KRow{}},
+				{Name: "r1", Kind: types.TypeOfRows},
+				{Name: "r2", Kind: types.TypeOfRows},
 			},
-			ResultKind: types.KRow{},
+			ResultKind: types.TypeOfRows,
 		})
 	}
 }
@@ -171,7 +169,7 @@ func (ch *Checker) reduceTyFamily(name string, args []types.Type, s span.Span) (
 
 // registerStuckViaInert registers a stuck type family application as a
 // CtFunEq constraint in the inert set for later re-activation via OnSolve.
-func (ch *Checker) registerStuckViaInert(name string, args []types.Type, resultKind types.Kind, s span.Span) *types.TyMeta {
+func (ch *Checker) registerStuckViaInert(name string, args []types.Type, resultKind types.Type, s span.Span) *types.TyMeta {
 	blocking := ch.unifier.CollectBlockingMetas(args)
 	if len(blocking) == 0 {
 		return nil

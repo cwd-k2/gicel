@@ -119,9 +119,9 @@ eval :: \a. Expr a -> a
 eval := fix (\self e. case e { LitI n => n; LitB b => b; Add x y => self x + self y })
 main := eval (Add (LitI 10) (LitI 32))`
 	config := &CheckConfig{
-		RegisteredTypes: map[string]types.Kind{
-			"Int":  types.KType{},
-			"Bool": types.KType{},
+		RegisteredTypes: map[string]types.Type{
+			"Int":  types.TypeOfTypes,
+			"Bool": types.TypeOfTypes,
 		},
 		GatedBuiltins: map[string]bool{"fix": true, "rec": true},
 		Assumptions: map[string]types.Type{

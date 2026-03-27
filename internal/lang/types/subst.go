@@ -58,18 +58,19 @@ func substDepth(t Type, varName string, replacement Type, depth int) Type {
 		if ty.Var == varName {
 			return ty // shadowed
 		}
+		newKind := substDepth(ty.Kind, varName, replacement, depth+1)
 		// Capture avoidance.
 		if OccursIn(ty.Var, replacement) {
 			fresh := freshName(ty.Var)
 			body := substDepth(ty.Body, ty.Var, &TyVar{Name: fresh}, depth+1)
 			body = substDepth(body, varName, replacement, depth+1)
-			return &TyForall{Var: fresh, Kind: ty.Kind, Body: body, S: ty.S}
+			return &TyForall{Var: fresh, Kind: newKind, Body: body, S: ty.S}
 		}
 		newBody := substDepth(ty.Body, varName, replacement, depth+1)
-		if newBody == ty.Body {
+		if newKind == ty.Kind && newBody == ty.Body {
 			return ty
 		}
-		return &TyForall{Var: ty.Var, Kind: ty.Kind, Body: newBody, S: ty.S}
+		return &TyForall{Var: ty.Var, Kind: newKind, Body: newBody, S: ty.S}
 
 	case *TyCBPV:
 		newPre := substDepth(ty.Pre, varName, replacement, depth+1)
@@ -176,78 +177,11 @@ func substDepth(t Type, varName string, replacement Type, depth int) Type {
 	}
 }
 
-// SubstKindInType substitutes a kind variable throughout all kind annotations
-// embedded in a type. Used when instantiating kind-polymorphic quantifiers
-// (e.g., \ (k: Kind). ... where k appears in kind positions).
-func SubstKindInType(t Type, varName string, replacement Kind) Type {
-	return substKindInTypeDepth(t, varName, replacement, 0)
-}
-
-func substKindInTypeDepth(t Type, varName string, replacement Kind, depth int) Type {
-	if depth > maxTraversalDepth {
-		return t
-	}
-	switch ty := t.(type) {
-	case *TyForall:
-		newKind := KindSubst(ty.Kind, varName, replacement)
-		newBody := substKindInTypeDepth(ty.Body, varName, replacement, depth+1)
-		if newKind == ty.Kind && newBody == ty.Body {
-			return ty
-		}
-		return &TyForall{Var: ty.Var, Kind: newKind, Body: newBody, S: ty.S}
-	case *TyApp:
-		newFun := substKindInTypeDepth(ty.Fun, varName, replacement, depth+1)
-		newArg := substKindInTypeDepth(ty.Arg, varName, replacement, depth+1)
-		if newFun == ty.Fun && newArg == ty.Arg {
-			return ty
-		}
-		return &TyApp{Fun: newFun, Arg: newArg, S: ty.S}
-	case *TyArrow:
-		newFrom := substKindInTypeDepth(ty.From, varName, replacement, depth+1)
-		newTo := substKindInTypeDepth(ty.To, varName, replacement, depth+1)
-		if newFrom == ty.From && newTo == ty.To {
-			return ty
-		}
-		return &TyArrow{From: newFrom, To: newTo, S: ty.S}
-	case *TyCBPV:
-		newPre := substKindInTypeDepth(ty.Pre, varName, replacement, depth+1)
-		newPost := substKindInTypeDepth(ty.Post, varName, replacement, depth+1)
-		newResult := substKindInTypeDepth(ty.Result, varName, replacement, depth+1)
-		if newPre == ty.Pre && newPost == ty.Post && newResult == ty.Result {
-			return ty
-		}
-		return &TyCBPV{Tag: ty.Tag, Pre: newPre, Post: newPost, Result: newResult, S: ty.S}
-	case *TyMeta:
-		newKind := KindSubst(ty.Kind, varName, replacement)
-		if newKind == ty.Kind {
-			return ty
-		}
-		return &TyMeta{ID: ty.ID, Kind: newKind}
-	case *TySkolem:
-		newKind := KindSubst(ty.Kind, varName, replacement)
-		if newKind == ty.Kind {
-			return ty
-		}
-		return &TySkolem{ID: ty.ID, Name: ty.Name, Kind: newKind}
-	case *TyFamilyApp:
-		changed := false
-		args := make([]Type, len(ty.Args))
-		for i, a := range ty.Args {
-			newA := substKindInTypeDepth(a, varName, replacement, depth+1)
-			if newA != a {
-				changed = true
-			}
-			args[i] = newA
-		}
-		if !changed {
-			return ty
-		}
-		return &TyFamilyApp{Name: ty.Name, Args: args, Kind: KindSubst(ty.Kind, varName, replacement), S: ty.S}
-	default:
-		// TyVar, TyCon, TyEvidenceRow, TyEvidence,
-		// TyError, TyLit — no embedded kind annotations to substitute.
-		return ty
-	}
+// SubstKindInType substitutes a kind variable throughout a type.
+// After Kind→Type unification, kind substitution is just type substitution.
+// This wrapper is kept for backward compatibility during the migration.
+func SubstKindInType(t Type, varName string, replacement Type) Type {
+	return Subst(t, varName, replacement)
 }
 
 // SubstMany applies multiple substitutions simultaneously.
@@ -303,6 +237,7 @@ func substMany(t Type, subs map[string]Type, depth int) Type {
 		}
 		return &TyArrow{From: newFrom, To: newTo, S: ty.S}
 	case *TyForall:
+		newKind := substMany(ty.Kind, subs, depth+1)
 		// Remove shadowed variable from substitution.
 		if _, shadowed := subs[ty.Var]; shadowed {
 			reduced := make(map[string]Type, len(subs)-1)
@@ -312,7 +247,10 @@ func substMany(t Type, subs map[string]Type, depth int) Type {
 				}
 			}
 			if len(reduced) == 0 {
-				return ty
+				if newKind == ty.Kind {
+					return ty
+				}
+				return &TyForall{Var: ty.Var, Kind: newKind, Body: ty.Body, S: ty.S}
 			}
 			// Capture avoidance: check if any replacement contains the bound variable.
 			// Sorted iteration ensures deterministic fresh name generation.
@@ -321,14 +259,14 @@ func substMany(t Type, subs map[string]Type, depth int) Type {
 					fresh := freshName(ty.Var)
 					body := substDepth(ty.Body, ty.Var, &TyVar{Name: fresh}, depth+1)
 					body = substMany(body, reduced, depth+1)
-					return &TyForall{Var: fresh, Kind: ty.Kind, Body: body, S: ty.S}
+					return &TyForall{Var: fresh, Kind: newKind, Body: body, S: ty.S}
 				}
 			}
 			newBody := substMany(ty.Body, reduced, depth+1)
-			if newBody == ty.Body {
+			if newKind == ty.Kind && newBody == ty.Body {
 				return ty
 			}
-			return &TyForall{Var: ty.Var, Kind: ty.Kind, Body: newBody, S: ty.S}
+			return &TyForall{Var: ty.Var, Kind: newKind, Body: newBody, S: ty.S}
 		}
 		// Not shadowed: check capture avoidance (sorted for deterministic freshName).
 		for _, k := range sortedKeys(subs) {
@@ -336,14 +274,14 @@ func substMany(t Type, subs map[string]Type, depth int) Type {
 				fresh := freshName(ty.Var)
 				body := substDepth(ty.Body, ty.Var, &TyVar{Name: fresh}, depth+1)
 				body = substMany(body, subs, depth+1)
-				return &TyForall{Var: fresh, Kind: ty.Kind, Body: body, S: ty.S}
+				return &TyForall{Var: fresh, Kind: newKind, Body: body, S: ty.S}
 			}
 		}
 		newBody := substMany(ty.Body, subs, depth+1)
-		if newBody == ty.Body {
+		if newKind == ty.Kind && newBody == ty.Body {
 			return ty
 		}
-		return &TyForall{Var: ty.Var, Kind: ty.Kind, Body: newBody, S: ty.S}
+		return &TyForall{Var: ty.Var, Kind: newKind, Body: newBody, S: ty.S}
 	case *TyCBPV:
 		newPre := substMany(ty.Pre, subs, depth+1)
 		newPost := substMany(ty.Post, subs, depth+1)

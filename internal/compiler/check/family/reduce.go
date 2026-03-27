@@ -17,13 +17,13 @@ type ReduceEnv struct {
 	LookupFamily func(name string) (*env.TypeFamilyInfo, bool) // family lookup (includes Scope injections)
 	Budget       *budget.CheckBudget
 	Unifier      *unify.Unifier
-	FreshMeta    func(k types.Kind) *types.TyMeta
+	FreshMeta    func(k types.Type) *types.TyMeta
 	AddError     func(code diagnostic.Code, s span.Span, msg string)
 	TryUnify     func(a, b types.Type) bool
 
 	// RegisterStuckFn, when non-nil, registers a stuck type family
 	// application as a solver constraint for later re-activation.
-	RegisterStuckFn func(name string, args []types.Type, resultKind types.Kind, s span.Span) *types.TyMeta
+	RegisterStuckFn func(name string, args []types.Type, resultKind types.Type, s span.Span) *types.TyMeta
 }
 
 // lookupFamily returns the TypeFamilyInfo for name via the LookupFamily callback.
@@ -230,7 +230,7 @@ func (e *ReduceEnv) reduceFamilyAppsN(t types.Type, cache map[string]types.Type)
 // registerStuckFamily delegates to RegisterStuckFn when set.
 // When nil (standalone usage without a solver), stuck applications
 // are not tracked and the original TyFamilyApp is preserved as-is.
-func (e *ReduceEnv) registerStuckFamily(name string, args []types.Type, resultKind types.Kind, s span.Span) *types.TyMeta {
+func (e *ReduceEnv) registerStuckFamily(name string, args []types.Type, resultKind types.Type, s span.Span) *types.TyMeta {
 	if e.RegisterStuckFn != nil {
 		return e.RegisterStuckFn(name, args, resultKind, s)
 	}

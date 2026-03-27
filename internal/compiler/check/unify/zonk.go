@@ -8,6 +8,11 @@ import "github.com/cwd-k2/gicel/internal/lang/types"
 //     soln[m1] points directly to the final answer.
 //   - Structural identity: if all children are unchanged (pointer-equal),
 //     the original node is returned (avoids allocation).
+//
+// Budget.Nest/Unnest tracks the call-site nesting depth (how deeply the
+// checker's own recursion invokes Zonk), not the internal type depth.
+// Internal recursion uses zonkInner which is budget-free — the type's
+// structural depth is bounded by the allocation limit, not the nesting limit.
 func (u *Unifier) Zonk(t types.Type) types.Type {
 	if u.Budget != nil {
 		if err := u.Budget.Nest(); err != nil {
@@ -15,13 +20,18 @@ func (u *Unifier) Zonk(t types.Type) types.Type {
 		}
 		defer u.Budget.Unnest()
 	}
+	return u.zonkInner(t)
+}
+
+// zonkInner is the budget-free recursive core of Zonk.
+func (u *Unifier) zonkInner(t types.Type) types.Type {
 	switch ty := t.(type) {
 	case *types.TyMeta:
 		soln, ok := u.soln[ty.ID]
 		if !ok {
 			return ty
 		}
-		result := u.Zonk(soln)
+		result := u.zonkInner(soln)
 		if result != soln {
 			// Path compression: only trail when a snapshot is active
 			// (trail entries outside snapshot scopes are never restored
@@ -33,38 +43,39 @@ func (u *Unifier) Zonk(t types.Type) types.Type {
 		}
 		return result
 	case *types.TyApp:
-		zFun := u.Zonk(ty.Fun)
-		zArg := u.Zonk(ty.Arg)
+		zFun := u.zonkInner(ty.Fun)
+		zArg := u.zonkInner(ty.Arg)
 		if zFun == ty.Fun && zArg == ty.Arg {
 			return ty
 		}
 		return &types.TyApp{Fun: zFun, Arg: zArg, S: ty.S}
 	case *types.TyArrow:
-		zFrom := u.Zonk(ty.From)
-		zTo := u.Zonk(ty.To)
+		zFrom := u.zonkInner(ty.From)
+		zTo := u.zonkInner(ty.To)
 		if zFrom == ty.From && zTo == ty.To {
 			return ty
 		}
 		return &types.TyArrow{From: zFrom, To: zTo, S: ty.S}
 	case *types.TyForall:
-		zBody := u.Zonk(ty.Body)
-		if zBody == ty.Body {
+		zKind := u.zonkInner(ty.Kind)
+		zBody := u.zonkInner(ty.Body)
+		if zKind == ty.Kind && zBody == ty.Body {
 			return ty
 		}
-		return &types.TyForall{Var: ty.Var, Kind: ty.Kind, Body: zBody, S: ty.S}
+		return &types.TyForall{Var: ty.Var, Kind: zKind, Body: zBody, S: ty.S}
 	case *types.TyCBPV:
-		zPre := u.Zonk(ty.Pre)
-		zPost := u.Zonk(ty.Post)
-		zResult := u.Zonk(ty.Result)
+		zPre := u.zonkInner(ty.Pre)
+		zPost := u.zonkInner(ty.Post)
+		zResult := u.zonkInner(ty.Result)
 		if zPre == ty.Pre && zPost == ty.Post && zResult == ty.Result {
 			return ty
 		}
 		return &types.TyCBPV{Tag: ty.Tag, Pre: zPre, Post: zPost, Result: zResult, S: ty.S}
 	case *types.TyEvidenceRow:
-		newEntries, changed := ty.Entries.ZonkEntries(u.Zonk)
+		newEntries, changed := ty.Entries.ZonkEntries(u.zonkInner)
 		var tail types.Type
 		if ty.Tail != nil {
-			tail = u.Zonk(ty.Tail)
+			tail = u.zonkInner(ty.Tail)
 			if tail != ty.Tail {
 				changed = true
 			}
@@ -74,8 +85,8 @@ func (u *Unifier) Zonk(t types.Type) types.Type {
 		}
 		return &types.TyEvidenceRow{Entries: newEntries, Tail: tail, S: ty.S}
 	case *types.TyEvidence:
-		zConstraints := u.Zonk(ty.Constraints)
-		zBody := u.Zonk(ty.Body)
+		zConstraints := u.zonkInner(ty.Constraints)
+		zBody := u.zonkInner(ty.Body)
 		if zConstraints == ty.Constraints && zBody == ty.Body {
 			return ty
 		}
@@ -90,20 +101,34 @@ func (u *Unifier) Zonk(t types.Type) types.Type {
 		changed := false
 		args := make([]types.Type, len(ty.Args))
 		for i, a := range ty.Args {
-			zA := u.Zonk(a)
+			zA := u.zonkInner(a)
 			args[i] = zA
 			if zA != a {
 				changed = true
 			}
 		}
+		zKind := u.zonkInner(ty.Kind)
+		if zKind != ty.Kind {
+			changed = true
+		}
 		if !changed {
 			return ty
 		}
-		return &types.TyFamilyApp{Name: ty.Name, Args: args, Kind: ty.Kind, S: ty.S}
+		return &types.TyFamilyApp{Name: ty.Name, Args: args, Kind: zKind, S: ty.S}
+	case *types.TyCon:
+		// TyCon is usually a leaf, but Level may contain LevelMeta.
+		if ty.Level == nil {
+			return ty
+		}
+		zLevel := u.zonkLevel(ty.Level)
+		if zLevel == ty.Level {
+			return ty
+		}
+		return &types.TyCon{Name: ty.Name, Level: zLevel, S: ty.S}
 	case *types.TySkolem:
 		if u.skolemSoln != nil {
 			if soln, ok := u.skolemSoln[ty.ID]; ok {
-				return u.Zonk(soln)
+				return u.zonkInner(soln)
 			}
 		}
 		return ty

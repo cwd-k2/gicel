@@ -8,17 +8,18 @@
 import Prelude
 import Console
 
--- Container class with an associated type Elem.
--- type Elem c :: Type declares a type family inside the class.
+-- Container class with an associated type CItem.
+-- type CItem :: Type declares a type family inside the class.
+-- (Avoid "Elem" — Prelude's FromList already defines that name.)
 form Container := \c. {
-  type Elem c :: Type;
-  chead: c -> Maybe (Elem c);
-  cfold: \b. (Elem c -> b -> b) -> b -> c -> b
+  type CItem :: Type;
+  chead: c -> Maybe (CItem c);
+  cfold: \b. (CItem c -> b -> b) -> b -> c -> b
 }
 
--- Instance for List: Elem (List a) = a.
+-- Instance for List: CItem (List a) = a.
 impl Container (List a) := {
-  type Elem := a;
+  type CItem := a;
   chead := \xs. case xs { Cons x _ => Just x; Nil => Nothing };
   cfold := foldr
 }
@@ -27,29 +28,29 @@ impl Container (List a) := {
 clength :: \c. Container c => c -> Int
 clength := cfold (\_ n. n + 1) 0
 
-cany :: \c. Container c => (Elem c -> Bool) -> c -> Bool
+cany :: \c. Container c => (CItem c -> Bool) -> c -> Bool
 cany := \p. cfold (\x acc. if acc then True else p x) False
 
 -- Wrappable: associated type for the wrapped representation.
 form Wrappable := \w. {
-  type Wrapped w :: Type;
-  wrap: w -> Wrapped w;
-  unwrap: Wrapped w -> w
+  type WrapOf :: Type;
+  wrap: w -> WrapOf w;
+  unwrap: WrapOf w -> w
 }
 
 impl Wrappable Int := {
-  type Wrapped := Int;
+  type WrapOf := Int;
   wrap := \n. n;
   unwrap := \w. w
 }
 
 main := do {
-  -- Container operations: Elem reduces at each call site.
+  -- Container operations: CItem reduces at each call site.
   putLine $ "head [1,2,3]:  " <> show (chead [1, 2, 3]);
   putLine $ "length [a,b]:  " <> show (clength [10, 20]);
   putLine $ "has positive:  " <> show (cany @(List Int) (\x. x > 0) [0, 0, 1]);
 
-  -- Wrappable: Wrapped Int = Int (identity wrapping).
+  -- Wrappable: WrapOf Int = Int (identity wrapping).
   w := wrap 42;
   putLine $ "wrap/unwrap:   " <> show (unwrap @Int w)
 }

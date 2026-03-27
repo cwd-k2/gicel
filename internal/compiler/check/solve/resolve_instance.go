@@ -11,11 +11,20 @@ import (
 // Each returns a dictionary expression on success, or nil to delegate
 // to the next phase.
 
-// resolveFromContext scans context variables for an exact dictionary match.
+// resolveFromContext looks up context dict variables for an exact dictionary match.
+// Uses the dictVarIndex for O(1) class-name lookup when available, then falls back
+// to a full context scan for dict vars without DictClassName (e.g., pattern bindings).
 func (s *Solver) resolveFromContext(className string, args []types.Type, sp span.Span) ir.Core {
+	// Fast path: indexed lookup.
+	for _, v := range s.env.LookupDictVar(className) {
+		if s.matchesDictVar(v, className, args) {
+			return &ir.Var{Name: v.Name, Module: v.Module, S: sp}
+		}
+	}
+	// Slow path: scan for dict vars not in the index (no DictClassName set).
 	var result ir.Core
 	s.env.ScanContext(func(entry env.CtxEntry) bool {
-		if v, ok := entry.(*env.CtxVar); ok && !v.SolverInvisible && s.matchesDictVar(v, className, args) {
+		if v, ok := entry.(*env.CtxVar); ok && !v.SolverInvisible && v.DictClassName == "" && s.matchesDictVar(v, className, args) {
 			result = &ir.Var{Name: v.Name, Module: v.Module, S: sp}
 			return false
 		}
@@ -70,25 +79,34 @@ func (s *Solver) resolveFromGlobalInstances(className string, args []types.Type,
 			continue
 		}
 		freshSubst := s.FreshInstanceSubst(inst)
+		var dictExpr ir.Core
+		// Wrap both head unification and context resolution in a single trial
+		// so that if context resolution fails, head solutions are rolled back.
+		savedErrs := s.env.ErrorCount()
 		if !s.env.WithTrial(func() bool {
+			// Head match.
 			for i := range args {
 				instArg := types.SubstMany(inst.TypeArgs[i], freshSubst)
 				if err := s.env.Unify(instArg, args[i]); err != nil {
 					return false
 				}
 			}
-			return true
-		}) {
-			continue
-		}
-		var dictExpr ir.Core = &ir.Var{Name: inst.DictBindName, Module: inst.Module, S: sp}
-		for _, ctx := range inst.Context {
-			ctxArgs := make([]types.Type, len(ctx.Args))
-			for j, a := range ctx.Args {
-				ctxArgs[j] = s.env.Zonk(types.SubstMany(a, freshSubst))
+			// Context resolution (recursive).
+			dictExpr = &ir.Var{Name: inst.DictBindName, Module: inst.Module, S: sp}
+			for _, ctx := range inst.Context {
+				ctxArgs := make([]types.Type, len(ctx.Args))
+				for j, a := range ctx.Args {
+					ctxArgs[j] = s.env.Zonk(types.SubstMany(a, freshSubst))
+				}
+				ctxDict := s.resolveInstance(ctx.ClassName, ctxArgs, sp)
+				dictExpr = &ir.App{Fun: dictExpr, Arg: ctxDict, S: sp}
 			}
-			ctxDict := s.resolveInstance(ctx.ClassName, ctxArgs, sp)
-			dictExpr = &ir.App{Fun: dictExpr, Arg: ctxDict, S: sp}
+			// If context resolution emitted errors, treat as failure.
+			return s.env.ErrorCount() == savedErrs
+		}) {
+			// Roll back any errors emitted during the failed trial.
+			s.env.TruncateErrors(savedErrs)
+			continue
 		}
 		return dictExpr
 	}

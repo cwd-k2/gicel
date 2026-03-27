@@ -18,7 +18,7 @@ type EvidenceEntries interface {
 	EntryCount() int
 	AllChildren() []Type
 	MapChildren(f func(Type) Type) (EvidenceEntries, bool) // mapped entries, changed
-	FiberKind() Kind
+	FiberKind() Type
 	Empty() EvidenceEntries                                   // empty entries of the same fiber
 	ZonkEntries(zonk func(Type) Type) (EvidenceEntries, bool) // zonked entries, changed
 }
@@ -104,7 +104,7 @@ func applyGrades(grades []Type, f func(Type) Type) ([]Type, bool) {
 	return out, true
 }
 
-func (c *CapabilityEntries) FiberKind() Kind { return KRow{} }
+func (c *CapabilityEntries) FiberKind() Type { return TypeOfRows }
 
 func (c *CapabilityEntries) Empty() EvidenceEntries { return &CapabilityEntries{} }
 
@@ -147,8 +147,14 @@ func (c *ConstraintEntries) AllChildren() []Type {
 }
 
 func constraintEntryChildren(e ConstraintEntry) []Type {
-	ch := make([]Type, 0, len(e.Args))
+	ch := make([]Type, 0, len(e.Args)+3) // +3 for potential EqLhs, EqRhs, ConstraintVar
 	ch = append(ch, e.Args...)
+	if e.IsEquality {
+		ch = append(ch, e.EqLhs, e.EqRhs)
+	}
+	if e.ConstraintVar != nil {
+		ch = append(ch, e.ConstraintVar)
+	}
 	if e.Quantified != nil {
 		for _, c := range e.Quantified.Context {
 			ch = append(ch, constraintEntryChildren(c)...)
@@ -214,6 +220,18 @@ func mapConstraintEntryChanged(e ConstraintEntry, f func(Type) Type) (Constraint
 		}
 	}
 
+	if e.IsEquality {
+		newLhs := f(e.EqLhs)
+		newRhs := f(e.EqRhs)
+		if newLhs != e.EqLhs || newRhs != e.EqRhs {
+			changed = true
+		}
+		if !changed {
+			return e, false
+		}
+		return ConstraintEntry{ClassName: e.ClassName, Args: args, ConstraintVar: newCV, Quantified: newQ, IsEquality: true, EqLhs: newLhs, EqRhs: newRhs, S: e.S}, true
+	}
+
 	if !changed {
 		return e, false
 	}
@@ -249,7 +267,7 @@ func mapQuantifiedConstraintChanged(qc *QuantifiedConstraint, f func(Type) Type)
 	return &QuantifiedConstraint{Vars: qc.Vars, Context: ctx, Head: head}, true
 }
 
-func (c *ConstraintEntries) FiberKind() Kind { return KConstraint{} }
+func (c *ConstraintEntries) FiberKind() Type { return TypeOfConstraints }
 
 func (c *ConstraintEntries) Empty() EvidenceEntries { return &ConstraintEntries{} }
 
@@ -313,11 +331,25 @@ func zonkConstraintEntry(e ConstraintEntry, zonk func(Type) Type) (ConstraintEnt
 		}
 	}
 
+	// Zonk equality constraint sides.
+	var newLhs, newRhs Type
+	if e.IsEquality {
+		newLhs = zonk(e.EqLhs)
+		newRhs = zonk(e.EqRhs)
+		if newLhs != e.EqLhs || newRhs != e.EqRhs {
+			changed = true
+		}
+	}
+
 	if !changed {
 		return e, false
 	}
 
-	result := ConstraintEntry{ClassName: e.ClassName, Args: args, S: e.S}
+	result := ConstraintEntry{ClassName: e.ClassName, Args: args, IsEquality: e.IsEquality, S: e.S}
+	if e.IsEquality {
+		result.EqLhs = newLhs
+		result.EqRhs = newRhs
+	}
 	if e.ConstraintVar != nil {
 		result.ConstraintVar = newCV
 		// If zonked ConstraintVar is now concrete, decompose into ClassName + Args.

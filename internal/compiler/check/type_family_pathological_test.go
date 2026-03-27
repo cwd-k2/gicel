@@ -31,9 +31,9 @@ type F :: Type := \(a: Type). case a {
 }
 `
 	config := &CheckConfig{
-		RegisteredTypes: map[string]types.Kind{
-			"Int":    types.KType{},
-			"String": types.KType{},
+		RegisteredTypes: map[string]types.Type{
+			"Int":    types.TypeOfTypes,
+			"String": types.TypeOfTypes,
 		},
 	}
 	// With first-match semantics, overlapping equations are accepted.

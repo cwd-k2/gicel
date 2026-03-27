@@ -13,12 +13,13 @@ type CtxVar struct {
 	Type            types.Type
 	Module          string // source module ("" = local/builtin, "Prelude" = from module)
 	SolverInvisible bool   // true: not used by instance resolution (private instance user names)
+	DictClassName   string // non-empty for class dictionary variables (enables indexed lookup)
 }
 
 // CtxTyVar holds a type variable binding in the context.
 type CtxTyVar struct {
 	Name string
-	Kind types.Kind
+	Kind types.Type
 }
 
 // CtxEvidence records available type class evidence in the context.

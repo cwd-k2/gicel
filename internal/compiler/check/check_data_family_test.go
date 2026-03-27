@@ -160,7 +160,7 @@ func TestDataFamilyTypeReduction(t *testing.T) {
 	t.Skip("form family constructor registration: type mismatch in mangled name")
 	// Elem (List Unit) should be usable as a type that accepts ListElem
 	config := &CheckConfig{
-		RegisteredTypes: map[string]types.Kind{"Int": types.KType{}},
+		RegisteredTypes: map[string]types.Type{"Int": types.TypeOfTypes},
 	}
 	source := `
 form List := \a. { Nil: List a; Cons: a -> List a -> List a; }

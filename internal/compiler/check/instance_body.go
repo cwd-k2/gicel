@@ -38,7 +38,7 @@ func (ch *Checker) processInstanceBody(inst *InstanceInfo, methods map[string]sy
 		paramName := fmt.Sprintf("%s_%s_%d", prefixDict, ctx.ClassName, ch.fresh())
 		paramTy := ch.buildDictType(ctx.ClassName, ctx.Args)
 		ctxParams = append(ctxParams, ctxParam{name: paramName, ty: paramTy})
-		ch.ctx.Push(&CtxVar{Name: paramName, Type: paramTy})
+		ch.ctx.Push(&CtxVar{Name: paramName, Type: paramTy, DictClassName: ctx.ClassName})
 	}
 
 	// Build the dictionary constructor arguments.
@@ -101,7 +101,7 @@ func (ch *Checker) processInstanceBody(inst *InstanceInfo, methods map[string]sy
 
 	// Register binding. Private instances are solver-invisible: they are only
 	// accessible via explicit evidence injection (value => expr).
-	ch.ctx.Push(&CtxVar{Name: inst.DictBindName, Type: dictTy, Module: ch.scope.CurrentModule(), SolverInvisible: inst.Private})
+	ch.ctx.Push(&CtxVar{Name: inst.DictBindName, Type: dictTy, Module: ch.scope.CurrentModule(), SolverInvisible: inst.Private, DictClassName: inst.ClassName})
 	prog.Bindings = append(prog.Bindings, ir.Binding{
 		Name: inst.DictBindName,
 		Type: dictTy,
@@ -173,7 +173,7 @@ func (ch *Checker) processAssocDataDef(field syntax.ImplField, patterns []syntax
 	mangledName := ch.mangledDataFamilyName(field.Name, resolvedPats)
 
 	// Register the mangled data type as a type constructor.
-	ch.reg.RegisterTypeKind(mangledName, types.KType{})
+	ch.reg.RegisterTypeKind(mangledName, types.TypeOfTypes)
 
 	// Build result type for the mangled data type.
 	var mangledResultType types.Type = types.ConAt(mangledName, field.S)
@@ -190,7 +190,7 @@ func (ch *Checker) processAssocDataDef(field syntax.ImplField, patterns []syntax
 		}
 		// Update the registered kind to accept this parameter.
 		existingKind, _ := ch.reg.LookupTypeKind(mangledName)
-		ch.reg.RegisterTypeKind(mangledName, &types.KArrow{From: types.KType{}, To: existingKind})
+		ch.reg.RegisterTypeKind(mangledName, &types.TyArrow{From: types.TypeOfTypes, To: existingKind})
 	}
 
 	dataInfo := &DataTypeInfo{Name: mangledName}
@@ -213,7 +213,7 @@ func (ch *Checker) processAssocDataDef(field syntax.ImplField, patterns []syntax
 	}
 	// Wrap in forall for pattern vars.
 	for i := len(patVars) - 1; i >= 0; i-- {
-		conType = types.MkForall(patVars[i], types.KType{}, conType)
+		conType = types.MkForall(patVars[i], types.TypeOfTypes, conType)
 	}
 	// Guard against constructor name collision with existing constructors.
 	if existing, dup := ch.reg.LookupConType(conName); dup {
@@ -257,7 +257,7 @@ func unwindImplDataCon(rhs syntax.TypeExpr) (string, []syntax.TypeExpr) {
 // autoLiftTypeArgs applies automatic Lift wrapping to type arguments whose kinds
 // don't match the expected class parameter kinds.
 // e.g. instance IxMonad Maybe → instance IxMonad (Lift Maybe)
-func (ch *Checker) autoLiftTypeArgs(typeArgs []types.Type, paramKinds []types.Kind) {
+func (ch *Checker) autoLiftTypeArgs(typeArgs []types.Type, paramKinds []types.Type) {
 	for i := 0; i < len(typeArgs) && i < len(paramKinds); i++ {
 		argKind := ch.kindOfType(typeArgs[i])
 		paramKind := paramKinds[i]
@@ -265,17 +265,17 @@ func (ch *Checker) autoLiftTypeArgs(typeArgs []types.Type, paramKinds []types.Ki
 			continue
 		}
 		if ch.withTrial(func() bool {
-			return ch.unifier.UnifyKinds(argKind, paramKind) == nil
+			return ch.unifier.Unify(argKind, paramKind) == nil
 		}) {
 			continue
 		}
 		liftKind := ch.kindOfType(types.Con("Lift"))
 		if liftKind != nil {
-			if ka, ok := liftKind.(*types.KArrow); ok && ka.From.Equal(argKind) {
+			if ka, ok := liftKind.(*types.TyArrow); ok && types.Equal(ka.From, argKind) {
 				lifted := &types.TyApp{Fun: types.Con("Lift"), Arg: typeArgs[i]}
 				liftedKind := ka.To
 				if ch.withTrial(func() bool {
-					return ch.unifier.UnifyKinds(liftedKind, paramKind) == nil
+					return ch.unifier.Unify(liftedKind, paramKind) == nil
 				}) {
 					typeArgs[i] = lifted
 				}

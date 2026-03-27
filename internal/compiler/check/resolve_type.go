@@ -10,6 +10,21 @@ import (
 	"github.com/cwd-k2/gicel/internal/lang/types"
 )
 
+// isModuleDefinedType checks if a type name was defined by the module itself
+// (via data declarations or class declarations), as opposed to being inherited
+// from built-in types or open imports.
+func isModuleDefinedType(exports *ModuleExports, name string) bool {
+	if exports.OwnedTypeNames[name] {
+		return true
+	}
+	// Classes are already checked separately, but class-defined types
+	// (dict types) might appear in Types.
+	if _, ok := exports.Classes[name]; ok {
+		return true
+	}
+	return false
+}
+
 func (ch *Checker) resolveTypeExpr(texpr syntax.TypeExpr) types.Type {
 	switch t := texpr.(type) {
 	case *syntax.TyExprVar:
@@ -86,7 +101,7 @@ func (ch *Checker) resolveTypeExpr(texpr syntax.TypeExpr) types.Type {
 		// so that kind variable references in inner kind annotations resolve correctly.
 		var kindVarNames []string
 		for _, b := range t.Binders {
-			if _, ok := b.Kind.(*syntax.KindExprSort); ok {
+			if con, ok := b.Kind.(*syntax.TyExprCon); ok && con.Name == "Kind" {
 				ch.reg.SetKindVar(b.Name)
 				kindVarNames = append(kindVarNames, b.Name)
 			}

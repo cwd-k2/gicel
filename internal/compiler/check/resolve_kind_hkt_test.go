@@ -41,7 +41,7 @@ id_k := \x. x`
 
 func TestKindVarNotInScopeOutside(t *testing.T) {
 	// 'k' used in kind position but not bound as a kind variable.
-	// KindExprName "k" should fall through to KType{} (not an error,
+	// KindExprName "k" should fall through to TypeOfTypes (not an error,
 	// just treated as unknown → defaults to Type).
 	source := `f :: \ (a: k). a -> a
 f := \x. x`

@@ -36,3 +36,14 @@ Provides an ordered immutable map backed by an AVL tree. All key-parameterized o
 
 > **Tip:** `Data.Map` exports `insert`, `member`, `delete`, `size` which overlap with `Data.Set`.
 > Use qualified imports when both are needed: `import Data.Map as Map`, `import Data.Set as Set`.
+
+**Example:**
+
+```
+import Prelude
+import Data.Map
+
+m := insert "b" 2 $ insert "a" 1 (empty :: Map String Int)
+main := (lookup "a" m, size m, keys m)
+-- (Just 1, 2, ["a", "b"])
+```

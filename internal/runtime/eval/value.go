@@ -53,6 +53,9 @@ type PrimVal struct {
 	S         span.Span // source location from the originating PrimOp
 }
 
+// UnitVal is the unit value () — an empty record.
+var UnitVal Value = &RecordVal{Fields: map[string]Value{}}
+
 // RecordVal is a record value { l1: v1, ..., ln: vn }.
 type RecordVal struct {
 	Fields map[string]Value

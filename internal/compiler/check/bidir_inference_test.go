@@ -73,7 +73,7 @@ dbOpen := assumption`
 
 func TestInferIntLit(t *testing.T) {
 	config := &CheckConfig{
-		RegisteredTypes: map[string]types.Kind{"Int": types.KType{}},
+		RegisteredTypes: map[string]types.Type{"Int": types.TypeOfTypes},
 	}
 	prog := checkSource(t, `main := 42`, config)
 	if len(prog.Bindings) != 1 {
@@ -90,7 +90,7 @@ func TestInferIntLit(t *testing.T) {
 
 func TestInferStrLit(t *testing.T) {
 	config := &CheckConfig{
-		RegisteredTypes: map[string]types.Kind{"String": types.KType{}},
+		RegisteredTypes: map[string]types.Type{"String": types.TypeOfTypes},
 	}
 	prog := checkSource(t, `main := "hello"`, config)
 	lit, ok := prog.Bindings[0].Expr.(*ir.Lit)
@@ -104,7 +104,7 @@ func TestInferStrLit(t *testing.T) {
 
 func TestInferRuneLit(t *testing.T) {
 	config := &CheckConfig{
-		RegisteredTypes: map[string]types.Kind{"Rune": types.KType{}},
+		RegisteredTypes: map[string]types.Type{"Rune": types.TypeOfTypes},
 	}
 	prog := checkSource(t, "main := 'a'", config)
 	lit, ok := prog.Bindings[0].Expr.(*ir.Lit)
@@ -118,7 +118,7 @@ func TestInferRuneLit(t *testing.T) {
 
 func TestCheckLitMismatch(t *testing.T) {
 	config := &CheckConfig{
-		RegisteredTypes: map[string]types.Kind{"Int": types.KType{}, "String": types.KType{}},
+		RegisteredTypes: map[string]types.Type{"Int": types.TypeOfTypes, "String": types.TypeOfTypes},
 	}
 	checkSourceExpectCode(t, `main := (42 :: String)`, config, diagnostic.ErrTypeMismatch)
 }
@@ -145,7 +145,7 @@ main := pure Unit`
 func TestCheckHostBinding(t *testing.T) {
 	config := &CheckConfig{
 		Bindings:        map[string]types.Type{"x": types.Con("Int")},
-		RegisteredTypes: map[string]types.Kind{"Int": types.KType{}},
+		RegisteredTypes: map[string]types.Type{"Int": types.TypeOfTypes},
 	}
 	source := `y := x`
 	prog := checkSource(t, source, config)

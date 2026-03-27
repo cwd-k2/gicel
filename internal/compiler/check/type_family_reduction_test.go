@@ -42,7 +42,7 @@ f :: \ c. F c -> F c
 f := \x. x
 `
 	config := &CheckConfig{
-		RegisteredTypes: map[string]types.Kind{"Int": types.KType{}},
+		RegisteredTypes: map[string]types.Type{"Int": types.TypeOfTypes},
 	}
 	// Should compile: F c is stuck and unifies with itself.
 	checkSource(t, source, config)
@@ -118,7 +118,7 @@ f :: F Unit -> Bool
 f := \x. x
 `
 	config := &CheckConfig{
-		RegisteredTypes: map[string]types.Kind{"Int": types.KType{}},
+		RegisteredTypes: map[string]types.Type{"Int": types.TypeOfTypes},
 	}
 	checkSource(t, source, config)
 }
@@ -139,7 +139,7 @@ h :: F Unit -> Bool
 h := \x. x
 `
 	config := &CheckConfig{
-		RegisteredTypes: map[string]types.Kind{"Int": types.KType{}},
+		RegisteredTypes: map[string]types.Type{"Int": types.TypeOfTypes},
 	}
 	checkSource(t, source, config)
 }
@@ -700,7 +700,7 @@ f :: \ c. Elem c -> Elem c
 f := \x. x
 `
 	config := &CheckConfig{
-		RegisteredTypes: map[string]types.Kind{"Int": types.KType{}},
+		RegisteredTypes: map[string]types.Type{"Int": types.TypeOfTypes},
 	}
 	checkSource(t, source, config)
 }

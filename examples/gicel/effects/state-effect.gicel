@@ -12,14 +12,14 @@ import Effect.State
 import Console
 
 -- Basic: put an initial value, read it back
-basic :: Thunk { state: Int } { state: Int } Int
+basic :: \(r: Row). Thunk { state: Int | r } { state: Int | r } Int
 basic := thunk do {
   put 42;
   get
 }
 
 -- Modify: increment state three times
-counter :: Thunk { state: Int } { state: Int } Int
+counter :: \(r: Row). Thunk { state: Int | r } { state: Int | r } Int
 counter := thunk do {
   put 0;
   modify (+ 1);
@@ -29,7 +29,7 @@ counter := thunk do {
 }
 
 -- Accumulate: read-modify-write cycle (start 5, square it)
-accumulate :: Thunk { state: Int } { state: Int } Int
+accumulate :: \(r: Row). Thunk { state: Int | r } { state: Int | r } Int
 accumulate := thunk do {
   put 5;
   n <- get;
@@ -38,7 +38,7 @@ accumulate := thunk do {
 }
 
 -- Read and compute (start 12, square it)
-readAndCompute :: Thunk { state: Int } { state: Int } Int
+readAndCompute :: \(r: Row). Thunk { state: Int | r } { state: Int | r } Int
 readAndCompute := thunk do {
   put 12;
   x <- get;
@@ -47,7 +47,7 @@ readAndCompute := thunk do {
 }
 
 -- Multi-step pipeline (start 2, *5 = 10, *10 = 100)
-pipeline :: Thunk { state: Int } { state: Int } Int
+pipeline :: \(r: Row). Thunk { state: Int | r } { state: Int | r } Int
 pipeline := thunk do {
   put 2;
   modify (* 5);
