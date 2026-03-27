@@ -1249,7 +1249,7 @@ Records elaborate to three Core IR formers:
 | Projection | `RecordProj`   |
 | Update     | `RecordUpdate` |
 
-Runtime representation: `RecordVal` wrapping `map[string]Value`.
+Runtime representation: `RecordVal` wrapping sorted `[]RecordField` slice.
 
 ---
 
@@ -1383,7 +1383,7 @@ Strict call-by-value (CBV) evaluation with an environment-based evaluator.
 | `ConVal`      | Constructor applications                                                         |
 | `ThunkVal`    | Suspended computations                                                           |
 | `PrimVal`     | Partially or fully applied primitive operations (curried until arity is reached) |
-| `RecordVal`   | Record values (`map[string]Value`)                                               |
+| `RecordVal`   | Record values (sorted `[]RecordField` slice)                                     |
 | `IndirectVal` | Forward-reference cell for mutually-recursive top-level bindings                 |
 | `bounceVal`   | Internal trampoline value for TCO (not user-observable)                          |
 

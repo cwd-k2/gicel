@@ -95,7 +95,7 @@ eng.DeclareBinding("myInput", gicel.ConType("Int"))
 | `gicel.MustHost[T](v) T`            | Extract typed HostVal, panics on mismatch               |
 | `gicel.ToList(items []any) Value`   | Build a Cons/Nil chain from Go slice                    |
 | `gicel.FromList(v) ([]any, bool)`   | Destructure Cons/Nil chain to Go slice                  |
-| `gicel.FromRecord(v) (map, bool)`   | Extract record fields as `map[string]Value`             |
+| `gicel.FromRecord(v) (map, bool)`   | Extract record fields as `map[string]Value` (via AsMap) |
 
 ### Type Construction Helpers
 
