@@ -81,14 +81,11 @@ func (ch *Checker) intersectCapRows(rows []*types.TyEvidenceRow, s span.Span) ty
 			// Unify the type; join grades via LUB.
 			resultField := types.RowField{Label: f.Label, Type: f.Type, Grades: f.Grades, S: f.S}
 			for _, otherRow := range rows[1:] {
-				for _, of := range otherRow.CapFields() {
-					if of.Label == f.Label {
-						ch.emitEq(resultField.Type, of.Type, s, &solve.CtOrigin{
-							Context: fmt.Sprintf("conflicting field types for label %s", f.Label),
-						})
-						ch.joinGrades(&resultField, of.Grades, s)
-						break
-					}
+				if of := types.RowFieldByLabel(otherRow.CapFields(), f.Label); of != nil {
+					ch.emitEq(resultField.Type, of.Type, s, &solve.CtOrigin{
+						Context: fmt.Sprintf("conflicting field types for label %s", f.Label),
+					})
+					ch.joinGrades(&resultField, of.Grades, s)
 				}
 			}
 			sharedFields = append(sharedFields, resultField)

@@ -137,6 +137,16 @@ func ClassifyRowFields(a, b []RowField) (shared, onlyA, onlyB []string) {
 	return
 }
 
+// RowFieldByLabel returns a pointer to the row field with the given label, or nil.
+func RowFieldByLabel(fields []RowField, label string) *RowField {
+	for i := range fields {
+		if fields[i].Label == label {
+			return &fields[i]
+		}
+	}
+	return nil
+}
+
 // RowFieldType returns the type of a row field with the given label, or nil.
 func RowFieldType(fields []RowField, label string) Type {
 	for _, f := range fields {

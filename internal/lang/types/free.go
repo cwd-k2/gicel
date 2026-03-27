@@ -26,12 +26,18 @@ func freeVarsRec(t Type, bound map[string]bool, fv map[string]struct{}, depth in
 		freeVarsRec(ty.To, bound, fv, depth+1)
 	case *TyForall:
 		freeVarsRec(ty.Kind, bound, fv, depth+1)
-		newBound := make(map[string]bool, len(bound)+1)
-		for k, v := range bound {
-			newBound[k] = v
+		// Push/pop the bound variable to avoid map copy.
+		if bound == nil {
+			bound = make(map[string]bool, 4)
 		}
-		newBound[ty.Var] = true
-		freeVarsRec(ty.Body, newBound, fv, depth+1)
+		prev := bound[ty.Var]
+		bound[ty.Var] = true
+		freeVarsRec(ty.Body, bound, fv, depth+1)
+		if prev {
+			bound[ty.Var] = prev
+		} else {
+			delete(bound, ty.Var)
+		}
 	case *TyCBPV:
 		freeVarsRec(ty.Pre, bound, fv, depth+1)
 		freeVarsRec(ty.Post, bound, fv, depth+1)
@@ -86,21 +92,23 @@ func occursIn(name string, t Type, bound map[string]bool, depth int) bool {
 		return occursIn(name, ty.From, bound, depth+1) || occursIn(name, ty.To, bound, depth+1)
 	case *TyForall:
 		if ty.Var == name {
-			// Shadowed in body, but Kind is outside the binding scope.
 			return occursIn(name, ty.Kind, bound, depth+1)
 		}
 		if occursIn(name, ty.Kind, bound, depth+1) {
 			return true
 		}
 		if bound == nil {
-			return occursIn(name, ty.Body, map[string]bool{ty.Var: true}, depth+1)
+			bound = make(map[string]bool, 4)
 		}
-		newBound := make(map[string]bool, len(bound)+1)
-		for k, v := range bound {
-			newBound[k] = v
+		prev := bound[ty.Var]
+		bound[ty.Var] = true
+		result := occursIn(name, ty.Body, bound, depth+1)
+		if prev {
+			bound[ty.Var] = prev
+		} else {
+			delete(bound, ty.Var)
 		}
-		newBound[ty.Var] = true
-		return occursIn(name, ty.Body, newBound, depth+1)
+		return result
 	case *TyCBPV:
 		return occursIn(name, ty.Pre, bound, depth+1) ||
 			occursIn(name, ty.Post, bound, depth+1) ||
@@ -162,21 +170,32 @@ func occursInConstraintEntry(name string, e ConstraintEntry, bound map[string]bo
 		return true
 	}
 	if e.Quantified != nil {
-		newBound := make(map[string]bool, len(bound)+len(e.Quantified.Vars))
-		for k, v := range bound {
-			newBound[k] = v
+		if bound == nil {
+			bound = make(map[string]bool, len(e.Quantified.Vars))
 		}
-		for _, v := range e.Quantified.Vars {
-			newBound[v.Name] = true
+		prevs := make([]bool, len(e.Quantified.Vars))
+		for i, v := range e.Quantified.Vars {
+			prevs[i] = bound[v.Name]
+			bound[v.Name] = true
 		}
+		found := false
 		for _, c := range e.Quantified.Context {
-			if occursInConstraintEntry(name, c, newBound, depth+1) {
-				return true
+			if occursInConstraintEntry(name, c, bound, depth+1) {
+				found = true
+				break
 			}
 		}
-		if occursInConstraintEntry(name, e.Quantified.Head, newBound, depth+1) {
-			return true
+		if !found {
+			found = occursInConstraintEntry(name, e.Quantified.Head, bound, depth+1)
 		}
+		for i, v := range e.Quantified.Vars {
+			if prevs[i] {
+				bound[v.Name] = true
+			} else {
+				delete(bound, v.Name)
+			}
+		}
+		return found
 	}
 	return false
 }
@@ -198,17 +217,26 @@ func freeVarsConstraintEntry(e ConstraintEntry, bound map[string]bool, fv map[st
 		freeVarsRec(e.ConstraintVar, bound, fv, depth+1)
 	}
 	if e.Quantified != nil {
-		// Extend bound set with quantified variables.
-		newBound := make(map[string]bool, len(bound)+len(e.Quantified.Vars))
-		for k, v := range bound {
-			newBound[k] = v
+		if bound == nil {
+			bound = make(map[string]bool, len(e.Quantified.Vars))
 		}
-		for _, v := range e.Quantified.Vars {
-			newBound[v.Name] = true
+		// Push quantified variables.
+		prevs := make([]bool, len(e.Quantified.Vars))
+		for i, v := range e.Quantified.Vars {
+			prevs[i] = bound[v.Name]
+			bound[v.Name] = true
 		}
 		for _, c := range e.Quantified.Context {
-			freeVarsConstraintEntry(c, newBound, fv, depth+1)
+			freeVarsConstraintEntry(c, bound, fv, depth+1)
 		}
-		freeVarsConstraintEntry(e.Quantified.Head, newBound, fv, depth+1)
+		freeVarsConstraintEntry(e.Quantified.Head, bound, fv, depth+1)
+		// Pop quantified variables.
+		for i, v := range e.Quantified.Vars {
+			if prevs[i] {
+				bound[v.Name] = true
+			} else {
+				delete(bound, v.Name)
+			}
+		}
 	}
 }

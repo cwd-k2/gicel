@@ -39,6 +39,7 @@ type Evaluator struct {
 	source        *span.Source     // current source context for error attribution
 	cachedApplier Applier          // reused across all primitive invocations
 	stats         EvalStats
+	bounceBuf     bounceVal // reusable bounce buffer for trampoline (avoids per-step heap alloc)
 }
 
 // NewEvaluator creates an Evaluator for a single execution.
@@ -124,7 +125,6 @@ func (ev *Evaluator) Eval(locals []Value, capEnv CapEnv, expr ir.Core) (EvalResu
 	for {
 		r, err := ev.evalStep(locals, capEnv, expr)
 		if err != nil {
-			// Unwind observer suppression even on error (matches defer semantics).
 			for range pendingLeaveObs {
 				ev.obs.LeaveInternal()
 			}
@@ -164,6 +164,27 @@ func (ev *Evaluator) Eval(locals []Value, capEnv CapEnv, expr ir.Core) (EvalResu
 		}
 		locals, capEnv, expr = b.locals, b.capEnv, b.expr
 	}
+}
+
+// bounce fills the evaluator's reusable bounce buffer and returns a pointer to it.
+// This avoids per-step heap allocation in the trampoline loop.
+func (ev *Evaluator) bounce(locals []Value, capEnv CapEnv, expr ir.Core) *bounceVal {
+	ev.bounceBuf = bounceVal{locals: locals, capEnv: capEnv, expr: expr}
+	return &ev.bounceBuf
+}
+
+// bounceWith fills the bounce buffer with additional fields.
+func (ev *Evaluator) bounceWith(locals []Value, capEnv CapEnv, expr ir.Core, leaveDepth int, leaveObs bool, source *span.Source, forceSpan *span.Span) *bounceVal {
+	ev.bounceBuf = bounceVal{
+		locals:     locals,
+		capEnv:     capEnv,
+		expr:       expr,
+		leaveDepth: leaveDepth,
+		leaveObs:   leaveObs,
+		source:     source,
+		forceSpan:  forceSpan,
+	}
+	return &ev.bounceBuf
 }
 
 // evalStep performs one evaluation step. Tail positions return bounceVal
@@ -279,7 +300,7 @@ func (ev *Evaluator) evalStep(locals []Value, capEnv CapEnv, expr ir.Core) (Eval
 				}
 				altLocals := PushMany(locals, matchVals)
 				// Tail position: bounce instead of recursing.
-				return EvalResult{Value: &bounceVal{locals: altLocals, capEnv: scrutR.CapEnv, expr: alt.Body}}, nil
+				return EvalResult{Value: ev.bounce(altLocals, scrutR.CapEnv, alt.Body)}, nil
 			}
 		}
 		return EvalResult{}, &RuntimeError{
@@ -311,10 +332,7 @@ func (ev *Evaluator) evalStep(locals []Value, capEnv CapEnv, expr ir.Core) (Eval
 		// Tail position: bounce body instead of recursing.
 		// ForceEffectful on the body result is deferred to the trampoline via forceSpan.
 		s := e.S
-		return EvalResult{Value: &bounceVal{
-			locals: bodyLocals, capEnv: compR.CapEnv, expr: e.Body,
-			forceSpan: &s,
-		}}, nil
+		return EvalResult{Value: ev.bounceWith(bodyLocals, compR.CapEnv, e.Body, 0, false, nil, &s)}, nil
 
 	case *ir.Thunk:
 		if err := ev.budget.Alloc(costThunk); err != nil {
@@ -341,10 +359,7 @@ func (ev *Evaluator) evalStep(locals []Value, capEnv CapEnv, expr ir.Core) (Eval
 			return EvalResult{}, err
 		}
 		// Tail position: bounce instead of recursing.
-		return EvalResult{Value: &bounceVal{
-			locals: thunk.Locals, capEnv: exprR.CapEnv, expr: thunk.Comp,
-			leaveDepth: 1, source: thunk.Source,
-		}}, nil
+		return EvalResult{Value: ev.bounceWith(thunk.Locals, exprR.CapEnv, thunk.Comp, 1, false, thunk.Source, nil)}, nil
 
 	case *ir.Lit:
 		if s, ok := e.Value.(string); ok && len(s) > 0 {

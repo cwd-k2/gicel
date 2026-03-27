@@ -123,8 +123,10 @@ func (pc *pipelineCtx) compileModule(name, source string) (*compiledModule, erro
 	}, nil
 }
 
-// postCheck applies the shared post-type-checking pipeline: optimize, annotate free vars, assign de Bruijn indices.
+// postCheck applies the shared post-type-checking pipeline:
+// label erasure → optimize → annotate free vars → assign de Bruijn indices.
 func (pc *pipelineCtx) postCheck(prog *ir.Program) {
+	ir.EraseLabelArgsProgram(prog)
 	optimize.OptimizeProgram(prog, pc.host.rewriteRules)
 	ir.AnnotateFreeVarsProgram(prog)
 	ir.AssignIndicesProgram(prog)
