@@ -505,9 +505,6 @@ func formatValue(v gicel.Value) any {
 		if val.Con == "False" && len(val.Args) == 0 {
 			return false
 		}
-		if len(val.Args) == 0 {
-			return val.Con
-		}
 		args := make([]any, len(val.Args))
 		for i, a := range val.Args {
 			args[i] = formatValue(a)
