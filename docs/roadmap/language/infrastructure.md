@@ -36,27 +36,7 @@ Computation 型自体に grade を付与する。
 
 ### Row TF: Without / Lookup
 
-型レベル label 表現（型レベル文字列 or promoted symbol）の設計が前提。
-
-## L4: Solver 統合（長期）
-
-GADT given eq の solver 統合、normalize FamilyReducer 除去、OutsideIn(X) 本格導入。相互依存。
-
-### 完了
-
-- CtFlavor: given / wanted の区別（CtEq.Flavor）
-- Given equality の solver 処理（processGivenEq: skolemSoln install + inert set + kick-out）
-- KickOutMentioningSkolem: given eq 到着時の stuck CtFunEq / CtEq 再活性化
-- 矛盾検出: concrete ~ concrete の given eq で inaccessible flag 設定
-- emitEq / CtOrigin: 14 箇所の checker Unify を constraint emission に変換
-- GenerationScope: DK body checking 中の constraint 収集 infrastructure
-
-### 残課題
-
-- FamilyReducer → solver 統合（normalize 内の FamilyReducer は correct optimization として残置、solver の CtFunEq パスと併存）
-- CtImplication 本格活用（EnterGenerationScope → body check → ExitGenerationScope → wrap as CtImplication）
-- Full phase separation（DK interleaving との共存設計）
-- skolemSoln の solver 完全管理（現在は hybrid: unifier.skolemSoln + solver given set）
+型レベル label 表現（Label kind）の設計が前提。
 
 ## Open Questions
 

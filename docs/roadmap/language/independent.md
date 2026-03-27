@@ -32,7 +32,7 @@ Map String -< List -< Maybe -< Int
 
 | Fork Point                                  | Current State                              | Decision Trigger                            |
 | ------------------------------------------- | ------------------------------------------ | ------------------------------------------- |
-| `Row` as built-in kind vs structured index  | Built-in kind (DataKinds reduces pressure) | Non-capability row-like indexing の需要     |
+| `Row` as L1 TyCon vs structured index       | L1 TyCon (unified representation)          | Non-capability row-like indexing の需要     |
 | Algebraic effects/handlers vs indexed monad | Indexed monad (type families compensate)   | Handlers が AI agent use case に優る場合    |
 | Tensor product kind (`QType`)               | Not present (rows cover current needs)     | Quantum entanglement or non-separable state |
 
@@ -78,3 +78,4 @@ Session types は check-only で正しく動作する。Runtime 実行には hos
 | Optimizer Phase 2–3 (selective inline + case-of-case) | Optimization     | Benchmark-driven demand     |
 | Refinement types                                      | Phase transition | Separate analysis           |
 | Dependent types                                       | Full restructure | Far future                  |
+| Impredicativity                                       | Type system      | Not planned                 |
