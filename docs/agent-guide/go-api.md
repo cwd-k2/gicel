@@ -46,7 +46,7 @@ result, err := rt.RunWith(ctx, &gicel.RunOptions{Caps: caps, Bindings: bindings}
 | `gicel.EffectFail`  | `Effect.Fail`  | Failure effect                                   |
 | `gicel.EffectState` | `Effect.State` | Get/put state                                    |
 | `gicel.EffectIO`    | `Effect.IO`    | Print/debug output                               |
-| `gicel.DataStream`  | `Data.Stream`  | Lazy lists (requires recursion)                  |
+| `gicel.DataStream`  | `Data.Stream`  | Lazy lists                                       |
 | `gicel.DataSlice`   | `Data.Slice`   | O(1) contiguous arrays                           |
 | `gicel.EffectArray` | `Effect.Array` | Mutable fixed-size arrays ({ array: () } effect) |
 | `gicel.DataMap`     | `Data.Map`     | Ordered immutable map (AVL)                      |

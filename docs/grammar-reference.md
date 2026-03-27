@@ -963,7 +963,7 @@ Stdlib packs are loaded via `Engine.Use(pack)` on the host side and imported in 
 | `EffectFail`  | `Effect.Fail`  | Fail effect (`failWith`, `fromMaybe`, `fromResult`)      |
 | `EffectState` | `Effect.State` | State effect (`get`, `put`, `modify`)                    |
 | `EffectIO`    | `Effect.IO`    | IO effect (`print`, `debug`)                             |
-| `DataStream`  | `Data.Stream`  | Lazy streams (`Stream a`), requires recursion            |
+| `DataStream`  | `Data.Stream`  | Lazy streams (`Stream a`)                                |
 | `DataSlice`   | `Data.Slice`   | Contiguous arrays (`Slice a`), O(1) length/index         |
 | `DataMap`     | `Data.Map`     | Ordered immutable map (AVL), requires `Ord k`            |
 | `DataSet`     | `Data.Set`     | Ordered immutable set (backed by Map), requires `Ord k`  |

@@ -118,6 +118,9 @@ type TraceHook = eval.TraceHook
 // ExplainStep is a single semantic event during evaluation.
 type ExplainStep = eval.ExplainStep
 
+// ExplainDetail carries kind-specific structured data within an ExplainStep.
+type ExplainDetail = eval.ExplainDetail
+
 // ExplainHook receives semantic evaluation events.
 type ExplainHook = eval.ExplainHook
 

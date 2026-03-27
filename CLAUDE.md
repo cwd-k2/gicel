@@ -59,7 +59,7 @@ bin/gicel run [flags] <file>.gicel
 | `fail`    | `Effect.Fail`  |                        |
 | `state`   | `Effect.State` |                        |
 | `io`      | `Effect.IO`    |                        |
-| `stream`  | `Data.Stream`  | requires `--recursion` |
+| `stream`  | `Data.Stream`  |                        |
 | `slice`   | `Data.Slice`   |                        |
 | `array`   | `Effect.Array` |                        |
 | `ref`     | `Effect.Ref`   |                        |
@@ -76,7 +76,7 @@ bin/gicel run [flags] <file>.gicel
 bin/gicel check [flags] <file>.gicel
 ```
 
-Shares `--packs`, `--module`, `--recursion`, `-e`, `--json`, `--timeout` with `run`.
+Shares `--packs`, `--module`, `--recursion`, `-e`, `--json`, `--timeout`, `--max-nesting` with `run`.
 
 ### docs / example — reference & examples
 

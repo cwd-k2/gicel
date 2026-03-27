@@ -1,6 +1,6 @@
 ### Data.Stream
 
-Provides lazy list (stream) operations. Requires recursion (`fix`), loaded via `RegisterModuleRec`. Load with `eng.Use(gicel.DataStream)` and import with `import Data.Stream`.
+Provides lazy list (stream) operations. Internally uses recursion (`fix`) via `RegisterModuleRec`; no `--recursion` flag needed by the user. Load with `eng.Use(gicel.DataStream)` and import with `import Data.Stream`.
 
 ```
 form Stream := \a. { LCons: a -> (() -> Stream a) -> Stream a; LNil: Stream a }
