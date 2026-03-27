@@ -25,12 +25,17 @@ var (
 )
 
 // IsBuiltinKindCon reports whether a TyCon is one of the built-in kind
-// constants (Type, Row, Constraint, Label, Kind). These have Level L1 or L2
-// but are NOT label literals — they have kind Sort₀.
+// constants (Type, Row, Constraint, Label, Kind). Identified by name and
+// level, not pointer identity — safe for TyCons constructed via any path.
 func IsBuiltinKindCon(t *TyCon) bool {
+	if t.Level == nil {
+		return false
+	}
 	switch t.Name {
-	case "Type", "Row", "Constraint", "Label", "Kind":
-		return t == TypeOfTypes || t == TypeOfRows || t == TypeOfConstraints || t == TypeOfLabels || t == SortZero
+	case "Type", "Row", "Constraint", "Label":
+		return LevelEqual(t.Level, L1)
+	case "Kind":
+		return LevelEqual(t.Level, L2)
 	}
 	return false
 }

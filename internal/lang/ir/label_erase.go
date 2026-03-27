@@ -29,10 +29,9 @@ func eraseLabelArg(c Core) Core {
 	if !ok || !types.IsKindLevel(con.Level) {
 		return c
 	}
-	// Skip known kind constants (Type, Row, Constraint, Label, Kind) —
-	// these are genuine type-level arguments, not label literals.
-	switch con.Name {
-	case "Type", "Row", "Constraint", "Label", "Kind":
+	// Skip built-in kind constants — these are genuine type-level
+	// arguments, not label literals.
+	if types.IsBuiltinKindCon(con) {
 		return c
 	}
 	// Erase: TyApp{Expr, TyCon{name, L1}} → App{Expr, Lit{name}}
