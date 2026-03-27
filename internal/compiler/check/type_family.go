@@ -151,6 +151,28 @@ func (ch *Checker) registerBuiltinRowFamilies() {
 			ResultKind: types.TypeOfRows,
 		})
 	}
+	// Without :: Label -> Row -> Row
+	if _, exists := ch.reg.LookupFamily("Without"); !exists {
+		_ = ch.reg.RegisterFamily("Without", &TypeFamilyInfo{
+			Name: "Without",
+			Params: []TFParam{
+				{Name: "l", Kind: types.TypeOfLabels},
+				{Name: "r", Kind: types.TypeOfRows},
+			},
+			ResultKind: types.TypeOfRows,
+		})
+	}
+	// Lookup :: Label -> Row -> Type
+	if _, exists := ch.reg.LookupFamily("Lookup"); !exists {
+		_ = ch.reg.RegisterFamily("Lookup", &TypeFamilyInfo{
+			Name: "Lookup",
+			Params: []TFParam{
+				{Name: "l", Kind: types.TypeOfLabels},
+				{Name: "r", Kind: types.TypeOfRows},
+			},
+			ResultKind: types.TypeOfTypes,
+		})
+	}
 }
 
 // reduceFamilyInType reduces type family applications within a type.
