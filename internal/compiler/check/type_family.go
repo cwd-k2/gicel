@@ -124,11 +124,9 @@ func (ch *Checker) familyEnv() *family.ReduceEnv {
 }
 
 // installFamilyReducer registers internal type families and sets the
-// family reducer callback in the unifier. Grade algebra families are
-// registered first so they are available for constraint-based grade
-// enforcement during type checking.
+// family reducer callback in the unifier. Grade algebra is defined
+// exclusively by the Prelude's GradeAlgebra class instances.
 func (ch *Checker) installFamilyReducer() {
-	ch.registerGradeAlgebraFamilies()
 	ch.registerBuiltinRowFamilies()
 	if len(ch.reg.families) == 0 {
 		return

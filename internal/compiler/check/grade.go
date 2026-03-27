@@ -8,145 +8,6 @@ import (
 	"github.com/cwd-k2/gicel/internal/lang/types"
 )
 
-// Internal type family names for grade algebra. The '$' prefix is not
-// valid in user identifiers, guaranteeing no collision.
-const (
-	gradeJoinFamily = "$GradeJoin"
-	gradeDropFamily = "$GradeDrop"
-)
-
-// --- Grade algebra: Join and Drop ---
-
-// gradeJoin computes Join(a, b) for two grade values from the same algebra.
-// Dispatches on the head type constructor of the grades.
-func gradeJoin(a, b types.Type) types.Type {
-	ac, aOk := a.(*types.TyCon)
-	bc, bOk := b.(*types.TyCon)
-	if !aOk || !bOk {
-		// Non-TyCon grade (e.g., unsolved meta). Return first argument as
-		// conservative fallback. The CtFunEq path in checkGradeBoundary
-		// handles the deferred case when metas are involved.
-		return a
-	}
-	return usageJoin(ac, bc)
-}
-
-// gradeDrop returns the Drop element for the usage grade algebra.
-// Always Zero. When multiple grade algebras are supported, dispatch
-// on the algebra tag here.
-func gradeDrop(_ types.Type) types.Type {
-	return types.Con("Zero")
-}
-
-// gradeCanPreserve checks whether a field with the given grade can be preserved
-// unchanged across a computation boundary: Join(Drop, grade) ~ grade.
-func gradeCanPreserve(grade types.Type) bool {
-	drop := gradeDrop(grade)
-	joined := gradeJoin(drop, grade)
-	return types.Equal(joined, grade)
-}
-
-// usageJoin implements the Join operation for the usage/multiplicity grade algebra.
-//
-// Lattice:
-//
-//	  Unrestricted
-//	      |
-//	    Affine
-//	   /      \
-//	Zero    Linear
-//
-// Zero and Linear are incomparable. Join(Zero, Linear) = Affine.
-func usageJoin(a, b *types.TyCon) *types.TyCon {
-	if a.Name == b.Name {
-		return a
-	}
-
-	// Canonical ordering for lookup: sort by name to reduce cases.
-	x, y := a.Name, b.Name
-	if x > y {
-		x, y = y, x
-	}
-
-	// After sort: x <= y (string order: Affine < Linear < Unrestricted < Zero).
-	// This is NOT the lattice order — it is only used to reduce case count.
-	switch {
-	case x == "Unrestricted" || y == "Unrestricted":
-		return types.Con("Unrestricted")
-	case x == "Affine" || y == "Affine":
-		return types.Con("Affine")
-	case x == "Linear" && y == "Zero":
-		// After sort x <= y: "Linear" < "Zero", so this is the only reachable ordering.
-		return types.Con("Affine")
-	default:
-		// Unknown grade constructor name. The usage algebra is closed
-		// ({Zero, Linear, Affine, Unrestricted}); reaching here means a
-		// grade value was promoted from a user-defined type that does not
-		// belong to the algebra. Return first argument conservatively.
-		return a
-	}
-}
-
-// --- Grade algebra type families ---
-
-// registerGradeAlgebraFamilies registers internal type families $GradeJoin
-// and $GradeDrop that encode the usage/multiplicity lattice as type-level
-// equations. These families enable constraint-based grade enforcement via
-// CtFunEq when grades contain unsolved metavariables.
-//
-// The equations mirror the usageJoin lattice and gradeDrop exactly.
-func (ch *Checker) registerGradeAlgebraFamilies() {
-	multKind := gradeAlgebraKind(ch)
-
-	zero := types.Con("Zero")
-	linear := types.Con("Linear")
-	affine := types.Con("Affine")
-	unrestricted := types.Con("Unrestricted")
-	wildcard := &types.TyVar{Name: "_"}
-
-	// $GradeJoin :: Mult -> Mult -> Mult
-	//
-	// Equations encode the full usage lattice join. Order matters:
-	// specific patterns before wildcards (closed family semantics).
-	joinInfo := &TypeFamilyInfo{
-		Name: gradeJoinFamily,
-		Params: []TFParam{
-			{Name: "a", Kind: multKind},
-			{Name: "b", Kind: multKind},
-		},
-		ResultKind: multKind,
-		Equations: []tfEquation{
-			// Identity cases for non-absorbing elements.
-			// Unrestricted identity is subsumed by the wildcard cases below.
-			{Patterns: []types.Type{zero, zero}, RHS: zero},
-			{Patterns: []types.Type{linear, linear}, RHS: linear},
-			{Patterns: []types.Type{affine, affine}, RHS: affine},
-			// Unrestricted absorbs everything (including itself)
-			{Patterns: []types.Type{unrestricted, wildcard}, RHS: unrestricted},
-			{Patterns: []types.Type{wildcard, unrestricted}, RHS: unrestricted},
-			// Zero ⊔ Linear = Affine (incomparable elements)
-			{Patterns: []types.Type{zero, linear}, RHS: affine},
-			{Patterns: []types.Type{linear, zero}, RHS: affine},
-			// Affine absorbs Zero and Linear
-			{Patterns: []types.Type{affine, wildcard}, RHS: affine},
-			{Patterns: []types.Type{wildcard, affine}, RHS: affine},
-		},
-	}
-	ch.reg.RegisterFamily(gradeJoinFamily, joinInfo)
-
-	// $GradeDrop :: Mult
-	//
-	// Zero-parameter family. Drop for the usage algebra is always Zero.
-	dropInfo := &TypeFamilyInfo{
-		Name:       gradeDropFamily,
-		ResultKind: multKind,
-		Equations: []tfEquation{
-			{Patterns: nil, RHS: zero},
-		},
-	}
-	ch.reg.RegisterFamily(gradeDropFamily, dropInfo)
-}
-
 // gradeAlgebraKind returns the kind to use for grade algebra parameters.
 // If "Mult" is registered as a promoted kind (via DataKinds), returns
 // KData{"Mult"}; otherwise falls back to KType{}.
@@ -165,12 +26,13 @@ const gradeAlgebraClassName = "GradeAlgebra"
 type resolvedGradeAlgebra struct {
 	joinFamily string     // name of the GradeJoin type family
 	dropValue  types.Type // the Drop element (promoted constructor, e.g. Zero)
+	valid      bool       // false if no GradeAlgebra instance found
 }
 
 // resolveGradeAlgebra looks up a GradeAlgebra instance for the given grade kind
 // and extracts the associated type family names by reducing the associated types.
-// Falls back to the internal $GradeJoin/$GradeDrop families if no user-defined
-// GradeAlgebra instance is found.
+// Returns a result with valid=false if no GradeAlgebra instance is found;
+// callers must check valid before using the algebra.
 func (ch *Checker) resolveGradeAlgebra(gradeKind types.Type) resolvedGradeAlgebra {
 	classInfo, hasClass := ch.reg.LookupClass(gradeAlgebraClassName)
 	if hasClass {
@@ -187,25 +49,21 @@ func (ch *Checker) resolveGradeAlgebra(gradeKind types.Type) resolvedGradeAlgebr
 			}
 			if con, ok := inst.TypeArgs[0].(*types.TyCon); ok {
 				if dk, ok := gradeKind.(*types.TyCon); ok && types.IsKindLevel(dk.Level) && dk.Name == con.Name {
-					return ch.extractGradeAlgebra(classInfo, inst)
+					result := ch.extractGradeAlgebra(classInfo, inst)
+					result.valid = true
+					return result
 				}
 			}
 		}
 	}
-	// Fallback: use internal families.
-	return resolvedGradeAlgebra{
-		joinFamily: gradeJoinFamily,
-		dropValue:  types.Con("Zero"),
-	}
+	// No GradeAlgebra instance found. Grade enforcement not available.
+	return resolvedGradeAlgebra{valid: false}
 }
 
 // extractGradeAlgebra extracts GradeJoin and GradeDrop from a matched instance
 // by reducing the associated type families with the instance's type args.
 func (ch *Checker) extractGradeAlgebra(classInfo *ClassInfo, inst *InstanceInfo) resolvedGradeAlgebra {
-	result := resolvedGradeAlgebra{
-		joinFamily: gradeJoinFamily, // default fallback
-		dropValue:  types.Con("Zero"),
-	}
+	var result resolvedGradeAlgebra
 	for _, assocName := range classInfo.AssocTypes {
 		if _, ok := ch.reg.LookupFamily(assocName); !ok {
 			continue
@@ -249,9 +107,12 @@ func gradeContainsMeta(ty types.Type) bool {
 // is always valid regardless of grade.
 //
 // Two enforcement paths:
-//   - Concrete grade (no metas): fast path via gradeCanPreserve with immediate error.
-//   - Grade containing metas: emit CtFunEq constraint "$GradeJoin(Zero, grade) ~ grade"
+//   - Concrete grade (no metas): fast path via gradeCanPreserveDynamic with immediate error.
+//   - Grade containing metas: emit CtFunEq constraint "GradeJoin(Drop, grade) ~ grade"
 //     so the solver can re-check once the meta is solved.
+//
+// If no GradeAlgebra instance is found for the grade kind, grade enforcement
+// is skipped — the field is treated as unrestricted.
 func (ch *Checker) checkGradeBoundary(comp *types.TyCBPV, s span.Span) {
 	preFields := extractCapFields(ch, comp.Pre)
 	if len(preFields) == 0 {
@@ -307,12 +168,14 @@ func (ch *Checker) checkGradeBoundary(comp *types.TyCBPV, s span.Span) {
 // preserved unchanged across a computation boundary, using the resolved grade algebra.
 func (ch *Checker) gradeCanPreserveDynamic(grade types.Type, gradeKind types.Type) bool {
 	algebra := ch.resolveGradeAlgebra(gradeKind)
-	drop := algebra.dropValue
-	joined, ok := ch.reduceTyFamily(algebra.joinFamily, []types.Type{drop, grade}, span.Span{})
+	if !algebra.valid {
+		return true // no grade algebra → treat as unrestricted
+	}
+	joined, ok := ch.reduceTyFamily(algebra.joinFamily, []types.Type{algebra.dropValue, grade}, span.Span{})
 	if !ok {
-		// Family reduction failed (stuck or no match).
-		// Fallback to the hardcoded check for backward compatibility.
-		return gradeCanPreserve(grade)
+		// Family reduction stuck (e.g., unsolved meta in args).
+		// Assume OK; will be checked when the meta solves.
+		return true
 	}
 	return types.Equal(joined, grade)
 }
@@ -322,9 +185,12 @@ func (ch *Checker) gradeCanPreserveDynamic(grade types.Type, gradeKind types.Typ
 //
 // If the grade is e.g. a metavariable ?m, this constraint says:
 // "when ?m is solved, Join(Drop, ?m) must equal ?m" — which is the
-// algebraic definition of gradeCanPreserve.
+// algebraic definition of grade preservation.
 func (ch *Checker) emitGradePreserveConstraint(grade types.Type, gradeKind types.Type, s span.Span) {
 	algebra := ch.resolveGradeAlgebra(gradeKind)
+	if !algebra.valid {
+		return // no grade algebra → skip constraint emission
+	}
 	args := []types.Type{algebra.dropValue, grade}
 
 	resultMeta := ch.freshMeta(gradeKind)
