@@ -6,6 +6,19 @@ import (
 	"github.com/cwd-k2/gicel/internal/lang/types"
 )
 
+// CtFlavor distinguishes given equalities (from GADT refinement) from
+// wanted equalities (from type checking obligations). Given equalities
+// are processed before wanteds and can trigger kick-out of stuck
+// constraints or detect contradictory (inaccessible) branches.
+type CtFlavor int
+
+const (
+	// CtWanted is the default flavor: an equality the solver must discharge.
+	CtWanted CtFlavor = iota
+	// CtGiven is a locally-known equality from a GADT pattern refinement.
+	CtGiven
+)
+
 // Ct is a constraint waiting to be solved by the constraint solver.
 // The solver processes constraints from a worklist, discharging them
 // into the inert set or producing Core evidence terms.
@@ -61,10 +74,12 @@ type CtOrigin struct {
 
 // CtEq represents a type equality constraint: Lhs ~ Rhs.
 // Emitted from user-written (a ~ Int) => constraints, checker-generated
-// type equalities, and (future) solver-managed GADT given equalities.
+// type equalities, and solver-managed GADT given equalities.
+// Flavor distinguishes wanted (default) from given equalities.
 type CtEq struct {
 	Lhs    types.Type
 	Rhs    types.Type
+	Flavor CtFlavor  // CtWanted (default zero) or CtGiven
 	Origin *CtOrigin // nil = generic error message
 	S      span.Span
 }
@@ -102,4 +117,27 @@ func collectMetaIDs(tys []types.Type) []int {
 		})
 	}
 	return ids
+}
+
+// typeMentionsSkolem reports whether a type tree contains a TySkolem
+// with the given ID. Used by given-equality kick-out to detect which
+// inert constraints are affected by a newly installed skolem solution.
+func typeMentionsSkolem(t types.Type, skolemID int) bool {
+	return types.AnyType(t, func(ty types.Type) bool {
+		if sk, ok := ty.(*types.TySkolem); ok {
+			return sk.ID == skolemID
+		}
+		return false
+	})
+}
+
+// typesMentionSkolem reports whether any type in the slice contains
+// a TySkolem with the given ID.
+func typesMentionSkolem(tys []types.Type, skolemID int) bool {
+	for _, t := range tys {
+		if typeMentionsSkolem(t, skolemID) {
+			return true
+		}
+	}
+	return false
 }

@@ -222,6 +222,7 @@ func (ch *Checker) checkConPatternWith(conName, moduleName string, conTy types.T
 	givenEqs = extractGivenEqs(ch.unifier.Zonk(currentTy), ch.unifier.Zonk(scrutTy))
 	for skolemID, ty := range givenEqs {
 		ch.unifier.InstallGivenEq(skolemID, ty)
+		ch.emitGivenEq(&types.TySkolem{ID: skolemID}, ty, s)
 	}
 	if err := ch.unifier.Unify(currentTy, scrutTy); err != nil {
 		ch.addUnifyError(err, s, "constructor type mismatch")

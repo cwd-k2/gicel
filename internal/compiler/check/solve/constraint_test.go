@@ -367,3 +367,218 @@ func TestInertSetKickOutNestedMeta(t *testing.T) {
 		t.Fatal("Show should be removed after kickout")
 	}
 }
+
+// --- CtFlavor tests ---
+
+func TestCtFlavorDefaults(t *testing.T) {
+	// Zero value of CtEq.Flavor is CtWanted (backward compatible).
+	ct := &CtEq{Lhs: &types.TyCon{Name: "Int"}, Rhs: &types.TyCon{Name: "Int"}}
+	if ct.Flavor != CtWanted {
+		t.Fatalf("expected default Flavor to be CtWanted (0), got %d", ct.Flavor)
+	}
+}
+
+func TestCtFlavorGiven(t *testing.T) {
+	ct := &CtEq{
+		Lhs: &types.TySkolem{ID: 1}, Rhs: &types.TyCon{Name: "Int"},
+		Flavor: CtGiven,
+	}
+	if ct.Flavor != CtGiven {
+		t.Fatal("expected CtGiven flavor")
+	}
+}
+
+// --- typeMentionsSkolem / typesMentionSkolem tests ---
+
+func TestTypeMentionsSkolem(t *testing.T) {
+	sk := &types.TySkolem{ID: 5}
+	if !typeMentionsSkolem(sk, 5) {
+		t.Fatal("direct skolem should be found")
+	}
+	if typeMentionsSkolem(sk, 6) {
+		t.Fatal("wrong skolem ID should not match")
+	}
+	if typeMentionsSkolem(&types.TyCon{Name: "Int"}, 5) {
+		t.Fatal("TyCon should not mention any skolem")
+	}
+}
+
+func TestTypeMentionsSkolemNested(t *testing.T) {
+	sk := &types.TySkolem{ID: 3}
+	nested := &types.TyApp{Fun: &types.TyCon{Name: "List"}, Arg: sk}
+	if !typeMentionsSkolem(nested, 3) {
+		t.Fatal("nested skolem should be found")
+	}
+	if typeMentionsSkolem(nested, 99) {
+		t.Fatal("wrong ID should not match in nested type")
+	}
+}
+
+func TestTypesMentionSkolemSlice(t *testing.T) {
+	sk := &types.TySkolem{ID: 10}
+	tys := []types.Type{&types.TyCon{Name: "Int"}, sk, &types.TyCon{Name: "Bool"}}
+	if !typesMentionSkolem(tys, 10) {
+		t.Fatal("slice containing skolem should report mention")
+	}
+	if typesMentionSkolem(tys, 11) {
+		t.Fatal("slice should not report mention for wrong ID")
+	}
+}
+
+func TestTypesMentionSkolemEmpty(t *testing.T) {
+	if typesMentionSkolem(nil, 1) {
+		t.Fatal("nil slice should not mention any skolem")
+	}
+	if typesMentionSkolem([]types.Type{}, 1) {
+		t.Fatal("empty slice should not mention any skolem")
+	}
+}
+
+// --- InertSet given equality tests ---
+
+func TestInertSetInsertGiven(t *testing.T) {
+	var is InertSet
+	given := &CtEq{
+		Lhs: &types.TySkolem{ID: 1}, Rhs: &types.TyCon{Name: "Int"},
+		Flavor: CtGiven, S: span.Span{Start: 0, End: 5},
+	}
+	is.InsertGiven(given)
+	if len(is.givenEqs) != 1 {
+		t.Fatalf("expected 1 given eq, got %d", len(is.givenEqs))
+	}
+	if is.givenEqs[0] != given {
+		t.Fatal("given eq mismatch")
+	}
+}
+
+func TestInertSetGivenClearedOnLeaveScope(t *testing.T) {
+	var is InertSet
+	is.EnterScope()
+	given := &CtEq{
+		Lhs: &types.TySkolem{ID: 1}, Rhs: &types.TyCon{Name: "Int"},
+		Flavor: CtGiven,
+	}
+	is.InsertGiven(given)
+	if len(is.givenEqs) != 1 {
+		t.Fatal("given should be present before LeaveScope")
+	}
+	is.LeaveScope()
+	if len(is.givenEqs) != 0 {
+		t.Fatalf("expected 0 given eqs after LeaveScope, got %d", len(is.givenEqs))
+	}
+}
+
+func TestInertSetGivenSurvivesOuterScope(t *testing.T) {
+	var is InertSet
+	outerGiven := &CtEq{
+		Lhs: &types.TySkolem{ID: 1}, Rhs: &types.TyCon{Name: "Int"},
+		Flavor: CtGiven,
+	}
+	is.InsertGiven(outerGiven)
+	is.EnterScope()
+	innerGiven := &CtEq{
+		Lhs: &types.TySkolem{ID: 2}, Rhs: &types.TyCon{Name: "Bool"},
+		Flavor: CtGiven,
+	}
+	is.InsertGiven(innerGiven)
+	is.LeaveScope()
+	if len(is.givenEqs) != 1 {
+		t.Fatalf("expected 1 given eq (outer), got %d", len(is.givenEqs))
+	}
+	if is.givenEqs[0] != outerGiven {
+		t.Fatal("outer given should survive inner LeaveScope")
+	}
+}
+
+// --- KickOutMentioningSkolem tests ---
+
+func TestKickOutMentioningSkolemFunEq(t *testing.T) {
+	var is InertSet
+	sk := &types.TySkolem{ID: 5}
+	meta := &types.TyMeta{ID: 99}
+	ct := &CtFunEq{
+		FamilyName: "F",
+		Args:       []types.Type{sk, &types.TyCon{Name: "Int"}},
+		ResultMeta: meta,
+		BlockingOn: []int{99},
+	}
+	is.InsertFunEq(ct)
+	kicked := is.KickOutMentioningSkolem(5)
+	if len(kicked) != 1 {
+		t.Fatalf("expected 1 kicked, got %d", len(kicked))
+	}
+	if kicked[0] != ct {
+		t.Fatal("kicked constraint mismatch")
+	}
+	if len(is.LookupFunEq("F")) != 0 {
+		t.Fatal("F should be empty after kick-out")
+	}
+}
+
+func TestKickOutMentioningSkolemNoMatch(t *testing.T) {
+	var is InertSet
+	ct := &CtFunEq{
+		FamilyName: "F",
+		Args:       []types.Type{&types.TyCon{Name: "Int"}},
+		ResultMeta: &types.TyMeta{ID: 1},
+		BlockingOn: []int{1},
+	}
+	is.InsertFunEq(ct)
+	kicked := is.KickOutMentioningSkolem(5)
+	if len(kicked) != 0 {
+		t.Fatalf("expected 0 kicked for unrelated skolem, got %d", len(kicked))
+	}
+	if len(is.LookupFunEq("F")) != 1 {
+		t.Fatal("F should remain")
+	}
+}
+
+func TestKickOutMentioningSkolemNestedInApp(t *testing.T) {
+	var is InertSet
+	sk := &types.TySkolem{ID: 3}
+	nested := &types.TyApp{Fun: &types.TyCon{Name: "List"}, Arg: sk}
+	ct := &CtFunEq{
+		FamilyName: "G",
+		Args:       []types.Type{nested},
+		ResultMeta: &types.TyMeta{ID: 50},
+		BlockingOn: []int{50},
+	}
+	is.InsertFunEq(ct)
+	kicked := is.KickOutMentioningSkolem(3)
+	if len(kicked) != 1 {
+		t.Fatalf("expected 1 kicked for nested skolem, got %d", len(kicked))
+	}
+}
+
+// --- extractSkolemGiven tests ---
+
+func TestExtractSkolemGivenLhs(t *testing.T) {
+	sk := &types.TySkolem{ID: 1}
+	ty := &types.TyCon{Name: "Int"}
+	gotSk, gotConcrete := extractSkolemGiven(sk, ty)
+	if gotSk != sk {
+		t.Fatal("expected skolem from LHS")
+	}
+	if gotConcrete != ty {
+		t.Fatal("expected concrete from RHS")
+	}
+}
+
+func TestExtractSkolemGivenRhs(t *testing.T) {
+	sk := &types.TySkolem{ID: 2}
+	ty := &types.TyCon{Name: "Bool"}
+	gotSk, gotConcrete := extractSkolemGiven(ty, sk)
+	if gotSk != sk {
+		t.Fatal("expected skolem from RHS")
+	}
+	if gotConcrete != ty {
+		t.Fatal("expected concrete from LHS")
+	}
+}
+
+func TestExtractSkolemGivenBothConcrete(t *testing.T) {
+	gotSk, _ := extractSkolemGiven(&types.TyCon{Name: "Int"}, &types.TyCon{Name: "Bool"})
+	if gotSk != nil {
+		t.Fatal("expected nil skolem when both sides are concrete")
+	}
+}

@@ -35,6 +35,12 @@ func (s *Solver) processCtImplication(ct *CtImplication, outerResolutions map[st
 
 	for skolemID, ty := range ct.GivenEqs {
 		s.env.InstallGivenEq(skolemID, ty)
+		s.EmitGivenEq(&CtEq{
+			Lhs:    &types.TySkolem{ID: skolemID},
+			Rhs:    ty,
+			Flavor: CtGiven,
+			S:      ct.S,
+		})
 	}
 
 	s.RestoreWorklist(ct.Wanteds)

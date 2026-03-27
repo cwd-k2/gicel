@@ -350,9 +350,11 @@ func (ch *Checker) checkWithEvidence(expr syntax.Expr, ev *types.TyEvidence) ir.
 			rhs := ch.unifier.Zonk(entry.EqRhs)
 			if sk, ok := lhs.(*types.TySkolem); ok {
 				ch.unifier.InstallGivenEq(sk.ID, rhs)
+				ch.emitGivenEq(lhs, rhs, entry.S)
 				givenEqSkolems = append(givenEqSkolems, sk.ID)
 			} else if sk, ok := rhs.(*types.TySkolem); ok {
 				ch.unifier.InstallGivenEq(sk.ID, lhs)
+				ch.emitGivenEq(lhs, rhs, entry.S)
 				givenEqSkolems = append(givenEqSkolems, sk.ID)
 			} else {
 				// Both sides are concrete or meta — emit equality constraint.

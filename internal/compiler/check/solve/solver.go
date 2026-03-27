@@ -26,6 +26,11 @@ type Solver struct {
 	// touchability enforcement: metas with Level < SolverLevel are untouchable.
 	level int
 
+	// inaccessible is set to true when a given equality produces a
+	// contradiction (e.g. Int ~ Bool). An inaccessible branch is
+	// vacuously well-typed: remaining wanteds are skipped.
+	inaccessible bool
+
 	env Env
 }
 
@@ -67,6 +72,21 @@ func (s *Solver) Reactivate(metaID int) {
 func (s *Solver) Emit(ct Ct) {
 	s.worklist.Push(ct)
 }
+
+// EmitGivenEq pushes a given equality to the front of the worklist
+// for priority processing. Given equalities must be processed before
+// wanteds so that skolem solutions are available for kick-out.
+func (s *Solver) EmitGivenEq(ct *CtEq) {
+	s.worklist.PushFront(ct)
+}
+
+// IsInaccessible reports whether a contradictory given equality was
+// detected (e.g. Int ~ Bool in a GADT branch), making the branch
+// vacuously well-typed.
+func (s *Solver) IsInaccessible() bool { return s.inaccessible }
+
+// SetInaccessible sets or clears the inaccessible flag.
+func (s *Solver) SetInaccessible(v bool) { s.inaccessible = v }
 
 // Level returns the current implication nesting depth for touchability.
 func (s *Solver) Level() int {
@@ -258,10 +278,14 @@ func constraintKey(className string, args []types.Type) string {
 }
 
 // processCtEq handles a type equality constraint: Lhs ~ Rhs.
-// Zonks both sides and attempts unification. If either side contains
-// unsolved metas (stuck), the constraint is inserted into the inert set
-// for re-activation when blocking metas are solved.
+// Given equalities (from GADT refinement) are dispatched to processGivenEq.
+// Wanted equalities are zonked and unified; stuck constraints are inserted
+// into the inert set for re-activation when blocking metas are solved.
 func (s *Solver) processCtEq(ct *CtEq) {
+	if ct.Flavor == CtGiven {
+		s.processGivenEq(ct)
+		return
+	}
 	lhs := s.env.Zonk(ct.Lhs)
 	rhs := s.env.Zonk(ct.Rhs)
 	if err := s.env.Unify(lhs, rhs); err != nil {
@@ -289,6 +313,54 @@ func (s *Solver) processCtEq(ct *CtEq) {
 					types.Pretty(lhs), types.Pretty(rhs)))
 		}
 	}
+}
+
+// processGivenEq handles a given equality from a GADT pattern refinement.
+//
+// Three cases:
+//   - Skolem ~ concrete: install in skolemSoln for Zonk transparency,
+//     record in inert set, and kick out any constraints mentioning the skolem.
+//   - Concrete ~ concrete: attempt unification to check for contradiction.
+//     If both sides are ground and don't match, mark the branch inaccessible.
+//   - Skolem ~ skolem: record the equality; may enable transitive reasoning.
+func (s *Solver) processGivenEq(ct *CtEq) {
+	lhs := s.env.Zonk(ct.Lhs)
+	rhs := s.env.Zonk(ct.Rhs)
+
+	// Extract skolem from either side.
+	sk, concrete := extractSkolemGiven(lhs, rhs)
+	if sk != nil {
+		// Skolem ~ concrete: install for Zonk transparency.
+		s.env.InstallGivenEq(sk.ID, concrete)
+		// Record in inert set for scope-aware cleanup.
+		s.inertSet.InsertGiven(&CtEq{Lhs: lhs, Rhs: rhs, Flavor: CtGiven, S: ct.S})
+		// Kick out any constraints whose type args mention this skolem.
+		kicked := s.inertSet.KickOutMentioningSkolem(sk.ID)
+		s.worklist.PushFront(kicked...)
+		return
+	}
+
+	// Both concrete (or both skolems): check for contradiction.
+	if err := s.env.Unify(lhs, rhs); err != nil {
+		// If no metas are involved, this is a genuine contradiction.
+		lhsMetas := collectMetaIDs([]types.Type{lhs})
+		rhsMetas := collectMetaIDs([]types.Type{rhs})
+		if len(lhsMetas) == 0 && len(rhsMetas) == 0 {
+			s.inaccessible = true
+		}
+	}
+}
+
+// extractSkolemGiven extracts a skolem and the "other side" from a
+// given equality. Returns (nil, nil) if neither side is a skolem.
+func extractSkolemGiven(lhs, rhs types.Type) (*types.TySkolem, types.Type) {
+	if sk, ok := lhs.(*types.TySkolem); ok {
+		return sk, rhs
+	}
+	if sk, ok := rhs.(*types.TySkolem); ok {
+		return sk, lhs
+	}
+	return nil, nil
 }
 
 // processCtFunEq handles a stuck type family equation from the worklist.

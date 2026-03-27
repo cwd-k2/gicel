@@ -14,9 +14,10 @@ import (
 
 // --- Constraint type aliases ---
 
-// Ct, CtClass, CtFunEq, CtImplication are defined in the solve subpackage.
+// Ct, CtClass, CtEq, CtFunEq, CtImplication are defined in the solve subpackage.
 type Ct = solve.Ct
 type CtClass = solve.CtClass
+type CtEq = solve.CtEq
 type CtFunEq = solve.CtFunEq
 type CtImplication = solve.CtImplication
 
@@ -78,6 +79,15 @@ func (ch *Checker) emitClassConstraint(placeholder string, entry types.Constrain
 // Origin provides semantic context for error reporting; nil = generic message.
 func (ch *Checker) emitEq(lhs, rhs types.Type, s span.Span, origin *solve.CtOrigin) {
 	ch.solver.Emit(&solve.CtEq{Lhs: lhs, Rhs: rhs, Origin: origin, S: s})
+}
+
+// emitGivenEq emits a given equality to the solver with priority processing.
+// Given equalities are pushed to the front of the worklist so they are
+// processed before wanted constraints. The unifier's InstallGivenEq is
+// also called for Zonk transparency — this dual installation is the
+// hybrid approach for Step 4; Step 7 will consolidate.
+func (ch *Checker) emitGivenEq(lhs, rhs types.Type, s span.Span) {
+	ch.solver.EmitGivenEq(&solve.CtEq{Lhs: lhs, Rhs: rhs, Flavor: solve.CtGiven, S: s})
 }
 
 // resolveDeferredConstraints discharges all worklist constraints eagerly.
