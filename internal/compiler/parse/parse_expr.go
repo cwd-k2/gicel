@@ -340,7 +340,14 @@ func (p *Parser) parseIf() syn.Expr {
 	cond := p.parseExpr()
 	p.expect(syn.TokThen)
 	thenExpr := p.parseExpr()
-	p.expect(syn.TokElse)
+	if p.peek().Kind != syn.TokElse {
+		p.addErrorCode(diagnostic.ErrUnexpectedToken, "expected 'else' after 'then' branch")
+		if p.peek().Kind != syn.TokEOF {
+			p.advance()
+		}
+	} else {
+		p.advance()
+	}
 	elseExpr := p.parseExpr()
 	end := p.prevEnd()
 	s := span.Span{Start: start, End: end}

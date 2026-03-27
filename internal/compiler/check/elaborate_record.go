@@ -2,6 +2,7 @@ package check
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/cwd-k2/gicel/internal/infra/diagnostic"
 	"github.com/cwd-k2/gicel/internal/infra/span"
@@ -72,7 +73,7 @@ func (ch *Checker) matchRecordField(ty types.Type, label string, s span.Span) ty
 				S:    s,
 			}
 			if err := ch.unifier.Unify(row, expectedRow); err != nil {
-				ch.addCodedError(diagnostic.ErrRowMismatch, s, fmt.Sprintf("record has no field %s: %s", label, err.Error()))
+				ch.addCodedError(diagnostic.ErrRowMismatch, s, recordFieldError(label, row, err))
 				return ch.freshMeta(types.TypeOfTypes)
 			}
 			return ch.unifier.Zonk(fieldMeta)
@@ -205,4 +206,37 @@ func (ch *Checker) checkRecordPattern(p *syntax.PatRecord, scrutTy types.Type) p
 		Pattern:  &ir.PRecord{Fields: coreFields, S: p.S},
 		Bindings: bindings,
 	}
+}
+
+// recordFieldError produces a human-readable error for a missing record field.
+// When the label looks like a tuple index (_1, _2, ...), it reports the mismatch
+// in tuple terms instead of exposing the record desugaring.
+func recordFieldError(label string, row types.Type, unifyErr error) string {
+	if !isTupleLabel(label) {
+		return fmt.Sprintf("record has no field %s: %s", label, unifyErr.Error())
+	}
+	// Count tuple arity from the row.
+	arity := countRowFields(row)
+	return fmt.Sprintf("tuple has %d element(s), but pattern expects more (field %s is out of range)", arity, label)
+}
+
+func isTupleLabel(label string) bool {
+	if !strings.HasPrefix(label, "_") || len(label) < 2 {
+		return false
+	}
+	for _, c := range label[1:] {
+		if c < '0' || c > '9' {
+			return false
+		}
+	}
+	return true
+}
+
+func countRowFields(row types.Type) int {
+	if evRow, ok := row.(*types.TyEvidenceRow); ok {
+		if cap, ok := evRow.Entries.(*types.CapabilityEntries); ok {
+			return len(cap.Fields)
+		}
+	}
+	return 0
 }
