@@ -6,6 +6,8 @@ package check
 import (
 	"testing"
 
+	"github.com/cwd-k2/gicel/internal/compiler/parse"
+	"github.com/cwd-k2/gicel/internal/infra/span"
 	"github.com/cwd-k2/gicel/internal/lang/types"
 )
 
@@ -198,6 +200,20 @@ func TestLabelLiteralKindCheckedCorrectly(t *testing.T) {
 	}
 	if !types.Equal(kind, types.TypeOfLabels) {
 		t.Errorf("expected kind Label, got %s", types.Pretty(kind))
+	}
+}
+
+func TestUppercaseLabelLiteralRejected(t *testing.T) {
+	// Uppercase backtick labels like `MyState should be rejected at lex time.
+	// The lexer only accepts lowercase/underscore-initial labels after backtick.
+	// If uppercase were accepted, label erasure would skip it and the program
+	// would panic at runtime.
+	source := "f :: \\(l: Label). Int\nf := assumption\nmain := f @`MyState"
+	src := span.NewSource("test", source)
+	l := parse.NewLexer(src)
+	_, lexErrs := l.Tokenize()
+	if !lexErrs.HasErrors() {
+		t.Fatal("expected lex error for uppercase label literal, got none")
 	}
 }
 
