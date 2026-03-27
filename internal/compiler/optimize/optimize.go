@@ -1,4 +1,10 @@
-// Package opt provides Core IR optimization passes.
+// Package optimize provides Core IR optimization passes.
+//
+// INVARIANT: Optimization rules MUST NOT introduce new TyApp nodes.
+// The label erasure pass (ir.EraseLabelArgsProgram) runs BEFORE optimization
+// and converts Label-kinded TyApp nodes into App+Lit. If an optimization
+// rule were to synthesize a new TyApp with a label argument, it would
+// bypass erasure and cause a runtime type-application error.
 package optimize
 
 import (
