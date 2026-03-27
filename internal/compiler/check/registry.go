@@ -1,6 +1,10 @@
 package check
 
-import "github.com/cwd-k2/gicel/internal/lang/types"
+import (
+	"strings"
+
+	"github.com/cwd-k2/gicel/internal/lang/types"
+)
 
 // Registry holds semantic registries populated during declaration
 // processing and read during type checking.
@@ -57,10 +61,41 @@ func (r *Registry) RegisterClass(name string, info *ClassInfo) {
 	}
 }
 
-// RegisterFamily records a type family declaration.
-// Phase: 3 (type family processing). Qualified names use Scope.InjectFamily instead.
+// RegisterFamily records a type family declaration or merges equations
+// into an existing family. When multiple modules independently enrich
+// the same associated type family (diamond import), equations from all
+// sources are collected and deduplicated by structural pattern identity.
 func (r *Registry) RegisterFamily(name string, info *TypeFamilyInfo) {
-	r.families[name] = info
+	existing, ok := r.families[name]
+	if !ok {
+		r.families[name] = info
+		return
+	}
+	// Merge: append equations from info not already present.
+	seen := make(map[string]bool, len(existing.Equations))
+	for _, eq := range existing.Equations {
+		seen[equationPatternKey(eq)] = true
+	}
+	for _, eq := range info.Equations {
+		if key := equationPatternKey(eq); !seen[key] {
+			existing.Equations = append(existing.Equations, eq)
+			seen[key] = true
+		}
+	}
+}
+
+// equationPatternKey produces a canonical key from the LHS patterns of a
+// type family equation. Two equations with structurally equal patterns
+// are considered identical for deduplication purposes.
+func equationPatternKey(eq tfEquation) string {
+	var b strings.Builder
+	for i, p := range eq.Patterns {
+		if i > 0 {
+			b.WriteByte(' ')
+		}
+		types.WriteTypeKey(&b, p)
+	}
+	return b.String()
 }
 
 // RegisterDataType records a data type's reverse lookup entry.
