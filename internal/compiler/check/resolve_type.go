@@ -134,11 +134,11 @@ func (ch *Checker) resolveTypeExpr(texpr syntax.TypeExpr) types.Type {
 		if t.Tail != nil {
 			tail = &types.TyVar{Name: t.Tail.Name, S: t.Tail.S}
 		}
-		return &types.TyEvidenceRow{
-			Entries: &types.CapabilityEntries{Fields: fields},
-			Tail:    tail,
-			S:       t.S,
+		// Use ClosedRow/OpenRow to ensure sorted field order.
+		if tail == nil {
+			return types.ClosedRow(fields...)
 		}
+		return types.OpenRow(fields, tail)
 	case *syntax.TyExprQual:
 		// Equality constraint: a ~ T => Body
 		// Embedded in TyEvidence as ConstraintEntry with IsEquality=true.
@@ -182,6 +182,9 @@ func (ch *Checker) resolveTypeExpr(texpr syntax.TypeExpr) types.Type {
 		return types.Con("()")
 	case *syntax.TyExprParen:
 		return ch.resolveTypeExpr(t.Inner)
+	case *syntax.TyExprLabelLit:
+		// Label literals are type-level constants of kind Label.
+		return &types.TyCon{Name: t.Label, Level: types.L1, S: t.S}
 	default:
 		ch.addCodedError(diagnostic.ErrTypeMismatch, texpr.Span(), fmt.Sprintf("unsupported type expression: %T", texpr))
 		return &types.TyError{S: texpr.Span()}

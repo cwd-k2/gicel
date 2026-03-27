@@ -28,10 +28,7 @@ func (ch *Checker) inferRecord(e *syntax.ExprRecord) (types.Type, ir.Core) {
 		fields = append(fields, types.RowField{Label: f.Label, Type: ty, S: f.S})
 		coreFields = append(coreFields, ir.RecordField{Label: f.Label, Value: coreVal})
 	}
-	row := &types.TyEvidenceRow{
-		Entries: &types.CapabilityEntries{Fields: fields},
-		S:       e.S,
-	}
+	row := types.ClosedRow(fields...)
 	recTy := &types.TyApp{Fun: types.Con("Record"), Arg: row, S: e.S}
 	return ch.unifier.Zonk(recTy), &ir.RecordLit{Fields: coreFields, S: e.S}
 }
@@ -148,10 +145,7 @@ func (ch *Checker) checkRecord(e *syntax.ExprRecord, expected types.Type) ir.Cor
 			rowFields = append(rowFields, types.RowField{Label: f.Label, Type: ty, S: f.S})
 		}
 	}
-	row := &types.TyEvidenceRow{
-		Entries: &types.CapabilityEntries{Fields: rowFields},
-		S:       e.S,
-	}
+	row := types.ClosedRow(rowFields...)
 	recTy := &types.TyApp{Fun: types.Con("Record"), Arg: row, S: e.S}
 	coreExpr := &ir.RecordLit{Fields: coreFields, S: e.S}
 	return ch.subsCheck(ch.unifier.Zonk(recTy), expected, coreExpr, e.S)

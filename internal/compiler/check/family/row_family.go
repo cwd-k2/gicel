@@ -10,7 +10,9 @@ import (
 
 // Builtin row-level type family names.
 const (
-	RowFamilyMerge = "Merge"
+	RowFamilyMerge   = "Merge"
+	RowFamilyWithout = "Without"
+	RowFamilyLookup  = "Lookup"
 )
 
 // reduceBuiltinRowFamily dispatches to builtin row family reducers.
@@ -20,6 +22,10 @@ func (e *ReduceEnv) reduceBuiltinRowFamily(name string, args []types.Type, s spa
 	switch name {
 	case RowFamilyMerge:
 		return e.reduceMerge(args, s)
+	case RowFamilyWithout:
+		return e.reduceWithout(args, s)
+	case RowFamilyLookup:
+		return e.reduceLookup(args, s)
 	default:
 		return nil, false
 	}
@@ -81,4 +87,70 @@ func (e *ReduceEnv) reduceMerge(args []types.Type, s span.Span) (types.Type, boo
 	}
 
 	return types.ClosedRow(merged...), true
+}
+
+// reduceWithout implements Without :: Label -> Row -> Row.
+// Removes the field with the given label from a capability row.
+func (e *ReduceEnv) reduceWithout(args []types.Type, s span.Span) (types.Type, bool) {
+	if len(args) != 2 {
+		return nil, false
+	}
+	labelArg := e.Unifier.Zonk(args[0])
+	rowArg := e.Unifier.Zonk(args[1])
+
+	// Label must be a concrete label-kinded TyCon (Level L1).
+	labelCon, ok := labelArg.(*types.TyCon)
+	if !ok || !types.IsKindLevel(labelCon.Level) {
+		return nil, false // stuck: label not concrete
+	}
+	label := labelCon.Name
+
+	// Row must be a concrete capability row.
+	row, ok := rowArg.(*types.TyEvidenceRow)
+	if !ok || !row.IsCapabilityRow() {
+		return nil, false // stuck: not a concrete capability row
+	}
+	if row.Tail != nil {
+		return nil, false // stuck: open row
+	}
+
+	_, remaining, found := types.RemoveLabel(row, label)
+	if !found {
+		e.AddError(diagnostic.ErrTypeMismatch, s,
+			fmt.Sprintf("Without: label %q not present in row", label))
+		return nil, false
+	}
+	return remaining, true
+}
+
+// reduceLookup implements Lookup :: Label -> Row -> Type.
+// Returns the type of the field with the given label in a capability row.
+func (e *ReduceEnv) reduceLookup(args []types.Type, s span.Span) (types.Type, bool) {
+	if len(args) != 2 {
+		return nil, false
+	}
+	labelArg := e.Unifier.Zonk(args[0])
+	rowArg := e.Unifier.Zonk(args[1])
+
+	labelCon, ok := labelArg.(*types.TyCon)
+	if !ok || !types.IsKindLevel(labelCon.Level) {
+		return nil, false // stuck: label not concrete
+	}
+	label := labelCon.Name
+
+	row, ok := rowArg.(*types.TyEvidenceRow)
+	if !ok || !row.IsCapabilityRow() {
+		return nil, false // stuck
+	}
+	if row.Tail != nil {
+		return nil, false // stuck: open row
+	}
+
+	ty := types.RowFieldType(row.CapFields(), label)
+	if ty == nil {
+		e.AddError(diagnostic.ErrTypeMismatch, s,
+			fmt.Sprintf("Lookup: label %q not present in row", label))
+		return nil, false
+	}
+	return ty, true
 }

@@ -131,7 +131,21 @@ func assignIndices(c Core, localScope map[string]int, depth int) {
 		assignIndices(n.Comp, localScope, depth+1)
 		bodyScope := shiftScope(localScope, 1)
 		bodyScope[n.Var] = 0
-		assignIndices(n.Body, bodyScope, depth+1)
+		// Iteratively handle sequential Bind chains: mutate bodyScope
+		// in-place for subsequent Binds (we own it from shiftScope).
+		// This reduces D allocations to 1 for a chain of D Binds.
+		cur := n.Body
+		d := depth + 1
+		for b, ok := cur.(*Bind); ok; b, ok = cur.(*Bind) {
+			assignIndices(b.Comp, bodyScope, d+1)
+			for k := range bodyScope {
+				bodyScope[k]++
+			}
+			bodyScope[b.Var] = 0
+			d++
+			cur = b.Body
+		}
+		assignIndices(cur, bodyScope, d+1)
 
 	case *Thunk:
 		assignThunk(n, localScope, depth)

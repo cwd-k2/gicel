@@ -11,6 +11,9 @@ func Pretty(t Type) string {
 	case *TyVar:
 		return ty.Name
 	case *TyCon:
+		if IsKindLevel(ty.Level) && ty.Name != "Type" && ty.Name != "Row" && ty.Name != "Constraint" && ty.Name != "Label" && ty.Name != "Kind" {
+			return "`" + ty.Name
+		}
 		return ty.Name
 	case *TyApp:
 		return fmt.Sprintf("%s %s", Pretty(ty.Fun), prettyAtom(ty.Arg))

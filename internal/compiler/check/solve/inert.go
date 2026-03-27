@@ -13,9 +13,11 @@ type InertSet struct {
 	funEqs         map[string][]*CtFunEq // familyName → stuck equations
 	givenEqs       []*CtEq               // given equalities (skolem ~ concrete)
 	metaIndex      map[int][]Ct          // metaID → constraints mentioning it
+	ctMetas        map[Ct][]int          // constraint → meta IDs it's indexed under (reverse of metaIndex)
 	resolutionKeys map[string]string     // canonical key → placeholder (for cache lookup)
 	scopeDepth     int                   // current scope depth
 	ctScope        map[Ct]int            // constraint → scope depth at insertion
+	scopeCts       map[int][]Ct          // scope depth → constraints at that scope
 }
 
 // NewInertSet returns an empty InertSet.
@@ -135,9 +137,12 @@ func (is *InertSet) KickOutMentioningSkolem(skolemID int) []Ct {
 	return kicked
 }
 
-// removeFromMetaIndex removes a constraint from all meta index entries.
+// removeFromMetaIndex removes a constraint from its meta index entries.
+// Uses the reverse map (ctMetas) to visit only the relevant buckets.
 func (is *InertSet) removeFromMetaIndex(ct Ct) {
-	for id, cts := range is.metaIndex {
+	metaIDs := is.ctMetas[ct]
+	for _, id := range metaIDs {
+		cts := is.metaIndex[id]
 		for i, indexed := range cts {
 			if indexed == ct {
 				last := len(cts) - 1
@@ -148,6 +153,7 @@ func (is *InertSet) removeFromMetaIndex(ct Ct) {
 			}
 		}
 	}
+	delete(is.ctMetas, ct)
 }
 
 // LookupClass returns all inert class constraints for the given class name.
@@ -175,9 +181,9 @@ func (is *InertSet) KickOut(metaID int) []Ct {
 		case *CtEq:
 			_ = c
 		}
-		// Remove from other meta index buckets to prevent duplicate
-		// re-processing when a different meta is kicked later.
-		is.removeFromMetaIndex(ct)
+		// Remove from other meta index buckets (via reverse map)
+		// to prevent duplicate re-processing.
+		is.removeFromOtherMetaBuckets(ct, metaID)
 	}
 	return cts
 }
@@ -197,24 +203,39 @@ func (is *InertSet) Reset() {
 	is.clearScope(is.scopeDepth)
 }
 
-// tagScope records the current scope depth for a constraint.
+// tagScope records the current scope depth for a constraint
+// and appends to the per-scope constraint list.
 func (is *InertSet) tagScope(ct Ct) {
 	if is.ctScope == nil {
 		is.ctScope = make(map[Ct]int)
 	}
 	is.ctScope[ct] = is.scopeDepth
+	if is.scopeCts == nil {
+		is.scopeCts = make(map[int][]Ct)
+	}
+	is.scopeCts[is.scopeDepth] = append(is.scopeCts[is.scopeDepth], ct)
 }
 
 // clearScope removes all constraints with scope depth >= d.
+// Uses the per-scope constraint list (scopeCts) to visit only relevant constraints.
 func (is *InertSet) clearScope(d int) {
-	// Collect constraints to remove.
+	// Collect constraints at scope depths >= d.
 	var toRemove []Ct
-	for ct, scope := range is.ctScope {
-		if scope >= d {
-			toRemove = append(toRemove, ct)
+	for depth := d; ; depth++ {
+		cts := is.scopeCts[depth]
+		if len(cts) == 0 && depth > is.scopeDepth {
+			break
 		}
+		toRemove = append(toRemove, cts...)
+		delete(is.scopeCts, depth)
 	}
+	if len(toRemove) == 0 {
+		return
+	}
+	// Build set for given-eq filtering.
+	removedSet := make(map[Ct]bool, len(toRemove))
 	for _, ct := range toRemove {
+		removedSet[ct] = true
 		switch c := ct.(type) {
 		case *CtClass:
 			is.removeClass(c)
@@ -227,12 +248,7 @@ func (is *InertSet) clearScope(d int) {
 		delete(is.ctScope, ct)
 	}
 	// Clear given equalities at this scope.
-	// Check the toRemove set rather than ctScope (already deleted above).
 	if len(is.givenEqs) > 0 {
-		removedSet := make(map[Ct]bool, len(toRemove))
-		for _, ct := range toRemove {
-			removedSet[ct] = true
-		}
 		var remaining []*CtEq
 		for _, g := range is.givenEqs {
 			if !removedSet[g] {
@@ -241,15 +257,12 @@ func (is *InertSet) clearScope(d int) {
 		}
 		is.givenEqs = remaining
 	}
-	// Clear resolution keys at this scope (conservative: clear all at scope >= d).
-	// Resolution keys don't track scope, so we clear all of them when any scope is cleared.
-	// This is safe: the resolution cache is an optimization, not a correctness concern.
-	if len(toRemove) > 0 {
-		clear(is.resolutionKeys)
-	}
+	// Clear resolution keys (conservative: clear all when any constraint is removed).
+	clear(is.resolutionKeys)
 }
 
-// indexMetas adds ct to the meta index for each given meta ID.
+// indexMetas adds ct to the meta index for each given meta ID
+// and records the reverse mapping in ctMetas.
 func (is *InertSet) indexMetas(ct Ct, metaIDs []int) {
 	if len(metaIDs) == 0 {
 		return
@@ -260,6 +273,32 @@ func (is *InertSet) indexMetas(ct Ct, metaIDs []int) {
 	for _, id := range metaIDs {
 		is.metaIndex[id] = append(is.metaIndex[id], ct)
 	}
+	if is.ctMetas == nil {
+		is.ctMetas = make(map[Ct][]int)
+	}
+	is.ctMetas[ct] = metaIDs
+}
+
+// removeFromOtherMetaBuckets removes a constraint from all meta index buckets
+// except the one identified by skipID (which has already been deleted).
+func (is *InertSet) removeFromOtherMetaBuckets(ct Ct, skipID int) {
+	metaIDs := is.ctMetas[ct]
+	for _, id := range metaIDs {
+		if id == skipID {
+			continue
+		}
+		cts := is.metaIndex[id]
+		for i, indexed := range cts {
+			if indexed == ct {
+				last := len(cts) - 1
+				cts[i] = cts[last]
+				cts[last] = nil
+				is.metaIndex[id] = cts[:last]
+				break
+			}
+		}
+	}
+	delete(is.ctMetas, ct)
 }
 
 // removeClass removes a specific CtClass from the classMap using swap-remove.

@@ -102,12 +102,15 @@ func anyTypeDepth(t Type, pred func(Type) bool, depth int) bool {
 	if pred(t) {
 		return true
 	}
-	for _, ch := range t.Children() {
+	found := false
+	ForEachChild(t, func(ch Type) bool {
 		if anyTypeDepth(ch, pred, depth+1) {
-			return true
+			found = true
+			return false
 		}
-	}
-	return false
+		return true
+	})
+	return found
 }
 
 // CollectTypes traverses a type tree and collects values extracted by f.
@@ -126,7 +129,8 @@ func collectTypesRec[T any](t Type, f func(Type) (T, bool), result *[]T, depth i
 	if v, ok := f(t); ok {
 		*result = append(*result, v)
 	}
-	for _, ch := range t.Children() {
+	ForEachChild(t, func(ch Type) bool {
 		collectTypesRec(ch, f, result, depth+1)
-	}
+		return true
+	})
 }

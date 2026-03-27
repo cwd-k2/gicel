@@ -82,12 +82,26 @@ func NormalizeConstraints(r *TyEvidenceRow) *TyEvidenceRow {
 	}
 }
 
-// ExtendConstraint adds a constraint entry to a constraint evidence row.
+// ExtendConstraint adds a constraint entry to a constraint evidence row,
+// maintaining sorted order by canonical key.
 func ExtendConstraint(r *TyEvidenceRow, e ConstraintEntry) *TyEvidenceRow {
 	old := r.ConEntries()
 	entries := make([]ConstraintEntry, len(old)+1)
-	copy(entries, old)
-	entries[len(old)] = e
+	key := ConstraintKey(e)
+	inserted := false
+	j := 0
+	for _, o := range old {
+		if !inserted && key < ConstraintKey(o) {
+			entries[j] = e
+			j++
+			inserted = true
+		}
+		entries[j] = o
+		j++
+	}
+	if !inserted {
+		entries[j] = e
+	}
 	return &TyEvidenceRow{
 		Entries: &ConstraintEntries{Entries: entries},
 		Tail:    r.Tail,
@@ -121,6 +135,16 @@ func ClassifyRowFields(a, b []RowField) (shared, onlyA, onlyB []string) {
 		}
 	}
 	return
+}
+
+// RowFieldByLabel returns a pointer to the row field with the given label, or nil.
+func RowFieldByLabel(fields []RowField, label string) *RowField {
+	for i := range fields {
+		if fields[i].Label == label {
+			return &fields[i]
+		}
+	}
+	return nil
 }
 
 // RowFieldType returns the type of a row field with the given label, or nil.

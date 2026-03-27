@@ -18,9 +18,27 @@ var (
 	TypeOfRows = &TyCon{Name: "Row", Level: L1}
 	// TypeOfConstraints is the kind of constraint types: Constraint :: Kind (level 1).
 	TypeOfConstraints = &TyCon{Name: "Constraint", Level: L1}
+	// TypeOfLabels is the kind of type-level label literals: Label :: Kind (level 1).
+	TypeOfLabels = &TyCon{Name: "Label", Level: L1}
 	// SortZero is the sort of kinds: Kind :: Sort₂ (level 2).
 	SortZero = &TyCon{Name: "Kind", Level: L2}
 )
+
+// IsBuiltinKindCon reports whether a TyCon is one of the built-in kind
+// constants (Type, Row, Constraint, Label, Kind). Identified by name and
+// level, not pointer identity — safe for TyCons constructed via any path.
+func IsBuiltinKindCon(t *TyCon) bool {
+	if t.Level == nil {
+		return false
+	}
+	switch t.Name {
+	case "Type", "Row", "Constraint", "Label":
+		return LevelEqual(t.Level, L1)
+	case "Kind":
+		return LevelEqual(t.Level, L2)
+	}
+	return false
+}
 
 // PromotedDataKind creates a kind-level TyCon for a promoted data type (DataKinds).
 func PromotedDataKind(name string) *TyCon {

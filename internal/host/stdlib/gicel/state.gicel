@@ -8,3 +8,10 @@ put := assumption
 
 modify :: \s r. (s -> s) -> Computation { state: s | r } { state: s | r } ()
 modify := \f. do { s <- get; put (f s) }
+
+-- Named capability variants: label-parameterized state access.
+getAt :: \(l: Label) s r. Computation { l: s | r } { l: s | r } s
+getAt := assumption
+
+putAt :: \(l: Label) s1 s2 r. s2 -> Computation { l: s1 | r } { l: s2 | r } ()
+putAt := assumption

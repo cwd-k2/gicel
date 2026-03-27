@@ -17,3 +17,7 @@ fromResult := \r. case r {
   Err e => failWith e;
   Ok x  => pure x
 }
+
+-- Named capability variant.
+failWithAt :: \(l: Label) e r a. e -> Computation { l: e | r } { l: e | r } a
+failWithAt := assumption

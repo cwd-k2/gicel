@@ -447,7 +447,7 @@ func TestSubst_LamCaptureAvoidance(t *testing.T) {
 	// which captures the free "y" in the replacement. With the guard, we bail out.
 	expr := lam("y", app(v("x"), v("y")))
 	replacement := v("y")
-	result := subst(expr, "x", replacement)
+	result := substFV(expr, "x", replacement, ir.FreeVars(replacement))
 	// The guard should detect that "y" is free in replacement and Lam binds "y",
 	// so subst bails out, returning the original expression unchanged.
 	if !coreEq(result, expr) {
@@ -460,11 +460,11 @@ func TestSubst_FixCaptureAvoidance(t *testing.T) {
 	// subst "x" (Var "f") — "f" is free in replacement and bound by fix
 	expr := &ir.Fix{Name: "f", Body: lam("z", app(v("f"), v("x")))}
 	replacement := v("f")
-	// Verify capturedBy detects the conflict.
-	if !capturedBy("f", replacement) {
-		t.Fatalf("capturedBy should detect 'f' free in Var{f}")
+	// Verify free var detection.
+	if _, free := ir.FreeVars(replacement)["f"]; !free {
+		t.Fatalf("FreeVars should detect 'f' free in Var{f}")
 	}
-	result := subst(expr, "x", replacement)
+	result := substFV(expr, "x", replacement, ir.FreeVars(replacement))
 	// Guard should bail out — result should be the exact same pointer.
 	if result != expr {
 		t.Fatalf("Fix capture: expected same pointer (bail out), got different object")
@@ -480,7 +480,7 @@ func TestSubst_BindCaptureAvoidance(t *testing.T) {
 		Body: app(v("x"), v("y")),
 	}
 	replacement := v("y")
-	result := subst(expr, "x", replacement)
+	result := substFV(expr, "x", replacement, ir.FreeVars(replacement))
 	// Comp should still be substituted (it's not under the binder),
 	// but body should be left unchanged due to capture risk.
 	bind, ok := result.(*ir.Bind)
@@ -502,7 +502,7 @@ func TestSubst_BindCaptureAvoidance(t *testing.T) {
 func TestSubst_ThroughTyLam(t *testing.T) {
 	// subst (TyLam "a" (Var "x")) "x" (Var "y") → TyLam "a" (Var "y")
 	expr := &ir.TyLam{TyParam: "a", Body: v("x")}
-	result := subst(expr, "x", v("y"))
+	result := substFV(expr, "x", v("y"), ir.FreeVars(v("y")))
 	tl, ok := result.(*ir.TyLam)
 	if !ok {
 		t.Fatalf("expected TyLam, got %T", result)
@@ -516,7 +516,7 @@ func TestSubst_ThroughPrimOp(t *testing.T) {
 	// subst (PrimOp "_f" [Var "x", Var "z"]) "x" (Var "y")
 	//   → PrimOp "_f" [Var "y", Var "z"]
 	expr := primop("_f", 2, v("x"), v("z"))
-	result := subst(expr, "x", v("y"))
+	result := substFV(expr, "x", v("y"), ir.FreeVars(v("y")))
 	po, ok := result.(*ir.PrimOp)
 	if !ok {
 		t.Fatalf("expected PrimOp, got %T", result)
@@ -532,7 +532,7 @@ func TestSubst_ThroughPrimOp(t *testing.T) {
 func TestSubst_ThroughRecordLit(t *testing.T) {
 	// subst (RecordLit {a: Var "x"}) "x" (Var "y") → RecordLit {a: Var "y"}
 	expr := &ir.RecordLit{Fields: []ir.RecordField{{Label: "a", Value: v("x")}}}
-	result := subst(expr, "x", v("y"))
+	result := substFV(expr, "x", v("y"), ir.FreeVars(v("y")))
 	rec, ok := result.(*ir.RecordLit)
 	if !ok {
 		t.Fatalf("expected RecordLit, got %T", result)

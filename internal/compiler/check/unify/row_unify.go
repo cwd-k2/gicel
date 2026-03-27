@@ -48,21 +48,29 @@ func (u *Unifier) unifyEvCapRows(
 
 	shared, onlyLeft, onlyRight := types.ClassifyRowFields(aFieldsN, bFieldsN)
 
+	// Build label→index maps for O(1) field access during shared-label unification.
+	aIndex := make(map[string]int, len(aFieldsN))
+	for i, f := range aFieldsN {
+		aIndex[f.Label] = i
+	}
+	bIndex := make(map[string]int, len(bFieldsN))
+	for i, f := range bFieldsN {
+		bIndex[f.Label] = i
+	}
+
 	for _, label := range shared {
-		t1 := types.RowFieldType(aFieldsN, label)
-		t2 := types.RowFieldType(bFieldsN, label)
-		if err := u.Unify(t1, t2); err != nil {
+		aField := aFieldsN[aIndex[label]]
+		bField := bFieldsN[bIndex[label]]
+		if err := u.Unify(aField.Type, bField.Type); err != nil {
 			return err
 		}
 		// Unify grade annotations pairwise — count must match.
-		g1 := types.RowFieldGrades(aFieldsN, label)
-		g2 := types.RowFieldGrades(bFieldsN, label)
-		if len(g1) != len(g2) {
+		if len(aField.Grades) != len(bField.Grades) {
 			return &UnifyError{Kind: UnifyMismatch, Detail: fmt.Sprintf(
-				"grade count mismatch for label %q: %d vs %d", label, len(g1), len(g2))}
+				"grade count mismatch for label %q: %d vs %d", label, len(aField.Grades), len(bField.Grades))}
 		}
-		for i := range g1 {
-			if err := u.Unify(g1[i], g2[i]); err != nil {
+		for i := range aField.Grades {
+			if err := u.Unify(aField.Grades[i], bField.Grades[i]); err != nil {
 				return err
 			}
 		}
