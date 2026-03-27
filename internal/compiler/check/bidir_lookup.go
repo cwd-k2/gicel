@@ -31,9 +31,11 @@ func (ch *Checker) matchArrow(ty types.Type, s span.Span) (types.Type, types.Typ
 		return arr.From, arr.To
 	}
 	// Generate fresh metas and decompose eagerly.
-	// Eager unification is required: the fresh metas on the RHS are the
-	// checker's own decomposition targets, so "stuck on unsolved meta" in
-	// the solver would suppress the error indefinitely.
+	// Eager unification is required here: callers use argTy/retTy immediately
+	// for downstream checking (e.g., check(arg, argTy)), so the metas must
+	// be solved before control returns. The headIsMeta check in processCtEq
+	// would correctly handle error detection, but deferral would leave the
+	// decomposition metas unsolved when callers need them.
 	argTy := ch.freshMeta(types.TypeOfTypes)
 	retTy := ch.freshMeta(types.TypeOfTypes)
 	if err := ch.unifier.Unify(ty, types.MkArrow(argTy, retTy)); err != nil {

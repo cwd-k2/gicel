@@ -289,6 +289,13 @@ func constraintKey(className string, args []types.Type) string {
 // Given equalities (from GADT refinement) are dispatched to processGivenEq.
 // Wanted equalities are zonked and unified; stuck constraints are inserted
 // into the inert set for re-activation when blocking metas are solved.
+//
+// Stuck detection distinguishes structural head mismatch from genuinely
+// stuck constraints. When both heads are known (not metas), unification
+// failure is a real type error — reported immediately even if decomposition
+// metas exist deeper in the types. Only when a head is an unsolved meta
+// (meaning the structural comparison cannot yet be performed) is the
+// constraint deferred to the inert set.
 func (s *Solver) processCtEq(ct *CtEq) {
 	if ct.Flavor == CtGiven {
 		s.processGivenEq(ct)
@@ -297,29 +304,54 @@ func (s *Solver) processCtEq(ct *CtEq) {
 	lhs := s.env.Zonk(ct.Lhs)
 	rhs := s.env.Zonk(ct.Rhs)
 	if err := s.env.Unify(lhs, rhs); err != nil {
-		// Check if stuck (contains metas) vs genuinely unsatisfiable.
+		// If both heads are known (not metas), this is a genuine structural
+		// mismatch — report immediately even if decomposition metas exist.
+		if !headIsMeta(lhs) && !headIsMeta(rhs) {
+			s.reportEqError(ct, lhs, rhs)
+			return
+		}
+		// Potentially stuck: a head is an unsolved meta.
 		lhsMetas := collectMetaIDs([]types.Type{lhs})
 		rhsMetas := collectMetaIDs([]types.Type{rhs})
-		blocking := make([]int, 0, len(lhsMetas)+len(rhsMetas))
-		blocking = append(blocking, lhsMetas...)
-		blocking = append(blocking, rhsMetas...)
+		blocking := append(lhsMetas, rhsMetas...)
 		if len(blocking) > 0 {
-			// Stuck: register in inert set for re-activation.
 			ct.Lhs = lhs
 			ct.Rhs = rhs
 			s.inertSet.InsertEq(ct, blocking)
 			return
 		}
-		// Genuinely unsatisfiable equality.
-		if ct.Origin != nil && ct.Origin.Code != 0 {
-			s.env.AddCodedError(ct.Origin.Code, ct.S, ct.Origin.Context)
-		} else if ct.Origin != nil && ct.Origin.Context != "" {
-			s.env.AddCodedError(diagnostic.ErrTypeMismatch, ct.S, ct.Origin.Context)
-		} else {
-			s.env.AddCodedError(diagnostic.ErrTypeMismatch, ct.S,
-				fmt.Sprintf("unsatisfiable type equality: %s ~ %s",
-					types.Pretty(lhs), types.Pretty(rhs)))
-		}
+		s.reportEqError(ct, lhs, rhs)
+	}
+}
+
+// headIsMeta returns true if the type's outermost head constructor is an
+// unsolved meta. For example:
+//
+//	?m         → true   (bare meta)
+//	?m Int     → true   (meta applied to args)
+//	Int        → false  (concrete head)
+//	Int -> Bool → false (concrete head)
+//	(?a -> ?b) → false  (arrow head, not meta)
+func headIsMeta(t types.Type) bool {
+	if _, ok := t.(*types.TyMeta); ok {
+		return true
+	}
+	head, _ := types.UnwindApp(t)
+	_, ok := head.(*types.TyMeta)
+	return ok
+}
+
+// reportEqError reports a type equality error using the constraint's Origin
+// context when available, falling back to a generic message.
+func (s *Solver) reportEqError(ct *CtEq, lhs, rhs types.Type) {
+	if ct.Origin != nil && ct.Origin.Code != 0 {
+		s.env.AddCodedError(ct.Origin.Code, ct.S, ct.Origin.Context)
+	} else if ct.Origin != nil && ct.Origin.Context != "" {
+		s.env.AddCodedError(diagnostic.ErrTypeMismatch, ct.S, ct.Origin.Context)
+	} else {
+		s.env.AddCodedError(diagnostic.ErrTypeMismatch, ct.S,
+			fmt.Sprintf("unsatisfiable type equality: %s ~ %s",
+				types.Pretty(lhs), types.Pretty(rhs)))
 	}
 }
 
