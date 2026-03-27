@@ -13,9 +13,6 @@ import (
 
 // maxResolveDepth default is set via Budget.SetResolveDepthLimit in newChecker.
 
-// dictName returns the dictionary type/constructor name for a class.
-func dictName(className string) string { return className + "$Dict" }
-
 // ExtractDictField builds a Case expression that extracts the field at fieldIdx
 // from a class dictionary constructor. prefix is used for generated variable names.
 func (s *Solver) ExtractDictField(classInfo *env.ClassInfo, dictExpr ir.Core, fieldIdx int, prefix string, sp span.Span) ir.Core {
@@ -112,7 +109,7 @@ func (s *Solver) resolveInstance(className string, args []types.Type, sp span.Sp
 func (s *Solver) matchesDictVar(v *env.CtxVar, className string, args []types.Type) bool {
 	ty := s.env.Zonk(v.Type)
 	head, tyArgs := types.UnwindApp(ty)
-	if con, ok := head.(*types.TyCon); ok && con.Name == dictName(className) {
+	if con, ok := head.(*types.TyCon); ok && con.Name == env.DictName(className) {
 		if len(tyArgs) != len(args) {
 			return false
 		}
@@ -146,8 +143,15 @@ func (s *Solver) extractSuperDict(v *env.CtxVar, targetClass string, targetArgs 
 	if !ok {
 		return nil
 	}
-	if _, isDict := s.env.ClassFromDict(con.Name); !isDict {
+	parentClass, isDict := s.env.ClassFromDict(con.Name)
+	if !isDict {
 		return nil
+	}
+	// Fast rejection: target class not in this class's transitive superclass set.
+	if classInfo, ok := s.env.LookupClass(parentClass); ok {
+		if classInfo.SuperClosure != nil && !classInfo.SuperClosure[targetClass] {
+			return nil
+		}
 	}
 	search := &superDictSearch{
 		solver: s, targetClass: targetClass, targetArgs: targetArgs,
@@ -204,7 +208,7 @@ func (sd *superDictSearch) chain(dictExpr ir.Core, dictTyName string, dictTyArgs
 		}
 
 		// Transitive: search within this superclass's dict.
-		result := sd.chain(extractExpr, dictName(sup.ClassName), superArgs)
+		result := sd.chain(extractExpr, env.DictName(sup.ClassName), superArgs)
 		if result != nil {
 			return result
 		}

@@ -308,7 +308,7 @@ Type, row, and kind equivalence. The equality theory includes:
 case  do  form  type  impl  infixl  infixr  infixn  import  if  then  else
 ```
 
-12 keywords. Note that `pure`, `bind`, `thunk`, `force`, `assumption`, `rec`, and `fix` are **not** keywords — they are ordinary identifiers with built-in meaning. `pure`, `bind`, `rec`, and `fix` are first-class functions (can be partially applied and passed to higher-order functions); `thunk` and `force` are term formers (must be fully applied).
+Keywords are listed above. Note that `pure`, `bind`, `thunk`, `force`, `assumption`, `rec`, and `fix` are **not** keywords — they are ordinary identifiers with built-in meaning. `pure`, `bind`, `rec`, and `fix` are first-class functions (can be partially applied and passed to higher-order functions); `thunk` and `force` are term formers (must be fully applied).
 
 `\` is used for both lambda (`\x. e`) and universal quantification (`\a. T`). Both use `.` as the body separator. The parser disambiguates by context (expression vs. type). Multi-parameter lambdas are supported: `\x y. e` desugars to `\x. \y. e`.
 
@@ -1014,7 +1014,7 @@ Packed    (independent — collection packing)
 Eq ──→ Num ──→ Div   (in Prelude)
 ```
 
-17 type classes (1 in Core, 16 in Prelude):
+Type classes (Core + Prelude):
 
 | Class         | Parameters                       | Key Methods                                                       |
 | ------------- | -------------------------------- | ----------------------------------------------------------------- |
@@ -1474,7 +1474,7 @@ gicel run --module Util=lib/Util.gicel main.gicel
 The Prelude is split into two parts:
 
 - **Core** (not replaceable): language-essential definitions — `IxMonad` class, `Computation` instance, `Effect` alias, `Suspended` alias, `seq` combinator, `Lift` type alias
-- **Prelude** (replaceable): standard library types, classes, instances — `Bool`, `Maybe`, `List`, `Ordering`, 16 type classes (Eq through ToList, including Num and Div), instances
+- **Prelude** (replaceable): standard library types, classes, instances — `Bool`, `Maybe`, `List`, `Ordering`, type classes (Eq through ToList, including Num and Div), instances
 
 Core is auto-registered and auto-imported; the user cannot control it. Prelude requires explicit `Use(Prelude)` on the engine and `import Prelude` in source.
 
@@ -1653,7 +1653,7 @@ Each Go-side pack bundles type registration, module source, and primitive implem
 
 | Go Pack       | Module         | Provides                                                                |
 | ------------- | -------------- | ----------------------------------------------------------------------- |
-| `Prelude`     | `Prelude`      | Num/Str/List: arithmetic, string ops, list ops, 16 type classes, 5 ADTs |
+| `Prelude`     | `Prelude`      | Num/Str/List: arithmetic, string ops, list ops, type classes, ADTs      |
 | `EffectFail`  | `Effect.Fail`  | `fail` capability, `fromMaybe`, `fromResult`                            |
 | `EffectState` | `Effect.State` | `get`/`put` capabilities                                                |
 | `EffectIO`    | `Effect.IO`    | `print`/`debug` via CapEnv buffer                                       |

@@ -5,6 +5,7 @@ import (
 	"strings"
 	"unicode"
 
+	"github.com/cwd-k2/gicel/internal/compiler/check/env"
 	"github.com/cwd-k2/gicel/internal/infra/diagnostic"
 	"github.com/cwd-k2/gicel/internal/infra/span"
 	"github.com/cwd-k2/gicel/internal/lang/ir"
@@ -33,14 +34,11 @@ func collectKindVars(k syntax.TypeExpr, kindVars map[string]bool, params *[]stri
 	}
 }
 
-// dictName returns the dictionary type/constructor name for a class.
-func dictName(className string) string { return className + "$Dict" }
-
 // processClassLikeForm elaborates a class-like form declaration into:
 // 1. A DataDecl for the dictionary type
 // 2. Selector bindings for each method
 func (ch *Checker) processClassLikeForm(d *syntax.DeclForm, parts formBodyParts, prog *ir.Program) {
-	dn := dictName(d.Name)
+	dn := env.DictName(d.Name)
 
 	// Reject default method implementations (not yet supported).
 	for _, f := range parts.Fields {
@@ -177,13 +175,15 @@ func (ch *Checker) registerAssocTypes(parts formBodyParts, className string) []s
 			atParams = append(atParams, TFParam{Name: p.Name, Kind: ch.resolveKindExpr(p.Kind)})
 		}
 		resultKind := ch.resolveKindExpr(td.KindAnn)
-		ch.reg.RegisterFamily(td.Name, &TypeFamilyInfo{
+		if err := ch.reg.RegisterFamily(td.Name, &TypeFamilyInfo{
 			Name:       td.Name,
 			Params:     atParams,
 			ResultKind: resultKind,
 			IsAssoc:    true,
 			ClassName:  className,
-		})
+		}); err != nil {
+			ch.addCodedError(diagnostic.ErrTypeFamilyEquation, td.S, err.Error())
+		}
 	}
 	return assocTypeNames
 }
@@ -275,7 +275,7 @@ func (ch *Checker) buildMethodSelector(cls *ClassInfo, m MethodInfo, methodIdx i
 
 // buildDictType constructs the dictionary type for a class applied to arguments.
 func (ch *Checker) buildDictType(className string, args []types.Type) types.Type {
-	var ty types.Type = types.Con(dictName(className))
+	var ty types.Type = types.Con(env.DictName(className))
 	for _, a := range args {
 		ty = &types.TyApp{Fun: ty, Arg: a}
 	}
@@ -338,6 +338,19 @@ func (ch *Checker) validateSuperclassGraph() bool {
 
 		path = path[:len(path)-1]
 		colors[name] = black
+		// Compute transitive superclass closure.
+		if info, ok := classes[name]; ok {
+			closure := make(map[string]bool, len(info.Supers))
+			for _, sup := range info.Supers {
+				closure[sup.ClassName] = true
+				if supInfo, ok := classes[sup.ClassName]; ok && supInfo.SuperClosure != nil {
+					for k := range supInfo.SuperClosure {
+						closure[k] = true
+					}
+				}
+			}
+			info.SuperClosure = closure
+		}
 		return false
 	}
 

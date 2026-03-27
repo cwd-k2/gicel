@@ -81,7 +81,7 @@ Packed    (independent)
 Show      (independent)
 ```
 
-17 type classes total: `IxMonad` (Core) + `Eq`, `Ord`, `Show`, `Num`, `Div`, `Semigroup`, `Monoid`, `Functor`, `Foldable`, `Applicative`, `Alternative`, `Monad`, `Traversable`, `Packed`, `FromList`, `ToList` (Prelude).
+The class hierarchy includes `IxMonad` (Core) and Prelude classes such as `Eq`, `Ord`, `Show`, `Num`, `Div`, `Semigroup`, `Monoid`, `Functor`, `Foldable`, `Applicative`, `Alternative`, `Monad`, `Traversable`, `Packed`, `FromList`, `ToList`, among others.
 
 ### Elaboration
 

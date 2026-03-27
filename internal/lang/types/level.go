@@ -91,9 +91,21 @@ func IsValueLevel(l LevelExpr) bool {
 }
 
 // IsKindLevel returns true if the level is 1 (kind level).
+// nil is normalized to L0, so IsKindLevel(nil) returns false.
 func IsKindLevel(l LevelExpr) bool {
+	l = normalizeLevel(l)
 	if lit, ok := l.(*LevelLit); ok {
 		return lit.N == 1
+	}
+	return false
+}
+
+// IsSortLevel returns true if the level is >= 2 (sort level or higher).
+// nil is normalized to L0, so IsSortLevel(nil) returns false.
+func IsSortLevel(l LevelExpr) bool {
+	l = normalizeLevel(l)
+	if lit, ok := l.(*LevelLit); ok {
+		return lit.N >= 2
 	}
 	return false
 }

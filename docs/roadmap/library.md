@@ -6,7 +6,7 @@ GICEL のライブラリ、CLI、ツーリング、ホスト API の方向性。
 
 ### 現状
 
-12 packs: Prelude, Effect.Fail, Effect.State, Effect.IO, Data.Stream, Data.Slice, Effect.Array, Data.Map, Data.Set, Effect.Map, Effect.Set, Console
+Packs: Prelude, Effect.Fail, Effect.State, Effect.IO, Data.Stream, Data.Slice, Effect.Array, Data.Map, Data.Set, Effect.Map, Effect.Set, Data.JSON, Console
 
 ### 方向性
 
@@ -27,7 +27,7 @@ GICEL のライブラリ、CLI、ツーリング、ホスト API の方向性。
 
 ### 現状
 
-4 commands: run, check, docs, example。`--packs`, `--module`, `--explain`, `--json` 等の主要フラグは整備済み。
+Commands: run, check, docs, example。`--packs`, `--module`, `--explain`, `--json` 等の主要フラグは整備済み。
 
 ### 方向性
 
