@@ -188,6 +188,13 @@ func equalAlpha(a, b Type, bindings []alphaBinding) bool {
 		return ok && at.ID == bt.ID
 
 	case *TyError:
+		// TyError is structurally equal only to another TyError.
+		// This differs from Unify, where TyError absorbs any type (error recovery).
+		// The distinction is intentional: Equal answers "are these the same type?"
+		// (no — TyError is not Int), while Unify answers "can these coexist without
+		// reporting a new error?" (yes — cascading errors are suppressed).
+		// Making Equal treat TyError as universal would suppress grade violations,
+		// corrupt type family pattern matching, and break row label deduplication.
 		_, ok := b.(*TyError)
 		return ok
 

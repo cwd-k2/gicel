@@ -314,7 +314,11 @@ func (u *Unifier) Unify(a, b types.Type) error {
 	a = u.normalize(a)
 	b = u.normalize(b)
 
-	// Error types unify with anything.
+	// Error types unify with anything (poison absorption for error recovery).
+	// This prevents cascading errors when one side is already an error.
+	// Note: types.Equal does NOT treat TyError this way — Equal is structural
+	// ("are these the same type?"), while Unify is error-aware ("can these
+	// coexist without reporting a new error?"). See equal.go TyError comment.
 	if _, ok := a.(*types.TyError); ok {
 		return nil
 	}
@@ -585,6 +589,8 @@ func (u *Unifier) collectMetaIDsRec(t types.Type, seen map[int]bool, ids *[]int)
 
 // occursIn uses Children() for generic traversal, unlike Zonk which uses
 // manual recursion for identity-preserving path compression.
+// No budget check: recursion depth is bounded by the structural size of the
+// type, which is finite and bounded by the outer Unify/Zonk budget.
 func (u *Unifier) occursIn(id int, t types.Type) bool {
 	t = u.Zonk(t)
 	switch ty := t.(type) {

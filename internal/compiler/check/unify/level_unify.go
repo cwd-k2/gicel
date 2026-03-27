@@ -65,6 +65,8 @@ func (u *Unifier) solveLevelMeta(m *types.LevelMeta, l types.LevelExpr) error {
 }
 
 // levelOccursIn checks whether a level metavariable ID appears in a level expression.
+// No budget check: level expressions are structurally small (bounded by the
+// number of level operations in the source program).
 func levelOccursIn(id int, l types.LevelExpr) bool {
 	switch ll := l.(type) {
 	case *types.LevelMeta:
