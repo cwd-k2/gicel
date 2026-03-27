@@ -134,11 +134,11 @@ func (ch *Checker) resolveTypeExpr(texpr syntax.TypeExpr) types.Type {
 		if t.Tail != nil {
 			tail = &types.TyVar{Name: t.Tail.Name, S: t.Tail.S}
 		}
-		return &types.TyEvidenceRow{
-			Entries: &types.CapabilityEntries{Fields: fields},
-			Tail:    tail,
-			S:       t.S,
+		// Use ClosedRow/OpenRow to ensure sorted field order.
+		if tail == nil {
+			return types.ClosedRow(fields...)
 		}
+		return types.OpenRow(fields, tail)
 	case *syntax.TyExprQual:
 		// Equality constraint: a ~ T => Body
 		// Embedded in TyEvidence as ConstraintEntry with IsEquality=true.

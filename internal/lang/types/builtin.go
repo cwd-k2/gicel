@@ -24,6 +24,17 @@ var (
 	SortZero = &TyCon{Name: "Kind", Level: L2}
 )
 
+// IsBuiltinKindCon reports whether a TyCon is one of the built-in kind
+// constants (Type, Row, Constraint, Label, Kind). These have Level L1 or L2
+// but are NOT label literals — they have kind Sort₀.
+func IsBuiltinKindCon(t *TyCon) bool {
+	switch t.Name {
+	case "Type", "Row", "Constraint", "Label", "Kind":
+		return t == TypeOfTypes || t == TypeOfRows || t == TypeOfConstraints || t == TypeOfLabels || t == SortZero
+	}
+	return false
+}
+
 // PromotedDataKind creates a kind-level TyCon for a promoted data type (DataKinds).
 func PromotedDataKind(name string) *TyCon {
 	return &TyCon{Name: name, Level: L1}
