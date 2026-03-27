@@ -442,8 +442,19 @@ func (u *Unifier) Unify(a, b types.Type) error {
 		}
 	case *types.TyForall:
 		if bt, ok := b.(*types.TyForall); ok {
+			// Kind check: quantified variables must have compatible kinds.
+			if at.Kind != nil && bt.Kind != nil {
+				if err := u.Unify(at.Kind, bt.Kind); err != nil {
+					return err
+				}
+			}
 			// Unify bodies with bound variables treated as equal.
-			return u.Unify(at.Body, types.Subst(bt.Body, bt.Var, &types.TyVar{Name: at.Var}))
+			// Use a fresh variable to avoid capture: substitute both sides
+			// to a common name that cannot clash with free variables.
+			fresh := &types.TyVar{Name: at.Var}
+			bodyA := at.Body
+			bodyB := types.Subst(bt.Body, bt.Var, fresh)
+			return u.Unify(bodyA, bodyB)
 		}
 	case *types.TyCBPV:
 		if bt, ok := b.(*types.TyCBPV); ok && at.Tag == bt.Tag {
@@ -570,6 +581,10 @@ func (u *Unifier) solveMeta(m *types.TyMeta, t types.Type) error {
 func (u *Unifier) SolveFreshMeta(m *types.TyMeta, t types.Type) bool {
 	// Touchability: reject if meta was created at an outer level.
 	if u.SolverLevel >= 0 && m.Level < u.SolverLevel {
+		return false
+	}
+	// Occurs check: reject infinite types (e.g., ?m = List ?m).
+	if u.occursIn(m.ID, t) {
 		return false
 	}
 	u.trailSolnWrite(m.ID)
