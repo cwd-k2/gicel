@@ -539,6 +539,19 @@ func (u *Unifier) solveMeta(m *types.TyMeta, t types.Type) error {
 	return nil
 }
 
+// SolveFreshMeta directly solves a fresh (unsolved) metavariable to a value.
+// Used as a trivial shortcut during constraint generation: when a meta is
+// freshly created and immediately unifiable with a known type, this skips
+// the overhead of emitting a CtEq and processing it through the solver.
+// Precondition: m must be unsolved (Solve(m.ID) == nil).
+func (u *Unifier) SolveFreshMeta(m *types.TyMeta, t types.Type) {
+	u.trailSolnWrite(m.ID)
+	u.soln[m.ID] = t
+	if u.OnSolve != nil {
+		u.OnSolve(m.ID)
+	}
+}
+
 // CollectBlockingMetas collects all unsolved meta IDs in the given types,
 // using the current solution map to resolve already-solved metas.
 func (u *Unifier) CollectBlockingMetas(tys []types.Type) []int {

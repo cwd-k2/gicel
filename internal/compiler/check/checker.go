@@ -358,6 +358,27 @@ func (s *CheckState) freshSkolem(name string, k types.Type) *types.TySkolem {
 	return &types.TySkolem{ID: id, Name: name, Kind: k}
 }
 
+// tryTrivialUnify attempts to solve a trivial unification eagerly.
+// Returns true if solved (both sides are identical, or one is a fresh meta).
+// This is a legitimate shortcut: the result is identical to emitting a CtEq
+// and having the solver process it, but avoids the overhead.
+func (ch *Checker) tryTrivialUnify(a, b types.Type) bool {
+	a = ch.unifier.Zonk(a)
+	b = ch.unifier.Zonk(b)
+	if a == b {
+		return true
+	}
+	if m, ok := a.(*types.TyMeta); ok && ch.unifier.Solve(m.ID) == nil {
+		ch.unifier.SolveFreshMeta(m, b)
+		return true
+	}
+	if m, ok := b.(*types.TyMeta); ok && ch.unifier.Solve(m.ID) == nil {
+		ch.unifier.SolveFreshMeta(m, a)
+		return true
+	}
+	return false
+}
+
 // isSortKind checks whether a kind-as-Type is a sort (universe level >= 2),
 // i.e. the kind of kinds. This replaces the old `f.Kind.(types.KSort)` assertion.
 func isSortKind(k types.Type) bool {

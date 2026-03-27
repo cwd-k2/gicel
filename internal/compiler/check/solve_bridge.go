@@ -74,6 +74,12 @@ func (ch *Checker) emitClassConstraint(placeholder string, entry types.Constrain
 	ch.solver.EmitClassConstraint(placeholder, entry, s)
 }
 
+// emitEq emits a type equality constraint to the solver worklist.
+// Origin provides semantic context for error reporting; nil = generic message.
+func (ch *Checker) emitEq(lhs, rhs types.Type, s span.Span, origin *solve.CtOrigin) {
+	ch.solver.Emit(&solve.CtEq{Lhs: lhs, Rhs: rhs, Origin: origin, S: s})
+}
+
 // resolveDeferredConstraints discharges all worklist constraints eagerly.
 func (ch *Checker) resolveDeferredConstraints(expr ir.Core) ir.Core {
 	return ch.solver.ResolveDeferredConstraints(expr)

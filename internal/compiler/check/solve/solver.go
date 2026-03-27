@@ -279,9 +279,15 @@ func (s *Solver) processCtEq(ct *CtEq) {
 			return
 		}
 		// Genuinely unsatisfiable equality.
-		s.env.AddCodedError(diagnostic.ErrTypeMismatch, ct.S,
-			fmt.Sprintf("unsatisfiable type equality: %s ~ %s",
-				types.Pretty(lhs), types.Pretty(rhs)))
+		if ct.Origin != nil && ct.Origin.Code != 0 {
+			s.env.AddCodedError(ct.Origin.Code, ct.S, ct.Origin.Context)
+		} else if ct.Origin != nil && ct.Origin.Context != "" {
+			s.env.AddCodedError(diagnostic.ErrTypeMismatch, ct.S, ct.Origin.Context)
+		} else {
+			s.env.AddCodedError(diagnostic.ErrTypeMismatch, ct.S,
+				fmt.Sprintf("unsatisfiable type equality: %s ~ %s",
+					types.Pretty(lhs), types.Pretty(rhs)))
+		}
 	}
 }
 

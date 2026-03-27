@@ -1,6 +1,7 @@
 package solve
 
 import (
+	"github.com/cwd-k2/gicel/internal/infra/diagnostic"
 	"github.com/cwd-k2/gicel/internal/infra/span"
 	"github.com/cwd-k2/gicel/internal/lang/types"
 )
@@ -50,13 +51,22 @@ type CtFunEq struct {
 func (*CtFunEq) ctMarker()           {}
 func (c *CtFunEq) ctSpan() span.Span { return c.S }
 
+// CtOrigin records the generation site context of a constraint.
+// When the solver reports errors, it uses Origin to produce semantic
+// error messages (matching the quality of inline error reporting).
+type CtOrigin struct {
+	Code    diagnostic.Code // semantic error code (0 = use default ErrTypeMismatch)
+	Context string          // human-readable context ("bind: first argument must be a computation")
+}
+
 // CtEq represents a type equality constraint: Lhs ~ Rhs.
-// Emitted from user-written (a ~ Int) => constraints and (future)
-// solver-managed GADT given equalities.
+// Emitted from user-written (a ~ Int) => constraints, checker-generated
+// type equalities, and (future) solver-managed GADT given equalities.
 type CtEq struct {
-	Lhs types.Type
-	Rhs types.Type
-	S   span.Span
+	Lhs    types.Type
+	Rhs    types.Type
+	Origin *CtOrigin // nil = generic error message
+	S      span.Span
 }
 
 func (*CtEq) ctMarker()           {}
