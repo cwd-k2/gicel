@@ -246,6 +246,31 @@ func (l *Lexer) scanToken() syn.Token {
 			return syn.Token{Kind: syn.TokUpper, Text: text, S: span.Span{Start: span.Pos(start), End: span.Pos(l.pos)}}
 		}
 
+		// Label literal: `name (type-level label)
+		if ch == '`' {
+			l.pos++ // consume backtick
+			labelStart := l.pos
+			for l.pos < len(l.source.Text) {
+				r, size := utf8.DecodeRuneInString(l.source.Text[l.pos:])
+				if !isIdentCont(r) && !isLowerStart(r) && !isUpperStart(r) {
+					break
+				}
+				l.pos += size
+			}
+			text := l.source.Text[labelStart:l.pos]
+			if text == "" {
+				l.errors.Add(&diagnostic.Error{
+					Code:    diagnostic.ErrUnexpectedChar,
+					Phase:   diagnostic.PhaseLex,
+					Span:    span.Span{Start: span.Pos(start), End: span.Pos(l.pos)},
+					Message: "empty label literal",
+				})
+				l.skipWhitespaceAndComments()
+				continue
+			}
+			return syn.Token{Kind: syn.TokLabelLit, Text: text, S: span.Span{Start: span.Pos(start), End: span.Pos(l.pos)}}
+		}
+
 		// Operator
 		if isOperatorChar(ch) {
 			for l.pos < len(l.source.Text) {

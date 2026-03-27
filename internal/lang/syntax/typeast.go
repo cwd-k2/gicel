@@ -96,6 +96,13 @@ type TyExprEq struct {
 	S   span.Span
 }
 
+// TyExprLabelLit is a type-level label literal: `name.
+// Resolves to TyCon{Name: name, Level: L1} with kind Label.
+type TyExprLabelLit struct {
+	Label string
+	S     span.Span
+}
+
 type TyBinder struct {
 	Name string
 	Kind TypeExpr // nil means kind not annotated (inferred)
@@ -110,26 +117,28 @@ type TyRowField struct {
 	S       span.Span
 }
 
-func (*TyExprVar) typeExprNode()     {}
-func (*TyExprCon) typeExprNode()     {}
-func (*TyExprQualCon) typeExprNode() {}
-func (*TyExprApp) typeExprNode()     {}
-func (*TyExprArrow) typeExprNode()   {}
-func (*TyExprForall) typeExprNode()  {}
-func (*TyExprRow) typeExprNode()     {}
-func (*TyExprParen) typeExprNode()   {}
-func (*TyExprCase) typeExprNode()    {}
-func (*TyExprQual) typeExprNode()    {}
-func (*TyExprEq) typeExprNode()      {}
+func (*TyExprVar) typeExprNode()      {}
+func (*TyExprCon) typeExprNode()      {}
+func (*TyExprQualCon) typeExprNode()  {}
+func (*TyExprApp) typeExprNode()      {}
+func (*TyExprArrow) typeExprNode()    {}
+func (*TyExprForall) typeExprNode()   {}
+func (*TyExprRow) typeExprNode()      {}
+func (*TyExprParen) typeExprNode()    {}
+func (*TyExprCase) typeExprNode()     {}
+func (*TyExprQual) typeExprNode()     {}
+func (*TyExprEq) typeExprNode()       {}
+func (*TyExprLabelLit) typeExprNode() {}
 
-func (t *TyExprVar) Span() span.Span     { return t.S }
-func (t *TyExprCon) Span() span.Span     { return t.S }
-func (t *TyExprQualCon) Span() span.Span { return t.S }
-func (t *TyExprApp) Span() span.Span     { return t.S }
-func (t *TyExprArrow) Span() span.Span   { return t.S }
-func (t *TyExprForall) Span() span.Span  { return t.S }
-func (t *TyExprRow) Span() span.Span     { return t.S }
-func (t *TyExprParen) Span() span.Span   { return t.S }
-func (t *TyExprCase) Span() span.Span    { return t.S }
-func (t *TyExprQual) Span() span.Span    { return t.S }
-func (t *TyExprEq) Span() span.Span      { return t.S }
+func (t *TyExprVar) Span() span.Span      { return t.S }
+func (t *TyExprCon) Span() span.Span      { return t.S }
+func (t *TyExprQualCon) Span() span.Span  { return t.S }
+func (t *TyExprApp) Span() span.Span      { return t.S }
+func (t *TyExprArrow) Span() span.Span    { return t.S }
+func (t *TyExprForall) Span() span.Span   { return t.S }
+func (t *TyExprRow) Span() span.Span      { return t.S }
+func (t *TyExprParen) Span() span.Span    { return t.S }
+func (t *TyExprCase) Span() span.Span     { return t.S }
+func (t *TyExprQual) Span() span.Span     { return t.S }
+func (t *TyExprEq) Span() span.Span       { return t.S }
+func (t *TyExprLabelLit) Span() span.Span { return t.S }

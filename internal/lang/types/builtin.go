@@ -18,6 +18,8 @@ var (
 	TypeOfRows = &TyCon{Name: "Row", Level: L1}
 	// TypeOfConstraints is the kind of constraint types: Constraint :: Kind (level 1).
 	TypeOfConstraints = &TyCon{Name: "Constraint", Level: L1}
+	// TypeOfLabels is the kind of type-level label literals: Label :: Kind (level 1).
+	TypeOfLabels = &TyCon{Name: "Label", Level: L1}
 	// SortZero is the sort of kinds: Kind :: Sort₂ (level 2).
 	SortZero = &TyCon{Name: "Kind", Level: L2}
 )

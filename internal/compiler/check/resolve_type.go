@@ -182,6 +182,9 @@ func (ch *Checker) resolveTypeExpr(texpr syntax.TypeExpr) types.Type {
 		return types.Con("()")
 	case *syntax.TyExprParen:
 		return ch.resolveTypeExpr(t.Inner)
+	case *syntax.TyExprLabelLit:
+		// Label literals are type-level constants of kind Label.
+		return &types.TyCon{Name: t.Label, Level: types.L1, S: t.S}
 	default:
 		ch.addCodedError(diagnostic.ErrTypeMismatch, texpr.Span(), fmt.Sprintf("unsupported type expression: %T", texpr))
 		return &types.TyError{S: texpr.Span()}

@@ -228,6 +228,10 @@ func (p *Parser) parseTypeAtom() syn.TypeExpr {
 		return &syn.TyExprParen{Inner: ty, S: span.Span{Start: start, End: p.prevEnd()}}
 	case syn.TokLBrace:
 		return p.parseRowType()
+	case syn.TokLabelLit:
+		tok := p.peek()
+		p.advance()
+		return &syn.TyExprLabelLit{Label: tok.Text, S: tok.S}
 	default:
 		p.addErrorCode(diagnostic.ErrExpectedType, "expected type")
 		tok := p.peek()

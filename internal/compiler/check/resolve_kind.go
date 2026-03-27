@@ -25,6 +25,8 @@ func (ch *Checker) resolveKindExpr(k syntax.TypeExpr) types.Type {
 			return types.TypeOfConstraints
 		case "Kind":
 			return types.SortZero
+		case "Label":
+			return types.TypeOfLabels
 		default:
 			if ch.reg.IsKindVar(ke.Name) {
 				return &types.TyVar{Name: ke.Name}
@@ -180,6 +182,10 @@ func (ch *Checker) kindOfType(ty types.Type) types.Type {
 		}
 		if k, ok := ch.reg.LookupPromotedCon(t.Name); ok {
 			return k
+		}
+		// Label literal TyCons at kind level (Level L1) have kind Label.
+		if types.IsKindLevel(t.Level) {
+			return types.TypeOfLabels
 		}
 		return types.TypeOfTypes
 	case *types.TyApp:

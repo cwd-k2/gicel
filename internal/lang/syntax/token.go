@@ -60,6 +60,7 @@ const (
 	TokDoubleLit // 3.14, 1e10, 1.05e+10
 	TokStrLit    // "string"
 	TokRuneLit   // 'c'
+	TokLabelLit  // `label (type-level label literal)
 )
 
 // Token is a single lexical unit.
@@ -133,6 +134,8 @@ func (k TokenKind) String() string {
 		return "string"
 	case TokRuneLit:
 		return "rune"
+	case TokLabelLit:
+		return "label"
 	default:
 		return "keyword"
 	}
