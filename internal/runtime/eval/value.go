@@ -63,19 +63,25 @@ type RecordField struct {
 }
 
 // RecordVal is a record value { l1: v1, ..., ln: vn }.
-// Fields are stored as a sorted slice for cache-friendly access
-// and reduced GC pressure compared to map[string]Value.
+// Fields are stored as a label-sorted slice. Sorted order is enforced
+// by NewRecord/NewRecordFromMap/Update constructors, enabling O(log n)
+// binary search in Get.
 type RecordVal struct {
 	fields []RecordField
-	// Fields is the legacy map accessor. It is populated lazily on first
-	// access via the Fields method, for backward compatibility during migration.
 }
 
 // Get returns the value for the given label, or (nil, false).
+// Uses binary search on the sorted field slice.
 func (r *RecordVal) Get(label string) (Value, bool) {
-	for i := range r.fields {
-		if r.fields[i].Label == label {
-			return r.fields[i].Value, true
+	lo, hi := 0, len(r.fields)
+	for lo < hi {
+		mid := lo + (hi-lo)/2
+		if r.fields[mid].Label < label {
+			lo = mid + 1
+		} else if r.fields[mid].Label > label {
+			hi = mid
+		} else {
+			return r.fields[mid].Value, true
 		}
 	}
 	return nil, false
@@ -106,8 +112,9 @@ func (r *RecordVal) AsMap() map[string]Value {
 	return m
 }
 
-// NewRecord creates a RecordVal from fields (must be label-sorted).
+// NewRecord creates a RecordVal from fields, sorting by label.
 func NewRecord(fields []RecordField) *RecordVal {
+	sort.Slice(fields, func(i, j int) bool { return fields[i].Label < fields[j].Label })
 	return &RecordVal{fields: fields}
 }
 
