@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/cwd-k2/gicel/internal/infra/budget"
 	"github.com/cwd-k2/gicel/internal/runtime/eval"
 )
 
@@ -37,7 +38,10 @@ func asRefCell(v eval.Value) (*refCell, error) {
 }
 
 // _refNew :: a -> Computation { ref: () | r } { ref: () | r } (Ref a)
-func refNewImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
+func refNewImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
+	if err := budget.ChargeAlloc(ctx, costSlotSize); err != nil {
+		return nil, ce, err
+	}
 	return &eval.HostVal{Inner: &refCell{value: args[0]}}, ce, nil
 }
 
