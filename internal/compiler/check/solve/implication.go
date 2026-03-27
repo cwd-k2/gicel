@@ -12,10 +12,11 @@ import (
 // install given equalities, solve inner wanteds, then partition residuals
 // into floatable (promoted to outer) and stuck (local skolem/meta → error).
 //
-// Currently unused in production — GADT branches use CheckWithLocalScope
-// which handles DK body checking inline. This function processes
-// pre-collected Wanteds (no DK interleaving), so SolverLevel is set
-// immediately. Retained as infrastructure for future constraint kinds.
+// GADT branches currently use CheckWithLocalScope which handles DK body
+// checking inline. This function processes pre-collected Wanteds (no DK
+// interleaving), so SolverLevel is set immediately. It will be activated
+// once EnterGenerationScope / ExitGenerationScope collect body constraints
+// and the checker wraps them as CtImplication wanteds.
 func (s *Solver) processCtImplication(ct *CtImplication, outerResolutions map[string]ir.Core) {
 	savedWorklist := s.SaveWorklist()
 

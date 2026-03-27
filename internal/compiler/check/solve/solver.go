@@ -31,6 +31,14 @@ type Solver struct {
 	// vacuously well-typed: remaining wanteds are skipped.
 	inaccessible bool
 
+	// genScope, when non-nil, collects constraints emitted during DK
+	// body checking for later wrapping as CtImplication wanteds.
+	// Infrastructure for future OutsideIn(X) phase separation; not yet
+	// activated (Emit does not divert to genScope). The checker will
+	// use EnterGenerationScope / ExitGenerationScope to bracket body
+	// checking once processCtImplication is fully integrated.
+	genScope *generationScope
+
 	env Env
 }
 
@@ -381,6 +389,40 @@ func (s *Solver) processCtFunEq(ct *CtFunEq) {
 	if len(ct.BlockingOn) > 0 {
 		s.inertSet.InsertFunEq(ct)
 	}
+}
+
+// generationScope collects constraints emitted during DK body checking.
+// Used by EnterGenerationScope / ExitGenerationScope to bracket
+// constraint collection for future CtImplication wrapping.
+type generationScope struct {
+	collected []Ct
+}
+
+// EnterGenerationScope begins collecting constraints for a DK body.
+// Constraints emitted after this call (when the scope is eventually
+// activated via Emit diversion) will be collected rather than pushed
+// to the main worklist. Currently infrastructure-only: Emit is not
+// yet modified to divert; the checker can call these methods to test
+// the scope lifecycle without affecting constraint flow.
+func (s *Solver) EnterGenerationScope() {
+	s.genScope = &generationScope{}
+}
+
+// ExitGenerationScope ends constraint collection and returns all
+// constraints gathered since the matching EnterGenerationScope.
+// Returns nil if no generation scope was active.
+func (s *Solver) ExitGenerationScope() []Ct {
+	if s.genScope == nil {
+		return nil
+	}
+	cts := s.genScope.collected
+	s.genScope = nil
+	return cts
+}
+
+// GenerationScopeActive reports whether a generation scope is active.
+func (s *Solver) GenerationScopeActive() bool {
+	return s.genScope != nil
 }
 
 // zonkAll applies Zonk to each type in the slice.

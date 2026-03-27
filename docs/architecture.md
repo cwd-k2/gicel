@@ -95,11 +95,11 @@ infra/span   ──→ (isolated)
 
 ### lang — language definition
 
-| Package       | Responsibility                                          |
-| ------------- | ------------------------------------------------------- |
-| `lang/syntax` | AST node types, token definitions, source-level helpers |
+| Package       | Responsibility                                             |
+| ------------- | ---------------------------------------------------------- |
+| `lang/syntax` | AST node types, token definitions, source-level helpers    |
 | `lang/types`  | Type (unified across universe levels), row types, evidence |
-| `lang/ir`     | Core IR (17 formers), program structure, walkers        |
+| `lang/ir`     | Core IR (17 formers), program structure, walkers           |
 
 ### compiler — source to Core IR
 
