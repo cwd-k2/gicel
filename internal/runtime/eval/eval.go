@@ -15,8 +15,8 @@ const (
 	costConBase = 32               // ConVal struct
 	costConArg  = 16               // per arg in []Value
 	costThunk   = 32               // ThunkVal struct (incl. Source pointer)
-	costRecBase = 56               // RecordVal struct + map header
-	costRecFld  = 32               // per field in map[string]Value
+	costRecBase = 32               // RecordVal struct + slice header
+	costRecFld  = 24               // per RecordField (label string + Value interface)
 	costFix     = costClosure + 40 // Closure + Env node for fix binding
 )
 
