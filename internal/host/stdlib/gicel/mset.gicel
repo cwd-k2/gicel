@@ -47,3 +47,21 @@ fromList := _msetFromList compare
 
 fold :: \k b r. (b -> k -> b) -> b -> MSet k -> Computation { mset: () | r } { mset: () | r } b
 fold := _msetFold
+
+_msetUnion :: \k r. (k -> k -> Ordering) -> MSet k -> MSet k -> Computation { mset: () | r } { mset: () | r } (MSet k)
+_msetUnion := assumption
+
+_msetIntersection :: \k r. (k -> k -> Ordering) -> MSet k -> MSet k -> Computation { mset: () | r } { mset: () | r } (MSet k)
+_msetIntersection := assumption
+
+_msetDifference :: \k r. (k -> k -> Ordering) -> MSet k -> MSet k -> Computation { mset: () | r } { mset: () | r } (MSet k)
+_msetDifference := assumption
+
+union :: \k r. Ord k => MSet k -> MSet k -> Computation { mset: () | r } { mset: () | r } (MSet k)
+union := _msetUnion compare
+
+intersection :: \k r. Ord k => MSet k -> MSet k -> Computation { mset: () | r } { mset: () | r } (MSet k)
+intersection := _msetIntersection compare
+
+difference :: \k r. Ord k => MSet k -> MSet k -> Computation { mset: () | r } { mset: () | r } (MSet k)
+difference := _msetDifference compare
