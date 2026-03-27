@@ -97,9 +97,12 @@ func (b *Budget) Enter() error {
 	return nil
 }
 
-// Leave decrements nesting depth.
+// Leave decrements call depth. Clamps at zero to prevent underflow
+// from unbalanced Enter/Leave sequences.
 func (b *Budget) Leave() {
-	b.depth--
+	if b.depth > 0 {
+		b.depth--
+	}
 }
 
 // Nest increments structural nesting depth. Returns an error if the
@@ -114,9 +117,11 @@ func (b *Budget) Nest() error {
 	return nil
 }
 
-// Unnest decrements structural nesting depth.
+// Unnest decrements structural nesting depth. Clamps at zero.
 func (b *Budget) Unnest() {
-	b.nesting--
+	if b.nesting > 0 {
+		b.nesting--
+	}
 }
 
 // Alloc records a heap allocation. Returns an error if the cumulative

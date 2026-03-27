@@ -1,5 +1,7 @@
 package eval
 
+import "fmt"
+
 // Environment representation:
 //
 //   - globals: map[string]Value held on the Evaluator, set once before eval,
@@ -27,8 +29,13 @@ const (
 )
 
 // LookupLocal returns the value at the given de Bruijn index in the local stack.
+// Panics with a descriptive message if the index is out of bounds.
 func LookupLocal(locals []Value, index int) Value {
-	return locals[len(locals)-1-index]
+	pos := len(locals) - 1 - index
+	if pos < 0 || pos >= len(locals) {
+		panic(fmt.Sprintf("LookupLocal: index %d out of bounds (stack size %d)", index, len(locals)))
+	}
+	return locals[pos]
 }
 
 // Push appends a single value to the local stack (amortized O(1) via append).
