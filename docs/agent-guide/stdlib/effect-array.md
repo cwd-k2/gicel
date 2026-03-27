@@ -19,3 +19,17 @@ Provides mutable fixed-size arrays with O(1) read/write, gated by the `{ array: 
 - Mutation is in-place. The `Array` value is a mutable reference.
 - `size` is pure (no effect annotation needed).
 - Out-of-bounds reads return `Nothing`; out-of-bounds writes are no-ops.
+
+**Example:**
+
+```
+import Prelude
+import Effect.Array
+
+main := do {
+  arr <- new 3 0;            -- [0, 0, 0]
+  writeAt 1 42 arr;          -- [0, 42, 0]
+  v <- readAt 1 arr;         -- Just 42
+  pure v
+}
+```

@@ -11,3 +11,17 @@ Provides get/put state capabilities via the `state` capability in CapEnv. Load w
 | `modify` | `\s r. (s -> s) -> Computation { state: s \| r } { state: s \| r } ()` | Apply a function to state |
 
 Host provides `"state"` capability. Final state is in `result.CapEnv`.
+
+**Example:**
+
+```
+import Prelude
+import Effect.State
+
+main := do {
+  put 0;
+  modify (+ 5);
+  modify (* 2);
+  get              -- 10
+}
+```
