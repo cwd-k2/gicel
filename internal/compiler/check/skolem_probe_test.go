@@ -22,7 +22,7 @@ import (
 // with a concrete type should produce an error.
 func TestProbeD_Skolem_RigidUnifyWithConcrete(t *testing.T) {
 	u := unify.NewUnifier()
-	sk := &types.TySkolem{ID: 1, Name: "a", Kind: types.KType{}}
+	sk := &types.TySkolem{ID: 1, Name: "a", Kind: types.TypeOfTypes}
 	err := u.Unify(sk, types.Con("Int"))
 	if err == nil {
 		t.Fatal("expected skolem rigidity error, got nil")
@@ -37,7 +37,7 @@ func TestProbeD_Skolem_RigidUnifyWithConcrete(t *testing.T) {
 // should succeed.
 func TestProbeD_Skolem_SameSkolemUnifies(t *testing.T) {
 	u := unify.NewUnifier()
-	sk := &types.TySkolem{ID: 1, Name: "a", Kind: types.KType{}}
+	sk := &types.TySkolem{ID: 1, Name: "a", Kind: types.TypeOfTypes}
 	if err := u.Unify(sk, sk); err != nil {
 		t.Fatalf("same skolem should unify: %v", err)
 	}
@@ -47,8 +47,8 @@ func TestProbeD_Skolem_SameSkolemUnifies(t *testing.T) {
 // not unify.
 func TestProbeD_Skolem_DifferentSkolemsRefuse(t *testing.T) {
 	u := unify.NewUnifier()
-	sk1 := &types.TySkolem{ID: 1, Name: "a", Kind: types.KType{}}
-	sk2 := &types.TySkolem{ID: 2, Name: "b", Kind: types.KType{}}
+	sk1 := &types.TySkolem{ID: 1, Name: "a", Kind: types.TypeOfTypes}
+	sk2 := &types.TySkolem{ID: 2, Name: "b", Kind: types.TypeOfTypes}
 	err := u.Unify(sk1, sk2)
 	if err == nil {
 		t.Fatal("different skolems should not unify")
@@ -59,8 +59,8 @@ func TestProbeD_Skolem_DifferentSkolemsRefuse(t *testing.T) {
 // to contain a skolem should be detected if the skolem escapes.
 func TestProbeD_Skolem_MetaSolvedToSkolemInRow(t *testing.T) {
 	u := unify.NewUnifier()
-	sk := &types.TySkolem{ID: 1, Name: "a", Kind: types.KType{}}
-	meta := &types.TyMeta{ID: 2, Kind: types.KType{}}
+	sk := &types.TySkolem{ID: 1, Name: "a", Kind: types.TypeOfTypes}
+	meta := &types.TyMeta{ID: 2, Kind: types.TypeOfTypes}
 
 	// Solve meta = F skolem
 	wrapped := &types.TyApp{Fun: types.Con("F"), Arg: sk}

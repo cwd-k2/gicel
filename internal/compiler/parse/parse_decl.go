@@ -94,10 +94,10 @@ func (p *Parser) parseFormDecl() *syn.DeclForm {
 	p.expect(syn.TokForm)
 	name := p.expectUpper()
 
-	var kindAnn syn.KindExpr
+	var kindAnn syn.TypeExpr
 	if p.peek().Kind == syn.TokColonColon {
 		p.advance()
-		kindAnn = p.parseKindExpr()
+		kindAnn = p.parseKindAnnotation()
 	}
 
 	p.expect(syn.TokColonEq)
@@ -210,10 +210,10 @@ func (p *Parser) parseTypeDecl() *syn.DeclTypeAlias {
 	p.expect(syn.TokType)
 	name := p.expectUpper()
 
-	var kindAnn syn.KindExpr
+	var kindAnn syn.TypeExpr
 	if p.peek().Kind == syn.TokColonColon {
 		p.advance()
-		kindAnn = p.parseKindExpr()
+		kindAnn = p.parseKindAnnotation()
 	}
 
 	p.expect(syn.TokColonEq)

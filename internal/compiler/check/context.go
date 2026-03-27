@@ -71,7 +71,7 @@ func (c *Context) LookupVarFull(name string) (types.Type, string, bool) {
 	return nil, "", false
 }
 
-func (c *Context) LookupTyVar(name string) (types.Kind, bool) {
+func (c *Context) LookupTyVar(name string) (types.Type, bool) {
 	for i := len(c.entries) - 1; i >= 0; i-- {
 		if v, ok := c.entries[i].(*CtxTyVar); ok && v.Name == name {
 			return v.Kind, true

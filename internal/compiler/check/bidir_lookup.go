@@ -31,8 +31,8 @@ func (ch *Checker) matchArrow(ty types.Type, s span.Span) (types.Type, types.Typ
 		return arr.From, arr.To
 	}
 	// Generate fresh metas.
-	argTy := ch.freshMeta(types.KType{})
-	retTy := ch.freshMeta(types.KType{})
+	argTy := ch.freshMeta(types.TypeOfTypes)
+	retTy := ch.freshMeta(types.TypeOfTypes)
 	if err := ch.unifier.Unify(ty, types.MkArrow(argTy, retTy)); err != nil {
 		ch.addSemanticUnifyError(diagnostic.ErrBadApplication, err, s, fmt.Sprintf("expected function type, got %s", types.Pretty(ty)))
 	}
@@ -181,7 +181,7 @@ func (ch *Checker) patternName(p syntax.Pattern) string {
 
 // inferList handles list literal [e1, e2, ...] by desugaring to Cons/Nil chain.
 func (ch *Checker) inferList(e *syntax.ExprList) (types.Type, ir.Core) {
-	elemTy := ch.freshMeta(types.KType{})
+	elemTy := ch.freshMeta(types.TypeOfTypes)
 	listTy := &types.TyApp{Fun: types.Con("List"), Arg: elemTy}
 
 	// Build from the end: Nil, then Cons e_n (Cons e_{n-1} ...)

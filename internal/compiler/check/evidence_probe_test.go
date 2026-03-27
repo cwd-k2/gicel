@@ -319,7 +319,7 @@ func TestProbeE_Evidence_ConstraintRowWithMismatchedClass(t *testing.T) {
 // args contain metas should unify and solve the metas.
 func TestProbeE_Evidence_ConstraintRowWithMetaArgs(t *testing.T) {
 	u := unify.NewUnifier()
-	meta := &types.TyMeta{ID: 1, Kind: types.KType{}}
+	meta := &types.TyMeta{ID: 1, Kind: types.TypeOfTypes}
 	a := types.SingleConstraint("Eq", []types.Type{meta})
 	b := types.SingleConstraint("Eq", []types.Type{types.Con("Bool")})
 	if err := u.Unify(a, b); err != nil {

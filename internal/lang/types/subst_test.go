@@ -65,7 +65,7 @@ func TestSubstApp(t *testing.T) {
 
 func TestSubstForallShadow(t *testing.T) {
 	// forall a. a  [a := Int]  →  forall a. a  (shadowed)
-	ty := &TyForall{Var: "a", Kind: KType{}, Body: &TyVar{Name: "a"}}
+	ty := &TyForall{Var: "a", Kind: TypeOfTypes, Body: &TyVar{Name: "a"}}
 	result := Subst(ty, "a", &TyCon{Name: "Int"})
 	if result != ty {
 		t.Error("substitution should be blocked by shadowing forall")
@@ -78,7 +78,7 @@ func TestSubstForallNoCapture(t *testing.T) {
 	ResetFreshCounter()
 	ty := &TyForall{
 		Var:  "a",
-		Kind: KType{},
+		Kind: TypeOfTypes,
 		Body: &TyArrow{From: &TyVar{Name: "a"}, To: &TyVar{Name: "b"}},
 	}
 	result := Subst(ty, "b", &TyVar{Name: "a"})
@@ -115,7 +115,7 @@ func TestSubstFamilyApp(t *testing.T) {
 	ty := &TyFamilyApp{
 		Name: "F",
 		Args: []Type{&TyVar{Name: "a"}, &TyCon{Name: "Int"}},
-		Kind: KType{},
+		Kind: TypeOfTypes,
 	}
 	result := Subst(ty, "a", &TyCon{Name: "Bool"})
 	fam, ok := result.(*TyFamilyApp)
@@ -131,7 +131,7 @@ func TestSubstFamilyApp(t *testing.T) {
 }
 
 func TestSubstMeta(t *testing.T) {
-	ty := &TyMeta{ID: 42, Kind: KType{}}
+	ty := &TyMeta{ID: 42, Kind: TypeOfTypes}
 	result := Subst(ty, "a", &TyCon{Name: "Int"})
 	if result != ty {
 		t.Error("TyMeta should be unchanged by substitution")
@@ -139,7 +139,7 @@ func TestSubstMeta(t *testing.T) {
 }
 
 func TestSubstSkolem(t *testing.T) {
-	ty := &TySkolem{ID: 1, Name: "sk", Kind: KType{}}
+	ty := &TySkolem{ID: 1, Name: "sk", Kind: TypeOfTypes}
 	result := Subst(ty, "a", &TyCon{Name: "Int"})
 	if result != ty {
 		t.Error("TySkolem should be unchanged by substitution")
@@ -223,7 +223,7 @@ func TestSubstManyShadowing(t *testing.T) {
 	// a is shadowed, only b should be substituted.
 	ty := &TyForall{
 		Var:  "a",
-		Kind: KType{},
+		Kind: TypeOfTypes,
 		Body: &TyArrow{From: &TyVar{Name: "a"}, To: &TyVar{Name: "b"}},
 	}
 	result := SubstMany(ty, map[string]Type{
@@ -240,27 +240,30 @@ func TestSubstManyShadowing(t *testing.T) {
 	}
 }
 
-// --- SubstKindInType ---
+// --- SubstKindInType (now delegates to Subst) ---
 
 func TestSubstKindInTypeForallKind(t *testing.T) {
 	ty := &TyForall{
 		Var:  "a",
-		Kind: KVar{Name: "k"},
+		Kind: &TyVar{Name: "k"},
 		Body: &TyVar{Name: "a"},
 	}
-	result := SubstKindInType(ty, "k", KType{})
+	result := SubstKindInType(ty, "k", TypeOfTypes)
 	forall := result.(*TyForall)
-	if _, ok := forall.Kind.(KType); !ok {
-		t.Errorf("kind should be KType, got %v", forall.Kind)
+	if !Equal(forall.Kind, TypeOfTypes) {
+		t.Errorf("kind should be TypeOfTypes, got %v", Pretty(forall.Kind))
 	}
 }
 
 func TestSubstKindInTypeMetaKind(t *testing.T) {
-	ty := &TyMeta{ID: 1, Kind: KVar{Name: "k"}}
-	result := SubstKindInType(ty, "k", KType{})
+	// After Kind->Type unification, Subst treats TyMeta as a leaf.
+	// So substitution into TyMeta.Kind does NOT happen via Subst.
+	ty := &TyMeta{ID: 1, Kind: &TyVar{Name: "k"}}
+	result := SubstKindInType(ty, "k", TypeOfTypes)
 	meta := result.(*TyMeta)
-	if _, ok := meta.Kind.(KType); !ok {
-		t.Errorf("kind should be KType, got %v", meta.Kind)
+	// TyMeta is opaque to Subst, so Kind remains unchanged.
+	if _, ok := meta.Kind.(*TyVar); !ok {
+		t.Errorf("TyMeta.Kind should remain TyVar after Subst, got %T", meta.Kind)
 	}
 }
 

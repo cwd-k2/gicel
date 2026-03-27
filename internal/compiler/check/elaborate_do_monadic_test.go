@@ -80,7 +80,7 @@ main :: Maybe Int
 main := do { pure 42; pure 0 }
 `
 	config := &CheckConfig{
-		RegisteredTypes: map[string]types.Kind{"Int": types.KType{}},
+		RegisteredTypes: map[string]types.Type{"Int": types.TypeOfTypes},
 	}
 	checkSource(t, source, config)
 }
@@ -102,7 +102,7 @@ main :: Maybe Int
 main := do { x <- pure 42; mpure x }
 `
 	config := &CheckConfig{
-		RegisteredTypes: map[string]types.Kind{"Int": types.KType{}},
+		RegisteredTypes: map[string]types.Type{"Int": types.TypeOfTypes},
 	}
 	checkSource(t, source, config)
 }

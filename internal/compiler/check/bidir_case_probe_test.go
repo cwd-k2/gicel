@@ -14,9 +14,9 @@ import (
 // intStringConfig returns a CheckConfig with Int and String as ground types.
 func intStringConfig() *CheckConfig {
 	return &CheckConfig{
-		RegisteredTypes: map[string]types.Kind{
-			"Int":    types.KType{},
-			"String": types.KType{},
+		RegisteredTypes: map[string]types.Type{
+			"Int":    types.TypeOfTypes,
+			"String": types.TypeOfTypes,
 		},
 	}
 }

@@ -23,9 +23,9 @@ import (
 // should be compressed so m1 points directly to Int after Zonk.
 func TestProbeD_Zonk_MetaChainPathCompression(t *testing.T) {
 	u := unify.NewUnifier()
-	m1 := &types.TyMeta{ID: 1, Kind: types.KType{}}
-	m2 := &types.TyMeta{ID: 2, Kind: types.KType{}}
-	m3 := &types.TyMeta{ID: 3, Kind: types.KType{}}
+	m1 := &types.TyMeta{ID: 1, Kind: types.TypeOfTypes}
+	m2 := &types.TyMeta{ID: 2, Kind: types.TypeOfTypes}
+	m3 := &types.TyMeta{ID: 3, Kind: types.TypeOfTypes}
 
 	// Build chain: m1 -> m2 -> m3 -> Int
 	u.InstallTempSolution(1, m2)
@@ -48,7 +48,7 @@ func TestProbeD_Zonk_MetaChainPathCompression(t *testing.T) {
 // the meta itself.
 func TestProbeD_Zonk_UnsolvedMetaPreserved(t *testing.T) {
 	u := unify.NewUnifier()
-	m := &types.TyMeta{ID: 42, Kind: types.KType{}}
+	m := &types.TyMeta{ID: 42, Kind: types.TypeOfTypes}
 	result := u.Zonk(m)
 	if tm, ok := result.(*types.TyMeta); !ok || tm.ID != 42 {
 		t.Errorf("expected unsolved meta ?42, got %s", types.Pretty(result))
@@ -69,11 +69,11 @@ func TestProbeD_Zonk_StructuralIdentity(t *testing.T) {
 // TestProbeD_Zonk_TyForallBodyZonked — zonking a forall should zonk the body.
 func TestProbeD_Zonk_TyForallBodyZonked(t *testing.T) {
 	u := unify.NewUnifier()
-	m := &types.TyMeta{ID: 1, Kind: types.KType{}}
+	m := &types.TyMeta{ID: 1, Kind: types.TypeOfTypes}
 	if err := u.Unify(m, types.Con("Int")); err != nil {
 		t.Fatal(err)
 	}
-	forallTy := types.MkForall("a", types.KType{}, types.MkArrow(&types.TyVar{Name: "a"}, m))
+	forallTy := types.MkForall("a", types.TypeOfTypes, types.MkArrow(&types.TyVar{Name: "a"}, m))
 	result := u.Zonk(forallTy)
 	f, ok := result.(*types.TyForall)
 	if !ok {
@@ -96,7 +96,7 @@ func TestProbeD_Zonk_TyForallBodyZonked(t *testing.T) {
 // return the meta itself.
 func TestProbeE_Zonk_UnsolvedMetaPassthrough(t *testing.T) {
 	u := unify.NewUnifier()
-	m := &types.TyMeta{ID: 1, Kind: types.KType{}}
+	m := &types.TyMeta{ID: 1, Kind: types.TypeOfTypes}
 	result := u.Zonk(m)
 	if result != m {
 		t.Errorf("unsolved meta should pass through Zonk unchanged, got %T", result)
@@ -124,7 +124,7 @@ func TestProbeE_Zonk_DeepNesting(t *testing.T) {
 // the constraint row contains solved metas should work correctly.
 func TestProbeE_Zonk_TyEvidenceWithSolvedMeta(t *testing.T) {
 	u := unify.NewUnifier()
-	meta := &types.TyMeta{ID: 1, Kind: types.KType{}}
+	meta := &types.TyMeta{ID: 1, Kind: types.TypeOfTypes}
 	u.Unify(meta, types.Con("Bool"))
 	evidence := &types.TyEvidence{
 		Constraints: &types.TyEvidenceRow{
@@ -154,12 +154,12 @@ func TestProbeE_Zonk_TyEvidenceWithSolvedMeta(t *testing.T) {
 // TestProbeE_Zonk_TyFamilyApp — zonking a TyFamilyApp should zonk its args.
 func TestProbeE_Zonk_TyFamilyApp(t *testing.T) {
 	u := unify.NewUnifier()
-	meta := &types.TyMeta{ID: 1, Kind: types.KType{}}
+	meta := &types.TyMeta{ID: 1, Kind: types.TypeOfTypes}
 	u.Unify(meta, types.Con("Int"))
 	fam := &types.TyFamilyApp{
 		Name: "F",
 		Args: []types.Type{meta, types.Con("Bool")},
-		Kind: types.KType{},
+		Kind: types.TypeOfTypes,
 	}
 	result := u.Zonk(fam)
 	famResult, ok := result.(*types.TyFamilyApp)

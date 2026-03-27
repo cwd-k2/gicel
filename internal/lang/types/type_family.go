@@ -9,7 +9,7 @@ import "github.com/cwd-k2/gicel/internal/infra/span"
 type TyFamilyApp struct {
 	Name string
 	Args []Type
-	Kind Kind // result kind (from declaration)
+	Kind Type // result kind (from declaration)
 	S    span.Span
 }
 

@@ -43,7 +43,7 @@ func (ch *Checker) matchTyPattern(pat, arg types.Type, subst map[string]types.Ty
 func (ch *Checker) processTypeFamilyDecl(
 	name string,
 	syntaxParams []syntax.TyBinder,
-	kindAnn syntax.KindExpr,
+	kindAnn syntax.TypeExpr,
 	alts []syntax.TyAlt,
 	s span.Span,
 ) {
@@ -147,10 +147,10 @@ func (ch *Checker) registerBuiltinRowFamilies() {
 		ch.reg.RegisterFamily("Merge", &TypeFamilyInfo{
 			Name: "Merge",
 			Params: []TFParam{
-				{Name: "r1", Kind: types.KRow{}},
-				{Name: "r2", Kind: types.KRow{}},
+				{Name: "r1", Kind: types.TypeOfRows},
+				{Name: "r2", Kind: types.TypeOfRows},
 			},
-			ResultKind: types.KRow{},
+			ResultKind: types.TypeOfRows,
 		})
 	}
 }
@@ -171,7 +171,7 @@ func (ch *Checker) reduceTyFamily(name string, args []types.Type, s span.Span) (
 
 // registerStuckViaInert registers a stuck type family application as a
 // CtFunEq constraint in the inert set for later re-activation via OnSolve.
-func (ch *Checker) registerStuckViaInert(name string, args []types.Type, resultKind types.Kind, s span.Span) *types.TyMeta {
+func (ch *Checker) registerStuckViaInert(name string, args []types.Type, resultKind types.Type, s span.Span) *types.TyMeta {
 	blocking := ch.unifier.CollectBlockingMetas(args)
 	if len(blocking) == 0 {
 		return nil

@@ -92,21 +92,21 @@ func CollectPatternVarsRec(t types.Type, seen map[string]bool, result *[]string)
 
 // collectPatternVarKinds maps each pattern variable to its kind based on the
 // parameter position where it first appears.
-func collectPatternVarKinds(patterns []types.Type, params []env.TFParam) map[string]types.Kind {
-	result := make(map[string]types.Kind)
+func collectPatternVarKinds(patterns []types.Type, params []env.TFParam) map[string]types.Type {
+	result := make(map[string]types.Type)
 	for i, p := range patterns {
-		var paramKind types.Kind
+		var paramKind types.Type
 		if i < len(params) {
 			paramKind = params[i].Kind
 		} else {
-			paramKind = types.KType{}
+			paramKind = types.TypeOfTypes
 		}
 		collectVarKindsRec(p, paramKind, result)
 	}
 	return result
 }
 
-func collectVarKindsRec(t types.Type, contextKind types.Kind, result map[string]types.Kind) {
+func collectVarKindsRec(t types.Type, contextKind types.Type, result map[string]types.Type) {
 	switch ty := t.(type) {
 	case *types.TyVar:
 		if ty.Name != "_" {
@@ -115,8 +115,8 @@ func collectVarKindsRec(t types.Type, contextKind types.Kind, result map[string]
 			}
 		}
 	case *types.TyApp:
-		funKind := &types.KArrow{From: types.KType{}, To: contextKind}
+		funKind := &types.TyArrow{From: types.TypeOfTypes, To: contextKind}
 		collectVarKindsRec(ty.Fun, funKind, result)
-		collectVarKindsRec(ty.Arg, types.KType{}, result)
+		collectVarKindsRec(ty.Arg, types.TypeOfTypes, result)
 	}
 }

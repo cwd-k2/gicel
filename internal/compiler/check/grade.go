@@ -150,11 +150,11 @@ func (ch *Checker) registerGradeAlgebraFamilies() {
 // gradeAlgebraKind returns the kind to use for grade algebra parameters.
 // If "Mult" is registered as a promoted kind (via DataKinds), returns
 // KData{"Mult"}; otherwise falls back to KType{}.
-func gradeAlgebraKind(ch *Checker) types.Kind {
+func gradeAlgebraKind(ch *Checker) types.Type {
 	if k, ok := ch.reg.LookupPromotedKind("Mult"); ok {
 		return k
 	}
-	return types.KType{}
+	return types.TypeOfTypes
 }
 
 // gradeAlgebraClassName is the name of the user-facing grade algebra class.
@@ -171,7 +171,7 @@ type resolvedGradeAlgebra struct {
 // and extracts the associated type family names by reducing the associated types.
 // Falls back to the internal $GradeJoin/$GradeDrop families if no user-defined
 // GradeAlgebra instance is found.
-func (ch *Checker) resolveGradeAlgebra(gradeKind types.Kind) resolvedGradeAlgebra {
+func (ch *Checker) resolveGradeAlgebra(gradeKind types.Type) resolvedGradeAlgebra {
 	classInfo, hasClass := ch.reg.LookupClass(gradeAlgebraClassName)
 	if hasClass {
 		// Match grade kind against instance type args.
@@ -186,7 +186,7 @@ func (ch *Checker) resolveGradeAlgebra(gradeKind types.Kind) resolvedGradeAlgebr
 				continue
 			}
 			if con, ok := inst.TypeArgs[0].(*types.TyCon); ok {
-				if dk, ok := gradeKind.(types.KData); ok && dk.Name == con.Name {
+				if dk, ok := gradeKind.(*types.TyCon); ok && types.IsKindLevel(dk.Level) && dk.Name == con.Name {
 					return ch.extractGradeAlgebra(classInfo, inst)
 				}
 			}
@@ -305,7 +305,7 @@ func (ch *Checker) checkGradeBoundary(comp *types.TyCBPV, s span.Span) {
 
 // gradeCanPreserveDynamic checks whether a field with the given grade can be
 // preserved unchanged across a computation boundary, using the resolved grade algebra.
-func (ch *Checker) gradeCanPreserveDynamic(grade types.Type, gradeKind types.Kind) bool {
+func (ch *Checker) gradeCanPreserveDynamic(grade types.Type, gradeKind types.Type) bool {
 	algebra := ch.resolveGradeAlgebra(gradeKind)
 	drop := algebra.dropValue
 	joined, ok := ch.reduceTyFamily(algebra.joinFamily, []types.Type{drop, grade}, span.Span{})
@@ -323,7 +323,7 @@ func (ch *Checker) gradeCanPreserveDynamic(grade types.Type, gradeKind types.Kin
 // If the grade is e.g. a metavariable ?m, this constraint says:
 // "when ?m is solved, Join(Drop, ?m) must equal ?m" — which is the
 // algebraic definition of gradeCanPreserve.
-func (ch *Checker) emitGradePreserveConstraint(grade types.Type, gradeKind types.Kind, s span.Span) {
+func (ch *Checker) emitGradePreserveConstraint(grade types.Type, gradeKind types.Type, s span.Span) {
 	algebra := ch.resolveGradeAlgebra(gradeKind)
 	args := []types.Type{algebra.dropValue, grade}
 

@@ -72,8 +72,6 @@ Session types は check-only で正しく動作する。Runtime 実行には hos
 
 ## Far Future (assessed, not planned)
 
-以下は計画に含まれない項目。Universe extensions (non-nullary promotion, universe polymorphism, cumulativity) は [universe.md](universe.md) に移動済み。
-
 | Extension                                             | Category         | Prerequisite                |
 | ----------------------------------------------------- | ---------------- | --------------------------- |
 | Tensor product kind (`QType`)                         | Type system      | Full SMC + quantum use case |

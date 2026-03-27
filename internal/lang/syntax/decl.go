@@ -36,7 +36,7 @@ type DeclValueDef struct {
 //	form Collection := \(c: Type). { type Elem :: Type; empty: c; insert: Elem c -> c -> c; };
 type DeclForm struct {
 	Name    string
-	KindAnn KindExpr // optional :: Kind annotation (nil if omitted)
+	KindAnn TypeExpr // optional :: Kind annotation (nil if omitted)
 	Body    TypeExpr // \params. [constraints =>] { fields }
 	S       span.Span
 }
@@ -53,7 +53,7 @@ type DeclForm struct {
 //	type Dual :: Type -> Type := \s. case s { Send s => Recv (Dual s); ... };
 type DeclTypeAlias struct {
 	Name    string
-	KindAnn KindExpr // optional :: Kind annotation (nil if omitted)
+	KindAnn TypeExpr // optional :: Kind annotation (nil if omitted)
 	Body    TypeExpr // \params. type-expr (or case for type families)
 	S       span.Span
 }

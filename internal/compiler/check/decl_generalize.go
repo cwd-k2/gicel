@@ -70,7 +70,7 @@ func (ch *Checker) generalizeConstrained(ty types.Type, expr ir.Core, unresolved
 
 	// Wrap in forall.
 	for i := len(unique) - 1; i >= 0; i-- {
-		kind := ch.unifier.ZonkKind(unique[i].kind)
+		kind := ch.unifier.Zonk(unique[i].kind)
 		ty = types.MkForall(unique[i].name, kind, ty)
 	}
 
@@ -79,7 +79,7 @@ func (ch *Checker) generalizeConstrained(ty types.Type, expr ir.Core, unresolved
 
 type metaInfo struct {
 	id   int
-	kind types.Kind
+	kind types.Type
 	name string
 }
 
@@ -128,7 +128,7 @@ func quantifyFreeVars(ty types.Type) types.Type {
 	for i := len(vars) - 1; i >= 0; i-- {
 		k := kinds[vars[i]]
 		if k == nil {
-			k = types.KType{}
+			k = types.TypeOfTypes
 		}
 		ty = types.MkForall(vars[i], k, ty)
 	}
@@ -140,21 +140,21 @@ func quantifyFreeVars(ty types.Type) types.Type {
 // variables in type positions get KType. If a variable appears in both, KRow wins
 // (a row variable used where a type is expected is more likely a mistake caught by
 // the kind checker, whereas a type variable in a row position is the real bug).
-func inferFreeVarKinds(ty types.Type, fv map[string]struct{}) map[string]types.Kind {
-	result := make(map[string]types.Kind, len(fv))
+func inferFreeVarKinds(ty types.Type, fv map[string]struct{}) map[string]types.Type {
+	result := make(map[string]types.Type, len(fv))
 
 	var walkAsRow func(types.Type)
 	var walkAsType func(types.Type)
 
 	markRow := func(name string) {
 		if _, ok := fv[name]; ok {
-			result[name] = types.KRow{}
+			result[name] = types.TypeOfRows
 		}
 	}
 	markType := func(name string) {
 		if _, ok := fv[name]; ok {
 			if _, already := result[name]; !already {
-				result[name] = types.KType{}
+				result[name] = types.TypeOfTypes
 			}
 		}
 	}

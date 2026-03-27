@@ -39,7 +39,7 @@ const (
 // CheckConfig provides environment for type checking.
 type CheckConfig struct {
 	Context         context.Context // cancellation context (nil = no cancellation)
-	RegisteredTypes map[string]types.Kind
+	RegisteredTypes map[string]types.Type
 	Assumptions     map[string]types.Type
 	Bindings        map[string]types.Type
 	GatedBuiltins   map[string]bool
@@ -247,7 +247,7 @@ func newChecker(prog *syntax.AstProgram, source *span.Source, config *CheckConfi
 	}
 	reg := func() *Registry {
 		r := &Registry{
-			typeKinds:         make(map[string]types.Kind),
+			typeKinds:         make(map[string]types.Type),
 			conModules:        make(map[string]string),
 			conTypes:          make(map[string]types.Type),
 			conInfo:           make(map[string]*DataTypeInfo),
@@ -257,8 +257,8 @@ func newChecker(prog *syntax.AstProgram, source *span.Source, config *CheckConfi
 			dictToClass:       make(map[string]string),
 			instancesByClass:  make(map[string][]*InstanceInfo),
 			importedInstances: make(map[*InstanceInfo]bool),
-			promotedKinds:     make(map[string]types.Kind),
-			promotedCons:      make(map[string]types.Kind),
+			promotedKinds:     make(map[string]types.Type),
+			promotedCons:      make(map[string]types.Type),
 			kindVars:          make(map[string]bool),
 			families:          make(map[string]*TypeFamilyInfo),
 		}
@@ -335,7 +335,7 @@ func (ch *Checker) initContext() {
 		ch.ctx.Push(&CtxVar{Name: name, Type: ty})
 	}
 	// Built-in type constructors.
-	ch.reg.RegisterTypeKind("Record", &types.KArrow{From: types.KRow{}, To: types.KType{}})
+	ch.reg.RegisterTypeKind("Record", &types.TyArrow{From: types.TypeOfRows, To: types.TypeOfTypes})
 }
 
 func (s *CheckState) fresh() int {
@@ -343,19 +343,30 @@ func (s *CheckState) fresh() int {
 	return s.freshID
 }
 
-func (ch *Checker) freshMeta(k types.Kind) *types.TyMeta {
+func (ch *Checker) freshMeta(k types.Type) *types.TyMeta {
 	id := ch.fresh()
 	return &types.TyMeta{ID: id, Kind: k, Level: ch.solver.Level()}
 }
 
-func (s *CheckState) freshSkolem(name string, k types.Kind) *types.TySkolem {
+// freshLevelMeta creates a fresh level metavariable for universe level inference.
+func (ch *Checker) freshLevelMeta() *types.LevelMeta {
+	return &types.LevelMeta{ID: ch.fresh()}
+}
+
+func (s *CheckState) freshSkolem(name string, k types.Type) *types.TySkolem {
 	id := s.fresh()
 	return &types.TySkolem{ID: id, Name: name, Kind: k}
 }
 
-func (s *CheckState) freshKindMeta() *types.KMeta {
-	id := s.fresh()
-	return &types.KMeta{ID: id}
+// isSortKind checks whether a kind-as-Type is a sort (universe level >= 2),
+// i.e. the kind of kinds. This replaces the old `f.Kind.(types.KSort)` assertion.
+func isSortKind(k types.Type) bool {
+	if tc, ok := k.(*types.TyCon); ok {
+		if lit, ok := tc.Level.(*types.LevelLit); ok {
+			return lit.N >= 2
+		}
+	}
+	return false
 }
 
 func (s *CheckState) mkType(name string) types.Type {

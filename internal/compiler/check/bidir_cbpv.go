@@ -43,7 +43,7 @@ func (ch *Checker) checkPure(e *syntax.ExprApp, expected types.Type) ir.Core {
 // pure e: Computation r r a, elaborated to Core.Pure.
 func (ch *Checker) inferPure(e *syntax.ExprApp) (types.Type, ir.Core) {
 	argTy, argCore := ch.infer(e.Arg)
-	r := ch.freshMeta(types.KRow{})
+	r := ch.freshMeta(types.TypeOfRows)
 	resultTy := types.MkComp(r, r, argTy)
 	ch.trace(TraceInfer, e.S, "pure: %s ⇒ %s", types.Pretty(argTy), types.Pretty(resultTy))
 	return resultTy, &ir.Pure{Expr: argCore, S: e.S}
@@ -54,16 +54,16 @@ func (ch *Checker) inferPure(e *syntax.ExprApp) (types.Type, ir.Core) {
 func (ch *Checker) inferBind(compExpr, contExpr syntax.Expr, s span.Span) (types.Type, ir.Core) {
 	compTy, compCore := ch.infer(compExpr)
 
-	r1 := ch.freshMeta(types.KRow{})
-	r2 := ch.freshMeta(types.KRow{})
-	a := ch.freshMeta(types.KType{})
+	r1 := ch.freshMeta(types.TypeOfRows)
+	r2 := ch.freshMeta(types.TypeOfRows)
+	a := ch.freshMeta(types.TypeOfTypes)
 	if err := ch.unifier.Unify(compTy, types.MkComp(r1, r2, a)); err != nil {
 		ch.addSemanticUnifyError(diagnostic.ErrBadComputation, err, compExpr.Span(), fmt.Sprintf("bind: first argument must be a computation, got %s", types.Pretty(compTy)))
 		return ch.errorPair(s)
 	}
 
-	r3 := ch.freshMeta(types.KRow{})
-	b := ch.freshMeta(types.KType{})
+	r3 := ch.freshMeta(types.TypeOfRows)
+	b := ch.freshMeta(types.TypeOfTypes)
 
 	var bindVar string
 	var bodyCore ir.Core
@@ -122,9 +122,9 @@ func (ch *Checker) inferDualForm(
 	}
 
 	// Fallback: unify with a fresh triple.
-	pre := ch.freshMeta(types.KRow{})
-	post := ch.freshMeta(types.KRow{})
-	result := ch.freshMeta(types.KType{})
+	pre := ch.freshMeta(types.TypeOfRows)
+	post := ch.freshMeta(types.TypeOfRows)
+	result := ch.freshMeta(types.TypeOfTypes)
 	expected := mkExpected(pre, post, result)
 	if err := ch.unifier.Unify(argTy, expected); err != nil {
 		ch.addSemanticUnifyError(diagnostic.ErrBadThunk, err, e.S,

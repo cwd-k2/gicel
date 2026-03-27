@@ -1,4 +1,4 @@
-// Kind cumulativity tests — ground kinds (Type, Row, Constraint, KData) unify with Sort₀.
+// Kind cumulativity tests — ground kinds (Type, Row, Constraint, PromotedDataKind) unify with Sort₀.
 // Does NOT cover: general kind unification (kind_unify_test.go).
 
 package unify
@@ -11,55 +11,55 @@ import (
 
 func TestCumulativityTypeUnifiesWithSort(t *testing.T) {
 	u := NewUnifier()
-	if err := u.UnifyKinds(types.KType{}, types.KSort{}); err != nil {
-		t.Fatalf("KType should unify with KSort{0}: %v", err)
+	if err := u.Unify(types.TypeOfTypes, types.SortZero); err != nil {
+		t.Fatalf("Type should unify with Kind (Sort₀): %v", err)
 	}
 }
 
 func TestCumulativitySortUnifiesWithType(t *testing.T) {
 	u := NewUnifier()
-	if err := u.UnifyKinds(types.KSort{}, types.KType{}); err != nil {
-		t.Fatalf("KSort{0} should unify with KType: %v", err)
+	if err := u.Unify(types.SortZero, types.TypeOfTypes); err != nil {
+		t.Fatalf("Kind (Sort₀) should unify with Type: %v", err)
 	}
 }
 
 func TestCumulativityRowUnifiesWithSort(t *testing.T) {
 	u := NewUnifier()
-	if err := u.UnifyKinds(types.KRow{}, types.KSort{}); err != nil {
-		t.Fatalf("KRow should unify with KSort{0}: %v", err)
+	if err := u.Unify(types.TypeOfRows, types.SortZero); err != nil {
+		t.Fatalf("Row should unify with Kind (Sort₀): %v", err)
 	}
 }
 
 func TestCumulativityConstraintUnifiesWithSort(t *testing.T) {
 	u := NewUnifier()
-	if err := u.UnifyKinds(types.KConstraint{}, types.KSort{}); err != nil {
-		t.Fatalf("KConstraint should unify with KSort{0}: %v", err)
+	if err := u.Unify(types.TypeOfConstraints, types.SortZero); err != nil {
+		t.Fatalf("Constraint should unify with Kind (Sort₀): %v", err)
 	}
 }
 
 func TestCumulativityKDataUnifiesWithSort(t *testing.T) {
 	u := NewUnifier()
-	if err := u.UnifyKinds(types.KData{Name: "Bool"}, types.KSort{}); err != nil {
-		t.Fatalf("KData{Bool} should unify with KSort{0}: %v", err)
+	if err := u.Unify(types.PromotedDataKind("Bool"), types.SortZero); err != nil {
+		t.Fatalf("PromotedDataKind(Bool) should unify with Kind (Sort₀): %v", err)
 	}
 }
 
 func TestCumulativitySort1DoesNotUnifyWithType(t *testing.T) {
 	u := NewUnifier()
-	if err := u.UnifyKinds(types.KType{}, types.KSort{Level: 1}); err == nil {
-		t.Fatal("KType should NOT unify with KSort{1}")
+	if err := u.Unify(types.TypeOfTypes, types.SortAt(1)); err == nil {
+		t.Fatal("Type should NOT unify with Sort₃ (level 4)")
 	}
 }
 
 func TestCumulativityMetaSolvesToGroundKindViaSort(t *testing.T) {
-	// KMeta should be solvable to a ground kind even when compared via Sort.
+	// Kind meta should be solvable to a ground kind.
 	u := NewUnifier()
-	meta := &types.KMeta{ID: 1}
-	if err := u.UnifyKinds(meta, types.KType{}); err != nil {
-		t.Fatalf("KMeta should solve to KType: %v", err)
+	meta := kindMeta(1)
+	if err := u.Unify(meta, types.TypeOfTypes); err != nil {
+		t.Fatalf("kind meta should solve to Type: %v", err)
 	}
-	solved := u.ZonkKind(meta)
-	if _, ok := solved.(types.KType); !ok {
-		t.Fatalf("expected KType, got %v", solved)
+	solved := u.Zonk(meta)
+	if !types.Equal(solved, types.TypeOfTypes) {
+		t.Fatalf("expected Type, got %v", types.PrettyTypeAsKind(solved))
 	}
 }

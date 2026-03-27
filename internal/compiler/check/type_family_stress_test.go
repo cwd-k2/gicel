@@ -460,7 +460,7 @@ f :: Always Int -> Unit
 f := \x. x
 `
 	config := &CheckConfig{
-		RegisteredTypes: map[string]types.Kind{"Int": types.KType{}},
+		RegisteredTypes: map[string]types.Type{"Int": types.TypeOfTypes},
 	}
 	checkSource(t, source, config)
 }

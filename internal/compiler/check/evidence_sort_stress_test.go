@@ -56,8 +56,8 @@ func TestStressUnifyLargeConRows(t *testing.T) {
 
 func TestStressOpenOpenDisjoint(t *testing.T) {
 	u := unify.NewUnifier()
-	m1 := &types.TyMeta{ID: 1000, Kind: types.KRow{}}
-	m2 := &types.TyMeta{ID: 1001, Kind: types.KRow{}}
+	m1 := &types.TyMeta{ID: 1000, Kind: types.TypeOfRows}
+	m2 := &types.TyMeta{ID: 1001, Kind: types.TypeOfRows}
 
 	leftFields := make([]types.RowField, 10)
 	rightFields := make([]types.RowField, 10)
@@ -92,7 +92,7 @@ func TestStressDeeplyNestedTails(t *testing.T) {
 	const depth = 20
 	metas := make([]*types.TyMeta, depth)
 	for i := range depth {
-		metas[i] = &types.TyMeta{ID: 2000 + i, Kind: types.KRow{}}
+		metas[i] = &types.TyMeta{ID: 2000 + i, Kind: types.TypeOfRows}
 	}
 
 	for i := range depth - 1 {
@@ -143,7 +143,7 @@ func TestStressZonkLargeRow(t *testing.T) {
 	const N = 100
 	metas := make([]*types.TyMeta, N)
 	for i := range N {
-		metas[i] = &types.TyMeta{ID: 3000 + i, Kind: types.KType{}}
+		metas[i] = &types.TyMeta{ID: 3000 + i, Kind: types.TypeOfTypes}
 		u.InstallTempSolution(3000+i, types.Con(fmt.Sprintf("T%d", i)))
 	}
 

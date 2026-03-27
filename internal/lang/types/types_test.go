@@ -7,23 +7,23 @@ import (
 // --- Kind ---
 
 func TestKindEquality(t *testing.T) {
-	kt := KType{}
-	kr := KRow{}
-	if !kt.Equal(KType{}) {
-		t.Error("KType != KType")
+	kt := TypeOfTypes
+	kr := TypeOfRows
+	if !Equal(kt, TypeOfTypes) {
+		t.Error("Type != Type")
 	}
-	if kt.Equal(kr) {
-		t.Error("KType == KRow")
+	if Equal(kt, kr) {
+		t.Error("Type == Row")
 	}
-	arrow1 := &KArrow{kt, kr}
-	arrow2 := &KArrow{kt, kr}
-	if !arrow1.Equal(arrow2) {
-		t.Error("KArrow(Type,Row) != KArrow(Type,Row)")
+	arrow1 := &TyArrow{From: kt, To: kr}
+	arrow2 := &TyArrow{From: kt, To: kr}
+	if !Equal(arrow1, arrow2) {
+		t.Error("Arrow(Type,Row) != Arrow(Type,Row)")
 	}
 }
 
 func TestKindArity(t *testing.T) {
-	kt := KType{}
+	kt := TypeOfTypes
 	if Arity(kt) != 0 {
 		t.Error("KType arity should be 0")
 	}
@@ -33,15 +33,15 @@ func TestKindArity(t *testing.T) {
 }
 
 func TestKindString(t *testing.T) {
-	kt := KType{}
-	kr := KRow{}
-	if kt.String() != "Type" {
-		t.Error("KType string")
+	kt := TypeOfTypes
+	kr := TypeOfRows
+	if kt.Name != "Type" {
+		t.Error("Type name mismatch")
 	}
-	if kr.String() != "Row" {
-		t.Error("KRow string")
+	if kr.Name != "Row" {
+		t.Error("Row name mismatch")
 	}
-	got := KindOfComputation.String()
+	got := PrettyTypeAsKind(KindOfComputation)
 	if got != "Row -> Row -> Type -> Type" {
 		t.Errorf("Computation kind: got %q", got)
 	}
@@ -94,20 +94,20 @@ func TestEqualSimple(t *testing.T) {
 
 func TestEqualAlpha(t *testing.T) {
 	// forall a. a -> a  ==  forall b. b -> b
-	t1 := MkForall("a", KType{}, MkArrow(Var("a"), Var("a")))
-	t2 := MkForall("b", KType{}, MkArrow(Var("b"), Var("b")))
+	t1 := MkForall("a", TypeOfTypes, MkArrow(Var("a"), Var("a")))
+	t2 := MkForall("b", TypeOfTypes, MkArrow(Var("b"), Var("b")))
 	if !Equal(t1, t2) {
 		t.Error("alpha-equivalent types should be equal")
 	}
 	// forall a. a -> a  !=  forall a. a -> Int
-	t3 := MkForall("a", KType{}, MkArrow(Var("a"), Con("Int")))
+	t3 := MkForall("a", TypeOfTypes, MkArrow(Var("a"), Con("Int")))
 	if Equal(t1, t3) {
 		t.Error("different types should not be equal")
 	}
 	// forall a. a -> b  !=  forall b. b -> b
 	// Left b is free; right b is bound. Must not be considered equal.
-	t4 := MkForall("a", KType{}, MkArrow(Var("a"), Var("b")))
-	t5 := MkForall("b", KType{}, MkArrow(Var("b"), Var("b")))
+	t4 := MkForall("a", TypeOfTypes, MkArrow(Var("a"), Var("b")))
+	t5 := MkForall("b", TypeOfTypes, MkArrow(Var("b"), Var("b")))
 	if Equal(t4, t5) {
 		t.Error("free vs bound variable collision should not be equal")
 	}
@@ -140,7 +140,7 @@ func TestSubstSimple(t *testing.T) {
 
 func TestSubstShadow(t *testing.T) {
 	// forall a. a[a := Int] = forall a. a (shadowed, no substitution)
-	ty := MkForall("a", KType{}, Var("a"))
+	ty := MkForall("a", TypeOfTypes, Var("a"))
 	result := Subst(ty, "a", Con("Int"))
 	if !Equal(result, ty) {
 		t.Error("should not substitute under shadowing forall")
@@ -150,7 +150,7 @@ func TestSubstShadow(t *testing.T) {
 func TestSubstCaptureAvoidance(t *testing.T) {
 	// forall b. a -> b   [a := b]
 	// should rename bound b to avoid capture
-	ty := MkForall("b", KType{}, MkArrow(Var("a"), Var("b")))
+	ty := MkForall("b", TypeOfTypes, MkArrow(Var("a"), Var("b")))
 	result := Subst(ty, "a", Var("b"))
 	// The result should be forall b'. b -> b' (not forall b. b -> b)
 	f, ok := result.(*TyForall)
@@ -177,7 +177,7 @@ func TestFreeVars(t *testing.T) {
 
 func TestFreeVarsForall(t *testing.T) {
 	// forall a. a -> b  →  FV = {b}
-	ty := MkForall("a", KType{}, MkArrow(Var("a"), Var("b")))
+	ty := MkForall("a", TypeOfTypes, MkArrow(Var("a"), Var("b")))
 	fv := FreeVars(ty)
 	if _, ok := fv["a"]; ok {
 		t.Error("'a' should be bound")
@@ -190,24 +190,24 @@ func TestFreeVarsForall(t *testing.T) {
 // --- KConstraint ---
 
 func TestKConstraintEquality(t *testing.T) {
-	kc := KConstraint{}
-	if !kc.Equal(KConstraint{}) {
-		t.Error("KConstraint != KConstraint")
+	kc := TypeOfConstraints
+	if !Equal(kc, TypeOfConstraints) {
+		t.Error("Constraint != Constraint")
 	}
-	if kc.Equal(KType{}) {
-		t.Error("KConstraint == KType")
+	if Equal(kc, TypeOfTypes) {
+		t.Error("Constraint == Type")
 	}
-	if kc.String() != "Constraint" {
-		t.Errorf("expected 'Constraint', got %q", kc.String())
+	if kc.Name != "Constraint" {
+		t.Errorf("expected 'Constraint', got %q", kc.Name)
 	}
 }
 
 // --- Skolem ---
 
 func TestTySkolemEquality(t *testing.T) {
-	s1 := &TySkolem{ID: 1, Name: "a", Kind: KType{}}
-	s2 := &TySkolem{ID: 1, Name: "a", Kind: KType{}}
-	s3 := &TySkolem{ID: 2, Name: "b", Kind: KType{}}
+	s1 := &TySkolem{ID: 1, Name: "a", Kind: TypeOfTypes}
+	s2 := &TySkolem{ID: 1, Name: "a", Kind: TypeOfTypes}
+	s3 := &TySkolem{ID: 2, Name: "b", Kind: TypeOfTypes}
 	if !Equal(s1, s2) {
 		t.Error("same-ID skolems should be equal")
 	}
@@ -217,7 +217,7 @@ func TestTySkolemEquality(t *testing.T) {
 }
 
 func TestZonkSkolem(t *testing.T) {
-	s := &TySkolem{ID: 99, Name: "z", Kind: KType{}}
+	s := &TySkolem{ID: 99, Name: "z", Kind: TypeOfTypes}
 	pretty := Pretty(s)
 	if pretty != "#z" {
 		t.Errorf("expected #z, got %s", pretty)
@@ -235,8 +235,8 @@ func TestPretty(t *testing.T) {
 		{Var("a"), "a"},
 		{MkArrow(Con("Int"), Con("Bool")), "Int -> Bool"},
 		{MkArrow(MkArrow(Con("A"), Con("B")), Con("C")), "(A -> B) -> C"},
-		{MkForall("a", KType{}, MkArrow(Var("a"), Var("a"))), `\a. a -> a`},
-		{MkForall("a", KType{}, MkForall("b", KType{}, MkArrow(Var("a"), Var("b")))),
+		{MkForall("a", TypeOfTypes, MkArrow(Var("a"), Var("a"))), `\a. a -> a`},
+		{MkForall("a", TypeOfTypes, MkForall("b", TypeOfTypes, MkArrow(Var("a"), Var("b")))),
 			`\a b. a -> b`},
 		{EmptyRow(), "{}"},
 		{ClosedRow(RowField{Label: "x", Type: Con("Int")}), "{ x: Int }"},
@@ -253,14 +253,14 @@ func TestEqualAlphaNestedForallShadowing(t *testing.T) {
 	// forall a. forall a. a  ==  forall b. forall c. c
 	// Inner 'a' shadows outer 'a'; inner 'c' shadows nothing.
 	// Both reduce to "innermost bound variable" — should be equal.
-	t1 := MkForall("a", KType{}, MkForall("a", KType{}, Var("a")))
-	t2 := MkForall("b", KType{}, MkForall("c", KType{}, Var("c")))
+	t1 := MkForall("a", TypeOfTypes, MkForall("a", TypeOfTypes, Var("a")))
+	t2 := MkForall("b", TypeOfTypes, MkForall("c", TypeOfTypes, Var("c")))
 	if !Equal(t1, t2) {
 		t.Error("nested forall with shadowing should be alpha-equivalent")
 	}
 	// forall a. forall a. a  !=  forall b. forall c. b
 	// Left: inner bound. Right: outer bound. Not equivalent.
-	t3 := MkForall("b", KType{}, MkForall("c", KType{}, Var("b")))
+	t3 := MkForall("b", TypeOfTypes, MkForall("c", TypeOfTypes, Var("b")))
 	if Equal(t1, t3) {
 		t.Error("inner-bound vs outer-bound should not be alpha-equivalent")
 	}
@@ -269,13 +269,13 @@ func TestEqualAlphaNestedForallShadowing(t *testing.T) {
 func TestEqualAlphaBindingLookupDirection(t *testing.T) {
 	// Verifies that binding lookup traverses from most recent (innermost) first.
 	// forall a. forall b. a -> b  ==  forall x. forall y. x -> y
-	t1 := MkForall("a", KType{}, MkForall("b", KType{}, MkArrow(Var("a"), Var("b"))))
-	t2 := MkForall("x", KType{}, MkForall("y", KType{}, MkArrow(Var("x"), Var("y"))))
+	t1 := MkForall("a", TypeOfTypes, MkForall("b", TypeOfTypes, MkArrow(Var("a"), Var("b"))))
+	t2 := MkForall("x", TypeOfTypes, MkForall("y", TypeOfTypes, MkArrow(Var("x"), Var("y"))))
 	if !Equal(t1, t2) {
 		t.Error("nested forall with distinct names should be alpha-equivalent")
 	}
 	// forall a. forall b. a -> b  !=  forall x. forall y. y -> x  (swapped)
-	t3 := MkForall("x", KType{}, MkForall("y", KType{}, MkArrow(Var("y"), Var("x"))))
+	t3 := MkForall("x", TypeOfTypes, MkForall("y", TypeOfTypes, MkArrow(Var("y"), Var("x"))))
 	if Equal(t1, t3) {
 		t.Error("swapped variable usage should not be alpha-equivalent")
 	}

@@ -98,7 +98,7 @@ infra/span   ──→ (isolated)
 | Package       | Responsibility                                          |
 | ------------- | ------------------------------------------------------- |
 | `lang/syntax` | AST node types, token definitions, source-level helpers |
-| `lang/types`  | Type, Kind, row types, evidence representation          |
+| `lang/types`  | Type (unified across universe levels), row types, evidence |
 | `lang/ir`     | Core IR (17 formers), program structure, walkers        |
 
 ### compiler — source to Core IR

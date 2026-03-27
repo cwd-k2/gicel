@@ -31,7 +31,7 @@ func equalAlpha(a, b Type, bindings []alphaBinding) bool {
 
 	case *TyCon:
 		bt, ok := b.(*TyCon)
-		return ok && at.Name == bt.Name
+		return ok && at.Name == bt.Name && LevelEqual(at.Level, bt.Level)
 
 	case *TyApp:
 		bt, ok := b.(*TyApp)
@@ -52,7 +52,7 @@ func equalAlpha(a, b Type, bindings []alphaBinding) bool {
 		if !ok {
 			return false
 		}
-		if !at.Kind.Equal(bt.Kind) {
+		if !equalAlpha(at.Kind, bt.Kind, bindings) {
 			return false
 		}
 		newBindings := append(bindings, alphaBinding{at.Var, bt.Var})
@@ -235,7 +235,7 @@ func equalQuantifiedConstraint(a, b *QuantifiedConstraint, bindings []alphaBindi
 	newBindings := make([]alphaBinding, len(bindings), len(bindings)+len(a.Vars))
 	copy(newBindings, bindings)
 	for i, av := range a.Vars {
-		if !av.Kind.Equal(b.Vars[i].Kind) {
+		if !equalAlpha(av.Kind, b.Vars[i].Kind, bindings) {
 			return false
 		}
 		newBindings = append(newBindings, alphaBinding{av.Name, b.Vars[i].Name})

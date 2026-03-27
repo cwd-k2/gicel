@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/cwd-k2/gicel/internal/host/stdlib"
+	"github.com/cwd-k2/gicel/internal/lang/types"
 	"github.com/cwd-k2/gicel/internal/runtime/eval"
 )
 
@@ -248,16 +249,16 @@ func TestTypeHelpers(t *testing.T) {
 
 	// Kind helpers.
 	k := KindType()
-	if !k.Equal(KindType()) {
-		t.Errorf("KType should equal KType")
+	if !types.Equal(k, KindType()) {
+		t.Errorf("Type should equal Type")
 	}
 	kr := KindRow()
-	if kr.Equal(KindType()) {
-		t.Errorf("KRow should not equal KType")
+	if types.Equal(kr, KindType()) {
+		t.Errorf("Row should not equal Type")
 	}
 	ka := KindArrow(KindType(), KindType())
-	if !ka.Equal(KindArrow(KindType(), KindType())) {
-		t.Errorf("KArrow(Type,Type) should equal itself")
+	if !types.Equal(ka, KindArrow(KindType(), KindType())) {
+		t.Errorf("Arrow(Type,Type) should equal itself")
 	}
 
 	// TypeEqual

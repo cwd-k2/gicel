@@ -213,12 +213,12 @@ func TestConstraintRowNotEqualTailMismatch(t *testing.T) {
 
 func TestConstraintRowAlphaEquivalence(t *testing.T) {
 	// forall a. { Eq a } => a  ==  forall b. { Eq b } => b
-	t1 := MkForall("a", KType{},
+	t1 := MkForall("a", TypeOfTypes,
 		&TyEvidence{
 			Constraints: SingleConstraint("Eq", []Type{Var("a")}),
 			Body:        Var("a"),
 		})
-	t2 := MkForall("b", KType{},
+	t2 := MkForall("b", TypeOfTypes,
 		&TyEvidence{
 			Constraints: SingleConstraint("Eq", []Type{Var("b")}),
 			Body:        Var("b"),
@@ -437,7 +437,7 @@ func TestQuantifiedConstraintSubstCaptureAvoidance(t *testing.T) {
 		ClassName: "Show",
 		Args:      []Type{Var("a")},
 		Quantified: &QuantifiedConstraint{
-			Vars:    []ForallBinder{{Name: "b", Kind: KType{}}},
+			Vars:    []ForallBinder{{Name: "b", Kind: TypeOfTypes}},
 			Context: []ConstraintEntry{{ClassName: "Eq", Args: []Type{Var("b")}}},
 			Head:    ConstraintEntry{ClassName: "Show", Args: []Type{Var("b")}},
 		},
@@ -509,7 +509,7 @@ func TestEvidenceFreeVars(t *testing.T) {
 
 func TestEvidenceFreeVarsUnderForall(t *testing.T) {
 	// forall a. { Eq a } => a -> b — FV = {b}
-	ty := MkForall("a", KType{},
+	ty := MkForall("a", TypeOfTypes,
 		&TyEvidence{
 			Constraints: SingleConstraint("Eq", []Type{Var("a")}),
 			Body:        MkArrow(Var("a"), Var("b")),

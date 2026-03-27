@@ -14,13 +14,13 @@ import (
 // ImportEnv provides the checker capabilities needed for module import processing.
 type ImportEnv struct {
 	// Registry writes.
-	RegisterTypeKind     func(string, types.Kind)
+	RegisterTypeKind     func(string, types.Type)
 	RegisterAlias        func(string, *env.AliasInfo)
 	RegisterClass        func(string, *env.ClassInfo)
 	RegisterFamily       func(string, *env.TypeFamilyInfo)
 	RegisterDataType     func(string, *env.DataTypeInfo)
-	RegisterPromotedKind func(string, types.Kind)
-	RegisterPromotedCon  func(string, types.Kind)
+	RegisterPromotedKind func(string, types.Type)
+	RegisterPromotedCon  func(string, types.Type)
 	SetConBinding        func(string, types.Type, string)
 	SetConInfo           func(string, *env.DataTypeInfo)
 	ImportInstance       func(*env.InstanceInfo)

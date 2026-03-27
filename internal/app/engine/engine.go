@@ -73,7 +73,7 @@ func (e *Engine) DeclareAssumption(name string, ty types.Type) {
 }
 
 // RegisterType registers an opaque host type with the given kind.
-func (e *Engine) RegisterType(name string, kind types.Kind) {
+func (e *Engine) RegisterType(name string, kind types.Type) {
 	e.host.registeredTys[name] = kind
 }
 

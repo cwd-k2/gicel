@@ -12,21 +12,24 @@ import (
 	"github.com/cwd-k2/gicel/internal/lang/types"
 )
 
-// collectKindVars scans a kind expression for unbound lowercase names
-// (implicit kind variables), registers them in kindVars, and appends to params.
-func collectKindVars(k syntax.KindExpr, kindVars map[string]bool, params *[]string) {
+// collectKindVars scans a kind annotation (represented as TypeExpr) for
+// unbound lowercase names (implicit kind variables), registers them in
+// kindVars, and appends to params.
+func collectKindVars(k syntax.TypeExpr, kindVars map[string]bool, params *[]string) {
 	if k == nil {
 		return
 	}
 	switch ke := k.(type) {
-	case *syntax.KindExprArrow:
+	case *syntax.TyExprArrow:
 		collectKindVars(ke.From, kindVars, params)
 		collectKindVars(ke.To, kindVars, params)
-	case *syntax.KindExprName:
+	case *syntax.TyExprVar:
 		if len(ke.Name) > 0 && unicode.IsLower(rune(ke.Name[0])) && !kindVars[ke.Name] {
 			kindVars[ke.Name] = true
 			*params = append(*params, ke.Name)
 		}
+	case *syntax.TyExprParen:
+		collectKindVars(ke.Inner, kindVars, params)
 	}
 }
 
@@ -81,9 +84,9 @@ func (ch *Checker) processClassLikeForm(d *syntax.DeclForm, parts formBodyParts,
 	allFieldTypes := append(superFieldTypes, methodFieldTypes...)
 
 	// Register the dict type constructor kind.
-	var dictKind types.Kind = types.KType{}
+	var dictKind types.Type = types.TypeOfTypes
 	for i := len(tyParamKinds) - 1; i >= 0; i-- {
-		dictKind = &types.KArrow{From: tyParamKinds[i], To: dictKind}
+		dictKind = &types.TyArrow{From: tyParamKinds[i], To: dictKind}
 	}
 	ch.reg.RegisterTypeKind(dn, dictKind)
 
@@ -103,7 +106,7 @@ func (ch *Checker) processClassLikeForm(d *syntax.DeclForm, parts formBodyParts,
 	}
 	// Wrap kind parameters as outermost foralls (kind-level quantification).
 	for i := len(kindParams) - 1; i >= 0; i-- {
-		conType = types.MkForall(kindParams[i], types.KSort{}, conType)
+		conType = types.MkForall(kindParams[i], types.SortZero, conType)
 	}
 
 	// Register constructor.
@@ -129,7 +132,7 @@ func (ch *Checker) processClassLikeForm(d *syntax.DeclForm, parts formBodyParts,
 
 // collectClassParams collects implicit kind variables from type parameter
 // annotations and resolves type parameters with their kinds.
-func (ch *Checker) collectClassParams(parts formBodyParts) (kindParams, tyParams []string, tyParamKinds []types.Kind) {
+func (ch *Checker) collectClassParams(parts formBodyParts) (kindParams, tyParams []string, tyParamKinds []types.Type) {
 	// Collect implicit kind variables from type parameter kind annotations.
 	// e.g., class Functor (f: k -> Type) -> kindParams = ["k"]
 	for _, p := range parts.Params {
@@ -224,7 +227,7 @@ func (ch *Checker) buildMethodSelector(cls *ClassInfo, m MethodInfo, methodIdx i
 		selectorTy = types.MkForall(cls.TyParams[j], cls.TyParamKinds[j], selectorTy)
 	}
 	for j := len(cls.KindParams) - 1; j >= 0; j-- {
-		selectorTy = types.MkForall(cls.KindParams[j], types.KSort{}, selectorTy)
+		selectorTy = types.MkForall(cls.KindParams[j], types.SortZero, selectorTy)
 	}
 
 	ch.ctx.Push(&CtxVar{Name: m.Name, Type: selectorTy, Module: ch.scope.CurrentModule()})
@@ -259,7 +262,7 @@ func (ch *Checker) buildMethodSelector(cls *ClassInfo, m MethodInfo, methodIdx i
 		selectorBody = &ir.TyLam{TyParam: cls.TyParams[j], Kind: cls.TyParamKinds[j], Body: selectorBody, S: s}
 	}
 	for j := len(cls.KindParams) - 1; j >= 0; j-- {
-		selectorBody = &ir.TyLam{TyParam: cls.KindParams[j], Kind: types.KSort{}, Body: selectorBody, S: s}
+		selectorBody = &ir.TyLam{TyParam: cls.KindParams[j], Kind: types.SortZero, Body: selectorBody, S: s}
 	}
 
 	dict.prog.Bindings = append(dict.prog.Bindings, ir.Binding{

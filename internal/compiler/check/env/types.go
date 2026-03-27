@@ -8,7 +8,7 @@ import (
 // AliasInfo holds the definition of a type alias: parameter names, their kinds, and the body.
 type AliasInfo struct {
 	Params     []string
-	ParamKinds []types.Kind
+	ParamKinds []types.Type
 	Body       types.Type
 }
 
@@ -16,7 +16,7 @@ type AliasInfo struct {
 type ClassInfo struct {
 	Name         string
 	TyParams     []string
-	TyParamKinds []types.Kind
+	TyParamKinds []types.Type
 	KindParams   []string     // implicit kind variables (e.g., "k" in f: k -> Type)
 	Supers       []SuperInfo  // superclass constraints
 	Methods      []MethodInfo // method signatures
@@ -76,7 +76,7 @@ type ConstructorInfo struct {
 type TypeFamilyInfo struct {
 	Name       string
 	Params     []TFParam
-	ResultKind types.Kind
+	ResultKind types.Type
 	ResultName string  // non-empty if injective
 	Deps       []TFDep // injectivity deps (elaborated)
 	Equations  []TFEquation
@@ -87,7 +87,7 @@ type TypeFamilyInfo struct {
 // TFParam is a type family parameter with its name and kind.
 type TFParam struct {
 	Name string
-	Kind types.Kind
+	Kind types.Type
 }
 
 // TFDep is an elaborated functional dependency.

@@ -13,7 +13,7 @@ import (
 // Class-like form declarations must be filtered out by the caller.
 func (ch *Checker) processFormDeclParts(d *syntax.DeclForm, parts formBodyParts, prog *ir.Program) {
 	// Resolve parameter kinds.
-	paramKinds := make([]types.Kind, len(parts.Params))
+	paramKinds := make([]types.Type, len(parts.Params))
 	for i, p := range parts.Params {
 		paramKinds[i] = ch.resolveKindExpr(p.Kind)
 	}
@@ -21,14 +21,14 @@ func (ch *Checker) processFormDeclParts(d *syntax.DeclForm, parts formBodyParts,
 	// Register type constructor kind.
 	// The result kind of a form declaration is always Type.
 	// If a kind annotation is present, validate that it is consistent.
-	var kind types.Kind = types.KType{}
+	var kind types.Type = types.TypeOfTypes
 	for i := len(parts.Params) - 1; i >= 0; i-- {
-		kind = &types.KArrow{From: paramKinds[i], To: kind}
+		kind = &types.TyArrow{From: paramKinds[i], To: kind}
 	}
 	if d.KindAnn != nil {
 		annKind := ch.resolveKindExpr(d.KindAnn)
 		resultKind := types.ResultKind(annKind)
-		if _, isSort := resultKind.(types.KSort); isSort {
+		if isSortKind(resultKind) {
 			ch.addCodedError(diagnostic.ErrKindMismatch, d.S,
 				fmt.Sprintf("form %s has result kind %s, but form declarations must have result kind Type", d.Name, resultKind))
 			return // halt: do not register invalid form
@@ -119,17 +119,17 @@ func (ch *Checker) processFormDeclParts(d *syntax.DeclForm, parts formBodyParts,
 	// Non-nullary constructors (e.g., Just: a -> Maybe a) get a kind arrow:
 	//   Just :: KType -> KData{Maybe}
 	// This enables type-level application of promoted constructors.
-	dataKind := types.KData{Name: d.Name}
+	dataKind := types.PromotedDataKind(d.Name)
 	ch.reg.RegisterPromotedKind(d.Name, dataKind)
 	for _, con := range coreDecl.Cons {
-		var conKind types.Kind = dataKind
+		var conKind types.Type = dataKind
 		// Build kind arrow from field types (right to left).
 		for i := len(con.Fields) - 1; i >= 0; i-- {
 			fieldKind := ch.kindOfType(con.Fields[i])
 			if fieldKind == nil {
-				fieldKind = types.KType{}
+				fieldKind = types.TypeOfTypes
 			}
-			conKind = &types.KArrow{From: fieldKind, To: conKind}
+			conKind = &types.TyArrow{From: fieldKind, To: conKind}
 		}
 		ch.reg.RegisterPromotedCon(con.Name, conKind)
 	}

@@ -9,9 +9,14 @@ import (
 	"github.com/cwd-k2/gicel/internal/lang/types"
 )
 
+// kindMeta creates a kind-level metavariable (TyMeta with Kind=SortZero).
+func kindMeta(id int) *types.TyMeta {
+	return &types.TyMeta{ID: id, Kind: types.SortZero}
+}
+
 // =============================================================================
 // Kind unification probe tests — kind meta solving, kind occurs check,
-// KArrow chains, KData matching, HKT kind polymorphism, kind mismatch
+// TyArrow chains, PromotedDataKind matching, HKT kind polymorphism, kind mismatch
 // in type application.
 // =============================================================================
 
@@ -19,50 +24,50 @@ import (
 // From probe_d: Kind unification
 // =====================================================================
 
-// TestProbeD_KindUnify_MismatchedKinds — unifying KType with KRow should fail.
+// TestProbeD_KindUnify_MismatchedKinds — unifying Type with Row should fail.
 func TestProbeD_KindUnify_MismatchedKinds(t *testing.T) {
 	u := unify.NewUnifier()
-	err := u.UnifyKinds(types.KType{}, types.KRow{})
+	err := u.Unify(types.TypeOfTypes, types.TypeOfRows)
 	if err == nil {
 		t.Fatal("expected kind mismatch, got nil")
 	}
 }
 
-// TestProbeD_KindUnify_KindMetaSolving — a kind meta should unify with KType.
+// TestProbeD_KindUnify_KindMetaSolving — a kind meta should unify with Type.
 func TestProbeD_KindUnify_KindMetaSolving(t *testing.T) {
 	u := unify.NewUnifier()
-	km := &types.KMeta{ID: 1}
-	if err := u.UnifyKinds(km, types.KType{}); err != nil {
+	km := kindMeta(1)
+	if err := u.Unify(km, types.TypeOfTypes); err != nil {
 		t.Fatal(err)
 	}
-	result := u.ZonkKind(km)
-	if _, ok := result.(types.KType); !ok {
-		t.Errorf("expected KType, got %s", result)
+	result := u.Zonk(km)
+	if !types.Equal(result, types.TypeOfTypes) {
+		t.Errorf("expected Type, got %s", types.PrettyTypeAsKind(result))
 	}
 }
 
-// TestProbeD_KindUnify_KindArrow — unifying (KMeta -> KType) with (KRow -> KType)
-// should solve KMeta = KRow.
+// TestProbeD_KindUnify_KindArrow — unifying (KMeta -> Type) with (Row -> Type)
+// should solve KMeta = Row.
 func TestProbeD_KindUnify_KindArrow(t *testing.T) {
 	u := unify.NewUnifier()
-	km := &types.KMeta{ID: 1}
-	a := &types.KArrow{From: km, To: types.KType{}}
-	b := &types.KArrow{From: types.KRow{}, To: types.KType{}}
-	if err := u.UnifyKinds(a, b); err != nil {
+	km := kindMeta(1)
+	a := &types.TyArrow{From: km, To: types.TypeOfTypes}
+	b := &types.TyArrow{From: types.TypeOfRows, To: types.TypeOfTypes}
+	if err := u.Unify(a, b); err != nil {
 		t.Fatal(err)
 	}
-	result := u.ZonkKind(km)
-	if _, ok := result.(types.KRow); !ok {
-		t.Errorf("expected KRow, got %s", result)
+	result := u.Zonk(km)
+	if !types.Equal(result, types.TypeOfRows) {
+		t.Errorf("expected Row, got %s", types.PrettyTypeAsKind(result))
 	}
 }
 
 // TestProbeD_KindUnify_OccursCheck — kind occurs check: ?k ~ (?k -> Type).
 func TestProbeD_KindUnify_OccursCheck(t *testing.T) {
 	u := unify.NewUnifier()
-	km := &types.KMeta{ID: 1}
-	cycle := &types.KArrow{From: km, To: types.KType{}}
-	err := u.UnifyKinds(km, cycle)
+	km := kindMeta(1)
+	cycle := &types.TyArrow{From: km, To: types.TypeOfTypes}
+	err := u.Unify(km, cycle)
 	if err == nil {
 		t.Fatal("expected kind occurs check, got nil")
 	}
@@ -72,19 +77,19 @@ func TestProbeD_KindUnify_OccursCheck(t *testing.T) {
 	}
 }
 
-// TestProbeD_KindUnify_KDataMismatch — KData "Nat" vs KData "Bool" should fail.
+// TestProbeD_KindUnify_KDataMismatch — PromotedDataKind "Nat" vs "Bool" should fail.
 func TestProbeD_KindUnify_KDataMismatch(t *testing.T) {
 	u := unify.NewUnifier()
-	err := u.UnifyKinds(types.KData{Name: "Nat"}, types.KData{Name: "Bool"})
+	err := u.Unify(types.PromotedDataKind("Nat"), types.PromotedDataKind("Bool"))
 	if err == nil {
-		t.Fatal("expected kind mismatch for different KData, got nil")
+		t.Fatal("expected kind mismatch for different PromotedDataKind, got nil")
 	}
 }
 
-// TestProbeD_KindUnify_KDataMatch — same KData should unify.
+// TestProbeD_KindUnify_KDataMatch — same PromotedDataKind should unify.
 func TestProbeD_KindUnify_KDataMatch(t *testing.T) {
 	u := unify.NewUnifier()
-	if err := u.UnifyKinds(types.KData{Name: "Nat"}, types.KData{Name: "Nat"}); err != nil {
+	if err := u.Unify(types.PromotedDataKind("Nat"), types.PromotedDataKind("Nat")); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -96,8 +101,8 @@ func TestProbeD_KindUnify_KDataMatch(t *testing.T) {
 // TestProbeE_KindUnify_MetaSelf — kind meta self-unification.
 func TestProbeE_KindUnify_MetaSelf(t *testing.T) {
 	u := unify.NewUnifier()
-	km := &types.KMeta{ID: 1}
-	if err := u.UnifyKinds(km, km); err != nil {
+	km := kindMeta(1)
+	if err := u.Unify(km, km); err != nil {
 		t.Errorf("kind meta self-unify should succeed: %v", err)
 	}
 }
@@ -105,57 +110,57 @@ func TestProbeE_KindUnify_MetaSelf(t *testing.T) {
 // TestProbeE_KindUnify_OccursCheck — kind occurs check.
 func TestProbeE_KindUnify_OccursCheck(t *testing.T) {
 	u := unify.NewUnifier()
-	km := &types.KMeta{ID: 1}
-	karrow := &types.KArrow{From: km, To: types.KType{}}
-	err := u.UnifyKinds(km, karrow)
+	km := kindMeta(1)
+	karrow := &types.TyArrow{From: km, To: types.TypeOfTypes}
+	err := u.Unify(km, karrow)
 	if err == nil {
 		t.Fatal("expected kind occurs check error")
 	}
 }
 
-// TestProbeE_KindUnify_KTypeMismatch — KType vs KRow must fail.
+// TestProbeE_KindUnify_KTypeMismatch — Type vs Row must fail.
 func TestProbeE_KindUnify_KTypeMismatch(t *testing.T) {
 	u := unify.NewUnifier()
-	err := u.UnifyKinds(types.KType{}, types.KRow{})
+	err := u.Unify(types.TypeOfTypes, types.TypeOfRows)
 	if err == nil {
 		t.Fatal("expected kind mismatch: Type vs Row")
 	}
 }
 
-// TestProbeE_KindUnify_ArrowChain — deep KArrow chains should unify.
+// TestProbeE_KindUnify_ArrowChain — deep TyArrow chains should unify.
 func TestProbeE_KindUnify_ArrowChain(t *testing.T) {
 	u := unify.NewUnifier()
 	// Type -> Type -> Type vs ?k1 -> ?k2 -> Type
-	k1 := &types.KMeta{ID: 1}
-	k2 := &types.KMeta{ID: 2}
-	concrete := &types.KArrow{From: types.KType{}, To: &types.KArrow{From: types.KType{}, To: types.KType{}}}
-	withMetas := &types.KArrow{From: k1, To: &types.KArrow{From: k2, To: types.KType{}}}
-	if err := u.UnifyKinds(concrete, withMetas); err != nil {
+	k1 := kindMeta(1)
+	k2 := kindMeta(2)
+	concrete := &types.TyArrow{From: types.TypeOfTypes, To: &types.TyArrow{From: types.TypeOfTypes, To: types.TypeOfTypes}}
+	withMetas := &types.TyArrow{From: k1, To: &types.TyArrow{From: k2, To: types.TypeOfTypes}}
+	if err := u.Unify(concrete, withMetas); err != nil {
 		t.Fatalf("expected success: %v", err)
 	}
-	zk1 := u.ZonkKind(k1)
-	if _, ok := zk1.(types.KType); !ok {
-		t.Errorf("expected k1 = Type, got %s", zk1)
+	zk1 := u.Zonk(k1)
+	if !types.Equal(zk1, types.TypeOfTypes) {
+		t.Errorf("expected k1 = Type, got %s", types.PrettyTypeAsKind(zk1))
 	}
-	zk2 := u.ZonkKind(k2)
-	if _, ok := zk2.(types.KType); !ok {
-		t.Errorf("expected k2 = Type, got %s", zk2)
+	zk2 := u.Zonk(k2)
+	if !types.Equal(zk2, types.TypeOfTypes) {
+		t.Errorf("expected k2 = Type, got %s", types.PrettyTypeAsKind(zk2))
 	}
 }
 
-// TestProbeE_KindUnify_KDataDistinct — KData with different names must not unify.
+// TestProbeE_KindUnify_KDataDistinct — PromotedDataKind with different names must not unify.
 func TestProbeE_KindUnify_KDataDistinct(t *testing.T) {
 	u := unify.NewUnifier()
-	err := u.UnifyKinds(types.KData{Name: "Color"}, types.KData{Name: "Shape"})
+	err := u.Unify(types.PromotedDataKind("Color"), types.PromotedDataKind("Shape"))
 	if err == nil {
-		t.Fatal("expected kind mismatch for distinct KData")
+		t.Fatal("expected kind mismatch for distinct PromotedDataKind")
 	}
 }
 
-// TestProbeE_KindUnify_KConstraintVsKType — KConstraint vs KType must fail.
+// TestProbeE_KindUnify_KConstraintVsKType — Constraint vs Type must fail.
 func TestProbeE_KindUnify_KConstraintVsKType(t *testing.T) {
 	u := unify.NewUnifier()
-	err := u.UnifyKinds(types.KConstraint{}, types.KType{})
+	err := u.Unify(types.TypeOfConstraints, types.TypeOfTypes)
 	if err == nil {
 		t.Fatal("expected kind mismatch: Constraint vs Type")
 	}
@@ -200,7 +205,7 @@ f := \x. True
 main := True
 `
 	config := &CheckConfig{
-		RegisteredTypes: map[string]types.Kind{"Int": types.KType{}},
+		RegisteredTypes: map[string]types.Type{"Int": types.TypeOfTypes},
 	}
 	// NOTE: This currently does NOT produce an error, which may be a bug.
 	// The type annotation `Bool Int` should be a kind error since Bool :: Type,

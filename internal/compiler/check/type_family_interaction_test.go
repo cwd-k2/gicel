@@ -50,7 +50,7 @@ impl Container List := {
 }
 `
 	config := &CheckConfig{
-		RegisteredTypes: map[string]types.Kind{"Int": types.KType{}},
+		RegisteredTypes: map[string]types.Type{"Int": types.TypeOfTypes},
 	}
 	checkSource(t, source, config)
 }
@@ -335,7 +335,7 @@ impl Container (List a) := {
 }
 `
 	config := &CheckConfig{
-		RegisteredTypes: map[string]types.Kind{"Int": types.KType{}},
+		RegisteredTypes: map[string]types.Type{"Int": types.TypeOfTypes},
 	}
 	// The instance should still compile; the associated type just won't have
 	// an equation. Missing associated type definition is not a method;
@@ -441,7 +441,7 @@ test :: Int -> Int
 test := \n. id @(Elem (List Int)) n
 `
 	config := &CheckConfig{
-		RegisteredTypes: map[string]types.Kind{"Int": types.KType{}},
+		RegisteredTypes: map[string]types.Type{"Int": types.TypeOfTypes},
 	}
 	checkSource(t, source, config)
 }
@@ -507,7 +507,7 @@ main :: Int
 main := length (Cons Unit Nil)
 `
 	config := &CheckConfig{
-		RegisteredTypes: map[string]types.Kind{"Int": types.KType{}},
+		RegisteredTypes: map[string]types.Type{"Int": types.TypeOfTypes},
 	}
 	checkSource(t, source, config)
 }
@@ -776,7 +776,7 @@ testMaybe :: Elem (Maybe Unit) -> Unit
 testMaybe := \x. x
 `
 	config := &CheckConfig{
-		RegisteredTypes: map[string]types.Kind{"Int": types.KType{}},
+		RegisteredTypes: map[string]types.Type{"Int": types.TypeOfTypes},
 	}
 	checkSource(t, source, config)
 }
@@ -1168,7 +1168,7 @@ test :: Int -> Int
 test := \n. id @(Elem (List Int)) n
 `
 	config := &CheckConfig{
-		RegisteredTypes: map[string]types.Kind{"Int": types.KType{}},
+		RegisteredTypes: map[string]types.Type{"Int": types.TypeOfTypes},
 	}
 	checkSource(t, source, config)
 }
@@ -1360,11 +1360,11 @@ test := \x. show (eq x True)
 
 func TestInteractionContainsMetaTyFamilyApp(t *testing.T) {
 	// A TyFamilyApp with a TyMeta inside should be detected by typeHasMeta.
-	meta := &types.TyMeta{ID: 999, Kind: types.KType{}}
+	meta := &types.TyMeta{ID: 999, Kind: types.TypeOfTypes}
 	tfApp := &types.TyFamilyApp{
 		Name: "Elem",
 		Args: []types.Type{meta},
-		Kind: types.KType{},
+		Kind: types.TypeOfTypes,
 	}
 	if !typeHasMeta(tfApp) {
 		t.Error("typeHasMeta should detect TyMeta inside TyFamilyApp")
@@ -1376,7 +1376,7 @@ func TestInteractionContainsMetaTyFamilyAppNoMeta(t *testing.T) {
 	tfApp := &types.TyFamilyApp{
 		Name: "Elem",
 		Args: []types.Type{&types.TyCon{Name: "Int"}},
-		Kind: types.KType{},
+		Kind: types.TypeOfTypes,
 	}
 	if typeHasMeta(tfApp) {
 		t.Error("typeHasMeta should not detect meta in TyFamilyApp with only TyCon args")
@@ -1385,7 +1385,7 @@ func TestInteractionContainsMetaTyFamilyAppNoMeta(t *testing.T) {
 
 func TestInteractionContainsMetaTyFamilyAppNestedMeta(t *testing.T) {
 	// TyFamilyApp with meta nested inside a TyApp argument.
-	meta := &types.TyMeta{ID: 999, Kind: types.KType{}}
+	meta := &types.TyMeta{ID: 999, Kind: types.TypeOfTypes}
 	tfApp := &types.TyFamilyApp{
 		Name: "Elem",
 		Args: []types.Type{
@@ -1394,7 +1394,7 @@ func TestInteractionContainsMetaTyFamilyAppNestedMeta(t *testing.T) {
 				Arg: meta,
 			},
 		},
-		Kind: types.KType{},
+		Kind: types.TypeOfTypes,
 	}
 	if !typeHasMeta(tfApp) {
 		t.Error("typeHasMeta should detect TyMeta nested inside TyFamilyApp arg")
@@ -1406,7 +1406,7 @@ func TestInteractionContainsMetaTyFamilyAppNestedMeta(t *testing.T) {
 // ----------------------------------------------------------------
 
 func TestInteractionContainsMetaTyThunk(t *testing.T) {
-	meta := &types.TyMeta{ID: 999, Kind: types.KType{}}
+	meta := &types.TyMeta{ID: 999, Kind: types.TypeOfTypes}
 	thunk := types.MkThunk(
 		types.ClosedRow(),
 		types.ClosedRow(),
@@ -1418,7 +1418,7 @@ func TestInteractionContainsMetaTyThunk(t *testing.T) {
 }
 
 func TestInteractionContainsMetaTyThunkPre(t *testing.T) {
-	meta := &types.TyMeta{ID: 999, Kind: types.KRow{}}
+	meta := &types.TyMeta{ID: 999, Kind: types.TypeOfRows}
 	thunk := types.MkThunk(
 		meta,
 		types.ClosedRow(),

@@ -52,7 +52,7 @@ type TyApp struct {
 // TyLam — type abstraction (elaboration of \). Erased at runtime.
 type TyLam struct {
 	TyParam string
-	Kind    types.Kind
+	Kind    types.Type
 	Body    Core
 	S       span.Span
 }

@@ -86,7 +86,7 @@ func TestProbeA_CrashResist_WideRow30Fields(t *testing.T) {
 	sb.WriteString("}\n")
 
 	config := &CheckConfig{
-		RegisteredTypes: map[string]types.Kind{"Int": types.KType{}},
+		RegisteredTypes: map[string]types.Type{"Int": types.TypeOfTypes},
 	}
 	checkSource(t, sb.String(), config)
 }
@@ -108,7 +108,7 @@ func TestProbeA_CrashResist_WideRow30FieldsProjection(t *testing.T) {
 	sb.WriteString(fmt.Sprintf("}.#f%d\n", N-1))
 
 	config := &CheckConfig{
-		RegisteredTypes: map[string]types.Kind{"Int": types.KType{}},
+		RegisteredTypes: map[string]types.Type{"Int": types.TypeOfTypes},
 	}
 	checkSource(t, sb.String(), config)
 }

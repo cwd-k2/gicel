@@ -135,7 +135,7 @@ main := do {
 }
 `
 	config := &CheckConfig{
-		RegisteredTypes: map[string]types.Kind{"Int": types.KType{}},
+		RegisteredTypes: map[string]types.Type{"Int": types.TypeOfTypes},
 	}
 	checkSource(t, source, config)
 }
@@ -363,7 +363,7 @@ func TestGradeDropFamilyReduction(t *testing.T) {
 func TestGradeJoinFamilyStuckOnMeta(t *testing.T) {
 	ch := newTestCheckerWithGradeFamilies(t)
 
-	meta := &types.TyMeta{ID: 1, Kind: types.KType{}}
+	meta := &types.TyMeta{ID: 1, Kind: types.TypeOfTypes}
 	args := []types.Type{&types.TyCon{Name: "Zero"}, meta}
 	_, ok := ch.reduceTyFamily(gradeJoinFamily, args, span.Span{})
 	if ok {
@@ -486,7 +486,7 @@ func TestGradeContainsMeta_Concrete(t *testing.T) {
 }
 
 func TestGradeContainsMeta_Meta(t *testing.T) {
-	ty := &types.TyMeta{ID: 1, Kind: types.KType{}}
+	ty := &types.TyMeta{ID: 1, Kind: types.TypeOfTypes}
 	if !gradeContainsMeta(ty) {
 		t.Error("TyMeta should be detected")
 	}
@@ -495,7 +495,7 @@ func TestGradeContainsMeta_Meta(t *testing.T) {
 func TestGradeContainsMeta_NestedMeta(t *testing.T) {
 	ty := &types.TyApp{
 		Fun: &types.TyCon{Name: "F"},
-		Arg: &types.TyMeta{ID: 2, Kind: types.KType{}},
+		Arg: &types.TyMeta{ID: 2, Kind: types.TypeOfTypes},
 	}
 	if !gradeContainsMeta(ty) {
 		t.Error("nested TyMeta should be detected")
@@ -508,7 +508,7 @@ func TestEmitGradePreserveConstraint_EmitsCtFunEq(t *testing.T) {
 	ch := newTestCheckerWithGradeFamilies(t)
 	ch.solver.InertSet().Reset()
 
-	meta := ch.freshMeta(types.KType{})
+	meta := ch.freshMeta(types.TypeOfTypes)
 	ch.emitGradePreserveConstraint(meta, gradeAlgebraKind(ch), span.Span{})
 
 	// Verify a CtFunEq was registered in the inert set for $GradeJoin.
@@ -547,7 +547,7 @@ func TestGradeJoinResolvesAfterMetaSolved(t *testing.T) {
 
 	// Create a meta, register a stuck $GradeJoin(Zero, ?m), then solve ?m
 	// to Affine and verify the family reduces to Affine.
-	meta := ch.freshMeta(types.KType{})
+	meta := ch.freshMeta(types.TypeOfTypes)
 	args := []types.Type{&types.TyCon{Name: "Zero"}, meta}
 
 	// Initially stuck.
@@ -594,21 +594,24 @@ func TestGradeAlgebraFamiliesIdempotent(t *testing.T) {
 func TestGradeAlgebraKind_FallbackToKType(t *testing.T) {
 	ch := newTestChecker()
 	k := gradeAlgebraKind(ch)
-	if _, ok := k.(types.KType); !ok {
-		t.Errorf("expected KType fallback, got %T", k)
+	if !types.Equal(k, types.TypeOfTypes) {
+		t.Errorf("expected TypeOfTypes fallback, got %s", types.PrettyTypeAsKind(k))
 	}
 }
 
 func TestGradeAlgebraKind_UsesPromotedKind(t *testing.T) {
 	ch := newTestChecker()
-	ch.reg.RegisterPromotedKind("Mult", types.KData{Name: "Mult"})
+	ch.reg.RegisterPromotedKind("Mult", types.PromotedDataKind("Mult"))
 	k := gradeAlgebraKind(ch)
-	kd, ok := k.(types.KData)
+	tc, ok := k.(*types.TyCon)
 	if !ok {
-		t.Fatalf("expected KData, got %T", k)
+		t.Fatalf("expected *TyCon, got %T", k)
 	}
-	if kd.Name != "Mult" {
-		t.Errorf("expected KData{Mult}, got KData{%s}", kd.Name)
+	if tc.Name != "Mult" {
+		t.Errorf("expected TyCon{Mult}, got TyCon{%s}", tc.Name)
+	}
+	if !types.IsKindLevel(tc.Level) {
+		t.Errorf("expected level 1 (kind level), got %v", tc.Level)
 	}
 }
 
@@ -659,7 +662,7 @@ func TestGradeJoinFamilyViaReduceAll(t *testing.T) {
 			&types.TyCon{Name: "Linear"},
 			&types.TyCon{Name: "Zero"},
 		},
-		Kind: types.KType{},
+		Kind: types.TypeOfTypes,
 	}
 	if ch.unifier.FamilyReducer == nil {
 		t.Fatal("FamilyReducer not installed")
@@ -726,7 +729,7 @@ func TestGradeDropFamilyViaReduceAll(t *testing.T) {
 	app := &types.TyFamilyApp{
 		Name: gradeDropFamily,
 		Args: nil,
-		Kind: types.KType{},
+		Kind: types.TypeOfTypes,
 	}
 	if ch.unifier.FamilyReducer == nil {
 		t.Fatal("FamilyReducer not installed")
@@ -754,7 +757,7 @@ func TestGradeJoinFamilyWildcardMatchOrder(t *testing.T) {
 	// be indeterminate (concrete pattern vs meta), preventing the
 	// wildcards from being tried → correct closed family semantics.
 
-	meta := &types.TyMeta{ID: 99, Kind: types.KType{}}
+	meta := &types.TyMeta{ID: 99, Kind: types.TypeOfTypes}
 	args := []types.Type{&types.TyCon{Name: "Unrestricted"}, meta}
 
 	// The first matching equation is the identity (Unrestricted, Unrestricted)

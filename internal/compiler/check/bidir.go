@@ -176,8 +176,8 @@ func (ch *Checker) infer(expr syntax.Expr) (types.Type, ir.Core) {
 
 	case *syntax.ExprLam:
 		// In infer mode, generate fresh metas for param types.
-		paramTy := ch.freshMeta(types.KType{})
-		retTy := ch.freshMeta(types.KType{})
+		paramTy := ch.freshMeta(types.TypeOfTypes)
+		retTy := ch.freshMeta(types.TypeOfTypes)
 		lamCore := ch.checkLam(e, types.MkArrow(paramTy, retTy))
 		return ch.unifier.Zonk(types.MkArrow(paramTy, retTy)), lamCore
 
@@ -265,11 +265,11 @@ func (ch *Checker) check(expr syntax.Expr, expected types.Type) ir.Core {
 	// against the quantified type. This implements the spec rule:
 	//   ⟦ e : \ a:K. T ⟧ = TyLam(a, K, ⟦e: T⟧)
 	if f, ok := expected.(*types.TyForall); ok {
-		if _, isSort := f.Kind.(types.KSort); isSort {
-			// Kind-level quantifier: introduce a fresh kind skolem (KVar)
+		if isSortKind(f.Kind) {
+			// Kind-level quantifier: introduce a fresh kind skolem (TyVar)
 			// and substitute in all kind positions.
 			freshName := fmt.Sprintf("%s$%d", f.Var, ch.fresh())
-			body := types.SubstKindInType(f.Body, f.Var, types.KVar{Name: freshName})
+			body := types.Subst(f.Body, f.Var, &types.TyVar{Name: freshName})
 			bodyCore := ch.check(expr, body)
 			return &ir.TyLam{TyParam: f.Var, Kind: f.Kind, Body: bodyCore, S: expr.Span()}
 		}
@@ -426,10 +426,10 @@ func (ch *Checker) subsCheck(inferred, expected types.Type, expr ir.Core, s span
 
 	// Inferred ∀a. A ≤ B  →  instantiate a, check A[a:=?m] ≤ B
 	if f, ok := inferred.(*types.TyForall); ok {
-		if _, isSort := f.Kind.(types.KSort); isSort {
+		if isSortKind(f.Kind) {
 			// Kind-level quantifier: instantiate with a fresh kind metavariable
-			km := ch.freshKindMeta()
-			body := types.SubstKindInType(f.Body, f.Var, km)
+			km := ch.freshMeta(types.SortZero)
+			body := types.Subst(f.Body, f.Var, km)
 			return ch.subsCheck(body, expected, expr, s)
 		}
 		meta := ch.freshMeta(f.Kind)

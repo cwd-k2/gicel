@@ -47,11 +47,12 @@ func (u *Unifier) Zonk(t types.Type) types.Type {
 		}
 		return &types.TyArrow{From: zFrom, To: zTo, S: ty.S}
 	case *types.TyForall:
+		zKind := u.Zonk(ty.Kind)
 		zBody := u.Zonk(ty.Body)
-		if zBody == ty.Body {
+		if zKind == ty.Kind && zBody == ty.Body {
 			return ty
 		}
-		return &types.TyForall{Var: ty.Var, Kind: ty.Kind, Body: zBody, S: ty.S}
+		return &types.TyForall{Var: ty.Var, Kind: zKind, Body: zBody, S: ty.S}
 	case *types.TyCBPV:
 		zPre := u.Zonk(ty.Pre)
 		zPost := u.Zonk(ty.Post)
@@ -96,10 +97,24 @@ func (u *Unifier) Zonk(t types.Type) types.Type {
 				changed = true
 			}
 		}
+		zKind := u.Zonk(ty.Kind)
+		if zKind != ty.Kind {
+			changed = true
+		}
 		if !changed {
 			return ty
 		}
-		return &types.TyFamilyApp{Name: ty.Name, Args: args, Kind: ty.Kind, S: ty.S}
+		return &types.TyFamilyApp{Name: ty.Name, Args: args, Kind: zKind, S: ty.S}
+	case *types.TyCon:
+		// TyCon is usually a leaf, but Level may contain LevelMeta.
+		if ty.Level == nil {
+			return ty
+		}
+		zLevel := u.zonkLevel(ty.Level)
+		if zLevel == ty.Level {
+			return ty
+		}
+		return &types.TyCon{Name: ty.Name, Level: zLevel, S: ty.S}
 	case *types.TySkolem:
 		if u.skolemSoln != nil {
 			if soln, ok := u.skolemSoln[ty.ID]; ok {

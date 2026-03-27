@@ -39,7 +39,7 @@ type Env interface {
 
 	// Fresh generation
 	Fresh() int
-	FreshMeta(types.Kind) *types.TyMeta
+	FreshMeta(types.Type) *types.TyMeta
 
 	// Trial/probe unification scopes
 	WithTrial(fn func() bool) bool

@@ -17,7 +17,7 @@ import (
 // For shared labels, types and multiplicities are unified.
 func (ch *Checker) lubPostStates(posts []types.Type, s span.Span) types.Type {
 	if len(posts) == 0 {
-		return ch.freshMeta(types.KRow{})
+		return ch.freshMeta(types.TypeOfRows)
 	}
 	if len(posts) == 1 {
 		return posts[0]
@@ -158,7 +158,7 @@ func (ch *Checker) joinGrades(result *types.RowField, other []types.Type, s span
 		blocking := ch.unifier.CollectBlockingMetas(args)
 		if len(blocking) > 0 {
 			if _, lubFam := ch.reg.LookupFamily("LUB"); lubFam {
-				resultMeta := ch.freshMeta(types.KType{})
+				resultMeta := ch.freshMeta(types.TypeOfTypes)
 				ct := &CtFunEq{
 					FamilyName: "LUB",
 					Args:       args,
@@ -193,7 +193,7 @@ func isStructuredPattern(p syntax.Pattern) bool {
 
 func (ch *Checker) inferCase(e *syntax.ExprCase) (types.Type, ir.Core) {
 	scrutTy, scrutCore := ch.infer(e.Scrutinee)
-	resultTy := ch.freshMeta(types.KType{})
+	resultTy := ch.freshMeta(types.TypeOfTypes)
 	caseCore := ch.checkCaseAlts(scrutTy, resultTy, scrutCore, e)
 	return ch.unifier.Zonk(resultTy), caseCore
 }
@@ -237,7 +237,7 @@ func (ch *Checker) checkCaseAlts(scrutTy, resultTy types.Type, scrutCore ir.Core
 		// or TyCBPV with fresh post-state meta for Comp.
 		branchExpected := resultTy
 		if isComp {
-			freshPost := ch.freshMeta(types.KRow{})
+			freshPost := ch.freshMeta(types.TypeOfRows)
 			branchExpected = &types.TyCBPV{
 				Tag: types.TagComp, Pre: comp.Pre, Post: freshPost, Result: comp.Result, S: comp.S,
 			}

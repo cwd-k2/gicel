@@ -5,7 +5,7 @@ import "github.com/cwd-k2/gicel/internal/lang/types"
 // Registry holds semantic registries populated during declaration
 // processing and read during type checking.
 type Registry struct {
-	typeKinds         map[string]types.Kind // registered type constructor kinds (absorbed from config)
+	typeKinds         map[string]types.Type // registered type constructor kinds (absorbed from config)
 	conModules        map[string]string     // constructor name → source module name
 	conTypes          map[string]types.Type
 	conInfo           map[string]*DataTypeInfo
@@ -16,8 +16,8 @@ type Registry struct {
 	instances         []*InstanceInfo
 	instancesByClass  map[string][]*InstanceInfo
 	importedInstances map[*InstanceInfo]bool
-	promotedKinds     map[string]types.Kind      // DataKinds: data name → KData
-	promotedCons      map[string]types.Kind      // DataKinds: nullary con → KData
+	promotedKinds     map[string]types.Type      // DataKinds: data name → KData
+	promotedCons      map[string]types.Type      // DataKinds: nullary con → KData
 	kindVars          map[string]bool            // HKT: kind variables in scope
 	families          map[string]*TypeFamilyInfo // type family declarations
 }
@@ -39,7 +39,7 @@ func (r *Registry) RegisterInstance(inst *InstanceInfo) {
 }
 
 // RegisterTypeKind records a type constructor's kind.
-func (r *Registry) RegisterTypeKind(name string, kind types.Kind) {
+func (r *Registry) RegisterTypeKind(name string, kind types.Type) {
 	r.typeKinds[name] = kind
 }
 
@@ -69,12 +69,12 @@ func (r *Registry) RegisterDataType(name string, info *DataTypeInfo) {
 }
 
 // RegisterPromotedKind records a DataKinds promoted data name.
-func (r *Registry) RegisterPromotedKind(name string, kind types.Kind) {
+func (r *Registry) RegisterPromotedKind(name string, kind types.Type) {
 	r.promotedKinds[name] = kind
 }
 
 // RegisterPromotedCon records a DataKinds promoted nullary constructor.
-func (r *Registry) RegisterPromotedCon(name string, kind types.Kind) {
+func (r *Registry) RegisterPromotedCon(name string, kind types.Type) {
 	r.promotedCons[name] = kind
 }
 
@@ -150,7 +150,7 @@ func (r *Registry) LookupFamily(name string) (*TypeFamilyInfo, bool) {
 }
 
 // LookupTypeKind returns the kind of a registered type constructor.
-func (r *Registry) LookupTypeKind(name string) (types.Kind, bool) {
+func (r *Registry) LookupTypeKind(name string) (types.Type, bool) {
 	k, ok := r.typeKinds[name]
 	return k, ok
 }
@@ -184,7 +184,7 @@ func (r *Registry) HasPromotedKind(name string) bool {
 }
 
 // LookupPromotedKind returns the kind for a DataKinds promoted data name.
-func (r *Registry) LookupPromotedKind(name string) (types.Kind, bool) {
+func (r *Registry) LookupPromotedKind(name string) (types.Type, bool) {
 	k, ok := r.promotedKinds[name]
 	return k, ok
 }
@@ -196,7 +196,7 @@ func (r *Registry) HasPromotedCon(name string) bool {
 }
 
 // LookupPromotedCon returns the kind for a DataKinds promoted constructor.
-func (r *Registry) LookupPromotedCon(name string) (types.Kind, bool) {
+func (r *Registry) LookupPromotedCon(name string) (types.Type, bool) {
 	k, ok := r.promotedCons[name]
 	return k, ok
 }
@@ -249,13 +249,13 @@ func (r *Registry) AllInstances() []*InstanceInfo {
 
 // AllPromotedKinds returns the promoted data name -> kind map.
 // The caller must not modify the returned map.
-func (r *Registry) AllPromotedKinds() map[string]types.Kind {
+func (r *Registry) AllPromotedKinds() map[string]types.Type {
 	return r.promotedKinds
 }
 
 // AllPromotedCons returns the promoted constructor -> kind map.
 // The caller must not modify the returned map.
-func (r *Registry) AllPromotedCons() map[string]types.Kind {
+func (r *Registry) AllPromotedCons() map[string]types.Type {
 	return r.promotedCons
 }
 

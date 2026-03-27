@@ -183,7 +183,7 @@ func (s *Solver) FreshInstanceSubst(inst *env.InstanceInfo) map[string]types.Typ
 	}
 	subst := make(map[string]types.Type, len(names))
 	for _, v := range names {
-		subst[v] = s.env.FreshMeta(types.KType{})
+		subst[v] = s.env.FreshMeta(types.TypeOfTypes)
 	}
 	return subst
 }

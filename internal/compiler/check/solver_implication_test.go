@@ -54,7 +54,7 @@ func TestImplicationResolvableWanteds(t *testing.T) {
 // mentioning a local skolem produces an error (cannot float).
 func TestImplicationStuckLocalSkolem(t *testing.T) {
 	ch := setupCheckerWithPrelude(t)
-	sk := &types.TySkolem{ID: 999, Name: "a", Kind: types.KType{}}
+	sk := &types.TySkolem{ID: 999, Name: "a", Kind: types.TypeOfTypes}
 
 	ch.solver.Emit(&CtImplication{
 		Skolems: []*types.TySkolem{sk},
@@ -81,7 +81,7 @@ func TestImplicationFloatableResidual(t *testing.T) {
 	ch := setupCheckerWithPrelude(t)
 
 	// Outer meta at level 0 — should be floatable.
-	outerMeta := &types.TyMeta{ID: ch.fresh(), Kind: types.KType{}, Level: 0}
+	outerMeta := &types.TyMeta{ID: ch.fresh(), Kind: types.TypeOfTypes, Level: 0}
 
 	// Emit an outer constraint first to verify it's preserved.
 	ch.solver.Emit(&CtClass{

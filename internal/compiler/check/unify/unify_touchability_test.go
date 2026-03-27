@@ -13,7 +13,7 @@ import (
 func TestSolverLevelDisabledAllowsSolve(t *testing.T) {
 	u := NewUnifier()
 	// SolverLevel is -1 by default.
-	m := &types.TyMeta{ID: 1, Kind: types.KType{}, Level: 0}
+	m := &types.TyMeta{ID: 1, Kind: types.TypeOfTypes, Level: 0}
 	if err := u.Unify(m, types.Con("Int")); err != nil {
 		t.Fatalf("SolverLevel=-1 should allow solving level-0 meta: %v", err)
 	}
@@ -28,7 +28,7 @@ func TestSolverLevelDisabledAllowsSolve(t *testing.T) {
 func TestSolverLevelBlocksOuterMeta(t *testing.T) {
 	u := NewUnifier()
 	u.SolverLevel = 1
-	m := &types.TyMeta{ID: 1, Kind: types.KType{}, Level: 0}
+	m := &types.TyMeta{ID: 1, Kind: types.TypeOfTypes, Level: 0}
 	err := u.Unify(m, types.Con("Int"))
 	if err == nil {
 		t.Fatal("expected UnifyUntouchable error, got nil")
@@ -47,7 +47,7 @@ func TestSolverLevelBlocksOuterMeta(t *testing.T) {
 func TestSolverLevelAllowsSameLevelMeta(t *testing.T) {
 	u := NewUnifier()
 	u.SolverLevel = 1
-	m := &types.TyMeta{ID: 1, Kind: types.KType{}, Level: 1}
+	m := &types.TyMeta{ID: 1, Kind: types.TypeOfTypes, Level: 1}
 	if err := u.Unify(m, types.Con("Bool")); err != nil {
 		t.Fatalf("same-level meta should be solvable: %v", err)
 	}
@@ -62,7 +62,7 @@ func TestSolverLevelAllowsSameLevelMeta(t *testing.T) {
 func TestSolverLevelZeroAllowsLevelZeroMeta(t *testing.T) {
 	u := NewUnifier()
 	u.SolverLevel = 0
-	m := &types.TyMeta{ID: 1, Kind: types.KType{}, Level: 0}
+	m := &types.TyMeta{ID: 1, Kind: types.TypeOfTypes, Level: 0}
 	if err := u.Unify(m, types.Con("String")); err != nil {
 		t.Fatalf("level-0 meta at SolverLevel=0 should be solvable: %v", err)
 	}
@@ -77,7 +77,7 @@ func TestSolverLevelZeroAllowsLevelZeroMeta(t *testing.T) {
 func TestSolverLevelBlocksRHS(t *testing.T) {
 	u := NewUnifier()
 	u.SolverLevel = 2
-	m := &types.TyMeta{ID: 1, Kind: types.KType{}, Level: 0}
+	m := &types.TyMeta{ID: 1, Kind: types.TypeOfTypes, Level: 0}
 	err := u.Unify(types.Con("Int"), m)
 	if err == nil {
 		t.Fatal("expected UnifyUntouchable error for RHS meta")
@@ -96,7 +96,7 @@ func TestSolverLevelBlocksRHS(t *testing.T) {
 func TestSolverLevelAllowsHigherLevelMeta(t *testing.T) {
 	u := NewUnifier()
 	u.SolverLevel = 1
-	m := &types.TyMeta{ID: 1, Kind: types.KType{}, Level: 2}
+	m := &types.TyMeta{ID: 1, Kind: types.TypeOfTypes, Level: 2}
 	if err := u.Unify(m, types.Con("Rune")); err != nil {
 		t.Fatalf("higher-level meta should be solvable: %v", err)
 	}

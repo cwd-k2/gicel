@@ -31,14 +31,14 @@ func mkTypeModule(typeName string, cons []string) *ModuleExports {
 		ownedNames[c] = true
 	}
 	return &ModuleExports{
-		Types:           map[string]types.Kind{typeName: types.KType{}},
+		Types:           map[string]types.Type{typeName: types.TypeOfTypes},
 		ConTypes:        conTypes,
 		ConstructorInfo: conInfo,
 		Aliases:         map[string]*AliasInfo{},
 		Classes:         map[string]*ClassInfo{},
 		Values:          map[string]types.Type{},
-		PromotedKinds:   map[string]types.Kind{},
-		PromotedCons:    map[string]types.Kind{},
+		PromotedKinds:   map[string]types.Type{},
+		PromotedCons:    map[string]types.Type{},
 		TypeFamilies:    map[string]*TypeFamilyInfo{},
 		ModuleOwnership: ModuleOwnership{
 			OwnedTypeNames:     map[string]bool{typeName: true},
@@ -53,18 +53,18 @@ func mkClassModule(className string, methodName string) *ModuleExports {
 	cls := &ClassInfo{
 		Name:         className,
 		TyParams:     []string{"a"},
-		TyParamKinds: []types.Kind{types.KType{}},
+		TyParamKinds: []types.Type{types.TypeOfTypes},
 		Methods:      []MethodInfo{{Name: methodName}},
 	}
 	return &ModuleExports{
-		Types:           map[string]types.Kind{},
+		Types:           map[string]types.Type{},
 		ConTypes:        map[string]types.Type{},
 		ConstructorInfo: map[string]*DataTypeInfo{},
 		Aliases:         map[string]*AliasInfo{},
 		Classes:         map[string]*ClassInfo{className: cls},
 		Values:          map[string]types.Type{methodName: types.Con("Int")},
-		PromotedKinds:   map[string]types.Kind{},
-		PromotedCons:    map[string]types.Kind{},
+		PromotedKinds:   map[string]types.Type{},
+		PromotedCons:    map[string]types.Type{},
 		TypeFamilies:    map[string]*TypeFamilyInfo{},
 	}
 }
@@ -72,19 +72,19 @@ func mkClassModule(className string, methodName string) *ModuleExports {
 // mkFamilyModule creates a ModuleExports that defines a type family.
 func mkFamilyModule(famName string) *ModuleExports {
 	return &ModuleExports{
-		Types:           map[string]types.Kind{},
+		Types:           map[string]types.Type{},
 		ConTypes:        map[string]types.Type{},
 		ConstructorInfo: map[string]*DataTypeInfo{},
 		Aliases:         map[string]*AliasInfo{},
 		Classes:         map[string]*ClassInfo{},
 		Values:          map[string]types.Type{},
-		PromotedKinds:   map[string]types.Kind{},
-		PromotedCons:    map[string]types.Kind{},
+		PromotedKinds:   map[string]types.Type{},
+		PromotedCons:    map[string]types.Type{},
 		TypeFamilies: map[string]*TypeFamilyInfo{
 			famName: {
 				Name:       famName,
-				Params:     []TFParam{{Name: "a", Kind: types.KType{}}},
-				ResultKind: types.KType{},
+				Params:     []TFParam{{Name: "a", Kind: types.TypeOfTypes}},
+				ResultKind: types.TypeOfTypes,
 			},
 		},
 	}
@@ -96,7 +96,7 @@ func TestCollision_TwoOpenImportsSameType(t *testing.T) {
 	modA := mkTypeModule("Color", []string{"RedA"})
 	modB := mkTypeModule("Color", []string{"RedB"})
 	config := &CheckConfig{
-		RegisteredTypes: map[string]types.Kind{"Int": types.KType{}},
+		RegisteredTypes: map[string]types.Type{"Int": types.TypeOfTypes},
 		ImportedModules: map[string]*ModuleExports{"ModA": modA, "ModB": modB},
 		ModuleDeps:      map[string][]string{"ModA": nil, "ModB": nil},
 	}
@@ -122,7 +122,7 @@ func TestCollision_TwoOpenImportsSameClass(t *testing.T) {
 	modB.OwnedTypeNames = map[string]bool{"DummyB": true}
 	modB.OwnedNames = map[string]bool{"DummyB": true}
 	config := &CheckConfig{
-		RegisteredTypes: map[string]types.Kind{"Int": types.KType{}},
+		RegisteredTypes: map[string]types.Type{"Int": types.TypeOfTypes},
 		ImportedModules: map[string]*ModuleExports{"ModA": modA, "ModB": modB},
 		ModuleDeps:      map[string][]string{"ModA": nil, "ModB": nil},
 	}
@@ -148,7 +148,7 @@ func TestCollision_TwoOpenImportsSameFamily(t *testing.T) {
 	modB.OwnedTypeNames = map[string]bool{"DummyB": true}
 	modB.OwnedNames = map[string]bool{"DummyB": true}
 	config := &CheckConfig{
-		RegisteredTypes: map[string]types.Kind{"Int": types.KType{}},
+		RegisteredTypes: map[string]types.Type{"Int": types.TypeOfTypes},
 		ImportedModules: map[string]*ModuleExports{"ModA": modA, "ModB": modB},
 		ModuleDeps:      map[string][]string{"ModA": nil, "ModB": nil},
 	}
@@ -176,7 +176,7 @@ func TestCollision_AmbiguousClassBlocksMethods_Open(t *testing.T) {
 	modB.OwnedTypeNames = map[string]bool{"DummyB": true}
 	modB.OwnedNames = map[string]bool{"DummyB": true}
 	config := &CheckConfig{
-		RegisteredTypes: map[string]types.Kind{"Int": types.KType{}},
+		RegisteredTypes: map[string]types.Type{"Int": types.TypeOfTypes},
 		ImportedModules: map[string]*ModuleExports{"ModA": modA, "ModB": modB},
 		ModuleDeps:      map[string][]string{"ModA": nil, "ModB": nil},
 	}
@@ -204,7 +204,7 @@ func TestCollision_AmbiguousClassBlocksMethods_Selective(t *testing.T) {
 	modB.OwnedTypeNames = map[string]bool{"DummyB": true}
 	modB.OwnedNames = map[string]bool{"DummyB": true}
 	config := &CheckConfig{
-		RegisteredTypes: map[string]types.Kind{"Int": types.KType{}},
+		RegisteredTypes: map[string]types.Type{"Int": types.TypeOfTypes},
 		ImportedModules: map[string]*ModuleExports{"ModA": modA, "ModB": modB},
 		ModuleDeps:      map[string][]string{"ModA": nil, "ModB": nil},
 	}
@@ -226,7 +226,7 @@ func TestCollision_QualifiedDisambiguatesType(t *testing.T) {
 	modA := mkTypeModule("Color", []string{"Red"})
 	modB := mkTypeModule("Color", []string{"Blue"})
 	config := &CheckConfig{
-		RegisteredTypes: map[string]types.Kind{},
+		RegisteredTypes: map[string]types.Type{},
 		ImportedModules: map[string]*ModuleExports{"ModA": modA, "ModB": modB},
 		ModuleDeps:      map[string][]string{"ModA": nil, "ModB": nil},
 	}
@@ -249,14 +249,14 @@ func TestCollision_DiamondReexportType(t *testing.T) {
 	modC := mkTypeModule("Color", []string{"Red", "Blue"})
 	// ModA re-exports from C (Color is NOT in ModA's OwnedTypeNames).
 	modA := &ModuleExports{
-		Types:           map[string]types.Kind{"Color": types.KType{}},
+		Types:           map[string]types.Type{"Color": types.TypeOfTypes},
 		ConTypes:        map[string]types.Type{"Red": types.Con("Color")},
 		ConstructorInfo: modC.ConstructorInfo,
 		Aliases:         map[string]*AliasInfo{},
 		Classes:         map[string]*ClassInfo{},
 		Values:          map[string]types.Type{"helperA": types.Con("Int")},
-		PromotedKinds:   map[string]types.Kind{},
-		PromotedCons:    map[string]types.Kind{},
+		PromotedKinds:   map[string]types.Type{},
+		PromotedCons:    map[string]types.Type{},
 		TypeFamilies:    map[string]*TypeFamilyInfo{},
 		ModuleOwnership: ModuleOwnership{
 			OwnedTypeNames:     map[string]bool{"ModAOwn": true},
@@ -265,14 +265,14 @@ func TestCollision_DiamondReexportType(t *testing.T) {
 		},
 	}
 	modB := &ModuleExports{
-		Types:           map[string]types.Kind{"Color": types.KType{}},
+		Types:           map[string]types.Type{"Color": types.TypeOfTypes},
 		ConTypes:        map[string]types.Type{"Blue": types.Con("Color")},
 		ConstructorInfo: modC.ConstructorInfo,
 		Aliases:         map[string]*AliasInfo{},
 		Classes:         map[string]*ClassInfo{},
 		Values:          map[string]types.Type{"helperB": types.Con("Int")},
-		PromotedKinds:   map[string]types.Kind{},
-		PromotedCons:    map[string]types.Kind{},
+		PromotedKinds:   map[string]types.Type{},
+		PromotedCons:    map[string]types.Type{},
 		TypeFamilies:    map[string]*TypeFamilyInfo{},
 		ModuleOwnership: ModuleOwnership{
 			OwnedTypeNames:     map[string]bool{"ModBOwn": true},
@@ -281,7 +281,7 @@ func TestCollision_DiamondReexportType(t *testing.T) {
 		},
 	}
 	config := &CheckConfig{
-		RegisteredTypes: map[string]types.Kind{"Int": types.KType{}},
+		RegisteredTypes: map[string]types.Type{"Int": types.TypeOfTypes},
 		ImportedModules: map[string]*ModuleExports{
 			"ModC": modC, "ModA": modA, "ModB": modB,
 		},
@@ -307,7 +307,7 @@ func TestCollision_SelectiveImportTypeCollision(t *testing.T) {
 	modA := mkTypeModule("Color", []string{"Red"})
 	modB := mkTypeModule("Color", []string{"Blue"})
 	config := &CheckConfig{
-		RegisteredTypes: map[string]types.Kind{"Int": types.KType{}},
+		RegisteredTypes: map[string]types.Type{"Int": types.TypeOfTypes},
 		ImportedModules: map[string]*ModuleExports{"ModA": modA, "ModB": modB},
 		ModuleDeps:      map[string][]string{"ModA": nil, "ModB": nil},
 	}

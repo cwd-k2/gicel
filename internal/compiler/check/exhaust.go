@@ -45,7 +45,7 @@ func (ch *Checker) substVarsWithMetas(u *unify.Unifier, ty types.Type, vars map[
 		if m, ok := vars[t.Name]; ok {
 			return m
 		}
-		m := &types.TyMeta{ID: ch.fresh(), Kind: types.KType{}}
+		m := &types.TyMeta{ID: ch.fresh(), Kind: types.TypeOfTypes}
 		vars[t.Name] = m
 		return m
 	case *types.TyApp:

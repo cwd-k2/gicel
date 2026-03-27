@@ -62,8 +62,8 @@ func (ch *Checker) matchRecordField(ty types.Type, label string, s span.Span) ty
 				}
 			}
 			// Row might be a meta or open row — unify to extract the field.
-			fieldMeta := ch.freshMeta(types.KType{})
-			tailMeta := ch.freshMeta(types.KRow{})
+			fieldMeta := ch.freshMeta(types.TypeOfTypes)
+			tailMeta := ch.freshMeta(types.TypeOfRows)
 			expectedRow := &types.TyEvidenceRow{
 				Entries: &types.CapabilityEntries{
 					Fields: []types.RowField{{Label: label, Type: fieldMeta}},
@@ -73,14 +73,14 @@ func (ch *Checker) matchRecordField(ty types.Type, label string, s span.Span) ty
 			}
 			if err := ch.unifier.Unify(row, expectedRow); err != nil {
 				ch.addCodedError(diagnostic.ErrRowMismatch, s, fmt.Sprintf("record has no field %s: %s", label, err.Error()))
-				return ch.freshMeta(types.KType{})
+				return ch.freshMeta(types.TypeOfTypes)
 			}
 			return ch.unifier.Zonk(fieldMeta)
 		}
 	}
 	// Type might be a meta — try to unify with Record { label : ?m | ?tail }.
-	fieldMeta := ch.freshMeta(types.KType{})
-	tailMeta := ch.freshMeta(types.KRow{})
+	fieldMeta := ch.freshMeta(types.TypeOfTypes)
+	tailMeta := ch.freshMeta(types.TypeOfRows)
 	expectedRow := &types.TyEvidenceRow{
 		Entries: &types.CapabilityEntries{
 			Fields: []types.RowField{{Label: label, Type: fieldMeta}},
@@ -91,7 +91,7 @@ func (ch *Checker) matchRecordField(ty types.Type, label string, s span.Span) ty
 	expectedRecTy := &types.TyApp{Fun: types.Con("Record"), Arg: expectedRow, S: s}
 	if err := ch.unifier.Unify(ty, expectedRecTy); err != nil {
 		ch.addCodedError(diagnostic.ErrRowMismatch, s, fmt.Sprintf("expected record with field %s, got %s", label, types.Pretty(ty)))
-		return ch.freshMeta(types.KType{})
+		return ch.freshMeta(types.TypeOfTypes)
 	}
 	return ch.unifier.Zonk(fieldMeta)
 }

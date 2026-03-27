@@ -12,27 +12,27 @@ import (
 // --- DataKinds tests ---
 
 func TestKDataEquality(t *testing.T) {
-	k1 := types.KData{Name: "Bool"}
-	k2 := types.KData{Name: "Bool"}
-	k3 := types.KData{Name: "DBState"}
-	if !k1.Equal(k2) {
-		t.Error("KData{Bool} should equal KData{Bool}")
+	k1 := types.PromotedDataKind("Bool")
+	k2 := types.PromotedDataKind("Bool")
+	k3 := types.PromotedDataKind("DBState")
+	if !types.Equal(k1, k2) {
+		t.Error("PromotedDataKind(Bool) should equal PromotedDataKind(Bool)")
 	}
-	if k1.Equal(k3) {
-		t.Error("KData{Bool} should not equal KData{DBState}")
+	if types.Equal(k1, k3) {
+		t.Error("PromotedDataKind(Bool) should not equal PromotedDataKind(DBState)")
 	}
-	if k1.String() != "Bool" {
-		t.Errorf("expected 'Bool', got %s", k1.String())
+	if k1.Name != "Bool" {
+		t.Errorf("expected 'Bool', got %s", k1.Name)
 	}
 }
 
 func TestKDataArity(t *testing.T) {
-	k := types.KData{Name: "DBState"}
+	k := types.PromotedDataKind("DBState")
 	if types.Arity(k) != 0 {
-		t.Errorf("KData arity should be 0, got %d", types.Arity(k))
+		t.Errorf("PromotedDataKind arity should be 0, got %d", types.Arity(k))
 	}
-	if types.ResultKind(k) != k {
-		t.Error("KData ResultKind should be itself")
+	if !types.Equal(types.ResultKind(k), k) {
+		t.Error("PromotedDataKind ResultKind should be itself")
 	}
 }
 

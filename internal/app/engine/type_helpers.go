@@ -9,7 +9,7 @@ import (
 type Type = types.Type
 
 // Kind classifies types and rows.
-type Kind = types.Kind
+type Kind = types.Type
 
 // RowField is a single label:type pair in a row.
 type RowField = types.RowField
@@ -39,12 +39,12 @@ func ThunkType(pre, post, result types.Type) types.Type {
 
 // ForallType creates a universally quantified type: \ var. body.
 func ForallType(varName string, body types.Type) types.Type {
-	return types.MkForall(varName, types.KType{}, body)
+	return types.MkForall(varName, types.TypeOfTypes, body)
 }
 
 // ForallRow creates a universally quantified type with Row kind: \ (r: Row). body.
 func ForallRow(varName string, body types.Type) types.Type {
-	return types.MkForall(varName, types.KRow{}, body)
+	return types.MkForall(varName, types.TypeOfRows, body)
 }
 
 // VarType creates a type variable reference.
@@ -85,13 +85,13 @@ func (rb *RowBuilder) Open(tailVar string) types.Type {
 }
 
 // KindType returns the Type kind (for RegisterType).
-func KindType() types.Kind {
-	return types.KType{}
+func KindType() types.Type {
+	return types.TypeOfTypes
 }
 
 // KindRow returns the Row kind (for RegisterType).
-func KindRow() types.Kind {
-	return types.KRow{}
+func KindRow() types.Type {
+	return types.TypeOfRows
 }
 
 // EmptyRowType creates an empty closed row type.
@@ -100,12 +100,12 @@ func EmptyRowType() types.Type {
 }
 
 // KindArrow creates a kind arrow: from -> to.
-func KindArrow(from, to types.Kind) types.Kind {
-	return &types.KArrow{From: from, To: to}
+func KindArrow(from, to types.Type) types.Type {
+	return &types.TyArrow{From: from, To: to}
 }
 
 // ForallKind creates a universally quantified type with explicit kind.
-func ForallKind(name string, k types.Kind, body types.Type) types.Type {
+func ForallKind(name string, k types.Type, body types.Type) types.Type {
 	return types.MkForall(name, k, body)
 }
 

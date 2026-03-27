@@ -212,7 +212,7 @@ main :: Int
 main := length (map (\x. x) (Cons Unit Nil))
 `
 	config := &CheckConfig{
-		RegisteredTypes: map[string]types.Kind{"Int": types.KType{}},
+		RegisteredTypes: map[string]types.Type{"Int": types.TypeOfTypes},
 		Assumptions:     map[string]types.Type{},
 	}
 	checkSource(t, source, config)
@@ -289,7 +289,7 @@ g :: Elem (Pair Unit Unit) -> Unit
 g := \x. x
 `
 	config := &CheckConfig{
-		RegisteredTypes: map[string]types.Kind{"Int": types.KType{}},
+		RegisteredTypes: map[string]types.Type{"Int": types.TypeOfTypes},
 	}
 	checkSource(t, source, config)
 }
@@ -430,7 +430,7 @@ func TestRowFieldGradesSubst(t *testing.T) {
 
 func TestRowFieldGradesZonk(t *testing.T) {
 	u := unify.NewUnifier()
-	meta := &types.TyMeta{ID: 1, Kind: types.KType{}}
+	meta := &types.TyMeta{ID: 1, Kind: types.TypeOfTypes}
 	u.InstallTempSolution(1, &types.TyCon{Name: "Affine"})
 	row := types.ClosedRow(types.RowField{
 		Label:  "cap",
@@ -466,7 +466,7 @@ func TestTyFamilyAppPretty(t *testing.T) {
 				Arg: &types.TyCon{Name: "Int"},
 			},
 		},
-		Kind: types.KType{},
+		Kind: types.TypeOfTypes,
 	}
 	s := types.Pretty(ty)
 	if !strings.Contains(s, "Elem") {
@@ -481,7 +481,7 @@ func TestTyFamilyAppSubst(t *testing.T) {
 	tf := &types.TyFamilyApp{
 		Name: "F",
 		Args: []types.Type{&types.TyVar{Name: "a"}},
-		Kind: types.KType{},
+		Kind: types.TypeOfTypes,
 	}
 	result := types.Subst(tf, "a", &types.TyCon{Name: "Int"})
 	fa, ok := result.(*types.TyFamilyApp)
@@ -501,7 +501,7 @@ func TestTyFamilyAppFreeVars(t *testing.T) {
 			&types.TyVar{Name: "a"},
 			&types.TyCon{Name: "Int"},
 		},
-		Kind: types.KType{},
+		Kind: types.TypeOfTypes,
 	}
 	fv := types.FreeVars(tf)
 	if _, ok := fv["a"]; !ok {
@@ -513,9 +513,9 @@ func TestTyFamilyAppFreeVars(t *testing.T) {
 }
 
 func TestTyFamilyAppEqual(t *testing.T) {
-	a := &types.TyFamilyApp{Name: "F", Args: []types.Type{&types.TyCon{Name: "Int"}}, Kind: types.KType{}}
-	b := &types.TyFamilyApp{Name: "F", Args: []types.Type{&types.TyCon{Name: "Int"}}, Kind: types.KType{}}
-	c := &types.TyFamilyApp{Name: "F", Args: []types.Type{&types.TyCon{Name: "Bool"}}, Kind: types.KType{}}
+	a := &types.TyFamilyApp{Name: "F", Args: []types.Type{&types.TyCon{Name: "Int"}}, Kind: types.TypeOfTypes}
+	b := &types.TyFamilyApp{Name: "F", Args: []types.Type{&types.TyCon{Name: "Int"}}, Kind: types.TypeOfTypes}
+	c := &types.TyFamilyApp{Name: "F", Args: []types.Type{&types.TyCon{Name: "Bool"}}, Kind: types.TypeOfTypes}
 	if !types.Equal(a, b) {
 		t.Error("equal TyFamilyApps should be equal")
 	}
@@ -526,12 +526,12 @@ func TestTyFamilyAppEqual(t *testing.T) {
 
 func TestTyFamilyAppZonk(t *testing.T) {
 	u := unify.NewUnifier()
-	meta := &types.TyMeta{ID: 1, Kind: types.KType{}}
+	meta := &types.TyMeta{ID: 1, Kind: types.TypeOfTypes}
 	u.InstallTempSolution(1, &types.TyCon{Name: "Int"})
 	tf := &types.TyFamilyApp{
 		Name: "F",
 		Args: []types.Type{meta},
-		Kind: types.KType{},
+		Kind: types.TypeOfTypes,
 	}
 	result := u.Zonk(tf)
 	fa, ok := result.(*types.TyFamilyApp)

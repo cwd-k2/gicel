@@ -30,7 +30,7 @@ func (ch *Checker) ExportModule(prog *ir.Program) *ModuleExports {
 	}
 
 	// Types: only kind entries for data types defined by this module.
-	ownedTypes := make(map[string]types.Kind, len(ownedDataNames))
+	ownedTypes := make(map[string]types.Type, len(ownedDataNames))
 	for name := range ownedDataNames {
 		if kind, ok := ch.reg.LookupTypeKind(name); ok {
 			ownedTypes[name] = kind
@@ -75,13 +75,13 @@ func (ch *Checker) ExportModule(prog *ir.Program) *ModuleExports {
 	}
 
 	// Promoted kinds/cons: only from owned data types.
-	ownedPromKinds := make(map[string]types.Kind)
+	ownedPromKinds := make(map[string]types.Type)
 	for name, kind := range ch.reg.AllPromotedKinds() {
 		if ownedDataNames[name] {
 			ownedPromKinds[name] = kind
 		}
 	}
-	ownedPromCons := make(map[string]types.Kind)
+	ownedPromCons := make(map[string]types.Type)
 	for name, kind := range ch.reg.AllPromotedCons() {
 		if info, ok := ch.reg.LookupConInfo(name); ok && ownedDataNames[info.Name] && !env.IsPrivateName(name) {
 			ownedPromCons[name] = kind

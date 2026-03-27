@@ -18,7 +18,7 @@ type EvidenceEntries interface {
 	EntryCount() int
 	AllChildren() []Type
 	MapChildren(f func(Type) Type) (EvidenceEntries, bool) // mapped entries, changed
-	FiberKind() Kind
+	FiberKind() Type
 	Empty() EvidenceEntries                                   // empty entries of the same fiber
 	ZonkEntries(zonk func(Type) Type) (EvidenceEntries, bool) // zonked entries, changed
 }
@@ -104,7 +104,7 @@ func applyGrades(grades []Type, f func(Type) Type) ([]Type, bool) {
 	return out, true
 }
 
-func (c *CapabilityEntries) FiberKind() Kind { return KRow{} }
+func (c *CapabilityEntries) FiberKind() Type { return TypeOfRows }
 
 func (c *CapabilityEntries) Empty() EvidenceEntries { return &CapabilityEntries{} }
 
@@ -249,7 +249,7 @@ func mapQuantifiedConstraintChanged(qc *QuantifiedConstraint, f func(Type) Type)
 	return &QuantifiedConstraint{Vars: qc.Vars, Context: ctx, Head: head}, true
 }
 
-func (c *ConstraintEntries) FiberKind() Kind { return KConstraint{} }
+func (c *ConstraintEntries) FiberKind() Type { return TypeOfConstraints }
 
 func (c *ConstraintEntries) Empty() EvidenceEntries { return &ConstraintEntries{} }
 

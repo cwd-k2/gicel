@@ -164,10 +164,10 @@ func prettyConstraintEntry(e ConstraintEntry) string {
 func prettyQuantifiedConstraint(qc *QuantifiedConstraint) string {
 	var vars []string
 	for _, v := range qc.Vars {
-		if _, ok := v.Kind.(KType); ok {
+		if Equal(v.Kind, TypeOfTypes) {
 			vars = append(vars, v.Name)
 		} else {
-			vars = append(vars, fmt.Sprintf("(%s: %s)", v.Name, v.Kind))
+			vars = append(vars, fmt.Sprintf("(%s: %s)", v.Name, PrettyTypeAsKind(v.Kind)))
 		}
 	}
 	result := `\` + strings.Join(vars, " ") + ". "
@@ -178,7 +178,23 @@ func prettyQuantifiedConstraint(qc *QuantifiedConstraint) string {
 	return result
 }
 
-// PrettyKind renders a kind.
-func PrettyKind(k Kind) string {
-	return k.String()
+// PrettyTypeAsKind renders a type that represents a kind (level >= 1).
+// Used for error messages and diagnostics during/after Type/Kind unification.
+func PrettyTypeAsKind(t Type) string {
+	switch ty := t.(type) {
+	case *TyCon:
+		return ty.Name
+	case *TyArrow:
+		from := PrettyTypeAsKind(ty.From)
+		if _, ok := ty.From.(*TyArrow); ok {
+			from = "(" + from + ")"
+		}
+		return from + " -> " + PrettyTypeAsKind(ty.To)
+	case *TyVar:
+		return ty.Name
+	case *TyMeta:
+		return "_"
+	default:
+		return Pretty(t)
+	}
 }

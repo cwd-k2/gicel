@@ -99,7 +99,7 @@ func (ch *Checker) instantiateConForalls(conTy types.Type) (types.Type, map[int]
 	// Collect \ vars.
 	type fvar struct {
 		name string
-		kind types.Kind
+		kind types.Type
 	}
 	var forallVars []fvar
 	tmpTy := conTy

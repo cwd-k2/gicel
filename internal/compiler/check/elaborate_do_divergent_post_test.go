@@ -214,9 +214,9 @@ f := \b. case b {
 
 func TestTypehelpersWithMult(t *testing.T) {
 	config := &CheckConfig{
-		RegisteredTypes: map[string]types.Kind{
-			"Int":    types.KType{},
-			"Linear": types.KType{},
+		RegisteredTypes: map[string]types.Type{
+			"Int":    types.TypeOfTypes,
+			"Linear": types.TypeOfTypes,
 		},
 	}
 	source := `

@@ -66,7 +66,7 @@ func TestSolverDuplicateConstraints(t *testing.T) {
 func TestSolverDeferrable(t *testing.T) {
 	ch := setupCheckerWithPrelude(t)
 
-	meta := ch.freshMeta(types.KType{})
+	meta := ch.freshMeta(types.TypeOfTypes)
 	ch.solver.Emit(&CtClass{
 		Placeholder: "$dict_1",
 		ClassName:   "Num",
@@ -92,7 +92,7 @@ func TestSolverDeferrable(t *testing.T) {
 func TestSolverMixedConstraints(t *testing.T) {
 	ch := setupCheckerWithPrelude(t)
 
-	meta := ch.freshMeta(types.KType{})
+	meta := ch.freshMeta(types.TypeOfTypes)
 	// Resolved: Eq Int
 	ch.solver.Emit(&CtClass{
 		Placeholder: "$dict_1",

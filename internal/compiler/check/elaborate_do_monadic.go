@@ -90,7 +90,7 @@ func (ch *Checker) extractMonadResult(ty types.Type, monadHead types.Type, s spa
 		return args[len(args)-1]
 	}
 	// Generate fresh meta as fallback.
-	result := ch.freshMeta(types.KType{})
+	result := ch.freshMeta(types.TypeOfTypes)
 	headApp := &types.TyApp{Fun: monadHead, Arg: result}
 	if err := ch.unifier.Unify(ty, headApp); err != nil {
 		ch.addSemanticUnifyError(diagnostic.ErrBadComputation, err, s, fmt.Sprintf("expected %s type, got %s",

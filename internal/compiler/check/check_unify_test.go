@@ -22,7 +22,7 @@ func TestUnifySimple(t *testing.T) {
 
 func TestUnifyMeta(t *testing.T) {
 	u := unify.NewUnifier()
-	m := &types.TyMeta{ID: 1, Kind: types.KType{}}
+	m := &types.TyMeta{ID: 1, Kind: types.TypeOfTypes}
 	if err := u.Unify(m, types.Con("Int")); err != nil {
 		t.Errorf("?1 ~ Int should succeed: %v", err)
 	}
@@ -37,7 +37,7 @@ func TestUnifyMeta(t *testing.T) {
 
 func TestUnifyArrow(t *testing.T) {
 	u := unify.NewUnifier()
-	m := &types.TyMeta{ID: 1, Kind: types.KType{}}
+	m := &types.TyMeta{ID: 1, Kind: types.TypeOfTypes}
 	a := types.MkArrow(types.Con("Int"), m)
 	b := types.MkArrow(types.Con("Int"), types.Con("Bool"))
 	if err := u.Unify(a, b); err != nil {
@@ -50,7 +50,7 @@ func TestUnifyArrow(t *testing.T) {
 
 func TestUnifyOccursCheck(t *testing.T) {
 	u := unify.NewUnifier()
-	m := &types.TyMeta{ID: 1, Kind: types.KType{}}
+	m := &types.TyMeta{ID: 1, Kind: types.TypeOfTypes}
 	if err := u.Unify(m, types.MkArrow(m, types.Con("Int"))); err == nil {
 		t.Error("should fail: infinite type")
 	}
@@ -76,8 +76,8 @@ func TestUnifyRowOpenOpen(t *testing.T) {
 	//   onlyRight: c: Str   (in r2 not r1)
 	//   ?1 = { c: Str | ?fresh }
 	//   ?2 = { b: Bool | ?fresh }
-	m1 := &types.TyMeta{ID: 100, Kind: types.KRow{}}
-	m2 := &types.TyMeta{ID: 101, Kind: types.KRow{}}
+	m1 := &types.TyMeta{ID: 100, Kind: types.TypeOfRows}
+	m2 := &types.TyMeta{ID: 101, Kind: types.TypeOfRows}
 
 	r1 := types.OpenRow([]types.RowField{
 		{Label: "a", Type: types.Con("Int")},
@@ -143,8 +143,8 @@ func TestUnifyRowOpenOpenShared(t *testing.T) {
 	// Open-Open where both rows have the same labels → tails unify to same fresh.
 	u := unify.NewUnifier()
 
-	m1 := &types.TyMeta{ID: 200, Kind: types.KRow{}}
-	m2 := &types.TyMeta{ID: 201, Kind: types.KRow{}}
+	m1 := &types.TyMeta{ID: 200, Kind: types.TypeOfRows}
+	m2 := &types.TyMeta{ID: 201, Kind: types.TypeOfRows}
 
 	r1 := types.OpenRow([]types.RowField{
 		{Label: "x", Type: types.Con("Int")},
@@ -182,8 +182,8 @@ func TestUnifyRowOpenOpenDisjoint(t *testing.T) {
 	// Open-Open where rows have entirely different labels.
 	u := unify.NewUnifier()
 
-	m1 := &types.TyMeta{ID: 300, Kind: types.KRow{}}
-	m2 := &types.TyMeta{ID: 301, Kind: types.KRow{}}
+	m1 := &types.TyMeta{ID: 300, Kind: types.TypeOfRows}
+	m2 := &types.TyMeta{ID: 301, Kind: types.TypeOfRows}
 
 	r1 := types.OpenRow([]types.RowField{
 		{Label: "a", Type: types.Con("Int")},
@@ -304,7 +304,7 @@ func TestUnifyRowOpenClosedExtraLabels(t *testing.T) {
 	// The open side has extra label y — tail can absorb nothing since closed.
 	// But the open row's tail should solve to {} (empty), and y is extra → error.
 	u := unify.NewUnifier()
-	m := &types.TyMeta{ID: 400, Kind: types.KRow{}}
+	m := &types.TyMeta{ID: 400, Kind: types.TypeOfRows}
 
 	r1 := types.OpenRow([]types.RowField{
 		{Label: "x", Type: types.Con("Int")},
@@ -322,7 +322,7 @@ func TestUnifyRowClosedOpenAbsorbExtra(t *testing.T) {
 	// Closed row { x: Int } vs open row { x: Int, y: Bool | ?tail }
 	// Reversed direction: same constraint.
 	u := unify.NewUnifier()
-	m := &types.TyMeta{ID: 500, Kind: types.KRow{}}
+	m := &types.TyMeta{ID: 500, Kind: types.TypeOfRows}
 
 	r1 := types.ClosedRow(types.RowField{Label: "x", Type: types.Con("Int")})
 
@@ -340,7 +340,7 @@ func TestUnifyRowOpenClosedSubset(t *testing.T) {
 	// Open row { x: Int | ?tail } vs closed { x: Int, y: Bool }
 	// Closed has extra y — tail absorbs { y: Bool }.
 	u := unify.NewUnifier()
-	m := &types.TyMeta{ID: 600, Kind: types.KRow{}}
+	m := &types.TyMeta{ID: 600, Kind: types.TypeOfRows}
 
 	r1 := types.OpenRow([]types.RowField{
 		{Label: "x", Type: types.Con("Int")},
@@ -368,8 +368,8 @@ func TestUnifyRowOpenClosedSubset(t *testing.T) {
 func TestZonkPathCompression(t *testing.T) {
 	u := unify.NewUnifier()
 	// Chain: m1 → m2 → Int
-	m1 := &types.TyMeta{ID: 1, Kind: types.KType{}}
-	m2 := &types.TyMeta{ID: 2, Kind: types.KType{}}
+	m1 := &types.TyMeta{ID: 1, Kind: types.TypeOfTypes}
+	m2 := &types.TyMeta{ID: 2, Kind: types.TypeOfTypes}
 	u.InstallTempSolution(1, m2)
 	u.InstallTempSolution(2, types.Con("Int"))
 

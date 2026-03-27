@@ -83,11 +83,11 @@ func TestSingleConstraint(t *testing.T) {
 
 func TestFiberKind(t *testing.T) {
 	cap := EmptyRow()
-	if !cap.Entries.FiberKind().Equal(KRow{}) {
+	if !Equal(cap.Entries.FiberKind(), TypeOfRows) {
 		t.Error("capability fiber should have Row kind")
 	}
 	con := EmptyConstraintRow()
-	if !con.Entries.FiberKind().Equal(KConstraint{}) {
+	if !Equal(con.Entries.FiberKind(), TypeOfConstraints) {
 		t.Error("constraint fiber should have Constraint kind")
 	}
 }

@@ -40,14 +40,14 @@ func probeModuleExports(typeName string, cons []string) *ModuleExports {
 		ownedNames[c] = true
 	}
 	return &ModuleExports{
-		Types:           map[string]types.Kind{typeName: types.KType{}},
+		Types:           map[string]types.Type{typeName: types.TypeOfTypes},
 		ConTypes:        conTypes,
 		ConstructorInfo: conInfo,
 		Aliases:         map[string]*AliasInfo{},
 		Classes:         map[string]*ClassInfo{},
 		Values:          map[string]types.Type{},
-		PromotedKinds:   map[string]types.Kind{},
-		PromotedCons:    map[string]types.Kind{},
+		PromotedKinds:   map[string]types.Type{},
+		PromotedCons:    map[string]types.Type{},
 		TypeFamilies:    map[string]*TypeFamilyInfo{},
 		ModuleOwnership: ModuleOwnership{
 			OwnedTypeNames:     map[string]bool{typeName: true},
@@ -73,14 +73,14 @@ func makeModuleConfig(t *testing.T, moduleName, moduleSource string) *CheckConfi
 		t.Fatalf("parse errors in module %s: %s", moduleName, es.Format())
 	}
 	modConfig := &CheckConfig{
-		RegisteredTypes: map[string]types.Kind{"Int": types.KType{}},
+		RegisteredTypes: map[string]types.Type{"Int": types.TypeOfTypes},
 	}
 	_, exports, checkErrs := CheckModule(ast, src, modConfig)
 	if checkErrs.HasErrors() {
 		t.Fatalf("check errors in module %s: %s", moduleName, checkErrs.Format())
 	}
 	return &CheckConfig{
-		RegisteredTypes: map[string]types.Kind{"Int": types.KType{}},
+		RegisteredTypes: map[string]types.Type{"Int": types.TypeOfTypes},
 		ImportedModules: map[string]*ModuleExports{moduleName: exports},
 	}
 }
@@ -160,19 +160,19 @@ func TestProbeA_QualPattern_NestedQualPattern(t *testing.T) {
 		Constructors: []ConstructorInfo{{Name: "Just", Arity: 1}, {Name: "Nothing", Arity: 0}},
 	}
 	modExports := &ModuleExports{
-		Types: map[string]types.Kind{
-			"Maybe": &types.KArrow{From: types.KType{}, To: types.KType{}},
+		Types: map[string]types.Type{
+			"Maybe": &types.TyArrow{From: types.TypeOfTypes, To: types.TypeOfTypes},
 		},
 		ConTypes: map[string]types.Type{
 			"Just": &types.TyForall{
-				Var: "a", Kind: types.KType{},
+				Var: "a", Kind: types.TypeOfTypes,
 				Body: types.MkArrow(&types.TyVar{Name: "a"}, &types.TyApp{
 					Fun: types.Con("Maybe"),
 					Arg: &types.TyVar{Name: "a"},
 				}),
 			},
 			"Nothing": &types.TyForall{
-				Var: "a", Kind: types.KType{},
+				Var: "a", Kind: types.TypeOfTypes,
 				Body: &types.TyApp{
 					Fun: types.Con("Maybe"),
 					Arg: &types.TyVar{Name: "a"},
@@ -186,8 +186,8 @@ func TestProbeA_QualPattern_NestedQualPattern(t *testing.T) {
 		Aliases:       map[string]*AliasInfo{},
 		Classes:       map[string]*ClassInfo{},
 		Values:        map[string]types.Type{},
-		PromotedKinds: map[string]types.Kind{},
-		PromotedCons:  map[string]types.Kind{},
+		PromotedKinds: map[string]types.Type{},
+		PromotedCons:  map[string]types.Type{},
 		TypeFamilies:  map[string]*TypeFamilyInfo{},
 		ModuleOwnership: ModuleOwnership{
 			OwnedTypeNames: map[string]bool{"Maybe": true},
@@ -217,14 +217,14 @@ main := f (ML.Just True)
 // a value named "foo". Open-importing both should trigger an ambiguity error.
 func TestProbeA_Ambiguity_TwoOpenImportsSameName(t *testing.T) {
 	modA := &ModuleExports{
-		Types:           map[string]types.Kind{},
+		Types:           map[string]types.Type{},
 		ConTypes:        map[string]types.Type{},
 		ConstructorInfo: map[string]*DataTypeInfo{},
 		Aliases:         map[string]*AliasInfo{},
 		Classes:         map[string]*ClassInfo{},
 		Values:          map[string]types.Type{"foo": types.Con("Int")},
-		PromotedKinds:   map[string]types.Kind{},
-		PromotedCons:    map[string]types.Kind{},
+		PromotedKinds:   map[string]types.Type{},
+		PromotedCons:    map[string]types.Type{},
 		TypeFamilies:    map[string]*TypeFamilyInfo{},
 		ModuleOwnership: ModuleOwnership{
 			OwnedTypeNames: map[string]bool{"FakeA": true},
@@ -232,14 +232,14 @@ func TestProbeA_Ambiguity_TwoOpenImportsSameName(t *testing.T) {
 		},
 	}
 	modB := &ModuleExports{
-		Types:           map[string]types.Kind{},
+		Types:           map[string]types.Type{},
 		ConTypes:        map[string]types.Type{},
 		ConstructorInfo: map[string]*DataTypeInfo{},
 		Aliases:         map[string]*AliasInfo{},
 		Classes:         map[string]*ClassInfo{},
 		Values:          map[string]types.Type{"foo": types.Con("String")},
-		PromotedKinds:   map[string]types.Kind{},
-		PromotedCons:    map[string]types.Kind{},
+		PromotedKinds:   map[string]types.Type{},
+		PromotedCons:    map[string]types.Type{},
 		TypeFamilies:    map[string]*TypeFamilyInfo{},
 		ModuleOwnership: ModuleOwnership{
 			OwnedTypeNames: map[string]bool{"FakeB": true},
@@ -247,9 +247,9 @@ func TestProbeA_Ambiguity_TwoOpenImportsSameName(t *testing.T) {
 		},
 	}
 	config := &CheckConfig{
-		RegisteredTypes: map[string]types.Kind{
-			"Int":    types.KType{},
-			"String": types.KType{},
+		RegisteredTypes: map[string]types.Type{
+			"Int":    types.TypeOfTypes,
+			"String": types.TypeOfTypes,
 		},
 		ImportedModules: map[string]*ModuleExports{"ModA": modA, "ModB": modB},
 	}
@@ -288,14 +288,14 @@ func TestProbeA_Ambiguity_TwoOpenImportsSameConstructor(t *testing.T) {
 			},
 		}
 		return &ModuleExports{
-			Types:           map[string]types.Kind{typeName: types.KType{}},
+			Types:           map[string]types.Type{typeName: types.TypeOfTypes},
 			ConTypes:        map[string]types.Type{"MkVal": types.Con(typeName)},
 			ConstructorInfo: map[string]*DataTypeInfo{"MkVal": info},
 			Aliases:         map[string]*AliasInfo{},
 			Classes:         map[string]*ClassInfo{},
 			Values:          map[string]types.Type{},
-			PromotedKinds:   map[string]types.Kind{},
-			PromotedCons:    map[string]types.Kind{},
+			PromotedKinds:   map[string]types.Type{},
+			PromotedCons:    map[string]types.Type{},
 			TypeFamilies:    map[string]*TypeFamilyInfo{},
 			ModuleOwnership: ModuleOwnership{
 				OwnedTypeNames: map[string]bool{typeName: true},
@@ -326,19 +326,19 @@ main := MkVal
 func TestProbeA_Ambiguity_QualifiedDisambiguates(t *testing.T) {
 	mkMod := func() *ModuleExports {
 		return &ModuleExports{
-			Types:           map[string]types.Kind{},
+			Types:           map[string]types.Type{},
 			ConTypes:        map[string]types.Type{},
 			ConstructorInfo: map[string]*DataTypeInfo{},
 			Aliases:         map[string]*AliasInfo{},
 			Classes:         map[string]*ClassInfo{},
 			Values:          map[string]types.Type{"foo": types.Con("Int")},
-			PromotedKinds:   map[string]types.Kind{},
-			PromotedCons:    map[string]types.Kind{},
+			PromotedKinds:   map[string]types.Type{},
+			PromotedCons:    map[string]types.Type{},
 			TypeFamilies:    map[string]*TypeFamilyInfo{},
 		}
 	}
 	config := &CheckConfig{
-		RegisteredTypes: map[string]types.Kind{"Int": types.KType{}},
+		RegisteredTypes: map[string]types.Type{"Int": types.TypeOfTypes},
 		ImportedModules: map[string]*ModuleExports{
 			"ModA": mkMod(),
 			"ModB": mkMod(),
@@ -362,18 +362,18 @@ main := A.foo
 // from an imported module.
 func TestProbeD_Module_QualifiedVarLookup(t *testing.T) {
 	modExports := &ModuleExports{
-		Types:           map[string]types.Kind{"Int": types.KType{}},
+		Types:           map[string]types.Type{"Int": types.TypeOfTypes},
 		ConTypes:        map[string]types.Type{},
 		ConstructorInfo: map[string]*DataTypeInfo{},
 		Aliases:         map[string]*AliasInfo{},
 		Classes:         map[string]*ClassInfo{},
 		Values:          map[string]types.Type{"add": types.MkArrow(types.Con("Int"), types.MkArrow(types.Con("Int"), types.Con("Int")))},
-		PromotedKinds:   map[string]types.Kind{},
-		PromotedCons:    map[string]types.Kind{},
+		PromotedKinds:   map[string]types.Type{},
+		PromotedCons:    map[string]types.Type{},
 		TypeFamilies:    map[string]*TypeFamilyInfo{},
 	}
 	config := &CheckConfig{
-		RegisteredTypes: map[string]types.Kind{"Int": types.KType{}},
+		RegisteredTypes: map[string]types.Type{"Int": types.TypeOfTypes},
 		ImportedModules: map[string]*ModuleExports{"MathLib": modExports},
 	}
 	source := `
@@ -406,7 +406,7 @@ main := f C.Red
 // in scope should produce a clear error.
 func TestProbeD_Module_UnknownQualifierError(t *testing.T) {
 	config := &CheckConfig{
-		RegisteredTypes: map[string]types.Kind{"Int": types.KType{}},
+		RegisteredTypes: map[string]types.Type{"Int": types.TypeOfTypes},
 	}
 	source := `
 main := X.foo
@@ -421,18 +421,18 @@ main := X.foo
 // shadow a qualified import (qualified names are always explicit).
 func TestProbeD_Module_QualifiedShadowLocal(t *testing.T) {
 	modExports := &ModuleExports{
-		Types:           map[string]types.Kind{"Int": types.KType{}},
+		Types:           map[string]types.Type{"Int": types.TypeOfTypes},
 		ConTypes:        map[string]types.Type{},
 		ConstructorInfo: map[string]*DataTypeInfo{},
 		Aliases:         map[string]*AliasInfo{},
 		Classes:         map[string]*ClassInfo{},
 		Values:          map[string]types.Type{"val": types.Con("Int")},
-		PromotedKinds:   map[string]types.Kind{},
-		PromotedCons:    map[string]types.Kind{},
+		PromotedKinds:   map[string]types.Type{},
+		PromotedCons:    map[string]types.Type{},
 		TypeFamilies:    map[string]*TypeFamilyInfo{},
 	}
 	config := &CheckConfig{
-		RegisteredTypes: map[string]types.Kind{"Int": types.KType{}, "Bool": types.KType{}},
+		RegisteredTypes: map[string]types.Type{"Int": types.TypeOfTypes, "Bool": types.TypeOfTypes},
 		ImportedModules: map[string]*ModuleExports{"Lib": modExports},
 	}
 	source := `

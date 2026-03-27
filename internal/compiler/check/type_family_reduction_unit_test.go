@@ -79,7 +79,7 @@ func TestMatchTyPatternUnit_TyConMismatch(t *testing.T) {
 func TestMatchTyPatternUnit_TyConVsMeta(t *testing.T) {
 	ch := newTestChecker()
 	pat := &types.TyCon{Name: "Int"}
-	arg := &types.TyMeta{ID: 1, Kind: types.KType{}}
+	arg := &types.TyMeta{ID: 1, Kind: types.TypeOfTypes}
 	subst := make(map[string]types.Type)
 	result := ch.matchTyPattern(pat, arg, subst)
 	if result != env.MatchIndeterminate {
@@ -90,7 +90,7 @@ func TestMatchTyPatternUnit_TyConVsMeta(t *testing.T) {
 func TestMatchTyPatternUnit_TyAppVsMeta(t *testing.T) {
 	ch := newTestChecker()
 	pat := &types.TyApp{Fun: &types.TyCon{Name: "List"}, Arg: &types.TyVar{Name: "a"}}
-	arg := &types.TyMeta{ID: 1, Kind: types.KType{}}
+	arg := &types.TyMeta{ID: 1, Kind: types.TypeOfTypes}
 	subst := make(map[string]types.Type)
 	result := ch.matchTyPattern(pat, arg, subst)
 	if result != env.MatchIndeterminate {
@@ -236,7 +236,7 @@ func TestMatchTyPatternsUnit_IndeterminateStopsEarly(t *testing.T) {
 		&types.TyVar{Name: "a"},    // variable (would match anything)
 	}
 	args := []types.Type{
-		&types.TyMeta{ID: 1, Kind: types.KType{}}, // unsolved meta
+		&types.TyMeta{ID: 1, Kind: types.TypeOfTypes}, // unsolved meta
 		&types.TyCon{Name: "Int"},
 	}
 	_, result := ch.matchTyPatterns(patterns, args)
@@ -264,8 +264,8 @@ func TestReduceTyFamilyUnit_EmptyEquations(t *testing.T) {
 	ch := newTestChecker()
 	ch.reg.RegisterFamily("F", &TypeFamilyInfo{
 		Name:       "F",
-		Params:     []TFParam{{Name: "a", Kind: types.KType{}}},
-		ResultKind: types.KType{},
+		Params:     []TFParam{{Name: "a", Kind: types.TypeOfTypes}},
+		ResultKind: types.TypeOfTypes,
 		Equations:  nil,
 	})
 	result, ok := ch.reduceTyFamily("F", []types.Type{&types.TyCon{Name: "Int"}}, span.Span{})
@@ -281,8 +281,8 @@ func TestReduceTyFamilyUnit_MatchFirstEquation(t *testing.T) {
 	ch := newTestChecker()
 	ch.reg.RegisterFamily("F", &TypeFamilyInfo{
 		Name:       "F",
-		Params:     []TFParam{{Name: "a", Kind: types.KType{}}},
-		ResultKind: types.KType{},
+		Params:     []TFParam{{Name: "a", Kind: types.TypeOfTypes}},
+		ResultKind: types.TypeOfTypes,
 		Equations: []tfEquation{
 			{Patterns: []types.Type{&types.TyCon{Name: "Int"}}, RHS: &types.TyCon{Name: "Bool"}},
 			{Patterns: []types.Type{&types.TyVar{Name: "a"}}, RHS: &types.TyCon{Name: "Unit"}},
@@ -302,8 +302,8 @@ func TestReduceTyFamilyUnit_FallsThrough(t *testing.T) {
 	ch := newTestChecker()
 	ch.reg.RegisterFamily("F", &TypeFamilyInfo{
 		Name:       "F",
-		Params:     []TFParam{{Name: "a", Kind: types.KType{}}},
-		ResultKind: types.KType{},
+		Params:     []TFParam{{Name: "a", Kind: types.TypeOfTypes}},
+		ResultKind: types.TypeOfTypes,
 		Equations: []tfEquation{
 			{Patterns: []types.Type{&types.TyCon{Name: "Int"}}, RHS: &types.TyCon{Name: "Bool"}},
 			{Patterns: []types.Type{&types.TyVar{Name: "a"}}, RHS: &types.TyCon{Name: "Unit"}},
@@ -323,8 +323,8 @@ func TestReduceTyFamilyUnit_StepLimit(t *testing.T) {
 	ch := newTestChecker()
 	ch.reg.RegisterFamily("Loop", &TypeFamilyInfo{
 		Name:       "Loop",
-		Params:     []TFParam{{Name: "a", Kind: types.KType{}}},
-		ResultKind: types.KType{},
+		Params:     []TFParam{{Name: "a", Kind: types.TypeOfTypes}},
+		ResultKind: types.TypeOfTypes,
 		Equations: []tfEquation{
 			{Patterns: []types.Type{&types.TyVar{Name: "a"}}, RHS: &types.TyFamilyApp{Name: "Loop", Args: []types.Type{&types.TyVar{Name: "a"}}}},
 		},
@@ -346,8 +346,8 @@ func TestReduceTyFamilyUnit_SubstApplied(t *testing.T) {
 	ch := newTestChecker()
 	ch.reg.RegisterFamily("Id", &TypeFamilyInfo{
 		Name:       "Id",
-		Params:     []TFParam{{Name: "a", Kind: types.KType{}}},
-		ResultKind: types.KType{},
+		Params:     []TFParam{{Name: "a", Kind: types.TypeOfTypes}},
+		ResultKind: types.TypeOfTypes,
 		Equations: []tfEquation{
 			{Patterns: []types.Type{&types.TyVar{Name: "a"}}, RHS: &types.TyVar{Name: "a"}},
 		},
@@ -369,14 +369,14 @@ func TestReduceTyFamilyUnit_IndeterminateStopsBeforeLater(t *testing.T) {
 	// Argument: unsolved meta -> equation 1 is indeterminate, should NOT try equation 2.
 	ch.reg.RegisterFamily("F", &TypeFamilyInfo{
 		Name:       "F",
-		Params:     []TFParam{{Name: "a", Kind: types.KType{}}},
-		ResultKind: types.KType{},
+		Params:     []TFParam{{Name: "a", Kind: types.TypeOfTypes}},
+		ResultKind: types.TypeOfTypes,
 		Equations: []tfEquation{
 			{Patterns: []types.Type{&types.TyCon{Name: "Bool"}}, RHS: &types.TyCon{Name: "Int"}},
 			{Patterns: []types.Type{&types.TyVar{Name: "a"}}, RHS: &types.TyCon{Name: "Bool"}},
 		},
 	})
-	meta := &types.TyMeta{ID: 99, Kind: types.KType{}}
+	meta := &types.TyMeta{ID: 99, Kind: types.TypeOfTypes}
 	result, ok := ch.reduceTyFamily("F", []types.Type{meta}, span.Span{})
 	if ok {
 		t.Fatalf("expected stuck (not reduced), but got result: %v", result)
@@ -753,7 +753,7 @@ func TestMatchResultConstants(t *testing.T) {
 func TestMatchTyPatternUnit_ZonksMeta(t *testing.T) {
 	ch := newTestChecker()
 	// Create a meta that has been solved.
-	meta := &types.TyMeta{ID: 42, Kind: types.KType{}}
+	meta := &types.TyMeta{ID: 42, Kind: types.TypeOfTypes}
 	ch.unifier.InstallTempSolution(42, &types.TyCon{Name: "Bool"})
 
 	pat := &types.TyCon{Name: "Bool"}
@@ -767,7 +767,7 @@ func TestMatchTyPatternUnit_ZonksMeta(t *testing.T) {
 
 func TestMatchTyPatternUnit_ZonksMetaToMismatch(t *testing.T) {
 	ch := newTestChecker()
-	meta := &types.TyMeta{ID: 42, Kind: types.KType{}}
+	meta := &types.TyMeta{ID: 42, Kind: types.TypeOfTypes}
 	ch.unifier.InstallTempSolution(42, &types.TyCon{Name: "Int"})
 
 	pat := &types.TyCon{Name: "Bool"}

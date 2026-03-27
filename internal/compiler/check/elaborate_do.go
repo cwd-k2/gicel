@@ -481,9 +481,9 @@ func (ch *Checker) extractCompResult(ty types.Type, s span.Span) types.Type {
 		return comp.Result
 	}
 	// Try to unify with a fresh Computation.
-	pre := ch.freshMeta(types.KRow{})
-	post := ch.freshMeta(types.KRow{})
-	result := ch.freshMeta(types.KType{})
+	pre := ch.freshMeta(types.TypeOfRows)
+	post := ch.freshMeta(types.TypeOfRows)
+	result := ch.freshMeta(types.TypeOfTypes)
 	expected := types.MkComp(pre, post, result)
 	if err := ch.unifier.Unify(ty, expected); err != nil {
 		ch.addSemanticUnifyError(diagnostic.ErrBadComputation, err, s, fmt.Sprintf("expected computation type, got %s", types.Pretty(ty)))

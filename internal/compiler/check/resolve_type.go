@@ -86,7 +86,7 @@ func (ch *Checker) resolveTypeExpr(texpr syntax.TypeExpr) types.Type {
 		// so that kind variable references in inner kind annotations resolve correctly.
 		var kindVarNames []string
 		for _, b := range t.Binders {
-			if _, ok := b.Kind.(*syntax.KindExprSort); ok {
+			if con, ok := b.Kind.(*syntax.TyExprCon); ok && con.Name == "Kind" {
 				ch.reg.SetKindVar(b.Name)
 				kindVarNames = append(kindVarNames, b.Name)
 			}
