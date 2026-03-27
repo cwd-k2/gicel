@@ -153,6 +153,11 @@ func occursInConstraintEntry(name string, e ConstraintEntry, bound map[string]bo
 			return true
 		}
 	}
+	if e.IsEquality {
+		if occursIn(name, e.EqLhs, bound, depth+1) || occursIn(name, e.EqRhs, bound, depth+1) {
+			return true
+		}
+	}
 	if e.ConstraintVar != nil && occursIn(name, e.ConstraintVar, bound, depth+1) {
 		return true
 	}
@@ -184,6 +189,10 @@ func freeVarsConstraintEntry(e ConstraintEntry, bound map[string]bool, fv map[st
 	}
 	for _, a := range e.Args {
 		freeVarsRec(a, bound, fv, depth+1)
+	}
+	if e.IsEquality {
+		freeVarsRec(e.EqLhs, bound, fv, depth+1)
+		freeVarsRec(e.EqRhs, bound, fv, depth+1)
 	}
 	if e.ConstraintVar != nil {
 		freeVarsRec(e.ConstraintVar, bound, fv, depth+1)

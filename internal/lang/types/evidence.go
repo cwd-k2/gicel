@@ -147,10 +147,13 @@ func (c *ConstraintEntries) AllChildren() []Type {
 }
 
 func constraintEntryChildren(e ConstraintEntry) []Type {
-	ch := make([]Type, 0, len(e.Args))
+	ch := make([]Type, 0, len(e.Args)+3) // +3 for potential EqLhs, EqRhs, ConstraintVar
 	ch = append(ch, e.Args...)
 	if e.IsEquality {
 		ch = append(ch, e.EqLhs, e.EqRhs)
+	}
+	if e.ConstraintVar != nil {
+		ch = append(ch, e.ConstraintVar)
 	}
 	if e.Quantified != nil {
 		for _, c := range e.Quantified.Context {

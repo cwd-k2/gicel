@@ -208,6 +208,18 @@ func equalConstraintEntry(a, b ConstraintEntry, bindings []alphaBinding) bool {
 			return false
 		}
 	}
+	// Equality constraints: both must agree on IsEquality and sides.
+	if a.IsEquality != b.IsEquality {
+		return false
+	}
+	if a.IsEquality {
+		if !equalAlpha(a.EqLhs, b.EqLhs, bindings) {
+			return false
+		}
+		if !equalAlpha(a.EqRhs, b.EqRhs, bindings) {
+			return false
+		}
+	}
 	// ConstraintVar: both must match.
 	if (a.ConstraintVar == nil) != (b.ConstraintVar == nil) {
 		return false

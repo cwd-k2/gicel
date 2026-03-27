@@ -134,11 +134,7 @@ func writeEvidenceRowKey(b *strings.Builder, row *TyEvidenceRow) {
 		normalized := NormalizeConstraints(&TyEvidenceRow{Entries: entries, Tail: row.Tail})
 		for _, e := range normalized.ConEntries() {
 			b.WriteByte(' ')
-			b.WriteString(e.ClassName)
-			for _, a := range e.Args {
-				b.WriteByte(':')
-				WriteTypeKey(b, a)
-			}
+			writeConstraintEntryKey(b, e)
 		}
 		if row.Tail != nil {
 			b.WriteString("|")
@@ -157,5 +153,27 @@ func writeEvidenceRowKey(b *strings.Builder, row *TyEvidenceRow) {
 			WriteTypeKey(b, row.Tail)
 		}
 		b.WriteByte('}')
+	}
+}
+
+// writeConstraintEntryKey writes a canonical key for a single constraint entry,
+// including all distinguishing fields: ClassName, Args, IsEquality/EqLhs/EqRhs,
+// and ConstraintVar.
+func writeConstraintEntryKey(b *strings.Builder, e ConstraintEntry) {
+	if e.IsEquality {
+		b.WriteString("~")
+		WriteTypeKey(b, e.EqLhs)
+		b.WriteByte(':')
+		WriteTypeKey(b, e.EqRhs)
+		return
+	}
+	b.WriteString(e.ClassName)
+	for _, a := range e.Args {
+		b.WriteByte(':')
+		WriteTypeKey(b, a)
+	}
+	if e.ConstraintVar != nil {
+		b.WriteString("$")
+		WriteTypeKey(b, e.ConstraintVar)
 	}
 }

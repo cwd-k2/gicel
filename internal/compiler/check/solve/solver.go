@@ -370,8 +370,21 @@ func (s *Solver) processGivenEq(ct *CtEq) {
 	// Extract skolem from either side.
 	sk, concrete := extractSkolemGiven(lhs, rhs)
 	if sk != nil {
-		// Skolem ~ concrete: install for Zonk transparency.
-		s.env.InstallGivenEq(sk.ID, concrete)
+		// Check for contradictory given: if this skolem already has a
+		// different solution, unify to detect contradiction rather than
+		// silently overwriting the existing binding.
+		existing := s.env.Zonk(sk)
+		if existing != sk {
+			// Skolem already solved. Check consistency with new given.
+			if err := s.env.Unify(existing, concrete); err != nil {
+				s.inaccessible = true
+				return
+			}
+			// Consistent — no need to re-install.
+		} else {
+			// Fresh skolem: install for Zonk transparency.
+			s.env.InstallGivenEq(sk.ID, concrete)
+		}
 		// Record in inert set for scope-aware cleanup.
 		s.inertSet.InsertGiven(&CtEq{Lhs: lhs, Rhs: rhs, Flavor: CtGiven, S: ct.S})
 		// Kick out any constraints whose type args mention this skolem.
