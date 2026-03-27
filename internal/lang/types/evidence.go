@@ -149,6 +149,9 @@ func (c *ConstraintEntries) AllChildren() []Type {
 func constraintEntryChildren(e ConstraintEntry) []Type {
 	ch := make([]Type, 0, len(e.Args))
 	ch = append(ch, e.Args...)
+	if e.IsEquality {
+		ch = append(ch, e.EqLhs, e.EqRhs)
+	}
 	if e.Quantified != nil {
 		for _, c := range e.Quantified.Context {
 			ch = append(ch, constraintEntryChildren(c)...)
@@ -212,6 +215,18 @@ func mapConstraintEntryChanged(e ConstraintEntry, f func(Type) Type) (Constraint
 		if qChanged {
 			changed = true
 		}
+	}
+
+	if e.IsEquality {
+		newLhs := f(e.EqLhs)
+		newRhs := f(e.EqRhs)
+		if newLhs != e.EqLhs || newRhs != e.EqRhs {
+			changed = true
+		}
+		if !changed {
+			return e, false
+		}
+		return ConstraintEntry{ClassName: e.ClassName, Args: args, ConstraintVar: newCV, Quantified: newQ, IsEquality: true, EqLhs: newLhs, EqRhs: newRhs, S: e.S}, true
 	}
 
 	if !changed {
@@ -313,11 +328,25 @@ func zonkConstraintEntry(e ConstraintEntry, zonk func(Type) Type) (ConstraintEnt
 		}
 	}
 
+	// Zonk equality constraint sides.
+	var newLhs, newRhs Type
+	if e.IsEquality {
+		newLhs = zonk(e.EqLhs)
+		newRhs = zonk(e.EqRhs)
+		if newLhs != e.EqLhs || newRhs != e.EqRhs {
+			changed = true
+		}
+	}
+
 	if !changed {
 		return e, false
 	}
 
-	result := ConstraintEntry{ClassName: e.ClassName, Args: args, S: e.S}
+	result := ConstraintEntry{ClassName: e.ClassName, Args: args, IsEquality: e.IsEquality, S: e.S}
+	if e.IsEquality {
+		result.EqLhs = newLhs
+		result.EqRhs = newRhs
+	}
 	if e.ConstraintVar != nil {
 		result.ConstraintVar = newCV
 		// If zonked ConstraintVar is now concrete, decompose into ClassName + Args.

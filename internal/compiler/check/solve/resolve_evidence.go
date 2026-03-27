@@ -176,6 +176,11 @@ func (s *Solver) resolveQuantifiedConstraint(qc *types.QuantifiedConstraint, sp 
 // FreshInstanceSubst creates a substitution mapping each free type variable
 // in an instance's type arguments and context to a fresh meta variable.
 // Uses pre-computed FreeVarNames to avoid repeated FreeVars traversals.
+//
+// NOTE: All free variables are assigned kind TypeOfTypes. If an instance
+// has Row-kinded free variables (e.g., impl Foo (Computation r) where r is free),
+// this would produce an incorrect kind. Currently no stdlib instances exercise
+// this case. To fix properly, FreeVarNames should carry kind information.
 func (s *Solver) FreshInstanceSubst(inst *env.InstanceInfo) map[string]types.Type {
 	names := inst.FreeVarNames
 	if len(names) == 0 {

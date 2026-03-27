@@ -130,6 +130,9 @@ func (u *Unifier) zonkLevel(l types.LevelExpr) types.LevelExpr {
 		}
 		result := u.zonkLevel(soln)
 		if result != soln {
+			if u.snapshotDepth > 0 {
+				u.trailLevelWrite(ll.ID)
+			}
 			u.levelSoln[ll.ID] = result // path compression
 		}
 		return result

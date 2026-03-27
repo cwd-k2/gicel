@@ -31,6 +31,10 @@ func WriteTypeKey(b *strings.Builder, t Type) {
 	switch ty := t.(type) {
 	case *TyCon:
 		b.WriteString(ty.Name)
+		if ty.Level != nil && !IsValueLevel(ty.Level) {
+			b.WriteByte('#')
+			b.WriteString(ty.Level.LevelString())
+		}
 	case *TyVar:
 		b.WriteByte('\'')
 		b.WriteString(ty.Name)

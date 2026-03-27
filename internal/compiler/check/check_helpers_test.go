@@ -173,10 +173,13 @@ func newTestChecker() *Checker {
 		},
 		reg: &Registry{
 			typeKinds:         make(map[string]types.Type),
+			conModules:        make(map[string]string),
 			conTypes:          make(map[string]types.Type),
 			conInfo:           make(map[string]*DataTypeInfo),
+			dataTypeByName:    make(map[string]*DataTypeInfo),
 			aliases:           make(map[string]*AliasInfo),
 			classes:           make(map[string]*ClassInfo),
+			dictToClass:       make(map[string]string),
 			instancesByClass:  make(map[string][]*InstanceInfo),
 			importedInstances: make(map[*InstanceInfo]bool),
 			promotedKinds:     make(map[string]types.Type),
