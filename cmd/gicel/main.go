@@ -111,6 +111,7 @@ Flags:
   --recursion        Enable recursive definitions (fix/rec)
   -e <source>        Evaluate source string directly
   --json             Output as JSON
+  --max-nesting <n>  Structural nesting depth limit (default: 512)
   --timeout <dur>    Compilation timeout (default: 5s)`)
 }
 
@@ -558,9 +559,8 @@ func cmdRun(args []string) int {
 	}
 
 	// --json mode: Console buffers output into capEnv instead of stdout.
-	if *jsonOut {
-		consoleMode.buffer = true
-	}
+	// Buffer mode is signaled by setting the console capability to []string{}.
+	// Direct mode uses nil. Primitives detect mode via the capability value type.
 
 	// Validate resource limit flags.
 	if *maxSteps <= 0 {
@@ -607,7 +607,7 @@ func cmdRun(args []string) int {
 	var explainSteps []gicel.ExplainStep
 	var formatter *explainFormatter
 	consoleCap := any(nil)
-	if consoleMode.buffer {
+	if *jsonOut {
 		consoleCap = []string{} // buffer mode: start with empty slice
 	}
 	opts := &gicel.RunOptions{
@@ -700,6 +700,7 @@ func cmdCheck(args []string) int {
 	var modules moduleFlags
 	fs.Var(&modules, "module", "register module: Name=path (repeatable)")
 	jsonOut := fs.Bool("json", false, "output as JSON")
+	maxNesting := fs.Int("max-nesting", 512, "structural nesting depth limit")
 	var expr exprFlag
 	fs.Var(&expr, "e", "evaluate source string directly")
 	timeout := fs.Duration("timeout", 5*time.Second, "compilation timeout")
@@ -720,6 +721,9 @@ func cmdCheck(args []string) int {
 	if *timeout <= 0 {
 		return preflightError("--timeout must be a positive duration (e.g., 1s, 5m)", *jsonOut)
 	}
+	if *maxNesting <= 0 {
+		return preflightError("--max-nesting must be a positive integer", *jsonOut)
+	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), *timeout)
 	defer cancel()
@@ -729,6 +733,7 @@ func cmdCheck(args []string) int {
 		return preflightError(err.Error(), *jsonOut)
 	}
 	eng.SetCompileContext(ctx)
+	eng.SetNestingLimit(*maxNesting)
 
 	cr, err := eng.Compile(ctx, string(source))
 	if err != nil {

@@ -18,10 +18,14 @@ func (e *ReduceEnv) VerifyInjectivity(info *env.TypeFamilyInfo) {
 			eqI := info.Equations[i]
 			eqJ := info.Equations[j]
 
-			rhsI := e.instantiatePatVars(eqI.RHS, eqI.Patterns, info.Params)
-			rhsJ := e.instantiatePatVars(eqJ.RHS, eqJ.Patterns, info.Params)
-			patsI := e.instantiatePatVarsList(eqI.Patterns, info.Params)
-			patsJ := e.instantiatePatVarsList(eqJ.Patterns, info.Params)
+			// Build a single substitution per equation so that pattern
+			// variables in the RHS and LHS share the same fresh metas.
+			subsI := e.freshPatVarSubst(eqI.Patterns, info.Params)
+			subsJ := e.freshPatVarSubst(eqJ.Patterns, info.Params)
+			rhsI := types.SubstMany(eqI.RHS, subsI)
+			rhsJ := types.SubstMany(eqJ.RHS, subsJ)
+			patsI := substManyList(eqI.Patterns, subsI)
+			patsJ := substManyList(eqJ.Patterns, subsJ)
 
 			if e.TryUnify(rhsI, rhsJ) {
 				allMatch := true
@@ -41,31 +45,29 @@ func (e *ReduceEnv) VerifyInjectivity(info *env.TypeFamilyInfo) {
 	}
 }
 
-// instantiatePatVars replaces free TyVars (pattern variables) with fresh metas.
-func (e *ReduceEnv) instantiatePatVars(ty types.Type, patterns []types.Type, params []env.TFParam) types.Type {
-	varKinds := collectPatternVarKinds(patterns, params)
-	for _, v := range CollectPatternVars(patterns) {
-		kind := varKinds[v]
-		ty = types.Subst(ty, v, e.FreshMeta(kind))
-	}
-	return ty
-}
-
-// instantiatePatVarsList replaces free TyVars in each pattern with fresh metas.
-func (e *ReduceEnv) instantiatePatVarsList(patterns []types.Type, params []env.TFParam) []types.Type {
+// freshPatVarSubst builds a substitution mapping each pattern variable to a
+// fresh meta. The same map is used for both RHS and LHS patterns, ensuring
+// the connection between pattern variables and their RHS occurrences is preserved.
+func (e *ReduceEnv) freshPatVarSubst(patterns []types.Type, params []env.TFParam) map[string]types.Type {
 	vars := CollectPatternVars(patterns)
 	varKinds := collectPatternVarKinds(patterns, params)
-	result := make([]types.Type, len(patterns))
 	subs := make(map[string]types.Type, len(vars))
 	for _, v := range vars {
-		kind := varKinds[v]
-		subs[v] = e.FreshMeta(kind)
+		subs[v] = e.FreshMeta(varKinds[v])
 	}
-	for i, p := range patterns {
-		result[i] = types.SubstMany(p, subs)
+	return subs
+}
+
+// substManyList applies a substitution to each element of a type list.
+func substManyList(ts []types.Type, subs map[string]types.Type) []types.Type {
+	result := make([]types.Type, len(ts))
+	for i, t := range ts {
+		result[i] = types.SubstMany(t, subs)
 	}
 	return result
 }
+
+
 
 // CollectPatternVars collects all TyVar names from type patterns.
 func CollectPatternVars(patterns []types.Type) []string {

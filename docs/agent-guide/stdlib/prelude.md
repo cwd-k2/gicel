@@ -16,7 +16,7 @@ form List := \a. { Cons: a -> List a -> List a; Nil: List a }
 
 ### Primitive Types
 
-**Int** — Arbitrary-precision integer (backed by Go `int64`). Literals: `42`, `100_000`. Negative values via `negate 5`. Instances: `Eq`, `Ord`, `Num`, `Div`, `Semigroup`, `Monoid`, `Show`, `Read`.
+**Int** — 64-bit signed integer (Go `int64`). Literals: `42`, `100_000`. Negative values via `negate 5`. Overflow wraps silently (two's-complement). Instances: `Eq`, `Ord`, `Num`, `Div`, `Semigroup`, `Monoid`, `Show`, `Read`.
 
 **Double** — IEEE 754 64-bit floating point. Literals: `3.14`, `1.0e10`, `2.5e-3`. Operations:
 
