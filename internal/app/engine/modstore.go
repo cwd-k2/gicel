@@ -85,15 +85,6 @@ func (s *ModuleStore) Entries() []moduleEntry {
 	return entries
 }
 
-// CollectFixity injects fixity declarations from all registered modules
-// into the parser, in registration order.
-// Deprecated: use CollectFixityForImports for import-scoped fixity.
-func (s *ModuleStore) CollectFixity(p *parse.Parser) {
-	for _, name := range s.order {
-		p.AddFixity(s.modules[name].fixity)
-	}
-}
-
 // CollectFixityForImports injects fixity from the transitive closure of
 // the given import names into the parser. Only modules reachable through
 // the import graph contribute fixity, preventing unimported modules from
