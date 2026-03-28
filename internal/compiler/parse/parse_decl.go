@@ -1,6 +1,7 @@
 package parse
 
 import (
+	"fmt"
 	"strconv"
 
 	syn "github.com/cwd-k2/gicel/internal/lang/syntax"
@@ -13,10 +14,20 @@ import (
 
 func (p *Parser) collectFixity() {
 	saved := p.pos
+	localFixity := make(map[string]bool)
 	for p.peek().Kind != syn.TokEOF {
 		if p.isFixityKeyword() {
 			d := p.parseFixityDecl()
 			if d != nil {
+				if localFixity[d.Op] {
+					p.errors.Add(&diagnostic.Error{
+						Code:    diagnostic.ErrDuplicateDecl,
+						Phase:   diagnostic.PhaseParse,
+						Span:    d.S,
+						Message: fmt.Sprintf("duplicate fixity declaration for operator %s", d.Op),
+					})
+				}
+				localFixity[d.Op] = true
 				p.fixity[d.Op] = Fixity{Assoc: d.Assoc, Prec: d.Prec}
 			}
 		} else {
