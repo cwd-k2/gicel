@@ -1,8 +1,6 @@
 package family
 
 import (
-	"strings"
-
 	"github.com/cwd-k2/gicel/internal/compiler/check/env"
 	"github.com/cwd-k2/gicel/internal/compiler/check/unify"
 	"github.com/cwd-k2/gicel/internal/infra/budget"
@@ -238,11 +236,5 @@ func (e *ReduceEnv) registerStuckFamily(name string, args []types.Type, resultKi
 
 // familyAppKey produces a structural cache key for a type family application.
 func familyAppKey(name string, args []types.Type) string {
-	var b strings.Builder
-	b.WriteString(name)
-	for _, a := range args {
-		b.WriteByte(' ')
-		types.WriteTypeKey(&b, a)
-	}
-	return b.String()
+	return types.TypeListKey(name, ' ', args)
 }

@@ -2,7 +2,6 @@ package check
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/cwd-k2/gicel/internal/infra/diagnostic"
 	"github.com/cwd-k2/gicel/internal/infra/span"
@@ -126,16 +125,9 @@ func (ch *Checker) processInstanceBody(inst *InstanceInfo, methods map[string]sy
 }
 
 // instanceDictName generates a dictionary binding name for an instance.
-// Uses types.TypeKey for collision-free structural encoding of type arguments.
+// Uses types.TypeListKey for collision-free structural encoding of type arguments.
 func (ch *Checker) instanceDictName(className string, typeArgs []types.Type) string {
-	if len(typeArgs) == 0 {
-		return className + "$"
-	}
-	var parts []string
-	for _, ta := range typeArgs {
-		parts = append(parts, types.TypeKey(ta))
-	}
-	return className + "$" + strings.Join(parts, "$")
+	return types.TypeListKey(className, '$', typeArgs)
 }
 
 // processAssocDataDef registers constructors for an associated data family definition

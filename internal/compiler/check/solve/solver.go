@@ -1,8 +1,6 @@
 package solve
 
 import (
-	"strings"
-
 	"github.com/cwd-k2/gicel/internal/infra/diagnostic"
 	"github.com/cwd-k2/gicel/internal/lang/ir"
 	"github.com/cwd-k2/gicel/internal/lang/types"
@@ -288,14 +286,7 @@ func (s *Solver) resolveCtClassKeyed(ct *CtClass, key string, resolutions map[st
 // constraintKey builds a canonical key for a class constraint.
 // Injective: distinct (className, zonked args) produce distinct keys.
 func constraintKey(className string, args []types.Type) string {
-	var b strings.Builder
-	b.Grow(len(className) + len(args)*16)
-	b.WriteString(className)
-	for _, a := range args {
-		b.WriteByte(' ')
-		types.WriteTypeKey(&b, a)
-	}
-	return b.String()
+	return types.TypeListKey(className, ' ', args)
 }
 
 // processCtEq handles a type equality constraint: Lhs ~ Rhs.

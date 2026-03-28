@@ -2,7 +2,6 @@ package check
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/cwd-k2/gicel/internal/lang/types"
 )
@@ -98,14 +97,7 @@ func (r *Registry) RegisterFamily(name string, info *TypeFamilyInfo) error {
 // type family equation. Two equations with structurally equal patterns
 // are considered identical for deduplication purposes.
 func equationPatternKey(eq tfEquation) string {
-	var b strings.Builder
-	for i, p := range eq.Patterns {
-		if i > 0 {
-			b.WriteByte(' ')
-		}
-		types.WriteTypeKey(&b, p)
-	}
-	return b.String()
+	return types.TypeListKey("", ' ', eq.Patterns)
 }
 
 // RegisterDataType records a data type's reverse lookup entry.

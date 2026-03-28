@@ -112,6 +112,19 @@ func TypeKey(t Type) string {
 	return b.String()
 }
 
+// TypeListKey serializes a prefix followed by type arguments into a canonical key.
+// Each argument is preceded by the given separator byte.
+func TypeListKey(prefix string, sep byte, args []Type) string {
+	var b strings.Builder
+	b.Grow(len(prefix) + len(args)*16)
+	b.WriteString(prefix)
+	for _, a := range args {
+		b.WriteByte(sep)
+		WriteTypeKey(&b, a)
+	}
+	return b.String()
+}
+
 func writeEvidenceRowKey(b *strings.Builder, row *TyEvidenceRow) {
 	switch entries := row.Entries.(type) {
 	case *CapabilityEntries:

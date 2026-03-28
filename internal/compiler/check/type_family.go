@@ -2,7 +2,6 @@ package check
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/cwd-k2/gicel/internal/compiler/check/env"
 	"github.com/cwd-k2/gicel/internal/compiler/check/family"
@@ -209,15 +208,9 @@ func (ch *Checker) registerStuckViaInert(name string, args []types.Type, resultK
 }
 
 // mangledDataFamilyName produces a mangled name for a data family instance.
-// Uses WriteTypeKey for each pattern to guarantee injectivity: distinct
+// Uses TypeListKey for each pattern to guarantee injectivity: distinct
 // pattern lists always produce distinct mangled names.
 func (ch *Checker) mangledDataFamilyName(familyName string, patterns []types.Type) string {
-	var b strings.Builder
-	b.WriteString(familyName)
-	fmt.Fprintf(&b, "$$%d", len(patterns))
-	for _, p := range patterns {
-		b.WriteByte('$')
-		types.WriteTypeKey(&b, p)
-	}
-	return b.String()
+	prefix := fmt.Sprintf("%s$$%d", familyName, len(patterns))
+	return types.TypeListKey(prefix, '$', patterns)
 }
