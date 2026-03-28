@@ -99,18 +99,20 @@ func (ch *Checker) inferBind(compExpr, contExpr syntax.Expr, s span.Span) (types
 	return resultTy, &ir.Bind{Comp: compCore, Var: bindVar, Body: bodyCore, Generated: true, S: s}
 }
 
-// cbpvTriple extracts (pre, post, result) from a computation or thunk type.
-// Returns nil fields if the type is neither.
-func cbpvTriple(ty types.Type) (pre, post, result types.Type) {
-	if t, ok := ty.(*types.TyCBPV); ok {
+// cbpvTaggedTriple extracts (pre, post, result) from a CBPV type only if the
+// tag matches the expected source form. Returns nil fields on mismatch.
+func cbpvTaggedTriple(ty types.Type, expectedTag types.CBPVTag) (pre, post, result types.Type) {
+	if t, ok := ty.(*types.TyCBPV); ok && t.Tag == expectedTag {
 		return t.Pre, t.Post, t.Result
 	}
 	return nil, nil, nil
 }
 
 // inferDualForm infers the CBPV dual: thunk (Comp→Thunk) or force (Thunk→Comp).
+// sourceTag is the expected tag of the argument (TagComp for thunk, TagThunk for force).
 func (ch *Checker) inferDualForm(
 	e *syntax.ExprApp, label string,
+	sourceTag types.CBPVTag,
 	mkExpected func(pre, post, result types.Type) types.Type,
 	mkResult func(pre, post, result types.Type) types.Type,
 	mkCore func(argCore ir.Core) ir.Core,
@@ -118,8 +120,8 @@ func (ch *Checker) inferDualForm(
 	argTy, argCore := ch.infer(e.Arg)
 	argTy = ch.unifier.Zonk(argTy)
 
-	// Fast path: direct triple extraction.
-	if pre, post, result := cbpvTriple(argTy); pre != nil {
+	// Fast path: direct triple extraction with tag verification.
+	if pre, post, result := cbpvTaggedTriple(argTy, sourceTag); pre != nil {
 		resultTy := mkResult(pre, post, result)
 		if ch.config.Trace != nil {
 			ch.trace(TraceInfer, e.S, "%s: %s ⇒ %s", label, types.Pretty(argTy), types.Pretty(resultTy))
@@ -146,6 +148,7 @@ func (ch *Checker) inferDualForm(
 
 func (ch *Checker) inferThunk(e *syntax.ExprApp) (types.Type, ir.Core) {
 	return ch.inferDualForm(e, "thunk",
+		types.TagComp, // thunk expects a Computation argument
 		func(p, q, r types.Type) types.Type { return types.MkComp(p, q, r) },
 		func(p, q, r types.Type) types.Type { return types.MkThunk(p, q, r) },
 		func(c ir.Core) ir.Core { return &ir.Thunk{Comp: c, S: e.S} },
@@ -154,6 +157,7 @@ func (ch *Checker) inferThunk(e *syntax.ExprApp) (types.Type, ir.Core) {
 
 func (ch *Checker) inferForce(e *syntax.ExprApp) (types.Type, ir.Core) {
 	return ch.inferDualForm(e, "force",
+		types.TagThunk, // force expects a Thunk argument
 		func(p, q, r types.Type) types.Type { return types.MkThunk(p, q, r) },
 		func(p, q, r types.Type) types.Type { return types.MkComp(p, q, r) },
 		func(c ir.Core) ir.Core { return &ir.Force{Expr: c, S: e.S} },
