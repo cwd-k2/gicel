@@ -344,6 +344,10 @@ func (vm *VM) execute() (eval.EvalResult, error) {
 			}
 			vm.push(result)
 			caller.capEnv = callerCapEnv
+			// Restore observer source context to caller's source.
+			if caller.source != nil && vm.obs != nil {
+				vm.obs.SetSource(caller.source)
+			}
 
 		case OpThunk:
 			idx := DecodeU16(frame.proto.Code, frame.ip)
