@@ -3,6 +3,7 @@ package ir
 import (
 	"fmt"
 	"sort"
+	"strings"
 
 	"github.com/cwd-k2/gicel/internal/lang/types"
 )
@@ -345,6 +346,15 @@ func VarKey(v *Var) string {
 // This is the canonical constructor for the "module\x00name" key format.
 func QualifiedKey(module, name string) string {
 	return module + "\x00" + name
+}
+
+// SplitQualifiedKey decomposes a qualified key into (module, name).
+// For unqualified keys, module is "" and name is the key itself.
+func SplitQualifiedKey(key string) (module, name string) {
+	if idx := strings.IndexByte(key, '\x00'); idx >= 0 {
+		return key[:idx], key[idx+1:]
+	}
+	return "", key
 }
 
 // freeTypeVars returns type-level free variables in Core.

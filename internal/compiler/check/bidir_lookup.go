@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/cwd-k2/gicel/internal/compiler/check/env"
 	"github.com/cwd-k2/gicel/internal/infra/diagnostic"
 	"github.com/cwd-k2/gicel/internal/infra/span"
 	"github.com/cwd-k2/gicel/internal/lang/ir"
@@ -230,7 +231,7 @@ func (ch *Checker) suggestVar(name string) []diagnostic.Hint {
 	seen := make(map[string]bool)
 	var candidates []string
 	ch.ctx.Scan(func(entry CtxEntry) bool {
-		if v, ok := entry.(*CtxVar); ok && !seen[v.Name] && v.Name != "" && v.Name[0] != '$' {
+		if v, ok := entry.(*CtxVar); ok && !seen[v.Name] && v.Name != "" && !env.IsPrivateName(v.Name) {
 			seen[v.Name] = true
 			candidates = append(candidates, v.Name)
 		}
