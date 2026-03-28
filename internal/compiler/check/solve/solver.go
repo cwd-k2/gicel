@@ -69,6 +69,15 @@ func (s *Solver) SaveWorklist() []Ct { return s.worklist.Drain() }
 // RestoreWorklist replaces the worklist contents.
 func (s *Solver) RestoreWorklist(cts []Ct) { s.worklist.Load(cts) }
 
+// RestoreWorklistAppend appends previously saved constraints back onto the
+// current worklist. Used when an inner scope's constraint resolution should
+// not consume constraints that belong to the outer scope.
+func (s *Solver) RestoreWorklistAppend(cts []Ct) {
+	for _, ct := range cts {
+		s.worklist.Push(ct)
+	}
+}
+
 // Reactivate kicks out constraints blocked on the given meta and
 // re-enqueues them for priority processing.
 func (s *Solver) Reactivate(metaID int) {

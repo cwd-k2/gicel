@@ -360,8 +360,13 @@ func (ch *Checker) checkWithEvidence(expr syntax.Expr, ev *types.TyEvidence) ir.
 				ch.unifier.InstallGivenEq(sk.ID, lhs)
 				ch.emitGivenEq(lhs, rhs, entry.S)
 				givenEqSkolems = append(givenEqSkolems, sk.ID)
+			} else if types.ContainsSkolemOrFamily(lhs) || types.ContainsSkolemOrFamily(rhs) {
+				// Type family application or skolem present — emit as given.
+				// The equality is assumed to hold at the definition site;
+				// it becomes a wanted at the call site (bidir_lookup.go).
+				ch.emitGivenEq(lhs, rhs, entry.S)
 			} else {
-				// Both sides are concrete or meta — emit equality constraint.
+				// Both sides are concrete or meta — emit wanted for checking.
 				ch.emitEq(lhs, rhs, entry.S, nil)
 			}
 			continue
@@ -401,8 +406,10 @@ func (ch *Checker) checkWithEvidence(expr syntax.Expr, ev *types.TyEvidence) ir.
 		})
 		pushed++
 	}
+	savedWorklist := ch.solver.SaveWorklist()
 	bodyCore := ch.check(expr, ev.Body)
 	bodyCore = ch.resolveDeferredConstraints(bodyCore)
+	ch.solver.RestoreWorklistAppend(savedWorklist)
 	for range pushed {
 		ch.ctx.Pop()
 	}
