@@ -5,6 +5,7 @@ import (
 
 	"github.com/cwd-k2/gicel/internal/infra/span"
 	"github.com/cwd-k2/gicel/internal/lang/ir"
+	"github.com/cwd-k2/gicel/internal/lang/types"
 	"github.com/cwd-k2/gicel/internal/runtime/eval"
 )
 
@@ -134,7 +135,7 @@ func irNodeKind(c ir.Core) string {
 	case *ir.PrimOp:
 		return "PrimOp"
 	case *ir.RecordLit:
-		return "Record"
+		return types.TyConRecord
 	case *ir.RecordProj:
 		return "RecordProj"
 	case *ir.RecordUpdate:

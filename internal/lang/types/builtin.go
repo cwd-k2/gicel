@@ -78,7 +78,7 @@ var builtinTyCons = map[string]*TyCon{
 	"Bool": {Name: "Bool"}, "Double": {Name: "Double"},
 	"Rune": {Name: "Rune"}, "Unit": {Name: "Unit"},
 	"Computation": {Name: "Computation"}, "Thunk": {Name: "Thunk"},
-	"Record": {Name: "Record"}, "List": {Name: "List"},
+	TyConRecord: {Name: TyConRecord}, "List": {Name: "List"},
 	"Pair": {Name: "Pair"}, "Lift": {Name: "Lift"},
 	"Zero": {Name: "Zero"}, "Linear": {Name: "Linear"},
 	"Affine": {Name: "Affine"}, "Unrestricted": {Name: "Unrestricted"},

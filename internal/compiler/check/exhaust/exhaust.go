@@ -317,7 +317,7 @@ func extractRecordFields(ty types.Type) map[string]types.Type {
 		return nil
 	}
 	con, ok := app.Fun.(*types.TyCon)
-	if !ok || con.Name != "Record" {
+	if !ok || con.Name != types.TyConRecord {
 		return nil
 	}
 	evRow, ok := app.Arg.(*types.TyEvidenceRow)

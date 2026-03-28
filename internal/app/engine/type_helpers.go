@@ -117,7 +117,7 @@ func ClosedRowType(fields ...types.RowField) types.Type {
 // RecordType creates a closed record type: Record { l1: T1, ..., ln: Tn }.
 func RecordType(fields ...types.RowField) types.Type {
 	return &types.TyApp{
-		Fun: types.Con("Record"),
+		Fun: types.Con(types.TyConRecord),
 		Arg: types.ClosedRow(fields...),
 	}
 }

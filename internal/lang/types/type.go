@@ -61,11 +61,11 @@ const (
 	TagThunk                // Thunk pre post a
 )
 
-// TyConComputation and TyConThunk are the canonical type constructor names
-// for the two CBPV type formers, used in TyCBPV expansion and normalization.
+// Canonical type constructor names.
 const (
 	TyConComputation = "Computation"
 	TyConThunk       = "Thunk"
+	TyConRecord      = "Record"
 )
 
 // TyCBPV is a CBPV computation or thunk type: Computation pre post a / Thunk pre post a.

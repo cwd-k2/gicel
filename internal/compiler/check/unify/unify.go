@@ -481,7 +481,7 @@ func (u *Unifier) Unify(a, b types.Type) error {
 			return u.Unify(at.Arg, bt.Arg)
 		}
 		// Cross-case: Record(row) unifies with bare row.
-		if con, ok := at.Fun.(*types.TyCon); ok && con.Name == "Record" {
+		if con, ok := at.Fun.(*types.TyCon); ok && con.Name == types.TyConRecord {
 			if row, ok := at.Arg.(*types.TyEvidenceRow); ok {
 				if bRow, ok := b.(*types.TyEvidenceRow); ok {
 					return u.unifyEvidenceRows(row, bRow)
@@ -538,7 +538,7 @@ func (u *Unifier) Unify(a, b types.Type) error {
 		// Type-position `{}` produces bare TyEvidenceRow; expression-position
 		// `{}` produces TyApp(TyCon("Record"), TyEvidenceRow). Allow matching.
 		if app, ok := b.(*types.TyApp); ok {
-			if con, ok := app.Fun.(*types.TyCon); ok && con.Name == "Record" {
+			if con, ok := app.Fun.(*types.TyCon); ok && con.Name == types.TyConRecord {
 				if row, ok := app.Arg.(*types.TyEvidenceRow); ok {
 					return u.unifyEvidenceRows(at, row)
 				}

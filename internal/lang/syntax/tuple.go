@@ -1,6 +1,10 @@
 package syntax
 
-import "strconv"
+import (
+	"strconv"
+
+	"github.com/cwd-k2/gicel/internal/lang/types"
+)
 
 // TupleLabel returns the canonical field label for a 1-based tuple position.
 // Position 1 → "_1", position 2 → "_2", etc.
@@ -20,7 +24,7 @@ func DesugarConstraintTuple(t TypeExpr) []TypeExpr {
 		return nil
 	}
 	con, ok := app.Fun.(*TyExprCon)
-	if !ok || con.Name != "Record" {
+	if !ok || con.Name != types.TyConRecord {
 		return nil
 	}
 	row, ok := app.Arg.(*TyExprRow)

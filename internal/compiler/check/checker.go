@@ -349,7 +349,7 @@ func (ch *Checker) initContext() {
 		ch.ctx.Push(&CtxVar{Name: name, Type: ty})
 	}
 	// Built-in type constructors.
-	ch.reg.RegisterTypeKind("Record", &types.TyArrow{From: types.TypeOfRows, To: types.TypeOfTypes})
+	ch.reg.RegisterTypeKind(types.TyConRecord, &types.TyArrow{From: types.TypeOfRows, To: types.TypeOfTypes})
 }
 
 func (s *CheckState) fresh() int {

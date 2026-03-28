@@ -29,7 +29,7 @@ func (ch *Checker) inferRecord(e *syntax.ExprRecord) (types.Type, ir.Core) {
 		coreFields = append(coreFields, ir.RecordField{Label: f.Label, Value: coreVal})
 	}
 	row := types.ClosedRow(fields...)
-	recTy := &types.TyApp{Fun: types.Con("Record"), Arg: row, S: e.S}
+	recTy := &types.TyApp{Fun: types.Con(types.TyConRecord), Arg: row, S: e.S}
 	return ch.unifier.Zonk(recTy), &ir.RecordLit{Fields: coreFields, S: e.S}
 }
 
@@ -47,7 +47,7 @@ func (ch *Checker) matchRecordField(ty types.Type, label string, s span.Span) ty
 	ty = ch.unifier.Zonk(ty)
 	// Decompose TyApp(TyCon("Record"), row).
 	if app, ok := ty.(*types.TyApp); ok {
-		if con, ok := app.Fun.(*types.TyCon); ok && con.Name == "Record" {
+		if con, ok := app.Fun.(*types.TyCon); ok && con.Name == types.TyConRecord {
 			row := ch.unifier.Zonk(app.Arg)
 			// Try to find the label in the row.
 			if evRow, ok := row.(*types.TyEvidenceRow); ok {
@@ -86,7 +86,7 @@ func (ch *Checker) matchRecordField(ty types.Type, label string, s span.Span) ty
 		Tail: tailMeta,
 		S:    s,
 	}
-	expectedRecTy := &types.TyApp{Fun: types.Con("Record"), Arg: expectedRow, S: s}
+	expectedRecTy := &types.TyApp{Fun: types.Con(types.TyConRecord), Arg: expectedRow, S: s}
 	if err := ch.unifier.Unify(ty, expectedRecTy); err != nil {
 		ch.addCodedError(diagnostic.ErrRowMismatch, s, fmt.Sprintf("expected record with field %s, got %s", label, types.Pretty(ty)))
 		return ch.freshMeta(types.TypeOfTypes)
@@ -146,7 +146,7 @@ func (ch *Checker) checkRecord(e *syntax.ExprRecord, expected types.Type) ir.Cor
 		}
 	}
 	row := types.ClosedRow(rowFields...)
-	recTy := &types.TyApp{Fun: types.Con("Record"), Arg: row, S: e.S}
+	recTy := &types.TyApp{Fun: types.Con(types.TyConRecord), Arg: row, S: e.S}
 	coreExpr := &ir.RecordLit{Fields: coreFields, S: e.S}
 	return ch.subsCheck(ch.unifier.Zonk(recTy), expected, coreExpr, e.S)
 }
@@ -160,7 +160,7 @@ func (ch *Checker) extractRecordFieldTypes(ty types.Type) map[string]types.Type 
 		return nil
 	}
 	con, ok := app.Fun.(*types.TyCon)
-	if !ok || con.Name != "Record" {
+	if !ok || con.Name != types.TyConRecord {
 		return nil
 	}
 	row := ch.unifier.Zonk(app.Arg)

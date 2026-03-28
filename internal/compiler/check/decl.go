@@ -274,7 +274,7 @@ func (ch *Checker) processTypeFamilyFromAlias(d *syntax.DeclTypeAlias) {
 func countTupleArity(t syntax.TypeExpr) int {
 	// Tuple pattern: (A, B) parses as TyExprApp(TyExprCon("Record"), TyExprRow{Fields: [_1: A, _2: B]})
 	if app, ok := t.(*syntax.TyExprApp); ok {
-		if con, ok := app.Fun.(*syntax.TyExprCon); ok && con.Name == "Record" {
+		if con, ok := app.Fun.(*syntax.TyExprCon); ok && con.Name == types.TyConRecord {
 			if row, ok := app.Arg.(*syntax.TyExprRow); ok && len(row.Fields) > 0 {
 				return len(row.Fields)
 			}
@@ -293,7 +293,7 @@ func extractTFPatterns(pat syntax.TypeExpr, numParams int) []syntax.TypeExpr {
 
 	// Check for tuple pattern: (P1, P2, ...) = TyExprApp(Record, TyExprRow{Fields: ...})
 	if app, ok := pat.(*syntax.TyExprApp); ok {
-		if con, ok := app.Fun.(*syntax.TyExprCon); ok && con.Name == "Record" {
+		if con, ok := app.Fun.(*syntax.TyExprCon); ok && con.Name == types.TyConRecord {
 			if row, ok := app.Arg.(*syntax.TyExprRow); ok && len(row.Fields) >= numParams {
 				result := make([]syntax.TypeExpr, len(row.Fields))
 				for i, f := range row.Fields {

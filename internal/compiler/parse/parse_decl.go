@@ -5,6 +5,7 @@ import (
 	"strconv"
 
 	syn "github.com/cwd-k2/gicel/internal/lang/syntax"
+	"github.com/cwd-k2/gicel/internal/lang/types"
 
 	"github.com/cwd-k2/gicel/internal/infra/diagnostic"
 	"github.com/cwd-k2/gicel/internal/infra/span"
@@ -184,7 +185,7 @@ func (p *Parser) parseADTConsAsRow(params []syn.TyBinder, start span.Pos) syn.Ty
 		if len(c.fields) == 0 {
 			// Nullary: synthesize unit type ()
 			ty = &syn.TyExprApp{
-				Fun: &syn.TyExprCon{Name: "Record", S: c.s},
+				Fun: &syn.TyExprCon{Name: types.TyConRecord, S: c.s},
 				Arg: &syn.TyExprRow{S: c.s},
 				S:   c.s,
 			}
@@ -193,7 +194,7 @@ func (p *Parser) parseADTConsAsRow(params []syn.TyBinder, start span.Pos) syn.Ty
 			// The trailing () is a sentinel that processFormDeclParts replaces
 			// with the actual result type (e.g., Shape).
 			ty = &syn.TyExprApp{
-				Fun: &syn.TyExprCon{Name: "Record", S: c.s},
+				Fun: &syn.TyExprCon{Name: types.TyConRecord, S: c.s},
 				Arg: &syn.TyExprRow{S: c.s},
 				S:   c.s,
 			}

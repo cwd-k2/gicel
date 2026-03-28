@@ -138,7 +138,7 @@ func (ch *Checker) processFormDeclParts(d *syntax.DeclForm, parts formBodyParts,
 // isUnitType checks if a type is the unit type: Record {} or bare {}.
 func isUnitType(t types.Type) bool {
 	if app, ok := t.(*types.TyApp); ok {
-		if con, ok := app.Fun.(*types.TyCon); ok && con.Name == "Record" {
+		if con, ok := app.Fun.(*types.TyCon); ok && con.Name == types.TyConRecord {
 			if row, ok := app.Arg.(*types.TyEvidenceRow); ok {
 				return row.Entries.EntryCount() == 0
 			}
