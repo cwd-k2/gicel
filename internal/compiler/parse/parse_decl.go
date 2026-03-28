@@ -359,6 +359,14 @@ func (p *Parser) parseNamedDecl() syn.Decl {
 		}
 	case syn.TokColonEq:
 		eqTok := p.advance()
+		// Host-provided assumption: name := assumption
+		if p.peek().Kind == syn.TokAssumption {
+			p.advance()
+			return &syn.DeclValueDef{
+				Name: name, IsAssumption: true,
+				S: span.Span{Start: start, End: p.prevEnd()},
+			}
+		}
 		if p.atStmtBoundary() || p.peek().Kind == syn.TokEOF || p.peek().Kind == syn.TokSemicolon {
 			p.errors.Add(&diagnostic.Error{
 				Code:    diagnostic.ErrMissingBody,

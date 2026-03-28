@@ -236,11 +236,9 @@ func (p *declPipeline) checkValues() {
 	}
 }
 
-// isAssumptionDef reports whether a value definition is an assumption declaration
-// (i.e., its body is the bare identifier "assumption").
+// isAssumptionDef reports whether a value definition is an assumption declaration.
 func isAssumptionDef(def *syntax.DeclValueDef) bool {
-	v, ok := def.Expr.(*syntax.ExprVar)
-	return ok && v.Name == "assumption"
+	return def.IsAssumption
 }
 
 func (ch *Checker) processTypeAlias(d *syntax.DeclTypeAlias) {

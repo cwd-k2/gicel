@@ -15,11 +15,12 @@ type DeclTypeAnn struct {
 	S    span.Span
 }
 
-// DeclValueDef is a value definition (name := expr).
+// DeclValueDef is a value definition (name := expr) or an assumption (name := assumption).
 type DeclValueDef struct {
-	Name string
-	Expr Expr
-	S    span.Span
+	Name         string
+	Expr         Expr // nil when IsAssumption is true
+	IsAssumption bool // host-provided axiom; no expression body
+	S            span.Span
 }
 
 // DeclForm is a nominal type declaration.
