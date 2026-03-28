@@ -7,7 +7,7 @@ Type families define type-level functions evaluated during type checking and ful
 Declared with `type Name :: Kind := \params. case scrutinee { equations }`. Equations checked top-to-bottom; first match wins.
 
 ```
-type Elem :: Type := \(c: Type). case c {
+type ElemOf :: Type := \(c: Type). case c {
   List a  => a;
   Slice a => a;
   String  => Rune

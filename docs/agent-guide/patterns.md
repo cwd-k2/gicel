@@ -145,7 +145,7 @@ main := force suspended
 ### Syntax
 
 - **Lambda uses `.` not `->`.** `\x. e`, not `\x -> e`. Multi-parameter: `\x y. e` (desugars to `\x. \y. e`)
-- **Int literals require Prelude.** Without `import Prelude`, `42` is a parse error.
+- **Arithmetic operators require Prelude.** Without `import Prelude`, `+`, `-`, `*`, etc. are unbound. Literals like `42` work without Prelude.
 - **No negative literals.** Use `negate 5`, not `-5`.
 - **Type annotation is a declaration.** `f :: T` then `f := expr`, not `f := expr :: T`.
 - **case uses braces, not "of".** `case x { ... }`, not `case x of { ... }`.
