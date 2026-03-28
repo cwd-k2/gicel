@@ -61,8 +61,8 @@ func TestCompileApp(t *testing.T) {
 	c := NewCompiler(globals, nil)
 	proto := c.CompileExpr(expr)
 
-	// In tail position: STEP, <fn>, <arg>, TAIL_APPLY, RETURN
-	assertOp(t, proto, OpTailApply)
+	// Non-tail at top level (CompileExpr wraps with ForceEffectful+Return).
+	assertOp(t, proto, OpApply)
 }
 
 func TestCompileAppNonTail(t *testing.T) {
@@ -122,7 +122,7 @@ func TestCompileThunkForce(t *testing.T) {
 	proto := c.CompileExpr(expr)
 
 	assertOp(t, proto, OpThunk)
-	assertOp(t, proto, OpForceTail) // tail position
+	assertOp(t, proto, OpForce) // non-tail at top level (CompileExpr adds ForceEffectful+Return)
 }
 
 func TestCompileFix(t *testing.T) {

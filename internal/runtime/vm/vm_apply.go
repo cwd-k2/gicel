@@ -154,17 +154,26 @@ func (vm *VM) forceEffectful(v eval.Value, capEnv eval.CapEnv, frame *Frame) (ev
 		return result.Value, result.CapEnv, nil
 	}
 	if thv, ok := v.(*eval.ThunkVal); ok && thv.AutoForce {
-		if err := vm.budget.Step(); err != nil {
-			return nil, capEnv, err
-		}
 		if vm.fallbackEval == nil {
 			return nil, capEnv, vm.runtimeError("tree-walker auto-force thunk in VM (no fallback)", frame)
 		}
-		result, err := vm.fallbackEval.Eval(thv.Locals, capEnv, thv.Comp)
-		if err != nil {
-			return nil, capEnv, err
+		// Loop to handle chains of auto-force thunks without depth accumulation.
+		for {
+			if err := vm.budget.Step(); err != nil {
+				return nil, capEnv, err
+			}
+			result, err := vm.fallbackEval.Eval(thv.Locals, capEnv, thv.Comp)
+			if err != nil {
+				return nil, capEnv, err
+			}
+			// If the result is another auto-force thunk, continue.
+			if next, ok := result.Value.(*eval.ThunkVal); ok && next.AutoForce {
+				thv = next
+				capEnv = result.CapEnv
+				continue
+			}
+			return result.Value, result.CapEnv, nil
 		}
-		return result.Value, result.CapEnv, nil
 	}
 	// Saturated effectful PrimVal.
 	if pv, ok := v.(*eval.PrimVal); ok && pv.Effectful && len(pv.Args) >= pv.Arity {

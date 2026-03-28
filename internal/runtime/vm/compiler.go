@@ -23,7 +23,8 @@ func NewCompiler(globalSlots map[string]int, source *span.Source) *Compiler {
 // The resulting Proto has no captures and no parameter (it is a "script" body).
 func (c *Compiler) CompileExpr(expr ir.Core) *Proto {
 	e := newEmitter(c, nil)
-	e.compileExpr(expr, true)
+	e.compileExpr(expr, false) // not tail: we add ForceEffectful + Return ourselves
+	e.emit(OpForceEffectful)
 	e.emit(OpReturn)
 	return e.finalize(c.source)
 }
@@ -376,8 +377,11 @@ func (e *emitter) compileBind(bind *ir.Bind, tail bool) {
 	// Bind: force effectful, store result in local slot.
 	slot := e.allocLocal(bind.Var)
 	e.emitU16(OpBind, uint16(slot))
-	// Compile body (may be tail position).
-	e.compileExpr(bind.Body, tail)
+	// Compile body. Force effectful on the body result to handle
+	// bare effectful PrimVals or auto-force thunks at the end of
+	// do-block chains (mirrors tree-walker's deferred ForceEffectful).
+	e.compileExpr(bind.Body, false)
+	e.emit(OpForceEffectful)
 }
 
 func (e *emitter) compileThunk(thunk *ir.Thunk) {
