@@ -177,21 +177,22 @@ func (vm *VM) forceEffectful(v eval.Value, capEnv eval.CapEnv, frame *Frame, cal
 			return nil, capEnv, err
 		}
 		proto := thv.Proto.(*Proto)
-		// Execute via barrier frame. Record bp so locals can be trimmed.
+		// Execute via barrier frame. Save state for robust cleanup.
 		savedLocals := len(vm.locals)
+		savedFP := vm.fp
 		vm.frames = append(vm.frames, Frame{barrier: true, capEnv: capEnv, bp: savedLocals})
 		vm.fp = len(vm.frames) - 1
 		barrierFrame := &vm.frames[vm.fp]
 		if err := vm.callThunk(proto, thv.Captured, barrierFrame); err != nil {
 			vm.locals = vm.locals[:savedLocals]
-			vm.fp--
-			vm.frames = vm.frames[:vm.fp+1]
+			vm.fp = savedFP
+			vm.frames = vm.frames[:savedFP+1]
 			return nil, capEnv, err
 		}
 		result, err := vm.execute()
 		vm.locals = vm.locals[:savedLocals]
-		vm.fp--
-		vm.frames = vm.frames[:vm.fp+1]
+		vm.fp = savedFP
+		vm.frames = vm.frames[:savedFP+1]
 		if err != nil {
 			return nil, capEnv, err
 		}
@@ -268,20 +269,20 @@ func (vm *VM) applyForPrim(fn eval.Value, arg eval.Value, capEnv eval.CapEnv) (e
 	case *eval.VMClosure:
 		proto := f.Proto.(*Proto)
 		savedLocals := len(vm.locals)
-		// Push barrier frame with bp to trim locals on return.
+		savedFP := vm.fp
 		vm.frames = append(vm.frames, Frame{barrier: true, capEnv: capEnv, bp: savedLocals})
 		vm.fp = len(vm.frames) - 1
 		barrierFrame := &vm.frames[vm.fp]
 		if err := vm.callClosure(proto, f.Captured, arg, barrierFrame); err != nil {
 			vm.locals = vm.locals[:savedLocals]
-			vm.fp--
-			vm.frames = vm.frames[:vm.fp+1]
+			vm.fp = savedFP
+			vm.frames = vm.frames[:savedFP+1]
 			return nil, capEnv, err
 		}
 		result, err := vm.execute()
 		vm.locals = vm.locals[:savedLocals]
-		vm.fp--
-		vm.frames = vm.frames[:vm.fp+1]
+		vm.fp = savedFP
+		vm.frames = vm.frames[:savedFP+1]
 		if err != nil {
 			return nil, capEnv, err
 		}

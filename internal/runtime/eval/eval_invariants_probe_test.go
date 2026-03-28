@@ -101,9 +101,9 @@ func TestProbeE_AllocLimitNegative(t *testing.T) {
 }
 
 func TestProbeE_AllocLimitExactBoundary(t *testing.T) {
-	// Set allocLimit to exactly costConBase. One Con should succeed, two should fail.
+	// Set allocLimit to exactly CostConBase. One Con should succeed, two should fail.
 	b := budget.New(context.Background(), 1_000_000, 1_000)
-	b.SetAllocLimit(int64(costConBase))
+	b.SetAllocLimit(int64(CostConBase))
 	ev := NewEvaluator(b, NewPrimRegistry(), nil, nil, nil)
 	ev.SetGlobals(map[string]Value{})
 

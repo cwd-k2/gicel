@@ -1,8 +1,11 @@
+// VM fix/rec tests — self-referential closures and thunks.
+// Does NOT cover: general execution (vm_test.go), compiler (compiler_test.go).
 package vm
 
 import (
 	"context"
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/cwd-k2/gicel/internal/infra/budget"
@@ -79,16 +82,5 @@ func fmtConstants(cs []eval.Value) string {
 	for i, c := range cs {
 		parts[i] = fmt.Sprintf("%v", c)
 	}
-	return fmt.Sprintf("[%s]", join(parts, ", "))
-}
-
-func join(ss []string, sep string) string {
-	if len(ss) == 0 {
-		return ""
-	}
-	result := ss[0]
-	for _, s := range ss[1:] {
-		result += sep + s
-	}
-	return result
+	return fmt.Sprintf("[%s]", strings.Join(parts, ", "))
 }

@@ -81,9 +81,8 @@ type emitter struct {
 
 // localEntry tracks a named local variable.
 type localEntry struct {
-	name  string
-	slot  int
-	depth int // scope depth for shadowing
+	name string
+	slot int
 }
 
 func newEmitter(c *Compiler, parent *emitter) *emitter {
@@ -189,11 +188,16 @@ func (e *emitter) patchJumpTo(pos int) {
 
 // --- constant / string pool ---
 
+const maxPoolSize = 1<<16 - 1
+
 func (e *emitter) addConstant(v eval.Value) uint16 {
 	for i, c := range e.constants {
 		if c == v {
 			return uint16(i)
 		}
+	}
+	if len(e.constants) >= maxPoolSize {
+		panic("vm/compiler: constant pool overflow (max 65535)")
 	}
 	idx := len(e.constants)
 	e.constants = append(e.constants, v)
@@ -206,18 +210,27 @@ func (e *emitter) addString(s string) uint16 {
 			return uint16(i)
 		}
 	}
+	if len(e.strings) >= maxPoolSize {
+		panic("vm/compiler: string pool overflow (max 65535)")
+	}
 	idx := len(e.strings)
 	e.strings = append(e.strings, s)
 	return uint16(idx)
 }
 
 func (e *emitter) addMatchDesc(md MatchDesc) uint16 {
+	if len(e.matchDescs) >= maxPoolSize {
+		panic("vm/compiler: match descriptor pool overflow")
+	}
 	idx := len(e.matchDescs)
 	e.matchDescs = append(e.matchDescs, md)
 	return uint16(idx)
 }
 
 func (e *emitter) addRecordDesc(rd RecordDesc) uint16 {
+	if len(e.recordDescs) >= maxPoolSize {
+		panic("vm/compiler: record descriptor pool overflow")
+	}
 	idx := len(e.recordDescs)
 	e.recordDescs = append(e.recordDescs, rd)
 	return uint16(idx)
@@ -347,16 +360,7 @@ func (e *emitter) compileVar(v *ir.Var) {
 	if slot, ok := e.compiler.globalSlots[key]; ok {
 		e.emitU16(OpLoadGlobal, uint16(slot))
 	} else {
-		// Global not in slot map — this can happen for un-indexed globals.
-		// Encode the key as a constant string and use LOAD_GLOBAL with a
-		// sentinel or a separate instruction. For now, fall back to storing
-		// the key string and loading by name at runtime.
-		// We'll store the key in constants as a HostVal(string).
-		idx := e.addConstant(&eval.HostVal{Inner: key})
-		e.emitU16(OpConst, idx)
-		// The VM will need to handle this case — but slot-based lookup is
-		// the expected fast path. Globals not in the slot map are rare.
-		// TODO: add OpLoadGlobalNamed if needed.
+		panic(fmt.Sprintf("vm/compiler: global %q (key %q) not in globalSlots", v.Name, key))
 	}
 }
 
@@ -646,6 +650,9 @@ func (e *emitter) resolveCapturesFiltered(fv []string, fvIndices []int) ([]strin
 }
 
 func (e *emitter) addProto(p *Proto) uint16 {
+	if len(e.protos) >= maxPoolSize {
+		panic("vm/compiler: proto pool overflow")
+	}
 	idx := len(e.protos)
 	e.protos = append(e.protos, p)
 	return uint16(idx)

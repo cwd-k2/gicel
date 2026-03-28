@@ -200,20 +200,6 @@ func (r *Runtime) buildGlobalArray(hostBindings map[string]eval.Value) ([]eval.V
 	return arr, nil
 }
 
-// buildNamedGlobals constructs the named globals map as a fallback for
-// Var nodes whose Index remains -1 because assignGlobalSlots exceeded
-// maxTraversalDepth. The map mirrors builtinGlobals + host bindings.
-func (r *Runtime) buildNamedGlobals(hostBindings map[string]eval.Value) map[string]eval.Value {
-	m := make(map[string]eval.Value, len(r.builtinGlobals)+len(hostBindings))
-	for k, v := range r.builtinGlobals {
-		m[k] = v
-	}
-	for k, v := range hostBindings {
-		m[k] = v
-	}
-	return m
-}
-
 type runRequest struct {
 	caps      map[string]any
 	bindings  map[string]eval.Value
@@ -237,12 +223,11 @@ func (r *Runtime) execute(ctx context.Context, req *runRequest) (eval.EvalResult
 		b.SetAllocLimit(r.allocLimit)
 	}
 
-	namedGlobals := r.buildNamedGlobals(req.bindings)
 	capEnv := eval.NewCapEnv(req.caps)
 
 	// Embed budget in context so stdlib primitives can call budget.ChargeAlloc.
 	vmCtx := budget.ContextWithBudget(ctx, b)
-	return r.executeVM(vmCtx, b, globalArray, namedGlobals, capEnv, req)
+	return r.executeVM(vmCtx, b, globalArray, capEnv, req)
 }
 
 // precompileVM compiles all module bindings, main bindings, entry expression,
@@ -285,38 +270,36 @@ func (r *Runtime) precompileVM(gates map[string]bool) {
 // executeVM compiles the entry expression to bytecode and runs it on the VM.
 // Module and non-entry bindings are evaluated by the tree-walker (stored in
 // globalArray). The VM uses the same global array for variable lookup.
-func (r *Runtime) executeVM(ctx context.Context, b *budget.Budget, globalArray []eval.Value, namedGlobals map[string]eval.Value, capEnv eval.CapEnv, req *runRequest) (eval.EvalResult, eval.EvalStats, error) {
+func (r *Runtime) executeVM(ctx context.Context, b *budget.Budget, globalArray []eval.Value, capEnv eval.CapEnv, req *runRequest) (eval.EvalResult, eval.EvalStats, error) {
 	machine := vm.NewVM(vm.VMConfig{
-		Globals:      globalArray,
-		GlobalSlots:  r.globalSlots,
-		NamedGlobals: namedGlobals,
-		Prims:        r.prims,
-		Budget:       b,
-		Ctx:          ctx,
-		Observer:     req.obs,
-		Trace:        req.traceHook,
-		Source:       r.source,
+		Globals:     globalArray,
+		GlobalSlots: r.globalSlots,
+		Prims:       r.prims,
+		Budget:      b,
+		Ctx:         ctx,
+		Observer:    req.obs,
+		Trace:       req.traceHook,
+		Source:      r.source,
 	})
 
 	// Install pre-compiled builtins.
 	for name, val := range r.vmBuiltins {
 		if slot, ok := r.globalSlots[name]; ok {
 			globalArray[slot] = val
-			namedGlobals[name] = val
 		}
 	}
 
 	// Evaluate pre-compiled module bindings.
 	for i, me := range r.moduleEntries {
 		req.obs.SetSource(me.source)
-		if err := r.evalPrecompiledBindings(machine, r.vmModuleProtos[i], me.name, globalArray, namedGlobals, req.obs); err != nil {
+		if err := r.evalPrecompiledBindings(machine, r.vmModuleProtos[i], me.name, globalArray, req.obs); err != nil {
 			return eval.EvalResult{}, machine.Stats(), err
 		}
 	}
 
 	// Evaluate pre-compiled non-entry main bindings.
 	req.obs.SetSource(r.source)
-	if err := r.evalPrecompiledBindings(machine, r.vmMainProtos, "", globalArray, namedGlobals, req.obs); err != nil {
+	if err := r.evalPrecompiledBindings(machine, r.vmMainProtos, "", globalArray, req.obs); err != nil {
 		return eval.EvalResult{}, machine.Stats(), err
 	}
 
@@ -352,7 +335,7 @@ func (r *Runtime) executeVM(ctx context.Context, b *budget.Budget, globalArray [
 }
 
 // evalPrecompiledBindings runs pre-compiled binding protos on the VM.
-func (r *Runtime) evalPrecompiledBindings(machine *vm.VM, protos []vmBindingProto, modulePrefix string, globalArray []eval.Value, namedGlobals map[string]eval.Value, obs *eval.ExplainObserver) error {
+func (r *Runtime) evalPrecompiledBindings(machine *vm.VM, protos []vmBindingProto, modulePrefix string, globalArray []eval.Value, obs *eval.ExplainObserver) error {
 	type slotCell struct {
 		slot int
 		key  string
@@ -367,7 +350,6 @@ func (r *Runtime) evalPrecompiledBindings(machine *vm.VM, protos []vmBindingProt
 		slot := r.globalSlots[key]
 		cell := &eval.IndirectVal{}
 		globalArray[slot] = cell
-		namedGlobals[key] = cell
 		cells[i] = slotCell{slot, key, cell}
 	}
 	userVisible := modulePrefix == ""
@@ -392,7 +374,6 @@ func (r *Runtime) evalPrecompiledBindings(machine *vm.VM, protos []vmBindingProt
 		val := v
 		cells[i].cell.Ref = &val
 		globalArray[cells[i].slot] = v
-		namedGlobals[cells[i].key] = v
 	}
 	return nil
 }

@@ -19,15 +19,6 @@ const (
 	CostRecord      = 32               // RecordVal struct + slice header
 	CostRecordField = 24               // per RecordField (label string + Value interface)
 	CostFix         = CostClosure + 40 // Closure + Env node for fix binding
-
-	// Unexported aliases for internal use.
-	costClosure = CostClosure
-	costConBase = CostConBase
-	costConArg  = CostConArg
-	costThunk   = CostThunk
-	costRecBase = CostRecord
-	costRecFld  = CostRecordField
-	costFix     = CostFix
 )
 
 // EvalResult is the result of evaluation.
@@ -99,11 +90,6 @@ func (ev *Evaluator) SetGlobalArray(g []Value) {
 // Globals returns the evaluator's named globals map.
 func (ev *Evaluator) Globals() map[string]Value {
 	return ev.globals
-}
-
-// GlobalArray returns the slot-indexed globals array.
-func (ev *Evaluator) GlobalArray() []Value {
-	return ev.globalArray
 }
 
 // SetGlobalSlot sets a single value in the globals array at the given slot.
@@ -264,7 +250,7 @@ func (ev *Evaluator) evalStep(locals []Value, capEnv CapEnv, expr ir.Core) (Eval
 		return EvalResult{v, capEnv}, nil
 
 	case *ir.Lam:
-		if err := ev.budget.Alloc(costClosure); err != nil {
+		if err := ev.budget.Alloc(CostClosure); err != nil {
 			return EvalResult{}, err
 		}
 		closureLocals := CaptureLam(locals, e.FVIndices, e.FV, ExtraCapParam)
@@ -296,7 +282,7 @@ func (ev *Evaluator) evalStep(locals []Value, capEnv CapEnv, expr ir.Core) (Eval
 		return ev.Eval(locals, capEnv, e.Body)
 
 	case *ir.Con:
-		if err := ev.budget.Alloc(int64(costConBase + costConArg*len(e.Args))); err != nil {
+		if err := ev.budget.Alloc(int64(CostConBase + CostConArg*len(e.Args))); err != nil {
 			return EvalResult{}, err
 		}
 		args := make([]Value, len(e.Args))
@@ -364,7 +350,7 @@ func (ev *Evaluator) evalStep(locals []Value, capEnv CapEnv, expr ir.Core) (Eval
 		return EvalResult{Value: ev.bounceWith(bodyLocals, compR.CapEnv, e.Body, 0, false, nil, &s)}, nil
 
 	case *ir.Thunk:
-		if err := ev.budget.Alloc(costThunk); err != nil {
+		if err := ev.budget.Alloc(CostThunk); err != nil {
 			return EvalResult{}, err
 		}
 		thunkLocals := CaptureLam(locals, e.FVIndices, e.FV, ExtraCapNone)
@@ -433,7 +419,7 @@ func (ev *Evaluator) evalStep(locals []Value, capEnv CapEnv, expr ir.Core) (Eval
 		return EvalResult{val, newCap}, nil
 
 	case *ir.RecordLit:
-		if err := ev.budget.Alloc(int64(costRecBase + costRecFld*len(e.Fields))); err != nil {
+		if err := ev.budget.Alloc(int64(CostRecord + CostRecordField*len(e.Fields))); err != nil {
 			return EvalResult{}, err
 		}
 		rfields := make([]RecordField, len(e.Fields))
@@ -492,7 +478,7 @@ func (ev *Evaluator) evalStep(locals []Value, capEnv CapEnv, expr ir.Core) (Eval
 				Source:  ev.source,
 			}
 		}
-		if err := ev.budget.Alloc(int64(costRecBase + costRecFld*rec.Len())); err != nil {
+		if err := ev.budget.Alloc(int64(CostRecord + CostRecordField*rec.Len())); err != nil {
 			return EvalResult{}, err
 		}
 		updates := make([]RecordField, len(e.Updates))

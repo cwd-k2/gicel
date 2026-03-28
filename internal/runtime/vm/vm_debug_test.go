@@ -1,3 +1,5 @@
+// VM debug tests — bytecode dump helpers and Applier callback correctness.
+// Does NOT cover: general execution (vm_test.go), compiler (compiler_test.go).
 package vm
 
 import (

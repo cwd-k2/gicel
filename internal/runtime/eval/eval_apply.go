@@ -128,7 +128,7 @@ func (ev *Evaluator) apply(capEnv CapEnv, fn Value, arg Value, site *ir.App) (Ev
 		bodyLocals := Push(f.Locals, arg)
 		return EvalResult{Value: ev.bounceWith(bodyLocals, capEnv, f.Body, 1, leaveObs, f.Source, nil)}, nil
 	case *ConVal:
-		if err := ev.budget.Alloc(int64(costConBase + costConArg*(len(f.Args)+1))); err != nil {
+		if err := ev.budget.Alloc(int64(CostConBase + CostConArg*(len(f.Args)+1))); err != nil {
 			return EvalResult{}, err
 		}
 		args := make([]Value, len(f.Args)+1)

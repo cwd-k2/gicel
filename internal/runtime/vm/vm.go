@@ -35,9 +35,8 @@ type VM struct {
 	fp     int // frame pointer (index of current frame in frames)
 
 	// Global environment.
-	globals      []eval.Value
-	globalSlots  map[string]int
-	namedGlobals map[string]eval.Value
+	globals     []eval.Value
+	globalSlots map[string]int
 
 	// Primitives.
 	prims *eval.PrimRegistry
@@ -64,32 +63,30 @@ type VM struct {
 
 // VMConfig holds configuration for creating a VM.
 type VMConfig struct {
-	Globals      []eval.Value
-	GlobalSlots  map[string]int
-	NamedGlobals map[string]eval.Value
-	Prims        *eval.PrimRegistry
-	Budget       *budget.Budget
-	Ctx          context.Context
-	Observer     *eval.ExplainObserver
-	Trace        eval.TraceHook
-	Source       *span.Source
+	Globals     []eval.Value
+	GlobalSlots map[string]int
+	Prims       *eval.PrimRegistry
+	Budget      *budget.Budget
+	Ctx         context.Context
+	Observer    *eval.ExplainObserver
+	Trace       eval.TraceHook
+	Source      *span.Source
 }
 
 // NewVM creates a VM ready to execute a Proto.
 func NewVM(cfg VMConfig) *VM {
 	vm := &VM{
-		stack:        make([]eval.Value, 0, 256),
-		locals:       make([]eval.Value, 0, 256),
-		frames:       make([]Frame, 0, 64),
-		globals:      cfg.Globals,
-		globalSlots:  cfg.GlobalSlots,
-		namedGlobals: cfg.NamedGlobals,
-		prims:        cfg.Prims,
-		budget:       cfg.Budget,
-		ctx:          cfg.Ctx,
-		obs:          cfg.Observer,
-		trace:        cfg.Trace,
-		source:       cfg.Source,
+		stack:       make([]eval.Value, 0, 256),
+		locals:      make([]eval.Value, 0, 256),
+		frames:      make([]Frame, 0, 64),
+		globals:     cfg.Globals,
+		globalSlots: cfg.GlobalSlots,
+		prims:       cfg.Prims,
+		budget:      cfg.Budget,
+		ctx:         cfg.Ctx,
+		obs:         cfg.Observer,
+		trace:       cfg.Trace,
+		source:      cfg.Source,
 	}
 	vm.cachedApplier = vm.applyForPrim
 	return vm
@@ -193,11 +190,12 @@ func (vm *VM) execute() (eval.EvalResult, error) {
 				if vm.fp == 0 {
 					return eval.EvalResult{Value: result, CapEnv: frame.capEnv}, nil
 				}
+				callerCapEnv := frame.capEnv
 				vm.budget.Leave()
+				vm.locals = vm.locals[:frame.bp]
 				vm.popFrame()
 				vm.push(result)
-				// Propagate capEnv to caller.
-				vm.currentFrame().capEnv = frame.capEnv
+				vm.currentFrame().capEnv = callerCapEnv
 				continue
 			}
 			return eval.EvalResult{}, &eval.RuntimeError{Message: "empty stack at return"}
@@ -310,6 +308,11 @@ func (vm *VM) execute() (eval.EvalResult, error) {
 			if thv, ok := result.(*eval.VMThunkVal); ok && thv.AutoForce {
 				if err := vm.budget.Step(); err != nil {
 					return eval.EvalResult{}, err
+				}
+				// Fire pending LeaveInternal before reusing frame.
+				if frame.leaveObs {
+					vm.obs.LeaveInternal()
+					frame.leaveObs = false
 				}
 				proto := thv.Proto.(*Proto)
 				// Reuse current frame for thunk execution (TCO).

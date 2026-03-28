@@ -380,7 +380,7 @@ func TestAllocLimit(t *testing.T) {
 	ev := NewEvaluator(b, NewPrimRegistry(), nil, nil, nil)
 	ev.SetGlobals(map[string]Value{})
 
-	// Build a 10-field record: costRecBase(56) + costRecFld(32)*10 = 376 bytes > 100
+	// Build a 10-field record: CostRecord(56) + CostRecordField(32)*10 = 376 bytes > 100
 	fields := make([]ir.RecordField, 10)
 	for i := range fields {
 		fields[i] = ir.RecordField{
@@ -529,8 +529,8 @@ func TestAllocTrackingThunk(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if ev.Stats().Allocated < costThunk {
-		t.Errorf("Thunk should allocate at least %d bytes, got %d", costThunk, ev.Stats().Allocated)
+	if ev.Stats().Allocated < CostThunk {
+		t.Errorf("Thunk should allocate at least %d bytes, got %d", CostThunk, ev.Stats().Allocated)
 	}
 }
 
@@ -548,8 +548,8 @@ func TestAllocTrackingFix(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	// Fix: costFix (closure + env node) + Con(Unit): costConBase
-	expected := int64(costFix + costConBase)
+	// Fix: CostFix (closure + env node) + Con(Unit): CostConBase
+	expected := int64(CostFix + CostConBase)
 	if ev.Stats().Allocated != expected {
 		t.Errorf("expected %d bytes, got %d", expected, ev.Stats().Allocated)
 	}
@@ -569,9 +569,9 @@ func TestAllocTrackingRecordUpdate(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	// RecordLit: costRecBase + costRecFld*1
-	// RecordUpdate copy: costRecBase + costRecFld*1
-	expected := int64(2 * (costRecBase + costRecFld))
+	// RecordLit: CostRecord + CostRecordField*1
+	// RecordUpdate copy: CostRecord + CostRecordField*1
+	expected := int64(2 * (CostRecord + CostRecordField))
 	if ev.Stats().Allocated != expected {
 		t.Errorf("expected %d bytes, got %d", expected, ev.Stats().Allocated)
 	}
@@ -629,14 +629,14 @@ func TestDepthLimitBoundary(t *testing.T) {
 }
 
 func TestAllocLimitBoundary(t *testing.T) {
-	// allocLimit = costConBase: exactly one ConVal allocation should succeed.
+	// allocLimit = CostConBase: exactly one ConVal allocation should succeed.
 	b := budget.New(context.Background(), 1_000_000, 1_000)
-	b.SetAllocLimit(int64(costConBase))
+	b.SetAllocLimit(int64(CostConBase))
 	ev := NewEvaluator(b, NewPrimRegistry(), nil, nil, nil)
 	ev.SetGlobals(map[string]Value{})
 	_, err := ev.Eval(nil, EmptyCapEnv(), &ir.Con{Name: "Unit"})
 	if err != nil {
-		t.Fatalf("allocLimit=costConBase: one ConVal should succeed, got %v", err)
+		t.Fatalf("allocLimit=CostConBase: one ConVal should succeed, got %v", err)
 	}
 }
 

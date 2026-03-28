@@ -12,7 +12,7 @@ import (
 //   - Lam body: creates a self-referential closure (value-level fixpoint for fix).
 //   - Thunk body: creates a self-referential ThunkVal (computation-level fixpoint for rec).
 func (ev *Evaluator) evalFix(locals []Value, capEnv CapEnv, e *ir.Fix) (EvalResult, error) {
-	if err := ev.budget.Alloc(costFix); err != nil {
+	if err := ev.budget.Alloc(CostFix); err != nil {
 		return EvalResult{}, err
 	}
 	body := ir.PeelTyLam(e.Body)
