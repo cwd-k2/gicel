@@ -321,8 +321,10 @@ func (r *Runtime) executeVM(ctx context.Context, b *budget.Budget, globalArray [
 	}
 
 	// Handle non-default entry point.
-	entryProto := r.vmEntryProto
-	if req.entry != r.entryName {
+	var entryProto *vm.Proto
+	if req.entry == r.entryName {
+		entryProto = r.vmEntryProto
+	} else {
 		compiler := vm.NewCompiler(r.globalSlots, r.source)
 		for _, bb := range r.sortedMainBindings {
 			if bb.Name == req.entry {
