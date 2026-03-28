@@ -21,6 +21,7 @@ type Budget struct {
 	steps      int
 	max        int
 	depth      int
+	peakDepth  int
 	maxDepth   int
 	nesting    int
 	maxNesting int
@@ -87,10 +88,13 @@ func (b *Budget) Step() error {
 	return nil
 }
 
-// Enter increments nesting depth. Returns an error if the depth limit
-// is exceeded.
+// Enter increments call depth and updates peak depth tracking.
+// Returns an error if the depth limit is exceeded.
 func (b *Budget) Enter() error {
 	b.depth++
+	if b.depth > b.peakDepth {
+		b.peakDepth = b.depth
+	}
 	if b.maxDepth > 0 && b.depth > b.maxDepth {
 		return &DepthLimitError{}
 	}
@@ -160,6 +164,9 @@ func (b *Budget) Remaining() int {
 
 // Max returns the configured step limit.
 func (b *Budget) Max() int { return b.max }
+
+// PeakDepth returns the maximum call depth reached during evaluation.
+func (b *Budget) PeakDepth() int { return b.peakDepth }
 
 // MaxDepth returns the configured depth limit.
 func (b *Budget) MaxDepth() int { return b.maxDepth }

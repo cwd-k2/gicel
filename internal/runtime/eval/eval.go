@@ -100,6 +100,9 @@ func (ev *Evaluator) SetGlobalSlot(slot int, v Value) {
 // Stats returns the accumulated statistics.
 func (ev *Evaluator) Stats() EvalStats {
 	ev.stats.Allocated = ev.budget.Allocated()
+	if pd := ev.budget.PeakDepth(); pd > ev.stats.MaxDepth {
+		ev.stats.MaxDepth = pd
+	}
 	return ev.stats
 }
 
@@ -121,10 +124,14 @@ func (ev *Evaluator) Eval(locals []Value, capEnv CapEnv, expr ir.Core) (EvalResu
 	}()
 
 	var pendingLeaveObs int         // accumulated LeaveInternal calls to fire on resolution
+	var pendingLeaveDepth int       // accumulated depth Leave calls deferred to final result
 	var pendingForceSpan *span.Span // deferred ForceEffectful from Bind bounce
 	for {
 		r, err := ev.evalStep(locals, capEnv, expr)
 		if err != nil {
+			for range pendingLeaveDepth {
+				ev.budget.Leave()
+			}
 			for range pendingLeaveObs {
 				ev.obs.LeaveInternal()
 			}
@@ -132,7 +139,10 @@ func (ev *Evaluator) Eval(locals []Value, capEnv CapEnv, expr ir.Core) (EvalResu
 		}
 		b, ok := r.Value.(*bounceVal)
 		if !ok {
-			// Final result: unwind all pending observer leaves.
+			// Final result: unwind all pending depth and observer leaves.
+			for range pendingLeaveDepth {
+				ev.budget.Leave()
+			}
 			for range pendingLeaveObs {
 				ev.obs.LeaveInternal()
 			}
@@ -145,10 +155,10 @@ func (ev *Evaluator) Eval(locals []Value, capEnv CapEnv, expr ir.Core) (EvalResu
 			}
 			return r, nil
 		}
-		// Unwind depth from the frame that bounced (Enter was already called).
-		for range b.leaveDepth {
-			ev.budget.Leave()
-		}
+		// Defer depth unwinding until the continuation fully resolves,
+		// so that the depth accumulates through the call chain and
+		// --max-depth correctly limits logical recursion depth.
+		pendingLeaveDepth += b.leaveDepth
 		// Observer LeaveInternal is deferred until the continuation fully
 		// resolves, keeping suppression active during body evaluation.
 		if b.leaveObs {

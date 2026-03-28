@@ -257,11 +257,12 @@ main := loop 0
 	}
 	_, err = rt.RunWith(context.Background(), nil)
 	if err == nil {
-		t.Fatal("expected step limit error from infinite loop")
+		t.Fatal("expected resource limit error from infinite loop")
 	}
 	var sle *gicel.StepLimitError
-	if !errors.As(err, &sle) {
-		t.Fatalf("expected StepLimitError, got: %v", err)
+	var dle *gicel.DepthLimitError
+	if !errors.As(err, &sle) && !errors.As(err, &dle) {
+		t.Fatalf("expected StepLimitError or DepthLimitError, got: %v", err)
 	}
 }
 
