@@ -1,7 +1,6 @@
 package types
 
 import (
-	"fmt"
 	"strings"
 )
 
@@ -17,23 +16,22 @@ func Pretty(t Type) string {
 		}
 		return ty.Name
 	case *TyApp:
-		return fmt.Sprintf("%s %s", Pretty(ty.Fun), prettyAtom(ty.Arg))
+		return Pretty(ty.Fun) + " " + prettyAtom(ty.Arg)
 	case *TyArrow:
 		from := Pretty(ty.From)
 		if _, ok := ty.From.(*TyArrow); ok {
 			from = "(" + from + ")"
 		}
-		return fmt.Sprintf("%s -> %s", from, Pretty(ty.To))
+		return from + " -> " + Pretty(ty.To)
 	case *TyForall:
 		vars, body := collectForalls(ty)
-		return fmt.Sprintf(`\%s. %s`, strings.Join(vars, " "), Pretty(body))
+		return `\` + strings.Join(vars, " ") + ". " + Pretty(body)
 	case *TyCBPV:
 		name := TyConComputation
 		if ty.Tag == TagThunk {
 			name = TyConThunk
 		}
-		return fmt.Sprintf("%s %s %s %s",
-			name, prettyAtom(ty.Pre), prettyAtom(ty.Post), prettyAtom(ty.Result))
+		return name + " " + prettyAtom(ty.Pre) + " " + prettyAtom(ty.Post) + " " + prettyAtom(ty.Result)
 	case *TyEvidenceRow:
 		return prettyEvidenceRow(ty)
 	case *TyEvidence:
@@ -45,7 +43,7 @@ func Pretty(t Type) string {
 		}
 		return strings.Join(parts, " ")
 	case *TySkolem:
-		return fmt.Sprintf("#%s", ty.Name)
+		return "#" + ty.Name
 	case *TyMeta:
 		return "_"
 	case *TyError:
@@ -95,9 +93,9 @@ func prettyCapFields(fields []RowField, tail Type) string {
 			for j, g := range f.Grades {
 				gs[j] = Pretty(g)
 			}
-			parts[i] = fmt.Sprintf("%s: %s @ %s", f.Label, Pretty(f.Type), strings.Join(gs, " @ "))
+			parts[i] = f.Label + ": " + Pretty(f.Type) + " @ " + strings.Join(gs, " @ ")
 		} else {
-			parts[i] = fmt.Sprintf("%s: %s", f.Label, Pretty(f.Type))
+			parts[i] = f.Label + ": " + Pretty(f.Type)
 		}
 	}
 	inner := strings.Join(parts, ", ")
@@ -171,7 +169,7 @@ func prettyQuantifiedConstraint(qc *QuantifiedConstraint) string {
 		if Equal(v.Kind, TypeOfTypes) {
 			vars = append(vars, v.Name)
 		} else {
-			vars = append(vars, fmt.Sprintf("(%s: %s)", v.Name, PrettyTypeAsKind(v.Kind)))
+			vars = append(vars, "("+v.Name+": "+PrettyTypeAsKind(v.Kind)+")")
 		}
 	}
 	result := `\` + strings.Join(vars, " ") + ". "

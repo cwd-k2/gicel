@@ -21,13 +21,13 @@ func prettyCore(c Core, indent int) string {
 		}
 		return n.Name
 	case *Lam:
-		return fmt.Sprintf("\\%s -> %s", n.Param, prettyCore(n.Body, indent))
+		return "\\" + n.Param + " -> " + prettyCore(n.Body, indent)
 	case *App:
-		return fmt.Sprintf("(%s %s)", prettyCore(n.Fun, indent), prettyCore(n.Arg, indent))
+		return "(" + prettyCore(n.Fun, indent) + " " + prettyCore(n.Arg, indent) + ")"
 	case *TyApp:
-		return fmt.Sprintf("(%s @%s)", prettyCore(n.Expr, indent), types.Pretty(n.TyArg))
+		return "(" + prettyCore(n.Expr, indent) + " @" + types.Pretty(n.TyArg) + ")"
 	case *TyLam:
-		return fmt.Sprintf("/\\%s -> %s", n.TyParam, prettyCore(n.Body, indent))
+		return "/\\" + n.TyParam + " -> " + prettyCore(n.Body, indent)
 	case *Con:
 		conName := n.Name
 		if n.Module != "" {
@@ -40,7 +40,7 @@ func prettyCore(c Core, indent int) string {
 		for i, a := range n.Args {
 			args[i] = prettyCore(a, indent)
 		}
-		return fmt.Sprintf("(%s %s)", conName, strings.Join(args, " "))
+		return "(" + conName + " " + strings.Join(args, " ") + ")"
 	case *Case:
 		var b strings.Builder
 		fmt.Fprintf(&b, "case %s of", prettyCore(n.Scrutinee, indent))
@@ -49,24 +49,24 @@ func prettyCore(c Core, indent int) string {
 		}
 		return b.String()
 	case *Fix:
-		return fmt.Sprintf("fix %s in %s", n.Name, prettyCore(n.Body, indent+1))
+		return "fix " + n.Name + " in " + prettyCore(n.Body, indent+1)
 	case *Pure:
-		return fmt.Sprintf("(pure %s)", prettyCore(n.Expr, indent))
+		return "(pure " + prettyCore(n.Expr, indent) + ")"
 	case *Bind:
-		return fmt.Sprintf("(bind %s %s %s)", prettyCore(n.Comp, indent), n.Var, prettyCore(n.Body, indent))
+		return "(bind " + prettyCore(n.Comp, indent) + " " + n.Var + " " + prettyCore(n.Body, indent) + ")"
 	case *Thunk:
-		return fmt.Sprintf("(thunk %s)", prettyCore(n.Comp, indent))
+		return "(thunk " + prettyCore(n.Comp, indent) + ")"
 	case *Force:
-		return fmt.Sprintf("(force %s)", prettyCore(n.Expr, indent))
+		return "(force " + prettyCore(n.Expr, indent) + ")"
 	case *PrimOp:
 		if len(n.Args) == 0 {
-			return fmt.Sprintf("(prim %s)", n.Name)
+			return "(prim " + n.Name + ")"
 		}
 		args := make([]string, len(n.Args))
 		for i, a := range n.Args {
 			args[i] = prettyCore(a, indent)
 		}
-		return fmt.Sprintf("(prim %s %s)", n.Name, strings.Join(args, " "))
+		return "(prim " + n.Name + " " + strings.Join(args, " ") + ")"
 	case *Lit:
 		return fmt.Sprintf("(lit %v)", n.Value)
 	case *RecordLit:
@@ -75,17 +75,17 @@ func prettyCore(c Core, indent int) string {
 		}
 		fields := make([]string, len(n.Fields))
 		for i, f := range n.Fields {
-			fields[i] = fmt.Sprintf("%s: %s", f.Label, prettyCore(f.Value, indent))
+			fields[i] = f.Label + ": " + prettyCore(f.Value, indent)
 		}
-		return fmt.Sprintf("{ %s }", strings.Join(fields, ", "))
+		return "{ " + strings.Join(fields, ", ") + " }"
 	case *RecordProj:
-		return fmt.Sprintf("(%s.#%s)", prettyCore(n.Record, indent), n.Label)
+		return "(" + prettyCore(n.Record, indent) + ".#" + n.Label + ")"
 	case *RecordUpdate:
 		updates := make([]string, len(n.Updates))
 		for i, f := range n.Updates {
-			updates[i] = fmt.Sprintf("%s: %s", f.Label, prettyCore(f.Value, indent))
+			updates[i] = f.Label + ": " + prettyCore(f.Value, indent)
 		}
-		return fmt.Sprintf("{ %s | %s }", prettyCore(n.Record, indent), strings.Join(updates, ", "))
+		return "{ " + prettyCore(n.Record, indent) + " | " + strings.Join(updates, ", ") + " }"
 	default:
 		return "<?>"
 	}
@@ -105,16 +105,16 @@ func prettyPattern(p Pattern) string {
 		for i, a := range pat.Args {
 			args[i] = prettyPattern(a)
 		}
-		return fmt.Sprintf("(%s %s)", pat.Con, strings.Join(args, " "))
+		return "(" + pat.Con + " " + strings.Join(args, " ") + ")"
 	case *PRecord:
 		if len(pat.Fields) == 0 {
 			return "{}"
 		}
 		fields := make([]string, len(pat.Fields))
 		for i, f := range pat.Fields {
-			fields[i] = fmt.Sprintf("%s: %s", f.Label, prettyPattern(f.Pattern))
+			fields[i] = f.Label + ": " + prettyPattern(f.Pattern)
 		}
-		return fmt.Sprintf("{ %s }", strings.Join(fields, ", "))
+		return "{ " + strings.Join(fields, ", ") + " }"
 	case *PLit:
 		return fmt.Sprintf("%v", pat.Value)
 	default:
