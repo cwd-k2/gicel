@@ -48,7 +48,7 @@ fromRunes :: List Rune -> String
 charAt   :: Int -> String -> Maybe Rune
 ```
 
-Classification functions: `isAlpha`, `isDigit`, `isAlphaNum`, `isSpace`, `isUpper`, `isLower`. Conversions: `runeToInt`, `intToRune`, `digitToInt`. Instances: `Eq`, `Ord`, `Show`. String can be packed/unpacked as `List Rune` or `List Byte` via the `Packed` class.
+Classification functions: `isAlpha`, `isDigit`, `isAlphaNum`, `isSpace`, `isUpper`, `isLower`. Conversions: `runeToInt`, `intToRune`, `digitToInt`. Instances: `Eq`, `Ord`, `Show`. String can be packed/unpacked as `Slice Rune` or `Slice Byte` via the `Packed` class.
 
 ### Type Aliases
 

@@ -947,7 +947,7 @@ FromList ──→ ToList
 | `Alternative` | `none: f a`, `alt: f a -> f a -> f a`                     |
 | `Monad`       | `mpure: a -> m a`, `mbind: m a -> (a -> m b) -> m b`      |
 | `Traversable` | `traverse: Applicative f => (a -> f b) -> t a -> f (t b)` |
-| `Packed`      | `pack: List e -> c`, `unpack: c -> List e`                |
+| `Packed`      | `pack: Slice e -> c`, `unpack: c -> Slice e`              |
 | `FromList`    | `fromList: List (Elem l) -> l` (assoc type: `Elem`)       |
 | `ToList`      | `toList: l -> List (Elem l)`                              |
 

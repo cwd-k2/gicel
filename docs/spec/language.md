@@ -375,7 +375,7 @@ TypeApp   ::= TypeApp TypeAtom
 TypeAtom  ::= TyVar | TyCon
             | '(' Type ')'
             | RowExpr
-            | '`' Label                                    -- label literal
+            | '#' Label                                    -- label literal
             | 'case' TypeAtom '{' TyAlt (';' TyAlt)* '}'  -- type-level case
 
 TyAlt     ::= TypeApp '=>' TypeCaseBody
@@ -1034,7 +1034,7 @@ Type classes (Core + Prelude):
 | `Alternative` | `f` (requires Applicative)       | `none: \a. f a`, `alt: \a. f a -> f a -> f a`                     |
 | `Monad`       | `m: Type -> Type`                | `mpure: \a. a -> m a`, `mbind: \a b. m a -> (a -> m b) -> m b`    |
 | `Traversable` | `t` (requires Functor, Foldable) | `traverse: \f a b. Applicative f => (a -> f b) -> t a -> f (t b)` |
-| `Packed`      | `c`, `e`                         | `pack: List e -> c`, `unpack: c -> List e`                        |
+| `Packed`      | `c`, `e`                         | `pack: Slice e -> c`, `unpack: c -> Slice e`                      |
 | `FromList`    | `l` (assoc type: `Elem l`)       | `fromList: List (Elem l) -> l`                                    |
 | `ToList`      | `l` (requires FromList)          | `toList: l -> List (Elem l)`                                      |
 
