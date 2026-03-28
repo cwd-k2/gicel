@@ -11,7 +11,7 @@ import Effect.State
 import Console
 
 -- Helper with type annotation: concrete label in the row.
-inc :: \(r: Row). () -> Computation { counter: Int | r } { counter: Int | r } ()
+inc :: \(r: Row). () -> Effect { counter: Int | r } ()
 inc := \(). do {
   n <- getAt @#counter;
   putAt @#counter (n + 1)

@@ -74,7 +74,7 @@ import Prelude
 import Effect.State
 
 -- Top-level computations must be suspended with thunk
-counter :: Thunk { state: Int } { state: Int } Int
+counter :: Suspended { state: Int } Int
 counter := thunk do { put 0; modify (+ 1); modify (+ 1); modify (+ 1); get }
 
 -- Force a thunk inside do to execute it
@@ -87,10 +87,10 @@ main := do { r <- force counter; pure r }
 import Prelude
 import Effect.Fail
 
-parseOrFail :: String -> Computation { fail: () | r } { fail: () | r } Int
+parseOrFail :: String -> Effect { fail: () | r } Int
 parseOrFail := \s. fromMaybe (readInt s)
 
-safeDivide :: Int -> Int -> Computation { fail: String | r } { fail: String | r } Int
+safeDivide :: Int -> Int -> Effect { fail: String | r } Int
 safeDivide := \x y. if y == 0 then failWith "division by zero" else pure (div x y)
 ```
 
@@ -114,7 +114,7 @@ import Effect.State
 import Effect.Fail
 
 -- Guard with fail (pure-only), then perform stateful operations
-process :: Thunk { state: Int, fail: () } { state: Int, fail: () } Int
+process :: Suspended { state: Int, fail: () } Int
 process := thunk do {
   put 5;
   n <- get;
@@ -131,7 +131,7 @@ main := do { r <- force process; pure r }
 ```
 import Prelude
 
-suspended :: Thunk {} {} Bool
+suspended :: Suspended {} Bool
 suspended := thunk (pure True)
 
 -- force returns a Computation — use inside do or as entry point
@@ -203,6 +203,6 @@ For simple iteration, Prelude's `foldr`/`foldl` avoid recursion entirely.
 
 Programs using `get`/`put`, `print`, etc. require the host to supply the corresponding capability (`"state"`, `"io"`). Missing capabilities cause runtime errors, not compile errors.
 
-### `Computation {} {} a` is pure
+### `Effect {} a` is pure
 
-Empty row indices require no capabilities. Essentially pure, but still in the Computation type.
+Empty row indices require no capabilities. Essentially pure, but still in the Computation type (via `Effect r a := Computation r r a`).

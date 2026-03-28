@@ -168,7 +168,7 @@ Semantics: `thunk` does not evaluate its argument — it captures the computatio
 **When to use `thunk`.** A `Computation` is an action, not a piece of form — it cannot sit at the top level as a bare binding (see §2.1.1). To define a named computation that runs later, suspend it with `thunk` and `force` it at the call site:
 
 ```
-helper :: Thunk { state: Int } { state: Int } Int
+helper :: Suspended { state: Int } Int
 helper := thunk do {
   n <- get;
   put (n + 1);
@@ -1047,9 +1047,9 @@ Type classes (Core + Prelude):
 Constraints are value-level functions (dictionary arguments). They compose freely with `Computation`:
 
 ```
-f :: \a. Eq a => a -> Computation {} {} Bool
+f :: \a. Eq a => a -> Effect {} Bool
 -- elaborates to:
-f :: \a. Eq$Dict a -> a -> Computation {} {} Bool
+f :: \a. Eq$Dict a -> a -> Effect {} Bool
 ```
 
 Constraints do not affect the `pre`/`post` row structure.
@@ -1333,11 +1333,11 @@ type Effect :: Type := \r a. Computation r r a     -- state-preserving computati
 type Suspended :: Type := \r a. Thunk r r a        -- state-preserving suspension
 
 -- Maybe as effect: fromMaybe uses the fail capability
-fromMaybe :: \a r. Maybe a -> Computation { fail: () | r } { fail: () | r } a
+fromMaybe :: \a r. Maybe a -> Effect { fail: () | r } a
 
 -- State as effect: get/put use the state capability
-get :: \s r. Computation { state: s | r } { state: s | r } s
-put :: \s r. s -> Computation { state: s | r } { state: s | r } ()
+get :: \s r. Effect { state: s | r } s
+put :: \s r. s -> Effect { state: s | r } ()
 ```
 
 ---

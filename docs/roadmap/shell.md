@@ -99,8 +99,8 @@ fd @log 3    -- l := log (Label kind)
 Shell Pack の実装に先立ち、Effect.Fail に `try` primitive を追加する。
 
 ```gicel
-try :: \e a r. Computation { fail: e | r } { fail: e | r } a
-   -> Computation { fail: e | r } { fail: e | r } (Result e a)
+try :: \e a r. Effect { fail: e | r } a
+   -> Effect { fail: e | r } (Result e a)
 try := assumption
 ```
 
@@ -214,15 +214,15 @@ _timeout :: \(r: Row). Int -> Cmd r -> Cmd r       -- 秒数。超過時 exit co
 
 -- 実行
 _run     :: \(r: Row). Cmd r
-         -> Computation { shell: () | e } { shell: () | e } ExitCode
+         -> Effect { shell: () | e } ExitCode
 _capture :: \(r: Row). Cmd { out: String, err: String | r }
-         -> Computation { shell: () | e } { shell: () | e }
+         -> Effect { shell: () | e }
             { exit: ExitCode, out: String, err: String | r }
 
 -- ストリーミング（段階的 materialization。session typed via pre/post rows）
 _stream  :: \(r: Row). Cmd { out: String, err: String | r }
          -> Computation { shell: () | e } { shell: (), process: () | e } ()
-_recv    :: Computation { shell: (), process: () | e } { shell: (), process: () | e }
+_recv    :: Effect { shell: (), process: () | e }
             (Maybe String)
 _finish  :: Computation { shell: (), process: () | e } { shell: () | e }
             { exit: ExitCode, err: String }
@@ -234,15 +234,15 @@ _wait  :: \(n: Label).
           Computation { shell: (), n: () | e } { shell: () | e } ExitCode
 
 -- セッション設定 (shell state 変更)
-_set      :: ShellOpt -> Computation { shell: () | r } { shell: () | r } ()
-_unset    :: ShellOpt -> Computation { shell: () | r } { shell: () | r } ()
-_setEnv   :: String -> String -> Computation { shell: () | r } { shell: () | r } ()
-_unsetEnv :: String -> Computation { shell: () | r } { shell: () | r } ()
-_setDir   :: String -> Computation { shell: () | r } { shell: () | r } ()
+_set      :: ShellOpt -> Effect { shell: () | r } ()
+_unset    :: ShellOpt -> Effect { shell: () | r } ()
+_setEnv   :: String -> String -> Effect { shell: () | r } ()
+_unsetEnv :: String -> Effect { shell: () | r } ()
+_setDir   :: String -> Effect { shell: () | r } ()
 
 -- セッション参照 (shell state 読み取り)
-_getEnv   :: String -> Computation { shell: () | r } { shell: () | r } (Maybe String)
-_getDir   :: Computation { shell: () | r } { shell: () | r } String
+_getEnv   :: String -> Effect { shell: () | r } (Maybe String)
+_getDir   :: Effect { shell: () | r } String
 
 -- ExitCode 検査
 _ok   :: ExitCode -> Bool
@@ -315,8 +315,8 @@ redir := \path mode cmd. close @l $ tap @l path mode cmd
 -- ストリーミング fold（--recursion 必須）
 foldLines :: \(r: Row) a. Cmd { out: String, err: String | r }
          -> a
-         -> (a -> String -> Computation { shell: () | e } { shell: () | e } a)
-         -> Computation { shell: () | e } { shell: () | e }
+         -> (a -> String -> Effect { shell: () | e } a)
+         -> Effect { shell: () | e }
             { exit: ExitCode, err: String, acc: a }
 foldLines := \cmd init step. do {
   stream cmd;
@@ -340,8 +340,8 @@ dropErr  := close @err
 -- action が fail しても cleanup が走り、その後 fromResult が再 throw する。）
 
 withOpt :: \(r: Row) e. ShellOpt
-       -> Computation { shell: (), fail: e | r } { shell: (), fail: e | r } a
-       -> Computation { shell: (), fail: e | r } { shell: (), fail: e | r } a
+       -> Effect { shell: (), fail: e | r } a
+       -> Effect { shell: (), fail: e | r } a
 withOpt := \opt action. do {
   set opt;
   result <- try action;
@@ -350,8 +350,8 @@ withOpt := \opt action. do {
 }
 
 withEnv :: \(r: Row) e. String -> String
-        -> Computation { shell: (), fail: e | r } { shell: (), fail: e | r } a
-        -> Computation { shell: (), fail: e | r } { shell: (), fail: e | r } a
+        -> Effect { shell: (), fail: e | r } a
+        -> Effect { shell: (), fail: e | r } a
 withEnv := \k v action. do {
   prev <- getEnv k;
   setEnv k v;
@@ -364,8 +364,8 @@ withEnv := \k v action. do {
 }
 
 withDir :: \(r: Row) e. String
-        -> Computation { shell: (), fail: e | r } { shell: (), fail: e | r } a
-        -> Computation { shell: (), fail: e | r } { shell: (), fail: e | r } a
+        -> Effect { shell: (), fail: e | r } a
+        -> Effect { shell: (), fail: e | r } a
 withDir := \p action. do {
   prev <- getDir;
   setDir p;

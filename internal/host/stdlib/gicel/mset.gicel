@@ -1,67 +1,67 @@
 import Prelude
 
-_msetNew :: \k r. (k -> k -> Ordering) -> Computation { mset: () | r } { mset: () | r } (MSet k)
+_msetNew :: \k r. (k -> k -> Ordering) -> Effect { mset: () | r } (MSet k)
 _msetNew := assumption
 
-_msetInsert :: \k r. (k -> k -> Ordering) -> k -> MSet k -> Computation { mset: () | r } { mset: () | r } ()
+_msetInsert :: \k r. (k -> k -> Ordering) -> k -> MSet k -> Effect { mset: () | r } ()
 _msetInsert := assumption
 
-_msetMember :: \k r. (k -> k -> Ordering) -> k -> MSet k -> Computation { mset: () | r } { mset: () | r } Bool
+_msetMember :: \k r. (k -> k -> Ordering) -> k -> MSet k -> Effect { mset: () | r } Bool
 _msetMember := assumption
 
-_msetDelete :: \k r. (k -> k -> Ordering) -> k -> MSet k -> Computation { mset: () | r } { mset: () | r } ()
+_msetDelete :: \k r. (k -> k -> Ordering) -> k -> MSet k -> Effect { mset: () | r } ()
 _msetDelete := assumption
 
-_msetSize :: \k r. MSet k -> Computation { mset: () | r } { mset: () | r } Int
+_msetSize :: \k r. MSet k -> Effect { mset: () | r } Int
 _msetSize := assumption
 
-_msetToList :: \k r. MSet k -> Computation { mset: () | r } { mset: () | r } (List k)
+_msetToList :: \k r. MSet k -> Effect { mset: () | r } (List k)
 _msetToList := assumption
 
-_msetFromList :: \k r. (k -> k -> Ordering) -> List k -> Computation { mset: () | r } { mset: () | r } (MSet k)
+_msetFromList :: \k r. (k -> k -> Ordering) -> List k -> Effect { mset: () | r } (MSet k)
 _msetFromList := assumption
 
-_msetFold :: \k b r. (b -> k -> b) -> b -> MSet k -> Computation { mset: () | r } { mset: () | r } b
+_msetFold :: \k b r. (b -> k -> b) -> b -> MSet k -> Effect { mset: () | r } b
 _msetFold := assumption
 
-new :: \k r. Ord k => Computation { mset: () | r } { mset: () | r } (MSet k)
+new :: \k r. Ord k => Effect { mset: () | r } (MSet k)
 new := _msetNew compare
 
-insert :: \k r. Ord k => k -> MSet k -> Computation { mset: () | r } { mset: () | r } ()
+insert :: \k r. Ord k => k -> MSet k -> Effect { mset: () | r } ()
 insert := _msetInsert compare
 
-member :: \k r. Ord k => k -> MSet k -> Computation { mset: () | r } { mset: () | r } Bool
+member :: \k r. Ord k => k -> MSet k -> Effect { mset: () | r } Bool
 member := _msetMember compare
 
-delete :: \k r. Ord k => k -> MSet k -> Computation { mset: () | r } { mset: () | r } ()
+delete :: \k r. Ord k => k -> MSet k -> Effect { mset: () | r } ()
 delete := _msetDelete compare
 
-size :: \k r. MSet k -> Computation { mset: () | r } { mset: () | r } Int
+size :: \k r. MSet k -> Effect { mset: () | r } Int
 size := _msetSize
 
-toList :: \k r. MSet k -> Computation { mset: () | r } { mset: () | r } (List k)
+toList :: \k r. MSet k -> Effect { mset: () | r } (List k)
 toList := _msetToList
 
-fromList :: \k r. Ord k => List k -> Computation { mset: () | r } { mset: () | r } (MSet k)
+fromList :: \k r. Ord k => List k -> Effect { mset: () | r } (MSet k)
 fromList := _msetFromList compare
 
-fold :: \k b r. (b -> k -> b) -> b -> MSet k -> Computation { mset: () | r } { mset: () | r } b
+fold :: \k b r. (b -> k -> b) -> b -> MSet k -> Effect { mset: () | r } b
 fold := _msetFold
 
-_msetUnion :: \k r. (k -> k -> Ordering) -> MSet k -> MSet k -> Computation { mset: () | r } { mset: () | r } (MSet k)
+_msetUnion :: \k r. (k -> k -> Ordering) -> MSet k -> MSet k -> Effect { mset: () | r } (MSet k)
 _msetUnion := assumption
 
-_msetIntersection :: \k r. (k -> k -> Ordering) -> MSet k -> MSet k -> Computation { mset: () | r } { mset: () | r } (MSet k)
+_msetIntersection :: \k r. (k -> k -> Ordering) -> MSet k -> MSet k -> Effect { mset: () | r } (MSet k)
 _msetIntersection := assumption
 
-_msetDifference :: \k r. (k -> k -> Ordering) -> MSet k -> MSet k -> Computation { mset: () | r } { mset: () | r } (MSet k)
+_msetDifference :: \k r. (k -> k -> Ordering) -> MSet k -> MSet k -> Effect { mset: () | r } (MSet k)
 _msetDifference := assumption
 
-union :: \k r. Ord k => MSet k -> MSet k -> Computation { mset: () | r } { mset: () | r } (MSet k)
+union :: \k r. Ord k => MSet k -> MSet k -> Effect { mset: () | r } (MSet k)
 union := _msetUnion compare
 
-intersection :: \k r. Ord k => MSet k -> MSet k -> Computation { mset: () | r } { mset: () | r } (MSet k)
+intersection :: \k r. Ord k => MSet k -> MSet k -> Effect { mset: () | r } (MSet k)
 intersection := _msetIntersection compare
 
-difference :: \k r. Ord k => MSet k -> MSet k -> Computation { mset: () | r } { mset: () | r } (MSet k)
+difference :: \k r. Ord k => MSet k -> MSet k -> Effect { mset: () | r } (MSet k)
 difference := _msetDifference compare

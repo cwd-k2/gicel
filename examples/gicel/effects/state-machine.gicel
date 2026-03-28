@@ -51,7 +51,7 @@ addShipping := \fee. do {
 
 -- Full pipeline: process an order
 -- Base price: 50, Quantity: 3, Discount: 10%, Tax: 20%, Shipping: 15
-processOrder :: \(r: Row). Thunk { state: Int | r } { state: Int | r } Int
+processOrder :: \(r: Row). Suspended { state: Int | r } Int
 processOrder := thunk do {
   initPrice 50;                 -- state = 50
   applyQuantity 3;              -- state = 150
@@ -63,7 +63,7 @@ processOrder := thunk do {
 
 -- Second order: premium item
 -- Base: 200, Qty: 1, Discount: 25%, Tax: 10%, Shipping: 0
-premiumOrder :: \(r: Row). Thunk { state: Int | r } { state: Int | r } Int
+premiumOrder :: \(r: Row). Suspended { state: Int | r } Int
 premiumOrder := thunk do {
   initPrice 200;                -- state = 200
   applyQuantity 1;              -- state = 200
@@ -75,7 +75,7 @@ premiumOrder := thunk do {
 
 -- Iterative accumulation: apply a series of additions to state
 -- Simulate a running total from deposits
-ledger :: \(r: Row). Thunk { state: Int | r } { state: Int | r } Int
+ledger :: \(r: Row). Suspended { state: Int | r } Int
 ledger := thunk do {
   put 1000;                     -- opening balance
   modify (+ 250);               -- deposit

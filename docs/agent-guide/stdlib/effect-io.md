@@ -4,10 +4,10 @@ Provides print/debug capabilities via the `io` capability. Load with `eng.Use(gi
 
 **Functions:**
 
-| Name    | Type                                                       | Description                              |
-| ------- | ---------------------------------------------------------- | ---------------------------------------- |
-| `print` | `String -> Computation { io: () \| r } { io: () \| r } ()` | Append a string to the IO buffer         |
-| `debug` | `\a. a -> Computation { io: () \| r } { io: () \| r } ()`  | Append debug representation to IO buffer |
+| Name    | Type                                  | Description                              |
+| ------- | ------------------------------------- | ---------------------------------------- |
+| `print` | `String -> Effect { io: () \| r } ()` | Append a string to the IO buffer         |
+| `debug` | `\a. a -> Effect { io: () \| r } ()`  | Append debug representation to IO buffer |
 
 Host provides `"io"` capability. Output accumulates as `[]string` in the final CapEnv.
 

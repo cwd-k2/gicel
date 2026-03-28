@@ -4,15 +4,15 @@ Provides mutable fixed-size arrays with O(1) read/write, gated by the `{ array: 
 
 **Functions:**
 
-| Name        | Type                                                                                       | Description                       |
-| ----------- | ------------------------------------------------------------------------------------------ | --------------------------------- |
-| `new`       | `\a r. Int -> a -> Computation { array: () \| r } { array: () \| r } (Array a)`            | Create array of size n with fill  |
-| `readAt`    | `\a r. Int -> Array a -> Computation { array: () \| r } { array: () \| r } (Maybe a)`      | Read element at index             |
-| `writeAt`   | `\a r. Int -> a -> Array a -> Computation { array: () \| r } { array: () \| r } ()`        | Write element at index (in-place) |
-| `size`      | `\a. Array a -> Int`                                                                       | Array length (pure)               |
-| `resize`    | `\a r. Int -> a -> Array a -> Computation { array: () \| r } { array: () \| r } (Array a)` | Resize with fill value            |
-| `toSlice`   | `\a r. Array a -> Computation { array: () \| r } { array: () \| r } (Slice a)`             | Snapshot as immutable Slice       |
-| `fromSlice` | `\a r. Slice a -> Computation { array: () \| r } { array: () \| r } (Array a)`             | Create from Slice                 |
+| Name        | Type                                                               | Description                       |
+| ----------- | ------------------------------------------------------------------ | --------------------------------- |
+| `new`       | `\a r. Int -> a -> Effect { array: () \| r } (Array a)`            | Create array of size n with fill  |
+| `readAt`    | `\a r. Int -> Array a -> Effect { array: () \| r } (Maybe a)`      | Read element at index             |
+| `writeAt`   | `\a r. Int -> a -> Array a -> Effect { array: () \| r } ()`        | Write element at index (in-place) |
+| `size`      | `\a. Array a -> Int`                                               | Array length (pure)               |
+| `resize`    | `\a r. Int -> a -> Array a -> Effect { array: () \| r } (Array a)` | Resize with fill value            |
+| `toSlice`   | `\a r. Array a -> Effect { array: () \| r } (Slice a)`             | Snapshot as immutable Slice       |
+| `fromSlice` | `\a r. Slice a -> Effect { array: () \| r } (Array a)`             | Create from Slice                 |
 
 **Notes:**
 

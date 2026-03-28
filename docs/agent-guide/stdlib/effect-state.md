@@ -6,10 +6,10 @@ Provides get/put state capabilities via the `state` capability in CapEnv. Load w
 
 | Name     | Type                                                                      | Description               |
 | -------- | ------------------------------------------------------------------------- | ------------------------- |
-| `get`    | `\s r. Computation { state: s \| r } { state: s \| r } s`                 | Read current state        |
-| `put`    | `\s r. s -> Computation { state: s \| r } { state: s \| r } ()`           | Replace current state     |
-| `modify` | `\s r. (s -> s) -> Computation { state: s \| r } { state: s \| r } ()`    | Apply a function to state |
-| `getAt`  | `\(l: Label) s r. Computation { l: s \| r } { l: s \| r } s`              | Read named state          |
+| `get`    | `\s r. Effect { state: s \| r } s`                                        | Read current state        |
+| `put`    | `\s r. s -> Effect { state: s \| r } ()`                                  | Replace current state     |
+| `modify` | `\s r. (s -> s) -> Effect { state: s \| r } ()`                           | Apply a function to state |
+| `getAt`  | `\(l: Label) s r. Effect { l: s \| r } s`                                 | Read named state          |
 | `putAt`  | `\(l: Label) s1 s2 r. s2 -> Computation { l: s1 \| r } { l: s2 \| r } ()` | Replace named state       |
 
 Host provides `"state"` capability (or named label via `getAt`/`putAt`). Final state is in `result.CapEnv`.

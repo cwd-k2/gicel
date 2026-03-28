@@ -38,7 +38,7 @@ import Console
 main := putLine "Hello, world!"
 ```
 
-`main` here is a `Computation { console: () | r } { console: () | r } ()`. The CLI provides the `console` capability and `putLine` writes directly to stdout.
+`main` here is an `Effect { console: () | r } ()`. The CLI provides the `console` capability and `putLine` writes directly to stdout.
 
 > **Note:** `Effect.IO`'s `print` does _not_ write to stdout -- it appends to an internal buffer
 > retrieved from `result.CapEnv` after execution. Use `Console` when you want visible terminal output.

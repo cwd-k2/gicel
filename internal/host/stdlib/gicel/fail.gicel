@@ -1,23 +1,23 @@
 import Prelude
 
-failWith :: \e r a. e -> Computation { fail: e | r } { fail: e | r } a
+failWith :: \e r a. e -> Effect { fail: e | r } a
 failWith := assumption
 
-fail :: \r a. Computation { fail: () | r } { fail: () | r } a
+fail :: \r a. Effect { fail: () | r } a
 fail := failWith ()
 
-fromMaybe :: \a r. Maybe a -> Computation { fail: () | r } { fail: () | r } a
+fromMaybe :: \a r. Maybe a -> Effect { fail: () | r } a
 fromMaybe := \m. case m {
   Nothing => fail;
   Just x  => pure x
 }
 
-fromResult :: \e a r. Result e a -> Computation { fail: e | r } { fail: e | r } a
+fromResult :: \e a r. Result e a -> Effect { fail: e | r } a
 fromResult := \r. case r {
   Err e => failWith e;
   Ok x  => pure x
 }
 
 -- Named capability variant.
-failWithAt :: \(l: Label) e r a. e -> Computation { l: e | r } { l: e | r } a
+failWithAt :: \(l: Label) e r a. e -> Effect { l: e | r } a
 failWithAt := assumption

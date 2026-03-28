@@ -4,20 +4,20 @@ Provides mutable ordered maps backed by AVL trees, gated by the `{ mmap: () }` e
 
 **Functions:**
 
-| Name           | Type                                                                                                 | Description                    |
-| -------------- | ---------------------------------------------------------------------------------------------------- | ------------------------------ |
-| `new`          | `\k v r. Ord k => Computation { mmap: () \| r } { mmap: () \| r } (MMap k v)`                        | Create empty mutable map       |
-| `insert`       | `\k v r. Ord k => k -> v -> MMap k v -> Computation { mmap: () \| r } { mmap: () \| r } ()`          | Insert or overwrite (in-place) |
-| `lookup`       | `\k v r. Ord k => k -> MMap k v -> Computation { mmap: () \| r } { mmap: () \| r } (Maybe v)`        | Lookup by key                  |
-| `delete`       | `\k v r. Ord k => k -> MMap k v -> Computation { mmap: () \| r } { mmap: () \| r } ()`               | Remove a key (in-place)        |
-| `size`         | `\k v r. MMap k v -> Computation { mmap: () \| r } { mmap: () \| r } Int`                            | Number of entries              |
-| `member`       | `\k v r. Ord k => k -> MMap k v -> Computation { mmap: () \| r } { mmap: () \| r } Bool`             | Key membership test            |
-| `toList`       | `\k v r. MMap k v -> Computation { mmap: () \| r } { mmap: () \| r } (List (k, v))`                  | In-order key-value pairs       |
-| `fromList`     | `\k v r. Ord k => List (k, v) -> Computation { mmap: () \| r } { mmap: () \| r } (MMap k v)`         | Build from pairs               |
-| `foldlWithKey` | `\k v b r. (b -> k -> v -> b) -> b -> MMap k v -> Computation { mmap: () \| r } { mmap: () \| r } b` | Left fold with key and value   |
-| `keys`         | `\k v r. MMap k v -> Computation { mmap: () \| r } { mmap: () \| r } (List k)`                       | All keys in sorted order       |
-| `values`       | `\k v r. MMap k v -> Computation { mmap: () \| r } { mmap: () \| r } (List v)`                       | All values in key order        |
-| `adjust`       | `\k v r. Ord k => k -> (v -> v) -> MMap k v -> Computation { mmap: () \| r } { mmap: () \| r } ()`   | Apply function to value at key |
+| Name           | Type                                                                          | Description                    |
+| -------------- | ----------------------------------------------------------------------------- | ------------------------------ |
+| `new`          | `\k v r. Ord k => Effect { mmap: () \| r } (MMap k v)`                        | Create empty mutable map       |
+| `insert`       | `\k v r. Ord k => k -> v -> MMap k v -> Effect { mmap: () \| r } ()`          | Insert or overwrite (in-place) |
+| `lookup`       | `\k v r. Ord k => k -> MMap k v -> Effect { mmap: () \| r } (Maybe v)`        | Lookup by key                  |
+| `delete`       | `\k v r. Ord k => k -> MMap k v -> Effect { mmap: () \| r } ()`               | Remove a key (in-place)        |
+| `size`         | `\k v r. MMap k v -> Effect { mmap: () \| r } Int`                            | Number of entries              |
+| `member`       | `\k v r. Ord k => k -> MMap k v -> Effect { mmap: () \| r } Bool`             | Key membership test            |
+| `toList`       | `\k v r. MMap k v -> Effect { mmap: () \| r } (List (k, v))`                  | In-order key-value pairs       |
+| `fromList`     | `\k v r. Ord k => List (k, v) -> Effect { mmap: () \| r } (MMap k v)`         | Build from pairs               |
+| `foldlWithKey` | `\k v b r. (b -> k -> v -> b) -> b -> MMap k v -> Effect { mmap: () \| r } b` | Left fold with key and value   |
+| `keys`         | `\k v r. MMap k v -> Effect { mmap: () \| r } (List k)`                       | All keys in sorted order       |
+| `values`       | `\k v r. MMap k v -> Effect { mmap: () \| r } (List v)`                       | All values in key order        |
+| `adjust`       | `\k v r. Ord k => k -> (v -> v) -> MMap k v -> Effect { mmap: () \| r } ()`   | Apply function to value at key |
 
 **Notes:**
 

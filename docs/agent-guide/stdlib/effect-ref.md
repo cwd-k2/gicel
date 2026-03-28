@@ -4,12 +4,12 @@ Provides mutable reference cells gated by the `{ ref: () }` effect. Load with `e
 
 **Functions:**
 
-| Name     | Type                                                                                 | Description                   |
-| -------- | ------------------------------------------------------------------------------------ | ----------------------------- |
-| `new`    | `\a (r: Row). a -> Computation { ref: () \| r } { ref: () \| r } (Ref a)`            | Create a new reference cell   |
-| `read`   | `\a (r: Row). Ref a -> Computation { ref: () \| r } { ref: () \| r } a`              | Read the current value        |
-| `write`  | `\a (r: Row). a -> Ref a -> Computation { ref: () \| r } { ref: () \| r } ()`        | Replace the value             |
-| `modify` | `\a (r: Row). (a -> a) -> Ref a -> Computation { ref: () \| r } { ref: () \| r } ()` | Apply a function to the value |
+| Name     | Type                                                           | Description                   |
+| -------- | -------------------------------------------------------------- | ----------------------------- |
+| `new`    | `\a (r: Row). a -> Effect { ref: () \| r } (Ref a)`            | Create a new reference cell   |
+| `read`   | `\a (r: Row). Ref a -> Effect { ref: () \| r } a`              | Read the current value        |
+| `write`  | `\a (r: Row). a -> Ref a -> Effect { ref: () \| r } ()`        | Replace the value             |
+| `modify` | `\a (r: Row). (a -> a) -> Ref a -> Effect { ref: () \| r } ()` | Apply a function to the value |
 
 **Notes:**
 

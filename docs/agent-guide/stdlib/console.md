@@ -6,10 +6,10 @@ Load with `--packs console` (or the default `all`) and import with `import Conso
 
 **Functions:**
 
-| Name      | Type                                                                 | Description                 |
-| --------- | -------------------------------------------------------------------- | --------------------------- |
-| `putLine` | `String -> Computation { console: () \| r } { console: () \| r } ()` | Write a line to real stdout |
-| `getLine` | `Computation { console: () \| r } { console: () \| r } String`       | Read a line from real stdin |
+| Name      | Type                                       | Description                 |
+| --------- | ------------------------------------------ | --------------------------- |
+| `putLine` | `String -> Effect { console: () \| r } ()` | Write a line to real stdout |
+| `getLine` | `Effect { console: () \| r } String`       | Read a line from real stdin |
 
 **Behavior:**
 
