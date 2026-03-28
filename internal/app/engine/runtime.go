@@ -322,9 +322,9 @@ func (r *Runtime) executeVM(ctx context.Context, b *budget.Budget, ev *eval.Eval
 		Ctx:          ctx,
 		Observer:     req.obs,
 		Source:       r.source,
-		FallbackEval: ev,
+		FallbackEval: nil, // all closures should be VMClosure now
 	})
-	ev.SetVMApplier(machine.ApplyForExternal())
+	// No tree-walker fallback needed: all closures are VMClosure.
 
 	// Evaluate ALL module bindings using the VM.
 	for _, me := range r.moduleEntries {

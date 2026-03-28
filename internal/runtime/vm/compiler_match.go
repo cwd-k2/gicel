@@ -15,14 +15,19 @@ import (
 // The last alternative's failure falls through to MATCH_FAIL.
 func compilePatternMatch(e *emitter, cs *ir.Case, tail bool) {
 	numAlts := len(cs.Alts)
-	// endJumps collects patch positions for "jump to end" after each alt body.
 	var endJumps []int
 
-	// allFailPatches[i] = list of MATCH_* positions for alt i (need fail offset patching).
+	// Save scrutinee in a local slot so sub-patterns can reload it on failure.
+	scrutSlot := e.allocLocal("$scrut")
+	e.emitU16(OpStoreLocal, uint16(scrutSlot))
+
 	allFailPatches := make([][]int, numAlts)
 
 	for i, alt := range cs.Alts {
 		savedLocals := len(e.locals)
+
+		// Load scrutinee onto stack for this alt's pattern.
+		e.emitU16(OpLoadLocal, uint16(scrutSlot))
 
 		var failPatches []int
 		compilePatternCollect(e, alt.Pattern, &failPatches)

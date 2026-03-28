@@ -413,14 +413,12 @@ func (vm *VM) execute() (eval.EvalResult, error) {
 			failOffset := DecodeU16(frame.proto.Code, frame.ip)
 			frame.ip += 2
 			desc := frame.proto.MatchDescs[descIdx]
-			scrut := vm.peek()
+			scrut := vm.pop() // always pop scrutinee
 			cv, ok := scrut.(*eval.ConVal)
 			if !ok || cv.Con != desc.ConName || len(cv.Args) != len(desc.ArgSlots) {
-				// Match failed — jump to fail target.
 				frame.ip = int(failOffset)
 				continue
 			}
-			vm.pop() // consume scrutinee
 			for i, slot := range desc.ArgSlots {
 				vm.setLocal(frame, slot, cv.Args[i])
 			}
@@ -431,12 +429,11 @@ func (vm *VM) execute() (eval.EvalResult, error) {
 			failOffset := DecodeU16(frame.proto.Code, frame.ip)
 			frame.ip += 2
 			expected := frame.proto.Constants[litIdx]
-			scrut := vm.peek()
+			scrut := vm.pop() // always pop
 			if !litEqual(scrut, expected) {
 				frame.ip = int(failOffset)
 				continue
 			}
-			vm.pop()
 
 		case OpMatchRecord:
 			descIdx := DecodeU16(frame.proto.Code, frame.ip)
@@ -444,7 +441,7 @@ func (vm *VM) execute() (eval.EvalResult, error) {
 			failOffset := DecodeU16(frame.proto.Code, frame.ip)
 			frame.ip += 2
 			desc := frame.proto.MatchDescs[descIdx]
-			scrut := vm.peek()
+			scrut := vm.pop() // always pop
 			rv, ok := scrut.(*eval.RecordVal)
 			if !ok {
 				frame.ip = int(failOffset)
@@ -464,7 +461,6 @@ func (vm *VM) execute() (eval.EvalResult, error) {
 				frame.ip = int(failOffset)
 				continue
 			}
-			vm.pop()
 			for i, slot := range desc.FieldSlots {
 				vm.setLocal(frame, slot, vals[i])
 			}
