@@ -14,7 +14,12 @@ import (
 // callSite is the Span of the calling context (e.g. Bind node) for explain events.
 func (ev *Evaluator) ForceEffectful(r EvalResult, callSite span.Span) (EvalResult, error) {
 	// Auto-force rec self-referential ThunkVal in computation position.
+	// Charge a step per auto-force so unconditional self-reference
+	// (rec (\self. self)) hits the step limit instead of leaking <thunk>.
 	if thv, ok := r.Value.(*ThunkVal); ok && thv.AutoForce {
+		if err := ev.budget.Step(); err != nil {
+			return EvalResult{}, err
+		}
 		return ev.Eval(thv.Locals, r.CapEnv, thv.Comp)
 	}
 	pv, ok := r.Value.(*PrimVal)
