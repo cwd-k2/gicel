@@ -1,7 +1,7 @@
 -- GICEL Example: Named Capabilities
 --
 -- Named capabilities allow multiple independent instances of the same
--- effect type. Use label literals (`name) with getAt/putAt to address
+-- effect type. Use label literals (#name) with getAt/putAt to address
 -- specific capability slots by name.
 --
 -- Run: bin/gicel run examples/gicel/effects/named-capabilities.gicel
@@ -11,22 +11,33 @@ import Effect.State
 import Console
 
 -- Two independent named Int states, addressed by label.
--- The CLI provides initial values automatically on first putAt.
+-- Helper as thunk (no annotation needed — type is inferred).
+inc := thunk (do {
+  n <- getAt @#counter;
+  putAt @#counter (n + 1)
+})
+
 main := do {
-  putAt @`x 0;
-  putAt @`y 100;
+  -- Named state: initialize two independent slots
+  putAt @#counter 0;
+  putAt @#total 100;
 
-  -- Modify x independently of y
-  a <- getAt @`x;
-  putAt @`x (a + 1);
-  putAt @`x (a + 2);
-  putAt @`x (a + 3);
+  -- Use helper thunk for repeated operations
+  force inc;
+  force inc;
+  force inc;
 
-  -- Read both
-  finalX <- getAt @`x;
-  finalY <- getAt @`y;
-  putLine ("x = " <> show finalX);
-  putLine ("y = " <> show finalY)
+  -- Named + unnamed state coexist
+  put "hello";
+  s <- get;
+
+  -- Read final values
+  c <- getAt @#counter;
+  t <- getAt @#total;
+  putLine ("counter: " <> show c);
+  putLine ("total: " <> show t);
+  putLine ("unnamed: " <> s)
 }
--- x = 3
--- y = 100
+-- counter: 3
+-- total: 100
+-- unnamed: hello

@@ -23,7 +23,7 @@ func TestGetAtNamedState(t *testing.T) {
 	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 import Effect.State
-main := getAt @`+"`"+`myState
+main := getAt @#myState
 `)
 	if err != nil {
 		t.Fatal("compile error:", err)
@@ -47,7 +47,7 @@ func TestPutAtThenGetAt(t *testing.T) {
 	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 import Effect.State
-main := do { putAt @`+"`"+`myState 42; getAt @`+"`"+`myState }
+main := do { putAt @#myState 42; getAt @#myState }
 `)
 	if err != nil {
 		t.Fatal("compile error:", err)
@@ -71,7 +71,7 @@ func TestFailWithAtProducesError(t *testing.T) {
 	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 import Effect.Fail
-main := failWithAt @`+"`"+`myErr "oops"
+main := failWithAt @#myErr "oops"
 `)
 	if err != nil {
 		t.Fatal("compile error:", err)
@@ -99,10 +99,10 @@ func TestMultipleNamedStates(t *testing.T) {
 import Prelude
 import Effect.State
 main := do {
-  putAt @`+"`"+`x 10;
-  putAt @`+"`"+`y 20;
-  a <- getAt @`+"`"+`x;
-  b <- getAt @`+"`"+`y;
+  putAt @#x 10;
+  putAt @#y 20;
+  a <- getAt @#x;
+  b <- getAt @#y;
   pure (add a b)
 }
 `)
@@ -134,9 +134,9 @@ import Prelude
 import Effect.State
 main := do {
   put 100;
-  putAt @`+"`"+`named 200;
+  putAt @#named 200;
   a <- get;
-  b <- getAt @`+"`"+`named;
+  b <- getAt @#named;
   pure (add a b)
 }
 `)
@@ -166,7 +166,7 @@ func TestGetAtMissingCapability(t *testing.T) {
 	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 import Effect.State
-main := getAt @`+"`"+`missing
+main := getAt @#missing
 `)
 	if err != nil {
 		t.Fatal("compile error:", err)

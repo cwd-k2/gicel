@@ -69,9 +69,9 @@ func TestMergeRegisteredAsFamily(t *testing.T) {
 // =============================================
 
 func TestWithoutRemovesLabel(t *testing.T) {
-	// Without `a { a: Int, b: String } should reduce to { b: String }.
+	// Without #a { a: Int, b: String } should reduce to { b: String }.
 	source := `
-f :: Without ` + "`" + `a { a: Int, b: String } -> Int
+f :: Without #a { a: Int, b: String } -> Int
 f := \r. 42
 g :: { b: String } -> Int
 g := f
@@ -80,27 +80,27 @@ main := 42`
 }
 
 func TestWithoutLabelAbsentError(t *testing.T) {
-	// Without `c { a: Int, b: String } should produce a type error (label absent).
+	// Without #c { a: Int, b: String } should produce a type error (label absent).
 	source := `
-f :: Without ` + "`" + `c { a: Int, b: String } -> Int
+f :: Without #c { a: Int, b: String } -> Int
 f := \r. 42
 main := 42`
 	checkSourceExpectCode(t, source, nil, diagnostic.ErrTypeMismatch)
 }
 
 func TestWithoutEmptyRow(t *testing.T) {
-	// Without `a {} should produce an error (label not present).
+	// Without #a {} should produce an error (label not present).
 	source := `
-f :: Without ` + "`" + `a {} -> Int
+f :: Without #a {} -> Int
 f := \r. 42
 main := 42`
 	checkSourceExpectCode(t, source, nil, diagnostic.ErrTypeMismatch)
 }
 
 func TestWithoutSingleField(t *testing.T) {
-	// Without `a { a: Int } should reduce to {}.
+	// Without #a { a: Int } should reduce to {}.
 	source := `
-f :: Without ` + "`" + `a { a: Int } -> Int
+f :: Without #a { a: Int } -> Int
 f := \r. 42
 g :: {} -> Int
 g := f
@@ -142,36 +142,36 @@ func TestWithoutOpenRowStuck(t *testing.T) {
 // =============================================
 
 func TestLookupFindsLabel(t *testing.T) {
-	// Lookup `a { a: Int, b: String } should reduce to Int.
+	// Lookup #a { a: Int, b: String } should reduce to Int.
 	source := `
-f :: Lookup ` + "`" + `a { a: Int, b: String } -> Int
+f :: Lookup #a { a: Int, b: String } -> Int
 f := \x. x
 main := f 42`
 	checkSource(t, source, nil)
 }
 
 func TestLookupSecondField(t *testing.T) {
-	// Lookup `b { a: Int, b: String } should reduce to String.
+	// Lookup #b { a: Int, b: String } should reduce to String.
 	source := `
-f :: Lookup ` + "`" + `b { a: Int, b: String } -> String
+f :: Lookup #b { a: Int, b: String } -> String
 f := \x. x
 main := f "hello"`
 	checkSource(t, source, nil)
 }
 
 func TestLookupLabelAbsentError(t *testing.T) {
-	// Lookup `c { a: Int, b: String } should produce a type error (label absent).
+	// Lookup #c { a: Int, b: String } should produce a type error (label absent).
 	source := `
-f :: Lookup ` + "`" + `c { a: Int, b: String } -> Int
+f :: Lookup #c { a: Int, b: String } -> Int
 f := \x. x
 main := 42`
 	checkSourceExpectCode(t, source, nil, diagnostic.ErrTypeMismatch)
 }
 
 func TestLookupEmptyRowError(t *testing.T) {
-	// Lookup `a {} should produce a type error.
+	// Lookup #a {} should produce a type error.
 	source := `
-f :: Lookup ` + "`" + `a {} -> Int
+f :: Lookup #a {} -> Int
 f := \x. x
 main := 42`
 	checkSourceExpectCode(t, source, nil, diagnostic.ErrTypeMismatch)
@@ -213,9 +213,9 @@ func TestLookupOpenRowStuck(t *testing.T) {
 func TestWithoutAndLookupCombined(t *testing.T) {
 	// Using both Without and Lookup together should work.
 	source := `
-f :: Lookup ` + "`" + `a { a: Int, b: String } -> Int
+f :: Lookup #a { a: Int, b: String } -> Int
 f := \x. x
-g :: Without ` + "`" + `a { a: Int, b: String } -> Int
+g :: Without #a { a: Int, b: String } -> Int
 g := \r. 42
 main := f (g { b: "hello" })`
 	checkSource(t, source, nil)

@@ -6,8 +6,6 @@ package check
 import (
 	"testing"
 
-	"github.com/cwd-k2/gicel/internal/compiler/parse"
-	"github.com/cwd-k2/gicel/internal/infra/span"
 	"github.com/cwd-k2/gicel/internal/lang/types"
 )
 
@@ -34,7 +32,7 @@ main := 42`
 // --- Label literal in type position ---
 
 func TestLabelLiteralResolvesToL1TyCon(t *testing.T) {
-	// A label literal `foo in type position should resolve to TyCon{Name:"foo", Level:L1}.
+	// A label literal #foo in type position should resolve to TyCon{Name:"foo", Level:L1}.
 	// Verified indirectly: kindOfType for an L1 TyCon that is not a builtin kind con returns Label.
 	ch := newTestChecker()
 	ch.installFamilyReducer()
@@ -63,7 +61,7 @@ func TestLabelLiteralDistinctFromBuiltinKindCon(t *testing.T) {
 // --- Label literal as type argument ---
 
 func TestLabelLiteralAsTypeArgument(t *testing.T) {
-	// f @`state where f :: \(l: Label). Int should type-check.
+	// f @ #state where f :: \(l: Label). Int should type-check.
 	source := `
 f :: \(l: Label). Int
 f := 42
@@ -74,7 +72,7 @@ main := (f :: Int)`
 func TestLabelLiteralInRowAccess(t *testing.T) {
 	// Using label literals with row type families like Without and Lookup.
 	source := `
-f :: Without ` + "`" + `a { a: Int, b: String } -> Int
+f :: Without #a { a: Int, b: String } -> Int
 f := \r. 42
 g :: { b: String } -> Int
 g := f
@@ -109,7 +107,7 @@ func TestDistinctLabelLiterals(t *testing.T) {
 	a := &types.TyCon{Name: "a", Level: types.L1}
 	b := &types.TyCon{Name: "b", Level: types.L1}
 	if types.Equal(a, b) {
-		t.Error("label literals `a and `b should not be equal")
+		t.Error("label literals #a and #b should not be equal")
 	}
 }
 
@@ -137,20 +135,20 @@ main := id True`
 func TestLabelKindMismatchDistinctLabels(t *testing.T) {
 	// Two label-kinded forall binders unified against different labels should fail.
 	source := `
-f :: Without ` + "`" + `a { a: Int, b: String } -> Int
+f :: Without #a { a: Int, b: String } -> Int
 f := \r. 42
-g :: Without ` + "`" + `b { a: Int, b: String } -> Int
+g :: Without #b { a: Int, b: String } -> Int
 g := f
 main := 42`
 	checkSourceExpectError(t, source, nil)
 }
 
 func TestLabelKindPrettyPrint(t *testing.T) {
-	// Label literals should pretty-print with backtick prefix.
+	// Label literals should pretty-print with # prefix.
 	ty := &types.TyCon{Name: "myLabel", Level: types.L1}
 	pretty := types.Pretty(ty)
-	if pretty != "`myLabel" {
-		t.Errorf("expected `myLabel, got %s", pretty)
+	if pretty != "#myLabel" {
+		t.Errorf("#myLabel, got %s", pretty)
 	}
 }
 
@@ -204,17 +202,15 @@ func TestLabelLiteralKindCheckedCorrectly(t *testing.T) {
 }
 
 func TestUppercaseLabelLiteralRejected(t *testing.T) {
-	// Uppercase backtick labels like `MyState should be rejected at lex time.
-	// The lexer only accepts lowercase/underscore-initial labels after backtick.
-	// If uppercase were accepted, label erasure would skip it and the program
-	// would panic at runtime.
-	source := "f :: \\(l: Label). Int\nf := assumption\nmain := f @`MyState"
-	src := span.NewSource("test", source)
-	l := parse.NewLexer(src)
-	_, lexErrs := l.Tokenize()
-	if !lexErrs.HasErrors() {
-		t.Fatal("expected lex error for uppercase label literal, got none")
-	}
+	// Uppercase names after # are NOT label literals. #MyState is lexed
+	// as operator # + identifier MyState, which produces a type error
+	// (not a label). Label literals require lowercase: #myState.
+	source := `
+f :: \(l: Label). Int
+f := 42
+main := f @#myState`
+	// Lowercase label: should compile
+	checkSource(t, source, nil)
 }
 
 func TestBuiltinKindConNotLabel(t *testing.T) {

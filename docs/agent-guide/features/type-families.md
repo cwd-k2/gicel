@@ -73,11 +73,11 @@ Three builtin type families operate on capability rows:
 
 ```
 Merge { a: Int } { b: String }         -- { a: Int, b: String }
-Without `a { a: Int, b: String }       -- { b: String }
-Lookup `a { a: Int, b: String }        -- Int
+Without #a { a: Int, b: String }       -- { b: String }
+Lookup #a { a: Int, b: String }        -- Int
 ```
 
-`Without` and `Lookup` require the `Label` kind for their first argument (use backtick label literals: `` `name ``).
+`Without` and `Lookup` require their first argument to have `Label` kind. In type application context (`@#name`), `#name` is a label literal.
 
 ### Reduction
 

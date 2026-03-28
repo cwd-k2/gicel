@@ -507,14 +507,19 @@ func TestProbeE_LexerPeekAtBoundary(t *testing.T) {
 
 // TestProbeE_DotHashNotAdjacent verifies .# with space doesn't form TokDotHash.
 func TestProbeE_DotHashNotAdjacent(t *testing.T) {
-	// ". #" — two separate tokens.
+	// ". #x" — TokDot + TokLabelLit (label literal).
 	tokens := lex(". #x")
 	if tokens[0].Kind != TokDot {
 		t.Errorf("expected TokDot, got %v", tokens[0].Kind)
 	}
-	// #x is an operator token.
-	if tokens[1].Kind != TokOp {
-		t.Errorf("expected TokOp for '#x', got %v %q", tokens[1].Kind, tokens[1].Text)
+	// #x is a label literal (not an operator).
+	if tokens[1].Kind != TokLabelLit {
+		t.Errorf("expected TokLabelLit for '#x', got %v %q", tokens[1].Kind, tokens[1].Text)
+	}
+	// ". #+" — TokDot + TokOp (# followed by non-lowercase is operator).
+	tokens2 := lex(". #+")
+	if tokens2[1].Kind != TokOp {
+		t.Errorf("expected TokOp for '#+', got %v %q", tokens2[1].Kind, tokens2[1].Text)
 	}
 }
 

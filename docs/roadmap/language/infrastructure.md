@@ -8,7 +8,7 @@ Computation 型自体に grade を付与する。
 
 ```gicel
 -- per-resource grade: { x: T @Linear | r }
--- per-computation grade: Computation pre post @cost a
+-- per-computation grade: Computation pre post @#cost a
 ```
 
 **設計未決**:

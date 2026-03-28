@@ -122,7 +122,7 @@ The type alias `Suspended r a := Thunk r r a` mirrors `Effect` for suspended com
 
 ### Named Capabilities
 
-Named capabilities allow multiple independent instances of the same effect type to coexist. Use label literals (`` `name ``) as type-level parameters:
+Named capabilities allow multiple independent instances of the same effect type to coexist. Use `@#name` in type application position to specify a label:
 
 ```
 import Effect.State
@@ -130,17 +130,17 @@ import Effect.State
 -- Named state capability
 program :: Computation { x: Int | r } { x: Int | r } Int
 program := do {
-  putAt @`x 42;
-  getAt @`x
+  putAt @#x 42;
+  getAt @#x
 }
 
 -- Multiple named capabilities (same type)
 counter :: Computation { a: Int, b: Int | r } { a: Int, b: Int | r } Int
 counter := do {
-  putAt @`a 10;
-  putAt @`b 20;
-  x <- getAt @`a;
-  y <- getAt @`b;
+  putAt @#a 10;
+  putAt @#b 20;
+  x <- getAt @#a;
+  y <- getAt @#b;
   pure (x + y)
 }
 ```
@@ -149,15 +149,15 @@ Available `*At` variants:
 
 | Named variant              | Fixed equivalent | Pack           |
 | -------------------------- | ---------------- | -------------- |
-| `getAt @`label`            | `get`            | `Effect.State` |
-| `putAt @`label value`      | `put value`      | `Effect.State` |
-| `failWithAt @`label error` | `failWith error` | `Effect.Fail`  |
+| `getAt @#label`            | `get`            | `Effect.State` |
+| `putAt @#label value`      | `put value`      | `Effect.State` |
+| `failWithAt @#label error` | `failWith error` | `Effect.Fail`  |
 
 Row type families `Without` and `Lookup` operate on label-parameterized rows:
 
 ```
-Without `a { a: Int, b: String }  -- reduces to { b: String }
-Lookup `a { a: Int, b: String }   -- reduces to Int
+Without #a { a: Int, b: String }  -- reduces to { b: String }
+Lookup #a { a: Int, b: String }   -- reduces to Int
 ```
 
 ### seq

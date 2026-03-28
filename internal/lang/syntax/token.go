@@ -60,7 +60,7 @@ const (
 	TokDoubleLit // 3.14, 1e10, 1.05e+10
 	TokStrLit    // "string"
 	TokRuneLit   // 'c'
-	TokLabelLit  // `label (type-level label literal)
+	TokLabelLit  // #label (type-level label literal)
 )
 
 // Token is a single lexical unit.

@@ -246,48 +246,23 @@ func (l *Lexer) scanToken() syn.Token {
 			return syn.Token{Kind: syn.TokUpper, Text: text, S: span.Span{Start: span.Pos(start), End: span.Pos(l.pos)}}
 		}
 
-		// Label literal: `name (type-level label).
-		// Labels must start with a lowercase letter or underscore, matching
-		// the surface syntax for field labels (spec §2.2.2). Uppercase-initial
-		// backtick expressions are rejected to prevent collision with promoted
-		// data constructors and ensure label erasure correctness.
-		if ch == '`' {
-			l.pos++ // consume backtick
-			labelStart := l.pos
-			// First character must be lowercase or underscore.
-			if l.pos < len(l.source.Text) {
-				r, _ := utf8.DecodeRuneInString(l.source.Text[l.pos:])
-				if !isLowerStart(r) {
-					l.errors.Add(&diagnostic.Error{
-						Code:    diagnostic.ErrUnexpectedChar,
-						Phase:   diagnostic.PhaseLex,
-						Span:    span.Span{Start: span.Pos(start), End: span.Pos(l.pos + utf8.RuneLen(r))},
-						Message: "label literal must start with a lowercase letter or underscore",
-					})
-					l.pos += utf8.RuneLen(r)
-					l.skipWhitespaceAndComments()
-					continue
+		// Label literal: #name (type-level label reference).
+		// Must precede operator scanning since # is an operator character.
+		if ch == '#' {
+			next := l.peekAt(1)
+			if isLowerStart(next) || next == '_' {
+				l.pos++ // consume #
+				labelStart := l.pos
+				for l.pos < len(l.source.Text) {
+					r, size := utf8.DecodeRuneInString(l.source.Text[l.pos:])
+					if !isIdentCont(r) {
+						break
+					}
+					l.pos += size
 				}
+				text := l.source.Text[labelStart:l.pos]
+				return syn.Token{Kind: syn.TokLabelLit, Text: text, S: span.Span{Start: span.Pos(start), End: span.Pos(l.pos)}}
 			}
-			for l.pos < len(l.source.Text) {
-				r, size := utf8.DecodeRuneInString(l.source.Text[l.pos:])
-				if !isIdentCont(r) {
-					break
-				}
-				l.pos += size
-			}
-			text := l.source.Text[labelStart:l.pos]
-			if text == "" {
-				l.errors.Add(&diagnostic.Error{
-					Code:    diagnostic.ErrUnexpectedChar,
-					Phase:   diagnostic.PhaseLex,
-					Span:    span.Span{Start: span.Pos(start), End: span.Pos(l.pos)},
-					Message: "empty label literal",
-				})
-				l.skipWhitespaceAndComments()
-				continue
-			}
-			return syn.Token{Kind: syn.TokLabelLit, Text: text, S: span.Span{Start: span.Pos(start), End: span.Pos(l.pos)}}
 		}
 
 		// Operator
