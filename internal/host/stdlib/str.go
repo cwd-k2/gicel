@@ -13,6 +13,16 @@ import (
 	"github.com/cwd-k2/gicel/internal/runtime/eval"
 )
 
+// Primitive names for string pack/unpack operations used in registration and fusion rules.
+const (
+	primFromRunes   = "_fromRunes"
+	primToRunes     = "_toRunes"
+	primPackRunes   = "_packRunes"
+	primUnpackRunes = "_unpackRunes"
+	primPackBytes   = "_packBytes"
+	primUnpackBytes = "_unpackBytes"
+)
+
 // R13: _fromRunes (_toRunes x) → x
 func strPackedRoundtrip(c ir.Core) ir.Core {
 	po, ok := c.(*ir.PrimOp)
@@ -27,11 +37,11 @@ func strPackedRoundtrip(c ir.Core) ir.Core {
 	// Slice-based roundtrip: _packRunes (_unpackRunes x) → x
 	// Slice-based roundtrip: _packBytes (_unpackBytes x) → x
 	switch {
-	case po.Name == "_fromRunes" && inner.Name == "_toRunes":
+	case po.Name == primFromRunes && inner.Name == primToRunes:
 		return inner.Args[0]
-	case po.Name == "_packRunes" && inner.Name == "_unpackRunes":
+	case po.Name == primPackRunes && inner.Name == primUnpackRunes:
 		return inner.Args[0]
-	case po.Name == "_packBytes" && inner.Name == "_unpackBytes":
+	case po.Name == primPackBytes && inner.Name == primUnpackBytes:
 		return inner.Args[0]
 	}
 	return c

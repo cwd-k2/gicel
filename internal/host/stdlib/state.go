@@ -6,6 +6,9 @@ import (
 	"github.com/cwd-k2/gicel/internal/runtime/eval"
 )
 
+// capState is the canonical capability key for the anonymous state effect.
+const capState = "state"
+
 // State provides get/put state capabilities.
 var State Pack = func(e Registrar) error {
 	e.RegisterPrim("get", getImpl)
@@ -18,7 +21,7 @@ var State Pack = func(e Registrar) error {
 var stateSource = mustReadSource("state")
 
 func getImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
-	v, ok := ce.Get("state")
+	v, ok := ce.Get(capState)
 	if !ok {
 		return nil, ce, &eval.RuntimeError{Message: "get: no state capability"}
 	}
@@ -30,7 +33,7 @@ func getImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applie
 }
 
 func putImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
-	newCe := ce.Set("state", args[0])
+	newCe := ce.Set(capState, args[0])
 	return unitVal, newCe, nil
 }
 

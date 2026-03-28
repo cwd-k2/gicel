@@ -75,12 +75,12 @@ var Prelude Pack = func(e Registrar) error {
 	e.RegisterPrim("_readInt", readIntImpl)
 	e.RegisterPrim("_readDouble", readDoubleImpl)
 	e.RegisterPrim("_words", wordsImpl)
-	e.RegisterPrim("_toRunes", toRunesImpl)
-	e.RegisterPrim("_fromRunes", fromRunesImpl)
-	e.RegisterPrim("_packRunes", packRunesImpl)
-	e.RegisterPrim("_unpackRunes", unpackRunesImpl)
-	e.RegisterPrim("_packBytes", packBytesImpl)
-	e.RegisterPrim("_unpackBytes", unpackBytesImpl)
+	e.RegisterPrim(primToRunes, toRunesImpl)
+	e.RegisterPrim(primFromRunes, fromRunesImpl)
+	e.RegisterPrim(primPackRunes, packRunesImpl)
+	e.RegisterPrim(primUnpackRunes, unpackRunesImpl)
+	e.RegisterPrim(primPackBytes, packBytesImpl)
+	e.RegisterPrim(primUnpackBytes, unpackBytesImpl)
 
 	// --- Byte primitives (5) ---
 	e.RegisterPrim("_eqByte", eqByteImpl)

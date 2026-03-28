@@ -9,6 +9,20 @@ import (
 	"github.com/cwd-k2/gicel/internal/runtime/eval"
 )
 
+// Primitive names for slice operations used in registration and fusion rules.
+const (
+	primSliceMap      = "_sliceMap"
+	primSliceFoldr    = "_sliceFoldr"
+	primSliceToList   = "_sliceToList"
+	primSliceFromList = "_sliceFromList"
+)
+
+// Optimizer-generated variable names for fusion rewrites.
+const (
+	optVarX   = "$opt_x"
+	optVarAcc = "$opt_acc"
+)
+
 // Slice provides immutable indexed snapshots: O(1) length/index,
 // fromList/toList conversion, and Functor/Foldable instances.
 var Slice Pack = func(e Registrar) error {
@@ -16,10 +30,10 @@ var Slice Pack = func(e Registrar) error {
 	e.RegisterPrim("_sliceSingleton", sliceSingletonImpl)
 	e.RegisterPrim("_sliceLength", sliceLengthImpl)
 	e.RegisterPrim("_sliceIndex", sliceIndexImpl)
-	e.RegisterPrim("_sliceFromList", sliceFromListImpl)
-	e.RegisterPrim("_sliceToList", sliceToListImpl)
-	e.RegisterPrim("_sliceFoldr", sliceFoldrImpl)
-	e.RegisterPrim("_sliceMap", sliceMapImpl)
+	e.RegisterPrim(primSliceFromList, sliceFromListImpl)
+	e.RegisterPrim(primSliceToList, sliceToListImpl)
+	e.RegisterPrim(primSliceFoldr, sliceFoldrImpl)
+	e.RegisterPrim(primSliceMap, sliceMapImpl)
 	e.RegisterPrim("_sliceFoldl", sliceFoldlImpl)
 	// Fusion rules: domain-specific rewrites for this pack's primitives.
 	e.RegisterRewriteRule(sliceMapMapFusion)
@@ -33,36 +47,36 @@ var Slice Pack = func(e Registrar) error {
 // R10: _sliceMap f (_sliceMap g xs) → _sliceMap (\$x -> f (g $x)) xs
 func sliceMapMapFusion(c ir.Core) ir.Core {
 	po, ok := c.(*ir.PrimOp)
-	if !ok || po.Name != "_sliceMap" || len(po.Args) != 2 {
+	if !ok || po.Name != primSliceMap || len(po.Args) != 2 {
 		return c
 	}
 	inner, ok := po.Args[1].(*ir.PrimOp)
-	if !ok || inner.Name != "_sliceMap" || len(inner.Args) != 2 {
+	if !ok || inner.Name != primSliceMap || len(inner.Args) != 2 {
 		return c
 	}
 	f, g, xs := po.Args[0], inner.Args[0], inner.Args[1]
-	x := "$opt_x"
+	x := optVarX
 	if freeIn(x, f) || freeIn(x, g) {
 		return c
 	}
 	composed := &ir.Lam{Param: x, Body: &ir.App{
 		Fun: f, Arg: &ir.App{Fun: g, Arg: &ir.Var{Name: x}},
 	}}
-	return &ir.PrimOp{Name: "_sliceMap", Arity: 2, Args: []ir.Core{composed, xs}, S: po.S}
+	return &ir.PrimOp{Name: primSliceMap, Arity: 2, Args: []ir.Core{composed, xs}, S: po.S}
 }
 
 // R11: _sliceFoldr k z (_sliceMap f xs) → _sliceFoldr (\$x $acc -> k (f $x) $acc) z xs
 func sliceFoldrMapFusion(c ir.Core) ir.Core {
 	po, ok := c.(*ir.PrimOp)
-	if !ok || po.Name != "_sliceFoldr" || len(po.Args) != 3 {
+	if !ok || po.Name != primSliceFoldr || len(po.Args) != 3 {
 		return c
 	}
 	inner, ok := po.Args[2].(*ir.PrimOp)
-	if !ok || inner.Name != "_sliceMap" || len(inner.Args) != 2 {
+	if !ok || inner.Name != primSliceMap || len(inner.Args) != 2 {
 		return c
 	}
 	k, z, f, xs := po.Args[0], po.Args[1], inner.Args[0], inner.Args[1]
-	x, acc := "$opt_x", "$opt_acc"
+	x, acc := optVarX, optVarAcc
 	if freeIn(x, k) || freeIn(x, f) || freeIn(acc, k) || freeIn(acc, f) {
 		return c
 	}
@@ -70,17 +84,17 @@ func sliceFoldrMapFusion(c ir.Core) ir.Core {
 		Fun: &ir.App{Fun: k, Arg: &ir.App{Fun: f, Arg: &ir.Var{Name: x}}},
 		Arg: &ir.Var{Name: acc},
 	}}}
-	return &ir.PrimOp{Name: "_sliceFoldr", Arity: 3, Args: []ir.Core{fused, z, xs}, S: po.S}
+	return &ir.PrimOp{Name: primSliceFoldr, Arity: 3, Args: []ir.Core{fused, z, xs}, S: po.S}
 }
 
 // R12: _sliceToList (_sliceFromList xs) → xs
 func slicePackedRoundtrip(c ir.Core) ir.Core {
 	po, ok := c.(*ir.PrimOp)
-	if !ok || po.Name != "_sliceToList" || len(po.Args) != 1 {
+	if !ok || po.Name != primSliceToList || len(po.Args) != 1 {
 		return c
 	}
 	inner, ok := po.Args[0].(*ir.PrimOp)
-	if !ok || inner.Name != "_sliceFromList" || len(inner.Args) != 1 {
+	if !ok || inner.Name != primSliceFromList || len(inner.Args) != 1 {
 		return c
 	}
 	return inner.Args[0]

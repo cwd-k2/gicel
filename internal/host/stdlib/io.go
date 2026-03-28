@@ -7,8 +7,11 @@ import (
 	"github.com/cwd-k2/gicel/internal/runtime/eval"
 )
 
+// capIO is the canonical capability key for the IO effect.
+const capIO = "io"
+
 // IO provides print/debug capabilities using a CapEnv buffer.
-// Output is accumulated in the "io" capability as []string.
+// Output is accumulated in the capIO capability as []string.
 var IO Pack = func(e Registrar) error {
 	e.RegisterPrim("_ioPrint", printImpl)
 	e.RegisterPrim("_ioDebug", debugImpl)
@@ -32,16 +35,16 @@ func debugImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Appl
 	return unitVal, newCe, nil
 }
 
-// appendIO appends a message to the "io" capability buffer.
+// appendIO appends a message to the IO capability buffer.
 // The three-index slice ensures append allocates a new backing array,
 // preventing aliasing with the caller's original slice.
 func appendIO(ce eval.CapEnv, msg string) eval.CapEnv {
-	existing, _ := ce.Get("io")
+	existing, _ := ce.Get(capIO)
 	var buf []string
 	if b, ok := existing.([]string); ok {
 		buf = append(b[:len(b):len(b)], msg)
 	} else {
 		buf = []string{msg}
 	}
-	return ce.Set("io", buf)
+	return ce.Set(capIO, buf)
 }
