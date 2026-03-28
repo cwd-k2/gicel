@@ -153,6 +153,42 @@ func isHelpFlag(s string) bool {
 	return s == "--help" || s == "-h" || s == "-help" || s == "help"
 }
 
+// catalogEntry is a name–description pair for docs/example listing.
+type catalogEntry struct {
+	name, desc string
+}
+
+// printCatalog groups entries by dot-separated category prefix and prints them.
+func printCatalog(entries []catalogEntry, defaultLabel string) {
+	groups := map[string][]catalogEntry{}
+	var groupOrder []string
+	for _, e := range entries {
+		category := ""
+		if i := strings.LastIndex(e.name, "."); i >= 0 {
+			category = e.name[:i]
+		}
+		if _, seen := groups[category]; !seen {
+			groupOrder = append(groupOrder, category)
+		}
+		groups[category] = append(groups[category], e)
+	}
+	for _, cat := range groupOrder {
+		label := cat
+		if label == "" {
+			label = defaultLabel
+		}
+		fmt.Printf("%s:\n", label)
+		for _, e := range groups[cat] {
+			if e.desc != "" {
+				fmt.Printf("  %-30s %s\n", e.name, e.desc)
+			} else {
+				fmt.Printf("  %s\n", e.name)
+			}
+		}
+		fmt.Println()
+	}
+}
+
 // warnTrailingFlags warns about flag-like arguments after the positional filename.
 func warnTrailingFlags(fs *flag.FlagSet) {
 	if fs.NArg() <= 1 {
@@ -176,39 +212,11 @@ func cmdDocs(args []string) int {
 			fmt.Fprintln(os.Stderr, "no documentation available")
 			return 1
 		}
-		// Group topics by category prefix (dot-separated).
-		type entry struct {
-			name, desc string
+		entries := make([]catalogEntry, len(topics))
+		for i, name := range topics {
+			entries[i] = catalogEntry{name, gicel.DocDesc(name)}
 		}
-		groups := map[string][]entry{}
-		var groupOrder []string
-		for _, name := range topics {
-			desc := gicel.DocDesc(name)
-			category := ""
-			if i := strings.LastIndex(name, "."); i >= 0 {
-				category = name[:i]
-			}
-			e := entry{name, desc}
-			if _, seen := groups[category]; !seen {
-				groupOrder = append(groupOrder, category)
-			}
-			groups[category] = append(groups[category], e)
-		}
-		for _, cat := range groupOrder {
-			label := cat
-			if label == "" {
-				label = "general"
-			}
-			fmt.Printf("%s:\n", label)
-			for _, e := range groups[cat] {
-				if e.desc != "" {
-					fmt.Printf("  %-30s %s\n", e.name, e.desc)
-				} else {
-					fmt.Printf("  %s\n", e.name)
-				}
-			}
-			fmt.Println()
-		}
+		printCatalog(entries, "general")
 		fmt.Println("Run 'gicel docs <topic>' for details.")
 		return 0
 	}
@@ -236,40 +244,11 @@ func cmdExample(args []string) int {
 			fmt.Fprintln(os.Stderr, "no examples available")
 			return 1
 		}
-		// Group examples by directory prefix (dot-separated category).
-		type entry struct {
-			name, desc string
+		entries := make([]catalogEntry, len(examples))
+		for i, name := range examples {
+			entries[i] = catalogEntry{name, exampleDesc(gicel.Example(name))}
 		}
-		groups := map[string][]entry{}
-		var groupOrder []string
-		for _, name := range examples {
-			src := gicel.Example(name)
-			desc := exampleDesc(src)
-			category := ""
-			if i := strings.LastIndex(name, "."); i >= 0 {
-				category = name[:i]
-			}
-			e := entry{name, desc}
-			if _, seen := groups[category]; !seen {
-				groupOrder = append(groupOrder, category)
-			}
-			groups[category] = append(groups[category], e)
-		}
-		for _, cat := range groupOrder {
-			label := cat
-			if label == "" {
-				label = "Other"
-			}
-			fmt.Printf("%s:\n", label)
-			for _, e := range groups[cat] {
-				if e.desc != "" {
-					fmt.Printf("  %-30s %s\n", e.name, e.desc)
-				} else {
-					fmt.Printf("  %s\n", e.name)
-				}
-			}
-			fmt.Println()
-		}
+		printCatalog(entries, "Other")
 		fmt.Println("Run 'gicel example <name>' to view source.")
 		return 0
 	}
@@ -458,13 +437,8 @@ func registerUserModules(eng *gicel.Engine, modules []string, budget *sourceBudg
 			return fmt.Errorf("invalid module spec: %q (expected Name=path)", spec)
 		}
 		name := spec[:eqIdx]
-		if name == "" || name[0] < 'A' || name[0] > 'Z' {
-			return fmt.Errorf("invalid module name %q: must start with an uppercase letter", name)
-		}
-		for _, r := range name {
-			if !((r >= 'A' && r <= 'Z') || (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') || r == '_') {
-				return fmt.Errorf("invalid module name %q: contains invalid character %q", name, string(r))
-			}
+		if err := gicel.ValidateModuleName(name); err != nil {
+			return err
 		}
 		path := spec[eqIdx+1:]
 		data, err := budget.readFile(path)
@@ -742,7 +716,7 @@ func cmdCheck(args []string) int {
 
 	if *jsonOut {
 		out := map[string]any{"ok": true}
-		if types := cr.BindingTypes(); len(types) > 0 {
+		if types := cr.PrettyBindingTypes(); len(types) > 0 {
 			out["bindings"] = types
 		}
 		outputJSON(out)

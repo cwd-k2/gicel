@@ -217,11 +217,28 @@ func (v *ConVal) String() string {
 	return "(" + v.Con + " " + strings.Join(args, " ") + ")"
 }
 
-// List constructor names (Prelude convention).
+// Prelude constructor names.
 const (
-	ListCons = "Cons"
-	ListNil  = "Nil"
+	ListCons  = "Cons"
+	ListNil   = "Nil"
+	BoolTrue  = "True"
+	BoolFalse = "False"
 )
+
+// IsBool checks if a ConVal is a Prelude Bool (True or False, nullary).
+func IsBool(v *ConVal) (val bool, ok bool) {
+	if len(v.Args) != 0 {
+		return false, false
+	}
+	switch v.Con {
+	case BoolTrue:
+		return true, true
+	case BoolFalse:
+		return false, true
+	default:
+		return false, false
+	}
+}
 
 // CollectList extracts a Cons/Nil chain into a slice of element values.
 // Returns (nil, false) if v is not a well-formed list.

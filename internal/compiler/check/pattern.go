@@ -27,7 +27,7 @@ func (ch *Checker) checkPattern(pat syntax.Pattern, scrutTy types.Type) patternR
 	switch p := pat.(type) {
 	case *syntax.PatVar:
 		return patternResult{
-			Pattern:  &ir.PVar{Name: p.Name, S: p.S},
+			Pattern:  &ir.PVar{Name: p.Name, Generated: p.Generated, S: p.S},
 			Bindings: map[string]types.Type{p.Name: scrutTy},
 		}
 	case *syntax.PatWild:
@@ -178,12 +178,12 @@ func (ch *Checker) checkConPatternWith(conName, moduleName string, conTy types.T
 						constraintVar: entry.ConstraintVar,
 						dictParam:     dictParam,
 					})
-					args = append(args, &ir.PVar{Name: dictParam, S: s})
+					args = append(args, &ir.PVar{Name: dictParam, Generated: true, S: s})
 				} else {
 					dictParam := ch.freshDictName(entry.ClassName)
 					dictTy := ch.buildDictType(entry.ClassName, entry.Args)
 					bindings[dictParam] = dictTy
-					args = append(args, &ir.PVar{Name: dictParam, S: s})
+					args = append(args, &ir.PVar{Name: dictParam, Generated: true, S: s})
 				}
 			}
 			currentTy = ev.Body

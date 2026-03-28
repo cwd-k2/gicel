@@ -313,6 +313,8 @@ func resultDetail(value string) ExplainDetail {
 }
 
 // capEnvDiffStructured computes structured CapEnv changes as [old, new] pairs.
+// Comparison is structural (reference/value equality); formatting is applied
+// only to changed entries for display.
 func capEnvDiffStructured(old, new CapEnv) map[string][2]string {
 	oldLabels := old.Labels()
 	newLabels := new.Labels()
@@ -331,22 +333,34 @@ func capEnvDiffStructured(old, new CapEnv) map[string][2]string {
 	for l := range seen {
 		ov, oldOK := old.Get(l)
 		nv, newOK := new.Get(l)
-		oldStr := ""
-		newStr := ""
+		if oldOK == newOK && capValEqual(ov, nv) {
+			continue
+		}
+		if diffs == nil {
+			diffs = make(map[string][2]string)
+		}
+		oldStr, newStr := "", ""
 		if oldOK {
 			oldStr = fmtCapVal(ov)
 		}
 		if newOK {
 			newStr = fmtCapVal(nv)
 		}
-		if oldStr != newStr {
-			if diffs == nil {
-				diffs = make(map[string][2]string)
-			}
-			diffs[l] = [2]string{oldStr, newStr}
-		}
+		diffs[l] = [2]string{oldStr, newStr}
 	}
 	return diffs
+}
+
+// capValEqual compares two capability values structurally.
+func capValEqual(a, b any) bool {
+	if a == nil && b == nil {
+		return true
+	}
+	if a == nil || b == nil {
+		return false
+	}
+	// Reference equality for runtime values.
+	return a == b
 }
 
 func fmtCapVal(v any) string {

@@ -5,8 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"sort"
-	"strings"
-
 	"github.com/cwd-k2/gicel/internal/infra/budget"
 	"github.com/cwd-k2/gicel/internal/infra/span"
 	"github.com/cwd-k2/gicel/internal/lang/ir"
@@ -72,8 +70,9 @@ type Runtime struct {
 }
 
 type vmBindingProto struct {
-	name  string
-	proto *vm.Proto
+	name      string
+	proto     *vm.Proto
+	generated bool // true when introduced by the compiler (dict bindings)
 }
 
 type moduleEntry struct {
@@ -258,7 +257,7 @@ func (r *Runtime) precompileVM(gates map[string]bool) {
 		compiler.SetSource(me.source)
 		protos := make([]vmBindingProto, len(me.sortedBindings))
 		for j, b := range me.sortedBindings {
-			protos[j] = vmBindingProto{name: b.Name, proto: compiler.CompileBinding(b)}
+			protos[j] = vmBindingProto{name: b.Name, proto: compiler.CompileBinding(b), generated: b.Generated}
 		}
 		r.vmModuleProtos[i] = protos
 	}
@@ -268,7 +267,7 @@ func (r *Runtime) precompileVM(gates map[string]bool) {
 	for _, b := range r.sortedMainBindings {
 		if b.Name != r.entryName {
 			r.vmMainProtos = append(r.vmMainProtos, vmBindingProto{
-				name: b.Name, proto: compiler.CompileBinding(b),
+				name: b.Name, proto: compiler.CompileBinding(b), generated: b.Generated,
 			})
 		}
 	}
@@ -371,7 +370,7 @@ func (r *Runtime) evalPrecompiledBindings(machine *vm.VM, protos []vmBindingProt
 		}
 		result, err := machine.Run(bp.proto, eval.NewCapEnv(nil))
 		if err != nil {
-			if budget.IsLimitError(err) || strings.Contains(bp.name, "$") {
+			if budget.IsLimitError(err) || bp.generated {
 				return err
 			}
 			return fmt.Errorf("evaluating %s: %w", bp.name, err)

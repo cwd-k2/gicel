@@ -220,8 +220,14 @@ func CollectList(v *ConVal) ([]Value, bool) { return eval.CollectList(v) }
 // IsTuple reports whether a RecordVal encodes a tuple (fields _1, _2, ..., _n).
 func IsTuple(r *RecordVal) bool { return eval.IsTuple(r) }
 
+// IsBool checks if a ConVal is a Prelude Bool (True or False, nullary).
+func IsBool(v *ConVal) (val bool, ok bool) { return eval.IsBool(v) }
+
 // TupleLabel returns the canonical field label for a 1-based tuple position.
 func TupleLabel(pos int) string { return ir.TupleLabel(pos) }
+
+// ValidateModuleName checks that name is a valid module identifier.
+func ValidateModuleName(name string) error { return engine.ValidateModuleName(name) }
 
 // ---- Stdlib re-exports ----
 

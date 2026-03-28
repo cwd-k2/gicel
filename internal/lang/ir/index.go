@@ -163,6 +163,9 @@ func assignIndices(c Core, localScope map[string]int, depth int) {
 	case *Lit:
 		// No sub-expressions.
 
+	case *Error:
+		// No sub-expressions.
+
 	case *RecordLit:
 		for _, f := range n.Fields {
 			assignIndices(f.Value, localScope, depth+1)

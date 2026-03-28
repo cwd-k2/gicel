@@ -103,6 +103,11 @@ type TyExprLabelLit struct {
 	S     span.Span
 }
 
+// TyExprError is a placeholder for type expressions that failed to parse.
+type TyExprError struct {
+	S span.Span
+}
+
 type TyBinder struct {
 	Name string
 	Kind TypeExpr // nil means kind not annotated (inferred)
@@ -129,6 +134,7 @@ func (*TyExprCase) typeExprNode()     {}
 func (*TyExprQual) typeExprNode()     {}
 func (*TyExprEq) typeExprNode()       {}
 func (*TyExprLabelLit) typeExprNode() {}
+func (*TyExprError) typeExprNode()    {}
 
 func (t *TyExprVar) Span() span.Span      { return t.S }
 func (t *TyExprCon) Span() span.Span      { return t.S }
@@ -142,3 +148,4 @@ func (t *TyExprCase) Span() span.Span     { return t.S }
 func (t *TyExprQual) Span() span.Span     { return t.S }
 func (t *TyExprEq) Span() span.Span       { return t.S }
 func (t *TyExprLabelLit) Span() span.Span { return t.S }
+func (t *TyExprError) Span() span.Span    { return t.S }

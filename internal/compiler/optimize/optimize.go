@@ -265,12 +265,12 @@ func substMany(expr ir.Core, subs map[string]ir.Core, subsFV map[string]struct{}
 		if _, shadowed := active[n.Var]; shadowed {
 			active = withoutKey(active, n.Var)
 		} else if _, captured := subsFV[n.Var]; captured {
-			return &ir.Bind{Comp: comp, Var: n.Var, Body: n.Body, Generated: n.Generated, S: n.S}
+			return &ir.Bind{Comp: comp, Var: n.Var, Discard: n.Discard, Body: n.Body, Generated: n.Generated, S: n.S}
 		}
 		if len(active) == 0 {
-			return &ir.Bind{Comp: comp, Var: n.Var, Body: n.Body, Generated: n.Generated, S: n.S}
+			return &ir.Bind{Comp: comp, Var: n.Var, Discard: n.Discard, Body: n.Body, Generated: n.Generated, S: n.S}
 		}
-		return &ir.Bind{Comp: comp, Var: n.Var, Body: substMany(n.Body, active, subsFV), Generated: n.Generated, S: n.S}
+		return &ir.Bind{Comp: comp, Var: n.Var, Discard: n.Discard, Body: substMany(n.Body, active, subsFV), Generated: n.Generated, S: n.S}
 	case *ir.Thunk:
 		return &ir.Thunk{Comp: substMany(n.Comp, subs, subsFV), FV: n.FV, S: n.S}
 	case *ir.Force:
@@ -282,6 +282,8 @@ func substMany(expr ir.Core, subs map[string]ir.Core, subsFV map[string]struct{}
 		}
 		return &ir.PrimOp{Name: n.Name, Arity: n.Arity, Effectful: n.Effectful, Args: args, S: n.S}
 	case *ir.Lit:
+		return n
+	case *ir.Error:
 		return n
 	case *ir.RecordLit:
 		fields := make([]ir.RecordField, len(n.Fields))

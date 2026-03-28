@@ -58,6 +58,9 @@ type MatchDesc struct {
 	ArgSlots []int
 	// ArgNames are the variable names for each arg (for observer).
 	ArgNames []string
+	// ArgGenerated marks which arg bindings are compiler-introduced.
+	// When non-nil, ArgGenerated[i] corresponds to ArgNames[i].
+	ArgGenerated []bool
 	// Labels lists field labels (for record patterns).
 	Labels []string
 	// FieldSlots maps each field to a local slot (for record patterns).

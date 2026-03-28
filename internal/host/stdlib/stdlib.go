@@ -60,9 +60,9 @@ func asFloat64(v eval.Value, pack string) (float64, error) {
 // boolVal constructs a Bool ConVal from a Go bool.
 func boolVal(b bool) *eval.ConVal {
 	if b {
-		return &eval.ConVal{Con: "True"}
+		return &eval.ConVal{Con: eval.BoolTrue}
 	}
-	return &eval.ConVal{Con: "False"}
+	return &eval.ConVal{Con: eval.BoolFalse}
 }
 
 // ordVal constructs an Ordering ConVal from a comparison result (-1, 0, 1).

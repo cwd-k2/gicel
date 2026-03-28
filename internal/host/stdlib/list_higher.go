@@ -171,7 +171,7 @@ func spanImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, apply eval
 		if !ok {
 			return nil, ce, errExpected("span", "Bool", result)
 		}
-		if boolCon.Con == "False" {
+		if boolCon.Con == eval.BoolFalse {
 			break
 		}
 		prefix = append(prefix, con.Args[0])
@@ -210,7 +210,7 @@ func dropWhileImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, apply e
 		if !ok {
 			return nil, ce, errExpected("dropWhile", "Bool", result)
 		}
-		if boolCon.Con == "False" {
+		if boolCon.Con == eval.BoolFalse {
 			return list, ce, nil
 		}
 		list = con.Args[1]
@@ -384,7 +384,7 @@ func groupByImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, apply e
 			if !ok {
 				return nil, ce, errExpected("groupBy", "Bool", result)
 			}
-			if boolCon.Con == "True" {
+			if boolCon.Con == eval.BoolTrue {
 				current = append(current, elem)
 			} else {
 				groups = append(groups, buildList(current))

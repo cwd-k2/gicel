@@ -6,7 +6,7 @@ import (
 )
 
 // Core is a term in the core intermediate representation.
-// 17 formers: Var, Lam, App, TyApp, TyLam, Con, Case, Fix, Pure, Bind, Thunk, Force, PrimOp, Lit, RecordLit, RecordProj, RecordUpdate.
+// 18 formers: Var, Lam, App, TyApp, TyLam, Con, Case, Fix, Pure, Bind, Thunk, Force, PrimOp, Lit, RecordLit, RecordProj, RecordUpdate, Error.
 type Core interface {
 	coreNode()
 	Span() span.Span
@@ -94,6 +94,7 @@ type Bind struct {
 	Comp      Core
 	Var       string
 	Body      Core
+	Discard   bool // true when the bound value is unused (wildcard bind)
 	Generated bool // true when Var is compiler-introduced (anonymous bind)
 	S         span.Span
 }
@@ -155,6 +156,13 @@ type RecordUpdate struct {
 	S       span.Span
 }
 
+// Error — placeholder for erroneous expressions that failed type checking.
+// Never reaches the evaluator; present only so downstream IR passes
+// can propagate without crashing after errors have been reported.
+type Error struct {
+	S span.Span
+}
+
 // --- coreNode markers ---
 func (*Var) coreNode()          {}
 func (*Lam) coreNode()          {}
@@ -173,6 +181,7 @@ func (*Lit) coreNode()          {}
 func (*RecordLit) coreNode()    {}
 func (*RecordProj) coreNode()   {}
 func (*RecordUpdate) coreNode() {}
+func (*Error) coreNode()        {}
 
 // --- Span accessors ---
 func (c *Var) Span() span.Span          { return c.S }
@@ -192,3 +201,4 @@ func (c *Lit) Span() span.Span          { return c.S }
 func (c *RecordLit) Span() span.Span    { return c.S }
 func (c *RecordProj) Span() span.Span   { return c.S }
 func (c *RecordUpdate) Span() span.Span { return c.S }
+func (c *Error) Span() span.Span        { return c.S }

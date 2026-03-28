@@ -18,9 +18,9 @@ func ToValue(v any) eval.Value {
 		return x
 	case bool:
 		if x {
-			return &eval.ConVal{Con: "True"}
+			return &eval.ConVal{Con: eval.BoolTrue}
 		}
-		return &eval.ConVal{Con: "False"}
+		return &eval.ConVal{Con: eval.BoolFalse}
 	default:
 		return &eval.HostVal{Inner: v}
 	}

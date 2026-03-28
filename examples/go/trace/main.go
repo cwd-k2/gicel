@@ -35,7 +35,7 @@ func main() {
 
 	// Install a trace hook that logs each evaluation step.
 	// The hook receives a TraceEvent with Depth (call depth),
-	// NodeKind (e.g. "App", "Case"), and NodeDesc (human-readable).
+	// and NodeKind (e.g. "App", "Case").
 	var steps int
 	result, err := rt.RunWith(context.Background(), &gicel.RunOptions{
 		Trace: func(event gicel.TraceEvent) error {

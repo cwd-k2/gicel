@@ -22,8 +22,9 @@ type Pattern interface {
 
 // PVar — variable pattern (binds a value).
 type PVar struct {
-	Name string
-	S    span.Span
+	Name      string
+	Generated bool // true when introduced by the compiler (dict params, section desugar)
+	S         span.Span
 }
 
 // PWild — wildcard pattern.
@@ -90,10 +91,11 @@ func (p *PRecord) Bindings() []string {
 
 // Binding is a named definition in LetRec or top-level.
 type Binding struct {
-	Name string
-	Type types.Type
-	Expr Core
-	S    span.Span
+	Name      string
+	Type      types.Type
+	Expr      Core
+	Generated bool // true when introduced by the compiler (dict bindings, method selectors)
+	S         span.Span
 }
 
 // Program is a complete Core program (top-level bindings).

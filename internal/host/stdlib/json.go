@@ -93,7 +93,7 @@ func toJSONBoolImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval
 	if !ok {
 		return nil, ce, errExpected("json", "Bool", args[0])
 	}
-	if con.Con == "True" {
+	if con.Con == eval.BoolTrue {
 		return jsonStrVal("true"), ce, nil
 	}
 	return jsonStrVal("false"), ce, nil

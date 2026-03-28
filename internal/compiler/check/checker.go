@@ -412,7 +412,7 @@ func isSortKind(k types.Type) bool {
 }
 
 func (s *CheckState) errorPair(sp span.Span) (types.Type, ir.Core) {
-	return &types.TyError{S: sp}, &ir.Var{Name: "<error>", S: sp}
+	return &types.TyError{S: sp}, &ir.Error{S: sp}
 }
 
 // checkerSnapshot captures unifier state for rollback.

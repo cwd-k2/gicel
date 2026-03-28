@@ -500,7 +500,7 @@ func (vm *VM) execute() (eval.EvalResult, error) {
 				if len(desc.ArgNames) > 0 {
 					detail.Bindings = make(map[string]string, len(desc.ArgNames))
 					for i, name := range desc.ArgNames {
-						if name != "" && name[0] != '$' && i < len(cv.Args) {
+						if name != "" && !desc.ArgGenerated[i] && i < len(cv.Args) {
 							detail.Bindings[name] = eval.PrettyValue(cv.Args[i])
 						}
 					}

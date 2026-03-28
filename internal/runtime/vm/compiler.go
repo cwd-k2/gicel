@@ -114,18 +114,12 @@ func irNodeKind(c ir.Core) string {
 		return "Lam"
 	case *ir.App:
 		return "App"
-	case *ir.TyApp:
-		return "TyApp"
-	case *ir.TyLam:
-		return "TyLam"
 	case *ir.Con:
 		return "Con"
 	case *ir.Case:
 		return "Case"
 	case *ir.Fix:
 		return "Fix"
-	case *ir.Pure:
-		return "Pure"
 	case *ir.Bind:
 		return "Bind"
 	case *ir.Thunk:
@@ -276,6 +270,21 @@ func (e *emitter) addSpan(s span.Span) {
 // compileExpr compiles a Core IR expression. tail indicates whether the
 // expression is in tail position.
 func (e *emitter) compileExpr(expr ir.Core, tail bool) {
+	// Type-erased nodes produce no runtime instructions — compile the
+	// inner expression directly without emitting a step.
+	switch node := expr.(type) {
+	case *ir.TyApp:
+		e.compileExpr(node.Expr, tail)
+		return
+	case *ir.TyLam:
+		e.compileExpr(node.Body, tail)
+		return
+	case *ir.Pure:
+		// Pure is identity in CBV.
+		e.compileExpr(node.Expr, tail)
+		return
+	}
+
 	e.emitStep(expr)
 
 	switch node := expr.(type) {
@@ -291,16 +300,6 @@ func (e *emitter) compileExpr(expr ir.Core, tail bool) {
 	case *ir.App:
 		e.compileApp(node, tail)
 
-	case *ir.TyApp:
-		// Type application is erased at runtime.
-		e.compileExpr(node.Expr, tail)
-		return // skip the STEP we already emitted for this node
-
-	case *ir.TyLam:
-		// Type abstraction is erased at runtime.
-		e.compileExpr(node.Body, tail)
-		return
-
 	case *ir.Con:
 		e.compileCon(node)
 
@@ -309,11 +308,6 @@ func (e *emitter) compileExpr(expr ir.Core, tail bool) {
 
 	case *ir.Fix:
 		e.compileFix(node)
-
-	case *ir.Pure:
-		// Pure is identity in CBV.
-		e.compileExpr(node.Expr, tail)
-		return
 
 	case *ir.Bind:
 		e.compileBind(node, tail)
@@ -440,7 +434,7 @@ func (e *emitter) compileBind(bind *ir.Bind, tail bool) {
 	e.compileExpr(bind.Comp, false)
 	slot := e.allocLocal(bind.Var)
 	e.emitU16(OpBind, uint16(slot))
-	if bind.Var != "_" && !bind.Generated {
+	if !bind.Discard && !bind.Generated {
 		e.bindNames = append(e.bindNames, BindInfo{Slot: slot, Name: bind.Var})
 	}
 	// Body is in tail position if the Bind itself is. ForceEffectful for

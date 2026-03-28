@@ -169,13 +169,36 @@ func (e *Engine) pipeline(ctx context.Context) *pipelineCtx {
 	}
 }
 
-// RegisterModule compiles a module and makes it available for import.
-func (e *Engine) RegisterModule(name, source string) error {
+// ValidateModuleName checks that name is a valid module identifier.
+// Names are dot-separated segments (e.g. "Effect.State"), where each
+// segment starts with an uppercase ASCII letter and contains only
+// ASCII letters, digits, and underscores.
+func ValidateModuleName(name string) error {
 	if name == "" {
 		return fmt.Errorf("module name must not be empty")
 	}
-	if strings.ContainsAny(name, "\x00/\\") {
-		return fmt.Errorf("module name contains invalid character: %q", name)
+	for _, seg := range strings.Split(name, ".") {
+		if seg == "" {
+			return fmt.Errorf("invalid module name %q: empty segment", name)
+		}
+		if seg[0] < 'A' || seg[0] > 'Z' {
+			return fmt.Errorf("invalid module name %q: each segment must start with an uppercase letter", name)
+		}
+		for _, r := range seg {
+			if !((r >= 'A' && r <= 'Z') || (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') || r == '_') {
+				return fmt.Errorf("invalid module name %q: contains invalid character %q", name, string(r))
+			}
+		}
+	}
+	return nil
+}
+
+// RegisterModule compiles a module and makes it available for import.
+// Module names must start with an uppercase letter and contain only
+// ASCII letters, digits, and underscores.
+func (e *Engine) RegisterModule(name, source string) error {
+	if err := ValidateModuleName(name); err != nil {
+		return err
 	}
 	if e.store.Has(name) {
 		return fmt.Errorf("module %s already registered", name)
@@ -211,8 +234,9 @@ func (cr *CompileResult) BindingNames() []string {
 	return names
 }
 
-// BindingTypes returns a map of binding names to their pretty-printed types.
-func (cr *CompileResult) BindingTypes() map[string]string {
+// PrettyBindingTypes returns binding names mapped to their display-formatted types.
+// The values are human-readable strings, not suitable for identity or comparison.
+func (cr *CompileResult) PrettyBindingTypes() map[string]string {
 	m := make(map[string]string, len(cr.prog.Bindings))
 	for _, b := range cr.prog.Bindings {
 		m[b.Name] = types.Pretty(b.Type)

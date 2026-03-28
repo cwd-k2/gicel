@@ -48,7 +48,7 @@ type doElaborator struct {
 
 // errPair returns a mode-appropriate error pair.
 func (d *doElaborator) errPair(s span.Span) (types.Type, ir.Core) {
-	errCore := &ir.Var{Name: "<error>", S: s}
+	errCore := &ir.Error{S: s}
 	switch d.mode {
 	case doModeChecked:
 		return d.comp, errCore
@@ -191,7 +191,7 @@ func (d *doElaborator) inferBind(varName string, comp syntax.Expr, rest []syntax
 	// type information (e.g. state type from put) propagates to
 	// variables bound by get in subsequent statements.
 	d.unifyCompPostPre(compTy, restTy, stmtS)
-	return restTy, &ir.Bind{Comp: compCore, Var: varName, Body: restCore, S: stmtS}
+	return restTy, &ir.Bind{Comp: compCore, Var: varName, Discard: varName == "_", Body: restCore, S: stmtS}
 }
 
 func (d *doElaborator) inferExprStmt(expr syntax.Expr, rest []syntax.Stmt, stmtS, doS span.Span) (types.Type, ir.Core) {
@@ -214,7 +214,7 @@ func (d *doElaborator) inferExprStmt(expr syntax.Expr, rest []syntax.Stmt, stmtS
 
 	// Thread post-state: see inferBind comment.
 	d.unifyCompPostPre(compTy, restTy, stmtS)
-	return restTy, &ir.Bind{Comp: compCore, Var: "_", Body: restCore, S: stmtS}
+	return restTy, &ir.Bind{Comp: compCore, Var: "_", Discard: true, Body: restCore, S: stmtS}
 }
 
 // unifyCompPostPre unifies the post-state of compTy with the pre-state of
@@ -297,7 +297,7 @@ func (d *doElaborator) checkedBind(varName string, comp syntax.Expr, rest []synt
 		if isBind {
 			ch.ctx.Pop()
 		}
-		return d.comp, &ir.Bind{Comp: compCore, Var: varName, Body: restCore, S: stmtS}
+		return d.comp, &ir.Bind{Comp: compCore, Var: varName, Discard: !isBind, Body: restCore, S: stmtS}
 	}
 
 	// Fallback: infer didn't give TyCBPV, extract result and continue with infer mode.
@@ -314,7 +314,7 @@ func (d *doElaborator) checkedBind(varName string, comp syntax.Expr, rest []synt
 	// Failure here is expected when the do-block mixes monadic and pure branches;
 	// the downstream subsumption check will report the actual type mismatch.
 	ch.emitEq(restTy, d.comp, stmtS, nil)
-	return d.comp, &ir.Bind{Comp: compCore, Var: varName, Body: restCore, S: stmtS}
+	return d.comp, &ir.Bind{Comp: compCore, Var: varName, Discard: !isBind, Body: restCore, S: stmtS}
 }
 
 // --- Monadic mode ---

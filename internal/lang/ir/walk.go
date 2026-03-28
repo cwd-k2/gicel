@@ -55,6 +55,8 @@ func walkRec(c Core, visit func(Core) bool, depth int) {
 		}
 	case *Lit:
 		// leaf
+	case *Error:
+		// leaf
 	case *RecordLit:
 		for _, f := range n.Fields {
 			walkRec(f.Value, visit, depth+1)
@@ -179,7 +181,7 @@ func transformRec(c Core, f func(Core) Core, depth int) Core {
 	case *Pure:
 		return f(&Pure{Expr: transformRec(n.Expr, f, depth+1), S: n.S})
 	case *Bind:
-		return f(&Bind{Comp: transformRec(n.Comp, f, depth+1), Var: n.Var, Body: transformRec(n.Body, f, depth+1), Generated: n.Generated, S: n.S})
+		return f(&Bind{Comp: transformRec(n.Comp, f, depth+1), Var: n.Var, Discard: n.Discard, Body: transformRec(n.Body, f, depth+1), Generated: n.Generated, S: n.S})
 	case *Thunk:
 		return f(&Thunk{Comp: transformRec(n.Comp, f, depth+1), S: n.S})
 	case *Force:
@@ -191,6 +193,8 @@ func transformRec(c Core, f func(Core) Core, depth int) Core {
 		}
 		return f(&PrimOp{Name: n.Name, Arity: n.Arity, Effectful: n.Effectful, Args: args, S: n.S})
 	case *Lit:
+		return f(n)
+	case *Error:
 		return f(n)
 	case *RecordLit:
 		fields := make([]RecordField, len(n.Fields))

@@ -10,7 +10,7 @@ import (
 
 func (p *Parser) parseType() syn.TypeExpr {
 	if !p.enterRecurse() {
-		return &syn.TyExprCon{Name: "<error>", S: span.Span{Start: span.Pos(p.pos), End: span.Pos(p.pos)}}
+		return &syn.TyExprError{S: span.Span{Start: span.Pos(p.pos), End: span.Pos(p.pos)}}
 	}
 	defer p.leaveRecurse()
 	return p.parseTypeArrow()
@@ -237,7 +237,7 @@ func (p *Parser) parseTypeAtom() syn.TypeExpr {
 		p.addErrorCode(diagnostic.ErrExpectedType, "expected type")
 		tok := p.peek()
 		p.advance()
-		return &syn.TyExprCon{Name: "<error>", S: tok.S}
+		return &syn.TyExprError{S: tok.S}
 	}
 }
 

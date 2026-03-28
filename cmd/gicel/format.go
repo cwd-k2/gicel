@@ -498,12 +498,8 @@ func formatValue(v gicel.Value) any {
 			}
 			return result
 		}
-		// Serialize Bool as native JSON boolean.
-		if val.Con == "True" && len(val.Args) == 0 {
-			return true
-		}
-		if val.Con == "False" && len(val.Args) == 0 {
-			return false
+		if b, ok := gicel.IsBool(val); ok {
+			return b
 		}
 		args := make([]any, len(val.Args))
 		for i, a := range val.Args {

@@ -86,6 +86,8 @@ func prettyCore(c Core, indent int) string {
 			updates[i] = f.Label + ": " + prettyCore(f.Value, indent)
 		}
 		return "{ " + prettyCore(n.Record, indent) + " | " + strings.Join(updates, ", ") + " }"
+	case *Error:
+		return "<error>"
 	default:
 		return "<?>"
 	}

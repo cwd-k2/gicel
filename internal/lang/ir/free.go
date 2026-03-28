@@ -85,6 +85,8 @@ func freeVarsRec(c Core, bound map[string]int, fv map[string]struct{}, depth int
 		}
 	case *Lit:
 		// leaf — no free variables
+	case *Error:
+		// error placeholder — no free variables
 	case *RecordLit:
 		for _, f := range n.Fields {
 			freeVarsRec(f.Value, bound, fv, depth+1)
@@ -276,6 +278,8 @@ func annotateFV(c Core, depth int) fvResult {
 		}
 		return result
 	case *Lit:
+		return fvResult{}
+	case *Error:
 		return fvResult{}
 	case *RecordLit:
 		var result fvResult

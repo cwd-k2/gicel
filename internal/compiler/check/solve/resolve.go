@@ -22,7 +22,7 @@ func (s *Solver) ExtractDictField(classInfo *env.ClassInfo, dictExpr ir.Core, fi
 	var fieldExpr ir.Core
 	for j := 0; j < allFields; j++ {
 		argName := fmt.Sprintf("$%s_%d_%d", prefix, j, freshBase)
-		patArgs = append(patArgs, &ir.PVar{Name: argName, S: sp})
+		patArgs = append(patArgs, &ir.PVar{Name: argName, Generated: true, S: sp})
 		if j == fieldIdx {
 			fieldExpr = &ir.Var{Name: argName, S: sp}
 		}

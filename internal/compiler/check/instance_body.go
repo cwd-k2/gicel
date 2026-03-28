@@ -103,10 +103,11 @@ func (ch *Checker) processInstanceBody(inst *InstanceInfo, methods map[string]sy
 	// accessible via explicit evidence injection (value => expr).
 	ch.ctx.Push(&CtxVar{Name: inst.DictBindName, Type: dictTy, Module: ch.scope.CurrentModule(), SolverInvisible: inst.Private, DictClassName: inst.ClassName})
 	prog.Bindings = append(prog.Bindings, ir.Binding{
-		Name: inst.DictBindName,
-		Type: dictTy,
-		Expr: dictExpr,
-		S:    inst.S,
+		Name:      inst.DictBindName,
+		Type:      dictTy,
+		Expr:      dictExpr,
+		Generated: true,
+		S:         inst.S,
 	})
 
 	// If the instance has a user-visible name (impl name :: ...),

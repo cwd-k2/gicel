@@ -112,16 +112,19 @@ func compilePatternCollect(e *emitter, pat ir.Pattern, failPatches *[]int) {
 func compilePCon(e *emitter, p *ir.PCon, failPatches *[]int) {
 	argSlots := make([]int, len(p.Args))
 	argNames := make([]string, len(p.Args))
+	argGenerated := make([]bool, len(p.Args))
 	for i, arg := range p.Args {
-		name := patternSlotName(arg, i)
+		name, gen := patternSlotInfo(arg, i)
 		argSlots[i] = e.allocLocal(name)
 		argNames[i] = name
+		argGenerated[i] = gen
 	}
 
 	descIdx := e.addMatchDesc(MatchDesc{
-		ConName:  p.Con,
-		ArgSlots: argSlots,
-		ArgNames: argNames,
+		ConName:      p.Con,
+		ArgSlots:     argSlots,
+		ArgNames:     argNames,
+		ArgGenerated: argGenerated,
 	})
 
 	pos := e.emitU16U16(OpMatchCon, descIdx, 0) // 0 = placeholder
@@ -154,7 +157,7 @@ func compilePRecord(e *emitter, p *ir.PRecord, failPatches *[]int) {
 	fieldSlots := make([]int, len(p.Fields))
 	for i, f := range p.Fields {
 		labels[i] = f.Label
-		name := patternSlotName(f.Pattern, i)
+		name, _ := patternSlotInfo(f.Pattern, i)
 		fieldSlots[i] = e.allocLocal(name)
 	}
 
@@ -179,14 +182,14 @@ func compilePRecord(e *emitter, p *ir.PRecord, failPatches *[]int) {
 
 // --- helpers ---
 
-// patternSlotName returns a name for a pattern variable slot.
-func patternSlotName(pat ir.Pattern, idx int) string {
+// patternSlotInfo returns the name and generated status for a pattern variable slot.
+func patternSlotInfo(pat ir.Pattern, idx int) (string, bool) {
 	switch p := pat.(type) {
 	case *ir.PVar:
-		return p.Name
+		return p.Name, p.Generated
 	default:
-		// Synthesize a name for intermediate slots.
-		return fmt.Sprintf("$match_%d", idx)
+		// Synthesize a name for intermediate slots (always generated).
+		return fmt.Sprintf("$match_%d", idx), true
 	}
 }
 

@@ -15,7 +15,7 @@ import (
 func (ch *Checker) checkDo(e *syntax.ExprDo, expected types.Type) ir.Core {
 	if len(e.Stmts) == 0 {
 		ch.addCodedError(diagnostic.ErrEmptyDo, e.S, "empty do block")
-		return &ir.Var{Name: "<error>", S: e.S}
+		return &ir.Error{S: e.S}
 	}
 
 	expected = ch.unifier.Zonk(expected)
@@ -55,7 +55,7 @@ func (ch *Checker) checkDo(e *syntax.ExprDo, expected types.Type) ir.Core {
 		}
 		ch.addCodedError(diagnostic.ErrNoInstance, e.S,
 			"do notation for "+types.Pretty(expected)+" requires a Monad or IxMonad instance")
-		return &ir.Var{Name: "<error>", S: e.S}
+		return &ir.Error{S: e.S}
 	}
 
 	// Fallback: try Computation inference.
@@ -150,7 +150,7 @@ func (ch *Checker) extractIxMethod(monadHead types.Type, methodIdx int, s span.S
 	classInfo, _ := ch.reg.LookupClass("IxMonad")
 	if classInfo == nil {
 		ch.addCodedError(diagnostic.ErrNoInstance, s, "IxMonad class not available (missing Prelude?)")
-		return &ir.Var{Name: "<error>", S: s}
+		return &ir.Error{S: s}
 	}
 
 	// 1. Try direct IxMonad instance.

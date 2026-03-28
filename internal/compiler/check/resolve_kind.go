@@ -51,6 +51,8 @@ func (ch *Checker) resolveKindExpr(k syntax.TypeExpr) types.Type {
 		return &types.TyArrow{From: ch.resolveKindExpr(ke.From), To: ch.resolveKindExpr(ke.To)}
 	case *syntax.TyExprParen:
 		return ch.resolveKindExpr(ke.Inner)
+	case *syntax.TyExprError:
+		return types.TypeOfTypes
 	default:
 		ch.addCodedError(diagnostic.ErrKindMismatch, k.Span(), fmt.Sprintf("unsupported kind expression: %T", k))
 		return types.TypeOfTypes

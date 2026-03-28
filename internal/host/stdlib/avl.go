@@ -301,7 +301,7 @@ func avlFilterWithKey(n *avlNode, pred eval.Value, cmp eval.Value, root **avlNod
 	if err != nil {
 		return ce, err
 	}
-	if con, ok := result.(*eval.ConVal); ok && con.Con == "True" {
+	if con, ok := result.(*eval.ConVal); ok && con.Con == eval.BoolTrue {
 		var inserted bool
 		*root, inserted, ce, err = avlInsert(*root, n.key, n.value, cmp, ce, apply)
 		if err != nil {

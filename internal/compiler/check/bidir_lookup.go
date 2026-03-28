@@ -46,10 +46,6 @@ func (ch *Checker) matchArrow(ty types.Type, s span.Span) (types.Type, types.Typ
 
 // lookupVar resolves a variable name to its type and Core node.
 func (ch *Checker) lookupVar(e *syntax.ExprVar) (types.Type, ir.Core, bool) {
-	// Suppress errors for parser error-recovery sentinels.
-	if e.Name == "<error>" {
-		return &types.TyError{S: e.S}, &ir.Var{Name: e.Name, S: e.S}, false
-	}
 	ty, mod, ok := ch.ctx.LookupVarFull(e.Name)
 	if !ok {
 		msg := "unbound variable: " + e.Name
@@ -68,9 +64,6 @@ func (ch *Checker) lookupVar(e *syntax.ExprVar) (types.Type, ir.Core, bool) {
 
 // lookupCon resolves a constructor name to its type and Core node.
 func (ch *Checker) lookupCon(e *syntax.ExprCon) (types.Type, ir.Core, bool) {
-	if e.Name == "<error>" {
-		return &types.TyError{S: e.S}, &ir.Con{Name: e.Name, S: e.S}, false
-	}
 	ty, ok := ch.reg.LookupConType(e.Name)
 	if !ok {
 		msg := "unknown constructor: " + e.Name
