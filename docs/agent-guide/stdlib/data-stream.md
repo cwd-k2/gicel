@@ -23,7 +23,8 @@ form Stream := \a. { LCons: a -> (() -> Stream a) -> Stream a; LNil: Stream a }
 | `takeWhile` | `\a. (a -> Bool) -> Stream a -> List a`                     | Take while predicate holds            |
 | `repeat`    | `\a. a -> Stream a`                                         | Infinite constant stream              |
 
-Instances: `Functor Stream`, `Foldable Stream`, `FromList (Stream a)`, `ToList (Stream a)`
+Instances: `Functor Stream`, `Foldable Stream`, `FromList (Stream a)`, `ToList (Stream a)`.
+`toList`, `fromList`, `fmap`, and `foldr` are provided via these instances. They work unqualified but cannot be used with qualified syntax (e.g., `S.fmap` will fail).
 
 **Example:**
 

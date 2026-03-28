@@ -14,7 +14,8 @@ Provides contiguous array with O(1) length/index. Load with `eng.Use(gicel.DataS
 | `foldl`     | `\a b. (b -> a -> b) -> b -> Slice a -> b` | Left fold       |
 | `fmap`      | `\a b. (a -> b) -> Slice a -> Slice b`     | Map over slice  |
 
-Instances: `Functor Slice`, `Foldable Slice`, `FromList (Slice a)`, `ToList (Slice a)`
+Instances: `Functor Slice`, `Foldable Slice`, `FromList (Slice a)`, `ToList (Slice a)`.
+`toList`, `fromList`, `fmap`, and `foldr` are provided via these instances. They work unqualified but cannot be used with qualified syntax.
 
 **Example:**
 

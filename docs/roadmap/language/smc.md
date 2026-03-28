@@ -40,15 +40,6 @@ form UsageSemiring := \(s: Type). {
 
 **残り作業**: 半環形式化 (`plus`/`mult` 追加)、積圏表現、QTT 接続。
 
-## Row TF: Without / Lookup
-
-`Merge :: Row -> Row -> Row` は builtin type family として実装済み。`Without` と `Lookup` は型レベル label 表現の設計が前提。
-
-```gicel
-type Without :: Row -> Type -> Row   -- remove a label
-type Lookup :: Type -> Row -> Type   -- look up a label
-```
-
 ## Full SMC 到達後
 
 | Concept            | Target                         |

@@ -30,6 +30,7 @@ Provides an ordered immutable set backed by a Map. Load with `eng.Use(gicel.Data
 
 - Sets are persistent (immutable). Insert/delete return new sets.
 - `toList` returns elements in sorted order.
+- `toList` and `fromList` are typeclass instance methods (`ToList`, `FromList`), not direct module exports. They work unqualified but cannot be used with qualified syntax.
 
 > **Tip:** `Data.Set` exports `insert`, `member`, `delete`, `size` which overlap with `Data.Map`.
 > Use qualified imports when both are needed: `import Data.Map as Map`, `import Data.Set as Set`.

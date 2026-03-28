@@ -35,7 +35,7 @@ Arithmetic via `Num Double` (`+`, `-`, `*`, `negate`) and `Div Double` (`/`). In
 
 ```
 byteToInt :: Byte -> Int
-intToByte :: Int -> Byte
+intToByte :: Int -> Maybe Byte
 ```
 
 Instances: `Eq`, `Ord`, `Show`.

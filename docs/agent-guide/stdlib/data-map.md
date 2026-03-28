@@ -33,6 +33,7 @@ Provides an ordered immutable map backed by an AVL tree. All key-parameterized o
 
 - Maps are persistent (immutable). Insert/delete return new maps.
 - `toList` returns pairs sorted by key.
+- `toList` and `fromList` are typeclass instance methods (`ToList`, `FromList`), not direct module exports. They work unqualified but cannot be used with qualified syntax (e.g., `M.fromList` will fail; use unqualified `fromList` instead).
 
 > **Tip:** `Data.Map` exports `insert`, `member`, `delete`, `size` which overlap with `Data.Set`.
 > Use qualified imports when both are needed: `import Data.Map as Map`, `import Data.Set as Set`.

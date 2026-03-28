@@ -78,7 +78,7 @@ CLI flags:
 | `--timeout`     | `5s`      | Execution/compilation timeout (run, check)                                                                      |
 | `--max-steps`   | `100000`  | Step limit (run only)                                                                                           |
 | `--max-depth`   | `10000`   | Depth limit (run only)                                                                                          |
-| `--max-nesting` | `512`     | Structural nesting depth limit (run only)                                                                       |
+| `--max-nesting` | `512`     | Structural nesting depth limit (run, check)                                                                     |
 | `--max-alloc`   | `100 MiB` | Allocation byte limit (run only)                                                                                |
 | `--json`        | `false`   | Output result as JSON (run, check)                                                                              |
 | `--explain`     | `false`   | Show semantic evaluation trace (run only)                                                                       |
@@ -91,6 +91,8 @@ CLI flags:
 Use `;` when writing inline: `gicel run -e 'import Prelude; main := 1 + 2'`.
 
 **`--explain-all`** is only effective when `--explain` is also set.
+
+**Step counting:** `--max-steps` counts user-level evaluation steps. Native stdlib operations (`foldl`, `map`, `replicate`, etc.) execute in the host runtime and are bounded by `--timeout` and `--max-alloc` rather than `--max-steps`. When a user-supplied closure is called from native code, those closure evaluations do count as steps.
 
 **Go API (Sandbox):**
 

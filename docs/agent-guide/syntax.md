@@ -46,11 +46,14 @@ fib := fix $ \self n. if n <= 1 then n else self (n - 1) + self (n - 2)
 **`rec`** — computation-level fixpoint. Type: `\(r: Row) a. (Computation r r a -> Computation r r a) -> Computation r r a`. The pre and post rows must be equal (the effect signature is unchanged by the recursive call):
 
 ```
--- Stateful loop via rec
-loop := rec $ \self. do { x <- get; if x >= 10 then pure x else do { put (x + 1); self } }
+-- Stateful loop via rec (must be inside a do block or wrapped with thunk)
+main := do {
+  put 0;
+  rec (\self. do { x <- get; if x >= 10 then pure x else do { put (x + 1); self } })
+}
 ```
 
-Use `fix` for pure recursive functions. Use `rec` for recursive effectful computations where the effect row is preserved across iterations.
+Use `fix` for pure recursive functions. Use `rec` for recursive effectful computations where the effect row is preserved across iterations. Note: `rec` produces a `Computation` value, so it cannot be a bare top-level binding (E0291). Use it inside `do` blocks or wrap with `thunk`.
 
 ### Punctuation and Delimiters
 

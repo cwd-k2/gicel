@@ -72,10 +72,10 @@ Session types は check-only で正しく動作する。Runtime 実行には hos
 
 ## Far Future (assessed, not planned)
 
-| Extension                                             | Category         | Prerequisite                |
-| ----------------------------------------------------- | ---------------- | --------------------------- |
-| Tensor product kind (`QType`)                         | Type system      | Full SMC + quantum use case |
-| Optimizer Phase 2–3 (selective inline + case-of-case) | Optimization     | Benchmark-driven demand     |
-| Refinement types                                      | Phase transition | Separate analysis           |
-| Dependent types                                       | Full restructure | Far future                  |
-| Impredicativity                                       | Type system      | Not planned                 |
+| Extension                                             | Category         | Prerequisite                                                 |
+| ----------------------------------------------------- | ---------------- | ------------------------------------------------------------ |
+| Tensor product kind (`QType`)                         | Type system      | Full SMC + quantum use case                                  |
+| Optimizer Phase 2–3 (selective inline + case-of-case) | Optimization     | Benchmark-driven demand                                      |
+| Refinement types                                      | Phase transition | Separate analysis                                            |
+| Dependent types                                       | Full restructure | Far future                                                   |
+| Impredicativity (full)                                | Type system      | Partial: Maybe/tuples work, List does not. Boundary unclear. |

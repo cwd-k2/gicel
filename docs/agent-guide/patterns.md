@@ -129,6 +129,8 @@ main := do { r <- force process; pure r }
 ### Thunk and Force
 
 ```
+import Prelude
+
 suspended :: Thunk {} {} Bool
 suspended := thunk (pure True)
 
@@ -169,15 +171,24 @@ Note: for list traversal, prefer Prelude's `map`/`filter`/`foldr` over manual `c
 
 ### Recursion
 
-`rec`/`fix` are gated by default. Without them, use Prelude's `foldr` or `foldl`. Enable with `eng.EnableRecursion()` or `--recursion`.
+`rec`/`fix` keywords are gated by default. Enable with `eng.EnableRecursion()` or `--recursion`.
+
+A top-level binding with a preceding type annotation may self-reference without `fix`:
 
 ```
--- Wrong: self-reference without fix
+-- OK: type annotation enables self-reference
+countdown :: Int -> Int
 countdown := \n. if n == 0 then 0 else countdown (n - 1)
+```
 
--- Correct: fix provides self as parameter
+Without a type annotation, use `fix` (requires `--recursion`):
+
+```
+-- fix provides self as parameter
 countdown := fix (\self n. if n == 0 then 0 else self (n - 1))
 ```
+
+For simple iteration, Prelude's `foldr`/`foldl` avoid recursion entirely.
 
 ### The dot serves triple duty
 

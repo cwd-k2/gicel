@@ -127,12 +127,21 @@ Named capabilities allow multiple independent instances of the same effect type 
 ```
 import Effect.State
 
--- Two independent state capabilities
-program :: Computation { x: Int, y: String | r } { x: Int, y: String | r } Int
+-- Named state capability
+program :: Computation { x: Int | r } { x: Int | r } Int
 program := do {
   putAt @`x 42;
-  putAt @`y "hello";
   getAt @`x
+}
+
+-- Multiple named capabilities (same type)
+counter :: Computation { a: Int, b: Int | r } { a: Int, b: Int | r } Int
+counter := do {
+  putAt @`a 10;
+  putAt @`b 20;
+  x <- getAt @`a;
+  y <- getAt @`b;
+  pure (x + y)
 }
 ```
 
