@@ -9,8 +9,15 @@ import (
 	"github.com/cwd-k2/gicel/internal/lang/ir"
 )
 
+// annotate runs the same IR annotation passes the pipeline uses.
+func annotate(expr ir.Core) {
+	ir.AnnotateFreeVars(expr)
+	ir.AssignIndices(expr)
+}
+
 func TestCompileLit(t *testing.T) {
 	expr := &ir.Lit{Value: int64(42)}
+	annotate(expr)
 	c := NewCompiler(nil, nil)
 	proto := c.CompileExpr(expr)
 
@@ -30,6 +37,7 @@ func TestCompileVar(t *testing.T) {
 	globals := map[string]int{"x": 0}
 	expr := &ir.Var{Name: "x", Index: -1, Key: "x"}
 	c := NewCompiler(globals, nil)
+	annotate(expr)
 	proto := c.CompileExpr(expr)
 
 	assertOp(t, proto, OpLoadGlobal)
@@ -41,6 +49,7 @@ func TestCompileLam(t *testing.T) {
 	body := &ir.Var{Name: "x", Index: 0}
 	expr := &ir.Lam{Param: "x", Body: body}
 	c := NewCompiler(nil, nil)
+	annotate(expr)
 	proto := c.CompileExpr(expr)
 
 	assertOp(t, proto, OpClosure)
@@ -59,6 +68,7 @@ func TestCompileApp(t *testing.T) {
 	expr := &ir.App{Fun: fn, Arg: arg}
 	globals := map[string]int{"f": 0}
 	c := NewCompiler(globals, nil)
+	annotate(expr)
 	proto := c.CompileExpr(expr)
 
 	// Non-tail at top level (CompileExpr wraps with ForceEffectful+Return).
@@ -74,6 +84,7 @@ func TestCompileAppNonTail(t *testing.T) {
 	bind := &ir.Bind{Comp: app, Var: "r", Body: &ir.Var{Name: "r", Index: 0}}
 	globals := map[string]int{"f": 0}
 	c := NewCompiler(globals, nil)
+	annotate(bind)
 	proto := c.CompileExpr(bind)
 
 	assertOp(t, proto, OpApply) // non-tail because of bind
@@ -83,6 +94,7 @@ func TestCompileAppNonTail(t *testing.T) {
 func TestCompileCon(t *testing.T) {
 	expr := &ir.Con{Name: "Just", Args: []ir.Core{&ir.Lit{Value: int64(42)}}}
 	c := NewCompiler(nil, nil)
+	annotate(expr)
 	proto := c.CompileExpr(expr)
 
 	assertOp(t, proto, OpCon)
@@ -100,6 +112,7 @@ func TestCompileCaseSimple(t *testing.T) {
 	}
 	globals := map[string]int{"x": 0}
 	c := NewCompiler(globals, nil)
+	annotate(cs)
 	proto := c.CompileExpr(cs)
 
 	assertOp(t, proto, OpMatchCon)
@@ -110,6 +123,7 @@ func TestCompileBind(t *testing.T) {
 	body := &ir.Var{Name: "x", Index: 0}
 	expr := &ir.Bind{Comp: comp, Var: "x", Body: body}
 	c := NewCompiler(nil, nil)
+	annotate(expr)
 	proto := c.CompileExpr(expr)
 
 	assertOp(t, proto, OpBind)
@@ -119,6 +133,7 @@ func TestCompileThunkForce(t *testing.T) {
 	thunk := &ir.Thunk{Comp: &ir.Lit{Value: int64(7)}}
 	expr := &ir.Force{Expr: thunk}
 	c := NewCompiler(nil, nil)
+	annotate(expr)
 	proto := c.CompileExpr(expr)
 
 	assertOp(t, proto, OpThunk)
@@ -133,6 +148,7 @@ func TestCompileFix(t *testing.T) {
 	}
 	expr := &ir.Fix{Name: "self", Body: body}
 	c := NewCompiler(nil, nil)
+	annotate(expr)
 	proto := c.CompileExpr(expr)
 
 	assertOp(t, proto, OpFixClosure)
@@ -153,6 +169,7 @@ func TestCompileRecordLit(t *testing.T) {
 		},
 	}
 	c := NewCompiler(nil, nil)
+	annotate(expr)
 	proto := c.CompileExpr(expr)
 
 	assertOp(t, proto, OpRecord)
@@ -166,6 +183,7 @@ func TestCompileRecordProj(t *testing.T) {
 	}
 	expr := &ir.RecordProj{Record: rec, Label: "x"}
 	c := NewCompiler(nil, nil)
+	annotate(expr)
 	proto := c.CompileExpr(expr)
 
 	assertOp(t, proto, OpRecordProj)
@@ -175,6 +193,7 @@ func TestCompileTyAppErased(t *testing.T) {
 	inner := &ir.Lit{Value: int64(42)}
 	expr := &ir.TyApp{Expr: inner}
 	c := NewCompiler(nil, nil)
+	annotate(expr)
 	proto := c.CompileExpr(expr)
 
 	// TyApp is erased — should just compile the inner Lit.
@@ -191,6 +210,7 @@ func TestCompilePrimOp(t *testing.T) {
 		S:     span.Span{},
 	}
 	c := NewCompiler(nil, nil)
+	annotate(expr)
 	proto := c.CompileExpr(expr)
 
 	assertOp(t, proto, OpPrim)

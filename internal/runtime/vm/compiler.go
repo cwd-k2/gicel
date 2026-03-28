@@ -545,11 +545,9 @@ func (e *emitter) compileRecordUpdate(upd *ir.RecordUpdate) {
 // compileChildProto compiles a nested function or thunk body.
 // fv is the list of free variable names from the IR (Lam.FV or Thunk.FV).
 // fvIndices is the list of de Bruijn indices in the enclosing env.
-// If fv is nil, free variables are computed from the body (test/fallback path).
+// Callers must ensure FV annotation has been run (ir.AnnotateFreeVars);
+// fv==nil is accepted only for top-level lambdas with no captures.
 func (e *emitter) compileChildProto(paramName string, body ir.Core, isThunk bool, fv []string, fvIndices []int) *Proto {
-	if fv == nil {
-		fv, fvIndices = e.inferFreeVars(body, paramName)
-	}
 	child := newEmitter(e.compiler, e)
 	child.isThunk = isThunk
 	child.paramName = paramName
@@ -575,9 +573,6 @@ func (e *emitter) compileChildProto(paramName string, body ir.Core, isThunk bool
 
 // compileFixProto compiles a Fix body (self-referential closure or thunk).
 func (e *emitter) compileFixProto(selfName, paramName string, body ir.Core, isThunk bool, fv []string, fvIndices []int) *Proto {
-	if fv == nil {
-		fv, fvIndices = e.inferFreeVars(body, paramName, selfName)
-	}
 	child := newEmitter(e.compiler, e)
 	child.isThunk = isThunk
 	child.paramName = paramName
@@ -602,29 +597,6 @@ func (e *emitter) compileFixProto(selfName, paramName string, body ir.Core, isTh
 	child.emit(OpReturn)
 
 	return child.finalize(e.compiler.source)
-}
-
-// inferFreeVars computes free variables from a body expression,
-// excluding the given bound names. Used as fallback when Lam.FV is nil.
-func (e *emitter) inferFreeVars(body ir.Core, boundNames ...string) ([]string, []int) {
-	fvMap := ir.FreeVars(body)
-	// Remove bound names.
-	for _, name := range boundNames {
-		delete(fvMap, name)
-	}
-	if len(fvMap) == 0 {
-		return nil, nil
-	}
-	// Only keep names that are local in the parent scope (not globals).
-	var fv []string
-	var fvIndices []int
-	for name := range fvMap {
-		if slot, ok := e.resolveLocal(name); ok {
-			fv = append(fv, name)
-			fvIndices = append(fvIndices, slot)
-		}
-	}
-	return fv, fvIndices
 }
 
 // resolveCapturesFiltered resolves free variable names to parent local slots,

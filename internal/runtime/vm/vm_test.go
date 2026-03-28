@@ -240,6 +240,9 @@ func runExprFull(t *testing.T, expr ir.Core, prims *eval.PrimRegistry, globalSlo
 	if prims == nil {
 		prims = eval.NewPrimRegistry()
 	}
+	// Run the same annotation passes the pipeline uses before compilation.
+	ir.AnnotateFreeVars(expr)
+	ir.AssignIndices(expr)
 	c := NewCompiler(globalSlots, nil)
 	proto := c.CompileExpr(expr)
 	b := budget.New(context.Background(), 100000, 1000)

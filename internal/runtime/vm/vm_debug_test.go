@@ -52,6 +52,8 @@ func TestVMFoldlFst(t *testing.T) {
 	// Build myFst as VMClosure.
 	myFstBody := &ir.RecordProj{Record: &ir.Var{Name: "p", Index: 0}, Label: "_1"}
 	myFstLam := &ir.Lam{Param: "p", Body: myFstBody}
+	ir.AnnotateFreeVars(myFstLam)
+	ir.AssignIndices(myFstLam)
 	c := NewCompiler(globals, nil)
 	myFstProto := c.CompileBinding(ir.Binding{Name: "myFst", Expr: myFstLam})
 
@@ -93,6 +95,8 @@ func TestVMFoldlFst(t *testing.T) {
 		Arg: foldlApp,
 	}
 
+	ir.AnnotateFreeVars(fullExpr)
+	ir.AssignIndices(fullExpr)
 	entryProto := c.CompileExpr(fullExpr)
 	result, err := machine.Run(entryProto, eval.EmptyCapEnv())
 	if err != nil {

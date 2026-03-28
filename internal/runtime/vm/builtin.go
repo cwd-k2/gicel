@@ -43,6 +43,8 @@ func CompileBuiltinGlobals(compiler *Compiler, enableFix, enableRec bool) map[st
 // compileBuiltinLam compiles a Lam{Param, Body} expression into a VMClosure.
 func compileBuiltinLam(compiler *Compiler, name, param string, body ir.Core) eval.Value {
 	lam := &ir.Lam{Param: param, Body: body}
+	ir.AnnotateFreeVars(lam)
+	ir.AssignIndices(lam)
 	proto := compiler.CompileBinding(ir.Binding{Name: name, Expr: lam})
 	// Run the compiled proto to produce the VMClosure value.
 	// Since builtins have no captures and no effects, this is safe.
