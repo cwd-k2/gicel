@@ -112,9 +112,21 @@ func (r *Runtime) annotateError(err error) error {
 	return err
 }
 
-// initBuiltinGlobals constructs the immutable base globals with builtins and constructors.
+// initBuiltinGlobals registers builtin names and data constructors in the
+// globals map. Builtin values (pure, bind, force, fix, rec) are placeholder
+// nils here; precompileVM replaces them with VMClosures.
 func (r *Runtime) initBuiltinGlobals(gatedBuiltins map[string]bool) {
-	globals := eval.BuiltinGlobals(gatedBuiltins["fix"], gatedBuiltins["rec"])
+	globals := make(map[string]eval.Value, 8)
+	// Register builtin names (values are set by precompileVM).
+	for _, name := range []string{"pure", "bind", "force"} {
+		globals[name] = nil
+	}
+	if gatedBuiltins["fix"] {
+		globals["fix"] = nil
+	}
+	if gatedBuiltins["rec"] {
+		globals["rec"] = nil
+	}
 
 	for _, me := range r.moduleEntries {
 		for _, d := range me.prog.DataDecls {
