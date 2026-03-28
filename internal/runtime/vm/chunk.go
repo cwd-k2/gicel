@@ -30,8 +30,15 @@ type Proto struct {
 	RecordDescs []RecordDesc
 
 	// Debug information.
-	Spans  []SpanEntry  // bytecode offset → source span
-	Source *span.Source // source text for error attribution
+	Spans     []SpanEntry  // bytecode offset → source span
+	Source    *span.Source // source text for error attribution
+	BindNames []BindInfo   // maps OpBind slot → variable name (for observer)
+}
+
+// BindInfo records the variable name for an OpBind instruction.
+type BindInfo struct {
+	Slot int
+	Name string
 }
 
 // SpanEntry maps a bytecode offset range to a source span.

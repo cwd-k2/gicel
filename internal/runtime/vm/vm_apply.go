@@ -14,10 +14,26 @@ func (vm *VM) apply(fn eval.Value, arg eval.Value, frame *Frame, tail bool) erro
 	switch f := fn.(type) {
 	case *eval.VMClosure:
 		proto := f.Proto.(*Proto)
+		var leaveObs bool
+		if vm.obs != nil && f.Name != "" {
+			if vm.obs.IsInternal(f.Name) {
+				vm.obs.EnterInternal()
+				leaveObs = true
+			} else if vm.obs.Active() {
+				vm.obs.Emit(vm.budget.Depth(), eval.ExplainLabel,
+					eval.ExplainDetail{Name: f.Name, LabelKind: "enter", Value: eval.PrettyValue(arg)},
+					frame.proto.SpanAt(frame.ip))
+			}
+		}
 		if tail {
+			frame.leaveObs = leaveObs
 			return vm.tailCallClosure(proto, f.Captured, arg, frame)
 		}
-		return vm.callClosure(proto, f.Captured, arg, frame)
+		err := vm.callClosure(proto, f.Captured, arg, frame)
+		if err == nil && leaveObs {
+			vm.currentFrame().leaveObs = true
+		}
+		return err
 
 	case *eval.Closure:
 		// Tree-walker closure encountered in VM context (e.g., from builtin globals).
@@ -185,6 +201,20 @@ func (vm *VM) forceEffectful(v eval.Value, capEnv eval.CapEnv, frame *Frame) (ev
 		val, newCap, err := vm.callPrim(impl, capForImpl, pv.Args)
 		if err != nil {
 			return nil, capEnv, err
+		}
+		// Observer: emit effect event.
+		if vm.obs.Active() {
+			args := make([]string, len(pv.Args))
+			for i, a := range pv.Args {
+				args[i] = eval.PrettyValue(a)
+			}
+			vm.obs.Emit(vm.budget.Depth(), eval.ExplainEffect,
+				eval.ExplainDetail{
+					Op:    pv.Name,
+					Args:  args,
+					Value: eval.PrettyValue(val),
+				},
+				frame.proto.SpanAt(frame.ip))
 		}
 		return val, newCap, nil
 	}

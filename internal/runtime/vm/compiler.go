@@ -68,6 +68,9 @@ type emitter struct {
 	// captures: indices in the enclosing scope's locals that this proto captures.
 	captures []int
 
+	// bindNames: records variable names for OpBind instructions (observer support).
+	bindNames []BindInfo
+
 	// Is this a thunk body?
 	isThunk bool
 	// Parameter name (for closures).
@@ -382,11 +385,12 @@ func (e *emitter) compileFix(fix *ir.Fix) {
 
 func (e *emitter) compileBind(bind *ir.Bind, tail bool) {
 	e.addSpan(bind.S)
-	// Compile the computation.
 	e.compileExpr(bind.Comp, false)
-	// Bind: force effectful, store result in local slot.
 	slot := e.allocLocal(bind.Var)
 	e.emitU16(OpBind, uint16(slot))
+	if bind.Var != "_" && !bind.Generated {
+		e.bindNames = append(e.bindNames, BindInfo{Slot: slot, Name: bind.Var})
+	}
 	// Compile body. Force effectful on the body result to handle
 	// bare effectful PrimVals or auto-force thunks at the end of
 	// do-block chains (mirrors tree-walker's deferred ForceEffectful).
@@ -622,5 +626,6 @@ func (e *emitter) finalize(source *span.Source) *Proto {
 		RecordDescs: e.recordDescs,
 		Spans:       e.spans,
 		Source:      source,
+		BindNames:   e.bindNames,
 	}
 }

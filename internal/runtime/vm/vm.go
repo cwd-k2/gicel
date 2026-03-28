@@ -11,11 +11,12 @@ import (
 
 // Frame is a single activation record on the VM's call stack.
 type Frame struct {
-	proto  *Proto
-	ip     int         // instruction pointer within proto.Code
-	bp     int         // base pointer into vm.locals
-	capEnv eval.CapEnv // capability environment for this frame
-	source *span.Source
+	proto    *Proto
+	ip       int         // instruction pointer within proto.Code
+	bp       int         // base pointer into vm.locals
+	capEnv   eval.CapEnv // capability environment for this frame
+	source   *span.Source
+	leaveObs bool // true if LeaveInternal should be called on return
 }
 
 // VM is the bytecode virtual machine for GICEL.
@@ -282,12 +283,14 @@ func (vm *VM) execute() (eval.EvalResult, error) {
 
 		case OpReturn:
 			result := vm.pop()
+			if frame.leaveObs {
+				vm.obs.LeaveInternal()
+			}
 			if vm.fp == 0 {
 				return eval.EvalResult{Value: result, CapEnv: frame.capEnv}, nil
 			}
 			callerCapEnv := frame.capEnv
 			vm.budget.Leave()
-			// Shrink locals to frame boundary.
 			vm.locals = vm.locals[:frame.bp]
 			vm.popFrame()
 			vm.push(result)
@@ -340,6 +343,14 @@ func (vm *VM) execute() (eval.EvalResult, error) {
 			}
 			frame.capEnv = newCapEnv
 			vm.setLocal(frame, int(slot), result)
+			// Observer: emit bind event.
+			if vm.obs.Active() {
+				if name := vm.lookupBindName(frame.proto, int(slot)); name != "" {
+					vm.obs.Emit(vm.budget.Depth(), eval.ExplainBind,
+						eval.ExplainDetail{Var: name, Value: eval.PrettyValue(result), Monadic: true},
+						frame.proto.SpanAt(frame.ip-3))
+				}
+			}
 
 		case OpCon:
 			nameIdx := DecodeU16(frame.proto.Code, frame.ip)
@@ -413,7 +424,7 @@ func (vm *VM) execute() (eval.EvalResult, error) {
 			failOffset := DecodeU16(frame.proto.Code, frame.ip)
 			frame.ip += 2
 			desc := frame.proto.MatchDescs[descIdx]
-			scrut := vm.pop() // always pop scrutinee
+			scrut := vm.pop()
 			cv, ok := scrut.(*eval.ConVal)
 			if !ok || cv.Con != desc.ConName || len(cv.Args) != len(desc.ArgSlots) {
 				frame.ip = int(failOffset)
@@ -421,6 +432,12 @@ func (vm *VM) execute() (eval.EvalResult, error) {
 			}
 			for i, slot := range desc.ArgSlots {
 				vm.setLocal(frame, slot, cv.Args[i])
+			}
+			// Observer: emit match event.
+			if vm.obs.Active() {
+				vm.obs.Emit(vm.budget.Depth(), eval.ExplainMatch,
+					eval.ExplainDetail{Value: eval.PrettyValue(scrut), Name: desc.ConName},
+					frame.proto.SpanAt(frame.ip-5))
 			}
 
 		case OpMatchLit:
@@ -574,6 +591,16 @@ func (vm *VM) runtimeError(msg string, frame *Frame) *eval.RuntimeError {
 		Span:    s,
 		Source:  frame.source,
 	}
+}
+
+// lookupBindName returns the variable name for an OpBind slot, or "".
+func (vm *VM) lookupBindName(proto *Proto, slot int) string {
+	for _, bi := range proto.BindNames {
+		if bi.Slot == slot {
+			return bi.Name
+		}
+	}
+	return ""
 }
 
 // litEqual compares two literal values for equality (pattern matching).
