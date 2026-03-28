@@ -10,34 +10,34 @@ import Prelude
 import Effect.State
 import Console
 
--- Two independent named Int states, addressed by label.
--- Helper as thunk (no annotation needed — type is inferred).
-inc := thunk (do {
+-- Helper with type annotation: concrete label in the row.
+inc :: \(r: Row). () -> Computation { counter: Int | r } { counter: Int | r } ()
+inc := \(). do {
   n <- getAt @#counter;
   putAt @#counter (n + 1)
-})
+}
 
 main := do {
-  -- Named state: initialize two independent slots
+  -- Different-typed named capabilities coexist
   putAt @#counter 0;
-  putAt @#total 100;
+  putAt @#name "Alice";
 
-  -- Use helper thunk for repeated operations
-  force inc;
-  force inc;
-  force inc;
+  -- Named helper (type-annotated, uses #counter)
+  inc ();
+  inc ();
+  inc ();
 
   -- Named + unnamed state coexist
   put "hello";
   s <- get;
 
-  -- Read final values
+  -- Read all capabilities
   c <- getAt @#counter;
-  t <- getAt @#total;
+  n <- getAt @#name;
   putLine ("counter: " <> show c);
-  putLine ("total: " <> show t);
+  putLine ("name: " <> n);
   putLine ("unnamed: " <> s)
 }
 -- counter: 3
--- total: 100
+-- name: Alice
 -- unnamed: hello

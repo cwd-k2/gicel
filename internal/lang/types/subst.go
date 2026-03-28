@@ -107,6 +107,18 @@ func substDepth(t Type, varName string, replacement Type, depth int) Type {
 				if newT != f.Type {
 					changed = true
 				}
+				// Label substitution: when a row field label matches the
+				// variable being substituted and the replacement is a label
+				// literal (L1 TyCon), replace the label string. This enables
+				// \(l: Label) s r. { l: s | r } to concretize to { counter: s | r }
+				// when l is substituted with #counter.
+				newLabel := f.Label
+				if f.Label == varName {
+					if lc, ok := replacement.(*TyCon); ok && IsKindLevel(lc.Level) {
+						newLabel = lc.Name
+						changed = true
+					}
+				}
 				var newGrades []Type
 				if len(f.Grades) > 0 {
 					newGrades = make([]Type, len(f.Grades))
@@ -117,7 +129,7 @@ func substDepth(t Type, varName string, replacement Type, depth int) Type {
 						}
 					}
 				}
-				fields[i] = RowField{Label: f.Label, Type: newT, Grades: newGrades, S: f.S}
+				fields[i] = RowField{Label: newLabel, Type: newT, Grades: newGrades, S: f.S}
 			}
 			var newTail Type
 			if ty.Tail != nil {
