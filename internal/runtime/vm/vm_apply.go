@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"runtime"
 
+	"github.com/cwd-k2/gicel/internal/infra/span"
 	"github.com/cwd-k2/gicel/internal/runtime/eval"
 )
 
@@ -159,7 +160,8 @@ func (vm *VM) tailCallThunk(proto *Proto, captured []eval.Value, frame *Frame) e
 }
 
 // forceEffectful handles auto-force thunks and saturated effectful PrimVals.
-func (vm *VM) forceEffectful(v eval.Value, capEnv eval.CapEnv, frame *Frame) (eval.Value, eval.CapEnv, error) {
+// callSpan is the source span of the call site (for observer events).
+func (vm *VM) forceEffectful(v eval.Value, capEnv eval.CapEnv, frame *Frame, callSpan span.Span) (eval.Value, eval.CapEnv, error) {
 	// Auto-force rec thunks.
 	if thv, ok := v.(*eval.VMThunkVal); ok && thv.AutoForce {
 		if err := vm.budget.Step(); err != nil {
@@ -201,10 +203,10 @@ func (vm *VM) forceEffectful(v eval.Value, capEnv eval.CapEnv, frame *Frame) (ev
 			return nil, capEnv, err
 		}
 		// Observer: emit effect event with CapEnv diff.
+		// Use the call site span (from OpBind) for user-visible location.
 		if vm.obs.Active() {
 			detail := eval.EffectDetail(pv.Name, pv.Args, val, capForImpl, newCap)
-			vm.obs.Emit(vm.budget.Depth(), eval.ExplainEffect, detail,
-				frame.proto.SpanAt(frame.ip))
+			vm.obs.Emit(vm.budget.Depth(), eval.ExplainEffect, detail, callSpan)
 		}
 		return val, newCap, nil
 	}

@@ -111,14 +111,17 @@ func compilePatternCollect(e *emitter, pat ir.Pattern, failPatches *[]int) {
 // TOS = scrutinee. On match: args are stored in local slots.
 func compilePCon(e *emitter, p *ir.PCon, failPatches *[]int) {
 	argSlots := make([]int, len(p.Args))
+	argNames := make([]string, len(p.Args))
 	for i, arg := range p.Args {
 		name := patternSlotName(arg, i)
 		argSlots[i] = e.allocLocal(name)
+		argNames[i] = name
 	}
 
 	descIdx := e.addMatchDesc(MatchDesc{
 		ConName:  p.Con,
 		ArgSlots: argSlots,
+		ArgNames: argNames,
 	})
 
 	pos := e.emitU16U16(OpMatchCon, descIdx, 0) // 0 = placeholder

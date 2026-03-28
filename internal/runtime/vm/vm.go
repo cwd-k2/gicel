@@ -3,6 +3,7 @@ package vm
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/cwd-k2/gicel/internal/infra/budget"
 	"github.com/cwd-k2/gicel/internal/infra/span"
@@ -374,7 +375,7 @@ func (vm *VM) execute() (eval.EvalResult, error) {
 
 		case OpForceEffectful:
 			v := vm.pop()
-			result, newCapEnv, err := vm.forceEffectful(v, frame.capEnv, frame)
+			result, newCapEnv, err := vm.forceEffectful(v, frame.capEnv, frame, frame.proto.SpanAt(frame.ip))
 			if err != nil {
 				return eval.EvalResult{}, err
 			}
@@ -382,10 +383,11 @@ func (vm *VM) execute() (eval.EvalResult, error) {
 			vm.push(result)
 
 		case OpBind:
+			bindIP := frame.ip - 1 // position of OpBind itself
 			slot := DecodeU16(frame.proto.Code, frame.ip)
 			frame.ip += 2
 			v := vm.pop()
-			result, newCapEnv, err := vm.forceEffectful(v, frame.capEnv, frame)
+			result, newCapEnv, err := vm.forceEffectful(v, frame.capEnv, frame, frame.proto.SpanAt(bindIP))
 			if err != nil {
 				return eval.EvalResult{}, err
 			}
@@ -481,10 +483,21 @@ func (vm *VM) execute() (eval.EvalResult, error) {
 			for i, slot := range desc.ArgSlots {
 				vm.setLocal(frame, slot, cv.Args[i])
 			}
-			// Observer: emit match event.
+			// Observer: emit match event with scrutinee, pattern, and bindings.
 			if vm.obs.Active() {
-				vm.obs.Emit(vm.budget.Depth(), eval.ExplainMatch,
-					eval.ExplainDetail{Value: eval.PrettyValue(scrut), Name: desc.ConName},
+				detail := eval.ExplainDetail{
+					Scrutinee: eval.PrettyValue(scrut),
+					Pattern:   formatMatchConPattern(desc),
+				}
+				if len(desc.ArgNames) > 0 {
+					detail.Bindings = make(map[string]string, len(desc.ArgNames))
+					for i, name := range desc.ArgNames {
+						if name != "" && name[0] != '$' && i < len(cv.Args) {
+							detail.Bindings[name] = eval.PrettyValue(cv.Args[i])
+						}
+					}
+				}
+				vm.obs.Emit(vm.budget.Depth(), eval.ExplainMatch, detail,
 					frame.proto.SpanAt(frame.ip-5))
 			}
 
@@ -648,6 +661,18 @@ func (vm *VM) runtimeError(msg string, frame *Frame) *eval.RuntimeError {
 		Span:    s,
 		Source:  frame.source,
 	}
+}
+
+// formatMatchConPattern formats a constructor pattern for observer display.
+func formatMatchConPattern(desc MatchDesc) string {
+	if len(desc.ArgNames) == 0 {
+		return desc.ConName
+	}
+	parts := make([]string, len(desc.ArgNames))
+	for i, n := range desc.ArgNames {
+		parts[i] = n
+	}
+	return desc.ConName + " " + strings.Join(parts, " ")
 }
 
 // lookupBindName returns the variable name for an OpBind slot, or "".

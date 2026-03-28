@@ -52,9 +52,9 @@ type MatchDesc struct {
 	// ConName is the constructor name (for constructor patterns).
 	ConName string
 	// ArgSlots maps each constructor argument to a local slot.
-	// For nested patterns, the argument is first stored in its slot,
-	// then further match instructions test it.
 	ArgSlots []int
+	// ArgNames are the variable names for each arg (for observer).
+	ArgNames []string
 	// Labels lists field labels (for record patterns).
 	Labels []string
 	// FieldSlots maps each field to a local slot (for record patterns).
