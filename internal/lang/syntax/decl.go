@@ -36,10 +36,11 @@ type DeclValueDef struct {
 //	form Ord := \a. Eq a => { compare: a -> a -> Ordering; };
 //	form Collection := \(c: Type). { type Elem :: Type; empty: c; insert: Elem c -> c -> c; };
 type DeclForm struct {
-	Name    string
-	KindAnn TypeExpr // optional :: Kind annotation (nil if omitted)
-	Body    TypeExpr // \params. [constraints =>] { fields }
-	S       span.Span
+	Name         string
+	KindAnn      TypeExpr // optional :: Kind annotation (nil if omitted)
+	Body         TypeExpr // \params. [constraints =>] { fields }
+	ADTShorthand bool     // true when constructors use implicit return type (form Bool := True | False)
+	S            span.Span
 }
 
 // DeclTypeAlias is a structural type declaration.

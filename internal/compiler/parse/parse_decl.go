@@ -5,7 +5,6 @@ import (
 	"strconv"
 
 	syn "github.com/cwd-k2/gicel/internal/lang/syntax"
-	"github.com/cwd-k2/gicel/internal/lang/types"
 
 	"github.com/cwd-k2/gicel/internal/infra/diagnostic"
 	"github.com/cwd-k2/gicel/internal/infra/span"
@@ -117,7 +116,7 @@ func (p *Parser) parseFormDecl() *syn.DeclForm {
 	// ADT shorthand: form Name := Con1 | Con2 fields | ...
 	if p.peek().Kind == syn.TokUpper && p.looksLikePipeADT() {
 		body := p.parseADTConsAsRow(nil, start)
-		return &syn.DeclForm{Name: name, KindAnn: kindAnn, Body: body, S: span.Span{Start: start, End: p.prevEnd()}}
+		return &syn.DeclForm{Name: name, KindAnn: kindAnn, Body: body, ADTShorthand: true, S: span.Span{Start: start, End: p.prevEnd()}}
 	}
 
 	body := p.parseType()
@@ -170,38 +169,22 @@ func (p *Parser) parseADTConsAsRow(params []syn.TyBinder, start span.Pos) syn.Ty
 		}
 	}
 
-	// Build the form type name applied to params for return types.
-	// e.g., form Maybe a := Just a | Nothing → return type = Maybe a
-	// For param-less: form Bool := True | False → return type = Bool
-	// We need the form type name from the outer context, but parseADTConsAsRow
-	// doesn't have it. Use a placeholder that the checker resolves.
-	// Actually, for ADT shorthand, constructors don't include the return type
-	// (it's implicit). We synthesize: Con: field1 -> field2 -> ... -> ()
-	// where () signals "nullary or ADT-style" to the checker.
+	// ADT shorthand: constructors have implicit return types.
+	// Nullary constructors get nil type. Non-nullary constructors store
+	// field types as a right-nested arrow chain (f1 -> f2 -> ... -> fN).
+	// The checker appends the result type using DeclForm.ADTShorthand.
 
 	rowFields := make([]syn.TyRowField, len(cons))
 	for i, c := range cons {
 		var ty syn.TypeExpr
-		if len(c.fields) == 0 {
-			// Nullary: synthesize unit type ()
-			ty = &syn.TyExprApp{
-				Fun: &syn.TyExprCon{Name: types.TyConRecord, S: c.s},
-				Arg: &syn.TyExprRow{S: c.s},
-				S:   c.s,
-			}
-		} else {
-			// Non-nullary: synthesize arrow chain f1 -> f2 -> ... -> ()
-			// The trailing () is a sentinel that processFormDeclParts replaces
-			// with the actual result type (e.g., Shape).
-			ty = &syn.TyExprApp{
-				Fun: &syn.TyExprCon{Name: types.TyConRecord, S: c.s},
-				Arg: &syn.TyExprRow{S: c.s},
-				S:   c.s,
-			}
-			for j := len(c.fields) - 1; j >= 0; j-- {
+		if len(c.fields) > 0 {
+			// Build arrow chain from field types. The last field is the leaf.
+			ty = c.fields[len(c.fields)-1]
+			for j := len(c.fields) - 2; j >= 0; j-- {
 				ty = &syn.TyExprArrow{From: c.fields[j], To: ty, S: c.s}
 			}
 		}
+		// ty == nil for nullary constructors.
 		rowFields[i] = syn.TyRowField{Label: c.name, Type: ty, S: c.s}
 	}
 

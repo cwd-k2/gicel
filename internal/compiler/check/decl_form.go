@@ -62,37 +62,37 @@ func (ch *Checker) processFormDeclParts(d *syntax.DeclForm, parts formBodyParts,
 			continue
 		}
 		seenCons[conName] = true
-		fieldTy := ch.resolveTypeExpr(field.Type)
 
-		// Constructor type is the full GADT-style type.
-		// The field type IS the constructor's full type:
-		//   Nil:  List a                → nullary, return = List a
-		//   Cons: a -> List a -> List a → binary, fields = [a, List a], return = List a
-		//   Just: a -> Maybe a          → unary, fields = [a], return = Maybe a
-		//   Lit:  Int -> Expr Int       → GADT, fields = [Int], return = Expr Int (refined)
-		//
-		// The checker peels arrows to extract field types; the last type is the return.
-		// ADT shorthand generates unit type (Record {}) for nullary constructors.
-		// Replace with resultType so the constructor type is correct.
-		conType := fieldTy
-		if isUnitType(fieldTy) {
-			// Nullary constructor: replace unit with result type.
+		// ADT shorthand: the parser omits the return type (field.Type may be nil).
+		// Substitute resultType before resolving.
+		var fieldTy types.Type
+		var conType types.Type
+		if d.ADTShorthand && field.Type == nil {
+			// Nullary constructor: type is resultType directly.
 			conType = resultType
 			fieldTy = resultType
-		}
-		fieldTypes, retTy := decomposeConSig(fieldTy)
-
-		// ADT shorthand: the parser synthesizes () as a sentinel return type.
-		// Replace it with the actual result type (e.g., Nat for form Nat := ...).
-		if isUnitType(retTy) && len(fieldTypes) > 0 {
-			retTy = resultType
-			// Rebuild conType: field1 -> field2 -> ... -> resultType
+		} else if d.ADTShorthand {
+			// Non-nullary: parser stored field types as arrow chain (f1 -> ... -> fN).
+			// Decompose into fields, then rebuild with resultType appended.
+			fieldTy = ch.resolveTypeExpr(field.Type)
+			allParts, lastPart := decomposeConSig(fieldTy)
+			// The "last part" is the final field type (not a return type).
+			fieldParts := append(allParts, lastPart)
 			conType = resultType
-			for i := len(fieldTypes) - 1; i >= 0; i-- {
-				conType = types.MkArrow(fieldTypes[i], conType)
+			for i := len(fieldParts) - 1; i >= 0; i-- {
+				conType = types.MkArrow(fieldParts[i], conType)
 			}
 			fieldTy = conType
+		} else {
+			fieldTy = ch.resolveTypeExpr(field.Type)
+			conType = fieldTy
+			// Non-shorthand nullary constructor: () means unit.
+			if isUnitType(fieldTy) {
+				conType = resultType
+				fieldTy = resultType
+			}
 		}
+		fieldTypes, retTy := decomposeConSig(fieldTy)
 
 		// Detect GADT: if the constructor's return type differs from the
 		// generic result type (T a b c ...), this is a refined return type.
