@@ -456,9 +456,6 @@ func (vm *VM) execute() (eval.EvalResult, error) {
 			frame.ip += 2
 			desc := frame.proto.RecordDescs[descIdx]
 			n := len(desc.Labels)
-			if err := vm.budget.Alloc(eval.CostRecord + int64(eval.CostRecordField*n)); err != nil {
-				return eval.EvalResult{}, err
-			}
 			updates := make([]eval.RecordField, n)
 			for i := n - 1; i >= 0; i-- {
 				updates[i] = eval.RecordField{Label: desc.Labels[i], Value: vm.pop()}
@@ -468,6 +465,11 @@ func (vm *VM) execute() (eval.EvalResult, error) {
 			if !ok {
 				return eval.EvalResult{}, vm.runtimeError(
 					fmt.Sprintf("record update on non-record: %s", rec), frame)
+			}
+			// Charge for the full result record (existing fields + updates).
+			totalFields := rv.Len() + n
+			if err := vm.budget.Alloc(eval.CostRecord + int64(eval.CostRecordField*totalFields)); err != nil {
+				return eval.EvalResult{}, err
 			}
 			vm.push(rv.Update(updates))
 
@@ -579,7 +581,7 @@ func (vm *VM) execute() (eval.EvalResult, error) {
 			idx := DecodeU16(frame.proto.Code, frame.ip)
 			frame.ip += 2
 			proto := frame.proto.Protos[idx]
-			if err := vm.budget.Alloc(eval.CostClosure); err != nil {
+			if err := vm.budget.Alloc(eval.CostFix); err != nil {
 				return eval.EvalResult{}, err
 			}
 			captured := vm.captureLocals(frame, proto.Captures)
@@ -597,7 +599,7 @@ func (vm *VM) execute() (eval.EvalResult, error) {
 			idx := DecodeU16(frame.proto.Code, frame.ip)
 			frame.ip += 2
 			proto := frame.proto.Protos[idx]
-			if err := vm.budget.Alloc(eval.CostThunk); err != nil {
+			if err := vm.budget.Alloc(eval.CostFix); err != nil {
 				return eval.EvalResult{}, err
 			}
 			captured := vm.captureLocals(frame, proto.Captures)
