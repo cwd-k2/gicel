@@ -196,5 +196,9 @@ func (pc *pipelineCtx) assembleRuntime(prog *ir.Program, src *span.Source) *Runt
 	}
 	rt.initBuiltinGlobals(runtimeGates)
 	rt.buildGlobalSlots()
+
+	if rt.useVM {
+		rt.precompileVM(runtimeGates)
+	}
 	return rt
 }

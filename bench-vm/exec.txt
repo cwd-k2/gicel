@@ -1,0 +1,26 @@
+goos: darwin
+goarch: amd64
+pkg: github.com/cwd-k2/gicel/internal/app/engine
+cpu: Intel(R) Core(TM) i7-1068NG7 CPU @ 2.30GHz
+BenchmarkVMExecSmall-8     	     747	   1591921 ns/op	  884356 B/op	    9767 allocs/op
+BenchmarkVMExecSmall-8     	     745	   1589918 ns/op	  884360 B/op	    9767 allocs/op
+BenchmarkVMExecSmall-8     	     700	   1655911 ns/op	  884359 B/op	    9767 allocs/op
+BenchmarkVMExecSmall-8     	     742	   1590776 ns/op	  884358 B/op	    9767 allocs/op
+BenchmarkVMExecSmall-8     	     759	   1605739 ns/op	  884350 B/op	    9767 allocs/op
+BenchmarkTreeExecSmall-8   	    4928	    269588 ns/op	  111521 B/op	    1997 allocs/op
+BenchmarkTreeExecSmall-8   	    4624	    279440 ns/op	  111520 B/op	    1997 allocs/op
+BenchmarkTreeExecSmall-8   	    3981	    272210 ns/op	  111521 B/op	    1997 allocs/op
+BenchmarkTreeExecSmall-8   	    4152	    266713 ns/op	  111521 B/op	    1997 allocs/op
+BenchmarkTreeExecSmall-8   	    4758	    275280 ns/op	  111521 B/op	    1997 allocs/op
+BenchmarkTreeExecArray-8   	    1222	    978585 ns/op	  387218 B/op	    6465 allocs/op
+BenchmarkTreeExecArray-8   	    1195	   1017448 ns/op	  387219 B/op	    6465 allocs/op
+BenchmarkTreeExecArray-8   	    1154	   1007581 ns/op	  387219 B/op	    6465 allocs/op
+BenchmarkTreeExecArray-8   	    1260	    979787 ns/op	  387219 B/op	    6465 allocs/op
+BenchmarkTreeExecArray-8   	    1068	   1019357 ns/op	  387219 B/op	    6465 allocs/op
+BenchmarkVMExecArray-8     	     586	   2097619 ns/op	 1038683 B/op	   12328 allocs/op
+BenchmarkVMExecArray-8     	     548	   2188453 ns/op	 1038688 B/op	   12328 allocs/op
+BenchmarkVMExecArray-8     	     565	   2126101 ns/op	 1038682 B/op	   12328 allocs/op
+BenchmarkVMExecArray-8     	     589	   2125582 ns/op	 1038670 B/op	   12328 allocs/op
+BenchmarkVMExecArray-8     	     550	   2154056 ns/op	 1038703 B/op	   12328 allocs/op
+PASS
+ok  	github.com/cwd-k2/gicel/internal/app/engine	98.561s
