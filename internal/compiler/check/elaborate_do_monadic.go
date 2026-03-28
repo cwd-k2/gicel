@@ -35,18 +35,22 @@ func (ch *Checker) checkDo(e *syntax.ExprDo, expected types.Type) ir.Core {
 	}
 
 	// Class dispatch: extract monad head and elaborate with dictionary.
+	//
+	// Two paths are available depending on the class instance:
+	//  1. Monad m: desugar to mbind/mpure at the AST level and type-check normally.
+	//  2. IxMonad m (direct): elaborate with ixbind/ixpure dictionary dispatch.
+	//
+	// Lift-based resolution (IxMonad (Lift m)) is excluded from do-elaboration.
+	// Lift erases row parameters (Lift m r1 r2 a = m a), so when monadHead
+	// carries partially-applied rows (e.g. State Int Int), wrapping it in Lift
+	// loses the pre/post state threading and produces incorrect elaboration
+	// whenever pre ≠ post.
 	monadHead := ch.extractMonadHead(expected)
 	if monadHead != nil {
-		// If the type has a Monad instance, desugar do-block into explicit
-		// mbind/mpure calls and type-check through the normal pipeline.
-		// This avoids the Lift-based IxMonad dispatch, which requires an
-		// IxMonad (Lift m) instance that may not exist (V8 fix).
 		if ch.hasMonadInstance(monadHead, e.S) {
 			desugared := ch.desugarDoToMonad(e.Stmts, e.S)
 			return ch.check(desugared, expected)
 		}
-		// No Monad instance. Try direct IxMonad dispatch (without Lift
-		// wrapping, which has a known elaboration bug for a ≠ b — V8).
 		if ch.hasDirectIxMonadInstance(monadHead, e.S) {
 			head, _ := types.UnwindApp(monadHead)
 			d := &doElaborator{ch: ch, mode: doModeMonadic, monadHead: head, expected: expected}
@@ -120,7 +124,7 @@ const (
 
 // hasDirectIxMonadInstance checks whether the IxMonad class has a direct
 // resolvable instance for the bare type constructor head of monadHead.
-// Only tries direct resolution (no Lift wrapping) to avoid the V8 Lift bug.
+// Lift-based resolution is excluded; see checkDo comment for rationale.
 func (ch *Checker) hasDirectIxMonadInstance(monadHead types.Type, s span.Span) bool {
 	if _, ok := ch.reg.LookupClass("IxMonad"); !ok {
 		return false
@@ -141,11 +145,17 @@ func (ch *Checker) hasMonadInstance(monadHead types.Type, s span.Span) bool {
 }
 
 // extractIxMethod resolves an IxMonad dictionary for monadHead and extracts
-// the method at methodIdx. Resolution order:
-//  1. Direct: IxMonad monadHead (user-defined IxMonad instance)
-//  2. Lifted: IxMonad (Lift monadHead) (standard path for Computation-like types)
+// the method at methodIdx.
 //
-// Falls through to an error if neither succeeds.
+// Resolution order: direct IxMonad instance first, then Lift-wrapped fallback.
+// The Lift fallback is needed for pure/ixpure elaboration outside do-blocks
+// (bidir_cbpv.go), where Type→Type monads like Maybe resolve via
+// IxMonad (Lift Maybe). Lift is safe there because Type→Type monads have
+// no row parameters to lose.
+//
+// Inside do-blocks, checkDo's dispatch guards ensure doModeMonadic is only
+// entered with a bare head that has a direct instance, so the Lift fallback
+// is not reached from that path.
 func (ch *Checker) extractIxMethod(monadHead types.Type, methodIdx int, s span.Span) ir.Core {
 	classInfo, _ := ch.reg.LookupClass("IxMonad")
 	if classInfo == nil {
@@ -153,13 +163,15 @@ func (ch *Checker) extractIxMethod(monadHead types.Type, methodIdx int, s span.S
 		return &ir.Error{S: s}
 	}
 
-	// 1. Try direct IxMonad instance.
+	// Try direct IxMonad instance.
 	if dict, ok := ch.tryResolveInstance("IxMonad", []types.Type{monadHead}, s); ok {
 		fieldIdx := len(classInfo.Supers) + methodIdx
 		return ch.extractDictField(classInfo, dict, fieldIdx, "ixm", s)
 	}
 
-	// 2. Try Lift-wrapped IxMonad.
+	// Lift fallback: IxMonad (Lift monadHead).
+	// Safe for Type→Type monads; unreachable for Row→Row→Type→Type types
+	// because checkDo rejects those without a direct instance.
 	liftedMonad := &types.TyApp{Fun: types.Con("Lift"), Arg: monadHead}
 	dict := ch.resolveInstance("IxMonad", []types.Type{liftedMonad}, s)
 	fieldIdx := len(classInfo.Supers) + methodIdx
