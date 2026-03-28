@@ -384,6 +384,11 @@ func matchDetail(scrutinee, pattern string, bindings map[string]Value) ExplainDe
 	return d
 }
 
+// EffectDetail constructs an ExplainDetail for an effect event, including CapEnv diff.
+func EffectDetail(name string, args []Value, result Value, oldCap, newCap CapEnv) ExplainDetail {
+	return effectDetail(name, args, result, oldCap, newCap)
+}
+
 func effectDetail(name string, args []Value, result Value, oldCap, newCap CapEnv) ExplainDetail {
 	d := ExplainDetail{
 		Op:     name,

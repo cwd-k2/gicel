@@ -17,6 +17,9 @@ func compilePatternMatch(e *emitter, cs *ir.Case, tail bool) {
 	numAlts := len(cs.Alts)
 	var endJumps []int
 
+	// Save locals count before Case so we can release $scrut after.
+	caseSavedLocals := len(e.locals)
+
 	// Save scrutinee in a local slot so sub-patterns can reload it on failure.
 	scrutSlot := e.allocLocal("$scrut")
 	e.emitU16(OpStoreLocal, uint16(scrutSlot))
@@ -58,8 +61,8 @@ func compilePatternMatch(e *emitter, cs *ir.Case, tail bool) {
 		}
 	}
 
-	// Emit MATCH_FAIL for non-exhaustive matches.
-	// Patch last alt's fail offsets to point here.
+	// Emit MATCH_FAIL with scrutinee for error message.
+	e.emitU16(OpLoadLocal, uint16(scrutSlot))
 	matchFailPos := len(e.code)
 	e.emit(OpMatchFail)
 	if numAlts > 0 {
@@ -72,6 +75,9 @@ func compilePatternMatch(e *emitter, cs *ir.Case, tail bool) {
 	for _, pos := range endJumps {
 		e.patchJumpTo(pos)
 	}
+
+	// Release $scrut slot from name-lookup list (allows reuse in nested Cases).
+	e.popLocals(caseSavedLocals)
 }
 
 // compilePatternCollect compiles a single pattern test. The value to match is on TOS.

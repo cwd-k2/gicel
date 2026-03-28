@@ -122,6 +122,7 @@ const (
 	// --- Budget ---
 
 	// OpStep charges one evaluation step against the budget.
+	// Operand: u16 node kind string pool index (for TraceHook).
 	OpStep
 
 	opcodeCount // sentinel: total number of opcodes
@@ -169,12 +170,14 @@ func InstructionSize(op Opcode) int {
 	case OpJump:
 		return 3 // opcode + i16
 
+	case OpStep:
+		return 3 // opcode + u16 (node kind string index)
+
 	case OpApply, OpTailApply, OpReturn,
 		OpForce, OpForceTail, OpForceEffectful,
 		OpConstUnit,
 		OpMatchWild, OpMatchFail,
-		OpPop,
-		OpStep:
+		OpPop:
 		return 1 // opcode only
 
 	default:

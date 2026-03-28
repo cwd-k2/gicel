@@ -211,14 +211,20 @@ func (vm *VM) execute() (eval.EvalResult, error) {
 
 		switch op {
 		case OpStep:
+			kindIdx := DecodeU16(frame.proto.Code, frame.ip)
+			frame.ip += 2
 			vm.stats.Steps++
 			if err := vm.budget.Step(); err != nil {
 				return eval.EvalResult{}, err
 			}
 			if vm.trace != nil {
+				kind := ""
+				if int(kindIdx) < len(frame.proto.Strings) {
+					kind = frame.proto.Strings[kindIdx]
+				}
 				if err := vm.trace(eval.TraceEvent{
 					Depth:    vm.budget.Depth(),
-					NodeKind: "Step",
+					NodeKind: kind,
 					CapEnv:   frame.capEnv,
 				}); err != nil {
 					return eval.EvalResult{}, err
@@ -302,6 +308,24 @@ func (vm *VM) execute() (eval.EvalResult, error) {
 
 		case OpReturn:
 			result := vm.pop()
+			// Force auto-force thunks before returning (mirrors tree-walker's
+			// deferred ForceEffectful on Bind body results).
+			if thv, ok := result.(*eval.VMThunkVal); ok && thv.AutoForce {
+				if err := vm.budget.Step(); err != nil {
+					return eval.EvalResult{}, err
+				}
+				proto := thv.Proto.(*Proto)
+				// Reuse current frame for thunk execution (TCO).
+				bp := frame.bp
+				vm.ensureLocals(bp + proto.NumLocals)
+				for i := range proto.NumLocals {
+					vm.locals[bp+i] = nil
+				}
+				copy(vm.locals[bp:], thv.Captured)
+				frame.proto = proto
+				frame.ip = 0
+				continue
+			}
 			if frame.leaveObs {
 				vm.obs.LeaveInternal()
 			}
@@ -512,16 +536,16 @@ func (vm *VM) execute() (eval.EvalResult, error) {
 		case OpMatchFail:
 			msg := "non-exhaustive pattern match"
 			if vm.sp > 0 {
-				v := vm.peek()
+				v := vm.pop()
 				if hv, ok := v.(*eval.HostVal); ok {
 					if s, ok := hv.Inner.(string); ok {
 						// Custom error message (e.g., from Fix with non-lambda body).
 						msg = s
 					} else {
-						msg += " on " + v.String()
+						msg += " on " + eval.PrettyValue(v)
 					}
 				} else {
-					msg += " on " + v.String()
+					msg += " on " + eval.PrettyValue(v)
 				}
 			}
 			return eval.EvalResult{}, vm.runtimeError(msg, frame)

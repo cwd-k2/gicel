@@ -96,6 +96,55 @@ func newEmitter(c *Compiler, parent *emitter) *emitter {
 
 // --- bytecode emission ---
 
+// emitStep emits an OpStep with the node kind from the IR expression.
+func (e *emitter) emitStep(expr ir.Core) {
+	kind := irNodeKind(expr)
+	idx := e.addString(kind)
+	e.emitU16(OpStep, idx)
+}
+
+// irNodeKind returns a short human-readable name for the Core IR node type.
+func irNodeKind(c ir.Core) string {
+	switch c.(type) {
+	case *ir.Var:
+		return "Var"
+	case *ir.Lit:
+		return "Lit"
+	case *ir.Lam:
+		return "Lam"
+	case *ir.App:
+		return "App"
+	case *ir.TyApp:
+		return "TyApp"
+	case *ir.TyLam:
+		return "TyLam"
+	case *ir.Con:
+		return "Con"
+	case *ir.Case:
+		return "Case"
+	case *ir.Fix:
+		return "Fix"
+	case *ir.Pure:
+		return "Pure"
+	case *ir.Bind:
+		return "Bind"
+	case *ir.Thunk:
+		return "Thunk"
+	case *ir.Force:
+		return "Force"
+	case *ir.PrimOp:
+		return "PrimOp"
+	case *ir.RecordLit:
+		return "Record"
+	case *ir.RecordProj:
+		return "RecordProj"
+	case *ir.RecordUpdate:
+		return "RecordUpdate"
+	default:
+		return "?"
+	}
+}
+
 func (e *emitter) emit(op Opcode) int {
 	pos := len(e.code)
 	e.code = append(e.code, byte(op))
@@ -225,7 +274,7 @@ func (e *emitter) addSpan(s span.Span) {
 // compileExpr compiles a Core IR expression. tail indicates whether the
 // expression is in tail position.
 func (e *emitter) compileExpr(expr ir.Core, tail bool) {
-	e.emit(OpStep)
+	e.emitStep(expr)
 
 	switch node := expr.(type) {
 	case *ir.Var:
@@ -401,11 +450,9 @@ func (e *emitter) compileBind(bind *ir.Bind, tail bool) {
 	if bind.Var != "_" && !bind.Generated {
 		e.bindNames = append(e.bindNames, BindInfo{Slot: slot, Name: bind.Var})
 	}
-	// Compile body. Force effectful on the body result to handle
-	// bare effectful PrimVals or auto-force thunks at the end of
-	// do-block chains (mirrors tree-walker's deferred ForceEffectful).
-	e.compileExpr(bind.Body, false)
-	e.emit(OpForceEffectful)
+	// Body is in tail position if the Bind itself is. ForceEffectful for
+	// the final result is handled by CompileExpr's trailing OpForceEffectful.
+	e.compileExpr(bind.Body, tail)
 }
 
 func (e *emitter) compileThunk(thunk *ir.Thunk) {

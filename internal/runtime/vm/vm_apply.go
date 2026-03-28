@@ -200,18 +200,10 @@ func (vm *VM) forceEffectful(v eval.Value, capEnv eval.CapEnv, frame *Frame) (ev
 		if err != nil {
 			return nil, capEnv, err
 		}
-		// Observer: emit effect event.
+		// Observer: emit effect event with CapEnv diff.
 		if vm.obs.Active() {
-			args := make([]string, len(pv.Args))
-			for i, a := range pv.Args {
-				args[i] = eval.PrettyValue(a)
-			}
-			vm.obs.Emit(vm.budget.Depth(), eval.ExplainEffect,
-				eval.ExplainDetail{
-					Op:    pv.Name,
-					Args:  args,
-					Value: eval.PrettyValue(val),
-				},
+			detail := eval.EffectDetail(pv.Name, pv.Args, val, capForImpl, newCap)
+			vm.obs.Emit(vm.budget.Depth(), eval.ExplainEffect, detail,
 				frame.proto.SpanAt(frame.ip))
 		}
 		return val, newCap, nil
