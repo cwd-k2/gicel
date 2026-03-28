@@ -12,13 +12,13 @@ import (
 // Allocation cost estimates (bytes per value type).
 // Exported for use by the bytecode VM.
 const (
-	CostClosure     = 48                  // Closure struct (incl. Source pointer)
-	CostConBase     = 32                  // ConVal struct
-	CostConArg      = 16                  // per arg in []Value
-	CostThunk       = 32                  // ThunkVal struct (incl. Source pointer)
-	CostRecord      = 32                  // RecordVal struct + slice header
-	CostRecordField = 24                  // per RecordField (label string + Value interface)
-	CostFix         = CostClosure + 40    // Closure + Env node for fix binding
+	CostClosure     = 48               // Closure struct (incl. Source pointer)
+	CostConBase     = 32               // ConVal struct
+	CostConArg      = 16               // per arg in []Value
+	CostThunk       = 32               // ThunkVal struct (incl. Source pointer)
+	CostRecord      = 32               // RecordVal struct + slice header
+	CostRecordField = 24               // per RecordField (label string + Value interface)
+	CostFix         = CostClosure + 40 // Closure + Env node for fix binding
 
 	// Unexported aliases for internal use.
 	costClosure = CostClosure
@@ -50,15 +50,6 @@ type Evaluator struct {
 	cachedApplier Applier          // reused across all primitive invocations
 	stats         EvalStats
 	bounceBuf     bounceVal // reusable bounce buffer for trampoline (avoids per-step heap alloc)
-	vmApplier     Applier   // external applier for VMClosure/VMThunkVal (set by VM)
-}
-
-// SetVMApplier sets an external applier for VMClosure/VMThunkVal values.
-// When the tree-walker encounters a VMClosure in apply, it delegates to this
-// applier instead of erroring. This enables hybrid execution where module
-// bindings use the tree-walker but produce VM-compiled closures.
-func (ev *Evaluator) SetVMApplier(a Applier) {
-	ev.vmApplier = a
 }
 
 // NewEvaluator creates an Evaluator for a single execution.

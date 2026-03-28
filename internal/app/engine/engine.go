@@ -27,16 +27,6 @@ import (
 // as the program's entry point when no explicit name is provided.
 const DefaultEntryPoint = "main"
 
-// Backend selects the execution backend.
-type Backend int
-
-const (
-	// BackendTree uses the tree-walking evaluator (default).
-	BackendTree Backend = iota
-	// BackendVM uses the bytecode VM.
-	BackendVM
-)
-
 // Engine configures and compiles GICEL programs.
 // It is mutable and must not be shared across goroutines.
 type Engine struct {
@@ -44,14 +34,10 @@ type Engine struct {
 	store      ModuleStore
 	limits     Limits
 	compileCtx context.Context // module compilation context (default: Background)
-	backend    Backend         // execution backend (default: tree-walker)
 
 	entryPoint     string               // entry binding name (default: "main")
 	checkTraceHook check.CheckTraceHook // diagnostic hook for type checking
 }
-
-// SetBackend selects the execution backend.
-func (e *Engine) SetBackend(b Backend) { e.backend = b }
 
 // NewEngine creates a new Engine with default limits.
 func NewEngine() *Engine {
@@ -180,7 +166,6 @@ func (e *Engine) pipeline(ctx context.Context) *pipelineCtx {
 		limits:     &e.limits,
 		traceHook:  e.checkTraceHook,
 		entryPoint: ep,
-		backend:    e.backend,
 	}
 }
 

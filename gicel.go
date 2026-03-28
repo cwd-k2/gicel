@@ -33,15 +33,6 @@ type RunResult = engine.RunResult
 // RunOptions configures a single execution.
 type RunOptions = engine.RunOptions
 
-// Backend selects the execution backend.
-type Backend = engine.Backend
-
-// Backend constants.
-const (
-	BackendTree = engine.BackendTree
-	BackendVM   = engine.BackendVM
-)
-
 // ExplainDepth controls how deeply the explain trace instruments evaluation.
 type ExplainDepth = engine.ExplainDepth
 

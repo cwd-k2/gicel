@@ -1,7 +1,6 @@
 package vm
 
 import (
-	"context"
 	"fmt"
 	"runtime"
 
@@ -26,6 +25,11 @@ func (vm *VM) apply(fn eval.Value, arg eval.Value, frame *Frame, tail bool) erro
 			}
 		}
 		if tail {
+			// Before reusing the frame for a tail call, fire any pending
+			// LeaveInternal from the current frame to keep suppress balanced.
+			if frame.leaveObs {
+				vm.obs.LeaveInternal()
+			}
 			frame.leaveObs = leaveObs
 			return vm.tailCallClosure(proto, f.Captured, arg, frame)
 		}
@@ -36,10 +40,8 @@ func (vm *VM) apply(fn eval.Value, arg eval.Value, frame *Frame, tail bool) erro
 		return err
 
 	case *eval.Closure:
-		// Tree-walker closure encountered in VM context (e.g., from builtin globals).
-		// We cannot execute tree-walker closures in the VM directly.
-		// Fall back to the tree-walker's evaluation for this application.
-		return vm.applyTreeWalkerClosure(f, arg, frame)
+		return vm.runtimeError(
+			fmt.Sprintf("tree-walker Closure in VM context (should not happen): %s", f.Param), frame)
 
 	case *eval.ConVal:
 		if err := vm.budget.Alloc(eval.CostConBase + int64(eval.CostConArg*(len(f.Args)+1))); err != nil {
@@ -82,6 +84,9 @@ func (vm *VM) callClosure(proto *Proto, captured []eval.Value, arg eval.Value, f
 		vm.locals[bp+paramSlot] = arg
 	}
 	vm.pushFrame(proto, bp, frame.capEnv, proto.Source)
+	if proto.Source != nil && vm.obs != nil {
+		vm.obs.SetSource(proto.Source)
+	}
 	return nil
 }
 
@@ -120,8 +125,7 @@ func (vm *VM) force(v eval.Value, frame *Frame, tail bool) error {
 		return vm.callThunk(proto, thv.Captured, frame)
 
 	case *eval.ThunkVal:
-		// Tree-walker thunk — cannot execute directly in VM.
-		return vm.forceTreeWalkerThunk(thv, frame)
+		return vm.runtimeError("tree-walker ThunkVal in VM context (should not happen)", frame)
 
 	default:
 		return vm.runtimeError(fmt.Sprintf("force on non-thunk: %s", v), frame)
@@ -169,27 +173,8 @@ func (vm *VM) forceEffectful(v eval.Value, capEnv eval.CapEnv, frame *Frame) (ev
 		}
 		return result.Value, result.CapEnv, nil
 	}
-	if thv, ok := v.(*eval.ThunkVal); ok && thv.AutoForce {
-		if vm.fallbackEval == nil {
-			return nil, capEnv, vm.runtimeError("tree-walker auto-force thunk in VM (no fallback)", frame)
-		}
-		// Loop to handle chains of auto-force thunks without depth accumulation.
-		for {
-			if err := vm.budget.Step(); err != nil {
-				return nil, capEnv, err
-			}
-			result, err := vm.fallbackEval.Eval(thv.Locals, capEnv, thv.Comp)
-			if err != nil {
-				return nil, capEnv, err
-			}
-			// If the result is another auto-force thunk, continue.
-			if next, ok := result.Value.(*eval.ThunkVal); ok && next.AutoForce {
-				thv = next
-				capEnv = result.CapEnv
-				continue
-			}
-			return result.Value, result.CapEnv, nil
-		}
+	if _, ok := v.(*eval.ThunkVal); ok {
+		return nil, capEnv, vm.runtimeError("tree-walker ThunkVal in VM forceEffectful (should not happen)", frame)
 	}
 	// Saturated effectful PrimVal.
 	if pv, ok := v.(*eval.PrimVal); ok && pv.Effectful && len(pv.Args) >= pv.Arity {
@@ -366,48 +351,4 @@ func (vm *VM) callPrim(impl eval.PrimImpl, capEnv eval.CapEnv, args []eval.Value
 		err = fmt.Errorf("primitive returned nil value")
 	}
 	return
-}
-
-// ApplyForExternal returns an Applier that the tree-walker can use to apply
-// VMClosure/VMThunkVal values. This enables hybrid execution.
-func (vm *VM) ApplyForExternal() eval.Applier {
-	return vm.applyForPrim
-}
-
-// applyTreeWalkerClosure handles tree-walker Closures that appear in the VM
-// (e.g., module bindings, builtins). Falls back to the tree-walker evaluator.
-func (vm *VM) applyTreeWalkerClosure(clo *eval.Closure, arg eval.Value, frame *Frame) error {
-	if vm.fallbackEval == nil {
-		return vm.runtimeError(
-			fmt.Sprintf("cannot execute tree-walker closure %q in VM (no fallback evaluator)", clo.Param),
-			frame)
-	}
-	// Use the tree-walker to apply the closure.
-	locals := eval.Push(clo.Locals, arg)
-	result, err := vm.fallbackEval.Eval(locals, frame.capEnv, clo.Body)
-	if err != nil {
-		return err
-	}
-	frame.capEnv = result.CapEnv
-	vm.push(result.Value)
-	return nil
-}
-
-// forceTreeWalkerThunk handles tree-walker ThunkVals in the VM.
-func (vm *VM) forceTreeWalkerThunk(thv *eval.ThunkVal, frame *Frame) error {
-	if vm.fallbackEval == nil {
-		return vm.runtimeError("cannot execute tree-walker thunk in VM (no fallback evaluator)", frame)
-	}
-	result, err := vm.fallbackEval.Eval(thv.Locals, frame.capEnv, thv.Comp)
-	if err != nil {
-		return err
-	}
-	frame.capEnv = result.CapEnv
-	vm.push(result.Value)
-	return nil
-}
-
-// callPrimWithContext invokes a PrimImpl with proper context handling.
-func callPrimWithContext(ctx context.Context, impl eval.PrimImpl, capEnv eval.CapEnv, args []eval.Value, applier eval.Applier) (eval.Value, eval.CapEnv, error) {
-	return impl(ctx, capEnv, args, applier)
 }

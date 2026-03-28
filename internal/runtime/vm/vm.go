@@ -47,6 +47,9 @@ type VM struct {
 	// Observer (explain mode).
 	obs *eval.ExplainObserver
 
+	// Trace hook (low-level step events).
+	trace eval.TraceHook
+
 	// Source for error attribution.
 	source *span.Source
 
@@ -55,9 +58,6 @@ type VM struct {
 
 	// Cached applier for primitive callbacks.
 	cachedApplier eval.Applier
-
-	// Fallback evaluator for tree-walker closures/thunks encountered in VM.
-	fallbackEval *eval.Evaluator
 }
 
 // VMConfig holds configuration for creating a VM.
@@ -69,11 +69,8 @@ type VMConfig struct {
 	Budget       *budget.Budget
 	Ctx          context.Context
 	Observer     *eval.ExplainObserver
+	Trace        eval.TraceHook
 	Source       *span.Source
-	// FallbackEval provides tree-walker evaluation for Closure/ThunkVal
-	// values encountered by the VM (e.g., module bindings compiled by
-	// the tree-walker pipeline). Nil disables the fallback (errors on encounter).
-	FallbackEval *eval.Evaluator
 }
 
 // NewVM creates a VM ready to execute a Proto.
@@ -89,10 +86,10 @@ func NewVM(cfg VMConfig) *VM {
 		budget:       cfg.Budget,
 		ctx:          cfg.Ctx,
 		obs:          cfg.Observer,
+		trace:        cfg.Trace,
 		source:       cfg.Source,
 	}
 	vm.cachedApplier = vm.applyForPrim
-	vm.fallbackEval = cfg.FallbackEval
 	return vm
 }
 
@@ -214,6 +211,15 @@ func (vm *VM) execute() (eval.EvalResult, error) {
 			if err := vm.budget.Step(); err != nil {
 				return eval.EvalResult{}, err
 			}
+			if vm.trace != nil {
+				if err := vm.trace(eval.TraceEvent{
+					Depth:    vm.budget.Depth(),
+					NodeKind: "Step",
+					CapEnv:   frame.capEnv,
+				}); err != nil {
+					return eval.EvalResult{}, err
+				}
+			}
 
 		case OpLoadLocal:
 			slot := DecodeU16(frame.proto.Code, frame.ip)
@@ -248,7 +254,16 @@ func (vm *VM) execute() (eval.EvalResult, error) {
 		case OpConst:
 			idx := DecodeU16(frame.proto.Code, frame.ip)
 			frame.ip += 2
-			vm.push(frame.proto.Constants[idx])
+			v := frame.proto.Constants[idx]
+			// Charge allocation for string literals (matches tree-walker).
+			if hv, ok := v.(*eval.HostVal); ok {
+				if s, ok := hv.Inner.(string); ok && len(s) > 0 {
+					if err := vm.budget.Alloc(int64(len(s))); err != nil {
+						return eval.EvalResult{}, err
+					}
+				}
+			}
+			vm.push(v)
 
 		case OpConstUnit:
 			vm.push(eval.UnitVal)

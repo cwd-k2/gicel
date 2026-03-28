@@ -15,7 +15,7 @@ type Pack = registry.Pack
 
 func TestVMBackendLiteral(t *testing.T) {
 	eng := NewEngine()
-	eng.SetBackend(BackendVM)
+
 	rt, err := eng.NewRuntime(context.Background(), `main := 42`)
 	if err != nil {
 		t.Fatal(err)
@@ -29,7 +29,7 @@ func TestVMBackendLiteral(t *testing.T) {
 
 func TestVMBackendRecState(t *testing.T) {
 	eng := NewEngine()
-	eng.SetBackend(BackendVM)
+
 	eng.EnableRecursion()
 	eng.Use(stdlibPrelude)
 	eng.Use(stdlibState)
@@ -68,7 +68,7 @@ var stdlibState = func() Pack {
 
 func TestVMBackendFixSimple(t *testing.T) {
 	eng := NewEngine()
-	eng.SetBackend(BackendVM)
+
 	eng.EnableRecursion()
 	src := `main := fix (\self n. n) 42`
 	rt, err := eng.NewRuntime(context.Background(), src)

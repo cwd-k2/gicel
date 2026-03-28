@@ -417,18 +417,14 @@ func (e *emitter) compileForce(force *ir.Force, tail bool) {
 
 func (e *emitter) compilePrimOp(prim *ir.PrimOp) {
 	e.addSpan(prim.S)
-	if len(prim.Args) == 0 && prim.Effectful {
-		// Unapplied effectful primitive — push as a stub.
-		stub := &eval.PrimVal{
-			Name: prim.Name, Arity: prim.Arity,
-			Effectful: prim.Effectful, S: prim.S,
-		}
-		idx := e.addConstant(stub)
-		e.emitU16(OpPrimPartial, idx)
-		return
-	}
 	if len(prim.Args) == 0 {
-		// Unapplied non-effectful — push as stub for partial application.
+		if prim.Arity == 0 && !prim.Effectful {
+			// 0-arity non-effectful: invoke immediately (matches tree-walker).
+			nameIdx := e.addString(prim.Name)
+			e.emitU16U8(OpPrim, nameIdx, 0)
+			return
+		}
+		// Unapplied or effectful: push as PrimVal stub.
 		stub := &eval.PrimVal{
 			Name: prim.Name, Arity: prim.Arity,
 			Effectful: prim.Effectful, S: prim.S,

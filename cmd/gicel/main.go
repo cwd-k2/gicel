@@ -544,7 +544,6 @@ func cmdRun(args []string) int {
 	var expr exprFlag
 	fs.Var(&expr, "e", "evaluate source string directly")
 	explainAll := fs.Bool("explain-all", false, "trace stdlib internals (with --explain)")
-	backendStr := fs.String("backend", "tree", "execution backend: tree or vm")
 	if err := fs.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			printRunUsage(os.Stderr)
@@ -598,14 +597,6 @@ func cmdRun(args []string) int {
 	eng.SetNestingLimit(*maxNesting)
 	eng.SetAllocLimit(*maxAlloc)
 	eng.SetEntryPoint(*entry)
-	switch *backendStr {
-	case "tree":
-		// default
-	case "vm":
-		eng.SetBackend(gicel.BackendVM)
-	default:
-		return preflightError(fmt.Sprintf("unknown backend: %s", *backendStr), *jsonOut)
-	}
 
 	rt, err := eng.NewRuntime(ctx, string(source))
 	if err != nil {
