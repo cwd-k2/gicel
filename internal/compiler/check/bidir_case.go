@@ -46,10 +46,10 @@ func (ch *Checker) lubPostStates(posts []types.Type, s span.Span) types.Type {
 	// Fallback: emit equality constraints for all posts (v0 behavior).
 	result := zonked[0]
 	for i := 1; i < len(zonked); i++ {
-		ch.emitEq(result, zonked[i], s, &solve.CtOrigin{
-			Context: fmt.Sprintf("divergent post-states in case branches: %s vs %s",
-				types.Pretty(result), types.Pretty(zonked[i])),
-		})
+		r, z := result, zonked[i]
+		ch.emitEq(r, z, s, solve.WithLazyContext(0, func() string {
+			return "divergent post-states in case branches: " + types.Pretty(r) + " vs " + types.Pretty(z)
+		}))
 	}
 	return result
 }
@@ -82,9 +82,7 @@ func (ch *Checker) intersectCapRows(rows []*types.TyEvidenceRow, s span.Span) ty
 			resultField := types.RowField{Label: f.Label, Type: f.Type, Grades: f.Grades, S: f.S}
 			for _, otherRow := range rows[1:] {
 				if of := types.RowFieldByLabel(otherRow.CapFields(), f.Label); of != nil {
-					ch.emitEq(resultField.Type, of.Type, s, &solve.CtOrigin{
-						Context: fmt.Sprintf("conflicting field types for label %s", f.Label),
-					})
+					ch.emitEq(resultField.Type, of.Type, s, solve.WithContext(0, "conflicting field types for label "+f.Label))
 					ch.joinGrades(&resultField, of.Grades, s)
 				}
 			}
@@ -201,10 +199,9 @@ func (ch *Checker) checkCaseAlts(scrutTy, resultTy types.Type, scrutCore ir.Core
 	if e.IfDesugar {
 		boolTy := types.Con("Bool")
 		if !ch.tryTrivialUnify(scrutTy, boolTy) {
-			ch.emitEq(scrutTy, boolTy, e.Scrutinee.Span(), &solve.CtOrigin{
-				Context: fmt.Sprintf("type mismatch in if-condition: expected Bool, got %s",
-					types.Pretty(ch.unifier.Zonk(scrutTy))),
-			})
+			ch.emitEq(scrutTy, boolTy, e.Scrutinee.Span(), solve.WithLazyContext(0, func() string {
+				return "type mismatch in if-condition: expected Bool, got " + types.Pretty(ch.unifier.Zonk(scrutTy))
+			}))
 		}
 		scrutTy = boolTy
 	}
@@ -264,10 +261,9 @@ func (ch *Checker) checkCaseAlts(scrutTy, resultTy types.Type, scrutCore ir.Core
 	// Join divergent post-states.
 	if isComp && len(branchPosts) > 0 {
 		joinedPost := ch.lubPostStates(branchPosts, e.S)
-		ch.emitEq(comp.Post, joinedPost, e.S, &solve.CtOrigin{
-			Context: fmt.Sprintf("cannot unify case post-state: expected %s, got %s",
-				types.Pretty(comp.Post), types.Pretty(joinedPost)),
-		})
+		ch.emitEq(comp.Post, joinedPost, e.S, solve.WithLazyContext(0, func() string {
+			return "cannot unify case post-state: expected " + types.Pretty(comp.Post) + ", got " + types.Pretty(joinedPost)
+		}))
 	}
 
 	ch.checkExhaustive(scrutTy, alts, e.S)

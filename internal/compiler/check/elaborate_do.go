@@ -281,10 +281,9 @@ func (d *doElaborator) checkedBind(varName string, comp syntax.Expr, rest []synt
 
 	if inferredComp, ok := compTy.(*types.TyCBPV); ok {
 		// Emit equality constraint: inferred pre vs expected pre.
-		ch.emitEq(inferredComp.Pre, d.comp.Pre, stmtS, &solve.CtOrigin{
-			Context: fmt.Sprintf("%s: pre-state mismatch: expected %s, got %s",
-				errLabel, types.Pretty(d.comp.Pre), types.Pretty(inferredComp.Pre)),
-		})
+		ch.emitEq(inferredComp.Pre, d.comp.Pre, stmtS, solve.WithLazyContext(0, func() string {
+			return errLabel + ": pre-state mismatch: expected " + types.Pretty(d.comp.Pre) + ", got " + types.Pretty(inferredComp.Pre)
+		}))
 
 		if isBind {
 			ch.ctx.Push(&CtxVar{Name: varName, Type: inferredComp.Result})

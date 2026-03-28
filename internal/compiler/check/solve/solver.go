@@ -359,9 +359,9 @@ func headIsMeta(t types.Type) bool {
 // context when available, falling back to a generic message.
 func (s *Solver) reportEqError(ct *CtEq, lhs, rhs types.Type) {
 	if ct.Origin != nil && ct.Origin.Code != 0 {
-		s.env.AddCodedError(ct.Origin.Code, ct.S, ct.Origin.Context)
-	} else if ct.Origin != nil && ct.Origin.Context != "" {
-		s.env.AddCodedError(diagnostic.ErrTypeMismatch, ct.S, ct.Origin.Context)
+		s.env.AddCodedError(ct.Origin.Code, ct.S, ct.Origin.GetContext())
+	} else if ct.Origin != nil && ct.Origin.GetContext() != "" {
+		s.env.AddCodedError(diagnostic.ErrTypeMismatch, ct.S, ct.Origin.GetContext())
 	} else {
 		s.env.AddCodedError(diagnostic.ErrTypeMismatch, ct.S,
 			fmt.Sprintf("unsatisfiable type equality: %s ~ %s",

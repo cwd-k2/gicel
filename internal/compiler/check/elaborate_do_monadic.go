@@ -93,10 +93,9 @@ func (ch *Checker) extractMonadResult(ty types.Type, monadHead types.Type, s spa
 	// Generate fresh meta as fallback.
 	result := ch.freshMeta(types.TypeOfTypes)
 	headApp := &types.TyApp{Fun: monadHead, Arg: result}
-	ch.emitEq(ty, headApp, s, &solve.CtOrigin{
-		Code:    diagnostic.ErrBadComputation,
-		Context: fmt.Sprintf("expected %s type, got %s", types.Pretty(monadHead), types.Pretty(ty)),
-	})
+	ch.emitEq(ty, headApp, s, solve.WithLazyContext(diagnostic.ErrBadComputation, func() string {
+		return "expected " + types.Pretty(monadHead) + " type, got " + types.Pretty(ty)
+	}))
 	return result
 }
 

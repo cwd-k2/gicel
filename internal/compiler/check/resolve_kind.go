@@ -89,10 +89,9 @@ func (ch *Checker) checkTypeAppKind(fun, arg types.Type, s span.Span) {
 	if m, isMeta := argKind.(*types.TyMeta); isMeta && types.Equal(m.Kind, types.SortZero) {
 		return
 	}
-	ch.emitEq(ka.From, argKind, s, &solve.CtOrigin{
-		Code:    diagnostic.ErrKindMismatch,
-		Context: fmt.Sprintf("kind mismatch in type application: expected kind %s, got %s", types.PrettyTypeAsKind(ka.From), types.PrettyTypeAsKind(argKind)),
-	})
+	ch.emitEq(ka.From, argKind, s, solve.WithLazyContext(diagnostic.ErrKindMismatch, func() string {
+		return "kind mismatch in type application: expected kind " + types.PrettyTypeAsKind(ka.From) + ", got " + types.PrettyTypeAsKind(argKind)
+	}))
 }
 
 // hasDeterministicKind returns true if the type's kind is deterministic

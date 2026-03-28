@@ -67,9 +67,34 @@ func (c *CtFunEq) ctSpan() span.Span { return c.S }
 // CtOrigin records the generation site context of a constraint.
 // When the solver reports errors, it uses Origin to produce semantic
 // error messages (matching the quality of inline error reporting).
+//
+// Context is computed lazily: if LazyCtx is non-nil, it is called on
+// first access and the result is cached. This avoids types.Pretty
+// traversals at constraint-generation time when the constraint succeeds.
 type CtOrigin struct {
 	Code    diagnostic.Code // semantic error code (0 = use default ErrTypeMismatch)
-	Context string          // human-readable context ("bind: first argument must be a computation")
+	context string          // human-readable context; use GetContext()
+	LazyCtx func() string   // deferred context builder (nil = use context directly)
+}
+
+// WithContext creates a CtOrigin with a static context string.
+func WithContext(code diagnostic.Code, ctx string) *CtOrigin {
+	return &CtOrigin{Code: code, context: ctx}
+}
+
+// WithLazyContext creates a CtOrigin with a deferred context builder.
+func WithLazyContext(code diagnostic.Code, f func() string) *CtOrigin {
+	return &CtOrigin{Code: code, LazyCtx: f}
+}
+
+// GetContext returns the human-readable context string, invoking
+// LazyCtx on first call if present.
+func (o *CtOrigin) GetContext() string {
+	if o.LazyCtx != nil {
+		o.context = o.LazyCtx()
+		o.LazyCtx = nil
+	}
+	return o.context
 }
 
 // CtEq represents a type equality constraint: Lhs ~ Rhs.
