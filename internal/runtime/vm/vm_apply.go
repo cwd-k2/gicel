@@ -229,78 +229,88 @@ func (vm *VM) applyPrim(pv *eval.PrimVal, arg eval.Value, frame *Frame) error {
 }
 
 // applyForPrim is the Applier callback exposed to primitives.
+// It applies a function to an argument within the VM's execution context.
+// If the function is a VMClosure, the body is executed synchronously
+// using execSubProto to avoid interfering with the caller's frame stack.
 func (vm *VM) applyForPrim(fn eval.Value, arg eval.Value, capEnv eval.CapEnv) (eval.Value, eval.CapEnv, error) {
-	// Save VM state.
-	savedSP := vm.sp
-	savedFP := vm.fp
-	savedLocals := len(vm.locals)
+	switch f := fn.(type) {
+	case *eval.VMClosure:
+		proto := f.Proto.(*Proto)
+		// Build locals for the closure call.
+		locals := make([]eval.Value, proto.NumLocals)
+		copy(locals, f.Captured)
+		paramSlot := len(proto.Captures)
+		if proto.FixSelfSlot >= 0 {
+			paramSlot = proto.FixSelfSlot + 1
+		}
+		locals[paramSlot] = arg
 
-	// Set up a temporary frame context.
-	frame := vm.currentFrame()
-	origCapEnv := frame.capEnv
-	frame.capEnv = capEnv
-
-	if err := vm.apply(fn, arg, frame, false); err != nil {
-		frame.capEnv = origCapEnv
-		return nil, capEnv, err
-	}
-
-	// If apply pushed a frame, execute until we return to this level.
-	for vm.fp > savedFP {
-		result, err := vm.executeUntilFrame(savedFP)
+		// Execute the closure body in a fresh sub-execution.
+		result, err := vm.execSub(proto, locals, capEnv)
 		if err != nil {
-			frame.capEnv = origCapEnv
 			return nil, capEnv, err
 		}
-		if result != nil {
-			frame.capEnv = origCapEnv
-			return result.Value, result.CapEnv, nil
+		return result.Value, result.CapEnv, nil
+
+	case *eval.ConVal:
+		args := make([]eval.Value, len(f.Args)+1)
+		copy(args, f.Args)
+		args[len(f.Args)] = arg
+		return &eval.ConVal{Con: f.Con, Args: args}, capEnv, nil
+
+	case *eval.PrimVal:
+		args := make([]eval.Value, len(f.Args)+1)
+		copy(args, f.Args)
+		args[len(f.Args)] = arg
+		if len(args) < f.Arity {
+			return &eval.PrimVal{Name: f.Name, Arity: f.Arity, Effectful: f.Effectful, Args: args, S: f.S}, capEnv, nil
 		}
+		if f.Effectful {
+			return &eval.PrimVal{Name: f.Name, Arity: f.Arity, Effectful: true, Args: args, S: f.S}, capEnv, nil
+		}
+		impl, ok := vm.prims.Lookup(f.Name)
+		if !ok {
+			return nil, capEnv, fmt.Errorf("missing primitive: %s", f.Name)
+		}
+		val, newCap, err := vm.callPrim(impl, capEnv, args)
+		if err != nil {
+			return nil, capEnv, err
+		}
+		return val, newCap, nil
+
+	default:
+		return nil, capEnv, fmt.Errorf("application of non-function in Applier: %s", fn)
 	}
-
-	// Apply didn't push a frame (ConVal, PrimVal).
-	result := vm.pop()
-	resultCapEnv := frame.capEnv
-	frame.capEnv = origCapEnv
-
-	// Restore state.
-	vm.sp = savedSP
-	vm.locals = vm.locals[:savedLocals]
-
-	return result, resultCapEnv, nil
 }
 
-// executeUntilFrame runs the dispatch loop until the frame stack is at or below targetFP.
-func (vm *VM) executeUntilFrame(targetFP int) (*eval.EvalResult, error) {
-	for vm.fp > targetFP {
-		frame := vm.currentFrame()
-		if frame.ip >= len(frame.proto.Code) {
-			if vm.sp > 0 {
-				result := vm.pop()
-				capEnv := frame.capEnv
-				if vm.fp <= targetFP+1 {
-					return &eval.EvalResult{Value: result, CapEnv: capEnv}, nil
-				}
-				vm.budget.Leave()
-				vm.locals = vm.locals[:frame.bp]
-				vm.popFrame()
-				vm.push(result)
-				vm.currentFrame().capEnv = capEnv
-				continue
-			}
-			return nil, &eval.RuntimeError{Message: "empty stack at return"}
-		}
+// execSub executes a proto with pre-built locals in a fresh sub-context.
+// This is used by applyForPrim to avoid interference with the main frame stack.
+func (vm *VM) execSub(proto *Proto, locals []eval.Value, capEnv eval.CapEnv) (eval.EvalResult, error) {
+	// Save and isolate state.
+	savedFrames := vm.frames
+	savedFP := vm.fp
+	savedStack := vm.stack
+	savedSP := vm.sp
+	savedLocals := vm.locals
 
-		// Run one step of the main loop.
-		// This is a simplified re-entry — for correctness, we reuse execute()
-		// but check frame depth after each instruction.
-		result, err := vm.execute()
-		if err != nil {
-			return nil, err
-		}
-		return &result, nil
-	}
-	return nil, nil
+	// Set up isolated state.
+	vm.frames = make([]Frame, 0, 8)
+	vm.fp = 0
+	vm.stack = make([]eval.Value, 0, 16)
+	vm.sp = 0
+	vm.locals = locals
+
+	vm.pushFrame(proto, 0, capEnv, proto.Source)
+	result, err := vm.execute()
+
+	// Restore state.
+	vm.frames = savedFrames
+	vm.fp = savedFP
+	vm.stack = savedStack
+	vm.sp = savedSP
+	vm.locals = savedLocals
+
+	return result, err
 }
 
 // execSubProto executes a proto synchronously (for auto-force thunks in forceEffectful).
