@@ -36,7 +36,7 @@ func TestLabelLiteralResolvesToL1TyCon(t *testing.T) {
 	// Verified indirectly: kindOfType for an L1 TyCon that is not a builtin kind con returns Label.
 	ch := newTestChecker()
 	ch.installFamilyReducer()
-	ty := &types.TyCon{Name: "foo", Level: types.L1}
+	ty := &types.TyCon{Name: "foo", Level: types.L1, IsLabel: true}
 	kind := ch.kindOfType(ty)
 	if !types.Equal(kind, types.TypeOfLabels) {
 		t.Errorf("expected kind Label for label literal, got %s", types.Pretty(kind))
@@ -52,7 +52,7 @@ func TestLabelLiteralDistinctFromBuiltinKindCon(t *testing.T) {
 		}
 	}
 	// User label literal should NOT be a builtin kind con.
-	ty := &types.TyCon{Name: "foo", Level: types.L1}
+	ty := &types.TyCon{Name: "foo", Level: types.L1, IsLabel: true}
 	if types.IsBuiltinKindCon(ty) {
 		t.Error("user label literal should not be a builtin kind con")
 	}
@@ -104,8 +104,8 @@ main := 42`
 
 func TestDistinctLabelLiterals(t *testing.T) {
 	// Two different label literals should not unify.
-	a := &types.TyCon{Name: "a", Level: types.L1}
-	b := &types.TyCon{Name: "b", Level: types.L1}
+	a := &types.TyCon{Name: "a", Level: types.L1, IsLabel: true}
+	b := &types.TyCon{Name: "b", Level: types.L1, IsLabel: true}
 	if types.Equal(a, b) {
 		t.Error("label literals #a and #b should not be equal")
 	}
@@ -115,8 +115,8 @@ func TestSameLabelLiteralsEqual(t *testing.T) {
 	// Same label literals should be equal.
 	ch := newTestChecker()
 	_ = ch // use the checker to follow the pattern
-	a1 := &types.TyCon{Name: "foo", Level: types.L1}
-	a2 := &types.TyCon{Name: "foo", Level: types.L1}
+	a1 := &types.TyCon{Name: "foo", Level: types.L1, IsLabel: true}
+	a2 := &types.TyCon{Name: "foo", Level: types.L1, IsLabel: true}
 	if !types.Equal(a1, a2) {
 		t.Error("label literals with same name should be equal")
 	}
@@ -145,7 +145,7 @@ main := 42`
 
 func TestLabelKindPrettyPrint(t *testing.T) {
 	// Label literals should pretty-print with # prefix.
-	ty := &types.TyCon{Name: "myLabel", Level: types.L1}
+	ty := &types.TyCon{Name: "myLabel", Level: types.L1, IsLabel: true}
 	pretty := types.Pretty(ty)
 	if pretty != "#myLabel" {
 		t.Errorf("#myLabel, got %s", pretty)
@@ -191,7 +191,7 @@ func TestLabelLiteralKindCheckedCorrectly(t *testing.T) {
 	// A label literal used where Label is expected should type-check.
 	ch := newTestChecker()
 	ch.installFamilyReducer()
-	label := &types.TyCon{Name: "myLabel", Level: types.L1}
+	label := &types.TyCon{Name: "myLabel", Level: types.L1, IsLabel: true}
 	kind := ch.kindOfType(label)
 	if kind == nil {
 		t.Fatal("expected non-nil kind for label literal")

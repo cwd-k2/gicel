@@ -10,8 +10,7 @@ func Pretty(t Type) string {
 	case *TyVar:
 		return ty.Name
 	case *TyCon:
-		// Label literals (L1, non-builtin) display with # prefix.
-		if IsKindLevel(ty.Level) && !IsBuiltinKindCon(ty) {
+		if ty.IsLabel {
 			return "#" + ty.Name
 		}
 		return ty.Name

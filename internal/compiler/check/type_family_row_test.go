@@ -123,7 +123,7 @@ func TestWithoutOpenRowStuck(t *testing.T) {
 	ch := newTestChecker()
 	ch.installFamilyReducer()
 
-	labelArg := &types.TyCon{Name: "a", Level: types.L1}
+	labelArg := &types.TyCon{Name: "a", Level: types.L1, IsLabel: true}
 	openRow := types.OpenRow(
 		[]types.RowField{{Label: "a", Type: &types.TyCon{Name: "Int"}}},
 		&types.TyVar{Name: "r"},
@@ -192,7 +192,7 @@ func TestLookupOpenRowStuck(t *testing.T) {
 	ch := newTestChecker()
 	ch.installFamilyReducer()
 
-	labelArg := &types.TyCon{Name: "a", Level: types.L1}
+	labelArg := &types.TyCon{Name: "a", Level: types.L1, IsLabel: true}
 	openRow := types.OpenRow(
 		[]types.RowField{{Label: "a", Type: &types.TyCon{Name: "Int"}}},
 		&types.TyVar{Name: "r"},

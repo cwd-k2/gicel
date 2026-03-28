@@ -24,10 +24,14 @@ type TyVar struct {
 //   - nil or L0: value types (Int, Bool, List, ...)
 //   - L1: kinds (Type, Row, Constraint, promoted data kinds)
 //   - L2: sort of kinds (Kind = Sort₀)
+//
+// IsLabel marks label literals at L1 (e.g., #foo). These are structurally
+// distinct from promoted data constructors and grade constants.
 type TyCon struct {
-	Name  string
-	Level LevelExpr // nil = L0 (value type)
-	S     span.Span
+	Name    string
+	Level   LevelExpr // nil = L0 (value type)
+	IsLabel bool      // true for label literals at L1
+	S       span.Span
 }
 
 // TyApp is a general type application (F T).

@@ -182,10 +182,7 @@ func (ch *Checker) kindOfType(ty types.Type) types.Type {
 		if k, ok := ch.reg.LookupPromotedCon(t.Name); ok {
 			return k
 		}
-		// Label literal TyCons at kind level (Level L1) have kind Label,
-		// unless they are known kind constants (Type, Row, Constraint, Label
-		// are L1 TyCons with kind Sort₀, not Label).
-		if types.IsKindLevel(t.Level) && !types.IsBuiltinKindCon(t) {
+		if t.IsLabel {
 			return types.TypeOfLabels
 		}
 		return types.TypeOfTypes
