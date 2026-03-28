@@ -396,6 +396,9 @@ func (imp *Importer) importSelective(mod *env.ModuleExports, decl syntax.DeclImp
 	imp.importInstances(mod)
 
 	for _, in := range decl.Names {
+		if in.Error {
+			continue // parser already reported; skip to avoid cascading errors
+		}
 		name := in.Name
 		found := false
 

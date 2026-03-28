@@ -10,6 +10,11 @@ import (
 	"github.com/cwd-k2/gicel/internal/infra/span"
 )
 
+// errName is the placeholder returned by expectUpper/expectLower when the
+// expected token is missing. Contains angle brackets so it cannot collide
+// with any valid GICEL identifier.
+const errName = "<error>"
+
 // Fixity holds operator precedence and associativity.
 type Fixity struct {
 	Assoc syn.Assoc
@@ -330,7 +335,7 @@ func (p *Parser) expectUpper() string {
 	tok := p.peek()
 	if tok.Kind != syn.TokUpper {
 		p.addErrorCode(diagnostic.ErrUnexpectedToken, "expected uppercase identifier")
-		return "<error>"
+		return errName
 	}
 	p.advance()
 	return tok.Text
@@ -340,7 +345,7 @@ func (p *Parser) expectLower() string {
 	tok := p.peek()
 	if tok.Kind != syn.TokLower {
 		p.addErrorCode(diagnostic.ErrUnexpectedToken, "expected identifier")
-		return "<error>"
+		return errName
 	}
 	p.advance()
 	return tok.Text

@@ -103,6 +103,7 @@ type ImportName struct {
 	SubList []string // nil = name only, non-nil = explicit sub-list
 	HasSub  bool     // true if parenthesized form used: Name(...) or Name(..)
 	AllSubs bool     // true if (..) used
+	Error   bool     // true when the name failed to parse (skip in import resolution)
 }
 
 // DeclImport is a module import declaration.

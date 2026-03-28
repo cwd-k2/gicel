@@ -80,10 +80,10 @@ func (p *Parser) parseImportName() syn.ImportName {
 			for p.peek().Kind != syn.TokRParen && p.peek().Kind != syn.TokEOF {
 				p.advance()
 			}
-			opName = "<error>"
+			opName = errName
 		}
 		p.expect(syn.TokRParen)
-		return syn.ImportName{Name: opName}
+		return syn.ImportName{Name: opName, Error: opName == errName}
 	}
 
 	// Value binding: lower
@@ -100,7 +100,7 @@ func (p *Parser) parseImportName() syn.ImportName {
 		for p.peek().Kind != syn.TokComma && p.peek().Kind != syn.TokRParen && p.peek().Kind != syn.TokEOF {
 			p.advance()
 		}
-		return syn.ImportName{Name: "<error>"}
+		return syn.ImportName{Name: errName, Error: true}
 	}
 
 	// Type/class: Upper [(..) | (A, B)]
