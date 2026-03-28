@@ -2,6 +2,7 @@ package stdlib
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -39,11 +40,11 @@ func strPackedRoundtrip(c ir.Core) ir.Core {
 func asString(v eval.Value) (string, error) {
 	hv, ok := v.(*eval.HostVal)
 	if !ok {
-		return "", fmt.Errorf("stdlib/str: expected HostVal, got %T", v)
+		return "", errExpected("stdlib/str", "HostVal", v)
 	}
 	s, ok := hv.Inner.(string)
 	if !ok {
-		return "", fmt.Errorf("stdlib/str: expected string, got %T", hv.Inner)
+		return "", errExpected("stdlib/str", "string", hv.Inner)
 	}
 	return s, nil
 }
@@ -51,11 +52,11 @@ func asString(v eval.Value) (string, error) {
 func asRune(v eval.Value) (rune, error) {
 	hv, ok := v.(*eval.HostVal)
 	if !ok {
-		return 0, fmt.Errorf("stdlib/str: expected HostVal, got %T", v)
+		return 0, errExpected("stdlib/str", "HostVal", v)
 	}
 	r, ok := hv.Inner.(rune)
 	if !ok {
-		return 0, fmt.Errorf("stdlib/str: expected rune, got %T", hv.Inner)
+		return 0, errExpected("stdlib/str", "rune", hv.Inner)
 	}
 	return r, nil
 }
@@ -280,13 +281,13 @@ func joinImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, _ eval.App
 	for {
 		con, ok := v.(*eval.ConVal)
 		if !ok {
-			return nil, ce, fmt.Errorf("join: expected List String")
+			return nil, ce, errors.New("join: expected List String")
 		}
 		if con.Con == "Nil" {
 			break
 		}
 		if con.Con != "Cons" || len(con.Args) != 2 {
-			return nil, ce, fmt.Errorf("join: malformed list")
+			return nil, ce, errors.New("join: malformed list")
 		}
 		s, err := asString(con.Args[0])
 		if err != nil {
@@ -366,7 +367,7 @@ func toRunesImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, _ eval.
 func fromRunesImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
 	items, ok := listToSlice(args[0])
 	if !ok {
-		return nil, ce, fmt.Errorf("fromRunes: expected List Rune")
+		return nil, ce, errors.New("fromRunes: expected List Rune")
 	}
 	runes := make([]rune, len(items))
 	for i, item := range items {
@@ -483,7 +484,7 @@ func linesImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Ap
 func unlinesImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
 	items, ok := listToSlice(args[0])
 	if !ok {
-		return nil, ce, fmt.Errorf("unlines: expected List String")
+		return nil, ce, errors.New("unlines: expected List String")
 	}
 	strs := make([]string, len(items))
 	totalLen := 0
@@ -534,11 +535,11 @@ func isSuffixOfStrImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ e
 func asSliceStr(v eval.Value) ([]eval.Value, error) {
 	hv, ok := v.(*eval.HostVal)
 	if !ok {
-		return nil, fmt.Errorf("stdlib/str: expected HostVal, got %T", v)
+		return nil, errExpected("stdlib/str", "HostVal", v)
 	}
 	s, ok := hv.Inner.([]eval.Value)
 	if !ok {
-		return nil, fmt.Errorf("stdlib/str: expected []Value, got %T", hv.Inner)
+		return nil, errExpected("stdlib/str", "[]Value", hv.Inner)
 	}
 	return s, nil
 }
@@ -548,11 +549,11 @@ func asSliceStr(v eval.Value) ([]eval.Value, error) {
 func asByte(v eval.Value) (byte, error) {
 	hv, ok := v.(*eval.HostVal)
 	if !ok {
-		return 0, fmt.Errorf("stdlib/byte: expected HostVal, got %T", v)
+		return 0, errExpected("stdlib/byte", "HostVal", v)
 	}
 	b, ok := hv.Inner.(byte)
 	if !ok {
-		return 0, fmt.Errorf("stdlib/byte: expected byte, got %T", hv.Inner)
+		return 0, errExpected("stdlib/byte", "byte", hv.Inner)
 	}
 	return b, nil
 }

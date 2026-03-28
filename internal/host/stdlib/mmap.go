@@ -2,7 +2,7 @@ package stdlib
 
 import (
 	"context"
-	"fmt"
+	"errors"
 
 	"github.com/cwd-k2/gicel/internal/infra/budget"
 	"github.com/cwd-k2/gicel/internal/lang/ir"
@@ -42,11 +42,11 @@ func (*mutMapVal) String() string { return "MMap(...)" }
 func asMutMapVal(v eval.Value) (*mutMapVal, error) {
 	hv, ok := v.(*eval.HostVal)
 	if !ok {
-		return nil, fmt.Errorf("stdlib/mmap: expected HostVal, got %T", v)
+		return nil, errExpected("stdlib/mmap", "HostVal", v)
 	}
 	m, ok := hv.Inner.(*mutMapVal)
 	if !ok {
-		return nil, fmt.Errorf("stdlib/mmap: expected *mutMapVal, got %T", hv.Inner)
+		return nil, errExpected("stdlib/mmap", "*mutMapVal", hv.Inner)
 	}
 	return m, nil
 }
@@ -160,22 +160,22 @@ func mmapFromListImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, ap
 	for {
 		con, ok := list.(*eval.ConVal)
 		if !ok {
-			return nil, ce, fmt.Errorf("mmapFromList: expected List, got %T", list)
+			return nil, ce, errExpected("mmapFromList", "List", list)
 		}
 		if con.Con == "Nil" {
 			break
 		}
 		if con.Con != "Cons" || len(con.Args) != 2 {
-			return nil, ce, fmt.Errorf("mmapFromList: malformed list")
+			return nil, ce, errors.New("mmapFromList: malformed list")
 		}
 		pair, ok := con.Args[0].(*eval.RecordVal)
 		if !ok {
-			return nil, ce, fmt.Errorf("mmapFromList: expected tuple, got %T", con.Args[0])
+			return nil, ce, errExpected("mmapFromList", "tuple", con.Args[0])
 		}
 		key, ok1 := pair.Get(ir.TupleLabel(1))
 		value, ok2 := pair.Get(ir.TupleLabel(2))
 		if !ok1 || !ok2 {
-			return nil, ce, fmt.Errorf("mmapFromList: tuple must have _1 and _2")
+			return nil, ce, errors.New("mmapFromList: tuple must have _1 and _2")
 		}
 		if err := budget.ChargeAlloc(ctx, costAVLNode); err != nil {
 			return nil, ce, err

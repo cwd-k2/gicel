@@ -2,7 +2,6 @@ package stdlib
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/cwd-k2/gicel/internal/infra/budget"
 	"github.com/cwd-k2/gicel/internal/runtime/eval"
@@ -28,11 +27,11 @@ func (*refCell) String() string { return "Ref(...)" }
 func asRefCell(v eval.Value) (*refCell, error) {
 	hv, ok := v.(*eval.HostVal)
 	if !ok {
-		return nil, fmt.Errorf("stdlib/ref: expected HostVal, got %T", v)
+		return nil, errExpected("stdlib/ref", "HostVal", v)
 	}
 	r, ok := hv.Inner.(*refCell)
 	if !ok {
-		return nil, fmt.Errorf("stdlib/ref: expected *refCell, got %T", hv.Inner)
+		return nil, errExpected("stdlib/ref", "*refCell", hv.Inner)
 	}
 	return r, nil
 }

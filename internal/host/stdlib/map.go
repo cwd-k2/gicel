@@ -2,7 +2,7 @@ package stdlib
 
 import (
 	"context"
-	"fmt"
+	"errors"
 
 	"github.com/cwd-k2/gicel/internal/infra/budget"
 	"github.com/cwd-k2/gicel/internal/lang/ir"
@@ -42,11 +42,11 @@ var mapSource = mustReadSource("map")
 func asMapVal(v eval.Value) (*mapVal, error) {
 	hv, ok := v.(*eval.HostVal)
 	if !ok {
-		return nil, fmt.Errorf("map: expected Map, got %T", v)
+		return nil, errExpected("map", "Map", v)
 	}
 	mv, ok := hv.Inner.(*mapVal)
 	if !ok {
-		return nil, fmt.Errorf("map: expected Map, got %T", hv.Inner)
+		return nil, errExpected("map", "Map", hv.Inner)
 	}
 	return mv, nil
 }
@@ -148,22 +148,22 @@ func mapFromListImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, app
 	for {
 		con, ok := list.(*eval.ConVal)
 		if !ok {
-			return nil, ce, fmt.Errorf("mapFromList: expected List, got %T", list)
+			return nil, ce, errExpected("mapFromList", "List", list)
 		}
 		if con.Con == "Nil" {
 			break
 		}
 		if con.Con != "Cons" || len(con.Args) != 2 {
-			return nil, ce, fmt.Errorf("mapFromList: malformed list")
+			return nil, ce, errors.New("mapFromList: malformed list")
 		}
 		pair, ok := con.Args[0].(*eval.RecordVal)
 		if !ok {
-			return nil, ce, fmt.Errorf("mapFromList: expected tuple, got %T", con.Args[0])
+			return nil, ce, errExpected("mapFromList", "tuple", con.Args[0])
 		}
 		key, ok1 := pair.Get(ir.TupleLabel(1))
 		value, ok2 := pair.Get(ir.TupleLabel(2))
 		if !ok1 || !ok2 {
-			return nil, ce, fmt.Errorf("mapFromList: tuple must have _1 and _2")
+			return nil, ce, errors.New("mapFromList: tuple must have _1 and _2")
 		}
 		if err := budget.ChargeAlloc(ctx, costAVLNode); err != nil {
 			return nil, ce, err

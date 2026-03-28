@@ -3,7 +3,7 @@ package stdlib
 import (
 	"context"
 	"encoding/json"
-	"fmt"
+	"errors"
 	"math"
 	"strconv"
 	"strings"
@@ -91,7 +91,7 @@ func toJSONStringImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, _ 
 func toJSONBoolImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
 	con, ok := args[0].(*eval.ConVal)
 	if !ok {
-		return nil, ce, fmt.Errorf("json: expected Bool, got %T", args[0])
+		return nil, ce, errExpected("json", "Bool", args[0])
 	}
 	if con.Con == "True" {
 		return jsonStrVal("true"), ce, nil
@@ -107,13 +107,13 @@ func toJSONListImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, appl
 	for {
 		con, ok := list.(*eval.ConVal)
 		if !ok {
-			return nil, ce, fmt.Errorf("json: expected List, got %T", list)
+			return nil, ce, errExpected("json", "List", list)
 		}
 		if con.Con == "Nil" {
 			break
 		}
 		if con.Con != "Cons" || len(con.Args) != 2 {
-			return nil, ce, fmt.Errorf("json: malformed list")
+			return nil, ce, errors.New("json: malformed list")
 		}
 		result, newCe, err := apply(encoder, con.Args[0], ce)
 		if err != nil {
@@ -140,13 +140,13 @@ func toJSONMaybeImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, apply
 	maybe := args[1]
 	con, ok := maybe.(*eval.ConVal)
 	if !ok {
-		return nil, ce, fmt.Errorf("json: expected Maybe, got %T", maybe)
+		return nil, ce, errExpected("json", "Maybe", maybe)
 	}
 	if con.Con == "Nothing" {
 		return jsonStrVal("null"), ce, nil
 	}
 	if con.Con != "Just" || len(con.Args) != 1 {
-		return nil, ce, fmt.Errorf("json: malformed Maybe")
+		return nil, ce, errors.New("json: malformed Maybe")
 	}
 	return apply(encoder, con.Args[0], ce)
 }
@@ -157,12 +157,12 @@ func toJSONPairImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, appl
 	encB := args[1]
 	pair, ok := args[2].(*eval.RecordVal)
 	if !ok {
-		return nil, ce, fmt.Errorf("json: expected tuple, got %T", args[2])
+		return nil, ce, errExpected("json", "tuple", args[2])
 	}
 	a, ok1 := pair.Get(ir.TupleLabel(1))
 	b, ok2 := pair.Get(ir.TupleLabel(2))
 	if !ok1 || !ok2 {
-		return nil, ce, fmt.Errorf("json: expected tuple with _1 and _2")
+		return nil, ce, errors.New("json: expected tuple with _1 and _2")
 	}
 	sa, newCe, err := apply(encA, a, ce)
 	if err != nil {
@@ -193,7 +193,7 @@ func toJSONResultImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, ap
 	encA := args[1]
 	r, ok := args[2].(*eval.ConVal)
 	if !ok {
-		return nil, ce, fmt.Errorf("json: expected Result, got %T", args[2])
+		return nil, ce, errExpected("json", "Result", args[2])
 	}
 	var tag string
 	var encoder, inner eval.Value
@@ -207,7 +207,7 @@ func toJSONResultImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, ap
 		encoder = encE
 		inner = r.Args[0]
 	default:
-		return nil, ce, fmt.Errorf("json: unknown Result constructor: %s", r.Con)
+		return nil, ce, errMalformed("json", "Result constructor", r.Con)
 	}
 	sv, newCe, err := apply(encoder, inner, ce)
 	if err != nil {

@@ -2,7 +2,7 @@ package stdlib
 
 import (
 	"context"
-	"fmt"
+	"errors"
 
 	"github.com/cwd-k2/gicel/internal/infra/budget"
 	"github.com/cwd-k2/gicel/internal/runtime/eval"
@@ -104,13 +104,13 @@ func setFromListImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, app
 	for {
 		con, ok := list.(*eval.ConVal)
 		if !ok {
-			return nil, ce, fmt.Errorf("setFromList: expected List, got %T", list)
+			return nil, ce, errExpected("setFromList", "List", list)
 		}
 		if con.Con == "Nil" {
 			break
 		}
 		if con.Con != "Cons" || len(con.Args) != 2 {
-			return nil, ce, fmt.Errorf("setFromList: malformed list")
+			return nil, ce, errors.New("setFromList: malformed list")
 		}
 		if err := budget.ChargeAlloc(ctx, costAVLNode); err != nil {
 			return nil, ce, err

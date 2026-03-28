@@ -1,8 +1,6 @@
 package stdlib
 
 import (
-	"fmt"
-
 	"github.com/cwd-k2/gicel/internal/lang/ir"
 	"github.com/cwd-k2/gicel/internal/runtime/eval"
 )
@@ -105,7 +103,7 @@ func compareKeys(cmp eval.Value, a, b eval.Value, ce eval.CapEnv, apply eval.App
 	}
 	con, ok := result.(*eval.ConVal)
 	if !ok {
-		return 0, newCe, fmt.Errorf("map: compare must return Ordering, got %T", result)
+		return 0, newCe, errExpected("map: compare", "Ordering", result)
 	}
 	switch con.Con {
 	case "LT":
@@ -115,7 +113,7 @@ func compareKeys(cmp eval.Value, a, b eval.Value, ce eval.CapEnv, apply eval.App
 	case "GT":
 		return 1, newCe, nil
 	default:
-		return 0, newCe, fmt.Errorf("map: unknown Ordering constructor: %s", con.Con)
+		return 0, newCe, errMalformed("map", "Ordering constructor", con.Con)
 	}
 }
 

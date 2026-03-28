@@ -1,9 +1,12 @@
 package vm
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"runtime"
 
+	"github.com/cwd-k2/gicel/internal/infra/budget"
 	"github.com/cwd-k2/gicel/internal/infra/span"
 	"github.com/cwd-k2/gicel/internal/runtime/eval"
 )
@@ -205,7 +208,7 @@ func (vm *VM) forceEffectful(v eval.Value, capEnv eval.CapEnv, frame *Frame, cal
 	if pv, ok := v.(*eval.PrimVal); ok && pv.Effectful && len(pv.Args) >= pv.Arity {
 		impl, ok := vm.prims.Lookup(pv.Name)
 		if !ok {
-			return nil, capEnv, vm.runtimeError(fmt.Sprintf("missing primitive: %s", pv.Name), frame)
+			return nil, capEnv, vm.runtimeError("missing primitive: "+pv.Name, frame)
 		}
 		capForImpl := capEnv.MarkShared()
 		val, newCap, err := vm.callPrim(impl, capForImpl, pv.Args)
@@ -249,7 +252,7 @@ func (vm *VM) applyPrim(pv *eval.PrimVal, arg eval.Value, frame *Frame) error {
 	// Saturated non-effectful — call immediately.
 	impl, ok := vm.prims.Lookup(pv.Name)
 	if !ok {
-		return vm.runtimeError(fmt.Sprintf("missing primitive: %s", pv.Name), frame)
+		return vm.runtimeError("missing primitive: "+pv.Name, frame)
 	}
 	val, newCap, err := vm.callPrim(impl, frame.capEnv, args)
 	if err != nil {
@@ -306,7 +309,7 @@ func (vm *VM) applyForPrim(fn eval.Value, arg eval.Value, capEnv eval.CapEnv) (e
 		}
 		impl, ok := vm.prims.Lookup(f.Name)
 		if !ok {
-			return nil, capEnv, fmt.Errorf("missing primitive: %s", f.Name)
+			return nil, capEnv, errors.New("missing primitive: " + f.Name)
 		}
 		val, newCap, err := vm.callPrim(impl, capEnv, args)
 		if err != nil {
@@ -330,7 +333,7 @@ func (vm *VM) callPrim(impl eval.PrimImpl, capEnv eval.CapEnv, args []eval.Value
 	}()
 	val, newCap, err = impl(vm.ctx, capEnv, args, vm.cachedApplier)
 	if err == nil && val == nil {
-		err = fmt.Errorf("primitive returned nil value")
+		err = errors.New("primitive returned nil value")
 	}
 	if err != nil {
 		err = wrapPrimError(err)
@@ -338,15 +341,18 @@ func (vm *VM) callPrim(impl eval.PrimImpl, capEnv eval.CapEnv, args []eval.Value
 	return
 }
 
-// wrapPrimError wraps plain string errors into RuntimeError.
-// Typed errors (RuntimeError, budget limits, context errors) pass through.
+// wrapPrimError wraps plain errors from stdlib primitives into RuntimeError.
+// Errors that already carry structured information (RuntimeError, context
+// cancellation, budget limits) pass through unchanged.
 func wrapPrimError(err error) error {
-	if _, ok := err.(*eval.RuntimeError); ok {
+	switch {
+	case errors.As(err, new(*eval.RuntimeError)):
 		return err
-	}
-	typeName := fmt.Sprintf("%T", err)
-	if typeName == "*errors.errorString" || typeName == "*fmt.wrapError" {
+	case errors.Is(err, context.Canceled), errors.Is(err, context.DeadlineExceeded):
+		return err
+	case budget.IsLimitError(err):
+		return err
+	default:
 		return &eval.RuntimeError{Message: err.Error()}
 	}
-	return err
 }

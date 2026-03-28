@@ -2,7 +2,6 @@ package stdlib
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/cwd-k2/gicel/internal/infra/budget"
 	"github.com/cwd-k2/gicel/internal/runtime/eval"
@@ -38,13 +37,13 @@ func takeSImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, apply eva
 	for i := int64(0); i < n; i++ {
 		con, ok := stream.(*eval.ConVal)
 		if !ok {
-			return nil, ce, fmt.Errorf("takeS: expected Stream, got %T", stream)
+			return nil, ce, errExpected("takeS", "Stream", stream)
 		}
 		if con.Con == "LNil" {
 			break
 		}
 		if con.Con != "LCons" || len(con.Args) != 2 {
-			return nil, ce, fmt.Errorf("takeS: malformed stream node: %s", con.Con)
+			return nil, ce, errMalformed("takeS", "stream node", con.Con)
 		}
 		items = append(items, con.Args[0])
 		stream, ce, err = forceTail(con.Args[1], ce, apply)
@@ -67,13 +66,13 @@ func dropSImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, apply eval.
 	for i := int64(0); i < n; i++ {
 		con, ok := stream.(*eval.ConVal)
 		if !ok {
-			return nil, ce, fmt.Errorf("dropS: expected Stream, got %T", stream)
+			return nil, ce, errExpected("dropS", "Stream", stream)
 		}
 		if con.Con == "LNil" {
 			return stream, ce, nil
 		}
 		if con.Con != "LCons" || len(con.Args) != 2 {
-			return nil, ce, fmt.Errorf("dropS: malformed stream node: %s", con.Con)
+			return nil, ce, errMalformed("dropS", "stream node", con.Con)
 		}
 		stream, ce, err = forceTail(con.Args[1], ce, apply)
 		if err != nil {

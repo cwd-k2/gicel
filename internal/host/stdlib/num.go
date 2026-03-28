@@ -61,7 +61,7 @@ func divIntImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.App
 		return nil, ce, err
 	}
 	if b == 0 {
-		return nil, ce, fmt.Errorf("division by zero")
+		return nil, ce, errDivisionByZero
 	}
 	return intResult(a/b, ce)
 }
@@ -76,7 +76,7 @@ func modIntImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.App
 		return nil, ce, err
 	}
 	if b == 0 {
-		return nil, ce, fmt.Errorf("modulo by zero")
+		return nil, ce, errModuloByZero
 	}
 	return intResult(a%b, ce)
 }

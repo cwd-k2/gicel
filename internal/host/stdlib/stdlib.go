@@ -2,8 +2,6 @@
 package stdlib
 
 import (
-	"fmt"
-
 	"github.com/cwd-k2/gicel/internal/host/registry"
 	"github.com/cwd-k2/gicel/internal/lang/ir"
 	"github.com/cwd-k2/gicel/internal/runtime/eval"
@@ -37,11 +35,11 @@ func freeIn(name string, c ir.Core) bool {
 func asInt64(v eval.Value, pack string) (int64, error) {
 	hv, ok := v.(*eval.HostVal)
 	if !ok {
-		return 0, fmt.Errorf("stdlib/%s: expected HostVal, got %T", pack, v)
+		return 0, errExpected("stdlib/"+pack, "HostVal", v)
 	}
 	n, ok := hv.Inner.(int64)
 	if !ok {
-		return 0, fmt.Errorf("stdlib/%s: expected int64, got %T", pack, hv.Inner)
+		return 0, errExpected("stdlib/"+pack, "int64", hv.Inner)
 	}
 	return n, nil
 }
@@ -50,11 +48,11 @@ func asInt64(v eval.Value, pack string) (int64, error) {
 func asFloat64(v eval.Value, pack string) (float64, error) {
 	hv, ok := v.(*eval.HostVal)
 	if !ok {
-		return 0, fmt.Errorf("stdlib/%s: expected HostVal, got %T", pack, v)
+		return 0, errExpected("stdlib/"+pack, "HostVal", v)
 	}
 	f, ok := hv.Inner.(float64)
 	if !ok {
-		return 0, fmt.Errorf("stdlib/%s: expected float64, got %T", pack, hv.Inner)
+		return 0, errExpected("stdlib/"+pack, "float64", hv.Inner)
 	}
 	return f, nil
 }

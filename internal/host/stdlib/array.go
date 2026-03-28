@@ -32,11 +32,11 @@ type mutArray struct {
 func asMutArray(v eval.Value) (*mutArray, error) {
 	hv, ok := v.(*eval.HostVal)
 	if !ok {
-		return nil, fmt.Errorf("stdlib/array: expected HostVal, got %T", v)
+		return nil, errExpected("stdlib/array", "HostVal", v)
 	}
 	a, ok := hv.Inner.(*mutArray)
 	if !ok {
-		return nil, fmt.Errorf("stdlib/array: expected *mutArray, got %T", hv.Inner)
+		return nil, errExpected("stdlib/array", "*mutArray", hv.Inner)
 	}
 	return a, nil
 }

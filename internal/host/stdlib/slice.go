@@ -2,7 +2,7 @@ package stdlib
 
 import (
 	"context"
-	"fmt"
+	"errors"
 
 	"github.com/cwd-k2/gicel/internal/infra/budget"
 	"github.com/cwd-k2/gicel/internal/lang/ir"
@@ -91,11 +91,11 @@ var sliceSource = mustReadSource("slice")
 func asSlice(v eval.Value) ([]eval.Value, error) {
 	hv, ok := v.(*eval.HostVal)
 	if !ok {
-		return nil, fmt.Errorf("stdlib/slice: expected HostVal, got %T", v)
+		return nil, errExpected("stdlib/slice", "HostVal", v)
 	}
 	s, ok := hv.Inner.([]eval.Value)
 	if !ok {
-		return nil, fmt.Errorf("stdlib/slice: expected []Value, got %T", hv.Inner)
+		return nil, errExpected("stdlib/slice", "[]Value", hv.Inner)
 	}
 	return s, nil
 }
@@ -138,7 +138,7 @@ func sliceIndexImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval
 func sliceFromListImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
 	items, ok := listToSlice(args[0])
 	if !ok {
-		return nil, ce, fmt.Errorf("sliceFromList: expected List")
+		return nil, ce, errors.New("sliceFromList: expected List")
 	}
 	if err := budget.ChargeAlloc(ctx, int64(len(items))*2*costSlotSize); err != nil {
 		return nil, ce, err

@@ -2,7 +2,7 @@ package stdlib
 
 import (
 	"context"
-	"fmt"
+	"errors"
 
 	"github.com/cwd-k2/gicel/internal/infra/budget"
 	"github.com/cwd-k2/gicel/internal/runtime/eval"
@@ -20,11 +20,11 @@ func fromSliceImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.
 	}
 	hv, ok := v.(*eval.HostVal)
 	if !ok {
-		return nil, ce, fmt.Errorf("fromSlice: expected HostVal or List, got %T", v)
+		return nil, ce, errExpected("fromSlice", "HostVal or List", v)
 	}
 	slice, ok := hv.Inner.([]any)
 	if !ok {
-		return nil, ce, fmt.Errorf("fromSlice: expected []any, got %T", hv.Inner)
+		return nil, ce, errExpected("fromSlice", "[]any", hv.Inner)
 	}
 	return sliceToList(slice), ce, nil
 }
@@ -40,7 +40,7 @@ func toSliceImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, _ eval.
 	}
 	items, ok := listToSlice(v)
 	if !ok {
-		return nil, ce, fmt.Errorf("toSlice: expected List (Cons/Nil), got %T", v)
+		return nil, ce, errExpected("toSlice", "List (Cons/Nil)", v)
 	}
 	if err := budget.ChargeAlloc(ctx, int64(len(items))*costSlotSize); err != nil {
 		return nil, ce, err
@@ -59,13 +59,13 @@ func lengthImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, _ eval.A
 	for {
 		con, ok := v.(*eval.ConVal)
 		if !ok {
-			return nil, ce, fmt.Errorf("length: expected List, got %T", v)
+			return nil, ce, errExpected("length", "List", v)
 		}
 		if con.Con == "Nil" {
 			return &eval.HostVal{Inner: n}, ce, nil
 		}
 		if con.Con != "Cons" || len(con.Args) != 2 {
-			return nil, ce, fmt.Errorf("length: malformed list node: %s", con.Con)
+			return nil, ce, errMalformed("length", "list node", con.Con)
 		}
 		n++
 		if n&1023 == 0 {
@@ -81,7 +81,7 @@ func lengthImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, _ eval.A
 func concatImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
 	xs, ok := listToSlice(args[0])
 	if !ok {
-		return nil, ce, fmt.Errorf("concat: first argument is not a List")
+		return nil, ce, errors.New("concat: first argument is not a List")
 	}
 	if err := budget.ChargeAlloc(ctx, int64(len(xs))*costConsNode); err != nil {
 		return nil, ce, err
@@ -148,13 +148,13 @@ func takeImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, _ eval.App
 	for i := int64(0); i < n; i++ {
 		con, ok := v.(*eval.ConVal)
 		if !ok {
-			return nil, ce, fmt.Errorf("take: expected List, got %T", v)
+			return nil, ce, errExpected("take", "List", v)
 		}
 		if con.Con == "Nil" {
 			break
 		}
 		if con.Con != "Cons" || len(con.Args) != 2 {
-			return nil, ce, fmt.Errorf("take: malformed list node: %s", con.Con)
+			return nil, ce, errMalformed("take", "list node", con.Con)
 		}
 		prefix = append(prefix, con.Args[0])
 		v = con.Args[1]
@@ -177,13 +177,13 @@ func dropImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Appli
 	for i := int64(0); i < n; i++ {
 		con, ok := v.(*eval.ConVal)
 		if !ok {
-			return nil, ce, fmt.Errorf("drop: expected List, got %T", v)
+			return nil, ce, errExpected("drop", "List", v)
 		}
 		if con.Con == "Nil" {
 			return v, ce, nil
 		}
 		if con.Con != "Cons" || len(con.Args) != 2 {
-			return nil, ce, fmt.Errorf("drop: malformed list node: %s", con.Con)
+			return nil, ce, errMalformed("drop", "list node", con.Con)
 		}
 		v = con.Args[1]
 	}
@@ -200,13 +200,13 @@ func indexImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Appl
 	for {
 		con, ok := v.(*eval.ConVal)
 		if !ok {
-			return nil, ce, fmt.Errorf("index: expected List")
+			return nil, ce, errors.New("index: expected List")
 		}
 		if con.Con == "Nil" {
 			return &eval.ConVal{Con: "Nothing"}, ce, nil
 		}
 		if con.Con != "Cons" || len(con.Args) != 2 {
-			return nil, ce, fmt.Errorf("index: malformed list")
+			return nil, ce, errors.New("index: malformed list")
 		}
 		if i == idx {
 			return &eval.ConVal{Con: "Just", Args: []eval.Value{con.Args[0]}}, ce, nil
@@ -247,13 +247,13 @@ func reverseImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, _ eval.
 	for {
 		con, ok := v.(*eval.ConVal)
 		if !ok {
-			return nil, ce, fmt.Errorf("reverse: expected List, got %T", v)
+			return nil, ce, errExpected("reverse", "List", v)
 		}
 		if con.Con == "Nil" {
 			break
 		}
 		if con.Con != "Cons" || len(con.Args) != 2 {
-			return nil, ce, fmt.Errorf("reverse: malformed list node: %s", con.Con)
+			return nil, ce, errMalformed("reverse", "list node", con.Con)
 		}
 		n++
 		v = con.Args[1]

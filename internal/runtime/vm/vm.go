@@ -625,7 +625,7 @@ func (vm *VM) execute() (eval.EvalResult, error) {
 			impl, ok := vm.prims.Lookup(name)
 			if !ok {
 				return eval.EvalResult{}, vm.runtimeError(
-					fmt.Sprintf("missing primitive: %s", name), frame)
+					"missing primitive: "+name, frame)
 			}
 			args := make([]eval.Value, arity)
 			for i := arity - 1; i >= 0; i-- {

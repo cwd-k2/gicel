@@ -2,7 +2,7 @@ package stdlib
 
 import (
 	"context"
-	"fmt"
+	"errors"
 
 	"github.com/cwd-k2/gicel/internal/infra/budget"
 	"github.com/cwd-k2/gicel/internal/lang/ir"
@@ -18,13 +18,13 @@ func foldlImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, apply eva
 	for {
 		con, ok := list.(*eval.ConVal)
 		if !ok {
-			return nil, ce, fmt.Errorf("foldl: expected List, got %T", list)
+			return nil, ce, errExpected("foldl", "List", list)
 		}
 		if con.Con == "Nil" {
 			return acc, ce, nil
 		}
 		if con.Con != "Cons" || len(con.Args) != 2 {
-			return nil, ce, fmt.Errorf("foldl: malformed list node: %s", con.Con)
+			return nil, ce, errMalformed("foldl", "list node", con.Con)
 		}
 		if i&1023 == 0 {
 			if err := budget.CheckContext(ctx); err != nil {
@@ -50,7 +50,7 @@ func sortByImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, apply ev
 	cmp := args[0]
 	items, ok := listToSlice(args[1])
 	if !ok {
-		return nil, ce, fmt.Errorf("sortBy: expected List, got %T", args[1])
+		return nil, ce, errExpected("sortBy", "List", args[1])
 	}
 	if len(items) <= 1 {
 		return args[1], ce, nil
@@ -96,7 +96,7 @@ func mergeLists(left, right []eval.Value, cmp eval.Value, ce eval.CapEnv, apply 
 		ce = newCe
 		con, ok := ordering.(*eval.ConVal)
 		if !ok {
-			return nil, ce, fmt.Errorf("sortBy: comparison must return Ordering, got %T", ordering)
+			return nil, ce, errExpected("sortBy", "Ordering", ordering)
 		}
 		if con.Con == "GT" {
 			result = append(result, right[j])
@@ -121,13 +121,13 @@ func scanlImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, apply eva
 	for {
 		con, ok := list.(*eval.ConVal)
 		if !ok {
-			return nil, ce, fmt.Errorf("scanl: expected List, got %T", list)
+			return nil, ce, errExpected("scanl", "List", list)
 		}
 		if con.Con == "Nil" {
 			break
 		}
 		if con.Con != "Cons" || len(con.Args) != 2 {
-			return nil, ce, fmt.Errorf("scanl: malformed list node: %s", con.Con)
+			return nil, ce, errMalformed("scanl", "list node", con.Con)
 		}
 		partial, newCe, err := apply(f, acc, ce)
 		if err != nil {
@@ -154,13 +154,13 @@ func spanImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, apply eval
 	for {
 		con, ok := list.(*eval.ConVal)
 		if !ok {
-			return nil, ce, fmt.Errorf("span: expected List, got %T", list)
+			return nil, ce, errExpected("span", "List", list)
 		}
 		if con.Con == "Nil" {
 			break
 		}
 		if con.Con != "Cons" || len(con.Args) != 2 {
-			return nil, ce, fmt.Errorf("span: malformed list node: %s", con.Con)
+			return nil, ce, errMalformed("span", "list node", con.Con)
 		}
 		result, newCe, err := apply(pred, con.Args[0], ce)
 		if err != nil {
@@ -169,7 +169,7 @@ func spanImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, apply eval
 		ce = newCe
 		boolCon, ok := result.(*eval.ConVal)
 		if !ok {
-			return nil, ce, fmt.Errorf("span: predicate must return Bool, got %T", result)
+			return nil, ce, errExpected("span", "Bool", result)
 		}
 		if boolCon.Con == "False" {
 			break
@@ -193,13 +193,13 @@ func dropWhileImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, apply e
 	for {
 		con, ok := list.(*eval.ConVal)
 		if !ok {
-			return nil, ce, fmt.Errorf("dropWhile: expected List, got %T", list)
+			return nil, ce, errExpected("dropWhile", "List", list)
 		}
 		if con.Con == "Nil" {
 			return list, ce, nil
 		}
 		if con.Con != "Cons" || len(con.Args) != 2 {
-			return nil, ce, fmt.Errorf("dropWhile: malformed list node: %s", con.Con)
+			return nil, ce, errMalformed("dropWhile", "list node", con.Con)
 		}
 		result, newCe, err := apply(pred, con.Args[0], ce)
 		if err != nil {
@@ -208,7 +208,7 @@ func dropWhileImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, apply e
 		ce = newCe
 		boolCon, ok := result.(*eval.ConVal)
 		if !ok {
-			return nil, ce, fmt.Errorf("dropWhile: predicate must return Bool, got %T", result)
+			return nil, ce, errExpected("dropWhile", "Bool", result)
 		}
 		if boolCon.Con == "False" {
 			return list, ce, nil
@@ -224,17 +224,17 @@ func zipImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Appl
 	for {
 		xCon, ok := xs.(*eval.ConVal)
 		if !ok {
-			return nil, ce, fmt.Errorf("zip: expected List for first arg")
+			return nil, ce, errors.New("zip: expected List for first arg")
 		}
 		yCon, ok := ys.(*eval.ConVal)
 		if !ok {
-			return nil, ce, fmt.Errorf("zip: expected List for second arg")
+			return nil, ce, errors.New("zip: expected List for second arg")
 		}
 		if xCon.Con == "Nil" || yCon.Con == "Nil" {
 			break
 		}
 		if xCon.Con != "Cons" || len(xCon.Args) != 2 || yCon.Con != "Cons" || len(yCon.Args) != 2 {
-			return nil, ce, fmt.Errorf("zip: malformed list")
+			return nil, ce, errors.New("zip: malformed list")
 		}
 		pairs = append(pairs, eval.NewRecordFromMap(map[string]eval.Value{ir.TupleLabel(1): xCon.Args[0], ir.TupleLabel(2): yCon.Args[0]}))
 		xs = xCon.Args[1]
@@ -252,22 +252,22 @@ func unzipImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Ap
 	for {
 		con, ok := v.(*eval.ConVal)
 		if !ok {
-			return nil, ce, fmt.Errorf("unzip: expected List, got %T", v)
+			return nil, ce, errExpected("unzip", "List", v)
 		}
 		if con.Con == "Nil" {
 			break
 		}
 		if con.Con != "Cons" || len(con.Args) != 2 {
-			return nil, ce, fmt.Errorf("unzip: malformed list node")
+			return nil, ce, errors.New("unzip: malformed list node")
 		}
 		rec, ok := con.Args[0].(*eval.RecordVal)
 		if !ok {
-			return nil, ce, fmt.Errorf("unzip: expected tuple")
+			return nil, ce, errors.New("unzip: expected tuple")
 		}
 		a, ok1 := rec.Get(ir.TupleLabel(1))
 		b, ok2 := rec.Get(ir.TupleLabel(2))
 		if !ok1 || !ok2 {
-			return nil, ce, fmt.Errorf("unzip: expected tuple with _1 and _2")
+			return nil, ce, errors.New("unzip: expected tuple with _1 and _2")
 		}
 		as = append(as, a)
 		bs = append(bs, b)
@@ -292,22 +292,22 @@ func unfoldrImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, apply e
 		ce = newCe
 		con, ok := result.(*eval.ConVal)
 		if !ok {
-			return nil, ce, fmt.Errorf("unfoldr: expected Maybe, got %T", result)
+			return nil, ce, errExpected("unfoldr", "Maybe", result)
 		}
 		if con.Con == "Nothing" {
 			break
 		}
 		if con.Con != "Just" || len(con.Args) != 1 {
-			return nil, ce, fmt.Errorf("unfoldr: malformed Maybe: %s", con.Con)
+			return nil, ce, errMalformed("unfoldr", "Maybe", con.Con)
 		}
 		pair, ok := con.Args[0].(*eval.RecordVal)
 		if !ok {
-			return nil, ce, fmt.Errorf("unfoldr: expected tuple, got %T", con.Args[0])
+			return nil, ce, errExpected("unfoldr", "tuple", con.Args[0])
 		}
 		a, ok1 := pair.Get(ir.TupleLabel(1))
 		b, ok2 := pair.Get(ir.TupleLabel(2))
 		if !ok1 || !ok2 {
-			return nil, ce, fmt.Errorf("unfoldr: expected tuple with _1 and _2")
+			return nil, ce, errors.New("unfoldr: expected tuple with _1 and _2")
 		}
 		items = append(items, a)
 		seed = b
@@ -358,13 +358,13 @@ func groupByImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, apply e
 	for {
 		con, ok := list.(*eval.ConVal)
 		if !ok {
-			return nil, ce, fmt.Errorf("groupBy: expected List, got %T", list)
+			return nil, ce, errExpected("groupBy", "List", list)
 		}
 		if con.Con == "Nil" {
 			break
 		}
 		if con.Con != "Cons" || len(con.Args) != 2 {
-			return nil, ce, fmt.Errorf("groupBy: malformed list node: %s", con.Con)
+			return nil, ce, errMalformed("groupBy", "list node", con.Con)
 		}
 		elem := con.Args[0]
 		if currentKey == nil {
@@ -382,7 +382,7 @@ func groupByImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, apply e
 			ce = newCe2
 			boolCon, ok := result.(*eval.ConVal)
 			if !ok {
-				return nil, ce, fmt.Errorf("groupBy: predicate must return Bool, got %T", result)
+				return nil, ce, errExpected("groupBy", "Bool", result)
 			}
 			if boolCon.Con == "True" {
 				current = append(current, elem)

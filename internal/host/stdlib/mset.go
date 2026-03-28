@@ -2,7 +2,7 @@ package stdlib
 
 import (
 	"context"
-	"fmt"
+	"errors"
 
 	"github.com/cwd-k2/gicel/internal/infra/budget"
 	"github.com/cwd-k2/gicel/internal/runtime/eval"
@@ -30,11 +30,11 @@ var msetSource = mustReadSource("mset")
 func asMutSetVal(v eval.Value) (*mutMapVal, error) {
 	hv, ok := v.(*eval.HostVal)
 	if !ok {
-		return nil, fmt.Errorf("stdlib/mset: expected HostVal, got %T", v)
+		return nil, errExpected("stdlib/mset", "HostVal", v)
 	}
 	m, ok := hv.Inner.(*mutMapVal)
 	if !ok {
-		return nil, fmt.Errorf("stdlib/mset: expected *mutMapVal, got %T", hv.Inner)
+		return nil, errExpected("stdlib/mset", "*mutMapVal", hv.Inner)
 	}
 	return m, nil
 }
@@ -130,13 +130,13 @@ func msetFromListImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, ap
 	for {
 		con, ok := list.(*eval.ConVal)
 		if !ok {
-			return nil, ce, fmt.Errorf("msetFromList: expected List, got %T", list)
+			return nil, ce, errExpected("msetFromList", "List", list)
 		}
 		if con.Con == "Nil" {
 			break
 		}
 		if con.Con != "Cons" || len(con.Args) != 2 {
-			return nil, ce, fmt.Errorf("msetFromList: malformed list")
+			return nil, ce, errors.New("msetFromList: malformed list")
 		}
 		if err := budget.ChargeAlloc(ctx, costAVLNode); err != nil {
 			return nil, ce, err
