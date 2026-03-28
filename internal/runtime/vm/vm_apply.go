@@ -319,6 +319,12 @@ func (vm *VM) callPrim(impl eval.PrimImpl, capEnv eval.CapEnv, args []eval.Value
 	return
 }
 
+// ApplyForExternal returns an Applier that the tree-walker can use to apply
+// VMClosure/VMThunkVal values. This enables hybrid execution.
+func (vm *VM) ApplyForExternal() eval.Applier {
+	return vm.applyForPrim
+}
+
 // applyTreeWalkerClosure handles tree-walker Closures that appear in the VM
 // (e.g., module bindings, builtins). Falls back to the tree-walker evaluator.
 func (vm *VM) applyTreeWalkerClosure(clo *eval.Closure, arg eval.Value, frame *Frame) error {

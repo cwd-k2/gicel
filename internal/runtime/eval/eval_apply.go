@@ -158,6 +158,20 @@ func (ev *Evaluator) apply(capEnv CapEnv, fn Value, arg Value, site *ir.App) (Ev
 			return EvalResult{}, wrapPrimError(err, site.S, ev.source)
 		}
 		return EvalResult{val, newCap}, nil
+	case *VMClosure:
+		if ev.vmApplier == nil {
+			return EvalResult{}, &RuntimeError{
+				Message: fmt.Sprintf("VMClosure in tree-walker with no VM applier: %s", f.Name),
+				Span:    site.S,
+				Source:  ev.source,
+			}
+		}
+		val, newCap, err := ev.vmApplier(f, arg, capEnv)
+		if err != nil {
+			return EvalResult{}, err
+		}
+		return EvalResult{val, newCap}, nil
+
 	default:
 		msg := "application of non-function"
 		if fn != nil {

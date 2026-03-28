@@ -298,6 +298,8 @@ func (r *Runtime) executeVM(ctx context.Context, b *budget.Budget, ev *eval.Eval
 	compiler := vm.NewCompiler(r.globalSlots, r.source)
 	proto := compiler.CompileExpr(entryExpr)
 
+	// Wire VM applier into the tree-walker so it can handle VMClosure/VMThunkVal.
+
 	machine := vm.NewVM(vm.VMConfig{
 		Globals:      ev.GlobalArray(),
 		GlobalSlots:  r.globalSlots,
@@ -309,6 +311,9 @@ func (r *Runtime) executeVM(ctx context.Context, b *budget.Budget, ev *eval.Eval
 		Source:       r.source,
 		FallbackEval: ev,
 	})
+	// Set VM applier on the tree-walker so it can apply VMClosure/VMThunkVal.
+	ev.SetVMApplier(machine.ApplyForExternal())
+
 	result, err := machine.Run(proto, capEnv)
 	if err != nil {
 		return eval.EvalResult{}, machine.Stats(), err
