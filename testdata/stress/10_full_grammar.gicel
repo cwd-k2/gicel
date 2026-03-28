@@ -6,63 +6,63 @@ form Ordering := { LT: Ordering; EQ: Ordering; GT: Ordering }
 form Tree := \a. { Leaf: a -> Tree a; Branch: Tree a -> Tree a -> Tree a }
 form Color := { Red: Color; Green: Color; Blue: Color }
 
-form Eq := \a. { eq: a -> a -> Bool }
-form Ord := \a. Eq a => { cmp: a -> a -> Ordering }
-form Functor := \f. { fmap: \a b. (a -> b) -> f a -> f b }
+form GEq := \a. { geq: a -> a -> Bool }
+form GOrd := \a. GEq a => { gcmp: a -> a -> Ordering }
+form GFunctor := \f. { gfmap: \a b. (a -> b) -> f a -> f b }
 form Coercible := \a b. { coerce: a -> b }
 
-impl Eq Bool := {
-  eq := \x y. case x {
+impl GEq Bool := {
+  geq := \x y. case x {
     True  => y;
     False => case y { True => False; False => True }
   }
 }
-impl Eq () := { eq := \_ _. True }
-impl Eq Ordering := {
-  eq := \x y. case x {
+impl GEq () := { geq := \_ _. True }
+impl GEq Ordering := {
+  geq := \x y. case x {
     LT => case y { LT => True; _ => False };
     EQ => case y { EQ => True; _ => False };
     GT => case y { GT => True; _ => False }
   }
 }
-impl Eq Color := {
-  eq := \x y. case x {
+impl GEq Color := {
+  geq := \x y. case x {
     Red   => case y { Red => True; _ => False };
     Green => case y { Green => True; _ => False };
     Blue  => case y { Blue => True; _ => False }
   }
 }
-impl Eq a => Eq (Maybe a) := {
-  eq := \x y. case x {
+impl GEq a => GEq (Maybe a) := {
+  geq := \x y. case x {
     Nothing => case y { Nothing => True; Just _ => False };
-    Just a  => case y { Nothing => False; Just b => eq a b }
+    Just a  => case y { Nothing => False; Just b => geq a b }
   }
 }
-impl (Eq a) => (Eq b) => Eq (a, b) := {
-  eq := \x y. case x {
+impl (GEq a) => (GEq b) => GEq (a, b) := {
+  geq := \x y. case x {
     (a1, b1) => case y {
-      (a2, b2) => case eq a1 a2 { True => eq b1 b2; False => False }
+      (a2, b2) => case geq a1 a2 { True => geq b1 b2; False => False }
     }
   }
 }
 
-impl Ord Bool := {
-  cmp := \x y. case x {
+impl GOrd Bool := {
+  gcmp := \x y. case x {
     False => case y { False => EQ; True => LT };
     True  => case y { False => GT; True => EQ }
   }
 }
 
-impl Functor Maybe := {
-  fmap := \g mx. case mx {
+impl GFunctor Maybe := {
+  gfmap := \g mx. case mx {
     Nothing => Nothing;
     Just x  => Just (g x)
   }
 }
-impl Functor Tree := {
-  fmap := \g t. case t {
+impl GFunctor Tree := {
+  gfmap := \g t. case t {
     Leaf x     => Leaf (g x);
-    Branch l r => Branch (fmap g l) (fmap g r)
+    Branch l r => Branch (gfmap g l) (gfmap g r)
   }
 }
 
@@ -73,17 +73,17 @@ impl Coercible Color Bool := {
 
 not := \b. case b { True => False; False => True }
 
-genericEq :: \a. Eq a => a -> a -> Bool
-genericEq := \x y. eq x y
+genericEq :: \a. GEq a => a -> a -> Bool
+genericEq := \x y. geq x y
 
-liftMap :: \f a b. Functor f => (a -> b) -> f a -> f b
-liftMap := \g fa. fmap g fa
+liftMap :: \f a b. GFunctor f => (a -> b) -> f a -> f b
+liftMap := \g fa. gfmap g fa
 
-eqViaOrd :: \a. Ord a => a -> a -> Bool
-eqViaOrd := \x y. case cmp x y { EQ => True; _ => False }
+eqViaOrd :: \a. GOrd a => a -> a -> Bool
+eqViaOrd := \x y. case gcmp x y { EQ => True; _ => False }
 
-convertAndCheck :: \a b. (Coercible a b, Eq b) => a -> b -> Bool
-convertAndCheck := \x expected. eq (coerce x) expected
+convertAndCheck :: \a b. (Coercible a b, GEq b) => a -> b -> Bool
+convertAndCheck := \x expected. geq (coerce x) expected
 
 readS :: \(r: Row). () -> Computation { s: Int | r } { s: Int | r } Int
 readS := assumption
@@ -106,7 +106,7 @@ pipeline := thunk (do {
   t := thunk (stateful r2);
   r3 <- force t;
   eqResult := {
-    mapped := fmap not (Just True);
+    mapped := gfmap not (Just True);
     case mapped { Just v => v; Nothing => True }
   };
   colorCheck := convertAndCheck Red True;

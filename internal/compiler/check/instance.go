@@ -103,16 +103,14 @@ func (ch *Checker) processImplHeader(impl *syntax.DeclImpl) (*InstanceInfo, map[
 		S:            impl.S,
 	}
 
-	// Overlap check: verify no existing local instance for this class matches the same types.
-	// Imported instances are excluded: user source is allowed to shadow module instances.
+	// Overlap check: verify no existing instance for this class matches the same types.
+	// Both local and imported (stdlib) instances are checked — instance coherence
+	// requires that no two instances for the same class/type combination coexist.
 	// Private instances (impl _name) are solver-invisible outside their defining module
 	// and occupy a separate namespace — they never overlap with public instances.
 	for _, existing := range ch.reg.InstancesForClass(className) {
 		if existing == inst {
 			continue // same pointer (re-exported via module)
-		}
-		if ch.reg.IsImportedInstance(existing) {
-			continue // imported from a module; shadowing is allowed
 		}
 		if inst.Private || existing.Private {
 			continue // private instances don't participate in public overlap checks

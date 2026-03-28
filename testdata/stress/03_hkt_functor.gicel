@@ -2,44 +2,44 @@ import Prelude
 
 form Tree := \a. { Leaf: a -> Tree a; Branch: Tree a -> Tree a -> Tree a }
 
-form Functor := \f. { fmap: \a b. (a -> b) -> f a -> f b }
+form GFunctor := \f. { gfmap: \a b. (a -> b) -> f a -> f b }
 
-impl Functor Maybe := {
-  fmap := \g mx. case mx {
+impl GFunctor Maybe := {
+  gfmap := \g mx. case mx {
     Nothing => Nothing;
     Just x  => Just (g x)
   }
 }
 
-impl Functor Tree := {
-  fmap := \g t. case t {
+impl GFunctor Tree := {
+  gfmap := \g t. case t {
     Leaf x       => Leaf (g x);
-    Branch l r   => Branch (fmap g l) (fmap g r)
+    Branch l r   => Branch (gfmap g l) (gfmap g r)
   }
 }
 
-form Applicative := \f. Functor f => {
-  wrap: \a. a -> f a
+form GApplicative := \f. GFunctor f => {
+  gwrap: \a. a -> f a
 }
 
-impl Applicative Maybe := {
-  wrap := \x. Just x
+impl GApplicative Maybe := {
+  gwrap := \x. Just x
 }
 
 not := \b. case b { True => False; False => True }
 
-liftF :: \f a b. Functor f => (a -> b) -> f a -> f b
-liftF := \g fa. fmap g fa
+liftF :: \f a b. GFunctor f => (a -> b) -> f a -> f b
+liftF := \g fa. gfmap g fa
 
-doubleMap :: \f a b c. Functor f => (a -> b) -> (b -> c) -> f a -> f c
-doubleMap := \g h fa. fmap h (fmap g fa)
+doubleMap :: \f a b c. GFunctor f => (a -> b) -> (b -> c) -> f a -> f c
+doubleMap := \g h fa. gfmap h (gfmap g fa)
 
-applyNot :: \f. Functor f => f Bool -> f Bool
-applyNot := \fb. fmap not fb
+applyNot :: \f. GFunctor f => f Bool -> f Bool
+applyNot := \fb. gfmap not fb
 
 treeOfBools := Branch (Leaf True) (Branch (Leaf False) (Leaf True))
 
-mappedTree := fmap not treeOfBools
+mappedTree := gfmap not treeOfBools
 
 main := case mappedTree {
   Branch l _ => case l {
