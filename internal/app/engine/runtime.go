@@ -232,6 +232,12 @@ func (r *Runtime) execute(ctx context.Context, req *runRequest) (eval.EvalResult
 	ev.SetGlobalSlots(r.globalSlots)
 	ev.SetGlobals(r.buildNamedGlobals(req.bindings))
 
+	capEnv := eval.NewCapEnv(req.caps)
+
+	if r.useVM {
+		return r.executeVM(ctx, b, ev, capEnv, req)
+	}
+
 	for _, me := range r.moduleEntries {
 		ev.SetSource(me.source)
 		if err := r.evalBindingsCore(ev, me.sortedBindings, me.name, req.obs); err != nil {
@@ -271,11 +277,6 @@ func (r *Runtime) execute(ctx context.Context, req *runRequest) (eval.EvalResult
 	if req.obs != nil {
 		req.obs.Section(req.entry)
 	}
-	capEnv := eval.NewCapEnv(req.caps)
-
-	if r.useVM {
-		return r.executeVM(ctx, b, ev, entryExpr, capEnv, req)
-	}
 
 	result, err := ev.Eval(nil, capEnv, entryExpr)
 	if err != nil {
@@ -294,16 +295,15 @@ func (r *Runtime) execute(ctx context.Context, req *runRequest) (eval.EvalResult
 // executeVM compiles the entry expression to bytecode and runs it on the VM.
 // Module and non-entry bindings are evaluated by the tree-walker (stored in
 // globalArray). The VM uses the same global array for variable lookup.
-func (r *Runtime) executeVM(ctx context.Context, b *budget.Budget, ev *eval.Evaluator, entryExpr ir.Core, capEnv eval.CapEnv, req *runRequest) (eval.EvalResult, eval.EvalStats, error) {
+func (r *Runtime) executeVM(ctx context.Context, b *budget.Budget, ev *eval.Evaluator, capEnv eval.CapEnv, req *runRequest) (eval.EvalResult, eval.EvalStats, error) {
+	globalArray := ev.GlobalArray()
+	namedGlobals := ev.Globals()
+
 	compiler := vm.NewCompiler(r.globalSlots, r.source)
-	proto := compiler.CompileExpr(entryExpr)
-
-	// Wire VM applier into the tree-walker so it can handle VMClosure/VMThunkVal.
-
 	machine := vm.NewVM(vm.VMConfig{
-		Globals:      ev.GlobalArray(),
+		Globals:      globalArray,
 		GlobalSlots:  r.globalSlots,
-		NamedGlobals: ev.Globals(),
+		NamedGlobals: namedGlobals,
 		Prims:        r.prims,
 		Budget:       b,
 		Ctx:          ctx,
@@ -311,16 +311,54 @@ func (r *Runtime) executeVM(ctx context.Context, b *budget.Budget, ev *eval.Eval
 		Source:       r.source,
 		FallbackEval: ev,
 	})
-	// Set VM applier on the tree-walker so it can apply VMClosure/VMThunkVal.
 	ev.SetVMApplier(machine.ApplyForExternal())
 
-	result, err := machine.Run(proto, capEnv)
-	if err != nil {
+	// Evaluate ALL module bindings using the VM.
+	for _, me := range r.moduleEntries {
+		compiler.SetSource(me.source)
+		if err := r.evalBindingsVM(machine, compiler, me.sortedBindings, me.name, globalArray, namedGlobals, req.obs); err != nil {
+			return eval.EvalResult{}, machine.Stats(), err
+		}
+	}
+	compiler.SetSource(r.source)
+
+	// Separate entry from non-entry main bindings.
+	var mainEntry ir.Core
+	var nonEntry []ir.Binding
+	if req.entry == r.entryName && r.entryExpr != nil {
+		mainEntry = r.entryExpr
+		nonEntry = make([]ir.Binding, 0, len(r.sortedMainBindings)-1)
+		for _, bb := range r.sortedMainBindings {
+			if bb.Name != r.entryName {
+				nonEntry = append(nonEntry, bb)
+			}
+		}
+	} else {
+		for _, bb := range r.sortedMainBindings {
+			if bb.Name == req.entry {
+				mainEntry = bb.Expr
+			} else {
+				nonEntry = append(nonEntry, bb)
+			}
+		}
+	}
+
+	// Evaluate non-entry main bindings with VM.
+	if err := r.evalBindingsVM(machine, compiler, nonEntry, "", globalArray, namedGlobals, req.obs); err != nil {
 		return eval.EvalResult{}, machine.Stats(), err
 	}
-	// Force effectful at the top level using the tree-walker's ForceEffectful.
-	// This handles bare effectful PrimVals returned from the entry point.
-	result, err = ev.ForceEffectful(result, span.Span{})
+
+	if mainEntry == nil {
+		return eval.EvalResult{}, machine.Stats(), fmt.Errorf("entry point %q not found", req.entry)
+	}
+
+	if req.obs != nil {
+		req.obs.Section(req.entry)
+	}
+
+	// Compile and run entry expression.
+	proto := compiler.CompileExpr(mainEntry)
+	result, err := machine.Run(proto, capEnv)
 	if err != nil {
 		return eval.EvalResult{}, machine.Stats(), err
 	}
@@ -381,6 +419,58 @@ func (r *Runtime) evalBindingsCore(ev *eval.Evaluator, bindings []ir.Binding, mo
 		cells[i].cell.Ref = &val
 		ev.SetGlobalSlot(cells[i].slot, v)
 		globals[cells[i].key] = v
+	}
+	return nil
+}
+
+// evalBindingsVM evaluates bindings using the bytecode VM.
+func (r *Runtime) evalBindingsVM(machine *vm.VM, compiler *vm.Compiler, bindings []ir.Binding, modulePrefix string, globalArray []eval.Value, namedGlobals map[string]eval.Value, obs *eval.ExplainObserver) error {
+	type slotCell struct {
+		slot int
+		key  string
+		cell *eval.IndirectVal
+	}
+	cells := make([]slotCell, len(bindings))
+	for i, b := range bindings {
+		key := b.Name
+		if modulePrefix != "" {
+			key = ir.QualifiedKey(modulePrefix, b.Name)
+		}
+		slot := r.globalSlots[key]
+		cell := &eval.IndirectVal{}
+		globalArray[slot] = cell
+		namedGlobals[key] = cell
+		cells[i] = slotCell{slot, key, cell}
+	}
+	userVisible := modulePrefix == ""
+	for i, b := range bindings {
+		if userVisible {
+			obs.Section(b.Name)
+		}
+		proto := compiler.CompileBinding(b)
+		result, err := machine.Run(proto, eval.NewCapEnv(nil))
+		if err != nil {
+			if budget.IsLimitError(err) || strings.Contains(b.Name, "$") {
+				return err
+			}
+			return fmt.Errorf("evaluating %s: %w", b.Name, err)
+		}
+		v := result.Value
+		if clo, ok := v.(*eval.VMClosure); ok {
+			clo.Name = b.Name
+			if !userVisible {
+				obs.MarkInternal(b.Name)
+			}
+		} else if clo, ok := v.(*eval.Closure); ok {
+			clo.Name = b.Name
+			if !userVisible {
+				obs.MarkInternal(b.Name)
+			}
+		}
+		val := v
+		cells[i].cell.Ref = &val
+		globalArray[cells[i].slot] = v
+		namedGlobals[cells[i].key] = v
 	}
 	return nil
 }

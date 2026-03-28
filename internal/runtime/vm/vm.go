@@ -95,8 +95,15 @@ func NewVM(cfg VMConfig) *VM {
 	return vm
 }
 
-// Run executes a Proto and returns the result.
+// Run executes a Proto and returns the result. Can be called multiple times
+// on the same VM (e.g., for evaluating module bindings sequentially).
 func (vm *VM) Run(proto *Proto, capEnv eval.CapEnv) (eval.EvalResult, error) {
+	// Reset execution state for this run (globals/prims/budget are preserved).
+	vm.sp = 0
+	vm.stack = vm.stack[:0]
+	vm.locals = vm.locals[:0]
+	vm.frames = vm.frames[:0]
+	vm.fp = 0
 	vm.pushFrame(proto, 0, capEnv, proto.Source)
 	return vm.execute()
 }

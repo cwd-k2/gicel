@@ -19,6 +19,11 @@ func NewCompiler(globalSlots map[string]int, source *span.Source) *Compiler {
 	return &Compiler{globalSlots: globalSlots, source: source}
 }
 
+// SetSource updates the source context for error attribution.
+func (c *Compiler) SetSource(s *span.Source) {
+	c.source = s
+}
+
 // CompileExpr compiles a top-level Core IR expression into a Proto.
 // The resulting Proto has no captures and no parameter (it is a "script" body).
 func (c *Compiler) CompileExpr(expr ir.Core) *Proto {
@@ -30,8 +35,14 @@ func (c *Compiler) CompileExpr(expr ir.Core) *Proto {
 }
 
 // CompileBinding compiles a top-level binding's expression into a Proto.
+// Unlike CompileExpr, this does NOT add ForceEffectful at the end —
+// binding values should not be forced (they may be effectful PrimVals
+// or closures that must remain as values, not be invoked).
 func (c *Compiler) CompileBinding(b ir.Binding) *Proto {
-	return c.CompileExpr(b.Expr)
+	e := newEmitter(c, nil)
+	e.compileExpr(b.Expr, false)
+	e.emit(OpReturn)
+	return e.finalize(c.source)
 }
 
 // --- emitter: bytecode generation state for a single Proto ---
