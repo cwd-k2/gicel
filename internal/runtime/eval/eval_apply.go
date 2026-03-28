@@ -13,6 +13,10 @@ import (
 // Non-effectful values and unsaturated PrimVals are returned unchanged.
 // callSite is the Span of the calling context (e.g. Bind node) for explain events.
 func (ev *Evaluator) ForceEffectful(r EvalResult, callSite span.Span) (EvalResult, error) {
+	// Auto-force rec self-referential ThunkVal in computation position.
+	if thv, ok := r.Value.(*ThunkVal); ok && thv.AutoForce {
+		return ev.Eval(thv.Locals, r.CapEnv, thv.Comp)
+	}
 	pv, ok := r.Value.(*PrimVal)
 	if !ok || !pv.Effectful || len(pv.Args) < pv.Arity {
 		return r, nil
@@ -150,8 +154,12 @@ func (ev *Evaluator) apply(capEnv CapEnv, fn Value, arg Value, site *ir.App) (Ev
 		}
 		return EvalResult{val, newCap}, nil
 	default:
+		msg := "application of non-function"
+		if fn != nil {
+			msg = fmt.Sprintf("application of non-function: %s", fn)
+		}
 		return EvalResult{}, &RuntimeError{
-			Message: fmt.Sprintf("application of non-function: %s", fn),
+			Message: msg,
 			Span:    site.S,
 			Source:  ev.source,
 		}

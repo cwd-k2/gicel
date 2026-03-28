@@ -231,6 +231,9 @@ func fromJSONIntImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eva
 	if err != nil {
 		return nil, ce, err
 	}
+	if strings.TrimSpace(s) == "null" {
+		return jsonNothing, ce, nil
+	}
 	var f float64
 	if err := json.Unmarshal([]byte(s), &f); err != nil {
 		return jsonNothing, ce, nil
@@ -247,6 +250,9 @@ func fromJSONDoubleImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ 
 	if err != nil {
 		return nil, ce, err
 	}
+	if strings.TrimSpace(s) == "null" {
+		return jsonNothing, ce, nil
+	}
 	var f float64
 	if err := json.Unmarshal([]byte(s), &f); err != nil {
 		return jsonNothing, ce, nil
@@ -259,6 +265,9 @@ func fromJSONStringImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ 
 	if err != nil {
 		return nil, ce, err
 	}
+	if strings.TrimSpace(s) == "null" {
+		return jsonNothing, ce, nil
+	}
 	var out string
 	if err := json.Unmarshal([]byte(s), &out); err != nil {
 		return jsonNothing, ce, nil
@@ -270,6 +279,9 @@ func fromJSONBoolImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ ev
 	s, err := asString(args[0])
 	if err != nil {
 		return nil, ce, err
+	}
+	if strings.TrimSpace(s) == "null" {
+		return jsonNothing, ce, nil
 	}
 	var b bool
 	if err := json.Unmarshal([]byte(s), &b); err != nil {

@@ -313,8 +313,12 @@ func (ev *Evaluator) evalStep(locals []Value, capEnv CapEnv, expr ir.Core) (Eval
 				return EvalResult{Value: ev.bounce(altLocals, scrutR.CapEnv, alt.Body)}, nil
 			}
 		}
+		msg := "non-exhaustive pattern match"
+		if scrutR.Value != nil {
+			msg = fmt.Sprintf("non-exhaustive pattern match on %s", scrutR.Value)
+		}
 		return EvalResult{}, &RuntimeError{
-			Message: fmt.Sprintf("non-exhaustive pattern match on %s", scrutR.Value),
+			Message: msg,
 			Span:    e.S,
 			Source:  ev.source,
 		}
@@ -359,8 +363,12 @@ func (ev *Evaluator) evalStep(locals []Value, capEnv CapEnv, expr ir.Core) (Eval
 		}
 		thunk, ok := exprR.Value.(*ThunkVal)
 		if !ok {
+			msg := "force applied to non-thunk"
+			if exprR.Value != nil {
+				msg = fmt.Sprintf("force applied to non-thunk: %s", exprR.Value)
+			}
 			return EvalResult{}, &RuntimeError{
-				Message: fmt.Sprintf("force applied to non-thunk: %s", exprR.Value),
+				Message: msg,
 				Span:    e.S,
 				Source:  ev.source,
 			}
@@ -432,8 +440,12 @@ func (ev *Evaluator) evalStep(locals []Value, capEnv CapEnv, expr ir.Core) (Eval
 		}
 		rec, ok := recR.Value.(*RecordVal)
 		if !ok {
+			msg := "projection on non-record"
+			if recR.Value != nil {
+				msg = fmt.Sprintf("projection on non-record: %s", recR.Value)
+			}
 			return EvalResult{}, &RuntimeError{
-				Message: fmt.Sprintf("projection on non-record: %s", recR.Value),
+				Message: msg,
 				Span:    e.S,
 				Source:  ev.source,
 			}
@@ -455,8 +467,12 @@ func (ev *Evaluator) evalStep(locals []Value, capEnv CapEnv, expr ir.Core) (Eval
 		}
 		rec, ok := recR.Value.(*RecordVal)
 		if !ok {
+			msg := "update on non-record"
+			if recR.Value != nil {
+				msg = fmt.Sprintf("update on non-record: %s", recR.Value)
+			}
 			return EvalResult{}, &RuntimeError{
-				Message: fmt.Sprintf("update on non-record: %s", recR.Value),
+				Message: msg,
 				Span:    e.S,
 				Source:  ev.source,
 			}
