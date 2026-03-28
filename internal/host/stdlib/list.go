@@ -53,7 +53,7 @@ func toSliceImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, _ eval.
 }
 
 // lengthImpl counts the elements of a ConVal chain.
-func lengthImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
+func lengthImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
 	n := int64(0)
 	v := args[0]
 	for {
@@ -68,6 +68,11 @@ func lengthImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.App
 			return nil, ce, fmt.Errorf("length: malformed list node: %s", con.Con)
 		}
 		n++
+		if n&1023 == 0 {
+			if err := budget.CheckContext(ctx); err != nil {
+				return nil, ce, err
+			}
+		}
 		v = con.Args[1]
 	}
 }
@@ -225,6 +230,11 @@ func replicateImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, _ eva
 	elem := args[1]
 	var result eval.Value = &eval.ConVal{Con: "Nil"}
 	for i := int64(0); i < n; i++ {
+		if i&1023 == 0 {
+			if err := budget.CheckContext(ctx); err != nil {
+				return nil, ce, err
+			}
+		}
 		result = &eval.ConVal{Con: "Cons", Args: []eval.Value{elem, result}}
 	}
 	return result, ce, nil
@@ -281,6 +291,11 @@ func rangeImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Ap
 	}
 	items := make([]eval.Value, n)
 	for i := int64(0); i < n; i++ {
+		if i&1023 == 0 {
+			if err := budget.CheckContext(ctx); err != nil {
+				return nil, ce, err
+			}
+		}
 		items[i] = &eval.HostVal{Inner: from + i}
 	}
 	return buildList(items), ce, nil

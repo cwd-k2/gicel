@@ -10,10 +10,11 @@ import (
 )
 
 // foldlImpl is a strict left fold that uses the Applier callback to apply closures.
-func foldlImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, apply eval.Applier) (eval.Value, eval.CapEnv, error) {
+func foldlImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, apply eval.Applier) (eval.Value, eval.CapEnv, error) {
 	f := args[0]    // (b -> a -> b)
 	acc := args[1]  // b
 	list := args[2] // List a
+	var i int64
 	for {
 		con, ok := list.(*eval.ConVal)
 		if !ok {
@@ -25,6 +26,12 @@ func foldlImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, apply eval.
 		if con.Con != "Cons" || len(con.Args) != 2 {
 			return nil, ce, fmt.Errorf("foldl: malformed list node: %s", con.Con)
 		}
+		if i&1023 == 0 {
+			if err := budget.CheckContext(ctx); err != nil {
+				return nil, ce, err
+			}
+		}
+		i++
 		// acc = f acc x
 		partial, newCe, err := apply(f, acc, ce)
 		if err != nil {

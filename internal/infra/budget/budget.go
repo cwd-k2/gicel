@@ -277,3 +277,14 @@ func ChargeAlloc(ctx context.Context, bytes int64) error {
 	}
 	return nil
 }
+
+// CheckContext checks whether the context has been cancelled or its deadline
+// has been exceeded. Stdlib primitives should call this periodically inside
+// long-running Go loops to ensure --timeout is respected.
+// Returns nil if ctx carries no Budget or the context is still active.
+func CheckContext(ctx context.Context) error {
+	if b, ok := ctx.Value(budgetKey{}).(*Budget); ok {
+		return b.checkCtx()
+	}
+	return nil
+}

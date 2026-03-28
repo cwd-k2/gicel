@@ -293,6 +293,11 @@ func joinImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, _ eval.App
 			return nil, ce, fmt.Errorf("join: %w", err)
 		}
 		strs = append(strs, s)
+		if len(strs)&1023 == 0 {
+			if err := budget.CheckContext(ctx); err != nil {
+				return nil, ce, err
+			}
+		}
 		v = con.Args[1]
 	}
 	result := strings.Join(strs, sep)
