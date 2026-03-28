@@ -217,7 +217,11 @@ func prettyValueDepth(v Value, depth int) string {
 		return prettyRecordDepth(val, depth)
 	case *Closure:
 		return "<function>"
+	case *VMClosure:
+		return "<function>"
 	case *ThunkVal:
+		return "<thunk>"
+	case *VMThunkVal:
 		return "<thunk>"
 	case *PrimVal:
 		return "<function>"

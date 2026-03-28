@@ -1,0 +1,41 @@
+goos: darwin
+goarch: amd64
+pkg: github.com/cwd-k2/gicel/internal/runtime/eval
+cpu: Intel(R) Core(TM) i7-1068NG7 CPU @ 2.30GHz
+BenchmarkGlobalsDeepLookup-8      	81126972	        19.77 ns/op	       0 B/op	       0 allocs/op
+BenchmarkGlobalsDeepLookup-8      	72540859	        17.59 ns/op	       0 B/op	       0 allocs/op
+BenchmarkGlobalsDeepLookup-8      	53820219	        22.97 ns/op	       0 B/op	       0 allocs/op
+BenchmarkGlobalsDeepLookup-8      	66556536	        18.16 ns/op	       0 B/op	       0 allocs/op
+BenchmarkGlobalsDeepLookup-8      	58144683	        26.56 ns/op	       0 B/op	       0 allocs/op
+BenchmarkGlobalsShallowLookup-8   	57267160	        22.06 ns/op	       0 B/op	       0 allocs/op
+BenchmarkGlobalsShallowLookup-8   	56152358	        24.08 ns/op	       0 B/op	       0 allocs/op
+BenchmarkGlobalsShallowLookup-8   	56969955	        21.45 ns/op	       0 B/op	       0 allocs/op
+BenchmarkGlobalsShallowLookup-8   	55459473	        24.03 ns/op	       0 B/op	       0 allocs/op
+BenchmarkGlobalsShallowLookup-8   	45442863	        25.18 ns/op	       0 B/op	       0 allocs/op
+BenchmarkConValCurriedApply-8     	  486854	      2471 ns/op	    1520 B/op	      30 allocs/op
+BenchmarkConValCurriedApply-8     	  494242	      2491 ns/op	    1520 B/op	      30 allocs/op
+BenchmarkConValCurriedApply-8     	  506858	      2546 ns/op	    1520 B/op	      30 allocs/op
+BenchmarkConValCurriedApply-8     	  443400	      2528 ns/op	    1520 B/op	      30 allocs/op
+BenchmarkConValCurriedApply-8     	  453051	      2469 ns/op	    1520 B/op	      30 allocs/op
+BenchmarkGlobalsMapBuild-8        	   34282	     33458 ns/op	    8106 B/op	     203 allocs/op
+BenchmarkGlobalsMapBuild-8        	   33900	     35294 ns/op	    8106 B/op	     203 allocs/op
+BenchmarkGlobalsMapBuild-8        	   34662	     33383 ns/op	    8106 B/op	     203 allocs/op
+BenchmarkGlobalsMapBuild-8        	   36600	     34546 ns/op	    8106 B/op	     203 allocs/op
+BenchmarkGlobalsMapBuild-8        	   31729	     34587 ns/op	    8106 B/op	     203 allocs/op
+BenchmarkGlobalsMapBuild100-8     	   42058	     31906 ns/op	    6815 B/op	     203 allocs/op
+BenchmarkGlobalsMapBuild100-8     	   40542	     27291 ns/op	    6815 B/op	     203 allocs/op
+BenchmarkGlobalsMapBuild100-8     	   46777	     26140 ns/op	    6815 B/op	     203 allocs/op
+BenchmarkGlobalsMapBuild100-8     	   43584	     29821 ns/op	    6815 B/op	     203 allocs/op
+BenchmarkGlobalsMapBuild100-8     	   39460	     27313 ns/op	    6815 B/op	     203 allocs/op
+BenchmarkCapture-8                	12017642	       103.9 ns/op	      96 B/op	       1 allocs/op
+BenchmarkCapture-8                	12852763	       101.9 ns/op	      96 B/op	       1 allocs/op
+BenchmarkCapture-8                	13963218	        90.25 ns/op	      96 B/op	       1 allocs/op
+BenchmarkCapture-8                	12885631	        90.95 ns/op	      96 B/op	       1 allocs/op
+BenchmarkCapture-8                	14413058	        92.02 ns/op	      96 B/op	       1 allocs/op
+BenchmarkMatchNestedCon-8         	 3273205	       349.3 ns/op	     272 B/op	       4 allocs/op
+BenchmarkMatchNestedCon-8         	 3654196	       349.1 ns/op	     272 B/op	       4 allocs/op
+BenchmarkMatchNestedCon-8         	 3472221	       357.8 ns/op	     272 B/op	       4 allocs/op
+BenchmarkMatchNestedCon-8         	 3368613	       345.4 ns/op	     272 B/op	       4 allocs/op
+BenchmarkMatchNestedCon-8         	 3662492	       338.5 ns/op	     272 B/op	       4 allocs/op
+PASS
+ok  	github.com/cwd-k2/gicel/internal/runtime/eval	46.420s

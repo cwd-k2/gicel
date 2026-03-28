@@ -155,6 +155,24 @@ func (r *RecordVal) Update(updates []RecordField) *RecordVal {
 	return &RecordVal{fields: result}
 }
 
+// VMClosure is a function value in the bytecode VM.
+// Proto holds a *vm.Proto but is typed as any to avoid a circular import.
+type VMClosure struct {
+	Captured []Value
+	Proto    any          // *vm.Proto
+	Name     string       // top-level binding name; "" for anonymous lambdas
+	Source   *span.Source // source where the closure was created
+}
+
+// VMThunkVal is a suspended computation in the bytecode VM.
+// Proto holds a *vm.Proto but is typed as any to avoid a circular import.
+type VMThunkVal struct {
+	Captured  []Value
+	Proto     any          // *vm.Proto
+	Source    *span.Source // source where the thunk was created
+	AutoForce bool         // true for rec self-referential thunks
+}
+
 // IndirectVal is a forward-reference cell for mutually-recursive top-level bindings.
 // It holds a pointer to the actual value, which is populated after the binding is evaluated.
 type IndirectVal struct {
@@ -189,6 +207,8 @@ func (*ConVal) valueNode()      {}
 func (*ThunkVal) valueNode()    {}
 func (*PrimVal) valueNode()     {}
 func (*RecordVal) valueNode()   {}
+func (*VMClosure) valueNode()   {}
+func (*VMThunkVal) valueNode()  {}
 func (*IndirectVal) valueNode() {}
 func (*bounceVal) valueNode()   {}
 
@@ -280,6 +300,14 @@ func (v *RecordVal) String() string {
 		parts[i] = fmt.Sprintf("%s = %s", f.Label, f.Value)
 	}
 	return fmt.Sprintf("{ %s }", strings.Join(parts, ", "))
+}
+
+func (v *VMClosure) String() string {
+	return fmt.Sprintf("VMClosure(%s, ...)", v.Name)
+}
+
+func (v *VMThunkVal) String() string {
+	return "VMThunkVal(...)"
 }
 
 func (v *IndirectVal) String() string {
