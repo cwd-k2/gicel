@@ -259,7 +259,7 @@ func (ch *Checker) check(expr syntax.Expr, expected types.Type) ir.Core {
 		if v, ok := app.Fun.(*syntax.ExprVar); ok && (v.Name == "fix" || v.Name == "rec") {
 			if ch.config.GatedBuiltins != nil && ch.config.GatedBuiltins[v.Name] {
 				if lam := fixArgLam(app.Arg); lam != nil {
-					return ch.checkFix(app, lam, expected)
+					return ch.checkFix(app, lam, expected, v.Name == "rec")
 				}
 			}
 		}

@@ -37,9 +37,10 @@ type ConVal struct {
 
 // ThunkVal is a suspended computation captured by `thunk`.
 type ThunkVal struct {
-	Locals []Value
-	Comp   ir.Core
-	Source *span.Source // source where the thunk was created
+	Locals    []Value
+	Comp      ir.Core
+	Source    *span.Source // source where the thunk was created
+	AutoForce bool         // true for rec self-referential thunks (auto-forced in Bind chains)
 }
 
 // PrimVal is a partially or fully applied primitive operation.

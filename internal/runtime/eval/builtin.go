@@ -48,20 +48,15 @@ func BuiltinGlobals(enableFix, enableRec bool) map[string]Value {
 	if enableRec {
 		globals["rec"] = &Closure{
 			Locals: nil, Param: "_f",
-			Body: fixBody(),
+			Body: recBody(),
 		}
 	}
 
 	return globals
 }
 
-// fixBody returns a Fix node for the fix/rec builtin closures.
+// fixBody returns a Fix node for the fix builtin closure.
 // fix f = the fixpoint of f, i.e. x where x = \arg. (f x) arg.
-//
-// After capture (see assignLam in index.go for Fix):
-//
-//	_f is global (Index = -1) — captured from the enclosing closure
-//	Actually _f is the param of the outer fix closure, so it's local.
 //
 // Layout inside the Fix Lam body:
 //
@@ -80,6 +75,35 @@ func fixBody() *ir.Fix {
 					Arg: &ir.Var{Name: "_x", Index: 1},
 				},
 				Arg: &ir.Var{Name: "_arg", Index: 0},
+			},
+		},
+	}
+}
+
+// recBody returns a Force(Fix(Thunk)) node for the rec builtin closure.
+// rec f = force (fix _thk (thunk (f _thk)))
+//
+// The Fix creates a self-referential ThunkVal. Passing the ThunkVal
+// to f as-is (without forcing) avoids eager infinite recursion in CBV.
+// When the ThunkVal appears in a Bind chain (as self-reference in the
+// user's do-block), ForceEffectful auto-forces it, re-entering the
+// computation with the current capability environment.
+//
+// Layout inside the Fix Thunk comp:
+//
+//	_thk at index 0 (Fix self-reference)
+//	_f   at index 1 (captured from enclosing scope)
+func recBody() ir.Core {
+	return &ir.Force{
+		Expr: &ir.Fix{
+			Name: "_thk",
+			Body: &ir.Thunk{
+				FV:        []string{"_f"},
+				FVIndices: []int{0}, // capture _f from Fix's enclosing scope
+				Comp: &ir.App{
+					Fun: &ir.Var{Name: "_f", Index: 1},
+					Arg: &ir.Var{Name: "_thk", Index: 0},
+				},
 			},
 		},
 	}

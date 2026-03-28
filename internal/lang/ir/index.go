@@ -113,16 +113,18 @@ func assignIndices(c Core, localScope map[string]int, depth int) {
 		}
 
 	case *Fix:
-		// Fix introduces a self-referential name. The inner Lam's body
-		// sees the fix name at a known position (index 1, between captured
-		// FVs and the param). FVIndices does NOT include the fix name;
-		// evalFix adds it after Capture via Push.
-		lam, ok := PeelTyLam(n.Body).(*Lam)
-		if !ok {
+		// Fix introduces a self-referential name. The inner body's
+		// scope sees the fix name at a known position. FVIndices does NOT
+		// include the fix name; evalFix adds it after Capture via Push.
+		body := PeelTyLam(n.Body)
+		switch b := body.(type) {
+		case *Lam:
+			assignLam(b, localScope, depth+1, n.Name, true)
+		case *Thunk:
+			assignFixThunk(b, localScope, depth+1, n.Name)
+		default:
 			assignIndices(n.Body, localScope, depth+1)
-			return
 		}
-		assignLam(lam, localScope, depth+1, n.Name, true)
 
 	case *Pure:
 		assignIndices(n.Expr, localScope, depth+1)
@@ -232,6 +234,45 @@ func assignLam(n *Lam, enclosingScope map[string]int, depth int, fixName string,
 		capturedScope[name] = extra + 1 + len(localFVNames) - 1 - i
 	}
 	assignIndices(n.Body, capturedScope, depth+1)
+}
+
+// assignFixThunk assigns indices for a Thunk node inside a Fix (self-referential thunk).
+// Layout after CaptureLam(ExtraCapSelf) + Push(self):
+//
+//	[localFV0, localFV1, ..., self]
+//
+// self at index 0 (innermost), captures shifted by 1.
+func assignFixThunk(n *Thunk, enclosingScope map[string]int, depth int, fixName string) {
+	if n.FV == nil {
+		// FV overflow — no trimming.
+		scope := shiftScope(enclosingScope, 1)
+		scope[fixName] = 0
+		assignIndices(n.Comp, scope, depth+1)
+		n.FVIndices = nil
+		return
+	}
+
+	var localFVNames []string
+	n.FVIndices = []int{}
+	for _, name := range n.FV {
+		if name == fixName {
+			continue // fix name is added by evalFix, not captured
+		}
+		if enclosingScope == nil {
+			continue
+		}
+		if idx, ok := enclosingScope[name]; ok {
+			localFVNames = append(localFVNames, name)
+			n.FVIndices = append(n.FVIndices, idx)
+		}
+	}
+
+	capturedScope := make(map[string]int, len(localFVNames)+1)
+	capturedScope[fixName] = 0 // self-ref at index 0 after Push
+	for i, name := range localFVNames {
+		capturedScope[name] = 1 + len(localFVNames) - 1 - i
+	}
+	assignIndices(n.Comp, capturedScope, depth+1)
 }
 
 // assignThunk assigns indices for a Thunk node (like Lam but no param).

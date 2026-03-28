@@ -686,8 +686,8 @@ main := getFirst (fix (\self. MkPair 1 2))
 	if err == nil {
 		t.Fatal("expected runtime error from fix applied to constructor body")
 	}
-	if !strings.Contains(err.Error(), "requires a lambda body") {
-		t.Errorf("expected error containing %q, got: %v", "requires a lambda body", err)
+	if !strings.Contains(err.Error(), "requires a lambda") {
+		t.Errorf("expected error containing %q, got: %v", "requires a lambda", err)
 	}
 }
 
