@@ -7,7 +7,7 @@ import (
 
 // Proto describes a compiled function or thunk body that can be instantiated
 // as a VMClosure or VMThunkVal at runtime. Each ir.Lam, ir.Thunk, and ir.Fix
-// compiles to a Proto.
+// compiles to a Proto. Satisfies eval.Bytecode.
 type Proto struct {
 	Code      []byte       // bytecode stream
 	Constants []eval.Value // constant pool (literals, PrimVal stubs)
@@ -40,6 +40,9 @@ type BindInfo struct {
 	Slot int
 	Name string
 }
+
+// BytecodeMarker satisfies the eval.Bytecode interface.
+func (*Proto) BytecodeMarker() {}
 
 // SpanEntry maps a bytecode offset range to a source span.
 type SpanEntry struct {

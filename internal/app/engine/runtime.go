@@ -184,7 +184,7 @@ func (r *Runtime) buildGlobalSlots() {
 
 // buildGlobalArray creates the global value array from the slot map.
 // Builtin values and host bindings are filled; module/main bindings
-// are left nil (filled by evalBindingsCore).
+// are left nil (filled by evalPrecompiledBindings).
 func (r *Runtime) buildGlobalArray(hostBindings map[string]eval.Value) ([]eval.Value, error) {
 	arr := make([]eval.Value, r.numGlobals)
 	for k, v := range r.builtinGlobals {

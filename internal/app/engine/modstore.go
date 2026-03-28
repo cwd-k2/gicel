@@ -14,7 +14,7 @@ type compiledModule struct {
 	exports        *check.ModuleExports
 	deps           []string
 	fixity         map[string]parse.Fixity
-	sortedBindings []ir.Binding // pre-sorted for evalBindingsCore
+	sortedBindings []ir.Binding // pre-sorted for evalPrecompiledBindings
 	source         *span.Source // source text for error attribution
 }
 

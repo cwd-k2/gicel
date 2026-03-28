@@ -121,6 +121,9 @@ const (
 
 	// --- Budget ---
 
+	// OpRaise pops a HostVal(string) from TOS and raises it as a RuntimeError.
+	// Used for compile-time-known errors (e.g., Fix with non-lambda body).
+	OpRaise
 	// OpStep charges one evaluation step against the budget.
 	// Operand: u16 node kind string pool index (for TraceHook).
 	OpStep
@@ -177,7 +180,7 @@ func InstructionSize(op Opcode) int {
 		OpForce, OpForceTail, OpForceEffectful,
 		OpConstUnit,
 		OpMatchWild, OpMatchFail,
-		OpPop:
+		OpPop, OpRaise:
 		return 1 // opcode only
 
 	default:
@@ -216,6 +219,7 @@ var opNames = [opcodeCount]string{
 	OpFixThunk:       "FIX_THUNK",
 	OpPrim:           "PRIM",
 	OpPrimPartial:    "PRIM_PARTIAL",
+	OpRaise:          "RAISE",
 	OpStep:           "STEP",
 }
 

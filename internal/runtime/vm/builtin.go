@@ -1,6 +1,8 @@
 package vm
 
 import (
+	"fmt"
+
 	"github.com/cwd-k2/gicel/internal/lang/ir"
 	"github.com/cwd-k2/gicel/internal/runtime/eval"
 )
@@ -57,6 +59,6 @@ func compileBuiltinLam(compiler *Compiler, name, param string, body ir.Core) eva
 			Name:     name,
 		}
 	}
-	// Fallback: use tree-walker closure (should not happen for builtins).
-	return eval.BuiltinGlobals(false, false)[name]
+	// Invariant: builtin Lam always compiles to exactly one nested proto.
+	panic(fmt.Sprintf("vm/builtin: expected 1 nested proto for %s, got %d", name, len(proto.Protos)))
 }

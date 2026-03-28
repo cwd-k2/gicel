@@ -187,18 +187,6 @@ func (e *emitter) patchJumpTo(pos int) {
 	EncodeU16(e.code[pos+1:], uint16(offset))
 }
 
-// patchMatchFailTo patches a MATCH_* instruction's fail offset at pos
-// to target the current code position. Uses absolute offset.
-// The fail offset is the second u16 operand (at pos+3).
-func (e *emitter) patchMatchFailTo(pos int) {
-	EncodeU16(e.code[pos+3:], uint16(len(e.code)))
-}
-
-// patchU16 overwrites the u16 at code[pos+1..pos+2].
-func (e *emitter) patchU16(pos int, val uint16) {
-	EncodeU16(e.code[pos+1:], val)
-}
-
 // --- constant / string pool ---
 
 func (e *emitter) addConstant(v eval.Value) uint16 {
@@ -438,7 +426,7 @@ func (e *emitter) compileFix(fix *ir.Fix) {
 			fix.Name, body)
 		idx := e.addConstant(&eval.HostVal{Inner: msg})
 		e.emitU16(OpConst, idx)
-		e.emit(OpMatchFail) // reuse: raises RuntimeError with TOS as message
+		e.emit(OpRaise)
 	}
 }
 

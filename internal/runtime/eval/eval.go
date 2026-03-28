@@ -107,7 +107,7 @@ func (ev *Evaluator) GlobalArray() []Value {
 }
 
 // SetGlobalSlot sets a single value in the globals array at the given slot.
-// Used by evalBindingsCore to fill binding values during setup.
+// Used by evalPrecompiledBindings to fill binding values during setup.
 func (ev *Evaluator) SetGlobalSlot(slot int, v Value) {
 	ev.globalArray[slot] = v
 }

@@ -157,10 +157,6 @@ func (vm *VM) pop() eval.Value {
 	return v
 }
 
-func (vm *VM) peek() eval.Value {
-	return vm.stack[vm.sp-1]
-}
-
 // --- local access ---
 
 func (vm *VM) getLocal(frame *Frame, slot int) eval.Value {
@@ -317,6 +313,9 @@ func (vm *VM) execute() (eval.EvalResult, error) {
 				}
 				proto := thv.Proto.(*Proto)
 				// Reuse current frame for thunk execution (TCO).
+				// INVARIANT: no frame push may occur between obtaining `frame`
+				// (at loop top) and this `continue`. The pointer aliases
+				// vm.frames[vm.fp]; a push would invalidate it.
 				bp := frame.bp
 				vm.ensureLocals(bp + proto.NumLocals)
 				for i := range proto.NumLocals {
@@ -554,15 +553,16 @@ func (vm *VM) execute() (eval.EvalResult, error) {
 			msg := "non-exhaustive pattern match"
 			if vm.sp > 0 {
 				v := vm.pop()
-				if hv, ok := v.(*eval.HostVal); ok {
-					if s, ok := hv.Inner.(string); ok {
-						// Custom error message (e.g., from Fix with non-lambda body).
-						msg = s
-					} else {
-						msg += " on " + eval.PrettyValue(v)
-					}
-				} else {
-					msg += " on " + eval.PrettyValue(v)
+				msg += " on " + eval.PrettyValue(v)
+			}
+			return eval.EvalResult{}, vm.runtimeError(msg, frame)
+
+		case OpRaise:
+			v := vm.pop()
+			msg := eval.PrettyValue(v)
+			if hv, ok := v.(*eval.HostVal); ok {
+				if s, ok := hv.Inner.(string); ok {
+					msg = s
 				}
 			}
 			return eval.EvalResult{}, vm.runtimeError(msg, frame)

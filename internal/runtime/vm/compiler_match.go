@@ -190,16 +190,6 @@ func patternSlotName(pat ir.Pattern, idx int) string {
 	}
 }
 
-// isIrrefutablePattern returns true if the pattern always matches.
-func isIrrefutablePattern(pat ir.Pattern) bool {
-	switch pat.(type) {
-	case *ir.PVar, *ir.PWild:
-		return true
-	default:
-		return false
-	}
-}
-
 // isIrrefutableBinding returns true if the pattern is a simple variable or wildcard
 // (no further matching needed beyond the initial extraction).
 func isIrrefutableBinding(pat ir.Pattern) bool {

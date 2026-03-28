@@ -155,20 +155,26 @@ func (r *RecordVal) Update(updates []RecordField) *RecordVal {
 	return &RecordVal{fields: result}
 }
 
+// Bytecode is the interface satisfied by compiled bytecode prototypes.
+// Defined here (in the eval package) to avoid a circular import between
+// eval and vm. The concrete type is *vm.Proto.
+type Bytecode interface {
+	// BytecodeMarker is a marker method to distinguish from other interfaces.
+	BytecodeMarker()
+}
+
 // VMClosure is a function value in the bytecode VM.
-// Proto holds a *vm.Proto but is typed as any to avoid a circular import.
 type VMClosure struct {
 	Captured []Value
-	Proto    any          // *vm.Proto
+	Proto    Bytecode     // *vm.Proto (satisfies eval.Bytecode)
 	Name     string       // top-level binding name; "" for anonymous lambdas
 	Source   *span.Source // source where the closure was created
 }
 
 // VMThunkVal is a suspended computation in the bytecode VM.
-// Proto holds a *vm.Proto but is typed as any to avoid a circular import.
 type VMThunkVal struct {
 	Captured  []Value
-	Proto     any          // *vm.Proto
+	Proto     Bytecode     // *vm.Proto (satisfies eval.Bytecode)
 	Source    *span.Source // source where the thunk was created
 	AutoForce bool         // true for rec self-referential thunks
 }
