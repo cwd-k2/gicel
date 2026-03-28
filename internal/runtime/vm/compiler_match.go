@@ -15,52 +15,52 @@ import (
 // The last alternative's failure falls through to MATCH_FAIL.
 func compilePatternMatch(e *emitter, cs *ir.Case, tail bool) {
 	numAlts := len(cs.Alts)
-	// failJumps[i] = patch position for alt i's fail jump.
-	failJumps := make([]int, numAlts)
 	// endJumps collects patch positions for "jump to end" after each alt body.
 	var endJumps []int
+
+	// allFailPatches[i] = list of MATCH_* positions for alt i (need fail offset patching).
+	allFailPatches := make([][]int, numAlts)
 
 	for i, alt := range cs.Alts {
 		savedLocals := len(e.locals)
 
-		if i < numAlts-1 {
-			// Not the last alternative: compile pattern with fail jump.
-			compilePattern(e, alt.Pattern, &failJumps[i])
-		} else {
-			// Last alternative: fail goes to MATCH_FAIL.
-			compilePattern(e, alt.Pattern, nil)
-		}
+		var failPatches []int
+		compilePatternCollect(e, alt.Pattern, &failPatches)
+		allFailPatches[i] = failPatches
 
 		// Compile body.
 		isLast := i == numAlts-1
-		e.compileExpr(alt.Body, tail && isLast)
+		bodyTail := tail && isLast
+		e.compileExpr(alt.Body, bodyTail)
 
 		// Pop pattern-bound locals.
 		e.popLocals(savedLocals)
 
-		if !isLast && !tail {
-			// Jump to end after body.
+		if isLast {
+			// Last alt: no jump needed (falls through to MATCH_FAIL or RETURN).
+			// But if the body didn't end with a tail call, we need to jump past MATCH_FAIL.
 			endJumps = append(endJumps, e.emitJump(OpJump))
-		} else if !isLast && tail {
-			// Tail position: body already returned (TAIL_APPLY/RETURN).
-			// But we still need the jump for non-tail bodies that fall through.
+		} else {
 			endJumps = append(endJumps, e.emitJump(OpJump))
 		}
 
 		if i < numAlts-1 {
-			// Patch fail jump to here (start of next alternative).
-			e.patchJumpTo(failJumps[i])
+			// Patch fail offsets to here (start of next alternative).
+			target := uint16(len(e.code))
+			for _, pos := range failPatches {
+				EncodeU16(e.code[pos+3:], target)
+			}
 		}
 	}
 
-	// If the last alt's pattern can fail (not a wildcard/var), emit MATCH_FAIL.
+	// Emit MATCH_FAIL for non-exhaustive matches.
+	// Patch last alt's fail offsets to point here.
+	matchFailPos := len(e.code)
+	e.emit(OpMatchFail)
 	if numAlts > 0 {
-		lastPat := cs.Alts[numAlts-1].Pattern
-		if !isIrrefutablePattern(lastPat) {
-			e.emit(OpMatchFail)
+		for _, pos := range allFailPatches[numAlts-1] {
+			EncodeU16(e.code[pos+3:], uint16(matchFailPos))
 		}
-	} else {
-		e.emit(OpMatchFail)
 	}
 
 	// Patch all end jumps.
@@ -69,28 +69,27 @@ func compilePatternMatch(e *emitter, cs *ir.Case, tail bool) {
 	}
 }
 
-// compilePattern compiles a single pattern test. The value to match is on TOS.
+// compilePatternCollect compiles a single pattern test. The value to match is on TOS.
 // On match: extracts bindings into local slots, pops TOS.
-// On fail: jumps to *failPatch (if non-nil) or falls through to MATCH_FAIL.
-func compilePattern(e *emitter, pat ir.Pattern, failPatch *int) {
+// On fail: emits MATCH_* with placeholder fail offset. If failPatches is non-nil,
+// the positions of all emitted MATCH_* instructions are appended for later patching.
+func compilePatternCollect(e *emitter, pat ir.Pattern, failPatches *[]int) {
 	switch p := pat.(type) {
 	case *ir.PVar:
-		// Variable pattern: always matches, bind the value.
 		slot := e.allocLocal(p.Name)
 		e.emitU16(OpStoreLocal, uint16(slot))
 
 	case *ir.PWild:
-		// Wildcard: always matches, discard.
 		e.emit(OpPop)
 
 	case *ir.PCon:
-		compilePCon(e, p, failPatch)
+		compilePCon(e, p, failPatches)
 
 	case *ir.PLit:
-		compilePLit(e, p, failPatch)
+		compilePLit(e, p, failPatches)
 
 	case *ir.PRecord:
-		compilePRecord(e, p, failPatch)
+		compilePRecord(e, p, failPatches)
 
 	default:
 		panic("vm/compiler: unhandled pattern type")
@@ -99,11 +98,9 @@ func compilePattern(e *emitter, pat ir.Pattern, failPatch *int) {
 
 // compilePCon compiles a constructor pattern.
 // TOS = scrutinee. On match: args are stored in local slots.
-func compilePCon(e *emitter, p *ir.PCon, failPatch *int) {
-	// Allocate slots for constructor args.
+func compilePCon(e *emitter, p *ir.PCon, failPatches *[]int) {
 	argSlots := make([]int, len(p.Args))
 	for i, arg := range p.Args {
-		// Each arg gets a temporary slot; nested patterns will further test.
 		name := patternSlotName(arg, i)
 		argSlots[i] = e.allocLocal(name)
 	}
@@ -113,36 +110,32 @@ func compilePCon(e *emitter, p *ir.PCon, failPatch *int) {
 		ArgSlots: argSlots,
 	})
 
-	if failPatch != nil {
-		*failPatch = e.emitU16U16(OpMatchCon, descIdx, 0) // 0 = placeholder offset
-	} else {
-		// Last alt: fail offset points to MATCH_FAIL which follows.
-		e.emitU16U16(OpMatchCon, descIdx, 0)
+	pos := e.emitU16U16(OpMatchCon, descIdx, 0) // 0 = placeholder
+	if failPatches != nil {
+		*failPatches = append(*failPatches, pos)
 	}
 
 	// Compile sub-patterns for nested matching.
 	for i, arg := range p.Args {
 		if isIrrefutableBinding(arg) {
-			continue // PVar/PWild already handled by MATCH_CON's arg extraction.
+			continue
 		}
-		// Load the extracted arg and match further.
 		e.emitU16(OpLoadLocal, uint16(argSlots[i]))
-		compilePattern(e, arg, failPatch)
+		compilePatternCollect(e, arg, failPatches)
 	}
 }
 
 // compilePLit compiles a literal pattern.
-func compilePLit(e *emitter, p *ir.PLit, failPatch *int) {
+func compilePLit(e *emitter, p *ir.PLit, failPatches *[]int) {
 	litIdx := e.addConstant(&eval.HostVal{Inner: p.Value})
-	if failPatch != nil {
-		*failPatch = e.emitU16U16(OpMatchLit, litIdx, 0)
-	} else {
-		e.emitU16U16(OpMatchLit, litIdx, 0)
+	pos := e.emitU16U16(OpMatchLit, litIdx, 0)
+	if failPatches != nil {
+		*failPatches = append(*failPatches, pos)
 	}
 }
 
 // compilePRecord compiles a record pattern.
-func compilePRecord(e *emitter, p *ir.PRecord, failPatch *int) {
+func compilePRecord(e *emitter, p *ir.PRecord, failPatches *[]int) {
 	labels := make([]string, len(p.Fields))
 	fieldSlots := make([]int, len(p.Fields))
 	for i, f := range p.Fields {
@@ -156,19 +149,17 @@ func compilePRecord(e *emitter, p *ir.PRecord, failPatch *int) {
 		FieldSlots: fieldSlots,
 	})
 
-	if failPatch != nil {
-		*failPatch = e.emitU16U16(OpMatchRecord, descIdx, 0)
-	} else {
-		e.emitU16U16(OpMatchRecord, descIdx, 0)
+	pos := e.emitU16U16(OpMatchRecord, descIdx, 0)
+	if failPatches != nil {
+		*failPatches = append(*failPatches, pos)
 	}
 
-	// Sub-patterns.
 	for i, f := range p.Fields {
 		if isIrrefutableBinding(f.Pattern) {
 			continue
 		}
 		e.emitU16(OpLoadLocal, uint16(fieldSlots[i]))
-		compilePattern(e, f.Pattern, failPatch)
+		compilePatternCollect(e, f.Pattern, failPatches)
 	}
 }
 

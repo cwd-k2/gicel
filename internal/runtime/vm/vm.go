@@ -1,0 +1,576 @@
+package vm
+
+import (
+	"context"
+	"fmt"
+
+	"github.com/cwd-k2/gicel/internal/infra/budget"
+	"github.com/cwd-k2/gicel/internal/infra/span"
+	"github.com/cwd-k2/gicel/internal/runtime/eval"
+)
+
+// Frame is a single activation record on the VM's call stack.
+type Frame struct {
+	proto  *Proto
+	ip     int         // instruction pointer within proto.Code
+	bp     int         // base pointer into vm.locals
+	capEnv eval.CapEnv // capability environment for this frame
+	source *span.Source
+}
+
+// VM is the bytecode virtual machine for GICEL.
+type VM struct {
+	// Operand stack.
+	stack []eval.Value
+	sp    int // stack pointer (index of next push)
+
+	// Local variable storage (all frames share a flat array).
+	locals []eval.Value
+
+	// Call stack.
+	frames []Frame
+	fp     int // frame pointer (index of current frame in frames)
+
+	// Global environment.
+	globals      []eval.Value
+	globalSlots  map[string]int
+	namedGlobals map[string]eval.Value
+
+	// Primitives.
+	prims *eval.PrimRegistry
+
+	// Resource budget.
+	budget *budget.Budget
+	ctx    context.Context
+
+	// Observer (explain mode).
+	obs *eval.ExplainObserver
+
+	// Source for error attribution.
+	source *span.Source
+
+	// Statistics.
+	stats eval.EvalStats
+
+	// Cached applier for primitive callbacks.
+	cachedApplier eval.Applier
+}
+
+// VMConfig holds configuration for creating a VM.
+type VMConfig struct {
+	Globals      []eval.Value
+	GlobalSlots  map[string]int
+	NamedGlobals map[string]eval.Value
+	Prims        *eval.PrimRegistry
+	Budget       *budget.Budget
+	Ctx          context.Context
+	Observer     *eval.ExplainObserver
+	Source       *span.Source
+}
+
+// NewVM creates a VM ready to execute a Proto.
+func NewVM(cfg VMConfig) *VM {
+	vm := &VM{
+		stack:        make([]eval.Value, 0, 256),
+		locals:       make([]eval.Value, 0, 256),
+		frames:       make([]Frame, 0, 64),
+		globals:      cfg.Globals,
+		globalSlots:  cfg.GlobalSlots,
+		namedGlobals: cfg.NamedGlobals,
+		prims:        cfg.Prims,
+		budget:       cfg.Budget,
+		ctx:          cfg.Ctx,
+		obs:          cfg.Observer,
+		source:       cfg.Source,
+	}
+	vm.cachedApplier = vm.applyForPrim
+	return vm
+}
+
+// Run executes a Proto and returns the result.
+func (vm *VM) Run(proto *Proto, capEnv eval.CapEnv) (eval.EvalResult, error) {
+	vm.pushFrame(proto, 0, capEnv, proto.Source)
+	return vm.execute()
+}
+
+// Stats returns the accumulated evaluation statistics.
+func (vm *VM) Stats() eval.EvalStats {
+	vm.stats.Allocated = vm.budget.Allocated()
+	if pd := vm.budget.PeakDepth(); pd > vm.stats.MaxDepth {
+		vm.stats.MaxDepth = pd
+	}
+	return vm.stats
+}
+
+// --- frame management ---
+
+func (vm *VM) pushFrame(proto *Proto, bp int, capEnv eval.CapEnv, source *span.Source) {
+	vm.frames = append(vm.frames, Frame{
+		proto:  proto,
+		ip:     0,
+		bp:     bp,
+		capEnv: capEnv,
+		source: source,
+	})
+	vm.fp = len(vm.frames) - 1
+}
+
+func (vm *VM) currentFrame() *Frame {
+	return &vm.frames[vm.fp]
+}
+
+func (vm *VM) popFrame() {
+	vm.fp--
+	vm.frames = vm.frames[:vm.fp+1]
+}
+
+// --- stack operations ---
+
+func (vm *VM) push(v eval.Value) {
+	if vm.sp >= len(vm.stack) {
+		vm.stack = append(vm.stack, v)
+	} else {
+		vm.stack[vm.sp] = v
+	}
+	vm.sp++
+}
+
+func (vm *VM) pop() eval.Value {
+	vm.sp--
+	v := vm.stack[vm.sp]
+	vm.stack[vm.sp] = nil // GC
+	return v
+}
+
+func (vm *VM) peek() eval.Value {
+	return vm.stack[vm.sp-1]
+}
+
+// --- local access ---
+
+func (vm *VM) getLocal(frame *Frame, slot int) eval.Value {
+	return vm.locals[frame.bp+slot]
+}
+
+func (vm *VM) setLocal(frame *Frame, slot int, v eval.Value) {
+	idx := frame.bp + slot
+	for idx >= len(vm.locals) {
+		vm.locals = append(vm.locals, nil)
+	}
+	vm.locals[idx] = v
+}
+
+// ensureLocals grows the locals array to at least the given size.
+func (vm *VM) ensureLocals(n int) {
+	for len(vm.locals) < n {
+		vm.locals = append(vm.locals, nil)
+	}
+}
+
+// --- main dispatch loop ---
+
+func (vm *VM) execute() (eval.EvalResult, error) {
+	for {
+		frame := vm.currentFrame()
+		if frame.ip >= len(frame.proto.Code) {
+			// End of bytecode — implicit return of TOS.
+			if vm.sp > 0 {
+				result := vm.pop()
+				if vm.fp == 0 {
+					return eval.EvalResult{Value: result, CapEnv: frame.capEnv}, nil
+				}
+				vm.budget.Leave()
+				vm.popFrame()
+				vm.push(result)
+				// Propagate capEnv to caller.
+				vm.currentFrame().capEnv = frame.capEnv
+				continue
+			}
+			return eval.EvalResult{}, &eval.RuntimeError{Message: "empty stack at return"}
+		}
+
+		op := Opcode(frame.proto.Code[frame.ip])
+		frame.ip++
+
+		switch op {
+		case OpStep:
+			vm.stats.Steps++
+			if err := vm.budget.Step(); err != nil {
+				return eval.EvalResult{}, err
+			}
+
+		case OpLoadLocal:
+			slot := DecodeU16(frame.proto.Code, frame.ip)
+			frame.ip += 2
+			v := vm.getLocal(frame, int(slot))
+			// Dereference IndirectVal.
+			if ind, ok := v.(*eval.IndirectVal); ok {
+				if ind.Ref == nil {
+					return eval.EvalResult{}, vm.runtimeError("uninitialized forward reference", frame)
+				}
+				v = *ind.Ref
+			}
+			vm.push(v)
+
+		case OpLoadGlobal:
+			slot := DecodeU16(frame.proto.Code, frame.ip)
+			frame.ip += 2
+			v := vm.globals[slot]
+			if ind, ok := v.(*eval.IndirectVal); ok {
+				if ind.Ref == nil {
+					return eval.EvalResult{}, vm.runtimeError("uninitialized forward reference", frame)
+				}
+				v = *ind.Ref
+			}
+			vm.push(v)
+
+		case OpStoreLocal:
+			slot := DecodeU16(frame.proto.Code, frame.ip)
+			frame.ip += 2
+			vm.setLocal(frame, int(slot), vm.pop())
+
+		case OpConst:
+			idx := DecodeU16(frame.proto.Code, frame.ip)
+			frame.ip += 2
+			vm.push(frame.proto.Constants[idx])
+
+		case OpConstUnit:
+			vm.push(eval.UnitVal)
+
+		case OpClosure:
+			idx := DecodeU16(frame.proto.Code, frame.ip)
+			frame.ip += 2
+			proto := frame.proto.Protos[idx]
+			if err := vm.budget.Alloc(eval.CostClosure); err != nil {
+				return eval.EvalResult{}, err
+			}
+			captured := vm.captureLocals(frame, proto.Captures)
+			vm.push(&eval.VMClosure{
+				Captured: captured,
+				Proto:    proto,
+				Source:   proto.Source,
+			})
+
+		case OpApply:
+			arg := vm.pop()
+			fn := vm.pop()
+			if err := vm.apply(fn, arg, frame, false); err != nil {
+				return eval.EvalResult{}, err
+			}
+
+		case OpTailApply:
+			arg := vm.pop()
+			fn := vm.pop()
+			if err := vm.apply(fn, arg, frame, true); err != nil {
+				return eval.EvalResult{}, err
+			}
+
+		case OpReturn:
+			result := vm.pop()
+			if vm.fp == 0 {
+				return eval.EvalResult{Value: result, CapEnv: frame.capEnv}, nil
+			}
+			callerCapEnv := frame.capEnv
+			vm.budget.Leave()
+			// Shrink locals to frame boundary.
+			vm.locals = vm.locals[:frame.bp]
+			vm.popFrame()
+			vm.push(result)
+			vm.currentFrame().capEnv = callerCapEnv
+
+		case OpThunk:
+			idx := DecodeU16(frame.proto.Code, frame.ip)
+			frame.ip += 2
+			proto := frame.proto.Protos[idx]
+			if err := vm.budget.Alloc(eval.CostThunk); err != nil {
+				return eval.EvalResult{}, err
+			}
+			captured := vm.captureLocals(frame, proto.Captures)
+			// Mark capEnv as shared to prevent thunk from seeing later mutations.
+			frame.capEnv = frame.capEnv.MarkShared()
+			vm.push(&eval.VMThunkVal{
+				Captured: captured,
+				Proto:    proto,
+				Source:   proto.Source,
+			})
+
+		case OpForce:
+			v := vm.pop()
+			if err := vm.force(v, frame, false); err != nil {
+				return eval.EvalResult{}, err
+			}
+
+		case OpForceTail:
+			v := vm.pop()
+			if err := vm.force(v, frame, true); err != nil {
+				return eval.EvalResult{}, err
+			}
+
+		case OpForceEffectful:
+			v := vm.pop()
+			result, newCapEnv, err := vm.forceEffectful(v, frame.capEnv, frame)
+			if err != nil {
+				return eval.EvalResult{}, err
+			}
+			frame.capEnv = newCapEnv
+			vm.push(result)
+
+		case OpBind:
+			slot := DecodeU16(frame.proto.Code, frame.ip)
+			frame.ip += 2
+			v := vm.pop()
+			result, newCapEnv, err := vm.forceEffectful(v, frame.capEnv, frame)
+			if err != nil {
+				return eval.EvalResult{}, err
+			}
+			frame.capEnv = newCapEnv
+			vm.setLocal(frame, int(slot), result)
+
+		case OpCon:
+			nameIdx := DecodeU16(frame.proto.Code, frame.ip)
+			frame.ip += 2
+			arity := int(frame.proto.Code[frame.ip])
+			frame.ip++
+			if err := vm.budget.Alloc(eval.CostConBase + int64(eval.CostConArg*arity)); err != nil {
+				return eval.EvalResult{}, err
+			}
+			name := frame.proto.Strings[nameIdx]
+			args := make([]eval.Value, arity)
+			for i := arity - 1; i >= 0; i-- {
+				args[i] = vm.pop()
+			}
+			vm.push(&eval.ConVal{Con: name, Args: args})
+
+		case OpRecord:
+			descIdx := DecodeU16(frame.proto.Code, frame.ip)
+			frame.ip += 2
+			desc := frame.proto.RecordDescs[descIdx]
+			n := len(desc.Labels)
+			if err := vm.budget.Alloc(eval.CostRecord + int64(eval.CostRecordField*n)); err != nil {
+				return eval.EvalResult{}, err
+			}
+			fields := make([]eval.RecordField, n)
+			for i := n - 1; i >= 0; i-- {
+				fields[i] = eval.RecordField{Label: desc.Labels[i], Value: vm.pop()}
+			}
+			vm.push(eval.NewRecord(fields))
+
+		case OpRecordProj:
+			labelIdx := DecodeU16(frame.proto.Code, frame.ip)
+			frame.ip += 2
+			label := frame.proto.Strings[labelIdx]
+			rec := vm.pop()
+			rv, ok := rec.(*eval.RecordVal)
+			if !ok {
+				return eval.EvalResult{}, vm.runtimeError(
+					fmt.Sprintf("record projection on non-record: %s", rec), frame)
+			}
+			val, ok := rv.Get(label)
+			if !ok {
+				return eval.EvalResult{}, vm.runtimeError(
+					fmt.Sprintf("missing field %q in record", label), frame)
+			}
+			vm.push(val)
+
+		case OpRecordUpdate:
+			descIdx := DecodeU16(frame.proto.Code, frame.ip)
+			frame.ip += 2
+			desc := frame.proto.RecordDescs[descIdx]
+			n := len(desc.Labels)
+			if err := vm.budget.Alloc(eval.CostRecord + int64(eval.CostRecordField*n)); err != nil {
+				return eval.EvalResult{}, err
+			}
+			updates := make([]eval.RecordField, n)
+			for i := n - 1; i >= 0; i-- {
+				updates[i] = eval.RecordField{Label: desc.Labels[i], Value: vm.pop()}
+			}
+			rec := vm.pop()
+			rv, ok := rec.(*eval.RecordVal)
+			if !ok {
+				return eval.EvalResult{}, vm.runtimeError(
+					fmt.Sprintf("record update on non-record: %s", rec), frame)
+			}
+			vm.push(rv.Update(updates))
+
+		case OpMatchCon:
+			descIdx := DecodeU16(frame.proto.Code, frame.ip)
+			frame.ip += 2
+			failOffset := DecodeU16(frame.proto.Code, frame.ip)
+			frame.ip += 2
+			desc := frame.proto.MatchDescs[descIdx]
+			scrut := vm.peek()
+			cv, ok := scrut.(*eval.ConVal)
+			if !ok || cv.Con != desc.ConName || len(cv.Args) != len(desc.ArgSlots) {
+				// Match failed — jump to fail target.
+				frame.ip = int(failOffset)
+				continue
+			}
+			vm.pop() // consume scrutinee
+			for i, slot := range desc.ArgSlots {
+				vm.setLocal(frame, slot, cv.Args[i])
+			}
+
+		case OpMatchLit:
+			litIdx := DecodeU16(frame.proto.Code, frame.ip)
+			frame.ip += 2
+			failOffset := DecodeU16(frame.proto.Code, frame.ip)
+			frame.ip += 2
+			expected := frame.proto.Constants[litIdx]
+			scrut := vm.peek()
+			if !litEqual(scrut, expected) {
+				frame.ip = int(failOffset)
+				continue
+			}
+			vm.pop()
+
+		case OpMatchRecord:
+			descIdx := DecodeU16(frame.proto.Code, frame.ip)
+			frame.ip += 2
+			failOffset := DecodeU16(frame.proto.Code, frame.ip)
+			frame.ip += 2
+			desc := frame.proto.MatchDescs[descIdx]
+			scrut := vm.peek()
+			rv, ok := scrut.(*eval.RecordVal)
+			if !ok {
+				frame.ip = int(failOffset)
+				continue
+			}
+			matched := true
+			vals := make([]eval.Value, len(desc.Labels))
+			for i, label := range desc.Labels {
+				v, ok := rv.Get(label)
+				if !ok {
+					matched = false
+					break
+				}
+				vals[i] = v
+			}
+			if !matched {
+				frame.ip = int(failOffset)
+				continue
+			}
+			vm.pop()
+			for i, slot := range desc.FieldSlots {
+				vm.setLocal(frame, slot, vals[i])
+			}
+
+		case OpMatchWild:
+			vm.pop()
+
+		case OpMatchFail:
+			scrut := "unknown"
+			if vm.sp > 0 {
+				scrut = vm.peek().String()
+			}
+			return eval.EvalResult{}, vm.runtimeError(
+				fmt.Sprintf("non-exhaustive pattern match on %s", scrut), frame)
+
+		case OpJump:
+			offset := DecodeI16(frame.proto.Code, frame.ip)
+			frame.ip += 2
+			frame.ip += int(offset)
+
+		case OpPop:
+			vm.pop()
+
+		case OpFixClosure:
+			idx := DecodeU16(frame.proto.Code, frame.ip)
+			frame.ip += 2
+			proto := frame.proto.Protos[idx]
+			if err := vm.budget.Alloc(eval.CostClosure); err != nil {
+				return eval.EvalResult{}, err
+			}
+			captured := vm.captureLocals(frame, proto.Captures)
+			clo := &eval.VMClosure{
+				Captured: make([]eval.Value, proto.NumLocals),
+				Proto:    proto,
+				Source:   proto.Source,
+			}
+			copy(clo.Captured, captured)
+			// Tie the knot: self-reference at FixSelfSlot.
+			clo.Captured[proto.FixSelfSlot] = clo
+			vm.push(clo)
+
+		case OpFixThunk:
+			idx := DecodeU16(frame.proto.Code, frame.ip)
+			frame.ip += 2
+			proto := frame.proto.Protos[idx]
+			if err := vm.budget.Alloc(eval.CostThunk); err != nil {
+				return eval.EvalResult{}, err
+			}
+			captured := vm.captureLocals(frame, proto.Captures)
+			thv := &eval.VMThunkVal{
+				Captured:  make([]eval.Value, proto.NumLocals),
+				Proto:     proto,
+				Source:    proto.Source,
+				AutoForce: true,
+			}
+			copy(thv.Captured, captured)
+			thv.Captured[proto.FixSelfSlot] = thv
+			vm.push(thv)
+
+		case OpPrim:
+			nameIdx := DecodeU16(frame.proto.Code, frame.ip)
+			frame.ip += 2
+			arity := int(frame.proto.Code[frame.ip])
+			frame.ip++
+			name := frame.proto.Strings[nameIdx]
+			impl, ok := vm.prims.Lookup(name)
+			if !ok {
+				return eval.EvalResult{}, vm.runtimeError(
+					fmt.Sprintf("missing primitive: %s", name), frame)
+			}
+			args := make([]eval.Value, arity)
+			for i := arity - 1; i >= 0; i-- {
+				args[i] = vm.pop()
+			}
+			val, newCap, err := vm.callPrim(impl, frame.capEnv, args)
+			if err != nil {
+				return eval.EvalResult{}, err
+			}
+			frame.capEnv = newCap
+			vm.push(val)
+
+		case OpPrimPartial:
+			idx := DecodeU16(frame.proto.Code, frame.ip)
+			frame.ip += 2
+			vm.push(frame.proto.Constants[idx])
+
+		default:
+			return eval.EvalResult{}, vm.runtimeError(
+				fmt.Sprintf("unknown opcode: %d", op), frame)
+		}
+	}
+}
+
+// --- helpers ---
+
+func (vm *VM) captureLocals(frame *Frame, indices []int) []eval.Value {
+	if len(indices) == 0 {
+		return nil
+	}
+	captured := make([]eval.Value, len(indices))
+	for i, idx := range indices {
+		captured[i] = vm.getLocal(frame, idx)
+	}
+	return captured
+}
+
+func (vm *VM) runtimeError(msg string, frame *Frame) *eval.RuntimeError {
+	s := frame.proto.SpanAt(frame.ip)
+	return &eval.RuntimeError{
+		Message: msg,
+		Span:    s,
+		Source:  frame.source,
+	}
+}
+
+// litEqual compares two literal values for equality (pattern matching).
+func litEqual(a, b eval.Value) bool {
+	ha, ok1 := a.(*eval.HostVal)
+	hb, ok2 := b.(*eval.HostVal)
+	if !ok1 || !ok2 {
+		return false
+	}
+	return ha.Inner == hb.Inner
+}

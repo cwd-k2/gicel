@@ -116,10 +116,18 @@ func (e *emitter) emitJump(op Opcode) int {
 	return pos
 }
 
-// patchJumpTo patches a jump instruction at pos to target the current code position.
+// patchJumpTo patches a JUMP instruction at pos to target the current code position.
+// Uses relative offset (signed i16 from end of instruction).
 func (e *emitter) patchJumpTo(pos int) {
 	offset := int16(len(e.code) - pos - 3) // relative to instruction end
 	EncodeU16(e.code[pos+1:], uint16(offset))
+}
+
+// patchMatchFailTo patches a MATCH_* instruction's fail offset at pos
+// to target the current code position. Uses absolute offset.
+// The fail offset is the second u16 operand (at pos+3).
+func (e *emitter) patchMatchFailTo(pos int) {
+	EncodeU16(e.code[pos+3:], uint16(len(e.code)))
 }
 
 // patchU16 overwrites the u16 at code[pos+1..pos+2].
@@ -184,38 +192,6 @@ func (e *emitter) resolveLocal(name string) (int, bool) {
 	return -1, false
 }
 
-// resolveCapture looks up a variable in enclosing scopes and records it
-// as a capture. Returns (capture index, true) if found.
-func (e *emitter) resolveCapture(name string) (int, bool) {
-	if e.parent == nil {
-		return -1, false
-	}
-	// Check parent's locals.
-	if slot, ok := e.parent.resolveLocal(name); ok {
-		return e.addCapture(slot), true
-	}
-	// Check parent's captures (transitive capture).
-	if capIdx, ok := e.parent.resolveCapture(name); ok {
-		// Parent has a capture at capIdx — we need to capture from
-		// parent's local representation of that capture.
-		// Since captures are laid out before params in the local array,
-		// parent's capture at capIdx is at local slot capIdx.
-		return e.addCapture(capIdx), true
-	}
-	return -1, false
-}
-
-// addCapture adds a capture (if not already present) and returns its index.
-func (e *emitter) addCapture(parentSlot int) int {
-	for i, c := range e.captures {
-		if c == parentSlot {
-			return i
-		}
-	}
-	idx := len(e.captures)
-	e.captures = append(e.captures, parentSlot)
-	return idx
-}
 
 // popLocals removes locals added since the given count.
 func (e *emitter) popLocals(count int) {
@@ -303,19 +279,13 @@ func (e *emitter) compileExpr(expr ir.Core, tail bool) {
 func (e *emitter) compileVar(v *ir.Var) {
 	e.addSpan(v.S)
 	if v.Index >= 0 {
-		// Local variable. The IR uses de Bruijn indices (0 = innermost).
-		// Our emitter tracks locals by name, which were assigned slots
-		// during compilation. Look up the name.
+		// Local variable — resolve by name. Captures are pre-allocated as
+		// local slots in compileChildProto, so resolveLocal finds them.
 		if slot, ok := e.resolveLocal(v.Name); ok {
 			e.emitU16(OpLoadLocal, uint16(slot))
 			return
 		}
-		// Try as a capture from enclosing scope.
-		if capIdx, ok := e.resolveCapture(v.Name); ok {
-			e.emitU16(OpLoadLocal, uint16(capIdx))
-			return
-		}
-		// Fallback: shouldn't happen for well-formed IR with assigned indices.
+		// Fallback: shouldn't happen for well-formed IR.
 		panic(fmt.Sprintf("vm/compiler: unresolved local variable %q (index %d)", v.Name, v.Index))
 	}
 	// Global variable.
@@ -347,7 +317,7 @@ func (e *emitter) compileLit(lit *ir.Lit) {
 
 func (e *emitter) compileLam(lam *ir.Lam) {
 	e.addSpan(lam.S)
-	child := e.compileChildProto(lam.Param, lam.Body, false, lam.S)
+	child := e.compileChildProto(lam.Param, lam.Body, false, lam.FV, lam.FVIndices)
 	protoIdx := e.addProto(child)
 	e.emitU16(OpClosure, protoIdx)
 }
@@ -387,11 +357,11 @@ func (e *emitter) compileFix(fix *ir.Fix) {
 	body := ir.PeelTyLam(fix.Body)
 	switch b := body.(type) {
 	case *ir.Lam:
-		child := e.compileFixProto(fix.Name, b.Param, b.Body, false, fix.S)
+		child := e.compileFixProto(fix.Name, b.Param, b.Body, false, b.FV, b.FVIndices)
 		protoIdx := e.addProto(child)
 		e.emitU16(OpFixClosure, protoIdx)
 	case *ir.Thunk:
-		child := e.compileFixProto(fix.Name, "", b.Comp, true, fix.S)
+		child := e.compileFixProto(fix.Name, "", b.Comp, true, b.FV, b.FVIndices)
 		protoIdx := e.addProto(child)
 		e.emitU16(OpFixThunk, protoIdx)
 	default:
@@ -412,7 +382,7 @@ func (e *emitter) compileBind(bind *ir.Bind, tail bool) {
 
 func (e *emitter) compileThunk(thunk *ir.Thunk) {
 	e.addSpan(thunk.S)
-	child := e.compileChildProto("", thunk.Comp, true, thunk.S)
+	child := e.compileChildProto("", thunk.Comp, true, thunk.FV, thunk.FVIndices)
 	protoIdx := e.addProto(child)
 	e.emitU16(OpThunk, protoIdx)
 }
@@ -510,19 +480,57 @@ func (e *emitter) compileRecordUpdate(upd *ir.RecordUpdate) {
 // --- child proto compilation ---
 
 // compileChildProto compiles a nested function or thunk body.
-func (e *emitter) compileChildProto(paramName string, body ir.Core, isThunk bool, s span.Span) *Proto {
+// fv is the list of free variable names from the IR (Lam.FV or Thunk.FV).
+// fvIndices is the list of de Bruijn indices in the enclosing env.
+// If fv is nil, free variables are computed from the body (test/fallback path).
+func (e *emitter) compileChildProto(paramName string, body ir.Core, isThunk bool, fv []string, fvIndices []int) *Proto {
+	if fv == nil {
+		fv, fvIndices = e.inferFreeVars(body, paramName)
+	}
 	child := newEmitter(e.compiler, e)
 	child.isThunk = isThunk
 	child.paramName = paramName
 
-	// Captures are resolved lazily during body compilation.
-	// After body compilation, child.captures holds the list of parent slots.
+	// Phase 1: Reserve slots for captures.
+	// Captures occupy the first N local slots (0..N-1).
+	// The VM copies VMClosure.Captured into locals[bp..bp+N-1] at call time.
+	child.captures = e.resolveCaptureSlots(fv, fvIndices)
+	for _, name := range fv {
+		child.allocLocal(name) // slot 0..N-1 for captures
+	}
 
-	// Reserve slot 0..N-1 for captures (filled at runtime by CLOSURE/THUNK).
-	// We don't know how many captures yet — they are added during compileExpr.
-	// So we compile the body first, then fix up local slot indices.
+	// Phase 2: Reserve slot for parameter (closures only).
+	if paramName != "" {
+		child.allocLocal(paramName)
+	}
 
-	// If this is a closure (not thunk), allocate a slot for the parameter.
+	// Phase 3: Compile body.
+	child.compileExpr(body, true)
+	child.emit(OpReturn)
+
+	return child.finalize(e.compiler.source)
+}
+
+// compileFixProto compiles a Fix body (self-referential closure or thunk).
+func (e *emitter) compileFixProto(selfName, paramName string, body ir.Core, isThunk bool, fv []string, fvIndices []int) *Proto {
+	if fv == nil {
+		fv, fvIndices = e.inferFreeVars(body, paramName, selfName)
+	}
+	child := newEmitter(e.compiler, e)
+	child.isThunk = isThunk
+	child.paramName = paramName
+
+	// Captures first.
+	child.captures = e.resolveCaptureSlots(fv, fvIndices)
+	for _, name := range fv {
+		child.allocLocal(name)
+	}
+
+	// Self-reference slot (comes after captures).
+	selfSlot := child.allocLocal(selfName)
+	child.fixSelfSlot = selfSlot
+
+	// Parameter slot (closures only).
 	if paramName != "" {
 		child.allocLocal(paramName)
 	}
@@ -533,25 +541,50 @@ func (e *emitter) compileChildProto(paramName string, body ir.Core, isThunk bool
 	return child.finalize(e.compiler.source)
 }
 
-// compileFixProto compiles a Fix body (self-referential closure or thunk).
-func (e *emitter) compileFixProto(selfName, paramName string, body ir.Core, isThunk bool, s span.Span) *Proto {
-	child := newEmitter(e.compiler, e)
-	child.isThunk = isThunk
-	child.paramName = paramName
-
-	// Self-reference gets a slot.
-	selfSlot := child.allocLocal(selfName)
-	child.fixSelfSlot = selfSlot
-
-	// Parameter slot (for closures).
-	if paramName != "" {
-		child.allocLocal(paramName)
+// inferFreeVars computes free variables from a body expression,
+// excluding the given bound names. Used as fallback when Lam.FV is nil.
+func (e *emitter) inferFreeVars(body ir.Core, boundNames ...string) ([]string, []int) {
+	fvMap := ir.FreeVars(body)
+	// Remove bound names.
+	for _, name := range boundNames {
+		delete(fvMap, name)
 	}
+	if len(fvMap) == 0 {
+		return nil, nil
+	}
+	// Only keep names that are local in the parent scope (not globals).
+	var fv []string
+	var fvIndices []int
+	for name := range fvMap {
+		if slot, ok := e.resolveLocal(name); ok {
+			fv = append(fv, name)
+			fvIndices = append(fvIndices, slot)
+		}
+	}
+	return fv, fvIndices
+}
 
-	child.compileExpr(body, true)
-	child.emit(OpReturn)
-
-	return child.finalize(e.compiler.source)
+// resolveCaptureSlots resolves free variable names to parent local slots.
+// Returns the indices in the parent's locals array that need to be captured.
+func (e *emitter) resolveCaptureSlots(fv []string, fvIndices []int) []int {
+	if len(fv) == 0 {
+		return nil
+	}
+	slots := make([]int, len(fv))
+	for i, name := range fv {
+		if slot, ok := e.resolveLocal(name); ok {
+			slots[i] = slot
+		} else if fvIndices != nil && i < len(fvIndices) && fvIndices[i] >= 0 {
+			// Use FVIndices as fallback (de Bruijn index in enclosing scope).
+			// This maps to our local slot system.
+			slots[i] = fvIndices[i]
+		} else {
+			// Variable not found in parent scope — it may be a global.
+			// Mark with -1; the VM will need to handle this.
+			slots[i] = -1
+		}
+	}
+	return slots
 }
 
 func (e *emitter) addProto(p *Proto) uint16 {

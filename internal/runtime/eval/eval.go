@@ -10,14 +10,24 @@ import (
 )
 
 // Allocation cost estimates (bytes per value type).
+// Exported for use by the bytecode VM.
 const (
-	costClosure = 48               // Closure struct (incl. Source pointer)
-	costConBase = 32               // ConVal struct
-	costConArg  = 16               // per arg in []Value
-	costThunk   = 32               // ThunkVal struct (incl. Source pointer)
-	costRecBase = 32               // RecordVal struct + slice header
-	costRecFld  = 24               // per RecordField (label string + Value interface)
-	costFix     = costClosure + 40 // Closure + Env node for fix binding
+	CostClosure     = 48                  // Closure struct (incl. Source pointer)
+	CostConBase     = 32                  // ConVal struct
+	CostConArg      = 16                  // per arg in []Value
+	CostThunk       = 32                  // ThunkVal struct (incl. Source pointer)
+	CostRecord      = 32                  // RecordVal struct + slice header
+	CostRecordField = 24                  // per RecordField (label string + Value interface)
+	CostFix         = CostClosure + 40    // Closure + Env node for fix binding
+
+	// Unexported aliases for internal use.
+	costClosure = CostClosure
+	costConBase = CostConBase
+	costConArg  = CostConArg
+	costThunk   = CostThunk
+	costRecBase = CostRecord
+	costRecFld  = CostRecordField
+	costFix     = CostFix
 )
 
 // EvalResult is the result of evaluation.
