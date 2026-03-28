@@ -144,25 +144,25 @@ func AnnotateFreeVarsProgram(p *Program) {
 	}
 }
 
-// fvOverflowKey is a sentinel key placed in the FV map to indicate that
-// the computation was truncated by the depth limit. Any Lam/Thunk whose
-// body FV contains this key will have FV = nil, disabling environment
-// trimming at runtime. Safe (retains more than necessary) but prevents
-// $dict_N variable losses on deeply nested operator chains.
-const fvOverflowKey = "\x00<overflow>"
-
-func fvOverflowSet() map[string]struct{} {
-	return map[string]struct{}{fvOverflowKey: {}}
+// fvResult carries the free variable set and an overflow flag.
+// When overflow is true, the FV computation was truncated by the depth
+// limit; ancestor Lam/Thunk nodes must disable environment trimming
+// rather than silently losing deep free variables.
+type fvResult struct {
+	vars     map[string]struct{}
+	overflow bool
 }
 
-func isFVOverflow(m map[string]struct{}) bool {
-	_, ok := m[fvOverflowKey]
-	return ok
+var fvOverflow = fvResult{overflow: true}
+
+func (r fvResult) delete(name string) {
+	delete(r.vars, name)
 }
+
 
 // annotateFVLeftSpine iteratively descends the left spine of App nodes
 // for the annotateFV pass, merging free variable sets from right children.
-func annotateFVLeftSpine(app *App, depth int) map[string]struct{} {
+func annotateFVLeftSpine(app *App, depth int) fvResult {
 	var rights []Core
 
 	cur := Core(app)
@@ -198,12 +198,12 @@ func annotateFVLeftSpine(app *App, depth int) map[string]struct{} {
 // Only Fix names, Case alt bindings, and Bind vars are propagated as bound,
 // since they are resolved within the same scope.
 //
-// When the depth limit is reached, returns fvOverflow (a sentinel) instead of
-// nil, so that ancestor Lam/Thunk nodes detect the truncation and disable
-// environment trimming rather than silently losing deep free variables.
-func annotateFV(c Core, depth int) map[string]struct{} {
+// When the depth limit is reached, returns fvOverflow so that ancestor
+// Lam/Thunk nodes detect the truncation and disable environment trimming
+// rather than silently losing deep free variables.
+func annotateFV(c Core, depth int) fvResult {
 	if depth > maxTraversalDepth {
-		return fvOverflowSet()
+		return fvOverflow
 	}
 	switch n := c.(type) {
 	case *Var:
@@ -211,16 +211,16 @@ func annotateFV(c Core, depth int) map[string]struct{} {
 		if n.Key == "" {
 			n.Key = varKey(n)
 		}
-		return map[string]struct{}{n.Key: {}}
+		return fvResult{vars: map[string]struct{}{n.Key: {}}}
 	case *Lam:
 		bodyFV := annotateFV(n.Body, depth+1)
-		if isFVOverflow(bodyFV) {
+		if bodyFV.overflow {
 			n.FV = nil // disable env trimming — deep subtree FV unknown
-			return fvOverflowSet()
+			return fvOverflow
 		}
 		// Remove the param — it comes from application, not from captured env.
-		delete(bodyFV, n.Param)
-		n.FV = setToSlice(bodyFV)
+		bodyFV.delete(n.Param)
+		n.FV = setToSlice(bodyFV.vars)
 		return bodyFV
 	case *App:
 		return annotateFVLeftSpine(n, depth)
@@ -229,7 +229,7 @@ func annotateFV(c Core, depth int) map[string]struct{} {
 	case *TyLam:
 		return annotateFV(n.Body, depth+1)
 	case *Con:
-		var result map[string]struct{}
+		var result fvResult
 		for _, arg := range n.Args {
 			result = mergeFV(result, annotateFV(arg, depth+1))
 		}
@@ -240,7 +240,7 @@ func annotateFV(c Core, depth int) map[string]struct{} {
 			altFV := annotateFV(alt.Body, depth+1)
 			// Remove pattern-bound vars — they are local to each alt.
 			for _, name := range alt.Pattern.Bindings() {
-				delete(altFV, name)
+				altFV.delete(name)
 			}
 			result = mergeFV(result, altFV)
 		}
@@ -248,7 +248,7 @@ func annotateFV(c Core, depth int) map[string]struct{} {
 	case *Fix:
 		// Fix name is visible in Body — remove it from the result.
 		result := annotateFV(n.Body, depth+1)
-		delete(result, n.Name)
+		result.delete(n.Name)
 		return result
 	case *Pure:
 		return annotateFV(n.Expr, depth+1)
@@ -256,28 +256,28 @@ func annotateFV(c Core, depth int) map[string]struct{} {
 		compFV := annotateFV(n.Comp, depth+1)
 		bodyFV := annotateFV(n.Body, depth+1)
 		// Bind var is local to the body.
-		delete(bodyFV, n.Var)
+		bodyFV.delete(n.Var)
 		return mergeFV(compFV, bodyFV)
 	case *Thunk:
 		compFV := annotateFV(n.Comp, depth+1)
-		if isFVOverflow(compFV) {
+		if compFV.overflow {
 			n.FV = nil // disable env trimming — deep subtree FV unknown
-			return fvOverflowSet()
+			return fvOverflow
 		}
-		n.FV = setToSlice(compFV)
+		n.FV = setToSlice(compFV.vars)
 		return compFV
 	case *Force:
 		return annotateFV(n.Expr, depth+1)
 	case *PrimOp:
-		var result map[string]struct{}
+		var result fvResult
 		for _, arg := range n.Args {
 			result = mergeFV(result, annotateFV(arg, depth+1))
 		}
 		return result
 	case *Lit:
-		return nil
+		return fvResult{}
 	case *RecordLit:
-		var result map[string]struct{}
+		var result fvResult
 		for _, f := range n.Fields {
 			result = mergeFV(result, annotateFV(f.Value, depth+1))
 		}
@@ -295,18 +295,18 @@ func annotateFV(c Core, depth int) map[string]struct{} {
 	}
 }
 
-func mergeFV(a, b map[string]struct{}) map[string]struct{} {
-	if isFVOverflow(a) || isFVOverflow(b) {
-		return fvOverflowSet()
+func mergeFV(a, b fvResult) fvResult {
+	if a.overflow || b.overflow {
+		return fvOverflow
 	}
-	if len(a) == 0 {
+	if len(a.vars) == 0 {
 		return b
 	}
-	if len(b) == 0 {
+	if len(b.vars) == 0 {
 		return a
 	}
-	for k := range b {
-		a[k] = struct{}{}
+	for k := range b.vars {
+		a.vars[k] = struct{}{}
 	}
 	return a
 }
