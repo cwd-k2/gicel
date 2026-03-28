@@ -14,7 +14,7 @@ result, err := gicel.RunSandbox(source, &gicel.SandboxConfig{
     MaxSteps: 100_000,             // default: 100,000
     MaxDepth: 100,                 // default: 100
     MaxNesting: 256,               // default: 256
-    MaxAlloc: 10 * 1024 * 1024,   // default: 10 MiB
+    MaxAlloc: 10 * 1024 * 1024,    // default: 10 MiB
     Caps:     map[string]any{"state": gicel.ToValue(0), "io": gicel.ToValue(nil)},
     Bindings: map[string]gicel.Value{"input": gicel.ToValue("hello")},
 })
