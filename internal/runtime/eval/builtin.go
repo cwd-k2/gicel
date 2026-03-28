@@ -55,6 +55,12 @@ func BuiltinGlobals(enableFix, enableRec bool) map[string]Value {
 	return globals
 }
 
+// FixBody returns the Fix IR node for the fix builtin.
+func FixBody() *ir.Fix { return fixBody() }
+
+// RecBody returns the Force(Fix(Thunk)) IR node for the rec builtin.
+func RecBody() ir.Core { return recBody() }
+
 // fixBody returns a Fix node for the fix builtin closure.
 // fix f = the fixpoint of f, i.e. x where x = \arg. (f x) arg.
 //

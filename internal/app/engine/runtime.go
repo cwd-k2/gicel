@@ -300,6 +300,19 @@ func (r *Runtime) executeVM(ctx context.Context, b *budget.Budget, ev *eval.Eval
 	namedGlobals := ev.Globals()
 
 	compiler := vm.NewCompiler(r.globalSlots, r.source)
+
+	// Replace tree-walker builtin closures with VM-compiled ones.
+	vmBuiltins := vm.CompileBuiltinGlobals(compiler,
+		globalArray[r.globalSlots["fix"]] != nil,
+		globalArray[r.globalSlots["rec"]] != nil,
+	)
+	for name, val := range vmBuiltins {
+		if slot, ok := r.globalSlots[name]; ok {
+			globalArray[slot] = val
+			namedGlobals[name] = val
+		}
+	}
+
 	machine := vm.NewVM(vm.VMConfig{
 		Globals:      globalArray,
 		GlobalSlots:  r.globalSlots,
