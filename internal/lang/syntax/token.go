@@ -33,7 +33,8 @@ const (
 	TokEq         // =
 	TokTilde      // ~
 
-	// Keywords (12)
+	// Keywords (13)
+	TokAs
 	TokCase
 	TokDo
 	TokForm

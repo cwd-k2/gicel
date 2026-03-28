@@ -517,6 +517,7 @@ func (l *Lexer) scanRune(start int) syn.Token {
 }
 
 var keywords = map[string]syn.TokenKind{
+	"as":     syn.TokAs,
 	"case":   syn.TokCase,
 	"do":     syn.TokDo,
 	"form":   syn.TokForm,
