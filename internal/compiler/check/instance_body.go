@@ -35,7 +35,7 @@ func (ch *Checker) processInstanceBody(inst *InstanceInfo, methods map[string]sy
 	}
 	var ctxParams []ctxParam
 	for _, ctx := range inst.Context {
-		paramName := fmt.Sprintf("%s_%s_%d", prefixDict, ctx.ClassName, ch.fresh())
+		paramName := ch.freshDictName(ctx.ClassName)
 		paramTy := ch.buildDictType(ctx.ClassName, ctx.Args)
 		ctxParams = append(ctxParams, ctxParam{name: paramName, ty: paramTy})
 		ch.ctx.Push(&CtxVar{Name: paramName, Type: paramTy, DictClassName: ctx.ClassName})

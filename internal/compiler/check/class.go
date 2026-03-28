@@ -232,7 +232,7 @@ func (ch *Checker) buildMethodSelector(cls *ClassInfo, m MethodInfo, methodIdx i
 
 	ch.ctx.Push(&CtxVar{Name: m.Name, Type: selectorTy, Module: ch.scope.CurrentModule()})
 
-	selName := fmt.Sprintf("%s_%s_%d", prefixSel, m.Name, ch.fresh())
+	selName := ch.freshName(prefixSel + "_" + m.Name)
 	var patArgs []ir.Pattern
 	var resultExpr ir.Core
 	for j := 0; j < len(dict.fieldTypes); j++ {

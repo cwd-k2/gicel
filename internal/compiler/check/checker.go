@@ -3,6 +3,7 @@ package check
 import (
 	"context"
 	"fmt"
+	"strconv"
 
 	"github.com/cwd-k2/gicel/internal/compiler/check/env"
 	"github.com/cwd-k2/gicel/internal/compiler/check/family"
@@ -354,6 +355,18 @@ func (ch *Checker) initContext() {
 func (s *CheckState) fresh() int {
 	s.freshID++
 	return s.freshID
+}
+
+// freshName generates a unique name with the given prefix.
+// Format: prefix_N where N is a monotonic counter.
+func (s *CheckState) freshName(prefix string) string {
+	return prefix + "_" + strconv.Itoa(s.fresh())
+}
+
+// freshDictName generates a unique dictionary parameter name.
+// Format: $d_className_N.
+func (s *CheckState) freshDictName(className string) string {
+	return prefixDict + "_" + className + "_" + strconv.Itoa(s.fresh())
 }
 
 func (ch *Checker) freshMeta(k types.Type) *types.TyMeta {

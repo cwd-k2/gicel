@@ -238,7 +238,7 @@ func (d *doElaborator) unifyCompPostPre(compTy, restTy types.Type, s span.Span) 
 // elaboratePatternBind handles pat <- comp; rest for irrefutable patterns.
 // Desugars to: $fresh <- comp; case $fresh { pat => rest }
 func (d *doElaborator) elaboratePatternBind(pat syntax.Pattern, comp syntax.Expr, rest []syntax.Stmt, stmtS, doS span.Span) (types.Type, ir.Core) {
-	freshName := fmt.Sprintf("$p%d", d.ch.fresh())
+	freshName := d.ch.freshName("$p")
 	freshPat := &syntax.PatVar{Name: freshName, S: pat.Span()}
 	// Rewrite as: $fresh <- comp; case $fresh { pat => rest... }
 	freshBind := &syntax.StmtBind{Pat: freshPat, Comp: comp, S: stmtS}

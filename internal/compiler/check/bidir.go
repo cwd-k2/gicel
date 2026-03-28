@@ -401,7 +401,7 @@ func (ch *Checker) checkWithEvidence(expr syntax.Expr, ev *types.TyEvidence) ir.
 			args = entry.Args
 			dictTy = ch.buildDictType(entry.ClassName, entry.Args)
 		}
-		dictParam := fmt.Sprintf("%s_%s_%d", prefixDict, className, ch.fresh())
+		dictParam := ch.freshDictName(className)
 		dicts = append(dicts, dictInfo{param: dictParam, ty: dictTy})
 		ch.ctx.Push(&CtxVar{Name: dictParam, Type: dictTy, DictClassName: className})
 		pushed++
@@ -458,7 +458,7 @@ func (ch *Checker) subsCheck(inferred, expected types.Type, expr ir.Core, s span
 	// Inferred { C1, C2 } => A ≤ B  →  defer all constraints, check A ≤ B
 	if ev, ok := inferred.(*types.TyEvidence); ok {
 		for _, entry := range ev.Constraints.ConEntries() {
-			placeholder := fmt.Sprintf("%s_%d", prefixDictDefer, ch.fresh())
+			placeholder := ch.freshName(prefixDictDefer)
 			ch.emitClassConstraint(placeholder, entry, s)
 			expr = &ir.App{Fun: expr, Arg: &ir.Var{Name: placeholder, S: s}, S: s}
 		}
@@ -497,7 +497,7 @@ func (ch *Checker) checkEvidence(e *syntax.ExprEvidence, expected types.Type) ir
 // in scope; deferred constraints are resolved before cleanup.
 func (ch *Checker) withEvidenceScope(e *syntax.ExprEvidence, body func() ir.Core) ir.Core {
 	dictTy, dictCore := ch.infer(e.Dict)
-	bindName := fmt.Sprintf("$ev_%d", ch.fresh())
+	bindName := ch.freshName("$ev")
 	ch.ctx.Push(&CtxVar{Name: bindName, Type: dictTy})
 	pushedEvidence := ch.pushEvidenceFromDictType(bindName, dictTy)
 	bodyCore := body()

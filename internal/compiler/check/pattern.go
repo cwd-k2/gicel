@@ -175,14 +175,14 @@ func (ch *Checker) checkConPatternWith(conName, moduleName string, conTy types.T
 		if ev, ok := currentTy.(*types.TyEvidence); ok {
 			for _, entry := range ev.Constraints.ConEntries() {
 				if entry.ConstraintVar != nil && entry.ClassName == "" {
-					dictParam := fmt.Sprintf("%s_%d", prefixDictConstraintVar, ch.fresh())
+					dictParam := ch.freshName(prefixDictConstraintVar)
 					pendingCVs = append(pendingCVs, pendingCV{
 						constraintVar: entry.ConstraintVar,
 						dictParam:     dictParam,
 					})
 					args = append(args, &ir.PVar{Name: dictParam, S: s})
 				} else {
-					dictParam := fmt.Sprintf("%s_%s_%d", prefixDict, entry.ClassName, ch.fresh())
+					dictParam := ch.freshDictName(entry.ClassName)
 					dictTy := ch.buildDictType(entry.ClassName, entry.Args)
 					bindings[dictParam] = dictTy
 					args = append(args, &ir.PVar{Name: dictParam, S: s})

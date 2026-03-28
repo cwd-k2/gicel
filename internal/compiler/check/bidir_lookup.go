@@ -171,7 +171,7 @@ func (ch *Checker) instantiate(ty types.Type, expr ir.Core) (types.Type, ir.Core
 					ch.emitEq(entry.EqLhs, entry.EqRhs, entry.S, nil)
 					continue
 				}
-				placeholder := fmt.Sprintf("%s_%d", prefixDictDefer, ch.fresh())
+				placeholder := ch.freshName(prefixDictDefer)
 				ch.emitClassConstraint(placeholder, entry, expr.Span())
 				expr = &ir.App{Fun: expr, Arg: &ir.Var{Name: placeholder, S: expr.Span()}, S: expr.Span()}
 			}

@@ -82,7 +82,7 @@ func (ch *Checker) inferBind(compExpr, contExpr syntax.Expr, s span.Span) (types
 		}
 		ch.ctx.Pop()
 	} else {
-		bindVar = fmt.Sprintf("%s_%d", prefixBind, ch.fresh())
+		bindVar = ch.freshName(prefixBind)
 		contExpected := types.MkArrow(ch.unifier.Zonk(a), types.MkComp(ch.unifier.Zonk(r2), r3, b))
 		contCore := ch.check(contExpr, contExpected)
 		bodyCore = &ir.App{

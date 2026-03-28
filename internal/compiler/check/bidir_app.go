@@ -17,7 +17,7 @@ func (ch *Checker) checkLam(e *syntax.ExprLam, expected types.Type) ir.Core {
 
 	// Desugar structured patterns: \pat. body  →  \$p. case $p { pat -> body }
 	if isStructuredPattern(e.Params[0]) {
-		freshName := fmt.Sprintf("%s_%d", prefixPat, ch.fresh())
+		freshName := ch.freshName(prefixPat)
 		var innerBody syntax.Expr
 		if len(e.Params) == 1 {
 			innerBody = e.Body

@@ -220,7 +220,7 @@ func (ch *Checker) desugarDoToMonad(stmts []syntax.Stmt, s span.Span) syntax.Exp
 			lamParam = &syntax.PatVar{Name: name, S: st.S}
 			lamBody = rest
 		} else {
-			freshName := fmt.Sprintf("$p%d", ch.fresh())
+			freshName := ch.freshName("$p")
 			lamParam = &syntax.PatVar{Name: freshName, S: st.S}
 			lamBody = &syntax.ExprCase{
 				Scrutinee: &syntax.ExprVar{Name: freshName, S: st.S},
@@ -264,7 +264,7 @@ func (ch *Checker) desugarDoToMonad(stmts []syntax.Stmt, s span.Span) syntax.Exp
 			lamParam = &syntax.PatVar{Name: name, S: st.S}
 			lamBody = rest
 		} else {
-			freshName := fmt.Sprintf("$p%d", ch.fresh())
+			freshName := ch.freshName("$p")
 			lamParam = &syntax.PatVar{Name: freshName, S: st.S}
 			lamBody = &syntax.ExprCase{
 				Scrutinee: &syntax.ExprVar{Name: freshName, S: st.S},
