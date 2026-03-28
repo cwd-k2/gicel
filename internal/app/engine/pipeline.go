@@ -22,6 +22,7 @@ type pipelineCtx struct {
 	limits     *Limits
 	traceHook  check.CheckTraceHook
 	entryPoint string
+	backend    Backend
 }
 
 // lexAndParse is the shared lex/parse pipeline for both module registration
@@ -186,6 +187,7 @@ func (pc *pipelineCtx) assembleRuntime(prog *ir.Program, src *span.Source) *Runt
 		sortedMainBindings: sortedMain,
 		entryName:          entryName,
 		entryExpr:          entryExpr,
+		useVM:              pc.backend == BackendVM,
 	}
 	runtimeGates := maps.Clone(pc.host.gatedBuiltins)
 	if pc.store.recursion {

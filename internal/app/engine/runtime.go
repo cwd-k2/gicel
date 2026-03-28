@@ -12,6 +12,7 @@ import (
 	"github.com/cwd-k2/gicel/internal/lang/ir"
 	"github.com/cwd-k2/gicel/internal/lang/types"
 	"github.com/cwd-k2/gicel/internal/runtime/eval"
+	"github.com/cwd-k2/gicel/internal/runtime/vm"
 )
 
 // ExplainDepth controls how deeply the explain trace instruments evaluation.
@@ -62,6 +63,7 @@ type Runtime struct {
 	sortedMainBindings []ir.Binding          // all main bindings, topologically pre-sorted
 	entryName          string                // default entry point name
 	entryExpr          ir.Core               // default entry point expression (nil if not found)
+	useVM              bool                  // true to use bytecode VM instead of tree-walker
 }
 
 type moduleEntry struct {
@@ -270,6 +272,11 @@ func (r *Runtime) execute(ctx context.Context, req *runRequest) (eval.EvalResult
 		req.obs.Section(req.entry)
 	}
 	capEnv := eval.NewCapEnv(req.caps)
+
+	if r.useVM {
+		return r.executeVM(ctx, b, ev, entryExpr, capEnv, req)
+	}
+
 	result, err := ev.Eval(nil, capEnv, entryExpr)
 	if err != nil {
 		return eval.EvalResult{}, ev.Stats(), err
@@ -282,6 +289,40 @@ func (r *Runtime) execute(ctx context.Context, req *runRequest) (eval.EvalResult
 		req.obs.Result(eval.PrettyValue(result.Value))
 	}
 	return result, ev.Stats(), nil
+}
+
+// executeVM compiles the entry expression to bytecode and runs it on the VM.
+// Module and non-entry bindings are evaluated by the tree-walker (stored in
+// globalArray). The VM uses the same global array for variable lookup.
+func (r *Runtime) executeVM(ctx context.Context, b *budget.Budget, ev *eval.Evaluator, entryExpr ir.Core, capEnv eval.CapEnv, req *runRequest) (eval.EvalResult, eval.EvalStats, error) {
+	compiler := vm.NewCompiler(r.globalSlots, r.source)
+	proto := compiler.CompileExpr(entryExpr)
+
+	machine := vm.NewVM(vm.VMConfig{
+		Globals:      ev.GlobalArray(),
+		GlobalSlots:  r.globalSlots,
+		NamedGlobals: ev.Globals(),
+		Prims:        r.prims,
+		Budget:       b,
+		Ctx:          ctx,
+		Observer:     req.obs,
+		Source:       r.source,
+		FallbackEval: ev,
+	})
+	result, err := machine.Run(proto, capEnv)
+	if err != nil {
+		return eval.EvalResult{}, machine.Stats(), err
+	}
+	// Force effectful at the top level using the tree-walker's ForceEffectful.
+	// This handles bare effectful PrimVals returned from the entry point.
+	result, err = ev.ForceEffectful(result, span.Span{})
+	if err != nil {
+		return eval.EvalResult{}, machine.Stats(), err
+	}
+	if req.obs != nil {
+		req.obs.Result(eval.PrettyValue(result.Value))
+	}
+	return result, machine.Stats(), nil
 }
 
 // evalBindingsCore evaluates a slice of pre-sorted bindings.

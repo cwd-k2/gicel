@@ -491,11 +491,10 @@ func (e *emitter) compileChildProto(paramName string, body ir.Core, isThunk bool
 	child.isThunk = isThunk
 	child.paramName = paramName
 
-	// Phase 1: Reserve slots for captures.
-	// Captures occupy the first N local slots (0..N-1).
-	// The VM copies VMClosure.Captured into locals[bp..bp+N-1] at call time.
-	child.captures = e.resolveCaptureSlots(fv, fvIndices)
-	for _, name := range fv {
+	// Phase 1: Resolve captures — only local (non-global) free variables.
+	capturedNames, captureSlots := e.resolveCapturesFiltered(fv, fvIndices)
+	child.captures = captureSlots
+	for _, name := range capturedNames {
 		child.allocLocal(name) // slot 0..N-1 for captures
 	}
 
@@ -520,9 +519,10 @@ func (e *emitter) compileFixProto(selfName, paramName string, body ir.Core, isTh
 	child.isThunk = isThunk
 	child.paramName = paramName
 
-	// Captures first.
-	child.captures = e.resolveCaptureSlots(fv, fvIndices)
-	for _, name := range fv {
+	// Captures first — only local (non-global) free variables.
+	capturedNames, captureSlots := e.resolveCapturesFiltered(fv, fvIndices)
+	child.captures = captureSlots
+	for _, name := range capturedNames {
 		child.allocLocal(name)
 	}
 
@@ -564,27 +564,26 @@ func (e *emitter) inferFreeVars(body ir.Core, boundNames ...string) ([]string, [
 	return fv, fvIndices
 }
 
-// resolveCaptureSlots resolves free variable names to parent local slots.
-// Returns the indices in the parent's locals array that need to be captured.
-func (e *emitter) resolveCaptureSlots(fv []string, fvIndices []int) []int {
+// resolveCapturesFiltered resolves free variable names to parent local slots,
+// filtering out globals (which the child accesses via LOAD_GLOBAL).
+// Returns (capturedNames, parentSlots) in parallel.
+func (e *emitter) resolveCapturesFiltered(fv []string, fvIndices []int) ([]string, []int) {
 	if len(fv) == 0 {
-		return nil
+		return nil, nil
 	}
-	slots := make([]int, len(fv))
+	var names []string
+	var slots []int
 	for i, name := range fv {
 		if slot, ok := e.resolveLocal(name); ok {
-			slots[i] = slot
+			names = append(names, name)
+			slots = append(slots, slot)
 		} else if fvIndices != nil && i < len(fvIndices) && fvIndices[i] >= 0 {
-			// Use FVIndices as fallback (de Bruijn index in enclosing scope).
-			// This maps to our local slot system.
-			slots[i] = fvIndices[i]
-		} else {
-			// Variable not found in parent scope — it may be a global.
-			// Mark with -1; the VM will need to handle this.
-			slots[i] = -1
+			names = append(names, name)
+			slots = append(slots, fvIndices[i])
 		}
+		// else: global variable — skip.
 	}
-	return slots
+	return names, slots
 }
 
 func (e *emitter) addProto(p *Proto) uint16 {

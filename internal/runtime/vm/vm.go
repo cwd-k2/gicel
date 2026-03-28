@@ -54,6 +54,9 @@ type VM struct {
 
 	// Cached applier for primitive callbacks.
 	cachedApplier eval.Applier
+
+	// Fallback evaluator for tree-walker closures/thunks encountered in VM.
+	fallbackEval *eval.Evaluator
 }
 
 // VMConfig holds configuration for creating a VM.
@@ -66,6 +69,10 @@ type VMConfig struct {
 	Ctx          context.Context
 	Observer     *eval.ExplainObserver
 	Source       *span.Source
+	// FallbackEval provides tree-walker evaluation for Closure/ThunkVal
+	// values encountered by the VM (e.g., module bindings compiled by
+	// the tree-walker pipeline). Nil disables the fallback (errors on encounter).
+	FallbackEval *eval.Evaluator
 }
 
 // NewVM creates a VM ready to execute a Proto.
@@ -84,6 +91,7 @@ func NewVM(cfg VMConfig) *VM {
 		source:       cfg.Source,
 	}
 	vm.cachedApplier = vm.applyForPrim
+	vm.fallbackEval = cfg.FallbackEval
 	return vm
 }
 
