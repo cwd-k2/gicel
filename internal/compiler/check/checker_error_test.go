@@ -66,7 +66,7 @@ func TestErrorDuplicateLabel(t *testing.T) {
 		t.Fatalf("expected UnifyError, got %T: %v", err, err)
 	}
 	if ue.Kind != unify.UnifyDupLabel {
-		t.Errorf("expected unify.UnifyDupLabel, got %v: %s", ue.Kind, ue.Detail)
+		t.Errorf("expected unify.UnifyDupLabel, got %v: %s", ue.Kind, ue.Error())
 	}
 }
 
@@ -85,7 +85,7 @@ func TestErrorDuplicateLabelEvidenceRow(t *testing.T) {
 		t.Fatalf("expected UnifyError, got %T: %v", err, err)
 	}
 	if ue.Kind != unify.UnifyDupLabel {
-		t.Errorf("expected unify.UnifyDupLabel, got %v: %s", ue.Kind, ue.Detail)
+		t.Errorf("expected unify.UnifyDupLabel, got %v: %s", ue.Kind, ue.Error())
 	}
 }
 

@@ -1,8 +1,6 @@
 package unify
 
 import (
-	"fmt"
-
 	"github.com/cwd-k2/gicel/internal/lang/types"
 )
 
@@ -43,8 +41,8 @@ func (u *Unifier) unifyLevels(l1, l2 types.LevelExpr) error {
 	}
 
 	return &UnifyError{
-		Kind:   UnifyMismatch,
-		Detail: fmt.Sprintf("level mismatch: %s vs %s", l1.LevelString(), l2.LevelString()),
+		Kind:  UnifyMismatch,
+		Label: l1.LevelString() + " vs " + l2.LevelString(),
 	}
 }
 
@@ -56,7 +54,7 @@ func (u *Unifier) solveLevelMeta(m *types.LevelMeta, l types.LevelExpr) error {
 	if levelOccursIn(m.ID, l) {
 		return &UnifyError{
 			Kind:   UnifyOccursCheck,
-			Detail: fmt.Sprintf("infinite level: ?l%d", m.ID),
+			MetaID: m.ID,
 		}
 	}
 	u.trailLevelWrite(m.ID)
