@@ -42,7 +42,7 @@ func (vm *VM) apply(fn eval.Value, arg eval.Value, frame *Frame, tail bool) erro
 
 	case *eval.Closure:
 		return vm.runtimeError(
-			fmt.Sprintf("tree-walker Closure in VM context (should not happen): %s", f.Param), frame)
+			fmt.Sprintf("tree-walker Closure in VM context (invariant violation: tree-walker type in VM-only execution): %s", f.Param), frame)
 
 	case *eval.ConVal:
 		if err := vm.budget.Alloc(eval.CostConBase + int64(eval.CostConArg*(len(f.Args)+1))); err != nil {
@@ -135,7 +135,7 @@ func (vm *VM) force(v eval.Value, frame *Frame, tail bool) error {
 		return vm.callThunk(proto, thv.Captured, frame)
 
 	case *eval.ThunkVal:
-		return vm.runtimeError("tree-walker ThunkVal in VM context (should not happen)", frame)
+		return vm.runtimeError("tree-walker ThunkVal in VM context (invariant violation: tree-walker type in VM-only execution)", frame)
 
 	default:
 		return vm.runtimeError(fmt.Sprintf("force on non-thunk: %s", v), frame)
@@ -199,7 +199,7 @@ func (vm *VM) forceEffectful(v eval.Value, capEnv eval.CapEnv, frame *Frame, cal
 		return result.Value, result.CapEnv, nil
 	}
 	if _, ok := v.(*eval.ThunkVal); ok {
-		return nil, capEnv, vm.runtimeError("tree-walker ThunkVal in VM forceEffectful (should not happen)", frame)
+		return nil, capEnv, vm.runtimeError("tree-walker ThunkVal in VM forceEffectful (invariant violation: tree-walker type in VM-only execution)", frame)
 	}
 	// Saturated effectful PrimVal.
 	if pv, ok := v.(*eval.PrimVal); ok && pv.Effectful && len(pv.Args) >= pv.Arity {
