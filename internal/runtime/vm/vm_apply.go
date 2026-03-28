@@ -94,11 +94,20 @@ func (vm *VM) callClosure(proto *Proto, captured []eval.Value, arg eval.Value, f
 // tailCallClosure reuses the current frame for a tail call.
 func (vm *VM) tailCallClosure(proto *Proto, captured []eval.Value, arg eval.Value, frame *Frame) error {
 	bp := frame.bp
-	vm.ensureLocals(bp + proto.NumLocals)
-	// Clear old locals.
-	for i := 0; i < proto.NumLocals; i++ {
+	// Clear all old locals (may be more than new proto needs) to avoid
+	// holding stale references that prevent GC.
+	oldNumLocals := frame.proto.NumLocals
+	newNumLocals := proto.NumLocals
+	clearN := oldNumLocals
+	if newNumLocals > clearN {
+		clearN = newNumLocals
+	}
+	vm.ensureLocals(bp + clearN)
+	for i := range clearN {
 		vm.locals[bp+i] = nil
 	}
+	// Shrink locals to the new frame's requirement.
+	vm.locals = vm.locals[:bp+newNumLocals]
 	// Copy captures.
 	copy(vm.locals[bp:], captured)
 	// Store parameter.
@@ -309,7 +318,7 @@ func (vm *VM) applyForPrim(fn eval.Value, arg eval.Value, capEnv eval.CapEnv) (e
 	}
 }
 
-// callPrim safely invokes a PrimImpl.
+// callPrim safely invokes a PrimImpl, wrapping plain errors with source/span.
 func (vm *VM) callPrim(impl eval.PrimImpl, capEnv eval.CapEnv, args []eval.Value) (val eval.Value, newCap eval.CapEnv, err error) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -322,5 +331,21 @@ func (vm *VM) callPrim(impl eval.PrimImpl, capEnv eval.CapEnv, args []eval.Value
 	if err == nil && val == nil {
 		err = fmt.Errorf("primitive returned nil value")
 	}
+	if err != nil {
+		err = wrapPrimError(err)
+	}
 	return
+}
+
+// wrapPrimError wraps plain string errors into RuntimeError.
+// Typed errors (RuntimeError, budget limits, context errors) pass through.
+func wrapPrimError(err error) error {
+	if _, ok := err.(*eval.RuntimeError); ok {
+		return err
+	}
+	typeName := fmt.Sprintf("%T", err)
+	if typeName == "*errors.errorString" || typeName == "*fmt.wrapError" {
+		return &eval.RuntimeError{Message: err.Error()}
+	}
+	return err
 }
