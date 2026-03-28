@@ -1,5 +1,57 @@
 # Changelog
 
+## v0.19.0 — 2026-03-28
+
+### Type System
+
+- **Type/Kind unification.** Abolished the Kind interface; types and kinds share a unified universe with stratified levels (`Type ≤ Kind ≤ Sort₀`). Kind cumulativity allows ground kinds to unify with `Sort₀`.
+- **OutsideIn(X) constraint infrastructure.** Constraint emission (`emitEq`), given equalities processed by solver with kick-out and contradiction detection, `CtOrigin` tracking, solver-level scoping.
+- **Grade algebra (L0–L3).** `GradeAlgebra` type class for user-defined grades, `Mult` form, `MultJoin` in Prelude, `CtFunEq` deferred LUB, dynamic resolution via instances.
+- **Equality constraints (`~`).** `a ~ b` syntax in type signatures with `CtEq` solver constraint.
+- **Merge type family.** `Merge` for disjoint row merging at the type level.
+- **Non-nullary constructor promotion.** Promoted constructors carry kind arrows at the type level.
+- **Label kind.** `Label` as a first-class kind; `Without` and `Lookup` builtin row type families.
+- **Named capabilities.** `@#label` syntax for `getAt`, `putAt`, `failWithAt` — multiple independent effect slots.
+
+### Language
+
+- **`rec` computation-level fixpoint.** `rec` now correctly implements effectful loops via self-referential `ThunkVal` with auto-force in Bind chains. Previously broken (returned `<function>` instead of executing).
+- **`#name` label syntax.** Replaced backtick label literals with `#name`.
+- **Scoped evidence injection.** `value => expr` for local instance override with private instances.
+- **"Did you mean?" suggestions.** Unbound variables and constructors now suggest similar names.
+
+### Stdlib
+
+- **Data.Stream expansion.** `filter`, `zip`, `iterate`, `takeWhile`, `repeat`.
+- **Effect.Set algebra.** `union`, `intersection`, `difference`.
+- **Stdlib expansion.** Additional Prelude functions, Map/Set operations, Ref, JSON encode/decode.
+- **`fromJSON` null handling.** All `fromJSON` primitives now return `Nothing` for JSON `null` (previously returned zero values like `Just 0`).
+
+### Runtime & Performance
+
+- **RecordVal optimization.** Internal representation changed from `map` to sorted slice — eliminates per-record map allocation.
+- **43% E2E speedup.** Zonk defer elimination, `ForEachChild` replacing `Children()` allocs, incremental skolem skip, context index for instance resolution, Pretty restricted to error paths.
+- **Native stdlib timeout enforcement.** `--timeout` is now respected in native Go loops (`foldl`, `replicate`, `length`, `range`, `join`) via periodic context checks.
+- **`--max-depth` tracks logical recursion depth** through TCO trampolining.
+
+### Bug Fixes
+
+- Concretize label variables in row field substitution.
+- Reject user instances overlapping with stdlib (coherence).
+- Reject ambiguous type variables in constraint-only position.
+- Reject `force` on `Computation` at type-check time (type soundness).
+- Scope fixity injection to import closure; detect duplicate fixity declarations.
+- Occurs check in `SolveFreshMeta`; kind check in `TyForall` unification.
+- LookupLocal bounds check; float→int NaN/Inf guard; budget underflow guard.
+- Associated type family equation preservation in diamond imports.
+- Normalize ADT JSON encoding — nullary constructors use object format.
+- Guard runtime error formatting against nil values (no more `%!s(<nil>)` leaks).
+
+### Docs
+
+- Fixed broken examples: Named Capabilities bare Computation, `Elem` stdlib name conflict, `rec` example, "Int literals require Prelude" inaccuracy.
+- Removed completed performance hotspots roadmap.
+
 ## v0.18.0 — 2026-03-25
 
 ### De Bruijn Index + Array Environment

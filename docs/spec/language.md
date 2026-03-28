@@ -707,7 +707,7 @@ Built-in operators:
 | `Type`       | Kind of value types                                   |
 | `Row`        | Kind of row descriptors (capabilities, record fields) |
 | `Constraint` | Kind of type class predicates                         |
-| `Label`      | Kind of type-level label literals (#name)       |
+| `Label`      | Kind of type-level label literals (#name)             |
 
 ## 4.2 Kind Arrows
 
