@@ -59,6 +59,7 @@ const (
 	ErrBadInstance         Code = 223 // invalid instance declaration
 	ErrMissingMethod       Code = 224 // missing method in instance
 	ErrRedundantPattern    Code = 225 // redundant pattern in case expression
+	ErrAmbiguousType       Code = 227 // ambiguous type variable in generalized type
 	ErrImport              Code = 230 // module import error
 	ErrSkolemEscape        Code = 240 // existential type variable escapes scope
 	ErrSkolemRigid         Code = 241 // cannot unify rigid (skolem) type variable

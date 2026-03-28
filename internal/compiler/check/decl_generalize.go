@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"sort"
 
+	"github.com/cwd-k2/gicel/internal/infra/diagnostic"
 	"github.com/cwd-k2/gicel/internal/lang/ir"
 	"github.com/cwd-k2/gicel/internal/lang/types"
 )
@@ -16,8 +17,15 @@ import (
 //
 //	→ \ a. Num a => a -> a  with Core: \dict x. ...
 func (ch *Checker) generalizeConstrained(ty types.Type, expr ir.Core, unresolved []*CtClass) (types.Type, ir.Core) {
-	metas := collectUnsolvedMetas(ty)
+	typeMetas := collectUnsolvedMetas(ty)
+	// Build set of meta IDs that appear in the result type.
+	typeMetaIDs := make(map[int]bool, len(typeMetas))
+	for _, m := range typeMetas {
+		typeMetaIDs[m.id] = true
+	}
+
 	// Also collect metas from unresolved constraint args.
+	metas := typeMetas
 	for _, uc := range unresolved {
 		metas = append(metas, collectUnsolvedMetas(uc.Args...)...)
 	}
@@ -35,6 +43,18 @@ func (ch *Checker) generalizeConstrained(ty types.Type, expr ir.Core, unresolved
 		}
 	}
 	sort.Slice(unique, func(i, j int) bool { return unique[i].id < unique[j].id })
+
+	// Ambiguity check: reject type variables that appear only in constraints,
+	// not in the result type. These cannot be determined at any call site.
+	if len(unresolved) > 0 {
+		for _, m := range unique {
+			if !typeMetaIDs[m.id] {
+				ch.addCodedError(diagnostic.ErrAmbiguousType, unresolved[0].S,
+					"ambiguous type variable in constraint-only position (does not appear in the result type)")
+				break // report once
+			}
+		}
+	}
 
 	// Register temporary solutions: meta → TyVar.
 	for i, m := range unique {
