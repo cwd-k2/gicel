@@ -155,32 +155,34 @@ func (r *RecordVal) Update(updates []RecordField) *RecordVal {
 	return &RecordVal{fields: result}
 }
 
+// Bytecode is the interface satisfied by compiled bytecode prototypes.
+// Defined here (in the eval package) to avoid a circular import between
+// eval and vm. The concrete type is *vm.Proto.
+type Bytecode interface {
+	// BytecodeMarker is a marker method to distinguish from other interfaces.
+	BytecodeMarker()
+}
+
+// VMClosure is a function value in the bytecode VM.
+type VMClosure struct {
+	Captured []Value
+	Proto    Bytecode     // *vm.Proto (satisfies eval.Bytecode)
+	Name     string       // top-level binding name; "" for anonymous lambdas
+	Source   *span.Source // source where the closure was created
+}
+
+// VMThunkVal is a suspended computation in the bytecode VM.
+type VMThunkVal struct {
+	Captured  []Value
+	Proto     Bytecode     // *vm.Proto (satisfies eval.Bytecode)
+	Source    *span.Source // source where the thunk was created
+	AutoForce bool         // true for rec self-referential thunks
+}
+
 // IndirectVal is a forward-reference cell for mutually-recursive top-level bindings.
 // It holds a pointer to the actual value, which is populated after the binding is evaluated.
 type IndirectVal struct {
 	Ref *Value
-}
-
-// bounceVal is an internal value used by the trampoline TCO mechanism.
-// It signals that evaluation should continue with a new (env, capEnv, expr)
-// without growing the Go call stack.
-//
-// leaveDepth records how many ev.budget.Leave() calls the trampoline must
-// make before the next evalStep — this unwinds the Enter() that the
-// bouncing frame performed (closure application, Force body).
-// leaveObs records whether ev.obs.LeaveInternal() is needed (closure
-// application of an internal-named function).
-// forceSpan, when non-nil, defers a ForceEffectful call to the trampoline.
-// This is used by Bind to avoid recursive Eval while still forcing the
-// final result (e.g. a bare effectful PrimOp at the end of a do-block).
-type bounceVal struct {
-	locals     []Value
-	capEnv     CapEnv
-	expr       ir.Core
-	leaveDepth int          // pending ev.budget.Leave() calls
-	leaveObs   bool         // pending ev.obs.LeaveInternal()
-	source     *span.Source // source context for the continuation (nil = no change)
-	forceSpan  *span.Span   // pending ForceEffectful call site (nil = none)
 }
 
 func (*HostVal) valueNode()     {}
@@ -189,10 +191,9 @@ func (*ConVal) valueNode()      {}
 func (*ThunkVal) valueNode()    {}
 func (*PrimVal) valueNode()     {}
 func (*RecordVal) valueNode()   {}
+func (*VMClosure) valueNode()   {}
+func (*VMThunkVal) valueNode()  {}
 func (*IndirectVal) valueNode() {}
-func (*bounceVal) valueNode()   {}
-
-func (v *bounceVal) String() string { return "bounceVal(...)" }
 
 func (v *HostVal) String() string {
 	return fmt.Sprintf("HostVal(%v)", v.Inner)
@@ -280,6 +281,14 @@ func (v *RecordVal) String() string {
 		parts[i] = fmt.Sprintf("%s = %s", f.Label, f.Value)
 	}
 	return fmt.Sprintf("{ %s }", strings.Join(parts, ", "))
+}
+
+func (v *VMClosure) String() string {
+	return fmt.Sprintf("VMClosure(%s, ...)", v.Name)
+}
+
+func (v *VMThunkVal) String() string {
+	return "VMThunkVal(...)"
 }
 
 func (v *IndirectVal) String() string {

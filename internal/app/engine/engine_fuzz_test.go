@@ -14,6 +14,7 @@ import (
 	"github.com/cwd-k2/gicel/internal/infra/span"
 	"github.com/cwd-k2/gicel/internal/lang/ir"
 	"github.com/cwd-k2/gicel/internal/runtime/eval"
+	"github.com/cwd-k2/gicel/internal/runtime/vm"
 )
 
 // addSeedCorpus adds all .gicel files from testdata/stress/ as seed inputs.
@@ -222,8 +223,17 @@ func FuzzEvalLimits(f *testing.F) {
 
 		b := budget.New(context.Background(), 100_000, 200)
 		b.SetAllocLimit(64 * 1024) // 64 KiB
-		ev := eval.NewEvaluator(b, eval.NewPrimRegistry(), nil, nil, nil)
-		ev.SetGlobals(map[string]eval.Value{})
-		ev.Eval(nil, eval.EmptyCapEnv(), term) // panics are the signal
+		ir.AnnotateFreeVars(term)
+		ir.AssignIndices(term)
+		compiler := vm.NewCompiler(map[string]int{}, nil)
+		proto := compiler.CompileExpr(term)
+		machine := vm.NewVM(vm.VMConfig{
+			Globals:     make([]eval.Value, 0),
+			GlobalSlots: map[string]int{},
+			Prims:       eval.NewPrimRegistry(),
+			Budget:      b,
+			Ctx:         context.Background(),
+		})
+		machine.Run(proto, eval.EmptyCapEnv()) // panics are the signal
 	})
 }

@@ -12,6 +12,7 @@ import (
 	"github.com/cwd-k2/gicel/internal/lang/ir"
 	"github.com/cwd-k2/gicel/internal/lang/types"
 	"github.com/cwd-k2/gicel/internal/runtime/eval"
+	"github.com/cwd-k2/gicel/internal/runtime/vm"
 )
 
 // ExplainDepth controls how deeply the explain trace instruments evaluation.
@@ -62,6 +63,17 @@ type Runtime struct {
 	sortedMainBindings []ir.Binding          // all main bindings, topologically pre-sorted
 	entryName          string                // default entry point name
 	entryExpr          ir.Core               // default entry point expression (nil if not found)
+
+	// Cached bytecode (populated at NewRuntime time for VM backend).
+	vmModuleProtos [][]vmBindingProto    // pre-compiled module binding protos
+	vmMainProtos   []vmBindingProto      // pre-compiled non-entry main binding protos
+	vmEntryProto   *vm.Proto             // pre-compiled entry expression proto
+	vmBuiltins     map[string]eval.Value // pre-compiled builtin VMClosures
+}
+
+type vmBindingProto struct {
+	name  string
+	proto *vm.Proto
 }
 
 type moduleEntry struct {
@@ -100,9 +112,21 @@ func (r *Runtime) annotateError(err error) error {
 	return err
 }
 
-// initBuiltinGlobals constructs the immutable base globals with builtins and constructors.
+// initBuiltinGlobals registers builtin names and data constructors in the
+// globals map. Builtin values (pure, bind, force, fix, rec) are placeholder
+// nils here; precompileVM replaces them with VMClosures.
 func (r *Runtime) initBuiltinGlobals(gatedBuiltins map[string]bool) {
-	globals := eval.BuiltinGlobals(gatedBuiltins["fix"], gatedBuiltins["rec"])
+	globals := make(map[string]eval.Value, 8)
+	// Register builtin names (values are set by precompileVM).
+	for _, name := range []string{"pure", "bind", "force"} {
+		globals[name] = nil
+	}
+	if gatedBuiltins["fix"] {
+		globals["fix"] = nil
+	}
+	if gatedBuiltins["rec"] {
+		globals["rec"] = nil
+	}
 
 	for _, me := range r.moduleEntries {
 		for _, d := range me.prog.DataDecls {
@@ -172,7 +196,7 @@ func (r *Runtime) buildGlobalSlots() {
 
 // buildGlobalArray creates the global value array from the slot map.
 // Builtin values and host bindings are filled; module/main bindings
-// are left nil (filled by evalBindingsCore).
+// are left nil (filled by evalPrecompiledBindings).
 func (r *Runtime) buildGlobalArray(hostBindings map[string]eval.Value) ([]eval.Value, error) {
 	arr := make([]eval.Value, r.numGlobals)
 	for k, v := range r.builtinGlobals {
@@ -188,20 +212,6 @@ func (r *Runtime) buildGlobalArray(hostBindings map[string]eval.Value) ([]eval.V
 	return arr, nil
 }
 
-// buildNamedGlobals constructs the named globals map as a fallback for
-// Var nodes whose Index remains -1 because assignGlobalSlots exceeded
-// maxTraversalDepth. The map mirrors builtinGlobals + host bindings.
-func (r *Runtime) buildNamedGlobals(hostBindings map[string]eval.Value) map[string]eval.Value {
-	m := make(map[string]eval.Value, len(r.builtinGlobals)+len(hostBindings))
-	for k, v := range r.builtinGlobals {
-		m[k] = v
-	}
-	for k, v := range hostBindings {
-		m[k] = v
-	}
-	return m
-}
-
 type runRequest struct {
 	caps      map[string]any
 	bindings  map[string]eval.Value
@@ -210,7 +220,7 @@ type runRequest struct {
 	traceHook eval.TraceHook
 }
 
-// execute is the unified execution core.
+// execute runs the program using the bytecode VM.
 func (r *Runtime) execute(ctx context.Context, req *runRequest) (eval.EvalResult, eval.EvalStats, error) {
 	globalArray, err := r.buildGlobalArray(req.bindings)
 	if err != nil {
@@ -225,116 +235,157 @@ func (r *Runtime) execute(ctx context.Context, req *runRequest) (eval.EvalResult
 		b.SetAllocLimit(r.allocLimit)
 	}
 
-	ev := eval.NewEvaluator(b, r.prims, req.traceHook, req.obs, r.source)
-	ev.SetGlobalArray(globalArray)
-	ev.SetGlobalSlots(r.globalSlots)
-	ev.SetGlobals(r.buildNamedGlobals(req.bindings))
+	capEnv := eval.NewCapEnv(req.caps)
 
-	for _, me := range r.moduleEntries {
-		ev.SetSource(me.source)
-		if err := r.evalBindingsCore(ev, me.sortedBindings, me.name, req.obs); err != nil {
-			return eval.EvalResult{}, ev.Stats(), err
+	// Embed budget in context so stdlib primitives can call budget.ChargeAlloc.
+	vmCtx := budget.ContextWithBudget(ctx, b)
+	return r.executeVM(vmCtx, b, globalArray, capEnv, req)
+}
+
+// precompileVM compiles all module bindings, main bindings, entry expression,
+// and builtins to bytecode at NewRuntime time. This avoids per-execution
+// compilation overhead in RunWith.
+func (r *Runtime) precompileVM(gates map[string]bool) {
+	compiler := vm.NewCompiler(r.globalSlots, r.source)
+
+	// Compile builtins.
+	r.vmBuiltins = vm.CompileBuiltinGlobals(compiler,
+		gates["fix"], gates["rec"])
+
+	// Compile module bindings.
+	r.vmModuleProtos = make([][]vmBindingProto, len(r.moduleEntries))
+	for i, me := range r.moduleEntries {
+		compiler.SetSource(me.source)
+		protos := make([]vmBindingProto, len(me.sortedBindings))
+		for j, b := range me.sortedBindings {
+			protos[j] = vmBindingProto{name: b.Name, proto: compiler.CompileBinding(b)}
+		}
+		r.vmModuleProtos[i] = protos
+	}
+
+	// Compile main bindings (non-entry).
+	compiler.SetSource(r.source)
+	for _, b := range r.sortedMainBindings {
+		if b.Name != r.entryName {
+			r.vmMainProtos = append(r.vmMainProtos, vmBindingProto{
+				name: b.Name, proto: compiler.CompileBinding(b),
+			})
 		}
 	}
-	ev.SetSource(r.source)
 
-	var entryExpr ir.Core
-	var nonEntry []ir.Binding
-	if req.entry == r.entryName && r.entryExpr != nil {
-		entryExpr = r.entryExpr
-		nonEntry = make([]ir.Binding, 0, len(r.sortedMainBindings)-1)
-		for _, b := range r.sortedMainBindings {
-			if b.Name != r.entryName {
-				nonEntry = append(nonEntry, b)
-			}
+	// Compile entry expression.
+	if r.entryExpr != nil {
+		r.vmEntryProto = compiler.CompileExpr(r.entryExpr)
+	}
+}
+
+// executeVM compiles the entry expression to bytecode and runs it on the VM.
+// Module and non-entry bindings are evaluated by the tree-walker (stored in
+// globalArray). The VM uses the same global array for variable lookup.
+func (r *Runtime) executeVM(ctx context.Context, b *budget.Budget, globalArray []eval.Value, capEnv eval.CapEnv, req *runRequest) (eval.EvalResult, eval.EvalStats, error) {
+	machine := vm.NewVM(vm.VMConfig{
+		Globals:     globalArray,
+		GlobalSlots: r.globalSlots,
+		Prims:       r.prims,
+		Budget:      b,
+		Ctx:         ctx,
+		Observer:    req.obs,
+		Trace:       req.traceHook,
+		Source:      r.source,
+	})
+
+	// Install pre-compiled builtins.
+	for name, val := range r.vmBuiltins {
+		if slot, ok := r.globalSlots[name]; ok {
+			globalArray[slot] = val
 		}
+	}
+
+	// Evaluate pre-compiled module bindings.
+	for i, me := range r.moduleEntries {
+		req.obs.SetSource(me.source)
+		if err := r.evalPrecompiledBindings(machine, r.vmModuleProtos[i], me.name, globalArray, req.obs); err != nil {
+			return eval.EvalResult{}, machine.Stats(), err
+		}
+	}
+
+	// Evaluate pre-compiled non-entry main bindings.
+	req.obs.SetSource(r.source)
+	if err := r.evalPrecompiledBindings(machine, r.vmMainProtos, "", globalArray, req.obs); err != nil {
+		return eval.EvalResult{}, machine.Stats(), err
+	}
+
+	// Handle non-default entry point.
+	var entryProto *vm.Proto
+	if req.entry == r.entryName {
+		entryProto = r.vmEntryProto
 	} else {
-		for _, b := range r.sortedMainBindings {
-			if b.Name == req.entry {
-				entryExpr = b.Expr
-			} else {
-				nonEntry = append(nonEntry, b)
+		compiler := vm.NewCompiler(r.globalSlots, r.source)
+		for _, bb := range r.sortedMainBindings {
+			if bb.Name == req.entry {
+				entryProto = compiler.CompileExpr(bb.Expr)
+				break
 			}
 		}
 	}
-
-	if err := r.evalBindingsCore(ev, nonEntry, "", req.obs); err != nil {
-		return eval.EvalResult{}, ev.Stats(), err
-	}
-
-	if entryExpr == nil {
-		return eval.EvalResult{}, ev.Stats(), fmt.Errorf("entry point %q not found", req.entry)
+	if entryProto == nil {
+		return eval.EvalResult{}, machine.Stats(), fmt.Errorf("entry point %q not found", req.entry)
 	}
 
 	if req.obs != nil {
 		req.obs.Section(req.entry)
 	}
-	capEnv := eval.NewCapEnv(req.caps)
-	result, err := ev.Eval(nil, capEnv, entryExpr)
+
+	result, err := machine.Run(entryProto, capEnv)
 	if err != nil {
-		return eval.EvalResult{}, ev.Stats(), err
-	}
-	result, err = ev.ForceEffectful(result, span.Span{})
-	if err != nil {
-		return eval.EvalResult{}, ev.Stats(), err
+		return eval.EvalResult{}, machine.Stats(), err
 	}
 	if req.obs != nil {
 		req.obs.Result(eval.PrettyValue(result.Value))
 	}
-	return result, ev.Stats(), nil
+	return result, machine.Stats(), nil
 }
 
-// evalBindingsCore evaluates a slice of pre-sorted bindings.
-// Callers must pass bindings in dependency order (via ir.SortBindings).
-// Values are stored directly in the evaluator's global array at pre-assigned slots.
-func (r *Runtime) evalBindingsCore(ev *eval.Evaluator, bindings []ir.Binding, modulePrefix string, obs *eval.ExplainObserver) error {
-	// Phase 1: place IndirectVal sentinels for forward references.
+// evalPrecompiledBindings runs pre-compiled binding protos on the VM.
+func (r *Runtime) evalPrecompiledBindings(machine *vm.VM, protos []vmBindingProto, modulePrefix string, globalArray []eval.Value, obs *eval.ExplainObserver) error {
 	type slotCell struct {
 		slot int
 		key  string
 		cell *eval.IndirectVal
 	}
-	cells := make([]slotCell, len(bindings))
-	globals := ev.Globals()
-	for i, b := range bindings {
-		key := b.Name
+	cells := make([]slotCell, len(protos))
+	for i, bp := range protos {
+		key := bp.name
 		if modulePrefix != "" {
-			key = ir.QualifiedKey(modulePrefix, b.Name)
+			key = ir.QualifiedKey(modulePrefix, bp.name)
 		}
 		slot := r.globalSlots[key]
 		cell := &eval.IndirectVal{}
-		ev.SetGlobalSlot(slot, cell)
-		globals[key] = cell
+		globalArray[slot] = cell
 		cells[i] = slotCell{slot, key, cell}
 	}
-	// Phase 2: evaluate and fill slots.
 	userVisible := modulePrefix == ""
-	for i, b := range bindings {
+	for i, bp := range protos {
 		if userVisible {
-			obs.Section(b.Name)
+			obs.Section(bp.name)
 		}
-		result, err := ev.Eval(nil, eval.NewCapEnv(nil), b.Expr)
+		result, err := machine.Run(bp.proto, eval.NewCapEnv(nil))
 		if err != nil {
-			// Limit errors are global resource exhaustion — the binding
-			// name where the limit happened to fire is an implementation
-			// detail, not useful to the user.
-			if budget.IsLimitError(err) || strings.Contains(b.Name, "$") {
+			if budget.IsLimitError(err) || strings.Contains(bp.name, "$") {
 				return err
 			}
-			return fmt.Errorf("evaluating %s: %w", b.Name, err)
+			return fmt.Errorf("evaluating %s: %w", bp.name, err)
 		}
 		v := result.Value
-		if clo, ok := v.(*eval.Closure); ok {
-			clo.Name = b.Name
+		if clo, ok := v.(*eval.VMClosure); ok {
+			clo.Name = bp.name
 			if !userVisible {
-				obs.MarkInternal(b.Name)
+				obs.MarkInternal(bp.name)
 			}
 		}
-		// Fill IndirectVal (for closures that captured the cell) and replace slot.
 		val := v
 		cells[i].cell.Ref = &val
-		ev.SetGlobalSlot(cells[i].slot, v)
-		globals[cells[i].key] = v
+		globalArray[cells[i].slot] = v
 	}
 	return nil
 }

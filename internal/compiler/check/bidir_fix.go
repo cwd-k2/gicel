@@ -20,6 +20,47 @@ func fixArgLam(e syntax.Expr) *syntax.ExprLam {
 	}
 }
 
+// inferFix elaborates `fix (\self args... . body)` or `rec (\self. body)` in infer mode.
+// Unlike checkFix which receives an expected type, inferFix generates a fresh meta
+// for the result type. The produced IR is identical: ir.Fix (or Force(Fix(Thunk(...)))).
+func (ch *Checker) inferFix(e *syntax.ExprApp, lam *syntax.ExprLam, isRec bool) (types.Type, ir.Core) {
+	if len(lam.Params) == 0 {
+		return ch.infer(e)
+	}
+	selfName := ch.patternName(lam.Params[0])
+
+	// Generate fresh meta for the result type.
+	resultTy := ch.freshMeta(types.TypeOfTypes)
+
+	ch.ctx.Push(&CtxVar{Name: selfName, Type: resultTy})
+
+	var bodyExpr syntax.Expr
+	if len(lam.Params) == 1 {
+		bodyExpr = lam.Body
+	} else {
+		bodyExpr = &syntax.ExprLam{Params: lam.Params[1:], Body: lam.Body, S: lam.S}
+	}
+	bodyCore := ch.check(bodyExpr, resultTy)
+
+	ch.ctx.Pop()
+
+	if isRec {
+		return resultTy, &ir.Force{
+			Expr: &ir.Fix{
+				Name: selfName,
+				Body: &ir.Thunk{Comp: bodyCore, S: e.S},
+				S:    e.S,
+			},
+			S: e.S,
+		}
+	}
+	return resultTy, &ir.Fix{
+		Name: selfName,
+		Body: bodyCore,
+		S:    e.S,
+	}
+}
+
 // checkFix elaborates `fix (\self args... . body)` into a Fix node:
 //
 //	Fix { self, \args... . body }
