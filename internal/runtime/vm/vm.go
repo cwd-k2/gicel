@@ -17,6 +17,7 @@ type Frame struct {
 	capEnv   eval.CapEnv // capability environment for this frame
 	source   *span.Source
 	leaveObs bool // true if LeaveInternal should be called on return
+	barrier  bool // true for barrier frames (Applier callback boundary)
 }
 
 // VM is the bytecode virtual machine for GICEL.
@@ -185,8 +186,11 @@ func (vm *VM) ensureLocals(n int) {
 func (vm *VM) execute() (eval.EvalResult, error) {
 	for {
 		frame := vm.currentFrame()
+		if frame.barrier {
+			// Should not execute a barrier frame; this indicates a bug.
+			return eval.EvalResult{}, &eval.RuntimeError{Message: "executed barrier frame"}
+		}
 		if frame.ip >= len(frame.proto.Code) {
-			// End of bytecode — implicit return of TOS.
 			if vm.sp > 0 {
 				result := vm.pop()
 				if vm.fp == 0 {
@@ -308,8 +312,13 @@ func (vm *VM) execute() (eval.EvalResult, error) {
 			vm.budget.Leave()
 			vm.locals = vm.locals[:frame.bp]
 			vm.popFrame()
+			caller := vm.currentFrame()
+			if caller.barrier {
+				// Barrier frame: stop execution, return result to Applier.
+				return eval.EvalResult{Value: result, CapEnv: callerCapEnv}, nil
+			}
 			vm.push(result)
-			vm.currentFrame().capEnv = callerCapEnv
+			caller.capEnv = callerCapEnv
 
 		case OpThunk:
 			idx := DecodeU16(frame.proto.Code, frame.ip)
@@ -501,12 +510,21 @@ func (vm *VM) execute() (eval.EvalResult, error) {
 			vm.pop()
 
 		case OpMatchFail:
-			scrut := "unknown"
+			msg := "non-exhaustive pattern match"
 			if vm.sp > 0 {
-				scrut = vm.peek().String()
+				v := vm.peek()
+				if hv, ok := v.(*eval.HostVal); ok {
+					if s, ok := hv.Inner.(string); ok {
+						// Custom error message (e.g., from Fix with non-lambda body).
+						msg = s
+					} else {
+						msg += " on " + v.String()
+					}
+				} else {
+					msg += " on " + v.String()
+				}
 			}
-			return eval.EvalResult{}, vm.runtimeError(
-				fmt.Sprintf("non-exhaustive pattern match on %s", scrut), frame)
+			return eval.EvalResult{}, vm.runtimeError(msg, frame)
 
 		case OpJump:
 			offset := DecodeI16(frame.proto.Code, frame.ip)

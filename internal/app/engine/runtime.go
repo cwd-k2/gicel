@@ -240,7 +240,9 @@ func (r *Runtime) execute(ctx context.Context, req *runRequest) (eval.EvalResult
 	namedGlobals := r.buildNamedGlobals(req.bindings)
 	capEnv := eval.NewCapEnv(req.caps)
 
-	return r.executeVM(ctx, b, globalArray, namedGlobals, capEnv, req)
+	// Embed budget in context so stdlib primitives can call budget.ChargeAlloc.
+	vmCtx := budget.ContextWithBudget(ctx, b)
+	return r.executeVM(vmCtx, b, globalArray, namedGlobals, capEnv, req)
 }
 
 // precompileVM compiles all module bindings, main bindings, entry expression,

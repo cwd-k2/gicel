@@ -166,8 +166,21 @@ func (vm *VM) forceEffectful(v eval.Value, capEnv eval.CapEnv, frame *Frame) (ev
 			return nil, capEnv, err
 		}
 		proto := thv.Proto.(*Proto)
-		// Execute the thunk body synchronously.
-		result, err := vm.execSubProto(proto, thv.Captured, capEnv)
+		// Execute via barrier frame. Record bp so locals can be trimmed.
+		savedLocals := len(vm.locals)
+		vm.frames = append(vm.frames, Frame{barrier: true, capEnv: capEnv, bp: savedLocals})
+		vm.fp = len(vm.frames) - 1
+		barrierFrame := &vm.frames[vm.fp]
+		if err := vm.callThunk(proto, thv.Captured, barrierFrame); err != nil {
+			vm.locals = vm.locals[:savedLocals]
+			vm.fp--
+			vm.frames = vm.frames[:vm.fp+1]
+			return nil, capEnv, err
+		}
+		result, err := vm.execute()
+		vm.locals = vm.locals[:savedLocals]
+		vm.fp--
+		vm.frames = vm.frames[:vm.fp+1]
 		if err != nil {
 			return nil, capEnv, err
 		}
@@ -244,24 +257,28 @@ func (vm *VM) applyPrim(pv *eval.PrimVal, arg eval.Value, frame *Frame) error {
 }
 
 // applyForPrim is the Applier callback exposed to primitives.
-// It applies a function to an argument within the VM's execution context.
-// If the function is a VMClosure, the body is executed synchronously
-// using execSubProto to avoid interfering with the caller's frame stack.
+// Uses barrier-frame approach: pushes a barrier frame + closure frame onto
+// the existing frame stack, then re-enters execute(). When OpReturn hits
+// the barrier, it stops and returns the result. No slice allocation needed.
 func (vm *VM) applyForPrim(fn eval.Value, arg eval.Value, capEnv eval.CapEnv) (eval.Value, eval.CapEnv, error) {
 	switch f := fn.(type) {
 	case *eval.VMClosure:
 		proto := f.Proto.(*Proto)
-		// Build locals for the closure call.
-		locals := make([]eval.Value, proto.NumLocals)
-		copy(locals, f.Captured)
-		paramSlot := len(proto.Captures)
-		if proto.FixSelfSlot >= 0 {
-			paramSlot = proto.FixSelfSlot + 1
+		savedLocals := len(vm.locals)
+		// Push barrier frame with bp to trim locals on return.
+		vm.frames = append(vm.frames, Frame{barrier: true, capEnv: capEnv, bp: savedLocals})
+		vm.fp = len(vm.frames) - 1
+		barrierFrame := &vm.frames[vm.fp]
+		if err := vm.callClosure(proto, f.Captured, arg, barrierFrame); err != nil {
+			vm.locals = vm.locals[:savedLocals]
+			vm.fp--
+			vm.frames = vm.frames[:vm.fp+1]
+			return nil, capEnv, err
 		}
-		locals[paramSlot] = arg
-
-		// Execute the closure body in a fresh sub-execution.
-		result, err := vm.execSub(proto, locals, capEnv)
+		result, err := vm.execute()
+		vm.locals = vm.locals[:savedLocals]
+		vm.fp--
+		vm.frames = vm.frames[:vm.fp+1]
 		if err != nil {
 			return nil, capEnv, err
 		}
@@ -296,45 +313,6 @@ func (vm *VM) applyForPrim(fn eval.Value, arg eval.Value, capEnv eval.CapEnv) (e
 	default:
 		return nil, capEnv, fmt.Errorf("application of non-function in Applier: %s", fn)
 	}
-}
-
-// execSub executes a proto with pre-built locals in a fresh sub-context.
-// This is used by applyForPrim to avoid interference with the main frame stack.
-func (vm *VM) execSub(proto *Proto, locals []eval.Value, capEnv eval.CapEnv) (eval.EvalResult, error) {
-	// Save and isolate state.
-	savedFrames := vm.frames
-	savedFP := vm.fp
-	savedStack := vm.stack
-	savedSP := vm.sp
-	savedLocals := vm.locals
-
-	// Set up isolated state.
-	vm.frames = make([]Frame, 0, 8)
-	vm.fp = 0
-	vm.stack = make([]eval.Value, 0, 16)
-	vm.sp = 0
-	vm.locals = locals
-
-	vm.pushFrame(proto, 0, capEnv, proto.Source)
-	result, err := vm.execute()
-
-	// Restore state.
-	vm.frames = savedFrames
-	vm.fp = savedFP
-	vm.stack = savedStack
-	vm.sp = savedSP
-	vm.locals = savedLocals
-
-	return result, err
-}
-
-// execSubProto executes a proto synchronously (for auto-force thunks in forceEffectful).
-func (vm *VM) execSubProto(proto *Proto, captured []eval.Value, capEnv eval.CapEnv) (eval.EvalResult, error) {
-	bp := len(vm.locals)
-	vm.ensureLocals(bp + proto.NumLocals)
-	copy(vm.locals[bp:], captured)
-	vm.pushFrame(proto, bp, capEnv, proto.Source)
-	return vm.execute()
 }
 
 // callPrim safely invokes a PrimImpl.

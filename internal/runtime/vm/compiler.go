@@ -379,7 +379,17 @@ func (e *emitter) compileFix(fix *ir.Fix) {
 		protoIdx := e.addProto(child)
 		e.emitU16(OpFixThunk, protoIdx)
 	default:
-		panic(fmt.Sprintf("vm/compiler: Fix body is %T, expected Lam or Thunk", body))
+		// Fix body is neither Lam nor Thunk. Emit code that raises a runtime
+		// error, matching the tree-walker's evalFix behavior.
+		msg := fmt.Sprintf(
+			"fix binding %s requires a lambda or thunk body (got %T); "+
+				"in CBV evaluation, fix creates a self-referential closure "+
+				"and cannot produce data constructor values directly — "+
+				"wrap the body in a lambda or use thunk/force",
+			fix.Name, body)
+		idx := e.addConstant(&eval.HostVal{Inner: msg})
+		e.emitU16(OpConst, idx)
+		e.emit(OpMatchFail) // reuse: raises RuntimeError with TOS as message
 	}
 }
 
