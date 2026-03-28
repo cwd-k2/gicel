@@ -7,8 +7,8 @@ import (
 	"testing"
 
 	"github.com/cwd-k2/gicel/internal/infra/budget"
-	"github.com/cwd-k2/gicel/internal/runtime/eval"
 	"github.com/cwd-k2/gicel/internal/lang/ir"
+	"github.com/cwd-k2/gicel/internal/runtime/eval"
 )
 
 func TestVMRunLit(t *testing.T) {

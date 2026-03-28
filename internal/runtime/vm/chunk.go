@@ -14,9 +14,9 @@ type Proto struct {
 	Strings   []string     // string pool (constructor names, labels, keys)
 	Protos    []*Proto     // nested prototypes (closures/thunks defined inside)
 
-	NumLocals int   // total local variable slots required
-	Captures  []int // de Bruijn indices in enclosing scope to capture
-	IsThunk   bool  // true for thunk bodies, false for closure bodies
+	NumLocals int    // total local variable slots required
+	Captures  []int  // de Bruijn indices in enclosing scope to capture
+	IsThunk   bool   // true for thunk bodies, false for closure bodies
 	ParamName string // parameter name (closures only; "" for thunks)
 
 	// FixSelfSlot is the local slot where the self-reference is stored
@@ -31,7 +31,7 @@ type Proto struct {
 
 	// Debug information.
 	Spans  []SpanEntry  // bytecode offset → source span
-	Source *span.Source  // source text for error attribution
+	Source *span.Source // source text for error attribution
 }
 
 // SpanEntry maps a bytecode offset range to a source span.

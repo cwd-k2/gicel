@@ -4,8 +4,8 @@ import (
 	"fmt"
 
 	"github.com/cwd-k2/gicel/internal/infra/span"
-	"github.com/cwd-k2/gicel/internal/runtime/eval"
 	"github.com/cwd-k2/gicel/internal/lang/ir"
+	"github.com/cwd-k2/gicel/internal/runtime/eval"
 )
 
 // Compiler translates Core IR into bytecode Protos.
@@ -41,13 +41,13 @@ type emitter struct {
 	compiler *Compiler
 	parent   *emitter // enclosing emitter (for captures)
 
-	code       []byte
-	constants  []eval.Value
-	strings    []string
-	protos     []*Proto
-	matchDescs []MatchDesc
+	code        []byte
+	constants   []eval.Value
+	strings     []string
+	protos      []*Proto
+	matchDescs  []MatchDesc
 	recordDescs []RecordDesc
-	spans      []SpanEntry
+	spans       []SpanEntry
 
 	// Local variable slots: maps de Bruijn name to slot index.
 	// Built up during compilation; numLocals tracks the high-water mark.
@@ -192,7 +192,6 @@ func (e *emitter) resolveLocal(name string) (int, bool) {
 	}
 	return -1, false
 }
-
 
 // popLocals removes locals added since the given count.
 func (e *emitter) popLocals(count int) {
