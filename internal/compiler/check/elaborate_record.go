@@ -88,7 +88,7 @@ func (ch *Checker) matchRecordField(ty types.Type, label string, s span.Span) ty
 	}
 	expectedRecTy := &types.TyApp{Fun: types.Con(types.TyConRecord), Arg: expectedRow, S: s}
 	if err := ch.unifier.Unify(ty, expectedRecTy); err != nil {
-		ch.addCodedError(diagnostic.ErrRowMismatch, s, fmt.Sprintf("expected record with field %s, got %s", label, types.Pretty(ty)))
+		ch.addCodedError(diagnostic.ErrRowMismatch, s, "expected record with field "+label+", got "+types.Pretty(ty))
 		return ch.freshMeta(types.TypeOfTypes)
 	}
 	return ch.unifier.Zonk(fieldMeta)
@@ -209,7 +209,7 @@ func (ch *Checker) checkRecordPattern(p *syntax.PatRecord, scrutTy types.Type) p
 // in tuple terms instead of exposing the record desugaring.
 func recordFieldError(label string, row types.Type, unifyErr error) string {
 	if !isTupleLabel(label) {
-		return fmt.Sprintf("record has no field %s: %s", label, unifyErr.Error())
+		return "record has no field " + label + ": " + unifyErr.Error()
 	}
 	// Count tuple arity from the row.
 	arity := countRowFields(row)

@@ -318,7 +318,7 @@ func (ch *Checker) validateSuperclassGraph() bool {
 			}
 			cycle := append(path[cycleStart:], name)
 			ch.addCodedError(diagnostic.ErrCyclicSuperclass, span.Span{},
-				fmt.Sprintf("cyclic superclass constraint: %s", strings.Join(cycle, " -> ")))
+				"cyclic superclass constraint: "+strings.Join(cycle, " -> "))
 			return true
 		}
 

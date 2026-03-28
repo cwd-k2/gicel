@@ -45,7 +45,7 @@ func (vm *VM) apply(fn eval.Value, arg eval.Value, frame *Frame, tail bool) erro
 
 	case *eval.Closure:
 		return vm.runtimeError(
-			fmt.Sprintf("tree-walker Closure in VM context (invariant violation: tree-walker type in VM-only execution): %s", f.Param), frame)
+			"tree-walker Closure in VM context (invariant violation: tree-walker type in VM-only execution): "+f.Param, frame)
 
 	case *eval.ConVal:
 		if err := vm.budget.Alloc(eval.CostConBase + int64(eval.CostConArg*(len(f.Args)+1))); err != nil {
@@ -63,7 +63,7 @@ func (vm *VM) apply(fn eval.Value, arg eval.Value, frame *Frame, tail bool) erro
 	default:
 		msg := "application of non-function"
 		if fn != nil {
-			msg = fmt.Sprintf("application of non-function: %s", fn)
+			msg = "application of non-function: " + fn.String()
 		}
 		return vm.runtimeError(msg, frame)
 	}
@@ -141,7 +141,7 @@ func (vm *VM) force(v eval.Value, frame *Frame, tail bool) error {
 		return vm.runtimeError("tree-walker ThunkVal in VM context (invariant violation: tree-walker type in VM-only execution)", frame)
 
 	default:
-		return vm.runtimeError(fmt.Sprintf("force on non-thunk: %s", v), frame)
+		return vm.runtimeError("force on non-thunk: "+v.String(), frame)
 	}
 }
 

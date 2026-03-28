@@ -19,5 +19,5 @@ func (e *RuntimeError) Error() string {
 	if e.Line > 0 {
 		return fmt.Sprintf("%d:%d: runtime error: %s", e.Line, e.Col, e.Message)
 	}
-	return fmt.Sprintf("runtime error: %s", e.Message)
+	return "runtime error: " + e.Message
 }

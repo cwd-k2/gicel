@@ -81,8 +81,7 @@ func (s *Solver) TryResolveInstance(className string, args []types.Type, sp span
 func (s *Solver) resolveInstance(className string, args []types.Type, sp span.Span) ir.Core {
 	if err := s.env.EnterResolve(); err != nil {
 		s.env.AddCodedError(diagnostic.ErrResolutionDepth, sp,
-			fmt.Sprintf("instance resolution depth limit exceeded for %s %s (possible infinite loop in instance contexts)",
-				className, s.prettyTypeArgs(args)))
+			"instance resolution depth limit exceeded for "+className+" "+s.prettyTypeArgs(args)+" (possible infinite loop in instance contexts)")
 		return &ir.Var{Name: "<resolution-depth>", S: sp}
 	}
 	defer s.env.LeaveResolve()
@@ -101,7 +100,7 @@ func (s *Solver) resolveInstance(className string, args []types.Type, sp span.Sp
 	}
 
 	s.env.AddCodedError(diagnostic.ErrNoInstance, sp,
-		fmt.Sprintf("no instance for %s %s", className, s.prettyTypeArgs(args)))
+		"no instance for "+className+" "+s.prettyTypeArgs(args))
 	return &ir.Var{Name: "<no-instance>", S: sp}
 }
 

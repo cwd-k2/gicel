@@ -77,7 +77,7 @@ func (imp *Importer) Import(
 
 	if modules == nil {
 		if len(imports) > 0 {
-			imp.env.AddError(diagnostic.ErrImport, imports[0].S, fmt.Sprintf("unknown module: %s", imports[0].ModuleName))
+			imp.env.AddError(diagnostic.ErrImport, imports[0].S, "unknown module: "+imports[0].ModuleName)
 		}
 		return imp.qualifiedScopes
 	}
@@ -96,7 +96,7 @@ func (imp *Importer) Import(
 		// Duplicate import detection.
 		if seen[decl.ModuleName] {
 			imp.env.AddError(diagnostic.ErrImport, decl.S,
-				fmt.Sprintf("duplicate import: %s", decl.ModuleName))
+				"duplicate import: "+decl.ModuleName)
 			continue
 		}
 		seen[decl.ModuleName] = true
@@ -104,7 +104,7 @@ func (imp *Importer) Import(
 		mod, ok := modules[decl.ModuleName]
 		if !ok {
 			imp.env.AddError(diagnostic.ErrImport, decl.S,
-				fmt.Sprintf("unknown module: %s", decl.ModuleName))
+				"unknown module: "+decl.ModuleName)
 			continue
 		}
 
@@ -113,7 +113,7 @@ func (imp *Importer) Import(
 			// Qualified import: import M as N
 			if prev, exists := aliases[decl.Alias]; exists {
 				imp.env.AddError(diagnostic.ErrImport, decl.S,
-					fmt.Sprintf("alias %s already used for module %s", decl.Alias, prev))
+					"alias "+decl.Alias+" already used for module "+prev)
 				continue
 			}
 			aliases[decl.Alias] = decl.ModuleName
@@ -475,7 +475,7 @@ func (imp *Importer) importSelective(mod *env.ModuleExports, decl syntax.DeclImp
 
 		if !found {
 			imp.env.AddError(diagnostic.ErrImport, decl.S,
-				fmt.Sprintf("module %s does not export: %s", decl.ModuleName, name))
+				"module "+decl.ModuleName+" does not export: "+name)
 		}
 	}
 }

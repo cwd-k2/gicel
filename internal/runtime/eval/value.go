@@ -200,7 +200,7 @@ func (v *HostVal) String() string {
 }
 
 func (v *Closure) String() string {
-	return fmt.Sprintf("Closure(%s, ...)", v.Param)
+	return "Closure(" + v.Param + ", ...)"
 }
 
 func (v *ConVal) String() string {
@@ -214,7 +214,7 @@ func (v *ConVal) String() string {
 	for i, a := range v.Args {
 		args[i] = a.String()
 	}
-	return fmt.Sprintf("(%s %s)", v.Con, strings.Join(args, " "))
+	return "(" + v.Con + " " + strings.Join(args, " ") + ")"
 }
 
 // List constructor names (Prelude convention).
@@ -278,13 +278,13 @@ func (v *RecordVal) String() string {
 	// Fields are already sorted, so no need to sort keys.
 	parts := make([]string, len(v.fields))
 	for i, f := range v.fields {
-		parts[i] = fmt.Sprintf("%s = %s", f.Label, f.Value)
+		parts[i] = f.Label + " = " + f.Value.String()
 	}
-	return fmt.Sprintf("{ %s }", strings.Join(parts, ", "))
+	return "{ " + strings.Join(parts, ", ") + " }"
 }
 
 func (v *VMClosure) String() string {
-	return fmt.Sprintf("VMClosure(%s, ...)", v.Name)
+	return "VMClosure(" + v.Name + ", ...)"
 }
 
 func (v *VMThunkVal) String() string {

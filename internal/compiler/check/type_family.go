@@ -50,12 +50,12 @@ func (ch *Checker) processTypeFamilyDecl(
 	// Check for duplicate.
 	if _, dup := ch.reg.LookupFamily(name); dup {
 		ch.addCodedError(diagnostic.ErrDuplicateDecl, s,
-			fmt.Sprintf("duplicate type family: %s", name))
+			"duplicate type family: "+name)
 		return
 	}
 	if _, dup := ch.reg.LookupAlias(name); dup {
 		ch.addCodedError(diagnostic.ErrDuplicateDecl, s,
-			fmt.Sprintf("type family %s conflicts with type alias of the same name", name))
+			"type family "+name+" conflicts with type alias of the same name")
 		return
 	}
 

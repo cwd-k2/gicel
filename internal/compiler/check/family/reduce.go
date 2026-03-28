@@ -1,7 +1,6 @@
 package family
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/cwd-k2/gicel/internal/compiler/check/env"
@@ -52,7 +51,7 @@ func (e *ReduceEnv) ReduceAll(t types.Type) types.Type {
 func (e *ReduceEnv) ReduceTyFamily(name string, args []types.Type, s span.Span) (types.Type, bool) {
 	if err := e.Budget.TFStep(); err != nil {
 		e.AddError(diagnostic.ErrTypeFamilyReduction, s,
-			fmt.Sprintf("type family %s: reduction limit exceeded (possible infinite recursion or exponential growth)", name))
+			"type family "+name+": reduction limit exceeded (possible infinite recursion or exponential growth)")
 		return nil, false
 	}
 	// Builtin row-level type families.
@@ -70,7 +69,7 @@ func (e *ReduceEnv) ReduceTyFamily(name string, args []types.Type, s span.Span) 
 			rhs := types.SubstMany(eq.RHS, subst)
 			if types.TypeSize(rhs, maxReductionTypeSize) > maxReductionTypeSize {
 				e.AddError(diagnostic.ErrTypeFamilyReduction, s,
-					fmt.Sprintf("type family %s: result type too large (possible exponential growth)", name))
+					"type family "+name+": result type too large (possible exponential growth)")
 				return nil, false
 			}
 			return rhs, true

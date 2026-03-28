@@ -1,8 +1,6 @@
 package check
 
 import (
-	"fmt"
-
 	"github.com/cwd-k2/gicel/internal/infra/diagnostic"
 	"github.com/cwd-k2/gicel/internal/infra/span"
 	"github.com/cwd-k2/gicel/internal/lang/types"
@@ -43,7 +41,7 @@ func (ch *Checker) checkSkolemEscape(ty types.Type, skolemIDs map[int]string, s 
 	if id, found := ch.containsSkolem(ty, skolemIDs); found {
 		name := skolemIDs[id]
 		ch.addCodedError(diagnostic.ErrSkolemEscape, s,
-			fmt.Sprintf("existential type variable '#%s' escapes its scope", name))
+			"existential type variable '#"+name+"' escapes its scope")
 	}
 }
 
@@ -66,7 +64,7 @@ func (ch *Checker) checkSkolemEscapeInSolutions(skolem *types.TySkolem, preID in
 		zonked := ch.unifier.Zonk(soln)
 		if _, found := ch.containsSkolem(zonked, ids); found {
 			ch.addCodedError(diagnostic.ErrSkolemEscape, s,
-				fmt.Sprintf("type variable '%s' would escape its scope", skolem.Name))
+				"type variable '"+skolem.Name+"' would escape its scope")
 			return
 		}
 	}

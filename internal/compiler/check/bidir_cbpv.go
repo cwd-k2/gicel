@@ -1,8 +1,6 @@
 package check
 
 import (
-	"fmt"
-
 	"github.com/cwd-k2/gicel/internal/infra/diagnostic"
 	"github.com/cwd-k2/gicel/internal/infra/span"
 	"github.com/cwd-k2/gicel/internal/lang/ir"
@@ -60,7 +58,7 @@ func (ch *Checker) inferBind(compExpr, contExpr syntax.Expr, s span.Span) (types
 	r2 := ch.freshMeta(types.TypeOfRows)
 	a := ch.freshMeta(types.TypeOfTypes)
 	if err := ch.unifier.Unify(compTy, types.MkComp(r1, r2, a)); err != nil {
-		ch.addSemanticUnifyError(diagnostic.ErrBadComputation, err, compExpr.Span(), fmt.Sprintf("bind: first argument must be a computation, got %s", types.Pretty(compTy)))
+		ch.addSemanticUnifyError(diagnostic.ErrBadComputation, err, compExpr.Span(), "bind: first argument must be a computation, got "+types.Pretty(compTy))
 		return ch.errorPair(s)
 	}
 
@@ -136,7 +134,7 @@ func (ch *Checker) inferDualForm(
 	expected := mkExpected(pre, post, result)
 	if err := ch.unifier.Unify(argTy, expected); err != nil {
 		ch.addSemanticUnifyError(diagnostic.ErrBadThunk, err, e.S,
-			fmt.Sprintf("%s requires a %s argument, got %s", label, types.Pretty(expected), types.Pretty(argTy)))
+			label+" requires a "+types.Pretty(expected)+" argument, got "+types.Pretty(argTy))
 		return &types.TyError{S: e.S}, mkCore(argCore)
 	}
 	resultTy := mkResult(ch.unifier.Zonk(pre), ch.unifier.Zonk(post), ch.unifier.Zonk(result))

@@ -1,8 +1,6 @@
 package check
 
 import (
-	"fmt"
-
 	"github.com/cwd-k2/gicel/internal/compiler/check/solve"
 	"github.com/cwd-k2/gicel/internal/infra/diagnostic"
 	"github.com/cwd-k2/gicel/internal/infra/span"
@@ -56,8 +54,7 @@ func (ch *Checker) checkDo(e *syntax.ExprDo, expected types.Type) ir.Core {
 			return result
 		}
 		ch.addCodedError(diagnostic.ErrNoInstance, e.S,
-			fmt.Sprintf("do notation for %s requires a Monad or IxMonad instance",
-				types.Pretty(expected)))
+			"do notation for "+types.Pretty(expected)+" requires a Monad or IxMonad instance")
 		return &ir.Var{Name: "<error>", S: e.S}
 	}
 

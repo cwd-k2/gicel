@@ -16,7 +16,7 @@ func (ch *Checker) processInstanceBody(inst *InstanceInfo, methods map[string]sy
 	classInfo, ok := ch.reg.LookupClass(inst.ClassName)
 	if !ok {
 		ch.addCodedError(diagnostic.ErrNoInstance, inst.S,
-			fmt.Sprintf("class %s not found for instance", inst.ClassName))
+			"class "+inst.ClassName+" not found for instance")
 		return
 	}
 
@@ -146,14 +146,12 @@ func (ch *Checker) processAssocDataDef(field syntax.ImplField, patterns []syntax
 	fam, ok := ch.reg.LookupFamily(field.Name)
 	if !ok {
 		ch.addCodedError(diagnostic.ErrBadInstance, instSpan,
-			fmt.Sprintf("instance %s: associated form %s not declared in class %s",
-				className, field.Name, className))
+			"instance "+className+": associated form "+field.Name+" not declared in class "+className)
 		return
 	}
 	if !fam.IsAssoc || fam.ClassName != className {
 		ch.addCodedError(diagnostic.ErrBadInstance, instSpan,
-			fmt.Sprintf("instance %s: %s is not an associated form of class %s",
-				className, field.Name, className))
+			"instance "+className+": "+field.Name+" is not an associated form of class "+className)
 		return
 	}
 	if len(patterns) != len(fam.Params) {
@@ -218,8 +216,7 @@ func (ch *Checker) processAssocDataDef(field syntax.ImplField, patterns []syntax
 	// Guard against constructor name collision with existing constructors.
 	if existing, dup := ch.reg.LookupConType(conName); dup {
 		ch.addCodedError(diagnostic.ErrDuplicateDecl, field.S,
-			fmt.Sprintf("form family instance %s: constructor %s conflicts with existing constructor (type: %s)",
-				field.Name, conName, types.Pretty(existing)))
+			"form family instance "+field.Name+": constructor "+conName+" conflicts with existing constructor (type: "+types.Pretty(existing)+")")
 		return
 	}
 	ch.ctx.Push(&CtxVar{Name: conName, Type: conType, Module: ch.scope.CurrentModule()})
@@ -301,7 +298,7 @@ func (ch *Checker) validateInstanceMethods(
 	for name := range classMethodSet {
 		if _, ok := methods[name]; !ok {
 			ch.addCodedError(diagnostic.ErrMissingMethod, s,
-				fmt.Sprintf("instance %s: missing method %s", className, name))
+				"instance "+className+": missing method "+name)
 			hasMissing = true
 		}
 	}
@@ -313,8 +310,7 @@ func (ch *Checker) validateInstanceMethods(
 	for name := range methods {
 		if !classMethodSet[name] {
 			ch.addCodedError(diagnostic.ErrBadInstance, s,
-				fmt.Sprintf("instance %s: extra method %s not declared in class",
-					className, name))
+				"instance "+className+": extra method "+name+" not declared in class")
 			hasExtra = true
 		}
 	}

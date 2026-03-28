@@ -445,7 +445,7 @@ func (vm *VM) execute() (eval.EvalResult, error) {
 			rv, ok := rec.(*eval.RecordVal)
 			if !ok {
 				return eval.EvalResult{}, vm.runtimeError(
-					fmt.Sprintf("record projection on non-record: %s", rec), frame)
+					"record projection on non-record: "+rec.String(), frame)
 			}
 			val, ok := rv.Get(label)
 			if !ok {
@@ -467,7 +467,7 @@ func (vm *VM) execute() (eval.EvalResult, error) {
 			rv, ok := rec.(*eval.RecordVal)
 			if !ok {
 				return eval.EvalResult{}, vm.runtimeError(
-					fmt.Sprintf("record update on non-record: %s", rec), frame)
+					"record update on non-record: "+rec.String(), frame)
 			}
 			// Charge for the full result record (existing fields + updates).
 			totalFields := rv.Len() + n

@@ -160,7 +160,7 @@ func (ch *Checker) infer(expr syntax.Expr) (types.Type, ir.Core) {
 		// Desugar: a op b → App(App(Var(op), a), b)
 		opTy, opMod, ok := ch.ctx.LookupVarFull(e.Op)
 		if !ok {
-			ch.addCodedError(diagnostic.ErrUnboundVar, e.S, fmt.Sprintf("unbound operator: %s", e.Op))
+			ch.addCodedError(diagnostic.ErrUnboundVar, e.S, "unbound operator: "+e.Op)
 			return &types.TyError{S: e.S}, &ir.Var{Name: e.Op, S: e.S}
 		}
 		opTy, opCore := ch.instantiate(opTy, &ir.Var{Name: e.Op, Module: opMod, S: e.S})
@@ -199,7 +199,7 @@ func (ch *Checker) infer(expr syntax.Expr) (types.Type, ir.Core) {
 	case *syntax.ExprIntLit:
 		val, err := strconv.ParseInt(strings.ReplaceAll(e.Value, "_", ""), 10, 64)
 		if err != nil {
-			ch.addCodedError(diagnostic.ErrTypeMismatch, e.S, fmt.Sprintf("invalid integer literal: %s", e.Value))
+			ch.addCodedError(diagnostic.ErrTypeMismatch, e.S, "invalid integer literal: "+e.Value)
 			return ch.errorPair(e.S)
 		}
 		return types.Con("Int"), &ir.Lit{Value: val, S: e.S}
@@ -210,7 +210,7 @@ func (ch *Checker) infer(expr syntax.Expr) (types.Type, ir.Core) {
 	case *syntax.ExprDoubleLit:
 		val, err := strconv.ParseFloat(strings.ReplaceAll(e.Value, "_", ""), 64)
 		if err != nil {
-			ch.addCodedError(diagnostic.ErrTypeMismatch, e.S, fmt.Sprintf("invalid double literal: %s", e.Value))
+			ch.addCodedError(diagnostic.ErrTypeMismatch, e.S, "invalid double literal: "+e.Value)
 			return ch.errorPair(e.S)
 		}
 		return types.Con("Double"), &ir.Lit{Value: val, S: e.S}
@@ -468,8 +468,7 @@ func (ch *Checker) subsCheck(inferred, expected types.Type, expr ir.Core, s span
 	// Default: unify eagerly. subsCheck is on the critical path for type
 	// information flow — metas must be solved immediately for downstream code.
 	if err := ch.unifier.Unify(inferred, expected); err != nil {
-		ch.addUnifyError(err, s, fmt.Sprintf("type mismatch: expected %s, got %s",
-			types.Pretty(expected), types.Pretty(inferred)))
+		ch.addUnifyError(err, s, "type mismatch: expected "+types.Pretty(expected)+", got "+types.Pretty(inferred))
 	}
 	return expr
 }

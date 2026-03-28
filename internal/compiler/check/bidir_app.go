@@ -1,8 +1,6 @@
 package check
 
 import (
-	"fmt"
-
 	"github.com/cwd-k2/gicel/internal/infra/diagnostic"
 	"github.com/cwd-k2/gicel/internal/lang/ir"
 	"github.com/cwd-k2/gicel/internal/lang/syntax"
@@ -95,7 +93,7 @@ func (ch *Checker) checkApp(e *syntax.ExprApp, expected types.Type) ir.Core {
 func (ch *Checker) checkInfix(e *syntax.ExprInfix, expected types.Type) ir.Core {
 	opTy, opMod, ok := ch.ctx.LookupVarFull(e.Op)
 	if !ok {
-		ch.addCodedError(diagnostic.ErrUnboundVar, e.S, fmt.Sprintf("unbound operator: %s", e.Op))
+		ch.addCodedError(diagnostic.ErrUnboundVar, e.S, "unbound operator: "+e.Op)
 		return &ir.Var{Name: e.Op, S: e.S}
 	}
 	opTy, opCore := ch.instantiate(opTy, &ir.Var{Name: e.Op, Module: opMod, S: e.S})

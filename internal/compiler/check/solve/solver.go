@@ -1,7 +1,6 @@
 package solve
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/cwd-k2/gicel/internal/infra/diagnostic"
@@ -244,7 +243,7 @@ func (s *Solver) processCtClass(
 			ct.Args = s.zonkAll(ct.Args)
 		} else {
 			s.env.AddCodedError(diagnostic.ErrNoInstance, ct.S,
-				fmt.Sprintf("cannot resolve constraint variable %s", types.Pretty(cv)))
+				"cannot resolve constraint variable "+types.Pretty(cv))
 			resolutions[ct.Placeholder] = &ir.Var{Name: "<no-instance>", S: ct.S}
 			return
 		}
@@ -364,8 +363,7 @@ func (s *Solver) reportEqError(ct *CtEq, lhs, rhs types.Type) {
 		s.env.AddCodedError(diagnostic.ErrTypeMismatch, ct.S, ct.Origin.GetContext())
 	} else {
 		s.env.AddCodedError(diagnostic.ErrTypeMismatch, ct.S,
-			fmt.Sprintf("unsatisfiable type equality: %s ~ %s",
-				types.Pretty(lhs), types.Pretty(rhs)))
+			"unsatisfiable type equality: "+types.Pretty(lhs)+" ~ "+types.Pretty(rhs))
 	}
 }
 

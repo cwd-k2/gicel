@@ -70,7 +70,7 @@ func (p *declPipeline) checkDuplicateBindings() {
 		if def, ok := d.(*syntax.DeclValueDef); ok {
 			if seen[def.Name] {
 				p.ch.addCodedError(diagnostic.ErrDuplicateDecl, def.S,
-					fmt.Sprintf("duplicate binding: %s", def.Name))
+					"duplicate binding: "+def.Name)
 			} else {
 				seen[def.Name] = true
 			}
@@ -335,7 +335,7 @@ func (ch *Checker) processValueDef(d *syntax.DeclValueDef, annotations map[strin
 			}
 		}
 		if !hasAnn {
-			ch.addCodedError(diagnostic.ErrAssumption, d.S, fmt.Sprintf("assumption %s requires a type annotation", d.Name))
+			ch.addCodedError(diagnostic.ErrAssumption, d.S, "assumption "+d.Name+" requires a type annotation")
 			return
 		}
 		// Note: assumptions without a corresponding RegisterPrim are caught at
@@ -385,9 +385,8 @@ func (ch *Checker) processValueDef(d *syntax.DeclValueDef, annotations map[strin
 	// wrapped with 'thunk' to suspend them.
 	if ch.config.EntryPoint != "" && d.Name != ch.config.EntryPoint && isBareComputationType(ty) {
 		ch.addCodedError(diagnostic.ErrEffectfulBinding, d.S,
-			fmt.Sprintf("top-level binding %s has bare Computation type; "+
-				"wrap with 'thunk' to suspend, or make it a function parameter",
-				d.Name))
+			"top-level binding "+d.Name+" has bare Computation type; "+
+				"wrap with 'thunk' to suspend, or make it a function parameter")
 	}
 
 	// Annotated bindings were pre-registered in preregisterBindings (phase 7.5).

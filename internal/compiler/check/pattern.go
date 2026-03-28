@@ -53,7 +53,7 @@ func (ch *Checker) checkPattern(pat syntax.Pattern, scrutTy types.Type) patternR
 func (ch *Checker) checkLitPattern(p *syntax.PatLit, scrutTy types.Type) patternResult {
 	litTy, litVal, parseErr := parseLitValue(p.Kind, p.Value)
 	if parseErr != nil {
-		ch.addCodedError(diagnostic.ErrTypeMismatch, p.S, fmt.Sprintf("invalid literal in pattern: %s", p.Value))
+		ch.addCodedError(diagnostic.ErrTypeMismatch, p.S, "invalid literal in pattern: "+p.Value)
 		return patternResult{Pattern: &ir.PWild{S: p.S}}
 	}
 	ch.emitEq(litTy, scrutTy, p.S, solve.WithContext(0, "literal pattern type mismatch"))
@@ -136,7 +136,7 @@ func (ch *Checker) instantiateConForalls(conTy types.Type) (types.Type, map[int]
 func (ch *Checker) checkConPattern(p *syntax.PatCon, scrutTy types.Type) patternResult {
 	conTy, ok := ch.reg.LookupConType(p.Con)
 	if !ok {
-		ch.addCodedError(diagnostic.ErrUnboundCon, p.S, fmt.Sprintf("unknown constructor in pattern: %s", p.Con))
+		ch.addCodedError(diagnostic.ErrUnboundCon, p.S, "unknown constructor in pattern: "+p.Con)
 		return patternResult{Pattern: &ir.PWild{S: p.S}}
 	}
 	return ch.checkConPatternWith(p.Con, "", conTy, p.Args, scrutTy, p.S)
@@ -145,13 +145,13 @@ func (ch *Checker) checkConPattern(p *syntax.PatCon, scrutTy types.Type) pattern
 func (ch *Checker) checkQualConPattern(p *syntax.PatQualCon, scrutTy types.Type) patternResult {
 	qs, ok := ch.scope.LookupQualified(p.Qualifier)
 	if !ok {
-		ch.addCodedError(diagnostic.ErrUnboundCon, p.S, fmt.Sprintf("unknown qualifier: %s", p.Qualifier))
+		ch.addCodedError(diagnostic.ErrUnboundCon, p.S, "unknown qualifier: "+p.Qualifier)
 		return patternResult{Pattern: &ir.PWild{S: p.S}}
 	}
 	conTy, ok := qs.Exports.ConTypes[p.Con]
 	if !ok {
 		ch.addCodedError(diagnostic.ErrUnboundCon, p.S,
-			fmt.Sprintf("module %s does not export constructor: %s", qs.ModuleName, p.Con))
+			"module "+qs.ModuleName+" does not export constructor: "+p.Con)
 		return patternResult{Pattern: &ir.PWild{S: p.S}}
 	}
 	return ch.checkConPatternWith(p.Con, qs.ModuleName, conTy, p.Args, scrutTy, p.S)

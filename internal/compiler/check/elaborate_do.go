@@ -1,8 +1,6 @@
 package check
 
 import (
-	"fmt"
-
 	"github.com/cwd-k2/gicel/internal/compiler/check/solve"
 	"github.com/cwd-k2/gicel/internal/infra/diagnostic"
 	"github.com/cwd-k2/gicel/internal/infra/span"
@@ -485,7 +483,7 @@ func (ch *Checker) extractCompResult(ty types.Type, s span.Span) types.Type {
 	result := ch.freshMeta(types.TypeOfTypes)
 	expected := types.MkComp(pre, post, result)
 	if err := ch.unifier.Unify(ty, expected); err != nil {
-		ch.addSemanticUnifyError(diagnostic.ErrBadComputation, err, s, fmt.Sprintf("expected computation type, got %s", types.Pretty(ty)))
+		ch.addSemanticUnifyError(diagnostic.ErrBadComputation, err, s, "expected computation type, got "+types.Pretty(ty))
 		return &types.TyError{S: s}
 	}
 	return result

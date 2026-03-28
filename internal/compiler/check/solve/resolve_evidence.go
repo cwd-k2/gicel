@@ -1,8 +1,6 @@
 package solve
 
 import (
-	"fmt"
-
 	"github.com/cwd-k2/gicel/internal/compiler/check/env"
 	"github.com/cwd-k2/gicel/internal/infra/diagnostic"
 	"github.com/cwd-k2/gicel/internal/infra/span"
@@ -178,7 +176,7 @@ func (s *Solver) resolveQuantifiedConstraint(qc *types.QuantifiedConstraint, sp 
 	}
 
 	s.env.AddCodedError(diagnostic.ErrNoInstance, sp,
-		fmt.Sprintf("no instance for %s %s", qc.Head.ClassName, s.prettyTypeArgs(qc.Head.Args)))
+		"no instance for "+qc.Head.ClassName+" "+s.prettyTypeArgs(qc.Head.Args))
 	return &ir.Var{Name: "<no-instance>", S: sp}
 }
 

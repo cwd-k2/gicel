@@ -202,8 +202,7 @@ func (ch *Checker) emitGradePreserveConstraint(grade types.Type, gradeKind types
 		// and here. Fall back to the concrete fast path.
 		if !ch.gradeCanPreserveDynamic(ch.unifier.Zonk(grade), gradeKind) {
 			ch.addCodedError(diagnostic.ErrMultiplicity, s,
-				fmt.Sprintf("@%s capability must be consumed (type unchanged across computation boundary)",
-					types.Pretty(grade)))
+				"@"+types.Pretty(grade)+" capability must be consumed (type unchanged across computation boundary)")
 		}
 		return
 	}
@@ -215,8 +214,7 @@ func (ch *Checker) emitGradePreserveConstraint(grade types.Type, gradeKind types
 		BlockingOn: blocking,
 		OnFailure: func(errSpan span.Span, expected, actual types.Type) {
 			ch.addCodedError(diagnostic.ErrMultiplicity, errSpan,
-				fmt.Sprintf("@%s capability must be consumed (grade preservation violation: expected %s, got %s)",
-					types.Pretty(grade), types.Pretty(expected), types.Pretty(actual)))
+				"@"+types.Pretty(grade)+" capability must be consumed (grade preservation violation: expected "+types.Pretty(expected)+", got "+types.Pretty(actual)+")")
 		},
 		S: s,
 	}

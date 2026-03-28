@@ -43,7 +43,7 @@ func (ch *Checker) processImplHeader(impl *syntax.DeclImpl) (*InstanceInfo, map[
 
 	classInfo, ok := ch.reg.LookupClass(className)
 	if !ok {
-		ch.addCodedError(diagnostic.ErrBadClass, impl.S, fmt.Sprintf("unknown class: %s", className))
+		ch.addCodedError(diagnostic.ErrBadClass, impl.S, "unknown class: "+className)
 		return nil, nil
 	}
 
@@ -120,8 +120,7 @@ func (ch *Checker) processImplHeader(impl *syntax.DeclImpl) (*InstanceInfo, map[
 		}
 		if ch.instancesOverlap(existing, inst) {
 			ch.addCodedError(diagnostic.ErrOverlap, impl.S,
-				fmt.Sprintf("overlapping instances for class %s: %s and %s",
-					className, existing.DictBindName, dictName))
+				"overlapping instances for class "+className+": "+existing.DictBindName+" and "+dictName)
 			return nil, nil
 		}
 	}
@@ -140,8 +139,7 @@ func (ch *Checker) validateInstanceContext(className string, typeArgs []types.Ty
 	for _, ctx := range context {
 		if _, ok := ch.reg.LookupClass(ctx.ClassName); !ok {
 			ch.addCodedError(diagnostic.ErrBadInstance, s,
-				fmt.Sprintf("instance %s: context references unknown class %s",
-					className, ctx.ClassName))
+				"instance "+className+": context references unknown class "+ctx.ClassName)
 			return false
 		}
 	}
@@ -159,8 +157,7 @@ func (ch *Checker) validateInstanceContext(className string, typeArgs []types.Ty
 			}
 			if selfCycle {
 				ch.addCodedError(diagnostic.ErrBadInstance, s,
-					fmt.Sprintf("instance %s: self-referential context (instance requires itself)",
-						className))
+					"instance "+className+": self-referential context (instance requires itself)")
 				return false
 			}
 		}
@@ -180,14 +177,12 @@ func (ch *Checker) injectAssocTypes(typeDefs []syntax.ImplField, syntaxTypeArgs 
 		fam, ok := ch.reg.LookupFamily(td.Name)
 		if !ok {
 			ch.addCodedError(diagnostic.ErrBadInstance, s,
-				fmt.Sprintf("instance %s: associated type %s not declared in class %s",
-					className, td.Name, className))
+				"instance "+className+": associated type "+td.Name+" not declared in class "+className)
 			continue
 		}
 		if !fam.IsAssoc || fam.ClassName != className {
 			ch.addCodedError(diagnostic.ErrBadInstance, s,
-				fmt.Sprintf("instance %s: %s is not an associated type of class %s",
-					className, td.Name, className))
+				"instance "+className+": "+td.Name+" is not an associated type of class "+className)
 			continue
 		}
 		// Arity check.

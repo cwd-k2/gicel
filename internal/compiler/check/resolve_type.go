@@ -38,14 +38,14 @@ func (ch *Checker) resolveTypeExpr(texpr syntax.TypeExpr) types.Type {
 		}
 		// Validate that the type constructor is known when strict mode is active.
 		if ch.strictTypeNames && !ch.isKnownTypeName(t.Name) {
-			ch.addCodedError(diagnostic.ErrUnboundCon, t.S, fmt.Sprintf("unknown type: %s", t.Name))
+			ch.addCodedError(diagnostic.ErrUnboundCon, t.S, "unknown type: "+t.Name)
 			return &types.TyError{S: t.S}
 		}
 		return types.ConAt(t.Name, t.S)
 	case *syntax.TyExprQualCon:
 		qs, ok := ch.scope.LookupQualified(t.Qualifier)
 		if !ok {
-			ch.addCodedError(diagnostic.ErrImport, t.S, fmt.Sprintf("unknown qualifier: %s", t.Qualifier))
+			ch.addCodedError(diagnostic.ErrImport, t.S, "unknown qualifier: "+t.Qualifier)
 			return &types.TyError{S: t.S}
 		}
 		// Check qualified aliases (zero-arity: expand inline; parameterized: inject into Scope for TyApp expansion)
@@ -77,7 +77,7 @@ func (ch *Checker) resolveTypeExpr(texpr syntax.TypeExpr) types.Type {
 			return types.ConAt(t.Name, t.S)
 		}
 		ch.addCodedError(diagnostic.ErrImport, t.S,
-			fmt.Sprintf("module %s does not export type: %s", qs.ModuleName, t.Name))
+			"module "+qs.ModuleName+" does not export type: "+t.Name)
 		return &types.TyError{S: t.S}
 	case *syntax.TyExprApp:
 		fun := ch.resolveTypeExpr(t.Fun)
@@ -168,7 +168,7 @@ func (ch *Checker) resolveTypeExpr(texpr syntax.TypeExpr) types.Type {
 			entry := types.ConstraintEntry{ClassName: con.Name, Args: args, S: t.S}
 			return qualifyBody(entry, body, t.S)
 		}
-		ch.addCodedError(diagnostic.ErrNoInstance, t.S, fmt.Sprintf("invalid constraint: %s", types.Pretty(constraint)))
+		ch.addCodedError(diagnostic.ErrNoInstance, t.S, "invalid constraint: "+types.Pretty(constraint))
 		return body
 	case *syntax.TyExprEq:
 		// Equality constraint outside of a qualified type position.

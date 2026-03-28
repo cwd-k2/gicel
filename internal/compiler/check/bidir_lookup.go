@@ -1,7 +1,6 @@
 package check
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/cwd-k2/gicel/internal/compiler/check/env"
@@ -40,7 +39,7 @@ func (ch *Checker) matchArrow(ty types.Type, s span.Span) (types.Type, types.Typ
 	argTy := ch.freshMeta(types.TypeOfTypes)
 	retTy := ch.freshMeta(types.TypeOfTypes)
 	if err := ch.unifier.Unify(ty, types.MkArrow(argTy, retTy)); err != nil {
-		ch.addSemanticUnifyError(diagnostic.ErrBadApplication, err, s, fmt.Sprintf("expected function type, got %s", types.Pretty(ty)))
+		ch.addSemanticUnifyError(diagnostic.ErrBadApplication, err, s, "expected function type, got "+types.Pretty(ty))
 	}
 	return argTy, retTy
 }
@@ -53,7 +52,7 @@ func (ch *Checker) lookupVar(e *syntax.ExprVar) (types.Type, ir.Core, bool) {
 	}
 	ty, mod, ok := ch.ctx.LookupVarFull(e.Name)
 	if !ok {
-		msg := fmt.Sprintf("unbound variable: %s", e.Name)
+		msg := "unbound variable: " + e.Name
 		if gatedBuiltins[e.Name] {
 			msg += " (requires --recursion flag)"
 		}
@@ -74,7 +73,7 @@ func (ch *Checker) lookupCon(e *syntax.ExprCon) (types.Type, ir.Core, bool) {
 	}
 	ty, ok := ch.reg.LookupConType(e.Name)
 	if !ok {
-		msg := fmt.Sprintf("unknown constructor: %s", e.Name)
+		msg := "unknown constructor: " + e.Name
 		if hints := ch.suggestCon(e.Name); len(hints) > 0 {
 			ch.addCodedErrorWithHints(diagnostic.ErrUnboundCon, e.S, msg, hints)
 		} else {
@@ -90,13 +89,13 @@ func (ch *Checker) lookupCon(e *syntax.ExprCon) (types.Type, ir.Core, bool) {
 func (ch *Checker) lookupQualVar(e *syntax.ExprQualVar) (types.Type, ir.Core, bool) {
 	qs, ok := ch.scope.LookupQualified(e.Qualifier)
 	if !ok {
-		ch.addCodedError(diagnostic.ErrUnboundVar, e.S, fmt.Sprintf("unknown qualifier: %s", e.Qualifier))
+		ch.addCodedError(diagnostic.ErrUnboundVar, e.S, "unknown qualifier: "+e.Qualifier)
 		return &types.TyError{S: e.S}, &ir.Var{Name: e.Name, S: e.S}, false
 	}
 	ty, ok := qs.Exports.Values[e.Name]
 	if !ok {
 		ch.addCodedError(diagnostic.ErrUnboundVar, e.S,
-			fmt.Sprintf("module %s does not export value: %s", qs.ModuleName, e.Name))
+			"module "+qs.ModuleName+" does not export value: "+e.Name)
 		return &types.TyError{S: e.S}, &ir.Var{Name: e.Name, S: e.S}, false
 	}
 	return ty, &ir.Var{Name: e.Name, Module: qs.ModuleName, S: e.S}, true
@@ -106,13 +105,13 @@ func (ch *Checker) lookupQualVar(e *syntax.ExprQualVar) (types.Type, ir.Core, bo
 func (ch *Checker) lookupQualCon(e *syntax.ExprQualCon) (types.Type, ir.Core, bool) {
 	qs, ok := ch.scope.LookupQualified(e.Qualifier)
 	if !ok {
-		ch.addCodedError(diagnostic.ErrUnboundCon, e.S, fmt.Sprintf("unknown qualifier: %s", e.Qualifier))
+		ch.addCodedError(diagnostic.ErrUnboundCon, e.S, "unknown qualifier: "+e.Qualifier)
 		return &types.TyError{S: e.S}, &ir.Con{Name: e.Name, S: e.S}, false
 	}
 	ty, ok := qs.Exports.ConTypes[e.Name]
 	if !ok {
 		ch.addCodedError(diagnostic.ErrUnboundCon, e.S,
-			fmt.Sprintf("module %s does not export constructor: %s", qs.ModuleName, e.Name))
+			"module "+qs.ModuleName+" does not export constructor: "+e.Name)
 		return &types.TyError{S: e.S}, &ir.Con{Name: e.Name, S: e.S}, false
 	}
 	return ty, &ir.Con{Name: e.Name, Module: qs.ModuleName, S: e.S}, true

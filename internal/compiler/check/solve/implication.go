@@ -1,8 +1,6 @@
 package solve
 
 import (
-	"fmt"
-
 	"github.com/cwd-k2/gicel/internal/infra/diagnostic"
 	"github.com/cwd-k2/gicel/internal/lang/ir"
 	"github.com/cwd-k2/gicel/internal/lang/types"
@@ -131,8 +129,7 @@ func (s *Solver) partitionResiduals(residuals []*CtClass, localSkolems map[int]b
 	for _, r := range residuals {
 		if s.constraintMentionsLocal(r, localSkolems, level) {
 			s.env.AddCodedError(diagnostic.ErrNoInstance, r.S,
-				fmt.Sprintf("cannot resolve %s (mentions GADT-local type variables)",
-					constraintKey(r.ClassName, s.zonkAll(r.Args))))
+				"cannot resolve "+constraintKey(r.ClassName, s.zonkAll(r.Args))+" (mentions GADT-local type variables)")
 		} else {
 			floatable = append(floatable, r)
 		}
