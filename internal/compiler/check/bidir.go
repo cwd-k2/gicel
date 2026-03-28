@@ -133,6 +133,14 @@ func (ch *Checker) infer(expr syntax.Expr) (types.Type, ir.Core) {
 				return ch.inferBind(inner.Arg, e.Arg, e.S)
 			}
 		}
+		// fix/rec in infer context: produce ir.Fix nodes directly.
+		if v, ok := e.Fun.(*syntax.ExprVar); ok && (v.Name == "fix" || v.Name == "rec") {
+			if ch.config.GatedBuiltins != nil && ch.config.GatedBuiltins[v.Name] {
+				if lam := fixArgLam(e.Arg); lam != nil {
+					return ch.inferFix(e, lam, v.Name == "rec")
+				}
+			}
+		}
 		funTy, funCore := ch.infer(e.Fun)
 		argTy, retTy := ch.matchArrow(funTy, e.S)
 		argCore := ch.check(e.Arg, argTy)
