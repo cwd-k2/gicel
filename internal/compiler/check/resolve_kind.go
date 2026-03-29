@@ -80,10 +80,7 @@ func (ch *Checker) checkTypeAppKind(fun, arg types.Type, s span.Span) {
 	}
 	ka, ok := funKind.(*types.TyArrow)
 	if !ok {
-		// F has a non-arrow kind — report error only when F's kind is reliably known
-		// (registered type or alias). Type classes and type families are not tracked
-		// in LookupTypeKind, so their kindOfType defaults to TypeOfTypes; we must
-		// not reject those applications.
+		// F has a non-arrow kind — report error only when F's kind is reliably known.
 		if ch.hasDeterministicKind(fun) {
 			ch.addCodedError(diagnostic.ErrKindMismatch, s,
 				fmt.Sprintf("type %s has kind %s and cannot be applied to a type argument",
@@ -91,9 +88,10 @@ func (ch *Checker) checkTypeAppKind(fun, arg types.Type, s span.Span) {
 		}
 		return
 	}
-	// Skip argument kind check when the parameter kind is the default TypeOfTypes.
-	// This means the parameter kind was not explicitly annotated, so we cannot
-	// reliably compare it against the argument kind (P3 design debt).
+	// Skip argument kind check when the parameter kind is Type (the default for
+	// unannotated type parameters). This provides implicit kind polymorphism:
+	// unannotated parameters accept promoted data kinds (DataKinds) without
+	// requiring explicit kind annotations or PolyKinds support.
 	if types.Equal(ka.From, types.TypeOfTypes) {
 		return
 	}
@@ -118,7 +116,9 @@ func (ch *Checker) hasDeterministicKind(ty types.Type) bool {
 		_, inReg := ch.reg.LookupTypeKind(t.Name)
 		inProm := ch.reg.HasPromotedCon(t.Name)
 		_, isAlias := ch.lookupAlias(t.Name)
-		return inReg || inProm || isAlias
+		_, isClass := ch.reg.LookupClass(t.Name)
+		_, isFamily := ch.lookupFamily(t.Name)
+		return inReg || inProm || isAlias || isClass || isFamily
 	case *types.TyApp:
 		// Recurse on the head to check if it's deterministic.
 		head, _ := types.UnwindApp(ty)
@@ -162,6 +162,22 @@ func (ch *Checker) kindOfType(ty types.Type) types.Type {
 		}
 		if k, ok := ch.reg.LookupPromotedCon(t.Name); ok {
 			return k
+		}
+		// Type classes: kind = paramKind₁ → ... → paramKindₙ → Constraint.
+		if cls, ok := ch.reg.LookupClass(t.Name); ok {
+			var kind types.Type = types.TypeOfConstraints
+			for i := len(cls.TyParamKinds) - 1; i >= 0; i-- {
+				kind = &types.TyArrow{From: cls.TyParamKinds[i], To: kind}
+			}
+			return kind
+		}
+		// Type families: kind = paramKind₁ → ... → paramKindₙ → resultKind.
+		if fam, ok := ch.lookupFamily(t.Name); ok {
+			var kind types.Type = fam.ResultKind
+			for i := len(fam.Params) - 1; i >= 0; i-- {
+				kind = &types.TyArrow{From: fam.Params[i].Kind, To: kind}
+			}
+			return kind
 		}
 		if t.IsLabel {
 			return types.TypeOfLabels
