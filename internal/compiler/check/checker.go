@@ -262,29 +262,6 @@ func newBudget(ctx context.Context, config *CheckConfig) *budget.CheckBudget {
 	return b
 }
 
-func newRegistry(config *CheckConfig) *Registry {
-	r := &Registry{
-		typeKinds:         make(map[string]types.Type),
-		conModules:        make(map[string]string),
-		conTypes:          make(map[string]types.Type),
-		conInfo:           make(map[string]*DataTypeInfo),
-		dataTypeByName:    make(map[string]*DataTypeInfo),
-		aliases:           make(map[string]*AliasInfo),
-		classes:           make(map[string]*ClassInfo),
-		dictToClass:       make(map[string]string),
-		instancesByClass:  make(map[string][]*InstanceInfo),
-		importedInstances: make(map[*InstanceInfo]bool),
-		promotedKinds:     make(map[string]types.Type),
-		promotedCons:      make(map[string]types.Type),
-		kindVars:          make(map[string]bool),
-		families:          make(map[string]*TypeFamilyInfo),
-	}
-	for name, kind := range config.RegisteredTypes {
-		r.typeKinds[name] = kind
-	}
-	return r
-}
-
 // wireUnifier initializes the unifier and connects it to the solver.
 //
 // SolverLevel timing patterns (L1-a invariant):
