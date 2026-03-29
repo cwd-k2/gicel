@@ -20,21 +20,21 @@ func MapType(t Type, f func(Type) Type) Type {
 		if fun == ty.Fun && arg == ty.Arg {
 			return t
 		}
-		return &TyApp{Fun: fun, Arg: arg, S: ty.S}
+		return &TyApp{Fun: fun, Arg: arg, Flags: MetaFreeFlags(fun, arg), S: ty.S}
 	case *TyArrow:
 		from := f(ty.From)
 		to := f(ty.To)
 		if from == ty.From && to == ty.To {
 			return t
 		}
-		return &TyArrow{From: from, To: to, S: ty.S}
+		return &TyArrow{From: from, To: to, Flags: MetaFreeFlags(from, to), S: ty.S}
 	case *TyForall:
 		kind := f(ty.Kind)
 		body := f(ty.Body)
 		if kind == ty.Kind && body == ty.Body {
 			return t
 		}
-		return &TyForall{Var: ty.Var, Kind: kind, Body: body, S: ty.S}
+		return &TyForall{Var: ty.Var, Kind: kind, Body: body, Flags: MetaFreeFlags(kind, body), S: ty.S}
 	case *TyCBPV:
 		pre := f(ty.Pre)
 		post := f(ty.Post)
@@ -42,7 +42,7 @@ func MapType(t Type, f func(Type) Type) Type {
 		if pre == ty.Pre && post == ty.Post && result == ty.Result {
 			return t
 		}
-		return &TyCBPV{Tag: ty.Tag, Pre: pre, Post: post, Result: result, S: ty.S}
+		return &TyCBPV{Tag: ty.Tag, Pre: pre, Post: post, Result: result, Flags: MetaFreeFlags(pre, post, result), S: ty.S}
 	case *TyEvidence:
 		constraints := f(ty.Constraints)
 		body := f(ty.Body)
@@ -53,7 +53,7 @@ func MapType(t Type, f func(Type) Type) Type {
 		if !ok {
 			cr = ty.Constraints
 		}
-		return &TyEvidence{Constraints: cr, Body: body, S: ty.S}
+		return &TyEvidence{Constraints: cr, Body: body, Flags: MetaFreeFlags(cr, body), S: ty.S}
 	case *TyEvidenceRow:
 		newEntries, changed := ty.Entries.MapChildren(func(child Type) Type {
 			return f(child)
@@ -88,7 +88,7 @@ func MapType(t Type, f func(Type) Type) Type {
 		if args == nil {
 			args = ty.Args
 		}
-		return &TyFamilyApp{Name: ty.Name, Args: args, Kind: kind, S: ty.S}
+		return &TyFamilyApp{Name: ty.Name, Args: args, Kind: kind, Flags: metaFreeSlice(kind, args), S: ty.S}
 	default:
 		// TyVar, TyCon, TyMeta, TySkolem, TyError — leaves
 		return t

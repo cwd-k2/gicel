@@ -27,6 +27,7 @@ type EvidenceEntries interface {
 type TyEvidenceRow struct {
 	Entries EvidenceEntries
 	Tail    Type // nil = closed row, TyVar or TyMeta = open row
+	Flags   uint8
 	S       span.Span
 }
 

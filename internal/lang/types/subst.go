@@ -44,7 +44,7 @@ func substDepth(t Type, varName string, replacement Type, depth int) Type {
 		if newFun == ty.Fun && newArg == ty.Arg {
 			return ty
 		}
-		return &TyApp{Fun: newFun, Arg: newArg, S: ty.S}
+		return &TyApp{Fun: newFun, Arg: newArg, Flags: MetaFreeFlags(newFun, newArg), S: ty.S}
 
 	case *TyArrow:
 		newFrom := substDepth(ty.From, varName, replacement, depth+1)
@@ -52,7 +52,7 @@ func substDepth(t Type, varName string, replacement Type, depth int) Type {
 		if newFrom == ty.From && newTo == ty.To {
 			return ty
 		}
-		return &TyArrow{From: newFrom, To: newTo, S: ty.S}
+		return &TyArrow{From: newFrom, To: newTo, Flags: MetaFreeFlags(newFrom, newTo), S: ty.S}
 
 	case *TyForall:
 		if ty.Var == varName {
@@ -79,7 +79,7 @@ func substDepth(t Type, varName string, replacement Type, depth int) Type {
 		if newPre == ty.Pre && newPost == ty.Post && newResult == ty.Result {
 			return ty
 		}
-		return &TyCBPV{Tag: ty.Tag, Pre: newPre, Post: newPost, Result: newResult, S: ty.S}
+		return &TyCBPV{Tag: ty.Tag, Pre: newPre, Post: newPost, Result: newResult, Flags: MetaFreeFlags(newPre, newPost, newResult), S: ty.S}
 
 	case *TyEvidence:
 		newConstraints := substDepth(ty.Constraints, varName, replacement, depth+1)
@@ -250,14 +250,14 @@ func substManyOpt(t Type, subs map[string]Type, keys []string, fvUnion map[strin
 		if newFun == ty.Fun && newArg == ty.Arg {
 			return ty
 		}
-		return &TyApp{Fun: newFun, Arg: newArg, S: ty.S}
+		return &TyApp{Fun: newFun, Arg: newArg, Flags: MetaFreeFlags(newFun, newArg), S: ty.S}
 	case *TyArrow:
 		newFrom := substManyOpt(ty.From, subs, keys, fvUnion, depth+1)
 		newTo := substManyOpt(ty.To, subs, keys, fvUnion, depth+1)
 		if newFrom == ty.From && newTo == ty.To {
 			return ty
 		}
-		return &TyArrow{From: newFrom, To: newTo, S: ty.S}
+		return &TyArrow{From: newFrom, To: newTo, Flags: MetaFreeFlags(newFrom, newTo), S: ty.S}
 	case *TyForall:
 		newKind := substManyOpt(ty.Kind, subs, keys, fvUnion, depth+1)
 		// Remove shadowed variable from substitution.
@@ -306,7 +306,7 @@ func substManyOpt(t Type, subs map[string]Type, keys []string, fvUnion map[strin
 		if newPre == ty.Pre && newPost == ty.Post && newResult == ty.Result {
 			return ty
 		}
-		return &TyCBPV{Tag: ty.Tag, Pre: newPre, Post: newPost, Result: newResult, S: ty.S}
+		return &TyCBPV{Tag: ty.Tag, Pre: newPre, Post: newPost, Result: newResult, Flags: MetaFreeFlags(newPre, newPost, newResult), S: ty.S}
 	case *TyEvidenceRow:
 		return substManyEvidenceRow(ty, subs, keys, fvUnion, depth+1)
 	case *TyEvidence:

@@ -25,6 +25,10 @@ func (u *Unifier) Zonk(t types.Type) types.Type {
 
 // zonkInner is the budget-free recursive core of Zonk.
 func (u *Unifier) zonkInner(t types.Type) types.Type {
+	// Fast path: types known to be meta-free need no walking.
+	if !types.HasMeta(t) {
+		return t
+	}
 	switch ty := t.(type) {
 	case *types.TyMeta:
 		soln, ok := u.soln[ty.ID]
@@ -48,21 +52,21 @@ func (u *Unifier) zonkInner(t types.Type) types.Type {
 		if zFun == ty.Fun && zArg == ty.Arg {
 			return ty
 		}
-		return &types.TyApp{Fun: zFun, Arg: zArg, S: ty.S}
+		return &types.TyApp{Fun: zFun, Arg: zArg, Flags: types.MetaFreeFlags(zFun, zArg), S: ty.S}
 	case *types.TyArrow:
 		zFrom := u.zonkInner(ty.From)
 		zTo := u.zonkInner(ty.To)
 		if zFrom == ty.From && zTo == ty.To {
 			return ty
 		}
-		return &types.TyArrow{From: zFrom, To: zTo, S: ty.S}
+		return &types.TyArrow{From: zFrom, To: zTo, Flags: types.MetaFreeFlags(zFrom, zTo), S: ty.S}
 	case *types.TyForall:
 		zKind := u.zonkInner(ty.Kind)
 		zBody := u.zonkInner(ty.Body)
 		if zKind == ty.Kind && zBody == ty.Body {
 			return ty
 		}
-		return &types.TyForall{Var: ty.Var, Kind: zKind, Body: zBody, S: ty.S}
+		return &types.TyForall{Var: ty.Var, Kind: zKind, Body: zBody, Flags: types.MetaFreeFlags(zKind, zBody), S: ty.S}
 	case *types.TyCBPV:
 		zPre := u.zonkInner(ty.Pre)
 		zPost := u.zonkInner(ty.Post)
@@ -70,7 +74,7 @@ func (u *Unifier) zonkInner(t types.Type) types.Type {
 		if zPre == ty.Pre && zPost == ty.Post && zResult == ty.Result {
 			return ty
 		}
-		return &types.TyCBPV{Tag: ty.Tag, Pre: zPre, Post: zPost, Result: zResult, S: ty.S}
+		return &types.TyCBPV{Tag: ty.Tag, Pre: zPre, Post: zPost, Result: zResult, Flags: types.MetaFreeFlags(zPre, zPost, zResult), S: ty.S}
 	case *types.TyEvidenceRow:
 		newEntries, changed := ty.Entries.ZonkEntries(u.zonkInner)
 		var tail types.Type
@@ -94,9 +98,9 @@ func (u *Unifier) zonkInner(t types.Type) types.Type {
 		if !ok {
 			// Zonk produced a non-evidence-row (e.g., solved meta);
 			// preserve original constraints to avoid nil dereference.
-			return &types.TyEvidence{Constraints: ty.Constraints, Body: zBody, S: ty.S}
+			return &types.TyEvidence{Constraints: ty.Constraints, Body: zBody, Flags: types.MetaFreeFlags(ty.Constraints, zBody), S: ty.S}
 		}
-		return &types.TyEvidence{Constraints: cr, Body: zBody, S: ty.S}
+		return &types.TyEvidence{Constraints: cr, Body: zBody, Flags: types.MetaFreeFlags(cr, zBody), S: ty.S}
 	case *types.TyFamilyApp:
 		var args []types.Type // nil until first change (lazy-init)
 		for i, a := range ty.Args {
@@ -116,7 +120,7 @@ func (u *Unifier) zonkInner(t types.Type) types.Type {
 		if args == nil {
 			args = ty.Args
 		}
-		return &types.TyFamilyApp{Name: ty.Name, Args: args, Kind: zKind, S: ty.S}
+		return &types.TyFamilyApp{Name: ty.Name, Args: args, Kind: zKind, Flags: types.MetaFreeFlags(append(args, zKind)...), S: ty.S}
 	case *types.TyCon:
 		// TyCon is usually a leaf, but Level may contain LevelMeta.
 		if ty.Level == nil {

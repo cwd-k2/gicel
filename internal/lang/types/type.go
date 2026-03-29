@@ -36,25 +36,28 @@ type TyCon struct {
 
 // TyApp is a general type application (F T).
 type TyApp struct {
-	Fun Type
-	Arg Type
-	S   span.Span
+	Fun   Type
+	Arg   Type
+	Flags uint8 // see FlagMetaFree
+	S     span.Span
 }
 
 // TyArrow is a function type (A -> B).
 type TyArrow struct {
-	From Type
-	To   Type
-	S    span.Span
+	From  Type
+	To    Type
+	Flags uint8
+	S     span.Span
 }
 
 // TyForall is a universal quantification (\ a:K. T).
 // Kind holds the kind of the bound variable as a Type at universe level >= 1.
 type TyForall struct {
-	Var  string
-	Kind Type
-	Body Type
-	S    span.Span
+	Var   string
+	Kind  Type
+	Body  Type
+	Flags uint8
+	S     span.Span
 }
 
 // CBPVTag distinguishes Computation and Thunk types.
@@ -76,6 +79,7 @@ const (
 type TyCBPV struct {
 	Tag               CBPVTag
 	Pre, Post, Result Type
+	Flags             uint8
 	S                 span.Span
 }
 
@@ -130,6 +134,7 @@ type ForallBinder struct {
 type TyEvidence struct {
 	Constraints *TyEvidenceRow
 	Body        Type
+	Flags       uint8
 	S           span.Span
 }
 
@@ -157,6 +162,85 @@ type TySkolem struct {
 // TyError is a poison type for error recovery.
 type TyError struct {
 	S span.Span
+}
+
+// FlagMetaFree indicates that a type's subtree is known to contain no TyMeta
+// or TySkolem. The zero value (no flag set) is conservative: the subtree may
+// or may not contain zonk-relevant nodes. This ensures safety when construction
+// sites do not set flags.
+const FlagMetaFree uint8 = 1 << 0
+
+// HasMeta reports whether a type may require zonk traversal — i.e., it may
+// contain TyMeta (unification metavariables) or TySkolem (rigid variables that
+// may be resolved via skolemSoln in GADT refinement).
+// Returns false only when the type is a known-leaf without metas/skolems or
+// when FlagMetaFree has been explicitly set on a composite type.
+// This is conservative: false means "definitely needs no zonking".
+func HasMeta(t Type) bool {
+	switch ty := t.(type) {
+	case *TyMeta:
+		return true
+	case *TySkolem:
+		return true // skolems may be resolved via skolemSoln in GADT refinement
+	case *TyVar, *TyError:
+		return false
+	case *TyCon:
+		return levelHasMeta(ty.Level)
+	case *TyApp:
+		return ty.Flags&FlagMetaFree == 0
+	case *TyArrow:
+		return ty.Flags&FlagMetaFree == 0
+	case *TyForall:
+		return ty.Flags&FlagMetaFree == 0
+	case *TyCBPV:
+		return ty.Flags&FlagMetaFree == 0
+	case *TyEvidence:
+		return ty.Flags&FlagMetaFree == 0
+	case *TyEvidenceRow:
+		return ty.Flags&FlagMetaFree == 0
+	case *TyFamilyApp:
+		return ty.Flags&FlagMetaFree == 0
+	default:
+		return true // unknown type: conservative
+	}
+}
+
+// MetaFreeFlags returns FlagMetaFree if none of the given types may contain metas.
+func MetaFreeFlags(ts ...Type) uint8 {
+	for _, t := range ts {
+		if HasMeta(t) {
+			return 0
+		}
+	}
+	return FlagMetaFree
+}
+
+// levelHasMeta reports whether a LevelExpr contains a LevelMeta.
+func levelHasMeta(l LevelExpr) bool {
+	switch lv := l.(type) {
+	case *LevelMeta:
+		return true
+	case *LevelMax:
+		return levelHasMeta(lv.A) || levelHasMeta(lv.B)
+	case *LevelSucc:
+		return levelHasMeta(lv.E)
+	default:
+		return false // LevelLit, LevelVar, nil
+	}
+}
+
+// metaFreeSlice returns FlagMetaFree if extra and every element of ts are meta-free.
+// Unlike MetaFreeFlags, this avoids variadic/append allocation for slice-based types.
+func metaFreeSlice(extra Type, ts []Type) uint8 {
+	if HasMeta(extra) {
+		return 0
+	}
+	for _, t := range ts {
+		if HasMeta(t) {
+			return 0
+		}
+	}
+	return FlagMetaFree
 }
 
 // --- typeNode markers ---

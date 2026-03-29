@@ -4,8 +4,8 @@ import "github.com/cwd-k2/gicel/internal/infra/span"
 
 // Pre-defined type constructor kinds (expressed as Type after Kind→Type unification).
 var (
-	KindOfComputation = &TyArrow{From: TypeOfRows, To: &TyArrow{From: TypeOfRows, To: &TyArrow{From: TypeOfTypes, To: TypeOfTypes}}}
-	KindOfThunk       = &TyArrow{From: TypeOfRows, To: &TyArrow{From: TypeOfRows, To: &TyArrow{From: TypeOfTypes, To: TypeOfTypes}}}
+	KindOfComputation = &TyArrow{From: TypeOfRows, To: &TyArrow{From: TypeOfRows, To: &TyArrow{From: TypeOfTypes, To: TypeOfTypes, Flags: FlagMetaFree}, Flags: FlagMetaFree}, Flags: FlagMetaFree}
+	KindOfThunk       = &TyArrow{From: TypeOfRows, To: &TyArrow{From: TypeOfRows, To: &TyArrow{From: TypeOfTypes, To: TypeOfTypes, Flags: FlagMetaFree}, Flags: FlagMetaFree}, Flags: FlagMetaFree}
 )
 
 // Universe-level type constants for the Type/Kind unified representation.
@@ -52,22 +52,22 @@ func SortAt(n int) *TyCon {
 
 // MkComp creates a Computation type.
 func MkComp(pre, post, result Type) *TyCBPV {
-	return &TyCBPV{Tag: TagComp, Pre: pre, Post: post, Result: result}
+	return &TyCBPV{Tag: TagComp, Pre: pre, Post: post, Result: result, Flags: MetaFreeFlags(pre, post, result)}
 }
 
 // MkThunk creates a Thunk type.
 func MkThunk(pre, post, result Type) *TyCBPV {
-	return &TyCBPV{Tag: TagThunk, Pre: pre, Post: post, Result: result}
+	return &TyCBPV{Tag: TagThunk, Pre: pre, Post: post, Result: result, Flags: MetaFreeFlags(pre, post, result)}
 }
 
 // MkArrow creates a function type.
 func MkArrow(from, to Type) *TyArrow {
-	return &TyArrow{From: from, To: to}
+	return &TyArrow{From: from, To: to, Flags: MetaFreeFlags(from, to)}
 }
 
 // MkForall creates a universally quantified type.
 func MkForall(v string, k Type, body Type) *TyForall {
-	return &TyForall{Var: v, Kind: k, Body: body}
+	return &TyForall{Var: v, Kind: k, Body: body, Flags: MetaFreeFlags(k, body)}
 }
 
 // builtinTyCons holds singleton instances for frequently used type constructors.
