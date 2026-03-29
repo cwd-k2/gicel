@@ -16,13 +16,13 @@ import (
 // pipelineCtx encapsulates the compile-time environment shared across
 // pipeline stages: lex → parse → check → optimize → assemble.
 type pipelineCtx struct {
-	ctx              context.Context
-	host             *HostEnv
-	store            *ModuleStore
-	limits           *Limits
-	traceHook        check.CheckTraceHook
-	entryPoint       string
-	denyAssumptions  bool
+	ctx             context.Context
+	host            *HostEnv
+	store           *ModuleStore
+	limits          *Limits
+	traceHook       check.CheckTraceHook
+	entryPoint      string
+	denyAssumptions bool
 }
 
 // lexAndParse is the shared lex/parse pipeline for both module registration

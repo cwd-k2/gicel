@@ -1,6 +1,5 @@
 package ir
 
-
 // SortBindings reorders bindings so that each binding appears after
 // the bindings it depends on, where possible. Dependencies are
 // determined by free-variable analysis: if binding A's expression

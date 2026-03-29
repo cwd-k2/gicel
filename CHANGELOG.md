@@ -1,5 +1,60 @@
 # Changelog
 
+## v0.20.0 — 2026-03-29
+
+### Bytecode VM
+
+The tree-walker evaluator has been replaced with a bytecode compiler and virtual machine. All programs are compiled to bytecode at `NewRuntime` time; the VM dispatch loop handles TCO, pattern matching, and explain-mode instrumentation.
+
+- **Bytecode compiler**: Core IR to stack-based bytecode with closure capture (STG flat-capture model).
+- **VM dispatch**: single `execute()` loop with opcode dispatch, frame management, and tail-call optimization.
+- **Explain/observe parity**: `--explain` and `--explain-all` produce identical output to the former tree-walker.
+- **Applier callback**: isolated sub-execution for host-called GICEL closures (no stack corruption).
+
+### Security
+
+- **`assumption` gated in user code.** User-written GICEL source can no longer use `assumption` declarations. This closes a capability bypass where user code could bind any registered primitive with an arbitrary type signature (e.g., declaring `put` with empty capability row). Stdlib modules are unaffected. Go API users can opt in via `eng.DenyAssumptions()`.
+- **Panic recovery sanitized.** Recovered panics from primitives no longer expose Go stack traces, filesystem paths, or memory addresses in error messages.
+- **Security documentation.** Trust boundary section in Go API docs now covers `--module` path validation and `assumption` gating.
+
+### Error Messages
+
+- **if-condition**: `if 1 then ...` now shows "expected Bool, got **Int**" instead of "expected Bool, got Bool".
+- **Haskell-style case**: `case x of { ... }` now shows "case syntax does not use 'of'; write 'case expr { ... }'" instead of confusing "expected function type" + "unbound variable: of".
+- **let...in**: `let x = 1 in body` now shows "unknown keyword 'let'; use { name := expr; body }" instead of opaque "expected declaration".
+- **Constructor arity**: `MkBox x y` for a 1-field constructor now shows "constructor MkBox expects 1 field(s), but pattern has 2" instead of "expected function type".
+- **"Did you mean?" filtering**: Variable names only suggest other variables; operators only suggest operators. Previously `x` would suggest `$`, `&`, `*`.
+- **Operator hints**: Unbound operators now get "did you mean" hints (e.g., `+++` suggests `+`, `<+`).
+
+### CLI
+
+- **`-e` + file conflict warning.** Using both `-e` and a file argument now emits a warning.
+- **`--explain-all` / `--verbose` without `--explain`** now emits a warning instead of being silently ignored.
+- **`version` command** listed in usage text.
+- **Global usage simplified** to command list with "Use 'gicel <command> --help' for flag details."
+
+### Performance
+
+- **O(n1+n2) merge-join** for Set/MSet `intersection`, `difference`, `union` (was O(n1\*log(n2))).
+- **Lazy CtOrigin contexts** via closures, avoiding premature pretty-printing.
+- **String concatenation** replaces 64 `fmt.Sprintf(%s)` calls in hot paths.
+
+### Refactoring
+
+- Remove tree-walker evaluator; VM is the sole execution engine.
+- Structured `UnifyError` fields (replaces string Detail).
+- Structured stdlib error types (`ErrTypeMismatch`, `ErrMalformed`).
+- Consistent `errMalformed` usage across all stdlib packs.
+- Extract `scanNumeric` from lexer, `inferApply` from type checker.
+- Split `format.go` into `explain.go` + `json.go`.
+- Remove dead `generationScope` infrastructure from solver.
+- Inline redundant solver delegation wrappers.
+
+### Docs & Examples
+
+- New `patterns.pointfree` example: sections, composition, flip, const, on, pipeline-style.
+- Go API trust boundary documentation expanded with security notes.
+
 ## v0.19.0 — 2026-03-28
 
 ### Type System

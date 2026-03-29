@@ -582,4 +582,3 @@ func TestExtractSkolemGivenBothConcrete(t *testing.T) {
 		t.Fatal("expected nil skolem when both sides are concrete")
 	}
 }
-

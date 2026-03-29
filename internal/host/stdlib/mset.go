@@ -229,4 +229,3 @@ func msetDifferenceImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, ap
 	}
 	return &eval.HostVal{Inner: &mutMapVal{root: sortedToAVL(entries), cmp: cmp, size: len(entries)}}, ce, nil
 }
-

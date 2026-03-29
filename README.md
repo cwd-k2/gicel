@@ -3,7 +3,7 @@
 **G**o's **I**ndexed **C**apability **E**ffect **L**ibrary /
 **G**ICEL's **I**ndexed **C**apability **E**ffect **L**anguage
 
-**v0.19.0** — [Changelog](CHANGELOG.md)
+**v0.20.0** — [Changelog](CHANGELOG.md)
 
 > **Pre-1.0 notice:** GICEL is pre-1.0. Breaking changes to syntax or API may occur between minor versions.
 
@@ -177,6 +177,7 @@ See [`examples/go/`](examples/go/) for full patterns.
 
 ### Runtime
 
+- Bytecode VM with tail-call optimization
 - Allocation tracking against `MaxAlloc`
 - Core IR optimizer with registered fusion rules
 - `--explain` semantic trace; `--explain-all` with stdlib dim distinction

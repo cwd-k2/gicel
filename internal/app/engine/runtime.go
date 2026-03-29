@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"sort"
+
 	"github.com/cwd-k2/gicel/internal/infra/budget"
 	"github.com/cwd-k2/gicel/internal/infra/span"
 	"github.com/cwd-k2/gicel/internal/lang/ir"

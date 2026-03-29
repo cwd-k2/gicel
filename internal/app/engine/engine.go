@@ -35,9 +35,9 @@ type Engine struct {
 	limits     Limits
 	compileCtx context.Context // module compilation context (default: Background)
 
-	entryPoint       string               // entry binding name (default: "main")
-	denyAssumptions  bool                 // when true, user code cannot use assumption declarations
-	checkTraceHook   check.CheckTraceHook // diagnostic hook for type checking
+	entryPoint      string               // entry binding name (default: "main")
+	denyAssumptions bool                 // when true, user code cannot use assumption declarations
+	checkTraceHook  check.CheckTraceHook // diagnostic hook for type checking
 }
 
 // NewEngine creates a new Engine with default limits.

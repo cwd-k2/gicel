@@ -47,8 +47,8 @@ type CheckConfig struct {
 	Trace           CheckTraceHook
 	ImportedModules map[string]*ModuleExports
 	ModuleDeps      map[string][]string // module → direct dependencies
-	DenyAssumptions  bool                // when true, reject `assumption` declarations (sandbox mode)
-	StrictTypeNames  bool                // when true, reject unregistered type constructor names
+	DenyAssumptions bool                // when true, reject `assumption` declarations (sandbox mode)
+	StrictTypeNames bool                // when true, reject unregistered type constructor names
 	CurrentModule   string              // module being compiled ("" = user main source)
 	EntryPoint      string              // non-empty enables bare Computation check; that name is exempt
 	NestingLimit    int                 // structural nesting depth limit (0 = disabled)

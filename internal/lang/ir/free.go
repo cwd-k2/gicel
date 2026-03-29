@@ -162,7 +162,6 @@ func (r fvResult) delete(name string) {
 	delete(r.vars, name)
 }
 
-
 // annotateFVLeftSpine iteratively descends the left spine of App nodes
 // for the annotateFV pass, merging free variable sets from right children.
 func annotateFVLeftSpine(app *App, depth int) fvResult {
