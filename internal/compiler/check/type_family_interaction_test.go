@@ -809,7 +809,7 @@ func TestInteractionRecursiveTypeFamilyWithDataKinds(t *testing.T) {
 	// Recursive type family operating on promoted data constructors.
 	// Uses NatPair since multi-param families require unified syntax encoding.
 	source := `
-form Nat := { Zero: (); Succ: Nat; }
+form Nat := Zero | Succ Nat
 form NatPair := \(a: Nat) (b: Nat). { MkNatPair: NatPair a b; }
 
 type Add :: Nat := \(p: Type). case p {

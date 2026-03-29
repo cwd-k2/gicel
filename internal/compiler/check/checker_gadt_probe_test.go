@@ -53,7 +53,7 @@ main := eval (LitBool True)
 func TestProbeE_GADT_MultiConstructorIndexRefinement(t *testing.T) {
 	source := `
 form Bool := { True: Bool; False: Bool; }
-form Nat := { Z: (); S: Nat; }
+form Nat := Z | S Nat
 
 form Tag := \a. { TagBool: Tag Bool; TagNat: Tag Nat }
 

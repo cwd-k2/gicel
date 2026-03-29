@@ -21,7 +21,7 @@ import (
 // Add (NatPair (S a) b) = S (Add (NatPair a b))
 func peanoSource(depth int) string {
 	var b strings.Builder
-	b.WriteString("form Nat := { Z: (); S: Nat; }\n")
+	b.WriteString("form Nat := Z | S Nat\n")
 	b.WriteString("form NatPair := \\(a: Nat) (b: Nat). { MkNatPair: NatPair a b; }\n")
 	b.WriteString("type Add :: Nat := \\(p: Type). case p {\n")
 	b.WriteString("  (NatPair Z b) => b;\n")
@@ -60,7 +60,7 @@ func TestStressDeepRecursiveTF_DepthExceedsLimit(t *testing.T) {
 	// producing a type mismatch (E0200) when Bounce Unit is compared against Unit.
 	source := `
 form Unit := { Unit: Unit; }
-form Nat := { Z: (); S: Nat; }
+form Nat := Z | S Nat
 type Bounce :: Type := \(a: Type). case a {
   a => Trampoline a
 }
@@ -469,7 +469,7 @@ f := \x. x
 
 func TestBoundaryRecursiveTFTerminatesAtDepth1(t *testing.T) {
 	source := `
-form Nat := { Z: (); S: Nat; }
+form Nat := Z | S Nat
 type Pred :: Nat := \(n: Nat). case n {
   (S n) => n;
   Z => Z

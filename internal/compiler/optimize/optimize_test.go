@@ -191,7 +191,7 @@ func TestR4_ForceThunk(t *testing.T) {
 func TestR5_RecordProjKnown(t *testing.T) {
 	// { x: 1, y: 2 }.#x  →  1
 	input := &ir.RecordProj{
-		Record: &ir.RecordLit{Fields: []ir.RecordField{
+		Record: &ir.RecordLit{Fields: []ir.Field{
 			{Label: "x", Value: lit(int64(1))},
 			{Label: "y", Value: lit(int64(2))},
 		}},
@@ -209,9 +209,9 @@ func TestR6_RecordUpdateChain(t *testing.T) {
 	input := &ir.RecordUpdate{
 		Record: &ir.RecordUpdate{
 			Record:  v("r"),
-			Updates: []ir.RecordField{{Label: "x", Value: lit(int64(1))}},
+			Updates: []ir.Field{{Label: "x", Value: lit(int64(1))}},
 		},
-		Updates: []ir.RecordField{{Label: "y", Value: lit(int64(2))}},
+		Updates: []ir.Field{{Label: "y", Value: lit(int64(2))}},
 	}
 	result := optimize(input, nil)
 	upd, ok := result.(*ir.RecordUpdate)
@@ -231,9 +231,9 @@ func TestR6_RecordUpdateOverwrite(t *testing.T) {
 	input := &ir.RecordUpdate{
 		Record: &ir.RecordUpdate{
 			Record:  v("r"),
-			Updates: []ir.RecordField{{Label: "x", Value: lit(int64(1))}},
+			Updates: []ir.Field{{Label: "x", Value: lit(int64(1))}},
 		},
-		Updates: []ir.RecordField{{Label: "x", Value: lit(int64(2))}},
+		Updates: []ir.Field{{Label: "x", Value: lit(int64(2))}},
 	}
 	result := optimize(input, nil)
 	upd, ok := result.(*ir.RecordUpdate)
@@ -531,7 +531,7 @@ func TestSubst_ThroughPrimOp(t *testing.T) {
 
 func TestSubst_ThroughRecordLit(t *testing.T) {
 	// subst (RecordLit {a: Var "x"}) "x" (Var "y") → RecordLit {a: Var "y"}
-	expr := &ir.RecordLit{Fields: []ir.RecordField{{Label: "a", Value: v("x")}}}
+	expr := &ir.RecordLit{Fields: []ir.Field{{Label: "a", Value: v("x")}}}
 	result := substFV(expr, "x", v("y"), ir.FreeVars(v("y")))
 	rec, ok := result.(*ir.RecordLit)
 	if !ok {

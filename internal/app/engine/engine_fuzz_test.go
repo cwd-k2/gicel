@@ -207,9 +207,9 @@ func FuzzEvalLimits(f *testing.F) {
 		}
 
 		// Build a record with nFields fields.
-		fields := make([]ir.RecordField, nFields)
+		fields := make([]ir.Field, nFields)
 		for i := range fields {
-			fields[i] = ir.RecordField{Label: fmt.Sprintf("f%d", i), Value: &ir.Lit{Value: int64(i)}}
+			fields[i] = ir.Field{Label: fmt.Sprintf("f%d", i), Value: &ir.Lit{Value: int64(i)}}
 		}
 		term := ir.Core(&ir.RecordLit{Fields: fields})
 

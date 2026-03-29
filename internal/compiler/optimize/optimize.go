@@ -178,7 +178,7 @@ func recordUpdateChain(c ir.Core) ir.Core {
 	for _, u := range outer.Updates {
 		outerLabels[u.Label] = true
 	}
-	var merged []ir.RecordField
+	var merged []ir.Field
 	for _, u := range inner.Updates {
 		if !outerLabels[u.Label] {
 			merged = append(merged, u)
@@ -286,17 +286,17 @@ func substMany(expr ir.Core, subs map[string]ir.Core, subsFV map[string]struct{}
 	case *ir.Error:
 		return n
 	case *ir.RecordLit:
-		fields := make([]ir.RecordField, len(n.Fields))
+		fields := make([]ir.Field, len(n.Fields))
 		for i, f := range n.Fields {
-			fields[i] = ir.RecordField{Label: f.Label, Value: substMany(f.Value, subs, subsFV)}
+			fields[i] = ir.Field{Label: f.Label, Value: substMany(f.Value, subs, subsFV)}
 		}
 		return &ir.RecordLit{Fields: fields, S: n.S}
 	case *ir.RecordProj:
 		return &ir.RecordProj{Record: substMany(n.Record, subs, subsFV), Label: n.Label, S: n.S}
 	case *ir.RecordUpdate:
-		updates := make([]ir.RecordField, len(n.Updates))
+		updates := make([]ir.Field, len(n.Updates))
 		for i, f := range n.Updates {
-			updates[i] = ir.RecordField{Label: f.Label, Value: substMany(f.Value, subs, subsFV)}
+			updates[i] = ir.Field{Label: f.Label, Value: substMany(f.Value, subs, subsFV)}
 		}
 		return &ir.RecordUpdate{Record: substMany(n.Record, subs, subsFV), Updates: updates, S: n.S}
 	}

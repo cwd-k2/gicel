@@ -16,7 +16,7 @@ import (
 func (ch *Checker) inferRecord(e *syntax.ExprRecord) (types.Type, ir.Core) {
 	seen := make(map[string]bool, len(e.Fields))
 	var fields []types.RowField
-	var coreFields []ir.RecordField
+	var coreFields []ir.Field
 	for _, f := range e.Fields {
 		if seen[f.Label] {
 			ch.addCodedError(diagnostic.ErrDuplicateLabel, f.S,
@@ -26,7 +26,7 @@ func (ch *Checker) inferRecord(e *syntax.ExprRecord) (types.Type, ir.Core) {
 		seen[f.Label] = true
 		ty, coreVal := ch.infer(f.Value)
 		fields = append(fields, types.RowField{Label: f.Label, Type: ty, S: f.S})
-		coreFields = append(coreFields, ir.RecordField{Label: f.Label, Value: coreVal})
+		coreFields = append(coreFields, ir.Field{Label: f.Label, Value: coreVal})
 	}
 	row := types.ClosedRow(fields...)
 	recTy := &types.TyApp{Fun: types.Con(types.TyConRecord), Arg: row, S: e.S}
@@ -97,7 +97,7 @@ func (ch *Checker) matchRecordField(ty types.Type, label string, s span.Span) ty
 // inferRecordUpdate infers the type of a record update { r | l1: e1, ..., ln: en }.
 func (ch *Checker) inferRecordUpdate(e *syntax.ExprRecordUpdate) (types.Type, ir.Core) {
 	recTy, recCore := ch.infer(e.Record)
-	coreUpdates := make([]ir.RecordField, 0, len(e.Updates))
+	coreUpdates := make([]ir.Field, 0, len(e.Updates))
 	seen := make(map[string]bool, len(e.Updates))
 	for _, upd := range e.Updates {
 		if seen[upd.Label] {
@@ -109,7 +109,7 @@ func (ch *Checker) inferRecordUpdate(e *syntax.ExprRecordUpdate) (types.Type, ir
 		// Infer the update value type, then check it matches the existing field.
 		fieldTy := ch.matchRecordField(recTy, upd.Label, upd.S)
 		updCore := ch.check(upd.Value, fieldTy)
-		coreUpdates = append(coreUpdates, ir.RecordField{Label: upd.Label, Value: updCore})
+		coreUpdates = append(coreUpdates, ir.Field{Label: upd.Label, Value: updCore})
 	}
 	return recTy, &ir.RecordUpdate{Record: recCore, Updates: coreUpdates, S: e.S}
 }
@@ -126,7 +126,7 @@ func (ch *Checker) checkRecord(e *syntax.ExprRecord, expected types.Type) ir.Cor
 	}
 
 	seen := make(map[string]bool, len(e.Fields))
-	var coreFields []ir.RecordField
+	var coreFields []ir.Field
 	var rowFields []types.RowField
 	for _, f := range e.Fields {
 		if seen[f.Label] {
@@ -137,11 +137,11 @@ func (ch *Checker) checkRecord(e *syntax.ExprRecord, expected types.Type) ir.Cor
 		seen[f.Label] = true
 		if fieldTy, ok := expectedFields[f.Label]; ok {
 			coreVal := ch.check(f.Value, fieldTy)
-			coreFields = append(coreFields, ir.RecordField{Label: f.Label, Value: coreVal})
+			coreFields = append(coreFields, ir.Field{Label: f.Label, Value: coreVal})
 			rowFields = append(rowFields, types.RowField{Label: f.Label, Type: fieldTy, S: f.S})
 		} else {
 			ty, coreVal := ch.infer(f.Value)
-			coreFields = append(coreFields, ir.RecordField{Label: f.Label, Value: coreVal})
+			coreFields = append(coreFields, ir.Field{Label: f.Label, Value: coreVal})
 			rowFields = append(rowFields, types.RowField{Label: f.Label, Type: ty, S: f.S})
 		}
 	}

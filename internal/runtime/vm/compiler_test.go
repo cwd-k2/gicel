@@ -163,7 +163,7 @@ func TestCompileFix(t *testing.T) {
 
 func TestCompileRecordLit(t *testing.T) {
 	expr := &ir.RecordLit{
-		Fields: []ir.RecordField{
+		Fields: []ir.Field{
 			{Label: "x", Value: &ir.Lit{Value: int64(1)}},
 			{Label: "y", Value: &ir.Lit{Value: int64(2)}},
 		},
@@ -177,7 +177,7 @@ func TestCompileRecordLit(t *testing.T) {
 
 func TestCompileRecordProj(t *testing.T) {
 	rec := &ir.RecordLit{
-		Fields: []ir.RecordField{
+		Fields: []ir.Field{
 			{Label: "x", Value: &ir.Lit{Value: int64(1)}},
 		},
 	}

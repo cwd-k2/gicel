@@ -260,7 +260,7 @@ f := \x. x
 func TestPathologicalLargeButFiniteResult(t *testing.T) {
 	// This family produces a chain of S wrappers — linear growth, should be fine.
 	source := `
-form Nat := { Z: (); S: Nat; }
+form Nat := Z | S Nat
 type AddTen :: Nat := \(n: Nat). case n {
   n => S (S (S (S (S (S (S (S (S (S n)))))))))
 }
@@ -317,7 +317,7 @@ type Id :: Type := \(a: Type). case a {
 // (a') Reduction idempotence for recursive TFs.
 func TestPropertyReductionIdempotenceRecursive(t *testing.T) {
 	source := `
-form Nat := { Z: (); S: Nat; }
+form Nat := Z | S Nat
 form NatPair := \(a: Nat) (b: Nat). { MkNatPair: NatPair a b; }
 type Add :: Nat := \(p: Type). case p {
   (NatPair Z b) => b;

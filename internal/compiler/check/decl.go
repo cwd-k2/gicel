@@ -379,7 +379,7 @@ func (ch *Checker) processValueDef(d *syntax.DeclValueDef, annotations map[strin
 	// metavariables with universally quantified type variables,
 	// and lift unresolved constraints into qualified types.
 	if !hasAnn {
-		ty, coreExpr = ch.generalizeConstrained(ty, coreExpr, unresolvedConstraints)
+		ty, coreExpr = ch.generalizeConstrained(ty, coreExpr, unresolvedConstraints, 0)
 	}
 
 	// Reject bare Computation types in non-entry top-level bindings.

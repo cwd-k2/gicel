@@ -153,7 +153,8 @@ type F :: Bool := \(a: Bool). case a {
   True False => True
 }
 `
-	checkSource(t, source, nil)
+	// True :: Bool (nullary), so True False is a kind error.
+	checkSourceExpectCode(t, source, nil, diagnostic.ErrKindMismatch)
 }
 
 func TestTypeFamilyNameMismatch(t *testing.T) {

@@ -78,7 +78,7 @@ func TestVMFoldlFst(t *testing.T) {
 
 	// Build: myFst (foldl (\a _. a) (1, 2) [()])
 	idLam := &ir.Lam{Param: "a", Body: &ir.Lam{Param: "_", Body: &ir.Var{Name: "a", Index: 1}}}
-	tuple12 := &ir.RecordLit{Fields: []ir.RecordField{
+	tuple12 := &ir.RecordLit{Fields: []ir.Field{
 		{Label: "_1", Value: &ir.Lit{Value: int64(1)}},
 		{Label: "_2", Value: &ir.Lit{Value: int64(2)}},
 	}}

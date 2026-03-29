@@ -197,17 +197,17 @@ func transformRec(c Core, f func(Core) Core, depth int) Core {
 	case *Error:
 		return f(n)
 	case *RecordLit:
-		fields := make([]RecordField, len(n.Fields))
+		fields := make([]Field, len(n.Fields))
 		for i, fld := range n.Fields {
-			fields[i] = RecordField{Label: fld.Label, Value: transformRec(fld.Value, f, depth+1)}
+			fields[i] = Field{Label: fld.Label, Value: transformRec(fld.Value, f, depth+1)}
 		}
 		return f(&RecordLit{Fields: fields, S: n.S})
 	case *RecordProj:
 		return f(&RecordProj{Record: transformRec(n.Record, f, depth+1), Label: n.Label, S: n.S})
 	case *RecordUpdate:
-		updates := make([]RecordField, len(n.Updates))
+		updates := make([]Field, len(n.Updates))
 		for i, fld := range n.Updates {
-			updates[i] = RecordField{Label: fld.Label, Value: transformRec(fld.Value, f, depth+1)}
+			updates[i] = Field{Label: fld.Label, Value: transformRec(fld.Value, f, depth+1)}
 		}
 		return f(&RecordUpdate{Record: transformRec(n.Record, f, depth+1), Updates: updates, S: n.S})
 	default:

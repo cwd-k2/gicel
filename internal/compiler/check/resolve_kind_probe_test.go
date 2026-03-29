@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/cwd-k2/gicel/internal/compiler/check/unify"
+	"github.com/cwd-k2/gicel/internal/infra/diagnostic"
 	"github.com/cwd-k2/gicel/internal/lang/types"
 )
 
@@ -191,11 +192,6 @@ main := fmap myNot (Just True)
 
 // TestProbeE_KindMismatch_InTypeApp — applying a type of kind Type
 // to another type should produce a kind error.
-// BUG: low — `Bool Int` in a type annotation position does not produce a
-// kind error. The type resolver does not perform kind checking on type
-// applications in annotations — `Bool` has kind `Type` (not `Type -> Type`),
-// so `Bool Int` is a kind error, but the checker silently treats it as a
-// valid type application. This could lead to unsound types being accepted.
 func TestProbeE_KindMismatch_InTypeApp(t *testing.T) {
 	source := `
 form Bool := { True: Bool; False: Bool; }
@@ -207,8 +203,5 @@ main := True
 	config := &CheckConfig{
 		RegisteredTypes: map[string]types.Type{"Int": types.TypeOfTypes},
 	}
-	// NOTE: This currently does NOT produce an error, which may be a bug.
-	// The type annotation `Bool Int` should be a kind error since Bool :: Type,
-	// not Type -> Type. We test that it doesn't panic at minimum.
-	checkSourceNoPanic(t, source, config)
+	checkSourceExpectCode(t, source, config, diagnostic.ErrKindMismatch)
 }

@@ -60,13 +60,12 @@ func (ch *Checker) resolveKindExpr(k syntax.TypeExpr) types.Type {
 }
 
 // checkTypeAppKind validates that a type application F A is kind-correct.
-// Only checks when:
-//   - F has an explicitly annotated parameter kind (not the default Type)
-//   - A is a concrete type constructor (TyCon or TyApp) with a deterministic kind
+// Checks two properties:
+//  1. F must have an arrow kind (k1 -> k2) to accept an argument.
+//  2. The argument kind must match the parameter kind.
 //
-// This avoids false positives from type variables whose kind isn't yet in context.
+// Skips checking when kinds are indeterminate (metas, unresolved variables).
 func (ch *Checker) checkTypeAppKind(fun, arg types.Type, s span.Span) {
-	// Only check when arg has a deterministic kind (concrete TyCon, not TyVar).
 	if !ch.hasDeterministicKind(arg) {
 		return
 	}
@@ -75,11 +74,26 @@ func (ch *Checker) checkTypeAppKind(fun, arg types.Type, s span.Span) {
 		return
 	}
 	funKind = ch.unifier.Zonk(funKind)
-	ka, ok := funKind.(*types.TyArrow)
-	if !ok {
+	// Skip if funKind is a meta — kind not yet determined.
+	if _, isMeta := funKind.(*types.TyMeta); isMeta {
 		return
 	}
-	// Skip if the parameter kind is the default TypeOfTypes (unannotated parameter).
+	ka, ok := funKind.(*types.TyArrow)
+	if !ok {
+		// F has a non-arrow kind — report error only when F's kind is reliably known
+		// (registered type or alias). Type classes and type families are not tracked
+		// in LookupTypeKind, so their kindOfType defaults to TypeOfTypes; we must
+		// not reject those applications.
+		if ch.hasDeterministicKind(fun) {
+			ch.addCodedError(diagnostic.ErrKindMismatch, s,
+				fmt.Sprintf("type %s has kind %s and cannot be applied to a type argument",
+					types.Pretty(fun), types.PrettyTypeAsKind(funKind)))
+		}
+		return
+	}
+	// Skip argument kind check when the parameter kind is the default TypeOfTypes.
+	// This means the parameter kind was not explicitly annotated, so we cannot
+	// reliably compare it against the argument kind (P3 design debt).
 	if types.Equal(ka.From, types.TypeOfTypes) {
 		return
 	}
@@ -119,41 +133,6 @@ func (ch *Checker) hasDeterministicKind(ty types.Type) bool {
 	default:
 		return false
 	}
-}
-
-// builtinTypeNames are type constructor names that are intrinsic to the checker
-// (used in TyCBPV expansion) but not registered in RegisteredTypes.
-var builtinTypeNames = map[string]bool{
-	types.TyConComputation: true,
-	types.TyConThunk:       true,
-}
-
-// isKnownTypeName returns true if name refers to a known type: registered type,
-// parameterized alias, parameterized type family, class, promoted kind/constructor,
-// or checker-intrinsic type (Computation, Thunk).
-func (ch *Checker) isKnownTypeName(name string) bool {
-	if builtinTypeNames[name] {
-		return true
-	}
-	if _, ok := ch.reg.LookupTypeKind(name); ok {
-		return true
-	}
-	if _, ok := ch.lookupAlias(name); ok {
-		return true
-	}
-	if _, ok := ch.lookupFamily(name); ok {
-		return true
-	}
-	if _, ok := ch.reg.LookupClass(name); ok {
-		return true
-	}
-	if ch.reg.HasPromotedKind(name) {
-		return true
-	}
-	if ch.reg.HasPromotedCon(name) {
-		return true
-	}
-	return false
 }
 
 // aliasParamKind returns the kind of the i-th parameter of a type alias.
@@ -206,4 +185,31 @@ func (ch *Checker) kindOfType(ty types.Type) types.Type {
 	default:
 		return types.TypeOfTypes
 	}
+}
+
+// promotedFieldKind computes the kind to use for a constructor field when
+// promoting the constructor to the type level (DataKinds). If the field type
+// is a data type that has itself been promoted, the promoted kind is used
+// instead of the value-level kind. For example, a field of type Nat (kind
+// Type at value level) becomes kind Nat (the promoted data kind) at the
+// type level, so that S :: Nat -> Nat rather than S :: Type -> Nat.
+func (ch *Checker) promotedFieldKind(fieldType types.Type) types.Type {
+	switch t := fieldType.(type) {
+	case *types.TyCon:
+		if pk, ok := ch.reg.LookupPromotedKind(t.Name); ok {
+			return pk
+		}
+	case *types.TyApp:
+		// For applied types like (Maybe Nat), the overall kind is determined
+		// by the head constructor's kind applied to arguments — which is
+		// the value-level kind (Type), not a promoted kind.
+	case *types.TyVar:
+		// Type variables in promoted context represent kind variables.
+		// Their kind is Type (the default for value-level type vars).
+	}
+	k := ch.kindOfType(fieldType)
+	if k == nil {
+		return types.TypeOfTypes
+	}
+	return k
 }

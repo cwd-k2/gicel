@@ -132,12 +132,12 @@ type Lit struct {
 
 // RecordLit — record construction { l1: e1, ..., ln: en }.
 type RecordLit struct {
-	Fields []RecordField
+	Fields []Field
 	S      span.Span
 }
 
-// RecordField is a label-value pair in a record literal or update.
-type RecordField struct {
+// Field is a label-value pair in a record literal or update.
+type Field struct {
 	Label string
 	Value Core
 }
@@ -152,7 +152,7 @@ type RecordProj struct {
 // RecordUpdate — record update { r | l1: e1, ..., ln: en }.
 type RecordUpdate struct {
 	Record  Core
-	Updates []RecordField
+	Updates []Field
 	S       span.Span
 }
 

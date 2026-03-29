@@ -125,10 +125,7 @@ func (ch *Checker) processFormDeclParts(d *syntax.DeclForm, parts formBodyParts,
 		var conKind types.Type = dataKind
 		// Build kind arrow from field types (right to left).
 		for i := len(con.Fields) - 1; i >= 0; i-- {
-			fieldKind := ch.kindOfType(con.Fields[i])
-			if fieldKind == nil {
-				fieldKind = types.TypeOfTypes
-			}
+			fieldKind := ch.promotedFieldKind(con.Fields[i])
 			conKind = &types.TyArrow{From: fieldKind, To: conKind}
 		}
 		ch.reg.RegisterPromotedCon(con.Name, conKind)

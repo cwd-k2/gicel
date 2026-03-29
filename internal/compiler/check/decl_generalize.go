@@ -16,8 +16,8 @@ import (
 // Example: \x. x + x  with unresolved Num ?a
 //
 //	→ \ a. Num a => a -> a  with Core: \dict x. ...
-func (ch *Checker) generalizeConstrained(ty types.Type, expr ir.Core, unresolved []*CtClass) (types.Type, ir.Core) {
-	typeMetas := collectUnsolvedMetas(ty)
+func (ch *Checker) generalizeConstrained(ty types.Type, expr ir.Core, unresolved []*CtClass, maxLevel int) (types.Type, ir.Core) {
+	typeMetas := collectUnsolvedMetas(maxLevel, ty)
 	// Build set of meta IDs that appear in the result type.
 	typeMetaIDs := make(map[int]bool, len(typeMetas))
 	for _, m := range typeMetas {
@@ -27,7 +27,7 @@ func (ch *Checker) generalizeConstrained(ty types.Type, expr ir.Core, unresolved
 	// Also collect metas from unresolved constraint args.
 	metas := typeMetas
 	for _, uc := range unresolved {
-		metas = append(metas, collectUnsolvedMetas(uc.Args...)...)
+		metas = append(metas, collectUnsolvedMetas(maxLevel, uc.Args...)...)
 	}
 	if len(metas) == 0 && len(unresolved) == 0 {
 		return ty, expr
@@ -110,16 +110,16 @@ func genVarName(i int) string {
 	return fmt.Sprintf("t%d", i-26)
 }
 
-// collectUnsolvedMetas walks one or more types and collects all TyMeta nodes.
-// NOTE: currently all metas eligible for generalization are at level 0
-// (top-level). If nested let-generalization is added, this should filter
-// by meta.Level <= solver.level to avoid generalizing inner-level metas.
-func collectUnsolvedMetas(tys ...types.Type) []metaInfo {
+// collectUnsolvedMetas walks one or more types and collects TyMeta nodes
+// whose Level does not exceed maxLevel. Metas born in deeper scopes
+// (Level > maxLevel) are excluded — they belong to an inner binding and
+// must not be generalized at this level.
+func collectUnsolvedMetas(maxLevel int, tys ...types.Type) []metaInfo {
 	seen := make(map[int]bool)
 	var result []metaInfo
 	for _, ty := range tys {
 		result = append(result, types.CollectTypes(ty, func(t types.Type) (metaInfo, bool) {
-			if m, ok := t.(*types.TyMeta); ok && !seen[m.ID] {
+			if m, ok := t.(*types.TyMeta); ok && !seen[m.ID] && m.Level <= maxLevel {
 				seen[m.ID] = true
 				return metaInfo{id: m.ID, kind: m.Kind}, true
 			}

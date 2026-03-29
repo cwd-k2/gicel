@@ -9,76 +9,14 @@ import (
 	"github.com/cwd-k2/gicel/internal/lang/types"
 )
 
-// isModuleDefinedType checks if a type name was defined by the module itself
-// (via data declarations or class declarations), as opposed to being inherited
-// from built-in types or open imports.
-func isModuleDefinedType(exports *ModuleExports, name string) bool {
-	if exports.OwnedTypeNames[name] {
-		return true
-	}
-	// Classes are already checked separately, but class-defined types
-	// (dict types) might appear in Types.
-	if _, ok := exports.Classes[name]; ok {
-		return true
-	}
-	return false
-}
-
 func (ch *Checker) resolveTypeExpr(texpr syntax.TypeExpr) types.Type {
 	switch t := texpr.(type) {
 	case *syntax.TyExprVar:
 		return &types.TyVar{Name: t.Name, S: t.S}
 	case *syntax.TyExprCon:
-		if info, ok := ch.lookupAlias(t.Name); ok && len(info.Params) == 0 {
-			return info.Body
-		}
-		// Zero-arity type family: immediate TyFamilyApp.
-		if fam, ok := ch.lookupFamily(t.Name); ok && len(fam.Params) == 0 {
-			return &types.TyFamilyApp{Name: t.Name, Args: nil, Kind: fam.ResultKind, S: t.S}
-		}
-		// Validate that the type constructor is known when strict mode is active.
-		if ch.strictTypeNames && !ch.isKnownTypeName(t.Name) {
-			ch.addCodedError(diagnostic.ErrUnboundCon, t.S, "unknown type: "+t.Name)
-			return &types.TyError{S: t.S}
-		}
-		return types.ConAt(t.Name, t.S)
+		return ch.resolveUnqualifiedTypeCon(t.Name, t.S)
 	case *syntax.TyExprQualCon:
-		qs, ok := ch.scope.LookupQualified(t.Qualifier)
-		if !ok {
-			ch.addCodedError(diagnostic.ErrImport, t.S, "unknown qualifier: "+t.Qualifier)
-			return &types.TyError{S: t.S}
-		}
-		// Check qualified aliases (zero-arity: expand inline; parameterized: inject into Scope for TyApp expansion)
-		if info, ok := qs.Exports.Aliases[t.Name]; ok {
-			if len(info.Params) == 0 {
-				return info.Body
-			}
-			ch.scope.InjectAlias(t.Name, info)
-			return types.ConAt(t.Name, t.S)
-		}
-		// Check qualified type families (zero-arity: immediate; parameterized: inject into Scope for TyApp expansion)
-		if fam, ok := qs.Exports.TypeFamilies[t.Name]; ok {
-			if len(fam.Params) == 0 {
-				return &types.TyFamilyApp{Name: t.Name, Args: nil, Kind: fam.ResultKind, S: t.S}
-			}
-			ch.scope.InjectFamily(t.Name, fam.Clone())
-			return types.ConAt(t.Name, t.S)
-		}
-		// Check qualified types — only types defined by this module's data declarations,
-		// not inherited built-in types (Int, String, etc.).
-		if isModuleDefinedType(qs.Exports, t.Name) {
-			return types.ConAt(t.Name, t.S)
-		}
-		// Check promoted kinds/constructors
-		if _, ok := qs.Exports.PromotedKinds[t.Name]; ok {
-			return types.ConAt(t.Name, t.S)
-		}
-		if _, ok := qs.Exports.PromotedCons[t.Name]; ok {
-			return types.ConAt(t.Name, t.S)
-		}
-		ch.addCodedError(diagnostic.ErrImport, t.S,
-			"module "+qs.ModuleName+" does not export type: "+t.Name)
-		return &types.TyError{S: t.S}
+		return ch.resolveQualifiedTypeCon(t.Qualifier, t.Name, t.S)
 	case *syntax.TyExprApp:
 		fun := ch.resolveTypeExpr(t.Fun)
 		arg := ch.resolveTypeExpr(t.Arg)

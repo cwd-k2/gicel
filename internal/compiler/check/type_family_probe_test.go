@@ -239,7 +239,7 @@ f := \x. x
 // fuel limit fires, leaving Loop Z stuck on both sides of the identity.
 func TestProbeD_TF_RecursiveFamilyFuelExhausted(t *testing.T) {
 	source := `
-form Nat := { Z: (); S: Nat; }
+form Nat := Z | S Nat
 form Phantom := \(n: Nat). { MkPhantom: Phantom n; }
 
 type Loop :: Nat := \(a: Nat). case a {
@@ -303,7 +303,7 @@ main := f True
 func TestProbeE_TypeFamily_StuckOnMeta(t *testing.T) {
 	source := `
 form Bool := { True: Bool; False: Bool; }
-form Nat := { Z: (); S: Nat; }
+form Nat := Z | S Nat
 
 type IsZero :: Type := \(n: Type). case n {
   Z => Bool;
@@ -323,7 +323,7 @@ main := id Z
 // the fuel limit should report an error, not hang.
 func TestProbeE_TypeFamily_RecursiveFuelLimit(t *testing.T) {
 	source := `
-form Nat := { Z: (); S: Nat; }
+form Nat := Z | S Nat
 
 type Loop :: Type := \(n: Type). case n {
   n => Loop (S n)
@@ -382,7 +382,7 @@ type F :: Type := \(a: Type). case a {
 func TestProbeE_TypeFamily_NoMatchingEquation(t *testing.T) {
 	source := `
 form Bool := { True: Bool; False: Bool; }
-form Nat := { Z: (); S: Nat; }
+form Nat := Z | S Nat
 
 type IsZero :: Type := \(n: Type). case n {
   Z => Bool
@@ -422,7 +422,7 @@ main := test (MkSomeEq True False)
 func TestProbeE_Interaction_TypeFamilyWithTypeClass(t *testing.T) {
 	source := `
 form Bool := { True: Bool; False: Bool; }
-form Nat := { Z: (); S: Nat; }
+form Nat := Z | S Nat
 
 type IsZero :: Type := \(n: Type). case n {
   Z => Bool
