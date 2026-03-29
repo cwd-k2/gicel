@@ -1,7 +1,7 @@
 -- GICEL Example: Prefix Sum (Array)
 --
 -- Builds a prefix sum array and answers range-sum queries in O(1).
--- Demonstrates mutable Array: new, readAt, writeAt, arrayLength.
+-- Demonstrates mutable Array: new, read, write, arrayLength.
 -- Run: bin/gicel run --recursion examples/gicel/algorithms/prefix-sum.gicel
 
 import Prelude
@@ -16,8 +16,8 @@ buildPrefix := \xs. do {
   flip fix (0, xs) $ \loop (i, rest). case rest {
     Nil => pure ();
     Cons v tail => do {
-      p <- readAt i prefix;
-      writeAt (i + 1) (maybe 0 id p + v) prefix;
+      p <- read i prefix;
+      write (i + 1) (maybe 0 id p + v) prefix;
       loop (i + 1, tail)
     }
   };
@@ -26,8 +26,8 @@ buildPrefix := \xs. do {
 
 -- Range sum: sum of input[lo..hi] (inclusive) from prefix array.
 rangeSum := \prefix lo hi. do {
-  r <- readAt (hi + 1) prefix;
-  l <- readAt lo prefix;
+  r <- read (hi + 1) prefix;
+  l <- read lo prefix;
   pure $ maybe 0 id r - maybe 0 id l
 }
 
@@ -37,7 +37,7 @@ showArray := \arr. do {
   flip fix (0, Nil) $ \loop (i, acc).
     if i >= n then pure $ show (reverse acc)
     else do {
-      v <- readAt i arr;
+      v <- read i arr;
       loop (i + 1, Cons (maybe 0 id v) acc)
     }
 }

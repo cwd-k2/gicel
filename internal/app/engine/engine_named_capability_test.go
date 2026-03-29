@@ -1,4 +1,4 @@
-// Named capability tests — getAt, putAt, failWithAt with label-parameterized state/fail.
+// Named capability tests — label-parameterized state/fail/array/ref/mmap/mset.
 // Does NOT cover: unnamed state/fail (engine_integration_test.go), host API (engine_host_api_test.go).
 
 package engine
@@ -177,5 +177,159 @@ main := getAt @#missing
 	}
 	if !strings.Contains(err.Error(), "missing") {
 		t.Errorf("expected error mentioning 'missing', got: %s", err.Error())
+	}
+}
+
+// --- Named Array capabilities ---
+
+func TestNamedArrayReadWrite(t *testing.T) {
+	eng := NewEngine()
+	for _, p := range []stdlib.Pack{stdlib.Prelude, stdlib.Array} {
+		if err := eng.Use(p); err != nil {
+			t.Fatal(err)
+		}
+	}
+	rt, err := eng.NewRuntime(context.Background(), `
+import Prelude
+import Effect.Array
+main := do {
+  arr <- newAt @#buf 3 0;
+  writeAt @#buf 1 42 arr;
+  readAt @#buf 1 arr
+}
+`)
+	if err != nil {
+		t.Fatal("compile error:", err)
+	}
+	result, err := rt.RunWith(context.Background(), &RunOptions{})
+	if err != nil {
+		t.Fatal("runtime error:", err)
+	}
+	// Result should be Just 42
+	cv, ok := result.Value.(*eval.ConVal)
+	if !ok || cv.Con != "Just" {
+		t.Fatalf("expected Just, got %v", result.Value)
+	}
+	assertHostInt(t, cv.Args[0], 42)
+}
+
+func TestNamedArrayTwoLabels(t *testing.T) {
+	eng := NewEngine()
+	for _, p := range []stdlib.Pack{stdlib.Prelude, stdlib.Array} {
+		if err := eng.Use(p); err != nil {
+			t.Fatal(err)
+		}
+	}
+	rt, err := eng.NewRuntime(context.Background(), `
+import Prelude
+import Effect.Array
+main := do {
+  a <- newAt @#x 2 10;
+  b <- newAt @#y 2 20;
+  va <- readAt @#x 0 a;
+  vb <- readAt @#y 0 b;
+  pure (maybe 0 id va + maybe 0 id vb)
+}
+`)
+	if err != nil {
+		t.Fatal("compile error:", err)
+	}
+	result, err := rt.RunWith(context.Background(), &RunOptions{})
+	if err != nil {
+		t.Fatal("runtime error:", err)
+	}
+	assertHostInt(t, result.Value, 30)
+}
+
+// --- Named Ref capabilities ---
+
+func TestNamedRefReadWriteModify(t *testing.T) {
+	eng := NewEngine()
+	for _, p := range []stdlib.Pack{stdlib.Prelude, stdlib.Ref} {
+		if err := eng.Use(p); err != nil {
+			t.Fatal(err)
+		}
+	}
+	rt, err := eng.NewRuntime(context.Background(), `
+import Prelude
+import Effect.Ref
+main := do {
+  r <- newAt @#cell 10;
+  writeAt @#cell 20 r;
+  modifyAt @#cell (\x. x + 5) r;
+  readAt @#cell r
+}
+`)
+	if err != nil {
+		t.Fatal("compile error:", err)
+	}
+	result, err := rt.RunWith(context.Background(), &RunOptions{})
+	if err != nil {
+		t.Fatal("runtime error:", err)
+	}
+	assertHostInt(t, result.Value, 25)
+}
+
+// --- Named MMap capabilities ---
+
+func TestNamedMMapInsertLookup(t *testing.T) {
+	eng := NewEngine()
+	for _, p := range []stdlib.Pack{stdlib.Prelude, stdlib.EffectMap} {
+		if err := eng.Use(p); err != nil {
+			t.Fatal(err)
+		}
+	}
+	rt, err := eng.NewRuntime(context.Background(), `
+import Prelude
+import Effect.Map
+main := do {
+  m <- newAt @#db compare;
+  insertAt @#db 1 "one" m;
+  insertAt @#db 2 "two" m;
+  v <- lookupAt @#db 1 m;
+  pure v
+}
+`)
+	if err != nil {
+		t.Fatal("compile error:", err)
+	}
+	result, err := rt.RunWith(context.Background(), &RunOptions{})
+	if err != nil {
+		t.Fatal("runtime error:", err)
+	}
+	cv, ok := result.Value.(*eval.ConVal)
+	if !ok || cv.Con != "Just" {
+		t.Fatalf("expected Just, got %v", result.Value)
+	}
+}
+
+// --- Named MSet capabilities ---
+
+func TestNamedMSetInsertMember(t *testing.T) {
+	eng := NewEngine()
+	for _, p := range []stdlib.Pack{stdlib.Prelude, stdlib.EffectSet} {
+		if err := eng.Use(p); err != nil {
+			t.Fatal(err)
+		}
+	}
+	rt, err := eng.NewRuntime(context.Background(), `
+import Prelude
+import Effect.Set
+main := do {
+  s <- newAt @#tags compare;
+  insertAt @#tags 42 s;
+  memberAt @#tags 42 s
+}
+`)
+	if err != nil {
+		t.Fatal("compile error:", err)
+	}
+	result, err := rt.RunWith(context.Background(), &RunOptions{})
+	if err != nil {
+		t.Fatal("runtime error:", err)
+	}
+	cv, ok := result.Value.(*eval.ConVal)
+	if !ok || cv.Con != "True" {
+		t.Fatalf("expected True, got %v", result.Value)
 	}
 }

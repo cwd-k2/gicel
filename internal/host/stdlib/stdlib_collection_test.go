@@ -1049,25 +1049,25 @@ func TestArrayNewReadWrite(t *testing.T) {
 	assertInt(t, sizeV, 3)
 
 	// Write 42 at index 1.
-	arrayWriteAtImpl(ctx, ce, args(intVal(1), intVal(42), arrV), nil)
+	arrayWriteImpl(ctx, ce, args(intVal(1), intVal(42), arrV), nil)
 
-	readV, _, _ := arrayReadAtImpl(ctx, ce, args(intVal(1), arrV), nil)
+	readV, _, _ := arrayReadImpl(ctx, ce, args(intVal(1), arrV), nil)
 	assertCon(t, readV, "Just")
 	assertInt(t, readV.(*eval.ConVal).Args[0], 42)
 
 	// Out of bounds → Nothing.
-	oobV, _, _ := arrayReadAtImpl(ctx, ce, args(intVal(10), arrV), nil)
+	oobV, _, _ := arrayReadImpl(ctx, ce, args(intVal(10), arrV), nil)
 	assertCon(t, oobV, "Nothing")
 
 	// Negative index → Nothing.
-	negV, _, _ := arrayReadAtImpl(ctx, ce, args(intVal(-1), arrV), nil)
+	negV, _, _ := arrayReadImpl(ctx, ce, args(intVal(-1), arrV), nil)
 	assertCon(t, negV, "Nothing")
 }
 
 func TestArrayResize(t *testing.T) {
 	arrV, _, _ := arrayNewImpl(ctx, ce, args(intVal(2), intVal(0)), nil)
-	arrayWriteAtImpl(ctx, ce, args(intVal(0), intVal(10), arrV), nil)
-	arrayWriteAtImpl(ctx, ce, args(intVal(1), intVal(20), arrV), nil)
+	arrayWriteImpl(ctx, ce, args(intVal(0), intVal(10), arrV), nil)
+	arrayWriteImpl(ctx, ce, args(intVal(1), intVal(20), arrV), nil)
 
 	resized, _, err := arrayResizeImpl(ctx, ce, args(intVal(4), intVal(99), arrV), nil)
 	if err != nil {
@@ -1077,12 +1077,12 @@ func TestArrayResize(t *testing.T) {
 	assertInt(t, sizeV, 4)
 
 	// Preserved values.
-	r0, _, _ := arrayReadAtImpl(ctx, ce, args(intVal(0), resized), nil)
+	r0, _, _ := arrayReadImpl(ctx, ce, args(intVal(0), resized), nil)
 	assertCon(t, r0, "Just")
 	assertInt(t, r0.(*eval.ConVal).Args[0], 10)
 
 	// Fill value.
-	r3, _, _ := arrayReadAtImpl(ctx, ce, args(intVal(3), resized), nil)
+	r3, _, _ := arrayReadImpl(ctx, ce, args(intVal(3), resized), nil)
 	assertCon(t, r3, "Just")
 	assertInt(t, r3.(*eval.ConVal).Args[0], 99)
 }

@@ -117,6 +117,13 @@ func occursIn(name string, t Type, bound map[string]bool, depth int) bool {
 		switch entries := ty.Entries.(type) {
 		case *CapabilityEntries:
 			for _, f := range entries.Fields {
+				// Check field label: label substitution uses string labels
+				// as variable placeholders (e.g. { l: () | r } where l is
+				// a label-kinded forall variable). Without this check,
+				// OccursIn misses the occurrence and Subst bails out early.
+				if f.Label == name && (bound == nil || !bound[name]) {
+					return true
+				}
 				if occursIn(name, f.Type, bound, depth+1) {
 					return true
 				}

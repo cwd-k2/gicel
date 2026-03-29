@@ -21,6 +21,18 @@ var EffectSet Pack = func(e Registrar) error {
 	e.RegisterPrim("_msetUnion", msetUnionImpl)
 	e.RegisterPrim("_msetIntersection", msetIntersectionImpl)
 	e.RegisterPrim("_msetDifference", msetDifferenceImpl)
+	// Named capability variants.
+	e.RegisterPrim("_msetNewNamed", withLabel(msetNewImpl))
+	e.RegisterPrim("_msetFromListNamed", withLabel(msetFromListImpl))
+	e.RegisterPrim("_msetInsertNamed", withLabelNoCompare(msetInsertImpl))
+	e.RegisterPrim("_msetMemberNamed", withLabelNoCompare(msetMemberImpl))
+	e.RegisterPrim("_msetDeleteNamed", withLabelNoCompare(msetDeleteImpl))
+	e.RegisterPrim("_msetUnionNamed", withLabelNoCompare(msetUnionImpl))
+	e.RegisterPrim("_msetIntersectionNamed", withLabelNoCompare(msetIntersectionImpl))
+	e.RegisterPrim("_msetDifferenceNamed", withLabelNoCompare(msetDifferenceImpl))
+	e.RegisterPrim("_msetSizeNamed", withLabel(msetSizeImpl))
+	e.RegisterPrim("_msetToListNamed", withLabel(msetToListImpl))
+	e.RegisterPrim("_msetFoldNamed", withLabel(msetFoldImpl))
 	return e.RegisterModule("Effect.Set", msetSource)
 }
 

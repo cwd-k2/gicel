@@ -27,17 +27,17 @@ solve := \items capacity. do {
       flip fix capacity $ \loopJ j.
         if j >= w
           then do {
-            cur  <- readAt j dp;
-            prev <- readAt (j - w) dp;
+            cur  <- read j dp;
+            prev <- read (j - w) dp;
             val  := max (maybe 0 id cur) (maybe 0 id prev + v);
-            writeAt j val dp;
+            write j val dp;
             loopJ $ j - 1
           }
           else pure ();
       loopItems rest
     }
   };
-  readAt capacity dp
+  read capacity dp
 }
 
 main := do {

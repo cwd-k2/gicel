@@ -12,6 +12,11 @@ var Ref Pack = func(e Registrar) error {
 	e.RegisterPrim("_refNew", refNewImpl)
 	e.RegisterPrim("_refRead", refReadImpl)
 	e.RegisterPrim("_refWrite", refWriteImpl)
+	// Named capability variants.
+	e.RegisterPrim("_refNewNamed", withLabel(refNewImpl))
+	e.RegisterPrim("_refReadNamed", withLabel(refReadImpl))
+	e.RegisterPrim("_refWriteNamed", withLabel(refWriteImpl))
+	e.RegisterPrim("_refModifyNamed", refModifyNamedImpl)
 	return e.RegisterModule("Effect.Ref", refSource)
 }
 
@@ -61,4 +66,20 @@ func refWriteImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.A
 	}
 	r.value = args[0] // in-place mutation
 	return unitVal, ce, nil
+}
+
+// _refModifyNamed :: label -> (a -> a) -> Ref a -> ()
+// Named variant of modify as a prim (cannot forward label through gicel-defined modify).
+func refModifyNamedImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, apply eval.Applier) (eval.Value, eval.CapEnv, error) {
+	// args[0] = label (ignored), args[1] = f, args[2] = ref
+	r, err := asRefCell(args[2])
+	if err != nil {
+		return nil, ce, err
+	}
+	newVal, newCe, err := apply(args[1], r.value, ce)
+	if err != nil {
+		return nil, ce, err
+	}
+	r.value = newVal
+	return unitVal, newCe, nil
 }

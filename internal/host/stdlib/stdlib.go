@@ -2,6 +2,8 @@
 package stdlib
 
 import (
+	"context"
+
 	"github.com/cwd-k2/gicel/internal/host/registry"
 	"github.com/cwd-k2/gicel/internal/lang/ir"
 	"github.com/cwd-k2/gicel/internal/runtime/eval"
@@ -79,3 +81,40 @@ func ordVal(cmp int) *eval.ConVal {
 
 // unitVal is the shared unit value (empty record).
 var unitVal = eval.UnitVal
+
+// withLabel wraps a PrimImpl to skip the first argument (label literal from
+// label erasure). Used to create named capability variants: the label is a
+// type-level parameter that flows through as a runtime string argument via
+// the label erasure pass. The named prim ignores it and delegates to the
+// original implementation with the remaining arguments.
+func withLabel(fn eval.PrimImpl) eval.PrimImpl {
+	return withLabelAt(0, fn)
+}
+
+// withLabelAt wraps a PrimImpl to skip the argument at position pos.
+// This is the generalized form for cases where curried arguments from the
+// definition (e.g. compare for ordered collections) precede the label.
+func withLabelAt(pos int, fn eval.PrimImpl) eval.PrimImpl {
+	return func(ctx context.Context, ce eval.CapEnv, args []eval.Value, apply eval.Applier) (eval.Value, eval.CapEnv, error) {
+		stripped := make([]eval.Value, 0, len(args)-1)
+		stripped = append(stripped, args[:pos]...)
+		stripped = append(stripped, args[pos+1:]...)
+		return fn(ctx, ce, stripped, apply)
+	}
+}
+
+// withLabelNoCompare wraps a PrimImpl that normally takes [compare, arg1, arg2, ...]
+// to accept [label, arg1, arg2, ...] instead. The label is dropped, and a nil
+// placeholder is inserted at position 0 so the original impl's arg indices work.
+// Used for named capability variants where the compare function is stored in the
+// data structure handle and args[0] (compare) is never accessed at runtime.
+func withLabelNoCompare(fn eval.PrimImpl) eval.PrimImpl {
+	return func(ctx context.Context, ce eval.CapEnv, args []eval.Value, apply eval.Applier) (eval.Value, eval.CapEnv, error) {
+		// args = [label, arg1, arg2, ...]
+		// Original fn expects [compare(unused), arg1, arg2, ...]
+		padded := make([]eval.Value, len(args))
+		padded[0] = nil // dummy compare placeholder (never accessed)
+		copy(padded[1:], args[1:])
+		return fn(ctx, ce, padded, apply)
+	}
+}

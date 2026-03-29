@@ -71,3 +71,80 @@ values := _mmapValues
 
 adjust :: \k v r. Ord k => k -> (v -> v) -> MMap k v -> Effect { mmap: () | r } ()
 adjust := _mmapAdjust compare
+
+-- Named capability variants (label-parameterized).
+-- Note: Operations other than new/fromList omit Ord k => because the
+-- compare function is stored in the MMap handle at creation time.
+-- This avoids label/evidence argument ordering issues at runtime.
+
+_mmapNewNamed :: \(l: Label) k v r. (k -> k -> Ordering) -> Effect { l: () | r } (MMap k v)
+_mmapNewNamed := assumption
+
+_mmapInsertNamed :: \(l: Label) k v r. k -> v -> MMap k v -> Effect { l: () | r } ()
+_mmapInsertNamed := assumption
+
+_mmapLookupNamed :: \(l: Label) k v r. k -> MMap k v -> Effect { l: () | r } (Maybe v)
+_mmapLookupNamed := assumption
+
+_mmapDeleteNamed :: \(l: Label) k v r. k -> MMap k v -> Effect { l: () | r } ()
+_mmapDeleteNamed := assumption
+
+_mmapSizeNamed :: \(l: Label) k v r. MMap k v -> Effect { l: () | r } Int
+_mmapSizeNamed := assumption
+
+_mmapMemberNamed :: \(l: Label) k v r. k -> MMap k v -> Effect { l: () | r } Bool
+_mmapMemberNamed := assumption
+
+_mmapToListNamed :: \(l: Label) k v r. MMap k v -> Effect { l: () | r } (List (k, v))
+_mmapToListNamed := assumption
+
+_mmapFromListNamed :: \(l: Label) k v r. (k -> k -> Ordering) -> List (k, v) -> Effect { l: () | r } (MMap k v)
+_mmapFromListNamed := assumption
+
+_mmapFoldlWithKeyNamed :: \(l: Label) k v b r. (b -> k -> v -> b) -> b -> MMap k v -> Effect { l: () | r } b
+_mmapFoldlWithKeyNamed := assumption
+
+_mmapKeysNamed :: \(l: Label) k v r. MMap k v -> Effect { l: () | r } (List k)
+_mmapKeysNamed := assumption
+
+_mmapValuesNamed :: \(l: Label) k v r. MMap k v -> Effect { l: () | r } (List v)
+_mmapValuesNamed := assumption
+
+_mmapAdjustNamed :: \(l: Label) k v r. k -> (v -> v) -> MMap k v -> Effect { l: () | r } ()
+_mmapAdjustNamed := assumption
+
+newAt :: \(l: Label) k v r. (k -> k -> Ordering) -> Effect { l: () | r } (MMap k v)
+newAt := _mmapNewNamed
+
+insertAt :: \(l: Label) k v r. k -> v -> MMap k v -> Effect { l: () | r } ()
+insertAt := _mmapInsertNamed
+
+lookupAt :: \(l: Label) k v r. k -> MMap k v -> Effect { l: () | r } (Maybe v)
+lookupAt := _mmapLookupNamed
+
+deleteAt :: \(l: Label) k v r. k -> MMap k v -> Effect { l: () | r } ()
+deleteAt := _mmapDeleteNamed
+
+sizeAt :: \(l: Label) k v r. MMap k v -> Effect { l: () | r } Int
+sizeAt := _mmapSizeNamed
+
+memberAt :: \(l: Label) k v r. k -> MMap k v -> Effect { l: () | r } Bool
+memberAt := _mmapMemberNamed
+
+toListAt :: \(l: Label) k v r. MMap k v -> Effect { l: () | r } (List (k, v))
+toListAt := _mmapToListNamed
+
+fromListAt :: \(l: Label) k v r. (k -> k -> Ordering) -> List (k, v) -> Effect { l: () | r } (MMap k v)
+fromListAt := _mmapFromListNamed
+
+foldlWithKeyAt :: \(l: Label) k v b r. (b -> k -> v -> b) -> b -> MMap k v -> Effect { l: () | r } b
+foldlWithKeyAt := _mmapFoldlWithKeyNamed
+
+keysAt :: \(l: Label) k v r. MMap k v -> Effect { l: () | r } (List k)
+keysAt := _mmapKeysNamed
+
+valuesAt :: \(l: Label) k v r. MMap k v -> Effect { l: () | r } (List v)
+valuesAt := _mmapValuesNamed
+
+adjustAt :: \(l: Label) k v r. k -> (v -> v) -> MMap k v -> Effect { l: () | r } ()
+adjustAt := _mmapAdjustNamed

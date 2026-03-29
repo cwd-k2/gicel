@@ -12,12 +12,19 @@ import (
 // gated by the { array: () } effect.
 var Array Pack = func(e Registrar) error {
 	e.RegisterPrim("_arrayNew", arrayNewImpl)
-	e.RegisterPrim("_arrayReadAt", arrayReadAtImpl)
-	e.RegisterPrim("_arrayWriteAt", arrayWriteAtImpl)
+	e.RegisterPrim("_arrayRead", arrayReadImpl)
+	e.RegisterPrim("_arrayWrite", arrayWriteImpl)
 	e.RegisterPrim("_arraySize", arraySizeImpl)
 	e.RegisterPrim("_arrayResize", arrayResizeImpl)
 	e.RegisterPrim("_arrayFromSlice", arrayFromSliceImpl)
 	e.RegisterPrim("_arrayToSlice", arrayToSliceImpl)
+	// Named capability variants: label at args[0], stripped by withLabel.
+	e.RegisterPrim("_arrayNewNamed", withLabel(arrayNewImpl))
+	e.RegisterPrim("_arrayReadNamed", withLabel(arrayReadImpl))
+	e.RegisterPrim("_arrayWriteNamed", withLabel(arrayWriteImpl))
+	e.RegisterPrim("_arrayResizeNamed", withLabel(arrayResizeImpl))
+	e.RegisterPrim("_arrayFromSliceNamed", withLabel(arrayFromSliceImpl))
+	e.RegisterPrim("_arrayToSliceNamed", withLabel(arrayToSliceImpl))
 	return e.RegisterModule("Effect.Array", arraySource)
 }
 
@@ -63,7 +70,7 @@ func arrayNewImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, _ eval
 	return arrayVal(&mutArray{data: data}), ce, nil
 }
 
-func arrayReadAtImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
+func arrayReadImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
 	idx, err := asInt64(args[0], "array")
 	if err != nil {
 		return nil, ce, err
@@ -78,7 +85,7 @@ func arrayReadAtImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eva
 	return &eval.ConVal{Con: "Just", Args: []eval.Value{a.data[idx]}}, ce, nil
 }
 
-func arrayWriteAtImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
+func arrayWriteImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
 	idx, err := asInt64(args[0], "array")
 	if err != nil {
 		return nil, ce, err

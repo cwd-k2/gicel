@@ -65,3 +65,73 @@ intersection := _msetIntersection compare
 
 difference :: \k r. Ord k => MSet k -> MSet k -> Effect { mset: () | r } (MSet k)
 difference := _msetDifference compare
+
+-- Named capability variants (label-parameterized).
+-- Note: Operations other than new/fromList omit Ord k => because the
+-- compare function is stored in the MSet handle at creation time.
+
+_msetNewNamed :: \(l: Label) k r. (k -> k -> Ordering) -> Effect { l: () | r } (MSet k)
+_msetNewNamed := assumption
+
+_msetInsertNamed :: \(l: Label) k r. k -> MSet k -> Effect { l: () | r } ()
+_msetInsertNamed := assumption
+
+_msetMemberNamed :: \(l: Label) k r. k -> MSet k -> Effect { l: () | r } Bool
+_msetMemberNamed := assumption
+
+_msetDeleteNamed :: \(l: Label) k r. k -> MSet k -> Effect { l: () | r } ()
+_msetDeleteNamed := assumption
+
+_msetSizeNamed :: \(l: Label) k r. MSet k -> Effect { l: () | r } Int
+_msetSizeNamed := assumption
+
+_msetToListNamed :: \(l: Label) k r. MSet k -> Effect { l: () | r } (List k)
+_msetToListNamed := assumption
+
+_msetFromListNamed :: \(l: Label) k r. (k -> k -> Ordering) -> List k -> Effect { l: () | r } (MSet k)
+_msetFromListNamed := assumption
+
+_msetFoldNamed :: \(l: Label) k b r. (b -> k -> b) -> b -> MSet k -> Effect { l: () | r } b
+_msetFoldNamed := assumption
+
+_msetUnionNamed :: \(l: Label) k r. MSet k -> MSet k -> Effect { l: () | r } (MSet k)
+_msetUnionNamed := assumption
+
+_msetIntersectionNamed :: \(l: Label) k r. MSet k -> MSet k -> Effect { l: () | r } (MSet k)
+_msetIntersectionNamed := assumption
+
+_msetDifferenceNamed :: \(l: Label) k r. MSet k -> MSet k -> Effect { l: () | r } (MSet k)
+_msetDifferenceNamed := assumption
+
+newAt :: \(l: Label) k r. (k -> k -> Ordering) -> Effect { l: () | r } (MSet k)
+newAt := _msetNewNamed
+
+insertAt :: \(l: Label) k r. k -> MSet k -> Effect { l: () | r } ()
+insertAt := _msetInsertNamed
+
+memberAt :: \(l: Label) k r. k -> MSet k -> Effect { l: () | r } Bool
+memberAt := _msetMemberNamed
+
+deleteAt :: \(l: Label) k r. k -> MSet k -> Effect { l: () | r } ()
+deleteAt := _msetDeleteNamed
+
+sizeAt :: \(l: Label) k r. MSet k -> Effect { l: () | r } Int
+sizeAt := _msetSizeNamed
+
+toListAt :: \(l: Label) k r. MSet k -> Effect { l: () | r } (List k)
+toListAt := _msetToListNamed
+
+fromListAt :: \(l: Label) k r. (k -> k -> Ordering) -> List k -> Effect { l: () | r } (MSet k)
+fromListAt := _msetFromListNamed
+
+foldAt :: \(l: Label) k b r. (b -> k -> b) -> b -> MSet k -> Effect { l: () | r } b
+foldAt := _msetFoldNamed
+
+unionAt :: \(l: Label) k r. MSet k -> MSet k -> Effect { l: () | r } (MSet k)
+unionAt := _msetUnionNamed
+
+intersectionAt :: \(l: Label) k r. MSet k -> MSet k -> Effect { l: () | r } (MSet k)
+intersectionAt := _msetIntersectionNamed
+
+differenceAt :: \(l: Label) k r. MSet k -> MSet k -> Effect { l: () | r } (MSet k)
+differenceAt := _msetDifferenceNamed

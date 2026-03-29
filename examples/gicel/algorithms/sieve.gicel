@@ -1,7 +1,7 @@
 -- GICEL Example: Sieve of Eratosthenes (Effect.Array)
 --
 -- Classic prime sieve using a mutable boolean array.
--- Demonstrates nested loops with Array writeAt/readAt.
+-- Demonstrates nested loops with Array write/read.
 -- Run: bin/gicel run --recursion examples/gicel/algorithms/sieve.gicel
 
 import Prelude
@@ -10,20 +10,20 @@ import Console
 
 sieve := \limit. do {
   is <- new (limit + 1) True;
-  writeAt 0 False is;
-  writeAt 1 False is;
+  write 0 False is;
+  write 1 False is;
 
   -- Mark composites
   flip fix 2 $ \outer i.
     if i * i > limit then pure ()
     else do {
-      v <- readAt i is;
+      v <- read i is;
       case v {
         Just True =>
           flip fix (i * i) $ \inner j.
             if j > limit then pure ()
             else do {
-              writeAt j False is;
+              write j False is;
               inner $ j + i
             };
         _ => pure ()
@@ -35,7 +35,7 @@ sieve := \limit. do {
   flip fix (2, Nil) $ \collect (i, acc).
     if i > limit then pure $ reverse acc
     else do {
-      v <- readAt i is;
+      v <- read i is;
       collect (i + 1, if maybe False id v then Cons i acc else acc)
     }
 }

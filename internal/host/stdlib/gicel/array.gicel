@@ -3,11 +3,11 @@ import Prelude
 _arrayNew :: \a r. Int -> a -> Effect { array: () | r } (Array a)
 _arrayNew := assumption
 
-_arrayReadAt :: \a r. Int -> Array a -> Effect { array: () | r } (Maybe a)
-_arrayReadAt := assumption
+_arrayRead :: \a r. Int -> Array a -> Effect { array: () | r } (Maybe a)
+_arrayRead := assumption
 
-_arrayWriteAt :: \a r. Int -> a -> Array a -> Effect { array: () | r } ()
-_arrayWriteAt := assumption
+_arrayWrite :: \a r. Int -> a -> Array a -> Effect { array: () | r } ()
+_arrayWrite := assumption
 
 _arraySize :: \a. Array a -> Int
 _arraySize := assumption
@@ -21,14 +21,33 @@ _arrayFromSlice := assumption
 _arrayToSlice :: \a r. Array a -> Effect { array: () | r } (Slice a)
 _arrayToSlice := assumption
 
+-- Named capability variants (label-parameterized).
+_arrayNewNamed :: \(l: Label) a r. Int -> a -> Effect { l: () | r } (Array a)
+_arrayNewNamed := assumption
+
+_arrayReadNamed :: \(l: Label) a r. Int -> Array a -> Effect { l: () | r } (Maybe a)
+_arrayReadNamed := assumption
+
+_arrayWriteNamed :: \(l: Label) a r. Int -> a -> Array a -> Effect { l: () | r } ()
+_arrayWriteNamed := assumption
+
+_arrayResizeNamed :: \(l: Label) a r. Int -> a -> Array a -> Effect { l: () | r } (Array a)
+_arrayResizeNamed := assumption
+
+_arrayFromSliceNamed :: \(l: Label) a r. Slice a -> Effect { l: () | r } (Array a)
+_arrayFromSliceNamed := assumption
+
+_arrayToSliceNamed :: \(l: Label) a r. Array a -> Effect { l: () | r } (Slice a)
+_arrayToSliceNamed := assumption
+
 new :: \a r. Int -> a -> Effect { array: () | r } (Array a)
 new := _arrayNew
 
-readAt :: \a r. Int -> Array a -> Effect { array: () | r } (Maybe a)
-readAt := _arrayReadAt
+read :: \a r. Int -> Array a -> Effect { array: () | r } (Maybe a)
+read := _arrayRead
 
-writeAt :: \a r. Int -> a -> Array a -> Effect { array: () | r } ()
-writeAt := _arrayWriteAt
+write :: \a r. Int -> a -> Array a -> Effect { array: () | r } ()
+write := _arrayWrite
 
 size :: \a. Array a -> Int
 size := _arraySize
@@ -41,3 +60,22 @@ toSlice := _arrayToSlice
 
 fromSlice :: \a r. Slice a -> Effect { array: () | r } (Array a)
 fromSlice := _arrayFromSlice
+
+-- Named capability variants: use @#label to parameterize the effect slot.
+newAt :: \(l: Label) a r. Int -> a -> Effect { l: () | r } (Array a)
+newAt := _arrayNewNamed
+
+readAt :: \(l: Label) a r. Int -> Array a -> Effect { l: () | r } (Maybe a)
+readAt := _arrayReadNamed
+
+writeAt :: \(l: Label) a r. Int -> a -> Array a -> Effect { l: () | r } ()
+writeAt := _arrayWriteNamed
+
+resizeAt :: \(l: Label) a r. Int -> a -> Array a -> Effect { l: () | r } (Array a)
+resizeAt := _arrayResizeNamed
+
+toSliceAt :: \(l: Label) a r. Array a -> Effect { l: () | r } (Slice a)
+toSliceAt := _arrayToSliceNamed
+
+fromSliceAt :: \(l: Label) a r. Slice a -> Effect { l: () | r } (Array a)
+fromSliceAt := _arrayFromSliceNamed

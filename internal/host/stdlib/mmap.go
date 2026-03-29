@@ -24,6 +24,23 @@ var EffectMap Pack = func(e Registrar) error {
 	e.RegisterPrim("_mmapKeys", mmapKeysImpl)
 	e.RegisterPrim("_mmapValues", mmapValuesImpl)
 	e.RegisterPrim("_mmapAdjust", mmapAdjustImpl)
+	// Named capability variants.
+	// newAt/fromListAt: compare is a value arg (after label) → withLabel strips label.
+	e.RegisterPrim("_mmapNewNamed", withLabel(mmapNewImpl))
+	e.RegisterPrim("_mmapFromListNamed", withLabel(mmapFromListImpl))
+	// Operations that originally take compare as unused args[0]: label replaces compare.
+	// withLabelNoCompare drops label and pads a nil at args[0] for index compatibility.
+	e.RegisterPrim("_mmapInsertNamed", withLabelNoCompare(mmapInsertImpl))
+	e.RegisterPrim("_mmapLookupNamed", withLabelNoCompare(mmapLookupImpl))
+	e.RegisterPrim("_mmapDeleteNamed", withLabelNoCompare(mmapDeleteImpl))
+	e.RegisterPrim("_mmapMemberNamed", withLabelNoCompare(mmapMemberImpl))
+	e.RegisterPrim("_mmapAdjustNamed", withLabelNoCompare(mmapAdjustImpl))
+	// Operations without compare: label at args[0] → withLabel(fn).
+	e.RegisterPrim("_mmapSizeNamed", withLabel(mmapSizeImpl))
+	e.RegisterPrim("_mmapToListNamed", withLabel(mmapToListImpl))
+	e.RegisterPrim("_mmapFoldlWithKeyNamed", withLabel(mmapFoldlWithKeyImpl))
+	e.RegisterPrim("_mmapKeysNamed", withLabel(mmapKeysImpl))
+	e.RegisterPrim("_mmapValuesNamed", withLabel(mmapValuesImpl))
 	return e.RegisterModule("Effect.Map", mmapSource)
 }
 

@@ -1,13 +1,18 @@
 -- GICEL Example: Named Capabilities
 --
 -- Named capabilities allow multiple independent instances of the same
--- effect type. Use label literals (#name) with getAt/putAt to address
+-- effect type. Use label literals (@#name) with *At variants to address
 -- specific capability slots by name.
+--
+-- Supported: State, Fail, Array, Ref, MMap, MSet.
 --
 -- Run: bin/gicel run examples/gicel/effects/named-capabilities.gicel
 
 import Prelude
 import Effect.State
+import Effect.Ref as Ref
+import Effect.Array as Arr
+import Effect.Map as Map
 import Console
 
 -- Helper with type annotation: concrete label in the row.
@@ -18,26 +23,40 @@ inc := \(). do {
 }
 
 main := do {
-  -- Different-typed named capabilities coexist
+  -- === Named State ===
   putAt @#counter 0;
   putAt @#name "Alice";
-
-  -- Named helper (type-annotated, uses #counter)
   inc ();
   inc ();
   inc ();
-
-  -- Named + unnamed state coexist
-  put "hello";
-  s <- get;
-
-  -- Read all capabilities
   c <- getAt @#counter;
   n <- getAt @#name;
   putLine ("counter: " <> show c);
   putLine ("name: " <> n);
-  putLine ("unnamed: " <> s)
+
+  -- === Named Ref ===
+  r <- Ref.newAt @#cell 100;
+  Ref.modifyAt @#cell (\x. x + 50) r;
+  v <- Ref.readAt @#cell r;
+  putLine ("ref: " <> show v);
+
+  -- === Named Array ===
+  arr <- Arr.newAt @#buf 3 0;
+  Arr.writeAt @#buf 0 10 arr;
+  Arr.writeAt @#buf 1 20 arr;
+  Arr.writeAt @#buf 2 30 arr;
+  v0 <- Arr.readAt @#buf 1 arr;
+  putLine ("array[1]: " <> show v0);
+
+  -- === Named MMap ===
+  m <- Map.newAt @#db compare;
+  Map.insertAt @#db 1 "one" m;
+  Map.insertAt @#db 2 "two" m;
+  found <- Map.lookupAt @#db 1 m;
+  putLine ("map[1]: " <> show found)
 }
 -- counter: 3
 -- name: Alice
--- unnamed: hello
+-- ref: 150
+-- array[1]: Just 20
+-- map[1]: Just "one"

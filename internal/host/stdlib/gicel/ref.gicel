@@ -20,3 +20,28 @@ write := _refWrite
 
 modify :: \a (r: Row). (a -> a) -> Ref a -> Effect { ref: () | r } ()
 modify := \f r. do { v <- _refRead r; _refWrite (f v) r }
+
+-- Named capability variants (label-parameterized).
+_refNewNamed :: \(l: Label) a (r: Row). a -> Effect { l: () | r } (Ref a)
+_refNewNamed := assumption
+
+_refReadNamed :: \(l: Label) a (r: Row). Ref a -> Effect { l: () | r } a
+_refReadNamed := assumption
+
+_refWriteNamed :: \(l: Label) a (r: Row). a -> Ref a -> Effect { l: () | r } ()
+_refWriteNamed := assumption
+
+_refModifyNamed :: \(l: Label) a (r: Row). (a -> a) -> Ref a -> Effect { l: () | r } ()
+_refModifyNamed := assumption
+
+newAt :: \(l: Label) a (r: Row). a -> Effect { l: () | r } (Ref a)
+newAt := _refNewNamed
+
+readAt :: \(l: Label) a (r: Row). Ref a -> Effect { l: () | r } a
+readAt := _refReadNamed
+
+writeAt :: \(l: Label) a (r: Row). a -> Ref a -> Effect { l: () | r } ()
+writeAt := _refWriteNamed
+
+modifyAt :: \(l: Label) a (r: Row). (a -> a) -> Ref a -> Effect { l: () | r } ()
+modifyAt := _refModifyNamed
