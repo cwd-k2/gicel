@@ -169,7 +169,7 @@ See [`examples/go/`](examples/go/) for full patterns.
 
 ### Language
 
-- 12 keywords: `case do form type impl import infixl infixr infixn if then else`
+- 14 keywords: `case do form type impl import infixl infixr infixn if then else as assumption`
 - ADTs with exhaustive pattern matching (shorthand and GADT styles)
 - Do-notation for monadic sequencing
 - Records, tuples, module system (open, selective, qualified imports)

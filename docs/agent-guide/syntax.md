@@ -1,34 +1,34 @@
 ## 2. Language Overview
 
-### Keywords (12 + 1 contextual)
+### Keywords (14)
 
-| Keyword  | Purpose                                                                                               |
-| -------- | ----------------------------------------------------------------------------------------------------- |
-| `case`   | Pattern matching                                                                                      |
-| `do`     | Monadic do-block                                                                                      |
-| `form`   | Algebraic form type / type class declaration                                                          |
-| `type`   | Type alias / type family declaration                                                                  |
-| `impl`   | Type class instance declaration                                                                       |
-| `infixl` | Left-associative operator fixity                                                                      |
-| `infixr` | Right-associative operator fixity                                                                     |
-| `infixn` | Non-associative operator fixity                                                                       |
-| `import` | Module import                                                                                         |
-| `if`     | Conditional expression (if-then-else)                                                                 |
-| `then`   | Conditional expression (if-then-else)                                                                 |
-| `else`   | Conditional expression (if-then-else)                                                                 |
-| `as`     | Qualified import alias (contextual -- only special after `import`, usable as variable name elsewhere) |
+| Keyword      | Purpose                                                                                               |
+| ------------ | ----------------------------------------------------------------------------------------------------- |
+| `case`       | Pattern matching                                                                                      |
+| `do`         | Monadic do-block                                                                                      |
+| `form`       | Algebraic form type / type class declaration                                                          |
+| `type`       | Type alias / type family declaration                                                                  |
+| `impl`       | Type class instance declaration                                                                       |
+| `infixl`     | Left-associative operator fixity                                                                      |
+| `infixr`     | Right-associative operator fixity                                                                     |
+| `infixn`     | Non-associative operator fixity                                                                       |
+| `import`     | Module import                                                                                         |
+| `if`         | Conditional expression (if-then-else)                                                                 |
+| `then`       | Conditional expression (if-then-else)                                                                 |
+| `else`       | Conditional expression (if-then-else)                                                                 |
+| `as`         | Qualified import alias (contextual -- only special after `import`, usable as variable name elsewhere) |
+| `assumption` | Host-provided primitive marker                                                                        |
 
 ### Built-in Identifiers
 
-| Identifier   | Role                                            |
-| ------------ | ----------------------------------------------- |
-| `pure`       | Lift a value into a Computation (the F of CBPV) |
-| `bind`       | Monadic sequencing                              |
-| `thunk`      | Suspend a Computation into a value (U of CBPV)  |
-| `force`      | Eliminate a thunk, resuming the computation     |
-| `assumption` | Marker for host-provided primitive bindings     |
-| `rec`        | Recursive combinator (gated, must be enabled)   |
-| `fix`        | Value-level fixpoint (gated, must be enabled)   |
+| Identifier | Role                                            |
+| ---------- | ----------------------------------------------- |
+| `pure`     | Lift a value into a Computation (the F of CBPV) |
+| `bind`     | Monadic sequencing                              |
+| `thunk`    | Suspend a Computation into a value (U of CBPV)  |
+| `force`    | Eliminate a thunk, resuming the computation     |
+| `rec`      | Recursive combinator (gated, must be enabled)   |
+| `fix`      | Value-level fixpoint (gated, must be enabled)   |
 
 `pure` and `bind` are always available without any import.
 

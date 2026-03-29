@@ -879,6 +879,8 @@ eval := \e. case e {
 
 For literal patterns on `Int`, `String`, and `Rune`, the type's value space is open (cannot be enumerated), so a wildcard or variable catch-all is always required. Omitting the catch-all produces a non-exhaustive match error.
 
+**Conservative fallbacks.** The exhaustiveness checker assumes "covered" (no warning) in two cases where precise analysis is impractical: (1) pattern depth exceeding the internal limit (32 levels of nesting), and (2) opaque types whose constructors are not visible to the checker. In both cases, a non-exhaustive match that escapes static checking will produce a runtime pattern-match error. This is a defense-in-depth design: the static checker is best-effort, and the runtime provides a safety net.
+
 ---
 
 # 6. Type Classes
@@ -1585,6 +1587,10 @@ result, err := gicel.RunSandbox(source, &gicel.SandboxConfig{
 
 Single-call compile+execute for AI agents.
 
+**Limitation: `assumption` declarations.** `RunSandbox` does not currently call `DenyAssumptions`. User code can declare `assumption` bindings for capabilities not provided by the host; these pass type checking but fail at runtime with a missing-primitive error. Hosts that require stricter isolation should use the Engine API directly and call `eng.DenyAssumptions()` before compilation.
+
+**Limitation: timeout scope.** The timeout covers compilation and evaluation, but pack application runs before the timeout context is set. Packs are `func(Registrar) error` and do not receive a context — a misbehaving pack can block indefinitely. In practice, all stdlib packs are pure registration and complete instantly. Custom packs that perform I/O should be applied outside `RunSandbox`.
+
 ## 13.6 Primitive Implementation
 
 ```go
@@ -1840,6 +1846,8 @@ form GradeAlgebra := \(g: Kind). {
 }
 ```
 
+**Note on GradeJoin arity.** The class declaration specifies `GradeJoin :: g -> g` (unary result kind). Grade boundary enforcement applies `GradeJoin` as a binary function (`GradeJoin(Drop, grade) ~ grade`) by resolving the associated type to its underlying family (e.g., `MultJoin :: Mult -> Mult -> Mult`). The class kind annotation and the resolved family kind are currently inconsistent; the GIMonad transition will correct this to `g -> g -> g`.
+
 The standard `Mult` algebra is provided by Prelude. Users can define custom algebras (e.g., security levels):
 
 ```
@@ -1856,6 +1864,8 @@ Grade boundary checking (whether a capability can be preserved across a bind ste
 
 - **Concrete grades**: immediate reduction via the resolved Join family.
 - **Grades with metavariables**: a `CtFunEq` constraint is emitted. The constraint blocks until the metavariable is solved, then the type family reduces and unification enforces the grade boundary. An `OnFailure` callback produces `ErrMultiplicity` on violation.
+
+**Fallback behavior.** If no `GradeAlgebra` instance is found for the grade's kind, grade enforcement is skipped — the field is treated as unrestricted. This means `@Linear` on a field whose type's kind has no `GradeAlgebra` instance silently degrades to unrestricted. This is a known limitation; the fallback avoids false positives for types that predate the grade system.
 
 This dual-path design enables future multiplicity polymorphism: grade-polymorphic functions emit deferred constraints that are resolved once the grade metavariable is instantiated.
 
@@ -1937,10 +1947,10 @@ This follows from the type family alternatives by structural induction on `S`. E
 
 # 19. Potential Extensions
 
-| Extension                | Classification   | Prerequisite             |
-| ------------------------ | ---------------- | ------------------------ |
-| Multiplicity enforcement | Addition         | `checkMultiplicity` stub |
-| Selective module exports | Refinement       | Module system evolution  |
-| Qualified patterns       | Addition         | Module system evolution  |
-| Refinement Types         | Phase transition | Separate analysis        |
-| Dependent Types          | Full restructure | Far future               |
+| Extension                 | Classification   | Prerequisite                     |
+| ------------------------- | ---------------- | -------------------------------- |
+| Multiplicity polymorphism | Addition         | Grade metavariable instantiation |
+| Selective module exports  | Refinement       | Module system evolution          |
+| Qualified patterns        | Addition         | Module system evolution          |
+| Refinement Types          | Phase transition | Separate analysis                |
+| Dependent Types           | Full restructure | Far future                       |

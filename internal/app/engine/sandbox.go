@@ -61,8 +61,9 @@ type SandboxConfig struct {
 }
 
 // RunSandbox compiles and executes a GICEL program in a single call
-// with conservative resource limits. The timeout covers the entire
-// pipeline: pack application, main source compilation, and evaluation.
+// with conservative resource limits. The timeout covers main source
+// compilation and evaluation. Pack application runs before the timeout
+// context is established (packs do not receive a context).
 func RunSandbox(source string, cfg *SandboxConfig) (result *RunResult, err error) {
 	defer func() {
 		if r := recover(); r != nil {

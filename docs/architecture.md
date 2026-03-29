@@ -2,7 +2,7 @@
 
 Package dependency diagram for the GICEL compiler and runtime.
 
-_Last updated: v0.18.0 (2026-03-27)._
+_Last updated: v0.21.1 (2026-03-30)._
 
 ## Layer Model
 
@@ -22,7 +22,7 @@ Dependencies flow downward. No package imports from a higher layer.
 ```
 app/engine ──→ compiler/{check,parse,optimize}
              ──→ host/{stdlib,registry}
-             ──→ runtime/eval
+             ──→ runtime/{eval,vm}
              ──→ lang/{ir,syntax,types}
              ──→ infra/{budget,diagnostic,span}
 
@@ -33,6 +33,9 @@ host/stdlib ──→ host/registry
 
 host/registry ──→ runtime/eval
               ──→ lang/ir
+
+runtime/vm ──→ lang/ir
+           ──→ infra/{budget,span}
 
 runtime/eval ──→ lang/ir
              ──→ infra/{budget,span}
@@ -119,6 +122,7 @@ infra/span   ──→ (isolated)
 | Package        | Responsibility                                                      |
 | -------------- | ------------------------------------------------------------------- |
 | `runtime/eval` | Trampoline-based CBV evaluator, de Bruijn indexed array environment |
+| `runtime/vm`   | Bytecode VM with tail-call optimization, allocation tracking        |
 
 ### host — Go integration
 
@@ -138,7 +142,6 @@ infra/span   ──→ (isolated)
 - `lang/` has no imports from `compiler/`, `runtime/`, `host/`, or `app/`.
 - `infra/` has no imports from any other `internal/` package.
 - `compiler/parse` depends only on `lang/syntax` and `infra/`.
-- `runtime/eval` has no imports from `compiler/` or `host/`.
+- `runtime/eval` and `runtime/vm` have no imports from `compiler/` or `host/`.
 - `host/registry` breaks the potential cycle between `host/stdlib` and `runtime/eval`.
 - `app/engine` is the only package that imports from all lower layers.
-- The codebase is strictly single-threaded; no goroutines, channels, or mutexes.
