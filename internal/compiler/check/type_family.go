@@ -132,6 +132,7 @@ func (ch *Checker) installFamilyReducer() {
 	}
 	env := ch.familyEnv()
 	ch.unifier.FamilyReducer = env.ReduceAll
+	ch.unifier.TryReduceFamily = env.ReduceTyFamily
 }
 
 // registerBuiltinRowFamilies registers type family info for builtin row-level

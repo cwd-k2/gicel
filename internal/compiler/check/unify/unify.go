@@ -4,6 +4,7 @@ import (
 	"strconv"
 
 	"github.com/cwd-k2/gicel/internal/infra/budget"
+	"github.com/cwd-k2/gicel/internal/infra/span"
 	"github.com/cwd-k2/gicel/internal/lang/types"
 )
 
@@ -90,6 +91,11 @@ type AliasExpander func(types.Type) types.Type
 // FamilyReducer is a callback for reducing type family applications during unification.
 type FamilyReducer func(types.Type) types.Type
 
+// TryReduceFamily attempts to reduce a single saturated type family application.
+// Returns (result, true) if the family can be reduced, (nil, false) otherwise.
+// Unlike FamilyReducer, this does not walk the type tree or reset the step counter.
+type TryReduceFamily func(name string, args []types.Type, s span.Span) (types.Type, bool)
+
 // trailTag discriminates the three maps that a trail entry can target.
 type trailTag byte
 
@@ -124,8 +130,9 @@ type Unifier struct {
 	trail         []trailEntry
 	snapshotDepth int // number of active Snapshot scopes (for trail-free path compression)
 
-	AliasExpander AliasExpander // optional; set by Checker after alias processing
-	FamilyReducer FamilyReducer // optional; set by Checker after type family processing
+	AliasExpander  AliasExpander  // optional; set by Checker after alias processing
+	FamilyReducer  FamilyReducer  // optional; set by Checker after type family processing
+	TryReduceFamily TryReduceFamily // optional; set by Checker — single-node reduction for zonking
 
 	// OnSolve is called when a metavariable is solved.
 	// The checker uses this to re-activate stuck type family applications.

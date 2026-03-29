@@ -418,8 +418,15 @@ func (s *Solver) processCtFunEq(ct *CtFunEq) {
 	if reduced {
 		// Unify the reduced result with the result meta.
 		// Failure implies conflicting reductions or a grade violation.
-		if err := s.env.Unify(ct.ResultMeta, result); err != nil && ct.OnFailure != nil {
-			ct.OnFailure(ct.S, s.env.Zonk(ct.ResultMeta), s.env.Zonk(result))
+		if err := s.env.Unify(ct.ResultMeta, result); err != nil {
+			if ct.OnFailure != nil {
+				ct.OnFailure(ct.S, s.env.Zonk(ct.ResultMeta), s.env.Zonk(result))
+			} else {
+				s.env.AddCodedError(diagnostic.ErrTypeMismatch, ct.S,
+					"type family "+ct.FamilyName+": reduced to "+
+						types.Pretty(s.env.Zonk(result))+
+						", but expected "+types.Pretty(s.env.Zonk(ct.ResultMeta)))
+			}
 		}
 		return
 	}

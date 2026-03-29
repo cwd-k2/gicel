@@ -120,6 +120,14 @@ func (u *Unifier) zonkInner(t types.Type) types.Type {
 		if args == nil {
 			args = ty.Args
 		}
+		// After resolving metas in arguments, the family application may
+		// now be reducible. Try single-node reduction to avoid leaving
+		// unreduced TyFamilyApp nodes that cause soundness issues.
+		if u.TryReduceFamily != nil {
+			if result, ok := u.TryReduceFamily(ty.Name, args, ty.S); ok {
+				return u.zonkInner(result)
+			}
+		}
 		return &types.TyFamilyApp{Name: ty.Name, Args: args, Kind: zKind, Flags: types.MetaFreeFlags(append(args, zKind)...), S: ty.S}
 	case *types.TyCon:
 		// TyCon is usually a leaf, but Level may contain LevelMeta.
