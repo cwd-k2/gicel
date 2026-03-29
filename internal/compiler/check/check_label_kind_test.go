@@ -4,6 +4,7 @@
 package check
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/cwd-k2/gicel/internal/lang/types"
@@ -211,6 +212,46 @@ f := 42
 main := f @#myState`
 	// Lowercase label: should compile
 	checkSource(t, source, nil)
+}
+
+func TestMissingLabelCompileTimeDetection(t *testing.T) {
+	// Regression test: named capability functions (*At) called without @#label
+	// should be detected at compile time (E0228), not just at runtime.
+	// Uses a minimal reproduction: putAt with label annotation but no @#label at use.
+	source := `
+form Unit := { Unit: Unit }
+form Int := { Zero: Int; Succ: Int -> Int }
+
+putAt :: \(l: Label) (a: Type) (r: Row). a -> Computation { l: a | r } { l: a | r } Unit
+putAt := assumption
+
+main :: Computation { s: Int } { s: Int } Unit
+main := putAt @#s Zero
+`
+	// With @#s, should compile fine.
+	checkSource(t, source, nil)
+
+	// Without @#s, should report E0228.
+	sourceMissing := `
+form Unit := { Unit: Unit }
+form Int := { Zero: Int; Succ: Int -> Int }
+
+putAt :: \(l: Label) (a: Type) (r: Row). a -> Computation { l: a | r } { l: a | r } Unit
+putAt := assumption
+
+-- putAt without @#label: the label meta is unsolved and appears in the type.
+main :: Computation { s: Int } { s: Int } Unit
+main := putAt Zero
+`
+	errStr := checkSourceTryBoth(t, sourceMissing, nil)
+	if errStr == "" {
+		t.Fatal("expected error for putAt without @#label, got none")
+	}
+	// Accept either E0228 (missing label) or E0211/E0200 (row/type mismatch
+	// from the unsolved label meta producing a mismatched row).
+	if !strings.Contains(errStr, "E0228") && !strings.Contains(errStr, "E0211") && !strings.Contains(errStr, "E0200") {
+		t.Errorf("expected E0228/E0211/E0200, got: %s", errStr)
+	}
 }
 
 func TestBuiltinKindConNotLabel(t *testing.T) {

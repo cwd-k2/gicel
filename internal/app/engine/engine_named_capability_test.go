@@ -375,3 +375,75 @@ main := do {
 	}
 	_ = rec // basic structure check — runtime success is the main assertion
 }
+
+func TestLabelVariableSingleUse(t *testing.T) {
+	// Regression test: label type variable (@l) in a user-defined function
+	// should correctly propagate the label to the underlying primitive.
+	eng := NewEngine()
+	if err := eng.Use(stdlib.Prelude); err != nil {
+		t.Fatal(err)
+	}
+	if err := eng.Use(stdlib.State); err != nil {
+		t.Fatal(err)
+	}
+	rt, err := eng.NewRuntime(context.Background(), `
+import Prelude
+import Effect.State
+
+myGet :: \(l: Label) (r: Row). () -> Effect { l: Int | r } Int
+myGet := \(). getAt @l
+
+main := do {
+  putAt @#s 42;
+  x <- myGet @#s ();
+  pure x
+}
+`)
+	if err != nil {
+		t.Fatal("compile error:", err)
+	}
+	result, err := rt.RunWith(context.Background(), &RunOptions{})
+	if err != nil {
+		t.Fatal("runtime error:", err)
+	}
+	assertHostInt(t, result.Value, 42)
+}
+
+func TestLabelVariableMultipleUses(t *testing.T) {
+	// Regression test: label type variable (@l) used twice in a do block.
+	// Previously caused de Bruijn index contamination or closure environment loss.
+	eng := NewEngine()
+	if err := eng.Use(stdlib.Prelude); err != nil {
+		t.Fatal(err)
+	}
+	if err := eng.Use(stdlib.State); err != nil {
+		t.Fatal(err)
+	}
+	rt, err := eng.NewRuntime(context.Background(), `
+import Prelude
+import Effect.State
+
+inc :: \(l: Label) (r: Row). () -> Effect { l: Int | r } ()
+inc := \(). do {
+  n <- getAt @l;
+  putAt @l (n + 1)
+}
+
+main := do {
+  putAt @#counter 0;
+  inc @#counter ();
+  inc @#counter ();
+  inc @#counter ();
+  x <- getAt @#counter;
+  pure x
+}
+`)
+	if err != nil {
+		t.Fatal("compile error:", err)
+	}
+	result, err := rt.RunWith(context.Background(), &RunOptions{})
+	if err != nil {
+		t.Fatal("runtime error:", err)
+	}
+	assertHostInt(t, result.Value, 3)
+}

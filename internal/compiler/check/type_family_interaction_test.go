@@ -1111,6 +1111,53 @@ test := id Unit
 	checkSource(t, source, nil)
 }
 
+func TestTypeFamilySoundnessCtFunEqConflict(t *testing.T) {
+	// Regression test: a stuck type family equation (CtFunEq) whose reduced
+	// result conflicts with the already-solved result meta must be reported
+	// as a type error, not silently swallowed.
+	source := `
+form Status := { Active: Status; Inactive: Status }
+
+type Opp :: Status := \(s: Status). case s {
+  Active => Inactive;
+  Inactive => Active
+}
+
+form P := \(s: Status). { MkP: P s }
+
+f :: \(s: Status). P s -> P (Opp s)
+f := \_ . MkP
+
+wrong :: P Active
+wrong := f (MkP :: P Active)
+`
+	errStr := checkSourceExpectError(t, source, nil)
+	if !strings.Contains(errStr, "E0200") {
+		t.Errorf("expected type mismatch error E0200, got: %s", errStr)
+	}
+}
+
+func TestTypeFamilySoundnessCorrectUsage(t *testing.T) {
+	// The correct usage of the same type family should type-check.
+	source := `
+form Status := { Active: Status; Inactive: Status }
+
+type Opp :: Status := \(s: Status). case s {
+  Active => Inactive;
+  Inactive => Active
+}
+
+form P := \(s: Status). { MkP: P s }
+
+f :: \(s: Status). P s -> P (Opp s)
+f := \_ . MkP
+
+correct :: P Inactive
+correct := f (MkP :: P Active)
+`
+	checkSource(t, source, nil)
+}
+
 // ----------------------------------------------------------------
 // 4h. Overlapping associated type equations from different instances
 // ----------------------------------------------------------------
