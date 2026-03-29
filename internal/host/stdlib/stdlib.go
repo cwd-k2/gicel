@@ -89,8 +89,27 @@ var unitVal = eval.UnitVal
 // original implementation with the remaining arguments.
 func withLabel(fn eval.PrimImpl) eval.PrimImpl {
 	return func(ctx context.Context, ce eval.CapEnv, args []eval.Value, apply eval.Applier) (eval.Value, eval.CapEnv, error) {
+		if err := validateLabelArg(args); err != nil {
+			return nil, ce, err
+		}
 		return fn(ctx, ce, args[1:], apply)
 	}
+}
+
+// validateLabelArg checks that args[0] is a label string (HostVal wrapping string).
+// Named capability operations require an explicit @#label argument; without it,
+// the label erasure pass doesn't inject the string, and args[0] is a misaligned
+// value argument. This guard converts the resulting crash into a clear error.
+func validateLabelArg(args []eval.Value) error {
+	if len(args) == 0 {
+		return &eval.RuntimeError{Message: "named capability operation requires @#label argument"}
+	}
+	if hv, ok := args[0].(*eval.HostVal); ok {
+		if _, ok := hv.Inner.(string); ok {
+			return nil
+		}
+	}
+	return &eval.RuntimeError{Message: "named capability operation requires @#label argument; got a non-label value (missing @#label?)"}
 }
 
 // withLabelNoCompare wraps a PrimImpl that normally takes [compare, arg1, arg2, ...]
@@ -103,6 +122,9 @@ func withLabel(fn eval.PrimImpl) eval.PrimImpl {
 // (mmapInsertImpl, mmapLookupImpl, etc.) use m.cmp from the handle instead.
 func withLabelNoCompare(fn eval.PrimImpl) eval.PrimImpl {
 	return func(ctx context.Context, ce eval.CapEnv, args []eval.Value, apply eval.Applier) (eval.Value, eval.CapEnv, error) {
+		if err := validateLabelArg(args); err != nil {
+			return nil, ce, err
+		}
 		padded := make([]eval.Value, len(args))
 		padded[0] = nil // dummy compare placeholder (never accessed — see INVARIANT)
 		copy(padded[1:], args[1:])

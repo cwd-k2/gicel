@@ -282,6 +282,9 @@ func mmapAdjustImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, appl
 // variants don't receive compare as an argument but need it to construct new handles.
 func withLabelCmpFromHandle(fn eval.PrimImpl) eval.PrimImpl {
 	return func(ctx context.Context, ce eval.CapEnv, args []eval.Value, apply eval.Applier) (eval.Value, eval.CapEnv, error) {
+		if err := validateLabelArg(args); err != nil {
+			return nil, ce, err
+		}
 		hv, ok := args[1].(*eval.HostVal)
 		if !ok {
 			return nil, ce, &eval.RuntimeError{Message: "named binary op: expected HostVal handle"}
