@@ -1,5 +1,23 @@
 # Changelog
 
+## v0.20.1 — 2026-03-29
+
+### Bug Fixes
+
+- **Kind resolution in type checker.** Class and type family kinds are now resolved through `kindOfType`, fixing spurious kind errors for type constructors used in class contexts (P3).
+
+### Performance
+
+- **Lazy TyFamilyApp args allocation.** Args arrays in zonk, type family reduction, substitution, and MapType use nil-until-change pattern, avoiding allocation when no child changes.
+- **Pooled strings.Builder for type keys.** `TypeKey` and `TypeListKey` reuse builders via `sync.Pool`, reducing GC pressure in hot paths (type family cache keys, instance dictionary names).
+- **HasMeta flag for zonk early bailout.** Composite types carry a `FlagMetaFree` flag. When set, `zonkInner` returns immediately without walking the subtree. Flags propagate through zonk, MapType, substitution, and factory functions.
+- **OccursIn guard in Subst.** Single-variable substitution skips the full walk when the variable does not occur in the target type.
+
+### Refactoring
+
+- Extract `typeResolver` from Checker (design debt P1).
+- Resolve design debt P5 (dead code), P11 (naming), P1 (god module preparation).
+
 ## v0.20.0 — 2026-03-29
 
 ### Bytecode VM
