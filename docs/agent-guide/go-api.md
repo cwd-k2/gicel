@@ -216,3 +216,7 @@ The sandbox guarantees do **not** extend to `RegisterPrim` implementations. A bl
 - Bounded execution time
 - No uncontrolled side effects
 - Correct `CapEnv` handling
+
+**CLI module paths**: The `--module Name=path` flag reads any file accessible to the process. If an AI agent constructs CLI arguments, validate module paths against an allowed directory to prevent arbitrary file reads via parser error messages.
+
+**Assumption declarations**: User-written GICEL code cannot use `assumption` declarations (blocked at compile time). The Go API allows assumptions by default for host-controlled bindings; call `eng.DenyAssumptions()` to enforce the restriction in Go-embedded contexts where source code is untrusted.
