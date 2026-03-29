@@ -55,7 +55,7 @@ splitHalf := fix $ \self xs. case xs {
   Nil => (Nil, Nil);
   Cons x rest => case rest {
     Nil => (Cons x Nil, Nil);
-    Cons y rest2 => { (as, bs) := self rest2; (Cons x as, Cons y bs) }
+    Cons y rest2 => { (ls, rs) := self rest2; (Cons x ls, Cons y rs) }
   }
 }
 
