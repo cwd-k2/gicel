@@ -164,16 +164,18 @@ func substDepth(t Type, varName string, replacement Type, depth int) Type {
 		}
 
 	case *TyFamilyApp:
-		changed := false
-		args := make([]Type, len(ty.Args))
+		var args []Type // nil until first change (lazy-init)
 		for i, a := range ty.Args {
 			newA := substDepth(a, varName, replacement, depth+1)
-			if newA != a {
-				changed = true
+			if args == nil && newA != a {
+				args = make([]Type, len(ty.Args))
+				copy(args[:i], ty.Args[:i])
 			}
-			args[i] = newA
+			if args != nil {
+				args[i] = newA
+			}
 		}
-		if !changed {
+		if args == nil {
 			return ty
 		}
 		return &TyFamilyApp{Name: ty.Name, Args: args, Kind: ty.Kind, S: ty.S}

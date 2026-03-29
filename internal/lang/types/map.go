@@ -71,16 +71,22 @@ func MapType(t Type, f func(Type) Type) Type {
 		return &TyEvidenceRow{Entries: newEntries, Tail: tail, S: ty.S}
 	case *TyFamilyApp:
 		kind := f(ty.Kind)
-		changed := kind != ty.Kind
-		args := make([]Type, len(ty.Args))
+		var args []Type // nil until first change (lazy-init)
 		for i, a := range ty.Args {
-			args[i] = f(a)
-			if args[i] != a {
-				changed = true
+			nA := f(a)
+			if args == nil && nA != a {
+				args = make([]Type, len(ty.Args))
+				copy(args[:i], ty.Args[:i])
+			}
+			if args != nil {
+				args[i] = nA
 			}
 		}
-		if !changed {
+		if args == nil && kind == ty.Kind {
 			return t
+		}
+		if args == nil {
+			args = ty.Args
 		}
 		return &TyFamilyApp{Name: ty.Name, Args: args, Kind: kind, S: ty.S}
 	default:

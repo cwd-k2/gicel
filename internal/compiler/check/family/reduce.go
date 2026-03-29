@@ -158,15 +158,26 @@ func (e *ReduceEnv) reduceFamilyAppsN(t types.Type, cache map[string]types.Type)
 	}
 	// Case 1: explicit TyFamilyApp.
 	if tf, ok := t.(*types.TyFamilyApp); ok {
-		args := make([]types.Type, len(tf.Args))
+		var newArgs []types.Type // nil until first change (lazy-init)
 		for i, a := range tf.Args {
-			args[i] = e.reduceFamilyAppsN(a, cache)
+			rA := e.reduceFamilyAppsN(a, cache)
+			if newArgs == nil && rA != a {
+				newArgs = make([]types.Type, len(tf.Args))
+				copy(newArgs[:i], tf.Args[:i])
+			}
+			if newArgs != nil {
+				newArgs[i] = rA
+			}
 		}
-		key := familyAppKey(tf.Name, args)
+		rArgs := newArgs
+		if rArgs == nil {
+			rArgs = tf.Args
+		}
+		key := familyAppKey(tf.Name, rArgs)
 		if cached, ok := cache[key]; ok {
 			return cached
 		}
-		result, reduced := e.ReduceTyFamily(tf.Name, args, tf.S)
+		result, reduced := e.ReduceTyFamily(tf.Name, rArgs, tf.S)
 		if reduced {
 			// Plant sentinel BEFORE recursing into the RHS. If the same
 			// family application appears during reduction of its own RHS
@@ -174,16 +185,16 @@ func (e *ReduceEnv) reduceFamilyAppsN(t types.Type, cache map[string]types.Type)
 			// returned instead of re-entering, breaking the exponential
 			// blowup. The sentinel is the unreduced TyFamilyApp — a stuck
 			// application, which is the correct semantics for a cycle.
-			stuck := &types.TyFamilyApp{Name: tf.Name, Args: args, Kind: tf.Kind, S: tf.S}
+			stuck := &types.TyFamilyApp{Name: tf.Name, Args: rArgs, Kind: tf.Kind, S: tf.S}
 			cache[key] = stuck
 			r := e.reduceFamilyAppsN(result, cache)
 			cache[key] = r
 			return r
 		}
-		if placeholder := e.registerStuckFamily(tf.Name, args, tf.Kind, tf.S); placeholder != nil {
+		if placeholder := e.registerStuckFamily(tf.Name, rArgs, tf.Kind, tf.S); placeholder != nil {
 			return placeholder
 		}
-		return &types.TyFamilyApp{Name: tf.Name, Args: args, Kind: tf.Kind, S: tf.S}
+		return &types.TyFamilyApp{Name: tf.Name, Args: rArgs, Kind: tf.Kind, S: tf.S}
 	}
 	// Case 2: TyApp chain with TyCon head that is a known type family.
 	if app, ok := t.(*types.TyApp); ok {

@@ -98,21 +98,23 @@ func (u *Unifier) zonkInner(t types.Type) types.Type {
 		}
 		return &types.TyEvidence{Constraints: cr, Body: zBody, S: ty.S}
 	case *types.TyFamilyApp:
-		changed := false
-		args := make([]types.Type, len(ty.Args))
+		var args []types.Type // nil until first change (lazy-init)
 		for i, a := range ty.Args {
 			zA := u.zonkInner(a)
-			args[i] = zA
-			if zA != a {
-				changed = true
+			if args == nil && zA != a {
+				args = make([]types.Type, len(ty.Args))
+				copy(args[:i], ty.Args[:i])
+			}
+			if args != nil {
+				args[i] = zA
 			}
 		}
 		zKind := u.zonkInner(ty.Kind)
-		if zKind != ty.Kind {
-			changed = true
-		}
-		if !changed {
+		if args == nil && zKind == ty.Kind {
 			return ty
+		}
+		if args == nil {
+			args = ty.Args
 		}
 		return &types.TyFamilyApp{Name: ty.Name, Args: args, Kind: zKind, S: ty.S}
 	case *types.TyCon:
