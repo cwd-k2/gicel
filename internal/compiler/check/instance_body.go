@@ -50,7 +50,7 @@ func (ch *Checker) processInstanceBody(inst *InstanceInfo, methods map[string]sy
 		for j, a := range sup.Args {
 			superArgs[j] = types.SubstMany(a, subst)
 		}
-		superDictExpr := ch.resolveInstance(sup.ClassName, superArgs, inst.S)
+		superDictExpr := ch.solver.ResolveInstance(sup.ClassName, superArgs, inst.S)
 		dictArgs = append(dictArgs, superDictExpr)
 		dictArgTypes = append(dictArgTypes, ch.buildDictType(sup.ClassName, superArgs))
 	}

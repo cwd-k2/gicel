@@ -166,16 +166,16 @@ func (ch *Checker) extractIxMethod(monadHead types.Type, methodIdx int, s span.S
 	// Try direct IxMonad instance.
 	if dict, ok := ch.tryResolveInstance("IxMonad", []types.Type{monadHead}, s); ok {
 		fieldIdx := len(classInfo.Supers) + methodIdx
-		return ch.extractDictField(classInfo, dict, fieldIdx, "ixm", s)
+		return ch.solver.ExtractDictField(classInfo, dict, fieldIdx, "ixm", s)
 	}
 
 	// Lift fallback: IxMonad (Lift monadHead).
 	// Safe for Type→Type monads; unreachable for Row→Row→Type→Type types
 	// because checkDo rejects those without a direct instance.
 	liftedMonad := &types.TyApp{Fun: types.Con("Lift"), Arg: monadHead}
-	dict := ch.resolveInstance("IxMonad", []types.Type{liftedMonad}, s)
+	dict := ch.solver.ResolveInstance("IxMonad", []types.Type{liftedMonad}, s)
 	fieldIdx := len(classInfo.Supers) + methodIdx
-	return ch.extractDictField(classInfo, dict, fieldIdx, "ixm", s)
+	return ch.solver.ExtractDictField(classInfo, dict, fieldIdx, "ixm", s)
 }
 
 // rewritePureToMpure rewrites `pure expr` or `ixpure expr` to `mpure expr`

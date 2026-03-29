@@ -118,24 +118,9 @@ func (ch *Checker) checkWithLocalScope(expr syntax.Expr, expected types.Type, sk
 	)
 }
 
-// extractDictField delegates to the solver's method.
-func (ch *Checker) extractDictField(classInfo *ClassInfo, dictExpr ir.Core, fieldIdx int, prefix string, s span.Span) ir.Core {
-	return ch.solver.ExtractDictField(classInfo, dictExpr, fieldIdx, prefix, s)
-}
-
-// resolveInstance delegates to the solver's method.
-func (ch *Checker) resolveInstance(className string, args []types.Type, s span.Span) ir.Core {
-	return ch.solver.ResolveInstance(className, args, s)
-}
-
 // freshInstanceSubst delegates to the solver's method.
 func (ch *Checker) freshInstanceSubst(inst *InstanceInfo) map[string]types.Type {
 	return ch.solver.FreshInstanceSubst(inst)
-}
-
-// substitutePlaceholders replaces Var nodes matching placeholders.
-func (ch *Checker) substitutePlaceholders(expr ir.Core, resolutions map[string]ir.Core) ir.Core {
-	return solve.SubstitutePlaceholders(expr, resolutions)
 }
 
 // enterSolverScope enters a new solver scope for implication/local constraints.
