@@ -178,41 +178,9 @@ func (l *Lexer) scanToken() syn.Token {
 			return l.scanRune(start)
 		}
 
-		// Numeric literal (Int or Double, supports _ separators)
-		// Examples: 42, 100_000, 3.14, 1e10, 1.05e+10, 2_000.5e-3
+		// Numeric literal
 		if ch >= '0' && ch <= '9' {
-			l.scanDigits() // integer part
-			isDouble := false
-			// Decimal part: '.' followed by digit
-			if l.pos < len(l.source.Text) && l.source.Text[l.pos] == '.' &&
-				l.pos+1 < len(l.source.Text) && l.source.Text[l.pos+1] >= '0' && l.source.Text[l.pos+1] <= '9' {
-				isDouble = true
-				l.pos++ // skip '.'
-				l.scanDigits()
-			}
-			// Exponent part: e/E followed by optional +/- and digits
-			if l.pos < len(l.source.Text) && (l.source.Text[l.pos] == 'e' || l.source.Text[l.pos] == 'E') {
-				next := l.pos + 1
-				if next < len(l.source.Text) {
-					nc := l.source.Text[next]
-					hasExp := false
-					if nc >= '0' && nc <= '9' {
-						hasExp = true
-						l.pos = next
-					} else if (nc == '+' || nc == '-') && next+1 < len(l.source.Text) && l.source.Text[next+1] >= '0' && l.source.Text[next+1] <= '9' {
-						hasExp = true
-						l.pos = next + 1 // skip e and sign
-					}
-					if hasExp {
-						isDouble = true
-						l.scanDigits()
-					}
-				}
-			}
-			if isDouble {
-				return l.tok(syn.TokDoubleLit, start)
-			}
-			return l.tok(syn.TokIntLit, start)
+			return l.scanNumeric(start)
 		}
 
 		// Lower identifier or keyword
@@ -543,6 +511,43 @@ func isUpperStart(r rune) bool {
 
 func isIdentCont(r rune) bool {
 	return unicode.IsLetter(r) || unicode.IsDigit(r) || r == '_' || r == '\''
+}
+
+// scanNumeric scans an integer or double literal (supports _ separators).
+// Examples: 42, 100_000, 3.14, 1e10, 1.05e+10, 2_000.5e-3
+func (l *Lexer) scanNumeric(start int) syn.Token {
+	l.scanDigits() // integer part
+	isDouble := false
+	// Decimal part: '.' followed by digit
+	if l.pos < len(l.source.Text) && l.source.Text[l.pos] == '.' &&
+		l.pos+1 < len(l.source.Text) && l.source.Text[l.pos+1] >= '0' && l.source.Text[l.pos+1] <= '9' {
+		isDouble = true
+		l.pos++ // skip '.'
+		l.scanDigits()
+	}
+	// Exponent part: e/E followed by optional +/- and digits
+	if l.pos < len(l.source.Text) && (l.source.Text[l.pos] == 'e' || l.source.Text[l.pos] == 'E') {
+		next := l.pos + 1
+		if next < len(l.source.Text) {
+			nc := l.source.Text[next]
+			hasExp := false
+			if nc >= '0' && nc <= '9' {
+				hasExp = true
+				l.pos = next
+			} else if (nc == '+' || nc == '-') && next+1 < len(l.source.Text) && l.source.Text[next+1] >= '0' && l.source.Text[next+1] <= '9' {
+				hasExp = true
+				l.pos = next + 1 // skip e and sign
+			}
+			if hasExp {
+				isDouble = true
+				l.scanDigits()
+			}
+		}
+	}
+	if isDouble {
+		return l.tok(syn.TokDoubleLit, start)
+	}
+	return l.tok(syn.TokIntLit, start)
 }
 
 // scanDigits consumes a run of digits with optional underscore separators.
