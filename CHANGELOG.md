@@ -1,5 +1,16 @@
 # Changelog
 
+## v0.21.2 — 2026-03-30
+
+### Documentation
+
+- **Keyword count.** Fixed keyword count from 12 to 14 (`as`, `assumption` were missing) in README, agent guide, and grammar reference.
+- **Architecture.** Updated from v0.18.0 to v0.21.1. Added `runtime/vm` (bytecode VM) to dependency DAG and package table.
+- **RunSandbox limitations.** Documented that `DenyAssumptions` is not called (user code can declare `assumption` bindings) and that timeout does not cover pack application.
+- **Exhaustiveness fallbacks.** Documented conservative "covered" assumption for deep patterns (>32 levels) and opaque types, with runtime safety net.
+- **Grade system.** Documented `GradeJoin` arity inconsistency between class declaration (`g → g`) and binary enforcement usage. Documented grade enforcement skip when `GradeAlgebra` instance is not found. Corrected "Multiplicity enforcement" from future extension to implemented; "Multiplicity polymorphism" is the remaining extension.
+- **sandbox.go comment.** Aligned timeout scope description with actual behavior.
+
 ## v0.21.1 — 2026-03-30
 
 ### Bug Fixes
