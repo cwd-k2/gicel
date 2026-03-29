@@ -154,7 +154,7 @@ func mapFromListImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, app
 			break
 		}
 		if con.Con != "Cons" || len(con.Args) != 2 {
-			return nil, ce, errors.New("mapFromList: malformed list")
+			return nil, ce, errMalformed("mapFromList", "list node", con.Con)
 		}
 		pair, ok := con.Args[0].(*eval.RecordVal)
 		if !ok {

@@ -2,7 +2,6 @@ package stdlib
 
 import (
 	"context"
-	"errors"
 
 	"github.com/cwd-k2/gicel/internal/infra/budget"
 	"github.com/cwd-k2/gicel/internal/runtime/eval"
@@ -136,7 +135,7 @@ func msetFromListImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, ap
 			break
 		}
 		if con.Con != "Cons" || len(con.Args) != 2 {
-			return nil, ce, errors.New("msetFromList: malformed list")
+			return nil, ce, errMalformed("msetFromList", "list node", con.Con)
 		}
 		if err := budget.ChargeAlloc(ctx, costAVLNode); err != nil {
 			return nil, ce, err

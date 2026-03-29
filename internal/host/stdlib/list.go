@@ -206,7 +206,7 @@ func indexImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Appl
 			return &eval.ConVal{Con: "Nothing"}, ce, nil
 		}
 		if con.Con != "Cons" || len(con.Args) != 2 {
-			return nil, ce, errors.New("index: malformed list")
+			return nil, ce, errMalformed("index", "list node", con.Con)
 		}
 		if i == idx {
 			return &eval.ConVal{Con: "Just", Args: []eval.Value{con.Args[0]}}, ce, nil

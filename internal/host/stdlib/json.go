@@ -113,7 +113,7 @@ func toJSONListImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, appl
 			break
 		}
 		if con.Con != "Cons" || len(con.Args) != 2 {
-			return nil, ce, errors.New("json: malformed list")
+			return nil, ce, errMalformed("json", "list node", con.Con)
 		}
 		result, newCe, err := apply(encoder, con.Args[0], ce)
 		if err != nil {
@@ -146,7 +146,7 @@ func toJSONMaybeImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, apply
 		return jsonStrVal("null"), ce, nil
 	}
 	if con.Con != "Just" || len(con.Args) != 1 {
-		return nil, ce, errors.New("json: malformed Maybe")
+		return nil, ce, errMalformed("json", "Maybe", con.Con)
 	}
 	return apply(encoder, con.Args[0], ce)
 }

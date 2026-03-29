@@ -297,7 +297,7 @@ func joinImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, _ eval.App
 			break
 		}
 		if con.Con != "Cons" || len(con.Args) != 2 {
-			return nil, ce, errors.New("join: malformed list")
+			return nil, ce, errMalformed("join", "list node", con.Con)
 		}
 		s, err := asString(con.Args[0])
 		if err != nil {

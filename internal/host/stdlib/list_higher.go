@@ -234,7 +234,7 @@ func zipImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Appl
 			break
 		}
 		if xCon.Con != "Cons" || len(xCon.Args) != 2 || yCon.Con != "Cons" || len(yCon.Args) != 2 {
-			return nil, ce, errors.New("zip: malformed list")
+			return nil, ce, errMalformed("zip", "list node", xCon.Con+"/"+yCon.Con)
 		}
 		pairs = append(pairs, eval.NewRecordFromMap(map[string]eval.Value{ir.TupleLabel(1): xCon.Args[0], ir.TupleLabel(2): yCon.Args[0]}))
 		xs = xCon.Args[1]
@@ -258,7 +258,7 @@ func unzipImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Ap
 			break
 		}
 		if con.Con != "Cons" || len(con.Args) != 2 {
-			return nil, ce, errors.New("unzip: malformed list node")
+			return nil, ce, errMalformed("unzip", "list node", con.Con)
 		}
 		rec, ok := con.Args[0].(*eval.RecordVal)
 		if !ok {

@@ -166,7 +166,7 @@ func mmapFromListImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, ap
 			break
 		}
 		if con.Con != "Cons" || len(con.Args) != 2 {
-			return nil, ce, errors.New("mmapFromList: malformed list")
+			return nil, ce, errMalformed("mmapFromList", "list node", con.Con)
 		}
 		pair, ok := con.Args[0].(*eval.RecordVal)
 		if !ok {
