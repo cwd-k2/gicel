@@ -117,9 +117,11 @@ func substDepth(t Type, varName string, replacement Type, depth int) Type {
 				// \(l: Label) s r. { l: s | r } to concretize to { counter: s | r }
 				// when l is substituted with #counter.
 				newLabel := f.Label
-				if f.Label == varName {
+				isLabelVar := f.IsLabelVar
+				if f.IsLabelVar && f.Label == varName {
 					if lc, ok := replacement.(*TyCon); ok && IsKindLevel(lc.Level) {
 						newLabel = lc.Name
+						isLabelVar = false // now a concrete label
 						changed = true
 					}
 				}
@@ -133,7 +135,7 @@ func substDepth(t Type, varName string, replacement Type, depth int) Type {
 						}
 					}
 				}
-				fields[i] = RowField{Label: newLabel, Type: newT, Grades: newGrades, S: f.S}
+				fields[i] = RowField{Label: newLabel, Type: newT, Grades: newGrades, IsLabelVar: isLabelVar, S: f.S}
 			}
 			var newTail Type
 			if ty.Tail != nil {

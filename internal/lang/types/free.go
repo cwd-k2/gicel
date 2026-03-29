@@ -46,6 +46,9 @@ func freeVarsRec(t Type, bound map[string]bool, fv map[string]struct{}, depth in
 		switch entries := ty.Entries.(type) {
 		case *CapabilityEntries:
 			for _, f := range entries.Fields {
+				if f.IsLabelVar && (bound == nil || !bound[f.Label]) {
+					fv[f.Label] = struct{}{}
+				}
 				freeVarsRec(f.Type, bound, fv, depth+1)
 				for _, g := range f.Grades {
 					freeVarsRec(g, bound, fv, depth+1)
@@ -117,11 +120,12 @@ func occursIn(name string, t Type, bound map[string]bool, depth int) bool {
 		switch entries := ty.Entries.(type) {
 		case *CapabilityEntries:
 			for _, f := range entries.Fields {
-				// Check field label: label substitution uses string labels
-				// as variable placeholders (e.g. { l: () | r } where l is
-				// a label-kinded forall variable). Without this check,
-				// OccursIn misses the occurrence and Subst bails out early.
-				if f.Label == name && (bound == nil || !bound[name]) {
+				// Check field label: when IsLabelVar is set, the label
+				// originates from a label-kinded forall variable (e.g.
+				// { l: () | r } where l is bound by \(l: Label)).
+				// Without this check, OccursIn misses the occurrence
+				// and Subst bails out early.
+				if f.IsLabelVar && f.Label == name && (bound == nil || !bound[name]) {
 					return true
 				}
 				if occursIn(name, f.Type, bound, depth+1) {

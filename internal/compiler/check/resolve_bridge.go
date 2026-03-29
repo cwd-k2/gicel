@@ -48,6 +48,10 @@ type typeResolver struct {
 
 	// Strict type name validation (enabled after declaration processing).
 	strictTypeNames *bool
+
+	// labelVars tracks forall-bound label-kinded variables currently in scope.
+	// Used by row field resolution to mark IsLabelVar on RowField.
+	labelVars map[string]bool
 }
 
 // typeResolver returns the cached typeResolver, constructing it on first use.

@@ -37,10 +37,20 @@ func (r *typeResolver) resolveTypeExpr(texpr syntax.TypeExpr) types.Type {
 		// Register kind variables (binders with Kind sort) before resolving the body,
 		// so that kind variable references in inner kind annotations resolve correctly.
 		var kindVarNames []string
+		var labelVarNames []string
 		for _, b := range t.Binders {
-			if con, ok := b.Kind.(*syntax.TyExprCon); ok && con.Name == "Kind" {
-				r.reg.SetKindVar(b.Name)
-				kindVarNames = append(kindVarNames, b.Name)
+			if con, ok := b.Kind.(*syntax.TyExprCon); ok {
+				switch con.Name {
+				case "Kind":
+					r.reg.SetKindVar(b.Name)
+					kindVarNames = append(kindVarNames, b.Name)
+				case "Label":
+					if r.labelVars == nil {
+						r.labelVars = make(map[string]bool, 4)
+					}
+					r.labelVars[b.Name] = true
+					labelVarNames = append(labelVarNames, b.Name)
+				}
 			}
 		}
 		ty := r.resolveTypeExpr(t.Body)
@@ -50,6 +60,9 @@ func (r *typeResolver) resolveTypeExpr(texpr syntax.TypeExpr) types.Type {
 		}
 		for _, name := range kindVarNames {
 			r.reg.UnsetKindVar(name)
+		}
+		for _, name := range labelVarNames {
+			delete(r.labelVars, name)
 		}
 		return ty
 	case *syntax.TyExprRow:
@@ -65,7 +78,11 @@ func (r *typeResolver) resolveTypeExpr(texpr syntax.TypeExpr) types.Type {
 			if f.Mult != nil {
 				grades = []types.Type{r.resolveTypeExpr(f.Mult)}
 			}
-			fields = append(fields, types.RowField{Label: f.Label, Type: r.resolveTypeExpr(f.Type), Grades: grades, S: f.S})
+			fields = append(fields, types.RowField{
+				Label: f.Label, Type: r.resolveTypeExpr(f.Type), Grades: grades,
+				IsLabelVar: r.labelVars[f.Label],
+				S:          f.S,
+			})
 		}
 		var tail types.Type
 		if t.Tail != nil {

@@ -87,10 +87,11 @@ type TyCBPV struct {
 // Grades is nil/empty for unrestricted (the default); each element is a grade
 // from a potentially different grade algebra (e.g., TyCon("Linear"), TyCon("Secret")).
 type RowField struct {
-	Label  string
-	Type   Type
-	Grades []Type // nil = no grade constraints (unrestricted default)
-	S      span.Span
+	Label      string
+	Type       Type
+	Grades     []Type // nil = no grade constraints (unrestricted default)
+	IsLabelVar bool   // true when Label originates from a label-kinded forall variable
+	S          span.Span
 }
 
 // ConstraintEntry is a single class constraint in a constraint row.
