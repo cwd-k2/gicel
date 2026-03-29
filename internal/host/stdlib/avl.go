@@ -431,3 +431,149 @@ func avlFoldlWithKey(n *avlNode, f, acc eval.Value, ce eval.CapEnv, apply eval.A
 	}
 	return avlFoldlWithKey(n.right, f, acc, ce, apply)
 }
+
+// --- Merge-join utilities for O(n₁+n₂) set operations ---
+
+// avlEntry is a key-value pair from an AVL node, used during merge walks.
+type avlEntry struct {
+	key, value eval.Value
+}
+
+// avlToSlice flattens an AVL tree into a sorted (in-order) slice. O(n).
+func avlToSlice(n *avlNode) []avlEntry {
+	if n == nil {
+		return nil
+	}
+	result := make([]avlEntry, 0, avlSize(n))
+	avlCollect(n, &result)
+	return result
+}
+
+func avlCollect(n *avlNode, out *[]avlEntry) {
+	if n == nil {
+		return
+	}
+	avlCollect(n.left, out)
+	*out = append(*out, avlEntry{key: n.key, value: n.value})
+	avlCollect(n.right, out)
+}
+
+func avlSize(n *avlNode) int {
+	if n == nil {
+		return 0
+	}
+	return 1 + avlSize(n.left) + avlSize(n.right)
+}
+
+// sortedToAVL builds a height-balanced AVL tree from a sorted slice. O(n).
+// The caller must ensure entries are sorted by the same comparator.
+func sortedToAVL(entries []avlEntry) *avlNode {
+	return sortedToAVLRange(entries, 0, len(entries))
+}
+
+func sortedToAVLRange(entries []avlEntry, lo, hi int) *avlNode {
+	if lo >= hi {
+		return nil
+	}
+	mid := lo + (hi-lo)/2
+	node := &avlNode{
+		key:   entries[mid].key,
+		value: entries[mid].value,
+		left:  sortedToAVLRange(entries, lo, mid),
+		right: sortedToAVLRange(entries, mid+1, hi),
+	}
+	avlUpdateHeight(node)
+	return node
+}
+
+// avlMergeIntersect performs sorted merge of two AVL trees, keeping only
+// entries present in both. O(n₁+n₂) comparisons via cmp/apply.
+func avlMergeIntersect(a, b *avlNode, cmp eval.Value, ce eval.CapEnv, apply eval.Applier) ([]avlEntry, eval.CapEnv, error) {
+	as := avlToSlice(a)
+	bs := avlToSlice(b)
+	result := make([]avlEntry, 0, min(len(as), len(bs)))
+	i, j := 0, 0
+	var err error
+	for i < len(as) && j < len(bs) {
+		var ord int
+		ord, ce, err = compareKeys(cmp, as[i].key, bs[j].key, ce, apply)
+		if err != nil {
+			return nil, ce, err
+		}
+		switch {
+		case ord < 0:
+			i++
+		case ord > 0:
+			j++
+		default:
+			result = append(result, as[i])
+			i++
+			j++
+		}
+	}
+	return result, ce, nil
+}
+
+// avlMergeDifference performs sorted merge of two AVL trees, keeping entries
+// in a but not in b. O(n₁+n₂) comparisons.
+func avlMergeDifference(a, b *avlNode, cmp eval.Value, ce eval.CapEnv, apply eval.Applier) ([]avlEntry, eval.CapEnv, error) {
+	as := avlToSlice(a)
+	bs := avlToSlice(b)
+	result := make([]avlEntry, 0, len(as))
+	i, j := 0, 0
+	var err error
+	for i < len(as) {
+		if j >= len(bs) {
+			result = append(result, as[i:]...)
+			break
+		}
+		var ord int
+		ord, ce, err = compareKeys(cmp, as[i].key, bs[j].key, ce, apply)
+		if err != nil {
+			return nil, ce, err
+		}
+		switch {
+		case ord < 0:
+			result = append(result, as[i])
+			i++
+		case ord > 0:
+			j++
+		default:
+			i++
+			j++
+		}
+	}
+	return result, ce, nil
+}
+
+// avlMergeUnion performs sorted merge of two AVL trees, keeping all entries
+// from both (a's value wins on duplicate keys). O(n₁+n₂) comparisons.
+func avlMergeUnion(a, b *avlNode, cmp eval.Value, ce eval.CapEnv, apply eval.Applier) ([]avlEntry, eval.CapEnv, error) {
+	as := avlToSlice(a)
+	bs := avlToSlice(b)
+	result := make([]avlEntry, 0, len(as)+len(bs))
+	i, j := 0, 0
+	var err error
+	for i < len(as) && j < len(bs) {
+		var ord int
+		ord, ce, err = compareKeys(cmp, as[i].key, bs[j].key, ce, apply)
+		if err != nil {
+			return nil, ce, err
+		}
+		switch {
+		case ord < 0:
+			result = append(result, as[i])
+			i++
+		case ord > 0:
+			result = append(result, bs[j])
+			j++
+		default:
+			result = append(result, as[i]) // a wins
+			i++
+			j++
+		}
+	}
+	result = append(result, as[i:]...)
+	result = append(result, bs[j:]...)
+	return result, ce, nil
+}
