@@ -382,6 +382,9 @@ func (m *moduleFlags) Set(val string) error {
 // readSource loads GICEL source from -e string, stdin ("-"), or a file argument.
 func readSource(fs *flag.FlagSet, expr string, budget *sourceBudget) ([]byte, error) {
 	if expr != "" {
+		if fs.NArg() > 0 {
+			fmt.Fprintf(os.Stderr, "warning: -e and file argument both specified; using -e, ignoring %s\n", fs.Arg(0))
+		}
 		data := []byte(expr)
 		budget.used += int64(len(data))
 		return data, nil
