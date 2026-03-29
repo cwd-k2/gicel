@@ -44,6 +44,14 @@ func (ch *Checker) matchArrow(ty types.Type, s span.Span) (types.Type, types.Typ
 	return argTy, retTy
 }
 
+// inferApply applies a function to an argument: decomposes the arrow type,
+// checks the argument against the parameter type, and wraps in ir.App.
+func (ch *Checker) inferApply(funTy types.Type, funCore ir.Core, arg syntax.Expr, s span.Span) (types.Type, ir.Core) {
+	argTy, retTy := ch.matchArrow(funTy, s)
+	argCore := ch.check(arg, argTy)
+	return retTy, &ir.App{Fun: funCore, Arg: argCore, S: s}
+}
+
 // lookupVar resolves a variable name to its type and Core node.
 func (ch *Checker) lookupVar(e *syntax.ExprVar) (types.Type, ir.Core, bool) {
 	ty, mod, ok := ch.ctx.LookupVarFull(e.Name)

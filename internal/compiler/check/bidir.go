@@ -142,9 +142,7 @@ func (ch *Checker) infer(expr syntax.Expr) (types.Type, ir.Core) {
 			}
 		}
 		funTy, funCore := ch.infer(e.Fun)
-		argTy, retTy := ch.matchArrow(funTy, e.S)
-		argCore := ch.check(e.Arg, argTy)
-		return retTy, &ir.App{Fun: funCore, Arg: argCore, S: e.S}
+		return ch.inferApply(funTy, funCore, e.Arg, e.S)
 
 	case *syntax.ExprTyApp:
 		// Delegate to inferHead (which preserves foralls) then instantiate remaining.
@@ -169,15 +167,8 @@ func (ch *Checker) infer(expr syntax.Expr) (types.Type, ir.Core) {
 			return &types.TyError{S: e.S}, &ir.Var{Name: e.Op, S: e.S}
 		}
 		opTy, opCore := ch.instantiate(opTy, &ir.Var{Name: e.Op, Module: opMod, S: e.S})
-		arg1Ty, ret1Ty := ch.matchArrow(opTy, e.S)
-		arg1Core := ch.check(e.Left, arg1Ty)
-		arg2Ty, ret2Ty := ch.matchArrow(ret1Ty, e.S)
-		arg2Core := ch.check(e.Right, arg2Ty)
-		return ret2Ty, &ir.App{
-			Fun: &ir.App{Fun: opCore, Arg: arg1Core, S: e.S},
-			Arg: arg2Core,
-			S:   e.S,
-		}
+		ret1Ty, app1Core := ch.inferApply(opTy, opCore, e.Left, e.S)
+		return ch.inferApply(ret1Ty, app1Core, e.Right, e.S)
 
 	case *syntax.ExprBlock:
 		return ch.inferBlock(e)
