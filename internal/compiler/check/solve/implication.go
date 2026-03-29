@@ -12,9 +12,7 @@ import (
 //
 // GADT branches currently use CheckWithLocalScope which handles DK body
 // checking inline. This function processes pre-collected Wanteds (no DK
-// interleaving), so SolverLevel is set immediately. It will be activated
-// once EnterGenerationScope / ExitGenerationScope collect body constraints
-// and the checker wraps them as CtImplication wanteds.
+// interleaving), so SolverLevel is set immediately.
 func (s *Solver) processCtImplication(ct *CtImplication, outerResolutions map[string]ir.Core) {
 	savedWorklist := s.SaveWorklist()
 
