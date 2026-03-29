@@ -60,6 +60,7 @@ Commands:
   check    Type-check a GICEL program
   docs     List topics, or show a topic (docs <topic>)
   example  List examples, or show source (example <name>)
+  version  Print version information
 
 Flags (run, check):
   --packs <list>   Packs: prelude,fail,state,io,stream,slice,map,set,array,ref,mmap,mset,json,console (default: all)
