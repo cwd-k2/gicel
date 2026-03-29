@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"sync"
 )
 
 // WriteTypeKey writes a canonical, injective structural key for a type.
@@ -105,24 +106,34 @@ func WriteTypeKey(b *strings.Builder, t Type) {
 	}
 }
 
+var builderPool = sync.Pool{
+	New: func() any { return &strings.Builder{} },
+}
+
 // TypeKey returns the canonical structural key for a type as a string.
 func TypeKey(t Type) string {
-	var b strings.Builder
-	WriteTypeKey(&b, t)
-	return b.String()
+	b := builderPool.Get().(*strings.Builder)
+	b.Reset()
+	WriteTypeKey(b, t)
+	s := b.String()
+	builderPool.Put(b)
+	return s
 }
 
 // TypeListKey serializes a prefix followed by type arguments into a canonical key.
 // Each argument is preceded by the given separator byte.
 func TypeListKey(prefix string, sep byte, args []Type) string {
-	var b strings.Builder
+	b := builderPool.Get().(*strings.Builder)
+	b.Reset()
 	b.Grow(len(prefix) + len(args)*16)
 	b.WriteString(prefix)
 	for _, a := range args {
 		b.WriteByte(sep)
-		WriteTypeKey(&b, a)
+		WriteTypeKey(b, a)
 	}
-	return b.String()
+	s := b.String()
+	builderPool.Put(b)
+	return s
 }
 
 func writeEvidenceRowKey(b *strings.Builder, row *TyEvidenceRow) {
