@@ -119,6 +119,7 @@ func RunSandbox(source string, cfg *SandboxConfig) (result *RunResult, err error
 	defer cancel()
 
 	eng := NewEngine()
+	eng.DenyAssumptions()
 	eng.SetCompileContext(ctx)
 	eng.SetStepLimit(maxSteps)
 	eng.SetDepthLimit(maxDepth)

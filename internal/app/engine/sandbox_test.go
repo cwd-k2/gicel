@@ -145,6 +145,23 @@ main := reverse (replicate 500 1)
 	}
 }
 
+func TestSandboxDenyAssumptions(t *testing.T) {
+	_, err := RunSandbox(`
+import Prelude
+myPrim :: Int -> Int
+myPrim := assumption
+main := myPrim 42
+`, &SandboxConfig{
+		Packs: []registry.Pack{stdlib.Prelude},
+	})
+	if err == nil {
+		t.Fatal("expected compile error: assumption should be denied in sandbox")
+	}
+	if !strings.Contains(err.Error(), "assumption") {
+		t.Fatalf("expected assumption-related error, got: %v", err)
+	}
+}
+
 func TestSandboxRunAllPacks(t *testing.T) {
 	result, err := RunSandbox("import Prelude\nmain := showInt (foldl (\\acc x. acc + x) 0 (Cons 1 (Cons 2 (Cons 3 Nil))))", &SandboxConfig{
 		Packs: []registry.Pack{stdlib.Prelude},

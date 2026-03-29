@@ -6,7 +6,7 @@ form Ordering := { LT: Ordering; EQ: Ordering; GT: Ordering; }
 form Mult := { Zero: Mult; Linear: Mult; Affine: Mult; Unrestricted: Mult; }
 
 form GradeAlgebra := \(g: Kind). {
-  type GradeJoin :: g -> g;
+  type GradeJoin :: g -> g -> g;
   type GradeDrop :: g
 }
 
