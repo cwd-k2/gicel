@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"runtime"
 
 	"github.com/cwd-k2/gicel/internal/infra/budget"
 	"github.com/cwd-k2/gicel/internal/infra/span"
@@ -326,9 +325,9 @@ func (vm *VM) applyForPrim(fn eval.Value, arg eval.Value, capEnv eval.CapEnv) (e
 func (vm *VM) callPrim(impl eval.PrimImpl, capEnv eval.CapEnv, args []eval.Value) (val eval.Value, newCap eval.CapEnv, err error) {
 	defer func() {
 		if r := recover(); r != nil {
-			buf := make([]byte, 4096)
-			n := runtime.Stack(buf, false)
-			val, newCap, err = nil, capEnv, fmt.Errorf("primitive panicked: %v\n%s", r, buf[:n])
+			// Sanitize: do not include stack traces in user-facing errors.
+			// Stack traces leak filesystem paths, Go version, and memory addresses.
+			val, newCap, err = nil, capEnv, fmt.Errorf("primitive panicked: internal error")
 		}
 	}()
 	val, newCap, err = impl(vm.ctx, capEnv, args, vm.cachedApplier)
