@@ -10,6 +10,7 @@
 - **Exhaustiveness fallbacks.** Documented conservative "covered" assumption for deep patterns (>32 levels) and opaque types, with runtime safety net.
 - **Grade system.** Documented `GradeJoin` arity inconsistency between class declaration (`g → g`) and binary enforcement usage. Documented grade enforcement skip when `GradeAlgebra` instance is not found. Corrected "Multiplicity enforcement" from future extension to implemented; "Multiplicity polymorphism" is the remaining extension.
 - **sandbox.go comment.** Aligned timeout scope description with actual behavior.
+- **Row type family example.** Renamed `row-merge.gicel` → `row-typefamily.gicel` with examples for all three builtin row type families (`Merge`, `Without`, `Lookup`).
 
 ## v0.21.1 — 2026-03-30
 

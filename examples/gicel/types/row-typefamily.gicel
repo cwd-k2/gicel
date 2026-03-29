@@ -1,0 +1,62 @@
+-- GICEL Example: Row Type Families (Merge, Without, Lookup)
+--
+-- Three builtin type families operate on capability rows at the type level:
+--   Merge   :: Row -> Row -> Row     — disjoint merge (overlap is compile error)
+--   Without :: Label -> Row -> Row   — remove a label
+--   Lookup  :: Label -> Row -> Type  — extract the type at a label
+--
+-- Run: bin/gicel run examples/gicel/types/row-typefamily.gicel
+
+import Prelude
+
+-- ── Merge ──────────────────────────────────────────────────
+
+-- Merge two disjoint row types.
+type Combined :: Row := Merge { a: Int } { b: Bool }
+
+-- A function accepting the merged row.
+useCombined :: Combined -> Int
+useCombined := \_ . 42
+
+-- Merge result unifies with the concrete row { a: Int, b: Bool }.
+useConcrete :: { a: Int, b: Bool } -> Int
+useConcrete := useCombined
+
+-- ── Without ────────────────────────────────────────────────
+
+-- Remove label #a from a row.
+type Remaining :: Row := Without #a { a: Int, b: Bool, c: String }
+
+-- Result is { b: Bool, c: String }.
+useRemaining :: Remaining -> Bool
+useRemaining := \r. r.#b
+
+checkWithout :: { b: Bool, c: String } -> Bool
+checkWithout := useRemaining
+
+-- ── Lookup ─────────────────────────────────────────────────
+
+-- Extract the type at label #b.
+type FieldB :: Type := Lookup #b { a: Int, b: Bool, c: String }
+
+-- FieldB reduces to Bool.
+useFieldB :: FieldB -> Bool
+useFieldB := \x. x
+
+checkLookup :: Bool -> Bool
+checkLookup := useFieldB
+
+-- ── Combining them ─────────────────────────────────────────
+
+-- Build a row, query it, then strip a label.
+type Full :: Row := Merge { x: Int } { y: String, z: Bool }
+type XType :: Type := Lookup #x Full              -- Int
+type NoX :: Row := Without #x Full                -- { y: String, z: Bool }
+
+extractX :: XType -> Int
+extractX := \n. n
+
+useNoX :: NoX -> String
+useNoX := \r. r.#y
+
+main := 42
