@@ -62,24 +62,9 @@ Commands:
   example  List examples, or show source (example <name>)
   version  Print version information
 
-Flags (run, check):
-  --packs <list>   Packs: prelude,fail,state,io,stream,slice,map,set,array,ref,mmap,mset,json,console (default: all)
-  --module Name=path  Register a user module (repeatable)
-  --recursion      Enable recursive definitions (fix/rec)
-  -e <source>      Evaluate source string directly
+Use 'gicel <command> --help' for flag details.
 
-Flags (run only):
-  --entry <name>   Entry point binding (default: main)
-  --timeout <dur>  Execution timeout (default: 5s)
-  --max-steps <n>    Step limit (default: 100000)
-  --max-depth <n>    Depth limit (default: 10000)
-  --max-nesting <n>  Structural nesting depth limit (default: 512)
-  --max-alloc <n>    Allocation byte limit (default: 100 MiB)
-  --json           Output result as JSON
-  --explain        Show semantic evaluation trace
-  --explain-all    Trace stdlib internals (with --explain)
-  --verbose        Show source context in explain trace
-  --no-color       Disable color output`)
+Packs: prelude,fail,state,io,stream,slice,map,set,array,ref,mmap,mset,json,console`)
 }
 
 func printRunUsage(w io.Writer) {
