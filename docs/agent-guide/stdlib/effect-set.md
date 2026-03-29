@@ -14,7 +14,7 @@ Provides mutable ordered sets backed by AVL trees (internally MMap k ()), gated 
 | `toList`       | `\k r. MSet k -> Effect { mset: () \| r } (List k)`                    | Sorted element list                 |
 | `fromList`     | `\k r. Ord k => List k -> Effect { mset: () \| r } (MSet k)`           | Build from list                     |
 | `fold`         | `\k b r. (b -> k -> b) -> b -> MSet k -> Effect { mset: () \| r } b`   | Left fold over elements             |
-| `union`        | `\k r. Ord k => MSet k -> MSet k -> Effect { mset: () \| r } (MSet k)` | Union (mutates first set in-place)  |
+| `union`        | `\k r. Ord k => MSet k -> MSet k -> Effect { mset: () \| r } (MSet k)` | Union (returns new set)             |
 | `intersection` | `\k r. Ord k => MSet k -> MSet k -> Effect { mset: () \| r } (MSet k)` | Intersection (returns new set)      |
 | `difference`   | `\k r. Ord k => MSet k -> MSet k -> Effect { mset: () \| r } (MSet k)` | Difference a \\ b (returns new set) |
 
@@ -22,6 +22,6 @@ Provides mutable ordered sets backed by AVL trees (internally MMap k ()), gated 
 
 - Backed by `MMap k ()` internally, mirroring how `Data.Set` backs on `Data.Map`.
 - All operations are effectful.
-- `union` mutates the first set in-place; `intersection` and `difference` return new sets.
+- `union`, `intersection`, and `difference` return new sets; operands are unchanged.
 
 > **Tip:** Use qualified imports: `import Effect.Set as MSet`.
