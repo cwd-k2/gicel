@@ -128,6 +128,15 @@ func (p *Parser) parseAtom() syn.Expr {
 	switch p.peek().Kind {
 	case syn.TokLower:
 		tok := p.peek()
+		// Detect Haskell-style keywords used in expression position.
+		if tok.Text == "let" {
+			p.errors.Add(&diagnostic.Error{
+				Code: diagnostic.ErrUnexpectedToken, Phase: diagnostic.PhaseParse, Span: tok.S,
+				Message: "unknown keyword 'let'; use { name := expr; body } for local bindings",
+			})
+			p.advance()
+			return nil
+		}
 		p.advance()
 		e = &syn.ExprVar{Name: tok.Text, S: tok.S}
 	case syn.TokUpper:
