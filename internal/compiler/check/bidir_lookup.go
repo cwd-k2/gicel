@@ -218,18 +218,33 @@ func (ch *Checker) inferList(e *syntax.ExprList) (types.Type, ir.Core) {
 }
 
 // suggestVar returns hint(s) for an unbound variable by searching the context
-// for similar names.
+// for similar names. Candidates are filtered by category: variable names are
+// only matched against variables, operators only against operators.
 func (ch *Checker) suggestVar(name string) []diagnostic.Hint {
+	nameIsIdent := isIdentName(name)
 	seen := make(map[string]bool)
 	var candidates []string
 	ch.ctx.Scan(func(entry CtxEntry) bool {
 		if v, ok := entry.(*CtxVar); ok && !seen[v.Name] && v.Name != "" && !env.IsPrivateName(v.Name) {
-			seen[v.Name] = true
-			candidates = append(candidates, v.Name)
+			// Only suggest same-category names (ident↔ident, op↔op).
+			if isIdentName(v.Name) == nameIsIdent {
+				seen[v.Name] = true
+				candidates = append(candidates, v.Name)
+			}
 		}
 		return true
 	})
 	return suggestHints(name, candidates)
+}
+
+// isIdentName returns true if the name starts with a letter or underscore
+// (i.e., is a variable/function name, not an operator symbol).
+func isIdentName(name string) bool {
+	if name == "" {
+		return false
+	}
+	c := name[0]
+	return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_'
 }
 
 // suggestCon returns hint(s) for an unknown constructor by searching the registry.

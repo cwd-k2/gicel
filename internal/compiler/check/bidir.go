@@ -160,7 +160,12 @@ func (ch *Checker) infer(expr syntax.Expr) (types.Type, ir.Core) {
 		// Desugar: a op b → App(App(Var(op), a), b)
 		opTy, opMod, ok := ch.ctx.LookupVarFull(e.Op)
 		if !ok {
-			ch.addCodedError(diagnostic.ErrUnboundVar, e.S, "unbound operator: "+e.Op)
+			msg := "unbound operator: " + e.Op
+			if hints := ch.suggestVar(e.Op); len(hints) > 0 {
+				ch.addCodedErrorWithHints(diagnostic.ErrUnboundVar, e.S, msg, hints)
+			} else {
+				ch.addCodedError(diagnostic.ErrUnboundVar, e.S, msg)
+			}
 			return &types.TyError{S: e.S}, &ir.Var{Name: e.Op, S: e.S}
 		}
 		opTy, opCore := ch.instantiate(opTy, &ir.Var{Name: e.Op, Module: opMod, S: e.S})
