@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.21.1 — 2026-03-30
+
+### Bug Fixes
+
+- **Type family soundness.** Stuck type family equations (`CtFunEq`) whose reduced result conflicted with an already-solved meta were silently swallowed when `OnFailure` was nil (non-grade families). Programs like `f :: P s -> P (Opp s)` could accept `P Active` where `P Inactive` was required. Now reports `ErrTypeMismatch`. Additionally, `zonkInner` tries single-node type family reduction after resolving metas inside `TyFamilyApp` (defense-in-depth).
+- **Label variable (`@l`) runtime crashes.** Label erasure only handled concrete label literals (`@#foo`), leaving type variable labels (`@l`) unerased. This caused `non-exhaustive pattern match` crashes when a function with `\(l: Label)` used `@l` in its body. Fixed with context-aware label erasure that lowers `TyLam{l: Label}` → `Lam` and `TyApp{_, TyVar{l}}` → `App{_, Var}` when the body references the label variable.
+- **Compile-time `@#label` detection (E0228).** Named capability functions (`*At`) called without `@#label` now produce a compile-time error instead of deferring to the runtime guard. The checker walks Core IR after type checking to find unsolved Label-kinded metas in `TyApp` nodes. Polymorphic wrappers and phantom label parameters are excluded.
+
 ## v0.21.0 — 2026-03-30
 
 ### Named Capabilities for Mutable Effects
