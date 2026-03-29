@@ -1,0 +1,99 @@
+-- GICEL Example: Point-Free Style and Function Composition
+--
+-- Demonstrates partial application, operator sections, function
+-- composition (.), flip, const, on, and pipeline-style programming.
+-- Run: bin/gicel run --recursion examples/gicel/patterns/pointfree.gicel
+
+import Prelude
+import Console
+
+-- ── Partial application ──────────────────────────────────────
+
+add3 := (+ 3)                          -- section: \x. x + 3
+double := (* 2)                        -- section: \x. x * 2
+isPositive := (> 0)                    -- section: \x. x > 0
+prepend := (<> " world")               -- section: \x. x <> " world"
+
+-- ── Function composition (.) ─────────────────────────────────
+
+doubleAdd3 := add3 . double            -- \x. (x * 2) + 3
+showLen := show . length               -- \xs. show (length xs)
+negateDouble := negate . double         -- \x. negate (x * 2)
+
+-- ── Pipelines with ($) ──────────────────────────────────────
+
+pipeline := show $ negate $ double $ add3 7   -- "negate (double (add3 7))"
+
+-- ── Point-free list processing ───────────────────────────────
+
+-- filter-map-fold without naming the list
+sumPositiveDoubles := foldl (+) 0 . map double . filter isPositive
+
+-- count items satisfying predicate
+countWhere := \p. length . filter p
+
+-- check if all elements satisfy a predicate
+allSatisfy := \p xs. foldl (\acc x. acc && p x) True xs
+
+-- compose multiple transforms
+transform := map show . map double . filter isPositive . map (+ 1)
+
+-- ── Higher-order combinators ─────────────────────────────────
+
+-- flip: swap first two arguments
+reverseConcat := flip (<>)             -- \a b. b <> a
+descendSort := sortBy (flip compare)   -- sort descending
+
+-- const: ignore second argument
+alwaysTrue := const True               -- \_ -> True
+ones := map (const 1)                  -- replace all with 1
+
+-- on: compare by projection
+compareLength := on compare length      -- \xs ys. compare (length xs) (length ys)
+sortByLength := sortBy (on compare length)
+
+-- ── Composed predicates ──────────────────────────────────────
+
+isEven := \x. mod x 2 == 0
+isSmall := (< 10)
+
+-- combine predicates (no special syntax — use lambdas)
+isBoth := \p q x. p x && q x
+isSmallEven := isBoth isSmall isEven
+
+-- ── Demo ─────────────────────────────────────────────────────
+
+nums := [negate 3, negate 1, 0, 2, 5, 7, 10, 12]
+
+main := do {
+  -- sections
+  putLine $ "add3 7:        " <> show (add3 7);
+  putLine $ "double 5:      " <> show (double 5);
+  putLine $ "prepend:       " <> prepend "hello";
+
+  -- composition
+  putLine $ "doubleAdd3 4:  " <> show (doubleAdd3 4);
+  putLine $ "showLen:       " <> showLen [1, 2, 3];
+  putLine $ "negateDouble:  " <> show (negateDouble 5);
+
+  -- pipeline
+  putLine $ "pipeline:      " <> pipeline;
+
+  -- point-free list ops
+  putLine $ "sumPosDbl:     " <> show (sumPositiveDoubles nums);
+  putLine $ "countPos:      " <> show (countWhere isPositive nums);
+  putLine $ "transform:     " <> show (transform nums);
+
+  -- flip / const
+  putLine $ "reverseConcat: " <> reverseConcat "world" "hello ";
+  putLine $ "ones:          " <> show (ones [10, 20, 30]);
+
+  -- sortBy with composed comparator
+  putLine $ "descSort:      " <> show (descendSort [3, 1, 4, 1, 5, 9]);
+
+  -- on: compare by projection
+  putLine $ "cmpLen:        " <> show (compareLength [1,2] [1,2,3]);
+
+  -- combined predicate
+  putLine $ "smallEven:     " <> show (filter isSmallEven nums)
+}
