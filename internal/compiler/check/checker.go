@@ -201,6 +201,7 @@ type ConstraintInfo = env.ConstraintInfo
 func Check(prog *syntax.AstProgram, source *span.Source, config *CheckConfig) (*ir.Program, *diagnostic.Errors) {
 	ch := newChecker(prog, source, config)
 	coreProgram := ch.checkDecls(prog.Decls)
+	ch.validateLabelArgs(coreProgram)
 	return coreProgram, ch.errors
 }
 
@@ -208,6 +209,7 @@ func Check(prog *syntax.AstProgram, source *span.Source, config *CheckConfig) (*
 func CheckModule(prog *syntax.AstProgram, source *span.Source, config *CheckConfig) (*ir.Program, *ModuleExports, *diagnostic.Errors) {
 	ch := newChecker(prog, source, config)
 	coreProgram := ch.checkDecls(prog.Decls)
+	ch.validateLabelArgs(coreProgram)
 	exports := ch.ExportModule(coreProgram)
 	return coreProgram, exports, ch.errors
 }
