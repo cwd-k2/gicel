@@ -1,6 +1,6 @@
 // Name resolution for type expressions — unqualified and qualified type names.
-// Does NOT cover: variable lookup (bidir_lookup.go), raw alias/family
-// primitives (checker_lookup.go).
+// Methods on *typeResolver; wired via resolve_bridge.go.
+// Does NOT cover: variable lookup (bidir_lookup.go).
 package check
 
 import (
@@ -12,18 +12,18 @@ import (
 // resolveUnqualifiedTypeCon resolves an unqualified type constructor name.
 // Handles zero-arity alias expansion, zero-arity type family expansion,
 // and strict mode validation.
-func (ch *Checker) resolveUnqualifiedTypeCon(name string, s span.Span) types.Type {
+func (r *typeResolver) resolveUnqualifiedTypeCon(name string, s span.Span) types.Type {
 	// Zero-arity alias: expand inline.
-	if info, ok := ch.lookupAlias(name); ok && len(info.Params) == 0 {
+	if info, ok := r.lookupAlias(name); ok && len(info.Params) == 0 {
 		return info.Body
 	}
 	// Zero-arity type family: immediate TyFamilyApp.
-	if fam, ok := ch.lookupFamily(name); ok && len(fam.Params) == 0 {
+	if fam, ok := r.lookupFamily(name); ok && len(fam.Params) == 0 {
 		return &types.TyFamilyApp{Name: name, Args: nil, Kind: fam.ResultKind, S: s}
 	}
 	// Strict mode: validate that the type constructor is known.
-	if ch.strictTypeNames && !ch.isKnownTypeName(name) {
-		ch.addCodedError(diagnostic.ErrUnboundCon, s, "unknown type: "+name)
+	if *r.strictTypeNames && !r.isKnownTypeName(name) {
+		r.addCodedError(diagnostic.ErrUnboundCon, s, "unknown type: "+name)
 		return &types.TyError{S: s}
 	}
 	return types.ConAt(name, s)
@@ -32,10 +32,10 @@ func (ch *Checker) resolveUnqualifiedTypeCon(name string, s span.Span) types.Typ
 // resolveQualifiedTypeCon resolves a qualified type constructor name (Mod.Name).
 // Looks up the qualifier in scope, then checks aliases, families, types, and
 // promoted constructors in the module's exports.
-func (ch *Checker) resolveQualifiedTypeCon(qualifier, name string, s span.Span) types.Type {
-	qs, ok := ch.scope.LookupQualified(qualifier)
+func (r *typeResolver) resolveQualifiedTypeCon(qualifier, name string, s span.Span) types.Type {
+	qs, ok := r.scope.LookupQualified(qualifier)
 	if !ok {
-		ch.addCodedError(diagnostic.ErrImport, s, "unknown qualifier: "+qualifier)
+		r.addCodedError(diagnostic.ErrImport, s, "unknown qualifier: "+qualifier)
 		return &types.TyError{S: s}
 	}
 	// Aliases: zero-arity → expand inline; parameterized → inject into scope.
@@ -43,7 +43,7 @@ func (ch *Checker) resolveQualifiedTypeCon(qualifier, name string, s span.Span) 
 		if len(info.Params) == 0 {
 			return info.Body
 		}
-		ch.scope.InjectAlias(name, info)
+		r.scope.InjectAlias(name, info)
 		return types.ConAt(name, s)
 	}
 	// Type families: zero-arity → immediate; parameterized → inject into scope.
@@ -51,7 +51,7 @@ func (ch *Checker) resolveQualifiedTypeCon(qualifier, name string, s span.Span) 
 		if len(fam.Params) == 0 {
 			return &types.TyFamilyApp{Name: name, Args: nil, Kind: fam.ResultKind, S: s}
 		}
-		ch.scope.InjectFamily(name, fam.Clone())
+		r.scope.InjectFamily(name, fam.Clone())
 		return types.ConAt(name, s)
 	}
 	// Module-defined types (data declarations, class types).
@@ -65,7 +65,7 @@ func (ch *Checker) resolveQualifiedTypeCon(qualifier, name string, s span.Span) 
 	if _, ok := qs.Exports.PromotedCons[name]; ok {
 		return types.ConAt(name, s)
 	}
-	ch.addCodedError(diagnostic.ErrImport, s,
+	r.addCodedError(diagnostic.ErrImport, s,
 		"module "+qs.ModuleName+" does not export type: "+name)
 	return &types.TyError{S: s}
 }
@@ -93,26 +93,26 @@ var builtinTypeNames = map[string]bool{
 // isKnownTypeName returns true if name refers to a known type: registered type,
 // parameterized alias, parameterized type family, class, promoted kind/constructor,
 // or checker-intrinsic type (Computation, Thunk).
-func (ch *Checker) isKnownTypeName(name string) bool {
+func (r *typeResolver) isKnownTypeName(name string) bool {
 	if builtinTypeNames[name] {
 		return true
 	}
-	if _, ok := ch.reg.LookupTypeKind(name); ok {
+	if _, ok := r.reg.LookupTypeKind(name); ok {
 		return true
 	}
-	if _, ok := ch.lookupAlias(name); ok {
+	if _, ok := r.lookupAlias(name); ok {
 		return true
 	}
-	if _, ok := ch.lookupFamily(name); ok {
+	if _, ok := r.lookupFamily(name); ok {
 		return true
 	}
-	if _, ok := ch.reg.LookupClass(name); ok {
+	if _, ok := r.reg.LookupClass(name); ok {
 		return true
 	}
-	if ch.reg.HasPromotedKind(name) {
+	if r.reg.HasPromotedKind(name) {
 		return true
 	}
-	if ch.reg.HasPromotedCon(name) {
+	if r.reg.HasPromotedCon(name) {
 		return true
 	}
 	return false

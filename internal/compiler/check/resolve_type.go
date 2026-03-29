@@ -9,28 +9,28 @@ import (
 	"github.com/cwd-k2/gicel/internal/lang/types"
 )
 
-func (ch *Checker) resolveTypeExpr(texpr syntax.TypeExpr) types.Type {
+func (r *typeResolver) resolveTypeExpr(texpr syntax.TypeExpr) types.Type {
 	switch t := texpr.(type) {
 	case *syntax.TyExprVar:
 		return &types.TyVar{Name: t.Name, S: t.S}
 	case *syntax.TyExprCon:
-		return ch.resolveUnqualifiedTypeCon(t.Name, t.S)
+		return r.resolveUnqualifiedTypeCon(t.Name, t.S)
 	case *syntax.TyExprQualCon:
-		return ch.resolveQualifiedTypeCon(t.Qualifier, t.Name, t.S)
+		return r.resolveQualifiedTypeCon(t.Qualifier, t.Name, t.S)
 	case *syntax.TyExprApp:
-		fun := ch.resolveTypeExpr(t.Fun)
-		arg := ch.resolveTypeExpr(t.Arg)
+		fun := r.resolveTypeExpr(t.Fun)
+		arg := r.resolveTypeExpr(t.Arg)
 		// Recognize Computation and Thunk constructor application.
-		result := ch.tryExpandApp(fun, arg, t.S)
+		result := r.tryExpandApp(fun, arg, t.S)
 		if result != nil {
 			return result
 		}
-		ch.checkTypeAppKind(fun, arg, t.S)
+		r.checkTypeAppKind(fun, arg, t.S)
 		return &types.TyApp{Fun: fun, Arg: arg, S: t.S}
 	case *syntax.TyExprArrow:
 		return &types.TyArrow{
-			From: ch.resolveTypeExpr(t.From),
-			To:   ch.resolveTypeExpr(t.To),
+			From: r.resolveTypeExpr(t.From),
+			To:   r.resolveTypeExpr(t.To),
 			S:    t.S,
 		}
 	case *syntax.TyExprForall:
@@ -39,17 +39,17 @@ func (ch *Checker) resolveTypeExpr(texpr syntax.TypeExpr) types.Type {
 		var kindVarNames []string
 		for _, b := range t.Binders {
 			if con, ok := b.Kind.(*syntax.TyExprCon); ok && con.Name == "Kind" {
-				ch.reg.SetKindVar(b.Name)
+				r.reg.SetKindVar(b.Name)
 				kindVarNames = append(kindVarNames, b.Name)
 			}
 		}
-		ty := ch.resolveTypeExpr(t.Body)
+		ty := r.resolveTypeExpr(t.Body)
 		for i := len(t.Binders) - 1; i >= 0; i-- {
-			kind := ch.resolveKindExpr(t.Binders[i].Kind)
+			kind := r.resolveKindExpr(t.Binders[i].Kind)
 			ty = &types.TyForall{Var: t.Binders[i].Name, Kind: kind, Body: ty, S: t.S}
 		}
 		for _, name := range kindVarNames {
-			ch.reg.UnsetKindVar(name)
+			r.reg.UnsetKindVar(name)
 		}
 		return ty
 	case *syntax.TyExprRow:
@@ -57,15 +57,15 @@ func (ch *Checker) resolveTypeExpr(texpr syntax.TypeExpr) types.Type {
 		var fields []types.RowField
 		for _, f := range t.Fields {
 			if seen[f.Label] {
-				ch.addCodedError(diagnostic.ErrDuplicateLabel, f.S, fmt.Sprintf("duplicate label %q in record type", f.Label))
+				r.addCodedError(diagnostic.ErrDuplicateLabel, f.S, fmt.Sprintf("duplicate label %q in record type", f.Label))
 				continue
 			}
 			seen[f.Label] = true
 			var grades []types.Type
 			if f.Mult != nil {
-				grades = []types.Type{ch.resolveTypeExpr(f.Mult)}
+				grades = []types.Type{r.resolveTypeExpr(f.Mult)}
 			}
-			fields = append(fields, types.RowField{Label: f.Label, Type: ch.resolveTypeExpr(f.Type), Grades: grades, S: f.S})
+			fields = append(fields, types.RowField{Label: f.Label, Type: r.resolveTypeExpr(f.Type), Grades: grades, S: f.S})
 		}
 		var tail types.Type
 		if t.Tail != nil {
@@ -82,16 +82,16 @@ func (ch *Checker) resolveTypeExpr(texpr syntax.TypeExpr) types.Type {
 		// No evidence dictionary is generated; the CtEq is emitted when
 		// the constraint is instantiated (forall variables → metas).
 		if eq, ok := t.Constraint.(*syntax.TyExprEq); ok {
-			body := ch.resolveTypeExpr(t.Body)
-			lhs := ch.resolveTypeExpr(eq.Lhs)
-			rhs := ch.resolveTypeExpr(eq.Rhs)
+			body := r.resolveTypeExpr(t.Body)
+			lhs := r.resolveTypeExpr(eq.Lhs)
+			rhs := r.resolveTypeExpr(eq.Rhs)
 			entry := types.ConstraintEntry{IsEquality: true, EqLhs: lhs, EqRhs: rhs, S: eq.S}
 			return qualifyBody(entry, body, t.S)
 		}
-		body := ch.resolveTypeExpr(t.Body)
-		constraint := ch.resolveTypeExpr(t.Constraint)
+		body := r.resolveTypeExpr(t.Body)
+		constraint := r.resolveTypeExpr(t.Constraint)
 		// Quantified constraint: (\ a. C1 a => C2 (f a)) => T
-		if qc := ch.decomposeQuantifiedConstraint(constraint); qc != nil {
+		if qc := r.decomposeQuantifiedConstraint(constraint); qc != nil {
 			entry := types.ConstraintEntry{
 				ClassName:  qc.Head.ClassName,
 				Args:       qc.Head.Args,
@@ -106,26 +106,26 @@ func (ch *Checker) resolveTypeExpr(texpr syntax.TypeExpr) types.Type {
 			entry := types.ConstraintEntry{ClassName: con.Name, Args: args, S: t.S}
 			return qualifyBody(entry, body, t.S)
 		}
-		ch.addCodedError(diagnostic.ErrNoInstance, t.S, "invalid constraint: "+types.Pretty(constraint))
+		r.addCodedError(diagnostic.ErrNoInstance, t.S, "invalid constraint: "+types.Pretty(constraint))
 		return body
 	case *syntax.TyExprEq:
 		// Equality constraint outside of a qualified type position.
 		// Resolve both sides; the checker will process it contextually.
-		lhs := ch.resolveTypeExpr(t.Lhs)
-		rhs := ch.resolveTypeExpr(t.Rhs)
+		lhs := r.resolveTypeExpr(t.Lhs)
+		rhs := r.resolveTypeExpr(t.Rhs)
 		// Emit immediately — this handles edge cases where ~ appears
 		// outside constraint position (e.g. in standalone type expressions).
-		ch.emitEq(lhs, rhs, t.S, nil)
+		r.emitEq(lhs, rhs, t.S, nil)
 		return types.Con("()")
 	case *syntax.TyExprParen:
-		return ch.resolveTypeExpr(t.Inner)
+		return r.resolveTypeExpr(t.Inner)
 	case *syntax.TyExprLabelLit:
 		// Label literals are type-level constants of kind Label.
 		return &types.TyCon{Name: t.Label, Level: types.L1, IsLabel: true, S: t.S}
 	case *syntax.TyExprError:
 		return &types.TyError{S: t.S}
 	default:
-		ch.addCodedError(diagnostic.ErrTypeMismatch, texpr.Span(), fmt.Sprintf("unsupported type expression: %T", texpr))
+		r.addCodedError(diagnostic.ErrTypeMismatch, texpr.Span(), fmt.Sprintf("unsupported type expression: %T", texpr))
 		return &types.TyError{S: texpr.Span()}
 	}
 }
@@ -154,7 +154,7 @@ func qualifyBody(entry types.ConstraintEntry, body types.Type, s span.Span) *typ
 // decomposeQuantifiedConstraint checks if a resolved type is a quantified constraint
 // (\ vars. context => head) and decomposes it into a QuantifiedConstraint.
 // Returns nil if the type is not a quantified constraint.
-func (ch *Checker) decomposeQuantifiedConstraint(ty types.Type) *types.QuantifiedConstraint {
+func (r *typeResolver) decomposeQuantifiedConstraint(ty types.Type) *types.QuantifiedConstraint {
 	// Peel \ binders.
 	var vars []types.ForallBinder
 	current := ty
@@ -196,7 +196,7 @@ func (ch *Checker) decomposeQuantifiedConstraint(ty types.Type) *types.Quantifie
 
 // tryExpandApp recognizes fully-saturated Computation and Thunk applications
 // and produces the dedicated TyCBPV nodes, and expands type aliases.
-func (ch *Checker) tryExpandApp(fun types.Type, arg types.Type, s span.Span) types.Type {
+func (r *typeResolver) tryExpandApp(fun types.Type, arg types.Type, s span.Span) types.Type {
 	// Computation pre post result: TyApp(TyApp(TyApp(TyCon("Computation"), pre), post), result)
 	if app2, ok := fun.(*types.TyApp); ok {
 		if app1, ok := app2.Fun.(*types.TyApp); ok {
@@ -215,7 +215,7 @@ func (ch *Checker) tryExpandApp(fun types.Type, arg types.Type, s span.Span) typ
 	result := &types.TyApp{Fun: fun, Arg: arg, S: s}
 	head, args := types.UnwindApp(result)
 	if con, ok := head.(*types.TyCon); ok {
-		if info, ok := ch.lookupAlias(con.Name); ok && len(info.Params) == len(args) {
+		if info, ok := r.lookupAlias(con.Name); ok && len(info.Params) == len(args) {
 			body := info.Body
 			for i, p := range info.Params {
 				body = types.Subst(body, p, args[i])
@@ -223,7 +223,7 @@ func (ch *Checker) tryExpandApp(fun types.Type, arg types.Type, s span.Span) typ
 			return body
 		}
 		// Type family: saturated application → TyFamilyApp.
-		if fam, ok := ch.lookupFamily(con.Name); ok && len(fam.Params) == len(args) {
+		if fam, ok := r.lookupFamily(con.Name); ok && len(fam.Params) == len(args) {
 			return &types.TyFamilyApp{Name: con.Name, Args: args, Kind: fam.ResultKind, S: s}
 		}
 	}

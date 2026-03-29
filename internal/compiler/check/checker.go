@@ -157,6 +157,9 @@ type Checker struct {
 
 	// Cached family reduction environment (lazy, constructed on first use).
 	cachedFamilyEnv *family.ReduceEnv
+
+	// Cached type resolver (lazy, constructed on first use).
+	cachedTypeResolver *typeResolver
 }
 
 // checkCancelled checks the budget context for cancellation.

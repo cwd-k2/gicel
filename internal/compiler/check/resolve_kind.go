@@ -10,7 +10,7 @@ import (
 	"github.com/cwd-k2/gicel/internal/lang/types"
 )
 
-func (ch *Checker) resolveKindExpr(k syntax.TypeExpr) types.Type {
+func (r *typeResolver) resolveKindExpr(k syntax.TypeExpr) types.Type {
 	if k == nil {
 		return types.TypeOfTypes
 	}
@@ -28,19 +28,19 @@ func (ch *Checker) resolveKindExpr(k syntax.TypeExpr) types.Type {
 		case "Label":
 			return types.TypeOfLabels
 		default:
-			if ch.reg.IsKindVar(ke.Name) {
+			if r.reg.IsKindVar(ke.Name) {
 				return &types.TyVar{Name: ke.Name}
 			}
-			if pk, ok := ch.reg.LookupPromotedKind(ke.Name); ok {
+			if pk, ok := r.reg.LookupPromotedKind(ke.Name); ok {
 				return pk
 			}
 			// Uppercase names are constructors — unrecognized ones are likely typos.
-			ch.addCodedError(diagnostic.ErrKindMismatch, ke.S,
+			r.addCodedError(diagnostic.ErrKindMismatch, ke.S,
 				fmt.Sprintf("unrecognized kind name %q", ke.Name))
 			return types.TypeOfTypes
 		}
 	case *syntax.TyExprVar:
-		if ch.reg.IsKindVar(ke.Name) {
+		if r.reg.IsKindVar(ke.Name) {
 			return &types.TyVar{Name: ke.Name}
 		}
 		// Lowercase names in kind position are treated as defaulting to Type.
@@ -48,13 +48,13 @@ func (ch *Checker) resolveKindExpr(k syntax.TypeExpr) types.Type {
 		// not explicitly bound as a kind variable.
 		return types.TypeOfTypes
 	case *syntax.TyExprArrow:
-		return &types.TyArrow{From: ch.resolveKindExpr(ke.From), To: ch.resolveKindExpr(ke.To)}
+		return &types.TyArrow{From: r.resolveKindExpr(ke.From), To: r.resolveKindExpr(ke.To)}
 	case *syntax.TyExprParen:
-		return ch.resolveKindExpr(ke.Inner)
+		return r.resolveKindExpr(ke.Inner)
 	case *syntax.TyExprError:
 		return types.TypeOfTypes
 	default:
-		ch.addCodedError(diagnostic.ErrKindMismatch, k.Span(), fmt.Sprintf("unsupported kind expression: %T", k))
+		r.addCodedError(diagnostic.ErrKindMismatch, k.Span(), fmt.Sprintf("unsupported kind expression: %T", k))
 		return types.TypeOfTypes
 	}
 }
@@ -65,15 +65,15 @@ func (ch *Checker) resolveKindExpr(k syntax.TypeExpr) types.Type {
 //  2. The argument kind must match the parameter kind.
 //
 // Skips checking when kinds are indeterminate (metas, unresolved variables).
-func (ch *Checker) checkTypeAppKind(fun, arg types.Type, s span.Span) {
-	if !ch.hasDeterministicKind(arg) {
+func (r *typeResolver) checkTypeAppKind(fun, arg types.Type, s span.Span) {
+	if !r.hasDeterministicKind(arg) {
 		return
 	}
-	funKind := ch.kindOfType(fun)
+	funKind := r.kindOfType(fun)
 	if funKind == nil {
 		return
 	}
-	funKind = ch.unifier.Zonk(funKind)
+	funKind = r.unifier.Zonk(funKind)
 	// Skip if funKind is a meta — kind not yet determined.
 	if _, isMeta := funKind.(*types.TyMeta); isMeta {
 		return
@@ -81,8 +81,8 @@ func (ch *Checker) checkTypeAppKind(fun, arg types.Type, s span.Span) {
 	ka, ok := funKind.(*types.TyArrow)
 	if !ok {
 		// F has a non-arrow kind — report error only when F's kind is reliably known.
-		if ch.hasDeterministicKind(fun) {
-			ch.addCodedError(diagnostic.ErrKindMismatch, s,
+		if r.hasDeterministicKind(fun) {
+			r.addCodedError(diagnostic.ErrKindMismatch, s,
 				fmt.Sprintf("type %s has kind %s and cannot be applied to a type argument",
 					types.Pretty(fun), types.PrettyTypeAsKind(funKind)))
 		}
@@ -95,35 +95,35 @@ func (ch *Checker) checkTypeAppKind(fun, arg types.Type, s span.Span) {
 	if types.Equal(ka.From, types.TypeOfTypes) {
 		return
 	}
-	argKind := ch.kindOfType(arg)
+	argKind := r.kindOfType(arg)
 	if argKind == nil {
 		return
 	}
-	argKind = ch.unifier.Zonk(argKind)
+	argKind = r.unifier.Zonk(argKind)
 	if m, isMeta := argKind.(*types.TyMeta); isMeta && types.Equal(m.Kind, types.SortZero) {
 		return
 	}
-	ch.emitEq(ka.From, argKind, s, solve.WithLazyContext(diagnostic.ErrKindMismatch, func() string {
+	r.emitEq(ka.From, argKind, s, solve.WithLazyContext(diagnostic.ErrKindMismatch, func() string {
 		return "kind mismatch in type application: expected kind " + types.PrettyTypeAsKind(ka.From) + ", got " + types.PrettyTypeAsKind(argKind)
 	}))
 }
 
 // hasDeterministicKind returns true if the type's kind is deterministic
 // (i.e., derived from a registered type constructor, not a defaulted TyVar).
-func (ch *Checker) hasDeterministicKind(ty types.Type) bool {
+func (r *typeResolver) hasDeterministicKind(ty types.Type) bool {
 	switch t := ty.(type) {
 	case *types.TyCon:
-		_, inReg := ch.reg.LookupTypeKind(t.Name)
-		inProm := ch.reg.HasPromotedCon(t.Name)
-		_, isAlias := ch.lookupAlias(t.Name)
-		_, isClass := ch.reg.LookupClass(t.Name)
-		_, isFamily := ch.lookupFamily(t.Name)
+		_, inReg := r.reg.LookupTypeKind(t.Name)
+		inProm := r.reg.HasPromotedCon(t.Name)
+		_, isAlias := r.lookupAlias(t.Name)
+		_, isClass := r.reg.LookupClass(t.Name)
+		_, isFamily := r.lookupFamily(t.Name)
 		return inReg || inProm || isAlias || isClass || isFamily
 	case *types.TyApp:
 		// Recurse on the head to check if it's deterministic.
 		head, _ := types.UnwindApp(ty)
 		if head != ty {
-			return ch.hasDeterministicKind(head)
+			return r.hasDeterministicKind(head)
 		}
 		return false
 	case *types.TyMeta:
@@ -136,8 +136,8 @@ func (ch *Checker) hasDeterministicKind(ty types.Type) bool {
 }
 
 // aliasParamKind returns the kind of the i-th parameter of a type alias.
-func (ch *Checker) aliasParamKind(aliasName string, i int) types.Type {
-	info, ok := ch.lookupAlias(aliasName)
+func (r *typeResolver) aliasParamKind(aliasName string, i int) types.Type {
+	info, ok := r.lookupAlias(aliasName)
 	if !ok || i >= len(info.ParamKinds) {
 		return types.TypeOfTypes
 	}
@@ -145,26 +145,26 @@ func (ch *Checker) aliasParamKind(aliasName string, i int) types.Type {
 }
 
 // kindOfType returns the kind of a resolved type, or nil if unknown.
-func (ch *Checker) kindOfType(ty types.Type) types.Type {
+func (r *typeResolver) kindOfType(ty types.Type) types.Type {
 	switch t := ty.(type) {
 	case *types.TyCon:
-		if k, ok := ch.reg.LookupTypeKind(t.Name); ok {
+		if k, ok := r.reg.LookupTypeKind(t.Name); ok {
 			return k
 		}
 		// Type aliases: compute kind from parameter kinds.
-		if info, ok := ch.lookupAlias(t.Name); ok {
+		if info, ok := r.lookupAlias(t.Name); ok {
 			var kind types.Type = types.TypeOfTypes
 			for i := len(info.Params) - 1; i >= 0; i-- {
-				paramKind := ch.aliasParamKind(t.Name, i)
+				paramKind := r.aliasParamKind(t.Name, i)
 				kind = &types.TyArrow{From: paramKind, To: kind}
 			}
 			return kind
 		}
-		if k, ok := ch.reg.LookupPromotedCon(t.Name); ok {
+		if k, ok := r.reg.LookupPromotedCon(t.Name); ok {
 			return k
 		}
 		// Type classes: kind = paramKind₁ → ... → paramKindₙ → Constraint.
-		if cls, ok := ch.reg.LookupClass(t.Name); ok {
+		if cls, ok := r.reg.LookupClass(t.Name); ok {
 			var kind types.Type = types.TypeOfConstraints
 			for i := len(cls.TyParamKinds) - 1; i >= 0; i-- {
 				kind = &types.TyArrow{From: cls.TyParamKinds[i], To: kind}
@@ -172,7 +172,7 @@ func (ch *Checker) kindOfType(ty types.Type) types.Type {
 			return kind
 		}
 		// Type families: kind = paramKind₁ → ... → paramKindₙ → resultKind.
-		if fam, ok := ch.lookupFamily(t.Name); ok {
+		if fam, ok := r.lookupFamily(t.Name); ok {
 			var kind types.Type = fam.ResultKind
 			for i := len(fam.Params) - 1; i >= 0; i-- {
 				kind = &types.TyArrow{From: fam.Params[i].Kind, To: kind}
@@ -184,7 +184,7 @@ func (ch *Checker) kindOfType(ty types.Type) types.Type {
 		}
 		return types.TypeOfTypes
 	case *types.TyApp:
-		funKind := ch.kindOfType(t.Fun)
+		funKind := r.kindOfType(t.Fun)
 		if ka, ok := funKind.(*types.TyArrow); ok {
 			return ka.To
 		}
@@ -194,7 +194,7 @@ func (ch *Checker) kindOfType(ty types.Type) types.Type {
 	case *types.TySkolem:
 		return t.Kind
 	case *types.TyVar:
-		if k, ok := ch.ctx.LookupTyVar(t.Name); ok {
+		if k, ok := r.lookupTyVar(t.Name); ok {
 			return k
 		}
 		return types.TypeOfTypes
@@ -209,10 +209,10 @@ func (ch *Checker) kindOfType(ty types.Type) types.Type {
 // instead of the value-level kind. For example, a field of type Nat (kind
 // Type at value level) becomes kind Nat (the promoted data kind) at the
 // type level, so that S :: Nat -> Nat rather than S :: Type -> Nat.
-func (ch *Checker) promotedFieldKind(fieldType types.Type) types.Type {
+func (r *typeResolver) promotedFieldKind(fieldType types.Type) types.Type {
 	switch t := fieldType.(type) {
 	case *types.TyCon:
-		if pk, ok := ch.reg.LookupPromotedKind(t.Name); ok {
+		if pk, ok := r.reg.LookupPromotedKind(t.Name); ok {
 			return pk
 		}
 	case *types.TyApp:
@@ -223,7 +223,7 @@ func (ch *Checker) promotedFieldKind(fieldType types.Type) types.Type {
 		// Type variables in promoted context represent kind variables.
 		// Their kind is Type (the default for value-level type vars).
 	}
-	k := ch.kindOfType(fieldType)
+	k := r.kindOfType(fieldType)
 	if k == nil {
 		return types.TypeOfTypes
 	}
