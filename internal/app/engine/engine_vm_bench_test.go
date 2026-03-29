@@ -39,9 +39,9 @@ main := do {
   fix (\loop i.
     if i >= 100
       then pure ()
-      else do { writeAt i (i * i) arr; loop (i + 1) }
+      else do { write i (i * i) arr; loop (i + 1) }
   ) 0;
-  readAt 99 arr
+  read 99 arr
 }
 `
 	rt, err := eng.NewRuntime(context.Background(), source)

@@ -334,12 +334,12 @@ import Prelude
 import Effect.Array
 main := do {
   arr <- new 3 0;
-  writeAt 0 10 arr;
-  writeAt 1 20 arr;
-  writeAt 2 30 arr;
-  v0 <- readAt 0 arr;
-  v1 <- readAt 1 arr;
-  v2 <- readAt 2 arr;
+  write 0 10 arr;
+  write 1 20 arr;
+  write 2 30 arr;
+  v0 <- read 0 arr;
+  v1 <- read 1 arr;
+  v2 <- read 2 arr;
   pure (v0, v1, v2)
 }
 `, gicel.Prelude, gicel.EffectArray)
@@ -350,7 +350,7 @@ main := do {
 	if !ok {
 		t.Fatalf("expected RecordVal, got %T: %v", v, v)
 	}
-	// readAt returns Maybe a — each should be Just n.
+	// read returns Maybe a — each should be Just n.
 	for _, field := range []struct {
 		name string
 		val  int64
@@ -398,12 +398,12 @@ import Prelude
 import Effect.Array
 main := do {
   arr <- new 2 0;
-  writeAt 0 42 arr;
-  writeAt 1 99 arr;
+  write 0 42 arr;
+  write 1 99 arr;
   arr2 <- resize 4 0 arr;
   s := size arr2;
-  v0 <- readAt 0 arr2;
-  v3 <- readAt 3 arr2;
+  v0 <- read 0 arr2;
+  v3 <- read 3 arr2;
   pure (s, v0, v3)
 }
 `, gicel.Prelude, gicel.EffectArray)
@@ -436,7 +436,7 @@ import Prelude
 import Effect.Array
 main := do {
   arr <- new 3 0;
-  readAt 99 arr
+  read 99 arr
 }
 `, gicel.Prelude, gicel.EffectArray)
 	if err != nil {

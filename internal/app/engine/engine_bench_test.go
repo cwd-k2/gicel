@@ -217,9 +217,9 @@ func BenchmarkEngineEndToEndArray(b *testing.B) {
 import Effect.Array
 compute := thunk do {
   arr <- new 100 0;
-  writeAt 0 42 arr;
-  writeAt 50 99 arr;
-  v <- readAt 50 arr;
+  write 0 42 arr;
+  write 50 99 arr;
+  v <- read 50 arr;
   pure v
 }
 main := compute
