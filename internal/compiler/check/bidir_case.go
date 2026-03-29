@@ -199,8 +199,11 @@ func (ch *Checker) checkCaseAlts(scrutTy, resultTy types.Type, scrutCore ir.Core
 	if e.IfDesugar {
 		boolTy := types.Con("Bool")
 		if !ch.tryTrivialUnify(scrutTy, boolTy) {
+			// Capture the actual type eagerly: once emitEq unifies the meta,
+			// a lazy Zonk would return Bool (the expected type), not the actual type.
+			actualPretty := types.Pretty(ch.unifier.Zonk(scrutTy))
 			ch.emitEq(scrutTy, boolTy, e.Scrutinee.Span(), solve.WithLazyContext(0, func() string {
-				return "type mismatch in if-condition: expected Bool, got " + types.Pretty(ch.unifier.Zonk(scrutTy))
+				return "type mismatch in if-condition: expected Bool, got " + actualPretty
 			}))
 		}
 		scrutTy = boolTy
