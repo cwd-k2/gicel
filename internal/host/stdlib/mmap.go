@@ -274,3 +274,25 @@ func mmapAdjustImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, appl
 	}
 	return unitVal, newCe, nil
 }
+
+// withLabelCmpFromHandle wraps a PrimImpl that takes [compare, handle1, handle2, ...]
+// to accept [label, handle1, handle2, ...] instead. The label is dropped and the
+// compare function is extracted from the first handle (a *mutMapVal).
+// Used for binary set/map operations (union, intersection, difference) whose named
+// variants don't receive compare as an argument but need it to construct new handles.
+func withLabelCmpFromHandle(fn eval.PrimImpl) eval.PrimImpl {
+	return func(ctx context.Context, ce eval.CapEnv, args []eval.Value, apply eval.Applier) (eval.Value, eval.CapEnv, error) {
+		hv, ok := args[1].(*eval.HostVal)
+		if !ok {
+			return nil, ce, &eval.RuntimeError{Message: "named binary op: expected HostVal handle"}
+		}
+		m, ok := hv.Inner.(*mutMapVal)
+		if !ok {
+			return nil, ce, &eval.RuntimeError{Message: "named binary op: handle is not a map/set"}
+		}
+		padded := make([]eval.Value, len(args))
+		padded[0] = m.cmp
+		copy(padded[1:], args[1:])
+		return fn(ctx, ce, padded, apply)
+	}
+}

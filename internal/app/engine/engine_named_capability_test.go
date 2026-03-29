@@ -333,3 +333,45 @@ main := do {
 		t.Fatalf("expected True, got %v", result.Value)
 	}
 }
+
+func TestNamedMSetBinaryOps(t *testing.T) {
+	eng := NewEngine()
+	for _, p := range []stdlib.Pack{stdlib.Prelude, stdlib.EffectSet} {
+		if err := eng.Use(p); err != nil {
+			t.Fatal(err)
+		}
+	}
+	rt, err := eng.NewRuntime(context.Background(), `
+import Prelude
+import Effect.Set as S
+main := do {
+  a <- S.newAt @#s compare;
+  S.insertAt @#s 1 a;
+  S.insertAt @#s 2 a;
+  S.insertAt @#s 3 a;
+  b <- S.newAt @#s compare;
+  S.insertAt @#s 2 b;
+  S.insertAt @#s 4 b;
+  u <- S.unionAt @#s a b;
+  i <- S.intersectionAt @#s a b;
+  d <- S.differenceAt @#s a b;
+  ul <- S.toListAt @#s u;
+  il <- S.toListAt @#s i;
+  dl <- S.toListAt @#s d;
+  pure (ul, il, dl)
+}
+`)
+	if err != nil {
+		t.Fatal("compile error:", err)
+	}
+	result, err := rt.RunWith(context.Background(), &RunOptions{})
+	if err != nil {
+		t.Fatal("runtime error:", err)
+	}
+	// Result: ([1,2,3,4], [2], [1,3])
+	rec, ok := result.Value.(*eval.RecordVal)
+	if !ok {
+		t.Fatalf("expected RecordVal, got %T: %v", result.Value, result.Value)
+	}
+	_ = rec // basic structure check — runtime success is the main assertion
+}

@@ -88,18 +88,8 @@ var unitVal = eval.UnitVal
 // the label erasure pass. The named prim ignores it and delegates to the
 // original implementation with the remaining arguments.
 func withLabel(fn eval.PrimImpl) eval.PrimImpl {
-	return withLabelAt(0, fn)
-}
-
-// withLabelAt wraps a PrimImpl to skip the argument at position pos.
-// This is the generalized form for cases where curried arguments from the
-// definition (e.g. compare for ordered collections) precede the label.
-func withLabelAt(pos int, fn eval.PrimImpl) eval.PrimImpl {
 	return func(ctx context.Context, ce eval.CapEnv, args []eval.Value, apply eval.Applier) (eval.Value, eval.CapEnv, error) {
-		stripped := make([]eval.Value, 0, len(args)-1)
-		stripped = append(stripped, args[:pos]...)
-		stripped = append(stripped, args[pos+1:]...)
-		return fn(ctx, ce, stripped, apply)
+		return fn(ctx, ce, args[1:], apply)
 	}
 }
 
@@ -108,35 +98,13 @@ func withLabelAt(pos int, fn eval.PrimImpl) eval.PrimImpl {
 // placeholder is inserted at position 0 so the original impl's arg indices work.
 // Used for named capability variants where the compare function is stored in the
 // data structure handle and args[0] (compare) is never accessed at runtime.
+//
+// INVARIANT: the wrapped fn must not read args[0]. All current consumers
+// (mmapInsertImpl, mmapLookupImpl, etc.) use m.cmp from the handle instead.
 func withLabelNoCompare(fn eval.PrimImpl) eval.PrimImpl {
 	return func(ctx context.Context, ce eval.CapEnv, args []eval.Value, apply eval.Applier) (eval.Value, eval.CapEnv, error) {
-		// args = [label, arg1, arg2, ...]
-		// Original fn expects [compare(unused), arg1, arg2, ...]
 		padded := make([]eval.Value, len(args))
-		padded[0] = nil // dummy compare placeholder (never accessed)
-		copy(padded[1:], args[1:])
-		return fn(ctx, ce, padded, apply)
-	}
-}
-
-// withLabelCmpFromHandle wraps a PrimImpl that takes [compare, handle1, handle2, ...]
-// to accept [label, handle1, handle2, ...] instead. The label is dropped and the
-// compare function is extracted from the first handle (a *mutMapVal).
-// Used for binary set/map operations (union, intersection, difference) whose named
-// variants don't receive compare as an argument but need it to construct new handles.
-func withLabelCmpFromHandle(fn eval.PrimImpl) eval.PrimImpl {
-	return func(ctx context.Context, ce eval.CapEnv, args []eval.Value, apply eval.Applier) (eval.Value, eval.CapEnv, error) {
-		// args = [label, handle_a, handle_b]
-		hv, ok := args[1].(*eval.HostVal)
-		if !ok {
-			return nil, ce, &eval.RuntimeError{Message: "named binary op: expected HostVal handle"}
-		}
-		m, ok := hv.Inner.(*mutMapVal)
-		if !ok {
-			return nil, ce, &eval.RuntimeError{Message: "named binary op: handle is not a map/set"}
-		}
-		padded := make([]eval.Value, len(args))
-		padded[0] = m.cmp
+		padded[0] = nil // dummy compare placeholder (never accessed — see INVARIANT)
 		copy(padded[1:], args[1:])
 		return fn(ctx, ce, padded, apply)
 	}
