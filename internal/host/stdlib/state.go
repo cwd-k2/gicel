@@ -15,6 +15,7 @@ var State Pack = func(e Registrar) error {
 	e.RegisterPrim("put", putImpl)
 	e.RegisterPrim("getAt", getAtImpl)
 	e.RegisterPrim("putAt", putAtImpl)
+	e.RegisterPrim("modifyAt", modifyAtImpl)
 	return e.RegisterModule("Effect.State", stateSource)
 }
 
@@ -70,4 +71,29 @@ func putAtImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Appl
 	}
 	newCe := ce.Set(name, args[1])
 	return unitVal, newCe, nil
+}
+
+// modifyAt :: label -> (s -> s) -> Effect { l: s | r } ()
+func modifyAtImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, apply eval.Applier) (eval.Value, eval.CapEnv, error) {
+	label, ok := args[0].(*eval.HostVal)
+	if !ok {
+		return nil, ce, &eval.RuntimeError{Message: "modifyAt: label argument is not a string"}
+	}
+	name, ok := label.Inner.(string)
+	if !ok {
+		return nil, ce, &eval.RuntimeError{Message: "modifyAt: label argument is not a string"}
+	}
+	v, ok := ce.Get(name)
+	if !ok {
+		return nil, ce, &eval.RuntimeError{Message: "modifyAt: no capability " + name}
+	}
+	val, ok := v.(eval.Value)
+	if !ok {
+		return nil, ce, &eval.RuntimeError{Message: "modifyAt: capability " + name + " is not a Value"}
+	}
+	newVal, newCe, err := apply(args[1], val, ce)
+	if err != nil {
+		return nil, ce, err
+	}
+	return unitVal, newCe.Set(name, newVal), nil
 }

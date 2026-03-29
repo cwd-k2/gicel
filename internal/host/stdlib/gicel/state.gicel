@@ -15,3 +15,6 @@ getAt := assumption
 
 putAt :: \(l: Label) s1 s2 r. s2 -> Computation { l: s1 | r } { l: s2 | r } ()
 putAt := assumption
+
+modifyAt :: \(l: Label) s r. (s -> s) -> Effect { l: s | r } ()
+modifyAt := assumption
