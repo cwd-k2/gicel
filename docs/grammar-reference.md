@@ -2,35 +2,35 @@
 
 ## Lexical Structure
 
-### Keywords (12 + 1 contextual)
+### Keywords (14)
 
-| Keyword  | Purpose                                                                                              |
-| -------- | ---------------------------------------------------------------------------------------------------- |
-| `case`   | Pattern matching                                                                                     |
-| `do`     | Monadic do-block                                                                                     |
-| `form`   | Algebraic form type / type class declaration                                                         |
-| `type`   | Type alias / type family declaration                                                                 |
-| `impl`   | Type class instance declaration                                                                      |
-| `infixl` | Left-associative operator fixity                                                                     |
-| `infixr` | Right-associative operator fixity                                                                    |
-| `infixn` | Non-associative operator fixity                                                                      |
-| `import` | Module import                                                                                        |
-| `if`     | Conditional expression (if-then-else)                                                                |
-| `then`   | Conditional expression (if-then-else)                                                                |
-| `else`   | Conditional expression (if-then-else)                                                                |
-| `as`     | Qualified import alias (contextual — only special after `import`, usable as variable name elsewhere) |
+| Keyword      | Purpose                           |
+| ------------ | --------------------------------- |
+| `case`       | Pattern matching                  |
+| `do`         | Monadic do-block                  |
+| `form`       | Algebraic form type / type class  |
+| `type`       | Type alias / type family          |
+| `impl`       | Type class instance               |
+| `infixl`     | Left-associative operator fixity  |
+| `infixr`     | Right-associative operator fixity |
+| `infixn`     | Non-associative operator fixity   |
+| `import`     | Module import                     |
+| `if`         | Conditional expression            |
+| `then`       | Conditional expression            |
+| `else`       | Conditional expression            |
+| `as`         | Qualified import alias            |
+| `assumption` | Host-provided primitive marker    |
 
 ### Built-in Identifiers
 
-| Identifier   | Role                              | Status           |
-| ------------ | --------------------------------- | ---------------- |
-| `pure`       | Value → Computation (F)           | first-class fn   |
-| `bind`       | Monadic sequencing                | first-class fn   |
-| `thunk`      | Computation → suspended value (U) | term former      |
-| `force`      | Elimination of U                  | term former      |
-| `assumption` | Host-provided primitive marker    | declaration form |
-| `rec`        | Recursive combinator (gated)      | first-class fn   |
-| `fix`        | Value-level fixpoint (gated)      | first-class fn   |
+| Identifier | Role                              | Status         |
+| ---------- | --------------------------------- | -------------- |
+| `pure`     | Value → Computation (F)           | first-class fn |
+| `bind`     | Monadic sequencing                | first-class fn |
+| `thunk`    | Computation → suspended value (U) | term former    |
+| `force`    | Elimination of U                  | term former    |
+| `rec`      | Recursive combinator (gated)      | first-class fn |
+| `fix`      | Value-level fixpoint (gated)      | first-class fn |
 
 ### Punctuation & Operators
 
@@ -55,6 +55,10 @@
 - **Lowercase** `[a-z_][a-zA-Z0-9_']*` — variables, type variables, field labels
 - **Uppercase** `[A-Z][a-zA-Z0-9_']*` — constructors, type constructors, class names
 - **Operators** sequences of `! # $ % & * + - / < = > ? ^ ~ |` (excluding reserved; `:` and `.` are handled specially by the lexer)
+
+### Label Literals
+
+`#name` — a `#` followed by a lowercase identifier. Produces a type-level label of kind `Label`. Used with `@` for named capabilities: `getAt @#counter`, `newAt @#buf 3 0`.
 
 ### Comments
 
@@ -858,17 +862,22 @@ Inside braces (`do`, `case`, block expressions, GADT declarations), semicolons a
 
 ## Built-in Types
 
-| Type                     | Kind                      | Description           |
-| ------------------------ | ------------------------- | --------------------- |
-| `Computation pre post a` | `Row → Row → Type → Type` | Effectful computation |
-| `Thunk pre post a`       | `Row → Row → Type → Type` | Suspended computation |
-| `Int`                    | `Type`                    | 64-bit integer        |
-| `Double`                 | `Type`                    | 64-bit floating point |
-| `String`                 | `Type`                    | Unicode string        |
-| `Rune`                   | `Type`                    | Unicode code point    |
-| `Slice a`                | `Type → Type`             | Contiguous array      |
-| `Map k v`                | `Type → Type → Type`      | Ordered immutable map |
-| `Set a`                  | `Type → Type`             | Ordered immutable set |
+| Type                     | Kind                      | Description                |
+| ------------------------ | ------------------------- | -------------------------- |
+| `Computation pre post a` | `Row → Row → Type → Type` | Effectful computation      |
+| `Thunk pre post a`       | `Row → Row → Type → Type` | Suspended computation      |
+| `Int`                    | `Type`                    | 64-bit integer             |
+| `Double`                 | `Type`                    | 64-bit floating point      |
+| `Byte`                   | `Type`                    | 8-bit unsigned integer     |
+| `String`                 | `Type`                    | Unicode string             |
+| `Rune`                   | `Type`                    | Unicode code point         |
+| `Slice a`                | `Type → Type`             | Contiguous immutable array |
+| `Array a`                | `Type → Type`             | Mutable array              |
+| `Ref a`                  | `Type → Type`             | Mutable reference cell     |
+| `Map k v`                | `Type → Type → Type`      | Ordered immutable map      |
+| `Set a`                  | `Type → Type`             | Ordered immutable set      |
+| `MMap k v`               | `Type → Type → Type`      | Mutable ordered map        |
+| `MSet a`                 | `Type → Type`             | Mutable ordered set        |
 
 ---
 
@@ -912,7 +921,7 @@ infixr 1 <=<       -- Kleisli right-to-left
 infixr 0 $         -- low-precedence apply
 ```
 
-### Type Classes (17: 1 in Core, 16 in Prelude)
+### Type Classes (20: 1 in Core, 19 in Prelude)
 
 ```
 IxMonad                           (Core)
@@ -920,35 +929,41 @@ IxMonad                           (Core)
 Eq ──→ Ord
 Eq ──→ Num ──→ Div
 Show
+Read
 Semigroup ──→ Monoid
 Functor ──→ Applicative ──→ Alternative
                         ──→ Monad
 Functor ─┐
          ├──→ Traversable
 Foldable ┘
+Bifunctor
 Packed
 FromList ──→ ToList
+GradeAlgebra
 ```
 
-| Class         | Key Methods                                               |
-| ------------- | --------------------------------------------------------- |
-| `IxMonad`     | `ixpure`, `ixbind` (Core)                                 |
-| `Eq`          | `eq: a -> a -> Bool`                                      |
-| `Ord`         | `compare: a -> a -> Ordering`                             |
-| `Num`         | `add`, `sub`, `mul`, `negate`                             |
-| `Div`         | `div: a -> a -> a`                                        |
-| `Show`        | `show: a -> String`                                       |
-| `Semigroup`   | `append: a -> a -> a`                                     |
-| `Monoid`      | `empty: a`                                                |
-| `Functor`     | `fmap: (a -> b) -> f a -> f b`                            |
-| `Foldable`    | `foldr: (a -> b -> b) -> b -> t a -> b`                   |
-| `Applicative` | `wrap: a -> f a`, `ap: f (a -> b) -> f a -> f b`          |
-| `Alternative` | `none: f a`, `alt: f a -> f a -> f a`                     |
-| `Monad`       | `mpure: a -> m a`, `mbind: m a -> (a -> m b) -> m b`      |
-| `Traversable` | `traverse: Applicative f => (a -> f b) -> t a -> f (t b)` |
-| `Packed`      | `pack: Slice e -> c`, `unpack: c -> Slice e`              |
-| `FromList`    | `fromList: List (Elem l) -> l` (assoc type: `Elem`)       |
-| `ToList`      | `toList: l -> List (Elem l)`                              |
+| Class          | Key Methods                                               |
+| -------------- | --------------------------------------------------------- |
+| `IxMonad`      | `ixpure`, `ixbind` (Core)                                 |
+| `Eq`           | `eq: a -> a -> Bool`                                      |
+| `Ord`          | `compare: a -> a -> Ordering`                             |
+| `Num`          | `add`, `sub`, `mul`, `negate`                             |
+| `Div`          | `div: a -> a -> a`                                        |
+| `Show`         | `show: a -> String`                                       |
+| `Read`         | `readStr: String -> Maybe a`                              |
+| `Semigroup`    | `append: a -> a -> a`                                     |
+| `Monoid`       | `empty: a`                                                |
+| `Functor`      | `fmap: (a -> b) -> f a -> f b`                            |
+| `Foldable`     | `foldr: (a -> b -> b) -> b -> t a -> b`                   |
+| `Applicative`  | `wrap: a -> f a`, `ap: f (a -> b) -> f a -> f b`          |
+| `Alternative`  | `none: f a`, `alt: f a -> f a -> f a`                     |
+| `Monad`        | `mpure: a -> m a`, `mbind: m a -> (a -> m b) -> m b`      |
+| `Traversable`  | `traverse: Applicative f => (a -> f b) -> t a -> f (t b)` |
+| `Bifunctor`    | `bimap: (a -> c) -> (b -> d) -> f a b -> f c d`           |
+| `Packed`       | `pack: Slice e -> c`, `unpack: c -> Slice e`              |
+| `FromList`     | `fromList: List (Elem l) -> l` (assoc type: `Elem`)       |
+| `ToList`       | `toList: l -> List (Elem l)`                              |
+| `GradeAlgebra` | `gradeJoin`, `gradeMeet`, `gradeBottom`, `gradeTop`       |
 
 ---
 
@@ -956,13 +971,19 @@ FromList ──→ ToList
 
 Stdlib packs are loaded via `Engine.Use(pack)` on the host side and imported in source. `NewEngine()` returns a bare engine with only Core. Full reference: [agent-guide/stdlib.md](agent-guide/stdlib.md).
 
-| Pack          | Module         | Provides                                                 |
-| ------------- | -------------- | -------------------------------------------------------- |
-| `Prelude`     | `Prelude`      | Num, Str, List — arithmetic, string ops, list operations |
-| `EffectFail`  | `Effect.Fail`  | Fail effect (`failWith`, `fromMaybe`, `fromResult`)      |
-| `EffectState` | `Effect.State` | State effect (`get`, `put`, `modify`)                    |
-| `EffectIO`    | `Effect.IO`    | IO effect (`print`, `debug`)                             |
-| `DataStream`  | `Data.Stream`  | Lazy streams (`Stream a`)                                |
-| `DataSlice`   | `Data.Slice`   | Contiguous arrays (`Slice a`), O(1) length/index         |
-| `DataMap`     | `Data.Map`     | Ordered immutable map (AVL), requires `Ord k`            |
-| `DataSet`     | `Data.Set`     | Ordered immutable set (backed by Map), requires `Ord k`  |
+| Pack          | Module         | Provides                                                   |
+| ------------- | -------------- | ---------------------------------------------------------- |
+| `Prelude`     | `Prelude`      | Num, Str, List — arithmetic, string ops, list operations   |
+| `EffectFail`  | `Effect.Fail`  | Fail effect (`failWith`, `fromMaybe`, `fromResult`)        |
+| `EffectState` | `Effect.State` | State effect (`get`, `put`, `modify` + `*At` named caps)   |
+| `EffectIO`    | `Effect.IO`    | IO effect (`print`, `debug`)                               |
+| `EffectArray` | `Effect.Array` | Mutable arrays (`new`, `read`, `write` + `*At` named caps) |
+| `EffectRef`   | `Effect.Ref`   | Mutable refs (`new`, `read`, `write` + `*At` named caps)   |
+| `EffectMap`   | `Effect.Map`   | Mutable ordered map (AVL, `*At` named caps)                |
+| `EffectSet`   | `Effect.Set`   | Mutable ordered set (AVL, `*At` named caps)                |
+| `DataStream`  | `Data.Stream`  | Lazy streams (`Stream a`)                                  |
+| `DataSlice`   | `Data.Slice`   | Contiguous arrays (`Slice a`), O(1) length/index           |
+| `DataMap`     | `Data.Map`     | Ordered immutable map (AVL), requires `Ord k`              |
+| `DataSet`     | `Data.Set`     | Ordered immutable set (backed by Map), requires `Ord k`    |
+| `DataJSON`    | `Data.JSON`    | JSON serialization (`ToJSON`, `FromJSON`)                  |
+| `Console`     | `Console`      | CLI-only stdio (`putLine`, `getLine`)                      |

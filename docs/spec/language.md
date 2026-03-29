@@ -305,10 +305,10 @@ Type, row, and kind equivalence. The equality theory includes:
 ## 3.1 Keywords
 
 ```
-case  do  form  type  impl  infixl  infixr  infixn  import  if  then  else
+case  do  form  type  impl  infixl  infixr  infixn  import  if  then  else  as  assumption
 ```
 
-Keywords are listed above. Note that `pure`, `bind`, `thunk`, `force`, `assumption`, `rec`, and `fix` are **not** keywords — they are ordinary identifiers with built-in meaning. `pure`, `bind`, `rec`, and `fix` are first-class functions (can be partially applied and passed to higher-order functions); `thunk` and `force` are term formers (must be fully applied).
+Keywords are listed above (14 total). Note that `pure`, `bind`, `thunk`, `force`, `rec`, and `fix` are **not** keywords — they are ordinary identifiers with built-in meaning. `pure`, `bind`, `rec`, and `fix` are first-class functions (can be partially applied and passed to higher-order functions); `thunk` and `force` are term formers (must be fully applied). `as` and `assumption` **are** keywords (reserved by the lexer).
 
 `\` is used for both lambda (`\x. e`) and universal quantification (`\a. T`). Both use `.` as the body separator. The parser disambiguates by context (expression vs. type). Multi-parameter lambdas are supported: `\x y. e` desugars to `\x. \y. e`.
 
@@ -442,7 +442,7 @@ Stmt      ::= Var '<-' Expr                                  -- bind
 
 Branch    ::= Pattern '=>' Expr
 
-Lit       ::= IntLit | StringLit | RuneLit
+Lit       ::= IntLit | DoubleLit | StringLit | RuneLit
 ```
 
 `.#` binds at atom level (tighter than function application).
@@ -1454,7 +1454,7 @@ Qualified name disambiguation: `N.x` (no whitespace) is a qualified reference; `
 - Duplicate imports of the same module are an error.
 - Two modules cannot share the same alias (`import A as N; import B as N` is an error).
 - `import Core` with selective or qualified form is rejected; Core is implicit and user-invisible.
-- `as` is a contextual keyword: it is only special in import position and can be used as a variable name elsewhere.
+- `as` is a keyword: the lexer always produces `TokAs`, so it cannot be used as a variable name.
 
 ## 12.2 Host API
 
@@ -1656,15 +1656,21 @@ Each Go-side pack bundles type registration, module source, and primitive implem
 | Go Pack       | Module         | Provides                                                           |
 | ------------- | -------------- | ------------------------------------------------------------------ |
 | `Prelude`     | `Prelude`      | Num/Str/List: arithmetic, string ops, list ops, type classes, ADTs |
-| `EffectFail`  | `Effect.Fail`  | `fail` capability, `fromMaybe`, `fromResult`                       |
-| `EffectState` | `Effect.State` | `get`/`put` capabilities                                           |
+| `EffectFail`  | `Effect.Fail`  | `fail` capability, `fromMaybe`, `fromResult`, `failWithAt`         |
+| `EffectState` | `Effect.State` | `get`/`put`/`modify` + `*At` named cap variants                    |
 | `EffectIO`    | `Effect.IO`    | `print`/`debug` via CapEnv buffer                                  |
+| `EffectArray` | `Effect.Array` | Mutable arrays: `new`, `read`, `write` + `*At` named cap variants  |
+| `EffectRef`   | `Effect.Ref`   | Mutable refs: `new`, `read`, `write`, `modify` + `*At` named caps  |
+| `EffectMap`   | `Effect.Map`   | Mutable ordered map (AVL) + `*At` named cap variants               |
+| `EffectSet`   | `Effect.Set`   | Mutable ordered set (AVL) + `*At` named cap variants               |
 | `DataStream`  | `Data.Stream`  | Lazy list: `LCons`/`LNil`, `head`, `tail`, `take`, `drop`          |
 | `DataSlice`   | `Data.Slice`   | Contiguous array: O(1) `length`/`index`, `Functor`/`Foldable`      |
 | `DataMap`     | `Data.Map`     | Ordered immutable map (AVL): `insert`, `lookup`, `delete`          |
 | `DataSet`     | `Data.Set`     | Ordered immutable set (backed by Map): `insert`, `member`          |
+| `DataJSON`    | `Data.JSON`    | JSON serialization: `ToJSON`/`FromJSON` type classes               |
+| `Console`     | `Console`      | CLI-only stdio: `putLine`, `getLine`                               |
 
-Types (`Int`, `Double`, `String`, `Rune`, `Slice`, `Map`, `Set`) are checker built-ins registered in `NewEngine()`. Runtime representation: `HostVal` wrapping Go values.
+Types (`Int`, `Double`, `Byte`, `String`, `Rune`, `Slice`, `Array`, `Ref`, `Map`, `Set`, `MMap`, `MSet`) are checker built-ins registered in `NewEngine()`. Runtime representation: `HostVal` wrapping Go values.
 
 ---
 
@@ -1796,7 +1802,7 @@ Nested patterns are supported: `List (Maybe a)` matches `List (Maybe Int)`, bind
 
 **Core IR**: Fully reduced at compile time. No `TyFamilyApp` survives into Core. No runtime representation.
 
-**Keyword count**: Remains 9. `type` is reused; `::` after the name is the disambiguator.
+**Keyword count**: 14. `type` is reused; `::` after the name is the disambiguator.
 
 ## 17.2 Multiplicity Annotations
 
