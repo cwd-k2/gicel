@@ -455,6 +455,7 @@ func prepareEngine(fs *flag.FlagSet, packs string, recursion bool, expr string, 
 	if recursion {
 		eng.EnableRecursion()
 	}
+	eng.DenyAssumptions() // CLI user code cannot use assumption declarations
 	if err := registerUserModules(eng, modules, budget); err != nil {
 		return nil, nil, err
 	}

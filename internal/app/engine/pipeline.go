@@ -16,12 +16,13 @@ import (
 // pipelineCtx encapsulates the compile-time environment shared across
 // pipeline stages: lex → parse → check → optimize → assemble.
 type pipelineCtx struct {
-	ctx        context.Context
-	host       *HostEnv
-	store      *ModuleStore
-	limits     *Limits
-	traceHook  check.CheckTraceHook
-	entryPoint string
+	ctx              context.Context
+	host             *HostEnv
+	store            *ModuleStore
+	limits           *Limits
+	traceHook        check.CheckTraceHook
+	entryPoint       string
+	denyAssumptions  bool
 }
 
 // lexAndParse is the shared lex/parse pipeline for both module registration
@@ -106,6 +107,7 @@ func (pc *pipelineCtx) compileModule(name, source string) (*compiledModule, erro
 	config := pc.makeCheckConfig()
 	config.Context = pc.ctx
 	config.CurrentModule = name
+	// Modules (stdlib) may use host-provided assumptions; don't deny.
 	prog, exports, checkErrs := check.CheckModule(ast, src, config)
 	if checkErrs.HasErrors() {
 		return nil, &CompileError{Errors: checkErrs}
@@ -149,6 +151,7 @@ func (pc *pipelineCtx) compileMain(source string) (*ir.Program, *span.Source, er
 	cfg := pc.makeCheckConfig()
 	cfg.Context = pc.ctx
 	cfg.EntryPoint = pc.entryPoint
+	cfg.DenyAssumptions = pc.denyAssumptions
 	prog, checkErrs := check.Check(ast, src, cfg)
 	if checkErrs.HasErrors() {
 		return nil, nil, &CompileError{Errors: checkErrs}

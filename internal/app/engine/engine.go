@@ -35,8 +35,9 @@ type Engine struct {
 	limits     Limits
 	compileCtx context.Context // module compilation context (default: Background)
 
-	entryPoint     string               // entry binding name (default: "main")
-	checkTraceHook check.CheckTraceHook // diagnostic hook for type checking
+	entryPoint       string               // entry binding name (default: "main")
+	denyAssumptions  bool                 // when true, user code cannot use assumption declarations
+	checkTraceHook   check.CheckTraceHook // diagnostic hook for type checking
 }
 
 // NewEngine creates a new Engine with default limits.
@@ -87,6 +88,12 @@ func (e *Engine) RegisterPrim(name string, impl eval.PrimImpl) {
 func (e *Engine) EnableRecursion() {
 	e.host.gatedBuiltins["rec"] = true
 	e.host.gatedBuiltins["fix"] = true
+}
+
+// DenyAssumptions prevents user code from using `assumption` declarations.
+// Stdlib modules are unaffected. Use this in sandbox/agent contexts.
+func (e *Engine) DenyAssumptions() {
+	e.denyAssumptions = true
 }
 
 // RegisterRewriteRule adds a fusion rule to the optimization pipeline.
@@ -160,12 +167,13 @@ func (e *Engine) pipeline(ctx context.Context) *pipelineCtx {
 		ep = DefaultEntryPoint
 	}
 	return &pipelineCtx{
-		ctx:        ctx,
-		host:       &e.host,
-		store:      &e.store,
-		limits:     &e.limits,
-		traceHook:  e.checkTraceHook,
-		entryPoint: ep,
+		ctx:             ctx,
+		host:            &e.host,
+		store:           &e.store,
+		limits:          &e.limits,
+		traceHook:       e.checkTraceHook,
+		entryPoint:      ep,
+		denyAssumptions: e.denyAssumptions,
 	}
 }
 

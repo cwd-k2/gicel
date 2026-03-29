@@ -325,6 +325,10 @@ func (ch *Checker) processValueDef(d *syntax.DeclValueDef, annotations map[strin
 
 	// Check if it's an assumption.
 	if isAssumptionDef(d) {
+		if ch.config.DenyAssumptions {
+			ch.addCodedError(diagnostic.ErrAssumption, d.S, "assumption declarations are not allowed (host-only feature)")
+			return
+		}
 		// Try AST annotation first, then config assumptions.
 		aTy := annTy
 		if !hasAnn {
