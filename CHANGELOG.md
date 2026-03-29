@@ -1,5 +1,57 @@
 # Changelog
 
+## v0.21.0 — 2026-03-30
+
+### Named Capabilities for Mutable Effects
+
+All mutable effect packs now support label-parameterized `*At` variants, enabling multiple independent instances of the same effect type in a single computation.
+
+```gicel
+import Prelude
+import Effect.Ref as Ref
+import Effect.Array as Arr
+
+main := do {
+  r <- Ref.newAt @#counter 0;
+  Ref.modifyAt @#counter (+ 1) r;
+
+  arr <- Arr.newAt @#buf 3 0;
+  Arr.writeAt @#buf 0 42 arr;
+  Arr.readAt @#buf 0 arr           -- Just 42
+}
+```
+
+- **Effect.State**: `getAt`, `putAt`, `modifyAt` (new)
+- **Effect.Array**: `newAt`, `readAt`, `writeAt`, `resizeAt`, `toSliceAt`, `fromSliceAt`
+- **Effect.Ref**: `newAt`, `readAt`, `writeAt`, `modifyAt`
+- **Effect.Map**: `newAt`, `insertAt`, `lookupAt`, `deleteAt`, `sizeAt`, `memberAt`, `toListAt`, `fromListAt`, `foldlWithKeyAt`, `keysAt`, `valuesAt`, `adjustAt`
+- **Effect.Set**: `newAt`, `insertAt`, `memberAt`, `deleteAt`, `sizeAt`, `toListAt`, `fromListAt`, `foldAt`, `unionAt`, `intersectionAt`, `differenceAt`
+
+Effect.Map/Effect.Set named `newAt`/`fromListAt` take an explicit `compare` function instead of `Ord k =>` (the compare is stored in the handle at creation time).
+
+### Breaking Changes
+
+- **Effect.Array**: `readAt` → `read`, `writeAt` → `write` (the `*At` names are now used for named capability variants). Update existing code: `readAt i arr` → `read i arr`.
+
+### Bug Fixes
+
+- **OccursIn for label variables.** `OccursIn` now detects label variables in row field positions, fixing a Subst fast-path skip that prevented label substitution in named capability types.
+- **RowField.IsLabelVar.** Row fields now track whether their label originates from a forall-bound label variable, enabling correct `FreeVars`/`OccursIn`/`Subst` behavior without false positives from concrete labels.
+- **MSet binary ops crash.** `unionAt`/`intersectionAt`/`differenceAt` crashed at runtime because the compare function was not extracted from the handle. Fixed with `withLabelCmpFromHandle` wrapper.
+- **`*At` without `@#label`.** Calling named capability functions without `@#label` now produces a clear runtime error instead of an internal crash.
+- **`failWithAt` consolidation.** Replaced duplicate `failWithAtImpl` with `withLabel(failImpl)`.
+
+### Documentation
+
+- All stdlib docs updated with named capability variants (34 new functions documented).
+- `put` type corrected to `Computation` (not `Effect`) showing pre/post state type change.
+- Grammar reference: keyword count 12→14 (`as`, `assumption` are full keywords), add label literal `#name` syntax, add 5 missing built-in types, add 6 missing stdlib packs, fix class count 17→20.
+- Language spec: keyword list and count corrected, `DoubleLit` added to grammar, stdlib pack table completed.
+- MSet `union`/`intersection`/`difference` docs corrected: return new sets, not in-place mutation.
+- Remove ghost operator `+>` (snoc) from grammar reference (not implemented).
+- Add missing `Show` instances to Data.Slice/Map/Set/Stream docs.
+- Add `range` function to Prelude function list.
+
 ## v0.20.1 — 2026-03-29
 
 ### Bug Fixes

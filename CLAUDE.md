@@ -3,6 +3,7 @@
 ## Rules
 
 - Build output goes to `bin/` (gitignored).
+- Temporary files go to `tmp/` (gitignored). Test artifacts, scratch files, generated data — anything ephemeral.
 - Format Go with `goimports`, docs with `prettier`.
 - Commit per logical group or phase completion.
 - Do not run test agents in background (memory exhaustion incident, 2024-03-14).
