@@ -205,6 +205,24 @@ func (ch *Checker) checkConPatternWith(conName, moduleName string, conTy types.T
 	}
 
 	// 5. Peel arrow arguments matching user-supplied pattern args.
+	// Pre-check arity to give a clear error instead of "expected function type".
+	if len(patArgs) > 0 {
+		arity := 0
+		ty := currentTy
+		for {
+			if arr, ok := ch.unifier.Zonk(ty).(*types.TyArrow); ok {
+				arity++
+				ty = arr.To
+			} else {
+				break
+			}
+		}
+		if len(patArgs) > arity {
+			ch.addCodedError(diagnostic.ErrBadApplication, s,
+				fmt.Sprintf("constructor %s expects %d field(s), but pattern has %d", conName, arity, len(patArgs)))
+			return mkResult()
+		}
+	}
 	for _, argPat := range patArgs {
 		argTy, restTy := ch.matchArrow(currentTy, s)
 		child := ch.checkPattern(argPat, argTy)
