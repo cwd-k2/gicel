@@ -577,3 +577,20 @@ func avlMergeUnion(a, b *avlNode, cmp eval.Value, ce eval.CapEnv, apply eval.App
 	result = append(result, bs[j:]...)
 	return result, ce, nil
 }
+
+// avlFoldl performs an in-order traversal with a Go-level fold function.
+func avlFoldl(n *avlNode, f func(*avlNode, eval.Value, eval.CapEnv) (eval.Value, eval.CapEnv, error), acc eval.Value, ce eval.CapEnv) (eval.Value, eval.CapEnv, error) {
+	if n == nil {
+		return acc, ce, nil
+	}
+	var err error
+	acc, ce, err = avlFoldl(n.left, f, acc, ce)
+	if err != nil {
+		return nil, ce, err
+	}
+	acc, ce, err = f(n, acc, ce)
+	if err != nil {
+		return nil, ce, err
+	}
+	return avlFoldl(n.right, f, acc, ce)
+}

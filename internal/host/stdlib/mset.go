@@ -230,19 +230,3 @@ func msetDifferenceImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, ap
 	return &eval.HostVal{Inner: &mutMapVal{root: sortedToAVL(entries), cmp: cmp, size: len(entries)}}, ce, nil
 }
 
-// avlFoldl performs an in-order traversal with a Go-level fold function.
-func avlFoldl(n *avlNode, f func(*avlNode, eval.Value, eval.CapEnv) (eval.Value, eval.CapEnv, error), acc eval.Value, ce eval.CapEnv) (eval.Value, eval.CapEnv, error) {
-	if n == nil {
-		return acc, ce, nil
-	}
-	var err error
-	acc, ce, err = avlFoldl(n.left, f, acc, ce)
-	if err != nil {
-		return nil, ce, err
-	}
-	acc, ce, err = f(n, acc, ce)
-	if err != nil {
-		return nil, ce, err
-	}
-	return avlFoldl(n.right, f, acc, ce)
-}
