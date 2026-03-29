@@ -145,13 +145,18 @@ counter := \(). do {
 }
 ```
 
-Available `*At` variants:
+Available `*At` variants (all effect packs provide named variants for every effectful operation):
 
-| Named variant              | Fixed equivalent | Pack           |
-| -------------------------- | ---------------- | -------------- |
-| `getAt @#label`            | `get`            | `Effect.State` |
-| `putAt @#label value`      | `put value`      | `Effect.State` |
-| `failWithAt @#label error` | `failWith error` | `Effect.Fail`  |
+| Pack           | Named variants                                                                                                                                      |
+| -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Effect.State` | `getAt`, `putAt`, `modifyAt`                                                                                                                        |
+| `Effect.Fail`  | `failWithAt`                                                                                                                                        |
+| `Effect.Array` | `newAt`, `readAt`, `writeAt`, `resizeAt`, `toSliceAt`, `fromSliceAt`                                                                                |
+| `Effect.Ref`   | `newAt`, `readAt`, `writeAt`, `modifyAt`                                                                                                            |
+| `Effect.Map`   | `newAt`\*, `insertAt`, `lookupAt`, `deleteAt`, `sizeAt`, `memberAt`, `toListAt`, `fromListAt`\*, `foldlWithKeyAt`, `keysAt`, `valuesAt`, `adjustAt` |
+| `Effect.Set`   | `newAt`\*, `insertAt`, `memberAt`, `deleteAt`, `sizeAt`, `toListAt`, `fromListAt`\*, `foldAt`, `unionAt`, `intersectionAt`, `differenceAt`          |
+
+\* `newAt`/`fromListAt` for Effect.Map and Effect.Set take an explicit `(k -> k -> Ordering)` compare function instead of `Ord k =>` (compare is stored in the handle at creation).
 
 Row type families `Without` and `Lookup` operate on label-parameterized rows:
 

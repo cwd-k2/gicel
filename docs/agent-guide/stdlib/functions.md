@@ -56,7 +56,7 @@ comparing :: \a b. Ord b => (a -> b) -> a -> a -> Ordering
 equating  :: \a b. Eq b => (a -> b) -> a -> a -> Bool
 ```
 
-**Effect sequencing:**
+**Effect sequencing** (Core built-in, auto-imported):
 
 ```
 seq :: \a b (r1: Row) (r2: Row) (r3: Row). Computation r1 r2 a -> Computation r2 r3 b -> Computation r1 r3 b
@@ -75,7 +75,7 @@ seq :: \a b (r1: Row) (r2: Row) (r3: Row). Computation r1 r2 a -> Computation r2
 | List      | `partition`, `takeWhile`, `intersperse`, `nub`, `nubBy`, `and`, `or`          |
 | List      | `length`, `concat`, `foldl`, `take`, `drop`, `index`, `replicate`, `reverse`  |
 | List      | `zip`, `unzip`, `zipWith`, `dropWhile`, `span`, `break`                       |
-| List      | `sortBy`, `sort`, `scanl`, `unfoldr`, `iterateN`, `intercalate`               |
+| List      | `sortBy`, `sort`, `scanl`, `unfoldr`, `iterateN`, `intercalate`, `range`      |
 | List      | `fromSlice`, `toSlice`                                                        |
 | List      | `uncons`, `listToMaybe`, `maybeToList`, `group`, `groupBy`                    |
 | List      | `minimum`, `maximum`, `minimumBy`, `maximumBy`, `sum`, `product`              |

@@ -29,6 +29,7 @@ Provides an ordered immutable set backed by a Map. Load with `eng.Use(gicel.Data
 **Notes:**
 
 - Sets are persistent (immutable). Insert/delete return new sets.
+- Instances: `(Ord k, Show k) => Show (Set k)`, `Ord k => FromList (Set k)`, `Ord k => ToList (Set k)`, `Foldable (Set k)`.
 - `toList` returns elements in sorted order.
 - `toList` and `fromList` are typeclass instance methods (`ToList`, `FromList`), not direct module exports. They work unqualified but cannot be used with qualified syntax.
 
