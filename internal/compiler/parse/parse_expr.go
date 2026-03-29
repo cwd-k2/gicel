@@ -426,5 +426,8 @@ func (p *Parser) isAtomStart() bool {
 	if p.noBraceAtom && k == syn.TokLBrace {
 		return false
 	}
-	return k == syn.TokLower || k == syn.TokUpper || k == syn.TokLParen || k == syn.TokBackslash || k == syn.TokLBrace || k == syn.TokCase || k == syn.TokIf || k == syn.TokDo || k == syn.TokIntLit || k == syn.TokDoubleLit || k == syn.TokStrLit || k == syn.TokRuneLit || k == syn.TokLBracket
+	return k == syn.TokLower || k == syn.TokUpper ||
+		k == syn.TokLParen || k == syn.TokLBrace || k == syn.TokLBracket ||
+		k == syn.TokBackslash || k == syn.TokCase || k == syn.TokIf || k == syn.TokDo ||
+		k == syn.TokIntLit || k == syn.TokDoubleLit || k == syn.TokStrLit || k == syn.TokRuneLit
 }
