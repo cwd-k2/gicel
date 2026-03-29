@@ -10,53 +10,54 @@
 -- computations without affecting runtime behavior.
 -- Level: types
 
+import Prelude
+
 form Mult := Unrestricted | Affine | Linear
-form Unit := Unit
 
 -- A resource that must be consumed exactly once.
 -- The @Linear annotation on handle tracks this at the type level.
-open :: Computation {} { handle: Unit @Linear } Unit
+open :: Computation {} { handle: () @Linear } ()
 open := assumption
 
 -- Using a linear resource preserves it in the post-state.
-use :: Computation { handle: Unit @Linear } { handle: Unit @Linear } Unit
+use :: Computation { handle: () @Linear } { handle: () @Linear } ()
 use := assumption
 
 -- Closing consumes the linear resource (removes from post-state).
-close :: Computation { handle: Unit @Linear } {} Unit
+close :: Computation { handle: () @Linear } {} ()
 close := assumption
 
 -- Valid lifecycle: open, use, close.
 -- The capability row threading ensures @Linear is respected:
---   open:  {} → { handle: Unit @Linear }
---   use:   { handle: Unit @Linear } → { handle: Unit @Linear }
---   close: { handle: Unit @Linear } → {}
-lifecycle :: Computation {} {} Unit
-lifecycle := do { open; use; close }
+--   open:  {} → { handle: () @Linear }
+--   use:   { handle: () @Linear } → { handle: () @Linear }
+--   close: { handle: () @Linear } → {}
+lifecycle :: Thunk { handle: () @Linear } {} ()
+lifecycle := thunk do { open; use; close }
 
 -- Multiple uses before closing is also valid:
-multiUse :: Computation {} {} Unit
-multiUse := do { open; use; use; use; close }
+multiUse :: Thunk { handle: () @Linear } {} ()
+multiUse := thunk do { open; use; use; use; close }
 
 -- The LUB (least upper bound) of multiplicities is definable as a type family:
-type LUB (m1: Mult) (m2: Mult) :: Mult := {
-  LUB Linear _ =: Linear;
-  LUB _ Linear =: Linear;
-  LUB Affine _ =: Affine;
-  LUB _ Affine =: Affine;
-  LUB Unrestricted Unrestricted =: Unrestricted
+type LUB :: Mult := \(m1: Mult) (m2: Mult). case (m1, m2) {
+  (Linear, _) => Linear;
+  (_, Linear) => Linear;
+  (Affine, _) => Affine;
+  (_, Affine) => Affine;
+  (Unrestricted, Unrestricted) => Unrestricted
 }
 
 -- Note: opening without closing is a type error:
---   bad :: Computation {} {} Unit
---   bad := do { open }
--- Error: post-state { handle: Unit @Linear } ≠ {}
+--   bad :: Thunk {} {} ()
+--   bad := thunk do { open }
+-- Error: post-state { handle: () @Linear } ≠ {}
 
 -- Multiplicity annotations compose with row polymorphism.
 -- Here, 'use' works in any environment that has a linear handle:
-useOpen :: \(r: Row). Computation { handle: Unit @Linear | r } { handle: Unit @Linear | r } Unit
+useOpen :: \(r: Row). Computation { handle: () @Linear | r } { handle: () @Linear | r } ()
 useOpen := assumption
 
 -- Output: this example demonstrates type-level guarantees.
 -- At runtime, assumption-based primitives don't execute.
-main := Unit
+main := ()
