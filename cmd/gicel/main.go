@@ -534,6 +534,14 @@ func cmdRun(args []string) int {
 	if expr.count > 1 {
 		fmt.Fprintf(os.Stderr, "warning: -e specified %d times; using last value\n", expr.count)
 	}
+	if !*explain {
+		if *explainAll {
+			fmt.Fprintln(os.Stderr, "warning: --explain-all has no effect without --explain")
+		}
+		if *verbose {
+			fmt.Fprintln(os.Stderr, "warning: --verbose has no effect without --explain")
+		}
+	}
 
 	// --json mode: Console buffers output into capEnv instead of stdout.
 	// Buffer mode is signaled by setting the console capability to []string{}.
