@@ -20,7 +20,11 @@ func ResetFreshCounter() {
 }
 
 // Subst applies a substitution [varName := replacement] throughout a type.
+// Fast-path: if varName does not occur in t, the type is returned unchanged.
 func Subst(t Type, varName string, replacement Type) Type {
+	if !OccursIn(varName, t) {
+		return t
+	}
 	return substDepth(t, varName, replacement, 0)
 }
 
