@@ -48,10 +48,6 @@ IxMonad = GIMonad where g = () (自明な grade)。後方互換。
 
 **命名**: GIMonad は仮名。最終命名は別途検討。
 
-## Known Divergence
-
-**GradeJoin arity**: GIMonad の `gibind` では `GradeJoin e1 e2` (binary, kind `g -> g -> g`) を前提とする。一方 Prelude の `GradeAlgebra` 宣言は `type GradeJoin :: g -> g` (unary) である。現行の `MultJoin :: Mult -> Mult -> Mult` は実装上動作するが、class 宣言の kind とは不整合。GIMonad 実装時に class 宣言の kind を `g -> g -> g` に修正する必要がある。
-
 ## Open Questions
 
 - **`@` の将来**: 型演算子への降格 (`(@) :: Type -> Grade -> Type`)

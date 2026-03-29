@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.21.3 — 2026-03-30
+
+### Security
+
+- **RunSandbox DenyAssumptions.** `RunSandbox` now calls `DenyAssumptions()` automatically, preventing user code from declaring `assumption` bindings in sandbox context. Previously, assumptions passed type checking but failed at runtime with a missing-primitive error.
+
+### Bug Fixes
+
+- **GradeJoin arity.** Corrected `GradeAlgebra` class declaration from `type GradeJoin :: g -> g` (unary) to `type GradeJoin :: g -> g -> g` (binary). The checker already used `GradeJoin` as a binary family; only the Prelude class declaration was inconsistent.
+
 ## v0.21.2 — 2026-03-30
 
 ### Documentation

@@ -1587,7 +1587,7 @@ result, err := gicel.RunSandbox(source, &gicel.SandboxConfig{
 
 Single-call compile+execute for AI agents.
 
-**Limitation: `assumption` declarations.** `RunSandbox` does not currently call `DenyAssumptions`. User code can declare `assumption` bindings for capabilities not provided by the host; these pass type checking but fail at runtime with a missing-primitive error. Hosts that require stricter isolation should use the Engine API directly and call `eng.DenyAssumptions()` before compilation.
+`RunSandbox` calls `DenyAssumptions` automatically — user code cannot declare `assumption` bindings in sandbox context. Hosts using the Engine API directly should call `eng.DenyAssumptions()` if untrusted code is involved.
 
 **Limitation: timeout scope.** The timeout covers compilation and evaluation, but pack application runs before the timeout context is set. Packs are `func(Registrar) error` and do not receive a context — a misbehaving pack can block indefinitely. In practice, all stdlib packs are pure registration and complete instantly. Custom packs that perform I/O should be applied outside `RunSandbox`.
 
@@ -1841,12 +1841,12 @@ The `GradeAlgebra` class (defined in Prelude) enables user-defined grade lattice
 
 ```
 form GradeAlgebra := \(g: Kind). {
-  type GradeJoin :: g -> g;
+  type GradeJoin :: g -> g -> g;
   type GradeDrop :: g
 }
 ```
 
-**Note on GradeJoin arity.** The class declaration specifies `GradeJoin :: g -> g` (unary result kind). Grade boundary enforcement applies `GradeJoin` as a binary function (`GradeJoin(Drop, grade) ~ grade`) by resolving the associated type to its underlying family (e.g., `MultJoin :: Mult -> Mult -> Mult`). The class kind annotation and the resolved family kind are currently inconsistent; the GIMonad transition will correct this to `g -> g -> g`.
+`GradeJoin` is a binary type family: `GradeJoin(a, b)` computes the join (least upper bound) of two grades. Grade boundary enforcement checks `GradeJoin(Drop, grade) ~ grade` — a field is preservable iff joining the bottom element leaves the grade unchanged.
 
 The standard `Mult` algebra is provided by Prelude. Users can define custom algebras (e.g., security levels):
 
