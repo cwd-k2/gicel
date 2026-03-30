@@ -30,12 +30,13 @@ func (s *Solver) applyQuantifiedEvidence(e *env.CtxEvidence, className string, a
 
 	// Wrap head unification and context resolution in a single trial
 	// so that if context resolution fails, head solutions are rolled back.
+	ps := types.PrepareSubst(freshSubst)
 	var dictExpr ir.Core
 	savedErrs := s.env.ErrorCount()
 	if !s.env.WithTrial(func() bool {
 		// Head match.
 		for i := range args {
-			headArg := types.SubstMany(qc.Head.Args[i], freshSubst)
+			headArg := ps.Apply(qc.Head.Args[i])
 			if err := s.env.Unify(headArg, args[i]); err != nil {
 				return false
 			}
@@ -50,7 +51,7 @@ func (s *Solver) applyQuantifiedEvidence(e *env.CtxEvidence, className string, a
 		for _, ctx := range qc.Context {
 			ctxArgs := make([]types.Type, len(ctx.Args))
 			for j, a := range ctx.Args {
-				ctxArgs[j] = s.env.Zonk(types.SubstMany(a, freshSubst))
+				ctxArgs[j] = s.env.Zonk(ps.Apply(a))
 			}
 			ctxDict := s.resolveInstance(ctx.ClassName, ctxArgs, sp)
 			dictExpr = &ir.App{Fun: dictExpr, Arg: ctxDict, S: sp}
@@ -87,10 +88,12 @@ func (s *Solver) resolveQuantifiedConstraint(qc *types.QuantifiedConstraint, sp 
 		// Also create fresh metas for the instance's own free vars.
 		instSubst := s.FreshInstanceSubst(inst)
 
+		psHead := types.PrepareSubst(freshSubst)
+		psInst := types.PrepareSubst(instSubst)
 		if !s.env.WithProbe(func() bool {
 			for i := range qc.Head.Args {
-				headArg := types.SubstMany(qc.Head.Args[i], freshSubst)
-				instArg := types.SubstMany(inst.TypeArgs[i], instSubst)
+				headArg := psHead.Apply(qc.Head.Args[i])
+				instArg := psInst.Apply(inst.TypeArgs[i])
 				if err := s.env.Unify(headArg, instArg); err != nil {
 					return false
 				}
@@ -143,10 +146,12 @@ func (s *Solver) resolveQuantifiedConstraint(qc *types.QuantifiedConstraint, sp 
 		for _, v := range eq.Vars {
 			evidenceSubst[v.Name] = s.env.FreshMeta(v.Kind)
 		}
+		psWanted := types.PrepareSubst(wantedSubst)
+		psEvidence := types.PrepareSubst(evidenceSubst)
 		if !s.env.WithProbe(func() bool {
 			for i := range qc.Head.Args {
-				wantedArg := types.SubstMany(qc.Head.Args[i], wantedSubst)
-				evidenceArg := types.SubstMany(eq.Head.Args[i], evidenceSubst)
+				wantedArg := psWanted.Apply(qc.Head.Args[i])
+				evidenceArg := psEvidence.Apply(eq.Head.Args[i])
 				if err := s.env.Unify(wantedArg, evidenceArg); err != nil {
 					return false
 				}

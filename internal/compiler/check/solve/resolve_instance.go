@@ -81,6 +81,7 @@ func (s *Solver) resolveFromGlobalInstances(className string, args []types.Type,
 			continue
 		}
 		freshSubst := s.FreshInstanceSubst(inst)
+		ps := types.PrepareSubst(freshSubst)
 		var dictExpr ir.Core
 		// Wrap both head unification and context resolution in a single trial
 		// so that if context resolution fails, head solutions are rolled back.
@@ -88,7 +89,7 @@ func (s *Solver) resolveFromGlobalInstances(className string, args []types.Type,
 		if !s.env.WithTrial(func() bool {
 			// Head match.
 			for i := range args {
-				instArg := types.SubstMany(inst.TypeArgs[i], freshSubst)
+				instArg := ps.Apply(inst.TypeArgs[i])
 				if err := s.env.Unify(instArg, args[i]); err != nil {
 					return false
 				}
@@ -98,7 +99,7 @@ func (s *Solver) resolveFromGlobalInstances(className string, args []types.Type,
 			for _, ctx := range inst.Context {
 				ctxArgs := make([]types.Type, len(ctx.Args))
 				for j, a := range ctx.Args {
-					ctxArgs[j] = s.env.Zonk(types.SubstMany(a, freshSubst))
+					ctxArgs[j] = s.env.Zonk(ps.Apply(a))
 				}
 				ctxDict := s.resolveInstance(ctx.ClassName, ctxArgs, sp)
 				dictExpr = &ir.App{Fun: dictExpr, Arg: ctxDict, S: sp}

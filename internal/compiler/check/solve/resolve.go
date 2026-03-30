@@ -184,10 +184,11 @@ func (sd *superDictSearch) chain(dictExpr ir.Core, dictTyName string, dictTyArgs
 		}
 	}
 
+	ps := types.PrepareSubst(subst)
 	for superIdx, sup := range classInfo.Supers {
 		superArgs := make([]types.Type, len(sup.Args))
 		for j, a := range sup.Args {
-			superArgs[j] = types.SubstMany(a, subst)
+			superArgs[j] = ps.Apply(a)
 		}
 
 		extractExpr := sd.solver.ExtractDictField(classInfo, dictExpr, superIdx, "sf", sd.s)

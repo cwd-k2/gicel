@@ -213,8 +213,31 @@ func SubstMany(t Type, subs map[string]Type) Type {
 	if len(subs) == 0 {
 		return t
 	}
-	// fvUnion is computed lazily on first TyForall encounter.
-	return substManyOpt(t, subs, nil, 0)
+	var fvUnion map[string]bool
+	return substManyOpt(t, subs, &fvUnion, 0)
+}
+
+// PreparedSubst pre-computes state for applying the same substitution to
+// multiple types, avoiding repeated fvUnion computation across calls.
+type PreparedSubst struct {
+	subs    map[string]Type
+	fvUnion map[string]bool
+	fvDone  bool
+}
+
+// PrepareSubst creates a PreparedSubst for batch application.
+func PrepareSubst(subs map[string]Type) *PreparedSubst {
+	return &PreparedSubst{subs: subs}
+}
+
+// Apply applies the prepared substitution to a type.
+// The fvUnion is computed lazily on the first TyForall encounter and
+// shared across all subsequent Apply calls on the same PreparedSubst.
+func (ps *PreparedSubst) Apply(t Type) Type {
+	if len(ps.subs) == 0 {
+		return t
+	}
+	return substManyOpt(t, ps.subs, &ps.fvUnion, 0)
 }
 
 // substManyFVUnion computes the free variable union of all substitution
@@ -229,7 +252,7 @@ func substManyFVUnion(subs map[string]Type) map[string]bool {
 	return fvUnion
 }
 
-func substManyOpt(t Type, subs map[string]Type, fvUnion map[string]bool, depth int) Type {
+func substManyOpt(t Type, subs map[string]Type, fvUnion *map[string]bool, depth int) Type {
 	if depth > maxTraversalDepth {
 		return t
 	}
@@ -257,9 +280,10 @@ func substManyOpt(t Type, subs map[string]Type, fvUnion map[string]bool, depth i
 		return &TyArrow{From: newFrom, To: newTo, Flags: MetaFreeFlags(newFrom, newTo), S: ty.S}
 	case *TyForall:
 		// Lazy-compute fvUnion on first TyForall encounter.
-		if fvUnion == nil {
-			fvUnion = substManyFVUnion(subs)
+		if *fvUnion == nil {
+			*fvUnion = substManyFVUnion(subs)
 		}
+		fv := *fvUnion
 		newKind := substManyOpt(ty.Kind, subs, fvUnion, depth+1)
 		// Remove shadowed variable from substitution.
 		if _, shadowed := subs[ty.Var]; shadowed {
@@ -276,7 +300,7 @@ func substManyOpt(t Type, subs map[string]Type, fvUnion map[string]bool, depth i
 				return &TyForall{Var: ty.Var, Kind: newKind, Body: ty.Body, S: ty.S}
 			}
 			// Capture avoidance: use FV union for O(1) check.
-			if fvUnion[ty.Var] {
+			if fv[ty.Var] {
 				fresh := freshName(ty.Var)
 				body := substDepth(ty.Body, ty.Var, &TyVar{Name: fresh}, depth+1)
 				body = substManyOpt(body, reduced, fvUnion, depth+1)
@@ -289,7 +313,7 @@ func substManyOpt(t Type, subs map[string]Type, fvUnion map[string]bool, depth i
 			return &TyForall{Var: ty.Var, Kind: newKind, Body: newBody, S: ty.S}
 		}
 		// Not shadowed: capture avoidance via FV union.
-		if fvUnion[ty.Var] {
+		if fv[ty.Var] {
 			fresh := freshName(ty.Var)
 			body := substDepth(ty.Body, ty.Var, &TyVar{Name: fresh}, depth+1)
 			body = substManyOpt(body, subs, fvUnion, depth+1)
@@ -338,7 +362,7 @@ func substManyOpt(t Type, subs map[string]Type, fvUnion map[string]bool, depth i
 	}
 }
 
-func substManyEvidenceRow(row *TyEvidenceRow, subs map[string]Type, fvUnion map[string]bool, depth int) *TyEvidenceRow {
+func substManyEvidenceRow(row *TyEvidenceRow, subs map[string]Type, fvUnion *map[string]bool, depth int) *TyEvidenceRow {
 	if row == nil {
 		return nil
 	}

@@ -45,10 +45,11 @@ func (ch *Checker) processInstanceBody(inst *InstanceInfo, methods map[string]sy
 	var dictArgTypes []types.Type
 
 	// Superclass dictionaries.
+	ps := types.PrepareSubst(subst)
 	for _, sup := range classInfo.Supers {
 		superArgs := make([]types.Type, len(sup.Args))
 		for j, a := range sup.Args {
-			superArgs[j] = types.SubstMany(a, subst)
+			superArgs[j] = ps.Apply(a)
 		}
 		superDictExpr := ch.solver.ResolveInstance(sup.ClassName, superArgs, inst.S)
 		dictArgs = append(dictArgs, superDictExpr)
@@ -61,7 +62,7 @@ func (ch *Checker) processInstanceBody(inst *InstanceInfo, methods map[string]sy
 		if !ok {
 			continue
 		}
-		expectedTy := types.SubstMany(m.Type, subst)
+		expectedTy := ps.Apply(m.Type)
 		methCore := ch.check(methExpr, expectedTy)
 		methCore = ch.resolveDeferredConstraints(methCore)
 		dictArgs = append(dictArgs, methCore)

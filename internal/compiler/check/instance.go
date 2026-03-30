@@ -222,11 +222,11 @@ func (ch *Checker) instancesOverlap(a, b *InstanceInfo) bool {
 	saved := ch.saveState()
 	defer ch.restoreState(saved)
 
-	substA := ch.freshInstanceSubst(a)
-	substB := ch.freshInstanceSubst(b)
+	psA := types.PrepareSubst(ch.freshInstanceSubst(a))
+	psB := types.PrepareSubst(ch.freshInstanceSubst(b))
 	for i := range a.TypeArgs {
-		argA := types.SubstMany(a.TypeArgs[i], substA)
-		argB := types.SubstMany(b.TypeArgs[i], substB)
+		argA := psA.Apply(a.TypeArgs[i])
+		argB := psB.Apply(b.TypeArgs[i])
 		if err := ch.unifier.Unify(argA, argB); err != nil {
 			return false
 		}
