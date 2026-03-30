@@ -213,14 +213,20 @@ func SubstMany(t Type, subs map[string]Type) Type {
 	if len(subs) == 0 {
 		return t
 	}
-	// Pre-compute free variable union for capture avoidance in TyForall.
+	// fvUnion is computed lazily on first TyForall encounter.
+	return substManyOpt(t, subs, nil, 0)
+}
+
+// substManyFVUnion computes the free variable union of all substitution
+// values. Called lazily when capture avoidance is needed (TyForall).
+func substManyFVUnion(subs map[string]Type) map[string]bool {
 	fvUnion := make(map[string]bool)
 	for _, v := range subs {
 		for name := range FreeVars(v) {
 			fvUnion[name] = true
 		}
 	}
-	return substManyOpt(t, subs, fvUnion, 0)
+	return fvUnion
 }
 
 func substManyOpt(t Type, subs map[string]Type, fvUnion map[string]bool, depth int) Type {
@@ -250,6 +256,10 @@ func substManyOpt(t Type, subs map[string]Type, fvUnion map[string]bool, depth i
 		}
 		return &TyArrow{From: newFrom, To: newTo, Flags: MetaFreeFlags(newFrom, newTo), S: ty.S}
 	case *TyForall:
+		// Lazy-compute fvUnion on first TyForall encounter.
+		if fvUnion == nil {
+			fvUnion = substManyFVUnion(subs)
+		}
 		newKind := substManyOpt(ty.Kind, subs, fvUnion, depth+1)
 		// Remove shadowed variable from substitution.
 		if _, shadowed := subs[ty.Var]; shadowed {
@@ -265,7 +275,7 @@ func substManyOpt(t Type, subs map[string]Type, fvUnion map[string]bool, depth i
 				}
 				return &TyForall{Var: ty.Var, Kind: newKind, Body: ty.Body, S: ty.S}
 			}
-			// Capture avoidance: use pre-computed FV union for O(1) check.
+			// Capture avoidance: use FV union for O(1) check.
 			if fvUnion[ty.Var] {
 				fresh := freshName(ty.Var)
 				body := substDepth(ty.Body, ty.Var, &TyVar{Name: fresh}, depth+1)
@@ -278,7 +288,7 @@ func substManyOpt(t Type, subs map[string]Type, fvUnion map[string]bool, depth i
 			}
 			return &TyForall{Var: ty.Var, Kind: newKind, Body: newBody, S: ty.S}
 		}
-		// Not shadowed: capture avoidance via pre-computed FV union.
+		// Not shadowed: capture avoidance via FV union.
 		if fvUnion[ty.Var] {
 			fresh := freshName(ty.Var)
 			body := substDepth(ty.Body, ty.Var, &TyVar{Name: fresh}, depth+1)
