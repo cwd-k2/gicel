@@ -297,9 +297,11 @@ func (s *Solver) processCtEq(ct *CtEq) {
 		s.processGivenEq(ct)
 		return
 	}
-	lhs := s.env.Zonk(ct.Lhs)
-	rhs := s.env.Zonk(ct.Rhs)
-	if err := s.env.Unify(lhs, rhs); err != nil {
+	// Unify handles zonking internally. Only zonk on the error path
+	// (uncommon) to avoid redundant double-zonk on the success path.
+	if err := s.env.Unify(ct.Lhs, ct.Rhs); err != nil {
+		lhs := s.env.Zonk(ct.Lhs)
+		rhs := s.env.Zonk(ct.Rhs)
 		// If both heads are known (not metas), this is a genuine structural
 		// mismatch — report immediately even if decomposition metas exist.
 		if !headIsMeta(lhs) && !headIsMeta(rhs) {
