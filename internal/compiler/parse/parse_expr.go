@@ -11,7 +11,7 @@ import (
 
 func (p *Parser) parseExpr() syn.Expr {
 	if !p.enterRecurse() {
-		return &syn.ExprError{S: span.Span{Start: span.Pos(p.pos), End: span.Pos(p.pos)}}
+		return &syn.ExprError{S: span.Span{Start: p.peek().S.Start, End: p.peek().S.Start}}
 	}
 	defer p.leaveRecurse()
 	return p.parseAnnotation()
@@ -98,7 +98,7 @@ func (p *Parser) parseApp() syn.Expr {
 	f := p.parseAtom()
 	if f == nil {
 		p.addErrorCode(diagnostic.ErrMissingBody, "expected expression")
-		return &syn.ExprError{S: span.Span{Start: span.Pos(p.pos), End: span.Pos(p.pos)}}
+		return &syn.ExprError{S: span.Span{Start: p.peek().S.Start, End: p.peek().S.Start}}
 	}
 	pg := p.newProgressGuard("application chain")
 	for (p.isAtomStart() || p.peek().Kind == syn.TokAt) && !p.atStmtBoundary() {
@@ -198,7 +198,7 @@ func (p *Parser) parseAtom() syn.Expr {
 
 func (p *Parser) parseParen() syn.Expr {
 	if !p.enterRecurse() {
-		return &syn.ExprError{S: span.Span{Start: span.Pos(p.pos), End: span.Pos(p.pos)}}
+		return &syn.ExprError{S: span.Span{Start: p.peek().S.Start, End: p.peek().S.Start}}
 	}
 	defer p.leaveRecurse()
 	// Inside parens, braces are always valid atom starts — a case expression
@@ -225,7 +225,7 @@ func (p *Parser) parseParen() syn.Expr {
 			opName = "."
 		}
 		// Check for (op) — operator as value
-		if p.pos+1 < len(p.tokens) && p.tokens[p.pos+1].Kind == syn.TokRParen {
+		if p.tb.peekAt(1).Kind == syn.TokRParen {
 			p.advance()
 			p.advance()
 			return &syn.ExprVar{Name: opName, S: span.Span{Start: start, End: p.prevEnd()}}
@@ -254,11 +254,11 @@ func (p *Parser) parseParen() syn.Expr {
 	// so we can detect left sections like (1 +).
 	firstApp := p.parseApp()
 	if firstApp == nil {
-		firstApp = &syn.ExprError{S: span.Span{Start: span.Pos(p.pos), End: span.Pos(p.pos)}}
+		firstApp = &syn.ExprError{S: span.Span{Start: p.peek().S.Start, End: p.peek().S.Start}}
 	}
 
 	// (e op) → left section: \x -> e op x
-	if p.isInfixOp() && p.pos+1 < len(p.tokens) && p.tokens[p.pos+1].Kind == syn.TokRParen {
+	if p.isInfixOp() && p.tb.peekAt(1).Kind == syn.TokRParen {
 		opTok := p.peek()
 		opName := opTok.Text
 		if opTok.Kind == syn.TokDot {
@@ -393,7 +393,7 @@ func (p *Parser) parseAlt() syn.AstAlt {
 		p.syncToStmtBoundary()
 		return syn.AstAlt{
 			Pattern: pat,
-			Body:    &syn.ExprError{S: span.Span{Start: span.Pos(p.pos), End: span.Pos(p.pos)}},
+			Body:    &syn.ExprError{S: span.Span{Start: p.peek().S.Start, End: p.peek().S.Start}},
 			S:       span.Span{Start: start, End: p.prevEnd()},
 		}
 	}
@@ -417,10 +417,10 @@ func (p *Parser) tryQualifiedExpr(prevTok syn.Token) syn.Expr {
 	if !tokensAdjacent(prevTok, dotTok) {
 		return nil
 	}
-	if p.pos+1 >= len(p.tokens) {
+	nextTok := p.tb.peekAt(1)
+	if nextTok.Kind == syn.TokEOF {
 		return nil
 	}
-	nextTok := p.tokens[p.pos+1]
 	if !tokensAdjacent(dotTok, nextTok) {
 		return nil
 	}

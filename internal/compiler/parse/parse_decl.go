@@ -13,7 +13,7 @@ import (
 // --- Declarations ---
 
 func (p *Parser) collectFixity() {
-	saved := p.pos
+	p.tb.save()
 	localFixity := make(map[string]bool)
 	for p.peek().Kind != syn.TokEOF {
 		if p.isFixityKeyword() {
@@ -34,7 +34,7 @@ func (p *Parser) collectFixity() {
 			p.advance()
 		}
 	}
-	p.pos = saved
+	p.tb.restore()
 }
 
 // parseDecl dispatches on the leading keyword to the appropriate declaration parser.
@@ -132,16 +132,18 @@ func (p *Parser) parseFormDecl() *syn.DeclForm {
 // looksLikePipeADT peeks ahead to see if the current position starts a pipe-separated
 // ADT constructor list (e.g., Red | Green | Blue).
 func (p *Parser) looksLikePipeADT() bool {
-	for i := p.pos; i < len(p.tokens); i++ {
-		k := p.tokens[i].Kind
-		if k == syn.TokPipe {
-			return true
+	return p.tb.scanForward(func(tok syn.Token, offset int) (bool, bool) {
+		if tok.Kind == syn.TokPipe {
+			return true, true
 		}
-		if k == syn.TokSemicolon || k == syn.TokEOF || (p.tokens[i].NewlineBefore && i > p.pos) {
-			return false
+		if tok.Kind == syn.TokSemicolon || tok.Kind == syn.TokEOF {
+			return true, false
 		}
-	}
-	return false
+		if tok.NewlineBefore && offset > 0 {
+			return true, false
+		}
+		return false, false
+	})
 }
 
 // parseADTConsAsRow parses ADT constructors (Con1 fields | Con2 fields)
@@ -235,7 +237,7 @@ func (p *Parser) parseImplDecl() *syn.DeclImpl {
 
 	// Disambiguate named vs unnamed.
 	var name string
-	if p.peek().Kind == syn.TokLower && p.pos+1 < len(p.tokens) && p.tokens[p.pos+1].Kind == syn.TokColonColon {
+	if p.peek().Kind == syn.TokLower && p.tb.peekAt(1).Kind == syn.TokColonColon {
 		name = p.peek().Text
 		p.advance() // consume name
 		p.advance() // consume ::
@@ -296,9 +298,9 @@ func (p *Parser) parseFixityDecl() *syn.DeclFixity {
 }
 
 func (p *Parser) isOperatorDeclStart() bool {
-	return p.pos+2 < len(p.tokens) &&
-		(p.tokens[p.pos+1].Kind == syn.TokOp || p.tokens[p.pos+1].Kind == syn.TokDot) &&
-		p.tokens[p.pos+2].Kind == syn.TokRParen
+	next1 := p.tb.peekAt(1)
+	return (next1.Kind == syn.TokOp || next1.Kind == syn.TokDot) &&
+		p.tb.peekAt(2).Kind == syn.TokRParen
 }
 
 func (p *Parser) parseOperatorDecl() syn.Decl {

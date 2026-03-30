@@ -31,21 +31,21 @@ type pipelineCtx struct {
 // affecting operator precedence.
 func (pc *pipelineCtx) lexAndParse(sourceName, source string, injectCore bool) (*syntax.AstProgram, *span.Source, error) {
 	src := span.NewSource(sourceName, source)
-	l := parse.NewLexer(src)
-	tokens, lexErrs := l.Tokenize()
-	if lexErrs.HasErrors() {
-		return nil, nil, &CompileError{Errors: lexErrs}
-	}
+	scanner := parse.NewScanner(src)
 	parseErrs := &diagnostic.Errors{Source: src}
-	p := parse.NewParser(pc.ctx, tokens, parseErrs)
-	// Scope fixity to the import closure: pre-scan import names from tokens,
-	// then inject fixity only from transitively imported modules.
-	importNames := parse.PreScanImportNames(tokens)
+	p := parse.NewParserStreaming(pc.ctx, scanner, nil, parseErrs, len(source))
+	// Scope fixity to the import closure: pre-scan import names from
+	// the token buffer, then inject fixity only from transitively
+	// imported modules.
+	importNames := p.PreScanImports()
 	if injectCore {
 		importNames = append(importNames, "Core")
 	}
 	pc.store.CollectFixityForImports(p, importNames)
 	ast := p.ParseProgram()
+	if scanner.Errors().HasErrors() {
+		return nil, nil, &CompileError{Errors: scanner.Errors()}
+	}
 	if parseErrs.HasErrors() {
 		return nil, nil, &CompileError{Errors: parseErrs}
 	}

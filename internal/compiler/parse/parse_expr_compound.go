@@ -29,7 +29,7 @@ func (p *Parser) parseStmt() syn.Stmt {
 	start := p.peek().S.Start
 	// Try: _ <- expr (wildcard bind)
 	if p.peek().Kind == syn.TokUnderscore {
-		saved := p.pos
+		saved := p.tb.pos
 		p.advance()
 		if p.peek().Kind == syn.TokLArrow {
 			p.advance()
@@ -40,13 +40,13 @@ func (p *Parser) parseStmt() syn.Stmt {
 			}
 		}
 		// Backtrack — it's an expression.
-		p.pos = saved
+		p.tb.pos = saved
 	}
 	// Try: name <- expr  or  name := expr
 	if p.peek().Kind == syn.TokLower {
 		name := p.peek().Text
 		nameTok := p.peek()
-		saved := p.pos
+		saved := p.tb.pos
 		p.advance()
 		if p.peek().Kind == syn.TokLArrow {
 			p.advance()
@@ -65,7 +65,7 @@ func (p *Parser) parseStmt() syn.Stmt {
 			}
 		}
 		// Backtrack — it's an expression statement.
-		p.pos = saved
+		p.tb.pos = saved
 	}
 	// Try: pattern <- expr  or  pattern := expr (irrefutable pattern bind)
 	if p.peek().Kind == syn.TokLParen {
@@ -122,13 +122,13 @@ func (p *Parser) parseBlock() syn.Expr {
 	// Disambiguate: record literal vs record update vs block.
 	// Peek at first name followed by = (record) vs := (block).
 	if p.peek().Kind == syn.TokLower {
-		saved := p.pos
+		saved := p.tb.pos
 		nameTok := p.peek()
 		p.advance() // skip name
 		switch p.peek().Kind {
 		case syn.TokColon:
 			// name: ... → record literal
-			p.pos = saved
+			p.tb.pos = saved
 			return p.parseRecordLiteral(start, openTok.S)
 		case syn.TokPipe:
 			// name | ... → record update (name is the record expression)
@@ -137,7 +137,7 @@ func (p *Parser) parseBlock() syn.Expr {
 			return p.parseRecordUpdateFields(start, openTok.S, record)
 		default:
 			// Could be: name := ... (block), or name as expression (record update with complex expr)
-			p.pos = saved
+			p.tb.pos = saved
 		}
 	}
 
@@ -169,7 +169,7 @@ func (p *Parser) parseBlock() syn.Expr {
 	var typeDefs []syn.ImplField
 	for p.peek().Kind == syn.TokLower || p.peek().Kind == syn.TokType || p.peek().Kind == syn.TokForm || p.peek().Kind == syn.TokLParen {
 		bindStart := p.peek().S.Start
-		saved := p.pos
+		saved := p.tb.pos
 
 		// Parse type/form associated definitions in impl bodies.
 		// New syntax: type Elem := a;  or  form Elem := ListElem a | Empty;
@@ -249,7 +249,7 @@ func (p *Parser) parseBlock() syn.Expr {
 			}
 		} else {
 			// Not a binding — backtrack and parse as expression.
-			p.pos = saved
+			p.tb.pos = saved
 			break
 		}
 	}

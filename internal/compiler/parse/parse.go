@@ -71,12 +71,11 @@ type progressGuard struct {
 }
 
 // newProgressGuard creates a progress guard for the named loop context.
-// maxIter defaults to max(len(tokens)*2, 100).
 func (p *Parser) newProgressGuard(context string) progressGuard {
 	return progressGuard{
 		parser:  p,
 		context: context,
-		maxIter: max(len(p.tokens)*2, 100),
+		maxIter: max(p.guard.maxSteps/2, 100),
 	}
 }
 
@@ -96,13 +95,13 @@ func (pg *progressGuard) Begin() bool {
 	if pg.parser.guard.isHalted() {
 		return false
 	}
-	pg.before = pg.parser.pos
+	pg.before = pg.parser.tb.pos
 	return true
 }
 
 // DidProgress returns true if the parser position advanced since Begin().
 func (pg *progressGuard) DidProgress() bool {
-	return pg.parser.pos != pg.before
+	return pg.parser.tb.pos != pg.before
 }
 
 // RecoverStagnation emits an error and forces progress when the parser
@@ -110,19 +109,18 @@ func (pg *progressGuard) DidProgress() bool {
 func (pg *progressGuard) RecoverStagnation() {
 	pg.parser.addErrorCode(diagnostic.ErrUnexpectedToken, "unexpected token in "+pg.context)
 	pg.parser.syncToStmtBoundary()
-	if pg.parser.pos == pg.before {
+	if pg.parser.tb.pos == pg.before {
 		pg.parser.advance()
 	}
 }
 
 // Parser is a Pratt parser for the surface language.
 type Parser struct {
-	ctx         context.Context // external cancellation (nil-safe)
-	tokens      []syn.Token
-	pos         int
-	fixity      map[string]Fixity
-	errors      *diagnostic.Errors
-	depth       int  // paren/brace nesting depth
+	ctx    context.Context // external cancellation (nil-safe)
+	tb     *tokenBuffer
+	fixity map[string]Fixity
+	errors *diagnostic.Errors
+	depth  int  // paren/brace nesting depth
 	noBraceAtom bool // when true, { is not an atom start (inside case scrutinee)
 
 	// stmtBoundaryDepth enables newline-as-separator inside brace-delimited
@@ -143,8 +141,30 @@ func NewParser(ctx context.Context, tokens []syn.Token, errors *diagnostic.Error
 	maxSteps := max(len(tokens)*4, 100)
 	return &Parser{
 		ctx:    ctx,
-		tokens: tokens,
-		pos:    0,
+		tb:     newTokenBuffer(nil, tokens),
+		fixity: make(map[string]Fixity),
+		errors: errors,
+		guard: parserGuard{
+			maxRecurseDepth: 256,
+			maxSteps:        maxSteps,
+		},
+	}
+}
+
+// NewParserStreaming creates a parser backed by a Scanner for on-demand
+// tokenization. seed contains tokens already consumed (e.g., by import
+// pre-scanning); the scanner provides the rest.
+func NewParserStreaming(ctx context.Context, scanner *Scanner, seed []syn.Token, errors *diagnostic.Errors, sourceLen int) *Parser {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	// Estimate: ~1 token per 6 chars, safety factor of 4 → sourceLen*4/6 ≈ sourceLen*2/3.
+	// But sourceLen alone underestimates for repetitive syntax (;;;;;, ((()))).
+	// Use sourceLen as-is for generous headroom (matches old len(tokens)*4 in typical cases).
+	maxSteps := max(sourceLen*4, 100)
+	return &Parser{
+		ctx:    ctx,
+		tb:     newTokenBuffer(scanner, seed),
 		fixity: make(map[string]Fixity),
 		errors: errors,
 		guard: parserGuard{
@@ -178,6 +198,34 @@ func PreScanImportNames(tokens []syn.Token) []string {
 	return names
 }
 
+// PreScanImports scans the token buffer for import module names.
+// Uses save/restore to avoid consuming tokens.
+func (p *Parser) PreScanImports() []string {
+	p.tb.save()
+	defer p.tb.restore()
+	var names []string
+	for {
+		tok := p.tb.peek()
+		if tok.Kind == syn.TokEOF {
+			break
+		}
+		if tok.Kind == syn.TokImport && p.tb.peekAt(1).Kind == syn.TokUpper {
+			p.tb.advance() // import
+			name := p.tb.peek().Text
+			p.tb.advance() // Upper
+			for p.tb.peek().Kind == syn.TokDot && p.tb.peekAt(1).Kind == syn.TokUpper {
+				p.tb.advance() // .
+				name += "." + p.tb.peek().Text
+				p.tb.advance() // Upper
+			}
+			names = append(names, name)
+		} else {
+			p.tb.advance()
+		}
+	}
+	return names
+}
+
 // AddFixity merges host-supplied fixity declarations into the parser.
 func (p *Parser) AddFixity(fixity map[string]Fixity) {
 	maps.Copy(p.fixity, fixity)
@@ -187,7 +235,7 @@ func (p *Parser) AddFixity(fixity map[string]Fixity) {
 func (p *Parser) ParseProgram() *syn.AstProgram {
 	// First pass: collect fixity declarations.
 	p.collectFixity()
-	p.pos = 0
+	p.tb.pos = 0
 	p.guard.reset()
 
 	// Parse imports first.
@@ -200,7 +248,7 @@ func (p *Parser) ParseProgram() *syn.AstProgram {
 
 	var decls []syn.Decl
 	for p.peek().Kind != syn.TokEOF {
-		before := p.pos
+		before := p.tb.pos
 		d := p.parseDecl()
 		if d != nil {
 			decls = append(decls, d)
@@ -209,7 +257,7 @@ func (p *Parser) ParseProgram() *syn.AstProgram {
 			// so that one malformed declaration doesn't swallow subsequent valid ones.
 			p.syncToNextDecl()
 		}
-		if p.pos == before {
+		if p.tb.pos == before {
 			// Safety: ensure progress even if syncToNextDecl didn't advance.
 			p.advance()
 		}
@@ -243,10 +291,10 @@ func (p *Parser) skipSemicolons() {
 }
 
 func (p *Parser) peek() syn.Token {
-	if p.guard.isHalted() || p.pos >= len(p.tokens) {
+	if p.guard.isHalted() {
 		return syn.Token{Kind: syn.TokEOF}
 	}
-	return p.tokens[p.pos]
+	return p.tb.peek()
 }
 
 func (p *Parser) advance() syn.Token {
@@ -257,10 +305,7 @@ func (p *Parser) advance() syn.Token {
 		p.halt("parser step limit exceeded")
 		return syn.Token{Kind: syn.TokEOF}
 	}
-	tok := p.peek()
-	if p.pos < len(p.tokens) {
-		p.pos++
-	}
+	tok := p.tb.advance()
 	switch tok.Kind {
 	case syn.TokLParen, syn.TokLBrace, syn.TokLBracket:
 		p.depth++
@@ -352,10 +397,7 @@ func (p *Parser) expectLower() string {
 }
 
 func (p *Parser) prevEnd() span.Pos {
-	if p.pos > 0 && p.pos <= len(p.tokens) {
-		return p.tokens[p.pos-1].S.End
-	}
-	return span.Pos(p.pos)
+	return p.tb.prevEnd()
 }
 
 // atDeclBoundary returns true if the next token is across a newline boundary
@@ -477,14 +519,15 @@ func (p *Parser) syncToNextDecl() {
 // kept. If fn returns false, position, depth, and errors are rolled
 // back to the state before the call.
 func (p *Parser) speculate(fn func() bool) bool {
-	savedPos := p.pos
+	p.tb.save()
 	savedDepth := p.depth
 	savedErrLen := p.errors.Len()
 	savedSteps := p.guard.steps
 	if fn() {
+		p.tb.commit()
 		return true
 	}
-	p.pos = savedPos
+	p.tb.restore()
 	p.depth = savedDepth
 	p.errors.Truncate(savedErrLen)
 	p.guard.steps = savedSteps

@@ -18,7 +18,7 @@ func (p *Parser) parseImportDecl() syn.DeclImport {
 		p.advance()
 		part := p.expectUpper()
 		modName = modName + "." + part
-		modTok = p.tokens[p.pos-1] // update for next adjacency check
+		modTok = p.tb.peekAt(-1) // update for next adjacency check
 	}
 
 	imp := syn.DeclImport{ModuleName: modName}
@@ -110,7 +110,7 @@ func (p *Parser) parseImportName() syn.ImportName {
 	if p.peek().Kind == syn.TokLParen {
 		p.advance()
 		in.HasSub = true
-		if p.peek().Kind == syn.TokDot && p.pos+1 < len(p.tokens) && p.tokens[p.pos+1].Kind == syn.TokDot {
+		if p.peek().Kind == syn.TokDot && p.tb.peekAt(1).Kind == syn.TokDot {
 			// (..)
 			p.advance() // first .
 			p.advance() // second .

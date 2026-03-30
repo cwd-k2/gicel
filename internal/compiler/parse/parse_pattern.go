@@ -11,7 +11,7 @@ import (
 
 func (p *Parser) parsePattern() syn.Pattern {
 	if !p.enterRecurse() {
-		return &syn.PatWild{S: span.Span{Start: span.Pos(p.pos), End: span.Pos(p.pos)}}
+		return &syn.PatWild{S: span.Span{Start: p.peek().S.Start, End: p.peek().S.Start}}
 	}
 	defer p.leaveRecurse()
 	switch p.peek().Kind {
@@ -60,7 +60,8 @@ func (p *Parser) parseConPattern() syn.Pattern {
 	// Qualified constructor pattern: Q.Con — adjacency-disambiguated.
 	qualifier := ""
 	if p.peek().Kind == syn.TokDot && tokensAdjacent(tok, p.peek()) {
-		if p.pos+1 < len(p.tokens) && p.tokens[p.pos+1].Kind == syn.TokUpper && tokensAdjacent(p.peek(), p.tokens[p.pos+1]) {
+		next := p.tb.peekAt(1)
+		if next.Kind == syn.TokUpper && tokensAdjacent(p.peek(), next) {
 			qualifier = name
 			p.advance() // skip .
 			name = p.expectUpper()
@@ -121,7 +122,8 @@ func (p *Parser) parsePatternAtom() syn.Pattern {
 		tok := p.peek()
 		p.advance()
 		if p.peek().Kind == syn.TokDot && tokensAdjacent(tok, p.peek()) {
-			if p.pos+1 < len(p.tokens) && p.tokens[p.pos+1].Kind == syn.TokUpper && tokensAdjacent(p.peek(), p.tokens[p.pos+1]) {
+			next := p.tb.peekAt(1)
+			if next.Kind == syn.TokUpper && tokensAdjacent(p.peek(), next) {
 				qualifier := tok.Text
 				p.advance() // skip .
 				conTok := p.peek()

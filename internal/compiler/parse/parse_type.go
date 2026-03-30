@@ -10,7 +10,7 @@ import (
 
 func (p *Parser) parseType() syn.TypeExpr {
 	if !p.enterRecurse() {
-		return &syn.TyExprError{S: span.Span{Start: span.Pos(p.pos), End: span.Pos(p.pos)}}
+		return &syn.TyExprError{S: span.Span{Start: p.peek().S.Start, End: p.peek().S.Start}}
 	}
 	defer p.leaveRecurse()
 	return p.parseTypeArrow()
@@ -177,9 +177,9 @@ func (p *Parser) parseTypeAtom() syn.TypeExpr {
 		// Qualified type: Upper.Upper (adjacent, no whitespace) → syn.TyExprQualCon
 		if p.peek().Kind == syn.TokDot && tokensAdjacent(tok, p.peek()) {
 			dotTok := p.peek()
-			if p.pos+1 < len(p.tokens) {
-				nextTok := p.tokens[p.pos+1]
-				if tokensAdjacent(dotTok, nextTok) && nextTok.Kind == syn.TokUpper {
+			{
+				nextTok := p.tb.peekAt(1)
+				if nextTok.Kind != syn.TokEOF && tokensAdjacent(dotTok, nextTok) && nextTok.Kind == syn.TokUpper {
 					p.advance() // consume .
 					p.advance() // consume Upper
 					return &syn.TyExprQualCon{Qualifier: tok.Text, Name: nextTok.Text,
