@@ -396,22 +396,20 @@ func isSortKind(k types.Type) bool {
 
 // canAutoThunk returns true if the expression is eligible for auto-thunk coercion.
 // Excludes: explicit `thunk expr`, bare variable references (may already be Thunk-typed),
-// and constructor references. Only function applications, lambdas, literals, case
-// expressions, do blocks, and other "value-producing" forms are auto-thunked.
+// and constructor references. These exclusions prevent double-wrapping.
 func canAutoThunk(expr syntax.Expr) bool {
 	switch e := expr.(type) {
 	case *syntax.ExprVar:
-		return false // variable: may already be Thunk
+		return false
 	case *syntax.ExprCon:
-		return false // constructor: already typed
+		return false
 	case *syntax.ExprApp:
-		// Explicit thunk: not eligible
 		if v, ok := e.Fun.(*syntax.ExprVar); ok && v.Name == "thunk" {
 			return false
 		}
 		return true
 	default:
-		return true // lambdas, literals, case, do, etc.
+		return true
 	}
 }
 
