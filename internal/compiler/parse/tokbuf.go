@@ -11,12 +11,14 @@ import (
 // lookahead and speculation. Compaction discards consumed tokens
 // that are no longer reachable.
 type tokenBuffer struct {
-	scanner *Scanner    // nil when fully seeded (backward compat)
+	scanner *Scanner    // token source
 	buf     []syn.Token // buffered tokens
 	base    int         // logical index of buf[0]
 	pos     int         // current logical read position
+	prev    syn.Token   // last consumed token (for prevEnd)
 	marks   []int       // speculation save points (stack)
 	eof     bool        // true once TokEOF has been buffered
+	steps   int         // advance count since last compact check
 }
 
 func newTokenBuffer(scanner *Scanner, seed []syn.Token) *tokenBuffer {
@@ -35,14 +37,11 @@ func newTokenBuffer(scanner *Scanner, seed []syn.Token) *tokenBuffer {
 }
 
 // fill ensures the buffer contains up to logical index idx.
+// Called only from the slow path of at().
+//
+//go:noinline
 func (tb *tokenBuffer) fill(idx int) {
 	for !tb.eof && idx >= tb.base+len(tb.buf) {
-		if tb.scanner == nil {
-			// Fully seeded — synthesize EOF
-			tb.buf = append(tb.buf, syn.Token{Kind: syn.TokEOF})
-			tb.eof = true
-			return
-		}
 		tok := tb.scanner.Next()
 		tb.buf = append(tb.buf, tok)
 		if tok.Kind == syn.TokEOF {
@@ -52,9 +51,15 @@ func (tb *tokenBuffer) fill(idx int) {
 }
 
 // at returns the token at logical index idx.
+// Fast path: direct array access when the token is already buffered.
 func (tb *tokenBuffer) at(idx int) syn.Token {
-	tb.fill(idx)
 	physical := idx - tb.base
+	if physical >= 0 && physical < len(tb.buf) {
+		return tb.buf[physical]
+	}
+	// Slow path: need to fill from scanner or out of range.
+	tb.fill(idx)
+	physical = idx - tb.base
 	if physical < 0 || physical >= len(tb.buf) {
 		return syn.Token{Kind: syn.TokEOF}
 	}
@@ -76,19 +81,20 @@ func (tb *tokenBuffer) peekAt(offset int) syn.Token {
 func (tb *tokenBuffer) advance() syn.Token {
 	tok := tb.peek()
 	if tok.Kind != syn.TokEOF {
+		tb.prev = tok
 		tb.pos++
+		tb.steps++
+		if tb.steps >= compactThreshold {
+			tb.steps = 0
+			tb.maybeCompact()
+		}
 	}
-	tb.maybeCompact()
 	return tok
 }
 
-// prevEnd returns the End position of the token at pos-1.
+// prevEnd returns the End position of the previously consumed token.
 func (tb *tokenBuffer) prevEnd() span.Pos {
-	if tb.pos > 0 {
-		prev := tb.at(tb.pos - 1)
-		return prev.S.End
-	}
-	return span.Pos(0)
+	return tb.prev.S.End
 }
 
 // save pushes the current position onto the speculation stack.
@@ -106,7 +112,6 @@ func (tb *tokenBuffer) restore() {
 // commit pops the last saved position without restoring.
 func (tb *tokenBuffer) commit() {
 	tb.marks = tb.marks[:len(tb.marks)-1]
-	tb.maybeCompact()
 }
 
 // scanForward scans tokens starting from the current position until
@@ -125,11 +130,10 @@ func (tb *tokenBuffer) scanForward(pred func(tok syn.Token, offset int) (stop bo
 }
 
 // maybeCompact discards tokens that are no longer reachable.
-// Retains pos-1 for prevEnd() access.
 const compactThreshold = 64
 
 func (tb *tokenBuffer) maybeCompact() {
-	watermark := tb.pos - 1 // retain previous token for prevEnd
+	watermark := tb.pos - 1 // retain previous token
 	if watermark < tb.base {
 		return
 	}
@@ -140,7 +144,6 @@ func (tb *tokenBuffer) maybeCompact() {
 	}
 	drop := watermark - tb.base
 	if drop >= compactThreshold {
-		// Slide buffer: reuse underlying array when possible
 		copy(tb.buf, tb.buf[drop:])
 		tb.buf = tb.buf[:len(tb.buf)-drop]
 		tb.base += drop
