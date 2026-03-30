@@ -2,7 +2,6 @@ package types
 
 import (
 	"fmt"
-	"sort"
 	"sync/atomic"
 )
 
@@ -210,37 +209,21 @@ func SubstKindInType(t Type, varName string, replacement Type) Type {
 // Unlike sequential Subst calls, this performs a single pass:
 // all variables are replaced in one traversal, so substitution
 // values do not interfere with each other.
-// SubstMany performs simultaneous substitution of all variables in subs.
-// Because substitution is simultaneous (not sequential), the result is
-// independent of map iteration order for the substitution itself.
-// Capture-avoidance loops iterate in sorted key order to ensure
-// deterministic fresh name generation.
 func SubstMany(t Type, subs map[string]Type) Type {
 	if len(subs) == 0 {
 		return t
 	}
-	// Pre-compute sorted keys and free variable union once.
-	keys := sortedKeys(subs)
+	// Pre-compute free variable union for capture avoidance in TyForall.
 	fvUnion := make(map[string]bool)
 	for _, v := range subs {
 		for name := range FreeVars(v) {
 			fvUnion[name] = true
 		}
 	}
-	return substManyOpt(t, subs, keys, fvUnion, 0)
+	return substManyOpt(t, subs, fvUnion, 0)
 }
 
-// sortedKeys returns the keys of a map in sorted order.
-func sortedKeys(m map[string]Type) []string {
-	keys := make([]string, 0, len(m))
-	for k := range m {
-		keys = append(keys, k)
-	}
-	sort.Strings(keys)
-	return keys
-}
-
-func substManyOpt(t Type, subs map[string]Type, keys []string, fvUnion map[string]bool, depth int) Type {
+func substManyOpt(t Type, subs map[string]Type, fvUnion map[string]bool, depth int) Type {
 	if depth > maxTraversalDepth {
 		return t
 	}
@@ -253,21 +236,21 @@ func substManyOpt(t Type, subs map[string]Type, keys []string, fvUnion map[strin
 	case *TyCon:
 		return ty
 	case *TyApp:
-		newFun := substManyOpt(ty.Fun, subs, keys, fvUnion, depth+1)
-		newArg := substManyOpt(ty.Arg, subs, keys, fvUnion, depth+1)
+		newFun := substManyOpt(ty.Fun, subs, fvUnion, depth+1)
+		newArg := substManyOpt(ty.Arg, subs, fvUnion, depth+1)
 		if newFun == ty.Fun && newArg == ty.Arg {
 			return ty
 		}
 		return &TyApp{Fun: newFun, Arg: newArg, Flags: MetaFreeFlags(newFun, newArg), S: ty.S}
 	case *TyArrow:
-		newFrom := substManyOpt(ty.From, subs, keys, fvUnion, depth+1)
-		newTo := substManyOpt(ty.To, subs, keys, fvUnion, depth+1)
+		newFrom := substManyOpt(ty.From, subs, fvUnion, depth+1)
+		newTo := substManyOpt(ty.To, subs, fvUnion, depth+1)
 		if newFrom == ty.From && newTo == ty.To {
 			return ty
 		}
 		return &TyArrow{From: newFrom, To: newTo, Flags: MetaFreeFlags(newFrom, newTo), S: ty.S}
 	case *TyForall:
-		newKind := substManyOpt(ty.Kind, subs, keys, fvUnion, depth+1)
+		newKind := substManyOpt(ty.Kind, subs, fvUnion, depth+1)
 		// Remove shadowed variable from substitution.
 		if _, shadowed := subs[ty.Var]; shadowed {
 			reduced := make(map[string]Type, len(subs)-1)
@@ -286,10 +269,10 @@ func substManyOpt(t Type, subs map[string]Type, keys []string, fvUnion map[strin
 			if fvUnion[ty.Var] {
 				fresh := freshName(ty.Var)
 				body := substDepth(ty.Body, ty.Var, &TyVar{Name: fresh}, depth+1)
-				body = substManyOpt(body, reduced, keys, fvUnion, depth+1)
+				body = substManyOpt(body, reduced, fvUnion, depth+1)
 				return &TyForall{Var: fresh, Kind: newKind, Body: body, S: ty.S}
 			}
-			newBody := substManyOpt(ty.Body, reduced, keys, fvUnion, depth+1)
+			newBody := substManyOpt(ty.Body, reduced, fvUnion, depth+1)
 			if newKind == ty.Kind && newBody == ty.Body {
 				return ty
 			}
@@ -299,27 +282,27 @@ func substManyOpt(t Type, subs map[string]Type, keys []string, fvUnion map[strin
 		if fvUnion[ty.Var] {
 			fresh := freshName(ty.Var)
 			body := substDepth(ty.Body, ty.Var, &TyVar{Name: fresh}, depth+1)
-			body = substManyOpt(body, subs, keys, fvUnion, depth+1)
+			body = substManyOpt(body, subs, fvUnion, depth+1)
 			return &TyForall{Var: fresh, Kind: newKind, Body: body, S: ty.S}
 		}
-		newBody := substManyOpt(ty.Body, subs, keys, fvUnion, depth+1)
+		newBody := substManyOpt(ty.Body, subs, fvUnion, depth+1)
 		if newKind == ty.Kind && newBody == ty.Body {
 			return ty
 		}
 		return &TyForall{Var: ty.Var, Kind: newKind, Body: newBody, S: ty.S}
 	case *TyCBPV:
-		newPre := substManyOpt(ty.Pre, subs, keys, fvUnion, depth+1)
-		newPost := substManyOpt(ty.Post, subs, keys, fvUnion, depth+1)
-		newResult := substManyOpt(ty.Result, subs, keys, fvUnion, depth+1)
+		newPre := substManyOpt(ty.Pre, subs, fvUnion, depth+1)
+		newPost := substManyOpt(ty.Post, subs, fvUnion, depth+1)
+		newResult := substManyOpt(ty.Result, subs, fvUnion, depth+1)
 		if newPre == ty.Pre && newPost == ty.Post && newResult == ty.Result {
 			return ty
 		}
 		return &TyCBPV{Tag: ty.Tag, Pre: newPre, Post: newPost, Result: newResult, Flags: MetaFreeFlags(newPre, newPost, newResult), S: ty.S}
 	case *TyEvidenceRow:
-		return substManyEvidenceRow(ty, subs, keys, fvUnion, depth+1)
+		return substManyEvidenceRow(ty, subs, fvUnion, depth+1)
 	case *TyEvidence:
-		newConstraints := substManyEvidenceRow(ty.Constraints, subs, keys, fvUnion, depth+1)
-		newBody := substManyOpt(ty.Body, subs, keys, fvUnion, depth+1)
+		newConstraints := substManyEvidenceRow(ty.Constraints, subs, fvUnion, depth+1)
+		newBody := substManyOpt(ty.Body, subs, fvUnion, depth+1)
 		if newConstraints == ty.Constraints && newBody == ty.Body {
 			return ty
 		}
@@ -327,7 +310,7 @@ func substManyOpt(t Type, subs map[string]Type, keys []string, fvUnion map[strin
 	case *TyFamilyApp:
 		var newArgs []Type // nil until first change
 		for i, a := range ty.Args {
-			sa := substManyOpt(a, subs, keys, fvUnion, depth+1)
+			sa := substManyOpt(a, subs, fvUnion, depth+1)
 			if newArgs == nil && sa != a {
 				newArgs = make([]Type, len(ty.Args))
 				copy(newArgs[:i], ty.Args[:i])
@@ -345,7 +328,7 @@ func substManyOpt(t Type, subs map[string]Type, keys []string, fvUnion map[strin
 	}
 }
 
-func substManyEvidenceRow(row *TyEvidenceRow, subs map[string]Type, keys []string, fvUnion map[string]bool, depth int) *TyEvidenceRow {
+func substManyEvidenceRow(row *TyEvidenceRow, subs map[string]Type, fvUnion map[string]bool, depth int) *TyEvidenceRow {
 	if row == nil {
 		return nil
 	}
@@ -353,11 +336,11 @@ func substManyEvidenceRow(row *TyEvidenceRow, subs map[string]Type, keys []strin
 		return row
 	}
 	newEntries, changed := row.Entries.MapChildren(func(child Type) Type {
-		return substManyOpt(child, subs, keys, fvUnion, depth+1)
+		return substManyOpt(child, subs, fvUnion, depth+1)
 	})
 	var newTail Type
 	if row.Tail != nil {
-		newTail = substManyOpt(row.Tail, subs, keys, fvUnion, depth+1)
+		newTail = substManyOpt(row.Tail, subs, fvUnion, depth+1)
 		if newTail != row.Tail {
 			changed = true
 		}
