@@ -252,6 +252,10 @@ func (ch *Checker) checkCaseAlts(scrutTy, resultTy types.Type, scrutCore ir.Core
 			}
 			ch.checkSkolemEscape(ch.unifier.Zonk(resultTy), escapable, alt.Body.Span())
 		}
+		// Auto-force: for lazy co-data constructors, wrap body with
+		// force applications so pattern-bound variables are values.
+		bodyCore = ch.autoForceLazy(pr.Pattern, bodyCore, alt.S)
+
 		alts = append(alts, ir.Alt{Pattern: pr.Pattern, Body: bodyCore, S: alt.S})
 
 		// Remove GADT given equalities scoped to this branch.
@@ -271,4 +275,38 @@ func (ch *Checker) checkCaseAlts(scrutTy, resultTy types.Type, scrutCore ir.Core
 
 	ch.checkExhaustive(scrutTy, alts, e.S)
 	return &ir.Case{Scrutinee: scrutCore, Alts: alts, S: e.S}
+}
+
+// autoForceLazy handles lazy co-data pattern matching. For lazy constructors,
+// pattern-bound variables hold ThunkVals at runtime. This function:
+// 1. Renames pattern variables to internal names ($lzN)
+// 2. Wraps the body: (\originalName. body) (force $lzN)
+// The result: user code sees forced values, not thunks.
+func (ch *Checker) autoForceLazy(pat ir.Pattern, body ir.Core, s span.Span) ir.Core {
+	pcon, ok := pat.(*ir.PCon)
+	if !ok {
+		return body
+	}
+	info, ok := ch.reg.LookupConInfo(pcon.Con)
+	if !ok || !info.IsLazy {
+		return body
+	}
+	// Collect pattern variables to force (skip wildcards).
+	for i, arg := range pcon.Args {
+		pv, ok := arg.(*ir.PVar)
+		if !ok || pv.Name == "_" {
+			continue
+		}
+		internalName := ch.freshName("$lz")
+		userName := pv.Name
+		// Rename pattern variable to internal name.
+		pcon.Args[i] = &ir.PVar{Name: internalName, S: pv.S}
+		// Wrap body: (\userName. body) (force $lzN)
+		body = &ir.App{
+			Fun: &ir.Lam{Param: userName, Body: body, S: s},
+			Arg: &ir.Force{Expr: &ir.Var{Name: internalName, S: s}, S: s},
+			S:   s,
+		}
+	}
+	return body
 }

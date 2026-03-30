@@ -272,18 +272,6 @@ func (ch *Checker) check(expr syntax.Expr, expected types.Type) ir.Core {
 		}
 	}
 
-	// Auto-thunk: when expected type is Thunk {} {} T from a lazy form,
-	// check the expression against T and wrap in ir.Thunk.
-	// Excluded: explicit `thunk expr`, bare variables (already typed), and
-	// constructor references (already typed). These exclusions prevent
-	// double-wrapping when the expression already has a Thunk type.
-	if thunk, ok := expected.(*types.TyCBPV); ok && thunk.Tag == types.TagThunk && isClosedEmptyRow(thunk.Pre) && isClosedEmptyRow(thunk.Post) {
-		if canAutoThunk(expr) {
-			innerCore := ch.check(expr, thunk.Result)
-			return &ir.Thunk{Comp: innerCore, S: expr.Span()}
-		}
-	}
-
 	// If the expected type is a forall, introduce a TyLam and check the body
 	// against the quantified type. This implements the spec rule:
 	//   ⟦ e : \ a:K. T ⟧ = TyLam(a, K, ⟦e: T⟧)

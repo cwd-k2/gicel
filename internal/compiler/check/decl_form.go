@@ -67,21 +67,6 @@ func (ch *Checker) processFormDeclParts(d *syntax.DeclForm, parts formBodyParts,
 		conType := fieldTy
 		fieldTypes, retTy := decomposeConSig(fieldTy)
 
-		// Lazy co-data: wrap each constructor field type in Thunk.
-		// lazy form Stream := \a. { LCons: a -> Stream a -> Stream a; ... }
-		// becomes: LCons: Thunk {} {} a -> Thunk {} {} (Stream a) -> Stream a
-		if d.IsLazy && len(fieldTypes) > 0 {
-			emptyRow := types.EmptyRow()
-			for i := range fieldTypes {
-				fieldTypes[i] = types.MkThunk(emptyRow, emptyRow, fieldTypes[i])
-			}
-			// Rebuild conType from wrapped field types.
-			conType = retTy
-			for i := len(fieldTypes) - 1; i >= 0; i-- {
-				conType = types.MkArrow(fieldTypes[i], conType)
-			}
-		}
-
 		// Detect GADT: if the constructor's return type differs from the
 		// generic result type (T a b c ...), this is a refined return type.
 		var gadtReturnType types.Type

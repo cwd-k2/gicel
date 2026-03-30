@@ -394,38 +394,6 @@ func isSortKind(k types.Type) bool {
 	return false
 }
 
-// canAutoThunk returns true if the expression is eligible for auto-thunk coercion.
-// Excludes: explicit `thunk expr`, bare variable references (may already be Thunk-typed),
-// and constructor references. These exclusions prevent double-wrapping.
-func canAutoThunk(expr syntax.Expr) bool {
-	switch e := expr.(type) {
-	case *syntax.ExprVar:
-		return false
-	case *syntax.ExprCon:
-		return false
-	case *syntax.ExprApp:
-		if v, ok := e.Fun.(*syntax.ExprVar); ok && v.Name == "thunk" {
-			return false
-		}
-		return true
-	default:
-		return true
-	}
-}
-
-// isClosedEmptyRow returns true if ty is a closed empty capability row.
-func isClosedEmptyRow(ty types.Type) bool {
-	ev, ok := ty.(*types.TyEvidenceRow)
-	if !ok {
-		return false
-	}
-	cap, ok := ev.Entries.(*types.CapabilityEntries)
-	if !ok {
-		return false
-	}
-	return len(cap.Fields) == 0 && ev.Tail == nil
-}
-
 func (s *CheckState) errorPair(sp span.Span) (types.Type, ir.Core) {
 	return &types.TyError{S: sp}, &ir.Error{S: sp}
 }

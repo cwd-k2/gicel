@@ -46,10 +46,30 @@ func (ch *Checker) matchArrow(ty types.Type, s span.Span) (types.Type, types.Typ
 
 // inferApply applies a function to an argument: decomposes the arrow type,
 // checks the argument against the parameter type, and wraps in ir.App.
+// For lazy co-data constructors, arguments are automatically wrapped in ir.Thunk.
 func (ch *Checker) inferApply(funTy types.Type, funCore ir.Core, arg syntax.Expr, s span.Span) (types.Type, ir.Core) {
 	argTy, retTy := ch.matchArrow(funTy, s)
 	argCore := ch.check(arg, argTy)
+	if ch.isLazyConApp(funCore) {
+		argCore = &ir.Thunk{Comp: argCore, S: arg.Span()}
+	}
 	return retTy, &ir.App{Fun: funCore, Arg: argCore, S: s}
+}
+
+// isLazyConApp returns true if the Core node is a constructor application
+// originating from a lazy form declaration.
+func (ch *Checker) isLazyConApp(core ir.Core) bool {
+	switch c := core.(type) {
+	case *ir.Con:
+		if info, ok := ch.reg.LookupConInfo(c.Name); ok {
+			return info.IsLazy
+		}
+	case *ir.App:
+		return ch.isLazyConApp(c.Fun)
+	case *ir.TyApp:
+		return ch.isLazyConApp(c.Expr)
+	}
+	return false
 }
 
 // lookupVar resolves a variable name to its type and Core node.
