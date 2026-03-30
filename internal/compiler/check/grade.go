@@ -24,9 +24,10 @@ const gradeAlgebraClassName = "GradeAlgebra"
 // resolvedGradeAlgebra holds the resolved join family name and drop value
 // for a grade kind.
 type resolvedGradeAlgebra struct {
-	joinFamily string     // name of the GradeJoin type family
-	dropValue  types.Type // the Drop element (promoted constructor, e.g. Zero)
-	valid      bool       // false if no GradeAlgebra instance found
+	joinFamily    string     // name of the GradeJoin type family
+	composeFamily string     // name of the GradeCompose type family
+	dropValue     types.Type // the Drop element (promoted constructor, e.g. Zero)
+	valid         bool       // false if no GradeAlgebra instance found
 }
 
 // resolveGradeAlgebra looks up a GradeAlgebra instance for the given grade kind
@@ -75,10 +76,14 @@ func (ch *Checker) extractGradeAlgebra(classInfo *ClassInfo, inst *InstanceInfo)
 		}
 		switch assocName {
 		case "GradeJoin":
-			// The reduced result must be a type family name (TyCon).
-			// If it doesn't reduce to a TyCon, the algebra is unusable.
 			if con, ok := reduced.(*types.TyCon); ok {
 				result.joinFamily = con.Name
+			} else {
+				return resolvedGradeAlgebra{}
+			}
+		case "GradeCompose":
+			if con, ok := reduced.(*types.TyCon); ok {
+				result.composeFamily = con.Name
 			} else {
 				return resolvedGradeAlgebra{}
 			}
@@ -224,6 +229,44 @@ func (ch *Checker) emitGradePreserveConstraint(grade types.Type, gradeKind types
 	// Unify resultMeta ~ grade so that preservation is enforced: the result
 	// of Join(Zero, grade) must equal grade itself.
 	ch.emitEq(resultMeta, grade, s, nil)
+}
+
+// resolveGradeDrop returns the GradeDrop value for the default grade algebra,
+// or nil if no grade algebra is available.
+func (ch *Checker) resolveGradeDrop() types.Type {
+	gk := gradeAlgebraKind(ch)
+	algebra := ch.resolveGradeAlgebra(gk)
+	if !algebra.valid {
+		return nil
+	}
+	return algebra.dropValue
+}
+
+// extractCompGrade extracts the Grade from a TyCBPV, or nil if ungraded.
+func (ch *Checker) extractCompGrade(ty types.Type) types.Type {
+	ty = ch.unifier.Zonk(ty)
+	if comp, ok := ty.(*types.TyCBPV); ok {
+		return comp.Grade
+	}
+	return nil
+}
+
+// composeGrades computes GradeCompose(g1, g2), or nil if either is nil.
+func (ch *Checker) composeGrades(g1, g2 types.Type) types.Type {
+	if g1 == nil || g2 == nil {
+		return nil
+	}
+	gk := gradeAlgebraKind(ch)
+	algebra := ch.resolveGradeAlgebra(gk)
+	if !algebra.valid || algebra.composeFamily == "" {
+		return nil
+	}
+	composed, ok := ch.reduceTyFamily(algebra.composeFamily, []types.Type{g1, g2}, span.Span{})
+	if !ok {
+		// Family reduction stuck — return a TyFamilyApp to defer.
+		return &types.TyFamilyApp{Name: algebra.composeFamily, Args: []types.Type{g1, g2}}
+	}
+	return composed
 }
 
 // extractCapFields returns the capability fields from a zonked row type, or nil.

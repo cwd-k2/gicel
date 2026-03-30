@@ -36,11 +36,17 @@ func (ch *Checker) checkPure(e *syntax.ExprApp, expected types.Type) ir.Core {
 }
 
 // inferPure handles the special form 'pure <expr>'.
-// pure e: Computation r r a, elaborated to Core.Pure.
+// pure e: Computation r r a @GradeDrop, elaborated to Core.Pure.
 func (ch *Checker) inferPure(e *syntax.ExprApp) (types.Type, ir.Core) {
 	argTy, argCore := ch.infer(e.Arg)
 	r := ch.freshMeta(types.TypeOfRows)
-	resultTy := types.MkComp(r, r, argTy)
+	grade := ch.resolveGradeDrop()
+	var resultTy types.Type
+	if grade != nil {
+		resultTy = types.MkCompGraded(r, r, argTy, grade)
+	} else {
+		resultTy = types.MkComp(r, r, argTy)
+	}
 	if ch.config.Trace != nil {
 		ch.trace(TraceInfer, e.S, "pure: %s ⇒ %s", types.Pretty(argTy), types.Pretty(resultTy))
 	}
@@ -88,7 +94,16 @@ func (ch *Checker) inferBind(compExpr, contExpr syntax.Expr, s span.Span) (types
 		}
 	}
 
-	resultTy := types.MkComp(ch.unifier.Zonk(r1), ch.unifier.Zonk(r3), ch.unifier.Zonk(b))
+	// Compose grades from comp and body computations.
+	compGrade := ch.extractCompGrade(compTy)
+	bodyGrade := ch.extractCompGrade(types.MkComp(ch.unifier.Zonk(r2), ch.unifier.Zonk(r3), ch.unifier.Zonk(b)))
+	grade := ch.composeGrades(compGrade, bodyGrade)
+	var resultTy types.Type
+	if grade != nil {
+		resultTy = types.MkCompGraded(ch.unifier.Zonk(r1), ch.unifier.Zonk(r3), ch.unifier.Zonk(b), grade)
+	} else {
+		resultTy = types.MkComp(ch.unifier.Zonk(r1), ch.unifier.Zonk(r3), ch.unifier.Zonk(b))
+	}
 	if ch.config.Trace != nil {
 		ch.trace(TraceInfer, s, "bind: ⇒ %s", types.Pretty(resultTy))
 	}
