@@ -87,7 +87,7 @@ func (u *Unifier) zonkInner(t types.Type) types.Type {
 		if !changed {
 			return ty
 		}
-		return &types.TyEvidenceRow{Entries: newEntries, Tail: tail, S: ty.S}
+		return &types.TyEvidenceRow{Entries: newEntries, Tail: tail, Flags: types.EvidenceRowFlags(newEntries, tail), S: ty.S}
 	case *types.TyEvidence:
 		zConstraints := u.zonkInner(ty.Constraints)
 		zBody := u.zonkInner(ty.Body)

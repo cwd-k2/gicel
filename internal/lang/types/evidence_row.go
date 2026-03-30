@@ -37,9 +37,11 @@ func ExtendRow(r *TyEvidenceRow, f RowField) (*TyEvidenceRow, error) {
 	if !inserted {
 		result = append(result, f)
 	}
+	e := &CapabilityEntries{Fields: result}
 	return &TyEvidenceRow{
-		Entries: &CapabilityEntries{Fields: result},
+		Entries: e,
 		Tail:    r.Tail,
+		Flags:   EvidenceRowFlags(e, r.Tail),
 		S:       r.S,
 	}, nil
 }
@@ -52,9 +54,11 @@ func RemoveLabel(r *TyEvidenceRow, label string) (RowField, *TyEvidenceRow, bool
 			remaining := make([]RowField, 0, len(fields)-1)
 			remaining = append(remaining, fields[:i]...)
 			remaining = append(remaining, fields[i+1:]...)
+			e := &CapabilityEntries{Fields: remaining}
 			return f, &TyEvidenceRow{
-				Entries: &CapabilityEntries{Fields: remaining},
+				Entries: e,
 				Tail:    r.Tail,
+				Flags:   EvidenceRowFlags(e, r.Tail),
 				S:       r.S,
 			}, true
 		}
@@ -75,9 +79,11 @@ func NormalizeConstraints(r *TyEvidenceRow) *TyEvidenceRow {
 	sort.Slice(sorted, func(i, j int) bool {
 		return ConstraintKey(sorted[i]) < ConstraintKey(sorted[j])
 	})
+	ce := &ConstraintEntries{Entries: sorted}
 	return &TyEvidenceRow{
-		Entries: &ConstraintEntries{Entries: sorted},
+		Entries: ce,
 		Tail:    r.Tail,
+		Flags:   EvidenceRowFlags(ce, r.Tail),
 		S:       r.S,
 	}
 }
@@ -102,9 +108,11 @@ func ExtendConstraint(r *TyEvidenceRow, e ConstraintEntry) *TyEvidenceRow {
 	if !inserted {
 		entries[j] = e
 	}
+	ce := &ConstraintEntries{Entries: entries}
 	return &TyEvidenceRow{
-		Entries: &ConstraintEntries{Entries: entries},
+		Entries: ce,
 		Tail:    r.Tail,
+		Flags:   EvidenceRowFlags(ce, r.Tail),
 		S:       r.S,
 	}
 }

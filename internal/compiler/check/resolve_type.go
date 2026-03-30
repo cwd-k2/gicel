@@ -155,15 +155,21 @@ func qualifyBody(entry types.ConstraintEntry, body types.Type, s span.Span) *typ
 		entries := make([]types.ConstraintEntry, 0, 1+len(old))
 		entries = append(entries, entry)
 		entries = append(entries, old...)
+		ce := &types.ConstraintEntries{Entries: entries}
+		cr := &types.TyEvidenceRow{Entries: ce, Flags: types.EvidenceRowFlags(ce, nil)}
 		return &types.TyEvidence{
-			Constraints: &types.TyEvidenceRow{Entries: &types.ConstraintEntries{Entries: entries}},
+			Constraints: cr,
 			Body:        ev.Body,
+			Flags:       types.MetaFreeFlags(cr, ev.Body),
 			S:           s,
 		}
 	}
+	ce := &types.ConstraintEntries{Entries: []types.ConstraintEntry{entry}}
+	cr := &types.TyEvidenceRow{Entries: ce, Flags: types.EvidenceRowFlags(ce, nil)}
 	return &types.TyEvidence{
-		Constraints: &types.TyEvidenceRow{Entries: &types.ConstraintEntries{Entries: []types.ConstraintEntry{entry}}},
+		Constraints: cr,
 		Body:        body,
+		Flags:       types.MetaFreeFlags(cr, body),
 		S:           s,
 	}
 }

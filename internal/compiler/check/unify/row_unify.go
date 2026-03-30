@@ -207,9 +207,10 @@ func (u *Unifier) solveEvidenceTail(tail types.Type, entries types.EvidenceEntri
 	}
 	var solution types.Type
 	if entries.EntryCount() == 0 && newTail == nil {
-		solution = &types.TyEvidenceRow{Entries: entries.Empty()}
+		e := entries.Empty()
+		solution = &types.TyEvidenceRow{Entries: e, Flags: types.EvidenceRowFlags(e, nil)}
 	} else {
-		solution = &types.TyEvidenceRow{Entries: entries, Tail: newTail}
+		solution = &types.TyEvidenceRow{Entries: entries, Tail: newTail, Flags: types.EvidenceRowFlags(entries, newTail)}
 	}
 	return u.Unify(tail, solution)
 }

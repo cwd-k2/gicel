@@ -456,34 +456,63 @@ func zonkQuantifiedConstraint(qc *QuantifiedConstraint, zonk func(Type) Type) (*
 
 // --- Evidence row builders ---
 
+// EvidenceRowFlags computes FlagMetaFree for a TyEvidenceRow by checking
+// its entries and tail. This is O(n) in the number of fields/entries,
+// with each child check O(1) via the child's own Flags.
+func EvidenceRowFlags(entries EvidenceEntries, tail Type) uint8 {
+	if tail != nil && HasMeta(tail) {
+		return 0
+	}
+	hasMeta := false
+	entries.ForEachChild(func(child Type) bool {
+		if HasMeta(child) {
+			hasMeta = true
+			return false
+		}
+		return true
+	})
+	if hasMeta {
+		return 0
+	}
+	return FlagMetaFree
+}
+
 // EmptyRow creates an empty closed capability evidence row.
 func EmptyRow() *TyEvidenceRow {
-	return &TyEvidenceRow{Entries: &CapabilityEntries{}}
+	return &TyEvidenceRow{Entries: &CapabilityEntries{}, Flags: FlagMetaFree}
 }
 
 // ClosedRow creates a closed capability evidence row from fields.
 // Panics on duplicate labels — callers must provide unique labels.
 func ClosedRow(fields ...RowField) *TyEvidenceRow {
-	return mustNormalizeRow(&TyEvidenceRow{Entries: &CapabilityEntries{Fields: fields}})
+	entries := &CapabilityEntries{Fields: fields}
+	r := mustNormalizeRow(&TyEvidenceRow{Entries: entries})
+	r.Flags = EvidenceRowFlags(r.Entries, r.Tail)
+	return r
 }
 
 // OpenRow creates an open capability evidence row with a tail.
 // Panics on duplicate labels — callers must provide unique labels.
 func OpenRow(fields []RowField, tail Type) *TyEvidenceRow {
-	return mustNormalizeRow(&TyEvidenceRow{Entries: &CapabilityEntries{Fields: fields}, Tail: tail})
+	entries := &CapabilityEntries{Fields: fields}
+	r := mustNormalizeRow(&TyEvidenceRow{Entries: entries, Tail: tail})
+	r.Flags = EvidenceRowFlags(r.Entries, r.Tail)
+	return r
 }
 
 // EmptyConstraintRow creates an empty closed constraint evidence row.
 func EmptyConstraintRow() *TyEvidenceRow {
-	return &TyEvidenceRow{Entries: &ConstraintEntries{}}
+	return &TyEvidenceRow{Entries: &ConstraintEntries{}, Flags: FlagMetaFree}
 }
 
 // SingleConstraint creates a constraint evidence row with one entry.
 func SingleConstraint(className string, args []Type) *TyEvidenceRow {
+	entries := &ConstraintEntries{
+		Entries: []ConstraintEntry{{ClassName: className, Args: args}},
+	}
 	return &TyEvidenceRow{
-		Entries: &ConstraintEntries{
-			Entries: []ConstraintEntry{{ClassName: className, Args: args}},
-		},
+		Entries: entries,
+		Flags:   EvidenceRowFlags(entries, nil),
 	}
 }
 
@@ -504,9 +533,11 @@ func NormalizeRow(r *TyEvidenceRow) (*TyEvidenceRow, error) {
 			return nil, fmt.Errorf("duplicate label in evidence row: %s", sorted[i].Label)
 		}
 	}
+	entries := &CapabilityEntries{Fields: sorted}
 	return &TyEvidenceRow{
-		Entries: &CapabilityEntries{Fields: sorted},
+		Entries: entries,
 		Tail:    r.Tail,
+		Flags:   EvidenceRowFlags(entries, r.Tail),
 		S:       r.S,
 	}, nil
 }

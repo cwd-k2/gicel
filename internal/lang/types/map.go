@@ -68,7 +68,7 @@ func MapType(t Type, f func(Type) Type) Type {
 		if !changed {
 			return t
 		}
-		return &TyEvidenceRow{Entries: newEntries, Tail: tail, S: ty.S}
+		return &TyEvidenceRow{Entries: newEntries, Tail: tail, Flags: EvidenceRowFlags(newEntries, tail), S: ty.S}
 	case *TyFamilyApp:
 		kind := f(ty.Kind)
 		var args []Type // nil until first change (lazy-init)

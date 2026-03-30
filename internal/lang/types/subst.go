@@ -147,7 +147,8 @@ func substDepth(t Type, varName string, replacement Type, depth int) Type {
 			if !changed {
 				return ty
 			}
-			return &TyEvidenceRow{Entries: &CapabilityEntries{Fields: fields}, Tail: newTail, S: ty.S}
+			e := &CapabilityEntries{Fields: fields}
+			return &TyEvidenceRow{Entries: e, Tail: newTail, Flags: EvidenceRowFlags(e, newTail), S: ty.S}
 		case *ConstraintEntries:
 			changed := false
 			ces := make([]ConstraintEntry, len(entries.Entries))
@@ -164,7 +165,8 @@ func substDepth(t Type, varName string, replacement Type, depth int) Type {
 			if !changed {
 				return ty
 			}
-			return &TyEvidenceRow{Entries: &ConstraintEntries{Entries: ces}, Tail: newTail, S: ty.S}
+			e := &ConstraintEntries{Entries: ces}
+			return &TyEvidenceRow{Entries: e, Tail: newTail, Flags: EvidenceRowFlags(e, newTail), S: ty.S}
 		default:
 			return ty
 		}
@@ -363,7 +365,7 @@ func substManyEvidenceRow(row *TyEvidenceRow, subs map[string]Type, keys []strin
 	if !changed {
 		return row
 	}
-	return &TyEvidenceRow{Entries: newEntries, Tail: newTail, S: row.S}
+	return &TyEvidenceRow{Entries: newEntries, Tail: newTail, Flags: EvidenceRowFlags(newEntries, newTail), S: row.S}
 }
 
 // substConstraintEntry substitutes within a single ConstraintEntry,

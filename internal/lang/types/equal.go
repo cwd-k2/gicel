@@ -116,8 +116,8 @@ func equalAlpha(a, b Type, bindings []alphaBinding) bool {
 			}
 			// Defensive normalization: constraint rows may be constructed
 			// directly without ExtendConstraint in tests or external code.
-			an := NormalizeConstraints(&TyEvidenceRow{Entries: aEntries, Tail: at.Tail})
-			bn := NormalizeConstraints(&TyEvidenceRow{Entries: bEntries, Tail: bt.Tail})
+			an := NormalizeConstraints(&TyEvidenceRow{Entries: aEntries, Tail: at.Tail, Flags: EvidenceRowFlags(aEntries, at.Tail)})
+			bn := NormalizeConstraints(&TyEvidenceRow{Entries: bEntries, Tail: bt.Tail, Flags: EvidenceRowFlags(bEntries, bt.Tail)})
 			aCons := an.ConEntries()
 			bCons := bn.ConEntries()
 			if len(aCons) != len(bCons) {

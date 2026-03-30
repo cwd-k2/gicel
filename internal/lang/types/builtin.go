@@ -106,8 +106,11 @@ func Var(name string) *TyVar {
 
 // MkEvidence creates a TyEvidence from constraint entries and a body type.
 func MkEvidence(entries []ConstraintEntry, body Type) *TyEvidence {
+	ce := &ConstraintEntries{Entries: entries}
+	cr := &TyEvidenceRow{Entries: ce, Flags: EvidenceRowFlags(ce, nil)}
 	return &TyEvidence{
-		Constraints: &TyEvidenceRow{Entries: &ConstraintEntries{Entries: entries}},
+		Constraints: cr,
 		Body:        body,
+		Flags:       MetaFreeFlags(cr, body),
 	}
 }
