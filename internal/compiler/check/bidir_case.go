@@ -253,7 +253,8 @@ func (ch *Checker) checkCaseAlts(scrutTy, resultTy types.Type, scrutCore ir.Core
 			ch.checkSkolemEscape(ch.unifier.Zonk(resultTy), escapable, alt.Body.Span())
 		}
 		// Auto-force: for lazy co-data constructors, wrap body with
-		// force applications so pattern-bound variables are values.
+		// Bind(Force($lzN), userName, ...) so pattern-bound ThunkVals
+		// are forced before user code sees them.
 		bodyCore = ch.autoForceLazy(pr.Pattern, bodyCore, alt.S)
 
 		alts = append(alts, ir.Alt{Pattern: pr.Pattern, Body: bodyCore, S: alt.S})
@@ -280,8 +281,9 @@ func (ch *Checker) checkCaseAlts(scrutTy, resultTy types.Type, scrutCore ir.Core
 // autoForceLazy handles lazy co-data pattern matching. For lazy constructors,
 // pattern-bound variables hold ThunkVals at runtime. This function:
 // 1. Renames pattern variables to internal names ($lzN)
-// 2. Wraps the body: (\originalName. body) (force $lzN)
-// The result: user code sees forced values, not thunks.
+// 2. Wraps the body with Bind(Force($lzN), originalName, body)
+// Using ir.Bind instead of App(Lam(...)) avoids creating a child closure,
+// which would cause de Bruijn index → bytecode slot mapping errors.
 func (ch *Checker) autoForceLazy(pat ir.Pattern, body ir.Core, s span.Span) ir.Core {
 	pcon, ok := pat.(*ir.PCon)
 	if !ok {
@@ -291,21 +293,35 @@ func (ch *Checker) autoForceLazy(pat ir.Pattern, body ir.Core, s span.Span) ir.C
 	if !ok || !info.IsLazy {
 		return body
 	}
-	// Collect pattern variables to force (skip wildcards).
+	// Collect pattern variables to force (reverse order for correct nesting).
+	type lazyField struct {
+		index        int
+		internalName string
+		userName     string
+		s            span.Span
+	}
+	var fields []lazyField
 	for i, arg := range pcon.Args {
 		pv, ok := arg.(*ir.PVar)
 		if !ok || pv.Name == "_" {
 			continue
 		}
-		internalName := ch.freshName("$lz")
-		userName := pv.Name
-		// Rename pattern variable to internal name.
-		pcon.Args[i] = &ir.PVar{Name: internalName, S: pv.S}
-		// Wrap body: (\userName. body) (force $lzN)
-		body = &ir.App{
-			Fun: &ir.Lam{Param: userName, Body: body, S: s},
-			Arg: &ir.Force{Expr: &ir.Var{Name: internalName, S: s}, S: s},
-			S:   s,
+		fields = append(fields, lazyField{
+			index:        i,
+			internalName: ch.freshName("$lz"),
+			userName:     pv.Name,
+			s:            pv.S,
+		})
+	}
+	// Wrap body inside-out: innermost Bind is the last field.
+	for i := len(fields) - 1; i >= 0; i-- {
+		f := fields[i]
+		pcon.Args[f.index] = &ir.PVar{Name: f.internalName, S: f.s}
+		body = &ir.Bind{
+			Comp: &ir.Force{Expr: &ir.Var{Name: f.internalName, S: s}, S: s},
+			Var:  f.userName,
+			Body: body,
+			S:    s,
 		}
 	}
 	return body
