@@ -148,11 +148,11 @@ func (e *ReduceEnv) MatchTyPattern(pat, arg types.Type, subst map[string]types.T
 // reduceFamilyApps walks a type and reduces any TyFamilyApp nodes
 // or TyApp chains that form a saturated type family application.
 func (e *ReduceEnv) reduceFamilyApps(t types.Type) types.Type {
-	cache := make(map[string]types.Type)
-	return e.reduceFamilyAppsN(t, cache)
+	var cache map[string]types.Type // nil; lazy-init on first family reduction
+	return e.reduceFamilyAppsN(t, &cache)
 }
 
-func (e *ReduceEnv) reduceFamilyAppsN(t types.Type, cache map[string]types.Type) types.Type {
+func (e *ReduceEnv) reduceFamilyAppsN(t types.Type, cache *map[string]types.Type) types.Type {
 	if err := e.Budget.TFStep(); err != nil {
 		return t
 	}
@@ -174,8 +174,10 @@ func (e *ReduceEnv) reduceFamilyAppsN(t types.Type, cache map[string]types.Type)
 			rArgs = tf.Args
 		}
 		key := familyAppKey(tf.Name, rArgs)
-		if cached, ok := cache[key]; ok {
-			return cached
+		if *cache != nil {
+			if cached, ok := (*cache)[key]; ok {
+				return cached
+			}
 		}
 		result, reduced := e.ReduceTyFamily(tf.Name, rArgs, tf.S)
 		if reduced {
@@ -185,10 +187,13 @@ func (e *ReduceEnv) reduceFamilyAppsN(t types.Type, cache map[string]types.Type)
 			// returned instead of re-entering, breaking the exponential
 			// blowup. The sentinel is the unreduced TyFamilyApp — a stuck
 			// application, which is the correct semantics for a cycle.
+			if *cache == nil {
+				*cache = make(map[string]types.Type)
+			}
 			stuck := &types.TyFamilyApp{Name: tf.Name, Args: rArgs, Kind: tf.Kind, S: tf.S}
-			cache[key] = stuck
+			(*cache)[key] = stuck
 			r := e.reduceFamilyAppsN(result, cache)
-			cache[key] = r
+			(*cache)[key] = r
 			return r
 		}
 		if placeholder := e.registerStuckFamily(tf.Name, rArgs, tf.Kind, tf.S); placeholder != nil {
@@ -205,15 +210,20 @@ func (e *ReduceEnv) reduceFamilyAppsN(t types.Type, cache map[string]types.Type)
 					args[i] = e.reduceFamilyAppsN(a, cache)
 				}
 				key := familyAppKey(con.Name, args)
-				if cached, ok := cache[key]; ok {
-					return cached
+				if *cache != nil {
+					if cached, ok := (*cache)[key]; ok {
+						return cached
+					}
 				}
 				result, reduced := e.ReduceTyFamily(con.Name, args, t.Span())
 				if reduced {
+					if *cache == nil {
+						*cache = make(map[string]types.Type)
+					}
 					stuck := &types.TyFamilyApp{Name: con.Name, Args: args, Kind: fam.ResultKind, S: t.Span()}
-					cache[key] = stuck
+					(*cache)[key] = stuck
 					r := e.reduceFamilyAppsN(result, cache)
-					cache[key] = r
+					(*cache)[key] = r
 					return r
 				}
 				if placeholder := e.registerStuckFamily(con.Name, args, fam.ResultKind, t.Span()); placeholder != nil {
