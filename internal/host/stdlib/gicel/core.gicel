@@ -21,3 +21,24 @@ impl IxMonad Computation := {
 
 seq :: \a b (r1: Row) (r2: Row) (r3: Row). Computation r1 r2 a -> Computation r2 r3 b -> Computation r1 r3 b
 seq := \m1 m2. bind m1 (\_. m2)
+
+-- SMC Phase 2: Parallel Composition
+-- merge splits capability environments and runs both computations independently.
+-- pre/post rows must be disjoint (enforced by Merge type family).
+merge :: \a b (pre1: Row) (post1: Row) (pre2: Row) (post2: Row).
+         Computation pre1 post1 a -> Computation pre2 post2 b
+         -> Computation (Merge pre1 pre2) (Merge post1 post2) (a, b)
+merge := assumption
+
+infixr 3 ***
+(***) :: \a b (pre1: Row) (post1: Row) (pre2: Row) (post2: Row).
+         Computation pre1 post1 a -> Computation pre2 post2 b
+         -> Computation (Merge pre1 pre2) (Merge post1 post2) (a, b)
+(***) := merge
+
+-- SMC Phase 3: Dagger
+-- dag swaps pre and post capability rows. dag (dag f) = f by construction.
+type Gate := \(pre: Row) (post: Row). Computation pre post ()
+
+dag :: \(pre: Row) (post: Row). Gate pre post -> Gate post pre
+dag := assumption
