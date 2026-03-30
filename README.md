@@ -3,7 +3,7 @@
 **G**o's **I**ndexed **C**apability **E**ffect **L**ibrary /
 **G**ICEL's **I**ndexed **C**apability **E**ffect **L**anguage
 
-**v0.21.3** — [Changelog](CHANGELOG.md)
+**v0.23.1** — [Changelog](CHANGELOG.md)
 
 > **Pre-1.0 notice:** GICEL is pre-1.0. Breaking changes to syntax or API may occur between minor versions.
 
@@ -170,7 +170,7 @@ See [`examples/go/`](examples/go/) for full patterns.
 ### Language
 
 - 14 keywords: `case do form type impl import infixl infixr infixn if then else as assumption`
-- ADTs with exhaustive pattern matching (shorthand and GADT styles)
+- ADTs with exhaustive pattern matching (pipe shorthand and GADT styles)
 - Do-notation for monadic sequencing
 - Records, tuples, module system (open, selective, qualified imports)
 - Scoped evidence injection (`value => expr`) with private instances

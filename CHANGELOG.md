@@ -1,5 +1,19 @@
 # Changelog
 
+## v0.23.1 — 2026-03-30
+
+### Constructor Syntax Unification
+
+- **Removed ADT implicit return type syntax.** The old `{ Nothing: (); Just: a; }` form where `()` meant "no arguments" and the return type was implicitly appended by the checker is removed. Constructor declarations now use only two forms:
+  - **Pipe shorthand:** `form Bool := True | False` (parser generates full GADT types)
+  - **GADT full type:** `form Maybe := \a. { Nothing: Maybe a; Just: a -> Maybe a; }`
+- **`ADTShorthand` flag removed** from `DeclForm`. Pipe shorthand is now desugared entirely in the parser; the checker sees uniform GADT-style constructor types.
+
+### Documentation
+
+- **Language roadmap updated.** GOAL LINE defined (GIMonad class + universe polymorphism Phase A). Design decisions documented: GradeAlgebra Compose/Join separation, `-|` type application operator, `Merge`/`***` parallel composition, no dependent/refinement types.
+- **Universe roadmap added** (`docs/roadmap/language/universe.md`).
+
 ## v0.23.0 — 2026-03-30
 
 ### Streaming Parser
@@ -10,7 +24,7 @@
 
 ### Bug Fixes
 
-- **Non-associative fixity check.** The shunting-yard resolver now correctly rejects equal-precedence chains when *either* operator is non-associative. Previously only the incoming operator's associativity was checked, allowing `a <| b |> c` to silently reassociate when the stack operator was `AssocNone`.
+- **Non-associative fixity check.** The shunting-yard resolver now correctly rejects equal-precedence chains when _either_ operator is non-associative. Previously only the incoming operator's associativity was checked, allowing `a <| b |> c` to silently reassociate when the stack operator was `AssocNone`.
 - **Invalid UTF-8 over-advance.** Two sites in the scanner used `utf8.RuneLen(ch)` to advance past unknown/rune-literal characters. For malformed input, `DecodeRuneInString` returns `(RuneError, 1)` but `RuneLen(RuneError)` returns 3, causing 2-byte over-advance and corrupted spans. Now uses the size returned by `DecodeRuneInString` directly.
 
 ### API Changes (Breaking)
