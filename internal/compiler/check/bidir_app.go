@@ -84,6 +84,10 @@ func (ch *Checker) checkApp(e *syntax.ExprApp, expected types.Type) ir.Core {
 	ch.tryUnify(retTy, expected)
 
 	argCore := ch.check(e.Arg, argTy)
+	// Auto-thunk: lazy constructor arguments are suspended (same as inferApply).
+	if ch.isLazyConApp(funCore) {
+		argCore = &ir.Thunk{Comp: argCore, S: e.Arg.Span()}
+	}
 	appCore := &ir.App{Fun: funCore, Arg: argCore, S: e.S}
 	return ch.subsCheck(retTy, expected, appCore, e.S)
 }
