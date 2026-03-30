@@ -79,8 +79,9 @@ func (p *Parser) parseFormDecl() *syn.DeclForm {
 	isLazy := p.peek().Kind == syn.TokLazy
 	if isLazy {
 		p.advance() // consume 'lazy'
+	} else {
+		p.expect(syn.TokForm)
 	}
-	p.expect(syn.TokForm)
 	name := p.expectUpper()
 
 	var kindAnn syn.TypeExpr

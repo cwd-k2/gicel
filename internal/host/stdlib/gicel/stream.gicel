@@ -1,6 +1,6 @@
 import Prelude
 
-lazy form Stream := \a. { LCons: a -> Stream a -> Stream a; LNil: Stream a; }
+lazy Stream := \a. { LCons: a -> Stream a -> Stream a; LNil: Stream a; }
 
 head :: \a. Stream a -> Maybe a
 head := \s. case s { LNil => Nothing; LCons x _ => Just x }
