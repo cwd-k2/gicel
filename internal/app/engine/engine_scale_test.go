@@ -1,3 +1,5 @@
+//go:build scale
+
 // Engine scale tests — O(N) scaling verification for compile pipeline.
 // Does NOT cover: engine_bench_test.go (throughput benchmarks).
 package engine

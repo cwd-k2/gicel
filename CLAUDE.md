@@ -146,6 +146,7 @@ In-package probes: `internal/compiler/check/*_probe_test.go`, `internal/compiler
 ### Build tags
 
 - `probe`: requires `//go:build probe`. Not run by `go test ./...`. Run explicitly with `go test -tags probe ./...`.
+- `scale`: requires `//go:build scale`. Not run by `go test ./...`. Run explicitly with `go test -tags scale ./...`. O(N) scaling verification.
 - `stress`: no tag. Run with `go test ./tests/stress/`.
 
 ### Probe test execution policy
