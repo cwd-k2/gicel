@@ -89,8 +89,8 @@ func (p *Parser) parseFormDecl() *syn.DeclForm {
 
 	// ADT shorthand: form Name := Con1 | Con2 fields | ...
 	if p.peek().Kind == syn.TokUpper && p.looksLikePipeADT() {
-		body := p.parseADTConsAsRow(nil, start)
-		return &syn.DeclForm{Name: name, KindAnn: kindAnn, Body: body, ADTShorthand: true, S: span.Span{Start: start, End: p.prevEnd()}}
+		body := p.parseADTConsAsRow(name, nil, start)
+		return &syn.DeclForm{Name: name, KindAnn: kindAnn, Body: body, S: span.Span{Start: start, End: p.prevEnd()}}
 	}
 
 	body := p.parseType()
@@ -122,7 +122,8 @@ func (p *Parser) looksLikePipeADT() bool {
 
 // parseADTConsAsRow parses ADT constructors (Con1 fields | Con2 fields)
 // and synthesizes a TyExprRow with GADT-style full constructor types.
-func (p *Parser) parseADTConsAsRow(params []syn.TyBinder, start span.Pos) syn.TypeExpr {
+// The formName is used to build the return type for each constructor.
+func (p *Parser) parseADTConsAsRow(formName string, params []syn.TyBinder, start span.Pos) syn.TypeExpr {
 	type adtCon struct {
 		name   string
 		fields []syn.TypeExpr
@@ -145,22 +146,20 @@ func (p *Parser) parseADTConsAsRow(params []syn.TyBinder, start span.Pos) syn.Ty
 		}
 	}
 
-	// ADT shorthand: constructors have implicit return types.
-	// Nullary constructors get nil type. Non-nullary constructors store
-	// field types as a right-nested arrow chain (f1 -> f2 -> ... -> fN).
-	// The checker appends the result type using DeclForm.ADTShorthand.
+	// Build return type: FormName param1 param2 ...
+	var retType syn.TypeExpr = &syn.TyExprCon{Name: formName, S: span.Span{Start: start, End: start}}
+	for _, param := range params {
+		retType = &syn.TyExprApp{Fun: retType, Arg: &syn.TyExprVar{Name: param.Name, S: param.S}, S: span.Span{Start: start, End: param.S.End}}
+	}
 
+	// Build GADT-style full constructor types: fields -> RetType.
 	rowFields := make([]syn.TyRowField, len(cons))
 	for i, c := range cons {
-		var ty syn.TypeExpr
-		if len(c.fields) > 0 {
-			// Build arrow chain from field types. The last field is the leaf.
-			ty = c.fields[len(c.fields)-1]
-			for j := len(c.fields) - 2; j >= 0; j-- {
-				ty = &syn.TyExprArrow{From: c.fields[j], To: ty, S: c.s}
-			}
+		// Start with return type, prepend field types as arrows.
+		ty := retType
+		for j := len(c.fields) - 1; j >= 0; j-- {
+			ty = &syn.TyExprArrow{From: c.fields[j], To: ty, S: c.s}
 		}
-		// ty == nil for nullary constructors.
 		rowFields[i] = syn.TyRowField{Label: c.name, Type: ty, S: c.s}
 	}
 

@@ -1,5 +1,5 @@
-// Form declaration tests — duplicate constructors, nullary constructors, shorthand ADT, universe enforcement.
-// Does NOT cover: GADT, DataKinds, type families.
+// Form declaration tests — duplicate constructors, nullary constructors, pipe shorthand, universe enforcement.
+// Does NOT cover: DataKinds, type families.
 
 package check
 
@@ -89,11 +89,10 @@ func TestFormManyConstructors(t *testing.T) {
 	}
 }
 
-// TestFormADTShorthandConstructorType verifies that ADT shorthand syntax
+// TestFormPipeShorthandConstructorType verifies that pipe shorthand syntax
 // registers constructor types correctly. Succ in `form Nat := Zero | Succ Nat`
 // must have arity 1 and its type must include Nat -> Nat (not unit return).
-// Regression test for v0.16.5 ADT shorthand constructor type fix.
-func TestFormADTShorthandConstructorType(t *testing.T) {
+func TestFormPipeShorthandConstructorType(t *testing.T) {
 	source := `form Nat := Zero | Succ Nat`
 	prog := checkSource(t, source, nil)
 	if len(prog.DataDecls) != 1 {

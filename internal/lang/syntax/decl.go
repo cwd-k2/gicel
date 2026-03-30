@@ -29,18 +29,24 @@ type DeclValueDef struct {
 // Body is a type expression: \params. [constraints =>] { fields/constructors }.
 // The checker decomposes Body into parameters, constraints, and fields.
 //
-// Examples:
+// Constructors use GADT-style full type signatures:
 //
-//	form Maybe := \a. { Nothing: (); Just: a; };
+//	form Maybe := \a. { Nothing: Maybe a; Just: a -> Maybe a; };
 //	form Eq := \a. { eq: a -> a -> Bool; neq: a -> a -> Bool := \x y. not (eq x y); };
 //	form Ord := \a. Eq a => { compare: a -> a -> Ordering; };
 //	form Collection := \(c: Type). { type Elem :: Type; empty: c; insert: Elem c -> c -> c; };
+//
+// Pipe shorthand is also supported for simple ADTs:
+//
+//	form Bool := True | False;
+//	form Nat := Zero | Succ Nat;
+//
+// The parser desugars pipe shorthand into GADT-style full types.
 type DeclForm struct {
-	Name         string
-	KindAnn      TypeExpr // optional :: Kind annotation (nil if omitted)
-	Body         TypeExpr // \params. [constraints =>] { fields }
-	ADTShorthand bool     // true when constructors use implicit return type (form Bool := True | False)
-	S            span.Span
+	Name    string
+	KindAnn TypeExpr // optional :: Kind annotation (nil if omitted)
+	Body    TypeExpr // \params. [constraints =>] { fields }
+	S       span.Span
 }
 
 // DeclTypeAlias is a structural type declaration.

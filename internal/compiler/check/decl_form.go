@@ -46,8 +46,8 @@ func (ch *Checker) processFormDeclParts(d *syntax.DeclForm, parts formBodyParts,
 	}
 
 	// Register each constructor from row fields.
-	// In unified syntax, constructors are uppercase fields in the body row:
-	//   form Maybe := \a. { Nothing: (); Just: a; };
+	// Constructors are uppercase fields with GADT-style full type signatures:
+	//   form Maybe := \a. { Nothing: Maybe a; Just: a -> Maybe a; };
 	coreDecl := ir.DataDecl{Name: d.Name, S: d.S}
 	for i, p := range parts.Params {
 		coreDecl.TyParams = append(coreDecl.TyParams, ir.TyParam{Name: p.Name, Kind: paramKinds[i]})
@@ -63,35 +63,8 @@ func (ch *Checker) processFormDeclParts(d *syntax.DeclForm, parts formBodyParts,
 		}
 		seenCons[conName] = true
 
-		// ADT shorthand: the parser omits the return type (field.Type may be nil).
-		// Substitute resultType before resolving.
-		var fieldTy types.Type
-		var conType types.Type
-		if d.ADTShorthand && field.Type == nil {
-			// Nullary constructor: type is resultType directly.
-			conType = resultType
-			fieldTy = resultType
-		} else if d.ADTShorthand {
-			// Non-nullary: parser stored field types as arrow chain (f1 -> ... -> fN).
-			// Decompose into fields, then rebuild with resultType appended.
-			fieldTy = ch.resolveTypeExpr(field.Type)
-			allParts, lastPart := decomposeConSig(fieldTy)
-			// The "last part" is the final field type (not a return type).
-			fieldParts := append(allParts, lastPart)
-			conType = resultType
-			for i := len(fieldParts) - 1; i >= 0; i-- {
-				conType = types.MkArrow(fieldParts[i], conType)
-			}
-			fieldTy = conType
-		} else {
-			fieldTy = ch.resolveTypeExpr(field.Type)
-			conType = fieldTy
-			// Non-shorthand nullary constructor: () means unit.
-			if isUnitType(fieldTy) {
-				conType = resultType
-				fieldTy = resultType
-			}
-		}
+		fieldTy := ch.resolveTypeExpr(field.Type)
+		conType := fieldTy
 		fieldTypes, retTy := decomposeConSig(fieldTy)
 
 		// Detect GADT: if the constructor's return type differs from the
@@ -130,21 +103,6 @@ func (ch *Checker) processFormDeclParts(d *syntax.DeclForm, parts formBodyParts,
 		}
 		ch.reg.RegisterPromotedCon(con.Name, conKind)
 	}
-}
-
-// isUnitType checks if a type is the unit type: Record {} or bare {}.
-func isUnitType(t types.Type) bool {
-	if app, ok := t.(*types.TyApp); ok {
-		if con, ok := app.Fun.(*types.TyCon); ok && con.Name == types.TyConRecord {
-			if row, ok := app.Arg.(*types.TyEvidenceRow); ok {
-				return row.Entries.EntryCount() == 0
-			}
-		}
-	}
-	if row, ok := t.(*types.TyEvidenceRow); ok {
-		return row.Entries.EntryCount() == 0
-	}
-	return false
 }
 
 // decomposeConSig strips outer foralls and qualifications, then peels arrow arguments.
