@@ -141,12 +141,23 @@ func TestUnifyLevelsMax(t *testing.T) {
 	}
 }
 
-func TestUnifyLevelsMaxMismatch(t *testing.T) {
+func TestUnifyLevelsMaxNormalized(t *testing.T) {
 	u := NewUnifier()
+	// max(0,1) and max(1,0) both normalize to L1, so they should unify.
 	a := &types.LevelMax{A: types.L0, B: types.L1}
 	b := &types.LevelMax{A: types.L1, B: types.L0}
+	if err := u.UnifyLevels(a, b); err != nil {
+		t.Errorf("max(0,1) = max(1,0) should succeed after normalization: %v", err)
+	}
+}
+
+func TestUnifyLevelsMaxMismatch(t *testing.T) {
+	u := NewUnifier()
+	// max(0,2) normalizes to L2, max(0,1) normalizes to L1 — mismatch.
+	a := &types.LevelMax{A: types.L0, B: types.L2}
+	b := &types.LevelMax{A: types.L0, B: types.L1}
 	if err := u.UnifyLevels(a, b); err == nil {
-		t.Error("max(0,1) = max(1,0) should fail (structural)")
+		t.Error("max(0,2) = max(0,1) should fail")
 	}
 }
 
@@ -162,6 +173,7 @@ func TestUnifyLevelsSucc(t *testing.T) {
 func TestUnifyLevelsMaxWithMeta(t *testing.T) {
 	u := NewUnifier()
 	m := &types.LevelMeta{ID: 1}
+	// max(?l1, L1) = max(L0, L1) — structural match on max, then ?l1 = L0.
 	a := &types.LevelMax{A: m, B: types.L1}
 	b := &types.LevelMax{A: types.L0, B: types.L1}
 	if err := u.UnifyLevels(a, b); err != nil {
@@ -170,6 +182,26 @@ func TestUnifyLevelsMaxWithMeta(t *testing.T) {
 	solved := u.zonkLevel(m)
 	if !types.LevelEqual(solved, types.L0) {
 		t.Errorf("expected L0, got %s", solved.LevelString())
+	}
+}
+
+func TestUnifyLevelsSuccNormalization(t *testing.T) {
+	u := NewUnifier()
+	// succ(L0) normalizes to L1.
+	a := &types.LevelSucc{E: types.L0}
+	b := types.L1
+	if err := u.UnifyLevels(a, b); err != nil {
+		t.Errorf("succ(0) = 1 should succeed after normalization: %v", err)
+	}
+}
+
+func TestUnifyLevelsMaxNormalizesToLit(t *testing.T) {
+	u := NewUnifier()
+	// max(0, 1) normalizes to L1.
+	a := &types.LevelMax{A: types.L0, B: types.L1}
+	b := types.L1
+	if err := u.UnifyLevels(a, b); err != nil {
+		t.Errorf("max(0, 1) = 1 should succeed after normalization: %v", err)
 	}
 }
 
