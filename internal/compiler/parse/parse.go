@@ -116,11 +116,11 @@ func (pg *progressGuard) RecoverStagnation() {
 
 // Parser is a Pratt parser for the surface language.
 type Parser struct {
-	ctx    context.Context // external cancellation (nil-safe)
-	tb     *tokenBuffer
-	fixity map[string]Fixity
-	errors *diagnostic.Errors
-	depth  int  // paren/brace nesting depth
+	ctx         context.Context // external cancellation (nil-safe)
+	tb          *tokenBuffer
+	fixity      map[string]Fixity
+	errors      *diagnostic.Errors
+	depth       int  // paren/brace nesting depth
 	noBraceAtom bool // when true, { is not an atom start (inside case scrutinee)
 
 	// stmtBoundaryDepth enables newline-as-separator inside brace-delimited
@@ -198,54 +198,50 @@ func PreScanImportNames(tokens []syn.Token) []string {
 	return names
 }
 
-// PreScanImports scans the token buffer for import module names.
-// Uses save/restore to avoid consuming tokens.
-func (p *Parser) PreScanImports() []string {
-	p.tb.save()
-	defer p.tb.restore()
-	var names []string
-	for {
-		tok := p.tb.peek()
-		if tok.Kind == syn.TokEOF {
-			break
-		}
-		if tok.Kind == syn.TokImport && p.tb.peekAt(1).Kind == syn.TokUpper {
-			p.tb.advance() // import
-			name := p.tb.peek().Text
-			p.tb.advance() // Upper
-			for p.tb.peek().Kind == syn.TokDot && p.tb.peekAt(1).Kind == syn.TokUpper {
-				p.tb.advance() // .
-				name += "." + p.tb.peek().Text
-				p.tb.advance() // Upper
-			}
-			names = append(names, name)
-		} else {
-			p.tb.advance()
-		}
-	}
-	return names
-}
-
 // AddFixity merges host-supplied fixity declarations into the parser.
 func (p *Parser) AddFixity(fixity map[string]Fixity) {
 	maps.Copy(p.fixity, fixity)
 }
 
-// ParseProgram parses a complete program.
+// ParseProgram parses a complete program. Infix expressions with
+// multiple operators are parsed as flat spines and resolved to
+// nested ExprInfix trees using fixity from:
+//   - external modules (via AddFixity, called before ParseProgram)
+//   - in-module DeclFixity declarations (collected from the AST)
 func (p *Parser) ParseProgram() *syn.AstProgram {
-	// First pass: collect fixity declarations.
-	p.collectFixity()
-	p.tb.pos = 0
-	p.guard.reset()
+	imports := p.parseImportBlock()
+	decls := p.parseDeclBlock()
+	ast := &syn.AstProgram{Imports: imports, Decls: decls}
 
-	// Parse imports first.
+	// Collect in-module fixity from DeclFixity nodes and merge
+	// with external fixity already in p.fixity (from AddFixity).
+	maps.Copy(p.fixity, CollectModuleFixity(decls))
+	ResolveFixity(ast, p.fixity, p.errors)
+	return ast
+}
+
+// ParseImports parses the import block. After this call, the parser
+// is positioned at the first non-import declaration.
+func (p *Parser) ParseImports() []syn.DeclImport {
+	return p.parseImportBlock()
+}
+
+// ParseDecls parses all remaining declarations after imports.
+func (p *Parser) ParseDecls() []syn.Decl {
+	return p.parseDeclBlock()
+}
+
+func (p *Parser) parseImportBlock() []syn.DeclImport {
 	var imports []syn.DeclImport
 	p.skipSemicolons()
 	for p.peek().Kind == syn.TokImport {
 		imports = append(imports, p.parseImportDecl())
 		p.skipSemicolons()
 	}
+	return imports
+}
 
+func (p *Parser) parseDeclBlock() []syn.Decl {
 	var decls []syn.Decl
 	for p.peek().Kind != syn.TokEOF {
 		before := p.tb.pos
@@ -253,17 +249,14 @@ func (p *Parser) ParseProgram() *syn.AstProgram {
 		if d != nil {
 			decls = append(decls, d)
 		} else {
-			// Failed declaration: synchronize to the next declaration boundary
-			// so that one malformed declaration doesn't swallow subsequent valid ones.
 			p.syncToNextDecl()
 		}
 		if p.tb.pos == before {
-			// Safety: ensure progress even if syncToNextDecl didn't advance.
 			p.advance()
 		}
 		p.skipSemicolons()
 	}
-	return &syn.AstProgram{Imports: imports, Decls: decls}
+	return decls
 }
 
 // ParseExpr parses a single expression.
@@ -532,13 +525,6 @@ func (p *Parser) speculate(fn func() bool) bool {
 	p.errors.Truncate(savedErrLen)
 	p.guard.steps = savedSteps
 	return false
-}
-
-func (p *Parser) lookupFixity(op string) Fixity {
-	if f, ok := p.fixity[op]; ok {
-		return f
-	}
-	return Fixity{Assoc: syn.AssocLeft, Prec: 9} // default
 }
 
 // tokensAdjacent checks if two tokens have no whitespace between them.

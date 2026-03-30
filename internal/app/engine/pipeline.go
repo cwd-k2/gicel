@@ -34,15 +34,30 @@ func (pc *pipelineCtx) lexAndParse(sourceName, source string, injectCore bool) (
 	scanner := parse.NewScanner(src)
 	parseErrs := &diagnostic.Errors{Source: src}
 	p := parse.NewParserStreaming(pc.ctx, scanner, nil, parseErrs, len(source))
-	// Scope fixity to the import closure: pre-scan import names from
-	// the token buffer, then inject fixity only from transitively
-	// imported modules.
-	importNames := p.PreScanImports()
+
+	// Phase 1: Parse imports (streaming — only reads import tokens).
+	imports := p.ParseImports()
+	importNames := make([]string, len(imports))
+	for i, imp := range imports {
+		importNames[i] = imp.ModuleName
+	}
 	if injectCore {
 		importNames = append(importNames, "Core")
 	}
+
+	// Phase 2: Inject external fixity from transitively imported modules.
 	pc.store.CollectFixityForImports(p, importNames)
-	ast := p.ParseProgram()
+
+	// Phase 3: Parse declarations (streaming — reads remaining tokens).
+	decls := p.ParseDecls()
+	ast := &syntax.AstProgram{Imports: imports, Decls: decls}
+
+	// Phase 4: Collect in-module fixity + resolve infix spines.
+	mergedFixity := make(map[string]parse.Fixity)
+	maps.Copy(mergedFixity, pc.store.CollectFixityMap(importNames))
+	maps.Copy(mergedFixity, parse.CollectModuleFixity(decls))
+	parse.ResolveFixity(ast, mergedFixity, parseErrs)
+
 	if scanner.Errors().HasErrors() {
 		return nil, nil, &CompileError{Errors: scanner.Errors()}
 	}

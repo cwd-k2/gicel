@@ -11,12 +11,12 @@ import (
 // lookahead and speculation. Compaction discards consumed tokens
 // that are no longer reachable.
 type tokenBuffer struct {
-	scanner *Scanner      // nil when fully seeded (backward compat)
-	buf     []syn.Token   // buffered tokens
-	base    int           // logical index of buf[0]
-	pos     int           // current logical read position
-	marks   []int         // speculation save points (stack)
-	eof     bool          // true once TokEOF has been buffered
+	scanner *Scanner    // nil when fully seeded (backward compat)
+	buf     []syn.Token // buffered tokens
+	base    int         // logical index of buf[0]
+	pos     int         // current logical read position
+	marks   []int       // speculation save points (stack)
+	eof     bool        // true once TokEOF has been buffered
 }
 
 func newTokenBuffer(scanner *Scanner, seed []syn.Token) *tokenBuffer {

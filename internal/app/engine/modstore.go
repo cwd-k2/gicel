@@ -90,6 +90,13 @@ func (s *ModuleStore) Entries() []moduleEntry {
 // the import graph contribute fixity, preventing unimported modules from
 // affecting operator precedence.
 func (s *ModuleStore) CollectFixityForImports(p *parse.Parser, imports []string) {
+	p.AddFixity(s.CollectFixityMap(imports))
+}
+
+// CollectFixityMap returns the merged fixity from the transitive closure
+// of the given import names.
+func (s *ModuleStore) CollectFixityMap(imports []string) map[string]parse.Fixity {
+	result := make(map[string]parse.Fixity)
 	visited := make(map[string]bool)
 	var walk func(string)
 	walk = func(name string) {
@@ -101,7 +108,9 @@ func (s *ModuleStore) CollectFixityForImports(p *parse.Parser, imports []string)
 		if !ok {
 			return
 		}
-		p.AddFixity(mod.fixity)
+		for k, v := range mod.fixity {
+			result[k] = v
+		}
 		for _, dep := range mod.deps {
 			walk(dep)
 		}
@@ -109,4 +118,5 @@ func (s *ModuleStore) CollectFixityForImports(p *parse.Parser, imports []string)
 	for _, name := range imports {
 		walk(name)
 	}
+	return result
 }

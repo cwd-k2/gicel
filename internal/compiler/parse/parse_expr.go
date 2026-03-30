@@ -42,49 +42,47 @@ func (p *Parser) parseAnnotation() syn.Expr {
 	return e
 }
 
-func (p *Parser) parseInfix(minPrec int) syn.Expr {
+func (p *Parser) parseInfix(_ int) syn.Expr {
 	left := p.parseApp()
-	return p.continueInfix(left, minPrec)
+	return p.continueInfix(left, 0)
 }
 
-// continueInfix parses the infix portion of an expression, given an
-// already-parsed left operand. This enables parseParen to detect
-// left operator sections between parseApp and infix continuation.
-func (p *Parser) continueInfix(left syn.Expr, minPrec int) syn.Expr {
+// continueInfix collects a flat operator spine. Fixity resolution
+// happens post-parse via ResolveFixity (shunting-yard).
+// The minPrec parameter is unused but retained for call-site compat.
+func (p *Parser) continueInfix(left syn.Expr, _ int) syn.Expr {
+	if !p.isInfixOp() {
+		return left
+	}
+	operands := []syn.Expr{left}
+	var ops []string
+	var opSpans []span.Span
 	pg := p.newProgressGuard("infix chain")
-	prevNonePrec := -1 // precedence of last non-associative op, or -1
 	for p.isInfixOp() {
 		if !pg.Begin() {
 			break
 		}
-		op := p.peek().Text
-		fix := p.lookupFixity(op)
-		if fix.Prec < minPrec {
-			break
+		opTok := p.peek()
+		opName := opTok.Text
+		if opTok.Kind == syn.TokDot {
+			opName = "."
 		}
-		// Non-associative operators cannot chain at the same precedence,
-		// even with a different operator. e.g. `1 == 2 /= 3` is an error.
-		if prevNonePrec >= 0 && fix.Prec == prevNonePrec {
-			p.addErrorCode(diagnostic.ErrInvalidOperator, "cannot mix non-associative operators of equal precedence")
-			break
-		}
+		ops = append(ops, opName)
+		opSpans = append(opSpans, opTok.S)
 		p.advance()
-		nextMin := fix.Prec + 1
-		if fix.Assoc == syn.AssocRight {
-			nextMin = fix.Prec
-		}
-		right := p.parseInfix(nextMin)
-		left = &syn.ExprInfix{
-			Left: left, Op: op, Right: right,
-			S: span.Span{Start: left.Span().Start, End: right.Span().End},
-		}
-		if fix.Assoc == syn.AssocNone {
-			prevNonePrec = fix.Prec
-		} else {
-			prevNonePrec = -1
+		operands = append(operands, p.parseApp())
+	}
+	if len(ops) == 1 {
+		// Single operator: produce ExprInfix directly (no fixity needed).
+		return &syn.ExprInfix{
+			Left: operands[0], Op: ops[0], Right: operands[1],
+			S: span.Span{Start: operands[0].Span().Start, End: operands[1].Span().End},
 		}
 	}
-	return left
+	return &syn.ExprInfixSpine{
+		Operands: operands, Ops: ops, OpSpans: opSpans,
+		S: span.Span{Start: operands[0].Span().Start, End: operands[len(operands)-1].Span().End},
+	}
 }
 
 // isInfixOp returns true if the current token can act as an infix operator.

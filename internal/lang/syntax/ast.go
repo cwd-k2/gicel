@@ -78,6 +78,17 @@ type ExprInfix struct {
 	S     span.Span
 }
 
+// ExprInfixSpine is a flat sequence of operands interleaved with operators.
+// Produced during parsing when fixity is not yet known; resolved to nested
+// ExprInfix trees by post-parse fixity resolution.
+// Invariant: len(Operands) == len(Ops) + 1
+type ExprInfixSpine struct {
+	Operands []Expr
+	Ops      []string
+	OpSpans  []span.Span
+	S        span.Span
+}
+
 type ExprAnn struct {
 	Expr    Expr
 	AnnType TypeExpr
@@ -177,6 +188,7 @@ func (*ExprCase) exprNode()         {}
 func (*ExprDo) exprNode()           {}
 func (*ExprBlock) exprNode()        {}
 func (*ExprInfix) exprNode()        {}
+func (*ExprInfixSpine) exprNode()   {}
 func (*ExprAnn) exprNode()          {}
 func (*ExprParen) exprNode()        {}
 func (*ExprIntLit) exprNode()       {}
@@ -202,6 +214,7 @@ func (e *ExprCase) Span() span.Span         { return e.S }
 func (e *ExprDo) Span() span.Span           { return e.S }
 func (e *ExprBlock) Span() span.Span        { return e.S }
 func (e *ExprInfix) Span() span.Span        { return e.S }
+func (e *ExprInfixSpine) Span() span.Span   { return e.S }
 func (e *ExprAnn) Span() span.Span          { return e.S }
 func (e *ExprParen) Span() span.Span        { return e.S }
 func (e *ExprIntLit) Span() span.Span       { return e.S }
