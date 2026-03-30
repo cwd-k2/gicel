@@ -29,9 +29,11 @@ func optimize(c ir.Core, rules []func(ir.Core) ir.Core) ir.Core {
 }
 
 // OptimizeProgram optimizes all bindings in a program.
+// Includes Phase 2 (selective inlining) and Phase 3 (case-of-case).
 func OptimizeProgram(prog *ir.Program, rules []func(ir.Core) ir.Core) {
+	allRules := rules
 	for i, b := range prog.Bindings {
-		prog.Bindings[i].Expr = optimize(b.Expr, rules)
+		prog.Bindings[i].Expr = optimize(b.Expr, allRules)
 	}
 }
 
@@ -52,6 +54,8 @@ func (rw *rewriter) apply(c ir.Core) ir.Core {
 	c = forceThunkElim(c)
 	c = recordProjKnown(c)
 	c = recordUpdateChain(c)
+	// Phase 3: case-of-case (exposes more known-ctor opportunities).
+	c = caseOfCase(c)
 	// Phase 4: registered fusion rules.
 	for _, rule := range rw.rules {
 		c = rule(c)
