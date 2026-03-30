@@ -202,10 +202,12 @@ func (e *ReduceEnv) reduceFamilyAppsN(t types.Type, cache *map[string]types.Type
 		return &types.TyFamilyApp{Name: tf.Name, Args: rArgs, Kind: tf.Kind, S: tf.S}
 	}
 	// Case 2: TyApp chain with TyCon head that is a known type family.
+	// Two-phase: first check head+arity (no alloc), then unwind only on hit.
 	if app, ok := t.(*types.TyApp); ok {
-		head, args := types.UnwindApp(t)
+		head, depth := types.AppSpineHead(t)
 		if con, ok := head.(*types.TyCon); ok {
-			if fam, ok := e.lookupFamily(con.Name); ok && len(fam.Params) == len(args) {
+			if fam, ok := e.lookupFamily(con.Name); ok && len(fam.Params) == depth {
+				_, args := types.UnwindApp(t)
 				for i, a := range args {
 					args[i] = e.reduceFamilyAppsN(a, cache)
 				}

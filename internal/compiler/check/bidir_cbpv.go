@@ -24,10 +24,8 @@ func (ch *Checker) checkPure(e *syntax.ExprApp, expected types.Type) ir.Core {
 	// Class dispatch: extract monad head, resolve IxMonad, use mkIxPure.
 	monadHead := ch.extractMonadHead(expected)
 	if monadHead != nil {
-		_, args := types.UnwindApp(expected)
-		if len(args) > 0 {
-			resultTy := args[len(args)-1]
-			valCore := ch.check(e.Arg, resultTy)
+		if app, ok := expected.(*types.TyApp); ok {
+			valCore := ch.check(e.Arg, app.Arg)
 			return ch.mkIxPure(monadHead, valCore, e.S)
 		}
 	}

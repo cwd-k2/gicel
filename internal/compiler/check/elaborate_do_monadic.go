@@ -52,7 +52,7 @@ func (ch *Checker) checkDo(e *syntax.ExprDo, expected types.Type) ir.Core {
 			return ch.check(desugared, expected)
 		}
 		if ch.hasDirectIxMonadInstance(monadHead, e.S) {
-			head, _ := types.UnwindApp(monadHead)
+			head, _ := types.AppSpineHead(monadHead)
 			d := &doElaborator{ch: ch, mode: doModeMonadic, monadHead: head, expected: expected}
 			_, result := d.elaborate(e.Stmts, e.S)
 			return result
@@ -87,9 +87,8 @@ func (ch *Checker) extractMonadHead(ty types.Type) types.Type {
 // e.g. Maybe Int with head Maybe → Int
 func (ch *Checker) extractMonadResult(ty types.Type, monadHead types.Type, s span.Span) types.Type {
 	ty = ch.unifier.Zonk(ty)
-	_, args := types.UnwindApp(ty)
-	if len(args) > 0 {
-		return args[len(args)-1]
+	if app, ok := ty.(*types.TyApp); ok {
+		return app.Arg
 	}
 	// Generate fresh meta as fallback.
 	result := ch.freshMeta(types.TypeOfTypes)
@@ -129,7 +128,7 @@ func (ch *Checker) hasDirectIxMonadInstance(monadHead types.Type, s span.Span) b
 	if _, ok := ch.reg.LookupClass("IxMonad"); !ok {
 		return false
 	}
-	head, _ := types.UnwindApp(monadHead)
+	head, _ := types.AppSpineHead(monadHead)
 	_, ok := ch.tryResolveInstance("IxMonad", []types.Type{head}, s)
 	return ok
 }

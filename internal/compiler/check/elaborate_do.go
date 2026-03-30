@@ -114,10 +114,8 @@ func (d *doElaborator) elaborateBase(expr syntax.Expr, s span.Span) (types.Type,
 	case doModeMonadic:
 		// Intercept `pure val` / `ixpure val` at the end of a monadic do block.
 		if pureVal := extractPureArg(expr); pureVal != nil {
-			_, args := types.UnwindApp(d.expected)
-			if len(args) > 0 {
-				resultTy := args[len(args)-1]
-				valCore := ch.check(pureVal, resultTy)
+			if app, ok := d.expected.(*types.TyApp); ok {
+				valCore := ch.check(pureVal, app.Arg)
 				return d.expected, ch.mkIxPure(d.monadHead, valCore, s)
 			}
 		}

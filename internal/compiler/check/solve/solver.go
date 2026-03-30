@@ -334,7 +334,7 @@ func headIsMeta(t types.Type) bool {
 	if _, ok := t.(*types.TyMeta); ok {
 		return true
 	}
-	head, _ := types.UnwindApp(t)
+	head, _ := types.AppSpineHead(t)
 	_, ok := head.(*types.TyMeta)
 	return ok
 }

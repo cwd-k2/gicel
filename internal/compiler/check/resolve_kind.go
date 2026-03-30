@@ -121,7 +121,7 @@ func (r *typeResolver) hasDeterministicKind(ty types.Type) bool {
 		return inReg || inProm || isAlias || isClass || isFamily
 	case *types.TyApp:
 		// Recurse on the head to check if it's deterministic.
-		head, _ := types.UnwindApp(ty)
+		head, _ := types.AppSpineHead(ty)
 		if head != ty {
 			return r.hasDeterministicKind(head)
 		}

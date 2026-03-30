@@ -443,6 +443,19 @@ func typeSizeRec(t Type, limit, acc int) int {
 	return acc
 }
 
+// AppSpineHead returns the head of a TyApp chain and the spine depth (number
+// of applied arguments), without allocating a slice.
+func AppSpineHead(ty Type) (head Type, depth int) {
+	for {
+		app, ok := ty.(*TyApp)
+		if !ok {
+			return ty, depth
+		}
+		depth++
+		ty = app.Fun
+	}
+}
+
 // UnwindApp decomposes a chain of TyApp into the head type and arguments.
 // E.g., TyApp(TyApp(TyCon("F"), A), B) → (TyCon("F"), [A, B]).
 func UnwindApp(ty Type) (Type, []Type) {
