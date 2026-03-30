@@ -5,7 +5,7 @@ import (
 )
 
 // unifyLevels solves the constraint l1 = l2 at the universe level.
-func (u *Unifier) unifyLevels(l1, l2 types.LevelExpr) error {
+func (u *Unifier) UnifyLevels(l1, l2 types.LevelExpr) error {
 	l1 = u.zonkLevel(l1)
 	l2 = u.zonkLevel(l2)
 
@@ -29,14 +29,14 @@ func (u *Unifier) unifyLevels(l1, l2 types.LevelExpr) error {
 		}
 	case *types.LevelMax:
 		if b, ok := l2.(*types.LevelMax); ok {
-			if err := u.unifyLevels(a.A, b.A); err != nil {
+			if err := u.UnifyLevels(a.A, b.A); err != nil {
 				return err
 			}
-			return u.unifyLevels(a.B, b.B)
+			return u.UnifyLevels(a.B, b.B)
 		}
 	case *types.LevelSucc:
 		if b, ok := l2.(*types.LevelSucc); ok {
-			return u.unifyLevels(a.E, b.E)
+			return u.UnifyLevels(a.E, b.E)
 		}
 	}
 

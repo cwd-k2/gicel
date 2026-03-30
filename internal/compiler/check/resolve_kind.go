@@ -43,10 +43,10 @@ func (r *typeResolver) resolveKindExpr(k syntax.TypeExpr) types.Type {
 		if r.reg.IsKindVar(ke.Name) {
 			return &types.TyVar{Name: ke.Name}
 		}
-		// Lowercase names in kind position are treated as defaulting to Type.
-		// This supports kind-polymorphic annotations where the variable is
-		// not explicitly bound as a kind variable.
-		return types.TypeOfTypes
+		// Lowercase names in kind position get a fresh LevelMeta, making
+		// the universe level inferrable. This replaces the former
+		// TypeOfTypes default with evidence-based level inference.
+		return &types.TyCon{Name: "Type", Level: r.unifier.FreshLevelMeta()}
 	case *syntax.TyExprArrow:
 		return &types.TyArrow{From: r.resolveKindExpr(ke.From), To: r.resolveKindExpr(ke.To)}
 	case *syntax.TyExprParen:
@@ -88,12 +88,27 @@ func (r *typeResolver) checkTypeAppKind(fun, arg types.Type, s span.Span) {
 		}
 		return
 	}
-	// Skip argument kind check when the parameter kind is Type (the default for
-	// unannotated type parameters). This provides implicit kind polymorphism:
-	// unannotated parameters accept promoted data kinds (DataKinds) without
-	// requiring explicit kind annotations or PolyKinds support.
-	if types.Equal(ka.From, types.TypeOfTypes) {
-		return
+	// When the parameter kind is Type with a LevelMeta (from unannotated
+	// params), resolve via level unification rather than skipping entirely.
+	// This provides implicit kind polymorphism constrained by universe level:
+	// unannotated parameters accept any kind at a compatible level.
+	if tc, ok := ka.From.(*types.TyCon); ok && tc.Name == "Type" {
+		if _, isLevelMeta := tc.Level.(*types.LevelMeta); isLevelMeta {
+			argKind := r.kindOfType(arg)
+			if argKind == nil {
+				return
+			}
+			argKind = r.unifier.Zonk(argKind)
+			if argCon, ok := argKind.(*types.TyCon); ok {
+				_ = r.unifier.UnifyLevels(tc.Level, argCon.Level)
+			}
+			return
+		}
+		// Concrete Type(L1): also skip for backward compatibility
+		// with explicitly annotated `:: Type` parameters.
+		if types.LevelEqual(tc.Level, types.L1) {
+			return
+		}
 	}
 	argKind := r.kindOfType(arg)
 	if argKind == nil {

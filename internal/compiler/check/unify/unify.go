@@ -178,6 +178,13 @@ func NewUnifierShared(freshID *int) *Unifier {
 	}
 }
 
+// FreshLevelMeta creates a fresh universe level metavariable.
+func (u *Unifier) FreshLevelMeta() *types.LevelMeta {
+	id := *u.freshID
+	*u.freshID++
+	return &types.LevelMeta{ID: id}
+}
+
 // Solve returns the current solution for a metavariable.
 func (u *Unifier) Solve(id int) types.Type {
 	return u.soln[id]
@@ -363,21 +370,17 @@ func normalizeCompApp(t types.Type) types.Type {
 	return t
 }
 
-// isGroundKind returns true if k is a concrete kind that inhabits Sort₀.
-// These are TyCon at level 1: Type, Row, Constraint, and promoted data kinds.
-func isGroundKind(k types.Type) bool {
-	if tc, ok := k.(*types.TyCon); ok {
-		return types.IsKindLevel(tc.Level)
-	}
-	return false
-}
-
-// isSortLevel returns true if k is a TyCon at the given universe level.
-func isSortLevel(k types.Type, level int) bool {
-	if tc, ok := k.(*types.TyCon); ok {
-		if lit, ok := tc.Level.(*types.LevelLit); ok {
-			return lit.N == level
-		}
+// levelAdjacentCumulativity returns true if level a is exactly one level
+// below level b: a + 1 == b. This captures Russell-style cumulativity
+// where a kind at level ℓ inhabits the sort at level ℓ+1.
+// Conservative: returns false if either side contains a LevelMeta.
+func (u *Unifier) levelAdjacentCumulativity(a, b types.LevelExpr) bool {
+	a = u.zonkLevel(a)
+	b = u.zonkLevel(b)
+	la, okA := a.(*types.LevelLit)
+	lb, okB := b.(*types.LevelLit)
+	if okA && okB {
+		return la.N+1 == lb.N
 	}
 	return false
 }
@@ -461,15 +464,16 @@ func (u *Unifier) Unify(a, b types.Type) error {
 		}
 	case *types.TyCon:
 		if bt, ok := b.(*types.TyCon); ok && at.Name == bt.Name {
-			return u.unifyLevels(at.Level, bt.Level)
+			return u.UnifyLevels(at.Level, bt.Level)
 		}
-		// Cumulativity: ground kinds at level 1 unify with Sort₀ at level 2.
-		// Only applies when names differ (e.g. Type vs Kind).
+		// Cumulativity: a kind at level ℓ inhabits the sort at level ℓ+1.
+		// This allows ground kinds (L1) to appear where Sort₀ (L2) is expected,
+		// and generalizes to arbitrary adjacent levels: ℓ ↔ ℓ+1.
+		// Does NOT apply between different names at the same level
+		// (e.g. Type vs Row are distinct kinds, both at L1).
 		if bt, ok := b.(*types.TyCon); ok {
-			if isGroundKind(at) && isSortLevel(bt, 2) {
-				return nil
-			}
-			if isSortLevel(at, 2) && isGroundKind(bt) {
+			if u.levelAdjacentCumulativity(at.Level, bt.Level) ||
+				u.levelAdjacentCumulativity(bt.Level, at.Level) {
 				return nil
 			}
 		}

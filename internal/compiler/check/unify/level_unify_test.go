@@ -14,23 +14,23 @@ import (
 
 func TestUnifyLevelsLiteral(t *testing.T) {
 	u := NewUnifier()
-	if err := u.unifyLevels(types.L0, types.L0); err != nil {
+	if err := u.UnifyLevels(types.L0, types.L0); err != nil {
 		t.Errorf("L0 = L0 should succeed: %v", err)
 	}
-	if err := u.unifyLevels(types.L1, types.L1); err != nil {
+	if err := u.UnifyLevels(types.L1, types.L1); err != nil {
 		t.Errorf("L1 = L1 should succeed: %v", err)
 	}
-	if err := u.unifyLevels(types.L0, types.L1); err == nil {
+	if err := u.UnifyLevels(types.L0, types.L1); err == nil {
 		t.Error("L0 = L1 should fail")
 	}
 }
 
 func TestUnifyLevelsNilIsL0(t *testing.T) {
 	u := NewUnifier()
-	if err := u.unifyLevels(nil, types.L0); err != nil {
+	if err := u.UnifyLevels(nil, types.L0); err != nil {
 		t.Errorf("nil = L0 should succeed: %v", err)
 	}
-	if err := u.unifyLevels(types.L0, nil); err != nil {
+	if err := u.UnifyLevels(types.L0, nil); err != nil {
 		t.Errorf("L0 = nil should succeed: %v", err)
 	}
 }
@@ -42,7 +42,7 @@ func TestUnifyLevelsNilIsL0(t *testing.T) {
 func TestUnifyLevelsMeta(t *testing.T) {
 	u := NewUnifier()
 	m := &types.LevelMeta{ID: 1}
-	if err := u.unifyLevels(m, types.L1); err != nil {
+	if err := u.UnifyLevels(m, types.L1); err != nil {
 		t.Errorf("?l1 = L1 should succeed: %v", err)
 	}
 	solved := u.zonkLevel(m)
@@ -54,7 +54,7 @@ func TestUnifyLevelsMeta(t *testing.T) {
 func TestUnifyLevelsMetaReflexive(t *testing.T) {
 	u := NewUnifier()
 	m := &types.LevelMeta{ID: 1}
-	if err := u.unifyLevels(m, m); err != nil {
+	if err := u.UnifyLevels(m, m); err != nil {
 		t.Errorf("?l1 = ?l1 should succeed: %v", err)
 	}
 }
@@ -63,10 +63,10 @@ func TestUnifyLevelsMetaChain(t *testing.T) {
 	u := NewUnifier()
 	m1 := &types.LevelMeta{ID: 1}
 	m2 := &types.LevelMeta{ID: 2}
-	if err := u.unifyLevels(m1, m2); err != nil {
+	if err := u.UnifyLevels(m1, m2); err != nil {
 		t.Fatalf("?l1 = ?l2 should succeed: %v", err)
 	}
-	if err := u.unifyLevels(m2, types.L2); err != nil {
+	if err := u.UnifyLevels(m2, types.L2); err != nil {
 		t.Fatalf("?l2 = L2 should succeed: %v", err)
 	}
 	solved := u.zonkLevel(m1)
@@ -78,7 +78,7 @@ func TestUnifyLevelsMetaChain(t *testing.T) {
 func TestUnifyLevelsMetaRHS(t *testing.T) {
 	u := NewUnifier()
 	m := &types.LevelMeta{ID: 1}
-	if err := u.unifyLevels(types.L0, m); err != nil {
+	if err := u.UnifyLevels(types.L0, m); err != nil {
 		t.Errorf("L0 = ?l1 should succeed: %v", err)
 	}
 	solved := u.zonkLevel(m)
@@ -95,7 +95,7 @@ func TestUnifyLevelsOccursCheck(t *testing.T) {
 	u := NewUnifier()
 	m := &types.LevelMeta{ID: 1}
 	cycle := &types.LevelSucc{E: m}
-	err := u.unifyLevels(m, cycle)
+	err := u.UnifyLevels(m, cycle)
 	if err == nil {
 		t.Error("should detect occurs check")
 	}
@@ -109,7 +109,7 @@ func TestUnifyLevelsOccursCheckMax(t *testing.T) {
 	u := NewUnifier()
 	m := &types.LevelMeta{ID: 1}
 	cycle := &types.LevelMax{A: types.L0, B: m}
-	err := u.unifyLevels(m, cycle)
+	err := u.UnifyLevels(m, cycle)
 	if err == nil {
 		t.Error("should detect occurs check in max")
 	}
@@ -123,11 +123,11 @@ func TestUnifyLevelsVar(t *testing.T) {
 	u := NewUnifier()
 	v1 := &types.LevelVar{Name: "l"}
 	v2 := &types.LevelVar{Name: "l"}
-	if err := u.unifyLevels(v1, v2); err != nil {
+	if err := u.UnifyLevels(v1, v2); err != nil {
 		t.Errorf("l = l should succeed: %v", err)
 	}
 	v3 := &types.LevelVar{Name: "k"}
-	if err := u.unifyLevels(v1, v3); err == nil {
+	if err := u.UnifyLevels(v1, v3); err == nil {
 		t.Error("l = k should fail")
 	}
 }
@@ -136,7 +136,7 @@ func TestUnifyLevelsMax(t *testing.T) {
 	u := NewUnifier()
 	a := &types.LevelMax{A: types.L0, B: types.L1}
 	b := &types.LevelMax{A: types.L0, B: types.L1}
-	if err := u.unifyLevels(a, b); err != nil {
+	if err := u.UnifyLevels(a, b); err != nil {
 		t.Errorf("max(0,1) = max(0,1) should succeed: %v", err)
 	}
 }
@@ -145,7 +145,7 @@ func TestUnifyLevelsMaxMismatch(t *testing.T) {
 	u := NewUnifier()
 	a := &types.LevelMax{A: types.L0, B: types.L1}
 	b := &types.LevelMax{A: types.L1, B: types.L0}
-	if err := u.unifyLevels(a, b); err == nil {
+	if err := u.UnifyLevels(a, b); err == nil {
 		t.Error("max(0,1) = max(1,0) should fail (structural)")
 	}
 }
@@ -154,7 +154,7 @@ func TestUnifyLevelsSucc(t *testing.T) {
 	u := NewUnifier()
 	a := &types.LevelSucc{E: types.L0}
 	b := &types.LevelSucc{E: types.L0}
-	if err := u.unifyLevels(a, b); err != nil {
+	if err := u.UnifyLevels(a, b); err != nil {
 		t.Errorf("succ(0) = succ(0) should succeed: %v", err)
 	}
 }
@@ -164,7 +164,7 @@ func TestUnifyLevelsMaxWithMeta(t *testing.T) {
 	m := &types.LevelMeta{ID: 1}
 	a := &types.LevelMax{A: m, B: types.L1}
 	b := &types.LevelMax{A: types.L0, B: types.L1}
-	if err := u.unifyLevels(a, b); err != nil {
+	if err := u.UnifyLevels(a, b); err != nil {
 		t.Errorf("max(?l1, 1) = max(0, 1) should succeed: %v", err)
 	}
 	solved := u.zonkLevel(m)
@@ -201,7 +201,7 @@ func TestUnifyTyConLevelMetaBothSides(t *testing.T) {
 		t.Errorf("TyCon with two LevelMetas should unify: %v", err)
 	}
 	// Solve one; the other should follow.
-	if err := u.unifyLevels(lm2, types.L1); err != nil {
+	if err := u.UnifyLevels(lm2, types.L1); err != nil {
 		t.Fatalf("?l2 = L1 should succeed: %v", err)
 	}
 	solved := u.zonkLevel(lm1)
@@ -227,7 +227,7 @@ func TestUnifyTyConNameMismatchIgnoresLevel(t *testing.T) {
 func TestZonkTyConLevel(t *testing.T) {
 	u := NewUnifier()
 	lm := &types.LevelMeta{ID: 1}
-	if err := u.unifyLevels(lm, types.L1); err != nil {
+	if err := u.UnifyLevels(lm, types.L1); err != nil {
 		t.Fatalf("solve ?l1 = L1: %v", err)
 	}
 	tc := &types.TyCon{Name: "Type", Level: lm}
@@ -300,7 +300,7 @@ func TestLevelSolnRestore(t *testing.T) {
 	u := NewUnifier()
 	m := &types.LevelMeta{ID: 1}
 	snap := u.Snapshot()
-	if err := u.unifyLevels(m, types.L1); err != nil {
+	if err := u.UnifyLevels(m, types.L1); err != nil {
 		t.Fatalf("solve ?l1 = L1: %v", err)
 	}
 	// Verify solved.
@@ -320,7 +320,7 @@ func TestLevelSolnRestoreOverwrite(t *testing.T) {
 	u := NewUnifier()
 	m := &types.LevelMeta{ID: 1}
 	// Solve to L0 first.
-	if err := u.unifyLevels(m, types.L0); err != nil {
+	if err := u.UnifyLevels(m, types.L0); err != nil {
 		t.Fatalf("solve ?l1 = L0: %v", err)
 	}
 	snap := u.Snapshot()
