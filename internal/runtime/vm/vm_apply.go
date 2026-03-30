@@ -59,6 +59,12 @@ func (vm *VM) apply(fn eval.Value, arg eval.Value, frame *Frame, tail bool) erro
 	case *eval.PrimVal:
 		return vm.applyPrim(f, arg, frame)
 
+	case *eval.VMThunkVal:
+		// Thunks applied to any argument: force the thunk (ignore arg).
+		// This enables Go primitives (e.g. forceTail) to force lazy
+		// co-data fields via the Applier callback transparently.
+		return vm.force(f, frame, tail)
+
 	default:
 		msg := "application of non-function"
 		if fn != nil {
