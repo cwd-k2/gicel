@@ -240,13 +240,70 @@ func (e *ReduceEnv) reduceFamilyAppsN(t types.Type, cache *map[string]types.Type
 		return &types.TyApp{Fun: rFun, Arg: rArg, S: app.S}
 	}
 	// Case 3: structural recursion into other type formers.
+	// Inlined (not via MapType) to avoid closure heap-escape.
 	// Fast path: skip if subtree is stable (no metas, no family apps).
 	if !types.HasFamilyApp(t) {
 		return t
 	}
-	return types.MapType(t, func(child types.Type) types.Type {
-		return e.reduceFamilyAppsN(child, cache)
-	})
+	return e.reduceChildren(t, cache)
+}
+
+// reduceChildren applies reduceFamilyAppsN to each child of a composite type,
+// reconstructing the node only when a child changes. Inlined equivalent of
+// types.MapType to avoid closure heap allocation on every call.
+func (e *ReduceEnv) reduceChildren(t types.Type, cache *map[string]types.Type) types.Type {
+	switch ty := t.(type) {
+	case *types.TyArrow:
+		rFrom := e.reduceFamilyAppsN(ty.From, cache)
+		rTo := e.reduceFamilyAppsN(ty.To, cache)
+		if rFrom == ty.From && rTo == ty.To {
+			return t
+		}
+		return &types.TyArrow{From: rFrom, To: rTo, Flags: types.MetaFreeFlags(rFrom, rTo), S: ty.S}
+	case *types.TyForall:
+		rKind := e.reduceFamilyAppsN(ty.Kind, cache)
+		rBody := e.reduceFamilyAppsN(ty.Body, cache)
+		if rKind == ty.Kind && rBody == ty.Body {
+			return t
+		}
+		return &types.TyForall{Var: ty.Var, Kind: rKind, Body: rBody, Flags: types.MetaFreeFlags(rKind, rBody), S: ty.S}
+	case *types.TyCBPV:
+		rPre := e.reduceFamilyAppsN(ty.Pre, cache)
+		rPost := e.reduceFamilyAppsN(ty.Post, cache)
+		rResult := e.reduceFamilyAppsN(ty.Result, cache)
+		if rPre == ty.Pre && rPost == ty.Post && rResult == ty.Result {
+			return t
+		}
+		return &types.TyCBPV{Tag: ty.Tag, Pre: rPre, Post: rPost, Result: rResult, Flags: types.MetaFreeFlags(rPre, rPost, rResult), S: ty.S}
+	case *types.TyEvidence:
+		rConstraints := e.reduceFamilyAppsN(ty.Constraints, cache)
+		rBody := e.reduceFamilyAppsN(ty.Body, cache)
+		if rConstraints == ty.Constraints && rBody == ty.Body {
+			return t
+		}
+		cr, ok := rConstraints.(*types.TyEvidenceRow)
+		if !ok {
+			cr = ty.Constraints
+		}
+		return &types.TyEvidence{Constraints: cr, Body: rBody, Flags: types.MetaFreeFlags(cr, rBody), S: ty.S}
+	case *types.TyEvidenceRow:
+		newEntries, changed := ty.Entries.MapChildren(func(child types.Type) types.Type {
+			return e.reduceFamilyAppsN(child, cache)
+		})
+		var tail types.Type
+		if ty.Tail != nil {
+			tail = e.reduceFamilyAppsN(ty.Tail, cache)
+			if tail != ty.Tail {
+				changed = true
+			}
+		}
+		if !changed {
+			return t
+		}
+		return &types.TyEvidenceRow{Entries: newEntries, Tail: tail, Flags: types.EvidenceRowFlags(newEntries, tail), S: ty.S}
+	default:
+		return t
+	}
 }
 
 // registerStuckFamily delegates to RegisterStuckFn when set.
