@@ -311,7 +311,7 @@ func TestStreamHead(t *testing.T) {
 	v := runWithPacks(t, `
 import Prelude
 import Data.Stream
-main := head (LCons True (\_. LNil))
+main := head (LCons True LNil)
 `, stdlib.Prelude, stdlib.Stream)
 	con, ok := v.(*eval.ConVal)
 	if !ok || con.Con != "Just" {
@@ -350,7 +350,7 @@ func TestStreamTake(t *testing.T) {
 	v := runWithPacks(t, `
 import Prelude
 import Data.Stream
-main := take 2 (LCons True (\_. LCons False (\_. LCons True (\_. LNil))))
+main := take 2 (LCons True (LCons False (LCons True LNil)))
 `, stdlib.Prelude, stdlib.Stream)
 	con := v.(*eval.ConVal)
 	if con.Con != "Cons" {
@@ -366,7 +366,7 @@ func TestStreamFmap(t *testing.T) {
 	v := runWithPacks(t, `
 import Prelude
 import Data.Stream
-main := head (fmap not (LCons True (\_. LNil)))
+main := head (fmap not (LCons True LNil))
 `, stdlib.Prelude, stdlib.Stream)
 	con, ok := v.(*eval.ConVal)
 	if !ok || con.Con != "Just" {
@@ -379,7 +379,7 @@ func TestStreamDrop(t *testing.T) {
 	v := runWithPacks(t, `
 import Prelude
 import Data.Stream
-main := head (drop 1 (LCons True (\_. LCons False (\_. LNil))))
+main := head (drop 1 (LCons True (LCons False LNil)))
 `, stdlib.Prelude, stdlib.Stream)
 	con, ok := v.(*eval.ConVal)
 	if !ok || con.Con != "Just" {

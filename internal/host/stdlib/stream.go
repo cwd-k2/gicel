@@ -22,9 +22,16 @@ var Stream Pack = func(e Registrar) error {
 
 var streamSource = mustReadSource("stream")
 
-// forceTail calls the thunk `() -> Stream a` by applying it to Unit.
-func forceTail(t eval.Value, ce eval.CapEnv, apply eval.Applier) (eval.Value, eval.CapEnv, error) {
-	return apply(t, unitVal, ce)
+// forceField forces a lazy co-data field. For VMThunkVal, the VM's apply
+// handler forces the thunk (ignoring the argument). For legacy closures
+// (() -> T), applies to Unit. For already-evaluated values, returns as-is.
+func forceField(v eval.Value, ce eval.CapEnv, apply eval.Applier) (eval.Value, eval.CapEnv, error) {
+	switch v.(type) {
+	case *eval.VMThunkVal, *eval.ThunkVal, *eval.Closure, *eval.VMClosure:
+		return apply(v, unitVal, ce)
+	default:
+		return v, ce, nil // already a value
+	}
 }
 
 func takeSImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, apply eval.Applier) (eval.Value, eval.CapEnv, error) {
@@ -45,8 +52,12 @@ func takeSImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, apply eva
 		if con.Con != "LCons" || len(con.Args) != 2 {
 			return nil, ce, errMalformed("takeS", "stream node", con.Con)
 		}
-		items = append(items, con.Args[0])
-		stream, ce, err = forceTail(con.Args[1], ce, apply)
+		head, ce, err := forceField(con.Args[0], ce, apply)
+		if err != nil {
+			return nil, ce, err
+		}
+		items = append(items, head)
+		stream, ce, err = forceField(con.Args[1], ce, apply)
 		if err != nil {
 			return nil, ce, err
 		}
@@ -74,7 +85,7 @@ func dropSImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, apply eval.
 		if con.Con != "LCons" || len(con.Args) != 2 {
 			return nil, ce, errMalformed("dropS", "stream node", con.Con)
 		}
-		stream, ce, err = forceTail(con.Args[1], ce, apply)
+		stream, ce, err = forceField(con.Args[1], ce, apply)
 		if err != nil {
 			return nil, ce, err
 		}

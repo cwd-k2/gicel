@@ -322,6 +322,30 @@ func (vm *VM) applyForPrim(fn eval.Value, arg eval.Value, capEnv eval.CapEnv) (e
 		}
 		return val, newCap, nil
 
+	case *eval.VMThunkVal:
+		// Force thunk (ignore argument) — enables Go primitives to
+		// transparently handle lazy co-data fields.
+		proto := f.Proto.(*Proto)
+		savedLocals := len(vm.locals)
+		savedFP := vm.fp
+		vm.frames = append(vm.frames, Frame{barrier: true, capEnv: capEnv, bp: savedLocals})
+		vm.fp = len(vm.frames) - 1
+		barrierFrame := &vm.frames[vm.fp]
+		if err := vm.callThunk(proto, f.Captured, barrierFrame); err != nil {
+			vm.locals = vm.locals[:savedLocals]
+			vm.fp = savedFP
+			vm.frames = vm.frames[:savedFP+1]
+			return nil, capEnv, err
+		}
+		result, err := vm.execute()
+		vm.locals = vm.locals[:savedLocals]
+		vm.fp = savedFP
+		vm.frames = vm.frames[:savedFP+1]
+		if err != nil {
+			return nil, capEnv, err
+		}
+		return result.Value, result.CapEnv, nil
+
 	default:
 		return nil, capEnv, fmt.Errorf("application of non-function in Applier: %s", fn)
 	}
