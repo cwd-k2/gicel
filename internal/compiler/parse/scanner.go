@@ -8,15 +8,15 @@ import (
 )
 
 // Scanner produces tokens on demand from source text.
-// It wraps the internal Lexer, exposing a streaming interface
+// It wraps the internal lexer, exposing a streaming interface
 // for one-token-at-a-time consumption.
 type Scanner struct {
-	lexer *Lexer
+	lexer *lexer
 }
 
 // NewScanner creates a streaming token scanner for the given source.
 func NewScanner(source *span.Source) *Scanner {
-	return &Scanner{lexer: NewLexer(source)}
+	return &Scanner{lexer: newLexer(source)}
 }
 
 // Next returns the next token from the source.

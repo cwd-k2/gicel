@@ -168,16 +168,11 @@ f :: () -> Bool -> Bool
 f := \x. x
 main := f True`
 	src := span.NewSource("test", source)
-	l := parse.NewLexer(src)
-	tokens, lexErrs := l.Tokenize()
-	if lexErrs.HasErrors() {
-		t.Fatal("lex errors:", lexErrs.Format())
-	}
 	es := &diagnostic.Errors{Source: src}
-	p := parse.NewParser(context.Background(), tokens, es)
+	p := parse.NewParser(context.Background(), src, es)
 	ast := p.ParseProgram()
-	if es.HasErrors() {
-		// Parse error is also acceptable — depends on parser's type resolution.
+	if p.LexErrors().HasErrors() || es.HasErrors() {
+		// Lex/parse error is also acceptable — depends on parser's type resolution.
 		return
 	}
 	// If it parses, it should fail at check time.

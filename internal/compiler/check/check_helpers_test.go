@@ -21,14 +21,12 @@ import (
 func checkSource(t *testing.T, source string, config *CheckConfig) *ir.Program {
 	t.Helper()
 	src := span.NewSource("test", source)
-	l := parse.NewLexer(src)
-	tokens, lexErrs := l.Tokenize()
-	if lexErrs.HasErrors() {
-		t.Fatal("lex errors:", lexErrs.Format())
-	}
 	es := &diagnostic.Errors{Source: src}
-	p := parse.NewParser(context.Background(), tokens, es)
+	p := parse.NewParser(context.Background(), src, es)
 	ast := p.ParseProgram()
+	if p.LexErrors().HasErrors() {
+		t.Fatal("lex errors:", p.LexErrors().Format())
+	}
 	if es.HasErrors() {
 		t.Fatal("parse errors:", es.Format())
 	}
@@ -44,14 +42,12 @@ func checkSource(t *testing.T, source string, config *CheckConfig) *ir.Program {
 func checkSourceExpectError(t *testing.T, source string, config *CheckConfig) string {
 	t.Helper()
 	src := span.NewSource("test", source)
-	l := parse.NewLexer(src)
-	tokens, lexErrs := l.Tokenize()
-	if lexErrs.HasErrors() {
-		t.Fatal("lex errors:", lexErrs.Format())
-	}
 	es := &diagnostic.Errors{Source: src}
-	p := parse.NewParser(context.Background(), tokens, es)
+	p := parse.NewParser(context.Background(), src, es)
 	ast := p.ParseProgram()
+	if p.LexErrors().HasErrors() {
+		t.Fatal("lex errors:", p.LexErrors().Format())
+	}
 	if es.HasErrors() {
 		t.Fatal("parse errors:", es.Format())
 	}
@@ -67,14 +63,12 @@ func checkSourceExpectError(t *testing.T, source string, config *CheckConfig) st
 func checkSourceExpectCode(t *testing.T, source string, config *CheckConfig, code diagnostic.Code) string {
 	t.Helper()
 	src := span.NewSource("test", source)
-	l := parse.NewLexer(src)
-	tokens, lexErrs := l.Tokenize()
-	if lexErrs.HasErrors() {
-		t.Fatal("lex errors:", lexErrs.Format())
-	}
 	es := &diagnostic.Errors{Source: src}
-	p := parse.NewParser(context.Background(), tokens, es)
+	p := parse.NewParser(context.Background(), src, es)
 	ast := p.ParseProgram()
+	if p.LexErrors().HasErrors() {
+		t.Fatal("lex errors:", p.LexErrors().Format())
+	}
 	if es.HasErrors() {
 		t.Fatal("parse errors:", es.Format())
 	}
@@ -100,14 +94,12 @@ func checkSourceExpectCode(t *testing.T, source string, config *CheckConfig, cod
 func checkSourceTryBoth(t *testing.T, source string, config *CheckConfig) string {
 	t.Helper()
 	src := span.NewSource("test", source)
-	l := parse.NewLexer(src)
-	tokens, lexErrs := l.Tokenize()
-	if lexErrs.HasErrors() {
-		t.Fatal("lex errors:", lexErrs.Format())
-	}
 	es := &diagnostic.Errors{Source: src}
-	p := parse.NewParser(context.Background(), tokens, es)
+	p := parse.NewParser(context.Background(), src, es)
 	ast := p.ParseProgram()
+	if p.LexErrors().HasErrors() {
+		t.Fatal("lex errors:", p.LexErrors().Format())
+	}
 	if es.HasErrors() {
 		t.Fatal("parse errors:", es.Format())
 	}
@@ -131,14 +123,12 @@ func checkSourceNoPanic(t *testing.T, source string, config *CheckConfig) {
 		config = &CheckConfig{}
 	}
 	src := span.NewSource("test", source)
-	l := parse.NewLexer(src)
-	tokens, lexErrs := l.Tokenize()
-	if lexErrs.HasErrors() {
+	es := &diagnostic.Errors{Source: src}
+	p := parse.NewParser(context.Background(), src, es)
+	ast := p.ParseProgram()
+	if p.LexErrors().HasErrors() {
 		return // lex error is fine, not a bug
 	}
-	es := &diagnostic.Errors{Source: src}
-	p := parse.NewParser(context.Background(), tokens, es)
-	ast := p.ParseProgram()
 	if es.HasErrors() {
 		return // parse error is fine, not a bug
 	}

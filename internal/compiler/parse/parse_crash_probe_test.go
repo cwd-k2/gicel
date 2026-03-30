@@ -116,13 +116,8 @@ func TestProbeB_DeepNestedParens200(t *testing.T) {
 		b.WriteByte(')')
 	}
 	src := span.NewSource("test", b.String())
-	l := NewLexer(src)
-	tokens, lexErrs := l.Tokenize()
-	if lexErrs.HasErrors() {
-		t.Fatal("lex error:", lexErrs.Format())
-	}
 	es := &diagnostic.Errors{Source: src}
-	p := NewParser(context.Background(), tokens, es)
+	p := NewParser(context.Background(), src, es)
 	_ = p.ParseProgram()
 	// No panic = success. Errors are acceptable.
 }
@@ -359,10 +354,8 @@ func TestProbeD_DeeplyNestedParens(t *testing.T) {
 	}
 	source := fmt.Sprintf("main := %s", b.String())
 	src := span.NewSource("test", source)
-	l := NewLexer(src)
-	tokens, _ := l.Tokenize()
 	es := &diagnostic.Errors{Source: src}
-	p := NewParser(context.Background(), tokens, es)
+	p := NewParser(context.Background(), src, es)
 	prog := p.ParseProgram()
 	// Must not panic. Errors are expected (recursion limit).
 	if prog == nil {
@@ -387,10 +380,8 @@ func TestProbeD_DeeplyNestedBraces(t *testing.T) {
 	}
 	source := fmt.Sprintf("main := %s", b.String())
 	src := span.NewSource("test", source)
-	l := NewLexer(src)
-	tokens, _ := l.Tokenize()
 	es := &diagnostic.Errors{Source: src}
-	p := NewParser(context.Background(), tokens, es)
+	p := NewParser(context.Background(), src, es)
 	prog := p.ParseProgram()
 	if prog == nil {
 		t.Fatal("ParseProgram returned nil")
@@ -565,10 +556,8 @@ func TestProbeD_StepLimitHalt(t *testing.T) {
 		b.WriteString("+ ")
 	}
 	src := span.NewSource("test", b.String())
-	l := NewLexer(src)
-	tokens, _ := l.Tokenize()
 	es := &diagnostic.Errors{Source: src}
-	p := NewParser(context.Background(), tokens, es)
+	p := NewParser(context.Background(), src, es)
 	prog := p.ParseProgram()
 	if prog == nil {
 		t.Fatal("ParseProgram returned nil")
@@ -592,10 +581,8 @@ func TestProbeD_RecursionLimitOnNestedTypes(t *testing.T) {
 	}
 	source := fmt.Sprintf("x :: %s\nx := 42", ty.String())
 	src := span.NewSource("test", source)
-	l := NewLexer(src)
-	tokens, _ := l.Tokenize()
 	es := &diagnostic.Errors{Source: src}
-	p := NewParser(context.Background(), tokens, es)
+	p := NewParser(context.Background(), src, es)
 	prog := p.ParseProgram()
 	if prog == nil {
 		t.Fatal("ParseProgram returned nil")
@@ -809,10 +796,8 @@ func TestProbeE_CrashDeepNestedParens(t *testing.T) {
 	}
 	source := fmt.Sprintf("main := %s", b.String())
 	src := span.NewSource("test", source)
-	l := NewLexer(src)
-	tokens, _ := l.Tokenize()
 	es := &diagnostic.Errors{Source: src}
-	p := NewParser(context.Background(), tokens, es)
+	p := NewParser(context.Background(), src, es)
 	_ = p.ParseProgram()
 	// No panic = success.
 }
@@ -942,10 +927,8 @@ func TestProbeE_HaltedParserReturnsEOF(t *testing.T) {
 		b.WriteString("( ")
 	}
 	src := span.NewSource("test", b.String())
-	l := NewLexer(src)
-	tokens, _ := l.Tokenize()
 	es := &diagnostic.Errors{Source: src}
-	p := NewParser(context.Background(), tokens, es)
+	p := NewParser(context.Background(), src, es)
 	_ = p.ParseProgram()
 	// Should have halted (step or recursion limit).
 	if !es.HasErrors() {

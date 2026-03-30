@@ -151,14 +151,12 @@ func TestScaleParserOnly(t *testing.T) {
 			start := time.Now()
 
 			src := span.NewSource("<input>", source)
-			l := parse.NewLexer(src)
-			tokens, lexErrs := l.Tokenize()
-			if lexErrs.HasErrors() {
-				t.Fatal(lexErrs.Format())
-			}
 			parseErrs := &diagnostic.Errors{Source: src}
-			p := parse.NewParser(context.Background(), tokens, parseErrs)
+			p := parse.NewParser(context.Background(), src, parseErrs)
 			_ = p.ParseProgram()
+			if p.LexErrors().HasErrors() {
+				t.Fatal(p.LexErrors().Format())
+			}
 
 			elapsed := time.Since(start)
 			runtime.ReadMemStats(&m2)

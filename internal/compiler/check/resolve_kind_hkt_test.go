@@ -86,14 +86,12 @@ use_maybe := id_k (Just True)
 func parseKindPoly(t *testing.T, source string) {
 	t.Helper()
 	src := span.NewSource("test", source)
-	l := parse.NewLexer(src)
-	tokens, lexErrs := l.Tokenize()
-	if lexErrs.HasErrors() {
-		t.Fatal("lex errors:", lexErrs.Format())
-	}
 	es := &diagnostic.Errors{Source: src}
-	p := parse.NewParser(context.Background(), tokens, es)
+	p := parse.NewParser(context.Background(), src, es)
 	_ = p.ParseProgram()
+	if p.LexErrors().HasErrors() {
+		t.Fatal("lex errors:", p.LexErrors().Format())
+	}
 	if es.HasErrors() {
 		t.Fatal("parse errors:", es.Format())
 	}

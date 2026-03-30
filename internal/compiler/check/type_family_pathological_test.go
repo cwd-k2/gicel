@@ -626,14 +626,12 @@ f := \x. x
 func parse_and_check(t *testing.T, source string, config *CheckConfig) (*diagnostic.Errors, *diagnostic.Errors) {
 	t.Helper()
 	src := span.NewSource("test", source)
-	l := parse.NewLexer(src)
-	tokens, lexErrs := l.Tokenize()
-	if lexErrs.HasErrors() {
-		return lexErrs, nil
-	}
 	es := &diagnostic.Errors{Source: src}
-	p := parse.NewParser(context.Background(), tokens, es)
+	p := parse.NewParser(context.Background(), src, es)
 	ast := p.ParseProgram()
+	if p.LexErrors().HasErrors() {
+		return p.LexErrors(), nil
+	}
 	if es.HasErrors() {
 		return es, nil
 	}

@@ -114,13 +114,14 @@ func (pg *progressGuard) RecoverStagnation() {
 	}
 }
 
-// Parser is a Pratt parser for the surface language.
+// Parser is a streaming parser for the surface language.
 type Parser struct {
-	ctx         context.Context // external cancellation (nil-safe)
-	tb          *tokenBuffer
-	fixity      map[string]Fixity
-	errors      *diagnostic.Errors
-	depth       int  // paren/brace nesting depth
+	ctx     context.Context // external cancellation (nil-safe)
+	tb      *tokenBuffer
+	scanner *Scanner
+	fixity  map[string]Fixity
+	errors  *diagnostic.Errors
+	depth   int  // paren/brace nesting depth
 	noBraceAtom bool // when true, { is not an atom start (inside case scrutinee)
 
 	// stmtBoundaryDepth enables newline-as-separator inside brace-delimited
@@ -132,18 +133,20 @@ type Parser struct {
 	guard parserGuard // resource safety harness
 }
 
-// NewParser creates a parser from a token stream. ctx enables external
-// cancellation; pass context.Background() when cancellation is not needed.
-func NewParser(ctx context.Context, tokens []syn.Token, errors *diagnostic.Errors) *Parser {
+// NewParser creates a streaming parser for the given source. Tokens are
+// produced on demand via an internal Scanner — no bulk tokenization.
+func NewParser(ctx context.Context, source *span.Source, errors *diagnostic.Errors) *Parser {
 	if ctx == nil {
 		ctx = context.Background()
 	}
-	maxSteps := max(len(tokens)*4, 100)
+	scanner := NewScanner(source)
+	maxSteps := max(len(source.Text)*4, 100)
 	return &Parser{
-		ctx:    ctx,
-		tb:     newTokenBuffer(nil, tokens),
-		fixity: make(map[string]Fixity),
-		errors: errors,
+		ctx:     ctx,
+		tb:      newTokenBuffer(scanner, nil),
+		scanner: scanner,
+		fixity:  make(map[string]Fixity),
+		errors:  errors,
 		guard: parserGuard{
 			maxRecurseDepth: 256,
 			maxSteps:        maxSteps,
@@ -151,51 +154,9 @@ func NewParser(ctx context.Context, tokens []syn.Token, errors *diagnostic.Error
 	}
 }
 
-// NewParserStreaming creates a parser backed by a Scanner for on-demand
-// tokenization. seed contains tokens already consumed (e.g., by import
-// pre-scanning); the scanner provides the rest.
-func NewParserStreaming(ctx context.Context, scanner *Scanner, seed []syn.Token, errors *diagnostic.Errors, sourceLen int) *Parser {
-	if ctx == nil {
-		ctx = context.Background()
-	}
-	// Estimate: ~1 token per 6 chars, safety factor of 4 → sourceLen*4/6 ≈ sourceLen*2/3.
-	// But sourceLen alone underestimates for repetitive syntax (;;;;;, ((()))).
-	// Use sourceLen as-is for generous headroom (matches old len(tokens)*4 in typical cases).
-	maxSteps := max(sourceLen*4, 100)
-	return &Parser{
-		ctx:    ctx,
-		tb:     newTokenBuffer(scanner, seed),
-		fixity: make(map[string]Fixity),
-		errors: errors,
-		guard: parserGuard{
-			maxRecurseDepth: 256,
-			maxSteps:        maxSteps,
-		},
-	}
-}
-
-// PreScanImportNames extracts module names from import declarations
-// by scanning the token stream. Does not invoke the parser — simply
-// looks for `import <Upper>[.<Upper>]*` patterns. Handles dotted module
-// names (e.g., "Effect.State", "Data.Map") by consuming adjacent dot+Upper
-// sequences. Returns the direct import names.
-func PreScanImportNames(tokens []syn.Token) []string {
-	var names []string
-	for i := 0; i < len(tokens)-1; i++ {
-		if tokens[i].Kind != syn.TokImport || tokens[i+1].Kind != syn.TokUpper {
-			continue
-		}
-		name := tokens[i+1].Text
-		j := i + 2
-		// Consume dotted name segments: .Upper.Upper...
-		for j+1 < len(tokens) && tokens[j].Kind == syn.TokDot && tokens[j+1].Kind == syn.TokUpper {
-			name += "." + tokens[j+1].Text
-			j += 2
-		}
-		names = append(names, name)
-		i = j - 1 // advance past consumed tokens
-	}
-	return names
+// LexErrors returns accumulated lexer diagnostics.
+func (p *Parser) LexErrors() *diagnostic.Errors {
+	return p.scanner.Errors()
 }
 
 // AddFixity merges host-supplied fixity declarations into the parser.

@@ -27,12 +27,10 @@ func generateProgram(n int) string {
 func benchParse(b *testing.B, source string) {
 	b.Helper()
 	src := span.NewSource("bench", source)
-	l := NewLexer(src)
-	tokens, _ := l.Tokenize()
 	b.ResetTimer()
 	for range b.N {
 		es := &diagnostic.Errors{Source: src}
-		p := NewParser(context.Background(), tokens, es)
+		p := NewParser(context.Background(), src, es)
 		_ = p.ParseProgram()
 	}
 }
@@ -70,7 +68,8 @@ func BenchmarkLexTokenize(b *testing.B) {
 	src := span.NewSource("bench", source)
 	b.ResetTimer()
 	for range b.N {
-		l := NewLexer(src)
-		_, _ = l.Tokenize()
+		s := NewScanner(src)
+		for s.Next().Kind != 0 {
+		}
 	}
 }

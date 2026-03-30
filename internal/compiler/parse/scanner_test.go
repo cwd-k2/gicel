@@ -30,9 +30,16 @@ func TestScannerTokenizeEquivalence(t *testing.T) {
 		t.Run(src[:min(len(src), 30)], func(t *testing.T) {
 			source := span.NewSource("<test>", src)
 
-			// Tokenize path
-			l := NewLexer(source)
-			tokens, _ := l.Tokenize()
+			// Tokenize path (via NewScanner, collecting all tokens)
+			lexScanner := NewScanner(source)
+			var tokens []syn.Token
+			for {
+				tok := lexScanner.Next()
+				tokens = append(tokens, tok)
+				if tok.Kind == syn.TokEOF {
+					break
+				}
+			}
 
 			// Scanner path
 			s := NewScanner(source)

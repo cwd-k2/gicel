@@ -8,8 +8,6 @@ import (
 	"testing"
 
 	. "github.com/cwd-k2/gicel/internal/lang/syntax" //nolint:revive // dot import for tightly-coupled subpackage
-
-	"github.com/cwd-k2/gicel/internal/infra/span"
 )
 
 // ===== From probe_b =====
@@ -186,9 +184,7 @@ func TestProbeD_LexerUnderscoreSeparator(t *testing.T) {
 // TestProbeE_LexerUnterminatedString verifies the lexer reports and recovers
 // from an unterminated string literal at end of source.
 func TestProbeE_LexerUnterminatedString(t *testing.T) {
-	src := span.NewSource("test", `"hello`)
-	l := NewLexer(src)
-	tokens, es := l.Tokenize()
+	tokens, es := lexWithErrors(`"hello`)
 	if !es.HasErrors() {
 		t.Error("expected error for unterminated string")
 	}
@@ -204,9 +200,7 @@ func TestProbeE_LexerUnterminatedString(t *testing.T) {
 // TestProbeE_LexerUnterminatedStringNewline verifies that a newline inside
 // a string terminates it as unterminated.
 func TestProbeE_LexerUnterminatedStringNewline(t *testing.T) {
-	src := span.NewSource("test", "\"hello\nworld\"")
-	l := NewLexer(src)
-	tokens, es := l.Tokenize()
+	tokens, es := lexWithErrors("\"hello\nworld\"")
 	if !es.HasErrors() {
 		t.Error("expected error for string with embedded newline")
 	}
@@ -227,9 +221,7 @@ func TestProbeE_LexerUnterminatedStringNewline(t *testing.T) {
 
 // TestProbeE_LexerUnknownEscapeSequence verifies the lexer reports unknown escapes.
 func TestProbeE_LexerUnknownEscapeSequence(t *testing.T) {
-	src := span.NewSource("test", `"\q"`)
-	l := NewLexer(src)
-	tokens, es := l.Tokenize()
+	tokens, es := lexWithErrors(`"\q"`)
 	if !es.HasErrors() {
 		t.Error("expected error for unknown escape \\q")
 	}
@@ -241,9 +233,7 @@ func TestProbeE_LexerUnknownEscapeSequence(t *testing.T) {
 
 // TestProbeE_LexerNullByteInSource verifies null bytes don't cause panics.
 func TestProbeE_LexerNullByteInSource(t *testing.T) {
-	src := span.NewSource("test", "main\x00 := 42")
-	l := NewLexer(src)
-	tokens, _ := l.Tokenize()
+	tokens := lex("main\x00 := 42")
 	// Should not panic. The null byte is an unknown character — it should be skipped.
 	if len(tokens) < 2 {
 		t.Fatalf("expected tokens, got %d", len(tokens))
@@ -252,9 +242,7 @@ func TestProbeE_LexerNullByteInSource(t *testing.T) {
 
 // TestProbeE_LexerEscapeNull verifies `\0` escape in strings.
 func TestProbeE_LexerEscapeNull(t *testing.T) {
-	src := span.NewSource("test", `"\0"`)
-	l := NewLexer(src)
-	tokens, es := l.Tokenize()
+	tokens, es := lexWithErrors(`"\0"`)
 	// \0 is a valid escape (NUL character).
 	if es.HasErrors() {
 		t.Logf("\\0 escape error: %s", es.Format())
@@ -267,9 +255,7 @@ func TestProbeE_LexerEscapeNull(t *testing.T) {
 // TestProbeE_LexerVeryLongIdentifier verifies a very long identifier (10000 chars).
 func TestProbeE_LexerVeryLongIdentifier(t *testing.T) {
 	name := strings.Repeat("x", 10000)
-	src := span.NewSource("test", name+" := 42")
-	l := NewLexer(src)
-	tokens, _ := l.Tokenize()
+	tokens := lex(name + " := 42")
 	if tokens[0].Kind != TokLower || tokens[0].Text != name {
 		t.Errorf("expected TokLower with 10000-char name, got %v len=%d", tokens[0].Kind, len(tokens[0].Text))
 	}
@@ -278,9 +264,7 @@ func TestProbeE_LexerVeryLongIdentifier(t *testing.T) {
 // TestProbeE_LexerVeryLongOperator verifies a very long operator (5000 chars).
 func TestProbeE_LexerVeryLongOperator(t *testing.T) {
 	op := strings.Repeat("+", 5000)
-	src := span.NewSource("test", op)
-	l := NewLexer(src)
-	tokens, _ := l.Tokenize()
+	tokens := lex(op)
 	if tokens[0].Kind != TokOp {
 		t.Errorf("expected TokOp for long operator, got %v", tokens[0].Kind)
 	}
@@ -291,9 +275,7 @@ func TestProbeE_LexerVeryLongOperator(t *testing.T) {
 
 // TestProbeE_LexerUnicodeUpperStart verifies non-ASCII uppercase is rejected as Upper token.
 func TestProbeE_LexerUnicodeUpperStart(t *testing.T) {
-	src := span.NewSource("test", "\u00C9tat") // Étal
-	l := NewLexer(src)
-	tokens, _ := l.Tokenize()
+	tokens := lex("\u00C9tat") // Étal
 	// isUpperStart checks A-Z only, so É is not recognized as upper start.
 	if tokens[0].Kind == TokUpper {
 		t.Error("expected non-TokUpper for Unicode uppercase start")
@@ -302,9 +284,7 @@ func TestProbeE_LexerUnicodeUpperStart(t *testing.T) {
 
 // TestProbeE_LexerUnterminatedBlockComment verifies unterminated block comment.
 func TestProbeE_LexerUnterminatedBlockComment(t *testing.T) {
-	src := span.NewSource("test", "{- open forever")
-	l := NewLexer(src)
-	_, es := l.Tokenize()
+	_, es := lexWithErrors("{- open forever")
 	if !es.HasErrors() {
 		t.Error("expected error for unterminated block comment")
 	}
@@ -312,9 +292,7 @@ func TestProbeE_LexerUnterminatedBlockComment(t *testing.T) {
 
 // TestProbeE_LexerNestedBlockCommentMismatch verifies mismatched nesting count.
 func TestProbeE_LexerNestedBlockCommentMismatch(t *testing.T) {
-	src := span.NewSource("test", "{- {- -}")
-	l := NewLexer(src)
-	_, es := l.Tokenize()
+	_, es := lexWithErrors("{- {- -}")
 	if !es.HasErrors() {
 		t.Error("expected error for mismatched nested block comment")
 	}
@@ -322,9 +300,7 @@ func TestProbeE_LexerNestedBlockCommentMismatch(t *testing.T) {
 
 // TestProbeE_LexerEmptyRuneLiteral verifies ” is rejected.
 func TestProbeE_LexerEmptyRuneLiteral(t *testing.T) {
-	src := span.NewSource("test", "''")
-	l := NewLexer(src)
-	_, es := l.Tokenize()
+	_, es := lexWithErrors("''")
 	if !es.HasErrors() {
 		t.Error("expected error for empty rune literal")
 	}
@@ -332,9 +308,7 @@ func TestProbeE_LexerEmptyRuneLiteral(t *testing.T) {
 
 // TestProbeE_LexerRuneUnterminated verifies 'a is rejected.
 func TestProbeE_LexerRuneUnterminated(t *testing.T) {
-	src := span.NewSource("test", "'a")
-	l := NewLexer(src)
-	_, es := l.Tokenize()
+	_, es := lexWithErrors("'a")
 	if !es.HasErrors() {
 		t.Error("expected error for unterminated rune literal")
 	}
@@ -342,9 +316,7 @@ func TestProbeE_LexerRuneUnterminated(t *testing.T) {
 
 // TestProbeE_LexerRuneMultiChar verifies 'ab' is rejected or handled.
 func TestProbeE_LexerRuneMultiChar(t *testing.T) {
-	src := span.NewSource("test", "'ab'")
-	l := NewLexer(src)
-	_, es := l.Tokenize()
+	_, es := lexWithErrors("'ab'")
 	// Multi-char rune should error.
 	if !es.HasErrors() {
 		t.Error("expected error for multi-char rune literal")
@@ -357,17 +329,13 @@ func TestProbeE_LexerBinaryData(t *testing.T) {
 	for i := range data {
 		data[i] = byte(i)
 	}
-	src := span.NewSource("test", string(data))
-	l := NewLexer(src)
-	_, _ = l.Tokenize()
+	_ = lex(string(data))
 	// Just verify no panic.
 }
 
 // TestProbeE_LexerOnlyOperators verifies source with only operator characters.
 func TestProbeE_LexerOnlyOperators(t *testing.T) {
-	src := span.NewSource("test", "+-*/<>=!?&|^~$%@#")
-	l := NewLexer(src)
-	tokens, _ := l.Tokenize()
+	tokens := lex("+-*/<>=!?&|^~$%@#")
 	// Should produce at least one operator token + EOF.
 	if len(tokens) < 2 {
 		t.Fatalf("expected at least 2 tokens, got %d", len(tokens))
@@ -376,9 +344,7 @@ func TestProbeE_LexerOnlyOperators(t *testing.T) {
 
 // TestProbeE_LexerConsecutiveStrings verifies consecutive string literals.
 func TestProbeE_LexerConsecutiveStrings(t *testing.T) {
-	src := span.NewSource("test", `"hello" "world"`)
-	l := NewLexer(src)
-	tokens, es := l.Tokenize()
+	tokens, es := lexWithErrors(`"hello" "world"`)
 	if es.HasErrors() {
 		t.Fatalf("unexpected error: %s", es.Format())
 	}
@@ -494,9 +460,7 @@ func TestProbeE_LexerPeekAtBoundary(t *testing.T) {
 	}
 	for _, src := range edgeCases {
 		t.Run(src, func(t *testing.T) {
-			s := span.NewSource("test", src)
-			l := NewLexer(s)
-			tokens, _ := l.Tokenize()
+			tokens := lex(src)
 			// Just verify no panic and at least one token.
 			if len(tokens) < 1 {
 				t.Error("expected at least 1 token")

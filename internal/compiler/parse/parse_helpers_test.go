@@ -15,28 +15,41 @@ import (
 
 func lex(input string) []Token {
 	src := span.NewSource("test", input)
-	l := NewLexer(src)
-	tokens, _ := l.Tokenize()
+	s := NewScanner(src)
+	var tokens []Token
+	for {
+		tok := s.Next()
+		tokens = append(tokens, tok)
+		if tok.Kind == TokEOF {
+			break
+		}
+	}
 	return tokens
 }
 
 func parse(input string) (*AstProgram, *diagnostic.Errors) {
 	src := span.NewSource("test", input)
-	l := NewLexer(src)
-	tokens, lexErrs := l.Tokenize()
-	if lexErrs.HasErrors() {
-		return nil, lexErrs
-	}
 	es := &diagnostic.Errors{Source: src}
-	p := NewParser(context.Background(), tokens, es)
+	p := NewParser(context.Background(), src, es)
 	prog := p.ParseProgram()
+	if p.LexErrors().HasErrors() {
+		return nil, p.LexErrors()
+	}
 	return prog, es
 }
 
 func lexWithErrors(input string) ([]Token, *diagnostic.Errors) {
 	src := span.NewSource("test", input)
-	l := NewLexer(src)
-	return l.Tokenize()
+	s := NewScanner(src)
+	var tokens []Token
+	for {
+		tok := s.Next()
+		tokens = append(tokens, tok)
+		if tok.Kind == TokEOF {
+			break
+		}
+	}
+	return tokens, s.Errors()
 }
 
 func parseMustSucceed(t *testing.T, source string) *AstProgram {

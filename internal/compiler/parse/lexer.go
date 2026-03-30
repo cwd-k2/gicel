@@ -11,42 +11,30 @@ import (
 	"github.com/cwd-k2/gicel/internal/infra/span"
 )
 
-// Lexer tokenizes source text.
-type Lexer struct {
+// lexer tokenizes source text.
+type lexer struct {
 	source     *span.Source
 	pos        int
 	errors     *diagnostic.Errors
 	sawNewline bool
 }
 
-// NewLexer creates a lexer for the given source.
-func NewLexer(source *span.Source) *Lexer {
+// newLexer creates a lexer for the given source.
+func newLexer(source *span.Source) *lexer {
 	start := 0
 	// Skip UTF-8 BOM if present.
 	if len(source.Text) >= 3 && source.Text[0] == 0xEF && source.Text[1] == 0xBB && source.Text[2] == 0xBF {
 		start = 3
 	}
-	return &Lexer{
+	return &lexer{
 		source: source,
 		pos:    start,
 		errors: &diagnostic.Errors{Source: source},
 	}
 }
 
-// Tokenize scans the entire source and returns the token stream.
-func (l *Lexer) Tokenize() ([]syn.Token, *diagnostic.Errors) {
-	tokens := make([]syn.Token, 0, len(l.source.Text)/6)
-	for {
-		tok := l.next()
-		tokens = append(tokens, tok)
-		if tok.Kind == syn.TokEOF {
-			break
-		}
-	}
-	return tokens, l.errors
-}
 
-func (l *Lexer) next() syn.Token {
+func (l *lexer) next() syn.Token {
 	l.skipWhitespaceAndComments()
 	nlBefore := l.sawNewline
 	l.sawNewline = false
@@ -55,7 +43,7 @@ func (l *Lexer) next() syn.Token {
 	return tok
 }
 
-func (l *Lexer) scanToken() syn.Token {
+func (l *lexer) scanToken() syn.Token {
 	for {
 		if l.pos >= len(l.source.Text) {
 			return syn.Token{Kind: syn.TokEOF, S: span.Span{Start: span.Pos(l.pos), End: span.Pos(l.pos)}}
@@ -257,7 +245,7 @@ func (l *Lexer) scanToken() syn.Token {
 	}
 }
 
-func (l *Lexer) skipWhitespaceAndComments() {
+func (l *lexer) skipWhitespaceAndComments() {
 	for l.pos < len(l.source.Text) {
 		ch := l.peek()
 		if ch == ' ' || ch == '\t' || ch == '\r' {
@@ -307,7 +295,7 @@ func (l *Lexer) skipWhitespaceAndComments() {
 	}
 }
 
-func (l *Lexer) peek() rune {
+func (l *lexer) peek() rune {
 	if l.pos >= len(l.source.Text) {
 		return 0
 	}
@@ -315,7 +303,7 @@ func (l *Lexer) peek() rune {
 	return r
 }
 
-func (l *Lexer) peekAt(offset int) rune {
+func (l *lexer) peekAt(offset int) rune {
 	p := l.pos + offset
 	if p >= len(l.source.Text) {
 		return 0
@@ -324,14 +312,14 @@ func (l *Lexer) peekAt(offset int) rune {
 	return r
 }
 
-func (l *Lexer) advance() {
+func (l *lexer) advance() {
 	if l.pos < len(l.source.Text) {
 		_, size := utf8.DecodeRuneInString(l.source.Text[l.pos:])
 		l.pos += size
 	}
 }
 
-func (l *Lexer) tok(kind syn.TokenKind, start int) syn.Token {
+func (l *lexer) tok(kind syn.TokenKind, start int) syn.Token {
 	return syn.Token{
 		Kind: kind,
 		Text: l.source.Text[start:l.pos],
@@ -339,7 +327,7 @@ func (l *Lexer) tok(kind syn.TokenKind, start int) syn.Token {
 	}
 }
 
-func (l *Lexer) scanString() syn.Token {
+func (l *lexer) scanString() syn.Token {
 	start := l.pos
 	l.pos++ // skip opening '"'
 	var buf []byte
@@ -405,7 +393,7 @@ func (l *Lexer) scanString() syn.Token {
 	}
 }
 
-func (l *Lexer) scanRune(start int) syn.Token {
+func (l *lexer) scanRune(start int) syn.Token {
 	l.pos++ // skip opening '\''
 	if l.pos >= len(l.source.Text) || l.source.Text[l.pos] == '\'' {
 		l.errors.Add(&diagnostic.Error{
@@ -515,7 +503,7 @@ func isIdentCont(r rune) bool {
 
 // scanNumeric scans an integer or double literal (supports _ separators).
 // Examples: 42, 100_000, 3.14, 1e10, 1.05e+10, 2_000.5e-3
-func (l *Lexer) scanNumeric(start int) syn.Token {
+func (l *lexer) scanNumeric(start int) syn.Token {
 	l.scanDigits() // integer part
 	isDouble := false
 	// Decimal part: '.' followed by digit
@@ -551,7 +539,7 @@ func (l *Lexer) scanNumeric(start int) syn.Token {
 }
 
 // scanDigits consumes a run of digits with optional underscore separators.
-func (l *Lexer) scanDigits() {
+func (l *lexer) scanDigits() {
 	for l.pos < len(l.source.Text) {
 		c := l.source.Text[l.pos]
 		if c >= '0' && c <= '9' {

@@ -26,10 +26,8 @@ main := eq True False`
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		src := span.NewSource("bench", source)
-		l := parse.NewLexer(src)
-		tokens, _ := l.Tokenize()
 		es := &diagnostic.Errors{Source: src}
-		p := parse.NewParser(context.Background(), tokens, es)
+		p := parse.NewParser(context.Background(), src, es)
 		ast := p.ParseProgram()
 		Check(ast, src, nil)
 	}

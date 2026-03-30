@@ -31,11 +31,10 @@ type pipelineCtx struct {
 // affecting operator precedence.
 func (pc *pipelineCtx) lexAndParse(sourceName, source string, injectCore bool) (*syntax.AstProgram, *span.Source, error) {
 	src := span.NewSource(sourceName, source)
-	scanner := parse.NewScanner(src)
 	parseErrs := &diagnostic.Errors{Source: src}
-	p := parse.NewParserStreaming(pc.ctx, scanner, nil, parseErrs, len(source))
+	p := parse.NewParser(pc.ctx, src, parseErrs)
 
-	// Phase 1: Parse imports (streaming — only reads import tokens).
+	// Stream imports, inject external fixity, parse rest, resolve.
 	imports := p.ParseImports()
 	importNames := make([]string, len(imports))
 	for i, imp := range imports {
@@ -44,22 +43,16 @@ func (pc *pipelineCtx) lexAndParse(sourceName, source string, injectCore bool) (
 	if injectCore {
 		importNames = append(importNames, "Core")
 	}
-
-	// Phase 2: Inject external fixity from transitively imported modules.
 	pc.store.CollectFixityForImports(p, importNames)
-
-	// Phase 3: Parse declarations (streaming — reads remaining tokens).
 	decls := p.ParseDecls()
 	ast := &syntax.AstProgram{Imports: imports, Decls: decls}
-
-	// Phase 4: Collect in-module fixity + resolve infix spines.
 	mergedFixity := make(map[string]parse.Fixity)
 	maps.Copy(mergedFixity, pc.store.CollectFixityMap(importNames))
 	maps.Copy(mergedFixity, parse.CollectModuleFixity(decls))
 	parse.ResolveFixity(ast, mergedFixity, parseErrs)
 
-	if scanner.Errors().HasErrors() {
-		return nil, nil, &CompileError{Errors: scanner.Errors()}
+	if p.LexErrors().HasErrors() {
+		return nil, nil, &CompileError{Errors: p.LexErrors()}
 	}
 	if parseErrs.HasErrors() {
 		return nil, nil, &CompileError{Errors: parseErrs}

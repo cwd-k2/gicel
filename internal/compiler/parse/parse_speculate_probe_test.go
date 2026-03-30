@@ -41,14 +41,8 @@ func TestProbeF_SpeculateBudgetRestore(t *testing.T) {
   pure (x + y + z)
 }`
 	source := span.NewSource("test", src)
-	l := NewLexer(source)
-	tokens, lexErrs := l.Tokenize()
-	if lexErrs.HasErrors() {
-		t.Fatalf("lex errors: %s", lexErrs.Format())
-	}
-
 	es := &diagnostic.Errors{Source: source}
-	p := NewParser(context.Background(), tokens, es)
+	p := NewParser(context.Background(), source, es)
 	prog := p.ParseProgram()
 	if prog == nil {
 		t.Fatal("ParseProgram returned nil")
@@ -86,14 +80,8 @@ func TestProbeF_SpeculateBudgetRestore_Block(t *testing.T) {
   (x + y + z + w)
 }`
 	source := span.NewSource("test", src)
-	l := NewLexer(source)
-	tokens, lexErrs := l.Tokenize()
-	if lexErrs.HasErrors() {
-		t.Fatalf("lex errors: %s", lexErrs.Format())
-	}
-
 	es := &diagnostic.Errors{Source: source}
-	p := NewParser(context.Background(), tokens, es)
+	p := NewParser(context.Background(), source, es)
 	prog := p.ParseProgram()
 	if prog == nil {
 		t.Fatal("ParseProgram returned nil")
@@ -119,14 +107,8 @@ func TestProbeF_SpeculateBudgetRestore_Repeated(t *testing.T) {
   pure 42
 }`
 	source := span.NewSource("test", src)
-	l := NewLexer(source)
-	tokens, lexErrs := l.Tokenize()
-	if lexErrs.HasErrors() {
-		t.Fatalf("lex errors: %s", lexErrs.Format())
-	}
-
 	es := &diagnostic.Errors{Source: source}
-	p := NewParser(context.Background(), tokens, es)
+	p := NewParser(context.Background(), source, es)
 	prog := p.ParseProgram()
 	if prog == nil {
 		t.Fatal("ParseProgram returned nil")
@@ -145,14 +127,8 @@ func TestProbeF_SpeculateBudgetRestore_Repeated(t *testing.T) {
 func TestProbeF_SpeculateStepsActuallyRollback(t *testing.T) {
 	src := `main := do { (a + b); pure 1 }`
 	source := span.NewSource("test", src)
-	l := NewLexer(source)
-	tokens, lexErrs := l.Tokenize()
-	if lexErrs.HasErrors() {
-		t.Fatalf("lex errors: %s", lexErrs.Format())
-	}
-
 	es := &diagnostic.Errors{Source: source}
-	p := NewParser(context.Background(), tokens, es)
+	p := NewParser(context.Background(), source, es)
 
 	// Advance to just before the do-block to observe step counter behavior.
 	// Parse the full program and check steps are within budget.
@@ -161,10 +137,10 @@ func TestProbeF_SpeculateStepsActuallyRollback(t *testing.T) {
 		t.Fatal("ParseProgram returned nil")
 	}
 
-	// The step count should be well within budget (tokens*4).
+	// The step count should be well within budget (guard.maxSteps).
 	// Without rollback, speculation would consume extra steps that
 	// accumulate beyond what the final parse position requires.
-	maxSteps := max(len(tokens)*4, 100)
+	maxSteps := p.guard.maxSteps
 	if p.guard.steps > maxSteps {
 		t.Errorf("step count %d exceeds budget %d — speculation may not have rolled back",
 			p.guard.steps, maxSteps)

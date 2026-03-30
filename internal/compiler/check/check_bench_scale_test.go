@@ -18,10 +18,8 @@ import (
 func benchCheck(b *testing.B, source string) {
 	b.Helper()
 	src := span.NewSource("bench", source)
-	l := parse.NewLexer(src)
-	tokens, _ := l.Tokenize()
 	es := &diagnostic.Errors{Source: src}
-	p := parse.NewParser(context.Background(), tokens, es)
+	p := parse.NewParser(context.Background(), src, es)
 	ast := p.ParseProgram()
 	_, checkErrs := Check(ast, src, nil)
 	if checkErrs.HasErrors() {

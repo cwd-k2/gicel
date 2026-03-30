@@ -61,14 +61,12 @@ func probeModuleExports(typeName string, cons []string) *ModuleExports {
 func makeModuleConfig(t *testing.T, moduleName, moduleSource string) *CheckConfig {
 	t.Helper()
 	src := span.NewSource(moduleName, moduleSource)
-	l := parse.NewLexer(src)
-	tokens, lexErrs := l.Tokenize()
-	if lexErrs.HasErrors() {
-		t.Fatalf("lex errors in module %s: %s", moduleName, lexErrs.Format())
-	}
 	es := &diagnostic.Errors{Source: src}
-	p := parse.NewParser(context.Background(), tokens, es)
+	p := parse.NewParser(context.Background(), src, es)
 	ast := p.ParseProgram()
+	if p.LexErrors().HasErrors() {
+		t.Fatalf("lex errors in module %s: %s", moduleName, p.LexErrors().Format())
+	}
 	if es.HasErrors() {
 		t.Fatalf("parse errors in module %s: %s", moduleName, es.Format())
 	}

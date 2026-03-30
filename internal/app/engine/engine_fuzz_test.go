@@ -13,6 +13,7 @@ import (
 	"github.com/cwd-k2/gicel/internal/infra/diagnostic"
 	"github.com/cwd-k2/gicel/internal/infra/span"
 	"github.com/cwd-k2/gicel/internal/lang/ir"
+	"github.com/cwd-k2/gicel/internal/lang/syntax"
 	"github.com/cwd-k2/gicel/internal/runtime/eval"
 	"github.com/cwd-k2/gicel/internal/runtime/vm"
 )
@@ -41,8 +42,13 @@ func FuzzLexer(f *testing.F) {
 
 	f.Fuzz(func(t *testing.T, src []byte) {
 		source := span.NewSource("fuzz", string(src))
-		l := parse.NewLexer(source)
-		l.Tokenize() // panics are the signal
+		s := parse.NewScanner(source)
+		for {
+			tok := s.Next()
+			if tok.Kind == syntax.TokEOF {
+				break
+			}
+		} // panics are the signal
 	})
 }
 
@@ -58,13 +64,8 @@ func FuzzParser(f *testing.F) {
 
 	f.Fuzz(func(t *testing.T, src []byte) {
 		source := span.NewSource("fuzz", string(src))
-		l := parse.NewLexer(source)
-		tokens, lexErrs := l.Tokenize()
-		if lexErrs.HasErrors() {
-			return // expected: invalid tokens
-		}
 		es := &diagnostic.Errors{Source: source}
-		p := parse.NewParser(context.Background(), tokens, es)
+		p := parse.NewParser(context.Background(), source, es)
 		p.ParseProgram() // panics are the signal
 	})
 }
@@ -95,15 +96,10 @@ func FuzzCheckBare(f *testing.F) {
 
 	f.Fuzz(func(t *testing.T, src []byte) {
 		source := span.NewSource("fuzz", string(src))
-		l := parse.NewLexer(source)
-		tokens, lexErrs := l.Tokenize()
-		if lexErrs.HasErrors() {
-			return
-		}
 		es := &diagnostic.Errors{Source: source}
-		p := parse.NewParser(context.Background(), tokens, es)
+		p := parse.NewParser(context.Background(), source, es)
 		ast := p.ParseProgram()
-		if es.HasErrors() {
+		if p.LexErrors().HasErrors() || es.HasErrors() {
 			return
 		}
 		check.Check(ast, source, nil) // panics are the signal
@@ -139,15 +135,10 @@ func FuzzAnnotateFreeVars(f *testing.F) {
 	f.Fuzz(func(t *testing.T, src []byte) {
 		// Parse and type-check without Prelude (lightweight; Prelude uses same code paths).
 		source := span.NewSource("fuzz", string(src))
-		l := parse.NewLexer(source)
-		tokens, lexErrs := l.Tokenize()
-		if lexErrs.HasErrors() {
-			return
-		}
 		es := &diagnostic.Errors{Source: source}
-		p := parse.NewParser(context.Background(), tokens, es)
+		p := parse.NewParser(context.Background(), source, es)
 		ast := p.ParseProgram()
-		if es.HasErrors() {
+		if p.LexErrors().HasErrors() || es.HasErrors() {
 			return
 		}
 		// Use recover to handle known checker panics on edge-case input.
