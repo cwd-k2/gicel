@@ -22,6 +22,8 @@ var (
 	TypeOfLabels = &TyCon{Name: "Label", Level: L1}
 	// SortZero is the sort of kinds: Kind :: Sort₂ (level 2).
 	SortZero = &TyCon{Name: "Kind", Level: L2}
+	// TypeOfLevels is the kind of universe level expressions: Level :: Kind (level 2).
+	TypeOfLevels = &TyCon{Name: "Level", Level: L2}
 )
 
 // IsBuiltinKindCon reports whether a TyCon is one of the built-in kind

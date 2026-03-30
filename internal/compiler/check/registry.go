@@ -23,6 +23,7 @@ type Registry struct {
 	promotedKinds     map[string]types.Type      // DataKinds: data name → promoted data kind
 	promotedCons      map[string]types.Type      // DataKinds: nullary con → promoted data kind
 	kindVars          map[string]bool            // HKT: kind variables in scope
+	levelVars         map[string]bool            // universe polymorphism: level variables in scope
 	families          map[string]*TypeFamilyInfo // type family declarations
 }
 
@@ -41,6 +42,7 @@ func newRegistry(config *CheckConfig) *Registry {
 		promotedKinds:     make(map[string]types.Type),
 		promotedCons:      make(map[string]types.Type),
 		kindVars:          make(map[string]bool),
+		levelVars:         make(map[string]bool),
 		families:          make(map[string]*TypeFamilyInfo),
 	}
 	for name, kind := range config.RegisteredTypes {
@@ -146,6 +148,21 @@ func (r *Registry) SetKindVar(name string) {
 // UnsetKindVar removes a kind variable from scope.
 func (r *Registry) UnsetKindVar(name string) {
 	delete(r.kindVars, name)
+}
+
+// SetLevelVar marks a name as a universe level variable in scope.
+func (r *Registry) SetLevelVar(name string) {
+	r.levelVars[name] = true
+}
+
+// UnsetLevelVar removes a level variable from scope.
+func (r *Registry) UnsetLevelVar(name string) {
+	delete(r.levelVars, name)
+}
+
+// IsLevelVar reports whether a name is currently a level variable in scope.
+func (r *Registry) IsLevelVar(name string) bool {
+	return r.levelVars[name]
 }
 
 // ImportInstance imports an instance with pointer-identity deduplication.

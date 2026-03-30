@@ -25,6 +25,8 @@ func (r *typeResolver) resolveKindExpr(k syntax.TypeExpr) types.Type {
 			return types.TypeOfConstraints
 		case "Kind":
 			return types.SortZero
+		case "Level":
+			return types.TypeOfLevels
 		case "Label":
 			return types.TypeOfLabels
 		default:
@@ -43,10 +45,22 @@ func (r *typeResolver) resolveKindExpr(k syntax.TypeExpr) types.Type {
 		if r.reg.IsKindVar(ke.Name) {
 			return &types.TyVar{Name: ke.Name}
 		}
+		if r.reg.IsLevelVar(ke.Name) {
+			// Level variable in kind position: treat as Type at that level.
+			return &types.TyCon{Name: "Type", Level: &types.LevelVar{Name: ke.Name}}
+		}
 		// Lowercase names in kind position get a fresh LevelMeta, making
 		// the universe level inferrable. This replaces the former
 		// TypeOfTypes default with evidence-based level inference.
 		return &types.TyCon{Name: "Type", Level: r.unifier.FreshLevelMeta()}
+	case *syntax.TyExprApp:
+		// Handle Type l (Type applied to a level argument).
+		if con, ok := ke.Fun.(*syntax.TyExprCon); ok && con.Name == "Type" {
+			level := r.resolveLevelExpr(ke.Arg)
+			return &types.TyCon{Name: "Type", Level: level}
+		}
+		// Kind-level application (e.g., F A in kind position).
+		return &types.TyApp{Fun: r.resolveKindExpr(ke.Fun), Arg: r.resolveKindExpr(ke.Arg)}
 	case *syntax.TyExprArrow:
 		return &types.TyArrow{From: r.resolveKindExpr(ke.From), To: r.resolveKindExpr(ke.To)}
 	case *syntax.TyExprParen:
@@ -56,6 +70,25 @@ func (r *typeResolver) resolveKindExpr(k syntax.TypeExpr) types.Type {
 	default:
 		r.addCodedError(diagnostic.ErrKindMismatch, k.Span(), fmt.Sprintf("unsupported kind expression: %T", k))
 		return types.TypeOfTypes
+	}
+}
+
+// resolveLevelExpr resolves a syntax-level expression to a LevelExpr.
+// Handles level variables, max/succ applications, and defaults to FreshLevelMeta.
+func (r *typeResolver) resolveLevelExpr(e syntax.TypeExpr) types.LevelExpr {
+	switch ee := e.(type) {
+	case *syntax.TyExprVar:
+		if r.reg.IsLevelVar(ee.Name) {
+			return &types.LevelVar{Name: ee.Name}
+		}
+		return r.unifier.FreshLevelMeta()
+	case *syntax.TyExprCon:
+		// Future: numeric level literals or named levels.
+		return r.unifier.FreshLevelMeta()
+	case *syntax.TyExprParen:
+		return r.resolveLevelExpr(ee.Inner)
+	default:
+		return r.unifier.FreshLevelMeta()
 	}
 }
 

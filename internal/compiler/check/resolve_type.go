@@ -38,12 +38,16 @@ func (r *typeResolver) resolveTypeExpr(texpr syntax.TypeExpr) types.Type {
 		// so that kind variable references in inner kind annotations resolve correctly.
 		var kindVarNames []string
 		var labelVarNames []string
+		var levelVarNames []string
 		for _, b := range t.Binders {
 			if con, ok := b.Kind.(*syntax.TyExprCon); ok {
 				switch con.Name {
 				case "Kind":
 					r.reg.SetKindVar(b.Name)
 					kindVarNames = append(kindVarNames, b.Name)
+				case "Level":
+					r.reg.SetLevelVar(b.Name)
+					levelVarNames = append(levelVarNames, b.Name)
 				case "Label":
 					if r.labelVars == nil {
 						r.labelVars = make(map[string]bool, 4)
@@ -60,6 +64,9 @@ func (r *typeResolver) resolveTypeExpr(texpr syntax.TypeExpr) types.Type {
 		}
 		for _, name := range kindVarNames {
 			r.reg.UnsetKindVar(name)
+		}
+		for _, name := range levelVarNames {
+			r.reg.UnsetLevelVar(name)
 		}
 		for _, name := range labelVarNames {
 			delete(r.labelVars, name)
