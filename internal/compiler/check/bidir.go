@@ -154,6 +154,9 @@ func (ch *Checker) infer(expr syntax.Expr) (types.Type, ir.Core) {
 		coreExpr := ch.check(e.Expr, ty)
 		return ty, coreExpr
 
+	case *syntax.ExprInfixSpine:
+		panic("internal: unresolved ExprInfixSpine reached type checker")
+
 	case *syntax.ExprInfix:
 		// Desugar: a op b → App(App(Var(op), a), b)
 		opTy, opMod, ok := ch.ctx.LookupVarFull(e.Op)
@@ -317,6 +320,9 @@ func (ch *Checker) check(expr syntax.Expr, expected types.Type) ir.Core {
 
 	case *syntax.ExprApp:
 		return ch.checkApp(e, expected)
+
+	case *syntax.ExprInfixSpine:
+		panic("internal: unresolved ExprInfixSpine reached type checker")
 
 	case *syntax.ExprInfix:
 		return ch.checkInfix(e, expected)

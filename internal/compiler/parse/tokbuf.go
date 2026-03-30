@@ -21,19 +21,16 @@ type tokenBuffer struct {
 	steps   int         // advance count since last compact check
 }
 
-func newTokenBuffer(scanner *Scanner, seed []syn.Token) *tokenBuffer {
-	tb := &tokenBuffer{
+// initialBufCap covers the typical lookahead window (~100 tokens for
+// looksLikePipeADT line scans) plus compact threshold (64) plus margin,
+// avoiding slice growth during normal parsing.
+const initialBufCap = 256
+
+func newTokenBuffer(scanner *Scanner) *tokenBuffer {
+	return &tokenBuffer{
 		scanner: scanner,
-		buf:     make([]syn.Token, 0, max(len(seed), 64)),
+		buf:     make([]syn.Token, 0, initialBufCap),
 	}
-	tb.buf = append(tb.buf, seed...)
-	for _, tok := range seed {
-		if tok.Kind == syn.TokEOF {
-			tb.eof = true
-			break
-		}
-	}
-	return tb
 }
 
 // fill ensures the buffer contains up to logical index idx.

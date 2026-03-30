@@ -143,7 +143,7 @@ func NewParser(ctx context.Context, source *span.Source, errors *diagnostic.Erro
 	maxSteps := max(len(source.Text)*4, 100)
 	return &Parser{
 		ctx:     ctx,
-		tb:      newTokenBuffer(scanner, nil),
+		tb:      newTokenBuffer(scanner),
 		scanner: scanner,
 		fixity:  make(map[string]Fixity),
 		errors:  errors,
@@ -173,12 +173,16 @@ func (p *Parser) ParseProgram() *syn.AstProgram {
 	imports := p.parseImportBlock()
 	decls := p.parseDeclBlock()
 	ast := &syn.AstProgram{Imports: imports, Decls: decls}
-
-	// Collect in-module fixity from DeclFixity nodes and merge
-	// with external fixity already in p.fixity (from AddFixity).
-	maps.Copy(p.fixity, CollectModuleFixity(decls))
-	ResolveFixity(ast, p.fixity, p.errors)
+	p.ResolveInfix(ast)
 	return ast
+}
+
+// ResolveInfix collects in-module fixity from DeclFixity nodes in the
+// AST, merges with external fixity (from AddFixity), and resolves all
+// ExprInfixSpine nodes into nested ExprInfix trees.
+func (p *Parser) ResolveInfix(ast *syn.AstProgram) {
+	maps.Copy(p.fixity, CollectModuleFixity(ast.Decls))
+	ResolveFixity(ast, p.fixity, p.errors)
 }
 
 // ParseImports parses the import block. After this call, the parser

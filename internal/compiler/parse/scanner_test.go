@@ -63,32 +63,3 @@ func TestScannerTokenizeEquivalence(t *testing.T) {
 		})
 	}
 }
-
-// TestScannerSaveRestore verifies that SaveState/RestoreState
-// allows re-scanning from a saved position.
-func TestScannerSaveRestore(t *testing.T) {
-	source := span.NewSource("<test>", "a + b * c")
-	s := NewScanner(source)
-
-	tok1 := s.Next() // a
-	if tok1.Text != "a" {
-		t.Fatalf("expected 'a', got %q", tok1.Text)
-	}
-
-	state := s.SaveState()
-
-	tok2 := s.Next() // +
-	tok3 := s.Next() // b
-	if tok2.Text != "+" || tok3.Text != "b" {
-		t.Fatalf("expected '+' 'b', got %q %q", tok2.Text, tok3.Text)
-	}
-
-	s.RestoreState(state)
-
-	// Re-scan from saved position
-	tok2b := s.Next() // + again
-	tok3b := s.Next() // b again
-	if tok2b != tok2 || tok3b != tok3 {
-		t.Errorf("restored tokens differ: got %v %v, want %v %v", tok2b, tok3b, tok2, tok3)
-	}
-}

@@ -34,7 +34,7 @@ func (pc *pipelineCtx) lexAndParse(sourceName, source string, injectCore bool) (
 	parseErrs := &diagnostic.Errors{Source: src}
 	p := parse.NewParser(pc.ctx, src, parseErrs)
 
-	// Stream imports, inject external fixity, parse rest, resolve.
+	// Stream imports → inject external fixity → parse rest → resolve.
 	imports := p.ParseImports()
 	importNames := make([]string, len(imports))
 	for i, imp := range imports {
@@ -46,10 +46,7 @@ func (pc *pipelineCtx) lexAndParse(sourceName, source string, injectCore bool) (
 	pc.store.CollectFixityForImports(p, importNames)
 	decls := p.ParseDecls()
 	ast := &syntax.AstProgram{Imports: imports, Decls: decls}
-	mergedFixity := make(map[string]parse.Fixity)
-	maps.Copy(mergedFixity, pc.store.CollectFixityMap(importNames))
-	maps.Copy(mergedFixity, parse.CollectModuleFixity(decls))
-	parse.ResolveFixity(ast, mergedFixity, parseErrs)
+	p.ResolveInfix(ast)
 
 	if p.LexErrors().HasErrors() {
 		return nil, nil, &CompileError{Errors: p.LexErrors()}
