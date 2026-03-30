@@ -34,12 +34,13 @@ const (
 	TokTilde      // ~
 	TokDashPipe   // -|
 
-	// Keywords (14)
+	// Keywords (15)
 	TokAs
 	TokAssumption
 	TokCase
 	TokDo
 	TokForm
+	TokLazy
 	TokType
 	TokInfixl
 	TokInfixr

@@ -495,6 +495,7 @@ var keywords = map[string]syn.TokenKind{
 	"case":       syn.TokCase,
 	"do":         syn.TokDo,
 	"form":       syn.TokForm,
+	"lazy":       syn.TokLazy,
 	"type":       syn.TokType,
 	"infixl":     syn.TokInfixl,
 	"infixr":     syn.TokInfixr,

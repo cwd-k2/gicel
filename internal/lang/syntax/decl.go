@@ -46,6 +46,7 @@ type DeclForm struct {
 	Name    string
 	KindAnn TypeExpr // optional :: Kind annotation (nil if omitted)
 	Body    TypeExpr // \params. [constraints =>] { fields }
+	IsLazy  bool     // lazy co-data: constructor args implicitly wrapped in Thunk
 	S       span.Span
 }
 

@@ -24,7 +24,7 @@ import (
 //	import Module;
 func (p *Parser) parseDecl() syn.Decl {
 	switch {
-	case p.peek().Kind == syn.TokForm:
+	case p.peek().Kind == syn.TokForm || p.peek().Kind == syn.TokLazy:
 		return p.parseFormDecl()
 	case p.peek().Kind == syn.TokType:
 		return p.parseTypeDecl()
@@ -76,6 +76,10 @@ func (p *Parser) parseDecl() syn.Decl {
 // Desugars to GADT-style row constructors.
 func (p *Parser) parseFormDecl() *syn.DeclForm {
 	start := p.peek().S.Start
+	isLazy := p.peek().Kind == syn.TokLazy
+	if isLazy {
+		p.advance() // consume 'lazy'
+	}
 	p.expect(syn.TokForm)
 	name := p.expectUpper()
 
@@ -90,7 +94,7 @@ func (p *Parser) parseFormDecl() *syn.DeclForm {
 	// ADT shorthand: form Name := Con1 | Con2 fields | ...
 	if p.peek().Kind == syn.TokUpper && p.looksLikePipeADT() {
 		body := p.parseADTConsAsRow(name, nil, start)
-		return &syn.DeclForm{Name: name, KindAnn: kindAnn, Body: body, S: span.Span{Start: start, End: p.prevEnd()}}
+		return &syn.DeclForm{Name: name, KindAnn: kindAnn, Body: body, IsLazy: isLazy, S: span.Span{Start: start, End: p.prevEnd()}}
 	}
 
 	body := p.parseType()
@@ -99,6 +103,7 @@ func (p *Parser) parseFormDecl() *syn.DeclForm {
 		Name:    name,
 		KindAnn: kindAnn,
 		Body:    body,
+		IsLazy:  isLazy,
 		S:       span.Span{Start: start, End: p.prevEnd()},
 	}
 }
