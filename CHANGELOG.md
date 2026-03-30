@@ -1,5 +1,31 @@
 # Changelog
 
+## v0.22.0 — 2026-03-30
+
+### Performance
+
+- **Module cache.** Process-level compiled module cache keyed by SHA-256(source, env fingerprint). Warm E2E drops from 38ms to ~2ms (19x speedup). Cache is safe for concurrent Engine instances via `sync.RWMutex`.
+- **Type flag propagation.** `FlagMetaFree` now correctly propagated on `TyEvidenceRow` construction (was always zero — the single largest cold-start improvement: 33ms → 22ms). New `FlagNoFamilyApp` flag skips family reduction on stable subtrees.
+- **SubstMany cleanup.** Removed dead `sortedKeys` parameter (16K wasted allocs). Lazy `fvUnion` computation defers `FreeVars` calls until a `TyForall` is actually encountered. New `PreparedSubst` API for batch application of the same substitution to multiple types.
+- **Family reduction.** Lazy-init cycle-detection cache (22K map allocs removed). Inlined `MapType` traversal to eliminate closure heap-escape (12K allocs). Two-phase `AppSpineHead` check avoids `UnwindApp` slice allocation on miss path (4K allocs).
+- **IR optimization.** Identity-preserving `transformRec` skips node reconstruction when no child changed, making no-op optimization passes near-zero-cost.
+- **Solver.** Deferred `Zonk` to error path in `processCtEq`, avoiding redundant double-zonk on the success path.
+- **ForEachChild.** Inlined `CapabilityEntries` iteration in `ForEachChild` to avoid `AllChildren` slice allocation.
+
+**Cold-start totals:** 130K → 88K allocs (−32%), 7.8MB → 6.5MB (−17%), 38ms → 20ms (−47%).
+
+### Testing
+
+- **family package.** 62 unit tests covering type family reduction, pattern matching, builtin row families (Merge/Without/Lookup), and injectivity verification (99.6% coverage).
+- **modscope package.** 38 unit tests covering import dispatch, ambiguity resolution, ownership detection, and dependency graph traversal (100% coverage).
+- **Scale tests.** New `//go:build scale` tagged tests verify O(N) scaling of each pipeline stage (lex+parse, check, post-check) across N=1..1000 declarations.
+- **Module cache tests.** Cache hit/miss, env sensitivity, correctness, Prelude sharing, and concurrent safety.
+- **Cold-start benchmark.** `BenchmarkEngineEndToEndSmallCold` with per-iteration cache reset for accurate cold-path measurement.
+
+### Infrastructure
+
+- `full-check.sh` now includes `scale` tests alongside unit, probe, stress, bench, examples, and smoke tests.
+
 ## v0.21.3 — 2026-03-30
 
 ### Security
