@@ -1,5 +1,31 @@
 # Changelog
 
+## v0.23.0 — 2026-03-30
+
+### Streaming Parser
+
+- **Streaming tokenization.** Replaced bulk `Lexer.Tokenize() → []Token` with on-demand `Scanner.Next()` backed by a `tokenBuffer` sliding window. Tokens are produced lazily and compacted after consumption, reducing peak token allocation for large files.
+- **Deferred fixity resolution.** Infix expressions with multiple operators are now parsed as flat `ExprInfixSpine` nodes and resolved post-parse via shunting-yard algorithm. This eliminates the two-pass `collectFixity` scan and enables fixity injection between import parsing and declaration parsing.
+- **Phased parse pipeline.** `ParseImports()` → fixity injection → `ParseDecls()` → `ResolveInfix()` replaces the monolithic `ParseProgram()` + `PreScanImportNames()` flow. External module fixity is now injected at the correct point in the pipeline.
+
+### Bug Fixes
+
+- **Non-associative fixity check.** The shunting-yard resolver now correctly rejects equal-precedence chains when *either* operator is non-associative. Previously only the incoming operator's associativity was checked, allowing `a <| b |> c` to silently reassociate when the stack operator was `AssocNone`.
+- **Invalid UTF-8 over-advance.** Two sites in the scanner used `utf8.RuneLen(ch)` to advance past unknown/rune-literal characters. For malformed input, `DecodeRuneInString` returns `(RuneError, 1)` but `RuneLen(RuneError)` returns 3, causing 2-byte over-advance and corrupted spans. Now uses the size returned by `DecodeRuneInString` directly.
+
+### API Changes (Breaking)
+
+- **`NewParser` signature.** `NewParser(ctx, tokens, errors)` → `NewParser(ctx, source, errors)`. The parser now takes a `*span.Source` and creates its own scanner internally.
+- **`Lexer` type removed.** Replaced by `Scanner`. Use `NewScanner(source)` + `s.Next()` for token-level access.
+- **`PreScanImportNames` removed.** Use `Parser.ParseImports()` instead.
+- **Engine `Reader` API removed.** `RegisterModuleReader`, `ParseReader`, `CompileReader`, `NewRuntimeReader` are removed. All methods take `string` source. Callers that have `[]byte` should use `string(data)`.
+
+### Internal
+
+- **tokenBuffer API.** `position()`, `prevToken()`, `prevEnd()`, `save()/restore()/commit()`, `scanForward()` form the complete interface. No direct field access from parser code.
+- **`CollectFixityForImports` inlined.** Replaced by `p.AddFixity(store.CollectFixityMap(names))`.
+- **Dead code removed.** `parserGuard.reset()`, `continueInfix` precedence parameter, backward-compat bulk tokenization path.
+
 ## v0.22.0 — 2026-03-30
 
 ### Performance
