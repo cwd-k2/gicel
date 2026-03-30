@@ -42,6 +42,9 @@ func freeVarsRec(t Type, bound map[string]bool, fv map[string]struct{}, depth in
 		freeVarsRec(ty.Pre, bound, fv, depth+1)
 		freeVarsRec(ty.Post, bound, fv, depth+1)
 		freeVarsRec(ty.Result, bound, fv, depth+1)
+		if ty.Grade != nil {
+			freeVarsRec(ty.Grade, bound, fv, depth+1)
+		}
 	case *TyEvidenceRow:
 		switch entries := ty.Entries.(type) {
 		case *CapabilityEntries:
@@ -115,7 +118,8 @@ func occursIn(name string, t Type, bound map[string]bool, depth int) bool {
 	case *TyCBPV:
 		return occursIn(name, ty.Pre, bound, depth+1) ||
 			occursIn(name, ty.Post, bound, depth+1) ||
-			occursIn(name, ty.Result, bound, depth+1)
+			occursIn(name, ty.Result, bound, depth+1) ||
+			(ty.Grade != nil && occursIn(name, ty.Grade, bound, depth+1))
 	case *TyEvidenceRow:
 		switch entries := ty.Entries.(type) {
 		case *CapabilityEntries:
@@ -275,7 +279,8 @@ func containsSkolemOrFamily(t Type, depth int) bool {
 	case *TyForall:
 		return containsSkolemOrFamily(ty.Body, depth+1)
 	case *TyCBPV:
-		return containsSkolemOrFamily(ty.Pre, depth+1) || containsSkolemOrFamily(ty.Post, depth+1) || containsSkolemOrFamily(ty.Result, depth+1)
+		return containsSkolemOrFamily(ty.Pre, depth+1) || containsSkolemOrFamily(ty.Post, depth+1) || containsSkolemOrFamily(ty.Result, depth+1) ||
+			(ty.Grade != nil && containsSkolemOrFamily(ty.Grade, depth+1))
 	case *TyMeta:
 		return false
 	default:

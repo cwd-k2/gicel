@@ -50,9 +50,14 @@ func SortAt(n int) *TyCon {
 	return &TyCon{Name: "Sort", Level: &LevelLit{N: n + 2}}
 }
 
-// MkComp creates a Computation type.
+// MkComp creates a Computation type (ungraded).
 func MkComp(pre, post, result Type) *TyCBPV {
 	return &TyCBPV{Tag: TagComp, Pre: pre, Post: post, Result: result, Flags: MetaFreeFlags(pre, post, result)}
+}
+
+// MkCompGraded creates a graded Computation type.
+func MkCompGraded(pre, post, result, grade Type) *TyCBPV {
+	return &TyCBPV{Tag: TagComp, Pre: pre, Post: post, Result: result, Grade: grade, Flags: MetaFreeFlags(pre, post, result, grade)}
 }
 
 // MkThunk creates a Thunk type.

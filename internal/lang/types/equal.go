@@ -63,9 +63,16 @@ func equalAlpha(a, b Type, bindings []alphaBinding) bool {
 		if !ok || at.Tag != bt.Tag {
 			return false
 		}
-		return equalAlpha(at.Pre, bt.Pre, bindings) &&
-			equalAlpha(at.Post, bt.Post, bindings) &&
-			equalAlpha(at.Result, bt.Result, bindings)
+		if !equalAlpha(at.Pre, bt.Pre, bindings) || !equalAlpha(at.Post, bt.Post, bindings) || !equalAlpha(at.Result, bt.Result, bindings) {
+			return false
+		}
+		if at.Grade == nil && bt.Grade == nil {
+			return true
+		}
+		if at.Grade == nil || bt.Grade == nil {
+			return false
+		}
+		return equalAlpha(at.Grade, bt.Grade, bindings)
 
 	case *TyEvidenceRow:
 		bt, ok := b.(*TyEvidenceRow)

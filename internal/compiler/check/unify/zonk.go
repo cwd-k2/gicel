@@ -71,10 +71,14 @@ func (u *Unifier) zonkInner(t types.Type) types.Type {
 		zPre := u.zonkInner(ty.Pre)
 		zPost := u.zonkInner(ty.Post)
 		zResult := u.zonkInner(ty.Result)
-		if zPre == ty.Pre && zPost == ty.Post && zResult == ty.Result {
+		zGrade := ty.Grade
+		if zGrade != nil {
+			zGrade = u.zonkInner(zGrade)
+		}
+		if zPre == ty.Pre && zPost == ty.Post && zResult == ty.Result && zGrade == ty.Grade {
 			return ty
 		}
-		return &types.TyCBPV{Tag: ty.Tag, Pre: zPre, Post: zPost, Result: zResult, Flags: types.MetaFreeFlags(zPre, zPost, zResult), S: ty.S}
+		return &types.TyCBPV{Tag: ty.Tag, Pre: zPre, Post: zPost, Result: zResult, Grade: zGrade, Flags: types.MetaFreeFlags(zPre, zPost, zResult, zGrade), S: ty.S}
 	case *types.TyEvidenceRow:
 		newEntries, changed := ty.Entries.ZonkEntries(u.zonkInner)
 		var tail types.Type

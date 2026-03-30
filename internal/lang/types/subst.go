@@ -79,10 +79,14 @@ func substDepth(t Type, varName string, replacement Type, depth int) Type {
 		newPre := substDepth(ty.Pre, varName, replacement, depth+1)
 		newPost := substDepth(ty.Post, varName, replacement, depth+1)
 		newResult := substDepth(ty.Result, varName, replacement, depth+1)
-		if newPre == ty.Pre && newPost == ty.Post && newResult == ty.Result {
+		newGrade := ty.Grade
+		if newGrade != nil {
+			newGrade = substDepth(newGrade, varName, replacement, depth+1)
+		}
+		if newPre == ty.Pre && newPost == ty.Post && newResult == ty.Result && newGrade == ty.Grade {
 			return ty
 		}
-		return &TyCBPV{Tag: ty.Tag, Pre: newPre, Post: newPost, Result: newResult, Flags: MetaFreeFlags(newPre, newPost, newResult), S: ty.S}
+		return &TyCBPV{Tag: ty.Tag, Pre: newPre, Post: newPost, Result: newResult, Grade: newGrade, Flags: MetaFreeFlags(newPre, newPost, newResult, newGrade), S: ty.S}
 
 	case *TyEvidence:
 		newConstraints := substDepth(ty.Constraints, varName, replacement, depth+1)
@@ -328,10 +332,14 @@ func substManyOpt(t Type, subs map[string]Type, fvUnion *map[string]bool, depth 
 		newPre := substManyOpt(ty.Pre, subs, fvUnion, depth+1)
 		newPost := substManyOpt(ty.Post, subs, fvUnion, depth+1)
 		newResult := substManyOpt(ty.Result, subs, fvUnion, depth+1)
-		if newPre == ty.Pre && newPost == ty.Post && newResult == ty.Result {
+		newGrade := ty.Grade
+		if newGrade != nil {
+			newGrade = substManyOpt(newGrade, subs, fvUnion, depth+1)
+		}
+		if newPre == ty.Pre && newPost == ty.Post && newResult == ty.Result && newGrade == ty.Grade {
 			return ty
 		}
-		return &TyCBPV{Tag: ty.Tag, Pre: newPre, Post: newPost, Result: newResult, Flags: MetaFreeFlags(newPre, newPost, newResult), S: ty.S}
+		return &TyCBPV{Tag: ty.Tag, Pre: newPre, Post: newPost, Result: newResult, Grade: newGrade, Flags: MetaFreeFlags(newPre, newPost, newResult, newGrade), S: ty.S}
 	case *TyEvidenceRow:
 		return substManyEvidenceRow(ty, subs, fvUnion, depth+1)
 	case *TyEvidence:

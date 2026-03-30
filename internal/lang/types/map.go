@@ -39,10 +39,14 @@ func MapType(t Type, f func(Type) Type) Type {
 		pre := f(ty.Pre)
 		post := f(ty.Post)
 		result := f(ty.Result)
-		if pre == ty.Pre && post == ty.Post && result == ty.Result {
+		grade := ty.Grade
+		if grade != nil {
+			grade = f(grade)
+		}
+		if pre == ty.Pre && post == ty.Post && result == ty.Result && grade == ty.Grade {
 			return t
 		}
-		return &TyCBPV{Tag: ty.Tag, Pre: pre, Post: post, Result: result, Flags: MetaFreeFlags(pre, post, result), S: ty.S}
+		return &TyCBPV{Tag: ty.Tag, Pre: pre, Post: post, Result: result, Grade: grade, Flags: MetaFreeFlags(pre, post, result, grade), S: ty.S}
 	case *TyEvidence:
 		constraints := f(ty.Constraints)
 		body := f(ty.Body)

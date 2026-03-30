@@ -7,6 +7,7 @@ form Mult := { Zero: Mult; Linear: Mult; Affine: Mult; Unrestricted: Mult; }
 
 form GradeAlgebra := \(g: Kind). {
   type GradeJoin :: g -> g -> g;
+  type GradeCompose :: g -> g -> g;
   type GradeDrop :: g
 }
 
@@ -20,8 +21,20 @@ type MultJoin :: Mult -> Mult -> Mult := \(m1: Mult) (m2: Mult). case (m1, m2) {
   (x, _)            => x
 }
 
+type MultCompose :: Mult -> Mult -> Mult := \(m1: Mult) (m2: Mult). case (m1, m2) {
+  (Zero, x)          => x;
+  (x, Zero)          => x;
+  (Unrestricted, _)  => Unrestricted;
+  (_, Unrestricted)  => Unrestricted;
+  (Linear, Linear)   => Affine;
+  (Linear, Affine)   => Unrestricted;
+  (Affine, Linear)   => Unrestricted;
+  (Affine, Affine)   => Unrestricted
+}
+
 impl GradeAlgebra Mult := {
   type GradeJoin := MultJoin;
+  type GradeCompose := MultCompose;
   type GradeDrop := Zero
 }
 

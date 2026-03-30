@@ -66,6 +66,10 @@ func WriteTypeKey(b *strings.Builder, t Type) {
 		WriteTypeKey(b, ty.Post)
 		b.WriteByte(' ')
 		WriteTypeKey(b, ty.Result)
+		if ty.Grade != nil {
+			b.WriteString(" @")
+			WriteTypeKey(b, ty.Grade)
+		}
 		b.WriteByte('}')
 	case *TyForall:
 		b.WriteString("{V ")

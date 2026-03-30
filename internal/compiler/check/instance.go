@@ -266,6 +266,9 @@ func collectInstanceFreeVarsWithKind(typeArgs []types.Type, context []env.Constr
 			walk(t.Pre, types.TypeOfRows)
 			walk(t.Post, types.TypeOfRows)
 			walk(t.Result, types.TypeOfTypes)
+			if t.Grade != nil {
+				walk(t.Grade, types.TypeOfTypes)
+			}
 		case *types.TyEvidenceRow:
 			for _, child := range t.Entries.AllChildren() {
 				walk(child, types.TypeOfTypes)

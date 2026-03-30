@@ -217,6 +217,9 @@ func inferFreeVarKinds(ty types.Type, fv map[string]struct{}) map[string]types.T
 			walkAsRow(tt.Pre)
 			walkAsRow(tt.Post)
 			walkAsType(tt.Result)
+			if tt.Grade != nil {
+				walkAsType(tt.Grade)
+			}
 		case *types.TyEvidence:
 			walkAsRow(tt.Constraints)
 			walkAsType(tt.Body)

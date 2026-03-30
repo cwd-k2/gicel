@@ -532,7 +532,14 @@ func (u *Unifier) Unify(a, b types.Type) error {
 			if err := u.Unify(at.Post, bt.Post); err != nil {
 				return err
 			}
-			return u.Unify(at.Result, bt.Result)
+			if err := u.Unify(at.Result, bt.Result); err != nil {
+				return err
+			}
+			// Unify grades: both nil = OK, one nil = skip (ungraded compat).
+			if at.Grade != nil && bt.Grade != nil {
+				return u.Unify(at.Grade, bt.Grade)
+			}
+			return nil
 		}
 		if _, ok := b.(*types.TyApp); ok {
 			name := types.TyConComputation

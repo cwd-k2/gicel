@@ -273,10 +273,14 @@ func (e *ReduceEnv) reduceChildren(t types.Type, cache *map[string]types.Type) t
 		rPre := e.reduceFamilyAppsN(ty.Pre, cache)
 		rPost := e.reduceFamilyAppsN(ty.Post, cache)
 		rResult := e.reduceFamilyAppsN(ty.Result, cache)
-		if rPre == ty.Pre && rPost == ty.Post && rResult == ty.Result {
+		rGrade := ty.Grade
+		if rGrade != nil {
+			rGrade = e.reduceFamilyAppsN(rGrade, cache)
+		}
+		if rPre == ty.Pre && rPost == ty.Post && rResult == ty.Result && rGrade == ty.Grade {
 			return t
 		}
-		return &types.TyCBPV{Tag: ty.Tag, Pre: rPre, Post: rPost, Result: rResult, Flags: types.MetaFreeFlags(rPre, rPost, rResult), S: ty.S}
+		return &types.TyCBPV{Tag: ty.Tag, Pre: rPre, Post: rPost, Result: rResult, Grade: rGrade, Flags: types.MetaFreeFlags(rPre, rPost, rResult, rGrade), S: ty.S}
 	case *types.TyEvidence:
 		rConstraints := e.reduceFamilyAppsN(ty.Constraints, cache)
 		rBody := e.reduceFamilyAppsN(ty.Body, cache)

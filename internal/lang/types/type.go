@@ -76,9 +76,11 @@ const (
 )
 
 // TyCBPV is a CBPV computation or thunk type: Computation pre post a / Thunk pre post a.
+// Grade is an optional per-computation usage grade (nil = ungraded).
 type TyCBPV struct {
 	Tag               CBPVTag
 	Pre, Post, Result Type
+	Grade             Type // nil = ungraded (backward compatible)
 	Flags             uint8
 	S                 span.Span
 }
@@ -229,6 +231,9 @@ func HasMeta(t Type) bool {
 func MetaFreeFlags(ts ...Type) uint8 {
 	flags := FlagStable
 	for _, t := range ts {
+		if t == nil {
+			continue // nil children (e.g. optional Grade) don't affect flags
+		}
 		flags &= nodeFlags(t)
 		if flags == 0 {
 			return 0
@@ -332,7 +337,12 @@ func (t *TyCon) Children() []Type      { return nil }
 func (t *TyApp) Children() []Type      { return []Type{t.Fun, t.Arg} }
 func (t *TyArrow) Children() []Type    { return []Type{t.From, t.To} }
 func (t *TyForall) Children() []Type   { return []Type{t.Kind, t.Body} }
-func (t *TyCBPV) Children() []Type     { return []Type{t.Pre, t.Post, t.Result} }
+func (t *TyCBPV) Children() []Type {
+	if t.Grade != nil {
+		return []Type{t.Pre, t.Post, t.Result, t.Grade}
+	}
+	return []Type{t.Pre, t.Post, t.Result}
+}
 func (t *TyEvidence) Children() []Type { return []Type{t.Constraints, t.Body} }
 func (t *TySkolem) Children() []Type   { return nil }
 func (t *TyMeta) Children() []Type     { return nil }
@@ -376,8 +386,8 @@ func ForEachChild(t Type, fn func(Type) bool) {
 			fn(ty.Body)
 		}
 	case *TyCBPV:
-		if fn(ty.Pre) && fn(ty.Post) {
-			fn(ty.Result)
+		if fn(ty.Pre) && fn(ty.Post) && fn(ty.Result) && ty.Grade != nil {
+			fn(ty.Grade)
 		}
 	case *TyEvidence:
 		if fn(ty.Constraints) {
