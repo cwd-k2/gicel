@@ -20,6 +20,8 @@ go run ./examples/go/<name>/           # run Go example (no binary)
 goimports -w .                         # format Go
 prettier --write docs/                 # format docs
 ./scripts/smoke-test.sh                # CLI smoke test
+./scripts/run-examples.sh              # run all Go + GICEL examples
+./scripts/full-check.sh                # full suite (tests + examples + smoke)
 ```
 
 **Build output goes to `bin/` only.** Never `go build ./some/pkg` without `-o bin/...` — it dumps a binary in the working directory.
