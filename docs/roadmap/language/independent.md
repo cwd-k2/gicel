@@ -17,16 +17,27 @@ type (:>) a b := a b
 
 Session type DSL の可読性と SMC 型レベル row 操作のために。
 
-### Type Application Operator (`-<`)
+### Type Application Operator (`-|`)
 
 組み込み右結合型適用:
 
 ```gicel
-Map String -< List -< Maybe -< Int
+Map String -| List -| Maybe -| Int
 = Map String (List (Maybe Int))
 ```
 
-`->` と視覚的に対をなす（Haskell arrow notation の `-<` = arrow application に先例あり）。
+`->` とは **対ではなく対比**。`->` は関数型構築（矢印）、`-|` は適用の区切り（壁）。異なる操作であることが記号自体から伝わる。turnstile `⊢` の連想 — 「ここから先が引数」という境界の意味論。row の `|` と意味が通底する。
+
+### lazy co-data
+
+`form` と対等な宣言キーワード。全フィールドを遅延評価（メモ化 thunk）にする。CBPV の data/co-data 区別を構文に反映。
+
+```gicel
+form List   := \a. { Cons: a -> List a -> List a; Nil: List a; }   -- data（正格）
+lazy Stream := \a. { LCons: a -> Stream a -> Stream a; LNil: Stream a; }  -- co-data（遅延）
+```
+
+設計確定、未着手。実装: Parser → Checker → Runtime → Stdlib → Prepend/+>。
 
 ## Design Fork Points
 
@@ -70,12 +81,18 @@ Session types は check-only で正しく動作する。Runtime 実行には hos
 
 対応方針: check-only としての完成度を先に上げ、runtime 対応は [smc.md](smc.md) Phase 2 (parallel composition) と合わせて検討。
 
+## Intentionally Not Planned
+
+| Extension    | Reason                                             |
+| ------------ | -------------------------------------------------- |
+| 依存型       | 型レベル計算の複雑度。sandbox の予測可能性を損なう |
+| リファイン型 | 同上。SMT solver 依存を避ける                      |
+| 実行系の変更 | evaluator/VM は安定。型レベルの拡張に閉じる        |
+
 ## Far Future (assessed, not planned)
 
-| Extension                                             | Category         | Prerequisite                                                 |
-| ----------------------------------------------------- | ---------------- | ------------------------------------------------------------ |
-| Tensor product kind (`QType`)                         | Type system      | Full SMC + quantum use case                                  |
-| Optimizer Phase 2–3 (selective inline + case-of-case) | Optimization     | Benchmark-driven demand                                      |
-| Refinement types                                      | Phase transition | Separate analysis                                            |
-| Dependent types                                       | Full restructure | Far future                                                   |
-| Impredicativity (full)                                | Type system      | Partial: Maybe/tuples work, List does not. Boundary unclear. |
+| Extension                                             | Category     | Prerequisite                                                 |
+| ----------------------------------------------------- | ------------ | ------------------------------------------------------------ |
+| Tensor product kind (`QType`)                         | Type system  | Full SMC + quantum use case                                  |
+| Optimizer Phase 2-3 (selective inline + case-of-case) | Optimization | Benchmark-driven demand                                      |
+| Impredicativity (full)                                | Type system  | Partial: Maybe/tuples work, List does not. Boundary unclear. |

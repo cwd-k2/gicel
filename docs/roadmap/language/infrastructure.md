@@ -1,8 +1,6 @@
 # Infrastructure Path
 
-## 応用層
-
-### GIMonad (仮名): Graded Indexed Monad
+## GIMonad: Graded Indexed Monad
 
 IxMonad の上位概念。Per-computation grade を IxMonad に統合し、FKM 直積圏上の category-graded monad を型クラスとして表現する。
 
@@ -11,7 +9,7 @@ form GIMonad := \(g: Kind) (m: g -> Row -> Row -> Type -> Type).
     GradeAlgebra g => {
   gipure: \a (r: Row). a -> m GradeDrop r r a;
   gibind: \a b (e1: g) (e2: g) (r1: Row) (r2: Row) (r3: Row).
-              m e1 r1 r2 a -> (a -> m e2 r2 r3 b) -> m (GradeJoin e1 e2) r1 r3 b
+              m e1 r1 r2 a -> (a -> m e2 r2 r3 b) -> m (GradeCompose e1 e2) r1 r3 b
 }
 ```
 
@@ -27,26 +25,48 @@ form GIMonad := \(g: Kind) (m: g -> Row -> Row -> Type -> Type).
 
 IxMonad = GIMonad where g = () (自明な grade)。後方互換。
 
-**代数的条件**: GIMonad grade に使える条件は `(g, GradeDrop, GradeJoin)` が有界結合半束であること。GradeDrop が真の底元 — `GradeJoin(GradeDrop, g) ≡ g` が全ての g で成立。
+### GradeAlgebra: Compose/Join 分離
 
-- Mult: 底元なし (Zero ⊥ Linear) → per-field grade のみ (GIMonad grade に不適格)
-- Clearance 等の全順序 lattice: 底元あり → GIMonad grade として適格
+GradeAlgebra は3つの associated type を持つ:
 
-**GradeJoin の二重用途**: 有界結合半束では bind (逐次合成) と case (分岐合流) の両方に GradeJoin を共用可能。冪等性が崩れたら半環拡張 (GradeCompose/GradeJoin 分離) が必要 — SMC Phase 4 の UsageSemiring と合流点。
+```gicel
+form GradeAlgebra := \(g: Kind). {
+  type GradeCompose :: g -> g -> g;  -- bind の逐次合成 (半環の +)
+  type GradeJoin    :: g -> g -> g;  -- case の分岐結合 (束の ∨)
+  type GradeDrop    :: g;            -- pure の単位元   (半環の 0)
+  -- default: GradeJoin = GradeCompose (冪等 grade 用)
+}
+```
 
-**supermonad との関係**: Supermonad (Bracker-Nilsson) はモナド則下で単一の indexed type に対し GIMonad に退化する。GIMonad は supermonad の正規形であり、不要な自由度 (heterogeneous bind) を持たない分、推論が決定的。
+**代数的条件**:
 
-**実装方針**:
+- `(g, GradeDrop, GradeCompose)` は monoid — 結合律, 単位元
+- `(g, GradeDrop, GradeJoin)` は有界結合半束 — 冪等, 結合律, 交換律, 単位元
+- `GradeCompose x y ≤ GradeJoin x y` (上界条件)
+- 冪等 grade では `GradeCompose = GradeJoin` に退化 (デフォルト実装で吸収)
 
+**設計根拠** (2026-03-30 確定): bind の逐次合成 (半環の加算) と case の分岐結合 (束の join) は意味論的に異なる操作。冪等な grade (Mult) では偶然一致するが、カウンティング半環等で分離が必要。class 定義は一度出すと変更コストが高いため、最初から分離する。
+
+### 実装方針
+
+- GradeAlgebra の associated type を 2→3 に増加 (GradeCompose 追加)
+- 既存の `impl GradeAlgebra Mult` に `GradeCompose := MultJoin` を追加
 - TyCBPV に Grade フィールド追加 (nil = trivial grade で後方互換)
 - Core IR (Bind/Pure/Thunk/Force) は変更なし — grade は型レベルで消去
 - Optimizer/VM/bytecode は変更なし
-- Checker の型レベル処理を拡張: inferPure に GradeDrop、inferBind に GradeJoin 合成
+- Checker の型レベル処理を拡張: inferPure に GradeDrop、inferBind に GradeCompose、case 分岐に GradeJoin
 - core.gicel: IxMonad → GIMonad に置換
 - do 記法の三パス構造 (built-in CBPV / GIMonad dispatch / Monad dispatch) は維持
 - Monad class は別クラスとして存続
 
-**命名**: GIMonad は仮名。最終命名は別途検討。
+### supermonad との関係
+
+Supermonad (Bracker-Nilsson) はモナド則下で単一の indexed type に対し GIMonad に退化する。GIMonad は supermonad の正規形であり、不要な自由度 (heterogeneous bind) を持たない分、推論が決定的。
+
+### 理論的リスク
+
+- **Impredicativity**: higher-rank 型を返す関数の推論で顕在化の可能性。Quick-look (Serrano et al. 2020) 等の先行研究で回避可能な見込み
+- GradeJoin 半環分離: **確定済** (上記参照)
 
 ## Open Questions
 
