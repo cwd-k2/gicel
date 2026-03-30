@@ -93,6 +93,10 @@ func (s *Scanner) scanToken() syn.Token {
 			s.pos += 2
 			return s.tok(syn.TokArrow, start)
 		}
+		if ch == '-' && s.peekRuneAt(1) == '|' && !isOperatorChar(s.peekRuneAt(2)) {
+			s.pos += 2
+			return s.tok(syn.TokDashPipe, start)
+		}
 		if ch == '<' && s.peekRuneAt(1) == '-' && !isOperatorChar(s.peekRuneAt(2)) {
 			s.pos += 2
 			return s.tok(syn.TokLArrow, start)

@@ -103,3 +103,40 @@ func TestLexer_ColonEqStillWorks(t *testing.T) {
 		t.Errorf("expected TokColonEq for ':= x', got %v", tokens2[0].Kind)
 	}
 }
+
+// --- -| guard ---
+
+func TestLexer_DashPipeStillWorks(t *testing.T) {
+	tokens := lex("-|")
+	if tokens[0].Kind != TokDashPipe {
+		t.Errorf("expected TokDashPipe for '-|', got %v", tokens[0].Kind)
+	}
+	tokens2 := lex("-| x")
+	if tokens2[0].Kind != TokDashPipe {
+		t.Errorf("expected TokDashPipe for '-| x', got %v", tokens2[0].Kind)
+	}
+}
+
+func TestLexer_DashPipeExtendedSingleOperator(t *testing.T) {
+	tokens := lex("-|>")
+	if tokens[0].Kind != TokOp || tokens[0].Text != "-|>" {
+		t.Errorf("expected TokOp(\"-|>\"), got %v %q", tokens[0].Kind, tokens[0].Text)
+	}
+}
+
+func TestLexer_DashPipeInTypeContext(t *testing.T) {
+	// F -| A should be: upper, dashpipe, upper
+	tokens := lex("F -| A")
+	if len(tokens) < 4 {
+		t.Fatalf("expected at least 4 tokens, got %d", len(tokens))
+	}
+	if tokens[0].Kind != TokUpper || tokens[0].Text != "F" {
+		t.Errorf("token 0: expected upper F, got %v %q", tokens[0].Kind, tokens[0].Text)
+	}
+	if tokens[1].Kind != TokDashPipe {
+		t.Errorf("token 1: expected TokDashPipe, got %v", tokens[1].Kind)
+	}
+	if tokens[2].Kind != TokUpper || tokens[2].Text != "A" {
+		t.Errorf("token 2: expected upper A, got %v %q", tokens[2].Kind, tokens[2].Text)
+	}
+}

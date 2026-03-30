@@ -32,6 +32,7 @@ const (
 	TokUnderscore // _
 	TokEq         // =
 	TokTilde      // ~
+	TokDashPipe   // -|
 
 	// Keywords (14)
 	TokAs
@@ -120,6 +121,8 @@ func (k TokenKind) String() string {
 		return "="
 	case TokTilde:
 		return "~"
+	case TokDashPipe:
+		return "-|"
 	case TokLower:
 		return "lower"
 	case TokUpper:

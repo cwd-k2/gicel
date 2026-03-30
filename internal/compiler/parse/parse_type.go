@@ -20,7 +20,7 @@ func (p *Parser) parseTypeArrow() syn.TypeExpr {
 	if p.peek().Kind == syn.TokBackslash {
 		return p.parseForallType()
 	}
-	left := p.parseTypeApp()
+	left := p.parseTypeDashPipe()
 	// Type equality constraint: a ~ b (binds tighter than => and ->).
 	if p.peek().Kind == syn.TokTilde {
 		p.advance()
@@ -58,6 +58,22 @@ func (p *Parser) parseTypeArrow() syn.TypeExpr {
 		}
 	}
 	return left
+}
+
+// parseTypeDashPipe parses the -| (type application) level.
+// Binds tighter than ~ / => / -> but looser than juxtaposition.
+// Right-associative: F -| A -| B  =  F (A B)  =  TyExprApp(F, TyExprApp(A, B)).
+func (p *Parser) parseTypeDashPipe() syn.TypeExpr {
+	left := p.parseTypeApp()
+	if p.peek().Kind != syn.TokDashPipe {
+		return left
+	}
+	p.advance()
+	right := p.parseTypeDashPipe() // right-associative recursion
+	return &syn.TyExprApp{
+		Fun: left, Arg: right,
+		S: span.Span{Start: left.Span().Start, End: right.Span().End},
+	}
 }
 
 func (p *Parser) parseForallType() syn.TypeExpr {
@@ -363,7 +379,7 @@ func (p *Parser) parseTypeCase() *syn.TyExprCase {
 // Allows -> (function arrow) but stops at => (which separates alternatives)
 // and \  (which would start a forall — not valid in case bodies without parens).
 func (p *Parser) parseTypeCaseBody() syn.TypeExpr {
-	left := p.parseTypeApp()
+	left := p.parseTypeDashPipe()
 	if p.peek().Kind == syn.TokArrow {
 		p.advance()
 		right := p.parseTypeCaseBody() // right-associative

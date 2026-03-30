@@ -46,6 +46,7 @@
 | `\`   | Lambda / universal quantification                                               |
 | `_`   | Wildcard pattern                                                                |
 | `~`   | Type equality constraint                                                        |
+| `-\|` | Right-associative type application (`F -\| A -\| B` = `F (A B)`)               |
 | `@`   | Explicit type application                                                       |
 | `\|`  | Constructor / row tail separator                                                |
 | `;`   | Declaration / statement separator                                               |
