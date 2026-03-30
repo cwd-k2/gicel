@@ -157,39 +157,90 @@ func transformRec(c Core, f func(Core) Core, depth int) Core {
 	case *Var:
 		return f(n)
 	case *Lam:
-		return f(&Lam{Param: n.Param, ParamType: n.ParamType, Body: transformRec(n.Body, f, depth+1), FV: n.FV, Generated: n.Generated, S: n.S})
+		newBody := transformRec(n.Body, f, depth+1)
+		if newBody == n.Body {
+			return f(n)
+		}
+		return f(&Lam{Param: n.Param, ParamType: n.ParamType, Body: newBody, FV: n.FV, Generated: n.Generated, S: n.S})
 	case *App:
 		return transformLeftSpine(c, f, depth)
 	case *TyApp:
-		return f(&TyApp{Expr: transformRec(n.Expr, f, depth+1), TyArg: n.TyArg, S: n.S})
+		newExpr := transformRec(n.Expr, f, depth+1)
+		if newExpr == n.Expr {
+			return f(n)
+		}
+		return f(&TyApp{Expr: newExpr, TyArg: n.TyArg, S: n.S})
 	case *TyLam:
-		return f(&TyLam{TyParam: n.TyParam, Kind: n.Kind, Body: transformRec(n.Body, f, depth+1), S: n.S})
+		newBody := transformRec(n.Body, f, depth+1)
+		if newBody == n.Body {
+			return f(n)
+		}
+		return f(&TyLam{TyParam: n.TyParam, Kind: n.Kind, Body: newBody, S: n.S})
 	case *Con:
-		args := make([]Core, len(n.Args))
-		for i, a := range n.Args {
-			args[i] = transformRec(a, f, depth+1)
+		args, changed := transformSlice(n.Args, f, depth)
+		if !changed {
+			return f(n)
 		}
 		return f(&Con{Name: n.Name, Args: args, S: n.S})
 	case *Case:
-		alts := make([]Alt, len(n.Alts))
+		newScrutinee := transformRec(n.Scrutinee, f, depth+1)
+		changed := newScrutinee != n.Scrutinee
+		var alts []Alt
 		for i, alt := range n.Alts {
-			alts[i] = Alt{Pattern: alt.Pattern, Body: transformRec(alt.Body, f, depth+1), Generated: alt.Generated, S: alt.S}
+			newBody := transformRec(alt.Body, f, depth+1)
+			if newBody != alt.Body {
+				if alts == nil {
+					alts = make([]Alt, len(n.Alts))
+					copy(alts[:i], n.Alts[:i])
+				}
+				alts[i] = Alt{Pattern: alt.Pattern, Body: newBody, Generated: alt.Generated, S: alt.S}
+				changed = true
+			} else if alts != nil {
+				alts[i] = alt
+			}
 		}
-		return f(&Case{Scrutinee: transformRec(n.Scrutinee, f, depth+1), Alts: alts, S: n.S})
+		if !changed {
+			return f(n)
+		}
+		if alts == nil {
+			alts = n.Alts
+		}
+		return f(&Case{Scrutinee: newScrutinee, Alts: alts, S: n.S})
 	case *Fix:
-		return f(&Fix{Name: n.Name, Body: transformRec(n.Body, f, depth+1), S: n.S})
+		newBody := transformRec(n.Body, f, depth+1)
+		if newBody == n.Body {
+			return f(n)
+		}
+		return f(&Fix{Name: n.Name, Body: newBody, S: n.S})
 	case *Pure:
-		return f(&Pure{Expr: transformRec(n.Expr, f, depth+1), S: n.S})
+		newExpr := transformRec(n.Expr, f, depth+1)
+		if newExpr == n.Expr {
+			return f(n)
+		}
+		return f(&Pure{Expr: newExpr, S: n.S})
 	case *Bind:
-		return f(&Bind{Comp: transformRec(n.Comp, f, depth+1), Var: n.Var, Discard: n.Discard, Body: transformRec(n.Body, f, depth+1), Generated: n.Generated, S: n.S})
+		newComp := transformRec(n.Comp, f, depth+1)
+		newBody := transformRec(n.Body, f, depth+1)
+		if newComp == n.Comp && newBody == n.Body {
+			return f(n)
+		}
+		return f(&Bind{Comp: newComp, Var: n.Var, Discard: n.Discard, Body: newBody, Generated: n.Generated, S: n.S})
 	case *Thunk:
-		return f(&Thunk{Comp: transformRec(n.Comp, f, depth+1), S: n.S})
+		newComp := transformRec(n.Comp, f, depth+1)
+		if newComp == n.Comp {
+			return f(n)
+		}
+		return f(&Thunk{Comp: newComp, S: n.S})
 	case *Force:
-		return f(&Force{Expr: transformRec(n.Expr, f, depth+1), S: n.S})
+		newExpr := transformRec(n.Expr, f, depth+1)
+		if newExpr == n.Expr {
+			return f(n)
+		}
+		return f(&Force{Expr: newExpr, S: n.S})
 	case *PrimOp:
-		args := make([]Core, len(n.Args))
-		for i, a := range n.Args {
-			args[i] = transformRec(a, f, depth+1)
+		args, changed := transformSlice(n.Args, f, depth)
+		if !changed {
+			return f(n)
 		}
 		return f(&PrimOp{Name: n.Name, Arity: n.Arity, Effectful: n.Effectful, Args: args, S: n.S})
 	case *Lit:
@@ -197,22 +248,68 @@ func transformRec(c Core, f func(Core) Core, depth int) Core {
 	case *Error:
 		return f(n)
 	case *RecordLit:
-		fields := make([]Field, len(n.Fields))
-		for i, fld := range n.Fields {
-			fields[i] = Field{Label: fld.Label, Value: transformRec(fld.Value, f, depth+1)}
+		fields, changed := transformFields(n.Fields, f, depth)
+		if !changed {
+			return f(n)
 		}
 		return f(&RecordLit{Fields: fields, S: n.S})
 	case *RecordProj:
-		return f(&RecordProj{Record: transformRec(n.Record, f, depth+1), Label: n.Label, S: n.S})
-	case *RecordUpdate:
-		updates := make([]Field, len(n.Updates))
-		for i, fld := range n.Updates {
-			updates[i] = Field{Label: fld.Label, Value: transformRec(fld.Value, f, depth+1)}
+		newRecord := transformRec(n.Record, f, depth+1)
+		if newRecord == n.Record {
+			return f(n)
 		}
-		return f(&RecordUpdate{Record: transformRec(n.Record, f, depth+1), Updates: updates, S: n.S})
+		return f(&RecordProj{Record: newRecord, Label: n.Label, S: n.S})
+	case *RecordUpdate:
+		newRecord := transformRec(n.Record, f, depth+1)
+		updates, updChanged := transformFields(n.Updates, f, depth)
+		if newRecord == n.Record && !updChanged {
+			return f(n)
+		}
+		if !updChanged {
+			updates = n.Updates
+		}
+		return f(&RecordUpdate{Record: newRecord, Updates: updates, S: n.S})
 	default:
 		panic(fmt.Sprintf("Transform: unhandled Core node %T", c))
 	}
+}
+
+// transformSlice transforms a []Core with lazy-init: returns (original, false) if unchanged.
+func transformSlice(elems []Core, f func(Core) Core, depth int) ([]Core, bool) {
+	var result []Core // nil until first change
+	for i, e := range elems {
+		newE := transformRec(e, f, depth+1)
+		if result == nil && newE != e {
+			result = make([]Core, len(elems))
+			copy(result[:i], elems[:i])
+		}
+		if result != nil {
+			result[i] = newE
+		}
+	}
+	if result == nil {
+		return elems, false
+	}
+	return result, true
+}
+
+// transformFields transforms a []Field with lazy-init: returns (original, false) if unchanged.
+func transformFields(fields []Field, f func(Core) Core, depth int) ([]Field, bool) {
+	var result []Field // nil until first change
+	for i, fld := range fields {
+		newVal := transformRec(fld.Value, f, depth+1)
+		if result == nil && newVal != fld.Value {
+			result = make([]Field, len(fields))
+			copy(result[:i], fields[:i])
+		}
+		if result != nil {
+			result[i] = Field{Label: fld.Label, Value: newVal}
+		}
+	}
+	if result == nil {
+		return fields, false
+	}
+	return result, true
 }
 
 // transformLeftSpine iteratively processes the left spine of App nodes
@@ -228,36 +325,74 @@ func transformRec(c Core, f func(Core) Core, depth int) Core {
 // untransformed, because transformRec bails on non-App nodes past the limit.
 func transformLeftSpine(c Core, f func(Core) Core, _ int) Core {
 	type spineNode struct {
-		app *App // original App node (for span)
-		arg Core // right child (already transformed or pending)
+		app    *App // original App node
+		arg    Core // transformed right child
+		argChg bool // true if arg differs from original
 	}
 	var spine []spineNode
 
 	// Phase 1: unwind the left spine, transforming right children.
 	cur := c
+	headChanged := false
 	for {
 		switch n := cur.(type) {
 		case *App:
-			arg := transformRec(n.Arg, f, 0)
-			spine = append(spine, spineNode{app: n, arg: arg})
+			newArg := transformRec(n.Arg, f, 0)
+			spine = append(spine, spineNode{app: n, arg: newArg, argChg: newArg != n.Arg})
 			cur = n.Fun
 			continue
 		case *TyApp:
 			inner := transformLeftSpineOrRec(n.Expr, f, 0)
-			cur = f(&TyApp{Expr: inner, TyArg: n.TyArg, S: n.S})
+			if inner == n.Expr {
+				cur = f(n)
+			} else {
+				cur = f(&TyApp{Expr: inner, TyArg: n.TyArg, S: n.S})
+			}
+			headChanged = cur != n
 			goto rebuild
 		case *TyLam:
 			inner := transformLeftSpineOrRec(n.Body, f, 0)
-			cur = f(&TyLam{TyParam: n.TyParam, Kind: n.Kind, Body: inner, S: n.S})
+			if inner == n.Body {
+				cur = f(n)
+			} else {
+				cur = f(&TyLam{TyParam: n.TyParam, Kind: n.Kind, Body: inner, S: n.S})
+			}
+			headChanged = cur != n
 			goto rebuild
 		default:
 			cur = transformRec(n, f, 0)
+			headChanged = cur != n
 			goto rebuild
 		}
 	}
 
 rebuild:
 	// Phase 2: rebuild the spine from the root outward.
+	// Check if anything changed; if not, pass original App nodes to f.
+	anyChange := headChanged
+	if !anyChange {
+		for _, sn := range spine {
+			if sn.argChg {
+				anyChange = true
+				break
+			}
+		}
+	}
+	if !anyChange {
+		// No structural change — pass original nodes through f.
+		for i := len(spine) - 1; i >= 0; i-- {
+			r := f(spine[i].app)
+			if r != spine[i].app {
+				// f wants to rewrite this App; rebuild from here.
+				cur = r
+				for j := i - 1; j >= 0; j-- {
+					cur = f(&App{Fun: cur, Arg: spine[j].arg, S: spine[j].app.S})
+				}
+				return cur
+			}
+		}
+		return spine[0].app // f returned all originals
+	}
 	for i := len(spine) - 1; i >= 0; i-- {
 		sn := spine[i]
 		cur = f(&App{Fun: cur, Arg: sn.arg, S: sn.app.S})
