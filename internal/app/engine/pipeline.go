@@ -90,7 +90,13 @@ func (pc *pipelineCtx) makeCheckConfig() *check.CheckConfig {
 
 // compileModule runs the full compilation pipeline for a single module:
 // lex → parse → dep check → type check → optimize → annotate.
+// Results are cached at the process level keyed by (source hash, env fingerprint).
 func (pc *pipelineCtx) compileModule(name, source string) (*compiledModule, error) {
+	cacheKey := pc.computeModuleCacheKey(source)
+	if cached, ok := moduleCacheGet(cacheKey); ok {
+		return cached, nil
+	}
+
 	ast, src, err := pc.lexAndParse(name, source, name != "Core" && pc.store.Has("Core"))
 	if err != nil {
 		return nil, err
@@ -122,14 +128,16 @@ func (pc *pipelineCtx) compileModule(name, source string) (*compiledModule, erro
 
 	pc.postCheck(prog)
 
-	return &compiledModule{
+	mod := &compiledModule{
 		prog:           prog,
 		exports:        exports,
 		deps:           deps,
 		fixity:         modFixity,
 		sortedBindings: ir.SortBindings(prog.Bindings),
 		source:         src,
-	}, nil
+	}
+	moduleCachePut(cacheKey, mod)
+	return mod, nil
 }
 
 // postCheck applies the shared post-type-checking pipeline:
