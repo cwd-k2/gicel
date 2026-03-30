@@ -29,9 +29,13 @@ func optimize(c ir.Core, rules []func(ir.Core) ir.Core) ir.Core {
 }
 
 // OptimizeProgram optimizes all bindings in a program.
-// Includes Phase 2 (selective inlining) and Phase 3 (case-of-case).
-func OptimizeProgram(prog *ir.Program, rules []func(ir.Core) ir.Core) {
+// userBindings limits selective inlining to the given names (nil = no inlining).
+func OptimizeProgram(prog *ir.Program, rules []func(ir.Core) ir.Core, userBindings map[string]bool) {
+	candidates := collectInlineCandidates(prog, userBindings)
 	allRules := rules
+	if len(candidates) > 0 {
+		allRules = append([]func(ir.Core) ir.Core{inlineRule(candidates)}, rules...)
+	}
 	for i, b := range prog.Bindings {
 		prog.Bindings[i].Expr = optimize(b.Expr, allRules)
 	}

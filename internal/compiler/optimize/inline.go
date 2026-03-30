@@ -17,15 +17,19 @@ type inlineCandidate struct {
 
 // collectInlineCandidates scans program bindings for small, non-recursive
 // definitions that can be safely inlined at call sites.
-func collectInlineCandidates(prog *ir.Program) map[string]*inlineCandidate {
+func collectInlineCandidates(prog *ir.Program, userBindings map[string]bool) map[string]*inlineCandidate {
+	if len(userBindings) == 0 {
+		return nil
+	}
 	candidates := make(map[string]*inlineCandidate)
 	for _, b := range prog.Bindings {
-		// Skip compiler-generated bindings (dictionary constructors, etc.)
+		// Only inline user-defined bindings.
+		if !userBindings[b.Name] {
+			continue
+		}
 		if strings.Contains(b.Name, "$") {
 			continue
 		}
-		// Only inline lambda bodies — avoids inlining dictionary selectors,
-		// class methods, and other non-function bindings.
 		if _, ok := b.Expr.(*ir.Lam); !ok {
 			continue
 		}

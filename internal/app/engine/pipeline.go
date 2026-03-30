@@ -131,7 +131,7 @@ func (pc *pipelineCtx) compileModule(name, source string) (*compiledModule, erro
 		}
 	}
 
-	pc.postCheck(prog)
+	pc.postCheck(prog, nil) // module: no inlining
 
 	mod := &compiledModule{
 		prog:           prog,
@@ -147,9 +147,10 @@ func (pc *pipelineCtx) compileModule(name, source string) (*compiledModule, erro
 
 // postCheck applies the shared post-type-checking pipeline:
 // label erasure → optimize → annotate free vars → assign de Bruijn indices.
-func (pc *pipelineCtx) postCheck(prog *ir.Program) {
+// userBindings limits selective inlining to the given names (nil = no inlining).
+func (pc *pipelineCtx) postCheck(prog *ir.Program, userBindings map[string]bool) {
 	ir.EraseLabelArgsProgram(prog)
-	optimize.OptimizeProgram(prog, pc.host.rewriteRules)
+	optimize.OptimizeProgram(prog, pc.host.rewriteRules, userBindings)
 	ir.AnnotateFreeVarsProgram(prog)
 	ir.AssignIndicesProgram(prog)
 }
@@ -170,7 +171,7 @@ func (pc *pipelineCtx) compileMain(source string) (*ir.Program, *span.Source, er
 		return nil, nil, &CompileError{Errors: checkErrs}
 	}
 
-	pc.postCheck(prog)
+	pc.postCheck(prog, nil) // inlining disabled: heuristic needs refinement
 
 	return prog, src, nil
 }
