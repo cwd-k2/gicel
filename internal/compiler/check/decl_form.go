@@ -36,7 +36,7 @@ func (ch *Checker) processFormDeclParts(d *syntax.DeclForm, parts formBodyParts,
 	}
 	ch.reg.RegisterTypeKind(d.Name, kind)
 
-	dataInfo := &DataTypeInfo{Name: d.Name}
+	dataInfo := &DataTypeInfo{Name: d.Name, IsLazy: d.IsLazy}
 	ch.reg.RegisterDataType(d.Name, dataInfo)
 
 	// Build result type: T a b c ...

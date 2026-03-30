@@ -70,6 +70,7 @@ type ConstraintInfo struct {
 // DataTypeInfo carries constructor information for exhaustiveness checking.
 type DataTypeInfo struct {
 	Name         string
+	IsLazy       bool // lazy co-data: auto-thunk at construction, auto-force at pattern match
 	Constructors []ConstructorInfo
 }
 
