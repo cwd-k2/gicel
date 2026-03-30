@@ -67,15 +67,15 @@ func (r *resolver) resolveSpine(e *syn.ExprInfixSpine) syn.Expr {
 			if top.fix.Prec > fix.Prec {
 				pop = true
 			} else if top.fix.Prec == fix.Prec {
-				if fix.Assoc == syn.AssocLeft {
-					pop = true
-				} else if fix.Assoc == syn.AssocNone {
+				if top.fix.Assoc == syn.AssocNone || fix.Assoc == syn.AssocNone {
 					r.errors.Add(&diagnostic.Error{
 						Code:    diagnostic.ErrInvalidOperator,
 						Phase:   diagnostic.PhaseParse,
 						Span:    e.OpSpans[i],
 						Message: "cannot mix non-associative operators of equal precedence",
 					})
+					pop = true
+				} else if fix.Assoc == syn.AssocLeft {
 					pop = true
 				}
 				// AssocRight: don't pop (right-assoc chains)
@@ -218,6 +218,9 @@ func (r *resolver) resolveDecl(d syn.Decl) syn.Decl {
 		return d
 	case *syn.DeclImpl:
 		d.Body = r.resolveExpr(d.Body)
+		return d
+	// No Expr sub-trees to resolve:
+	case *syn.DeclTypeAnn, *syn.DeclForm, *syn.DeclTypeAlias, *syn.DeclFixity:
 		return d
 	}
 	return d

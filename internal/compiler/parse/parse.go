@@ -53,12 +53,6 @@ func (g *parserGuard) leaveRecurse() {
 	g.recurseDepth--
 }
 
-func (g *parserGuard) reset() {
-	g.steps = 0
-	g.recurseDepth = 0
-	g.halted = false
-}
-
 // progressGuard enforces iteration limits on parser loops that are not
 // bounded by explicit token types (e.g. comma-separated lists with break).
 // It detects stagnation (no position change) and forces recovery.
@@ -95,13 +89,13 @@ func (pg *progressGuard) Begin() bool {
 	if pg.parser.guard.isHalted() {
 		return false
 	}
-	pg.before = pg.parser.tb.pos
+	pg.before = pg.parser.tb.position()
 	return true
 }
 
 // DidProgress returns true if the parser position advanced since Begin().
 func (pg *progressGuard) DidProgress() bool {
-	return pg.parser.tb.pos != pg.before
+	return pg.parser.tb.position() != pg.before
 }
 
 // RecoverStagnation emits an error and forces progress when the parser
@@ -109,19 +103,18 @@ func (pg *progressGuard) DidProgress() bool {
 func (pg *progressGuard) RecoverStagnation() {
 	pg.parser.addErrorCode(diagnostic.ErrUnexpectedToken, "unexpected token in "+pg.context)
 	pg.parser.syncToStmtBoundary()
-	if pg.parser.tb.pos == pg.before {
+	if pg.parser.tb.position() == pg.before {
 		pg.parser.advance()
 	}
 }
 
 // Parser is a streaming parser for the surface language.
 type Parser struct {
-	ctx     context.Context // external cancellation (nil-safe)
-	tb      *tokenBuffer
-	scanner *Scanner
-	fixity  map[string]Fixity
-	errors  *diagnostic.Errors
-	depth   int  // paren/brace nesting depth
+	ctx         context.Context // external cancellation (nil-safe)
+	tb          *tokenBuffer
+	fixity      map[string]Fixity
+	errors      *diagnostic.Errors
+	depth       int  // paren/brace nesting depth
 	noBraceAtom bool // when true, { is not an atom start (inside case scrutinee)
 
 	// stmtBoundaryDepth enables newline-as-separator inside brace-delimited
@@ -142,11 +135,10 @@ func NewParser(ctx context.Context, source *span.Source, errors *diagnostic.Erro
 	scanner := NewScanner(source)
 	maxSteps := max(len(source.Text)*4, 100)
 	return &Parser{
-		ctx:     ctx,
-		tb:      newTokenBuffer(scanner),
-		scanner: scanner,
-		fixity:  make(map[string]Fixity),
-		errors:  errors,
+		ctx:    ctx,
+		tb:     newTokenBuffer(scanner),
+		fixity: make(map[string]Fixity),
+		errors: errors,
 		guard: parserGuard{
 			maxRecurseDepth: 256,
 			maxSteps:        maxSteps,
@@ -156,7 +148,7 @@ func NewParser(ctx context.Context, source *span.Source, errors *diagnostic.Erro
 
 // LexErrors returns accumulated lexer diagnostics.
 func (p *Parser) LexErrors() *diagnostic.Errors {
-	return p.scanner.Errors()
+	return p.tb.scanner.Errors()
 }
 
 // AddFixity merges host-supplied fixity declarations into the parser.
@@ -209,14 +201,14 @@ func (p *Parser) parseImportBlock() []syn.DeclImport {
 func (p *Parser) parseDeclBlock() []syn.Decl {
 	var decls []syn.Decl
 	for p.peek().Kind != syn.TokEOF {
-		before := p.tb.pos
+		before := p.tb.position()
 		d := p.parseDecl()
 		if d != nil {
 			decls = append(decls, d)
 		} else {
 			p.syncToNextDecl()
 		}
-		if p.tb.pos == before {
+		if p.tb.position() == before {
 			p.advance()
 		}
 		p.skipSemicolons()

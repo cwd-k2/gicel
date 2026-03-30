@@ -18,7 +18,7 @@ func (p *Parser) parseExpr() syn.Expr {
 }
 
 func (p *Parser) parseAnnotation() syn.Expr {
-	e := p.parseInfix(0)
+	e := p.parseInfix()
 	if p.peek().Kind == syn.TokColonColon {
 		p.advance()
 		ty := p.parseType()
@@ -42,15 +42,14 @@ func (p *Parser) parseAnnotation() syn.Expr {
 	return e
 }
 
-func (p *Parser) parseInfix(_ int) syn.Expr {
+func (p *Parser) parseInfix() syn.Expr {
 	left := p.parseApp()
-	return p.continueInfix(left, 0)
+	return p.continueInfix(left)
 }
 
 // continueInfix collects a flat operator spine. Fixity resolution
 // happens post-parse via ResolveFixity (shunting-yard).
-// The minPrec parameter is unused but retained for call-site compat.
-func (p *Parser) continueInfix(left syn.Expr, _ int) syn.Expr {
+func (p *Parser) continueInfix(left syn.Expr) syn.Expr {
 	if !p.isInfixOp() {
 		return left
 	}
@@ -271,7 +270,7 @@ func (p *Parser) parseParen() syn.Expr {
 	}
 
 	// Continue with infix + annotation parsing.
-	e := p.continueInfix(firstApp, 0)
+	e := p.continueInfix(firstApp)
 	if p.peek().Kind == syn.TokColonColon {
 		p.advance()
 		ty := p.parseType()

@@ -1,5 +1,5 @@
-// Scanner tests — streaming interface equivalence with Tokenize.
-// Does NOT cover: lexer edge cases (lexer_test.go, lexer_probe_test.go).
+// Scanner tests — tokenBuffer equivalence with raw Scanner.
+// Does NOT cover: lexer edge cases (lexer_probe_test.go).
 package parse
 
 import (
@@ -10,9 +10,9 @@ import (
 	"github.com/cwd-k2/gicel/internal/infra/span"
 )
 
-// TestScannerTokenizeEquivalence verifies that Scanner.Next() produces
-// the exact same token stream as Lexer.Tokenize().
-func TestScannerTokenizeEquivalence(t *testing.T) {
+// TestScannerTokenBufferEquivalence verifies that tokenBuffer (peek/advance)
+// produces the exact same token stream as raw Scanner.Next().
+func TestScannerTokenBufferEquivalence(t *testing.T) {
 	sources := []string{
 		"",
 		"main := 42",
@@ -30,34 +30,35 @@ func TestScannerTokenizeEquivalence(t *testing.T) {
 		t.Run(src[:min(len(src), 30)], func(t *testing.T) {
 			source := span.NewSource("<test>", src)
 
-			// Tokenize path (via NewScanner, collecting all tokens)
-			lexScanner := NewScanner(source)
-			var tokens []syn.Token
-			for {
-				tok := lexScanner.Next()
-				tokens = append(tokens, tok)
-				if tok.Kind == syn.TokEOF {
-					break
-				}
-			}
-
-			// Scanner path
+			// Raw Scanner path
 			s := NewScanner(source)
-			var scanned []syn.Token
+			var raw []syn.Token
 			for {
 				tok := s.Next()
-				scanned = append(scanned, tok)
+				raw = append(raw, tok)
 				if tok.Kind == syn.TokEOF {
 					break
 				}
 			}
 
-			if len(tokens) != len(scanned) {
-				t.Fatalf("length mismatch: Tokenize=%d, Scanner=%d", len(tokens), len(scanned))
+			// tokenBuffer path
+			source2 := span.NewSource("<test>", src)
+			tb := newTokenBuffer(NewScanner(source2))
+			var buffered []syn.Token
+			for {
+				tok := tb.advance()
+				buffered = append(buffered, tok)
+				if tok.Kind == syn.TokEOF {
+					break
+				}
 			}
-			for i := range tokens {
-				if tokens[i] != scanned[i] {
-					t.Errorf("token %d: Tokenize=%v, Scanner=%v", i, tokens[i], scanned[i])
+
+			if len(raw) != len(buffered) {
+				t.Fatalf("length mismatch: raw=%d, buffered=%d", len(raw), len(buffered))
+			}
+			for i := range raw {
+				if raw[i] != buffered[i] {
+					t.Errorf("token %d: raw=%v, buffered=%v", i, raw[i], buffered[i])
 				}
 			}
 		})

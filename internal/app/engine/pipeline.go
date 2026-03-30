@@ -43,7 +43,7 @@ func (pc *pipelineCtx) lexAndParse(sourceName, source string, injectCore bool) (
 	if injectCore {
 		importNames = append(importNames, "Core")
 	}
-	pc.store.CollectFixityForImports(p, importNames)
+	p.AddFixity(pc.store.CollectFixityMap(importNames))
 	decls := p.ParseDecls()
 	ast := &syntax.AstProgram{Imports: imports, Decls: decls}
 	p.ResolveInfix(ast)

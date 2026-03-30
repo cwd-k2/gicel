@@ -11,14 +11,14 @@ import (
 // lookahead and speculation. Compaction discards consumed tokens
 // that are no longer reachable.
 type tokenBuffer struct {
-	scanner *Scanner    // token source
-	buf     []syn.Token // buffered tokens
-	base    int         // logical index of buf[0]
-	pos     int         // current logical read position
-	prev    syn.Token   // last consumed token (for prevEnd)
-	marks   []int       // speculation save points (stack)
-	eof     bool        // true once TokEOF has been buffered
-	steps   int         // advance count since last compact check
+	scanner      *Scanner    // token source
+	buf          []syn.Token // buffered tokens
+	base         int         // logical index of buf[0]
+	pos          int         // current logical read position
+	prev         syn.Token   // last consumed token (for prevEnd/prevToken)
+	marks        []int       // speculation save points (stack)
+	eof          bool        // true once TokEOF has been buffered
+	compactCount int         // advance count since last compact check
 }
 
 // initialBufCap covers the typical lookahead window (~100 tokens for
@@ -68,8 +68,7 @@ func (tb *tokenBuffer) peek() syn.Token {
 	return tb.at(tb.pos)
 }
 
-// peekAt returns the token at pos+offset. Negative offsets are allowed
-// as long as the token is still in the buffer (not yet compacted).
+// peekAt returns the token at pos+offset.
 func (tb *tokenBuffer) peekAt(offset int) syn.Token {
 	return tb.at(tb.pos + offset)
 }
@@ -80,13 +79,23 @@ func (tb *tokenBuffer) advance() syn.Token {
 	if tok.Kind != syn.TokEOF {
 		tb.prev = tok
 		tb.pos++
-		tb.steps++
-		if tb.steps >= compactThreshold {
-			tb.steps = 0
+		tb.compactCount++
+		if tb.compactCount >= compactThreshold {
+			tb.compactCount = 0
 			tb.maybeCompact()
 		}
 	}
 	return tok
+}
+
+// position returns the current logical read position.
+func (tb *tokenBuffer) position() int {
+	return tb.pos
+}
+
+// prevToken returns the last consumed token.
+func (tb *tokenBuffer) prevToken() syn.Token {
+	return tb.prev
 }
 
 // prevEnd returns the End position of the previously consumed token.

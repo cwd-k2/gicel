@@ -85,16 +85,10 @@ func (s *ModuleStore) Entries() []moduleEntry {
 	return entries
 }
 
-// CollectFixityForImports injects fixity from the transitive closure of
-// the given import names into the parser. Only modules reachable through
-// the import graph contribute fixity, preventing unimported modules from
-// affecting operator precedence.
-func (s *ModuleStore) CollectFixityForImports(p *parse.Parser, imports []string) {
-	p.AddFixity(s.CollectFixityMap(imports))
-}
-
 // CollectFixityMap returns the merged fixity from the transitive closure
-// of the given import names.
+// of the given import names. Only modules reachable through the import
+// graph contribute fixity, preventing unimported modules from affecting
+// operator precedence.
 func (s *ModuleStore) CollectFixityMap(imports []string) map[string]parse.Fixity {
 	result := make(map[string]parse.Fixity)
 	visited := make(map[string]bool)

@@ -42,8 +42,6 @@ func (s *Scanner) Errors() *diagnostic.Errors {
 	return s.errors
 }
 
-
-
 func (s *Scanner) next() syn.Token {
 	s.skipWhitespaceAndComments()
 	nlBefore := s.sawNewline
@@ -244,7 +242,8 @@ func (s *Scanner) scanToken() syn.Token {
 		}
 
 		// Unknown character — skip and retry (loop instead of recursion to prevent stack overflow).
-		s.pos += utf8.RuneLen(ch)
+		_, size := utf8.DecodeRuneInString(s.source.Text[s.pos:])
+		s.pos += size
 		s.errors.Add(&diagnostic.Error{
 			Code:    diagnostic.ErrUnexpectedChar,
 			Phase:   diagnostic.PhaseLex,
@@ -313,6 +312,9 @@ func (s *Scanner) peekRune() rune {
 	return r
 }
 
+// peekRuneAt decodes the rune at byte offset s.pos+offset.
+// The offset is in bytes, not runes — callers pass small constants
+// (1, 2) to disambiguate ASCII-only multi-char tokens.
 func (s *Scanner) peekRuneAt(offset int) rune {
 	p := s.pos + offset
 	if p >= len(s.source.Text) {
@@ -461,8 +463,9 @@ func (s *Scanner) scanRune(start int) syn.Token {
 			r = rune(esc)
 		}
 	} else {
-		r, _ = utf8.DecodeRuneInString(s.source.Text[s.pos:])
-		s.pos += utf8.RuneLen(r)
+		var size int
+		r, size = utf8.DecodeRuneInString(s.source.Text[s.pos:])
+		s.pos += size
 	}
 
 	if s.pos >= len(s.source.Text) || s.source.Text[s.pos] != '\'' {

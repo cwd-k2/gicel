@@ -10,7 +10,6 @@ package engine
 import (
 	"context"
 	"fmt"
-	"io"
 	"maps"
 	"os"
 	"path/filepath"
@@ -153,21 +152,11 @@ func (e *Engine) SetCompileContext(ctx context.Context) { e.compileCtx = ctx }
 
 // RegisterModuleFile reads a .gicel file and registers it as a module.
 func (e *Engine) RegisterModuleFile(path string) error {
-	f, err := os.Open(path)
+	data, err := os.ReadFile(path)
 	if err != nil {
 		return fmt.Errorf("read module file: %w", err)
 	}
-	defer f.Close()
 	name := strings.TrimSuffix(filepath.Base(path), filepath.Ext(path))
-	return e.RegisterModuleReader(name, f)
-}
-
-// RegisterModuleReader compiles a module from an io.Reader source.
-func (e *Engine) RegisterModuleReader(name string, r io.Reader) error {
-	data, err := io.ReadAll(r)
-	if err != nil {
-		return fmt.Errorf("read module source: %w", err)
-	}
 	return e.RegisterModule(name, string(data))
 }
 
@@ -276,15 +265,6 @@ func (e *Engine) Parse(source string) error {
 	return err
 }
 
-// ParseReader lexes and parses source from an io.Reader.
-func (e *Engine) ParseReader(r io.Reader) error {
-	data, err := io.ReadAll(r)
-	if err != nil {
-		return err
-	}
-	return e.Parse(string(data))
-}
-
 // Compile type-checks source code, returning exports and Core IR for
 // static inspection. Unlike NewRuntime, it does not optimize or assemble
 // a runtime. Pass context.Background() when cancellation is not needed.
@@ -304,15 +284,6 @@ func (e *Engine) Compile(ctx context.Context, source string) (*CompileResult, er
 	return &CompileResult{prog: prog}, nil
 }
 
-// CompileReader type-checks source from an io.Reader.
-func (e *Engine) CompileReader(ctx context.Context, r io.Reader) (*CompileResult, error) {
-	data, err := io.ReadAll(r)
-	if err != nil {
-		return nil, err
-	}
-	return e.Compile(ctx, string(data))
-}
-
 // NewRuntime compiles source code into an immutable, goroutine-safe Runtime.
 // The context bounds compilation time (type checking in particular);
 // pass context.Background() when cancellation is not needed.
@@ -325,11 +296,3 @@ func (e *Engine) NewRuntime(ctx context.Context, source string) (*Runtime, error
 	return pc.assembleRuntime(prog, src), nil
 }
 
-// NewRuntimeReader compiles source from an io.Reader into a Runtime.
-func (e *Engine) NewRuntimeReader(ctx context.Context, r io.Reader) (*Runtime, error) {
-	data, err := io.ReadAll(r)
-	if err != nil {
-		return nil, err
-	}
-	return e.NewRuntime(ctx, string(data))
-}

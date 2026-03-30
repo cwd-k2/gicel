@@ -9,7 +9,6 @@
 package main
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"flag"
@@ -435,7 +434,7 @@ func registerUserModules(eng *gicel.Engine, modules []string, budget *sourceBudg
 		if err != nil {
 			return fmt.Errorf("reading module %s: %w", name, err)
 		}
-		if err := eng.RegisterModuleReader(name, bytes.NewReader(data)); err != nil {
+		if err := eng.RegisterModule(name, string(data)); err != nil {
 			return fmt.Errorf("registering module %s: %w", name, err)
 		}
 	}
@@ -571,7 +570,7 @@ func cmdRun(args []string) int {
 	eng.SetAllocLimit(*maxAlloc)
 	eng.SetEntryPoint(*entry)
 
-	rt, err := eng.NewRuntimeReader(ctx, bytes.NewReader(source))
+	rt, err := eng.NewRuntime(ctx, string(source))
 	if err != nil {
 		return handleCompileError(err, *jsonOut)
 	}
@@ -708,7 +707,7 @@ func cmdCheck(args []string) int {
 	eng.SetCompileContext(ctx)
 	eng.SetNestingLimit(*maxNesting)
 
-	cr, err := eng.CompileReader(ctx, bytes.NewReader(source))
+	cr, err := eng.Compile(ctx, string(source))
 	if err != nil {
 		return handleCompileError(err, *jsonOut)
 	}

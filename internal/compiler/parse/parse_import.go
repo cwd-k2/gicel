@@ -18,7 +18,7 @@ func (p *Parser) parseImportDecl() syn.DeclImport {
 		p.advance()
 		part := p.expectUpper()
 		modName = modName + "." + part
-		modTok = p.tb.peekAt(-1) // update for next adjacency check
+		modTok = p.tb.prevToken() // update for next adjacency check
 	}
 
 	imp := syn.DeclImport{ModuleName: modName}

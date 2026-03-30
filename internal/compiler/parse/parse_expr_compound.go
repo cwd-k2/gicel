@@ -29,9 +29,10 @@ func (p *Parser) parseStmt() syn.Stmt {
 	start := p.peek().S.Start
 	// Try: _ <- expr (wildcard bind)
 	if p.peek().Kind == syn.TokUnderscore {
-		saved := p.tb.pos
+		p.tb.save()
 		p.advance()
 		if p.peek().Kind == syn.TokLArrow {
+			p.tb.commit()
 			p.advance()
 			comp := p.parseExpr()
 			return &syn.StmtBind{
@@ -40,15 +41,16 @@ func (p *Parser) parseStmt() syn.Stmt {
 			}
 		}
 		// Backtrack — it's an expression.
-		p.tb.pos = saved
+		p.tb.restore()
 	}
 	// Try: name <- expr  or  name := expr
 	if p.peek().Kind == syn.TokLower {
 		name := p.peek().Text
 		nameTok := p.peek()
-		saved := p.tb.pos
+		p.tb.save()
 		p.advance()
 		if p.peek().Kind == syn.TokLArrow {
+			p.tb.commit()
 			p.advance()
 			comp := p.parseExpr()
 			return &syn.StmtBind{
@@ -57,6 +59,7 @@ func (p *Parser) parseStmt() syn.Stmt {
 			}
 		}
 		if p.peek().Kind == syn.TokColonEq {
+			p.tb.commit()
 			p.advance()
 			expr := p.parseExpr()
 			return &syn.StmtPureBind{
@@ -65,7 +68,7 @@ func (p *Parser) parseStmt() syn.Stmt {
 			}
 		}
 		// Backtrack — it's an expression statement.
-		p.tb.pos = saved
+		p.tb.restore()
 	}
 	// Try: pattern <- expr  or  pattern := expr (irrefutable pattern bind)
 	if p.peek().Kind == syn.TokLParen {
@@ -122,22 +125,23 @@ func (p *Parser) parseBlock() syn.Expr {
 	// Disambiguate: record literal vs record update vs block.
 	// Peek at first name followed by = (record) vs := (block).
 	if p.peek().Kind == syn.TokLower {
-		saved := p.tb.pos
+		p.tb.save()
 		nameTok := p.peek()
 		p.advance() // skip name
 		switch p.peek().Kind {
 		case syn.TokColon:
 			// name: ... → record literal
-			p.tb.pos = saved
+			p.tb.restore()
 			return p.parseRecordLiteral(start, openTok.S)
 		case syn.TokPipe:
 			// name | ... → record update (name is the record expression)
+			p.tb.commit()
 			p.advance() // skip |
 			record := &syn.ExprVar{Name: nameTok.Text, S: nameTok.S}
 			return p.parseRecordUpdateFields(start, openTok.S, record)
 		default:
 			// Could be: name := ... (block), or name as expression (record update with complex expr)
-			p.tb.pos = saved
+			p.tb.restore()
 		}
 	}
 
@@ -169,11 +173,12 @@ func (p *Parser) parseBlock() syn.Expr {
 	var typeDefs []syn.ImplField
 	for p.peek().Kind == syn.TokLower || p.peek().Kind == syn.TokType || p.peek().Kind == syn.TokForm || p.peek().Kind == syn.TokLParen {
 		bindStart := p.peek().S.Start
-		saved := p.tb.pos
+		p.tb.save()
 
 		// Parse type/form associated definitions in impl bodies.
 		// New syntax: type Elem := a;  or  form Elem := ListElem a | Empty;
 		if p.peek().Kind == syn.TokType || p.peek().Kind == syn.TokForm {
+			p.tb.commit()
 			tdStart := p.peek().S.Start
 			isData := p.peek().Kind == syn.TokForm
 			p.advance() // consume type/form
@@ -209,6 +214,7 @@ func (p *Parser) parseBlock() syn.Expr {
 
 		// Try pattern binding: (pat) := expr
 		if p.peek().Kind == syn.TokLParen {
+			p.tb.commit()
 			matched := p.speculate(func() bool {
 				pat := p.parsePattern()
 				if p.peek().Kind != syn.TokColonEq {
@@ -238,6 +244,7 @@ func (p *Parser) parseBlock() syn.Expr {
 		nameTok := p.peek()
 		p.advance()
 		if p.peek().Kind == syn.TokColonEq {
+			p.tb.commit()
 			p.advance()
 			expr := p.parseExpr()
 			binds = append(binds, syn.AstBind{
@@ -249,14 +256,14 @@ func (p *Parser) parseBlock() syn.Expr {
 			}
 		} else {
 			// Not a binding — backtrack and parse as expression.
-			p.tb.pos = saved
+			p.tb.restore()
 			break
 		}
 	}
 
 	// If we have bindings/typeDefs and the next token is }, treat as binding-only block (impl body).
 	if (len(binds) > 0 || len(typeDefs) > 0) && p.peek().Kind == syn.TokRBrace {
-		p.advance() // consume }
+		p.expectClosing(syn.TokRBrace, openTok.S)
 		return &syn.ExprBlock{
 			Binds:    binds,
 			TypeDefs: typeDefs,
