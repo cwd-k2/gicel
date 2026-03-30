@@ -128,7 +128,7 @@ func (u *Unifier) zonkInner(t types.Type) types.Type {
 				return u.zonkInner(result)
 			}
 		}
-		return &types.TyFamilyApp{Name: ty.Name, Args: args, Kind: zKind, Flags: types.MetaFreeFlags(append(args, zKind)...), S: ty.S}
+		return &types.TyFamilyApp{Name: ty.Name, Args: args, Kind: zKind, Flags: types.MetaFreeFlags(append(args, zKind)...) &^ types.FlagNoFamilyApp, S: ty.S}
 	case *types.TyCon:
 		// TyCon is usually a leaf, but Level may contain LevelMeta.
 		if ty.Level == nil {

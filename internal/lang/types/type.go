@@ -171,6 +171,24 @@ type TyError struct {
 // sites do not set flags.
 const FlagMetaFree uint8 = 1 << 0
 
+// FlagNoFamilyApp indicates that a type's subtree contains no TyFamilyApp nodes.
+// Combined with FlagMetaFree, this allows type family reduction to skip the
+// entire subtree in O(1). The combination is required because a meta could
+// resolve to a family application.
+const FlagNoFamilyApp uint8 = 1 << 1
+
+// FlagStable combines FlagMetaFree and FlagNoFamilyApp. A type with both flags
+// set requires neither zonking nor family reduction traversal.
+const FlagStable = FlagMetaFree | FlagNoFamilyApp
+
+// HasFamilyApp reports whether a type may contain TyFamilyApp nodes that
+// require family reduction traversal. Returns false only when both
+// FlagMetaFree and FlagNoFamilyApp are set (no metas that could resolve
+// to family apps, and no explicit family apps).
+func HasFamilyApp(t Type) bool {
+	return nodeFlags(t)&FlagStable != FlagStable
+}
+
 // HasMeta reports whether a type may require zonk traversal — i.e., it may
 // contain TyMeta (unification metavariables) or TySkolem (rigid variables that
 // may be resolved via skolemSoln in GADT refinement).
@@ -206,14 +224,49 @@ func HasMeta(t Type) bool {
 	}
 }
 
-// MetaFreeFlags returns FlagMetaFree if none of the given types may contain metas.
+// MetaFreeFlags computes FlagMetaFree and FlagNoFamilyApp for a set of children.
+// Returns the intersection of child flags: a flag is set only if ALL children have it.
 func MetaFreeFlags(ts ...Type) uint8 {
+	flags := FlagStable
 	for _, t := range ts {
-		if HasMeta(t) {
+		flags &= nodeFlags(t)
+		if flags == 0 {
 			return 0
 		}
 	}
-	return FlagMetaFree
+	return flags
+}
+
+// nodeFlags returns the stable flags for a single type node.
+func nodeFlags(t Type) uint8 {
+	switch ty := t.(type) {
+	case *TyMeta, *TySkolem:
+		return 0
+	case *TyVar, *TyError:
+		return FlagStable
+	case *TyCon:
+		if levelHasMeta(ty.Level) {
+			return 0
+		}
+		return FlagStable
+	case *TyApp:
+		return ty.Flags
+	case *TyArrow:
+		return ty.Flags
+	case *TyForall:
+		return ty.Flags
+	case *TyCBPV:
+		return ty.Flags
+	case *TyEvidence:
+		return ty.Flags
+	case *TyEvidenceRow:
+		return ty.Flags
+	case *TyFamilyApp:
+		// FlagNoFamilyApp is never set on TyFamilyApp itself.
+		return ty.Flags &^ FlagNoFamilyApp
+	default:
+		return 0
+	}
 }
 
 // levelHasMeta reports whether a LevelExpr contains a LevelMeta.
@@ -230,18 +283,20 @@ func levelHasMeta(l LevelExpr) bool {
 	}
 }
 
-// metaFreeSlice returns FlagMetaFree if extra and every element of ts are meta-free.
+// metaFreeSlice computes flags for a type with an extra child and a slice of children.
 // Unlike MetaFreeFlags, this avoids variadic/append allocation for slice-based types.
 func metaFreeSlice(extra Type, ts []Type) uint8 {
-	if HasMeta(extra) {
+	flags := nodeFlags(extra)
+	if flags == 0 {
 		return 0
 	}
 	for _, t := range ts {
-		if HasMeta(t) {
+		flags &= nodeFlags(t)
+		if flags == 0 {
 			return 0
 		}
 	}
-	return FlagMetaFree
+	return flags
 }
 
 // --- typeNode markers ---

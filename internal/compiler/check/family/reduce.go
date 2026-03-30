@@ -230,6 +230,10 @@ func (e *ReduceEnv) reduceFamilyAppsN(t types.Type, cache map[string]types.Type)
 		return &types.TyApp{Fun: rFun, Arg: rArg, S: app.S}
 	}
 	// Case 3: structural recursion into other type formers.
+	// Fast path: skip if subtree is stable (no metas, no family apps).
+	if !types.HasFamilyApp(t) {
+		return t
+	}
 	return types.MapType(t, func(child types.Type) types.Type {
 		return e.reduceFamilyAppsN(child, cache)
 	})

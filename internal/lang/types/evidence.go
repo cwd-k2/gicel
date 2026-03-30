@@ -456,25 +456,21 @@ func zonkQuantifiedConstraint(qc *QuantifiedConstraint, zonk func(Type) Type) (*
 
 // --- Evidence row builders ---
 
-// EvidenceRowFlags computes FlagMetaFree for a TyEvidenceRow by checking
-// its entries and tail. This is O(n) in the number of fields/entries,
-// with each child check O(1) via the child's own Flags.
+// EvidenceRowFlags computes FlagMetaFree and FlagNoFamilyApp for a TyEvidenceRow
+// by checking its entries and tail. O(n) in field count, each child O(1) via Flags.
 func EvidenceRowFlags(entries EvidenceEntries, tail Type) uint8 {
-	if tail != nil && HasMeta(tail) {
-		return 0
-	}
-	hasMeta := false
-	entries.ForEachChild(func(child Type) bool {
-		if HasMeta(child) {
-			hasMeta = true
-			return false
+	flags := FlagStable
+	if tail != nil {
+		flags &= nodeFlags(tail)
+		if flags == 0 {
+			return 0
 		}
-		return true
-	})
-	if hasMeta {
-		return 0
 	}
-	return FlagMetaFree
+	entries.ForEachChild(func(child Type) bool {
+		flags &= nodeFlags(child)
+		return flags != 0
+	})
+	return flags
 }
 
 // EmptyRow creates an empty closed capability evidence row.

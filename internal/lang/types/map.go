@@ -88,7 +88,7 @@ func MapType(t Type, f func(Type) Type) Type {
 		if args == nil {
 			args = ty.Args
 		}
-		return &TyFamilyApp{Name: ty.Name, Args: args, Kind: kind, Flags: metaFreeSlice(kind, args), S: ty.S}
+		return &TyFamilyApp{Name: ty.Name, Args: args, Kind: kind, Flags: metaFreeSlice(kind, args) &^ FlagNoFamilyApp, S: ty.S}
 	default:
 		// TyVar, TyCon, TyMeta, TySkolem, TyError — leaves
 		return t

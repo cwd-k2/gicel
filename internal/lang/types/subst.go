@@ -186,7 +186,7 @@ func substDepth(t Type, varName string, replacement Type, depth int) Type {
 		if args == nil {
 			return ty
 		}
-		return &TyFamilyApp{Name: ty.Name, Args: args, Kind: ty.Kind, S: ty.S}
+		return &TyFamilyApp{Name: ty.Name, Args: args, Kind: ty.Kind, Flags: metaFreeSlice(ty.Kind, args) &^ FlagNoFamilyApp, S: ty.S}
 
 	case *TyMeta:
 		return ty
@@ -339,7 +339,7 @@ func substManyOpt(t Type, subs map[string]Type, keys []string, fvUnion map[strin
 		if newArgs == nil {
 			return ty
 		}
-		return &TyFamilyApp{Name: ty.Name, Args: newArgs, Kind: ty.Kind, S: ty.S}
+		return &TyFamilyApp{Name: ty.Name, Args: newArgs, Kind: ty.Kind, Flags: metaFreeSlice(ty.Kind, newArgs) &^ FlagNoFamilyApp, S: ty.S}
 	default:
 		return ty
 	}
