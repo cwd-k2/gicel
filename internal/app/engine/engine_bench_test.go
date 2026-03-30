@@ -123,6 +123,22 @@ func BenchmarkEngineEndToEndSmall(b *testing.B) {
 	}
 }
 
+func BenchmarkEngineEndToEndSmallCold(b *testing.B) {
+	for b.Loop() {
+		ResetModuleCache()
+		eng := NewEngine()
+		stdlib.Prelude(eng)
+		rt, err := eng.NewRuntime(context.Background(), smallSource)
+		if err != nil {
+			b.Fatal(err)
+		}
+		_, err = rt.RunWith(context.Background(), nil)
+		if err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
 // ---------------------------------------------------------------------------
 // Scale: large declaration count (500+ decls)
 // ---------------------------------------------------------------------------

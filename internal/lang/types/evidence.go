@@ -17,6 +17,9 @@ type EvidenceEntries interface {
 	evidenceEntries()
 	EntryCount() int
 	AllChildren() []Type
+	// ForEachChild calls fn for each child type. Returns false early
+	// if fn returns false. Unlike AllChildren, does not allocate a slice.
+	ForEachChild(fn func(Type) bool)
 	MapChildren(f func(Type) Type) (EvidenceEntries, bool) // mapped entries, changed
 	FiberKind() Type
 	Empty() EvidenceEntries                                   // empty entries of the same fiber
@@ -61,6 +64,19 @@ func (c *CapabilityEntries) AllChildren() []Type {
 		ch = append(ch, f.Grades...)
 	}
 	return ch
+}
+
+func (c *CapabilityEntries) ForEachChild(fn func(Type) bool) {
+	for _, f := range c.Fields {
+		if !fn(f.Type) {
+			return
+		}
+		for _, g := range f.Grades {
+			if !fn(g) {
+				return
+			}
+		}
+	}
 }
 
 func (c *CapabilityEntries) MapChildren(f func(Type) Type) (EvidenceEntries, bool) {
@@ -145,6 +161,45 @@ func (c *ConstraintEntries) AllChildren() []Type {
 		ch = append(ch, constraintEntryChildren(e)...)
 	}
 	return ch
+}
+
+func (c *ConstraintEntries) ForEachChild(fn func(Type) bool) {
+	for _, e := range c.Entries {
+		if !forEachConstraintEntryChild(e, fn) {
+			return
+		}
+	}
+}
+
+// forEachConstraintEntryChild calls fn for each child type in a constraint entry.
+// Returns false if fn returned false (early exit).
+func forEachConstraintEntryChild(e ConstraintEntry, fn func(Type) bool) bool {
+	for _, a := range e.Args {
+		if !fn(a) {
+			return false
+		}
+	}
+	if e.IsEquality {
+		if !fn(e.EqLhs) || !fn(e.EqRhs) {
+			return false
+		}
+	}
+	if e.ConstraintVar != nil {
+		if !fn(e.ConstraintVar) {
+			return false
+		}
+	}
+	if e.Quantified != nil {
+		for _, c := range e.Quantified.Context {
+			if !forEachConstraintEntryChild(c, fn) {
+				return false
+			}
+		}
+		if !forEachConstraintEntryChild(e.Quantified.Head, fn) {
+			return false
+		}
+	}
+	return true
 }
 
 func constraintEntryChildren(e ConstraintEntry) []Type {

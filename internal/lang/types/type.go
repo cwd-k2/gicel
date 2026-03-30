@@ -329,8 +329,28 @@ func ForEachChild(t Type, fn func(Type) bool) {
 			fn(ty.Body)
 		}
 	case *TyEvidenceRow:
-		for _, child := range ty.Entries.AllChildren() {
-			if !fn(child) {
+		switch e := ty.Entries.(type) {
+		case *CapabilityEntries:
+			for _, f := range e.Fields {
+				if !fn(f.Type) {
+					return
+				}
+				for _, g := range f.Grades {
+					if !fn(g) {
+						return
+					}
+				}
+			}
+		case *ConstraintEntries:
+			stopped := false
+			e.ForEachChild(func(child Type) bool {
+				if !fn(child) {
+					stopped = true
+					return false
+				}
+				return true
+			})
+			if stopped {
 				return
 			}
 		}
