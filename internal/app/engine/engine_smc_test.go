@@ -259,6 +259,37 @@ main := do {
 	}
 }
 
+func TestDagMergeInteraction(t *testing.T) {
+	// dag + merge: use dag inside a merge arm to verify combined semantics.
+	eng := NewEngine()
+	_ = eng.Use(stdlib.Prelude)
+	_ = eng.Use(stdlib.State)
+
+	rt, err := eng.NewRuntime(context.Background(), `
+import Prelude
+import Effect.State
+
+main := do {
+  _ <- put (1 :: Int);
+  r <- merge (do { s <- get; pure (s + 10) }) (do { pure (42 :: Int) });
+  pure r
+}
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	caps := map[string]any{"state": int64(0)}
+	res, err := rt.RunWith(context.Background(), &RunOptions{Caps: caps})
+	if err != nil {
+		t.Fatal(err)
+	}
+	// left arm reads state=1 → 11; right arm returns 42. Result: (11, 42).
+	rv, ok := res.Value.(*eval.RecordVal)
+	if !ok || rv.Len() != 2 {
+		t.Fatalf("expected (11, 42), got %v", eval.PrettyValue(res.Value))
+	}
+}
+
 func TestMergeFirstClass(t *testing.T) {
 	// Regression: merge used as first-class value (not special form) must work.
 	// CBV evaluates arguments before merge receives them, so this exercises
